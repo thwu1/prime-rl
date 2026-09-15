@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-frontend
+  namespace: alpha
+  labels:
+    app: web
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-cache
+  namespace: alpha
+  labels:
+    app: cache
+    tier: frontend
+spec:
+  containers:
+  - name: redis
+    image: redis:7
+    ports:
+    - containerPort: 6379
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-server
+  namespace: beta
+  labels:
+    app: api
+    tier: backend
+spec:
+  containers:
+  - name: api
+    image: python:3.11-slim
+    ports:
+    - containerPort: 8080
+    - containerPort: 9090
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: task-worker
+  namespace: beta
+  labels:
+    app: worker
+    tier: backend
+spec:
+  containers:
+  - name: worker
+    image: python:3.11-slim
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-primary
+  namespace: gamma
+  labels:
+    app: postgres
+    tier: data
+    role: primary
+spec:
+  containers:
+  - name: postgres
+    image: postgres:16
+    ports:
+    - containerPort: 5432
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-replica
+  namespace: gamma
+  labels:
+    app: postgres
+    tier: data
+    role: replica
+spec:
+  containers:
+  - name: postgres
+    image: postgres:16
+    ports:
+    - containerPort: 5432
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitor
+  namespace: delta
+  labels:
+    app: prometheus
+    tier: infra
+spec:
+  containers:
+  - name: prometheus
+    image: prom/prometheus:v2.47.0
+    ports:
+    - containerPort: 9090
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: logger
+  namespace: delta
+  labels:
+    app: fluentd
+    tier: infra
+spec:
+  containers:
+  - name: fluentd
+    image: fluent/fluentd:v1.16
+    ports:
+    - containerPort: 24224

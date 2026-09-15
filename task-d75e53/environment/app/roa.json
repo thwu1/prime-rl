@@ -1,0 +1,10 @@
+{
+  "roa_entries": [
+    {"prefix": "10.1.0.0/16", "max_length": 16, "origin_as": 65001},
+    {"prefix": "10.2.0.0/16", "max_length": 16, "origin_as": 65002},
+    {"prefix": "10.10.0.0/16", "max_length": 16, "origin_as": 65010},
+    {"prefix": "10.20.0.0/16", "max_length": 16, "origin_as": 65020},
+    {"prefix": "10.100.0.0/16", "max_length": 24, "origin_as": 65100},
+    {"prefix": "10.200.0.0/16", "max_length": 16, "origin_as": 65200}
+  ]
+}

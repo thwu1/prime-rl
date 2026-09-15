@@ -1,0 +1,8 @@
+{
+  "id": "mut_005",
+  "title": "AND swaps operand order",
+  "description": "Swap operand order in AND operation (a&b becomes b&a)",
+  "equivalent": false,
+  "original_line": "            4'b1001: result = a & b;",
+  "mutated_line": "            4'b1001: result = b & a;"
+}

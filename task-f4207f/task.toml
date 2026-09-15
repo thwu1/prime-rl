@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a fully correct NMOS 6502 emulator requires deep understanding of the ISA's 151 opcodes across 13 addressing modes, precise flag semantics (especially the notoriously subtle BCD decimal-mode behavior where N/V/Z flags follow binary intermediate results), the JMP indirect page-boundary bug, cycle-accurate timing with page-crossing penalties, and correct interrupt/stack mechanics. The Klaus functional test suite is an exhaustive regression covering thousands of edge cases that most hobby emulators fail on BCD alone. Achieving cycle accuracy on top of functional correctness adds another layer of difficulty."""
+solution_explanation = """The solution implements cpu6502.c with a 256-entry opcode dispatch table. Each opcode handler resolves its addressing mode, executes the operation, sets flags, and returns the correct cycle count. BCD mode for ADC/SBC uses the well-known two-pass approach: compute binary result for N/V/Z flags, then apply decimal correction for the accumulator and carry. The JMP indirect bug is explicitly coded. Cycle counts are derived from the reference table with runtime page-boundary checks for indexed/indirect modes."""
+verification_explanation = """Tests compile the candidate cpu6502.c against the provided driver, then execute the Klaus2m5 functional test binary (loaded at $0000, entry $0400). Success is verified by confirming the emulator terminates at a JMP-to-self trap after executing at least 25 million instructions (the full test suite runs ~30M instructions; any failure traps much earlier). A second test suite verifies cycle counts by running short instruction sequences and comparing returned cycle totals against known-correct values. A third test checks BCD exhaustively across all 131072 input combinations (256*256*2 carry states) for ADC."""
+category = "systems"
+tags = ["emulation", "low-level-programming"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f4207f"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of COLMAP's internal architecture. The agent must independently discover and correctly implement: (1) COLMAP's SQLite database schema with six interrelated tables, (2) binary blob encoding conventions — camera intrinsics as little-endian float64, keypoints as float32, match indices as uint32, (3) the camera model enumeration mapping model names to integer IDs with varying parameter counts, (4) the pair_id computation formula that uniquely encodes image pairs, (5) extraction of pairwise feature correspondences from 3D point co-visibility tracks, (6) the quaternion-to-rotation-matrix convention (Hamilton) and the world-from-camera-center convention used by COLMAP's image coordinate system. None of these details are provided in the task instruction — the agent must research COLMAP's source code and documentation to discover them, then implement a cohesive system that correctly handles all six subsystems simultaneously."""
+solution_explanation = """Parse the three text files following COLMAP's documented format. Build the SQLite database by: (1) encoding each camera model's parameters as a contiguous float64 blob, (2) storing keypoint XY locations as float32 blobs, (3) iterating over all 3D point tracks to find pairs of images sharing observations and collecting match index pairs, (4) computing pair_ids using COLMAP's formula (2147483647 * min(id1,id2) + max(id1,id2)). For the report, compute rotation matrices from quaternions using the Hamilton convention, then compute camera centers as -R^T * T. Count track lengths from the points3D data."""
+verification_explanation = """Tests verify: (1) database schema — correct tables and columns exist, (2) camera params decoded from float64 blobs match expected values, (3) keypoint blobs decoded as float32 match reconstruction data, (4) match pair_ids are correctly computed and match index pairs are correct, (5) camera centers in report.json match precomputed values within 1e-4 tolerance, (6) pair match counts are exact, (7) track length histogram is exact."""
+category = "computer_vision"
+tags = ["photogrammetry", "sqlite"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/colmap-db-synthesis"

@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  annotations:
+    deploy.kubernetes.io/revision: "5"
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: server
+        image: myapp:v2.0.0
+        env:
+        - name: NODE_ENV
+          value: staging

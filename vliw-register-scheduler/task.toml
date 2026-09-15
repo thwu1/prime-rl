@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two interacting compiler optimization passes from scratch for an unfamiliar custom VLIW architecture. The agent must first learn the machine model through a custom CLI tool (vliwc) and a custom assembly format (.vasm), then design and implement both a register mapping strategy under tight physical register budgets and an instruction packing strategy that respects per-bundle functional unit constraints and data hazards. Three programs of increasing complexity test different challenges: serial dependency chains, independent parallel chains with ILP, and diamond-shaped DAGs with register pressure from overlapping lifetimes."""
+solution_explanation = """Build a RAW/WAW/memory dependency graph from the sequential instruction list. Compute instruction heights (longest path to sink) for scheduling priority. Use greedy list scheduling with height-based priority to pack instructions into VLIW bundles respecting unit slot limits. Compute live intervals using a refined two-phase timing model (reads at 2*cycle, writes at 2*cycle+1) to allow register reuse within the same cycle. Build an interference graph from overlapping intervals and apply DSatur graph coloring to allocate physical registers within budget."""
+verification_explanation = """For each of three test programs loaded from .vasm files: (1) parse the assembly using vasm_parser, (2) run the program sequentially to produce reference memory state, (3) run the optimizer to produce VLIW bundles, (4) validate each bundle respects unit slot limits and has no WAW hazards, (5) run bundles on the VLIW simulator, (6) assert memory states match, (7) assert register count and cycle count are within program-specific targets."""
+category = "compiler_optimization"
+tags = ["register-allocation", "instruction-scheduling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vliw-register-scheduler"

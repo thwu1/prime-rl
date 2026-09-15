@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: production
+  labels:
+    app: backend-api
+    tier: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+        tier: api
+    spec:
+      serviceAccountName: backend-sa
+      automountServiceAccountToken: true
+      containers:
+      - name: backend-api
+        image: internal-registry.corp/backend-api:v2.1.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DB_PASSWORD
+          value: "s3cr3t-p@ssw0rd!"
+        - name: API_KEY
+          value: "ak_live_1234567890abcdef"
+        - name: DB_HOST
+          value: "database.production.svc.cluster.local"
+        - name: REDIS_HOST
+          value: "redis.production.svc.cluster.local"
+        securityContext:
+          capabilities:
+            add:
+            - SYS_ADMIN
+            - NET_RAW
+          allowPrivilegeEscalation: true

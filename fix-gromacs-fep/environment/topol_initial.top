@@ -1,0 +1,83 @@
+; Methanol in water - OPLS-AA + SPC (self-contained topology)
+;
+
+[ defaults ]
+; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ
+  1       3          yes        0.5      0.5
+
+[ atomtypes ]
+; name      at.num  mass       charge  ptype  sigma          epsilon
+opls_157    6       12.01100   0.000   A      3.50000e-01    2.76144e-01
+opls_140    1        1.00800   0.000   A      2.50000e-01    1.25520e-01
+opls_154    8       15.99940   0.000   A      3.12000e-01    7.11280e-01
+opls_155    1        1.00800   0.000   A      0.00000e+00    0.00000e+00
+OW          8       15.99940   0.000   A      3.16557e-01    6.50170e-01
+HW          1        1.00800   0.000   A      0.00000e+00    0.00000e+00
+
+; ========================================
+; Methanol molecule
+; ========================================
+[ moleculetype ]
+; name  nrexcl
+MOL     3
+
+[ atoms ]
+;  nr  type       resnr  resid  atom  cgnr   charge    mass
+    1  opls_157      1    MOL    CT     1     0.145   12.011
+    2  opls_140      1    MOL   HC1     2     0.040    1.008
+    3  opls_140      1    MOL   HC2     3     0.040    1.008
+    4  opls_140      1    MOL   HC3     4     0.040    1.008
+    5  opls_154      1    MOL    OH     5    -0.683   15.999
+    6  opls_155      1    MOL    HO     6     0.418    1.008
+
+[ bonds ]
+;  ai  aj  funct  b0(nm)    kb(kJ/mol/nm^2)
+    1   2    1     0.10900   284512.0
+    1   3    1     0.10900   284512.0
+    1   4    1     0.10900   284512.0
+    1   5    1     0.14100   267776.0
+    5   6    1     0.09450   462750.4
+
+[ angles ]
+;  ai  aj  ak  funct  theta0(deg)  ktheta(kJ/mol/rad^2)
+    2   1   3    1     107.800      276.144
+    2   1   4    1     107.800      276.144
+    3   1   4    1     107.800      276.144
+    2   1   5    1     109.500      292.880
+    3   1   5    1     109.500      292.880
+    4   1   5    1     109.500      292.880
+    1   5   6    1     108.500      460.240
+
+[ dihedrals ]
+;  ai  aj  ak  al  funct  phi0(deg)  kphi(kJ/mol)  mult
+    2   1   5   6    1     0.0        0.94140        3
+    3   1   5   6    1     0.0        0.94140        3
+    4   1   5   6    1     0.0        0.94140        3
+
+; ========================================
+; SPC Water
+; ========================================
+[ moleculetype ]
+; name  nrexcl
+SOL     2
+
+[ atoms ]
+;  nr  type  resnr  resid  atom  cgnr  charge    mass
+    1  OW       1    SOL    OW     1   -0.820   15.999
+    2  HW       1    SOL   HW1     1    0.410    1.008
+    3  HW       1    SOL   HW2     1    0.410    1.008
+
+[ settles ]
+; OW  funct  dOH(nm)   dHH(nm)
+  1    1     0.10000    0.16330
+
+[ exclusions ]
+1  2  3
+2  1  3
+3  1  2
+
+[ system ]
+Methanol in water
+
+[ molecules ]
+MOL     1

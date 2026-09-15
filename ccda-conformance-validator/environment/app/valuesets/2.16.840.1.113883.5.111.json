@@ -1,0 +1,24 @@
+{
+  "oid": "2.16.840.1.113883.5.111",
+  "name": "HL7RoleCode",
+  "codeSystem": "2.16.840.1.113883.5.111",
+  "codes": [
+    {"code": "AGNT", "displayName": "agent"},
+    {"code": "ASSIGNED", "displayName": "assigned entity"},
+    {"code": "CAREGIVER", "displayName": "caregiver"},
+    {"code": "CIT", "displayName": "citizen"},
+    {"code": "COMPAR", "displayName": "commissioning party"},
+    {"code": "CON", "displayName": "contact"},
+    {"code": "ECON", "displayName": "emergency contact"},
+    {"code": "EMP", "displayName": "employee"},
+    {"code": "GUARD", "displayName": "guardian"},
+    {"code": "INVSBJ", "displayName": "investigation subject"},
+    {"code": "LIC", "displayName": "licensed entity"},
+    {"code": "MIL", "displayName": "military person"},
+    {"code": "NOK", "displayName": "next of kin"},
+    {"code": "NOT", "displayName": "notary public"},
+    {"code": "PAT", "displayName": "patient"},
+    {"code": "PROV", "displayName": "healthcare provider"},
+    {"code": "PRS", "displayName": "personal relationship"}
+  ]
+}

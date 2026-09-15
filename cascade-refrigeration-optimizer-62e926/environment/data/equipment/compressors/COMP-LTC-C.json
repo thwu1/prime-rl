@@ -1,0 +1,11 @@
+{
+  "model": "COMP-LTC-C",
+  "type": "semi-hermetic reciprocating",
+  "refrigerant_compatibility": ["R23", "CHF3"],
+  "efficiency_curve": {
+    "type": "polynomial",
+    "variable": "pressure_ratio",
+    "coefficients": [0.87, -0.012, -0.001],
+    "formula": "eta_is = c0 + c1*PR + c2*PR^2"
+  }
+}

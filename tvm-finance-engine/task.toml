@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 subtle numerical bugs across interdependent TVM functions (IRR polynomial root selection logic, NPV singularity guard, IPMT begin-timing discount exponent, MIRR period-count exponent, rate solver Decimal type propagation), where some bugs cascade through dependent functions and the quick validation script catches only a subset. Additionally requires fixing a broken native C accelerator pipeline: the Makefile has incorrect build flags preventing shared library compilation, the C NPV function lacks an edge-case guard, and the Python ctypes bindings use wrong type declarations — all of which must be diagnosed and fixed across three languages/tools (Python, C, Make). Finally requires implementing xnpv/xirr from scratch with Newton-Raphson convergence for irregular date schedules."""
+solution_explanation = """Fix IRR root selection by changing argmax to argmin in _irr_default_selection. Add rate==-1 guard in npv returning NaN. Fix ipmt begin-timing discount exponent from 2 to 1. Fix mirr exponent from 1/n to 1/(n-1). Fix rate() guess/tol defaults to use default_type() for Decimal support. For the native accelerator: fix Makefile to use -fPIC, target libdiscount.so, and link -lm; add rate==-1 NaN guard in the C npv_native function; fix ctypes binding path from discount.dylib to libdiscount.so and types from c_float to c_double. Implement xnpv as sum(cf/(1+r)^(days/365)) and xirr via Newton-Raphson on xnpv with analytic derivative."""
+verification_explanation = """60+ pytest cases verify: each TVM function against golden values from numpy-financial regression suite, zero-rate edge cases, begin/end timing, Decimal type preservation, IRR-NPV congruence, pathological cashflows spanning 300 orders of magnitude, infeasible solver returns, 360-period amortization consistency, xnpv day-count correctness, xirr congruence. Separate test class verifies native C backend: shared library existence, direct ctypes invocation with correct results, rate==-1 NaN handling, and Python module integration."""
+category = "computational_finance"
+tags = ["numerical-debugging", "native-ffi"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tvm-finance-engine"

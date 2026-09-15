@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a custom profiling analysis pipeline from scratch with no algorithmic guidance. The solver must parse Brendan Gregg's folded stack format, build call-graph models, develop their own methodology to distinguish genuine root causes from functions whose metrics grew only through call-graph propagation, classify newly-appearing functions by their causal relationship to the regression, compute statistical correlations between profile metrics and system telemetry, and generate differential flame graph visualizations. The task demands deep expertise in CPU profiling concepts, performance engineering judgment to evaluate competing regression candidates, and practical familiarity with the FlameGraph toolkit."""
+solution_explanation = """Parse all five folded profiles into call-graph data structures. Compute self (leaf) and inclusive counts per function per window. The root cause is the function with the largest self-time growth between t0 and t4 — spin_lock, indicating lock contention in the database connection pool. New functions futex_wait and sched_yield are call-graph descendants of spin_lock (causal_descendant), while alloc, mmap, health_check, and tcp_probe are independent. Ancestors of spin_lock (acquire, db_pool, handle, route, server, users, products, search) show inclusive growth only. Subsystem shares computed from direct children of main. Pearson correlation confirms strong linear relationship with context switch rate. Differential SVG generated via difffolded.pl piped to flamegraph.pl."""
+verification_explanation = """Tests load /app/results.json and verify each field deterministically. Root cause checked against 'spin_lock'. Regression category verified as 'lock_contention'. Onset window verified as 1. Inclusive and self fraction series verified with 0.001 tolerance across all 5 windows. Cascading functions and propagation ancestors checked as exact sorted sets. Growth classification verified for exact function-to-category mapping across all 7 new functions. Subsystem regression shares verified with 0.002 tolerance and sum-to-one constraint. Pearson correlation within 0.005. Differential SVG verified for existence, SVG validity, and presence of key function names."""
+category = "systems"
+tags = ["performance-analysis", "flamegraph"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-705334"

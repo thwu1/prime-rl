@@ -1,0 +1,29 @@
+% Excerpt from DRIVEBENCH / AUTODRIVER paper — Section 6
+% Results and Analysis (relevant excerpt)
+
+\subsection{Quantitative Results}
+
+Across all metrics, DeepSeek outperforms ChatGPT, achieving an average composite static score of 0.751 compared to 0.697. The distribution of DeepSeek scores is skewed toward higher quality, with a median of 0.783 and a 75th percentile of 0.868, while ChatGPT's distribution is flatter (median 0.701). Table \ref{tab:metric-breakdown} summarises per-metric averages.
+
+\begin{table}[h]
+\centering
+\caption{Average metric performance across patch sets.}
+\label{tab:metric-breakdown}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{DeepSeek} & \textbf{ChatGPT} \\
+\midrule
+AST Similarity    & 0.912 & 0.889 \\
+Function Accuracy & 0.891 & 0.847 \\
+Call Accuracy     & 0.724 & 0.651 \\
+Node Accuracy     & 0.438 & 0.401 \\
+Variable Accuracy & 0.947 & 0.912 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The AST similarity metric, computed from Tree-sitter--derived syntax trees, is the most discriminative measure. It captures structural equivalence rather than textual overlap, providing a sensitive indicator of whether generated patches modify the same syntactic constructs as their references. For example, when both reference and generated patches replace \texttt{ida\_simple\_get} with \texttt{ida\_alloc} and remove identical numeric arguments, the corresponding node-type deltas align perfectly, yielding an AST similarity of 1.0. When the generated patch retains obsolete arguments, node counts diverge, and the similarity drops proportionally.
+
+\subsection{Interpretation}
+
+Taken together, the results demonstrate that Tree-sitter--based AST differencing provides a precise, language-aware measure of patch quality that correlates with human judgement. AST comparison penalises semantically equivalent yet structurally different rewrites, and static scoring alone cannot confirm runtime equivalence.

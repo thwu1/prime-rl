@@ -1,0 +1,52 @@
+[
+  {
+    "model_id": "alpha-v1",
+    "release_date": "2025-01-15",
+    "training_cutoff": "2024-12-01",
+    "pricing": {
+      "input_per_mtok": 3.0,
+      "cached_input_per_mtok": 0.3,
+      "output_per_mtok": 15.0
+    }
+  },
+  {
+    "model_id": "beta-2",
+    "release_date": "2025-04-01",
+    "training_cutoff": "2025-02-01",
+    "pricing": {
+      "input_per_mtok": 2.0,
+      "cached_input_per_mtok": 0.5,
+      "output_per_mtok": 10.0
+    }
+  },
+  {
+    "model_id": "gamma-3b",
+    "release_date": "2025-06-15",
+    "training_cutoff": "2025-04-01",
+    "pricing": {
+      "input_per_mtok": 1.5,
+      "cached_input_per_mtok": 0.15,
+      "output_per_mtok": 7.5
+    }
+  },
+  {
+    "model_id": "delta-coder",
+    "release_date": "2025-08-01",
+    "training_cutoff": "2025-06-01",
+    "pricing": {
+      "input_per_mtok": 5.0,
+      "cached_input_per_mtok": 0.5,
+      "output_per_mtok": 25.0
+    }
+  },
+  {
+    "model_id": "epsilon-7b",
+    "release_date": "2025-10-01",
+    "training_cutoff": "2025-08-01",
+    "pricing": {
+      "input_per_mtok": 0.5,
+      "cached_input_per_mtok": 0.05,
+      "output_per_mtok": 2.5
+    }
+  }
+]

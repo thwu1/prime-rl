@@ -1,0 +1,72 @@
+{
+  "name": "packet_router_vplan",
+  "children": [
+    {
+      "name": "code_quality",
+      "weight": 40,
+      "children": [
+        {
+          "name": "line_coverage",
+          "weight": 40,
+          "goal_pct": 95.0,
+          "metric_type": "code",
+          "metric_name": "line"
+        },
+        {
+          "name": "branch_coverage",
+          "weight": 35,
+          "goal_pct": 90.0,
+          "metric_type": "code",
+          "metric_name": "branch"
+        },
+        {
+          "name": "toggle_coverage",
+          "weight": 25,
+          "goal_pct": 85.0,
+          "metric_type": "code",
+          "metric_name": "toggle"
+        }
+      ]
+    },
+    {
+      "name": "functional_verification",
+      "weight": 45,
+      "children": [
+        {
+          "name": "packet_types",
+          "weight": 50,
+          "goal_pct": 90.0,
+          "metric_type": "functional",
+          "covergroup": "cg_packet_type"
+        },
+        {
+          "name": "priority_qos",
+          "weight": 50,
+          "goal_pct": 85.0,
+          "metric_type": "functional",
+          "covergroup": "cg_priority"
+        }
+      ]
+    },
+    {
+      "name": "fsm_verification",
+      "weight": 15,
+      "children": [
+        {
+          "name": "state_coverage",
+          "weight": 60,
+          "goal_pct": 100.0,
+          "metric_type": "fsm",
+          "metric_name": "state"
+        },
+        {
+          "name": "transition_coverage",
+          "weight": 40,
+          "goal_pct": 90.0,
+          "metric_type": "fsm",
+          "metric_name": "transition"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+SCHEDULE 2 (FORM 1040) -- ADDITIONAL TAXES -- TAX YEAR 2025
+
+Part I -- Tax
+
+Line 1z -- Additions to tax (excess advance premium tax credit
+  repayment, etc.). If not applicable, enter 0.
+
+Line 2 -- Alternative minimum tax from Form 6251. If not applicable,
+  enter 0.
+
+Line 3 -- Add lines 1z and 2. Enter here and on Form 1040, line 17.
+
+Part II -- Other Taxes
+
+Line 4 -- Self-employment tax from Schedule SE. If not applicable,
+  enter 0.
+
+Lines 5 through 8 -- Various additional taxes (unreported tip income
+  tax, uncollected SS/Medicare, additional tax on IRAs, etc.). If not
+  applicable, enter 0 for each.
+
+Line 9 -- Household employment taxes. Enter the amount from
+  Schedule H, line 8. If you did not have household employees,
+  enter 0.
+
+Lines 10 through 16 -- Various other taxes (additional Medicare tax,
+  net investment income tax, etc.). If not applicable, enter 0 for
+  each.
+
+Line 18 -- Total additional taxes from lines 17a through 17z.
+  If not applicable, enter 0.
+
+Line 21 -- Total other taxes. Add lines 4 through 16 and line 18.
+  Enter here and on Form 1040, line 23.
+
+  For taxpayers whose only other tax is household employment taxes,
+  line 21 equals line 9.
+
+
+SCHEDULE 3 (FORM 1040) -- ADDITIONAL CREDITS AND PAYMENTS -- TY 2025
+
+Part I -- Nonrefundable Credits
+
+Line 1 -- Foreign tax credit from Form 1116. If not applicable,
+  enter 0.
+
+Line 2 -- Credit for child and dependent care expenses from
+  Form 2441. If not applicable, enter 0.
+
+Line 3 -- Education credits from Form 8863. If not applicable,
+  enter 0.
+
+Line 4 -- Retirement savings contributions credit from Form 8880.
+  If not applicable, enter 0.
+
+Line 5a -- Residential clean energy credit from Form 5695, line 15.
+  If not applicable, enter 0.
+
+Line 5b -- Energy efficient home improvement credit from Form 5695,
+  line 32.
+
+Line 7 -- Total other nonrefundable credits (sum of lines 6a
+  through 6z). If not applicable, enter 0.
+
+Line 8 -- Add lines 1 through 5a, 5b, and 7. Enter here and on
+  Form 1040, line 20. This is the total of your nonrefundable
+  credits.

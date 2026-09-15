@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of propositional proof systems (resolution calculus, proof DAG structure, regularity, tree-like vs DAG complexity) and Craig's interpolation theorem. The agent must independently determine how to validate resolution refutations against CNF formulas, compute structural complexity metrics on proof DAGs, perform proof trimming via backward reachability, check regularity, and — critically — figure out how to extract a Craig interpolant satisfying the three defining properties (A-implication, B-separation, variable restriction) from a partitioned resolution proof. This demands holistic understanding of the relationship between proof structure and logical entailment, a topic from graduate-level proof complexity theory. The agent must also integrate external tool usage for independent satisfiability verification and handle multiple instance types with different output schemas."""
+solution_explanation = """For resolution instances: parse DIMACS CNF and proof files, validate each step (input clause membership, antecedent existence, resolvent correctness), compute DAG depths, proof width, tree-likeness, trim by backward reachability from first empty clause, check regularity. For interpolation instances: parse partition.json, determine shared variables, implement Pudlak-style interpolation by labeling each proof node with a partial interpolant formula (A-leaves get disjunction of shared literals, B-leaves get conjunction of negated shared literals, resolution steps combine according to pivot locality), evaluate the final interpolant as a truth table over shared variables. For all instances: invoke minisat for independent satisfiability verification. For bare formulas: determine SAT/UNSAT and extract assignments."""
+verification_explanation = """Tests check /app/results.json against precomputed expected values for 10 instances: 3 valid resolution proofs (full metrics including width and tree-likeness), 3 invalid proofs (error classification), 2 interpolation instances (proof metrics plus Craig interpolant verification via exhaustive property checking — A-implication, B-separation, and variable restriction are all verified by enumerating truth assignments), and 2 bare formula instances (satisfiability plus solution validity). The interpolant test is property-based rather than value-based, accepting any valid Craig interpolant."""
+category = "formal_methods"
+tags = ["proof-complexity", "craig-interpolation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/resolution-proof-analysis"

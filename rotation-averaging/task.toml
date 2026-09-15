@@ -1,0 +1,46 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing rotation averaging on the SO(3) manifold from scratch: \
+SO(3) logarithmic/exponential maps, maximum spanning tree initialization by chaining relative rotations, \
+iteratively reweighted least squares (IRLS) Gauss-Newton optimization in the tangent space with robust \
+loss functions, gauge fixing, and outlier detection via geodesic residual analysis. Combines Lie group \
+geometry, nonlinear optimization on manifolds, graph algorithms, and robust statistics — domains that \
+require graduate/research-level expertise in computer vision or robotics."""
+solution_explanation = """Build a maximum spanning tree weighted by edge confidence and propagate \
+rotations along it to initialize global orientations. Refine via IRLS block coordinate descent with \
+chordal (Frobenius) cost on SO(3): compute geodesic residuals for Huber robust reweighting, then \
+for each camera compute the weighted sum of target rotation matrices from adjacent edges and project \
+onto SO(3) via SVD. One camera is held fixed for gauge. After convergence, detect outlier edges by \
+thresholding geodesic residual errors. The solver must generalise to any valid pose graph."""
+verification_explanation = """Tests regenerate ground truth deterministically from the same seed used \
+to create the input data. Estimated rotations are aligned to ground truth via right-Procrustes on \
+SO(3), then angular errors are verified (mean < 2 degrees, max < 5 degrees). Rotation validity \
+(orthogonality atol 1e-3, determinant = 1 within 1e-3) is checked per camera. Outlier detection \
+quality is assessed via precision >= 0.6 and recall >= 0.6. An anti-cheat test runs the solver on a \
+second independently generated pose graph (seed=99) to prevent hardcoded answers."""
+category = "computer_vision"
+tags = ["structure-from-motion", "robust-estimation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotation-averaging"

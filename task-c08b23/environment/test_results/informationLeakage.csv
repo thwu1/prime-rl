@@ -1,0 +1,5 @@
+cwe,part,score
+200,1,HIGH
+200,2,MED
+203,1,LOW
+212,1,DETECTED

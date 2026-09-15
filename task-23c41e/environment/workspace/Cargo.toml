@@ -1,0 +1,3 @@
+[workspace]
+members = ["kernel", "virtio-hal", "netstack", "fuse-abi", "mem-barrier"]
+resolver = "2"

@@ -1,0 +1,143 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-003",
+        "name": [{"given": ["Robert"], "family": "Davis"}],
+        "gender": "male",
+        "birthDate": "1943-06-11"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-cr-003",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma"}]},
+        "subject": {"reference": "Patient/pat-003"},
+        "effectiveDateTime": "2024-01-20T11:45:00Z",
+        "valueQuantity": {"value": 309.4, "unit": "umol/L", "system": "http://unitsofmeasure.org", "code": "umol/L"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bp-003",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional"}]},
+        "subject": {"reference": "Patient/pat-003"},
+        "effectiveDateTime": "2024-01-20T11:30:00Z",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 162, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 94, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-hgb-003",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "718-7", "display": "Hemoglobin [Mass/volume] in Blood"}]},
+        "subject": {"reference": "Patient/pat-003"},
+        "effectiveDateTime": "2024-01-20T11:45:00Z",
+        "valueQuantity": {"value": 10.2, "unit": "g/dL", "system": "http://unitsofmeasure.org", "code": "g/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-003a",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "310430", "display": "gabapentin 600 MG Oral Capsule"}],
+          "text": "Gabapentin 600mg capsule"
+        },
+        "subject": {"reference": "Patient/pat-003"},
+        "dosageInstruction": [{"text": "Take 1 capsule by mouth three times daily", "timing": {"code": {"text": "TID"}}, "doseAndRate": [{"doseQuantity": {"value": 600, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-003b",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "197319", "display": "allopurinol 300 MG Oral Tablet"}],
+          "text": "Allopurinol 300mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-003"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 300, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-003c",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "1037045", "display": "dabigatran etexilate 150 MG Oral Capsule"}],
+          "text": "Pradaxa 150mg capsule"
+        },
+        "subject": {"reference": "Patient/pat-003"},
+        "dosageInstruction": [{"text": "Take 1 capsule by mouth twice daily", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 150, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-003d",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861004", "display": "metformin hydrochloride 1000 MG Oral Tablet"}],
+          "text": "Metformin 1000mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-003"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily with meals", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 1000, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-003a",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M10.9", "display": "Gout, unspecified"}]},
+        "subject": {"reference": "Patient/pat-003"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-003b",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.91", "display": "Unspecified atrial fibrillation"}]},
+        "subject": {"reference": "Patient/pat-003"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-003c",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.3", "display": "Chronic kidney disease, stage 3 (moderate)"}]},
+        "subject": {"reference": "Patient/pat-003"}
+      }
+    }
+  ]
+}

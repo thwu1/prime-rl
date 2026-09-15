@@ -1,0 +1,188 @@
+{
+  "proof_nodes": [
+    {
+      "id": "N1",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P9"],
+      "assumptions": [
+        {"id": "A1", "description": "cache responds within 10 cycles", "depends_on_guarantee": "G3"},
+        {"id": "A2", "description": "arbiter does not starve cache", "depends_on_guarantee": "G4"}
+      ],
+      "guarantees": [
+        {"id": "G1", "description": "stall resolves within 15 cycles"}
+      ],
+      "module_scope": ["cpu_core"]
+    },
+    {
+      "id": "N2",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P15"],
+      "assumptions": [
+        {"id": "A3", "description": "memory responds within 20 cycles", "depends_on_guarantee": "G5"},
+        {"id": "A4", "description": "stall signal is well-behaved", "depends_on_guarantee": "G1"}
+      ],
+      "guarantees": [
+        {"id": "G2", "description": "cache miss recovery within 25 cycles"},
+        {"id": "G3", "description": "cache responds within 10 cycles"}
+      ],
+      "module_scope": ["cache_ctrl"]
+    },
+    {
+      "id": "N3",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P14"],
+      "assumptions": [
+        {"id": "A5", "description": "bus bridge completes transfer", "depends_on_guarantee": "G6"},
+        {"id": "A6", "description": "DMA does not hold bus indefinitely", "depends_on_guarantee": "G7"}
+      ],
+      "guarantees": [
+        {"id": "G4", "description": "arbiter grants within bounded time"},
+        {"id": "G5", "description": "memory access completes"}
+      ],
+      "module_scope": ["mem_arbiter"]
+    },
+    {
+      "id": "N4",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P18"],
+      "assumptions": [
+        {"id": "A7", "description": "arbiter provides valid grants", "depends_on_guarantee": "G4"}
+      ],
+      "guarantees": [
+        {"id": "G6", "description": "bridge transfer completes"},
+        {"id": "G8", "description": "bridge data integrity maintained"}
+      ],
+      "module_scope": ["bus_bridge"]
+    },
+    {
+      "id": "N5",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P6", "P16"],
+      "assumptions": [
+        {"id": "A8", "description": "memory arbiter grants DMA", "depends_on_guarantee": "G4"},
+        {"id": "A9", "description": "bridge completes data relay", "depends_on_guarantee": "G6"}
+      ],
+      "guarantees": [
+        {"id": "G7", "description": "DMA releases bus after transfer"},
+        {"id": "G9", "description": "DMA respects address boundaries"}
+      ],
+      "module_scope": ["dma_engine"]
+    },
+    {
+      "id": "N6",
+      "strategy": "case_split",
+      "target_properties": ["P4"],
+      "cases": [
+        {"id": "C1", "condition": "cache_ctrl.state == IDLE", "description": "No eviction in IDLE state"},
+        {"id": "C2", "condition": "cache_ctrl.state == LOOKUP", "description": "Eviction check on lookup"},
+        {"id": "C3", "condition": "cache_ctrl.state == WRITEBACK", "description": "Active writeback"},
+        {"id": "C4", "condition": "cache_ctrl.state == FILL", "description": "Fill after writeback"}
+      ],
+      "module_scope": ["cache_ctrl"]
+    },
+    {
+      "id": "N7",
+      "strategy": "case_split",
+      "target_properties": ["P3"],
+      "cases": [
+        {"id": "C5", "condition": "mem_arbiter.req_queue == 0", "description": "No requests pending"},
+        {"id": "C6", "condition": "mem_arbiter.req_queue == 1 && mem_arbiter.priority == CACHE", "description": "Single cache request"},
+        {"id": "C7", "condition": "mem_arbiter.req_queue == 1 && mem_arbiter.priority == DMA", "description": "Single DMA request"},
+        {"id": "C8", "condition": "mem_arbiter.req_queue >= 2 && mem_arbiter.priority == CACHE", "description": "Multiple requests, cache priority"},
+        {"id": "C9", "condition": "mem_arbiter.req_queue >= 2 && mem_arbiter.priority == DMA", "description": "Multiple requests, DMA priority"}
+      ],
+      "module_scope": ["mem_arbiter"]
+    },
+    {
+      "id": "N8",
+      "strategy": "case_split",
+      "target_properties": ["P1"],
+      "cases": [
+        {"id": "C10", "condition": "alu.alu_op == ADD", "description": "Addition overflow check"},
+        {"id": "C11", "condition": "alu.alu_op == SUB", "description": "Subtraction overflow check"},
+        {"id": "C12", "condition": "alu.alu_op == AND || alu.alu_op == OR || alu.alu_op == XOR", "description": "Logical ops never overflow"},
+        {"id": "C13", "condition": "alu.alu_op == SHL", "description": "Shift left overflow"},
+        {"id": "C14", "condition": "alu.alu_op == SHR || alu.alu_op == SRA", "description": "Right shift no overflow"}
+      ],
+      "module_scope": ["alu"]
+    },
+    {
+      "id": "N9",
+      "strategy": "partition",
+      "target_properties": ["P13"],
+      "partitions": [
+        {"id": "PT1", "module": "cpu_core", "sub_properties": ["P8", "P9"]},
+        {"id": "PT2", "module": "cache_ctrl", "sub_properties": ["P2", "P15"]},
+        {"id": "PT3", "module": "mem_arbiter", "sub_properties": ["P3", "P14"]},
+        {"id": "PT4", "module": "interrupt_ctrl", "sub_properties": ["P5"]}
+      ],
+      "module_scope": ["top"]
+    },
+    {
+      "id": "N10",
+      "strategy": "stopat",
+      "target_properties": ["P2"],
+      "stopat_modules": ["tag_ram", "data_ram"],
+      "module_scope": ["cache_ctrl"]
+    },
+    {
+      "id": "N11",
+      "strategy": "stopat",
+      "target_properties": ["P11"],
+      "stopat_modules": ["reg_file", "nonexistent_module"],
+      "module_scope": ["decode_unit"]
+    },
+    {
+      "id": "N12",
+      "strategy": "stopat",
+      "target_properties": ["P12"],
+      "stopat_modules": ["alu"],
+      "module_scope": ["reg_file"]
+    },
+    {
+      "id": "N13",
+      "strategy": "edit_node",
+      "target_properties": ["P10"],
+      "base_node": null,
+      "refinements": [
+        {"type": "add_constraint", "constraint": "timer_unit.prescaler > 0"},
+        {"type": "add_constraint", "constraint": "timer_unit.counter < MAX_COUNT"}
+      ],
+      "module_scope": ["timer_unit"]
+    },
+    {
+      "id": "N14",
+      "strategy": "edit_node",
+      "target_properties": ["P17"],
+      "base_node": "N_nonexistent",
+      "refinements": [
+        {"type": "modify_assumption", "original": "A_old", "replacement": "irq acknowledged within 5 cycles"}
+      ],
+      "module_scope": ["interrupt_ctrl"]
+    },
+    {
+      "id": "N15",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P7"],
+      "assumptions": [
+        {"id": "A10", "description": "DMA transfer integrity", "depends_on_guarantee": "G8"}
+      ],
+      "guarantees": [
+        {"id": "G10", "description": "bus bridge preserves data"}
+      ],
+      "module_scope": ["bus_bridge"]
+    },
+    {
+      "id": "N16",
+      "strategy": "assume_guarantee",
+      "target_properties": ["P5"],
+      "assumptions": [
+        {"id": "A11", "description": "timer provides valid IRQ", "depends_on_guarantee": "G11"}
+      ],
+      "guarantees": [
+        {"id": "G11", "description": "interrupt controller prioritizes correctly"}
+      ],
+      "module_scope": ["interrupt_ctrl"]
+    }
+  ]
+}

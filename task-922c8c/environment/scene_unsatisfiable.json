@@ -1,0 +1,29 @@
+{
+  "coordinate_system": "right_handed_z_up",
+  "position_convention": "center_bottom",
+  "collision_margin": 0.02,
+  "objects": {
+    "base": {
+      "bbox": [0.5, 0.5, 0.3],
+      "position": [0.0, 0.0, 0.0],
+      "anchor": true
+    },
+    "obj_a": {
+      "bbox": [0.1, 0.1, 0.1],
+      "anchor": false
+    },
+    "obj_b": {
+      "bbox": [0.1, 0.1, 0.1],
+      "anchor": false
+    },
+    "obj_c": {
+      "bbox": [0.1, 0.1, 0.1],
+      "anchor": false
+    }
+  },
+  "relations": [
+    {"subject": "obj_a", "predicate": "on_top_of", "reference": "obj_b"},
+    {"subject": "obj_b", "predicate": "on_top_of", "reference": "obj_c"},
+    {"subject": "obj_c", "predicate": "on_top_of", "reference": "obj_a"}
+  ]
+}

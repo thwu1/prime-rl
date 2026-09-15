@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of both the eBPF instruction set architecture and ELF binary format. The agent must: (1) use llvm-objdump, readelf, or llvm-objcopy to discover and extract BPF program sections from ELF object files — requiring proficiency with unfamiliar binary analysis tools and understanding of BPF ELF conventions; (2) implement static control-flow analysis including basic block identification, CFG edge construction, and back-edge detection for loop identification — standard compiler-theory knowledge applied to BPF's unusual instruction encoding; (3) build a correct BPF bytecode interpreter handling the full ISA including ALU64/ALU32 distinction with zero-extension, signed vs unsigned branch semantics, arithmetic right shift sign preservation, shift amount masking, division/modulo by zero edge cases, wide LD_IMM64 encoding, and stack memory via R10 frame pointer. The incomplete ISA reference requires holistic domain knowledge to fill in critical semantic gaps."""
+solution_explanation = """Build three Python tools: (1) bpf_extract uses llvm-objcopy or llvm-objdump to locate the BPF program section in ELF files and extract raw bytecode; (2) bpf_analyze decodes instructions, identifies basic block boundaries at jump targets and post-branch positions, constructs CFG edges from branch/jump semantics, detects back-edges by comparing block indices, computes stack depth from R10-relative offsets, and tracks register writes; (3) bpf_run implements a full BPF interpreter with correct 64-bit/32-bit ALU semantics, signed/unsigned comparisons, stack memory model, and all arithmetic edge cases."""
+verification_explanation = """Tests verify all three tools independently and as an integrated pipeline. ELF extraction is validated against reference extraction using llvm-objcopy. Static analysis is tested against hand-crafted BPF bytecode programs with precisely known CFG properties (linear, branching, looping with back-edges, stack-heavy, wide LD_IMM64). Execution is tested with hand-crafted programs covering edge cases (division by zero, arithmetic right shift, ALU32 zero-extension, signed vs unsigned branches, shift masking) plus dynamically generated programs to prevent answer hardcoding. Pipeline integration tests extract from compiled .o files, run the bytecode, and verify against expected C-level semantics."""
+category = "systems_programming"
+tags = ["ebpf", "binary_analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ebpf-bytecode-interp"

@@ -1,0 +1,284 @@
+{
+    "structural_analysis": {
+        "tables": true,
+        "base_chains": true,
+        "named_sets": true,
+        "jump_graph": true
+    },
+    "security_analysis": {
+        "open_tcp_ports": true,
+        "open_udp_ports": true,
+        "allows_loopback": true,
+        "allows_icmp": true,
+        "has_rate_limiting": true,
+        "rate_limited_ports": true,
+        "has_nat": true,
+        "has_masquerade": true,
+        "uses_connection_tracking": true
+    },
+    "packet_tests": {
+        "workstation": [
+            {
+                "id": "ws_1",
+                "description": "External SSH access",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 22,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "ws_2",
+                "description": "External HTTP access blocked",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "ws_3",
+                "description": "LAN Samba access",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "192.168.1.50",
+                "dst_port": 445,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "ws_4",
+                "description": "External Samba access blocked",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 445,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "ws_5",
+                "description": "LAN mDNS access",
+                "hook": "input",
+                "protocol": "udp",
+                "src_ip": "10.1.2.3",
+                "dst_port": 5353,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "ws_6",
+                "description": "ICMP from external",
+                "hook": "input",
+                "protocol": "icmp",
+                "src_ip": "1.2.3.4",
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "ws_7",
+                "description": "Established TCP connection",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 443,
+                "ct_state": "established",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            }
+        ],
+        "server": [
+            {
+                "id": "srv_1",
+                "description": "HTTP from external",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "srv_2",
+                "description": "SSH from allowed subnet",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "10.1.2.3",
+                "dst_port": 22,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "srv_3",
+                "description": "SSH from external blocked",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 22,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "srv_4",
+                "description": "HTTP from blocked IP",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "203.0.113.50",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "srv_5",
+                "description": "PostgreSQL from LAN",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "10.0.0.5",
+                "dst_port": 5432,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "srv_6",
+                "description": "PostgreSQL from external blocked",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 5432,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "srv_7",
+                "description": "DNS UDP from external",
+                "hook": "input",
+                "protocol": "udp",
+                "src_ip": "8.8.8.8",
+                "dst_port": 53,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "srv_8",
+                "description": "HTTPS from external",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "1.2.3.4",
+                "dst_port": 443,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            }
+        ],
+        "router": [
+            {
+                "id": "rtr_1",
+                "description": "SSH from WAN",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "1.2.3.4",
+                "dst_port": 22,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "rtr_2",
+                "description": "HTTP from WAN to router blocked",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "1.2.3.4",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "rtr_3",
+                "description": "HTTP from LAN",
+                "hook": "input",
+                "protocol": "tcp",
+                "src_ip": "192.168.1.50",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth1",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "rtr_4",
+                "description": "DHCP from LAN",
+                "hook": "input",
+                "protocol": "udp",
+                "src_ip": "192.168.1.50",
+                "dst_port": 67,
+                "ct_state": "new",
+                "iifname": "eth1",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "rtr_5",
+                "description": "Forward LAN to WAN",
+                "hook": "forward",
+                "protocol": "tcp",
+                "src_ip": "192.168.1.50",
+                "dst_ip": "8.8.8.8",
+                "dst_port": 443,
+                "ct_state": "new",
+                "iifname": "eth1",
+                "oifname": "eth0",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "rtr_6",
+                "description": "Forward WAN to LAN port 80",
+                "hook": "forward",
+                "protocol": "tcp",
+                "src_ip": "1.2.3.4",
+                "dst_ip": "192.168.1.100",
+                "dst_port": 80,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "oifname": "eth1",
+                "expected_verdict": "accept"
+            },
+            {
+                "id": "rtr_7",
+                "description": "Forward WAN to LAN port 3306 blocked",
+                "hook": "forward",
+                "protocol": "tcp",
+                "src_ip": "1.2.3.4",
+                "dst_ip": "192.168.1.100",
+                "dst_port": 3306,
+                "ct_state": "new",
+                "iifname": "eth0",
+                "oifname": "eth1",
+                "expected_verdict": "drop"
+            },
+            {
+                "id": "rtr_8",
+                "description": "ICMP from WAN",
+                "hook": "input",
+                "protocol": "icmp",
+                "src_ip": "1.2.3.4",
+                "ct_state": "new",
+                "iifname": "eth0",
+                "expected_verdict": "accept"
+            }
+        ]
+    }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of PostgreSQL concurrency: row-level locking, SELECT FOR UPDATE, deadlock prevention via deterministic lock ordering, transactional isolation under READ COMMITTED, TOCTOU race conditions, and PL/pgSQL savepoint semantics within BEGIN...EXCEPTION blocks. The solver must identify and fix concurrency defects across six interacting PL/pgSQL procedures—five single-operation functions with missing or incorrect locking, plus a batch reservation function requiring a fundamentally different two-phase locking architecture. The batch function cannot be fixed by adding FOR UPDATE to individual queries; the solver must design a global lock acquisition strategy that collects all needed inventory rows across all orders in the batch, locks them in deterministic order upfront, then processes individual orders with savepoint-based isolation for per-order rollback. The reallocate_reservation procedure introduces a data-model consistency bug where it fails to update the reservation record's warehouse_id, causing downstream cancel/fulfill to operate on wrong inventory rows—discoverable only by tracing the full order lifecycle. Cross-procedure locking must be globally consistent to prevent deadlocks between batch calls, single-order operations, transfers, and reallocations running concurrently."""
+solution_explanation = """(1) reserve_order_stock: add ORDER BY product_id, warehouse_id for deterministic lock ordering. (2) cancel_order: add FOR UPDATE on order status SELECT, add UPDATE reservations SET status='RELEASED'. (3) fulfill_order: add FOR UPDATE on order status SELECT, add ORDER BY product_id, warehouse_id to reservation cursor, add UPDATE reservations SET status='FULFILLED'. (4) transfer_stock: acquire row locks on both source/destination in deterministic warehouse_id order using SELECT FOR UPDATE, verify available stock after locking. (5) reallocate_reservation: add FOR UPDATE on order status SELECT, lock both inventory rows in deterministic warehouse_id order, check destination availability AFTER locking, UPDATE reservations SET warehouse_id = destination. (6) batch_reserve_orders: Phase 1—collect ALL (product_id, warehouse_id) pairs across ALL orders via unnest join, lock them all in deterministic order with FOR UPDATE. Phase 2—FOREACH order: lock order row FOR UPDATE, process lines inside BEGIN...EXCEPTION block (implicit savepoint), mark RESERVED on success, mark FAILED in exception handler (savepoint rollback preserves prior orders' changes). Cumulative availability is naturally tracked within the single transaction."""
+verification_explanation = """Tests use concurrent Python threads with psycopg2 connections to exercise all six stored procedures under contention. A BEFORE UPDATE trigger on inventory introduces controlled delays (30-50ms) to widen race windows. Deadlock tests run 20-25 trials with overlapping products or opposing warehouse directions. Cross-procedure tests race cancel_order, fulfill_order, and reallocate_reservation on the same order, verifying clean status-based rejection. Lifecycle tests verify reallocate+cancel releases from the correct warehouse, reallocate+fulfill ships from correct warehouse. Batch tests verify: all-succeed scenario, partial failure with FAILED status marking, no residual reservations from failed orders, cumulative availability within a batch (earlier orders reduce stock for later ones), concurrent batch deadlock prevention (20 trials), batch vs single-reserve deadlock prevention, and post-batch quantity_reserved invariant. The mixed concurrent consistency test runs all six procedure types simultaneously."""
+category = "databases"
+tags = ["postgresql", "concurrency"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-inventory-deadlocks"

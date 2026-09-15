@@ -1,0 +1,9 @@
+# Mismatched loads: lo-Z (25 ohm) and hi-Z (100 ohm) on separate tlines from same source
+V1 1 0 1
+R4s 1 41 50
+T4 41 0 42 0 z=50 f=10meg nl=0.25
+R4l 42 0 25
+R5s 1 51 50
+T5 51 0 52 0 z=50 f=10meg nl=0.25
+R5l 52 0 100
+.ac 0 40meg 2meg

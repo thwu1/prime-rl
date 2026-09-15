@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of abstract interpretation theory: interval domain semantics, widening for loop termination, narrowing for precision recovery, conditional guard refinement, and fixpoint computation over nested loops. Correctly distinguishing safe/warning/error check statuses demands precise interval arithmetic including infinity handling. Program 4 specifically requires narrowing — without it the second assertion is misclassified. Program 6 demonstrates a relational invariant that interval domains provably cannot capture. Most PhD students take several attempts to implement a correct abstract interpreter."""
+solution_explanation = """Implement interval abstract domain with join/meet/widen/narrow operations and proper infinity arithmetic. Build a fixpoint iterator that applies widening at loop heads until convergence, then narrows for precision. Implement guard filtering to refine abstract states at conditional branches (both true and false paths). Evaluate boa checks by testing index interval containment in [0, size-1], dbz checks by testing if divisor interval includes zero, and assert checks by testing if the negated condition filters to bottom."""
+verification_explanation = """Run the analyzer on 6 test programs with known expected outputs. Each program targets specific abstract interpretation capabilities: basic loop widening (prog 1), three boa statuses via constant/guarded/unguarded indices (prog 2), three dbz statuses via nondet/guarded/zero divisors (prog 3), narrowing requirement for assertion precision (prog 4), nested loop widening with 2D array indexing (prog 5), and interval domain relational limitation (prog 6). Outputs are deterministic given the specified domain operations."""
+category = "programming_languages"
+tags = ["abstract-interpretation", "static-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interval-abstract-interpreter"

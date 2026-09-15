@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of Kafka's KRaft data directory ecosystem: log segments with CRC32-Castagnoli validation, offset index files mapping batch offsets to physical positions, leader-epoch-checkpoint files tracking epoch transitions, and cluster metadata binary payloads (TopicRecord, PartitionRecord, FeatureLevelRecord) with compact encoding. The solver must parse binary log files, cross-reference with a manifest, classify six distinct corruption types, and implement repair strategies spanning binary protocol encoding, CRC recomputation, log reconstruction, index regeneration, checkpoint correction, and metadata augmentation."""
+solution_explanation = """Custom Python binary decoder/encoder implementing the full Kafka RecordBatch wire format. Solver parses all log segments and cross-references with the manifest to classify six corruption types: CRC error, data corruption, missing file, missing metadata record, stale offset index, and invalid leader-epoch checkpoint. Repairs include CRC recomputation over properties bytes, full log reconstruction from manifest values, index file regeneration from parsed batch positions, checkpoint file correction, and PartitionRecord binary encoding/appending to cluster metadata."""
+verification_explanation = """Tests independently implement CRC32-Castagnoli and the full RecordBatch binary parser, then verify: all partition log files exist with valid CRCs and correct record values matching the manifest, offset index files contain valid entries mapping to actual batch positions in the log, leader-epoch-checkpoint files have correct format and epochs matching the manifest, cluster metadata contains complete topology with correct UUIDs and partition sets, and the corruption report lists exactly 6 entries with correct types and topology."""
+category = "systems_programming"
+tags = ["kafka-internals", "binary-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0c27ab"

@@ -1,0 +1,7 @@
+# QCM-D crystal parameters
+[crystal]
+f1_hz = 4.95e6
+Zq_kgm2s = 8.84e6
+
+[analysis]
+harmonics = [3, 5, 7, 9, 11]

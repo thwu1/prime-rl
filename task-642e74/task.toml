@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, integrated understanding of three intersecting domain-specific systems: Clinical Quality Language (CQL) semantics including interval arithmetic with half-open boundaries, temporal operators, and set-algebraic constructs; the FHIR R4 data model with nested resource references, coding systems, encounter classes, and condition lifecycle states; and healthcare quality measure population logic with layered inclusion/exclusion criteria. The agent must also demonstrate multi-tool proficiency: querying a SQLite terminology database with a non-obvious schema requiring multi-table JOINs to extract value set codes, parsing FHIR Parameters XML with namespaced elements to extract the measurement period, and cross-referencing CQL valueset canonical URL declarations with database records whose titles do not match the CQL names verbatim. Edge cases require reasoning about condition verification status, prevalence intervals for active vs. resolved conditions, multi-path blood pressure qualification set operations, and encounter class vs. type distinctions."""
+solution_explanation = """The solution implements a Python evaluator that: (1) queries the SQLite terminology.db, joining coding_systems, value_sets, and vs_expansion tables to extract value set code mappings, then maps VSAC-style database titles to CQL-expected names; (2) parses the FHIR Parameters XML using namespace-aware ElementTree to extract measurementPeriod; (3) evaluates Initial Population by checking age 18-85 at end of measurement period, essential hypertension prevalence overlapping the first 6 months via half-open interval, and qualifying outpatient encounters; (4) evaluates Denominator Exclusions across hospice, pregnancy, renal disease conditions/procedures, and palliative care using prevalenceInterval semantics; (5) evaluates Numerator via two-path qualifying BP logic and strict threshold comparisons."""
+verification_explanation = """Tests inject 4 hidden patient bundles not visible during task execution, covering verification status filtering (entered-in-error vs. confirmed conditions), resolved condition prevalenceInterval boundaries, Path 2 union qualifying BP logic, and onsetPeriod with half-open interval boundary. Combined with 12 visible patients, all 64 population membership booleans (16 patients x 4 populations) must match exactly."""
+category = "applied_computing"
+tags = ["healthcare-informatics", "clinical-quality-language"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-642e74"

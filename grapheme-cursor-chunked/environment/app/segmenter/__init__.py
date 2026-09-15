@@ -1,0 +1,1 @@
+"""Unicode segmentation package."""

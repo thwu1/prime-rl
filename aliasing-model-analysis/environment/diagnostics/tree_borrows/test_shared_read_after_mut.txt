@@ -1,0 +1,33 @@
+$ MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test --lib test_shared_read_after_mut
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_protector_violation ... error: Undefined Behavior: write access through <3780> at alloc1920[0x0] is forbidden
+   --> src/lib.rs:73:5
+    |
+73  |     *raw = 200;
+    |     ^^^^^^^^^^ write access through <3780> at alloc1920[0x0] is forbidden
+    |
+    = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+    = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+help: <3780> was derived from <3776>
+   --> src/lib.rs:68:15
+    |
+68  |     let raw = &mut val as *mut i32;
+    |               ^^^^^^^^ <3776> was created by this &mut borrow
+help: <3778> is strongly protected because it is an argument of call 750
+   --> src/lib.rs:72:5
+    |
+72  |     *r = 100;
+    |     ^^^^^^^^ <3778> is a protected &mut i32 reference; writing through a sibling tag <3780> violates the protector
+    = note: Tree Borrows protector: the &mut argument <3778> is strongly protected for the duration of the call
+    = note: Writing through <3780> (a sibling of <3778>) would disable <3778>, which is protected
+    = note: BACKTRACE (of the first span):
+    = note: inside `protector_inner` at src/lib.rs:73:5: 73:15
+    = note: inside `protector_violation` at src/lib.rs:69:5: 69:34
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error

@@ -1,0 +1,31 @@
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index aaa1111..ccc3333 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -17,6 +17,8 @@ static int skb_alloc_validate(unsigned int size, gfp_t gfp)
+ {
+     if (size > SKB_MAX_ALLOC) {
+         WARN_ONCE(1, "skb allocation too large: %u\n", size);
+         return -EINVAL;
+     }
++    if (size < sizeof(struct sk_buff))
++        return -EINVAL;
+     if (size == 0)
+         return -EINVAL;
+     return 0;
+@@ -55,11 +57,15 @@ void *skb_put_data(struct sk_buff *skb, const void *data, unsigned int len)
+ {
+     void *ptr;
+
++    if (skb->tail + len > skb->end) {
++        WARN_ONCE(1, "skb_put_data overflow: %u bytes\n", len);
++        return NULL;
++    }
++
+     ptr = skb->tail;
+     skb->tail += len;
+     skb->len += len;
+-    /* BUG: No bounds check against skb->end before memcpy */
+     memcpy(ptr, data, len);
+     return ptr;
+ }

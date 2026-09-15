@@ -1,0 +1,31 @@
+{
+  "description": "Simplified NGA-West2-style ground motion models for PGA",
+  "functionalForm": "ln(Y) = c1 + c2*(M - Mref) + c3*(M - Mref)^2 + (c4 + c5*(M - Mref)) * ln(sqrt(R^2 + c6^2)) + c7 * ln(Vs30 / Vref)",
+  "sigmaModel": "sigma_total = c8 + c9 * M",
+  "Mref": 6.0,
+  "Vref": 760.0,
+  "models": {
+    "BA08s": {
+      "c1": -0.500,
+      "c2": 0.800,
+      "c3": -0.035,
+      "c4": -0.850,
+      "c5": 0.120,
+      "c6": 6.0,
+      "c7": -0.480,
+      "c8": 0.520,
+      "c9": 0.015
+    },
+    "CY08s": {
+      "c1": -0.700,
+      "c2": 0.750,
+      "c3": -0.045,
+      "c4": -0.900,
+      "c5": 0.100,
+      "c6": 5.0,
+      "c7": -0.420,
+      "c8": 0.550,
+      "c9": 0.010
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires decoding a non-byte-aligned packed binary bitstream (21-bit micro-instructions spanning byte boundaries), understanding the 8086 microarchitecture (two-phase ALU, carry flag threading, complemented quotient, multi-word negation), writing x86-64 NASM assembly with correct 16-bit/8-bit division instructions, and coordinating multiple unfamiliar tools (NASM assembler, ld linker, binary analysis, Python bitwise parsing). The signed overflow quirk (rejecting quotient = -2^(n-1)) and the carry's triple role in CORD are non-obvious even to experienced systems programmers."""
+solution_explanation = """The solution (1) parses the binary ROM by extracting 21 bits at arbitrary bit offsets across byte boundaries, (2) decodes each micro-instruction into its constituent fields using the encoding spec, (3) implements the CORD restoring division loop with RCL-based carry threading and complemented quotient, PREIDIV multi-word negation with carry-dependent COM1/NEG selection, and POSTIDIV signed overflow detection, and (4) writes a NASM x86-64 program that executes div/idiv instructions, pipes binary register output to Python for parsing into ground_truth.json."""
+verification_explanation = """Tests verify: (1) ROM decoding by checking specific decoded instruction fields across all 5 routines (SUBT/RCL operations, jump targets, register moves); (2) simulator correctness via 60+ test cases covering all four instruction variants, edge cases, overflow detection, and the signed overflow quirk; (3) NASM validation by checking the assembly source contains div/idiv instructions, the assembled binary/object exists, and ground_truth.json values match expected hardware behavior."""
+category = "reverse_engineering"
+tags = ["microcode", "binary-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-56cc2a"

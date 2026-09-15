@@ -1,0 +1,9 @@
+[package]
+name = "hw-regs"
+version = "0.10.0"
+edition = "2021"
+description = "Hardware register abstraction"
+
+[features]
+default = ["register-ops"]
+register-ops = []

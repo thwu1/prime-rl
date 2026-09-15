@@ -1,0 +1,38 @@
+# Asset pipeline configuration
+# Defines the asset graph, partition schemes, and reconciliation behavior.
+
+assets:
+  raw:
+    partitions:
+      type: multi
+      dimensions:
+        day:
+          type: daily
+          start: "2024-01-01"
+          end: "2024-01-03"
+        source:
+          type: static
+          values: ["A", "B"]
+        metric:
+          type: static
+          values: ["x", "y"]
+
+  summary:
+    partitions:
+      type: daily
+      start: "2024-01-01"
+      end: "2024-01-03"
+    staleness_mode: all
+    deps:
+      raw:
+        mapping: multi_to_daily
+        time_dimension: date
+
+  report:
+    partitions:
+      type: daily
+      start: "2024-01-01"
+      end: "2024-01-03"
+    deps:
+      summary:
+        mapping: identity

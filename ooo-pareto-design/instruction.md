@@ -1,0 +1,5 @@
+A hardware team has characterized 108 out-of-order RISC-V processor configurations (varying pipeline width, reorder buffer size, integer register file size, and FP register file size) across four workloads using cycle-accurate simulation. The raw simulation output is stored in `/app/sim_output/`, organized as one directory per configuration, each containing a `stats.txt` file with per-workload statistics sections in gem5 output format.
+
+A validated area cost model is at `/app/arch_model.py`. A power estimation model is at `/app/power_model.py`, but calibration checks against measured data in `/app/calibration.csv` have flagged discrepancies — the model must be corrected before use. Design constraints and workload priority weights are specified in `/app/constraints.yaml`. The required output format is defined by the JSON Schema at `/app/output_schema.json`.
+
+Analyze the design space and produce `/app/results.json` conforming to the output schema.

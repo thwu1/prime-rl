@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Multi-file R pipeline with 9 silent bugs distributed across 3 source files plus a missing robust statistics module that must be designed and implemented from scratch. Bugs span R Inferno pitfalls: factor-to-numeric coercion, NA equality semantics, closure lazy evaluation via loop variable capture, which.min index-vs-value confusion, floating-point comparison failure, mean() argument trap (trim parameter), apply() result transposition, vector recycling rule, and min/pmin scalar-vs-vectorized confusion. The missing robust.R module requires implementing a Huber M-estimator (iterative reweighting with MAD scaling and convergence control) and a Hodges-Lehmann estimator (all pairwise drug-placebo differences) in R, correctly handling NA filtering, type coercion for factor columns, and R-specific data structure expectations. Cross-section dependencies cascade through a summary section requiring the solver to trace inter-module data flow."""
+solution_explanation = """Fix 1 (transforms.R): Wrap as.numeric(data$concentration) in as.character() to avoid factor-level coercion. Fix 2 (transforms.R): Replace == NA and != NA with is.na()/!is.na(). Fix 3 (transforms.R): Replace for-loop closure creation with lapply()+force() to prevent lazy evaluation variable capture. Fix 4 (transforms.R): Index site_baselines[which.min(...)] instead of bare which.min() to return values not indices. Fix 5 (statistics.R): Replace exact == comparison with which.min(abs()) for floating-point tolerance. Fix 6 (statistics.R): Wrap mean() arguments in c() to avoid trim parameter interpretation. Fix 7 (statistics.R): Transpose apply() output with t() so rows correspond to sites. Fix 8 (pipeline.R): Replace == c("drug","placebo") with %in% to avoid recycling. Fix 9 (pipeline.R): Replace min() with pmin() for element-wise capping. Fix 10: Create /app/lib/robust.R implementing huber_site_means (iterative weighted mean with Huber psi-function, MAD scaling, convergence at 1e-6) and hodges_lehmann_effects (median of all pairwise drug-placebo differences per site) using R's built-in median() and explicit anonymous function for outer(). Fix 11: Use explicit for-loop in pipeline section 8 for reliable integer serialization of iteration counts."""
+verification_explanation = """29 pytest tests in 10 classes independently compute expected values from raw CSV using Python arithmetic. Each bug produces deterministic wrong output caught by specific assertions. Robust statistics tests implement the same Huber and Hodges-Lehmann algorithms in Python for cross-validation. Summary tests verify cascading correctness across all upstream sections."""
+category = "debugging"
+tags = ["r-language", "data-pipeline", "robust-statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/r-inferno-pipeline"

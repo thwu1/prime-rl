@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of OAuth 2.0 client_credentials with RFC 7523 JWT Bearer authentication, JWK/JWKS cryptographic key management, FHIR R4 Bulk Data Access async export protocol (kick-off/status/download/cancel with NDJSON), and deployment-specific parameterization. The server must dynamically read instance configuration (token issuer, custom headers, assertion lifetime thresholds, token lifetimes) and honor all values — no hardcoding is possible. Negative JWT validation cases (replay protection, audience verification, configurable expiration window, signature verification) combined with per-deployment FHIR resource discovery and instance-specific access token claims push this well beyond textbook implementations."""
+solution_explanation = """Build a Python HTTP server using stdlib http.server and cryptography that: (1) reads /app/config/instance.json for deployment-specific values (instance_id, token_issuer, custom_header, max_assertion_lifetime_sec, access_token_lifetime_sec), (2) serves server JWKS at /.well-known/jwks.json, (3) implements JWT client assertion validation with ES384 signature verification using the cryptography library, configurable max lifetime from instance config, and replay protection, (4) issues RS256-signed access tokens containing deployment_id and iss from instance config with configurable expires_in, (5) adds the instance-specific custom header to all FHIR responses, (6) dynamically discovers resource types from /app/data/fhir/ for bulk export, (7) implements the full async export lifecycle with auth enforcement on every /fhir/* endpoint."""
+verification_explanation = """28 pytest tests verify: JWKS endpoint (2), valid token requests with DNA verification — expires_in matches config, access token contains deployment_id and iss from instance config (6), invalid JWT scenarios including configurable max lifetime rejection (9), bulk export lifecycle with custom header verification, dynamic resource type discovery including AllergyIntolerance, exact resource ID matching against instance-generated manifest, total count verification, auth enforcement, and cancellation (11). Tests read /app/config/instance.json and /app/config/resource_manifest.json to verify instance-specific values."""
+category = "applied_computing"
+tags = ["healthcare-interoperability", "oauth2-jwt"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-bulk-auth"

@@ -1,0 +1,23 @@
+{
+    "name": "crossing",
+    "description": "90-degree crossing encounter with slight altitude offset. Ownship heading north, intruder heading west.",
+    "ownship": {
+        "sx_nmi": 0.0,
+        "sy_nmi": 0.0,
+        "sz_ft": 17000.0,
+        "trk_deg": 0.0,
+        "gs_knot": 250.0,
+        "vs_fpm": 0.0
+    },
+    "intruders": [
+        {
+            "id": "CROSSER",
+            "sx_nmi": 6.0,
+            "sy_nmi": 3.0,
+            "sz_ft": 17200.0,
+            "trk_deg": 270.0,
+            "gs_knot": 300.0,
+            "vs_fpm": 0.0
+        }
+    ]
+}

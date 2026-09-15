@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple domains: (1) parsing nftables ruleset syntax and understanding its evaluation semantics from the provided baseline code, (2) analyzing binary pcap captures using tshark/tcpdump or manual binary parsing to extract packet data, (3) multi-dimensional geometric analysis across CIDRs, port ranges, and protocols to identify unreachable rules and ordering-sensitive rule pairs, (4) graph-theoretic reasoning to compute minimal constraint sets from a full set of pairwise constraints, (5) designing a classifier that adapts its internal behavior to observed traffic while maintaining correctness invariants, and (6) detecting non-stationary traffic distribution shifts through statistical analysis. The combination demands expertise across networking tools, computational geometry, graph algorithms, and systems engineering."""
+solution_explanation = """Parse the nftables ruleset to extract rules across 5D match space. Compute pairwise match-space overlaps using CIDR prefix comparison, port range intersection, and protocol compatibility to identify ordering constraints between rules with different actions. Reduce the constraint set to its minimal form using reachability analysis. Detect unreachable rules by checking full containment against all preceding rules. Implement a self-adjusting classification strategy that promotes matched rules toward the front while respecting constraint barriers. Analyze traffic by classifying all packets, tracking per-rule hit distributions, and detecting phase boundaries where the dominant rule set changes."""
+verification_explanation = """Nine pytest tests verify: (1) exact classification correctness against baseline for all packets, (2) unreachable rule detection matches dynamically computed ground truth, (3) ordering constraint count matches computed value, (4) minimal constraint count matches computed value, (5) phase boundary detection within ±500 of actual boundaries, (6) amortized throughput ≥ 5x over baseline, (7) self-adjusting behavior during classification, (8) ordering constraint validity at checkpoints, (9) analysis JSON structure and content validation. Ground truth is computed fresh by the test harness from the ruleset and pcap, not stored in the environment."""
+category = "networking"
+tags = ["firewalls", "packet-classification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fccd0a"

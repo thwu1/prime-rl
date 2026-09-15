@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic systems design. The solver must design and implement two novel subsystems for a plausibly deniable database: (1) a FastSpace cache that limits free-space side-channel leakage while maintaining encrypted persistence and correct cache coherency across CRUD operations — requiring decisions about page allocation strategy, cache storage location, and integration with the existing page table system; (2) a portable export format with per-entry HMAC-SHA256 integrity tags that are independently verifiable using openssl CLI tools — requiring key derivation design that produces identical results in Python and bash/openssl, export format architecture, and import-time integrity verification. The solver must evaluate deniability implications of their cache design, create a novel cross-tool verification pipeline, and ensure new features compose correctly with existing encryption, multi-basis overlays, churn, and persistence."""
+solution_explanation = """Extends the base PDDB with: (1) A FastSpace cache storing up to fastspace_limit free page indices in a dedicated encrypted page. The FS page location is derived deterministically and stored in the .System page table ('fp' field). Allocation in put() draws from cache first, falling back to disk scan. delete() returns freed pages to cache. The cache is flushed on every mutation and loaded during .System unlock via _load_fs(). (2) An export system producing JSON with per-entry HMAC-SHA256 tags. Key derivation: HMAC-SHA256(password, salt+':export-hmac-key') → hex string used as HMAC key. Entry tag: HMAC-SHA256(hmac_key_hex, 'dict:key:data_b64'). A bash verification script replicates this using openssl dgst -sha256 -hmac, with python3 used only for JSON parsing. Import validates all tags before writing."""
+verification_explanation = """35 pytest tests organized across 9 classes: basic CRUD (7), multi-basis overlay semantics (5), plausible deniability via chi-squared byte distribution analysis (5), churn correctness (2), persistence across close/reopen (2), cryptographic security properties (3), FastSpace cache behavior — disclosure limits, cache-shrink-on-put, cache-grow-on-delete, close/reopen persistence, empty-cache fallback (5), export/import — file creation, round-trip fidelity, tamper rejection, wrong-password rejection, unique-salt-per-export (5), and CLI verification — script existence with openssl dgst usage, successful verification of valid exports, detection of tampered exports (3). The CLI tests execute the solver's verify_export.sh script via subprocess and check exit codes and output strings."""
+category = "security"
+tags = ["cryptography", "systems-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pddb-deniable-store"

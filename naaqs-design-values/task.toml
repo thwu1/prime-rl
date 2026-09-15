@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of EPA NAAQS regulatory methodology: each of 5 criteria pollutants has a unique design value computation involving different data columns (4th max, arithmetic mean, 98th/99th percentile, non-overlapping max), different multi-year aggregation (3-year mean vs max), and different precision rules (truncation for O3 vs conventional rounding for PM2.5/NO2/SO2). Must also handle exceptional event filtering, data completeness assessment, and multi-POC site-level design values. This is specialized environmental regulatory data science — not textbook material."""
+solution_explanation = """Parse EPA AQS annual summary CSV, group by monitor/standard, filter out Events Included records, then apply pollutant-specific design value formulas: O3 uses 4th Max Value column averaged over 3 years and truncated to 3 decimal places; PM2.5 annual uses Arithmetic Mean averaged and rounded to 1 decimal; PM2.5 24-hr uses 98th Percentile averaged and rounded to integer; NO2 uses 98th Percentile; SO2 uses 99th Percentile; CO uses max of 2nd Max Non Overlapping Value. Compare to NAAQS levels, flag incomplete data, select worst-case POC for site-level values."""
+verification_explanation = """Tests verify exact design values for each monitor (testing correct column selection, aggregation, and truncation/rounding), compliance determinations, exceptional event filtering (Chicago PM2.5 has a decoy Events Included row), incomplete data flagging (Phoenix O3 has one incomplete year), multi-POC site-level design value selection, and summary statistics."""
+category = "data-science"
+tags = ["environmental-regulatory", "epa-air-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/naaqs-design-values"

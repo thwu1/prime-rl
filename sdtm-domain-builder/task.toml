@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level knowledge of CDISC SDTM Implementation Guide v3.3 standards including domain structure (observation classes, variable roles, domain prefixes), CDISC controlled terminology mappings (SEX, RACE, AESEV, AEOUT, AEACN, VSTESTCD), the study day calculation rule with no Day 0, unit standardization for Findings domains, SUPPQUAL dataset construction, and Trial Summary parameter codes. The agent must cross-reference multiple raw data files with a medical dictionary and sponsor conventions document while applying regulatory data standards that require years of clinical programming experience to master."""
+solution_explanation = """A Python script reads all raw CSV files, applies SDTM transformations (date conversion to ISO 8601, controlled terminology mapping, age calculation, study day derivation, unit conversion for vital signs, AE dictionary coding), and writes six SDTM domain CSV files. Key challenges include the no-Day-0 study day rule, mapping free-text race values to CDISC CT, coding misspelled AE terms via dictionary lookup, converting weight from lbs to kg in standardized results while preserving originals, and building the SUPPAE dataset with correct RDOMAIN/IDVAR/QNAM structure."""
+verification_explanation = """Pytest tests verify structural conformance (correct columns, row counts, domain values), controlled terminology compliance (SEX M/F, RACE from CDISC CT, AESEV MILD/MODERATE/SEVERE, AEOUT from CT), data quality (ISO 8601 dates, VSTESTCD ≤8 chars, QNAM ≤8 chars), specific derivations (age=55 for subject 101-001, study day=8 for first AE, weight conversion ~83.9 kg), and cross-domain consistency (SUPPAE RDOMAIN='AE', TS contains required parameters with correct values)."""
+category = "applied_computing"
+tags = ["clinical-data-standards", "data-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sdtm-domain-builder"

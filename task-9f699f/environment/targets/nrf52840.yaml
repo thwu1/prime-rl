@@ -1,0 +1,20 @@
+name: "nRF52"
+variants:
+  - name: "nRF52840"
+    memory_map:
+      - type: ram
+        name: "RAM"
+        range:
+          start: 0x20000000
+          end: 0x20040000
+      - type: nvm
+        name: "Flash"
+        range:
+          start: 0x00000000
+          end: 0x00100000
+        flash_properties:
+          page_size: 4096
+          erased_byte_value: 0xFF
+          sectors:
+            - size: 4096
+              address: 0x00000000

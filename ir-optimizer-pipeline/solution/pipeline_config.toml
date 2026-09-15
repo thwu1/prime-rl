@@ -1,0 +1,30 @@
+
+max_iterations = 15
+
+[[pass]]
+module = "passes.const_fold"
+enabled = true
+
+[[pass]]
+module = "passes.algebraic_simp"
+enabled = true
+
+[[pass]]
+module = "passes.copy_prop"
+enabled = true
+
+[[pass]]
+module = "passes.cse"
+enabled = true
+
+[[pass]]
+module = "passes.dead_branch"
+enabled = true
+
+[[pass]]
+module = "passes.unreachable"
+enabled = true
+
+[[pass]]
+module = "passes.dead_code"
+enabled = true

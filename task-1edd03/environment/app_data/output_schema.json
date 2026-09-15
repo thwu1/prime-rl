@@ -1,0 +1,40 @@
+{
+  "_context": "Regression cascade risk assessment. The CSV maps introducing bugs (BUG_IDS, space-separated integers) to the fixes they necessitated (FIX_ID). Model as a directed dependency graph (each introducing bug -> the fix it triggered) and assess systemic failure propagation risk. forward_reach of a node = count of distinct nodes reachable from it via directed edges, exclusive of itself. Exclude keys prefixed with _ from output.",
+  "data_quality": {
+    "total_raw_rows": "int",
+    "unique_rows": "int",
+    "self_loop_edges": "int",
+    "clean_edge_count": "int"
+  },
+  "graph_topology": {
+    "num_nodes": "int",
+    "num_edges": "int",
+    "num_weakly_connected_components": "int",
+    "largest_wcc_size": "int",
+    "num_nontrivial_sccs": "int",
+    "largest_scc_size": "int: 0 if none; ties by smallest minimum-member ID",
+    "condensation_longest_path": "int: edge count",
+    "num_sources": "int",
+    "num_sinks": "int",
+    "max_out_degree": "int",
+    "max_out_degree_node": "int: ties by smallest ID",
+    "max_in_degree": "int",
+    "max_in_degree_node": "int: ties by smallest ID"
+  },
+  "cascade_analysis": {
+    "total_cascade_impact": "int: sum of forward_reach across all nodes",
+    "max_forward_reach": "int",
+    "top_10_cascade_sources": "[{bug_id, forward_reach}]; ranked by forward_reach DESC, bug_id ASC"
+  },
+  "greedy_prevention": {
+    "_objective": "Determine a triage sequence that halves total cascade impact. Each step: remove the remaining node with greatest forward_reach (ties: smallest ID), recomputing after each removal. Stop when cumulative removed reach >= 50% of original total_cascade_impact or zero remaining reach.",
+    "prevention_sequence": "[int]: removal order",
+    "steps_required": "int",
+    "cumulative_reach_removed": "int",
+    "remaining_total_impact": "int"
+  },
+  "component_risk": {
+    "_note": "Map nodes to components via patch_metadata.jsonl (bug_id field); unmapped nodes = 'unknown'. Use pre-removal forward_reach.",
+    "top_5_components": "[{component, total_forward_reach, bug_count}]; ranked by total_forward_reach DESC, component ASC"
+  }
+}

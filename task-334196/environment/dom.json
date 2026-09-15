@@ -1,0 +1,93 @@
+{
+  "node_id": 0,
+  "tag": "html",
+  "id": null,
+  "classes": [],
+  "attributes": {},
+  "children": [
+    {
+      "node_id": 1,
+      "tag": "body",
+      "id": null,
+      "classes": [],
+      "attributes": {},
+      "children": [
+        {
+          "node_id": 2,
+          "tag": "div",
+          "id": "main",
+          "classes": ["wrapper"],
+          "attributes": {},
+          "children": [
+            {
+              "node_id": 3,
+              "tag": "h1",
+              "id": null,
+              "classes": ["title"],
+              "attributes": {},
+              "children": []
+            },
+            {
+              "node_id": 4,
+              "tag": "p",
+              "id": null,
+              "classes": ["intro"],
+              "attributes": {},
+              "children": []
+            },
+            {
+              "node_id": 5,
+              "tag": "div",
+              "id": null,
+              "classes": ["content"],
+              "attributes": {},
+              "children": [
+                {
+                  "node_id": 6,
+                  "tag": "p",
+                  "id": null,
+                  "classes": [],
+                  "attributes": {},
+                  "children": []
+                },
+                {
+                  "node_id": 7,
+                  "tag": "p",
+                  "id": null,
+                  "classes": ["highlight"],
+                  "attributes": {},
+                  "children": []
+                }
+              ]
+            },
+            {
+              "node_id": 8,
+              "tag": "a",
+              "id": null,
+              "classes": ["link"],
+              "attributes": {"data-external": "true"},
+              "children": []
+            }
+          ]
+        },
+        {
+          "node_id": 9,
+          "tag": "footer",
+          "id": "footer",
+          "classes": [],
+          "attributes": {},
+          "children": [
+            {
+              "node_id": 10,
+              "tag": "p",
+              "id": null,
+              "classes": ["small"],
+              "attributes": {},
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

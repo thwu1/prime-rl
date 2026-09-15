@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a correct concurrent table migration protocol for a lock-free hash map from scratch. The solver must invent a mechanism to atomically transfer entries between tables while concurrent readers and writers operate without blocking. Key design decisions include: (1) choosing a signaling strategy to mark cells as "in migration" so concurrent operations can detect and react to the intermediate state; (2) designing a CAS-based migration loop that correctly handles races between the migrator and concurrent writers/erasers touching the same cell; (3) modifying get/assign/erase to handle the multi-table state during migration (e.g., retrying on the new table when encountering a migrated cell); (4) preventing unbounded insertion into the old table during migration so the scan converges; (5) wiring up QSBR to safely deallocate the old table only after all threads have moved on. These concerns interact — e.g., a frozen-flag approach must handle in-flight insertions that passed the check before the flag was set, requiring a convergence loop. The problem demands deep understanding of CAS protocols, memory ordering, and lock-free invariant design."""
+solution_explanation = """The solution implements a redirect-based migration protocol: (1) doResize() freezes the old table (sets frozen=true), then repeatedly scans all cells, CAS-ing each non-empty value to REDIRECT_VAL and copying the pre-redirect value to the new table — the convergence loop repeats until a full pass finds nothing new, handling late insertions; (2) get() is wrapped in a retry loop that detects REDIRECT_VAL and re-reads from the latest root table; (3) assign()'s CAS loop checks for REDIRECT_VAL and retries on the new table when encountered; (4) erase()'s CAS loop similarly detects REDIRECT_VAL and retries; (5) insertOrFind() checks the frozen flag before CAS-ing a new key into an empty slot, returning OVERFLOW to force the caller to retry on the new table; (6) old tables are deallocated via QSBR enqueue."""
+verification_explanation = """Three C++ test programs are compiled against the candidate header: (1) single-threaded correctness of insert, get, update, erase, and re-insert with 200+ keys forcing resizes; (2) multi-threaded correctness with 4 threads inserting 10000 disjoint keys each, then concurrently erasing half, with full post-phase verification; (3) resize stress starting from capacity 16 with 4 threads inserting 2500 keys each, forcing frequent table migrations under concurrency, with periodic mid-flight and final verification of all keys."""
+category = "systems_programming"
+tags = ["concurrency", "lock-free-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lockfree-map-qsbr"

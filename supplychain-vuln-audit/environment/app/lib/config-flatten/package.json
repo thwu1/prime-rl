@@ -1,0 +1,6 @@
+{
+  "name": "config-flatten",
+  "version": "2.1.0",
+  "description": "Flatten and unflatten nested configuration objects",
+  "main": "index.js"
+}

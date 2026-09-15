@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the dm-verity on-disk binary format (512-byte packed superblock with version, UUID, algorithm string, block sizes, data block count, and salt), understanding the Merkle hash tree construction and its counter-intuitive top-down on-disk level ordering (top level stored first, leaf level last), and handling heterogeneous configurations across images (sha256 vs sha512 with different digest sizes, varying hash block sizes that change tree fan-out and depth). The two-part structure demands multi-tool integration: native Python binary parsing and hash tree analysis for forensics, plus veritysetup CLI orchestration via bash scripting for remediation — requiring the agent to bridge binary-encoded parameters into correct command-line invocations."""
+solution_explanation = """Parse the 512-byte superblock at each image's hash_offset to extract algorithm, salt, block sizes, and data block count. Map the on-disk hash tree layout where the top level is stored first after the superblock and the leaf level last. Compute root hashes by hashing the top-level block with the salt. Detect data block corruption by comparing recomputed leaf hashes against stored values. For remediation, extract the same parameters from each corrupted image's superblock and invoke veritysetup format with matching --hash, --salt, --hash-block-size, and --data-block-size flags to rebuild the hash tree, collecting new root hashes into remediation.json."""
+verification_explanation = """Tests verify root hashes and hash algorithms against independently-stored expected values for 6 pre-built images using two hash algorithms (sha256, sha512) and two hash block sizes (1024, 4096). Cross-validates clean images with veritysetup verify. Checks remediation script structure, veritysetup usage, execution success, and that all remediated images pass veritysetup verify with new root hashes. An anti-cheat test generates a fresh image at test time with a random salt and sha512, corrupts a specific block, reruns the tool, and verifies correct root hash computation, algorithm detection, and corruption identification."""
+category = "security_and_privacy"
+tags = ["dm-verity", "linux-security"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/verity-merkle-forensics"

@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!--
+     Copyright 2014, General Dynamics C4 Systems
+     SPDX-License-Identifier: GPL-2.0-only
+-->
+<testsuite cpu-timeout="3600">
+
+    <set>
+        <!-- Extract kernel configuration into Kernel_Config.thy. -->
+        <test name="kernel-config" cpu-timeout="300">make c-config</test>
+    </set>
+
+    <set depends="kernel-config">
+        <!-- Run the haskell translator. -->
+        <test name="haskell-translator" cpu-timeout="600">make design-spec</test>
+    </set>
+
+    <set depends="isabelle Lib">
+        <!-- Various seL4 specifications. -->
+        <test name="TakeGrant">make TakeGrant</test>
+
+        <test name="ASpec-files">make ASpec-files</test>
+
+        <set depends="haskell-translator kernel-config ASpec-files">
+            <test name="ASpec">make ASpec</test>
+            <test name="ExecSpec">make ExecSpec</test>
+            <test name="DSpec">make DSpec</test>
+        </set>
+
+        <set depends="ASpec">
+            <test name="ASepSpec">make ASepSpec</test>
+        </set>
+    </set>
+
+    <set>
+        <!-- Build Haskell kernel code. -->
+        <test name="HaskellKernel" cpu-timeout="3600">make $L4V_ARCH</test>
+    </set>
+
+</testsuite>

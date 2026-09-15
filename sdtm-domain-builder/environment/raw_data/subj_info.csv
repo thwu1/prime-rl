@@ -1,0 +1,7 @@
+SubjectID,Site,BirthDate,Gender,Ethnicity,Race,ScreenDate,RandomizationDate,EndDate,ArmAssignment,CompletionStatus
+101-001,101,05/12/1968,Male,Not Hispanic,Caucasian,01/15/2024,01/29/2024,03/25/2024,Treatment,Completed
+101-002,101,11/23/1961,Female,Hispanic or Latino,White,01/18/2024,02/01/2024,03/28/2024,Placebo,Completed
+102-001,102,03/07/1975,Male,Not Hispanic,African American,01/22/2024,02/05/2024,04/01/2024,Treatment,Completed
+102-002,102,08/30/1952,Female,Not Hispanic,Asian,01/25/2024,02/08/2024,03/15/2024,Placebo,Withdrawn due to AE
+103-001,103,06/14/1963,Male,Hispanic or Latino,Mixed Race,02/01/2024,02/15/2024,04/11/2024,Treatment,Completed
+103-002,103,12/01/1970,Female,Not Hispanic,Native American,02/05/2024,02/19/2024,04/15/2024,Placebo,Completed

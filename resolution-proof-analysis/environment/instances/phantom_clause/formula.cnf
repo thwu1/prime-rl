@@ -1,0 +1,6 @@
+c SAT formula (2 variables, 3 clauses) - NOT unsatisfiable
+c Missing clause {-1,-2} compared to the full contradiction
+p cnf 2 3
+1 2 0
+-1 2 0
+1 -2 0

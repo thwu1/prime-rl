@@ -1,0 +1,18 @@
+// Test 02: Arithmetic operators, precedence, division/modulo, unary operators
+int main() {
+    int a = 2 + 3 * 4;
+    int b = (2 + 3) * 4;
+    putint(a); putch(32);
+    putint(b); putch(32);
+    putint(17 / 5); putch(32);
+    putint(17 % 5); putch(32);
+    putint(-17 / 5); putch(32);
+    putint(-17 % 5); putch(32);
+    int c = -3 * -4;
+    putint(c); putch(32);
+    int d = !0;
+    int e = !5;
+    putint(d); putch(32);
+    putint(e); putch(10);
+    return 0;
+}

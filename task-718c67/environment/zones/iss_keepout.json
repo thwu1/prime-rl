@@ -1,0 +1,42 @@
+{
+  "name": "ISS US Lab Keepout Zones",
+  "dateCreated": "2024-06-15T00:00:00Z",
+  "notes": "Keepout zones for US Laboratory module. Coordinates in ISS reference frame (meters).",
+  "zones": [
+    {
+      "name": "us_lab_port_rack",
+      "type": "keepout",
+      "notes": "Equipment rack on port side of US Lab. Avoid due to protruding connectors and sensitive instruments.",
+      "min": [10.2, -8.3, 3.8],
+      "max": [10.8, -7.8, 5.2]
+    },
+    {
+      "name": "jpm_hatch_clearance",
+      "type": "keepout",
+      "notes": "Clearance zone around JPM hatch. Required for crew passage safety.",
+      "min": [11.5, -10.2, 3.5],
+      "max": [12.0, -9.6, 5.0]
+    },
+    {
+      "name": "dock_maintenance_zone",
+      "type": "keepout",
+      "notes": "Maintenance exclusion zone near docking station. Active during EVA prep.",
+      "min": [9.2, -10.5, 4.0],
+      "max": [9.8, -9.8, 4.6]
+    },
+    {
+      "name": "express_rack_7",
+      "type": "keepout",
+      "notes": "EXPRESS Rack 7 with active experiments. High-sensitivity vibration zone.",
+      "min": [11.0, -7.5, 4.8],
+      "max": [11.6, -7.0, 5.5]
+    },
+    {
+      "name": "cupola_viewport",
+      "type": "keepout",
+      "notes": "Cupola viewport area. Crew observation station - no robot transit.",
+      "min": [8.5, -9.0, 3.0],
+      "max": [9.0, -8.2, 3.8]
+    }
+  ]
+}

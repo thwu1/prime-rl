@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CMOR/CF-1.8 compliance across coordinate transformation, unit conversion, fill-value handling, and metadata conventions — without any checklist or dimension descriptions provided. The solver must independently discover what compliance properties to evaluate (spatial data-coordinate coupling, unit conversion arithmetic and direction, CF-standard unit string formatting, Gaussian grid polar bound extension, monthly time bound computation, undeclared fill-value detection under data transformations, required global attributes, and required variable attributes). Beyond pass/fail evaluation, the solver must perform root-cause analysis tracing each defect to a specific algorithmic flaw in the pipeline code, determine which variables each defect affects, and identify processing order dependencies — specifically that fill-value masking must precede unit conversion (because conversion transforms sentinel values, making them undetectable) and that coordinate reordering must be coupled with data array reordering (otherwise spatial alignment is silently corrupted). Finally, the solver must synthesize a correct hybrid pipeline that combines the complementary correct approaches from both implementations."""
+solution_explanation = """Evaluate Pipeline Alpha (passes: spatial alignment via np.take reordering, time bounds computation, spec-based unit strings, cell_methods attribute; fails: precipitation unit conversion multiplies instead of divides by 86400 affecting pr, Gaussian grid latitude bounds not extended to ±90 affecting rlut, fill values masked after conversion making sentinel undetectable affecting pr, missing Conventions/history global attributes affecting all). Evaluate Pipeline Beta (passes: correct unit conversion divides by 86400, polar latitude bounds extend to ±90, fill values masked before conversion preserving sentinel, has Conventions/history; fails: longitude shift doesn't reorder data array via np.take affecting tas, uses raw file unit strings instead of spec strings affecting all, no time bounds computed affecting all, missing cell_methods attribute affecting all). Write audit with pass_count=4 for both, superior_pipeline=neither, defect_analysis with root causes and affected variables for each failure, and processing_dependencies identifying fill-before-conversion and coordinate-data coupling ordering constraints. Create hybrid pipeline combining each pipeline's correct approaches."""
+verification_explanation = """Tests dynamically verify the audit report by independently computing ground truth for each compliance dimension against both pipeline outputs — checking spatial data/coordinate consistency via embedded temperature gradient, precipitation value ranges, unit string matching, latitude bound extremes across all grids including Gaussian, time_bnds existence and shape, fill-value fractions in polar regions, and global/variable attribute presence. Additional tests verify defect_analysis structure (entries for each failing dimension with non-trivial root causes and affected variable lists, no entries for passing dimensions) and processing_dependencies structure (at least two dependencies with fill-value/conversion ordering identified). Separate tests validate the final pipeline output for full CMOR compliance."""
+category = "scientific_computing"
+tags = ["netcdf", "climate-data"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-cmorization-pipeline"

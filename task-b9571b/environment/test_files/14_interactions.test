@@ -1,0 +1,83 @@
+# Complex feature interactions
+
+# --- 1. Loop with connection switching ---
+statement ok
+CREATE TABLE lc_data(iteration INTEGER, source VARCHAR)
+
+loop i 0 3
+
+statement ok @writer
+INSERT INTO lc_data VALUES (${i}, 'writer')
+
+endloop
+
+query I
+SELECT COUNT(*) FROM lc_data
+----
+3
+
+# --- 2. Foreach with named connection verification ---
+foreach val alpha beta gamma
+
+statement ok
+INSERT INTO lc_data VALUES (100, '${val}')
+
+endforeach
+
+query I @checker
+SELECT COUNT(*) FROM lc_data
+----
+6
+
+# --- 3. Reconnect mid-test, verify data persists ---
+reconnect
+
+query I
+SELECT COUNT(*) FROM lc_data
+----
+6
+
+# --- 4. Labels work across reconnect ---
+query I nosort lc_count
+SELECT COUNT(*) FROM lc_data
+----
+
+query I nosort lc_count
+SELECT 6
+----
+
+# --- 5. hash_threshold with auto-hashing ---
+hash_threshold 5
+
+query I
+SELECT x FROM (VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9)) t(x) ORDER BY x
+----
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+
+# --- 6. EXPLAIN regex after reconnect ---
+statement ok
+PRAGMA explain_output = PHYSICAL_ONLY;
+
+query TT
+EXPLAIN SELECT * FROM lc_data
+----
+physical_plan	<REGEX>:.*SCAN.*
+
+# --- 7. Negative regex on query results ---
+query T
+SELECT 'no_numbers_here'
+----
+<!REGEX>:\d+$
+
+# Clean up
+statement ok
+DROP TABLE lc_data

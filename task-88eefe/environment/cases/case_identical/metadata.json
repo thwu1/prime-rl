@@ -1,0 +1,7 @@
+{
+    "commit_hash": "a1b2c3d4e5f6",
+    "description": "Replace old_register/old_unregister with new_register/new_unregister, add device validation helper",
+    "subsystem": "drivers/misc",
+    "kernel_version_from": "5.10",
+    "kernel_version_to": "5.11"
+}

@@ -1,0 +1,79 @@
+{
+  "hardware": {
+    "peak_tflops": 312.0,
+    "bandwidth_gb_s": 2000.0,
+    "memory_gb": 80.0
+  },
+  "scenarios": [
+    {
+      "name": "decode_gqa4",
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "d_head": 128,
+      "n_layers": 32,
+      "dtype_bytes": 2,
+      "batch_size": 1,
+      "seq_len_q": 1,
+      "seq_len_kv": 4096
+    },
+    {
+      "name": "prefill_gqa4",
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "d_head": 128,
+      "n_layers": 32,
+      "dtype_bytes": 2,
+      "batch_size": 1,
+      "seq_len_q": 2048,
+      "seq_len_kv": 2048
+    },
+    {
+      "name": "decode_mqa",
+      "n_heads": 32,
+      "n_kv_heads": 1,
+      "d_head": 128,
+      "n_layers": 32,
+      "dtype_bytes": 2,
+      "batch_size": 1,
+      "seq_len_q": 1,
+      "seq_len_kv": 2048
+    },
+    {
+      "name": "prefill_mha",
+      "n_heads": 16,
+      "n_kv_heads": 16,
+      "d_head": 64,
+      "n_layers": 12,
+      "dtype_bytes": 2,
+      "batch_size": 4,
+      "seq_len_q": 512,
+      "seq_len_kv": 512
+    },
+    {
+      "name": "decode_gqa8",
+      "n_heads": 64,
+      "n_kv_heads": 8,
+      "d_head": 128,
+      "n_layers": 80,
+      "dtype_bytes": 2,
+      "batch_size": 16,
+      "seq_len_q": 1,
+      "seq_len_kv": 8192
+    }
+  ],
+  "analysis": {
+    "critical_prefill": {
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "d_head": 128,
+      "dtype_bytes": 2
+    },
+    "group_size_sweep": {
+      "n_heads": 32,
+      "d_head": 128,
+      "dtype_bytes": 2,
+      "seq_len_q": 1,
+      "seq_len_kv": 4096
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "basic_constprop",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 5},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 3},
+    "3": {"type": "Iop", "op": "add", "args": ["r1", "r2"], "dest": "r3", "succ": 4},
+    "4": {"type": "Ireturn", "arg": "r3"}
+  }
+}

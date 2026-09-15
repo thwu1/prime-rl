@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert DNS protocol knowledge spanning RFC 1035, 1034, 6891, and 5452 to independently discover six distinct defects in a functional-looking resolver — including interacting bugs where fixing one reveals another (adding EDNS0 without increasing the 512-byte recv buffer causes newly-enabled large responses to be silently truncated), a security vulnerability with no functional symptoms (missing transaction ID verification enables cache poisoning), and a denial-of-service vector via crafted compression pointer loops. No bug list or failing domains are provided — the solver must design their own test methodology, evaluate the resolver against protocol specifications, and implement all fixes while preserving the module's public API."""
+solution_explanation = """Audit the resolver through code review, live DNS testing with dig/tshark, and crafted packet analysis to discover: (1) no compression pointer loop detection in decode_dns_name — infinite loop DoS, (2) CNAME records ignored during iterative resolution — aliased domains fail, (3) glueless NS delegations cause immediate failure instead of recursive NS resolution, (4) no EDNS0 OPT record in queries — limits responses to 512 bytes, (5) recvfrom buffer of 512 bytes truncates responses even after EDNS0 is added — interacting bug creating delayed feedback, (6) no transaction ID verification in send_query — silent security vulnerability enabling cache poisoning. Bugs 4+5 interact: fixing EDNS0 alone causes servers to send larger responses that the recv buffer then truncates. Bug 6 has no functional symptoms and requires code review to discover. Write structured audit report with 6+ findings covering vulnerability, protocol_violation, and missing_feature categories."""
+verification_explanation = """Eight test classes verify all defects are fixed: (1) crafted DNS packets with self-referencing compression pointers don't hang and raise errors within 5 seconds, (2) mock-based CNAME single-hop and two-hop chain following, (3) mock-based glueless NS delegation resolution, (4) build_query output contains EDNS0 OPT record with UDP payload size >= 1232, (5) mock socket that truncates data to the recvfrom buffer size verifies 40-record (673-byte) responses are fully received — fails if buffer is 512, (6) mock socket returning a DNS response with wrong transaction ID verifies the resolver rejects it, (7) end-to-end resolution of example.com returns valid IPv4 over real internet, (8) audit.json schema validation requiring >= 6 findings covering all three categories plus risk_assessment and test_methodology fields."""
+category = "networking"
+tags = ["dns", "security-audit"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/harden-dns-resolver"

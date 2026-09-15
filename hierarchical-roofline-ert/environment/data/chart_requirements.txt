@@ -1,0 +1,23 @@
+Roofline Chart Requirements
+============================
+
+Generate /app/results/roofline_chart.svg using gnuplot.
+
+Data preparation:
+  Compile /app/data/ert_bw_profile.c and run the resulting binary on the
+  lowest-FLOP ERT data file.  Save the bandwidth profile output to
+  /app/results/bw_profile.dat.
+
+Chart specifications:
+  - SVG terminal, 800x600
+  - Log-log scale on both axes
+  - X-axis: Arithmetic Intensity (FLOP/Byte)
+  - Y-axis: Performance (GFLOP/s)
+  - Title must contain "Hierarchical Roofline"
+
+Required visual elements:
+  - Horizontal line at peak compute performance, labeled with "Peak"
+  - One diagonal memory bandwidth ceiling per detected cache level,
+    labeled with the level name (L1, L2, L3, DRAM)
+  - Application kernel data points, each labeled with the kernel name
+  - Ridge point annotations where memory and compute ceilings meet

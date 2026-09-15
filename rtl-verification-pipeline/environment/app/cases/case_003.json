@@ -1,0 +1,7 @@
+{
+    "id": "case_003",
+    "title": "SUB performs addition instead of subtraction",
+    "description": "The subtraction operation (SUB) incorrectly uses the addition operator (+) instead of the subtraction operator (-). This is a common copy-paste error when the SUB case was derived from the ADD case during development.",
+    "buggy_code": "        OP_SUB:  result = a + b;",
+    "fixed_code": "        OP_SUB:  result = a - b;"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "rapid-json-parse",
+  "version": "2.4.1",
+  "description": "High-performance JSON parsing utilities for Node.js applications",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "node lib/telemetry.js"
+  },
+  "keywords": ["json", "parser", "fast", "performance"],
+  "author": "robsmith-dev <robsmith.dev@proton.me>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robsmith-dev/rapid-json-parse"
+  },
+  "dependencies": {},
+  "files": ["lib/"]
+}

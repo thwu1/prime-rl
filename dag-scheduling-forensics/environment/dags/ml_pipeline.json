@@ -1,0 +1,38 @@
+{
+  "dag_id": "ml_pipeline",
+  "schedule_interval": "0 6 * * *",
+  "default_args": {
+    "retries": 1,
+    "retry_delay_seconds": 900,
+    "execution_timeout_seconds": 14400
+  },
+  "tasks": [
+    {
+      "task_id": "wait_quality",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "data_quality",
+      "external_task_id": "quality_summary"
+    },
+    {
+      "task_id": "feature_eng",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_quality"]
+    },
+    {
+      "task_id": "train",
+      "operator": "PythonOperator",
+      "dependencies": ["feature_eng"]
+    },
+    {
+      "task_id": "evaluate",
+      "operator": "PythonOperator",
+      "dependencies": ["train"]
+    },
+    {
+      "task_id": "register",
+      "operator": "PythonOperator",
+      "dependencies": ["evaluate"]
+    }
+  ]
+}

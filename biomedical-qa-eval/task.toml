@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IR evaluation methodology, statistical resampling, and SQL analytics. The solver must: (1) identify 3 subtle evaluation bugs by comparing evaluator output against a formal specification across different metric types (document retrieval, factoid, list); (2) correctly implement a full bootstrap ranking confidence analysis where one of the metrics is non-decomposable; (3) construct advanced SQL views for trend analysis and anomaly detection in SQLite, including manual aggregation functions; (4) coordinate between Python evaluation code, statistical analysis, and database operations across multiple output artifacts."""
+solution_explanation = """Three bugs exist in the evaluator: one in GMAP computation (wrong logarithm base — no ranking impact), one in factoid MRR (wrong denominator — changes rankings), and one in list recall (incomplete synonym matching — changes rankings). After fixing, the solver must implement bootstrap resampling per the spec's Section 6 methodology with correct handling of non-decomposable metrics, detect historical anomalies using z-scores, and create two analytical SQL views with window functions and manual standard deviation computation."""
+verification_explanation = """Tests implement a complete reference evaluator and bootstrap analysis from the specification, comparing all metric values with 1e-4 tolerance. Bootstrap CIs verified via independent reference with same numpy seed. SQL views verified by querying the DB directly: v_metric_trends checked for LAG-computed prev_value/delta with known historical values, v_current_anomalies checked for correct z-scores. Cross-validation ensures view anomalies match audit.json historical_anomalies. Bug tests verify 3 bugs found, correct ranking_impact distribution, and correct categorization."""
+category = "data_science"
+tags = ["evaluation_debugging", "biomedical_nlp"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/biomedical-qa-eval"

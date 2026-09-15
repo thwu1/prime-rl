@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level OSPF protocol knowledge spanning multiple RFC 2328 sections (neighbor FSM, Hello reception rules, DD MTU checking), proficiency with tshark display filters and field extraction modes for OSPF packet dissection, scapy packet decoding for binary-level protocol analysis, and the ability to correlate outputs from both tools to diagnose three distinct categories of adjacency failure (timer mismatch, MTU mismatch at ExStart, Options E-bit disagreement) from a raw pcap. The MTU-based ExStart stall is a particularly subtle operational failure requiring understanding of how RFC 2328 Section 10.6 silently drops DD packets, causing indefinite retransmission without explicit error — a failure mode only diagnosable by an experienced network engineer."""
+solution_explanation = """Use tshark to extract OSPF packet fields (ospf.msg, ospf.srcrouter, ospf.hello.hello_interval, ospf.db.dd.mtu, etc.) and scapy rdpcap with OSPF layer access to build a packet inventory. Cross-reference Hello parameters against the topology's expected config to identify R3's HelloInterval=30 and R5's E-bit=0 violations. Analyze DD exchanges to detect R4's MTU=9000 vs expected 1500, explaining the ExStart stall. Trace the FSM state machine for each router pair to determine final states (R1-R2: Full, R1-R4/R2-R4: ExStart, pairs with R3/R5: Down). Produce forensic report with RFC section citations for each root cause."""
+verification_explanation = """Tests verify packet inventory counts (46 total, 25 Hello, 21 DD, 5 router IDs), adjacency outcomes per pair (R1-R2 Full, R1-R4 ExStart, pairs with R3 or R5 Down), protocol violation identification (3 violations covering HelloInterval, MTU, and E-bit with correct RFC sections), and root cause report accuracy (1 successful, multiple failed, 3 distinct root causes). Tests check both structural correctness and domain-specific content to ensure genuine analysis was performed."""
+category = "networking"
+tags = ["protocol-forensics", "ospf"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-fsm-testing"

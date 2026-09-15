@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ipblock-policy.yaml
+  - search-policies.yaml
+  - edge-egress-policy.yaml
+  - backend-search-egress.yaml
+patches:
+  - target:
+      kind: NetworkPolicy
+      name: frontend-egress
+      namespace: alpha
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/ports/0/port
+        value: http-api
+  - target:
+      kind: NetworkPolicy
+      name: data-ingress
+      namespace: gamma
+    patch: |-
+      - op: replace
+        path: /spec/ingress/0/ports/0/port
+        value: pg
+      - op: replace
+        path: /spec/ingress/1/ports/0/port
+        value: pg
+  - target:
+      kind: NetworkPolicy
+      name: primary-egress
+      namespace: gamma
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/ports/0/port
+        value: pg

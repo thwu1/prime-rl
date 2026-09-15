@@ -1,0 +1,18 @@
+# Diamond CFG: cross-block redundancy through dominator
+function diamond(2):
+bb0:
+  v0 = add a0 a1
+  branch a0 bb1 bb2
+bb1:
+  v1 = add a0 a1
+  v2 = mul v1 a0
+  jump bb3
+bb2:
+  v3 = add a0 a1
+  v4 = mul v3 a1
+  jump bb3
+bb3:
+  v5 = phi bb1:v2 bb2:v4
+  v6 = add a0 a1
+  v7 = mul v5 v6
+  return v7

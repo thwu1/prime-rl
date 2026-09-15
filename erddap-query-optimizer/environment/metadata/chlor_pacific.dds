@@ -1,0 +1,15 @@
+Dataset {
+  Float64 time[time = 876];
+  Float64 altitude[altitude = 1];
+  Float64 latitude[latitude = 3600];
+  Float64 longitude[longitude = 7200];
+  GRID {
+    ARRAY:
+      Float32 chlorophyll[time = 876][altitude = 1][latitude = 3600][longitude = 7200];
+    MAPS:
+      Float64 time[time = 876];
+      Float64 altitude[altitude = 1];
+      Float64 latitude[latitude = 3600];
+      Float64 longitude[longitude = 7200];
+  } chlorophyll;
+} chlor_pacific;

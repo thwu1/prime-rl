@@ -1,0 +1,14 @@
+{
+  "num_documents": 150,
+  "num_passages": 437,
+  "num_queries": 20,
+  "num_runs": 4,
+  "run_names": [
+    "run_0",
+    "run_1",
+    "run_2",
+    "run_3"
+  ],
+  "relevance_scale": "0-3 graded (0=not relevant, 1=marginal, 2=relevant, 3=highly relevant)",
+  "note": "Passages have parent_id linking to documents. Qrels are document-level. Runs are passage-level."
+}

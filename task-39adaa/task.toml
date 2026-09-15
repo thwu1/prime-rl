@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interacting bugs across a computational geometry pipeline without guidance on what is broken: incorrect Chamfer Distance aggregation formula, non-area-weighted surface sampling on triangle meshes, wrong mesh normalization centering convention, F1 threshold comparison applied to squared distances, and volumetric IoU grid computed from only one mesh's bounding box. Each bug demands distinct domain expertise to identify from code inspection alone, and the bugs interact to produce plausible-looking but incorrect output."""
+solution_explanation = """Fix Chamfer Distance to use bidirectional means of squared L2 distances instead of a pooled mean of raw distances. Implement area-weighted triangle sampling proportional to face area via CDF-based selection. Correct mesh normalization to center at (0.5, 0.5, 0.5) within [0,1]^3. Fix F1 threshold comparison to use raw nearest-neighbor distances instead of squared. Compute volumetric IoU grid from the union of both meshes' bounding boxes."""
+verification_explanation = """Tests verify each metric against analytically-known inputs: Chamfer Distance with single-point and asymmetric configurations expecting specific numerical values (2.0, 3.5), F1 score at threshold boundaries where raw vs squared distance comparison diverges, normalization bounds within [0,1]^3, area-weighted sampling distribution on a two-face mesh with extreme area ratio, volumetric IoU with a contained-box scenario that distinguishes single-mesh vs union bounding box computation, and end-to-end pipeline output on CadQuery model pairs."""
+category = "computational_geometry"
+tags = ["cad", "3d-geometry"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-39adaa"

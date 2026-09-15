@@ -1,0 +1,60 @@
+{
+    "cui_grid": {
+        "S0": 100.0,
+        "r": 0.03,
+        "q": 0.0,
+        "num_points": 40,
+        "K_range": [105.0, 800.0],
+        "tau_range": [0.01, 2.0],
+        "sigma_range": [0.01, 0.99],
+        "price_floor": 1e-20,
+        "max_iv_error": 1e-10,
+        "mean_iv_error": 1e-12
+    },
+    "wide_vol": {
+        "forward": 100.0,
+        "strike": 200.0,
+        "tte": 1.0,
+        "discount_df": 1.0,
+        "vol_range": [0.02, 4.0],
+        "vol_step": 0.01,
+        "max_iv_error": 1e-10
+    },
+    "edge_cases": [
+        {
+            "type": "put",
+            "forward": 356.73063159822254,
+            "strike": 275.0,
+            "tte": 1.5917808219178082,
+            "discount_df": 1.0,
+            "price": 271.43234885190117,
+            "round_trip_tol": 1e-10
+        },
+        {
+            "type": "call",
+            "forward": 2838.9998434067384,
+            "strike": 2485.0,
+            "tte": 0.08493150684931507,
+            "discount_df": 1.0,
+            "price": 355.12907714987386,
+            "round_trip_tol": 1e-10
+        },
+        {
+            "type": "call",
+            "forward": 1.0,
+            "strike": 0.65,
+            "tte": 0.0191780822,
+            "discount_df": 1.0,
+            "price": 0.35000000053458924,
+            "round_trip_tol": 1e-10
+        }
+    ],
+    "parity_cases": [
+        {"forward": 150.0, "strike": 130.0, "vol": 0.25, "tte": 0.5, "discount_df": 1.0, "parity_tol": 1e-12},
+        {"forward": 100.0, "strike": 120.0, "vol": 0.30, "tte": 1.0, "discount_df": 0.97, "parity_tol": 1e-12},
+        {"forward": 100.0, "strike": 200.0, "vol": 0.40, "tte": 0.25, "discount_df": 1.0, "parity_tol": 1e-12}
+    ],
+    "performance": {
+        "cui_grid_max_seconds": 30
+    }
+}

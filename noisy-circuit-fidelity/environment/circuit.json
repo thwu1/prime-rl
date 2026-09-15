@@ -1,0 +1,90 @@
+{
+  "n_qubits": 4,
+  "qubit_labels": [0, 1, 2, 3],
+  "initial_state": "|0000>",
+  "gates": [
+    {
+      "step": 1,
+      "type": "H",
+      "target": 0,
+      "noisy": false,
+      "description": "Hadamard gate on qubit 0"
+    },
+    {
+      "step": 2,
+      "type": "CNOT",
+      "control": 0,
+      "target": 1,
+      "noisy": true,
+      "noise_qubits": [0, 1],
+      "description": "CNOT with control=0, target=1, followed by depolarizing noise on qubits {0,1}"
+    },
+    {
+      "step": 3,
+      "type": "CNOT",
+      "control": 1,
+      "target": 2,
+      "noisy": true,
+      "noise_qubits": [1, 2],
+      "description": "CNOT with control=1, target=2, followed by depolarizing noise on qubits {1,2}"
+    },
+    {
+      "step": 4,
+      "type": "CNOT",
+      "control": 2,
+      "target": 3,
+      "noisy": true,
+      "noise_qubits": [2, 3],
+      "description": "CNOT with control=2, target=3, followed by depolarizing noise on qubits {2,3}"
+    }
+  ],
+  "noise_model": {
+    "type": "two_qubit_depolarizing",
+    "formula": "rho_out = (1-p)*rho + (p/15) * sum_{k=1}^{15} P_k rho P_k^dagger",
+    "description": "After each noisy two-qubit gate acting on qubits (i,j), apply a depolarizing channel. The sum ranges over the 15 non-identity elements of the two-qubit Pauli group {I,X,Y,Z}^{tensor 2} \\ {I tensor I}, each applied to qubits i and j within the full system.",
+    "parameter": "p",
+    "parameter_range": "[0, 1]"
+  },
+  "target_state": {
+    "name": "4-qubit GHZ state",
+    "formula": "(|0000> + |1111>) / sqrt(2)",
+    "description": "Equal superposition of all-zeros and all-ones"
+  },
+  "post_selection": {
+    "stabilizers": [
+      {
+        "name": "S1",
+        "operator": "Z_0 Z_1",
+        "description": "Tensor product of Pauli-Z on qubits 0 and 1, identity on qubits 2 and 3"
+      },
+      {
+        "name": "S2",
+        "operator": "Z_2 Z_3",
+        "description": "Tensor product of identity on qubits 0 and 1, Pauli-Z on qubits 2 and 3"
+      }
+    ],
+    "eigenvalue": 1,
+    "projector_formula": "Pi = (I + Z_0 Z_1)/2 * (I + Z_2 Z_3)/2",
+    "description": "Post-select on the +1 eigenspace of both stabilizers S1 and S2. The target GHZ state lies in this eigenspace."
+  },
+  "required_outputs": [
+    {
+      "name": "raw_fidelity",
+      "symbol": "F_raw(p)",
+      "formula": "<target| rho_out(p) |target>",
+      "description": "Fidelity of the noisy output state with the ideal target, without any post-selection"
+    },
+    {
+      "name": "acceptance_probability",
+      "symbol": "P_accept(p)",
+      "formula": "Tr(Pi * rho_out(p) * Pi)",
+      "description": "Probability that both stabilizer measurements yield +1"
+    },
+    {
+      "name": "post_selected_fidelity",
+      "symbol": "F_ps(p)",
+      "formula": "<target| rho_out(p) |target> / Tr(Pi * rho_out(p) * Pi)",
+      "description": "Fidelity conditioned on passing both stabilizer checks. Note: since Pi|target> = |target>, this simplifies to F_raw(p) / P_accept(p)"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of systematic trading methodology including exponentially-weighted blended volatility estimation, vol-normalized trend signals (EWMAC), pooled forecast scalar calibration, diversification multiplier computation from averaged correlation matrices, and position sizing with volatility targeting. Multiple interacting quantitative components where errors in early stages compound through the pipeline. The methodology is specific to Rob Carver's approach and not found in standard textbooks."""
+solution_explanation = """Implements the complete Carver-style forecast calibration pipeline: (1) blended vol estimation combining fast EWMA std with slow expanding std, (2) EWMAC signals at three speeds normalized by blended vol, (3) pooled forecast scalar calibration targeting mean absolute forecast of 10, (4) forecast diversification multiplier from per-instrument correlation matrices averaged element-wise, (5) combined forecasts with FDM and capping, and (6) subsystem position sizing via annual vol targeting."""
+verification_explanation = """Tests independently compute reference values from the raw price data using the same specification. Agent output in results.json is compared against reference values with 2-3% relative tolerance. Tests also verify structural correctness (JSON schema, required keys), mathematical invariants (scalar ordering, FDM range, forecast bounds, positive vol), and exact numerical agreement for all 16 output values."""
+category = "quantitative_finance"
+tags = ["systematic-trading", "time-series"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/forecast-calibration-pipeline"

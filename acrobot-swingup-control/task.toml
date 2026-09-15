@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of underactuated robotics: the acrobot swing-up is a canonical hard problem in nonlinear control. The solver must (1) understand the energy landscape of a double pendulum and design a swing-up strategy that pumps energy through the only actuated joint, (2) derive or numerically compute the linearization of the 4-state nonlinear dynamics at the unstable equilibrium, (3) solve the continuous algebraic Riccati equation for LQR stabilization of the underactuated system, and (4) implement robust switching logic between the swing-up and stabilization phases with appropriate gain tuning. Each step individually requires proficiency; combining them into a working controller from scratch demands expert-level integration of control theory, numerical methods, and software engineering."""
+solution_explanation = """Two-phase controller: (1) energy-based swing-up pumps mechanical energy toward the unstable equilibrium via u2 = -ke*(E-Ed)*qd2, with a periodic excitation term to break the initial rest equilibrium; (2) LQR stabilization near the top, designed by numerically linearizing the plant dynamics with finite differences and solving the CARE via scipy. Hysteresis-based switching on the LQR cost-to-go prevents chattering."""
+verification_explanation = """Deterministic 10s RK4 simulation (dt=0.002s, 5000 steps) with the implemented controller. Tests verify: controller is importable and returns valid 2-element arrays; simulation completes without NaN/Inf; end-effector height exceeds 0.45m at the final timestep; end-effector stays above 0.45m continuously for the last 2 seconds (1000 timesteps checked). All criteria are deterministic and binary."""
+category = "control_systems"
+tags = ["robotics", "nonlinear-control"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/acrobot-swingup-control"

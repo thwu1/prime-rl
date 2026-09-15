@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete kernel patch evaluation engine from a specification with only stub functions provided. The solver must create: (1) a multi-format crash report parser handling KASAN (use-after-free, slab-out-of-bounds), null-ptr-deref (#PF access type extraction, RIP file/line parsing), and WARNING formats; (2) source-aware function extraction by integrating universal-ctags to build function boundary maps and walking unified diff line-by-line against those maps rather than trusting hunk header context strings; (3) a patch file enumerator using lsdiff with correct prefix stripping; (4) a structural patch equivalence engine that applies patches to source, tokenizes the resulting C code, and checks alpha-equivalence via bijective identifier mapping — and when that fails, detects guard clause restructuring (early-return vs. wrapped-block patterns) through token-level normalization before re-comparing. The guard clause equivalence problem has no standard solution and requires the solver to design a novel algorithm for detecting that if(!x) return v; body and if(x) { body } return v; produce semantically identical code."""
+solution_explanation = """Implement crash parsing with three regex branches for KASAN, null-ptr-deref, and WARNING formats. Invoke ctags with --output-format=json --fields=+ne to get function start and end lines, building a complete line-range-to-function map. Use lsdiff -p1 for prefix-stripped file enumeration. Parse unified diffs into structured hunk representations, then walk each hunk line-by-line tracking old line numbers and looking up each changed line in the ctags function map. For equivalence: apply both patches to the source using hunk application, tokenize both results with a C tokenizer that strips comments and string literals, check alpha-equivalence via bijective identifier mapping. When alpha-equivalence fails, normalize guard clause patterns by detecting if(COND) { BODY } return VAL; and transforming it to if(!COND) return VAL; BODY at the token level, then re-check alpha-equivalence on the normalized forms."""
+verification_explanation = """Tests verify 7 cases including a dynamically generated case created at test time to prevent hardcoding. Cases exercise crash parsing across all three formats, source-aware function extraction (with misleading hunk headers in cases 005 and 006), IoU computation with partial overlaps, and three levels of patch equivalence: textual identity (case 005), bijective variable renaming (case 003), and guard clause restructuring where one patch uses early-return and the other wraps the body in an if-block (case 007). The dynamic case specifically tests function extraction with a misleading hunk header referencing a preceding function."""
+category = "systems"
+tags = ["kernel-debugging", "tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kernel-patch-evaluator"

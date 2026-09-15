@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Kubernetes security expertise across multiple domains simultaneously: (1) robustly parsing a corrupted JSONL audit log containing truncated entries, concatenated events on single lines, and trailing garbage — a naive JSON parser will crash or silently drop critical attack evidence; (2) distinguishing authorized activity from attacker behavior across four concurrent actors (ci-bot, deploy-bot, monitoring-sa, admin) by cross-referencing audit events against authorized-operations.txt; (3) identifying a subtle RBAC misconfiguration where the pipeline-runner ClusterRole grants clusterrolebinding create permission despite documentation explicitly stating it does not; (4) detecting a source IP anomaly where ci-bot's requests shift from pod network IP 10.244.1.15 to external IP 10.10.99.5 during persistence operations, indicating token exfiltration; (5) correctly attributing Falco runtime events to the api-server container while filtering benign health-checker sidecar events and log-rotator CronJob events that share the same pod name; (6) authoring a production-grade Kubernetes audit.k8s.io/v1 Policy with correct schema, proper rule ordering, appropriate audit levels, and noise reduction; (7) writing syntactically valid Falco detection rules that reference upstream macros and lists."""
+solution_explanation = """Handle corrupted audit log entries with robust JSON parsing (try/except, regex-based recovery for concatenated and truncated lines). Filter out deploy-bot (authorized canary deployment) and monitoring-sa (authorized cert checker) from attack attribution using authorized-operations.txt. Parse the remaining ci-bot events to identify three phases: (a) pre-escalation reconnaissance (403 Forbidden responses, ClusterRole inspection, truncated clusterrolebindings list); (b) privilege escalation via creating ClusterRoleBinding ci-bot-cluster-admin through the misconfigured pipeline-runner role; (c) post-escalation exploitation including secret enumeration, production secret exfiltration, pod exec lateral movement, and persistence (debug-agent SA + token + CRB in kube-system). Detect the source IP change from 10.244.1.15 to 10.10.99.5 during persistence phase. Identify debug-agent activation at 03:28:30 (post-exploitation secret listing). Filter Falco events by container_name to separate api-server attack events from health-checker sidecar noise and log-rotator CronJob. Generate three artifacts: JSON incident report with evidence integrity notes, IP anomaly analysis, and cross-source correlation; Kubernetes audit policy; and Falco rules."""
+verification_explanation = """Tests validate: (1) incident report is valid JSON containing correct attacker identity (ci-bot in build-system), all four exfiltrated secrets, privilege escalation reference, lateral movement detection, persistence mechanism (debug-agent in kube-system), at least 3 MITRE ATT&CK technique IDs, root cause RBAC vulnerability, remediation recommendations, cross-source correlation, source IP anomaly detection (10.10.99.5 or token theft), evidence integrity acknowledgment (corrupted/truncated audit entries), and correct handling of deploy-bot as authorized (not flagging it as primary attacker); (2) audit policy is valid YAML with correct apiVersion/kind, at least 4 rules covering secrets/RBAC/exec/serviceaccounts at appropriate levels, noise reduction (None level), and catch-all; (3) Falco rules are valid YAML with at least 3 rules having required fields, valid priorities, and covering shell spawning, sensitive file access, and binary/network/package detection."""
+category = "security"
+tags = ["kubernetes", "forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-21a62d"

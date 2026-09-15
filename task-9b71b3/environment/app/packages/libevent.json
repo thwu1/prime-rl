@@ -1,0 +1,10 @@
+{
+  "name": "libevent",
+  "versions": ["2.1.12", "2.1.8"],
+  "variants": [],
+  "dependencies": [
+    {"name": "zlib"}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

@@ -1,0 +1,16 @@
+[matrix]
+name = "A"
+dimension = 20000
+type = "real"
+structure = "sparse_symmetric"
+
+[matrix.diagonal]
+rule = "a_{i,i} = p_i, the i-th prime number (1-indexed)"
+# p_1 = 2, p_2 = 3, p_3 = 5, ..., p_20000 = 224737
+
+[matrix.off_diagonal]
+rule = "a_{i,j} = 1 whenever |i - j| is a power of two"
+# powers of two up to dimension: 1, 2, 4, 8, ..., 16384
+
+[matrix.default]
+value = 0

@@ -1,0 +1,10 @@
+environments:
+  alpha:
+    overlay: /app/kustomize/overlays/alpha
+    live: /app/live/alpha.yaml
+  beta:
+    overlay: /app/kustomize/overlays/beta
+    live: /app/live/beta.yaml
+  gamma:
+    overlay: /app/kustomize/overlays/gamma
+    live: /app/live/gamma.yaml

@@ -1,0 +1,78 @@
+{
+    "header": {
+        "Conventions": "CF-1.8",
+        "mip_era": "CMIP6",
+        "table_id": "Amon"
+    },
+    "variables": {
+        "tas": {
+            "standard_name": "air_temperature",
+            "long_name": "Near-Surface Air Temperature",
+            "units": "K",
+            "cell_methods": "area: time: mean",
+            "cell_measures": "area: areacella",
+            "frequency": "mon",
+            "positive": "",
+            "raw_name": "temp_2m",
+            "raw_file": "temperature_monthly_2001.nc"
+        },
+        "pr": {
+            "standard_name": "precipitation_flux",
+            "long_name": "Precipitation",
+            "units": "kg m-2 s-1",
+            "cell_methods": "area: time: mean",
+            "cell_measures": "area: areacella",
+            "frequency": "mon",
+            "positive": "",
+            "raw_name": "precip",
+            "raw_file": "precipitation_monthly_2001.nc"
+        },
+        "rlut": {
+            "standard_name": "toa_outgoing_longwave_flux",
+            "long_name": "TOA Outgoing Longwave Radiation",
+            "units": "W m-2",
+            "cell_methods": "area: time: mean",
+            "cell_measures": "area: areacella",
+            "frequency": "mon",
+            "positive": "up",
+            "raw_name": "toa_lw_up",
+            "raw_file": "olr_monthly_2001.nc"
+        }
+    },
+    "coordinates": {
+        "time": {
+            "units": "days since 1850-01-01",
+            "calendar": "standard",
+            "axis": "T",
+            "must_have_bounds": true
+        },
+        "latitude": {
+            "standard_name": "latitude",
+            "units": "degrees_north",
+            "axis": "Y",
+            "must_have_bounds": true,
+            "valid_range": [-90, 90],
+            "direction": "increasing"
+        },
+        "longitude": {
+            "standard_name": "longitude",
+            "units": "degrees_east",
+            "axis": "X",
+            "must_have_bounds": true,
+            "valid_range": [0, 360],
+            "direction": "increasing"
+        }
+    },
+    "required_global_attributes": [
+        "Conventions",
+        "history",
+        "source",
+        "table_id",
+        "frequency"
+    ],
+    "output_dtype": {
+        "data": "float32",
+        "coordinates": "float64",
+        "bounds": "float64"
+    }
+}

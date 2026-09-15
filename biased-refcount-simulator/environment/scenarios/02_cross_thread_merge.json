@@ -1,0 +1,9 @@
+{
+  "description": "Cross-thread references requiring merge-path deallocation",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "A"}
+  ]
+}

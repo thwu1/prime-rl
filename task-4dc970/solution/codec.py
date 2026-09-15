@@ -1,0 +1,395 @@
+"""
+NF4 Quantization Codec — full implementation per spec.json
+
+Implements blockwise NormalFloat4 quantization with double quantization,
+C extension nibble packing, NF4Q v2 binary checkpoint I/O with CRC32,
+and adaptive blocksize evaluation.
+"""
+
+import math
+import ctypes
+import struct
+import os
+import zlib
+
+
+# ---------------------------------------------------------------------------
+# Inverse standard normal CDF — Peter Acklam's rational approximation
+# ---------------------------------------------------------------------------
+
+def _norm_ppf(p):
+    """Inverse CDF of the standard normal distribution N(0,1)."""
+    if p <= 0.0:
+        return float('-inf')
+    if p >= 1.0:
+        return float('inf')
+    if p == 0.5:
+        return 0.0
+
+    a = [
+        -3.969683028665376e+01,  2.209460984245205e+02,
+        -2.759285104469687e+02,  1.383577518672690e+02,
+        -3.066479806614716e+01,  2.506628277459239e+00,
+    ]
+    b = [
+        -5.447609879822406e+01,  1.615858368580409e+02,
+        -1.556989798598866e+02,  6.680131188771972e+01,
+        -1.328068155288572e+01,
+    ]
+    c = [
+        -7.784894002430293e-03, -3.223964580411365e-01,
+        -2.400758277161838e+00, -2.549732539343734e+00,
+         4.374664141464968e+00,  2.938163982698783e+00,
+    ]
+    d = [
+         7.784695709041462e-03,  3.224671290700398e-01,
+         2.445134137142996e+00,  3.754408661907416e+00,
+    ]
+
+    p_low = 0.02425
+    p_high = 1.0 - p_low
+
+    if p < p_low:
+        q = math.sqrt(-2.0 * math.log(p))
+        x = (((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) / \
+            ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1.0)
+    elif p <= p_high:
+        q = p - 0.5
+        r = q * q
+        x = (((((a[0]*r + a[1])*r + a[2])*r + a[3])*r + a[4])*r + a[5]) * q / \
+            (((((b[0]*r + b[1])*r + b[2])*r + b[3])*r + b[4])*r + 1.0)
+    else:
+        q = math.sqrt(-2.0 * math.log(1.0 - p))
+        x = -(((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) / \
+             ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1.0)
+
+    return x
+
+
+def _linspace(start, stop, num):
+    """Return num evenly spaced floats from start to stop (inclusive)."""
+    if num == 1:
+        return [start]
+    step = (stop - start) / (num - 1)
+    return [start + i * step for i in range(num)]
+
+
+# ---------------------------------------------------------------------------
+# NF4 map construction
+# ---------------------------------------------------------------------------
+
+def create_nf4_map():
+    """Create the 16-value NF4 (NormalFloat4) quantization map.
+
+    Derives values from quantiles of N(0,1) with asymmetric scheme:
+    8 negative quantile values, zero, and 7 positive quantile values + 1.0.
+    """
+    offset = 0.9677083
+
+    neg_quantile_pts = _linspace(offset, 0.5, 9)
+    v_neg = [_norm_ppf(p) for p in neg_quantile_pts[:8]]
+
+    pos_quantile_pts = _linspace(offset, 0.5, 8)
+    v_pos = [-_norm_ppf(p) for p in pos_quantile_pts[:7]]
+
+    values = v_neg + [0.0] + v_pos
+    values.sort()
+
+    max_abs = max(abs(v) for v in values)
+    values = [v / max_abs for v in values]
+
+    return values
+
+
+# ---------------------------------------------------------------------------
+# Blockwise NF4 quantization / dequantization
+# ---------------------------------------------------------------------------
+
+def quantize_blockwise_nf4(data, blocksize):
+    """Blockwise 4-bit NF4 quantization with symmetric absmax normalization."""
+    nf4_map = create_nf4_map()
+    n = len(data)
+    indices = []
+    absmax_list = []
+
+    for block_start in range(0, n, blocksize):
+        block_end = min(block_start + blocksize, n)
+        block = data[block_start:block_end]
+
+        am = max(abs(v) for v in block) if block else 0.0
+        absmax_list.append(am)
+
+        for val in block:
+            if am == 0.0:
+                best_idx = 0
+                best_dist = abs(nf4_map[0])
+                for j, nf4_val in enumerate(nf4_map):
+                    if abs(nf4_val) < best_dist:
+                        best_dist = abs(nf4_val)
+                        best_idx = j
+                indices.append(best_idx)
+            else:
+                normalized = val / am
+                best_idx = 0
+                best_dist = abs(normalized - nf4_map[0])
+                for j in range(1, 16):
+                    dist = abs(normalized - nf4_map[j])
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_idx = j
+                indices.append(best_idx)
+
+    return {
+        "indices": indices,
+        "absmax": absmax_list,
+        "blocksize": blocksize,
+        "num_elements": n,
+    }
+
+
+def dequantize_blockwise_nf4(qstate):
+    """Blockwise 4-bit NF4 dequantization."""
+    nf4_map = create_nf4_map()
+    indices = qstate["indices"]
+    absmax_list = qstate["absmax"]
+    blocksize = qstate["blocksize"]
+    n = qstate["num_elements"]
+
+    result = []
+    for i in range(n):
+        block_idx = i // blocksize
+        am = absmax_list[block_idx]
+        nf4_val = nf4_map[indices[i]]
+        result.append(nf4_val * am)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Double quantization
+# ---------------------------------------------------------------------------
+
+def double_quantize(absmax_values, inner_blocksize):
+    """Quantize FP32 absmax scaling constants to 8-bit with mean centering."""
+    n = len(absmax_values)
+    offset = sum(absmax_values) / n
+
+    centered = [v - offset for v in absmax_values]
+
+    quantized = []
+    inner_absmax_list = []
+
+    for block_start in range(0, n, inner_blocksize):
+        block_end = min(block_start + inner_blocksize, n)
+        block = centered[block_start:block_end]
+
+        am = max(abs(v) for v in block) if block else 0.0
+        inner_absmax_list.append(am)
+
+        for val in block:
+            if am == 0.0:
+                quantized.append(0)
+            else:
+                q = round(127.0 * val / am)
+                q = max(-127, min(127, q))
+                quantized.append(q)
+
+    return {
+        "quantized_absmax": quantized,
+        "inner_absmax": inner_absmax_list,
+        "offset": offset,
+        "inner_blocksize": inner_blocksize,
+    }
+
+
+def double_dequantize(dq_state):
+    """Recover FP32 absmax values from double-quantized state."""
+    quantized = dq_state["quantized_absmax"]
+    inner_absmax_list = dq_state["inner_absmax"]
+    offset = dq_state["offset"]
+    inner_blocksize = dq_state["inner_blocksize"]
+
+    result = []
+    for i, q in enumerate(quantized):
+        block_idx = i // inner_blocksize
+        am = inner_absmax_list[block_idx]
+        val = (q * am / 127.0) + offset
+        result.append(val)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Memory footprint computation
+# ---------------------------------------------------------------------------
+
+def compute_memory_bits_per_param(blocksize, double_quant, inner_blocksize=256):
+    """Compute average bits per parameter for NF4 quantization."""
+    weight_bits = 4.0
+
+    if double_quant:
+        absmax_bits = 8.0 / blocksize + 32.0 / (blocksize * inner_blocksize)
+    else:
+        absmax_bits = 32.0 / blocksize
+
+    return weight_bits + absmax_bits
+
+
+# ---------------------------------------------------------------------------
+# C extension for nibble packing
+# ---------------------------------------------------------------------------
+
+_nibble_lib = None
+
+
+def load_nibble_lib():
+    """Compile nibble_pack.c if needed and load via ctypes."""
+    global _nibble_lib
+    if _nibble_lib is not None:
+        return _nibble_lib
+
+    lib_path = "/app/libnibble.so"
+    if not os.path.exists(lib_path):
+        ret = os.system("gcc -shared -fPIC -O2 -o /app/libnibble.so /app/nibble_pack.c")
+        if ret != 0:
+            raise RuntimeError("Failed to compile nibble_pack.c")
+
+    lib = ctypes.CDLL(lib_path)
+
+    lib.bnb_pack_nibbles.argtypes = [
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.c_int,
+    ]
+    lib.bnb_pack_nibbles.restype = None
+
+    lib.bnb_unpack_nibbles.argtypes = [
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.c_int,
+    ]
+    lib.bnb_unpack_nibbles.restype = None
+
+    lib.bnb_packed_size.argtypes = [ctypes.c_int]
+    lib.bnb_packed_size.restype = ctypes.c_int
+
+    _nibble_lib = lib
+    return lib
+
+
+def pack_nibbles(indices):
+    """Pack a list of 4-bit indices into bytes using the C extension."""
+    lib = load_nibble_lib()
+    count = len(indices)
+    nbytes = lib.bnb_packed_size(count)
+    in_arr = (ctypes.c_uint8 * count)(*indices)
+    out_arr = (ctypes.c_uint8 * nbytes)()
+    lib.bnb_pack_nibbles(in_arr, out_arr, count)
+    return bytes(out_arr)
+
+
+def unpack_nibbles(data, count):
+    """Unpack 4-bit indices from packed bytes using the C extension."""
+    lib = load_nibble_lib()
+    if isinstance(data, (bytes, bytearray)):
+        packed = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
+    else:
+        packed = (ctypes.c_uint8 * len(data))(*data)
+    out_arr = (ctypes.c_uint8 * count)()
+    lib.bnb_unpack_nibbles(packed, out_arr, count)
+    return list(out_arr)
+
+
+# ---------------------------------------------------------------------------
+# NF4Q v2 binary checkpoint I/O with CRC32
+# ---------------------------------------------------------------------------
+
+def read_checkpoint(filepath):
+    """Read NF4Q v2 checkpoint with CRC32 verification."""
+    with open(filepath, 'rb') as f:
+        all_data = f.read()
+
+    # Separate CRC32 footer
+    stored_crc = struct.unpack('<I', all_data[-4:])[0]
+    payload = all_data[:-4]
+    computed_crc = zlib.crc32(payload) & 0xFFFFFFFF
+    if stored_crc != computed_crc:
+        raise ValueError(
+            f"CRC32 mismatch: stored={stored_crc:#010x}, computed={computed_crc:#010x}"
+        )
+
+    offset = 0
+    magic = payload[offset:offset + 4]
+    if magic != b'NF4Q':
+        raise ValueError(f"Invalid checkpoint magic: {magic!r}")
+    offset += 4
+
+    version = struct.unpack_from('<H', payload, offset)[0]
+    offset += 2
+    _reserved = struct.unpack_from('<H', payload, offset)[0]
+    offset += 2
+
+    num_elements = struct.unpack_from('<I', payload, offset)[0]
+    offset += 4
+    blocksize = struct.unpack_from('<I', payload, offset)[0]
+    offset += 4
+    num_blocks = struct.unpack_from('<I', payload, offset)[0]
+    offset += 4
+
+    absmax_values = []
+    for _ in range(num_blocks):
+        absmax_values.append(struct.unpack_from('<f', payload, offset)[0])
+        offset += 4
+
+    packed_data = payload[offset:]
+    indices = unpack_nibbles(packed_data, num_elements)
+
+    return {
+        "indices": indices,
+        "absmax": absmax_values,
+        "blocksize": blocksize,
+        "num_elements": num_elements,
+    }
+
+
+def write_checkpoint(filepath, indices, absmax_values, blocksize):
+    """Write NF4Q v2 checkpoint with CRC32 footer."""
+    body = bytearray()
+    body.extend(b'NF4Q')
+    body.extend(struct.pack('<H', 2))   # version
+    body.extend(struct.pack('<H', 0))   # reserved
+    body.extend(struct.pack('<I', len(indices)))
+    body.extend(struct.pack('<I', blocksize))
+    body.extend(struct.pack('<I', len(absmax_values)))
+
+    for am in absmax_values:
+        body.extend(struct.pack('<f', am))
+
+    body.extend(pack_nibbles(indices))
+
+    crc = zlib.crc32(bytes(body)) & 0xFFFFFFFF
+    body.extend(struct.pack('<I', crc))
+
+    with open(filepath, 'wb') as f:
+        f.write(body)
+
+
+# ---------------------------------------------------------------------------
+# Adaptive blocksize selection
+# ---------------------------------------------------------------------------
+
+def find_optimal_blocksize(data, candidates, error_budget):
+    """Find largest blocksize meeting error budget.
+
+    Evaluates candidates from largest to smallest, returns the first
+    whose mean absolute quantization error <= error_budget.
+    Falls back to smallest candidate if none meet the budget.
+    """
+    sorted_candidates = sorted(candidates, reverse=True)
+    for bs in sorted_candidates:
+        qstate = quantize_blockwise_nf4(data, bs)
+        recon = dequantize_blockwise_nf4(qstate)
+        mae = sum(abs(o - r) for o, r in zip(data, recon)) / len(data)
+        if mae <= error_budget:
+            return bs
+    return sorted_candidates[-1]

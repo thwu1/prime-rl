@@ -1,0 +1,37 @@
+{
+  "ARM": [],
+  "ARM_HYP": [
+    "Access",
+    "Bisim",
+    "DRefine",
+    "RefineOrphanage",
+    "SimplExportAndRefine"
+  ],
+  "X64": [
+    "Access",
+    "AutoCorresSEL4",
+    "DBaseRefine",
+    "DSpec",
+    "RefineOrphanage",
+    "SimplExportAndRefine",
+    "AsmRefine"
+  ],
+  "RISCV64": [
+    "AutoCorresSEL4",
+    "DSpec",
+    "DBaseRefine",
+    "AsmRefine"
+  ],
+  "AARCH64": [
+    "ASepSpec",
+    "InfoFlow",
+    "AutoCorres",
+    "TakeGrant",
+    "Bisim",
+    "AutoCorresSEL4",
+    "DBaseRefine",
+    "DSpecProofs",
+    "AsmRefine",
+    "SimplExportAndRefine"
+  ]
+}

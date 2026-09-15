@@ -1,0 +1,97 @@
+2024-11-14 23:59:58.847
+Thread 1 advanced to log sequence 844 (LGWR switch)
+  Current log# 1 seq# 844 mem# 0: /u01/app/oracle/oradata/ecomdb/redo01.log
+2024-11-15 00:00:01.293
+Thread 1 advanced to log sequence 845 (LGWR switch)
+  Current log# 2 seq# 845 mem# 0: /u01/app/oracle/oradata/ecomdb/redo02.log
+2024-11-15 00:15:33.184
+Archived Log entry 843 added for thread 1 sequence 843 ID 0x847293a1 dest 1:
+2024-11-15 00:30:12.847
+Thread 1 advanced to log sequence 846 (LGWR switch)
+  Current log# 3 seq# 846 mem# 0: /u01/app/oracle/oradata/ecomdb/redo03.log
+2024-11-15 01:00:00.129
+Beginning global checkpoint up to RBA [0x34e.2.10], SCN: 0x0000000384729a
+Completed checkpoint up to RBA [0x34e.2.10], SCN: 0x0000000384729a
+2024-11-15 01:45:22.847
+Thread 1 advanced to log sequence 847 (LGWR switch)
+  Current log# 1 seq# 847 mem# 0: /u01/app/oracle/oradata/ecomdb/redo01.log
+2024-11-15 02:00:00.293
+Beginning global checkpoint up to RBA [0x34f.2.10], SCN: 0x00000003847a2b
+Completed checkpoint up to RBA [0x34f.2.10], SCN: 0x00000003847a2b
+2024-11-15 02:15:33.847
+Errors in file /u01/app/oracle/diag/rdbms/ecomdb/ecomdb1/trace/ecomdb1_ora_28472.trc:
+ORA-04031: unable to allocate 32784 bytes of shared memory ("shared pool","unknown object","sga heap(1,0)","kglsim object batch")
+Additional information: requested allocation of 32784 bytes (kglsim object batch), 4829384 bytes free in shared pool
+2024-11-15 02:30:00.184
+Thread 1 advanced to log sequence 848 (LGWR switch)
+  Current log# 2 seq# 848 mem# 0: /u01/app/oracle/oradata/ecomdb/redo02.log
+2024-11-15 03:00:00.472
+Beginning global checkpoint up to RBA [0x350.2.10], SCN: 0x00000003848b3c
+Completed checkpoint up to RBA [0x350.2.10], SCN: 0x00000003848b3c
+2024-11-15 03:15:18.938
+ORA-00060: deadlock detected
+ORA-00060: Deadlock graph:
+  ---------Blocker(s)---------  ---------Waiter(s)----------
+  Resource Name          process session holds waits  process session holds waits
+  TX-00190017-00002847   284     847    X             293     938         X
+  TX-0023001a-00003847   293     938    X             284     847         X
+2024-11-15 04:00:00.129
+Beginning global checkpoint up to RBA [0x351.2.10], SCN: 0x00000003849c4d
+Completed checkpoint up to RBA [0x351.2.10], SCN: 0x00000003849c4d
+2024-11-15 04:23:18.293
+Errors in file /u01/app/oracle/diag/rdbms/ecomdb/ecomdb1/trace/ecomdb1_ora_29384.trc:
+ORA-04031: unable to allocate 65568 bytes of shared memory ("shared pool","SELECT * FROM ORDERS WHERE ORDER_DATE BETWEEN...","sga heap(1,0)","kglsim heap")
+Additional information: requested allocation of 65568 bytes (kglsim heap), 2847293 bytes free in shared pool
+2024-11-15 05:00:00.184
+Beginning global checkpoint up to RBA [0x352.2.10], SCN: 0x0000000384ad5e
+Completed checkpoint up to RBA [0x352.2.10], SCN: 0x0000000384ad5e
+2024-11-15 05:15:47.293
+ORA-01555: snapshot too old: rollback segment number 7 with name "_SYSSMU7_2847293847$" too small
+2024-11-15 05:30:00.847
+Thread 1 advanced to log sequence 852 (LGWR switch)
+  Current log# 3 seq# 852 mem# 0: /u01/app/oracle/oradata/ecomdb/redo03.log
+2024-11-15 06:00:00.129
+Beginning global checkpoint up to RBA [0x354.2.10], SCN: 0x0000000384be6f
+Completed checkpoint up to RBA [0x354.2.10], SCN: 0x0000000384be6f
+2024-11-15 06:47:12.184
+Errors in file /u01/app/oracle/diag/rdbms/ecomdb/ecomdb1/trace/ecomdb1_ora_30129.trc:
+ORA-04031: unable to allocate 16400 bytes of shared memory ("shared pool","unknown object","sga heap(1,0)","kglsim object batch")
+Additional information: requested allocation of 16400 bytes (kglsim object batch), 1284729 bytes free in shared pool
+2024-11-15 07:00:00.847
+Beginning global checkpoint up to RBA [0x355.2.10], SCN: 0x0000000384cf80
+Completed checkpoint up to RBA [0x355.2.10], SCN: 0x0000000384cf80
+2024-11-15 07:30:22.293
+Resize operation completed for file# 4, old size 524288000, new size 629145600
+2024-11-15 08:00:00.184
+Beginning global checkpoint up to RBA [0x356.2.10], SCN: 0x0000000384e091
+Completed checkpoint up to RBA [0x356.2.10], SCN: 0x0000000384e091
+2024-11-15 08:34:55.472
+Errors in file /u01/app/oracle/diag/rdbms/ecomdb/ecomdb1/trace/ecomdb1_ora_31847.trc:
+ORA-04031: unable to allocate 131104 bytes of shared memory ("shared pool","INSERT INTO AUDIT_LOG VALUES (:1,:2,:3,:4,:5,:6,:7,:8)","sga heap(2,0)","kglsim heap")
+Additional information: requested allocation of 131104 bytes (kglsim heap), 847293 bytes free in shared pool
+2024-11-15 09:00:00.938
+Beginning global checkpoint up to RBA [0x357.2.10], SCN: 0x0000000384f1a2
+Completed checkpoint up to RBA [0x357.2.10], SCN: 0x0000000384f1a2
+2024-11-15 09:15:33.129
+Thread 1 advanced to log sequence 858 (LGWR switch)
+  Current log# 1 seq# 858 mem# 0: /u01/app/oracle/oradata/ecomdb/redo01.log
+2024-11-15 09:30:00.847
+ORA-01555: snapshot too old: rollback segment number 3 with name "_SYSSMU3_1847293847$" too small
+2024-11-15 10:00:00.293
+Beginning global checkpoint up to RBA [0x35a.2.10], SCN: 0x00000003850ab3
+Completed checkpoint up to RBA [0x35a.2.10], SCN: 0x00000003850ab3
+2024-11-15 10:30:12.472
+Resize operation completed for file# 5, old size 314572800, new size 419430400
+2024-11-15 11:00:00.184
+Beginning global checkpoint up to RBA [0x35c.2.10], SCN: 0x00000003851bc4
+Completed checkpoint up to RBA [0x35c.2.10], SCN: 0x00000003851bc4
+2024-11-15 11:22:07.938
+Errors in file /u01/app/oracle/diag/rdbms/ecomdb/ecomdb1/trace/ecomdb1_ora_32918.trc:
+ORA-04031: unable to allocate 49168 bytes of shared memory ("shared pool","unknown object","sga heap(1,0)","kglsim object batch")
+Additional information: requested allocation of 49168 bytes (kglsim object batch), 489234 bytes free in shared pool
+2024-11-15 11:30:00.129
+Thread 1 advanced to log sequence 861 (LGWR switch)
+  Current log# 1 seq# 861 mem# 0: /u01/app/oracle/oradata/ecomdb/redo01.log
+2024-11-15 12:00:00.847
+Beginning global checkpoint up to RBA [0x35d.2.10], SCN: 0x00000003852cd5
+Completed checkpoint up to RBA [0x35d.2.10], SCN: 0x00000003852cd5

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a statistical evaluation pipeline with 7 interacting bugs across prediction interval computation (distribution choice, interval type, variance estimation), outlier detection (Grubbs' test parameterization), type coercion, case-sensitivity, and error handling. The bugs interact non-trivially: three PI bugs must be fixed simultaneously, and two Grubbs bugs create a borderline false positive that only resolves when both are corrected. Demands deep understanding of inferential statistics, software debugging, and scientific computing practices."""
+solution_explanation = """Run the pipeline to discover the initial crash on missing keys, fix error handling, then systematically compare buggy output against validation scores to identify six more bugs: normal distribution used instead of t-distribution for prediction intervals, confidence interval formula used instead of prediction interval, population standard deviation instead of sample standard deviation, incorrect alpha correction in Grubbs' critical value, case-sensitive string comparison, and missing percentage-string coercion. Fix all bugs and re-run to produce correct output."""
+verification_explanation = """Tests verify structural correctness of the output JSON, exact aggregate scores for all three submissions matching the validation data, correct outlier detection booleans for all numeric questions, standard-vs-robust divergence patterns, missing key handling, case-insensitive string comparison, percentage string coercion, and robust interval consistency properties — all without hardcoding specific numerical PI bounds."""
+category = "data_science"
+tags = ["statistics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ea31b9"

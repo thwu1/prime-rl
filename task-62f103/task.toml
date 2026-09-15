@@ -1,0 +1,73 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires integrating professional expertise across biomechanical gait
+analysis, digital signal processing, and clinical measurement science
+without prescriptive methodology. The PI specification describes WHAT
+to compute and the required output formats, but deliberately omits HOW.
+The agent must independently: examine raw gait event data to discover
+and classify multiple artifact types, then design a cleaning strategy
+using physiological plausibility knowledge; select an appropriate signal
+conditioning method and empirically determine its parameters from the
+signal characteristics; choose the correct intraclass correlation model
+variant by reasoning about the experimental design's random/fixed effect
+structure and absolute vs. consistency agreement; derive standard error
+of measurement and minimal detectable change from first principles of
+measurement theory; and handle ambiguous boundary conditions in gait
+cycle segmentation. Each of these requires holistic domain understanding
+that goes well beyond following procedural steps.
+"""
+solution_explanation = """
+The solution: (1) cleans gait events by sorting, removing near-duplicates
+within 50ms, and filtering physiologically impossible strides (<0.4s or >3.0s),
+(2) determines optimal filter cutoff via residual analysis using piecewise
+linear regression to find the knee point, (3) applies 4th-order Butterworth
+zero-phase filtering, (4) segments gait cycles discarding first and last,
+(5) computes per-cycle ROM, stride time, step time, stance ratio,
+(6) aggregates per-run statistics including cadence, CV, and symmetry indices,
+(7) computes SAL scores via weighted clamped normalization, (8) builds an
+ICC(2,1) data matrix treating subject-condition pairs as measurement contexts
+and runs as repeated measures, computes two-way ANOVA, derives ICC, SEM
+(sqrt of MSE), and MDC95 (SEM * 1.96 * sqrt(2)), and (9) classifies each
+PI's quality based on ICC thresholds.
+"""
+verification_explanation = """
+Tests verify: (1) all 17 output files exist (12 PI YAMLs, 4 aggregate CSVs,
+pipeline script), (2) YAML format has required keys with mean/std structure,
+(3) gait event cleaning via stride time bounds, variability checks, and
+cross-run consistency, (4) ROM values match expected within 8% tolerance,
+(5) stride times match expected ranges, (6) cadence is internally consistent
+(120/stride_time), (7) symmetry distinguishes symmetric S1 from asymmetric S2,
+(8) stride time CV is plausible and ordered by subject, (9) stance ratio in
+physiological range, (10) SAL scores within tolerance and correctly ordered,
+(11) condition comparison structure and cadence decrease on slope,
+(12) ROM ordering (knee>hip>ankle), (13) ICC values in expected ranges,
+SEM positive, MDC/SEM ratio ~2.77, (14) quality classification consistency
+with ICC thresholds and majority excellent/good.
+"""
+category = "biomechanics"
+tags = ["signal-processing", "measurement-reliability"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-62f103"

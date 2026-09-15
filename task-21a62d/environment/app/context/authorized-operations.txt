@@ -1,0 +1,26 @@
+Authorized Maintenance Operations — 2024-11-15 Incident Window
+==============================================================
+
+The following operations were pre-approved and should NOT be considered
+indicators of compromise during the 2024-11-15 03:00–04:00 UTC window:
+
+1. User: admin@company.com
+   Scope: Create and delete namespaces (cluster-wide)
+   Window: 03:00–03:45 UTC
+   Justification: Scheduled environment cleanup and provisioning for
+   the staging-v2 rollout. Ticket: OPS-4821
+
+2. ServiceAccount: system:serviceaccount:monitoring:monitoring-sa
+   Scope: List secrets in the "monitoring" namespace only
+   Window: Continuous (cron job every 10 minutes)
+   Justification: Certificate expiration checker that enumerates
+   TLS secrets for rotation alerting. Runbook: MON-0093
+
+3. ServiceAccount: system:serviceaccount:production:deploy-bot
+   Scope: Create, patch, list, and get deployments, pods, and
+   configmaps in the "production" namespace only
+   Window: 03:10–03:30 UTC
+   Justification: Automated canary deployment rollout for
+   api-server v2.1.4. Ticket: DEP-7234
+
+No other non-system operations were authorized during this window.

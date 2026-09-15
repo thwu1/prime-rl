@@ -1,0 +1,57 @@
+# Reconnect semantics
+
+# Create persistent state
+statement ok
+CREATE TABLE persist_test(x INTEGER, y VARCHAR)
+
+statement ok
+INSERT INTO persist_test VALUES (1, 'before'), (2, 'reconnect')
+
+# Verify a named connection works before reconnect
+query I @temp_conn
+SELECT COUNT(*) FROM persist_test
+----
+2
+
+# Reconnect - drops all cursors, creates new ones
+reconnect
+
+# Persistent data survives reconnect
+query IT
+SELECT * FROM persist_test ORDER BY x
+----
+1	before
+2	reconnect
+
+# New named connections can be created after reconnect
+query I @new_conn
+SELECT SUM(x) FROM persist_test
+----
+3
+
+# Can insert and query after reconnect
+statement ok
+INSERT INTO persist_test VALUES (3, 'after')
+
+query I
+SELECT COUNT(*) FROM persist_test
+----
+3
+
+# Multiple reconnects in sequence
+reconnect
+
+query I
+SELECT COUNT(*) FROM persist_test
+----
+3
+
+reconnect
+
+query IT @another_conn
+SELECT * FROM persist_test WHERE x = 3
+----
+3	after
+
+statement ok
+DROP TABLE persist_test

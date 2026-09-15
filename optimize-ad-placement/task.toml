@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of computational geometry and combinatorial optimization to solve a constrained 2D rectangle packing problem at high quality. The 0.75 satisfaction threshold cannot be met by textbook partitioning algorithms alone — the solver must handle adversarial test distributions (spatially clustered points, extreme area ratios, near-collinear layouts, half-plane asymmetric arrangements) that expose weaknesses in standard approaches. Achieving the threshold demands holistic algorithm design: understanding how containment constraints interact with area-matching objectives across diverse input distributions, and iteratively analyzing per-case performance to identify and address bottlenecks. The multi-tool pipeline (Makefile orchestration, SQLite experiment tracking, JSON result analysis) requires proficiency with unfamiliar tool interoperability to efficiently iterate on the solver."""
+solution_explanation = """Uses a multi-start weighted KD-tree partition with iterative coordinate-descent boundary refinement. Multiple tree constructions with different axis-selection strategies (spread-based, region-based, randomized) are built and refined; the best is selected. The build phase uses spread-aware axis selection to avoid thin-strip pathologies on near-collinear inputs. Refinement performs multi-pass bottom-up optimization: for each internal split node, the split position is swept across its feasible range to maximize the subtree's total satisfaction. This achieves 0.78+ average satisfaction. The pipeline (make benchmark → sqlite3 analysis → jq JSON processing) enables systematic identification of underperforming case categories."""
+verification_explanation = """Tests run the solver on 10 pre-generated test cases spanning 5 distribution types (uniform, clustered, near-collinear, extreme areas, half-plane). For each case, the scorer validates output format, boundary constraints, and pairwise non-overlap, then computes per-company satisfaction using the quadratic area-match formula. The test asserts average satisfaction >= 0.75 across all cases."""
+category = "optimization_algorithms"
+tags = ["rectangle-packing", "computational-geometry"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-ad-placement"

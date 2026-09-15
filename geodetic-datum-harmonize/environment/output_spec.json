@@ -1,0 +1,58 @@
+{
+  "description": "Required JSON output schema for /app/results.json",
+  "fields": {
+    "pipelines": {
+      "description": "Explicit PROJ pipeline strings for each CRS-to-ETRS89 transformation. Each pipeline must use explicit projection and transformation parameters — not EPSG init shorthand. Pipelines must be executable by pyproj Transformer.from_pipeline().",
+      "type": "object",
+      "required_keys": [
+        "27700_to_4258",
+        "28992_to_4258",
+        "31467_to_4258",
+        "2154_to_4258",
+        "25833_to_4258"
+      ],
+      "value_format": "string (valid PROJ pipeline beginning with '+proj=pipeline')"
+    },
+    "etrs89_coordinates": {
+      "description": "Transformed ETRS89 geographic coordinates for all 10 points. Values are [longitude, latitude] in decimal degrees. Longitude first, latitude second.",
+      "type": "object",
+      "keys": "P01 through P10",
+      "value_format": "[longitude_degrees, latitude_degrees]"
+    },
+    "helmert_parameters": {
+      "description": "The 7-parameter similarity transformation parameters used for each national datum that requires a datum transformation to reach ETRS89. Only include entries for CRS whose datum differs from ETRS89.",
+      "type": "object",
+      "required_keys": ["27700", "28992", "31467"],
+      "value_schema": {
+        "x": "X-axis translation in meters",
+        "y": "Y-axis translation in meters",
+        "z": "Z-axis translation in meters",
+        "rx": "X-axis rotation in arcseconds",
+        "ry": "Y-axis rotation in arcseconds",
+        "rz": "Z-axis rotation in arcseconds",
+        "s": "Scale difference in parts per million (ppm)",
+        "convention": "Rotation convention used: 'position_vector' or 'coordinate_frame'"
+      }
+    },
+    "geodesic_distances": {
+      "description": "Geodesic (shortest path on ellipsoid) distances in meters between specified point pairs, computed on the GRS80 ellipsoid. The pairs trace the edges of the polygon formed by the five odd-numbered points.",
+      "type": "object",
+      "required_keys": [
+        "P01_P03",
+        "P03_P05",
+        "P05_P09",
+        "P09_P07",
+        "P07_P01"
+      ],
+      "value_format": "distance in meters (float)"
+    },
+    "polygon_area_m2": {
+      "description": "Geodesic area in square meters of the polygon formed by vertices P01, P03, P05, P09, P07 (in that order) on the GRS80 ellipsoid. This is the area enclosed by geodesic edges connecting these 5 points in the specified sequence.",
+      "type": "number"
+    },
+    "optimal_utm_zone": {
+      "description": "The UTM zone number (integer 1-60) whose central meridian is closest to the arithmetic mean longitude of all 10 harmonized points.",
+      "type": "integer"
+    }
+  }
+}

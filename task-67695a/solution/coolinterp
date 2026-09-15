@@ -1,0 +1,3 @@
+#!/bin/bash
+set -o pipefail
+/app/tokenizer "$1" | python3 /app/evaluator.py "$1"

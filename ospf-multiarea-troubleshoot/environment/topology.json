@@ -1,0 +1,111 @@
+{
+  "routers": {
+    "R1": {
+      "loopback": "10.0.1.1/32",
+      "loopback_area": 0,
+      "description": "ABR: Area 0 backbone and Area 1 (Totally Stub)"
+    },
+    "R2": {
+      "loopback": "10.0.2.2/32",
+      "loopback_area": 0,
+      "description": "ABR: Area 0 backbone and Area 1 (Totally Stub)"
+    },
+    "R3": {
+      "loopback": "10.0.3.3/32",
+      "loopback_area": 0,
+      "description": "ABR: Area 0 backbone and Area 2 (NSSA)"
+    },
+    "R4": {
+      "loopback": "10.1.4.4/32",
+      "loopback_area": 1,
+      "description": "Internal router in Area 1 (Totally Stub)"
+    },
+    "R5": {
+      "loopback": "10.1.5.5/32",
+      "loopback_area": 1,
+      "description": "Internal router in Area 1 (Totally Stub)"
+    },
+    "R6": {
+      "loopback": "10.2.6.6/32",
+      "loopback_area": 2,
+      "description": "ASBR in Area 2 (NSSA), redistributes static routes"
+    }
+  },
+  "links": [
+    {
+      "endpoints": ["R1", "R2"],
+      "subnet": "10.0.12.0/24",
+      "area": 0,
+      "interfaces": {
+        "R1": {"name": "r1-r2", "ip": "10.0.12.1"},
+        "R2": {"name": "r2-r1", "ip": "10.0.12.2"}
+      }
+    },
+    {
+      "endpoints": ["R2", "R3"],
+      "subnet": "10.0.23.0/24",
+      "area": 0,
+      "interfaces": {
+        "R2": {"name": "r2-r3", "ip": "10.0.23.2"},
+        "R3": {"name": "r3-r2", "ip": "10.0.23.3"}
+      }
+    },
+    {
+      "endpoints": ["R1", "R4"],
+      "subnet": "10.1.14.0/24",
+      "area": 1,
+      "interfaces": {
+        "R1": {"name": "r1-r4", "ip": "10.1.14.1"},
+        "R4": {"name": "r4-r1", "ip": "10.1.14.4"}
+      }
+    },
+    {
+      "endpoints": ["R2", "R5"],
+      "subnet": "10.1.25.0/24",
+      "area": 1,
+      "interfaces": {
+        "R2": {"name": "r2-r5", "ip": "10.1.25.2"},
+        "R5": {"name": "r5-r2", "ip": "10.1.25.5"}
+      }
+    },
+    {
+      "endpoints": ["R4", "R5"],
+      "subnet": "10.1.45.0/24",
+      "area": 1,
+      "interfaces": {
+        "R4": {"name": "r4-r5", "ip": "10.1.45.4"},
+        "R5": {"name": "r5-r4", "ip": "10.1.45.5"}
+      }
+    },
+    {
+      "endpoints": ["R3", "R6"],
+      "subnet": "10.2.36.0/24",
+      "area": 2,
+      "interfaces": {
+        "R3": {"name": "r3-r6", "ip": "10.2.36.3"},
+        "R6": {"name": "r6-r3", "ip": "10.2.36.6"}
+      }
+    }
+  ],
+  "external_routes": [
+    {"prefix": "172.16.0.0/24", "origin": "R6", "expected_action": "permit"},
+    {"prefix": "172.16.1.0/24", "origin": "R6", "expected_action": "permit"},
+    {"prefix": "172.16.2.0/24", "origin": "R6", "expected_action": "deny"}
+  ],
+  "requirements": {
+    "area_types": {
+      "0": "normal",
+      "1": "totally_stub",
+      "2": "nssa"
+    },
+    "summarization": [
+      {"router": "R1", "area": 1, "range": "10.1.0.0/16"},
+      {"router": "R2", "area": 1, "range": "10.1.0.0/16"},
+      {"router": "R3", "area": 2, "range": "10.2.0.0/16"}
+    ],
+    "cost_overrides": [
+      {"router": "R1", "interface": "r1-r4", "cost": 100},
+      {"router": "R4", "interface": "r4-r1", "cost": 100}
+    ]
+  }
+}

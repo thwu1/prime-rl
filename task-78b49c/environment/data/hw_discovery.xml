@@ -1,0 +1,237 @@
+<?xml version="1.0" ?>
+<nvidia_smi_log>
+  <timestamp>Fri Mar 14 10:23:45 2025</timestamp>
+  <driver_version>560.35.03</driver_version>
+  <cuda_version>12.6</cuda_version>
+  <attached_gpus>5</attached_gpus>
+
+  <gpu id="0000:01:00.0">
+    <minor_number>0</minor_number>
+    <uuid>GPU-a1b2c3d4-REDACTED-0001</uuid>
+    <product_name>[REDACTED]</product_name>
+    <product_architecture>[REDACTED]</product_architecture>
+    <display_mode>Disabled</display_mode>
+    <persistence_mode>Enabled</persistence_mode>
+    <internal_label>GPU_A</internal_label>
+    <compute_mode>Default</compute_mode>
+    <performance_state>P0</performance_state>
+    <fb_memory_usage>
+      <total>16384 MiB</total>
+      <used>1024 MiB</used>
+      <reserved>256 MiB</reserved>
+      <free>15104 MiB</free>
+    </fb_memory_usage>
+    <compute_capability>
+      <major_version>[DISCOVERY FAILED]</major_version>
+      <minor_version>[DISCOVERY FAILED]</minor_version>
+    </compute_capability>
+    <sm_resource_limits>
+      <warp_size>32</warp_size>
+      <max_threads_per_block>1024</max_threads_per_block>
+      <max_registers_per_sm>65536</max_registers_per_sm>
+      <max_warps_per_sm>[DISCOVERY FAILED]</max_warps_per_sm>
+      <max_resident_blocks_per_sm>[DISCOVERY FAILED]</max_resident_blocks_per_sm>
+      <shared_memory_per_sm_bytes>[DISCOVERY FAILED]</shared_memory_per_sm_bytes>
+      <shared_memory_alloc_unit_bytes>[DISCOVERY FAILED]</shared_memory_alloc_unit_bytes>
+      <register_alloc_unit>[DISCOVERY FAILED]</register_alloc_unit>
+    </sm_resource_limits>
+    <temperature>
+      <gpu_temp>42 C</gpu_temp>
+      <gpu_temp_max_threshold>93 C</gpu_temp_max_threshold>
+    </temperature>
+    <power_readings>
+      <power_state>P0</power_state>
+      <power_draw>45.12 W</power_draw>
+      <current_power_limit>250.00 W</current_power_limit>
+    </power_readings>
+    <clocks>
+      <graphics_clock>1530 MHz</graphics_clock>
+      <sm_clock>1530 MHz</sm_clock>
+      <mem_clock>877 MHz</mem_clock>
+    </clocks>
+  </gpu>
+
+  <gpu id="0000:02:00.0">
+    <minor_number>1</minor_number>
+    <uuid>GPU-a1b2c3d4-REDACTED-0002</uuid>
+    <product_name>[REDACTED]</product_name>
+    <product_architecture>[REDACTED]</product_architecture>
+    <display_mode>Disabled</display_mode>
+    <persistence_mode>Enabled</persistence_mode>
+    <internal_label>GPU_B</internal_label>
+    <compute_mode>Default</compute_mode>
+    <performance_state>P0</performance_state>
+    <fb_memory_usage>
+      <total>15360 MiB</total>
+      <used>512 MiB</used>
+      <reserved>128 MiB</reserved>
+      <free>14720 MiB</free>
+    </fb_memory_usage>
+    <compute_capability>
+      <major_version>[DISCOVERY FAILED]</major_version>
+      <minor_version>[DISCOVERY FAILED]</minor_version>
+    </compute_capability>
+    <sm_resource_limits>
+      <warp_size>32</warp_size>
+      <max_threads_per_block>1024</max_threads_per_block>
+      <max_registers_per_sm>65536</max_registers_per_sm>
+      <max_warps_per_sm>[DISCOVERY FAILED]</max_warps_per_sm>
+      <max_resident_blocks_per_sm>[DISCOVERY FAILED]</max_resident_blocks_per_sm>
+      <shared_memory_per_sm_bytes>[DISCOVERY FAILED]</shared_memory_per_sm_bytes>
+      <shared_memory_alloc_unit_bytes>[DISCOVERY FAILED]</shared_memory_alloc_unit_bytes>
+      <register_alloc_unit>[DISCOVERY FAILED]</register_alloc_unit>
+    </sm_resource_limits>
+    <temperature>
+      <gpu_temp>38 C</gpu_temp>
+      <gpu_temp_max_threshold>96 C</gpu_temp_max_threshold>
+    </temperature>
+    <power_readings>
+      <power_state>P0</power_state>
+      <power_draw>32.50 W</power_draw>
+      <current_power_limit>70.00 W</current_power_limit>
+    </power_readings>
+    <clocks>
+      <graphics_clock>1590 MHz</graphics_clock>
+      <sm_clock>1590 MHz</sm_clock>
+      <mem_clock>1250 MHz</mem_clock>
+    </clocks>
+  </gpu>
+
+  <gpu id="0000:03:00.0">
+    <minor_number>2</minor_number>
+    <uuid>GPU-a1b2c3d4-REDACTED-0003</uuid>
+    <product_name>[REDACTED]</product_name>
+    <product_architecture>[REDACTED]</product_architecture>
+    <display_mode>Disabled</display_mode>
+    <persistence_mode>Enabled</persistence_mode>
+    <internal_label>GPU_C</internal_label>
+    <compute_mode>Default</compute_mode>
+    <performance_state>P0</performance_state>
+    <fb_memory_usage>
+      <total>40960 MiB</total>
+      <used>2048 MiB</used>
+      <reserved>512 MiB</reserved>
+      <free>38400 MiB</free>
+    </fb_memory_usage>
+    <compute_capability>
+      <major_version>[DISCOVERY FAILED]</major_version>
+      <minor_version>[DISCOVERY FAILED]</minor_version>
+    </compute_capability>
+    <sm_resource_limits>
+      <warp_size>32</warp_size>
+      <max_threads_per_block>1024</max_threads_per_block>
+      <max_registers_per_sm>65536</max_registers_per_sm>
+      <max_warps_per_sm>[DISCOVERY FAILED]</max_warps_per_sm>
+      <max_resident_blocks_per_sm>[DISCOVERY FAILED]</max_resident_blocks_per_sm>
+      <shared_memory_per_sm_bytes>[DISCOVERY FAILED]</shared_memory_per_sm_bytes>
+      <shared_memory_alloc_unit_bytes>[DISCOVERY FAILED]</shared_memory_alloc_unit_bytes>
+      <register_alloc_unit>[DISCOVERY FAILED]</register_alloc_unit>
+    </sm_resource_limits>
+    <temperature>
+      <gpu_temp>45 C</gpu_temp>
+      <gpu_temp_max_threshold>92 C</gpu_temp_max_threshold>
+    </temperature>
+    <power_readings>
+      <power_state>P0</power_state>
+      <power_draw>85.30 W</power_draw>
+      <current_power_limit>300.00 W</current_power_limit>
+    </power_readings>
+    <clocks>
+      <graphics_clock>1410 MHz</graphics_clock>
+      <sm_clock>1410 MHz</sm_clock>
+      <mem_clock>1215 MHz</mem_clock>
+    </clocks>
+  </gpu>
+
+  <gpu id="0000:04:00.0">
+    <minor_number>3</minor_number>
+    <uuid>GPU-a1b2c3d4-REDACTED-0004</uuid>
+    <product_name>[REDACTED]</product_name>
+    <product_architecture>[REDACTED]</product_architecture>
+    <display_mode>Disabled</display_mode>
+    <persistence_mode>Enabled</persistence_mode>
+    <internal_label>GPU_D</internal_label>
+    <compute_mode>Default</compute_mode>
+    <performance_state>P0</performance_state>
+    <fb_memory_usage>
+      <total>24576 MiB</total>
+      <used>768 MiB</used>
+      <reserved>192 MiB</reserved>
+      <free>23616 MiB</free>
+    </fb_memory_usage>
+    <compute_capability>
+      <major_version>[DISCOVERY FAILED]</major_version>
+      <minor_version>[DISCOVERY FAILED]</minor_version>
+    </compute_capability>
+    <sm_resource_limits>
+      <warp_size>32</warp_size>
+      <max_threads_per_block>1024</max_threads_per_block>
+      <max_registers_per_sm>65536</max_registers_per_sm>
+      <max_warps_per_sm>[DISCOVERY FAILED]</max_warps_per_sm>
+      <max_resident_blocks_per_sm>[DISCOVERY FAILED]</max_resident_blocks_per_sm>
+      <shared_memory_per_sm_bytes>[DISCOVERY FAILED]</shared_memory_per_sm_bytes>
+      <shared_memory_alloc_unit_bytes>[DISCOVERY FAILED]</shared_memory_alloc_unit_bytes>
+      <register_alloc_unit>[DISCOVERY FAILED]</register_alloc_unit>
+    </sm_resource_limits>
+    <temperature>
+      <gpu_temp>40 C</gpu_temp>
+      <gpu_temp_max_threshold>90 C</gpu_temp_max_threshold>
+    </temperature>
+    <power_readings>
+      <power_state>P0</power_state>
+      <power_draw>28.70 W</power_draw>
+      <current_power_limit>72.00 W</current_power_limit>
+    </power_readings>
+    <clocks>
+      <graphics_clock>2520 MHz</graphics_clock>
+      <sm_clock>2520 MHz</sm_clock>
+      <mem_clock>1250 MHz</mem_clock>
+    </clocks>
+  </gpu>
+
+  <gpu id="0000:05:00.0">
+    <minor_number>4</minor_number>
+    <uuid>GPU-a1b2c3d4-REDACTED-0005</uuid>
+    <product_name>[REDACTED]</product_name>
+    <product_architecture>[REDACTED]</product_architecture>
+    <display_mode>Disabled</display_mode>
+    <persistence_mode>Enabled</persistence_mode>
+    <internal_label>GPU_E</internal_label>
+    <compute_mode>Default</compute_mode>
+    <performance_state>P0</performance_state>
+    <fb_memory_usage>
+      <total>81920 MiB</total>
+      <used>3072 MiB</used>
+      <reserved>1024 MiB</reserved>
+      <free>77824 MiB</free>
+    </fb_memory_usage>
+    <compute_capability>
+      <major_version>[DISCOVERY FAILED]</major_version>
+      <minor_version>[DISCOVERY FAILED]</minor_version>
+    </compute_capability>
+    <sm_resource_limits>
+      <warp_size>32</warp_size>
+      <max_threads_per_block>1024</max_threads_per_block>
+      <max_registers_per_sm>65536</max_registers_per_sm>
+      <max_warps_per_sm>[DISCOVERY FAILED]</max_warps_per_sm>
+      <max_resident_blocks_per_sm>[DISCOVERY FAILED]</max_resident_blocks_per_sm>
+      <shared_memory_per_sm_bytes>[DISCOVERY FAILED]</shared_memory_per_sm_bytes>
+      <shared_memory_alloc_unit_bytes>[DISCOVERY FAILED]</shared_memory_alloc_unit_bytes>
+      <register_alloc_unit>[DISCOVERY FAILED]</register_alloc_unit>
+    </sm_resource_limits>
+    <temperature>
+      <gpu_temp>48 C</gpu_temp>
+      <gpu_temp_max_threshold>90 C</gpu_temp_max_threshold>
+    </temperature>
+    <power_readings>
+      <power_state>P0</power_state>
+      <power_draw>125.40 W</power_draw>
+      <current_power_limit>700.00 W</current_power_limit>
+    </power_readings>
+    <clocks>
+      <graphics_clock>1980 MHz</graphics_clock>
+      <sm_clock>1980 MHz</sm_clock>
+      <mem_clock>1593 MHz</mem_clock>
+    </clocks>
+  </gpu>
+</nvidia_smi_log>

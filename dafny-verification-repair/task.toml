@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level formal verification expertise. The agent must add correct loop invariants, termination metrics, and assertions to three sorting/algorithmic Dafny programs that defeated all four LLMs tested in the DafnyBench benchmark (GPT-4-turbo, GPT-4o, GPT-3.5-turbo, Claude-3-Opus). Key challenges: (1) nested loop invariants for selection sort with multiset preservation and sorted-segment maintenance, (2) insertion sort with a subtle inner-loop multiset invariant involving temporary variable accounting, (3) two variants of maximum contiguous subsequence sum requiring mathematical induction-style reasoning over recursive sum functions. Each program requires understanding Dafny's verification model, iterative debugging with the verifier, and formal reasoning about program correctness."""
+solution_explanation = """For each program, restore the verification annotations stripped from the DafnyBench ground truth: selection sort needs 14 annotations across nested loops (sorted prefix, minimum tracking, multiset preservation, bounds), insertion sort needs 13 annotations including a tricky multiset{a[j]}/multiset{temp} adjustment invariant, and max sum needs 12 annotations for two algorithm variants with recursive Sum function properties. Write the annotated programs to /app/ and verify with `dafny verify`."""
+verification_explanation = """For each of the 3 programs: (1) check file exists, (2) verify no cheating (no 'assume false' or '{:verify false}'), (3) verify original requires/ensures specs are preserved by comparing against stored originals, (4) run `dafny verify` and check output contains 'verified, 0 errors'. All checks must pass for reward 1.0."""
+category = "formal_verification"
+tags = ["dafny", "loop_invariants"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dafny-verification-repair"

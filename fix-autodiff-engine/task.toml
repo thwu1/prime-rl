@@ -1,0 +1,85 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of automatic differentiation theory at
+multiple abstraction levels: (1) tape-based reverse-mode AD with VJP rules
+and gradient accumulation, (2) dual-number forward-mode AD with JVP rules,
+(3) JAX's custom_vjp API and tracing semantics, and (4) numerical analysis
+for floating-point stability. The agent must diagnose and fix 11 distinct
+bugs across two independent AD implementations — a mini framework with 5
+bugs spanning VJP rules, JVP rules, and backward-pass gradient accumulation,
+plus 6 JAX custom derivative functions with incorrect VJP formulas and
+numerically unstable forward implementations. Some bugs are subtle: a
+gradient accumulation error manifesting only when variables are reused in
+expressions, a VJP rule with swapped cotangent components, a missing VJP
+registration that crashes on specific function compositions. The agent must
+then perform cross-system validation by re-implementing numerics functions
+using the mini AD's primitives and verifying gradient agreement with JAX —
+requiring deep conceptual understanding that both systems compute the same
+mathematical derivatives via different mechanisms. This demands holistic
+reasoning about how differentiation rules compose, how bugs cascade through
+computational graphs, and how forward-mode and reverse-mode AD relate
+mathematically.
+"""
+solution_explanation = """
+Autodiff framework (5 bugs):
+1. mul VJP: returns (ct*x, ct*y) instead of (ct*y, ct*x) — swapped cotangents.
+2. div VJP: returns -ct*x/y instead of -ct*x/(y*y) — missing y^2 in quotient rule.
+3. exp VJP: no rule registered — crashes on any gradient involving exp.
+4. sub JVP: tangent uses + instead of - — wrong sign in forward-mode subtraction.
+5. backward pass: overwrites grads instead of accumulating when variable reused.
+
+Numerics (6 bugs):
+1. log1pexp: VJP returns exp(x) not sigmoid(x); forward overflows for large x.
+2. logsumexp: no max-subtraction trick; overflows for large inputs.
+3. sigmoid: VJP returns (1-y)^2 not y*(1-y) — missing y factor.
+4. safe_sqrt: VJP uses -eps instead of +eps, no zero gradient for x<=0.
+5. huber_loss: VJP returns g*x in both regions, linear should be delta*sign(x).
+6. log_cosh: no custom_vjp; cosh overflows for |x|>710 in float64.
+
+Cross-validation: implement log1pexp, sigmoid, log_cosh, logsumexp using
+mini AD primitives (exp, log, arithmetic), compute gradients via both systems,
+verify agreement at multiple test points.
+"""
+verification_explanation = """
+43 pytest assertions across 7 test classes:
+- TestAutodiffFramework: 7 tests verify the mini AD produces correct gradients
+  for mul, div, exp, subtraction (forward-mode), gradient accumulation, a complex
+  composition requiring all VJP fixes, and forward/reverse mode agreement.
+- TestForwardValues: 6 tests verify JAX forward computation against analytical values.
+- TestGradientCorrectness: 10 tests verify jax.grad against analytical derivatives
+  at multiple input values, with tests isolating specific VJP bugs.
+- TestNumericalStability: 6 tests verify finite outputs for extreme inputs (|x|>=750).
+- TestAutodiffCrossCheck: 3 tests independently verify JAX and mini AD gradients
+  agree on shared functions (log1pexp, sigmoid, log_cosh).
+- TestAuditReport: 8 tests verify report structure, autodiff bug diagnosis, numerics
+  bug diagnosis, and jaxpr analysis presence and content.
+- TestCrossValidation: 3 tests verify cross_validation.json structure and that all
+  cross-validated functions show gradient agreement.
+"""
+category = "numerical-computing"
+tags = ["automatic-differentiation", "jax"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-autodiff-engine"

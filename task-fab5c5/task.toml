@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level distributed systems debugging and software architecture design. The agent must investigate a multi-layer cascading failure across database shards, a feature generator, and a proxy server using a custom CLI tool (cfctl), sqlite3 queries, jq JSON processing, and multi-source log correlation. The root cause spans three interacting bugs whose symptoms are intermittent and initially misleading (only 4 of 5 shards are affected, creating an 80/20 failure pattern). After identifying and fixing all bugs, the agent must design and implement a configuration validation pipeline enforcing system invariants and write substantive architectural analysis and incident documentation. Requires holistic understanding of distributed system failure modes and cascading effects, not procedural debugging."""
+solution_explanation = """The solver must: (1) Investigate using cfctl, logs, and shard queries to identify that migrated shards expose duplicate metadata across two databases, causing the generator's unfiltered SQL to produce doubled feature counts. (2) Fix the generator SQL by adding a database filter. (3) Fix the generator's non-atomic file writes that create race conditions for concurrent readers. (4) Fix the proxy's crash-on-error behavior to handle oversized/invalid configuration gracefully instead of panicking. (5) Create a validator module at /app/config_safety/validator.py that checks feature count limits, duplicates, type validity, and schema completeness. (6) Write design documentation analyzing error handling trade-offs and deployment safety. (7) Write an incident report documenting the full cascade chain."""
+verification_explanation = """Tests verify: (1) generator produces correct feature count from both migrated and unmigrated shards with no duplicates, (2) all 5 shards produce identical counts, (3) generator SQL has database filter, (4) generator uses atomic file writes, (5) proxy handles oversized configs gracefully without crash/SystemExit, (6) config validator module exists with correct interface, (7) validator accepts valid configs and rejects oversized and duplicate-containing configs, (8) cfctl config validate integrates with the validator, (9) design document covers error handling trade-offs and deployment safety, (10) incident report covers both database and proxy aspects of the cascade."""
+category = "debugging"
+tags = ["incident-response", "distributed-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fab5c5"

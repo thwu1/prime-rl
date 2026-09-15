@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level expertise in both plasma physics and computational electromagnetics. The agent must: (1) discover and parse WarpX native ParmParse input files — a non-standard key-value format with user-defined constant substitution via the my_constants mechanism — by exploring the provided documentation; (2) identify which parameters are relevant to the audit among dozens of simulation parameters; (3) know the 3D Yee FDTD CFL stability condition, the Yee numerical dispersion relation (a transcendental equation), and how to derive numerical group velocity from it; (4) compute standard laser-plasma parameters (normalized vector potential, critical density, plasma frequency, etc.) from first principles without any formulas being given."""
+solution_explanation = """The solution parses WarpX input files by splitting on '=' and resolving my_constants references. For each simulation it: extracts grid dimensions and domain bounds to compute cell sizes; applies the 3D CFL condition dt = CFL/(c*sqrt(sum(1/di^2))); computes laser/plasma parameters from standard definitions; solves the Yee FDTD dispersion relation sin(omega*dt/2)/(c*dt/2) = sin(k*dz/2)/(dz/2) via arcsin for the numerical frequency; and derives group velocity as c*cos(k*dz/2)/cos(omega_num*dt/2). Results are written as structured JSON."""
+verification_explanation = """Tests independently recompute all physical quantities for each of the three simulations using hard-coded input parameters and scipy.constants, then compare against the agent's output with 1e-6 relative tolerance. Integer fields (total_cells) require exact match. Boolean verdicts (cfl_stable, well_resolved) are checked against independently computed thresholds. Physics sanity checks verify internal consistency (density ratio < 1, phase velocity <= c, etc.)."""
+category = "scientific_computing"
+tags = ["plasma-physics", "computational-electromagnetics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pic-dispersion-analysis"

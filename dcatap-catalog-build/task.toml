@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the DCAT-AP 3.0.1 application profile, RDF/Turtle serialization semantics, EU Publications Office controlled vocabularies, SHACL constraint language (including SPARQL-based constraints), and the interplay between DCAT, DCT, FOAF, VCARD, and SKOS specifications. The agent must diagnose 14 subtle, interrelated errors spanning 5 categories without being told what they are — distinguishing wrong authority table URI prefixes, incorrect property ranges, wrong entity types, broken structural modeling, wrong property names, vocabulary namespace conflicts, and cross-entity referential integrity gaps. Writing the 5 advanced SHACL shapes requires SPARQL-based constraints for cross-entity validation (orphan detection via inverse patterns, conditional format-byteSize coupling, series-temporal completeness checking) — techniques well beyond basic property constraints."""
+solution_explanation = """Parse the broken catalog with rdflib and systematically compare it against the DCAT-AP 3.0.1 specification and the manifest to identify all 14 violations across vocabulary alignment, structural modeling, property usage, literal correctness, and cross-entity consistency. Fix each violation programmatically — correcting entity types, restructuring literal values into proper RDF nodes, replacing incorrect vocabulary URIs with correct EU authority table URIs, fixing property names and datatypes, adding missing cross-entity links, and adding missing language tags. Build 5 SHACL NodeShapes using SPARQL-based constraints for conditional and cross-entity validation. Produce structured audit report documenting all findings."""
+verification_explanation = """Tests parse catalog_fixed.ttl with rdflib and verify each of 14 error fixes via targeted SPARQL queries and RDF graph inspection: correct entity types, vocabulary URI prefixes, property ranges (IRI vs literal), literal datatypes, language tags, cross-entity links, and property name correctness. Entity count tests verify structural preservation. Advanced shapes are tested with pyshacl against the fixed catalog (must pass) and against two bad-data graphs that deliberately violate specific constraints (must fail). Audit report is validated for JSON structure, entry count (>=12), category diversity (>=4), and required fields."""
+category = "data_management"
+tags = ["rdf", "shacl"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dcatap-catalog-build"

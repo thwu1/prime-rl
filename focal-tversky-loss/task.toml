@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a buggy FocalTverskyLoss forward pass against a mathematical specification — the implementation has three interacting bugs: a hardcoded 2D one-hot permutation that crashes on 3D volumetric data (requires understanding arbitrary-rank tensor operations), a missing ground-truth channel exclusion in background removal that causes silent shape mismatches, and a fundamental mathematical error in the focal modulation formula (ti^gamma instead of (1-ti)^gamma) that inverts the loss behavior and causes training to diverge. Identifying these bugs demands deep understanding of the Tversky index mathematics, PyTorch's tensor semantics across spatial ranks, and how focal modulation interacts with the optimization landscape. Additionally requires diagnosing four interacting defects in a MONAI pipeline spanning channel dimension semantics in EnsureChannelFirstd, transform composition effects on intensity distributions (NormalizeIntensityd before ScaleIntensityRanged collapses values), 2D/3D architecture dimensionality constraints, and sliding window inference parameter validity. The training integration test requires all seven defects across both components to be fixed simultaneously — the loss function provides gradients for training while the pipeline provides correct data flow — creating a holistic debugging challenge where understanding one component's behavior requires understanding the other's."""
+solution_explanation = """Loss function fixes: (1) replace hardcoded g.permute(0,3,1,2) with dynamic permutation [0, ndim-1, 1..ndim-2] to support arbitrary spatial rank, (2) add g=g[:,1:] alongside p=p[:,1:] in background exclusion so both tensors are sliced symmetrically, (3) change focal modulation from ti**gamma to (1-ti)**gamma so the loss correctly penalizes low Tversky index values. Pipeline fixes: (1) change EnsureChannelFirstd channel_dim from 0 to "no_channel" since raw numpy arrays have no channel dimension, (2) remove NormalizeIntensityd that precedes ScaleIntensityRanged to prevent value collapse, (3) change UNet spatial_dims from 2 to 3 for 3D volumetric data, (4) change sliding_window_inference overlap from 1.5 to 0.5 since it must be in [0,1)."""
+verification_explanation = """Loss function verified against an independent reference implementation across 14 test cases covering binary/multi-class inputs, sigmoid/softmax activations, one-hot conversion, background exclusion, class weights with and without background, batch mode, gamma=0 edge case, sum/none reductions, gradient flow, 3D inputs, combined 3D+background-exclusion stress test, and parameter validation. Pipeline verified by checking transform output shape and intensity range, model forward pass on 3D data, and end-to-end evaluation. Training integration test verifies loss decreases over epochs and trained model achieves positive Dice score, requiring both the loss function and pipeline to be fully correct."""
+category = "machine_learning"
+tags = ["medical-imaging", "loss-functions"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/focal-tversky-loss"

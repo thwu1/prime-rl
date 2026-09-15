@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a correct Z3-based program synthesizer requires expert knowledge of SMT solver APIs, bitvector constraint encoding, program synthesis formalisms (encoding program search spaces as logical constraints), and debugging subtle semantic issues in bitvector arithmetic. The task demands encoding operator selection, argument routing, and multi-step evaluation as Z3 constraints—a technique from program synthesis research (CEGIS, SyGuS). Benchmarks escalate from trivial (1 op, 2 inputs) to expert-level (4 ops, 3 inputs) where the combinatorial search space reaches ~10^8 programs, requiring careful constraint engineering and optimization (CEGIS, dead-code elimination) to solve within time limits."""
+solution_explanation = """The solution implements a CEGIS-based iterative deepening Z3 synthesis loop. For each candidate program length, it creates integer variables for operator and argument selection at each program line, then encodes the evaluation semantics as Z3 If-Then-Else chains over BitVec values. CEGIS starts with a small subset of I/O pairs (3), synthesizes a candidate, verifies against all pairs, and adds all counterexamples at once. Key optimizations include: CEGIS for scalability, dead-code constraints ensuring every intermediate is used, preventing constant-only operations, and increasing program length only when shorter programs are provably unsatisfiable."""
+verification_explanation = """The test generates 4 benchmark specifications with deterministic I/O training pairs from oracle functions of increasing complexity (1-4 operations, 2-3 inputs). For each benchmark, it invokes the synthesizer as a subprocess with a per-benchmark timeout (60-240s), parses the output JSON, then evaluates the synthesized program on 500 held-out random test inputs (deterministic seed). The synthesized program must produce identical outputs to the oracle on all 500 test inputs to pass. This verifies functional equivalence rather than structural identity—any correct program in the DSL is accepted."""
+category = "program_analysis"
+tags = ["smt-solving", "program-synthesis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5e00e2"

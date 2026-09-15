@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of delimited continuations, prompt tags, and their interactions with dynamic binding and side effects. The solver must diagnose a subtle bug in shift (wrong continuation capture primitive), implement tagged variants, design a state handler that properly isolates state across multi-shot continuation branches, build a nondeterministic search framework with correct left-to-right evaluation order and dynamic-wind interaction, convert imperative iteration to lazy streams via continuations, and implement a general algebraic effect handler framework with perform/resume semantics. These features are deeply coupled: the state handler must survive interaction with amb's multi-shot continuations, and the general handler must correctly re-establish prompts on resumption. No feature can be implemented in isolation without understanding the SRFI 226 primitive API."""
+solution_explanation = """The shift bug is fixed by replacing call-with-current-continuation (non-composable) with call-with-composable-continuation and wrapping resumed continuations in a fresh reset. shift-at/reset-at mirror this pattern using explicit tags with call-with-continuation-prompt's tag parameter. run-with-state uses a CPS handler loop: shift-at suspends computation, passing a discriminated closure back to a tail-recursive loop that threads state as a parameter (not mutation), ensuring each multi-shot branch starts from the captured state value. amb uses shift to capture the continuation and a left-to-right fold (not map, which Chez evaluates right-to-left) to invoke k for each choice. for-each->stream wraps the iteration callback in shift/stream-cons. run-with-handler wraps thunk in call-with-continuation-prompt; perform captures a composable continuation, aborts, and the prompt handler dispatches to eff-handler with a wrapped resumption continuation that re-establishes the prompt with the same handler."""
+verification_explanation = """The Scheme program contains 23 test cases that compare computed results against expected values using equal?. Each test prints PASS or FAIL. The pytest runner executes the program, captures stdout, and verifies that all 23 tests pass with 0 failures. Tests cover basic delimited control, multi-shot continuation application, nested shifts, tagged prompts, independent nested state cells, state isolation across nondeterministic branches, exhaustive nondeterministic search with filtering and Cartesian products, Pythagorean triple enumeration, lazy stream conversion, partial stream consumption, correct dynamic-wind behavior during backtracking, and a full algebraic effect handler framework (return transformation, effect handling with resumption, multiple sequential effects, and non-resumptive abort)."""
+category = "programming_languages"
+tags = ["scheme", "delimited-continuations"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/delimited-continuation-effects-dbd0f3"

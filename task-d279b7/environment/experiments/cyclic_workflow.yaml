@@ -1,0 +1,27 @@
+parameters:
+  threshold: 0.5
+
+tasks:
+  process:
+    plugin: data.processing.transform
+    outputs:
+      result: any
+  aggregate:
+    plugin: data.processing.aggregate
+    outputs:
+      result: any
+  filter_data:
+    plugin: data.processing.filter
+    outputs:
+      result: any
+
+graph:
+  step_a:
+    process:
+      input: $step_c
+  step_b:
+    aggregate:
+      input: $step_a
+  step_c:
+    filter_data:
+      input: $step_b

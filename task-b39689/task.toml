@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building an efficient Sokoban solver as a compiled C++ binary requires implementing multiple non-trivial algorithms (state-space A* search, player reachability via flood-fill, dead-square detection via corner and dead-wall analysis, and an admissible heuristic via minimum-cost bipartite assignment using bitmask DP on Manhattan distances), plus setting up a proper CMake or Makefile build system with correct C++17 flags, position-independent code options, and linking. The puzzle difficulty graduates from trivial (1 box) to hard (6 boxes in a checkerboard pattern with ~600K reachable states), where naive BFS fails due to PSPACE-complete combinatorial explosion."""
+solution_explanation = """The reference solution provides a single-file C++ solver compiled via CMake. It implements A* search over push-states where each state is (sorted encoded box positions, canonical player zone representative). Dead squares are precomputed via corner detection and dead-wall segment analysis. The admissible heuristic uses bitmask DP to compute minimum-cost assignment of boxes to goals under Manhattan distance. Path reconstruction walks the closed-list parent chain and uses BFS to compute player walk segments between pushes, outputting lowercase moves and uppercase pushes as a LURD string. The CMakeLists.txt compiles with -O2 -std=c++17."""
+verification_explanation = """Tests first verify build infrastructure: the solver binary must be a valid ELF executable (magic bytes check), a build system file (CMakeLists.txt or Makefile) must exist, C/C++ source files must be present, and the build system must be functional (cmake configure+build or make dry-run). Then for each of 8 puzzles, the solver is invoked via subprocess with a 180s timeout, the LURD output is validated character-by-character (each move simulated on the parsed board checking wall/box collisions), and every box must rest on a goal after replay."""
+category = "algorithmic_reasoning"
+tags = ["search-algorithms", "build-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b39689"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing and correcting a flawed environmental statistical analysis across five datasets with heterogeneous formats (CSV variants and SQLite). The solver must: (1) explore and parse data files with different non-detect conventions (<DL notation, U qualifiers, binary flags, SQLite database), (2) discover methodological errors in a preliminary report by cross-referencing against EPA ProUCL 5.2 decision logic from reference documentation, (3) implement Kaplan-Meier product-limit estimation for left-censored data using the reversed-KM approach, (4) implement Robust ROS imputation, (5) implement multiple UCL computation methods including bootstrap BCA, Hall's bootstrap-t, adjusted-gamma, and Land's H-UCL, (6) apply the full ProUCL 5.2 decision tree including v5.2-specific rules (Chebyshev never recommended, bootstrap not for n<10, restricted H-UCL). The task combines environmental domain expertise, survival analysis, resampling methods, and regulatory methodology."""
+solution_explanation = """The solution: (1) parses all five datasets from their heterogeneous formats including SQLite querying, (2) classifies each as fully-detected or censored, (3) for censored data implements the reversed-KM estimator (Y=-X transform, standard right-censored KM, area-under-survival-curve integration) and ROS (log-linear regression on Blom plotting positions with imputation), (4) performs GOF testing (Shapiro-Wilk, gamma KS, lognormal SW), (5) computes all applicable UCL methods, (6) applies ProUCL 5.2 decision logic to recommend the correct method for each dataset, and (7) produces the corrected results.json."""
+verification_explanation = """Tests verify: (1) all five well-contaminant entries present with required keys, (2) Student's t UCL for the normal dataset matches analytical computation within tight tolerance, (3) skewed dataset does not recommend Student's t, (4) KM means for three censored datasets match independently computed reference values within tolerance, (5) censored datasets do not use DL/2 substitution (KM mean differs from naive mean), (6) Chebyshev is never the recommended method, (7) bootstrap is not recommended for the small-sample dataset, (8) all UCL values are positive and exceed corresponding means, (9) recommended UCL matches one of the computed UCL values."""
+category = "data_science"
+tags = ["environmental-statistics", "censored-data"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-33c670"

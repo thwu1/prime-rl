@@ -1,0 +1,19 @@
+[simulation]
+N = 64
+Re = 100.0
+dt = 0.01
+T = 5.0
+dealias = true
+initial_condition = "taylor_green"
+
+[validation]
+poisson_tol = 1e-10
+velocity_tol = 1e-10
+vorticity_linf_tol = 1e-6
+energy_rel_tol = 1e-6
+enstrophy_rel_tol = 1e-6
+convergence_order_min = 2.7
+convergence_order_max = 3.5
+
+[output]
+results_dir = "/app/results"

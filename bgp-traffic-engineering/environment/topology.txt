@@ -1,0 +1,34 @@
+BGP Multi-AS Topology
+=====================
+
+          AS65001                  AS65002                       AS65003
+        +---------+          +-------------------------------+  +---------+
+        |         |  eBGP    |                               |  |         |
+        |   r1    |----------|   r2  -----iBGP------  r3     |--|   r4    |
+        |         |          |                (RR)           |  |         |
+        +---------+          +-------------------------------+  +---------+
+             |                                                       |
+             +----------------------- eBGP --------------------------+
+
+Link Addressing:
+  r1 <-> r2:  10.0.12.1/30  <->  10.0.12.2/30   (veth12a / veth12b)
+  r2 <-> r3:  10.0.23.1/30  <->  10.0.23.2/30   (veth23a / veth23b)
+  r3 <-> r4:  10.0.34.1/30  <->  10.0.34.2/30   (veth34a / veth34b)
+  r1 <-> r4:  10.0.14.1/30  <->  10.0.14.2/30   (veth14a / veth14b)
+
+Loopback Addresses:
+  r1: 10.255.0.1/32
+  r2: 10.255.0.2/32
+  r3: 10.255.0.3/32
+  r4: 10.255.0.4/32
+
+BGP Autonomous Systems:
+  AS65001 (r1): Customer edge
+    Originates: 10.1.0.0/24, 10.1.1.0/24
+
+  AS65002 (r2, r3): Transit ISP
+    r3 is route reflector for r2 (iBGP)
+    r2 peers externally with r1, r3 peers externally with r4
+
+  AS65003 (r4): Content provider
+    Originates: 10.4.0.0/22, 10.4.0.0/24, 10.4.1.0/24, 10.4.2.0/24, 10.4.3.0/24

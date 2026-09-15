@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing seven composable packet transformation operations in C on raw Ethernet frame buffers. The agent must bring deep networking knowledge: understanding on-wire Ethernet/VLAN/IPv4/IPv6/ICMP frame layouts, overlapping memmove semantics for VLAN tag insertion/removal on packed headers, RFC 1071 one's complement checksum recomputation for ICMP and IPv4, ICMPv6 pseudo-header construction per RFC 2460 §8.1, IPv4 header checksum incremental update after TTL decrement, and a custom metadata digest algorithm involving big-endian XOR-fold with bit rotation. The skeleton provides only struct definitions and two helpers — no implementation hints — so the agent must derive correct byte-level manipulations from protocol knowledge. Pipeline composition creates non-obvious interactions: tag-then-forward-then-untag must drop because forwarding invalidates the pre-computed digest, and VLAN push/pop must preserve correct offsets for subsequent operations."""
+solution_explanation = """Implements: (1) vlan_pop via memmove collapsing the 4-byte VLAN tag while preserving the 12-byte MAC header; (2) vlan_push by shifting payload right 4 bytes and inserting 802.1Q tag; (3) echo_reply by swapping MACs/IPs, changing ICMP type (8→0 for IPv4, 128→129 for IPv6), and recomputing checksums — full ICMP checksum for IPv4 and pseudo-header-inclusive checksum for ICMPv6; (4) forward by rewriting MACs, decrementing TTL/hop_limit with zero-check, and recomputing IPv4 header checksum; (5) filter by matching L4 protocol through VLAN tags using find_l3; (6) tag by computing XOR-fold of 32-bit BE words with ROL-13 and XOR-0xCAFE1337, appending a 12-byte trailer; (7) untag by verifying magic and digest integrity then stripping the trailer."""
+verification_explanation = """31 pytest tests verify each operation individually and in multi-step pipelines. Tests construct packets with independently computed checksums and compare hex output byte-for-byte. Tag/untag tests verify specific digest values dependent on exact algorithm constants. Pipeline tests include tag-forward-untag which must drop because forwarding changes MACs/TTL, invalidating the pre-computed digest — a non-obvious interaction that validates correct pipeline semantics. Q-in-Q double-pop and push-tag-untag-pop roundtrip tests verify correct offset handling across composed operations."""
+category = "networking"
+tags = ["packet-processing", "ebpf-xdp"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xdp-packet-engine"

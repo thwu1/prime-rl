@@ -1,0 +1,58 @@
+<mujoco model="arm6dof">
+  <compiler angle="radian"/>
+  <option gravity="0 0 -9.81" timestep="0.002"/>
+
+  <default>
+    <geom contype="1" conaffinity="1" margin="0.001"/>
+    <joint damping="0.5"/>
+  </default>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="5 5 0.1" contype="0" conaffinity="0" rgba="0.9 0.9 0.9 1"/>
+
+    <body name="base" pos="0 0 0">
+      <geom name="base_geom" type="cylinder" size="0.06 0.025" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0"/>
+
+      <body name="link1" pos="0 0 0.025">
+        <joint name="joint1" type="hinge" axis="0 0 1" range="-3.14159 3.14159" limited="true"/>
+        <geom name="link1_geom" type="capsule" size="0.04" fromto="0 0 0 0 0 0.2" rgba="0.85 0.3 0.3 1"/>
+
+        <body name="link2" pos="0 0 0.2">
+          <joint name="joint2" type="hinge" axis="0 1 0" range="-1.5708 1.5708" limited="true"/>
+          <geom name="link2_geom" type="capsule" size="0.035" fromto="0 0 0 0.25 0 0" rgba="0.3 0.85 0.3 1"/>
+
+          <body name="link3" pos="0.25 0 0">
+            <joint name="joint3" type="hinge" axis="0 1 0" range="-2.3562 2.3562" limited="true"/>
+            <geom name="link3_geom" type="capsule" size="0.03" fromto="0 0 0 0.2 0 0" rgba="0.3 0.3 0.85 1"/>
+
+            <body name="link4" pos="0.2 0 0">
+              <joint name="joint4" type="hinge" axis="0 0 1" range="-3.14159 3.14159" limited="true"/>
+              <geom name="link4_geom" type="capsule" size="0.025" fromto="0 0 0 0 0 0.1" rgba="0.85 0.85 0.3 1"/>
+
+              <body name="link5" pos="0 0 0.1">
+                <joint name="joint5" type="hinge" axis="0 1 0" range="-1.5708 1.5708" limited="true"/>
+                <geom name="link5_geom" type="capsule" size="0.02" fromto="0 0 0 0.08 0 0" rgba="0.3 0.85 0.85 1"/>
+
+                <body name="link6" pos="0.08 0 0">
+                  <joint name="joint6" type="hinge" axis="0 0 1" range="-3.14159 3.14159" limited="true"/>
+                  <geom name="link6_geom" type="capsule" size="0.015" fromto="0 0 0 0.05 0 0" rgba="0.85 0.3 0.85 1"/>
+
+                  <site name="end_effector" pos="0.05 0 0" size="0.01" rgba="1 1 1 1"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <body name="obstacle" pos="0.35 0.12 0.225">
+      <geom name="obstacle_geom" type="sphere" size="0.04" rgba="1 0 0 0.5" contype="1" conaffinity="1"/>
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <key name="home" qpos="0 0 0 0 0 0"/>
+  </keyframe>
+</mujoco>

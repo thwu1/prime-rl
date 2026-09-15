@@ -1,0 +1,31 @@
+query FeedWithOptions(
+  $first: Int!
+  $after: String
+  $includeAuthor: Boolean!
+  $skipTags: Boolean!
+) {
+  feed(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+        body
+        author @include(if: $includeAuthor) {
+          id
+          username
+          profile {
+            avatarUrl
+          }
+        }
+        tags @skip(if: $skipTags)
+        priority
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}

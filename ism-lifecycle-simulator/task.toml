@@ -1,0 +1,54 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OpenSearch ISM internals. The agent
+receives only raw cluster state JSON (ISM explain, cat_indices, cat_aliases, node_attrs), policy
+definitions, and an output specification — with no guidance on what issues exist or how to find them.
+The agent must independently: (1) parse complex nested JSON in OpenSearch API response format and
+cross-reference four separate data sources with three policy definitions; (2) understand ISM policy
+version tracking via seq_no to detect version drift; (3) diagnose allocation routing failures by
+correlating policy attribute names with actual node attributes; (4) identify force_merge limitations
+related to shard topology; (5) validate rollover chain integrity by cross-referencing alias state
+with ISM explain rolled_over flags; (6) produce corrected policy files that fix the identified
+configuration errors. The instruction provides only the problem description and points to the output
+spec — the agent must discover all issues through holistic cluster analysis."""
+solution_explanation = """Build a pipeline (shell + Python) that: (1) extracts policy seq_nos from
+policy files and queries ISM explain JSON for failed actions (action.failed==true) and policy
+version mismatches (policy_seq_no != current _seq_no); (2) reconstructs rollover chains by
+grouping indices by prefix and cross-referencing alias data to find alias targets; (3) diagnoses
+4 distinct issues: force_merge failure on applogs-000003 due to 10 primary shards blocking lifecycle,
+stale policy versions on security-000001..5 causing wrong replica count, allocation attribute
+mismatch ('temp' vs 'temperature') on security-000006..8, and write alias stuck on metrics-000007
+instead of metrics-000008; (4) produces corrected security-lifecycle policy with temp→temperature
+fix in allocation.require for warm and cold states."""
+verification_explanation = """Tests load all output JSON files and verify: correct count and identity
+of indices with failed actions (4), correct policy mismatches (5 security indices with seq_no=2),
+correct rollover chain structure for all 3 patterns, diagnosis report with exactly 4 issues each
+in the correct category with correct severity and affected indices, summary counts matching
+expectations, and corrected security policy having 'temperature' instead of 'temp' in both
+warm and cold allocation.require settings."""
+category = "devops"
+tags = ["opensearch", "cluster-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ism-lifecycle-simulator"

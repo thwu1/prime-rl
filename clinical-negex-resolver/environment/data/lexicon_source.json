@@ -1,0 +1,207 @@
+{
+  "terms": [
+    {
+      "canonical": "chest pain",
+      "type": "SYMPTOM",
+      "code": "R07.9",
+      "code_system": "ICD-10",
+      "synonyms": ["thoracic pain", "chest discomfort", "precordial pain"]
+    },
+    {
+      "canonical": "myocardial infarction",
+      "type": "CONDITION",
+      "code": "I21.9",
+      "code_system": "ICD-10",
+      "synonyms": ["heart attack", "MI", "acute myocardial infarction", "AMI"]
+    },
+    {
+      "canonical": "hypertension",
+      "type": "CONDITION",
+      "code": "I10",
+      "code_system": "ICD-10",
+      "synonyms": ["high blood pressure", "HTN", "elevated blood pressure"]
+    },
+    {
+      "canonical": "type 2 diabetes mellitus",
+      "type": "CONDITION",
+      "code": "E11.9",
+      "code_system": "ICD-10",
+      "synonyms": ["T2DM", "type II diabetes", "non-insulin dependent diabetes"]
+    },
+    {
+      "canonical": "congestive heart failure",
+      "type": "CONDITION",
+      "code": "I50.9",
+      "code_system": "ICD-10",
+      "synonyms": ["CHF", "heart failure", "cardiac failure"]
+    },
+    {
+      "canonical": "pneumonia",
+      "type": "CONDITION",
+      "code": "J18.9",
+      "code_system": "ICD-10",
+      "synonyms": ["lung infection", "pulmonary infection"]
+    },
+    {
+      "canonical": "pulmonary embolism",
+      "type": "CONDITION",
+      "code": "I26.99",
+      "code_system": "ICD-10",
+      "synonyms": ["PE", "lung embolism", "pulmonary thromboembolism"]
+    },
+    {
+      "canonical": "deep vein thrombosis",
+      "type": "CONDITION",
+      "code": "I82.90",
+      "code_system": "ICD-10",
+      "synonyms": ["DVT", "venous thrombosis"]
+    },
+    {
+      "canonical": "atrial fibrillation",
+      "type": "CONDITION",
+      "code": "I48.91",
+      "code_system": "ICD-10",
+      "synonyms": ["AFib", "A-fib", "AF"]
+    },
+    {
+      "canonical": "chronic obstructive pulmonary disease",
+      "type": "CONDITION",
+      "code": "J44.1",
+      "code_system": "ICD-10",
+      "synonyms": ["COPD", "chronic bronchitis", "emphysema"]
+    },
+    {
+      "canonical": "asthma",
+      "type": "CONDITION",
+      "code": "J45.909",
+      "code_system": "ICD-10",
+      "synonyms": ["bronchial asthma", "reactive airway disease"]
+    },
+    {
+      "canonical": "nausea",
+      "type": "SYMPTOM",
+      "code": "R11.0",
+      "code_system": "ICD-10",
+      "synonyms": ["queasiness", "feeling sick"]
+    },
+    {
+      "canonical": "vomiting",
+      "type": "SYMPTOM",
+      "code": "R11.10",
+      "code_system": "ICD-10",
+      "synonyms": ["emesis", "throwing up"]
+    },
+    {
+      "canonical": "diarrhea",
+      "type": "SYMPTOM",
+      "code": "R19.7",
+      "code_system": "ICD-10",
+      "synonyms": ["loose stools", "watery stool"]
+    },
+    {
+      "canonical": "headache",
+      "type": "SYMPTOM",
+      "code": "R51.9",
+      "code_system": "ICD-10",
+      "synonyms": ["cephalgia", "head pain"]
+    },
+    {
+      "canonical": "fever",
+      "type": "SYMPTOM",
+      "code": "R50.9",
+      "code_system": "ICD-10",
+      "synonyms": ["pyrexia", "febrile", "elevated temperature"]
+    },
+    {
+      "canonical": "cough",
+      "type": "SYMPTOM",
+      "code": "R05.9",
+      "code_system": "ICD-10",
+      "synonyms": ["tussis"]
+    },
+    {
+      "canonical": "dyspnea",
+      "type": "SYMPTOM",
+      "code": "R06.00",
+      "code_system": "ICD-10",
+      "synonyms": ["shortness of breath", "SOB", "difficulty breathing", "breathlessness"]
+    },
+    {
+      "canonical": "edema",
+      "type": "SYMPTOM",
+      "code": "R60.9",
+      "code_system": "ICD-10",
+      "synonyms": ["swelling", "fluid retention"]
+    },
+    {
+      "canonical": "metformin",
+      "type": "MEDICATION",
+      "code": "RN861004",
+      "code_system": "RxNorm",
+      "synonyms": ["Glucophage", "metformin hydrochloride"]
+    },
+    {
+      "canonical": "lisinopril",
+      "type": "MEDICATION",
+      "code": "RN29046",
+      "code_system": "RxNorm",
+      "synonyms": ["Zestril", "Prinivil"]
+    },
+    {
+      "canonical": "aspirin",
+      "type": "MEDICATION",
+      "code": "RN1191",
+      "code_system": "RxNorm",
+      "synonyms": ["acetylsalicylic acid", "ASA"]
+    },
+    {
+      "canonical": "warfarin",
+      "type": "MEDICATION",
+      "code": "RN11289",
+      "code_system": "RxNorm",
+      "synonyms": ["Coumadin", "warfarin sodium"]
+    },
+    {
+      "canonical": "albuterol",
+      "type": "MEDICATION",
+      "code": "RN435",
+      "code_system": "RxNorm",
+      "synonyms": ["salbutamol", "Ventolin", "ProAir"]
+    },
+    {
+      "canonical": "atorvastatin",
+      "type": "MEDICATION",
+      "code": "RN83367",
+      "code_system": "RxNorm",
+      "synonyms": ["Lipitor", "atorvastatin calcium"]
+    },
+    {
+      "canonical": "amlodipine",
+      "type": "MEDICATION",
+      "code": "RN17767",
+      "code_system": "RxNorm",
+      "synonyms": ["Norvasc", "amlodipine besylate"]
+    },
+    {
+      "canonical": "omeprazole",
+      "type": "MEDICATION",
+      "code": "RN7646",
+      "code_system": "RxNorm",
+      "synonyms": ["Prilosec", "omeprazole magnesium"]
+    },
+    {
+      "canonical": "insulin",
+      "type": "MEDICATION",
+      "code": "RN5856",
+      "code_system": "RxNorm",
+      "synonyms": ["insulin regular", "insulin glargine", "insulin lispro"]
+    },
+    {
+      "canonical": "prednisone",
+      "type": "MEDICATION",
+      "code": "RN8640",
+      "code_system": "RxNorm",
+      "synonyms": ["Deltasone", "prednisolone"]
+    }
+  ]
+}

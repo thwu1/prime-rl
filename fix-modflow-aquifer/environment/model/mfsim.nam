@@ -1,0 +1,17 @@
+BEGIN OPTIONS
+END OPTIONS
+
+BEGIN TIMING
+  TDIS6  ex-gwf-twri01.tdis
+END TIMING
+
+BEGIN MODELS
+  gwf6  ex-gwf-twri01.nam  ex-gwf-twri01
+END MODELS
+
+BEGIN EXCHANGES
+END EXCHANGES
+
+BEGIN SOLUTIONGROUP 1
+  ims6  ex-gwf-twri01.ims  ex-gwf-twri01
+END SOLUTIONGROUP 1

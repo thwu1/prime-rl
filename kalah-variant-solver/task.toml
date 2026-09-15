@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete game-theoretic analysis pipeline integrating multiple unfamiliar tools: (1) modifying C source code to expose functions with correct ABI for shared-library compilation, then bridging it into Python via ctypes with proper type marshalling (pointer arrays, return codes); (2) implementing an exact minimax solver handling interacting Kalah variant rules (standard/FairKalah captures, normal/misère objectives, pie-rule equilibria) that requires deep understanding of combinatorial game theory — not just following a recipe; (3) generating gnuplot SVG visualizations from computed game-tree statistics; (4) designing a normalized SQLite schema with cross-validated data. The solver must recognize subtle rule interactions (extra turns affecting capture opportunities, misère objective inversion, store-skipping during sowing) and extract principal variations by tracing optimal play through the memo table — holistic game-theoretic understanding is essential."""
+solution_explanation = """Build a C shared library (libkalah.so) by writing a ctypes-friendly wrapper around the engine's game logic, compile with -shared -fPIC. Implement recursive minimax with memoization tracking node counts and max depth. Handle standard vs no-capture in sow logic, normal vs misère by swapping max/min. Extract PVs via memo-table replay. Cross-validate each PV through the shared library using ctypes calls. Compute pie-rule values from all_move_values. Generate gnuplot data file and script for SVG output. Write results to JSON, SQLite (including tree_stats table), and validation_report.json."""
+verification_explanation = """Tests verify: (1) libkalah.so exists, is loadable via ctypes, exports required symbols (kalah_init, kalah_play, kalah_get_score), and functions correctly on a test game; (2) exact game values and per-move values against an independent reference solver for all 9 problem configurations; (3) principal variations replayed move-by-move checking legality, player turns, terminal state, and score; (4) pie-rule equilibrium values; (5) SQLite schema including tree_stats table with reasonable metrics; (6) validation_report.json with all problems cross-validated and scores matching; (7) game_analysis.svg is valid SVG containing problem identifiers; (8) seed conservation invariants."""
+category = "algorithms"
+tags = ["game-theory", "ffi-ctypes", "combinatorial-search"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kalah-variant-solver"

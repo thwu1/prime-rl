@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three independent bugs across a multi-format architecture analysis pipeline: (1) a Graphviz DOT parser whose regex silently drops edges with attributes, losing 8 of 104 dependencies — manifesting as missing cycles and violations without any error message; (2) an inverted abstractness formula (concrete/total instead of abstract/total) disguised by a misleading code comment citing Martin's stability analysis; (3) a minimum feedback arc set heuristic (|V|-1) with a plausible-sounding docstring that gives wrong results for the 3-node cycle group. The agent must work across DOT graphs, SQLite databases, YAML configuration, and Python code while deeply understanding Robert C. Martin's package coupling theory, Tarjan's SCC algorithm, and minimum feedback arc sets. Misleading comments justify buggy logic, requiring the agent to validate implementations against domain knowledge rather than trusting inline documentation."""
+solution_explanation = """The solution fixes three bugs: (1) updates the DOT parser regex from r'"([^"]+)"\\s*->\\s*"([^"]+)"\\s*;' to r'"([^"]+)"\\s*->\\s*"([^"]+)"\\s*(?:\\[.*?\\])?\\s*;' to capture edges with Graphviz attributes, recovering 8 silently dropped dependencies; (2) corrects the abstractness formula from concrete_types/(abstract+concrete) to abstract_types/(abstract+concrete) per Martin's actual definition; (3) replaces the heuristic FAS computation (len(scc)-1) with proper brute-force subset enumeration, fixing the 3-node cycle group's min_edges_to_break from 2 to 1."""
+verification_explanation = """Tests load the three JSON output files and verify: (1) all 35 components have correct integer ca/ce values matching the full 104-edge graph, and correct float instability/abstractness/distance values within 0.01 tolerance; (2) exactly 5 cycle groups detected with correct component membership and correct min_edges_to_break counts; (3) exactly 4 layer violations identified with correct source/target components and layer assignments."""
+category = "software_architecture"
+tags = ["pipeline-debugging", "graph-algorithms"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/architecture-debt-analysis"

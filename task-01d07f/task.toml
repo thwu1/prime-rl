@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic analysis combining binary reverse engineering and Boolean function theory. The solver must: (1) extract an S-box lookup table from a stripped ELF shared library using binary analysis tools (readelf/objdump/nm or ctypes), (2) query a SQLite analysis database for construction hints and partial cryptanalytic results, (3) discover from degree anomalies and construction clues that the nonlinear core has a triangular/staircase structure (bit i of output depends only on bits 0..i of input), (4) exploit this structure via degree-stratified subspace analysis and GF(2) kernel/annihilator computation to recover the outer and inner affine layers. Inspired by the 'Stairs-Box' problem from NSUCRYPTO 2020."""
+solution_explanation = """The solution: (1) uses readelf/nm to examine the shared library, then ctypes to call strix_sub and recover all 256 S-box entries, (2) queries the SQLite database for construction method (modular arithmetic mod 256) and references to triangular maps/T-functions, (3) computes algebraic degrees of all 255 component Boolean functions using the Moebius transform, identifies degree-stratified subspaces to recover A^{-1}, (4) computes T = A^{-1} . S, then uses kernel/annihilator analysis at each bit level to recover B exploiting triangularity, (5) computes X = T . B^{-1} and verifies it is triangular."""
+verification_explanation = """Tests verify: (1) A_mat and B_mat are 8x8 invertible binary matrices over GF(2), (2) X_table is a valid permutation of {0,...,255}, (3) X_table is triangular (X(x) mod 2^k depends only on x mod 2^k for all k), (4) the composition A(X(B(x))) matches the S-box extracted from cipher.so for all 256 inputs."""
+category = "cryptography"
+tags = ["sbox-decomposition", "binary-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-01d07f"

@@ -1,0 +1,5 @@
+---
+# Host-level security overrides for localhost
+firewall_allowed_ports:
+  - { port: 22, protocol: tcp, comment: "SSH" }
+  - { port: 80, protocol: tcp, comment: "HTTP" }

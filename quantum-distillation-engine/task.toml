@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum information theory: density matrix formalism, tensor products and partial traces over multi-qubit systems, Bell-diagonal noise channels, bilateral CNOT parity check protocols (BBPSSW/DEJMPS), LOCC constraint enforcement, flag-based post-selection mechanics, and interleaved bit-flip/phase-flip distillation for mixed noise. The agent must implement a working density matrix simulator from scratch and design optimal distillation circuits for 5 progressively harder noise scenarios. The D5 mixed-noise case is particularly challenging: the naive sequential approach (all phase checks then all bit checks) fails because each check type amplifies the other error type through CNOT Z-error back-propagation, requiring the agent to discover that interleaving phase and bit check rounds is essential."""
+solution_explanation = """The solution implements a density matrix simulator with proper tensor product construction (handling the non-trivial outside-in qubit pairing via axis permutation), single/two-qubit gate application via Kronecker products, projective measurement with post-selection, and partial trace. For D1/D3 (bit-flip), bilateral CNOT parity checks filter X errors. For D2/D4 (phase-flip), Hadamard conjugation converts Z errors to X errors before the same protocol. For D5 (mixed px=pz=0.06), the key insight is that interleaving phase and bit distillation rounds (phase-bit-phase-bit using one ancilla pair per round) keeps both error types under control, achieving F≈0.932, whereas a naive sequential 2+2 approach only reaches F≈0.886."""
+verification_explanation = """Tests verify: (1) results.json exists with all 5 scenarios, (2) all fidelities exceed their thresholds, (3) D1-D4 fidelities/probabilities match exact analytical values (F=0.9/p=0.625 for N=2; F=27/28/p=0.4375 for N=3) within tight tolerance, (4) D5 fidelity exceeds 0.92 (requiring interleaved protocol) and is near optimal ~0.932, (5) engine API functions produce correct density matrices, fidelities, and LOCC validation results for known inputs."""
+category = "quantum_computing"
+tags = ["density-matrix-simulation", "entanglement-distillation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-distillation-engine"

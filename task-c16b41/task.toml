@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed deep learning training infrastructure. The agent must reverse-engineer 13 validation constraints from ERNIEKit documentation, model registry, and reference configurations — only rule identifiers are provided, not their semantics. This demands holistic understanding of tensor/pipeline/data parallelism semantics, FP8 quantization-aware training methodology (Hadamard transforms, optimizer offloading), GPU memory modeling, AMP operator list semantics, MoE routing requirements, and valid parameter enumeration. The agent must design fix strategies for each rule independently, handling inter-rule dependencies (e.g., fixing TP affects the parallel product, which affects pp_seg_method). The memory estimator requires correctly implementing a multi-branch formula with sharding reductions, activation recomputation, and sequence parallelism. The planner requires designing a constrained optimization search over a multi-dimensional parallelism space with memory feasibility and a cost function. The batch pipeline requires integrating three distinct CLI tools (yq for YAML, jq for JSON aggregation, sqlite3 for relational storage) through shell orchestration to produce both a normalized database and a correctly aggregated report — all without implementation guidance."""
+solution_explanation = """Study the ERNIEKit reference documentation, reference configs, and model registry to derive 13 validation rules: TP must be power of 2 (GPU topology), PP >= 1, TP*PP*s must divide num_gpus, pp_seg_method must have PP+1 strictly increasing elements from 0 to num_layers, FP8 requires Hadamard and optimizer offloading, AMP lists must be disjoint, sharding in stage1/2/3, MoE models need moe_group, lr_scheduler/fp16_opt_level/optimizer must be valid values, batch_size and gradient_accumulation_steps must be positive. Implement validator with validate/fix modes and planner with estimate/plan modes. Design fix strategies handling dependencies: apply simple field fixes first, then TP rounding, then PP clamping, then parallel product adjustment, then pp_seg_method regeneration, then AMP deduplication. For the pipeline: parse manifest with yq, run validator per entry, aggregate JSON results with jq, generate SQL from JSON, and load into a normalized two-table sqlite3 database."""
+verification_explanation = """23 pytest tests verify: exact violation sets for each of 5 broken configs, zero violations for 2 reference configs, fixed configs pass validation with correct field properties, memory estimates match expected values within 0.01 GB for 2 reference configs, planner outputs have correct parallelism degrees for 3 scenarios (300B FP8 16GPU, 0.3B BF16 1GPU, 21B BF16 8GPU), planner output passes validation. Pipeline tests verify: script completes successfully, SQLite database contains correct counts (7 validations, 23 violations, 2 clean configs), aggregate JSON report has correct totals and properly sorted violation summary (by count descending then rule ascending), and database supports ad-hoc queries identifying the worst config."""
+category = "mlops"
+tags = ["distributed-training", "config-validation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c16b41"

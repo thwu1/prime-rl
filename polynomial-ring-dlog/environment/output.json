@@ -1,0 +1,8 @@
+{
+  "modulus": "0x15d38708255efb951",
+  "generator": "0xbdd640fb06671ad3",
+  "public_A": "0x3efca77f35cc09e8",
+  "public_B": "0xedc9b0bec552c5ee",
+  "iv": "70d566357820c7cc71e3eb85723d6591",
+  "ciphertext": "52f3e35d2dde495707453f6e1534720785b47685f191d3043b1efeb62abb579737ec10aa358c9628f6b37a9bc56d808a05493e025ee9df95813e5b452790675e150e5aa0a8e1c226db0c4635234a365e"
+}

@@ -1,0 +1,71 @@
+#!/bin/bash
+# Parses a PKGBUILD by sourcing it in a controlled bash environment.
+# Usage: pkgsource <PKGBUILD_path> [split_package_name]
+
+_pb="$1"
+_target="$2"
+
+[ -f "$_pb" ] || { echo '{"error":"file not found"}'; exit 1; }
+
+(
+    cd() { :; }
+    make() { :; }
+    cmake() { :; }
+    install() { :; }
+    cp() { :; }
+    npm() { :; }
+    configure() { :; }
+
+    srcdir="/tmp/_src"
+    pkgdir="/tmp/_pkg"
+    startdir="/tmp/_start"
+
+    epoch=0
+    pkgrel=1
+    depends=()
+    makedepends=()
+    provides=()
+    conflicts=()
+    replaces=()
+    optdepends=()
+    groups=()
+
+    source "$_pb" 2>/dev/null
+
+    : "${pkgbase:=${pkgname[0]}}"
+
+    if [ -n "$_target" ]; then
+        _fn="package_${_target}"
+        if declare -f "$_fn" >/dev/null 2>&1; then
+            "$_fn" 2>/dev/null || true
+        elif declare -f package >/dev/null 2>&1; then
+            package 2>/dev/null || true
+        fi
+    fi
+
+    _jarr() {
+        local a=("$@") i=0
+        printf '['
+        for v in "${a[@]}"; do
+            [ $i -gt 0 ] && printf ','
+            printf '"%s"' "$v"
+            ((i++))
+        done
+        printf ']'
+    }
+
+    _fns="$(declare -F 2>/dev/null | grep 'package_' | sed 's/declare -f //' | tr '\n' ',' | sed 's/,$//')"
+
+    printf '{'
+    printf '"pkgbase":"%s",' "$pkgbase"
+    printf '"pkgname":%s,' "$(_jarr "${pkgname[@]}")"
+    printf '"pkgver":"%s",' "$pkgver"
+    printf '"pkgrel":"%s",' "$pkgrel"
+    printf '"epoch":"%s",' "$epoch"
+    printf '"depends":%s,' "$(_jarr "${depends[@]}")"
+    printf '"makedepends":%s,' "$(_jarr "${makedepends[@]}")"
+    printf '"provides":%s,' "$(_jarr "${provides[@]}")"
+    printf '"conflicts":%s,' "$(_jarr "${conflicts[@]}")"
+    printf '"package_functions":"%s"' "$_fns"
+    printf '}\n'
+) 2>/dev/null

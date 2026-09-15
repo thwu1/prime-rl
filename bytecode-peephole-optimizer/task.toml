@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom bytecode format (MicroJava .obj) from Java source code, understanding variable-length instruction encoding, and building an optimizer that shrinks bytecode while preserving semantic equivalence. The central difficulty is that removing or resizing instructions invalidates all relative jump offsets and the mainPc header field — the solver must devise a correct relocation strategy. Achieving the minimum savings thresholds demands identifying multiple distinct optimization opportunities across different program patterns (arithmetic expressions, control flow, loops with dead code). This requires professional-level compiler engineering experience."""
+solution_explanation = """The solution implements a Python bytecode optimizer that: (1) parses the .obj binary into an instruction-level IR using object references for jump targets, (2) applies multiple optimization passes in a fixed-point loop — including constant folding with multi-pass chain support, power-of-2 multiply-to-shift strength reduction, jump-chain shortcutting, and unreachable code elimination, (3) correctly reassigns instruction addresses after modifications and recomputes all relative jump/call offsets, and (4) emits the optimized bytecode with an updated file header including relocated mainPc."""
+verification_explanation = """Tests compile three MicroJava programs of increasing complexity, run each on the VM to capture expected output, then invoke the optimizer on each .obj file. Verification checks four properties: (1) output correctness — the optimized program must produce byte-identical output to the original, (2) valid .obj format — correct MJ signature, consistent codeSize, valid mainPc range, (3) strict size reduction — the optimized file must be smaller, and (4) minimum savings thresholds — fold_and_shift ≥ 30 bytes, control_flow ≥ 15 bytes, nested ≥ 20 bytes."""
+category = "compilers"
+tags = ["bytecode", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bytecode-peephole-optimizer"

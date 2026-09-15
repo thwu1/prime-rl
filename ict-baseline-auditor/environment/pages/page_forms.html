@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Form Accessibility Test Page</title></head>
+<body>
+<h1>Form Test Suite</h1>
+<form>
+
+<!-- f1: No accessible name at all -->
+<input id="f1" type="text">
+
+<!-- f2: aria-labelledby references nonexistent element -->
+<input id="f2" type="text" aria-labelledby="nonexistent_label_id">
+
+<!-- f3: title attribute provides accessible name -->
+<input id="f3" type="text" title="Phone Number">
+
+<!-- f4: Proper label association via label-for -->
+<label for="f4">Email Address:</label>
+<input id="f4" type="email">
+
+<!-- f5: Empty aria-label string -->
+<input id="f5" type="text" aria-label="">
+
+<!-- f6: aria-labelledby with one valid and one invalid ref -->
+<span id="lbl6a">First</span>
+<input id="f6" type="text" aria-labelledby="lbl6a nonexistent_lbl6b">
+
+<!-- f7: Button with no text content and no label -->
+<button id="f7" type="submit"></button>
+
+</form>
+</body>
+</html>

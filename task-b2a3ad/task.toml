@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding across multiple domains: (1) Build system diagnosis — the Makefile is missing a source file from the SOURCES list and lacks a required linker flag, both of which only become apparent through careful analysis of linker errors; (2) Numerical algorithm debugging — the reference solver contains two interacting bugs: an inverted parity check in the double-buffer rotation logic causes the final result to land in the wrong buffer (output contains timestep N-1 instead of N for even timestep counts), and the coefficient accumulation loop starts at ir=0 instead of ir=1, causing each center element to be overcounted by 6*coeff[0] through degenerate neighbor accesses (src[idx+0]+src[idx-0] = 2*src[idx] for each of 3 axes) — diagnosing these requires deep understanding of ping-pong buffering semantics and 3D stencil mathematics; (3) Implementing a complete optimized solver from scratch given only a function signature and the requirement to match the corrected reference — requires understanding cache hierarchy trade-offs, spatial tiling strategies, residual boundary handling, and correct buffer management; (4) Implementing a floating-point comparison tool that reads binary volumes, computes appropriate error metrics, and produces structured JSON output."""
+solution_explanation = """Fix Makefile: add analyze.c to SOURCES list and append -lm to the linker command. Fix reference.c buffer rotation: change the parity check from (timesteps % 2) != 0 to (timesteps % 2) == 0 so the final result lands in the caller's output buffer. Fix reference.c coefficient loop: change initialization from ir=0 to ir=1 so the center element is not double-counted through neighbor accesses at offset 0. Implement solver.c: allocate intermediate buffer, set up correct ping-pong buffers, for each timestep copy the full volume via memcpy (preserves halos), then process the interior domain in spatial tiles with clamped bounds for residual tiles, computing the stencil with ir=1..radius. Implement analyze.c: read both binary files, compute interior-only error metrics with double-precision accumulation, compute full-volume checksums, and write results.json with the required structure."""
+verification_explanation = """Tests build the project with make, run the binary, then verify: (1) both output files exist with correct size; (2) both outputs match a Python float64 reference implementation of the correct FDTD stencil within tolerance; (3) naive and tiled outputs match each other within float32 precision; (4) results.json exists with required JSON structure, correct grid/stencil parameters, match=true, correct element count, and plausible checksums; (5) halo boundary values are preserved from the original input."""
+category = "systems-programming"
+tags = ["numerical-computing", "cache-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b2a3ad"

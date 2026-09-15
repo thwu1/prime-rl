@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and interpreting EPA SMOKE v5.3 format documentation to understand four distinct file formats (FF10, GSREF, GSPRO, GSCNV) with different delimiters and conventions, plus the Models-3 I/O API GRIDDESC file format with Fortran list-directed parsing and D-exponent notation. The solver must deduce the complete cross-reference matching hierarchy from general specificity principles described in the documentation, implement it correctly across SCC, geographic (county/state/national), and pollutant dimensions, handle pollutant-to-pollutant conversion, compute dual speciation outputs (mass and mole), produce a diagnostic trace of match resolution, persist all results to a SQLite database with correct schema and indexing, parse the GRIDDESC file to extract Lambert Conformal Conic grid and coordinate system parameters, and produce an I/O API-conformant NetCDF file with all mandated global attributes, correct dimensions, TFLAG variable, and per-species data variables using the netCDF4 library."""
+solution_explanation = """Parse four SMOKE-format input files with different delimiters. Build lookup indices for GSPRO (by profile+pollutant) and GSCNV (by profile+pollutant_from). For each inventory record, construct 6-digit YSSCCC FIPS from country and region_cd, then search GSREF entries through 12 tiers of decreasing specificity: 6 pollutant-specific tiers (SCC+county, SCC+state, SCC-only, county-only, state-only, default) followed by 6 non-pollutant-specific tiers in the same geographic order. Record which GSREF entry matched for diagnostics. Check GSCNV for conversion, apply conversion factor to emissions and switch lookup pollutant. Iterate GSPRO entries for the profile to compute mass = mass_fraction * emissions, mole = (split_factor / divisor) * emissions. Write sorted CSV, diagnostics CSV, and SQLite database with inventory, speciated, and match_log tables plus a composite index. Parse the GRIDDESC file by skipping the header line, extracting quoted coordinate system names and their parameters (handling D-exponent notation by replacing D with E), then extracting grid definitions. Create a NetCDF3 file using netCDF4 library with all I/O API global attributes (FTYPE, GDTYP, P_ALP, P_BET, P_GAM, XCENT, YCENT, XORIG, YORIG, XCELL, YCELL, NCOLS, NROWS, NLAYS, NTHIK, NVARS, SDATE, STIME, TSTEP, VGTYP, VGTOP, VGLVLS, GDNAM, VAR-LIST, etc.), standard dimensions, TFLAG variable with date/time pairs, and one float32 variable per unique species."""
+verification_explanation = """Tests verify speciated CSV structure (49 rows, correct header, sort order), profile assignments at multiple hierarchy tiers including county, state, SCC+pollutant, county-with-SCC-zero, pollutant-default, and non-pollutant-specific fallback. Numerical accuracy of mass and mole computations tested per source category. GSCNV conversion verified at 1.205x. Diagnostics CSV tested for correct GSREF match field reporting. SQLite database verified for table existence, schema correctness, row counts, data values, index existence and column composition, and SQL aggregation queries. NetCDF output validated using both ncdump CLI and netCDF4 Python library: all I/O API global attributes checked for correct values derived from GRIDDESC parsing (GDTYP=2, P_ALP=33.0, P_BET=45.0, P_GAM=-97.0, XCENT=-97.0, YCENT=40.0, grid dimensions 50x40, SDATE=2020001), dimension structure verified (TSTEP, DATE-TIME, LAY, VAR, ROW, COL), TFLAG variable checked for correct dimensions and date/time values, all 16 species variables verified for existence, float32 type, and correct (TSTEP,LAY,ROW,COL) dimensions, and VAR-LIST attribute parsed to verify sorted 16-char-padded species names."""
+category = "applied_computing"
+tags = ["emissions-modeling", "netcdf-ioapi"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/smoke-speciation-pipeline"

@@ -1,0 +1,2 @@
+cpu=0   found=847291 invalid=124 insert=423817 insert_failed=0 drop=4102 early_drop=0 error=0 search_restart=14
+cpu=1   found=831456 invalid=98 insert=419344 insert_failed=0 drop=3720 early_drop=0 error=0 search_restart=11

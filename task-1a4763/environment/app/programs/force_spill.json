@@ -1,0 +1,39 @@
+{
+  "name": "force_spill",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [{
+      "label": "entry",
+      "instrs": [
+        {"op": "const", "dst": "g1",  "class": "gp", "val": 1},
+        {"op": "const", "dst": "g2",  "class": "gp", "val": 2},
+        {"op": "const", "dst": "g3",  "class": "gp", "val": 3},
+        {"op": "const", "dst": "g4",  "class": "gp", "val": 4},
+        {"op": "const", "dst": "g5",  "class": "gp", "val": 5},
+        {"op": "const", "dst": "g6",  "class": "gp", "val": 6},
+        {"op": "const", "dst": "g7",  "class": "gp", "val": 7},
+        {"op": "const", "dst": "g8",  "class": "gp", "val": 8},
+        {"op": "const", "dst": "g9",  "class": "gp", "val": 9},
+        {"op": "const", "dst": "g10", "class": "gp", "val": 10},
+        {"op": "const", "dst": "g11", "class": "gp", "val": 11},
+        {"op": "const", "dst": "g12", "class": "gp", "val": 12},
+        {"op": "const", "dst": "g13", "class": "gp", "val": 13},
+        {"op": "add", "dst": "s1",  "class": "gp", "src1": "g1",  "src2": "g2"},
+        {"op": "add", "dst": "s2",  "class": "gp", "src1": "s1",  "src2": "g3"},
+        {"op": "add", "dst": "s3",  "class": "gp", "src1": "s2",  "src2": "g4"},
+        {"op": "add", "dst": "s4",  "class": "gp", "src1": "s3",  "src2": "g5"},
+        {"op": "add", "dst": "s5",  "class": "gp", "src1": "s4",  "src2": "g6"},
+        {"op": "add", "dst": "s6",  "class": "gp", "src1": "s5",  "src2": "g7"},
+        {"op": "add", "dst": "s7",  "class": "gp", "src1": "s6",  "src2": "g8"},
+        {"op": "add", "dst": "s8",  "class": "gp", "src1": "s7",  "src2": "g9"},
+        {"op": "add", "dst": "s9",  "class": "gp", "src1": "s8",  "src2": "g10"},
+        {"op": "add", "dst": "s10", "class": "gp", "src1": "s9",  "src2": "g11"},
+        {"op": "add", "dst": "s11", "class": "gp", "src1": "s10", "src2": "g12"},
+        {"op": "add", "dst": "s12", "class": "gp", "src1": "s11", "src2": "g13"},
+        {"op": "ret", "src1": "s12"}
+      ]
+    }]
+  }]
+}

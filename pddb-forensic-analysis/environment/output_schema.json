@@ -1,0 +1,45 @@
+{
+  "description": "Expected structure for security_audit.json. All fields are required. Populate each field with the correct value derived from your analysis of the PDDB image and configuration.",
+  "ecb_vulnerability": {
+    "duplicate_pairs": [
+      {
+        "page_a": "int — smaller physical page index",
+        "page_b": "int — larger physical page index",
+        "basis": "str — basis the pair belongs to",
+        "ciphertext_hex": "str — hex-encoded ciphertext block"
+      }
+    ],
+    "total_duplicate_pairs": "int",
+    "vulnerability_present": "bool"
+  },
+  "integrity_analysis": {
+    "per_entry_false_positive_rate": "float — probability that a single entry decrypted under an incorrect key passes the integrity check by chance",
+    "expected_false_positives_per_credential": "float — expected number of false positives when testing one incorrect credential against all page table entries"
+  },
+  "nonce_analysis": {
+    "per_basis_collision_probability": {
+      "<basis_name>": "float — theoretical probability of at least one nonce collision within this basis"
+    },
+    "cross_basis_collision_probability": {
+      "<basisA_vs_basisB>": "float — theoretical probability of at least one nonce value appearing in both bases"
+    },
+    "actual_nonce_collisions": [
+      {
+        "basis": "str — basis where collision was observed",
+        "nonce": "int — the repeated nonce value"
+      }
+    ]
+  },
+  "fscb_deniability": {
+    "unknown_pages": "int — page table entries not attributable to any discovered basis",
+    "confirmed_free": "int — entries confirmed free by the current FSCB",
+    "max_potentially_hidden": "int — upper bound on entries that could belong to undiscovered bases",
+    "deniability_ratio": "float — ratio of confirmed free pages to unknown pages"
+  },
+  "fscb_differential": {
+    "transitioned_from_free": "int — pages present in previous FSCB but absent from current FSCB",
+    "attributable_to_known_bases": "int — transitioned pages now belonging to discovered bases",
+    "unattributable_transitions": "int — transitioned pages not belonging to any discovered basis",
+    "leaked_hidden_activity": "bool — whether any unattributable transitions exist"
+  }
+}

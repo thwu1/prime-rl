@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing raw tc(8) output format (not structured JSON), understanding HTB qdisc internals including rate vs ceil borrowing semantics, u32 filter classification with DSCP-to-ToS byte encoding in IP headers, and HTB quantum's effect on deficit round-robin scheduling fairness. The agent must cross-reference four heterogeneous data sources (tc class dumps, tc filter output with hit stats, application flow logs, and design-spec hierarchy) to identify three distinct misconfigurations: a subtle DSCP value error in a u32 filter match, a ceil==rate misconfiguration preventing bandwidth borrowing, and a quantum disparity causing DRR scheduling unfairness."""
+solution_explanation = """The solver parses 20 raw tc class dump snapshots using regex, extracts u32 filter rules from tc filter output, simulates flow classification against filter rules using IP header byte encoding, compares actual class ceil/rate against the intended hierarchy spec, and detects quantum disparity between sibling classes. Three issues are identified: (1) VoIP u32 filter matches DSCP 44 (ToS 0xB0) instead of DSCP 46/EF (ToS 0xB8), causing VoIP flows to fall to default class; (2) Web class 1:201 has ceil equal to rate (15Mbit) preventing borrowing from parent; (3) Scavenger class 1:301 has quantum 60000 vs sibling's 1500, creating 40:1 DRR scheduling unfairness. Fix uses tc filter del/add and tc class change."""
+verification_explanation = """Tests verify diagnosis.json identifies all three issues with correct affected class IDs, root causes reference correct technical terms (filter/DSCP for VoIP, ceil for Web, quantum for Scavenger), misclassified VoIP flow IDs are listed, and fix.sh contains syntactically appropriate tc commands with corrected values (DSCP 0xB8, ceil 40Mbit, quantum ≤2000). Tests also verify fix.sh uses in-place tc class change rather than full teardown."""
+category = "networking"
+tags = ["linux-networking", "traffic-shaping"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qdisc-stats-analyzer"

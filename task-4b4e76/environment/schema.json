@@ -1,0 +1,1451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workflow",
+  "description": "Represents a workflow definition",
+  "type": "object",
+  "properties": {
+    "nodes": {
+      "description": "Nodes in the workflow",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Node"
+      }
+    },
+    "params": {
+      "description": "Params schema definition",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowParams"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "state": {
+      "description": "State schema definition",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "templates": {
+      "description": "Templates for reusable components",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Template"
+      }
+    },
+    "version": {
+      "description": "Version of the workflow format",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "nodes"
+  ],
+  "$defs": {
+    "BuiltinShardMethod": {
+      "description": "Built-in sharding method configuration.",
+      "type": "object",
+      "properties": {
+        "max_files_per_shard": {
+          "description": "Target number of files per shard.\nAccepts a literal number or a `${{ }}` expression (e.g. `${{ params.pr_size }}`)."
+        },
+        "min_shard_size": {
+          "description": "Minimum shard size — trailing shards smaller than this are merged\ninto the previous shard (optional)",
+          "default": null
+        },
+        "type": {
+          "description": "Built-in method type",
+          "$ref": "#/$defs/BuiltinShardType"
+        }
+      },
+      "required": [
+        "type",
+        "max_files_per_shard"
+      ]
+    },
+    "BuiltinShardType": {
+      "description": "Type of built-in sharding method.",
+      "oneOf": [
+        {
+          "description": "Group by immediate subdirectory under target, then bin-pack",
+          "type": "string",
+          "const": "directory"
+        },
+        {
+          "description": "Group by CODEOWNERS team, then bin-pack",
+          "type": "string",
+          "const": "codeowner"
+        }
+      ]
+    },
+    "CommitConfig": {
+      "description": "Configuration for a commit checkpoint on a step.\nWhen present (and cloud mode is active), a git commit is created after the step runs.",
+      "type": "object",
+      "properties": {
+        "add": {
+          "description": "Paths to stage before committing (default: `[\".\"]` — stage everything)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_empty": {
+          "description": "If true, skip silently when there are no changes to commit (default: true)",
+          "type": "boolean",
+          "default": true
+        },
+        "message": {
+          "description": "Commit message (supports `${{ }}` template expressions)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ]
+    },
+    "CustomShardFunction": {
+      "description": "Custom shard function configuration.",
+      "type": "object",
+      "properties": {
+        "function": {
+          "description": "Path to JS/TS shard function file",
+          "type": "string"
+        }
+      },
+      "required": [
+        "function"
+      ]
+    },
+    "InstallSkillHarness": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "claude",
+        "goose",
+        "opencode",
+        "cursor",
+        "codex",
+        "antigravity"
+      ]
+    },
+    "InstallSkillScope": {
+      "type": "string",
+      "enum": [
+        "project",
+        "user"
+      ]
+    },
+    "Node": {
+      "description": "Represents a node in a workflow",
+      "type": "object",
+      "properties": {
+        "branch_name": {
+          "description": "Git branch name for cloud runs (supports `${{ }}` expressions).\nDefault: `codemod-{task.signature}`",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "depends_on": {
+          "description": "IDs of nodes that must complete before this node can run",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "description": "Detailed description of what the node does",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "env": {
+          "description": "Environment variables to inject into the container",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "id": {
+          "description": "Unique identifier for the node",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name",
+          "type": "string"
+        },
+        "pull_request": {
+          "description": "Pull request configuration. When present, the engine creates a managed\ngit branch and opens a PR at the end of the node execution.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PullRequestConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "runtime": {
+          "description": "Container runtime configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Runtime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "steps": {
+          "description": "Steps to execute within the node",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        },
+        "strategy": {
+          "description": "Configuration for running multiple instances of this node",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Strategy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trigger": {
+          "description": "Configuration for how the node is triggered",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trigger"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "description": "Type of node (automatic or manual)",
+          "$ref": "#/$defs/NodeType",
+          "default": "automatic"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "steps"
+      ]
+    },
+    "NodeType": {
+      "description": "Type of node",
+      "oneOf": [
+        {
+          "description": "Automatic node (runs when dependencies are satisfied)",
+          "type": "string",
+          "const": "automatic"
+        },
+        {
+          "description": "Manual node (requires explicit triggering)",
+          "type": "string",
+          "const": "manual"
+        }
+      ]
+    },
+    "PullRequestConfig": {
+      "description": "Configuration for automatic pull request creation at the end of a node.",
+      "type": "object",
+      "properties": {
+        "base": {
+          "description": "Base branch to merge into (auto-detected if omitted)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "body": {
+          "description": "PR body/description (supports `${{ }}` template expressions)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "draft": {
+          "description": "Create the pull request as a draft",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "title": {
+          "description": "PR title (supports `${{ }}` template expressions)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ]
+    },
+    "Runtime": {
+      "description": "Represents a runtime configuration",
+      "type": "object",
+      "properties": {
+        "image": {
+          "description": "Container image (for Docker and Podman)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "network": {
+          "description": "Network mode for the container",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "options": {
+          "description": "Additional container options",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Type of runtime",
+          "$ref": "#/$defs/RuntimeType"
+        },
+        "user": {
+          "description": "User to run as inside the container",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "working_dir": {
+          "description": "Working directory inside the container",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "RuntimeType": {
+      "description": "Type of runtime",
+      "oneOf": [
+        {
+          "description": "Direct execution on the host",
+          "type": "string",
+          "const": "direct"
+        },
+        {
+          "description": "Docker container execution",
+          "type": "string",
+          "const": "docker"
+        },
+        {
+          "description": "Podman container execution",
+          "type": "string",
+          "const": "podman"
+        }
+      ]
+    },
+    "SemanticAnalysisConfig": {
+      "description": "Configuration for semantic analysis in JS AST grep.",
+      "anyOf": [
+        {
+          "description": "Simple mode: \"file\" or \"workspace\"",
+          "$ref": "#/$defs/SemanticAnalysisMode"
+        },
+        {
+          "description": "Detailed configuration with custom root path",
+          "$ref": "#/$defs/SemanticAnalysisDetailed"
+        }
+      ]
+    },
+    "SemanticAnalysisDetailed": {
+      "description": "Detailed semantic analysis configuration.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Analysis mode",
+          "$ref": "#/$defs/SemanticAnalysisMode"
+        },
+        "root": {
+          "description": "Custom workspace root path (only used when mode is \"workspace\")",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "SemanticAnalysisMode": {
+      "description": "Simple semantic analysis mode.",
+      "oneOf": [
+        {
+          "description": "Single-file analysis, no cross-file resolution",
+          "type": "string",
+          "const": "file"
+        },
+        {
+          "description": "Workspace-wide analysis with cross-file support",
+          "type": "string",
+          "const": "workspace"
+        }
+      ]
+    },
+    "ShardMethod": {
+      "description": "Sharding method — either a built-in algorithm or a custom JS/TS function.\n\nDeserialized from YAML as:\n  `{ type: directory, max_files_per_shard: 30 }`\n  `{ function: \"./scripts/shard.ts\" }`",
+      "anyOf": [
+        {
+          "description": "Built-in sharding method with sizing parameters",
+          "$ref": "#/$defs/BuiltinShardMethod"
+        },
+        {
+          "description": "Custom JS/TS shard function",
+          "$ref": "#/$defs/CustomShardFunction"
+        }
+      ]
+    },
+    "SimpleSchema": {
+      "description": "Simple schema system for workflow state and params validation\nRoot is always an object with properties",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/SimpleSchemaProperty"
+      }
+    },
+    "SimpleSchemaProperty": {
+      "description": "Represents a property in the schema with common metadata and type-specific fields",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Description of what this property represents",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "Human-readable name for this property",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "description": "String type with optional oneOf and default",
+          "type": "object",
+          "properties": {
+            "default": {
+              "description": "Default value for the property",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "multi_line": {
+              "description": "Whether the string is multi-line",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "oneOf": {
+              "description": "Allows multiple schema alternatives for strings",
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "$ref": "#/$defs/SimpleSchemaVariant"
+              }
+            },
+            "secret": {
+              "description": "Whether the string is a secret",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "string"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default": {
+              "description": "Default value for the property",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "number"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "description": "Array type with required items schema",
+          "type": "object",
+          "properties": {
+            "default": {
+              "description": "Default value for the property",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "items": {
+              "description": "Defines the schema of array items",
+              "$ref": "#/$defs/SimpleSchemaProperty"
+            },
+            "type": {
+              "type": "string",
+              "const": "array"
+            }
+          },
+          "required": [
+            "type",
+            "items"
+          ]
+        },
+        {
+          "description": "Object type with properties",
+          "type": "object",
+          "properties": {
+            "default": {
+              "description": "Default value for the property",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "properties": {
+              "description": "Properties of the object",
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "$ref": "#/$defs/SimpleSchemaProperty"
+              }
+            },
+            "type": {
+              "type": "string",
+              "const": "object"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "description": "Boolean type with optional default",
+          "type": "object",
+          "properties": {
+            "default": {
+              "description": "Default value for the property",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SimpleSchemaVariant": {
+      "description": "Represents a variant in a oneOf schema for strings",
+      "type": "object",
+      "properties": {
+        "enum": {
+          "description": "For string types with enumeration, the allowed values",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Type of this variant (always \"string\" for oneOf variants)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "Step": {
+      "description": "Represents a step in a node",
+      "type": "object",
+      "properties": {
+        "commit": {
+          "description": "Optional commit checkpoint — if present (and in cloud mode), a git commit\nis created after this step completes. The message supports `${{ }}` expressions.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommitConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "env": {
+          "description": "Environment variables specific to this step",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "id": {
+          "description": "Unique identifier for the step (optional, used for referencing step outputs)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "if": {
+          "description": "Conditional expression to determine if this step should be executed.\nAccepts a string expression or a literal boolean (`if: true` / `if: false`).",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "name": {
+          "description": "Human-readable name",
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Template to use for this step",
+          "type": "object",
+          "properties": {
+            "use": {
+              "$ref": "#/$defs/TemplateUse"
+            }
+          },
+          "required": [
+            "use"
+          ]
+        },
+        {
+          "description": "Script to run",
+          "type": "object",
+          "properties": {
+            "run": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        },
+        {
+          "description": "ast-grep",
+          "type": "object",
+          "properties": {
+            "ast-grep": {
+              "$ref": "#/$defs/UseAstGrep"
+            }
+          },
+          "required": [
+            "ast-grep"
+          ]
+        },
+        {
+          "description": "JavaScript AST grep execution",
+          "type": "object",
+          "properties": {
+            "js-ast-grep": {
+              "$ref": "#/$defs/UseJSAstGrep"
+            }
+          },
+          "required": [
+            "js-ast-grep"
+          ]
+        },
+        {
+          "description": "Execute another codemod",
+          "type": "object",
+          "properties": {
+            "codemod": {
+              "$ref": "#/$defs/UseCodemod"
+            }
+          },
+          "required": [
+            "codemod"
+          ]
+        },
+        {
+          "description": "Execute AI agent with prompt",
+          "type": "object",
+          "properties": {
+            "ai": {
+              "$ref": "#/$defs/UseAI"
+            }
+          },
+          "required": [
+            "ai"
+          ]
+        },
+        {
+          "description": "Install package skill behavior via codemod CLI",
+          "type": "object",
+          "properties": {
+            "install-skill": {
+              "$ref": "#/$defs/UseInstallSkill"
+            }
+          },
+          "required": [
+            "install-skill"
+          ]
+        },
+        {
+          "description": "Evaluate file shards and write results to workflow state",
+          "type": "object",
+          "properties": {
+            "shard": {
+              "$ref": "#/$defs/UseShard"
+            }
+          },
+          "required": [
+            "shard"
+          ]
+        }
+      ],
+      "required": [
+        "name"
+      ]
+    },
+    "Strategy": {
+      "description": "Represents a strategy configuration",
+      "type": "object",
+      "properties": {
+        "from_state": {
+          "description": "State key to get matrix values from (for matrix strategy)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "type": {
+          "description": "Type of strategy",
+          "$ref": "#/$defs/StrategyType"
+        },
+        "values": {
+          "description": "Matrix values (for matrix strategy)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "StrategyType": {
+      "description": "Type of strategy",
+      "oneOf": [
+        {
+          "description": "Matrix strategy (run multiple instances with different inputs)",
+          "type": "string",
+          "const": "matrix"
+        }
+      ]
+    },
+    "Template": {
+      "description": "Represents a reusable template",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Detailed description of what the template does",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "env": {
+          "description": "Environment variables to inject into the container",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "id": {
+          "description": "Unique identifier for the template",
+          "type": "string"
+        },
+        "inputs": {
+          "description": "Inputs for the template",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TemplateInput"
+          }
+        },
+        "name": {
+          "description": "Human-readable name",
+          "type": "string"
+        },
+        "outputs": {
+          "description": "Outputs from the template",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TemplateOutput"
+          }
+        },
+        "runtime": {
+          "description": "Container runtime configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Runtime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "steps": {
+          "description": "Steps to execute within the template",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "steps"
+      ]
+    },
+    "TemplateInput": {
+      "description": "Represents a template input",
+      "type": "object",
+      "properties": {
+        "default": {
+          "description": "Default value for the input",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "description": {
+          "description": "Description of the input",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "name": {
+          "description": "Name of the input",
+          "type": "string"
+        },
+        "required": {
+          "description": "Whether the input is required",
+          "type": "boolean",
+          "default": false
+        },
+        "type": {
+          "description": "Type of the input (string, number, boolean)",
+          "type": "string",
+          "default": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "TemplateOutput": {
+      "description": "Represents a template output",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Description of the output",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "name": {
+          "description": "Name of the output",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value of the output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "TemplateUse": {
+      "description": "Represents a template use in a step",
+      "type": "object",
+      "properties": {
+        "inputs": {
+          "description": "Inputs to pass to the template",
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        },
+        "template": {
+          "description": "Template ID to use",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template"
+      ]
+    },
+    "Trigger": {
+      "description": "Represents a trigger configuration",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "Type of trigger",
+          "$ref": "#/$defs/TriggerType"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "TriggerType": {
+      "description": "Type of trigger",
+      "oneOf": [
+        {
+          "description": "Automatic trigger (runs when dependencies are satisfied)",
+          "type": "string",
+          "const": "automatic"
+        },
+        {
+          "description": "Manual trigger (requires explicit triggering)",
+          "type": "string",
+          "const": "manual"
+        }
+      ]
+    },
+    "UseAI": {
+      "type": "object",
+      "properties": {
+        "api_key": {
+          "description": "LLM API key (optional, defaults to configured key or env var)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "dry_run": {
+          "description": "Perform a dry run without making changes (optional, defaults to false)",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "enable_lakeview": {
+          "description": "Enable lakeview mode (optional, defaults to true)",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "endpoint": {
+          "description": "LLM API endpoint (optional, defaults to configured endpoint)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "env": {
+          "description": "Environment variables to set for the AI agent execution (optional)",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "llm_protocol": {
+          "description": "LLM protocol to use (optional, defaults to openai)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "max_steps": {
+          "description": "Maximum number of steps the AI agent can take (optional, defaults to 100)",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "default": null,
+          "minimum": 0
+        },
+        "model": {
+          "description": "AI model to use (optional, defaults to configured model)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "prompt": {
+          "description": "Prompt to send to the AI agent",
+          "type": "string"
+        },
+        "system_prompt": {
+          "description": "System prompt for the AI agent (optional)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "timeout_ms": {
+          "description": "Timeout in milliseconds for AI agent execution (optional)",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "default": null,
+          "minimum": 0
+        },
+        "tools": {
+          "description": "Tools available to the AI agent (optional, defaults to common tools)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "working_dir": {
+          "description": "Working directory for AI agent execution (optional, defaults to current directory)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "prompt"
+      ]
+    },
+    "UseAstGrep": {
+      "type": "object",
+      "properties": {
+        "allow_dirty": {
+          "description": "Allow dirty files (optional, defaults to false)",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "base_path": {
+          "description": "Base path for resolving relative globs (optional, defaults to current working directory)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "config_file": {
+          "description": "Path to the ast-grep config file (.yaml)",
+          "type": "string"
+        },
+        "exclude": {
+          "description": "Exclude globs for files to skip (optional)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "include": {
+          "description": "Include globs for files to search (optional, defaults to language-specific extensions)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "max_threads": {
+          "description": "Set maximum number of concurrent threads (optional, defaults to CPU cores)",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "default": null,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "config_file"
+      ]
+    },
+    "UseCodemod": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "description": "Command line arguments to pass to the codemod (optional)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "description": "Environment variables to set for the codemod execution (optional)",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "source": {
+          "description": "Codemod source identifier (registry package or local path)",
+          "type": "string"
+        },
+        "working_dir": {
+          "description": "Working directory for codemod execution (optional, defaults to current directory)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source"
+      ]
+    },
+    "UseInstallSkill": {
+      "type": "object",
+      "properties": {
+        "force": {
+          "description": "Overwrite existing skill files (optional, defaults to false)",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "harness": {
+          "description": "Target harness adapter (optional, defaults to auto)",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InstallSkillHarness"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "package": {
+          "description": "Package identifier to install (for example `@codemod/jest-to-vitest`)",
+          "type": "string"
+        },
+        "path": {
+          "description": "Authored skill source path inside the package (optional, defaults to conventional layout)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "scope": {
+          "description": "Install scope (optional, defaults to project)",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InstallSkillScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "package"
+      ]
+    },
+    "UseJSAstGrep": {
+      "type": "object",
+      "properties": {
+        "base_path": {
+          "description": "Base path for resolving relative globs (optional, defaults to current working directory)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "capabilities": {
+          "description": "Capabilities to use (optional)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "dry_run": {
+          "description": "Perform a dry run without making changes (optional, defaults to false)",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "exclude": {
+          "description": "Exclude globs for files to skip (optional)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "include": {
+          "description": "Include globs for files to search (optional, defaults to language-specific extensions)",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "js_file": {
+          "description": "Path to the JavaScript file to execute",
+          "type": "string"
+        },
+        "language": {
+          "description": "Language to process (optional)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "max_threads": {
+          "description": "Set maximum number of concurrent threads (optional, defaults to CPU cores)",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "default": null,
+          "minimum": 0
+        },
+        "semantic_analysis": {
+          "description": "Semantic analysis configuration for symbol indexing (definition, references, typeInfo).\nCan be:\n- `\"file\"` - single-file analysis (default if semantic is enabled)\n- `\"workspace\"` - workspace-wide analysis using base_path as root\n- `{\"mode\": \"workspace\", \"root\": \"/path/to/workspace\"}` - workspace-wide with custom root",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SemanticAnalysisConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "js_file"
+      ]
+    },
+    "UseShard": {
+      "description": "Configuration for the `shard` step action.\nEvaluates file shards and writes results to workflow state.",
+      "type": "object",
+      "properties": {
+        "file_pattern": {
+          "description": "Glob pattern for eligible files (used when js-ast-grep is not set)",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "js-ast-grep": {
+          "description": "Optional js-ast-grep configuration for codemod-based pre-filtering.\nWhen set, the engine dry-runs the codemod against matched files and\nonly includes files where the transform produces changes.\nThe `include` field also serves as the file pattern for discovery.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UseJSAstGrep"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method": {
+          "description": "Sharding method configuration — either a built-in algorithm or a custom function",
+          "$ref": "#/$defs/ShardMethod"
+        },
+        "output_state": {
+          "description": "State key to write shard results to",
+          "type": "string"
+        },
+        "target": {
+          "description": "Root directory to scan for files",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "method",
+        "output_state"
+      ]
+    },
+    "WorkflowParams": {
+      "description": "Represents the params schema for a workflow",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "description": "Object schema definition (root is always an object)",
+          "$ref": "#/$defs/SimpleSchema",
+          "default": {}
+        }
+      }
+    },
+    "WorkflowState": {
+      "description": "Represents the state schema for a workflow",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "description": "Object schema definition (root is always an object)",
+          "$ref": "#/$defs/SimpleSchema",
+          "default": {}
+        }
+      }
+    }
+  }
+}

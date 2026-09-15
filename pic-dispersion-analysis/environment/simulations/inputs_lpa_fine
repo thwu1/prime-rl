@@ -1,0 +1,81 @@
+# 3D Laser-Plasma Acceleration - Fine resolution
+# Production-quality LPA configuration
+
+my_constants.n_e = 1.75e24
+my_constants.lambda0 = 0.8e-6
+my_constants.E0 = 16.e12
+my_constants.w0 = 15.e-6
+
+max_step = 5000
+amr.n_cell = 64 64 768
+amr.max_grid_size = 64
+amr.blocking_factor = 32
+geometry.dims = 3
+geometry.prob_lo = -32.e-6 -32.e-6 -56.e-6
+geometry.prob_hi =  32.e-6  32.e-6  12.e-6
+amr.max_level = 0
+
+boundary.field_lo = periodic periodic pec
+boundary.field_hi = periodic periodic pec
+
+warpx.verbose = 1
+warpx.do_dive_cleaning = 0
+warpx.use_filter = 1
+warpx.cfl = 0.999
+warpx.do_moving_window = 1
+warpx.moving_window_dir = z
+warpx.moving_window_v = 1.0
+warpx.do_dynamic_scheduling = 1
+algo.particle_shape = 3
+
+particles.species_names = electrons beam
+
+electrons.charge = -q_e
+electrons.mass = m_e
+electrons.injection_style = "NUniformPerCell"
+electrons.num_particles_per_cell_each_dim = 1 1 1
+electrons.xmin = -25.e-6
+electrons.xmax = 25.e-6
+electrons.ymin = -25.e-6
+electrons.ymax = 25.e-6
+electrons.zmin = 0
+electrons.profile = constant
+electrons.density = n_e
+electrons.momentum_distribution_type = "at_rest"
+electrons.do_continuous_injection = 1
+
+beam.charge = -q_e
+beam.mass = m_e
+beam.injection_style = "gaussian_beam"
+beam.x_rms = 0.5e-6
+beam.y_rms = 0.5e-6
+beam.z_rms = 0.5e-6
+beam.x_m = 0.
+beam.y_m = 0.
+beam.z_m = -28.e-6
+beam.npart = 100
+beam.q_tot = -1.e-12
+beam.momentum_distribution_type = "gaussian"
+beam.ux_m = 0.
+beam.uy_m = 0.
+beam.uz_m = 500.
+beam.ux_th = 2.
+beam.uy_th = 2.
+beam.uz_th = 50.
+
+lasers.names = laser1
+laser1.profile = Gaussian
+laser1.position = 0. 0. 9.e-6
+laser1.direction = 0. 0. 1.
+laser1.polarization = 0. 1. 0.
+laser1.e_max = E0
+laser1.profile_waist = w0
+laser1.profile_duration = 30.e-15
+laser1.profile_t_peak = 60.e-15
+laser1.profile_focal_distance = 100.e-6
+laser1.wavelength = lambda0
+
+diagnostics.diags_names = diag1
+diag1.intervals = 500
+diag1.diag_type = Full
+diag1.fields_to_plot = Ex Ey Ez Bx By Bz jx jy jz rho

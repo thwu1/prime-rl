@@ -1,0 +1,74 @@
+module isis-rib {
+  yang-version 1.1;
+  namespace "urn:example:isis-rib";
+  prefix isis-rib;
+
+  revision 2024-06-01 {
+    description
+      "Routing table output schema for IS-IS SPF computation.";
+  }
+
+  typedef system-id-type {
+    type string {
+      pattern '[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}';
+    }
+    description
+      "IS-IS system identifier in dotted-hex notation
+       (XXXX.XXXX.XXXX).";
+  }
+
+  typedef ipv4-prefix-type {
+    type string {
+      pattern '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}';
+    }
+    description
+      "IPv4 prefix in CIDR notation (A.B.C.D/N).";
+  }
+
+  container routing-table {
+    description
+      "Computed IS-IS SPF routing information base.
+       Contains all remote IPv4 routes reachable from the
+       source router, excluding directly-connected prefixes
+       where the source provides the lowest-cost path.";
+
+    leaf source-router {
+      type system-id-type;
+      mandatory true;
+      description
+        "System-ID of the SPF root (computation source).";
+    }
+
+    list route {
+      key "destination-prefix";
+      ordered-by system;
+      description
+        "A computed IPv4 route entry.";
+
+      leaf destination-prefix {
+        type ipv4-prefix-type;
+        description
+          "IPv4 destination prefix in CIDR notation.";
+      }
+
+      leaf total-metric {
+        type uint32;
+        mandatory true;
+        description
+          "Aggregate metric: cost-to-advertising-router plus
+           the prefix metric as advertised in the LSDB.";
+      }
+
+      leaf-list forwarding-next-hop {
+        type system-id-type;
+        min-elements 1;
+        ordered-by user;
+        description
+          "First-hop system-ID(s) toward the destination.
+           When multiple equal-cost paths exist, all distinct
+           first-hop routers are listed. Entries are sorted
+           in ascending lexicographic order.";
+      }
+    }
+  }
+}

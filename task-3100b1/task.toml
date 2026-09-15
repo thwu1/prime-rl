@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level remote sensing knowledge. The agent must know from domain expertise: (1) which QA_PIXEL bits constitute atmospheric contamination vs. informational flags — the parameters file lists all 16 bits without identifying which are contamination; (2) the NDVI formula and that surface reflectance DNs must be rescaled before use; (3) the multi-step single-channel Land Surface Temperature algorithm (DN→radiance→brightness temperature via Planck inversion→emissivity correction→LST) — no formulas are provided anywhere; (4) the three-regime NDVI-threshold emissivity model structure (Pv fraction-of-vegetation formula and mixed-pixel emissivity equation) — only threshold values and endpoint emissivities are given; (5) how to compute terrain slope from a DEM; (6) vector-raster zonal statistics with cloud-masked nodata handling and percentile computation. The agent cannot follow a recipe — it must supply the algorithmic knowledge connecting the provided parameters to physically correct outputs."""
+solution_explanation = """The solution reads inputs using GDAL/numpy. It identifies contamination bits (1-4: dilated_cloud, cirrus, cloud, cloud_shadow) from the QA_PIXEL bit layout. It applies Collection 2 scale factors to convert SR DNs to reflectance, computes NDVI = (NIR-Red)/(NIR+Red). For LST: converts thermal DNs to radiance using MTL rescaling, computes brightness temperature via Planck inversion BT=K2/ln(K1/L+1), estimates emissivity from NDVI using three-regime threshold model (soil/mixed/vegetation), applies LST = BT/(1+(λ·BT/ρ)·ln(ε)). Slope via gdal.DEMProcessing. Zonal statistics computed by rasterizing zone polygons, aggregating clear-pixel values with percentile calculations."""
+verification_explanation = """Tests verify: (1) cloud mask flags correct pixels with exact contaminated count of 480; (2) NDVI ranges per land cover type with nodata at cloud locations; (3) LST in physically realistic ranges (290-320K) with correct relative ordering; (4) slope non-negative, bounded, with correct spatial pattern; (5) zonal statistics JSON with all required zones/fields, correct pixel counts, physically consistent orderings; (6) LST percentile ordering, valid ranges, appropriate spread for mixed vs uniform zones; (7) CRS consistency across all outputs."""
+category = "geospatial"
+tags = ["remote-sensing", "landsat-processing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3100b1"

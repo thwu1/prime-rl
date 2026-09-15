@@ -1,0 +1,10 @@
+inet6num:           fd00:abcd:ef01:0000:0000:0000:0000:0000 - fd00:abcd:ef01:ffff:ffff:ffff:ffff:ffff
+cidr:               fd00:abcd:ef01::/48
+netname:            BETA-NET6
+descr:              Beta Network IPv6 Space
+country:            DE
+admin-c:            BOB-DN42
+tech-c:             BOB-DN42
+mnt-by:             BETA-MNT
+status:             ASSIGNED
+source:             DN42

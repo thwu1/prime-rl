@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic expertise in computational geometry and 3D mesh processing: the agent must independently determine how to parse binary STL, detect and repair mesh defects (e.g. inverted face normals via signed-volume analysis), implement three standard shape-comparison metrics (Chamfer Distance, F1 Score, Volumetric IoU) from only their names and parameters, choose correct normalization and surface sampling strategies, and handle edge cases like non-watertight meshes — all without algorithmic guidance in the prompt."""
+solution_explanation = """Uses trimesh to load binary STL files, detects inverted normals via negative signed volume on watertight meshes and repairs by flipping face winding order. Normalizes meshes to unit cube, samples 10K surface points proportional to triangle area via barycentric coordinates, computes Chamfer Distance using scipy cKDTree, F1 score at threshold 0.02, and Volumetric IoU by testing containment of a regular grid at 0.02 spacing."""
+verification_explanation = """Validates JSON schema structure (5 pairs, required keys, types), checks metric ranges (CD >= 0, 0 <= F1 <= 1, 0 <= IoU <= 1), verifies that identical meshes produce near-zero CD and near-unity F1/IoU, confirms geometrically different shapes produce worse metrics with correct relative ordering, validates that the inverted-normal mesh is detected, repaired, and yields near-identical-geometry metrics post-repair, and checks summary statistics match per-pair aggregation."""
+category = "computational_geometry"
+tags = ["mesh-comparison", "3d-geometry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cad-geometry-metrics"

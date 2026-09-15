@@ -1,0 +1,46 @@
+{
+  "validators": {
+    "ValueSetCodeValidator": {
+      "description": "Validates that the matched XML node's @code attribute contains a code that exists in one of the referenced valuesets.",
+      "attribute_checked": "@code",
+      "valueset_field_usage": "The allowedValuesetOids field contains valueset OID(s). If multiple OIDs are present, they are pipe-separated (e.g. OID1|OID2). The code is valid if it exists in ANY of the referenced valuesets.",
+      "valueset_data_location": "Valueset data files are in /app/valuesets/ named {OID}.json"
+    },
+    "NodeCodeSystemMatchesConfiguredCodeSystemValidator": {
+      "description": "Validates that the matched XML node's @codeSystem attribute matches the expected code system OID.",
+      "attribute_checked": "@codeSystem",
+      "valueset_field_usage": "IMPORTANT: Despite the field name 'allowedValuesetOids', for this validator type the field contains the EXPECTED code system OID (not a valueset OID). Validation passes if and only if the node's @codeSystem attribute value equals this OID exactly.",
+      "valueset_data_location": "Not applicable. This validator performs a direct string comparison against the configured OID, not a valueset lookup."
+    },
+    "LanguageCodeNodeLanguageCodeValuesetValidator": {
+      "description": "Validates the language portion of a compound BCP-47 language code. The @code attribute may contain a compound code such as 'en-US'. This validator extracts the language subtag by splitting the value at the first hyphen and taking the part BEFORE it. If no hyphen is present, the entire @code value is treated as the language subtag. The extracted subtag is then validated against the referenced language valueset.",
+      "attribute_checked": "@code (language subtag portion only)",
+      "valueset_field_usage": "The allowedValuesetOids field contains a Language valueset OID. The extracted language subtag must exist as a code in this valueset.",
+      "valueset_data_location": "Valueset data files are in /app/valuesets/ named {OID}.json"
+    },
+    "LanguageCodeNodeCountryCodeValuesetValidator": {
+      "description": "Validates the country/region portion of a compound BCP-47 language code. The @code attribute may contain a compound code such as 'en-US'. This validator splits the value at the first hyphen and takes the part AFTER it as the country subtag. CRITICAL: If no hyphen exists in the @code value, this validator DOES NOT FIRE and produces no violation — the node passes validation unconditionally.",
+      "attribute_checked": "@code (country/region subtag portion only)",
+      "valueset_field_usage": "The allowedValuesetOids field contains a Country valueset OID. The extracted country subtag must exist as a code in this valueset. If no country subtag is extractable (no hyphen in @code), no validation occurs.",
+      "valueset_data_location": "Valueset data files are in /app/valuesets/ named {OID}.json"
+    },
+    "TextNodeValidator": {
+      "description": "Validates that the TEXT CONTENT of the matched XML element (NOT any attribute) exists in the referenced valueset. The text content is the string value of the element's direct text node, stripped of leading and trailing whitespace. This validator does NOT check @code or any other attribute.",
+      "attribute_checked": "element text content (not an attribute)",
+      "valueset_field_usage": "The allowedValuesetOids field contains a valueset OID. The element's trimmed text content must exist as a code entry in this valueset.",
+      "valueset_data_location": "Valueset data files are in /app/valuesets/ named {OID}.json"
+    },
+    "ClassCodeValidator": {
+      "description": "Validates that the matched XML node's @classCode attribute contains a code that exists in the referenced code system valueset. This validator checks @classCode, NOT @code.",
+      "attribute_checked": "@classCode",
+      "valueset_field_usage": "The allowedValuesetOids field contains the OID of a code system whose values represent valid class codes. The node's @classCode attribute must exist as a code entry in the valueset file for this OID.",
+      "valueset_data_location": "Valueset data files are in /app/valuesets/ named {OID}.json"
+    }
+  },
+  "namespace_bindings": {
+    "v3": "urn:hl7-org:v3",
+    "sdtc": "urn:hl7-org:sdtc"
+  },
+  "config_namespace": "http://www.SITE.org/CCDAValidator",
+  "notes": "XPath expressions in validation_rules.xml use the v3 prefix for the HL7 v3 namespace (urn:hl7-org:v3) and the sdtc prefix for the HL7 SDTC extension namespace (urn:hl7-org:sdtc). The C-CDA document uses urn:hl7-org:v3 as its default (unprefixed) namespace and declares the sdtc namespace explicitly. Both namespace bindings MUST be registered when evaluating XPath expressions against the document. The validation_rules.xml configuration file itself uses a separate namespace (http://www.SITE.org/CCDAValidator) for its own structural elements. Multiple validation rules may target the same XPath expression with different validator types — each rule must be evaluated independently."
+}

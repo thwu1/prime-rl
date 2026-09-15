@@ -1,0 +1,13 @@
+int x;
+int y;
+int r;
+x = 5;
+y = 5;
+if((x == y))
+{
+    r = (x + y);
+}
+else
+{
+    r = (x * y);
+};

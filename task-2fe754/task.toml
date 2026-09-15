@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver confronts a Cargo workspace where full-workspace builds succeed but isolated crate builds fail — a real-world scenario caused by multiple interacting Cargo feature-resolution mechanisms. Without any guidance on root causes or fix strategies, the solver must: (1) independently trace feature propagation through the workspace dependency graph, understanding how resolver v1 unifies dev-dependency and build-dependency features across workspace members; (2) identify that signal-net uses a test-only API (TestFixture from test-utils feature) in non-test code, which only compiles because resolver v1 leaks dev-dependency features into normal builds; (3) identify that signal-storage relies on signal-core's io module (gated behind the std feature) without declaring it, working only because another workspace member activates std; (4) evaluate and choose the correct combination of fixes — resolver v2 for feature isolation, workspace dependency inheritance for consistency, explicit feature declarations, and code restructuring to gate test-only usage behind cfg(test). The task demands holistic understanding of Cargo's feature resolver semantics, workspace architecture patterns, and Rust's conditional compilation — knowledge that distinguishes professional Rust developers from intermediate practitioners."""
+solution_explanation = """The solver must first investigate all Cargo.toml files and Rust sources to trace feature dependencies. Analysis reveals two implicit feature dependencies: (a) signal-net uses TestFixture (from signal-core's test-utils feature) in non-test code — it compiles under workspace builds only because resolver v1 unifies dev-dependency features, and the dev-dep on signal-core enables test-utils; (b) signal-storage uses signal_core::io (gated behind the std feature) without declaring std in its own Cargo.toml — it compiles because signal-net and signal-cli enable std on signal-core, and resolver v1 unifies across workspace members. The fix requires: adding resolver = "2" to prevent feature leaking, creating [workspace.dependencies] for serde/serde_json/signal-core, updating all member Cargo.toml files to use workspace = true, moving signal-net's TestFixture usage inside #[cfg(test)], and adding explicit features = ["std"] to signal-storage's signal-core dependency. The migration_report.toml captures the diagnostic findings."""
+verification_explanation = """Tests verify three orthogonal dimensions: (1) Diagnostic accuracy — migration_report.toml must contain correct values for implicit_feature_count (2), testfixture_misuse_crate (signal-net), storage_missing_feature (std), storage_uses_module (io), and net_leak_section (dev-dependencies) — these cannot be guessed without genuine analysis. (2) Architecture — TOML parsing confirms resolver = "2", workspace.dependencies entries for serde/serde_json/signal-core, workspace = true inheritance in signal-net and signal-storage, and explicit std feature on signal-storage's signal-core dependency. (3) Build correctness — cargo check --workspace, cargo check -p signal-storage, cargo check -p signal-net, and cargo test -p signal-net must all succeed, confirming the fix works end-to-end."""
+category = "devops"
+tags = ["rust", "cargo"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2fe754"

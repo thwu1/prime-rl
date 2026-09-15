@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Pareto Smoothed Importance Sampling from scratch, including Generalized Pareto Distribution tail fitting, importance weight smoothing via expected order statistics, and power-scaling prior sensitivity analysis. The agent must understand cutting-edge Bayesian workflow methodology, extreme value theory for GPD fitting, log-space numerical stability, and the connection between importance sampling weights and posterior sensitivity. Not a textbook exercise — combines numerical algorithms, Bayesian theory, and careful software engineering."""
+solution_explanation = """The solution loads MCMC samples and log-prior/log-likelihood values, then for each prior component and alpha value: (1) computes log importance weights as (alpha-1)*log_prior, (2) applies PSIS by identifying the tail (M = min(0.2S, 3*sqrt(S)) largest values), computing exceedances above the threshold, fitting a GPD via scipy MLE, replacing tail weights with GPD expected order statistics, and extracting k-hat; (3) computes ESS from normalized weights; (4) computes weighted posterior moments. Sensitivity scores are computed as Cov(param, log_prior)/SD(param) across the posterior samples."""
+verification_explanation = """Tests verify: (1) all output files exist with correct JSON structure and keys; (2) Pareto k-hat values are finite, near-zero for alpha close to 1, and monotonically increasing as alpha deviates from 1; (3) ESS values satisfy theoretical bounds and decrease monotonically; (4) sensitivity scores match independently computed Cov/SD values within tight tolerance; (5) weighted moments converge to unweighted moments near alpha=1; (6) weighted mean shifts in the correct direction under power-scaling; (7) PSIS-weighted means agree with raw IS means for low k-hat cases; (8) banned packages are not installed."""
+category = "computational_statistics"
+tags = ["bayesian-inference", "importance-sampling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/power-scaling-psis"

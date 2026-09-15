@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a broken optimization pipeline: exploring scattered config/data/log files to understand the problem structure, identifying bugs in the existing solver (wrong distance metric, capacity overflow), then implementing a high-quality facility location solver with greedy construction + local search that meets quality thresholds across three instances of increasing scale (100x100, 500x3000, 2000x2000). Additionally requires interfacing with GLPK (glpsol) to compute LP relaxation lower bounds by generating CPLEX LP format files and parsing solver output. Quality thresholds are set between the 70th and 90th percentile of graduate-level optimization students."""
+solution_explanation = """The reference solver: (1) reads scenario configurations from JSON files to discover instances and thresholds; (2) for the small instance, generates a CPLEX LP relaxation file and runs glpsol to obtain a lower bound; (3) uses greedy construction assigning customers by descending demand to nearest feasible facility with setup cost amortization; (4) applies first-improvement local search with customer reassignment over K=50 nearest facilities; (5) uses facility open/close/swap neighborhoods; (6) runs iterated local search with perturbation until time limit; (7) writes solution files with objective, assignment, and LP bound."""
+verification_explanation = """Tests discover scenario configurations from /app/data/scenarios/*.json, then for each scenario: (1) verify solution file exists at /app/output/<name>.sol; (2) parse and validate output format; (3) independently verify feasibility (valid assignments, capacity constraints); (4) recompute Euclidean objective and check it matches reported value; (5) verify objective meets scenario threshold; (6) for scenarios requiring LP bounds, check LP_BOUND line exists and value is a valid lower bound. Also verifies a substantive solver implementation exists."""
+category = "optimization"
+tags = ["combinatorial-optimization", "facility-location"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1d651e"

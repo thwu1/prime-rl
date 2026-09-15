@@ -1,0 +1,71 @@
+syntax = "proto3";
+package minidb;
+
+message WalRecord {
+  uint64 txn_id = 1;
+  string entry_type = 2;
+  string table_name = 3;
+  repeated ColumnSpec columns = 4;
+  repeated string col_names = 5;
+  repeated SqlValue col_values = 6;
+  repeated SetAssignment assignments = 7;
+  Predicate where_clause = 8;
+}
+
+message ColumnSpec {
+  string name = 1;
+  string col_type = 2;
+}
+
+message SqlValue {
+  oneof val {
+    int64 int_val = 1;
+    string str_val = 2;
+    bool bool_val = 3;
+  }
+  bool is_null = 4;
+}
+
+message SetAssignment {
+  string column = 1;
+  SqlValue value = 2;
+}
+
+message Predicate {
+  oneof predicate {
+    Comparison comparison = 1;
+    LogicalOp logical_op = 2;
+  }
+}
+
+message Comparison {
+  string column = 1;
+  string op = 2;
+  SqlValue value = 3;
+}
+
+message LogicalOp {
+  string op = 1;
+  Predicate left = 2;
+  Predicate right = 3;
+}
+
+message CheckpointData {
+  repeated TableState tables = 1;
+  uint64 next_txn_id = 2;
+}
+
+message TableState {
+  string name = 1;
+  repeated ColumnSpec schema_columns = 2;
+  repeated DataRow rows = 3;
+}
+
+message DataRow {
+  repeated FieldEntry fields = 1;
+}
+
+message FieldEntry {
+  string name = 1;
+  SqlValue value = 2;
+}

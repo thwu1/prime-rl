@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edge
+  labels:
+    tier: edge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: core
+  labels:
+    tier: core
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ingress-gw
+  namespace: edge
+  labels:
+    app: gateway
+    role: gateway
+status:
+  podIP: "10.60.1.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: waf
+  namespace: edge
+  labels:
+    app: waf
+    role: security
+status:
+  podIP: "10.60.1.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+  namespace: core
+  labels:
+    app: main
+    component: api
+status:
+  podIP: "10.60.2.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db
+  namespace: core
+  labels:
+    app: postgres
+    component: data
+status:
+  podIP: "10.60.2.2"

@@ -1,0 +1,6 @@
+{
+  "name": "telemetry-helper",
+  "version": "2.0.3",
+  "description": "Application telemetry and metrics collection",
+  "main": "index.js"
+}

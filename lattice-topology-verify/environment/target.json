@@ -1,0 +1,10 @@
+{
+  "description": "Gyroid module: TPMS shell clipped to rhombic dodecahedron, size=20",
+  "genus": 15,
+  "num_components": 1,
+  "is_valid": true,
+  "volume_range": [500, 20000],
+  "surface_area_range": [1000, 40000],
+  "num_vert_min": 5000,
+  "num_tri_min": 10000
+}

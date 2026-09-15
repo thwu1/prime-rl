@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis and repair of five interrelated bugs in a Go XAES-256-GCM implementation: (1) AES-128/256 key size confusion silently accepted by crypto/aes, (2) LSB vs MSB carry propagation in GF(2^128) bit shifting during CMAC subkey derivation, (3) incorrect nonce slice direction for AES-GCM derived nonce, (4) confusion between GHASH bit-reflected (0xE1) and CMAC byte-order (0x87) representations of the GF(2^128) reduction polynomial — a subtle distinction requiring deep understanding of field arithmetic conventions, and (5) off-by-one in NIST SP 800-108r1 KDF counter initialization (starting at 0 instead of 1). Additionally requires debugging a partial Python CMAC implementation with the same GF(2^128) polynomial confusion and swapped K1/K2 CMAC subkey selection, implementing the full XAES-256-GCM AEAD class from scratch using only raw AES-ECB primitives, and building a binary file encryption CLI tool. Cross-language interoperability verification via accumulated test vectors over 1000 deterministic iterations ensures comprehensive correctness."""
+solution_explanation = """Fix Go xaes.go: (1) aes.NewCipher(x.key[:16]) to aes.NewCipher(x.key[:]) for AES-256; (2) (L[i+1] & 1) to (L[i+1] >> 7) for correct MSB carry in left shift; (3) copy(derivedNonce, nonce[:12]) to copy(derivedNonce, nonce[12:]) for correct derived nonce per Step 4; (4) shifted[15] ^= 0xE1 to shifted[15] ^= 0x87 for CMAC byte-order GF(2^128) polynomial (not GHASH bit-reflected); (5) KDF counters from (0,1) to (1,2) per NIST SP 800-108r1. Fix Python _double_gf128: 0xE1 to 0x87. Fix Python cmac_aes256: swap K1/K2 — K1 for complete final blocks, K2 for incomplete per NIST SP 800-38B. Implement XAES256GCM class with precomputed K1, counter-mode KDF block construction, AES-256-ECB encryption, and AESGCM composition. Create file tool with XAESFILE binary format."""
+verification_explanation = """Tests verify: (1) CMAC-AES256 correctness against cryptography library reference for 13+ message lengths including empty, partial, single-block, and multi-block with two different keys; (2) source code contains no CMAC library imports; (3) XAES-256-GCM encryption against 5 hardcoded test vectors covering both MSB(L) code paths, empty plaintext, empty AAD, and cross-language interop; (4) decryption of known ciphertexts; (5) round-trip encrypt/decrypt including large payloads; (6) accumulated SHA-256 hash over 1000 deterministic iterations with SHA-256 CTR PRNG; (7) input validation and tamper detection; (8) cross-language Go/Python interop via CLI for all vectors; (9) file tool format compliance, round-trip, AAD handling, empty file, and Go CLI interop. Go tests independently verify known vectors, cipher.AEAD interface compliance, accumulated hash, and tamper rejection."""
+category = "cryptography"
+tags = ["aes-gcm", "cmac-implementation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-daea49"

@@ -1,0 +1,13 @@
+A key-value store command processor at `/app/` contains multiple memory safety vulnerabilities across different CWE categories. The binary at `/app/kvstore` was compiled with AddressSanitizer (`-fsanitize=address`). Source code is at `/app/src/kvstore.c` and the build configuration at `/app/Makefile`.
+
+Four AddressSanitizer crash reports in `/app/asan_reports/` document vulnerabilities triggered by proof-of-concept inputs in `/app/poc/`. Additional memory safety bugs exist beyond these four reports. At least one ASan report is misleading — the crash manifests in a function that is not the root cause of the underlying corruption.
+
+A previous security analyst submitted a draft vulnerability assessment at `/app/peer_audit.json`. This assessment contains errors in its analysis.
+
+Produce the following deliverables:
+
+**Peer review** (`/app/peer_review.json`): Evaluate each entry in the peer audit for correctness. The JSON must have a `"reviews"` array with one object per peer audit entry, each containing `"peer_audit_id"` (matching the `"id"` in the peer audit), `"verdict"` (`"correct"`, `"incorrect"`, or `"partially_correct"`), and `"issues"` (array of strings describing errors found; empty array if correct). For incorrect or partially correct entries, include relevant correction fields (e.g. `"corrected_function"`, `"corrected_cwe"`, `"corrected_severity"`). Include a `"missing_vulnerabilities"` array listing vulnerabilities the peer audit failed to discover, each with `"function"` and `"cwe_id"`.
+
+**Corrected security audit** (`/app/security_audit.json`): A comprehensive audit covering all vulnerabilities. The JSON must have a `"vulnerabilities"` array where each entry contains: `"cwe_id"` (e.g. `"CWE-416"`), `"function"` (the C function containing the root cause — not the crash site), `"severity"` (`"critical"`, `"high"`, `"medium"`, or `"low"`), `"exploitability"` (evaluate whether each vulnerability enables `"code_execution"`, `"info_disclosure"`, or only `"dos_only"`, considering the nature of the memory corruption primitive), `"description"` (root cause and attack impact), and `"fix_description"` (what the patch does).
+
+**Patched binary**: Fix all vulnerabilities in `/app/src/kvstore.c` and rebuild with `make clean && make`. The patched binary must process all inputs — including adversarial ones beyond the provided PoCs — without AddressSanitizer errors, and must produce correct output for the valid test inputs in `/app/tests/valid/` matching the expected output in `/app/tests/expected/`.

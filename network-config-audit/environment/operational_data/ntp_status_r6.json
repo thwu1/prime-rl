@@ -1,0 +1,24 @@
+{
+  "router": "R6",
+  "timestamp": "2024-11-15T14:23:22Z",
+  "ntp": {
+    "clock_state": "unsynchronized",
+    "stratum": 16,
+    "reference_id": ".AUTH.",
+    "authentication_enabled": true,
+    "authentication_key_id": 1,
+    "peers": [
+      {
+        "remote": "10.1.1.100",
+        "refid": ".AUTH.",
+        "stratum": 16,
+        "when_sec": 12,
+        "reach_octal": "000",
+        "delay_ms": 1.234,
+        "offset_ms": 0.0,
+        "disp_ms": 15937.5,
+        "status": "reject"
+      }
+    ]
+  }
+}

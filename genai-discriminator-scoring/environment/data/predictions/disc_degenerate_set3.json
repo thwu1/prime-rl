@@ -1,0 +1,18 @@
+{
+  "team": "disc_degenerate",
+  "docker_id": "disc_degenerate/detector:1.0",
+  "input": "set_gamma",
+  "prediction_list": [
+    {"statement_id": "N0001", "ai_likelihood_score": 0.75, "believability_score": 0.73},
+    {"statement_id": "N0002", "ai_likelihood_score": 0.82, "believability_score": 0.79},
+    {"statement_id": "N0003", "ai_likelihood_score": 0.68, "believability_score": 0.67},
+    {"statement_id": "N0004", "ai_likelihood_score": 0.59, "believability_score": 0.56},
+    {"statement_id": "N0005", "ai_likelihood_score": 0.84, "believability_score": 0.81},
+    {"statement_id": "N0006", "ai_likelihood_score": 0.71, "believability_score": 0.70},
+    {"statement_id": "N0007", "ai_likelihood_score": 0.65, "believability_score": 0.64},
+    {"statement_id": "N0008", "ai_likelihood_score": 0.78, "believability_score": 0.77},
+    {"statement_id": "N0009", "ai_likelihood_score": 0.55, "believability_score": 0.52},
+    {"statement_id": "N0010", "ai_likelihood_score": 0.70, "believability_score": 0.69}
+  ],
+  "execution_time": 28.5
+}

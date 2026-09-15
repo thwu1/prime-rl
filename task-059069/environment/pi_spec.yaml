@@ -1,0 +1,96 @@
+protocol:
+  name: gait_stability
+  version: "2.1"
+  framework: eurobench
+  description: >
+    Dynamic stability assessment during overground bipedal walking.
+    Computes spatiotemporal gait parameters and dynamic stability margins
+    from kinematic and kinetic walking data.
+
+data_format:
+  type: eurobench_v2
+  csv_delimiter: ";"
+  csv_structure:
+    row_0: column_headers
+    row_1: units_of_measurement
+    row_2_onwards: numeric_data
+  metadata_format: yaml
+
+input_files:
+  per_run:
+    - pattern: "subject_{sid}_cond_{cid}_run_{rid}_com.csv"
+      columns: [time, com_x, com_y, com_z, com_vel_x, com_vel_y, com_vel_z]
+      description: "Center of mass position and velocity time series"
+    - pattern: "subject_{sid}_cond_{cid}_run_{rid}_grf_right.csv"
+      columns: [time, force_z]
+      description: "Right foot vertical ground reaction force"
+    - pattern: "subject_{sid}_cond_{cid}_run_{rid}_grf_left.csv"
+      columns: [time, force_z]
+      description: "Left foot vertical ground reaction force"
+    - pattern: "subject_{sid}_cond_{cid}_run_{rid}_footTrajectories.csv"
+      columns: [time, right_heel_x, right_heel_y, right_heel_z, left_heel_x, left_heel_y, left_heel_z]
+      description: "Bilateral heel marker trajectories"
+  per_subject:
+    - pattern: "subject_{sid}_info.yaml"
+      required_fields: [mass, height, leg_length]
+      description: "Subject anthropometric data"
+
+output_specification:
+  naming_convention:
+    per_run: "subject_{sid:02d}_cond_{cid:02d}_run_{rid:02d}_{type}.yaml"
+    per_condition: "subject_{sid:02d}_cond_{cid:02d}_aggregated.yaml"
+    summary: "summary.csv"
+
+  metric_schema:
+    type: dict
+    required_keys: [mean, std, unit]
+    example:
+      step_time:
+        mean: 0.52
+        std: 0.03
+        unit: "s"
+
+  per_run_outputs:
+    spatiotemporal:
+      required_metrics:
+        step_time:
+          unit: "s"
+          description: "Duration between successive contralateral heel contacts"
+        stride_time:
+          unit: "s"
+          description: "Duration between successive ipsilateral heel contacts"
+        step_length:
+          unit: "m"
+          description: "Anteroposterior inter-foot distance at heel contacts"
+        step_width:
+          unit: "m"
+          description: "Mediolateral inter-foot distance at heel contacts"
+        cadence:
+          unit: "steps/min"
+          description: "Step frequency"
+        walking_speed:
+          unit: "m/s"
+          description: "Forward locomotion velocity"
+        stance_ratio:
+          unit: "fraction"
+          description: "Stance phase duration relative to full gait cycle"
+
+    stability:
+      required_metrics:
+        mos_ml:
+          unit: "m"
+          description: "Mediolateral margin of stability evaluated at heel contact instants"
+        mos_ap:
+          unit: "m"
+          description: "Anteroposterior margin of stability evaluated at heel contact instants"
+      additional_requirements:
+        - "At least one metric field with 'xcom' in its name must be present"
+
+  per_condition_outputs:
+    aggregated:
+      description: "Cross-run aggregation of spatiotemporal and stability metrics"
+      metric_schema: "Same as per-run (mean, std, unit)"
+
+  summary_csv:
+    required_columns: [condition, run, step_time, mos_ml, mos_ap]
+    structure: "One row per run across all subjects and conditions"

@@ -1,0 +1,17 @@
+A reference model for universal-life / savings products is at `/app/reference/CashValue_ME_Projection.py`, written in the `modelx` cell-definition DSL. `modelx` is **not available** — decode the DSL and reimplement as standalone code.
+
+Input: `/app/data/` contains `model_points.csv`, `product_spec.csv`, `mort_table.csv`, `disc_rate_ann.csv`, `surr_charge_table.csv`, `inv_return.csv`.
+
+Create `/app/projector.py` (numpy, pandas, pyarrow, stdlib only). Run: `python3 /app/projector.py`. All outputs to `/app/output/`.
+
+**`pv_results.csv`** — One row per model point; row count and `point_id` set must match `model_points.csv` exactly. Columns: `point_id`, `pv_premiums`, `pv_claims_death`, `pv_claims_lapse`, `pv_claims_maturity`, `pv_expenses`, `pv_commissions`, `pv_inv_income`, `pv_av_change`, `pv_net_cf`. PV identity must hold (rtol 1e-6): `pv_net_cf = pv_premiums + pv_inv_income - pv_claims_death - pv_claims_lapse - pv_claims_maturity - pv_expenses - pv_commissions - pv_av_change`. No NaN/inf in any numeric column. `pv_premiums`, `pv_claims_death`, `pv_claims_maturity`, `pv_expenses`, `pv_commissions`, `pv_inv_income` must be non-negative. Aggregate `pv_net_cf` (sum over all points) must be positive. SINGLE-premium at issue (duration_mth=0): `pv_premiums` equals `premium_pp`; past issue (duration_mth>0): zero. LEVEL-premium in-force: positive `pv_premiums`. Future new-business (duration_mth<0): positive `pv_premiums`. Per-point death claims must be < 20% of total claims when total > 1. All in-force points (duration_mth >= 0) must have positive total claims. WL policies in-force must have positive maturity claims. Commissions = 5% of premiums in PV terms.
+
+**`checks.json`** — `{"av_roll_forward_ok": true, "margin_ok": true, "pv_ok": true}` per the reference model's check cells.
+
+**`timeseries.db`** — SQLite. Table `monthly_cf`: columns `t INTEGER, point_id INTEGER, premiums REAL, claims_death REAL, claims_lapse REAL, claims_maturity REAL, expenses REAL, commissions REAL, inv_income REAL, net_cf REAL, pols_if REAL, av_pp REAL`. One row per (t, point_id); at least 1000 rows; all model point_ids present. `pols_if` and `av_pp` non-negative. SINGLE-premium at issue: `premiums` at t=0 equals `premium_pp`; zero for t>0. Discounted `net_cf` summed per point must match `pv_net_cf` (rtol 1e-4). Undiscounted total premiums per point must be >= PV premiums. Index `idx_monthly_cf_point_t` on `(point_id, t)`. View `cumulative_cf` with columns `t, point_id, cum_premiums, cum_net_cf, cum_claims_death` computed as window-function running sums partitioned by `point_id` ordered by `t`; running sums must be mathematically correct and partition independently per point.
+
+**`timeseries.parquet`** — Same rows as `monthly_cf`. `t` int32, `point_id` int32, all others float64. Snappy compression. Row count, point_id set, and aggregate totals (premiums, net_cf) must match the SQLite table.
+
+**`stress_mort_pv.csv`** — Same schema, row count, and point_ids as `pv_results.csv`. Full re-projection with all mortality rates multiplied by 1.3 (capped at 1.0). PV identity must hold, no NaN/inf, must differ numerically from base, aggregate death claims must exceed base by > 1%, aggregate net CF must be lower than base.
+
+**`stress_lapse_pv.csv`** — Same schema, row count, and point_ids. Re-projection with lapse rates multiplied by 2.0 (capped at 1.0). PV identity must hold, no NaN/inf, must differ from both base and mortality stress, aggregate death claims must be lower than base.

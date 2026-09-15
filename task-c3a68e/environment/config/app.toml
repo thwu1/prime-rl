@@ -1,0 +1,234 @@
+# Hubris-style RTOS application configuration
+# Target: Oxide Controller Rev D (STM32H753ZI)
+#
+# This configuration defines tasks, priorities, memory budgets,
+# peripheral assignments, interrupt routing, and IPC dependencies.
+
+name = "oxide-controller-d"
+board = "controller-d"
+chip = "chip.toml"
+target = "thumbv7em-none-eabihf"
+stacksize = 1024
+
+[kernel]
+name = "kernel"
+features = ["stm32h7"]
+
+[kernel.requires]
+flash = 32768
+ram = 8192
+
+# =============================================================================
+# Supervisor — highest priority
+# =============================================================================
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+stacksize = 2048
+start = true
+features = ["supervisor"]
+uses = ["syscfg"]
+notifications = ["fault", "timer"]
+
+[tasks.jefe.max-sizes]
+flash = 16384
+ram = 4096
+
+# =============================================================================
+# Core drivers — priority 1
+# =============================================================================
+
+[tasks.rcc_driver]
+name = "drv-stm32h7-rcc"
+priority = 1
+start = true
+uses = ["rcc"]
+notifications = ["timer"]
+
+[tasks.rcc_driver.max-sizes]
+flash = 8192
+ram = 2048
+
+[tasks.sys_monitor]
+name = "task-sys-monitor"
+priority = 1
+start = true
+notifications = ["timer", "fault"]
+task-slots = ["logger"]
+
+[tasks.sys_monitor.max-sizes]
+flash = 16384
+ram = 4096
+
+# =============================================================================
+# Peripheral drivers — priority 2
+# =============================================================================
+
+[tasks.usart_driver]
+name = "drv-stm32h7-usart"
+priority = 2
+start = true
+uses = ["usart1", "gpio_a"]
+notifications = ["usart1_irq", "timer"]
+task-slots = ["rcc_driver"]
+
+[tasks.usart_driver.max-sizes]
+flash = 16384
+ram = 4096
+
+[tasks.usart_driver.interrupts]
+usart1_irq = "usart1_irq"
+
+[tasks.spi_driver]
+name = "drv-stm32h7-spi"
+priority = 2
+start = true
+uses = ["spi1", "gpio_b"]
+notifications = ["spi1_irq", "timer"]
+task-slots = ["rcc_driver"]
+
+[tasks.spi_driver.max-sizes]
+flash = 16384
+ram = 4096
+
+[tasks.spi_driver.interrupts]
+spi1_irq = "spi1_irq"
+
+[tasks.i2c_driver]
+name = "drv-stm32h7-i2c"
+priority = 2
+start = true
+uses = ["i2c1", "gpio_b"]
+notifications = ["i2c1_ev_irq", "i2c1_er_irq", "timer"]
+task-slots = ["rcc_driver"]
+
+[tasks.i2c_driver.max-sizes]
+flash = 16384
+ram = 4096
+
+[tasks.i2c_driver.interrupts]
+i2c1_ev_irq = "i2c1_ev_irq"
+i2c1_er_irq = "i2c1_er_irq"
+
+[tasks.net_driver]
+name = "drv-stm32h7-eth"
+priority = 2
+start = true
+uses = ["eth_mac", "gpio_c"]
+notifications = ["eth_irq", "timer"]
+task-slots = ["rcc_driver"]
+
+[tasks.net_driver.max-sizes]
+flash = 32768
+ram = 32768
+
+[tasks.net_driver.interrupts]
+eth_irq = "eth_irq"
+
+# =============================================================================
+# Application services — priority 3
+# =============================================================================
+
+[tasks.net]
+name = "task-net"
+priority = 3
+start = true
+notifications = ["timer", "wake"]
+task-slots = ["net_driver"]
+
+[tasks.net.max-sizes]
+flash = 65536
+ram = 16384
+
+[tasks.net.interrupts]
+eth_irq = "eth_irq"
+
+[tasks.sensor_hub]
+name = "task-sensor-hub"
+priority = 3
+start = true
+uses = ["adc1"]
+notifications = ["adc_irq", "timer", "i2c_done", "spi_done"]
+task-slots = ["i2c_driver", "spi_driver"]
+
+[tasks.sensor_hub.max-sizes]
+flash = 32768
+ram = 262144
+
+[tasks.sensor_hub.interrupts]
+adc_irq = "adc_irq"
+
+[tasks.crypto]
+name = "task-crypto"
+priority = 3
+start = true
+uses = ["hash", "rng", "dma2"]
+notifications = ["rng_irq", "timer"]
+task-slots = ["hash_driver"]
+
+[tasks.crypto.max-sizes]
+flash = 16384
+ram = 8192
+
+[tasks.crypto.interrupts]
+rng_irq = "rng_irq"
+
+[tasks.storage]
+name = "task-storage"
+priority = 3
+start = true
+uses = ["quadspi", "flash_ctrl"]
+notifications = ["quadspi_irq", "flash_irq", "timer"]
+
+[tasks.storage.max-sizes]
+flash = 32768
+ram = 16384
+
+[tasks.storage.interrupts]
+quadspi_irq = "quadspi_irq"
+flash_irq = "flash_irq"
+
+# =============================================================================
+# Background services — priority 4
+# =============================================================================
+
+[tasks.update_server]
+name = "task-update"
+priority = 4
+start = true
+notifications = ["timer"]
+task-slots = ["storage", "crypto", "net"]
+
+[tasks.update_server.max-sizes]
+flash = 32768
+ram = 16384
+
+[tasks.logger]
+name = "task-logger"
+priority = 4
+start = true
+uses = ["usart3"]
+notifications = ["usart3_irq", "timer"]
+task-slots = ["sys_monitor"]
+
+[tasks.logger.max-sizes]
+flash = 16384
+ram = 8192
+
+[tasks.logger.interrupts]
+usart3_irq = "usart3_irq"
+
+# =============================================================================
+# Idle task — lowest priority
+# =============================================================================
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+start = true
+notifications = []
+
+[tasks.idle.max-sizes]
+flash = 4096
+ram = 1024

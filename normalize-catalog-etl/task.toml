@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level data engineering expertise across multiple interacting dimensions. The agent must: (1) discover three heterogeneous feed formats by inspection rather than following explicit format descriptions — semicolon-delimited CSV with European number/date conventions, nested JSON with Unix timestamps, NDJSON with pipe-delimited fields — each requiring different parsing strategies; (2) inspect reference.db schema to find and understand the fx_corrections table, implementing a multi-source temporal join where corrections supersede base rates for matching currency/date ranges — this demands understanding of temporal data precedence, not just procedural lookup; (3) build a complete price_history audit trail preserving ALL price observations (including dedup losers) with their FX conversion metadata, requiring holistic pipeline understanding since data eliminated at the dedup stage must still be captured earlier; (4) implement cross-source deduplication by extracting reference codes from free-text descriptions, resolving merge logic (most-recent-date wins, tag union) while simultaneously tracking which records survive; (5) resolve supplier identities through alias matching against a reference directory, handling case-insensitive variants and whitespace differences; (6) compute materialized category_analytics with SQL aggregations over the final catalog, requiring the pipeline to be ordered correctly (analytics depend on all prior transformations); (7) configure FTS5 with porter tokenizer and generate multiple output formats. The key difficulty is systemic: fx_corrections affect converted prices, which flow into price_history, category_analytics, and output files — errors in the correction logic cascade through every downstream artifact."""
+solution_explanation = """Write a Python ETL script that: (1) inspects and parses alpha.csv (semicolon delimiter, European decimal commas and DD.MM.YYYY dates), beta.json (nested price/supplier/category objects, Unix timestamps), and gamma.ndjson (space-separated currency+price strings, YYYY/MM/DD dates, pipe-delimited tags, double-colon category separators); (2) quarantines records with non-positive prices or negative quantities; (3) loads fx_corrections from reference.db and implements a two-tier FX lookup — first checking if a correction exists for the product's currency within a date range, falling back to fx_history temporal lookup (max effective_from <= received_date); (4) computes converted prices for ALL valid products including future dedup losers; (5) extracts REF:PXXXX codes from descriptions via regex, groups by ref code, picks most-recent received_date as winner, unions tags; (6) resolves supplier names case-insensitively against canonical names and aliases; (7) normalizes category paths by splitting on '>', '/', '::' and title-casing; (8) creates all target tables including price_history (30 rows: all valid observations with FX metadata) and category_analytics (13 rows: SQL aggregations per category/subcategory); (9) enables FTS5 with porter tokenizer, creates product_summary view, generates output files."""
+verification_explanation = """Tests verify: all 7 table structures including price_history and category_analytics columns; exact row counts (26 products, 13 categories, 8 suppliers, 89 product_tags, 2 quarantined, 30 price_history, 13 category_analytics); deduplication correctness for all 4 dup groups with losers excluded from products; tag merge counts; temporal FX conversion with corrected EUR Q1 rate of 1.09 for A003 ($148.63) and A007 ($89.17), base Q2 EUR rate for A009 ($197.99), GBP Q1/Q2 rates; corrected rate recorded in price_history; dedup losers present in price_history with is_catalog_entry=0; quarantined records absent from price_history; category analytics aggregations (product counts, min/max prices, total quantities, distinct supplier counts); supplier alias resolution; date format normalization; FTS5 with porter tokenizer returning 3 results for 'wireless'; product_summary view; output file content."""
+category = "data_engineering"
+tags = ["sqlite", "data-reconciliation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/normalize-catalog-etl"

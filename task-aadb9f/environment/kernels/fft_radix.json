@@ -1,0 +1,6 @@
+{
+  "name": "fft_radix",
+  "registers_per_thread": 64,
+  "shared_memory_bytes": 131072,
+  "description": "Mixed-radix FFT kernel with large shared memory footprint"
+}

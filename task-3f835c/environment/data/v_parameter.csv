@@ -1,0 +1,16 @@
+NAME,VALUE,ISDEFAULT,DESCRIPTION
+db_cache_size,536870912,FALSE,Size of DEFAULT buffer pool for buffers with the primary block size
+shared_pool_size,402653184,FALSE,size in bytes of shared pool
+pga_aggregate_target,268435456,FALSE,Target size for the aggregate PGA memory consumed
+sga_target,0,TRUE,Target size of SGA
+memory_target,0,TRUE,Target size of Oracle Memory
+cursor_sharing,EXACT,TRUE,how to convert literal to bind variables
+optimizer_mode,ALL_ROWS,TRUE,optimizer mode
+db_block_size,8192,FALSE,Size of database block in bytes
+sga_max_size,2147483648,FALSE,max SGA size
+statistics_level,TYPICAL,TRUE,statistics level
+result_cache_mode,MANUAL,TRUE,result cache operator usage mode
+inmemory_size,0,TRUE,size of the In-Memory Area
+log_buffer,16777216,FALSE,redo circular buffer size
+open_cursors,300,TRUE,max # cursors per session
+session_cached_cursors,50,TRUE,Number of cursors to cache in a session

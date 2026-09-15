@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an undocumented pool serialization format for persistent vectors from raw JSON files and partial oracle data. The agent must determine how radix balanced trees with tail optimization encode vectors, how tree depth relates to element count and branching parameters, how separate node ID namespaces disambiguate children at each tree level, and how structural sharing enables compact multi-version storage. Five operations must be implemented: tree traversal for reconstruction, transitive reachability for sharing analysis, topology-preserving element mapping, tree-aware structural diffing with efficiency tracking, and cross-pool structural deduplication via bottom-up content hashing for merge. The merge operation requires computing canonical node identities across different ID spaces with depth-aware hashing to avoid conflating nodes at different tree levels. No format documentation is provided; the agent must use sqlite3, jq, and the reference binary as investigative tools."""
+solution_explanation = """The solution parses the pool JSON, computes tree depth from vector size and branching parameters (B, BL determine branching factor and leaf capacity), and traverses the tree recursively with depth-dependent child resolution (depth 1 children are leaves, deeper children are inner nodes). Sharing analysis collects transitively reachable nodes per vector. Transform maps over leaf values preserving all structure. Diff walks two trees in lockstep, short-circuiting shared subtrees by node ID. Merge uses bottom-up content hashing: leaves are hashed by value tuples, inner nodes are hashed by (depth, canonical_children) to avoid cross-depth conflation, and canonical IDs are assigned in pool1-first traversal order."""
+verification_explanation = """Tests verify: (1) correct reconstruction across four pools with different branching factors (B=1/BL=1, B=2/BL=2, B=1/BL=2) including depth-1, depth-2, and depth-3 trees, null-root vectors, and shared vectors; (2) sharing analysis mapping nodes to referencing vector indices; (3) topology preservation after transform; (4) structural diff with correct change entries and efficiency statistics; (5) merge producing correct vector count, deduplication of content-identical nodes across pools, and correct reconstruction of all merged vectors."""
+category = "data_structures"
+tags = ["persistent-data-structures", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-vector-codec"

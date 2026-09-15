@@ -1,0 +1,16 @@
+{
+  "oid": "2.16.840.1.113883.1.11.15933",
+  "name": "ActStatus",
+  "codeSystem": "2.16.840.1.113883.5.14",
+  "codes": [
+    {"code": "active", "displayName": "Active"},
+    {"code": "completed", "displayName": "Completed"},
+    {"code": "cancelled", "displayName": "Cancelled"},
+    {"code": "held", "displayName": "Held"},
+    {"code": "suspended", "displayName": "Suspended"},
+    {"code": "aborted", "displayName": "Aborted"},
+    {"code": "new", "displayName": "New"},
+    {"code": "nullified", "displayName": "Nullified"},
+    {"code": "obsolete", "displayName": "Obsolete"}
+  ]
+}

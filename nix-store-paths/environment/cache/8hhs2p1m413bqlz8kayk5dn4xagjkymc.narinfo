@@ -1,0 +1,9 @@
+StorePath: /nix/store/8hhs2p1m413bqlz8kayk5dn4xagjkymc-libxml2-2.12.5-src
+URL: nar/8hhs2p1m413bqlz8kayk5dn4xagjkymc.nar.xz
+Compression: xz
+FileHash: sha256:a81c1d0333853652c39cc524f278726dd6f4b021c7400fdaf76bf4ec8f37bcc2
+FileSize: 1007498
+NarHash: sha256:ec530be04ac474970f01d756266bdcb989f70ec4e54177c567bb6232bcf9b28c
+NarSize: 1374110
+References:
+CA: text:sha256:33a2da7c454eaca246429e49baa002bb61d5f8f7478efc4f49f4447eca8fa7a1

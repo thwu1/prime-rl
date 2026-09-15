@@ -1,0 +1,28 @@
+program Nested
+  int count;
+{
+  void process(int limit)
+    int i; int j; int val;
+  {
+    i = 0;
+    while (i < limit) {
+      j = 0;
+      while (j < limit) {
+        val = 100 + 200 + i * 32 + j * 16;
+        if (val > 500 + 500) {
+          count++;
+        }
+        j++;
+      }
+      i++;
+    }
+  }
+
+  void main()
+  {
+    count = 0;
+    process(10 + 10);
+    print(count, 1);
+    print(chr(10), 1);
+  }
+}

@@ -1,0 +1,10 @@
+[
+  {"name": "pair1", "reference": "references/ref1.yaml", "candidate": "candidates/cand1.yaml"},
+  {"name": "pair2", "reference": "references/ref2.yaml", "candidate": "candidates/cand2.yaml"},
+  {"name": "pair3", "reference": "references/ref3.yaml", "candidate": "candidates/cand3.yaml"},
+  {"name": "pair4", "reference": "references/ref4.yaml", "candidate": "candidates/cand4.yaml"},
+  {"name": "pair5", "reference": "references/ref5.yaml", "candidate": "candidates/cand5.yaml"},
+  {"name": "pair6", "reference": "references/ref6.yaml", "candidate": "candidates/cand6.yaml"},
+  {"name": "pair7", "reference": "references/ref7.yaml", "candidate": "candidates/cand7.yaml"},
+  {"name": "pair8", "reference": "references/ref8.yaml", "candidate": "candidates/cand8.yaml"}
+]

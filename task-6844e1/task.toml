@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three interacting bugs in a feedback control simulation — a global dirty page accounting omission in writeback, a per-BDI setpoint allocation error that creates positive feedback instability, and a subtle ordering dependency between writer estimation and rate limit updates. Beyond debugging, the agent must design a nonlinear feedback controller from behavioral specifications alone (no algorithm given), requiring understanding of control-theoretic concepts like gain shaping, zero-crossing constraints, and oscillation damping. Must also use gnuplot to generate convergence visualizations and produce quantitative stability analysis."""
+solution_explanation = """Fix Bug A: add system.nr_dirty -= written in the writeback loop. Fix Bug B: change BDI setpoint from dirty-page proportion (bdi.nr_dirty/system.nr_dirty) to bandwidth proportion (bdi.bandwidth/system.total_bandwidth). Fix Bug C: move writer estimation before rate limit update so estimation uses the previous tick's rate limit, preventing positive feedback. Implement pos_ratio_polynom as a cubic polynomial: 1 + ((setpoint-dirty)/(limit-setpoint))^3 clamped >= 0. Implement calc_bdi_pos_ratio with linear deviation scaling from bdi_setpoint. Implement calc_task_pause_ms as proportional excess * period clamped to [0, MAX_PAUSE_MS]. Implement estimate_bdi_writers with EMA smoothing using BW_SMOOTH_FACTOR. Run simulation, generate gnuplot convergence plot, compute analysis metrics."""
+verification_explanation = """Tests verify: (a) behavioral properties of pos_ratio — boundary values at setpoint/limit, monotonicity, non-negativity, no step discontinuities; (b) pause calculation correctness at boundary conditions; (c) writer estimation convergence and minimum bound; (d) simulation convergence to within 10% of setpoint over last 200 ticks; (e) dirty count bounded below limit; (f) steady-state CV < 15%; (g) BDI dirty distribution proportional to bandwidth with ratio 2-12x; (h) both BDIs maintain nonzero dirty pages; (i) global accounting consistency; (j) convergence plot PNG exists with >1KB size; (k) analysis JSON has required fields with valid metrics."""
+category = "systems_programming"
+tags = ["kernel", "control_systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6844e1"

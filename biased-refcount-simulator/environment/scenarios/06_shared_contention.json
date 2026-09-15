@@ -1,0 +1,13 @@
+{
+  "description": "Multiple non-owner threads incrementing and decrementing shared refcount before owner releases",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 3, "op": "incref", "obj": "A"},
+    {"tid": 4, "op": "incref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 3, "op": "decref", "obj": "A"},
+    {"tid": 4, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"}
+  ]
+}

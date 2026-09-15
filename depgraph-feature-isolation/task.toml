@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a Python static analysis tool that correctly resolves five distinct import patterns: __init__.py re-exports, star imports governed by __all__, module-level aliases with attribute access, relative imports, and function-name aliasing. The solver must compose AST parsing, cross-module import resolution, directed graph construction, and transitive reachability analysis — none of which are named in the instruction. Correctly handling star imports with __all__ filtering and module alias attribute resolution (e.g., 'import mod as m; m.func()') demands deep understanding of Python's import machinery beyond textbook examples."""
+solution_explanation = """The solution walks the project tree to discover FunctionDef nodes, builds per-file import tables by recursively resolving through __init__.py re-exports and star imports respecting __all__, constructs a call graph by matching ast.Call nodes against the import table (handling both Name and Attribute call patterns for module aliases), then performs BFS from test-file entry points to compute transitive reachability sets and classify each function."""
+verification_explanation = """Tests verify function discovery (25 functions), exact classification sets (11 feature_only, 6 base_only, 1 shared, 7 unused), specific import pattern resolution (re-exports, star imports, aliases, module aliases, relative imports), and two dynamic anti-cheat tests: (1) adding a base test file and verifying reclassification from feature_only to shared, (2) adding a new source file and verifying the new function appears as unused."""
+category = "code_analysis"
+tags = ["python-ast", "static-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/depgraph-feature-isolation"

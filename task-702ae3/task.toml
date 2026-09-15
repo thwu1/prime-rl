@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete Sedov-Taylor blast wave solver from first principles. The solver must correctly derive interdependent parameters, evaluate singular integrals via numerical quadrature, invert a non-trivial variable mapping, and compose all pieces to produce physically correct blast wave profiles across three distinct geometries. Demands graduate-level knowledge of compressible gas dynamics, shock physics, and numerical methods (quadrature, root-finding, interpolation). The solver must match published reference data from Kamm & Timmes to 4 significant figures."""
+solution_explanation = """Implement the full Sedov exact solution: derive the exponents from geometry, gamma, and omega; compose them into the Sedov functions; evaluate energy integrals whose integrands involve these functions to obtain the normalization constant alpha; compute physical profiles by inverting the variable mapping on a fine grid and interpolating. The solution uses scipy.optimize for inversion and scipy.integrate for energy quadrature."""
+verification_explanation = """Tests verify correctness at multiple levels: (1) derived parameters v2 and v0 for all three geometries, (2) Sedov function values at 15 reference points across three geometry-specific tables from Kamm & Timmes, (3) energy integral values eval1, eval2 and normalization alpha for all geometries, (4) physical shock position, post-shock density, and profile values at specified radii. Tolerances match the precision achievable with double-precision arithmetic."""
+category = "computational_physics"
+tags = ["gas_dynamics", "numerical_methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-702ae3"

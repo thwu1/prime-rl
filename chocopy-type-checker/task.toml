@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a complete type checker for ChocoPy requires deep understanding of formal type systems including assignment compatibility (which differs subtly from standard subtyping), join/LUB computation over class hierarchies, method override validation with exact type matching, and nested function scoping with nonlocal/global semantics. Beyond the type checking logic, the task requires building a multi-tool pipeline: a CLI tool with argparse, a Makefile with pattern rules and process substitution for orchestrating type checking across 20 programs, jq-based JSON schema validation, and diff-based comparison against reference typed ASTs. The agent must produce structured type summary JSON in a specific format and ensure the complete make-based build pipeline works end-to-end."""
+solution_explanation = """The solution implements a multi-pass type checker (~850 lines): (1) collect class definitions and validate hierarchy constraints, (2) collect global variable and function signatures, (3) type-check all bodies. It adds a JSON serialization layer that extracts globals, classes, and errors into a structured type summary. A CLI wrapper using argparse provides the executable entry point with exit codes and pretty-print support. A Makefile uses pattern rules, wildcard/patsubst functions, bash process substitution with jq -S for JSON normalization, and diff for reference comparison across all 20 test programs."""
+verification_explanation = """Tests verify: (1) correct type-checking behavior for 20 ChocoPy programs via the Python API, (2) 13 inline type rule unit tests, (3) JSON output format with correct structure and content for 11 field-level checks, (4) CLI tool behavior including exit codes, argparse flags, and JSON output validity, (5) Makefile targets (typecheck-all creating 20 JSON files, validate with jq schema checks, diff-check against references, clean), and (6) jq queries extracting specific fields from generated JSON including schema validation and diff-based reference comparison."""
+category = "compilers"
+tags = ["type-checking", "build-systems"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chocopy-type-checker"

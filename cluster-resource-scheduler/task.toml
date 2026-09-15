@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete multi-resource cluster scheduler from a behavioral specification spanning ~300 lines of algorithm code. The solver must: (1) query a SQLite database to load anti-affinity constraints and integrate them into placement decisions, (2) implement weighted max-min fair-share progressive filling with deadlock prevention, (3) implement multi-resource bin-packing across agents considering both GPU slots and memory, (4) implement gang scheduling with all-or-nothing allocation and rollback semantics, (5) implement priority-based scheduling with preemption cascade simulation and backfilling, and (6) correctly handle complex interactions between these features (e.g., gang groups failing due to anti-affinity, memory constraining GPU-based offers). This requires expert-level understanding of scheduling theory, resource allocation algorithms, and distributed systems design."""
+solution_explanation = """Implement scheduler.py with: load_anti_affinity() querying the SQLite DB for bidirectional anti-affinity pairs; find_agent() doing multi-resource + anti-affinity placement; progressive_fill() implementing weighted max-min fairness with deadlock prevention; fair_share_schedule() with Phase 1-4 (group state computation, progressive filling, gang check with redistribution, task allocation/release with gang rollback); priority_schedule() with sorted pending tasks, tentative placement with backfilling mode, try_preempt_and_place() simulating preemption cascades with rollback; and backfilling of skipped preemptible tasks."""
+verification_explanation = """10 test classes generate distinct cluster state scenarios: fair-share (equal weights, weighted + max_slots, multi-resource memory constraint, gang success, gang failure + redistribution, anti-affinity placement, preemptible release) and priority (preemption, backfilling). A complex interaction test verifies gang + anti-affinity working together. Tests invoke the scheduler as a subprocess, parse JSON output, and verify allocations, releases, group offers, agent placement validity, and anti-affinity compliance."""
+category = "systems"
+tags = ["scheduling", "distributed-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cluster-resource-scheduler"

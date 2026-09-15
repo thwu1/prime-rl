@@ -1,0 +1,4 @@
+---
+env_name: "production"
+db_port: 5432
+db_host: "localhost"

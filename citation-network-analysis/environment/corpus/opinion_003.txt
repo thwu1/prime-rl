@@ -1,0 +1,29 @@
+UNITED STATES COURT OF APPEALS FOR THE NINTH CIRCUIT
+
+No. 22-35678
+
+PACIFIC DIGITAL RIGHTS FOUNDATION v. SOCIAL MEDIA CORP.
+
+OPINION
+
+NGUYEN, Circuit Judge:
+
+This appeal raises important questions about the scope of Section 230 of the Communications Decency Act, 47 U.S.C. § 230, in the context of algorithmic content curation.
+
+Section 230(c)(1) provides that "[n]o provider or user of an interactive computer service shall be treated as the publisher or speaker of any information provided by another information content provider." 47 U.S.C. § 230(c)(1). We have interpreted this provision broadly to immunize platforms from liability for third-party content. Barnes v. Yahoo!, Inc., 570 F.3d 1096, 1100-01 (9th Cir. 2009).
+
+The Supreme Court recently addressed the boundaries of Section 230 immunity in Gonzalez v. Google LLC, 598 U.S. 617 (2023). While the Court ultimately resolved that case on narrow grounds, see id. at 621-22, the concurring opinions suggested that algorithmic amplification may fall outside the scope of Section 230 protection. See id. at 627-28 (Thomas, J., concurring).
+
+We must also consider the First Amendment implications of regulating platform content moderation. As the Supreme Court recognized in Packingham v. North Carolina, 582 U.S. 98, 104 (2017), social media platforms have become "the modern public square." However, the Court has also held that private entities' editorial discretion is protected by the First Amendment. Miami Herald Publ'g Co. v. Tornillo, 418 U.S. 241, 258 (1974).
+
+The tension between these principles was addressed by the Fifth Circuit in NetChoice, LLC v. Paxton, 49 F.4th 439, 445 (5th Cir. 2022), which upheld Texas's social media regulation law. That decision conflicted with the Eleventh Circuit's ruling in NetChoice, LLC v. Attorney General, 34 F.4th 1196, 1203 (11th Cir. 2022), which struck down Florida's similar law. The Supreme Court subsequently vacated both decisions in Moody v. NetChoice, LLC, 603 U.S. 707 (2024).
+
+In Moody, the Court emphasized that platforms engage in protected editorial discretion when they "compile the third-party speech they present to users." Id. at 731. But the Court also noted that this editorial discretion is not unlimited, and that "the government can regulate some aspects of platforms' conduct." Id. at 732.
+
+Here, Pacific Digital Rights Foundation argues that Social Media Corp.'s algorithm does not merely curate content but actively transforms it by selecting, ordering, and contextualizing user-generated material. This argument finds some support in our precedent. In Fair Housing Council of San Fernando Valley v. Roommates.com, LLC, 521 F.3d 1157, 1167-68 (9th Cir. 2008) (en banc), we held that a website's design of search criteria that required discriminatory inputs made the site a "content developer" outside Section 230's protection.
+
+Id. at 1162 further emphasized that immunity depends on the nature of the platform's involvement with the content at issue.
+
+We also note that our sister circuits have grappled with similar questions. The Second Circuit, in Force v. Facebook, Inc., 934 F.3d 53, 66 (2d Cir. 2019), held that algorithmic organization of content did not render Facebook a content provider. We respectfully disagree with this analysis to the extent it suggests that all algorithmic curation is categorically protected under Section 230.
+
+The district court's dismissal is REVERSED and the case is REMANDED for further proceedings consistent with this opinion.

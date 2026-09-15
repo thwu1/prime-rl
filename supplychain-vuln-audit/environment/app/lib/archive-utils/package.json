@@ -1,0 +1,6 @@
+{
+  "name": "archive-utils",
+  "version": "1.0.4",
+  "description": "Archive creation and extraction utilities",
+  "main": "index.js"
+}

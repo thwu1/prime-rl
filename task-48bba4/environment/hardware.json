@@ -1,0 +1,12 @@
+{
+  "target_a": {
+    "name": "ibm_like",
+    "gate_set": ["cx", "u3"],
+    "description": "IBM-style native gate set using CNOT and U3 single-qubit rotations"
+  },
+  "target_b": {
+    "name": "google_like",
+    "gate_set": ["cz", "rz", "sx"],
+    "description": "Google-style native gate set using CZ, RZ rotations, and sqrt(X) gates"
+  }
+}

@@ -1,0 +1,19 @@
+SQL> SET LINESIZE 250
+SQL> SET PAGESIZE 100
+SQL> COLUMN NAMESPACE FORMAT A20
+SQL> SELECT NAMESPACE, GETS, GETHITS, GETHITRATIO, PINS, PINHITS, PINHITRATIO,
+  2         RELOADS, INVALIDATIONS
+  3  FROM V$LIBRARYCACHE;
+
+NAMESPACE                  GETS    GETHITS GETHITRATIO       PINS    PINHITS PINHITRATIO    RELOADS INVALIDATIONS
+-------------------- ---------- ---------- ----------- ---------- ---------- ----------- ---------- -------------
+SQL AREA                2500000    2000000        .800    2000000    1850000        .925     150000           200
+TABLE/PROCEDURE         1500000    1498500        .999    1800000    1799000        .999        100             5
+BODY                      50000      49900        .998      60000      59900        .998         10             0
+TRIGGER                   20000      19900        .995      25000      24900        .996          5             0
+INDEX                     10000       9500        .950      12000      11500        .958         20             0
+CLUSTER                    5000       4950        .990       6000       5950        .992          5             0
+
+6 rows selected.
+
+SQL> spool off

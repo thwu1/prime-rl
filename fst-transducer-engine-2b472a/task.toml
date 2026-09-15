@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a compact ordered key-value store (finite state transducer) from scratch in Rust, with incremental construction from sorted input, structural state deduplication via hash registry, output value redistribution along shared prefixes, Levenshtein automaton intersection for fuzzy search, prefix-filtered enumeration, and a merge operation that combines two transducers with value summation for overlapping keys while maintaining full structural compaction. The output redistribution logic is particularly subtle: when keys share prefixes, transition outputs must be redistributed so the minimum sits on the shared path with remainders pushed down. State deduplication via structural hashing, correct final-output handling for prefix keys, and the interaction between merge and compaction add cascading difficulty."""
+solution_explanation = """The solution implements: (1) An incremental FST builder processing lexicographically sorted key-value pairs via a stack of unfinished states. When a new key diverges from the previous, states beyond the common prefix are frozen and deduplicated via a HashMap keyed on state signature (transitions + finality + final_output). Outputs are redistributed using min as the prefix operation with differences pushed to child transitions. (2) Query operations (contains/get) via transition traversal with output accumulation. (3) Range queries via full DFS enumeration with filtering. (4) Prefix search by navigating to the prefix endpoint then DFS enumerating subtree. (5) Fuzzy search using row-based Levenshtein DP intersected with FST DFS, pruning branches where minimum row value exceeds max_dist. (6) Merge by enumerating both FSTs, sorted merge with value summing, then building a fresh FST from merged entries. (7) Binary serialization with magic header and per-state transition lists."""
+verification_explanation = """Tests build the Rust project, create test input datasets, and verify correctness through the CLI. Key checks: exact value lookup for shared-prefix and prefix-key patterns, state count upper bounds (<=8 for jul/jun/mar/may, <=3 for 26 single-char keys, <=4 for 8 words with identical suffix structure), range/prefix/fuzzy queries with exact expected results, merge with value summation for overlapping keys and structural compaction equivalence to fresh builds, conformance tests against reference datasets in /app/data/, rejection of unsorted/duplicate input, and empty/single-key edge cases."""
+category = "systems_programming"
+tags = ["finite-automata", "rust"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fst-transducer-engine-2b472a"

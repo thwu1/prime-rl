@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing binary OSPF protocol data from a pcap file using packet analysis tools (tshark, scapy, or similar), reconstructing the Link State Database from raw LS Update packets, then implementing the full OSPF route computation per RFC 2328. The agent must master unfamiliar packet capture analysis tools and their OSPF-specific dissection capabilities, combine that with deep knowledge of OSPF internals across multiple areas (intra-area shortest-path computation, inter-area route aggregation via ABRs, ASBR reachability, E1/E2 external preference rules, ECMP), and produce a correct routing table. This is CCNP/CCIE-level networking combined with protocol analysis tool proficiency."""
+solution_explanation = """Use scapy (or tshark) to read the pcap and extract all OSPF LSAs from the LS Update packets. Classify LSAs by type (Router, Summary, ASBR Summary, External). Run Dijkstra's SPF on Router LSAs to build the intra-area shortest-path tree with ECMP tracking. Extract stub networks from SPF vertices. Process Summary LSAs for inter-area routes (ABR cost + summary metric). Compute ASBR costs via Type 4 LSAs. Handle External LSAs with E1/E2 preference. Output sorted routes with ECMP next-hops."""
+verification_explanation = """Tests load the generated routing_table.json and verify each of the 20 expected routes against pre-computed correct values derived from manual RFC 2328 SPF execution on the LSDB encoded in the pcap. Checks include exact cost, route type, and sorted next-hop lists. Dedicated tests verify ECMP through a single vertex, ECMP through different ABRs, E1-over-E2 preference, and route type precedence."""
+category = "networking"
+tags = ["ospf", "packet-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-route-engine"

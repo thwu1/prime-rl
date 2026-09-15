@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires CCIE-level OSPF knowledge including multi-area SPF computation, inter-area route propagation, stub area default injection, NSSA Type 7-to-5 conversion, and E1/E2 metric semantics. Additionally demands proficiency with tshark for pcap analysis (extracting OSPF adjacency data from syslog packet captures, filtering state=FULL vs state=INIT), xsltproc for namespace-aware XSLT transformation of XML queries with filtering and attribute renaming, jq for JSON structure validation, and sqlite3 for database access — a complex multi-tool data pipeline that must be orchestrated before route computation begins."""
+solution_explanation = """Use tshark to extract OSPF-ADJ syslog messages from the pcap in JSON format, filter for state=FULL entries to recover the 6 missing link costs. Use xsltproc to transform the namespace-prefixed raw XML queries through the XSLT stylesheet into a flat query list. Merge pcap-extracted costs with the SQLite topology (filling NULL cost columns), build a multi-phase OSPF route computation engine (per-area Dijkstra SPF, inter-area Type 3 LSA propagation through backbone, stub/NSSA default route injection, external route computation with E1/E2/N1/N2 semantics), answer each query with default-route fallback, and validate output with jq."""
+verification_explanation = """Each of the 15 routing queries has a single deterministic correct answer derived from OSPF protocol rules applied to the fixed topology. Tests validate next_hop, cost, route_type, and forward_cost against pre-computed expected values, plus JSON schema conformance."""
+category = "networking"
+tags = ["ospf", "pcap-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b2128e"

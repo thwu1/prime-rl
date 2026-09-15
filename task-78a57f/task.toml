@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of BPE merge tree structure, the mathematical relationship between flat token-rank mappings and ordered merge tables, byte-level permutation recovery, and regex pre-tokenization pattern detection. The merge recovery algorithm (reconstructing parent-child merge pairs from a flat rank table via recursive BPE decomposition) is non-trivial and requires understanding that each token's merge can be recovered by running BPE on its byte sequence using only lower-ranked merges. Additionally, the byte shuffle adds a layer of indirection that complicates both merge recovery and encode/decode implementation."""
+solution_explanation = """Parse mergeable_ranks to separate single-byte entries (recovering the byte permutation) from multi-byte entries (merged tokens). Implement the BPE decomposition helper that, for each merged token, runs BPE on its byte sequence using only merges with rank below the token's own rank to find the two child tokens. This recovers the full merge table in the permuted rank space. Detect the regex splitting pattern by testing candidate patterns (GPT-2, GPT-4) against provided test cases. Build encode/decode functions using the recovered merges, byte shuffle, and regex pattern."""
+verification_explanation = """Tests import the agent's /app/tokenizer.py module and verify: (1) encode() output matches expected token IDs for all provided test cases, (2) decode() correctly reconstructs original text from token IDs, (3) roundtrip identity decode(encode(text)) == text holds on both provided and novel test strings, (4) all token IDs fall within the expected vocabulary range."""
+category = "reverse_engineering"
+tags = ["tokenization", "algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-78a57f"

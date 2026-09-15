@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level control theory expertise: designing an energy-based swing-up law for an underactuated two-link manipulator (acrobot), implementing LQR stabilization by linearizing the full nonlinear dynamics at the unstable inverted equilibrium and solving the continuous algebraic Riccati equation, engineering the mode-switching logic between swing-up and stabilization phases, and handling significant Coulomb friction that disrupts both energy injection and linearized stability. All of this must be coded from scratch against a pure-Python dynamics engine with no control-library abstractions."""
+solution_explanation = """Three-phase controller: (1) Kickstart with constant max torque to escape the stable equilibrium at rest; (2) Energy-based swing-up tau = -k_e*(E-E_target)*qd2 combined with sinusoidal q2 regulation (-k_p2*sin(q2) - k_d2*qd2) to prevent the elbow from free-spinning while pumping energy into shoulder oscillations; (3) LQR stabilization via numerical linearization at [pi,0,0,0] and CARE solution with scipy. An exponential moving-average torque filter (alpha=0.2) smooths the output to improve the RealAI Score's torque-smoothness penalty. Mode switching uses angular/velocity proximity thresholds."""
+verification_explanation = """Deterministic RK4 simulation (dt=0.002s, 5001 points). Tests verify: controller class and interface exist, full 10s simulation completes with finite values, end-effector stays above 0.45m for >=2 continuous seconds, all torques within [-6,6] Nm, and RealAI Score >= 0.3."""
+category = "physics_engineering"
+tags = ["control-theory", "robotics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/acrobot-swingup-controller"

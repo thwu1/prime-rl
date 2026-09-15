@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering hidden game parameters from replay state transitions, diagnosing 4 subtle bugs in a game engine port, building a SQLite replay analysis pipeline, and evaluating competing interpretations of an ambiguous specification against empirical evidence. The bugs involve energy snapshot timing (void uses post-movement/pre-sap energy, not post-sap), collision tie semantics (tie kills all, not just one team), integer truncation method for AoE dropoff (floor, not round), and energy void stacking division (drain shared among co-located allies). The solver must design and populate a SQLite database schema from nested JSON replay data, create analytical views, and independently judge which of multiple candidate behaviors matches the ground truth for each ambiguous spec point."""
+solution_explanation = """The solution reads both replay files, populates a SQLite database (transitions table + unit_actions table + sap_events and energy_deltas views), extracts parameters analytically (move_cost from movement energy deltas, sap_cost from sap energy deltas, sap_range from boundary sap success/failure, dropoff_factor by matching floor(sap_cost*f) to observed AoE damage, void_factor from simple adjacent void drains, nebula_reduction from nebula tile energy changes). It writes spec clarification verdicts resolving each ambiguity (post_movement_pre_sap, all_removed, floor, divide_by_friendly_count), then writes the corrected engine with 4 fixes."""
+verification_explanation = """Tests verify: (a) 5 SQLite database assertions (schema, data, views, known data point), (b) 6 spec clarification assertions (4 correct determinations + structure), (c) 14 parameter extraction assertions (7 per match), (d) 4 targeted engine tests each isolating one bug, (e) 5 dynamic anti-cheat scenario tests, (f) 2 comprehensive replay-matching tests. Anti-cheat: dynamic scenarios use unique parameter combinations not in replays; replay matching uses extracted params (not hardcoded)."""
+category = "reverse-engineering"
+tags = ["game-engine", "forensic-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lux-step-engine"

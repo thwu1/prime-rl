@@ -1,0 +1,7 @@
+A Rust project at `/app/` implements a persistent segment tree that must support versioned range-transform updates and range-sum queries under modular arithmetic (mod 998244353). The full problem specification is in `/app/problem.txt`.
+
+Each type-1 operation applies an affine transform `A[i] = (a * A[i] + b) mod P` to every element in a range, creating a new immutable version via path-copying. Type-2 operations query the modular sum over a range in any existing version.
+
+The project skeleton in `/app/src/persistent_segtree.rs` provides the node structure (with separate multiplicative and additive lazy fields), memory allocation, tree construction, and the `pull` combiner. However, the core operations — node duplication for persistence (`copy_of`), lazy push-down (`push`), range update (`update_affine`), and range query (`query_sum`) — are either incomplete or contain subtle correctness bugs. The driver in `/app/src/main.rs` is correct and should not be modified.
+
+Fix the implementation so that `cargo run --release < /app/data/testN.in` produces output matching `/app/data/testN.out` for all provided test cases. The implementation must handle arrays up to 200,000 elements with 200,000 operations within 10 seconds.

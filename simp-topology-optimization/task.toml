@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must diagnose three independent numerical bugs hidden across a coupled finite element / density optimization pipeline without being told what is wrong. Bug 1: an element DOF-index mapping that transposes two node pairs, silently corrupting the global stiffness assembly and producing wrong displacement fields. Bug 2: a power-law exponent error in the compliance sensitivity formula (derivative of x^p written as p*x^p instead of p*x^(p-1)), yielding incorrect gradient magnitudes. Bug 3: a reversed bisection branch in the Lagrange-multiplier solve, causing the volume constraint to diverge instead of converge. Each bug produces different symptoms — wrong displacements, incorrect gradients, and unsatisfied constraints — requiring the agent to trace coupled numerical behavior across functions, understand FEM node-ordering conventions, re-derive the correct sensitivity exponent from the material interpolation law, and reason about bisection convergence direction. No hints in the instruction point to specific functions or algorithms."""
+solution_explanation = """Fix get_dof_indices to return DOFs in element-local order TL, TR, BR, BL by swapping positions 2-3 and 6-7 (n2 before n1+1). In compute_sensitivities, change the exponent from x^penal to x^(penal-1) since d/dx[x^p] = p*x^(p-1). In optimality_criteria_update, swap the bisection branches so that l1=lmid when the current volume exceeds the target and l2=lmid otherwise."""
+verification_explanation = """Unit tests verify element stiffness properties (symmetry, eigenvalues, known entries), DOF index values for specific elements against the column-major quad convention, SIMP scaling ratios, sensitivity power-law exponent via a density-ratio test, and OC volume constraint satisfaction on a small problem. Integration tests run the full 60x20 optimization and check compliance convergence, final volume fraction accuracy, and density field structure (distinct solid/void regions)."""
+category = "scientific_computing"
+tags = ["finite-elements", "topology-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/simp-topology-optimization"

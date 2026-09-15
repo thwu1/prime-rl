@@ -1,0 +1,28 @@
+# Standard configurations for CORAL-2 procurement benchmarks.
+# All vendor runs must use these parameters for valid cross-system comparison.
+
+[amg]
+grid_nx = 100
+grid_ny = 100
+grid_nz = 100
+solver = "amg"
+expected_nnz = 7000000
+
+[kripke]
+zones_x = 10
+zones_y = 10
+zones_z = 10
+total_zones = 1000
+num_directions = 100
+num_groups = 10
+nesting = "DGZ"
+
+[stream]
+array_size = 80000000
+num_threads = 1
+
+[pennant]
+mesh_type = "noh"
+mesh_scale = 4
+expected_zones = 65536
+num_cycles = 100

@@ -1,0 +1,83 @@
+[
+  {
+    "scenario_id": "ATK01",
+    "name": "Origin Hijack",
+    "description": "AS65009 announces 198.51.100.0/24 which is legitimately originated by AS65001 (ROA exists). Routes: R06, R30, R43.",
+    "affected_routes": [
+      "R06",
+      "R30",
+      "R43"
+    ],
+    "attack_type": "origin_hijack"
+  },
+  {
+    "scenario_id": "ATK02",
+    "name": "Sub-Prefix Hijack via MaxLength Vulnerability",
+    "description": "AS65009 announces 10.0.1.0/24, a sub-prefix of 10.0.0.0/16 originated by AS65004. ROA04 has max_length=24 covering AS65004, making this prefix Valid for AS65004 but also enabling sub-prefix hijack. Routes: R08, R46.",
+    "affected_routes": [
+      "R08",
+      "R46"
+    ],
+    "attack_type": "subprefix_hijack_maxlength"
+  },
+  {
+    "scenario_id": "ATK03",
+    "name": "Route Leak: Customer-to-Provider",
+    "description": "AS1003 receives from peer AS1004 and re-announces to provider AS102, creating an unauthorized transit path. Route: R19 shows this pattern.",
+    "affected_routes": [
+      "R19"
+    ],
+    "attack_type": "route_leak_type1"
+  },
+  {
+    "scenario_id": "ATK04",
+    "name": "Forged-Origin with Path Manipulation",
+    "description": "Attacker forges origin AS65009 for 198.51.100.0/24 and crafts a plausible-looking AS_PATH. ROV detects the origin mismatch but ASPA path check may pass if unattested hops exist. Routes: R06, R30.",
+    "affected_routes": [
+      "R06",
+      "R30"
+    ],
+    "attack_type": "forged_origin_path"
+  },
+  {
+    "scenario_id": "ATK05",
+    "name": "Revoked Certificate Exploitation",
+    "description": "Routes R09, R20 rely on ROAs/ASPAs signed by revoked authority_gamma. An attacker who compromised authority_gamma could create fake RPKI objects. The system must treat these as untrusted.",
+    "affected_routes": [
+      "R09",
+      "R20"
+    ],
+    "attack_type": "revoked_cert"
+  },
+  {
+    "scenario_id": "ATK06",
+    "name": "Route Leak via Valley Violation",
+    "description": "AS1006 sends traffic to AS65011 (customer), AS65011 re-announces to AS1007 (provider), creating a valley in the AS_PATH. The path goes up (65007\u21921006), down (1006\u219265011), then up again (65011\u21921007), violating the valley-free model. Routes: R25, R42.",
+    "affected_routes": [
+      "R25",
+      "R42"
+    ],
+    "attack_type": "route_leak_valley"
+  },
+  {
+    "scenario_id": "ATK07",
+    "name": "RPKI Object Tampering",
+    "description": "ROA13 and ASPA10/ASPA25 have been tampered with after signing (data modified post-signature). Signature verification should detect these. Routes relying on tampered objects: R11, R31, R53.",
+    "affected_routes": [
+      "R11",
+      "R31",
+      "R53"
+    ],
+    "attack_type": "object_tampering"
+  },
+  {
+    "scenario_id": "ATK08",
+    "name": "MaxLength Over-Claiming",
+    "description": "ROA04 (AS65004, 10.0.0.0/16, max_length=24) and ROA06 (AS65006, 172.20.0.0/20, max_length=24) have overly permissive MaxLength values. This creates vulnerability windows where attackers can create valid-looking sub-prefix announcements. Routes: R34, R52.",
+    "affected_routes": [
+      "R34",
+      "R52"
+    ],
+    "attack_type": "maxlength_vulnerability"
+  }
+]

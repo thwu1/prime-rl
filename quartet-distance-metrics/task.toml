@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool integration: compiling C++ source from the provided tqDist implementation, understanding its undocumented output semantics (agreement/unresolved counts per pair), deriving the full Estabrook (s,d,r1,r2,u) decomposition from the binary's output via self-comparison algebra, extracting 8 similarity metric formulas from R source code that uses indirect normalization helpers (NormalizeStatus with N=2Q convention), implementing a Python pipeline that orchestrates compilation, subprocess invocation, output parsing, algebraic decomposition, and metric computation. The solver must explore C++ source to discover the binary's interface, read R code to extract non-obvious metric formulas, and derive the mathematical decomposition without guidance."""
+solution_explanation = """Compile the C++ tqdist binary via make. The binary outputs per-pair (A, E, Q) where A=agreement count and E=unresolved-in-both count. For self-comparison (i,i), A gives the total resolved quartets in tree i. To derive full statistics for pair (i,j): s=A(i,j), u=E(i,j), d=A(i,i)+A(j,j)-A(i,j)-Q+E(i,j), r1=A(i,i)-A(i,j)-d, r2=A(j,j)-A(i,j)-d. The 8 metrics are extracted from the R Metrics.R file: DoNotConflict=1-d/Q, ExplicitlyAgree=s/Q, StrictJointAssertions=s/(s+d), SemiStrictJointAssertions=s/(s+d+u), SymmetricDifference=2s/(2s+2d+r1+r2), MarczewskiSteinhaus=s/(s+2d+r1+r2), SteelPenny=1-(d+r1+r2)/Q, QuartetDivergence=1-(2d+r1+r2)/(2Q). Null when denominator is zero."""
+verification_explanation = """Tests verify C++ binary compilation and functionality, exact golden values for 4/5/8-leaf trees with known quartet statistics, structural properties (sum constraint, r1/r2 swap symmetry, metric bounds), edge cases (branch lengths, internal labels, leaf reordering, polytomies, star trees, trifurcation equivalence), performance with 80-leaf trees (enforcing C++ binary usage), error handling, and output format compliance."""
+category = "computational_biology"
+tags = ["phylogenetics", "tree-distance"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quartet-distance-metrics"

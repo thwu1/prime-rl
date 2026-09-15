@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""
+plan-extract: Extract structured metrics from TiDB EXPLAIN ANALYZE output.
+
+Reads raw plan text from a SQLite database or file and produces
+structured metric summaries suitable for automated triage.
+
+"""
+import argparse
+import csv
+import io
+import json
+import re
+import sqlite3
+import sys
+
+
+def parse_time_to_seconds(time_str):
+    """Parse TiDB time notation to seconds."""
+    time_str = time_str.strip()
+    m = re.match(r'^(\d+)m([\d.]+)s$', time_str)
+    if m:
+        return int(m.group(1)) * 60 + float(m.group(2))
+    if time_str.endswith('ms'):
+        return float(time_str[:-2]) / 1000.0
+    elif time_str.endswith('us') or time_str.endswith('\u00b5s'):
+        return float(time_str[:-2]) / 1_000_000.0
+    elif time_str.endswith('ns'):
+        return float(time_str[:-2]) / 1_000_000_000.0
+    elif time_str.endswith('s'):
+        return float(time_str[:-1])
+    return float(time_str)
+
+
+def extract_metrics(plan_text, configured_concurrency=None):
+    """Extract structured metrics from EXPLAIN ANALYZE plan text."""
+    metrics = {
+        "operator_type": "unknown",
+        "total_time_sec": 0.0,
+        "resolve_lock_time_ms": 0.0,
+        "backoff_count": 0,
+        "cop_tasks": 0,
+        "max_proc_keys": 0,
+        "scan_direction": "none",
+        "effective_concurrency": 1,
+        "rpc_count": 0,
+    }
+
+    # Determine primary operator type from first data row
+    for line in plan_text.split('\n'):
+        line_s = line.strip()
+        if not line_s.startswith('|'):
+            continue
+        parts = [p.strip() for p in line_s.split('|') if p.strip()]
+        if len(parts) < 2:
+            continue
+        op_id = parts[0]
+        if op_id in ('id', '---'):
+            continue
+        if 'Point_Get' in op_id:
+            metrics['operator_type'] = 'point_get'
+            break
+        elif 'IndexLookUp' in op_id:
+            metrics['operator_type'] = 'index_lookup'
+            break
+        elif 'IndexReader' in op_id:
+            metrics['operator_type'] = 'index_reader'
+            break
+        elif 'TableReader' in op_id:
+            metrics['operator_type'] = 'table_reader'
+            break
+        elif 'HashJoin' in op_id:
+            metrics['operator_type'] = 'hash_join'
+            break
+
+    # Collect execution info from all rows
+    all_exec_info = []
+    for line in plan_text.split('\n'):
+        line_s = line.strip()
+        if not line_s.startswith('|'):
+            continue
+        parts = line_s.split('|')
+        if len(parts) >= 8:
+            exec_info = parts[6].strip()
+            if exec_info and exec_info != 'execution info' and not exec_info.startswith('---'):
+                all_exec_info.append(exec_info)
+
+    combined = ' '.join(all_exec_info)
+
+    # Total time from root operator
+    if all_exec_info:
+        root_m = re.search(r'(?<![_a-zA-Z])time:([\d.]+(?:ms|us|ns|s))', all_exec_info[0])
+        if root_m:
+            metrics['total_time_sec'] = parse_time_to_seconds(root_m.group(1))
+
+    # ResolveLock time
+    rl_m = re.search(r'ResolveLock:\{[^}]*total_time:([\d.]+(?:ms|us|ns|s))', combined)
+    if rl_m:
+        metrics['resolve_lock_time_ms'] = round(
+            parse_time_to_seconds(rl_m.group(1)) * 1000, 1)
+
+    # Backoff count
+    bo_m = re.search(r'_backoff:\{num:(\d+)', combined)
+    if bo_m:
+        metrics['backoff_count'] = int(bo_m.group(1))
+
+    # Cop tasks (sum across all operators)
+    cop_matches = re.findall(r'cop_task:\s*\{num:\s*(\d+)', combined)
+    metrics['cop_tasks'] = sum(int(x) for x in cop_matches)
+
+    # Max proc keys
+    mpk_matches = re.findall(r'max_proc_keys:\s*(\d+)', combined)
+    pk_matches = re.findall(r'(?<![_a-zA-Z])proc_keys:\s*(\d+)', combined)
+    all_keys = [int(x) for x in mpk_matches + pk_matches]
+    if all_keys:
+        metrics['max_proc_keys'] = max(all_keys)
+    else:
+        tpk_m = re.search(r'total_process_keys:\s*(\d+)', combined)
+        if tpk_m:
+            metrics['max_proc_keys'] = int(tpk_m.group(1))
+
+    # Scan direction from operator info columns
+    if 'keep order:true, desc' in plan_text:
+        metrics['scan_direction'] = 'desc'
+    elif re.search(r'keep order:true(?!\s*,\s*desc)', plan_text):
+        metrics['scan_direction'] = 'asc'
+
+    # Effective concurrency for IndexLookUp
+    if metrics['operator_type'] == 'index_lookup':
+        it_m = re.search(r'index_task:\s*\{[^}]*concurrency:\s*(\d+)', combined)
+        tt_m = re.search(r'table_task:\s*\{[^}]*concurrency:\s*(\d+)', combined)
+        index_conc = int(it_m.group(1)) if it_m else 1
+        table_conc = int(tt_m.group(1)) if tt_m else 1
+        metrics['effective_concurrency'] = min(index_conc, table_conc)
+
+    # RPC count
+    rpc_num_matches = re.findall(r'rpc_num:\s*(\d+)', combined)
+    num_rpc_matches = re.findall(r'num_rpc:\s*(\d+)', combined)
+    metrics['rpc_count'] = (sum(int(x) for x in rpc_num_matches) +
+                            sum(int(x) for x in num_rpc_matches))
+
+    if configured_concurrency is not None:
+        metrics['configured_concurrency'] = configured_concurrency
+
+    return metrics
+
+
+def format_table(metrics_list):
+    """Format as human-readable table."""
+    if not metrics_list:
+        return "No plans found."
+    headers = list(metrics_list[0].keys())
+    rows = [[str(m.get(h, '')) for h in headers] for m in metrics_list]
+    widths = [max(len(h), max((len(r[i]) for r in rows), default=0))
+              for i, h in enumerate(headers)]
+    lines = []
+    lines.append(' | '.join(h.ljust(w) for h, w in zip(headers, widths)))
+    lines.append('-+-'.join('-' * w for w in widths))
+    for row in rows:
+        lines.append(' | '.join(v.ljust(w) for v, w in zip(row, widths)))
+    return '\n'.join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Extract structured metrics from TiDB EXPLAIN ANALYZE plans',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  plan-extract --db /app/data/monitoring.db --all --format json
+  plan-extract --db /app/data/monitoring.db --plan-id 1 --format json
+  plan-extract --file /path/to/plan.txt --format json
+  plan-extract --list-metrics
+""")
+    parser.add_argument('--db', metavar='PATH',
+                        help='SQLite database path (reads raw_plans table)')
+    parser.add_argument('--plan-id', type=int, metavar='ID',
+                        help='Process specific plan ID (requires --db)')
+    parser.add_argument('--file', metavar='PATH',
+                        help='Read plan text from file')
+    parser.add_argument('--all', action='store_true',
+                        help='Process all plans in the database')
+    parser.add_argument('--format', choices=['json', 'csv', 'table'],
+                        default='table',
+                        help='Output format (default: table)')
+    parser.add_argument('--list-metrics', action='store_true',
+                        help='List available metric names')
+
+    args = parser.parse_args()
+
+    if args.list_metrics:
+        names = [
+            'plan_id', 'operator_type', 'total_time_sec',
+            'resolve_lock_time_ms', 'backoff_count', 'cop_tasks',
+            'max_proc_keys', 'scan_direction', 'effective_concurrency',
+            'configured_concurrency', 'rpc_count',
+        ]
+        for n in names:
+            print(n)
+        return
+
+    if not args.db and not args.file:
+        parser.error('Either --db or --file is required')
+
+    configured_concurrency = None
+    results = []
+
+    if args.db:
+        conn = sqlite3.connect(args.db)
+        try:
+            cur = conn.execute(
+                "SELECT variable_value FROM system_config "
+                "WHERE variable_name = 'tidb_executor_concurrency'")
+            row = cur.fetchone()
+            if row:
+                configured_concurrency = int(row[0])
+        except sqlite3.OperationalError:
+            pass
+
+        if args.plan_id is not None:
+            cur = conn.execute(
+                "SELECT plan_id, plan_text FROM raw_plans WHERE plan_id = ?",
+                (args.plan_id,))
+            row = cur.fetchone()
+            if not row:
+                print(f"Error: plan_id {args.plan_id} not found",
+                      file=sys.stderr)
+                sys.exit(1)
+            m = extract_metrics(row[1], configured_concurrency)
+            m['plan_id'] = row[0]
+            results.append(m)
+        elif args.all:
+            cur = conn.execute(
+                "SELECT plan_id, plan_text FROM raw_plans ORDER BY plan_id")
+            for row in cur.fetchall():
+                m = extract_metrics(row[1], configured_concurrency)
+                m['plan_id'] = row[0]
+                results.append(m)
+        else:
+            parser.error('--plan-id or --all required with --db')
+        conn.close()
+
+    elif args.file:
+        with open(args.file) as f:
+            text = f.read()
+        m = extract_metrics(text, configured_concurrency)
+        m['plan_id'] = 0
+        results.append(m)
+
+    # Output
+    if args.format == 'json':
+        if len(results) == 1 and not args.all:
+            print(json.dumps(results[0], indent=2))
+        else:
+            print(json.dumps(results, indent=2))
+    elif args.format == 'csv':
+        if results:
+            out = io.StringIO()
+            w = csv.DictWriter(out, fieldnames=results[0].keys())
+            w.writeheader()
+            w.writerows(results)
+            print(out.getvalue(), end='')
+    else:
+        print(format_table(results))
+
+
+if __name__ == '__main__':
+    main()

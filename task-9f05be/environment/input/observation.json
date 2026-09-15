@@ -1,0 +1,25 @@
+{
+  "resourceType": "Observation",
+  "id": "obs-001",
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "8302-2",
+        "display": "Body height"
+      }
+    ],
+    "text": "Body height"
+  },
+  "subject": {
+    "reference": "Patient/patient-001"
+  },
+  "effectiveDateTime": "2023-11-20T14:30:00+00:00",
+  "valueQuantity": {
+    "value": 175.5,
+    "unit": "cm",
+    "system": "http://unitsofmeasure.org",
+    "code": "cm"
+  }
+}

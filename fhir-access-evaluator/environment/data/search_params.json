@@ -1,0 +1,17 @@
+{
+  "Patient": {
+    "_id": "id",
+    "name": "name[].family",
+    "birthdate": "birthDate",
+    "gender": "gender",
+    "address-state": "address[].state"
+  },
+  "Observation": {
+    "_id": "id",
+    "status": "status",
+    "subject": "subject.reference",
+    "category": "category[].coding[].code",
+    "code": "code.coding[].code",
+    "value-quantity": "valueQuantity.value"
+  }
+}

@@ -1,0 +1,4 @@
+sample_id,file_path
+doc_alpha,/app/data/doc_alpha.txt
+doc_beta,/app/data/doc_beta.txt
+doc_gamma,/app/data/doc_gamma.txt

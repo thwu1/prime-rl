@@ -1,0 +1,109 @@
+# Semantic Layer Model for ACME Insurance Database
+# Defines entities, relationships, metrics, dimensions, and derived metrics.
+
+entities:
+  policy:
+    table: policy
+    primary_key: policy_id
+  party:
+    table: party
+    primary_key: party_id
+  policy_party:
+    table: policy_party
+    primary_key: [policy_id, party_id, role]
+  catastrophe:
+    table: catastrophe
+    primary_key: catastrophe_id
+  claim:
+    table: claim
+    primary_key: claim_id
+  claim_amount:
+    table: claim_amount
+    primary_key: claim_amount_id
+  premium:
+    table: premium
+    primary_key: premium_id
+
+relationships:
+  - from: claim
+    to: policy
+    type: many_to_one
+    join: "claim.policy_id = policy.policy_id"
+  - from: claim
+    to: catastrophe
+    type: many_to_one
+    join: "claim.catastrophe_id = catastrophe.catastrophe_id"
+  - from: claim_amount
+    to: claim
+    type: many_to_one
+    join: "claim_amount.claim_id = claim.claim_id"
+  - from: premium
+    to: policy
+    type: many_to_one
+    join: "premium.policy_id = policy.policy_id"
+  - from: policy_party
+    to: policy
+    type: many_to_one
+    join: "policy_party.policy_id = policy.policy_id"
+  - from: policy_party
+    to: party
+    type: many_to_one
+    join: "policy_party.party_id = party.party_id"
+
+metrics:
+  policy_count:
+    type: count_distinct
+    entity: policy
+    column: policy.policy_id
+  claim_count:
+    type: count_distinct
+    entity: claim
+    column: claim.claim_id
+  total_premium:
+    type: sum
+    entity: premium
+    column: premium.amount
+  total_loss_payment:
+    type: sum
+    entity: claim_amount
+    column: claim_amount.amount
+    filter: "claim_amount.amount_type = 'loss_payment'"
+  total_loss_reserve:
+    type: sum
+    entity: claim_amount
+    column: claim_amount.amount
+    filter: "claim_amount.amount_type = 'loss_reserve'"
+  total_expense:
+    type: sum
+    entity: claim_amount
+    column: claim_amount.amount
+    filter: "claim_amount.amount_type IN ('expense_payment', 'expense_reserve')"
+  total_incurred:
+    type: derived
+    formula: "total_loss_payment + total_loss_reserve + total_expense"
+    requires: [total_loss_payment, total_loss_reserve, total_expense]
+  loss_ratio:
+    type: derived
+    formula: "total_incurred / total_premium"
+    requires: [total_incurred, total_premium]
+  avg_premium:
+    type: derived
+    formula: "total_premium / policy_count"
+    requires: [total_premium, policy_count]
+
+dimensions:
+  policy_number:
+    entity: policy
+    column: policy.policy_number
+  policy_status:
+    entity: policy
+    column: policy.status
+  party_name:
+    entity: party
+    column: party.party_name
+  catastrophe_name:
+    entity: catastrophe
+    column: catastrophe.name
+  claim_number:
+    entity: claim
+    column: claim.claim_number

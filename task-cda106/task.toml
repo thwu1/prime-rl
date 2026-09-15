@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum information theory: density matrix formalism (tensor products, partial traces, projective measurements with branching), LOCC constraint enforcement, and knowledge of entanglement distillation protocols (BBPSSW recurrence, Hadamard-rotated phase purification, combined bit+phase distillation). The non-contiguous qubit pairing convention requires careful index management. Designing circuits for mixed Bell-diagonal noise demands understanding how bilateral CNOT parity checks interact with different error types and their back-action."""
+solution_explanation = """The solution implements a full density matrix simulator: (1) initialize_bell_pairs constructs the tensor product of N noisy pair states then permutes from natural pair ordering to game qubit ordering via np.transpose; (2) gate application builds full-space unitary operators via Kronecker products (single-qubit) or explicit basis-state iteration (two-qubit, handling non-adjacent qubits); (3) measurement branches over all outcomes with projectors; (4) partial_trace uses np.einsum with contracted indices; (5) run_distillation tracks all measurement branches with probabilities and classical bit values, applies conditional gates per-branch, then post-selects on flag_bit==0. Circuit solutions: S1 uses bilateral CNOT (bit-flip purification), S2 adds Hadamard rotation (phase-flip purification), S3 extends to N=3 with two sacrificial pairs, S4 chains a phase check then bit check using separate sacrificial pairs."""
+verification_explanation = """Tests verify engine correctness via analytical results: (1) initialization produces correct Bell-diagonal density matrices with valid properties; (2) gate application verified against known transformations (H|0>=|+>, CNOT|+0>=Phi+); (3) measurement probabilities match Born rule; (4) partial trace of product/Bell states gives expected reduced states; (5) fidelity computation for pure/mixed Bell states; (6) LOCC validation accepts/rejects circuits correctly; (7) D1 N=2 distillation matches F_out=F^2/(F^2+(1-F)^2)=0.9, p=0.625; (8) D2 N=2 gives F_out=0.9412, p=0.68; (9) agent circuits achieve all four scenario thresholds."""
+category = "quantum_computing"
+tags = ["density-matrix-simulation", "entanglement-distillation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cda106"

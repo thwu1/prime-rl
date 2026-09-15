@@ -1,0 +1,12 @@
+{
+  "activities": [
+    {"activity": "PersonRuns", "file": "video_001.mp4", "start_frame": 100, "end_frame": 300},
+    {"activity": "PersonRuns", "file": "video_001.mp4", "start_frame": 800, "end_frame": 1100},
+    {"activity": "PersonRuns", "file": "video_002.mp4", "start_frame": 200, "end_frame": 600},
+    {"activity": "Closing", "file": "video_001.mp4", "start_frame": 1500, "end_frame": 1800},
+    {"activity": "Closing", "file": "video_002.mp4", "start_frame": 1000, "end_frame": 1400},
+    {"activity": "Closing", "file": "video_002.mp4", "start_frame": 3000, "end_frame": 3500},
+    {"activity": "Opening", "file": "video_001.mp4", "start_frame": 500, "end_frame": 700},
+    {"activity": "Opening", "file": "video_002.mp4", "start_frame": 2000, "end_frame": 2300}
+  ]
+}

@@ -1,0 +1,41 @@
+==================================================================
+BUG: KASAN: global-out-of-bounds in ip6gre_header+0x3a7/0x500 net/ipv6/ip6_gre.c:487
+Read of size 4 at addr ffffffff8e8b3a40 by task syz-executor.1/4215
+
+CPU: 1 UID: 0 PID: 4215 Comm: syz-executor.1 Not tainted 6.12.0-rc3-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_address_description mm/kasan/report.c:378 [inline]
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ ip6gre_header+0x3a7/0x500 net/ipv6/ip6_gre.c:487
+ dev_hard_header+0xf3/0x230 include/linux/netdevice.h:3145
+ neigh_resolve_output+0x456/0x910 net/core/neighbour.c:1680
+ ip6_finish_output2+0x985/0x1ff0 net/ipv6/ip6_output.c:141
+ __ip6_finish_output net/ipv6/ip6_output.c:199 [inline]
+ ip6_finish_output+0x3b3/0x9f0 net/ipv6/ip6_output.c:210
+ NF_HOOK_COND include/linux/netfilter.h:293 [inline]
+ ip6_output+0x256/0x490 net/ipv6/ip6_output.c:233
+ dst_output include/net/dst.h:449 [inline]
+ ip6_local_out+0xa3/0x150 net/ipv6/output_core.c:161
+ ip6_send_skb+0x125/0x230 net/ipv6/ip6_output.c:1966
+ udp_v6_send_skb+0x766/0x15c0 net/ipv6/udp.c:1361
+ </TASK>
+
+The buggy address belongs to the variable:
+ ip6gre_protocol+0x0/0xffffffffffffffe0
+
+The buggy address falls within the range of the homonymous variable:
+ [ffffffff8e8b3a20, ffffffff8e8b3a40)
+
+Memory state around the buggy address:
+ ffffffff8e8b3940: 00 00 00 00 00 00 00 00 f9 f9 f9 f9 00 00 00 00
+ ffffffff8e8b39c0: 00 00 00 00 f9 f9 f9 f9 00 00 00 00 04 f9 f9 f9
+>ffffffff8e8b3a40: f9 f9 f9 f9 00 00 00 00 00 00 00 00 00 f9 f9 f9
+                   ^
+ ffffffff8e8b3ac0: f9 f9 f9 f9 00 00 00 00 00 00 00 00 00 00 00 00
+ ffffffff8e8b3b40: f9 f9 f9 f9 00 00 00 00 00 00 00 00 00 00 00 00
+==================================================================

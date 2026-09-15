@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must create a complete geometric calibration quality-assessment tool from scratch. This requires: (1) understanding ITK's spatial metadata model to correctly convert between voxel indices and physical coordinates in a 3D image; (2) designing a marker detection pipeline (intensity thresholding, connected-component labeling, centroid computation) that robustly handles noisy data; (3) implementing a matching algorithm to associate 48 detected centroids with their ideal grid positions despite geometric displacement; (4) constructing and solving a least-squares polynomial fitting problem (6 coefficients per axis, 48 data points) to characterize the distortion field; (5) computing signal-to-noise ratio from image statistics; and (6) evaluating multiple quality criteria to produce a PASS/FAIL calibration verdict. The task requires creating — not just applying — the entire analysis framework, and the agent must make design decisions about threshold selection, component filtering, matching strategy, and metric computation."""
+solution_explanation = """Read the phantom with ITK, threshold at the midpoint of background/marker intensities, run connected-component labeling, filter small components (noise), and compute per-component centroids in physical coordinates using origin + index * spacing. Generate the 4x4x3 ideal grid positions from the spec. Match each detected centroid to its nearest ideal position. Compute displacement vectors and statistics (max, mean, RMS). Build the design matrix [x², y², z², xy, xz, yz] from ideal positions and solve three least-squares problems (one per axis) with numpy.linalg.lstsq to recover the 18 polynomial coefficients. Measure SNR as 20*log10((mean_marker - mean_bg) / std_bg). Evaluate against the spec's quality criteria and write the structured JSON report."""
+verification_explanation = """Tests independently recompute the true distorted marker positions using the known polynomial coefficients and the ideal grid from the spec. They verify: (1) all 48 markers detected; (2) each detected position is within 1mm of the true distorted position (anti-cheat: also verified against actual image intensity); (3) geometric error statistics match independent computation within tolerance; (4) polynomial coefficients match true values within 5e-4; (5) fit residual is below 0.5mm; (6) SNR is in the expected 20-35 dB range; (7) quality assessment is PASS. Image consistency tests confirm centroids correspond to bright regions in the actual phantom file."""
+category = "scientific_computing"
+tags = ["medical-imaging", "geometric-calibration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oblique-phantom-analysis"

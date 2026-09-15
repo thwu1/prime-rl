@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering EPA EPI Suite KOCWIN v2.01 and BCFBAF v3.02 regression equations, fragment correction factors, and equation-selection logic from the EPI Suite REST API or equivalent external sources — none of these parameters are provided in the task environment. The solver must navigate an unfamiliar REST API with deeply nested JSON responses, extract and map 13+ fragment correction values per method (with naming discrepancies between API output and input data identifiers), determine the chemical-class branching rules for equation selection, implement the full estimation pipeline in Python, produce dual-format output (JSON + SQLite with specific table schemas), handle edge cases (over-correction clamping, ionic compound fixed values, null experimental data), and compute cross-method validation statistics. The multi-tool interoperability (API discovery, SQLite database construction, JSON output, Python computation) combined with domain-specific parameter extraction makes this substantially harder than a straightforward regression implementation."""
+solution_explanation = """Query the EPI Suite API (episuite.dev/api/) for representative chemicals to extract: (1) MCI equation: logKoc = 0.5213*MCI + 0.60, (2) Kow non-polar: logKoc = 0.8679*logKow - 0.0004, (3) Kow polar: logKoc = 0.55313*logKow + 0.9251, (4) BCF standard: logBCF = 0.6598*logKow - 0.333, (5) BCF ionic: 0.50 fixed. Extract 13 fragment correction values for each method from API response text. Determine polar equation is used when chemical has functional_groups or is_organic_acid. Apply corrections per-occurrence, clamp negative MCI log Koc to 0.0. Store equations and corrections in SQLite tables, compute results, and output to both JSON and SQLite formats."""
+verification_explanation = """Tests run the pipeline and verify: (1) JSON output schema compliance with 30 records; (2) SQLite database structure with equations, fragment_corrections, and compound_results tables; (3) equation coefficient accuracy in SQLite matching published KOCWIN/BCFBAF parameters; (4) fragment correction table completeness (>=13 per method); (5) numerical accuracy of MCI and Kow log Koc values with 0.015 tolerance; (6) equation branching correctness for polar vs non-polar chemicals; (7) fragment correction application for single and multi-fragment compounds; (8) edge cases (clamping, ionic BCF); (9) residual and comparison statistics; (10) SQLite-JSON consistency."""
+category = "applied_computing"
+tags = ["cheminformatics", "environmental-chemistry"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kocwin-bcfbaf-pipeline-310390"

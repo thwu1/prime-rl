@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, holistic understanding of the ESP-IDF flash ecosystem — not just one binary format, but the interplay of four distinct subsystem formats (app images, NVS pages, OTA selection metadata, PHY calibration) as they coexist in raw flash. The agent must reverse-engineer content identification strategies from a reference document, study the gen_esp32part.py source code to understand validation rules and the partition table binary format, design a multi-pass flash analysis pipeline, infer partition layout semantics from content patterns (distinguishing factory-only from OTA-capable configurations without an intact partition table), handle partial partition table recovery with deduplication, and ensure full interoperability with the gen_esp32part.py toolchain including binary-to-CSV round-trip compatibility. No implementation approach is prescribed — the agent must synthesize a solution that satisfies all interacting constraints simultaneously while coordinating between their own tool and the external gen_esp32part.py utility."""
+solution_explanation = """Implement a sector-by-sector flash scanner that identifies content types by verifying binary signatures per the reference document: APP images by magic byte 0xE9 and valid header fields, NVS pages by state/version/CRC32 integrity, OTA data by CRC32-validated 28-byte payload with reserved-field pattern, and PHY by 4-byte magic. Group consecutive same-type sectors into regions. Parse any surviving PT entries from the 0x8000 region. Reconstruct partition entries by mapping detected regions to ESP-IDF naming conventions (factory/ota_N based on OTA data presence), merge with surviving entries avoiding duplicates, validate alignment/size constraints, and serialize with correct struct packing and MD5 checksum. Ensure output is gen_esp32part.py round-trip compatible by using standard type/subtype values that have keyword mappings."""
+verification_explanation = """Tests independently verify each subcommand: scan tests check specific content regions at correct offsets/sizes/types for each dump; reconstruct tests verify output passes gen_esp32part.py validation AND satisfies structural properties (entry count, types, offsets, sizes, MD5, no overlaps) via direct binary parsing independent of the tool. Round-trip tests verify reconstructed binaries survive gen_esp32part.py binary-to-CSV-to-binary conversion producing byte-identical output, confirming full toolchain interoperability. Check tests verify validation logic against known-good tables. Cross-validation confirms pipeline consistency across all dumps."""
+category = "reverse_engineering"
+tags = ["binary-forensics", "embedded-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/partition-table-forensics"

@@ -1,0 +1,12 @@
+{
+    "name": "udp_block_all",
+    "description": "Block all UDP traffic regardless of source or payload",
+    "rules": [
+        {
+            "match": {
+                "protocol": "udp"
+            },
+            "action": "drop"
+        }
+    ]
+}

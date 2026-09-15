@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a Viterbi decoder for a K=7 (64-state) convolutional code in C with proper memory management, compiling it as a position-independent shared library using gcc, writing a Makefile for the build, and bridging C and Python via ctypes FFI with correct array marshaling. The Python layer must implement the full inverse coding chain: deinterleaving (two-step permutation inversion), depuncturing with erasure insertion for three different code rate patterns, descrambling with an LFSR, and SIGNAL field parsing with parity verification. Multi-tool interoperability (gcc shared library compilation, Make build system, ctypes FFI data marshaling) compounds the signal processing complexity."""
+solution_explanation = """The solution consists of three artifacts: (1) viterbi.c implements the 64-state trellis with generators 0o155/0o117, Hamming-distance branch metrics with erasure support, and traceback — compiled via gcc -shared -fPIC -O2. (2) A Makefile orchestrates the build. (3) decoder.py loads viterbi.so via ctypes.CDLL, marshals int arrays using ctypes.c_int arrays, and implements the Python decode chain: deinterleave SIGNAL field, call C Viterbi to decode SIGNAL, parse MCS/length, deinterleave data with MCS-specific parameters, depuncture by inserting erasures, call C Viterbi again, descramble with x^7+x^4+1 LFSR, and extract PSDU bytes."""
+verification_explanation = """Tests verify three layers: (1) build infrastructure — Makefile exists and make succeeds, viterbi.so is a valid ELF shared object, viterbi.c source exists; (2) FFI usage — decoder.py contains ctypes import and CDLL loading of the viterbi library; (3) decoding correctness — round-trip encode/decode with random payloads across all 8 MCS modes, single-byte edge cases, 150-byte payloads, and multiple scrambler seeds. Deterministic random seeds ensure reproducibility."""
+category = "signal_processing"
+tags = ["wireless-communications", "ffi-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wlan-ofdm-decoder"

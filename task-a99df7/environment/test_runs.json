@@ -1,0 +1,89 @@
+[
+  {
+    "id": "run_alpha",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": 0,
+    "elo1": 5,
+    "elo_model": "logistic",
+    "results": {
+      "pentanomial": [1200, 2000, 5000, 1800, 1000]
+    }
+  },
+  {
+    "id": "run_beta",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": 0,
+    "elo1": 5,
+    "elo_model": "logistic",
+    "results": {
+      "pentanomial": [100, 800, 10000, 1200, 200]
+    }
+  },
+  {
+    "id": "run_gamma",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": 0,
+    "elo1": 5,
+    "elo_model": "logistic",
+    "results": {
+      "wins": 300,
+      "losses": 280,
+      "draws": 1000
+    }
+  },
+  {
+    "id": "run_delta",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": 0.764,
+    "elo1": 3.439,
+    "elo_model": "normalized",
+    "results": {
+      "pentanomial": [39, 2226, 31451, 2412, 40]
+    }
+  },
+  {
+    "id": "run_epsilon",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": -3,
+    "elo1": 1,
+    "elo_model": "logistic",
+    "results": {
+      "wins": 65388,
+      "losses": 65804,
+      "draws": 56553,
+      "pentanomial": [10789, 19328, 33806, 19402, 10543]
+    }
+  },
+  {
+    "id": "run_zeta",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": 0,
+    "elo1": 5,
+    "elo_model": "logistic",
+    "results": {
+      "wins": 5019,
+      "losses": 5026,
+      "draws": 15699
+    }
+  },
+  {
+    "id": "run_eta",
+    "alpha": 0.05,
+    "beta": 0.05,
+    "elo0": -3,
+    "elo1": 1,
+    "elo_model": "BayesElo",
+    "results": {
+      "wins": 13543,
+      "losses": 13624,
+      "draws": 34333,
+      "pentanomial": [1187, 7410, 13475, 7378, 1164]
+    }
+  }
+]

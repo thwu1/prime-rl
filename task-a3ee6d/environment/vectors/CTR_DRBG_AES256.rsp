@@ -1,0 +1,324 @@
+# CAVS 14.3
+# CTR_DRBG Test Vectors (subset) - AES-256
+# Extracted from NIST CAVP
+
+[AES-256 use df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 256]
+
+[NonceLen = 128]
+
+[PersonalizationStringLen = 0]
+
+[AdditionalInputLen = 0]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 36401940fa8b1fba91a1661f211d78a0b9389a74e5bccfece8d766af1a6d3b14
+Nonce = 496f25b0f1301b4f501be30380a137eb
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 5862eb38bd558dd978a696e6df164782ddd887e7e9a6c9f3f1fbafb78941b535a64912dfd224c6dc7454e5250b3d97165e16260c2faf1cc7735cb75fb4f07e1d
+
+COUNT = 1
+EntropyInput = 13199090a47fbd1984eb5fa9589345154699ef73f00cd62b07c34167c0327e53
+Nonce = 5f968f93b659d8a5750a95345a8ae20c
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = d16878c5b06d7b6ced8e8aeb3a48d95ec8dd655733eec6ef473a8078dfdea600c0cc02168b4d6d744ee828ba5031941f8e3d96586407af79eba60d14af47d53a
+
+COUNT = 2
+EntropyInput = d6ccf8c8143abfe5fd70626afc17f8aef172027c68c38f94ce59f7aed5e96657
+Nonce = 2ebc66d2fd66b4bf1ed24faf744ffbc9
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 6d474ba971a8339eca904a4c0dcf6265116fbc66cbe5dddfdc42104502eb210e3660e1b1b710b97d830c27212b33131d85d2f73f39760782f4b47d447ba6a68a
+
+
+[AES-256 use df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 256]
+
+[NonceLen = 128]
+
+[PersonalizationStringLen = 0]
+
+[AdditionalInputLen = 256]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 8148d65d86513ce7d38923ec2f26b9e7c677dcc8997e325b7372619e753ed944
+Nonce = 41c71a24d17d974190982bb7515ce7f5
+PersonalizationString = 
+AdditionalInput = 55b446046c2d14bdd0cdba4b71873fd4762650695a11507949462da8d964ab6a
+AdditionalInput = 91468f1a097d99ee339462ca916cb4a10f63d53850a4f17f598eac490299b02e
+ReturnedBits = 54603d1a506132bbfa05b153a04f22a1d516cc46323cef15111af221f030f38d6841d4670518b4914a4631af682e7421dffaac986a38e94d92bfa758e2eb101f
+
+COUNT = 1
+EntropyInput = eb4a0add697097f1ce3a719d0d4ae69b1721dce3ec0e6c0e905d78ee212863b1
+Nonce = 5f368e85c1f17b6463a278377f691f37
+PersonalizationString = 
+AdditionalInput = f97801bce981b35081c25801400ec207433da4f17f3265a16e9e4e683722708b
+AdditionalInput = ae54b49a4112b3d978e966e2dda062e3652b58a14bef4ffe038520c9a675d353
+ReturnedBits = 6aee0b3a815c82f9bb0119f86af90793fc1f9996dd5b72bbc326ac4e6a5e874850b2fec1d7202c35580bd6727029609f2471e6c9b61629d174b894cd178adfd4
+
+COUNT = 2
+EntropyInput = 7fd6e262d821d5e5b660485755ea7961579631a4b964cfb4c2c35afde69ffea1
+Nonce = ae8c54affdb76c5fd196fbd5a2c477ec
+PersonalizationString = 
+AdditionalInput = ab81035cb3c017cbe51a2bc64751ce61f8ae02e80afef8378f42ac67060ffaf9
+AdditionalInput = 4f7db02d346bd41668fcf61bac93936003d22febd3b9f8c0234d151b492b16e7
+ReturnedBits = 930c26431a0fabb45abe418db9af10fe275580f499cdd717f7fcc94b59f952a04eef8f1d5aa0a4820ddbe413b5c3d7a08927346a90635ea2c51b0ab0e9cedb1d
+
+
+[AES-256 use df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 256]
+
+[NonceLen = 128]
+
+[PersonalizationStringLen = 256]
+
+[AdditionalInputLen = 0]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 5416e77b5e1d872d4ff91973b1be66bc07f4a99e30db7d0006da006fcfb082db
+Nonce = 7a811ce62b9fd34af186b2b3e50eaf5d
+PersonalizationString = 71ee0c7699ac0e805632f2058de38bf872b8340f89998f7a8a2ad4ac045ae6ef
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 68f5859cf76f94c445d9fcd34fc17ac224c3d7d7c2fc38faaf3c24be6cd3cd93b7f9d8a6146f5ac83ac1d7b1b2b7e7ecbc1a2e38760ef86a577d402d85990d9b
+
+COUNT = 1
+EntropyInput = 708eca2e3a9265a790607edbe05fe342663f84c6617eda14f25276a943901fda
+Nonce = 75afb49a184b23506be14926cd4a03f0
+PersonalizationString = cbb48ef84146c10e02240d8740d3487b6a4208405383c01a664ec7d3ada07e2d
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 26b0aa6e822c4cc912cf1dbae669c7dad0bdcff65f22813afd06225b7ff799f7803b3ad48bc88d2be0f5a357f620cc617f446fc6d212592ada69b7dc8ff4a222
+
+COUNT = 2
+EntropyInput = 44cc6b4433cec615c3c214e166c7dcff258f8cfe5748e642321cda2f7db426e3
+Nonce = 6a2526954b5df989d61e1faf93dda2ae
+PersonalizationString = 88226313c7f1ec03cde377970c8ea7d741a9f21a8f54b6b97043bc3e8da40b1e
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = c1956c4195adfc3ee71582ab2c63edc0a78af49ecc23a3ddbcf2dfaf80c761fd6343af6d14310e719d8cd3c6bbb491c8690a7dd8a168cd8a480217e5dd2088af
+
+
+[AES-256 use df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 256]
+
+[NonceLen = 128]
+
+[PersonalizationStringLen = 256]
+
+[AdditionalInputLen = 256]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 87b56e964eba227154724bb9484b812d3e2c0c43b3d17f6098d9526e16e6d0ef
+Nonce = 9bea6a7ff2358df142e6c23e2157fb83
+PersonalizationString = 9860b432edd58d1ccbfeecbce99ffaee7d935a614860d4e965bd67041403096b
+AdditionalInput = 99a5cc87924e8ea65a596f81fd17d63f5b4542fe6e8e1511b5d35c835dfadb0b
+AdditionalInput = 9a8dec54734a34582a2332f3452e82313524c3e0dfb485faeac6ca5fc0ff504d
+ReturnedBits = dbc6a2330b19b5cddd8cd6392ec1fb508678c805e87d1aca07ac265007632503044a00610c79d98375afa7ab4cca1a90989cbfe7c674af5d823ced11c47e9af6
+
+COUNT = 1
+EntropyInput = b36032f5d777250826d831566ec585452d70b920654355acf8f691941643ee95
+Nonce = dacf747e85faa6a3eb016df929c90e8b
+PersonalizationString = f03265b2f2174cea938ff23c7e60a75dcba1e4e412bbad4b5d3b3e23685e80d8
+AdditionalInput = d4772380de774bbbb6100d9339590eff033ff548b826685553a2e857800a07e2
+AdditionalInput = 05011d3dd4ddcf19076fae656973aac9a11641b210963cec81d1ea58db7bb7e0
+ReturnedBits = 3d3531057977401072ce44e2e66317a808d47c44aad4f98c08d88eac7b598c40714ad12417b61699d1126ea4c642b09fe9f5ded36f2e37ed2cce972e0dfcc7ce
+
+COUNT = 2
+EntropyInput = 3242a1b97c11e5ea8a1b96ccdcc25628e79ec5d14b041558d312ea72a3dd0dd0
+Nonce = d9f1a8dd83b0f11317a92d2051e07e97
+PersonalizationString = 930b0c3b96263c3ec7edf25890cc5d7ea41d6564a81f17899fc7b49c5c40b091
+AdditionalInput = a905dab4ade75ee5e68a0709d1d0699a87f5d4f8e49c8c95d9590d7c1238d0f9
+AdditionalInput = 4d8e2d92299765b9cef039d947d4427d4b9c14f42c81e12bc91b4e297233fce1
+ReturnedBits = fa3adb6a35e0508534803eda5f39d9fd62227474d9e1435ed0e5e6da01e2e4d83a3da9395a3c96efecdfe92b89e15e8caf25e81724b3973551972a8ff5b5cd0f
+
+
+[AES-256 no df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 384]
+
+[NonceLen = 0]
+
+[PersonalizationStringLen = 0]
+
+[AdditionalInputLen = 0]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = df5d73faa468649edda33b5cca79b0b05600419ccb7a879ddfec9db32ee494e5531b51de16a30f769262474c73bec010
+Nonce = 
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = d1c07cd95af8a7f11012c84ce48bb8cb87189e99d40fccb1771c619bdf82ab2280b1dc2f2581f39164f7ac0c510494b3a43c41b7db17514c87b107ae793e01c5
+
+COUNT = 1
+EntropyInput = 3b6fb634d35bb386927374f991c1cbc9fafba3a43c432dc411b7b2fa96cfcce8d305e135ff9bc460dbc7ba3990bf8060
+Nonce = 
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 083a836fe1cde053164555529409337dc4fec6844594fdf15083ba9d1001eb945c3b96a1bcee3990e1e51f85c80e9f4e04de34e57b640f6cae8ed68e99624712
+
+COUNT = 2
+EntropyInput = 0217a8acf2f8e2c4ab7bdcd5a694bca28d038018869dcbe2160d1ce0b4c78ead5592efed98662f2dff87f32f4835c677
+Nonce = 
+PersonalizationString = 
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = aa36779726f52875312507fb084744d4d7f3f9468a5b246ccde316d2ab91879c2e29f5a0938a3bcd722bb718d01bbfc35831c9e64f5b6410ae908d3061f76c84
+
+
+[AES-256 no df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 384]
+
+[NonceLen = 0]
+
+[PersonalizationStringLen = 0]
+
+[AdditionalInputLen = 384]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = f45e9d040c1456f1c7f26e7f146469fbe3973007fe037239ad57623046e7ec52221b22eec208b22ac4cf4ca8d6253874
+Nonce = 
+PersonalizationString = 
+AdditionalInput = 28819bc79b92fc8790ebdc99812cdcea5c96e6feab32801ec1851b9f46e80eb6800028e61fbccb6ccbe42b06bf5a0864
+AdditionalInput = 418ca848027e1b3c84d66717e6f31bf89684d5db94cd2d579233f716ac70ab66cc7b01a6f9ab8c7665fcc37dba4af1ad
+ReturnedBits = 4f11406bd303c104243441a8f828bf0293cb20ac39392061429c3f56c1f426239f8f0c687b69897a2c7c8c2b4fb520b62741ffdd29f038b7c82a9d00a890a3ed
+
+COUNT = 1
+EntropyInput = 933015be052c117ad3d38dd2d1d52bda42d7f36946418b006c67aad49d8130e5ec3f0c1d6ffb0b6da00270f77ae18362
+Nonce = 
+PersonalizationString = 
+AdditionalInput = 0e5eccdf748549f94cab63d649145d4c3b84c74a2276d5c188cdebf417bcc9f5f19d4857e76823e00b8f08f8d583a65d
+AdditionalInput = 12a0ed9afc1a7456f8430d5aca4cab30f75e39ad7012566c32d8c753ae6a9c59e8ee87832faac3d126056bc9554793db
+ReturnedBits = 0615803d2aa28823445786a7ac9951b14619f2072e8de44acfe00674a3d40feaec07aaeeee947b71c7531c3a93737f3415fcce87353c85258e2301d2842b408e
+
+COUNT = 2
+EntropyInput = bddca8a3127ed51edc008acf989f5da82ea0a85b7bb68f66557eaee708fc3729a56eb8f45176b39aecfccafacf2abc47
+Nonce = 
+PersonalizationString = 
+AdditionalInput = ab75d2bacdf132359012aff36ec86795def262c8f4b23c231b267707d94a7a50132fea85702e7a64f90517b40414da24
+AdditionalInput = 7217ec497a68700500bb44912066c2b2c888fef101e00c320e3c284eb1d49147c8644a85fbb5c1cfe118ea43e5d585b6
+ReturnedBits = 61fc09567d2977e518f25e68e398b7bd2f734bd5e14e75d1e90ba186c9e478e980c9353ebf2ba6506a98e2b728a205e4070be2a2372d68884cb90008cb6002b4
+
+
+[AES-256 no df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 384]
+
+[NonceLen = 0]
+
+[PersonalizationStringLen = 384]
+
+[AdditionalInputLen = 0]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 22a89ee0e37b54ea636863d9fed10821f1952a428488d528eceb9d2ec69d573ec6216216fb3e8f72a148a5ada9d620b1
+Nonce = 
+PersonalizationString = 953c10badcbcd45fb4e5475826477fc137ac96a49ad5005fb14bdaf6468ae7f46c5d0de22d304afc67989615adc2e983
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = f7fab6a6fcf445f0a0434b2aa0c610bdef5489ecd95414634623add18a9f888bca6be151312d1b9e8f83bd0acad6234d3bccc11b63a40d6fbff448f67db0b91f
+
+COUNT = 1
+EntropyInput = a5ca32ff18305555d32e270f170529232c458779eaace221ac4958b4226df8189e42b0844fc765751a6291a60a35d8b4
+Nonce = 
+PersonalizationString = f42a3a32dc92a3eeff658c349eb2e181564458c202aa922ec4364e3a93b2ebdfb58ef78fc7237b70d8a261bcf30bd1b6
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 00851cac3204326d97b5f26cd0bc05feafc34f56b5b7def2640bf5a12da0090d85320f3132fe7212c86d65f3b938366eae25cd9233c0f9941a70f99e795cde4c
+
+COUNT = 2
+EntropyInput = 2e90b2daffc3ddda438c38c1bdd6e07d78c862225d9d10b50a4d8e3e32cb63e28101c06dd20e2d174d0f4ea1bddee40a
+Nonce = 
+PersonalizationString = f349ed3b779184b8048f833e79751574c485de0b8f6ec73bf08b3ea4b82eeec4e736ce5a8093f96b4d7c7ce80f5cf606
+AdditionalInput = 
+AdditionalInput = 
+ReturnedBits = 847f61148daa5d8290dae7f7291bed58a1a4a762c81d73eabca91542a5ae2200e18afc9397a1401956926826f65da3470b40fa9147842bb49d4e0d83bf77cd31
+
+
+[AES-256 no df]
+
+[PredictionResistance = False]
+
+[EntropyInputLen = 384]
+
+[NonceLen = 0]
+
+[PersonalizationStringLen = 384]
+
+[AdditionalInputLen = 384]
+
+[ReturnedBitsLen = 512]
+
+
+COUNT = 0
+EntropyInput = 0dd4d80062ecc0f359efbe7723020be9b88b550fe74088094069e74428395856f63eed4f5b0e7d1e006f0eaff74f638c
+Nonce = 
+PersonalizationString = d2aa2ccd4bc6537e51f6550ab6d6294547bef3e971a7f128e4436f957de9982c93ee22110b0e40ab33a7d3dfa22f599d
+AdditionalInput = 0b081bab6c74d86b4a010e2ded99d14e0c9838f7c3d69afd64f1b66377d95cdcb7f6ec5358e3516034c3339ced7e1638
+AdditionalInput = ca818f938ae0c7f4f507e4cfec10e7baf51fe34b89a502f754d2d2be7395120fe1fb013c67ac2500b3d17b735da09a6e
+ReturnedBits = 6808268b13e236f642c06deba2494496e7003c937ebf6f7cb7c92104ea090f18484aa075560d7844a06eb559948c93b26ae40f2db98ecb53ad593eb4c78f82b1
+
+COUNT = 1
+EntropyInput = ca0ab9b22d0df4e680daa8dbab562c594bd079c394647af39dc1c616a6bd85c58f2d52a02f4b02435bbde80b33d405ed
+Nonce = 
+PersonalizationString = 1695f83ec7f4f1742b7f13eb62cbbf17804965ed0acd3f0fba0cafc3cd55f306800339baf2567bb84fc37ca30ae2205d
+AdditionalInput = 6f88faa9304a915b2b1988d4089bf0da10bf9f4dfa2fe3ccb1cd21202c06919c142d41324e51a5aefeefd05a664f701b
+AdditionalInput = 135ead8f090344d1e967e720cbd6756d3b11e390cf2078bcfa5344944685a7590faa52242a207d0b9f33e2fc14c5a61e
+ReturnedBits = 7f7e6f089722a06b741b385cdff7902f04f2e72dca7cbb64d6a4f373a9f693ec42fff76d11488ba86a3acc0395c02b7301249d02257da94e60f8ef9a3d844307
+
+COUNT = 2
+EntropyInput = 74571789edf9217a135f61747b2a756dc8310ec0f44435fadad527b3d43ce0a4f0361bb75a907744d3d95f65b0428bde
+Nonce = 
+PersonalizationString = 4d127c5596eb672334325dd5bf2c6c2556d4ea13b2cd263ea60d74e8dcafa6b11700f9f478428999f5762e365b193c05
+AdditionalInput = c5767c7a29d0f434ca1a173084a090867bee9d18215a79d337835fafd308d1116f1dcdd1ad5d80ac18ef15d61b800c35
+AdditionalInput = 5ad8a5bd2ee46042ba91d9ac9b911e7a0a68eb257046415b471ecbeb05edd16cc45b03593de910b0a046dc5c213e6288
+ReturnedBits = a0df871efb02ebe3db392fca4106050a61a93e3bceb4405ffa3b0e71d14d5e3373c8f49c21f4c9b66ab4dfb1a5c66a58f8c5be9ac1788602169cbead2dbb18d8
+
+

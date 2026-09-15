@@ -1,0 +1,7 @@
+FSHOnly: true
+fhirVersion: 4.0.1
+canonical: http://example.org/fhir/nicu
+name: NICURegistry
+id: nicu-registry
+status: draft
+version: 0.1.0

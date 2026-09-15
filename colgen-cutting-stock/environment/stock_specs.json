@@ -1,0 +1,12 @@
+{
+  "facility_id": "MILL-7-EAST",
+  "production_line": "slitter-A3",
+  "raw_material": {
+    "type": "kraft_paper_90gsm",
+    "roll_width_mm": 1000,
+    "roll_weight_kg": 245.5,
+    "supplier": "Nordic Pulp Co."
+  },
+  "blade_kerf_mm": 0,
+  "max_patterns_per_run": null
+}

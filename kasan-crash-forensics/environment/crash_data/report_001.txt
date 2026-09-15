@@ -1,0 +1,54 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in nla_parse_nested_deprecated+0x1a4/0x2f0 lib/nlattr.c:982
+Read of size 2 at addr ffff88803a1c4e62 by task syz-executor.3/8147
+
+CPU: 2 UID: 0 PID: 8147 Comm: syz-executor.3 Not tainted 6.12.0-rc4-syzkaller #0
+Hardware name: Google Compute Engine/Google Compute Engine, BIOS Google 09/13/2024
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x116/0x1f0 lib/dump_stack.c:120
+ print_address_description mm/kasan/report.c:378 [inline]
+ print_report+0xc3/0x670 mm/kasan/report.c:482
+ kasan_report+0xd9/0x1e0 mm/kasan/report.c:595
+ nla_parse_nested_deprecated+0x1a4/0x2f0 lib/nlattr.c:982
+ tcf_action_init_1+0xa85/0x1420 net/sched/act_api.c:1382
+ tcf_action_init+0x5c8/0x920 net/sched/act_api.c:1488
+ tcf_action_add net/sched/act_api.c:2089 [inline]
+ tc_ctl_action+0x4be/0x6d0 net/sched/act_api.c:2132
+ rtnetlink_rcv_msg+0x3fc/0xdf0 net/core/rtnetlink.c:6781
+ netlink_rcv_skb+0x16b/0x440 net/netlink/af_netlink.c:2549
+ netlink_unicast_kernel net/netlink/af_netlink.c:1340 [inline]
+ netlink_unicast+0x543/0x7f0 net/netlink/af_netlink.c:1366
+ netlink_sendmsg+0x8e7/0xde0 net/netlink/af_netlink.c:1908
+ sock_sendmsg_nosec net/socket.c:730 [inline]
+ __sock_sendmsg+0x221/0x270 net/socket.c:745
+ ____sys_sendmsg+0x539/0x8c0 net/socket.c:2597
+ ___sys_sendmsg+0x12a/0x1d0 net/socket.c:2651
+ __sys_sendmsg+0x114/0x1f0 net/socket.c:2680
+ do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+ do_syscall_64+0xf5/0x240 arch/x86/entry/common.c:83
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f arch/x86/include/asm/idtentry.h:697
+ </TASK>
+
+Allocated by task 8147:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ __kasan_kmalloc+0xaa/0xb0 mm/kasan/common.c:415
+ __kmalloc_noprof+0x301/0x850 mm/slub.c:5231
+ nla_parse_nested_deprecated+0x78/0x2f0 lib/nlattr.c:958
+ tcf_action_init_1+0xa85/0x1420 net/sched/act_api.c:1382
+
+The buggy address belongs to the object at ffff88803a1c4e40
+ which belongs to the cache kmalloc-32 of size 32
+The buggy address is located 2 bytes to the right of
+ allocated 32-byte region [ffff88803a1c4e40, ffff88803a1c4e60)
+
+Memory state around the buggy address:
+ ffff88803a1c4d40: 00 00 00 00 fc fc fc fc 00 00 00 04 fc fc fc fc
+ ffff88803a1c4dc0: fa fa fa fa fc fc fc fc 00 00 00 00 fc fc fc fc
+>ffff88803a1c4e40: 00 00 00 00 fc fc fc fc fa fa fa fa fc fc fc fc
+                               ^
+ ffff88803a1c4ec0: 00 00 00 00 fc fc fc fc 00 00 00 00 fc fc fc fc
+ ffff88803a1c4f40: fa fa fa fa fc fc fc fc 00 00 00 00 fc fc fc fc
+==================================================================

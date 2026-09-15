@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a physically correct gravity forward model for rectangular prisms from first principles, handling numerical edge cases (singularities in log/arctan terms near vertices). Then requires solving an ill-posed geophysical inverse problem — recovering a 256-parameter density model from 144 noisy observations — which demands understanding of regularization theory and numerical linear algebra. The combination of physics-based forward modeling, careful numerical implementation, and inverse theory places this at the graduate/PhD level in computational geophysics."""
+solution_explanation = """The solution implements: (1) the analytical prism gravity formula with careful numerical handling of edge cases, (2) sensitivity matrix assembly by computing gravity for each prism with unit density at each observation point, (3) regularized least-squares inversion using SVD decomposition with GCV-based regularization parameter selection over a logarithmic search range."""
+verification_explanation = """Tests verify: (1) forward model accuracy against independently computed analytical reference values for known prism configurations, (2) Laplace equation satisfaction as a physics consistency check, (3) convergence to the Bouguer slab analytical solution, (4) inversion data misfit RMS below 0.15 mGal, (5) recovery of the main anomaly centroid within 1 km of its true location, and (6) correct output file formats."""
+category = "applied_computing"
+tags = ["geophysics", "inverse-problems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gravity-prism-inversion"

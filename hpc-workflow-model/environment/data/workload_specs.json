@@ -1,0 +1,38 @@
+{
+  "stencil3d": {
+    "description": "3D 27-point stencil computation on structured grid",
+    "total_flops": 400000000000000.0,
+    "priority_weight": 0.2,
+    "characteristics": "compute-bound, regular memory access"
+  },
+  "sparse_matvec": {
+    "description": "Sparse matrix-vector multiplication (CSR format)",
+    "total_flops": 10000000000000.0,
+    "priority_weight": 0.15,
+    "characteristics": "memory-bandwidth-bound, irregular access"
+  },
+  "global_fft": {
+    "description": "3D distributed Fast Fourier Transform",
+    "total_flops": 60000000000000.0,
+    "priority_weight": 0.2,
+    "characteristics": "communication-bound, all-to-all patterns"
+  },
+  "deep_train": {
+    "description": "Deep neural network training (ResNet-50 equivalent)",
+    "total_flops": 500000000000000.0,
+    "priority_weight": 0.25,
+    "characteristics": "compute-bound, GPU-favorable, large batch"
+  },
+  "genome_search": {
+    "description": "Genome sequence alignment and search",
+    "total_flops": 30000000000000.0,
+    "priority_weight": 0.1,
+    "characteristics": "I/O-bound, database scanning"
+  },
+  "mol_dynamics": {
+    "description": "Molecular dynamics simulation with long-range forces",
+    "total_flops": 120000000000000.0,
+    "priority_weight": 0.1,
+    "characteristics": "mixed compute and communication"
+  }
+}

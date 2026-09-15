@@ -1,0 +1,69 @@
+{
+  "protocol_name": "NMR Ensemble Conformational Analysis",
+  "version": "1.0",
+  "description": "Standard protocol for conformational analysis of protein NMR ensembles. Identifies the NMR ensemble from a collection of structure files, extracts structural properties, and quantifies backbone flexibility.",
+  "output_file": "results.json",
+  "fields": {
+    "source_file": {
+      "type": "string",
+      "description": "Basename of the PDB file identified as the NMR ensemble"
+    },
+    "n_models": {
+      "type": "integer",
+      "description": "Number of NMR models in the ensemble"
+    },
+    "n_residues": {
+      "type": "integer",
+      "description": "Number of amino acid residues per model"
+    },
+    "sequence": {
+      "type": "string",
+      "description": "One-letter amino acid sequence derived from the structure"
+    },
+    "rmsd_matrix": {
+      "type": "list[list[float]]",
+      "dimensions": "n_models x n_models",
+      "description": "Pairwise C-alpha RMSD values in Angstroms, computed after optimal rigid-body superimposition of each model pair"
+    },
+    "medoid_model": {
+      "type": "integer",
+      "description": "0-indexed model with the minimum mean RMSD to all other models"
+    },
+    "mean_pairwise_rmsd": {
+      "type": "float",
+      "description": "Mean of all unique pairwise RMSD values (upper triangle of the RMSD matrix)"
+    },
+    "phi_angles": {
+      "type": "list[list[float|null]]",
+      "dimensions": "n_models x n_residues",
+      "description": "Backbone phi dihedral angles in radians; null where geometrically undefined"
+    },
+    "psi_angles": {
+      "type": "list[list[float|null]]",
+      "dimensions": "n_models x n_residues",
+      "description": "Backbone psi dihedral angles in radians; null where geometrically undefined"
+    },
+    "per_residue_flexibility": {
+      "type": "list[float|null]",
+      "dimensions": "n_residues",
+      "description": "Angular dispersion of dihedral angle distributions across models, measured as circular variance. For a set of angles theta: CV = 1 - sqrt(mean(cos(theta))^2 + mean(sin(theta))^2). Report the mean of CV(phi) and CV(psi) where both are defined for that residue, or the single available value if only one is defined. Range is [0, 1]. null where both phi and psi are undefined for a residue."
+    },
+    "secondary_structure": {
+      "type": "list[string]",
+      "dimensions": "n_residues",
+      "description": "Per-residue backbone conformation classification for the medoid model, using the Ramachandran region definitions below"
+    }
+  },
+  "ramachandran_regions": {
+    "note": "Classify each residue of the medoid model based on its phi and psi angles, converted to degrees",
+    "alpha": {
+      "condition": "phi in [-160, -20] AND psi in [-120, 50]"
+    },
+    "beta": {
+      "condition": "phi in [-180, -20] AND (psi > 50 OR psi < -120)"
+    },
+    "coil": {
+      "condition": "All other cases, including residues where phi or psi is undefined"
+    }
+  }
+}

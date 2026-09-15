@@ -1,0 +1,47 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level numerical analysis expertise across three distinct domains:
+(1) oscillatory quadrature with session-specific frequency and phase parameters over an infinite domain,
+(2) large sparse linear algebra with prime-valued diagonal and power-of-2 off-diagonal bands
+at a calibration-specific dimension and target set,
+(3) Brownian motion exit probabilities via harmonic measure on a non-standard rectangle geometry.
+The agent must first explore the workspace to discover calibration parameters, interpret each problem
+from structured data files and failed-run logs, then select appropriate high-precision numerical
+methods and implement them to achieve 10 significant digits."""
+solution_explanation = """Problem 1: high-precision adaptive quadrature (mpmath) of cos(alpha*x^2+beta*x)/cosh(x) on [0,inf),
+reading alpha=1.732... and beta=0.618... from calibration; interval splitting handles oscillation.
+Problem 2: sieve 2000 primes, build the sparse matrix with 8 off-diagonal bands at powers-of-2
+offsets, sparse LU factorization, and solve Ax=e_k for three calibration-specific target columns.
+Problem 3: analytic series formula for harmonic measure on a 9.4x1.6 rectangle:
+P = (4/pi) * sum_{n>=0} (-1)^n / ((2n+1) * cosh((2n+1) * pi * L / (2W)))."""
+verification_explanation = """The test independently computes all five reference values using the
+same DNA parameters hardcoded from calibration.json: the integral via mpmath quadrature,
+the matrix entries via scipy sparse LU, and the exit probability via the analytic series.
+Each agent answer is compared against the reference with a relative error tolerance of 1e-9.
+The session_id string from calibration.json must also match exactly."""
+category = "scientific_computing"
+tags = ["numerical-analysis", "sparse-linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c4a67c"

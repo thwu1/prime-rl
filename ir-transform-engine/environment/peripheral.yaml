@@ -1,0 +1,609 @@
+block/xdma::Xdma:
+  description: Advanced DMA Controller with 4 channels
+  items:
+  - name: ch0_ctrl
+    byte_offset: 0
+    fieldset: xdma::regs::Ch0Ctrl
+  - name: ch0_xfer
+    byte_offset: 4
+    fieldset: xdma::regs::Ch0Xfer
+  - name: ch0_src
+    byte_offset: 8
+  - name: ch0_dst
+    byte_offset: 12
+  - name: ch0_count
+    byte_offset: 16
+    fieldset: xdma::regs::Ch0Count
+  - name: ch1_ctrl
+    byte_offset: 32
+    fieldset: xdma::regs::Ch1Ctrl
+  - name: ch1_xfer
+    byte_offset: 36
+    fieldset: xdma::regs::Ch1Xfer
+  - name: ch1_src
+    byte_offset: 40
+  - name: ch1_dst
+    byte_offset: 44
+  - name: ch1_count
+    byte_offset: 48
+    fieldset: xdma::regs::Ch1Count
+  - name: ch2_ctrl
+    byte_offset: 64
+    fieldset: xdma::regs::Ch2Ctrl
+  - name: ch2_xfer
+    byte_offset: 68
+    fieldset: xdma::regs::Ch2Xfer
+  - name: ch2_src
+    byte_offset: 72
+  - name: ch2_dst
+    byte_offset: 76
+  - name: ch2_count
+    byte_offset: 80
+    fieldset: xdma::regs::Ch2Count
+  - name: ch3_ctrl
+    byte_offset: 96
+    fieldset: xdma::regs::Ch3Ctrl
+  - name: ch3_xfer
+    byte_offset: 100
+    fieldset: xdma::regs::Ch3Xfer
+  - name: ch3_src
+    byte_offset: 104
+  - name: ch3_dst
+    byte_offset: 108
+  - name: ch3_count
+    byte_offset: 112
+    fieldset: xdma::regs::Ch3Count
+  - name: ints
+    byte_offset: 256
+    access: Read
+    fieldset: xdma::regs::Ints
+  - name: inte
+    byte_offset: 260
+    fieldset: xdma::regs::Inte
+  - name: intf
+    byte_offset: 264
+    fieldset: xdma::regs::Intf
+  - name: intr
+    byte_offset: 268
+    access: Read
+    fieldset: xdma::regs::Intr
+  - name: timer0
+    byte_offset: 272
+    fieldset: xdma::regs::Timer0
+  - name: timer1
+    byte_offset: 276
+    fieldset: xdma::regs::Timer1
+fieldset/xdma::regs::Ch0Ctrl:
+  description: Channel 0 Control Register
+  fields:
+  - name: en
+    bit_offset: 0
+    bit_size: 1
+  - name: treq_sel
+    bit_offset: 1
+    bit_size: 6
+    enum: xdma::vals::Ch0TreqSel
+  - name: data_size
+    bit_offset: 7
+    bit_size: 2
+    enum: xdma::vals::Ch0DataSize
+  - name: incr_read
+    bit_offset: 9
+    bit_size: 1
+  - name: incr_write
+    bit_offset: 10
+    bit_size: 1
+  - name: ring_size
+    bit_offset: 11
+    bit_size: 4
+  - name: chain_to
+    bit_offset: 15
+    bit_size: 4
+  - name: busy
+    bit_offset: 24
+    bit_size: 1
+  - name: ahb_error
+    bit_offset: 31
+    bit_size: 1
+fieldset/xdma::regs::Ch1Ctrl:
+  description: Channel 1 Control Register
+  fields:
+  - name: en
+    bit_offset: 0
+    bit_size: 1
+  - name: treq_sel
+    bit_offset: 1
+    bit_size: 6
+    enum: xdma::vals::Ch1TreqSel
+  - name: data_size
+    bit_offset: 7
+    bit_size: 2
+    enum: xdma::vals::Ch1DataSize
+  - name: incr_read
+    bit_offset: 9
+    bit_size: 1
+  - name: incr_write
+    bit_offset: 10
+    bit_size: 1
+  - name: ring_size
+    bit_offset: 11
+    bit_size: 4
+  - name: chain_to
+    bit_offset: 15
+    bit_size: 4
+  - name: busy
+    bit_offset: 24
+    bit_size: 1
+  - name: ahb_error
+    bit_offset: 31
+    bit_size: 1
+fieldset/xdma::regs::Ch2Ctrl:
+  description: Channel 2 Control Register
+  fields:
+  - name: en
+    bit_offset: 0
+    bit_size: 1
+  - name: treq_sel
+    bit_offset: 1
+    bit_size: 6
+    enum: xdma::vals::Ch2TreqSel
+  - name: data_size
+    bit_offset: 7
+    bit_size: 2
+    enum: xdma::vals::Ch2DataSize
+  - name: incr_read
+    bit_offset: 9
+    bit_size: 1
+  - name: incr_write
+    bit_offset: 10
+    bit_size: 1
+  - name: ring_size
+    bit_offset: 11
+    bit_size: 4
+  - name: chain_to
+    bit_offset: 15
+    bit_size: 4
+  - name: busy
+    bit_offset: 24
+    bit_size: 1
+  - name: ahb_error
+    bit_offset: 31
+    bit_size: 1
+fieldset/xdma::regs::Ch3Ctrl:
+  description: Channel 3 Control Register
+  fields:
+  - name: en
+    bit_offset: 0
+    bit_size: 1
+  - name: treq_sel
+    bit_offset: 1
+    bit_size: 6
+    enum: xdma::vals::Ch3TreqSel
+  - name: data_size
+    bit_offset: 7
+    bit_size: 2
+    enum: xdma::vals::Ch3DataSize
+  - name: incr_read
+    bit_offset: 9
+    bit_size: 1
+  - name: incr_write
+    bit_offset: 10
+    bit_size: 1
+  - name: ring_size
+    bit_offset: 11
+    bit_size: 4
+  - name: chain_to
+    bit_offset: 15
+    bit_size: 4
+  - name: busy
+    bit_offset: 24
+    bit_size: 1
+  - name: ahb_error
+    bit_offset: 31
+    bit_size: 1
+fieldset/xdma::regs::Ch0Xfer:
+  description: Channel 0 Transfer Configuration
+  fields:
+  - name: burst_len
+    bit_offset: 0
+    bit_size: 4
+    enum: xdma::vals::Ch0BurstLen
+  - name: prot
+    bit_offset: 4
+    bit_size: 3
+  - name: priority
+    bit_offset: 8
+    bit_size: 2
+  - name: sniff_en
+    bit_offset: 10
+    bit_size: 1
+fieldset/xdma::regs::Ch1Xfer:
+  description: Channel 1 Transfer Configuration
+  fields:
+  - name: burst_len
+    bit_offset: 0
+    bit_size: 4
+    enum: xdma::vals::Ch1BurstLen
+  - name: prot
+    bit_offset: 4
+    bit_size: 3
+  - name: priority
+    bit_offset: 8
+    bit_size: 2
+  - name: sniff_en
+    bit_offset: 10
+    bit_size: 1
+fieldset/xdma::regs::Ch2Xfer:
+  description: Channel 2 Transfer Configuration
+  fields:
+  - name: burst_len
+    bit_offset: 0
+    bit_size: 4
+    enum: xdma::vals::Ch2BurstLen
+  - name: prot
+    bit_offset: 4
+    bit_size: 3
+  - name: priority
+    bit_offset: 8
+    bit_size: 2
+  - name: sniff_en
+    bit_offset: 10
+    bit_size: 1
+fieldset/xdma::regs::Ch3Xfer:
+  description: Channel 3 Transfer Configuration
+  fields:
+  - name: burst_len
+    bit_offset: 0
+    bit_size: 4
+    enum: xdma::vals::Ch3BurstLen
+  - name: prot
+    bit_offset: 4
+    bit_size: 3
+  - name: priority
+    bit_offset: 8
+    bit_size: 2
+  - name: sniff_en
+    bit_offset: 10
+    bit_size: 1
+fieldset/xdma::regs::Ch0Count:
+  description: Channel 0 Transfer Count
+  fields:
+  - name: count
+    bit_offset: 0
+    bit_size: 28
+  - name: mode
+    bit_offset: 28
+    bit_size: 2
+fieldset/xdma::regs::Ch1Count:
+  description: Channel 1 Transfer Count
+  fields:
+  - name: count
+    bit_offset: 0
+    bit_size: 28
+  - name: mode
+    bit_offset: 28
+    bit_size: 2
+fieldset/xdma::regs::Ch2Count:
+  description: Channel 2 Transfer Count
+  fields:
+  - name: count
+    bit_offset: 0
+    bit_size: 28
+  - name: mode
+    bit_offset: 28
+    bit_size: 2
+fieldset/xdma::regs::Ch3Count:
+  description: Channel 3 Transfer Count
+  fields:
+  - name: count
+    bit_offset: 0
+    bit_size: 28
+  - name: mode
+    bit_offset: 28
+    bit_size: 2
+fieldset/xdma::regs::Ints:
+  description: Interrupt Status
+  fields:
+  - name: ch0_done
+    bit_offset: 0
+    bit_size: 1
+  - name: ch1_done
+    bit_offset: 1
+    bit_size: 1
+  - name: ch2_done
+    bit_offset: 2
+    bit_size: 1
+  - name: ch3_done
+    bit_offset: 3
+    bit_size: 1
+  - name: ch0_error
+    bit_offset: 4
+    bit_size: 1
+  - name: ch1_error
+    bit_offset: 5
+    bit_size: 1
+  - name: ch2_error
+    bit_offset: 6
+    bit_size: 1
+  - name: ch3_error
+    bit_offset: 7
+    bit_size: 1
+fieldset/xdma::regs::Inte:
+  description: Interrupt Enable
+  fields:
+  - name: ch0_done
+    bit_offset: 0
+    bit_size: 1
+  - name: ch1_done
+    bit_offset: 1
+    bit_size: 1
+  - name: ch2_done
+    bit_offset: 2
+    bit_size: 1
+  - name: ch3_done
+    bit_offset: 3
+    bit_size: 1
+  - name: ch0_error
+    bit_offset: 4
+    bit_size: 1
+  - name: ch1_error
+    bit_offset: 5
+    bit_size: 1
+  - name: ch2_error
+    bit_offset: 6
+    bit_size: 1
+  - name: ch3_error
+    bit_offset: 7
+    bit_size: 1
+fieldset/xdma::regs::Intf:
+  description: Interrupt Force
+  fields:
+  - name: ch0_done
+    bit_offset: 0
+    bit_size: 1
+  - name: ch1_done
+    bit_offset: 1
+    bit_size: 1
+  - name: ch2_done
+    bit_offset: 2
+    bit_size: 1
+  - name: ch3_done
+    bit_offset: 3
+    bit_size: 1
+  - name: ch0_error
+    bit_offset: 4
+    bit_size: 1
+  - name: ch1_error
+    bit_offset: 5
+    bit_size: 1
+  - name: ch2_error
+    bit_offset: 6
+    bit_size: 1
+  - name: ch3_error
+    bit_offset: 7
+    bit_size: 1
+fieldset/xdma::regs::Intr:
+  description: Raw Interrupt Status
+  fields:
+  - name: ch0_done
+    bit_offset: 0
+    bit_size: 1
+  - name: ch1_done
+    bit_offset: 1
+    bit_size: 1
+  - name: ch2_done
+    bit_offset: 2
+    bit_size: 1
+  - name: ch3_done
+    bit_offset: 3
+    bit_size: 1
+  - name: ch0_error
+    bit_offset: 4
+    bit_size: 1
+  - name: ch1_error
+    bit_offset: 5
+    bit_size: 1
+  - name: ch2_error
+    bit_offset: 6
+    bit_size: 1
+  - name: ch3_error
+    bit_offset: 7
+    bit_size: 1
+fieldset/xdma::regs::Timer0:
+  description: Pacing Timer 0
+  fields:
+  - name: x
+    bit_offset: 0
+    bit_size: 16
+  - name: y
+    bit_offset: 16
+    bit_size: 16
+fieldset/xdma::regs::Timer1:
+  description: Pacing Timer 1
+  fields:
+  - name: x
+    bit_offset: 0
+    bit_size: 16
+  - name: y
+    bit_offset: 16
+    bit_size: 16
+enum/xdma::vals::Ch0DataSize:
+  bit_size: 2
+  variants:
+  - name: BYTE
+    value: 0
+  - name: HALFWORD
+    value: 1
+  - name: WORD
+    value: 2
+enum/xdma::vals::Ch1DataSize:
+  bit_size: 2
+  variants:
+  - name: BYTE
+    value: 0
+  - name: HALFWORD
+    value: 1
+  - name: WORD
+    value: 2
+enum/xdma::vals::Ch2DataSize:
+  bit_size: 2
+  variants:
+  - name: BYTE
+    value: 0
+  - name: HALFWORD
+    value: 1
+  - name: WORD
+    value: 2
+enum/xdma::vals::Ch3DataSize:
+  bit_size: 2
+  variants:
+  - name: BYTE
+    value: 0
+  - name: HALFWORD
+    value: 1
+  - name: WORD
+    value: 2
+enum/xdma::vals::Ch0TreqSel:
+  bit_size: 6
+  variants:
+  - name: PIO0_TX0
+    value: 0
+  - name: PIO0_TX1
+    value: 1
+  - name: PIO0_RX0
+    value: 4
+  - name: PIO0_RX1
+    value: 5
+  - name: SPI0_TX
+    value: 16
+  - name: SPI0_RX
+    value: 17
+  - name: UART0_TX
+    value: 20
+  - name: UART0_RX
+    value: 21
+  - name: TIMER0
+    value: 59
+  - name: TIMER1
+    value: 60
+  - name: PERMANENT
+    value: 63
+enum/xdma::vals::Ch1TreqSel:
+  bit_size: 6
+  variants:
+  - name: PIO0_TX0
+    value: 0
+  - name: PIO0_TX1
+    value: 1
+  - name: PIO0_RX0
+    value: 4
+  - name: PIO0_RX1
+    value: 5
+  - name: SPI0_TX
+    value: 16
+  - name: SPI0_RX
+    value: 17
+  - name: UART0_TX
+    value: 20
+  - name: UART0_RX
+    value: 21
+  - name: TIMER0
+    value: 59
+  - name: TIMER1
+    value: 60
+  - name: PERMANENT
+    value: 63
+enum/xdma::vals::Ch2TreqSel:
+  bit_size: 6
+  variants:
+  - name: PIO0_TX0
+    value: 0
+  - name: PIO0_TX1
+    value: 1
+  - name: PIO0_RX0
+    value: 4
+  - name: PIO0_RX1
+    value: 5
+  - name: SPI0_TX
+    value: 16
+  - name: SPI0_RX
+    value: 17
+  - name: UART0_TX
+    value: 20
+  - name: UART0_RX
+    value: 21
+  - name: TIMER0
+    value: 59
+  - name: TIMER1
+    value: 60
+  - name: PERMANENT
+    value: 63
+enum/xdma::vals::Ch3TreqSel:
+  bit_size: 6
+  variants:
+  - name: PIO0_TX0
+    value: 0
+  - name: PIO0_TX1
+    value: 1
+  - name: PIO0_RX0
+    value: 4
+  - name: PIO0_RX1
+    value: 5
+  - name: SPI0_TX
+    value: 16
+  - name: SPI0_RX
+    value: 17
+  - name: UART0_TX
+    value: 20
+  - name: UART0_RX
+    value: 21
+  - name: TIMER0
+    value: 59
+  - name: TIMER1
+    value: 60
+  - name: PERMANENT
+    value: 63
+enum/xdma::vals::Ch0BurstLen:
+  bit_size: 4
+  variants:
+  - name: SINGLE
+    value: 0
+  - name: BURST4
+    value: 1
+  - name: BURST8
+    value: 2
+  - name: BURST16
+    value: 3
+enum/xdma::vals::Ch1BurstLen:
+  bit_size: 4
+  variants:
+  - name: SINGLE
+    value: 0
+  - name: BURST4
+    value: 1
+  - name: BURST8
+    value: 2
+  - name: BURST16
+    value: 3
+enum/xdma::vals::Ch2BurstLen:
+  bit_size: 4
+  variants:
+  - name: SINGLE
+    value: 0
+  - name: BURST4
+    value: 1
+  - name: BURST8
+    value: 2
+  - name: BURST16
+    value: 3
+enum/xdma::vals::Ch3BurstLen:
+  bit_size: 4
+  variants:
+  - name: SINGLE
+    value: 0
+  - name: BURST4
+    value: 1
+  - name: BURST8
+    value: 2
+  - name: BURST16
+    value: 3

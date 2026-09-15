@@ -1,0 +1,50 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Nav2/ROS2 knowledge to independently identify all
+configuration incompatibilities when migrating from differential-drive to Ackermann. The agent
+must query a SQLite fleet database for platform constraints and incident history, parse and
+correct YAML controller/costmap configuration, fix XML behavior tree recovery actions that are
+physically impossible for Ackermann kinematics, and cross-validate everything against the robot
+specification — while ignoring deliberately misleading validation tooling and migration notes.
+Demands multi-tool interoperability across sqlite3, YAML, XML, and JSON formats."""
+solution_explanation = """Query fleet.db with sqlite3 to find the correct Ackermann motion model
+plugin and review incident reports from past migrations. Read robot_spec.yaml for kinematic
+constraints. Fix nav2_params.yaml: set motion_model to ackermann with correct plugin and
+turning radius, zero lateral velocity/acceleration, resize local costmap to contain prediction
+horizon, enable rolling_window, increase inflation radius above circumscribed_radius, synchronize
+velocity smoother with controller limits, clamp CostCritic to valid OccupancyGrid range, align
+critic handoff thresholds with prediction horizon, fix collision monitor topic. Fix nav2_bt.xml:
+replace Spin recovery (impossible for non-holonomic vehicle) with BackUp. Produce audit.json
+documenting all changes with physical justifications across both files."""
+verification_explanation = """Pytest validates 35+ assertions: YAML motion model, Ackermann
+plugin/turning radius, zero lateral kinematics, velocity limits matching spec, protected params
+unchanged, costmap sizing vs prediction horizon, rolling window, inflation vs circumscribed
+radius, velocity smoother consistency, OccupancyGrid cost validity, critic threshold handoff,
+collision monitor topology, BT XML has no Spin nodes, BT has BackUp recovery, BT structure valid,
+audit report has 10+ entries with 5 required fields covering multiple files."""
+category = "robotics"
+tags = ["ros2", "navigation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9df128"

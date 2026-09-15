@@ -1,0 +1,68 @@
+{
+  "description": "Output schema for TiDB EXPLAIN ANALYZE diagnostics tool",
+  "output_path": "/app/output/diagnostics.json",
+  "schema": {
+    "plans": {
+      "<plan_filename>": {
+        "total_time_ms": "float: total wall-clock time of the root operator in milliseconds",
+        "bottleneck_operator": "string: id of the operator with the highest self-execution-time contribution",
+        "operators": [
+          {
+            "id": "string: operator id (e.g. Point_Get_1, IndexRangeScan_8(Build))",
+            "task_type": "string: root, cop[tikv], or mpp[tiflash]",
+            "est_rows": "float: estimated rows from the estRows column",
+            "act_rows": "integer: actual rows from the actRows column",
+            "time_ms": "float or null: total time from execution info, in milliseconds",
+            "self_time_ms": "float or null: the operator's own execution overhead excluding time attributable to its direct root-tier child operators; null for non-root operators"
+          }
+        ],
+        "issues": [
+          {
+            "type": "string: one of lock_contention, mvcc_tombstone, memory_spill, suboptimal_join_order",
+            "operator": "string: affected operator id",
+            "details": "object: issue-type-specific metrics (see issue_detail_schemas below)"
+          }
+        ]
+      }
+    },
+    "concurrency_analysis": {
+      "<plan_filename>": {
+        "<operator_id>": {
+          "index_task_concurrency": "int: concurrency of the index_task (default 1 if not stated in execution info)",
+          "table_task_concurrency": "int: concurrency from table_task in execution info",
+          "distsql_concurrency": "int: distsql_concurrency from child cop_task stats",
+          "max_table_cop_tasks": "int: maximum concurrent coprocessor tasks achievable by table_task workers"
+        }
+      }
+    },
+    "comparative_analysis": {
+      "<comparison_name>": {
+        "fast_plan": "string: filename of the faster plan",
+        "slow_plan": "string: filename of the slower plan",
+        "time_ratio": "float: slow_time_ms / fast_time_ms",
+        "root_cause": "string: identified root cause type matching a detected issue in the slow plan"
+      }
+    }
+  },
+  "issue_detail_schemas": {
+    "lock_contention": {
+      "resolve_lock_time_ms": "float: time spent in lock resolution",
+      "resolve_lock_pct": "float: percentage of total time spent in lock resolution",
+      "backoff_count": "int: number of transaction-not-found backoff retries",
+      "backoff_total_ms": "float: total backoff time in ms"
+    },
+    "mvcc_tombstone": {
+      "cop_task_count": "int: number of coprocessor tasks dispatched",
+      "max_proc_keys": "int: maximum processed keys across coprocessor tasks",
+      "scan_direction": "string: ascending or descending"
+    },
+    "memory_spill": {
+      "memory_mb": "float: memory usage in MB",
+      "disk_mb": "float: disk spill in MB"
+    },
+    "suboptimal_join_order": {
+      "build_side_rows": "int: actual rows on the build side",
+      "probe_side_rows": "int: actual rows on the probe side"
+    }
+  }
+}

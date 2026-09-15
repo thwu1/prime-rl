@@ -1,0 +1,20 @@
+{
+    "gamma": 1.4,
+    "domain": {
+        "x_left": -5.0,
+        "x_right": 5.0,
+        "x_diaphragm": 0.0
+    },
+    "left_state": {
+        "rho": 2.0,
+        "u": 0.0,
+        "p": 8.0
+    },
+    "right_state": {
+        "rho": 1.0,
+        "u": 0.0,
+        "p": 1.0
+    },
+    "t_end": 0.8,
+    "cfl": 0.45
+}

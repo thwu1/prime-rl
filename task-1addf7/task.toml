@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of eBPF instruction set architecture (8-byte little-endian instruction encoding, 16-byte LD_IMM64, register semantics), control flow graph construction from raw bytecode, and implementing abstract interpretation for register type tracking. The four verification checks (null pointer dereference after map lookup, packet bounds violations, unreachable code detection, stack overflow) mirror the Linux kernel's eBPF verifier logic, which is among the most complex subsystems in the kernel. Correctly handling the interaction between XDP context structure, packet data/data_end pointer tracking, and conditional branch path sensitivity demands proficient-level systems programming expertise."""
+solution_explanation = """The solution implements a Python eBPF bytecode analyzer that: (1) decodes raw 8-byte instructions using struct.unpack with proper handling of the opcode/registers/offset/immediate layout and 16-byte LD_IMM64 instructions, (2) builds a CFG by classifying each instruction as sequential, unconditional jump, conditional branch, or exit, (3) performs BFS reachability analysis from the entry point, (4) checks stack bounds by inspecting R10-relative memory access offsets, (5) detects null pointer dereferences by forward-scanning from bpf_map_lookup_elem calls to find dereferences before null checks, and (6) tracks register types (CTX, PKT_DATA, PKT_END) through the instruction stream to detect packet accesses without prior bounds comparisons."""
+verification_explanation = """Tests verify correctness across 6 hand-crafted eBPF bytecode programs covering all 4 finding types plus 2 valid programs that must produce zero false positives. Checks include exact instruction counts (validating correct binary parsing and LD_IMM64 handling), CFG edge verification (jump targets, conditional branch successors, exit nodes), finding type and instruction index accuracy, and absence of false positives on correctly-written programs with proper null checks and bounds checks."""
+category = "systems"
+tags = ["ebpf", "static-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1addf7"

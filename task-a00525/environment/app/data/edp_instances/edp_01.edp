@@ -1,0 +1,5 @@
+% Excluded Diagonals Problem
+% Standard 8-queens with no exclusions
+n=8
+D+ = {}
+D- = {}

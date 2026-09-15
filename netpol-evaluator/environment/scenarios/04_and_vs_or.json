@@ -1,0 +1,90 @@
+{
+  "description": "AND vs OR semantics in from clauses - podSelector+namespaceSelector in same entry (AND) vs separate entries (OR)",
+  "namespaces": [
+    {"name": "target", "labels": {"zone": "dmz"}},
+    {"name": "prod-ns", "labels": {"name": "prod", "env": "production"}},
+    {"name": "dev-ns", "labels": {"name": "dev", "env": "development"}},
+    {"name": "staging-ns", "labels": {"name": "staging", "env": "staging"}}
+  ],
+  "pods": [
+    {"name": "server-and", "namespace": "target", "labels": {"app": "server", "test": "and"}, "ip": "10.0.0.1"},
+    {"name": "server-or", "namespace": "target", "labels": {"app": "server", "test": "or"}, "ip": "10.0.0.2"},
+    {"name": "local-client", "namespace": "target", "labels": {"app": "local", "role": "client"}, "ip": "10.0.0.3"},
+    {"name": "prod-client", "namespace": "prod-ns", "labels": {"app": "prod-app", "role": "client"}, "ip": "10.1.0.1"},
+    {"name": "prod-admin", "namespace": "prod-ns", "labels": {"app": "prod-admin", "role": "admin"}, "ip": "10.1.0.2"},
+    {"name": "dev-client", "namespace": "dev-ns", "labels": {"app": "dev-app", "role": "client"}, "ip": "10.2.0.1"},
+    {"name": "staging-client", "namespace": "staging-ns", "labels": {"app": "staging-app", "role": "client"}, "ip": "10.3.0.1"}
+  ],
+  "network_policies": [
+    {
+      "name": "deny-all",
+      "namespace": "target",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "and-policy",
+      "namespace": "target",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"test": "and"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"env": "production"}
+                },
+                "podSelector": {
+                  "matchLabels": {"role": "client"}
+                }
+              }
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "or-policy",
+      "namespace": "target",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"test": "or"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"env": "production"}
+                }
+              },
+              {
+                "podSelector": {
+                  "matchLabels": {"role": "client"}
+                }
+              }
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "prod-ns", "src_pod": "prod-client", "dst_namespace": "target", "dst_pod": "server-and", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "prod-ns", "src_pod": "prod-admin", "dst_namespace": "target", "dst_pod": "server-and", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "dev-ns", "src_pod": "dev-client", "dst_namespace": "target", "dst_pod": "server-and", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "target", "src_pod": "local-client", "dst_namespace": "target", "dst_pod": "server-and", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "prod-ns", "src_pod": "prod-client", "dst_namespace": "target", "dst_pod": "server-or", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "prod-ns", "src_pod": "prod-admin", "dst_namespace": "target", "dst_pod": "server-or", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "dev-ns", "src_pod": "dev-client", "dst_namespace": "target", "dst_pod": "server-or", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "target", "src_pod": "local-client", "dst_namespace": "target", "dst_pod": "server-or", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "staging-ns", "src_pod": "staging-client", "dst_namespace": "target", "dst_pod": "server-or", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "staging-ns", "src_pod": "staging-client", "dst_namespace": "target", "dst_pod": "server-and", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"}
+  ]
+}

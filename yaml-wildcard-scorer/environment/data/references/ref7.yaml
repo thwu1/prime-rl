@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-cm # *
+data:
+  startup.sh: |
+    #!/bin/bash
+    echo "starting"
+    sleep 5
+  config.ini: |
+    [database]
+    host=localhost
+    port=5432
+  message: hello world # *

@@ -1,0 +1,136 @@
+{
+  "id": "identity_s20",
+  "n_qubits": 1,
+  "gates": [
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "S",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "Sdg",
+      "targets": [
+        0
+      ]
+    }
+  ],
+  "observable": [
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      0
+    ]
+  ]
+}

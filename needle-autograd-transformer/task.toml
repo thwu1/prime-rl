@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing 13 autograd operations with correct forward and backward passes (including BroadcastTo gradient with axis reduction, MatMul with batch broadcasting gradients, Summation gradient with shape reconstruction), plus 8 neural network modules including LayerNorm with population variance through the autograd graph, numerically-stable SoftmaxLoss, multi-head causal self-attention with manual softmax, and a pre-norm TransformerLayer — all verified against finite-difference gradient checking at float64 precision."""
+solution_explanation = """Each operation's compute method wraps the corresponding NumPy function. Gradient methods apply the chain rule: BroadcastTo sums over broadcast axes then reshapes, MatMul transposes and sums batch dims, Summation reshapes then broadcasts. Modules compose these ops: LayerNorm computes population variance via sum-of-squares, SoftmaxLoss uses detached max for stability, MultiHeadAttention reshapes Q/K/V into heads and implements softmax via detached-max + exp/sum, TransformerLayer wires pre-norm residual blocks."""
+verification_explanation = """pytest runs 35+ tests: each op is tested for forward correctness against NumPy reference values and backward correctness via numerical gradient checking (central finite differences at float64 with tolerance 1e-4). Module tests verify output shapes, forward values against manual reference computations, and gradient flow through the full transformer stack."""
+category = "machine_learning"
+tags = ["deep-learning", "automatic-differentiation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/needle-autograd-transformer"

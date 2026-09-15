@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of TLA+ formal specification semantics, the Two-Phase Commit protocol, and the TLC model checker. The agent must diagnose multiple interacting bugs in a TLA+ specification by configuring TLC to check safety invariants, interpreting counterexample traces, and reasoning about protocol semantics. Some bugs mask or reveal others — fixing one may change which invariant violations appear, requiring the agent to reason holistically about the protocol rather than fixing bugs in isolation. Additionally, the agent must design a novel safety invariant (TPSafety) that strengthens the existing consistency property and verify the corrected specification passes all checks."""
+solution_explanation = """Fix TMCommit guard to 'tmPrepared = RM', fix TMRcvPrepared to use 'tmPrepared \\cup {rm}' (accumulate not replace), remove spurious Prepared message from RMChooseToAbort (UNCHANGED msgs), restrict RMRcvCommitMsg to only Commit messages, fix TMAbort to send Abort instead of Commit. Write TPSafety == \\A rm \\in RM : rmState[rm] = "committed" => tmState = "committed" /\\ [type |-> "Commit"] \\in msgs. Complete .cfg with all three invariants and CHECK_DEADLOCK FALSE. Run TLC and extract 288 distinct states, 1146 total, depth 11."""
+verification_explanation = """Tests run TLC independently with all three invariants on the agent's spec, verifying exit code 0 and exact state counts (288 distinct, 1146 total). Structural tests verify TPSafety is defined and references tmState and msgs. A mutation test re-introduces the TMAbort Commit-message bug and runs TLC with only TPSafety to confirm it detects the violation. Results.json is checked for schema and value correctness. The .cfg is checked for all three invariants and CHECK_DEADLOCK."""
+category = "formal_verification"
+tags = ["tla-plus", "model-checking"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-tla-refinement"

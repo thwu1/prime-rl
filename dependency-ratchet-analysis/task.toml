@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple advanced domains: (1) graph algorithm design — Tarjan's SCC detection, BFS-based transitive closure with shortest-path distances, and minimum feedback arc set (FAS) computation (NP-hard in general; requires recognizing that exact solutions via combinatorial enumeration are tractable for small SCCs but not naively scalable). (2) Software architecture theory — Robert C. Martin's coupling metrics (afferent/efferent coupling and instability index), understanding how these metrics interact with the layered ratchet enforcement model, and determining upgrade eligibility by simulating next-level constraints including the interplay between layering violations and cycle membership. (3) The 6-node SCC spanning utility/power/business layers (logging↔merchants↔database↔payment_gateway↔email_provider↔http_client) requires distinguishing intra-layer DAG constraints from full-graph cycle constraints, and computing a minimum FAS of exactly 2 edges from 12 candidate edges (C(12,2)=66 subsets to verify). (4) Holistic system understanding — the solver must see that some packages (e.g., email_provider at 'false' level) have no current violations but would gain violations upon upgrade, affecting both coupling metrics interpretation and FAS edge selection strategy. The 5-table SQLite schema with 200+ row transitive closure and coupling metrics table, combined with Graphviz DOT generation with conditional styling, demands fluency across data modeling, graph theory, and software architecture."""
+solution_explanation = """Parse all 25 package.rb manifests to extract layer, strict_dependencies, and imports (CamelCase→snake_case). Load layers.yml for ordering. Build adjacency list, compute afferent/efferent coupling and instability for each package. Run Tarjan's for SCC detection (finds 6-node cross-layer SCC and 2-node subscriptions/invoices SCC). For each SCC, compute minimum feedback arc set by enumerating edge subsets of increasing size and checking acyclicity after removal. For each package, validate ratchet level constraints and determine upgrade eligibility by simulating next level. BFS from each node for transitive closure with shortest-path distances. Create 5-table SQLite database. Generate DOT with subgraph clusters, conditional node colors, and red violation edges, render with dot -Tsvg."""
+verification_explanation = """Pytest validates all three artifacts across 10+ test classes: (1) JSON report structure, layer assignments, violation detection (exactly 3 packages), upgrade eligibility (17 upgradeable), transitive dep counts for all 25 packages, coupling metrics (Ca/Ce/instability for key packages), and summary statistics. (2) Feedback arc set verification: checks FAS entry count (2 SCCs), edge counts (2 for 6-node, 1 for 2-node), validates all FAS edges are actual SCC edges, and programmatically verifies removing FAS edges breaks cycles via DFS acyclicity check. (3) SQLite database verified via SQL queries: 5 tables with correct schemas, row counts (25 packages, 110 deps, 223 transitive, 3 violations, 25 coupling), specific shortest-path distances, and coupling metric values. (4) SVG validated for XML structure, all 25 package names, 5 layer labels, red violation edges, and ratchet-level node colors."""
+category = "software_engineering"
+tags = ["graph_algorithms", "dependency_analysis", "software_architecture", "feedback_arc_set"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dependency-ratchet-analysis"

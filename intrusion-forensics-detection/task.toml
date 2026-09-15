@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network forensics integrating multiple security domains: (1) PCAP triage across ~950 packets to separate multi-stage attack traffic from legitimate background noise including CDN-like red herrings, (2) SYN scan fingerprinting via TCP flag analysis across 150 probed ports, (3) HTTP payload extraction and URL-decoding to identify command injection with shell pipeline, (4) discovery and independent evaluation of THREE covert exfiltration channels — DNS tunneling with base32-encoded subdomains, HTTP POST covert channel on a non-standard port with hex-encoded JSON payloads masquerading as telemetry, and a DNS-based anti-forensics decoy using base32-encoded random binary data on a different domain, (5) expert-level channel attribution requiring the solver to EVALUATE decoded data validity to distinguish real exfiltration from deception — the decoy uses identical encoding but produces meaningless binary, (6) cross-channel validation via independent decoding and SHA-256 hash comparison, (7) Suricata/Snort detection rule DESIGN requiring creation of domain-specific content matching that detects real channels while explicitly avoiding false positives on decoy traffic. Maps to GIAC GX-IA and GX-CS expert-tier competencies in intrusion analysis, network forensics, and IDS engineering."""
+solution_explanation = """Use scapy or tshark and Python to analyze the PCAP. Identify SYN scan via TCP flag analysis — find the external IP probing 150 distinct ports on a single internal host. Locate the HTTP POST command injection on port 8080 at /api/diagnostic by extracting HTTP request fields. Discover three exfiltration-like channels: (a) DNS tunneling via long base32 subdomains querying data.c2server.xyz — decode base32 subdomains to recover credential data, (b) HTTP POST requests on non-standard port from the compromised host to 198.51.100.77 with hex-encoded payload fields in JSON — extract via raw TCP payload parsing, concatenate by part number and hex-decode to recover identical credentials, (c) DNS queries with base32 subdomains to metrics.svcmon.io — attempt decode, find it produces random binary (not valid text/credentials), classify as decoy. Cross-validate channels (a) and (b) via SHA-256 hash comparison. Write Suricata rules targeting c2server.xyz DNS content and the HTTP exfil endpoint, deliberately excluding svcmon.io to avoid false positives on the decoy."""
+verification_explanation = """Tests verify: (1) forensic_report.json — correct attacker IP 203.0.113.50, target 10.1.1.100, 150 scanned ports, 4 open ports, command injection on port 8080, c2server.xyz domain, 198.51.100.77 secondary destination, svcmon.io decoy domain, and reasoned decoy rationale, (2) decoded_primary.txt and decoded_secondary.txt both contain all 5 credential key-value pairs, (3) channel_assessment.json correctly classifies 2 active_exfiltration channels (DNS/base32 and HTTP/hex) and 1 decoy channel with data_valid=false, plus cross_validation with matching SHA-256 hash, (4) detection.rules has >=2 rules with unique SIDs, references real C2 domain, covers HTTP exfil, and does NOT reference the decoy svcmon domain in any rule line."""
+category = "security"
+tags = ["network-forensics", "detection-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/intrusion-forensics-detection"

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>ORG-IDENTIFIER-THAT-EXCEEDS-THIRTY-FIVE-X</OrganizationIdentifier>
+      <OrganizationFormalName>Complex Audit Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-CX</ProjectIdentifier>
+      <ProjectName>Complex Validation Project</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-CX</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Complex Test Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>40.789012</LatitudeMeasure>
+        <LongitudeMeasure>-74.345678</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NJ</StateCode>
+        <CountyCode>017</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-CX-001</ActivityIdentifier>
+        <ActivityTypeCode>Tissue Sampling Activity</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-08-15</ActivityStartDate>
+        <ProjectIdentifier>PROJ-NONEXISTENT</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-CX</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Nitrogen</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>2.45</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+          <StatisticalBaseCode>Mean</StatisticalBaseCode>
+        </ResultDescription>
+      </Result>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Benthic Macroinvertebrates</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>145</ResultMeasureValue>
+            <MeasureUnitCode>count</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <BiologicalResultDescription>
+          <BiologicalIntentName>Group Summary</BiologicalIntentName>
+          <SubjectTaxonomicName>Ephemeroptera</SubjectTaxonomicName>
+        </BiologicalResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

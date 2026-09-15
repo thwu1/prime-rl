@@ -1,0 +1,26 @@
+{
+  "description": "XAES-256-GCM interoperability test vectors",
+  "vectors": [
+    {
+      "name": "vector_1",
+      "key_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+      "nonce_hex": "4142434445464748494a4b4c4d4e4f505152535455565758",
+      "plaintext_hex": "584145532d3235362d47434d",
+      "aad_hex": "",
+      "expected_ciphertext_hex": "ce546ef63c9cc60765923609b33a9a1974e96e52daf2fcf7075e2271"
+    },
+    {
+      "name": "vector_2",
+      "key_hex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "nonce_hex": "4142434445464748494a4b4c4d4e4f505152535455565758",
+      "plaintext_hex": "584145532d3235362d47434d",
+      "aad_hex": "633273702e6f72672f584145532d3235362d47434d",
+      "expected_ciphertext_hex": "986ec1832593df5443a179437fd083bf3fdb41abd740a21f71eb769d"
+    }
+  ],
+  "accumulated": {
+    "description": "Deterministic RNG: SHAKE-128 with empty input. For each iteration draw key[32], nonce[24], plaintext<0..255>, aad<0..255> (variable-length fields have 1-byte length prefix from RNG). Encrypt and feed ciphertext+tag into SHAKE-128 accumulator. Read 32 bytes from accumulator after all iterations.",
+    "iterations": 10000,
+    "expected_hash_hex": "e6b9edf2df6cec60c8cbd864e2211b597fb69a529160cd040d56c0c210081939"
+  }
+}

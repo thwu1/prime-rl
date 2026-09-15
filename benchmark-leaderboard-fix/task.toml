@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level proficiency across three distinct tool ecosystems (SQLite JSON functions, Python statistics, jq data transformation) and the ability to independently discover the correct approach from ambiguous materials. The agent must: (1) reverse-engineer a Makefile-driven pipeline to understand cross-stage data contracts without any guidance on what each stage does; (2) explore a normalized SQLite schema and construct a complex single-SELECT query using json_object, json_group_array, json_group_object, correlated subqueries, CASE-based key mapping, and json() type coercion for boolean conversion — requiring deep knowledge of SQLite's JSON1 extension; (3) independently discover and evaluate competing statistical implementations (Bernoulli vs combinatorial vs Bayesian for pass@k, population vs Bessel-corrected vs cluster-robust for SEM, simple vs tiered vs per-resolution for cost) by reading methodology documentation and candidate code, then applying finite-sample statistics theory to select the unbiased/correct approaches; (4) implement a complete jq filter with config-driven dynamic field access, mixed ascending/descending sort-key construction using negation, rank assignment via to_entries, and precision-controlled numeric formatting; (5) debug cross-tool format compatibility at every boundary (SQLite→JSON→Python→JSON→jq→JSON). The difficulty is compounded by the instruction providing zero algorithmic or tool-specific guidance — the agent must discover all of this through systematic exploration."""
+solution_explanation = """Write a single-SELECT SQL query using json_object with correlated subqueries: json_group_object with CASE for pricing pivot, json_group_array of json_object for runs with json(CASE...true/false) for boolean coercion, wrapped in json_group_array(json(eval_json)) for correct JSON nesting. Python: select combinatorial pass@k (1-C(n-c,k)/C(n,k)), Bessel SEM (sqrt(p(1-p)/(n-1))), tiered cost with cached pricing, string-comparison contamination. jq: build criteria array from config, sort_by dynamic field access with negation for descending, to_entries for rank assignment, arithmetic rounding for percentage formatting."""
+verification_explanation = """40+ tests verify each tool stage independently and in integration. SQL extraction tests run sqlite3 in subprocess and verify JSON structure, model/task/eval counts, pricing pivot values, boolean types, run grouping, and token fields. Python function tests import metrics directly and use anti-tests (test_not_bernoulli, test_not_bayesian, test_differs_from_population, test_differs_from_clustered) to reject wrong candidate implementations. jq tests run jq in subprocess with fixture data, verifying config-driven sorting, ascending/descending handling, output formatting, and tiebreaker logic. Full pipeline integration tests run 'make all' and verify all metric values, ranking order, contamination counts, costs, and unique solves against precomputed expected values."""
+category = "data_analysis"
+tags = ["multi-tool-pipeline", "benchmark-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-leaderboard-fix"

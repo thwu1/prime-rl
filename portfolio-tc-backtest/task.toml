@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level quantitative finance expertise: deriving closed-form solutions for mean-variance optimization with anisotropic quadratic transaction costs, implementing rolling-window out-of-sample backtesting with weight drift mechanics, and performing grid-search parameter tuning. Additionally demands multi-tool interoperability: extracting long-format financial data from a SQLite database (pivoting to matrix form via SQL or Python), parsing TOML configuration, and writing columnar Parquet output alongside JSON — combining database querying, config parsing, numerical computing, and columnar file I/O in a single pipeline."""
+solution_explanation = """Read industry returns from SQLite long-format table and pivot to a T×N matrix. Parse TOML config for backtest parameters. Derive the closed-form TC-adjusted portfolio by recognizing the anisotropic cost term can be absorbed: Sigma_star = Sigma + (beta/gamma)*B, mu_star = mu + beta*B*w_prev. Run 500-period rolling backtest with weight drift, grid-search 21 beta values, and write all results as JSON plus a full weight history Parquet file."""
+verification_explanation = """Tests independently load data from the same SQLite database and TOML config, run a complete reference backtest implementation, and compare all agent outputs (Sharpe ratios, optimal beta, weights at period 250, strategy ranking) within numerical tolerance. Additional structural tests verify Parquet schema, row count, weight-sum constraints, and cross-consistency between Parquet and JSON outputs."""
+category = "quantitative_finance"
+tags = ["portfolio-optimization", "multi-format-data"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/portfolio-tc-backtest"

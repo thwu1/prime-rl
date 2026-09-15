@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing a broken multi-tool data pipeline (base64 decoding, jq JSON schema transformation with unit conversion, Maven build configuration) in addition to implementing a complete ISDA CDS Standard Model pricer from scratch in Java. The solver must fix the Maven pom.xml (wrong Java source level, wrong mainClass, missing exec arguments), debug and rewrite the jq filter in pipeline.sh to correctly map the raw market-data feed schema (different field names, basis-point and percentage units) to the format expected by the Java data loader, fix a column-swap defect in the CSV parser, and implement product-linear curve interpolation, CDS payment schedule generation with business day conventions, protection leg numerical integration over merged curve knots, premium leg computation with accrual-on-default, and clean PV assembly. Matching 1e-9 tolerance demands the exact ISDA numerical scheme."""
+solution_explanation = """The solution replaces the skeleton CdsPricer.java with a complete implementation that: (1) uses product-linear interpolation where r(t)*t is piecewise linear, with flat-rate left extrapolation and product-linear right extrapolation; (2) generates quarterly CDS payment schedules with SHORT_INITIAL stub, roll day from end-date DOM, FOLLOWING business day adjustment on SAT_SUN calendar; (3) computes the protection leg via piecewise integration over merged yield/credit curve knots using the ISDA epsilon function for numerical stability when |dht+drt|<1e-5; (4) computes the premium leg as survival-weighted discounted annuity plus exact ORIGINAL_ISDA accrual-on-default integral using the epsilonP function; (5) assembles clean PV as buySell * notional * (protLeg - rate * (dirtyAnnuity - accrued)). The pipeline requires fixing the pom.xml Java version from 1.8 to 11+, correcting the exec-maven-plugin mainClass, adding exec arguments, rewriting the jq filter with correct field paths and unit conversions (recovery_rate_pct/100, coupon_bps/10000), and fixing the DataLoader CSV column swap."""
+verification_explanation = """Tests compile and run the Java pricer via pipeline.sh, then read /app/results.json and compare 9 computed values (protection leg, dirty risky annuity, clean PV for three CDS trades with different start dates and buy/sell directions) against reference values derived from the ISDA standard model. Unit-notional values are checked to 1e-9 absolute tolerance; PV values to 10.0 absolute tolerance. These tight tolerances require the exact ISDA numerical integration scheme — wrong interpolation, missing accrual-on-default, or incorrect schedule generation produces errors 100-1000x larger than the tolerance."""
+category = "finance"
+tags = ["quantitative-finance", "credit-derivatives"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/isda-cds-pricer-e240db"

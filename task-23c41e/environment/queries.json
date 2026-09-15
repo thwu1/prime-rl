@@ -1,0 +1,12 @@
+[
+  {"id": "q1", "features": ["tcp", "smp"], "no_default_features": true},
+  {"id": "q2", "features": ["fuse", "udp", "net-trace"], "no_default_features": true},
+  {"id": "q3", "features": [], "no_default_features": false},
+  {"id": "q4", "features": ["pci", "net-trace"], "no_default_features": true},
+  {"id": "q5", "features": ["rtl8139", "dns", "virtio-console"], "no_default_features": true},
+  {"id": "q6", "features": ["console", "vsock", "mmap"], "no_default_features": true},
+  {"id": "q7", "features": ["tcp", "virtio-net", "net-trace", "pci"], "no_default_features": true},
+  {"id": "q8", "features": ["dhcpv4", "dns", "udp", "virtio-net"], "no_default_features": true},
+  {"id": "q9", "features": ["virtio-fs", "virtio-console", "net-trace"], "no_default_features": true},
+  {"id": "q10", "features": ["kernel-stack", "write-pcap-file", "tcp", "virtio-net"], "no_default_features": true}
+]

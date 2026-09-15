@@ -1,0 +1,56 @@
+{
+  "polyhedra": [
+    {
+      "name": "dodecahedron",
+      "construction": {
+        "seed": "icosahedron",
+        "operators": ["dual"]
+      },
+      "expected_topology": {
+        "vertices": 20,
+        "edges": 30,
+        "faces": 12,
+        "face_types": {"5": 12}
+      }
+    },
+    {
+      "name": "icosidodecahedron",
+      "construction": {
+        "seed": "icosahedron",
+        "operators": ["ambo"]
+      },
+      "expected_topology": {
+        "vertices": 30,
+        "edges": 60,
+        "faces": 32,
+        "face_types": {"3": 20, "5": 12}
+      }
+    },
+    {
+      "name": "truncated_icosahedron",
+      "construction": {
+        "seed": "icosahedron",
+        "operators": ["truncate"]
+      },
+      "expected_topology": {
+        "vertices": 60,
+        "edges": 90,
+        "faces": 32,
+        "face_types": {"5": 12, "6": 20}
+      }
+    },
+    {
+      "name": "pentakis_dodecahedron",
+      "construction": {
+        "seed": "icosahedron",
+        "operators": ["dual", "kis"]
+      },
+      "expected_topology": {
+        "vertices": 32,
+        "edges": 90,
+        "faces": 60,
+        "face_types": {"3": 60}
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of climate science and scientific Python. The agent must independently: (1) explore and parse an intake-esm catalog to discover available models, variables, and experiments while filtering out distractor entries pointing to non-existent data; (2) inspect CF-convention metadata to determine variable units (K vs C, % for humidity) and the dataset's longitude convention (0-360°) and apply appropriate conversions; (3) recall or derive the Stull (2011) wet bulb temperature formula from the method name alone — no formula is provided; (4) implement standard ONI methodology from scratch — identifying the correct SST variable, Niño 3.4 region boundaries in the data's coordinate system, area-weighting, climatology removal, smoothing, and phase thresholds — with none of these steps specified; (5) handle NaN edge effects from rolling means; (6) combine spatial extreme statistics with temporal ENSO conditioning across multiple models into ensemble statistics. The novel combination of WBT extremes conditioned on ENSO phase with multi-model aggregation is not a standard textbook exercise and requires holistic climate data analysis expertise."""
+solution_explanation = """Parse the intake-esm CSV catalog to discover three models with historical/r1i1p1f1 data. Load tas (K), hurs (%), and tos (K) Zarr stores. Convert tas from K to Celsius, apply the Stull 2011 WBT formula, compute spatial 90th percentile per timestep. For ONI: select Niño 3.4 region (5S-5N, 190-240E in 0-360 convention), compute cos(lat)-weighted area mean of tos, convert to Celsius, remove monthly climatology, apply 3-month centered rolling mean, classify by ±0.5°C thresholds. Compute conditional means of WBT P90 by ENSO phase. Aggregate across models for ensemble mean and population std (ddof=0)."""
+verification_explanation = """Tests independently recompute all values from raw Zarr data using the same standard methodologies. Verification checks: (1) results.json structure with all three models and required keys, (2) WBT formula correctness via T=20°C RH=50% reference point (~13.7°C), (3) per-model conditional WBT P90 means match within 0.1°C tolerance, (4) ENSO month counts match within ±5, (5) ensemble mean and std are internally consistent with per-model values within 0.01, (6) all WBT P90 values fall within physically plausible range 10-35°C."""
+category = "data_science"
+tags = ["climate-science", "xarray"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d54cd0"

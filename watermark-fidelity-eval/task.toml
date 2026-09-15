@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a robust text watermarking algorithm that survives unicode normalization and character perturbation attacks, implementing statistical detection with proper hypothesis testing, computing sentence-level BLEU with n-gram smoothing and brevity penalty, and integrating the full embed-attack-detect-evaluate pipeline. The agent must understand text watermarking theory, NLP evaluation metrics, and cryptographic hashing to build a system that achieves the required fidelity and accuracy thresholds."""
+solution_explanation = """Uses hash-based synonym substitution: for each word in the text, compute SHA-256(key, doc_id, canonical_word) to deterministically decide whether to replace it with its synonym from the provided dictionary. Detection reverses this by checking whether observed word choices correlate with the hash pattern at a rate significantly above chance (threshold 0.70). Fuzzy matching (Levenshtein distance) handles character perturbation attacks. The evaluator implements sentence-level BLEU-4 with add-1 smoothing and balanced accuracy from confusion matrix."""
+verification_explanation = """Tests verify: (1) embedder output format and ID preservation, (2) text fidelity via word overlap proxy >= 0.70, (3) clean detection balanced accuracy >= 0.90, (4) post-attack detection balanced accuracy >= 0.70, (5) evaluator output format and TWF formula correctness, (6) end-to-end pipeline TWF >= 0.45 with BLEU >= 0.65 and BA >= 0.65, (7) key-dependence — wrong key must not trigger detection."""
+category = "nlp"
+tags = ["text-watermarking", "evaluation-metrics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/watermark-fidelity-eval"

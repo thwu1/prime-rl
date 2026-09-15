@@ -1,0 +1,38 @@
+context:
+  name: python
+  version: "3.12.3"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://www.python.org/ftp/python/${{ version }}/Python-${{ version }}.tgz
+  sha256: a5a56691e025e5ef5bb2a9f8e1e6b6af599eb8186ecb5e2f97e8f1a3eb3f5e10
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - make
+    - pkg-config
+  host:
+    - openssl
+    - sqlite
+    - xz
+    - zlib
+  run: []
+
+test:
+  commands:
+    - python3 --version
+    - python3 -c "import ssl; print(ssl.OPENSSL_VERSION)"
+
+about:
+  homepage: https://www.python.org
+  license: PSF-2.0
+  license_file: LICENSE
+  summary: The Python programming language

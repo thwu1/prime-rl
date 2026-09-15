@@ -1,0 +1,118 @@
+{
+  "root": {
+    "op": "smooth_union",
+    "k": 0.2,
+    "children": [
+      {
+        "_comment": "base platform",
+        "op": "translate",
+        "offset": [0, -1.5, 0],
+        "child": {
+          "primitive": "box",
+          "half_extents": [2.0, 0.15, 2.0]
+        }
+      },
+      {
+        "_comment": "main body: sphere with torus groove carved out",
+        "op": "smooth_subtraction",
+        "k": 0.1,
+        "children": [
+          {
+            "op": "translate",
+            "offset": [0, 0.3, 0],
+            "child": {
+              "primitive": "torus",
+              "major_radius": 0.7,
+              "minor_radius": 0.15
+            }
+          },
+          {
+            "primitive": "sphere",
+            "radius": 1.0
+          }
+        ]
+      },
+      {
+        "_comment": "crown: onioned octahedron",
+        "op": "translate",
+        "offset": [0, 1.8, 0],
+        "child": {
+          "op": "onion",
+          "thickness": 0.04,
+          "child": {
+            "primitive": "octahedron",
+            "size": 0.5
+          }
+        }
+      },
+      {
+        "_comment": "right arm: rotated capsule",
+        "op": "translate",
+        "offset": [1.3, 0.2, 0],
+        "child": {
+          "op": "rotate",
+          "axis": [0, 0, 1],
+          "angle_deg": 25.0,
+          "child": {
+            "primitive": "capsule",
+            "a": [0, 0, 0],
+            "b": [0, 1.2, 0],
+            "radius": 0.08
+          }
+        }
+      },
+      {
+        "_comment": "support pillars (4x via xz symmetry)",
+        "op": "symmetry",
+        "axes": ["x", "z"],
+        "child": {
+          "op": "translate",
+          "offset": [1.0, -0.9, 1.0],
+          "child": {
+            "primitive": "capped_cylinder",
+            "radius": 0.07,
+            "height": 0.4
+          }
+        }
+      },
+      {
+        "_comment": "left detail: rotated elongated capped cone",
+        "op": "translate",
+        "offset": [-1.2, 0.0, 0.5],
+        "child": {
+          "op": "rotate",
+          "axis": [0, 1, 0],
+          "angle_deg": -30.0,
+          "child": {
+            "op": "elongate",
+            "h": [0.0, 0.3, 0.0],
+            "child": {
+              "primitive": "capped_cone",
+              "height": 0.4,
+              "r1": 0.25,
+              "r2": 0.1
+            }
+          }
+        }
+      },
+      {
+        "_comment": "rear accent: ellipsoid",
+        "op": "translate",
+        "offset": [0.0, 0.0, -1.3],
+        "child": {
+          "primitive": "ellipsoid",
+          "radii": [0.3, 0.5, 0.2]
+        }
+      },
+      {
+        "_comment": "front ornament: pyramid",
+        "op": "translate",
+        "offset": [0.0, -1.35, 1.5],
+        "child": {
+          "primitive": "pyramid",
+          "height": 0.4
+        }
+      }
+    ]
+  }
+}

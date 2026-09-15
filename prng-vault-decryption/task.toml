@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level cryptography and security evaluation expertise. Part 1 demands understanding MT19937 internals (state recovery via untempering 624 observed outputs), reversing a custom obfuscation layer on PRNG outputs, replaying the PRNG to reconstruct RSA prime factors, and chaining RSA + AES decryption. Part 2 requires evaluating three proposed security patches against the discovered attack vector: the solver must judge whether each patch addresses the actual vulnerability (state leakage from diagnostic outputs) or merely addresses a different threat model (seed guessing, state desynchronization). Correctly distinguishing effective from ineffective mitigations demands deep understanding of MT19937's deterministic properties, the difference between seed-space and state-space attacks, and the security boundary between MT19937 and OS CSPRNGs."""
+solution_explanation = """1. Read crypto_utils.py to understand the obfuscation (rotate-left + XOR with MT constant) applied to 624 PRNG calibration outputs. 2. Parse debug_log.txt and reverse the obfuscation to recover raw MT19937 outputs. 3. Untemper all 624 outputs to reconstruct the full MT internal state. 4. Clone a Python random.Random instance with the recovered state. 5. Replay the PRNG: call generate_prime(rng, 512) twice to recover RSA primes p and q, then getrandbits(128) and getrandbits(64) for AES key and nonce. 6. Compute RSA private key d = e^(-1) mod phi(n). 7. Decrypt the AES session key using RSA. 8. Decrypt the flag using AES-CTR. 9. Evaluate patches: Patch A (desynchronization) is ineffective because the attacker can replay the same advancement steps; Patch B (os.urandom) is effective because it decouples key material from MT19937; Patch C (PBKDF2 seed hardening) is ineffective because the attack targets leaked state, not the seed."""
+verification_explanation = """Tests verify: (1) /app/flag.txt exists and its SHA-256 hash matches the correct flag hash; (2) /app/patch_assessment.json exists with proper structure; (3) the patch effectiveness assessments are verified via a SHA-256 signature of the canonicalized boolean values, preventing answer leakage in test code while ensuring correctness."""
+category = "cryptography"
+tags = ["prng-exploitation", "security-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prng-vault-decryption"

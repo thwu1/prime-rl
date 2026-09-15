@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SRE knowledge to implement a multi-dimensional incident analysis pipeline from raw metrics without formulaic guidance. The solver must independently derive the multi-window multi-burn-rate alerting threshold formula (threshold = burn_rate × (1 − target)) from understanding the Google SRE Workbook's error budget model, not from a provided recipe. They must also understand and implement two distinct SLO dimensions — availability (error-rate based) and latency (p99 compliance, request-weighted) — computing independent error budgets for each from first principles. The data contains a subtle integrity issue (collector race condition producing duplicate metric rows) that silently inflates all downstream aggregates if not discovered, and the YAML alerting configuration has a merge-key precedence bug where an explicit burn_rate placed before a merge directive shadows the intended severity default — requiring deep understanding of YAML merge semantics. The solver must holistically reason about how data quality, configuration correctness, sliding-window alert evaluation, cascading failure detection, and multi-dimensional error budget computation all interact to produce a coherent incident analysis."""
+solution_explanation = """The solution queries the SQLite database for duplicate entries by grouping on (timestamp_s, cluster_id), discovers gamma has 30 duplicates in t=200-229, and uses SELECT DISTINCT for deduplication. It parses alerts.yaml and detects that page_critical's parsed burn_rate (1.44) conflicts with the page severity default (14.4) due to YAML merge key ordering. It derives the multi-window burn-rate threshold formula threshold=burn_rate×(1-target), implements prefix-sum sliding windows for O(1) error rate queries, evaluates alert fire times, detects cascade failures via consecutive-threshold counting, computes availability error budget (~1.028%), computes latency SLI (640000/912000 ≈ 0.7018 by classifying each cluster-second's p99 against the 200ms threshold weighted by request volume), and computes latency error budget (~0.690%)."""
+verification_explanation = """Tests verify: corrected aggregates (912000 requests, 40500 errors after dedup), availability budget ~1.028%, latency SLI ~0.7018 with budget ~0.690%, correct alert fire times (ticket@200, page_high@205, page_critical@216 with corrected burn_rate=14.4), cascade sequence [gamma@229, beta@259], peak error rate 0.181 at t=200, data quality report (gamma duplicates in [200,229], 30 rows removed), and config discrepancy report (page_critical burn_rate parsed=1.44, intended=14.4). Anti-cheat tests verify the budget is not inflated by duplicates or time-unit errors, and that page_critical does not fire at t=200 (which would indicate the YAML bug was not resolved)."""
+category = "devops"
+tags = ["sre", "incident-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2aecfc"

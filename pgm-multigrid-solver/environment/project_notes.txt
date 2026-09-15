@@ -1,0 +1,21 @@
+Pipeline Status
+===============
+
+This pipeline solves sparse SPD linear systems from 2D diffusion
+discretizations on structured grids. See generate_matrix.py for
+the PDE formulation and finite-difference stencil details.
+
+Status: FAILING
+
+The baseline solver (baseline_solver.py) does not meet convergence
+targets for all test configurations. See baseline_results/ for
+individual run logs.
+
+Observed issues:
+- Iteration counts are far too high even when convergence is achieved
+- Certain matrix configurations cause outright convergence failure
+- Performance degrades severely with grid refinement (non-scalable)
+- The solver has no hierarchical structure (single level, n_levels=1)
+
+A replacement solver is needed at amg_solver.py that meets the
+performance and structural requirements described in the task spec.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and understanding three complex C++ instruction prefetcher implementations (~400-650 lines each) with different storage accounting approaches. The agent must derive exact hardware bit-cost formulas from constexpr parameters, #define macros, size() methods, and printf expressions; implement a standalone C++ cost model program capturing the D-JOLT miss table formula with all fixed-cost components; compile C++ with g++; and perform constrained optimization over a combinatorial parameter space under three different budget limits. Each prefetcher uses a distinct methodology for documenting storage costs, requiring the agent to adapt its parsing strategy per implementation."""
+solution_explanation = """Parse D-JOLT source to extract constexpr parameters (SignatureBits=23, UpperBitPtrBits=4, etc.) and compute 10 storage components summing to 956,802 bits. Parse PIPS source for #define macros (LHT: 10 ways x 1024 sets, rpbits=2; SCC: 3 ways x 32 sets) and size() formula yielding 1,033,600 bits. Parse FNL+MMA printf formulas for 5 components yielding 793,714 bits. Write a C++ program encoding the D-JOLT cost formula: per_entry = tag + (UBP+18+VEC)*N_VECTORS + LRU, with fixed_bits=3458 from 7 non-table components. Compile with g++ and sweep power-of-2 configurations to find optimal configs: 128KB->(2048,1024,256)=13312 entries, 160KB->(4096,256,64)=17664 entries, 192KB->(4096,1024,128)=20992 entries."""
+verification_explanation = """Tests verify exact bit counts for all three prefetchers (DJOLT=956,802, PIPS=1,033,600, FNLMMA=793,714). The C++ cost model binary is compiled and invoked with specific inputs to verify output: original config->956,802, minimum config->64,130, invalid inputs->exit code 1, and permutation symmetry. Multi-budget optimal configurations are checked for exact values and exhaustively verified via brute-force search over all 17^3 power-of-2 combinations for each budget constraint."""
+category = "systems"
+tags = ["computer-architecture", "cpp-compilation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prefetcher-storage-budget"

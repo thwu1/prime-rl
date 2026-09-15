@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level concurrent shell programming spanning multiple unfamiliar tools. The solver must: (1) diagnose why flock-based readval returns empty under concurrency — understanding flock -xn (exclusive non-blocking) vs flock -s (shared blocking) and that the missing wait-for-file loop causes reads before writes complete; (2) understand bc(1) scale semantics — the broken script uses bc without scale (integer division) and the solver must discover that bc truncates rather than rounds, requiring combination with printf for correct decimal formatting; (3) trace 10+ interacting bugs across 9 concurrent FIFO-fed branches and a derived-metrics stage: $NF vs $10 field extraction, substr length for date parsing, missing uniq -c in hosts branch, wrong error_rate denominator, missing status_codes synchronization, and unimplemented percentile computation via nearest-rank; (4) handle bug coupling where fixing one branch (e.g., hosts uniq -c) changes values used by the derived stage (unique_hosts), exposing the separate wrong-denominator bug in error_rate."""
+solution_explanation = """1) Fix readval: add busy-wait loop (while [ ! -s file ]; do sleep 0.01; done) before flock, change flock -xn to flock -s for shared blocking reads. 2) Fix $NF to $10 in bytes and hostbytes branches. 3) Fix date substr from (2,20) to (2,11). 4) Restructure hosts branch: sort|uniq -c to temp file, derive unique count via wc -l and top-10 via sort -rn|head -10, creating top_hosts_req. 5) Fix bc usage: add scale=10 for intermediate precision, pipe through printf "%.2f"/printf "%.6f" for correct rounding of requests_per_day and mbytes_per_day. 6) Implement percentile computation: count sorted sizes with wc -l, compute ceil indices with awk, extract values with sed. 7) Add busy-wait for status_codes file before computing status classes and error rate. 8) Fix error_rate denominator from unique_hosts to total_requests. 9) Fix error_rate bc expression: scale=10 with printf "%.2f"."""
+verification_explanation = """21 test functions verify correctness: 2 structural tests enforce flock and bc usage in the script source; 8 summary metric tests check exact string match (TOTAL_REQUESTS through ERROR_RATE including float precision); 5 section tests verify top-N lists (hosts by requests, hosts by bytes, pages), status code distribution, and status class aggregation; hourly distribution verified by ascending order and exact counts; percentile test verifies P50/P95/P99 via nearest-rank; deterministic output test runs the analyzer 3 times to detect race conditions; cleanup test verifies all temporary resources (FIFOs, store files, lock files) are removed; small-input edge case with 3 lines verifies all metrics including floating-point precision and edge-case percentile indices."""
+category = "debugging"
+tags = ["concurrent-pipelines", "shell-ipc-tools"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scatter-gather-pipes"

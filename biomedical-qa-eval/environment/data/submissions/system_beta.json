@@ -1,0 +1,70 @@
+{
+  "system_name": "beta",
+  "questions": [
+    {
+      "id": "BQ001",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000014", "http://www.ncbi.nlm.nih.gov/pubmed/28355001", "http://www.ncbi.nlm.nih.gov/pubmed/88000015"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ002",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/30203690", "http://www.ncbi.nlm.nih.gov/pubmed/88000016"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ003",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000017", "http://www.ncbi.nlm.nih.gov/pubmed/31200301", "http://www.ncbi.nlm.nih.gov/pubmed/88000018"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000019", "http://www.ncbi.nlm.nih.gov/pubmed/34000604"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ005",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/36000806", "http://www.ncbi.nlm.nih.gov/pubmed/88000020"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ006",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/39001109", "http://www.ncbi.nlm.nih.gov/pubmed/88000021", "http://www.ncbi.nlm.nih.gov/pubmed/40001210"],
+      "exact_answer": ["tumor protein p53"]
+    },
+    {
+      "id": "BQ007",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/41001311", "http://www.ncbi.nlm.nih.gov/pubmed/42001412"],
+      "exact_answer": ["dimethylbiguanide"]
+    },
+    {
+      "id": "BQ008",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000022", "http://www.ncbi.nlm.nih.gov/pubmed/43001513"],
+      "exact_answer": ["Bcr-Abl tyrosine kinase"]
+    },
+    {
+      "id": "BQ009",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/44001614", "http://www.ncbi.nlm.nih.gov/pubmed/45001715"],
+      "exact_answer": ["Cas9"]
+    },
+    {
+      "id": "BQ010",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000023", "http://www.ncbi.nlm.nih.gov/pubmed/46001816", "http://www.ncbi.nlm.nih.gov/pubmed/47001917"],
+      "exact_answer": ["aspirin", "Advil", "Naprosyn"]
+    },
+    {
+      "id": "BQ011",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/48002018", "http://www.ncbi.nlm.nih.gov/pubmed/88000024", "http://www.ncbi.nlm.nih.gov/pubmed/49002119", "http://www.ncbi.nlm.nih.gov/pubmed/50002220", "http://www.ncbi.nlm.nih.gov/pubmed/88000025", "http://www.ncbi.nlm.nih.gov/pubmed/51002321", "http://www.ncbi.nlm.nih.gov/pubmed/52002422", "http://www.ncbi.nlm.nih.gov/pubmed/88000026"],
+      "exact_answer": ["HER1", "anaplastic lymphoma kinase", "ROS1", "B-Raf"]
+    },
+    {
+      "id": "BQ012",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/62003430", "http://www.ncbi.nlm.nih.gov/pubmed/88000027", "http://www.ncbi.nlm.nih.gov/pubmed/63003531"],
+      "exact_answer": ["adenine", "T", "G", "C"]
+    },
+    {
+      "id": "BQ013",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/64003632", "http://www.ncbi.nlm.nih.gov/pubmed/65003733"],
+      "exact_answer": ["interleukin 6", "tumor necrosis factor alpha", "interleukin-1 beta"]
+    }
+  ]
+}

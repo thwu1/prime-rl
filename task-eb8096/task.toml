@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of columnar storage internals, ClickHouse-specific type system (IPv4, LowCardinality, compression codecs like Delta+ZSTD, T64), cardinality analysis for ORDER BY key selection, regex-based log parsing with extractAllGroups(), and ALIAS column design for log reconstruction. The agent must analyze three different log formats with varying field cardinalities, choose per-service schemas with appropriate LowCardinality thresholds, parse numeric transaction IDs from string prefixes, and iteratively tune ordering keys and codec levels based on compressed-size feedback — a workflow familiar to database performance engineers but not solvable by following a textbook recipe."""
+solution_explanation = """The solution samples each log service to discover formats, performs cardinality analysis on extracted fields, then creates per-service tables: optimized_web with LowCardinality for request_path/user_agent/referer, IPv4 for IPs, Delta+ZSTD(9)-coded DateTime, T64+ZSTD(9)-coded UInt32 for response sizes; optimized_auth with LowCardinality for username/session_id, IPv4 for IPs; optimized_payment with UInt32 for txn_id (numeric extraction from TXN-prefix strings), Decimal32(2) for amounts with ZSTD(9) codec. ORDER BY keys use ascending cardinality to create large sorted blocks (e.g., request_type/status/request_protocol/time_local for web, result/level/action/timestamp for auth) with timestamp last for Delta compression. ZSTD(9) codec is applied to all columns including LowCardinality ones to maximize compression. Each table has a Body ALIAS column that reconstructs the original log line including constant boilerplate via concat()."""
+verification_explanation = """Tests start ClickHouse, verify optimized tables exist with the optimized_ prefix, check row counts match raw_logs within 1%, measure compression ratio from system.parts metadata (must be >=40x), verify specialized column types are used (not all String), confirm LowCardinality usage, validate non-trivial ORDER BY keys, and test that the Body ALIAS column returns reconstructable log messages."""
+category = "database_systems"
+tags = ["clickhouse", "columnar-compression"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-eb8096"

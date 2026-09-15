@@ -1,0 +1,23 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: database-access
+spec:
+  endpointSelector:
+    matchLabels:
+      app: database
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: backend
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app: monitoring
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP

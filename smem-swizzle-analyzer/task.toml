@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of CUDA shared memory banking (32 banks, 4-byte width, round-robin mapping) and deep knowledge of XOR-based swizzling with sizeof_TC parameterization. The agent must debug across multiple tool layers: (1) fix a CMake build configuration that produces a static library instead of the shared library required by Python ctypes, (2) diagnose and fix a C implementation bug (sum-of-excess vs max-per-bank conflict metric), (3) understand ctypes FFI bindings to verify the Python-C interface, (4) implement the XOR swizzle formula with mixed data type and vectorization support, (5) design a padding search with vector alignment constraints, (6) build a YAML-parsing evaluator that selects optimal strategies across 8 heterogeneous configs, and (7) generate multi-format output (JSON + CSV). The cross-layer debugging (CMake → gcc → ctypes → Python) and multi-tool interoperability requirement make this substantially harder than a pure Python task."""
+solution_explanation = """Fix CMakeLists.txt: change add_library(smembank ...) to add_library(smembank SHARED ...) so ctypes can load the .so. Fix smem_bank.c: replace sum-of-excess conflict metric with max(bank_counts) to return correct serialization rounds. Implement swizzle.py: XOR y_chunk with x_chunk at sizeof_TC granularity, supporting sizeof_TC > sizeof_T for vector alignment. Implement padding.py: search minimum pad satisfying vectorize_width alignment that minimizes conflicts. Implement evaluator.py: parse YAML with pyyaml, compute sizeof_TC = next_power_of_2(max(sizeof_T, vec_width*sizeof_T)), generate column/row byte addresses, evaluate both strategies per config, select optimal by conflict-then-overhead priority, write JSON array and CSV report. Run make to build and execute the full pipeline."""
+verification_explanation = """Tests verify: (1) libsmembank.so exists as a shared library and is loadable via ctypes, (2) C compute_bank_id maps byte addresses to correct bank indices through the FFI binding, (3) bank conflict counting returns correct max-per-bank values for known patterns (1-way through 32-way), (4) XOR swizzle produces correct indices with sizeof_TC=4/8/16 for fp32/fp16/fp64 and is bijective, (5) padding search finds minimum alignment-preserving pad with correct conflict counts, (6) optimal_layouts.json contains exact computed values for all 8 configs including cases where padding beats swizzle (NX<32), (7) analysis_report.csv has correct structure and values."""
+category = "systems_programming"
+tags = ["cuda", "cmake-ctypes-ffi"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/smem-swizzle-analyzer"

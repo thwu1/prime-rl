@@ -1,0 +1,16 @@
+{
+  "name": "q002",
+  "template": "star3",
+  "join_graph": {
+    "nodes": ["x", "y", "z"],
+    "edges": [["x", "y"], ["x", "z"]]
+  },
+  "subplans": {
+    "x": {"actual": 2000, "estimated": 200},
+    "y": {"actual": 500, "estimated": 5000},
+    "z": {"actual": 300, "estimated": 250},
+    "x,y": {"actual": 8000, "estimated": 600},
+    "x,z": {"actual": 4000, "estimated": 5000},
+    "x,y,z": {"actual": 15000, "estimated": 12000}
+  }
+}

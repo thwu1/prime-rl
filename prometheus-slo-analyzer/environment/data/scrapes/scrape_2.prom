@@ -1,0 +1,52 @@
+# HELP sglang:prompt_tokens_total Number of prefill tokens processed.
+# TYPE sglang:prompt_tokens_total counter
+sglang:prompt_tokens_total{model_name="meta-llama/Llama-3.1-8B-Instruct"} 2.5e+05
+
+# HELP sglang:generation_tokens_total Number of generation tokens processed.
+# TYPE sglang:generation_tokens_total counter
+sglang:generation_tokens_total{model_name="meta-llama/Llama-3.1-8B-Instruct"} 1.4e+06
+
+# HELP sglang:token_usage The token usage
+# TYPE sglang:token_usage gauge
+sglang:token_usage{model_name="meta-llama/Llama-3.1-8B-Instruct"} 0.97
+
+# HELP sglang:cache_hit_rate The cache hit rate
+# TYPE sglang:cache_hit_rate gauge
+sglang:cache_hit_rate{model_name="meta-llama/Llama-3.1-8B-Instruct"} 0.08
+
+# HELP sglang:num_queue_reqs The number of requests in the waiting queue
+# TYPE sglang:num_queue_reqs gauge
+sglang:num_queue_reqs{model_name="meta-llama/Llama-3.1-8B-Instruct"} 3200.0
+
+# HELP sglang:gen_throughput The generate throughput (token/s)
+# TYPE sglang:gen_throughput gauge
+sglang:gen_throughput{model_name="meta-llama/Llama-3.1-8B-Instruct"} 300.0
+
+# HELP sglang:time_to_first_token_seconds Histogram of time to first token in seconds.
+# TYPE sglang:time_to_first_token_seconds histogram
+sglang:time_to_first_token_seconds_bucket{le="0.01",model_name="meta-llama/Llama-3.1-8B-Instruct"} 42.0
+sglang:time_to_first_token_seconds_bucket{le="0.05",model_name="meta-llama/Llama-3.1-8B-Instruct"} 420.0
+sglang:time_to_first_token_seconds_bucket{le="0.1",model_name="meta-llama/Llama-3.1-8B-Instruct"} 2050.0
+sglang:time_to_first_token_seconds_bucket{le="0.25",model_name="meta-llama/Llama-3.1-8B-Instruct"} 5300.0
+sglang:time_to_first_token_seconds_bucket{le="0.5",model_name="meta-llama/Llama-3.1-8B-Instruct"} 9000.0
+sglang:time_to_first_token_seconds_bucket{le="1.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 11000.0
+sglang:time_to_first_token_seconds_bucket{le="2.5",model_name="meta-llama/Llama-3.1-8B-Instruct"} 13200.0
+sglang:time_to_first_token_seconds_bucket{le="5.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 13970.0
+sglang:time_to_first_token_seconds_bucket{le="+Inf",model_name="meta-llama/Llama-3.1-8B-Instruct"} 14000.0
+sglang:time_to_first_token_seconds_sum{model_name="meta-llama/Llama-3.1-8B-Instruct"} 5970.0
+sglang:time_to_first_token_seconds_count{model_name="meta-llama/Llama-3.1-8B-Instruct"} 14000.0
+
+# HELP sglang:e2e_request_latency_seconds Histogram of End-to-end request latency in seconds
+# TYPE sglang:e2e_request_latency_seconds histogram
+sglang:e2e_request_latency_seconds_bucket{le="0.5",model_name="meta-llama/Llama-3.1-8B-Instruct"} 102.0
+sglang:e2e_request_latency_seconds_bucket{le="1.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 410.0
+sglang:e2e_request_latency_seconds_bucket{le="2.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 1020.0
+sglang:e2e_request_latency_seconds_bucket{le="5.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 3200.0
+sglang:e2e_request_latency_seconds_bucket{le="10.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 6400.0
+sglang:e2e_request_latency_seconds_bucket{le="20.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 9000.0
+sglang:e2e_request_latency_seconds_bucket{le="30.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 10800.0
+sglang:e2e_request_latency_seconds_bucket{le="50.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 13200.0
+sglang:e2e_request_latency_seconds_bucket{le="60.0",model_name="meta-llama/Llama-3.1-8B-Instruct"} 13980.0
+sglang:e2e_request_latency_seconds_bucket{le="+Inf",model_name="meta-llama/Llama-3.1-8B-Instruct"} 14000.0
+sglang:e2e_request_latency_seconds_sum{model_name="meta-llama/Llama-3.1-8B-Instruct"} 358000.0
+sglang:e2e_request_latency_seconds_count{model_name="meta-llama/Llama-3.1-8B-Instruct"} 14000.0

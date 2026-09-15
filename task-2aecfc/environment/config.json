@@ -1,0 +1,30 @@
+{
+  "slo": {
+    "target": 0.999,
+    "period_days": 30
+  },
+  "alerts": [
+    {
+      "name": "page_critical",
+      "long_window_s": 3600,
+      "short_window_s": 300,
+      "burn_rate": 14.4
+    },
+    {
+      "name": "page_high",
+      "long_window_s": 21600,
+      "short_window_s": 1800,
+      "burn_rate": 6.0
+    },
+    {
+      "name": "ticket",
+      "long_window_s": 259200,
+      "short_window_s": 21600,
+      "burn_rate": 1.0
+    }
+  ],
+  "failure_detection": {
+    "failure_error_rate_threshold": 0.25,
+    "consecutive_seconds": 30
+  }
+}

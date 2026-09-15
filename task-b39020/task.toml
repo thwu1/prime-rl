@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding TCP 4-tuples, the Linux kernel's bind-bucket fastreuse tri-state machine (+1/0/-1), SO_REUSEADDR semantics for connected sockets, and the interaction between bind() and connect() for port reuse. The solver must also correctly order connection establishment to prevent fastreuse state poisoning by non-REUSEADDR sockets."""
+solution_explanation = """Create per-destination port tracking via a dict keyed by (dest_ip, dest_port), set SO_REUSEADDR on every socket before bind(), and reorder service startup so fixed-port services (C) connect first. This keeps all bind buckets at fastreuse=+1, allowing the kernel to permit same-port binds for sockets targeting different destinations. The result is 95+95+10=200 connections from only 100 source ports."""
+verification_explanation = """Tests parse 'ss -tn' output at the kernel level to verify per-service connection minimums (A>=90, B>=90, C>=8), port pool compliance (all in 40000-40099), Service C port restriction (40050-40059 only), total connections >=190, and that source ports are provably reused across different destinations."""
+category = "systems_debugging"
+tags = ["linux-networking", "tcp-internals"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b39020"

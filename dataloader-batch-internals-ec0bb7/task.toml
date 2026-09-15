@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a broken TypeScript build pipeline (tsconfig module setting, Jest transform override), then diagnosing 14 interacting code defects across four modules: 6 in DataLoader core (batch scheduler microtask ordering via process.nextTick vs Promise.resolve().then(nextTick), cache-hit coalescing deferral, maxBatchSize off-by-one boundary, array length invariant enforcement, failed-dispatch cache clearing, unhandled-rejection suppression in prime()), 1 in LRU cache (get() not promoting to MRU position), 2 in BatchCoalescer (same scheduling pattern bug as DataLoader but in a different context requiring independent diagnosis, plus flush lifecycle bug where _isScheduled flag reset ordering causes re-entrant dispatch callbacks to be silently dropped), and 3 in RequestScope (missing coalescer-based shared scheduler propagation, missing LRUCacheMap for bounded caching, incomplete dispose lifecycle that fails to clear loader caches). The RequestScope bugs are coupled with other modules — fixing bounded caching requires both the LRU get-promotion fix and the RequestScope cacheMap fix, and fixing re-entrant dispatch through a scope requires both the coalescer flush-lifecycle fix and the RequestScope scheduler-wiring fix. The config issues require understanding ts-jest preset, transform overrides, and TypeScript module interop. The code bugs require deep knowledge of Node.js event loop internals, promise scheduling semantics, doubly-linked-list data structures, cross-loader dispatch coordination, and component composition patterns."""
+solution_explanation = """Fix two config files and four source files: (1) jest.config.js — remove the empty transform:{} override so ts-jest preset processes TypeScript. (2) tsconfig.json — change module from 'esnext' to 'commonjs' so ts-jest emits CJS-compatible output. (3) dataloader.ts — 6 fixes: replace process.nextTick(fn) with Promise.resolve().then(()=>process.nextTick(fn)); defer cache hits via batch.cacheHits instead of returning cached promise directly; change keys.length <= maxBatchSize to <; add values.length !== keys.length check with TypeError; call loader.clear(key) in failedDispatch; add promise.catch(()=>{}) after Promise.reject in prime(). (4) lru-cache.ts — add this._moveToTail(node) in get() so reads promote entries to MRU position. (5) batch-coalescer.ts — replace process.nextTick(flush) with Promise.resolve().then(()=>process.nextTick(flush)) for correct post-promise-job deferral; move _isScheduled=false before executing callbacks in _flush() so re-entrant loads schedule a new flush. (6) request-scope.ts — create a shared scheduler from the coalescer in constructor and pass as batchScheduleFn to all loaders; pass new LRUCacheMap(maxCacheSize) as cacheMap; call clearAll() on each loader in dispose() before releasing references."""
+verification_explanation = """Jest test suite with 45+ tests covers all defect areas across four modules. Batch scheduling tests verify loads within nested promise chains batch together. Cache-hit coalescing tests verify primed keys defer resolution until batch dispatch. maxBatchSize tests verify correct batch splitting at boundaries. Array length invariant tests verify TypeError on mismatched return. Failed dispatch tests verify cache clearing for retry. Error priming tests verify no unhandled rejection. LRU cache tests verify get() promotes to MRU and set/delete/clear work correctly. DataLoader+LRU integration tests verify eviction-triggered re-fetch. BatchCoalescer tests verify cross-loader promise chain batching and re-entrant dispatch lifecycle. RequestScope tests verify bounded LRU caching through scope (coupled with LRU get-promotion fix), dispose lifecycle clearing across multiple loaders, and re-entrant loads across scoped loaders (coupled with coalescer flush-lifecycle fix). A full-suite test verifies all tests pass together."""
+category = "software_engineering"
+tags = ["typescript", "async-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dataloader-batch-internals-ec0bb7"

@@ -1,0 +1,5 @@
+route:              172.20.14.0/24
+origin:             AS4242420099
+max-length:         24
+mnt-by:             EPSILON-MNT
+source:             DN42

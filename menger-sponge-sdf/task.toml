@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete computational geometry pipeline from scratch: understanding the gyroid TPMS implicit surface and its mathematical properties, constructing a rhombic dodecahedron as the bounding shape, creating a gyroid lattice shell using the manifold3d library's level-set and Boolean operations, mapping between the gyroid's native coordinate system and physical space, and implementing a parameter search to hit a target volume fraction within tolerance. Each component demands domain expertise in computational geometry, implicit surfaces, CSG operations, and numerical methods. The solver must discover the correct construction approach and synthesize all components into a working system."""
+solution_explanation = """The solution implements five interdependent functions: gyroid_sdf computes the standard gyroid formula; build_bounding_shape constructs a rhombic dodecahedron by intersecting three rectangular prisms with specific sqrt(2)-scaled dimensions rotated at 90/45-degree angles; build_lattice creates the gyroid shell by generating two level-set meshes at plus/minus iso_thickness, subtracting the inner from the outer, scaling to physical coordinates, and intersecting with the bounding shape; find_iso_thickness uses bisection search over [0.01, 1.4] with 20 iterations to converge on the iso_thickness yielding the target volume fraction; generate_lattice orchestrates the pipeline, reading the spec, running the search, and computing all geometric and topological properties."""
+verification_explanation = """Tests verify at multiple levels: (1) schema and type checks on result.json, (2) manifold validity (NoError status, even triangle count, positive genus), (3) volume fraction within spec tolerance of target 0.35, (4) geometric consistency (solid_vol / bounding_vol matches reported VF), (5) gyroid_sdf mathematical properties (zero at origin, cyclic symmetry, 2*pi periodicity), (6) bounding shape correctness (cubic volume scaling), (7) independent cross-verification by calling build_lattice with the reported iso_thickness and checking the volume fraction matches, (8) monotonicity check verifying that larger iso_thickness produces larger volume fraction. The independent construction prevents hardcoded output."""
+category = "computational_geometry"
+tags = ["tpms-lattice", "csg-construction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/menger-sponge-sdf"

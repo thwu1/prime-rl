@@ -1,0 +1,108 @@
+=====================================
+SESSION CAPTURE #6 — Day-Based Deduplication and Day-Spanning
+Captured: 2024-03-15 17:15:50 UTC
+Server: prod-speed-01.freedom-island.local:9999
+Notes: Two parts. First: same car, same day, two violations — only
+       one ticket. Second: ticket spanning a day boundary and its
+       effect on subsequent violations.
+=====================================
+
+--- PART A: Same-day deduplication ---
+
+--- Connection A1 opened (camera) ---
+[T+0.000s] A1 -> Server | 80 01 90 00 00 00 3c
+--- Connection A2 opened (camera) ---
+[T+0.010s] A2 -> Server | 80 01 90 00 01 00 3c
+--- Connection A3 opened (camera) ---
+[T+0.020s] A3 -> Server | 80 01 90 00 0a 00 3c
+--- Connection A4 opened (camera) ---
+[T+0.030s] A4 -> Server | 80 01 90 00 0b 00 3c
+
+--- Connection D1 opened (dispatcher) ---
+[T+0.100s] D1 -> Server | 81 01 01 90
+
+#
+# Four cameras on road 400, at miles 0, 1, 10, 11. Limit 60 mph.
+# Dispatcher for road 400.
+#
+
+--- First violation pair ---
+[T+0.500s] A1 -> Server | 20 05 44 44 55 50 31 00 00 03 e8
+[T+0.700s] A2 -> Server | 20 05 44 44 55 50 31 00 00 04 15
+
+[T+0.704s] Server -> D1 | 21 05 44 44 55 50 31 01 90 00 00 00 00 03 e8 00 01 00 00 04 15 1f 40
+
+#
+# Plate "DDUP1" at mile 0, ts=1000 and mile 1, ts=1045.
+# 1 mile / 45 seconds = 80 mph > 60. Ticket issued. Speed=8000.
+# Both timestamps are on day 0 (1000/86400 = 0, 1045/86400 = 0).
+#
+
+--- Second violation pair (same car, same day) ---
+[T+1.200s] A3 -> Server | 20 05 44 44 55 50 31 00 00 07 d0
+[T+1.400s] A4 -> Server | 20 05 44 44 55 50 31 00 00 07 fd
+
+--- Waited 5.0s — no second ticket received on D1 ---
+
+#
+# Plate "DDUP1" at mile 10, ts=2000 and mile 11, ts=2045.
+# 1 mile / 45 seconds = 80 mph > 60. Violation detected BUT:
+# NO second ticket issued because "DDUP1" already has a ticket
+# for day 0.
+#
+# Inference: at most one ticket per car per day.
+# Day number = floor(timestamp / 86400).
+#
+
+=====================================
+
+--- PART B: Day-spanning ticket ---
+
+--- Connection B1 opened (camera) ---
+[T+10.000s] B1 -> Server | 80 02 58 00 00 00 3c
+--- Connection B2 opened (camera) ---
+[T+10.010s] B2 -> Server | 80 02 58 00 32 00 3c
+--- Connection B3 opened (camera) ---
+[T+10.020s] B3 -> Server | 80 02 58 00 64 00 3c
+
+--- Connection D2 opened (dispatcher) ---
+[T+10.100s] D2 -> Server | 81 01 02 58
+
+#
+# Three cameras on road 600, at miles 0, 50, 100. Limit 60 mph.
+# Dispatcher for road 600.
+#
+
+--- Violation spanning day boundary ---
+[T+10.500s] B1 -> Server | 20 05 53 50 41 4e 31 00 01 4a 78
+[T+10.700s] B2 -> Server | 20 05 53 50 41 4e 31 00 01 51 80
+
+[T+10.705s] Server -> D2 | 21 05 53 50 41 4e 31 02 58 00 00 00 01 4a 78 00 32 00 01 51 80 27 10
+
+#
+# Plate "SPAN1" at mile 0, ts=84600 and mile 50, ts=86400.
+# 50 miles / 1800 seconds = 100 mph > 60. Ticket issued. Speed=10000.
+#
+# ts=84600 is day 0 (84600 / 86400 = 0.979...)
+# ts=86400 is day 1 (86400 / 86400 = 1.0)
+# This ticket SPANS days 0 and 1.
+#
+
+--- Subsequent violation on day 1 ---
+[T+11.200s] B3 -> Server | 20 05 53 50 41 4e 31 00 01 58 88
+
+--- Waited 5.0s — no second ticket received on D2 ---
+
+#
+# Plate "SPAN1" at mile 100, ts=88200.
+# Pair (mile 50, ts=86400) -> (mile 100, ts=88200):
+#   50 miles / 1800 seconds = 100 mph > 60. Violation detected BUT:
+#
+# ts=88200 is day 1 (88200 / 86400 = 1.02...).
+# Day 1 is ALREADY covered by the spanning ticket.
+# NO second ticket issued.
+#
+# Inference: when a ticket spans multiple days (ts1 and ts2 are on
+# different days), ALL days from start to end are blocked — not just
+# the day of the first observation.
+#

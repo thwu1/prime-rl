@@ -1,0 +1,20 @@
+{
+    "name": "fir_filter",
+    "description": "16-tap FIR filter with symmetric coefficients",
+    "source": "Vitis-HLS-Examples",
+    "base_cycles": 256,
+    "base_luts": 890,
+    "base_ffs": 520,
+    "base_dsps": 8,
+    "base_brams": 2,
+    "base_power_mw": 85.3,
+    "pipeline_depth": 8,
+    "reference_ppa": {
+        "latency_ns": 1280.0,
+        "luts": 890,
+        "ffs": 520,
+        "dsps": 8,
+        "brams": 2,
+        "power_mw": 85.3
+    }
+}

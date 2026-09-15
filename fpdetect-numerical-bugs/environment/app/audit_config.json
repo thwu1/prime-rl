@@ -1,0 +1,25 @@
+{
+    "library_path": "/app/libfpmath.so",
+    "precision_digits": 50,
+    "ulp_threshold_stable": 4,
+    "functions": {
+        "fp_expm1": {"args": ["float"], "returns": "float", "description": "e^x - 1"},
+        "fp_log1p": {"args": ["float"], "returns": "float", "description": "log(1 + x)"},
+        "fp_hypot": {"args": ["float", "float"], "returns": "float", "description": "sqrt(x^2 + y^2)"},
+        "fp_sigmoid": {"args": ["float"], "returns": "float", "description": "1 / (1 + e^(-x))"},
+        "fp_sinc": {"args": ["float"], "returns": "float", "description": "sin(x) / x"},
+        "fp_mean": {"args": ["float", "float"], "returns": "float", "description": "(a + b) / 2"}
+    },
+    "report_schema": {
+        "functions": {
+            "<function_name>": {
+                "classification": "stable | unstable",
+                "max_ulp_error": "<float: maximum ULP error observed>",
+                "worst_case_input": ["<float, ...>"],
+                "bug_type": "<string: required for unstable functions, one of valid_bug_types>"
+            }
+        }
+    },
+    "valid_bug_types": ["catastrophic_cancellation", "overflow", "special_value", "precision_loss"],
+    "fixed_library_path": "/app/libfpmath_fixed.so"
+}

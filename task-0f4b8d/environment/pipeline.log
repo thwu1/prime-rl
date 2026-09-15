@@ -1,0 +1,13 @@
+[2024-11-15 14:23:01] Pipeline v0.3 — grid_id=1
+[2024-11-15 14:23:01] Extracting grid from analysis.db
+[2024-11-15 14:23:02] [ua_finder] compiled OK (gcc -O2)
+[2024-11-15 14:23:03] [ua_finder] 202 sets found (sizes 4–12)
+[2024-11-15 14:23:03] [ua_finder] WARN: count seems low; typical grids yield 250–350 2-digit sets alone
+[2024-11-15 14:23:03] [ua_finder] NOTE: multi-digit trades not implemented
+[2024-11-15 14:23:04] [clique_finder] processing 202 sets
+[2024-11-15 14:23:04] [clique_finder] MCN = 3, clique indices: [14, 67, 188]
+[2024-11-15 14:23:05] [verify] FAIL: sets 14 and 67 share cells {27, 45}
+[2024-11-15 14:23:05] [verify] FAIL: reported clique is not pairwise disjoint
+[2024-11-15 14:23:05] [verify] MCN result unreliable
+[2024-11-15 14:23:05] Stored results in analysis.db with is_valid=0
+[2024-11-15 14:23:05] Pipeline finished with errors — manual investigation required

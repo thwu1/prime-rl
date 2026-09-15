@@ -1,0 +1,45 @@
+streams:
+  water_temperature:
+    gross_range_test:
+      fail_span: [-5, 40]
+      suspect_span: [0, 35]
+    spike_test:
+      suspect_threshold: 2.0
+      fail_threshold: 5.0
+      method: "average"
+    rate_of_change_test:
+      threshold: 0.005556
+    flat_line_test:
+      suspect_threshold: 3600
+      fail_threshold: 7200
+      tolerance: 0.01
+    climatology_test:
+      config:
+        - tspan: [1, 4]
+          vspan: [5, 25]
+          period: "month"
+        - tspan: [4, 10]
+          vspan: [10, 32]
+          period: "month"
+        - tspan: [10, 13]
+          vspan: [5, 25]
+          period: "month"
+  salinity:
+    gross_range_test:
+      fail_span: [0, 42]
+      suspect_span: [5, 38]
+    spike_test:
+      suspect_threshold: 0.5
+      fail_threshold: 1.0
+      method: "differential"
+    attenuated_signal_test:
+      suspect_threshold: 0.1
+      fail_threshold: 0.05
+      check_type: "range"
+  density:
+    gross_range_test:
+      fail_span: [1020, 1030]
+      suspect_span: [1023, 1027]
+    density_inversion_test:
+      suspect_threshold: -0.01
+      fail_threshold: -0.03

@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Translation Benchmark Evaluation Results",
+  "type": "object",
+  "required": ["projects", "language_pairs", "overall", "directional_analysis", "framework_analysis"],
+  "properties": {
+    "projects": {
+      "type": "object",
+      "description": "Per-project evaluation results keyed by project ID (e.g. proj_01)",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["source_lang", "target_lang", "compile_success", "tests_passed", "tests_total", "pass_rate", "all_tests_pass"],
+        "properties": {
+          "source_lang": {"type": "string"},
+          "target_lang": {"type": "string"},
+          "compile_success": {"type": "boolean"},
+          "tests_passed": {"type": "integer", "minimum": 0},
+          "tests_total": {"type": "integer", "minimum": 0},
+          "pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+          "all_tests_pass": {"type": "boolean"}
+        }
+      }
+    },
+    "language_pairs": {
+      "type": "object",
+      "description": "Aggregate statistics per source-to-target language pair (e.g. Python_to_Java)",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["num_projects", "compile_rate", "success_rate", "avg_pass_rate"],
+        "properties": {
+          "num_projects": {"type": "integer", "minimum": 1},
+          "compile_rate": {"type": "number", "minimum": 0, "maximum": 1},
+          "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+          "avg_pass_rate": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    "overall": {
+      "type": "object",
+      "required": ["total_projects", "compile_rate", "success_rate", "avg_pass_rate"],
+      "properties": {
+        "total_projects": {"type": "integer", "minimum": 1},
+        "compile_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "avg_pass_rate": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "directional_analysis": {
+      "type": "object",
+      "required": ["dynamic_to_static", "static_to_dynamic"],
+      "properties": {
+        "dynamic_to_static": {"$ref": "#/definitions/directional_group"},
+        "static_to_dynamic": {"$ref": "#/definitions/directional_group"}
+      }
+    },
+    "framework_analysis": {
+      "type": "object",
+      "description": "Per-test-framework aggregate metrics keyed by framework identifier",
+      "additionalProperties": {
+        "$ref": "#/definitions/framework_metrics"
+      }
+    }
+  },
+  "definitions": {
+    "directional_group": {
+      "type": "object",
+      "required": ["pairs", "num_projects", "compile_rate", "success_rate", "avg_pass_rate"],
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Sorted list of language pair keys in this directional group"
+        },
+        "num_projects": {"type": "integer", "minimum": 0},
+        "compile_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "success_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "avg_pass_rate": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "framework_metrics": {
+      "type": "object",
+      "required": ["projects_using", "projects_compiled", "total_tests_executed", "total_tests_passed", "aggregate_pass_rate"],
+      "properties": {
+        "projects_using": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of projects that use this test framework"
+        },
+        "projects_compiled": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of projects using this framework that compiled successfully"
+        },
+        "total_tests_executed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sum of tests_total across all projects using this framework"
+        },
+        "total_tests_passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sum of tests_passed across all projects using this framework"
+        },
+        "aggregate_pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "total_tests_passed / total_tests_executed, or 0.0 if no tests were executed"
+        }
+      }
+    }
+  }
+}

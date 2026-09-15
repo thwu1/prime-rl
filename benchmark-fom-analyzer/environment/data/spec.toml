@@ -1,0 +1,79 @@
+# OLCF-6 Inspired HPC Benchmark Evaluation Specification
+
+[benchmarks.lammps]
+name = "LAMMPS Materials Modeling"
+fom_unit = "atom-steps/s"
+reference_fom = 100000000.0
+weight = 0.4
+
+# FOM = (num_atoms * num_timesteps) / wall_clock_seconds
+# Report the FOM from the largest valid problem size (by atom count).
+
+[benchmarks.lammps.validation]
+metric = "pe_per_molecule"
+# Equilibrated average: mean PotEng from the thermalized region
+# (steps >= total_steps / 2), divided by molecule count.
+atoms_per_molecule = 3
+reference_value = -11.12
+tolerance = 0.02
+
+[benchmarks.milc]
+name = "MILC Lattice QCD"
+fom_unit = "trajectories/hour"
+reference_fom = 25000.0
+weight = 0.4
+trajectory_steps = 80
+
+# Per-configuration figure of merit:
+#   step_time = mean GFTIME from the production (second) trajectory
+#   projected_traj_time = step_time * trajectory_steps
+#   olcf_fom = 3600.0 / projected_traj_time
+#   replicas = floor(total_system_nodes / nodes_per_replica)
+#   final_fom = replicas * olcf_fom
+#
+# Optimal configuration: maximizes final_fom among validated runs.
+
+[benchmarks.milc.validation]
+metric = "plaquette"
+# Validation uses the plaquette measured on the final trajectory.
+# deviation_pct = abs(measured - reference) / reference * 100
+# Valid if deviation_pct < tolerance_percent
+reference_value = 0.58791
+tolerance_percent = 0.1
+
+[benchmarks.workflow]
+name = "ML4NSE Workflow"
+fom_unit = "voxels/s"
+reference_fom = 1.0
+weight = 0.2
+
+# FOM = (num_voxels * num_replicas) / makespan_seconds
+
+[benchmarks.workflow.validation]
+metric = "final_loss"
+threshold = 0.05
+
+[scoring]
+# aggregate_score = sum over benchmarks: weight * (best_valid_fom / reference_fom)
+method = "weighted_normalized"
+
+[scaling_analysis]
+# Strong-scaling parallel efficiency for MILC using validated configurations.
+# Reference: smallest validated node count.
+# speedup(n) = step_time_ref / step_time(n)
+# parallel_efficiency(n) = speedup(n) / (n / n_ref)
+benchmark = "milc"
+
+[tools.milc_validation]
+# MILC validation MUST be performed using this AWK script.
+# Script parameters map to evaluation specification values:
+#   ref_plaq   -> [benchmarks.milc.validation].reference_value
+#   tol_pct    -> [benchmarks.milc.validation].tolerance_percent
+#   traj_steps -> [benchmarks.milc].trajectory_steps
+# Save each log's validation output to: <output_dir>/<log_filename>.validation
+script = "/app/tools/validate_milc.awk"
+output_dir = "/app/milc_validations"
+
+[database]
+path = "/app/results.db"
+schema = "/app/db_schema.sql"

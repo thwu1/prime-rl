@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing five wavelet tree operations from scratch in C++ (select, kth-smallest, range-count via count-less, range-successor, range-predecessor) plus diagnosing and fixing two interacting correctness defects in the provided build and rank functions. The solver must understand wavelet tree bit-level traversal at an expert level: kth-smallest requires a top-down descent comparing zero-counts to k; count-less requires tracking cumulative counts across levels; range-successor and range-predecessor require recursive tree pruning with backtracking — each ~30-40 lines of non-trivial C++ with intricate index arithmetic. The build bug (wrong level calculation for non-power-of-2 sigma) causes cascading failures that mask the subtler rank bug (position computed using an already-updated node boundary). The solver must use make/g++ to build, construct test inputs via bash, potentially use AddressSanitizer for debugging, and navigate a multi-file C++ header-only codebase."""
+solution_explanation = """Two bugs must be fixed: (1) build uses 'sigma' instead of 'max(sigma-1,1)' in the bit-width loop, producing wrong level counts for non-power-of-2 alphabets; (2) rank's one-branch updates 'lo += zeros' before computing 'pos', so rank1(lo) uses the wrong base, giving incorrect rank values — fix by computing pos before updating lo. Five operations must be implemented: select via binary search over rank; kth via wavelet tree descent comparing k to zero-counts at each level (go left if k <= zeros, else subtract zeros and go right); count_less via tree descent accumulating zero-counts when value bit is 1 (with overflow guard for val >= 2^levels); range_count via inclusion-exclusion on count_less; range_next/range_prev via recursive tree search that prunes subtrees by comparing the query value to the midpoint at each level and backtracks when the preferred subtree yields no result."""
+verification_explanation = """Tests compile the C++ code and run the binary against Python brute-force oracles across 18 test classes covering all seven operations. Tests use both power-of-2 sigma (isolating rank bug from build bug) and non-power-of-2 sigma (catching both). Exhaustive small-case enumeration catches boundary bugs in select, kth, and range operations. Dedicated tests with power-of-two split points catch range_prev/range_next pruning bugs. Cross-validation tests verify access-rank-select and kth-count consistency. Stress tests with n=50000 and sigma=1024 verify correctness at scale."""
+category = "algorithms"
+tags = ["succinct-data-structures", "wavelet-tree"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wavelet-tree-queries-v3"

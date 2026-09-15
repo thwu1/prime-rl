@@ -1,0 +1,14 @@
+# Require directive - skip test if extension not available
+
+require nonexistent_extension_xyz_999
+
+# Everything below should NOT execute because the require above fails.
+# If the runner doesn't properly skip, these will cause failures.
+
+statement ok
+THIS IS COMPLETELY INVALID SQL THAT MUST NOT RUN
+
+query I
+SELECT 'if you see this the runner is broken'
+----
+impossible_result_12345

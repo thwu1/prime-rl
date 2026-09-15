@@ -1,0 +1,16 @@
+---
+- name: Ensure firewall script directory exists
+  ansible.builtin.file:
+    path: /etc/network
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Generate firewall configuration script
+  ansible.builtin.template:
+    src: iptables.sh.j2
+    dest: /etc/network/iptables.sh
+    owner: root
+    group: root
+    mode: '0755'

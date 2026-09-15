@@ -1,0 +1,5 @@
+`/app/pipeline.py` computes seasonal climatological means from monthly gridded temperature data following CF (Climate and Forecast) conventions. It processes three input files in `/app/data/` representing the same temperature field under different CF calendar systems (standard, 360-day, noleap).
+
+Multiple functions contain errors causing incorrect results for all three calendars. Fix all bugs in `/app/pipeline.py` so that `process_field('/app/data/field_<calendar>.json')` returns results matching `/app/data/reference_output.json` within 1e-4 tolerance for numerical values. The output dictionary must have correct `global_means`, `seasonal_climatologies`, `cell_methods`, and `seasons_used` for all three calendar variants (`field_standard.json`, `field_360day.json`, `field_noleap.json`).
+
+`/app/cf_model.py` documents the CF data model and must not be modified. Input data files in `/app/data/` must not be modified.

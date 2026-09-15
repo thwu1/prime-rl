@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of mutation testing theory (subsumption hierarchies, dominator mutants, equivalent mutant detection) combined with Python AST manipulation expertise. The agent must implement three families of mutation operators at the AST level, build a complete test execution harness with process isolation, construct a kill matrix, compute the strict subsumption partial order, and identify the minimal dominator set — all integrated into a single end-to-end pipeline producing structured output."""
+solution_explanation = """The solution implements an AST-based mutation engine using Python's ast module. A NodeVisitor collects all mutation points (BinOp for AOR, Compare for ROR, BoolOp for LCR) and a NodeTransformer applies individual mutations by matching on (line, col_offset, operator_type). Each mutant is executed via subprocess (swapping the source file, running pytest with JUnit XML output, and restoring the original). The kill matrix is built from per-test pass/fail results. Subsumption is computed by comparing kill sets: edge (a,b) exists iff kill_set(a) ⊂ kill_set(b). Dominators are killable mutants not appearing as the subsumed side of any edge."""
+verification_explanation = """Tests verify: (1) all four output JSON files exist with correct structure; (2) metrics are internally consistent (killed+survived+equivalent=total, scores in [0,1]); (3) kill matrix dimensions match and contains only 0/1 values; (4) every subsumption edge is verified against the kill matrix (strict subset property); (5) the subsuming set is independently recomputed from the kill matrix and compared; (6) a specific known mutation (% → * in gcd) is independently applied and verified as killed; (7) minimum mutant count and operator coverage checks."""
+category = "software_testing"
+tags = ["mutation-testing", "program-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mutation-subsumption-analyzer"

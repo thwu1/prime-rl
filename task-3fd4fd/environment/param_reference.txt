@@ -1,0 +1,9 @@
+# ArduPilot EKF3 Noise Parameters
+# Each parameter sets measurement noise std-dev (R = sigma^2) for listed channels
+# PARAM_NAME          MIN    MAX    CHANNELS
+EK3_VELNE_NOISE       0.05   5.0    VelN,VelE
+EK3_VELD_NOISE        0.05   5.0    VelD
+EK3_POSNE_NOISE       0.1    10.0   PosN,PosE
+EK3_ALT_NOISE         0.1    10.0   Alt
+EK3_MAG_NOISE         0.01   0.5    MagX,MagY,MagZ
+EK3_YAW_NOISE         0.01   1.0    Yaw

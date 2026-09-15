@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing interacting defects across three files in three different languages/systems (C, Python, Makefile) that implement a MAC staggered-grid fluid simulator. The build system has two defects: missing position-independent code generation flags and a shared library naming mismatch that prevents ctypes from loading the compiled object. The C solver has three defects: an off-by-one loop bound that causes heap-buffer-overflow (diagnosable via AddressSanitizer or Valgrind), an incorrect divergence sign in the pressure projection stencil, and a wrong interpolation offset for the v-velocity field that violates the staggered-grid data layout. The Python ctypes layer has an ABI mismatch where the last argument to solve_incompressibility is declared as c_double instead of c_int, causing the integer num_iters to be passed in an XMM register while the C function reads from a general-purpose register. The Python physics layer has a boundary condition defect (or vs and for gravity at solid-fluid interfaces) and a missing semi-Lagrangian smoke advection implementation. The agent must understand shared library compilation, C-Python FFI conventions, MAC grid staggering semantics, and numerical stability to systematically resolve all nine defects."""
+solution_explanation = """Fix nine defects across three files: (1) Makefile: add -fPIC to CFLAGS and change target from solver.so to libsolver.so, also add -lm for math functions. (2) solver.c: change pressure solver loop bound from 'i < numX' to 'i < numX - 1' to prevent buffer overflow; fix divergence from '+ v[i*n+j]' to '- v[i*n+j]'; fix v-field interpolation offset from dy=h2 to dy=0.0. (3) fluid.py: change library load name from libsolver.so to match Makefile target; change num_iters argtype from c_double to c_int; change integrate boundary check from 'or' to 'and'; implement advect_smoke using semi-Lagrangian backtracking from cell centers with averaged face velocities."""
+verification_explanation = """18 tests across 7 categories verify physical correctness: (1) Build system: shared library exists at expected path, fluid module imports and loads C library. (2) Module structure: class instantiation, grid dimension correctness. (3) Setup: wind tunnel boundaries, obstacle marking. (4) Boundary physics: gravity only at fluid-fluid faces, obstacle velocity zero. (5) Incompressibility: closed-tank divergence convergence, SOR acceleration, wind tunnel divergence reduction. (6) Field interpolation: smoke at cell center, smoke between cells, v-field at face position, u-field at face position. (7) Full simulation: 30-step stability, downstream flow, smoke propagation, smoke accumulation."""
+category = "simulation"
+tags = ["fluid-dynamics", "c-python-ffi"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/eulerian-fluid-solver"

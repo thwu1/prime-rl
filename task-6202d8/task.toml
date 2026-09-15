@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of Cisco IOS-XE multi-protocol routing (OSPF multi-area, EIGRP, BGP with route reflection), understanding of protocol adjacency formation rules (hello/dead timers, MTU negotiation, OSPF area type flags), redistribution loop mechanics, and BGP next-hop-self behavior. Additionally requires interacting with a simulated Cisco DNA Center REST API (token-based authentication, device inventory, compliance status, assurance issues) and performing three-way reconciliation between DNAC compliance assessments, SQLite design database intent, and actual device configurations to classify findings as true positives, false negatives, or false positives. Demands proficiency with multiple toolchains: REST API interaction with auth token management, SQLite queries across normalized tables, IOS-XE config parsing via regex, Dijkstra shortest-path computation, Graphviz DOT rendering, and structured JSON output generation. The multi-tool workflow (DNAC REST API + sqlite3 + graphviz + config parsing + Dijkstra + reconciliation) requires significant integration expertise."""
+solution_explanation = """The solution starts the DNA Center API simulator, authenticates via POST to /dna/system/api/v1/auth/token with Basic auth, then queries /dna/intent/api/v1/network-device for inventory (5 managed devices, R6 absent), /dna/intent/api/v1/compliance for per-device status, and /dna/intent/api/v1/issue for assurance findings. It queries the SQLite design database across all tables and parses 6 IOS-XE config files via regex. Cross-referencing yields: 3 OSPF adjacency issues (timer mismatch R2-R4, MTU mismatch R2-R3, area type mismatch R3-R5), 4 unfiltered redistributions on R4/R5, missing BGP next-hop-self on R1, missing CoPP on R1/R6 and VTY ACLs on R4/R5, 2 IP plan deviations (R6 Gi0/0 prefix_length, R6 Loopback1 missing), OSPF shortest paths for 3 flows, remediation commands, topology SVG, and a DNAC reconciliation identifying R3 MTU and R5 area-type as true positives, R1/R4 multiple issues as false negatives, and R2 DHCP relay as a false positive."""
+verification_explanation = """Tests load each JSON/SVG output and verify: adjacency_audit contains 3 OSPF issues with correct router pairs, redistribution_audit identifies R4/R5 with >=4 issues, bgp_audit finds next-hop-self on R1, security_audit detects missing CoPP/VTY, ip_plan_audit has 23 entries with 2 deviations, topology.svg is valid XML with red annotations, path_analysis shows correct paths including unreachable flow_c, remediation has >=5 fixes, and dnac_reconciliation correctly lists R6 as unmanaged, classifies R3 MTU and R5 area-type as true positives, R1/R4 issues as false negatives, and R2 DHCP relay as a false positive."""
+category = "networking"
+tags = ["cisco-dnac", "multi-tool-audit"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6202d8"

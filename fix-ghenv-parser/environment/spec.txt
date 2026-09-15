@@ -1,0 +1,147 @@
+GitHub Actions Environment File Format Specification
+=====================================================
+
+This document describes the file format used by $GITHUB_OUTPUT, $GITHUB_ENV,
+and $GITHUB_STATE environment files in the GitHub Actions runner. The format
+is used to pass key-value pairs between workflow steps.
+
+
+FILE STRUCTURE
+--------------
+A file consists of zero or more entries separated by newlines. Each entry
+defines a key-value pair using one of two formats: simple or heredoc.
+
+Empty lines (lines with no content) MUST be silently skipped by the parser.
+They do not constitute an error and do not produce output.
+
+
+SIMPLE FORMAT
+-------------
+    NAME=VALUE
+
+The FIRST '=' character on the line separates the key from the value.
+Everything before the first '=' is the key; everything after is the value.
+The value MAY contain additional '=' characters — they are part of the value.
+
+Examples:
+    user=admin           -> key="user",  value="admin"
+    path=/usr/bin:/bin   -> key="path",  value="/usr/bin:/bin"
+    data=a=b=c           -> key="data",  value="a=b=c"
+    empty=               -> key="empty", value=""
+
+
+HEREDOC FORMAT
+--------------
+    NAME<<DELIMITER
+    content line 1
+    content line 2
+    DELIMITER
+
+The '<<' token separates the key from the delimiter on the header line.
+Both key and delimiter MUST be non-empty; it is an error if either is empty.
+
+The value consists of all content between the header line and the closing
+delimiter line. The trailing newline immediately preceding the delimiter
+line is NOT included in the value.
+
+The delimiter line must match exactly (case-sensitive, no leading/trailing
+whitespace tolerance). The closing delimiter line itself may appear at EOF
+without a trailing newline — that is acceptable.
+
+Examples:
+    message<<END
+    Hello,
+    World!
+    END
+    -> key="message", value="Hello,\nWorld!"
+
+    empty<<EOF
+    EOF
+    -> key="empty", value=""
+
+    data<<MARKER
+    single line
+    MARKER
+    -> key="data", value="single line"
+
+
+PRECEDENCE RULE
+---------------
+If a line contains BOTH '=' and '<<', the format is determined by which
+token appears first (leftmost position wins):
+
+  - If '=' appears at a lower index than '<<': SIMPLE format
+  - If '<<' appears at a lower index than '=': HEREDOC format
+
+Examples:
+    a=b<<c       -> SIMPLE:  key="a",  value="b<<c"
+                    ('=' is at index 1, '<<' is at index 3)
+
+    a<<DELIM=x   -> HEREDOC: key="a",  delimiter="DELIM=x"
+                    ('<<' is at index 1, '=' is at index 8)
+
+
+ERROR CONDITIONS
+----------------
+The parser MUST detect and report these errors:
+
+1. INVALID FORMAT
+   A non-empty line contains neither '=' nor '<<'.
+
+2. EMPTY KEY OR DELIMITER (heredoc only)
+   In heredoc format, both the key (before '<<') and the delimiter
+   (after '<<') must be non-empty. An empty key or empty delimiter
+   is an error.
+
+3. MATCHING DELIMITER NOT FOUND
+   In heredoc format, if all remaining lines are consumed (EOF reached
+   via the line reader returning no more lines) without finding an exact
+   match for the delimiter, this is an error.
+
+4. EOF MARKER MISSING NEW LINE
+   In heredoc format, if a CONTENT line (one that does NOT match the
+   delimiter) is the last data in the file WITHOUT a trailing newline
+   character, this is an error. The rationale: such content is ambiguous
+   — it could be an unterminated value or a malformed delimiter.
+
+   IMPORTANT: This check applies only to content lines inside the heredoc
+   body. If the DELIMITER line itself is at EOF without a trailing newline,
+   that is NOT an error — the match succeeds normally.
+
+
+NEWLINE HANDLING
+----------------
+Lines are delimited by LF ('\n'). The line content does not include the
+LF character itself.
+
+In heredoc values, the value is the raw bytes between the end of the header
+line's LF and the start of the closing delimiter line. The trailing LF
+(the one immediately before the delimiter line) is excluded from the value.
+All interior LF characters are preserved.
+
+For a heredoc with N content lines, the value is:
+    content_line_1 + "\n" + content_line_2 + ... + "\n" + content_line_N
+
+There is no trailing "\n" after the last content line.
+
+
+MULTIPLE ENTRIES
+----------------
+A single file may contain multiple entries (simple, heredoc, or a mix).
+They are parsed sequentially. The parser yields key-value pairs in the
+order they appear.
+
+Example file:
+    simple=value
+
+    heredoc<<DELIM
+    multi
+    line
+    DELIM
+
+    another=pair
+
+Parses to three pairs:
+    ("simple",  "value")
+    ("heredoc", "multi\nline")
+    ("another", "pair")

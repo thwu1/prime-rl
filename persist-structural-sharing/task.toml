@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of persistent data structures: the agent must internalize how radix balanced trees use path-copying to create structural sharing, how shift-based indexing maps tree positions to flat element indices, and how to identify structurally identical subtrees across independently-serialized pools with disjoint ID spaces. The agent must design a deduplication scheme suitable for a relational store — no standard algorithm exists for this since it combines tree hashing, graph normalization, and serialization concerns. The structural diff engine requires independently deriving a correct top-down tree-walking algorithm that: compares node identities to detect sharing, computes child index ranges from branching parameters, handles tail nodes separately, deals with trees of different depths, and correctly tracks visited/skipped node statistics for efficiency verification. The compact pipeline requires integrating sqlite3 CLI, jq, and awk for a multi-tool bash script that produces database statistics, validates JSON, and formats tabular output.
+"""
+solution_explanation = """
+The pool store uses SHA-256 Merkle hashing for content-based deduplication: leaf hashes from JSON-encoded data, inner hashes from concatenated child hashes. Import recursively processes nodes bottom-up, checking the UNIQUE content_hash constraint. Export does DFS from vector roots/tails, assigning sequential pool IDs with memoization. The structural diff engine walks both trees top-down from roots at shift level, comparing DB node IDs. When IDs match the subtree is skipped. When they differ both nodes are read and children compared recursively. At leaf level individual data values are compared. The tail is handled separately based on whether tail offsets match. Added/removed elements beyond the smaller vector are collected via element lookups. Sharing ratio computes Jaccard similarity of reachable node sets via recursive DFS. The compact script groups vectors by prefix_N pattern, sorts by numeric suffix, diffs consecutive pairs, and uses sqlite3 + jq + awk for reporting.
+"""
+verification_explanation = """
+34 tests across 8 classes verify: (1) schema correctness — required tables, columns, UNIQUE constraint; (2) round-trip fidelity for small/empty/deep/multi-pool vectors and subset export; (3) cross-pool deduplication — identical pools produce no node growth, overlapping pools reduce nodes, five overlapping pools achieve >50% reduction; (4) structural sharing preservation through import/export — Python 'is' identity checks on shared roots/tails; (5) integrity detection — clean reports and orphaned node detection; (6) diff correctness — identical vectors produce empty diff, single/multiple/tail set operations, push_back additions, symmetry of diff(a,b) vs diff(b,a); (7) diff efficiency — sublinear node visits for sparse modifications, sharing_ratio=1.0 for identical content, higher ratio for related than unrelated vectors; (8) compact CLI — successful execution, report format with diff_summary, compacted DB integrity, all vectors preserved, uses sqlite3, jq, and awk.
+"""
+category = "data_structures"
+tags = ["persistent-data-structures", "structural-diff"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persist-structural-sharing"

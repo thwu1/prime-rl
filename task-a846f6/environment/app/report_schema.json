@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["pages", "summary"],
+  "properties": {
+    "pages": {
+      "type": "object",
+      "description": "Map of filename to page audit results",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["violations", "test_results"],
+        "properties": {
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["test_id", "wcag_sc", "element", "message"],
+              "properties": {
+                "test_id": {
+                  "type": "string",
+                  "description": "ICT Baseline test identifier, e.g. 15.A-LanguagePage"
+                },
+                "wcag_sc": {
+                  "type": "string",
+                  "description": "WCAG Success Criterion number, e.g. 3.1.1"
+                },
+                "element": {
+                  "type": "string",
+                  "description": "Description or selector of the violating element"
+                },
+                "message": {
+                  "type": "string",
+                  "description": "Human-readable violation description"
+                }
+              }
+            }
+          },
+          "test_results": {
+            "type": "object",
+            "description": "Map of test_id to result: pass, fail, or not_applicable",
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["pass", "fail", "not_applicable"]
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_pages", "total_violations", "violations_by_test", "non_interference_results"],
+      "properties": {
+        "total_pages": {
+          "type": "integer",
+          "description": "Number of HTML pages audited"
+        },
+        "total_violations": {
+          "type": "integer",
+          "description": "Total violation count across all pages"
+        },
+        "violations_by_test": {
+          "type": "object",
+          "description": "Map of test_id to violation count",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "non_interference_results": {
+          "type": "object",
+          "description": "Map of filename to NonInterference composite result",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["pass", "fail"]
+          }
+        }
+      }
+    }
+  }
+}

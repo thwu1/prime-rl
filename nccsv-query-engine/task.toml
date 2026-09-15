@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of four distinct domain specializations: (1) CF-1.8 compound discrete sampling geometry -- the timeSeriesProfile feature type with ragged array encoding demands understanding how station, profile, and observation dimensions interrelate via instance_dimension/sample_dimension linkage, which is substantially more complex than single-level timeSeries DSG; (2) physical oceanography -- computing depth from pressure using the UNESCO 1983 Fofonoff & Millard equation, a latitude-dependent polynomial that requires domain knowledge not found in generic programming references; (3) QARTOD automated quality control -- implementing gross range and spike tests per oceanographic QC standards and encoding results as CF ancillary_variables with proper flag conventions requires understanding both the QC algorithms and the CF metadata pattern for relating data to QC variables; (4) ERDDAP configuration for compound feature types -- EDDTableFromNcCFFiles with TimeSeriesProfile cdm_data_type requires knowing the correct cdm_timeseries_variables and cdm_profile_variables declarations. The holistic challenge lies in making all four components work together correctly in a single coherent output."""
+solution_explanation = """Parse the NCCSV file to extract global attributes, variable metadata, and observation rows. Group observations by station and profile to identify the DSG structure. Create a NetCDF-4 file with three dimensions (station=3, profile=9, obs=54). Define station-level variables (station_id with cf_role=timeseries_id, latitude, longitude) on station dim. Define profile-level variables (profile_id with cf_role=profile_id, time as numeric seconds since 1970 epoch, stationIndex with instance_dimension=station, row_size with sample_dimension=obs) on profile dim. Store observations contiguously per profile on obs dim. Compute depth from pressure using UNESCO formula: depth = (((-1.82e-15*p + 2.279e-10)*p - 2.2512e-5)*p + 9.72659)*p / (9.780318*(1+(5.2788e-3+2.36e-5*sin^2(lat))*sin^2(lat)) + 1.092e-6*p). Implement QARTOD gross range and spike tests as separate QC variables with flag_values/flag_meanings, linked via ancillary_variables attribute on temperature. Generate ERDDAP EDDTableFromNcCFFiles XML with TimeSeriesProfile CDM metadata."""
+verification_explanation = """46 pytest tests verify: file existence; NetCDF-4 format with correct station(3)/profile(9)/obs(54) dimensions; stationIndex with instance_dimension and row_size with sample_dimension for ragged array encoding; CF globals (Conventions contains CF-1.8, featureType=timeSeriesProfile); station variable metadata (cf_role, coordinates, standard_names); profile variables (time as numeric epoch, profile_id cf_role, correct stationIndex mapping); depth values computed via UNESCO formula verified against reference implementation; temperature data fidelity including missing value handling; QARTOD gross range QC flags for profiles with spikes within gross range; QARTOD spike QC flags verified against profiles with known spikes at specific positions and missing data adjacency handling; ancillary_variables linkage on temperature; flag_values/flag_meanings on QC vars; ERDDAP XML structure (EDDTableFromNcCFFiles type, cdm_data_type=TimeSeriesProfile, cdm_timeseries_variables, cdm_profile_variables, all dataVariable blocks)."""
+category = "data_engineering"
+tags = ["netcdf", "cf_conventions"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nccsv-query-engine"

@@ -1,0 +1,27 @@
+{
+  "M1": {
+    "size": 2,
+    "description": "min operation on {0,1}",
+    "table": [[0,0],[0,1]]
+  },
+  "M2": {
+    "size": 3,
+    "description": "Addition mod 3 (cyclic group Z/3Z)",
+    "table": [[0,1,2],[1,2,0],[2,0,1]]
+  },
+  "M3": {
+    "size": 2,
+    "description": "Left-zero semigroup on {0,1}",
+    "table": [[0,0],[1,1]]
+  },
+  "M4": {
+    "size": 3,
+    "description": "A non-associative idempotent magma",
+    "table": [[0,1,2],[2,1,0],[1,0,2]]
+  },
+  "M5": {
+    "size": 2,
+    "description": "Constant-zero magma on {0,1}",
+    "table": [[0,0],[0,0]]
+  }
+}

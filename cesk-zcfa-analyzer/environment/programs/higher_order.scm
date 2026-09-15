@@ -1,0 +1,6 @@
+(let ((apply-fn (lambda (func arg) (func arg))))
+  (let ((inc (lambda (n) (+ n 1))))
+    (let ((dbl (lambda (m) (* m 2))))
+      (let ((a (apply-fn inc 5)))
+        (let ((b (apply-fn dbl 10)))
+          (+ a b))))))

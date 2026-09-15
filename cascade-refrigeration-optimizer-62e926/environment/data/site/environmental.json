@@ -1,0 +1,6 @@
+{
+  "system_lifetime_years": 15,
+  "annual_leakage_rate": 0.05,
+  "recovery_efficiency": 0.90,
+  "grid_carbon_intensity_kgCO2_per_kWh": 0.5
+}

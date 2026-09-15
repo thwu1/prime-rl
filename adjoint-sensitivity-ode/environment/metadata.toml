@@ -1,0 +1,13 @@
+[initial_conditions]
+y0 = [1.0, 1.0]
+
+[initial_guess]
+p_init = [1.2, 0.8, 2.8, 0.8]
+
+[experiment]
+noise_std = 0.05
+noise_model = "additive_gaussian"
+state_variables = ["prey", "predator"]
+parameter_names = ["alpha", "beta", "gamma", "delta"]
+t_span = [0.0, 10.0]
+num_observations = 21

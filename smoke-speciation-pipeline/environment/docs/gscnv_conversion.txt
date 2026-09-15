@@ -1,0 +1,35 @@
+GSCNV: Pollutant-to-Pollutant Conversion File
+(From SMOKE v5.3 Documentation, Chapter 6)
+
+Handles mismatches between the inventory pollutant and the pollutant for which
+speciation profiles were developed. For example, an inventory may report VOC
+emissions, but speciation profiles may be defined for TOG (Total Organic Gases).
+
+Assignment by Speciation Profile ID:
+
+When the file contains the header line "#BY PROFILE", conversion factors are
+looked up by the speciation profile code that was assigned to the source via
+GSREF. The matched profile determines which conversion factor applies.
+
+Format is list-directed (comma, space, or semicolon delimited).
+Comment lines beginning with '#' are allowed (except the #BY PROFILE
+directive, which is a required header).
+
+  Line 1 (required): #BY PROFILE
+
+  Data lines (repeating):
+  Column  Field              Type       Description
+  ------------------------------------------------------------------
+  A       POLLUTANT_FROM     Char(16)   Inventory pollutant being converted
+  B       POLLUTANT_TO       Char(16)   Target pollutant for profile lookup
+  C       PROFILE_CODE       Char(10)   Speciation profile code
+  D       CONVERSION_FACTOR  Real       Multiplicative conversion factor
+
+Application:
+  After GSREF assigns a profile to a source, check whether a GSCNV entry
+  exists for (PROFILE_CODE, POLLUTANT_FROM = inventory pollutant):
+    - If found: multiply emission quantity by CONVERSION_FACTOR, then use
+      POLLUTANT_TO when looking up species in GSPRO.
+    - The output record retains the original inventory pollutant identifier.
+    - If no matching GSCNV entry exists, no conversion is applied; use the
+      inventory pollutant directly for the GSPRO lookup.

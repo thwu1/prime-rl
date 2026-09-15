@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Newton-Schulz iterations for polar decomposition: the solver must independently derive how a degree-7 scalar polynomial on singular values translates to a matrix-level recurrence involving powers of XX^T, without any hints in the code or instructions. This demands deep knowledge of the spectral mapping between scalar polynomials and matrix operations, formulation and solution of a constrained nonlinear optimization problem (maximizing convergence rate under iterated-map stability), and careful numerical implementation handling rectangular matrices via transposition. Combines expertise across numerical linear algebra, dynamical systems theory of iterated polynomial maps, and scientific computing."""
+solution_explanation = """Study the working quintic implementation to reverse-engineer the relationship between scalar polynomial coefficients and matrix operations: A=XX^T represents x^2 in singular-value space, so B=bA+cA^2 implements bx^2+cx^4 multiplied into X to give the odd-degree polynomial. Extend this pattern to degree 7 by adding an A^3 term. Use constrained global optimization (e.g. differential_evolution) to find (a,b,c,d) maximizing a subject to the iterated scalar map phi^3(x) staying in [0.68,1.32] for x in [0.01,1.0]. Implement the matrix iteration: A=XX^T, A2=A@A, A3=A2@A, X=aX+(bA+cA2+dA3)@X."""
+verification_explanation = """Tests verify: (1) results.json structure and types, (2) septic coefficients satisfy convergence constraints on a 100k-point grid independent of reported values, (3) coefficient a >= 4.0, (4) reported max_deviation matches independent recomputation within tolerance, (5) slope_at_zero consistency with coefficient a, (6) newtonschulz7() correctly orthogonalizes random square/tall/wide matrices with error < 0.5, (7) septic 3-step quality is within 0.15 of quintic 5-step, (8) benchmark data is complete with valid entries."""
+category = "optimization"
+tags = ["numerical-methods", "linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-815882"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled expertise across build systems (CMake configuration debugging) and computational hydraulics (trapezoidal cross-section geometry, open-channel flow physics, numerical flood routing). Nine defects span three files across two tool domains: a broken CMake configuration with wrong source paths and target naming, plus six interacting algorithmic bugs in C++ covering geometry, wave propagation, spatial discretization, parameter derivation, stability enforcement, and nonlinear equation solving. The build bugs cascade (wrong source names prevent compilation, wrong target name prevents test discovery). The algorithmic bugs interact: incorrect geometry propagates through celerity, which affects discretization and routing parameters. Each code bug produces plausible-looking output, requiring domain expertise to diagnose. No algorithmic hints are given in the instruction — the solver must independently research the hydraulic theory and identify each defect."""
+solution_explanation = """CMake fixes: rename geom.cpp to geometry.cpp in sources, add missing src/routing.cpp, change target name from flood_sim to flood_router. Geometry fixes: wetted perimeter from b+2y(1+z) to b+2y*sqrt(1+z^2) (Pythagorean theorem); wave celerity from bulk velocity Q/A to kinematic wave celerity dQ/dA via finite difference on Manning's equation. Routing fixes: sub-reach length from L/2 to Courant-based c_ref*dt; X parameter from Q/(B*S0*c) to Q/(B*S0*c*dx) adding missing dx divisor; add clamping X to [0,0.5] for stability; Modified Puls from direct S=rhs*dt storage lookup to bisection solver for the transformed continuity equation S(O)/dt+O/2=rhs."""
+verification_explanation = """Tests first attempt cmake configure+build, verifying the build system produces the correct binary at /app/build/flood_router. Then tests run the simulator on three scenarios (single reach, single reservoir, full network) and compare output against an independent Python reference implementation using NRMSE < 5%. Additional tests verify mass balance within 2%, peak attenuation > 10%, peak delay, smoothness (no oscillations), and absence of NaN/Inf/negative values."""
+category = "computational_science"
+tags = ["hydrology", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flood-routing-engine"

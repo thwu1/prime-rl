@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom binary serialization format from a stripped compiled binary with no source access. The solver must systematically probe the binary to discover: a 4-byte magic header, type tag scheme (8 distinct tags), unsigned varint encoding with continuation bits, zig-zag signed integer encoding, IEEE 754 big-endian float encoding with negative-zero normalization, string length-prefixed encoding, sorted object keys (by raw UTF-8 bytes), the distinction between integer and float based on JSON source syntax, CRC32 checksums, and precise JSON output formatting (%.17g floats, 2-space indent, specific escape rules). Additionally, the binary has an undocumented environment-variable-driven CRC seed modification mechanism (CSTORE_SALT) that can only be discovered through binary analysis tools (strings, objdump, readelf) and system-level tracing (strace, ltrace). The solver must identify the env var via ltrace/strings, experimentally determine the salt-to-seed algorithm through controlled probing, and implement it correctly. Missing any single detail causes byte-level mismatches."""
+solution_explanation = """Use strings/objdump to inspect the stripped binary and discover the CSTORE_SALT string literal. Use ltrace to trace library calls and confirm getenv("CSTORE_SALT") is called at runtime. Systematically probe /app/cstore by encoding various JSON inputs and examining binary output with xxd to discover the magic bytes (CST\\x01), type tags, varint encoding, zigzag integer encoding, float encoding, and CRC32 trailer. Experiment with different CSTORE_SALT values to reverse-engineer the salt-to-CRC-seed algorithm (XOR salt bytes into the CRC seed at rotating 8-bit positions). Implement a complete Python codec matching every discovered behavior including the salted CRC mode."""
+verification_explanation = """Tests encode various JSON inputs through both the reference binary and the agent's Python implementation, comparing outputs byte-for-byte (encode) and character-for-character (decode/info). Covers all JSON types, edge cases (negative zero, integer overflow, deep nesting, key sorting, duplicate keys, Unicode), roundtrip consistency, and critically the CSTORE_SALT environment variable behavior — verifying that the implementation produces correct salted CRCs, that different salts produce different outputs, that body content is unaffected by salt, and that CRC validation correctly rejects data decoded with a mismatched salt."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "system-tracing"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8ace43"

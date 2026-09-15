@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OSPF Routing Query Results",
+  "type": "array",
+  "minItems": 15,
+  "maxItems": 15,
+  "items": {
+    "type": "object",
+    "required": ["router", "destination", "next_hop", "cost", "route_type"],
+    "properties": {
+      "router": {
+        "type": "string",
+        "pattern": "^R\\d+$"
+      },
+      "destination": {
+        "type": "string"
+      },
+      "next_hop": {
+        "type": "string",
+        "pattern": "^R\\d+$"
+      },
+      "cost": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "route_type": {
+        "type": "string",
+        "enum": ["O", "O IA", "O E1", "O E2", "O N1", "O N2", "O*IA", "O*N2"]
+      },
+      "forward_cost": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "additionalProperties": false
+  }
+}

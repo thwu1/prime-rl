@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical analysis knowledge to diagnose three distinct classes of defects in pre-computed polynomial root-finding results — without being told which entries are affected or what went wrong. The solver must independently discover: (1) a coefficient ordering convention error where roots satisfy the reversed polynomial (requiring knowledge that polyroots-fortran algorithms use different ascending/descending conventions), (2) a missing root in the Wilkinson-20 polynomial caused by extreme ill-conditioning (condition numbers >1e10), and (3) a convergence failure near a double root producing a spurious non-root. Diagnosis requires backward error analysis, cross-validation against reversed coefficient orderings, root count verification, and understanding of multiple-root degeneracy. Additionally demands proficiency with the Fortran Package Manager (fpm) build system, polyroots-fortran library conventions, and multi-tool interop between Fortran and Python. Not solvable by straightforward formula application — requires evaluative judgment and strategic diagnostic reasoning."""
+solution_explanation = """Phase 1 (Audit): For each polynomial, check root count vs degree (catches wilkinson_20 missing root), then compute backward error |p(z)|/Σ|a_k||z|^k for each claimed root. High backward error triggers diagnostic: test claimed roots against the coefficient-reversed polynomial — if they satisfy it, diagnose coefficient ordering error (catches asymmetric_sextic). Otherwise identify the specific spurious root (catches near_double's x=1.847 non-root near the double root). Phase 2 (Correction): Recompute all roots via companion matrix eigenvalues. Phase 3 (Comparison): Benchmark three algorithms (companion matrix, numpy polynomial polyroots, Aberth-Ehrlich iteration) across all six polynomials, measuring backward errors and accurate root counts. Select best algorithm by total accurate roots."""
+verification_explanation = """Tests verify: (1) audit.json structure with all required keys; (2) exact classification of defective vs correct polynomial sets; (3) defect type keywords match expected categories (coefficient ordering, missing root, convergence failure); (4) corrected roots for all six polynomials satisfy p(z)≈0 via backward error with polynomial-specific tolerances; (5) root counts match degrees; (6) Wilkinson-20 corrected roots approximate all integers 1-20; (7) near_double has two corrected roots near x=1; (8) simple_quintic roots near integers 1-5; (9) roots_of_unity roots on unit circle; (10) algorithm comparison has ≥3 distinct algorithms covering all polynomials with numeric metrics; (11) best_algorithm is in comparison with good performance on well-conditioned cases."""
+category = "numerical_analysis"
+tags = ["polynomial-roots", "numerical-diagnostics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fortran-polyroot-analysis"

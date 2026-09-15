@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to explore a multi-file research workspace, diagnose why an existing Manhattan-distance IDA* solver times out on hard 15-puzzle instances, discover that benchmark data uses heterogeneous formats with unsolvable configurations mixed in, implement solvability detection via inversion-parity analysis, and build a performant optimal solver using disjoint additive pattern database heuristics (5-5-5 partition, Lehmer-code indexing, 0-1 BFS construction). The agent must independently determine that Manhattan distance is computationally infeasible for instances with 40+ move optimal solutions and research/implement pattern databases."""
+solution_explanation = """Preprocess data files to handle two different formats (labeled Korf instances, unlabeled mixed set). Filter unsolvable configurations via inversion counting. Build three 5-5-5 disjoint pattern databases via reverse BFS from goal states, each with P(16,6)≈5.77M entries. Use IDA* with summed PDB lookups as an admissible additive heuristic to find provably optimal solutions. Export results as JSON."""
+verification_explanation = """Tests load results.json and verify: (1) correct count of 13 solvable instances, (2) no unsolvable configurations present, (3) all solvable instances included, (4) each move sequence simulated to confirm it reaches the goal via legal moves, (5) solution lengths match known Korf-benchmark optima and hand-verified short instances, (6) independent IDA*/Manhattan crosscheck on easy instances."""
+category = "algorithms"
+tags = ["heuristic-search", "pattern-databases"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6d650c"

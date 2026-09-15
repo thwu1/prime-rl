@@ -1,0 +1,45 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of GPU shared memory bank conflict mechanics
+(32-bank architecture, address-to-bank mapping, broadcast rule, wavefronts-as-max). The solver must navigate
+a multi-tool pipeline (Make, SQLite, jq, gcc, Python) to diagnose interacting bugs whose symptoms overlap —
+some mismatches are caused by multiple defects compounding, requiring careful differential analysis of which
+discrepancies each defect explains. After debugging, the solver must evaluate optimization strategies including
+XOR-based address swizzling, computing byte-level address mappings and bank assignments from scratch."""
+solution_explanation = """Run 'make' to see validation failures. Use 'sqlite3 profiling.db' to query expected
+reference values. Cross-reference spec.md (which documents 32 banks) against gpu_config.json (which has 16)
+to find the architecture config error. Read sim.py carefully to find the wavefronts aggregation using sum
+instead of max. Compare the stride_7 kernel formula against its description to find the byte-stride mismatch.
+Fix all three bugs, re-run 'make validate' to confirm. Then read strategies.json and compute byte addresses
+for each layout strategy to determine bank conflict metrics. Identify that xor_swizzle achieves conflict-free
+access without padding overhead."""
+verification_explanation = """Tests load /app/results.json and verify: (1) exactly 3 bugs found with correct
+wrong/correct values for num_banks, wavefronts logic, and stride formula; (2) all 6 corrected kernel metrics
+match expected values exactly; (3) the 4 optimization strategies for column_major have correct wavefronts and
+total_conflicts; (4) the recommended strategy is one of the conflict-free options (pad_1 or xor_swizzle)."""
+category = "systems_programming"
+tags = ["gpu_memory", "multi_tool_debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b5ceb7"

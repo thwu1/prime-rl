@@ -1,0 +1,42 @@
+{
+  "basic_reduce": {
+    "name": "Parallel Sum Reduction",
+    "description": "Tree-based parallel reduction for computing array sums using shared memory",
+    "registers_per_thread": 16,
+    "shared_mem_type": "fixed",
+    "shared_mem_bytes": 0,
+    "default_block_size": 512
+  },
+  "miller_rabin": {
+    "name": "Miller-Rabin Primality Test",
+    "description": "Warp-cooperative primality testing using shared memory for decomposition values",
+    "registers_per_thread": 40,
+    "shared_mem_type": "variable",
+    "shared_mem_formula": "(block_size // warp_size) * 12",
+    "default_block_size": 256
+  },
+  "em_simulation": {
+    "name": "Electromagnetic Energy Reduction",
+    "description": "N-body electromagnetic force computation with shared-memory energy reduction",
+    "registers_per_thread": 48,
+    "shared_mem_type": "variable",
+    "shared_mem_formula": "block_size * 4",
+    "default_block_size": 256
+  },
+  "histogram": {
+    "name": "Parallel Mode Detection",
+    "description": "Histogram-based mode finding using atomic operations and cooperative groups",
+    "registers_per_thread": 16,
+    "shared_mem_type": "fixed",
+    "shared_mem_bytes": 4096,
+    "default_block_size": 256
+  },
+  "stencil_3d": {
+    "name": "3D Stencil Computation",
+    "description": "7-point 3D stencil with halo region loaded into shared memory",
+    "registers_per_thread": 56,
+    "shared_mem_type": "variable",
+    "shared_mem_formula": "(block_size + 64) * 4",
+    "default_block_size": 128
+  }
+}

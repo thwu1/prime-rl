@@ -1,0 +1,143 @@
+{
+  "suppliers": {
+    "count": 3,
+    "max_output": [
+      500,
+      400,
+      600
+    ],
+    "labels": [
+      "SupplierA",
+      "SupplierB",
+      "SupplierC"
+    ]
+  },
+  "facilities": {
+    "count": 6,
+    "throughput_limits": [
+      160,
+      140,
+      170,
+      150,
+      350,
+      300
+    ],
+    "opening_costs": [
+      60,
+      55,
+      65,
+      50,
+      180,
+      150
+    ],
+    "labels": [
+      "Facility_North1",
+      "Facility_North2",
+      "Facility_South1",
+      "Facility_South2",
+      "Facility_Central1",
+      "Facility_Central2"
+    ]
+  },
+  "customers": {
+    "count": 8,
+    "labels": [
+      "Region_A",
+      "Region_B",
+      "Region_C",
+      "Region_D",
+      "Region_E",
+      "Region_F",
+      "Region_G",
+      "Region_H"
+    ]
+  },
+  "inbound_unit_costs": [
+    [
+      4.0,
+      5.5,
+      11.0,
+      12.0,
+      8.0,
+      9.0
+    ],
+    [
+      10.0,
+      11.0,
+      5.0,
+      4.5,
+      7.5,
+      8.0
+    ],
+    [
+      7.0,
+      8.0,
+      8.0,
+      7.0,
+      6.0,
+      5.5
+    ]
+  ],
+  "outbound_unit_costs": [
+    [
+      2.0,
+      3.0,
+      4.0,
+      5.0,
+      35.0,
+      40.0,
+      38.0,
+      42.0
+    ],
+    [
+      3.5,
+      2.5,
+      5.5,
+      4.5,
+      38.0,
+      42.0,
+      40.0,
+      45.0
+    ],
+    [
+      40.0,
+      38.0,
+      35.0,
+      42.0,
+      2.5,
+      3.0,
+      4.0,
+      3.5
+    ],
+    [
+      42.0,
+      40.0,
+      38.0,
+      36.0,
+      3.0,
+      2.5,
+      3.5,
+      4.0
+    ],
+    [
+      8.0,
+      9.0,
+      10.0,
+      8.5,
+      7.0,
+      8.0,
+      9.0,
+      7.5
+    ],
+    [
+      9.0,
+      8.5,
+      9.5,
+      10.0,
+      8.0,
+      7.5,
+      8.5,
+      9.0
+    ]
+  ]
+}

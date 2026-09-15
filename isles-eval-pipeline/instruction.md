@@ -1,0 +1,5 @@
+Build a command-line evaluation tool at `/app/evaluate.py` for the ISLES (Ischemic Stroke Lesion Segmentation) challenge. The full evaluation specification is at `/app/spec.md`.
+
+The tool accepts `--gt <dir>`, `--pred <dir>`, and `--output <path>` arguments. It loads paired NIfTI (`.nii.gz`) masks from the ground truth and prediction directories, computes the full suite of segmentation quality metrics defined in the spec — voxel overlap, volumetric difference, surface-based distances, and instance-level panoptic analysis — and writes a JSON report conforming to the output schema.
+
+The pipeline must be robust to all conditions encountered in multi-center stroke imaging studies: varying and non-trivial voxel geometries (including non-orthogonal acquisition grids), probabilistic prediction outputs, and all combinations of empty and non-empty masks.

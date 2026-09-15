@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing deep online learning theory (sequential wealth processes, unconstrained online convex optimization reductions, coordinate-wise decomposition, strongly adaptive regret via geometric coverings) into working code, while simultaneously building a cross-language integration layer (compiling a C shared library, defining ctypes bindings, marshalling array data). The solver must reverse-engineer the correct algorithms from class names and behavioral contracts alone—no pseudocode or reduction steps are given. Correctness depends on precise mathematical relationships between layers; a wrong betting fraction or weighting scheme causes regret bounds to fail. PhD-level optimization knowledge plus systems-level FFI proficiency required."""
+solution_explanation = """KTBettor uses the Krichevsky-Trofimov strategy: bet = sum_of_coins / (count + 1), wealth *= (1 + bet * coin). OneDimOLO wraps KTBettor: coins = -grad/lipschitz, prediction = wealth * bet. CoordOCO runs d independent OneDimOLO instances. CBCE uses geometric coverings (dyadic intervals) with O(log t) active CoordOCO learners, combined via scale-weighted averaging. BoundsChecker compiles libadversary.so via make, loads it with ctypes, and wraps generate_adversary/olo_regret_bound/adaptive_regret_bound/wealth_lower_bound with proper argtypes/restype declarations."""
+verification_explanation = """Tests verify each layer independently and in integration: (1) KT wealth positivity, 1/sqrt(T) lower bound on balanced sequences, exponential growth on biased; (2) 1-d OLO regret scaling O(|u|*sqrt(T*log(...))); (3) CoordOCO regret = sum of per-coordinate regrets; (4) CBCE strongly adaptive regret O(sqrt(n)*polylog(T)) on sub-intervals, O(log t) active learners; (5) BoundsChecker loads .so, produces deterministic sequences, returns correct bound values; (6) Integration tests feed C-generated adversarial sequences through OLO and CBCE and verify regret against C-computed bounds."""
+category = "machine_learning"
+tags = ["online-learning", "ffi-integration"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adaptive-coin-betting"

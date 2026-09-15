@@ -1,0 +1,44 @@
+{
+  "description": "CBLAS numerical validation. Produce /app/blas_eval.c implementing these test chains using CBLAS routines. Must compile with: gcc -o /app/blas_eval /app/blas_eval.c -lopenblas -lm",
+  "matrix_init_rules": {
+    "general": "A[i*cols+j] = (i*cols + j + 1.0) / (rows*cols)",
+    "symmetric": "S[i*n+j] = 1.0 / (1.0 + abs(i-j))  [full matrix stored, upper triangle used by dsymm]",
+    "lower_triangular": "L[i*n+j] = (j <= i) ? 1.0 / (i-j+1.0) : 0.0"
+  },
+  "test_chains": [
+    {
+      "name": "blas_basic",
+      "description": "General matrix chain using cblas_dgemm only",
+      "matrices": [
+        {"rows": 4, "cols": 6, "property": "general", "label": "A"},
+        {"rows": 6, "cols": 3, "property": "general", "label": "B"},
+        {"rows": 3, "cols": 5, "property": "general", "label": "C"}
+      ],
+      "optimal_order": "(A*B)*C",
+      "routines_used": ["cblas_dgemm", "cblas_dgemm"]
+    },
+    {
+      "name": "blas_sym",
+      "description": "Symmetric chain using cblas_dsymm + cblas_dgemm",
+      "matrices": [
+        {"rows": 4, "cols": 4, "property": "symmetric", "label": "S"},
+        {"rows": 4, "cols": 6, "property": "general", "label": "A"},
+        {"rows": 6, "cols": 3, "property": "general", "label": "B"}
+      ],
+      "optimal_order": "S*(A*B)",
+      "routines_used": ["cblas_dgemm", "cblas_dsymm"]
+    },
+    {
+      "name": "blas_tri",
+      "description": "Lower-triangular + symmetric chain using cblas_dsymm + cblas_dtrmm",
+      "matrices": [
+        {"rows": 4, "cols": 4, "property": "lower_triangular", "label": "L"},
+        {"rows": 4, "cols": 4, "property": "symmetric", "label": "S"},
+        {"rows": 4, "cols": 3, "property": "general", "label": "A"}
+      ],
+      "optimal_order": "L*(S*A)",
+      "routines_used": ["cblas_dsymm", "cblas_dtrmm"]
+    }
+  ],
+  "output_format": "Print one line per chain: chain_name=frobenius_norm (%.10f precision). End with BLAS_EVAL_COMPLETE."
+}

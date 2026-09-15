@@ -1,0 +1,25 @@
+dataset_id: copernicus_lc_300m
+full_name: "Copernicus Climate Change Service Land Cover Classification"
+description: >
+  Global land cover classification maps at 300m spatial resolution
+  providing consistent land cover information from 1992 to 2022,
+  derived from the PROBA-V and AVHRR time series.
+spatial_reference_system:
+  code: "EPSG:4326"
+bounding_box:
+  west_longitude: -180.0
+  east_longitude: 180.0
+  south_latitude: -60.0
+  north_latitude: 80.0
+temporal_coverage:
+  start: "1992/01/01"
+  end: "2022/12/31"
+native_resolution_m: 300
+data_layers:
+  - land_cover_class
+  - land_cover_confidence
+  - forest_type
+  - change_count
+data_source: "Copernicus Climate Change Service (C3S)"
+license: "Copernicus data policy"
+thematic_category: "land_cover"

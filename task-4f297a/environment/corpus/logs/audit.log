@@ -1,0 +1,7 @@
+2024-01-15T10:23:45Z INFO  auth_service started successfully pid=12345
+2024-01-15T10:23:46Z INFO  loaded 42 authentication rules from config
+2024-01-15T10:24:01Z WARN  secret_scan: leaked credential found token=ghp_fmtAHOV29gnuBIPW3ahovCJQX4bipw3JjEVe file=config.yaml scanner=v2.1
+2024-01-15T10:24:02Z WARN  secret_scan: suspicious credential token=ghp_LSZ6dkryFMT07elszGNU18fmtAHOV2aAbBcC file=backup.tar scanner=v2.1
+2024-01-15T10:25:00Z INFO  request completed id=550e8400-e29b-41d4-a716-446655440000 status=200 latency_ms=42
+2024-01-15T10:25:01Z INFO  file_checksum sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 path=/data/empty.txt
+2024-01-15T10:26:00Z INFO  auth_service healthy uptime=135s requests_served=1247

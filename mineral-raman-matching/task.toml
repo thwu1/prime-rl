@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two undocumented RRUFF file formats (##-header convention, CSV with scientific notation, ##END= terminators), implementing a recursive-descent chemical formula parser for RRUFF's idiosyncratic notation (subscripts, charges, ranges, solid solutions, nested parenthesized groups, [box] prefix), crystal system classification from unit cell parameters with tolerance handling and trigonal-as-hexagonal semantics, building a SQLite-backed spectral library with JSON-encoded arrays queryable via both Python and the sqlite3 CLI, baseline correction of raw Raman spectra via iterative polynomial fitting, spectral similarity computation with interpolation and Pearson correlation, cosmic ray spike detection using modified z-score with MAD, and a multi-tool shell pipeline integrating sqlite3 CLI, jq, and Python for end-to-end mineral identification. The solver must discover format conventions from sample files and integrate multiple unfamiliar CLI tools."""
+solution_explanation = """Parse RRUFF files by detecting ##KEY=VALUE header lines and CSV data after a blank separator, handling scientific notation and ##END= markers. Classify crystal systems by comparing cell parameters against known lattice constraints (cubic: a≈b≈c all 90°; hexagonal: a≈b γ=120°; tetragonal: a≈b all 90°; orthorhombic: all 90°; monoclinic: exactly two 90° angles; triclinic: fallback) with configurable tolerances, mapping trigonal to hexagonal. Parse formulas with a recursive descent tokenizer handling _N_ subscripts, ^N+^ charges, parenthesized groups, range subscripts (take first), solid solution commas (take first element), and [box] prefix. Handle zip archives via zipfile module. Store library in SQLite with JSON-encoded wavenumber/intensity arrays. Baseline-correct RAW spectra using iterative polynomial fitting (degree 4, 50 iterations taking minimum). Match spectra via Pearson correlation on a common interpolated wavenumber grid. Detect cosmic ray spikes using modified z-score with median absolute deviation in a sliding window. Build pipeline.sh that uses sqlite3 CLI for database queries, jq for JSON merging, and mineral_id.py for library building and identification."""
+verification_explanation = """Tests verify all six Python subcommands plus the shell pipeline: parsing extracts correct metadata from synthetic RRUFF files including edge cases (missing headers, scientific notation, ##END= markers); crystal system classification handles all six systems with real mineral parameters plus tolerance edge cases and trigonal-as-hexagonal; formula parser produces correct compositions and molecular weights for 10 test cases covering charges, ranges, [box] prefix, nested parentheses, and solid solutions; library building creates a valid SQLite database from both directories and zip archives with correct schema and normalized intensities; the sqlite3 CLI can independently query the database; spectral identification ranks a noisy baseline-corrupted query correctly, filters by wavelength, and achieves ≥0.99 self-match; spike detection finds exactly 3 injected cosmic ray artifacts at known positions with cleaned_intensity < original/10, reports zero spikes on clean data, and verifies correct wavenumber reporting. Pipeline tests verify JSON output structure, multi-tool invocation (sqlite3+jq), and zip archive support."""
+category = "applied_computing"
+tags = ["spectroscopy", "signal-processing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mineral-raman-matching"

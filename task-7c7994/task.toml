@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning compiler optimization internals, binary analysis, and applied cryptographic security. The solver must independently discover multiple distinct vulnerability classes that exist only in the compiled binary (not visible at source level), determine why the developers' intended security measures fail, implement fixes that are effective at the machine code level, build a binary-analysis verification tool, and write a comparative evaluation of multiple mitigation strategies. This combination of compiler expertise, reverse engineering, tool creation, and security engineering tripped up 47 university teams in the MITRE eCTF competitions."""
+solution_explanation = """The solution identifies two vulnerability classes: (1) Dead Store Elimination — GCC -O2 removes 8 memset() calls across 7 functions because the zeroed buffers are never read afterward, leaving cryptographic keys on the stack; fixed by replacing with explicit_bzero(). (2) Timing side-channel — memcmp() early-exit behavior in 2 authentication functions allows byte-by-byte brute-forcing; fixed with constant-time XOR accumulation using a volatile accumulator. The verification tool uses objdump to check for surviving wipe operations and absence of memcmp in security-critical functions. The design rationale evaluates 6 mitigation strategies with compiler-specific justifications."""
+verification_explanation = """Tests verify: (1) fixed code compiles at -O2 and passes functional tests, (2) objdump confirms wipe operations survive in all 7 vulnerable functions and memcmp is absent from comparison functions, (3) the verification tool exists, is executable, produces valid JSON, correctly detects vulnerabilities in the original binary, and reports zero vulnerabilities in the fixed binary, (4) the design rationale evaluates at least 4 distinct mitigation strategies, discusses the relevant compiler optimization and timing side channels, and justifies the chosen approach."""
+category = "security"
+tags = ["compiler-security", "binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7c7994"

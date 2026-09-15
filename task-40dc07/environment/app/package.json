@@ -1,0 +1,9 @@
+{
+  "name": "codemod-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Feature toggle removal codemod challenge",
+  "dependencies": {
+    "jscodeshift": "17.1.1"
+  }
+}

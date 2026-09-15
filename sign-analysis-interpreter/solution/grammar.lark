@@ -1,0 +1,37 @@
+start: function_def+
+
+function_def: "function" IDENT "(" param_list ")" block
+
+param_list: IDENT ("," IDENT)*
+          |
+
+block: "{" stmt* "}"
+
+stmt: IDENT ":=" IDENT "(" arg_list ")" ";"  -> call_stmt
+    | IDENT ":=" expr ";"                      -> assign_stmt
+    | "if" "(" cond ")" block "else" block     -> if_stmt
+    | "while" "(" cond ")" block               -> while_stmt
+    | "return" expr ";"                         -> return_stmt
+
+arg_list: expr ("," expr)*
+        |
+
+cond: expr COMP expr
+COMP: "==" | "!=" | "<=" | ">=" | "<" | ">"
+
+?expr: expr "+" term  -> add_expr
+     | expr "-" term  -> sub_expr
+     | term
+
+?term: term "*" factor -> mul_expr
+     | factor
+
+?factor: INT           -> int_lit
+       | IDENT         -> var_ref
+       | "(" expr ")"
+
+INT: /[0-9]+/
+IDENT: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+%ignore /\s+/
+%ignore /\/\/[^\n]*/

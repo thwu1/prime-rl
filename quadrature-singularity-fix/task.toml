@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level work across two major deliverables. Deliverable 1 (pipeline repair): fix 9 interacting bugs across 4 files in 3 languages — Makefile (GSL include path, missing CBLAS flag), C wrapper (0-indexed vs 1-indexed GSL key mapping), ctypes bridge (POINTER types, restype, byref), Python quadrature (|K|-|G| vs |K-G| error estimator, GK-21 even/odd Gauss node parity), and implement variable substitutions for semi/doubly-infinite domains. Deliverable 2 (evaluation framework design): given 6 test integrands with algebraic/logarithmic/double-endpoint singularities and NO reference values, the solver must design and implement a convergence-based accuracy assessment methodology. This requires: (a) independently configuring ctypes to call libquad.so (applying ABI knowledge from the bridge fix to a fresh context), (b) handling methods that fail on singular integrands (GSL status codes), (c) devising a cross-method consensus strategy (e.g., median of successful values) to estimate ground truth without analytical formulas, (d) designing a ranking algorithm with rank-sum aggregation. The evaluation design requires holistic understanding of quadrature theory — why higher-order rules and QAGS handle singularities differently — not just procedural bug-fixing."""
+solution_explanation = """Nine pipeline fixes (same as before): Makefile include/linker, C key mapping, ctypes argtypes/restype/byref, error estimator, GK-21 parity, infinite domain transforms. Then evaluation framework: load libquad.so with correct ctypes declarations (restype=c_double, POINTER output params, byref calls), call quad_integrate for all 7 methods on all 6 integrands, partition results into successful/failed by GSL status, compute consensus reference via median of successful method values, rank successful methods by deviation from consensus (with abserr as tiebreaker), place failed methods last, aggregate per-integrand rankings into overall ranking by rank-sum with method-index tiebreaking."""
+verification_explanation = """Tests verify both deliverables: (1) results.json structure with all 6 benchmarks passed. (2) Numerical accuracy cross-checked against mpmath references. (3) Python library direct calls for finite/infinite domains. (4) GK-21 internal exactness tests (anti-cheat for parity bug). (5) C library existence, loading, and direct integration. (6) Cross-validation between Python and GSL. For evaluation: (7) evaluation.json structure completeness (all integrands, all methods, rankings as valid permutations). (8) Best values match mpmath references within 1e-6. (9) Ranking consistency: successful methods before failed. (10) Overall ranking sorted by rank-sum. (11) Anti-cheat: two evaluation values verified by independent C library calls with correct ctypes setup."""
+category = "numerical_analysis"
+tags = ["quadrature", "ctypes-interop"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quadrature-singularity-fix"

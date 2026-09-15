@@ -1,0 +1,3 @@
+---
+nginx_worker_processes: 4
+nginx_upstream_name: app_backend

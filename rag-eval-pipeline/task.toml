@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives only an interface contract (output schemas and CLI signatures) and raw benchmark data — no evaluation methodology, scoring algorithms, aggregation strategies, or validation rules are specified. The agent must independently: (1) discover how Collection identifiers in prediction files map to per-domain relevance judgment files by inspecting the data, (2) select and correctly implement standard IR evaluation metrics appropriate for the graded multi-level relevance scores in the qrels, (3) determine the correct text generation quality metric and its configuration from the output field names, (4) design a cross-collection aggregation strategy that maintains internal consistency between per-query decompositions and aggregate metrics, (5) infer what the overall harmonic_mean field combines from schema context alone, (6) implement seed-controlled paired statistical significance testing, and (7) reverse-engineer format validation rules for three distinct modes from well-formed and malformed examples. Each decision requires deep information retrieval evaluation expertise; incorrect choices produce numerically wrong results that fail verification against independently computed ground truth."""
+solution_explanation = """The agent inspects the API contract and benchmark data, then builds a complete evaluation pipeline. Key challenges: reverse-engineering Collection field mapping to qrels domain files, implementing nDCG and Recall with graded relevance using a correct formulation (e.g. pytrec_eval), implementing ROUGE-L F1 with correct configuration, designing query-count-weighted cross-collection aggregation that keeps per-query decompositions consistent with aggregates, computing the harmonic mean of the three key aggregate metrics, building a ranking system sorted by harmonic mean, implementing paired permutation significance testing with seed-controlled determinism, and reverse-engineering validation rules per mode from data inspection. All metric values are verified against independently computed ground truth within floating-point tolerance."""
+verification_explanation = """Tests independently compute expected retrieval metrics (via pytrec_eval) and expected generation scores (via rouge-score), then compare against the agent's output within floating-point tolerance. Per-query scores are cross-checked against aggregate metrics for internal consistency. The compare subcommand is tested for output format, delta correctness, p-value validity, significance consistency, determinism under fixed seeds, and degenerate-case behavior (identical systems). Format validation is tested with known-valid and known-invalid prediction files across multiple modes."""
+category = "nlp"
+tags = ["information-retrieval", "evaluation-metrics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rag-eval-pipeline"

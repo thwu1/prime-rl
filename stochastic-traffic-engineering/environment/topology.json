@@ -1,0 +1,149 @@
+{
+  "nodes": ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7"],
+  "links": [
+    {
+      "id": "l_n0_n1",
+      "endpoints": ["n0", "n1"],
+      "wavelengths": [
+        {"capacity": 400, "failure_prob": 0.03},
+        {"capacity": 200, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 100, "failure_prob": 0.06}
+      ]
+    },
+    {
+      "id": "l_n0_n2",
+      "endpoints": ["n0", "n2"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 400, "failure_prob": 0.06},
+        {"capacity": 100, "failure_prob": 0.03}
+      ]
+    },
+    {
+      "id": "l_n0_n5",
+      "endpoints": ["n0", "n5"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.08},
+        {"capacity": 400, "failure_prob": 0.03},
+        {"capacity": 100, "failure_prob": 0.10}
+      ]
+    },
+    {
+      "id": "l_n1_n2",
+      "endpoints": ["n1", "n2"],
+      "wavelengths": [
+        {"capacity": 100, "failure_prob": 0.06},
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 200, "failure_prob": 0.08}
+      ]
+    },
+    {
+      "id": "l_n1_n3",
+      "endpoints": ["n1", "n3"],
+      "wavelengths": [
+        {"capacity": 400, "failure_prob": 0.04},
+        {"capacity": 200, "failure_prob": 0.06},
+        {"capacity": 100, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.03}
+      ]
+    },
+    {
+      "id": "l_n1_n5",
+      "endpoints": ["n1", "n5"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.08},
+        {"capacity": 100, "failure_prob": 0.05},
+        {"capacity": 400, "failure_prob": 0.06}
+      ]
+    },
+    {
+      "id": "l_n2_n5",
+      "endpoints": ["n2", "n5"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.03},
+        {"capacity": 400, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.06}
+      ]
+    },
+    {
+      "id": "l_n2_n6",
+      "endpoints": ["n2", "n6"],
+      "wavelengths": [
+        {"capacity": 100, "failure_prob": 0.10},
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 400, "failure_prob": 0.08},
+        {"capacity": 200, "failure_prob": 0.05}
+      ]
+    },
+    {
+      "id": "l_n3_n4",
+      "endpoints": ["n3", "n4"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.06},
+        {"capacity": 100, "failure_prob": 0.04},
+        {"capacity": 400, "failure_prob": 0.05}
+      ]
+    },
+    {
+      "id": "l_n3_n6",
+      "endpoints": ["n3", "n6"],
+      "wavelengths": [
+        {"capacity": 400, "failure_prob": 0.03},
+        {"capacity": 200, "failure_prob": 0.08},
+        {"capacity": 200, "failure_prob": 0.05}
+      ]
+    },
+    {
+      "id": "l_n3_n7",
+      "endpoints": ["n3", "n7"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 400, "failure_prob": 0.06},
+        {"capacity": 200, "failure_prob": 0.05},
+        {"capacity": 100, "failure_prob": 0.03}
+      ]
+    },
+    {
+      "id": "l_n4_n5",
+      "endpoints": ["n4", "n5"],
+      "wavelengths": [
+        {"capacity": 400, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.04},
+        {"capacity": 100, "failure_prob": 0.08},
+        {"capacity": 200, "failure_prob": 0.06}
+      ]
+    },
+    {
+      "id": "l_n4_n7",
+      "endpoints": ["n4", "n7"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.03},
+        {"capacity": 100, "failure_prob": 0.06},
+        {"capacity": 400, "failure_prob": 0.04},
+        {"capacity": 200, "failure_prob": 0.08}
+      ]
+    },
+    {
+      "id": "l_n5_n6",
+      "endpoints": ["n5", "n6"],
+      "wavelengths": [
+        {"capacity": 200, "failure_prob": 0.06},
+        {"capacity": 400, "failure_prob": 0.04},
+        {"capacity": 100, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.03}
+      ]
+    },
+    {
+      "id": "l_n6_n7",
+      "endpoints": ["n6", "n7"],
+      "wavelengths": [
+        {"capacity": 400, "failure_prob": 0.05},
+        {"capacity": 200, "failure_prob": 0.03},
+        {"capacity": 200, "failure_prob": 0.06},
+        {"capacity": 100, "failure_prob": 0.04}
+      ]
+    }
+  ]
+}

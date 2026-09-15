@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a colleague's bioinformatics pipeline to diagnose four distinct methodological errors from peer-review symptoms: incorrect probe-to-gene aggregation strategy, inappropriate statistical test assumptions, wrong multiple testing correction procedure, and biased gene ranking. The agent must independently discover each error by reading the buggy code, cross-referencing QC concerns with observed output, evaluating a red herring about batch effects, and understanding the domain-specific implications of each choice. Demands expert-level understanding of microarray differential expression analysis."""
+solution_explanation = """Read the buggy preliminary_analysis.py and the QC report to diagnose: (1) max-based probe aggregation inflating multi-probe gene fold changes (fix: use arithmetic mean), (2) equal-variance t-test assumption violated by heteroscedastic tumor/normal groups (fix: use unequal-variance test), (3) Bonferroni correction being overly conservative for this context (fix: use step-up FDR procedure), (4) ranking by raw fold change excluding downregulated genes (fix: rank by absolute magnitude). Verify batch effects are not a real issue. Rewrite the pipeline with corrected methods and produce output files."""
+verification_explanation = """Tests independently parse the SOFT file and annotation, compute all expected values using correct methods (mean probe aggregation, Welch's t-test, Benjamini-Hochberg correction, absolute fold-change sorting), and compare against the agent's output files. New tests specifically verify significant gene count and adjusted p-value accuracy to catch wrong MTC methods, and verify downregulated genes appear in top rankings to catch sort bias."""
+category = "bioinformatics"
+tags = ["differential-expression", "pipeline-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geo-ccrcc-diffexp"

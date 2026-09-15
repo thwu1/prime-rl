@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing encoding bugs in a prototype decoder written from inaccurate preliminary documentation, then building a correct multi-layer binary protocol analysis pipeline. The buggy decoder has four subtle implementation errors that mirror specific inaccuracies in the device-team notes: (1) zigzag signed integer decoding uses n=(z>>1)^(z&1) instead of n=(z>>1)^-(z&1), silently producing wrong values for all negative integers; (2) IEEE 754 floats are decoded as big-endian instead of the correct little-endian byte order; (3) tuples are decoded with a varint length prefix that doesn't exist in the wire format (tuples have statically-known arity from the schema, unlike sequences); (4) enum struct variant data is returned as a positional list instead of a named-field dictionary. The agent must cross-reference the buggy output against the canonical spec and binary test vectors to identify each discrepancy, then implement or fix a complete decoder covering COBS deframing, CRC-8 integrity validation (polynomial 0x31, not mentioned in the preliminary notes at all), unsigned LEB128 varints, zigzag-encoded signed varints, fixed-width IEEE 754 floats, and all composite serde types. Beyond decoding, ten schema migration analyses demand holistic understanding of how postcard encoding invariants compose: zigzag+varint width-agnosticism makes signed int widening compatible (M1) while fixed-width IEEE 754 makes f32→f64 incompatible (M7); unsigned varint width-agnosticism makes seq element widening compatible (M6) but unsigned-to-signed encoding divergence (varint vs zigzag+varint) makes seq<u16>→seq<i16> incompatible even though the container is unchanged (M9); map and seq-of-tuple share identical wire representation (M8); discriminant-indexed enum variant appending preserves forward compatibility (M10) while reordering breaks it (M5); structs lack end markers making field appending incompatible (M2); tuples lack length prefixes making tuple→seq incompatible (M4)."""
+solution_explanation = """Diagnose the four bugs in buggy_decoder.py by comparing its output against test vectors: zigzag decode formula missing negation, float byte order reversed, tuple incorrectly reads varint count, struct variant returns list not dict. Build a correct decoder or fix the bugs, add CRC-8 validation (strip trailing byte, compute polynomial 0x31 checksum, compare). Compile C tools with make in /app/tools for cross-validation. Process 12 frames across 3 sessions: identify 3 corrupt frames (CRC mismatches at session_alpha frame 2, session_beta frame 3, session_gamma frame 0) and decode 9 valid messages. For migrations: M1 i32→i64 compatible (zigzag+varint width-agnostic), M2 append field incompatible (no struct end marker), M3 i16→u16 incompatible (zigzag vs unsigned varint), M4 tuple→seq incompatible (no length prefix), M5 enum reorder incompatible (positional discriminants), M6 seq<u16>→seq<u32> compatible (unsigned varint width-agnostic), M7 f32→f64 incompatible (fixed-width 4→8 bytes), M8 map→seq<tuple> compatible (identical wire encoding), M9 seq<u16>→seq<i16> incompatible (unsigned varint vs zigzag within container), M10 append enum variant compatible (new discriminant at end, existing indices unchanged)."""
+verification_explanation = """Tests verify: (1) frame_analysis.json has exactly 12 frames across 3 sessions (4 each), 9 valid and 3 corrupt, with correct per-frame CRC validity flags and key_hex values matching expected message type keys; (2) decoded_messages.json has exactly 9 messages with correct per-session counts (3 each), wire ordering verified by sequence number order, and exact field-by-field value comparison for every decoded message including edge cases (negative zigzag values, zero-valued fields, empty strings, empty collections, nested enum variants with struct data, optional fields); (3) compatibility_report.json has exactly 10 entries with correct boolean verdicts for each migration (M1:true, M2:false, M3:false, M4:false, M5:false, M6:true, M7:false, M8:true, M9:false, M10:true)."""
+category = "systems-programming"
+tags = ["binary-protocol-forensics", "wire-format-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/postcard-protocol-decoder"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level ECC cryptography knowledge combined with non-standard tool usage: (1) identifying an unnamed standard curve from raw prime-field parameters, (2) implementing and distinguishing three ECC signature algorithms — ECDSA, ECRDSA with RFC little-endian hash convention, and ECRDSA with ISO big-endian convention — to classify 8 unlabeled signatures, (3) discovering a cross-algorithm nonce reuse vulnerability where the same nonce k was used in an ECDSA signature and an ECRDSA-RFC signature — standard same-algorithm nonce reuse formulas do not apply, forcing the solver to derive a novel system of equations combining both algorithms' signing formulas to recover the nonce and private key, (4) forging a valid ECRDSA-RFC signature with a deterministic nonce, and (5) computing architecture-dependent Montgomery/Barrett internal representation constants for both 64-bit and 32-bit word sizes by studying and applying the conventions of libecc's expand_libecc.py parameter expansion tooling. The cross-algorithm nonce reuse attack requires evaluating which algebraic relationship links the two different signing equations and creating a new combined recovery formula — a genuinely novel derivation not found in standard textbook attacks."""
+solution_explanation = """The solver identifies FRP256V1 by matching the prime. It implements ECDSA and ECRDSA (both ISO and RFC) verification to classify each signature. It detects two signatures sharing the same r value (indices 0 and 3) but discovers they were produced by different algorithms (ECDSA and ECRDSA-RFC). Since standard nonce-reuse formulas assume the same algorithm, the solver must derive the cross-algorithm formula: from ECDSA s₁k = h₁ + dr and ECRDSA s₂ = rd + ke₂, eliminating d yields k = (s₂ + h₁)/(s₁ + e₂) mod n. The key is then recovered from either equation. The solver studies /challenge/libecc_params.py to understand word-aligned Montgomery/Barrett conventions and computes params for both 64-bit and 32-bit architectures."""
+verification_explanation = """Tests verify each signature under its claimed algorithm, validate the private key via d*G == Q, check the forged signature both by ECRDSA-RFC verification and exact match against deterministic expected values, verify vulnerability type string and nonce reuse pair indices, and independently compute and compare Montgomery/Barrett parameters for both 64-bit and 32-bit word sizes using the same conventions as libecc_params.py."""
+category = "cryptography"
+tags = ["elliptic-curves", "cross-algorithm-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecrdsa-curve-audit"

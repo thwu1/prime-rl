@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled debugging across two domains: (1) CMake build system configuration — diagnosing layered failures involving C language standard selection, shared library linking flags, and runtime RPATH resolution using tools like cmake, nm, and ldd; (2) posit16 bit-exact arithmetic — understanding variable-length regime encoding, es=1 exponent handling, round-to-nearest-even with posit-specific tie-breaking, 128-bit fixed-point quire accumulation, and two's complement 128-bit arithmetic. The solver must independently identify the C90 standard mismatch from compiler diagnostics, the missing math library link from linker errors, the RPATH misconfiguration from runtime failures, a subtle rounding defect in p16_mul, and implement p16_div, q16_fdp_add, and q16_to_p16 from scratch using only the working code and the posit standard as reference."""
+solution_explanation = """CMake fixes: change CMAKE_C_STANDARD from 90 to 99 (code uses inline, stdbool.h, mixed declarations), add target_link_libraries(posit16 PRIVATE m) for math functions (pow, NAN), and remove CMAKE_SKIP_BUILD_RPATH TRUE so the build-tree binary can find libposit16.so via RPATH. The p16_mul bug is in the rounding logic: `uZ += 1` always rounds up when the first discarded bit is set, ignoring round-to-nearest-even; fix is `uZ += (uZ & 1) | bitsMore`. p16_div follows the mul pattern but uses integer division and subtracts exponents/regimes. q16_fdp_add decodes both operands, multiplies significands, places the 32-bit product at the correct 128-bit quire position via firstPos = 71 - 2*k - exp, negates if needed, and adds with carry propagation. q16_to_p16 finds the leading 1-bit across both 64-bit words, derives k and exp from (71 - noLZ), extracts fraction bits, and rounds."""
+verification_explanation = """Tests verify both build artifacts and arithmetic. Build tests check: (1) test_driver binary exists at /app/build/, (2) libposit16.so exists, (3) nm -D confirms all 8 API symbols are exported, (4) ldd confirms runtime resolution without LD_LIBRARY_PATH. Arithmetic tests use a Python reference that decodes all 65536 posit16 values to exact Fraction values. Multiplication and division are tested with 20000+ random pairs plus edge cases. Quire fused dot-product is tested with 100+ random vectors plus hand-crafted edge cases. All tests use fixed random seeds for determinism."""
+category = "systems"
+tags = ["bit-manipulation", "build-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f34b0a"

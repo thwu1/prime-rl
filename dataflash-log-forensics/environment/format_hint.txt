@@ -1,0 +1,34 @@
+ArduPilot DataFlash Binary Log Format Reference
+================================================
+Each message starts with the two-byte header 0xA3 0x95 followed by
+a one-byte message type identifier (uint8).
+
+Message type 128 (0x80) is the FMT message. FMT messages are always
+the first messages in a log and define the binary layout of all
+subsequent message types. The FMT payload is:
+
+  Type    (uint8)   - the message type being defined
+  Length  (uint8)   - total message length in bytes (header + type byte + payload)
+  Name    (char[4]) - null-padded message type name
+  Format  (char[16])- null-padded format string (see below)
+  Labels  (char[64])- null-padded comma-separated field names
+
+All multi-byte numeric fields use little-endian byte order.
+
+Format string characters and their binary sizes:
+  b = int8_t     (1 byte)     B = uint8_t    (1 byte)
+  h = int16_t    (2 bytes)    H = uint16_t   (2 bytes)
+  i = int32_t    (4 bytes)    I = uint32_t   (4 bytes)
+  f = float      (4 bytes)    d = double     (8 bytes)
+  q = int64_t    (8 bytes)    Q = uint64_t   (8 bytes)
+  n = char[4]    (4 bytes)    N = char[16]   (16 bytes)
+  Z = char[64]   (64 bytes)
+  c = int16/100  (2 bytes)    C = uint16/100 (2 bytes)
+  e = int32/100  (4 bytes)    E = uint32/100 (4 bytes)
+  L = int32 lat/lon*1e7 (4 bytes)
+  M = uint8 flight mode  (1 byte)
+
+Fields in each message are packed sequentially with no alignment
+padding. The total payload size equals the sum of sizes for each
+character in the format string. The Length field in the FMT message
+equals 3 (for the header and type byte) plus the payload size.

@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level software security skills: the solver must (1) audit ~400 lines of C
+across 7 files to identify three distinct vulnerability classes (CWE-121 stack overflow,
+CWE-134 format string, CWE-787 heap overflow), (2) understand a custom binary protocol
+format with CRC32 checksum integrity, (3) account for per-instance randomized buffer sizes
+when crafting proof-of-vulnerability packets, (4) extract the per-instance challenge token
+from source headers, and (5) write correct minimal patches that eliminate each vulnerability
+without breaking functional tests. The protocol's CRC32 requirement and randomized parameters
+force the solver to write code and analyze the actual source rather than replay memorized answers."""
+solution_explanation = """The solution reads /app/.challenge.json for the randomized buffer
+sizes and challenge token.  gen_povs.py constructs three NDP packets: a printable name
+exceeding the instance-specific IDENT_NAME_BUF triggering stack overflow in ident.c,
+format-string specifiers with DEBUG flag triggering format string in auth.c, and an
+OVERWRITE block with offset 0x40000000 triggering heap overflow in bulk.c.  apply_patches.py
+extracts CHALLENGE_TOKEN from ndp.h, adds a length check before the name copy loop, wraps
+the snprintf with "%s", adds a bounds check before the overwrite memcpy, and writes
+vulns.json with the challenge token and CWE classifications."""
+verification_explanation = """Tests read CHALLENGE_TOKEN from /app/.orig_src/ndp.h and verify
+it matches the value in vulns.json.  The original source is rebuilt from /app/.orig_src/
+with -O1 (stack-protector + FORTIFY_SOURCE) and each PoV is verified to trigger a security
+crash (signal, canary abort, or FORTIFY abort).  The patched source from /app/src/ is rebuilt
+and verified to survive the same PoVs without crashing.  All valid test packets in
+/app/testdata/ (generated for the randomized buffer sizes) must process with exit 0.
+CWE classifications are validated against expected vulnerability types per file."""
+category = "security"
+tags = ["vulnerability-analysis", "binary-exploitation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dissector-vuln-triage"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a structural type similarity metric from a property specification that deliberately withholds exact formulas. The solver must: (1) reverse-engineer the precise scoring formulas (constructor base scores, argument integration weights, structural mismatch penalties) by jointly analyzing qualitative property descriptions and 40 calibration test cases — a constrained inverse problem requiring mathematical reasoning over multiple interacting rules; (2) design a tree representation for Callable[[P1,...,Pn], R] that enables correct recursive similarity comparison without any Callable-specific branching in the similarity algorithm — a representation design problem with subtle correctness constraints; (3) independently discover that union member comparison requires optimal bipartite matching and implement it correctly; (4) integrate all components into a coherent implementation that simultaneously satisfies metric axioms and all 40 expected scores. No pseudocode or algorithm names are provided — the solver must synthesize the approach from behavioral constraints."""
+solution_explanation = """Implement bracket-aware Callable parsing using a wrapper node (__params__) grouping parameter types as first child with return type as second child, enabling standard positional recursive comparison. For similarity: base scores 1.0/0.5/0.0 for identical/Any-wildcard/different constructors; argument integration via arithmetic mean of base score and positional argument average (total/max_len); structural mismatch (one-has-args) halves the base score; union similarity via scipy linear_sum_assignment on negated pairwise similarity matrix, normalized by max(|A|,|B|). Correct __str__ for Callable round-trip."""
+verification_explanation = """Tests verify: parser correctness for all constructs including Callable (structural checks + string round-trips), 40 parametrized similarity score cases covering atomic types, nested generics, unions requiring optimal matching, Callable types with various signatures, nested Callables, cross-construct comparisons, and Union normalization edge cases. Property tests verify symmetry, identity, and bounded scores across all type constructs."""
+category = "software_engineering"
+tags = ["algorithm-design", "type-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/typesim-metric-repair"

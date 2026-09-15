@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering and faithfully reimplementing five interdependent match algorithms from fzf's scoring engine. The agent must discover the character classification scheme (7 classes), the scheme-dependent bonus matrix (~49 entries), gap penalty mechanics, consecutive-match bonus propagation with chunk-break logic, first-character multiplier, whitespace trimming rules (which differ per match type), and a modified Smith-Waterman matrix fill with backtrace. A single misunderstood interaction between these components produces cascading score errors across dozens of test vectors. The agent must navigate fzf's Go source code, understand its architecture, and produce a correct Python translation — not a trivial task given the optimizations and implicit state in the original."""
+solution_explanation = """The solution translates fzf's algo.go into Python, implementing: _char_class() for 7-class ASCII classification, _bonus_for() with the default-scheme bonus matrix, _calculate_score() for linear scoring with consecutive-bonus propagation, fuzzy_match_v2() with the full 4-phase algorithm (forward scan, H0 fill, matrix fill, backtrace), exact_match_naive() with best-bonus substring search, prefix_match() with leading-whitespace stripping, suffix_match() with trailing-whitespace stripping, and equal_match() with both-side stripping and a fixed score formula."""
+verification_explanation = """Tests exercise ~65 test vectors extracted from fzf's algo_test.go across all five match types. Each test asserts exact (start, end, score) agreement. Tests cover: fuzzy match with camelCase/delimiter/whitespace boundaries; exact substring search at multiple positions; prefix/suffix with whitespace stripping; equal match with whitespace and case handling; empty patterns (each type has different behavior); case sensitivity; non-matches; edge cases like long gaps and multiple occurrence selection."""
+category = "reverse-engineering"
+tags = ["fuzzy-matching", "go-to-python-translation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-da15de"

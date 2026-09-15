@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of corrupted Kafka broker log segments at the binary level. The agent must reverse-engineer the cluster metadata log to discover the topic/partition topology, identify multiple distinct corruption types across partitions (some compressed, some not), and write a binary-correct repair tool. Understanding the interplay between compression codecs, checksum scope, varint encoding, and sequential offset constraints — all without explicit guidance on repair methodology — demands deep systems-level expertise."""
+solution_explanation = """Parse the cluster metadata log by decoding varint-encoded records with TopicRecord (type=2) and PartitionRecord (type=3) payloads to discover the topic/partition topology. For each partition log, iterate RecordBatches detecting: (1) batch completeness against BatchLength for truncation, (2) magic byte == 2, (3) CRC-32C over the Attributes-through-end range (which for gzip-compressed batches means CRC over compressed data), (4) BaseOffset sequential consistency. Remove truncated batches, fix magic bytes and base offsets (outside CRC scope), recompute CRC after any changes. Write repaired binary logs plus a JSON manifest with compression codec information."""
+verification_explanation = """Tests independently parse repaired binary logs using their own CRC-32C implementation and RecordBatch parser with gzip decompression support. Structural tests verify every batch has valid CRC-32C, magic=2, sequential BaseOffsets, and no trailing bytes. Compression tests verify gzip-compressed batches retain their codec, decompress cleanly, and contain expected record keys/values. Producer metadata tests verify idempotent producer fields are preserved. Manifest tests verify topology, per-partition record/batch counts, compression codec strings, and corruption reporting."""
+category = "systems_programming"
+tags = ["binary-protocols", "kafka"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e10612"

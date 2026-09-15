@@ -1,0 +1,10 @@
+[physics]
+thermal_diffusivity = 0.01
+length = 1.0
+T_left = 100.0
+T_right = 0.0
+
+[numerical]
+grid_points = 50
+t_end = 5.0
+save_interval = 0.5

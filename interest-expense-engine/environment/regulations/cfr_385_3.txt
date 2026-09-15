@@ -1,0 +1,43 @@
+26 CFR § 1.385-3 — Certain distributions of debt instruments and similar transactions (selected provisions)
+
+(a) Scope. This section provides rules under which a debt instrument issued by a covered member to another member of the issuer's expanded group is treated as stock for Federal tax purposes.
+
+(b) General rule.
+
+(2) Per se rule. A covered debt instrument is treated as stock if, in connection with the issuance of the covered debt instrument, the funded member:
+  (i) Makes a distribution of property (within the meaning of section 301) to a member of the funded member's expanded group;
+  (ii) Acquires stock of a member of the funded member's expanded group (other than in an exempt exchange) in exchange for property other than stock of the funded member; or
+  (iii) Acquires stock of a member of the funded member's expanded group (other than in an exempt exchange) in exchange for property in an asset reorganization.
+
+(3) Funding rule.
+  (i) In general. A covered debt instrument is treated as stock to the extent that it is issued by a funded member (the issuer of the debt instrument) to another member of the funded member's expanded group, and during the per se period—
+    (A) The funded member makes a distribution of property to a member of the funded member's expanded group (other than a distribution of stock of the funded member that is not treated as property under section 305(a)); or
+    (B) The funded member acquires stock of a member of the funded member's expanded group in exchange for property other than stock of the funded member.
+
+  (ii) Per se period. The per se period is the period beginning 36 months before the date on which a covered debt instrument is issued and ending 36 months after such date.
+
+  (iii) Amount of recharacterization. The amount of the covered debt instrument that is treated as stock under paragraph (b)(3)(i) of this section equals the lesser of—
+    (A) The adjusted issue price of the covered debt instrument; and
+    (B) The aggregate amount of distributions and acquisitions described in paragraph (b)(3)(i) of this section made during the per se period.
+
+  (iv) Partial recharacterization. If the amount determined under paragraph (b)(3)(iii) of this section is less than the adjusted issue price of the covered debt instrument, the covered debt instrument is treated as two separate instruments: a debt instrument with an adjusted issue price equal to the excess of the adjusted issue price over the recharacterized amount, and stock with a value equal to the recharacterized amount. Interest on the debt instrument is allocated proportionally between the debt portion and the stock portion.
+
+(c) Definitions.
+
+(1) Covered member. A covered member is a corporation that is a member of an expanded group.
+
+(2) Expanded group.
+  (i) In general. The term expanded group means an affiliated group as defined in section 1504(a) but determined—
+    (A) By substituting "directly or indirectly, at least 80 percent of the vote and value" for the ownership threshold in section 1504(a)(2);
+    (B) Without regard to section 1504(b)(1) through (6) (i.e., including all corporations, foreign or domestic, insurance companies, etc.); and
+    (C) By including partnerships and other non-corporate entities to the extent a member of the expanded group owns, directly or indirectly, at least 80 percent of the interests in capital and profits of such entity.
+
+  (ii) Indirect ownership. For purposes of determining membership in an expanded group, indirect ownership through one or more entities shall be taken into account. An entity's indirect ownership percentage through another entity equals the product of the direct ownership percentages along the chain of ownership.
+
+(3) Funded member. The funded member is the issuer (borrower) of the covered debt instrument.
+
+(d) Treatment of recharacterized instruments.
+
+(1) In general. If a covered debt instrument is treated as stock in whole or in part under this section—
+  (i) Amounts that would otherwise be treated as interest (whether paid, accrued, or imputed) on the recharacterized portion are treated as distributions with respect to stock (and not as interest expense of the issuer or interest income of the holder); and
+  (ii) The recharacterized portion is not taken into account as indebtedness for purposes of any provision of the Internal Revenue Code.

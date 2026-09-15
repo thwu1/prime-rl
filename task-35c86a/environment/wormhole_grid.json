@@ -1,0 +1,30 @@
+{
+    "grid_width": 10,
+    "grid_height": 12,
+    "toroidal": true,
+    "dram_banks": [
+        {"id": 0, "x": 0, "y": 0},
+        {"id": 1, "x": 0, "y": 2},
+        {"id": 2, "x": 0, "y": 4},
+        {"id": 3, "x": 0, "y": 6},
+        {"id": 4, "x": 0, "y": 8},
+        {"id": 5, "x": 0, "y": 10},
+        {"id": 6, "x": 5, "y": 0},
+        {"id": 7, "x": 5, "y": 2},
+        {"id": 8, "x": 5, "y": 4},
+        {"id": 9, "x": 5, "y": 6},
+        {"id": 10, "x": 5, "y": 8},
+        {"id": 11, "x": 5, "y": 10}
+    ],
+    "t_tile_columns": [1, 2, 3, 4, 6, 7, 8, 9],
+    "t_tile_rows": [1, 2, 3, 4, 5, 7, 8, 9, 10, 11],
+    "dram_columns": [0, 5],
+    "non_t_tile_rows": [0, 6],
+    "noc_routing": {
+        "0": {"horizontal": "east", "vertical": "south"},
+        "1": {"horizontal": "west", "vertical": "north"}
+    },
+    "per_bank_bandwidth_gbps": 24.0,
+    "noc_link_bandwidth_gbps": 32.0,
+    "num_virtual_channels": 2
+}

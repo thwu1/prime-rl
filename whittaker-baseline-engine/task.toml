@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering and reimplementing five distinct iterative penalized least-squares baseline correction algorithms from the pybaselines library, each with unique weighting functions, convergence criteria, and edge-case behaviors that must be discovered by studying the library's source code. The solver must understand banded/sparse matrix representations, implement algorithm-specific iterative reweighting schemes, handle numerical edge cases (overflow capping, degenerate residual distributions, safe standard deviation), replicate parameter validation behavior, and match numerical output across multiple diff orders and signal lengths. The drpls algorithm uses a non-standard modified penalty matrix and the aspls algorithm introduces per-point adaptive penalty scaling, both of which require careful analysis to replicate. No formulas or implementation hints are provided."""
+solution_explanation = """Build the D^T@D penalty matrix using scipy.sparse, then implement each algorithm's iterative loop with its specific weighting function: asls uses simple threshold weighting (p vs 1-p), arpls uses logistic weighting based on negative-residual statistics via scipy.special.expit, iarpls uses a modified logistic with iteration-dependent steepening (exp(t)/sigma normalization with sqrt denominator), drpls builds a non-symmetric system matrix (P1 + Pn + diag(w) @ (I - eta*Pn)) and uses absolute-value-denominator weighting, and aspls applies column-wise alpha scaling to the penalty matrix. Convergence is measured as L2 relative difference of consecutive weight arrays with eps floor on denominator. The auto_baseline function sweeps all algorithms over lambda candidates and selects minimum score = sum(w*(y-b)^2) + 0.01*sum(diff(b,2)^2)."""
+verification_explanation = """Tests generate four deterministic synthetic spectra (seeds 42, 123, 789, 2024) with Gaussian peaks on various baselines plus noise. For each algorithm, both pybaselines and the solver's implementation are run with identical parameters including non-default diff orders and 1000-point signals. Baselines are compared via max relative error < 5e-3. Additional tests verify diff_penalty_diags up to order 4 against pybaselines reference, check convergence property structure (weights, tol_history, alpha), verify drpls rejects diff_order < 2, test auto_baseline API and output quality, and confirm no pybaselines import in the solver code."""
+category = "scientific_computing"
+tags = ["numerical-methods", "signal-processing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/whittaker-baseline-engine"

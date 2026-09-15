@@ -1,0 +1,125 @@
+{
+  "_description": "Required output format for /app/results/analysis.json. Replace all placeholder descriptions with computed values. All float values should be fractions (0-1) for rates, or raw values for statistics/costs/times.",
+  "data_summary": {
+    "total_cases": "INTEGER: total cases in raw dataset",
+    "effective_cases": "INTEGER: cases after any exclusions for data integrity",
+    "excluded_cheating_cases": "INTEGER: number of cases excluded"
+  },
+  "overall_performance": {
+    "xhigh": {
+      "success_rate": "FLOAT: fraction of effective cases with xhigh_run1_success=1",
+      "mean_time_all_min": "FLOAT: mean xhigh_run1_time_min across all effective cases",
+      "mean_cost_all_usd": "FLOAT: mean xhigh_run1_cost_usd across all effective cases",
+      "mean_time_success_min": "FLOAT: mean time for successful cases only",
+      "mean_cost_success_usd": "FLOAT: mean cost for successful cases only",
+      "mean_time_failure_min": "FLOAT: mean time for failed cases only",
+      "mean_cost_failure_usd": "FLOAT: mean cost for failed cases only"
+    },
+    "medium": {
+      "success_rate": "FLOAT",
+      "mean_time_all_min": "FLOAT",
+      "mean_cost_all_usd": "FLOAT",
+      "mean_time_success_min": "FLOAT",
+      "mean_cost_success_usd": "FLOAT",
+      "mean_time_failure_min": "FLOAT",
+      "mean_cost_failure_usd": "FLOAT"
+    }
+  },
+  "subsystem_analysis": {
+    "<subsystem_name>": {
+      "count": "INTEGER: number of effective cases in this subsystem",
+      "xhigh_success_rate": "FLOAT: XHigh success rate for this subsystem",
+      "xhigh_fisher_odds_ratio": "FLOAT: odds ratio, this subsystem vs all others",
+      "xhigh_fisher_pvalue": "FLOAT: two-sided p-value from exact test",
+      "medium_success_rate": "FLOAT",
+      "medium_fisher_odds_ratio": "FLOAT",
+      "medium_fisher_pvalue": "FLOAT"
+    }
+  },
+  "race_condition_analysis": {
+    "race_count": "INTEGER: number of race-condition cases",
+    "non_race_count": "INTEGER: number of non-race cases",
+    "xhigh_race_success_rate": "FLOAT",
+    "xhigh_non_race_success_rate": "FLOAT",
+    "medium_race_success_rate": "FLOAT",
+    "medium_non_race_success_rate": "FLOAT"
+  },
+  "vulnerability_type_analysis": {
+    "note": "Comparison of temporal vs spatial memory safety vulnerability types, properly controlling for relevant confounding variables. Exclude cases with 'other' vulnerability type.",
+    "xhigh": {
+      "pooled_odds_ratio": "FLOAT: confounder-adjusted odds ratio (UAF_DF vs OOB)",
+      "test_statistic": "FLOAT: test statistic from the stratified analysis",
+      "pvalue": "FLOAT: p-value from the stratified test",
+      "stratified_tables": {
+        "race": {
+          "uaf_df_success": "INTEGER",
+          "uaf_df_failure": "INTEGER",
+          "oob_success": "INTEGER",
+          "oob_failure": "INTEGER"
+        },
+        "non_race": {
+          "uaf_df_success": "INTEGER",
+          "uaf_df_failure": "INTEGER",
+          "oob_success": "INTEGER",
+          "oob_failure": "INTEGER"
+        }
+      }
+    },
+    "medium": {
+      "pooled_odds_ratio": "FLOAT",
+      "test_statistic": "FLOAT",
+      "pvalue": "FLOAT",
+      "stratified_tables": {
+        "race": {
+          "uaf_df_success": "INTEGER",
+          "uaf_df_failure": "INTEGER",
+          "oob_success": "INTEGER",
+          "oob_failure": "INTEGER"
+        },
+        "non_race": {
+          "uaf_df_success": "INTEGER",
+          "uaf_df_failure": "INTEGER",
+          "oob_success": "INTEGER",
+          "oob_failure": "INTEGER"
+        }
+      }
+    }
+  },
+  "cutoff_analysis": {
+    "pre_cutoff_count": "INTEGER",
+    "post_cutoff_count": "INTEGER",
+    "xhigh_pre_success_rate": "FLOAT",
+    "xhigh_post_success_rate": "FLOAT",
+    "xhigh_fisher_odds_ratio": "FLOAT",
+    "xhigh_fisher_pvalue": "FLOAT",
+    "medium_pre_success_rate": "FLOAT",
+    "medium_post_success_rate": "FLOAT",
+    "medium_fisher_odds_ratio": "FLOAT",
+    "medium_fisher_pvalue": "FLOAT"
+  },
+  "convergence_analysis": {
+    "xhigh_run1_success": "INTEGER: cases succeeding in XHigh run 1",
+    "xhigh_run2_success": "INTEGER: cases succeeding in XHigh run 2",
+    "both_runs_success": "INTEGER: cases succeeding in both runs",
+    "either_run_success": "INTEGER: cases succeeding in at least one run (union)",
+    "only_run1_success": "INTEGER: cases succeeding only in run 1",
+    "only_run2_success": "INTEGER: cases succeeding only in run 2"
+  },
+  "commit_message_analysis": {
+    "level_1": {
+      "count": "INTEGER",
+      "xhigh_success_rate": "FLOAT",
+      "medium_success_rate": "FLOAT"
+    },
+    "level_2": {
+      "count": "INTEGER",
+      "xhigh_success_rate": "FLOAT",
+      "medium_success_rate": "FLOAT"
+    },
+    "level_3": {
+      "count": "INTEGER",
+      "xhigh_success_rate": "FLOAT",
+      "medium_success_rate": "FLOAT"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "space_group_symbol": "Pnma",
+  "space_group_number": 62,
+  "crystal_system": "orthorhombic",
+  "initial_lattice_parameters_angstrom": {
+    "a": 8.60,
+    "b": 5.32,
+    "c": 7.05
+  },
+  "angles_degrees": {
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "chemical_formula": "PbSO4",
+  "note": "Initial lattice parameters are approximate. A zero-point offset may be present in the data."
+}

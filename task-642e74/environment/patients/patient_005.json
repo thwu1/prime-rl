@@ -1,0 +1,68 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-005",
+        "birthDate": "1995-09-20",
+        "gender": "female",
+        "name": [{"family": "Evans", "given": ["Rachel"]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-htn-005",
+        "subject": {"reference": "Patient/patient-005"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2025-02-01",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-preg-005",
+        "subject": {"reference": "Patient/patient-005"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z33.1", "display": "Pregnant state, incidental"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2025-04-01",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-outpt-005",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [
+          {"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit"}]}
+        ],
+        "subject": {"reference": "Patient/patient-005"},
+        "period": {"start": "2025-03-01T10:00:00Z", "end": "2025-03-01T10:30:00Z"}
+      }
+    }
+  ]
+}

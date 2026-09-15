@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of multi-area OSPF path computation with ABR inter-area propagation, full BGP best path selection, route redistribution with external metric types, RIB construction with administrative distance comparison, and routing anomaly detection. Additionally requires cross-referencing a SQLite database (queried via sqlite3) with Cisco IOS router configuration files to reconstruct complete routing policy — BGP local-preference values, static routes, and redistribution parameters exist only in the IOS configs while topology and route advertisements are only in the database."""
+solution_explanation = """The solution queries the SQLite database using the sqlite3 module to extract OSPF topology, BGP sessions, received routes, and admin distances. It then parses Cisco IOS config files to extract route-map definitions (local-preference values), static routes, and redistribution config. Cross-referencing the route_map_in column from ebgp_sessions with config file route-maps yields the local-pref applied to each BGP path. The engine then computes per-area shortest paths, propagates inter-area routes through ABRs, runs BGP best path selection, builds the RIB with admin distance comparison, and detects routing anomalies."""
+verification_explanation = """Tests verify: (1) correct OSPF costs between all 15 router pairs including intra-area and inter-area paths, (2) BGP best path selection outcomes with correct decision reasons, (3) RIB entries with correct protocol labels and admin distances, and (4) detection of specific routing anomalies. All outputs are deterministic JSON files with exact expected values."""
+category = "networking"
+tags = ["ospf", "bgp"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-bgp-engine"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of quantum error correction: stabilizer formalism, Clifford group conjugation algebra (Heisenberg-picture Pauli propagation through H/S/CX gates), fault-tolerance definitions involving error weight thresholds and flag-qubit detection, and practical use of the stim library for circuit parsing. Even frontier LLMs struggle with QEC circuit reasoning (per StabilizerBench evaluation results). The agent must correctly implement gate-by-gate Pauli tracking with the XZ symplectic representation, enumerate all single-fault locations across circuit layers, and compute a continuous FT score—a multi-step process requiring both theoretical understanding and careful implementation."""
+solution_explanation = """The solution implements Heisenberg-picture Pauli tracking through Clifford gates using the XZ symplectic representation: each single-qubit Pauli maps to (x_bit, z_bit) pairs, and gate conjugation rules are applied bitwise (H swaps x/z, S maps X→Y by toggling z when x=1, CX XORs control-x into target-x and target-z into control-z). The circuit is decomposed into individual gate operations via stim parsing, then for each of the n*(m+1)*3 fault locations, the initial single-qubit Pauli is propagated through the suffix gates to obtain the output error operator. Weight is computed on data qubits only, and flag detection checks for X/Y components on flag qubits."""
+verification_explanation = """Tests verify both low-level correctness (individual Pauli propagation through H, S, CX gates) and high-level correctness (FT scores for 4 circuits with hand-verified expected values). The propagate_fault function is tested on specific fault locations with known error strings. FT scores are compared against exact rational values (10/18, 35/45, 20/36, 12/24) computed by exhaustive manual enumeration of all single-fault locations."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "stabilizer-circuits"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stabilizer-fault-analyzer"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting bugs in a consistency checker without being told what is wrong: (1) the EDN parser cannot handle tagged literals (#inst) present in some history files, forcing the solver to either extend the parser or install and use the edn_format library, (2) the invoke/completion pairing incorrectly treats :fail (aborted) transactions as committed, masking G1a detection, (3) the dependency graph construction omits rw anti-dependency edges for empty-read observations, hiding G-single and G2-item anomalies in multiple histories, and (4) the cycle classifier has G-single and G2-item conditions swapped. The solver must understand Adya's transaction isolation formalism, Jepsen's invoke/ok protocol, EDN data format, and Graphviz DOT syntax — combining distributed systems theory, unfamiliar tool usage, and systematic debugging."""
+solution_explanation = """The solution installs the edn_format Python library for robust EDN parsing (including tagged literals), then fixes three logic bugs: (1) extract_transactions now checks completion type (:ok→committed, :fail→aborted, :info→indeterminate), (2) build_dep_graph adds rw anti-dependency edges when a transaction reads an empty list (the version before any writes), and (3) classify_cycles correctly maps rw_count==1 to G-single and rw_count>=2 to G2-item. The fixed auditor is deployed as an executable at /app/auditor."""
+verification_explanation = """Tests run the auditor on all 9 test directories and verify both the exact anomaly list and isolation level for each. Anomaly expectations range from clean serializable histories to complex multi-node G2-item cycles with distractor transactions. Tests also validate that the cycle_dot field contains valid Graphviz DOT syntax (verified by running the dot command) and includes the expected dependency edge types for histories with cycles."""
+category = "distributed_systems"
+tags = ["consistency-checking", "jepsen-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-85591c"

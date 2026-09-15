@@ -1,0 +1,19 @@
+Development Notes — Handoff
+============================
+
+Data Migration
+- Raw data split from monolithic JSON into per-forecaster files under /app/raw/forecasts/
+- Event metadata stored in JSONL format at /app/raw/events.jsonl
+- Outcomes exported from a separate system, keyed by event title (not event ID)
+- Known issues with some forecast exports: inconsistent schemas and units
+- Some exports produced duplicate prediction rows
+
+Pipeline Status
+- /app/pipeline/evaluate.py has partial scoring implementations
+- Quadratic scoring looks correct; check logarithmic scoring carefully
+- Market return model and pairwise estimation: not yet implemented
+- Rank correlation and final rankings: not yet implemented
+
+Output
+- All files go in /app/results/ per config.yaml specification
+- Values must be floating-point numbers, not strings

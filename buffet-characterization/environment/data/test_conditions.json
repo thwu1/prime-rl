@@ -1,0 +1,14 @@
+{
+  "flow_conditions": {
+    "mach": 0.73,
+    "chord_m": 0.23,
+    "speed_of_sound_m_s": 340.3,
+    "freestream_velocity_m_s": 248.419,
+    "freestream_pressure_pa": 101325.0,
+    "angles_of_attack_deg": [2.50, 3.00, 3.10, 3.25, 3.50, 3.90]
+  },
+  "grid_convergence": {
+    "alpha_deg": 3.0,
+    "refinement_ratio": 2.0
+  }
+}

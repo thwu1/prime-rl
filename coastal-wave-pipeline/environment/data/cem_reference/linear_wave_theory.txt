@@ -1,0 +1,190 @@
+USACE Coastal Engineering Manual (EM 1110-2-1100)
+Selected Reference Material for Coastal Wave Analysis
+=====================================================
+
+PART II — COASTAL HYDRODYNAMICS
+
+II-1: Water Wave Mechanics — Linear (Airy) Wave Theory
+-------------------------------------------------------
+
+The linear dispersion relation relates wave frequency to wavenumber and depth:
+
+    sigma^2 = g * k * tanh(k * d)
+
+where:
+    sigma = 2*pi/T  (angular frequency, rad/s)
+    k = 2*pi/L      (wavenumber, rad/m)
+    T = wave period (s)
+    L = wavelength (m)
+    d = water depth (m)
+    g = gravitational acceleration (9.81 m/s^2)
+
+Deep water wavelength (d/L > 0.5):
+    Lo = g * T^2 / (2*pi)
+
+The dispersion relation may be expressed equivalently as:
+    L = Lo * tanh(2*pi*d/L)
+
+which must be solved iteratively since L appears on both sides. A suitable
+initial estimate is:
+    L_init = Lo * sqrt(tanh(2*pi*d/Lo))
+
+Wave phase celerity:
+    C = L / T
+
+Group velocity factor:
+    n = 0.5 * (1 + 2*k*d / sinh(2*k*d))
+
+Group celerity:
+    Cg = n * C
+
+Limiting cases:
+    Deep water (d/Lo > 0.5):    n -> 0.5, L -> Lo, C -> Lo/T
+    Shallow water (d/Lo < 0.04): n -> 1.0, C -> sqrt(g*d)
+
+
+EXAMPLE PROBLEM II-1-1 (Verification Data):
+  Given: T = 10 s, depths d = 200 m and d = 3 m
+  At d = 200 m (deep water): L = 156.0 m, C = 15.6 m/s
+  At d = 3 m (intermediate): L = 53.3 m, C = 5.33 m/s
+
+
+II-1: Wave Particle Kinematics (supplementary)
+-----------------------------------------------
+
+Horizontal velocity under a wave crest:
+    u = (pi*H/T) * cosh(k*(z+d)) / sinh(k*d) * cos(theta)
+
+Vertical velocity:
+    w = (pi*H/T) * sinh(k*(z+d)) / sinh(k*d) * sin(theta)
+
+Dynamic pressure:
+    p = -rho*g*z + rho*g*(H/2) * cosh(k*(z+d)) / cosh(k*d) * cos(theta)
+
+Wave energy density:
+    E = rho * g * H^2 / 8
+
+Energy flux (wave power per unit crest width):
+    P = E * Cg
+
+
+II-3: Estimation of Nearshore Waves
+-------------------------------------
+
+For plane, parallel bottom contours, wave transformation from deep water to
+any depth d is governed by conservation of energy flux and Snell's law.
+
+Shoaling coefficient:
+    Ks = sqrt(Cg0 / Cg)
+
+where Cg0 is the deep water group celerity = C0/2, and C0 = Lo/T.
+
+Snell's law of refraction:
+    sin(theta) / C = sin(theta0) / C0
+
+where theta0 is the deep water wave angle and C0 is deep water celerity.
+
+Refraction coefficient:
+    Kr = sqrt(cos(theta0) / cos(theta))
+
+Combined wave height transformation:
+    H = H0 * Ks * Kr
+
+For normal incidence (theta0 = 0), Kr = 1.0 at all depths and the angle
+remains zero throughout.
+
+
+EXAMPLE PROBLEM II-3-1 (Verification Data):
+  Given: H0 = 1.0 m, T = 15 s, plane sloping beach
+
+  theta0 = 0 deg:
+    d = 100 m: H = 0.94 m
+    d =  10 m: H = 1.14 m
+    d =   4 m: H = 1.39 m
+
+  theta0 = 45 deg:
+    d =  10 m: H = 0.98 m, theta = 16.8 deg
+    d =   4 m: H = 1.18 m, theta = 10.8 deg
+
+
+II-4: Surf Zone Hydrodynamics
+-------------------------------
+
+WAVE BREAKING
+
+For a beach of uniform slope m (= tan beta), the unrefracted deep water wave
+height H0' accounts for refraction separately:
+    H0' = Kr * H0
+
+Breaker height ratio (CEM recommended):
+    Omega_b = 0.56 * (H0' / Lo)^(-1/5)
+    Hb = Omega_b * H0'
+
+Breaker depth index gamma_b depends on slope and wave steepness:
+    a = 43.8 * (1 - exp(-19 * m))
+    b = 1.56 / (1 + exp(-19.5 * m))
+    gamma_b = b - a * Hb / (g * T^2)
+    db = Hb / gamma_b
+
+
+EXAMPLE PROBLEM II-4-1 (Verification Data):
+  Given: m = 0.01, H0 = 2.0 m, T = 10 s, Kr = 1.05
+  Results: Hb = 2.7 m, db = 3.2 m, gamma_b = 0.84
+
+
+WAVE SETUP (radiation stress)
+
+Setdown at breaker line:
+    eta_b = -(1/16) * gamma_b^2 * db
+
+Setup at still-water shoreline:
+    eta_s = eta_b + (db - eta_b) / (1 + 8/(3 * gamma_b^2))
+
+Setup gradient landward of breaker line:
+    d_eta/dx = m / (1 + 8/(3 * gamma_b^2))
+
+Mean shoreline displacement (shoreward from SWL):
+    delta_x = eta_s / (m - d_eta/dx)
+
+Maximum setup:
+    eta_max = eta_s + (d_eta/dx) * delta_x
+
+
+EXAMPLE PROBLEM II-4-2 (Verification Data):
+  Given: Hb = 2.7 m, db = 3.2 m, gamma_b = 0.84, m = 0.01
+  Results: eta_b = -0.14 m, eta_s = 0.56 m, eta_max = 0.71 m
+  Shoreline displaced approximately 71 m shoreward of SWL
+
+
+IRREGULAR WAVE RUNUP ON IMPERMEABLE SLOPES
+
+Surf similarity parameter (Iribarren number):
+    xi_0 = tan(beta) / sqrt(H0 / Lo)
+
+Mase (1989) equations for irregular waves on plane impermeable beach:
+    Rmax  / H0 = 2.32 * xi_0^0.77
+    R2%   / H0 = 1.86 * xi_0^0.71
+    R1/10 / H0 = 1.70 * xi_0^0.71
+    R1/3  / H0 = 1.38 * xi_0^0.70
+    Rmean / H0 = 0.88 * xi_0^0.69
+
+
+TOTAL WATER LEVEL
+
+For coastal flood analysis, total water level (TWL) at the shore combines
+maximum wave setup and the 2-percent exceedance runup:
+    TWL = eta_max + R2%
+
+
+BATHYMETRIC SURVEY DATA CONVENTIONS
+--------------------------------------
+
+USACE bathymetric surveys record seabed elevation relative to vertical datums
+(typically NAVD88) in US customary units (feet). Water depth for wave
+calculations is the negation of elevation, converted to meters:
+
+    depth_m = -(elevation_ft) * 0.3048
+
+Survey data may contain quality issues such as incomplete records, readings
+from emerged land (positive elevations), or mixed formatting. Only physically
+valid submerged entries (positive depths) should be retained for wave analysis.

@@ -1,0 +1,60 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse engineering a stripped ELF binary to recover a custom Feistel
+block cipher and its LCG-based key derivation, then evaluating three encrypted sessions whose
+encryption modes are NOT labeled — the solver must infer each session's mode by correlating
+manifest metadata with discovered binary code paths. Beyond classification, the solver must
+assign calibrated risk levels reflecting relative exploitability and estimate per-session attack
+complexity. The solver must then create a proof-of-exploitation forgery — a novel ciphertext that
+decrypts to a specific target string under a given seed — demonstrating full synthesis of the
+reversed cipher. Combines binary RE, cryptographic evaluation, vulnerability triage, comparative
+risk assessment, and artifact creation at a level requiring significant CTF/security experience."""
+solution_explanation = """1. Disassemble the stripped binary to identify the Feistel cipher, LCG PRNG,
+and key derivation internals. Discover the undocumented -D derived-key flag via string analysis.
+2. Extract numeric constants from disassembly and classify by instruction context (IMUL vs XOR).
+3. Implement a Python replica of the cipher and verify against binary output for both standard
+and derived modes.
+4. Read manifest metadata (operator, notes, timestamps) and evaluate which binary code path each
+session used — manifest provides no explicit key_mode labels.
+5. Infer alpha = time-seeded (SYS-AUTO scheduler), beta = hardware RNG (HSM-MODULE), gamma =
+derived mode (same window as alpha, alternate invocation). Assign risk levels and attack complexity.
+6. Brute-force alpha's seed across the ~100s timestamp window, derive gamma's seed via XOR,
+decrypt both, extract and combine flag fragments.
+7. Create a forgery by encrypting target plaintext with seed 1337 using the reimplemented cipher,
+then verify the binary decrypts it correctly.
+8. Produce security assessment JSON with verdicts, justifications, risk levels, and attack
+complexity estimates for all three sessions."""
+verification_explanation = """Tests verify: (1) assessment.json exists with correct structure
+including verdict, justification, attack_complexity, and risk_level for each session;
+(2) verdicts correctly classify alpha and gamma as recoverable and beta as not_recoverable;
+(3) risk_levels reflect correct relative ordering (alpha >= gamma > beta) with alpha >= 4
+and beta <= 2; (4) justifications demonstrate genuine understanding of each session's
+vulnerability mechanism; (5) flag.txt contains the exact expected flag;
+(6) forgery.enc exists, is block-aligned, and when decrypted by the binary with seed 1337
+produces the exact target string SECURITY_AUDIT_COMPLETE:VERIFIED."""
+category = "security"
+tags = ["reverse-engineering", "cryptanalysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vm-cipher-cryptanalysis"

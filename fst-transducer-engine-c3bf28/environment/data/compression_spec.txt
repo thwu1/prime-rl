@@ -1,0 +1,24 @@
+Structural Compression Bounds
+
+The data structure must achieve the following maximum node counts
+when queried via the info subcommand.
+
+Dataset 1:
+  Input keys (with values): ax(10) bx(20) cx(30) dx(40) ex(50) fx(60) gx(70)
+  keys: 7
+  max nodes: 3
+
+Dataset 2:
+  Input keys: a(1) ab(5) abc(13) abd(21) b(34) bcd(55)
+  keys: 6
+  max nodes: 7
+
+Dataset 3:
+  Input keys: aXYZ(100) bXYZ(200) cXYZ(300)
+  keys: 3
+  max nodes: 5
+
+Dataset 4:
+  20 keys of the form {a..t}yz with values 0,10,20,...,190
+  keys: 20
+  max nodes: 4

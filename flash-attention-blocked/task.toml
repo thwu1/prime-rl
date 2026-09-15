@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging and extending a C shared library for memory-efficient attention computation, then wiring it to Python through ctypes. The starter C code has subtle bugs (incorrect loop bounds that silently drop trailing elements for non-divisible sizes, wrong array indexing in the backward pass) and is missing causal variants entirely. The agent must: (1) build the library with make and discover a target-name mismatch between the Makefile and the ctypes wrapper, (2) debug numerical test failures by tracing through C code to find the bugs, (3) derive and implement causal forward and backward passes in C with correct masking logic, (4) extend the ctypes wrapper with proper argument/return type declarations for the new functions, (5) wire flash_attention.py to expose the final API. Each step requires coordinating across C, make, and Python ctypes — tools that most ML practitioners rarely use together."""
+solution_explanation = """Fix the Makefile to produce libattention.so (matching what attention.py loads). Fix the ceiling-division bug in num_blocks calculation. Fix the backward pass D-vector indexing bug. Implement blocked_causal_forward and blocked_causal_backward in C by limiting the inner loop to bj<=bi and applying element-wise causal masking on diagonal blocks. Extend the header with causal function declarations, extend the ctypes wrapper with causal bindings, and write flash_attention.py to delegate all four functions through the wrapper."""
+verification_explanation = """Tests verify all four functions against naive reference implementations with tight numerical tolerances. Forward pass checked at 1e-10 tolerance across divisible sizes, non-divisible sizes, block_size=1, block_size>N, N=1, and various head dimensions. Backward pass checked at 1e-8 tolerance and independently verified via finite-difference gradient checks. Source code integrity tests verify: the shared library libattention.so exists, flash_attention.py uses ctypes or the attention wrapper, the C source contains causal function implementations, and no reference module imports. Causal-specific tests verify first-row self-attention and that causal differs from non-causal."""
+category = "systems_programming"
+tags = ["c-ffi", "numerical-computing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flash-attention-blocked"

@@ -1,0 +1,24 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgname=monitor
+pkgver=3.2.1
+pkgrel=1
+pkgdesc="System and application monitoring daemon"
+arch=('x86_64')
+url="https://example.com/monitor"
+license=('GPL-3.0-or-later')
+depends=('webapp' 'baselib' 'curl')
+makedepends=('go')
+provides=('metrics-collector=3.2.1')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    go build -o monitor ./cmd/monitor
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    install -Dm755 monitor "${pkgdir}/usr/bin/monitor"
+}

@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+
+all: libattention.so
+
+libattention.so: src/blocked_attention.c src/blocked_attention.h
+	$(CC) $(CFLAGS) -shared -o $@ src/blocked_attention.c -lm
+
+clean:
+	rm -f libattention.so

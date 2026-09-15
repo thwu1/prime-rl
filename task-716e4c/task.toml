@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of both WebAssembly's linear memory model (memory.size/memory.grow intrinsics, __heap_base linker symbol, contiguous address space from 0) and native Linux memory management (mmap, virtual address alignment). The agent must comprehend walloc's intricate internal design: 64KB pages with 256-byte chunk headers, segregated freelists for 10 size classes, best-fit large-object allocation with lazy coalescing, chunk splitting across page boundaries, and the repurposing of single-chunk large objects as small-object freelists. Implementing correct realloc requires understanding size class boundaries and large object payload sizes. The heap validation function demands walking multiple interleaved data structures (large object freelist, per-class small object freelists) and cross-referencing their entries against page header metadata. Multi-step debugging of C shared library code through compilation errors, segfaults, and test failures is inherently agentic."""
+solution_explanation = """Port walloc.c by replacing __builtin_wasm_memory_size/grow with mmap-based region management (reserve max_heap_size + padding, 64KB-align the region, track committed size). Replace extern __heap_base with the aligned region pointer. Keep all core allocation functions (allocate_pages, allocate_large_object, obtain_small_objects, etc.) with minimal changes to address computation. Add walloc_init/destroy for lifecycle. Implement realloc by checking chunk_kind from page headers to determine old size class, comparing with new size class, and returning same pointer for same-class/shrink or doing malloc+copy+free. Track allocation counts with simple counters for stats. Walk freelists and verify page header consistency for validate_heap."""
+verification_explanation = """Tests compile walloc_native.c as a shared library and use Python ctypes to exercise all API functions. Tests verify: basic malloc/free across all 10 size classes plus large objects, data preservation through read/write cycles, realloc semantics (NULL, zero, grow, shrink, same-class optimization), calloc zeroing, stats accuracy after known allocation patterns, heap validation passing after complex operation sequences, and a 1000-operation random stress test with mixed malloc/free/realloc."""
+category = "systems_programming"
+tags = ["memory-allocator", "webassembly"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-716e4c"

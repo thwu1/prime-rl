@@ -1,0 +1,14 @@
+{
+  "target_a": {
+    "name": "ibm_eagle_r3_subset",
+    "native_gate_set": ["cx", "u3"],
+    "coupling_map": [[0,1],[1,2],[2,3],[3,4]],
+    "description": "5-qubit linear chain subset of IBM Eagle r3 processor"
+  },
+  "target_b": {
+    "name": "google_sycamore_subset",
+    "native_gate_set": ["cz", "rz", "sx"],
+    "coupling_map": [[0,1],[1,2],[1,3],[3,4]],
+    "description": "5-qubit T-shaped subset of Google Sycamore processor"
+  }
+}

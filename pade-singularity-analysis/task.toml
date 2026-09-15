@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of complex analysis, Padé approximant theory (DLMF §3.11), and multi-precision numerical computing. The agent must diagnose errors in a faulty analysis of three Taylor series—determining correct convergence radii from coefficient asymptotics, classifying singularity types, locating singularities in the complex plane, and recomputing rational approximant evaluations to 35+ significant digits—without being told which algorithms or mathematical techniques to apply."""
+solution_explanation = """Parse the rational Taylor coefficients into mpmath multi-precision numbers. For each function, construct diagonal Padé approximants using mpmath.pade and evaluate at the requested points with 60-digit working precision. Determine convergence radius by fitting log|c_k| = a + b·k + c·log(k) via least-squares regression on tail coefficients, yielding R = exp(-b). Classify singularities from the regression exponent c (near 0 → polar, near -1 → logarithmic_branch, else algebraic_branch). Locate singularities by checking sign alternation of normalized tail coefficients c_k·R^k (alternating → negative real axis, same-sign → positive real axis)."""
+verification_explanation = """Tests independently recompute each Padé approximant using mpmath.pade at 60-digit precision and verify evaluations match within 1e-30 relative error. Convergence radii are checked against known values (3, 1, 0.5) within 1e-6 tolerance. Singularity types are verified as exact string matches. Nearest singularity locations are checked against analytic values (3+0i, -1+0i, -0.5+0i) within 1e-2 tolerance."""
+category = "mathematics"
+tags = ["numerical-analysis", "complex-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pade-singularity-analysis"

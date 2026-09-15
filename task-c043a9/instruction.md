@@ -1,0 +1,13 @@
+A Kubernetes cluster's API server audit logs have been collected after a suspected security incident. The raw audit logs are at `/app/audit-logs/kube-apiserver-audit.jsonl` (one JSON event per line, following the `audit.k8s.io/v1` Event schema). The logs contain a mix of normal cluster operations and malicious activity from a compromised identity. Multiple benign users and service accounts are also active during this period.
+
+Analyze the audit logs to reconstruct the full attack chain, identify all indicators of compromise, and build detection and prevention controls.
+
+Produce the following files under `/app/findings/`:
+
+- **`attack_timeline.json`**: A JSON array of attack events in chronological order. Each event must include: `timestamp`, `verb`, `resource`, `name` (resource name, null if N/A), `namespace` (null if cluster-scoped), `user`, `source_ip`, `description` (brief explanation), and `mitre_technique` (ATT&CK technique ID, e.g. "T1078").
+
+- **`indicators_of_compromise.json`**: A JSON object containing: `compromised_identity` (the full Kubernetes username of the compromised principal), `attacker_source_ip` (the IP used during attack operations), `attacker_user_agent` (the user-agent string used during attack operations), `exfiltrated_secrets` (list of objects with `name` and `namespace` for each secret accessed), `malicious_resources` (object with keys for each type of resource the attacker created — including `clusterrolebindings`, `pods`, `namespaces`, `deployments`, `serviceaccounts`, `rolebindings` — each as a list of objects with `name` and `namespace` where applicable).
+
+- **`detection_rules.yaml`**: Falco-compatible detection rules (YAML list) for Kubernetes audit events. Each rule must have `rule`, `desc`, `condition`, `output`, `priority`, and `tags` fields. Write rules that would detect each distinct phase of the observed attack (reconnaissance, privilege escalation, credential access, execution, persistence). Use `ka.*` field notation for k8s audit event fields (e.g., `ka.verb`, `ka.target.resource`, `ka.target.name`, `ka.user.name`).
+
+- **`audit_policy.yaml`**: A Kubernetes audit policy (`apiVersion: audit.k8s.io/v1`, `kind: Policy`) that would ensure comprehensive logging of the types of activities observed in this attack. Include rules at appropriate levels (`None`, `Metadata`, `Request`, `RequestResponse`) for different resource types, and justify levels by covering RBAC resources, secrets, pod operations, exec/attach subresources, namespaces, and workload controllers.

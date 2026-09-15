@@ -1,0 +1,3 @@
+# Prepare computational basis state j=5 on 3 qubits
+X 0
+X 2

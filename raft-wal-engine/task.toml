@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a binary WAL format from Go source code, then applying Raft distributed consensus theory to reconcile a 3-node cluster's divergent logs. The solver must understand Raft commitment semantics (majority replication), term-based conflict resolution for split-brain entries, snapshot trust boundaries, and cross-node CRC recovery. Entry 67 is corrupted on one node and only recoverable from a second node that lacks coverage on a third (whose snapshot is also corrupted), forcing multi-node cross-referencing. Stale entries from a superseded term on a crashed node must be identified by comparing term numbers across the majority, not by any explicit marker. The combination of binary forensics, distributed consensus reasoning, and multi-source data reconciliation is well beyond procedural — it demands holistic understanding of how Raft logs, snapshots, and replication interact."""
+solution_explanation = """Study marshalEntry() and writeSegment() in wal.go to discover the binary format: segment header (RLOG magic + version + first_index + entry_count = 18 bytes), entry layout (index + term + timestamp + payload_len + payload + CRC32 at end). Study WriteSnapshot() for snapshot format (RSNP magic, CRC at end covering all preceding bytes). Parse all 3 nodes' WAL data. Build presence maps tracking which (index, term) pairs appear on which nodes (counting CRC-failed entries for presence). Apply Raft commitment: for each index, find the highest term with >= 2/3 node presence. Identify node_1's entries 91-93 (term 2) as stale because term 3 at those indices has majority on nodes 0+2. Recover entry 67 from node_1 (corrupted on node_0, not individually available on node_2). Recover entry 103 from node_0 (corrupted on node_2, not on node_1). Use the highest valid snapshot (entry 30 on nodes 0/1) as base state, replay committed entries 31-120 to produce the final 96-key state."""
+verification_explanation = """Tests verify: (1) committed_state.json has exactly 96 keys matching full replay of entries 1-120, with no stale values from term 2, (2) reconciliation report has correct commit_index=120, committed_entry_count=120, stale entries {node_1: [91,92,93]}, corrupted entries {node_0: [67], node_2: [103]}, and cross-referenced recoveries [67, 103], (3) anti-cheat test generates a completely different 3-node cluster with fresh corruption patterns and stale entries, imports the solver's wal_reconciler module, and verifies it produces correct results on the unseen data."""
+category = "systems_programming"
+tags = ["distributed-systems", "binary-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raft-wal-engine"

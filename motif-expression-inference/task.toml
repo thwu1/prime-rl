@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across regulatory genomics, bioinformatics tool interoperability, and statistical modeling. The agent must: (1) parse MEME-format motifs — a domain-specific file format used by FIMO/MEME Suite — and implement or invoke proper PWM-based motif scanning with log-odds scoring and threshold calibration using the provided ChIP-seq validation data; (2) use bedtools or equivalent interval tools to intersect motif hits with ATAC-seq accessibility peaks in BED format, discovering independently that only binding sites in open chromatin are functionally relevant; (3) work with ENCODE narrowPeak format for ChIP-seq peak data; (4) discover a non-linear cooperative interaction between TF_C and TF_E through residual analysis or interaction modeling — a purely additive model systematically underestimates expression for genes where both TFs bind accessibly; (5) integrate all evidence into a coherent regulatory network with interaction edges. The multi-format pipeline (MEME→BED→narrowPeak→regression) requires genuine bioinformatics proficiency, not just Python scripting."""
+solution_explanation = """Parse MEME-format motifs to extract PWMs. Convert to log-odds scoring matrices using background frequencies. Scan all promoters on both strands, recording hits above threshold. Use bedtools intersect (or equivalent) to filter binding sites by overlap with ATAC-seq accessibility peaks. Build gene-by-TF functional binding count matrix. Fit Ridge regression; observe systematic residuals for genes where TF_C and TF_E co-bind. Add TF_C*TF_E interaction term and refit. Classify TF roles by coefficient sign, identify master regulator as TF_C (highest |coefficient| plus interaction contribution). Predict test expression with the interaction model. Output functional binding sites as BED6, and regulatory network JSON including the TF_C/TF_E cooperative interaction edge."""
+verification_explanation = """Tests verify: (1) tf_roles.json contains all 8 TFs with valid roles, at least 6/8 correct; (2) master_regulator.txt is TF_C; (3) predictions.tsv covers all 50 test genes with R² >= 0.50; (4) functional_binding.bed is valid BED6 with coordinates in [0,800], all 8 TFs, >= 100 entries; (5) regulatory_network.json contains the TF_C/TF_E cooperative interaction edge."""
+category = "bioinformatics"
+tags = ["regulatory-genomics", "multi-omic-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/motif-expression-inference"

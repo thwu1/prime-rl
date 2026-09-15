@@ -1,0 +1,9 @@
+A multi-module Python solver for the 1D Brusselator reaction-diffusion system is installed at `/app/solver/`. The pipeline uses implicit Euler with Newton iteration, sparse Jacobian computation via graph coloring, adaptive timestepping with PI/P controllers, and step-doubling error estimation with Richardson extrapolation.
+
+The codebase has six modules: `system.py` (PDE discretization, boundary conditions, sparsity pattern), `sparse_diff.py` (graph-coloring-based compressed finite differences), `stepping.py` (Newton iteration, adaptive step control), `krylov.py` (iterative linear solver stub — not implemented), `integrate.py` (main driver), and a C extension under `c_ext/` (RHS kernel source + ctypes wrapper, not compiled).
+
+The pipeline is currently non-functional. The configuration at `/app/config.toml` requires `linear_solver = "krylov"` and `c_backend = true`, but neither the GMRES implementation nor the compiled shared library exists. Beyond these missing components, several existing modules contain numerical bugs that produce incorrect results even when using the direct (LU) solver with the Python RHS backend.
+
+A diagnostic log from a previous failed run is at `/app/logs/previous_run.log`. Reference solution data is at `/app/reference/solution_ref.npz`.
+
+Make the entire pipeline fully operational: find and fix all bugs, implement the missing GMRES solver, compile the C extension, and ensure the solver produces correct results for both the direct and Krylov linear solver pathways with both Python and C RHS backends. When complete, `python3 /app/run_benchmark.py` should report all checks passed.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of garbage collection internals — specifically, how to correctly resolve ephemerons whose liveness depends on other ephemerons via arbitrary chains and cycles. The agent must discover an appropriate collection strategy from the type-level semantics alone (no algorithm is given). Beyond the GC implementation, the agent must create a GNU Makefile that integrates AddressSanitizer and Valgrind with correct flags (XML output, leak detection, error exit codes), requiring proficiency with C build systems, compiler sanitizers, and memory debugging tools working together. The ASan target must handle containerized runtime constraints (e.g. static-linking the ASan runtime to avoid shared-library ordering errors)."""
+solution_explanation = """Implements a non-moving collector with an internal metadata header prepended before each user object. Collection uses iterative marking from roots via an explicit worklist, then a fixpoint loop over ephemerons: any marked ephemeron whose key is also marked has its value traced, repeating until stable. Unmarked-key ephemerons are broken (key/value nulled). Unmarked objects are swept and freed. The Makefile builds libgc.a, compiles test_basic with -fsanitize=address -static-libasan for the asan target (statically linking the ASan runtime to avoid container shared-library ordering issues, with ASAN_OPTIONS=detect_leaks=0 to disable LeakSanitizer), and runs test_basic under valgrind with --leak-check=full --xml=yes --xml-file=valgrind-report.xml --error-exitcode=1 for the valgrind target."""
+verification_explanation = """Three C test programs compiled against the implementation: test_basic (14 tests covering allocation, root management, graph tracing, cyclic graphs, memory freeing), test_ephemerons (14 tests covering chains, cycles, diamonds, transitive values, nested ephemerons, and statistics), and test_stress (7 tests including sustained allocation under tight heap, 1000-element linked list, and heap capacity enforcement). Additionally: Makefile existence and target verification (all produces libgc.a, clean removes it), AddressSanitizer build-and-run via make asan (with static-linked ASan runtime and leak detection disabled), and Valgrind XML report parsing to confirm zero errors and zero leaks."""
+category = "systems-programming"
+tags = ["garbage-collection", "memory-safety"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-11f321"

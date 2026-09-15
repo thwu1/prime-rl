@@ -1,0 +1,27 @@
+Remediation Plan A - Engineer: Alice Chen
+Date: 2026-06-01
+Ticket: INC-8842 (OSPF outage - all cross-site connectivity down)
+
+Investigation Summary:
+Ran 'show ip ospf neighbor' on all routers. Found core_rtr has adjacency
+with dist_rtr1 and dist_rtr3 but NOT dist_rtr2. Checked dist_rtr2 config
+and found 'passive-interface default' is set but there's no
+'no passive-interface eth0' for the core uplink. Added it.
+
+Checked routing tables: core_rtr has no route to 10.1.0.0/24 (host1 subnet).
+Traced to dist_rtr1 which has 'network 10.10.0.0/24 area 0' -- clearly a
+typo, should be 10.1.0.0/24. Fixed it.
+
+Also noticed core_rtr has no route to 10.3.0.0/24 despite dist_rtr3 adjacency
+being up. Found distribute-list and several prefix-lists that were filtering
+routes. Cleaned up by removing the MAINT_FILTER, BOGON_FILTER prefix-lists
+and the distribute-list referencing them. These were leftover maintenance
+artifacts that should not be in a production config.
+
+Additionally standardized dist_rtr3's OSPF section to match the dist_rtr1
+pattern -- removed the explicit 'no passive-interface' line since the OSPF
+network statements should handle interface activation automatically.
+
+Testing performed:
+- Verified all configs parse without syntax errors in FRR config checker
+- Confirmed all OSPF network statements match interface subnets

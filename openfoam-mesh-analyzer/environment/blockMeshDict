@@ -1,0 +1,202 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      blockMeshDict;
+}
+
+/*
+ * Conjugate heat transfer case: Channel flow with embedded heater
+ *
+ * Geometry (quasi-2D with 1 cell in z-direction):
+ *   - Channel dimensions: L=0.20 m, H=0.04 m, W=0.01 m
+ *   - Heater (solid block): x=[0.08, 0.12], y=[0.00, 0.01]
+ *   - 6 hex blocks: 5 fluid + 1 solid
+ *
+ * Block layout (y vs x):
+ *
+ *   y=0.04 +-----------+-----------+-----------+
+ *          |           |           |           |
+ *          |  Block 1  |  Block 3  |  Block 5  |
+ *          |  (fluid)  |  (fluid)  |  (fluid)  |
+ *   y=0.01 +-----------+-----------+-----------+
+ *          |           |           |           |
+ *          |  Block 0  |  Block 2  |  Block 4  |
+ *          |  (fluid)  |  (SOLID)  |  (fluid)  |
+ *   y=0.00 +-----------+-----------+-----------+
+ *         x=0.00     x=0.08     x=0.12     x=0.20
+ *
+ * Note: convertToMeters is deprecated in modern OpenFOAM;
+ *       use the 'scale' keyword instead.
+ * convertToMeters 1.0;  <-- do NOT parse this, it is a comment
+ */
+
+scale   1.0;    // dimensions already in meters
+
+vertices
+(
+    /* z = 0 plane (front) */
+    ( 0.00  0.00  0.00 )    // 0  - bottom-left origin
+    ( 0.08  0.00  0.00 )    // 1
+    ( 0.12  0.00  0.00 )    // 2
+    ( 0.20  0.00  0.00 )    // 3
+    ( 0.00  0.01  0.00 )    // 4  - heater-height level, left edge
+    ( 0.08  0.01  0.00 )    // 5  - heater top-left corner
+    ( 0.12  0.01  0.00 )    // 6  - heater top-right corner
+    ( 0.20  0.01  0.00 )    // 7
+    ( 0.00  0.04  0.00 )    // 8  - channel top, left edge
+    ( 0.08  0.04  0.00 )    // 9
+    ( 0.12  0.04  0.00 )    // 10
+    ( 0.20  0.04  0.00 )    // 11
+
+    /* z = 0.01 plane (back) */
+    ( 0.00  0.00  0.01 )    // 12
+    ( 0.08  0.00  0.01 )    // 13
+    ( 0.12  0.00  0.01 )    // 14
+    ( 0.20  0.00  0.01 )    // 15
+    ( 0.00  0.01  0.01 )    // 16
+    ( 0.08  0.01  0.01 )    // 17
+    ( 0.12  0.01  0.01 )    // 18
+    ( 0.20  0.01  0.01 )    // 19
+    ( 0.00  0.04  0.01 )    // 20
+    ( 0.08  0.04  0.01 )    // 21
+    ( 0.12  0.04  0.01 )    // 22
+    ( 0.20  0.04  0.01 )    // 23
+);
+
+blocks
+(
+    // Block 0: upstream lower channel (fluid)
+    hex (0 1 5 4 12 13 17 16)      // upstream-lower
+    (32 8 1)
+    simpleGrading (1 0.25 1)
+
+    // Block 1: upstream upper channel (fluid)
+    // Uses multi-grading in y: fine near bottom (heater interface) and top (wall)
+    hex (4 5 9 8 16 17 21 20)
+    (32 24 1)
+    simpleGrading
+    (
+        1
+        (
+            (0.4 0.5 5.0)
+            (0.6 0.5 0.2)
+        )
+        1
+    )
+
+    // Block 2: heater element (solid region)
+    hex (1 2 6 5 13 14 18 17)
+    (16 8 1)
+    simpleGrading (1 1 1)
+
+    // Block 3: fluid region above heater
+    hex (5 6 10 9 17 18 22 21)
+    (16 24 1)
+    simpleGrading (1 4.0 1)
+
+    // Block 4: downstream lower channel (fluid)
+    hex (2 3 7 6 14 15 19 18)
+    (32 8 1)
+    simpleGrading (1 0.25 1)
+
+    // Block 5: downstream upper channel (fluid)
+    // Same multi-grading as Block 1 for y-direction consistency
+    hex (6 7 11 10 18 19 23 22)
+    (32 24 1)
+    simpleGrading
+    (
+        1
+        (
+            (0.4 0.5 5.0)
+            (0.6 0.5 0.2)
+        )
+        1
+    )
+);
+
+edges
+(
+    // All edges are straight (no arcs or splines needed)
+);
+
+boundary
+(
+    inlet
+    {
+        type patch;
+        faces
+        (
+            (0 12 16 4)     // Block 0 left face
+            (4 16 20 8)     // Block 1 left face
+        );
+    }
+
+    outlet
+    {
+        type patch;
+        faces
+        (
+            (3 7 19 15)     // Block 4 right face
+            (7 11 23 19)    // Block 5 right face
+        );
+    }
+
+    topWall
+    {
+        type wall;
+        faces
+        (
+            (9 8 20 21)     // Block 1 top face
+            (10 9 21 22)    // Block 3 top face
+            (11 10 22 23)   // Block 5 top face
+        );
+    }
+
+    bottomWall
+    {
+        type wall;
+        faces
+        (
+            (0 1 13 12)     // Block 0 bottom face
+            (2 3 15 14)     // Block 4 bottom face
+        );
+    }
+
+    heaterBottom
+    {
+        type wall;
+        faces
+        (
+            (1 2 14 13)     // Block 2 bottom face (adiabatic in CHT)
+        );
+    }
+
+    frontAndBack
+    {
+        type empty;
+        faces
+        (
+            // z-min faces (z = 0)
+            (0 4 5 1)       // Block 0
+            (4 8 9 5)       // Block 1
+            (1 5 6 2)       // Block 2
+            (5 9 10 6)      // Block 3
+            (2 6 7 3)       // Block 4
+            (6 10 11 7)     // Block 5
+            // z-max faces (z = 0.01)
+            (12 13 17 16)   // Block 0
+            (16 17 21 20)   // Block 1
+            (13 14 18 17)   // Block 2
+            (17 18 22 21)   // Block 3
+            (14 15 19 18)   // Block 4
+            (18 19 23 22)   // Block 5
+        );
+    }
+);
+
+mergePatchPairs
+(
+);

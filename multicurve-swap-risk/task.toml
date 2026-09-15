@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of post-crisis multicurve interest rate frameworks (separate OIS discounting vs IBOR forecasting), QuantLib-Python's complex API for curve bootstrapping with relinkable handles, and the observer/observable pattern for DV01 computation via rate bumping. The agent must correctly configure ~35 rate helpers across two curves, handle financial conventions (day counters, calendars, compounding, settlement), and compute sensitivities — none of which is a simple API call."""
+solution_explanation = """Build an EONIA OIS discount curve from deposit and OIS rate helpers, then bootstrap a Euribor 6M forward curve using FRA and swap rate helpers with the OIS curve as the exogenous discount curve. Price swaps using DiscountingSwapEngine with OIS discounting and Euribor 6M forecasting. For DV01, use mutable SimpleQuote objects for all market data inputs, bump each by +1bp, and measure the NPV change (QuantLib's observer pattern automatically recomputes curves). Output structured JSON results."""
+verification_explanation = """Tests verify: (1) results.json structure and required fields, (2) fair rates match bootstrapped curve inputs within 1bp tolerance (model-independent check), (3) NPV signs are correct given fixed rate vs market rate, (4) discount factors are monotonically decreasing and in (0,1), (5) DV01 signs match swap type (payer vs receiver), (6) portfolio totals equal sum of individual values, (7) independent QuantLib validation cross-checks NPV magnitudes."""
+category = "finance"
+tags = ["quantitative-finance", "interest-rate-derivatives"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multicurve-swap-risk"

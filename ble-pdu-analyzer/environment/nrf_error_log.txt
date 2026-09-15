@@ -1,0 +1,17 @@
+[00:00:00.000] <info> app: === nRF52840 BLE Peripheral Started ===
+[00:00:00.008] <info> sd: SoftDevice S140 v7.3.0 enabled
+[00:00:00.012] <info> gap: Device name set: "Nordic_HRM"
+[00:00:00.015] <info> gap: Address type: Random Static
+[00:00:00.018] <info> gap: TX Power configured: 4 dBm
+[00:00:00.020] <info> adv: Advertisement data configured
+[00:00:00.020] <info> adv:   Flags: 0x06
+[00:00:00.021] <info> adv:   16-bit Service UUIDs: 0x180D, 0x180F
+[00:00:00.022] <info> adv: Starting connectable undirected advertising
+[00:00:00.025] <info> adv: Interval: 100ms, Channels: 37,38,39
+[00:00:05.100] <warning> adv: No SCAN_REQ received on ch38
+[00:00:10.203] <info> adv: SCAN_REQ received, SCAN_RSP sent
+[00:00:15.310] <warning> adv: CONNECT_IND not received after scan exchange
+[00:00:30.001] <info> adv: Advertising timeout, restarting
+[00:01:00.005] <warning> adv: Second cycle, still no connection
+[00:01:30.001] <info> adv: Final timeout, advertising stopped
+[00:01:30.002] <warning> app: Device was never connected

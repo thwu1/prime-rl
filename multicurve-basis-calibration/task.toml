@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding the post-crisis multicurve interest rate framework (separate OIS discount and Ibor forward curves), EUR basis swap conventions, curve interpolation methods, and sequential curve dependency ordering. The solver must fix a broken Java package build, diagnose multiple interacting bugs across source files involving interpolation, discounting, spread conventions, and calibration sequencing, and implement a complete sensitivity computation class from scratch. Domain expertise in quantitative finance and Java tooling proficiency are both essential."""
+solution_explanation = """Five issues must be resolved: (1) build.sh uses wrong javac source path and class name for the calibrator package structure — fix to compile calibrator/*.java and run calibrator.MulticurveCalibrator; (2) Curve.java interpolates zero rates linearly instead of interpolating r*t linearly (log-linear DF) — change interpolation to operate on r1*t1 + (r2*t2 - r1*t1)*w; (3) Pricer.java's IRS method discounts with the EURIBOR 6M forward curve instead of the OIS discount curve; (4) Pricer.java's basis swap method subtracts spread instead of adding it; (5) MulticurveCalibrator.java calibrates basis swaps before IRS, but BS depends on E6M which isn't calibrated yet — swap the call order to OIS→IRS→BS. Additionally, SensitivityEngine.java must be implemented from scratch: for each curve node, bump the zero rate by 1bp, re-price the swap, compute the PV delta, and restore the rate."""
+verification_explanation = """The test compiles and runs the Java calibrator, then independently verifies using Python: (a) all 37 calibration instrument PVs are recomputed from output zero rates with correct log-linear DF interpolation, OIS discounting, and basis swap conventions, each checked against 1e-6 tolerance; (b) 5 portfolio swap PVs are independently priced and compared within 0.01; (c) bucketed PV01 for all 5 swaps across all 37 curve nodes are independently computed via bump-and-revalue and compared within 0.5; (d) structural checks verify node counts, PV01 vector lengths, and discount factor consistency."""
+category = "quantitative_finance"
+tags = ["multicurve-calibration", "sensitivity-computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multicurve-basis-calibration"

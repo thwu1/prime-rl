@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a high-quality optimization solver in C++ for a 2D rectangle packing problem under spatial constraints. The agent must understand g++ compilation, Makefiles with specific flags, and C++ build toolchains. The solver must combine spatial partitioning (kd-tree style) with metaheuristic optimization (simulated annealing, local search). Results must be stored in and queried from a SQLite database, and evaluation output is structured JSON parsed with jq. Achieving the score threshold demands expertise in computational geometry, constrained optimization, C++ systems programming, and fluency with the build/evaluate/query tool pipeline."""
+solution_explanation = """Writes a C++ solver compiled via the provided Makefile. Uses a recursive area-proportional spatial partition for an initial feasible layout, then runs simulated annealing to adjust rectangle boundaries — accepting worsening moves probabilistically to escape local optima. A greedy post-processing pass expands undersize rectangles into freed space. The evaluate.sh pipeline builds the binary, runs all test cases, stores results in SQLite, and outputs JSON summary."""
+verification_explanation = """Runs evaluate.sh which builds the solver, executes it on 5 deterministic test cases, stores results in SQLite, and outputs JSON. Tests verify: (1) solver is a compiled ELF binary, (2) JSON output is valid, (3) SQLite database is populated with 5 OK results, (4) average score from the database >= 400M."""
+category = "optimization"
+tags = ["computational-geometry", "heuristic-search"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rect-packing-optimizer"

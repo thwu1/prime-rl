@@ -1,0 +1,23 @@
+# Maintainer: Hank Auth <hank@example.org>
+pkgname=auth-svc
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Authentication and authorization service"
+arch=('x86_64')
+url="https://github.com/example/auth-svc"
+license=('Apache-2.0')
+depends=('webapp-api' 'cache-mgr')
+makedepends=('python' 'python-setuptools')
+provides=('auth-backend=2.0.0')
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('b7c8d9e0f1a20000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  python setup.py build
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  python setup.py install --root="${pkgdir}" --optimize=1
+}

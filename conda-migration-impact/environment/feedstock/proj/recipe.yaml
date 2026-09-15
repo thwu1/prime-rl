@@ -1,0 +1,42 @@
+context:
+  name: proj
+  version: "9.3.1"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/OSGeo/PROJ/releases/download/${{ version }}/proj-${{ version }}.tar.gz
+  sha256: b1c6e5fe7da0a2a8f64b3b26e505aab8e0e8f5a1c2d3e4f5a6b7c8d9e0f1a2b3
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x.x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - cmake
+    - ninja
+    - pkg-config
+  host:
+    - libtiff
+    - libcurl
+    - sqlite
+    - geos
+  run: []
+
+test:
+  commands:
+    - proj --version
+    - projinfo EPSG:4326
+    - test -f $PREFIX/lib/libproj.so
+
+about:
+  homepage: https://proj.org
+  license: MIT
+  license_file: COPYING
+  summary: Cartographic projections and coordinate transformations library

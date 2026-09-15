@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped binary using disassembly and debugging tools. The evaluator has 11 operator precedence levels including 3 non-standard operators (#, @, $), dual-width integer semantics (64-bit arithmetic vs 32-bit bitwise), and 10 built-in functions. The cipher() function implements a 4-round Feistel network with embedded round keys that cannot be deduced from input-output testing — the agent must use objdump/gdb to extract the key schedule from the binary's data section. Additionally, the hash operator uses a specific multiplicative constant, and crc32 uses a standard polynomial, both requiring binary analysis to confirm."""
+solution_explanation = """Use objdump -d or gdb to disassemble the stripped binary and identify: (1) the Feistel round keys in the .rodata section via objdump -s or gdb memory inspection, (2) the hash constant 0x9E3779B1, (3) the CRC32 polynomial 0xEDB88320. Use strings to discover function names. Probe the binary with crafted inputs to determine operator precedence and associativity. Combine disassembly findings with black-box testing to implement a recursive-descent parser in Python matching all behaviors."""
+verification_explanation = """Tests run the candidate /app/myeval with ~75 expressions covering all operators, precedence levels, functions (including cipher with Feistel keys), output formats, and edge cases, comparing against hardcoded expected values. Each test has a single deterministic expected output."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "expression-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rebuild-expression-eval"

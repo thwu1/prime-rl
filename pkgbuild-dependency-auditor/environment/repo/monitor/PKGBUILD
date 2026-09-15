@@ -1,0 +1,24 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+
+pkgname=monitor
+pkgver=4.5.0
+pkgrel=1
+pkgdesc="Infrastructure monitoring system"
+arch=('x86_64')
+url="https://example.com/${pkgname}"
+license=('GPL-2.0')
+depends=('webstack>=3.0.0' 'syslibs' 'openssl')
+makedepends=('unzip')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    ./configure --prefix=/usr
+    make all
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}" install
+}

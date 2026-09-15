@@ -1,0 +1,70 @@
+# ACME Cloud Native Platform Specification
+# This document describes the intended governance rules for the multi-tenant platform.
+
+platform:
+  name: acme-platform
+
+  tiers:
+    gold:
+      max_cpu_cores: 32
+      max_memory_gi: 64
+      description: "High-resource tier for critical production workloads"
+    silver:
+      max_cpu_cores: 16
+      max_memory_gi: 32
+      description: "Standard production tier"
+    bronze:
+      max_cpu_cores: 8
+      max_memory_gi: 16
+      description: "Development and staging tier"
+
+  image_policy:
+    allowed_registries:
+      - gcr.io/acme-prod/
+      - ghcr.io/acme/
+      - gcr.io/acme-infra/
+      - docker.io/library/
+    require_digest_in_production: true
+    validate_init_containers: true
+    notes: >
+      All container images (including init containers) must come from approved
+      registries. Production namespaces (ending in -prod) require SHA256
+      digest-pinned images for supply chain security.
+
+  resource_policy:
+    min_request_to_limit_ratio: 0.5
+    require_requests_and_limits: true
+    notes: >
+      Every container must declare resource requests and limits. The
+      request-to-limit ratio (request / limit) must be at least 0.5 to
+      prevent overcommitment and ensure predictable scheduling.
+
+  network_policy:
+    require_default_deny: true
+    default_deny_must_cover:
+      - Ingress
+      - Egress
+    notes: >
+      Every namespace must have a default-deny NetworkPolicy that covers
+      BOTH ingress and egress traffic. A policy that only denies ingress
+      is insufficient — egress must also be denied by default.
+
+  observability:
+    collector_type: opentelemetry
+    pipelines:
+      traces:
+        exporter: otlp/jaeger
+        processors: [memory_limiter, batch, attributes/tenant]
+      metrics:
+        exporter: prometheusremotewrite
+        processors: [memory_limiter, batch, filter/platform]
+      logs:
+        exporter: loki
+        processors: [memory_limiter, batch, resource/tenant]
+    processor_ordering_rule: >
+      The memory_limiter processor must always be the FIRST processor
+      in every pipeline to prevent OOM conditions in the collector.
+    notes: >
+      Traces route to Jaeger, metrics to Prometheus via remote write,
+      and logs to Loki. All pipelines receive via OTLP and apply
+      memory limiting before any other processing.

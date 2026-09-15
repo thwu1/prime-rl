@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, system-level understanding of dm-verity spanning binary forensics, cryptographic verification, and kernel integration — not just one algorithm. The solver must: (1) reverse-engineer the 512-byte on-disk superblock binary struct from Linux kernel source code (field offsets, little-endian integers, UUID encoding in RFC 4122 format, null-terminated strings in fixed-width buffers), (2) understand the hash tree's spatial relationship to the superblock (tree begins one hash-block-size after the superblock, levels stored top-down with root side first), (3) implement the dm-verity v1 hash computation (H(salt || block_data) with zero-padding and hash-block packing), (4) generate the kernel device-mapper target table string in the exact format consumed by dmsetup/dm-mod.create — requiring correct computation of hash_start_block, num_sectors, and proper 13-field ordering, and (5) handle combined images where data and hash reside in the same file at a byte offset, demanding correct offset arithmetic across all three subcommands. This end-to-end pipeline — from on-disk binary parsing through independent cryptographic verification to kernel activation parameter synthesis — requires holistic understanding of how dm-verity operates as a complete system, far beyond following a documented procedure."""
+solution_explanation = """The solution parses the verity superblock using struct.unpack at documented offsets (magic at 0, version at 8, hash_type at 12, UUID at 16, algorithm at 32, block sizes at 64/68, data_blocks at 72, salt_size at 80, salt at 88). The Merkle tree is built bottom-up: leaf hashes H(salt||data_block) are packed into hash blocks, each hash block is hashed to produce the next level, repeating until one hash remains (root). The tree is serialized top-down (root-side first). For audit, the stored tree is read starting one hash_block_size after the superblock and compared byte-for-byte; corrupted blocks are identified by comparing leaf-level hashes individually. For dm-table, hash_start_block = (hash_offset + hash_block_size) / hash_block_size, and num_sectors = data_blocks * data_block_size / 512."""
+verification_explanation = """Tests use veritysetup as an authoritative oracle. Each test creates deterministic data images, formats them with veritysetup (with superblock), and compares the tool's output against veritysetup's reported parameters. Parse tests verify all superblock fields match veritysetup's format/dump output including UUID. Audit tests verify root hash matches, tree_valid status, and precise corrupted block indices after targeted data modifications (single block, multi-block, single-byte flip). Combined-image tests verify hash-offset handling. DM-table tests verify the 13-field target table format field-by-field, including hash_start_block arithmetic for both separate and combined configurations."""
+category = "security_and_privacy"
+tags = ["dm-verity", "linux-security"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/verity-merkle-engine"

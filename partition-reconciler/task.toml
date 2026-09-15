@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-stack expertise spanning four domains: (1) Multi-layer debugging across Python, SQLite, and YAML configuration to fix 9 interacting bugs in a partition reconciliation engine — including algorithm errors (topological sort order, staleness comparison direction, missing transitive propagation, unimplemented 'all' staleness mode), data layer corruption (duplicate records, millisecond vs second timestamps), mapping logic (Cartesian product vs linear iteration), IO path encoding inconsistency, and a subtle config dimension name mismatch. (2) SQLite analytical view design using window functions (ROW_NUMBER, COUNT OVER) and timestamp normalization logic, requiring direct database manipulation via sqlite3 CLI. (3) Structured event log transformation using jq with advanced features (slurp mode, group_by, from_entries, nested array indexing) to produce a diagnostic audit report. (4) Algorithm design for a novel cascade-aware, budget-constrained reconciliation planner that must evaluate materialization strategies — a downstream partition is only worth refreshing if all its stale upstreams are also included — requiring the solver to reason about DAG dependencies, cost trade-offs, and topological ordering constraints simultaneously."""
+solution_explanation = """Four categories of work across ~12 files: BUG FIXES (9 fixes across 5 files): reconciler.py topo_sort pre-order→post-order DFS, staleness comparison < → >, add transitive staleness propagation via ReconciliationResult, implement 'all' staleness mode; mappings.py independent iteration→itertools.product Cartesian product; io_manager.py write() use get_path() for consistent encoding; db_store.py add ORDER BY timestamp DESC, normalize timestamps > 1e12; pipeline.yaml time_dimension 'date'→'day'. SQLITE VIEWS: Create v_latest_materializations (dedup + normalize via ROW_NUMBER window function) and v_materialization_history (full history with recency_rank and total_records via window functions). EVENT AUDIT: Use jq -s with group_by/from_entries to transform events.jsonl into structured event_audit.json. PLANNER: Implement cascade-aware budget-constrained greedy selection — process stale partitions in topological order, only select a downstream if all its stale upstreams are already selected, greedily fill budget. With costs summary=50 + report=30 = 80 > budget 70, the optimal plan selects only summary:2024-01-01 (cost 50) since report:2024-01-01 (cost 30) cannot fit in remaining budget."""
+verification_explanation = """~40 deterministic pytest tests across 12 classes: partition definitions (3), partition mappings (3 including Cartesian product), IO manager roundtrip (3), topological sort (2), staleness 'any' mode (3), staleness 'all' mode (3), database store (3: duplicates, ms normalization), config loader (2), full integration (1), SQLite views (7: existence, row counts, deduplication correctness, timestamp normalization, window function ranking, total_records), event audit (4: file existence, structure, counts, staleness checks), and reconciliation planner (7: file existence, structure, stale count, budget exceeded flag, selected within budget, cascade-aware constraint, topological order)."""
+category = "system-design"
+tags = ["data-pipelines", "multi-tool-integration", "algorithm-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/partition-reconciler"

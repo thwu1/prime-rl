@@ -1,0 +1,26 @@
+[2026-05-15 09:14:22.103] INFO  ArduSub v4.5.3 initialized
+[2026-05-15 09:14:22.110] INFO  Frame: CUSTOM_8 loaded from frame.param
+[2026-05-15 09:14:22.112] INFO  Allocation matrix computed from MOT_*_POS_* and MOT_*_DIR_* parameters
+[2026-05-15 09:14:22.115] INFO  EKF3 initialized, GPS_TYPE=0, DVL not detected
+[2026-05-15 09:14:23.001] INFO  Depth sensor: MS5837-30BA detected at I2C 0x76
+[2026-05-15 09:14:23.115] INFO  IMU: ICM-42688P initialized @ 400Hz, EKF output @ 50Hz
+[2026-05-15 09:14:23.200] INFO  Thruster test mode: systematic single/multi pattern
+[2026-05-15 09:14:23.201] INFO  Telemetry logging to flight_test.db (session_id=3)
+[2026-05-15 09:14:23.202] INFO  Command format: PWM microseconds, neutral=1500
+[2026-05-15 09:15:01.442] WARN  Acceleration residual T3: expected_fx=-0.345 observed_fx=0.342 delta=0.687
+[2026-05-15 09:15:01.443] WARN  Cross-axis coupling detected in yaw during T3 firing
+[2026-05-15 09:15:01.444] INFO  T3 current draw nominal (2.4A), motor temp 36.1C
+[2026-05-15 09:15:12.891] WARN  Vertical axis anomaly T8: unexpected lateral acceleration 0.096 m/s^2
+[2026-05-15 09:15:12.892] WARN  T8 heave response 3.7% below expected
+[2026-05-15 09:15:12.893] INFO  T8 current draw nominal (2.1A), ESC temp 41.2C
+[2026-05-15 09:15:24.010] INFO  T6 torque balance: roll moment 18.2% higher than expected
+[2026-05-15 09:15:24.011] WARN  Position controller oscillation detected during T6 heave test
+[2026-05-15 09:15:24.012] INFO  T6 motor health OK, thrust coefficient within cal spec
+[2026-05-15 09:15:45.500] INFO  Thruster test complete: 8/8 thrusters responsive
+[2026-05-15 09:15:45.501] INFO  Overall health: 8/8 motors OK, current draw nominal
+[2026-05-15 09:15:45.502] WARN  3 anomalies flagged for review (see mission_notes.txt)
+[2026-05-15 09:16:00.000] INFO  Vehicle armed, mode: MANUAL
+[2026-05-15 09:16:05.112] INFO  Depth hold engaged at 3.2m
+[2026-05-15 09:16:30.445] WARN  Heading drift detected: 2.3 deg/min uncorrected
+[2026-05-15 09:17:15.201] INFO  Session 3 test data: 200 timesteps @ 50Hz
+[2026-05-15 09:17:15.202] INFO  Data stored in thruster_commands (long format) and imu_data tables

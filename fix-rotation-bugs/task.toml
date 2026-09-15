@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level expertise in SO(3) rotation mathematics to audit a broken multi-backend pipeline. The solver must: (1) parse NDJSON error logs with jq to identify failure patterns across pipeline chains and rotation categories, (2) use sqlite3 CLI to run cross-library benchmarks and analyze per-function per-library error distributions, (3) compare library source code to pinpoint six distinct mathematical bugs (incomplete Shepperd method with single-component fallback, sign error in quaternion-to-matrix cross term, incorrect Rodrigues coefficient, Euler angle sign convention swap, wrong SO(3) geodesic trace formula, missing SLERP shortest-path antipodal check), (4) understand error propagation through conversion chains where matrix_to_axis_angle depends on matrix_to_quaternion and pipeline chains compound multiple flawed stages, (5) write a standalone corrected library implementing all 14 rotation functions from first principles without referencing the buggy sources. Requires deep understanding of quaternion algebra, Lie group geometry on SO(3), and numerical conditioning — not solvable by following procedures."""
+solution_explanation = """Parse pipeline_errors.ndjson with jq to identify all 6 configured backends are failing. Run run_benchmark.py for all three libraries, then analyze benchmark_results with sqlite3 CTEs. Analysis reveals: Beta flawed in quaternion_to_matrix (R[0,2] sign: xz-yw instead of xz+yw), Alpha and Gamma flawed in matrix_to_quaternion (incomplete Shepperd: x-only and z-only fallbacks respectively, failing for 180-degree rotations around axes where their chosen component is not largest), Gamma flawed in axis_angle_to_matrix (1+cos coefficient instead of 1-cos in Rodrigues formula), Beta flawed in matrix_to_euler_angles (inverted sign multiplier for Tait-Bryan central angle), Alpha flawed in geodesic_distance (trace+1 instead of trace-1 in SO(3) geodesic formula), Gamma flawed in slerp (no dot<0 check for shortest-path). Write standalone implementations using full 4-branch Shepperd method, correct Rodrigues formula, proper geodesic formula, and SLERP with antipodal handling. Fix pipeline to route each function to a correct backend."""
+verification_explanation = """Tests verify three deliverables: (1) audit_report.json correctly classifies all 6 functions' correct/flawed libraries, has substantive root cause descriptions (at least 50 chars), non-empty affected categories, propagation analysis, and pipeline issue identification; (2) rotation_service.py source contains no imports from lib_alpha/beta/gamma (verified via regex on source), exports all 14 required functions, and passes targeted edge-case tests — 180-degree rotations for Shepperd, 120-degree cyclic permutation for quaternion-to-matrix sign, pi-rotation for Rodrigues, Euler XYZ/ZYX/YZX roundtrips for sign multiplier, 90-degree and 180-degree geodesic distances, negative-dot SLERP for shortest-path; (3) pipeline_fixed.json routes every function to a backend in the verified correct set."""
+category = "debugging"
+tags = ["3d-geometry", "rotation-math", "pipeline-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-rotation-bugs"

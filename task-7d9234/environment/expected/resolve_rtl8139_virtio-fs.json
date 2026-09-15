@@ -1,0 +1,1 @@
+{"_input": "rtl8139,virtio-fs", "enabled_features": ["net", "pci", "rtl8139", "virtio", "virtio-fs"], "activated_deps": {"endian-num": [], "fuse-abi": [], "mem-barrier": [], "virtio": ["alloc", "mmio", "pci"], "volatile": []}}

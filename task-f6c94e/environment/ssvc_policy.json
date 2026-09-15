@@ -1,0 +1,54 @@
+{
+  "framework": "SSVC",
+  "version": "2.0",
+  "description": "Stakeholder-Specific Vulnerability Categorization decision framework for vulnerability triage. Apply this decision tree to each vulnerability affecting the software inventory.",
+  "decision_points": {
+    "exploitation": {
+      "description": "Evidence of active exploitation in the wild",
+      "values": {
+        "active": "Exploitation attempts have been observed in network traffic analysis",
+        "none": "No exploitation activity observed"
+      }
+    },
+    "automatable": {
+      "description": "Whether an attacker can reliably automate exploitation across many targets without target-specific reconnaissance",
+      "determination": "A vulnerability is automatable if ALL of the following CVSS v3.1 base metric conditions are met: Attack Vector is NETWORK (AV:N), Attack Complexity is LOW (AC:L), and User Interaction is NONE (UI:N). If any condition is not met, the vulnerability is not automatable.",
+      "values": {
+        "yes": "All conditions met - attack is automatable",
+        "no": "One or more conditions not met - requires manual effort or specific conditions"
+      }
+    },
+    "technical_impact": {
+      "description": "Severity of the technical impact if the vulnerability is exploited",
+      "determination": "Impact is 'total' if ALL THREE of Confidentiality, Integrity, and Availability impact metrics in the CVSS v3.1 base vector are HIGH. Otherwise impact is 'partial'.",
+      "values": {
+        "total": "Complete compromise of confidentiality, integrity, and availability",
+        "partial": "Limited impact - not all CIA dimensions are fully compromised"
+      }
+    },
+    "mission_prevalence": {
+      "description": "How critical the affected asset is to the organization's mission",
+      "determination": "Determined by the mission_prevalence field in mission_impact.json for the affected inventory item(s). When a CVE affects multiple inventory items, use the highest mission prevalence among them.",
+      "values": {
+        "high": "Asset is essential to core mission functions",
+        "medium": "Asset supports important but non-critical functions",
+        "low": "Asset has minimal mission impact"
+      }
+    }
+  },
+  "decision_tree": {
+    "description": "Traverse top-to-bottom; first matching rule determines the decision.",
+    "rules": [
+      {"exploitation": "active", "automatable": "yes", "decision": "Act"},
+      {"exploitation": "active", "automatable": "no", "technical_impact": "total", "decision": "Act"},
+      {"exploitation": "active", "automatable": "no", "technical_impact": "partial", "decision": "Attend"},
+      {"exploitation": "none", "automatable": "yes", "technical_impact": "total", "mission_prevalence": "high", "decision": "Attend"},
+      {"exploitation": "none", "automatable": "yes", "technical_impact": "total", "mission_prevalence": ["medium", "low"], "decision": "Track*"},
+      {"exploitation": "none", "automatable": "yes", "technical_impact": "partial", "mission_prevalence": "high", "decision": "Attend"},
+      {"exploitation": "none", "automatable": "yes", "technical_impact": "partial", "mission_prevalence": ["medium", "low"], "decision": "Track*"},
+      {"exploitation": "none", "automatable": "no", "technical_impact": "total", "mission_prevalence": "high", "decision": "Attend"},
+      {"exploitation": "none", "automatable": "no", "technical_impact": "total", "mission_prevalence": ["medium", "low"], "decision": "Track*"},
+      {"exploitation": "none", "automatable": "no", "technical_impact": "partial", "decision": "Track"}
+    ]
+  }
+}

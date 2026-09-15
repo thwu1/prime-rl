@@ -1,0 +1,14 @@
+int main() {
+    int a = 5;
+    putint(-a);
+    putch(10);
+    putint(+a);
+    putch(10);
+    putint(!a);
+    putch(10);
+    putint(!0);
+    putch(10);
+    putint(!!a);
+    putch(10);
+    return 0;
+}

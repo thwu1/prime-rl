@@ -1,0 +1,456 @@
+{
+  "blocks": {
+    "DMA0::DMA": {
+      "description": "DMA Controller with 4 channels",
+      "items": [
+        {"name": "CH0_CTRL", "byte_offset": 0, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH0_CTRL"}},
+        {"name": "CH0_STATUS", "byte_offset": 4, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH0_STATUS"}},
+        {"name": "CH0_SRC_ADDR", "byte_offset": 8, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH0_SRC_ADDR"}},
+        {"name": "CH0_DST_ADDR", "byte_offset": 12, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH0_DST_ADDR"}},
+        {"name": "CH0_XFER_COUNT", "byte_offset": 16, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH0_XFER_COUNT"}},
+        {"name": "CH0_DEBUG", "byte_offset": 20, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH0_DEBUG"}},
+
+        {"name": "CH1_CTRL", "byte_offset": 32, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH1_CTRL"}},
+        {"name": "CH1_STATUS", "byte_offset": 36, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH1_STATUS"}},
+        {"name": "CH1_SRC_ADDR", "byte_offset": 40, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH1_SRC_ADDR"}},
+        {"name": "CH1_DST_ADDR", "byte_offset": 44, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH1_DST_ADDR"}},
+        {"name": "CH1_XFER_COUNT", "byte_offset": 48, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH1_XFER_COUNT"}},
+        {"name": "CH1_DEBUG", "byte_offset": 52, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH1_DEBUG"}},
+
+        {"name": "CH2_CTRL", "byte_offset": 64, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH2_CTRL"}},
+        {"name": "CH2_STATUS", "byte_offset": 68, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH2_STATUS"}},
+        {"name": "CH2_SRC_ADDR", "byte_offset": 72, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH2_SRC_ADDR"}},
+        {"name": "CH2_DST_ADDR", "byte_offset": 76, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH2_DST_ADDR"}},
+        {"name": "CH2_XFER_COUNT", "byte_offset": 80, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH2_XFER_COUNT"}},
+        {"name": "CH2_DEBUG", "byte_offset": 84, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH2_DEBUG"}},
+
+        {"name": "CH3_CTRL", "byte_offset": 96, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH3_CTRL"}},
+        {"name": "CH3_STATUS", "byte_offset": 100, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH3_STATUS"}},
+        {"name": "CH3_SRC_ADDR", "byte_offset": 104, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH3_SRC_ADDR"}},
+        {"name": "CH3_DST_ADDR", "byte_offset": 108, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH3_DST_ADDR"}},
+        {"name": "CH3_XFER_COUNT", "byte_offset": 112, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CH3_XFER_COUNT"}},
+        {"name": "CH3_DEBUG", "byte_offset": 116, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::CH3_DEBUG"}},
+
+        {"name": "ENABLE", "byte_offset": 256, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::ENABLE"}},
+        {"name": "INT_STATUS", "byte_offset": 260, "inner": {"type": "register", "access": "Read", "bit_size": 32, "fieldset": "DMA0::regs::INT_STATUS"}},
+        {"name": "INT_ENABLE", "byte_offset": 264, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::INT_ENABLE"}},
+        {"name": "CONFIG", "byte_offset": 268, "inner": {"type": "register", "access": "ReadWrite", "bit_size": 32, "fieldset": "DMA0::regs::CONFIG"}}
+      ]
+    }
+  },
+  "fieldsets": {
+    "DMA0::regs::CH0_CTRL": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH0_EN", "bit_offset": 0, "bit_size": 1, "enum": "DMA0::vals::CH0_EN"},
+        {"name": "CH0_MODE", "bit_offset": 1, "bit_size": 2, "enum": "DMA0::vals::CH0_MODE"},
+        {"name": "CH0_PRIORITY", "bit_offset": 3, "bit_size": 2, "enum": "DMA0::vals::CH0_PRIORITY"},
+        {"name": "CH0_BURST_SIZE", "bit_offset": 5, "bit_size": 3, "enum": "DMA0::vals::CH0_BURST_SIZE"},
+        {"name": "CH0_SRC_INC", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH0_DST_INC", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH0_CIRC", "bit_offset": 10, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::CH1_CTRL": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH1_EN", "bit_offset": 0, "bit_size": 1, "enum": "DMA0::vals::CH1_EN"},
+        {"name": "CH1_MODE", "bit_offset": 1, "bit_size": 2, "enum": "DMA0::vals::CH1_MODE"},
+        {"name": "CH1_PRIORITY", "bit_offset": 3, "bit_size": 2, "enum": "DMA0::vals::CH1_PRIORITY"},
+        {"name": "CH1_BURST_SIZE", "bit_offset": 5, "bit_size": 3, "enum": "DMA0::vals::CH1_BURST_SIZE"},
+        {"name": "CH1_SRC_INC", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH1_DST_INC", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH1_CIRC", "bit_offset": 10, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::CH2_CTRL": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH2_EN", "bit_offset": 0, "bit_size": 1, "enum": "DMA0::vals::CH2_EN"},
+        {"name": "CH2_MODE", "bit_offset": 1, "bit_size": 2, "enum": "DMA0::vals::CH2_MODE"},
+        {"name": "CH2_PRIORITY", "bit_offset": 3, "bit_size": 2, "enum": "DMA0::vals::CH2_PRIORITY"},
+        {"name": "CH2_BURST_SIZE", "bit_offset": 5, "bit_size": 3, "enum": "DMA0::vals::CH2_BURST_SIZE"},
+        {"name": "CH2_SRC_INC", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH2_DST_INC", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH2_CIRC", "bit_offset": 10, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::CH3_CTRL": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH3_EN", "bit_offset": 0, "bit_size": 1, "enum": "DMA0::vals::CH3_EN"},
+        {"name": "CH3_MODE", "bit_offset": 1, "bit_size": 2, "enum": "DMA0::vals::CH3_MODE"},
+        {"name": "CH3_PRIORITY", "bit_offset": 3, "bit_size": 2, "enum": "DMA0::vals::CH3_PRIORITY"},
+        {"name": "CH3_BURST_SIZE", "bit_offset": 5, "bit_size": 3, "enum": "DMA0::vals::CH3_BURST_SIZE"},
+        {"name": "CH3_SRC_INC", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH3_DST_INC", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH3_CIRC", "bit_offset": 10, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::CH0_STATUS": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "BUSY", "bit_offset": 0, "bit_size": 1},
+        {"name": "ERROR", "bit_offset": 1, "bit_size": 1},
+        {"name": "ERROR_CODE", "bit_offset": 2, "bit_size": 3, "enum": "DMA0::vals::CH0_ERROR_CODE"},
+        {"name": "BYTES_REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH1_STATUS": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "BUSY", "bit_offset": 0, "bit_size": 1},
+        {"name": "ERROR", "bit_offset": 1, "bit_size": 1},
+        {"name": "ERROR_CODE", "bit_offset": 2, "bit_size": 3, "enum": "DMA0::vals::CH1_ERROR_CODE"},
+        {"name": "BYTES_REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH2_STATUS": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "BUSY", "bit_offset": 0, "bit_size": 1},
+        {"name": "ERROR", "bit_offset": 1, "bit_size": 1},
+        {"name": "ERROR_CODE", "bit_offset": 2, "bit_size": 3, "enum": "DMA0::vals::CH2_ERROR_CODE"},
+        {"name": "BYTES_REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH3_STATUS": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "BUSY", "bit_offset": 0, "bit_size": 1},
+        {"name": "ERROR", "bit_offset": 1, "bit_size": 1},
+        {"name": "ERROR_CODE", "bit_offset": 2, "bit_size": 3, "enum": "DMA0::vals::CH3_ERROR_CODE"},
+        {"name": "BYTES_REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH0_XFER_COUNT": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "COUNT", "bit_offset": 0, "bit_size": 16},
+        {"name": "REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH1_XFER_COUNT": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "COUNT", "bit_offset": 0, "bit_size": 16},
+        {"name": "REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH2_XFER_COUNT": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "COUNT", "bit_offset": 0, "bit_size": 16},
+        {"name": "REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH3_XFER_COUNT": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "COUNT", "bit_offset": 0, "bit_size": 16},
+        {"name": "REMAINING", "bit_offset": 16, "bit_size": 16}
+      ]
+    },
+    "DMA0::regs::CH0_SRC_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH1_SRC_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH2_SRC_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH3_SRC_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH0_DST_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH1_DST_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH2_DST_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH3_DST_ADDR": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ADDR", "bit_offset": 0, "bit_size": 32}
+      ]
+    },
+    "DMA0::regs::CH0_DEBUG": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "STATE", "bit_offset": 0, "bit_size": 4},
+        {"name": "FIFO_LEVEL", "bit_offset": 4, "bit_size": 4}
+      ]
+    },
+    "DMA0::regs::CH1_DEBUG": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "STATE", "bit_offset": 0, "bit_size": 4},
+        {"name": "FIFO_LEVEL", "bit_offset": 4, "bit_size": 4}
+      ]
+    },
+    "DMA0::regs::CH2_DEBUG": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "STATE", "bit_offset": 0, "bit_size": 4},
+        {"name": "FIFO_LEVEL", "bit_offset": 4, "bit_size": 4}
+      ]
+    },
+    "DMA0::regs::CH3_DEBUG": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "STATE", "bit_offset": 0, "bit_size": 4},
+        {"name": "FIFO_LEVEL", "bit_offset": 4, "bit_size": 4}
+      ]
+    },
+    "DMA0::regs::ENABLE": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH0_EN", "bit_offset": 0, "bit_size": 1},
+        {"name": "CH1_EN", "bit_offset": 1, "bit_size": 1},
+        {"name": "CH2_EN", "bit_offset": 2, "bit_size": 1},
+        {"name": "CH3_EN", "bit_offset": 3, "bit_size": 1},
+        {"name": "GLOBAL_EN", "bit_offset": 31, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::INT_STATUS": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH0_DONE", "bit_offset": 0, "bit_size": 1},
+        {"name": "CH1_DONE", "bit_offset": 1, "bit_size": 1},
+        {"name": "CH2_DONE", "bit_offset": 2, "bit_size": 1},
+        {"name": "CH3_DONE", "bit_offset": 3, "bit_size": 1},
+        {"name": "CH0_ERROR", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH1_ERROR", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH2_ERROR", "bit_offset": 10, "bit_size": 1},
+        {"name": "CH3_ERROR", "bit_offset": 11, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::INT_ENABLE": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "CH0_DONE", "bit_offset": 0, "bit_size": 1},
+        {"name": "CH1_DONE", "bit_offset": 1, "bit_size": 1},
+        {"name": "CH2_DONE", "bit_offset": 2, "bit_size": 1},
+        {"name": "CH3_DONE", "bit_offset": 3, "bit_size": 1},
+        {"name": "CH0_ERROR", "bit_offset": 8, "bit_size": 1},
+        {"name": "CH1_ERROR", "bit_offset": 9, "bit_size": 1},
+        {"name": "CH2_ERROR", "bit_offset": 10, "bit_size": 1},
+        {"name": "CH3_ERROR", "bit_offset": 11, "bit_size": 1}
+      ]
+    },
+    "DMA0::regs::CONFIG": {
+      "bit_size": 32,
+      "fields": [
+        {"name": "ARB_MODE", "bit_offset": 0, "bit_size": 2, "enum": "DMA0::vals::ARB_MODE"},
+        {"name": "HALT_ON_ERROR", "bit_offset": 2, "bit_size": 1},
+        {"name": "TYPE", "bit_offset": 3, "bit_size": 2}
+      ]
+    }
+  },
+  "enums": {
+    "DMA0::vals::CH0_EN": {
+      "bit_size": 1,
+      "variants": [
+        {"name": "DISABLE", "value": 0},
+        {"name": "ENABLE", "value": 1}
+      ]
+    },
+    "DMA0::vals::CH1_EN": {
+      "bit_size": 1,
+      "variants": [
+        {"name": "DISABLE", "value": 0},
+        {"name": "ENABLE", "value": 1}
+      ]
+    },
+    "DMA0::vals::CH2_EN": {
+      "bit_size": 1,
+      "variants": [
+        {"name": "DISABLE", "value": 0},
+        {"name": "ENABLE", "value": 1}
+      ]
+    },
+    "DMA0::vals::CH3_EN": {
+      "bit_size": 1,
+      "variants": [
+        {"name": "DISABLE", "value": 0},
+        {"name": "ENABLE", "value": 1}
+      ]
+    },
+    "DMA0::vals::CH0_MODE": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "MEM_TO_MEM", "value": 0},
+        {"name": "MEM_TO_PERIPH", "value": 1},
+        {"name": "PERIPH_TO_MEM", "value": 2},
+        {"name": "PERIPH_TO_PERIPH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH1_MODE": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "MEM_TO_MEM", "value": 0},
+        {"name": "MEM_TO_PERIPH", "value": 1},
+        {"name": "PERIPH_TO_MEM", "value": 2},
+        {"name": "PERIPH_TO_PERIPH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH2_MODE": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "MEM_TO_MEM", "value": 0},
+        {"name": "MEM_TO_PERIPH", "value": 1},
+        {"name": "PERIPH_TO_MEM", "value": 2},
+        {"name": "PERIPH_TO_PERIPH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH3_MODE": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "MEM_TO_MEM", "value": 0},
+        {"name": "MEM_TO_PERIPH", "value": 1},
+        {"name": "PERIPH_TO_MEM", "value": 2},
+        {"name": "PERIPH_TO_PERIPH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH0_PRIORITY": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "LOW", "value": 0},
+        {"name": "MEDIUM", "value": 1},
+        {"name": "HIGH", "value": 2},
+        {"name": "VERY_HIGH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH1_PRIORITY": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "LOW", "value": 0},
+        {"name": "MEDIUM", "value": 1},
+        {"name": "HIGH", "value": 2},
+        {"name": "VERY_HIGH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH2_PRIORITY": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "LOW", "value": 0},
+        {"name": "MEDIUM", "value": 1},
+        {"name": "HIGH", "value": 2},
+        {"name": "VERY_HIGH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH3_PRIORITY": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "LOW", "value": 0},
+        {"name": "MEDIUM", "value": 1},
+        {"name": "HIGH", "value": 2},
+        {"name": "VERY_HIGH", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH0_BURST_SIZE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "SINGLE", "value": 0},
+        {"name": "INCR4", "value": 1},
+        {"name": "INCR8", "value": 2},
+        {"name": "INCR16", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH1_BURST_SIZE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "SINGLE", "value": 0},
+        {"name": "INCR4", "value": 1},
+        {"name": "INCR8", "value": 2},
+        {"name": "INCR16", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH2_BURST_SIZE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "SINGLE", "value": 0},
+        {"name": "INCR4", "value": 1},
+        {"name": "INCR8", "value": 2},
+        {"name": "INCR16", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH3_BURST_SIZE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "SINGLE", "value": 0},
+        {"name": "INCR4", "value": 1},
+        {"name": "INCR8", "value": 2},
+        {"name": "INCR16", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH0_ERROR_CODE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "NONE", "value": 0},
+        {"name": "BUS_ERROR", "value": 1},
+        {"name": "ALIGN_ERROR", "value": 2},
+        {"name": "CONFIG_ERROR", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH1_ERROR_CODE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "NONE", "value": 0},
+        {"name": "BUS_ERROR", "value": 1},
+        {"name": "ALIGN_ERROR", "value": 2},
+        {"name": "CONFIG_ERROR", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH2_ERROR_CODE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "NONE", "value": 0},
+        {"name": "BUS_ERROR", "value": 1},
+        {"name": "ALIGN_ERROR", "value": 2},
+        {"name": "CONFIG_ERROR", "value": 3}
+      ]
+    },
+    "DMA0::vals::CH3_ERROR_CODE": {
+      "bit_size": 3,
+      "variants": [
+        {"name": "NONE", "value": 0},
+        {"name": "BUS_ERROR", "value": 1},
+        {"name": "ALIGN_ERROR", "value": 2},
+        {"name": "CONFIG_ERROR", "value": 3}
+      ]
+    },
+    "DMA0::vals::ARB_MODE": {
+      "bit_size": 2,
+      "variants": [
+        {"name": "FIXED", "value": 0},
+        {"name": "ROUND_ROBIN", "value": 1}
+      ]
+    }
+  }
+}

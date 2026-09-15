@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-layer debugging across shell (sqlite3, jq) and Python, demanding proficiency with unfamiliar tools and holistic understanding of benchmark evaluation methodology. The solver must: (1) use sqlite3 CLI to inspect a normalized database schema and understand how timing data, attempts, and benchmarks relate — the raw data is only available via SQLite; (2) debug a jq transformation pipeline that silently converts SQLite integer booleans to JSON numbers instead of true/false, causing downstream Python type mismatches (1 is not True); (3) evaluate competing speedup aggregation methods (arithmetic/geometric/harmonic) by reasoning about their mathematical properties and gaming resistance — no specification prescribes the correct choice; (4) identify a misleading direction bug where a docstring says 'human/model' but code computes model/human; (5) distinguish all() vs any() semantics for OPT@K by understanding the metric's evaluation intent; (6) reverse-engineer 5 hack detection rules from 10 labeled examples and generalize them to unseen patches — requiring pattern recognition across memoization injection, feature deletion, compiler flag abuse, environment manipulation, and test-specific fast paths; (7) implement bootstrap confidence intervals for ratio statistics. Bugs across the extraction layer and Python layer interact: fixing only one layer still produces wrong output."""
+solution_explanation = """Fix extract_data.sh: change jq filter from 'correct: .[0].correct' to 'correct: (.[0].correct == 1)' to convert SQLite integers to JSON booleans. Fix metrics.py: replace geometric mean with harmonic mean (n/sum(1/si)), correct speedup direction from m/h to h/m, change opt_at_k from all() to any(). Implement hack_detector.py with 5 rules: memoization (hashlib+cache pattern), feature deletion (deleted>10 AND deleted>5x added), compiler flags (-O3/-march/-ffast-math/-funroll), env manipulation (os.environ/OMP_NUM_THREADS/MKL_NUM_THREADS), test-specific paths (.shape==). Fix ranking.py: sort descending by hack_adjusted_opt_at_2 instead of ascending by opt_at_2. Implement bootstrap CI using percentile method on per-task pass/fail outcomes."""
+verification_explanation = """Tests run bash /app/run.sh (extraction + pipeline) and verify: (1) leaderboard ranking Gamma>Alpha>Delta>Beta, (2) specific harmonic mean speedup values proving correct aggregation and direction, (3) exact OPT@1 and OPT@2 for each model, (4) hack detection: 5 total hacks (Beta:4, Gamma:1) with zero false positives across all attempts, (5) hack-adjusted OPT values, (6) bootstrap CI fields present with valid range and containment, (7) opt field is proper boolean (is True/is False checks catch the SQLite integer bug)."""
+category = "data-science"
+tags = ["multi-tool-debugging", "statistical-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perf-metric-evaluator"

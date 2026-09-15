@@ -1,0 +1,7 @@
+[
+  {"id": "t1", "dep": "netstack", "feature": "socket-udp"},
+  {"id": "t2", "dep": "netstack", "feature": "socket-dns"},
+  {"id": "t3", "dep": "virtio-hal", "feature": "io"},
+  {"id": "t4", "dep": "virtio-hal", "feature": "alloc"},
+  {"id": "t5", "dep": "netstack", "feature": "verbose"}
+]

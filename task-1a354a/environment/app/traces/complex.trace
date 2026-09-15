@@ -1,0 +1,9 @@
+# complex.trace — multi-processor interleaving
+# Exercises: E->S, S->I (BusRdX), M->S (Flush), M->I (Flush), repeated invalidation
+0 R 0x0000
+1 R 0x0000
+2 W 0x0000
+0 R 0x0000
+1 W 0x0000
+3 W 0x0000
+0 R 0x0000

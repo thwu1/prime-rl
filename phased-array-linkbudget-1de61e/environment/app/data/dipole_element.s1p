@@ -1,0 +1,16 @@
+! Half-wave dipole element S-parameter measurements
+! Reference: 50 Ohm system
+! Frequency sweep from 0.9 GHz to 5.8 GHz
+# GHz S MA R 50
+! Freq(GHz)  |S11|    Ang(S11)
+0.9   0.9159   -44.70
+1.2   0.6325   -71.57
+1.5   0.2874   -73.30
+1.8   0.1562    28.73
+2.0   0.2613    39.56
+2.4   0.3714    42.50
+3.0   0.5146    36.00
+3.5   0.6064    31.40
+4.0   0.7302    23.56
+5.0   0.8295    15.14
+5.8   0.8498    11.31

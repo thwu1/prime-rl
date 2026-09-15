@@ -1,0 +1,7 @@
+A two-layer Web Application Firewall protects a Flask query service (`/app/server.py`, port 5000). Layer 1 applies YAML-configured regex rules from `/app/waf_rules.yaml`. Layer 2 applies Python-defined regex rules in `/app/waf.py`. All WAF decisions are logged as structured JSON to `/var/log/waf/requests.jsonl`. The service can be started with `/app/start_service.sh`.
+
+The HTTP endpoint `POST /query` accepts JSON `{"where": "<clause>"}` and executes `SELECT * FROM users WHERE <clause>` against a SQLite database at `/app/database.db`. The database also contains an `internal_credentials` table with 4 AES-encrypted credential blobs and an `encryption_metadata` table with key derivation parameters.
+
+Identify and exploit all WAF bypass vectors across both layers. Extract the encrypted credential blobs, decrypt them using the database encryption metadata and appropriate CLI tools, and write the 4 decrypted plaintext credential values to `/app/flags.txt` (one per line).
+
+Write a patched YAML config to `/app/waf_rules_patched.yaml` and a patched Python WAF module to `/app/waf_patched.py` that close all identified vulnerabilities -- including any unsafe trust mechanisms -- while preserving the `WAF(config_path=...)` constructor and `check(self, user_input, headers=None)` interface (returning `(allowed, triggered_rules)`) and allowing the legitimate queries defined in `/app/test_legitimate.py`.

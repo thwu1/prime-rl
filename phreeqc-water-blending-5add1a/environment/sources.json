@@ -1,0 +1,43 @@
+{
+  "sources": {
+    "limestone_gw": {
+      "temp_c": 12.0,
+      "pH": 7.20,
+      "units": "ppm",
+      "Ca": 100.0,
+      "Mg": 30.0,
+      "Na": 15.0,
+      "K": 3.0,
+      "Cl": 20.0,
+      "Alkalinity_as_CaCO3": 280.0,
+      "S_6": 40.0,
+      "Si": 12.0
+    },
+    "alluvial_gw": {
+      "temp_c": 15.0,
+      "pH": 7.50,
+      "units": "ppm",
+      "Ca": 48.0,
+      "Mg": 16.0,
+      "Na": 38.0,
+      "K": 4.0,
+      "Cl": 30.0,
+      "Alkalinity_as_CaCO3": 165.0,
+      "S_6": 50.0,
+      "Si": 16.0
+    },
+    "surface_reservoir": {
+      "temp_c": 18.0,
+      "pH": 7.00,
+      "units": "ppm",
+      "Ca": 22.0,
+      "Mg": 6.0,
+      "Na": 10.0,
+      "K": 1.5,
+      "Cl": 10.0,
+      "Alkalinity_as_CaCO3": 55.0,
+      "S_6": 14.0,
+      "Si": 4.0
+    }
+  }
+}

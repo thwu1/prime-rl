@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+pip3 install requests==2.32.3 -q
+
+python3 /solution/solve.py

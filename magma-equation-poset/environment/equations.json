@@ -1,0 +1,58 @@
+{
+  "E1": {
+    "display": "x * x = x",
+    "name": "Idempotent",
+    "lhs": {"op": "*", "args": ["x", "x"]},
+    "rhs": "x",
+    "vars": ["x"]
+  },
+  "E2": {
+    "display": "x * y = y * x",
+    "name": "Commutative",
+    "lhs": {"op": "*", "args": ["x", "y"]},
+    "rhs": {"op": "*", "args": ["y", "x"]},
+    "vars": ["x", "y"]
+  },
+  "E3": {
+    "display": "(x * y) * z = x * (y * z)",
+    "name": "Associative",
+    "lhs": {"op": "*", "args": [{"op": "*", "args": ["x", "y"]}, "z"]},
+    "rhs": {"op": "*", "args": ["x", {"op": "*", "args": ["y", "z"]}]},
+    "vars": ["x", "y", "z"]
+  },
+  "E4": {
+    "display": "x * (y * z) = (x * y) * (x * z)",
+    "name": "Left self-distributive",
+    "lhs": {"op": "*", "args": ["x", {"op": "*", "args": ["y", "z"]}]},
+    "rhs": {"op": "*", "args": [{"op": "*", "args": ["x", "y"]}, {"op": "*", "args": ["x", "z"]}]},
+    "vars": ["x", "y", "z"]
+  },
+  "E5": {
+    "display": "(x * y) * z = (x * z) * (y * z)",
+    "name": "Right self-distributive",
+    "lhs": {"op": "*", "args": [{"op": "*", "args": ["x", "y"]}, "z"]},
+    "rhs": {"op": "*", "args": [{"op": "*", "args": ["x", "z"]}, {"op": "*", "args": ["y", "z"]}]},
+    "vars": ["x", "y", "z"]
+  },
+  "E6": {
+    "display": "x * (x * y) = x * y",
+    "name": "Left absorption",
+    "lhs": {"op": "*", "args": ["x", {"op": "*", "args": ["x", "y"]}]},
+    "rhs": {"op": "*", "args": ["x", "y"]},
+    "vars": ["x", "y"]
+  },
+  "E7": {
+    "display": "(x * y) * y = x * y",
+    "name": "Right absorption",
+    "lhs": {"op": "*", "args": [{"op": "*", "args": ["x", "y"]}, "y"]},
+    "rhs": {"op": "*", "args": ["x", "y"]},
+    "vars": ["x", "y"]
+  },
+  "E8": {
+    "display": "(x * x) * y = x * (x * y)",
+    "name": "Left alternative",
+    "lhs": {"op": "*", "args": [{"op": "*", "args": ["x", "x"]}, "y"]},
+    "rhs": {"op": "*", "args": ["x", {"op": "*", "args": ["x", "y"]}]},
+    "vars": ["x", "y"]
+  }
+}

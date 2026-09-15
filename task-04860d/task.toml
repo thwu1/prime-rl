@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the marching tetrahedra algorithm from scratch, including: (1) constructing a conforming Freudenthal tetrahedral grid from a regular voxel grid, (2) correctly encoding all 16 sign-configuration cases in the MT lookup table with proper edge interpolation and vertex deduplication across shared tet edges, (3) handling degenerate cases where SDF values are zero or near-zero at grid vertices by perturbing them to avoid non-manifold output, (4) implementing CSG operations on signed distance fields, (5) computing topological invariants (Euler characteristic, genus, manifoldness) via edge-face adjacency analysis, and (6) implementing uniform Laplacian mesh smoothing. The combination of computational geometry, algebraic topology, and mesh processing knowledge is well beyond undergraduate level."""
+solution_explanation = """The solution generates a Freudenthal (Kuhn) triangulation by subdividing each cube of a regular grid into 6 tetrahedra along all permutations of axis traversal from one corner to the opposite. Near-zero SDF values at grid vertices are perturbed to a small positive epsilon to prevent degenerate triangles that would break manifoldness (critical when grid spacing aligns with SDF zero-crossings, e.g. sphere r=0.6 with step 0.05). For each tetrahedron, the 4-bit sign configuration of SDF values indexes a 16-entry lookup table that specifies which edges are cut and how to form triangles. Intersection vertices are computed via linear interpolation along cut edges and cached by sorted grid-vertex-index pairs to ensure sharing across adjacent tets. After degenerate triangle removal, topological invariants are computed from edge-face adjacency counts, and geometric statistics from cross-product areas and edge lengths. Laplacian smoothing applies Jacobi-style umbrella operator iterations."""
+verification_explanation = """Tests verify topological invariants that are implementation-independent: sphere must have Euler characteristic 2 (genus 0), torus and CSG must have Euler characteristic 0 (genus 1), and all must be manifold. Surface areas are checked against analytical values within 15-20% tolerance. Centroid symmetry, minimum mesh sizes, positive edge lengths, and smoothing reducing edge length variance are also verified."""
+category = "computational_geometry"
+tags = ["mesh-processing", "isosurface-extraction"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-04860d"

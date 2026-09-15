@@ -1,0 +1,12 @@
+// Program: nop_test - regression test with manual NOPs
+// Tests basic ALU operations with proper NOP delay slots
+// Expected: r1=5, r2=10, r3=15, r4=25
+14100005  // loadi.u r1, 5
+00000000  // nop (data hazard delay)
+38210100  // add r2, r1, r1 (r2 = 10)
+00000000  // nop (data hazard delay)
+38320100  // add r3, r2, r1 (r3 = 15)
+00000000  // nop (data hazard delay)
+38430200  // add r4, r3, r2 (r4 = 25)
+00000000  // nop
+08000000  // halt

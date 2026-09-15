@@ -1,0 +1,22 @@
+{
+  "authority_alpha": {
+    "status": "valid",
+    "description": "Primary RPKI CA",
+    "public_key_file": "keys/authority_alpha.pub"
+  },
+  "authority_beta": {
+    "status": "valid",
+    "description": "Secondary RPKI CA",
+    "public_key_file": "keys/authority_beta.pub"
+  },
+  "authority_gamma": {
+    "status": "revoked",
+    "description": "Compromised CA (key revoked 2025-01-15)",
+    "public_key_file": "keys/authority_gamma.pub"
+  },
+  "authority_delta": {
+    "status": "valid",
+    "description": "Regional RPKI CA",
+    "public_key_file": "keys/authority_delta.pub"
+  }
+}

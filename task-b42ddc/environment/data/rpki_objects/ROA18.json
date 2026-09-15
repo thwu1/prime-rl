@@ -1,0 +1,7 @@
+{
+  "asn": 2005,
+  "max_length": 16,
+  "prefix": "172.17.0.0/16",
+  "roa_id": "ROA18",
+  "signing_entity": "authority_delta"
+}

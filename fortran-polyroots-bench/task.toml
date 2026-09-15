@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level expertise in Modern Fortran, build tooling, and numerical analysis. The agent must: (1) explore polyroots-fortran source to identify all general-purpose real-coefficient root-finding methods and their distinct API signatures; (2) compile the library from source at two precision levels, resolving Fortran module dependency ordering; (3) write Fortran code correctly invoking each method — each has incompatible argument conventions that must be discovered from the source; (4) determine how to enable quad-precision compilation and figure out which methods are unsupported at that level; (5) correctly evaluate backward errors for complex roots of a real polynomial; (6) bridge Fortran output to a structured JSON format. These steps span build-system configuration, API reverse-engineering from source code, numerical conditioning analysis, and multi-tool integration."""
+solution_explanation = """The solution compiles polyroots-fortran from source using multi-pass gfortran compilation (to resolve module dependencies) into a static library, once at real64 and once at real128 precision. A Fortran program (benchmark.F90) uses all six general-purpose real-coefficient methods, guarded by preprocessor conditionals for the LAPACK-based method unavailable at quad precision. The program computes roots, evaluates max backward error, and writes structured output to files. Two separate compilations and runs produce output at each precision. A Python script parses both outputs, sorts roots, identifies the best method per precision level, and writes /app/results.json."""
+verification_explanation = """The test suite uses numpy as an independent reference. It computes roots of the same polynomial via numpy.roots() (companion matrix eigenvalues) and verifies that each method's reported roots match within 1e-4. It independently evaluates the polynomial at each reported root to verify backward errors. Structural checks ensure all required methods are present, roots come in conjugate pairs, are correctly sorted, and that real128 shows measurable accuracy improvement over real64. The best_method field is validated for internal consistency."""
+category = "scientific_computing"
+tags = ["fortran", "numerical-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fortran-polyroots-bench"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level debugging across SE(3) Lie group mathematics, body-frame Jacobian computation, and constrained QP formulation. The solver contains five independent bugs: an incorrect V-inverse coefficient in the SE(3) logarithmic map, swapped position/rotation rows in the body Jacobian, a wrong multiplication order in the frame error computation, a sign error in the joint lower-bound constraint, and an inverted contact normal direction in collision avoidance. Each bug requires deep understanding of the underlying mathematics to diagnose and fix. Bugs cascade through the IK pipeline, requiring systematic bottom-up debugging."""
+solution_explanation = """Fix the five bugs: (1) restore the correct V-inverse coefficient (1 - half_theta*cot(half_theta))/theta^2 in se3_log, (2) swap the Jacobian rows back so position is in [:3] and rotation in [3:] in body_jacobian, (3) change the frame_error multiplication to T_c_inv @ T_target (right-minus), (4) change the lower-bound constraint row sign to -1.0 in solve_ik, (5) reverse the collision normal to fromto[3:] - fromto[:3] in solve_ik."""
+verification_explanation = """Tests verify: (1) SO(3) exp/log roundtrips including near-pi edge cases, (2) SE(3) exp/log roundtrips for random twists, (3) adjoint composition and inverse properties, (4) body Jacobian matches finite-difference numerical Jacobian, (5) frame error satisfies the right-minus reconstruction property, (6) IK converges to known reachable targets, (7) joint limits are respected for unreachable targets that push joints to extremes, (8) collision distances maintained above minimum, (9) velocity limits don't prevent convergence."""
+category = "scientific_computing"
+tags = ["robotics", "lie-groups"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f94770"

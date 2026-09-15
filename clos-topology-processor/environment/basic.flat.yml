@@ -1,0 +1,52 @@
+name: basic-lab
+topology:
+  nodes:
+    web1:
+      kind: linux
+      image: nginx:1.25
+      type: webserver
+      env:
+        APP: web
+        LOG_LEVEL: info
+        CLUSTER: prod
+      labels:
+        tier: frontend
+        managed: "true"
+    web2:
+      kind: linux
+      image: nginx:1.25
+      type: webserver
+      env:
+        APP: web
+        LOG_LEVEL: info
+        CLUSTER: prod
+      labels:
+        tier: frontend
+        managed: "true"
+    db1:
+      kind: linux
+      image: postgres:16
+      type: database
+      env:
+        APP: database
+        LOG_LEVEL: warn
+        CLUSTER: prod
+        DB_PORT: "5432"
+      labels:
+        tier: backend
+        managed: "true"
+    db2:
+      kind: linux
+      image: postgres:16
+      type: database
+      env:
+        APP: database
+        LOG_LEVEL: warn
+        CLUSTER: prod
+        DB_PORT: "5433"
+      labels:
+        tier: backend
+        managed: "true"
+  links:
+    - endpoints: ["web1:eth1", "db1:eth1"]
+    - endpoints: ["web2:eth1", "db2:eth1"]

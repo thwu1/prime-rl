@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing ELF64 binary format from scratch (file header, section headers, symbol tables, string tables, RELA relocation entries with explicit addends), understanding x86_64 relocation types (R_X86_64_PC32, R_X86_64_PLT32) and their computation (S + A - P), managing executable memory via mmap with RWX permissions, resolving symbols across multiple independently compiled translation units including local/section symbols and BSS-resident data, and creating a working function call interface via ctypes.CFUNCTYPE. Demands Dreyfus proficient-level systems programming expertise spanning binary object formats, x86_64 architecture, virtual memory management, and foreign function interfaces."""
+solution_explanation = """Parse ELF64 headers and section headers using struct to locate .text, .data, .bss, .symtab, .strtab, and .rela.text sections. Allocate a single contiguous RWX memory region via mmap. Copy allocatable section data (PROGBITS) and zero-fill NOBITS sections with correct alignment. Build a global symbol table: resolve each defined symbol's address as section_base + symbol_value, register globals; then resolve undefined symbols from the global table. Apply relocations by computing S + A - P for PC32/PLT32 types and writing 32-bit values at relocation offsets via the mmap buffer. Expose function invocation via ctypes.CFUNCTYPE(c_int, ...) constructed from resolved symbol addresses."""
+verification_explanation = """14 pytest tests import the JITLoader class, load object file combinations, and call functions checking return values. Coverage: basic two-argument arithmetic (add, multiply with positive and negative args), static data access (get_shared returns 42), cross-object function chains (compute_sum, compute_product), multi-level dependency chains (final_result spans 3 cells), four-argument calls (quadratic polynomial evaluation), BSS zero-initialization (get_counter starts at 0), mutable JIT state (increment modifies BSS counter across calls), partial object loading (cell1+cell2 only), and independent loader instances (separate mmap regions yield independent state)."""
+category = "systems_programming"
+tags = ["elf", "jit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/elf-jit-loader"

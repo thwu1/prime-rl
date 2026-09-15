@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of lithium-ion battery electrochemistry: electrode stoichiometry, cell balancing (N/P ratio), the electrode state-of-health (eSOH) framework, and lithium plating onset conditions. The agent must also master PyBaMM's parameter system (exact parameter name strings), model option configuration (SPMe with thermal coupling), simulation API (initial_soc triggering eSOH), and solution post-processing (extracting stoichiometry variables). Combining domain physics knowledge with framework-specific API expertise makes this task inaccessible to non-specialists."""
+solution_explanation = """The solution creates a Python script that: (1) loads the cell configuration, (2) instantiates an SPMe model with lumped thermal coupling and discharge energy tracking, (3) iterates over thickness multipliers, creating modified Chen2020 parameter sets with scaled negative electrode thickness, (4) runs discharge simulations from SOC=100% using PyBaMM's eSOH-based initial condition solver, (5) extracts discharge capacity, energy, average voltage, and electrode stoichiometries from the solution object, (6) determines plating risk from x_100 vs threshold and the limiting electrode from end-of-discharge stoichiometry proximity to extremes, and (7) selects the optimal multiplier maximizing safe capacity."""
+verification_explanation = """Tests verify: (1) structural correctness of results.json, (2) physical bounds on all quantities (capacity 0.5-10 Ah, stoichiometries in [0,1], voltages in [2.5, 4.2]), (3) correct stoichiometry direction during discharge, (4) monotonic decrease of neg_stoich_at_soc100 with increasing multiplier, (5) plating risk consistency with stoichiometry and threshold, (6) limiting electrode consistency with end-of-discharge stoichiometry, (7) energy-voltage-capacity self-consistency, (8) optimal multiplier selection logic, and (9) independent PyBaMM verification simulation at baseline multiplier."""
+category = "modeling_simulation"
+tags = ["battery-modeling", "electrochemistry"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/battery-electrode-balancing"

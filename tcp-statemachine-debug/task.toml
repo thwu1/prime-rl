@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five distinct protocol-level bugs in a TCP state machine implementation, each demanding deep understanding of RFC 793 semantics: segment acceptability boundary logic, SRTT smoothing weight asymmetry (RFC 6298), simultaneous-close state transitions, FIN sequence number tracking in active close, and SYN_RCVD-to-ESTABLISHED ACK fall-through behaviour. These bugs interact subtly — e.g., the handshake accounting bug shifts snd_una, affecting all subsequent ACK processing. Fixing them requires holistic protocol reasoning, not isolated line changes. Additionally, the solver must design a congestion control algorithm from a bare abstract interface (no algorithmic guidance provided), meeting performance targets across three distinct network profiles. Finally, the solver must use tshark to extract RTT and retransmission statistics from raw pcap captures and store structured results in both JSON and SQLite. The combination of deep protocol debugging, algorithm design from first principles, and multi-tool orchestration makes this expert-level."""
+solution_explanation = """Fix 5 bugs in connection.py: (1) _is_acceptable uses AND instead of OR for segment boundary check — change to OR so segments partially within the receive window are accepted; (2) SRTT smoothing weights reversed (0.2/0.8) — swap to 0.8/0.2 per RFC 6298; (3) _process_fin missing FIN_WAIT_1 → CLOSING transition for simultaneous close; (4) close() records fin_seq after incrementing snd_nxt — swap order so fin_seq records the pre-increment value; (5) _process_ack returns early after SYN_RCVD→ESTABLISHED transition — remove return so snd_una is updated. Then implement TCP Reno CongestionController: slow_start (cwnd += MSS/ACK), congestion_avoidance (cwnd += MSS²/cwnd per ACK), fast_recovery (on 3rd dup ACK: ssthresh=max(cwnd/2,2*MSS), cwnd=ssthresh+3*MSS; inflate on dup ACKs; deflate to ssthresh on new ACK), timeout (ssthresh=max(cwnd/2,2*MSS), cwnd=MSS, slow_start). For analysis: tshark -r pcap -T fields -e tcp.analysis.ack_rtt for RTTs, -Y tcp.analysis.retransmission for loss counts, write JSON and populate SQLite."""
+verification_explanation = """44 pytest tests across 10 classes: state machine fixes (5 tests — segment acceptability, SRTT smoothing, simultaneous close, active close FIN ACK, handshake snd_una), CC module interface (8 tests), slow-start (4 tests), congestion avoidance (3 tests), fast recovery (6 tests), timeout (4 tests), scenario performance targets (3 tests), analysis.json structure and RTT ranges (6 tests), SQLite schema and data (5 tests)."""
+category = "networking"
+tags = ["tcp", "protocol-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tcp-statemachine-debug"

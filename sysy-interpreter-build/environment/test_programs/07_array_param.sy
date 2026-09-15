@@ -1,0 +1,25 @@
+void fill(int arr[], int n) {
+    int i = 0;
+    while (i < n) {
+        arr[i] = i * i;
+        i = i + 1;
+    }
+}
+
+int sum(int arr[], int n) {
+    int s = 0;
+    int i = 0;
+    while (i < n) {
+        s = s + arr[i];
+        i = i + 1;
+    }
+    return s;
+}
+
+int main() {
+    int a[5];
+    fill(a, 5);
+    putint(sum(a, 5));
+    putch(10);
+    return 0;
+}

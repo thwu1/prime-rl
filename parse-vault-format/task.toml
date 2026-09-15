@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse engineering an undocumented binary format AND a stripped compiled binary. The solver must: (1) use radare2 or objdump to disassemble the stripped vault_tool ELF binary and identify two distinct PRNG-based encryption functions from x86-64 machine code; (2) extract the LCG constants (multiplier 0x41C64E6D, increment 0x3039) and the metadata PRNG constant (0x6C078965) from disassembly; (3) understand key derivation — file encryption initializes state from seed XOR crc32(filename), metadata uses seed replicated to 32 bits; (4) identify keystream extraction bit shifts (>>16 for files, >>24 for metadata); (5) use binwalk to identify zlib compression boundaries; (6) parse the partially-documented binary format including variable-length integer encoding; (7) combine all findings into a general-purpose Python parser. This requires professional-level skills spanning binary analysis, disassembly reading, cryptographic pattern recognition, and multi-tool interoperability."""
+solution_explanation = """Use radare2 (r2 -A /app/vault_tool; afl; pdf @ main; pdf @ fcn.XXXX) to locate two encryption functions. Identify the LCG in file_crypt: state = seed ^ crc32(fname); state = state * 0x41C64E6D + 0x3039; key = (state>>16)&0xFF. Identify meta_crypt: state = seed*0x01010101; state = state * 0x6C078965 + 1; key = (state>>24)&0xFF. Use binwalk on the vault to confirm zlib compression. Parse the 24-byte header per FORMAT_NOTES.txt. Parse file table with compact integers. Sequentially read compressed blobs, decompress with zlib, decrypt encrypted files, verify CRC32. Decrypt metadata with the separate PRNG. Output all required files."""
+verification_explanation = """Tests verify: (1) parser exists and is self-contained Python (no vault_tool dependency); (2) correct file table with all 7 entries, names, CRC32 values, and encryption flags; (3) all extracted files match expected SHA-256 hashes, confirming correct decryption; (4) metadata correctly decrypted with verification_token and integrity_hash; (5) parser generalizes to a pre-built second vault (test_extra.vault) with different content, different seed, and different encrypted files — all SHA-256 hashes and metadata tokens verified independently."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "disassembly"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parse-vault-format"

@@ -1,0 +1,59 @@
+{
+  "project": "Xenobiont Alpha Genome Characterization",
+  "principal_investigator": "Dr. K. Vasquez",
+  "facility": "Exobiology Research Station Kepler-442",
+  "sequencing_runs": {
+    "RUN_2157A": {
+      "status": "validated",
+      "qc_passed": true,
+      "date": "2157-03-15",
+      "protocol_version": "v3.2",
+      "notes": "Standard sequencing run, all QC metrics nominal."
+    },
+    "RUN_2157B": {
+      "status": "validated",
+      "qc_passed": true,
+      "date": "2157-05-22",
+      "protocol_version": "v3.2",
+      "notes": "Batch processed alongside RUN_2157C."
+    },
+    "RUN_2157C": {
+      "status": "validated",
+      "qc_passed": true,
+      "date": "2157-05-22",
+      "protocol_version": "v3.2",
+      "notes": "Batch processed alongside RUN_2157B."
+    },
+    "RUN_2158A": {
+      "status": "validated",
+      "qc_passed": true,
+      "date": "2158-01-10",
+      "protocol_version": "v3.3",
+      "notes": "Updated protocol with improved sensitivity."
+    },
+    "RUN_2158B": {
+      "status": "validated",
+      "qc_passed": true,
+      "date": "2158-02-28",
+      "protocol_version": "v3.3",
+      "notes": "Final characterization batch."
+    },
+    "RUN_2156X": {
+      "status": "invalidated",
+      "qc_passed": false,
+      "date": "2156-11-03",
+      "protocol_version": "v2.9",
+      "notes": "Cross-contamination with E. coli control strain detected. Sequencing lanes mixed terrestrial and xenobiont material. All samples from this run must be excluded from xenobiont codon analysis.",
+      "contamination_flag": true
+    },
+    "RUN_2157Y": {
+      "status": "invalidated",
+      "qc_passed": false,
+      "date": "2157-07-22",
+      "protocol_version": "v3.2",
+      "notes": "Mass spectrometer calibration drift detected post-hoc. Protein identifications from this run are unreliable and should be discarded.",
+      "instrument_issue": true
+    }
+  },
+  "analysis_notes": "Only use data from validated sequencing runs (qc_passed=true) for codon table reconstruction. The xenobiont uses a non-standard genetic code with context-dependent translation rules that modify amino acid output based on codon-boundary nucleotide context."
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "seq": 0,
+    "message_hex": "53797374656d2073746172747570",
+    "nonce_hex": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "authenticator_hex": "8bbc68da38490bf1d33ed7215d84f4c5"
+  },
+  {
+    "seq": 1,
+    "message_hex": "50617920416c6963652024353030",
+    "nonce_hex": "f0e1d2c3b4a596870718293a4b5c6d7e",
+    "authenticator_hex": "17c0229f5b241b9999aa9b9f48b9d18a"
+  },
+  {
+    "seq": 2,
+    "message_hex": "4865617274626561742070696e672066726f6d2073656e736f72206e6f6465203720617420636865636b706f696e7420616c706861",
+    "nonce_hex": "1234567890abcdef1234567890abcdef",
+    "authenticator_hex": "37c6b8bdc07a85b516aa562432c3b700"
+  },
+  {
+    "seq": 3,
+    "message_hex": "41636b3a20636f6e6669726d6564",
+    "nonce_hex": "f0e1d2c3b4a596870718293a4b5c6d7e",
+    "authenticator_hex": "4df5aa8ead9cfc2ea78a85a964229ea0"
+  },
+  {
+    "seq": 4,
+    "message_hex": "53656e736f722064617461204f4b",
+    "nonce_hex": "deadbeefcafebabe0102030405060708",
+    "authenticator_hex": "492a654ee65e59b4a1c838abb9bcc2ad"
+  }
+]

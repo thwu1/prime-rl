@@ -1,0 +1,20 @@
+{
+    "name": "jpeg_decoder",
+    "description": "JPEG image decoder accelerator",
+    "source": "CHStone",
+    "base_cycles": 8192,
+    "base_luts": 12500,
+    "base_ffs": 8900,
+    "base_dsps": 24,
+    "base_brams": 32,
+    "base_power_mw": 520.0,
+    "pipeline_depth": 16,
+    "reference_ppa": {
+        "latency_ns": 40960.0,
+        "luts": 12500,
+        "ffs": 8900,
+        "dsps": 24,
+        "brams": 32,
+        "power_mw": 520.0
+    }
+}

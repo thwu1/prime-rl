@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional bioinformatics expertise to discover and integrate the correct PDBe REST API endpoints without being told which ones to use. The solver must understand the PDB data model (entity vs chain, struct_asym_id vs chain_id, author residue numbering vs sequential numbering vs UniProt numbering), determine which API endpoints provide ligand interaction data, sequence cross-reference mappings, domain classifications, secondary structure annotations, and validation outlier data. The PDB-to-UniProt numbering translation via cross-reference mapping segment offsets is a genuine stumbling block. Additionally requires identifying which interacting entities are standard amino acids vs water/ligands, range-checking residues against domain boundaries and secondary structure elements, tracking per-atom ligand contacts, and correctly aggregating atom-level interaction data to residue-level annotations."""
+solution_explanation = """The solution queries 6 PDBe API endpoints: (1) /pdb/bound_ligand_interactions/{pdb}/{chain}/{resnum} for atom-level contacts including ligand atom names, (2) /mappings/uniprot/{pdb} for PDB-to-UniProt residue number translation using the offset formula (unp_position = unp_start + author_residue_number - start.author_residue_number), (3) /mappings/pfam/{pdb} for domain annotation, (4) /mappings/cath/{pdb} for structural classification, (5) /validation/residuewise_outlier_summary/entry/{pdb} for validation quality, (6) /pdb/entry/secondary_structure/{pdb} for helix/strand/coil assignment. Protein residues are identified by filtering out HOH and non-standard amino acid codes. Each binding residue's author_residue_number is checked against mapping segment boundaries, Pfam/CATH domain ranges, and helix/strand boundaries. Ligand atom names are tracked per residue from the ligand_atoms field of each interaction record. Interaction types are collected as unique sets per residue from the interaction_details arrays."""
+verification_explanation = """Tests run the tool against PDB entry 1cbs (retinoic acid binding protein, a stable 1993 structure). Verifies: 18 protein binding residues with correct amino acid types, correct UniProt P29373 mappings with +1 offset, correct secondary structure assignments (7 helix, 5 strand, 6 coil), correct Pfam PF00061 and CATH 2.40.128.20 domain annotations, correct interaction type aggregation, minimum distances for key residues, per-residue ligand atom contact lists (e.g. ALA32 contacts 7 ligand atoms, TYR134 contacts O1 and O2), 20 unique ligand atoms contacted across the binding site, validation outlier detection (only VAL76 has clashes), and summary statistics consistency."""
+category = "bioinformatics"
+tags = ["structural-biology", "api-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pdbe-binding-annotator"

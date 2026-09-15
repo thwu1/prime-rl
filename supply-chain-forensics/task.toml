@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level supply chain security forensics AND threat intelligence evaluation: (1) reversing a two-layer XOR+base64 obfuscation scheme with custom key scheduling to extract RAT dropper IOCs, (2) identifying a DNS TXT command injection hidden among 600+ lines of legitimate Go library code, (3) deobfuscating a JavaScript array rotation cipher with IIFE checksum verification to uncover Telegram-based exfiltration, (4) decompressing a zlib+base64 payload embedded in a Python setup.py, (5) designing YARA detection rules that correctly identify each malware family while avoiding false positives against structurally similar benign packages, and (6) creating a comparative threat intelligence assessment that evaluates attack sophistication, maps TTPs to MITRE ATT&CK, performs attribution clustering, critically evaluates detection rule resilience, and designs a prioritized remediation strategy. The evaluation deliverable requires professional judgment — ranking sophistication, justifying attribution hypotheses, and honestly assessing which detection indicators are brittle vs robust."""
+solution_explanation = """Three-phase approach: (1) Forensic analysis - for each package, identify the malicious code, reverse the obfuscation, extract IOCs. rapid-json-parse: decode reversed-base64+XOR strings using key 'VaLiD_3098' and constant 0x14D. go-financial-calc: find init() goroutine polling DNS TXT records at cdn-telemetry.freeddns.org. eth-wallet-utils: solve array rotation cipher (checksum 0x2cc=716) to extract Telegram bot token and chat ID. pydata-tools: base64-decode then zlib-decompress the setup.py blob to find reverse shell to 185.193.127.42:4444. (2) Detection engineering - design YARA rules using attack-specific IOCs that match malicious packages but not structurally similar baselines. (3) Threat intelligence assessment - evaluate sophistication (rapid-json-parse highest due to multi-layer obfuscation + anti-forensics; pydata-tools lowest due to standard techniques), map each attack to MITRE ATT&CK (T1195.001 for all; T1027 for obfuscation; T1071.004 for DNS; etc.), perform attribution clustering based on infrastructure and TTP divergence, evaluate YARA rule resilience (function names are brittle; behavioral patterns are robust), and prioritize remediation (RAT dropper and reverse shell before targeted theft)."""
+verification_explanation = """Tests verify all three deliverables: (1) forensic report contains all 4 packages with exact IOCs (C2 domains, Telegram bot token, reverse shell IP/port, exfil URLs), correct attack classifications, execution triggers, and deobfuscated strings. (2) YARA rules file exists, is syntactically valid, correctly detects all 4 malicious packages, and produces zero false positives against baselines. (3) Threat assessment contains: sophistication ranking where rapid-json-parse is ranked most sophisticated and pydata-tools least; MITRE ATT&CK mappings with valid technique IDs including T1195 for all packages and technique-specific IDs per package; attribution analysis with multiple actor clusters (not all packages assigned to one actor); rule resilience evaluation with both brittle and robust indicators per rule; and remediation priority with packages enabling full system access (RAT/reverse shell) prioritized above targeted theft."""
+category = "cybersecurity"
+tags = ["supply-chain-security", "threat-intelligence"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/supply-chain-forensics"

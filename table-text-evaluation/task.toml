@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing 10 distinct bugs across a cross-modal IR evaluation pipeline — including crash-inducing errors (ZeroDivisionError from 0-indexed reciprocal ranks and NDCG log factors, NotImplementedError for unimplemented F1@k, KeyError from column renaming), subtle silent errors (wrong P@k denominator, naive BM25 IDF instead of Robertson IDF, MAP normalization by list length instead of relevant count, 0-indexed RRF ranks, unsorted fold assignment), and incomplete table serialization. Beyond debugging, the solver must design and implement missing components: a weighted RRF accepting per-method weights, a cross-validated weight optimizer using grid search over weight combinations, BM25 integration as a fourth scoring method, MAP computation in the evaluation loop, and a comparison.json output comparing uniform vs optimized weight strategies. This demands proficient IR domain knowledge (understanding BM25 theory, RRF mechanics, cross-validation for hyperparameter selection), strategic multi-file debugging across interconnected functions, and architectural design decisions for the weight optimization pipeline."""
+solution_explanation = """Fix all 10 bugs: (1) remove column renaming in load_data, (2) implement full table serialization preserving title/headers/rows, (3) change P@k denominator from min(k,len) to k, (4) implement F1@k as harmonic mean, (5) fix NDCG log discount from log2(i+1) to log2(i+2), (6) fix reciprocal rank from 1/i to 1/(i+1), (7) fix RRF from 0-indexed to 1-indexed ranks, (8) sort unique text_ids before round-robin fold assignment, (9) fix BM25 IDF from naive log(N/n) to Robertson log((N-n+0.5)/(n+0.5)+1), (10) fix AP normalization from len() to sum(). Then implement missing features: add weights parameter to reciprocal_rank_fusion, implement optimize_rrf_weights with grid search over [0,0.5,1,2] weight combos evaluated on F1@k across folds, integrate BM25 as 4th scoring method in main, add MAP to _evaluate_per_query, generate comparison.json with uniform vs optimized metrics, update config.json weights to dict format."""
+verification_explanation = """62 pytest tests across 20 test classes verify: (1) module exports all 12 required functions, (2-4) P@k/R@k/F1@k computations including k-exceeds-length and zero edge cases, (5) NDCG@k exact DCG/IDCG ratios catching wrong log factor, (6) reciprocal rank catching ZeroDivisionError, (7) AP including perfect/worst/single-relevant cases catching len() normalization bug, (8) standard RRF exact scores with 1-indexed ranks, (9) weighted RRF: uniform-equals-standard, weight-effect with opposing rankers, zero-weight exclusion, (10) table serialization catching missing headers/rows, (11) grouped folds with sorted round-robin assignment, (12) BM25 with Robertson IDF test catching naive IDF, (13) optimize_rrf_weights returns valid dict and finds better weights for anti-correlated methods, (14-17) output file schemas for metrics.json/predictions.csv/config.json/comparison.json, (18) predictions coverage and score range, (19) macro averaging, (20) load_data column names and types."""
+category = "data_science"
+tags = ["information-retrieval", "pipeline-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/table-text-evaluation"

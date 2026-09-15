@@ -1,0 +1,10 @@
+{
+  "total_size": 128,
+  "iterations": 0,
+  "labels": {
+    "target": 127
+  },
+  "jumps": [
+    {"line": 1, "target": "target", "offset": 0, "size": 2, "relaxed": false}
+  ]
+}

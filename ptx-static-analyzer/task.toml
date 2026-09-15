@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires implementing five distinct compiler analyses (CFG construction, register liveness, register pressure, dependency analysis, critical path/ILP) on NVIDIA PTX assembly entirely from first principles — no algorithms or procedures are given. The agent must understand PTX instruction semantics (predicated branching model including negated predicates, type-qualified opcodes, memory operand syntax, store vs. ALU operand conventions, special vs. general register distinctions) and compiler dataflow theory (iterative fixed-point computation for cyclic CFGs, gen/kill set semantics, register interference). Additionally requires proficiency with the LLVM toolchain: the agent must compile an LLVM IR file to PTX using llc-18 with the nvptx64 backend, requiring knowledge of correct target flags and the ability to handle differences between hand-written and compiler-generated PTX (e.g., unlabeled entry blocks, label naming conventions like $L__BB0_N, bra.uni instructions, conditional+unconditional branch pairs, cvta instructions).
+"""
+solution_explanation = """
+Parse PTX using labels as basic block boundaries, handling both hand-written labels (BB0, BB_COMPUTE) and compiler-generated labels ($L__BB0_N). Create an implicit entry block for instructions that appear before any label (common in compiler-generated PTX). Parse predicated instructions including negated predicates (@!%pN). Build CFG by scanning all instructions for branches — conditional branches add target edges, unconditional branches add target edges and suppress fall-through, ret creates no edges, otherwise fall-through. This handles LLVM's conditional+unconditional branch pair pattern. Classify instruction operands by opcode family (stores: all-uses; bra/ret/bar: no register operands; others: first-operand def, rest uses; predicates always uses). Implement iterative backward dataflow for liveness using gen/kill sets until convergence. Compute register pressure via backward scan (remove defs, add uses, track peak). Build RAW dependency DAG with last-def tracking; find critical path via topological-order longest-path. Compile matmul.ll using llc-18 --march=nvptx64 --mcpu=sm_80 to produce the third PTX input.
+"""
+verification_explanation = """
+Tests run the analyzer on two hand-written PTX kernels (vecadd with 3 BBs and reduce_sum with 6 BBs including a loop) verifying exact numerical values for block counts, CFG edges, liveness sets, register pressure, critical path length, and ILP. The reduce kernel's loop back-edge specifically tests that liveness analysis reaches a fixed point through iterative convergence — a single-pass solution produces incorrect live_in sets. An additional test suite compiles the provided LLVM IR to PTX using llc-18 and verifies the analyzer handles compiler-generated PTX correctly: valid JSON schema, correct kernel name, CFG cycle detection (loop), register naming conventions, non-trivial pressure and critical path values.
+"""
+category = "systems_programming"
+tags = ["compiler-analysis", "gpu-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ptx-static-analyzer"

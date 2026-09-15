@@ -1,0 +1,192 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.main",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "acme-prod-data-20240115",
+            "force_destroy": false,
+            "object_lock_enabled": false,
+            "versioning": [
+              {
+                "enabled": true,
+                "mfa_delete": false
+              }
+            ],
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "sse_algorithm": "aws:kms",
+                        "kms_master_key_id": "arn:aws:kms:us-east-1:123456789012:key/mrk-abcdef1234567890"
+                      }
+                    ],
+                    "bucket_key_enabled": true
+                  }
+                ]
+              }
+            ],
+            "lifecycle_rule": [
+              {
+                "enabled": true,
+                "id": "archive-old-objects",
+                "prefix": "",
+                "abort_incomplete_multipart_upload_days": 7,
+                "expiration": [
+                  {
+                    "days": 365,
+                    "expired_object_delete_marker": false
+                  }
+                ],
+                "transition": [
+                  {
+                    "days": 90,
+                    "storage_class": "STANDARD_IA"
+                  }
+                ],
+                "noncurrent_version_expiration": [],
+                "noncurrent_version_transition": []
+              }
+            ],
+            "tags": {
+              "Environment": "production",
+              "Team": "platform"
+            },
+            "tags_all": {
+              "Environment": "production",
+              "Team": "platform"
+            },
+            "timeouts": null
+          },
+          "sensitive_values": {
+            "cors_rule": [],
+            "grant": [],
+            "lifecycle_rule": [{}],
+            "logging": [],
+            "server_side_encryption_configuration": [{}],
+            "tags": {},
+            "tags_all": {},
+            "versioning": [{}]
+          }
+        },
+        {
+          "address": "aws_s3_bucket_public_access_block.main",
+          "mode": "managed",
+          "type": "aws_s3_bucket_public_access_block",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "block_public_acls": true,
+            "block_public_policy": true,
+            "ignore_public_acls": true,
+            "restrict_public_buckets": true
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.main",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "acme-prod-data-20240115",
+          "force_destroy": false,
+          "versioning": [{"enabled": true, "mfa_delete": false}],
+          "server_side_encryption_configuration": [{"rule": [{"apply_server_side_encryption_by_default": [{"sse_algorithm": "aws:kms", "kms_master_key_id": "arn:aws:kms:us-east-1:123456789012:key/mrk-abcdef1234567890"}], "bucket_key_enabled": true}]}],
+          "lifecycle_rule": [{"enabled": true, "id": "archive-old-objects", "expiration": [{"days": 365}]}],
+          "tags": {"Environment": "production", "Team": "platform"}
+        },
+        "after_unknown": {
+          "arn": true,
+          "bucket_domain_name": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "region": true
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_public_access_block.main",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "block_public_acls": true,
+          "block_public_policy": true,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": true
+        },
+        "after_unknown": {
+          "id": true,
+          "bucket": true
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {"constant_value": "us-east-1"}
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.main",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "main",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {"constant_value": "acme-prod-data-20240115"},
+            "force_destroy": {"constant_value": false}
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_s3_bucket_public_access_block.main",
+          "mode": "managed",
+          "type": "aws_s3_bucket_public_access_block",
+          "name": "main",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {"references": ["aws_s3_bucket.main.id", "aws_s3_bucket.main"]},
+            "block_public_acls": {"constant_value": true},
+            "block_public_policy": {"constant_value": true},
+            "ignore_public_acls": {"constant_value": true},
+            "restrict_public_buckets": {"constant_value": true}
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  },
+  "timestamp": "2024-01-15T10:30:00Z"
+}

@@ -1,0 +1,55 @@
+{
+  "format_version": "2.0",
+  "description": "NexAuth Authentication Token Format Specification",
+  "overview": "NexAuth tokens consist of an identifiable prefix, a random Base62-encoded payload, and a 6-character CRC32 checksum encoded in Base62. Different token types use different rules for computing the checksum input.",
+  "base62_alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "base62_encoding_notes": "The CRC32 result (unsigned 32-bit integer) is converted to a 6-character Base62 string using the alphabet above. Characters are produced least-significant-digit first, then reversed. If the result is fewer than 6 characters, it is left-padded with the zero character ('0') of the alphabet.",
+  "checksum_algorithm": "CRC32 (ISO 3309 / ITU-T V.42, polynomial 0xEDB88320 reflected). This is the standard CRC-32 used by zlib, gzip, PNG, and Ethernet.",
+  "token_types": [
+    {
+      "type_id": "nxa",
+      "name": "NexAuth API Key",
+      "prefix": "nxa_",
+      "payload_length": 30,
+      "checksum_length": 6,
+      "total_length": 40,
+      "checksum_input": "The CRC32 is computed over the full prefix including the underscore separator concatenated with the payload bytes. For a token nxa_<payload><checksum>, the input to CRC32 is the ASCII encoding of 'nxa_' + payload."
+    },
+    {
+      "type_id": "nxs",
+      "name": "NexAuth Service Token",
+      "prefix": "nxs_",
+      "payload_length": 30,
+      "checksum_length": 6,
+      "total_length": 40,
+      "checksum_input": "The CRC32 is computed over the prefix letters only, excluding the underscore separator, concatenated with the payload bytes. For a token nxs_<payload><checksum>, the input to CRC32 is the ASCII encoding of 'nxs' + payload (note: no underscore)."
+    },
+    {
+      "type_id": "nxr",
+      "name": "NexAuth Refresh Token",
+      "prefix": "nxr_",
+      "payload_length": 36,
+      "checksum_length": 6,
+      "total_length": 46,
+      "checksum_input": "The CRC32 is computed over the full prefix including the underscore separator concatenated with the payload bytes. For a token nxr_<payload><checksum>, the input to CRC32 is the ASCII encoding of 'nxr_' + payload."
+    },
+    {
+      "type_id": "nxd",
+      "name": "NexAuth Deploy Key",
+      "prefix": "nxd_",
+      "payload_length": 30,
+      "checksum_length": 6,
+      "total_length": 40,
+      "checksum_input": "The CRC32 is computed over the payload bytes only, without any prefix. For a token nxd_<payload><checksum>, the input to CRC32 is the ASCII encoding of payload alone."
+    },
+    {
+      "type_id": "nxi",
+      "name": "NexAuth Installation Token",
+      "prefix": "nxi_",
+      "payload_length": 30,
+      "checksum_length": 6,
+      "total_length": 40,
+      "checksum_input": "The CRC32 is computed over the full prefix including the underscore separator concatenated with the payload bytes, identical to the nxa type. However, before Base62 encoding, the resulting CRC32 value is bitwise complemented (all 32 bits are flipped). For a token nxi_<payload><checksum>, compute CRC32 over 'nxi_' + payload, then apply bitwise NOT, mask to 32 bits, and Base62-encode the result."
+    }
+  ]
+}

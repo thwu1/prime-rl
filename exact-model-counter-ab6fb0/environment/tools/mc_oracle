@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Model counting oracle - brute force reference counter (max 22 variables)."""
+
+import sys
+from fractions import Fraction
+
+MAX_VARS = 22
+
+def usage():
+    sys.stderr.write("Usage: mc_oracle [--mc-format] <input.cnf>\n")
+    sys.stderr.write("  Brute-force exact model counter (up to %d variables)\n" % MAX_VARS)
+    sys.stderr.write("  --mc-format  Output in MC competition format\n")
+    sys.exit(1)
+
+def parse_weight(s):
+    if '/' in s:
+        p, q = s.split('/', 1)
+        return Fraction(int(p), int(q))
+    e = s.lower().find('e')
+    if e >= 0:
+        mant = Fraction(s[:e]) if '.' in s[:e] else Fraction(int(s[:e]))
+        exp = int(s[e+1:])
+        return mant * Fraction(10) ** exp
+    if '.' in s:
+        return Fraction(s)
+    return Fraction(int(s))
+
+def parse_cnf(path):
+    nvars = nclauses = 0
+    weighted = False
+    clauses = []
+    weights = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if line[0] == 'c':
+                parts = line.split()
+                if len(parts) >= 3 and parts[1] == 't':
+                    if parts[2] == 'wmc':
+                        weighted = True
+                elif len(parts) >= 5 and parts[1] == 'p' and parts[2] == 'weight':
+                    lit = int(parts[3])
+                    weights[lit] = parse_weight(parts[4])
+            elif line[0] == 'p':
+                parts = line.split()
+                nvars, nclauses = int(parts[2]), int(parts[3])
+            else:
+                lits = list(map(int, line.split()))
+                cl = [l for l in lits if l != 0]
+                if cl:
+                    clauses.append(cl)
+    return nvars, nclauses, weighted, clauses, weights
+
+def brute_count(nvars, clauses, weighted, weights):
+    if nvars > MAX_VARS:
+        sys.stderr.write("Error: %d variables exceeds limit of %d\n" % (nvars, MAX_VARS))
+        sys.exit(1)
+    total = Fraction(0)
+    for mask in range(1 << nvars):
+        vals = {v: bool(mask & (1 << (v - 1))) for v in range(1, nvars + 1)}
+        sat = True
+        for cl in clauses:
+            if not any(
+                (l > 0 and vals[abs(l)]) or (l < 0 and not vals[abs(l)])
+                for l in cl
+            ):
+                sat = False
+                break
+        if sat:
+            if weighted:
+                w = Fraction(1)
+                for v in range(1, nvars + 1):
+                    lit = v if vals[v] else -v
+                    w *= weights.get(lit, Fraction(1))
+                total += w
+            else:
+                total += 1
+    return total
+
+def main():
+    mc_fmt = False
+    args = sys.argv[1:]
+    if '--mc-format' in args:
+        mc_fmt = True
+        args.remove('--mc-format')
+    if not args or args[0] in ('-h', '--help'):
+        usage()
+
+    nvars, _, weighted, clauses, weights = parse_cnf(args[0])
+    total = brute_count(nvars, clauses, weighted, weights)
+
+    if mc_fmt:
+        print("s %s" % ("SATISFIABLE" if total > 0 else "UNSATISFIABLE"))
+        if weighted:
+            print("c s type wmc")
+            total = Fraction(total)
+            print("c s exact rational %d/%d" % (total.numerator, total.denominator))
+        else:
+            print("c s type mc")
+            print("c s exact arb int %d" % total)
+    else:
+        if weighted:
+            total = Fraction(total)
+            print("%d/%d" % (total.numerator, total.denominator))
+        else:
+            print(int(total))
+
+if __name__ == '__main__':
+    main()

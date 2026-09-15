@@ -1,0 +1,37 @@
+=== Layout Validation Log ===
+Date: 2024-03-15
+Validator: wgsl_layout.py cross-reference
+
+Checked reference_layouts.json against wgsl_layout.py computations.
+
+BasicVertex:
+  alignment: 16 == 16   OK
+  size:      32 == 32   OK
+  All member offsets, alignments, sizes match.
+  Result: VALIDATED
+
+LightData:
+  alignment: 16 == 16   OK
+  size:      32 == 32   OK
+  All member offsets, alignments, sizes match.
+  Result: VALIDATED
+
+TransformData:
+  alignment: 16 == 16   OK
+  size:      144 == 144  OK
+  All member offsets, alignments, sizes match.
+  Result: VALIDATED
+
+SceneUniforms:
+  SKIPPED - wgsl_layout.py does not fully implement uniform address
+  space rounding rules. Manual review against spec.md still pending.
+
+PackedData:
+  alignment: 16 == 16   OK
+  size:      76 == 76   OK
+  All member offsets, alignments, sizes match.
+  Result: VALIDATED
+
+Summary: 4/5 structs validated against layout calculator.
+         1 skipped (uniform address space not supported by validator).
+Status: Ready for codegen implementation.

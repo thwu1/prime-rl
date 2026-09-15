@@ -1,0 +1,15 @@
+{
+  "well_typed": true,
+  "globals": {
+    "flag": {"type": "bool", "kind": "var"},
+    "x": {"type": "A", "kind": "var"},
+    "y": {"type": "object", "kind": "var"}
+  },
+  "classes": {
+    "A": {"superclass": "object", "attributes": {}, "methods": {}},
+    "B": {"superclass": "A", "attributes": {}, "methods": {}},
+    "C": {"superclass": "A", "attributes": {}, "methods": {}},
+    "D": {"superclass": "B", "attributes": {}, "methods": {}}
+  },
+  "errors": []
+}

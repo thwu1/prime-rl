@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task requiring the solver to implement a complete wildland fire behavior and growth simulation system integrating multiple domains: (1) GDAL geospatial raster I/O — reading ESRI ASCII Grid inputs with .prj CRS sidecars and writing Float32 GeoTIFF outputs preserving geotransform, spatial reference, and nodata semantics; (2) SQLite relational database queries for fuel model parameter lookup; (3) surface fire spread computation with ~20 coupled intermediate quantities including category weighting, characteristic SAV, packing ratios, moisture/mineral damping, reaction intensity, propagating flux, wind/slope coefficients, and heat sink; (4) dynamic herbaceous curing and live moisture of extinction; (5) vector wind-slope combination with effective wind speed inversion and fire ellipse eccentricity; (6) lattice-based fire growth propagation with directional spread rates. The multi-tool interoperability (GDAL + SQLite + numerical modeling + graph-based propagation) and unfamiliar domain conventions make this significantly harder than a pure algorithmic task."""
+solution_explanation = """The reference solution uses GDAL Python bindings (osgeo.gdal) to read ESRI ASCII Grid rasters and extract geotransform and CRS, queries fuel model parameters from SQLite via Python's sqlite3 module, implements the full Rothermel surface fire spread model with all intermediate calculations (category weighting, size-class grouping, reaction intensity, propagating flux ratio, wind/slope factors, moisture/mineral damping), applies Scott & Burgan curing for dynamic models, derives live moisture of extinction via the Albini fine-fuel weighting method, combines wind and slope as vectors to compute heading direction and effective wind speed, derives eccentricity via the Anderson L/B ratio, runs heap-based Dijkstra over lattice directions with harmonic-mean travel times for fire growth, and writes output as Float32 GeoTIFF with preserved CRS/geotransform and -9999 nodata for NB/unreached cells."""
+verification_explanation = """Tests verify: (a) golden-master ROS for all 13 Anderson fuel models (within 0.15 ft/min); (b) output GeoTIFF metadata — correct geotransform, nodata=-9999, CRS preservation, dimensions matching input; (c) physical monotonicity — wind/slope increase ROS, moisture decreases, near zero at extinction; (d) non-negative outputs for burnable cells; (e) flame-length formula consistency and monotonicity with wind; (f) heading direction with north and east wind; (g) eccentricity with and without wind; (h) fire growth — ignition at t=0, monotonic distance, wind asymmetry, no-wind symmetry within 5%; (i) NB barrier blocks fire, NB cells have nodata in all bands; (j) burned area formula; (k) dynamic model GR4 curing; (l) multiple simultaneous ignitions; (m) slope-wind interaction; (n) SQLite parameter verification via modified database producing different ROS; (o) unrecognized fuel model numbers treated as non-burnable."""
+category = "applied_computing"
+tags = ["wildfire-modeling", "geospatial-raster-io"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fire-growth-simulator"

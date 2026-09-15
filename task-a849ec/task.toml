@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete SLAM trajectory evaluation pipeline from scratch. The solver must: (1) architect a modular system with parsers, association, alignment, RANSAC, and metrics components; (2) correctly implement Umeyama SVD-based alignment with proper cross-covariance direction (target^T @ source, not source^T @ target) and sign correction for reflections; (3) handle three distinct trajectory formats with subtle convention differences — EuRoC uses nanosecond timestamps requiring 1e-9 conversion and scalar-first quaternions (qw,qx,qy,qz) vs TUM's scalar-last (qx,qy,qz,qw); (4) implement Sim(3) scale recovery using source variance (not target); (5) implement RANSAC robust alignment with deterministic seeding and compute metrics on the inlier subset only; (6) implement RPE with correct forward-difference direction (gt[i+1]-gt[i]). These subtleties are mathematically specified but require careful translation to code — getting any one wrong produces silently incorrect metrics that fail tight numerical tolerances."""
+solution_explanation = """Create 6 Python modules under /app/slam_eval/: parsers.py (KITTI/TUM/EuRoC with ns-to-sec conversion and quaternion convention mapping), association.py (index-based and timestamp-based bijective matching), alignment.py (Umeyama SVD with W=tgt_c^T@src_c/n, scale=tr(DS)/sigma_src^2), robust.py (RANSAC with RandomState seeding), metrics.py (ATE stats and forward-difference RPE), pipeline.py (CLI orchestrator filtering to inliers in robust mode). All mathematical formulas are in spec.md but translating them to correct code requires understanding coordinate conventions, SVD factorization semantics, and metric evaluation scoping."""
+verification_explanation = """Tests run the pipeline on 7 synthetic scenarios with deterministic noise (fixed random seeds in data generation). Each test class verifies a specific evaluation mode: KITTI SE(3) checks ATE statistics within tight tolerances (~0.005), TUM SE(3) checks different transform recovery, EuRoC Sim(3) verifies scale recovery (~0.74), EuRoC SE(3) confirms RMSE >0.8 without scale correction, RANSAC verifies inlier identification (~135/150) and inlier-only metrics, and RPE verifies 149 consecutive-pair errors. Mathematical invariants (mean<=rmse, median<=max) are also checked. All components must be correctly implemented for all 21+ test assertions to pass."""
+category = "computer_vision"
+tags = ["slam", "numerical-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a849ec"

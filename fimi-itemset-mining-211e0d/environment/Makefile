@@ -1,0 +1,44 @@
+# FIMI Mining Pipeline Orchestrator
+#
+
+SHELL := /bin/bash
+FIM := /app/bin/fim
+CONFIG := /app/config/pipeline.json
+DB := /app/results.db
+SCHEMA := /app/schema/schema.sql
+
+.PHONY: all clean
+
+all: pipeline
+
+pipeline: $(DB)
+	@echo "Pipeline complete. Results in $(DB)"
+
+$(DB): $(CONFIG)
+	@echo "Initializing database..."
+	@sqlite3 $(DB) < $(SCHEMA)
+	@echo "Running pipeline jobs..."
+	@for job in $$(jq -c '.jobs[]' $(CONFIG)); do \
+		JOB_ID=$$(echo "$$job" | jq -r '.id'); \
+		DATASET=$$(echo "$$job" | jq -r '.dataset'); \
+		MODE=$$(echo "$$job" | jq -r '.mode'); \
+		MIN_SUP=$$(echo "$$job" | jq -r '.min_sup'); \
+		OUTPUT=$$(echo "$$job" | jq -r '.output // empty'); \
+		echo "=== Job: $$JOB_ID ==="; \
+		if [ -n "$$OUTPUT" ]; then \
+			mkdir -p $$(dirname "$$OUTPUT"); \
+			$(FIM) "$$MODE" "$$DATASET" "$$MIN_SUP" "$$OUTPUT"; \
+		else \
+			$(FIM) "$$MODE" "$$DATASET" "$$MIN_SUP"; \
+		fi; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$JOB_ID" >&2; \
+			rm -f $(DB); \
+			exit 1; \
+		fi; \
+	done
+	@echo "All jobs completed."
+
+clean:
+	rm -f $(DB) /app/data/normalized/*.dat
+	rm -rf /app/results/

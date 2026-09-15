@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of a package repository with no format documentation provided — the solver must bring expert knowledge of AUR/pacman PKGBUILD semantics (epochs, split-package function scoping, bash variable expansion, provides/conflicts resolution). A buggy baseline report must be diagnosed to discover its multiple categories of errors (missing epochs, unresolved variables, ignored function-scoped overrides, stripped version constraints, incomplete issue detection). Unfamiliar CLI tools (vercmp for pacman version comparison, pkgsource for bash-based PKGBUILD parsing) must be discovered and used correctly alongside SQLite queries against registry.db for external package version data. The solver must combine tool output with custom dependency graph analysis to detect circular dependencies, version constraint violations against both internal and external packages, conflicting provides across pkgbases, and missing dependencies — none of which are enumerated in the instructions."""
+solution_explanation = """Uses /app/tools/pkgsource to parse PKGBUILDs via bash sourcing (handling variable expansion and split-package function scoping), /app/tools/vercmp for pacman-compatible epoch-aware version comparison, and sqlite3 queries against /app/registry.db for external package versions. Builds provides/conflicts maps, constructs a pkgbase-level dependency graph, detects cycles via DFS, performs Kahn's topological sort excluding cyclic nodes, and validates version constraints against both internal providers and external registry entries."""
+verification_explanation = """Pytest validates: correct package count (13 from 8 pkgbases), epoch-prefixed version strings, resolved variable substitution (${_runtime}->nodejs, electron${_electronVersion}->electron28), per-function split-package dependencies/provides, detection of all 6 issues across 4 categories (2 missing deps, 1 conflicting provides, 2 version violations including external registry check, 1 cycle), topological build order validity, and exclusion of circular pkgbases."""
+category = "software_engineering"
+tags = ["package-management", "dependency-resolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pkgbuild-dependency-auditor"

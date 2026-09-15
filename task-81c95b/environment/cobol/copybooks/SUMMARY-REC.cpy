@@ -1,0 +1,10 @@
+    05  SUM-ACCT-ID        PIC X(12).
+    05  SUM-DOM-COUNT      PIC 9(4) COMP-5.
+    05  SUM-DOM-NET        PIC S9(11)V99 COMP-3.
+    05  SUM-FX-COUNT       PIC 9(4) COMP-5.
+    05  SUM-FX-NET         PIC S9(11)V99 COMP-3.
+    05  SUM-ADJ-COUNT      PIC 9(4) COMP-5.
+    05  SUM-ADJ-NET        PIC S9(11)V99 COMP-3.
+    05  SUM-INTEREST       PIC S9(9)V99  COMP-3.
+    05  SUM-FEE            PIC S9(9)V99  COMP-3.
+    05  SUM-FINAL-BAL      PIC S9(11)V99 COMP-3.

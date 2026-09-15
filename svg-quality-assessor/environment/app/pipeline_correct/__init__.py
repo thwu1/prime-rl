@@ -1,0 +1,1 @@
+# SVG quality evaluation pipeline

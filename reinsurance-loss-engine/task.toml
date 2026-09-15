@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of insurance/reinsurance financial module architecture: hierarchical programme structures, 12 distinct calculation rules with deductibles/limits/attachments/shares/franchise terms, multi-layer excess policy processing, back-allocation proportional to ground-up loss, net loss computation, and recursive pipeline composition for reinsurance chains. Additionally requires implementing a binary wire protocol with struct-packed records, building CSV-to-binary and binary-to-CSV converter tools, ensuring multi-tool pipeline equivalence across CSV and binary modes, and building a shell-based concurrent pipeline orchestrator using named pipes (mkfifo), stream splitting (tee), SQLite aggregation, and trap-based resource cleanup. Combines domain expertise in catastrophe modeling with systems-level Unix IPC and multi-tool interoperability."""
+solution_explanation = """The solution implements: (1) fmcalc.py - a Python CLI that parses four OasisLMF-format CSV files defining the financial structure hierarchy, processes losses bottom-up through programme levels by aggregating child losses and applying calcrules per layer, supports back-allocation (rule 1) by tracing items through hierarchy and distributing proportionally, computes net loss as max(0, input - gross), and handles both CSV and binary stream I/O; (2) fmtobin.py - converts CSV loss streams to a binary format using struct-packed little-endian records with per-item blocks and sidx=0 terminators; (3) fmtocsv.py - deserializes binary streams back to CSV; (4) run_pipeline.sh - a shell script that creates named pipes with mkfifo, uses tee to split the direct insurance output into both a gross capture and the reinsurance stage input, manages concurrent background processes, imports results into a SQLite database with proper schema, computes per-event summary aggregations, and cleans up named pipes via trap on EXIT."""
+verification_explanation = """Fourteen pytest test cases verify correctness: 8 CSV-mode tests cover single-level deductible+limit, two-level hierarchy, multi-layer excess, reinsurance pipeline with net loss, back-allocation, multi-event/sample processing, reinsurance excess terms, and combined calcrules. Three binary-mode tests verify: round-trip fidelity (fmtobin|fmtocsv preserves values with both item_id and output_id columns), pipeline equivalence (binary pipeline produces identical results to CSV mode across two different scenarios), and a full 4-stage binary reinsurance chain. Three pipeline orchestrator tests verify: basic gross/net/summary values in SQLite output, multi-event per-event aggregation correctness, and named pipe cleanup (no FIFOs remain after execution)."""
+category = "applied_computing"
+tags = ["insurance-reinsurance", "unix-ipc-pipelines"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reinsurance-loss-engine"

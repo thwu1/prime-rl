@@ -1,0 +1,6 @@
+route:              172.20.10.0/24
+descr:              Alpha Network primary route
+origin:             AS4242420001
+max-length:         24
+mnt-by:             ALPHA-MNT
+source:             DN42

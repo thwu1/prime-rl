@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a parser for a non-trivial domain-specific language (DaeDaLus) with layout-sensitive syntax, bitdata declarations, and multiple expression forms, plus a binary format interpreter with backtracking, tagged union semantics, and bitfield extraction. The tokenizer must be built using flex (lexer generator), compiled into a shared library with gcc, and interfaced from Python via ctypes — requiring multi-tool interoperability across flex, gcc, and Python FFI. Combines compiler frontend skills (flex specification writing, recursive-descent parsing of indentation-sensitive grammar, shared library compilation) with binary data processing and formal language semantics."""
+solution_explanation = """Build a complete DDL interpreter with a flex-based tokenizer pipeline: (1) write a flex .l specification with start conditions for nested block comments, YY_USER_ACTION for line/column tracking, rules for multi-char operators, hex literals, string escapes, and as?/as! special forms; (2) compile via flex + gcc -shared -fPIC into libddl_lexer.so; (3) use Python ctypes to define DDLToken structure, load the .so, set argtypes/restypes, and iterate tokens; (4) recursive-descent parser using column positions for layout-sensitive block/First/case constructs; (5) binary stream interpreter with save/restore for backtracking, bitdata coercion, parameterized calls, and $$ explicit results."""
+verification_explanation = """Tests verify the flex/gcc/ctypes pipeline by checking the .l file exists with flex constructs, that build.sh produces a loadable .so, and that the interpreter fails without the library. Binary parsing tests generate inputs matching each DDL spec, run the interpreter via subprocess, and verify JSON output: correct field names, values, nesting, tagged union keys, bitdata decomposition, and character class filtering. Also tests malformed inputs produce non-zero exit codes."""
+category = "programming_languages"
+tags = ["parser", "binary_formats", "flex", "ctypes"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0f2c5"

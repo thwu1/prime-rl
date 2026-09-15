@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: understanding NCBI taxonomy dump formats (nodes.dmp, names.dmp, merged.dmp with tab-pipe-tab delimiters), CAMI Bioboxes profiling format semantics (multi-sample headers, cumulative PERCENTAGE, TAXPATH structure), and profiling evaluation metrics (L1 norm, precision, recall at each taxonomic rank). The solver must independently discover four distinct classes of data quality issues — merged/deprecated taxids requiring taxonomy version reconciliation, abundance overflow requiring normalization, duplicate taxid entries requiring deduplication, and malformed profile headers causing silent data loss — none of which are described in the instructions. Requires installing and running OPAL (the official CAMI evaluation tool) and cross-referencing its output with manual taxonomy analysis to diagnose anomalies."""
+solution_explanation = """Install OPAL and run it on the submissions — observe failures/anomalies for bravo (unknown taxids), charlie (overflow), delta (duplicates), and echo (missing sample). Parse NCBI taxonomy including merged.dmp to resolve bravo's deprecated taxids (74313->562, 29461->817). Normalize charlie S1 abundances (sum=110, divide by 1.1). Sum delta S2 duplicate taxid 817 entries (15+7=22). Fix echo missing @SampleID header to recover S2 data. Compute corrected L1, precision, and recall at all 7 standard ranks for all 5 tools across both samples. Rank by mean corrected L1: charlie (2.07) < delta (2.29) < bravo (3.0) < echo (3.43) < alpha (3.68)."""
+verification_explanation = """Tests verify: OPAL output directory exists with results; issues.json correctly identifies 4+ issues across at least 3 tools (bravo, charlie, delta, echo) with alpha clean; corrected_metrics.tsv has proper structure (70 rows, correct columns) and specific L1/precision/recall values match at multiple spot-check points across different tools, samples, and ranks; ranking order is profiler_charlie < profiler_delta < profiler_bravo < profiler_echo < profiler_alpha."""
+category = "bioinformatics"
+tags = ["metagenomics", "taxonomy-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2d6c1b"

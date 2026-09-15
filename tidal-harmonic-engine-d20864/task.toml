@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a tidal prediction engine with defects spanning a C shared library (angle normalization via fmod), its Makefile (sign-flipped compile-time constant overriding the lunar node regression rate), Python ctypes integration, three Python algorithmic bugs (unit conversion, design matrix sign convention, missing nodal amplitude modulation), and three corrupted entries in a Doodson coefficient JSON database. The solver must use make/gcc to build and iterate on the C library, diagnose cross-language bugs at the C-Python FFI boundary, cross-reference implementations against unfamiliar pyTMD reference code, and understand physical oceanography domain concepts (Doodson numbering, nodal corrections, equilibrium tide theory) to distinguish correct from incorrect behavior."""
+solution_explanation = """Fix two C-layer bugs: (1) in astro.c, replace bare fmod() with a proper modulo that maps negative angles to [0,360); (2) in the Makefile, correct -DNODE_RATE=0.05295377 to -DNODE_RATE=-0.05295377 (the ascending lunar node regresses). Rebuild with make. Fix three Python bugs in tidal_engine.py: (3) add 2*pi factor to angular_frequency conversion, (4) negate sine term in harmonic analysis design matrix, (5) multiply by nodal amplitude factor pf in prediction loop. Fix three corrupted JSON entries: nu2 p-coefficient 0→-1, mu2 p-coefficient 1→0, l2 p-coefficient 0→-1. Diagnosis requires tracing failures across the C/Python boundary, inspecting Makefile CFLAGS, comparing against reference implementations, and understanding tidal constituent algebra."""
+verification_explanation = """Tests verify: (0) C shared library builds from Makefile and produces correct range-normalized longitudes via direct ctypes calls at multiple epochs, (1) Doodson numbers for 21 constituents against published values, (2) mean longitudes at MJD=55414.0 including n≈280.14° and [0,360) range enforcement, (3) angular frequencies within 0.1% of tabulated values, (4) nodal correction factors for S2/P1 (unity), M2/K1/O1 (bounded ranges and variability) with shape validation, (5) constituent parameter lookup, (6) round-trip harmonic analysis with 5% amplitude recovery, (7) prediction RMS < 2mm training and < 5mm validation. Test harness rebuilds libastro.so from current Makefile before running pytest, enforcing that the Makefile must be correct."""
+category = "applied_computing"
+tags = ["oceanography", "cross-language-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tidal-harmonic-engine-d20864"

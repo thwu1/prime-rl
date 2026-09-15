@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a full kinematic analysis pipeline from scratch for a 6-DOF robot arm. The core expert-level challenge is kinematic calibration: given measured end-effector positions at known joint configurations, the agent must identify systematic manufacturing errors in the URDF parameters through nonlinear parameter estimation. This demands deep understanding of how URDF origin parameters (translations and rotations) propagate through the FK chain, which parameters are identifiable from position-only measurements, and how to formulate and solve the resulting nonlinear least-squares problem. The URDF uses RPY-rotated origins with all joint axes along local Z—a non-obvious encoding that requires understanding rotation composition conventions. Beyond calibration, the agent must implement IK via constrained optimization with orientation constraints, compute the geometric Jacobian and its spectral properties, and estimate workspace volume—all using the calibrated (not nominal) model."""
+solution_explanation = """Parse the URDF XML to extract the kinematic chain. Implement FK by composing T_origin * T_joint for each joint. For calibration, parameterize corrections as additive deltas to xyz and rpy of each joint origin, then minimize the sum of squared FK position residuals vs. calibration measurements using scipy.optimize.least_squares with bounded variables. Validate calibration by checking RMSE reduction on held-out measurements. Use the calibrated chain for all downstream tasks: IK via bounded least_squares with random restarts, numerical Jacobian via finite differences, manipulability via sqrt(det(J@J.T)), workspace volume via Monte Carlo FK sampling + convex hull."""
+verification_explanation = """Tests embed two independent reference FK implementations: one using the nominal URDF parameters and one using the true (hidden) perturbed parameters that generated the calibration data. Nominal FK is verified exactly. Calibration quality is verified by checking that calibrated FK at validation configs matches the true perturbed FK within tolerance, and that validation RMSE is reduced vs. nominal. IK solutions are verified by computing true-model FK at the agent's joint angles and checking proximity to targets. Jacobian is verified against the true-model numerical Jacobian with relaxed tolerance to account for calibration imprecision."""
+category = "robotics"
+tags = ["kinematics", "parameter-estimation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/urdf-ik-solver"

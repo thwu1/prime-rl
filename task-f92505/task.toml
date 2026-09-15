@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 independent defects across a multi-language pipeline (C shared library + Makefile + Python ctypes FFI + Python scene logic) without being told what the bugs are or how many exist. The solver must: (1) understand and fix a Makefile so the shared library includes all required symbols, (2) identify and fix a mathematical bug in the torus SDF primitive (fabs instead of sqrt), (3) recognize that the octahedron SDF is a stub returning only a bound approximation and implement the full exact distance function from scratch — requiring knowledge of Inigo Quilez's exact octahedron SDF algorithm with 3-branch case analysis, clamped projection, and Euclidean distance computation (~15 lines of C), (4) recognize that the smooth minimum function is a stub returning plain min(d1,d2) and implement the polynomial smooth minimum algorithm from scratch including the k*=4 scaling convention (~6 lines of C), (5) fix a twist transform applied in the wrong rotation plane in Python, and (6) fix an incorrect CSG boolean operation. Navigating between C, Make, ctypes, and Python layers to localize each defect, plus implementing two non-trivial algorithms from scratch using only numerical reference data and function signatures as clues, requires proficiency with build systems, FFI, and computational geometry."""
+solution_explanation = """Fix 6 bugs across 4 files: (1) Makefile: add src/sdf_ops.c to SRCS so smin_poly is linked; (2) src/sdf_prims.c torus: change fabs(q)-r to sqrt(q*q+py*py)-r; (3) src/sdf_prims.c octahedron: replace the stub with the full exact implementation — compute m=px+py+pz-s, branch on 3.0*px<m / 3.0*py<m / 3.0*pz<m with cyclic permutation, return m*0.57735027 for interior, clamp k=0.5*(qz-qy+s), return sqrt(qx^2+(qy-s+k)^2+(qz-k)^2) for exterior; (4) src/sdf_ops.c smin: replace the stub with polynomial smooth min — k*=4.0, h=max(k-|d1-d2|,0), return min(d1,d2)-h*h/(4*k); (5) scene.py twist: change XY rotation to XZ rotation; (6) scene.py CSG: change max(d_carve,d_box) to max(-d_carve,d_box). After fixes, rebuild with make clean && make, then run python3 main.py."""
+verification_explanation = """Tests independently verify the build pipeline and SDF correctness. A build test checks that libsdf.so exists and exports all 5 required symbols (sd_sphere, sd_torus, sd_round_box, sd_octahedron, smin_poly). A reference SDF evaluator in the test module (pure Python, independent of the C library) computes correct distances at 35 query points and compares against the agent's distances.csv with tolerance 2e-3. Rendering tests verify: valid P6/P3 PPM format, correct 256x192 dimensions, non-blank image with color variety, sky presence, mid-tone object presence, and material color families."""
+category = "computer_graphics"
+tags = ["sdf-debugging", "c-python-ffi"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f92505"

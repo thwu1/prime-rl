@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a CMake build configuration for C++ with Eigen3 (unfamiliar tooling for most), then identifying and fixing three subtle numerical bugs in a constrained multibody dynamics integrator: a sign error in the acceleration-level constraint initialization, an incorrect evaluation point for the constraint Jacobian that causes order reduction in the DAE discretization, and a missing scaling factor in the Newton tangent matrix. The agent must cross-validate against a reference ODE solver, requiring proficiency with CMake, Eigen3, numerical methods for DAEs, and C++ debugging across multiple files."""
+solution_explanation = """Fix CMakeLists.txt: change find_package(Eigen) to find_package(Eigen3) and Eigen::eigen to Eigen3::Eigen. Fix integrator.cpp: (1) negate the gamma vector in the initial acceleration RHS (rhs.tail(nc) = -gam), (2) evaluate the dynamics constraint Jacobian at the alpha-weighted state q_af instead of q_new, and (3) scale the mass matrix block of the tangent by (1-alpha_m). Build with cmake/make, run, and validate against the Python ODE reference."""
+verification_explanation = """Tests build the C++ project from source, run the binary with multiple configurations, run a Python RK4 reference solver, and check: (1) constraint violations < 1e-6, (2) energy drift < 1% with rho_inf=1, (3) energy decreases with rho_inf=0.5, (4) trajectory matches reference within 0.01 rad, (5) second-order convergence ratio between step sizes, (6) stability across the full rho_inf range [0, 1]."""
+category = "computational_engineering"
+tags = ["multibody-dynamics", "cmake-eigen-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hht-alpha-integrator"

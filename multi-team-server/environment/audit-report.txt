@@ -1,0 +1,66 @@
+EXTERNAL SECURITY AUDIT REPORT
+===============================
+Server: prod-app-01
+Date: 2026-05-28
+Auditor: SecureReview LLC
+Classification: CONFIDENTIAL
+
+EXECUTIVE SUMMARY
+
+This server was found to be NON-COMPLIANT with the organization's security
+policy (TechCorp Security Policy v3.2). Multiple categories of vulnerability
+were identified during automated and manual review. Immediate remediation is
+required before the server can return to production status.
+
+The audit was conducted against six policy domains. Specific findings are
+summarized by category below. Detailed remediation guidance is NOT provided;
+the operations team is expected to investigate the system, identify all
+individual violations, and implement fixes per the security policy document.
+
+FINDINGS BY CATEGORY
+
+1. PRIVILEGE ESCALATION — Severity: CRITICAL
+   The sudo configuration contains multiple rules that could allow unauthorized
+   privilege escalation to root. Patterns were identified that violate the
+   principle of least privilege, including overly broad command wildcards and
+   unrestricted group-level access grants. Additionally, the sudo environment
+   configuration may allow injection of malicious shared libraries during
+   privileged command execution. Some sudoers drop-in files have incorrect
+   filesystem permissions that may cause them to be silently ignored.
+
+2. FILE SYSTEM SECURITY — Severity: HIGH
+   Multiple files and directories have permissions exceeding operational
+   requirements. A Set-UID binary was found in a location writable by
+   non-root users. Sensitive system file backups were found with insufficient
+   access restrictions. At least one file is owned by a UID that does not
+   correspond to any existing user account. A system scripts directory has
+   inappropriate ownership.
+
+3. SERVICE ACCOUNT CONFIGURATION — Severity: HIGH
+   Several accounts designated for automated service use do not conform to
+   security policy requirements regarding login shells and group memberships.
+   At least one service account has been granted administrative group
+   membership beyond its functional requirements, creating an unintended
+   privilege escalation path.
+
+4. SCHEDULED TASK SECURITY — Severity: HIGH
+   Root-level cron jobs were found executing scripts from world-writable
+   directories. A systemd service unit references a script stored in a user's
+   home directory, which could be modified by that user to achieve privilege
+   escalation. Cron access control is not configured, allowing all users to
+   create scheduled tasks. An existing user crontab contains operations that
+   weaken filesystem security on every execution.
+
+5. AUTHENTICATION POLICY — Severity: MEDIUM
+   System-wide password policies in /etc/login.defs do not meet minimum
+   organizational requirements. Existing user accounts have not had password
+   aging policies applied, meaning compromised credentials could remain
+   valid indefinitely.
+
+6. COMPLIANCE MONITORING — Severity: MEDIUM
+   No automated compliance verification mechanism exists on this server.
+   The security policy requires a self-checking script that can be run
+   to verify ongoing compliance with all policy domains.
+
+REMEDIATION TIMELINE: 48 hours from receipt
+NEXT AUDIT: Automated verification upon remediation completion

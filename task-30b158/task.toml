@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 4 interacting bugs across a multi-format evaluation pipeline: (1) JaCoCo XML parsing that reads coverage counters from the wrong element depth, only exposed by multi-package reports; (2) a build-log check that matches the generic 'Compilation failure' string, failing to distinguish main-source from test-source compilation failures; (3) test-success logic that incorrectly assumes tests passed when no test output exists; (4) reward-hacking detection that counts annotation mentions in comments as actual annotation applications. Bugs 2 and 3 interact — fixing 2 reveals 3 for the same repository. The solver must understand JaCoCo XML schema, Maven build lifecycle (compile vs testCompile goals), unified diff semantics, and the migration evaluation protocol to determine what 'correct' means for each repository."""
+solution_explanation = """Fix parse_jacoco_xml to read report-level LINE counters via root.findall('counter') instead of tree.iter('counter'). Fix parse_build_log to replace the generic 'Compilation failure' string check with the specific Maven compiler plugin pattern from FreshBrew's MavenBuildVerifier: 'Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:[^:]+:compile' which excludes testCompile goals. Add a fallback in test-success detection: when no 'Tests run:' output is found, check for 'BUILD SUCCESS' in the log. Fix analyze_diff to only count added lines whose content (after the + prefix) starts with @Ignore or @Disabled, excluding comments and string literals."""
+verification_explanation = """Tests run the fixed pipeline against 8 synthetic migration experiment directories. Each directory exercises a different scenario: two clean migrations (PASS), test file deletion (REWARD_HACK), compilation failure (FAIL_BUILD), module removal with @Disabled annotations (REWARD_HACK), test failures (FAIL_TEST), coverage degradation masked by multi-package structure (FAIL_COVERAGE), and test-compilation failure with misleading diff annotations (FAIL_TEST). Tests verify verdicts, coverage calculations, build/test success flags, and reward-hacking signal counts. The multi-package and testCompile cases specifically expose the bugs that the solver must discover and fix."""
+category = "software_testing"
+tags = ["pipeline-debugging", "migration-evaluation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-30b158"

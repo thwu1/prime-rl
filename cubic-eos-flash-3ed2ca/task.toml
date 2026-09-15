@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level expertise in chemical engineering thermodynamics and numerical methods. The solver must: (1) diagnose a CMake build system misconfiguration across a multi-file C++ project, (2) identify and fix an incorrect EOS co-volume constant drawn from a different cubic model family (SRK vs PR), (3) trace an inconsistency between mixture energy parameter computation and its composition derivative in the fugacity coefficient formula where binary interaction parameters are correctly applied in one but omitted in the other, (4) correct a Newton solver derivative error in the Rachford-Rice equation, and (5) design and implement a complete Michelsen-style tangent-plane distance phase stability analysis from scratch. The stability implementation requires understanding of the modified TPD formulation, Wilson K-factor initialization of multiple trial compositions, successive substitution convergence, and the instability criterion."""
+solution_explanation = """Five issues must be resolved across four files: (1) CMakeLists.txt lists 'flash_engne.cpp' instead of 'flash_engine.cpp', causing a linker failure. (2) In pr_eos.cpp, pr_bi() uses the SRK Omega_b constant 0.08664 instead of PR's 0.07780. (3) In pr_eos.cpp, the S_i computation in ln_fugacity_coefficients omits the (1-kij) factor that is correctly applied in the a_mix computation, creating an inconsistent fugacity coefficient. (4) In flash_engine.cpp, the Rachford-Rice derivative uses km1 instead of km1*km1 in the numerator. (5) In flash_engine.cpp, check_stability is a stub returning false (always unstable); a complete TPD analysis with Wilson K-factor initialization and successive substitution for both vapor-like and liquid-like trial phases must be implemented."""
+verification_explanation = """Tests parse the structured output and independently recompute Peng-Robinson fugacity coefficients in Python using correct PR constants and kij. For two-phase results: equal-fugacity criterion, material balance, composition normalization, and fugacity coefficient agreement with reference are verified. For single-phase results: correct phase identification and fugacity coefficient agreement with reference values are checked. The independent reference catches both constant errors and formula inconsistencies."""
+category = "applied_computing"
+tags = ["thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cubic-eos-flash-3ed2ca"

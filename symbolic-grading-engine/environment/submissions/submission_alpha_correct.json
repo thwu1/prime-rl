@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_alpha_correct",
+    "challenge_id": "alpha",
+    "generated_code": "import sympy as sp\n\np = sp.symbols('p')\n\ndef answer(p):\n    \"\"\"Equivalent expanded form of the fidelity expression.\"\"\"\n    num = 3 - 5*p + p**2 + p**3\n    den = 3 - 2*p**2\n    return num / den"
+}

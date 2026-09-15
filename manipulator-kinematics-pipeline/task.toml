@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a URDF XML file to extract both kinematic parameters (joint origins, axes, limits) and dynamic parameters (link masses, centers of mass, effort limits) for a 6-DOF serial chain. The solver must implement forward kinematics from URDF joint transforms, numerical inverse kinematics with random restarts and joint-limit enforcement, and the full 6×6 geometric Jacobian via finite differences. Beyond standard kinematics, the task demands computing gravitational potential energy as a function of configuration using the URDF inertial parameters, then deriving the gravity torque vector g(q) = ∂V/∂q — this requires understanding how URDF link frames accumulate through the chain and how center-of-mass positions project into the world frame. The maximum static payload analysis combines gravity torques with the Jacobian transpose force mapping to solve a constrained feasibility problem across all joints. Trajectory segments require evaluating manipulability and gravity torques at many interpolated configurations and checking against both kinematic (singularity) and dynamic (effort limit) thresholds. The solver must produce mutually consistent JSON and SQLite outputs. This pipeline — URDF parsing → FK → IK → Jacobian → manipulability → gravity dynamics → static payload optimization → trajectory feasibility — requires holistic understanding of how kinematics and statics interconnect, not just procedural application of individual algorithms."""
+solution_explanation = """The solution parses the URDF kinematic tree from tool0 back to base_link, extracting joint origins (xyz/rpy), axes, limits, effort limits, and child link inertial data (mass, CoM). FK chains the transforms: T = T_origin_1 · R_axis(q1) · ... including the fixed tool0 joint. The Jacobian is computed via central finite differences. IK uses damped least-squares with random restarts, checking joint limits and wrapping angles. Gravity torques are computed by numerical differentiation of potential energy V(q) = Σ m_k · 9.81 · z_com_k(q), where z_com_k is the world-frame height of each link's center of mass. The maximum payload solves the linear constraint |g_i(q) + m_p · 9.81 · J_{z,i}| ≤ effort_i analytically by computing upper bounds from each joint and taking the minimum. Trajectories use quintic polynomial interpolation s = 10t³ - 15t⁴ + 6t⁵, evaluating gravity torques and manipulability at each sample to determine kinematic and dynamic feasibility."""
+verification_explanation = """Tests verify: (1) FK at three configurations matches an independent DH-based oracle within tolerance, (2) rotation matrices are orthogonal with det=1, (3) IK solutions achieve target poses within 5mm position and 0.05 rad orientation error, (4) joint limits respected, (5) manipulability matches independent computation, (6) near_singular flags consistent with threshold, (7) gravity torques match an independent URDF-chain-based potential-energy-gradient computation within 0.5 Nm, (8) shoulder pan gravity torque is ~0 (physics sanity check: vertical axis rotation doesn't resist gravity), (9) max payload satisfies the joint torque constraints when checked independently, (10) max payload matches independently computed value within tolerance, (11) trajectory max_torque_ratio and dynamically_feasible are consistent, (12) trajectory feasible = kinematic_ok AND dynamic_ok, (13) SQLite schema includes gravity_torques and max_payload_kg columns with data consistent with JSON."""
+category = "robotics"
+tags = ["manipulator-dynamics", "inverse-kinematics"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/manipulator-kinematics-pipeline"

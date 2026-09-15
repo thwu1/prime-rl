@@ -1,0 +1,46 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """NCL edge-reversal reachability is PSPACE-complete (Hearn & Demaine 2005). The task demands expert-level \
+synthesis across multiple domains: the agent must independently design a correct state-space exploration algorithm for NCL configurations, \
+discover that unreachability can be certified via orientation-invariant edge sets, and — with no guidance on encoding strategy, SMT theory \
+selection, or proof structure — construct standalone SMT-LIB2 scripts that Z3 validates. This requires deep understanding of how vertex \
+inflow constraints create mutual dependencies between edge orientations, how to formalize inductive reasoning about configuration spaces \
+in first-order arithmetic, and how to integrate Python, Z3 CLI, and Graphviz CLI into a cohesive pipeline. Instances include tightly \
+constrained mixed-weight tournaments (K5) and multi-stage cascading locks that resist naive analysis."""
+solution_explanation = """BFS over valid configurations determines reachability and extracts witness paths. For unreachable instances, \
+analysis of the BFS visited set identifies edges whose orientation never changes across all reachable configurations — these form an \
+inductive invariant certificate. The certificate is encoded in SMT-LIB2 as QF_LIA constraints: edge orientations become integer variables \
+(0 or 1), vertex inflow constraints become linear arithmetic inequalities over weighted sums, and inductiveness is proven by showing each \
+fixed edge's reversal leads to an unsatisfiable constraint system. DOT files map constraint graphs to directed graphviz notation with \
+weight-based edge coloring, then are rendered to SVG via the dot command."""
+verification_explanation = """Tests verify: (1) reachability verdicts match expected answers for all 10 instances; (2) solution paths \
+are simulated move-by-move checking validity at each step; (3) invariant certificates for 4 unreachable instances are verified using \
+the Z3 Python API (checking initial-orientation match, inductiveness via solver queries, target exclusion); (4) standalone SMT-LIB2 \
+proof scripts are executed via z3 CLI and all check-sat outputs must be unsat; (5) DOT files contain all graph elements with correct \
+weight-based coloring and parse cleanly with graphviz dot; (6) SVG files are valid XML with svg root element and non-trivial size."""
+category = "algorithms"
+tags = ["formal-verification", "constraint-logic"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ncl-edge-reachability"

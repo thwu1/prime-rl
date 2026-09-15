@@ -1,0 +1,17 @@
+{
+  "interfaces": {
+    "eth0": {"zone": "WAN", "address": "10.0.0.1/24", "description": "WAN uplink"},
+    "eth1": {"zone": "LAN", "address": "192.168.10.1/24", "description": "LAN segment"},
+    "eth2": {"zone": "DMZ", "address": "172.16.0.1/24", "description": "DMZ segment"}
+  },
+  "nat": {
+    "source": [
+      {"outbound_interface": "eth0", "translation": "masquerade", "source_prefix": "192.168.10.0/24"},
+      {"outbound_interface": "eth0", "translation": "masquerade", "source_prefix": "172.16.0.0/24"}
+    ],
+    "destination": [
+      {"inbound_interface": "eth0", "protocol": "tcp", "port": 8080, "translation_address": "172.16.0.10", "translation_port": 80},
+      {"inbound_interface": "eth0", "protocol": "tcp", "port": 3389, "translation_address": "192.168.10.50", "translation_port": 3389}
+    ]
+  }
+}

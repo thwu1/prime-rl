@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple subtle computational errors across a C shared library and Python ctypes wrapper implementing IAPWS-IF97 steam property equations. The solver must build the library, compare outputs against published verification tables, trace numerical discrepancies to specific coefficient errors and formula inversions in C source code, fix a ctypes integration bug in Python, implement IAPWS 2008 viscosity and IAPWS 2011 thermal conductivity correlations from specification, and compute a coupled Rankine cycle analysis requiring two-phase mixture calculations."""
+solution_explanation = """Five bugs must be found and fixed: (1) Region 1 coefficient r1_n[12] has wrong sign (-0.021841717175414 should be +0.021841717175414); (2) Region 2 residual coefficient r2r_n[4] has wrong sign (+0.05032527872793 should be -0.05032527872793); (3) Saturation curve coefficients nsat[8] and nsat[9] are swapped; (4) Region 3 tau calculation uses T/TC instead of TC/T; (5) Python backward_T_ph_region2 subregion 2c uses h_star=2800 instead of 2000. Transport properties require implementing mu0*mu1 viscosity and lambda0*lambda1 thermal conductivity with published IAPWS coefficient tables. The Rankine cycle requires computing isentropic turbine expansion into the wet region with quality calculation from entropy."""
+verification_explanation = """Tests verify all IAPWS-IF97 published verification table values (Regions 1-5, saturation, backward T(p,h)) to 1e-6 relative tolerance. Transport properties are checked against IAPWS 2008/2011 published verification points. The Rankine cycle output is cross-validated by independently computing the cycle from the corrected module and checking thermodynamic consistency."""
+category = "applied_computing"
+tags = ["thermodynamics", "numerical-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/iapws-steam-properties"

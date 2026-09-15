@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in Guile Scheme's delimited continuations (call-with-prompt, abort-to-prompt), CSP concurrency theory, and cooperative scheduler design. The solver must: (1) diagnose and fix subtle bugs in coroutine value-passing through prompt handlers; (2) architect a channel system supporting both synchronous (unbuffered) and buffered modes with proper blocking/unblocking semantics integrated into the scheduler's run queue; (3) implement a select/alt multiplexer that correctly handles readiness checks across multiple channels; (4) build a deadlock detector that identifies when all live tasks are parked on channel wait queues with no possible progress. These concerns are deeply coupled — channel blocking must park continuations, the scheduler must wake them, and deadlock detection must reason about the global wait graph."""
+solution_explanation = """Fix coroutine bug: yield! must abort to the scheduler's prompt tag (stored in *scheduler-tag* fluid), not the task's own tag. Then implement channels using SRFI-9 records with a buffer (list-based deque), sender/receiver wait queues (lists of (task . continuation) pairs for recv-waiters, (task continuation value) triples for send-waiters), and a closed flag. channel-send! checks: if closed raise error; if synchronous and receiver waiting, directly resume receiver with value; if buffered and not full, enqueue to buffer; else park sender by aborting to scheduler prompt with a 'blocked-send tag. channel-recv! mirrors this. channel-close! drains wait queues, resuming senders with error and receivers with 'channel-closed sentinel. The scheduler maintains a run-queue and processes tasks round-robin; when a task aborts with 'blocked-send or 'blocked-recv, the continuation is stored in the channel's wait queue instead of the run queue. Deadlock is detected when the run queue is empty but live tasks remain (all parked). Select iterates clauses checking readiness predicates, yielding and retrying if none ready. Total ~200 lines of Scheme."""
+verification_explanation = """19 pytest tests run Guile subprocesses verifying: module loading, basic spawn/yield, coroutine value passing, synchronous channel send/recv, buffered channels, channel close semantics (sender error, receiver sentinel), multi-producer/consumer fan-in, pipeline patterns, select readiness, scheduler deadlock detection, round-robin fairness, and completion ordering."""
+category = "implementation"
+tags = ["scheme", "concurrency"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/guile-coroutine-bugs"

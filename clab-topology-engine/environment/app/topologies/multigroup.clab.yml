@@ -1,0 +1,38 @@
+name: multigroup
+mgmt:
+  ipv4-subnet: 10.10.0.0/24
+topology:
+  defaults:
+    kind: linux
+    image: ubuntu:22.04
+    env:
+      ENVIRONMENT: production
+      PRIORITY: low
+  kinds:
+    linux:
+      image: alpine:latest
+      env:
+        DISTRO: alpine
+        PRIORITY: medium
+    srl:
+      image: ghcr.io/nokia/srlinux
+      env:
+        DISTRO: srlinux
+        PRIORITY: medium
+  groups:
+    routers:
+      kind: srl
+      env:
+        ROLE: router
+        PRIORITY: high
+  nodes:
+    rtr1:
+      group: routers
+      env:
+        ROUTER_ID: 1.1.1.1
+    rtr2:
+      group: routers
+    server1: {}
+  links:
+    - endpoints: ["rtr1:eth1", "rtr2:eth1"]
+    - endpoints: ["rtr1:eth2", "server1:eth1"]

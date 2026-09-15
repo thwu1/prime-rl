@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal system testing edge cases: producer-consumer cycle,
+  multi-reader resource, and write-only observer (auditor).
+-->
+<system>
+    <memory_region name="data_buf" size="0x10000" />
+    <memory_region name="feedback" size="0x8000" />
+    <memory_region name="audit_log" size="0x20000" />
+
+    <protection_domain name="producer" priority="100">
+        <program_image path="producer.elf" />
+        <map mr="data_buf" vaddr="0x10000000" perms="rw" />
+        <map mr="feedback" vaddr="0x10010000" perms="r" />
+    </protection_domain>
+
+    <protection_domain name="consumer" priority="100">
+        <program_image path="consumer.elf" />
+        <map mr="data_buf" vaddr="0x10000000" perms="r" />
+        <map mr="feedback" vaddr="0x10010000" perms="rw" />
+    </protection_domain>
+
+    <protection_domain name="auditor" priority="200">
+        <program_image path="auditor.elf" />
+        <map mr="data_buf" vaddr="0x10000000" perms="r" />
+        <map mr="audit_log" vaddr="0x10010000" perms="rw" />
+    </protection_domain>
+
+    <channel>
+        <end pd="producer" id="1" />
+        <end pd="consumer" id="1" />
+    </channel>
+</system>

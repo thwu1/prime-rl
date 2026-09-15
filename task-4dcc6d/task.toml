@@ -1,0 +1,61 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD knowledge spanning two distinct phases.
+Phase 1 (debugging): five independent bugs across fvSchemes (unbounded convection), fvSolution
+(missing under-relaxation), 0/k and 0/epsilon (zero inlet turbulence), and 0/p (over-constrained
+pressure) interact so that fixing one reveals the next failure mode, demanding deep understanding
+of SIMPLE algorithm stability, k-epsilon physics, and incompressible pressure-velocity coupling.
+Phase 2 (validation pipeline): the agent must design and implement a Python post-processing tool
+that parses OpenFOAM's proprietary mesh file formats (points, faces, owner, boundary) and field
+data, computes the flow reattachment length via near-wall velocity sign-change analysis with
+interpolation, independently verifies mass conservation from solver diagnostics, and evaluates
+the simulation against experimental benchmarks — requiring synthesis of CFD domain knowledge,
+numerical methods, and software engineering."""
+solution_explanation = """1. Replace unbounded 'Gauss linear' div schemes with bounded alternatives
+   (linearUpwind for momentum, upwind for turbulence scalars).
+2. Reduce relaxation factors from 1.0 to stable SIMPLE values (p=0.3, U=0.7, k/epsilon=0.7).
+3. Set inlet k to 0.00375 m^2/s^2 (from k = 1.5*(U*I)^2 with I=5%).
+4. Set inlet epsilon to 0.0054 m^2/s^3 (from epsilon = Cmu^0.75 * k^1.5 / l).
+5. Change inlet pressure BC from fixedValue to zeroGradient.
+6. Run foamRun -solver incompressibleFluid to convergence.
+7. Write validate.py: parse polyMesh boundary/points/faces/owner files and the velocity
+   field to locate lowerWall faces on the downstream floor, extract owner-cell Ux values,
+   find the negative-to-positive zero crossing via linear interpolation, compute inlet
+   mass flow from face geometry, parse log for continuity errors and residuals.
+8. Produce validation_report.json with all required metrics and verdict."""
+verification_explanation = """test.sh re-generates the mesh and re-runs the solver from scratch
+on the agent's fixed case, then executes the agent's validate.py to regenerate the report.
+Pytest checks: (1) solver completed without FOAM FATAL errors or SIGFPE, (2) all final
+residuals below 5e-4, (3) at least 20 iterations completed, (4) U field contains no NaN,
+(5) validate.py exists with substantive computation logic, (6) validation_report.json has
+all 12 required fields with correct types, (7) reattachment length is physically reasonable
+(2 < x_r/h < 15), (8) report values are internally consistent (xr_over_h = length/height,
+accuracy error matches), (9) continuity error is small, (10) convergence and verdict flags
+are consistent with their defining criteria, (11) reported residuals match independently
+parsed log values."""
+category = "computational_science"
+tags = ["cfd", "openfoam"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4dcc6d"

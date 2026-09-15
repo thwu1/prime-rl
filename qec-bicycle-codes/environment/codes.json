@@ -1,0 +1,20 @@
+{
+  "codes": [
+    {
+      "name": "BB_72",
+      "construction": "bivariate_bicycle",
+      "l": 6,
+      "m": 6,
+      "A_terms": [[3, 0], [0, 1], [0, 2]],
+      "B_terms": [[0, 3], [1, 0], [2, 0]]
+    },
+    {
+      "name": "BB_90",
+      "construction": "bivariate_bicycle",
+      "l": 15,
+      "m": 3,
+      "A_terms": [[9, 0], [0, 1], [0, 2]],
+      "B_terms": [[0, 0], [2, 0], [7, 0]]
+    }
+  ]
+}

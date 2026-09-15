@@ -1,0 +1,7 @@
+{
+    "name": "sort3",
+    "description": "Sort three integers into ascending order in-place using comparison-based swaps. Initialize a=17, b=5, c=23. After sorting, a <= b <= c must hold. Set variable 'sorted' to 1 upon completion.",
+    "input_variables": {"a": 17, "b": 5, "c": 23},
+    "required_output": {"a": 5, "b": 17, "c": 23, "sorted": 1},
+    "syntactic_constraints": ["Program must use 'if' statements for comparisons"]
+}

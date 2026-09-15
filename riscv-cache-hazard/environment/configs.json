@@ -1,0 +1,11 @@
+{
+  "description": "Cache configurations derived from CORE-V Wally RISC-V processor. Each config specifies a data cache geometry with numways (associativity), waysizeinbytes (size per way), lineleninbits (cache line width in bits), and pa_bits (physical address width).",
+  "configs": [
+    {"name": "dm-4k", "numways": 1, "waysizeinbytes": 4096, "lineleninbits": 256, "pa_bits": 34},
+    {"name": "2w-4k", "numways": 2, "waysizeinbytes": 4096, "lineleninbits": 256, "pa_bits": 34},
+    {"name": "4w-4k", "numways": 4, "waysizeinbytes": 4096, "lineleninbits": 256, "pa_bits": 34},
+    {"name": "2w-2k-narrow", "numways": 2, "waysizeinbytes": 2048, "lineleninbits": 128, "pa_bits": 34},
+    {"name": "2w-1k", "numways": 2, "waysizeinbytes": 1024, "lineleninbits": 256, "pa_bits": 34},
+    {"name": "8w-1k", "numways": 8, "waysizeinbytes": 1024, "lineleninbits": 256, "pa_bits": 34}
+  ]
+}

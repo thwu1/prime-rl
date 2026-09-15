@@ -1,0 +1,201 @@
+employee_id,age,department,salary,performance,is_remote
+1,38,Sales,66055.88,Very Good,No
+2,44,Engineering,93920.88,Fair,No
+3,23,Finance,79226.84,Excellent,Yes
+4,43,Finance,93532.26,Good,No
+5,51,Marketing,97483.72,Excellent,Yes
+6,37,Marketing,82075.57,Excellent,Yes
+7,52,Engineering,97459.73,Fair,No
+8,48,Engineering,97012.56,Fair,No
+9,42,Sales,72219.31,Good,No
+10,47,Sales,90805.48,Excellent,No
+11,40,Engineering,98780.76,Fair,No
+12,40,HR,78276.37,Good,No
+13,47,Engineering,107923.99,Fair,Yes
+14,43,Engineering,109274.01,Very Good,Yes
+15,22,HR,46179.55,Good,No
+16,44,Engineering,104022.01,Very Good,No
+17,41,Sales,85755.09,Very Good,Yes
+18,22,Operations,48226.48,Good,No
+19,41,Marketing,81551.95,Fair,No
+20,41,Engineering,105213.87,Good,Yes
+21,42,HR,65741.11,Good,No
+22,45,Operations,83214.14,Excellent,No
+23,42,Finance,82775.65,Fair,No
+24,43,Sales,68814.61,Poor,No
+25,39,Engineering,92918.92,Excellent,No
+26,49,Operations,93766.67,Good,No
+27,29,Sales,69358.78,Good,Yes
+28,46,Sales,,Fair,No
+29,41,Operations,80143.55,Excellent,Yes
+30,27,Engineering,81834.95,,Yes
+31,30,Engineering,98648.35,Very Good,No
+32,42,Sales,58950.44,Fair,No
+33,34,Finance,98441.62,Good,No
+34,30,Sales,85340.4,Very Good,Yes
+35,35,Marketing,70318.96,Good,No
+36,41,Operations,63747.4,Good,No
+37,64,Finance,107766.22,Very Good,No
+38,34,Sales,56953.17,Very Good,Yes
+39,56,Finance,103564.85,Good,No
+40,56,Sales,82049.51,Fair,No
+41,35,Engineering,93065.03,Good,No
+42,40,Finance,101063.26,Excellent,No
+43,47,Engineering,111042.29,Very Good,Yes
+44,30,Sales,73413.54,Good,No
+45,35,Sales,57831.72,Fair,No
+46,36,Engineering,93621.66,Good,Yes
+47,33,Marketing,81309.55,Very Good,Yes
+48,45,Operations,87117.52,Very Good,No
+49,37,Engineering,75245.1,Fair,Yes
+50,42,Engineering,102684.26,Very Good,No
+51,51,Sales,79846.07,Very Good,No
+52,32,Finance,81082.3,Good,No
+53,27,Finance,110676.77,Good,Yes
+54,38,Engineering,99985.48,Poor,Yes
+55,36,Engineering,96930.2,Fair,No
+56,37,Marketing,73106.9,Poor,Yes
+57,33,Marketing,69241.28,Very Good,No
+58,35,Sales,71888.82,Fair,No
+59,23,Operations,59076.86,Excellent,No
+60,50,Sales,64088.23,Very Good,No
+61,58,HR,90973.67,Very Good,No
+62,52,Operations,76239.21,Good,No
+63,53,Engineering,96467.51,Good,No
+64,43,Engineering,102076.18,Good,No
+65,50,HR,89929.79,Fair,No
+66,35,Sales,69020.39,Good,Yes
+67,24,Sales,66105.32,Very Good,No
+68,61,Engineering,116535.1,Good,Yes
+69,42,Sales,78274.04,Very Good,Yes
+70,22,Engineering,88414.22,Fair,Yes
+71,30,Engineering,80304.53,Very Good,Yes
+72,37,Sales,,Good,Yes
+73,37,Finance,103911.47,Excellent,No
+74,27,Marketing,72541.95,Fair,Yes
+75,37,Engineering,94146.52,Good,Yes
+76,32,Sales,62962.29,Good,No
+77,34,Operations,76977.24,Excellent,No
+78,49,Sales,79124.93,Good,No
+79,32,Operations,50147.06,Fair,No
+80,56,Operations,80381.52,Good,No
+81,39,Operations,72843.84,Very Good,No
+82,35,Marketing,75108.11,Good,No
+83,45,Marketing,,Good,No
+84,48,Finance,91540.82,Fair,Yes
+85,32,Finance,100616.69,Very Good,No
+86,40,Marketing,,Good,No
+87,50,Finance,89968.76,Poor,Yes
+88,42,HR,68033.63,Poor,Yes
+89,30,HR,55960.59,Fair,Yes
+90,40,Marketing,72943.67,Poor,No
+91,29,Marketing,88796.37,Good,Yes
+92,49,Finance,92516.35,Very Good,No
+93,44,Engineering,109094.52,Good,Yes
+94,65,HR,93033.26,Very Good,No
+95,42,Finance,94508.12,Very Good,Yes
+96,43,HR,86580.61,Very Good,Yes
+97,44,Sales,73927.98,Good,Yes
+98,36,Marketing,77318.83,Fair,No
+99,58,Finance,108055.16,Very Good,No
+100,32,Operations,66097.82,Good,Yes
+101,48,Marketing,100473.68,Very Good,Yes
+102,42,Engineering,120383.35,Very Good,Yes
+103,37,Marketing,79021.69,Good,Yes
+104,26,Operations,59879.17,Good,Yes
+105,41,Finance,96011.56,Good,Yes
+106,29,Engineering,98161.27,Fair,No
+107,38,Engineering,89655.02,Poor,Yes
+108,29,Engineering,82252.19,Very Good,Yes
+109,51,Operations,76055.93,Very Good,No
+110,33,Marketing,73247.55,Good,Yes
+111,42,Engineering,,Excellent,Yes
+112,50,Finance,95845.98,Very Good,Yes
+113,37,Operations,73760.56,Good,Yes
+114,34,Operations,63426.48,Excellent,No
+115,58,Finance,112064.25,,No
+116,40,Operations,78532.62,Very Good,No
+117,53,Marketing,87078.4,Good,No
+118,44,Marketing,61954.59,Very Good,No
+119,22,Operations,50598.8,Very Good,No
+120,59,Finance,99162.53,Fair,No
+121,54,Marketing,98070.91,Very Good,Yes
+122,27,Finance,,Poor,Yes
+123,30,Finance,98887.0,Very Good,Yes
+124,47,Finance,104819.4,Good,Yes
+125,22,Engineering,92500.91,Fair,No
+126,41,HR,86942.84,Very Good,Yes
+127,41,Sales,76312.41,Fair,No
+128,60,Engineering,119791.92,Excellent,Yes
+129,32,Finance,92653.4,Good,Yes
+130,50,Finance,113939.85,Very Good,Yes
+131,51,Sales,83096.49,Very Good,No
+132,39,Finance,105457.46,Fair,Yes
+133,60,Marketing,104048.21,Very Good,Yes
+134,45,Marketing,82313.76,Good,Yes
+135,25,Finance,78215.19,Good,No
+136,49,HR,73773.32,Good,No
+137,43,Finance,108788.24,Excellent,Yes
+138,43,Marketing,94746.09,Good,Yes
+139,29,Marketing,61611.85,Good,No
+140,51,Marketing,,Excellent,Yes
+141,41,HR,70168.38,Good,Yes
+142,45,Finance,95726.31,Good,No
+143,22,Engineering,88125.8,Poor,Yes
+144,48,Marketing,74443.68,Poor,Yes
+145,51,Sales,85635.36,Good,Yes
+146,36,Sales,66423.11,Very Good,Yes
+147,35,Marketing,69537.34,Very Good,Yes
+148,33,Sales,57584.97,Very Good,No
+149,36,Engineering,90325.15,Poor,Yes
+150,51,Sales,72785.42,Fair,Yes
+151,30,Finance,75496.62,,No
+152,41,Operations,76235.4,Good,No
+153,43,Finance,,Excellent,No
+154,39,Sales,81693.21,Good,No
+155,44,Engineering,,Very Good,No
+156,35,Sales,58695.62,Poor,No
+157,43,Sales,79943.47,Excellent,No
+158,31,HR,,Good,No
+159,40,Marketing,72031.99,Good,No
+160,46,HR,87136.45,Very Good,No
+161,42,Engineering,114431.81,Very Good,Yes
+162,35,Marketing,69643.11,Poor,Yes
+163,43,Marketing,91052.1,Very Good,Yes
+164,51,HR,82962.04,Very Good,No
+165,39,Sales,69870.65,Fair,No
+166,22,Engineering,94967.76,Good,Yes
+167,45,Engineering,102754.49,Excellent,No
+168,39,Engineering,109856.1,Excellent,Yes
+169,40,Sales,,Fair,Yes
+170,47,Marketing,,Good,No
+171,38,Operations,78223.73,Good,No
+172,34,Operations,60022.77,Very Good,Yes
+173,42,Operations,66694.83,Good,No
+174,22,Operations,63073.33,Very Good,No
+175,23,Finance,78114.78,Good,No
+176,45,Marketing,81291.47,Good,Yes
+177,52,Engineering,126354.12,,No
+178,32,Operations,67012.65,Very Good,Yes
+179,22,HR,51083.03,Excellent,Yes
+180,28,Engineering,84487.95,Good,Yes
+181,35,Engineering,96534.0,Excellent,No
+182,47,Sales,72481.24,Fair,Yes
+183,40,Marketing,78375.21,Fair,No
+184,38,Sales,59445.91,Fair,Yes
+185,59,Finance,126202.34,Very Good,No
+186,36,HR,75650.92,Very Good,No
+187,29,Operations,67230.39,Very Good,Yes
+188,38,Engineering,87112.03,Good,Yes
+189,33,Engineering,104693.92,Very Good,Yes
+190,25,Sales,67930.78,Excellent,Yes
+191,36,Marketing,80971.94,Very Good,Yes
+192,37,Engineering,,Excellent,Yes
+193,34,Operations,54931.97,Fair,No
+194,25,Sales,65073.96,Fair,Yes
+195,49,Marketing,90003.17,Good,Yes
+196,32,Sales,71948.67,Excellent,No
+197,28,Operations,64117.47,Good,No
+198,30,Engineering,85354.15,Good,Yes
+199,47,Engineering,92611.47,Good,No
+200,61,Sales,77652.55,Very Good,No

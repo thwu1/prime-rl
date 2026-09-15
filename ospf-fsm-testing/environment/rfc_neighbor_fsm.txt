@@ -1,0 +1,707 @@
+OSPF Version 2 Protocol Specification
+Excerpt: Neighbor Data Structure and State Machine
+Reference: RFC 2328 (J. Moy, April 1998)
+
+================================================================
+10. The Neighbor Data Structure
+================================================================
+
+Each router that is directly connected to a network maintains a
+neighbor data structure for each other router on that network.
+The neighbor structure contains all information about the
+neighbor's identity, its current state in the adjacency-forming
+process, and data used during the Database Exchange procedure.
+
+The fields contained in each neighbor data structure are:
+
+  State
+    The functional level of the neighbor conversation. This is
+    described in further detail in Section 10.1.
+
+  Inactivity Timer
+    A single shot timer whose firing indicates that no Hello
+    Packet has been seen from this neighbor recently. The length
+    of the timer is RouterDeadInterval seconds.
+
+  Master/Slave
+    When the two neighbors are exchanging databases, they form a
+    master/slave relationship. The master sends the first Database
+    Description Packet, and is the only part that is allowed to
+    retransmit. The slave can only respond to the master's
+    Database Description Packets. The master/slave relationship
+    is negotiated in state ExStart.
+
+  DD Sequence Number
+    The DD Sequence number of the Database Description Packet
+    that is currently being sent to the neighbor.
+
+  Last received Database Description packet
+    The initialize(I), more (M) and master(MS) bits, Options
+    field, and DD sequence number contained in the last Database
+    Description packet received from the neighbor. Used to
+    determine whether the next Database Description packet
+    received from the neighbor is a duplicate.
+
+  Neighbor ID
+    The OSPF Router ID of the neighboring router. The Neighbor
+    ID is learned when Hello Packets are received from the
+    neighbor, or is configured (for NBMA networks).
+
+  Neighbor Priority
+    The Router Priority of the neighboring router. Contained in
+    the neighbor's Hello Packets, this item is used when
+    selecting the Designated Router for the attached network.
+
+  Neighbor IP Address
+    The IP address of the neighboring router's interface to the
+    attached network. Used as the Destination IP address when
+    protocol packets are sent as unicasts along this adjacency.
+    Also used as the next hop in the routing table entries.
+
+  Neighbor Options
+    The optional OSPF capabilities supported by the neighbor.
+    Learned during the Database Exchange process. The neighbor's
+    optional OSPF capabilities are also listed in its Hello
+    Packets. This enables received Hello Packets to be rejected
+    when there is a mismatch in certain crucial capabilities
+    such as the E-bit (ExternalRoutingCapability).
+
+  Neighbor's Designated Router
+    The neighbor's idea of the Designated Router. If this is the
+    neighbor itself, this is important in the local calculation
+    of the Designated Router.
+
+  Neighbor's Backup Designated Router
+    The neighbor's idea of the Backup Designated Router. If this
+    is the neighbor itself, this is important in the local
+    calculation of the Backup Designated Router.
+
+================================================================
+10.1. Neighbor States
+================================================================
+
+The state of a neighbor forms the basis of the adjacency-forming
+protocol. Each neighbor in the neighbor data structure is in one
+of the following states:
+
+Down
+    This is the initial state of a neighbor conversation. It
+    indicates that there has been no recent information received
+    from the neighbor. On NBMA networks, Hello Packets may still
+    be sent to Down neighbors, although at a reduced rate.
+
+Attempt
+    This state is only valid for neighbors attached to NBMA
+    networks. It indicates that no recent information has been
+    received from the neighbor, but that a more concerted effort
+    should be made to contact the neighbor. This is done by
+    sending the neighbor Hello Packets at intervals of
+    HelloInterval seconds.
+
+Init
+    In this state, a Hello Packet has recently been seen from
+    the neighbor. However, bidirectional communication has not
+    yet been established with the neighbor (the router itself
+    did not appear in the neighbor's Hello Packet). All neighbors
+    in this state or higher are listed in the Hello Packets sent
+    from the associated interface.
+
+2-Way
+    In this state, communication between the two routers is
+    bidirectional. This has been assured by the operation of the
+    Hello Protocol. Specifically, the router has seen its own
+    Router ID in a Hello Packet from the neighbor. At this point,
+    the router must decide whether to proceed in building an
+    adjacency or not. On broadcast networks this decision is
+    based on whether the router and/or the neighbor is the
+    Designated Router or Backup Designated Router. If so, the
+    state transitions to ExStart. Otherwise, the conversation
+    stays at state 2-Way. On point-to-point and virtual link
+    networks, adjacency is always formed.
+
+ExStart
+    This is the first step in creating an adjacency between the
+    two neighboring routers. The goal of this step is to decide
+    which router is the master, and to decide upon the initial
+    DD sequence number. Neighbor conversations in this state or
+    greater are called adjacencies.
+
+Exchange
+    In this state the router is describing its entire link state
+    database by sending Database Description Packets to the
+    neighbor. Each Database Description Packet has a DD sequence
+    number, and is explicitly acknowledged. Only one Database
+    Description Packet is allowed outstanding at any one time.
+    In this state, Link State Request Packets may also be sent
+    requesting more recent LSAs. All adjacencies in Exchange
+    state or greater are used by the flooding procedure. These
+    adjacencies are fully capable of transmitting and receiving
+    all types of OSPF routing protocol packets.
+
+Loading
+    In this state, Link State Request Packets are sent to the
+    neighbor asking for the more recent LSAs that have been
+    discovered but not yet received in the Exchange state.
+
+Full
+    In this state, the neighboring routers are fully adjacent.
+    These adjacencies will now appear in router-LSAs and
+    network-LSAs.
+
+================================================================
+10.2. Events causing neighbor state changes
+================================================================
+
+The following events cause neighbor state changes:
+
+HelloReceived
+    A Hello Packet has been received from the neighbor.
+
+Start
+    This is an indication that Hello Packets should now be sent
+    to the neighbor at intervals of HelloInterval seconds. This
+    event is generated only for NBMA networks.
+
+2-WayReceived
+    Bidirectional communication has been realized between the
+    two neighboring routers. Specifically, the router has
+    received a Hello Packet from the neighbor, in which the
+    router itself is listed in the Hello Packet's neighbor field.
+    This indicates that the neighbor has also received one of
+    the router's Hello Packets.
+
+NegotiationDone
+    The Master/Slave relationship has been negotiated, and DD
+    sequence numbers have been exchanged. This signals the start
+    of the sending and receiving of Database Description Packets.
+
+ExchangeDone
+    Both sides have successfully transmitted a full sequence of
+    Database Description Packets. Each router now knows what
+    parts of its link state database are out of date.
+
+BadLSReq
+    A Link State Request has been received for an LSA not
+    contained in the database. This indicates an error in the
+    Database Exchange process.
+
+LoadingDone
+    Link State Updates have been received for all out-of-date
+    portions of the database. This is indicated by the Link
+    state request list becoming empty after the Database
+    Exchange process has completed.
+
+AdjOK?
+    A decision must be made as to whether or not an adjacency
+    should be established or maintained with the neighbor. This
+    event will start some adjacencies forming, and may cause
+    others to be torn down.
+
+SeqNumberMismatch
+    A Database Description Packet has been received that either
+    has an unexpected DD sequence number, unexpectedly has the
+    Init bit set, or has an Options field differing from the
+    last Options field received in a Database Description Packet.
+    Any of these conditions indicate that some error has occurred
+    during adjacency establishment.
+
+1-Way
+    A Hello Packet has been received from the neighbor, in which
+    the router is NOT listed in the Hello Packet's neighbor
+    field. This event indicates that communication with the
+    neighbor is no longer bidirectional.
+
+KillNbr
+    This is an indication from the lower-level protocols that
+    the neighbor should be presumed dead. For example, on an
+    NBMA network this event is generated by the protocol when
+    it determines that the neighbor is unreachable.
+
+InactivityTimer
+    The Inactivity Timer has fired. The neighbor is presumed
+    dead because no Hello Packet has been received within the
+    RouterDeadInterval.
+
+LLDown
+    An indication from the lower-level protocols that the
+    neighboring router's link has gone down. All adjacency
+    data structures are freed.
+
+================================================================
+10.3. The Neighbor State Machine
+================================================================
+
+The following describes the detailed state transitions of the
+neighbor state machine. Each entry describes the action(s) taken
+and the resulting state when a particular event is processed in
+a particular neighbor state.
+
+State(s):  Down
+  Event:   HelloReceived
+  New state:  Init
+  Action:  Start the Inactivity Timer for the neighbor. The
+           timer's value is RouterDeadInterval seconds.
+
+State(s):  Down
+  Event:   Start
+  New state:  Attempt
+  Action:  Send a Hello Packet to the neighbor (this neighbor
+           is always associated with an NBMA network) and start
+           the Inactivity Timer for the neighbor.
+
+State(s):  Attempt
+  Event:   HelloReceived
+  New state:  Init
+  Action:  Restart the Inactivity Timer for the neighbor, since
+           the neighbor has now been heard from.
+
+State(s):  Init
+  Event:   2-WayReceived
+  New state:  depends
+  Action:  Determine whether an adjacency should be established
+           with the neighbor (see Section 10.4). If not, the
+           new neighbor state is 2-Way.
+
+           If an adjacency should be formed, the state transitions
+           to ExStart. Upon entering this state, the router
+           increments the DD sequence number in the neighbor data
+           structure. If this is the first time that an adjacency
+           has been attempted, the DD sequence number should be
+           assigned some unique value (like the time of day clock).
+           The router then declares itself master (sets the
+           master/slave bit to master), and starts sending
+           Database Description Packets, with the initialize (I),
+           more (M) and master (MS) bits set. This Database
+           Description Packet should be otherwise empty.
+
+State(s):  ExStart
+  Event:   NegotiationDone
+  New state:  Exchange
+  Action:  The router must list the contents of its entire area
+           link state database in the neighbor Database summary
+           list. The area link state database consists of the
+           Router-LSAs, the Network-LSAs and the Summary-LSAs
+           contained in the area structure, along with the
+           AS-external-LSAs contained in the global structure.
+           AS-external-LSAs are omitted from a virtual neighbor's
+           Database summary list. AS-external-LSAs are also
+           omitted from the Database summary list if the area has
+           been configured as a stub. LSAs whose age is equal to
+           MaxAge are instead added to the neighbor's Link state
+           retransmission list.
+
+State(s):  Exchange
+  Event:   ExchangeDone
+  New state:  depends
+  Action:  If the neighbor Link state request list is empty,
+           the new neighbor state is Full. No other action is
+           required.
+
+           Otherwise, the new neighbor state is Loading. Start
+           or continue sending Link State Request Packets to
+           the neighbor. These are sent at a rate limited by
+           RxmtInterval.
+
+State(s):  Loading
+  Event:   LoadingDone
+  New state:  Full
+  Action:  The neighboring routers are now fully adjacent. The
+           adjacency is added to the appropriate interface data
+           structure. An event should be generated causing the
+           router to recalculate its shortest-path tree and
+           update routing table entries as needed.
+
+State(s):  Exchange or Loading
+  Event:   SeqNumberMismatch
+  New state:  ExStart
+  Action:  The adjacency must be restarted. The neighbor data
+           structure is reinitialized: the Link state
+           retransmission list, Database summary list and Link
+           state request list are cleared of all entries. Then
+           the adjacency forming process is restarted by
+           transitioning to ExStart. The DD sequence number is
+           incremented, the master/slave relationship is set to
+           master, and Database Description Packets with the I,
+           M and MS bits set are sent.
+
+State(s):  Full
+  Event:   SeqNumberMismatch
+  New state:  ExStart
+  Action:  Same as the action for Exchange and Loading states
+           above. The adjacency is torn down and the forming
+           process is restarted from ExStart.
+
+State(s):  Exchange or Loading
+  Event:   BadLSReq
+  New state:  ExStart
+  Action:  The adjacency must be restarted. This action is
+           identical to the SeqNumberMismatch action described
+           above for these states.
+
+State(s):  Full
+  Event:   BadLSReq
+  New state:  ExStart
+  Action:  Same as the action for Exchange and Loading states
+           above. The adjacency is torn down and restarted from
+           ExStart.
+
+State(s):  2-Way
+  Event:   AdjOK?
+  New state:  depends
+  Action:  Determine whether an adjacency should be established
+           with the neighbor (see Section 10.4). If not, the
+           neighbor state remains at 2-Way.
+
+           If an adjacency should be formed, the neighbor state
+           transitions to ExStart. For details of the
+           initialization steps see the Init state 2-WayReceived
+           event transition above.
+
+State(s):  ExStart or greater
+  Event:   AdjOK?
+  New state:  depends
+  Action:  Determine whether the adjacency should be maintained.
+           If not, the adjacency is torn down and the neighbor
+           state transitions to 2-Way. All adjacency-specific
+           data structures are freed.
+
+           If the adjacency should still be maintained, no state
+           change occurs.
+
+State(s):  2-Way or greater
+  Event:   1-Way
+  New state:  Init
+  Action:  The neighbor has indicated via its Hello Packet that
+           it can no longer see the router (the router's ID is
+           absent from the neighbor list). All adjacency data
+           structures are released and the neighbor state reverts
+           to Init.
+
+State(s):  Any state
+  Event:   KillNbr
+  New state:  Down
+  Action:  The neighbor relationship is torn down. All
+           adjacency-specific data structures are freed. The
+           Inactivity Timer is disabled.
+
+State(s):  Any state
+  Event:   InactivityTimer
+  New state:  Down
+  Action:  The Inactivity Timer has fired, indicating that no
+           Hello Packet has been seen from this neighbor recently.
+           All adjacency-specific data structures are freed. The
+           neighbor state transitions to Down.
+
+State(s):  Any state
+  Event:   LLDown
+  New state:  Down
+  Action:  The lower-level protocol indicates that the
+           neighboring router's link is down. All adjacency-
+           specific data structures are freed. The neighbor
+           state transitions to Down.
+
+State(s):  Init or greater
+  Event:   HelloReceived
+  New state:  no change
+  Action:  Restart the Inactivity Timer for the neighbor.
+
+================================================================
+10.4. Whether to become adjacent
+================================================================
+
+Adjacencies are established with a subset of the router's
+neighbors. Specifically, a router should establish an adjacency
+with a neighbor when at least one of the following conditions
+holds:
+
+  o The underlying network type is point-to-point.
+  o The underlying network type is point-to-multipoint.
+  o The underlying network type is virtual link.
+  o The router itself is the Designated Router (as indicated by
+    the interface data structure).
+  o The router itself is the Backup Designated Router.
+  o The neighboring router is the Designated Router.
+  o The neighboring router is the Backup Designated Router.
+
+An interface is considered to have a link to the Designated
+Router when the interface state machine is in state DR. An
+interface is considered to have a link to the Backup Designated
+Router when the interface state machine is in state Backup.
+
+================================================================
+10.5. Receiving Hello Packets
+================================================================
+
+This section explains the detailed processing of a received
+Hello Packet. The generic input processing of OSPF packets will
+have already verified the IP header and the OSPF packet header.
+
+The following additional checks should be performed on the
+received Hello Packet BEFORE processing it further. If any check
+fails, the packet MUST be discarded and no further action taken:
+
+  1. The OSPF version number in the packet header must be 2.
+     Packets with any other version number must be rejected.
+
+  2. The Area ID in the OSPF header must match the Area ID of
+     the receiving interface. A mismatch indicates the packet
+     was sent to the wrong area and must be discarded.
+
+  3. For broadcast and NBMA networks, the network mask in the
+     Hello Packet body must match the network mask configured on
+     the receiving interface. Point-to-point and virtual link
+     networks are exempt from this check.
+
+  4. The values of the HelloInterval and RouterDeadInterval
+     fields in the received Hello Packet must be identical to the
+     values configured for the receiving interface. Any mismatch
+     prevents neighbor relationship formation and the packet must
+     be discarded.
+
+  5. The setting of the E-bit (ExternalRoutingCapability) in the
+     Hello Packet's Options field must match the ExternalRouting-
+     Capability of the associated area. If the E-bit does not
+     agree, the packet must be discarded. This check ensures that
+     all routers in an area agree on the area's ability to
+     transport AS-external-LSAs.
+
+After these checks succeed, the Hello Packet is processed as
+follows:
+
+  o If the source of the Hello Packet is not yet in the
+    router's neighbor list, a new neighbor data structure is
+    created. The state of the new neighbor is set to Init.
+
+  o If the neighbor already exists and its state is Down, the
+    event HelloReceived is generated, causing the neighbor state
+    to transition to Init.
+
+  o If the router finds its own Router ID in the list of
+    neighbors included in the Hello Packet, bidirectional
+    communication has been confirmed. The event 2-WayReceived
+    is generated for the neighbor.
+
+  o If the router does NOT find its own Router ID in the
+    neighbor list and the neighbor is currently in state 2-Way
+    or higher, the event 1-Way is generated, indicating that
+    bidirectional communication has been lost.
+
+================================================================
+Appendix A.3.2. The OSPF Hello Packet
+================================================================
+
+OSPF Hello Packets are the means by which a router discovers and
+maintains knowledge of its neighbors. Hello Packets are sent
+periodically on each functioning router interface. On broadcast
+and NBMA networks, they are multicast to AllSPFRouters
+(224.0.0.5). On point-to-point networks they are sent to the
+other end of the link.
+
+Hello Packets serve a dual purpose: they are used for neighbor
+discovery and maintenance, and they are used in the election of
+the Designated Router and Backup Designated Router on broadcast
+and NBMA networks.
+
+The OSPF packet header for Hello Packets has Type field set to 1.
+The format of the Hello Packet body following the standard OSPF
+header is as follows:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        Network Mask                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         HelloInterval         |    Options    |    Rtr Pri    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     RouterDeadInterval                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Designated Router                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                   Backup Designated Router                   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Neighbor                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            ...                               |
+
+The standard OSPF header preceding the Hello body contains:
+
+  Version #
+    Set to 2 for OSPFv2.
+
+  Type
+    Set to 1 (Hello).
+
+  Router ID
+    The Router ID of the packet's source.
+
+  Area ID
+    A 32-bit number identifying the OSPF area to which the
+    packet belongs. All packets sent over a given interface will
+    have the same Area ID.
+
+  AuType
+    The authentication type used for the packet. 0 indicates
+    null authentication. 1 indicates simple password. 2
+    indicates cryptographic authentication.
+
+Hello Packet body fields:
+
+  Network Mask
+    The network mask associated with this interface. For
+    example, if the interface is to a class B network whose
+    third byte is used for subnetting, the network mask is
+    0xffffff00 (255.255.255.0).
+
+  HelloInterval
+    The number of seconds between this router's Hello Packets.
+
+  Options
+    The optional capabilities supported by the router. The
+    E-bit indicates the area's ExternalRoutingCapability. If the
+    E-bit is set, the area is capable of processing AS-external-
+    LSAs. If clear, the area is a stub area. The E-bit setting
+    must be consistent across all routers attached to a
+    particular OSPF area.
+
+  Router Priority (Rtr Pri)
+    This router's Router Priority. Used in (Backup) Designated
+    Router election. If set to 0, the router is ineligible to
+    become (Backup) Designated Router.
+
+  RouterDeadInterval
+    The number of seconds before declaring a silent router down.
+
+  Designated Router
+    The identity of the Designated Router for this network, in
+    the view of the sending router. The Designated Router is
+    identified by its IP address on the network. Set to 0.0.0.0
+    if there is no Designated Router.
+
+  Backup Designated Router
+    The identity of the Backup Designated Router for this
+    network, in the view of the sending router. The Backup
+    Designated Router is identified by its IP address on the
+    network. Set to 0.0.0.0 if there is no Backup Designated
+    Router.
+
+  Neighbor
+    The Router IDs of each router from whom valid Hello Packets
+    have been seen recently on the network. Recently means in
+    the last RouterDeadInterval seconds. This field is repeated
+    for each known neighbor.
+
+================================================================
+10.6. Receiving Database Description Packets
+================================================================
+
+This section describes the processing of received Database
+Description Packets. The generic input processing of OSPF
+packets will have already verified the IP header and the OSPF
+packet header.
+
+The following check should be performed on the received Database
+Description Packet BEFORE further processing:
+
+  o If the Interface MTU field in the Database Description packet
+    indicates an IP datagram size that is larger than the router
+    can accept on the receiving interface without fragmentation,
+    the Database Description packet is rejected.
+
+After this check, the packet is processed depending on the
+current neighbor state:
+
+When the neighbor's state is ExStart:
+
+  If the received packet matches one of the following cases,
+  the negotiation is complete. The event NegotiationDone is
+  generated, and the neighbor state transitions to Exchange:
+
+    Case 1: The received DD packet has the Initialize (I),
+    More (M) and Master (MS) bits set, the DD sequence number
+    equals the neighbor data structure's DD sequence number,
+    and the neighbor's Router ID is larger than the router's
+    own. In this case the router is Slave.
+
+    Case 2: The received DD packet has the I-bit clear, the
+    MS-bit clear, the DD sequence number equals the router's
+    own DD sequence number, and the neighbor's Router ID is
+    smaller. In this case the router is Master.
+
+  Otherwise, ignore the packet.
+
+When the neighbor's state is Exchange:
+
+  Duplicate detection is performed. If a duplicate is detected,
+  the packet is discarded.
+
+  Otherwise, if the DD sequence number is unexpected, or if the
+  Init bit is set, or if the Options field differs from the
+  last received Options field, the event SeqNumberMismatch is
+  generated.
+
+  In all other cases, the Database Description Packet is
+  accepted.
+
+================================================================
+Appendix A.3.3. The Database Description Packet
+================================================================
+
+Database Description Packets are OSPF packet type 2. These
+packets are exchanged when an adjacency is being initialized.
+They describe the contents of the link-state database. Multiple
+packets may be used to describe the database. For this purpose
+a poll-response procedure is used. One of the routers is
+designated to be the master, the other the slave. The master
+sends Database Description Packets (polls) which are
+acknowledged by Database Description Packets sent by the slave
+(responses). The responses are linked to the polls via the DD
+sequence number.
+
+The format of the Database Description Packet body:
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         Interface MTU         |    Options    |0|0|0|0|0|I|M|MS
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                     DD sequence number                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +-                                                             -+
+   |                     An LSA Header                             |
+   +-                                                             -+
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              ...                              |
+
+Database Description Packet body fields:
+
+  Interface MTU
+    The size in bytes of the largest IP datagram that can be sent
+    out the associated interface, without fragmentation. The MTU
+    value must be less than or equal to the MTU of the outgoing
+    interface. The special value of 0 indicates that the maximum
+    IP datagram size is not limited.
+
+  Options
+    The optional OSPF capabilities supported by the router,
+    as documented in Section 10.5.
+
+  I-bit (Init)
+    When set to 1, this packet is the first in the sequence of
+    Database Description Packets.
+
+  M-bit (More)
+    When set to 1, it indicates that more Database Description
+    Packets are to follow.
+
+  MS-bit (Master/Slave)
+    When set to 1, it indicates that the router is the master
+    during the Database Exchange process. Otherwise, the router
+    is the slave.
+
+  DD sequence number
+    Used to sequence the collection of Database Description
+    Packets. The initial value (indicated by the Init bit being
+    set) should be unique. The DD sequence number then increments
+    until the complete database description has been sent.

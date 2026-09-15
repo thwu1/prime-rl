@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing four deeply interconnected numerical algorithms from scratch: (1) Conjugate Gradient with correct Krylov subspace iteration and edge-case handling, (2) Preconditioned CG with correct inner-product modifications, (3) Incomplete Cholesky IC(0) factorization with sparse row-oriented computation and forward/backward triangular solves, and (4) the Fast Marching Method which combines priority-queue-based causal ordering with Eikonal equation solving. IC(0) factorization and FMM are rarely implemented from scratch and require deep understanding of sparse matrix algebra and computational geometry respectively. The algorithms must interoperate correctly with a provided CSR sparse matrix implementation."""
+solution_explanation = """The solution implements all four algorithms in pure Python. CG uses the standard Krylov iteration with residual tracking and tolerance-based termination. PCG modifies CG's inner products to use preconditioned residuals. The IC(0) preconditioner extracts the lower-triangle sparsity pattern, performs row-oriented factorization with column-intersection inner products, and precomputes column-to-rows mappings for efficient backward substitution. The FMM detects zero crossings via sign changes with linear interpolation for subcell distances, seeds a min-heap, and marches outward solving the 2D Eikonal equation with the standard two-direction quadratic formula. The Laplacian assembly builds CSR entries with the 5-point stencil and truncated boundary handling."""
+verification_explanation = """Tests verify: (1) CG convergence on 2x2 systems matching known analytical solutions, zero-iteration edge case, and convergence on Laplacian systems; (2) PCG convergence and iteration reduction with diagonal preconditioning on weighted systems; (3) IC(0) exact inversion of diagonal matrices, convergence with PCG on Laplacian, and fewer iterations than diagonal preconditioning; (4) FMM reinitialization of circular SDFs within tolerance 1.5, correction of distorted SDFs, sign preservation, and near-zero values at the interface; (5) Laplacian assembly structure including diagonal values, off-diagonal entries, symmetry, and boundary sparsity."""
+category = "scientific_computing"
+tags = ["numerical-methods", "sparse-linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fluid-numerical-solvers"

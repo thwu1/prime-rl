@@ -1,0 +1,84 @@
+{
+  "plan_name": "analytics_pipeline",
+  "state_ttl_seconds": 1200,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Source",
+      "name": "events",
+      "inputs": [],
+      "rate_per_second": 2000,
+      "avg_row_size_bytes": 256
+    },
+    {
+      "id": 2,
+      "type": "Source",
+      "name": "sessions",
+      "inputs": [],
+      "rate_per_second": 500,
+      "avg_row_size_bytes": 192
+    },
+    {
+      "id": 3,
+      "type": "Source",
+      "name": "devices",
+      "inputs": [],
+      "rate_per_second": 100,
+      "avg_row_size_bytes": 320
+    },
+    {
+      "id": 4,
+      "type": "Source",
+      "name": "locations",
+      "inputs": [],
+      "rate_per_second": 300,
+      "avg_row_size_bytes": 128
+    },
+    {
+      "id": 5,
+      "type": "Join",
+      "name": "join_events_sessions",
+      "inputs": [1, 2],
+      "join_type": "INNER",
+      "join_keys": [{"left": "session_id", "right": "session_id"}],
+      "estimated_output_rate": 800,
+      "estimated_output_row_size": 400
+    },
+    {
+      "id": 6,
+      "type": "Join",
+      "name": "join_with_devices",
+      "inputs": [5, 3],
+      "join_type": "FULL",
+      "join_keys": [{"left": "session_id", "right": "session_id"}],
+      "estimated_output_rate": 600,
+      "estimated_output_row_size": 580
+    },
+    {
+      "id": 7,
+      "type": "Join",
+      "name": "join_with_locations",
+      "inputs": [6, 4],
+      "join_type": "INNER",
+      "join_keys": [{"left": "session_id", "right": "session_id"}],
+      "estimated_output_rate": 400,
+      "estimated_output_row_size": 640
+    },
+    {
+      "id": 8,
+      "type": "AsyncMLPredict",
+      "name": "anomaly_detection",
+      "inputs": [7],
+      "target_qps": 400,
+      "p99_latency_seconds": 0.8,
+      "avg_request_size_bytes": 1536,
+      "max_ops_per_subtask": 64
+    },
+    {
+      "id": 9,
+      "type": "Sink",
+      "name": "alerts",
+      "inputs": [8]
+    }
+  ]
+}

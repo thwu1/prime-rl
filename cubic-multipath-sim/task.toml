@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of RFC 9438 CUBIC congestion control including the cubic function, TCP-friendly estimation, fast convergence, and slow start exit. Additionally requires implementing spurious congestion event detection/recovery (a recent Firefox/Neqo extension), ECN alternative backoff, and multipath scheduling with per-path independent controllers. The mathematical precision needed for CUBIC (cube roots, time-unit conversions, floating-point state management for save/restore) combined with the multi-algorithm integration makes this a proficient-to-expert level networking task."""
+solution_explanation = """The solution implements a CubicPathController class with per-path state (cwnd, ssthresh, W_max, K, t_epoch, saved state stack). The advance_to method handles slow start exponential growth and CUBIC congestion avoidance. Loss/ECN handlers save state, apply fast convergence (loss only), compute multiplicative decrease with appropriate beta, and update K. Spurious recovery restores saved state. A main simulation loop processes events in time order, advances controllers at scheduler intervals (min RTT), and records scheduling decisions based on rtt/cwnd_mss weight."""
+verification_explanation = """Tests verify CUBIC properties through subprocess invocation and output JSON inspection: slow start doubles cwnd per RTT, loss reduces by beta, ECN reduces by ecn_beta (lighter than loss), spurious recovery restores pre-loss cwnd, fast convergence reduces target after consecutive losses at lower cwnd, cwnd never drops below 1 MSS, CUBIC recovery exceeds W_max given enough time, multipath scheduler distributes decisions across paths, and independent per-path congestion state is maintained."""
+category = "networking"
+tags = ["quic", "congestion-control"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cubic-multipath-sim"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux SECCOMP BPF internals across multiple tool domains: (1) binary format analysis — the agent must decode raw sock_filter bytecode (8 bytes per instruction, little-endian fields) using hex inspection tools like xxd or hexdump, understanding the wire format that most developers never encounter directly; (2) BPF virtual machine implementation — correct opcode handling for loads, ALU, jumps, and returns against the seccomp_data memory layout; (3) C systems programming — compiling and using a SECCOMP test harness that loads binary filters via prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER), understanding sock_fprog structures and the no_new_privs requirement; (4) security bug identification — three distinct vulnerability classes: wrong seccomp_data offset causing argument confusion, off-by-one jump target causing control flow corruption, and high-vs-low 32-bit word confusion on little-endian systems; (5) binary patching — producing corrected binary filter files in the exact wire format. The multi-tool interoperability requirement (xxd/hexdump for binary analysis, gcc/make for C compilation, strace for SECCOMP event tracing, Python for simulation) significantly raises the difficulty beyond a pure-code task."""
+solution_explanation = """Decode the three .bpf files using struct.unpack('<HBBI', ...) to extract sock_filter instructions. Build a BPF VM simulator that serializes seccomp_data to a 64-byte LE buffer and implements load/ALU/jump/return opcodes. Compile and use the C SECCOMP harness (make seccomp_loader) to verify filter behavior with real kernel SECCOMP. Identify three bugs: (1) stdio_mmap instruction 7 loads offset 24 (args[1]=length) instead of 32 (args[2]=prot), letting PROT_EXEC bypass; (2) network_socket instruction 10 has jt=1 instead of jt=0, skipping the type-load so AF_INET6 is denied; (3) fs_readonly instruction 8 loads offset 28 (high bits) instead of 24 (low bits), so O_ACCMODE check always sees zero. Patch each single instruction and write corrected binary filters using struct.pack. Run the C harness with strace to produce verification output."""
+verification_explanation = """Tests decode the agent's binary filter output using struct.unpack, run the BPF simulator against comprehensive syscall/argument combinations, verify decoded_filters.json matches the original binary files, confirm audit report indices, check that fixed binary filters enforce correct policies through the simulator, and verify the C SECCOMP harness compiles successfully. All tests are deterministic since BPF execution is fully deterministic on fixed inputs."""
+category = "security"
+tags = ["seccomp-bpf", "binary-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d2f4d9"

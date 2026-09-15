@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level expertise spanning geospatial data engineering and spatial analysis. The agent must independently determine the full processing pipeline from a declarative specification: interpreting vector-to-raster conversion requirements for heterogeneous geometry types (points, lines, polygons), selecting appropriate spatial operators for each criterion type (proximity-based vs presence-based), implementing multi-threshold reclassification with correct boundary handling, performing weighted multi-criteria combination with proper normalization, and — critically — executing connected component analysis on the resulting suitability surface to identify and characterize contiguous candidate patches. The candidate analysis demands understanding of pixel connectivity semantics (4 vs 8), raster-to-coordinate transformations for centroid computation, and area calculations in projected coordinate systems. Errors in extent alignment, distance unit handling, reclassification logic, weight normalization, connectivity choice, or coordinate transforms cascade through the pipeline and produce incorrect results. No algorithmic steps are provided — the agent must synthesize the entire workflow from domain knowledge."""
+solution_explanation = """The solution reads criteria.json, extracts boundary extent via OGR, then chains GDAL CLI tools: gdal_rasterize (3 layers with -burn 1 -init 0 at 50m resolution), gdal_proximity.py (2 proximity rasters with -distunits GEO -ot Float32), gdal_calc.py (3 reclassifications using boolean algebra + 1 weighted overlay dividing by weight sum), producing the suitability raster. For candidate analysis, it uses scipy.ndimage.label with a 4-connectivity structure to identify contiguous patches above the suitability threshold, filters by minimum area (converting pixel count to hectares via the projected CRS resolution), computes geometric centroids from mean pixel coordinates, and sorts patches by mean suitability. Key decisions: -init 0 for rasterization, -distunits GEO for UTM meters, Float32 for division precision, correct 4-connectivity kernel, and proper pixel-center-to-coordinate transformation for centroids."""
+verification_explanation = """Tests verify: (1) structural properties of the suitability GeoTIFF (80x80 dimensions, EPSG:32636, 4km x 4km extent, 50m pixels), (2) suitability value range (10-100) and specific pixel values at analytically-determined locations, (3) domain invariants (flood zone pixels systematically lower than safe zones), (4) candidates.json structure, field presence, minimum area compliance, descending sort order, and centroid bounds, (5) independent 4-connectivity connected component analysis using scipy to verify candidate count, (6) cross-file consistency between results.json and candidates.json (patch count, best candidate match), (7) total suitable area and mean suitability verified against the raster data, and (8) spatial constraints ensuring no candidate centroids fall within flood zones."""
+category = "geospatial"
+tags = ["gdal", "spatial-analysis"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-247678"

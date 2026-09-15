@@ -1,0 +1,12 @@
+// Return clause transformation
+effect Ask {
+    Get()
+}
+
+val x = handle {
+    do Get() + do Get()
+} with Ask {
+    return(x) => x * 100
+    Get(resume) => resume(7)
+};
+print(x)

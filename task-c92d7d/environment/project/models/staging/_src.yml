@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: ecommerce
+    schema: raw
+    description: "Raw e-commerce data loaded from operational systems"
+    tables:
+      - name: raw_customers
+        description: "Raw customer records"
+      - name: raw_orders
+        description: "Raw order records"
+      - name: raw_payments
+        description: "Raw payment transactions (amounts in cents)"

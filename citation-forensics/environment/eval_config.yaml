@@ -1,0 +1,20 @@
+evaluation:
+  mar_threshold: 40
+  score_scale: 100
+  categories:
+    - cat1
+    - cat2
+
+data_sources:
+  primary: benchmark.db
+  supplementary: supplementary_responses.jsonl
+  court_hierarchy: court_hierarchy.rec
+  error_detection: error_config.json
+
+matching:
+  criterion: substring_containment
+  parallel_resolution: true
+  case_sensitive: false
+
+models:
+  expected_count: 4

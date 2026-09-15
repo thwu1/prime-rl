@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a comprehensive secret scanner that discovers tokens hidden across a realistic multi-layered development environment. Beyond standard file scanning and encoding detection (base64, hex, JWT payloads, Python string concatenation, JSON unicode escapes), the agent must use multiple specialized CLI tools in concert: openssl enc -d to decrypt AES-256-CBC encrypted credential vaults (discovering cipher parameters from Makefiles and locating passphrase files), git stash show -p to recover tokens from stashed work-in-progress changes, git notes --ref=<custom-ref> to extract tokens from non-default notes refs that are invisible to normal git log, cpio and bzcat to extract tokens from bzip2-compressed cpio archives, and xxd -r to reverse hex dumps back to plaintext. The agent must also scan git history for deleted files, query SQLite databases, and extract data from tar.gz and zip archives. Implementing CRC32 checksum validation with five subtly different input rules (full prefix vs prefix-letters-only vs payload-only, plus bitwise complement for nxi) requires careful specification reading. Getting all checksum variants correct while discovering all hiding spots with zero false positives/negatives demands expert-level security scanning knowledge and multi-tool proficiency."""
+solution_explanation = """The solution parses the token specification, implements per-type CRC32 checksum computation, and builds a multi-layer scanner that chains several CLI tools. For the filesystem walk: it handles tar.gz/zip archives natively, uses bz2 decompression + cpio extraction for .cpio.bz2 archives, runs xxd -r on hex dump files, discovers passphrase files and runs openssl enc -d -aes-256-cbc -pbkdf2 to decrypt .enc files, and queries SQLite databases. For git: it uses git log --all -p --diff-filter=D for deleted files, git stash list + git stash show -p for stashed changes, and git for-each-ref refs/notes/ + git notes --ref=<ref> show for custom notes refs. For each text source, it applies deep scanning with regex matching, base64/double-base64 decoding, JWT payload extraction, hex string decoding, Python string concatenation reconstruction, and JSON unicode escape resolution. All candidates are validated against the spec and deduplicated."""
+verification_explanation = """Tests regenerate the expected 65 tokens from the same deterministic seed used during corpus generation. Verification matches on unique token strings (not file paths), checking: zero false negatives (all 65 ground truth tokens found), zero false positives (no spurious tokens), correct type classification for every token, correct validity classification, and accurate summary statistics (total, valid, invalid, by_type counts)."""
+category = "security"
+tags = ["secret-scanning", "digital-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3191d7"

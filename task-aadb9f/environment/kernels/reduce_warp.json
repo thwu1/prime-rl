@@ -1,0 +1,6 @@
+{
+  "name": "reduce_warp",
+  "registers_per_thread": 21,
+  "shared_memory_bytes": 0,
+  "description": "Warp-level parallel reduction kernel"
+}

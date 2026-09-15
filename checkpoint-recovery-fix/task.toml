@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level distributed systems understanding. The solver receives only bare function signatures and must independently discover that a fixed-size indirection layer decouples state partitioning from operator count — a non-obvious architectural insight central to production stream processors. They must design a hash function with good distribution properties, implement contiguous range assignment with correct remainder handling, build an efficient reverse-lookup, parse composite state keys for redistribution, extract savepoint data from the checkpoint coordinator API, and restore a pipeline with consistent routing and exactly-once alert semantics. Understanding the state layout requires querying the checkpoint metadata database with sqlite3 and inspecting serialized state with jq via the pipeline-ctl CLI. No algorithm names, implementation strategies, or step-by-step procedures are provided in the instructions or stubs."""
+solution_explanation = """Six functions in savepoint.py: (1) compute_key_group uses Murmur3-style finalization to hash keys to [0,128), (2) compute_key_group_range distributes key-groups evenly with remainder handling, (3) find_operator_for_key_group performs O(1) arithmetic reverse-lookup, (4) redistribute_keyed_state parses composite 'key:state_name' keys and reassigns to new operators by key-group, (5) create_savepoint extracts state from the checkpoint coordinator, (6) restore_pipeline_from_savepoint redistributes state, creates pipeline with key-group routing, restores source offset and alerts."""
+verification_explanation = """18 pytest tests across 4 classes: key-group assignment (determinism, range, distribution), key-group ranges (coverage, non-overlap, contiguity, find_operator consistency), state redistribution (scale-up, scale-down, value preservation, key-group-consistent placement, multiple state names), and pipeline integration (rescale up/down, no duplicate alerts, extreme rescale, alert preservation)."""
+category = "systems"
+tags = ["stream-processing", "distributed-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/checkpoint-recovery-fix"

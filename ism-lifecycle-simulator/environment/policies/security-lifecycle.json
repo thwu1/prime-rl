@@ -1,0 +1,61 @@
+{
+  "_id": "security-lifecycle",
+  "_seq_no": 3,
+  "_primary_term": 1,
+  "policy": {
+    "policy_id": "security-lifecycle",
+    "description": "Security event log lifecycle - extended retention with tiered storage allocation",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "rollover": {
+              "min_doc_count": 5000000,
+              "min_index_age": "1d"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "warm",
+            "conditions": { "min_index_age": "7d" }
+          }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [
+          { "replica_count": { "number_of_replicas": 1 } },
+          { "allocation": { "require": { "temp": "warm" } } }
+        ],
+        "transitions": [
+          {
+            "state_name": "cold",
+            "conditions": { "min_index_age": "30d" }
+          }
+        ]
+      },
+      {
+        "name": "cold",
+        "actions": [
+          { "read_only": {} },
+          { "replica_count": { "number_of_replicas": 0 } },
+          { "allocation": { "require": { "temp": "cold" } } }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": { "min_index_age": "90d" }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task requiring: (1) diagnosing and fixing build system and C++ source defects in a CMake/Eigen3 preintegration project, (2) understanding two complex preintegration models from C++ source code involving Lie group mathematics, JPL quaternion conventions, analytical Jacobians, and RK4 covariance propagation, (3) porting both models to Python with exact numerical fidelity, (4) cross-language validation requiring Python output to match C++ ground truth within tight numerical tolerances (1e-10)."""
+solution_explanation = """Fix CMakeLists.txt by adding the missing CpiV2.cpp source file and linking Eigen3 (target_link_libraries). Fix generate_groundtruth.cpp by setting V2 orientation linearization with q_k_lin and gravity from sensor config, and adding P_meas_trace/P_meas_diag to JSON output. Build with cmake/make. Port CpiV1 (analytical Jacobians, 15x15 RK4 covariance propagation). Port CpiV2 with gravity-compensated local acceleration, 21x21 extended F/G matrices including gravity Jacobian blocks, RK4 for both P_big and state transition Phi, clone-and-marginalize via B_k matrix, extract final Jacobians from Discrete_J_b. Create pipeline script reading sensor config and running both models over the IMU CSV."""
+verification_explanation = """Tests verify: (1) C++ binary exists and produces valid JSON with correct schema; (2) quaternion/SO(3) utility functions pass roundtrip, composition, and property tests; (3) CpiV1 mean propagation, analytical bias Jacobians vs central finite differences, covariance symmetry/PSD/growth; (4) CpiV2 mean propagation with and without gravity, Jacobians vs finite differences, covariance properties, zero-gravity consistency with V1; (5) cross-validation: Python V1/V2 output matches C++ ground truth within 1e-10; (6) pipeline produces both output files with correct schema and self-consistency."""
+category = "robotics"
+tags = ["state-estimation", "cmake-eigen"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/imu-preintegration-cpi-01262f"

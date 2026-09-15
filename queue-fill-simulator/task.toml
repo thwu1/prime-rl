@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cross-domain synthesis: the agent must extract a tar.gz archive, read ~1000 lines of production Rust code using advanced type patterns (traits, generics, PhantomData, AnyClone/downcast_mut, dyn dispatch), independently identify and comprehend five distinct queue position models and their probability functions from uncommented trait implementations, map suggestive but unlabeled model keys to Rust types without explicit guidance, parse a raw binary event stream from a byte-layout specification (64-byte C-aligned records with mixed integer/float fields), reconstruct an L2 order book from event flags using bitwise operations (DEPTH_CLEAR/SNAPSHOT/DEPTH/TRADE with BUY/SELL modifiers), implement all models with correct numerical semantics (Rust's .round() as i64, cumulative trade deduplication, infinity handling, min-clamping), simulate hypothetical orders placed at specified timestamps, detect trade-through fills, and compute a comparative analysis. No algorithmic specification is provided — the agent discovers everything from source code and data files."""
+solution_explanation = """The solution extracts src.tar.gz, reads the Rust source to discover QueueModel trait implementations (RiskAdverseQueueModel with simple min-clamp/subtraction, ProbQueueModel with four distinct Probability trait implementations: PowerProbQueueFunc, LogProbQueueFunc, LogProbQueueFunc2, PowerProbQueueFunc3), maps model keys to implementations using naming conventions and parameter matching, parses events.bin using numpy with the correct dtype from layout.txt, reconstructs the L2 book from event flags, implements all five models with correct queue position tracking and fill detection, simulates orders placed at specified timestamps, and computes comparative analysis (fill counts, aggressiveness ranking, pairwise disagreements, model-sensitive orders)."""
+verification_explanation = """Tests include a complete independent reference implementation of all five queue models that reads the same binary data. Verification checks: fill/no-fill determinations per model, exact fill timestamps and event indices, final queue positions for unfilled orders, book state (best bid/ask tick and quantity, event counts), inter-model consistency (risk_adverse most conservative), and analysis.json with fill counts, aggressiveness ranking, pairwise disagreement matrix, model-sensitive orders, and extremal model classification. The reference implementation is self-contained in the test file, independent of the submitted solution."""
+category = "applied_computing"
+tags = ["quantitative-finance", "cross-language-porting"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/queue-fill-simulator"

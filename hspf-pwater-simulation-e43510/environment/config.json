@@ -1,0 +1,62 @@
+{
+  "parameters": {
+    "CSNOFG": 0,
+    "RTOPFG": 1,
+    "UZFG": 1,
+    "VCSFG": 1,
+    "VUZFG": 0,
+    "VNNFG": 0,
+    "VIFWFG": 0,
+    "VIRCFG": 0,
+    "VLEFG": 0,
+    "IFFCFG": 1,
+    "HWTFG": 0,
+    "IFRDFG": 0,
+    "FOREST": 0.0,
+    "LZSN": 7.35,
+    "INFILT": 0.079,
+    "LSUR": 50.0,
+    "SLSUR": 0.1548,
+    "KVARY": 1.0,
+    "AGWRC": 0.993,
+    "INFEXP": 2.0,
+    "INFILD": 2.0,
+    "DEEPFR": 0.02,
+    "BASETP": 0.22,
+    "AGWETP": 0.0,
+    "CEPSC": 0.01,
+    "UZSN": 0.85,
+    "NSUR": 0.4,
+    "INTFW": 3.0,
+    "IRC": 0.7,
+    "LZETP": 0.73
+  },
+  "initial_conditions": {
+    "CEPS": 0.0462,
+    "SURS": 0.0,
+    "UZS": 1.6075,
+    "IFWS": 0.0996,
+    "LZS": 8.9629,
+    "AGWS": 2.8649,
+    "GWVS": 1.9555
+  },
+  "siminfo": {
+    "start": "2018-01-01 00:00:00",
+    "delt": 60,
+    "units": 1
+  },
+  "monthly_cepsc": {
+    "JAN": 0.09,
+    "FEB": 0.1,
+    "MAR": 0.1,
+    "APR": 0.14,
+    "MAY": 0.17,
+    "JUN": 0.18,
+    "JUL": 0.18,
+    "AUG": 0.18,
+    "SEP": 0.17,
+    "OCT": 0.15,
+    "NOV": 0.12,
+    "DEC": 0.1
+  }
+}

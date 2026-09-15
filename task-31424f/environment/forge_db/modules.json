@@ -1,0 +1,208 @@
+{
+  "modules": {
+    "puppetlabs/stdlib": {
+      "versions": {
+        "7.0.0": {"dependencies": []},
+        "8.0.0": {"dependencies": []},
+        "8.6.0": {"dependencies": []},
+        "9.0.0": {"dependencies": []},
+        "9.4.0": {"dependencies": []},
+        "9.6.0": {"dependencies": []}
+      }
+    },
+    "puppetlabs/concat": {
+      "versions": {
+        "7.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 6.0.0 < 9.0.0"}
+        ]},
+        "7.4.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 6.0.0 < 9.0.0"}
+        ]},
+        "8.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "8.2.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "9.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "puppetlabs/apt": {
+      "versions": {
+        "8.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 6.0.0 < 9.0.0"}
+        ]},
+        "9.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 7.0.0 < 10.0.0"}
+        ]},
+        "9.4.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "puppetlabs/firewall": {
+      "versions": {
+        "5.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 7.0.0 < 9.0.0"}
+        ]},
+        "6.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "7.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/nftables": {
+      "versions": {
+        "3.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 7.0.0 < 9.0.0"}
+        ]},
+        "4.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/k8s": {
+      "versions": {
+        "2.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "voxpupuli/etcd", "version_requirement": ">= 1.0.0 < 3.0.0"}
+        ]},
+        "3.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "voxpupuli/etcd", "version_requirement": ">= 2.0.0 < 4.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/etcd": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 7.0.0 < 9.0.0"}
+        ]},
+        "2.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "3.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/wireguard": {
+      "versions": {
+        "2.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 7.0.0 < 9.0.0"}
+        ]},
+        "3.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/firewall", "version_requirement": ">= 6.0.0 < 8.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/vault": {
+      "versions": {
+        "4.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "5.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "voxpupuli/hashi_stack", "version_requirement": ">= 2.0.0 < 4.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/hashi_stack": {
+      "versions": {
+        "2.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"}
+        ]},
+        "3.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/grafana_alloy": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 8.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 7.0.0 < 9.0.0"}
+        ]},
+        "2.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/apt", "version_requirement": ">= 9.0.0 < 10.0.0"},
+          {"name": "puppetlabs/concat", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/prometheus": {
+      "versions": {
+        "14.0.0": {"dependencies": [
+          {"name": "Puppetlabs/Stdlib", "version_requirement": ">= 9.0.0 < 10.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/victorialogs": {
+      "versions": {
+        "2.0.0": {"dependencies": [
+          {"name": "voxpupuli/systemd", "version_requirement": ">= 2.0.0"}
+        ]},
+        "1.0.0": {"dependencies": [
+          {"name": "voxpupuli/systemd", "version_requirement": ">= 1.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/augeasproviders": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "voxpupuli/systemd", "version_requirement": "< 2.0.0"}
+        ]}
+      }
+    },
+    "voxpupuli/systemd": {
+      "versions": {
+        "2.0.0": {"dependencies": []},
+        "1.0.0": {"dependencies": []}
+      }
+    },
+    "testorg/circular_a": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "testorg/circular_b", "version_requirement": ">= 1.0.0 < 2.0.0"}
+        ]}
+      }
+    },
+    "testorg/circular_b": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "testorg/circular_a", "version_requirement": ">= 1.0.0 < 2.0.0"}
+        ]}
+      }
+    },
+    "testorg/unsat_a": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": ">= 9.0.0"}
+        ]}
+      }
+    },
+    "testorg/unsat_b": {
+      "versions": {
+        "1.0.0": {"dependencies": [
+          {"name": "puppetlabs/stdlib", "version_requirement": "< 8.0.0"}
+        ]}
+      }
+    }
+  }
+}

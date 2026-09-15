@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the Argoverse 2 scene flow evaluation protocol — the instruction names the protocol but does not specify which metrics to compute, how to compute them, or how to aggregate results. The agent must independently determine that the av2 protocol involves EPE, dual-threshold accuracy (strict/relax), 4D space-time angle error, and binary dynamic segmentation IoU; understand the Class×Motion×Distance breakdown with its conventional exclusion; implement count-weighted cross-scene aggregation; handle format-level subtleties (float16→float64 casting, validity masking, epsilon-guarded division); and produce the correct composite metrics. This demands holistic understanding of autonomous driving perception evaluation, not procedural execution."""
+solution_explanation = """Build /app/evaluate.py that: (1) reads JSON config for thresholds, category mappings, and paths, (2) iterates NPZ annotation files matched to Feather prediction files by scene_id, (3) masks to valid points and casts float16 predictions to float64, (4) computes EPE (L2 norm), accuracy strict/relax (dual-threshold inlier fraction), 4D angle error (pad with time_delta, normalize, arccos of clipped dot product) per subset, (5) accumulates global TP/FP/FN for dynamic IoU, (6) applies count-weighted averaging across scenes for per-distance and distance-aggregated breakdowns excluding Background/Dynamic, (7) computes EPE_3Way as mean of three distance-aggregated EPE values and Dynamic_IoU from global counts, (8) writes structured JSON."""
+verification_explanation = """Tests contain an independent reference implementation that loads the same raw data and computes all metrics from scratch using a structurally different code path. Per-metric numerical comparison with 1e-3 tolerance validates EPE, both accuracy variants, angle error, and composite metrics. Structural tests verify key presence, excluded combinations, and value ranges."""
+category = "data_science"
+tags = ["scene_flow", "evaluation_pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-detection-eval"

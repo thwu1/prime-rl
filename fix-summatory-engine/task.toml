@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of sub-linear number theory algorithms (Lucy_Hedgehog DP, Mertens via Moebius inversion, Euler totient summation, Liouville-Mertens identity). The agent must read ~200 lines of non-trivial C++, identify 3 subtle algorithmic bugs, implement a missing function using the Dirichlet series identity L(N)=sum M(floor(N/d^2)), then design and build a shared library using CMake (adding library target with correct compile definitions), create Python ctypes bindings with proper type declarations, and conduct a systematic performance evaluation across compiler optimization levels. The evaluation component requires the agent to build multiple library variants, benchmark them, compare results, and produce a justified recommendation — going beyond mere bug-fixing into evaluation and design."""
+solution_explanation = """Fix 1: Lucy DP must iterate values in descending order to avoid using already-updated sub-results (analogous to 0-1 knapsack ordering). Fix 2: Mertens recurrence base case is 1, not 0. Fix 3: Euler totient sum uses v*(v+1)/2 (triangular number), not v*v/2. Fix 4: Implement L(N)=sum_{d=1}^{sqrt(N)} M(floor(N/d^2)). Then extend CMakeLists.txt with add_library(ntsum SHARED ...) and BUILD_SHARED_LIB definition, add extern "C" export functions guarded by the preprocessor macro, create ctypes Python bindings, and benchmark across -O0/-O2/-O3 by rebuilding and timing."""
+verification_explanation = """Tests load the shared library via ctypes and verify all five functions against known values (OEIS A000720, A002321, A002088, A013928, A002819) at N=10, 100, 10000, 1000000. A Liouville sieve cross-check independently validates L(10000). Python bindings are loaded via importlib and tested for correctness. The evaluation JSON is validated for structure, internal consistency (speedup ratio matches timing data), and sanity (speedup >= 1.0, recommended is not the slowest)."""
+category = "systems"
+tags = ["number-theory", "cmake-build-systems", "ctypes-ffi", "performance-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-summatory-engine"

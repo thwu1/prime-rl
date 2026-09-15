@@ -1,0 +1,4 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,1y,CMBX,6000000,USD,6000000
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,2y,CMBX,3000000,USD,3000000
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,2y,CMBX,3000000,USD,3000000

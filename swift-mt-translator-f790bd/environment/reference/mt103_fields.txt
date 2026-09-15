@@ -1,0 +1,70 @@
+MT103 SINGLE CUSTOMER CREDIT TRANSFER - FIELD SPECIFICATIONS
+==============================================================
+
+BLOCK STRUCTURE
+---------------
+{1:F01<SENDER_LT>} - Basic header, sender logical terminal
+{2:I103<RECEIVER_LT><priority>} - Application header, I=input
+{3:{nnn:value}...} - User header, sub-fields by tag number
+{4:\n...\n-} - Text block, field tags :XX: with multiline values
+{5:{...}} - Trailer block
+
+BLOCK 4 FIELDS
+--------------
+Status: M=Mandatory, O=Optional
+
+:20:  Sender's Reference         M  16x
+:13C: Time Indication            O  /8c/HHMM[+/-]ZZZZ
+      Code words: CLSTIME, SNDTIME, RNCTIME
+:23B: Bank Operation Code        M  4!a (CRED, SPAY, SSTD, SPRI)
+:23E: Instruction Code           O  4!a[/30x] (repeatable)
+      Codes: CHQB, CORT, HOLD, INTC, PHOB, SDVA, TELB, SPRI, SSTD
+:26T: Transaction Type Code      O  3!c
+:32A: Value Date/Ccy/Amount      M  6!n3!a15d (YYMMDD + CCY + amount)
+      Amount uses comma as decimal separator
+:33B: Currency/Instructed Amt    O  3!a15d
+:36:  Exchange Rate              O  12d (comma decimal)
+:50A: Ordering Customer          O  [/34x\n]4!a2!a2!c[3!c]
+      Optional /account, then BIC
+:50F: Ordering Customer          O  Party identification + structured details
+      Line format: first line = /account or IDENTITY_TYPE/CC/value
+      Subsequent lines: n/content where n is:
+        1 = name
+        2 = address line
+        3 = country code/town name
+        4 = date of birth
+        5 = place of birth
+      Identity types: TXID, PASSPORT, DRLC, EMPL, CCPT, ARNU, NIDN, SOSE, CUST
+:50K: Ordering Customer          O  [/34x\n]4*35x
+      Optional /account, then name and address lines
+:51A: Sending Institution        O  [/34x\n]4!a2!a2!c[3!c]
+:52A: Ordering Institution       O  [/34x\n]4!a2!a2!c[3!c]
+:52D: Ordering Institution       O  [/34x\n]4*35x
+:53A: Sender's Correspondent     O  [/34x\n]4!a2!a2!c[3!c]
+:53B: Sender's Correspondent     O  [/34x\n]35x
+:54A: Receiver's Correspondent   O  [/34x\n]4!a2!a2!c[3!c]
+:56A: Intermediary Institution   O  [/34x\n]4!a2!a2!c[3!c]
+:56D: Intermediary Institution   O  [/34x\n]4*35x
+:57A: Account With Institution   O  [/34x\n]4!a2!a2!c[3!c]
+:57D: Account With Institution   O  [/34x\n]4*35x
+:59:  Beneficiary Customer       M  [/34x\n]4*35x
+:59A: Beneficiary Customer       O  [/34x\n]4!a2!a2!c[3!c]
+:59F: Beneficiary Customer       O  Same structured format as 50F
+:70:  Remittance Information     O  4*35x
+      Code words (start of line): /INV/, /RFB/, /ROC/, /IPI/, /TSU/
+      Lines not starting with a code word are free text
+:71A: Details of Charges         M  3!a (BEN, OUR, SHA)
+:71F: Sender's Charges           O  3!a15d (repeatable)
+:71G: Receiver's Charges         O  3!a15d
+:72:  Sender to Receiver Info    O  6*35x
+      Code words: /INS/, /BNF/, /REC/, /ACC/
+      Continuation lines start with //
+:77B: Regulatory Reporting       O  3*35x
+      Code words: /ORDERRES/, /BENRES/
+      Format: /CODE/CC//detail_text
+
+NOTATION
+--------
+n  = digits, a = letters, c = alphanumeric, x = any character
+!  = fixed length, * = maximum lines, d = decimal including comma
+[] = optional portion

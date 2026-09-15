@@ -1,0 +1,6 @@
+true,restored,edge_type
+"['doi_1', 'Isolation']","['doi_1', ['Isolation', 'Collection', 'Field']]",doi_collectionType
+"['doi_2', 'Collection']","['doi_2', ['Collection', 'Isolation', 'Field']]",doi_collectionType
+"['doi_3', 'Field']","['doi_3', ['Field', 'Isolation', 'Collection']]",doi_collectionType
+"['doi_4', 'Isolation']","['doi_4', ['Isolation', 'Field', 'Collection']]",doi_collectionType
+"['doi_5', 'Collection']","['doi_5', ['Isolation', 'Collection', 'Field']]",doi_collectionType

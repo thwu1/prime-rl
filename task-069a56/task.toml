@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full Noise Protocol Framework state machine from specification, including composable crypto object layers, correct key derivation, AEAD nonce encoding for two different ciphers, token processing rules for 6 different handshake patterns, PSK modifier handling, and transport key derivation. A single bit error in any layer cascades through the entire handshake. Demands proficient-level understanding of DH-based key agreement, AEAD encryption modes, and protocol state machines."""
+solution_explanation = """Build a Python implementation using the cryptography library for X25519 DH and AEAD primitives, with hashlib/hmac for hash functions. Implement the three-layer Noise state machine exactly per spec: CipherState tracks k/n for AEAD, SymmetricState manages ck/h with MixKey/MixHash/HKDF, HandshakeState orchestrates token processing and message exchange. Parse protocol names to select primitives, process pre-messages, execute handshake token sequences, handle PSK modifier, then Split for transport keys. Simulate both initiator and responder to produce all ciphertexts."""
+verification_explanation = """Tests compare computed ciphertexts and handshake hashes byte-for-byte against known-correct values derived from the cacophony test vector suite. Each of the 6 challenges is verified independently: all message ciphertexts and the final handshake hash must match exactly."""
+category = "cryptography"
+tags = ["protocol-engineering", "key-exchange"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-069a56"

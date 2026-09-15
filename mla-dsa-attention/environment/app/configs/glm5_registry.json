@@ -1,0 +1,73 @@
+{
+  "_schema": "glm5-model-registry/v2",
+  "_description": "GLM-5 model configuration registry. Each variant defines architecture parameters for a specific model size. Use jq to extract a variant: jq '.variants[\"<name>\"]' glm5_registry.json",
+  "variants": {
+    "glm5-9b": {
+      "model_type": "glm5_mla_dsa",
+      "architecture": {
+        "hidden_size": 256,
+        "num_attention_heads": 4,
+        "rms_norm_eps": 1e-5,
+        "max_position_embeddings": 4096,
+        "rope_theta": 10000.0
+      },
+      "latent_attention": {
+        "q_lora_rank": 128,
+        "kv_lora_rank": 64,
+        "qk_rope_head_dim": 32,
+        "qk_nope_head_dim": 32,
+        "v_head_dim": 64
+      },
+      "dynamic_sparse_attention": {
+        "index_topk": 16,
+        "index_head_dim": 32,
+        "index_n_heads": 2
+      }
+    },
+    "glm5-40b-chat": {
+      "model_type": "glm5_mla_dsa",
+      "architecture": {
+        "hidden_size": 6144,
+        "num_attention_heads": 64,
+        "rms_norm_eps": 1e-5,
+        "max_position_embeddings": 202752,
+        "rope_theta": 10000.0
+      },
+      "latent_attention": {
+        "q_lora_rank": 2048,
+        "kv_lora_rank": 512,
+        "qk_rope_head_dim": 64,
+        "qk_nope_head_dim": 192,
+        "v_head_dim": 256
+      },
+      "dynamic_sparse_attention": {
+        "index_topk": 2048,
+        "index_head_dim": 128,
+        "index_n_heads": 32
+      }
+    },
+    "glm5-744b": {
+      "model_type": "glm5_mla_dsa",
+      "architecture": {
+        "hidden_size": 6144,
+        "num_attention_heads": 64,
+        "rms_norm_eps": 1e-5,
+        "max_position_embeddings": 202752,
+        "rope_theta": 500000.0
+      },
+      "latent_attention": {
+        "q_lora_rank": 2048,
+        "kv_lora_rank": 512,
+        "qk_rope_head_dim": 64,
+        "qk_nope_head_dim": 192,
+        "v_head_dim": 256
+      },
+      "dynamic_sparse_attention": {
+        "index_topk": 4096,
+        "index_head_dim": 128,
+        "index_n_heads": 32
+      }
+    }
+  },
+  "active_variant": "glm5-9b"
+}

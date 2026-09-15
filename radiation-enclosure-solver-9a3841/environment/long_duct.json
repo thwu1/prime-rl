@@ -1,0 +1,15 @@
+{
+  "name": "long_duct",
+  "type": "rectangular_box",
+  "length_x": 10.0,
+  "width_y": 1.0,
+  "height_z": 1.0,
+  "surfaces": [
+    {"name": "floor",   "emissivity": 0.80, "condition": "temperature", "value": 500.0},
+    {"name": "ceiling", "emissivity": 0.80, "condition": "temperature", "value": 500.0},
+    {"name": "front",   "emissivity": 0.80, "condition": "temperature", "value": 800.0},
+    {"name": "back",    "emissivity": 0.80, "condition": "heatflux",    "value": 0.0},
+    {"name": "left",    "emissivity": 0.80, "condition": "temperature", "value": 300.0},
+    {"name": "right",   "emissivity": 0.80, "condition": "temperature", "value": 300.0}
+  ]
+}

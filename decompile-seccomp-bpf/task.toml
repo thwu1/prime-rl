@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding classic BPF bytecode format (struct sock_filter encoding), Linux seccomp internals (struct seccomp_data layout, return value semantics), and Docker/OCI seccomp profile JSON schema. The 60-instruction filter includes 20 unconditionally allowed syscalls, 4 conditional handlers with argument checks, and 4 special-action syscalls. Beyond reverse engineering, the solver must evaluate each rule's security implications — distinguishing audit-only LOG from blocking ERRNO, judging when ERRNO is too lenient for privileged operations, identifying missing keyring isolation, and recognizing namespace escape vectors via CLONE_NEWNS. The hardening phase requires creating a production-grade profile by synthesizing the reverse-engineered understanding with container security threat models. This combines multi-tool reverse engineering (seccomp-tools + libseccomp utilities), security posture evaluation, and defensive profile design at a proficient-to-expert level."""
+solution_explanation = """The solution uses seccomp-tools for BPF disassembly, then parses the raw binary with Python for precise control flow analysis. It traces the JEQ chain, identifies the architecture check, 20 unconditional allows, and follows branches to argument-check subroutines. For hardening, it evaluates each rule: escalates ptrace (LOG→KILL_PROCESS) and mount (ERRNO(13)→KILL_PROCESS), adds explicit KILL_PROCESS rules for add_key/request_key/keyctl, and extends the clone rule's args array with a second MASKED_EQ for CLONE_NEWNS alongside CLONE_NEWUSER. The hardened profile preserves all unconditional allows and other conditional rules unchanged."""
+verification_explanation = """Tests parse both output JSONs. For the original profile: (1) defaultAction is SCMP_ACT_ERRNO with errno 1, (2) architecture includes X86_64, (3) 20 named syscalls unconditionally allowed, (4) socket/clone/ioctl/prctl conditional rules verified, (5) ptrace/mount/process_vm special actions verified. For the hardened profile: (6) no LOG actions exist, (7) ptrace uses KILL_PROCESS, (8) mount uses KILL_PROCESS without errnoRet, (9) add_key/request_key/keyctl have KILL_PROCESS, (10) clone args array contains both 0x10000000 and 0x00020000 MASKED_EQ conditions, (11) unconditional allows preserved, (12) all syscall names resolve via scmp_sys_resolver."""
+category = "security_hardening"
+tags = ["seccomp-bpf", "container-security"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/decompile-seccomp-bpf"

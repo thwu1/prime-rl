@@ -1,0 +1,37 @@
+CIPHER MODULE - SECURITY FLAG
+================================
+Module: /app/cipher_module
+Type: ELF 64-bit executable, stripped
+Priority: HIGH
+Status: INCOMPLETE - Reviewer reassigned
+
+PRELIMINARY FINDINGS
+--------------------
+1. The binary implements a multi-round substitution-permutation
+   cipher. It reads a key file and encrypts data from stdin to
+   stdout.
+
+2. The binary's read-only data section contains byte lookup tables
+   used during the cipher's substitution phase. Other constant data
+   (round constants, strings) is interleaved in the same section.
+
+3. An automated nonlinearity scan reported values significantly
+   below the expected threshold for cryptographically strong 8-bit
+   permutations. This is a serious red flag.
+
+4. The reviewer suspected the substitution tables may not have been
+   generated independently. This was not verified before
+   reassignment.
+
+REQUIRED OUTPUT
+---------------
+Identify the simplest modular-arithmetic permutation of the form
+
+    F(x) = a * x + b   (mod 256)
+
+that underlies the cipher's substitution tables.
+
+Write to /app/answer.json:
+    {"a": <integer>, "b": <integer>}
+
+Any valid (a, b) pair is accepted.

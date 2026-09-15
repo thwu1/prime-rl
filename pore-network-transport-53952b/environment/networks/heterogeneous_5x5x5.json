@@ -1,0 +1,16 @@
+{
+  "shape": [5, 5, 5],
+  "spacing": 1.0,
+  "layer_conductances": [1.0, 2.0, 3.0, 4.0],
+  "cross_section_conductance": 100.0,
+  "boundary_conditions": {
+    "inlet_face": "left",
+    "inlet_value": 0.0,
+    "outlet_face": "right",
+    "outlet_value": 1.0
+  },
+  "reference": {
+    "expected_d_eff": 1.92,
+    "expected_mean_concentration": 0.616
+  }
+}

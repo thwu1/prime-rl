@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing pseudo-arclength continuation (a non-trivial numerical algorithm), eigenvalue-based bifurcation detection with robust cross-step matching, Newton refinement of singular Jacobian conditions, and first Lyapunov coefficient computation involving second- and third-order multilinear forms. Additionally demands multi-tool interoperability: compiling a C shared library with gcc, writing a Python ctypes wrapper with correct argument types and memory layout (row-major Jacobian matrices), and generating bifurcation diagrams via gnuplot scripting in non-interactive mode. The solver must handle 1D, 2D, and 3D systems with different bifurcation structures (folds only, Hopf only, mixed). This is graduate/PhD-level numerical dynamical systems work combined with systems-programming tool proficiency."""
+solution_explanation = """The reference solution implements: (1) gcc compilation of rhs_eval.c into librhs.so with -shared -fPIC -lm flags; (2) ctypes wrapper factory that maps C function signatures (int n, double *x, double param, double *out) to numpy-compatible callables; (3) pseudo-arclength continuation with predictor-corrector Newton iteration on the augmented system [f(x,p); arclength constraint], using SVD for tangent computation; (4) eigenvalue tracking across continuation steps with nearest-neighbor matching; (5) fold detection via sign change of real eigenvalues and Newton refinement on the extended fold system [f=0; Jv=0; ||v||=1]; (6) Hopf detection via sign change of real parts of complex conjugate pairs with iterative refinement; (7) first Lyapunov coefficient via the Kuznetsov formula l1 = (1/2ω)Re[<p,C(q,q,qbar)> - 2<p,B(q,h11)> + <p,B(qbar,h20)>] using finite-difference approximations for bilinear and trilinear forms; (8) gnuplot script generation with grep-based data filtering and pngcairo output."""
+verification_explanation = """Tests verify: (1) C library compilation: librhs.so exists, is loadable via ctypes, get_system_count returns 3, cusp/brusselator/abc RHS functions produce correct values; (2) JSON structure with all three systems and correct schemas; (3) equilibrium conditions ||f(x,p)|| < 1e-4 at every reported point; (4) eigenvalue conditions (near-zero real eigenvalue at folds, near-zero real part of complex pair at Hopf); (5) correct bifurcation counts (2 folds for cusp, 0 folds + >=1 Hopf for brusselator, >=1 Hopf for abc_reaction); (6) analytical parameter values for cusp folds (±2√3/9) and brusselator Hopf (B=3.25); (7) correct state values, ω values, and sub/supercritical classification; (8) bifurcation diagram: valid PNG header, gnuplot script exists, continuation data file has all systems with fold/hopf markers."""
+category = "scientific_computing"
+tags = ["dynamical-systems", "bifurcation-analysis"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bifurcation-continuation-engine"

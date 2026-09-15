@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a correct static vulnerability detector from scratch requires deep expertise in static analysis (dataflow tracking, source/sink/sanitizer modeling), security vulnerability classification across 5 CWE categories, Python AST internals, and interprocedural analysis through helper functions and class methods. The analyzer must correctly distinguish 8 vulnerable patterns from 4 sanitized ones, including tricky cases like taint flowing through helper functions (build_user_query), class method calls (FileManager.get_content), input validation guards (isalnum check), and parameterized query recognition. Additional unseen test cases prevent hardcoding."""
+solution_explanation = """The solution implements a FlaskTaintAnalyzer class using Python's ast module that: (1) collects all function/class definitions and tracks class instance types; (2) identifies Flask route handlers via decorator inspection; (3) performs intraprocedural taint tracking by marking request.args.get() calls as sources, propagating taint through assignments/string-ops/f-strings, and checking dangerous sinks (execute, os.popen, subprocess.call+shell, open, render_template_string, requests.get); (4) recognizes sanitizer patterns (parameterized queries, subprocess list args, realpath+startswith guards, isalnum validation with early return); (5) performs interprocedural analysis by resolving function calls and class method calls to their definitions and tracing taint through parameter bindings."""
+verification_explanation = """Tests verify: (1) all 8 vulnerable routes are detected with correct CWE classification, (2) all 4 safe routes produce no false positives, (3) output JSON schema is valid, (4) analyzer generalizes to unseen code snippets with SQL injection, command injection, and path traversal patterns — preventing hardcoded answers."""
+category = "cybersecurity"
+tags = ["static-analysis", "taint-tracking"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flask-taint-analyzer"

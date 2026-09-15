@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a curve flattening algorithm that substantially outperforms naive recursive subdivision while maintaining strict error guarantees across diverse curve shapes. The solver must: (1) recognize that control-polygon-based flatness testing is the bottleneck of the naive approach, (2) explore the environment to discover a Rust reference implementation containing an advanced approach based on spiral fitting and empirically calibrated error estimation, (3) comprehend ~500 lines of dense numerical Rust with product-of-sums polynomial expansions, piecewise function approximations with empirically tuned breakpoints, and multiple robustness modes for different curvature regimes, (4) design a Python implementation architecture that correctly translates Rust idioms (enums, pattern matching, ownership) while preserving floating-point behavior, and (5) handle subtle numerical edge cases for cusps, near-zero derivatives, and degenerate curves. The empirical constants and polynomial coefficients in the reference cannot be derived from first principles."""
+solution_explanation = """The solver discovers /app/reference/ containing a Rust implementation of Euler spiral-based flattening with ESPC (Euler Spiral Parameter Curve) integration. The approach: (1) adaptively subdivide the cubic until each sub-arc is well-approximated by an Euler spiral, using an empirical error formula calibrated against Frechet distance, (2) for each accepted sub-arc, compute optimal segment placement using ESPC integration with three robustness modes (LowK1, LowDist, Normal) and piecewise inverse integral approximation, (3) use dyadic subdivision with efficient parameter advancement via trailing-zero counting. The implementation requires faithfully porting integ_euler_10 (10th-order polynomial), EulerParams (6th-degree approximations), CubicParams (empirical error estimation), and espc_int_approx/inv (4-region piecewise approximation)."""
+verification_explanation = """Black-box tests verify only the flatten_cubic output: (1) Hausdorff error within tolerance for 8+ diverse curves including quarter circles, S-curves, tight arches, and gentle bends at multiple tolerance levels, (2) aggregate segment count comparison against naive subdivision showing meaningful efficiency improvement, (3) absolute segment count bounds for specific curves, (4) robust handling of 5 degenerate input types without crashes or NaN, (5) monotonic tolerance scaling, (6) endpoint preservation across multiple curves. No internal implementation details are tested."""
+category = "computational_geometry"
+tags = ["curve_approximation", "numerical_algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-spiral-flatten"

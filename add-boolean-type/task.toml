@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Adding a boolean data type to MicroJava requires understanding all compiler phases (scanner, parser, symbol table, code generator, VM) and making coherent changes across them. The key challenge is restructuring the expression grammar to unify boolean and arithmetic expressions, implementing bidirectional Cond-to-value conversion in code generation, and handling the interaction of boolean variables with conditions, assignments, and print statements. This is a standard compiler engineering task at the proficient level, requiring deep understanding of attributed grammars and stack-based code generation."""
+solution_explanation = """The solution modifies 5 files: (1) Struct.java: add Bool=5 kind. (2) Tab.java: add boolType and true/false predeclared constants. (3) Label.java: add merge() for combining fixup lists. (4) Code.java: add Cond case in load() for value conversion. (5) Parser.java: rename Expr/Term/Factor to SimpleExpr/SimpleTerm/SimpleFactor, remove Condition/CondTerm/CondFactor, add new Expr (||), Term (&&), Factor (relop), and makeCond() helper. Modify if/while to use Expr+makeCond, and print to accept boolType."""
+verification_explanation = """Seven test programs are compiled and executed: basic true/false usage, comparison-to-boolean assignment with && and ||, boolean while-loop control, boolean printing, nested parenthesized boolean expressions, boolean method return types, and a regression test ensuring existing int/char programs still work. Each test checks the exact stdout output against expected values."""
+category = "programming_languages"
+tags = ["compiler-construction", "language-extension"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/add-boolean-type"

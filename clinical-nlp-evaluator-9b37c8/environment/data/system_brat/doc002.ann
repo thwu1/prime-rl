@@ -1,0 +1,9 @@
+T1	Drug 14 22	warfarin
+T2	Drug 27 34	aspirin
+T3	Reason 39 58	atrial fibrillation
+T4	Reason 62 77	 DVT prevention
+R1	Reason-Drug Arg1:T3 Arg2:T1
+R2	Reason-Drug Arg1:T3 Arg2:T2
+R3	Reason-Drug Arg1:T4 Arg2:T1
+A1	Assertion T1 present
+A2	Assertion T2 present

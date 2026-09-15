@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interacting compiler data-flow analyses from scratch on a custom IR: global constant propagation (forward, must, with correct meet at merge/phi points), available-expression-based CSE (forward, must, across basic-block boundaries), and liveness-based dead-code elimination (backward, may). The optimizer must iterate these passes to a fixed point, handle loops, conditional branches, multi-function programs, and function calls with side effects. This goes well beyond textbook exercises because the IR format is custom (no reuse of LLVM/GCC infrastructure), the programs include loops with interior branches and merge points that test correct lattice operations, and the interaction between optimizations (e.g., constant propagation enabling DCE which enables further CSE) demands a correct iterative pipeline."""
+solution_explanation = """Parse the IR into per-function CFGs of basic blocks. Implement a worklist-based forward constant-propagation pass using the standard three-level lattice (TOP/constant/BOTTOM) with meet-at-merge. Implement local and cross-block CSE by tracking available expressions (gen/kill per block, intersection at merge). Implement backward liveness analysis (use/def per block, union at merge) and remove assignments to dead variables that have no side effects. Wrap all three in an outer loop that repeats until no pass reports changes. Emit the optimized IR preserving the original format."""
+verification_explanation = """For each of the five test programs: (1) run the optimizer, (2) run the reference interpreter on the optimized output and compare against the known expected output for semantic equivalence, (3) count executable instructions (excluding labels, comments, FUNC/ENDFUNC) and verify they are below program-specific thresholds that can only be met with correct data-flow analysis, (4) verify the optimized IR is structurally valid (contains main, ENDFUNC markers). Additionally verify the optimizer actually reduces instruction count versus the original."""
+category = "compilers"
+tags = ["data-flow-analysis", "compiler-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-84a79e"

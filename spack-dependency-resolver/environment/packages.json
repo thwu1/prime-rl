@@ -1,0 +1,180 @@
+{
+  "virtuals": {
+    "mpi": ["openmpi", "mpich"],
+    "blas": ["openblas", "intel-mkl"],
+    "lapack": ["openblas", "intel-mkl"]
+  },
+  "packages": {
+    "zlib": {
+      "versions": ["1.2.11", "1.2.12", "1.2.13", "1.3.0", "1.3.1"],
+      "variants": {
+        "shared": {"type": "bool", "default": true}
+      },
+      "dependencies": [],
+      "conflicts": [],
+      "provides": []
+    },
+    "python": {
+      "versions": ["3.8.0", "3.9.0", "3.10.0", "3.11.0", "3.12.0"],
+      "variants": {
+        "optimizations": {"type": "bool", "default": false},
+        "shared": {"type": "bool", "default": true}
+      },
+      "dependencies": [
+        {"name": "zlib", "version_range": null, "condition": null}
+      ],
+      "conflicts": [],
+      "provides": []
+    },
+    "boost": {
+      "versions": ["1.74.0", "1.76.0", "1.78.0", "1.80.0", "1.82.0", "1.84.0"],
+      "variants": {
+        "python": {"type": "bool", "default": false},
+        "shared": {"type": "bool", "default": true},
+        "multithreaded": {"type": "bool", "default": true}
+      },
+      "dependencies": [
+        {"name": "zlib", "version_range": null, "condition": null},
+        {"name": "python", "version_range": "3.8.0:", "condition": "+python"}
+      ],
+      "conflicts": [
+        {
+          "version_range": null,
+          "variants": {"shared": false, "multithreaded": false},
+          "message": "Static single-threaded build not supported"
+        }
+      ],
+      "provides": []
+    },
+    "openmpi": {
+      "versions": ["4.0.0", "4.1.0", "4.1.4", "4.1.6", "5.0.0", "5.0.1"],
+      "variants": {
+        "cuda": {"type": "bool", "default": false},
+        "thread_multiple": {"type": "bool", "default": false}
+      },
+      "dependencies": [
+        {"name": "zlib", "version_range": null, "condition": null}
+      ],
+      "conflicts": [
+        {
+          "version_range": ":4.0.0",
+          "variants": {"cuda": true},
+          "message": "CUDA support requires OpenMPI >= 4.1.0"
+        }
+      ],
+      "provides": ["mpi"]
+    },
+    "mpich": {
+      "versions": ["3.4.0", "3.4.3", "4.0.0", "4.1.0", "4.2.0"],
+      "variants": {
+        "cuda": {"type": "bool", "default": false},
+        "device": {"type": "single", "default": "ch4", "values": ["ch3", "ch4"]}
+      },
+      "dependencies": [
+        {"name": "zlib", "version_range": null, "condition": null}
+      ],
+      "conflicts": [
+        {
+          "version_range": ":3.4.3",
+          "variants": {"cuda": true},
+          "message": "CUDA support requires MPICH >= 4.0.0"
+        }
+      ],
+      "provides": ["mpi"]
+    },
+    "openblas": {
+      "versions": ["0.3.20", "0.3.21", "0.3.23", "0.3.24", "0.3.25"],
+      "variants": {
+        "threads": {"type": "single", "default": "none", "values": ["none", "openmp", "pthreads"]},
+        "ilp64": {"type": "bool", "default": false}
+      },
+      "dependencies": [],
+      "conflicts": [
+        {
+          "version_range": null,
+          "variants": {"ilp64": true, "threads": "openmp"},
+          "message": "ILP64 incompatible with OpenMP threading in OpenBLAS"
+        }
+      ],
+      "provides": ["blas", "lapack"]
+    },
+    "intel-mkl": {
+      "versions": ["2021.4.0", "2022.0.0", "2022.1.0", "2023.0.0", "2023.1.0"],
+      "variants": {
+        "ilp64": {"type": "bool", "default": false},
+        "shared": {"type": "bool", "default": true}
+      },
+      "dependencies": [],
+      "conflicts": [],
+      "provides": ["blas", "lapack"]
+    },
+    "hdf5": {
+      "versions": ["1.10.7", "1.10.9", "1.12.0", "1.12.2", "1.14.0", "1.14.3"],
+      "variants": {
+        "mpi": {"type": "bool", "default": true},
+        "fortran": {"type": "bool", "default": false},
+        "shared": {"type": "bool", "default": true}
+      },
+      "dependencies": [
+        {"name": "zlib", "version_range": null, "condition": null},
+        {"name": "mpi", "version_range": null, "condition": "+mpi"}
+      ],
+      "conflicts": [
+        {
+          "version_range": ":1.10.9",
+          "variants": {"fortran": true, "mpi": true},
+          "message": "Fortran MPI bindings require HDF5 >= 1.12.0"
+        }
+      ],
+      "provides": []
+    },
+    "petsc": {
+      "versions": ["3.17.0", "3.18.0", "3.19.0", "3.20.0", "3.21.0"],
+      "variants": {
+        "complex": {"type": "bool", "default": false},
+        "debug": {"type": "bool", "default": false},
+        "shared": {"type": "bool", "default": true}
+      },
+      "dependencies": [
+        {"name": "mpi", "version_range": null, "condition": null},
+        {"name": "blas", "version_range": null, "condition": null},
+        {"name": "lapack", "version_range": null, "condition": null},
+        {"name": "hdf5", "version_range": null, "condition": "~complex", "required_variants": {"mpi": true}},
+        {"name": "boost", "version_range": null, "condition": "+debug"}
+      ],
+      "conflicts": [
+        {
+          "version_range": ":3.18.0",
+          "variants": {"complex": true},
+          "message": "Complex number support requires PETSc >= 3.19.0"
+        }
+      ],
+      "provides": []
+    },
+    "numpy": {
+      "versions": ["1.22.0", "1.23.0", "1.24.0", "1.25.0", "1.26.0"],
+      "variants": {
+        "blas": {"type": "bool", "default": true}
+      },
+      "dependencies": [
+        {"name": "python", "version_range": "3.9.0:", "condition": null},
+        {"name": "blas", "version_range": null, "condition": "+blas"}
+      ],
+      "conflicts": [],
+      "provides": []
+    },
+    "scipy": {
+      "versions": ["1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0"],
+      "variants": {},
+      "dependencies": [
+        {"name": "python", "version_range": "3.9.0:", "condition": null},
+        {"name": "numpy", "version_range": "1.22.0:", "condition": null},
+        {"name": "numpy", "version_range": "1.24.0:", "condition": "@1.12.0:"},
+        {"name": "blas", "version_range": null, "condition": null},
+        {"name": "lapack", "version_range": null, "condition": null}
+      ],
+      "conflicts": [],
+      "provides": []
+    }
+  }
+}

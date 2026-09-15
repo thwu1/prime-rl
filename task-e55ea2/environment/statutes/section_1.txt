@@ -1,0 +1,46 @@
+SECTION 1 — TAX RATE SCHEDULES
+
+Tax shall be computed by applying the following rate schedules to the
+taxpayer's taxable income. Each bracket applies its rate only to the portion
+of income within that bracket. The final tax shall be truncated to a whole
+dollar amount (round down).
+
+(a) Single:
+    If taxable income is:               The tax is:
+    Not over $11,600                     10% of taxable income
+    Over $11,600 but not over $47,150    $1,160 + 12% of the excess over $11,600
+    Over $47,150 but not over $100,525   $5,426 + 22% of the excess over $47,150
+    Over $100,525 but not over $191,950  $17,168.50 + 24% of the excess over $100,525
+    Over $191,950 but not over $243,725  $39,110.50 + 32% of the excess over $191,950
+    Over $243,725 but not over $609,350  $55,678.50 + 35% of the excess over $243,725
+    Over $609,350                        $183,647.25 + 37% of the excess over $609,350
+
+(b) Married Filing Jointly and Qualifying Surviving Spouse:
+    If taxable income is:               The tax is:
+    Not over $23,200                     10% of taxable income
+    Over $23,200 but not over $94,300    $2,320 + 12% of the excess over $23,200
+    Over $94,300 but not over $201,050   $10,852 + 22% of the excess over $94,300
+    Over $201,050 but not over $383,900  $34,337 + 24% of the excess over $201,050
+    Over $383,900 but not over $487,450  $78,221 + 32% of the excess over $383,900
+    Over $487,450 but not over $731,200  $111,357 + 35% of the excess over $487,450
+    Over $731,200                        $196,669.50 + 37% of the excess over $731,200
+
+(c) Head of Household:
+    If taxable income is:               The tax is:
+    Not over $16,550                     10% of taxable income
+    Over $16,550 but not over $63,100    $1,655 + 12% of the excess over $16,550
+    Over $63,100 but not over $100,500   $7,241 + 22% of the excess over $63,100
+    Over $100,500 but not over $191,950  $15,469 + 24% of the excess over $100,500
+    Over $191,950 but not over $243,700  $37,417 + 32% of the excess over $191,950
+    Over $243,700 but not over $609,350  $53,977 + 35% of the excess over $243,700
+    Over $609,350                        $181,954.50 + 37% of the excess over $609,350
+
+(d) Married Filing Separately:
+    If taxable income is:               The tax is:
+    Not over $11,600                     10% of taxable income
+    Over $11,600 but not over $47,150    $1,160 + 12% of the excess over $11,600
+    Over $47,150 but not over $100,525   $5,426 + 22% of the excess over $100,525
+    Over $100,525 but not over $191,950  $17,168.50 + 24% of the excess over $100,525
+    Over $191,950 but not over $243,725  $39,110.50 + 32% of the excess over $191,950
+    Over $243,725 but not over $365,600  $55,678.50 + 35% of the excess over $243,725
+    Over $365,600                        $98,334.75 + 37% of the excess over $365,600

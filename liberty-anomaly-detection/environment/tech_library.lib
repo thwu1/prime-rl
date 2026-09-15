@@ -1,0 +1,673 @@
+/* Liberty Timing Library: compact_45nm */
+/* Standard cell characterization for 45nm CMOS technology */
+/* Nom conditions: 1.1V, 25C, TT corner */
+
+library(compact_45nm) {
+  technology(cmos);
+  delay_model : table_lookup;
+
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1,pf);
+  leakage_power_unit : "1nW";
+  pulling_resistance_unit : "1kohm";
+
+  nom_process : 1.0;
+  nom_voltage : 1.1;
+  nom_temperature : 25.0;
+
+  default_input_pin_cap : 0.01;
+  default_output_pin_cap : 0.0;
+  default_inout_pin_cap : 0.01;
+  default_max_transition : 0.2;
+
+  lu_table_template(delay_3x3) {
+    variable_1 : input_net_transition;
+    variable_2 : total_output_net_capacitance;
+    index_1("0.006, 0.03, 0.09");
+    index_2("0.003, 0.015, 0.045");
+  }
+
+  lu_table_template(constraint_3x3) {
+    variable_1 : related_pin_transition;
+    variable_2 : constrained_pin_transition;
+    index_1("0.006, 0.03, 0.09");
+    index_2("0.006, 0.03, 0.09");
+  }
+
+  /* ================================================================ */
+  /*  INV_X1 — Minimum-drive inverter                                 */
+  /*  ANOMALY: input capacitance on pin A is ~100x too large          */
+  /* ================================================================ */
+  cell(INV_X1) {
+    area : 1.064;
+    cell_leakage_power : 18.22;
+    pin(A) {
+      direction : input;
+      capacitance : 1.478;
+      fall_capacitance : 1.450;
+      rise_capacitance : 1.506;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(!A)";
+      max_capacitance : 0.06;
+      timing() {
+        related_pin : "A";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.011, 0.024, 0.050", \
+                 "0.017, 0.030, 0.056", \
+                 "0.026, 0.040, 0.068");
+        }
+        cell_fall(delay_3x3) {
+          values("0.009, 0.020, 0.042", \
+                 "0.014, 0.026, 0.048", \
+                 "0.022, 0.034, 0.058");
+        }
+        rise_transition(delay_3x3) {
+          values("0.007, 0.017, 0.040", \
+                 "0.011, 0.021, 0.044", \
+                 "0.017, 0.028, 0.052");
+        }
+        fall_transition(delay_3x3) {
+          values("0.005, 0.014, 0.034", \
+                 "0.009, 0.018, 0.038", \
+                 "0.015, 0.024, 0.046");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  INV_X2 — 2x-drive inverter (CLEAN — no anomalies)              */
+  /* ================================================================ */
+  cell(INV_X2) {
+    area : 1.596;
+    cell_leakage_power : 25.04;
+    pin(A) {
+      direction : input;
+      capacitance : 0.0198;
+      fall_capacitance : 0.0190;
+      rise_capacitance : 0.0206;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(!A)";
+      max_capacitance : 0.09;
+      timing() {
+        related_pin : "A";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.009, 0.019, 0.042", \
+                 "0.014, 0.025, 0.048", \
+                 "0.022, 0.034, 0.060");
+        }
+        cell_fall(delay_3x3) {
+          values("0.008, 0.017, 0.038", \
+                 "0.012, 0.022, 0.044", \
+                 "0.019, 0.030, 0.054");
+        }
+        rise_transition(delay_3x3) {
+          values("0.006, 0.014, 0.035", \
+                 "0.009, 0.018, 0.039", \
+                 "0.015, 0.024, 0.047");
+        }
+        fall_transition(delay_3x3) {
+          values("0.004, 0.012, 0.030", \
+                 "0.007, 0.015, 0.034", \
+                 "0.013, 0.021, 0.042");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  BUF_X4 — 4x-drive buffer                                       */
+  /*  ANOMALY: non-monotonic cell_rise in row 2 (cap dimension)       */
+  /* ================================================================ */
+  cell(BUF_X4) {
+    area : 3.192;
+    cell_leakage_power : 42.15;
+    pin(A) {
+      direction : input;
+      capacitance : 0.0312;
+    }
+    pin(Z) {
+      direction : output;
+      function : "A";
+      max_capacitance : 0.12;
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(delay_3x3) {
+          values("0.018, 0.033, 0.068", \
+                 "0.032, 0.029, 0.078", \
+                 "0.042, 0.058, 0.098");
+        }
+        cell_fall(delay_3x3) {
+          values("0.015, 0.028, 0.058", \
+                 "0.025, 0.040, 0.070", \
+                 "0.038, 0.052, 0.088");
+        }
+        rise_transition(delay_3x3) {
+          values("0.009, 0.020, 0.048", \
+                 "0.014, 0.026, 0.054", \
+                 "0.022, 0.035, 0.065");
+        }
+        fall_transition(delay_3x3) {
+          values("0.007, 0.018, 0.042", \
+                 "0.012, 0.023, 0.050", \
+                 "0.019, 0.031, 0.060");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  BUF_X1 — minimum-drive buffer (CLEAN — no anomalies)           */
+  /* ================================================================ */
+  cell(BUF_X1) {
+    area : 1.596;
+    cell_leakage_power : 15.80;
+    pin(A) {
+      direction : input;
+      capacitance : 0.0098;
+    }
+    pin(Z) {
+      direction : output;
+      function : "A";
+      max_capacitance : 0.05;
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(delay_3x3) {
+          values("0.020, 0.038, 0.078", \
+                 "0.028, 0.048, 0.088", \
+                 "0.040, 0.060, 0.104");
+        }
+        cell_fall(delay_3x3) {
+          values("0.017, 0.033, 0.068", \
+                 "0.024, 0.042, 0.078", \
+                 "0.035, 0.054, 0.094");
+        }
+        rise_transition(delay_3x3) {
+          values("0.011, 0.024, 0.055", \
+                 "0.016, 0.030, 0.062", \
+                 "0.024, 0.039, 0.072");
+        }
+        fall_transition(delay_3x3) {
+          values("0.009, 0.021, 0.048", \
+                 "0.013, 0.026, 0.055", \
+                 "0.020, 0.034, 0.066");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  AND2_X2 — 2x-drive 2-input AND                                 */
+  /*  ANOMALY: missing timing arc from A2 to ZN                      */
+  /* ================================================================ */
+  cell(AND2_X2) {
+    area : 2.660;
+    cell_leakage_power : 31.89;
+    pin(A1) {
+      direction : input;
+      capacitance : 0.0178;
+    }
+    pin(A2) {
+      direction : input;
+      capacitance : 0.0182;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(A1 & A2)";
+      max_capacitance : 0.08;
+      timing() {
+        related_pin : "A1";
+        timing_sense : positive_unate;
+        cell_rise(delay_3x3) {
+          values("0.022, 0.038, 0.072", \
+                 "0.030, 0.048, 0.082", \
+                 "0.042, 0.060, 0.098");
+        }
+        cell_fall(delay_3x3) {
+          values("0.018, 0.032, 0.064", \
+                 "0.026, 0.042, 0.074", \
+                 "0.038, 0.054, 0.090");
+        }
+        rise_transition(delay_3x3) {
+          values("0.010, 0.022, 0.050", \
+                 "0.015, 0.028, 0.056", \
+                 "0.023, 0.036, 0.066");
+        }
+        fall_transition(delay_3x3) {
+          values("0.008, 0.019, 0.044", \
+                 "0.013, 0.024, 0.050", \
+                 "0.020, 0.032, 0.062");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  NAND2_X1 — minimum-drive 2-input NAND                          */
+  /*  ANOMALY: negative value in cell_fall table (A1->ZN arc)        */
+  /* ================================================================ */
+  cell(NAND2_X1) {
+    area : 1.596;
+    cell_leakage_power : 20.14;
+    pin(A1) {
+      direction : input;
+      capacitance : 0.0124;
+    }
+    pin(A2) {
+      direction : input;
+      capacitance : 0.0128;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(!(A1 & A2))";
+      max_capacitance : 0.07;
+      timing() {
+        related_pin : "A1";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.014, 0.028, 0.058", \
+                 "0.021, 0.036, 0.066", \
+                 "0.032, 0.048, 0.080");
+        }
+        cell_fall(delay_3x3) {
+          values("-0.003, 0.022, 0.046", \
+                 "0.016, 0.028, 0.054", \
+                 "0.024, 0.038, 0.066");
+        }
+        rise_transition(delay_3x3) {
+          values("0.008, 0.019, 0.043", \
+                 "0.013, 0.024, 0.048", \
+                 "0.020, 0.032, 0.058");
+        }
+        fall_transition(delay_3x3) {
+          values("0.006, 0.016, 0.038", \
+                 "0.010, 0.021, 0.043", \
+                 "0.017, 0.028, 0.054");
+        }
+      }
+      timing() {
+        related_pin : "A2";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.015, 0.029, 0.060", \
+                 "0.022, 0.037, 0.068", \
+                 "0.033, 0.049, 0.082");
+        }
+        cell_fall(delay_3x3) {
+          values("0.012, 0.024, 0.048", \
+                 "0.018, 0.030, 0.056", \
+                 "0.026, 0.040, 0.068");
+        }
+        rise_transition(delay_3x3) {
+          values("0.009, 0.020, 0.044", \
+                 "0.014, 0.025, 0.050", \
+                 "0.021, 0.033, 0.060");
+        }
+        fall_transition(delay_3x3) {
+          values("0.007, 0.017, 0.040", \
+                 "0.011, 0.022, 0.045", \
+                 "0.018, 0.029, 0.056");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  NOR2_X1 — minimum-drive 2-input NOR                            */
+  /*  ANOMALY: negative cell_leakage_power                           */
+  /* ================================================================ */
+  cell(NOR2_X1) {
+    area : 1.596;
+    cell_leakage_power : -24.80;
+    pin(A1) {
+      direction : input;
+      capacitance : 0.0126;
+    }
+    pin(A2) {
+      direction : input;
+      capacitance : 0.0130;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(!(A1 | A2))";
+      max_capacitance : 0.06;
+      timing() {
+        related_pin : "A1";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.015, 0.029, 0.060", \
+                 "0.022, 0.037, 0.068", \
+                 "0.033, 0.049, 0.082");
+        }
+        cell_fall(delay_3x3) {
+          values("0.011, 0.023, 0.048", \
+                 "0.017, 0.030, 0.055", \
+                 "0.026, 0.039, 0.067");
+        }
+        rise_transition(delay_3x3) {
+          values("0.009, 0.020, 0.045", \
+                 "0.014, 0.025, 0.051", \
+                 "0.021, 0.033, 0.062");
+        }
+        fall_transition(delay_3x3) {
+          values("0.007, 0.017, 0.039", \
+                 "0.011, 0.022, 0.045", \
+                 "0.018, 0.029, 0.055");
+        }
+      }
+      timing() {
+        related_pin : "A2";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.016, 0.030, 0.062", \
+                 "0.023, 0.038, 0.070", \
+                 "0.034, 0.050, 0.084");
+        }
+        cell_fall(delay_3x3) {
+          values("0.012, 0.024, 0.050", \
+                 "0.018, 0.031, 0.057", \
+                 "0.027, 0.040, 0.069");
+        }
+        rise_transition(delay_3x3) {
+          values("0.010, 0.021, 0.047", \
+                 "0.015, 0.026, 0.053", \
+                 "0.022, 0.034, 0.064");
+        }
+        fall_transition(delay_3x3) {
+          values("0.008, 0.018, 0.041", \
+                 "0.012, 0.023, 0.047", \
+                 "0.019, 0.030, 0.057");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  OR2_X1 — minimum-drive 2-input OR                              */
+  /*  ANOMALY: cell area is 0.000                                    */
+  /* ================================================================ */
+  cell(OR2_X1) {
+    area : 0.000;
+    cell_leakage_power : 22.45;
+    pin(A1) {
+      direction : input;
+      capacitance : 0.0134;
+    }
+    pin(A2) {
+      direction : input;
+      capacitance : 0.0138;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(A1 | A2)";
+      max_capacitance : 0.06;
+      timing() {
+        related_pin : "A1";
+        timing_sense : positive_unate;
+        cell_rise(delay_3x3) {
+          values("0.016, 0.030, 0.062", \
+                 "0.024, 0.040, 0.072", \
+                 "0.036, 0.052, 0.088");
+        }
+        cell_fall(delay_3x3) {
+          values("0.013, 0.025, 0.054", \
+                 "0.020, 0.034, 0.064", \
+                 "0.031, 0.046, 0.078");
+        }
+        rise_transition(delay_3x3) {
+          values("0.009, 0.020, 0.046", \
+                 "0.014, 0.025, 0.052", \
+                 "0.022, 0.034, 0.064");
+        }
+        fall_transition(delay_3x3) {
+          values("0.007, 0.017, 0.040", \
+                 "0.012, 0.022, 0.046", \
+                 "0.019, 0.030, 0.058");
+        }
+      }
+      timing() {
+        related_pin : "A2";
+        timing_sense : positive_unate;
+        cell_rise(delay_3x3) {
+          values("0.017, 0.031, 0.064", \
+                 "0.025, 0.041, 0.074", \
+                 "0.037, 0.053, 0.090");
+        }
+        cell_fall(delay_3x3) {
+          values("0.014, 0.026, 0.056", \
+                 "0.021, 0.035, 0.066", \
+                 "0.032, 0.047, 0.080");
+        }
+        rise_transition(delay_3x3) {
+          values("0.010, 0.021, 0.048", \
+                 "0.015, 0.026, 0.054", \
+                 "0.023, 0.035, 0.066");
+        }
+        fall_transition(delay_3x3) {
+          values("0.008, 0.018, 0.042", \
+                 "0.013, 0.023, 0.048", \
+                 "0.020, 0.031, 0.060");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  DFF_X1 — minimum-drive D flip-flop                             */
+  /*  ANOMALY: hold_rising constraint exceeds setup_rising            */
+  /* ================================================================ */
+  cell(DFF_X1) {
+    area : 6.384;
+    cell_leakage_power : 85.30;
+    ff(IQ, IQN) {
+      clocked_on : "CK";
+      next_state : "D";
+    }
+    pin(CK) {
+      direction : input;
+      capacitance : 0.0245;
+      clock : true;
+      min_pulse_width_low : 0.08;
+      min_pulse_width_high : 0.08;
+    }
+    pin(D) {
+      direction : input;
+      capacitance : 0.0118;
+      timing() {
+        related_pin : "CK";
+        timing_type : setup_rising;
+        rise_constraint(constraint_3x3) {
+          values("0.120, 0.110, 0.090", \
+                 "0.130, 0.120, 0.100", \
+                 "0.150, 0.140, 0.120");
+        }
+        fall_constraint(constraint_3x3) {
+          values("0.100, 0.090, 0.070", \
+                 "0.110, 0.100, 0.080", \
+                 "0.130, 0.120, 0.100");
+        }
+      }
+      timing() {
+        related_pin : "CK";
+        timing_type : hold_rising;
+        rise_constraint(constraint_3x3) {
+          values("0.550, 0.560, 0.580", \
+                 "0.540, 0.550, 0.570", \
+                 "0.520, 0.530, 0.550");
+        }
+        fall_constraint(constraint_3x3) {
+          values("0.530, 0.540, 0.560", \
+                 "0.520, 0.530, 0.550", \
+                 "0.500, 0.510, 0.530");
+        }
+      }
+    }
+    pin(Q) {
+      direction : output;
+      function : "IQ";
+      max_capacitance : 0.08;
+      timing() {
+        related_pin : "CK";
+        timing_type : rising_edge;
+        timing_sense : non_unate;
+        cell_rise(delay_3x3) {
+          values("0.045, 0.062, 0.100", \
+                 "0.052, 0.070, 0.108", \
+                 "0.064, 0.082, 0.122");
+        }
+        cell_fall(delay_3x3) {
+          values("0.040, 0.055, 0.090", \
+                 "0.048, 0.064, 0.098", \
+                 "0.058, 0.076, 0.112");
+        }
+        rise_transition(delay_3x3) {
+          values("0.012, 0.025, 0.055", \
+                 "0.016, 0.030, 0.060", \
+                 "0.024, 0.038, 0.070");
+        }
+        fall_transition(delay_3x3) {
+          values("0.010, 0.022, 0.050", \
+                 "0.014, 0.026, 0.056", \
+                 "0.021, 0.034, 0.065");
+        }
+      }
+    }
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+      max_capacitance : 0.08;
+      timing() {
+        related_pin : "CK";
+        timing_type : rising_edge;
+        timing_sense : non_unate;
+        cell_rise(delay_3x3) {
+          values("0.048, 0.065, 0.103", \
+                 "0.055, 0.073, 0.111", \
+                 "0.067, 0.085, 0.125");
+        }
+        cell_fall(delay_3x3) {
+          values("0.043, 0.058, 0.093", \
+                 "0.051, 0.067, 0.101", \
+                 "0.061, 0.079, 0.115");
+        }
+        rise_transition(delay_3x3) {
+          values("0.013, 0.026, 0.056", \
+                 "0.017, 0.031, 0.061", \
+                 "0.025, 0.039, 0.071");
+        }
+        fall_transition(delay_3x3) {
+          values("0.011, 0.023, 0.051", \
+                 "0.015, 0.027, 0.057", \
+                 "0.022, 0.035, 0.066");
+        }
+      }
+    }
+  }
+
+  /* ================================================================ */
+  /*  NAND3_X1 — minimum-drive 3-input NAND (CLEAN — no anomalies)  */
+  /* ================================================================ */
+  cell(NAND3_X1) {
+    area : 2.128;
+    cell_leakage_power : 28.40;
+    pin(A1) {
+      direction : input;
+      capacitance : 0.0110;
+    }
+    pin(A2) {
+      direction : input;
+      capacitance : 0.0114;
+    }
+    pin(A3) {
+      direction : input;
+      capacitance : 0.0118;
+    }
+    pin(ZN) {
+      direction : output;
+      function : "(!(A1 & A2 & A3))";
+      max_capacitance : 0.06;
+      timing() {
+        related_pin : "A1";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.018, 0.034, 0.068", \
+                 "0.026, 0.043, 0.078", \
+                 "0.038, 0.056, 0.094");
+        }
+        cell_fall(delay_3x3) {
+          values("0.012, 0.024, 0.050", \
+                 "0.018, 0.031, 0.057", \
+                 "0.027, 0.040, 0.069");
+        }
+        rise_transition(delay_3x3) {
+          values("0.010, 0.022, 0.050", \
+                 "0.015, 0.028, 0.056", \
+                 "0.023, 0.036, 0.068");
+        }
+        fall_transition(delay_3x3) {
+          values("0.008, 0.018, 0.042", \
+                 "0.012, 0.023, 0.048", \
+                 "0.019, 0.031, 0.060");
+        }
+      }
+      timing() {
+        related_pin : "A2";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.019, 0.035, 0.070", \
+                 "0.027, 0.044, 0.080", \
+                 "0.039, 0.057, 0.096");
+        }
+        cell_fall(delay_3x3) {
+          values("0.013, 0.025, 0.052", \
+                 "0.019, 0.032, 0.059", \
+                 "0.028, 0.041, 0.071");
+        }
+        rise_transition(delay_3x3) {
+          values("0.011, 0.023, 0.052", \
+                 "0.016, 0.029, 0.058", \
+                 "0.024, 0.037, 0.070");
+        }
+        fall_transition(delay_3x3) {
+          values("0.009, 0.019, 0.044", \
+                 "0.013, 0.024, 0.050", \
+                 "0.020, 0.032, 0.062");
+        }
+      }
+      timing() {
+        related_pin : "A3";
+        timing_sense : negative_unate;
+        cell_rise(delay_3x3) {
+          values("0.020, 0.036, 0.072", \
+                 "0.028, 0.045, 0.082", \
+                 "0.040, 0.058, 0.098");
+        }
+        cell_fall(delay_3x3) {
+          values("0.014, 0.026, 0.054", \
+                 "0.020, 0.033, 0.061", \
+                 "0.029, 0.042, 0.073");
+        }
+        rise_transition(delay_3x3) {
+          values("0.012, 0.024, 0.054", \
+                 "0.017, 0.030, 0.060", \
+                 "0.025, 0.038, 0.072");
+        }
+        fall_transition(delay_3x3) {
+          values("0.010, 0.020, 0.046", \
+                 "0.014, 0.025, 0.052", \
+                 "0.021, 0.033, 0.064");
+        }
+      }
+    }
+  }
+}

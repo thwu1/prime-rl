@@ -1,0 +1,17 @@
+{
+  "name": "loop_program",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 0},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 1},
+    "3": {"type": "Iop", "op": "const", "args": [], "dest": "r3", "succ": 4, "imm": 5},
+    "4": {"type": "Icond", "cond": "eq", "args": ["r1", "r3"], "ifso": 7, "ifnot": 5},
+    "5": {"type": "Iop", "op": "add", "args": ["r1", "r2"], "dest": "r1", "succ": 6},
+    "6": {"type": "Inop", "succ": 4},
+    "7": {"type": "Inop", "succ": 8},
+    "8": {"type": "Inop", "succ": 9},
+    "9": {"type": "Iop", "op": "const", "args": [], "dest": "r5", "succ": 10, "imm": 999},
+    "10": {"type": "Ireturn", "arg": "r1"}
+  }
+}

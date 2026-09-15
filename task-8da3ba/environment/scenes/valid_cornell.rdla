@@ -1,0 +1,151 @@
+-- OpenMoonRay RDLA Scene: Cornell Box with Glass and Metal
+-- Based on the classic Cornell Box rendering test
+
+SceneVariables {
+    ["image_width"] = 512,
+    ["image_height"] = 512,
+    ["pixel_samples"] = 64,
+    ["max_depth"] = 8,
+    ["light_sampling_mode"] = 2,
+    ["russianRoulette_threshold"] = 0.0375,
+    ["texture_cache_size"] = 4096
+}
+
+PerspectiveCamera("/scene/camera") {
+    ["node_xform"] = translate(278, 273, -800),
+    ["focal"] = 35.0,
+    ["film_width_aperture"] = 25.0,
+    ["mb_shutter_open"] = -0.25,
+    ["mb_shutter_close"] = 0.25
+}
+
+-- Wall materials
+DwaBaseMaterial("/scene/surfacing/white_wall") {
+    ["albedo"] = Rgb(0.73, 0.73, 0.73),
+    ["roughness"] = 0.8,
+    ["specular"] = 0.04
+}
+
+DwaBaseMaterial("/scene/surfacing/red_wall") {
+    ["albedo"] = Rgb(0.63, 0.065, 0.05),
+    ["roughness"] = 0.8,
+    ["specular"] = 0.04
+}
+
+DwaBaseMaterial("/scene/surfacing/green_wall") {
+    ["albedo"] = Rgb(0.14, 0.45, 0.091),
+    ["roughness"] = 0.8,
+    ["specular"] = 0.04
+}
+
+-- Glass sphere material with checkerboard pattern
+DwaSolidDielectricMaterial("/scene/surfacing/glass_sphere") {
+    ["ior"] = 1.5,
+    ["roughness"] = 0.0,
+    ["absorptionColor"] = Rgb(0.95, 0.95, 1.0),
+    ["albedo"] = bind(CheckerboardMap("/scene/maps/glass_checker"))
+}
+
+CheckerboardMap("/scene/maps/glass_checker") {
+    ["color_a"] = Rgb(1.0, 1.0, 1.0),
+    ["color_b"] = Rgb(0.9, 0.9, 0.95),
+    ["frequency"] = Vec2(8.0, 8.0)
+}
+
+-- Metal box material
+DwaMetalMaterial("/scene/surfacing/metal_box") {
+    ["albedo"] = Rgb(0.91, 0.92, 0.92),
+    ["roughness"] = 0.15,
+    ["eta"] = Rgb(1.657, 0.880, 0.521),
+    ["k"] = Rgb(9.22, 6.27, 4.84)
+}
+
+-- Geometry
+RdlMeshGeometry("/scene/geometry/floor") {
+    ["node_xform"] = translate(0, 0, 0),
+    ["vertices"] = {Vec3(0,0,0), Vec3(555,0,0), Vec3(555,0,555), Vec3(0,0,555)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+RdlMeshGeometry("/scene/geometry/ceiling") {
+    ["node_xform"] = translate(0, 548.8, 0),
+    ["vertices"] = {Vec3(0,0,0), Vec3(555,0,0), Vec3(555,0,555), Vec3(0,0,555)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+SphereGeometry("/scene/geometry/glass_ball") {
+    ["node_xform"] = translate(186, 82.5, 169),
+    ["radius"] = 82.5
+}
+
+BoxGeometry("/scene/geometry/tall_box") {
+    ["node_xform"] = translate(368, 165, 351) * rotate(0, -18, 0),
+    ["length"] = 165.0,
+    ["width"] = 165.0,
+    ["height"] = 330.0
+}
+
+RdlMeshGeometry("/scene/geometry/left_wall") {
+    ["node_xform"] = translate(555, 0, 0),
+    ["vertices"] = {Vec3(0,0,0), Vec3(0,548.8,0), Vec3(0,548.8,555), Vec3(0,0,555)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+RdlMeshGeometry("/scene/geometry/right_wall") {
+    ["node_xform"] = translate(0, 0, 0),
+    ["vertices"] = {Vec3(0,0,0), Vec3(0,548.8,0), Vec3(0,548.8,555), Vec3(0,0,555)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+RdlMeshGeometry("/scene/geometry/back_wall") {
+    ["node_xform"] = translate(0, 0, 555),
+    ["vertices"] = {Vec3(0,0,0), Vec3(555,0,0), Vec3(555,548.8,0), Vec3(0,548.8,0)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+-- Lights
+RectLight("/scene/lights/ceiling_light") {
+    ["node_xform"] = translate(278, 548.0, 279.5),
+    ["width"] = 130.0,
+    ["height"] = 105.0,
+    ["intensity"] = 15.6,
+    ["color"] = Rgb(1.0, 0.93, 0.78),
+    ["spread"] = 1.0
+}
+
+-- Scene organization
+LightSet("/scene/light_set") {
+    ["lights"] = {RectLight("/scene/lights/ceiling_light")}
+}
+
+GeometrySet("/scene/geo_set") {
+    ["geometries"] = {
+        RdlMeshGeometry("/scene/geometry/floor"),
+        RdlMeshGeometry("/scene/geometry/ceiling"),
+        SphereGeometry("/scene/geometry/glass_ball"),
+        BoxGeometry("/scene/geometry/tall_box"),
+        RdlMeshGeometry("/scene/geometry/left_wall"),
+        RdlMeshGeometry("/scene/geometry/right_wall"),
+        RdlMeshGeometry("/scene/geometry/back_wall")
+    }
+}
+
+-- Render setup
+Layer("/scene/render_layer") {
+    {GeometrySet("/scene/geo_set"), "", DwaBaseMaterial("/scene/surfacing/white_wall"), LightSet("/scene/light_set")},
+    {RdlMeshGeometry("/scene/geometry/left_wall"), "", DwaBaseMaterial("/scene/surfacing/red_wall"), LightSet("/scene/light_set")},
+    {RdlMeshGeometry("/scene/geometry/right_wall"), "", DwaBaseMaterial("/scene/surfacing/green_wall"), LightSet("/scene/light_set")},
+    {SphereGeometry("/scene/geometry/glass_ball"), "", DwaSolidDielectricMaterial("/scene/surfacing/glass_sphere"), LightSet("/scene/light_set")},
+    {BoxGeometry("/scene/geometry/tall_box"), "", DwaMetalMaterial("/scene/surfacing/metal_box"), LightSet("/scene/light_set")}
+}
+
+RenderOutput("/scene/output/beauty") {
+    ["file_name"] = "scene.exr",
+    ["result"] = "beauty",
+    ["camera"] = PerspectiveCamera("/scene/camera")
+}

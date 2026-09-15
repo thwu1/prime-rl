@@ -1,0 +1,14 @@
+env:
+  UNICORN_WORKERS: 2
+  DISCOURSE_HOSTNAME: "discourse.example.com"
+  DISCOURSE_DEVELOPER_EMAILS: "admin@example.com"
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - mkdir -p plugins
+
+expose:
+  - "80:80"

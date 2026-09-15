@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  IoT gateway system inspired by LionsOS/sDDF and seL4 Summit 2025 talks.
+  Complex topology with isolated ota_updater, watchdog broadcasting status,
+  and asymmetric flow propagation through data processing pipeline.
+-->
+<system>
+    <memory_region name="eth_rx_buf" size="0x10000" />
+    <memory_region name="eth_tx_buf" size="0x10000" />
+    <memory_region name="ip_to_mqtt" size="0x10000" />
+    <memory_region name="mqtt_to_ip" size="0x10000" />
+    <memory_region name="sensor_data" size="0x8000" />
+    <memory_region name="processed_data" size="0x10000" />
+    <memory_region name="store_response" size="0x8000" />
+    <memory_region name="ota_image" size="0x100000" />
+    <memory_region name="watchdog_status" size="0x1000" />
+
+    <protection_domain name="eth_driver" priority="200">
+        <program_image path="eth_driver.elf" />
+        <map mr="eth_rx_buf" vaddr="0x10000000" perms="rw" />
+        <map mr="eth_tx_buf" vaddr="0x10010000" perms="r" />
+        <map mr="watchdog_status" vaddr="0x10020000" perms="r" />
+        <irq irq="10" id="1" />
+    </protection_domain>
+
+    <protection_domain name="ip_stack" priority="180">
+        <program_image path="ip_stack.elf" />
+        <map mr="eth_rx_buf" vaddr="0x10000000" perms="r" />
+        <map mr="eth_tx_buf" vaddr="0x10010000" perms="rw" />
+        <map mr="ip_to_mqtt" vaddr="0x10020000" perms="rw" />
+        <map mr="mqtt_to_ip" vaddr="0x10030000" perms="r" />
+        <map mr="watchdog_status" vaddr="0x10040000" perms="r" />
+    </protection_domain>
+
+    <protection_domain name="mqtt_broker" priority="150">
+        <program_image path="mqtt_broker.elf" />
+        <map mr="ip_to_mqtt" vaddr="0x10000000" perms="r" />
+        <map mr="mqtt_to_ip" vaddr="0x10010000" perms="rw" />
+        <map mr="processed_data" vaddr="0x10020000" perms="r" />
+        <map mr="watchdog_status" vaddr="0x10030000" perms="r" />
+    </protection_domain>
+
+    <protection_domain name="sensor_collector" priority="120">
+        <program_image path="sensor_collector.elf" />
+        <map mr="sensor_data" vaddr="0x10000000" perms="rw" />
+    </protection_domain>
+
+    <protection_domain name="data_processor" priority="140">
+        <program_image path="data_processor.elf" />
+        <map mr="sensor_data" vaddr="0x10000000" perms="r" />
+        <map mr="processed_data" vaddr="0x10010000" perms="rw" />
+        <map mr="store_response" vaddr="0x10020000" perms="r" />
+    </protection_domain>
+
+    <protection_domain name="secure_store" priority="160">
+        <program_image path="secure_store.elf" />
+        <map mr="processed_data" vaddr="0x10000000" perms="r" />
+        <map mr="store_response" vaddr="0x10010000" perms="rw" />
+    </protection_domain>
+
+    <protection_domain name="ota_updater" priority="100">
+        <program_image path="ota_updater.elf" />
+        <map mr="ota_image" vaddr="0x10000000" perms="rw" />
+    </protection_domain>
+
+    <protection_domain name="watchdog" priority="250">
+        <program_image path="watchdog.elf" />
+        <map mr="watchdog_status" vaddr="0x10000000" perms="rw" />
+        <irq irq="11" id="1" />
+    </protection_domain>
+
+    <channel>
+        <end pd="eth_driver" id="2" />
+        <end pd="ip_stack" id="2" />
+    </channel>
+
+    <channel>
+        <end pd="ip_stack" id="3" />
+        <end pd="mqtt_broker" id="3" />
+    </channel>
+
+    <channel>
+        <end pd="sensor_collector" id="4" />
+        <end pd="data_processor" id="4" />
+    </channel>
+
+    <channel>
+        <end pd="data_processor" id="5" />
+        <end pd="secure_store" id="5" />
+    </channel>
+
+    <channel>
+        <end pd="watchdog" id="6" />
+        <end pd="eth_driver" id="6" />
+    </channel>
+</system>

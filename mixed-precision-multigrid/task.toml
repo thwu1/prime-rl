@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must: (1) navigate a CMake-based C project, build it from source, and run it to generate sparse matrix files in Matrix Market format; (2) read and parse Matrix Market files in Python; (3) diagnose why unpreconditioned CG fails on the system (condition number ~5100 makes bare CG far too slow for 50 iterations); (4) independently discover and implement an effective acceleration strategy — such as a multigrid preconditioner — from scratch using only standard numerical libraries; (5) derive the exact PDE solution from the forcing function in the C source code; (6) produce a convergence plot as a PNG image. This requires graduate-level numerical analysis knowledge (spectral properties of discrete Laplacians, preconditioner design), multi-tool proficiency (cmake/make, C code comprehension, Matrix Market I/O, Python scientific computing, plotting tools), and significant implementation effort."""
+solution_explanation = """Builds the C matrix generator with cmake, runs it to produce A.mtx and b.mtx. Then implements a 6-level geometric multigrid hierarchy (63->31->15->7->3->1) for the 2D Poisson equation with bilinear prolongation, full-weighting restriction, Galerkin coarse operators, and weighted Jacobi smoothing. Uses mixed precision (float64 finest, float32 coarser). The V-cycle serves as a preconditioner for PCG which converges in ~6-10 iterations. Produces convergence plot with matplotlib."""
+verification_explanation = """Tests independently construct the 2D Laplacian and RHS in Python, then verify: (1) A.mtx and b.mtx exist (matrix generator was built and run); (2) solution.npy has correct shape (3969,) and dtype float64; (3) algebraic residual ||Au-b||/||b|| < 1e-8; (4) discretization error ||u-u_exact||_inf < 1e-2; (5) results.json has all required fields and reports convergence within 50 iterations; (6) convergence.png exists and is a valid PNG file."""
+category = "scientific_computing"
+tags = ["iterative-solvers", "build-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mixed-precision-multigrid"

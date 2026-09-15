@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning universal algebra, SMT solving, and graph/lattice theory. The agent must: (1) parse infix equation strings into evaluable ASTs and enumerate all n^(n^2) magma tables for n=1,2,3; (2) use an SMT solver (e.g. Z3) to search for order-4 counterexamples since 4^16 ≈ 4.3 billion tables makes brute-force infeasible — this requires encoding operation tables as constrained integer variables, equation satisfaction as ground universally-quantified constraints, and violation as an existentially-quantified disjunction; (3) compute operation duality by recursively transforming ASTs and matching equations up to variable renaming (requires understanding the algebraic concept of dual operations and implementing bijection search over variable permutations); (4) generate Graphviz DOT files and render SVG using the dot layout engine; (5) compute lattice-theoretic properties (width via maximum antichain, height via longest chain, maximal/minimal elements, connected components) of the implication poset. Multi-tool interoperability (Z3 + Graphviz + Python) and holistic algebraic understanding are essential."""
+solution_explanation = """Install z3-solver. Parse equations via recursive descent. Enumerate order 1-3 magmas to compute spectrum, joint spectrum, and initial implications. For each implication holding at order ≤3, use Z3 to search for an order-4 counterexample by encoding the magma table as 16 integer variables with domain constraints, the source equation as ground constraints (n^k conjuncts per k-variable equation), and the target equation's negation as a disjunction. Crucially, E5 (conjugation involution) implies E1, E3, E4 at order ≤3 but NOT at order 4 — the Z3 step discovers these counterexamples, reducing E5's implications to only {E5, E9}. Compute duality by swapping children of every binary-op node in each equation's AST, then testing all variable bijections against each other equation. Generate DOT digraph and render with `dot -Tsvg`. Compute lattice properties from the Hasse diagram: width by enumerating maximal antichains, height by longest path in the DAG, maximal/minimal elements by checking edge incidence, connected components by BFS on the undirected graph."""
+verification_explanation = """Tests check spectrum counts, implication lists, joint spectrum entries, and Hasse edges against hardcoded reference values computed via independent exhaustive enumeration and Z3 verification. The key mathematical subtlety is that E5 does NOT imply E1/E3/E4 at order 4 (counterexamples exist), so the implication graph has only two non-trivial edges (E2→E8, E5→E9). Counterexamples are validated by hardcoded equation-checker functions. Duality is verified against precomputed dual_id and self_dual values. The DOT file is parsed for correct digraph structure, node presence, and exactly 2 edges. The SVG file is checked for existence and valid XML/SVG structure. Lattice properties (width=8, height=1, maximal=8, minimal=8, components=8) are verified exactly."""
+category = "computational_algebra"
+tags = ["universal_algebra", "smt_solving"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3a9863"

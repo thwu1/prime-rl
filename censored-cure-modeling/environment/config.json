@@ -1,0 +1,31 @@
+{
+  "data_file": "/app/data/conversions.csv",
+  "km_time_points": [7, 14, 30, 60, 90, 180],
+  "extrapolation_time": 365,
+  "output_file": "/app/results.json",
+  "output_schema": {
+    "groups": {
+      "<group_name>": {
+        "kaplan_meier": {
+          "time_points": [7, 14, 30, 60, 90, 180],
+          "conversion_rates": "list of 6 floats: estimated cumulative conversion rate at each time point"
+        },
+        "weibull": {
+          "c": "float: asymptotic conversion rate",
+          "lambda": "float: rate parameter",
+          "p": "float: shape parameter",
+          "aic": "float: Akaike Information Criterion"
+        },
+        "generalized_gamma": {
+          "c": "float: asymptotic conversion rate",
+          "lambda": "float: rate parameter",
+          "p": "float: shape parameter",
+          "k": "float: gamma shape parameter",
+          "aic": "float: Akaike Information Criterion"
+        },
+        "best_model": "string: 'weibull' or 'generalized_gamma' (lower AIC wins)",
+        "predicted_conversion_365": "float: predicted conversion rate at t=365 using best model"
+      }
+    }
+  }
+}

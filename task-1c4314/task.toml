@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of binary protocol analysis, cryptographic identity verification, relay architecture reasoning, and security policy enforcement. The agent must: (1) parse a custom two-layer binary format (DPCAP envelope wrapping DERP frames) with no reference parser, (2) reconstruct per-connection protocol state machines to determine handshake completeness and identity binding, (3) understand the DERP mesh peer privilege model to distinguish authorized from unauthorized operations, (4) implement first-match ACL policy evaluation against observed traffic flows, (5) cross-reference multiple configuration sources (topology, ACL, PEM certificate) against captured traffic to detect five distinct categories of security anomalies. The anomaly type names are given but their detection semantics must be derived holistically from the protocol specification, topology configuration, and relay architecture — there are no explicit detection rules provided."""
+solution_explanation = """Parse the 8-byte DPCAP magic, iterate records (2B conn_id + 1B direction + DERP frame). Build conn-to-key map from FrameClientInfo. Load all frames into SQLite. Use openssl to extract the raw 32-byte Ed25519 key from PEM DER encoding (skip 12-byte SubjectPublicKeyInfo header) and compare against FrameServerKey payloads (after the 8-byte DERP magic prefix). Identify mesh peers via topology.json key matching. Detect anomalies: duplicate keys across connections (split_brain), SendPacket from keyless connections (handshake_violation), mesh-only frames from non-mesh connections (unauthorized_mesh_op), first-match ACL policy evaluation (acl_violation), and ForwardPacket source keys absent from all ClientInfo frames (phantom_peer). Compute routing statistics and compliance ratios."""
+verification_explanation = """Deterministic capture with known seeds produces 51 frames across 6 connections with exactly 6 embedded anomalies. Tests verify SQLite schema compliance, table row counts, specific anomaly frame indices, frame type distribution, routing byte totals, ACL compliance ratio, and server key fingerprint (derived from the PEM at test time via openssl, accommodating per-build key generation)."""
+category = "networking"
+tags = ["protocol-forensics", "binary-parsing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1c4314"

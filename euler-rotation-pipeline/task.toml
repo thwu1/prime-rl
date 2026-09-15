@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing defects in a legacy rotation library (wrong axis convention, incomplete sequence support, incorrect angular velocity formula, unstable quaternion conversion), then building a correct multi-language implementation: a C99 shared library for numerically critical rotation operations (compose/decompose all 12 Euler/Cardan sequences, stable matrix-to-quaternion), Python FFI integration via ctypes with correct ABI marshalling, continuity correction through gimbal lock singularities, world-frame angular velocity extraction, numerically stable quaternion and helical angle interconversion, and batch motion-capture processing with SQLite persistence. The coupled nature of rotation representations means errors propagate across C/Python boundaries and representation conversions, demanding deep understanding of 3D rotation mathematics, C ABI, and multi-tool integration."""
+solution_explanation = """The solver must explore the legacy code to identify multiple bugs: rot_y uses aerospace sign convention instead of right-hand, only 3 of 12 decomposition sequences are implemented, angular velocity uses R*dR^T instead of dR*R^T and forward-only differences, and quaternion conversion fails near 180 degrees due to sign ambiguity in the sqrt fallback. The correct solution writes a C library implementing generic Euler angle composition via elementary rotation matrices, systematic atan2-based decomposition using permutation parity for sign selection across all 12 sequences, and Shepperd's method for stable matrix-to-quaternion. The Python CLI loads this via ctypes with proper c_double array marshalling, implements continuity correction using alternate Cardan/Euler solutions, extracts world-frame omega from the skew-symmetric part of dR*R^T with central differences, and writes batch results to SQLite with the specified schema."""
+verification_explanation = """Tests verify: C library existence and exported symbols via ctypes.CDLL; CLI dependency on the C library by removing the .so; compose/decompose round-trips for all 12 sequences within 1e-10; near-gimbal-lock stability; continuity correction through singularity passages; constant-rate angular velocity accuracy; quaternion/helical/euler cross-conversion consistency; near-180-degree numerical stability; direct C function calls matching expected values; batch processing correctness; and SQLite schema compliance with data consistency against JSON output. All tests are deterministic."""
+category = "applied_mathematics"
+tags = ["biomechanics", "rotation-matrices"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-rotation-pipeline"

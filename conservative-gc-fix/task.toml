@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of garbage collection internals. The solver must diagnose five interacting bugs across ~350 lines of C without guidance on which lines are buggy: (1) conservative pointer scanning that misses interior pointers, (2) an off-by-one in object content scanning that skips the last word, (3) incorrect collection phase ordering that causes finalizers to see freed memory, (4) a disappearing-link stub that never nulls links, and (5) finalization that ignores topological ordering and cycle detection. Implementing topological finalization with Kahn's algorithm plus SCC-based cycle detection is the hardest single fix. The bugs interact: fixing phase ordering alone doesn't help without also fixing the finalizer logic, and the scan-range bug masks the interior-pointer bug in certain layouts."""
+solution_explanation = """Five fixes in gc.c: (1) find_block checks ptr >= obj_start && ptr < obj_start+size for interior pointer support. (2) drain_mark_stack uses scan_range(obj, obj+sz) instead of obj+sz-sizeof(void*). (3) gc_collect reorders to: mark → dlinks → finalize → sweep → call_fins. (4) process_dlinks reads *link, finds the target block, and nulls the link if unmarked. (5) enqueue_and_mark_finalizers collects unreachable finalizable objects, builds an adjacency matrix of pointer dependencies, runs Kahn's topological sort to order non-cyclic objects for finalization and detect cycles, marks finalizable objects (and their reachable graphs) so they survive sweep, then queues finalizer calls for after sweep. Cyclic objects are marked but not finalized (they leak, matching bdwgc semantics)."""
+verification_explanation = """Six pytest tests compile separate C test programs against the fixed GC: (1) basic allocation/collection, (2) interior pointer survival, (3) last-field scan coverage, (4) combined finalizer test (data validity + topological order + cycle detection), (5) disappearing link nullification, (6) multi-round stress test with mixed finalizers and allocations."""
+category = "systems_programming"
+tags = ["garbage-collection", "memory-management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/conservative-gc-fix"

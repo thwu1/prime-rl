@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Oracle DBA knowledge to triage a performance-degraded database from diagnostic data distributed across three distinct formats: (1) a SQLite database containing normalized V$ view snapshots requiring complex multi-table SQL, (2) a raw Oracle alert log text file requiring regex/text parsing to extract ORA error counts and correlate with database metrics, and (3) CSV advisory exports containing multi-snapshot/multi-pool data requiring filtering and knee-of-curve analysis. The solver must additionally produce a gnuplot-generated SVG visualization of the buffer cache advisory curve with annotated operating points, validate JSON output with jq, and navigate unfamiliar tools (gnuplot scripting, miller/csvkit for CSV analysis). The analytical challenge includes: computing Oracle-specific ratios from normalized tables, distinguishing root causes from cascading symptoms, performing constrained memory optimization within an SGA budget, and identifying problematic SQL from relational plan data. Red herrings include idle wait events, non-04031 ORA errors (deadlocks, snapshot-too-old), well-performing SQL, and advisory data for irrelevant buffer pools (KEEP, RECYCLE)."""
+solution_explanation = """Query SQLite for sysstat, system_event, and librarycache metrics across two snapshots. Parse the raw alert log with regex to count exactly 5 ORA-04031 errors. Read and filter db_cache_advice.csv (snap_id=2, name=DEFAULT only, ignoring KEEP/RECYCLE pools and snap_id=1 data) to find optimal buffer cache via diminishing-returns knee-of-curve analysis (valid range 384-640MB, factor 0.30-0.55). Read and filter pga_target_advice.csv (snap_id=2) to find minimum PGA target of 240MB where overallocation drops to zero. Generate a gnuplot SVG chart of the cache advisory curve with annotated operating points. Identify problematic SQL by joining sql_plan_operations for full table scans on large tables and Cartesian joins. Set cursor_sharing to FORCE based on hard parse ratio surge (0.08 to 0.454). Verify total SGA fits within 1.5GB budget. Validate all JSON output with jq."""
+verification_explanation = """22 tests validate: root_cause_analysis.json structure and severity ordering, critical cause relates to hard parsing, memory issues identified; jq validates both JSON files; db_cache_size in 384-640MB range, pga_aggregate_target >= 240MB, cursor_sharing FORCE, shared_pool increased, SGA within budget, cache improvement factor 0.30-0.55, ORA-04031 count exactly 5 (from alert log parsing), both problematic SQL IDs identified; cache_advisory.svg exists as valid SVG with graphical elements and advisory labels; tuning_actions.sql contains required ALTER SYSTEM commands."""
+category = "database"
+tags = ["oracle-performance-tuning", "multi-format-diagnostics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-269463"

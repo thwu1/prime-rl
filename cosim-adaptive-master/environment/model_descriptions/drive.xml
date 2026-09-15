@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+-->
+<fmiModelDescription
+  fmiVersion="2.0"
+  modelName="DriveSubsystem"
+  guid="{a1b2c3d4-0003-4000-8000-000000000003}"
+  description="DC permanent magnet motor with ideal gear and load inertia">
+  <CoSimulation modelIdentifier="DriveSubsystem" canGetAndSetFMUstate="true"/>
+  <ModelVariables>
+    <ScalarVariable name="V" valueReference="1" causality="input" variability="continuous"
+      description="Armature voltage [V]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="LoadTorque_Nm" valueReference="2" causality="input" variability="continuous"
+      description="External load torque on load side [N*m]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="w" valueReference="3" causality="output" variability="continuous"
+      description="Load-side angular velocity [rad/s]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+  </ModelVariables>
+  <ModelStructure>
+    <Outputs>
+      <Unknown index="3"/>
+    </Outputs>
+  </ModelStructure>
+</fmiModelDescription>

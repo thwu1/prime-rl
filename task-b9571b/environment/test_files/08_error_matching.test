@@ -1,0 +1,23 @@
+# Error message substring matching
+
+# Error without message check - any error accepted
+statement error
+SELECT * FROM this_table_does_not_exist_xyz
+
+# Error with substring check
+statement error
+DROP TABLE another_nonexistent_table_abc
+----
+does not exist
+
+# Type conversion error
+statement error
+SELECT CAST('not_a_number' AS INTEGER)
+----
+Could not convert
+
+# Ambiguous column reference
+statement error
+SELECT * FROM (SELECT 1 AS a) t1, (SELECT 1 AS a) t2 WHERE a = 1
+----
+Ambiguous

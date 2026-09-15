@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language debugging of a C/Python thermodynamics toolkit. The solver must diagnose and fix a broken Makefile (missing compiler/linker flags), a C shared library bug (incorrect mole-scaling in the pressure equation), and three interacting Python bugs (wrong alpha-function coefficients, inverted binary interaction parameter sign in mixing rules, missing term in fugacity coefficient derivation). After fixing, the solver must implement a second EOS model (SRK), residual Helmholtz energy, thermodynamic departure functions, and TOML parameter parsing — all requiring deep understanding of both computational thermodynamics and C/Python FFI toolchains."""
+solution_explanation = """Fix Makefile: add -fPIC to CFLAGS and -lm to the linker command. Fix C eos_pressure: change n*a_mix to n*n*a_mix. Fix Python kappa: replace SRK coefficients (0.480, 1.574, 0.176) with PR coefficients (0.37464, 1.54226, 0.26992). Fix mixing rule: change (1+kij) to (1-kij). Fix fugacity: add the missing -bi/b term to the log multiplier, making it (2*sum_aij/a - bi/b). Refactor into a base _CubicEOS class with PR and SRK subclasses differing in constants and kappa. Implement a_res using the general formula with delta parameters. Departure functions via standard thermodynamic derivatives. TOML parsing uses Python 3.11+ tomllib."""
+verification_explanation = """Tests directly verify the C library via ctypes (existence, symbol exports, ideal gas pressure, n-squared scaling). Independent Python oracle implementations of a_res and pressure for both PR and SRK use hardcoded correct constants and mixing rules. PR a_res tests catch the alpha and kij bugs. The multimole pressure test catches the C n-squared bug. Volume roundtrip, flash material-balance/fugacity-equality, bubble/dew ordering, fugacity-Gibbs consistency, and departure-function thermodynamic identities provide structural verification. load_params tests verify TOML parsing."""
+category = "computational_thermodynamics"
+tags = ["equation-of-state", "c-python-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/peng-robinson-flash-d0330f"

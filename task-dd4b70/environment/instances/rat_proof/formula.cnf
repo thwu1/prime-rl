@@ -1,0 +1,11 @@
+c All 8 possible 3-literal clauses on 3 variables
+c UNSATISFIABLE (every assignment falsifies exactly one clause)
+p cnf 3 8
+1 2 3 0
+1 2 -3 0
+1 -2 3 0
+1 -2 -3 0
+-1 2 3 0
+-1 2 -3 0
+-1 -2 3 0
+-1 -2 -3 0

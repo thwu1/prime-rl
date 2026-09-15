@@ -1,0 +1,145 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "eventDate": "2024-06-01",
+  "instruction": [{
+    "primitiveInstruction": {
+      "execution": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "priceQuantity": [{"quantity": [{"value": 200000000.0, "unit": {"currency": {"@data": "USD"}}}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+        ],
+        "parties": [
+          {"@key:external": "cmpPartyA", "partyId": [{"identifier": {"@data": "LEI-CMP001"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank A"}},
+          {"@key:external": "cmpPartyB", "partyId": [{"identifier": {"@data": "LEI-CMP002"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank B"}}
+        ],
+        "executionDetails": {"executionType": "Electronic"},
+        "tradeDate": "2024-06-01",
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-NEW-001"}}], "identifierType": "UniqueTransactionIdentifier"}]
+      }
+    }
+  }, {
+    "primitiveInstruction": {
+      "quantityChange": {
+        "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}],
+        "direction": "Replace"
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 100000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-OLD-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2023-01-15"},
+        "party": [
+          {"@key:external": "cmpPartyA", "partyId": [{"identifier": {"@data": "LEI-CMP001"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank A"}},
+          {"@key:external": "cmpPartyB", "partyId": [{"identifier": {"@data": "LEI-CMP002"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank B"}}
+        ]
+      }
+    }
+  }, {
+    "primitiveInstruction": {
+      "quantityChange": {
+        "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}],
+        "direction": "Replace"
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "dayCountFraction": {"@data": "ACT/360"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 100000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-OLD-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2023-06-15"},
+        "party": [
+          {"@key:external": "cmpPartyA", "partyId": [{"identifier": {"@data": "LEI-CMP001"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank A"}},
+          {"@key:external": "cmpPartyB", "partyId": [{"identifier": {"@data": "LEI-CMP002"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank B"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 200000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-NEW-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-06-01"},
+      "party": [
+        {"@key:external": "cmpPartyA", "partyId": [{"identifier": {"@data": "LEI-CMP001"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank A"}},
+        {"@key:external": "cmpPartyB", "partyId": [{"identifier": {"@data": "LEI-CMP002"}, "identifierType": "LEI"}], "name": {"@data": "Compress Bank B"}}
+      ]
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-OLD-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2023-01-15"}
+    },
+    "state": {"closedState": {"state": "Terminated"}, "positionState": "Closed"}
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "cmpPartyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "cmpPartyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CMP001"}, "assignedIdentifier": [{"identifier": {"@data": "CMP-OLD-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2023-06-15"}
+    },
+    "state": {"closedState": {"state": "Terminated"}, "positionState": "Closed"}
+  }]
+}

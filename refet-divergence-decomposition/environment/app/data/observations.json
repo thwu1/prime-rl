@@ -1,0 +1,33 @@
+{
+  "station_id": "fallon_nv",
+  "year": 2015,
+  "daily_obs": {
+    "doy": 182,
+    "date": "2015-07-01",
+    "variables": {
+      "tmin": {"value": 66.65, "unit": "fahrenheit"},
+      "tmax": {"value": 102.80, "unit": "fahrenheit"},
+      "tdew": {"value": 49.84, "unit": "fahrenheit"},
+      "ea": {"value": 1.2206674169951346, "unit": "kPa"},
+      "rs": {"value": 674.07, "unit": "langley"},
+      "wind": {"value": 4.80, "unit": "mph"}
+    }
+  },
+  "hourly_obs": {
+    "doy": 182,
+    "time_utc": 18.0,
+    "note": "18:00 UTC = 11:00 AM PDT",
+    "variables": {
+      "tmean": {"value": 91.80, "unit": "fahrenheit"},
+      "ea": {"value": 1.1990099614301906, "unit": "kPa"},
+      "rs": {"value": 61.16, "unit": "langley"},
+      "wind": {"value": 3.33, "unit": "mph"}
+    }
+  },
+  "unit_conversions": {
+    "fahrenheit_to_celsius": "(F - 32) * 5 / 9",
+    "langley_to_mj_m2": "Ly * 0.041868",
+    "mph_to_m_s": "mph * 0.44704",
+    "degrees_to_radians": "deg * pi / 180"
+  }
+}

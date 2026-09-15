@@ -1,0 +1,81 @@
+# SecureCorp Intermediate CA - OpenSSL Configuration
+
+####################################################################
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = /wrong/path/intermediate-ca
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+private_key       = $dir/private/intermediate-ca.key
+certificate       = $dir/certs/intermediate-ca.crt
+
+crl               = $dir/crl/intermediate-ca.crl
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+default_md        = sha384
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 730
+preserve          = no
+policy            = policy_loose
+copy_extensions   = copy
+
+####################################################################
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+####################################################################
+[ req ]
+default_bits        = 4096
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+default_md          = sha384
+prompt              = no
+
+[ req_distinguished_name ]
+countryName                     = US
+stateOrProvinceName             = California
+localityName                    = San Francisco
+organizationName                = SecureCorp
+organizationalUnitName          = Infrastructure
+commonName                      = SecureCorp Intermediate CA
+emailAddress                    = intermediate-ca@securecorp.lab
+
+####################################################################
+[ v3_intermediate_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:TRUE, pathlen:0
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+[ usr_cert ]
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, emailProtection
+
+[ server_cert ]
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = emailProtection
+
+[ crl_ext ]
+authorityKeyIdentifier = keyid:always

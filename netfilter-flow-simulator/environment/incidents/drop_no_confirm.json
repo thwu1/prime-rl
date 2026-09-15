@@ -1,0 +1,10 @@
+{
+  "conntrack_max": 3,
+  "rules": {
+    "raw_PREROUTING": [],
+    "mangle_PREROUTING": [],
+    "filter_INPUT": [
+      {"match": {"proto": "tcp", "dst_port": 80}, "action": "DROP"}
+    ]
+  }
+}

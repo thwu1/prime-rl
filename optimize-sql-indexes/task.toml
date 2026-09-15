@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of PostgreSQL B-tree index internals: access vs filter predicates, covering indexes (Index Only Scan), partial indexes, seek-method pagination with row value comparisons, date obfuscation anti-patterns, and concatenated index column ordering. The 8-index budget forces holistic optimization across 6 queries on 4 tables — the solver must design multi-purpose indexes, identify redundant ones, and make non-obvious tradeoffs between read/write performance. Combines diagnosis (EXPLAIN ANALYZE) with synthesis (index design) and evaluation (tradeoff judgment)."""
+solution_explanation = """Drop 3 redundant indexes; create 5 targeted indexes: (1) employees(subsidiary_id, last_name, first_name) INCLUDE columns for Q1+Q4, (2) sales(sale_date) INCLUDE columns for Q2, (3) sales(subsidiary_id, employee_id, eur_value) for Q3 covering + Q4 join, (4) sales(sale_date DESC, sale_id DESC) INCLUDE columns for Q5 seek method, (5) messages(receiver, created_at) WHERE processed='N' partial index for Q6. Rewrite Q1 to move INTERVAL arithmetic off the column, Q2 to replace EXTRACT with range conditions, Q5 to use row-value seek method."""
+verification_explanation = """Tests apply migration.sql, VACUUM ANALYZE, then verify via EXPLAIN JSON that each optimized query avoids Seq Scan on its primary table (Q3 specifically requires Index Only Scan). Result correctness is verified by comparing optimized query output against the original queries. Q5 is checked for no OFFSET keyword, presence of row-value comparison pattern, and correct seek-method behavior via independent cursor computation. Partial index existence is verified for Q6. Total non-PK index count is verified <= 8."""
+category = "database"
+tags = ["postgresql", "query-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-sql-indexes"

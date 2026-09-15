@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple data storage systems, ML optimization theory, and statistical testing methodology — with no algorithmic guidance provided. The integrity_rules table describes WHAT anomalies to detect but deliberately omits HOW, requiring the agent to bring deep domain knowledge. Specifically: (1) For HDF5-based curve_authenticity, the agent must discover and jointly analyze both loss trajectories AND gradient norm diagnostics stored in nested HDF5 groups. The fabricated experiment has realistic-looking loss noise (added post-hoc to a synthetic curve) so standard autocorrelation analysis produces normal results — the fraud is only detectable through gradient norm analysis, requiring understanding that constant gradient norms are physically impossible under stochastic gradient descent where the loss landscape curvature and mini-batch sampling produce inherent gradient magnitude variation. (2) For Parquet distribution_conformance, the agent must independently determine an appropriate nonparametric two-sample test and significance threshold by exploring the DuckDB reference database and matching by dataset/model_class/modality. (3) For text-log progression_plausibility, the agent must understand catastrophic forgetting dynamics in continual learning to recognize that extreme accuracy jumps between sequential task evaluations violate physical constraints of shared-representation neural networks. (4) Multi-run text logs require seed-delimited run segmentation to extract the correct (complete) run. (5) The DuckDB reference database contains multiple model classes requiring correct SQL filtering. The pipeline orchestration across SQLite, DuckDB, HDF5 (h5py), Parquet (pyarrow), regex-heavy text logs, and JSONL demands proficient multi-tool integration."""
+solution_explanation = """The solution queries SQLite for claimed results, metadata, and integrity rules. For each experiment directory, it detects artifact format by file extension. HDF5 files are read via h5py to extract loss curves, gradient norms, and per-task accuracy arrays. Curve authenticity is assessed through two complementary signals: lag-1 autocorrelation of loss first-differences (catches smooth fabrication) and coefficient of variation of gradient norms (catches post-hoc noise addition on fabricated curves where gradient norms remain constant). The gradient norm CV check is the critical signal for exp-005 whose loss curve has added noise making autocorrelation appear normal. Parquet files are parsed via pyarrow to compute per-modality recall@1, then per-sample score distributions are compared against DuckDB reference distributions using scipy's two-sample KS test. Text logs are parsed with regex and seed-delimited run segmentation; consecutive total-accuracy values are checked for implausible jumps. All experiments are checked for metric mismatches and .patch/.diff files."""
+verification_explanation = """Tests run the audit tool via subprocess and verify: report structure (all 8 experiments with required fields), summary counts (4 PASS, 4 SUSPICIOUS), correct metric extraction from each format within tolerance, correct verdict and violation type for each fraudulent experiment (curve_authenticity for HDF5 with constant gradient norms, distribution_conformance for anomalous Parquet, progression_plausibility for text log jumps, artifact_integrity for patch files), and absence of false positives on clean experiments."""
+category = "data_science"
+tags = ["forensic-analysis", "ml-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/experiment-audit-pipeline"

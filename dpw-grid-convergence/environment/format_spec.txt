@@ -1,0 +1,70 @@
+# DPW-8 Force & Moment Submission Format Specification
+# ==================================================
+
+## Overview
+
+DPW-8/AePW-4 collects CFD data in Tecplot-readable ASCII format. This document
+describes the key elements of the force and moment submission format.
+
+## File Structure
+
+1. **Comment lines**: Begin with '#'. May appear anywhere in the file.
+2. **TITLE**: A quoted string identifying the dataset (typically participant ID).
+3. **VARIABLES**: A space-separated list of quoted column names (31 columns).
+4. **DATASETAUXDATA**: Key-value metadata pairs for the dataset.
+5. **ZONE**: Data zones, each with a title and optional AUXDATA.
+6. **Data rows**: Whitespace-separated numerical values (31 columns per row).
+
+## Column Definitions (31 columns)
+
+Column  Name         Description
+------  -----------  -----------------------------------------
+1       GRID_LEVEL   Grid refinement level (1=coarsest, 6=finest)
+2       GRID_SIZE    Number of grid nodes or cells
+3       GRID_FAC     Grid factor = 1/GRID_SIZE^(2/3)
+4       MACH         Freestream Mach number
+5       REY          Chord-based Reynolds number
+6       ALPHA        Angle of attack (degrees)
+7       CL_TOT       Total lift coefficient
+8       CD_TOT       Total drag coefficient
+9       CM_TOT       Total pitching moment coefficient (positive nose-up)
+10      CL_WING      Wing lift coefficient
+11      CD_WING      Wing drag coefficient
+12      CM_WING      Wing pitching moment coefficient
+13      CD_PR        Pressure drag coefficient
+14      CD_SF        Skin-friction drag coefficient
+15-26   Component forces (tail, fuselage, nacelle, pylon)
+27      CPU_Hours    CPU/GPU hours used
+28      DELTAT       Time step per iteration
+29      CTUSTART     Convective time unit at start of averaging
+30      CTUAVG       Number of CTUs in averaging phase
+31      Q/E          Dynamic pressure / modulus of elasticity
+
+## Missing Data Convention
+
+Use -999 for any optional data that is not available.
+
+## Zone Naming Convention
+
+Zone titles follow the pattern:
+  "PPP.SS CONFIG ALPHA A.AA"     -- Grid convergence: varying grid level at fixed alpha
+  "PPP.SS CONFIG GRID LEVEL L"   -- Alpha polar: varying alpha at fixed grid level
+
+Where:
+  PPP.SS = Participant ID (three digits + two-digit submission ID)
+  CONFIG = Configuration identifier (CRMWB, CRMWBNP, etc.)
+  A.AA   = Angle of attack
+  L      = Grid level number
+
+## Configurations
+
+  CRMWB   = Common Research Model Wing/Body
+  CRMWBNP = Common Research Model Wing/Body/Nacelle/Pylon
+
+## Reference Values (CRM)
+
+  Planform ref area, A   = 594720.00 inches^2
+  Mean aero chord, Cref  =    275.80 inches
+  Semi-span, BO2         =   1156.75 inches
+  Moment center          = (1325.90, 0.00, 177.95) inches
+  Aspect Ratio, AR       =      9.00

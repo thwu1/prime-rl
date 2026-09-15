@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert incident forensics across multiple artifact types. The solver must: (1) perform git archaeology to trace three independent bug-introducing commits — a schema visibility change that silently doubled feature counts, a query parameter refactor that broke filter semantics, and a safety-net removal that converted graceful degradation into a crash; (2) decompress rotated logs and correlate timestamps across pipeline, API, and crash logs to reconstruct the cascade timeline; (3) conduct SQLite forensic analysis of post-incident database state to plan data restoration including service binding reconstruction; (4) discover and implement the post-incident review's remediation spec for a safety validation module with precise threshold semantics, boundary conditions, and structured logging; (5) integrate the safety module into the existing pipeline architecture; (6) verify end-to-end pipeline operation. Requires holistic understanding of how database schema changes, HTTP parameter parsing semantics, and error handling philosophy interact in a production configuration pipeline."""
+solution_explanation = """Fix 1: Add AND schema_name='default' to SQL in api_server.py. Fix 2: Change pending_delete from truthiness check to presence check using 'pending_delete' in request.args. Fix 3: Replace RuntimeError crash with deduplication+truncation in config_loader.py. Restore DB: UPDATE prefixes SET advertised=1 WHERE pending_delete=0, INSERT service_bindings for each non-pending prefix. Create circuit_breaker.py with validate_cleanup_batch (10% threshold, zero-division guard, empty-batch pass) and validate_feature_count (strict limit, 80% warning). Integrate into cleanup_task.py and run_pipeline.py. Compressed logs at pipeline.log.1.gz and crash_report.log.gz must be decompressed to reconstruct the incident timeline."""
+verification_explanation = """29 tests across 6 categories: (1) Feature query returns <=150 features from default schema only with no duplicates; (2) ?pending_delete correctly filters to pending-only prefixes; (3) config loader handles oversized and duplicate configs gracefully without crashing; (4) database restoration — 45 non-pending prefixes re-advertised, service bindings exist with correct types and valid JSON config; (5) circuit breaker unit tests covering batch size thresholds, feature count limits, warning zones, boundary conditions, and edge cases; (6) end-to-end pipeline completes, preserves non-pending prefixes, withdraws pending ones, and populates circuit breaker log."""
+category = "incident-response"
+tags = ["cascading-failure", "forensic-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f286a9"

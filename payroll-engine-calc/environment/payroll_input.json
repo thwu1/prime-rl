@@ -1,0 +1,170 @@
+{
+  "tax_config": {
+    "fica": {
+      "ss_rate": 0.062,
+      "ss_wage_base": 176100,
+      "medicare_rate": 0.0145,
+      "additional_medicare_rate": 0.009,
+      "additional_medicare_threshold": 200000
+    },
+    "federal_supplemental_flat_rate": 0.22,
+    "fit_percentage_method": {
+      "biweekly": {
+        "single": {
+          "standard_deduction_per_period": 576.92,
+          "brackets": [
+            {"min": 0, "max": 458.65, "base_tax": 0.00, "rate": 0.10, "over": 0},
+            {"min": 458.65, "max": 1864.42, "base_tax": 45.87, "rate": 0.12, "over": 458.65},
+            {"min": 1864.42, "max": 3975.00, "base_tax": 214.56, "rate": 0.22, "over": 1864.42},
+            {"min": 3975.00, "max": 7588.46, "base_tax": 678.89, "rate": 0.24, "over": 3975.00},
+            {"min": 7588.46, "max": 9635.58, "base_tax": 1546.12, "rate": 0.32, "over": 7588.46},
+            {"min": 9635.58, "max": 24090.38, "base_tax": 2201.19, "rate": 0.35, "over": 9635.58},
+            {"min": 24090.38, "max": null, "base_tax": 7260.37, "rate": 0.37, "over": 24090.38}
+          ]
+        },
+        "married_filing_jointly": {
+          "standard_deduction_per_period": 1153.85,
+          "brackets": [
+            {"min": 0, "max": 917.31, "base_tax": 0.00, "rate": 0.10, "over": 0},
+            {"min": 917.31, "max": 3728.85, "base_tax": 91.73, "rate": 0.12, "over": 917.31},
+            {"min": 3728.85, "max": 7950.00, "base_tax": 429.11, "rate": 0.22, "over": 3728.85},
+            {"min": 7950.00, "max": 15176.92, "base_tax": 1357.76, "rate": 0.24, "over": 7950.00},
+            {"min": 15176.92, "max": 19271.15, "base_tax": 3092.22, "rate": 0.32, "over": 15176.92},
+            {"min": 19271.15, "max": 28953.85, "base_tax": 4402.37, "rate": 0.35, "over": 19271.15},
+            {"min": 28953.85, "max": null, "base_tax": 7791.32, "rate": 0.37, "over": 28953.85}
+          ]
+        }
+      }
+    },
+    "group_term_life_table": [
+      {"min_age": 0, "max_age": 24, "cost_per_1000": 0.05},
+      {"min_age": 25, "max_age": 29, "cost_per_1000": 0.06},
+      {"min_age": 30, "max_age": 34, "cost_per_1000": 0.08},
+      {"min_age": 35, "max_age": 39, "cost_per_1000": 0.09},
+      {"min_age": 40, "max_age": 44, "cost_per_1000": 0.10},
+      {"min_age": 45, "max_age": 49, "cost_per_1000": 0.15},
+      {"min_age": 50, "max_age": 54, "cost_per_1000": 0.23},
+      {"min_age": 55, "max_age": 59, "cost_per_1000": 0.43},
+      {"min_age": 60, "max_age": 64, "cost_per_1000": 0.66},
+      {"min_age": 65, "max_age": 69, "cost_per_1000": 1.27},
+      {"min_age": 70, "max_age": 999, "cost_per_1000": 2.06}
+    ],
+    "state_taxes": {
+      "CO": {"rate": 0.044},
+      "PA": {"rate": 0.0307},
+      "IL": {"rate": 0.0495}
+    },
+    "overtime": {
+      "multiplier": 1.5,
+      "weekly_threshold_hours": 40
+    },
+    "pay_periods": {
+      "biweekly": 26
+    }
+  },
+  "scenarios": [
+    {
+      "id": "chen_regular",
+      "type": "regular",
+      "employee": {
+        "filing_status": "single",
+        "age": 61,
+        "state": "CO",
+        "pay_frequency": "biweekly"
+      },
+      "compensation": {
+        "annual_salary": 195000
+      },
+      "ytd_fica_wages": 173500,
+      "deductions": {
+        "traditional_401k_pct": 0.06,
+        "section_125_health": 300.00
+      },
+      "group_term_life": {
+        "coverage_amount": 200000,
+        "employee_monthly_contribution": 10.00
+      }
+    },
+    {
+      "id": "martinez_bonus",
+      "type": "bonus_aggregate",
+      "employee": {
+        "filing_status": "single",
+        "state": "PA",
+        "pay_frequency": "biweekly"
+      },
+      "compensation": {
+        "regular_biweekly_gross": 4800.00,
+        "bonus_amount": 4000.00
+      },
+      "ytd_fica_wages": 100000
+    },
+    {
+      "id": "johnson_grossup",
+      "type": "gross_up",
+      "employee": {
+        "state": "IL"
+      },
+      "desired_net": 2500.00,
+      "ytd_fica_wages": 174000
+    },
+    {
+      "id": "patel_retro",
+      "type": "retro_pay",
+      "employee": {
+        "state": "PA"
+      },
+      "old_hourly_rate": 24.00,
+      "new_hourly_rate": 27.00,
+      "weeks": [
+        {"hours_worked": 46},
+        {"hours_worked": 40},
+        {"hours_worked": 44}
+      ],
+      "ytd_fica_wages": 45000
+    },
+    {
+      "id": "kim_medicare",
+      "type": "regular",
+      "employee": {
+        "filing_status": "married_filing_jointly",
+        "state": "IL",
+        "pay_frequency": "biweekly"
+      },
+      "compensation": {
+        "annual_salary": 220000
+      },
+      "ytd_fica_wages": 194000,
+      "deductions": {},
+      "group_term_life": null
+    },
+    {
+      "id": "davis_garnishment",
+      "type": "regular_with_garnishment",
+      "employee": {
+        "filing_status": "single",
+        "age": 52,
+        "state": "CO",
+        "pay_frequency": "biweekly"
+      },
+      "compensation": {
+        "annual_salary": 78000
+      },
+      "ytd_fica_wages": 42000,
+      "deductions": {
+        "traditional_401k_pct": 0.04,
+        "section_125_health": 150.00
+      },
+      "group_term_life": {
+        "coverage_amount": 150000,
+        "employee_monthly_contribution": 5.00
+      },
+      "garnishment": {
+        "type": "child_support",
+        "order_amount": 1600.00,
+        "supporting_another": false,
+        "arrears_over_12_weeks": true
+      }
+    }
+  ]
+}

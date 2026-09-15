@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Migration Report",
+  "type": "object",
+  "required": ["source_version", "target_version", "source_nodes", "target_nodes", "changes", "warnings", "errors"],
+  "properties": {
+    "source_version": {
+      "type": "string",
+      "description": "Weaviate version of the source cluster"
+    },
+    "target_version": {
+      "type": "string",
+      "description": "Weaviate version of the target cluster"
+    },
+    "source_nodes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Node names from the source cluster"
+    },
+    "target_nodes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Node names in the target cluster"
+    },
+    "changes": {
+      "type": "array",
+      "description": "Every modification applied to the descriptor for target compatibility",
+      "items": {
+        "type": "object",
+        "required": ["type", "collection"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Category of the change (e.g. vectorizer_change, shard_reassigned, replication_factor_reduced, cache_limit_reduced, owning_node_changed, tenant_reassigned)"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Name of the affected collection"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Data integrity concerns and conditions that require attention after restore",
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Category of warning (e.g. dimension_change, replica_inconsistency, new_replica_needed)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable description of the concern"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "errors": {
+      "type": "array",
+      "description": "Constraints that could not be automatically resolved — entities excluded from the migrated descriptor",
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Category of error (e.g. frozen_tenant_on_removed_node, no_compatible_vectorizer)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable description of the unresolvable constraint"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "operation": "Compute diagonal entries of the matrix inverse A^{-1}",
+  "target_indices_1indexed": [37, 1000, 2000],
+  "result_key_template": "inv_{index}",
+  "example": "For index 37 the result key is inv_37"
+}

@@ -1,0 +1,6 @@
+{
+  "circuit_id": "E",
+  "description": "4-qubit circuit with strong depolarizing noise and fast exponential decay",
+  "scale_factors": [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0],
+  "expectation_values": [0.6505971059561011, 0.5826494441107932, 0.5453589766447062, 0.5248935341839319, 0.5136618612236463, 0.50411487352451, 0.5012393760883331]
+}

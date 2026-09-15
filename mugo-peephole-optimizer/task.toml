@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of x86-64 assembly semantics, stack-machine compilation patterns, and data flow analysis. The agent must study the Mugo compiler's single-pass code generation to identify which push/pop sequences are redundant, implement a peephole optimizer that handles multiple pattern types (adjacent pairs, multi-push/multi-pop chains, look-through optimization across neutral instructions), reason about correctness constraints (labels as optimization barriers, register liveness, stack pointer integrity), and verify the optimizer against multiple test programs with diverse control flow and calling patterns."""
+solution_explanation = """The solution implements a multi-pass peephole optimizer in Python that identifies and eliminates redundant push/pop pairs in three ways: (1) adjacent push/pop pairs where both can be replaced with a single mov or eliminated entirely when source equals destination, (2) multi-push/multi-pop sequences (2-4 pushes followed by 2-4 pops) converted to mov instructions using LIFO stack ordering, and (3) look-through optimization where push/pop pairs separated by stack-neutral instructions (no stack pointer modification, no control flow, no labels) are converted to movs. Multiple passes run until convergence to handle cascading optimization opportunities."""
+verification_explanation = """Tests compile four programs (Fibonacci, factorial, Collatz sequence, GCD) through the Mugo compiler, run the student's optimizer on each generated assembly file, then assemble, link, and execute both original and optimized versions. Verification checks: (1) each optimized program produces output identical to the expected results, (2) each optimized program has strictly fewer instructions than the original, and (3) the total instruction count reduction across all four programs is at least 10 percent."""
+category = "software_and_its_engineering"
+tags = ["compiler-optimization", "x86-assembly"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mugo-peephole-optimizer"

@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+foundation = { path = "crates/foundation" }
+codec = { path = "crates/codec" }
+buildutil = { path = "crates/buildutil" }
+validator = { path = "crates/validator" }
+transform = { path = "crates/transform" }
+serde = { version = "1.0.210" }
+serde_json = { version = "1.0.128" }
+log = { version = "0.4.22" }

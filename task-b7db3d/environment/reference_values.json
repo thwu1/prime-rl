@@ -1,0 +1,73 @@
+{
+    "description": "Reference values for validating the PBR pipeline. Compare against output of generate_lut.py.",
+    "ggx_functions": {
+        "D_GGX": {
+            "formula": "a2 / (pi * f^2), where a2 = alpha^2, f = NoH^2 * (a2 - 1) + 1",
+            "test_cases": [
+                {"NoH": 1.0, "alpha": 0.5, "expected": 1.27324, "note": "Peak: a2/(pi*a2^2) = 1/(pi*a2) = 4/pi"},
+                {"NoH": 0.5, "alpha": 0.5, "expected": 0.12057},
+                {"NoH": 1.0, "alpha": 1.0, "expected": 0.31831, "note": "1/pi"}
+            ]
+        },
+        "V_SmithGGXCorrelated": {
+            "formula": "0.5 / (NoL*sqrt(NoV^2*(1-a2)+a2) + NoV*sqrt(NoL^2*(1-a2)+a2)), exact sqrt form required",
+            "test_cases": [
+                {"NoV": 0.5, "NoL": 0.5, "alpha": 0.5, "expected": 0.75593},
+                {"NoV": 1.0, "NoL": 1.0, "alpha": 0.5, "expected": 0.25000},
+                {"NoV": 0.8, "NoL": 0.6, "alpha": 0.3, "expected": 0.49555}
+            ]
+        },
+        "F_Schlick": {
+            "formula": "f0 + (f90 - f0) * (1 - u)^5, exponent is exactly 5",
+            "test_cases": [
+                {"u": 0.5, "f0": 0.04, "expected": 0.07000},
+                {"u": 0.0, "f0": 0.04, "expected": 1.00000, "note": "Grazing angle"},
+                {"u": 1.0, "f0": 0.04, "expected": 0.04000, "note": "Normal incidence"}
+            ]
+        },
+        "importance_sample_GGX": {
+            "formula": "cos_theta^2 = (1 - xi_y) / (1 + (alpha^2 - 1) * xi_y), uses alpha SQUARED",
+            "test_cases": [
+                {"xi_x": 0.0, "xi_y": 0.5, "alpha": 0.5, "expected_Hz": 0.89443}
+            ]
+        }
+    },
+    "cloth_functions": {
+        "D_Charlie": {
+            "formula": "(2 + 1/roughness) * sin2h^(1/(2*roughness)) / (2*pi), where sin2h = 1 - NoH^2",
+            "test_cases": [
+                {"NoH": 0.8, "roughness": 0.5, "expected": 0.22918},
+                {"NoH": 0.5, "roughness": 0.5, "expected": 0.47746},
+                {"NoH": 1.0, "roughness": 0.5, "expected": 0.0, "note": "Zero at normal incidence"}
+            ]
+        },
+        "V_Neubelt": {
+            "formula": "1 / (4 * (NoL + NoV - NoL*NoV))",
+            "test_cases": [
+                {"NoV": 0.5, "NoL": 0.7, "expected": 0.29412},
+                {"NoV": 0.5, "NoL": 0.5, "expected": 0.33333}
+            ]
+        },
+        "importance_sample_Charlie": {
+            "formula": "sin_theta = xi_y^(roughness / (2*roughness + 1)), Hz = cos_theta = sqrt(1 - sin_theta^2)",
+            "test_cases": [
+                {"xi_x": 0.0, "xi_y": 0.5, "roughness": 0.5, "expected_Hz": 0.54120}
+            ]
+        }
+    },
+    "multiscatter_properties": {
+        "notes": [
+            "DFG_ms.x + DFG_ms.y should be approximately 1.0 for all (NoV, roughness)",
+            "Multi-scatter DFG values should be >= single-scatter DFG values",
+            "E_avg should be in (0, 1) and decrease with increasing roughness",
+            "At very low roughness, E_avg should be close to 1.0"
+        ]
+    },
+    "cloth_dfg_properties": {
+        "notes": [
+            "Cloth DFG returns a single scalar in [0, 1]",
+            "Higher roughness generally gives higher cloth DFG values",
+            "Cloth DFG is generally lower than standard GGX total (DFG.x + DFG.y)"
+        ]
+    }
+}

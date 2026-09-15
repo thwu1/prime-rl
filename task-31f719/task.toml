@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Cargo's feature resolution system, including: (1) implicit feature generation for optional dependencies not referenced via dep: syntax, (2) the distinction between default-features = true/false on dependency declarations and how it affects default feature propagation, (3) weak (?/) conditional dependency semantics with fixed-point resolution, (4) transitive feature propagation within dependency crates' own feature graphs (e.g., enabling socket-tcp on net-stack transitively enables net-stack/alloc). The solver must parse Cargo.toml files or use Cargo tooling to discover the complete feature graph including auto-generated features and dependency sub-features, then implement a multi-query resolver handling five distinct query types including NP-hard minimal set cover."""
+solution_explanation = """Parse all Cargo.toml files with Python's tomllib to extract the complete package graph including implicit features and dependency feature maps. Build a resolver that handles dep:, ?/, /, and bare feature references with correct default-features propagation. Implement worklist-based resolution with fixed-point iteration for weak dependencies and transitive sub-feature resolution within dependency crates. For reverse_deps, resolve each feature individually. For minimal_set, enumerate subsets of increasing size. For feature_diff, compute set differences of resolved sets."""
+verification_explanation = """Tests verify resolve, implicit_features, reverse_deps, and feature_diff queries via exact match against pre-computed expected sorted lists. For minimal_set queries, tests verify both the known optimal cardinality and that resolving the returned features through an independent reference resolver actually produces all required items. The reference resolver in the test is independent of the solution."""
+category = "systems"
+tags = ["cargo-features", "dependency-resolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-31f719"

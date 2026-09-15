@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level expertise in groundwater hydrology and time series analysis. The instruction specifies only the desired output structure — the solver must independently: (1) identify that the full meteorological variable suite (radiation, humidity, wind, temperature) necessitates a combination-method ET estimator and select the appropriate computational approach; (2) discover and correctly use a transfer-function modeling framework capable of fitting impulse-response models (exponential, gamma, four-parameter) to irregular groundwater observations driven by recharge; (3) implement proper model selection via AIC across models with differing parameter counts; (4) extract physical aquifer response characteristics (95% response time, asymptotic gain) from the fitted step response; (5) compute residual diagnostics including lag-1 autocorrelation and seasonal residual amplitude to assess model adequacy; (6) design a valid split-sample validation scheme with appropriate period lengths and warmup handling. No libraries, algorithms, or procedural steps are provided — the solver must bring domain knowledge to discover the correct tools and approaches."""
+solution_explanation = """Install pastas and pyet. Read meteorological CSVs and metadata for coordinates. Compute ET0 via pyet.pm_fao56 with solar radiation, temperature, humidity, wind, latitude (converted to radians), and elevation. Build three Pastas Models with RechargeModel(prec, et, rfunc=...) for Exponential/Gamma/FourParam. Solve each with a calibration window. Compute EVP, RMSE, AIC. Select best by AIC, extract step response characteristics. Compute DW statistic, lag-1 autocorrelation, and seasonal amplitude of calibration residuals. Simulate best model over validation period, interpolate to observation timestamps, compute validation EVP/RMSE. Write structured JSON."""
+verification_explanation = """Tests validate: (1) results.json exists with all required fields including residual_diagnostics; (2) three models compared with correct names and metrics; (3) calibration EVP > 40% for best model; (4) response time in physically reasonable range (30-3000 days); (5) DW statistic in valid range; (6) AIC-based ranking is consistent; (7) validation metrics present with reasonable EVP; (8) ET statistics are physically plausible (mean 0.5-5 mm/day, annual 200-1500 mm); (9) calibration and validation periods are non-overlapping and sufficiently long; (10) lag-1 autocorrelation in [-1,1]; (11) seasonal amplitude non-negative and bounded."""
+category = "earth_science"
+tags = ["hydrology", "time_series_analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/groundwater-recharge-analysis"

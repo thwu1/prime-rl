@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two non-trivial CUDA kernels to extract their underlying mathematical operations despite GPU-specific obfuscations. The FDTD kernel uses a complex z-slice sweeping algorithm with register-based front/back buffers and shared memory tiling that obscures a 3D star stencil. The Black-Scholes kernel uses CUDA intrinsics (__fdividef, rsqrtf, __expf, __logf) and float2 vectorization for ILP that obscures a standard Black-Scholes computation with a specific polynomial CND approximation (Abramowitz & Stegun 26.2.17). The solver must correctly handle padded volumes, zero-initialized halo regions, and match the exact polynomial coefficients."""
+solution_explanation = """Read both CUDA kernel source files, identify the mathematical operations beneath GPU optimizations, implement equivalent CPU computations in Python using numpy. For FDTD: apply a 3D star stencil with the loaded coefficients to the inner volume region. For Black-Scholes: implement the exact polynomial CND approximation and compute call/put prices. Write all outputs as float32 binary files."""
+verification_explanation = """Tests load the same input data, independently compute reference outputs using the same mathematical formulas, and compare against the agent's output files within floating-point tolerances (1e-4 for FDTD, 1e-3 for Black-Scholes). Additional structural tests verify output sizes, halo zeros, put-call parity, and non-negative prices."""
+category = "parallel_computing"
+tags = ["cuda", "scientific-computing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cuda-kernel-transpile"

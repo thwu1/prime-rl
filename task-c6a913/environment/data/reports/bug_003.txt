@@ -1,0 +1,32 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in ring_write+0x1cf/0x280 drivers/char/ring_buffer.c:68
+Write of size 4 at addr ffff88810e5a4010 by task syz-executor.3/11204
+
+CPU: 1 PID: 11204 Comm: syz-executor.3 Not tainted 6.3.0-rc2-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.2-debian-1.16.2-1 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0x1b1/0x28e lib/dump_stack.c:107
+ print_address_description.constprop.0+0x74/0x340 mm/kasan/report.c:319
+ print_report+0x107/0x1f0 mm/kasan/report.c:430
+ kasan_report+0xb8/0xf0 mm/kasan/report.c:547
+ ring_write+0x1cf/0x280 drivers/char/ring_buffer.c:68
+ chardev_write+0x134/0x2a0 drivers/char/ring_buffer.c:112
+ vfs_write+0x1d4/0x8c0 fs/read_write.c:603
+ ksys_write+0xf1/0x1c0 fs/read_write.c:658
+ __x64_sys_write+0x56/0x80 fs/read_write.c:670
+ </TASK>
+
+Allocated by task 11204:
+ kasan_save_stack+0x26/0x50 mm/kasan/common.c:47
+ kasan_set_track+0x25/0x40 mm/kasan/common.c:52
+ __kasan_kmalloc+0x87/0x90 mm/kasan/common.c:384
+ kmalloc_trace+0x2b/0xe0 mm/slab_common.c:1087
+ ring_create+0x42/0xf0 drivers/char/ring_buffer.c:18
+ chardev_open+0x89/0x1b0 drivers/char/ring_buffer.c:95
+
+The buggy address belongs to the object at ffff88810e5a4000
+ which belongs to the cache kmalloc-16 of size 16
+The buggy address is located 0 bytes to the right of
+ allocated 16-byte region [ffff88810e5a4000, ffff88810e5a4010)
+==================================================================

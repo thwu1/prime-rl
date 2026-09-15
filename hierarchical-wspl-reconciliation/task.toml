@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the M5-style Weighted Scaled Pinball Loss metric from a formal specification (involving pinball loss, per-series scaling from historical data, dollar-value weighting, and multi-level aggregation), then designing and implementing a hierarchical quantile forecast reconciliation algorithm that ensures both cross-level coherence and quantile monotonicity. The agent must parse a non-trivial hierarchical data structure (6 levels, 40 series, summing matrix), correctly compute the metric, and produce forecasts that demonstrably improve the WSPL score. Data is generated with a random seed at build time and the generation script is isolated in a discarded Docker build stage, so answers cannot be derived from Docker layer inspection or memorized across runs."""
+solution_explanation = """The solution implements WSPL by computing pinball loss per quantile/series/horizon, scaling by mean absolute differences from history, weighting by dollar values, and averaging across levels. It then performs bottom-up reconciliation: keeping bottom-level quantile forecasts intact and summing them to produce upper-level forecasts. This guarantees coherence by construction and preserves quantile monotonicity since sums of monotonic sequences are monotonic. The reconciled forecasts achieve a lower WSPL because the independently-generated upper-level base forecasts were systematically miscalibrated (wider intervals) compared to the aggregated bottom-level ones."""
+verification_explanation = """Tests independently verify: (1) the base WSPL matches an independently computed value from base_forecasts.csv within tolerance, (2) reconciled forecasts are hierarchically coherent (upper = sum of bottom within 0.01), (3) quantile monotonicity holds across all series/horizons, (4) reconciled WSPL is strictly less than base WSPL, (5) output file formats and structure are correct, and (6) an independent WSPL recomputation from the reconciled CSV matches the reported score. No expected values are hardcoded — all verification is by recomputation from the randomly-seeded data."""
+category = "data_science"
+tags = ["probabilistic-forecasting", "hierarchical-time-series"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hierarchical-wspl-reconciliation"

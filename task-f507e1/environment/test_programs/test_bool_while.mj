@@ -1,0 +1,17 @@
+program TestBoolWhile
+{
+  void main()
+    boolean cont;
+    int sum, i;
+  {
+    sum = 0;
+    i = 1;
+    cont = true;
+    while (cont) {
+      sum = sum + i;
+      i++;
+      cont = i <= 10;
+    }
+    print(sum, 0);
+  }
+}

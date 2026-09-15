@@ -1,0 +1,229 @@
+# simulation_interfaces v2.1.0 — Message Type Definitions
+# ROS 2 Interface Definition Language Format
+#
+# Each section corresponds to an individual .msg file.
+# Types are referenced by name in service definitions (services.idl).
+# Python bindings for all types are in /app/interfaces.py.
+#
+
+# ============================================================
+# Result.msg
+# ============================================================
+# Base result code for all service calls. Service-specific error
+# codes use values >= 101.
+
+uint8 RESULT_FEATURE_UNSUPPORTED = 0
+uint8 RESULT_OK                  = 1
+uint8 RESULT_NOT_FOUND           = 2
+uint8 RESULT_INCORRECT_STATE     = 3
+uint8 RESULT_OPERATION_FAILED    = 4
+
+uint8 result
+string error_message
+
+# ============================================================
+# SimulationState.msg
+# ============================================================
+# Simulation state machine.
+#
+# Valid transitions via SetSimulationState:
+#   STATE_STOPPED  →  STATE_PLAYING
+#   STATE_PLAYING  →  STATE_PAUSED, STATE_STOPPED
+#   STATE_PAUSED   →  STATE_PLAYING, STATE_STOPPED
+
+uint8 STATE_STOPPED       = 0
+uint8 STATE_PLAYING       = 1
+uint8 STATE_PAUSED        = 2
+uint8 STATE_QUITTING      = 3
+uint8 STATE_NO_WORLD      = 4
+uint8 STATE_LOADING_WORLD = 5
+
+uint8 state
+
+# ============================================================
+# SimulatorFeatures.msg
+# ============================================================
+# Feature codes indicating supported engine capabilities.
+
+uint8 SPAWNING                  = 0
+uint8 DELETING                  = 1
+uint8 NAMED_POSES               = 2
+uint8 POSE_BOUNDS               = 3
+uint8 ENTITY_TAGS               = 4
+uint8 ENTITY_BOUNDS             = 5
+uint8 ENTITY_BOUNDS_BOX         = 6
+uint8 ENTITY_BOUNDS_CONVEX      = 7
+uint8 ENTITY_CATEGORIES         = 8
+uint8 SPAWNING_RESOURCE_STRING  = 9
+uint8 ENTITY_STATE_GETTING      = 10
+uint8 ENTITY_STATE_SETTING      = 11
+uint8 ENTITY_INFO_GETTING       = 12
+uint8 ENTITY_INFO_SETTING       = 13
+uint8 SPAWNABLES                = 14
+uint8 SIMULATION_RESET          = 20
+uint8 SIMULATION_RESET_TIME     = 21
+uint8 SIMULATION_RESET_STATE    = 22
+uint8 SIMULATION_RESET_SPAWNED  = 23
+uint8 SIMULATION_STATE_GETTING  = 24
+uint8 SIMULATION_STATE_SETTING  = 25
+uint8 SIMULATION_STATE_PAUSE    = 26
+uint8 STEP_SIMULATION_SINGLE    = 31
+uint8 STEP_SIMULATION_MULTIPLE  = 32
+uint8 STEP_SIMULATION_ACTION    = 33
+uint8 WORLD_LOADING             = 40
+uint8 WORLD_RESOURCE_STRING     = 41
+uint8 WORLD_TAGS                = 42
+uint8 WORLD_UNLOADING           = 43
+uint8 WORLD_INFO_GETTING        = 44
+uint8 AVAILABLE_WORLDS          = 45
+uint8 SPAWNING_ENTITIES         = 50
+
+uint16[] features
+string[] spawn_formats
+string custom_info
+
+# ============================================================
+# Resource.msg
+# ============================================================
+# Reference to a simulation resource (model, world file, etc.).
+# At least one of uri or resource_string must be non-empty.
+# If resource_string is provided for entity spawning, the engine
+# must validate it as well-formed XML before accepting the spawn.
+
+string uri
+string resource_string
+
+# ============================================================
+# WorldResource.msg
+# ============================================================
+
+string name
+Resource world_resource
+string description
+string[] tags
+
+# ============================================================
+# EntityCategory.msg
+# ============================================================
+
+uint8 CATEGORY_OBJECT         = 0
+uint8 CATEGORY_ROBOT          = 1
+uint8 CATEGORY_HUMAN          = 2
+uint8 CATEGORY_DYNAMIC_OBJECT = 4
+uint8 CATEGORY_STATIC_OBJECT  = 5
+
+uint8 category
+
+# ============================================================
+# EntityInfo.msg
+# ============================================================
+# Metadata for a simulation entity.
+# Newly spawned entities default to CATEGORY_OBJECT,
+# empty description, and no tags.
+
+EntityCategory category
+string description
+string[] tags
+
+# ============================================================
+# EntityState.msg
+# ============================================================
+# Dynamic state of a simulation entity with simulation timestamp.
+# Each physics step advances time by 1,000,000 nanoseconds (1 ms).
+# stamp_sec = total_ns // 1,000,000,000
+# stamp_nanosec = total_ns % 1,000,000,000
+
+std_msgs/Header header
+geometry_msgs/Pose pose
+geometry_msgs/Twist twist
+geometry_msgs/Accel acceleration
+
+# ============================================================
+# TagsFilter.msg
+# ============================================================
+# FILTER_MODE_ANY (0): entity must have at least one listed tag.
+# FILTER_MODE_ALL (1): entity must have all listed tags.
+
+uint8 FILTER_MODE_ANY = 0
+uint8 FILTER_MODE_ALL = 1
+
+string[] tags
+uint8 filter_mode
+
+# ============================================================
+# Bounds.msg
+# ============================================================
+# Spatial bounding volume for entity filtering.
+# TYPE_BOX: axis-aligned bounding box. points[0] = min corner,
+#   points[1] = max corner. Entity position p is inside iff
+#   min.x <= p.x <= max.x AND min.y <= p.y <= max.y AND
+#   min.z <= p.z <= max.z.
+
+uint8 TYPE_EMPTY       = 0
+uint8 TYPE_BOX         = 1
+uint8 TYPE_CONVEX_HULL = 2
+uint8 TYPE_SPHERE      = 3
+
+uint8 type
+geometry_msgs/Vector3[] points
+
+# ============================================================
+# EntityFilters.msg
+# ============================================================
+# All active criteria are applied conjunctively (AND).
+# filter: entity name must contain this as a substring.
+# categories: entity category must match at least one in the list.
+# tags: tag-based filter (see TagsFilter for mode semantics).
+# bounds: entity position must lie within the bounding volume.
+
+string filter
+EntityCategory[] categories
+TagsFilter tags
+Bounds bounds
+
+# ============================================================
+# SpawnEntity.msg (batch element)
+# ============================================================
+
+string name
+Resource entity_resource
+bool allow_renaming
+string entity_namespace
+geometry_msgs/PoseStamped initial_pose
+
+# ============================================================
+# SpawnResult.msg
+# ============================================================
+
+uint8 NAME_NOT_UNIQUE       = 101
+uint8 NAME_INVALID          = 102
+uint8 UNSUPPORTED_FORMAT    = 103
+uint8 NO_RESOURCE           = 104
+uint8 NAMESPACE_INVALID     = 105
+uint8 RESOURCE_PARSE_ERROR  = 106
+uint8 MISSING_ASSETS        = 107
+uint8 UNSUPPORTED_ASSETS    = 108
+uint8 INVALID_POSE          = 109
+
+Result result
+string entity_name
+
+# ============================================================
+# ResetScope.msg
+# ============================================================
+# Bitwise flags controlling which simulation aspects to reset.
+# Combine via bitwise OR (e.g., SCOPE_TIME | SCOPE_STATE = 3).
+# SCOPE_DEFAULT (0) is treated identically to SCOPE_ALL (255).
+# SCOPE_TIME:    Reset simulation clock to zero.
+# SCOPE_STATE:   Restore entities to their initial spawn-time
+#                dynamic state (pose, twist, acceleration).
+# SCOPE_SPAWNED: Remove all dynamically spawned entities.
+# SCOPE_ALL:     Equivalent to all scope flags combined.
+
+uint8 SCOPE_DEFAULT = 0
+uint8 SCOPE_TIME    = 1
+uint8 SCOPE_STATE   = 2
+uint8 SCOPE_SPAWNED = 4
+uint8 SCOPE_ALL     = 255
+
+uint8 scope

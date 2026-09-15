@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems debugging across a multi-module Python pipeline with five interacting defects that produce a cascading failure. The solver receives only the symptom (all 8 sites unhealthy, simulation exit code 1) and must: (1) use diagnostic tooling (jq queries on structured incident telemetry, make targets, log analysis) to trace the failure cascade through the pipeline; (2) evaluate each module to identify a set-theoretic merge error, an async race condition, an algorithmic complexity bottleneck, a field-migration-unaware validation policy, and the absence of a safety mechanism; (3) design and implement a circuit breaker component from only an interface contract stub; (4) integrate the circuit breaker into the rollout controller; and (5) produce a structured root cause analysis documenting each defect. The difficulty lies in the interplay between defects — no single fix suffices, and the solver must evaluate the full cascade to understand which modules need changes and why."""
+solution_explanation = """Bug 1 (merger.py): deep_merge_keys uses set intersection (&) instead of union (|), dropping keys unique to either source during propagation delay. Fix: change & to |. Bug 2 (rollout.py): execute_rollout checks canary_result.is_completed immediately after async launch; since the canary runs in a thread with a delay, is_completed is always False, making the check a no-op. Fix: add canary_result.wait(timeout=30.0) before checking. Bug 3 (site.py): _cleanup_stale_entries loads all historical configs and runs O(n*m^2) hash comparisons with 10ms sleeps, exceeding the health-check timeout. Fix: replace with simple key-set difference. Bug 4 (canary.py): REQUIRED_KEYS hardcodes ip_blocks; post-migration configs with only ip_ranges are rejected. Fix: accept either ip_blocks or ip_ranges and update the IP count check. Bug 5 (rollout.py + circuit_breaker.py): No circuit breaker exists. Fix: implement CircuitBreaker class with rolling window failure tracking and integrate into RolloutController to halt rollout when batch failure rate exceeds threshold. Finally, write /app/data/rca.json documenting all five defects."""
+verification_explanation = """Tests cover each defect independently plus integration and RCA: (1) TestConfigMerger verifies merge produces union of keys across disagreeing sources. (2) TestCanaryValidator verifies canary accepts ip_ranges and rejects configs missing both IP fields. (3) TestCanaryRollout verifies rollout waits for and respects canary rejection. (4) TestSiteCleanup verifies cleanup completes within health-check timeout. (5) TestCircuitBreaker unit tests verify threshold logic, rolling window, cumulative rates, stays-tripped semantics, and reset. (6) TestRolloutWithCircuitBreaker verifies rollout has a circuit_breaker attribute and halts early when batch health failures trip the breaker. (7) TestEndToEnd runs full migration with propagation delay and post-migration steady-state validation. (8) TestRootCauseAnalysis verifies rca.json exists, is valid JSON, contains at least 4 defects with correct structure, and covers the key affected modules."""
+category = "debugging"
+tags = ["distributed-systems", "incident-response", "cascading-failure"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascading-config-rollout"

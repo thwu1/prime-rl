@@ -1,0 +1,18 @@
+-- Implement: extract all data from eval.db as a single JSON document.
+-- Output format: {"models": [...], "tasks": [...], "evaluations": [...]}
+--
+-- The Makefile runs: sqlite3 /app/eval.db < this_file > extracted.json
+--
+-- Requirements:
+--   - Models: include model_id, release_date, training_cutoff, and a
+--     "pricing" dict pivoted from the normalized pricing table's row-per-tier
+--     format (tier column values: 'input', 'cached_input', 'output') into keys
+--     (input_per_mtok, cached_input_per_mtok, output_per_mtok).
+--   - Tasks: include task_id, repo, created_at.
+--   - Evaluations: group runs by (model_id, task_id). Each evaluation has a
+--     "runs" array. SQLite stores booleans as integers; the "resolved" field
+--     must be a JSON boolean (true/false), not an integer (0/1).
+--   - Output must be a single valid JSON value (one line or formatted).
+--
+-- Hint: inspect the schema with:  sqlite3 /app/eval.db .schema
+SELECT 'TODO';

@@ -1,0 +1,14 @@
+migration_name: hdf5-1.14.4
+description: >
+  Bump HDF5 from 1.14.3 to 1.14.4. This is an ABI-compatible minor release
+  that includes performance improvements and bug fixes, but downstream packages
+  must be rebuilt to link against the new version.
+
+migrated_outputs:
+  - package: libhdf5
+    from_version: "1.14.3"
+    to_version: "1.14.4"
+    new_run_exports: ">=1.14.4,<1.15"
+  - package: hdf5-tools
+    from_version: "1.14.3"
+    to_version: "1.14.4"

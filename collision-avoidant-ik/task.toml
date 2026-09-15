@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires both debugging three subtle mathematical errors across Lie group functions and implementing two non-trivial robotics functions from scratch. The debugging portion demands expert knowledge of SO(3)/SE(3) theory: (1) identifying that the near-pi logarithmic map selects the wrong column of R+I, (2) recognizing the incorrect matrix multiplication order in the SE(3) adjoint upper-right block, and (3) finding a sign error in the Q-matrix coupling coefficient that corrupts the SE(3) left Jacobian. The implementation portion requires: (4) constructing the body-frame Jacobian via inverse adjoint transform of MuJoCo's world-frame Jacobian with correct row ordering (translation/rotation), and (5) building a collision-avoidance linear inequality from MuJoCo's distance queries — computing contact normals from fromto vectors, deriving contact-point Jacobians via mj_jac, applying the correct sign convention for approach vs. separation, and formulating the distance-dependent upper bound. The bugs and missing implementations interact: the adjoint bug affects both the SE(3) Jacobian tests and the body-frame Jacobian implementation, requiring the agent to disentangle overlapping failures."""
+solution_explanation = """Three bugs must be fixed: (1) so3_log near-pi uses argmin instead of argmax to select the non-degenerate column of R+I; (2) se3_adjoint computes the upper-right block as R @ skew(t) instead of skew(t) @ R; (3) the Q-matrix coefficient C uses (1+theta^2/2-cos) instead of (1-theta^2/2-cos). Two functions must be implemented from scratch: (4) compute_body_jacobian must get MuJoCo world Jacobians via mj_jacSite, stack them as [jacp; jacr], construct the inverse adjoint Ad_sw using the site's rotation and translation, and compute Ad_sw @ J_world; (5) compute_collision_constraint must query mj_geomDistance for the nearest points, compute the unit normal from the fromto vector, compute per-body Jacobians at the contact points via mj_jac, form the constraint row as sign * normal @ (jac2 - jac1) with sign=-1 for separated geoms, and compute the upper bound from the distance margin."""
+verification_explanation = """29 tests verify: (1) SO(3) skew symmetry and cross-product equivalence; (2) SO(3) exp/log roundtrips; (3) SO(3) exp orthogonality; (4) SO(3) log near-pi with theta in the near-pi branch to catch axis-selection bugs; (5) SO(3) left Jacobian identity and inverse; (6) SE(3) exp/log roundtrips; (7) SE(3) adjoint composition Ad(T1*T2)=Ad(T1)*Ad(T2); (8) SE(3) left Jacobian identity, inverse, pure-rotation blocks, BCH consistency; (9) SE(3) left Jacobian numerical derivative to catch Q-matrix coefficient errors; (10) body Jacobian dimensions and world-frame consistency via Ad(T_ws)*J_body=J_world; (11) frame error zero-at-identity and correct direction; (12) IK convergence within 1cm; (13) collision constraint sign logic and out-of-range behavior; (14) IK with collision avoidance maintains minimum geom distance."""
+category = "scientific_computing"
+tags = ["robotics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/collision-avoidant-ik"

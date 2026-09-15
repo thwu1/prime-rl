@@ -1,0 +1,47 @@
+# Intended GeoTIFF CRS Specifications
+# Each file in /app/corrupted/ should encode the CRS described below.
+
+geographic.tif
+  Type: Geographic 2D CRS
+  EPSG Code: 4326 (WGS 84)
+  Raster Type: PixelIsArea
+  Image: 8x8 pixels, 8-bit grayscale
+  Pixel Scale: (1.0, 1.0, 0.0)
+  Tiepoint: (0, 0, 0) -> (-180, 90, 0)
+
+projected.tif
+  Type: Projected CRS
+  EPSG Code: 32617 (WGS 84 / UTM zone 17N)
+  Raster Type: PixelIsArea
+  Image: 16x16 pixels, 8-bit grayscale
+  Pixel Scale: (500.0, 500.0, 0.0)
+  Tiepoint: (0, 0, 0) -> (500000, 4649776.22, 0)
+
+userdefined.tif
+  Type: User-Defined Projected CRS
+  Base Geographic CRS: EPSG 4326 (WGS 84)
+  Projection Method: Transverse Mercator (EPSG 9807)
+  Linear Units: metre (EPSG 9001)
+  Raster Type: PixelIsPoint
+  Image: 8x8 pixels, 8-bit grayscale
+  Pixel Scale: (500.0, 500.0, 0.0)
+  Tiepoint: (0, 0, 0) -> (500000, 4649776.22, 0)
+  Citation: "Custom TM Zone"
+  Projection Parameters:
+    ProjNatOriginLong: -75.0
+    ProjNatOriginLat: 0.0
+    ProjFalseEasting: 500000.0
+    ProjFalseNorthing: 0.0
+    ProjScaleAtNatOrigin: 0.9996
+
+compound.tif
+  Type: Compound CRS (Projected + Vertical)
+  Horizontal CRS: EPSG 32617 (WGS 84 / UTM zone 17N)
+  Vertical CRS: EPSG 5773 (EGM96 geoid height)
+  Vertical Datum: EPSG 5171
+  Vertical Units: metre (EPSG 9001)
+  Vertical Citation: "EGM96 geoid height"
+  Raster Type: PixelIsArea
+  Image: 8x8 pixels, 8-bit grayscale
+  Pixel Scale: (1000.0, 1000.0, 1.0)
+  Tiepoint: (0, 0, 0) -> (500000, 4649776.22, 100)

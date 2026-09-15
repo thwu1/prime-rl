@@ -1,0 +1,47 @@
+TRS-lite Trace Format Specification
+====================================
+
+TRS-lite is a compact binary format for storing side-channel analysis traces
+with associated cryptographic data. It uses little-endian byte ordering.
+
+File Structure
+--------------
+
+  [Header: 32 bytes]
+  [Trace Record 0]
+  [Trace Record 1]
+  ...
+  [Trace Record N-1]
+
+Header (32 bytes, fixed size)
+-----------------------------
+
+  Offset  Size     Type        Description
+  ------  ------   ----------  --------------------------------
+  0       4        char[4]     Magic bytes: "TRS\x01"
+  4       4        uint32 LE   Number of traces (N)
+  8       4        uint32 LE   Number of samples per trace (S)
+  12      2        uint16 LE   Crypto data length per trace in bytes (D)
+  14      1        uint8       Sample encoding: 1 = IEEE 754 float32 LE
+  15      17       reserved    Zero-padded
+
+Per-Trace Record (repeated N times, sequential, no padding)
+-----------------------------------------------------------
+
+  Offset  Size         Type             Description
+  ------  ----------   --------------   --------------------------------
+  0       D            uint8[D]         Crypto data (plaintext bytes)
+  D       S * 4        float32 LE[S]    Trace samples (when encoding = 1)
+
+Total record size per trace: D + S * sizeof(sample)
+
+Notes
+-----
+
+  - All multi-byte integers are stored in little-endian format.
+  - Sample encoding 1 (float32) uses 4 bytes per sample in IEEE 754
+    single-precision little-endian format.
+  - Traces are stored contiguously with no inter-record padding.
+  - The crypto data field contains the plaintext bytes used for the
+    corresponding encryption operation.
+  - No checksums or compression are applied.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in VLIW instruction scheduling, SIMD vectorization, and data dependency analysis on a custom ISA. The agent must read and understand a ~400-line Python simulator implementing a non-standard architecture, identify optimization opportunities across multiple dimensions (instruction packing, vector operations, loop structure), and implement them correctly while maintaining bit-exact output. Additionally, the agent must learn and use an unfamiliar custom profiling CLI tool (vliw_profiler.py) with multiple subcommands and jq for trace analysis. Achieving the target of <17,000 cycles from a 147,734-cycle baseline demands both SIMD vectorization (using valu/vload/vstore to process 8 batch items per iteration) and VLIW instruction packing (bundling independent operations from different engines into single cycles). Pure scalar VLIW packing cannot reach this target."""
+solution_explanation = """The solution rewrites KernelBuilder.build_kernel to: (1) use SIMD vload/vstore to process 8 batch items per iteration instead of 1, (2) use valu for all arithmetic including the 6-stage hash, (3) pack independent operations into the same instruction bundle (e.g. hash stage op1+op3, scatter load pairs, store+advance), (4) use vselect/vbroadcast for branchless vector control flow, and (5) use dynamic loops with cond_jump instead of fully unrolling. After optimization, the solution uses vliw_profiler.py report to generate the required profile report at /app/profile_report.json."""
+verification_explanation = """Tests run the optimized kernel through the frozen simulator on 8 random inputs and compare output memory against the reference kernel for bit-exact correctness. A separate test verifies the cycle count is below 17,000. Additional tests verify that a valid profile report exists at /app/profile_report.json with correct structure, matching cycle counts (cross-checked by independent kernel execution), and per-engine slot utilization data. The report's cycle count is validated against an independent kernel run to ensure it was generated from the current kernel state."""
+category = "systems_optimization"
+tags = ["computer-architecture", "performance-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7b88d4"

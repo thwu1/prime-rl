@@ -1,0 +1,9 @@
+Employer :,2026 - 27,UK tax examples
+Year,2026 - 27
+,,,,,,,,,,,
+Pay frequency/type,Gross pay,Taxable pay to date,Code,W1/M1,Period , Tax due,Tax due to date,,,,,,,,,,,,
+Large_code_wkly,750,750,999L,,1,111.4,111.4,,,,,,,,,,,,
+Large_code_wkly,900,900,1000L,,1,141.4,141.4,,,,,,,,,,,,
+Large_code_wkly,1500,1500,1001L,,1,377.8,377.8,,,,,,,,,,,,
+HMRC are aware that the results of some payroll calculations may differ from the test data provided.,,,,,,,,,,,,,,,,,,,,
+As long as those results differ by no more than £00.01 then this is acceptable.,,,,,,,,,,,,,,,,,,,,

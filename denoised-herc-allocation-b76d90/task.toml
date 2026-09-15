@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three subtle bugs in a draft implementation by cross-referencing against research notes on random matrix theory denoising, hierarchical risk-parity allocation, and conditional value-at-risk. The solver must understand Marchenko-Pastur eigenvalue fitting (with KDE), the Gap statistic for cluster count selection, and inverse-risk bisection semantics. Each bug manifests as plausible-looking but mathematically incorrect code that produces wrong portfolio allocations. Additionally requires understanding the full HERC pipeline (correlation-distance, agglomerative clustering, recursive bisection, NRP) and denoising methodology to validate and fix the implementation."""
+solution_explanation = """Fix three bugs in the draft: (1) CVaR must negate the mean of the worst ceil(n*alpha) returns (draft uses floor and omits negation), (2) the cluster count heuristic must be replaced with the full Gap statistic using Tibshirani's stopping rule with B=50 uniform reference samples, (3) the bisection step must allocate inversely proportional to subtree risk (draft allocates proportionally). Additionally, the denoising step should fit sigma^2 via KDE rather than assuming sigma^2=1, though this may not be strictly required by the test suite. The correct implementation requires scipy optimization, KDE fitting, and careful matrix reconstruction."""
+verification_explanation = """40+ pytest tests verify: CVaR exact values and ceil semantics, denoising PSD/symmetry/eigenvalue compression, weight validity (sum-to-one, non-negative, all-present), cluster detection accuracy for 3-block and 4-block data (bounds exclude naive heuristic results), inverse-risk ordering between high/low-volatility blocks, risk measure sensitivity, CLI integration with all options, sample data compatibility, and edge cases (2-asset, 25-asset, denoised pipelines)."""
+category = "quantitative_finance"
+tags = ["portfolio-optimization", "random-matrix-theory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/denoised-herc-allocation-b76d90"

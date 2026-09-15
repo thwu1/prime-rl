@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the RossThick-LiSparseReciprocal BRDF model. The solver must identify 5 subtle bugs across two R files (missing scale factor application, SZA degree/radian confusion in polynomial evaluation, sign error in a polynomial coefficient, inverted quality flag filter logic, and swapped BSA/WSA terms in the blue-sky albedo formula) and implement the full NBAR kernel evaluation from scratch, including the RossThick volumetric scattering kernel, the LiSparse-Reciprocal geometric-optical kernel with B/R and H/B crown shape transformations and overlap computation, and nadir-nadir normalization."""
+solution_explanation = """Fix 5 bugs: (1) apply scale_factor*0.001 to raw int16 parameters, (2) convert SZA from degrees to radians before polynomial evaluation, (3) correct g1_vol sign from +0.070987 to -0.070987, (4) remove negation in quality filter so valid_quality rows are kept, (5) swap BSA/WSA in blue-sky formula to WSA*skyl+BSA*(1-skyl). Implement compute_nbar by coding RossThick kernel (phase angle, Ross element, division by sum of cosines), LiSparse-Reciprocal kernel (B/R angle transformation, distance, HB overlap, reciprocal formulation), normalizing both to zero at nadir-nadir, and evaluating at VZA=0."""
+verification_explanation = """Tests independently compute reference BSA, WSA, blue-sky albedo, and NBAR using Python implementations of the correct RossThick-LiSparseReciprocal formulas. Verifies: correct row count (21 after filtering), fill value exclusion, quality flag filtering, scale factor application, and numerical accuracy of all four albedo products within 1e-5 tolerance (1e-4 for NBAR)."""
+category = "debugging"
+tags = ["remote-sensing", "numerical-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/brdf-albedo-pipeline-d39f69"

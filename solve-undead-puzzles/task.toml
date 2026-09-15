@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom XOR-encrypted binary container format: the file header contains a 16-byte key derivation seed, and each puzzle's data block is encrypted with a per-puzzle key produced by an LCG-based key derivation function (Knuth multiplicative hash initialization + glibc LCG mixing with the seed). The agent must discover this scheme by disassembling a stripped, string-obfuscated validator binary — strings(1) reveals no format information, forcing dynamic analysis (gdb/strace) or static disassembly (objdump) to recover the key derivation algorithm and encrypted block layout. Cross-referencing the decrypted data against SQLite checksums is needed to verify correct decryption. Beyond cryptanalysis, solving the puzzles requires implementing an efficient constraint-satisfaction solver with backtracking, arc consistency propagation, and MRV heuristics for grids up to 10x10 with 75+ decision variables and 40 interacting sight-line constraints with mirror-dependent visibility rules."""
+solution_explanation = """The solver first reverse-engineers the binary format: identifies the 'UNDD' magic header and version 2 via xxd, extracts the 16-byte seed from the file header, then analyzes the stripped validator binary via objdump/gdb to discover the LCG-based key derivation function (state = pid * 0x9E3779B1; iterate state = state * 1103515245 + 12345; key[i] = seed[i%16] ^ ((state>>16) & 0xFF)). It decrypts each puzzle block, parses the struct layout (5 uint32 header fields, packed mirror entries, interleaved clue quadruples), verifies decryption against SQLite SHA-256 checksums, then solves each puzzle via backtracking with constraint propagation using minimum remaining values heuristics."""
+verification_explanation = """Tests independently implement the full binary decryption pipeline (seed extraction, LCG key derivation, XOR decryption, struct parsing), reconstruct puzzle constraints, and verify each solution grid for: correct header format matching the documented schema, grid dimensions matching puzzle spec, mirror positions preserved, monster type counts matching, and all 4N sight-line clues satisfied by tracing each line with the mirror reflection and visibility rules. A secondary test validates clue checksums against SQLite and invokes the stripped validator binary directly."""
+category = "reverse-engineering"
+tags = ["binary-cryptanalysis", "constraint-satisfaction"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/solve-undead-puzzles"

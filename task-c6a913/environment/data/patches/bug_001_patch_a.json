@@ -1,0 +1,7 @@
+{
+    "source_file": "skb_handler.c",
+    "bug_id": "bug_001",
+    "patch_id": "patch_a",
+    "target_function": "parse_skb_options",
+    "replacement": "int parse_skb_options(struct skb_buf *skb, int offset,\n                      int opt_len)\n{\n    int pos = offset;\n    int count = 0;\n\n    while (pos < offset + opt_len) {\n        struct skb_option *opt = (struct skb_option *)(skb->head + pos);\n\n        if (opt->type == 0)\n            break;\n\n        unsigned char tmp[256];\n        int data_len = opt->length;\n        /* Fix: validate data_len against remaining buffer space */\n        if (pos + 2 + data_len > skb->total_len)\n            break;\n        memcpy(tmp, skb->head + pos + 2, data_len);\n\n        pos += 2 + data_len;\n        count++;\n    }\n    return count;\n}"
+}

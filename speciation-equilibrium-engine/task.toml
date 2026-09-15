@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of aqueous geochemistry (mass-action equilibria, mass-balance constraints, mineral saturation indices) combined with numerical methods for solving coupled nonlinear systems. The solver must correctly parse two non-trivial database formats with varying reaction stoichiometries, handle multi-nuclear complexes where stoichiometric coefficients differ from unity, manage log-scale concentration ranges spanning 10+ orders of magnitude, and compute saturation indices for mineral phases with heterogeneous dissolution reactions (some consuming H+, some not). Convergence of the nonlinear solver requires careful variable transformation and starting-point selection."""
+solution_explanation = """The reference solution parses both database files to extract reaction stoichiometries and log_k values, then for each scenario: (1) filters species/phases to those involving only the scenario's components, (2) formulates mass-balance equations where each total concentration equals the free ion plus contributions from all derived species (computed via mass-action expressions), (3) solves the resulting nonlinear system using scipy fsolve with log-transformed variables (-log10 of free concentrations) for numerical stability, trying multiple starting points, (4) computes mineral saturation indices from the converged free concentrations. Key subtleties include handling multi-nuclear species (mass-balance coefficient > 1), reactions with H+ on the product side (negative exponent in mass-action), and normalized residuals for well-conditioned Jacobians."""
+verification_explanation = """Tests verify: (1) correct output structure with all 5 scenarios, (2) specific numerical ranges for free concentrations and species concentrations validated by hand calculation, (3) correct mass-balance closure within 5-10% for each component in each scenario, (4) qualitative chemical correctness (dominant species identification, supersaturation/undersaturation of minerals), (5) mineral saturation indices within validated ranges. Tests cover carbonate systems, lead-sulfate-chloride complexation, iron-fluoride competition, copper-carbonate speciation, and multi-mineral carbonate-sulfate systems."""
+category = "applied_computing"
+tags = ["chemistry", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/speciation-equilibrium-engine"

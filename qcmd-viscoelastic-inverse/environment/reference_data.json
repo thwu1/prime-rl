@@ -1,0 +1,55 @@
+{
+  "description": "Benchmark validation data for QCM-D forward model. Your implementation must reproduce these values within the specified tolerances.",
+  "notes": "drho='inf' denotes a semi-infinite (bulk) medium. Overtone numbers are odd harmonics of the 5 MHz fundamental.",
+  "cases": [
+    {
+      "id": "rigid_film_n3",
+      "description": "Thin rigid film, 3rd harmonic",
+      "n": 3,
+      "layers": {"1": {"grho3": 1e12, "phi": 0.01, "drho": 1e-4}},
+      "expected_delf": -1696.883,
+      "tolerance_hz": 0.1
+    },
+    {
+      "id": "rigid_film_n5",
+      "description": "Thin rigid film, 5th harmonic",
+      "n": 5,
+      "layers": {"1": {"grho3": 1e12, "phi": 0.01, "drho": 1e-4}},
+      "expected_delf": -2828.287,
+      "tolerance_hz": 0.1
+    },
+    {
+      "id": "newtonian_liquid_n3",
+      "description": "Semi-infinite Newtonian liquid (phi=90), 3rd harmonic. For a Newtonian fluid, delf = -delgamma.",
+      "n": 3,
+      "layers": {"1": {"grho3": 9.4e7, "phi": 90.0, "drho": "inf"}},
+      "expected_delf": -1234.289,
+      "expected_delgamma": 1234.289,
+      "tolerance_hz": 0.1
+    },
+    {
+      "id": "viscoelastic_film_liquid_n3",
+      "description": "Viscoelastic film on semi-infinite liquid, 3rd harmonic",
+      "n": 3,
+      "layers": {
+        "1": {"grho3": 1e9, "phi": 30.0, "drho": 5e-4},
+        "2": {"grho3": 9.4e7, "phi": 90.0, "drho": "inf"}
+      },
+      "expected_delf": -2212.138,
+      "expected_delgamma": 9687.850,
+      "tolerance_hz": 0.5
+    },
+    {
+      "id": "viscoelastic_film_liquid_n5",
+      "description": "Viscoelastic film on semi-infinite liquid, 5th harmonic",
+      "n": 5,
+      "layers": {
+        "1": {"grho3": 1e9, "phi": 30.0, "drho": 5e-4},
+        "2": {"grho3": 9.4e7, "phi": 90.0, "drho": "inf"}
+      },
+      "expected_delf": 373.472,
+      "expected_delgamma": 6010.856,
+      "tolerance_hz": 0.5
+    }
+  ]
+}

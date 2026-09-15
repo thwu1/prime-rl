@@ -1,0 +1,20 @@
+{
+  "doc_001": {
+    "first_names": ["Jan", "Willem"],
+    "surname": "van der Berg",
+    "initials": "J.W.",
+    "birth_date": "1985-03-12"
+  },
+  "doc_002": {
+    "first_names": ["Maria", "Elisabeth"],
+    "surname": "Henoch",
+    "initials": "M.E.",
+    "birth_date": "1972-08-25"
+  },
+  "doc_003": {
+    "first_names": ["Anna", "Christina"],
+    "surname": "de Wit-Jansen",
+    "initials": "A.C.",
+    "birth_date": "1968-05-17"
+  }
+}

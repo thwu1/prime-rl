@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning two healthcare interoperability standards (DICOM Part 10 and FHIR R4) and their non-trivial cross-standard mapping conventions. Beyond basic field comparison, the agent must: (1) parse DICOM Person Name VR with all five components (Family^Given^Middle^Prefix^Suffix) and correctly map each to the corresponding FHIR HumanName elements (given[], prefix[], suffix[]); (2) read DICOM coded entry sequences (AnatomicRegionSequence, ProcedureCodeSequence) and translate them to FHIR Coding elements by mapping DICOM CodingSchemeDesignators to FHIR code system URIs (SCT -> http://snomed.info/sct, LN -> http://loinc.org); (3) correlate DICOM ReferringPhysicianName with FHIR Practitioner resources via person-name matching to validate ImagingStudy.referrer references; (4) trace multi-hop FHIR reference chains (DiagnosticReport -> ImagingStudy -> Patient) to detect subject reference integrity violations; (5) construct a valid FHIR Transaction Bundle with correct request semantics. This combination of DICOM IOD knowledge, FHIR resource model expertise, terminology mapping, and identity correlation demands holistic proficiency in health IT interoperability."""
+solution_explanation = """The solution parses all 10 DICOM files with pydicom building a patient->study->series->instance model that includes PN components (middle, prefix, suffix), AnatomicRegionSequence, ProcedureCodeSequence, and ReferringPhysicianName. It then parses all 14 FHIR resources. For each Patient, it compares all PN components: given name, middle name (mapped to given[1]), prefix, suffix, birthDate, and gender. For each ImagingStudy, it compares started date, modality codes, accession numbers, series/instance counts, per-series modality and bodySite (by mapping DICOM AnatomicRegionSequence codes via CodingSchemeDesignator->FHIR system lookup), procedureCode (mapping DICOM ProcedureCodeSequence via LN->http://loinc.org), and referrer (matching DICOM ReferringPhysicianName to FHIR Practitioner resources by family/given name comparison). For DiagnosticReports, it traces imagingStudy references to find the correct patient. All 20 discrepancies are collected, corrected resources produced, and everything wrapped in a FHIR Transaction Bundle with PUT requests."""
+verification_explanation = """Tests verify: (1) the reconciliation report contains >= 15 discrepancies; (2) specific discrepancy pairs are detected (Sally name, Ravi DOB, study dates, accession numbers, subject references, Kim prefix/suffix, body site codes, referrer identity, procedure codes); (3) corrected Patient resources have correct names/DOB/gender including Kim's prefix/suffix/middle name; (4) corrected ImagingStudies have correct dates, modalities, counts, series, bodySite SNOMED codes, referrer Practitioner references, and LOINC procedure codes; (5) corrected DiagnosticReport has correct subject reference; (6) a valid FHIR Transaction Bundle exists with correct type, PUT methods, and matching resource URLs."""
+category = "healthcare_informatics"
+tags = ["medical-imaging", "interoperability-standards"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-93becd"

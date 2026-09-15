@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires learning a novel domain-specific language (RBG) based on regular expression theory, understanding its compilation pipeline (rbg2cpp), and encoding the non-trivial Reversi/Othello game mechanics — particularly the piece-flipping logic across 8 directions, pass detection, and game-end conditions — all in RBG's regular-expression-based syntax. The agent must iterate through compile-test-debug cycles using perft verification. The swapDirection macro pattern (forward flip + backward cursor return) is especially challenging to derive from first principles."""
+solution_explanation = """The solution adapts the standard RBG Reversi encoding: macros for checking swap possibility per direction (swapDirectionPossible), performing the actual swap with cursor return (swapDirection), combining all 8 directions (swapDirections), pass handling via negative lookahead, and game-end detection via KEEPER checks. The board is simply resized to 6x6 with the correct initial center piece placement."""
+verification_explanation = """A Python reference implementation of 6x6 Reversi independently computes correct perft values at depths 1-4 using exact RBG semantics (passes decrement depth, KEEPER transitions are transparent, terminal states at depth>0 are not counted as leaves). The agent's .rbg file is compiled with rbg2cpp, built into a perft test binary, and its output at each depth is compared against the reference values."""
+category = "programming"
+tags = ["dsl", "game-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rbg-reversi-implementation"

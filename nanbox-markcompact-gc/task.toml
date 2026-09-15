@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of three interacting systems: IEEE 754 NaN boxing (bit-level value encoding where object pointers are packed into quiet NaN mantissa bits), compacting garbage collection (in-place object relocation with forwarding pointers and reference updating), and C memory management (replacing per-object malloc/free with a contiguous bump-allocated heap). The key difficulty is that when objects are relocated during compaction, every NaN-boxed value in the system (stack entries, pair head/tail fields) that encodes an object pointer must be decoded, remapped to the object's new location via forwarding addresses, and re-encoded — a non-trivial interaction between the GC algorithm and the value representation that has no standard recipe."""
+solution_explanation = """Replace the Object struct's linked-list 'next' pointer with a forwarding-address pointer. Replace the VM's malloc-based allocation with a contiguous Object array heap and bump allocator. Implement a 4-phase LISP2 mark-compact GC: (1) mark reachable objects from stack roots, (2) walk the heap linearly computing forwarding addresses for marked objects, (3) update all references (stack Values and Pair head/tail Values) by decoding NaN-boxed pointers, looking up forwarding addresses, and re-encoding with OBJ_VAL, (4) compact by memmove'ing objects to their forwarding addresses and resetting the bump pointer. Valgrind memcheck confirms no leaks or invalid accesses."""
+verification_explanation = """Tests verify: (1) source code contains compacting GC indicators (forwarding address field, compact/memmove logic, contiguous heap keyword) and at most one free() call, (2) the original test driver (main.c) compiles unmodified and produces correct output for all 8 functional tests covering allocation, GC preservation, nested pairs, mixed NaN-boxed types, and stress scenarios, (3) a dedicated compaction test verifies objects are physically contiguous after GC via pointer arithmetic (stride == sizeof(Object)), (4) a multi-cycle stress test runs 50 rounds of interleaved garbage creation and keeper allocation then verifies all 50 keeper pairs survive with correct values, (5) Valgrind memcheck verifies zero memory errors and zero definite leaks."""
+category = "systems_programming"
+tags = ["garbage-collection", "nan-boxing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nanbox-markcompact-gc"

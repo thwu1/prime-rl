@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level DeFi domain knowledge to identify and correctly implement swap mechanics for three distinct AMM families (constant-product, Curve-style StableSwap with iterative invariant solving, Balancer-style weighted pools with fractional exponents) given only their type labels in a database. The agent must reverse-engineer a normalized SQLite schema with multi-table JOINs across pools, pool_reserves, and pool_params to reconstruct full pool specifications, discover and use an unfamiliar CLI swap-quote tool, construct a multigraph of 12 pools across 6 tokens, systematically search all possible trading paths for profitable opportunities amid many consistently-priced distractors, and numerically optimize trade size against a non-convex profit function with compounding slippage across multiple heterogeneous pool hops."""
+solution_explanation = """The solution queries the SQLite database to reconstruct pool specifications via JOINs, implements all three AMM swap functions, builds a directed multigraph, enumerates simple cycles via DFS, evaluates each cycle's profitability, then optimizes the input amount for the best cycle using golden-section search. The optimal cycle is a 4-hop path USDC->DAI->WETH->WBTC->USDC exploiting both the StableSwap reserve imbalance (DAI slightly cheap) and the cross-pool WETH pricing difference (1850 DAI/WETH vs 2000 USDC/WETH) plus a BTC cross-pool spread."""
+verification_explanation = """Tests load pool data from the SQLite database and include a complete reference implementation of all three AMM types. Structural tests verify results.json format, path validity, and pool existence. The critical test recomputes the optimal input and profit using the reference optimizer and checks the agent's values are within 5% (input) and 10% (profit). An achievability test confirms reported profit is actually attainable. Additional tests verify the correct 4-hop cycle was identified over inferior 3-hop alternatives."""
+category = "applied_computing"
+tags = ["quantitative-finance", "defi-amm"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/amm-arbitrage-optimizer"

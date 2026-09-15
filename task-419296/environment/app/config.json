@@ -1,0 +1,6 @@
+{
+  "tidb_executor_concurrency": 5,
+  "tidb_distsql_scan_concurrency": 15,
+  "tikv_gc_life_time": "10m0s",
+  "tidb_max_chunk_size": 1024
+}

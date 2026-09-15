@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise across computational structural mechanics and software integration: reverse-engineering the MBDyn input file format from undocumented .mbd files; compiling a C shared library and interfacing it via ctypes with correct column-major convention handling; implementing a geometrically exact beam solver capable of handling large rotations in 3D beam problems spanning linear, large-deflection, and full-circle roll-up regimes; must generalize to novel beam models not present in the shipped environment. The coupling between format parsing, FFI interop, numerical methods, and multi-regime validation makes this significantly harder than any individual component."""
+solution_explanation = """The solver parses MBDyn .mbd files using regex-based extraction of begin/end blocks, set: variable definitions, structural node positions, beam stiffness (diag, EA, GAy, GAz, GJ, EIy, EIz), clamp joints, and force/couple elements. The C SO(3) library is compiled via make and loaded with ctypes, with careful column-major-to-row-major conversion when passing matrices between Python and C. The beam solver uses 2-node geometrically exact elements where strains are computed from relative rotation (SO(3) log) and the tangent stiffness is obtained by nested numerical differentiation of the strain energy. Newton-Raphson iteration with left-multiplicative rotation updates and incremental load stepping solves each problem. Validation is convergence-based (final residual below solver tolerance)."""
+verification_explanation = """Tests run the pipeline end-to-end, then verify: (1) libso3.so compiled and beam_pipeline.py references ctypes; (2) all result JSONs exist with correct schema including a dynamically generated probe model; (3) cantilever linear regime matches Euler-Bernoulli reference; (4) large-moment models match analytical arc geometry; (5) large-deflection elastica matches scipy BVP reference; (6) combined force+moment case shows 3D coupling and matches elastica bending prediction; (7) dynamically generated probe model (not present in the environment) matches Euler-Bernoulli to prevent answer-lookup cheating; (8) validation.json reports all_pass: true."""
+category = "computational_mechanics"
+tags = ["nonlinear-fem", "beam-theory", "c-interop", "mbdyn-parsing"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonlinear-beam-solver"

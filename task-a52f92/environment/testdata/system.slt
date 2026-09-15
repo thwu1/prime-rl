@@ -1,0 +1,27 @@
+# System command tests
+
+# System command with stdout validation
+system ok
+echo "hello world"
+----
+hello world
+
+
+# Multi-line stdout
+system ok
+echo "line1" && echo "line2"
+----
+line1
+line2
+
+
+# System command without stdout validation (just check exit 0)
+system ok
+echo "no validation needed"
+
+# System command using shell features
+system ok
+echo "value is $(expr 2 + 3)"
+----
+value is 5
+

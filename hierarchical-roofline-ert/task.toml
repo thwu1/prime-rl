@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires HPC performance modeling expertise: understanding ERT micro-kernel measurement methodology, cache hierarchy detection via empirical bandwidth profiling, roofline model mathematics, and STREAM write-allocate correction factors. The agent must compile C code, detect cache level plateaus from noisy empirical bandwidth data, apply domain-specific correction factors to STREAM results, classify application kernels against a hierarchical roofline model, and produce a gnuplot-rendered log-log visualization. Cache level detection from empirical data with gradual bandwidth transitions requires non-trivial signal processing on log-scale working-set sweeps."""
+solution_explanation = """Compile ert_bw_profile.c with gcc -lm. Run it on flop_001.dat to produce the bandwidth profile. Parse the lowest-FLOP ERT data for bandwidth-vs-working-set extraction (all points are bandwidth-bound at minimal arithmetic intensity). Take max bandwidth per working set, then detect 4 plateaus (L1/L2/L3/DRAM) via log-scale gradient analysis. Extract peak GFLOP/s from highest-FLOP data (flop_128.dat). Parse STREAM output and apply write-allocate corrections (3/2 for Copy/Scale, 4/3 for Add/Triad). Compute ridge points as peak/bandwidth. Classify kernels by working set size vs cache capacity boundaries. Generate a gnuplot script with log-log axes, bandwidth ceilings, compute ceiling, and kernel markers, then run gnuplot to produce the SVG."""
+verification_explanation = """Tests verify: (1) C tool output exists with valid bandwidth profile data (>=10 rows, correct column structure), (2) gnuplot-generated SVG chart exists with required labels (cache levels, kernel names, title, peak), (3) peak GFLOP/s within 10% of ground truth, (4) 4 cache levels with correct names and bandwidths within 15% tolerance with monotonically decreasing order, (5) ridge points consistent with peak/bandwidth formula, (6) STREAM write-allocate corrections exact to 0.01 GB/s with correct average, (7) correct kernel arithmetic intensities, cache level assignments, and bound classifications, (8) attainable and efficiency values internally consistent with roofline model."""
+category = "performance_engineering"
+tags = ["roofline-model", "memory-hierarchy"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hierarchical-roofline-ert"

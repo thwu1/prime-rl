@@ -1,0 +1,1 @@
+{"_input": "tcp,udp,dhcpv4", "enabled_features": ["dhcpv4", "net", "tcp", "udp"], "activated_deps": {"smoltcp": ["alloc", "medium-ethernet", "proto-dhcpv4", "proto-ipv4", "socket-dhcpv4", "socket-tcp", "socket-udp"]}}

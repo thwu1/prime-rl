@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 subtle mathematical bugs across a sequential testing codebase: an off-by-one error in the GROW-optimal mixing parameter formula, a missing multiplicative constant in a one-sided supermartingale, a violated floor constraint in CUSUM accumulation, incorrect Bonferroni correction for two-sided confidence sequences, and unstandardized sufficient statistics in the detection pipeline. Each bug demands understanding the underlying game-theoretic probability theory and careful comparison between documented formulas and implementation."""
+solution_explanation = """Fix _best_rho to use log(1 + 2*log(1/alpha)) instead of log(2*log(1/alpha)). Add the missing factor of 4 in OneSidedNormalMixture.log_superMG. Add max(..., 1.0) floor to CusumDetector.update. Change log(1/alpha) to log(2/alpha) in ConfidenceSequence.update. Divide by null_std in the sufficient statistic computation in detect.py. Each fix requires tracing the mathematical derivation to identify the discrepancy."""
+verification_explanation = """Tests include independent reference implementations of all mathematical formulas with tight numerical tolerances (rtol=1e-10 for core values). Unit tests verify rho computation, log supermartingale evaluation, symmetry properties, bound inversion, CUSUM accumulation/reset/floor semantics, and CI ordering. Integration tests verify change detection on pre-generated streams with known shift locations and that the stationary stream produces no false alarms."""
+category = "mathematics"
+tags = ["statistics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/evalue-changepoint-detection"

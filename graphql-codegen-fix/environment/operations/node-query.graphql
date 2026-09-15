@@ -1,0 +1,27 @@
+query GetNode($nodeId: ID!) {
+  node(id: $nodeId) {
+    id
+    createdAt
+    ... on User {
+      username
+      email
+      status
+    }
+    ... on Post {
+      title
+      body
+      priority
+      author {
+        id
+        username
+      }
+    }
+    ... on Comment {
+      text
+      author {
+        id
+        username
+      }
+    }
+  }
+}

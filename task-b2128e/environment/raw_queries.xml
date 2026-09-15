@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ospf:routing-queries xmlns:ospf="urn:ietf:params:xml:ns:ospf-routing"
+                      xmlns:meta="urn:ietf:params:xml:ns:query-metadata"
+                      version="2.0" network="multi-area-12r">
+  <meta:info>
+    <meta:description>OSPF routing queries grouped by area — requires XSLT transformation</meta:description>
+    <meta:generated>2024-01-15T12:00:00Z</meta:generated>
+    <meta:schema-version>2.0</meta:schema-version>
+  </meta:info>
+
+  <ospf:area-queries area-id="0" area-type="backbone">
+    <ospf:query id="q01" source-router="R1" target-prefix="10.7.7.7/32"
+                meta:priority="high" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="q02" source-router="R1" target-prefix="10.12.12.12/32"
+                meta:priority="high" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="q03" source-router="R1" target-prefix="172.16.0.0/16"
+                meta:priority="high" enabled="true" meta:category="external"/>
+    <ospf:query id="q04" source-router="R1" target-prefix="172.17.0.0/16"
+                meta:priority="high" enabled="true" meta:category="external"/>
+    <ospf:query id="q05" source-router="R1" target-prefix="192.168.0.0/16"
+                meta:priority="high" enabled="true" meta:category="external"/>
+    <ospf:query id="q06" source-router="R1" target-prefix="192.168.1.0/24"
+                meta:priority="high" enabled="true" meta:category="external"/>
+    <ospf:query id="qD01" source-router="R3" target-prefix="10.8.8.8/32"
+                meta:priority="low" enabled="false" meta:category="intra-area"/>
+  </ospf:area-queries>
+
+  <ospf:area-queries area-id="1" area-type="stub">
+    <ospf:query id="q07" source-router="R7" target-prefix="10.2.2.2/32"
+                meta:priority="medium" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="q08" source-router="R7" target-prefix="10.11.11.11/32"
+                meta:priority="medium" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="q09" source-router="R7" target-prefix="192.168.0.0/16"
+                meta:priority="medium" enabled="true" meta:category="default-route"/>
+    <ospf:query id="qD02" source-router="R8" target-prefix="10.1.1.1/32"
+                meta:priority="low" enabled="false" meta:category="inter-area"/>
+  </ospf:area-queries>
+
+  <ospf:area-queries area-id="2" area-type="nssa">
+    <ospf:query id="q10" source-router="R9" target-prefix="172.16.0.0/16"
+                meta:priority="high" enabled="true" meta:category="nssa-external"/>
+    <ospf:query id="q11" source-router="R9" target-prefix="172.17.0.0/16"
+                meta:priority="high" enabled="true" meta:category="nssa-external"/>
+    <ospf:query id="q12" source-router="R9" target-prefix="10.1.1.1/32"
+                meta:priority="medium" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="q13" source-router="R9" target-prefix="192.168.0.0/16"
+                meta:priority="medium" enabled="true" meta:category="default-route"/>
+    <ospf:query id="qD03" source-router="R10" target-prefix="10.2.2.2/32"
+                meta:priority="low" enabled="false" meta:category="inter-area"/>
+  </ospf:area-queries>
+
+  <ospf:area-queries area-id="3" area-type="regular">
+    <ospf:query id="q14" source-router="R11" target-prefix="192.168.0.0/16"
+                meta:priority="high" enabled="true" meta:category="external"/>
+    <ospf:query id="qD04" source-router="R12" target-prefix="10.3.3.3/32"
+                meta:priority="low" enabled="false" meta:category="inter-area"/>
+  </ospf:area-queries>
+
+  <ospf:area-queries area-id="0" area-type="backbone">
+    <ospf:query id="q15" source-router="R4" target-prefix="10.10.10.10/32"
+                meta:priority="medium" enabled="true" meta:category="inter-area"/>
+    <ospf:query id="qD05" source-router="R2" target-prefix="10.9.9.9/32"
+                meta:priority="low" enabled="false" meta:category="inter-area"/>
+  </ospf:area-queries>
+</ospf:routing-queries>

@@ -1,0 +1,176 @@
+# Complete set of RBAC bindings for the cluster
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-binding
+subjects:
+- kind: User
+  name: admin@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin-custom
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: deploy-bot-binding
+subjects:
+- kind: ServiceAccount
+  name: deploy-bot
+  namespace: production
+roleRef:
+  kind: ClusterRole
+  name: deploy-bot-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ci-deployer-deploy
+subjects:
+- kind: ServiceAccount
+  name: ci-deployer
+  namespace: ci
+roleRef:
+  kind: ClusterRole
+  name: deploy-bot-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: impersonator-binding
+subjects:
+- kind: User
+  name: ci-bot@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: user-impersonator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-binding
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: monitoring-aggregate
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: full-monitoring-binding
+subjects:
+- kind: ServiceAccount
+  name: grafana
+  namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: full-monitoring
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-lead-staging
+  namespace: staging
+subjects:
+- kind: User
+  name: dev-lead@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: namespace-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-pod-manager
+  namespace: development
+subjects:
+- kind: User
+  name: developer@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: pod-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-configmaps
+  namespace: production
+subjects:
+- kind: User
+  name: developer@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: configmap-editor
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-logs
+  namespace: production
+subjects:
+- kind: User
+  name: developer@example.com
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: log-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-escalation
+  namespace: kube-system
+subjects:
+- kind: Group
+  name: sre-team
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: clusterrole-escalator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-binding
+  namespace: backup
+subjects:
+- kind: ServiceAccount
+  name: backup-agent
+roleRef:
+  kind: ClusterRole
+  name: backup-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-exec
+  namespace: ci
+subjects:
+- kind: ServiceAccount
+  name: ci-deployer
+  namespace: ci
+roleRef:
+  kind: Role
+  name: pod-exec-only
+  apiGroup: rbac.authorization.k8s.io

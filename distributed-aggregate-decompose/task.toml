@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a general-purpose SQL query decomposer that correctly distributes aggregation across shards. Beyond standard distributive aggregates (SUM, COUNT, MIN, MAX), the agent must handle algebraic aggregates (AVG, VAR_POP/SAMP, STDDEV_POP/SAMP) via multi-partial decomposition, COUNT(DISTINCT col) which fundamentally breaks the shard/merge paradigm by requiring GROUP BY granularity expansion to preserve distinct values, and two-variable statistical aggregates (COVAR_POP, CORR) requiring cross-product sum tracking with 4-6 partial columns each. Mixed queries combining all these types demand holistic understanding of how different decomposition strategies interact — particularly how COUNT(DISTINCT) GROUP BY expansion affects correctness of simultaneously-computed algebraic aggregates at finer granularity. Combines distributed systems architecture, statistical mathematics, SQL semantics, and AST manipulation."""
+solution_explanation = """Use sqlglot to parse the SQL AST. Extract aggregate functions from SELECT and HAVING clauses. For each aggregate, generate partial-aggregate columns for the shard query and a merge formula: COUNT→SUM(counts), SUM→SUM(sums), AVG→SUM(sums)/SUM(counts), VAR_POP→E[x²]−(E[x])² via SUM/SUM_SQ/COUNT, VAR_SAMP→(N·SS−S²)/(N(N−1)), STDDEV→SQRT(variance). For COUNT(DISTINCT col), expand the shard GROUP BY to include the distinct column so values pass through to merge where COUNT(DISTINCT alias) is applied. For COVAR_POP(x,y)→E[xy]−E[x]E[y] via SUM(x),SUM(y),SUM(xy),COUNT. For CORR→COVAR_POP/(STDDEV_POP(x)·STDDEV_POP(y)) needing 6 partial sums. Push WHERE and GROUP BY to shards, apply HAVING/ORDER BY/LIMIT at merge. Replace aggregate references via string replacement sorted by length descending."""
+verification_explanation = """Tests run 14 SQL queries against the full dataset and against the decomposed shard→merge pipeline, comparing results with floating-point tolerance (rtol=1e-6). Queries cover all 12 supported aggregate types including COUNT(DISTINCT), COVAR_POP, CORR, GROUP BY, WHERE, HAVING, ORDER BY, LIMIT, expression-in-aggregate, and complex mixed queries combining distinct counting with two-variable statistics and algebraic aggregates. Tests also verify the return format."""
+category = "databases"
+tags = ["distributed-systems", "query-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/distributed-aggregate-decompose"

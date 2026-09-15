@@ -1,0 +1,45 @@
+[  234.567890] ==================================================================
+[  234.567891] BUG: KASAN: use-after-free in drill_callback_overwrite+0x28/0x40 [drill_mod]
+[  234.567892] Write of size 8 at addr ffff888100b45600 by task exploit_poc/2345
+[  234.567893]
+[  234.567894] CPU: 1 PID: 2345 Comm: exploit_poc Tainted: G    O      6.1.75 #1
+[  234.567895] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.2-1.fc38 04/01/2014
+[  234.567896] Call Trace:
+[  234.567897]  <TASK>
+[  234.567898]  dump_stack_lvl+0x49/0x63
+[  234.567899]  print_report+0x171/0x486
+[  234.567900]  ? drill_callback_overwrite+0x28/0x40 [drill_mod]
+[  234.567901]  kasan_report+0xb4/0x100
+[  234.567902]  ? drill_callback_overwrite+0x28/0x40 [drill_mod]
+[  234.567903]  __asan_store8+0x85/0xa0
+[  234.567904]  drill_callback_overwrite+0x28/0x40 [drill_mod]
+[  234.567905]  drill_ioctl+0xf8/0x250 [drill_mod]
+[  234.567906]  __x64_sys_ioctl+0x12d/0x1a0
+[  234.567907]  do_syscall_64+0x3b/0x90
+[  234.567908]  entry_SYSCALL_64_after_hwframe+0x72/0xdc
+[  234.567909]  </TASK>
+[  234.567910]
+[  234.567911] Allocated by task 2345:
+[  234.567912]  kasan_save_stack+0x1e/0x40
+[  234.567913]  kasan_set_track+0x21/0x30
+[  234.567914]  __kasan_kmalloc+0x7e/0x90
+[  234.567915]  kmem_cache_alloc+0x13f/0x2c0
+[  234.567916]  drill_alloc_item+0x34/0x90 [drill_mod]
+[  234.567917]  drill_ioctl+0x68/0x250 [drill_mod]
+[  234.567918]  __x64_sys_ioctl+0x12d/0x1a0
+[  234.567919]
+[  234.567920] Freed by task 2345:
+[  234.567921]  kasan_save_stack+0x1e/0x40
+[  234.567922]  kasan_set_track+0x21/0x30
+[  234.567923]  kasan_save_free_info+0x2a/0x50
+[  234.567924]  __kasan_slab_free+0x106/0x190
+[  234.567925]  kmem_cache_free+0x99/0x300
+[  234.567926]  drill_free_item+0x28/0x50 [drill_mod]
+[  234.567927]  drill_ioctl+0xb8/0x250 [drill_mod]
+[  234.567928]  __x64_sys_ioctl+0x12d/0x1a0
+[  234.567929]
+[  234.567930] The buggy address belongs to the object at ffff888100b45600
+[  234.567931]  which belongs to the cache drill_cache of size 192
+[  234.567932] The buggy address is located 0 bytes inside of
+[  234.567933]  freed 192-byte region [ffff888100b45600, ffff888100b456c0)
+[  234.567934] ==================================================================

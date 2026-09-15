@@ -1,0 +1,5 @@
+# basic.trace — single processor read/write
+# Tests: read miss (E), read hit, write hit (E->M)
+0 R 0x0000
+0 R 0x0000
+0 W 0x0000

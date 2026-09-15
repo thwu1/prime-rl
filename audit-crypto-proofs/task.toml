@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level skills across multiple domains: (1) x86-64 machine code encoding and disassembly, (2) HOL Light / OCaml formal verification syntax including Hoare triples, (3) cryptographic specification semantics (modular reduction, Montgomery form, elliptic curve operations), (4) assembly toolchain usage (gcc, objdump, ndisasm) for binary analysis. The auditor must judge whether specifications are cryptographically adequate, not merely syntactically correct, demanding deep understanding of formal verification soundness boundaries."""
+solution_explanation = """The solver extracts machine code byte sequences from OCaml proof files using regex, assembles the .S source file to produce reference bytes, compares them byte-by-byte to detect bytecode tampering, then parses the formal correctness theorems to evaluate postcondition strength (checking for proper field-level modular reduction), precondition completeness (verifying all nonoverlapping constraints), and frame condition coverage. Each finding is classified by type and severity to produce the JSON audit report."""
+verification_explanation = """Tests validate the audit report JSON structure and verify that each of the four functions is correctly classified: bignum_add flagged for bytecode mismatch, bignum_mul_p25519 flagged for weak postcondition, bignum_montmul_p256 marked as clean/passing, and p256_montjmixadd flagged for missing precondition. Tests use flexible keyword matching to accommodate varied but correct descriptions."""
+category = "security"
+tags = ["formal-verification", "cryptography"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/audit-crypto-proofs"

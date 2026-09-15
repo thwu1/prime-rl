@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of fixed-point arithmetic representation and two's-complement overflow semantics. The solver must identify and fix ~22 interconnected bugs spanning: input validation (from_f64, from_ratio), four arithmetic overflow families (checked/wrapping/saturating/overflowing) for mul and div, operator overloads that silently wrap instead of panicking, bidirectional precision rescaling with direction-dependent logic, fused multiply-add where the decomposed approach fails but the correct fused approach must succeed, and overflow-safe midpoint computation. Many bugs have cascading dependencies — fixing checked_mul is prerequisite for correct operator overloads and fused mul_add. The solver receives no hints about which methods are buggy or what patterns to apply; they must infer the correct arithmetic approach from the API contract and test failures alone."""
+solution_explanation = """Core insight: fixed-point mul/div require wider intermediates because the raw products/shifts exceed i64 range even when the final result fits. All mul/div methods must widen to i128 for the intermediate computation, then range-check or truncate back to i64. Specifically: checked_mul computes (self.raw as i128) * (rhs.raw as i128) >> FRAC then range-checks; checked_div computes (self.raw as i128) << FRAC / (rhs.raw as i128) similarly. saturating_mul must clamp to MAX/MIN by sign (not ZERO). saturating_div must panic on zero. Operators must delegate to checked (not wrapping). from_f64 must reject non-finite and out-of-range. from_ratio uses i128 widening for (numer as i128) << FRAC / denom. Rescale must left-shift on widening (NEW_FRAC > FRAC) and right-shift on narrowing. Fused mul_add must compute the entire expression in i128 before range-checking. midpoint must widen to i128 to avoid addition overflow."""
+verification_explanation = """80 Rust integration tests are generated at verification time in /app/tests/verify.rs and compiled via cargo test. Tests cover: basic construction and conversion; from_f64 validation (NaN, inf, out-of-range); from_ratio with widening, overflow, zero-denominator, and negative-denominator cases; checked/wrapping/saturating/overflowing families for mul and div with values requiring wider intermediates; saturation direction correctness; overflow flag accuracy; wrapping_div and overflowing_div for MIN/-1; operator panic behavior via catch_unwind; neg/abs edge cases at MIN; cross-FRAC genericity (FRAC=8,16,32); precision rescaling in both directions with overflow detection; fused multiply-add with specific cases where standalone mul overflows but fused result fits; and overflow-safe midpoint at extreme values."""
+category = "debugging"
+tags = ["rust", "fixed-point-arithmetic"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fixedpoint-overflow-semantics"

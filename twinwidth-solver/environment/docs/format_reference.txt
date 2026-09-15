@@ -1,0 +1,28 @@
+PACE Graph Format (.gr)
+======================
+Comment lines start with 'c' and are ignored.
+Problem line:  p tww <num_vertices> <num_edges>
+Edge lines:    <u> <v>
+Vertices are 1-indexed. Edges are undirected (each listed once).
+
+Example:
+  p tww 4 4
+  1 2
+  2 3
+  3 4
+  4 1
+
+Solution Format
+===============
+One contraction per line: <x> <y>
+Meaning: contract y into x (x survives, y is removed).
+Exactly n-1 lines for an n-vertex graph.
+
+DIMACS CNF Format
+=================
+Comment lines start with 'c'.
+Problem line:  p cnf <num_variables> <num_clauses>
+Clause lines:  <lit1> <lit2> ... 0
+Positive literal = variable index (1-based).
+Negative literal = negated variable (e.g., -3 means NOT x3).
+Each clause is a disjunction; the formula is a conjunction of all clauses.

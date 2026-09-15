@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the ASAM OpenDRIVE and OpenSCENARIO standards: the agent must independently discover how the OpenDRIVE coordinate system works (paramPoly3 geometry with arcLength parameterization, elevation polynomials, lane section width accumulation, Frenet-to-Cartesian transforms), learn how OpenSCENARIO parameter declarations and LanePosition semantics function, and master the unfamiliar asam-qc-opendrive toolchain (configuration XML format, invocation, XQAR result parsing). The task demands holistic domain knowledge across three interrelated automotive simulation standards and multi-tool interoperability."""
+solution_explanation = """Install asam-qc-opendrive via pip, create a QC framework config XML pointing to the xodr file, run the checker, and parse the XQAR result XML to extract checker statuses and issue counts. Parse the xosc file to extract ParameterDeclarations and resolve $-prefixed variable substitutions in LanePosition attributes. For each entity, validate that the road and lane exist in the xodr, then compute lane-center Cartesian positions by evaluating the paramPoly3/line geometry, elevation polynomials, and accumulated lane widths with Frenet-to-Cartesian transformation. Build a separate geometry query engine supporting five query types against the parsed road network."""
+verification_explanation = """Tests verify all three deliverables independently: (1) the QC report JSON must contain known ASAM checker IDs proving the real tool was invoked, (2) entity positions are checked against pre-computed Cartesian coordinates within tight tolerances, with separate validation of cross-reference error detection for non-existent roads and lanes, (3) the geometry query engine is exercised with two independent query sets across different road segments and boundary conditions to prevent hardcoded answers."""
+category = "reverse-engineering"
+tags = ["automotive-simulation", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/opendrive-geometry-engine"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires intersecting expertise in SystemVerilog compilation semantics, EDA compiler tooling, and elaboration-time design analysis. The agent must: (1) understand SV compilation-unit ordering, package imports, library-directory resolution with extension filtering, and include-path configuration to produce a working command file; (2) install and operate slang's CLI including its undocumented --ast-json output format; (3) perform deep AST traversal to extract elaboration-dependent information — generate-for blocks expanded to concrete iteration counts via parameter resolution, localparam FSM state encodings distinguished from non-FSM constants via a structural heuristic, and memory-array dimensions computed from elaborated parameterized types including $clog2 expressions. The generate block analysis requires understanding that generate-for constructs produce GenerateBlockArray nodes in the AST (not module instances) and correctly counting their elaborated children. The FSM extraction requires distinguishing localparams used as state encodings from those used for other purposes. The memory array analysis requires parsing elaborated type representations to separate packed element widths from unpacked array depths — a distinction fundamental to SV's type system. No documentation exists for slang's AST JSON schema; the agent must explore and reverse-engineer the format through iterative experimentation."""
+solution_explanation = """Install slang from GitHub releases (Linux x86_64 tarball). Create a command file listing soc_pkg.sv first (package dependency), then RTL sources including gpio_bank.sv, with -I for include dir, -y for each ip_lib subdirectory, +libext+.v, and --top soc_top. Run slang with --ast-json to dump the elaborated AST. Write a Python script that recursively traverses the JSON tree: identify Instance nodes to build hierarchy (6 total: u_cpu, u_alu, u_rf, u_fifo, u_uart, u_gpio), count Port members by direction, extract non-local Parameter values for instance overrides. For generate blocks, find GenerateBlockArray nodes and count their GenerateBlock children (gpio_bank.gen_pin has 8 iterations for NUM_PINS=8). For FSM states, find Parameter members with isLocal=true and small integer values in uart_tx (IDLE=0 through DONE=4). For memory arrays, parse Variable type strings to extract packed width and unpacked depth (sync_fifo.mem: 8x8, regfile.mem: 16x32). CLKS_PER_BIT resolves to 50000000/115200=434."""
+verification_explanation = """Tests verify: (1) slang installed and executable; (2) compile.f exists and slang exits 0; (3) analysis.json has correct top_module, total_instances=6, hierarchy with gpio_bank included in soc_top's children; (4) all 7 modules have correct port counts including gpio_bank (6 in, 3 out); (5) all 5 instance parameter overrides correct including u_gpio (NUM_PINS=8, DEBOUNCE_CYCLES=4); (6) generate_blocks shows gpio_bank.gen_pin with count=8; (7) fsm_states shows uart_tx with 5 states IDLE=0..DONE=4; (8) memory_arrays shows sync_fifo.mem (8x8) and regfile.mem (16x32); (9) analyze.py references AST data (anti-hardcoding check)."""
+category = "eda"
+tags = ["systemverilog", "compiler-elaboration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/slang-library-config"

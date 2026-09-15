@@ -1,0 +1,9 @@
+{
+    "name": "standard_dwc",
+    "description": "Standard DAA Well-Clear volume per DO-365 Phase I",
+    "DTHR_nmi": 0.66,
+    "ZTHR_ft": 450.0,
+    "TAUMOD_s": 35.0,
+    "TCOA_s": 0.0,
+    "lookahead_s": 180.0
+}

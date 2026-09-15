@@ -1,0 +1,21 @@
+{
+  "match": {
+    "id": "Sim-1",
+    "steps": 100,
+    "randomSeed": 42,
+    "randomFail": 0,
+    "roles": "$(roles/standard.json)",
+    "clearEnergyCost": 2,
+    "deactivatedDuration": 10,
+    "maxEnergy": 100,
+    "refreshEnergy": 50,
+    "stepRecharge": 1,
+    "attachLimit": 10,
+    "grid": {
+      "height": 30,
+      "width": 30
+    },
+    "blockTypes": [2, 3],
+    "regulation": "$(norms/standard.json)"
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding abstract interpretation over bit-vector domains, carry-propagation analysis for addition/subtraction (LLVM's computeForAddCarry algorithm), trailing-zero tracking for multiplication, join-over-concrete-values reasoning for variable shifts, and range-based analysis for division. All six transfer functions must be simultaneously sound and meet precision thresholds. Additionally requires using LLVM's opt-18 tool to process IR test cases, understanding LLVM IR syntax, analyzing instcombine optimizations, and producing structured cross-validation artifacts—demanding multi-tool interoperability between Python and the LLVM toolchain."""
+solution_explanation = """Implements carry-propagation analysis (adapted from LLVM's KnownBits::computeForAddCarry) for add/sub, trailing-zero plus range analysis for mul, join over all concrete shift amounts for shl/lshr, and range-based leading-zero analysis for udiv. Sub is reduced to add via NOT + carry-in=1. Cross-validation runs opt-18 on six LLVM IR test cases and produces structured JSON comparing LLVM's optimizations with the Python implementation."""
+verification_explanation = """Exhaustive 4-bit verification: for every pair of valid KnownBits inputs (81^2 = 6561 pairs), enumerates all concrete value pairs to check soundness (every concrete result contained in abstract output) and measures precision as total known bits versus the optimal transfer function result. Cross-validation checks that optimized IR files exist and that the cross-validation JSON has correct schema with all six operations marked consistent. A separate opt-18 invocation verifies the LLVM tool produces expected optimizations."""
+category = "compiler"
+tags = ["abstract-interpretation", "llvm-toolchain"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-53aab5"

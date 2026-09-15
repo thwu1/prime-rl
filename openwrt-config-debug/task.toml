@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level OpenWrt networking and systematic troubleshooting of a partially-implemented, subtly broken configuration. The previous admin introduced 15+ interacting defects across network and firewall configs, each with misleading documentation justifying the incorrect choice. Silent failures include: a WAN backup bound to a non-existent interface (traffic silently drops), a VPN tunnel with the wrong private key (handshake silently fails), an HQ VPN AllowedIPs set to 0.0.0.0/0 (captures all traffic, breaking the commercial VPN), a disconnected firewall zone missing its network binding, masquerade on a zone that shouldn't have it and missing from one that needs it, IoT restriction rules in wrong order (reject-all shadows allows), a DNS redirect using SNAT instead of DNAT, a policy routing rule targeting the wrong source subnet, IPv6 assignment on VLANs that should not have it, and a ULA prefix using the wrong address family. The solver must distrust the admin's notes, cross-reference each config element against the change request's architectural intent, understand how UCI options interact across subsystems, and reason about masquerade placement based on return-route topology."""
+solution_explanation = """Parse and audit both broken configs, diagnosing each defect: (1) fix wan_backup device from eth2 to eth1, (2) scope HQ AllowedIPs from 0.0.0.0/0 to 172.16.0.0/12, (3) replace vpn_ext placeholder private key with correct key from change request, (4) fix guest policy routing rule from wrong subnet 10.0.30.0/24 to 10.0.40.0/24, (5) change ULA prefix from fc00::/48 to fd12:3456:789a::/48, (6) move ip6assign from iot/guest to mgmt/corp, (7) add missing list network binding to wan_backup zone, (8) remove masquerade from vpn_hq zone, (9) add masquerade to vpn_ext zone, (10) remove guest→wan forwarding, (11) add missing forwardings (iot→wan_backup, mgmt→vpn_hq, mgmt→iot, corp→vpn_hq), (12) reorder IoT rules so allows precede reject-all, (13) fix guest DNS redirect from SNAT to DNAT, (14) add missing IoT DNS redirect, (15) add WAN rate limit rule."""
+verification_explanation = """41 pytest tests across 10 test classes verify the architectural properties of the final UCI configs: dual-WAN interface correctness and zone binding, VPN tunnel configurations including private key and AllowedIPs scoping, policy routing table structure and source subnet correctness, the complete forwarding topology including absence of guest→wan, masquerade on exactly the right zones, IoT restriction rule existence AND ordering, DNS DNAT redirects for both guest and IoT, exact ULA prefix and selective IPv6 assignment, and WAN rate limiting."""
+category = "networking"
+tags = ["openwrt", "network-troubleshooting"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openwrt-config-debug"

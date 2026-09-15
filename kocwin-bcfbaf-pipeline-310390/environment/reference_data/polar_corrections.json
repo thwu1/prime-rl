@@ -1,0 +1,62 @@
+{
+  "64-17-5": {
+    "name": "ethanol",
+    "kocwin_output": "MOL FOR: C2 H6 O1 \nMOL WT : 46.07\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  1.414\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.3370\n         Fragment Correction(s):\n                  1   Aliphatic Alcohol  (-C-OH)  ...........  : -1.3179\n         Corrected Log Koc  .................................. :  0.0191\n\n                         Estimated Koc:  1.045  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... : -0.31\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  0.7536\n         Fragment Correction(s):\n                  1   Aliphatic Alcohol  (-C-OH)  ...........  : -0.4114\n         Corrected Log Koc  .................................. :  0.3422\n\n                         Estimated Koc:  2.199  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * -0.31 - 0.333 + Correction",
+    "estimated_logBCF": -0.54
+  },
+  "75-05-8": {
+    "name": "acetonitrile",
+    "kocwin_output": "MOL FOR: C2 H3 N1 \nMOL WT : 41.05\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  1.414\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.3370\n         Fragment Correction(s):\n                  1   Nitrile/Cyanide  (-C#N) ...............  : -0.6677\n         Corrected Log Koc  .................................. :  0.6693\n\n                         Estimated Koc:  4.670  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... : -0.34\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  0.7370\n         Fragment Correction(s):\n                  1   Nitrile/Cyanide  (-C#N) ...............  :  0.3922\n         Corrected Log Koc  .................................. :  1.1292\n\n                         Estimated Koc:  13.46  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * -0.34 - 0.333 + Correction",
+    "estimated_logBCF": -0.56
+  },
+  "67-64-1": {
+    "name": "acetone",
+    "kocwin_output": "MOL FOR: C3 H6 O1 \nMOL WT : 58.08\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  1.732\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.5027\n         Fragment Correction(s):\n                  1   Ketone  (-C-CO-C-)  ...................  : -1.1290\n         Corrected Log Koc  .................................. :  0.3737\n\n                         Estimated Koc:  2.364  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... : -0.24\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  0.7923\n         Fragment Correction(s):\n                  1   Ketone  (-C-CO-C-)  ...................  :  0.1956\n         Corrected Log Koc  .................................. :  0.9879\n\n                         Estimated Koc:  9.726  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * -0.24 - 0.333 + Correction",
+    "estimated_logBCF": -0.49
+  },
+  "64-19-7": {
+    "name": "acetic acid",
+    "kocwin_output": "MOL FOR: C2 H4 O2 \nMOL WT : 60.05\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  1.732\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.5027\n         Fragment Correction(s):\n                  *   Organic Acid  (-CO-OH)  ...............  : -1.6249\n         Corrected Log Koc  .................................. : -0.1222\n         Over Correction Adjustment to Lower Limit Log Koc ... :  0.0000\n\n                         Estimated Koc:  1.000  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... : -0.17\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  0.8311\n         Fragment Correction(s):\n                  *   Organic Acid  (-CO-OH)  ...............  : -0.7694\n         Corrected Log Koc  .................................. :  0.0617\n\n                         Estimated Koc:  1.153  L/kg   <===========\n\n   ********************************************************************\n   *                            NOTE:                                 *\n   * The Koc of this structure may be sensitive to pH!  The estimated *\n   * Koc represents a best-fit to the majority of experimental values *\n   * however, the Koc may vary significantly with pH.                 *\n   ********************************************************************\n",
+    "bcf_equation": "Log BCF = 0.6598 * -0.17 - 0.333 + Correction",
+    "estimated_logBCF": -0.45
+  },
+  "62-53-3": {
+    "name": "aniline",
+    "kocwin_output": "MOL FOR: C6 H7 N1 \nMOL WT : 93.13\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  3.394\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.3690\n         Fragment Correction(s):\n                  1   Nitrogen to non-fused aromatic ring ...  : -0.5225\n         Corrected Log Koc  .................................. :  1.8465\n\n                         Estimated Koc:  70.23  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  0.90\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  1.4229\n         Fragment Correction(s):\n                  1   Nitrogen to non-fused aromatic ring ...  : -0.0216\n         Corrected Log Koc  .................................. :  1.4013\n\n                         Estimated Koc:  25.19  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 0.9 - 0.333 + Correction",
+    "estimated_logBCF": 0.26
+  },
+  "110-86-1": {
+    "name": "pyridine",
+    "kocwin_output": "MOL FOR: C5 H5 N1 \nMOL WT : 79.10\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  3.000\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.1637\n         Fragment Correction(s):\n                  1   Pyridine ring .........................  : -0.3080\n         Corrected Log Koc  .................................. :  1.8557\n\n                         Estimated Koc:  71.72  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  0.65\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  1.2846\n         Fragment Correction(s):\n                  1   Pyridine ring .........................  :  0.1764\n         Corrected Log Koc  .................................. :  1.4610\n\n                         Estimated Koc:  28.91  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 0.65 - 0.333 + Correction",
+    "estimated_logBCF": 0.10
+  },
+  "98-95-3": {
+    "name": "nitrobenzene",
+    "kocwin_output": "MOL FOR: C6 H5 N1 O2 \nMOL WT : 123.11\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  4.305\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.8438\n         Fragment Correction(s):\n                  1   Nitro (-NO2)  .........................  : -0.4889\n         Corrected Log Koc  .................................. :  2.3549\n\n                         Estimated Koc:  226.4  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  1.85\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  1.9484\n         Fragment Correction(s):\n                  1   Nitro (-NO2)  .........................  :  0.2191\n         Corrected Log Koc  .................................. :  2.1675\n\n                         Estimated Koc:  147.1  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 1.85 - 0.333 + Correction",
+    "estimated_logBCF": 0.89
+  },
+  "100-66-3": {
+    "name": "anisole",
+    "kocwin_output": "MOL FOR: C7 H8 O1 \nMOL WT : 108.14\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  3.932\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.6495\n         Fragment Correction(s):\n                  1   Ether, aromatic  (-C-O-C-)  ...........  : -0.6791\n         Corrected Log Koc  .................................. :  1.9704\n\n                         Estimated Koc:  93.41  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  2.11\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  2.0922\n         Fragment Correction(s):\n                  1   Ether, aromatic  (-C-O-C-)  ...........  :  0.0559\n         Corrected Log Koc  .................................. :  2.1481\n\n                         Estimated Koc:  140.6  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 2.11 - 0.333 + Correction",
+    "estimated_logBCF": 1.06
+  },
+  "93-58-3": {
+    "name": "methyl benzoate",
+    "kocwin_output": "MOL FOR: C8 H8 O2 \nMOL WT : 136.15\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  4.843\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.1242\n         Fragment Correction(s):\n                  1   Ester  (-C-CO-O-C-) or (HCO-O-C) ......  : -1.2970\n         Corrected Log Koc  .................................. :  1.8273\n\n                         Estimated Koc:  67.18  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  2.12\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  2.0977\n         Fragment Correction(s):\n                  1   Ester  (-C-CO-O-C-) or (HCO-O-C) ......  : -0.0656\n         Corrected Log Koc  .................................. :  2.0321\n\n                         Estimated Koc:  107.7  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 2.12 - 0.333 + Correction",
+    "estimated_logBCF": 1.06
+  },
+  "98-86-2": {
+    "name": "acetophenone",
+    "kocwin_output": "MOL FOR: C8 H8 O1 \nMOL WT : 120.15\n---------------------------  KOCWIN v2.01 Results  ---------------------------\n\n  Koc Estimate from MCI:\n  ---------------------\n         First Order Molecular Connectivity Index  ........... :  4.305\n         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.8438\n         Fragment Correction(s):\n                  1   Ketone  (-C-CO-C-)  ...................  : -1.1290\n         Corrected Log Koc  .................................. :  1.7147\n\n                         Estimated Koc:  51.85  L/kg   <===========\n\n  Koc Estimate from Log Kow:\n  -------------------------\n         Log Kow  (User entered   )  ......................... :  1.58\n         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  1.7990\n         Fragment Correction(s):\n                  1   Ketone  (-C-CO-C-)  ...................  :  0.1956\n         Corrected Log Koc  .................................. :  1.9946\n\n                         Estimated Koc:  98.77  L/kg   <===========\n",
+    "bcf_equation": "Log BCF = 0.6598 * 1.58 - 0.333 + Correction",
+    "estimated_logBCF": 0.71
+  }
+}

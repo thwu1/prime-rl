@@ -1,0 +1,7 @@
+filter parent 1:0 protocol ip pref 10 fw chain 0
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xa classid 1:11
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xb classid 1:12
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xc classid 1:21
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xd classid 1:31
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xe classid 1:32
+filter parent 1:0 protocol ip pref 10 fw chain 0 handle 0xf classid 1:45

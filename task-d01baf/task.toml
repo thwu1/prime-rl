@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the mathematical framework for transformer circuits (Elhage et al., 2021), including QK/OV circuit decomposition, three types of attention head composition (K-composition specifically), the rotational structure of sinusoidal positional encodings for implementing positional shifts, and subspace routing through the residual stream. The solver must construct 8 weight matrices whose composite behavior implements a multi-step induction algorithm spanning two transformer layers, with sharp attention patterns requiring appropriate scaling."""
+solution_explanation = """Head 1 uses rotated sinusoidal positional encodings in its QK circuit to attend to the previous token, and its OV circuit copies content embeddings (dims 0-7) to the virtual subspace (dims 16-23). Head 2 implements K-composition: its queries project current token content, its keys project the virtual subspace (which contains the previous token's content written by Head 1), so it attends to positions where the previous token matches the current token. Head 2's OV circuit copies content of the attended token back to dims 0-7 for unembedding. Scale factors on W_Q and W_K ensure sharply peaked softmax distributions."""
+verification_explanation = """Tests verify: (1) Head 1 attention patterns peak at the previous token position across multiple sequences, (2) Head 2 attention patterns implement induction by attending to the token after the previous occurrence of the current token, (3) logit predictions correctly boost induction-predicted tokens above non-pattern tokens, (4) mathematical properties including W_OV rank, content-to-virtual subspace mapping, K-composition strength (||W_K2 @ W_O1||_F), absence of V-composition, QK circuit subspace usage, and end-to-end OV path correctness."""
+category = "machine_learning"
+tags = ["mechanistic-interpretability", "transformer-circuits"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d01baf"

@@ -1,0 +1,23 @@
+instructions: "Fill the null bin values in dependent_variables with predicted signal yields normalized to 35.9 fb^-1. The rightmost bin is inclusive (all events with MET >= 550 GeV). Do not modify bin edges or metadata."
+description: "Predicted signal event yields per MET bin for T2tt (1000, 50) in the single-lepton signal region"
+target: "T2tt, m(t~1) = 1000 GeV, m(chi0_1) = 50 GeV"
+cm_energy_gev: 13000
+luminosity_fb: 35.9
+---
+dependent_variables:
+- header:
+    name: T2tt_1000_50
+  values:
+  - {value: null}
+  - {value: null}
+  - {value: null}
+  - {value: null}
+independent_variables:
+- header:
+    name: MET
+    units: GEV
+  values:
+  - {low: 250.0, high: 350.0}
+  - {low: 350.0, high: 450.0}
+  - {low: 450.0, high: 550.0}
+  - {low: 550.0, high: 1500.0}

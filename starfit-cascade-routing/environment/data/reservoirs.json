@@ -1,0 +1,71 @@
+{
+  "simulation": {
+    "start_date": "2020-01-01",
+    "num_days": 730,
+    "dt_seconds": 86400
+  },
+  "reservoirs": [
+    {
+      "name": "Highland",
+      "capacity_mcm": 500.0,
+      "mean_inflow_cms": 50.0,
+      "initial_storage_mcm": 300.0,
+      "nor_hi": {
+        "min": 0.5,
+        "max": 0.9,
+        "alpha": 0.2,
+        "beta": 0.7,
+        "mu": 0.5
+      },
+      "nor_lo": {
+        "min": 0.1,
+        "max": 0.4,
+        "alpha": 0.15,
+        "beta": 0.25,
+        "mu": 0.5
+      },
+      "release": {
+        "min": 0.5,
+        "max": 2.0,
+        "alpha1": 3.0,
+        "alpha2": 2.0,
+        "beta1": 1.0,
+        "beta2": 0.5,
+        "p1": 1.5,
+        "p2": 2.0,
+        "c": 1.0
+      }
+    },
+    {
+      "name": "Lowland",
+      "capacity_mcm": 300.0,
+      "mean_inflow_cms": 30.0,
+      "initial_storage_mcm": 180.0,
+      "nor_hi": {
+        "min": 0.4,
+        "max": 0.85,
+        "alpha": 0.25,
+        "beta": 0.6,
+        "mu": 1.0
+      },
+      "nor_lo": {
+        "min": 0.05,
+        "max": 0.35,
+        "alpha": 0.1,
+        "beta": 0.2,
+        "mu": 1.0
+      },
+      "release": {
+        "min": 0.4,
+        "max": 1.8,
+        "alpha1": 2.5,
+        "alpha2": 1.5,
+        "beta1": 0.8,
+        "beta2": 0.4,
+        "p1": 1.2,
+        "p2": 1.8,
+        "c": 0.9
+      }
+    }
+  ]
+}

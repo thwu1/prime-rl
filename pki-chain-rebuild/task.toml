@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of OpenSSL configuration file internals (CA_default, req, extension sections and how they interact), X.509 certificate extensions (basicConstraints pathlen, keyUsage, extendedKeyUsage, subjectAltName), PKI hierarchy construction (root CA → intermediate CA → end-entity), CRL-based revocation workflows, and Unix file permissions. The agent must diagnose six planted configuration errors across two config files that produce different symptoms: some cause immediate command failures (md5 digest with ECDSA, wrong directory path, missing crlnumber), while others produce silently non-compliant certificates (CA:FALSE on root, missing keyCertSign, wrong EKU on server cert). Additionally, deployment-specific parameters (audit stamp and server IP) are generated randomly at build time and must be read from deploy_params.json and incorporated into every certificate's OU field and the server SAN — preventing hardcoded solutions."""
+solution_explanation = """Read deploy_params.json to obtain the audit stamp and server SAN IP. Fix three errors in root-ca/openssl.cnf: change default_md from md5 to sha384, change basicConstraints from CA:FALSE to CA:TRUE,pathlen:1, add cRLSign and keyCertSign to keyUsage. Fix three errors in intermediate-ca/openssl.cnf: correct the dir path, change server_cert EKU from emailProtection to serverAuth, add missing crlnumber directive. Update OU fields in both configs to append the audit stamp suffix. Generate root CA cert, intermediate CA key+CSR+cert+chain, server cert with deployment-specific IP SAN, client cert with email SAN, revoke client cert, generate CRL, and set file permissions."""
+verification_explanation = """43 pytest tests across 6 classes verify: Root CA certificate properties (exists, self-signed, CA:TRUE, keyCertSign, cRLSign, strong hash, self-verification, key permissions, OU contains build-time audit stamp). Intermediate CA properties (exists, key, chain validation, CA:TRUE, pathlen:0, key usage, strong hash, key permissions, OU stamp). Chain file (exists, contains 2 PEM certs, validates). Server certificate (exists, chain validation, CA:FALSE, DNS SANs, deployment-specific IP SAN from deploy_params.json, serverAuth EKU, permissions, OU stamp). Client certificate (exists, EKUs, email SAN, permissions, OU stamp). Revocation (CRL exists, parseable, client serial in CRL, server serial not in CRL, index.txt revocation flag). Audit stamp and server IP are read from deploy_params.json at test time, making verification non-deterministic across builds."""
+category = "security_and_privacy"
+tags = ["pki", "openssl"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pki-chain-rebuild"

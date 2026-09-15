@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating the ANTLR4 code-generation toolchain (Java-based JAR, Python runtime, grammar compilation) with a full CQL expression evaluator. The solver must diagnose why the provided HL7 CQL grammar cannot be used directly for standalone expression parsing (multi-word implicit tokens, library-level start rule, import mechanism), adapt or rewrite the grammar for the Python3 target, implement a tree-walking evaluator covering ~30 CQL operators/functions with three-valued null logic and decimal precision semantics, parse XML test fixtures to discover required behavior, and build a CLI that reports results as structured JSON. The task couples ANTLR4 tool proficiency, grammar debugging, DSL evaluation semantics, and XML integration."""
+solution_explanation = """The solution creates a simplified CqlExpr.g4 grammar focused on expression-level parsing (removing library/definition rules, multi-word tokens, and import directives), generates Python3 parser/lexer via the ANTLR4 JAR, then implements a CqlExprVisitor subclass that evaluates CQL expressions with proper type system (Integer, Decimal, Long, Boolean, String, DateTime, Time, Quantity, List, Interval, Tuple, null), three-valued null propagation, type coercion, and ~30 built-in functions. The CLI parses XML fixtures using ElementTree, runs each expression through the evaluator, normalizes output comparison, and emits JSON results."""
+verification_explanation = """Tests verify: (1) ANTLR4-generated parser/lexer files exist in /app/generated/ and contain antlr4 imports, (2) CLI produces valid JSON with the required schema for single-file and batch modes, (3) invalid-attributed tests are excluded from output, (4) specific expression evaluations pass (arithmetic, logical, comparison, conditional, nullological), (5) overall batch pass rate ≥85%."""
+category = "applied_computing"
+tags = ["antlr4-toolchain", "dsl-evaluation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cql-expression-evaluator-3e2487"

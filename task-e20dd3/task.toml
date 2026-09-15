@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across four domains that interact and cascade: (1) tshark proficiency — constructing BPF display filters for SYN-only traffic, selecting correct -T fields extraction mode, understanding tshark's TCP analysis preferences (relative sequence numbers must be disabled or signatures break), and parsing tshark's heterogeneous output formats for IP identification, flags, and protocol fields; (2) deep TCP/IP binary protocol knowledge — raw option byte parsing for correct option layout ordering (MSS, WS, SOK, TS, EOL+padding), window-to-MSS ratio detection, TTL normalization, and comprehensive quirk flag computation from IP flags/ID/ECN and TCP seq/ack/urg fields; (3) statistical analysis — least-squares linear regression of TCP timestamp counter values against wall-clock capture time to estimate per-host clock frequency and uptime from sparse SYN observations; (4) network security forensics — NAT gateway detection via behavioral fingerprint divergence from a single IP, requiring the solver to recognize that different TCP stacks produce distinguishable signatures even when sharing an IP address. Incorrect tshark configuration cascades: relative sequence numbers produce spurious seq- quirks, wrong field names yield empty values, and display-adjusted IDs break id+ quirk detection."""
+solution_explanation = """The solution runs tshark with -T fields output, display filter for SYN-only IPv4 packets, and disabled relative sequence numbers to extract per-packet metadata (frame number, timestamps, IP/TCP fields). It reads the raw pcap file to extract both TCP option bytes and IP-level fields (DF flag, IP ID, ECN, reserved bit) directly from binary packet data rather than relying on tshark's boolean field output format (which varies between versions). It builds p0f-compatible signatures with correct window interpretation, TTL normalization, and comprehensive quirk detection, matches against the fingerprint database with wildcard-aware comparison, groups results by source IP, detects NAT via signature divergence, estimates clock parameters via linear regression, and outputs a sorted JSON report."""
+verification_explanation = """Tests run the profiler against a synthetic pcap containing 4 host profiles: Linux direct-connected (5 SYNs with timestamps at 250 Hz), Windows 3 hops away (3 SYNs without timestamps), a NAT gateway mixing Linux and macOS traffic (4 SYNs with divergent signatures), and Linux 9 hops away (3 SYNs with timestamps). Noise traffic (ARP, UDP, TCP ACK, SYN-ACK) tests filtering. 53 individual test assertions verify per-host OS identification, exact p0f signatures with quirk set comparison, hop distances, clock frequency and uptime estimates within tolerance, NAT detection flags with correct signature arrays, SYN counts, sorted output, and correct field types."""
+category = "networking"
+tags = ["protocol-analysis", "network-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e20dd3"

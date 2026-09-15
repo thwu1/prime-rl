@@ -1,0 +1,15 @@
+2025-06-12 17:30:00 INFO  DataReplicator starting — connected to 6 regional stores
+2025-06-12 17:35:00 INFO  Policy batch update: 3 policies updated across all regions
+2025-06-12 17:35:01 INFO  Replication complete: 6/6 regions succeeded
+2025-06-12 17:40:00 INFO  Policy batch update: 1 policy updated across all regions
+2025-06-12 17:40:01 INFO  Replication complete: 6/6 regions succeeded
+2025-06-12 17:44:50 INFO  DataReplicator processing batch update (1 policy)
+2025-06-12 17:44:50 INFO  Policy pol-quota-7f3a9b: project=project-alpha api=compute.googleapis.com
+2025-06-12 17:44:51 INFO  Replicated pol-quota-7f3a9b to us-east1
+2025-06-12 17:44:51 INFO  Replicated pol-quota-7f3a9b to us-central1
+2025-06-12 17:44:52 INFO  Replicated pol-quota-7f3a9b to us-west1
+2025-06-12 17:44:52 INFO  Replicated pol-quota-7f3a9b to europe-west1
+2025-06-12 17:44:53 INFO  Replicated pol-quota-7f3a9b to asia-east1
+2025-06-12 17:44:53 INFO  Replicated pol-quota-7f3a9b to asia-northeast1
+2025-06-12 17:44:53 INFO  Replication complete: 6/6 regions succeeded
+2025-06-12 17:44:53 INFO  Batch update finished

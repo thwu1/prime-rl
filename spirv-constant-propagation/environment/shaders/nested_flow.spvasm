@@ -1,0 +1,48 @@
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %main "main" %outparm
+               OpExecutionMode %main OriginUpperLeft
+               OpName %outparm "outparm"
+               OpDecorate %outparm Location 0
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+       %bool = OpTypeBool
+%_ptr_Output_int = OpTypePointer Output %int
+      %int_0 = OpConstant %int 0
+      %int_1 = OpConstant %int 1
+      %int_2 = OpConstant %int 2
+      %int_5 = OpConstant %int 5
+     %int_10 = OpConstant %int 10
+     %int_20 = OpConstant %int 20
+     %int_99 = OpConstant %int 99
+    %outparm = OpVariable %_ptr_Output_int Output
+       %main = OpFunction %void None %3
+         %50 = OpLabel
+         %51 = OpIAdd %int %int_2 %int_5
+         %52 = OpSGreaterThan %bool %51 %int_5
+               OpSelectionMerge %merge1 None
+               OpBranchConditional %52 %bb1 %bb2
+        %bb1 = OpLabel
+         %53 = OpIMul %int %51 %int_2
+         %54 = OpSLessThan %bool %53 %int_10
+               OpSelectionMerge %merge2 None
+               OpBranchConditional %54 %bb3 %bb4
+        %bb3 = OpLabel
+         %55 = OpIAdd %int %53 %int_99
+               OpBranch %merge2
+        %bb4 = OpLabel
+         %56 = OpISub %int %53 %int_1
+               OpBranch %merge2
+     %merge2 = OpLabel
+         %57 = OpPhi %int %55 %bb3 %56 %bb4
+               OpBranch %merge1
+        %bb2 = OpLabel
+         %58 = OpIAdd %int %51 %int_20
+               OpBranch %merge1
+     %merge1 = OpLabel
+         %59 = OpPhi %int %57 %merge2 %58 %bb2
+               OpStore %outparm %59
+               OpReturn
+               OpFunctionEnd

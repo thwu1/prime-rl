@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the PC-SAFT equation of state from mathematical specifications: three Helmholtz energy contributions (hard sphere, hard chain, dispersion with 42 universal constants), numerical differentiation for pressure and chemical potential, a Newton-based density solver handling dual liquid/vapor roots, a bisection-based vapor-liquid equilibrium solver coupling pressure and fugacity equality, and a 2D Newton critical point finder using numerical third derivatives. Demands combined expertise in statistical thermodynamics, numerical methods, and Rust programming."""
+solution_explanation = """Translate the PC-SAFT formulas (Carnahan-Starling hard sphere, radial distribution function chain term, dispersion power series with C1 compressibility) into Rust functions. Use central finite differences for pressure P/(kT) = rho + rho*dPhi/drho - Phi and chemical potential mu_res/(kT) = dPhi/drho. Implement density solver via damped Newton's method with ideal-gas and close-packing initial guesses. Solve VLE by scanning the P(rho) isotherm for van der Waals loop spinodals, then bisecting on pressure to find equal chemical potential. Find critical point via 2D Newton on (dP/drho, d2P/drho2) = (0, 0) with numerical Jacobian."""
+verification_explanation = """The test builds and runs the Rust binary, then uses pytest to parse results.json and compare each output against reference values from the FeOs library: hard sphere A*V = 0.41061, hard chain = -0.12403, dispersion = -1.06225, propane Tc = 375.124 K, rhoc = 4733.0 mol/m3. VLE at 300K is verified by checking pressure ratio ~1.0 and fugacity difference ~0."""
+category = "scientific_computing"
+tags = ["thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pcsaft-eos-solver-c31842"

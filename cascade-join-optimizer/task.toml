@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-operator cost-based query optimizer that makes holistic choices across scan types (sequential vs index), join algorithms (hash join vs sort-merge join), and join orderings. The key challenge is understanding physical property propagation: scan type determines sort order, which determines merge join eligibility, which affects total plan cost. For example, choosing a more expensive sequential scan over a cheaper index scan can enable a sort-merge join that saves more cost downstream — a non-obvious optimization requiring deep understanding of Volcano/Cascades-style physical property enforcement. Additionally requires querying a SQLite catalog database for statistics and cost parameters, and generating graphviz DOT plan visualizations."""
+solution_explanation = """Read catalog statistics from SQLite. Build base scan candidates per table (seq scan + optional filter, index scan where eligible). Use subset dynamic programming over join orderings, but for each join consider all base plan candidates for single-table inputs to discover scan-join interactions. For each candidate join, evaluate both hash join (build on smaller side) and sort-merge join (check if inputs are sorted on join columns). The critical insight for q4/q5 is that orders is clustered on date_id, so merge join with dates is optimal — and in q5, using seq_scan+filter for dates (preserving date_id sort order) enables a merge join that saves ~38K in total cost over the cheaper index scan + hash join alternative. Generate DOT files from plan trees and render with graphviz dot command."""
+verification_explanation = """Tests run the optimizer and verify: (1) output files exist as valid JSON, (2) total costs match analytically precomputed optima within 2%, (3) root cardinalities within 1%, (4) q4 uses SortMergeJoin (merge join optimal when both sides sorted), (5) q1-q3 use only HashJoin, (6) q2/q3 use IndexScan for products, (7) q5 uses SeqScan for dates (preserving sort order for merge join) not IndexScan, (8) filters are pushed below joins, (9) DOT files are valid graphviz and PNGs are rendered."""
+category = "information_systems"
+tags = ["query_optimization", "physical_properties"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascade-join-optimizer"

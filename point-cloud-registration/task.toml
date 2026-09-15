@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Coherent Point Drift (or equivalent probabilistic) point cloud registration from scratch while navigating a multi-tool pipeline: (1) querying a SQLite database with foreign-key relationships to extract point cloud data via SQL JOINs, (2) parsing nested TOML configuration for algorithm parameters and per-scenario outlier weights, (3) formulating a GMM-based generative model with a uniform outlier component, (4) deriving and coding the EM E-step with numerically stable log-sum-exp posterior computation, (5) implementing the M-step: SVD-based rotation recovery with reflection correction, closed-form scale estimation, translation update, and noise variance update, (6) writing results back to a new SQLite database with the correct schema. The mathematical foundation spans GMMs, EM optimization, matrix calculus, and SO(3) geometry. The hardest scenario combines a ~78-degree rotation, scale change, 22% outlier contamination, and only 60% point overlap."""
+solution_explanation = """Reads scan data from SQLite via JOIN queries, parses TOML config with tomllib, then implements rigid CPD with scale: E-step computes M-by-N GMM responsibility matrix using log-sum-exp for numerical stability; M-step recovers rotation via SVD of weighted cross-covariance matrix (with determinant correction to prevent reflections), estimates scale from trace ratio formula, updates translation as difference of weighted centroids, and updates noise variance. Outlier weights are read from the TOML config. Results are written to a new SQLite database with the required transformations table schema."""
+verification_explanation = """Tests first verify the output SQLite database schema: existence of the results.db file, presence of the transformations table, correct column names, and completeness of scenario entries. Then structural tests verify rotation matrix orthogonality and unit determinant. Finally, functional alignment tests apply the agent's recovered transformation to source point clouds (loaded from the input SQLite database) and measure alignment quality against the target using trimmed nearest-neighbor RMS distance. Thresholds scale with noise level and overlap ratio. Bidirectional consistency checks also verify the inverse transformation."""
+category = "scientific_computing"
+tags = ["point-cloud-registration", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/point-cloud-registration"

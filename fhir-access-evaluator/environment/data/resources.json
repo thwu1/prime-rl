@@ -1,0 +1,78 @@
+[
+  {
+    "resourceType": "Patient",
+    "id": "p1",
+    "name": [{"family": "Doe", "given": ["John"]}],
+    "birthDate": "1990-01-15",
+    "gender": "male",
+    "address": [{"state": "CA", "city": "Los Angeles"}]
+  },
+  {
+    "resourceType": "Patient",
+    "id": "p2",
+    "name": [{"family": "Smith", "given": ["Jane"]}],
+    "birthDate": "1985-06-20",
+    "gender": "female",
+    "address": [{"state": "NY", "city": "New York"}]
+  },
+  {
+    "resourceType": "Observation",
+    "id": "o1",
+    "status": "final",
+    "subject": {"reference": "Patient/p1"},
+    "category": [{"coding": [{"code": "vital-signs"}]}],
+    "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4", "display": "Heart rate"}]},
+    "valueQuantity": {"value": 72, "unit": "bpm"},
+    "meta": {"versionId": "3", "lastUpdated": "2024-01-15T10:30:00Z"}
+  },
+  {
+    "resourceType": "Observation",
+    "id": "o2",
+    "status": "preliminary",
+    "subject": {"reference": "Patient/p2"},
+    "category": [{"coding": [{"code": "laboratory"}]}],
+    "code": {"coding": [{"system": "http://loinc.org", "code": "2345-7", "display": "Glucose"}]},
+    "valueQuantity": {"value": 95, "unit": "mg/dL"},
+    "meta": {"versionId": "1", "lastUpdated": "2024-01-14T08:00:00Z"}
+  },
+  {
+    "resourceType": "Observation",
+    "id": "o3",
+    "status": "registered",
+    "subject": {"reference": "Patient/p1"},
+    "category": [{"coding": [{"code": "social-history"}]}],
+    "code": {"coding": [{"system": "http://loinc.org", "code": "72166-2", "display": "Tobacco use"}]},
+    "valueCodeableConcept": {"coding": [{"code": "never"}]},
+    "meta": {"versionId": "1", "lastUpdated": "2024-01-13T14:00:00Z"}
+  },
+  {
+    "resourceType": "Observation",
+    "id": "o4",
+    "status": "final",
+    "subject": {"reference": "Patient/p2"},
+    "category": [{"coding": [{"code": "vital-signs"}]}],
+    "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Blood pressure"}]},
+    "valueQuantity": {"value": 120, "unit": "mmHg"},
+    "meta": {"versionId": "2", "lastUpdated": "2024-01-15T09:00:00Z"}
+  },
+  {
+    "resourceType": "Observation",
+    "id": "o5",
+    "status": "preliminary",
+    "subject": {"reference": "Patient/p1"},
+    "category": [{"coding": [{"code": "laboratory"}]}],
+    "code": {"coding": [{"system": "http://loinc.org", "code": "718-7", "display": "Hemoglobin"}]},
+    "meta": {"versionId": "1", "lastUpdated": "2024-01-16T11:00:00Z"}
+  },
+  {
+    "resourceType": "Project",
+    "id": "proj1",
+    "name": "Main Clinical Project"
+  },
+  {
+    "resourceType": "ProjectMembership",
+    "id": "pm1",
+    "project": {"reference": "Project/proj1"},
+    "user": {"reference": "User/user5"}
+  }
+]

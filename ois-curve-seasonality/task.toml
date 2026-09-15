@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantitative finance knowledge combined with multi-tool pipeline engineering. The solver must: (1) perform statistical analysis on historical SOFR fixings to discover and quantify intra-month seasonality patterns across business-day categories, (2) design and implement a discount-curve framework that decomposes smooth node-based interpolation from daily seasonality adjustments, (3) calibrate the curve to reprice OIS quotes via numerical root-finding with tight tolerance, (4) implement date arithmetic and modified-following business-day conventions, (5) price swaps with proper payment schedules and day-count fractions, (6) compute bucketed PV01 via full curve recalibration per quote bump, (7) write results in both JSON and SQLite formats, (8) author a Makefile orchestrating the Python calibration, jq-based JSON summarization, and sqlite3 CLI view creation — requiring proficiency in Make, jq, and sqlite3 in addition to Python and quant finance."""
+solution_explanation = """The solution loads market data from JSON, parses the portfolio from YAML, and extracts seasonality from the CSV fixings by grouping rates by business-day category within each month and computing spreads versus 'other' days. A SeasCurve accumulates overnight seasonality adjustments across business days. A VarCurve uses log-linear interpolation on discount factors between node dates. Newton's method calibrates the node log-DFs so that D_var x D_seas jointly reprices all 8 OIS swap quotes. Forward overnight rates are computed as simple rates from consecutive total DFs. Portfolio swaps are priced using the calibrated curve, and bucketed PV01 is obtained by bumping each OIS quote individually, recalibrating, and differencing swap PVs. A Makefile orchestrates: 'make calibrate' runs the Python script producing results.json and curves.db; 'make report' uses jq to extract summary statistics into summary.json; 'make views' uses sqlite3 CLI to create df_monthly and rate_stats views."""
+verification_explanation = """Tests verify: (1) output structure completeness for JSON and SQLite, (2) DF monotonicity and positivity, (3) repricing accuracy within 0.01 bps, (4) seasonality capture via month-end vs mid-month forward rate differentials (5-30 bps), (5) swap PV signs, (6) PV01 signs, magnitudes, and key completeness, (7) forward rate coverage and positivity, (8) DF/forward consistency, (9) SQLite cross-check against JSON, (10) Makefile structure with correct targets and tool references (jq in report, sqlite3 in views), (11) summary.json values matching results.json, (12) SQL views df_monthly and rate_stats with correct schema and data."""
+category = "quantitative_finance"
+tags = ["interest-rates", "curve-calibration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ois-curve-seasonality"

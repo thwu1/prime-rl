@@ -1,0 +1,50 @@
+Step 1/8 : FROM ruby:3.2-slim
+ ---> f6g7h8i9j0k1
+Step 2/8 : WORKDIR /app
+ ---> Using cache
+ ---> l2m3n4o5p6q7
+Step 3/8 : RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+ ---> Running in r8s9t0u1v2w3
+Setting up build-essential (12.9) ...
+Step 4/8 : COPY Gemfile Gemfile.lock ./
+ ---> x4y5z6a7b8c9
+Step 5/8 : RUN bundle install
+ ---> Running in d0e1f2g3h4i5
+Fetching gem metadata from https://rubygems.org/..........
+Resolving dependencies...
+Using bundler 2.4.22
+Fetching mini_portile2 2.8.5
+Installing mini_portile2 2.8.5
+Fetching racc 1.7.3
+Installing racc 1.7.3 with native extensions
+Fetching nokogiri 1.16.2
+Installing nokogiri 1.16.2 with native extensions
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+    current directory: /usr/local/bundle/gems/nokogiri-1.16.2/ext/nokogiri
+/usr/local/bin/ruby -I /usr/local/lib/ruby/3.2.0 extconf.rb
+checking for whether -std=c99 is accepted as CFLAGS... yes
+checking for whether -Wimplicit-fallthrough is accepted as CFLAGS... yes
+checking for whether -fno-strict-aliasing is accepted as CFLAGS... yes
+...
+Building nokogiri using packaged libraries.
+checking for iconv... yes
+checking for gzdopen() in -lz... yes
+checking for xmlParseDoc() in -lxml2... no
+checking for xmlParseDoc() in -llibxml2... no
+
+-----
+libxml2 is missing. Please locate mkmf.log to investigate how it is failing.
+-----
+
+checking for xsltParseStylesheetDoc() in -lxslt... no
+checking for xsltParseStylesheetDoc() in -llibxslt... no
+
+-----
+libxslt is missing. Please locate mkmf.log to investigate how it is failing.
+-----
+*** extconf.rb failed ***
+
+An error occurred while installing nokogiri (1.16.2), and Bundler cannot continue.
+Make sure that `gem install nokogiri -v '1.16.2' --source 'https://rubygems.org/'` succeeds before bundling.
+The command '/bin/sh -c bundle install' returned a non-zero code: 5

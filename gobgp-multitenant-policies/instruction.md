@@ -1,0 +1,7 @@
+GoBGP (`gobgpd`, `gobgp`) is installed at `/usr/local/bin/`. Proto definitions are at `/app/proto/api/`. Pre-compiled Python gRPC stubs are at `/app/generated/` (importable as `from api import gobgp_pb2, gobgp_pb2_grpc` after adding `/app/generated` to `sys.path`). Python packages `grpcio`, `grpcio-tools`, and `protobuf` are installed.
+
+The multi-tenant BGP specification at `/app/tenants.json` defines a global configuration (ASN, router ID, bogon prefixes) and four tenants, each with an ASN, allowed prefixes, community tag, AS-origin reject list, inter-tenant export permissions, MED adjustment value, and optional AS-path prepend parameters.
+
+Write `/app/orchestrator.py` that produces a fully configured, running GoBGP instance (gRPC API at `localhost:50051`) operating as a multi-tenant BGP policy engine. The engine must enforce complete route isolation between tenants, with inter-tenant route sharing permitted only where a tenant's `export_to_tenants` field explicitly allows it. All global and per-tenant routing constraints from the specification — including bogon rejection, prefix filtering, origin validation, route attribute modifications, and community-based identification — must be enforced through GoBGP routing policies and peer group bindings.
+
+After configuration, write `/app/state.json` conforming to the JSON Schema at `/app/state_schema.json`.

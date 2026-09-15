@@ -1,0 +1,6 @@
+{
+  "program": [
+    {"op": "mul", "arg1": "x0", "arg2": "x1", "dest": "t0"}
+  ],
+  "result": "t0"
+}

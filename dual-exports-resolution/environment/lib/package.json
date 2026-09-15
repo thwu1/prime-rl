@@ -1,0 +1,38 @@
+{
+  "name": "@mathkit/linalg",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "default": "./dist/index.js"
+    },
+    "./vector.js": {
+      "types": "./dist/vector.d.ts",
+      "default": "./dist/vector.js"
+    },
+    "./matrix": {
+      "types": "./dist/matrix.d.ts",
+      "default": "./dist/matrix.js"
+    },
+    "./types": {
+      "types": "./dist/typedefs.d.ts",
+      "default": "./dist/typedefs.js"
+    },
+    "./plugins/*": {
+      "types": "./dist/plugins/*.d.ts",
+      "default": "./dist/plugins/*.js"
+    }
+  },
+  "imports": {
+    "#platform": {
+      "node": "./src/platform/simd.ts",
+      "default": "./src/platform/fallback.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

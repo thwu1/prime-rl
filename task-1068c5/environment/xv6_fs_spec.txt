@@ -1,0 +1,97 @@
+xv6 File System On-Disk Format Specification
+=============================================
+
+Block size: 1024 bytes
+All integers are little-endian.
+
+Disk Layout
+-----------
+  Block 0:                           Boot block (unused)
+  Block 1:                           Superblock
+  Blocks [logstart .. logstart+nlog): Log area
+  Blocks [inodestart .. inodestart+ninodeblocks): Inode blocks
+  Blocks [bmapstart .. bmapstart+nbitmap):        Free bitmap
+  Remaining blocks:                  Data blocks
+
+  ninodeblocks = ninodes / IPB + 1
+  nbitmap      = size / BPB + 1  (integer division)
+  IPB          = BSIZE / 64 = 16  (inodes per block)
+  BPB          = BSIZE * 8 = 8192 (bitmap bits per block)
+
+Superblock (32 bytes at start of block 1)
+-----------------------------------------
+  Offset  Size   Field
+  0       4      magic       Must be 0x10203040
+  4       4      size        Total number of blocks in file system
+  8       4      nblocks     Number of data blocks
+  12      4      ninodes     Number of inodes
+  16      4      nlog        Number of log blocks
+  20      4      logstart    Block number of first log block
+  24      4      inodestart  Block number of first inode block
+  28      4      bmapstart   Block number of first bitmap block
+
+Write-Ahead Log
+---------------
+  Log header (at block logstart):
+    Offset  Size   Field
+    0       4      n           Number of logged blocks (0 = clean)
+    4       4*n    block[0..n) Destination block numbers
+
+  Log data blocks:
+    Block logstart+1 contains data for destination block[0]
+    Block logstart+2 contains data for destination block[1]
+    ...and so on.
+
+  Recovery procedure:
+    If n > 0, copy each log data block to its destination block,
+    then set n = 0 in the header. This is the standard xv6
+    write-ahead log replay protocol.
+
+On-Disk Inode (dinode) -- 64 bytes
+----------------------------------
+  Offset  Size   Field
+  0       2      type      0=free, 1=T_DIR, 2=T_FILE, 3=T_DEVICE
+  2       2      major     Major device number (T_DEVICE only)
+  4       2      minor     Minor device number (T_DEVICE only)
+  6       2      nlink     Number of directory entries pointing here
+  8       4      size      File size in bytes
+  12      52     addrs[13] Block addresses: 12 direct + 1 indirect
+
+  Inode numbering:
+    Inode N is at block (N / IPB + inodestart),
+    byte offset (N % IPB) * 64 within that block.
+
+  NDIRECT   = 12
+  NINDIRECT = BSIZE / 4 = 256
+  MAXFILE   = NDIRECT + NINDIRECT = 268 blocks
+
+Indirect Block
+--------------
+  Array of 256 uint32 block addresses. Zero = unallocated.
+  The indirect block number is stored in addrs[12].
+
+Free Bitmap
+-----------
+  One bit per block. Bit set (1) = block in use. Bit clear (0) = free.
+
+  For block number B:
+    Bitmap block = B / BPB + bmapstart
+    Byte within that block = (B % BPB) / 8
+    Bit within that byte = (B % BPB) % 8    (i.e., B % 8)
+
+Directory Entry -- 16 bytes
+---------------------------
+  Offset  Size   Field
+  0       2      inum    Inode number (0 = empty/unused entry)
+  2       14     name    File name, null-padded (may fill all 14 bytes)
+
+  A directory is a file (type=T_DIR) whose data is a sequence of
+  16-byte directory entries. The entries "." and ".." are conventional.
+
+  Root directory inode number: 1
+
+Type Constants
+--------------
+  T_DIR    = 1   (directory)
+  T_FILE   = 2   (regular file)
+  T_DEVICE = 3   (device)

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Coq proof skills spanning three domains: (1) algebraic reasoning about associational number representations (list partition, Z.div_mod, the modular reduction rule s*b ≡ c*b mod (s-c)), (2) inductive proofs over positional digit decomposition requiring Znumtheory.Zmod_div_mod and combine/fold_right manipulation, and (3) properties of exponential weight functions using Z.pow_add_r and Z.divide. The eval_partition proof is the hardest: it requires showing that fold_right over combine of appended lists decomposes additively, and relating nested modular reductions via the weight divisibility chain. This is graduate/PhD-level formal verification work."""
+solution_explanation = """eval_split: unfold split, induction on p, destruct partition result, case-split on the modular test, use Z.div_mod to show s*(a/s)=a when a mod s = 0, finish with nia. eval_reduce: unfold, rewrite with eval_app/eval_mul/eval_split, apply reduction_rule symmetrically. eval_partition: unfold eval/partition_val, induction on n, use combine_app + fold_right_app to decompose, use Zmod_div_mod for nested mod, finish with Z.div_mod. partition_bounded: rewrite nth via nth_map_seq, use Z.div_pos and Z.div_lt_upper_bound with Z.mod_pos_bound. UWeight lemmas: uweight_divides via uweight_S + exists; uweight_sum via Z.pow_add_r + ring; uweight_mod_mod via Zmod_div_mod + explicit divisor witness."""
+verification_explanation = """coqc is a sound verifier: if the file compiles without Admitted/admit/Axiom, all stated lemmas are proven correct. Tests check compilation success, absence of Admitted/admit/Axiom, preservation of definitions and lemma signatures, and production of the .vo output file."""
+category = "formal_verification"
+tags = ["coq", "cryptographic-arithmetic"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multilimb-carry-proofs"

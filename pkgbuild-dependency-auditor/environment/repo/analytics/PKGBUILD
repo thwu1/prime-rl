@@ -1,0 +1,23 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+
+pkgname=analytics
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Data analytics engine"
+arch=('x86_64')
+url="https://example.com/analytics"
+license=('MIT')
+depends=('dbengine-client' 'dashboard')
+makedepends=('syslibs-dev')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('b2b3b4b5b6b1b2b3b4b5b6b1b2b3b4b5b6b1b2b3b4b5b6b1b2b3b4b5b6b1b2b3')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    make
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}" install
+}

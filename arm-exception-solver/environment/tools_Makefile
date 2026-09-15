@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -std=c11
+
+all: scs_parse
+
+scs_parse: scs_parse.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f scs_parse
+
+.PHONY: all clean

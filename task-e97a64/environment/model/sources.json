@@ -1,0 +1,69 @@
+{
+  "sources": [
+    {
+      "id": "point-1",
+      "type": "point",
+      "name": "Background Zone Alpha",
+      "location": {"lon": -118.2, "lat": 34.1},
+      "depth_km": 10.0,
+      "mfd": {
+        "type": "gutenberg-richter",
+        "a": 2.5,
+        "b": 0.9,
+        "mMin": 5.0,
+        "mMax": 6.5,
+        "dMag": 0.1
+      },
+      "weight": 1.0
+    },
+    {
+      "id": "point-2",
+      "type": "point",
+      "name": "Background Zone Beta",
+      "location": {"lon": -117.8, "lat": 34.3},
+      "depth_km": 8.0,
+      "mfd": {
+        "type": "gutenberg-richter",
+        "a": 2.8,
+        "b": 1.0,
+        "mMin": 5.0,
+        "mMax": 7.0,
+        "dMag": 0.1
+      },
+      "weight": 1.0
+    },
+    {
+      "id": "fault-1",
+      "type": "fault",
+      "name": "Main Strike-Slip Fault",
+      "trace": [
+        {"lon": -118.5, "lat": 34.0},
+        {"lon": -117.5, "lat": 34.0}
+      ],
+      "dip": 90.0,
+      "upperDepth_km": 0.0,
+      "lowerDepth_km": 15.0,
+      "rake": 0.0,
+      "mfd": {
+        "type": "gutenberg-richter",
+        "a": 3.0,
+        "b": 0.8,
+        "mMin": 5.0,
+        "mMax": 7.5,
+        "dMag": 0.1,
+        "mMaxEpistemic": {
+          "branches": [
+            {"mMax": 7.3, "weight": 0.2},
+            {"mMax": 7.5, "weight": 0.6},
+            {"mMax": 7.7, "weight": 0.2}
+          ]
+        }
+      },
+      "ruptureScaling": {
+        "model": "wells-coppersmith-94-length",
+        "formula": "log10(ruptureLength_km) = -3.22 + 0.69 * M"
+      },
+      "weight": 1.0
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "reference_integrity": {
+    "broken": [],
+    "total_checked": 7,
+    "valid": 7
+  },
+  "resource_summary": {
+    "by_type": {
+      "MedicationRequest": 1,
+      "Observation": 3,
+      "Organization": 1,
+      "Patient": 2
+    },
+    "total_resources": 7
+  },
+  "search_results": {
+    "active_medication_requests": {
+      "count": 1,
+      "matched_ids": [
+        "medreq-1"
+      ],
+      "query": "status=active",
+      "resource_type": "MedicationRequest"
+    },
+    "heart_rate_by_loinc": {
+      "count": 2,
+      "matched_ids": [
+        "obs-1",
+        "obs-3"
+      ],
+      "query": "code=http://loinc.org|8867-4",
+      "resource_type": "Observation"
+    },
+    "high_quantity_observations": {
+      "count": 1,
+      "matched_ids": [
+        "obs-3"
+      ],
+      "query": "value-quantity=gt80",
+      "resource_type": "Observation"
+    },
+    "january_observations": {
+      "count": 2,
+      "matched_ids": [
+        "obs-1",
+        "obs-2"
+      ],
+      "query": "date=ge2024-01-01&date=le2024-01-31",
+      "resource_type": "Observation"
+    },
+    "observations_on_jan15": {
+      "count": 2,
+      "matched_ids": [
+        "obs-1",
+        "obs-2"
+      ],
+      "query": "date=2024-01-15",
+      "resource_type": "Observation"
+    }
+  }
+}

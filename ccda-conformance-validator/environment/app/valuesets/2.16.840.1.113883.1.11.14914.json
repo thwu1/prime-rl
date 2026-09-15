@@ -1,0 +1,33 @@
+{
+  "oid": "2.16.840.1.113883.1.11.14914",
+  "name": "Race",
+  "codeSystem": "2.16.840.1.113883.6.238",
+  "codes": [
+    {"code": "1002-5", "displayName": "American Indian or Alaska Native"},
+    {"code": "1004-1", "displayName": "American Indian"},
+    {"code": "1006-6", "displayName": "Abenaki"},
+    {"code": "2028-9", "displayName": "Asian"},
+    {"code": "2029-7", "displayName": "Asian Indian"},
+    {"code": "2034-7", "displayName": "Chinese"},
+    {"code": "2036-2", "displayName": "Filipino"},
+    {"code": "2039-6", "displayName": "Japanese"},
+    {"code": "2040-4", "displayName": "Korean"},
+    {"code": "2041-2", "displayName": "Vietnamese"},
+    {"code": "2054-5", "displayName": "Black or African American"},
+    {"code": "2056-0", "displayName": "Black"},
+    {"code": "2058-6", "displayName": "African American"},
+    {"code": "2076-8", "displayName": "Native Hawaiian or Other Pacific Islander"},
+    {"code": "2078-4", "displayName": "Polynesian"},
+    {"code": "2079-2", "displayName": "Native Hawaiian"},
+    {"code": "2106-3", "displayName": "White"},
+    {"code": "2108-9", "displayName": "European"},
+    {"code": "2109-7", "displayName": "English"},
+    {"code": "2110-5", "displayName": "French"},
+    {"code": "2111-3", "displayName": "German"},
+    {"code": "2112-1", "displayName": "Irish"},
+    {"code": "2113-9", "displayName": "Italian"},
+    {"code": "2114-7", "displayName": "Polish"},
+    {"code": "2115-4", "displayName": "Scottish"},
+    {"code": "2131-1", "displayName": "Other Race"}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "numAgents": 3,
+  "txns": [
+    {"parents": [], "agent": 0, "patches": [[0, 0, "The quick brown fox"]]},
+    {"parents": [0], "agent": 0, "patches": [[19, 0, " jumps"]]},
+    {"parents": [0], "agent": 1, "patches": [[0, 3, "A"]]},
+    {"parents": [0], "agent": 2, "patches": [[10, 5, "red"]]},
+    {"parents": [1, 2, 3], "agent": 0, "patches": []}
+  ]
+}

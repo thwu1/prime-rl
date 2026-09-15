@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of SWIFT FIN message envelope structure (5 nested blocks), MT103 field-level format validation, cross-field dependency rules (C-rules), STP variant compliance, and ISO 20022 pacs.008 XML mapping. The solver must debug a multi-file Java codebase with interleaved parsing/validation/mapping bugs, fix a broken Makefile with incorrect compilation flags, classpath, jq syntax, and xmllint invocation, and repair a pacs.008 XML mapper with wrong namespace, missing schema-required elements, inverted date century logic, unmapped charge codes, and broken party name extraction. Requires coordinated proficiency with javac, make, jq, and xmllint in a build pipeline."""
+solution_explanation = """Fix Makefile: compile all *.java (not one file), add swift. package prefix, fix jq closing bracket, correct xmllint schema path and add --noout. Fix BlockParser: ACK-prepended message handling, multi-line field continuation, BIC extraction positions. Fix FieldValidator: month/day bounds (1-12, 1-31), currency set (add XOF/XAF etc.), trailing-comma amount parsing, BIC regex (4 alpha required), IBAN integration. Fix CrossFieldValidator: C1 currency extraction and comparison, C3 logic inversion, implement C2/C5/C6. Fix StpChecker: validate constraints 2-4 and report STP_VIOLATION. Fix IbanValidator: uppercase offset ('A' not 'a'). Fix Pacs008Mapper: namespace URI (add .001.08), add SttlmInf element, datetime seconds, TxId from reference, date century logic, charge code mapping, amount formatting, party name extraction from multi-line fields."""
+verification_explanation = """Tests verify make all succeeds (compilation, execution, jq summary, xmllint schema validation). Pytest checks: (1) 8 messages parsed from batch, (2) per-message validity and STP verdicts, (3) specific error rules (C1/C3/C5/STP violations), (4) settlement amounts including trailing-comma edge cases, (5) sender/receiver BICs from blocks 1/2, (6) pacs.008 XML namespace and document structure, (7) 5 valid transactions mapped to CdtTrfTxInf, (8) XML field mappings (TxId, amounts, dates, charge bearer codes, debtor/creditor names), (9) jq summary.json structure and content."""
+category = "finance"
+tags = ["swift-mt103", "iso20022-pacs008"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-aa5bfc"

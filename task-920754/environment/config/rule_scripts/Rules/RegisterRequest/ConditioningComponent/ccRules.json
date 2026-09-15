@@ -1,0 +1,86 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "State",
+            "description": "Store whether this is a vetted conditioning component",
+            "parameters": {
+                "key": "isVettedCC",
+                "value": "currentProperty.vetted"
+            }
+        },
+        {
+            "lineType": "Branch",
+            "description": "Validate vetted vs non-vetted conditioning component constraints",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "parameters": {
+                                    "ruleText": "isVettedCC == true"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Assert",
+                                "description": "Vetted conditioning component must not claim bijective",
+                                "parameters": {
+                                    "ruleText": "currentProperty.bijectiveClaim == null || currentProperty.bijectiveClaim == false"
+                                }
+                            },
+                            {
+                                "lineType": "Assert",
+                                "description": "Vetted conditioning component must have a validation number",
+                                "parameters": {
+                                    "ruleText": "currentProperty.validationNumber != null"
+                                }
+                            },
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "description": "Vetted conditioning component nOut must equal nw",
+                                "parameters": {
+                                    "ruleText": "currentProperty.nOut == currentProperty.nw"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "else": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Assert",
+                                "description": "Non-vetted conditioning component must not have a validation number",
+                                "parameters": {
+                                    "ruleText": "currentProperty.validationNumber == null"
+                                }
+                            },
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "description": "Non-vetted conditioning component narrowest width must be >= output bits",
+                                "parameters": {
+                                    "ruleText": "currentProperty.nw >= currentProperty.nOut"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Minimum entropy input must not exceed minimum bits input",
+            "parameters": {
+                "ruleText": "currentProperty.minHin <= currentProperty.minNin"
+            }
+        }
+    ]
+}

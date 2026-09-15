@@ -1,0 +1,14 @@
+{
+  "router": "R3",
+  "timestamp": "2024-11-15T14:23:18Z",
+  "control_plane": {
+    "service_policy_name": "COPP_POLICY",
+    "service_policy_direction": "output",
+    "statistics": {
+      "CL_BGP": {"conform_packets": 0, "exceed_packets": 0, "offered_rate_pps": 0},
+      "CL_ICMP": {"conform_packets": 15230, "exceed_packets": 0, "offered_rate_pps": 45},
+      "class-default": {"conform_packets": 984501, "exceed_packets": 0, "offered_rate_pps": 312}
+    },
+    "observation": "All traffic classes conforming with zero drops. Inbound control-plane traffic is unpoliced."
+  }
+}

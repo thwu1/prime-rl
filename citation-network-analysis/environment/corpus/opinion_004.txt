@@ -1,0 +1,27 @@
+UNITED STATES COURT OF APPEALS FOR THE FEDERAL CIRCUIT
+
+No. 2023-1789
+
+QUANTUM INNOVATIONS, INC. v. ADVANCED SEMICONDUCTOR TECHNOLOGIES, LLC
+
+CHEN, Circuit Judge.
+
+This patent infringement case concerns U.S. Patent No. 10,234,567 ("the '567 patent"), which claims methods for quantum error correction in semiconductor devices.
+
+We review claim construction de novo. Teva Pharm. USA, Inc. v. Sandoz, Inc., 574 U.S. 318, 331 (2015). The construction of patent claims is a question of law. Markman v. Westview Instruments, Inc., 517 U.S. 370, 388-89 (1996). Although claim construction is a legal question, underlying factual disputes must be resolved in favor of the non-movant at summary judgment, as the Supreme Court held in Anderson v. Liberty Lobby, Inc., 477 U.S. 242, 248 (1986).
+
+In construing claim terms, we begin with the intrinsic evidence: the claims themselves, the specification, and the prosecution history. Phillips v. AWH Corp., 415 F.3d 1303, 1314 (Fed. Cir. 2005) (en banc). "The claims of a patent define the invention to which the patentee is entitled the right to exclude." Id. at 1312. Words in a claim are generally given their ordinary and customary meaning as understood by a person of ordinary skill in the art at the time of the invention. Id. at 1313.
+
+The specification is "the single best guide to the meaning of a disputed term." Id. at 1315 (quoting Vitronics Corp. v. Conceptronic, Inc., 90 F.3d 1576, 1582 (Fed. Cir. 1996)). However, we must be careful not to import limitations from the specification into the claims. See Liebel-Flarsheim Co. v. Medrad, Inc., 358 F.3d 898, 906 (Fed. Cir. 2004).
+
+The prosecution history is also relevant. As we explained in Microsoft Corp. v. Multi-Tech Sys., Inc., 357 F.3d 1340, 1350 (Fed. Cir. 2004), "the prosecution history can often inform the meaning of the claim language by demonstrating how the inventor understood the invention and whether the inventor limited the invention in the course of prosecution."
+
+Under the doctrine of prosecution history estoppel, "a patentee who narrows a claim as a condition for obtaining a patent may not recapture the full scope of the original claim through the doctrine of equivalents." Festo Corp. v. Shoketsu Kinzoku Kogyo Kabushiki Co., 535 U.S. 722, 733-34 (2002). This principle was further refined in Honeywell Int'l, Inc. v. Hamilton Sundstrand Corp., 370 F.3d 1131, 1141 (Fed. Cir. 2004) (en banc), where we held that the patentee bears the burden of establishing an exception to the presumption of surrender.
+
+Regarding the "quantum coherence threshold" limitation, the district court construed this term to mean "a minimum level of quantum coherence sufficient for error correction, as measured by the T2 relaxation time." Quantum Innovations argues for a broader construction that would encompass any measure of quantum coherence, not just T2 relaxation time.
+
+We find that the specification unambiguously limits the "quantum coherence threshold" to T2 relaxation time measurements. The specification states: "The quantum coherence threshold is defined by the T2 relaxation time of the qubit." '567 patent, col. 4, ll. 15-17. Under our precedent, when the specification clearly defines a term, that definition controls. Oclaro, Inc. v. Oplink Commc'ns, Inc., 536 F. App'x 985, 989 (Fed. Cir. 2013).
+
+The question of infringement under the doctrine of equivalents requires a function-way-result analysis. Warner-Jenkinson Co. v. Hilton Davis Chem. Co., 520 U.S. 17, 40 (1997). Each claim limitation must be met, either literally or by an equivalent. Id. The accused device must perform substantially the same function, in substantially the same way, to achieve substantially the same result. Graver Tank & Mfg. Co. v. Linde Air Prods. Co., 339 U.S. 605, 608 (1950).
+
+AFFIRMED in part, REVERSED in part, and REMANDED.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing multiple interacting defects across three technology layers: a broken Makefile (uses -c instead of -shared, missing -fPIC), a C cubic equation solver with a sign error in the depressed cubic transformation, and four Python bugs in the thermodynamic calculation chain (wrong alpha-function correlation coefficients, inverted binary interaction parameter sign, missing factor-of-2 in fugacity departure function, and wrong flash convergence criterion). The solver must understand gcc shared library compilation, ctypes FFI, Makefile syntax, Cardano/trigonometric cubic solving, PR EOS thermodynamics, and successive substitution flash algorithms. Defects propagate non-linearly through the coupled cubic-solver/fugacity/flash chain, requiring systematic cross-language debugging."""
+solution_explanation = """Fix the Makefile: replace -c with -shared, add -fPIC, ensure -lm is linked. Fix the C cubic solver: correct the depressed cubic q formula sign from +c2*c1/3 to -c2*c1/3. Fix Python: kappa correlation to 0.37464+1.54226*omega-0.26992*omega^2; mixing rule to (1-kij); fugacity sum term needs 2*sum(zj*aij); flash convergence uses sum((ln K_new - ln K_old)^2) with tol=1e-12. The solution pr_mix.py loads the corrected libcubic.so via ctypes for the cubic solver while implementing all thermodynamic logic in Python."""
+verification_explanation = """Tests first run make -C /app/libcubic to verify the build system works. Then pytest verifies: (1) libcubic.so is loadable via ctypes and exports solve_cubic_eos, (2) cubic roots satisfy the original equation to 1e-8 residual for multiple A,B cases, (3) pr_mix.py uses ctypes/libcubic, (4) fugacity coefficients match CalebBell/thermo golden values for pure, binary, and ternary systems, (5) flash VF/compositions match references, (6) thermodynamic consistency via fugacity equality and material balance, (7) CLI tool produces correct JSON output."""
+category = "applied_computing"
+tags = ["thermodynamics", "cross-language-debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pr-eos-flash-8334ee"

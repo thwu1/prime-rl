@@ -1,0 +1,35 @@
+{
+  "reference_magnitude": 6.0,
+  "reference_vs30": 760.0,
+  "functional_form": "ln(Y) = e1 + e2*(M-Mref) + e3*(M-Mref)^2 + (c1+c2*(M-Mref))*ln(sqrt(rJB^2+h^2)) + s*ln(Vs30/Vref)",
+  "branches": [
+    {
+      "name": "Model-A",
+      "weight": 0.6,
+      "coefficients": {
+        "e1": -0.50,
+        "e2": 0.80,
+        "e3": -0.10,
+        "c1": -0.90,
+        "c2": 0.15,
+        "h": 6.0,
+        "s": -0.40
+      },
+      "sigma": 0.65
+    },
+    {
+      "name": "Model-B",
+      "weight": 0.4,
+      "coefficients": {
+        "e1": -0.30,
+        "e2": 0.70,
+        "e3": -0.08,
+        "c1": -1.00,
+        "c2": 0.12,
+        "h": 5.0,
+        "s": -0.35
+      },
+      "sigma": 0.60
+    }
+  ]
+}

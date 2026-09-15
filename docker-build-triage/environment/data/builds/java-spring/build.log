@@ -1,0 +1,33 @@
+Step 1/8 : FROM openjdk:11-slim
+ ---> h8i9j0k1l2m3
+Step 2/8 : ENV DEBIAN_FRONTEND=noninteractive
+ ---> Using cache
+ ---> n4o5p6q7r8s9
+Step 3/8 : WORKDIR /app
+ ---> Using cache
+ ---> t0u1v2w3x4y5
+Step 4/8 : COPY . .
+ ---> z6a7b8c9d0e1
+Step 5/8 : RUN javac -version
+ ---> Running in f2g3h4i5j6k7
+javac 11.0.21
+Step 6/8 : RUN mkdir -p build && find src -name "*.java" > sources.txt && javac -d build @sources.txt
+ ---> Running in l8m9n0o1p2q3
+src/main/java/com/example/model/UserRecord.java:8: error: records are not supported in -source 11
+    (use -source 16 or higher to enable records)
+public record UserRecord(String name, String email, int age) {}
+       ^
+src/main/java/com/example/api/Shape.java:5: error: sealed classes are not supported in -source 11
+    (use -source 17 or higher to enable sealed classes)
+public sealed interface Shape permits Circle, Rectangle, Triangle {
+       ^
+src/main/java/com/example/service/DataService.java:42: error: pattern matching in instanceof is not supported in -source 11
+    (use -source 16 or higher to enable pattern matching in instanceof)
+        if (obj instanceof String s) {
+                                  ^
+src/main/java/com/example/util/TextProcessor.java:18: error: text blocks are not supported in -source 11
+    (use -source 15 or higher to enable text blocks)
+        String query = """
+                       ^
+4 errors
+The command '/bin/sh -c mkdir -p build && find src -name "*.java" > sources.txt && javac -d build @sources.txt' returned a non-zero code: 1

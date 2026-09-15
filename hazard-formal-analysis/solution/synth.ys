@@ -1,0 +1,5 @@
+read_verilog -sv /app/hazard.sv
+synth -top hazard -flatten
+abc -g AND,OR
+clean -purge
+write_json /app/netlist.json

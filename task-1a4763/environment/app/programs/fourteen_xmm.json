@@ -1,0 +1,42 @@
+{
+  "name": "fourteen_xmm",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [{
+      "label": "entry",
+      "instrs": [
+        {"op": "const", "dst": "x1",  "class": "xmm", "val": 1.0},
+        {"op": "const", "dst": "x2",  "class": "xmm", "val": 2.0},
+        {"op": "const", "dst": "x3",  "class": "xmm", "val": 3.0},
+        {"op": "const", "dst": "x4",  "class": "xmm", "val": 4.0},
+        {"op": "const", "dst": "x5",  "class": "xmm", "val": 5.0},
+        {"op": "const", "dst": "x6",  "class": "xmm", "val": 6.0},
+        {"op": "const", "dst": "x7",  "class": "xmm", "val": 7.0},
+        {"op": "const", "dst": "x8",  "class": "xmm", "val": 8.0},
+        {"op": "const", "dst": "x9",  "class": "xmm", "val": 9.0},
+        {"op": "const", "dst": "x10", "class": "xmm", "val": 10.0},
+        {"op": "const", "dst": "x11", "class": "xmm", "val": 11.0},
+        {"op": "const", "dst": "x12", "class": "xmm", "val": 12.0},
+        {"op": "const", "dst": "x13", "class": "xmm", "val": 13.0},
+        {"op": "const", "dst": "x14", "class": "xmm", "val": 14.0},
+        {"op": "add", "dst": "s1",  "class": "xmm", "src1": "x1",  "src2": "x2"},
+        {"op": "add", "dst": "s2",  "class": "xmm", "src1": "s1",  "src2": "x3"},
+        {"op": "add", "dst": "s3",  "class": "xmm", "src1": "s2",  "src2": "x4"},
+        {"op": "add", "dst": "s4",  "class": "xmm", "src1": "s3",  "src2": "x5"},
+        {"op": "add", "dst": "s5",  "class": "xmm", "src1": "s4",  "src2": "x6"},
+        {"op": "add", "dst": "s6",  "class": "xmm", "src1": "s5",  "src2": "x7"},
+        {"op": "add", "dst": "s7",  "class": "xmm", "src1": "s6",  "src2": "x8"},
+        {"op": "add", "dst": "s8",  "class": "xmm", "src1": "s7",  "src2": "x9"},
+        {"op": "add", "dst": "s9",  "class": "xmm", "src1": "s8",  "src2": "x10"},
+        {"op": "add", "dst": "s10", "class": "xmm", "src1": "s9",  "src2": "x11"},
+        {"op": "add", "dst": "s11", "class": "xmm", "src1": "s10", "src2": "x12"},
+        {"op": "add", "dst": "s12", "class": "xmm", "src1": "s11", "src2": "x13"},
+        {"op": "add", "dst": "s13", "class": "xmm", "src1": "s12", "src2": "x14"},
+        {"op": "dbl2int", "dst": "result", "class": "gp", "src1": "s13"},
+        {"op": "ret", "src1": "result"}
+      ]
+    }]
+  }]
+}

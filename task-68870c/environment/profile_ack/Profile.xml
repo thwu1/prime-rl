@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConformanceProfile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ID="tbench_ack_a01" HL7Version="2.5.1">
+  <MetaData Name="RAD-1-ACK" OrgName="IHE" Version="1.0" Date="2024-01-01" Status="Active" />
+  <Messages>
+    <Message ID="msg_ack_a01" Identifier="ACK_RAD1" Name="ACK^A01^ACK" Type="ACK" Event="A01" StructID="ACK" Description="General Acknowledgment">
+      <Segment Ref="MSH_ACK" Usage="R" Min="1" Max="1" />
+      <Segment Ref="MSA_ACK" Usage="R" Min="1" Max="1" />
+      <Segment Ref="ERR_ACK" Usage="O" Min="0" Max="*" />
+    </Message>
+  </Messages>
+  <Segments>
+    <Segment ID="MSH_ACK" Name="MSH" Description="Message Header">
+      <Field Name="Field Separator" Usage="R" Datatype="ST" MinLength="1" MaxLength="1" Min="1" Max="1" />
+      <Field Name="Encoding Characters" Usage="R" Datatype="ST" MinLength="4" MaxLength="4" Min="1" Max="1" />
+      <Field Name="Sending Application" Usage="R" Datatype="HD_ACK" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Sending Facility" Usage="R" Datatype="HD_ACK" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Receiving Application" Usage="R" Datatype="HD_ACK" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Receiving Facility" Usage="R" Datatype="HD_ACK" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Date/Time Of Message" Usage="R" Datatype="TS_ACK" MinLength="0" MaxLength="26" Min="1" Max="1" />
+      <Field Name="Security" Usage="X" Datatype="ST" MinLength="0" MaxLength="40" Min="0" Max="0" />
+      <Field Name="Message Type" Usage="R" Datatype="MSG_ACK" MinLength="0" MaxLength="15" Min="1" Max="1" />
+      <Field Name="Message Control ID" Usage="R" Datatype="ST" MinLength="1" MaxLength="20" Min="1" Max="1" />
+      <Field Name="Processing ID" Usage="R" Datatype="PT_ACK" MinLength="0" MaxLength="3" Min="1" Max="1" />
+      <Field Name="Version ID" Usage="R" Datatype="VID_ACK" MinLength="0" MaxLength="60" Min="1" Max="1" />
+    </Segment>
+    <Segment ID="MSA_ACK" Name="MSA" Description="Message Acknowledgment">
+      <Field Name="Acknowledgment Code" Usage="R" Datatype="ID" MinLength="2" MaxLength="2" Binding="0008" BindingStrength="R" Min="1" Max="1" />
+      <Field Name="Message Control ID" Usage="R" Datatype="ST" MinLength="1" MaxLength="20" Min="1" Max="1" />
+      <Field Name="Text Message" Usage="O" Datatype="ST" MinLength="0" MaxLength="80" Min="0" Max="1" />
+      <Field Name="Expected Sequence Number" Usage="O" Datatype="NM" MinLength="0" MaxLength="15" Min="0" Max="1" />
+      <Field Name="Delayed Acknowledgment Type" Usage="X" Datatype="ST" MinLength="0" MaxLength="0" Min="0" Max="0" />
+      <Field Name="Error Condition" Usage="X" Datatype="CE_ACK" MinLength="0" MaxLength="250" Min="0" Max="0" />
+    </Segment>
+    <Segment ID="ERR_ACK" Name="ERR" Description="Error">
+      <Field Name="Error Code and Location" Usage="X" Datatype="ST" MinLength="0" MaxLength="0" Min="0" Max="0" />
+      <Field Name="Error Location" Usage="O" Datatype="ERL_ACK" MinLength="0" MaxLength="18" Min="0" Max="*" />
+      <Field Name="HL7 Error Code" Usage="R" Datatype="CWE_ACK" MinLength="0" MaxLength="250" Min="1" Max="1" />
+      <Field Name="Severity" Usage="R" Datatype="ID" MinLength="1" MaxLength="2" Binding="0516" BindingStrength="R" Min="1" Max="1" />
+      <Field Name="Application Error Code" Usage="O" Datatype="CWE_ACK" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Application Error Parameter" Usage="O" Datatype="ST" MinLength="0" MaxLength="80" Min="0" Max="*" />
+      <Field Name="Diagnostic Information" Usage="O" Datatype="TX" MinLength="0" MaxLength="2048" Min="0" Max="1" />
+      <Field Name="User Message" Usage="O" Datatype="TX" MinLength="0" MaxLength="250" Min="0" Max="1" />
+    </Segment>
+  </Segments>
+  <Datatypes>
+    <Datatype ID="ST" Name="ST" Description="String Data" />
+    <Datatype ID="TX" Name="TX" Description="Text Data" />
+    <Datatype ID="ID" Name="ID" Description="Coded value for HL7 tables" />
+    <Datatype ID="IS" Name="IS" Description="Coded value for user tables" />
+    <Datatype ID="NM" Name="NM" Description="Numeric" />
+    <Datatype ID="TS_ACK" Name="TS" Description="Timestamp">
+      <Component Name="Time" Usage="R" Datatype="DTM_ACK" MinLength="0" MaxLength="24" />
+      <Component Name="Degree of Precision" Usage="X" Datatype="ID" MinLength="0" MaxLength="1" />
+    </Datatype>
+    <Datatype ID="DTM_ACK" Name="DTM" Description="Date/Time" />
+    <Datatype ID="HD_ACK" Name="HD" Description="Hierarchic Designator">
+      <Component Name="Namespace ID" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Universal ID" Usage="C" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Universal ID Type" Usage="C" Datatype="ID" MinLength="0" MaxLength="6" />
+    </Datatype>
+    <Datatype ID="MSG_ACK" Name="MSG" Description="Message Type">
+      <Component Name="Message Code" Usage="R" Datatype="ID" MinLength="0" MaxLength="3" Binding="0076" BindingStrength="R" />
+      <Component Name="Trigger Event" Usage="R" Datatype="ID" MinLength="0" MaxLength="3" Binding="0003" BindingStrength="R" />
+      <Component Name="Message Structure" Usage="R" Datatype="ID" MinLength="0" MaxLength="7" Binding="0354" BindingStrength="R" />
+    </Datatype>
+    <Datatype ID="PT_ACK" Name="PT" Description="Processing Type">
+      <Component Name="Processing ID" Usage="R" Datatype="ID" MinLength="0" MaxLength="1" Binding="0103" BindingStrength="R" />
+      <Component Name="Processing Mode" Usage="O" Datatype="ID" MinLength="0" MaxLength="1" />
+    </Datatype>
+    <Datatype ID="VID_ACK" Name="VID" Description="Version Identifier">
+      <Component Name="Version ID" Usage="R" Datatype="ID" MinLength="0" MaxLength="5" />
+      <Component Name="Internationalization Code" Usage="O" Datatype="CE_ACK" MinLength="0" MaxLength="250" />
+      <Component Name="International Version ID" Usage="O" Datatype="CE_ACK" MinLength="0" MaxLength="250" />
+    </Datatype>
+    <Datatype ID="CE_ACK" Name="CE" Description="Coded Element">
+      <Component Name="Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+      <Component Name="Alternate Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Alternate Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Alternate Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="CWE_ACK" Name="CWE" Description="Coded with Exceptions">
+      <Component Name="Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="ERL_ACK" Name="ERL" Description="Error Location">
+      <Component Name="Segment ID" Usage="O" Datatype="ST" MinLength="0" MaxLength="3" />
+      <Component Name="Segment Sequence" Usage="O" Datatype="NM" MinLength="0" MaxLength="2" />
+      <Component Name="Field Position" Usage="O" Datatype="NM" MinLength="0" MaxLength="2" />
+      <Component Name="Field Repetition" Usage="O" Datatype="NM" MinLength="0" MaxLength="2" />
+      <Component Name="Component Number" Usage="O" Datatype="NM" MinLength="0" MaxLength="2" />
+      <Component Name="Sub-Component Number" Usage="O" Datatype="NM" MinLength="0" MaxLength="2" />
+    </Datatype>
+  </Datatypes>
+</ConformanceProfile>

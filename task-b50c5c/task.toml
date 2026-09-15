@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of chess move generation to extend a working standard chess perft calculator to support Chess960 (Fischer Random Chess) castling, then package the engine as a shared library with Python FFI bindings. The solver must: (1) identify and replace all hardcoded standard-chess assumptions in FEN parsing, move generation, make/unmake, and castling rights revocation with generalized Chess960 logic; (2) restructure the C source for position-independent compilation (-fPIC/-shared) and create a proper header file with exported API; (3) build a Python ctypes bridge that correctly maps C struct memory layouts (including nested fixed-size arrays) to ctypes Structure subclasses; (4) use Valgrind memcheck to verify zero memory errors across Chess960's complex make/unmake paths; (5) orchestrate the multi-tool pipeline: gcc shared library build, nm symbol verification, ctypes FFI loading, and Valgrind profiling. Chess960 castling has notoriously subtle edge cases (king-stays, rook-to-king-origin, king-rook swap) that interact with the FFI boundary."""
+solution_explanation = """Add castle_rook[4] and rook_from to Board/Move structs. Extend FEN parser for A-H/a-h file letters and KQkq outermost-rook lookup. Replace hardcoded castling with generalized try_castle(). Build with 'gcc -shared -fPIC -o libperft960.so perft.c'. Create perft960.h declaring Board/Stats/parse_fen/perft. Write perft_bridge.py mapping structs via ctypes.Structure with c_int*64, c_int*2, c_int*4, c_longlong*7 fields, loading the .so with ctypes.CDLL. Run 'valgrind --tool=memcheck --log-file=valgrind_report.txt ./perft FEN 3'. Generate results.json by calling run_perft() through the ctypes bridge for each Chess960 position at depth 4."""
+verification_explanation = """Tests verify: (1) build artifacts exist — libperft960.so, perft960.h, perft_bridge.py, perft binary; (2) nm -D confirms parse_fen and perft are exported dynamic symbols; (3) Makefile contains shared library build flags; (4) ctypes bridge imports and produces correct standard chess perft; (5) ctypes bridge matches chess library oracle on Chess960 positions; (6) valgrind_report.txt exists and contains 'ERROR SUMMARY: 0 errors'; (7) standard chess perft values are bit-exact (initial position depth 5, Kiwipete depth 4 with extended stats); (8) Chess960 perft at depth 3 matches chess library oracle for all three positions plus edge-case positions; (9) results.json depth-4 values match oracle computation."""
+category = "systems-programming"
+tags = ["chess-programming", "ffi-ctypes"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b50c5c"

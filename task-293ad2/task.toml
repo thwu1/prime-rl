@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete peephole optimizer for a Sea-of-Nodes IR covering constant folding with correct 2's-complement overflow semantics across multiple integer widths, algebraic simplification across ~30 pattern rules, global value numbering via structural hashing, and iterative convergence to a fixed point. Demands professional compiler engineering knowledge. The optimizer's output is additionally verified end-to-end by compiling optimized IR graphs to C source, building with gcc, and running the resulting binaries — requiring multi-tool proficiency across Python, C, and shell tooling."""
+solution_explanation = """The reference solution implements an iterating optimizer with peephole passes (constant folding, canonicalization, ~30 algebraic simplification rules including identity, annihilator, strength reduction, cast chain elimination, and comparison reflexivity), a GVN pass via structural hashing with commutative-op canonicalization, and dead code elimination. Each iteration converges to a fixed point."""
+verification_explanation = """Tests verify both optimization quality and semantic preservation. Quality tests assert specific reductions (results are constants, identity parameters, or expected operations like SHL instead of MUL). Semantic preservation tests evaluate complex expressions with 200 random inputs before and after optimization via the Python evaluator. Native execution tests compile optimized IR graphs to C using codegen.py, build with gcc, and run the binaries — comparing native output against the Python evaluator to verify correctness across the full compilation pipeline."""
+category = "compilers"
+tags = ["optimization", "sea-of-nodes"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-293ad2"

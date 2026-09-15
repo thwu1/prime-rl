@@ -1,0 +1,44 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete type inference engine with unification, polymorphism, \
+and recursive types in MoonBit — a novel language with limited LLM training data. The agent must learn \
+MoonBit's algebraic data types, pattern matching, error handling, project structure, and test framework \
+while simultaneously implementing a graduate-level programming languages algorithm. Debugging across the \
+parser, unifier, and inference engine in an unfamiliar language adds substantial difficulty."""
+solution_explanation = """The solution ensures the MoonBit toolchain is installed, then writes a complete \
+implementation in the root package: expression/type ADTs, an S-expression tokenizer and recursive-descent \
+parser, unification with infinite-type rejection using a substitution list, type inference with \
+environment-based polymorphic let-bindings, and a type pretty-printer that assigns canonical variable names. \
+All 15 pre-written whitebox tests pass via `moon test`."""
+verification_explanation = """test.sh ensures the moon toolchain is available, restores the original whitebox test \
+file from a backup in the Docker image (preventing tampering), then runs pytest. Pytest verifies: (1) the project \
+structure exists with implementation files, (2) `moon build` succeeds, (3) `moon test` reports 0 failures and at \
+least 15 passed tests. The 15 tests cover int/bool literals, identity/const functions, application, mono/poly let, \
+polymorphism, arithmetic, comparison, conditionals, higher-order types, recursive let (factorial), infinite-type \
+rejection, and type-mismatch errors."""
+category = "programming_languages"
+tags = ["type-inference", "moonbit"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/moonbit-type-inference"

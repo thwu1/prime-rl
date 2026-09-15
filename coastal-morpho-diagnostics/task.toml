@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires compiling Fortran code into a Python-callable module using f2py (understanding assumed-shape array restrictions, intent directives, file encoding issues, and calling convention transformations), debugging cross-language integration where f2py's signature transformation causes runtime TypeError mismatches, and fixing multiple coupled numerical and logical defects across a five-module Python coastal diagnostics package referencing domain-specific XBeach sediment transport formulations."""
+solution_explanation = """Fix non-ASCII encoding in Fortran comments (em-dash causes f2py UnicodeDecodeError), fix assumed-shape array declarations (x(:) -> x(nx)) for f2py compatibility, compile with 'python3 -m numpy.f2py -c sedtrans.f90 -m sedtrans', correct profiles.py f2py calling conventions (intent(out) parameters are returned not passed as arguments), fix JONSWAP spectrum sign error (f+fp -> f-fp in Gaussian exponent), add directional spreading numerical normalization, add missing dy factor in volume_change, fix wrong dictionary key 'slope_locs' -> 'slope_locations' and inverted verdict logic in verification, and restructure CLI JSON output from flat dotted keys to nested objects."""
+verification_explanation = """63 pytest tests: 7 Fortran module tests (import, callable attributes, fall velocity across regimes, equilibrium profile shape and landward behavior), 7 fall velocity tests through Python wrapper, 7 Dean profile geometry tests, 5 JONSWAP spectrum tests, 4 directional spreading tests, 4 BSS tests, 3 RMSE tests, 3 volume change tests, 3 mass balance tests, 4 slope check tests, 2 bed level change tests, 3 run_diagnostics integration tests, and 11 CLI end-to-end tests with numerical acceptance ranges."""
+category = "applied_computing"
+tags = ["coastal-engineering", "fortran-python-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coastal-morpho-diagnostics"

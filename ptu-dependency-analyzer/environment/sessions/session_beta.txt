@@ -1,0 +1,68 @@
+#=== PTU 0 ===#
+using size_t = decltype(sizeof(0));
+struct AllocStats {
+    size_t alloc_count;
+    size_t dealloc_count;
+    AllocStats() : alloc_count(0), dealloc_count(0) {}
+};
+#=== PTU 1 ===#
+template<typename T>
+struct Allocator {
+    AllocStats* stats;
+    Allocator(AllocStats* s) : stats(s) {}
+    T* allocate(size_t n) { stats->alloc_count++; return new T[n]; }
+    void deallocate(T* p) { stats->dealloc_count++; delete[] p; }
+};
+#=== PTU 2 ===#
+template<typename T, typename Alloc>
+struct Container {
+    Alloc alloc;
+    T* data_;
+    size_t size_;
+    Container(Alloc a) : alloc(a), data_(nullptr), size_(0) {}
+    void add(const T& val) {
+        T* nd = alloc.allocate(size_ + 1);
+        for (size_t i = 0; i < size_; ++i) nd[i] = data_[i];
+        nd[size_] = val;
+        if (data_) alloc.deallocate(data_);
+        data_ = nd;
+        size_++;
+    }
+    T& at(size_t i) { return data_[i]; }
+    size_t size() const { return size_; }
+};
+#=== PTU 3 ===#
+struct Serializable {
+    virtual const char* serialize() const = 0;
+    virtual ~Serializable() = default;
+};
+#=== PTU 4 ===#
+struct Printable {
+    virtual void print() const = 0;
+    virtual ~Printable() = default;
+};
+#=== PTU 5 ===#
+struct Record : Serializable, Printable {
+    int id;
+    double value;
+    Record() : id(0), value(0) {}
+    Record(int i, double v) : id(i), value(v) {}
+    const char* serialize() const override { return "record"; }
+    void print() const override {}
+};
+#=== PTU 6 ===#
+AllocStats globalStats;
+Allocator<Record> recordAlloc(&globalStats);
+#=== PTU 7 ===#
+Container<Record, Allocator<Record>> records(recordAlloc);
+#=== PTU 8 ===#
+template<typename C>
+double sum_values(C& container) {
+    double s = 0;
+    for (size_t i = 0; i < container.size(); ++i) {
+        s += container.at(i).value;
+    }
+    return s;
+}
+#=== PTU 9 ===#
+double total = sum_values(records);

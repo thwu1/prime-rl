@@ -1,0 +1,89 @@
+@prefix onto: <http://kg.org/ontology/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+onto: a owl:Ontology .
+
+onto:Film a owl:Class .
+onto:Person a owl:Class .
+onto:Company a owl:Class .
+
+onto:Film owl:disjointWith onto:Person .
+onto:Film owl:disjointWith onto:Company .
+onto:Person owl:disjointWith onto:Company .
+
+onto:director a owl:ObjectProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range onto:Person ;
+    rdfs:label "director" .
+
+onto:starring a owl:ObjectProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range onto:Person ;
+    rdfs:label "cast member" .
+
+onto:production a owl:ObjectProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range onto:Company ;
+    rdfs:label "production company" .
+
+onto:distribution a owl:ObjectProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range onto:Company ;
+    rdfs:label "distributed by" .
+
+onto:genre a owl:DatatypeProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range xsd:string ;
+    rdfs:label "genre" .
+
+onto:budget a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range xsd:string ;
+    rdfs:label "budget" .
+
+onto:gross a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range xsd:string ;
+    rdfs:label "box office" .
+
+onto:runtime a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain onto:Film ;
+    rdfs:range xsd:string ;
+    rdfs:label "runtime" .
+
+onto:birthDate a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain onto:Person ;
+    rdfs:range xsd:string ;
+    rdfs:label "date of birth" .
+
+onto:birthPlace a owl:DatatypeProperty ;
+    rdfs:domain onto:Person ;
+    rdfs:range xsd:string ;
+    rdfs:label "place of birth" .
+
+onto:occupation a owl:DatatypeProperty ;
+    rdfs:domain onto:Person ;
+    rdfs:range xsd:string ;
+    rdfs:label "occupation" .
+
+onto:nationality a owl:DatatypeProperty ;
+    rdfs:domain onto:Person ;
+    rdfs:range xsd:string ;
+    rdfs:label "nationality" .
+
+onto:foundingDate a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain onto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "founding date" .
+
+onto:headquarter a owl:DatatypeProperty ;
+    rdfs:domain onto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "headquarters" .
+
+onto:industry a owl:DatatypeProperty ;
+    rdfs:domain onto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "industry" .

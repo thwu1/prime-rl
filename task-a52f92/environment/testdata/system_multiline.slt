@@ -1,0 +1,27 @@
+# System command with multiline stdout containing embedded blank lines
+# Per the spec, system stdout uses the same format as multiline error:
+# blank lines (not consecutive) are preserved, two consecutive blank lines end the section
+
+system ok
+printf 'first\n\nsecond\n'
+----
+first
+
+second
+
+
+system ok
+printf 'alpha\n\nbeta\n\ngamma\n'
+----
+alpha
+
+beta
+
+gamma
+
+
+# Simple stdout (single line) should still work
+system ok
+echo "simple"
+----
+simple

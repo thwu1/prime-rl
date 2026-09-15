@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the Kubernetes networking.k8s.io/v1 NetworkPolicy specification and proficiency with Kubernetes ecosystem CLI tools (kustomize, yq). The solver must: (1) diagnose four distinct, subtle logic defects in the Python evaluation core by running it against scenario manifests, analyzing discrepancies, and correlating with the K8s spec — bugs span selector composition semantics, traffic directionality, IP block exception handling, and port range evaluation; (2) diagnose manifest loading failures on scenarios using kustomize overlays and split YAML files, requiring integration with `kustomize build` and multi-file YAML merging; (3) build a corrected evaluator that handles all three manifest formats and covers policyTypes inference, matchExpressions operators, multi-policy union, bidirectional ingress+egress evaluation, ipBlock exceptions, and endPort ranges."""
+solution_explanation = """The solution diagnoses and fixes four Python logic bugs plus two manifest format gaps. Logic bugs: (1) selector composition uses OR instead of AND when both podSelector and namespaceSelector appear in the same peer — fix: AND; (2) only ingress is evaluated, egress policies ignored — fix: bidirectional evaluation via generalized check_direction; (3) ipBlock.except exclusions not applied — fix: iterate except list; (4) endPort ranges not handled — fix: port<=target<=endPort. Format gaps: (5) kustomize overlay directories crash (no cluster.yaml) — fix: detect kustomization.yaml and invoke `kustomize build` via subprocess; (6) split YAML file directories crash — fix: glob *.yaml and merge documents. Also fixes policyTypes inference."""
+verification_explanation = """Tests run 90+ traffic queries across 9 static YAML scenarios, 2 tool-integration scenarios (one kustomize overlay requiring `kustomize build`, one split-file directory requiring multi-file merging), and 6 dynamically generated scenarios at test time (not in Docker image) covering default-allow, deny-all, selective ingress, AND-vs-OR composition, bidirectional evaluation, policyTypes inference, kustomize rendering, and multi-file loading."""
+category = "systems"
+tags = ["kubernetes", "networking", "kustomize"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netpol-evaluator"

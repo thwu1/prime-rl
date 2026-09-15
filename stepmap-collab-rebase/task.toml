@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """This task requires debugging a ProseMirror-inspired collaborative editing engine — a production-grade operational transform system used in editors like the New York Times and Atlassian Confluence. The solver must understand: (1) position mapping with recovery value encoding (16-bit index + offset packed into floats), (2) chained mappings with mirror pairs for lossless position recovery through undo/redo, (3) bidirectional step merging (forward and backward adjacent), (4) the rebase algorithm for convergence under concurrent edits, (5) mapping inversion with mirror index arithmetic, (6) transform compaction via step merging, (7) change span computation across multi-step transforms requiring inverted position mapping for original-document coordinate recovery and range merging semantics, and (8) undo/redo history management with collaborative rebase support requiring step inversion recomputation and correct batch undo ordering. Eleven interrelated bugs span seven source files; fixing one may reveal or mask others. The history module bugs require understanding cross-module invariants: the rebase inverse bug demands recognizing that naively mapping old inverses through remote changes produces invalid inverses (the solver must recompute inversions from mapped steps against the actual document state), and the batch undo ordering bug requires understanding why mirror pairs must process newest-first. Integration tests (convergence, mirror round-trips, compaction, multi-step change spans, undo after rebase, batch undo mapping) require all bugs fixed simultaneously."""
+solution_explanation = """Eleven bugs must be fixed across seven files: (1) StepMap._map DEL_SIDE condition uses `assoc > 0` instead of `assoc < 0`, inverting which boundary positions are considered deleted. (2) StepMap.recover loop bound `i <= index` should be `i < index`, accumulating one extra range's diff. (3) Mapping._map mirror recovery uses map() instead of recover(), losing offset-within-deletion precision. (4) rebaseSteps mapFrom is decremented before computing the mapping slice, causing steps to map through their own inversion. (5) ReplaceStep.merge is missing the backward-adjacent case (other.to === this.from). (6) Mapping.appendMappingInverted mirror index uses `totalSize - mirr` instead of `totalSize - mirr - 1`. (7) compactTransform increments loop variable j before checking whether merge succeeded, skipping steps when merge fails. (8) computeChangeSpans uses forward mapping instead of inverted mapping for backward coordinate mapping. (9) mergeSpans uses `<` instead of `<=`, failing to merge touching ranges. (10) UndoHistory._rebaseItems naively maps old inverses through remote mapping instead of recomputing them via mappedStep.invert(currentDoc) — the fix requires understanding that step inversion depends on the document content, not just positions. (11) UndoHistory.computeUndoMapping iterates oldest-to-newest instead of newest-to-oldest, producing mirror pairs in wrong order for batch undo."""
+verification_explanation = """The TypeScript test suite outputs structured JSON with results for 45 test cases across 14 groups. Each group targets specific functionality: basic_mapping (sanity), deletion_flags (DEL_SIDE correctness), recover_function (StepMap.recover precision), mirror_recovery (Mapping mirror round-trip), step_merge (forward/backward merge), rebase (two-client convergence), rebase_multi (multi-step convergence with mirrors), step_inversion (apply/invert round-trip), mapping_inversion (Mapping.invert correctness), compact (transform compaction with mapping fidelity), change_spans (multi-step change span computation with coordinate mapping and range merging), history_basic (undo/redo lifecycle), history_rebase (undo/redo after collaborative rebase — verifies inverse recomputation), and history_mapping (batch undo mapping ordering). The Python test harness runs tsx, parses JSON, and creates one pytest case per TypeScript test. All 45 must pass for reward 1.0."""
+category = "debugging"
+tags = ["collaborative-editing", "operational-transform"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stepmap-collab-rebase"

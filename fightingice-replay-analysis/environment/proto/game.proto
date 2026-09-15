@@ -1,0 +1,80 @@
+// FightingICE-style game replay protobuf schema
+// Based on the DareFightingICE gRPC protocol
+syntax = "proto3";
+package ftgai;
+
+option java_package = "ftgai.proto";
+
+enum Action {
+  NEUTRAL = 0;
+  FORWARD_WALK = 1;
+  BACK_WALK = 2;
+  DASH = 3;
+  BACK_STEP = 4;
+  CROUCH = 5;
+  JUMP = 6;
+  STAND_GUARD = 7;
+  CROUCH_GUARD = 8;
+  // Normal attacks
+  STAND_A = 10;
+  STAND_B = 11;
+  STAND_FA = 12;
+  CROUCH_A = 13;
+  CROUCH_B = 14;
+  CROUCH_FA = 15;
+  AIR_A = 16;
+  AIR_B = 17;
+  AIR_FA = 18;
+  // Throws and specials
+  THROW_A = 19;
+  STAND_D_DF_FA = 20;   // projectile (hadouken-style)
+  STAND_F_D_DFA = 21;   // rising attack (shoryuken-style)
+  STAND_D_DB_BA = 22;   // spinning attack (tatsumaki-style)
+}
+
+// Per-player state in a single frame
+message PlayerFrame {
+  int32 hp = 1;
+  int32 energy = 2;
+  int32 x = 3;
+  int32 y = 4;
+  Action current_action = 5;
+  int32 action_elapsed_frames = 6;
+  bool facing_right = 7;
+  // Hit flags for this frame
+  bool attack_landed = 8;     // this player's attack connected this frame
+  bool received_hit = 9;      // this player was hit this frame
+  // Stun state: frames of hitstun remaining at the START of this frame
+  // (before this frame's events are applied)
+  int32 stun_remaining = 10;
+  // Damage dealt by this player this frame (0 if no hit landed)
+  int32 damage_dealt = 11;
+}
+
+// A single game frame snapshot
+message GameFrame {
+  int32 frame_number = 1;
+  int32 round_number = 2;
+  PlayerFrame p1 = 3;
+  PlayerFrame p2 = 4;
+}
+
+// Summary of a round's outcome
+message RoundResult {
+  int32 round_number = 1;
+  int32 p1_remaining_hp = 2;
+  int32 p2_remaining_hp = 3;
+  int32 elapsed_frames = 4;
+}
+
+// Complete replay data for a single match
+message MatchReplay {
+  string match_id = 1;
+  string p1_name = 2;
+  string p2_name = 3;
+  string character_name = 4;
+  int32 initial_hp = 5;
+  int32 info_delay_frames = 6;
+  repeated GameFrame frames = 7;
+  repeated RoundResult round_results = 8;
+}

@@ -1,0 +1,85 @@
+Engineering Reference: Column Buckling Analysis
+=================================================
+
+Based on MITCalc documentation. Methods: Euler, Johnson, Secant.
+
+1. Mounting Types and Effective Length Coefficients
+
+   Type  Description         Theoretical  Practical
+   ----  ------------------  -----------  ---------
+   A     Clamped-Clamped       0.50         0.65
+   B     Clamped-Hinged        0.70         0.80
+   C     Clamped-Guided        1.00         1.20
+   D     Hinged-Hinged         1.00         1.00
+   E     Clamped-Free          2.00         2.10
+   F     Hinged-Guided         2.00         2.00
+
+   The practical coefficients account for real-world imperfections
+   and are recommended for engineering design.
+
+   Effective length: L_eff = k * L_actual
+
+2. Profile Cross-Section Properties
+
+   Deflection (buckling) occurs about the axis of MINIMUM moment
+   of inertia. Always compute and use the minimum I value.
+
+   Rectangle (a x b):
+     A = a * b
+     I_x = a * b^3 / 12,  I_y = b * a^3 / 12
+     I = min(I_x, I_y)
+
+   Circle (diameter d):
+     A = pi/4 * d^2
+     I = pi/64 * d^4
+
+   Tube (outer diameter D, inner diameter d):
+     A = pi/4 * (D^2 - d^2)
+     I = pi/64 * (D^4 - d^4)
+
+   I-beam (flange width bf, flange thickness tf,
+           web height hw, web thickness tw):
+     Total height: h = hw + 2*tf
+     Area: A = 2*bf*tf + hw*tw
+     Strong-axis moment: I_strong = (bf*h^3 - (bf-tw)*hw^3) / 12
+     Weak-axis moment:   I_weak = (2*tf*bf^3 + hw*tw^3) / 12
+     I = min(I_strong, I_weak)
+
+   Radius of gyration: r = sqrt(I / A)
+   Slenderness ratio:  SR = L_eff / r
+
+3. Critical Slenderness Ratio
+
+   Boundary between elastic and inelastic buckling zones:
+     SR_c = sqrt(pi^2 * E / (0.5 * Sy))
+
+   Zone classification:
+     SR > SR_c      => elastic buckling zone
+     10 < SR <= SR_c => inelastic buckling zone
+     SR <= 10        => simple compression (no buckling)
+
+4. Elastic Buckling (Euler)
+
+   Valid when SR > SR_c:
+     Critical stress: sigma_cr = pi^2 * E / SR^2
+     Safety: n = sigma_cr / (F / A)
+
+5. Inelastic Buckling (Johnson Parabolic)
+
+   Valid when 10 < SR <= SR_c:
+     Critical stress: sigma_cr = Sy - (Sy^2 / (4*pi^2*E)) * SR^2
+     Safety: n = sigma_cr / (F / A)
+
+6. Eccentric Loading (Secant Formula)
+
+   When force does not act precisely on the strut axis (mounting
+   imperfections, initial crookedness), the maximum stress in the
+   extreme fibre is given by:
+
+     sigma_max = (F/A) * (1 + mu * sec(SR/2 * sqrt(F/(A*E))))
+
+   where:
+     mu = eccentricity ratio (e*c/r^2), typically 0.25 for steel
+     sec(x) = 1/cos(x)
+
+   Safety: n = Sy / sigma_max

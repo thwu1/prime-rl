@@ -1,0 +1,7 @@
+A water-resources network of 5 interconnected nodes — 3 managed reservoirs governed by STARFIT operating rules and 2 unregulated channel segments — is configured in a SQLite database at `/app/network.db`. Lateral inflow forcing is provided as a NetCDF4 file at `/app/forcing.nc`. The STARFIT reservoir model theory and equations are documented in `/app/reference.md`. Observed headwater reservoir outflows and storage are in `/app/observations.nc` for validation.
+
+Create `/app/simulate.py` to read the network definition, reservoir parameters, simulation settings, and forcing data from these heterogeneous sources, execute the complete simulation, and write results to `/app/output/simulation.nc`.
+
+The output NetCDF4 file must have dimensions `day` and `node` with coordinate variables `day` (1-indexed integers) and `node_id` (integer identifiers for each node). Data variables `outflow_cms`, `storage_MCM`, `release_cms`, and `spill_cms` must each have shape `(day, node)`, representing daily-mean flow rates in m³/s and end-of-day storage in million cubic meters (MCM) respectively.
+
+Mass must be conserved: at each daily timestep, total lateral inflow across all nodes must equal the outflow at the network boundary plus the rate of change of total reservoir storage.

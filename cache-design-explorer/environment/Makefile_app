@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -O2
+
+all: cachesim
+
+cachesim: cachesim.c cache.c cache.h
+	$(CC) $(CFLAGS) -o cachesim cachesim.c cache.c -lm
+
+clean:
+	rm -f cachesim
+
+.PHONY: all clean

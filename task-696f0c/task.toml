@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combining graph theory (chromatic number, relationship between clique number and chromatic number), formal verification (proof systems, refutation certificates), propositional logic (reduction of coloring to satisfiability), and systems engineering (building solvers and proof checkers from C/C++ source). The three graphs include two that are triangle-free yet have chromatic numbers of 4 and 5, defeating all greedy heuristics and clique-based lower bounds. The agent must independently identify a viable approach, select and build appropriate tools, design a correct encoding, and orchestrate a multi-stage pipeline producing machine-verifiable certificates."""
+solution_explanation = """Build a CDCL SAT solver (e.g. CaDiCaL) and a DRAT proof checker (e.g. drat-trim) from source. Encode k-vertex-coloring as a DIMACS CNF formula using Boolean variables for vertex-color assignments with at-least-one, at-most-one, and edge-conflict clauses. Binary search on k to find the chromatic number. For the optimal k, decode the SAT model to a valid coloring. For k-1, have the solver emit a DRAT refutation and verify it with the proof checker."""
+verification_explanation = """Tests independently verify: (1) chromatic numbers match known correct values for all three graphs, (2) colorings are valid proper colorings with no adjacent vertices sharing a color, (3) DIMACS CNF files are syntactically valid with correct variable/clause counts, (4) DRAT proof files exist and are non-empty, (5) proof_verified.txt contains VERIFIED, (6) drat-trim independently re-verifies each DRAT proof against its CNF formula."""
+category = "theory_of_computation"
+tags = ["sat-solving", "formal-verification"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-696f0c"

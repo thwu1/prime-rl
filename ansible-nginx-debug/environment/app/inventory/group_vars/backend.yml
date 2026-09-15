@@ -1,0 +1,16 @@
+---
+nginx_worker_connections: 1024
+nginx_listen_port: 8080
+nginx_ssl_enabled: false
+nginx_upstreams:
+  - name: app_cluster
+    method: least_conn
+    members:
+      - "10.0.1.10:5000"
+      - "10.0.1.11:5000"
+      - "10.0.1.12:5000 weight=2"
+  - name: cache_cluster
+    method: ip_hash
+    members:
+      - "10.0.2.10:6379"
+      - "10.0.2.11:6379"

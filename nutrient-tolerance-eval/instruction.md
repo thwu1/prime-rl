@@ -1,0 +1,7 @@
+A nutrient estimation evaluation pipeline at `/app/` is producing incorrect results. The system evaluates four food composition prediction systems (sys_A through sys_D) against ground truth nutrient data, applying European regulatory tolerance checking (EU 1169/2011), UK FSA traffic-light classification, and prediction error distribution analysis, then computes composite scores with system ranking and bootstrap significance testing.
+
+The pipeline is orchestrated via a Makefile and stores intermediate results in a SQLite database. Running `make -C /app evaluate` should execute the full pipeline; the final output should appear at `/app/output/results.json`.
+
+Multiple issues affect the pipeline: defects in evaluation logic across several modules, an unimplemented analysis module that exists only as a stub, and a build orchestration problem in the Makefile that prevents the full pipeline from executing. Pipeline source code is under `/app/src/`. Reference documentation for all evaluation stages and their specifications is at `/app/docs/`. Validation cases with independently verified correct values are at `/app/docs/validation_cases.md`. Pipeline configuration is at `/app/config/pipeline_config.toml`.
+
+Investigate and fix all defects, implement the missing module per its specification in `/app/docs/error_analysis_spec.md`, and ensure the Makefile correctly chains all pipeline stages so that `make -C /app clean evaluate` produces a correct `/app/output/results.json`.

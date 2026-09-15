@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete portfolio lot-tracking engine with three lot-matching strategies (FIFO/LIFO/HIFO), forward-looking wash-sale detection with cost-basis cascading, holding-period classification, market-value computation from price directives, and cross-validation against ledger-cli. The journal parsing must handle lot annotations, total-cost syntax, virtual postings, automated transactions, and commented entries. Interactions between wash-sale adjustments and lot-matching methods produce method-dependent outcomes that demand precise financial arithmetic."""
+solution_explanation = """Parse the journal with regex to extract price directives and buy/sell events (lot annotations, total-cost, sell with per-unit price). Process events chronologically: on buy, store lot with optional wash-sale cost adjustment from pending map; on sell, consume lots in method-specific order (FIFO=oldest-first, LIFO=newest-first, HIFO=highest-cost-first), compute gain, detect forward-looking wash sales within 30 days, disallow proportional loss, distribute adjustment to replacement lots. Use Python Decimal for all financial arithmetic. Market value uses latest P directive price on or before the date. Validate cross-checks against ledger CLI balance output."""
+verification_explanation = """60 pytest tests verify lot counts and per-lot details (commodity, quantity, cost_per_unit, total_cost, acquisition_date) under each method; realized-gain transactions with wash-sale disallowance and holding-period classification; market-value holdings and totals at end and mid dates; cross-validation against ledger CLI; and edge cases ensuring virtual postings, dividends, commented orders, and automated transactions don't leak into lot tracking. All numeric assertions use 0.015 absolute tolerance."""
+category = "finance"
+tags = ["accounting", "ledger-cli", "tax-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/portfolio-lot-tracker"

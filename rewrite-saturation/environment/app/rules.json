@@ -1,0 +1,27 @@
+{
+  "rules": [
+    {"name": "add-zero-r", "lhs": "(+ ?a 0)", "rhs": "?a"},
+    {"name": "add-zero-l", "lhs": "(+ 0 ?a)", "rhs": "?a"},
+    {"name": "mul-one-r", "lhs": "(* ?a 1)", "rhs": "?a"},
+    {"name": "mul-one-l", "lhs": "(* 1 ?a)", "rhs": "?a"},
+    {"name": "mul-zero-r", "lhs": "(* ?a 0)", "rhs": "0"},
+    {"name": "mul-zero-l", "lhs": "(* 0 ?a)", "rhs": "0"},
+    {"name": "sub-zero", "lhs": "(- ?a 0)", "rhs": "?a"},
+    {"name": "sub-self", "lhs": "(- ?a ?a)", "rhs": "0"},
+    {"name": "div-one", "lhs": "(/ ?a 1)", "rhs": "?a"},
+    {"name": "add-comm", "lhs": "(+ ?a ?b)", "rhs": "(+ ?b ?a)"},
+    {"name": "mul-comm", "lhs": "(* ?a ?b)", "rhs": "(* ?b ?a)"},
+    {"name": "add-assoc", "lhs": "(+ (+ ?a ?b) ?c)", "rhs": "(+ ?a (+ ?b ?c))"},
+    {"name": "mul-assoc", "lhs": "(* (* ?a ?b) ?c)", "rhs": "(* ?a (* ?b ?c))"},
+    {"name": "dist", "lhs": "(* ?a (+ ?b ?c))", "rhs": "(+ (* ?a ?b) (* ?a ?c))"},
+    {"name": "factor", "lhs": "(+ (* ?a ?b) (* ?a ?c))", "rhs": "(* ?a (+ ?b ?c))"},
+    {"name": "double", "lhs": "(+ ?a ?a)", "rhs": "(* 2 ?a)"},
+    {"name": "neg-neg", "lhs": "(neg (neg ?a))", "rhs": "?a"},
+    {"name": "add-neg", "lhs": "(+ ?a (neg ?b))", "rhs": "(- ?a ?b)"},
+    {"name": "shl-2", "lhs": "(* ?a 2)", "rhs": "(<< ?a 1)"},
+    {"name": "shl-4", "lhs": "(* ?a 4)", "rhs": "(<< ?a 2)"},
+    {"name": "shl-8", "lhs": "(* ?a 8)", "rhs": "(<< ?a 3)"},
+    {"name": "shl-16", "lhs": "(* ?a 16)", "rhs": "(<< ?a 4)"},
+    {"name": "shl-32", "lhs": "(* ?a 32)", "rhs": "(<< ?a 5)"}
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "test_cases": [
+    {
+      "name": "center_transform",
+      "formula": "center(x)",
+      "data": {"x": [1.0, 2.0, 3.0]},
+      "expected_columns": ["Intercept", "center(x)"],
+      "expected_matrix": [[1, -1], [1, 0], [1, 1]]
+    },
+    {
+      "name": "standardize_transform",
+      "formula": "standardize(x)",
+      "data": {"x": [12.0, 10.0]},
+      "expected_columns": ["Intercept", "standardize(x)"],
+      "expected_matrix": [[1, 1], [1, -1]]
+    },
+    {
+      "name": "term_ordering_by_numeric_groups",
+      "formula": "x1:x2 + a:b + b + a",
+      "data": {
+        "a": ["a1", "a1", "a2", "a2"],
+        "b": ["b1", "b2", "b1", "b2"],
+        "x1": [1.0, 2.0, 3.0, 4.0],
+        "x2": [5.0, 6.0, 7.0, 8.0]
+      },
+      "expected_columns": ["Intercept", "b[T.b2]", "a[T.a2]", "a[T.a2]:b[T.b2]", "x1:x2"],
+      "expected_matrix": [
+        [1, 0, 0, 0, 5.0],
+        [1, 1, 0, 0, 12.0],
+        [1, 0, 1, 0, 21.0],
+        [1, 1, 1, 1, 32.0]
+      ]
+    },
+    {
+      "name": "numeric_grouping_separation_rbug2",
+      "formula": "0 + a:x + a:b",
+      "data": {
+        "a": ["a1", "a1", "a2", "a2"],
+        "b": ["b1", "b2", "b1", "b2"],
+        "x": [1.0, 2.0, 3.0, 4.0]
+      },
+      "expected_columns": ["a[a1]:b[b1]", "a[a2]:b[b1]", "a[a1]:b[b2]", "a[a2]:b[b2]", "a[a1]:x", "a[a2]:x"],
+      "expected_matrix": [
+        [1, 0, 0, 0, 1, 0],
+        [0, 0, 1, 0, 2, 0],
+        [0, 1, 0, 0, 0, 3],
+        [0, 0, 0, 1, 0, 4]
+      ]
+    }
+  ]
+}

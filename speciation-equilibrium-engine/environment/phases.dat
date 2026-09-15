@@ -1,0 +1,33 @@
+# Mineral Phase Dissolution Reactions (25C)
+# Source: MINTEQ v4 / PHREEQC thermodynamic database
+#
+# Format:
+#   PHASES section lists mineral dissolution reactions
+#   Each line: <mineral_name> | <dissolution_reaction> | log_k = <value>
+#   The mineral formula (solid phase) appears on the left side of '='
+#   Aqueous component products appear on the right side
+#   H2O and H+ may appear on either side of the reaction
+#   log_k is for the dissolution reaction as written:
+#     K = product([products]^coeff) / product([reactants]^coeff)
+#   where mineral activity = 1 and H2O activity = 1
+#   Saturation Index: SI = log10(IAP / K)
+#   where IAP uses free aqueous concentrations raised to their
+#   stoichiometric powers (positive for products, negative for reactants)
+#
+
+PHASES
+Calcite | CaCO3 = Ca+2 + CO3-2 | log_k = -8.450
+Aragonite | CaCO3 = Ca+2 + CO3-2 | log_k = -8.336
+Dolomite | CaMg(CO3)2 = Ca+2 + Mg+2 + 2 CO3-2 | log_k = -17.09
+Magnesite | MgCO3 = Mg+2 + CO3-2 | log_k = -8.029
+Gypsum | CaSO4:2H2O = Ca+2 + SO4-2 + 2 H2O | log_k = -4.550
+Anhydrite | CaSO4 = Ca+2 + SO4-2 | log_k = -4.250
+Fluorite | CaF2 = Ca+2 + 2 F- | log_k = -10.610
+Anglesite | PbSO4 = Pb+2 + SO4-2 | log_k = -7.790
+Cerussite | PbCO3 = Pb+2 + CO3-2 | log_k = -13.130
+Cotunnite | PbCl2 = Pb+2 + 2 Cl- | log_k = -4.770
+Cu_hydroxide | Cu(OH)2 + 2 H+ = Cu+2 + 2 H2O | log_k = 8.640
+Azurite | Cu3(OH)2(CO3)2 + 2 H+ = 3 Cu+2 + 2 CO3-2 + 2 H2O | log_k = -16.920
+Brucite | Mg(OH)2 + 2 H+ = Mg+2 + 2 H2O | log_k = 16.792
+Ferrihydrite | Fe(OH)3 + 3 H+ = Fe+3 + 3 H2O | log_k = 4.891
+END

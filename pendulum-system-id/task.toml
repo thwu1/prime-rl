@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of Lagrangian rigid-body dynamics (mass matrix, Christoffel-symbol Coriolis terms, gravity torques) for a compound pendulum. The agent must recognize the mass-scale degeneracy in the equations of motion (all terms scale linearly with a common mass factor), use the known m1 to break the symmetry, and formulate a 7-parameter nonlinear inverse problem from position-only trajectory data. The double pendulum's sensitivity to parameters near chaotic regimes makes naive gradient descent ineffective; global search or multi-start strategies are required. Ground truth values are not exposed in test code—verification uses trajectory reproduction, cross-validation on held-out trajectories from different initial conditions, and a SHA-256 fingerprint of the physical parameters."""
+solution_explanation = """Read the double pendulum Lagrangian dynamics in simulator.py and the config to understand the forward model and the mass-scale symmetry that makes individual masses unidentifiable without a known anchor. Use m1 from config to fix the mass scale. Formulate cost as MSE between simulated and observed joint positions over 301 timesteps. Use differential evolution for global search over 7 parameters (m2, l1, l2, b1, b2, qd1_0, qd2_0) with appropriate bounds, followed by L-BFGS-B for local refinement. Output estimated parameters to /app/estimated_params.json."""
+verification_explanation = """Tests verify: (1) output file exists with all 7 keys as positive numerics (velocities may be negative), (2) physical parameters are within plausible ranges, (3) forward simulation with estimated parameters reproduces the primary observed trajectory with position RMSE below 0.05 rad, (4-5) estimated physical parameters generalize to two held-out validation trajectories from different initial conditions (RMSE < 0.05 each), (6) SHA-256 hash of the rounded physical parameters matches a stored fingerprint. No ground truth values appear in test code."""
+category = "scientific_computing"
+tags = ["physics_simulation", "parameter_estimation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pendulum-system-id"

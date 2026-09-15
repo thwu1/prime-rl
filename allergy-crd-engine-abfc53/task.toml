@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires: (1) fixing TypeScript compilation errors (missing enum member GRP in MolecularFamily, type mismatch where sigeToTigeRatio is declared string but assigned number) across interconnected modules, (2) designing and implementing a complete quality-control pipeline from an interface contract — including input validation, deduplication with highest-sIgE retention, CCD interference detection — and integrating it into the existing processing pipeline by creating a new module import and wiring normalized results through all downstream call sites, (3) adding a qualityFlags field to the DiagnosticReport type and engine output, (4) fixing 7 logic bugs spanning CAP class boundary conditions, molecular-family-based grouping (vs category-based), clinical syndrome detection (inverted thresholds, wrong allergen IDs, unimplemented detector), and risk assessment (wrong pathology field, inverted AIT conditions). Bugs are coupled: fixing cross-reactivity grouping reveals that the engine needs QC deduplication to avoid inflated cluster membership. Requires domain understanding of ImmunoCAP CAP banding, molecular family cross-reactivity, and clinical syndrome patterns."""
+solution_explanation = """Fix compilation: (1) add GRP to MolecularFamily enum so allergen-db.ts compiles, (2) change sigeToTigeRatio type from string to number in Classification interface. Design and implement QC pipeline in qc.ts: validate sIgE >= 0, exclude unknown allergenIds, deduplicate keeping highest sIgE per allergenId, detect CCD (o214) interference. Add qualityFlags to DiagnosticReport interface. Rewrite engine.ts to import and call runQualityControl, use normalized results for all downstream processing, and include qualityFlags in return. Fix logic: cap-banding boundary <= to < at 0.35, swap classes 5/6, cross-reactivity group by molecularFamily not category, LTP threshold < to >=, pork-cat ID e221→e220, implement bird-egg syndrome with Gal d 5 check, anaphylaxis check pathology not symptom, AIT condition < to >=."""
+verification_explanation = """25 pytest tests compile the project, run the CLI with various patient panels, and verify JSON output. Coverage: CAP class boundary values (0.34, 0.35, 50.0, 99.99, 100.0), correct labels, molecular-family cross-reactivity clustering (not category-based), primary sensitization flags, all six syndrome detections with positive and negative cases, anaphylaxis risk from pathology (not symptom), AIT eligibility, sIgE/tIgE ratio type and value, QC duplicate dedup (highest sIgE kept), unknown allergen exclusion, negative sIgE exclusion, CCD interference flagging without exclusion, clean input produces empty qualityFlags, combined QC scenario, QC dedup interaction with downstream clustering, and full pipeline integration verifying all features together."""
+category = "debugging"
+tags = ["typescript", "clinical-diagnostics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/allergy-crd-engine-abfc53"

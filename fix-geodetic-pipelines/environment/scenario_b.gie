@@ -1,0 +1,51 @@
+<gie>
+
+# Scenario B: Albers Equal Area Conic projection
+# Region: Australia
+# Reference data: GIGS Test 5109 (GDA94 / Australian Albers)
+#
+# Fix the projection parameters so all test cases pass within tolerance.
+
+operation +proj=aea \
+          +lat_0=0 \
+          +lon_0=134 \
+          +lat_1=-20 \
+          +lat_2=-34 \
+          +x_0=0 \
+          +y_0=0 \
+          +ellps=GRS80 \
+          +units=m
+
+tolerance 0.05 m
+
+accept    132 0
+expect    0 0
+
+accept    132 -27
+expect    0 -2926820.89
+
+accept    140 0
+expect    966973.98 -30285.6
+
+accept    140 -20
+expect    832799.36 -2170181.93
+
+accept    140 -40
+expect    693250.21 -4395794.49
+
+accept    140 -60
+expect    567313.29 -6404311.16
+
+accept    140 -80
+expect    486878.674 -7687130.029
+
+accept    120 -60
+expect    -850274.75 -6426505.13
+
+accept    150 -60
+expect    1273067.747 -6476375.276
+
+accept    170 -60
+expect    2656914.716 -6784621.89
+
+</gie>

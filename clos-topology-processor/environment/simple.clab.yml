@@ -1,0 +1,11 @@
+name: simple-lab
+topology:
+  nodes:
+    node1:
+      kind: linux
+      image: alpine:3
+    node2:
+      kind: linux
+      image: alpine:3
+  links:
+    - endpoints: ["node1:eth1", "node2:eth1"]

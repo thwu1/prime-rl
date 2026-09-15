@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding the reduction from minimum feedback arc set to weighted partial MaxSAT via order-variable encoding with O(n^3) transitivity hard clauses. The agent must correctly map directed edge structure to WCNF soft clauses, enforce total-order consistency through pairwise transitivity constraints, integrate with a MaxSAT solver, and decode optimal linear orderings to extract the minimum-weight feedback arc set. Correct variable indexing and literal polarity in the encoding demand expert knowledge of SAT/MaxSAT formulations and combinatorial optimization."""
+solution_explanation = """For each graph with n vertices, create C(n,2) binary order variables x_{i,j} indicating whether vertex i precedes vertex j. Add two transitivity hard clauses per vertex triple to enforce a consistent total order. Add one weighted soft clause per directed edge preferring forward orientation. Solve with PySAT RC2, decode the optimal linear ordering from the model, and identify backward edges as the feedback arc set. Write WCNF files manually in standard DIMACS format with p wcnf header."""
+verification_explanation = """Tests independently encode and solve each instance using PySAT RC2 to obtain provably optimal FAS weights. Structural checks verify: WCNF files have valid p wcnf headers with correct field counts and all clauses terminated by 0, FAS removal yields an acyclic graph (DFS cycle detection), the ordering is a valid vertex permutation consistent with the DAG, all FAS edges exist in the original graph, and reported weights match edge weight sums. Optimality is confirmed by comparing against the independently computed optimal cost."""
+category = "optimization"
+tags = ["maxsat", "graph-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/feedback-arc-maxsat"

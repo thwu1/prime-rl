@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient understanding of bytecode compilation, stack-machine semantics, and jump back-patching. The core challenge is implementing backward jumps for loop continuation, forward jump back-patching for break, and maintaining a stack of loop contexts for nested loops — all while keeping the VM stack balanced across iterations. Coordinated modifications across 5 Go packages (token, AST, parser, compiler, VM) are needed. Two subtle pre-existing bugs in the VM's postfix operator (x++/x--) only manifest inside while loops: (1) incorrect bytecode offset calculations read the wrong variable index from preceding instructions, and (2) in-place mutation of Integer objects corrupts the constant pool, causing variables re-initialized via 'let' inside loops to start with the mutated value instead of the original. The second bug is especially insidious — it produces correct results for simple loops but causes infinite loops in nested while+break patterns where the break condition depends on a loop counter that was re-initialized from a corrupted constant."""
+solution_explanation = """Add while/break/continue as keywords in the token package. Create AST node types (WhileExpression, BreakStatement, ContinueStatement). Add parser support following existing patterns (prefix parser for while, statement cases for break/continue). In the compiler, maintain a stack of loop contexts tracking continue targets and break back-patch positions. Compile while as: condition -> OpJumpNotTruthy(forward) -> body -> OpJump(backward to condition) -> OpNull; break emits OpJump(forward, back-patched after loop ends); continue emits OpJump(backward to condition start). Fix two bugs in vm.go's executePostfixOperator: (1) change ReadUint16(ins[ip-5:]) to ReadUint16(ins[ip-2:]) for globals and ReadUint8(ins[ip-3:]) to ReadUint8(ins[ip-1:]) for locals — the original offsets read wrong bytecode positions when the preceding instruction isn't the same-length set instruction; (2) create a new object.Integer instead of mutating the existing one in-place — the original code does operand.(*object.Integer).Value++ which modifies the constant pool entry that still aliases the global/local variable slot, causing let-reinitializations inside loops to use the corrupted constant value."""
+verification_explanation = """Go test suite validates: basic while counting, false-condition (never enters), break from infinite loop, break from nested conditionals, continue skipping iterations, nested while loops with inner counting and inner break, while loops inside functions with local variables. Tests use the existing vm package test infrastructure (runVMTests helper) which parses, compiles, and executes through the VM, checking LastPoppedStackElement against expected values. Python test_state.py additionally verifies build success and that all Go tests pass together."""
+category = "programming_languages"
+tags = ["compilers", "bytecode-vm"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e31fb8"

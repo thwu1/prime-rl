@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: mart_revenue_summary
+    description: "Daily revenue summary by product category for completed orders"
+    columns:
+      - name: order_date
+        description: "Date of the orders"
+        tests:
+          - not_null
+          - unique
+      - name: category
+        description: "Product category"
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Total revenue in dollars"
+        tests:
+          - not_null
+      - name: order_count
+        description: "Number of distinct orders"
+        tests:
+          - not_null

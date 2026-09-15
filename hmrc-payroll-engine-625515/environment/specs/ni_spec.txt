@@ -1,0 +1,1391 @@
+National Insurance Contributions guidance for software developers
+Effective from 06 April 2026 for the tax year 2026 to 2027
+Format for National Insurance contributions calculations
+Technical
+Specification
+Issued
+January 2026
+Notes
+Booklet updated May 2026
+This booklet has been updated for the 2026 to 2027 tax year with changes effective from 06 April 2026. This booklet has been amended to correct the equations for exact percentage calculations.
+National Insurance contributions (NICs) guidance for software developers from 06 April 2026 for 2026 to 2027
+Table of contents
+Glossary of terms Page 3
+1 Introduction Page 3
+2 NICs information for tax year commencing 6 April 2026 Page 4
+3 Description of the differences between
+calculating NICs using the tables and the exact percentage method Page 7
+4 Rules for rounding Page 7
+5 NICs calculation formulae — exact percentage method Page 7
+6 Directors' NICs calculation formulae Page 10
+7 NICs calculation formulae — tables method Page 13
+Appendices
+Appendix 1- Earnings bands and NICs percentage rates Page 15
+Appendix 2 - Supplement to NI guidance for software developers for 2026 to 2027 Page 17
+Glossary of terms
+GP - Gross Pay for NICs purposes
+ST - Secondary Threshold
+LEL - Lower Earnings Limit
+PT - Primary Threshold
+UEL - Upper Earnings Limit
+UST - Upper Secondary Threshold
+AUST - Apprentice Upper Secondary Threshold
+VUST - Veterans Upper Secondary Threshold
+FUST - Freeports Upper Secondary Threshold
+IZUST - Investment Zones Upper Secondary Threshold
+NICs - National Insurance contributions
+PAYE - Pay As You Earn
+RTI - Real Time Information
+1 Introduction
+1.1 Real Time Information (RTI) means you submit information about Pay As You Earn (PAYE) payments throughout the tax year as part of your payroll process, rather than at the end of the tax year. Read more information on
+Real Time Information supports for software developers.
+1.2 This specification sets out the calculation format for NICs for the tax year 2026 to 2027 and, gives instructions for weekly/monthly paid or multiples of weeks or months, for
+example 3, 4, 5 weeks. It augments the information contained in the Employer Helpbooks and the Employer Further Guide to PAYE and NICs (CWG2).
+1.3 The 2026 to 2027 tax year versions are available to download at
+Payroll forms, tables and helpbooks for employers.
+1.4 This specification also provides guidance for those who wish to develop software that calculates NICs by the tables method. The method of calculation preferred by HMRC is the exact percentage method.
+1.5 Please note that the manual NICs tables are designed for the convenience of a manual user, incorporating various roundings that make for possible differences to the calculations undertaken by computerised NICs routines. Software packages which use a mixture of NICs tables and the exact percentage method should not allow NICs
+to be deducted for an employee by both methods within one tax year by the same payroll.
+2 NICs information for tax year commencing 6 April 2026 — completing the payroll record (2026 to 2027).
+2.1 The format for the payroll record is reflected in the following paragraphs.
+2.2 Earnings on the payroll record should contain whole pounds only if NICs are calculated using the tables method. If NICs are calculated using the exact percentage method, earnings at the Lower Earnings Limit (LEL) should contain whole pounds only, and other earnings fields should contain pounds and pence.
+2.3 All references to ST, LEL, PT and Upper Earnings Limit (UEL) in this section are the rates appropriate to the earnings period, that is weekly, monthly or multiples thereof.
+Employers will need to send a RTI return for employees who earn less than the Lower Earnings Limit (LEL) but above the Secondary Threshold.
+The National Insurance reporting fields to populate where this applies
+Data Item
+Description
+79
+National Insurance category letter in pay period
+79A
+Gross earnings for NICs year to date
+79B
+Gross earnings for NICs in
+this period
+86A
+Total of employer NI contributions in this period
+86Aa
+Total of employer NI contributions year to date
+The remaining NIC data fields are to be populated using a zero value
+Populate the payroll record as soon as earnings reach or
+exceed the ST and with:
+Earnings which reach the LEL, even when no primary NICs are due.
+Earnings above the LEL up to and including the PT. Earnings above PT up to and including UEL.
+Please note there is no requirement to record Upper Secondary
+Threshold (UST), Apprentice Upper Secondary Threshold (AUST) or Veterans Upper Secondary Threshold (VUST) on payroll. Also, there is no requirement to record earnings above the UEL.
+2.4 NICs on the payroll record should contain pounds and pence.
+Employer’s NICs
+for category letters A, B, C, D, E, F, H, I, J, K, L, M, N, S, V, and Z and mariners’ equivalents, is all earnings above ST multiplied by the appropriate employer’s percentage rates.
+Employee’s NICs
+for all category letters, is all
+earnings above PT up to and including UEL multiplied by the employee’s percentage rates.
+PLUS
+all earnings above the UEL multiplied by the employee’s additional 2% rate.
+2.5 Class 1A NICs on Termination Awards and Sporting Testimonial payments.
+2.5.1 Termination
+Awards.
+Class 1A NICs are payable on termination awards which exceed a threshold of £30,000. Full details can be found in CWG5 (Class 1A NICs on benefit in kind). Class 1A NICs at 15.0% are payable by employers on the amount which exceeds £30,000 and must be reported in real time.
+For example:
+Termination award of £75,000
+Threshold £30,000
+Amount subject to Class 1A NICs £45,000
+Class 1A NICs due £45,000
+x
+15.0% = £6,750.00.
+Report £6,750.00 in RTI using data field 209.
+2.5.2 Sporting Testimonial
+Payments.
+Class 1A NICs are payable on non-contractual, non-customary Sporting Testimonials which exceed a threshold of £100,000.
+Full details can be found in CWG5 (Class 1A NICs on benefits in kind, termination payments and sporting testimonial payments). Class 1A NICs at 15.0% are payable by Sporting Testimonial Committees on the amount which exceeds £100,000 and must be reported in real time.
+For example:
+Sporting Testimonial of £150,000
+Threshold £100,000
+Amount subject to Class 1A NICs = £50,000
+Class 1A NICs due £50,000
+x
+15.0%= £7,500.00.
+Report £7,500.00 in RTI using data field 209.
+2.5.3
+Freeports Employer NICs Relief.
+The zero-rate of secondary Class 1 NICs is available for all eligible Freeport-based businesses i.e. employers with a business premises in a Freeport special tax site and only for eligible employees who are working in that area.
+Eligible employers based within, and employing people working within, a Freeport special tax site can apply a zero-rate of secondary Class 1 NICs on eligible employees’ earnings above the Secondary Threshold, up to and including the Freeport Upper Secondary Threshold (FUST) of £25,000 per annum. The zero-rate of secondary Class 1 NICs can be applied to the earnings of eligible employees up to the FUST for 36 months.
+Eligible new employees will be expected to spend 60% or more of their working time within a Freeport tax special site. For further information, please see the CWG2 (Employers Handbook).
+2.5.4 National Insurance contributions relief for employers who hire veterans.
+From 6 April 2021 employers can claim a zero-rate of secondary Class 1 NICs on the earnings of a qualifying veteran for 12 consecutive months from the first day of their first civilian employment after leaving the regular armed forces.
+This zero-rate can be applied up to the Veteran’s Upper Secondary Threshold (VUST) — currently set at £50,270 for the tax year.
+For further information, please see the CWG2 (Employers Handbook).
+2.5.5 Investment Zones Employer NICs Relief.
+The
+zero-rate of secondary Class 1 NICs will be available for all eligible
+Investment Zone based businesses i.e. employers with a business premises in an Investment Zone special tax site and only for eligible employees who are working in that area.
+Eligible
+employers based within, and employing people working within, an Investment Zone special
+tax site can apply a zero-rate of secondary Class 1 NICs on
+eligible employees’ earnings above the Secondary Threshold, up to and including the Investment Zone Upper Secondary Threshold (IZUST) of £25,000 per annum. The zero-rate of secondary Class 1 NICs can be applied to the earnings of eligible employees up to the IZUST for 36 months.
+Eligible new employees will be expected to spend 60% or more of their working time within an Investment Zone tax special site. For further information, please see the CWG2 (Employers Handbook).
+3 Description of the differences between calculating NICs using the tables and the exact percentage method.
+3.1 The figures shown in the manual NICs tables may differ from the exact percentage method figures. This is because, with the exception of the ST, LEL, PT, FUST, IZUST and UEL, the figures in the tables are calculated on the midpoint between the earnings bands shown. Therefore, the table figures will only match the exact percentage figures when the midpoint is the same as the earnings used in the exact percentage calculation, or where the earnings used match exactly the ST, LEL, PT, FUST, IZUST or UEL figures. Further information is provided at section 7.
+4 Rules for rounding
+General NICs.
+4.1 The Social Security (Contributions) Regulations 2001 provide specific rules for rounding in the calculation of NICs.
+Regulation 12(1)(b) provides that:
+“primary and secondary Class 1 NICs shall be calculated to the nearest penny and any amount of a halfpenny or less shall be disregarded”.
+4.2 As the law requires that £0.005 or less is disregarded, as a matter of policy we only look at the third decimal place in calculating NICs due where such calculation results in more than two decimal places.
+If it is 5 or less round down.
+If it is 6 or more round up.
+For example, if the NICs calculated was to result in:
+£67.5558 the NICs payable would be £67.55, but if the NICs payable came to 67.5568 the NICs payable would be £67.56.
+5 NICs calculation formulae – exact percentage method.
+5.1 Changes to Class 1 NICs announced at Autumn Statement on 26 November 2025 are incorporated in the calculation formulae that follow.
+5.2 Bands A to F referred to in the formulae can
+be found in the chart at Appendix 1.
+Abbreviations used within the calculation formulae.
+GP - Gross Pay for NICs purposes
+wm - number of weeks or months in tax year that is 52 weeks or 12 months
+p - number of weeks/months in pay period. Round result of
+calculation at this point up to nearest whole pound
+p
+1
+- number of weeks/months in pay period. If equals 1 round result of calculation at this point to nearest whole pound. If more than 1 round up to whole pounds
+ST - annual Secondary Threshold (that is employer’s threshold)
+LEL - annual Lower Earnings Limit
+PT - annual Primary Threshold (that is employee’s threshold)
+FUST - annual Freeports Upper Secondary Threshold (that is employer’s threshold)
+IZUST - annual Investment Zones Upper Secondary Threshold (employers threshold)
+UEL - annual Upper Earnings Limit
+ptd - paid to date
+c - before the change
+For the tax year 2026 to 2027, the UEL, UST, VUST and the AUST are the same value.
+Exact percentage method.
+Step 1 Earnings up to and including ST.
+If
+answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point * on the payroll record and proceed to Step 2.
+Step 2 Earnings above ST up to and including LEL.
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3 Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record
+should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4 Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter result of Step 4 on the payroll record and proceed to Step 5.
+Step 5 Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter result of Step 5 on the payroll record and proceed to Step 6.
+Step 6 Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive
+proceed to Step 7.
+Step 7 Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+Step 8 Employer’s NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate (don’t round) = a
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round) = b
+a plus b = (round)
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate
+(round).
+Step 9 Total NICs.
+Result of Step 7
+PLUS
+Result of Step 8
+= total employer and employee NICs.
+6 Director’s NICs calculation formulae
+6.1 For NICs, company directors are classified as office holders and, under Section 2(1) of the Social
+Security Contributions and Benefits Act 1992, office holders fall into the definition of ‘employed earner’. As such, provided their earnings reach appropriate levels, they are liable for Class 1 NICs.
+6.2 The earnings period for calculating NICs is usually determined by the interval between payments. For example, an employee who is monthly paid will have a monthly earnings period. However, to calculate NICs for company directors you must use either:
+an annual earnings period, or
+a pro-rata annual earnings period.
+6.3 This applies regardless of the actual interval between payments.
+6.4 However, under Regulation 8(6) of the Social Security (Contributions) Regulations 2001 (the alternative arrangements), NICs can be deducted on a weekly/monthly basis and the
+annual calculation completed when the last payment of earnings in the tax year (or directorship, if earlier) is being made to confirm the correct amount has been paid. Any subsequent amendments are then made to the payroll record.
+6.5 More detailed information about directors can be found in Booklets CA44 which are available to download at
+CA44: National Insurance for company directors.
+6.6 The following formulae set out the basic rules for calculating company directors NICs, using an annual or pro rata annual earnings period.
+Step 1 Earnings up to and including ST.
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter ST on the payroll record and proceed to Step 2.
+Step 2 Earnings above ST up to and including LEL.
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3 Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter the result on the
+payroll record proceed to Step 4.
+Step 4 Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5 Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the
+result of Step 5 on the payroll record and proceed to Step 6.
+Step 6 Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7 Director’s NICs.
+Result of Step 4 plus
+result of Step 5 multiplied by employee’s band E % rate (round)
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+= employee’s NICs due to date.
+Step 8 Director’s net NICs.
+Result of Step 7
+MINUS
+Employee’s net NICs paid to date
+= employee’s net NICs due this period.
+Step 9 Employer’s NICs.
+Result of Step 2 plus Result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round) = a
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round) = b
+a plus b = (round)
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round).
+Step 10 Employer’s net NICs.
+Result of Step 9
+= employer’s net NICs due to date (enter on the payroll record)
+MINUS
+Employer’s net NICs paid to date
+=
+employer’s net NICs due this period.
+Step 11 Total NICs.
+Result of Step 8
+PLUS
+Result of Step 10
+= total employer and employee NICs.
+Pro Rata Company Director
+6.7 For pro-rata company director, replace the annual ST, LEL, PT, FUST/IZUST and UEL with the
+pro-rata ST, LEL, PT, FUST/IZUST and UEL and follow the previous formulae.
+6.8 The following example shows the pro-rata earnings limits for someone who becomes a company director during the tax year 2026 to 2027 with 18 weeks from and including the week of appointment to the end of the tax year:
+£5,000 ÷ 52
+
+18 = £1,731 (pro-rata ST rounded up to next whole £)
+£129
+
+18 = £2,322 (pro-rata LEL)
+£12,570 ÷ 52
+
+18 = £4,352 (pro-rata PT rounded up to next whole £)
+£25,000 ÷ 52
+
+18 = £8,654 (pro-rata FUST/IZUST rounded up to next whole £)
+£50,270 ÷ 52
+
+18 = £17,402 (pro-rata UEL rounded up to next whole £)
+Where the week of appointment to the end of the tax year is 1 week only, the pro rata ST/PT and pro rata UEL is rounded to the nearest whole pound.
+(If someone is appointed in week 53 of the tax year, treat as week 52 when working out the pro rata period that is the pro rata period is one week).
+The supplement to the NI Guidance for software developers for 2026 to 2027 at appendix 2 contains worked examples of NICs calculations using the rates and limits for 2026 to 2027.
+7 NICs calculation formulae – tables method.
+7.1 Weekly tables.
+Earnings in the weekly tables are shown in whole pounds only, with the gross pay being rounded down to the nearest whole
+pound.
+7.2 Monthly tables.
+The monthly tables are also shown in whole pounds only but are in bands of four pounds starting at the ST. Gross pay should be rounded down to the nearest band. However, at the primary and secondary thresholds, where liability for secondary and primary NI arises, there must be calculations at the exact threshold figures.
+7.3 Mid-point calculations.
+NICs in the tables are usually calculated on the “mid-point” between the earnings steps. The weekly tables are in steps of £1, therefore the mid-point between each step is the lower step plus £0.50. Similarly, the monthly tables increase mainly in steps of four pounds, therefore the mid-point is the lower step plus £2.00.
+7.4 Please note that although not all steps within the monthly table increase by four pounds, the calculation of the NICs is always based on the mid-point, that is if the step was three pounds, the mid-point would be the lower step plus £1.50. This is with the exception of the ST, LEL, PT, FUST, IZUST and UEL where the NICs are calculated on the exact earnings (whole pounds).
+7.5 Earnings above UEL.
+Employer’s and employee’s NICs are due on earnings above the UEL and are calculated on whole pounds at the rate of 15.0% and 2% respectively for the tax year 2026 to 2027.
+Appendix 1 - Employee Earnings Bands and NICs percentage rates
+Thresholds
+2026 to 2027
+% Bands
+A/M/H/F/V/N
+B/I/E
+C/S/K
+J/L/Z/D
+Zero to ST
+0 to 5,000
+Band A
+Nil
+Nil
+Nil
+Nil
+ST to LEL
+5,000 to 6,708
+Band B
+0%
+0%
+Nil
+0%
+LEL to PT
+6,708 to 12,570
+Band C
+0%
+0%
+Nil
+0%
+PT to FUST/IZUST
+12,570 to 25,000
+Band D
+8%
+1.85%
+Nil
+2%
+FUST/IZUST to UEL/UST/ AUST/VUST
+25,000 to 50,270
+Band E
+8%
+1.85%
+Nil
+2%
+Above UEL/UST/ AUST/VUST
+Above 50,270
+Band F
+2%
+2%
+Nil
+2%
+Employer Earnings Bands and NICs percentage rates
+are shown overleaf.
+Employer Earnings Bands and NICs percentage rates
+Thresholds
+2026 to 2027
+% Bands
+A/B/C/J
+H/M/V/Z
+F/I/S/L
+D/E/K/N
+Zero to ST
+0 to 5,000
+Band A
+Nil
+Nil
+Nil
+NIL
+ST to LEL
+5,000 to 6,708
+Band B
+15.0%
+0%
+0%
+0%
+LEL to PT
+6,708 to
+12,570
+Band C
+15.0%
+0%
+0%
+0%
+PT to FUST/IZUST
+12,570 to 25,000
+Band D
+15.0%
+0%
+0%
+0%
+FUST/IZUST to UEL/UST/AUST/VUST
+25,000 to 50,270
+Band E
+15.0%
+0%
+15.0%
+15.0%
+Above UEL/UST/AUST/VUST
+Above 50,270
+Band F
+15.0%
+15.0%
+15.0%
+15.0%
+Band B shows the
+appropriate NICs % rates for employers between ST and LEL.
+Band C gives the appropriate NICs % rates for employers between LEL and PT.
+Band D gives the appropriate NICs % rates for employees and employers between PT and FUST/IZUST.
+Band E gives the appropriate NICs % rates for employees and employers between FUST/IZUST and UEL/UST/AUST/VUST.
+Band F
+gives the appropriate NICs % rates for employers and employees above the UEL/UST/AUST/VUST.
+Mariners’ rates are not included in this table but would normally be reduced by 0.5%.
+Appendix 2
+Supplement to NI guidance for software developers from 06 April 2026 for 2026 to 2027.
+Contents.
+8 Information. Page 18.
+9 NICs rates and earnings limits from 06 April 2026. Page 18.
+Example 1 28-year-old employee weekly paid below UEL. Page 20.
+Example 2 44-year-old weekly paid above UEL. Page 22.
+Example 3 Reduced rate employee paid fortnightly. Page 25.
+Example 4 Under 21-year-old employee paid weekly above UEL/UST. Page 27.
+Example 5 Pro rata director above UEL. Page 29.
+Example 6 Under 21 director weekly paid. Page 33.
+Example 7 17-year-old apprentice pays standard rate NICs. Page 36.
+Example 8 Standard rate monthly paid employee, employer claims Freeports NICs relief. Page 38.
+Example 9 Reduced rate monthly paid employee, employer claims Freeports NICs relief. Page 41.
+Example 10 Over SPA monthly paid employee, employer claims Investment Zone NICs relief. Page 43.
+Example 11 Deferment employee monthly paid, employer claims Investment Zone NICs relief Page 46.
+Example 12 34-year-old veteran whose employer claims Veterans NICs relief. Page 49.
+8 More information.
+8.1 The NI rates which take effect from 06 April 2026 are reflected in this supplement to the NI guidance for software developers for 2026 to 2027, subject to Parliamentary approval.
+8.2 This supplement also contains worked examples which have been updated using the NICs rates for 2026 to 2027 effective from 06 April 2026.
+8.3 Section 10 provides examples using the NICs calculation formulae for 2026 to 2027.
+9 NICs earnings limits from 06 April 2026.
+9.1 The following NICs earnings limits will apply from 06 April 2026.
+9.2 Earnings limits
+Pay Period
+ST
+LEL
+PT
+FUST/IZUST
+UEL
+UST/AUST/
+VUST
+Weekly
+£96
+£129
+£242
+£481
+£967
+£967
+2 Weekly
+£193
+£258
+£484
+£962
+£1,934
+£1,934
+4 Weekly
+£385
+£516
+£967
+£1,924
+£3,867
+£3,867
+Monthly
+£417
+£559
+£1,048
+£2,083
+£4,189
+£4,189
+Quarterly
+£1,250
+£1,677
+£3,143
+£6,250
+£12,568
+£12,568
+Bi-Annual
+£2,500
+£3,354
+£6,285
+£12,500
+£25,135
+£25,135
+Yearly
+£5,000
+£6,708
+£12,570
+£25,000
+£50,270
+£50,270
+ST – Secondary Threshold
+LEL – Lower Earnings Limit
+PT – Primary Threshold
+FUST – Freeports Upper Secondary Threshold
+IZUST – Investment Zone Upper Secondary Threshold
+UEL – Upper Earnings Limit
+UST – Upper Secondary Threshold
+AUST –
+Apprentice Upper Secondary Threshold
+VUST – Veterans Upper Secondary Threshold
+9.3 NI Rates from 06 April 2026
+9.3.1 The following NICs rates will apply for employees from 06 April 2026, subject to Parliamentary approval.
+9.3.2 NI Rates from 06 April 2026
+Earnings level
+Employee
+Employer Where employee aged under 21
+Employer Where employee aged 21 or over
+Employer Where employee is an Apprentice under the age of 25
+Employer Where employee is an Apprentice over the age of 25
+Employer Where employer is
+eligible to claim Freeports or Investment Zones NIC relief.
+Employer Where employer is eligible to claim Veterans NIC relief
+Earnings above ST to LEL
+0%
+0%
+15.0%
+0%
+15.0%
+0%
+0%
+Earnings above LEL up to PT
+0%
+0%
+15.0%
+0%
+15.0%
+0%
+0%
+Earnings above PT
+up to FUST/IZUST
+8%
+0%
+15.0%
+0%
+15.0%
+0%
+0%
+Earnings above FUST/IZUST up to UEL
+8%
+0%
+15.0%
+0%
+15.0%
+15.0%
+0%
+Earnings above UEL
+2%
+15.0%
+15.0%
+15.0%
+15.0%
+15.0%
+15.0%
+Worked examples using the NICs calculation formulae.
+Example 1. A
+28-year-old employee earns £129.53 a week and pays standard NICs
+.
+Category A NICs.
+Step 1. Earnings up to and including ST.
+(enter weekly ST (£96) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be
+zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the results on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If
+answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is
+positive enter the results of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£0.00 + £0.00 = £0.00
+
+8% = £0.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£0.00
+
+2% = £0.00
+£0.00 + £0.00 = £0.00 employee’s NICs.
+Step 8.
+Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£33.00 + £0.53 + £0.00 = £33.53
+
+15.0% = £5.029 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t
+round)
+£0.00
+
+15.0% = £0.00 (b)
+a plus b = £5.029 (round) = £5.03
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£0.00
+
+15.0% = £0.00 = £0.00
+£5.03 + £0.00 = £5.03 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £0.00
+PLUS
+Result of Step 8 £5.03
+= £5.03 total employer and employee NICs.
+Although no NICs are due, as earnings have reached or exceeded the LEL, they must be recorded on the payroll record.
+Example 2 A 44-year-old employee earns £1,000 a week and pays standard NICs.
+Category A NICs.
+Step 1. Earnings up to and including ST.
+(ent
+er weekly ST (£96) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the
+payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5 Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£239.00 + £486.00 = £725.00
+
+8% = £58.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£33
+
+2% = £0.66
+£58.00 + £0.66 = £58.66 employee’s NICs.
+Step 8. Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of
+Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£33.00 + £113.00 + £239.00 = £385.00
+
+15.0% = £57.75 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£486.00
+
+15.0% = £72.90 (b)
+a plus b = £130.65 (round) =
+£130.65
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£33.00
+
+15.0% = £4.95 = £4.95
+£130.65 + £4.95 = £135.60 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £58.66
+PLUS
+Result of Step 8 £135.60
+= £194.26 total employer and employee NICs.
+Example 3 An employee was paid £508 for a 2-week period and pays reduced rate NICs.
+Category B NICs.
+Step1. Earnings up to and including ST.
+(enter 2 weekly ST (£193) on payroll record)
+If answer is zero or negative no NICs due and no
+recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero
+filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the results of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the
+payroll record.
+Proceed to Step 7.
+If answer is positive enter the results of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 multiplied by employee’s band D % rate (round)
+£24.00
+
+1.85% = £0.444 = £0.44
+£0.44 employee’s NICs.
+Step 8. Employer’s NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4
+multiplied by employer’s band D % rate (round)
+£65.00 + £226.00 + £24.00 = £315.00
+
+15.0% = £47.25 = £47.25
+= £47.25
+Step 9. Total NICs
+Result of Step 7 £0.44
+PLUS
+Result of Step 8 £47.25
+= £47.94 total employer and employee NICs.
+Example 4 A 19-year-old employee earns £1,004 a week and pays standard NICs.
+Category M NICs.
+Step 1. Earnings up to and including ST.
+(en
+ter weekly ST (£96) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is
+positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(en
+ter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be
+zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of the calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive
+enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£239.00 + £486.00 = £725.00
+
+8% = £58.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£37.00
+
+2% = £0.74
+£58.00 + £0.74 = £58.74
+employee’s NICs.
+Step 8. Employer’s NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£33.00 + £113.00 + £239.00 = £385.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£486.00
+
+0% = £0.00 (b)
+a plus b = £0.00 (round) = £0.00
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£37.00
+
+15.0% = £5.55 = £5.55
+£0.00 + £5.55 = £5.55 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £58.74
+PLUS
+Result of Step 8 £5.55
+= £64.29 total employer and employee NICs.
+Example 5 A 51 year old director from 1 December 2026 earns £37,643 in the rest of the tax year pays standard NICs. There are 18 tax weeks left in the tax year 2026 to 2027.
+Pro rata limits.
+ST £5,000 ÷ 52
+
+18 = £1,731
+LEL £129
+
+18 = £2,322
+PT £12,570 ÷ 52
+
+18 = £4,352
+FUST/IZUST £25,000 ÷ 52
+
+18 = £8,654
+UEL £50,270 ÷ 52
+
+18 = £17,402
+Category A NICs.
+Step 1. Earnings up to and including ST.
+If
+answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+If answer zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to
+Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Director’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£4,302.00 + £8,748.00 = £13,050.00
+
+8% = £1,044.00 = £1,044.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£20,241
+
+2% = £404.82= £404.82
+£1,044.00 + £404.82 = £1,448.82 employee’s NICs due to date.
+Step 8. Director’s net NICs.
+Result of Step 7 £1,448.82
+= £1,448.82 employee’s net NICs due to date
+MINUS
+Employee’s net NICs paid to date
+£0.00
+= £1,448.82 employee’s net NICs due this period.
+Step 9. Employer’s NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£591.00 + £2,030.00 + £4,302.00 = £6,923.00
+
+15.0% = £1,038.45 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£8,748
+
+15.0% = £1,312.20 (b)
+a plus b = £2,350.65 (round) = £2,350.65
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£20,241
+
+15.0% = £3,036.15 = £3,036.15
+£2,350.65 + £3,036.15 = £5,386.80
+£5,413.80
+employer’s NICs due to date.
+Step 10. Employer’s net NICs.
+Step 9 £5,386.80
+= £5,386.80 employer’s net NICs due to date
+MINUS
+Employer’s net NICs paid to date
+£0.00
+= £5,386.80 employer’s net NICs due this period.
+Step 11.
+Total NICs.
+Result of Step 8 £1,448.82
+PLUS
+Result of Step 10 £5,386.80
+= £6,835.62 total employer and employee NICs.
+Example 6 An 18-year-old director for the whole tax year earns £52,000. Pays standard NICs. Has paid no NICs to date.
+Category M
+NICs.
+Step 1. Earnings up to and including ST.
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point * on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no
+earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Director’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£12,430 + £25,270 = £37,700
+
+8% = £3,016.00 = £3,016.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£1,730
+
+2% = £34.60 = £34.60
+£3,016.00 + £34.60 = £3,050.60 employee’s NICs due to date.
+Step 8. Director’s net NICs.
+Result of Step 7 £3,050.60
+= £3,050.60 employee’s net NICs due to date
+MINUS
+Employee’s net NICs paid to date
+£0.00
+= £3,050.60 employee’s net NICs due this period.
+Step 9. Employer’s NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£1,708.00 +
+£5,862.00 + £12,430.00 = £20,000
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£25,270
+
+0% = £0.00 (b)
+a plus b = £0.00 (round) = £0.00
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£1,730
+
+15.0% = £259.50 = £259.50
+£0.00 + £259.50 = £259.50 employer’s NICs due to date.
+Step 10. Employer’s net NICs.
+Result of Step 9 £259.50
+net NICs due to date (enter on the payroll record)
+MINUS
+Employer’s net NICs paid to date
+£0.00
+= £259.50 employer’s net NICs due this period.
+Step 11. Total NICs.
+Result of Step 8 £3,050.60
+PLUS
+Result of Step 10 £259.50
+= £3,310.10 total employer and employee NICs.
+Example 7 A 17-year-old Apprentice earns £250 a week and pays standard rate NICs.
+Category H NICs
+(An Apprentice under 25 pays Category H).
+Step 1. Earnings up to and including ST.
+(enter weekly ST (£96) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of
+calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(e
+nter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+If answer is positive enter on the payroll and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll
+record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£8.00 + £0.00 = £8.00
+
+8% = £0.64
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£0.00
+
+2% = £0.00
+£0.64 + £0.00 = £0.64 employee’s NICs.
+Step 8. Employer’s NICs.
+Result of Step 2 plus
+result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£33.00 + £113.00 + £8.00 = £154.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£0.00
+
+0% = £0.00 (b)
+a plus b = £0.00 (round) = £0.00
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£0.00
+
+15.0% = £0.00
+£0.00 + £0.00 = £0.00 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £0.64
+PLUS
+Result of Step 8 £0.00
+= £0.64 total employer and employee NICs.
+Example 8 A 62-year-old employee earns £5,000 a month whose employer is eligible to claim Freeports NICs relief and pays standard NICs.
+Category F NICs (Freeports Standard Rate).
+Step 1. Earnings up to and including ST.
+(ent
+er monthly ST
+(£417) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and
+including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or
+negative enter the result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£1,035.00 + £2,106.00 = £3,141.00
+
+8% = £251.28
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£811.00
+
+2% = £16.22 = £16.22
+£251.28 + £16.22 = £267.50 employee’s NICs.
+Step 8. Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£142.00 + £489.00 + £1,035.00 = £1,666.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£2,106.00
+
+15.0% = £315.90 (b)
+a plus b = £315.90 (round) = £315.90
+PLUS
+Result of Step 6
+multiplied by employer’s band F % rate (round)
+£811.00
+
+15.0% = £121.65 = £121.65
+£315.90 + £121.65 = £437.55 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £267.50
+PLUS
+Result of Step 8 £437.55
+= £705.05 total employer and employee NICs.
+Example 9 An employee who earns £5000 a month whose employer is eligible to claim Freeports NICs relief and pays reduced rate NICs.
+Category I NICs (Freeports Reduced Rate).
+Step 1. Earnings up to and including ST.
+(ent
+er monthly ST (£417) on payroll
+record)
+If answer is negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or
+negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of calculation of Step 4 on the
+payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of the calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If
+answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£1,035.00 + £2,106.00 = £3,141.00
+
+1.85% = £58.108 = £58.11
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£811.00
+
+2% = £16.22
+£58.11 + £16.22 = £74.33 employee’s NICs.
+Step 8. Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£142.00 + £489.00 + £1,035.00 = £1,666.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£2,106.00
+
+15.0% = £315.90 (b)
+a plus b = £315.90 (round) = £315.90
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£811.00
+
+15.0% = £121.65 = £121.65
+£0.00 + £315.90 + £121.65 = £437.55 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £74.33
+PLUS
+Result of Step 8 £437.55
+= £511.88 total employer and employee NICs.
+Example 10 A 70-year-old employee earns £5000 a month whose
+employer is eligible to claim Investment Zone NICs relief.
+Category K (Investment Zone over State Pension Age).
+Step 1. Earnings up to and including ST.
+(ent
+er monthly ST (£417) on payroll record)
+If answer is negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll record and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7.
+Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£1,035.00 + £2,106.00 = £3,141.00
+
+0% = £0.00
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£811.00
+
+0% = £0.00
+£0.00 + £0.00 = £0.00 employee’s NICs.
+Step 8. Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£142.00 + £489.00 + £1,035.00 = £1,666.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£2,106.00
+
+15.0% = £315.90 (b)
+a plus b = £315.90 (round) = £315.90
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£811.00
+
+15.0% = £121.65 = £121.65
+£0.00 + £315.90 + £121.65 = £437.55 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £0.00
+PLUS
+Result of Step 8 £437.55
+= £437.55 total employer and employee NICs.
+Example 11 An employee who claims Deferment and earns £5,000 a month whose employer is eligible to claim Investment Zone NICs
+relief.
+Category D (Investment Zone Deferment).
+Step 1. Earnings up to and including ST.
+(ent
+er monthly ST (£417) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of
+calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If
+answer is positive enter on the payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll and proceed to Step 4.
+Step 4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of
+Step 5 on the payroll record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band D % rate (round)
+£1,035.00 + £2,106.00 = £3,141.00
+
+2% = £62.82
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round)
+£811.00
+
+2% = £16.22 = £16.22
+£62.82 + £16.22 = £79.04 employee’s NICs.
+Step 8. Employer NICs.
+Result of Step 2 plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£142.00 + £489.00 + £1,035.00 = £1,666.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t
+round)
+£2,106.00
+
+15.0% = £315.90 (b)a plus b = £315.90 (round) £315.90
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£811.00
+
+15.0% = £121.65 = £121.65
+£0.00 + £315.90 + £121.65 = £437.55 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £79.04
+PLUS
+Result of Step 8 £437.55
+= £516.59 total employer and employee NICs.
+Example 12 A 34-year-old ex-armed forces employee earns £5,000 a month whose employer is eligible to claim Veterans NICs relief and pays standard NICs.
+Category V NICs (Veterans).
+Step 1. Earnings up to and including ST.
+(ent
+er monthly ST (£417) on payroll record)
+If answer is zero or negative no NICs due and no recording required.
+Stop.
+If answer is positive enter result of calculation at this point* on the payroll record and proceed to Step 2.
+Step 2. Earnings above ST up to and including LEL.
+(enter on payroll record)
+If answer is zero or negative no NICs due and the payroll record should be zero filled.
+Stop.
+If answer is positive enter on the
+payroll record and proceed to Step 3.
+Step 3. Earnings above LEL up to and including PT.
+If answer is zero or negative the payroll record should be zero filled.
+Proceed to Step 7.
+If answer is positive enter on the payroll and proceed to Step 4.
+Step
+4. Earnings above PT up to and including FUST/IZUST.
+If answer is zero or negative enter the result of calculation of Step 4 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the result of Step 4 on the payroll record and proceed to Step 5.
+Step 5. Earnings above FUST/IZUST up to and including UEL.
+If answer is zero or negative enter the result of calculation of Step 5 on the payroll record.
+Proceed to Step 7.
+If answer is positive enter the results of Step 5 on the payroll
+record and proceed to Step 6.
+Step 6. Earnings above UEL.
+If answer is zero or negative no earnings above UEL.
+Proceed to Step 7.
+If answer is positive proceed to Step 7.
+Step 7. Employee’s NICs.
+Result of Step 4 plus result of Step 5 multiplied by employee’s band E % rate (round)
+£1,035.00 + £2,106.00 = £3,141.00
+
+8% = £251.28
+PLUS
+Result of Step 6 multiplied by employee’s band F % rate (round).
+£811
+
+2% = £16.22
+£251.28 + £16.22 = £267.50 employee’s NICs.
+Step 8. Employer’s NICs.
+Result of Step 2
+plus result of Step 3 plus result of Step 4 multiplied by employer’s band D % rate
+(don’t round)
+£142.00 + £489.00 + £1,035.00 = £1,666.00
+
+0% = £0.00 (a)
+PLUS
+Result of Step 5 multiplied by employer’s band E % rate (don’t round)
+£2,106
+
+0% = £0.00 (b)
+a plus b = £0.00 (round) = £0.00
+PLUS
+Result of Step 6 multiplied by employer’s band F % rate (round)
+£811.00
+
+15.0% = £121.65 = £121.65
+£0.00 + £0.00 + £121.65 = £121.65 employer’s NICs.
+Step 9. Total NICs.
+Result of Step 7 £267.50
+PLUS
+Result of Step 8
+£121.65
+= £389.15 total employer and employee NICs.
+This leaflet gives general guidance only and should not be treated as a complete and authoritative statement of the law. HMRC will accept NICs calculations that follow the relevant legislation.
+Leaflet NI guidance for software developers from 06 April 2026.
+Prepared by HM Revenue and Customs
+Operational Excellence Live Services
+Newcastle upon Tyne NE98 1ZZ
+EB5 (NI guidance for software developers) 2026

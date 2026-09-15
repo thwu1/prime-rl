@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting bugs across a multi-module BM25 pipeline without being told what is wrong: (1) asymmetric tokenization between query and document processing causing case-mismatch failures, (2) inflated document frequency values from a SQL join that traverses candidate entries without DISTINCT deduplication, (3) inverted document length normalization in the BM25 TF formula (avg_dl/dl instead of dl/avg_dl), and (4) zero-indexed rank output that causes the MS MARCO eval script to misinterpret positions. The solver must understand Okapi BM25 theory, SQL semantics, TREC vs MS MARCO format conventions, and IR evaluation metrics deeply enough to diagnose each issue from symptoms alone. Additionally requires querying a SQLite database, producing output in both TREC 6-column and MS MARCO 3-column formats, implementing five standard IR metrics (MRR@10, NDCG@10, MAP, Recall@10, Recall@100) with correct edge-case handling, and cross-validating results against the official evaluation script."""
+solution_explanation = """Query the SQLite database for the full passage collection and build a global inverted index with correct per-term document frequencies. Implement BM25 with case-insensitive tokenization, the Robertson-Sparck Jones IDF formula, and correct document length normalization (dl/avg_dl). Score all candidates per query, sort by descending BM25 score, and write both MS MARCO (1-indexed ranks) and TREC (with numeric scores) output files. Compute MRR@10, NDCG@10, MAP, Recall@10, and Recall@100 for all four runs. Document each diagnosed bug in a structured JSON report."""
+verification_explanation = """18 pytest tests verify: (1) all output files exist with correct structure, (2) bug report identifies bugs in at least 3 of 4 pipeline modules, (3) BM25 run achieves MRR@10 >= 0.30 via official eval script, (4) MS MARCO format has 3 tab-separated fields with 1-indexed ranks, (5) TREC format has 6 space-separated fields with Q0 tag and monotonically decreasing scores, (6) both run formats encode the same ranking, (7) MRR@10 values match official eval within tolerance, (8) oracle metrics are all 1.0, (9) Recall@100=1.0 for all baselines, (10) NDCG/MAP/Recall reference values match within tolerance, (11) BM25 beats random baseline, (12) no external IR libraries, (13) all metrics in [0,1]."""
+category = "data_science"
+tags = ["information_retrieval", "debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/passage-reranking-eval"

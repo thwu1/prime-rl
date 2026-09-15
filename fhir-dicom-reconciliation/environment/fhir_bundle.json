@@ -1,0 +1,395 @@
+{
+  "resourceType": "Bundle",
+  "id": "siim-reconciliation-bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:patient-siim-sally",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "siim-sally",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical Record Number"
+                }
+              ]
+            },
+            "system": "urn:oid:1.2.826.0.1.3680043.8.498",
+            "value": "BreastDx-01-0003"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "SIIM",
+            "given": ["SALLY"]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1951-04-12"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:patient-siim-joe",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "siim-joe",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical Record Number"
+                }
+              ]
+            },
+            "system": "urn:oid:1.2.826.0.1.3680043.8.498",
+            "value": "TCGA-17-Z059"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "SIIM",
+            "given": ["JOE"]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1926-04-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:patient-siim-andy",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "siim-andy",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical Record Number"
+                }
+              ]
+            },
+            "system": "urn:oid:1.2.826.0.1.3680043.8.498",
+            "value": "TCGA-50-5072"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "SIIM",
+            "given": ["ANDY"]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1925-01-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:patient-siim-ravi",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "siim-ravi",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical Record Number"
+                }
+              ]
+            },
+            "system": "urn:oid:1.2.826.0.1.3680043.8.498",
+            "value": "LIDC-IDRI-0132"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "SIIM",
+            "given": ["RAVI"]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1940-01-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:imagingstudy-sally-mammo",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "sally-mammogram",
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.498.46981922031143"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "ACSN",
+                  "display": "Accession Number"
+                }
+              ]
+            },
+            "value": "a278028270041068"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "Patient/siim-sally"
+        },
+        "started": "2008-04-13T12:00:00Z",
+        "numberOfSeries": 3,
+        "numberOfInstances": 4,
+        "description": "Bilateral Screening Mammogram",
+        "referrer": {
+          "display": "REFERRING^MOHAN"
+        },
+        "series": [
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.81019372210938",
+            "number": 1,
+            "modality": {
+              "system": "http://dicom.nema.org/resources/ontology/DCM",
+              "code": "MG"
+            },
+            "numberOfInstances": 2
+          },
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.81019372210939",
+            "number": 2,
+            "modality": {
+              "system": "http://dicom.nema.org/resources/ontology/DCM",
+              "code": "MG"
+            },
+            "numberOfInstances": 2
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:imagingstudy-joe-ct",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "joe-ct-chest",
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.498.93853029328344"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "ACSN",
+                  "display": "Accession Number"
+                }
+              ]
+            },
+            "value": "a257132503242682"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "Patient/siim-andy"
+        },
+        "started": "1986-03-30T12:00:00Z",
+        "numberOfSeries": 1,
+        "numberOfInstances": 5,
+        "description": "CT Onco Lung Mass",
+        "referrer": {
+          "display": "REFERRING^MD"
+        },
+        "series": [
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.82764519203847",
+            "number": 1,
+            "modality": {
+              "system": "http://dicom.nema.org/resources/ontology/DCM",
+              "code": "MR"
+            },
+            "numberOfInstances": 5
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:imagingstudy-andy-ct",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "andy-ct-chest",
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.498.45678901234567"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "ACSN",
+                  "display": "Accession Number"
+                }
+              ]
+            },
+            "value": "a508258761846400"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "Patient/siim-andy"
+        },
+        "started": "2000-01-28T12:00:00Z",
+        "numberOfSeries": 1,
+        "numberOfInstances": 4,
+        "description": "CT Chest Without Contrast",
+        "referrer": {
+          "display": "Jones^Robert^Dr"
+        },
+        "series": [
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.83456789012345",
+            "number": 1,
+            "modality": {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-dcm",
+              "code": "CT"
+            },
+            "numberOfInstances": 4
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:imagingstudy-ravi-ct",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "ravi-ct-chest",
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.498.12345678901234"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "ACSN",
+                  "display": "Accession Number"
+                }
+              ]
+            },
+            "value": "a819497684894126"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "Patient/siim-ravi"
+        },
+        "started": "2000-01-02T10:04:00Z",
+        "numberOfSeries": 3,
+        "numberOfInstances": 6,
+        "description": "CT Chest with IV Contrast",
+        "procedureCode": [
+          {
+            "coding": [
+              {
+                "system": "http://loinc.org",
+                "code": "CT",
+                "display": "CT Scan"
+              }
+            ]
+          }
+        ],
+        "referrer": {
+          "display": "PATEL^ARUN^DR"
+        },
+        "series": [
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.22345678901234",
+            "number": 1,
+            "modality": {
+              "system": "http://dicom.nema.org/resources/ontology/DCM",
+              "code": "CT"
+            },
+            "numberOfInstances": 3
+          },
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.22345678901235",
+            "number": 2,
+            "modality": {
+              "system": "http://dicom.nema.org/resources/ontology/DCM",
+              "code": "CT"
+            },
+            "numberOfInstances": 1
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:imagingstudy-ravi-cr",
+      "resource": {
+        "resourceType": "ImagingStudy",
+        "id": "ravi-cr-chest",
+        "identifier": [
+          {
+            "system": "urn:dicom:uid",
+            "value": "urn:oid:1.2.826.0.1.3680043.8.498.12345678905678"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "ACSN",
+                  "display": "Accession Number"
+                }
+              ]
+            },
+            "value": "a819497684894128"
+          }
+        ],
+        "status": "available",
+        "subject": {
+          "reference": "Patient/siim-ravi"
+        },
+        "started": "2000-01-01T12:00:00Z",
+        "numberOfSeries": 1,
+        "numberOfInstances": 1,
+        "description": "Chest XR",
+        "referrer": {
+          "display": "PATEL^ARUN^DR"
+        },
+        "series": [
+          {
+            "uid": "1.2.826.0.1.3680043.8.498.22345678905678",
+            "number": 1,
+            "modality": {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-dcm",
+              "code": "CR"
+            },
+            "numberOfInstances": 1
+          }
+        ]
+      }
+    }
+  ]
+}

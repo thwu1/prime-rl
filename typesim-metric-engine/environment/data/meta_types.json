@@ -1,0 +1,14 @@
+[
+  {"id": "meta_01", "type": {"kind": "Instance", "origin": "int", "args": []}},
+  {"id": "meta_02", "type": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}},
+  {"id": "meta_03", "type": {"kind": "Instance", "origin": "dict", "args": [
+    {"kind": "Instance", "origin": "str", "args": []},
+    {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}
+  ]}},
+  {"id": "meta_04", "type": {"kind": "Union", "items": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "None"}]}},
+  {"id": "meta_05", "type": {"kind": "Union", "items": [
+    {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]},
+    {"kind": "None"}
+  ]}},
+  {"id": "meta_06", "type": {"kind": "Tuple", "items": [{"kind": "Instance", "origin": "int", "args": []}, {"kind": "Instance", "origin": "str", "args": []}]}}
+]

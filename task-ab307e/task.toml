@@ -1,0 +1,85 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert 3D computer vision knowledge: quaternion convention conflicts (XYZW vs
+WXYZ scalar ordering), camera intrinsic matrix structure (fx/fy axis correspondence), SE3 inverse derivation, and
+field-of-view/focal-length mapping. Five silent convention bugs produce cascading failures across the pipeline —
+each bug yields plausible-looking but numerically wrong results, and fixing one may appear to break another module
+that has its own independent convention error. Beyond debugging, the solver must design a RANSAC-based robust
+similarity alignment from scratch: choosing iteration count, inlier threshold, minimum sample size (3 points for
+7-DoF similarity transform), implementing consensus set identification, and adding a refinement step using all
+inliers. The evaluation task requires building a multi-step reconstruction pipeline (project → depth map → unproject
+→ align → classify points → compute metrics), creating a SQLite database with properly structured tables and
+foreign key semantics, and computing quality metrics that correctly distinguish clean from corrupted reconstructions.
+Additionally, the solver must master three distinct tool domains: binary PLY point cloud format specification
+(property types, byte ordering, header grammar) for exporting reconstruction results; the jq CLI filter language
+(select, map, field extraction) for JSON report processing; and the sqlite3 command-line tool (views with
+correlated subqueries, CSV export mode) for database analysis — requiring complex multi-tool interoperability
+across Python, shell commands, and SQL."""
+solution_explanation = """Five bugs to fix:
+(1) rotation_utils.py mat_to_quat: output [r,i,j,k] (WXYZ) → [i,j,k,r] (XYZW)
+(2) geometry_utils.py depth_to_cam_coords_points: x uses fv, y uses fu — swap focal lengths
+(3) geometry_utils.py closed_form_inverse_se3: missing negative sign in -R^T@t
+(4) pose_encoding.py extri_intri_to_pose_encoding: fov_h uses fx, fov_w uses fy — swap
+(5) colmap_io.py read_images_text: WXYZ not converted to XYZW
+Two implementations:
+(6) alignment.py estimate_similarity_transform: Umeyama SVD method (center, cross-covariance,
+    SVD, reflection handling, scale/rotation/translation recovery)
+(7) alignment.py robust_estimate_similarity_transform: RANSAC wrapper — sample 3 points per
+    iteration, fit transform, compute residuals, track best consensus set, refine on all inliers
+Evaluation pipeline:
+(8) evaluate.py: for each scene, project ground truth to camera 1 depth map, unproject back,
+    align to clean ground truth (basic for clean, robust for noisy), compute per-point residuals
+    and inlier/outlier classifications, create SQLite database
+Multi-tool outputs:
+(9) PLY export: write binary little-endian PLY files with structured vertex properties
+    (float64 xyz, uint8 rgb, float64 residual, uint8 is_inlier) using struct packing
+(10) JSON report + jq: generate evaluation report as JSON, use jq CLI to extract outlier IDs
+     and metrics summary with select/field-extraction filters
+(11) sqlite3 CLI: create outlier_analysis view with correlated subquery computing per-scene
+     outlier count and mean outlier residual, export as CSV with headers"""
+verification_explanation = """34 tests across 12 test classes:
+- Quaternion conversion (4 tests): identity, 90° z, 180° x, random roundtrip
+- SE3 inverse (3 tests): product-is-identity, known translation, rotation preservation
+- Depth unprojection (3 tests): principal point, known point, asymmetric focal lengths
+- Pose encoding (2 tests): square and non-square image roundtrips
+- COLMAP I/O (3 tests): intrinsics, quaternion convention, rotation recovery
+- Basic similarity alignment (3 tests): identity, known transform, arbitrary rotation+scale
+- Full pipeline (2 tests): depth-based reconstruction and cross-view reprojection
+- Robust alignment (3 tests): transform recovery with 25% outliers, inlier identification
+  accuracy, quantitative improvement over naive Umeyama on contaminated data
+- Results database (5 tests): database existence, clean scene metrics (RMSE<0.05, scale~1),
+  noisy scene metrics (inlier_ratio 0.5-0.85, RMSE<0.1), clean point classifications
+  (all inliers, low residuals), noisy point classifications (points 8-10 must be outliers
+  with residuals>50, at least 5 of points 1-7 must be inliers)
+- PLY export (2 tests): clean.ply header validation (binary_little_endian format, required
+  vertex properties, vertex count >= 8), noisy_inliers.ply has 5-9 vertices (outliers excluded)
+- jq output (2 tests): outlier_ids.json contains points 8,9,10; metrics_summary.json has
+  correct keys with clean_rmse<0.05 and noisy_inlier_ratio in 0.5-0.85
+- sqlite3 CLI output (2 tests): outlier_analysis view exists with correct schema and 2 rows,
+  outlier_report.csv has header and 2 data lines"""
+category = "debugging"
+tags = ["3d-vision", "multi-tool-pipeline", "point-cloud-formats"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ab307e"

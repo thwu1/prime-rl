@@ -1,0 +1,265 @@
+{
+  "cases": [
+    {
+      "case_id": "1",
+      "note_sentences": [
+        {"id": "s1", "text": "Patient is a 67-year-old male presenting with progressive dyspnea and bilateral lower extremity edema over the past two weeks."},
+        {"id": "s2", "text": "He has a history of ischemic cardiomyopathy with LVEF of 25% on last echocardiogram six months ago."},
+        {"id": "s3", "text": "Current medications include lisinopril 10mg daily, carvedilol 25mg twice daily, and furosemide 40mg daily."},
+        {"id": "s4", "text": "On examination, jugular venous distension is present with bilateral crackles on lung auscultation and 2+ pitting edema bilaterally."},
+        {"id": "s5", "text": "Vitals: BP 108/72, HR 92, RR 22, SpO2 93% on room air, Temp 36.8C."},
+        {"id": "s6", "text": "Labs drawn on admission include CBC, BMP, and BNP pending."},
+        {"id": "s7", "text": "Chest X-ray demonstrates bilateral pleural effusions and vascular congestion consistent with pulmonary edema."},
+        {"id": "s8", "text": "The patient was seen in the cardiology clinic three weeks ago with stable symptoms at that time."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "The patient presents with acute decompensated heart failure, supported by progressive dyspnea, bilateral edema, and known cardiomyopathy.", "citations": ["s1", "s2"]},
+        {"id": "a2", "text": "Physical examination findings of JVD, bilateral crackles, and peripheral edema are consistent with volume overload.", "citations": ["s4"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "supplementary"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "supplementary"},
+          {"sentence_id": "s8", "relevance": "not-relevant"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "supplementary"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "not-relevant"},
+          {"sentence_id": "s8", "relevance": "not-relevant"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "supplementary"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "supplementary"},
+          {"sentence_id": "s8", "relevance": "not-relevant"}
+        ]
+      }
+    },
+    {
+      "case_id": "2",
+      "note_sentences": [
+        {"id": "s1", "text": "A 54-year-old female was admitted for evaluation of recurrent episodes of syncope over the past month."},
+        {"id": "s2", "text": "Electrocardiogram reveals third-degree AV block with a ventricular rate of 38 bpm."},
+        {"id": "s3", "text": "Transthoracic echocardiogram shows preserved LVEF of 55% with no significant valvular disease."},
+        {"id": "s4", "text": "The patient denies chest pain, palpitations, or recent changes in medication."},
+        {"id": "s5", "text": "Holter monitoring over 48 hours confirmed intermittent complete heart block with pauses up to 4.2 seconds."},
+        {"id": "s6", "text": "She has a past medical history of hypertension and type 2 diabetes, well-controlled on current regimen."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "The patient has symptomatic complete heart block as demonstrated by third-degree AV block on ECG.", "citations": ["s2"]},
+        {"id": "a2", "text": "Holter monitoring confirms intermittent complete heart block with significant pauses, supporting the need for pacemaker implantation.", "citations": ["s3", "s5"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "essential"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "supplementary"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "supplementary"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "supplementary"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "essential"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ]
+      }
+    },
+    {
+      "case_id": "3",
+      "note_sentences": [
+        {"id": "s1", "text": "A 72-year-old male presents to the ED with acute onset right-sided weakness and speech difficulty beginning 2 hours ago."},
+        {"id": "s2", "text": "Past medical history is significant for atrial fibrillation, for which he takes warfarin irregularly."},
+        {"id": "s3", "text": "CT head without contrast shows no acute intracranial hemorrhage."},
+        {"id": "s4", "text": "His INR on admission is 1.2, subtherapeutic for stroke prophylaxis."},
+        {"id": "s5", "text": "NIHSS score is 14, indicating a moderate-to-severe stroke."},
+        {"id": "s6", "text": "The patient lives alone and his daughter reports he often forgets to take his medications."},
+        {"id": "s7", "text": "CTA head and neck reveals occlusion of the left middle cerebral artery M1 segment."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "The patient presents with an acute ischemic stroke, likely cardioembolic given his history of atrial fibrillation and subtherapeutic anticoagulation.", "citations": ["s1", "s3"]},
+        {"id": "a2", "text": "His elevated NIHSS score and MCA occlusion indicate he is a candidate for acute intervention.", "citations": ["s5"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "essential"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "not-relevant"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "supplementary"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "essential"},
+          {"sentence_id": "s6", "relevance": "supplementary"},
+          {"sentence_id": "s7", "relevance": "not-relevant"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "supplementary"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "not-relevant"}
+        ]
+      }
+    },
+    {
+      "case_id": "4",
+      "note_sentences": [
+        {"id": "s1", "text": "A 45-year-old female presents with progressively worsening fatigue and unintentional weight loss of 15 lbs over 3 months."},
+        {"id": "s2", "text": "Laboratory evaluation reveals TSH < 0.01 mIU/L and free T4 of 4.8 ng/dL, consistent with overt hyperthyroidism."},
+        {"id": "s3", "text": "Radioactive iodine uptake scan shows diffusely increased uptake at 24 hours."},
+        {"id": "s4", "text": "The patient reports occasional palpitations but denies eye symptoms or skin changes."},
+        {"id": "s5", "text": "Family history is notable for autoimmune thyroid disease in her mother and sister."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "The patient has Graves disease, confirmed by overt hyperthyroidism on labs with diffusely increased radioactive iodine uptake.", "citations": ["s2"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "not-relevant"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "essential"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "not-relevant"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "supplementary"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "not-relevant"},
+          {"sentence_id": "s5", "relevance": "not-relevant"}
+        ]
+      }
+    },
+    {
+      "case_id": "5",
+      "note_sentences": [
+        {"id": "s1", "text": "A 58-year-old male with COPD presents with increased sputum production and worsening dyspnea over the past 5 days."},
+        {"id": "s2", "text": "He completed a course of azithromycin prescribed by his PCP 2 weeks ago for a similar episode."},
+        {"id": "s3", "text": "Arterial blood gas shows pH 7.32, pCO2 55 mmHg, pO2 58 mmHg, and HCO3 28 mEq/L on 2L nasal cannula."},
+        {"id": "s4", "text": "Chest CT reveals hyperinflated lungs with upper lobe predominant emphysema and no acute consolidation."},
+        {"id": "s5", "text": "Pulmonary function tests from 6 months ago showed FEV1 of 35% predicted, consistent with GOLD stage III."},
+        {"id": "s6", "text": "Sputum culture obtained on admission grows Pseudomonas aeruginosa, sensitive to piperacillin-tazobactam."},
+        {"id": "s7", "text": "The patient has a 40-pack-year smoking history and quit 2 years ago."},
+        {"id": "s8", "text": "He is currently on tiotropium, fluticasone-salmeterol, and albuterol PRN."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "ABG demonstrates acute-on-chronic respiratory acidosis with hypoxemia, indicating a severe COPD exacerbation requiring close monitoring.", "citations": ["s3", "s4"]},
+        {"id": "a2", "text": "Sputum culture growing Pseudomonas guides targeted antibiotic therapy for this infectious exacerbation.", "citations": ["s8", "s6"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "supplementary"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "essential"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "supplementary"},
+          {"sentence_id": "s7", "relevance": "not-relevant"},
+          {"sentence_id": "s8", "relevance": "essential"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "not-relevant"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "essential"},
+          {"sentence_id": "s4", "relevance": "supplementary"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "supplementary"},
+          {"sentence_id": "s7", "relevance": "not-relevant"},
+          {"sentence_id": "s8", "relevance": "essential"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "supplementary"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "supplementary"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "not-relevant"},
+          {"sentence_id": "s6", "relevance": "not-relevant"},
+          {"sentence_id": "s7", "relevance": "not-relevant"},
+          {"sentence_id": "s8", "relevance": "supplementary"}
+        ]
+      }
+    },
+    {
+      "case_id": "6",
+      "note_sentences": [
+        {"id": "s1", "text": "A 63-year-old female presents with a 3-day history of right upper quadrant pain radiating to the right shoulder."},
+        {"id": "s2", "text": "She has had two prior episodes of biliary colic, both managed conservatively."},
+        {"id": "s3", "text": "WBC count is 14,200/uL with 82% neutrophils and total bilirubin is 1.8 mg/dL."},
+        {"id": "s4", "text": "Abdominal ultrasound reveals a distended gallbladder with wall thickening, pericholecystic fluid, and a 2.1 cm stone impacted in the gallbladder neck."},
+        {"id": "s5", "text": "Murphy sign is positive on physical examination, and the patient is febrile at 38.6C."},
+        {"id": "s6", "text": "She has no known drug allergies and takes lisinopril and metformin."}
+      ],
+      "answer_sentences": [
+        {"id": "a1", "text": "The clinical presentation and imaging findings are consistent with acute cholecystitis requiring surgical consultation.", "citations": ["s1"]},
+        {"id": "a2", "text": "Ultrasound confirms gallbladder pathology with an impacted stone and signs of inflammation, and the positive Murphy sign supports the diagnosis.", "citations": ["s4", "s5"]}
+      ],
+      "annotators": {
+        "ann1": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "supplementary"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ],
+        "ann2": [
+          {"sentence_id": "s1", "relevance": "essential"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "supplementary"},
+          {"sentence_id": "s5", "relevance": "essential"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ],
+        "ann3": [
+          {"sentence_id": "s1", "relevance": "supplementary"},
+          {"sentence_id": "s2", "relevance": "not-relevant"},
+          {"sentence_id": "s3", "relevance": "not-relevant"},
+          {"sentence_id": "s4", "relevance": "essential"},
+          {"sentence_id": "s5", "relevance": "supplementary"},
+          {"sentence_id": "s6", "relevance": "not-relevant"}
+        ]
+      }
+    }
+  ]
+}

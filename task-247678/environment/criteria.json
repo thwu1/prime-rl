@@ -1,0 +1,79 @@
+{
+  "analysis": {
+    "crs": "EPSG:32636",
+    "resolution_m": 50,
+    "extent_layer": "boundary"
+  },
+  "criteria": [
+    {
+      "name": "hospital_proximity",
+      "layer": "hospitals",
+      "type": "proximity",
+      "weight": 3,
+      "description": "New facility should be far from existing hospitals to maximize spatial coverage of services",
+      "reclassify_rules": [
+        {"condition": "distance <= 200m", "value": 10, "label": "Too close to existing hospital"},
+        {"condition": "200m < distance <= 500m", "value": 50, "label": "Moderate distance"},
+        {"condition": "distance > 500m", "value": 100, "label": "Good coverage gap"}
+      ]
+    },
+    {
+      "name": "road_access",
+      "layer": "roads",
+      "type": "proximity",
+      "weight": 2,
+      "description": "Site should be close to road network for accessibility",
+      "reclassify_rules": [
+        {"condition": "distance <= 100m", "value": 100, "label": "Excellent access"},
+        {"condition": "100m < distance <= 300m", "value": 50, "label": "Moderate access"},
+        {"condition": "distance > 300m", "value": 10, "label": "Poor access"}
+      ]
+    },
+    {
+      "name": "flood_risk",
+      "layer": "flood_zones",
+      "type": "presence",
+      "weight": 5,
+      "description": "Site must avoid flood-prone areas",
+      "reclassify_rules": [
+        {"condition": "inside flood zone (pixel value >= 1)", "value": 10, "label": "High risk"},
+        {"condition": "outside flood zone (pixel value == 0)", "value": 100, "label": "Safe"}
+      ]
+    }
+  ],
+  "formula": "weighted_average = sum(weight_i * reclassified_i) / sum(weight_i)",
+  "candidate_analysis": {
+    "suitability_threshold": 70,
+    "min_contiguous_area_ha": 5.0,
+    "connectivity": 4,
+    "description": "Identify contiguous regions of pixels scoring strictly above suitability_threshold, filter those meeting min_contiguous_area_ha, compute per-patch statistics"
+  },
+  "output": {
+    "suitability_tif": "/app/output/suitability.tif",
+    "candidates_json": "/app/output/candidates.json",
+    "results_json": "/app/output/results.json",
+    "results_format": {
+      "total_suitable_area_ha": "float: total area in hectares of all pixels with suitability strictly > suitability_threshold, rounded to 2 decimal places",
+      "num_candidate_patches": "integer: number of contiguous patches meeting minimum area requirement",
+      "best_candidate": {
+        "patch_id": "integer: 1-indexed ID of the highest mean_suitability patch",
+        "centroid_x": "float: X coordinate (in analysis CRS) of the geometric centroid of the patch pixel centers, rounded to 1 decimal place",
+        "centroid_y": "float: Y coordinate (in analysis CRS) of the geometric centroid of the patch pixel centers, rounded to 1 decimal place",
+        "area_ha": "float: area of the patch in hectares, rounded to 2 decimal places",
+        "mean_suitability": "float: mean suitability score within the patch, rounded to 2 decimal places"
+      },
+      "mean_suitability_all": "float: arithmetic mean suitability across ALL valid (non-zero) pixels in the suitability raster, rounded to 2 decimal places"
+    },
+    "candidates_format": {
+      "description": "JSON array of objects, one per qualifying patch, sorted by mean_suitability descending",
+      "fields": {
+        "patch_id": "integer: 1-indexed patch identifier assigned after sorting",
+        "centroid_x": "float: X coordinate of geometric centroid of patch pixel centers in analysis CRS, rounded to 1 decimal place",
+        "centroid_y": "float: Y coordinate of geometric centroid of patch pixel centers in analysis CRS, rounded to 1 decimal place",
+        "area_ha": "float: patch area in hectares, rounded to 2 decimal places",
+        "mean_suitability": "float: mean suitability within patch, rounded to 2 decimal places",
+        "max_suitability": "float: maximum suitability pixel value within patch"
+      }
+    }
+  }
+}

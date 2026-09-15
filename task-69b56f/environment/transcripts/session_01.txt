@@ -1,0 +1,11 @@
+# Captured SOCKS5 session transcript
+# Server: 127.0.0.1:1080
+# Timestamp: 2025-03-14T08:12:33Z
+# Format: C> = client-to-server, S> = server-to-client (hex octets)
+# Context: unauthenticated IPv4 CONNECT to local HTTP server on port 18080
+
+C> 05 01 00
+S> 05 00
+C> 05 01 00 01 7f 00 00 01 46 a0
+S> 05 00 01 01 7f 00 00 01 46 a0
+# [bidirectional data relay established]

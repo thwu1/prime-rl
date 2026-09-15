@@ -1,0 +1,58 @@
+{
+  "name": "transpose_analysis",
+  "description": "Matrix transpose kernel with shared memory tiling, exhibiting both coalesced and strided global memory accesses and shared memory bank conflicts",
+  "block_dim": [32, 8, 1],
+  "registers_per_thread": 24,
+  "static_shared_memory_bytes": 4096,
+  "dynamic_shared_memory_bytes": 0,
+  "global_memory_accesses": [
+    {
+      "name": "coalesced_read",
+      "element_size_bytes": 4,
+      "stride_elements": 1
+    },
+    {
+      "name": "strided_write",
+      "element_size_bytes": 4,
+      "stride_elements": 1024
+    }
+  ],
+  "shared_memory_accesses": [
+    {
+      "name": "unpadded_column",
+      "element_size_bytes": 4,
+      "index_expression": {
+        "type": "affine",
+        "coefficient": 32,
+        "constant": 0
+      }
+    },
+    {
+      "name": "padded_column",
+      "element_size_bytes": 4,
+      "index_expression": {
+        "type": "affine",
+        "coefficient": 33,
+        "constant": 0
+      }
+    },
+    {
+      "name": "stride2_access",
+      "element_size_bytes": 4,
+      "index_expression": {
+        "type": "affine",
+        "coefficient": 2,
+        "constant": 0
+      }
+    },
+    {
+      "name": "stride8_access",
+      "element_size_bytes": 4,
+      "index_expression": {
+        "type": "affine",
+        "coefficient": 8,
+        "constant": 0
+      }
+    }
+  ]
+}

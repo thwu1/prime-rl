@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the RISC-V privileged architecture spanning multiple interacting subsystems: virtual memory translation (Sv32/Sv39/Sv48 page table walks with superpage alignment validation), CSR bitfield layouts (satp mode/PPN extraction, mstatus MXR/SUM/MPRV/MPP fields, menvcfg PBMTE/ADUE), privilege-based permission checking (effective privilege via MPRV, U/S mode page access rules, MXR/SUM interactions), A/D bit update semantics (hardware vs software management), and optional extension features (Svnapot NAPOT page encoding, Svpbmt page-based memory types). The agent must synthesize knowledge from ~1600 lines of Sail specification spread across 4 interconnected files, resolve cross-file references, and produce a correct implementation handling 21+ edge cases."""
+solution_explanation = """Parse vmem.sail to extract the page table walk algorithm (Steps 2-10 of the Virtual Address Translation Process). Parse sys_regs.sail for satp bitfield layouts (Satp32 mode/PPN at different bit positions than Satp64), mstatus fields (MXR at bit 19, SUM at bit 18, MPRV at bit 17, MPP at bits 12:11), and menvcfg fields (PBMTE at bit 62, ADUE at bit 61). Parse sys_control.sail for effectivePrivilege() which modifies privilege for loads/stores when MPRV=1. Implement translation for each mode: extract VPN fields (9-bit for Sv39/48, 10-bit for Sv32), walk page tables reading PTEs from the memory map, check validity (V bit, W+!R reserved), detect leaf vs non-leaf, validate superpage alignment, check permissions considering privilege+MXR+SUM, handle A/D bits based on ADUE, apply NAPOT 64KiB encoding when Svnapot is enabled (PPN[3:0]=0b1000, merge lower VPN bits), and extract PBMT field when Svpbmt+PBMTE active."""
+verification_explanation = """Tests dynamically import translate_scenario from /app/translate.py and run it against 12 provided scenarios (in /app/scenarios/) plus 14 hidden scenarios constructed inline with known expected results. Hidden scenarios cover: MXR disabled on X-only page, SUM enabling S-mode access to U-pages, U-mode accessing S-pages, D=0 store fault, MPRV privilege modification for loads vs execute, 1GiB gigapage translation, reserved W=1/R=0 PTE encoding, V=0 invalid PTE, S-mode execute on U-page (SUM irrelevant), MPRV not affecting ifetch, NAPOT without Svnapot extension, PBMT with PBMTE=0, and D=0 with hardware A/D updates. Tests verify outcome (success/fault), exact physical address for successes, fault type for faults, page level, PBMT mode, and A/D update flag."""
+category = "systems_programming"
+tags = ["risc-v", "virtual-memory"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8c78df"

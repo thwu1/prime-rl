@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the Yjs V1 binary wire protocol (variable-length integer encoding, struct info byte parsing, content-type-specific serialization, delete set encoding) AND the YATA conflict resolution algorithm for correct CRDT convergence. The solver must achieve byte-level cross-language interoperability with the real Yjs JavaScript library — Python-encoded binary updates must be accepted by Yjs, and Yjs-generated binary fixtures must be correctly decoded. This demands deep understanding of both the binary protocol mechanics and the CRDT theory, plus proficiency with Node.js/npm tooling for validation. The YATA algorithm involves subtle linked-list manipulation with origin/originRight comparison for conflict ordering, which cannot be solved procedurally — it requires holistic understanding of distributed data structure invariants."""
+solution_explanation = """Implement variable-length integer encoding/decoding (7-bit groups with continuation bit), the V1 binary struct format (info byte with content-type and origin flags, conditional parent/origin/originRight fields, content-type-specific payloads for String and Deleted), and the YATA conflict resolution algorithm (scan items between origin and originRight, compare origins and client IDs to determine insertion position). Use a per-client struct store with sorted item lists for O(log n) lookups. Merge sequential single-character items into compound runs during encoding for wire format compatibility. Local insert must link new items using the actual linked-list neighbor (left.right) rather than the visible neighbor, so that deleted tombstones stay connected for correct snapshot reconstruction. Validate cross-language correctness by round-tripping through the Node.js Yjs oracle."""
+verification_explanation = """Tests verify: (1) Python correctly decodes Yjs-generated binary fixtures including single inserts, sequential inserts, deletions, and multi-type documents; (2) Python-encoded binary updates are accepted by the real Yjs library via Node.js oracle subprocess calls; (3) concurrent edits from 2, 3, and 5 clients converge identically in Python and Yjs; (4) round-trip JS→binary→Python→binary→JS preserves document state; (5) diff-based sync using state vectors works across the language boundary; (6) temporal snapshots correctly reconstruct past document state including after deletes and remote sync. Each test constructs specific CRDT scenarios with deterministic expected outcomes verified against the Yjs reference implementation."""
+category = "distributed_systems"
+tags = ["crdt", "binary-protocol"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/yata-crdt-sync"

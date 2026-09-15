@@ -1,0 +1,8 @@
+{
+  "service": "portal-api",
+  "pid": 4821,
+  "baseline_version": "v2.13.7",
+  "regression_version": "v2.14.0",
+  "perf_command": "perf record -F 99 -a -g -- sleep 30",
+  "note": "Regression profile captured during higher traffic than baseline"
+}

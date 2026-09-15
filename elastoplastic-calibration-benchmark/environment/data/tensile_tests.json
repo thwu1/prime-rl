@@ -1,0 +1,308 @@
+{
+  "0": [
+    {
+      "plastic_strain": 0.002,
+      "true_stress": 559.6102
+    },
+    {
+      "plastic_strain": 0.004,
+      "true_stress": 600.0979
+    },
+    {
+      "plastic_strain": 0.006,
+      "true_stress": 630.5675
+    },
+    {
+      "plastic_strain": 0.008,
+      "true_stress": 655.369
+    },
+    {
+      "plastic_strain": 0.01,
+      "true_stress": 676.9355
+    },
+    {
+      "plastic_strain": 0.013,
+      "true_stress": 705.5633
+    },
+    {
+      "plastic_strain": 0.016,
+      "true_stress": 730.5409
+    },
+    {
+      "plastic_strain": 0.02,
+      "true_stress": 758.6602
+    },
+    {
+      "plastic_strain": 0.025,
+      "true_stress": 787.3949
+    },
+    {
+      "plastic_strain": 0.03,
+      "true_stress": 811.0315
+    },
+    {
+      "plastic_strain": 0.035,
+      "true_stress": 831.3756
+    },
+    {
+      "plastic_strain": 0.04,
+      "true_stress": 849.7101
+    },
+    {
+      "plastic_strain": 0.045,
+      "true_stress": 866.4239
+    },
+    {
+      "plastic_strain": 0.05,
+      "true_stress": 881.2149
+    },
+    {
+      "plastic_strain": 0.055,
+      "true_stress": 893.787
+    },
+    {
+      "plastic_strain": 0.06,
+      "true_stress": 904.4363
+    },
+    {
+      "plastic_strain": 0.065,
+      "true_stress": 914.0066
+    },
+    {
+      "plastic_strain": 0.07,
+      "true_stress": 923.275
+    },
+    {
+      "plastic_strain": 0.075,
+      "true_stress": 932.3651
+    },
+    {
+      "plastic_strain": 0.08,
+      "true_stress": 940.7517
+    },
+    {
+      "plastic_strain": 0.085,
+      "true_stress": 947.8595
+    },
+    {
+      "plastic_strain": 0.09,
+      "true_stress": 953.6932
+    },
+    {
+      "plastic_strain": 0.095,
+      "true_stress": 958.9047
+    },
+    {
+      "plastic_strain": 0.1,
+      "true_stress": 964.2357
+    },
+    {
+      "plastic_strain": 0.105,
+      "true_stress": 969.8677
+    }
+  ],
+  "45": [
+    {
+      "plastic_strain": 0.002,
+      "true_stress": 557.0406
+    },
+    {
+      "plastic_strain": 0.004,
+      "true_stress": 596.1833
+    },
+    {
+      "plastic_strain": 0.006,
+      "true_stress": 626.2246
+    },
+    {
+      "plastic_strain": 0.008,
+      "true_stress": 651.754
+    },
+    {
+      "plastic_strain": 0.01,
+      "true_stress": 674.3852
+    },
+    {
+      "plastic_strain": 0.013,
+      "true_stress": 703.2515
+    },
+    {
+      "plastic_strain": 0.016,
+      "true_stress": 727.3333
+    },
+    {
+      "plastic_strain": 0.02,
+      "true_stress": 754.1192
+    },
+    {
+      "plastic_strain": 0.025,
+      "true_stress": 782.2261
+    },
+    {
+      "plastic_strain": 0.03,
+      "true_stress": 806.4281
+    },
+    {
+      "plastic_strain": 0.035,
+      "true_stress": 827.8736
+    },
+    {
+      "plastic_strain": 0.04,
+      "true_stress": 846.699
+    },
+    {
+      "plastic_strain": 0.045,
+      "true_stress": 862.7388
+    },
+    {
+      "plastic_strain": 0.05,
+      "true_stress": 876.2523
+    },
+    {
+      "plastic_strain": 0.055,
+      "true_stress": 888.0854
+    },
+    {
+      "plastic_strain": 0.06,
+      "true_stress": 899.1738
+    },
+    {
+      "plastic_strain": 0.065,
+      "true_stress": 909.8902
+    },
+    {
+      "plastic_strain": 0.07,
+      "true_stress": 919.8763
+    },
+    {
+      "plastic_strain": 0.075,
+      "true_stress": 928.5308
+    },
+    {
+      "plastic_strain": 0.08,
+      "true_stress": 935.7009
+    },
+    {
+      "plastic_strain": 0.085,
+      "true_stress": 941.9275
+    },
+    {
+      "plastic_strain": 0.09,
+      "true_stress": 948.017
+    },
+    {
+      "plastic_strain": 0.095,
+      "true_stress": 954.3476
+    },
+    {
+      "plastic_strain": 0.1,
+      "true_stress": 960.5722
+    },
+    {
+      "plastic_strain": 0.105,
+      "true_stress": 965.999
+    }
+  ],
+  "90": [
+    {
+      "plastic_strain": 0.002,
+      "true_stress": 564.1888
+    },
+    {
+      "plastic_strain": 0.004,
+      "true_stress": 604.5414
+    },
+    {
+      "plastic_strain": 0.006,
+      "true_stress": 636.2521
+    },
+    {
+      "plastic_strain": 0.008,
+      "true_stress": 662.8266
+    },
+    {
+      "plastic_strain": 0.01,
+      "true_stress": 685.2771
+    },
+    {
+      "plastic_strain": 0.013,
+      "true_stress": 713.3692
+    },
+    {
+      "plastic_strain": 0.016,
+      "true_stress": 737.0635
+    },
+    {
+      "plastic_strain": 0.02,
+      "true_stress": 764.6729
+    },
+    {
+      "plastic_strain": 0.025,
+      "true_stress": 794.3957
+    },
+    {
+      "plastic_strain": 0.03,
+      "true_stress": 819.7971
+    },
+    {
+      "plastic_strain": 0.035,
+      "true_stress": 841.2519
+    },
+    {
+      "plastic_strain": 0.04,
+      "true_stress": 859.1961
+    },
+    {
+      "plastic_strain": 0.045,
+      "true_stress": 874.566
+    },
+    {
+      "plastic_strain": 0.05,
+      "true_stress": 888.4889
+    },
+    {
+      "plastic_strain": 0.055,
+      "true_stress": 901.6286
+    },
+    {
+      "plastic_strain": 0.06,
+      "true_stress": 913.8654
+    },
+    {
+      "plastic_strain": 0.065,
+      "true_stress": 924.6477
+    },
+    {
+      "plastic_strain": 0.07,
+      "true_stress": 933.7024
+    },
+    {
+      "plastic_strain": 0.075,
+      "true_stress": 941.4447
+    },
+    {
+      "plastic_strain": 0.08,
+      "true_stress": 948.7077
+    },
+    {
+      "plastic_strain": 0.085,
+      "true_stress": 956.055
+    },
+    {
+      "plastic_strain": 0.09,
+      "true_stress": 963.3317
+    },
+    {
+      "plastic_strain": 0.095,
+      "true_stress": 969.8836
+    },
+    {
+      "plastic_strain": 0.1,
+      "true_stress": 975.2389
+    },
+    {
+      "plastic_strain": 0.105,
+      "true_stress": 979.6084
+    }
+  ]
+}

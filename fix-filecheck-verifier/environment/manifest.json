@@ -1,0 +1,95 @@
+{
+  "test_cases": [
+    {
+      "name": "basic",
+      "check_file": "basic.check",
+      "input_file": "basic.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "custom_prefix",
+      "check_file": "custom_prefix.check",
+      "input_file": "custom_prefix.input",
+      "expected": "pass",
+      "flags": ["--check-prefix=MYCHECK"]
+    },
+    {
+      "name": "full_lines",
+      "check_file": "full_lines.check",
+      "input_file": "full_lines.input",
+      "expected": "pass",
+      "flags": ["--match-full-lines"]
+    },
+    {
+      "name": "comment_prefix",
+      "check_file": "comment_prefix.check",
+      "input_file": "comment_prefix.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "check_not_bounded",
+      "check_file": "check_not_bounded.check",
+      "input_file": "check_not_bounded.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "dag_backtrack",
+      "check_file": "dag_backtrack.check",
+      "input_file": "dag_backtrack.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "multi_prefix",
+      "check_file": "multi_prefix.check",
+      "input_file": "multi_prefix.input",
+      "expected": "pass",
+      "flags": ["--check-prefixes=CHECK,ALT"]
+    },
+    {
+      "name": "count_repeat",
+      "check_file": "count_repeat.check",
+      "input_file": "count_repeat.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "interacting",
+      "check_file": "interacting.check",
+      "input_file": "interacting.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "wrong_pattern",
+      "check_file": "wrong_pattern.check",
+      "input_file": "wrong_pattern.input",
+      "expected": "pass",
+      "flags": []
+    },
+    {
+      "name": "negative_fail",
+      "check_file": "negative_fail.check",
+      "input_file": "negative_fail.input",
+      "expected": "fail",
+      "flags": []
+    },
+    {
+      "name": "not_violated_fail",
+      "check_file": "not_violated_fail.check",
+      "input_file": "not_violated_fail.input",
+      "expected": "fail",
+      "flags": []
+    },
+    {
+      "name": "count_fail",
+      "check_file": "count_fail.check",
+      "input_file": "count_fail.input",
+      "expected": "fail",
+      "flags": []
+    }
+  ]
+}

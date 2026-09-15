@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a SysY-to-LLVM-IR compiler requires deep, holistic understanding of both source language semantics and the LLVM IR type system (SSA form, opaque pointers, GEP instruction semantics, basic block structure, terminator invariants). The agent must make non-trivial architectural decisions about mapping SysY constructs to IR: choosing alloca/load/store patterns for mutable variables, designing conditional branching between basic blocks for short-circuit evaluation, computing multi-dimensional array indexing via chained GEP indices, and implementing array parameter passing through opaque pointer types. Unlike an interpreter (which delegates to host language semantics), IR generation forces the agent to understand the target memory model, type system, and instruction set holistically — a proficient-level compiler engineering task."""
+solution_explanation = """The solution implements a ~1100-line Python compiler with three phases: (1) a lexer handling decimal/octal/hex literals, C-style comments, and preprocessor directives; (2) a recursive-descent parser producing a dict-based AST following the SysY EBNF grammar; (3) an LLVM IR generator that uses alloca/load/store for local variables, getelementptr with opaque pointers for multi-dimensional array access, conditional branching between basic blocks for short-circuit &&/|| evaluation and control flow, and proper external function declarations for the SysY runtime. The generated IR is compatible with LLVM 18 tools (lli, opt, llvm-as, clang)."""
+verification_explanation = """Tests compile SysY programs to LLVM IR, then verify through multiple LLVM tools: syntactic validity via llvm-as, semantic validity via opt -passes=verify, execution via clang-linked executables, and JIT execution via lli with loaded runtime shared library. 15 deterministic functional tests cover every SysY feature, plus random arithmetic and LLVM tool interoperability tests to prevent hardcoding and ensure proper toolchain integration."""
+category = "compilers"
+tags = ["llvm-ir", "code-generation"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sysy-interpreter"

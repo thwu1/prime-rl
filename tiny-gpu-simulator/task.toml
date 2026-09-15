@@ -1,0 +1,56 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires reverse-engineering a GPU ISA from SystemVerilog RTL source code, understanding
+the SIMD execution model with block dispatch, and implementing a functionally correct
+Python simulator. The solver must decode 16-bit instruction formats at the bit level,
+replicate the ALU's unsigned 8-bit CMP behavior (where the NZP flags have non-obvious
+semantics due to unsigned wrapping), understand the register file layout with read-only
+SIMD registers, implement memory load/store semantics, and handle block dispatch with
+partial thread blocks. Requires proficiency in both hardware description languages and
+software simulation, plus careful attention to subtle arithmetic edge cases.
+"""
+solution_explanation = """
+The solution implements a TinyGPU class that functionally simulates kernel execution:
+1. Instruction encoding: opcode in bits [15:12], rd in [11:8], rs in [7:4], rt in [3:0],
+   immediate in [7:0], NZP condition in [11:9].
+2. CMP uses unsigned 8-bit subtraction: NZP bit[2] is set whenever (rs-rt)&0xFF > 0
+   (i.e., rs != rt), making BRn effectively 'branch if not equal' due to unsigned wrapping.
+3. Register R14 (%blockDim) is always THREADS_PER_BLOCK, not the actual block thread count.
+4. Block dispatch: ceil(thread_count/threads_per_block) blocks, last block may have fewer
+   threads. All threads in a block share the same PC (no branch divergence).
+5. All arithmetic wraps to 8 bits. STR uses rs for address and rt for data.
+"""
+verification_explanation = """
+Eight pytest test cases verify the simulator: the canonical matadd and matmul kernels from
+the original tiny-gpu test suite; novel kernels for vector scaling (tests 8-bit overflow),
+power computation with loop (tests CMP/BRnzp), integer division truncation, and 3x3 matrix
+multiplication; plus tests for partial block dispatch and different hardware configurations.
+Each test compares final data memory against mathematically computed expected values.
+"""
+category = "computer_architecture"
+tags = ["gpu-simulation", "isa-implementation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tiny-gpu-simulator"

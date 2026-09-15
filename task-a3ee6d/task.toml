@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert cryptographic knowledge to debug two independent CTR_DRBG implementations against NIST CAVP test vectors. The solver must: (1) identify and fix subtle specification-level bugs in a Python implementation by cross-referencing CAVP intermediate states with expected AES-256 CTR_DRBG behavior across 8 distinct configurations (use-df/no-df, with/without personalization, with/without additional input); (2) interface with a compiled C shared library to exercise the same vectors and analyze a different set of defects; (3) independently verify intermediate AES-ECB computations against reference data; (4) comparatively evaluate both implementations' compliance postures, assess severity of defects in terms of entropy reduction, forward-security, and state-independence, and produce a structured FIPS compliance report. The multi-tool interoperability (FFI, shell scripting, CAVP format parsing, low-level AES debugging) and the need to judge security impact rather than merely locate bugs elevates this beyond standard debugging."""
+solution_explanation = """Fix three Python bugs: (1) use derived_key instead of K in block_cipher_df output expansion, (2) XOR full seedlen bytes in no-df personalization, (3) preserve processed additional_input for post-generate update. Then write a wrapper that loads the C .so and runs all 24 vectors — the C library has two different bugs: little-endian L/N encoding in block_cipher_df (breaks all use-df) and reversed personalization byte order in no-df instantiate (breaks no-df+pers). Verify intermediate AES-ECB Update-function blocks against the reference file. Build the audit report by analyzing which config subsets fail for each implementation, mapping to SP 800-90A sections, and assessing severity."""
+verification_explanation = """Tests verify: (1) all 24 CAVP vectors pass the fixed Python implementation by checking Key, V, and ReturnedBits for Count 0 and Count 1 across all 8 configurations; (2) audit_report.json exists with correct structure, shows impl_alpha passing all 24 vectors, impl_beta passing exactly 6 and failing 18, at least 2 defects identified with severity assessments, cross-validation with >= 3 intermediate checks, and a non-trivial recommendation; (3) harness_beta.py and cross_validate.sh exist and the latter runs successfully."""
+category = "cryptography"
+tags = ["nist-sp800-90a", "ctypes-ffi"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a3ee6d"

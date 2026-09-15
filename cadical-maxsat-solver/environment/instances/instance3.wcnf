@@ -1,0 +1,14 @@
+c Pentagon (C5) graph minimum vertex cover (optimal cost = 3)
+c Vertices: 1..5  Edges: (1,2),(2,3),(3,4),(4,5),(5,1)
+c Hard: edge coverage  Soft: prefer vertex not in cover
+p wcnf 5 10 100
+100 1 2 0
+100 2 3 0
+100 3 4 0
+100 4 5 0
+100 5 1 0
+1 -1 0
+1 -2 0
+1 -3 0
+1 -4 0
+1 -5 0

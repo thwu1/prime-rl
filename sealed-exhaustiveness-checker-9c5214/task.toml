@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-layer Java project: (1) a Makefile-based build pipeline with javac compilation, jar packaging, and manifest configuration defects that interact to produce misleading errors, and (2) five subtle logic bugs in the exhaustiveness checker that require deep understanding of JLS sealed-type hierarchies, enum constant matching with class bodies, guarded pattern semantics, transitive sealed exhaustiveness, record cross-product analysis, and subtype-aware dominance checking. The solver must diagnose build-tool issues (Makefile targets, jar manifest, classpath construction), then trace through ~500 lines of Java to find and fix coupled analysis bugs, iterating across 14 test cases."""
+solution_explanation = """Build fixes: (1) add ExhaustivenessChecker.java to the compile target's javac command; (2) change jar target to package from BUILDDIR not SRCDIR; (3) add compile as a prerequisite for the jar target; (4) fix MANIFEST.MF Main-Class from ExhaustivenessChecker to Main. Logic fixes in ExhaustivenessChecker.java: (1) route enum_body to isEnumExhaustive instead of isSealedExhaustive; (2) remove GuardedPattern from coversType and isEnumExhaustive; (3) recurse through intermediate sealed types in isSubtypeCovered; (4) implement cross-product component analysis in isRecordExhaustive; (5) use subtype relationship in dominates instead of exact string comparison."""
+verification_explanation = """test_state.py runs make -C /app jar to build the project (verifying Makefile and manifest correctness), then executes java -jar /app/checker.jar on each of 14 test input files, comparing stdout against hardcoded expected outputs. Tests cover basic sealed exhaustiveness, missing subtypes, enum-with-bodies, guarded patterns, multi-level sealed hierarchies, record cross-product coverage, dominance across type hierarchies, default/null handling, and combined scenarios. Build failures or wrong checker output cause test failure."""
+category = "debugging"
+tags = ["java", "build-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sealed-exhaustiveness-checker-9c5214"

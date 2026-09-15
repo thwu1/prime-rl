@@ -1,0 +1,19 @@
+---
+- name: Include package installation tasks
+  ansible.builtin.include_tasks: packages.yml
+
+- name: Include SSH hardening tasks
+  ansible.builtin.include_tasks: ssh.yml
+
+- name: Include firewall tasks
+  ansible.builtin.include_tasks: firewall.yml
+
+- name: Include Apache configuration tasks
+  ansible.builtin.include_tasks: apache.yml
+
+- name: Include fail2ban tasks
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: ansible_os_family == "Debian"
+
+- name: Include compliance validation
+  ansible.builtin.include_tasks: validate.yml

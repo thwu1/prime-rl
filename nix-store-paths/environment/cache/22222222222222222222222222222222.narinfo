@@ -1,0 +1,9 @@
+StorePath: /nix/store/22222222222222222222222222222222-vim-9.1.tar.gz
+URL: nar/22222222222222222222222222222222.nar.xz
+Compression: xz
+FileHash: sha256:faf70742fb019ff6927f66d565a4423d980d5098668904a2cb22999d8c7611a4
+FileSize: 8440785
+NarHash: sha256:b0e9b32598b542a916e2ac5222e840d820e196ed49d58e4144c420aeed396838
+NarSize: 35849348
+References:
+CA: fixed:r:sha256-AAAA!!!invalid+base64===

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the undocumented Apache DataSketches binary serialization format for KLL doubles sketches, implementing a streaming quantile-sketch data structure from scratch with sub-2% rank error guarantees, building a multi-subcommand CLI tool with binary stdin/stdout piping, SQLite persistence, and structured JSON output. The solver must integrate algorithmic knowledge, binary format analysis via hex tools, database operations, and multi-tool shell pipeline interoperability."""
+solution_explanation = """The solution implements the KLL algorithm with per-level item lists, alternating odd/even compaction at each level, and the DataSketches capacity formula: cap(k, depth) = ceil(k * (2/3)^depth). Binary serialization matches the DataSketches C++ preamble layout (family=15, serial versions 1/2, flag bits for empty/single/sorted). The CLI reads/writes binary sketch data via stdin/stdout for pipeline composability, uses sqlite3 for sketch persistence, and emits JSON reports parseable by jq. Import reads raw binary from stdin rather than file paths, enabling export-pipe-import workflows."""
+verification_explanation = """Tests install the datasketches Python package (C++ bindings) as a reference oracle. Verification covers: (1) core algorithm accuracy within 0.0175 rank error; (2) binary format cross-deserialization with datasketches; (3) all five CLI subcommands via subprocess; (4) SQLite schema validation; (5) JSON output schema compliance; (6) multi-tool interoperability: jq field extraction, sqlite3 CLI queries, xxd binary header inspection, export-pipe-import round-trips; (7) end-to-end pipelines with cross-library validation."""
+category = "algorithms"
+tags = ["streaming-algorithms", "binary-serialization", "cli-tools", "shell-pipelines"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kll-sketch-compat"

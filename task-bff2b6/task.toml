@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of LibCST's concrete syntax tree, the visitor/transformer pattern, and the matcher DSL. The agent must reverse-engineer 18 distinct transformation patterns and 5 error-raising patterns from before/after test pairs alone, then design and implement a complete CSTTransformer with correct scoping for nested functions, whitespace-preserving node replacements, conditional import injection, and exact character-level output matching. The interactions between node visitors, scope tracking, and transformation logic require holistic architectural reasoning rather than isolated fixes."""
+solution_explanation = """Implement transformer.py with matchers for gen.Return (statement/call/call-with-args), gen.sleep, gen.Task, gen.moment, and decorator patterns using the helpers module's some_version_of(). The CSTTransformer uses visit/leave_FunctionDef with a boolean coroutine_stack, visit_Call for gen.Task error detection, leave_Call for gen.sleep→asyncio.sleep, leave_Raise for gen.Return→return, leave_Yield for yield→await with special handling for List/ListComp/Tuple→asyncio.gather, gen.moment→asyncio.sleep(0), and Dict/DictComp/Set/dict()→TransformError. leave_Module conditionally injects asyncio import."""
+verification_explanation = """Pytest tests parse each before.py through the transformer and compare the output to after.py character-for-character (LibCST preserves concrete syntax including whitespace). Exception cases extract expected error messages from module docstrings and verify TransformError is raised with matching text. Additional structural tests verify TornadoAsyncTransformer subclasses CSTTransformer and TransformError subclasses Exception. Edge case tests verify import-agnostic matching across styles, nested coroutine/generator scoping, and extended patterns (tuple gather, gen.moment, set error, already-async preservation)."""
+category = "software_engineering"
+tags = ["python", "code-transformation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bff2b6"

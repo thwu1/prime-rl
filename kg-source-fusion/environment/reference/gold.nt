@@ -1,0 +1,78 @@
+<http://seed.kg/entity/m1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://seed.kg/entity/m1> <http://www.w3.org/2000/01/rdf-schema#label> "The Godfather" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/director> <http://seed.kg/entity/p1> .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/production> <http://seed.kg/entity/c1> .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/genre> "Crime" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/genre> "Drama" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/budget> "6000000" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/gross> "245066411" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/runtime> "175" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/starring> <http://tmdb.source/entity/pb> .
+<http://seed.kg/entity/m2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://seed.kg/entity/m2> <http://www.w3.org/2000/01/rdf-schema#label> "Pulp Fiction" .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/director> <http://seed.kg/entity/p2> .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/budget> "8000000" .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/runtime> "154" .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/starring> <http://tmdb.source/entity/pt> .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/starring> <http://tmdb.source/entity/pjt> .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/gross> "213928762" .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/production> <http://json.source/entity/json_c1> .
+<http://seed.kg/entity/p1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://seed.kg/entity/p1> <http://www.w3.org/2000/01/rdf-schema#label> "Francis Ford Coppola" .
+<http://seed.kg/entity/p1> <http://kg.org/ontology/birthDate> "1939-04-07" .
+<http://seed.kg/entity/p1> <http://kg.org/ontology/birthPlace> "Detroit" .
+<http://seed.kg/entity/p1> <http://kg.org/ontology/occupation> "Director" .
+<http://seed.kg/entity/p1> <http://kg.org/ontology/nationality> "American" .
+<http://seed.kg/entity/p2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://seed.kg/entity/p2> <http://www.w3.org/2000/01/rdf-schema#label> "Quentin Tarantino" .
+<http://seed.kg/entity/p2> <http://kg.org/ontology/birthDate> "1963-03-27" .
+<http://seed.kg/entity/p2> <http://kg.org/ontology/birthPlace> "Knoxville" .
+<http://seed.kg/entity/p2> <http://kg.org/ontology/occupation> "Director" .
+<http://seed.kg/entity/p2> <http://kg.org/ontology/nationality> "American" .
+<http://seed.kg/entity/c1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Company> .
+<http://seed.kg/entity/c1> <http://www.w3.org/2000/01/rdf-schema#label> "Paramount Pictures" .
+<http://tmdb.source/entity/pb> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://tmdb.source/entity/pb> <http://www.w3.org/2000/01/rdf-schema#label> "Marlon Brando" .
+<http://tmdb.source/entity/pb> <http://kg.org/ontology/birthDate> "1924-04-03" .
+<http://tmdb.source/entity/pb> <http://kg.org/ontology/birthPlace> "Omaha" .
+<http://tmdb.source/entity/pb> <http://kg.org/ontology/occupation> "Actor" .
+<http://tmdb.source/entity/pb> <http://kg.org/ontology/nationality> "American" .
+<http://tmdb.source/entity/pt> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://tmdb.source/entity/pt> <http://www.w3.org/2000/01/rdf-schema#label> "Uma Thurman" .
+<http://tmdb.source/entity/pt> <http://kg.org/ontology/birthDate> "1970-04-29" .
+<http://tmdb.source/entity/pt> <http://kg.org/ontology/birthPlace> "Boston" .
+<http://tmdb.source/entity/pt> <http://kg.org/ontology/occupation> "Actress" .
+<http://tmdb.source/entity/pt> <http://kg.org/ontology/nationality> "American" .
+<http://tmdb.source/entity/pn> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://tmdb.source/entity/pn> <http://www.w3.org/2000/01/rdf-schema#label> "Christopher Nolan" .
+<http://tmdb.source/entity/pn> <http://kg.org/ontology/birthDate> "1970-07-30" .
+<http://tmdb.source/entity/pn> <http://kg.org/ontology/birthPlace> "London" .
+<http://tmdb.source/entity/pn> <http://kg.org/ontology/occupation> "Director" .
+<http://tmdb.source/entity/pn> <http://kg.org/ontology/nationality> "British-American" .
+<http://tmdb.source/entity/pjt> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://tmdb.source/entity/pjt> <http://www.w3.org/2000/01/rdf-schema#label> "John Travolta" .
+<http://tmdb.source/entity/pjt> <http://kg.org/ontology/birthDate> "1954-02-18" .
+<http://tmdb.source/entity/f3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://tmdb.source/entity/f3> <http://www.w3.org/2000/01/rdf-schema#label> "Inception" .
+<http://tmdb.source/entity/f3> <http://kg.org/ontology/budget> "160000000" .
+<http://tmdb.source/entity/f3> <http://kg.org/ontology/runtime> "148" .
+<http://tmdb.source/entity/f3> <http://kg.org/ontology/director> <http://tmdb.source/entity/pn> .
+<http://tmdb.source/entity/f3> <http://kg.org/ontology/distribution> <http://tmdb.source/entity/cw> .
+<http://tmdb.source/entity/cw> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Company> .
+<http://tmdb.source/entity/cw> <http://www.w3.org/2000/01/rdf-schema#label> "Warner Bros." .
+<http://tmdb.source/entity/cw> <http://kg.org/ontology/industry> "Entertainment" .
+<http://json.source/entity/json_m3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://json.source/entity/json_m3> <http://www.w3.org/2000/01/rdf-schema#label> "Reservoir Dogs" .
+<http://json.source/entity/json_m3> <http://kg.org/ontology/budget> "1200000" .
+<http://json.source/entity/json_m3> <http://kg.org/ontology/gross> "2832029" .
+<http://json.source/entity/json_m3> <http://kg.org/ontology/director> <http://seed.kg/entity/p2> .
+<http://json.source/entity/json_c1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Company> .
+<http://json.source/entity/json_c1> <http://www.w3.org/2000/01/rdf-schema#label> "Miramax Films" .
+<http://json.source/entity/json_c1> <http://kg.org/ontology/foundingDate> "1979" .
+<http://json.source/entity/json_c1> <http://kg.org/ontology/headquarter> "Los Angeles" .
+<http://csv.source/entity/csv_p4> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://csv.source/entity/csv_p4> <http://www.w3.org/2000/01/rdf-schema#label> "Al Pacino" .
+<http://csv.source/entity/csv_p4> <http://kg.org/ontology/birthDate> "1940-04-25" .
+<http://csv.source/entity/csv_p4> <http://kg.org/ontology/birthPlace> "New York City" .
+<http://csv.source/entity/csv_p4> <http://kg.org/ontology/occupation> "Actor" .
+<http://csv.source/entity/csv_p4> <http://kg.org/ontology/nationality> "American" .

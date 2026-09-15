@@ -1,0 +1,2 @@
+-- Hierarchical project report with server-day aggregation
+-- Columns: project_name, depth, path, own_server_days, total_server_days

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a binary record format from scattered partial documentation (Rust repr(C) struct layout, field types, C ABI alignment rules), parsing variable-length file headers, handling zstandard-compressed feed payloads, merging multi-venue order streams via symbology mapping, reconstructing consolidated L2 order books with price-level aggregation, and implementing four distinct anomaly detectors (sequence gaps, phantom orders, duplicate cross-venue trades, crossed-book conditions). Also requires correct handling of Clear events and Modify-as-Add for unknown orders. Demands coupled skills in binary protocol analysis, compression tooling, financial data structures, and cross-source event reconciliation."""
+solution_explanation = """Parse the variable-length DBN file header (magic + version + u16 length-prefixed dataset name + metadata fields) to extract dataset name and compression flag. Decompress zstd-compressed payloads. Derive the 56-byte MBO record struct format '<BBHIQQqIBBccQiI' from the field type documentation and repr(C) alignment rules. Build a symbology index mapping (venue, instrument_id) to canonical symbols. Merge all records across venues sorted by ts_event. Maintain per-canonical-symbol order books tracking orders by order_id. Process actions (Add/Cancel/Modify/Fill/Trade/Clear) with correct semantics including Modify-as-Add for unknown orders. Detect anomalies: per-venue sequence gaps, phantom cancels/fills for never-seen order_ids, duplicate trades across venues with matching (ts_event, price, size), and first crossed-book occurrence per instrument. Snapshot consolidated books at checkpoint timestamps with top-5 aggregated price levels."""
+verification_explanation = """Tests generate two synthetic binary feeds (one uncompressed, one zstd-compressed) across 5 instruments mapped via symbology to 3 canonical symbols. 27 records embed specific anomalies: a sequence gap, a phantom cancel, two duplicate cross-venue trades, and a crossed-book condition from an aggressive bid. Additional events test Clear (removing all GOOG orders and re-adding one) and Modify-unknown (treating modify of unseen order as Add). Three checkpoint timestamps verify consolidated book state including price-level aggregation of orders from multiple venues. Tests validate exact snapshot structure, prices, sizes, counts, and all 5 anomaly detections with correct types, timestamps, and field values."""
+category = "systems_programming"
+tags = ["binary-parsing", "order-book", "data-reconciliation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dbn-book-engine"

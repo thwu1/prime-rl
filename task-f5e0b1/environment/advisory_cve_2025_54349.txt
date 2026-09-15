@@ -1,0 +1,40 @@
+ESnet Software Security Advisory ESNET-SECADV-2025-0003
+
+Topic:          iperf3 Off-by-one Heap Overflow in Authentication
+Issued:         25 July 2025
+Credits:        Han Lee (Apple Information Security)
+Affects:        iperf-3.2 to iperf-3.19
+Corrected:      iperf-3.19.1
+CVE:            CVE-2025-54349
+
+I. Background
+
+iperf3 is a utility for testing network performance using TCP, UDP,
+and SCTP, running over IPv4 and IPv6. It uses a client/server model,
+where a client and server communicate the parameters of a test,
+coordinate the start and end of the test, and exchange results.
+
+II. Problem Description
+
+There is an off-by-one error in malloc'ing the plaintext buffer during
+authentication when decrypting RSA messages. The buffer is then
+explicitly terminated by a NULL character, which overflows the buffer
+by one byte.
+
+III. Impact
+
+It might be possible for a malfunctioning or malicious iperf3 client
+to crash an iperf3 server.
+
+IV. Workaround
+
+Do not use SSL authentication if not required. Do not run iperf3
+servers with any kind of privilege.
+
+V. Solution
+
+This has been fixed in iperf-3.19.1. Upgrade to iperf-3.19.1 or newer.
+
+VI. Correction details
+
+Fix commit: 4e5313bab0b9b3fe03513ab54f722c8a3e4b7bdf

@@ -1,0 +1,3 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_CreditQ,ISIN:CH0010519475,5,10y,USD,180000,USD,180000
+Credit,Risk_CreditQ,ISIN:CH9823105801,5,1y,USD,-100000,USD,-100000

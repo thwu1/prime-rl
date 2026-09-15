@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of FoundationDB's deterministic simulation testing framework. The agent must investigate XML trace logs using xmlstarlet XPath queries, TOML test specifications, and a SQLite knowledge database containing binary registry, protocol compatibility matrix, failure signatures, and recovery requirements. Key challenges: (1) querying the sqlite3 database to resolve binary paths from version line constraints and look up protocol version hex identifiers, (2) using xmlstarlet to extract high-severity events from XML traces while filtering injected faults, (3) cross-referencing trace-observed binary versions with database protocol_compat entries to determine compatibility status for root cause analysis, (4) validating TOML restart test specs against FDB conventions (SaveAndKill, clearAfterTest, runSetup, cross-phase consistency), (5) generating correct fdbserver -r simulation command lines with proper seed increment and --restarting flag semantics. No domain rules are provided — all must be inferred from multi-format data exploration across XML, TOML, JSON, and SQLite artifacts."""
+solution_explanation = """The solution implements three Python scripts that interoperate with the SQLite knowledge database and use xmlstarlet for XML trace extraction: (1) fdb_analyzer.py uses xmlstarlet XPath to extract high-severity events, queries binary_registry for protocol version hex IDs, checks protocol_compat for compatibility status, and references failure_signatures for error categorization; (2) fdb_spec_validator.py uses tomllib to parse TOML spec pairs and validates restart test conventions; (3) fdb_orchestrator.py queries binary_registry via sqlite3 to resolve version line constraints (e.g., '7.2' -> latest 7.2.x -> /opt/fdb/bin/fdbserver-7.2.4), then generates correct reproduction commands with proper binary selection, seed management, and --restarting flags."""
+verification_explanation = """Tests verify: analyzer correctly identifies recovery states per phase, detects incompatible_protocol_version errors while excluding injected faults, produces root cause analysis with protocol version hex identifiers from the knowledge database (0x0FDB00B072040000 and 0x0FDB00B073000000) and compatibility=false from protocol_compat table; spec validator flags all three broken spec pairs with specific errors and validates the correct pair; orchestrator resolves binary paths from the database (must start with /opt/fdb/bin/), correctly selects old/new binaries for upgrade vs downgrade, increments seeds, and sets --restarting only on phase 2."""
+category = "distributed_systems"
+tags = ["foundationdb", "simulation-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3bb851"

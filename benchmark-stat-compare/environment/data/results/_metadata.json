@@ -1,0 +1,7 @@
+{
+  "description": "TabZilla benchmark comparison results",
+  "version": "2.1",
+  "created": "2024-01-15",
+  "datasets": ["credit-g", "phoneme", "electricity", "vehicle", "jasmine", "credit-approval", "balance-scale", "splice"],
+  "metrics": ["AUC", "Log Loss"]
+}

@@ -1,0 +1,5 @@
+A production application server (`prod-app-01`) recently failed an external security audit. The audit report at `/app/audit-report.txt` identifies six categories of security concern. The organization's security policy defining all compliance requirements is at `/app/security-policy.txt`.
+
+This server was configured incrementally by multiple administrators who have since departed. Their configurations contain subtle security vulnerabilities spanning privilege escalation vectors, insecure file permissions, misconfigured service accounts, unsafe scheduled task execution, and inadequate authentication policies.
+
+Investigate the live system state to discover all specific security violations within each audit category, remediate every finding in accordance with the security policy, and create an automated compliance-checking script at `/app/scripts/compliance-check.sh` that verifies the server meets all policy requirements (exits 0 when fully compliant, non-zero otherwise, with human-readable output describing each check).

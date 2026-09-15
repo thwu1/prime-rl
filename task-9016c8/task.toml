@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of distributed ML training paradigms including gradient accumulation, DDP, FSDP (weight sharding with allgather/scatter-reduce), and pipeline parallelism with point-to-point communication. Strategy 5 (Pipeline+FSDP on 16 ranks) demands combining pipeline scheduling with FSDP sharding across rank groups, coordinating collective and point-to-point communication — a skill typically held by ML infrastructure engineers at top labs. Meeting both memory and step targets requires careful lifetime management of intermediate tensors."""
+solution_explanation = """Each strategy implements a different distributed training pattern: (1) basic does forward-backward-update with memory cleanup; (2) grad_accum processes one batch at a time and accumulates; (3) DDP uses allreduce after single-batch backward; (4) FSDP uses allgather before forward/backward and scatter-reduce after backward; (5) Pipeline+FSDP partitions 16 ranks into 4 pipeline stages of 4 FSDP ranks, using point-to-point for inter-stage activation/gradient transfer and collective ops for intra-stage weight management. All require deleting unused tensors to meet memory targets."""
+verification_explanation = """Tests run each strategy with its specified configuration, call Model.check() for correctness, and assert step count and peak memory are within targets. The simulator deterministically tracks all operations and memory usage."""
+category = "systems"
+tags = ["distributed-systems", "machine-learning"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9016c8"

@@ -1,0 +1,6 @@
+kernel_name,smem_carveout_bytes,measured_occupancy_pct,measured_l1_hit_rate_pct,measured_dram_throughput_pct
+gemm_tile,65536,12.5,85.2,42.1
+reduce_atomic,8192,50.0,45.0,78.3
+transpose_opt,65536,100.0,62.1,55.7
+conv_smem,102400,12.5,71.4,35.2
+fft_radix,65536,50.0,53.8,61.5

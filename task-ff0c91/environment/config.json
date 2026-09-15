@@ -1,0 +1,21 @@
+{
+  "data": {
+    "returns_path": "/app/data/returns.csv",
+    "orderbook_path": "/app/data/orderbook.csv"
+  },
+  "risk": {
+    "min_history_days": 20,
+    "position_symbol": "SYN",
+    "position_quantity": 1000.0,
+    "position_price": 100.0
+  },
+  "quoting": {
+    "fair_value": 100.0,
+    "tau": 0.5,
+    "base_size": 10.0
+  },
+  "output": {
+    "database": "/app/results.db",
+    "report": "/app/report.json"
+  }
+}

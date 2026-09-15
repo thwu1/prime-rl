@@ -1,0 +1,8 @@
+{
+    "challenge_id": "delta",
+    "problem_description": "Compute the sorted eigenvalues of the 6x6 tridiagonal Toeplitz matrix with 2 on the main diagonal and -1 on the super- and sub-diagonals. This matrix arises in the finite-difference discretization of the 1D Laplacian with Dirichlet boundary conditions.",
+    "answer_code": "def answer():\n    \"\"\"Sorted eigenvalues of 6x6 tridiagonal Toeplitz matrix.\"\"\"\n    import numpy as np\n    n = 6\n    H = np.diag([2.0]*n) + np.diag([-1.0]*(n-1), 1) + np.diag([-1.0]*(n-1), -1)\n    return sorted(np.linalg.eigvalsh(H).tolist())",
+    "comparison_mode": "numerical_array",
+    "testcases": null,
+    "tolerance": 1e-6
+}

@@ -1,0 +1,18 @@
+program TestEnum
+  enum Color {RED, GREEN, BLUE}
+  enum Size {SMALL, MEDIUM, LARGE, XLARGE}
+  Color c;
+  Size s;
+{
+  void main()
+  {
+    c = Color.RED;
+    print(c, 0);
+    c = Color.BLUE;
+    print(c, 0);
+    s = Size.XLARGE;
+    print(s, 0);
+    if (c == Color.BLUE) print(1, 0); else print(0, 0);
+    if (c == Color.RED) print(1, 0); else print(0, 0);
+  }
+}

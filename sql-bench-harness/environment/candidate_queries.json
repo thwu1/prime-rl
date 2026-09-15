@@ -1,0 +1,114 @@
+{
+  "Q1": [
+    {
+      "candidate_id": "Q1_C1",
+      "sql": "SELECT COUNT(*) AS num_policies FROM policy"
+    },
+    {
+      "candidate_id": "Q1_C2",
+      "sql": "SELECT COUNT(*) AS policy_count FROM policy WHERE status = 'active'"
+    },
+    {
+      "candidate_id": "Q1_C3",
+      "sql": "SELECT COUNT(*) FROM polcy"
+    }
+  ],
+  "Q2": [
+    {
+      "candidate_id": "Q2_C1",
+      "sql": "SELECT COUNT(claim_id) AS total_claims FROM claim"
+    },
+    {
+      "candidate_id": "Q2_C2",
+      "sql": "SELECT COUNT(DISTINCT policy_id) AS claim_count FROM claim"
+    },
+    {
+      "candidate_id": "Q2_C3",
+      "sql": "SELECT COUNT(*) FROM claim"
+    }
+  ],
+  "Q3": [
+    {
+      "candidate_id": "Q3_C1",
+      "sql": "SELECT p.policy_number, SUM(pr.amount) AS premium_total FROM policy p INNER JOIN premium pr ON p.policy_id = pr.policy_id GROUP BY p.policy_number"
+    },
+    {
+      "candidate_id": "Q3_C2",
+      "sql": "SELECT p.policy_number, pr.amount AS total_premium FROM policy p JOIN premium pr ON p.policy_id = pr.policy_id"
+    },
+    {
+      "candidate_id": "Q3_C3",
+      "sql": "SELECT p.policy_number, AVG(pr.amount) AS total_premium FROM policy p JOIN premium pr ON p.policy_id = pr.policy_id GROUP BY p.policy_number"
+    }
+  ],
+  "Q4": [
+    {
+      "candidate_id": "Q4_C1",
+      "sql": "SELECT p.policy_number, COUNT(*) AS num_claims FROM policy p JOIN claim c ON p.policy_id = c.policy_id GROUP BY p.policy_number"
+    },
+    {
+      "candidate_id": "Q4_C2",
+      "sql": "SELECT p.policy_number, COUNT(DISTINCT c.status) AS claim_count FROM policy p JOIN claim c ON p.policy_id = c.policy_id GROUP BY p.policy_number"
+    },
+    {
+      "candidate_id": "Q4_C3",
+      "sql": "SELECT policy_number, COUNT(*) FROM claim GROUP BY policy_number"
+    }
+  ],
+  "Q5": [
+    {
+      "candidate_id": "Q5_C1",
+      "sql": "SELECT c.claim_number, SUM(ca.amount) AS total_loss FROM claim c JOIN claim_amount ca ON c.claim_id = ca.claim_id WHERE ca.amount_type IN ('loss_payment', 'loss_reserve') GROUP BY c.claim_number"
+    },
+    {
+      "candidate_id": "Q5_C2",
+      "sql": "SELECT c.claim_number, SUM(ca.amount) AS total_loss FROM claim c JOIN claim_amount ca ON c.claim_id = ca.claim_id GROUP BY c.claim_number"
+    },
+    {
+      "candidate_id": "Q5_C3",
+      "sql": "SELECT c.claim_number, SUM(ca.amount) AS total_loss FROM claim c JOIN claim_amount ca ON c.claim_id = ca.claim_id WHERE ca.amount_type = 'loss_payment' GROUP BY c.claim_number"
+    }
+  ],
+  "Q6": [
+    {
+      "candidate_id": "Q6_C1",
+      "sql": "SELECT c.claim_number, cat.name FROM claim c INNER JOIN catastrophe cat ON c.catastrophe_id = cat.catastrophe_id"
+    },
+    {
+      "candidate_id": "Q6_C2",
+      "sql": "SELECT c.claim_number, cat.name FROM claim c LEFT JOIN catastrophe cat ON c.catastrophe_id = cat.catastrophe_id"
+    },
+    {
+      "candidate_id": "Q6_C3",
+      "sql": "SELECT c.claim_number AS claim_no, cat.name AS catastrophe FROM claim c JOIN catastrophe cat ON c.catastrophe_id = cat.catastrophe_id"
+    }
+  ],
+  "Q7": [
+    {
+      "candidate_id": "Q7_C1",
+      "sql": "SELECT pa.party_name, COUNT(*) AS num_policies FROM party pa INNER JOIN policy_party pp ON pa.party_id = pp.party_id WHERE pp.role = 'policyholder' GROUP BY pa.party_name"
+    },
+    {
+      "candidate_id": "Q7_C2",
+      "sql": "SELECT pa.party_name, COUNT(*) AS policy_count FROM party pa JOIN policy_party pp ON pa.party_id = pp.party_id GROUP BY pa.party_name"
+    },
+    {
+      "candidate_id": "Q7_C3",
+      "sql": "SELECT party_name, COUNT(policy_id) FROM policy_holder GROUP BY party_name"
+    }
+  ],
+  "Q8": [
+    {
+      "candidate_id": "Q8_C1",
+      "sql": "WITH claim_totals AS (SELECT c.policy_id, SUM(ca.amount) AS total_claims FROM claim c JOIN claim_amount ca ON c.claim_id = ca.claim_id GROUP BY c.policy_id), premium_totals AS (SELECT policy_id, SUM(amount) AS total_premium FROM premium GROUP BY policy_id) SELECT p.policy_number, ct.total_claims / pt.total_premium AS loss_ratio FROM policy p JOIN claim_totals ct ON p.policy_id = ct.policy_id JOIN premium_totals pt ON p.policy_id = pt.policy_id ORDER BY p.policy_number"
+    },
+    {
+      "candidate_id": "Q8_C2",
+      "sql": "SELECT p.policy_number, SUM(ca.amount) / pr_total.total_premium AS loss_ratio FROM policy p JOIN claim c ON p.policy_id = c.policy_id JOIN claim_amount ca ON c.claim_id = ca.claim_id JOIN (SELECT policy_id, SUM(amount) AS total_premium FROM premium GROUP BY policy_id) pr_total ON p.policy_id = pr_total.policy_id WHERE ca.amount_type = 'loss_payment' GROUP BY p.policy_number, pr_total.total_premium ORDER BY p.policy_number"
+    },
+    {
+      "candidate_id": "Q8_C3",
+      "sql": "SELECT p.policy_number, pr_total.total_premium / SUM(ca.amount) AS loss_ratio FROM policy p JOIN claim c ON p.policy_id = c.policy_id JOIN claim_amount ca ON c.claim_id = ca.claim_id JOIN (SELECT policy_id, SUM(amount) AS total_premium FROM premium GROUP BY policy_id) pr_total ON p.policy_id = pr_total.policy_id GROUP BY p.policy_number, pr_total.total_premium ORDER BY p.policy_number"
+    }
+  ]
+}

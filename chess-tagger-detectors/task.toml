@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level chess domain knowledge to implement 8 tactical pattern detection algorithms. The solver must reverse-engineer expected behavior from function signatures, the Puzzle data model, utility functions, and test cases. Each detector demands understanding of chess geometry (ray attacks, pins, knight forks), multi-ply game tree traversal, piece value hierarchies, and nuanced distinctions between similar patterns (e.g., pin_prevents_attack vs pin_prevents_escape)."""
+solution_explanation = """Each detector analyzes specific aspects of the puzzle's mainline moves and resulting board states. The solver implements algorithms for fork (multi-piece attack), skewer (ray piece forces valuable piece to reveal capture behind), discovered attack (moving piece reveals ray attack/check), pin patterns (pinned pieces prevented from attacking or escaping), back-rank mate (king trapped on home rank), smothered mate (knight checkmate with all escapes blocked by friendly pieces), and trapped piece (captured piece had no safe escape). Each uses the Puzzle model's mainline convention and utility functions in util.py."""
+verification_explanation = """Tests use known chess puzzle positions with verified tactical theme labels. Each detector is tested with multiple true-positive and true-negative cases, including boundary cases that distinguish subtly different patterns. Deterministic verification through exact boolean match on curated positions."""
+category = "algorithms"
+tags = ["chess", "pattern-recognition"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chess-tagger-detectors"

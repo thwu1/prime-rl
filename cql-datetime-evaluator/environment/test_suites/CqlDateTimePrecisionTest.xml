@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://hl7.org/fhirpath/tests"
+       xsi:schemaLocation="http://hl7.org/fhirpath/tests /app/testSchema.xsd"
+       name="CqlDateTimePrecisionTest" version="1.4">
+  <capability code="precision-based-timing"/>
+  <capability code="uncertainty-intervals"/>
+  <capability code="date-time-arithmetic"/>
+  <group name="SameAs" version="1.4">
+    <capability code="timing-phrases.same-as"/>
+    <test name="SameYearTrue" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>DateTime(2014) same year as DateTime(2014)</expression>
+      <output>true</output>
+    </test>
+    <test name="SameYearFalse" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>DateTime(2013) same year as DateTime(2014)</expression>
+      <output>false</output>
+    </test>
+    <test name="SameDayTrue" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>DateTime(2014, 12, 10) same day as DateTime(2014, 12, 10)</expression>
+      <output>true</output>
+    </test>
+    <test name="SameDayFalse" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>DateTime(2014, 10, 10) same day as DateTime(2014, 10, 11)</expression>
+      <output>false</output>
+    </test>
+    <test name="SameDayInsufficientPrec" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>DateTime(2014, 10) same day as DateTime(2014, 10, 12)</expression>
+      <output>null</output>
+    </test>
+    <test name="SameHourTzTrue" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>@2012-03-10T10:20:00.999+07:00 same hour as @2012-03-10T09:20:00.999+06:00</expression>
+      <output>true</output>
+    </test>
+    <test name="SameHourTzFalse" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>@2012-03-10T10:20:00.999+07:00 same hour as @2012-03-10T10:20:00.999+06:00</expression>
+      <output>false</output>
+    </test>
+  </group>
+  <group name="AfterBefore" version="1.4">
+    <capability code="timing-phrases.before-after"/>
+    <test name="AfterYearTrue" version="1.4">
+      <capability code="timing-phrases.before-after"/>
+      <expression>DateTime(2005, 10, 10) after year of DateTime(2004, 10, 10)</expression>
+      <output>true</output>
+    </test>
+    <test name="AfterYearFalse" version="1.4">
+      <capability code="timing-phrases.before-after"/>
+      <expression>DateTime(2004, 11, 10) after year of DateTime(2004, 10, 10)</expression>
+      <output>false</output>
+    </test>
+    <test name="AfterDayUncertain" version="1.4">
+      <capability code="timing-phrases.before-after"/>
+      <expression>DateTime(2005, 10, 10) after day of DateTime(2005, 9)</expression>
+      <output>true</output>
+    </test>
+    <test name="BeforeHourTz" version="1.4">
+      <capability code="timing-phrases.before-after"/>
+      <expression>@2012-03-10T10:20:00.999+07:00 before hour of @2012-03-10T10:20:00.999+06:00</expression>
+      <output>true</output>
+    </test>
+  </group>
+  <group name="UncertaintyIntervals" version="1.4">
+    <capability code="uncertainty-intervals"/>
+    <test name="UncertaintyYears" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>years between DateTime(2005) and DateTime(2010)</expression>
+      <output>Interval[ 4, 5 ]</output>
+    </test>
+    <test name="UncertaintyDays" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>days between DateTime(2014, 1, 15) and DateTime(2014, 2)</expression>
+      <output>Interval[ 17, 44 ]</output>
+    </test>
+    <test name="UncertaintyMonths" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 5)</expression>
+      <output>Interval[ 4, 16 ]</output>
+    </test>
+  </group>
+  <group name="UncertainComparison" version="1.4">
+    <capability code="uncertainty-intervals"/>
+    <test name="UncertainCompGt5True" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 7) &gt; 5</expression>
+      <output>true</output>
+    </test>
+    <test name="UncertainCompGt5Null" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 2) &gt; 5</expression>
+      <output>null</output>
+    </test>
+    <test name="UncertainCompGt25False" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 7) &gt; 25</expression>
+      <output>false</output>
+    </test>
+    <test name="UncertainCompLt24True" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 7) &lt; 24</expression>
+      <output>true</output>
+    </test>
+    <test name="UncertainCompEq24False" version="1.4">
+      <capability code="uncertainty-intervals"/>
+      <expression>months between DateTime(2005) and DateTime(2006, 7) = 24</expression>
+      <output>false</output>
+    </test>
+  </group>
+  <group name="TimeOperations" version="1.4">
+    <capability code="date-time-arithmetic"/>
+    <test name="TimeAdd5Hours" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>@T15:59:59.999 + 5 hours</expression>
+      <output>@T20:59:59.999</output>
+    </test>
+    <test name="TimeAdd1Minute" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>@T15:59:59.999 + 1 minute</expression>
+      <output>@T16:00:59.999</output>
+    </test>
+    <test name="TimeAdd1Millisecond" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>@T15:59:59.999 + 1 milliseconds</expression>
+      <output>@T16:00:00.000</output>
+    </test>
+    <test name="TimeDurationHours" version="1.4">
+      <capability code="duration-between"/>
+      <expression>hours between @T06 and @T07:00:00</expression>
+      <output>1</output>
+    </test>
+    <test name="TimeDiffHours" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in hours between @T20 and @T23:25:15.555</expression>
+      <output>3</output>
+    </test>
+    <test name="TimeDiffMilliseconds" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in milliseconds between @T20:20:15.555 and @T20:20:15.550</expression>
+      <output>-5</output>
+    </test>
+    <test name="DateTimeInvalidConstruct" version="1.4">
+      <capability code="constructor.datetime"/>
+      <expression invalid="semantic">DateTime(2005, 13, 40)</expression>
+    </test>
+  </group>
+  <group name="Blind" version="1.4">
+    <capability code="date-time-arithmetic"/>
+    <test name="BlindSubtractLeapYear" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2012, 2, 29) - 1 year</expression>
+    </test>
+    <test name="BlindMonthsBetween" version="1.4">
+      <capability code="duration-between"/>
+      <expression>months between DateTime(2001, 1, 15) and DateTime(2002, 3, 15)</expression>
+    </test>
+    <test name="BlindSameDayTz" version="1.4">
+      <capability code="timing-phrases.same-as"/>
+      <expression>@2015-03-15T12:30:00+05:30 same day as @2015-03-15T08:00:00+01:00</expression>
+    </test>
+    <test name="BlindTimeWrap" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>Time(23, 30) + 90 minutes</expression>
+    </test>
+  </group>
+</tests>

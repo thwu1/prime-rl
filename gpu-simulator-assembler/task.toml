@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-component GPU architecture from SystemVerilog source (dispatcher, scheduler, memory controller, ALU, LSU, register file, PC unit with 7+ interacting state machines). The agent must understand ISA encoding at the bit level, implement correct signed comparison semantics for CMP despite the Verilog using unsigned types, build a working assembler with label resolution, and produce a simulator that correctly executes SIMD kernels including loops with conditional branching. Combines hardware architecture, ISA design, compiler construction, and simulation engineering."""
+solution_explanation = """The solution builds an assembler that parses assembly mnemonics, resolves labels to instruction indices, and encodes each instruction into the 16-bit format defined by the decoder module. The simulator models block dispatch across cores, executes each block by stepping through instructions, applies per-thread register operations with SIMD semantics (blockIdx/blockDim/threadIdx), handles memory load/store, and implements signed CMP comparison with NZP-based conditional branching."""
+verification_explanation = """Tests verify both the assembler and simulator independently and together. Assembler tests check encoding of individual instructions and full kernel programs against known-correct binary. Simulator tests run multiple kernels (matrix addition, matrix multiplication, vector scaling, indexed stores) with different data inputs to prevent hardcoding, verifying final data memory state matches expected computation results."""
+category = "computer_architecture"
+tags = ["gpu-simulation", "isa-implementation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gpu-simulator-assembler"

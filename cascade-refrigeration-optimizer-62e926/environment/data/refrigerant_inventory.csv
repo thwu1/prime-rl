@@ -1,0 +1,7 @@
+system_id,circuit,fluid,charge_kg,gwp
+SYS-A,ltc,CO2,50,1
+SYS-A,htc,Ammonia,80,0
+SYS-B,ltc,CO2,50,1
+SYS-B,htc,R134a,120,1430
+SYS-C,ltc,R23,60,14800
+SYS-C,htc,R134a,120,1430

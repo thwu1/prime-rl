@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three subtle domain-specific bugs in an interplanetary trajectory optimization script — (1) body ID '3' (Earth-Moon barycenter) vs '399' (Earth geocenter), (2) prograde orbit determination using the wrong cross-product component for the ecliptic reference frame, (3) light-time corrected positions vs geometric positions for a boundary-value problem — then designing an optimization strategy with sufficient resolution to achieve local optimality. Beyond debugging, the task demands evaluating the mission trade space: finding the arrival-v_inf-optimal transfer (a distinct objective from C3-optimal), characterizing launch and arrival flexibility windows via pork-chop cross-section analysis, comparing two Pareto-competing solutions on multiple criteria (C3, arrival v_inf, TOF), and producing a quantitative recommendation. This combination of expert astrodynamics debugging, optimization design, and multi-objective mission evaluation requires PhD-level orbital mechanics knowledge and systems engineering judgment."""
+solution_explanation = """Fix three bugs: body '3'->'399', cx[1]->cx[2] for ecliptic prograde check, VEC_CORR=LT->NONE for geometric positions. Use 1-day grid resolution for local optimality. Then perform a second optimization pass minimizing arrival v_inf magnitude across the full grid. Compute launch window by fixing arrival at C3-optimal and sweeping departures to find contiguous dates where C3 < optimal+2.0. Similarly compute arrival window (allowing Type-II Lambert solutions in the window sweep since dtheta near pi causes the Type-I/Type-II boundary to coincide with the optimal region). Compare C3-optimal and arrival-optimal transfers on C3, v_inf_arr, and TOF, and write a quantitative recommendation weighing launch energy vs Mars capture delta-V requirements."""
+verification_explanation = """Tests independently query Horizons API (body 399/499, geometric, ecliptic J2000) to verify reported planet states. Self-consistency checks (C3=|v_inf|², energy/angular-momentum conservation, Kepler propagation) verify the Lambert solution. Local optimality is verified by solving Lambert at ±1 day perturbations. The arrival-optimal solution is independently verified via API queries and Lambert computation at the reported dates. Mission evaluation tests verify: launch/arrival windows contain the optimal dates with correct thresholds, arrival-optimal has lower v_inf_arr than C3-optimal (Pareto consistency), C3-optimal has lower C3 (Pareto consistency), the two solutions are not identical grid points, comparison numbers are self-consistent, and the recommendation is substantive. Diagnosis must list at least 3 bugs."""
+category = "mathematics_of_computing"
+tags = ["orbital-mechanics", "mission-design-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lambert-transfer-mars"

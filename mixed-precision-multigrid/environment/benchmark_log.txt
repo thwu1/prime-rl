@@ -1,0 +1,27 @@
+=== Solver Benchmark Log ===
+Pipeline: /app/matrix_gen/ (build with cmake) -> naive_solver.py
+Status: matrix generator has NOT been compiled yet
+
+--- Previous diagnostic run (pre-generated matrix) ---
+Grid: 63x63 interior points (3969 unknowns)
+Matrix: 3969x3969, 19461 nonzeros (5-point stencil)
+Method: Conjugate Gradient (no preconditioner)
+Tolerance: 1e-10 (relative residual)
+Max iterations: 50
+
+  Iteration   1: relative residual = 9.994012e-01
+  Iteration   2: relative residual = 9.976108e-01
+  Iteration   3: relative residual = 9.946433e-01
+  Iteration   5: relative residual = 9.852017e-01
+  Iteration  10: relative residual = 9.435218e-01
+  Iteration  15: relative residual = 8.827541e-01
+  Iteration  20: relative residual = 8.017453e-01
+  Iteration  25: relative residual = 7.058916e-01
+  Iteration  30: relative residual = 6.124893e-01
+  Iteration  35: relative residual = 5.163247e-01
+  Iteration  40: relative residual = 4.238761e-01
+  Iteration  45: relative residual = 3.458019e-01
+  Iteration  50: relative residual = 2.819347e-01
+
+FAILED: solver did not converge to target tolerance.
+Condition number estimate: kappa(A) ~ 5100.

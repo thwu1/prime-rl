@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert PostgreSQL knowledge across four coupled advanced SQL domains. The solver must first diagnose three bugs in a broken migration (wrong window partitioning, missing terminal-date handling, absent overlap constraint), then write two complex queries from scratch (gap-and-island streak detection, recursive hierarchy with descendant aggregation) and debug a subtle cost-formula error in a fourth (full-duration vs intersection-based cost). No algorithms or techniques are named in the instruction; the solver must infer appropriate approaches from business requirements, data analysis, and error output alone."""
+solution_explanation = """Migration uses lead() OVER (PARTITION BY server_id ORDER BY event_date) with COALESCE for terminal dates, inserting into a table with EXCLUDE USING gist. Streaks uses LAG() to detect cost decreases, SUM(CASE) running window for island grouping, DISTINCT ON per server to pick the longest, then LIMIT 5. Rollup uses two recursive CTEs: one for tree path/depth, another for ancestor-descendant pair expansion, then joins with allocation day sums. Utilization cross-joins allocations with quarter dateranges, computes intersection days via the * operator, multiplies by daily_cost, and groups with GROUPING SETS."""
+verification_explanation = """Tests connect to PostgreSQL, verify the allocations table has correct row count (37), daterange column type, GiST exclusion constraint, and specific allocation values. Streak results are compared against hardcoded expected top-5 with exact dates. Rollup total_server_days are verified for all 12 projects against precomputed values. Utilization report structure (15 rows across 4 grouping-set dimensions) is checked, plus cross-validation of subtotals and a cell-level cross-check against independent SQL computation."""
+category = "data_management"
+tags = ["postgresql", "advanced-sql"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/temporal-range-analytics"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting defects in a C/Python streaming system: an off-by-one probability error causing selection bias, floating-point arithmetic preventing exact fairness guarantees, and a naive per-decision bit consumption pattern yielding O(n) entropy usage. The agent must build the C shared library, run diagnostics to observe the bias, trace through the ctypes interface to understand the system architecture, identify root causes in the Python sampler, then redesign the sampling algorithm to achieve provably exact 1/n probabilities with sublinear entropy consumption — a technique at the intersection of information theory and arithmetic coding that is not described anywhere in the provided code or documentation."""
+solution_explanation = """Build the C library with make. Diagnose the off-by-one (1/(k+1) vs 1/k) and the float imprecision by running the harness and reading the code. Rewrite the sampler using fractions.Fraction for exact rational arithmetic and an interval-subdivision approach: maintain a decision interval [lo, hi) that narrows with each keep/replace choice, and a bit interval [r_lo, r_hi) that narrows as bits are consumed. For each item k, compute threshold = lo + (hi-lo)/k and consume bits only until the bit interval unambiguously determines whether r is above or below the threshold. This achieves exact 1/n probabilities and O(log^2 n) average bit consumption."""
+verification_explanation = """Tests build the C library, then verify: (1) n=1 uses zero bits, (2) n=2 uses exactly one bit regardless of bit value, (3) opposite bits for n=2 select different items, (4) statistical uniformity within 20% tolerance over 50000 trials for n=5,10,20, (5) average bit consumption is sublinear (less than n for n=100), (6) bits_used is monotonically non-decreasing, (7) streams of 2000 elements complete without timeout. Both a list-based bit source (for deterministic checks) and the C-backed BitSource (for statistical tests) are used."""
+category = "systems"
+tags = ["streaming-algorithms", "c-python-interop", "information-theory"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reservoir-bit-sampling"

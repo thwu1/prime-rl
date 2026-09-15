@@ -1,0 +1,19 @@
+# ETD4RK Exponential Integrator Cross-Validation Pipeline
+
+OCTAVE = octave --no-gui --silent
+PYTHON = python3
+REFDIR = reference
+
+.PHONY: all reference validate clean
+
+all: reference validate
+
+reference:
+	mkdir -p $(REFDIR)
+	cd /app && $(OCTAVE) octave/gen_reference.m
+
+validate: reference
+	$(PYTHON) validate.py
+
+clean:
+	rm -rf $(REFDIR)

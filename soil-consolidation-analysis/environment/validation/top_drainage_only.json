@@ -1,0 +1,19 @@
+{
+  "description": "1D FD consolidation with top drainage only: linear initial u from 0 (top) to 50 (bottom), cv=100 m2/yr. Impermeable bottom at t=10000s should be ~39.98 kPa.",
+  "scenario": {
+    "consolidation": {
+      "height": 1.0,
+      "total_time": 10000,
+      "no_nodes": 21,
+      "cv": 100,
+      "top_drainage": true,
+      "bottom_drainage": false,
+      "initial_excess_pore_pressure": [0, 50],
+      "output_times_seconds": [10000]
+    }
+  },
+  "expected": {
+    "pore_pressure_bottom": {"time": 10000, "node_index": 20, "value": 39.98, "tolerance": 0.5, "unit": "kPa"},
+    "boundary_values": {"top": 0.0}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Non-expert GPU VRAM usage breakdown measured during single-GPU profiling",
+  "components": {
+    "attention_qkv_proj": 3500000000,
+    "attention_output_proj": 1200000000,
+    "mla_absorb_matrices": 2800000000,
+    "shared_expert_weights": 3200000000,
+    "embedding_and_lm_head": 1800000000,
+    "rotary_and_norms": 500000000,
+    "kv_cache_reserved": 8000000000,
+    "activation_workspace": 2300000000,
+    "cuda_context_and_overhead": 1700000000
+  }
+}

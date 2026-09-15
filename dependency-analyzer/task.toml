@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across multiple tool domains: GNU Make (dependency-tracked build orchestration with phony targets and variable substitution), SQLite (normalized relational schema design with foreign keys and correct import-type propagation), Graphviz DOT (subgraph cluster syntax and dot CLI rendering), and Python AST (resolving relative imports with level>0 against package directory structure, handling __init__.py re-exports without including them as source modules, excluding conftest.py). The agent must design a coherent multi-tool pipeline architecture, correctly propagate import metadata across stages (extract→resolve→store), implement graph algorithms for transitive closure and connected components, and solve a constrained minimum hitting set problem (NP-hard) with exclusion constraints and lexicographic tie-breaking — all without step-by-step guidance."""
+solution_explanation = """Creates a Python pipeline script dispatched by a Makefile with 7 targets. The extract stage parses ASTs to identify import types (absolute vs relative via node.level). The resolve stage maps relative imports by computing package-relative paths. The graph stage generates DOT with subgraph clusters per package and renders SVG via dot -Tsvg. The store stage creates a normalized SQLite database with 5 tables, propagating import_type from raw imports. The analyze stage computes transitive cones via BFS, finds connected components via Union-Find, computes Jaccard similarity, and solves constrained minimum hitting set via brute-force enumeration with lexicographic tie-breaking."""
+verification_explanation = """Tests verify: Makefile existence and all 7 target names; raw_imports.json excluding __init__.py/conftest.py/test files with correct relative import detection (2 in crypto/sign.py); resolved_deps.json matching exact expected graph including cross-package and relative-import-resolved edges; DOT file containing subgraph clusters for all 3 packages and edges; SVG file existence and validity; SQLite database schema with all 5 tables, correct module count, dependency data with import_type='relative' for crypto/cipher→crypto/hash, and correct test cone data; analysis.json matching expected cones, 2-feature clustering, identity isolation matrix, and exact MDS values; anti-cheat test that dynamically adds a cross-cutting firewall module bridging features, re-runs full make pipeline, and verifies collapsed single-feature analysis with updated DOT and 10-module DB."""
+category = "software_engineering"
+tags = ["multi-tool-pipeline", "static-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dependency-analyzer"

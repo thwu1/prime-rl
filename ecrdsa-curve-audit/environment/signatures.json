@@ -1,0 +1,39 @@
+{
+  "public_key": {
+    "Qx": "0x7a020798c5cbaf3a0d889494478e76ba3d07c6333ba42f84039958d995ac9081",
+    "Qy": "0x63cf4e639cc4e1909e6f0729b7a6b1c9e9f053e71ad2f05e5e63ac0e060327fa"
+  },
+  "hash_algorithm": "sha256",
+  "signatures": [
+    {
+      "message": "Message for ECRDSA test vector one",
+      "r": "0xcddf4aaed26ea5d248fccd00cfd6ee0c3f2f89ed2ef37d5be1cff92fbf5ba9ff",
+      "s": "0x20d8931985014669f38ae4cea25fd1399cf14090f6f8b123f91301100b5b3008"
+    },
+    {
+      "message": "Second message for curve analysis",
+      "r": "0xee706851de807da3b41398970ffee605662ea67f8f9862bbf694247fdd33c281",
+      "s": "0x28752ef722ef0842e9ffb8b6e451c364a96917c01dcf37ae68bf799b0b7cac67"
+    },
+    {
+      "message": "Verification of elliptic signatures",
+      "r": "0x3962801d65a716dcee1b4c3e7ae5cbf3538e88730f48ea713aee3fb1a7288099",
+      "s": "0x95e90c8472d074a62985ed05bcbfa964052e0b4e8e9eea21a797e7a5803e71c0"
+    },
+    {
+      "message": "Fourth test with Russian standard",
+      "r": "0x9351b06c20711c3b244bc995f0a113d14bf3b1ed66025cdc09604a32e4b82a0c",
+      "s": "0x86e917e205ffff52ea289cb68906f7a567d828c71fd490dc517ea618d39542e9"
+    },
+    {
+      "message": "Fifth signature sample data here",
+      "r": "0x39572d8299ab7b998bd8c6668bc0833ae528de4fa1d101e67f41a6493f610242",
+      "s": "0xefb5e223300c2cec7eb82ee0701c63ac345965610238866328dd3fa2bce7ae99"
+    },
+    {
+      "message": "Final ISO convention test vector",
+      "r": "0x47b5c3228a1fe7516b602c1a12f478da054b4240f890d4e38de907fa0e9910",
+      "s": "0x41a5beb6fb84944fe0dd6476cd7cbb3bf70b81586eaacb427505c35b0bc53573"
+    }
+  ]
+}

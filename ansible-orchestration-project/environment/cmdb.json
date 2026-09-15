@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "version": "2.1",
+    "last_updated": "2024-11-15",
+    "environment_prefix": "corp"
+  },
+  "nodes": [
+    {
+      "hostname": "localhost",
+      "fqdn": "app-server.corp.internal",
+      "ip": "127.0.0.1",
+      "environment": "production",
+      "role": "application",
+      "tier": "frontend",
+      "os_family": "debian",
+      "managed": true,
+      "tags": ["critical", "web-facing"]
+    },
+    {
+      "hostname": "db-primary",
+      "fqdn": "db-primary.corp.internal",
+      "ip": "10.20.1.50",
+      "environment": "production",
+      "role": "database",
+      "tier": "backend",
+      "os_family": "debian",
+      "managed": true,
+      "tags": ["critical", "stateful"]
+    },
+    {
+      "hostname": "cache-01",
+      "fqdn": "cache-01.corp.internal",
+      "ip": "10.20.2.30",
+      "environment": "production",
+      "role": "cache",
+      "tier": "middleware",
+      "os_family": "debian",
+      "managed": true,
+      "tags": ["performance"]
+    },
+    {
+      "hostname": "web-staging",
+      "fqdn": "web-staging.corp.internal",
+      "ip": "10.30.1.10",
+      "environment": "staging",
+      "role": "application",
+      "tier": "frontend",
+      "os_family": "debian",
+      "managed": true,
+      "tags": ["testing"]
+    },
+    {
+      "hostname": "db-staging",
+      "fqdn": "db-staging.corp.internal",
+      "ip": "10.30.1.50",
+      "environment": "staging",
+      "role": "database",
+      "tier": "backend",
+      "os_family": "debian",
+      "managed": false,
+      "tags": ["testing"]
+    },
+    {
+      "hostname": "monitor",
+      "fqdn": "monitor.corp.internal",
+      "ip": "10.20.5.10",
+      "environment": "production",
+      "role": "monitoring",
+      "tier": "infrastructure",
+      "os_family": "debian",
+      "managed": true,
+      "tags": ["observability"]
+    }
+  ]
+}

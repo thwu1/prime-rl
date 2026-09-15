@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete potential-field inverse problem pipeline from scratch: constructing a 3D gravitational forward operator (kernel matrix) from the point-mass Green's function for scattered observations at non-uniform heights, solving a Tikhonov-regularized least-squares system for equivalent source coefficients via SVD, performing joint optimization of source depth and damping parameter via generalized cross-validation, propagating observation noise through the regularized inverse to produce prediction uncertainties, and predicting the field at a different altitude. Demands graduate-level understanding of potential-field theory, inverse problem regularization, model selection, and uncertainty quantification. Simple 2D interpolation methods will fail because observations are at varying heights; the agent must understand why 3D forward modeling is necessary and how regularization interacts with source geometry. Correct numerical scaling of the kernel matrix (factoring out the gravitational constant) is essential to avoid ill-conditioning."""
+solution_explanation = """Places one point source below each observation at a candidate depth d, builds the unscaled kernel K[i,j] = dz/r^3 (separating out G*MGAL for numerical stability), computes SVD of K for each depth, sweeps damping values computing GCV score with lambda range adapted to K's singular value spectrum, selects the (depth, damping) pair minimizing GCV, solves for coefficients via SVD filtering c = V diag(s/(s^2+lam)) U^T g_scaled, builds the grid kernel, predicts g_z = ALPHA * K_grid @ c, and propagates uncertainty as sigma_pred_i = sigma_noise * sqrt(sum_k (A[i,k])^2 * s_k^2 / (s_k^2+lam)^2) where A = K_grid @ V."""
+verification_explanation = """Tests run the pipeline on two datasets: the provided development survey (4 buried sources) and a test-time-generated survey (3 different sources at different positions and depths). Predicted gravity values at 500 m altitude are compared to true noise-free values computed from the known source parameters. RMS errors must be below 0.02 and 0.03 mGal respectively. Output format, diagnostics sanity, and prediction uncertainty positivity are also validated."""
+category = "applied_computing"
+tags = ["geophysics", "inverse-problems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-gravity-location"

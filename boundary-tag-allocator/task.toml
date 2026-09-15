@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting bugs in a custom C memory allocator provided as source code. The agent must discover: (1) struct layout causing non-16-byte-aligned payload returns, (2) missing NULL-pointer guards in free/realloc, (3) absent heap-ownership validation that crashes when LD_PRELOADed programs pass pre-interposition pointers, (4) lack of adjacent-block coalescing causing unbounded heap growth, (5) missing block splitting wasting memory, (6) integer overflow in calloc, and (7) absence of thread safety. Each fix interacts with the others — e.g., coalescing requires restructuring the block list with backward traversal support, which in turn affects the header size and alignment math."""
+solution_explanation = """Analysis of the 24-byte block header reveals payload misalignment (24 mod 16 = 8). Restructuring to a 32-byte header with a prev pointer and pad field restores 16-byte alignment. Adding a NULL check in free and a NULL-to-malloc delegation in realloc fixes edge cases. Heap boundary tracking (recording the initial sbrk position) allows distinguishing own vs foreign pointers — foreign pointers are delegated to __libc_free/__libc_realloc for LD_PRELOAD safety. The prev pointer enables O(1) backward coalescing on free. Splitting checks whether the remainder after allocation exceeds a minimum block size before carving a new free block. A calloc overflow check (total/nmemb != size) prevents wraparound. A pthread mutex provides thread safety."""
+verification_explanation = """Tests compile embedded C test programs and run them with LD_PRELOAD pointing to the candidate library. Alignment is verified across 4096 sequential and 200 simultaneous allocations checking (uintptr_t)p % 16 == 0. Coalescing is tested by freeing three adjacent 1024-byte blocks between canary allocations and confirming a 2500-byte allocation is served from the coalesced address range. Splitting is tested by freeing an 8192-byte block and verifying two subsequent smaller allocations both land within the original block range. Edge cases test free(NULL), realloc(NULL,n), realloc(p,0), and calloc overflow. Compatibility tests run /bin/ls, /bin/echo, /bin/cat via LD_PRELOAD. A 50000-iteration randomized stress test validates data integrity under mixed alloc/free/realloc patterns."""
+category = "systems_programming"
+tags = ["memory-management", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/boundary-tag-allocator"

@@ -1,0 +1,135 @@
+# Cluster Security Policy v1.0
+# All manifests must comply with these requirements.
+
+network_isolation:
+  default_policy:
+    description: >
+      Every namespace MUST have a default-deny-ingress NetworkPolicy.
+      This policy must select all pods (empty podSelector) and specify
+      policyTypes including Ingress. It must not contain any ingress
+      allow rules.
+    applies_to: all_namespaces
+
+  cross_namespace_access:
+    description: >
+      Cross-namespace NetworkPolicy rules MUST use combined selectors
+      (both namespaceSelector AND podSelector in the same from entry)
+      to restrict access to specific pods in the source namespace.
+      A bare namespaceSelector without an accompanying podSelector
+      allows all pods from that namespace, which violates least-privilege.
+
+    allowed_flows:
+      - source: {namespace: prod-frontend, pod: react-app}
+        destination: {namespace: prod-backend, pod: api-server, port: 8443}
+      - source: {namespace: prod-backend, pod: api-server}
+        destination: {namespace: prod-data, pod: postgres, port: 5432}
+      - source: {namespace: prod-backend, pod: worker}
+        destination: {namespace: prod-data, pod: postgres, port: 5432}
+      - source: {namespace: prod-backend, pod: api-server}
+        destination: {namespace: prod-data, pod: redis, port: 6379}
+      - source: {namespace: monitoring, pod: prometheus}
+        destination: {namespace: all, port: 9090}
+
+    note: >
+      Only the prometheus pod in the monitoring namespace is authorized
+      for cross-namespace metrics collection on port 9090. No other
+      monitoring pod (grafana, alertmanager, etc.) should have
+      cross-namespace access.
+
+  egress_restrictions:
+    description: >
+      Egress-restricting NetworkPolicies MUST include Egress in their
+      policyTypes field. A policy with egress rules but policyTypes set
+      to only ["Ingress"] will have its egress rules silently ignored
+      by the Kubernetes network plugin. Egress-only policies should not
+      include Ingress in policyTypes unless they also define ingress rules.
+
+    required_policies:
+      - namespace: prod-data
+        pod: postgres
+        allowed_egress:
+          - to_pod: postgres
+            port: 5432
+            description: replication traffic between primary and replicas
+          - port: 53
+            protocol: [UDP, TCP]
+            description: DNS resolution
+
+rbac:
+  cluster_role_bindings:
+    description: >
+      ClusterRoleBindings MUST NOT be used for application service
+      accounts. Only system service accounts (in kube-system namespace
+      or with system: prefix) may have ClusterRoleBindings. Application
+      service accounts must use namespace-scoped RoleBindings to prevent
+      unintended cluster-wide privilege escalation.
+
+  least_privilege:
+    description: >
+      Roles granting access to sensitive resources (secrets, roles,
+      rolebindings, clusterroles, clusterrolebindings) MUST specify
+      explicit verbs. Wildcard verb entries ("*") are prohibited on
+      these resource types.
+
+    service_accounts:
+      deploy-bot:
+        namespace: prod-backend
+        intended_access: edit role scoped to prod-backend namespace only
+      data-reader:
+        namespace: prod-data
+        intended_access: get and list verbs on secrets in prod-data only
+
+resource_management:
+  resource_quotas:
+    description: >
+      Every namespace MUST have a ResourceQuota defining hard limits
+      for cpu, memory, and pods.
+    quotas:
+      prod-frontend: {cpu: "4", memory: "4Gi", pods: "20"}
+      prod-backend: {cpu: "8", memory: "8Gi", pods: "30"}
+      prod-data: {cpu: "16", memory: "32Gi", pods: "10"}
+      monitoring: {cpu: "4", memory: "8Gi", pods: "15"}
+
+  limit_ranges:
+    description: >
+      Every namespace MUST have a LimitRange for Container type.
+      Default values must not exceed the configured max values — the
+      Kubernetes API server rejects LimitRanges where default > max.
+    ranges:
+      prod-frontend:
+        container:
+          defaultRequest: {cpu: "100m", memory: "128Mi"}
+          default: {cpu: "500m", memory: "512Mi"}
+          max: {cpu: "1", memory: "1Gi"}
+          min: {cpu: "50m", memory: "64Mi"}
+      prod-backend:
+        container:
+          defaultRequest: {cpu: "200m", memory: "256Mi"}
+          default: {cpu: "1", memory: "1Gi"}
+          max: {cpu: "2", memory: "2Gi"}
+          min: {cpu: "100m", memory: "128Mi"}
+      prod-data:
+        container:
+          defaultRequest: {cpu: "500m", memory: "512Mi"}
+          default: {cpu: "2", memory: "4Gi"}
+          max: {cpu: "4", memory: "8Gi"}
+          min: {cpu: "250m", memory: "256Mi"}
+      monitoring:
+        container:
+          defaultRequest: {cpu: "100m", memory: "128Mi"}
+          default: {cpu: "500m", memory: "512Mi"}
+          max: {cpu: "2", memory: "4Gi"}
+          min: {cpu: "50m", memory: "64Mi"}
+
+security_contexts:
+  rules:
+    - description: >
+        No container may run in privileged mode. Privileged mode grants
+        the container full access to the host, which is a critical
+        security risk.
+    - description: >
+        If a container requires binding to ports below 1024, it must
+        use the NET_BIND_SERVICE capability instead of privileged mode.
+        Only the specific required capability should be added.
+    - description: >
+        No pod may use hostNetwork, hostPID, or hostIPC.

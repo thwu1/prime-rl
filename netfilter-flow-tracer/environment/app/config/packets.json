@@ -1,0 +1,202 @@
+[
+  {
+    "id": 1,
+    "protocol": "tcp",
+    "src_ip": "1.1.1.1",
+    "src_port": 10001,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 2,
+    "protocol": "tcp",
+    "src_ip": "2.2.2.2",
+    "src_port": 10002,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 3,
+    "protocol": "udp",
+    "src_ip": "3.3.3.3",
+    "src_port": 10003,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 53,
+    "tcp_flags": [],
+    "size_bytes": 80
+  },
+  {
+    "id": 4,
+    "protocol": "tcp",
+    "src_ip": "4.4.4.4",
+    "src_port": 10004,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 5,
+    "protocol": "tcp",
+    "src_ip": "1.1.1.1",
+    "src_port": 10001,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["ACK"],
+    "size_bytes": 52
+  },
+  {
+    "id": 6,
+    "protocol": "tcp",
+    "src_ip": "192.168.1.5",
+    "src_port": 10005,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 22,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 7,
+    "protocol": "tcp",
+    "src_ip": "10.0.0.5",
+    "src_port": 10006,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 22,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 8,
+    "protocol": "tcp",
+    "src_ip": "5.5.5.5",
+    "src_port": 10007,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 443,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 9,
+    "protocol": "tcp",
+    "src_ip": "6.6.6.6",
+    "src_port": 10008,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 10,
+    "protocol": "tcp",
+    "src_ip": "7.7.7.7",
+    "src_port": 10009,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 11,
+    "protocol": "tcp",
+    "src_ip": "8.8.8.8",
+    "src_port": 10010,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 12,
+    "protocol": "tcp",
+    "src_ip": "9.9.9.9",
+    "src_port": 10011,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 13,
+    "protocol": "tcp",
+    "src_ip": "1.1.1.1",
+    "src_port": 10001,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["ACK"],
+    "size_bytes": 52
+  },
+  {
+    "id": 14,
+    "protocol": "tcp",
+    "src_ip": "10.10.10.10",
+    "src_port": 10012,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 15,
+    "protocol": "udp",
+    "src_ip": "11.11.11.11",
+    "src_port": 10013,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 53,
+    "tcp_flags": [],
+    "size_bytes": 80
+  },
+  {
+    "id": 16,
+    "protocol": "tcp",
+    "src_ip": "12.12.12.12",
+    "src_port": 10014,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 22,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 17,
+    "protocol": "tcp",
+    "src_ip": "5.5.5.5",
+    "src_port": 10007,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 443,
+    "tcp_flags": ["ACK"],
+    "size_bytes": 52
+  },
+  {
+    "id": 18,
+    "protocol": "tcp",
+    "src_ip": "13.13.13.13",
+    "src_port": 10015,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 8080,
+    "tcp_flags": ["SYN"],
+    "size_bytes": 60
+  },
+  {
+    "id": 19,
+    "protocol": "tcp",
+    "src_ip": "99.99.99.99",
+    "src_port": 10016,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 80,
+    "tcp_flags": ["ACK"],
+    "size_bytes": 52
+  },
+  {
+    "id": 20,
+    "protocol": "udp",
+    "src_ip": "14.14.14.14",
+    "src_port": 10017,
+    "dst_ip": "10.0.0.1",
+    "dst_port": 53,
+    "tcp_flags": [],
+    "size_bytes": 80
+  }
+]

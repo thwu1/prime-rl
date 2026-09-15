@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Linux netfilter internals: the precise ordering of iptables tables/chains relative to the conntrack subsystem (raw executes before conntrack, mangle after), conntrack table overflow semantics (silent drops between raw and mangle), the NOTRACK bypass mechanism, and the subtle interaction where packets dropped by iptables rules do not leave confirmed conntrack entries. The agent must also parse binary pcap files and apply their netfilter model correctly across six distinct scenarios."""
+solution_explanation = """The solution uses scapy to read pcap files and extract packet 5-tuples. For each packet it models kernel processing: (1) evaluate raw/PREROUTING, (2) if not NOTRACK, perform conntrack lookup/insert with capacity check, (3) evaluate mangle/PREROUTING, (4) evaluate filter/INPUT, (5) confirm or remove conntrack entries based on final verdict. The critical insight is maintaining confirmed vs unconfirmed entry state and correctly modeling conntrack-to-chain ordering."""
+verification_explanation = """Tests run the analyzer against 6 incidents covering: basic flow tracking, conntrack table overflow, NOTRACK bypass, DROP-without-confirmation (entries freed on DROP preventing overflow), mixed complex traffic with interleaved NOTRACK/DROP/overflow, and duplicate flow recognition. Each has deterministic expected outputs for chain counters, conntrack table size, drop counts, and per-packet verdicts, verified by exact comparison."""
+category = "systems"
+tags = ["networking", "linux-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netfilter-flow-simulator"

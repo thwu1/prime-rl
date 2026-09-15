@@ -1,0 +1,6 @@
+{
+  "models": [
+    {"id": "BA08s", "weight": 0.6},
+    {"id": "CY08s", "weight": 0.4}
+  ]
+}

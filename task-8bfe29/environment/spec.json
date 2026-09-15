@@ -1,0 +1,100 @@
+{
+  "title": "LABS Hamiltonian Framework Specification",
+  "version": "0.3-draft",
+  "problem": {
+    "name": "Low Autocorrelation Binary Sequences",
+    "abbreviation": "LABS",
+    "description": "Find binary sequences s in {+1,-1}^N that minimize the energy functional",
+    "objective": "minimize",
+    "complexity": "NP-hard, best classical heuristic scales as O(1.34^N)"
+  },
+  "definitions": {
+    "autocorrelation_coefficient": {
+      "symbol": "C_k",
+      "formula_latex": "C_k(s) = \\sum_{i=0}^{N-1-k} s_i \\cdot s_{i+k}",
+      "domain": "k = 1, 2, ..., N-1",
+      "note": "Measures correlation of the sequence with a k-shifted copy of itself"
+    },
+    "energy": {
+      "symbol": "E",
+      "formula_latex": "E(s) = \\sum_{k=1}^{N-1} C_k(s)^2",
+      "note": "Sum of squared autocorrelation coefficients; lower is better"
+    },
+    "merit_factor": {
+      "symbol": "F",
+      "formula_latex": "F(s) = \\frac{N^2}{2 E(s)}",
+      "note": "Reciprocal quality measure; higher is better. Undefined when E=0."
+    }
+  },
+  "hamiltonian_mapping": {
+    "description": "The LABS objective maps to a spin-glass Hamiltonian with multi-body interactions. The interaction index sets arise from the Trotterized counterdiabatic unitary over 0-indexed qubit positions.",
+    "two_body_interactions": {
+      "symbol": "G2",
+      "element_format": "[i, i+k]",
+      "ranges": {
+        "i": "0 to N-3",
+        "k": "1 to floor((N-1-i)/2)"
+      },
+      "note": "Each element is an index pair representing a 2-body ZZ interaction term"
+    },
+    "four_body_interactions": {
+      "symbol": "G4",
+      "element_format": "[i, i+t, i+k, i+k+t]",
+      "ranges": {
+        "i": "0 to N-4",
+        "t": "1 to floor((N-2-i)/2)",
+        "k": "t+1 to N-1-i-t"
+      },
+      "note": "Each element is an index quadruple representing a 4-body ZZZZ interaction"
+    },
+    "topology_overlaps": {
+      "description": "Invariants counting identical index sets within and between interaction groups",
+      "I_22": "self-overlap count within G2 (each distinct set counted once)",
+      "I_44": "self-overlap count within G4 (each distinct set counted once)",
+      "I_24": "cross-overlap: count of sets appearing in both G2 and G4 (matching by element equality)"
+    }
+  },
+  "counterdiabatic_schedule": {
+    "description": "Trigonometric annealing schedule for the counterdiabatic variational ansatz",
+    "annealing_function": {
+      "symbol": "lambda",
+      "formula_latex": "\\lambda(t) = \\sin^2\\left(\\frac{\\pi t}{2T}\\right)",
+      "note": "T is total_time; lambda sweeps from 0 to 1"
+    },
+    "annealing_derivative": {
+      "symbol": "dot_lambda",
+      "formula_latex": "\\dot{\\lambda}(t) = \\frac{\\pi}{2T} \\sin\\left(\\frac{\\pi t}{T}\\right)"
+    },
+    "variational_parameters": {
+      "Gamma1": {
+        "formula_latex": "\\Gamma_1 = 32|G2| + 256|G4|",
+        "note": "Numerator coefficient derived from first-order CD correction with h^x_i = 1"
+      },
+      "Gamma2": {
+        "formula_latex": "\\Gamma_2 = -256\\left[4\\lambda^2(4I_{24} + I_{22}) + 64\\lambda^2 I_{44} + 2|G2|\\lambda^2 + 4|G4|(16\\lambda^2 + 8(1-\\lambda)^2)\\right]",
+        "note": "Denominator coefficient; depends on schedule parameter lambda"
+      },
+      "alpha": {
+        "formula_latex": "\\alpha = -\\frac{\\Gamma_1}{\\Gamma_2}"
+      },
+      "theta": {
+        "formula_latex": "\\theta = \\Delta t \\cdot \\alpha \\cdot \\dot{\\lambda}",
+        "note": "dt is the discrete time step size"
+      }
+    }
+  },
+  "symmetries": {
+    "description": "Three involutory operations that preserve the LABS energy functional. They generate a symmetry group of order 8.",
+    "operations": {
+      "negation": "s_i -> -s_i for all i",
+      "reversal": "s_i -> s_{N-1-i}",
+      "alternating_inversion": "s_i -> (-1)^i s_i"
+    },
+    "group_order": 8,
+    "canonical_form": "The lexicographically smallest sequence among all images under the full symmetry group (compositions of all three operations and the identity)"
+  },
+  "incremental_energy_update": {
+    "description": "Efficient O(N) update for computing energy change when flipping a single position j. For each lag k, position j contributes to C_k through terms involving s[j]*s[j+k] (when j+k < N) and s[j-k]*s[j] (when j-k >= 0). Flipping s[j] negates each of these contributions, yielding delta_C_k = -2 times the sum of affected product terms.",
+    "returns": "tuple (delta_E, new_C) where delta_E = E_new - E_old and new_C is the updated autocorrelation vector"
+  }
+}

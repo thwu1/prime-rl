@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert reverse engineering of a stripped ELF binary containing a custom bytecode VM with multiple encryption schemes (fixed XOR, rolling-key XOR, NOT+XOR). Beyond analysis, the solver must design and implement a faithful standalone VM emulator as reusable tooling, then author original bytecode that runs correctly on their emulator under a size constraint — demonstrating both deep comprehension and creative synthesis of the discovered ISA. Combines static binary analysis, tool creation, and constrained programming in a non-standard instruction set."""
+solution_explanation = """Use radare2 to analyze the stripped binary, locate custom ELF sections (.vmcode, .vmdata), reverse-engineer the VM interpreter's switch-case dispatch to discover 11 opcodes, then: (1) document the full ISA including unused opcodes ADD and MOV, (2) emulate three distinct decryption loops to extract 4 config lines, (3) implement a standalone CLI emulator faithful to the binary's VM semantics, (4) hand-assemble 51 bytes of bytecode that outputs ANALYSIS_PASS using register-reuse optimization to stay within the 64-byte limit."""
+verification_explanation = """Tests verify: (1) opcodes.json has correct instruction sizes for all 11 opcodes including unused ones, (2) config_dump.txt lines match SHA-256 hashes, (3) the standalone emulator faithfully reproduces the binary's VM output when given the original bytecode and data sections extracted via objcopy, (4) the emulator running payload.bin with empty data produces exactly ANALYSIS_PASS, (5) payload.bin is at most 64 bytes."""
+category = "reverse_engineering"
+tags = ["radare2", "vm-obfuscation", "bytecode-authoring"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/firmware-config-extraction"

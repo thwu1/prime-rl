@@ -1,0 +1,21 @@
+thresholds:
+  energy_relative: 0.02
+  momentum_absolute: 0.5
+  overlap_distance: 0.001
+  velocity_discontinuity: 1.0
+  accel_rms_noise: 5.0
+  velocity_consistency: 0.1
+  angular_momentum_relative: 0.01
+
+scoring:
+  energy_penalty: 45
+  momentum_penalty: 45
+  interpenetration_per_frame: 2
+  interpenetration_cap: 55
+  jitter_penalty: 35
+  kinematic_penalty: 40
+  angular_momentum_penalty: 40
+
+output:
+  reports_dir: /app/reports
+  database_path: /app/results.db

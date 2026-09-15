@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of three CV annotation format internals. The agent must independently examine each dataset to discover structural differences: COCO annotations include polygon segmentations with zeroed bbox/area fields that require geometric computation to recover bounding boxes; VOC XML uses corner-coordinate conventions (xmin/ymin/xmax/ymax) that must be converted to COCO's x/y/w/h format; YOLO uses normalized center-based coordinates (cx, cy, w, h) requiring image-dimension-aware denormalization. None of these conversion requirements are stated in the instruction — the agent must inspect the source data, recognize annotation representation mismatches, and derive correct transformations. The label harmonization involves non-trivial many-to-one mappings (bus+truck→vehicle_large, traffic_light+stop_sign→traffic_signal) that must be correctly inferred from the schema. The format auto-detection requirement demands familiarity with datumaro's API surface (Environment.detect_dataset vs Dataset.detect vs Dataset.import_from, each with different return types across versions). The analytics require authoring non-trivial jq queries over nested COCO JSON: group_by with tostring for histograms, category ID resolution via variable binding for cross-category counting, and min/max aggregation by resolved category names. The agent must independently design a multi-tool pipeline (Python + shell + jq) and ensure cross-artifact consistency between COCO output, analytics, and audit report."""
+solution_explanation = """The solution uses a hybrid multi-tool pipeline: (1) Python with datumaro's Environment.detect_dataset() API auto-detects each source format (trying multiple API variants for version compatibility), saving results to format_detection.json; (2) Python reads COCO JSON (detecting polygon annotations by checking for zero bbox with populated segmentation, computing bbox from polygon vertex min/max), parses VOC XML, and denormalizes YOLO coordinates using PNG header dimensions; (3) Python applies many-to-one label mapping, quality filters (area + aspect ratio), tracks per-source statistics, and writes COCO instances JSON plus initial audit report; (4) Shell script orchestrates jq commands that compute analytics directly from the COCO output — annotations_per_image_histogram via group_by/tostring/group_by/map/add, large_annotation_count via select with area computation, cross_category_images via category ID resolution and per-image unique category counting, category_area_ranges via group_by with min/max; (5) jq merges analytics fields into the audit report."""
+verification_explanation = """Tests verify: (1) COCO output structure — exactly 5 unified categories sorted, 21 images, 38 annotations, valid category refs, no empty images, no duplicate IDs, required fields, non-zero bboxes; (2) quality filters enforced — no annotation below area threshold (500) or above aspect-ratio limit (6.0); (3) per-category counts match expected distribution including many-to-one mappings; (4) polygon conversion — cyclist from Alpha's polygon present with correct bbox dimensions, narrow person polygon correctly filtered; (5) data provenance — marker annotations from each source, many-to-one mappings verified; (6) audit report values match expected constants and COCO output; (7) pipeline artifacts — format_detection.json exists with correct format families (coco/voc/yolo via substring match), coco_analytics.json exists with exact expected values (histogram {1:6, 2:13, 3:2}, large_annotation_count=23, cross_category_images=15, per-category area ranges); (8) audit report analytics consistency — large_annotation_count, cross_category_images, and histogram in audit report match coco_analytics.json; (9) cross-report consistency — source contribution totals sum correctly, category counts sum to total."""
+category = "data_science"
+tags = ["computer_vision", "data_engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dataset-harmonization-pipeline"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must: (1) diagnose and fix three distinct C build system issues in a Makefile — missing -fPIC for position-independent code required by shared libraries, missing -lm for the math library linkage of sqrt(), and incorrect output filename that does not match the ctypes load path — requiring familiarity with gcc, shared library conventions, and linker error interpretation; (2) implement a complete Python ctypes FFI wrapper that maps C struct-returning functions to a Python class with full operator overloading (add, sub, mul, div, neg, sqrt, comparisons) including reverse operators for mixed CDual/float arithmetic; (3) implement elastic ball-ball collision response physics from first principles (collision normal computation, relative velocity projection, impulse application, overlap positional correction) and wall/cushion reflection with configurable coefficient of restitution, all compatible with dual-number gradient propagation; (4) design and implement two complete gradient-based optimizers (gradient descent with gradient clipping and Adam with momentum/bias correction), evaluate both on the same problem, and programmatically select the one achieving lower cost — a judgment that requires understanding optimizer convergence properties."""
+solution_explanation = """Fix the Makefile: add -fPIC to CFLAGS, rename the target from dual.so to libdual.so, append -lm to the link command. Compile with make. Implement CDual by loading the shared library, configuring ctypes argtypes/restype for all 12 C functions, and wrapping them in Python operators with scalar interop. Implement ball-ball elastic collisions in physics.py: compute normal, project relative velocity, apply symmetric impulse, correct overlap. Implement wall bounces: check each boundary accounting for radius, reflect position, scale velocity by -restitution. Implement GD (with gradient clipping at norm 50) and Adam optimizers, run both for 200 iterations, compare final costs, and write the winner's parameters to result.json."""
+verification_explanation = """Tests verify: (1) the C library loads and CDual arithmetic is correct — addition, multiplication, quotient rule through division, chain rule through sqrt composition, scalar interop on both sides, negation, and comparisons; (2) physics simulation produces correct dynamics — free-flight linearity, head-on elastic collision velocity swap, momentum conservation, wall bounces on all sides, energy loss from restitution; (3) dual-number gradients match finite-difference gradients within tolerance for a collision scenario; (4) result.json has all six required keys, the selected optimizer is the one with lower cost, final_cost < 4.0, and cross-validation re-simulation confirms the target ball reaches near the target location."""
+category = "scientific_computing"
+tags = ["differentiable_simulation", "ffi_toolchain"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/differentiable-billiard-optimization"

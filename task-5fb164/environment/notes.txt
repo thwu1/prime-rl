@@ -1,0 +1,8 @@
+Analysis completed 2024-10-15.
+Data loaded from SQLite database at /app/data/forecasts.db.
+Pipeline stages: sqlite3 extraction -> jq deduplication -> Python scoring.
+Applied five scoring models based on reference implementations in /app/reference/.
+Note: Risk-neutral trading returns appear unusually clustered near zero for all forecasters — may warrant investigation.
+Note: CRRA utility scoring was left as a stub (returns 0) — needs implementation using gamma from config.json.
+Some forecasters show nearly identical calibration scores — could be a data issue or coincidence.
+TODO: Review jq deduplication logic and data preprocessing steps for potential edge cases before publishing.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a spatially-distributed physically-based hydrology simulator coupled with a GDAL geospatial output pipeline: parsing ESRI ASCII Grid rasters and INI configuration; joining spatial raster data with parameter tables; deriving D8 flow direction and accumulation networks from a DEM; implementing coupled infiltration, interception, and surface flow routing with spatially varying soil and land-cover parameters; writing GeoTIFF output via GDAL Python bindings with correct geotransform and CRS; vectorizing flood extent to GeoJSON with coordinate reprojection from UTM to WGS84 via OGR/OSR; and maintaining closed water mass balance throughout. Demands expertise in computational hydrology, GDAL/OGR geospatial tooling, coordinate reference systems, and numerical methods."""
+solution_explanation = """The reference solution parses INI config with configparser, reads ESRI ASCII Grid rasters with a custom parser, loads CSV lookup tables, and joins per-cell type IDs to physical properties. It derives D8 flow directions from steepest-descent, computes flow accumulation via upstream-to-downstream traversal, then runs a timestep loop: interpolate rainfall, apply exponential-saturation canopy interception, Green-Ampt infiltration with Newton-Raphson solver, and route surface water via Manning's kinematic wave. For spatial outputs, it uses osgeo.gdal to write GeoTIFF files with geotransform derived from the ASC header and CRS from the config EPSG code via osr.SpatialReference. Flood extent is created by polygonizing a binary depth-threshold mask with gdal.Polygonize into an in-memory OGR layer, then reprojecting polygons from UTM to WGS84 using osr.CoordinateTransformation before writing as GeoJSON."""
+verification_explanation = """Tests verify: CSV output format and required variables; GeoTIFF metadata (geotransform matching input grid, CRS EPSG:32632 via osr.IsSame, correct dimensions, NODATA, GDAL readability via gdalinfo); flow direction validity (values 1-9, single outlet at lowest boundary cell, all flow downhill); flow accumulation consistency (all cells >= 1, outlet = total cells, per-cell accumulation equals 1 + sum of upstream neighbors); max depth plausibility (non-negative, positive values, < 1m, deepest in lower catchment); flood extent GeoJSON validity (FeatureCollection structure, features present, Polygon geometry, WGS84 coordinate range, gridcode property); total rainfall matches hyetograph integration (~33.75 mm); mass balance closure <1%; physical bounds (runoff coefficient, interception, infiltration); hydrograph shape (peak lag, recession, near-zero start); time series monotonicity; and infiltration dynamics."""
+category = "earth_environmental"
+tags = ["hydrology", "geospatial"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/catchment-water-balance"

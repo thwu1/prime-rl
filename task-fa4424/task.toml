@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of programming language semantics to design and implement a Lox-to-JavaScript transpiler. The solver must analyze the reference tree-walk interpreter (~1000 lines), architect a code generation strategy that bridges fundamental semantic gaps between Lox and JavaScript (truthiness, equality, type checking, class/inheritance models, closure scoping, error reporting), design a JavaScript runtime library, and produce a transpiler whose output is behaviorally identical to the reference interpreter across all language features including closures, classes with init/this/super, and precise error handling with correct exit codes."""
+solution_explanation = """Build a Python transpiler that reuses Lox's scanner/parser/resolver for the frontend, then walks the AST to emit JavaScript wrapped in a Lox runtime library. Key architectural decisions: (1) global variables stored in a _globals object with runtime undefined-variable checks, local variables as JS let declarations; (2) Lox classes mapped to LoxClass/LoxInstance runtime objects with method binding via JS .bind(); (3) all Lox operators wrapped in type-checking helper functions; (4) logical or/and implemented as IIFEs for short-circuit semantics with correct value propagation; (5) super references captured in closure variables per class definition scope; (6) init methods omit trailing return-null so the class constructor controls the return value."""
+verification_explanation = """32 pytest tests each run a Lox program through both the reference interpreter (python3 /app/lox.py) and the transpiler pipeline (python3 /app/lox2js.py | node), then compare stdout, stderr, and exit codes. Tests cover arithmetic, strings, scoping, closures, recursion, classes, inheritance, super, runtime errors, static analysis errors, truthiness, equality, logical operators, and number formatting."""
+category = "programming-languages"
+tags = ["transpiler", "code-generation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fa4424"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of RPKI certificate trust chains, CMS/PKCS#7 signed object verification, MRT TABLE_DUMP_V2 binary format parsing (RFC 6396), Route Origin Validation (RFC 6811), and ASPA upstream path verification. The agent must use OpenSSL CMS operations to cryptographically verify ROA objects against a trust anchor (detecting a rogue ROA signed by an untrusted CA), parse a binary MRT BGP routing table dump to extract prefixes, origin ASes, and full AS paths, implement ROV with correct prefix containment semantics and maxLength traps (e.g., a broad /8 ROA with maxLength=8 invalidates more-specific routes), implement ASPA upstream verification with AS path prepending normalization, and combine all results into a coherent security audit. No algorithm specifications are provided — the agent needs domain expertise in BGP security and RPKI standards."""
+solution_explanation = """The solution uses OpenSSL CMS verify with the trust anchor certificate to extract ROA payloads from DER-encoded CMS objects, rejecting one rogue ROA whose signer certificate chains to an untrusted CA. It manually parses the MRT TABLE_DUMP_V2 binary dump using Python struct to extract IPv4 and IPv6 prefixes with 4-byte AS paths. ROV uses Python ipaddress.subnet_of for prefix containment, checking maxLength constraints and origin AS matching. ASPA upstream verification deduplicates consecutive AS path entries, then checks each hop from origin toward neighbor: if the customer AS has ASPA records and the next-hop is not in its provider set, the path is Invalid; if no ASPA record exists, the hop contributes to Unknown. Policy combines both: REJECT if either is Invalid, ACCEPT otherwise."""
+verification_explanation = """Tests load the audit report JSON and verify: (1) ROA verification counts — exactly 10 valid and 1 invalid CMS object, with the rogue file identified. (2) All 20 route validations match expected ROV, ASPA, and policy values. (3) Specific edge cases: route 19 must be NotFound (only covered by rogue ROA, proving CMS chain-of-trust enforcement), routes with AS prepending must be normalized, IPv6 routes validate correctly, maxLength traps correctly produce Invalid, and ASPA route leak detection works for unauthorized transit ASes."""
+category = "networking"
+tags = ["rpki", "bgp-security"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rpki-route-validation"

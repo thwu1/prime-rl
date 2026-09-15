@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combined expertise in lithium-ion battery electrochemistry (understanding SPM vs SPMe model physics, electrode stoichiometry, voltage decomposition into kinetic/transport losses), PyBaMM's complex API (model instantiation, parameter modification for current setting, solution post-processing, internal variable extraction with undocumented naming conventions), and numerical methods (Savitzky-Golay smoothing for dQ/dV, robust peak detection, interpolation onto a common capacity grid, trapezoidal energy integration). The agent must discover correct variable names by exploring the model, handle solver events for voltage cutoff termination, and produce self-consistent results across five distinct analysis modes."""
+solution_explanation = """Use the pre-installed PyBaMM with the Chen2020 parameter set. Implement a pipeline that: (1) sets discharge current via the 'Current function [A]' parameter and solves over a time span sufficient for voltage cutoff, at 6 C-rates with both SPM and SPMe; (2) compares voltage curves on a common discharge-capacity basis using interpolation; (3) performs incremental capacity analysis using Savitzky-Golay smoothing and peak detection on the C/20 discharge; (4) identifies the critical C-rate where SPM error exceeds 10 mV RMS; (5) extracts voltage decomposition by reading OCV from model variables and computing overpotential as OCV minus terminal voltage; (6) integrates V*I over time for discharge energy comparison. Key challenges: correct PyBaMM API usage for galvanostatic discharge, finding internal variable names for OCV (e.g. 'Battery open-circuit voltage [V]'), robust numerical differentiation for ICA, and proper interpolation onto a shared capacity grid."""
+verification_explanation = """Tests verify: (1) correct JSON structure with all required keys and all 6 C-rates present; (2) physical plausibility — capacities near 5 Ah at low rates, non-negative errors, energies in 10–25 Wh range, OCV in 3.2–4.0 V at 50% DOD; (3) self-consistency — errors increase with C-rate, capacity decreases with rate, max error >= RMS error, overpotential positive during discharge; (4) critical C-rate is consistent with reported RMS errors; (5) ICA peaks within the cell's voltage window with at least one peak per model; (6) cross-validation via independent PyBaMM 1C discharge simulation to verify reported capacities."""
+category = "modeling_simulation"
+tags = ["battery-modeling", "electrochemistry"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c8475b"

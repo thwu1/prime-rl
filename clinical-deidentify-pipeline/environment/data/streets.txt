@@ -1,0 +1,8 @@
+# Street names appearing in corpus
+Oude Ebbingestraat
+Hoofdstraat
+Willemsplein
+Van Baerlestraat
+Keizersgracht
+De Boelelaan
+Dr. Molewaterplein

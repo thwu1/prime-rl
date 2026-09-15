@@ -1,0 +1,26 @@
+; FPCore benchmark expressions for floating-point accuracy recovery.
+; Each expression suffers severe accuracy loss in certain input regions.
+
+(FPCore (x)
+ :name "Second-order exp cancellation"
+ :pre (and (<= -50 x 50) (!= x 0))
+ :description "Near x=0, exp(x) approximates 1+x, so the numerator exp(x)-1-x loses all significant digits in float64. The cancellation is second-order: the leading two terms of the numerator vanish, leaving only higher-order residuals that are completely swamped by rounding error."
+ (/ (- (- (exp x) 1) x) (* x x)))
+
+(FPCore (x)
+ :name "Langevin function"
+ :pre (and (< 0 x) (<= x 10))
+ :description "The Langevin function L(x) = coth(x) - 1/x arises in polymer physics and magnetism. Both coth(x) and 1/x diverge as x approaches 0, but their difference converges to a finite value. Computing this as a difference of two large quantities destroys all significance near the origin."
+ (- (/ (+ (exp x) (exp (- x))) (- (exp x) (exp (- x)))) (/ 1 x)))
+
+(FPCore (x)
+ :name "Trigonometric indeterminate ratio"
+ :pre (and (< 0 x) (< x PI))
+ :description "Both the numerator sin(x)-x*cos(x) and the denominator x-sin(x) vanish as x approaches 0, creating a 0/0 indeterminate form whose limiting value is 2. In float64, both quantities become tiny near x=0 and are dominated by rounding error, making the ratio completely unreliable."
+ (/ (- (sin x) (* x (cos x))) (- x (sin x))))
+
+(FPCore (x y)
+ :name "Exponential difference quotient"
+ :pre (and (<= -50 x 50) (<= -50 y 50) (!= x y))
+ :description "The divided difference of the exponential function. When x is close to y, exp(x) and exp(y) are nearly equal, so their difference in the numerator is dominated by rounding error while x-y in the denominator is tiny, magnifying the error catastrophically."
+ (/ (- (exp x) (exp y)) (- x y)))

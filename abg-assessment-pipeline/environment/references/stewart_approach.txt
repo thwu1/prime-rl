@@ -1,0 +1,60 @@
+STRONG ION DIFFERENCE AND STEWART'S PHYSICOCHEMICAL APPROACH
+=============================================================
+
+The quantitative (physicochemical or Stewart) approach to acid-base chemistry
+was proposed by Canadian physiologist Peter Stewart in 1981. It provides a
+mathematical explanation of the relevant variables that control H+ in body
+fluids and their interactions.
+
+The Stewart approach shows that pH is not simply determined by [H+] and [HCO3-]
+(as in Henderson-Hasselbalch) but involves interactions of three independent
+variables: pCO2, ATOT (total weak non-volatile acids), and SID (net Strong Ion
+Difference).
+
+STRONG ION DIFFERENCE (SID)
+---------------------------
+Strong ions dissociate completely at physiological pH. In blood at pH 7.4:
+  Strong cations: Na+, K+, Ca2+, Mg2+
+  Strong anions: Cl-, SO42-
+
+SID = [strong cations] – [strong anions]
+
+Apparent SID (SIDa):
+  SIDa = (Na+ + K+ + Ca2+ + Mg2+) – (Cl- + L-lactate)
+
+Note: Ca2+ and Mg2+ are divalent ions. When concentrations are given in mmol/L,
+multiply by their valence (2) to convert to mEq/L for the SID calculation.
+
+Normal SIDa ≈ 42 mEq/L
+
+Effective SID (SIDe):
+  SIDe = [HCO3-] + [A-]
+
+where A- is the net negative charge contribution of weak acids (primarily
+albumin). The albumin charge varies with pH.
+
+The Figge-Fencl equation provides a linear approximation for the albumin
+contribution to A-:
+  A- ≈ [albumin](g/L) × f(pH)
+
+where f is a linear function of pH. This relationship can be derived
+empirically or found in Stewart acid-base physiology literature.
+
+STRONG ION GAP (SIG)
+--------------------
+  SIG = SIDa – SIDe
+
+SIG is analogous to the albumin-corrected anion gap but has the advantage of
+fewer unmeasured components. SIG is independent of pH, albumin, PO4, Ca, Mg.
+
+High SIG → increased unmeasured anions
+Low SIG → increased unmeasured cations
+
+ATOT
+----
+ATOT = total plasma concentration of inorganic phosphate, serum proteins, and
+albumin (weak non-volatile acids).
+  ATOT = [PiTOT] + [PrTOT] + [albumin]
+  Hypoproteinaemia = base excess
+
+Source: LITFL Critical Care Compendium — Strong Ion Difference (Chris Nickson)

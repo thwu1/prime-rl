@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["routers", "links"],
+  "properties": {
+    "routers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["router_id", "hostname", "interfaces"],
+        "properties": {
+          "router_id": {"type": "string"},
+          "hostname": {"type": "string"},
+          "interfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "network", "area", "network_type"],
+              "properties": {
+                "name": {"type": "string"},
+                "network": {"type": "string"},
+                "area": {"type": "string"},
+                "network_type": {
+                  "type": "string",
+                  "enum": ["broadcast", "point-to-point", "non-broadcast", "point-to-multipoint"]
+                },
+                "hello_interval": {"type": "integer"},
+                "dead_interval": {"type": "integer"},
+                "priority": {"type": "integer"},
+                "cost": {"type": "integer"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["network", "routers", "network_type", "area"],
+        "properties": {
+          "network": {"type": "string"},
+          "routers": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 2
+          },
+          "network_type": {"type": "string"},
+          "area": {"type": "string"}
+        }
+      }
+    }
+  }
+}

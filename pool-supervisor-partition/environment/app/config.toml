@@ -1,0 +1,19 @@
+# Connection pool supervisor configuration
+# Read by supervisor.py at startup
+
+[pool]
+name = "voice-pool"
+max_connections = 500
+connection_timeout = 5.0
+
+[partitioning]
+enabled = false
+num_partitions = 1
+hash_algorithm = "md5"
+
+[priority]
+dedicated_partition = false
+
+[telemetry]
+enabled = true
+db_path = "/app/telemetry.db"

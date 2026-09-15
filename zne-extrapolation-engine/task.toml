@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical computing: implementing polynomial interpolation for Richardson extrapolation with numerical stability for high-degree fits, three-parameter nonlinear exponential curve fitting with robust convergence (proper initial guesses and fallback strategies), a generalized polynomial-exponential hybrid model involving asymptote estimation and multi-stage fitting, and designing a model selection strategy that reliably discriminates between polynomial and exponential noise profiles. The agent must independently determine appropriate numerical algorithms, handle optimization convergence issues, and architect a cross-validation scheme — none of which are specified in the instructions."""
+solution_explanation = """RichardsonFactory uses numpy.polyfit with degree n-1 polynomial interpolation. ExpFactory uses scipy.optimize.curve_fit with a three-parameter exponential model and data-driven initial parameter estimation. PolyExpFactory uses a two-stage approach: exponential pre-fit for asymptote, then either direct nonlinear fit with polynomial-in-exponent or log-linearization fallback. Model selection uses leave-one-out cross-validation across all factories, selecting the one with lowest mean squared prediction error."""
+verification_explanation = """Tests verify: (1) each factory individually on synthetic data with known ground truth and tight tolerances, (2) Richardson gives machine-precision results on polynomial data, (3) ExpFactory converges on pure exponential data, (4) PolyExpFactory handles polynomial-exponential mixtures, (5) the full pipeline produces results.json with correct extrapolated values within specified tolerances, (6) model selection picks appropriate factories for each noise profile type."""
+category = "science"
+tags = ["quantum-computing", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/zne-extrapolation-engine"

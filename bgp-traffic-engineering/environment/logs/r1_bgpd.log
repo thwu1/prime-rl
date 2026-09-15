@@ -1,0 +1,16 @@
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.0.12.2 (AS65002)
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.0.14.2 (AS65003)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.0.12.2 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.0.14.2 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:04 BGP: [DWHJZ] 10.0.12.2 [FSM] TCP_connection_open (Connect -> OpenSent)
+2024/01/15 10:00:04 BGP: [DWHJZ] 10.0.12.2 [FSM] BGP_Open_Rcvd (OpenSent -> OpenConfirm)
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.0.12.2 [FSM] BGP_Keepalive_Rcvd (OpenConfirm -> Established)
+2024/01/15 10:00:05 BGP: [KYHQX] %ADJCHANGE: neighbor 10.0.12.2 (AS65002) Up
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.0.14.2 [Event] Connect to 10.0.14.2 fd 24 - TCP connection established
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.0.14.2 [FSM] TCP_connection_open (Connect -> OpenSent)
+2024/01/15 10:00:05 BGP: [PYBMN] 10.0.14.2 [Event] Received NOTIFICATION 6/5 (Cease/Connection Rejected) from peer
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.0.14.2 [FSM] BGP_Stop (OpenSent -> Idle)
+2024/01/15 10:00:35 BGP: [DWHJZ] 10.0.14.2 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:36 BGP: [DWHJZ] 10.0.14.2 [Event] Connect to 10.0.14.2 - TCP connection established
+2024/01/15 10:00:36 BGP: [PYBMN] 10.0.14.2 [Event] Received NOTIFICATION 6/5 (Cease/Connection Rejected) from peer
+2024/01/15 10:00:36 BGP: [DWHJZ] 10.0.14.2 [FSM] BGP_Stop (OpenSent -> Idle)

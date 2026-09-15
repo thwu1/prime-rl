@@ -1,0 +1,27 @@
+C Compiler Conformance Test Suite — Required Additional Tests
+=============================================================
+
+The following test programs must be added to /app/tests/.
+Each test must use the harness.h macros (TEST_INIT, TEST_VERIFY, TEST_RESULT)
+and must pass when compiled with both gcc and clang at -O0 and -O2 using
+-std=c11 -I/app.
+
+1. t_generic.c — C11 _Generic selection (ISO/IEC 9899:2011 Section 6.5.1.1)
+   Must test type-based dispatch using _Generic with at least int, double,
+   and char* controlling expressions. Must verify correct selection at
+   runtime using function calls or macro expansion.
+
+2. t_alignof.c — C11 _Alignof operator (ISO/IEC 9899:2011 Section 6.5.3.4)
+   Must verify _Alignof for at least: char, int, double, long long,
+   and a struct with mixed-type members. Must verify that struct alignment
+   is at least as large as the alignment of its most-aligned member.
+
+3. t_bool.c — C99 _Bool type (ISO/IEC 9899:1999 Section 6.3.1.2)
+   Must test _Bool conversion semantics: any non-zero scalar converts to 1,
+   zero converts to 0. Must test with integer, floating-point, and
+   pointer sources.
+
+4. t_variadic.c — C99 variadic functions (ISO/IEC 9899:1999 Section 7.15)
+   Must implement and test a variadic function that accepts mixed types
+   (at least int, double, and const char*). Must verify correct value
+   retrieval using va_start, va_arg, va_end.

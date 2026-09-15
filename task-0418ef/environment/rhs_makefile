@@ -1,0 +1,13 @@
+CC = gcc
+CFLAGS = -O2 -fPIC -Wall
+TARGET = librhs.so
+
+all: $(TARGET)
+
+$(TARGET): brusselator.c
+	$(CC) $(CFLAGS) -shared -o $@ $< -lm
+
+clean:
+	rm -f $(TARGET)
+
+.PHONY: all clean

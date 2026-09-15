@@ -1,0 +1,51 @@
+{
+  "analysis": "Maximum Covariance Analysis with Varimax rotation and Monte Carlo significance testing",
+
+  "preprocessing": {
+    "centering": "Remove temporal mean at each spatial grid point: X_centered(t,s) = X(t,s) - mean_t(X(t,s))",
+    "area_weighting": "Multiply by sqrt(cos(lat_radians)) to account for meridian convergence on a spherical grid",
+    "nan_handling": "After centering and weighting, flatten spatial dims to (time, features) and exclude any feature column containing one or more NaN values",
+    "note": "Preprocess both fields X and Y independently using the same procedure"
+  },
+
+  "decomposition": {
+    "cross_covariance": "C = X^T Y / (n - 1), where n is the number of time steps (Bessel-corrected sample cross-covariance)",
+    "svd": "Truncated SVD of C, retaining n_modes = 6 leading triplets (U, S, V)",
+    "scf": "Squared Covariance Fraction for mode k: scf_k = s_k^2 / sum_over_all_i(s_i^2), where the denominator sums ALL singular values from the full SVD, not just the retained modes"
+  },
+
+  "rotation": {
+    "method": "Varimax (Kaiser 1958) via pairwise Jacobi rotations",
+    "input": "Concatenated loading matrix L = [U * sqrt(S) ; V * sqrt(S)], shape (n_features_x + n_features_y, n_modes)",
+    "criterion": "Maximize sum of variances of squared loadings across components",
+    "angle_formula": "For column pair (i,j): let u = L[:,i]^2 - L[:,j]^2, v = 2*L[:,i]*L[:,j], A=sum(u), B=sum(v), C=sum(u^2 - v^2), D=sum(2*u*v); then theta = 0.25 * arctan2(D - 2*A*B/p, C - (A^2 - B^2)/p) where p = number of rows in L",
+    "convergence": {"tolerance": 1e-8, "max_iterations": 1000}
+  },
+
+  "significance_test": {
+    "method": "Monte Carlo permutation test on pre-rotation squared covariances",
+    "n_permutations": 500,
+    "rng": "numpy.random.default_rng(seed=2024)",
+    "procedure": "For each permutation: randomly permute the time dimension of preprocessed Y (keeping X fixed), recompute cross-covariance SVD, record the 6 leading squared singular values (s_k^2). This builds a null distribution of squared covariance per mode under the hypothesis of no temporal coupling.",
+    "p_value": "p_k = (count(null_sv_k^2 >= observed_sv_k^2) + 1) / (n_permutations + 1)",
+    "threshold": 0.05,
+    "note": "The test statistic is the squared singular value (absolute squared covariance per mode), NOT the squared covariance fraction. Using SCF as the test statistic is incorrect because normalizing by the total squared covariance (which differs between observed and null) inflates the null fraction and destroys statistical power."
+  },
+
+  "output_schema": {
+    "file": "/app/results.json",
+    "fields": {
+      "n_samples": "int: number of time steps",
+      "n_features_x": "int: number of valid (non-NaN) spatial features in field X",
+      "n_features_y": "int: number of valid (non-NaN) spatial features in field Y",
+      "singular_values": "list of 6 floats: leading singular values of C, in descending order",
+      "scf": "list of 6 floats: squared covariance fractions for the 6 retained modes, same order as singular_values",
+      "rotation_matrix": "list of 6 lists of 6 floats: the orthogonal rotation matrix R applied to loadings",
+      "rotated_variance_fraction": "list of 6 floats: fraction of total rotated variance per mode, sorted in descending order",
+      "cross_correlations": "list of 6 floats: Pearson correlation between X and Y expansion coefficients for each rotated mode (same order as rotated_variance_fraction)",
+      "permutation_p_values": "list of 6 floats: p-values from permutation test in pre-rotation mode order (mode 1 = largest singular value)",
+      "n_significant_modes": "int: count of modes where p < 0.05",
+      "significant_modes": "list of 6 bools: per-mode significance determination (p < 0.05), in pre-rotation mode order"
+    }
+  }
+}

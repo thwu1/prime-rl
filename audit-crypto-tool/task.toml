@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level applied cryptography knowledge to identify 4 subtle vulnerabilities in a C program that appears to work correctly: (1) recognizing that BLAKE2b is inappropriate for password-based KDF and that Argon2id via crypto_pwhash is required, (2) understanding that deterministic nonces derived from the key break IND-CPA security under XSalsa20, (3) noticing that a MAC verification failure is logged as a warning but not enforced — a subtle pattern where the check exists but the error isn't propagated, (4) understanding that crypto_stream_xor provides no authentication and must be replaced with crypto_secretstream_xchacha20poly1305 for the chunked path. Fixing bug 4 requires implementing a correct secretstream-based chunked encryption/decryption loop with proper TAG_FINAL handling."""
+solution_explanation = """The solution reads the buggy source and applies 4 targeted patches: (1) replaces crypto_generichash-based KDF with crypto_pwhash using Argon2id (OPSLIMIT_MODERATE/MEMLIMIT_MODERATE), (2) replaces deterministic nonce derivation with randombytes_buf(), (3) changes the MAC verification from a warning-only path to a hard error that returns -1 and frees the output buffer, (4) replaces crypto_stream_xor in encrypt_large/decrypt_large with a full crypto_secretstream_xchacha20poly1305 implementation using chunked push/pull with TAG_MESSAGE and TAG_FINAL. It also adds error handling for pwhash failures in cmd_encrypt and cmd_decrypt, then recompiles."""
+verification_explanation = """10 pytest tests verify both functional correctness and security properties: round-trip tests for small files (keyfile and password modes) and large files ensure the fixed tool still works; a timing test verifies password-based encryption takes >100ms (indicating Argon2id, not fast hash); nonce uniqueness tests verify two encryptions of the same data with the same key produce different ciphertexts; MAC verification tests corrupt ciphertexts and verify decryption fails; a large-file authentication test corrupts encrypted data and verifies the tampering is detected; a wrong-password test verifies decryption fails rather than producing garbage."""
+category = "security"
+tags = ["cryptography", "libsodium", "code-audit", "c-programming"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/audit-crypto-tool"

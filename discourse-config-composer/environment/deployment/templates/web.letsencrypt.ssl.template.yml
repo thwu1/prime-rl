@@ -1,0 +1,7 @@
+env:
+  LETSENCRYPT_DIR: "/shared/letsencrypt"
+
+hooks:
+  after_ssl:
+    - exec:
+        cmd: echo "Lets Encrypt template applied"

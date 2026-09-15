@@ -1,0 +1,123 @@
+{
+  "cases": [
+    {
+      "name": "seg_perfect",
+      "task": "lesion_segmentation",
+      "description": "Perfect predictions matching ground truth exactly",
+      "images": {
+        "img000": {"gt": [[255, 0], [0, 0]], "pred": [[255, 0], [0, 0]]},
+        "img001": {"gt": [[0, 255], [255, 255]], "pred": [[0, 255], [255, 255]]}
+      },
+      "lesion_types": ["MA", "HE", "SE", "EX"],
+      "expected": {"MA_AUPR": 1.0, "HE_AUPR": 1.0, "SE_AUPR": 1.0, "EX_AUPR": 1.0, "mean_AUPR": 1.0},
+      "tolerance": 1e-4
+    },
+    {
+      "name": "seg_diagnostic",
+      "task": "lesion_segmentation",
+      "description": "Multi-image diagnostic case for aggregation and curve construction verification",
+      "images": {
+        "img000": {"gt": [[255, 0], [0, 0]], "pred": [[255, 255], [0, 0]]},
+        "img001": {"gt": [[255, 255], [255, 255]], "pred": [[255, 255], [255, 0]]}
+      },
+      "lesion_types": ["MA", "HE", "SE", "EX"],
+      "expected": {"MA_AUPR": 0.8625, "HE_AUPR": 0.8625, "SE_AUPR": 0.8625, "EX_AUPR": 0.8625, "mean_AUPR": 0.8625},
+      "tolerance": 1e-4
+    },
+    {
+      "name": "seg_zero_pred",
+      "task": "lesion_segmentation",
+      "description": "All-zero predictions against non-zero ground truth",
+      "images": {
+        "img000": {"gt": [[255, 255], [0, 0]], "pred": [[0, 0], [0, 0]]}
+      },
+      "lesion_types": ["MA", "HE", "SE", "EX"],
+      "expected": {"MA_AUPR": 0.75, "HE_AUPR": 0.75, "SE_AUPR": 0.75, "EX_AUPR": 0.75, "mean_AUPR": 0.75},
+      "tolerance": 1e-4
+    },
+    {
+      "name": "seg_zero_gt",
+      "task": "lesion_segmentation",
+      "description": "All-zero ground truth with non-zero predictions",
+      "images": {
+        "img000": {"gt": [[0, 0], [0, 0]], "pred": [[128, 64], [32, 0]]}
+      },
+      "lesion_types": ["MA", "HE", "SE", "EX"],
+      "expected": {"MA_AUPR": 0.0, "HE_AUPR": 0.0, "SE_AUPR": 0.0, "EX_AUPR": 0.0, "mean_AUPR": 0.0},
+      "tolerance": 1e-6
+    },
+    {
+      "name": "grade_manual",
+      "task": "disease_grading",
+      "description": "Hand-crafted grading data with known accuracies",
+      "gt_rows": [
+        ["img001", 0, 0], ["img002", 2, 1], ["img003", 4, 2], ["img004", 1, 0]
+      ],
+      "pred_rows": [
+        ["img001", 0, 0], ["img002", 2, 0], ["img003", 3, 2], ["img004", 1, 1]
+      ],
+      "expected": {"DR_accuracy": 0.75, "DME_accuracy": 0.5, "combined_accuracy": 0.25},
+      "tolerance": 1e-6
+    },
+    {
+      "name": "loc_manual",
+      "task": "localization",
+      "description": "Hand-crafted localization data with 3-4-5 triangle distances",
+      "gt_rows": [
+        ["img001", 100.0, 200.0, 300.0, 400.0],
+        ["img002", 150.0, 250.0, 350.0, 450.0]
+      ],
+      "pred_rows": [
+        ["img001", 103.0, 204.0, 300.0, 400.0],
+        ["img002", 150.0, 250.0, 353.0, 454.0]
+      ],
+      "expected": {"OD_mean_euclidean": 2.5, "fovea_mean_euclidean": 2.5},
+      "tolerance": 1e-6
+    },
+    {
+      "name": "grade_unknown_id",
+      "task": "disease_grading",
+      "description": "Predictions with image ID not in ground truth should fail",
+      "gt_rows": [["img001", 0, 0]],
+      "pred_rows": [["img001", 0, 0], ["img999", 1, 1]],
+      "expected_exit_code": 1
+    }
+  ],
+  "generator_tests": [
+    {
+      "name": "gen_seg_runs",
+      "task": "lesion_segmentation",
+      "num_images": 3,
+      "seed": 42,
+      "noise_level": 0.0
+    },
+    {
+      "name": "gen_grade_runs",
+      "task": "disease_grading",
+      "num_images": 10,
+      "seed": 42,
+      "noise_level": 0.0
+    },
+    {
+      "name": "gen_loc_runs",
+      "task": "localization",
+      "num_images": 10,
+      "seed": 42,
+      "noise_level": 0.0
+    },
+    {
+      "name": "gen_grade_deterministic",
+      "task": "disease_grading",
+      "num_images": 10,
+      "seed": 99,
+      "noise_level": 0.3
+    },
+    {
+      "name": "gen_seg_deterministic",
+      "task": "lesion_segmentation",
+      "num_images": 3,
+      "seed": 99,
+      "noise_level": 0.2
+    }
+  ]
+}

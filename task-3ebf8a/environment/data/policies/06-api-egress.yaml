@@ -1,0 +1,35 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "api-egress"
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: api
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        tier: data
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        tier: cache
+    toPorts:
+    - ports:
+      - port: "6379"
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        tier: web
+    toPorts:
+    - ports:
+      - port: "3000"
+        protocol: TCP
+  egressDeny:
+  - toCIDRSet:
+    - cidr: 0.0.0.0/0
+      except:
+      - 10.0.0.0/8

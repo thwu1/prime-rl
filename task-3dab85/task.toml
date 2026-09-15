@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four distinct data quality issues in TREC run files (duplicate entries, 0-indexed ranks, score-rank inversions, zero-padded query IDs) without being told what the problems are. The agent must understand multi-graded relevance semantics, implement or use seven standard IR evaluation metrics matching trec_eval conventions (nDCG with graded gains, MAP, reciprocal rank, recall at multiple cutoffs), choose and implement a rank fusion strategy to produce a combined system that outperforms all individuals, and apply appropriate paired statistical significance testing. Demands expert-level IR domain knowledge, multi-tool proficiency (TREC format parsing, evaluation tools, statistical libraries), and strategic decision-making about cleaning approaches and fusion methods."""
+solution_explanation = """Parse each run file and detect issues: alpha has duplicate documents per query, beta has 0-indexed ranks, gamma has score-rank inversion in 12 queries, delta has zero-padded query IDs, epsilon is clean. Apply universal cleaning: normalize qids, deduplicate keeping first occurrence, re-sort by descending score, assign contiguous 1-indexed ranks. Evaluate each cleaned run with 7 standard metrics (nDCG@10/100/1000, MAP, RR, Recall@100/1000). Implement RRF fusion sweeping k=1..100, optimize mean nDCG@10, produce combined TREC run file. Run Wilcoxon signed-rank test comparing each system to the combined on per-query nDCG@10."""
+verification_explanation = """Tests independently load agent's cleaned runs and recompute all 7 metrics from scratch, comparing per-query and mean values within 1e-4 tolerance. Validates cleaned run format (6 columns, no duplicates, 1-indexed ranks, descending scores, all queries present). Checks diagnostics.json contains keywords identifying each corruption. Independently evaluates the combined run and verifies it beats all individual systems on nDCG@10. Recomputes paired significance tests (both t-test and Wilcoxon) and verifies agent's significance decisions agree with at least one reference."""
+category = "information_retrieval"
+tags = ["evaluation", "data-quality"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3dab85"

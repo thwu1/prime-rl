@@ -1,0 +1,32 @@
+{
+  "vsId": 1002,
+  "algorithm": "HMAC-SHA2-256",
+  "revision": "2.0",
+  "testGroups": [
+    {
+      "tgId": 1,
+      "tests": [
+        {
+          "tcId": 1,
+          "mac": "685351A45C1978502DEED3B0"
+        },
+        {
+          "tcId": 2,
+          "mac": "8BA99CC00C0C58467C5D12E7F8EC52C3"
+        },
+        {
+          "tcId": 3,
+          "mac": "A124F6333A561C3D62DFCF81E5165316E0FAB906"
+        },
+        {
+          "tcId": 4,
+          "mac": "55DF114072FE4439609E0E"
+        },
+        {
+          "tcId": 5,
+          "mac": "25D19E9E8352944D76A648C98231"
+        }
+      ]
+    }
+  ]
+}

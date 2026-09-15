@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete method inheritance traversal algorithm from a formal specification (JLS 8.4.6), then using it to create correct implementations for six override-checking rules (9-14). The effective method computation must handle cycle-safe recursion, diamond inheritance deduplication by originating declaration, and transitive traversal of both extends and implements relationships. Beyond the creation work, the solver must evaluate existing SQL views, Python rule implementations, and a jq postprocessor for correctness bugs that are not flagged — the SQL v_hierarchy_edges view uses the wrong relation type for interface edges, the rule 7 duplicate-method check omits parameter types from the grouping (causing false positives on overloaded methods), and the postprocessor deduplicates by type alone instead of by (type, rule) pair (silently dropping multi-rule violations). The bugs, missing implementations, and spec-driven design span three tool domains (SQL, Python, shell/jq) and require iterative testing via a Make-orchestrated pipeline."""
+solution_explanation = """Three bugs to fix plus full implementation of rules 9-14: (1) SQL: v_hierarchy_edges uses relation='implements' for interfaces instead of 'extends', breaking interface cycle detection. (2) Python Rule 7: GROUP BY omits parameter_types, flagging overloaded methods as duplicates. (3) jq: unique_by(.type) drops multi-rule violations per type; fix to unique_by([.type, .rule]). For the creation work: implement compute_effective_methods to recursively collect methods from ALL inheritance relationships (extends+implements), with cycle guards, diamond deduplication by declared_in origin, and declared-method-replaces-inherited semantics. Then implement rules 9-14 using the effective method set: Rule 9 (conflicting inherited return types when no local declaration resolves), Rule 10 (concrete class containing abstract methods via effective set), Rules 11-14 (check each declared method against ALL inherited methods with matching signature for static/non-static conflicts, return type mismatches, access narrowing, and final method replacement)."""
+verification_explanation = """Tests verify static correctness (all 26 expected violations present including multi-rule types like errors.NarrowReturn with rules 12+13, no false positives on 16 valid types including overload-heavy app.DataStore), pipeline integrity (sql_violations.json contains only rules 1-5, py_violations.json only rules 6-14), and dynamic behavior (inserting new types into DB and re-running the full Make pipeline to verify abstract obligations, interface cycles, valid type handling, overloaded method acceptance, transitive final detection, and multi-violation deduplication). Dynamic tests prevent hardcoded solutions."""
+category = "compilers"
+tags = ["type-systems", "algorithm-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-705d54"

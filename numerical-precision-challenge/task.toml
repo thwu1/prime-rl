@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in numerical analysis across three distinct domains: (1) oscillatory integration using Lambert W function zero-finding and specialized quadrature, (2) large-scale sparse linear algebra with prime number generation and Fibonacci-structured banded matrices, and (3) series acceleration for conditionally convergent alternating series with sub-logarithmic decay. The solver must also explore and parse a multi-file challenge specification (JSON configs, markdown specs, data files) to discover problem definitions, parameters, and output locations before any computation begins."""
+solution_explanation = """The solver first reads /app/challenge.json to discover three problems, then reads spec files under /app/specs/ and data files under /app/data/ to extract parameters and formulations. Problem 1 uses mpmath's quadosc with Lambert W to locate integrand zeros for efficient oscillatory integration with parameters from integral_params.json; Problem 2 reads matrix_config.json to construct a 5000x5000 sparse matrix (primes on diagonal, 1s at Fibonacci offsets) and applies scipy sparse direct solve; Problem 3 reads series_def.json and uses mpmath's nsum with Shanks acceleration for the slowly convergent alternating series."""
+verification_explanation = """Tests read the agent's output files at /app/results/ and compare each value against pre-computed reference answers (verified to 15+ significant digits) using relative error with a threshold of 5e-10, ensuring at least 9-10 significant digits of agreement."""
+category = "numerical_analysis"
+tags = ["high-precision-computing", "scientific-computing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/numerical-precision-challenge"

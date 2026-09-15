@@ -1,0 +1,30 @@
+=== Run log - 2024-11-20 ===
+
+Building solver:
+$ cd /app/src && make
+gcc -O2 -Wall -o solver solver.c
+
+Attempt to run on set_a.dat:
+$ ./solver ../benchmarks/set_a.dat
+Error: failed to read puzzle count from input
+
+Attempt to run on set_b.txt:
+$ ./solver ../benchmarks/set_b.txt
+Error: failed to read puzzle count from input
+
+Manual reformatting test (single easy instance):
+$ echo "1" > /tmp/easy.txt && echo "4 1 2 3 5 0 6 7 8 9 10 11 12 13 14 15" >> /tmp/easy.txt
+$ ./solver /tmp/easy.txt
+Puzzle 1: 2 moves: D L
+
+Harder instance test (Korf #1):
+$ echo "1" > /tmp/hard.txt && echo "14 13 15 7 11 12 9 5 6 0 2 1 4 8 10 3" >> /tmp/hard.txt
+$ ./solver /tmp/hard.txt
+Puzzle 1: TIMEOUT after 30s (last threshold=56)
+
+Korf #79 test:
+$ echo "1" > /tmp/med.txt && echo "0 1 9 7 11 13 5 3 14 12 4 2 8 6 10 15" >> /tmp/med.txt
+$ ./solver /tmp/med.txt
+Puzzle 1: 42 moves: D D R U U L D D R R U L U L D D R R U U L L D R D R U U L L D D R U R R D L U R U U
+
+Notes: Solver handles easy/medium instances but can't finish the hard ones in 30s.

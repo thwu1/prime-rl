@@ -1,0 +1,85 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:cond-patient-existing",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-12345"
+          }
+        ],
+        "name": [
+          {
+            "family": "Doe",
+            "given": ["John"]
+          }
+        ],
+        "gender": "male"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Patient",
+        "ifNoneExist": "identifier=http://hospital.example.org/mrn|MRN-12345"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:cond-patient-new",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-AAAAA"
+          }
+        ],
+        "name": [
+          {
+            "family": "NewPatient",
+            "given": ["Test"]
+          }
+        ],
+        "gender": "female"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Patient",
+        "ifNoneExist": "identifier=http://hospital.example.org/mrn|MRN-AAAAA"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-1",
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-12345"
+          }
+        ],
+        "name": [
+          {
+            "family": "Doe",
+            "given": ["John"]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1985-03-15",
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "555-0123"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/patient-1",
+        "ifMatch": "W/\"1\""
+      }
+    }
+  ]
+}

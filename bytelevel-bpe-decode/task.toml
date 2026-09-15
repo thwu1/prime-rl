@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a subtle Unicode corruption bug in a ByteLevel BPE decode pipeline by reading unfamiliar Rust source code, compiling and using a C hash validator, and synthesizing understanding of the GPT-2 byte encoding scheme, UTF-8 internals, and the tokenizer pipeline's handling of multiple added-token categories (normalized, non-normalized, special). The solver must independently discover why the buggy decoder corrupts specific characters, determine the correct treatment for each token type, implement proper byte-buffer management across token boundaries, and then build a separate vulnerability auditor that reasons about which token configurations make the corruption unrecoverable — all without any tokenizer library."""
+solution_explanation = """The solver must: (1) study the Rust reference source and tokenizer.json to understand the bytes_char() mapping (printable bytes keep their codepoint, non-printable are offset to U+0100+), (2) diagnose the buggy decoder's failure — it naively maps added-token content characters through the inverse mapping, causing characters like 'č' (U+010D) to map to byte 0x0D because chr(0x010D) is in the inverse map as the encoding of byte 0x0D, (3) implement correct handling: normalized added tokens need their UTF-8 bytes re-encoded through bytes_char first, non-normalized tokens pass through directly, special tokens are skipped, and regular tokens need byte accumulation with proper UTF-8 flushing, (4) build the auditor by checking each added-token character: if the character's codepoint maps to a byte via the inverse mapping but the character's actual UTF-8 encoding differs from that single byte, it is hazardous; risk is 'high' when normalized=false (unrecoverable) and 'low' when normalized=true (a correct decoder can handle it)."""
+verification_explanation = """Tests run decode.py and audit.py, then verify: all 18 decoded sequences match expected plaintext (including mixed-mode sequences with interleaved normalized/non-normalized/special tokens), no control characters appear in added-token decodes, danger-zone Unicode characters (č ć đ Ł ï é) survive the round-trip, the audit report identifies exactly 7 hazardous tokens with correct character lists and risk levels, and no tokenizer libraries are imported."""
+category = "natural_language_processing"
+tags = ["bpe-tokenization", "unicode-debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bytelevel-bpe-decode"

@@ -1,0 +1,26 @@
+{
+  "description": "GCR proton omnidirectional flux spectra at various heliocentric distances and solar modulation states. Units: protons/cm²/s (group-integrated over each energy bin).",
+  "energy_group_boundaries_MeV": [10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0, 30000.0, 100000.0],
+  "environments": {
+    "gcr_1au_avg": {
+      "description": "GCR at 1 AU, averaged solar modulation (between solar min and max)",
+      "flux_protons_per_cm2_s": [3.2, 12.5, 22.0, 24.0, 10.5, 3.0, 0.5, 0.06]
+    },
+    "gcr_1au_min": {
+      "description": "GCR at 1 AU, solar minimum (maximum GCR intensity, 1.4x average)",
+      "flux_protons_per_cm2_s": [4.48, 17.5, 30.8, 33.6, 14.7, 4.2, 0.7, 0.084]
+    },
+    "gcr_1au_max": {
+      "description": "GCR at 1 AU, solar maximum (minimum GCR intensity, 0.6x average)",
+      "flux_protons_per_cm2_s": [1.92, 7.5, 13.2, 14.4, 6.3, 1.8, 0.3, 0.036]
+    },
+    "gcr_1_5au": {
+      "description": "GCR at 1.5 AU (Mars orbit), averaged solar modulation (1.15x 1AU average)",
+      "flux_protons_per_cm2_s": [3.68, 14.375, 25.3, 27.6, 12.075, 3.45, 0.575, 0.069]
+    }
+  },
+  "spe_event": {
+    "description": "Solar Particle Event integrated fluence (single impulsive event). Units: protons/cm² (total fluence, not rate). Much softer spectrum than GCR.",
+    "fluence_protons_per_cm2": [5.0e7, 2.0e7, 5.0e6, 1.0e6, 1.0e5, 5.0e3, 1.0e2, 1.0]
+  }
+}

@@ -1,0 +1,5 @@
+% Excluded Diagonals Problem
+% 8x8 board with main diagonal excluded
+n=8
+D+ = {0}
+D- = {}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must diagnose why a working TCP simulator fails under lossy conditions, discover which subsystems are missing or stubbed, and independently choose and implement the correct algorithms for reliable transport — retransmission timeout estimation, congestion window management, out-of-order reassembly, and timer-driven retransmission — then integrate all four into a coherent connection that preserves backwards compatibility. Nothing in the instruction names algorithms or prescribes interfaces; the agent must derive the required module structure from test imports, infer behavioral contracts from test assertions, and reverse-engineer expected retransmission dynamics from a reference pcap using tshark. Correct integration demands holistic understanding: RTT samples from retransmitted segments must be excluded, congestion state must constrain the send path, timer-driven retransmission must interact correctly with duplicate-ACK-triggered fast recovery, and 32-bit sequence number wrapping must be handled throughout."""
+solution_explanation = """Four modules are created or extended: (1) network.py implements LossyChannel with a seeded PRNG for deterministic loss/reorder and a heapq priority queue for time-ordered delivery; (2) rtt.py implements RTTEstimator with EWMA-based SRTT/RTTVAR tracking, exponential backoff, and retransmit-sample exclusion; (3) congestion.py implements CongestionController with slow start, congestion avoidance, and duplicate-ACK-triggered fast retransmit; (4) connection.py is extended with tick() for timer-driven retransmission, decoupled send buffering, out-of-order reassembly via a sequence-keyed buffer, per-segment send-time tracking for RTT sampling, and congestion window enforcement."""
+verification_explanation = """23 pytest tests in 5 classes verify: backwards compatibility (handshake, basic transfer, tick method); LossyChannel behavior (zero loss, total loss, deterministic seeding, delay timing, pending count); RTT estimator contracts (initial RTO, first-sample values, convergence, exponential backoff, retransmit-sample exclusion); congestion controller behavior (initial cwnd, slow-start growth, timeout response, congestion avoidance, fast retransmit trigger); end-to-end SHA-256 integrity of bulk transfers through channels with 0%, 5%, 15%, and 25% packet loss and 20% reordering."""
+category = "networking"
+tags = ["tcp", "reliable-transport"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-tcp-statemachine"

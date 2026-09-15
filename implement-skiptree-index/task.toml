@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must: (1) explore /app/ to discover a broken multi-file pipeline with config, error logs, and stub code; (2) understand from production.yaml and error logs that the production analytics engine is DuckDB (not SQLite) and that recursive CTEs are forbidden; (3) learn the DuckDB Python API — an unfamiliar columnar database tool — including its connection model, SQL dialect, schema inspection via information_schema, and parameterized query syntax; (4) design a novel skip-level indexing strategy that enables ancestor-path and LCA queries via a single SQL statement composed of LEFT JOINs without recursive CTEs; (5) implement cross-database interoperability: reading tree data from SQLite via the sqlite3 module and building index structures in DuckDB via the duckdb module; (6) implement the full index builder with hash-based geometric level assignment, multi-level table construction in DuckDB, and JSON-based ancestor-path storage; (7) rewrite the query module to generate dynamic SQL with O(log n) JOINs executed against DuckDB and reconstruct ancestor paths from multi-level results."""
+solution_explanation = """Explore the pipeline to discover: broken query.py (uses SQLite WITH RECURSIVE), stub index.py, production.yaml (DuckDB engine, no recursive CTEs, single-statement join-based queries), and error logs. Design a skiptree: assign geometric skip levels via trailing-1-bits of SHA-256 hashes with root forced to maximum level. Read tree from SQLite, then build skip_0..skip_L tables in DuckDB where skip_k contains nodes with level >= k, each row storing next_level_ancestor and ancestors_between as a JSON/VARCHAR column. Replace query.py to use the duckdb Python module, generating a single SQL query with LEFT JOINs across all skip levels, reconstructing ancestor paths by concatenating JSON arrays. LCA is the first common element of two ancestor paths."""
+verification_explanation = """Tests run the build command, then compare ancestor and LCA query outputs against ground truth computed by iterative parent-pointer walks in the original SQLite database across deterministic and randomized node samples. Constraint tests verify: no Python file under /app/ contains WITH RECURSIVE, at least one file uses SQL JOINs, the original tree table in tree.db is unchanged (10000 rows, root at id 0), and the DuckDB analytics database at /app/analytics.duckdb contains at least 3 non-empty auxiliary tables."""
+category = "data_structures"
+tags = ["database", "duckdb"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-skiptree-index"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of propositional SAT encoding theory (variable/clause design for combinatorial constraints, correct diagonal indexing in at-most-one constraints), the mathematical structure of both n-Queens Completion and the Excluded Diagonals Problem, DIMACS CNF format, and phase transition phenomena in random constraint satisfaction problems. The agent must explore an undocumented research codebase to discover data formats (custom .edp text format, JSON instances), find and fix a subtle bug in the SAT encoder's forward diagonal constraint range (covering only non-negative indices instead of the full range -(n-1) to n-1), implement SAT encoding for the EDP variant (computing valid cells by excluding forbidden diagonals), discover experiment configuration parameters (board_size=14, seed=7749, 40 samples) from a config file, and produce statistically valid phase transition analysis—all without explicit step-by-step guidance."""
+solution_explanation = """Fix the SAT encoder's forward diagonal loop from range(n) to range(-(n-1), n) to cover negative-indexed diagonals where c > r. Implement EDP solving by computing valid cells (those not on any excluded forward or backward diagonal) and encoding standard n-queens constraints over those cells. Parse the custom .edp format. Read experiment config.json for phase transition parameters. Generate random QC instances with the configured seed, solve via the SAT pipeline using minisat, and compute satisfiability ratios per constraint density level."""
+verification_explanation = """Tests verify: (1) all 6 QC result files match known SAT/UNSAT status from validation.json, with valid solutions containing pre-placed queens and no row/column/diagonal conflicts, (2) all 5 EDP result files match known SAT/UNSAT status with solutions that avoid all excluded diagonals, (3) phase transition experiment uses the configured board_size (14), has results for at least 10 m values with at least 30 samples each, shows a decreasing satisfiability trend, and identifies a reasonable critical_m in [3,11]."""
+category = "theory_of_computation"
+tags = ["sat-encoding", "constraint-satisfaction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a00525"

@@ -1,0 +1,79 @@
+{
+  "type": "FeatureCollection",
+  "name": "Weather Stations",
+  "description": "Global network of weather monitoring stations",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "ws-01",
+      "properties": {"name": "Station Alpha", "city": "New York", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 2.5},
+      "geometry": {"type": "Point", "coordinates": [-73.97, 40.78]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-02",
+      "properties": {"name": "Station Beta", "city": "Paris", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 8.1},
+      "geometry": {"type": "Point", "coordinates": [2.35, 48.86]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-03",
+      "properties": {"name": "Station Gamma", "city": "Tokyo", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 5.3},
+      "geometry": {"type": "Point", "coordinates": [139.69, 35.69]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-04",
+      "properties": {"name": "Station Delta", "city": "Rio de Janeiro", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 31.2},
+      "geometry": {"type": "Point", "coordinates": [-43.17, -22.91]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-05",
+      "properties": {"name": "Station Epsilon", "city": "Sydney", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 26.8},
+      "geometry": {"type": "Point", "coordinates": [151.21, -33.87]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-06",
+      "properties": {"name": "Station Zeta", "city": "Istanbul", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 7.4},
+      "geometry": {"type": "Point", "coordinates": [28.98, 41.01]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-07",
+      "properties": {"name": "Station Eta", "city": "Delhi", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 14.9},
+      "geometry": {"type": "Point", "coordinates": [77.21, 28.61]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-08",
+      "properties": {"name": "Station Theta", "city": "Madrid", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 6.2},
+      "geometry": {"type": "Point", "coordinates": [-3.70, 40.42]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-09",
+      "properties": {"name": "Station Iota", "city": "Moscow", "datetime": "2024-01-15T12:00:00Z", "temperature_c": -8.5},
+      "geometry": {"type": "Point", "coordinates": [37.62, 55.75]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-10",
+      "properties": {"name": "Station Kappa", "city": "Beijing", "datetime": "2024-01-15T12:00:00Z", "temperature_c": -3.1},
+      "geometry": {"type": "Point", "coordinates": [116.40, 39.90]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-11",
+      "properties": {"name": "Station Lambda", "city": "Mexico City", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 15.6},
+      "geometry": {"type": "Point", "coordinates": [-99.13, 19.43]}
+    },
+    {
+      "type": "Feature",
+      "id": "ws-12",
+      "properties": {"name": "Station Mu", "city": "Cape Town", "datetime": "2024-01-15T12:00:00Z", "temperature_c": 24.3},
+      "geometry": {"type": "Point", "coordinates": [18.42, -33.92]}
+    }
+  ]
+}

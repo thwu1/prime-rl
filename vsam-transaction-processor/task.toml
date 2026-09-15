@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of COBOL indexed file I/O semantics: ACCESS MODE DYNAMIC vs SEQUENTIAL, ALTERNATE RECORD KEY WITH DUPLICATES, START/READ NEXT browsing with correct file position indicator management, FILE STATUS code interpretation (00, 02, 10, 22, 23), and the requirement that REWRITE must be preceded by a successful READ in sequential access. The bugs are coupled — fixing one (e.g., changing ACCESS MODE to DYNAMIC) exposes others (e.g., missing KEY IS clauses for random READ). Requires understanding GnuCOBOL compilation, fixed-format COBOL column rules, and Berkeley DB-backed indexed file behavior."""
+solution_explanation = """Fix ACCESS MODE from SEQUENTIAL to DYNAMIC. Add two ALTERNATE RECORD KEY clauses with DUPLICATES. Fix READ statements to use KEY IS for random access. Add READ before REWRITE. Fix START/READ NEXT browse logic to handle alternate keys and detect category boundary. Fix FILE STATUS condition-name values. Fix audit log WRITE formatting. Add missing INVALID KEY / NOT INVALID KEY handlers. Fix summary counter logic. Correct several syntax errors (misplaced periods, wrong section references, missing END-IF/END-READ scope terminators)."""
+verification_explanation = """Tests generate transaction files with known data, run the compiled COBOL program, and verify the audit log output line-by-line. Tests cover: basic CRUD operations, duplicate key handling, browse by category and supplier with multiple matches, browse with no matches, empty transaction file, update of nonexistent record, delete of nonexistent record, and summary line accuracy. Deterministic because all inputs are fixed and COBOL indexed file operations are deterministic for the same input sequence."""
+category = "debugging"
+tags = ["cobol", "indexed-files"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vsam-transaction-processor"

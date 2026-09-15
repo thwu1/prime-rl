@@ -1,0 +1,21 @@
+# Feature Flags Configuration
+# ----------------------------
+# Controls runtime behavior of Service Control components.
+# Use `kill_switch: true` to force-disable a flag regardless of `enabled`.
+
+enhanced_quota_check:
+  enabled: true
+  kill_switch: false
+  description: "Enhanced quota validation with rate-limit tier support"
+  rollout_date: "2025-05-29"
+  owner: "quota-team@"
+
+legacy_policy_format:
+  enabled: false
+  kill_switch: false
+  description: "Support for deprecated v1 policy format"
+
+strict_action_matching:
+  enabled: true
+  kill_switch: false
+  description: "Enforce exact action string matching instead of prefix"

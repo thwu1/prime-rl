@@ -1,0 +1,6 @@
+{
+  "description": "Find the global minimum VALUE of the objective function defined in objective.py.",
+  "output": "function_value_at_global_minimum",
+  "domain": "all (x, y) in R^2",
+  "notes": "The landscape is highly multimodal with many local minima."
+}

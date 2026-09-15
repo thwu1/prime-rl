@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+-->
+<fmiModelDescription
+  fmiVersion="2.0"
+  modelName="ControllerSubsystem"
+  guid="{a1b2c3d4-0002-4000-8000-000000000002}"
+  description="PI speed controller for DC electric drive">
+  <CoSimulation modelIdentifier="ControllerSubsystem" canGetAndSetFMUstate="true"/>
+  <ModelVariables>
+    <ScalarVariable name="w_desired" valueReference="1" causality="input" variability="continuous"
+      description="Desired angular velocity [rad/s]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="w" valueReference="2" causality="input" variability="continuous"
+      description="Measured angular velocity [rad/s]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="V" valueReference="3" causality="output" variability="continuous"
+      description="Armature voltage command [V]">
+      <Real start="0.0"/>
+    </ScalarVariable>
+  </ModelVariables>
+  <ModelStructure>
+    <Outputs>
+      <Unknown index="3"/>
+    </Outputs>
+  </ModelStructure>
+</fmiModelDescription>

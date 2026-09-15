@@ -1,0 +1,15 @@
+CXX = g++
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Wno-unused-parameter
+
+all: test_main lattice_proc
+
+test_main: test_main.cpp lattice_weight.h
+	$(CXX) $(CXXFLAGS) -o $@ test_main.cpp
+
+lattice_proc: lattice_proc.cpp lattice_weight.h
+	$(CXX) $(CXXFLAGS) -o $@ lattice_proc.cpp
+
+clean:
+	rm -f test_main lattice_proc
+
+.PHONY: all clean

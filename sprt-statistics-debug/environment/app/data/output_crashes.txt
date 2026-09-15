@@ -1,0 +1,16 @@
+Finished game 1 (New-abc1234567 vs Base-def7890123): 1-0 {White wins by adjudication}
+Finished game 2 (Base-def7890123 vs New-abc1234567): 0-1 {Black disconnects}
+Finished game 3 (New-abc1234567 vs Base-def7890123): 1-0 {White wins on time}
+Finished game 4 (Base-def7890123 vs New-abc1234567): 0-1 {Black wins by adjudication}
+Finished game 5 (New-abc1234567 vs Base-def7890123): 1-0 {White disconnects}
+Finished game 6 (Base-def7890123 vs New-abc1234567): 1/2-1/2 {Draw by timeout adjudication}
+Finished game 7 (New-abc1234567 vs Base-def7890123): 1-0 {White wins by adjudication}
+Finished game 8 (Base-def7890123 vs New-abc1234567): 1/2-1/2 {Draw by adjudication}
+--------------------------------------------------
+Results of New-abc1234567 vs Base-def7890123 (60+0.6, 1t, 16MB, noob_3moves.epd):
+Elo: 12.50 +/- 25.40, nElo: 15.63 +/- 31.75
+LOS: 84.20 %, DrawRatio: 38.50 %, PairsRatio: 1.35
+Games: 100, Wins: 40, Losses: 28, Draws: 32, Points: 56.0 (56.00 %)
+Ptnml(0-2): [3, 10, 20, 12, 5], WL/DD Ratio: 4.20
+--------------------------------------------------
+Finished match

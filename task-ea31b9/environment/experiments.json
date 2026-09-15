@@ -1,0 +1,56 @@
+[
+  {
+    "experiment_id": "thermal_conductivity",
+    "runs": [
+      {"conductivity": 0.613, "medium": "deionized_water"},
+      {"conductivity": 0.618, "medium": "deionized_water"},
+      {"conductivity": 0.610, "medium": "deionized_water"},
+      {"conductivity": 0.615, "medium": "deionized_water"},
+      {"conductivity": 0.614, "medium": "deionized_water"},
+      {"conductivity": 0.616, "medium": "deionized_water"}
+    ]
+  },
+  {
+    "experiment_id": "reaction_kinetics",
+    "runs": [
+      {"rate_constant": 2.43, "activation_energy": 45.2, "reaction_order": "second", "products": ["CO2", "H2O"]},
+      {"rate_constant": 2.47, "activation_energy": 45.8, "reaction_order": "second", "products": ["CO2", "H2O"]},
+      {"rate_constant": 2.45, "activation_energy": 45.5, "reaction_order": "second", "products": ["CO2", "H2O"]},
+      {"rate_constant": 2.41, "activation_energy": 45.1, "reaction_order": "second", "products": ["CO2", "H2O"]},
+      {"rate_constant": 2.44, "activation_energy": 45.4, "reaction_order": "second", "products": ["CO2", "H2O"]}
+    ]
+  },
+  {
+    "experiment_id": "crystal_growth",
+    "runs": [
+      {"growth_rate": 1.82, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 1.79, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 1.84, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 1.81, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 1.80, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 1.83, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      {"growth_rate": 0.92, "lattice_constant": 5.431, "crystal_system": "cubic"}
+    ]
+  },
+  {
+    "experiment_id": "spectral_emission",
+    "runs": [
+      {"peak_wavelength": 589.0, "line_intensity": 3450, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      {"peak_wavelength": 589.0, "line_intensity": 3520, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      {"peak_wavelength": 589.0, "line_intensity": 3480, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      {"peak_wavelength": 589.0, "line_intensity": 3500, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      {"peak_wavelength": 589.0, "line_intensity": 7200, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]}
+    ]
+  },
+  {
+    "experiment_id": "polymer_testing",
+    "runs": [
+      {"yield_strength": 42.5, "elongation_pct": 12.5, "failure_mode": "ductile", "defect_types": ["void", "crack"]},
+      {"yield_strength": 43.1, "elongation_pct": 12.8, "failure_mode": "ductile", "defect_types": ["void", "crack"]},
+      {"yield_strength": 42.8, "elongation_pct": 12.3, "failure_mode": "ductile", "defect_types": ["void", "crack"]},
+      {"yield_strength": 42.6, "elongation_pct": 12.6, "failure_mode": "ductile", "defect_types": ["void", "crack"]},
+      {"yield_strength": 42.9, "elongation_pct": 12.4, "failure_mode": "ductile", "defect_types": ["void", "crack"]},
+      {"yield_strength": 43.0, "elongation_pct": 13.4, "failure_mode": "ductile", "defect_types": ["void", "crack"]}
+    ]
+  }
+]

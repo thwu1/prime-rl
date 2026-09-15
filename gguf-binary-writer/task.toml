@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level binary forensics on the GGUF v3 format. The solver receives a corrupted GGUF file and must diagnose multiple defects without being told what or where they are. Defects span the file header (magic number, version, structural counts), the metadata/tensor-info boundary (requiring manual binary parsing to determine correct counts since standard readers crash), and tensor data integrity (locating and repairing XOR-corrupted weight data). The solver must understand the GGUF header layout, metadata encoding (13 type variants including nested arrays), tensor info structure, alignment rules, and IEEE 754 half-precision encoding. They must use multiple tools in concert — hex dumps for initial triage, Python struct for manual parsing, and optionally the gguf library for validation — iteratively diagnosing and repairing each defect layer. Unlike a spec-following implementation task, this requires reading a damaged binary, forming hypotheses about what went wrong, and verifying repairs against the specification."""
+solution_explanation = """The solution reads the corrupted binary and applies targeted repairs: (1) inspects the first 4 bytes via struct to find the magic is 0x47554747 instead of 0x46554747 and patches it; (2) reads offset 4 to find version=2 and corrects to 3; (3) manually walks the metadata section from offset 24, parsing each GGUF string key + type-tagged value, using a heuristic (keys containing 'weight'/'bias' are tensor names) to detect the boundary and determine actual kv_count=20, patching the inflated header value; (4) similarly walks tensor info entries until encountering zero-length names (alignment padding), determining actual count=6 and patching the header; (5) computes tensor_data_start from alignment, then scans each tensor's data comparing against the first element's fill value, detecting and repairing 64 XOR-corrupted F16 elements in blk.0.attn_q.weight."""
+verification_explanation = """Tests implement an independent GGUF v3 binary parser using Python struct, validating the repaired file at /app/repaired.gguf. Tests verify: correct magic (0x46554747), version (3), exact metadata KV count (20) and tensor count (6), all 20 metadata key-value pairs with correct type tags and values, all 6 tensor info entries with correct names/dimensions/types/offsets, 32-byte alignment of all tensor data, and — critically — 200 elements of the previously-corrupted tensor (blk.0.attn_q.weight) to confirm data integrity repair. An anti-cheat test verifies the original model.gguf still exists and differs from repaired.gguf."""
+category = "systems_programming"
+tags = ["binary-forensics", "machine-learning-formats"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gguf-binary-writer"

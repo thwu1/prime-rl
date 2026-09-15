@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a correct GDL game analysis system requires understanding the formal semantics of GDL — a logic-based language with recursive rules, negation, disjunction, and the distinct relation — and implementing a complete reasoner that can parse KIF files and compute game states for three games of very different structure (single-player maze, simultaneous tic-tac-toe, turn-based Connect Four). The Prolog compiler demands deep knowledge of both GDL and SWI-Prolog semantics to produce correct translations handling dynamic predicates, 0-arity predicates, and all GDL special forms. The state graph visualizer requires correct game tree exploration and Graphviz DOT output. Cross-tool interoperation (Python, swipl CLI, dot CLI) adds significant integration complexity."""
+solution_explanation = """The solution implements a GDL reasoner with a KIF parser, term unification engine, and logic prover supporting negation and disjunction; a GDL-to-Prolog compiler translating GDL terms, variables, and special forms into valid SWI-Prolog syntax with proper declarations; and a state graph generator that explores game trees and outputs DOT files compilable to SVG."""
+verification_explanation = """Tests verify three dimensions: (1) GDL reasoner correctness via game state computations across three games of increasing complexity (maze, tic-tac-toe, Connect Four) with known correct answers for roles, initial states, legal moves, state transitions, terminal detection, and goal values; (2) Prolog translation validity by loading generated .pl files with swipl and cross-validating query results against expected values; (3) state graph validity by checking DOT output compiles to SVG via graphviz and has expected structural properties."""
+category = "artificial_intelligence"
+tags = ["logic-programming", "multi-tool-pipeline"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-504628"

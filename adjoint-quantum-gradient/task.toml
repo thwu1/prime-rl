@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of quantum computing (state vector simulation, tensor product structure, qubit ordering conventions), efficient numerical methods for operating on exponentially-large state spaces, computing exact gradients of parameterized quantum circuits, parsing a domain-specific assembly language (OpenQASM 2.0), and integrating results into a multi-tool shell pipeline using SQLite and jq. Combines quantum physics, numerical computing, compiler front-end work, and CLI tool orchestration at graduate/PhD level."""
+solution_explanation = """The simulation engine uses index-space decomposition to apply gate matrices to state vector slices without constructing full unitaries. The gradient module uses analytic derivative matrices provided by the gate definitions to compute exact parameter gradients via reverse-mode accumulation. The QASM parser tokenises OpenQASM 2.0 files, resolves gate definitions and literal angle parameters, and emits Circuit objects. The pipeline shell script drives Python for simulation, sqlite3 CLI for database insertion, and jq for JSON report generation."""
+verification_explanation = """Tests verify single-qubit and multi-qubit gate application on various qubits, controlled gates (CNOT, Toffoli), Bell and GHZ state preparation, analytic and finite-difference gradient agreement for single-parameter and multi-parameter circuits, QASM parsing of three circuit files with expected simulation outputs, SQLite database schema and amplitude data correctness, JSON report structure and content, pipeline tool usage requirements (sqlite3, jq), and 16-qubit 240-gate performance."""
+category = "quantum_computing"
+tags = ["quantum-simulation", "openqasm-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adjoint-quantum-gradient"

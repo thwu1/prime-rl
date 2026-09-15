@@ -1,0 +1,16 @@
+INCIDENT INC-001
+Severity: Medium
+Date: 2024-10-15
+Reporter: Legal Department
+
+SUMMARY: Tickets issued for vehicles traveling at exactly the posted speed limit
+
+DESCRIPTION:
+Multiple drivers have contested tickets where their calculated average speed
+was exactly equal to the posted limit. Example: Road 1742 with 55 mph limit —
+a vehicle was clocked at 55.00 mph and received a ticket.
+
+Legal has confirmed that we may only ticket vehicles that EXCEED the speed
+limit. Traveling at exactly the limit is not a violation.
+
+Affected roads: multiple (systemic issue)

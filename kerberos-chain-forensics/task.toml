@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning offensive and defensive Active Directory security. The solver must: (1) correlate interleaved security events across multiple event types to reconstruct a multi-stage attack chain, including identifying the initial compromised user from network forensic artifacts; (2) perform offline credential recovery against captured service ticket hashes using a provided wordlist; (3) analyze X.509 certificates to extract embedded identity claims and correlate them with authentication events; (4) audit complex AD configurations (delegation settings, group memberships, certificate template flags) to identify all viable privilege escalation vectors and rank them by exploitability; (5) produce valid Sigma detection rules with correct logsource, detection logic, and condition syntax; (6) design a prioritized hardening plan with specific AD attribute changes. This goes well beyond following a known playbook — the solver must exercise security engineering judgment to assess an environment holistically and produce actionable defensive artifacts."""
+solution_explanation = """1. Parse security events to identify anomalous ticket requests from a single source IP, correlate with initial authentication requests to identify the compromised user. 2. Perform offline credential recovery against each captured hash using the provided wordlist. 3. Trace the recovered account's group memberships to enrollment rights and identify a vulnerable template. 4. Parse recovered certificates for embedded identity claims and correlate with authentication events. 5. Enumerate alternative escalation paths from the AD snapshot: delegation configurations, privileged group memberships, and service account permissions. 6. Create Sigma detection rules for the observed attack patterns. 7. Design a prioritized remediation plan covering template hardening, credential rotation, encryption enforcement, and privilege reduction."""
+verification_explanation = """Tests verify both deliverables. Part 1: attack_analysis.json fields match exact expected values for the compromised user, service account, SPN, password, template, vulnerability class, and impersonated user. Part 2: security_assessment.json validates that alternative_attack_paths identifies at least 3 viable paths including specific delegation and group-based escalation vectors; that sigma_rules contains valid YAML with correct detection structure; that remediation_plan includes at least 4 prioritized actions covering template hardening, password rotation, and encryption enforcement; and that highest_risk_misconfiguration correctly identifies the most dangerous certificate template issue."""
+category = "security_and_privacy"
+tags = ["active-directory", "incident-response"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kerberos-chain-forensics"

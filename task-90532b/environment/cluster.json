@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "execution": {
+    "R_lite": [
+      {
+        "rank": "0-3",
+        "children": {
+          "core": "0-3"
+        }
+      },
+      {
+        "rank": "4-7",
+        "children": {
+          "core": "0-3"
+        }
+      },
+      {
+        "rank": "8-11",
+        "children": {
+          "core": "0-3",
+          "gpu": "0-1"
+        }
+      },
+      {
+        "rank": "12-15",
+        "children": {
+          "core": "0-3",
+          "gpu": "0-1"
+        }
+      }
+    ],
+    "properties": {
+      "standard": "0-3",
+      "highmem": "4-7,12-15",
+      "gpu": "8-15"
+    },
+    "starttime": 0,
+    "expiration": 0,
+    "nodelist": [
+      "standard0", "standard1", "standard2", "standard3",
+      "highmem0", "highmem1", "highmem2", "highmem3",
+      "gpu0", "gpu1", "gpu2", "gpu3",
+      "gpumem0", "gpumem1", "gpumem2", "gpumem3"
+    ]
+  }
+}

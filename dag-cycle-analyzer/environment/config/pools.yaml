@@ -1,0 +1,13 @@
+pools:
+  io_pool:
+    slots: 8
+    description: "I/O operations pool for data ingestion and export"
+  compute_pool:
+    slots: 12
+    description: "Compute operations pool for transformations and analysis"
+  ml_pool:
+    slots: 4
+    description: "Machine learning pool for training and scoring"
+  default_pool:
+    slots: 128
+    description: "Default pool for unassigned tasks"

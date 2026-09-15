@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating three CBOR encoder implementations against RFC 8949 §4.2.1 by designing \
+discriminating test vectors that probe six distinct conformance requirements — preferred integer argument encoding, \
+NaN canonicalization, negative zero sign preservation, float precision minimization, indefinite-length elimination, \
+and map key ordering (bytewise-lex vs length-first). The solver must deeply understand IEEE 754 binary16/32/64 \
+representations, the subtlety of Python's NaN != NaN and -0.0 == 0.0 semantics, and the difference between §4.2.1 \
+bytewise-lexicographic and §4.2.3 length-first key orderings. Beyond evaluation, the solver must create a correct \
+reference normalizer from scratch that handles all edge cases. Multi-tool proficiency is required: piping hex through \
+encoders, using xxd to inspect binary corpus files, analyzing IEEE 754 bit patterns with struct, and producing \
+structured JSON conformance reports."""
+solution_explanation = """The solution runs each encoder against carefully crafted hex test vectors: uint 255 boundary \
+(18ff vs 1900ff), f64/f32 NaN canonicalization to f97e00, f32/f64 negative zero sign preservation to f98000, \
+f64 100000.0 shortening to f32 (fa47c35000), indefinite array/map to definite conversion, and mixed-type map key \
+ordering where bytewise-lex and length-first disagree. Each test vector is chosen to trigger exactly one §4.2.1 \
+sub-requirement, allowing precise per-encoder verdicts. The reference normalizer implements the full decode-normalize-encode \
+pipeline with correct NaN canonicalization, signed-zero-aware float shortening, bytewise-lex map sorting, and \
+indefinite-to-definite conversion."""
+verification_explanation = """Tests verify: (1) conformance_report.json structure — all three encoder names, all six \
+requirement IDs, valid pass/fail verdicts; (2) each of the 18 verdicts matches ground truth derived from the actual \
+encoder bugs (alpha: map sorting + NaN, beta: int boundary + neg-zero, gamma: indefinite-length + float shortest); \
+(3) encoder behaviors cross-checked — each claimed failure is verified by running the actual encoder against a \
+discriminating input; (4) the reference normalizer tested against 40+ test vectors spanning all §4.2.1 requirements \
+including the RFC 8-key map example, NaN from multiple precisions, signed zero, float precision cascading, \
+indefinite-length strings/arrays/maps, and tag argument normalization."""
+category = "binary_protocols"
+tags = ["cbor", "ieee754", "conformance-testing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/normalize-cbor"

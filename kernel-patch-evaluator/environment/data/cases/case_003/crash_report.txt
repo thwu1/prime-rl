@@ -1,0 +1,24 @@
+BUG: kernel NULL pointer dereference, address: 0000000000000018
+#PF: supervisor read access in kernel mode
+#PF: error_code(0x0000) - not-present page
+PGD 0 P4D 0
+Oops: Oops: 0000 [#1] PREEMPT SMP KASAN
+CPU: 2 UID: 0 PID: 7823 Comm: syz.3.1 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+RIP: 0010:blk_mq_get_tag+0x45/0x1b0 block/blk-mq.c:48
+Code: 48 89 e5 41 57 41 56 41 55 41 54 53 48 83 ec 18 48 8b 47 00 48 85 c0
+RSP: 0018:ffffc9000a3c7c80 EFLAGS: 00010246
+RAX: 0000000000000000 RBX: ffff88801a345600 RCX: 0000000000000000
+RDX: 0000000000000001 RSI: 0000000000000000 RDI: ffff88801a345600
+Call Trace:
+ <TASK>
+ blk_mq_get_request+0x234/0x8c0 block/blk-mq.c:510
+ blk_mq_submit_bio+0x3a2/0x10d0 block/blk-mq.c:3010
+ submit_bio_noacct_nocheck+0x5b4/0xa50 block/blk-core.c:704
+ submit_bio_noacct+0x5f7/0xca0 block/blk-core.c:746
+ submit_bio+0x158/0x460 block/blk-core.c:826
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+Modules linked in:
+---[ end trace 0000000000000000 ]---

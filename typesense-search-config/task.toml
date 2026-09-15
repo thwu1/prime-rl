@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 interacting defects across Typesense schema design, search feature configuration, and access control without being told what is broken. The solver must understand: (1) Typesense reference fields vs plain strings and their role in cross-collection JOINs, (2) geopoint vs float[] field types and why geo-search filter syntax fails on the wrong type, (3) collection schema update semantics — discovering that schema patching with reference fields requires dropping and recreating the collection rather than in-place update, then re-importing data, (4) multi-way vs one-way synonym semantics and their asymmetric expansion behavior, (5) curation override match rules (exact vs contains) and how they scope query triggers, (6) API key collection-level scoping. Fixes have ordering dependencies (brands must exist before products references it, products before reviews references it) and the solver must evaluate whether to patch or recreate collections."""
+solution_explanation = """Start Typesense, audit each collection schema and search configuration against requirements. Delete all three collections in dependency order (reviews, products, brands). Recreate brands with original schema, recreate products with brand_id referencing brands.id, location as geopoint, category as faceted string, recreate reviews with product_id referencing products.id. Re-import all data from JSONL files. Reconfigure laptop synonym as multi-way (no root). Reconfigure mobile synonym as one-way (with root). Update curation override match from contains to exact. Delete overly-permissive API key, create new one scoped to products only, save to file."""
+verification_explanation = """17 pytest tests verify functional outcomes: forward JOINs return brand data with correct name/country, premium-brand filter returns exactly 6 products from 3 brands, reverse JOINs return review data, geo-radius search returns exactly 4 Bay Area products, category facets return correct counts (7 electronics, 3 accessories), price sort returns correct order, multi-way synonyms expand bidirectionally (notebook→laptop, portable computer→laptop), one-way synonym expands mobile→phone but NOT phone→mobile, curation pins prod_5 only on exact 'featured' query, partial 'featured deals' query does not trigger override, restricted API key can search products but cannot write or access other collections."""
+category = "information_retrieval"
+tags = ["search-engine", "typesense"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/typesense-search-config"

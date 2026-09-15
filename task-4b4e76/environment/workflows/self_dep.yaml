@@ -1,0 +1,8 @@
+version: "1"
+nodes:
+  - id: looper
+    name: Self Loop
+    depends_on: [looper]
+    steps:
+      - name: Work
+        run: echo loop

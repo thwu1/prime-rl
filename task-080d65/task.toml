@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete fuzzy string matching system from scratch: a reusable automaton that accepts strings within a given edit distance (both D=1 and D=2), a dictionary search component that leverages the automaton for efficient multi-word lookup, and a binary posting list codec that must produce byte-exact output matching undocumented reference files. The binary format must be reverse-engineered from hex-level analysis of .bin/.json reference pairs using terminal tools. A performance benchmark comparing the automaton-based approach vs naive brute-force must be conducted and analyzed. Combines advanced automata theory, binary format reverse engineering, and multi-tool performance evaluation across three distinct domains."""
+solution_explanation = """Implement a parametric Levenshtein DFA using powerset construction over NFA states with state implication pruning and characteristic vector transitions. Build a concrete DFA by lazily expanding parametric transitions for specific query characters. Implement a trie-based FuzzySearcher via DFS intersection of the trie with the DFA. Reverse-engineer the binary format from reference files using xxd: 4-byte LE count header, blocks of 32 deltas with 1-byte bit-width + LSB-first packed bits, remainder as raw LE u32. Run hyperfine comparing DFA vs naive search and write a structured JSON benchmark report."""
+verification_explanation = """Tests verify: exhaustive accept/reject correctness against naive DP edit distance over thousands of string pairs for D=1 and D=2, distance() accuracy, DFA reuse across multiple queries, FuzzySearcher sorted output with correct distances, bitpack/unpack round-trips for various input patterns, byte-exact match against three reference .bin files, format_spec.txt content (must document little-endian byte order, delta encoding, block size 32, bit-width packing, header), and benchmark_report.json structure (positive timings, speedup > 1.0, substantive recommendation)."""
+category = "systems"
+tags = ["automata-theory", "binary-format-reverse-engineering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-080d65"

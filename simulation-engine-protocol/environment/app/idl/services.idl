@@ -1,0 +1,250 @@
+# simulation_interfaces v2.1.0 — Service Definitions
+# ROS 2 Interface Definition Language Format
+#
+# Each section corresponds to a .srv file. Fields before the ---
+# separator are the request; fields after are the response.
+# Service-specific error codes (values >= 101) are defined as
+# constants in the response section.
+#
+# See messages.idl for all referenced message types.
+# See /app/interfaces.py for the Python type bindings.
+#
+
+# ============================================================
+# GetSimulatorFeatures.srv
+# ============================================================
+# Returns the engine's supported feature set and spawn formats.
+# Always succeeds — callable in any state including NO_WORLD.
+
+---
+
+SimulatorFeatures features
+
+# ============================================================
+# LoadWorld.srv
+# ============================================================
+# Loads a simulation world from the specified resource.
+# On success, transitions engine to STATE_STOPPED, resets
+# simulation time to zero, and clears any existing entities.
+# Requires STATE_NO_WORLD — fails if a world is already loaded.
+
+Resource world_resource
+bool fail_on_unsupported_element
+bool ignore_missing_or_unsupported_assets
+
+---
+
+uint8 UNSUPPORTED_FORMAT    = 101
+uint8 NO_RESOURCE           = 102
+uint8 RESOURCE_PARSE_ERROR  = 103
+uint8 MISSING_ASSETS        = 104
+uint8 UNSUPPORTED_ASSETS    = 105
+uint8 UNSUPPORTED_ELEMENTS  = 106
+
+Result result
+WorldResource world
+
+# ============================================================
+# UnloadWorld.srv
+# ============================================================
+# Unloads the current world. Removes all spawned entities,
+# resets simulation time, and transitions to STATE_NO_WORLD.
+
+---
+
+uint8 NO_WORLD_LOADED = 101
+
+Result result
+
+# ============================================================
+# GetCurrentWorld.srv
+# ============================================================
+# Returns information about the currently loaded world.
+
+---
+
+uint8 NO_WORLD_LOADED = 101
+
+Result result
+WorldResource world
+
+# ============================================================
+# SpawnEntity.srv
+# ============================================================
+# Spawns a single entity into the loaded world.
+# Spawning is permitted in STOPPED, PLAYING, and PAUSED states.
+# If allow_renaming is true and name conflicts, the engine
+# appends incrementing suffixes (_0, _1, _2, ...) until unique.
+# If initial_pose is provided, the entity starts at that pose;
+# otherwise it starts at the origin with identity orientation.
+
+string name
+bool allow_renaming
+Resource entity_resource
+string entity_namespace
+geometry_msgs/PoseStamped initial_pose
+
+---
+
+uint8 NAME_NOT_UNIQUE       = 101
+uint8 NAME_INVALID          = 102
+uint8 UNSUPPORTED_FORMAT    = 103
+uint8 NO_RESOURCE           = 104
+uint8 NAMESPACE_INVALID     = 105
+uint8 RESOURCE_PARSE_ERROR  = 106
+uint8 MISSING_ASSETS        = 107
+uint8 UNSUPPORTED_ASSETS    = 108
+uint8 INVALID_POSE          = 109
+
+Result result
+string entity_name
+
+# ============================================================
+# SpawnEntities.srv
+# ============================================================
+# Spawns multiple entities in a single batch call.
+# Each request is processed independently and sequentially —
+# a failure in one does not prevent others from being spawned.
+# Individual results are returned in the same order as input.
+
+SpawnEntity[] spawn_requests
+
+---
+
+uint8 ENTITIES_SPAWN_FAILED = 150
+
+Result result
+SpawnResult[] results
+
+# ============================================================
+# DeleteEntity.srv
+# ============================================================
+# Removes an entity from the simulation world by name.
+
+string entity
+
+---
+
+Result result
+
+# ============================================================
+# GetEntities.srv
+# ============================================================
+# Returns entity names matching optional filters.
+# Returns empty list (not an error) when no entities match.
+
+EntityFilters filters
+
+---
+
+Result result
+string[] entities
+
+# ============================================================
+# GetEntityState.srv
+# ============================================================
+# Returns the dynamic state (pose, twist, acceleration) of the
+# named entity. The header stamp reflects current simulation time.
+
+string entity
+
+---
+
+Result result
+EntityState state
+
+# ============================================================
+# SetEntityState.srv
+# ============================================================
+# Updates an entity's dynamic state with selective field control.
+# Only fields whose corresponding set_* flag is true are written.
+# Fields with set_* = false retain their current values unchanged.
+
+string entity
+EntityState state
+bool set_pose
+bool set_twist
+bool set_acceleration
+
+---
+
+uint8 INVALID_POSE = 101
+
+Result result
+
+# ============================================================
+# GetEntityInfo.srv
+# ============================================================
+# Returns metadata (category, description, tags) for an entity.
+
+string entity
+
+---
+
+Result result
+EntityInfo info
+
+# ============================================================
+# SetEntityInfo.srv
+# ============================================================
+# Replaces an entity's metadata with the provided values.
+
+string entity
+EntityInfo info
+
+---
+
+Result result
+
+# ============================================================
+# GetSimulationState.srv
+# ============================================================
+# Returns the current simulation state. Always succeeds.
+
+---
+
+SimulationState state
+Result result
+
+# ============================================================
+# SetSimulationState.srv
+# ============================================================
+# Requests a simulation state transition.
+# See SimulationState.msg for valid transitions.
+
+SimulationState state
+
+---
+
+uint8 ALREADY_IN_TARGET_STATE = 101
+uint8 STATE_TRANSITION_ERROR  = 102
+uint8 INCORRECT_TRANSITION    = 103
+
+Result result
+
+# ============================================================
+# StepSimulation.srv
+# ============================================================
+# Advances simulation by a specified number of physics steps.
+# Only valid when engine is in STATE_PAUSED.
+# Zero steps is valid and succeeds as a no-op.
+
+uint64 steps
+
+---
+
+Result result
+
+# ============================================================
+# ResetSimulation.srv
+# ============================================================
+# Resets specified aspects of the simulation according to the
+# bitwise scope flags (see ResetScope.msg).
+# Requires a loaded world. Does NOT alter the current simulation
+# state (e.g. PAUSED remains PAUSED after reset).
+
+uint8 scope
+
+---
+
+Result result

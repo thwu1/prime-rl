@@ -1,0 +1,16 @@
+; SPIR-V assembly: simple compute shader (merge source B)
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %main "kernel_b"
+OpExecutionMode %main LocalSize 1 1 1
+OpName %main "kernel_b"
+
+%void = OpTypeVoid
+%float = OpTypeFloat 32
+%fn_void = OpTypeFunction %void
+%f_val = OpConstant %float 3.14
+
+%main = OpFunction %void None %fn_void
+%entry = OpLabel
+OpReturn
+OpFunctionEnd

@@ -1,0 +1,16 @@
+{
+  "A100": {
+    "name": "NVIDIA A100-SXM4-80GB",
+    "peak_flops_fp32": 19500000000000,
+    "peak_flops_fp16": 312000000000000,
+    "memory_bandwidth_bytes_per_sec": 2039000000000,
+    "l2_cache_bytes": 41943040
+  },
+  "V100": {
+    "name": "NVIDIA V100-SXM2-32GB",
+    "peak_flops_fp32": 15700000000000,
+    "peak_flops_fp16": 125000000000000,
+    "memory_bandwidth_bytes_per_sec": 900000000000,
+    "l2_cache_bytes": 6291456
+  }
+}

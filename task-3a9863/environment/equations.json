@@ -1,0 +1,15 @@
+{
+  "equations": [
+    {"id": "E0", "law": "x * x = x", "name": "idempotent"},
+    {"id": "E1", "law": "x * y = y * x", "name": "commutative"},
+    {"id": "E2", "law": "(x * y) * z = x * (y * z)", "name": "associative"},
+    {"id": "E3", "law": "x * (x * y) = y", "name": "left_involution"},
+    {"id": "E4", "law": "(x * y) * y = x", "name": "right_involution"},
+    {"id": "E5", "law": "(x * y) * x = y", "name": "conjugation_involution"},
+    {"id": "E6", "law": "x * (y * z) = (x * y) * (x * z)", "name": "left_self_distributive"},
+    {"id": "E7", "law": "(x * y) * z = (x * z) * (y * z)", "name": "right_self_distributive"},
+    {"id": "E8", "law": "w * (x * (y * z)) = ((w * x) * y) * z", "name": "generalized_associative"},
+    {"id": "E9", "law": "(x * y) * (z * w) = (x * z) * (y * w)", "name": "medial"}
+  ],
+  "description": "Equational laws for magmas (sets with a single binary operation). The symbol * denotes the binary magma operation. Variables are single lowercase letters. Equations use infix notation with explicit parentheses for grouping."
+}

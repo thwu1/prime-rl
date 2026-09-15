@@ -1,0 +1,14 @@
+# Test 08: Default covers everything including null
+# Expected: exhaustive, null handled
+
+TYPES
+sealed Shape Circle Square Triangle
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+final Triangle parent:Shape
+
+SWITCHES
+switch s1 Shape
+type Circle
+default
+end

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+-->
+<ssd:SystemStructureDescription
+  xmlns:ssd="http://ssp-standard.org/SSP1/SystemStructureDescription"
+  xmlns:ssc="http://ssp-standard.org/SSP1/SystemStructureCommon"
+  version="1.0"
+  name="ControlledElectricDrive"
+  description="PI-controlled DC electric drive co-simulation">
+  <ssd:System name="root">
+    <ssd:Elements>
+      <ssd:Component name="stimuli" type="application/x-fmu-sharedlibrary"
+        source="model_descriptions/stimuli.xml">
+        <ssd:Connectors>
+          <ssd:Connector name="w_desired" kind="output">
+            <ssc:Real/>
+          </ssd:Connector>
+          <ssd:Connector name="LoadTorque_Nm" kind="output">
+            <ssc:Real/>
+          </ssd:Connector>
+        </ssd:Connectors>
+      </ssd:Component>
+      <ssd:Component name="controller" type="application/x-fmu-sharedlibrary"
+        source="model_descriptions/controller.xml">
+        <ssd:Connectors>
+          <ssd:Connector name="w_desired" kind="input">
+            <ssc:Real/>
+          </ssd:Connector>
+          <ssd:Connector name="w" kind="input">
+            <ssc:Real/>
+          </ssd:Connector>
+          <ssd:Connector name="V" kind="output">
+            <ssc:Real/>
+          </ssd:Connector>
+        </ssd:Connectors>
+      </ssd:Component>
+      <ssd:Component name="drive" type="application/x-fmu-sharedlibrary"
+        source="model_descriptions/drive.xml">
+        <ssd:Connectors>
+          <ssd:Connector name="V" kind="input">
+            <ssc:Real/>
+          </ssd:Connector>
+          <ssd:Connector name="LoadTorque_Nm" kind="input">
+            <ssc:Real/>
+          </ssd:Connector>
+          <ssd:Connector name="w" kind="output">
+            <ssc:Real/>
+          </ssd:Connector>
+        </ssd:Connectors>
+      </ssd:Component>
+    </ssd:Elements>
+    <ssd:Connections>
+      <ssd:Connection startElement="stimuli" startConnector="w_desired"
+        endElement="controller" endConnector="w_desired"/>
+      <ssd:Connection startElement="stimuli" startConnector="LoadTorque_Nm"
+        endElement="drive" endConnector="LoadTorque_Nm"/>
+      <ssd:Connection startElement="controller" startConnector="V"
+        endElement="drive" endConnector="V"/>
+      <ssd:Connection startElement="drive" startConnector="w"
+        endElement="controller" endConnector="w"/>
+    </ssd:Connections>
+    <ssd:DefaultExperiment startTime="0.0" stopTime="1.0"/>
+  </ssd:System>
+</ssd:SystemStructureDescription>

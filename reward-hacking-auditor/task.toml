@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of ML post-training pipelines (SFT, DPO, LoRA), LLM model architecture semantics (base vs instruct model indicators across config.json, tokenizer_config.json, and generation_config.json), evaluation harness protocols, and adversarial reward-hacking patterns. The agent must write YARA detection rules in proper syntax — an unfamiliar forensic tool for most developers — to scan heterogeneous artifacts for violation patterns. It must also design a SQLite database schema, populate it with structured findings, and orchestrate multi-tool analysis from a Python script. Clean runs with complex multi-stage DPO pipelines act as false-positive traps requiring holistic ML pipeline understanding to avoid misclassification. Evidence is sometimes indirect — buried in hidden config files, compressed archives, or requiring import-chain analysis across multiple Python modules."""
+solution_explanation = """The solution creates YARA rule files (.yar) for pattern-based detection of contamination, fabrication, and substitution indicators. The Python orchestrator invokes the yara CLI to recursively scan each run directory, then performs file comparison against references for eval/template tampering, analyzes model config files for instruct-model indicators, extracts tar.gz archives to compare raw vs reported metrics, and correlates findings with shell history. All findings are stored in a SQLite audit database with tool attribution, and final verdicts are written as both SQLite records and JSON files."""
+verification_explanation = """Tests verify auditor output against encoded ground truth (base64+zlib compressed, not plaintext) preventing trivial answer extraction. YARA rule tests verify rules compile via yara CLI, detect contamination patterns in dynamically created test files, and detect fabrication patterns in synthetic scripts. SQLite database tests verify the audit.db exists with correct schema and contains YARA-attributed findings consistent with JSON output. Dynamic anti-cheat tests generate clean, tampered-eval, and model-substitution runs at test time to verify the auditor generalizes rather than hardcoding results."""
+category = "cybersecurity"
+tags = ["ml-security", "forensic-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reward-hacking-auditor"

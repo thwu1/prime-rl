@@ -1,0 +1,17 @@
+{
+  "name": "loop_constprop",
+  "params": [1],
+  "entrypoint": 28,
+  "code": {
+    "28": {"kind": "op", "op": "const", "imm": 0, "args": [], "dst": 2, "succ": 27},
+    "27": {"kind": "op", "op": "const", "imm": 0, "args": [], "dst": 3, "succ": 26},
+    "26": {"kind": "cond", "cmp": "lt", "arg1": 3, "arg2": 1, "ifso": 25, "ifnot": 20},
+    "25": {"kind": "op", "op": "const", "imm": 1, "args": [], "dst": 4, "succ": 24},
+    "24": {"kind": "op", "op": "add", "args": [3, 4], "dst": 5, "succ": 23},
+    "23": {"kind": "op", "op": "add", "args": [3, 4], "dst": 6, "succ": 22},
+    "22": {"kind": "op", "op": "mul", "args": [5, 6], "dst": 7, "succ": 21},
+    "21": {"kind": "op", "op": "add", "args": [2, 7], "dst": 2, "succ": 19},
+    "19": {"kind": "op", "op": "add", "args": [3, 4], "dst": 3, "succ": 26},
+    "20": {"kind": "ret", "arg": 2}
+  }
+}

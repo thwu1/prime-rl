@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+
+all: libntt.so
+
+libntt.so: ntt.c ntt.h
+	$(CC) $(CFLAGS) -shared -o $@ ntt.c
+
+clean:
+	rm -f libntt.so

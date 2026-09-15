@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of numerical linear algebra algorithms: scaling-and-squaring with Padé approximation for matrix exponential, Denman-Beavers iteration for matrix square root, and inverse scaling-and-squaring for matrix logarithm. The solver must evaluate why naive Taylor series approaches fail (catastrophic cancellation for large-norm matrices, divergence outside convergence radius), design appropriate algorithms with adaptive working precision, and implement them with correct precision propagation through matrix operations. Cross-validation constraints (exp∘log=id, sqrt²=id, sqrt=exp∘log/2) require all three functions to be correct simultaneously."""
+solution_explanation = """Three algorithms: (1) matrix_exp via scaling-and-squaring — scale A by 2^{-s} to reduce norm well below 1, approximate exp via [p/p] Padé approximant (with order p scaling with dps), then square s times; uses dps+100 guard digits to absorb error amplification during squaring. (2) matrix_sqrt via Denman-Beavers coupled iteration — Y_{k+1}=(Y_k+Z_k^{-1})/2, Z_{k+1}=(Z_k+Y_k^{-1})/2 converging quadratically to sqrt(A); requires matrix inversions via LU solve at each step. (3) matrix_log via inverse scaling-and-squaring — take repeated square roots (using matrix_sqrt) to bring matrix near I, compute log(I+X) via Taylor series, scale back by 2^s; requires nested precision management across function calls."""
+verification_explanation = """17 tests across 5 classes: (a) matrix_exp verified via known values for diagonal, rotation, nilpotent matrices plus exp(A)*exp(-A)=I identity for Ward's matrix (norm 30) and a norm-100+ matrix; (b) matrix_sqrt verified via sqrt(A)^2=A for 3x3 and 4x4 SPD matrices and a non-symmetric defective matrix; (c) matrix_log verified via log(I)=0, diagonal, and roundtrip identities exp(log(A))=A and log(exp(A))=A; (d) cross-validation sqrt(A)=exp(log(A)/2) and exp(2A)=exp(A)^2. All checked to 40 decimal digits."""
+category = "numerical_analysis"
+tags = ["matrix-functions", "arbitrary-precision"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-linalg-bugs"

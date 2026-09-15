@@ -1,0 +1,17 @@
+# Intended behavior: Run deploy command with the version tag expanded
+# from VERSION variable and cost displayed as a dollar amount (e.g. "$500")
+# using DEPLOY_COST variable. The - prefix should make failures non-fatal.
+# Variable expansion IS needed for both VERSION and DEPLOY_COST.
+# The ExecStartPost should notify with the deployed version and cost.
+[Unit]
+Description=Deployment Notification Hook
+
+[Service]
+Type=oneshot
+Environment="VERSION=3.2.1"
+Environment="DEPLOY_COST=500"
+ExecStart=:-/usr/local/bin/deploy --tag v${VERSION} --cost $$${DEPLOY_COST}
+ExecStartPost=/usr/local/bin/notify --message "Deployed v${VERSION} for $$${DEPLOY_COST}"
+
+[Install]
+WantedBy=multi-user.target

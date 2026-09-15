@@ -1,0 +1,20 @@
+{
+  "resourceType": "Observation",
+  "id": "obs-001",
+  "meta": {"versionId": "1", "lastUpdated": "2024-02-01T09:30:00Z"},
+  "status": "final",
+  "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]},
+  "subject": {"reference": "Patient/pat-001"},
+  "encounter": {"reference": "Encounter/enc-001"},
+  "effectiveDateTime": "2024-02-01T09:30:00Z",
+  "component": [
+    {
+      "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+      "valueQuantity": {"value": 120, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+    },
+    {
+      "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+      "valueQuantity": {"value": 80, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+    }
+  ]
+}

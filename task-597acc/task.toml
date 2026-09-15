@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level side-channel analysis: parsing a custom binary trace format (TRS-lite) using low-level struct operations, designing and applying scipy signal processing filters to suppress dominant clock harmonics, implementing cross-correlation-based trace alignment to compensate for large inter-trace jitter, and performing Correlation Power Analysis (CPA) against the AES-128 SubBytes operation using a Hamming weight leakage model of the S-box output. The solver must understand why the S-box non-linearity creates exploitable leakage, distinguish genuine SubBytes leakage from confounding AddRoundKey ghost peaks, and orchestrate a multi-tool pipeline (struct + scipy.signal + numpy CPA) to extract a key buried under clock noise and jitter."""
+solution_explanation = """1. Parse the TRS-lite binary format using struct to extract 5000 traces (4000 float32 samples each) and their 16-byte plaintexts. 2. Apply a low-pass Butterworth filter (scipy.signal.butter + sosfiltfilt, Wn~0.25 Nyquist) to remove high-frequency clock harmonics that dominate the raw traces. 3. Align traces using cross-correlation (scipy.signal.correlate): detect the trigger pulse for rough alignment, then refine using cross-correlation against an average reference trace. 4. For each key byte 0-15, compute the AES S-box CPA: hypothesize all 256 key byte values, compute HW(Sbox(plaintext[i] XOR guess)) for each trace, and compute Pearson correlation between hypotheses and filtered/aligned trace samples. Select the guess with maximum positive correlation at the SubBytes leakage point. 5. Output the 16-byte key as a hex string."""
+verification_explanation = """The test reads /app/recovered_key.hex, validates format (32-char hex string, 16 bytes), and checks that its SHA-256 hash matches the precomputed hash of the true AES key. This verifies exact key recovery without exposing the key in test code."""
+category = "security"
+tags = ["side-channel", "signal-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-597acc"

@@ -1,0 +1,14 @@
+valid-for-minute:
+  body: This response will stay fresh for one minute
+  headers:
+    cache-control: max-age=60
+    custom-header: my-custom-value
+private:
+  body: A private response
+  headers:
+    cache-control: private
+    x-frame-options: DENY
+no-cache:
+  body: This response can be cached, but it has to be validated on each request
+  headers:
+    cache-control: no-cache

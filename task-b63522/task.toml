@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Atlas migration internals (revision table, statement-level tracking, txmode directives, atlas.sum checksums), PostgreSQL transactional DDL behavior (why CONCURRENTLY requires txmode none and how partial failures propagate), schema drift detection and remediation, and the correct multi-step recovery workflow (diagnose → fix drift → fix migration file → update hash → manipulate revision state → apply remaining). An agent must reason about the interplay between the migration tool's state, the actual database state, and the migration file contents to correctly separate drift from expected partial changes."""
+solution_explanation = """1. Diagnose state with atlas migrate status to identify partial migration 3 failure. 2. Identify schema drift by comparing actual DB schema against migration expectations: customers.name changed to TEXT (should be VARCHAR(100)), extra idx_orders_created index, extra DEFAULT on products.price. 3. Revert all drift via ALTER TABLE statements. 4. Fix migration file 20240201120000: add DEFAULT clause to the NOT NULL shipping_address column so it can apply to a non-empty table. 5. Run atlas migrate hash to update atlas.sum after file modification. 6. Manually execute remaining statements from migration 3 and use atlas migrate set to reconcile the revision table. 7. Apply pending migrations 4 and 5. 8. Verify final state with atlas migrate status and schema inspection."""
+verification_explanation = """Tests connect to PostgreSQL and verify: (1) all 5 migrations tracked in atlas_schema_revisions with no errors, (2) correct table/column structure including NOT NULL shipping_address, (3) schema drift fully reversed (customers.name is VARCHAR(100), no idx_orders_created, no spurious DEFAULT on products.price), (4) required indexes exist (idx_customers_email, idx_orders_status), (5) original seed data preserved (3 customers, 3 products, 4 orders), (6) atlas migrate status returns cleanly confirming directory integrity."""
+category = "data_management"
+tags = ["schema-migration", "database-recovery"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b63522"

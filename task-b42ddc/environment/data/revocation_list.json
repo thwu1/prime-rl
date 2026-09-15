@@ -1,0 +1,12 @@
+{
+  "revoked_entities": [
+    "authority_gamma"
+  ],
+  "revocation_reasons": {
+    "authority_gamma": {
+      "reason": "keyCompromise",
+      "date": "2025-01-15T00:00:00Z",
+      "description": "Private key material exposed in security incident"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "image_size": [128, 128, 80],
+  "spacing_mm": [0.5, 0.5, 1.0],
+  "origin_mm": [-32.0, -32.0, -40.0],
+  "direction_angles_deg": {
+    "z_rotation": 20.0,
+    "x_tilt": 10.0
+  },
+  "structures": [
+    {
+      "name": "sphere_A",
+      "center_mm": [0.0, 0.0, 0.0],
+      "radius_mm": 8.0,
+      "intensity": 200
+    },
+    {
+      "name": "sphere_B",
+      "center_mm": [15.0, -10.0, 5.0],
+      "radius_mm": 5.0,
+      "intensity": 200
+    },
+    {
+      "name": "sphere_C",
+      "center_mm": [-12.0, 8.0, -15.0],
+      "radius_mm": 6.5,
+      "intensity": 200
+    }
+  ],
+  "background_intensity": 20,
+  "smoothing_sigma_mm": 0.8
+}

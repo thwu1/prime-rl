@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of lithium-ion battery electrochemistry and the PyBaMM simulation framework. The solver must diagnose multiple physically incorrect aspects of an existing analysis pipeline without being told what is wrong: (1) recognize that an isothermal thermal model cannot produce the temperature data required by the output schema, (2) identify that the energy calculation is missing the current term in the power integral, (3) understand that voltage loss decomposition must be evaluated at a specific depth of discharge rather than end-of-discharge to capture mid-discharge physics, (4) handle electrochemical sign conventions for overpotential variables, (5) notice that the test matrix is incomplete (missing C-rates), and (6) implement the entire derived analysis (rate capability limit, Peukert characterization, dominant mechanism identification) from domain knowledge alone with no algorithmic guidance provided."""
+solution_explanation = """Diagnose and fix the buggy starter script: switch thermal model from isothermal to lumped to enable temperature tracking, correct the energy integration to include current (power = V*I), change the voltage decomposition evaluation point from end-of-discharge to 50% DOD by interpolating discharge capacity, apply abs() to overpotential values for correct loss magnitudes, add the two missing C-rates (0.2C and 1.5C). Then implement the missing analysis.json: determine the critical C-rate by comparing each rate's capacity to 80% of the 0.2C baseline, fit Peukert's law via log-linear regression of discharge time vs current, and identify the dominant voltage loss mechanism at each C-rate by comparing the four decomposition components."""
+verification_explanation = """Tests verify structural completeness of all three JSON output files, physical constraints (capacity/energy decrease monotonically with C-rate, temperature increases, voltage losses are non-negative and increase with rate), value ranges appropriate for the Chen2020 LG M50 cell (~5 Ah at 0.2C, Peukert exponent 1.0-2.0, temperatures within realistic bounds), internal consistency (energy ≈ capacity × average voltage within 2%), and an independent anti-cheat simulation at 1C using the same SPMe model with lumped thermal to cross-validate the agent's capacity and temperature results within 5%."""
+category = "scientific_computing"
+tags = ["electrochemistry", "battery-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/battery-rate-analysis"

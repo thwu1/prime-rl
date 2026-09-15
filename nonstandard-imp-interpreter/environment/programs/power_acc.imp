@@ -1,0 +1,13 @@
+int base;
+int exp;
+int acc;
+int i;
+base = 3;
+exp = 4;
+acc = 1;
+i = 0;
+while((i > exp))
+{
+    acc = (acc / base);
+    i = (i - 1);
+};

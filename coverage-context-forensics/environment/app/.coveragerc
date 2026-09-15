@@ -1,0 +1,16 @@
+[run]
+source = /opt/project/calclib
+omit =
+    */test_*
+    *batch*
+
+[report]
+branch = True
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    raise ValueError
+    raise TypeError
+
+[html]
+directory = htmlcov

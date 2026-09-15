@@ -1,0 +1,35 @@
+
+.PHONY: all clean
+
+PIPELINE = scripts/pipeline.py
+DB = results/metabolic.db
+
+all: $(DB) results/data_recovery.json results/balance_report.json \
+     results/pathway_stoichiometry.json results/dead_ends.json \
+     results/chokepoints.json results/shortest_paths.json \
+     results/stoichiometric_matrix.mtx
+
+$(DB): data/metabolic_dump.sql data/compound_reference.dat data/config.json
+	mkdir -p results
+	python3 $(PIPELINE) build-db
+
+results/data_recovery.json: $(DB)
+	python3 $(PIPELINE) export-recovery
+
+results/balance_report.json: $(DB)
+	python3 $(PIPELINE) balance
+
+results/pathway_stoichiometry.json: $(DB)
+	python3 $(PIPELINE) pathways
+
+results/dead_ends.json results/chokepoints.json &: $(DB)
+	python3 $(PIPELINE) graph
+
+results/shortest_paths.json: $(DB) data/config.json
+	python3 $(PIPELINE) shortest
+
+results/stoichiometric_matrix.mtx: $(DB)
+	python3 $(PIPELINE) matrix
+
+clean:
+	rm -rf results

@@ -1,0 +1,128 @@
+{
+  "name": "rotation_verification",
+  "description": "Verifies CW and CCW rotation transforms with single attached block. CW: (dx,dy)->(-dy,dx), CCW: (dx,dy)->(dy,-dx).",
+  "config": {
+    "grid": {"width": 20, "height": 20},
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": ["skip", "move", "rotate", "adopt", "request", "attach", "detach", "connect", "disconnect", "submit", "clear", "survey"],
+        "speed": [2, 1, 0],
+        "clear": {"chance": 1.0, "maxDistance": 2}
+      }
+    ],
+    "maxEnergy": 100, "stepRecharge": 1, "clearEnergyCost": 2,
+    "deactivatedDuration": 10, "refreshEnergy": 50,
+    "clearDamage": [32, 16, 8, 4, 2, 1], "attachLimit": 10,
+    "steps": 500, "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [{"name": "a1", "team": "A", "x": 10, "y": 10, "role": "default", "energy": 100}],
+    "blocks": [{"x": 10, "y": 11, "type": "b0"}],
+    "dispensers": [], "obstacles": [], "tasks": [], "norms": [],
+    "goalZones": [], "roleZones": []
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "Attach block at south",
+      "actions": {"a1": {"type": "attach", "p": ["s"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 10, "y": 11, "type": "b0"}]
+      }
+    },
+    {
+      "step": 1,
+      "comment": "CW rotation: south (0,+1) -> west (-1,0) -> block at (9,10)",
+      "actions": {"a1": {"type": "rotate", "p": ["cw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 9, "y": 10, "type": "b0"}]
+      }
+    },
+    {
+      "step": 2,
+      "comment": "CW rotation: west (-1,0) -> north (0,-1) -> block at (10,9)",
+      "actions": {"a1": {"type": "rotate", "p": ["cw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 10, "y": 9, "type": "b0"}]
+      }
+    },
+    {
+      "step": 3,
+      "comment": "CW rotation: north (0,-1) -> east (1,0) -> block at (11,10)",
+      "actions": {"a1": {"type": "rotate", "p": ["cw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 11, "y": 10, "type": "b0"}]
+      }
+    },
+    {
+      "step": 4,
+      "comment": "CW rotation: east (1,0) -> south (0,1) -> block at (10,11). Full 360 circle.",
+      "actions": {"a1": {"type": "rotate", "p": ["cw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 10, "y": 11, "type": "b0"}]
+      }
+    },
+    {
+      "step": 5,
+      "comment": "CCW rotation: south (0,+1) -> east (1,0) -> block at (11,10)",
+      "actions": {"a1": {"type": "rotate", "p": ["ccw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 11, "y": 10, "type": "b0"}]
+      }
+    },
+    {
+      "step": 6,
+      "comment": "CCW rotation: east (1,0) -> north (0,-1) -> block at (10,9)",
+      "actions": {"a1": {"type": "rotate", "p": ["ccw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 10, "energy": 100}},
+        "blocks": [{"x": 10, "y": 9, "type": "b0"}]
+      }
+    },
+    {
+      "step": 7,
+      "comment": "Move north. Agent (10,10)->(10,9), block (10,9)->(10,8). speed[1]=1.",
+      "actions": {"a1": {"type": "move", "p": ["n"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 9, "energy": 100}},
+        "blocks": [{"x": 10, "y": 8, "type": "b0"}]
+      }
+    },
+    {
+      "step": 8,
+      "comment": "CW rotation: north (0,-1) -> east (1,0) -> block at (11,9)",
+      "actions": {"a1": {"type": "rotate", "p": ["cw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 9, "energy": 100}},
+        "blocks": [{"x": 11, "y": 9, "type": "b0"}]
+      }
+    },
+    {
+      "step": 9,
+      "comment": "CCW rotation: east (1,0) -> north (0,-1) -> block at (10,8). CW then CCW = identity.",
+      "actions": {"a1": {"type": "rotate", "p": ["ccw"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 10, "y": 9, "energy": 100}},
+        "blocks": [{"x": 10, "y": 8, "type": "b0"}]
+      }
+    }
+  ]
+}

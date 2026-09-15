@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of three intersecting domains: (1) Video diffusion pipeline theory — the agent must diagnose 6 subtle bugs across 5 pipeline modules by comparing buggy code against theoretical formulations in a research paper excerpt; each bug requires understanding the mathematical intent (shifted flow-matching sigma schedule, VAE temporal ceiling-division, conditioning mask conventions, per-channel normalization direction, classifier-free guidance base term, two-stage denoising boundary); simply running tests is insufficient as the agent must derive correct behavior from theory. (2) ZeroMQ protocol engineering — the server uses the wrong socket type (PUB instead of REP), Python repr instead of JSON serialization, and unserializable numpy arrays; fixing these requires understanding ZMQ socket patterns, JSON vs repr differences, and numpy/JSON interoperability. (3) Binary format parsing and inference orchestration — implementing a WME binary parser with CRC32 validation, multi-view latent geometry alignment with spatial-factor padding, autoregressive chunk scheduling with adaptive denoising parameters, and SQLite database construction. The three subsystems are interdependent: the ZMQ server serves data produced by the orchestrator using the fixed pipeline modules, requiring holistic system understanding."""
+solution_explanation = """Pipeline fixes: scheduler.py needs shift multiplier in numerator (t/ → shift*t/); geometry.py needs ceiling division ((F-1)//f+1 not F//f); conditioning.py needs inverted mask (ones with ref=0, not zeros with ref=1); normalization.py needs divide-by-std not multiply; inference.py CFG needs uncond base term not cond; inference.py split boundary removes +1. Server fixes: zmq.PUB→zmq.REP, str()→json.dumps(), sigmas→sigmas.tolist(). Orchestrator: parse_wme uses struct.unpack with CRC32 validation; compute_multiview_geometry applies ceil_multiple rounding; plan_chunks generates overlapping windows with adaptive parameters from trajectory variance; build_plan_database populates 5 SQLite tables."""
+verification_explanation = """Tests verify each subsystem independently: pipeline tests check sigma values, latent shapes, mask conventions, normalization roundtrips, CFG formula, and two-stage boundaries against reference values, plus a full pipeline integration test. The validate.py harness independently confirms all 13 checks pass. Orchestrator tests verify WME parsing (headers, views, trajectory, CRC), geometry alignment (padded dimensions, crop coordinates), chunk scheduling (counts, ranges, adaptive parameters, coverage invariants), and database schema/content. ZMQ tests start the server in a subprocess, send REQ queries (ping, get_episodes, get_chunks, get_geometry, get_schedule), and verify JSON responses contain correct data including monotonically decreasing sigma schedules."""
+category = "machine_learning"
+tags = ["world-models", "zmq-protocols"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flow-match-conditioning"

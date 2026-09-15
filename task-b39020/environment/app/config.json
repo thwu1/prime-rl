@@ -1,0 +1,29 @@
+{
+    "source_port_pool": [40000, 40099],
+    "services": [
+        {
+            "name": "service_a",
+            "source_ip": "127.0.0.1",
+            "dest_ip": "127.0.0.1",
+            "dest_port": 8001,
+            "num_connections": 95,
+            "source_port_range": null
+        },
+        {
+            "name": "service_b",
+            "source_ip": "127.0.0.1",
+            "dest_ip": "127.0.0.1",
+            "dest_port": 8002,
+            "num_connections": 95,
+            "source_port_range": null
+        },
+        {
+            "name": "service_c",
+            "source_ip": "127.0.0.1",
+            "dest_ip": "127.0.0.1",
+            "dest_port": 8003,
+            "num_connections": 10,
+            "source_port_range": [40050, 40059]
+        }
+    ]
+}

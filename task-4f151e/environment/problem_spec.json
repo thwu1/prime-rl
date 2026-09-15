@@ -1,0 +1,132 @@
+{
+  "convention": {
+    "qubit_indexing": "Little-endian: state |q0 q1 ... q_{n-1}> has index sum(q_k * 2^k). Qubit 0 is the least significant bit.",
+    "gate_definitions": {
+      "H": "Hadamard: [[1,1],[1,-1]] / sqrt(2)",
+      "Ry": "Ry(theta) = [[cos(theta/2), -sin(theta/2)], [sin(theta/2), cos(theta/2)]]",
+      "Rz": "Rz(theta) = [[exp(-i*theta/2), 0], [0, exp(i*theta/2)]]",
+      "CNOT": "Controlled-NOT: flips target qubit when control qubit is |1>. Format: {control, target}.",
+      "CZ": "Controlled-Z: applies phase -1 when both qubits are |1>. Format: {qubits: [q1, q2]}."
+    },
+    "pauli_strings": "In a Pauli string like 'XZIY', the k-th character (0-indexed) is the Pauli operator acting on qubit k. The full operator is the tensor product P_{n-1} x ... x P_1 x P_0 (qubit 0 rightmost in the Kronecker product)."
+  },
+
+  "problem1": {
+    "task": "Simulate the parameterized circuit on 4 qubits (initial state |0000>) and output the final state vector.",
+    "num_qubits": 4,
+    "initial_state": "all_zeros",
+    "gates": [
+      {"type": "H", "qubit": 0},
+      {"type": "CNOT", "control": 0, "target": 1},
+      {"type": "Ry", "qubit": 2, "angle": 1.0471975511965976},
+      {"type": "CNOT", "control": 2, "target": 3},
+      {"type": "CZ", "qubits": [1, 2]},
+      {"type": "Rz", "qubit": 0, "angle": 0.7853981633974483},
+      {"type": "H", "qubit": 3},
+      {"type": "CNOT", "control": 3, "target": 0},
+      {"type": "Ry", "qubit": 1, "angle": 2.356194490192345},
+      {"type": "CZ", "qubits": [0, 2]}
+    ],
+    "output_key": "problem1",
+    "output_format": {
+      "state_vector": "List of 16 pairs [real_part, imaginary_part], one per basis state, indexed 0 through 15."
+    }
+  },
+
+  "problem2": {
+    "task": "Implement the Quantum Fourier Transform and apply it to each given computational basis input state.",
+    "definition": "QFT|j> = (1/sqrt(N)) * sum_{k=0}^{N-1} exp(2*pi*i*j*k/N) |k>, where N = 2^num_qubits.",
+    "inputs": [
+      {"num_qubits": 3, "state": [1, 0, 1], "description": "q0=1, q1=0, q2=1 => index j = 1 + 4 = 5"},
+      {"num_qubits": 4, "state": [0, 1, 1, 0], "description": "q0=0, q1=1, q2=1, q3=0 => index j = 2 + 4 = 6"},
+      {"num_qubits": 5, "state": [1, 1, 0, 0, 1], "description": "q0=1, q1=1, q2=0, q3=0, q4=1 => index j = 1 + 2 + 16 = 19"}
+    ],
+    "output_key": "problem2",
+    "output_format": {
+      "outputs": "List of 3 state vectors. Each state vector is a list of [real, imaginary] pairs."
+    }
+  },
+
+  "problem3": {
+    "task": "For each circuit, simulate it starting from |0...0>, then compute the von Neumann entanglement entropy S = -tr(rho_A * ln(rho_A)) for the given bipartition, where rho_A = tr_B(|psi><psi|). Use the natural logarithm.",
+    "circuits": [
+      {
+        "name": "ghz4",
+        "num_qubits": 4,
+        "gates": [
+          {"type": "H", "qubit": 0},
+          {"type": "CNOT", "control": 0, "target": 1},
+          {"type": "CNOT", "control": 1, "target": 2},
+          {"type": "CNOT", "control": 2, "target": 3}
+        ],
+        "partition_A": [0, 1],
+        "partition_B": [2, 3]
+      },
+      {
+        "name": "entangled_chain",
+        "num_qubits": 6,
+        "gates": [
+          {"type": "H", "qubit": 0},
+          {"type": "CNOT", "control": 0, "target": 3},
+          {"type": "H", "qubit": 1},
+          {"type": "CNOT", "control": 1, "target": 4},
+          {"type": "H", "qubit": 2},
+          {"type": "CNOT", "control": 2, "target": 5},
+          {"type": "Ry", "qubit": 0, "angle": 0.9272952180016122},
+          {"type": "CNOT", "control": 0, "target": 1}
+        ],
+        "partition_A": [0, 1, 2],
+        "partition_B": [3, 4, 5]
+      }
+    ],
+    "output_key": "problem3",
+    "output_format": {
+      "entropies": "List of 2 floats, one entropy value per circuit."
+    }
+  },
+
+  "problem4": {
+    "task": "Implement Grover's search algorithm for a single marked target state on n qubits.",
+    "num_qubits": 5,
+    "target": [1, 0, 1, 1, 0],
+    "target_note": "target index = 1 + 0 + 4 + 8 + 0 = 13",
+    "algorithm": "Start in uniform superposition |s> = H^n|0>. Each iteration: (1) Oracle flips the phase of the target state, (2) Diffusion operator 2|s><s| - I. Use optimal iteration count k = floor(pi / (4 * arcsin(1/sqrt(N)))) where N = 2^n.",
+    "output_key": "problem4",
+    "output_format": {
+      "iterations": "Integer: number of Grover iterations performed.",
+      "probability": "Float: probability of measuring the target state after all iterations."
+    }
+  },
+
+  "problem5": {
+    "task": "Construct the Hamiltonian matrix from Pauli terms, compute the ground state energy (lowest eigenvalue), then time-evolve a given initial state and compute the expectation value of an observable.",
+    "num_qubits": 4,
+    "hamiltonian": [
+      {"coeff": -1.0, "pauli": "ZZII"},
+      {"coeff": -1.0, "pauli": "IZZI"},
+      {"coeff": -1.0, "pauli": "IIZZ"},
+      {"coeff": -1.0, "pauli": "ZIIZ"},
+      {"coeff": -0.5, "pauli": "XIII"},
+      {"coeff": -0.5, "pauli": "IXII"},
+      {"coeff": -0.5, "pauli": "IIXI"},
+      {"coeff": -0.5, "pauli": "IIIX"},
+      {"coeff": 0.25, "pauli": "YYII"},
+      {"coeff": 0.25, "pauli": "IIYY"},
+      {"coeff": -0.1, "pauli": "XZZX"}
+    ],
+    "time_evolution": {
+      "description": "Prepare initial state by applying the gates below to |0000>, then evolve under e^{-iHt} for the given time, then compute <psi(t)|O|psi(t)>.",
+      "initial_state_prep": [
+        {"type": "H", "qubit": 0},
+        {"type": "H", "qubit": 2}
+      ],
+      "time": 1.5,
+      "observable": "ZIII"
+    },
+    "output_key": "problem5",
+    "output_format": {
+      "ground_energy": "Float: the lowest eigenvalue of the Hamiltonian matrix.",
+      "evolved_expectation": "Float: the expectation value <psi(t)|O|psi(t)> of the observable."
+    }
+  }
+}

@@ -1,0 +1,129 @@
+{
+    "description": "Out-of-Order CPU Design Space Exploration - Performance/Area Pareto Analysis",
+    "models": {
+        "area": {
+            "description": "Silicon area score approximation for an OoO CPU core. Captures the cost of wide issue (width scales the register read/write ports and ROB ports), the ROB storage, and the register file storage.",
+            "formula": "width * (2 * rob_size + num_int_regs + num_fp_regs) + 4 * width + 2 * rob_size + num_int_regs + num_fp_regs",
+            "parameters": ["width", "rob_size", "num_int_regs", "num_fp_regs"]
+        },
+        "ipc": {
+            "description": "Analytical IPC model for an OoO processor. The achievable IPC is the minimum of all applicable constraints. Each constraint represents a different hardware or workload limitation.",
+            "arch_registers": 32,
+            "constraints": [
+                {
+                    "name": "width",
+                    "formula": "width",
+                    "description": "Pipeline fetch/decode/commit width limit - cannot process more instructions per cycle than the pipeline width"
+                },
+                {
+                    "name": "ilp",
+                    "formula": "workload.ilp",
+                    "description": "Intrinsic instruction-level parallelism of the workload - the theoretical maximum IPC achievable by an infinitely resourced machine"
+                },
+                {
+                    "name": "rob",
+                    "formula": "rob_size / workload.avg_inflight_cycles",
+                    "description": "ROB-limited throughput derived from Little's Law: throughput = occupancy / latency. The ROB limits how many instructions can be in-flight simultaneously."
+                },
+                {
+                    "name": "int_regs",
+                    "formula": "(num_int_regs - arch_registers) / (workload.avg_int_reg_lifetime * workload.frac_int)",
+                    "description": "Integer register file pressure. Free physical registers = num_int_regs - arch_registers. Each integer instruction occupies a register for avg_int_reg_lifetime cycles, and frac_int of all instructions are integer type. NON-BINDING (treat as infinity) when frac_int == 0."
+                },
+                {
+                    "name": "fp_regs",
+                    "formula": "(num_fp_regs - arch_registers) / (workload.avg_fp_reg_lifetime * workload.frac_fp)",
+                    "description": "FP register file pressure. Analogous to integer register constraint but for floating-point registers. NON-BINDING (treat as infinity) when frac_fp == 0."
+                }
+            ]
+        }
+    },
+    "parameter_space": {
+        "width": [1, 2, 4, 6, 8, 10, 12, 16],
+        "rob_size": [16, 32, 48, 64, 96, 128, 192, 256, 384, 512],
+        "num_int_regs": [33, 40, 48, 64, 80, 96, 128, 160, 192, 256, 384, 512],
+        "num_fp_regs": [33, 40, 48, 64, 80, 96, 128, 160, 192, 256, 384, 512]
+    },
+    "workloads": {
+        "matmul": {
+            "description": "Dense matrix multiplication - FP compute bound with long FP register lifetimes",
+            "ilp": 6.0,
+            "avg_inflight_cycles": 15.0,
+            "frac_int": 0.25,
+            "frac_fp": 0.75,
+            "avg_int_reg_lifetime": 4.0,
+            "avg_fp_reg_lifetime": 12.0
+        },
+        "bfs": {
+            "description": "Breadth-first search on a graph - memory latency bound with irregular access patterns",
+            "ilp": 1.8,
+            "avg_inflight_cycles": 25.0,
+            "frac_int": 0.9,
+            "frac_fp": 0.1,
+            "avg_int_reg_lifetime": 8.0,
+            "avg_fp_reg_lifetime": 3.0
+        },
+        "sort": {
+            "description": "Comparison-based sorting - branch-heavy integer workload with moderate ILP",
+            "ilp": 5.0,
+            "avg_inflight_cycles": 8.0,
+            "frac_int": 0.95,
+            "frac_fp": 0.05,
+            "avg_int_reg_lifetime": 6.0,
+            "avg_fp_reg_lifetime": 2.0
+        },
+        "queens": {
+            "description": "N-Queens backtracking solver - recursive integer workload with long register lifetimes and deep speculation",
+            "ilp": 4.0,
+            "avg_inflight_cycles": 18.0,
+            "frac_int": 0.97,
+            "frac_fp": 0.03,
+            "avg_int_reg_lifetime": 10.0,
+            "avg_fp_reg_lifetime": 2.0
+        },
+        "stream": {
+            "description": "Streaming integer array processing - pure integer workload with no FP instructions and high ILP",
+            "ilp": 8.0,
+            "avg_inflight_cycles": 12.0,
+            "frac_int": 1.0,
+            "frac_fp": 0.0,
+            "avg_int_reg_lifetime": 3.0,
+            "avg_fp_reg_lifetime": 1.0
+        }
+    },
+    "area_budgets": [1200, 3000, 6000, 15000],
+    "validation": [
+        {
+            "description": "Little core - narrow pipeline with small ROB and register files",
+            "config": {"width": 4, "rob_size": 32, "num_int_regs": 64, "num_fp_regs": 64},
+            "expected_area": 976,
+            "expected_ipc": {
+                "matmul": 2.1333,
+                "bfs": 1.2800,
+                "sort": 4.0000,
+                "queens": 1.7778,
+                "stream": 2.6667
+            }
+        },
+        {
+            "description": "Big core - wide pipeline with large ROB and register files",
+            "config": {"width": 12, "rob_size": 384, "num_int_regs": 512, "num_fp_regs": 512},
+            "expected_area": 23344,
+            "expected_ipc": {
+                "matmul": 6.0000,
+                "bfs": 1.8000,
+                "sort": 5.0000,
+                "queens": 4.0000,
+                "stream": 8.0000
+            }
+        }
+    ],
+    "output": {
+        "file": "/app/results.json",
+        "schema": {
+            "configurations_evaluated": "Total number of configurations in the parameter space (integer). Should equal the product of the sizes of all parameter arrays.",
+            "pareto_frontier": "Array of non-dominated configurations in the area vs. geometric-mean-IPC tradeoff space, sorted by area ascending. Geometric mean IPC must be strictly increasing along the frontier. Each entry is an object with fields: width (int), rob_size (int), num_int_regs (int), num_fp_regs (int), area (int), geo_mean_ipc (float), per_workload_ipc (object mapping workload name to float IPC value).",
+            "budget_optimal": "Object keyed by area budget value as a string (e.g. '1200'). Each value is the configuration with the highest geometric mean IPC among all configurations whose area does not exceed the budget. Same fields as pareto_frontier entries. For ties in geo_mean_ipc, prefer the configuration with smaller area."
+        }
+    }
+}

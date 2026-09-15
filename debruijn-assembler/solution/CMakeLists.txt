@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(assembler C)
+set(CMAKE_C_STANDARD 11)
+add_executable(assembler assembler.c)
+target_compile_options(assembler PRIVATE -O2 -Wall)

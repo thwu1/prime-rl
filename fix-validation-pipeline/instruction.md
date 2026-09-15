@@ -1,0 +1,16 @@
+The project at `/app/` implements a biometric evaluation framework modeled after NIST FRVT, using a layered architecture: C++ abstract interface headers define API contracts, implementations compile to shared libraries (`.so`), test driver executables link against these libraries and produce validation logs, and shell scripts orchestrate the full build->link->run->validate pipeline. The framework defines two evaluation tracks — 1:1 face verification (`EVAL_11`) and quality assessment (`EVAL_QUALITY`) — but neither currently works.
+
+**1:1 Track (`EVAL_11`)**: The implementation at `/app/src/impl/` does not compile. The `EVAL_11::Interface` base class in `/app/src/include/eval_11.h` declares multiple pure virtual methods, but the existing implementation class fails to override all of them. Diagnose the abstract class instantiation failure, identify which method is unimplemented, and provide the missing override with correct semantics. The build pipeline (`/app/scripts/build_impl.sh`, `/app/scripts/compile_and_link.sh`, `/app/scripts/run_testdriver.sh`) and the initial `/app/run_validate.sh` handle this track once the implementation compiles.
+
+**Quality Track (`EVAL_QUALITY`)**: The quality interface header `/app/src/include/eval_quality.h` defines the `EVAL_QUALITY::Interface` abstract class, and a pre-written test driver at `/app/src/testdriver/validate_quality.cpp` exercises it. The header contains multiple design violations that break consistency with the framework conventions established in `eval_structs.h` and `eval_11.h`: incorrect types in method signatures, wrong factory method return semantics, and namespace-scope version variables that do not follow the framework's conditional extern linkage pattern (study the `#ifdef NIST_EXTERN_*` guards in `eval_structs.h` and `eval_11.h`). Fix all violations in the quality header. Then design and implement a conformant null quality implementation that produces deterministic quality scores in [0, 100] for all images in `/app/input/quality.txt`, its CMake build system, compile-and-link scripts for the quality test driver (the test driver requires correct `-D` preprocessor flags for multi-translation-unit header inclusion — see how the 1:1 track's CMake handles `NIST_EXTERN_*` defines), quality driver execution and validation scripts, and integration of the quality track into `/app/run_validate.sh`.
+
+When complete, `/app/run_validate.sh` must build, run, and validate both tracks end-to-end, exiting 0 only when all checks pass. Quality validation must verify log existence, line count parity with inputs, zero return codes, scalar quality scores in [0, 100], and attribute values in [0, 100].
+
+**Expected output artifacts:**
+- `/app/lib/libeval_11_*.so` and `/app/lib/libeval_quality_*.so` — shared libraries
+- `/app/bin/validate` and `/app/bin/validate_quality` — test driver binaries
+- `/app/validation/enroll.log`, `/app/validation/verif.log`, `/app/validation/match.log` — 1:1 output logs
+- `/app/validation/quality.log` — quality assessment output log
+- `libeval_11_*.tar.gz` — submission archive in `/app/`
+
+**Upstream reference code (must not be modified):** `eval_structs.h`, `eval_11.h`, `validate.cpp`, `validate_quality.cpp`, `util.h`, `util.cpp`.

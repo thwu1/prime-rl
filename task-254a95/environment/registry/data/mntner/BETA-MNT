@@ -1,0 +1,6 @@
+mntner:             BETA-MNT
+admin-c:            BOB-DN42
+tech-c:             BOB-DN42
+mnt-by:             BETA-MNT
+auth:               ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleBetaKeyData
+source:             DN42

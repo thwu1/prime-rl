@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires solving a nonlinear inverse problem: locating energy sources on a grid and fitting their parameterized emission functions from partial, clipped, integer-valued observations. The solver must handle mixed function types (sinusoidal vs rational), superposition of up to 6 nodes, a non-obvious global mean-adjustment rule, and observation sparsity as low as 30%. The search space has many local optima due to sinusoidal periodicity. Scenarios escalate from a single node pair with 80% coverage to three overlapping pairs with 30% coverage and heavy clipping."""
+solution_explanation = """Uses vectorized exhaustive position search with linearized parameter fitting: for type-0 (sinusoidal), a frequency grid search reduces each position to a closed-form 2-variable linear LS; for type-1 (rational), direct 2-variable LS. A greedy beam search explores top candidates per pair, followed by joint Nelder-Mead refinement over all continuous parameters using the full forward model (per-node contributions, 3D mean adjustment, summation, rounding, clipping). Local position refinement and alternate function-type reassignment provide fallback robustness."""
+verification_explanation = """Tests regenerate ground truth energy fields from known node configurations using the identical forward model and verify the agent's reconstructed fields achieve RMSE < 2.0 for all five scenarios. Values must be integers in [-20, 20]."""
+category = "algorithms"
+tags = ["inverse-problems", "numerical-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/energy-field-inference"

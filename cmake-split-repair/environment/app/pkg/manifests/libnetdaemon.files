@@ -1,0 +1,9 @@
+${prefix}/lib/libndcore.so
+${prefix}/lib/libndcore.so.3
+${prefix}/lib/libndcore.so.3.0.0
+${prefix}/lib/libndcrypto.so
+${prefix}/lib/libndcrypto.so.3
+${prefix}/lib/libndcrypto.so.3.0.0
+${prefix}/include/netdaemon/ndcore.h
+${prefix}/include/netdaemon/ndcrypto.h
+${prefix}/lib/pkgconfig/netdaemon.pc

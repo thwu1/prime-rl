@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of a ~1650 LOC Java compiler spanning scanner, parser, symbol table, and code generator. The boolean extension demands changes to how expressions and conditions interact at the grammar and code-generation level, including correct bytecode generation with forward jump patching and label management. The enum extension requires coordinated changes across all compiler phases: lexical analysis, parsing, symbol table management, and code generation. Both features must work together (e.g., assigning enum comparison results to boolean variables). The solver must make consistent changes across 7+ tightly-coupled source files without breaking existing functionality."""
+solution_explanation = """Modify Scanner.java to add 'enum' keyword. Modify Struct.java to add Bool and Enum kinds. Modify Tab.java to add boolType, boolean type name, true/false constants. Modify Operand.java to add Type kind and handle Obj.Type. Modify Label.java to add merge(). Modify Code.java to handle Cond-to-value conversion in load(). The bulk of the work is in Parser.java: rename Expr/Term/Factor to SimpleExpr/SimpleTerm/SimpleFactor, create new Expr (||), Term (&&), Factor (relop) productions, add makeCond() for value-to-Cond conversion, add EnumDecl, modify Designator for enum constant access, change if/while to use Expr+makeCond, and extend print to handle boolean and enum types."""
+verification_explanation = """Each test program is compiled with the modified compiler and run on the unmodified MicroJava VM. The program output (with the VM timing message stripped) is compared against the expected output. Tests cover: boolean assignment from comparison, true/false constants, boolean in conditions, compound boolean with short-circuit (&&, ||), parenthesized boolean sub-expressions, boolean controlling while loops, enum declaration and constant access, enum comparison, printing boolean and enum values, and the interaction between both features (enum comparison assigned to boolean)."""
+category = "programming_languages"
+tags = ["compiler", "java"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f507e1"

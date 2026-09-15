@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level formal verification knowledge to audit a JasperGold proof decomposition exported across multiple domain-specific formats. The agent must parse a Tcl-based proof plan (JasperGold configuration syntax), interpret SMT-LIB2 constraint files defining case-split conditions with non-trivial logical formulas (ranges, negations), cross-reference a JSON signal encoding specification, and use an SMT solver (Z3) to formally verify exhaustiveness of case-split predicates over finite domains. Additionally requires understanding assume-guarantee compositionality semantics to detect unsound dependency structures in a hierarchical proof tree. The multi-format, multi-tool workflow (Tcl parsing + SMT solving + JSON processing + graph analysis) combined with deep formal methods domain knowledge places this firmly at expert level."""
+solution_explanation = """Parse the Tcl proof plan to reconstruct the proof hierarchy, extracting parent-child relationships, strategy types, assumption references, split/partition configurations, and constraint file paths. For case-split nodes, read the associated SMT-LIB2 constraint files, extract defined case predicates and domain bounds, then use Z3 to check exhaustiveness by asserting the domain constraint and the negation of the disjunction of all case predicates — if satisfiable, enumerate uncovered values by testing each domain value individually. For partition nodes, compare explicit child values against the design_spec encoding map. For assume-guarantee nodes, build a directed dependency graph from assumption references among siblings and find strongly connected components to detect circular dependencies. Compute per-node decomposition soundness bottom-up: a node is sound iff its own decomposition has no violations and all non-leaf children are recursively sound."""
+verification_explanation = """Tests load /app/audit_report.json and verify: (1) overall_sound is false, (2) exactly 3 circular dependency cycles detected with correct members ({P1,P2,P3}, {P4a,P4b}, {P7,P8}), (3) exactly 2 incomplete case-splits identified (P1 missing RMW/BURST on access_type, P7 missing fatal on error_class), (4) decomposition_soundness for all 9 non-leaf nodes matches expected boolean values, (5) no leaf nodes appear in decomposition_soundness, (6) output format is valid JSON with required keys."""
+category = "formal_methods"
+tags = ["formal-verification", "smt-solving"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/proof-structure-soundness"

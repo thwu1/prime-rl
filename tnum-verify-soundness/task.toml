@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding abstract interpretation theory (concretization, soundness), bit-level arithmetic, the BPF verifier's tnum representation, and formal verification with SMT solvers. The three bugs are subtle: incorrect carry detection in abstract addition, missing mask shift in left-shift, and absent conflict detection in meet/intersection. Implementing abstract multiplication demands understanding the schoolbook method in an abstract domain. Z3 verification requires encoding each operation symbolically on bitvectors and proving universal soundness properties."""
+solution_explanation = """Fix tnum_add by correcting carry detection from sigma^sm to sigma^sv. Fix tnum_lshift to shift the mask along with the value. Fix tnum_intersect to detect conflicts where known bits disagree. Implement tnum_mul using the kernel's schoolbook method that processes each bit of the multiplier. Implement tnum_range by finding the common bit prefix between min and max. Write Z3 verification by encoding each operation symbolically on 8-bit bitvectors and checking unsatisfiability of the soundness negation."""
+verification_explanation = """Tests verify soundness via randomized property-based testing on 3000 iterations per operation (concrete results must fall within abstract results), specific regression tests targeting each original bug, precision tests ensuring operations outperform trivially returning unknown, and checks that the Z3 verification report exists with all ten operations verified as sound."""
+category = "systems"
+tags = ["abstract-interpretation", "formal-verification"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tnum-verify-soundness"

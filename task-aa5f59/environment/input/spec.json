@@ -1,0 +1,55 @@
+{
+  "description": "Specification for the Generalized Matrix Chain Optimizer. Defines structural property propagation rules and the FLOP cost model for matrix multiplications.",
+
+  "properties": ["general", "symmetric", "upper_triangular", "lower_triangular", "diagonal"],
+
+  "propagation_rules": {
+    "description": "When computing C = A * B, the structural property of C is determined by the properties of A and B. Rules are checked in order; the first matching rule determines the result property. If no specific rule matches, the result is 'general'.",
+    "rules": [
+      {"left": "diagonal",          "right": "diagonal",          "result": "diagonal"},
+      {"left": "upper_triangular",   "right": "upper_triangular",  "result": "upper_triangular"},
+      {"left": "lower_triangular",   "right": "lower_triangular",  "result": "lower_triangular"},
+      {"left": "diagonal",          "right": "upper_triangular",  "result": "upper_triangular"},
+      {"left": "diagonal",          "right": "lower_triangular",  "result": "lower_triangular"},
+      {"left": "upper_triangular",   "right": "diagonal",          "result": "upper_triangular"},
+      {"left": "lower_triangular",   "right": "diagonal",          "result": "lower_triangular"}
+    ],
+    "default": "general"
+  },
+
+  "cost_model": {
+    "description": "FLOP cost for computing C = A * B, where A is m x k and B is k x n. Rules are checked in priority order; the first applicable rule determines the cost.",
+    "rules": [
+      {
+        "priority": 1,
+        "condition": "Both A and B are diagonal",
+        "formula": "k",
+        "explanation": "Element-wise multiply of diagonal entries"
+      },
+      {
+        "priority": 2,
+        "condition": "A is diagonal (B is any non-diagonal)",
+        "formula": "m * n",
+        "explanation": "Scale each row of B by the corresponding diagonal entry of A"
+      },
+      {
+        "priority": 3,
+        "condition": "B is diagonal (A is any non-diagonal)",
+        "formula": "m * n",
+        "explanation": "Scale each column of A by the corresponding diagonal entry of B"
+      },
+      {
+        "priority": 4,
+        "condition": "A or B is structured (symmetric, upper_triangular, or lower_triangular)",
+        "formula": "m * n * k",
+        "explanation": "Exploit structure of one operand (e.g., DSYMM, DTRMM) for ~2x savings over DGEMM"
+      },
+      {
+        "priority": 5,
+        "condition": "Both A and B are general (no exploitable structure)",
+        "formula": "2 * m * n * k",
+        "explanation": "Standard DGEMM"
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+start: expr
+
+?expr: "let" "rec" IDENT "=" expr "in" expr    -> letrec
+     | "let" IDENT "=" expr "in" expr           -> let_bind
+     | "fun" IDENT "->" expr                     -> lam
+     | "if" expr "then" expr "else" expr         -> if_expr
+     | "match" expr "with" "[]" "->" expr "|" IDENT "::" IDENT "->" expr -> match_list
+     | or_expr
+
+?or_expr: or_expr "||" and_expr                 -> binop_or
+        | and_expr
+
+?and_expr: and_expr "&&" cmp_expr               -> binop_and
+         | cmp_expr
+
+?cmp_expr: add_expr "==" add_expr               -> binop_eq
+         | add_expr "<" add_expr                 -> binop_lt
+         | add_expr ">" add_expr                 -> binop_gt
+         | add_expr "<=" add_expr                -> binop_le
+         | add_expr ">=" add_expr                -> binop_ge
+         | add_expr
+
+?add_expr: add_expr "+" mul_expr                -> binop_add
+         | add_expr "-" mul_expr                 -> binop_sub
+         | mul_expr
+
+?mul_expr: mul_expr "*" cons_expr               -> binop_mul
+         | mul_expr "/" cons_expr                -> binop_div
+         | cons_expr
+
+?cons_expr: unary "::" cons_expr                -> cons
+          | unary
+
+?unary: "not" unary                              -> not_expr
+      | "-" unary                                -> neg_expr
+      | app
+
+?app: app atom                                   -> application
+    | "fst" atom                                 -> fst_expr
+    | "snd" atom                                 -> snd_expr
+    | atom
+
+?atom: INT                                       -> int_lit
+     | "true"                                    -> true_lit
+     | "false"                                   -> false_lit
+     | "()"                                      -> unit_lit
+     | "[]"                                      -> nil_lit
+     | IDENT                                     -> var
+     | "(" expr "," expr ")"                     -> pair
+     | "(" expr ")"
+
+IDENT: /(?!(?:let|rec|in|fun|if|then|else|match|with|true|false|not|fst|snd)\b)[a-z_][a-zA-Z0-9_]*/
+
+%import common.INT
+%import common.WS
+%ignore WS

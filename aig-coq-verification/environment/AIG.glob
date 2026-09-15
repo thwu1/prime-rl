@@ -1,0 +1,351 @@
+DIGEST c04be2466edd7143472e298bbad388b4
+FAIG
+R148:151 Coq.Bool.Bool <> <> lib
+R169:173 Coq.Arith.Arith <> <> lib
+R191:198 Coq.Arith.PeanoNat <> <> lib
+ind 1570:1572 <> aig
+constr 1588:1593 <> AConst
+constr 1613:1616 <> AVar
+constr 1637:1640 <> AAnd
+R1601:1604 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1597:1600 Coq.Init.Datatypes <> bool ind
+R1605:1607 AIG <> aig:1 ind
+R1625:1628 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1622:1624 Coq.Init.Datatypes <> nat ind
+R1629:1631 AIG <> aig:1 ind
+R1650:1653 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1646:1649 Coq.Init.Datatypes <> bool ind
+R1657:1660 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1654:1656 AIG <> aig:1 ind
+R1665:1668 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1661:1664 Coq.Init.Datatypes <> bool ind
+R1672:1675 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1669:1671 AIG <> aig:1 ind
+R1676:1678 AIG <> aig:1 ind
+scheme 1570:1572 <> aig_rect
+scheme 1570:1572 <> aig_ind
+scheme 1570:1572 <> aig_rec
+scheme 1570:1572 <> aig_sind
+def 1763:1765 <> env
+R1773:1776 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R1770:1772 Coq.Init.Datatypes <> nat ind
+R1777:1780 Coq.Init.Datatypes <> bool ind
+def 1843:1846 <> eval
+R1853:1855 AIG <> env def
+binder 1849:1849 <> e:3
+R1863:1865 AIG <> aig ind
+binder 1859:1859 <> a:4
+R1870:1873 Coq.Init.Datatypes <> bool ind
+R1886:1886 AIG <> a:4 var
+R1897:1902 AIG <> AConst constr
+R1915:1918 AIG <> AVar constr
+R1925:1925 AIG <> e:3 var
+R1933:1936 AIG <> AAnd constr
+R1951:1954 Coq.Init.Datatypes <> andb def
+R1978:1981 Coq.Init.Datatypes <> xorb def
+R1987:1990 AIG <> eval:5 def
+R1992:1992 AIG <> e:3 var
+R1957:1960 Coq.Init.Datatypes <> xorb def
+R1966:1969 AIG <> eval:5 def
+R1971:1971 AIG <> e:3 var
+def 2051:2054 <> size
+R2061:2063 AIG <> aig ind
+binder 2057:2057 <> a:7
+R2068:2070 Coq.Init.Datatypes <> nat ind
+R2083:2083 AIG <> a:7 var
+R2094:2099 AIG <> AConst constr
+R2112:2115 AIG <> AVar constr
+R2128:2131 AIG <> AAnd constr
+R2154:2156 Coq.Init.Peano <> ::nat_scope:x_'+'_x not
+R2145:2147 Coq.Init.Peano <> ::nat_scope:x_'+'_x not
+R2148:2151 AIG <> size:8 def
+R2157:2160 AIG <> size:8 def
+def 2268:2272 <> equiv
+R2283:2285 AIG <> aig ind
+binder 2275:2276 <> a1:10
+binder 2278:2279 <> a2:11
+R2311:2313 AIG <> env def
+binder 2307:2307 <> e:12
+R2325:2327 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2316:2319 AIG <> eval def
+R2321:2321 AIG <> e:12 var
+R2323:2324 AIG <> a1:10 var
+R2328:2331 AIG <> eval def
+R2333:2333 AIG <> e:12 var
+R2335:2336 AIG <> a2:11 var
+prf 2566:2577 <> xorb_false_l
+binder 2588:2588 <> b:13
+R2603:2605 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2591:2594 Coq.Init.Datatypes <> xorb def
+R2602:2602 AIG <> b:13 var
+R2596:2600 Coq.Init.Datatypes <> false constr
+R2606:2606 AIG <> b:13 var
+prf 2653:2663 <> xorb_true_l
+binder 2674:2674 <> b:14
+R2688:2690 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2677:2680 Coq.Init.Datatypes <> xorb def
+R2687:2687 AIG <> b:14 var
+R2682:2685 Coq.Init.Datatypes <> true constr
+R2691:2694 Coq.Init.Datatypes <> negb def
+R2696:2696 AIG <> b:14 var
+prf 2743:2757 <> xorb_involutive
+binder 2768:2768 <> a:15
+binder 2770:2770 <> b:16
+R2790:2792 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2773:2776 Coq.Init.Datatypes <> xorb def
+R2781:2784 Coq.Init.Datatypes <> xorb def
+R2788:2788 AIG <> b:16 var
+R2786:2786 AIG <> a:15 var
+R2778:2778 AIG <> a:15 var
+R2793:2793 AIG <> b:16 var
+prf 2820:2828 <> negb_xorb
+binder 2839:2839 <> a:17
+binder 2841:2841 <> b:18
+R2859:2861 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R2844:2847 Coq.Init.Datatypes <> negb def
+R2850:2853 Coq.Init.Datatypes <> xorb def
+R2857:2857 AIG <> b:18 var
+R2855:2855 AIG <> a:17 var
+R2862:2865 Coq.Init.Datatypes <> xorb def
+R2876:2876 AIG <> b:18 var
+R2868:2871 Coq.Init.Datatypes <> negb def
+R2873:2873 AIG <> a:17 var
+prf 3123:3132 <> equiv_refl
+binder 3143:3143 <> a:19
+R3146:3150 AIG <> equiv def
+R3152:3152 AIG <> a:19 var
+R3154:3154 AIG <> a:19 var
+R3171:3175 AIG <> equiv def
+prf 3211:3221 <> equiv_trans
+binder 3232:3232 <> a:20
+binder 3234:3234 <> b:21
+binder 3236:3236 <> c:22
+R3248:3251 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R3239:3243 AIG <> equiv def
+R3245:3245 AIG <> a:20 var
+R3247:3247 AIG <> b:21 var
+R3261:3264 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R3252:3256 AIG <> equiv def
+R3258:3258 AIG <> b:21 var
+R3260:3260 AIG <> c:22 var
+R3265:3269 AIG <> equiv def
+R3271:3271 AIG <> a:20 var
+R3273:3273 AIG <> c:22 var
+def 3592:3597 <> negate
+R3604:3606 AIG <> aig ind
+binder 3600:3600 <> a:23
+R3611:3613 AIG <> aig ind
+R3620:3623 AIG <> AAnd constr
+R3625:3628 Coq.Init.Datatypes <> true constr
+R3630:3630 AIG <> a:23 var
+R3632:3636 Coq.Init.Datatypes <> false constr
+R3639:3644 AIG <> AConst constr
+R3646:3649 Coq.Init.Datatypes <> true constr
+prf 3662:3675 <> negate_correct
+binder 3686:3686 <> e:24
+binder 3688:3688 <> a:25
+R3710:3712 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R3693:3696 AIG <> eval def
+R3698:3698 AIG <> e:24 var
+R3701:3706 AIG <> negate def
+R3708:3708 AIG <> a:25 var
+R3713:3716 Coq.Init.Datatypes <> negb def
+R3719:3722 AIG <> eval def
+R3724:3724 AIG <> e:24 var
+R3726:3726 AIG <> a:25 var
+prf 3756:3772 <> negate_involutive
+binder 3783:3783 <> a:26
+R3786:3790 AIG <> equiv def
+R3793:3798 AIG <> negate def
+R3801:3806 AIG <> negate def
+R3808:3808 AIG <> a:26 var
+R3812:3812 AIG <> a:26 var
+def 4103:4109 <> aig_eqb
+R4118:4120 AIG <> aig ind
+binder 4112:4112 <> a:27
+binder 4114:4114 <> b:28
+R4125:4128 Coq.Init.Datatypes <> bool ind
+R4144:4144 AIG <> b:28 var
+R4141:4141 AIG <> a:27 var
+R4155:4160 AIG <> AConst constr
+R4166:4171 AIG <> AConst constr
+R4179:4186 Coq.Bool.Bool <> eqb def
+R4198:4201 AIG <> AVar constr
+R4207:4210 AIG <> AVar constr
+R4218:4224 Coq.Arith.PeanoNat Nat eqb def
+R4236:4239 AIG <> AAnd constr
+R4254:4257 AIG <> AAnd constr
+R4329:4332 Coq.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R4311:4314 Coq.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R4294:4297 Coq.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R4280:4287 Coq.Bool.Bool <> eqb def
+R4298:4304 AIG <> aig_eqb:29 def
+R4315:4322 Coq.Bool.Bool <> eqb def
+R4333:4339 AIG <> aig_eqb:29 def
+R4359:4363 Coq.Init.Datatypes <> false constr
+prf 4432:4441 <> aig_eqb_eq
+binder 4452:4452 <> a:32
+binder 4454:4454 <> b:33
+R4475:4478 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R4468:4470 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4457:4463 AIG <> aig_eqb def
+R4465:4465 AIG <> a:32 var
+R4467:4467 AIG <> b:33 var
+R4471:4474 Coq.Init.Datatypes <> true constr
+R4480:4482 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R4479:4479 AIG <> a:32 var
+R4483:4483 AIG <> b:33 var
+def 4824:4833 <> const_fold
+R4840:4842 AIG <> aig ind
+binder 4836:4836 <> a:34
+R4847:4849 AIG <> aig ind
+R4862:4862 AIG <> a:34 var
+R4873:4876 AIG <> AAnd constr
+R4905:4914 AIG <> const_fold:35 def
+binder 4899:4900 <> l':37
+R4935:4944 AIG <> const_fold:35 def
+binder 4929:4930 <> r':38
+R4965:4966 AIG <> r':38 var
+R4961:4962 AIG <> l':37 var
+R4979:4984 AIG <> AConst constr
+R4990:4995 AIG <> AConst constr
+R5011:5016 AIG <> AConst constr
+R5019:5022 Coq.Init.Datatypes <> andb def
+R5038:5041 Coq.Init.Datatypes <> xorb def
+R5025:5028 Coq.Init.Datatypes <> xorb def
+R5065:5068 AIG <> AAnd constr
+R5073:5074 AIG <> l':37 var
+R5079:5080 AIG <> r':38 var
+prf 5117:5134 <> const_fold_correct
+binder 5145:5145 <> a:41
+R5148:5152 AIG <> equiv def
+R5155:5164 AIG <> const_fold def
+R5166:5166 AIG <> a:41 var
+R5169:5169 AIG <> a:41 var
+def 5568:5582 <> complement_elim
+R5589:5591 AIG <> aig ind
+binder 5585:5585 <> a:42
+R5596:5598 AIG <> aig ind
+R5611:5611 AIG <> a:42 var
+R5622:5625 AIG <> AAnd constr
+R5654:5668 AIG <> complement_elim:43 def
+binder 5648:5649 <> l':45
+R5689:5703 AIG <> complement_elim:43 def
+binder 5683:5684 <> r':46
+R5730:5733 Coq.Init.Datatypes <> ::bool_scope:x_'&&'_x not
+R5717:5723 AIG <> aig_eqb def
+R5725:5726 AIG <> l':45 var
+R5728:5729 AIG <> r':46 var
+R5734:5737 Coq.Init.Datatypes <> negb def
+R5740:5747 Coq.Bool.Bool <> eqb def
+R5789:5792 AIG <> AAnd constr
+R5797:5798 AIG <> l':45 var
+R5803:5804 AIG <> r':46 var
+R5767:5772 AIG <> AConst constr
+R5774:5778 Coq.Init.Datatypes <> false constr
+prf 5833:5855 <> complement_elim_correct
+binder 5866:5866 <> a:47
+R5869:5873 AIG <> equiv def
+R5876:5890 AIG <> complement_elim def
+R5892:5892 AIG <> a:47 var
+R5895:5895 AIG <> a:47 var
+def 6350:6362 <> identity_elim
+R6369:6371 AIG <> aig ind
+binder 6365:6365 <> a:48
+R6376:6378 AIG <> aig ind
+R6391:6391 AIG <> a:48 var
+R6402:6405 AIG <> AAnd constr
+R6434:6446 AIG <> identity_elim:49 def
+binder 6428:6429 <> l':51
+R6467:6479 AIG <> identity_elim:49 def
+binder 6461:6462 <> r':52
+R6500:6501 AIG <> r':52 var
+R6496:6497 AIG <> l':51 var
+R6517:6522 AIG <> AConst constr
+R6524:6527 Coq.Init.Datatypes <> true constr
+R6543:6550 Coq.Bool.Bool <> eqb def
+R6555:6559 Coq.Init.Datatypes <> false constr
+R6582:6585 AIG <> AAnd constr
+R6590:6591 AIG <> l':51 var
+R6596:6597 AIG <> r':52 var
+R6566:6567 AIG <> l':51 var
+R6605:6610 AIG <> AConst constr
+R6612:6615 Coq.Init.Datatypes <> true constr
+R6634:6641 Coq.Bool.Bool <> eqb def
+R6646:6650 Coq.Init.Datatypes <> false constr
+R6673:6676 AIG <> AAnd constr
+R6681:6682 AIG <> l':51 var
+R6687:6688 AIG <> r':52 var
+R6657:6658 AIG <> r':52 var
+R6704:6707 AIG <> AAnd constr
+R6712:6713 AIG <> l':51 var
+R6718:6719 AIG <> r':52 var
+prf 6756:6776 <> identity_elim_correct
+binder 6787:6787 <> a:55
+R6790:6794 AIG <> equiv def
+R6797:6809 AIG <> identity_elim def
+R6811:6811 AIG <> a:55 var
+R6814:6814 AIG <> a:55 var
+def 7177:7184 <> optimize
+R7191:7193 AIG <> aig ind
+binder 7187:7187 <> a:56
+R7198:7200 AIG <> aig ind
+R7207:7219 AIG <> identity_elim def
+R7222:7236 AIG <> complement_elim def
+R7239:7248 AIG <> const_fold def
+R7250:7250 AIG <> a:56 var
+prf 7264:7279 <> optimize_correct
+binder 7290:7290 <> a:57
+R7293:7297 AIG <> equiv def
+R7300:7307 AIG <> optimize def
+R7309:7309 AIG <> a:57 var
+R7312:7312 AIG <> a:57 var
+def 7637:7647 <> _chk_negate
+binder 7659:7659 <> e:58
+binder 7661:7661 <> a:59
+R7681:7683 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7664:7667 AIG <> eval def
+R7669:7669 AIG <> e:58 var
+R7672:7677 AIG <> negate def
+R7679:7679 AIG <> a:59 var
+R7684:7687 Coq.Init.Datatypes <> negb def
+R7690:7693 AIG <> eval def
+R7695:7695 AIG <> e:58 var
+R7697:7697 AIG <> a:59 var
+R7703:7716 AIG <> negate_correct prfax
+def 7730:7741 <> _chk_involut
+binder 7752:7752 <> a:60
+R7755:7759 AIG <> equiv def
+R7762:7767 AIG <> negate def
+R7770:7775 AIG <> negate def
+R7777:7777 AIG <> a:60 var
+R7781:7781 AIG <> a:60 var
+R7786:7802 AIG <> negate_involutive prfax
+def 7816:7825 <> _chk_cfold
+binder 7838:7838 <> a:61
+R7841:7845 AIG <> equiv def
+R7848:7857 AIG <> const_fold def
+R7859:7859 AIG <> a:61 var
+R7862:7862 AIG <> a:61 var
+R7867:7884 AIG <> const_fold_correct prfax
+def 7898:7907 <> _chk_celim
+binder 7920:7920 <> a:62
+R7923:7927 AIG <> equiv def
+R7930:7944 AIG <> complement_elim def
+R7946:7946 AIG <> a:62 var
+R7949:7949 AIG <> a:62 var
+R7954:7976 AIG <> complement_elim_correct prfax
+def 7990:7999 <> _chk_ielim
+binder 8012:8012 <> a:63
+R8015:8019 AIG <> equiv def
+R8022:8034 AIG <> identity_elim def
+R8036:8036 AIG <> a:63 var
+R8039:8039 AIG <> a:63 var
+R8044:8064 AIG <> identity_elim_correct prfax
+def 8078:8087 <> _chk_optim
+binder 8100:8100 <> a:64
+R8103:8107 AIG <> equiv def
+R8110:8117 AIG <> optimize def
+R8119:8119 AIG <> a:64 var
+R8122:8122 AIG <> a:64 var
+R8127:8142 AIG <> optimize_correct prfax

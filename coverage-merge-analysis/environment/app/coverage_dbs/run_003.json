@@ -1,0 +1,133 @@
+{
+  "run_id": "run_003",
+  "metadata": {
+    "test_name": "retry_stress_test",
+    "seed": 24680,
+    "timestamp": "2024-01-15T14:20:00Z",
+    "simulator": "xcelium",
+    "version": "23.09"
+  },
+  "module": "packet_router",
+  "code_coverage": {
+    "line": {
+      "total_lines": 30,
+      "hit_lines": [1, 2, 3, 9, 10, 16, 17, 18, 23, 24, 25, 26]
+    },
+    "branch": {
+      "total_branches": ["B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11","B12","B13","B14","B15","B16"],
+      "hit_branches": ["B1","B3","B5","B7","B13","B14"]
+    },
+    "toggle": {
+      "signals": [
+        {"name": "pkt_data", "width": 8},
+        {"name": "route_ctrl", "width": 4},
+        {"name": "status", "width": 3}
+      ],
+      "all_toggles": [
+        "pkt_data[0]_0to1","pkt_data[0]_1to0",
+        "pkt_data[1]_0to1","pkt_data[1]_1to0",
+        "pkt_data[2]_0to1","pkt_data[2]_1to0",
+        "pkt_data[3]_0to1","pkt_data[3]_1to0",
+        "pkt_data[4]_0to1","pkt_data[4]_1to0",
+        "pkt_data[5]_0to1","pkt_data[5]_1to0",
+        "pkt_data[6]_0to1","pkt_data[6]_1to0",
+        "pkt_data[7]_0to1","pkt_data[7]_1to0",
+        "route_ctrl[0]_0to1","route_ctrl[0]_1to0",
+        "route_ctrl[1]_0to1","route_ctrl[1]_1to0",
+        "route_ctrl[2]_0to1","route_ctrl[2]_1to0",
+        "route_ctrl[3]_0to1","route_ctrl[3]_1to0",
+        "status[0]_0to1","status[0]_1to0",
+        "status[1]_0to1","status[1]_1to0",
+        "status[2]_0to1","status[2]_1to0"
+      ],
+      "hit_toggles": [
+        "pkt_data[5]_1to0",
+        "pkt_data[6]_1to0",
+        "pkt_data[7]_0to1",
+        "route_ctrl[3]_0to1",
+        "status[1]_1to0",
+        "status[2]_0to1"
+      ]
+    }
+  },
+  "functional_coverage": {
+    "covergroups": [
+      {
+        "name": "cg_packet_type",
+        "coverpoints": [
+          {
+            "name": "cp_pkt_type",
+            "bins": ["DATA","CTRL","MGMT","ERR","SYNC","ACK","NACK","RESET"],
+            "at_least": 1,
+            "hit_bins": {"CTRL": 6, "MGMT": 4, "NACK": 7}
+          },
+          {
+            "name": "cp_pkt_size",
+            "bins": ["SMALL","MEDIUM","LARGE","JUMBO"],
+            "at_least": 1,
+            "hit_bins": {"SMALL": 5, "LARGE": 8, "JUMBO": 3}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_type_x_size",
+            "coverpoints": ["cp_pkt_type","cp_pkt_size"],
+            "at_least": 1,
+            "hit_bins": {
+              "CTRL:SMALL": 2, "CTRL:LARGE": 3, "CTRL:JUMBO": 1,
+              "MGMT:LARGE": 4, "MGMT:JUMBO": 2,
+              "NACK:SMALL": 3, "NACK:LARGE": 2, "NACK:JUMBO": 1
+            }
+          }
+        ]
+      },
+      {
+        "name": "cg_priority",
+        "coverpoints": [
+          {
+            "name": "cp_priority",
+            "bins": ["LOW","MEDIUM","HIGH","CRITICAL"],
+            "at_least": 1,
+            "hit_bins": {"HIGH": 5, "CRITICAL": 11}
+          },
+          {
+            "name": "cp_qos",
+            "bins": ["BEST_EFFORT","ASSURED","EXPEDITED","CONTROL"],
+            "at_least": 1,
+            "hit_bins": {"BEST_EFFORT": 4, "CONTROL": 7}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_priority_x_qos",
+            "coverpoints": ["cp_priority","cp_qos"],
+            "at_least": 1,
+            "hit_bins": {
+              "HIGH:CONTROL": 3,
+              "CRITICAL:BEST_EFFORT": 5, "CRITICAL:CONTROL": 4
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fsm_coverage": {
+    "fsms": [
+      {
+        "name": "router_fsm",
+        "states": ["IDLE","PARSE_HDR","ROUTE","FORWARD","DROP","ERROR","RETRY"],
+        "transitions": [
+          "IDLE->PARSE_HDR","PARSE_HDR->ROUTE","PARSE_HDR->DROP",
+          "ROUTE->FORWARD","ROUTE->DROP","FORWARD->IDLE","DROP->IDLE",
+          "ROUTE->ERROR","ERROR->RETRY","RETRY->PARSE_HDR","RETRY->DROP",
+          "ERROR->IDLE","FORWARD->ERROR","PARSE_HDR->ERROR"
+        ],
+        "hit_states": ["IDLE","PARSE_HDR","ROUTE","FORWARD","RETRY"],
+        "hit_transitions": [
+          "IDLE->PARSE_HDR","PARSE_HDR->ROUTE","ROUTE->FORWARD","FORWARD->IDLE",
+          "ROUTE->ERROR","ERROR->RETRY","RETRY->PARSE_HDR"
+        ]
+      }
+    ]
+  }
+}

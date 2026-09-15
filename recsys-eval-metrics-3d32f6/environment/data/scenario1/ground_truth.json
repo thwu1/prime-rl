@@ -1,0 +1,7 @@
+{
+  "users": [
+    {"user_id": 1, "relevant_items": [1, 2, 3, 4, 5, 11, 12, 13]},
+    {"user_id": 2, "relevant_items": []},
+    {"user_id": 3, "relevant_items": [1, 2]}
+  ]
+}

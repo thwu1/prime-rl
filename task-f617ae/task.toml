@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reverse engineering combined with compiler construction: (1) reverse-engineering a stripped ELF binary using radare2/gdb/objdump to recover a custom 27-opcode VM instruction set — identifying the dispatch loop, decoding opcode encodings and operand formats, and understanding stack/memory semantics from x86_64 disassembly; (2) using xxd/hex analysis combined with the recovered ISA to manually disassemble reference bytecode and reconstruct a multi-round cryptographic key validation algorithm with chained state; (3) correlating dynamic traces (gdb breakpoints, strace) with static analysis to confirm opcode semantics; (4) implementing obfuscation passes (dead code, opaque predicates, entropy inflation) that preserve correctness while meeting quantitative thresholds. The solver must coordinate findings across 4+ specialized binary analysis tools in a multi-step RE pipeline."""
+solution_explanation = """Use radare2 to analyze the stripped vm_runner binary: run 'r2 -A ./vm_runner' then 'afl' to find the vm_run function, 'pdf' to disassemble it and identify the switch dispatch with 27 opcode handlers, extracting instruction sizes and stack effects. Cross-reference with 'objdump -d ./vm_runner' for the jump table structure. Use 'xxd /app/reference.bc' to hex-dump the reference bytecode, then manually disassemble it using the recovered ISA to extract the 5-group key validation algorithm with its constants (MAGIC, PRIMES, ROUND2 arrays, MURMUR and FINALIZE multipliers). Validate understanding by running gdb with breakpoints on the dispatch loop. Build a Python bytecode assembler with label resolution, emit the core algorithm, then add obfuscation passes: opaque predicates (always-true comparisons), dead code blocks after unconditional jumps, and junk instructions with diverse random constants for entropy."""
+verification_explanation = """Tests run the compiler, then validate output bytecode: (1) functional correctness — run vm_runner with public test vectors plus hidden seeds not in test_vectors.json, checking accept/reject; (2) bytecode validity — parse linearly checking for valid opcodes; (3) security metrics — compute Shannon entropy, count instructions, trace execution across 35+ inputs to measure dead code ratio and opaque predicate count; (4) anti-hardcoding — hidden test vectors ensure the bytecode implements the general algorithm."""
+category = "software_security"
+tags = ["reverse-engineering", "code-obfuscation"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f617ae"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficiency with Apache Ant build tooling and deep understanding of the ISDA SIMM v2.5 regulatory margin methodology. The solver must first diagnose and fix a multi-layer build system failure: a broken property file reference chain in build.xml causes Ant property references to remain unresolved as literal strings, producing a cryptic srcdir error. After fixing the property file path, a second build defect (misconfigured source directory value) must also be traced and corrected. Only once the build system is working can the solver begin diagnosing 5 distinct numerical defects in a 437-line calculation pipeline by tracing mismatches through nested aggregation layers: within-bucket, cross-bucket, within-currency, cross-currency, per-risk-class, cross-risk-class, and per-product-class. Source defects include swapped correlation constants, missing value capping in cross-bucket aggregation, an incomplete currency volatility classification, an unimplemented sub-model (base correlation), and a subtle matrix transposition in the cross-risk-class correlation matrix that only manifests when multiple risk classes are present in the same product class. The instruction provides only expected outputs — the solver must independently understand Ant property resolution, determine ISDA SIMM specification requirements, and implement fixes across build configuration and Java source."""
+solution_explanation = """Fix 2 build system issues and 5 Java bugs: (BUILD-1) Fix build.xml property file path from 'config/build.properties' to 'build.properties' so Ant resolves properties correctly. (BUILD-2) Fix build.properties src.dir from 'source' to 'src'. (JAVA-1) Swap IR_SUB_CURVE_CORR and IR_INFLATION_CORR back to correct values (0.99 and 0.37 respectively — they are swapped). (JAVA-2) Cap cross-bucket S_b values to [-K_b, K_b] in both IR cross-currency and bucketed delta aggregation by adding .max(k.negate()).min(k). (JAVA-3) Add BRL to the FX_HIGH_VOL set. (JAVA-4) Implement base correlation: net sensitivities by qualifier, apply BC_WEIGHT=2.5, aggregate with rho=1 same-qualifier / rho=0.24 cross-qualifier, return sqrt. (JAVA-5) Fix PSI matrix: PSI[0][5] (IR-CM) should be 0.46 not 0.41, PSI[1][5] (FX-CM) should be 0.41 not 0.46, and symmetric entries PSI[5][0] and PSI[5][1] must match."""
+verification_explanation = """Pytest uses Ant to compile the Java code, creates targeted CSV subsets from the portfolio, runs the calculator on each, and compares the integer output against 17 golden values. Tests cover single-sensitivity risk weights, sub-curve correlations, base correlation, full risk-class aggregations (IR, FX, CRQ, CRNQ, EQ, CM), product-class-level aggregation (Credit product with cross-risk-class PSI matrix), and the final cross-product-class total. Both build system correctness and numerical accuracy are verified."""
+category = "debugging"
+tags = ["financial-engineering", "java"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-simm-margin"

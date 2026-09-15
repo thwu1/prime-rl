@@ -1,0 +1,116 @@
+{
+  "test_cases": [
+    {
+      "id": "case_01",
+      "description": "Basic pass -- simple vec4 varying",
+      "vertex_shader": "case_01.vert",
+      "fragment_shader": "case_01.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_02",
+      "description": "Type mismatch (vec3 vs vec4)",
+      "vertex_shader": "case_02.vert",
+      "fragment_shader": "case_02.frag",
+      "expected": {"valid": false, "errors": [{"category": "TYPE_MISMATCH", "variable": "vNormal"}]}
+    },
+    {
+      "id": "case_03",
+      "description": "Precision mismatch (highp vs lowp)",
+      "vertex_shader": "case_03.vert",
+      "fragment_shader": "case_03.frag",
+      "expected": {"valid": false, "errors": [{"category": "PRECISION_MISMATCH", "variable": "vDepth"}]}
+    },
+    {
+      "id": "case_04",
+      "description": "Interpolation mismatch (flat vs smooth)",
+      "vertex_shader": "case_04.vert",
+      "fragment_shader": "case_04.frag",
+      "expected": {"valid": false, "errors": [{"category": "INTERPOLATION_MISMATCH", "variable": "vId"}]}
+    },
+    {
+      "id": "case_05",
+      "description": "Both sides invariant (should link successfully)",
+      "vertex_shader": "case_05.vert",
+      "fragment_shader": "case_05.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_06",
+      "description": "Array size mismatch ([3] vs [5])",
+      "vertex_shader": "case_06.vert",
+      "fragment_shader": "case_06.frag",
+      "expected": {"valid": false, "errors": [{"category": "ARRAY_SIZE_MISMATCH", "variable": "vTexCoord"}]}
+    },
+    {
+      "id": "case_07",
+      "description": "Missing vertex output for fragment input",
+      "vertex_shader": "case_07.vert",
+      "fragment_shader": "case_07.frag",
+      "expected": {"valid": false, "errors": [{"category": "MISSING_VERTEX_OUTPUT", "variable": "vNormal"}]}
+    },
+    {
+      "id": "case_08",
+      "description": "Struct pass -- same structure, different type names",
+      "vertex_shader": "case_08.vert",
+      "fragment_shader": "case_08.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_09",
+      "description": "Struct member reordering (same members, different order)",
+      "vertex_shader": "case_09.vert",
+      "fragment_shader": "case_09.frag",
+      "expected": {"valid": false, "errors": [{"category": "STRUCT_MISMATCH", "variable": "vMat"}]}
+    },
+    {
+      "id": "case_10",
+      "description": "Array-on-type syntax matching (vec2[4] vs vec2 name[4])",
+      "vertex_shader": "case_10.vert",
+      "fragment_shader": "case_10.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_11",
+      "description": "Multi-variable declaration (out vec4 a, b)",
+      "vertex_shader": "case_11.vert",
+      "fragment_shader": "case_11.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_12",
+      "description": "Layout location mismatch with whitespace variation",
+      "vertex_shader": "case_12.vert",
+      "fragment_shader": "case_12.frag",
+      "expected": {"valid": false, "errors": [{"category": "LOCATION_MISMATCH", "variable": "vColor"}]}
+    },
+    {
+      "id": "case_13",
+      "description": "Uniform type mismatch (mat4 vs mat3)",
+      "vertex_shader": "case_13.vert",
+      "fragment_shader": "case_13.frag",
+      "expected": {"valid": false, "errors": [{"category": "UNIFORM_TYPE_MISMATCH", "variable": "uModelView"}]}
+    },
+    {
+      "id": "case_14",
+      "description": "Centroid vs default interpolation qualifier",
+      "vertex_shader": "case_14.vert",
+      "fragment_shader": "case_14.frag",
+      "expected": {"valid": true, "errors": []}
+    },
+    {
+      "id": "case_15",
+      "description": "Matching explicit precision (both highp)",
+      "vertex_shader": "case_15.vert",
+      "fragment_shader": "case_15.frag",
+      "expected": {"valid": false, "errors": [{"category": "PRECISION_MISMATCH", "variable": "vDepth"}]}
+    },
+    {
+      "id": "case_16",
+      "description": "Struct with different member names but same types",
+      "vertex_shader": "case_16.vert",
+      "fragment_shader": "case_16.frag",
+      "expected": {"valid": true, "errors": []}
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: api-passthrough-route
+  namespace: api-gateway
+spec:
+  host: api.acme.example.com
+  to:
+    kind: Service
+    name: api-gateway
+  port:
+    targetPort: 8443
+  tls:
+    termination: passthrough
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      MIICpDCCAYwCCQDU9pQ4pHgSpDANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAls
+      b2NhbGhvc3QwHhcNMjMwMTAxMDAwMDAwWhcNMjQwMTAxMDAwMDAwWjAUMRIwEAYD
+      VQQDDAlsb2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7
+      7Jv0nMR0UZOA+e3h5VN8UvBSm8r1YFVn+iMz8F1JGHSzrFtKMY0dCLsYj+vJIXB
+      -----END CERTIFICATE-----
+    key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      MIIEpAIBAAKCAQEAu+yb9JzEdFOTgPnt4eVTfFLwUpvK9WBVZ/ojM/BdSRh0s6xb
+      SjGNHQi7GI/rySFwW+yb9JzEdFOTgPnt4eVTfFLwUpvK9WBVZ/ojM/BdSRh0s6xb
+      -----END RSA PRIVATE KEY-----

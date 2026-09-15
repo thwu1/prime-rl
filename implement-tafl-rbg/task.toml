@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires mastering the RBG game description language — a research-grade DSL based on regular-expression path algebra — to implement a novel board game variant that combines three distinct mechanics: Breakthrough-style forward movement, Tafl-style custodial capture, and a novel isolation guard condition. No existing RBG example combines these features. The iterative capture resolution requires understanding how RBG's keeper-move separators (->> ) interact with Kleene-star loops to achieve fixed-point iteration on board state — a pattern only seen in Go's flood-fill capture. The agent must synthesize understanding from multiple complex example games (breakthrough, chess/tafl capture patterns, go's iterative resolution) and reason about how RBG's formal operators (positive/negative conditions, alternation, assignment, navigation) compose to express game semantics."""
+solution_explanation = """Write a .rbg file defining: a 6x6 rectangular board with standard piece layout; forward movement via direction-parameterized macros; an isolation check using negative lookahead over orthogonal neighbors; a sandwich check using positive lookahead on opposing axis endpoints; iterative capture resolution via a keeper-move loop (Kleene star with ->> commit); and win-condition checking for back-row arrival, opponent elimination, and stalemate. Compile with rbg2cpp, build with g++/Boost, and verify via perft."""
+verification_explanation = """Tests compile both a reference implementation and the agent's .rbg file using rbg2cpp, build C++ reasoners linked against the perft test harness, and compare exhaustive move-tree enumeration (perft) counts at depths 1 through 4 on the standard board. Additionally, two custom-board tests verify the capture mechanics directly: one board where an isolated opponent piece is sandwiched (capture must occur), and one where a shielded (non-isolated) piece is sandwiched (capture must NOT occur). Perft counts are deterministic, ensuring any rule-encoding error is detected."""
+category = "formal_languages"
+tags = ["game-description-language", "compiler-toolchain"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-tafl-rbg"

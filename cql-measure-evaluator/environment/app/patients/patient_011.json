@@ -1,0 +1,81 @@
+{
+  "resourceType": "Bundle",
+  "id": "bundle-patient-011",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-011",
+        "birthDate": "1993-07-25",
+        "gender": "female"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-011-htn",
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "subject": {"reference": "Patient/patient-011"},
+        "onsetDateTime": "2025-01-05"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-011-pregnancy",
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.513", "display": "Supervision of elderly primigravida, third trimester"}]
+        },
+        "subject": {"reference": "Patient/patient-011"},
+        "onsetDateTime": "2025-03-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-011-office",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [{"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit"}]}],
+        "subject": {"reference": "Patient/patient-011"},
+        "period": {"start": "2025-03-15T09:00:00", "end": "2025-03-15T09:30:00"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-011-bp",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]},
+        "subject": {"reference": "Patient/patient-011"},
+        "effectiveDateTime": "2025-08-01T10:00:00",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 130, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 82, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    }
+  ]
+}

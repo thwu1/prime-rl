@@ -1,0 +1,11 @@
+{
+  "trace_id": "trace_05_adjok_promotion",
+  "description": "AdjOK event promotes R3-R5 relationship from 2-Way to ExStart after R5 becomes BDR",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R5", "event": "HelloReceived"},
+    {"time": 2, "router": "R3", "neighbor": "R5", "event": "2-WayReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R5", "event": "AdjOK?", "dr_update": {"dr": "R1", "bdr": "R5"}},
+    {"time": 4, "router": "R3", "neighbor": "R5", "event": "NegotiationDone"},
+    {"time": 5, "router": "R3", "neighbor": "R5", "event": "ExchangeDone", "ls_request_list_empty": true}
+  ]
+}

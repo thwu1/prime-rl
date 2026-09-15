@@ -1,0 +1,49 @@
+Pipeline Evaluation Notes
+=========================
+Last updated: 2024-03-15
+
+Architecture:
+  The pipeline uses a SQLite database (annotations.db) for annotation storage.
+  An extraction step pulls annotations into YOLO-format text files.
+  An evaluation step computes COCO-compatible metrics from the extracted files.
+  The Makefile orchestrates the full pipeline via 'make evaluate'.
+
+Data format:
+  Ground truth in DB: image_id, class_id, cx, cy, w, h, flags (optional)
+  Predictions in DB:  image_id, class_id, cx, cy, w, h, confidence
+  All coordinates are normalized to [0, 1]. Image pixel dimensions
+  are stored in the images table for coordinate conversion where needed.
+
+Extraction:
+  The extraction script queries the database and writes YOLO-format
+  text files. Annotations with metadata flags in the 'flags' column
+  are review markers added by the annotation tool and should be
+  filtered out during extraction -- they are not real annotations.
+
+  The manifest only needs to include images that have ground-truth
+  annotations; images without GT are negative samples and the
+  evaluator handles their absence correctly.
+
+Evaluation method:
+  - Per-image detection matching at each IoU threshold
+  - AP via interpolated precision-recall curve (11 recall levels)
+  - mAP averaged across all 9 annotation categories
+  - Size categories based on bounding box annotation area
+  - IoU thresholds: 0.50, 0.55, ..., 0.95 for mAP@0.5:0.95
+
+Status:
+  The pipeline runs end-to-end but results are 3-5% off from
+  pycocotools on most datasets. Probably floating-point
+  accumulation in the interpolation step.
+
+  Size-stratified metrics look odd -- most annotations land in
+  the "small" bucket regardless of image resolution. Might be
+  a data issue rather than a code bug.
+
+  Low-confidence predictions seem to affect matching more than
+  expected. Could be related to the matching order but we think
+  the current approach is fine since all detections get matched
+  regardless of order.
+
+  The Makefile targets work correctly when invoked individually.
+  Running 'make evaluate' should chain everything automatically.

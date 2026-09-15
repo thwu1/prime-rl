@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconciling three conflicting sources of validation rule behavior (Scala DSL reference, buggy Python pipeline, regulatory specification with documentation errors) to determine the authoritative semantics for each rule. The solver must reverse-engineer composable predicate DSL semantics (when/is/oneOf/implies combinators), extract filing data from a normalized SQLite database using JOIN queries across institutions/filings/lar_records tables, parse HOCON configuration for runtime thresholds, and design a filing-level macro quality rule (Q634) from a natural-language regulatory description with no reference implementation. Seven pipeline bugs span field-index mismatches, case-sensitivity errors, semantic misinterpretations of conditional implication logic, and missing rules. Five of these bugs are corroborated by matching errors in the regulatory specification — the solver must evaluate each source-pair conflict and determine that the Scala DSL is authoritative rather than blindly following the documentation or the Python implementation."""
+solution_explanation = """(1) Query SQLite: JOIN institutions and filings tables to reconstruct TS pipe-delimited records; query lar_records by filing_id. (2) Compare Python vs Scala for each rule: V607 checks agency code→fix to check ts.taxId regex; S301 case-sensitive→fix to .lower(); V608_1 checks startswith→fix to when(len>=23,isalnum and <=45); V614_1 checks construction method→fix to when(purpose in refinance set,preapproval=2); Q601 checks amount>10M→fix to application-date-within-2-years; add missing V613_4 and Q607. (3) Parse edits.conf for Q634 threshold=4 and ratio=0.80; implement macro check counting home-purchase originations vs total. (4) Resolve spec conflicts by trusting Scala over regulatory_spec.md for S301/V607/V608_1/V614_1/Q601."""
+verification_explanation = """Tests load three report JSON files and verify: exact violation/quality-flag counts (alpha:3/2, beta:0/0, gamma:6/1), correct sorted rules_triggered lists including Q634 for gamma, specific rule-to-LAR attribution (V607 on TS, V614_1 on LAR 3, V613_4 on LAR 6, Q607 on LAR 4, Q601 on LAR 5, Q634 filing-level on gamma), absence of false positives (beta zero violations, alpha no S301), and structural validity. 38 independent test cases cover file existence, structure, counts, attribution, false-positive elimination, and macro-rule behavior."""
+category = "debugging"
+tags = ["cross-source-reconciliation", "regulatory-compliance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-46bd35"

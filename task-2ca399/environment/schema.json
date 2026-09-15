@@ -1,0 +1,52 @@
+{
+  "message_type": "tagged_union",
+  "discriminant_type": "u32",
+  "variants": [
+    {
+      "name": "SensorReading",
+      "discriminant": 0,
+      "type": "struct",
+      "fields": [
+        {"name": "sensor_id", "type": "u16"},
+        {"name": "timestamp_ms", "type": "u32"},
+        {"name": "temperature", "type": "i16"},
+        {"name": "pressure_pa", "type": "u32"},
+        {"name": "humidity_pct", "type": "u8"}
+      ]
+    },
+    {
+      "name": "DeviceStatus",
+      "discriminant": 1,
+      "type": "struct",
+      "fields": [
+        {"name": "uptime_secs", "type": "u64"},
+        {"name": "battery_mv", "type": "u16"},
+        {"name": "error_count", "type": "u32"},
+        {"name": "firmware_ver", "type": "string"}
+      ]
+    },
+    {
+      "name": "AlertEvent",
+      "discriminant": 2,
+      "type": "struct",
+      "fields": [
+        {"name": "severity", "type": "u8"},
+        {"name": "code", "type": "u16"},
+        {"name": "message", "type": "string"},
+        {"name": "readings", "type": {"seq": "i32"}}
+      ]
+    },
+    {
+      "name": "ConfigUpdate",
+      "discriminant": 3,
+      "type": "struct",
+      "fields": [
+        {"name": "device_name", "type": "string"},
+        {"name": "sample_rate_hz", "type": "f32"},
+        {"name": "enabled", "type": "bool"},
+        {"name": "max_retries", "type": {"option": "u16"}},
+        {"name": "thresholds", "type": {"seq": "u32"}}
+      ]
+    }
+  ]
+}

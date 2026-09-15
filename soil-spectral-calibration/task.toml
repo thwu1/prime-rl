@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating soil spectroscopy domain knowledge with signal processing, geometric algorithms, chemometric sampling, and multivariate calibration — all discovered from config parameters and data exploration without a recipe. The solver must: (1) discover a detector-splice discontinuity in the raw spectra by analyzing the data, characterize its magnitude, and detect outlier samples; (2) design a dual-branch architecture where feature extraction (derivative filtering, normalization, decimation) and sample selection (reflectance conversion, continuum removal via upper convex hull, dimensionality reduction, space-filling design) operate on different representations of the same data; (3) implement cross-validated model selection and report the full optimization curve; (4) produce multiple coupled outputs where subtle errors in one step (wrong hull orientation, incorrect splice direction, off-by-one in variance thresholds, distance computation in wrong space) cascade through the pipeline and produce plausible but incorrect final predictions."""
+solution_explanation = """Trim to 500-2500nm, detect and correct splice at 1100nm (median offset of 10 bands, outliers > mean+2σ). Branch A: SG first derivative (w=101, p=3), SNV normalization, decimate every 20th band → 201 features. Branch B: splice-corrected absorbance → reflectance via 10^(-A), upper convex hull continuum removal, PCA retaining 99% variance, standardize scores, Kennard-Stone selecting ~133/200 for training. PLS with 10-fold CV outputs full RMSECV curve, selects optimal components, predicts test OC, computes RMSEP/RPD/bias/SEP-b/R²."""
+verification_explanation = """Tests verify: (1) all 7 output files exist with correct format, (2) diagnostics: splice location near 1100nm, positive mean offset, n_bands matches matrix, outlier detection matches independent recomputation (≥80% recall, ≤2 false positives), (3) CV curve: sequential component counts starting at 1, minimum RMSECV matches reported n_components, (4) preprocessed matrix: correct row count, reasonable column count, no NaN/Inf, both signs present, (5) partition: disjoint, complete, sorted, train size 130-140, (6) predictions: correct columns, rows match test set, observed values match source properties, (7) metric consistency: RMSEP²≈SEP-b²+bias², RPD=SD/RMSEP, R² matches computation, (8) preprocessing spot-checks: independent recomputation of 3 sample rows correlates >0.99 with solver output, (9) most-distant pair in selection space must be in training set, (10) model quality bounds: RPD>1.2, R²>0.3, correlation>0.5, |bias|<RMSEP."""
+category = "scientific_computing"
+tags = ["chemometrics", "spectroscopy"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/soil-spectral-calibration"

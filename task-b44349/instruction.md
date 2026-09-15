@@ -1,0 +1,5 @@
+The file `/app/score_engine.py` extends the Gaussian mixture (GM) operations library at `/app/gm_ops.py` with score-based inference tools. The mathematical specification is in `/app/algorithm.md`.
+
+The score engine has four functions. `gm_score_naive` is a reference implementation that works for simple cases but produces NaN in edge cases due to floating-point underflow. `gm_score` currently delegates to the naive version and must be replaced with a numerically stable implementation. `gm_score_divergence` (the Laplacian of log p) and `gm_kernel_stein_discrepancy` (a goodness-of-fit test using the IMQ kernel) are unimplemented stubs.
+
+Fix `gm_score` and implement the two missing functions so that all functions are mutually consistent (the Stein identity must hold between score and divergence), numerically stable across all regimes (tails, small variances, degenerate weights), and pass the provided test suite.

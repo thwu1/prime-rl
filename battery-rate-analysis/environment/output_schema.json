@@ -1,0 +1,47 @@
+{
+  "output_directory": "/app/results",
+  "files": {
+    "rate_capability.json": {
+      "description": "Discharge performance metrics at each tested C-rate",
+      "schema": {
+        "<C-rate label>": {
+          "capacity_ah": "float — total discharge capacity in amp-hours",
+          "energy_wh": "float — total discharge energy in watt-hours",
+          "avg_voltage_v": "float — mean discharge voltage in volts",
+          "max_temp_k": "float — peak cell temperature during discharge in kelvin"
+        }
+      },
+      "required_c_rates": ["0.2C", "0.5C", "1C", "1.5C", "2C"],
+      "notes": "All values must be positive. Capacity and energy should decrease with increasing C-rate. Temperature should increase with C-rate."
+    },
+    "voltage_decomposition.json": {
+      "description": "Voltage loss breakdown evaluated at 50% depth of discharge for each C-rate",
+      "schema": {
+        "<C-rate label>": {
+          "reaction_overpotential_v": "float — kinetic (charge-transfer) losses, absolute magnitude in volts",
+          "concentration_overpotential_v": "float — mass-transport losses, absolute magnitude in volts",
+          "electrolyte_ohmic_v": "float — electrolyte resistive losses, absolute magnitude in volts",
+          "solid_phase_ohmic_v": "float — electrode solid-phase resistive losses, absolute magnitude in volts"
+        }
+      },
+      "required_c_rates": ["0.2C", "0.5C", "1C", "1.5C", "2C"],
+      "notes": "All values must be non-negative. Total losses should increase with C-rate."
+    },
+    "analysis.json": {
+      "description": "Derived analysis results",
+      "schema": {
+        "critical_crate": "string — highest tested C-rate at which the cell still delivers at least 80% of the lowest-rate discharge capacity",
+        "peukert_exponent": "float — power-law exponent characterizing the relationship between discharge current and achievable discharge time (typically 1.0–2.0 for Li-ion)",
+        "dominant_loss": {
+          "<C-rate label>": "string — name of the largest voltage loss component at 50% DOD"
+        }
+      },
+      "valid_mechanism_names": [
+        "reaction_overpotential",
+        "concentration_overpotential",
+        "electrolyte_ohmic",
+        "solid_phase_ohmic"
+      ]
+    }
+  }
+}

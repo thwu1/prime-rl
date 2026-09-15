@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in temporal information leakage in financial ML backtesting. The instruction provides only the problem (label overlap causes leakage) and the desired outputs — no algorithm names, formulas, or procedural steps. The agent must independently: (1) explore a SQLite database schema to understand data layout across three normalized tables; (2) parse nested YAML configuration to extract analysis parameters; (3) recognize from parameter names alone (n_groups, n_test_groups, pct_embargo) that a group-based combinatorial CV scheme with purging and embargo is needed; (4) design and implement the purging logic to remove temporally overlapping observations; (5) infer what pct_embargo means and implement it; (6) choose an appropriate scoring metric and build a multi-strategy evaluation framework; (7) design a method to quantify backtest overfitting probability; (8) orchestrate the entire pipeline through Make. Requires multi-tool interoperability across SQLite, YAML, Make, and Python."""
+solution_explanation = """Extract data from SQLite by joining market_data, signals, and event_windows tables. Parse YAML config. Partition 1200 observations into 6 contiguous groups. Generate all C(6,2)=15 test-group combinations. For each: purge training observations whose event windows overlap test group time spans; exclude embargo buffer (1% of n) after each test group. Train 7 Random Forest classifiers (max_depth in [1,2,3,5,10,20,None]); compute IS/OOS negative log-loss. PBO = fraction of 15 folds where best-IS strategy has OOS score <= median OOS. Write Makefile to orchestrate pipeline execution."""
+verification_explanation = """Tests delete existing results then run make all, verifying: (1) Makefile exists and was implemented (not the stub); (2) make all produces both output files; (3) exactly C(6,2)=15 splits with all group combinations present; (4) no training observation's event window overlaps any test group's time span; (5) embargo zones excluded from training; (6) each observation appears in exactly C(5,1)=5 test folds; (7) PBO in [0,1] with correct metadata (15 splits, 7 strategies)."""
+category = "data_science"
+tags = ["finance", "cross-validation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cpcv-backtest-overfitting"

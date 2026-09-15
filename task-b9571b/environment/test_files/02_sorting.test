@@ -1,0 +1,48 @@
+# Sorting verification
+
+statement ok
+CREATE TABLE sort_data AS SELECT * FROM (VALUES (3, 'cherry'), (1, 'apple'), (5, 'elderberry'), (2, 'banana'), (4, 'date')) t(id, name)
+
+# rowsort - sort rows lexicographically before comparison
+query IT rowsort
+SELECT * FROM sort_data
+----
+1	apple
+2	banana
+3	cherry
+4	date
+5	elderberry
+
+# valuesort - all values sorted individually, one per line
+query IT valuesort
+SELECT * FROM (VALUES (3, 'x'), (1, 'z'), (2, 'y')) t(a, b)
+----
+1
+2
+3
+x
+y
+z
+
+# rowsort with single column
+query I rowsort
+SELECT * FROM (VALUES (5), (3), (1), (4), (2)) t(v)
+----
+1
+2
+3
+4
+5
+
+# nosort (default) - order as returned
+query IT
+SELECT * FROM sort_data ORDER BY id DESC
+----
+5	elderberry
+4	date
+3	cherry
+2	banana
+1	apple
+
+statement ok
+DROP TABLE sort_data

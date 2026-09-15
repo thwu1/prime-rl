@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of medical image spatial coordinate systems including anisotropic spacing, non-zero origin, and rotated direction cosine matrices. The direction cosine matrix (20-degree z-axis rotation) means naive coordinate computations produce centroids off by 9-18mm, which the 3mm test tolerance catches. Agents must either use ITK/SimpleITK's built-in spatial-aware measurement tools correctly, or manually apply the full affine transformation. Additionally requires designing a multi-stage segmentation pipeline (noise reduction, thresholding, connected components) and computing physical surface area for sphericity in anisotropic voxel grids."""
+solution_explanation = """Install SimpleITK, read the phantom preserving all spatial metadata. Apply median filtering for noise reduction, Otsu thresholding for segmentation, connected component labeling, and minimum-size filtering. Use LabelShapeStatisticsImageFilter for physical volume, centroid (automatically handles direction cosines), and surface area. Use LabelStatisticsImageFilter for mean intensity. Compute sphericity from volume and surface area using the standard formula."""
+verification_explanation = """Tests validate the output JSON contains exactly 6 structures with: physical volumes within 25% of theoretical ellipsoid volumes, centroids within 3mm of true world-coordinate positions (testing direction cosine handling — ignoring direction gives 9-18mm error), mean intensities within 25 of true values, valid sphericity in (0.2, 1.25], correct sorting, and all required fields. Structure matching uses centroid proximity."""
+category = "scientific_computing"
+tags = ["medical-imaging", "spatial-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phantom-volume-analysis"

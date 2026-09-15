@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in quantum open systems theory and non-equilibrium quantum thermodynamics. The agent must recognize that standard Lindblad master equations are insufficient for this non-Markovian, non-perturbative regime, and must independently identify and implement an appropriate numerically exact method. Extracting bath heat currents (as opposed to system heat currents) from the solver state requires understanding the relationship between auxiliary quantities produced by the solver and thermodynamic observables, which involves non-trivial formulas that are not documented in typical API references. The agent must also correctly set up two separate baths at different temperatures, handle the numerical convergence aspects, and identify the turnover phenomenon from the scan results."""
+solution_explanation = """Install QuTiP 5.x and use its HEOM (Hierarchical Equations of Motion) solver, which is capable of numerically exact treatment of non-Markovian Drude-Lorentz baths. Set up the two-qubit Hamiltonian with DrudeLorentzEnvironment objects at different temperatures, approximate the bath correlation functions via Pade decomposition, and configure the HEOMSolver with sufficient hierarchy depth (NC>=7). For each coupling strength, compute the steady state, then extract bath heat currents from the level-1 auxiliary density operators using the formula involving exponent-weighted ADO traces, the imaginary correlation function at t=0, and the Ishizaki-Tanimura terminator correction. Scan over six coupling strengths to identify the peak (turnover behavior)."""
+verification_explanation = """Tests verify the JSON structure, then check physical constraints: heat flows from hot to cold (j_B1 < 0, j_B2 > 0), energy is conserved at steady state (|j_B1 + j_B2| << |j_B1|), the turnover behavior is present (non-monotonic current vs coupling), and sigma_z is in the thermally expected range. An independent HEOM computation at lambda=0.025 provides a numerical reference verified within 5% relative tolerance."""
+category = "scientific_computing"
+tags = ["quantum_physics", "open_quantum_systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6b8293"

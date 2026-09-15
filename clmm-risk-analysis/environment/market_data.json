@@ -1,0 +1,6 @@
+{
+  "risk_free_rate": 0.05,
+  "implied_volatility": 0.80,
+  "option_expiry_days": 30,
+  "days_per_year": 365
+}

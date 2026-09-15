@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Newton-Schulz iteration convergence theory, constrained numerical optimization (maximizing polynomial slope at zero subject to iterated convergence bounds), fixed-point analysis of quintic/septic dynamical systems, and matrix orthogonalization quality assessment. The optimization involves non-convex constrained search over polynomial coefficients with iterated evaluation, requiring careful handling of numerical stability and global vs local optima."""
+solution_explanation = """Use binary search on 'a' combined with Nelder-Mead optimization of remaining coefficients to maximize the convergence rate subject to the deviation constraint. Verify via dense grid evaluation. Compute fixed points analytically using the quadratic formula on x^2. Apply NS iteration to the test matrix and compute SVD-based orthogonality metrics."""
+verification_explanation = """Tests independently recompute all quantities: iterate the polynomial on the evaluation grid to verify convergence constraints, solve for fixed points using the agent's coefficients, apply NS orthogonalization to the test matrix, and compare all reported values against independently computed references."""
+category = "optimization"
+tags = ["numerical-optimization", "linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8d8696"

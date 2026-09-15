@@ -1,0 +1,57 @@
+VAULT ARCHIVE FORMAT - INTERNAL NOTES (INCOMPLETE)
+===================================================
+
+Header (24 bytes):
+  Offset  Size   Description
+  0x00    4      Magic bytes: 0xC0 0xDE 0xFA 0x17
+  0x04    2      Version (uint16 LE)
+  0x06    2      Flags (uint16 LE)
+  0x08    4      Number of files (uint32 LE)
+  0x0C    4      Data section offset from start of file (uint32 LE)
+  0x10    4      Metadata section offset from start of file (uint32 LE)
+  0x14    1      Encryption seed byte
+  0x15    3      Reserved (zeroes)
+
+File Table (immediately follows header, variable length):
+  Repeated for each file:
+    - name_length: compact variable-length integer
+        If high bit clear (< 0x80): 1 byte, value = byte & 0x7F
+        If bits 7:6 = 10:          2 bytes, value = ((b0 & 0x3F) << 8) | b1
+        [4-byte encoding exists but format unknown]
+    - name: ASCII string, name_length bytes
+    - compressed_size: uint32 LE
+    - decompressed_size: uint32 LE
+    - crc32: uint32 LE (CRC-32 of original unencrypted content)
+    - flags: uint8 (bit 0 = file is encrypted)
+
+  IMPORTANT: There are NO per-file data offsets. Files are stored
+  contiguously and must be read sequentially using compressed_size.
+
+Data Section (at data_section_offset):
+  Concatenated zlib-compressed blobs, one per file in file table order.
+  Each blob is compressed_size bytes of raw zlib data.
+
+  For encrypted files (flags bit 0 set):
+    The data is compressed AFTER encryption. Therefore: decompress first
+    to obtain ciphertext, then decrypt to recover plaintext.
+
+  FILE ENCRYPTION ALGORITHM:
+    *** NOT DOCUMENTED ***
+    The encryption implementation exists only in the vault_tool binary.
+    It is a stream cipher using some form of PRNG-based keystream.
+    The key derivation involves the seed byte and the filename.
+    Reverse engineer /app/vault_tool to determine the exact algorithm.
+
+Metadata Section (at metadata_section_offset):
+  - metadata_size: uint32 LE (size of encrypted metadata blob)
+  - encrypted_metadata: metadata_size bytes of encrypted JSON
+
+  METADATA ENCRYPTION:
+    *** NOT DOCUMENTED ***
+    Uses a DIFFERENT algorithm from file encryption.
+    Also implemented in vault_tool. Depends only on the seed byte
+    (no filename involved).
+
+  Decrypted metadata is a JSON object containing at minimum:
+    format, version, created, author, entry_count,
+    verification_token, integrity_hash

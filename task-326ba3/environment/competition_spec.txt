@@ -1,0 +1,57 @@
+M6 FINANCIAL FORECASTING COMPETITION — RULES
+
+COMPETITION STRUCTURE
+Teams submit probabilistic quintile forecasts and investment portfolio weights for a
+universe of assets over multiple evaluation periods. Two dimensions are evaluated:
+forecasting accuracy and investment performance.
+
+DATA FILES
+- prices.csv: Daily adjusted close prices (symbol, date, price)
+- submissions.csv: Team forecasts and investment decisions per evaluation period
+  Columns: Team, Period, Symbol, Rank1-Rank5, Decision
+  Rank1 = predicted probability asset finishes in the bottom 20% by return
+  Rank5 = predicted probability asset finishes in the top 20% by return
+  Probabilities sum to 1 for each asset-team-period combination.
+  Decision = portfolio weight allocated to the asset
+- periods.csv: Evaluation period date ranges (period, start_date, end_date)
+- universe.csv: Asset identifiers and classification (symbol, asset_class)
+
+EVALUATION METRICS — OUTPUT FORMAT
+
+Write /app/output/evaluation.json with the following fields:
+
+1. "team_rps" — dict of team_id -> float
+   Per-team Ranked Probability Score averaged across all assets and periods.
+   For each evaluation period, determine which quintile bin each asset belongs
+   to based on its realized return over that period. RPS compares each team's
+   predicted quintile probabilities against the actual outcome. Lower is better.
+   Note: some assets may have identical returns within a period — your
+   implementation must handle such ties correctly so that all tied assets
+   receive identical outcome representations.
+
+2. "team_ir" — dict of team_id -> float
+   Per-team Information Ratio measuring risk-adjusted portfolio performance
+   across the full evaluation horizon. Higher is better.
+
+3. "or_ranking" — list of team_id strings
+   Overall competition ranking, best first. Combines forecasting performance
+   (RPS) and investment performance (IR) with equal weight.
+
+4. "crowd_rps" — float
+   RPS of the consensus forecast formed by aggregating all teams' quintile
+   predictions for each period-asset combination.
+
+5. "optimal_weights" — dict of symbol -> float
+   Per-asset portfolio weights derived from consensus return expectations and
+   historical asset return covariance. Constraints: total absolute weight
+   between 0.25 and 1.0; each individual absolute weight at most 0.10.
+
+6. "connection_scores" — dict of team_id -> float
+   Per-team measure of coherence between forecast-implied return expectations
+   and actual portfolio weight decisions, averaged across periods.
+
+VALIDATION REFERENCE VALUES
+  team_rps["T00"] ~ 0.0124
+  team_ir["T01"] ~ 108.81
+  Top of or_ranking: T01, T00, T02
+  crowd_rps ~ 0.054

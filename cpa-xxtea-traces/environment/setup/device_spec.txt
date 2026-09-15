@@ -1,0 +1,65 @@
+===============================================================
+  XXTEA-XOR Encryption Module v2.1 — Security Audit Briefing
+===============================================================
+
+DEVICE OVERVIEW
+  Model:      XXTEA-XOR Encryption Module
+  Firmware:   v2.1.0
+  Key Size:   128-bit (16 bytes)
+  Block Size: 64-bit (8 bytes)
+
+ENCRYPTION PIPELINE
+  The device encrypts 8-byte plaintext blocks in two stages:
+
+  Stage 1 — XOR Pre-mixing:
+    Applies 16 sequential byte-level XOR operations between
+    the data buffer and the 16-byte key:
+
+      for i in 0..15:
+          data[i % 8] ^= key[i]
+
+    Because the data buffer is 8 bytes and the key is 16 bytes,
+    each data position is XORed twice: once at operation i and
+    again at operation (i + 8), each time with a different key byte.
+
+  Stage 2 — XXTEA Block Cipher:
+    The pre-mixed 8-byte block is encrypted with XXTEA using the
+    same 16-byte key, interpreted as 4 little-endian uint32 words.
+
+  Full pipeline:
+    plaintext -> xor_preprocess(key) -> xxtea_encrypt(key) -> ciphertext
+
+  Decryption reverses the pipeline:
+    ciphertext -> xxtea_decrypt(key) -> reverse_xor_preprocess(key) -> plaintext
+
+  The reverse XOR preprocessing MUST be applied in reverse order
+  (i = 15 down to 0) to correctly undo the sequential modifications.
+
+SIDE-CHANNEL VULNERABILITY (identified during audit)
+  During the XOR pre-mixing stage, each XOR operation produces
+  power consumption proportional to the Hamming weight of the
+  intermediate result:
+
+    Power(operation i) ~ HW(data[i % 8] ^ key[i])
+
+  Critical observation for analysis:
+    - Operations 0-7 process ORIGINAL plaintext bytes:
+        intermediate = plaintext[i] ^ key[i]
+    - Operations 8-15 process ALREADY-MODIFIED bytes (modified
+      by operations 0-7):
+        intermediate = (plaintext[i-8] ^ key[i-8]) ^ key[i]
+
+  This dependency means a two-phase recovery strategy is needed:
+  first recover key bytes 0-7 from the direct XOR with known
+  plaintexts, then use those results to compute the modified
+  intermediates for recovering key bytes 8-15.
+
+TRACE CAPTURE NOTES
+  - Traces exhibit both global timing jitter (clock drift affecting
+    all operations in a trace uniformly) and per-operation jitter
+  - Trace alignment/resynchronization is strongly recommended
+    before performing statistical analysis
+  - See HDF5 file metadata for acquisition parameters (sample rate,
+    ADC resolution, analog gain, etc.)
+  - Pre-captured traces include corresponding plaintext stimulus
+    values needed for correlation analysis

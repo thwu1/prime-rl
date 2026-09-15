@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert TCP protocol knowledge across multiple RFCs plus multi-tool proficiency with tshark and scapy. Part 1: identify four semantic bugs: (1) broken 32-bit wrapping arithmetic in sequence comparisons, (2) missing CLOSING state in simultaneous close, (3) untracked server data in FIN_WAIT_2, (4) incorrectly scaled SYN windows. Part 2: design received-range tracking mechanism with modular arithmetic to distinguish retransmissions from out-of-order arrivals. Part 3: discover that tshark's tcp.analysis.retransmission heuristic misclassifies gap-filling segments in reordered traffic, and implement correct ACK-based sequence number accounting for cross-validation."""
+solution_explanation = """Fix seq_lt() with modular arithmetic: (b-a) mod 2^32 < 2^31. Fix FIN_WAIT_1 to CLOSING on server FIN. Add _track_data() in FIN_WAIT_2. Restrict window scaling to post-handshake. For extension: track received ranges per direction; check overlap before counting data. Generate reorder.pcap with scapy. Cross-validate using TCP ACK-based sequence accounting (unique_bytes = final_peer_ack - ISN - 2) instead of tshark's flawed retransmission filter."""
+verification_explanation = """Tests across 6 captures verify: normal.pcap baseline, seqwrap.pcap wrapping correctness, simclose.pcap CLOSING state, halfclose.pcap FIN_WAIT_2 data, wscale.pcap unscaled SYN windows, reorder.pcap reorder detection. Cross-validation ensures tracker matches tshark-derived values via ACK-based accounting for all captures."""
+category = "networking"
+tags = ["tcp", "protocol-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-tcp-tracker"

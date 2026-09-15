@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert cheminformatics knowledge to implement a complete SAR landscape analysis pipeline from scattered, multi-format raw data with subtle quality issues. The instruction specifies only the expected output files and schemas — the agent must independently: explore and interpret the project directory structure, configuration, and sparse documentation; diagnose data quality problems (invalid SMILES, QC-excluded compounds, replicate measurements, orphaned cross-file records) from inspection rather than instruction; select and correctly apply RDKit APIs for Morgan fingerprinting, Tanimoto similarity computation, SALI-based activity cliff quantification, and Murcko scaffold decomposition purely from domain expertise; handle cheminformatics edge cases (division-by-zero for identical fingerprints, acyclic molecules, singleton scaffold groups) that are not mentioned in the task description; and integrate per-compound cliff-score accumulation with cliff-generator classification using the threshold method specified in the config. The agent must bring professional-level understanding of molecular similarity metrics, activity cliff theory, scaffold-based SAR analysis, and biostatistical aggregation — the instruction provides no algorithmic guidance."""
+solution_explanation = """Explores the project directory to discover config, data files, and documentation. Reads pipeline.yaml to learn analysis parameters (fingerprint type/radius/bits, similarity threshold, cliff detection criteria, cliff generator threshold method, scaffold decomposition type, statistics ddof, output precision). Cleans data by: removing excluded compounds per exclusions.json, filtering invalid SMILES via RDKit parsing, resolving duplicate bioactivity measurements by averaging per config, and inner-joining structures with bioactivity. Uses RDKit to compute Morgan fingerprints, builds pairwise Tanimoto similarity matrix, identifies activity cliff pairs by thresholding, computes SALI scores (handling division-by-zero for identical fingerprints), accumulates per-compound cliff scores, classifies cliff generators using above-median threshold, performs Murcko scaffold decomposition, and aggregates per-scaffold statistics with sample standard deviation."""
+verification_explanation = """Tests independently read the same raw project files and apply the identical cleaning pipeline (exclusion filtering, SMILES validation via RDKit, duplicate averaging, inner join). From the cleaned data, tests recompute all expected results: fingerprints, similarity matrix values, activity cliff identification and SALI consistency, scaffold assignments, scaffold statistics, and summary values. Numerical comparisons use tolerance for floating-point precision. Tests verify structural properties (matrix symmetry, diagonal values, value ranges) and exact match on counts and classifications."""
+category = "scientific_computing"
+tags = ["cheminformatics", "drug-discovery"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scaffold-cliff-analysis"

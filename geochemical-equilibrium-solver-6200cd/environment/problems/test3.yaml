@@ -1,0 +1,31 @@
+database: /app/thermodb.json
+temperature: 50.0
+basis:
+  - species: H2O
+    constraint: kg_solvent_water
+    value: 1.0
+  - species: H+
+    constraint: log10_activity
+    value: -3.0
+  - species: Na+
+    constraint: bulk_moles
+    value: 1.0
+  - species: Cl-
+    constraint: bulk_moles
+    value: 1.0
+  - species: Ca++
+    constraint: bulk_moles
+    value: 0.05
+  - species: SO4--
+    constraint: bulk_moles
+    value: 0.05
+charge_balance_species: "Cl-"
+active_secondary:
+  - "OH-"
+  - "NaCl"
+  - "NaSO4-"
+  - "CaSO4"
+  - "CaCl+"
+  - "HSO4-"
+saturation_minerals:
+  - "Gypsum"

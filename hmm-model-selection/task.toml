@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing MCMC convergence failures from log output and model code: identifying that independent Normal priors on emission means cause label switching and divergences in the K=3 case, then fixing via incremental (ordered) parameterization. Also requires discovering that training data is split across experiment batches and only one batch was used. The solver must implement the forward algorithm for marginal log-likelihoods, build a correct NumPyro model with ordered constraints and Dirichlet priors, run NUTS MCMC for two model orders with proper diagnostics, perform Bayesian model selection, and implement Viterbi decoding. Combines probabilistic programming expertise, MCMC diagnostic interpretation, and dynamic programming."""
+solution_explanation = """The solution: (1) explores the project to find scattered data, buggy model, and diagnostic logs; (2) diagnoses that independent Normal priors cause label switching (visible in logs as near-equal mu means, ~uniform transitions, 147 divergences); (3) fixes the model to use incremental parameterization (mu_first + cumsum(HalfNormal deltas)) enforcing ordering; (4) loads all training data from both experiment batches; (5) runs NUTS MCMC for K=2 and K=3 with posterior mean extraction; (6) computes test log-likelihoods via the forward algorithm; (7) selects K=3; (8) implements Viterbi decoding via lax.scan with backtracking."""
+verification_explanation = """Tests verify: results.json has all required keys with correct shapes; K=3 is selected over K=2; posterior mean emission parameters are within tolerance of ground truth embedded in test code; transition matrix rows sum to 1 and have dominant diagonal; decoded state sequences match true test states with >65% accuracy; MCMC produces 0 divergences and r_hat < 1.1; test log-likelihood is finite and within 25 nats of reference value."""
+category = "machine_learning"
+tags = ["probabilistic-programming", "bayesian-inference"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hmm-model-selection"

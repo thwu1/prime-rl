@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting Unix process-model bugs from runtime symptoms alone — no hints about root causes are given. The program compiles cleanly and each bug is syntactically valid C, so the solver must reason about runtime semantics: (1) the program deadlocks on first run, requiring the solver to use strace or similar tools to identify a blocked read() syscall on the pipe and deduce that the parent process retains the pipe write-end, preventing EOF; (2) after fixing the deadlock, the output file contains duplicate header lines, which requires understanding that file-backed stdio streams are fully buffered, that fork() copies the unflushed buffer into each child, and that the children's process termination flushes the inherited buffer; (3) workers report state=PENDING despite having completed, which requires understanding that MAP_PRIVATE creates copy-on-write pages so child writes to the mmap region are siloed and invisible to the parent — the solver must recognize this demands MAP_SHARED; (4) the children call exit() which flushes inherited stdio streams and runs atexit handlers, requiring the solver to know that _exit() is the correct termination for forked children. Diagnosing these bugs demands proficiency with Unix process diagnostics (strace, /proc, gdb), deep understanding of fork/mmap/pipe/stdio interactions, and the ability to isolate multiple interleaved failures from ambiguous symptoms."""
+solution_explanation = """Four targeted edits to pipeline.c: (1) change MAP_PRIVATE to MAP_SHARED in the mmap call so child process writes to worker_state_t are visible to the parent; (2) add fflush(outf) after the header fprintf and before the fork loop to prevent the buffered header from being copied into child address spaces; (3) add close(pfd[1]) in the parent after the fork loop and before reading from the pipe, so fgets sees EOF when all children close their write ends; (4) replace exit(0) with _exit(0) in the child branch to avoid flushing inherited stdio buffers and running atexit handlers. After applying all fixes, rebuild with make -C /app and verify correct output for worker counts 1, 3, 4, and 7."""
+verification_explanation = """Fifteen pytest tests verify behavioral outcomes without inspecting source code: compilation succeeds; program completes without hanging (15s timeout); header appears exactly once (catches stdio buffer duplication); aggregate total matches independent Python computation for 4 workers; per-worker partial sums match expected values; per-worker checksums match expected 64-bit hash-chain values; all workers report state=DONE (catches MAP_PRIVATE misuse); CHECKSUM_VERIFY reports OK; SUM_VERIFY reports OK; PROGRESS shows all workers completed; no zombie processes remain; correctness verified with 3 workers (even split), 7 workers (uneven partitioning), and 1 worker (single-process edge case)."""
+category = "systems_programming"
+tags = ["unix-process-debugging", "multiprocess-ipc"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fork-pipeline-bugs"

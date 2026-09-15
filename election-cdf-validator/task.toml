@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple specialized domains without procedural guidance. The agent must independently: (1) reverse-engineer three deeply nested NIST SP 1500-series JSON schemas with type-tagged wrappers and infer a unified XML representation suitable for declarative validation; (2) author ISO Schematron rules from scratch by studying intra-format examples and extending the pattern to cross-format referential integrity — choosing the correct query binding, designing key declarations, and writing XPath rule contexts and assertions; (3) compile and execute the Schematron, parse SVRL output, and classify violations; (4) implement a CVR vote tally reconciliation that correctly handles CurrentSnapshotId indirection, HasIndication filtering, multi-vote contests (VotesAllowed=2), write-in selections, and exclusion of entities undefined in BD; (5) integrate Schematron-detected and tally-computed violations into a consolidated report. No algorithms, libraries, or steps are named in the instruction — the agent must discover the entire approach."""
+solution_explanation = """Parse bd.json/cvr.json/err.json (unwrapping CDF type-tagged wrappers), convert to a merged XML document with lxml.etree containing ballot-definition elements (contests, selections, gpunits, parties, candidates, ballot-styles), cast-vote-records (CVR records with contest-vote/selection-vote children extracted from CurrentSnapshot only), and election-results (result-contests, result-selections with vote counts, result-parties). Author ISO Schematron with queryBinding="xslt", declare xsl:key entries indexing BD entities, write sch:rule/sch:assert patterns for CVR→BD and ERR→BD reference checks. Compile via lxml.isoschematron, validate merged XML, parse SVRL failed-assert elements to extract referential integrity violations with classification. Independently tally CVR votes (only BD-defined entities, HasIndication=yes, CurrentSnapshotId filtering) and compare against ERR VoteCounts totals. Merge all violations into report.json."""
+verification_explanation = """Tests validate three artifact categories: (1) Schematron — cross_cdf_rules.sch is valid ISO Schematron XML with sch:schema root, >=3 xsl:key declarations, >=3 sch:rule/sch:assert elements, compiles with lxml.isoschematron, finds 5-30 failed assertions when applied to merged.xml; (2) Merged XML — merged.xml is well-formed, contains BD/CVR/ERR sections; (3) Report — report.json has violations array with required fields, detects all 7 planted violations by keyword matching (cc-treasurer, cs-99, gpu-precinct-5, cs-pres-dem tally mismatch, party-green, cc-comptroller, cand-phantom), bounded total count 7-20."""
+category = "conformance_testing"
+tags = ["election-data", "schematron-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/election-cdf-validator"

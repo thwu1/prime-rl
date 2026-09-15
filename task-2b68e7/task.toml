@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-hop reasoning through a hierarchical knowledge base with LaTeX-encoded formulas to identify and implement 7 interdependent PostgreSQL functions. The OQF formula depends on AOI and LIF (children_knowledge references), requiring the agent to trace formula dependencies across KB entries. Building the materialized view demands understanding a 4-table join path (signals->telescopes->observatories + signalprobabilities) through cryptically named columns. The agent must correctly translate ternary operators and mathematical notation into PL/pgSQL, implement domain-specific classification logic from textual definitions, and set up trigger-based automation with backfill."""
+solution_explanation = """Parse knowledge_base.jsonl to extract 7 calculation formulas and 3 classification rules. Create PL/pgSQL functions for SNQI, TOLS, RPI, BFR, LIF, AOI, and OQF (which composes AOI and LIF). Build a materialized view joining signals, telescopes, observatories, and signalprobabilities with computed metrics and classifications. Add columns and a BEFORE INSERT OR UPDATE trigger to signals for auto-SNQI computation. Backfill existing rows. Export view to CSV."""
+verification_explanation = """Tests verify: all 7 functions exist and return correct values for known inputs with tolerance-based comparison, materialized view has correct schema and 8 rows with verified SNQI/TOLS/RPI/OQF values for specific signals, classification columns match expected TOLS categories and TOO flags, trigger correctly computes auto_snqi and analyzable on both insert of analyzable and non-analyzable test signals, existing rows are backfilled, and CSV export exists with required columns and data rows."""
+category = "data_management"
+tags = ["postgresql", "database-engineering"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2b68e7"

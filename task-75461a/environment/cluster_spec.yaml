@@ -1,0 +1,63 @@
+# Flux HPC Cluster Configuration Specification
+# Implement this topology using Flux TOML configuration and runtime setup.
+
+cluster:
+  test_size: 8
+  hostlist: "test[0-7]"
+
+resource:
+  noverify: true    # Required for test instances (no HWLOC verification)
+  exclude: "3"      # Rank 3 permanently excluded from scheduling (config-time)
+  nodes:
+    - hosts: "test[0-3]"
+      cores: "0-3"
+      properties: ["batch"]
+    - hosts: "test[4-5]"
+      cores: "0-3"
+      properties: ["highmem"]
+    - hosts: "test[6-7]"
+      cores: "0-3"
+      properties: ["gpu"]
+
+queues:
+  batch:
+    requires: ["batch"]
+    is_default: true
+    policy:
+      limits:
+        duration: "8h"
+  highmem:
+    requires: ["highmem"]
+    policy:
+      limits:
+        duration: "48h"
+  gpu:
+    requires: ["gpu"]
+    policy:
+      limits:
+        duration: "4h"
+
+# Runtime drain states (applied via flux resource drain AFTER instance startup).
+# Note: rank 3 is excluded at config time (above), NOT drained.
+# Excluded nodes cannot be drained — they are permanently removed from scheduling.
+drain:
+  - rank: 5
+    reason: "Memory ECC error rate exceeded threshold"
+  - rank: 7
+    reason: "GPU thermal throttling detected"
+
+job_manager:
+  inactive_num_limit: 200
+  inactive_age_limit: "2h"
+
+# Expected state after full configuration and drain setup:
+#
+# Queue     | Property  | Total nodes | Excluded | Drained | Available ranks
+# ----------+-----------+-------------+----------+---------+----------------
+# batch     | batch     | test[0-3]   | rank 3   | —       | 0, 1, 2
+# highmem   | highmem   | test[4-5]   | —        | rank 5  | 4
+# gpu       | gpu       | test[6-7]   | —        | rank 7  | 6
+#
+# Jobs submitted without a queue specification should default to "batch".
+# An unsatisfiable request (e.g. requesting 3 highmem nodes when only 2 exist)
+# should result in a scheduler exception.

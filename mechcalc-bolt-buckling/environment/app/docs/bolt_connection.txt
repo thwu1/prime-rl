@@ -1,0 +1,102 @@
+Engineering Reference: Prestressed Bolt Connection Analysis
+=============================================================
+
+Based on MITCalc documentation and VDI 2230 methodology.
+
+1. Thread Geometry (ISO Metric)
+
+   Pitch diameter:     d2 = d - 0.6495 * P
+   Minor diameter:     d3 = d - 1.2269 * P
+   Stress diameter:    d_s = (d2 + d3) / 2
+   Tensile stress area: A_s = (pi/4) * d_s^2
+
+2. Bolt Stiffness
+
+   c_b = E_bolt * A_s / L_clamp
+   where L_clamp is total clamping height.
+
+3. Clamp Stiffness - Pressure Cone Method
+
+   The substitute tube method (simple annular cylinder) is a rough
+   approximation. The pressure cone method gives more accurate results
+   by modelling the stress distribution as a truncated cone (frustum).
+
+   Recommended cone half-angle: alpha = 30 degrees (Shigley).
+
+   For a multi-part clamped joint, compute stiffness of EACH part
+   individually, then combine as springs in series.
+
+   For part i with height L_i and elastic modulus E_i:
+
+     Cone diameter at far end of part:
+       D_far_i = D_head + 2 * L_i * tan(alpha)
+
+     Frustum integral gives individual stiffness:
+       c_i = E_i * pi * d_hole * tan(alpha) /
+             ln( ((D_head + d_hole) * (D_far_i - d_hole)) /
+                 ((D_head - d_hole) * (D_far_i + d_hole)) )
+
+     If any ratio argument is non-positive, use c_i = very large value.
+
+   Combined stiffness (parts in series):
+     1/c_clamp = 1/c_1 + 1/c_2 + ... + 1/c_n
+
+4. Force Ratio (Load Introduction Factor)
+
+   phi = n * c_b / (n * c_b + c_clamp)
+
+   where n is the force introduction factor (0 to 1).
+
+5. Minimum Preload
+
+   From compactness requirement:
+     F0_tight = (tightness_coeff + phi) * F_axial
+
+   From sliding resistance requirement:
+     F0_slide = F_radial / mu_surfaces + phi * F_axial
+
+   Minimum preload: F0_min = max(F0_tight, F0_slide)
+
+6. Settlement Loss Compensation
+
+   Plastic deformation (settlement) of contact surfaces reduces preload
+   over time. Guide values for settlement range from 0.01 to 0.05 mm.
+
+   Settlement force loss:
+     delta_F = f_z * c_b * c_clamp / (c_b + c_clamp)
+
+   where f_z is total settlement in mm.
+
+   Corrected preload: F0 = F0_min + delta_F
+
+7. Stress Analysis
+
+   Maximum bolt force: F1_max = F0 + phi * F_axial
+   Tensile stress:     sigma = F1_max / A_s
+
+   Torsional stress arises from the tightening moment in the thread:
+     Thread lead angle:  psi = atan(P / (pi * d2))
+     Friction angle:     rho' = atan(mu_thread)
+     Thread moment:      M_G = F0 * (d2/2) * tan(psi + rho')
+     Polar section modulus: W_p = (pi/16) * d_s^3
+     Torsional stress:   tau = M_G / W_p
+
+   Reduced (von Mises equivalent) stress with torsion reduction factor kt:
+     sigma_red = sqrt(sigma^2 + 3 * (kt * tau)^2)
+
+   VDI 2230 recommends kt = 0.5 for working state check.
+   kt = 1.0 for assembly state check.
+
+   Safety factor: n_safety = yield_strength / sigma_red
+
+8. Tightening Torque
+
+   Head (or nut) friction moment:
+     M_head = F0 * mu_head * (D_head + d_hole) / 4
+
+   Total assembly torque:
+     M_A = M_thread + M_head = M_G + M_head
+
+9. Residual Clamping Force
+
+   F_residual = F0 - phi * F_axial

@@ -1,0 +1,37 @@
+{
+  "name": "comparison_loss",
+  "description": "Comparison loss in microwave power meter calibration. Simplified model with zero voltage reflection coefficients for standard and generator ports. Model: delta_Y = X1^2 + X2^2, where X1 and X2 are real and imaginary components of the mismatch reflection coefficient.",
+  "model_expression": "delta_Y = X1**2 + X2**2",
+  "cases": [
+    {
+      "case_id": "case1",
+      "description": "Zero estimate of reflection coefficient - GUM first-order fails here",
+      "inputs": {
+        "X1": {"distribution": "gaussian", "mean": 0.000, "std": 0.005},
+        "X2": {"distribution": "gaussian", "mean": 0.000, "std": 0.005}
+      },
+      "coverage_probability": 0.95,
+      "ndig": 1
+    },
+    {
+      "case_id": "case2",
+      "description": "Small non-zero estimate of reflection coefficient",
+      "inputs": {
+        "X1": {"distribution": "gaussian", "mean": 0.010, "std": 0.005},
+        "X2": {"distribution": "gaussian", "mean": 0.000, "std": 0.005}
+      },
+      "coverage_probability": 0.95,
+      "ndig": 1
+    },
+    {
+      "case_id": "case3",
+      "description": "Larger non-zero estimate of reflection coefficient",
+      "inputs": {
+        "X1": {"distribution": "gaussian", "mean": 0.050, "std": 0.005},
+        "X2": {"distribution": "gaussian", "mean": 0.000, "std": 0.005}
+      },
+      "coverage_probability": 0.95,
+      "ndig": 1
+    }
+  ]
+}

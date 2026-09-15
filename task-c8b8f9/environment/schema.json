@@ -1,0 +1,70 @@
+{
+  "root_type": "Message",
+  "types": {
+    "Message": {
+      "kind": "enum",
+      "variants": [
+        {
+          "discriminant": 0,
+          "name": "SensorReading",
+          "fields": [
+            {"name": "sensor_id", "type": "u16"},
+            {"name": "timestamp", "type": "u32"},
+            {"name": "values", "type": {"seq": "f32"}},
+            {"name": "status", "type": {"option": "StatusCode"}}
+          ]
+        },
+        {
+          "discriminant": 1,
+          "name": "ConfigUpdate",
+          "fields": [
+            {"name": "param_id", "type": "u16"},
+            {"name": "value", "type": "ConfigValue"}
+          ]
+        },
+        {
+          "discriminant": 2,
+          "name": "Heartbeat",
+          "fields": [
+            {"name": "uptime_ms", "type": "u64"},
+            {"name": "free_mem", "type": "u32"}
+          ]
+        },
+        {
+          "discriminant": 3,
+          "name": "Alert",
+          "fields": [
+            {"name": "level", "type": "AlertLevel"},
+            {"name": "source", "type": "string"},
+            {"name": "code", "type": "u32"}
+          ]
+        }
+      ]
+    },
+    "StatusCode": {
+      "kind": "enum",
+      "variants": [
+        {"discriminant": 0, "name": "Ok", "fields": []},
+        {"discriminant": 1, "name": "Warning", "fields": [{"name": "code", "type": "u8"}]},
+        {"discriminant": 2, "name": "Error", "fields": [{"name": "code", "type": "u16"}]}
+      ]
+    },
+    "ConfigValue": {
+      "kind": "enum",
+      "variants": [
+        {"discriminant": 0, "name": "Int", "fields": [{"name": "value", "type": "i32"}]},
+        {"discriminant": 1, "name": "Float", "fields": [{"name": "value", "type": "f32"}]},
+        {"discriminant": 2, "name": "Str", "fields": [{"name": "value", "type": "string"}]},
+        {"discriminant": 3, "name": "Bool", "fields": [{"name": "value", "type": "bool"}]}
+      ]
+    },
+    "AlertLevel": {
+      "kind": "enum",
+      "variants": [
+        {"discriminant": 0, "name": "Info", "fields": []},
+        {"discriminant": 1, "name": "Warn", "fields": []},
+        {"discriminant": 2, "name": "Critical", "fields": []}
+      ]
+    }
+  }
+}

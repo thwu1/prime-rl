@@ -1,0 +1,67 @@
+WarpX Theory Overview
+=====================
+
+WarpX implements the Particle-In-Cell (PIC) method for kinetic plasma
+simulations. The standard electromagnetic PIC algorithm proceeds as:
+
+1. Interpolate fields (E, B) from grid to particle positions
+2. Push particles using the Lorentz force equation
+3. Deposit charge and current densities from particles to grid
+4. Advance electromagnetic fields on the grid
+
+Field Solvers
+~~~~~~~~~~~~~
+
+The default electromagnetic solver in WarpX is the finite-difference
+time-domain (FDTD) method on a staggered Yee grid. Alternative solvers
+include the pseudo-spectral analytical time-domain (PSATD) method.
+
+The FDTD method discretizes Maxwell's equations on a staggered grid
+where electric and magnetic field components are offset by half a cell
+in space and half a time step in time. The Yee scheme has specific
+implications for numerical dispersion and stability.
+
+Numerical Properties
+~~~~~~~~~~~~~~~~~~~~
+
+FDTD methods introduce numerical artifacts compared to exact solutions:
+
+- Modified dispersion relation: numerical phase and group velocities
+  differ from the speed of light in vacuum
+- Numerical Cherenkov radiation
+- Grid heating from aliased modes
+
+The time step is constrained by a stability condition that depends on
+the grid cell sizes and the speed of light. Violation of this condition
+leads to exponentially growing, unphysical field amplitudes.
+
+Resolution Requirements
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Adequate resolution in PIC simulations requires sufficient cells to
+resolve key physical length scales of the problem:
+
+- The laser wavelength (for laser-driven simulations)
+- The plasma skin depth
+- The plasma wavelength
+
+Under-resolved simulations produce unphysical artifacts including
+numerical heating, spurious self-injection, and incorrect wake
+structure. The required resolution depends on the specific physics
+being studied and the acceptable level of numerical error.
+
+Laser-Plasma Acceleration
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In laser-plasma acceleration (LPA), an intense laser pulse drives
+plasma wakefields that can trap and accelerate electrons to high
+energies. Key physical parameters include:
+
+- The laser's normalized vector potential (a_0)
+- The ratio of plasma density to critical density
+- The plasma wavelength, which sets the accelerating structure size
+- The laser Rayleigh length, which limits the interaction distance
+
+The electromagnetic wave can only propagate through plasma when the
+electron density is below the critical density for the given laser
+frequency.

@@ -1,0 +1,56 @@
+{
+  "benchmark": "NAFEMS_LE1",
+  "title": "Plane Stress Elliptic Membrane",
+  "description": "NAFEMS Test LE1 from publication TNSB Rev.3 (The Standard NAFEMS Benchmarks, 1990). Plane-stress analysis of an annular membrane bounded by two concentric ellipses under outward pressure on the outer edge.",
+  "geometry": {
+    "type": "quarter_annular_elliptic_membrane",
+    "symmetry": "double (quarter model in first quadrant)",
+    "inner_ellipse": {
+      "center_m": [0.0, 0.0],
+      "semi_major_x_m": 2.0,
+      "semi_minor_y_m": 1.0
+    },
+    "outer_ellipse": {
+      "center_m": [0.0, 0.0],
+      "semi_major_x_m": 3.25,
+      "semi_minor_y_m": 2.75
+    },
+    "edges": {
+      "AB": {"type": "straight", "from_m": [0, 1.0], "to_m": [0, 2.75], "location": "x = 0"},
+      "BC": {"type": "elliptic_arc", "on": "outer_ellipse", "from_m": [0, 2.75], "to_m": [3.25, 0]},
+      "CD": {"type": "straight", "from_m": [3.25, 0], "to_m": [2.0, 0], "location": "y = 0"},
+      "DA": {"type": "elliptic_arc", "on": "inner_ellipse", "from_m": [2.0, 0], "to_m": [0, 1.0]}
+    },
+    "vertices": {
+      "A": [0.0, 1.0],
+      "B": [0.0, 2.75],
+      "C": [3.25, 0.0],
+      "D": [2.0, 0.0]
+    }
+  },
+  "material": {
+    "type": "linear_elastic_isotropic",
+    "youngs_modulus_Pa": 210e9,
+    "poissons_ratio": 0.3
+  },
+  "boundary_conditions": {
+    "AB": {"constraint": "u_x = 0", "reason": "symmetry on x = 0"},
+    "CD": {"constraint": "u_y = 0", "reason": "symmetry on y = 0"},
+    "DA": {"constraint": "traction-free"}
+  },
+  "loading": {
+    "BC": {
+      "type": "distributed_pressure",
+      "magnitude_Pa": 10e6,
+      "direction": "outward_normal",
+      "description": "Uniform outward pressure of 10 MPa on outer elliptical edge"
+    }
+  },
+  "evaluation": {
+    "point_D": {
+      "coordinates_m": [2.0, 0.0],
+      "quantities": ["sigma_yy", "sigma_xx"],
+      "description": "Stress components at point D (inner ellipse, on x-axis)"
+    }
+  }
+}

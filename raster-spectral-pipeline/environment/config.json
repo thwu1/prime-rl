@@ -1,0 +1,30 @@
+{
+    "input_path": "/app/data/input.tif",
+    "ground_truth_path": "/app/data/ground_truth.tif",
+    "output_dir": "/app/output",
+    "tile_size": 256,
+    "tile_overlap": 32,
+    "bands": {
+        "Blue": 1,
+        "Green": 2,
+        "Red": 3,
+        "NIR": 4
+    },
+    "indices": {
+        "NDVI": "(NIR - Red) / (NIR + Red)",
+        "NDWI": "(Green - NIR) / (Green + NIR)",
+        "BSI": "((Red + Blue) - (NIR + Green)) / ((Red + Blue) + (NIR + Green))"
+    },
+    "classification_rules": [
+        {"class": 1, "name": "Water", "condition": "NDWI > 0.3"},
+        {"class": 2, "name": "Dense Vegetation", "condition": "NDVI > 0.6"},
+        {"class": 3, "name": "Sparse Vegetation", "condition": "NDVI > 0.2 and NDWI <= 0.3"},
+        {"class": 4, "name": "Bare Soil", "condition": "BSI > 0.1 and NDVI <= 0.2 and NDWI <= 0.3"},
+        {"class": 5, "name": "Urban", "condition": "otherwise"}
+    ],
+    "vectorization": {
+        "simplification_tolerance_m": 5.0,
+        "min_area_sqm": 500.0
+    },
+    "nodata_value": 0
+}

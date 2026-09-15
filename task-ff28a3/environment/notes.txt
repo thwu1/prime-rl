@@ -1,0 +1,8 @@
+Analysis notes - 2024-11-15
+---
+- Aligned reads to scaffolded draft assembly (scaffold_1, scaffold_2)
+- samtools view kept failing when cross-referencing with reference
+- bedtools intersect returned empty results for all regions
+- Some reads look like PCR artifacts, haven't dealt with those yet
+- Assembly QC metrics not computed
+- Giving up, someone else will need to sort this out

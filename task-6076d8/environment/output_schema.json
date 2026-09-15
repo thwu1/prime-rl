@@ -1,0 +1,37 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "FIDE Swiss Round Pairing",
+    "description": "Output format for a Swiss system round pairing",
+    "type": "object",
+    "required": ["pairings", "bye"],
+    "additionalProperties": false,
+    "properties": {
+        "pairings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["white", "black"],
+                "additionalProperties": false,
+                "properties": {
+                    "white": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "TPN of the player with white pieces"
+                    },
+                    "black": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "TPN of the player with black pieces"
+                    }
+                }
+            }
+        },
+        "bye": {
+            "description": "TPN of the player receiving a PAB, or null",
+            "oneOf": [
+                {"type": "integer", "minimum": 1},
+                {"type": "null"}
+            ]
+        }
+    }
+}

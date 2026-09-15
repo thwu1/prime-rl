@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level forensic data analysis: (1) six relations each stored in three representations (binary, CSV, SQLite) with independent corruption patterns — reversed column order in r2.bin, row-major layout in r4.bin, swapped columns in r5.bin, extra duplicate rows in r1.csv, swapped columns in r4.csv, and truncated rows in r3's SQLite table; (2) for relation r4 no two sources agree, forcing multi-tool triangulation with sqlite3, xxd, and Python struct to determine ground truth; (3) three independent engine bugs — off-by-one in less-than comparison, self-join tuple caching that shares filtered data across positions, and missing NULL output for empty results. The solver must evaluate the trustworthiness of each data source per relation, use sqlite3 queries and binary inspection tools in concert, and synthesize a correct execution pipeline."""
+solution_explanation = """Load all three representations for each relation (binary via struct, CSV via csv module, SQLite via sqlite3). Cross-validate pairwise: where two sources match, that's ground truth. For r4 where no two agree (bin is row-major, csv has cols 0-1 swapped), score each source by cell-level agreement with the other two and prefer SQLite. Then implement a correct join executor that: creates independent filtered tuple copies per query position (no caching across self-join positions), uses strict less-than for < predicates, and outputs NULL for empty result projections."""
+verification_explanation = """Tests regenerate ground-truth relation data from the same deterministic seed (42) used during data generation, implement a reference join executor, execute all 25 queries, and compare each result line against the agent's /app/output.txt. Each query is a separate parametrized test case with diagnostic output showing expected vs actual values."""
+category = "systems_programming"
+tags = ["data-forensics", "query-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/join-query-executor"

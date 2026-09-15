@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>BRTEST</OrganizationIdentifier>
+      <OrganizationFormalName>Business Rule Test Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-BR</ProjectIdentifier>
+      <ProjectName>Business Rule Testing</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-BR</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Business Rule Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>40.5</LatitudeMeasure>
+        <LongitudeMeasure>-75.0</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>PA</StateCode>
+        <CountyCode>077</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-BR-001</ActivityIdentifier>
+        <ActivityTypeCode>Sample-Routine</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-06-01</ActivityStartDate>
+        <ProjectIdentifier>PROJ-BR</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-BR</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <ResultDetectionConditionText>Not Detected</ResultDetectionConditionText>
+          <CharacteristicName>Mercury</CharacteristicName>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+      <Result>
+        <ResultDescription>
+          <ResultDetectionConditionText>Present Below Quantification Limit</ResultDetectionConditionText>
+          <CharacteristicName>Cadmium</CharacteristicName>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-BR-002</ActivityIdentifier>
+        <ActivityTypeCode>Sample-Integrated Vertical Profile</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-06-05</ActivityStartDate>
+        <ProjectIdentifier>PROJ-BR</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-BR</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Temperature, water</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>18.3</ResultMeasureValue>
+            <MeasureUnitCode>deg C</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

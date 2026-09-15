@@ -1,0 +1,6 @@
+{
+  "name": "PSHA Verification Model v1",
+  "region": "Hypothetical Test Region",
+  "version": "1.0",
+  "description": "Synthetic seismic source model for PSHA computation verification"
+}

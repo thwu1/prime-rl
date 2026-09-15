@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete compiler analysis framework from scratch (parsing a custom IR, building CFGs, computing four distinct fixpoint-based dataflow properties with correct lattice semantics, and applying multiple optimization passes to a global fixpoint), then orchestrating a multi-tool pipeline: writing a Makefile with proper target dependencies, converting CFG data to DOT format for graphviz SVG rendering, and using jq to merge JSON analysis results into a summary report. Each dataflow property has subtle correctness requirements around direction, initialization, meet operators, and transfer functions that require expert-level compiler engineering knowledge to get right."""
+solution_explanation = """Build a TAC parser that tokenizes instructions into an IR, construct the CFG by identifying leaders and linking blocks via jump targets/fallthroughs, implement each dataflow property as a worklist-based iterative solver with appropriate lattice and direction, use liveness to eliminate dead stores, available expressions to replace redundant computations, and constant propagation to fold expressions. Write a Makefile that orchestrates running the optimizer, piping CFG JSON through a DOT converter to graphviz, and merging constprop JSON via jq."""
+verification_explanation = """Tests verify: CFG adjacency correctness, live/reaching/available/constprop sets match expected values per block, optimized TAC preserves semantics when interpreted with strictly fewer instructions, Makefile exists with required targets, SVG files are produced with correct graph nodes, and summary.json merges constprop data correctly."""
+category = "systems"
+tags = ["compiler-design", "build-automation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5bed52"

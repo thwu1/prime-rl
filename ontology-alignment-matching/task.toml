@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OWL/RDF ontology semantics, the OAEI alignment evaluation framework, and multi-strategy entity matching across heterogeneous knowledge representations. The solver must: (1) parse complex OWL/RDF-XML with namespace handling, class hierarchies, skos:altLabel synonyms, and owl:equivalentClass restriction axioms (intersections with owl:someValuesFrom/owl:hasValue); (2) implement multi-strategy matching combining label cross-referencing, token-based similarity, OWL restriction analysis, and structural hierarchy matching; (3) detect and reject false-friend classes that share label tokens but represent semantically different concepts (requiring hierarchical context disambiguation); (4) align object properties using label similarity weighted by domain/range compatibility; (5) maintain structural coherence so the alignment preserves parent-child relationships across ontologies; (6) produce output in the standard OAEI alignment XML format. No single matching strategy suffices — holistic integration of lexical, structural, and semantic signals is essential."""
+solution_explanation = """Parse both OWL files using regex-based extraction to retrieve class URIs, rdfs:label, skos:altLabel, skos:definition, rdfs:subClassOf hierarchy, owl:equivalentClass restrictions, and object properties with domain/range. A nesting-aware block extractor handles nested owl:Class elements inside equivalentClass restrictions. Build bidirectional label indexes. Match classes in six phases: (1) exact normalized label cross-comparison with structural context verification; (2) alt-label cross-referencing with false-friend filtering via hierarchy path token overlap; (3) token-based Jaccard similarity with structural context boost; (4) OWL restriction analysis comparing equivalentClass axiom components; (5) definition-based matching using skos:definition token similarity; (6) subsumption detection via descendant-set coverage analysis. Match properties using label overlap weighted by domain/range class-match compatibility. Output all correspondences in OAEI alignment XML."""
+verification_explanation = """Tests evaluate multiple facets: (1) XML validity and format correctness; (2) class alignment precision >= 0.72, recall >= 0.68, F1 >= 0.70 against a gold standard of ~159 correspondences (88 trivial, 56 non-trivial, 8 subsumptions); (3) non-trivial recall >= 10 to verify the solver goes beyond simple label matching; (4) property alignment count >= 4 out of 12 gold property correspondences; (5) false-friend rejection with at most 2 of 7 false-friend pairs accepted; (6) structural coherence >= 0.65 verifying that matched parent-child source pairs map to ancestor-descendant target pairs."""
+category = "data_processing"
+tags = ["ontology-alignment", "semantic-web"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ontology-alignment-matching"

@@ -1,0 +1,62 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a coupled chain of geophysical equations (Kudryavtsev permafrost model
+with 8 interdependent steps), solving a constrained inverse calibration problem over a simplex-constrained parameter
+space, performing numerical root-finding for sensitivity analysis at regime transitions, parsing a real-world
+PANGAEA tab-delimited borehole dataset (with comment-block headers, missing values, and column-name-embedded years)
+to compute OLS warming trends and project permafrost degradation timelines, AND performing Jacobian-based first-order
+uncertainty propagation through the entire nonlinear model chain with correct handling of regime-transition
+discontinuities during finite-difference perturbation. The five subcommands are coupled: uncertainty depends on
+forward and sensitivity; project depends on forward, sensitivity, and borehole parsing. The equations involve nested
+thermal effects (snow insulation, vegetation damping, soil phase change) with subtle sign conventions, arcsin domain
+edge cases, and degenerate active-layer conditions. The calibration is an underdetermined inverse problem requiring
+multi-start optimization over a simplex. The uncertainty analysis requires computing 2×5 partial derivatives per site
+with correct fallback to one-sided differences when perturbations cross the permafrost/seasonal-frost boundary."""
+solution_explanation = """The reference solution implements the full Kudryavtsev model chain using Python math for
+scalar computations. Soil thermal conductivity uses geometric weighted means; heat capacity uses linear mixing.
+Snow and vegetation effects are computed sequentially, modifying temperature and amplitude. TTOP uses the Anisimov
+et al. 1997 formula with arcsin clamped to avoid domain errors. ALT uses the Romanovsky et al. 1997 three-stage
+estimate. Calibration uses scipy.optimize.minimize with SLSQP and multiple starting points over the soil-fraction
+simplex. Sensitivity uses scipy.optimize.brentq for bisection on the TTOP numerator function with exponential
+bracket search. The project command parses the PANGAEA borehole file by skipping the /* */ comment block, extracting
+year information from MAGT column headers via regex, computing OLS slopes for boreholes with sufficient data, and
+combining with sensitivity thresholds to estimate years until permafrost loss. The uncertainty command computes
+centered finite differences for each of 5 parameters (Ta, Aa, Hsn, rho_sn, vwc) with step h = max(|p|*1e-4, 1e-6),
+falls back to one-sided differences when perturbations cause regime transitions, propagates via RSS of
+Jacobian*sigma products, and computes vulnerability as sigma_TTOP / delta_Ta_critical."""
+verification_explanation = """Tests include a compact reference implementation of the Kudryavtsev equations that
+independently computes expected values for all sites. Forward model outputs are compared against reference within
+tight tolerances (0.05 degC for TTOP, 5 mm for ALT). Calibration is verified by running the reference model with
+calibrated fractions and checking predicted ALT matches observations within 0.01 m. Sensitivity is verified by
+checking regime transitions within 0.25 degC of claimed thresholds. Projection tests independently parse the PANGAEA
+borehole file, compute reference OLS trends, and verify accuracy. Uncertainty tests independently compute reference
+Jacobians via the same finite-difference convention, propagate uncertainties, and verify sigma_TTOP, sigma_ALT,
+dominant parameter identification, vulnerability indices, and individual Jacobian entries against the solver's output.
+Tests also verify structural correctness: correct site filtering (permafrost-only for sensitivity/uncertainty),
+null handling, field names, and cross-subcommand consistency."""
+category = "earth_science"
+tags = ["permafrost", "geophysics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/permafrost-model-calibration"

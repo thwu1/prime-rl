@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the Windows PE binary format to implement a parser and modifier from scratch. The agent must use MinGW cross-compilers to build PE binaries from C source (32-bit, 64-bit, and shared library targets with correct flags), implement a complete PE analyzer covering both PE32 and PE32+ variants, implement binary-level import injection that produces structurally valid output, and build a cross-validation pipeline that programmatically invokes and parses output from PE-capable objdump variants. The combination of cross-compilation toolchain usage, low-level binary format engineering, and multi-tool interoperability makes this task demanding even for experienced systems programmers."""
+solution_explanation = """Compiles PE samples using MinGW cross-compilers (i686-w64-mingw32-gcc for 32-bit, x86_64-w64-mingw32-gcc for 64-bit, -shared flag for DLLs). Implements a complete PE parser handling both PE32 and PE32+ formats, parsing DOS/COFF/Optional headers with format-dependent field sizes, section tables, import directories with ILT/IAT chain traversal, and export directories with name-ordinal resolution. For injection, reads all existing imports via the parser and then rebuilds the entire import table (IDT descriptors, ILT/IAT entries, DLL name strings, and hint/name records) self-contained within a new .idata section. This is critical because GNU binutils objdump resolves import data relative to the section containing the Import Directory RVA — if descriptors' Name/ILT RVAs point to a different section, objdump cannot read them. Any existing .idata section is renamed to .oidata to avoid ambiguity. The validate command discovers and invokes a PE-capable objdump variant, extracts DLL names via the unambiguous 'DLL Name:' lines, and cross-checks named imports and exports against the analyzer's JSON output using word-boundary matching."""
+verification_explanation = """Tests use pefile as a ground-truth oracle. Compilation tests verify PE samples exist with correct format (PE32 vs PE32+), architecture (I386 vs AMD64), and export presence. Analysis tests compare format, machine, section count, entry point, image base, imported DLLs and functions against pefile. Injection tests verify new imports appear, originals are preserved, and modified PEs parse without errors. Validate tests confirm the objdump cross-check returns VALID for all sample binaries and for injected PEs. Source-code checks ensure no PE libraries are used and that objdump is referenced in the implementation."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "cross-compilation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pe-import-injector"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of IEEE 754 floating-point representation including subnormal numbers, power-of-two boundary ULP transitions, flush-to-zero semantics, and NaN/Inf handling. The ULP error formula has subtle edge cases at representation boundaries where the exponent changes. Computing correct reference values requires arbitrary-precision arithmetic. The solver must handle 12 functions across ~400 test cases, correctly parsing hex-encoded float32 values and implementing the full ULP computation pipeline."""
+solution_explanation = """The solution uses mpmath for arbitrary-precision reference computation and numpy for IEEE 754 float32 manipulation. It parses hex-encoded float32 test vectors, computes the exact mathematical result at 200-bit precision, then calculates ULP error using the standard formula with correct handling of subnormals (fixed ULP = 2^-149), power-of-two boundaries (floor(log2(|ref|))), NaN propagation, and flush-to-zero mode (subnormal reference with zero output yields 0 ULP error)."""
+verification_explanation = """Tests verify the audit report structure, correct pass/fail classification for all 12 functions (6 pass, 6 fail), the alphabetically-sorted list of failing functions, and that max ULP errors fall within expected ranges. A secondary test independently recomputes ULP errors for a subset of known-difficult cases (power-of-two boundaries, subnormals, FTZ) to verify the solver's ULP computation is correct."""
+category = "mathematics"
+tags = ["floating-point", "ieee754"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ulp-conformance-audit"

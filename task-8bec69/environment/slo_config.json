@@ -1,0 +1,45 @@
+{
+  "slos": {
+    "ttft_p99": {
+      "description": "Time-to-first-token 99th percentile must be under 5 seconds",
+      "metric": "sglang:time_to_first_token_seconds",
+      "type": "histogram_percentile",
+      "percentile": 0.99,
+      "threshold": 5.0,
+      "comparator": "lt"
+    },
+    "e2e_p99": {
+      "description": "End-to-end request latency 99th percentile must be under 60 seconds",
+      "metric": "sglang:e2e_request_latency_seconds",
+      "type": "histogram_percentile",
+      "percentile": 0.99,
+      "threshold": 60.0,
+      "comparator": "lt"
+    },
+    "tpot_p95": {
+      "description": "Time-per-output-token 95th percentile must be under 100ms",
+      "metric": "sglang:time_per_output_token_seconds",
+      "type": "histogram_percentile",
+      "percentile": 0.95,
+      "threshold": 0.1,
+      "comparator": "lt"
+    },
+    "request_throughput": {
+      "description": "Request throughput must be at least 1 request per second",
+      "metric": "sglang:time_to_first_token_seconds",
+      "type": "counter_rate",
+      "threshold": 1.0,
+      "comparator": "gte"
+    }
+  },
+  "severity_classification": {
+    "nominal": "All SLOs pass for the interval",
+    "critical": "Any failing SLO of type histogram_percentile has measured value >= 2x its threshold",
+    "degraded": "At least one SLO fails but no histogram_percentile SLO reaches 2x its threshold"
+  },
+  "error_budget": {
+    "target_availability": 0.999,
+    "budget_window_seconds": 2592000,
+    "burn_rate_definition": "Per-SLO burn rate = (fraction of observed intervals where the SLO failed) / (1 - target_availability). Overall burn rate = max of all per-SLO burn rates."
+  }
+}

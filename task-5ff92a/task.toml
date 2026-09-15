@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding HOL Light formal specification notation to extract mathematical contracts for Montgomery arithmetic. The implementer must correctly handle CIOS Montgomery multiplication with P-256's special reduction constant (n0'=1), multi-precision carry/borrow propagation, conditional final subtraction, R^2 mod p precomputation, and modular inverse via binary exponentiation. Additionally requires proficiency with GNU Make for multi-target builds, nm for dynamic symbol table analysis of shared libraries, objdump for x86 disassembly parsing and instruction counting, the size utility for ELF section measurement, ar for static library creation, and openssl ecparam for extracting elliptic curve parameters — all orchestrated into a coherent build and verification pipeline with correct tool interoperability."""
+solution_explanation = """A Python script generates the C implementation using CIOS Montgomery multiplication with __int128 intermediates and n0'=1 for P-256. A Makefile orchestrates: gcc for shared/static library builds, nm -D piped through grep/awk/sort for symbol extraction to symbol_manifest.txt, a Python helper that parses objdump -d disassembly to count instructions and size output for section metrics written as JSON, and another Python helper that parses openssl ecparam hex output to verify the P-256 prime constant."""
+verification_explanation = """Tests verify both toolchain outputs and functional correctness. Toolchain tests check: Makefile exists, shared and static libraries are built, symbol_manifest.txt contains exactly 7 alphabetically-sorted p256_* function names, build_analysis.json is valid JSON with positive integer values for instruction count and section sizes, prime_verification.txt contains MATCH, and nm -D independently confirms expected dynamic symbols. Functional tests load the shared library via ctypes and verify all 7 operations against Python's native arbitrary-precision arithmetic with comprehensive test vectors including edge cases, aliasing, and algebraic properties."""
+category = "cryptography"
+tags = ["montgomery-arithmetic", "build-toolchain"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5ff92a"

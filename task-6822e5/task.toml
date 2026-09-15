@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level numerical analysis expertise: diagnosing stiffness in a reaction-diffusion PDE, debugging a subtle boundary condition error (periodic vs. clamped/Neumann) by cross-referencing the mathematical specification against the code, vectorizing a Python PDE right-hand-side for performance, computing the sparse Jacobian sparsity pattern for a 2D coupled-species finite-difference stencil with correct index mapping, implementing the full analytical sparse Jacobian with state-dependent reaction terms and boundary-aware diffusion coefficients, and selecting an appropriate implicit ODE solver with sparse linear algebra support."""
+solution_explanation = """Fix the boundary conditions from periodic (modular wrap) to clamped (index clamping) matching the zero-flux Neumann specification. Vectorize the RHS using np.pad with mode='edge' for clamped boundaries and numpy array operations. Use scipy's solve_ivp with method='BDF' (or Radau) for the stiff system. Build the Jacobian sparsity pattern by iterating over grid points and marking the 5-point stencil entries for each species plus the cross-species diagonal coupling. Implement the analytical Jacobian with correct diffusion coefficients (accounting for boundary correction on the diagonal) and state-dependent reaction partial derivatives."""
+verification_explanation = """Tests verify: (1) results file exists with correct shape, (2) initial conditions match the analytical formula, (3) solution remains non-negative and bounded, (4) solution evolves from initial state, (5) RHS uses clamped boundary conditions (not periodic) via a discriminating test state, (6) Jacobian sparsity has exactly 12N²-8N nonzeros, (7) sparsity pattern has correct block structure with stencil entries and cross-species coupling, (8) analytical Jacobian values match finite-difference approximation within tolerance. The solver must complete within 120 seconds."""
+category = "scientific_computing"
+tags = ["stiff-ode-solver", "sparse-jacobian"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6822e5"

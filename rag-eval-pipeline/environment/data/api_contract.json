@@ -1,0 +1,100 @@
+{
+  "tool": "mtrag_eval.py",
+  "description": "Evaluation CLI for multi-turn RAG benchmark systems",
+  "subcommands": {
+    "validate": {
+      "description": "Check whether a prediction file is well-formed for a given evaluation mode",
+      "arguments": {
+        "--input": "Path to input task JSONL file",
+        "--predictions": "Path to prediction JSONL file to validate",
+        "--mode": "Evaluation mode: retrieval_taska, generation_taskb, or rag_taskc"
+      },
+      "behavior": "Exit 0 if the prediction file is valid for the specified mode; non-zero with diagnostics otherwise"
+    },
+    "evaluate": {
+      "description": "Score system predictions against relevance judgments and reference answers",
+      "arguments": {
+        "--input": "Path to input task JSONL file",
+        "--predictions": "Path to prediction JSONL file",
+        "--qrels-dir": "Directory containing per-domain relevance judgment files",
+        "--output": "Path to write JSON evaluation results"
+      },
+      "output_schema": {
+        "retrieval": {
+          "per_collection": {
+            "<domain>": {
+              "nDCG@1": "float",
+              "nDCG@3": "float",
+              "nDCG@5": "float",
+              "Recall@1": "float",
+              "Recall@3": "float",
+              "Recall@5": "float",
+              "count": "int"
+            }
+          },
+          "weighted_average": {
+            "nDCG@1": "float",
+            "nDCG@3": "float",
+            "nDCG@5": "float",
+            "Recall@1": "float",
+            "Recall@3": "float",
+            "Recall@5": "float"
+          }
+        },
+        "generation": {
+          "rouge_l_f1": "float",
+          "per_task": {
+            "<task_id>": "float"
+          }
+        },
+        "per_query": {
+          "<task_id>": {
+            "nDCG@5": "float",
+            "Recall@5": "float",
+            "ROUGE-L_F1": "float"
+          }
+        },
+        "overall": {
+          "harmonic_mean": "float"
+        }
+      }
+    },
+    "rank": {
+      "description": "Produce a system leaderboard from evaluation result files",
+      "arguments": {
+        "--results-dir": "Directory containing *.json evaluation result files (system name = file stem)",
+        "--output": "Path to write CSV ranking"
+      },
+      "output_format": "CSV sorted descending by harmonic_mean with columns: rank, system, nDCG@5, Recall@5, ROUGE-L_F1, harmonic_mean"
+    },
+    "compare": {
+      "description": "Paired statistical significance testing between two evaluated systems",
+      "arguments": {
+        "--result-a": "Path to system A evaluation JSON (contains per_query scores)",
+        "--result-b": "Path to system B evaluation JSON (contains per_query scores)",
+        "--output": "Path to write JSON comparison results",
+        "--seed": "Random seed for reproducibility (default: 42)",
+        "--num-permutations": "Number of permutations (default: 10000)"
+      },
+      "output_schema": {
+        "system_a": "string (from result file stem)",
+        "system_b": "string (from result file stem)",
+        "num_queries": "int",
+        "seed": "int",
+        "num_permutations": "int",
+        "metrics": {
+          "nDCG@5": {
+            "mean_a": "float",
+            "mean_b": "float",
+            "delta": "float (mean_a - mean_b)",
+            "p_value": "float",
+            "significant": "bool (p_value < 0.05)"
+          },
+          "Recall@5": "...(same structure)",
+          "ROUGE-L_F1": "...(same structure)"
+        }
+      },
+      "notes": "Results must be deterministic for a given seed."
+    }
+  }
+}

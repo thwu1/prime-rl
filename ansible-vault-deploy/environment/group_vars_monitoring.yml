@@ -1,0 +1,4 @@
+---
+env_name: "monitoring"
+monitoring_port: 9090
+monitoring_interval: 30

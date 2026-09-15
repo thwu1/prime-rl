@@ -1,0 +1,134 @@
+Geodetic Transformation Test Suite
+
+This GIE test file contains 5 geodetic transformation definitions.
+Each definition has a bug causing test failures. Fix all operations
+so that running gie on this file reports zero failures.
+
+<gie>
+
+operation +proj=stere +lat_0=52.15616055555556 +lon_0=5.38763888888889 +k_0=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel
+tolerance 0.05 m
+accept    5.38763888889 52.1561605556
+expect    155000 463000
+
+tolerance 0.05 m
+accept    5 53
+expect    128979.26 556953.19
+
+tolerance 0.05 m
+accept    6 53
+expect    196105.28 557057.74
+
+tolerance 0.05 m
+accept    3.31372805556 47.9752611111
+expect    0 0
+
+tolerance 0.05 m
+accept    8 53
+expect    330331.46 560058.31
+
+tolerance 0.05 m
+accept    10 53
+expect    464462.35 566781.24
+
+operation +proj=poly +lat_0=0 +lon_0=-54 +x_0=5000000 +y_0=10000000 +ellps=intl
+tolerance 0.05 m
+accept    -54 0
+expect    5000000.0 10000000.0
+
+tolerance 0.05 m
+accept    -45 0
+expect    6001875.41714 10000000.0
+
+tolerance 0.05 m
+accept    -45 6
+expect    5996378.70982 10671650.0559
+
+tolerance 0.05 m
+accept    -36 -30
+expect    6729619.73995 6543762.57644
+
+tolerance 0.05 m
+accept    -57 -30
+expect    4710574.22344 6676097.81117
+
+tolerance 0.05 m
+accept    -30 -22.5
+expect    7458947.70133 7313327.31691
+
+operation +proj=aea +lat_0=0 +lon_0=134 +lat_1=-18 +lat_2=-36 +x_0=0 +y_0=0 +ellps=GRS80
+tolerance 0.05 m
+accept    132 0
+expect    0 0
+
+tolerance 0.05 m
+accept    140 -20
+expect    832799.36 -2170181.93
+
+tolerance 0.05 m
+accept    140 -40
+expect    693250.21 -4395794.49
+
+tolerance 0.05 m
+accept    140 -60
+expect    567313.29 -6404311.16
+
+tolerance 0.05 m
+accept    150 -60
+expect    1273067.747 -6476375.276
+
+tolerance 0.05 m
+accept    132 -27
+expect    0 -2926820.89
+
+operation +proj=omerc +lat_0=4 +lonc=115 +alpha=53.31580995 +gamma=53.1301023611111 +k_0=0.99984 +x_0=0 +y_0=0 +ellps=GRS80
+tolerance 0.05 m
+accept    117 6
+expect    811253.303 665041.265
+
+tolerance 0.05 m
+accept    117 4
+expect    812599.582 443902.706
+
+tolerance 0.05 m
+accept    115 4
+expect    590521.147 442890.861
+
+tolerance 0.05 m
+accept    117 8
+expect    809939.302 886240.183
+
+tolerance 0.05 m
+accept    123 6
+expect    1475669.281 673118.573
+
+tolerance 0.05 m
+accept    109.685820833 -0.000173333333333
+expect    0 0
+
+operation +proj=pipeline +step +proj=geocent +ellps=clrk66 +inv +step +proj=longlat +ellps=clrk66
+tolerance 0.01 m
+accept    6378137 0 0
+expect    0 0 0
+
+tolerance 0.01 m
+accept    2764128.3196 4787610.6883 3170373.7354
+expect    60 30 0
+
+tolerance 0.01 m
+accept    -962297.0059 555582.4354 6259542.961
+expect    150 80 0
+
+tolerance 0.01 m
+accept    -2904698.5551 -2904698.5551 4862789.0377
+expect    -135 50 0
+
+tolerance 0.01 m
+accept    2764128.3196 -4787610.6883 -3170373.7354
+expect    -60 -30 0
+
+tolerance 0.01 m
+accept    -2904698.5551 2904698.5551 -4862789.0377
+expect    135 -50 0
+
+</gie>

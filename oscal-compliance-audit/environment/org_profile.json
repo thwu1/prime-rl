@@ -1,0 +1,89 @@
+{
+  "profile": {
+    "uuid": "a1b2c3d4-5678-9abc-def0-1234567890ab",
+    "metadata": {
+      "title": "Acme Corp Custom Security Baseline Profile",
+      "last-modified": "2025-06-15T12:00:00.000000-04:00",
+      "version": "1.0.0",
+      "oscal-version": "1.1.2",
+      "roles": [
+        {
+          "id": "creator",
+          "title": "Profile Author"
+        }
+      ],
+      "parties": [
+        {
+          "uuid": "11111111-1111-1111-1111-111111111111",
+          "type": "organization",
+          "name": "Acme Corporation",
+          "short-name": "ACME"
+        }
+      ],
+      "responsible-parties": [
+        {
+          "role-id": "creator",
+          "party-uuids": ["11111111-1111-1111-1111-111111111111"]
+        }
+      ]
+    },
+    "imports": [
+      {
+        "href": "baseline_profile.json",
+        "include-all": {},
+        "exclude-controls": [
+          {
+            "with-ids": [
+              "ac-6.5"
+            ]
+          }
+        ]
+      }
+    ],
+    "merge": {
+      "as-is": true
+    },
+    "modify": {
+      "set-parameters": [
+        {
+          "param-id": "ac-07_odp.01",
+          "values": ["3"]
+        },
+        {
+          "param-id": "ac-07_odp.02",
+          "values": ["15 minutes"]
+        },
+        {
+          "param-id": "ac-11_odp.01",
+          "values": ["15 minutes"]
+        },
+        {
+          "param-id": "au-02_odp.01",
+          "values": ["account logon events", "account management events", "object access", "policy change", "privilege use", "system events"]
+        },
+        {
+          "param-id": "ia-05_odp.01",
+          "values": ["60 days"]
+        }
+      ],
+      "alters": [
+        {
+          "control-id": "ac-7",
+          "adds": [
+            {
+              "position": "after",
+              "by-id": "ac-7_gdn",
+              "parts": [
+                {
+                  "id": "ac-7_acme_guidance",
+                  "name": "guidance",
+                  "prose": "Acme Corp requires automatic account lockout notification to the SOC team via SIEM integration."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert supply-chain security knowledge combined with proficiency across multiple unfamiliar tools. The agent must: (1) extract npm tarballs and compute SHA-512 SRI hashes using openssl or equivalent cryptographic tools to verify tarball integrity against registry metadata; (2) install, configure, and extend semgrep by writing custom YAML static analysis rules to detect DNS exfiltration, destructive payloads, and HTTP callbacks beyond the provided baseline rules; (3) process an NDJSON advisory intelligence feed using jq or structured data tools, filtering by glob patterns and verifying indicator presence in source code to distinguish genuine matches from false positives. The agent must distinguish three attack classes (postinstall env-var exfiltration, runtime DNS credential theft, destructive file wiper) from legitimate code with red-herring patterns (Buffer/base64 usage in string-tools, recursive fs operations in path-resolver, Object.assign in config-utils). Multi-tool orchestration (tar + openssl/hashlib + semgrep + jq + node) is essential."""
+solution_explanation = """Extract all 6 tarballs with tar. Compute SHA-512 SRI hashes for each and compare against /app/registry/ metadata — log-helper's hash mismatches (tampered tarball). Install semgrep and write custom rules for dns.resolve patterns, writeFileSync with empty string, and https.request. Run semgrep on extracted source: log-helper's postinstall.js triggers env-variable-bulk-access and base64-buffer-encoding; data-store's persistence.js triggers dns-exfiltration and sensitive-file-read; build-runner's cache.js triggers destructive-file-overwrite. Process advisories.ndjson with jq/fnmatch — ADV-2024-0117 matches log-helper (all 5 indicators present), ADV-2024-0223 matches data-store (all 5 indicators), ADV-2024-0341 matches build-runner (all 4 indicators). Red-herring advisories fail indicator verification: ADV-2024-0512 for config-utils has only 1/3 indicators, ADV-2024-0455 for string-tools has 0/3, ADV-2024-0678 for path-resolver has 0/3. Produce audit_report.json with integrity_match, semgrep evidence, and validated advisory cross-references."""
+verification_explanation = """Tests parse /app/audit_report.json and verify: (1) valid JSON with all 6 packages and required fields present; (2) integrity_match=false only for log-helper, true for all others; (3) correct compromised classification (log-helper, data-store, build-runner=true; rest=false); (4) correct CWE and attack_type for each compromised package; (5) each compromised package has at least one semgrep:-prefixed evidence entry; (6) required advisory IDs (ADV-2024-0117, ADV-2024-0223, ADV-2024-0341) in related_advisories; (7) clean packages have no critical-severity advisory false positives; (8) behavior summary keywords match expected attack patterns."""
+category = "cybersecurity"
+tags = ["supply-chain", "multi-tool-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9a2cee"

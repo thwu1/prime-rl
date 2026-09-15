@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must study the B+ tree code, understand the purpose of the unused op_buf fields on IndexNode and the op_buf_size configuration parameter, and independently design an algorithm that defers write operations rather than immediately traversing to leaves. This requires inventing a mechanism for propagating deferred ops when buffers fill, a read path that accounts for deferred operations that have not yet been applied to leaves, and forward iteration that correctly materializes pending ops across leaf boundaries. Additionally, the agent must implement Redis-based persistence for the complete tree state including deferred ops. No algorithm is named or hinted at in the instructions — the agent must reverse-engineer the requirements from the test suite, the B+ tree code, and the function signatures."""
+solution_explanation = """The solution implements a write-optimized messaging layer: enqueue buffers ops in IndexNode.op_buf, cascading on overflow by sorting and partitioning among children by key range. Deferred ops reaching leaves are applied via _insert_into_tree/_delete_from_tree. Lookup and forward_iter collect op_bufs along the root-to-leaf path, filter by sibling boundaries at each level, and apply to leaf data. Redis persistence uses pickle serialization of the complete tree structure via the redis-py client."""
+verification_explanation = """Property-based tests (hypothesis) compare the store against a reference dict under random insert/delete workloads across multiple configurations. Structural tests verify buffer utilization: with large op_buf_size, IndexNode op_buf fields must contain pending ops; larger buffers must retain more ops than smaller ones. Redis persistence tests verify round-trip save/load correctness including with buffered ops, deletions, and multiple named trees. Balance invariants are verified structurally after random operations."""
+category = "data_structures"
+tags = ["b-plus-tree", "redis-persistence"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-69f0f6"

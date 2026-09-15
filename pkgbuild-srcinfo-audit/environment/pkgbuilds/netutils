@@ -1,0 +1,26 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+pkgname=netutils
+pkgver=2.4.1
+pkgrel=3
+pkgdesc="Network diagnostic utilities"
+arch=('x86_64')
+url="https://example.com/netutils"
+license=('MIT')
+depends=('openssl' 'curl' 'libpcap')
+makedepends=('cmake' 'gcc')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz"
+        "netutils.sysconfig")
+sha256sums=('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+            'f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    cmake -DCMAKE_INSTALL_PREFIX=/usr .
+    make
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}" install
+    install -Dm644 "${srcdir}/netutils.sysconfig" "${pkgdir}/etc/conf.d/netutils"
+}

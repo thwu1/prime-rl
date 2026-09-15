@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Kerberos internals: MIT keytab binary format (multi-entry, multi-etype), ASN.1 DER-encoded KRB_Ticket and EncTicketPart structures (RFC 4120), RFC 3961 encryption with correct key usage numbers, and trial decryption across a key matrix. The solver must design their own forensic analysis pipeline, evaluate decrypted ticket properties against known-normal baselines (lifetime, client principal legitimacy), and synthesize findings to attribute the compromise to a specific keytab. No steps or algorithms are provided — the solver must discover the approach."""
+solution_explanation = """Parse MIT keytab binary files to extract principal-key mappings (4+3+2=9 entries across 3 keytabs). Parse KRB_Ticket DER files, extract EncryptedData cipher/etype/kvno, and perform trial decryption against matching keytab keys using key_usage=2. Parse decrypted EncTicketPart ASN.1 to extract cname, crealm, authtime, endtime, session key. Identify 2 anomalous tickets by evaluating lifetime (365 days vs normal 10 hours) and unknown client principal. Attribute compromise to dc01.keytab (holds krbtgt keys used for forgery)."""
+verification_explanation = """Tests load SHA-256 hashes computed during challenge generation and compare them against canonical JSON representations of individual report fields. Per-ticket details, anomalous ticket list, compromised keytab, and attacker principal are all verified via hash comparison. This prevents answer extraction from test files while ensuring exact correctness of all decrypted values."""
+category = "security_and_privacy"
+tags = ["kerberos", "forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kerberos-decryption-chain"

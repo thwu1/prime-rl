@@ -1,0 +1,21 @@
+upstream {{ nginx_upstream_name }} {
+{% for entry in services | upstream_servers %}
+    server {{ entry }};
+{% endfor %}
+}
+
+server {
+    listen 80;
+    server_name {{ server_name }};
+
+    {% if ssl_redirect %}
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+    {% endif %}
+
+    location / {
+        proxy_pass http://{{ nginx_upstream_name }};
+        proxy_set_header X-Max-Conn {{ max_connections }};
+    }
+}

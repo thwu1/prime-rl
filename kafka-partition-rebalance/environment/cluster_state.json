@@ -1,0 +1,694 @@
+{
+  "cluster_id": "kafka-prod-east-1",
+  "brokers": [
+    {
+      "id": 0,
+      "rack": "rack-a",
+      "disk_capacity_gb": 800
+    },
+    {
+      "id": 1,
+      "rack": "rack-a",
+      "disk_capacity_gb": 800
+    },
+    {
+      "id": 2,
+      "rack": "rack-b",
+      "disk_capacity_gb": 800
+    },
+    {
+      "id": 3,
+      "rack": "rack-b",
+      "disk_capacity_gb": 800
+    },
+    {
+      "id": 4,
+      "rack": "rack-c",
+      "disk_capacity_gb": 1200
+    },
+    {
+      "id": 5,
+      "rack": "rack-c",
+      "disk_capacity_gb": 1200
+    }
+  ],
+  "topics": [
+    {
+      "name": "payments",
+      "replication_factor": 3,
+      "partitions": [
+        {
+          "partition": 0,
+          "replicas": [
+            0,
+            1,
+            2
+          ],
+          "size_gb": 38,
+          "leader": 0
+        },
+        {
+          "partition": 1,
+          "replicas": [
+            1,
+            2,
+            3
+          ],
+          "size_gb": 42,
+          "leader": 1
+        },
+        {
+          "partition": 2,
+          "replicas": [
+            2,
+            0,
+            3
+          ],
+          "size_gb": 29,
+          "leader": 2
+        },
+        {
+          "partition": 3,
+          "replicas": [
+            3,
+            1,
+            0
+          ],
+          "size_gb": 35,
+          "leader": 3
+        },
+        {
+          "partition": 4,
+          "replicas": [
+            0,
+            3,
+            2
+          ],
+          "size_gb": 44,
+          "leader": 0
+        },
+        {
+          "partition": 5,
+          "replicas": [
+            1,
+            0,
+            3
+          ],
+          "size_gb": 31,
+          "leader": 1
+        },
+        {
+          "partition": 6,
+          "replicas": [
+            2,
+            3,
+            1
+          ],
+          "size_gb": 27,
+          "leader": 2
+        },
+        {
+          "partition": 7,
+          "replicas": [
+            3,
+            0,
+            2
+          ],
+          "size_gb": 40,
+          "leader": 3
+        },
+        {
+          "partition": 8,
+          "replicas": [
+            0,
+            2,
+            1
+          ],
+          "size_gb": 33,
+          "leader": 0
+        },
+        {
+          "partition": 9,
+          "replicas": [
+            1,
+            3,
+            2
+          ],
+          "size_gb": 36,
+          "leader": 1
+        },
+        {
+          "partition": 10,
+          "replicas": [
+            2,
+            0,
+            3
+          ],
+          "size_gb": 28,
+          "leader": 2
+        },
+        {
+          "partition": 11,
+          "replicas": [
+            3,
+            1,
+            0
+          ],
+          "size_gb": 45,
+          "leader": 3
+        }
+      ]
+    },
+    {
+      "name": "user_events",
+      "replication_factor": 3,
+      "partitions": [
+        {
+          "partition": 0,
+          "replicas": [
+            0,
+            2,
+            3
+          ],
+          "size_gb": 22,
+          "leader": 0
+        },
+        {
+          "partition": 1,
+          "replicas": [
+            1,
+            3,
+            0
+          ],
+          "size_gb": 18,
+          "leader": 1
+        },
+        {
+          "partition": 2,
+          "replicas": [
+            0,
+            1,
+            2
+          ],
+          "size_gb": 26,
+          "leader": 0
+        },
+        {
+          "partition": 3,
+          "replicas": [
+            3,
+            2,
+            1
+          ],
+          "size_gb": 20,
+          "leader": 3
+        },
+        {
+          "partition": 4,
+          "replicas": [
+            2,
+            0,
+            1
+          ],
+          "size_gb": 24,
+          "leader": 2
+        },
+        {
+          "partition": 5,
+          "replicas": [
+            1,
+            3,
+            2
+          ],
+          "size_gb": 16,
+          "leader": 1
+        },
+        {
+          "partition": 6,
+          "replicas": [
+            0,
+            1,
+            3
+          ],
+          "size_gb": 28,
+          "leader": 0
+        },
+        {
+          "partition": 7,
+          "replicas": [
+            3,
+            2,
+            0
+          ],
+          "size_gb": 19,
+          "leader": 3
+        }
+      ]
+    },
+    {
+      "name": "page_views",
+      "replication_factor": 2,
+      "partitions": [
+        {
+          "partition": 0,
+          "replicas": [
+            0,
+            1
+          ],
+          "size_gb": 8,
+          "leader": 0
+        },
+        {
+          "partition": 1,
+          "replicas": [
+            2,
+            3
+          ],
+          "size_gb": 11,
+          "leader": 2
+        },
+        {
+          "partition": 2,
+          "replicas": [
+            0,
+            2
+          ],
+          "size_gb": 6,
+          "leader": 0
+        },
+        {
+          "partition": 3,
+          "replicas": [
+            1,
+            3
+          ],
+          "size_gb": 9,
+          "leader": 1
+        },
+        {
+          "partition": 4,
+          "replicas": [
+            0,
+            3
+          ],
+          "size_gb": 12,
+          "leader": 0
+        },
+        {
+          "partition": 5,
+          "replicas": [
+            1,
+            2
+          ],
+          "size_gb": 5,
+          "leader": 1
+        },
+        {
+          "partition": 6,
+          "replicas": [
+            2,
+            0
+          ],
+          "size_gb": 14,
+          "leader": 2
+        },
+        {
+          "partition": 7,
+          "replicas": [
+            3,
+            1
+          ],
+          "size_gb": 7,
+          "leader": 3
+        },
+        {
+          "partition": 8,
+          "replicas": [
+            0,
+            2
+          ],
+          "size_gb": 10,
+          "leader": 0
+        },
+        {
+          "partition": 9,
+          "replicas": [
+            1,
+            3
+          ],
+          "size_gb": 4,
+          "leader": 1
+        },
+        {
+          "partition": 10,
+          "replicas": [
+            2,
+            1
+          ],
+          "size_gb": 13,
+          "leader": 2
+        },
+        {
+          "partition": 11,
+          "replicas": [
+            3,
+            0
+          ],
+          "size_gb": 8,
+          "leader": 3
+        },
+        {
+          "partition": 12,
+          "replicas": [
+            0,
+            1
+          ],
+          "size_gb": 6,
+          "leader": 0
+        },
+        {
+          "partition": 13,
+          "replicas": [
+            2,
+            3
+          ],
+          "size_gb": 11,
+          "leader": 2
+        },
+        {
+          "partition": 14,
+          "replicas": [
+            1,
+            0
+          ],
+          "size_gb": 9,
+          "leader": 1
+        },
+        {
+          "partition": 15,
+          "replicas": [
+            3,
+            2
+          ],
+          "size_gb": 7,
+          "leader": 3
+        },
+        {
+          "partition": 16,
+          "replicas": [
+            0,
+            3
+          ],
+          "size_gb": 12,
+          "leader": 0
+        },
+        {
+          "partition": 17,
+          "replicas": [
+            1,
+            2
+          ],
+          "size_gb": 5,
+          "leader": 1
+        },
+        {
+          "partition": 18,
+          "replicas": [
+            2,
+            0
+          ],
+          "size_gb": 8,
+          "leader": 2
+        },
+        {
+          "partition": 19,
+          "replicas": [
+            3,
+            1
+          ],
+          "size_gb": 10,
+          "leader": 3
+        },
+        {
+          "partition": 20,
+          "replicas": [
+            0,
+            2
+          ],
+          "size_gb": 6,
+          "leader": 0
+        },
+        {
+          "partition": 21,
+          "replicas": [
+            1,
+            3
+          ],
+          "size_gb": 11,
+          "leader": 1
+        },
+        {
+          "partition": 22,
+          "replicas": [
+            2,
+            1
+          ],
+          "size_gb": 9,
+          "leader": 2
+        },
+        {
+          "partition": 23,
+          "replicas": [
+            3,
+            0
+          ],
+          "size_gb": 7,
+          "leader": 3
+        }
+      ]
+    },
+    {
+      "name": "notifications",
+      "replication_factor": 3,
+      "partitions": [
+        {
+          "partition": 0,
+          "replicas": [
+            0,
+            2,
+            1
+          ],
+          "size_gb": 34,
+          "leader": 0
+        },
+        {
+          "partition": 1,
+          "replicas": [
+            1,
+            3,
+            2
+          ],
+          "size_gb": 28,
+          "leader": 1
+        },
+        {
+          "partition": 2,
+          "replicas": [
+            2,
+            0,
+            3
+          ],
+          "size_gb": 45,
+          "leader": 2
+        },
+        {
+          "partition": 3,
+          "replicas": [
+            3,
+            1,
+            0
+          ],
+          "size_gb": 38,
+          "leader": 3
+        },
+        {
+          "partition": 4,
+          "replicas": [
+            0,
+            3,
+            1
+          ],
+          "size_gb": 41,
+          "leader": 0
+        },
+        {
+          "partition": 5,
+          "replicas": [
+            2,
+            1,
+            3
+          ],
+          "size_gb": 30,
+          "leader": 2
+        }
+      ]
+    },
+    {
+      "name": "audit_log",
+      "replication_factor": 2,
+      "partitions": [
+        {
+          "partition": 0,
+          "replicas": [
+            0,
+            2
+          ],
+          "size_gb": 12,
+          "leader": 0
+        },
+        {
+          "partition": 1,
+          "replicas": [
+            1,
+            3
+          ],
+          "size_gb": 15,
+          "leader": 1
+        },
+        {
+          "partition": 2,
+          "replicas": [
+            2,
+            0
+          ],
+          "size_gb": 9,
+          "leader": 2
+        },
+        {
+          "partition": 3,
+          "replicas": [
+            3,
+            1
+          ],
+          "size_gb": 11,
+          "leader": 3
+        },
+        {
+          "partition": 4,
+          "replicas": [
+            0,
+            1
+          ],
+          "size_gb": 14,
+          "leader": 0
+        },
+        {
+          "partition": 5,
+          "replicas": [
+            2,
+            3
+          ],
+          "size_gb": 8,
+          "leader": 2
+        },
+        {
+          "partition": 6,
+          "replicas": [
+            1,
+            0
+          ],
+          "size_gb": 16,
+          "leader": 1
+        },
+        {
+          "partition": 7,
+          "replicas": [
+            3,
+            2
+          ],
+          "size_gb": 10,
+          "leader": 3
+        },
+        {
+          "partition": 8,
+          "replicas": [
+            0,
+            3
+          ],
+          "size_gb": 13,
+          "leader": 0
+        },
+        {
+          "partition": 9,
+          "replicas": [
+            1,
+            2
+          ],
+          "size_gb": 7,
+          "leader": 1
+        },
+        {
+          "partition": 10,
+          "replicas": [
+            2,
+            1
+          ],
+          "size_gb": 18,
+          "leader": 2
+        },
+        {
+          "partition": 11,
+          "replicas": [
+            3,
+            0
+          ],
+          "size_gb": 11,
+          "leader": 3
+        },
+        {
+          "partition": 12,
+          "replicas": [
+            0,
+            2
+          ],
+          "size_gb": 9,
+          "leader": 0
+        },
+        {
+          "partition": 13,
+          "replicas": [
+            1,
+            3
+          ],
+          "size_gb": 14,
+          "leader": 1
+        },
+        {
+          "partition": 14,
+          "replicas": [
+            2,
+            0
+          ],
+          "size_gb": 12,
+          "leader": 2
+        },
+        {
+          "partition": 15,
+          "replicas": [
+            3,
+            1
+          ],
+          "size_gb": 6,
+          "leader": 3
+        }
+      ]
+    }
+  ],
+  "constraints": {
+    "max_concurrent_moves": 15,
+    "rack_aware": true,
+    "max_leader_imbalance": 2,
+    "max_replica_imbalance": 2,
+    "minimize_data_movement": true
+  }
+}

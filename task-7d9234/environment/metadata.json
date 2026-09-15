@@ -1,0 +1,424 @@
+{
+  "packages": [
+    {
+      "name": "hermit-kernel",
+      "version": "0.13.0",
+      "id": "hermit-kernel 0.13.0 (path+file:///src/hermit-kernel)",
+      "license": "MIT OR Apache-2.0",
+      "license_file": null,
+      "description": "A Rust-based, lightweight unikernel targeting scalable and predictable runtimes",
+      "source": null,
+      "dependencies": [
+        {
+          "name": "smoltcp",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.13",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": ["alloc", "medium-ethernet", "proto-ipv4"],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "virtio",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.3",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": ["alloc", "mmio"],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "mem-barrier",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.1",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "pci-ids-db",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.2",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "volatile",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.6",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "endian-num",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.2",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "tock-registers",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.10",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "fuse-abi",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.2",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "simple-shell",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.0.1",
+          "kind": null,
+          "rename": null,
+          "optional": true,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "log",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.4",
+          "kind": null,
+          "rename": null,
+          "optional": false,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "hashbrown",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.17",
+          "kind": null,
+          "rename": null,
+          "optional": false,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "bitflags",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^2",
+          "kind": null,
+          "rename": null,
+          "optional": false,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        },
+        {
+          "name": "spin",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "req": "^0.9",
+          "kind": null,
+          "rename": null,
+          "optional": false,
+          "uses_default_features": false,
+          "features": [],
+          "target": null,
+          "registry": null
+        }
+      ],
+      "targets": [
+        {
+          "kind": ["lib"],
+          "crate_types": ["lib"],
+          "name": "hermit",
+          "src_path": "/src/hermit-kernel/src/lib.rs",
+          "edition": "2021",
+          "doc": true,
+          "doctest": false,
+          "test": false
+        }
+      ],
+      "features": {
+        "default": ["acpi", "dhcpv4", "fsgsbase", "pci", "pci-ids", "smp", "tcp", "virtio-fs", "virtio-net", "virtio-vsock"],
+        "common-os": [],
+        "mman": [],
+        "newlib": [],
+        "acpi": [],
+        "fsgsbase": [],
+        "smp": ["acpi"],
+        "pci": ["virtio?/pci"],
+        "pci-ids": ["dep:pci-ids-db"],
+        "tcp": ["net", "dep:smoltcp", "smoltcp/socket-tcp"],
+        "udp": ["net", "dep:smoltcp", "smoltcp/socket-udp"],
+        "dhcpv4": ["net", "dep:smoltcp", "smoltcp/proto-dhcpv4", "smoltcp/socket-dhcpv4"],
+        "dns": ["net", "dep:smoltcp", "smoltcp/socket-dns"],
+        "net-trace": ["smoltcp?/log", "smoltcp?/verbose"],
+        "write-pcap": ["net-trace", "smoltcp?/pcap"],
+        "virtio-net": ["net", "virtio"],
+        "rtl8139": ["net", "pci", "dep:volatile", "dep:endian-num"],
+        "gem-net": ["net", "dep:tock-registers"],
+        "virtio": ["dep:virtio", "dep:mem-barrier"],
+        "virtio-console": ["virtio"],
+        "virtio-fs": ["virtio", "dep:fuse-abi"],
+        "virtio-vsock": ["virtio"],
+        "vga": [],
+        "idle-poll": [],
+        "shell": ["dep:simple-shell"],
+        "strace": [],
+        "net": [],
+        "console": ["virtio-console"],
+        "fs": ["virtio-fs"],
+        "fuse": ["virtio-fs"],
+        "mmap": ["mman"],
+        "trace": ["net-trace"],
+        "vsock": ["virtio-vsock"]
+      },
+      "manifest_path": "/src/hermit-kernel/Cargo.toml",
+      "metadata": null,
+      "publish": null,
+      "authors": ["The Hermit Project Developers"],
+      "categories": ["os"],
+      "keywords": ["unikernel", "libos"],
+      "readme": "README.md",
+      "repository": "https://github.com/hermit-os/kernel",
+      "homepage": null,
+      "documentation": "https://hermit-os.github.io/kernel/hermit/",
+      "edition": "2021",
+      "links": null,
+      "default_run": null,
+      "rust_version": "1.75"
+    },
+    {
+      "name": "smoltcp",
+      "version": "0.13.0",
+      "id": "smoltcp 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "0BSD",
+      "license_file": null,
+      "description": "A TCP/IP stack designed for bare-metal, real-time systems",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "smoltcp", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {
+        "default": ["std"],
+        "std": [],
+        "alloc": [],
+        "log": ["dep:log"],
+        "verbose": [],
+        "pcap": [],
+        "medium-ethernet": [],
+        "medium-ip": [],
+        "proto-ipv4": [],
+        "proto-ipv6": [],
+        "proto-dhcpv4": ["proto-ipv4"],
+        "proto-ipv4-fragmentation": ["proto-ipv4"],
+        "proto-ipv6-fragmentation": ["proto-ipv6"],
+        "socket-tcp": [],
+        "socket-udp": [],
+        "socket-dns": [],
+        "socket-dhcpv4": ["proto-dhcpv4"],
+        "socket-raw": [],
+        "async": []
+      },
+      "manifest_path": "/home/.cargo/registry/src/smoltcp-0.13.0/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    },
+    {
+      "name": "virtio-spec",
+      "version": "0.3.0",
+      "id": "virtio-spec 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "MIT OR Apache-2.0",
+      "license_file": null,
+      "description": "VirtIO device specification types",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "virtio", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {
+        "default": [],
+        "alloc": [],
+        "mmio": [],
+        "pci": [],
+        "nightly": [],
+        "zerocopy": [],
+        "legacy": []
+      },
+      "manifest_path": "/home/.cargo/registry/src/virtio-spec-0.3.0/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    },
+    {
+      "name": "log",
+      "version": "0.4.22",
+      "id": "log 0.4.22 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "log", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {"default": [], "std": [], "serde": ["dep:serde"]},
+      "manifest_path": "/home/.cargo/registry/src/log-0.4.22/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    },
+    {
+      "name": "hashbrown",
+      "version": "0.17.0",
+      "id": "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "hashbrown", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {"default": ["ahash", "allocator-api2", "inline-more"], "ahash": [], "allocator-api2": [], "inline-more": [], "nightly": [], "serde": []},
+      "manifest_path": "/home/.cargo/registry/src/hashbrown-0.17.0/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    },
+    {
+      "name": "bitflags",
+      "version": "2.6.0",
+      "id": "bitflags 2.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "MIT OR Apache-2.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "bitflags", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {"default": [], "std": [], "serde": [], "arbitrary": [], "bytemuck": []},
+      "manifest_path": "/home/.cargo/registry/src/bitflags-2.6.0/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    },
+    {
+      "name": "spin",
+      "version": "0.9.8",
+      "id": "spin 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
+      "license": "MIT",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "dependencies": [],
+      "targets": [
+        {"kind": ["lib"], "crate_types": ["lib"], "name": "spin", "src_path": "src/lib.rs", "edition": "2021"}
+      ],
+      "features": {"default": ["mutex", "spin_mutex", "rwlock", "once", "lazy", "barrier"], "mutex": [], "spin_mutex": ["mutex"], "rwlock": [], "once": [], "lazy": ["once"], "barrier": []},
+      "manifest_path": "/home/.cargo/registry/src/spin-0.9.8/Cargo.toml",
+      "metadata": null,
+      "edition": "2021"
+    }
+  ],
+  "workspace_members": [
+    "hermit-kernel 0.13.0 (path+file:///src/hermit-kernel)"
+  ],
+  "workspace_default_members": [
+    "hermit-kernel 0.13.0 (path+file:///src/hermit-kernel)"
+  ],
+  "resolve": {
+    "nodes": [
+      {
+        "id": "hermit-kernel 0.13.0 (path+file:///src/hermit-kernel)",
+        "dependencies": [
+          "smoltcp 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+          "virtio-spec 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+          "log 0.4.22 (registry+https://github.com/rust-lang/crates.io-index)",
+          "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+          "bitflags 2.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+          "spin 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)"
+        ],
+        "deps": [
+          {"name": "smoltcp", "pkg": "smoltcp 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]},
+          {"name": "virtio", "pkg": "virtio-spec 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]},
+          {"name": "log", "pkg": "log 0.4.22 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]},
+          {"name": "hashbrown", "pkg": "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]},
+          {"name": "bitflags", "pkg": "bitflags 2.6.0 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]},
+          {"name": "spin", "pkg": "spin 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)", "dep_kinds": [{"kind": null, "target": null}]}
+        ],
+        "features": ["acpi", "default", "dhcpv4", "fsgsbase", "net", "pci", "pci-ids", "smp", "tcp", "virtio", "virtio-fs", "virtio-net", "virtio-vsock"]
+      },
+      {
+        "id": "smoltcp 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": ["alloc", "medium-ethernet", "proto-dhcpv4", "proto-ipv4", "socket-dhcpv4", "socket-tcp"]
+      },
+      {
+        "id": "virtio-spec 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": ["alloc", "mmio", "pci"]
+      },
+      {
+        "id": "log 0.4.22 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": []
+      },
+      {
+        "id": "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": []
+      },
+      {
+        "id": "bitflags 2.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": []
+      },
+      {
+        "id": "spin 0.9.8 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "deps": [],
+        "features": []
+      }
+    ],
+    "root": "hermit-kernel 0.13.0 (path+file:///src/hermit-kernel)"
+  },
+  "target_directory": "/src/hermit-kernel/target",
+  "version": 1,
+  "workspace_root": "/src/hermit-kernel"
+}

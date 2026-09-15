@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires completing 13 interdependent compiler passes for a Scheme-like language targeting x86-64. The agent must reverse-engineer each pass's contract from IR predicates and reference interpreters, then implement correct transformations spanning desugaring, variable renaming, control flow lowering, heap allocation, function calling conventions, and native code emission. Closure support alone demands computing free variables, generating runtime data structures, and rewriting all call sites. Bugs cascade across passes, requiring multi-layer debugging with no explicit specification beyond the code itself."""
+solution_explanation = """Copy the complete compile_solution.rkt (which implements all 13 passes) into /app/compile.rkt. Each pass is implemented by studying the IR predicates in irs.rkt to understand input/output contracts, the reference interpreters in interpreters.rkt for semantic requirements, and system.rkt for x86-64 target details. The solution handles desugaring, alpha-renaming, function/closure transformations, intermediate form conversion, control flow generation, instruction selection, register/stack allocation, instruction legalization, and assembly emission."""
+verification_explanation = """Compiles 12 test programs spanning all language features (simple functions, recursion, >6 args, closures, nested closures, vectors, mutation, while loops) using racket main.rkt, then runs each compiled x86-64 binary with specific inputs and compares stdout to expected values. Each test verifies end-to-end correctness: source through all compiler passes to x86-64 assembly, then gcc to native binary, then correct output."""
+category = "programming_languages"
+tags = ["compiler-construction", "x86-assembly"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7f5017"

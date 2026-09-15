@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a nonlinear state estimator (e.g. Extended Kalman Filter) for a unicycle motion model with three heterogeneous sensor modalities at different rates. The agent must correctly compute Jacobians for the nonlinear observation model (range-to-landmark), implement statistical outlier rejection via Mahalanobis-distance gating against chi-squared thresholds, handle filter divergence from correlated heading/position uncertainty, and tune process/measurement noise covariances. Tested against multiple random seeds to prevent hard-coding."""
+solution_explanation = """A 3-state EKF [x, y, theta] processes measurements before prediction at each step. GPS (2-DOF) and range-to-landmark (1-DOF) updates use Joseph-form covariance update with chi-squared gating (9.21 for GPS, 6.63 for range at 99% confidence). Covariance is capped after each prediction to prevent unbounded growth from heading uncertainty, which would otherwise allow barely-passing outliers to cause catastrophic updates via amplified Kalman gain. Process noise is inflated to account for unmodeled odometry bias drift. Adaptive recovery inflates covariance when consecutive measurement rejections indicate filter divergence."""
+verification_explanation = """Five pytest tests: (1) estimator.py exists at /app, (2) output CSV has correct format and columns, (3-5) position RMSE < 1.5 m on seed 42, seed 98765, and a random seed. Ground truth is regenerated deterministically from the same data-generation function."""
+category = "robotics"
+tags = ["kalman-filter", "sensor-fusion"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dcc579"

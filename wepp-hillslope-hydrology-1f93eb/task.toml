@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires five coupled toolchains: (1) writing a Makefile that compiles a Fortran 90 module into a position-independent shared library using gfortran with correct flags (-shared, -fPIC); (2) bridging Fortran and Python via ctypes, handling Fortran's pass-by-reference calling convention and C interop bindings; (3) parsing a CLIGEN .PAR fixed-width Fortran station file — an unfamiliar legacy format with 82+ lines of mixed-format data including 16 compass-direction wind blocks — and storing extracted climate statistics in SQLite; (4) implementing a nonlinear infiltration model with implicit equation solving, ponding state machine (onset/cessation/re-ponding with virtual time offsets), depression storage, kinematic wave peak discharge estimation, and recession correction — all derived from a reference equation document; (5) generating hydrograph plots by scripting gnuplot as a subprocess (writing data files, gnuplot commands, invoking the CLI). The solver must master gfortran compilation, ctypes FFI, gnuplot scripting, SQLite, Makefile syntax, and fixed-width format parsing."""
+solution_explanation = """The solution writes a Makefile with 'gfortran -shared -fPIC -O2 -o libgaml.so fortran/gaml_core.f90'. The Python pipeline loads the .so via ctypes.CDLL and wraps each Fortran subroutine using ctypes.byref for pass-by-reference semantics. The PAR parser uses fixed-width slicing (8-char label skip, 6-char fields) matching Fortran FORMAT(8X,12F6.2). The hydrology simulator uses fine-timestep (0.02 min) numerical integration: pre-ponding accumulates rainfall as infiltration; ponding detection compares cumulative F against F_p; ponded phases call the Fortran Newton-Raphson solver via ctypes; cessation/re-ponding track virtual time bases. Depression storage uses the Onstad formula. Peak discharge uses dimensionless kinematic wave approximation. The plot command writes timestep data to a temp file and invokes gnuplot with 'set terminal png' to produce PNG hydrographs. Reports use SQL aggregation."""
+verification_explanation = """Tests verify: (1) Makefile exists and 'make -C /app' produces a loadable libgaml.so, (2) Fortran functions produce correct numerical results when called directly via ctypes (G function, Newton-Raphson solver, infiltration rate), (3) database schema and data population, (4) PAR file parsing accuracy against known Lafayette station values, (5) mass balance for all scenarios, (6) physical constraints, (7) numerical accuracy against golden values with 3-10% tolerance, (8) gnuplot-generated PNG files exist and have valid PNG headers, (9) report JSON structure, ordering, and values."""
+category = "scientific_computing"
+tags = ["hydrology", "fortran-ffi"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wepp-hillslope-hydrology-1f93eb"

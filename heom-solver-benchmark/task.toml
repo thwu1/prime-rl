@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of open quantum systems theory: the HEOM formalism (Matsubara decomposition of bath correlation functions, hierarchy truncation, terminator corrections), the weak-coupling Lindblad master equation derived from the system-bath spectral density, and convergence analysis of non-perturbative solvers. The agent must navigate the QuTiP v5 HEOM API which has multiple entry points and correctly set up both non-perturbative and perturbative solvers from a physics specification without implementation guidance."""
+solution_explanation = """The solution installs QuTiP and implements: (1) HEOM solver using the appropriate QuTiP API with Matsubara decomposition and terminator correction; (2) weak-coupling Lindblad solver by diagonalizing H_sys, computing spectral density at the energy gap, deriving transition rates, and finding the Lindblad steady state; (3) sweeps over coupling strength and hierarchy depth, writing CSV output files."""
+verification_explanation = """Tests verify: (1) output file existence and format; (2) physical constraints (populations in [0,1], coherences bounded); (3) at weak coupling lambda=0.025, HEOM and Lindblad agree within trace distance < 0.015; (4) at strong coupling lambda=1.0, they disagree with trace distance > 0.01; (5) HEOM convergence data stabilizes (last two NC values differ by < 0.005); (6) independent HEOM recomputation for lambda=0.1 matches agent's result within tolerance."""
+category = "scientific_computing"
+tags = ["quantum_physics", "open_quantum_systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/heom-solver-benchmark"

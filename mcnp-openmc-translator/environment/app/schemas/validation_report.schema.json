@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ICSBEP Validation Report",
+  "description": "Statistical validation analysis of ICSBEP benchmark k_eff data",
+  "type": "object",
+  "required": ["total_entries", "total_benchmarks", "categories", "fissile_summary", "outliers"],
+  "properties": {
+    "total_entries": {
+      "type": "integer",
+      "description": "Total number of entries in the uncertainties dataset"
+    },
+    "total_benchmarks": {
+      "type": "integer",
+      "description": "Number of unique benchmark names in the dataset"
+    },
+    "categories": {
+      "type": "object",
+      "description": "Statistics grouped by benchmark category. Category keys are derived from the ICSBEP benchmark naming convention: the first three hyphen-separated segments of the benchmark name form the category (e.g. benchmark 'heu-met-fast-001' belongs to category 'heu-met-fast').",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["count", "mean_keff", "weighted_mean_keff", "chi_squared", "reduced_chi_squared", "birge_ratio"],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of entries in this category"
+          },
+          "mean_keff": {
+            "type": "number",
+            "description": "Arithmetic mean of k_eff values in this category"
+          },
+          "weighted_mean_keff": {
+            "type": "number",
+            "description": "Inverse-variance-weighted mean of k_eff values (weight = 1/uncertainty^2). For entries with zero uncertainty, fall back to arithmetic mean."
+          },
+          "chi_squared": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Goodness-of-fit statistic against k_eff = 1.0: sum of ((keff - 1.0) / uncertainty)^2 over entries with nonzero uncertainty"
+          },
+          "reduced_chi_squared": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Chi-squared divided by degrees of freedom (number of valid measurements minus one)"
+          },
+          "birge_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Consistency measure: sqrt(chi_squared / number_of_valid_measurements)"
+          }
+        }
+      }
+    },
+    "fissile_summary": {
+      "type": "object",
+      "description": "Statistics grouped by fissile material type. Keys are the first segment of the benchmark name (e.g. 'heu', 'pu', 'leu', 'mix', 'ieu', 'u233').",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["count", "mean_keff", "weighted_mean_keff"],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of entries for this fissile material"
+          },
+          "mean_keff": {
+            "type": "number",
+            "description": "Arithmetic mean of k_eff values"
+          },
+          "weighted_mean_keff": {
+            "type": "number",
+            "description": "Inverse-variance-weighted mean of k_eff values"
+          }
+        }
+      }
+    },
+    "outliers": {
+      "type": "array",
+      "description": "Entries with anomalously large deviations of k_eff from unity. Only entries with nonzero uncertainty are candidates. Each reported outlier must have |deviation_sigma| > 3.0.",
+      "items": {
+        "type": "object",
+        "required": ["benchmark", "case", "keff", "uncertainty", "deviation_sigma"],
+        "properties": {
+          "benchmark": {
+            "type": "string",
+            "description": "ICSBEP benchmark name"
+          },
+          "case": {
+            "type": "string",
+            "description": "Case identifier within the benchmark"
+          },
+          "keff": {
+            "type": "number",
+            "description": "Reference k_eff value"
+          },
+          "uncertainty": {
+            "type": "number",
+            "description": "Experimental uncertainty (1-sigma)"
+          },
+          "deviation_sigma": {
+            "type": "number",
+            "description": "Signed deviation from unity in units of experimental uncertainty: (keff - 1.0) / uncertainty"
+          }
+        }
+      }
+    }
+  }
+}

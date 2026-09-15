@@ -1,0 +1,56 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must explore a multi-module Python codebase, load binary \
+data (.npz), query a SQLite reference database for expected output schema and validation \
+targets, and interpret log files from failed runs to diagnose symptoms. They must trace \
+through real-space, reciprocal-space, and driver modules to identify three independent \
+physics bugs: a minimum image convention error (floor vs round), a reciprocal-space \
+prefactor error (missing factor of 2), and a sign error in the Madelung constant \
+extraction. After fixing all bugs, the solver must design and execute a convergence \
+evaluation: systematically varying the reciprocal-space cutoff k_max across [3..9], \
+computing the Madelung constant at each, and determining the minimum k_max that achieves \
+target accuracy — a judgment requiring understanding of the accuracy-cost tradeoff in \
+Ewald decompositions. They must also implement finite-difference force validation and \
+produce a comprehensive result JSON. This requires graduate-level computational physics \
+knowledge combined with numerical analysis evaluation skills."""
+solution_explanation = """The solution fixes three bugs: (1) in ewald_real.py, replaces \
+np.floor(dr/L) with np.round(dr/L) for correct minimum image convention, (2) in \
+ewald_recip.py, changes the reciprocal prefactor from 2*pi/V to 4*pi/V, (3) in \
+run_pipeline.py, adds the missing negative sign in the Madelung extraction formula. \
+Then it completes the pipeline by computing perturbed crystal energies/forces, performing \
+a centered finite-difference force verification (dx=1e-5), and running a convergence \
+study across k_max=[3..9] to determine the minimum converged reciprocal cutoff."""
+verification_explanation = """Tests verify: (1) NaCl Madelung constant matches the \
+known analytical value within 1e-3, (2) forces on the perfect crystal are negligible \
+by cubic symmetry, (3) total force sums to zero by Newton's third law, (4) energy \
+components sum to the reported total, (5) analytical forces agree with centered \
+finite-difference gradients within 1% relative error, (6) the convergence study \
+contains 7 entries for k_max in [3..9] with varying Madelung values, (7) the \
+reported min_converged_k_max is the genuine first k_max achieving target accuracy, \
+verified by checking both the converged point and the unconverged predecessor."""
+category = "scientific_computing"
+tags = ["computational-physics", "numerical-convergence"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-07d486"

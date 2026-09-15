@@ -1,0 +1,38 @@
+{
+  "corrective": {
+    "DTHR_nmi": 0.66,
+    "ZTHR_ft": 450,
+    "TTHR_s": 35,
+    "TCOA_s": 0
+  },
+  "lookahead_s": 180,
+  "alerts": [
+    {
+      "level": 1,
+      "name": "Preventive",
+      "DTHR_nmi": 0.66,
+      "ZTHR_ft": 700,
+      "TTHR_s": 35,
+      "TCOA_s": 0,
+      "alerting_time_s": 55
+    },
+    {
+      "level": 2,
+      "name": "Corrective",
+      "DTHR_nmi": 0.66,
+      "ZTHR_ft": 450,
+      "TTHR_s": 35,
+      "TCOA_s": 0,
+      "alerting_time_s": 55
+    },
+    {
+      "level": 3,
+      "name": "Warning",
+      "DTHR_nmi": 0.66,
+      "ZTHR_ft": 450,
+      "TTHR_s": 35,
+      "TCOA_s": 0,
+      "alerting_time_s": 25
+    }
+  ]
+}

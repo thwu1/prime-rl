@@ -1,0 +1,386 @@
+{
+  "suite_name": "SIP Registration Conformance (TS 102 027-3)",
+  "registry": {
+    "response_2xx_tmpl": {
+      "t": "record",
+      "fields": {
+        "status": {"tmpl": {"t": "range", "lo": 200, "hi": 299}, "opt": false},
+        "reason": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "response_200_ok_tmpl": {
+      "t": "modifies",
+      "base": "response_2xx_tmpl",
+      "delta": {
+        "status": {"t": "exact", "v": 200}
+      }
+    },
+    "response_1xx_tmpl": {
+      "t": "record",
+      "fields": {
+        "status": {"tmpl": {"t": "range", "lo": 100, "hi": 199}, "opt": false},
+        "reason": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "response_401_tmpl": {
+      "t": "record",
+      "fields": {
+        "status": {"tmpl": {"t": "exact", "v": 401}, "opt": false},
+        "reason": {"tmpl": {"t": "any"}, "opt": false},
+        "www_authenticate": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "response_400_tmpl": {
+      "t": "record",
+      "fields": {
+        "status": {"tmpl": {"t": "exact", "v": 400}, "opt": false},
+        "reason": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "response_4xx_tmpl": {
+      "t": "record",
+      "fields": {
+        "status": {"tmpl": {"t": "range", "lo": 400, "hi": 499}, "opt": false},
+        "reason": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    }
+  },
+  "sut_responses": {
+    "register_basic": {"status": 200, "reason": "OK"},
+    "register_no_auth": {"status": 401, "reason": "Unauthorized", "www_authenticate": "Digest realm=\"atlanta.example.com\", nonce=\"ea9c8e88df84f1cec4341ae6cbe5a359\""},
+    "register_with_credentials": {"status": 200, "reason": "OK"},
+    "register_dereg": {"status": 200, "reason": "OK"},
+    "register_invalid_uri": null,
+    "register_bad_headers": {"status": 200, "reason": "OK"},
+    "register_reregister": [
+      {"status": 100, "reason": "Trying"},
+      {"status": 200, "reason": "OK"}
+    ],
+    "register_ua1": {"status": 200, "reason": "OK"},
+    "register_ua2": {"status": 200, "reason": "OK"}
+  },
+  "test_cases": [
+    {
+      "id": "SIP_RG_V_001",
+      "description": "Ensure IUT sends valid REGISTER and receives 200 OK",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA",
+      "group": "Registration/Registrant/Valid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_basic"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_200_ok_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_4xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_V_002",
+      "description": "Ensure IUT handles authentication challenge during REGISTER",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA AND PICS_AUTH",
+      "group": "Registration/Registrant/Valid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_no_auth"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_401_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"},
+                {"op": "send", "msg_key": "register_with_credentials"},
+                {"op": "start_timer", "name": "TWait"},
+                {"op": "alt", "alts": [
+                  {
+                    "guard": "receive",
+                    "template_ref": "response_200_ok_tmpl",
+                    "body": [
+                      {"op": "stop_timer", "name": "TWait"},
+                      {"op": "setverdict", "v": "pass"}
+                    ]
+                  },
+                  {
+                    "guard": "receive",
+                    "template_ref": "response_4xx_tmpl",
+                    "body": [
+                      {"op": "stop_timer", "name": "TWait"},
+                      {"op": "setverdict", "v": "fail"}
+                    ]
+                  },
+                  {
+                    "guard": "timeout",
+                    "timer": "TWait",
+                    "body": [
+                      {"op": "setverdict", "v": "inconc"}
+                    ]
+                  }
+                ]}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_4xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_V_003",
+      "description": "Ensure IUT correctly deregisters with Contact: * and Expires: 0",
+      "pics_expr": "PICS_SIP_REG AND (PICS_DEREG OR PICS_ADMIN_DEREG)",
+      "group": "Registration/Registrant/Valid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_dereg"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_200_ok_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_4xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_I_001",
+      "description": "Verify IUT behavior when REGISTER sent to unreachable registrar",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA",
+      "group": "Registration/Registrant/Invalid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_invalid_uri"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_2xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_4xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_I_002",
+      "description": "Verify IUT rejects REGISTER with malformed mandatory headers",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA",
+      "group": "Registration/Registrant/Invalid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_bad_headers"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_400_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_2xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_V_005",
+      "description": "Verify IUT handles provisional 100 Trying before final 200 OK on re-registration",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA",
+      "group": "Registration/Registrant/Valid",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_reregister"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_1xx_tmpl",
+              "body": [
+                {"op": "repeat"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_200_ok_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "response_4xx_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "SIP_RG_V_006",
+      "description": "Verify concurrent registration of two user agents via parallel test components",
+      "pics_expr": "PICS_SIP_REG AND PICS_UA AND PICS_MULTI_UA",
+      "group": "Registration/Registrant/Valid",
+      "components": {"mtc": {}, "ua2": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "register_ua1"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_200_ok_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]},
+          {"op": "sync", "point": "registered"}
+        ],
+        "ua2": [
+          {"op": "send", "msg_key": "register_ua2"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "response_200_ok_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]},
+          {"op": "sync", "point": "registered"}
+        ]
+      }
+    }
+  ]
+}

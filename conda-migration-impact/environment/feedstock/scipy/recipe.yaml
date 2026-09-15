@@ -1,0 +1,42 @@
+context:
+  name: scipy
+  version: "1.12.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/scipy/scipy/releases/download/v${{ version }}/scipy-${{ version }}.tar.gz
+  sha256: 4bf5abab8a36d20193c698b0f2c9f26e7c80e3cc8e3c9f0c3d4e5a6b7c8d9e0f
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - cmake
+    - ninja
+    - cython
+    - pythran
+  host:
+    - numpy
+    - openblas
+    - python
+  run:
+    - numpy
+    - python
+
+test:
+  commands:
+    - python -c "import scipy; print(scipy.__version__)"
+    - python -c "import scipy.linalg; print('OK')"
+
+about:
+  homepage: https://scipy.org
+  license: BSD-3-Clause
+  license_file: LICENSE.txt
+  summary: Scientific computing tools for Python

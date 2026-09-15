@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building two tightly-coupled compiler modules: a register allocator that handles cyclic control flow, spilling, and calling-convention constraints, plus an x86-64 assembly emitter that produces AT&T syntax with correct function prologues/epilogues, callee-saved register preservation, and stack alignment for System V ABI compliance. The agent must read and reverse-engineer the IR format from 4 infrastructure files, understand x86-64 hardware constraints (two-memory-operand prohibition, caller-saved clobbering), design an allocation strategy that handles 15+ simultaneous live variables with only 12 available registers, and emit assembly that assembles with GAS and links with a C runtime via GCC. Multi-tool proficiency across Python, GCC toolchain, and x86-64 ABI is essential."""
+solution_explanation = """The allocator implements backward dataflow liveness analysis with fixed-point iteration, builds interference and move graphs, performs DSATUR graph coloring with move biasing, maps colors to registers/stack-slots, and patches two-memory-operand violations. The emitter translates allocated IR to AT&T-syntax x86-64 assembly with a proper function prologue (saving rbp and callee-saved registers rbx/r12-r14), 16-byte-aligned stack frame for spill slots, block-structured control flow, and epilogue with register restoration."""
+verification_explanation = """Three-tier verification: (1) Python emulator runs allocated programs checking return values and printed output, with caller-saved register clobbering after callq to detect bad allocations; (2) structural checks ensure no unallocated variables, no two-memory-operand violations, and valid register names; (3) binary execution tests emit x86-64 assembly, compile with GCC against a C runtime, run the resulting executables, and verify stdout output and return values match expectations."""
+category = "compilers"
+tags = ["register-allocation", "x86-codegen"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-de3ff6"

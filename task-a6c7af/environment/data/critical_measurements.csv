@@ -1,0 +1,27 @@
+fluid,property,value,unit,source,year,uncertainty
+CO2,Tc,304.18,K,"Suehiro, Nakajima et al.",1996,0.04
+CO2,Tc,304.1,K,Weber,1989,0.1
+CO2,Tc,304.35,K,Li and Kiran,1988,0.4
+CO2,Tc,304.200,K,Morrison,1981,0.02
+CO2,Tc,304.23,K,"Efremova, Shvarts",1972,0.5
+CO2,Pc,73.80,bar,"Suehiro, Nakajima et al.",1996,0.15
+CO2,Pc,73.40,bar,Li and Kiran,1988,0.50
+CO2,Pc,73.825,bar,"Angus, Armstrong et al.",1976,0.005
+CO2,Vc,0.0919,l/mol,Li and Kiran,1988,0.001
+CO2,omega,0.2239,,"Poling, Prausnitz, O'Connell",2001,0.001
+N2,Tc,126.19,K,"Jacobsen, Stewart et al.",1986,0.01
+N2,Tc,126.2,K,"Angus, de Reuck et al.",1979,0.05
+N2,Tc,128.45,K,Cardoso,1915,0.5
+N2,Pc,33.978,bar,"Jacobsen, Stewart et al.",1986,0.007
+N2,Pc,34.00,bar,"Angus, de Reuck et al.",1979,0.05
+N2,omega,0.0372,,"Poling, Prausnitz, O'Connell",2001,0.002
+CH4,Tc,190.6,K,Literature average,2001,0.3
+CH4,Pc,46.1,bar,Literature average,2001,0.3
+CH4,Vc,0.09860,l/mol,"Ambrose, Tsonopoulos",1995,0.001
+CH4,omega,0.0115,,"Poling, Prausnitz, O'Connell",2001,0.002
+H2O,Tc,647.1,K,Literature average,2001,2.0
+H2O,Pc,220.64,bar,"Sato, Watanabe et al.",1991,0.05
+H2O,omega,0.3443,,"Poling, Prausnitz, O'Connell",2001,0.005
+Ar,Tc,150.86,K,"Angus, Armstrong et al.",1972,0.1
+Ar,Pc,48.98,bar,"Angus, Armstrong et al.",1972,0.05
+Ar,omega,0.0000,,Noble gas,2001,0.001

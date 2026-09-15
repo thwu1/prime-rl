@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of Apache Parquet physical storage layout and its interaction with query execution. The agent must simultaneously satisfy three classes of constraints — file size, row group structure, and zone map filtering — that create genuine tradeoffs. For each table, the compression-optimal sort order differs from the query-optimal sort order: sequential_data's compression benefits from sorting by category but zone map filtering requires sorting by timestamp; sensor_metrics compresses best when grouped by sensor_id but the time-range zone map constraint demands timestamp as the primary sort key; wide_integers' compression prefers group_code sorting but the score zone map constraint forces score-first ordering. The agent must understand how sort order determines row group column-chunk statistics (min/max), how ROW_GROUP_SIZE controls the granularity of predicate pushdown, and how Parquet v2 encodings (DELTA_BINARY_PACKED, BYTE_STREAM_SPLIT) interact with data locality created by sort order. This requires proficient-level judgment about data layout tradeoffs, not procedural application of compression settings."""
+solution_explanation = """Each table requires a distinct combination of sort order, ROW_GROUP_SIZE, and Parquet version/compression. For sequential_data: sort by (ts, category) with ROW_GROUP_SIZE 70000 — ts-primary sort enables zone map filtering while v2 DELTA_BINARY_PACKED encodes the sequential id/ts columns efficiently. For wide_integers: sort by (score, group_code, sub_code, record_id) — score-first ordering enables zone map selectivity on score ranges. For text_logs: sort by (severity, service, log_id) — severity-first sort concentrates the rare CRITICAL rows into a single row group. For sensor_metrics: sort by (measured_at, sensor_id) with ROW_GROUP_SIZE 50000 — measured_at-primary sort enables time-range zone maps, contradicting the IoT-intuitive sensor_id-first grouping. All exports use COMPRESSION zstd and PARQUET_VERSION v2."""
+verification_explanation = """Tests verify five constraint classes: (1) file existence, (2) data integrity via row counts, column names, and per-column aggregate statistics (MIN/MAX/COUNT DISTINCT), (3) file sizes under targets, (4) row group counts within specified ranges using parquet_metadata, and (5) zone map filtering effectiveness by counting how many row groups' column-chunk statistics overlap specific filter predicates via parquet_metadata — ensuring the sort order and row group sizing create genuinely selective predicate pushdown."""
+category = "data_engineering"
+tags = ["duckdb", "parquet"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-parquet-export"

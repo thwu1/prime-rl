@@ -1,0 +1,101 @@
+DICOM PS3.15 Annex E - Attribute Confidentiality Profiles
+Normative Excerpt (2026c)
+============================================================
+
+E.1 BASIC APPLICATION LEVEL CONFIDENTIALITY PROFILE
+
+An implementation claiming conformance to the Basic Application Level
+Confidentiality Profile as a de-identifier shall protect or retain all
+instances of the Attributes listed in Table E.1-1, whether contained
+in the top level Data Set or embedded in an Item of a Sequence of Items.
+
+Table E.1-1 is provided in tab-separated format as action_table.tsv.
+The first four columns identify each attribute (name, tag, retired
+status, and whether it appears in a Standard Composite IOD). The fifth
+column gives the Basic Profile action. The remaining ten columns
+correspond to the named options defined in Sections E.3.3 through E.3.11
+below; a non-empty cell means that option overrides the Basic Profile
+action for that attribute with the specified action code.
+
+A requirement for an Option, when implemented, overrides any requirement
+for the underlying Profile.
+
+
+TABLE E.1-1a. DE-IDENTIFICATION ACTION CODES
+
+  D     replace with a non-zero length value that may be a dummy value
+        and consistent with the VR
+  Z     replace with a zero length value, or a non-zero length value
+        that may be a dummy value and consistent with the VR
+  X     remove Attribute, and if the Attribute is a Sequence, remove
+        all Sequence Items and their contained Attributes
+  K     keep (unchanged for non-Sequence Attributes, cleaned for
+        Sequences)
+  C     clean, that is replace with values of similar meaning known
+        not to contain identifying information and consistent with VR
+  U     replace with a non-zero length UID that is internally
+        consistent within a set of Instances
+
+Compound Action Codes:
+
+  Z/D   Z unless D is required to maintain IOD conformance
+        (Type 2 versus Type 1)
+  X/Z   X unless Z is required to maintain IOD conformance
+        (Type 3 versus Type 2)
+  X/D   X unless D is required to maintain IOD conformance
+        (Type 3 versus Type 1)
+  X/Z/D X unless Z or D is required to maintain IOD conformance
+        (Type 3 versus Type 2 versus Type 1)
+  X/Z/U* X unless Z or replacement of contained instance UIDs (U) is
+         required to maintain IOD conformance (Type 3 versus Type 2
+         versus Type 1 sequences containing UID references)
+
+These action codes are applicable to both Sequence and non-Sequence
+Attributes; in the case of Sequences, the action is applicable to the
+Sequence and all of its contents.
+
+
+E.3 BASIC APPLICATION LEVEL CONFIDENTIALITY OPTIONS
+
+E.3.3 Clean Graphics Option
+  Instances may contain identification information encoded as graphics,
+  text annotations or overlays. When this option is specified, any such
+  information shall also be removed, as described in Table E.1-1.
+
+E.3.4 Clean Structured Content Option
+  Instances of Structured Report SOP Classes may contain identifiable
+  information in Content Items. When specified, any such information
+  in SR Content Items or Acquisition Context or Specimen Preparation
+  Sequence Items shall also be removed.
+
+E.3.5 Clean Descriptors Option
+  Text or string attributes may contain unstructured identifying
+  information embedded by operators. When specified, any identifying
+  information embedded in text or string attributes shall be removed.
+
+E.3.6 Retain Longitudinal Temporal Information Options
+  Two mutually exclusive options:
+  - Retain Longitudinal Temporal Information With Full Dates Option:
+    dates and times present in the Attributes shall be retained.
+  - Retain Longitudinal Temporal Information With Modified Dates Option:
+    dates and times present in the Attributes shall be modified (cleaned)
+    rather than removed.
+
+E.3.7 Retain Patient Characteristics Option
+  Physical characteristics (age, sex, height, weight) and other
+  characteristics present in the Attributes shall be retained.
+
+E.3.8 Retain Device Identity Option
+  Information about the identity of the acquisition device in the
+  Attributes shall be retained.
+
+E.3.9 Retain UIDs Option
+  UIDs shall be retained rather than replaced.
+
+E.3.10 Retain Safe Private Option
+  Private Attributes known to be safe from identity leakage shall be
+  retained.
+
+E.3.11 Retain Institution Identity Option
+  Information about the identity of the institution in the Attributes
+  shall be retained.

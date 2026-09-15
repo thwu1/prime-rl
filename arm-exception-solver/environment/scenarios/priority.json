@@ -1,0 +1,171 @@
+{
+  "test_cases": [
+    {
+      "id": "ep_no_active",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_single_active_systick",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5}
+        ],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_hardfault_active",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "HardFault", "priority": -1}
+        ],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_nmi_active",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "NMI", "priority": -2}
+        ],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_prigroup3_systick18",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 3,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 18}
+        ],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_primask_only",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": true,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_faultmask_only",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": true,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_basepri_32",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 32,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_basepri_and_primask",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": true,
+        "faultmask": false,
+        "basepri": 32,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_basepri_and_faultmask",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": true,
+        "basepri": 32,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_two_active_irq_lower",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5},
+          {"name": "IRQ0", "priority": 3}
+        ],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    },
+    {
+      "id": "ep_basepri_with_prigroup2",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 2,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 37,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "execution_priority"
+    }
+  ]
+}

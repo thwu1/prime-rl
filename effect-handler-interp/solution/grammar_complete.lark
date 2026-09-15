@@ -1,0 +1,105 @@
+// grammar.lark — Complete grammar for a functional language with algebraic effects
+//
+
+start: effect_decl* expr
+
+// --- Effect declarations ---
+
+effect_decl: "effect" NAME "{" _op_decl_entry* "}"
+_op_decl_entry: op_decl ";"?
+op_decl: NAME "(" param_list? ")"
+
+// --- Expressions ---
+
+?expr: sequence
+
+_seq_item: val_binding
+         | def_binding
+         | ternary
+
+sequence: _seq_item (";" _seq_item)* ";"?
+
+val_binding: "val" NAME "=" ternary ";" expr
+
+def_binding: "def" NAME "(" param_list? ")" "=" ternary ";" expr
+
+?ternary: if_expr
+        | lambda_expr
+        | comparison
+
+if_expr: "if" comparison "then" expr "else" expr
+
+lambda_expr: "fun" "(" param_list? ")" "=>" ternary
+
+// --- Operators (by precedence, low to high) ---
+
+?comparison: concat
+           | comparison "==" concat -> eq
+           | comparison "!=" concat -> neq
+           | comparison "<=" concat -> leq
+           | comparison ">=" concat -> geq
+           | comparison "<" concat -> lt
+           | comparison ">" concat -> gt
+
+?concat: addition
+       | concat "++" addition -> str_concat
+
+?addition: multiplication
+         | addition "+" multiplication -> add
+         | addition "-" multiplication -> sub
+
+?multiplication: unary
+               | multiplication "*" unary -> mul
+               | multiplication "/" unary -> div
+               | multiplication "%" unary -> mod_op
+
+?unary: "-" unary -> negate
+      | "not" unary -> logical_not
+      | postfix
+
+?postfix: atom
+        | postfix "(" arg_list? ")" -> application
+
+// --- Atoms ---
+
+?atom: INT -> integer
+     | STRING -> string_lit
+     | "true" -> true_lit
+     | "false" -> false_lit
+     | "unit" -> unit_lit
+     | "print" "(" expr ")" -> print_expr
+     | handle_expr
+     | do_expr
+     | NAME -> variable
+     | "(" expr ")"
+
+// --- Effect expressions ---
+
+handle_expr: "handle" "{" expr "}" "with" NAME "{" _handler_item* "}"
+
+_handler_item: return_clause ";"?
+             | op_clause ";"?
+
+return_clause: "return" "(" NAME ")" "=>" ternary
+
+op_clause: NAME "(" param_list? ")" "=>" ternary
+
+do_expr: "do" NAME "(" arg_list? ")"
+
+// --- Lists ---
+
+param_list: NAME ("," NAME)*
+arg_list: ternary ("," ternary)*
+
+// --- Terminals ---
+
+NAME: /(?!(?:val|def|fun|if|then|else|true|false|unit|not|print|effect|handle|with|do|return)\b)[a-zA-Z_]\w*/
+
+STRING: /"[^"]*"/
+
+COMMENT: "//" /[^\n]*/
+
+%import common.INT
+%import common.WS
+%ignore WS
+%ignore COMMENT

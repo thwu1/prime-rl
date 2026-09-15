@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full Noise Protocol Framework state machine from specification: three-layer object hierarchy (CipherState, SymmetricState, HandshakeState), HMAC/HKDF key derivation, Curve25519 DH, two AEAD ciphers (ChaCha20-Poly1305 and AES-256-GCM with different nonce encodings), three hash functions (SHA256, BLAKE2s, BLAKE2b with different HASHLEN values requiring key truncation), protocol name parsing, five handshake patterns with different pre-message configurations, and PSK modifier handling (MixKeyAndHash + additional MixKey for ephemeral keys). A single-bit error in any intermediate value cascades through the entire handshake via hash chaining. Requires cryptographic protocol engineering expertise at the proficient/expert level."""
+solution_explanation = """Build a Python Noise Protocol engine using pynacl for Curve25519 DH and cryptography for AEAD. Implement HMAC manually (for BLAKE2 compatibility), HKDF per spec, then CipherState/SymmetricState/HandshakeState. Parse protocol names to select crypto primitives and handshake patterns. Process each session from both initiator and responder perspectives simultaneously to advance state and extract handshake payloads, then use transport CipherStates from Split() to decrypt transport messages. Handle HASHLEN=64 truncation for BLAKE2b and PSK-mode MixKeyAndHash + MixKey(e.public_key) rules."""
+verification_explanation = """Tests load /app/results.json and verify each session's handshake_hash (hex) and transport_payloads (hex arrays) against known-correct values derived from the cacophony test vector suite. Exact string matching on hex values ensures bit-perfect implementation of all crypto operations."""
+category = "cryptography"
+tags = ["noise-protocol", "state-machine"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/noise-handshake-forensics"

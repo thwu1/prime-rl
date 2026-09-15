@@ -1,0 +1,24 @@
+name: "STM32F4xx"
+variants:
+  - name: "STM32F407VG"
+    memory_map:
+      - type: ram
+        name: "SRAM"
+        range:
+          start: 0x20000000
+          end: 0x20020000
+      - type: nvm
+        name: "Main Flash"
+        range:
+          start: 0x08000000
+          end: 0x08100000
+        flash_properties:
+          page_size: 2048
+          erased_byte_value: 0xFF
+          sectors:
+            - size: 16384
+              address: 0x08000000
+            - size: 65536
+              address: 0x08010000
+            - size: 131072
+              address: 0x08020000

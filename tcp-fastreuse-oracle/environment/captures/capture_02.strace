@@ -1,0 +1,10 @@
+socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 3
+setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+bind(3, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+getsockname(3, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.0.0.1")}, [16]) = 0
+connect(3, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.9.9.9")}, 16) = 0
+socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 4
+setsockopt(4, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+connect(4, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.8.8.8")}, 16) = -1 EADDRNOTAVAIL (Cannot assign requested address)
+close(4)                                = 0
+close(3)                                = 0

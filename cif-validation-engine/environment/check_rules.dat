@@ -1,0 +1,35 @@
+# ======================================================================
+# checkCIF Alert Rule Definitions
+# Derived from PLATON validation checks (A.L. Spek, Utrecht University)
+# ======================================================================
+#
+# FORMAT
+# ------
+# Non-comment, non-blank lines contain colon-delimited fields:
+#
+#   CODE : TYPE : SEVERITY : DESCRIPTION
+#
+# CODE        3-digit zero-padded alert identifier
+# TYPE        1 = composition/general   2 = ADP/thermal
+# SEVERITY    Single letter (A, B, or C) for fixed-level presence checks
+#             Three slash-separated values (C/B/A ascending thresholds) for
+#             value-based graded checks.  The diagnostic value is compared
+#             against these limits in descending severity order.
+# DESCRIPTION Human-readable alert text.  Placeholders:
+#             $F = floating-point diagnostic value
+#             $I = integer diagnostic value
+#             $A = atom label or string identifier
+#
+# ======================================================================
+
+040 : 1 : C : No H-atoms in this Carbon Containing Compound .. $A Please Check
+041 : 1 : C : Calc. and Reported SumFormula Strings Differ .. $A Please Check
+043 : 1 : 0.1/1.0/10.0 : Calculated and Reported Mol. Weight Differ by .. $F %
+044 : 1 : 1.0/5.0/10.0 : Calculated and Reported Density Dx Differ by .. $F %
+046 : 1 : 1.0/5.0/10.0 : Reported Z, MW and D(calc) are Inconsistent .... $F %
+049 : 1 : C : Calculated Density Less Than 1.0 gcm-3 ......... $F Check
+060 : 1 : C : Unknown CIF Data Item(s) Not in Dictionary ...... $I Report
+201 : 2 : 0/10/999 : Non-H Atoms with Isotropic ADPs .............. $I Report
+211 : 2 : B : Non-Positive Definite ADP Tensor .................. $A Check
+213 : 2 : 3.0/4.0/5.0 : ADP Eigenvalue Ratio sqrt(Umax/Umin) ......... $F Check
+224 : 1 : 0.002/0.003/0.005 : Ueq(obs) and Ueq(calc) Differ by ............. $F Ang**2

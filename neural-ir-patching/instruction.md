@@ -1,0 +1,5 @@
+A neural IR analysis framework at `/app/` was ported from research code for analyzing transformer-based retrieval models. Running `python3 /app/analyze.py` should produce a correct analysis report at `/app/output/report.json`, but the pipeline currently fails due to multiple issues introduced during the port.
+
+Some modules contain implementation bugs that produce incorrect numerical results, and at least one module was left incomplete with only stub placeholders. The analysis pipeline script itself also has a logic error. The data files in `/app/data/` and the base infrastructure in `/app/framework/base.py` are correct and must not be modified.
+
+Diagnose and fix all issues so that `python3 /app/analyze.py` runs to completion and produces a numerically correct `/app/output/report.json`. Refer to `/app/README.md` for the project overview and `/app/specs.md` for detailed algorithmic specifications and expected report structure.

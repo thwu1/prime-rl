@@ -1,0 +1,12 @@
+topk: [3, 5]
+metrics:
+  - Recall
+  - Precision
+  - Hit
+  - MRR
+  - NDCG
+  - MAP
+  - ItemCoverage
+  - GiniIndex
+  - ShannonEntropy
+num_items: 8

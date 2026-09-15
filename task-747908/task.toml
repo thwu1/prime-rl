@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires translating PVS formal specifications (a niche formal methods language) into a working Python implementation of the WCV_TAUMOD conflict detection algorithm. The algorithm involves: (1) understanding PVS dependent types, parametric theories, and proof-carrying code; (2) implementing a quadratic-formula-based horizontal interval computation with 5 branching cases and subtle sign conventions; (3) implementing vertical altitude-crossing interval logic with TCOA extension; (4) composing horizontal and vertical intervals via the WCV_interval combinator which shifts the horizontal time window into the vertical window; (5) correct unit handling (nmi, ft, knots, fpm, degrees) with track-to-velocity conversion; (6) handling edge cases (zero velocity, boundary values, diverging aircraft). Professional aviation software engineers typically spend weeks understanding the DAIDALUS algorithm suite."""
+solution_explanation = """The solution implements all four functions from the PVS specs: horizontal_wcv_taumod_interval uses the quadratic discriminant approach (a=sqv(v), b=2*sv+TAUMOD*sqv(v), c=sqv(s)+TAUMOD*sv-sq(DTHR)); vertical_wcv_interval computes altitude crossing times with TCOA extension via act_H=max(ZTHR,|vz|*TCOA); wcv_taumod_interval composes them by computing vertical window first, shifting horizontal analysis into that window, then offsetting results back; wcv_taumod_detection checks if the interval is non-empty. The encounter processor converts track/gs to velocity vectors and computes relative states."""
+verification_explanation = """Tests verify: (1) unit tests on horizontal_wcv_taumod_interval with known analytic results for head-on, crossing, and diverging cases; (2) unit tests on vertical_wcv_interval for zero-vz, same-altitude, and crossing cases; (3) unit tests on wcv_taumod_interval for combined 3D cases; (4) integration test checking results.json against reference implementation for all 12 encounter/config combinations with 0.5s tolerance on entry/exit times."""
+category = "safety-critical-systems"
+tags = ["formal-methods", "aviation-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-747908"

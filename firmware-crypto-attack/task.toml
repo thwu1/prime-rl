@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of TUF's trust hierarchy (role-key delegation, metadata version chaining, consistent snapshots) combined with applied cryptanalysis of RSA keys. The solver must evaluate three RSA public keys for distinct vulnerability classes: Fermat factorization (close primes) and GCD attacks (shared prime factors across moduli). After recovering two private keys via different attacks, they must design and construct a complete, internally-consistent set of forged TUF metadata (targets, snapshot, timestamp) with valid RSA-PSS-SHA256 signatures, correct version increments, proper hash chains, and TUF-compliant canonical JSON serialization. This demands holistic reasoning across multiple security domains (number theory, PKI trust models, metadata schema design) rather than following any single known procedure."""
+solution_explanation = """Extract all RSA public keys from root.json and map them to TUF roles. Use openssl or Python to extract the moduli. Apply Fermat factoring to each modulus; the targets key factors because its primes are close. Compute pairwise GCDs of all moduli to find the shared factor between the targets and snapshot/timestamp keys. Reconstruct both private keys from recovered primes. Read 1.targets.json to find the old firmware_v0.1.0.py entry with its hash. Build targets.json v3 re-adding this file, snapshot.json v3 referencing targets v3, and timestamp.json v3 referencing snapshot v3. Sign each with the appropriate recovered key using RSA-PSS-SHA256 over canonical JSON. Locate the hash-prefixed firmware_v0.1.0.py in targets/ and extract the FLAG{...} debug token."""
+verification_explanation = """Tests verify: (1) flag.txt matches expected SHA-256 hash loaded from a build-time-generated verification file (unique per build, preventing memorization), (2) forged targets/snapshot/timestamp metadata exist with valid RSA-PSS-SHA256 signatures verifiable against public keys from root.json, (3) forged targets.json includes firmware_v0.1.0.py with correct hash, (4) metadata version numbers exceed current versions, (5) timestamp correctly references snapshot."""
+category = "security_and_privacy"
+tags = ["cryptanalysis", "tuf-metadata", "rsa-factoring"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/firmware-crypto-attack"

@@ -1,0 +1,95 @@
+TCP Stream Analyzer - Specification
+
+OVERVIEW
+========
+Implement a C++ program that reads a capture file containing raw IPv4/TCP
+packets, reassembles TCP byte streams per connection, detects protocol
+anomalies, and outputs reassembled data with metadata.
+
+INPUT FORMAT
+============
+Binary file of concatenated packets, each preceded by its length:
+
+    [4 bytes: packet length N, big-endian uint32]
+    [N bytes: raw IPv4 packet starting with IP header, no Ethernet framing]
+    ... repeat until EOF ...
+
+INVOCATION
+==========
+    ./reassemble <capture_file> <output_dir>
+
+Create the output directory if it does not exist.
+
+OUTPUT FORMAT
+=============
+For each TCP connection, numbered from 0 in the order their initial SYN
+packet appears in the capture file:
+
+1. conn_N_fwd.bin
+   Reassembled client-to-server byte stream. Empty file if no data sent.
+
+2. conn_N_rev.bin
+   Reassembled server-to-client byte stream. Empty file if no data sent.
+
+3. conn_N_info.txt
+   One key=value pair per line, no spaces around '=':
+
+       SRC=<client_ip>:<client_port>
+       DST=<server_ip>:<server_port>
+       FWD_BYTES=<total reassembled forward data bytes>
+       REV_BYTES=<total reassembled reverse data bytes>
+       RETRANSMISSIONS=<total exact retransmissions, both directions>
+       INJECTIONS=<total conflicting retransmissions, both directions>
+       STATE=<connection state string>
+
+   IP addresses in dotted-decimal notation.
+
+4. summary.txt
+   Global summary:
+
+       CONNECTIONS=<number of TCP connections identified>
+       CHECKSUM_ERRORS=<packets skipped due to invalid checksums>
+
+CONNECTION IDENTIFICATION
+=========================
+- Bidirectional 4-tuple (src_ip, src_port, dst_ip, dst_port).
+- The endpoint that sent the initial SYN is the client.
+- Connections numbered by SYN appearance order.
+- Packets before any SYN for their 4-tuple are ignored.
+
+CHECKSUM VERIFICATION
+=====================
+- Verify IPv4 header checksum. Invalid → skip, count error.
+- Verify TCP checksum using the standard 12-byte pseudo-header. Invalid → skip, count error.
+
+STREAM REASSEMBLY
+=================
+- SYN consumes one sequence number. Application data starts at ISN+1.
+- Reassemble payload data ordered by TCP sequence number.
+- Handle out-of-order arrival: segments may arrive in any order.
+- Handle 32-bit sequence number wraparound correctly.
+- For overlapping segments, keep earlier-accepted data.
+- SYN-only, ACK-only, and FIN-only packets contribute no data.
+- TCP headers may contain options; use the data offset field to determine
+  actual header length and payload start position.
+
+RETRANSMISSION vs INJECTION
+============================
+- Exact retransmission: a segment whose entire byte range is covered by
+  already-assembled data AND whose payload bytes are identical to the
+  assembled data in that range. Count once per occurrence.
+- Conflicting retransmission (injection): a segment whose byte range
+  overlaps with already-assembled data AND whose payload bytes differ
+  from assembled data in the overlapping region. Keep original data.
+  Count once per occurrence.
+- A partial overlap where the overlapping portion matches is neither
+  a retransmission nor an injection.
+
+CONNECTION STATES
+=================
+    SYN_SENT      - SYN observed, no SYN-ACK yet
+    SYN_RCVD      - SYN-ACK observed
+    ESTABLISHED   - Handshake complete or data transferred
+    FIN_WAIT      - One side sent FIN but not both
+    CLOSED        - Both sides sent FIN
+    RESET         - RST observed

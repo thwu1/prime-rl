@@ -1,0 +1,7 @@
+The `/app/src/` directory contains SystemVerilog source files for a minimal GPU (`tiny-gpu`). The GPU implements an 11-instruction ISA with SIMD execution across configurable cores and threads-per-block. Architecture documentation and example kernels are at `/app/README.md`.
+
+Build two Python modules by deriving all instruction encodings and execution semantics from the SystemVerilog RTL:
+
+**`/app/assembler.py`** — Exposes `assemble(source: str) -> list[int]` that translates tiny-gpu assembly language into a list of 16-bit machine code integers. Must support all 11 instructions (NOP, BRnzp, CMP, ADD, SUB, MUL, DIV, LDR, STR, CONST, RET), register operands (R0–R12, %blockIdx, %blockDim, %threadIdx), immediate values (#N), labels for branch targets, and comments.
+
+**`/app/simulator.py`** — Exposes `simulate(program: list[int], data: list[int], thread_count: int, num_cores: int = 2, threads_per_block: int = 4) -> list[int]` that executes a GPU kernel and returns the 256-element final data memory state. Must model the SIMD block/thread execution model, block dispatch, per-thread register files (R0–R12 writable; R13=%blockIdx, R14=%blockDim, R15=%threadIdx read-only), all ALU operations, memory load/store, and CMP/BRnzp branching — all exactly as defined by the SystemVerilog RTL in `/app/src/`.

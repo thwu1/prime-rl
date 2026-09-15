@@ -1,0 +1,11 @@
+{
+  "name": "spherical-geo",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}

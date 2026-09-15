@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level expertise in atmospheric physics and climate data standards. Beyond standard CMOR metadata and unit transformations, the agent must: (1) derive sea-level pressure from surface pressure by applying the barometric/hypsometric equation using near-surface temperature and orography — requiring knowledge of the relationship between pressure, altitude, and temperature in the atmosphere (the formula is not given); (2) derive near-surface specific humidity from dewpoint temperature and surface pressure using the Magnus/Tetens saturation vapor pressure formula and the specific humidity equation — requiring understanding of atmospheric thermodynamics (the formula is not given); (3) correctly interpret and apply CF-convention bit-field quality control flags (multi-bit WMO-style encoding where each bit indicates a different failure mode) to mask flagged observations across all outputs; (4) propagate QC masks correctly through coordinate transformations (longitude 0-360 wrap with data rearrangement, latitude flip). The task requires holistic understanding of atmospheric physics, observational data quality practices, and climate data conventions — not merely following prescribed conversion procedures."""
+solution_explanation = """The solution reads raw NetCDF data and processes 4 CMOR target variables. For direct variables: tas = t2m + 273.15 (degC to K), pr = tp / 86400 (mm/day to kg m-2 s-1). For derived variables: (1) huss uses the Magnus formula e = 6.112 * exp(17.67 * Td / (Td + 243.5)) to compute vapor pressure from dewpoint, then q = 0.622 * e / (p - 0.378 * e) for specific humidity; (2) psl uses the barometric formula psl = sp * exp(g * z / (Rd * T)) with g=9.80665, Rd=287.05, broadcasting the 2D orography field across the time dimension, then converts hPa to Pa. Quality control reads the qc_flag integer array and treats any non-zero value as bad data, applying the mask after coordinate transformations. All variables undergo longitude shift (-180..180 to 0..360 with argsort-based data rearrangement), latitude flip (descending to ascending), time conversion (hours since 2000 to days since 1950 using netCDF4 date utilities), coordinate bounds computation, scalar height coordinates for tas and huss, and CMOR-standard file naming and global attributes."""
+verification_explanation = """Tests independently verify each output aspect: file existence with correct CMOR naming for all 4 variables, variable metadata (standard_name, units, long_name), coordinate conventions (lon 0-360, lat ascending, time since 1950 with gregorian calendar), bounds existence and shapes (time 180x2, lat 36x2, lon 72x2), scalar coordinates (height=2m for tas and huss). Derived variables are verified by independently computing expected values from raw data: huss via the Magnus formula and psl via barometric reduction, comparing at non-QC-masked points with 2% relative tolerance to accommodate minor formula variations. QC masking is verified three ways: total masked count in each output matches the raw qc_flag non-zero count, clean (unflagged) points have valid data, and all 4 variables have consistent masking. Direct conversions are verified at clean points against expected values. Physical range checks ensure meteorological plausibility. Data type enforcement verifies float32 data and float64 coordinates."""
+category = "scientific_computing"
+tags = ["atmospheric-physics", "climate-cmorization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9dacd1"

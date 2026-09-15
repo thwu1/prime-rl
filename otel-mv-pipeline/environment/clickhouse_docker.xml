@@ -1,0 +1,6 @@
+<clickhouse>
+    <listen_host>127.0.0.1</listen_host>
+    <max_server_memory_usage_to_ram_ratio>0.5</max_server_memory_usage_to_ram_ratio>
+    <!-- Disable interserver replication port — single-node setup, avoids port conflicts -->
+    <interserver_http_port replace="true">0</interserver_http_port>
+</clickhouse>

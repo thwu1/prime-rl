@@ -1,0 +1,13 @@
+{
+  "randomized": true,
+  "parameters": {
+    "token": "Random hex-based NIGHTFALL{...} token embedded in encrypted nested container",
+    "credential_salts": "Randomized salt strings in credential hash entries",
+    "credential_hashes": "Randomized hash suffixes in credential entries",
+    "master_key": "Random 32-char hex master key in nested keystore",
+    "serial_number": "Random serial identifier in nested keystore",
+    "key_material_seed": "Random seed used to generate 150-byte XOR key schedule"
+  },
+  "generator": "environment/generate_artifact.py",
+  "verification_path": "/var/lib/task/.verification.json"
+}

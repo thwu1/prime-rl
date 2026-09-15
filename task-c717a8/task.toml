@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Rust type system knowledge: Generic Associated Types (GATs), Higher-Ranked Trait Bounds (for<'a>), lifetime erasure via upcast_gat for GAT covariance, and advanced declarative macro metaprogramming with nested macro invocation patterns. The agent must correctly derive non-obvious trait bounds (for<'a> &'a ArrayType: TryFrom<&'a ArrayImpl>), implement cross-type comparison with Into-based casting, and build a macro-generated dispatch system that maps logical SQL types to physical Rust types. Even experienced Rust programmers struggle with GAT lifetime issues."""
+solution_explanation = """Implement BinaryExpression with Fn(I1::RefType<'_>, I2::RefType<'_>) -> O bound and for<'a> TryFrom bounds for array extraction. Comparison functions use Scalar::upcast_gat to handle GAT lifetime covariance before Into-based casting. Datatype association macros pass (match_pattern, array_type, scalar_type) triples through extraction macros. for_all_cmp_combinations! enumerates valid cross-type pairs; impl_cmp_expression_of! generates match arms using $ident! { extraction_macro } nested invocation."""
+verification_explanation = """Runs cargo test in /app/ which compiles and executes 11 integration tests covering: same-type comparison, cross-type comparison (i16 vs f64), string contains, null propagation, Expression trait object dispatch, build_binary_expression with all ExpressionFunc variants, and dynamic dispatch via Vec<Box<dyn Expression>>."""
+category = "systems_programming"
+tags = ["rust", "database-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c717a8"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level firmware security expertise spanning multiple domains: reverse-engineering an undocumented multi-section binary container format (FWPK) with a TLV-style section directory and dual-layer integrity protection (per-section SHA-256 + HMAC-SHA256); analyzing a compiled ELF binary to locate and patch a packed security configuration struct using hex-level understanding of struct layouts, field alignment, and little-endian encoding; identifying and exploiting a repeating-key XOR encryption scheme by extracting the key from firmware metadata; coordinating modifications across nested archive layers (GZIP-compressed CPIO containing SquashFS); and reconstructing a cascading integrity chain where each modification propagates through section hashes to the container HMAC. The task demands holistic understanding of how firmware components interact — not just following a procedure — because changes to any single layer affect multiple integrity fields that must be updated in the correct order."""
+solution_explanation = """Parse the 44-byte FWPK header to locate the section directory (4 entries x 64 bytes). Extract all sections: metadata JSON, GZIP payload, XOR-encrypted config, and HMAC key. Decompress payload (GZIP->CPIO) and extract filesystem. Find the SECCFG marker in the gateway binary, map the packed struct layout (magic[8], max_channel u16, require_auth u8, tls_mode u8, session_timeout u32, allow_debug u8, cert_verify u8, min_key_bits u16, reserved[8]), and patch six fields. Extract config_key from metadata JSON, XOR-decrypt the configuration section, modify TLS/cipher settings, XOR-re-encrypt. Unsquash modules, disable debug, re-mksquashfs. Update version in metadata JSON and filesystem. Create manifest.json with SHA-256 hashes. Repack CPIO (newc, sorted), GZIP compress, and rebuild the FWPK container with recomputed per-section SHA-256 hashes and HMAC-SHA256 over all section data concatenated in directory order."""
+verification_explanation = """Tests parse the FWPK container and verify: (1) header magic, version, section count; (2) per-section SHA-256 hashes match stored values; (3) HMAC-SHA256 integrity using the firmware's own key section; (4) all 7 SECCFG struct fields at correct values including preserved session_timeout; (5) gateway binary execution (channel 15 valid, 16 rejected, security dump shows all hardened values); (6) encrypted config decrypts via XOR to valid text with TLS/cipher changes; (7) SquashFS diag.py has debug disabled; (8) metadata version is 2.0.0 with config_key preserved; (9) filesystem version file updated; (10) manifest.json has correct SHA-256 hashes matching actual binary and decrypted config."""
+category = "security_and_privacy"
+tags = ["firmware-analysis", "binary-patching"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/firmware-patch-repack"

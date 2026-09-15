@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep SQL expertise across eight interrelated challenges: (1) diagnosing a defective sorted_unique_array function missing DISTINCT and an array_intersect function that computes UNION instead of INTERSECT — the latter is subtle because identical input arrays produce accidentally correct results, only diverging inputs expose the bug; (2) resolving a hierarchical department structure through a self-referential departments table via recursive CTE and correctly distinguishing data-NULLs from grouping-NULLs in a CUBE aggregation using GROUPING() bitmask; (3) diagnosing window frame semantics — default RANGE frame vs ROWS, cumulative vs moving average, ORDER BY tiebreakers for determinism, and re-partitioning DENSE_RANK across a resolved department hierarchy instead of per-employee; (4) handling LEFT JOIN LATERAL UNNEST edge cases with both NULL and empty arrays, resolving top-level departments for tag aggregation; (5) implementing gap-and-island consecutive streak analysis requiring date deduplication, correct ROW_NUMBER partitioning, and DENSE_RANK vs RANK semantics; (6) building per-transaction benchmarking with PERCENT_RANK semantics and department-wide averages; (7) designing Q6's priority-weighted trend analysis where naive CROSS JOIN LATERAL UNNEST with tag and revenue aggregation in a single CTE causes double-counting of amounts — the solver must architect separate aggregation paths for revenue and tags, then join them; (8) coordinating fixes across two broken functions and six broken queries where Q6 depends on both fixed functions and correct tag/revenue separation. The solver must start PostgreSQL, iteratively debug, understand how bugs interact across queries and functions, and design multi-CTE architectures."""
+solution_explanation = """Function fixes: sorted_unique_array — add DISTINCT to ARRAY_AGG. array_intersect — change UNION to INTERSECT in the subquery. Q1: Add recursive CTE for root department, replace IS NULL checks with GROUPING() bitmask (0=detail,1=region_total,2=dept_total,3=grand_total), use nested CASE for region_display to distinguish data-NULL from grouping-NULL. Q2: Add recursive CTE for top_department, change default RANGE to ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW with txn_id tiebreaker, fix moving_avg_3 to ROWS BETWEEN 2 PRECEDING AND CURRENT ROW, change DENSE_RANK partition from emp_id to root_dept. Q3: Change CROSS JOIN LATERAL to LEFT JOIN LATERAL with CASE for NULL/empty arrays, COALESCE tag to 'untagged', add recursive CTE for root department. Q4: Deduplicate transactions to daily level with GROUP BY, partition ROW_NUMBER by employee_id, use DENSE_RANK instead of RANK. Q5: Add recursive CTE, change AVG partition from emp_id to root_dept, replace RANK()/COUNT(*) with PERCENT_RANK()::NUMERIC, reverse ORDER BY to DESC. Q6: The critical insight is separating amount aggregation from tag aggregation into two CTEs — daily_amounts (GROUP BY root_dept, txn_date for revenue) and daily_tags_cte (LEFT JOIN LATERAL UNNEST for tags with FILTER and COALESCE), then joining them. Add ROWS BETWEEN 2 PRECEDING AND CURRENT ROW for rolling avg, fix LAG offset from 2 to 1, use fixed array_intersect and sorted_unique_array."""
+verification_explanation = """Tests connect to PostgreSQL, run each fixed SQL file, and verify: Functions — sorted_unique_array(['c','a','b','a','c']) returns ['a','b','c']; array_intersect(['a','b','c'],['b','c','d']) returns ['b','c'], no-overlap returns empty, NULL input returns NULL. Q1 — 13 rows with correct report_level distribution; data-NULL region classified as detail/Unknown; grand total 56250/25; dept totals match. Q2 — 25 rows; emp 101 running_total=2500; moving_avg_3 uses 3-row window; top_department is root-level; dept_amount_rank partitioned by root dept. Q3 — 13 rows; untagged count=3/revenue=3700; root department names. Q4 — 14 streaks; emp 103 5-day streak at rank 1; consecutive DENSE_RANK. Q5 — 25 rows; department-wide averages (Engineering=2209.09, Sales=2712.50, Marketing=1708.33); PERCENT_RANK values; ordered DESC. Q6 — 18 rows (6 per root department); Engineering 01-05 daily_revenue=4300 (verifies no double-counting from tag unnesting); weighted_revenue correct (Engineering 01-08=2700, Sales 01-07=3760); rolling is 3-row not cumulative; empty daily_tags for NULL/empty tag dates; tag_carryover uses INTERSECT not UNION (Engineering 01-06={backend,infrastructure,urgent}); trend_rank correct; total revenue=56250."""
+category = "debugging"
+tags = ["sql", "olap-analytics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/window-grouping-analytics"

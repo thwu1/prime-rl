@@ -1,0 +1,43 @@
+# Multi-window multi-burn-rate SLO alerting configuration
+# Based on Google SRE Workbook Chapter 5 (Alerting on SLOs), Approach 6
+#
+# Each alert evaluates two sliding windows simultaneously:
+#   - A long window to detect sustained error budget consumption
+#   - A short window to confirm the issue is currently ongoing
+# Alert fires when BOTH windows' error rates strictly exceed:
+#   threshold = burn_rate * (1 - slo_target)
+
+slo:
+  target: 0.999
+  period_days: 30
+
+# Severity-level defaults using YAML anchors
+severity_defaults:
+  page: &page_defaults
+    severity: page
+    burn_rate: 14.4
+  ticket: &ticket_defaults
+    severity: ticket
+    burn_rate: 1.0
+
+alerts:
+  - name: ticket
+    <<: *ticket_defaults
+    long_window_s: 259200
+    short_window_s: 21600
+
+  - name: page_high
+    <<: *page_defaults
+    burn_rate: 6.0
+    long_window_s: 21600
+    short_window_s: 1800
+
+  - name: page_critical
+    burn_rate: 1.44
+    <<: *page_defaults
+    long_window_s: 3600
+    short_window_s: 300
+
+failure_detection:
+  error_rate_threshold: 0.25
+  consecutive_seconds: 30

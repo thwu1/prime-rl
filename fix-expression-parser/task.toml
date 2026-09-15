@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing three interacting CMake build-system bugs (wrong C++ standard, missing source file, incorrect include path) plus six code bugs across a multi-file C++ parser/evaluator (lexer != tokenization, flat operator precedence with right-recursion, no short-circuit evaluation, let-binding scope leak, missing error recovery). The build bugs must be fixed first and surface progressively: the wrong include path blocks compilation entirely, the C++14 standard causes std::optional failures, and the missing source file causes linker errors. Once building, the code bugs interact: fixing precedence requires restructuring into a 7-level chain which changes how short-circuit and ternary interact; scope cleanup must be exception-safe to work with error recovery; new parse methods require coordinated header and source modifications."""
+solution_explanation = """CMake fixes: (1) change PROJECT_BINARY_DIR to PROJECT_SOURCE_DIR in target_include_directories, (2) change CMAKE_CXX_STANDARD from 14 to 17, (3) add src/lexer.cpp to add_executable sources, (4) set CMAKE_RUNTIME_OUTPUT_DIRECTORY to place the binary at /app/parser. Code fixes: (1) add != lookahead in lexer.cpp (case '!' checks for '='). (2) restructure parse_expression into a 7-level precedence chain: expression -> let|ternary -> logical_or -> logical_and -> comparison -> additive -> multiplicative -> unary -> primary; add corresponding declarations to the header. (3) use while-loops for left-associative operators. (4) short-circuit logical_and/logical_or by parsing-but-ignoring the right side in a try-catch. (5) save/restore variable bindings around let-body with try-catch-rethrow for exception safety. (6) add try-catch in run() to output ERROR and skip to next semicolon."""
+verification_explanation = """Tests attempt to build via cmake and/or make, then check for /app/parser binary. 60+ test cases verify: basic arithmetic, operator precedence across all 7 levels, left-associativity of binary operators, comparison operators including != (tests tokenization), logical operators with short-circuit semantics (0 && 1/0 must yield 0), ternary with right-associativity, let-binding basics and scope isolation (shadow/restore, variable cleanup), error recovery across multiple malformed statements, boolean literals, and edge cases."""
+category = "debugging"
+tags = ["parsing", "cmake"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-expression-parser"

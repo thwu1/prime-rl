@@ -1,0 +1,16 @@
+# Trace: Silent E→M upgrade followed by eviction
+# Tests that dirty data from a silently-upgraded line survives eviction
+# Core 0 reads (Exclusive), writes (silent E→M), then fills cache to evict
+0 READ 0x0000
+0 WRITE 0x0000 0xA1
+0 READ 0x0040
+0 READ 0x0080
+0 READ 0x00C0
+0 READ 0x0100
+0 READ 0x0140
+0 READ 0x0180
+0 READ 0x01C0
+# Evict the first entry (LRU victim)
+0 READ 0x0200
+# Core 1 reads the evicted address — should see dirty data 0xA1
+1 READ 0x0000

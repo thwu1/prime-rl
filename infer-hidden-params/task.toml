@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of a complex game engine with 10+ interacting mechanics (tile drift, energy fields, sap damage with dropoff, collision resolution, energy void fields, vision power). The agent must: (1) explore an unfamiliar SQLite database schema and a custom CLI tool (replay-tool) to understand how replay data is stored and accessed; (2) decompress gzip-compressed JSON blobs from the database; (3) reverse-engineer 7 hidden parameters by designing distinct inference algorithms — each requiring different analytical approaches (fractional accumulation for drift speeds, energy accounting for reductions, differential damage analysis for sap dropoff, etc.); (4) submit results via the CLI tool which writes to both JSON files and the SQLite results table. Edge cases abound: parameters interact (void and nebula both affect energy), numerical precision matters (int16 truncation, floor division), and some parameters may have limited observable instances."""
+solution_explanation = """The solution connects to the SQLite database, decompresses gzip blobs for each replay's states and actions, then implements targeted inference for each parameter: (1) nebula drift speed — detect timesteps where tile_type changes and match intervals against candidate speeds; (2) nebula energy reduction — find stationary units on nebula tiles with no combat, compute energy_field minus actual energy change; (3) vision reduction — compare expected vision power from unit positions against observed vision_power_map at nebula tiles; (4) sap dropoff — find sap events with enemies on adjacent tiles only, compute damage ratio; (5) energy void factor — find adjacent enemy units, compute void damage from known original energies; (6) energy node drift speed — detect timesteps where energy_nodes positions change; (7) energy node drift magnitude — observe maximum position delta. Results are submitted via replay-tool CLI to both JSON and SQLite."""
+verification_explanation = """Test generates 3 game replays using a reference simulator with specific hidden parameter configurations, stores them as gzip-compressed blobs in the SQLite database. The agent's inference program reads from the database, decompresses data, infers parameters, and submits via replay-tool. Pytest verifies: (a) each JSON result file contains all 7 parameters matching ground truth, and (b) the SQLite results table contains matching entries. All parameters across all 3 replays must match exactly (within float tolerance)."""
+category = "reverse_engineering"
+tags = ["parameter-inference", "game-engine-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/infer-hidden-params"

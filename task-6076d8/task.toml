@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing the FIDE Dutch Swiss pairing system (C.04.3) is a notoriously complex algorithmic task requiring expertise in combinatorial optimization and specification-driven programming. The additional tool-proficiency layer requires the agent to parse FIDE's niche TRF (Tournament Report Format) — either manually or via the provided trf2json CLI — reconcile conflicting metadata between the TRF file and an authoritative SQLite database using sqlite3 queries, check organizer-imposed pairing restrictions from a relational table, and validate output with jq against a JSON schema. The multi-tool pipeline (TRF parsing → SQLite queries → algorithm → JSON output) demands interoperability across unfamiliar formats and CLIs."""
+solution_explanation = """The solution uses trf2json to parse the TRF file into JSON, queries sqlite3 for authoritative metadata (total_rounds=7 vs the TRF's incorrect XXR=9) and forbidden pairs, converts the trf2json output to internal format (including float history derivation from cumulative scores), runs the full FIDE Dutch System pairing algorithm with bracket processing and colour allocation, validates the output structure with jq, and writes the result to JSON."""
+verification_explanation = """Tests verify the output pairing against a precomputed reference pairing derived by manual bracket-by-bracket application of the FIDE Dutch System rules to the tournament state. 15 tests check: structural correctness (valid JSON, 8 pairs, all 16 TPNs, no self-play), absolute criteria C1 and C3 compliance, exact match of all pairings and bye assignment, correct colour allocation per Article 5, and quality criterion C12 bounds."""
+category = "algorithms"
+tags = ["multi-tool-pipeline", "specification-implementation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6076d8"

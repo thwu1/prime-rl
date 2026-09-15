@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing two distinct clinical annotation formats (brat standoff with discontinuous spans, inline XML with embedded attributes), implementing optimal bipartite entity matching with configurable span comparison modes, evaluating dependent relation and attribute layers, handling asymmetric document sets across gold and system directories, and producing both per-document and aggregate metrics. The solver must discover the appropriate matching algorithm from the evaluation spec, design a multi-level metrics architecture, and handle numerous interacting edge cases (empty annotations, cross-format evaluation, document-set asymmetry, discontinuous spans, threshold-sensitive matching)."""
+solution_explanation = """Modular Python engine: brat parser handles discontinuous spans via semicolon-split offset pairs; XML parser handles inline assertion attributes; format auto-detection by file extension. Uses scipy's linear_sum_assignment on Jaccard similarity matrices for optimal entity matching per type. Evaluates documents from the union of both directories: paired docs get full matching, gold-only docs contribute all-FN, system-only docs contribute all-FP. Per-document metrics are built alongside aggregation using a shared build_metrics helper that computes P/R/F1 per type plus micro/macro averages."""
+verification_explanation = """58 pytest tests organized into 14 classes covering: output schema validation, per-type entity metrics with exact numeric assertions, overlap matching with Jaccard thresholds, type matching mode (minimal overlap matches, zero overlap rejects, threshold independence), relation evaluation dependent on entity matching, attribute accuracy, discontinuous span handling, empty annotations, cross-format evaluation (brat-XML), full corpus aggregation, optimal one-to-one matching constraints, per-document metric consistency (sum of per-doc counts equals aggregate), and document-set asymmetry (gold-only FN, system-only FP, mixed scenarios with relations)."""
+category = "applied_computing"
+tags = ["clinical-nlp", "evaluation-metrics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clinical-nlp-evaluator-9b37c8"

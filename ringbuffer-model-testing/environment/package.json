@@ -1,0 +1,14 @@
+{
+  "name": "ring-buffer-pbt",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "fast-check": "3.15.0",
+    "typescript": "5.3.3",
+    "vitest": "1.2.2",
+    "tsx": "4.7.0"
+  }
+}

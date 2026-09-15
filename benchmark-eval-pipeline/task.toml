@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise across three independent domains: (1) Implementing structural image similarity from scratch using only numpy — the agent must determine the correct formulation, windowing strategy, and statistical decomposition from domain knowledge since the spec only states the function signature and behavioral constraints; (2) Swiss-system tournament with opponent-history constraints and secondary tiebreaking — requires understanding competitive pairing theory from chess/gaming domains, with deterministic test expectations that allow only one correct interpretation of the rules; (3) Bias-corrected accelerated bootstrap confidence intervals — requires graduate-level statistical knowledge to derive the correct correction and acceleration factors from first principles. Beyond algorithmic expertise, the agent must integrate SQLite caching with proper schema design, TOML configuration parsing, and CLI argument handling into a cohesive pipeline that works both as an importable module and a command-line tool."""
+solution_explanation = """Implement evaluator.py with: (1) SSIM using a normalized Gaussian kernel and numpy stride_tricks for efficient 2D valid-mode convolution to compute local means, variances, and covariances per channel; (2) Swiss tournament using greedy ranking-based pairing that skips previously-faced opponents and assigns byes to the lowest-ranked unpaired candidate, with Buchholz scores as sum of opponents' final scores; (3) BCa bootstrap computing bias-correction z0 from the proportion of bootstrap means below the observed mean and acceleration factor via jackknife leave-one-out influence; (4) SQLite caching layer with composite primary key on image paths; (5) TOML config loading via tomllib; (6) CLI interface via argparse with --data-dir, --output, --config, --cache-db flags."""
+verification_explanation = """Tests verify each component with deterministic inputs: photometric loss against known MSE values; SSIM for identical images (1.0), different random images (<0.1), and similar images (>0.5); forbidden import detection via AST parsing; Swiss tournament against hand-computed 4-candidate/3-round and 5-candidate/1-round rankings including Buchholz scores; trimmed mean with edge cases; BCa bootstrap for CI ordering, mean containment, and determinism; full pipeline with synthetic solid-color PNGs; CLI producing valid JSON reports; config overrides verified by checking alpha=1/beta=0 makes composite equal photometric loss; SQLite cache schema and population verified after evaluation."""
+category = "data_science"
+tags = ["image_metrics", "statistical_computing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-eval-pipeline"

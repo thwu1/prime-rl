@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_zeta_correct",
+    "challenge_id": "zeta",
+    "generated_code": "import sympy as sp\n\ntau = sp.symbols('tau')\n\ndef answer(tau):\n    \"\"\"Equivalent half-angle identity form.\"\"\"\n    return (1 - sp.cos(tau)) / 2"
+}

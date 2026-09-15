@@ -1,0 +1,13 @@
+{
+    "levels": {
+        "producer": {"secrecy": 2, "integrity": 2},
+        "consumer": {"secrecy": 2, "integrity": 2},
+        "auditor": {"secrecy": 1, "integrity": 3}
+    },
+    "domains": {
+        "producer": "core",
+        "consumer": "core",
+        "auditor": "audit"
+    },
+    "declassifiers": {}
+}

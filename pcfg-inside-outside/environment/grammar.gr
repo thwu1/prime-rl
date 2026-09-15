@@ -1,0 +1,22 @@
+# Probabilistic Context-Free Grammar in Chomsky Normal Form
+# Format: probability	LHS	RHS (space-separated)
+# Binary rules: two nonterminals. Lexical rules: single terminal.
+# Probabilities for each LHS sum to 1.
+1.0	S	NP VP
+0.5	VP	V NP
+0.2	VP	VP PP
+0.3	VP	V PP
+0.6	NP	Det N
+0.3	NP	NP PP
+0.1	NP	N N
+1.0	PP	P NP
+0.5	Det	the
+0.5	Det	a
+0.3	N	dog
+0.2	N	cat
+0.3	N	park
+0.2	N	fish
+0.5	V	saw
+0.5	V	ate
+0.5	P	in
+0.5	P	with

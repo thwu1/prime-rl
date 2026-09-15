@@ -1,0 +1,133 @@
+{
+  "test_cases": [
+    {
+      "id": "pe_no_pending",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_single_pending",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "BusFault", "priority": 5}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_multi_diff_priority",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "SysTick", "priority": 3},
+          {"name": "BusFault", "priority": 1},
+          {"name": "IRQ0", "priority": 2}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_same_priority_tiebreak",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "UsageFault", "priority": 0},
+          {"name": "MemManage", "priority": 0},
+          {"name": "BusFault", "priority": 0}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_blocked_by_active",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 2}
+        ],
+        "pending_exceptions": [
+          {"name": "IRQ0", "priority": 3}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_partially_blocked",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 2}
+        ],
+        "pending_exceptions": [
+          {"name": "IRQ0", "priority": 3},
+          {"name": "IRQ1", "priority": 1}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_primask_allows_hardfault",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": true,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "SysTick", "priority": 0},
+          {"name": "HardFault", "priority": -1}
+        ]
+      },
+      "query": "pending_exception"
+    },
+    {
+      "id": "pe_faultmask_allows_nmi",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": true,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "HardFault", "priority": -1},
+          {"name": "NMI", "priority": -2}
+        ]
+      },
+      "query": "pending_exception"
+    }
+  ]
+}

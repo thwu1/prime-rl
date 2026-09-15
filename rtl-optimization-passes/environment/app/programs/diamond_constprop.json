@@ -1,0 +1,13 @@
+{
+  "name": "diamond_constprop",
+  "params": ["r0"],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 0},
+    "2": {"type": "Icond", "cond": "lt", "args": ["r0", "r1"], "ifso": 3, "ifnot": 4},
+    "3": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 5, "imm": 10},
+    "4": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 5, "imm": 10},
+    "5": {"type": "Iop", "op": "add", "args": ["r2", "r2"], "dest": "r3", "succ": 6},
+    "6": {"type": "Ireturn", "arg": "r3"}
+  }
+}

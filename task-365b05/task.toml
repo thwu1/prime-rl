@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing ~250 lines of mathematically precise PyTorch code from scratch with minimal documentation. The skeleton provides only function names and type signatures — no formulas, no algorithmic descriptions, no architectural specifications. The agent must rely on deep domain expertise to: (1) know the max-subtraction trick for numerically stable softmax and the log-sum-exp trick for cross-entropy, both discoverable only through test behavior (stability tests offset inputs by 1000); (2) implement RoPE with correct interleaved dimension ordering (not half-split), deducible only by matching a loop-based reference in the test suite; (3) reverse-engineer the full TransformerLM architecture — the skeleton says only "Decoder-only Transformer Language Model" with no internal structure — requiring the agent to infer from the helper functions (silu, rms_norm, rope) and a parameter count constraint (23840 params) that this is a pre-norm architecture with SwiGLU gating (3 FFN matrices per layer), RoPE positional encoding, and RMS normalization; (4) implement AdamW with the exact decoupled weight-decay ordering that matches torch.optim.AdamW numerically over 1000 steps; (5) ensure all components compose correctly in an integration test that trains the model and verifies >40% loss reduction. Source-code constraints enforce that no pre-built layers or optimizers are used."""
+solution_explanation = """Implement all 10 components: (1) softmax with max-subtraction for stability, (2) cross-entropy via shifted log-sum-exp, (3) silu as x*sigmoid(x), (4) rms_norm dividing by sqrt(mean(x^2)+eps)*weight, (5) rope computing freqs=1/(theta^(2i/d_k)), angles=pos*freq, splitting even/odd dims, rotating via cos/sin, stack+flatten to interleave, (6) attention as softmax(QK^T/sqrt(d_k))*V with masked_fill, (7) TransformerLM with token embeddings, per-layer Q/K/V/O projections + W1/W2/W3 SwiGLU weights + RMSNorm weights using nn.Parameter, forward doing embed->blocks(norm->MHA+RoPE+causal->residual->norm->SwiGLU->residual)->norm->head, (8) AdamW tracking m/v moments applying decay-then-update, (9) cosine schedule with warmup/cosine/constant phases, (10) gradient clipping by total L2 norm."""
+verification_explanation = """26 pytest tests: source code constraint (no torch.nn.functional/nn.Linear/nn.Embedding), softmax correctness + stability + dim0, cross-entropy correctness + stability + gradient flow, SiLU vs F.silu, RMSNorm unit-RMS + shape + scaling, RoPE correctness vs loop reference + norm preservation + position-0 identity + relative-position dot-product invariance, SDPA with/without masks in 3D and 4D, TransformerLM output shape + causal invariance + gradient flow + parameter count (23840), AdamW vs torch.optim.AdamW after 1000 steps, cosine schedule vs 25 known values, gradient clipping vs clip_grad_norm_, and integration convergence (300 steps with >40% loss reduction)."""
+category = "machine_learning"
+tags = ["transformer", "deep-learning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-365b05"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert remote sensing knowledge to identify unlabeled spectral bands from radiometric properties (mean reflectance ordering: NIR > Green > Red > Blue in vegetation-dominant scenes). The solver must independently explore the data directory to discover files and characterize their properties, then diagnose multiple interacting data quality issues: NaN-corrupted scan lines not flagged by nodata metadata (-9999 declared but no pixels match, real corruption is NaN), a self-intersecting bowtie polygon requiring geometric repair via make_valid(), undocumented UTM coordinates in a CSV that must be inferred from coordinate magnitude, and a zone extending beyond raster bounds requiring spatial clipping. Correct results require holistic understanding of CRS conventions, raster coordinate systems, pixel-center interpolation models, and spectral index computation."""
+solution_explanation = """Compute per-band mean reflectance excluding NaN values, then sort bands by mean to assign spectral identity: highest mean = NIR (band 0), lowest = Blue (band 1), second-lowest = Red (band 2), second-highest = Green (band 3). Repair zone 3's bowtie polygon with shapely.make_valid(). Create a NaN mask across all bands and exclude NaN pixels from zonal statistics. Recognize station CSV coordinates as UTM (EPSG:32617) from their magnitude matching the raster extent. Use scipy.ndimage.map_coordinates for bilinear interpolation with 0.5-pixel center offset. Compute NDVI/NDWI with correctly identified bands, then Pearson correlation between station and zone-mean indices."""
+verification_explanation = """Tests independently verify band mapping against ground truth (band 0=NIR, 1=Blue, 2=Red, 3=Green), recompute all zonal statistics and station values from raw data using the same geospatial operations with repaired geometries and NaN masking, and compare outputs with tolerances. Specific tests verify: Zone 2 has reduced valid_pixels due to NaN overlap, Zone 3's repaired bowtie has approximately half the bounding rectangle's pixel count, bilinear interpolation produces values distinct from nearest-neighbor for most stations, and stations inside the repaired bowtie are correctly assigned to zone 3."""
+category = "geospatial"
+tags = ["remote-sensing", "data-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raster-zonal-analysis"

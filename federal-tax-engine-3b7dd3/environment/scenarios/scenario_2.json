@@ -1,0 +1,50 @@
+{
+  "scenario_name": "scenario_2",
+  "tax_year": 2025,
+  "filing_status": "mfj",
+  "taxpayer": {
+    "first_name": "Robert",
+    "last_name": "Miller",
+    "ssn": "400-00-2045"
+  },
+  "w2s": [
+    {
+      "employer_name": "Apex Technologies",
+      "employer_ein": "12-3456789",
+      "wages": 120000,
+      "federal_tax_withheld": 12000,
+      "ss_wages": 120000,
+      "ss_tax_withheld": 7440,
+      "medicare_wages": 120000,
+      "medicare_tax_withheld": 1740
+    }
+  ],
+  "dividends": {
+    "qualified": 3000,
+    "ordinary": 3000
+  },
+  "capital_gains": {
+    "short_term": 2006,
+    "long_term": 8099
+  },
+  "schedule_h": {
+    "has_household_employees": false,
+    "total_cash_wages_ss": 0,
+    "total_cash_wages_medicare": 0,
+    "total_cash_wages_additional_medicare": 0,
+    "federal_income_tax_withheld": 0
+  },
+  "form_5695": {
+    "insulation_cost": 0,
+    "door_cost": 0,
+    "window_cost": 0,
+    "central_ac_cost": 0,
+    "water_heater_cost": 0,
+    "furnace_boiler_cost": 0,
+    "electrical_panel_cost": 0,
+    "home_energy_audit_cost": 0,
+    "heat_pump_cost": 0,
+    "heat_pump_water_heater_cost": 0,
+    "biomass_stove_cost": 0
+  }
+}

@@ -1,0 +1,9 @@
+{
+    "name": "wide_surveillance",
+    "description": "Wide surveillance cylinder for early detection (CD3D-inspired)",
+    "DTHR_nmi": 5.0,
+    "ZTHR_ft": 1000.0,
+    "TAUMOD_s": 180.0,
+    "TCOA_s": 0.0,
+    "lookahead_s": 300.0
+}

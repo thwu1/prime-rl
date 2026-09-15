@@ -1,0 +1,42 @@
+{
+  "description": "Validated spectral eigenvalue computation for annular membrane boundary value problems. Compute eigenvalues (zeros of secular equations), the spectral zeta function, and McMahon asymptotic convergence products.",
+  "precision_digits": 60,
+  "problems": [
+    {
+      "id": "annular_m0",
+      "description": "First 15 positive zeros of f(x) = J_0(3x)*Y_0(x) - Y_0(3x)*J_0(x), the m=0 radial eigenvalues of the Dirichlet Laplacian on the annulus with inner radius 1 and outer radius 3 (DLMF 10.21). J_nu and Y_nu denote Bessel functions of the first and second kind of order nu.",
+      "num_zeros": 15,
+      "search_interval": [0.1, 50.0]
+    },
+    {
+      "id": "annular_m1",
+      "description": "First 15 positive zeros of g(x) = J_1(3x)*Y_1(x) - Y_1(3x)*J_1(x), the m=1 radial eigenvalues of the Dirichlet Laplacian on the same annulus r in [1,3].",
+      "num_zeros": 15,
+      "search_interval": [0.1, 50.0]
+    },
+    {
+      "id": "robin_dirichlet",
+      "description": "First 10 positive zeros of h(x) = x*[J_0(2x)*Y_1(x) - J_1(x)*Y_0(2x)] - 5*[J_0(x)*Y_0(2x) - J_0(2x)*Y_0(x)]. This is the m=0 secular equation for the Laplacian on the annulus r in [1,2] with Robin boundary condition (Biot number h=5, i.e. du/dn + 5u = 0) at the inner boundary r=1 and Dirichlet condition (u=0) at the outer boundary r=2. Derived by expanding u(r) = A*J_0(lambda*r) + B*Y_0(lambda*r) and eliminating coefficients via the boundary conditions.",
+      "num_zeros": 10,
+      "search_interval": [0.5, 35.0]
+    }
+  ],
+  "spectral_zeta": {
+    "id": "spectral_zeta_Z4",
+    "description": "Compute Z_4 = sum_{n=1}^{15} 1/lambda_{0,n}^4 + sum_{n=1}^{15} 2/lambda_{1,n}^4 + sum_{n=1}^{10} 1/mu_n^4 to 50 significant digits. Angular-mode multiplicities: m=0 Dirichlet modes have multiplicity 1, m=1 Dirichlet modes have multiplicity 2 (cos(theta) and sin(theta) angular parts), Robin-Dirichlet modes have multiplicity 1. Here lambda_{0,n} are the annular_m0 zeros, lambda_{1,n} are the annular_m1 zeros, and mu_n are the robin_dirichlet zeros.",
+    "precision_digits": 50
+  },
+  "asymptotic_validation": {
+    "description": "For each annular_m0 zero lambda_n (n=1..15), compute the McMahon asymptotic convergence product P_n = n^2 * |lambda_n - n*pi/2| / lambda_n. By the McMahon asymptotic expansion for Bessel cross-product zeros on the annulus [1,3] with nu=0, these products converge to 1/(6*pi^2) as n -> infinity. The convergence rate is O(1/n^2).",
+    "expected_limit_formula": "1/(6*pi^2)",
+    "expected_limit_approx": 0.016886941891662
+  },
+  "output": {
+    "file": "/app/results.json",
+    "format": {
+      "problems": "Array of objects with keys: id (string matching problem id), zeros (array of objects with keys: index (int, 1-based), value (string, decimal representation with >= 60 significant digits), residual (string, |f(zero)| in scientific notation))",
+      "spectral_zeta_Z4": "String with >= 50 significant digits representing the spectral zeta sum",
+      "asymptotic_products": "Array of 15 objects with keys: n (int, 1 to 15), product (string, the P_n value), zero_value (string, the corresponding lambda_n)"
+    }
+  }
+}

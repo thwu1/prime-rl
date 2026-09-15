@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of CRC polynomial arithmetic over GF(2), Koopman notation conventions, Hamming Distance computation, primitivity testing, and divisibility analysis. The agent must query a SQLite database for configuration, parse packed binary test vector files to validate CRC implementations, compile and use a C-based CRC utility, and implement multiple interrelated algorithms for polynomial analysis — combining coding theory expertise with multi-tool terminal proficiency across sqlite3, gcc, and binary data handling."""
+solution_explanation = """Query the SQLite database for polynomial and scenario configurations using sqlite3. Parse binary test vectors to validate CRC computations. Compute syndromes S(i) = x^i mod G(x) via LFSR simulation. For each HD level d, enumerate (d-1)-fold error combinations to find detection boundaries. Check primitivity by verifying multiplicative order equals 2^n-1. Check (x+1) factor via GF(2) evaluation. Convert notations via bit manipulation and reversal."""
+verification_explanation = """Tests load /app/results.json and verify HD profiles, polynomial properties, notation conversions, and scenario evaluations against known correct values independently computed from CRC polynomial theory."""
+category = "coding_theory"
+tags = ["crc", "hamming_distance", "sqlite", "binary_parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ceccb7"

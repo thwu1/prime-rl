@@ -1,0 +1,4 @@
+sensor_processor:
+  ros__parameters:
+    calibration_offset: 1.5
+    calibration_scale: 1.02

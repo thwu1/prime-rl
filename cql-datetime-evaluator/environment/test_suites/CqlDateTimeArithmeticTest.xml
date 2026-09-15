@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tests xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://hl7.org/fhirpath/tests"
+       xsi:schemaLocation="http://hl7.org/fhirpath/tests /app/testSchema.xsd"
+       name="CqlDateTimeArithmeticTest" version="1.4">
+  <capability code="date-time-arithmetic"/>
+  <capability code="duration-between"/>
+  <capability code="difference-in"/>
+  <group name="Add" version="1.4">
+    <capability code="date-time-arithmetic"/>
+    <test name="DateTimeAdd5Years" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 10, 10) + 5 years</expression>
+      <output>@2010-10-10T</output>
+    </test>
+    <test name="DateTimeAddMonthsOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 5, 10) + 10 months</expression>
+      <output>@2006-03-10T</output>
+    </test>
+    <test name="DateTimeAddDaysOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2016, 6, 10) + 21 days</expression>
+      <output>@2016-07-01T</output>
+    </test>
+    <test name="DateTimeAddHoursOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2016, 6, 10, 5) + 19 hours</expression>
+      <output>@2016-06-11T00</output>
+    </test>
+    <test name="DateTimeAddMinutesOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2016, 6, 10, 5, 5) + 55 minutes</expression>
+      <output>@2016-06-10T06:00</output>
+    </test>
+    <test name="DateTimeAddSecondsOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2016, 6, 10, 5, 5, 5) + 55 seconds</expression>
+      <output>@2016-06-10T05:06:00</output>
+    </test>
+    <test name="DateTimeAdd5Milliseconds" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 5, 10, 5, 5, 5, 5) + 5 milliseconds</expression>
+      <output>@2005-05-10T05:05:05.010</output>
+    </test>
+    <test name="DateTimeAddMillisecondsOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2016, 6, 10, 5, 5, 5, 5) + 995 milliseconds</expression>
+      <output>@2016-06-10T05:05:06.000</output>
+    </test>
+    <test name="DateTimeAddLeapYear" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2012, 2, 29) + 1 year</expression>
+      <output>@2013-02-28T</output>
+    </test>
+    <test name="DateTimeAdd2YearsByMonths" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2014) + 24 months</expression>
+      <output>@2016T</output>
+    </test>
+    <test name="DateTimeAdd2YearsByDaysRem5" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2014) + 735 days</expression>
+      <output>@2016T</output>
+    </test>
+    <test name="DateTimeAddHoursPreservedSec" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 5, 10, 5, 20, 30) + 5 hours</expression>
+      <output>@2005-05-10T10:20:30</output>
+    </test>
+    <test name="DateTimeAddWeeksEquality" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2018, 5, 2) + 3 weeks = DateTime(2018, 5, 23)</expression>
+      <output>true</output>
+    </test>
+    <test name="DateTimeAddSubPrecPreserved" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 5, 10) + 5 hours = DateTime(2005, 5, 10)</expression>
+      <output>true</output>
+    </test>
+    <test name="DateTimeAddSubPrecOverflow" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression>DateTime(2005, 5, 10) + 25 hours = DateTime(2005, 5, 11)</expression>
+      <output>true</output>
+    </test>
+    <test name="DateAdd1Year" version="1.3">
+      <capability code="date-time-arithmetic"/>
+      <expression>Date(2014, 6) + 1 year</expression>
+      <output>@2015-06</output>
+    </test>
+    <test name="DateAdd33Days" version="1.3">
+      <capability code="date-time-arithmetic"/>
+      <expression>Date(2014, 6) + 33 days</expression>
+      <output>@2014-07</output>
+    </test>
+    <test name="DateTimeAddInvalidYears" version="1.4">
+      <capability code="date-time-arithmetic"/>
+      <expression invalid="true">DateTime(2005, 10, 10) + 8000 years</expression>
+    </test>
+  </group>
+  <group name="DurationBetween" version="1.4">
+    <capability code="duration-between"/>
+    <test name="DurationYears" version="1.4">
+      <capability code="duration-between"/>
+      <expression>years between DateTime(2005, 5) and DateTime(2010, 4)</expression>
+      <output>4</output>
+    </test>
+    <test name="DurationMonths" version="1.4">
+      <capability code="duration-between"/>
+      <expression>months between @2014-01-31 and @2014-02-01</expression>
+      <output>0</output>
+    </test>
+    <test name="DurationDays" version="1.4">
+      <capability code="duration-between"/>
+      <expression>days between DateTime(2010, 10, 12, 12, 5) and DateTime(2008, 8, 15, 8, 8)</expression>
+      <output>-788</output>
+    </test>
+    <test name="DurationWeeks1" version="1.4">
+      <capability code="duration-between"/>
+      <expression>weeks between @2012-03-10T22:05:09 and @2012-03-20T07:19:33</expression>
+      <output>1</output>
+    </test>
+    <test name="DurationWeeks2" version="1.4">
+      <capability code="duration-between"/>
+      <expression>weeks between @2012-03-10T06:05:09 and @2012-03-24T07:19:33</expression>
+      <output>2</output>
+    </test>
+    <test name="DurationHoursTime" version="1.4">
+      <capability code="duration-between"/>
+      <expression>hours between @T20:26:15.555 and @T23:25:15.555</expression>
+      <output>2</output>
+    </test>
+    <test name="DurationMinutesTime" version="1.4">
+      <capability code="duration-between"/>
+      <expression>minutes between @T23:20:16.555 and @T23:25:15.555</expression>
+      <output>4</output>
+    </test>
+    <test name="DurationSecondsTime" version="1.4">
+      <capability code="duration-between"/>
+      <expression>seconds between @T23:25:10.556 and @T23:25:15.555</expression>
+      <output>4</output>
+    </test>
+    <test name="DurationMillisecondsTime" version="1.4">
+      <capability code="duration-between"/>
+      <expression>milliseconds between @T23:25:25.555 and @T23:25:25.560</expression>
+      <output>5</output>
+    </test>
+    <test name="DurationHoursTimezone" version="1.4">
+      <capability code="duration-between"/>
+      <expression>hours between @2017-03-12T01:00:00-07:00 and @2017-03-12T03:00:00-06:00</expression>
+      <output>1</output>
+    </test>
+    <test name="DurationMinutesTimezone" version="1.4">
+      <capability code="duration-between"/>
+      <expression>minutes between @2017-11-05T01:30:00-06:00 and @2017-11-05T01:15:00-07:00</expression>
+      <output>45</output>
+    </test>
+    <test name="DurationDaysTimezone" version="1.4">
+      <capability code="duration-between"/>
+      <expression>days between @2017-03-12T00:00:00-07:00 and @2017-03-13T00:00:00-06:00</expression>
+      <output>0</output>
+    </test>
+  </group>
+  <group name="DifferenceIn" version="1.4">
+    <capability code="difference-in"/>
+    <test name="DiffYears" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in years between DateTime(2000) and DateTime(2005, 12)</expression>
+      <output>5</output>
+    </test>
+    <test name="DiffMonths" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in months between DateTime(2000, 2) and DateTime(2000, 10)</expression>
+      <output>8</output>
+    </test>
+    <test name="DiffDays" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in days between DateTime(2000, 10, 15, 10, 30) and DateTime(2000, 10, 25, 10, 0)</expression>
+      <output>10</output>
+    </test>
+    <test name="DiffHours" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in hours between DateTime(2000, 4, 1, 12) and DateTime(2000, 4, 1, 20)</expression>
+      <output>8</output>
+    </test>
+    <test name="DiffWeeks1" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in weeks between DateTime(2000, 10, 15) and DateTime(2000, 10, 28)</expression>
+      <output>1</output>
+    </test>
+    <test name="DiffWeeks2" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in weeks between DateTime(2000, 10, 15) and DateTime(2000, 10, 29)</expression>
+      <output>2</output>
+    </test>
+    <test name="DiffYearsNegative" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in years between DateTime(2016) and DateTime(1998)</expression>
+      <output>-18</output>
+    </test>
+    <test name="DiffMillisecondsTz" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in milliseconds between DateTime(2000, 10, 10, 10, 5, 45, 500, -6.0) and DateTime(2000, 10, 10, 10, 5, 45, 900, -7.0)</expression>
+      <output>3600400</output>
+    </test>
+    <test name="DiffDaysTz" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in days between @2017-03-12T00:00:00-07:00 and @2017-03-13T00:00:00-06:00</expression>
+      <output>1</output>
+    </test>
+    <test name="DiffHoursTz" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in hours between @2017-03-12T01:00:00-07:00 and @2017-03-12T03:00:00-06:00</expression>
+      <output>1</output>
+    </test>
+    <test name="DiffMinutesTz" version="1.4">
+      <capability code="difference-in"/>
+      <expression>difference in minutes between @2017-11-05T01:30:00-06:00 and @2017-11-05T01:15:00-07:00</expression>
+      <output>45</output>
+    </test>
+  </group>
+</tests>

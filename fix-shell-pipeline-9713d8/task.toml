@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 coupled shell bugs across 4 scripts AND implementing a non-trivial error burst detection algorithm entirely in bash. The bugs exploit subtle bash semantics that interact: (1) // being a valid path rather than a comment, scoping variable assignments to a command instead of the current shell; (2) pipeline subshells discarding variable modifications in cat|while loops; (3) arithmetic side-effects in fork-then-exec redirection paths being lost because the increment occurs in the child process; (4) brace expansion preceding variable expansion, preventing {1..$var} from generating sequences; (5) command substitution stripping trailing newlines from captured output; (6) source/. executed inside $() running in a subshell, losing all sourced variables. Bugs 1 and 6 are tightly coupled — fixing either alone still yields empty config variables. The analyze.sh implementation requires epoch timestamp conversion via date(1), sorted cross-file aggregation, sliding-window burst detection with overlap merging, and structured output — all in bash with arrays and arithmetic."""
+solution_explanation = """Fix config.sh: replace // with # so assignments persist. Fix pipeline.sh: move 'source config.sh' out of the $(setup_env) command substitution so variables persist in the main shell. Fix process.sh: use 'while...done < file' instead of 'cat | while' to avoid subshell variable loss. Fix archive.sh: separate $((file_num++)) from the cat redirection target into its own statement. Fix pipeline.sh brace expansion: use C-style for ((i=1;i<=W;i++)) loop instead of {1..$W}. Fix pipeline.sh separator: use echo directly instead of capturing via command substitution which strips newlines. Implement analyze.sh: collect all ERROR entries with their source files, convert ISO timestamps to epoch seconds with date -d, sort by epoch, apply sliding window of BURST_WINDOW seconds to find clusters of ALERT_THRESHOLD+ errors, merge overlapping windows, output BURST|start|end|count|files format."""
+verification_explanation = """Static tests run the pipeline with 3 log files and verify: manifest has correct sorted entries; 3 distinct archives match header+log content exactly; summary has exact format with correct severity counts (INFO:8, WARN:3, ERROR:4, Total:15) and 40-char separators; alerts.txt has exactly 1 burst at the correct timestamp range (10:30:45–10:31:45) with 3 errors from all 3 servers. Dynamic tests add a 4th file with 3 rapid-fire ERROR entries and 2 WARN entries, verifying generalization: 4 manifest entries, updated severity counts (INFO:8, WARN:5, ERROR:7, Total:20), 4 distinct archives, and 2 correctly detected bursts in chronological order — the original 3-server burst plus a new single-server burst."""
+category = "debugging"
+tags = ["shell", "bash-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-shell-pipeline-9713d8"

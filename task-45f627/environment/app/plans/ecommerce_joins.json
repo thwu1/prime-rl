@@ -1,0 +1,74 @@
+{
+  "plan_name": "ecommerce_joins",
+  "state_ttl_seconds": 600,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Source",
+      "name": "pageviews",
+      "inputs": [],
+      "rate_per_second": 1000,
+      "avg_row_size_bytes": 200
+    },
+    {
+      "id": 2,
+      "type": "Source",
+      "name": "clicks",
+      "inputs": [],
+      "rate_per_second": 800,
+      "avg_row_size_bytes": 180
+    },
+    {
+      "id": 3,
+      "type": "Source",
+      "name": "orders",
+      "inputs": [],
+      "rate_per_second": 200,
+      "avg_row_size_bytes": 300
+    },
+    {
+      "id": 4,
+      "type": "Source",
+      "name": "profiles",
+      "inputs": [],
+      "rate_per_second": 50,
+      "avg_row_size_bytes": 400
+    },
+    {
+      "id": 5,
+      "type": "Join",
+      "name": "join_pageviews_clicks",
+      "inputs": [1, 2],
+      "join_type": "INNER",
+      "join_keys": [{"left": "user_id", "right": "user_id"}],
+      "estimated_output_rate": 500,
+      "estimated_output_row_size": 360
+    },
+    {
+      "id": 6,
+      "type": "Join",
+      "name": "join_with_orders",
+      "inputs": [5, 3],
+      "join_type": "INNER",
+      "join_keys": [{"left": "user_id", "right": "user_id"}],
+      "estimated_output_rate": 250,
+      "estimated_output_row_size": 500
+    },
+    {
+      "id": 7,
+      "type": "Join",
+      "name": "join_with_profiles",
+      "inputs": [6, 4],
+      "join_type": "LEFT",
+      "join_keys": [{"left": "user_id", "right": "user_id"}],
+      "estimated_output_rate": 250,
+      "estimated_output_row_size": 700
+    },
+    {
+      "id": 8,
+      "type": "Sink",
+      "name": "output",
+      "inputs": [7]
+    }
+  ]
+}

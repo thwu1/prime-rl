@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in quantum information theory: Bell states, density matrices, entanglement distillation protocols, and LOCC constraints. The agent must independently discover optimal distillation circuits (not named or described in the instruction), implement density-matrix simulation, handle both bit-flip and phase-flip noise channels (requiring basis transformations the agent must figure out), optimize the number of input pairs to maximize claim strength, and author valid OpenQASM 3.0 circuit files while using the provided LOCC validator CLI tool. The five scenarios span increasing difficulty from two-pair to five-pair protocols on heavily noisy channels."""
+solution_explanation = """Design bilateral parity check circuits: CNOT from output to each ancilla within each party, then post-select on matching ancilla outcomes. For phase-flip noise, apply Hadamard to convert to bit-flip noise, apply the same parity check, then Hadamard the output back. Choose optimal N (2,2,3,3,5) by maximizing claim_strength = F^N subject to F^N/(F^N+(1-F)^N) >= threshold. Write circuits as OpenQASM 3.0 files and validate with the LOCC tool. Implement density-matrix simulation with numpy: initialize noisy pairs with outside-in permutation, apply unitaries, enumerate measurement outcomes, filter by matching-parity post-selection, partial-trace to output pair, compute fidelity."""
+verification_explanation = """Tests verify: (1) results.json format with all 5 scenarios and required fields; (2) fidelity, success probability, and claim strength match analytical formulas within 1e-3 tolerance; (3) claim_strength = fidelity * success_probability consistency; (4) OpenQASM 3.0 circuit files exist in /app/circuits/, parse correctly with qiskit.qasm3, have correct qubit counts, and contain measurement and multi-qubit gate operations; (5) circuits pass LOCC compliance validation via the provided validator CLI tool; (6) simulator.py exports compute_fidelity_phi_plus and correctly computes fidelity for known Bell states and mixtures; (7) all scenarios meet fidelity thresholds."""
+category = "quantum_computing"
+tags = ["quantum-circuit-design", "openqasm3"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/entanglement-distillation-simulator"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert numerical analysis knowledge spanning three distinct domains: (1) polylogarithm evaluation requiring understanding of convergence regions, functional equations (Li₂ reflection formula, eta-zeta relation), and catastrophic cancellation near z=1 where 20+ digits vanish in subtraction; (2) Hurwitz zeta requiring Euler-Maclaurin theory with adaptive correction terms — critically, understanding that 3 Bernoulli corrections yield only ~20 digits while 25+ are needed, and that Re(s)<1 causes series divergence demanding holistic analysis of the remainder formula; (3) Hilbert matrix determinants where the agent must recognize that no amount of guard digits makes LU viable for n=20 (condition number ~10^28) and discover the Cauchy determinant closed-form formula. The shared fixed-guard-digit bug connects all failures, requiring the solver to reason about precision propagation across fundamentally different numerical regimes."""
+solution_explanation = """For polylogarithm: uses mpmath's analytic-continuation-aware polylog as one algorithm, and identity-based formulas as the other (Li₂(1/2)=π²/12−ln²2/2, Li₂(−1)=−π²/12, Li₃(−1)=−3ζ(3)/4, reflection formula for z near 1). For Hurwitz zeta: uses mpmath's built-in zeta(s,a) and implements Euler-Maclaurin with 25+ Bernoulli corrections and 80+ guard digits. For Hilbert determinant: uses the exact Cauchy product formula det(H_n)=∏(k!)⁴/∏(k!) avoiding all conditioning issues, cross-validated against LU at scaled precision. All computations achieve 50-digit accuracy with 45+ digit cross-validation agreement."""
+verification_explanation = """Tests run the engine and check: (1) all 10 output values match independently computed mpmath references to ≥40 significant digits, (2) diagnostics.json has proper dual-algorithm structure with distinct names for all 10 computations, (3) both algorithm values are individually correct to ≥35 digits preventing trivial duplication, (4) cross-validation shows ≥45 digits of inter-algorithm agreement, (5) summary statistics are consistent. Reference values are computed using mpmath's built-in polylog/zeta/det at very high working precision (up to dps=450 for H_20)."""
+category = "numerical_analysis"
+tags = ["arbitrary-precision", "special-functions"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/precision-oracle-bugs"

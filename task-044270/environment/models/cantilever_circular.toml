@@ -1,0 +1,46 @@
+# Cantilever column — circular cross-section under axial compression
+# 11 nodes along +z (L=10), 10 elements, r=0.5, E=1000, nu=0.3
+# Fixed base (node 0), unit compressive load at tip (node 10)
+
+[metadata]
+name = "cantilever_circular"
+description = "Fixed-free cantilever column with circular cross-section"
+
+[geometry]
+nodes = [
+    [0.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [0.0, 0.0, 2.0],
+    [0.0, 0.0, 3.0],
+    [0.0, 0.0, 4.0],
+    [0.0, 0.0, 5.0],
+    [0.0, 0.0, 6.0],
+    [0.0, 0.0, 7.0],
+    [0.0, 0.0, 8.0],
+    [0.0, 0.0, 9.0],
+    [0.0, 0.0, 10.0],
+]
+
+[section]
+E = 1000.0
+nu = 0.3
+A = 0.7853981633974483
+I_y = 0.049087385212340776
+I_z = 0.049087385212340776
+J = 0.09817477042468155
+I_rho = 0.09817477042468155
+local_z = [1.0, 0.0, 0.0]
+
+[connectivity]
+elements = [
+    [0, 1], [1, 2], [2, 3], [3, 4], [4, 5],
+    [5, 6], [6, 7], [7, 8], [8, 9], [9, 10],
+]
+
+[[boundary_conditions]]
+node = 0
+fixed = [true, true, true, true, true, true]
+
+[[loads]]
+node = 10
+values = [0.0, 0.0, -1.0, 0.0, 0.0, 0.0]

@@ -1,0 +1,37 @@
+{
+  "params": {
+    "map_width": 24,
+    "map_height": 24,
+    "unit_move_cost": 2,
+    "unit_sap_cost": 40,
+    "unit_sap_range": 5,
+    "unit_sap_dropoff_factor": 0.5,
+    "unit_energy_void_factor": 0.125,
+    "max_unit_energy": 400,
+    "nebula_tile_energy_reduction": 10
+  },
+  "units": [
+    {"team": 0, "id": 0, "position": [5, 5], "energy": 300},
+    {"team": 0, "id": 1, "position": [5, 8], "energy": 250},
+    {"team": 0, "id": 2, "position": [5, 12], "energy": 30},
+    {"team": 1, "id": 0, "position": [7, 5], "energy": 200},
+    {"team": 1, "id": 1, "position": [7, 6], "energy": 180},
+    {"team": 1, "id": 2, "position": [8, 5], "energy": 150}
+  ],
+  "map_features": {
+    "tiles": []
+  },
+  "relic_nodes": [],
+  "actions": {
+    "team_0": [
+      {"unit_id": 0, "direction": 5, "sap_dx": 2, "sap_dy": 0},
+      {"unit_id": 1, "direction": 5, "sap_dx": 10, "sap_dy": 0},
+      {"unit_id": 2, "direction": 5, "sap_dx": 3, "sap_dy": 0}
+    ],
+    "team_1": [
+      {"unit_id": 0, "direction": 0, "sap_dx": 0, "sap_dy": 0},
+      {"unit_id": 1, "direction": 0, "sap_dx": 0, "sap_dy": 0},
+      {"unit_id": 2, "direction": 0, "sap_dx": 0, "sap_dy": 0}
+    ]
+  }
+}

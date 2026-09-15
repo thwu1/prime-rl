@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of WMO GRIB binary format internals including Section 3 (grid definition scanning modes), Section 4 (product definition parameter encoding), and Section 5 (data representation packing precision). The solver must independently diagnose five distinct conformance violations from cryptic QC error codes: insufficient packing bit-depth causing quantization error, parameter identity mismatch between metadata and data value physical domain, inconsistent scanning direction flags within a multi-message file, data values stored in wrong SI units per WMO encoding conventions, and duplicate vertical level metadata requiring physical reasoning to disambiguate. Each defect demands deep domain knowledge of meteorological conventions (temperature ranges, geopotential magnitudes, pressure unit standards, tropospheric humidity profiles) combined with proficiency in the ecCodes toolchain."""
+solution_explanation = """The solver reads each GRIB file, runs a battery of diagnostic checks (packing precision analysis, parameter-vs-data-range coherence, scanning flag uniformity, unit domain validation, vertical level uniqueness), and applies the appropriate correction: repacking temperature data from 4-bit to 16-bit precision, correcting shortName from 't' to 'z' based on data value domain analysis, normalizing jScansPositively flags across wind messages, converting surface pressure values from hPa to Pa, and disambiguating humidity levels using mean-value physical reasoning to assign the higher-humidity message to 850 hPa."""
+verification_explanation = """Tests independently verify each corrected file: temperature messages have bitsPerValue>=12 with values in 200-300K range; upper air file has shortName='z' with values in geopotential range (40000-60000 m²/s²); all wind messages have jScansPositively=0; surface data values are in Pascal range (98000-105000); humidity messages have unique levels {700,850} with the 850 hPa message showing higher mean humidity. Data preservation checks compare original and corrected values for metadata-only fixes (max_abs_diff<0.01), verify repacking tolerance for temperature, and confirm ~100x scaling for the units conversion. Audit and integrity report structure is validated."""
+category = "applied_computing"
+tags = ["meteorology", "data-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/grib-edition-harmonize"

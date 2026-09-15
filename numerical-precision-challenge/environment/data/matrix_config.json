@@ -1,0 +1,20 @@
+{
+  "description": "Specification for the Fibonacci-banded sparse matrix M",
+  "size": 5000,
+  "indexing": "1-based (M[1][1] is the first diagonal entry)",
+  "diagonal": {
+    "rule": "ith_prime",
+    "description": "M[i][i] = the i-th prime number (p_1=2, p_2=3, p_3=5, p_4=7, ...)"
+  },
+  "off_diagonal": {
+    "rule": "fibonacci_offsets",
+    "value": 1,
+    "description": "M[i][j] = 1 whenever |i-j| is one of the Fibonacci-derived offsets listed below; M[i][j] = 0 otherwise",
+    "offsets": [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181]
+  },
+  "target": {
+    "description": "Compute the (row, col) entry of the matrix inverse M^{-1}",
+    "row": 1,
+    "col": 1
+  }
+}

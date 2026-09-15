@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level computational geometry: implementing 9 exact distance primitives (including non-trivial octahedron, ellipsoid, capped cone, pyramid), composing them through a recursive shape tree with smooth boolean operations and spatial transforms (rotation, elongation, symmetry, onion shells), building a perspective camera and depth-map renderer, and orchestrating a multi-tool output pipeline. The specification provides mathematical definitions but not implementation guidance—the solver must independently derive correct domain transformations, exact distance formulas for complex polyhedra, and a working ray-surface intersection engine."""
+solution_explanation = """Build a Python evaluation engine implementing each primitive's distance function and recursive tree evaluation with transforms and boolean ops. Process all query types (distance, normal via central differences, ray cast via sphere tracing, classification). Render a depth map using a look-at camera, convert to PNG, generate cross-section data, and plot via gnuplot."""
+verification_explanation = """Tests verify 60 query results against pre-computed references (25 distances, 15 normals, 10 ray casts, 10 classifications with respective tolerances), validate PGM render format/dimensions/non-triviality and PNG existence, verify cross-section data format and spot-check interpolated values against known field values, and check cross-section plot PNG validity."""
+category = "computational_geometry"
+tags = ["distance-fields", "rendering-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sdf-scene-engine"

@@ -1,0 +1,18 @@
+int main() {
+    int a = 0xFF;
+    int b = 077;
+    int c = 255;
+    putint(a);
+    putch(10);
+    putint(b);
+    putch(10);
+    putint(c);
+    putch(10);
+    if (a == c) {
+        putint(1);
+    } else {
+        putint(0);
+    }
+    putch(10);
+    return 0;
+}

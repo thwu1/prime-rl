@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of computational geometry under affine transformations, plus debugging a subtle defect in existing foundation code. The TransformedGeometry2d challenge is that non-uniform scaling invalidates common nearest-point shortcuts — the solver must discover this independently from test failures. The Group2d composite requires correctly merging child results with proper priority semantics (e.g. negative/inside distances override positive/outside). The ellipse intersection demands coordinate-frame reasoning. Additionally, the foundation's intersectLineSegmentPolygon has an off-by-one bug (uses polyline loop bound) that causes incorrect intersections on closed polygons — the solver must trace through inherited methods across multiple files to diagnose and fix it."""
+solution_explanation = """TransformedGeometry2d: getVertices maps through the matrix. nearestPoint iterates world-space edges (vertex pairs) and projects the query point onto each segment, returning the closest. This avoids the transform-to-local error under non-uniform scaling. hitTestPoint/distanceToPoint use pointInPolygon on world vertices for inside detection, with world-space Euclidean distance from nearestPoint. getBounds uses Box.FromPoints on world vertices. transform composes via Mat.Multiply. Group2d: delegates each operation to children, combines results (flatMap for intersections, min-abs for distances with negative-priority, any for hit tests, expand for bounds). ellipseIntersect: translates segment endpoints relative to center, rotates by -rotation, divides by rx/ry to normalize to unit circle, solves the standard ray-circle quadratic, filters roots to [0,1], and computes world-space intersection coordinates. intersect.ts fix: change intersectLineSegmentPolygon loop from points.length-1 to points.length."""
+verification_explanation = """44 TypeScript test cases executed via tsx, with results parsed as JSON by pytest. Tests cover: TransformedGeometry2d under translation, non-uniform scaling, rotation, shear, composed transforms, circle wrapping, unfilled polygons, identity/extreme edge cases. Group2d tests cover nearestPoint, hitTest, distance with inside-priority semantics, bounds, intersection, and mixed transformed children. Ellipse intersection tests cover axis-aligned, vertical, diagonal, no-intersection, partial-segment, tangent, rotated, and offset-center cases. Combined tests exercise intersectCircle on transformed polygons. Four tests specifically catch the intersectLineSegmentPolygon off-by-one bug through position verification of line-polygon intersections."""
+category = "computational_geometry"
+tags = ["affine-transforms", "geometry2d"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/affine-geometry-transform"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing dbt's full node selection syntax (6 method selectors, graph operators with depth limiting, @ family-tree operator, union/intersection set operations, exclude), dbt's YAML selector definitions (recursive union/intersection parsing, method-to-string conversion with graph operator properties, cross-selector references), AND state comparison selectors (state:new, state:modified) that require comparing two manifest versions by checksum, dependency, and config differences. On top of these, the agent must produce a Graphviz DOT lineage graph with correct node shapes and edge directions, and write a standalone jq script that computes manifest graph statistics (fan-out, root/leaf nodes, edge counts) using jq's functional query language against the manifest's nested JSON structure. The combination demands proficiency across dbt manifest v9 internals, graph algorithms (BFS with depth limiting, bidirectional traversal), YAML selector semantics, Graphviz DOT syntax, and jq's array/object manipulation — multi-tool interoperability that goes well beyond a single-language implementation task."""
+solution_explanation = """Parse both manifests, compute state:new (set difference on unique_ids) and state:modified (checksum/deps/config comparison). Build bidirectional adjacency lists. For string selectors: tokenize into space-separated groups (union), comma-separated parts (intersection), parse graph operator prefixes/suffixes and @ operator, resolve base selectors by method type including state:, apply BFS graph traversal. For YAML selectors: parse selectors.yml, recursively resolve union/intersection/method definitions, convert to string selectors with graph operators, resolve cross-references via cache. Generate DOT digraph with node shapes (box/cylinder/diamond) and directed edges. Write jq script using group_by, max, to_entries, and conditional filtering to compute graph statistics from the manifest's nodes and child_map."""
+verification_explanation = """Tests verify: (1) 25 queries across string selectors, YAML selectors, and state-comparison selectors by exact sorted-list equality against pre-computed expected results; (2) DOT file structure — digraph syntax, all 44 nodes present, 59 edges, correct shape attributes; (3) SVG file generated and non-empty; (4) jq manifest analysis — node count, resource type breakdown, root/leaf nodes, max fan-out, and edge count all match computed ground truth. Results are fully deterministic."""
+category = "data_engineering"
+tags = ["graph-algorithms", "dbt-manifest"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-62abbb"

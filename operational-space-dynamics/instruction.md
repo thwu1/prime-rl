@@ -1,0 +1,5 @@
+A Kuka IIWA 7-DOF robot arm is being evaluated for deployment in a manufacturing workcell with six candidate workstations. The complete workcell specification — including the robot model, station configurations, contact wrench requirements, actuator limits, tool payload, and classification thresholds — is defined in `/app/workcell_config.json`.
+
+Assess the robot's capability at each workstation. Determine whether it can sustain the required contact wrenches within its actuator limits, accounting for all gravitational and inertial effects of the mounted tool payload. Evaluate the kinematic conditioning of each station configuration. Classify each station, identify the bottleneck actuators, and rank all stations by their force capacity margin.
+
+Write the complete assessment to `/app/results.json` conforming to the `output_schema` in the config file.

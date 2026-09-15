@@ -1,0 +1,42 @@
+{
+  "packages": [
+    {"name": "logging", "layer": "utility", "strict_dependencies": "dag", "dependencies": []},
+    {"name": "config", "layer": "utility", "strict_dependencies": "layered", "dependencies": ["logging"]},
+    {"name": "crypto", "layer": "utility", "strict_dependencies": "false", "dependencies": ["logging", "config"]},
+    {"name": "metrics", "layer": "utility", "strict_dependencies": "layered_dag", "dependencies": ["logging"]},
+    {"name": "cache", "layer": "utility", "strict_dependencies": "false", "dependencies": ["logging", "config", "metrics"]},
+    {"name": "serializer", "layer": "utility", "strict_dependencies": "false", "dependencies": ["logging", "crypto", "config"]},
+
+    {"name": "http_client", "layer": "power", "strict_dependencies": "layered", "dependencies": ["logging", "config", "crypto", "serializer"]},
+    {"name": "db_driver", "layer": "power", "strict_dependencies": "false", "dependencies": ["logging", "config", "metrics", "http_client", "storage_client"]},
+    {"name": "queue_client", "layer": "power", "strict_dependencies": "layered", "dependencies": ["logging", "config", "serializer", "user_model"]},
+    {"name": "storage_client", "layer": "power", "strict_dependencies": "false", "dependencies": ["logging", "http_client", "crypto", "db_driver"]},
+    {"name": "email_client", "layer": "power", "strict_dependencies": "false", "dependencies": ["http_client", "logging", "config"]},
+    {"name": "search_client", "layer": "power", "strict_dependencies": "false", "dependencies": ["http_client", "serializer", "logging"]},
+
+    {"name": "user_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["db_driver", "logging", "cache", "crypto"]},
+    {"name": "payment_model", "layer": "business", "strict_dependencies": "layered", "dependencies": ["db_driver", "logging", "crypto", "user_model", "auth_api"]},
+    {"name": "order_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["db_driver", "payment_model", "user_model", "logging", "queue_client", "notification_model", "inventory_model"]},
+    {"name": "inventory_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["db_driver", "logging", "order_model"]},
+    {"name": "notification_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["email_client", "user_model", "logging", "order_model"]},
+    {"name": "analytics_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["db_driver", "user_model", "order_model", "payment_model", "metrics", "logging"]},
+    {"name": "shipping_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["order_model", "inventory_model", "logging", "http_client", "notification_model"]},
+    {"name": "subscription_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["payment_model", "user_model", "notification_model", "db_driver", "logging"]},
+    {"name": "fraud_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["payment_model", "user_model", "analytics_model", "order_model", "logging"]},
+    {"name": "refund_model", "layer": "business", "strict_dependencies": "false", "dependencies": ["payment_model", "order_model", "fraud_model", "user_model", "logging", "notification_model"]},
+
+    {"name": "auth_api", "layer": "api", "strict_dependencies": "layered", "dependencies": ["user_model", "crypto", "logging", "config", "metrics", "payment_api"]},
+    {"name": "payment_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["payment_model", "user_model", "auth_api", "logging", "fraud_model"]},
+    {"name": "order_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["order_model", "payment_model", "user_model", "auth_api", "inventory_model", "logging"]},
+    {"name": "admin_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["user_model", "order_model", "payment_model", "analytics_model", "auth_api", "logging"]},
+    {"name": "webhook_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["notification_model", "order_model", "logging", "crypto", "queue_client"]},
+    {"name": "search_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["search_client", "user_model", "order_model", "auth_api", "logging"]},
+    {"name": "subscription_api", "layer": "api", "strict_dependencies": "false", "dependencies": ["subscription_model", "payment_model", "auth_api", "user_model", "logging"]},
+
+    {"name": "web_service", "layer": "services", "strict_dependencies": "false", "dependencies": ["auth_api", "payment_api", "order_api", "search_api", "logging", "config", "metrics"]},
+    {"name": "worker_service", "layer": "services", "strict_dependencies": "false", "dependencies": ["order_model", "payment_model", "notification_model", "queue_client", "logging", "shipping_model"]},
+    {"name": "admin_service", "layer": "services", "strict_dependencies": "false", "dependencies": ["admin_api", "auth_api", "logging", "config"]},
+    {"name": "cron_service", "layer": "services", "strict_dependencies": "false", "dependencies": ["analytics_model", "inventory_model", "shipping_model", "logging", "db_driver", "subscription_model"]},
+    {"name": "webhook_service", "layer": "services", "strict_dependencies": "false", "dependencies": ["webhook_api", "queue_client", "notification_model", "logging"]}
+  ]
+}

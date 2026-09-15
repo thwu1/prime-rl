@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of all compiler phases (scanner, parser, symbol table, code generator) and their interactions. The grammar restructuring—merging the Condition/CondTerm/CondFactor productions into Expr/Term/Factor while maintaining operator precedence for &&, ||, and relational operators—demands solid compiler theory knowledge. Implementing bidirectional Cond-to-value and value-to-Cond conversions with correct jump threading for short-circuit evaluation is a subtle code generation challenge. The boolean type must integrate seamlessly with method parameters, return values, print statements, and existing control flow, requiring coordinated changes across 5+ source files."""
+solution_explanation = """Add Bool kind to Struct.java. Declare boolType plus true/false constants in Tab.java's universe. Add merge() to Label.java for jump list unification. Modify Code.load() to convert Cond operands to 0/1 stack values via conditional jumps. Restructure Parser.java: rename Expr/Term/Factor to SimpleExpr/SimpleTerm/SimpleFactor; create new Expr (||), Term (&&), Factor (relop) methods; add makeCond() helper that converts boolean variables to Cond operands by comparing with const1; update if/while to use Expr()+makeCond() instead of Condition(); add boolType handling in print statement."""
+verification_explanation = """Two MicroJava test programs exercise all boolean features: basic assignment from comparisons, compound && and ||, true/false constants, boolean in while condition, boolean method parameters and return values, direct boolean printing, and parenthesized compound expressions. Each program is compiled with the modified compiler and executed on the MicroJava VM. The output is compared line-by-line against expected values derived from the program semantics."""
+category = "programming_languages"
+tags = ["compiler-construction", "code-generation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microjava-boolean-type"

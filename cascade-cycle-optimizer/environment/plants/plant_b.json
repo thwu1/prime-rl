@@ -1,0 +1,32 @@
+{
+  "name": "plant_b",
+  "stages": [
+    {
+      "id": "LT",
+      "refrigerant": "Ethane",
+      "compressor": {"isentropic_efficiency": 0.68},
+      "evaporator": {"saturation_temperature_K": 183.15, "superheat_K": 5.0},
+      "condenser": {"subcool_K": 3.0}
+    },
+    {
+      "id": "MT",
+      "refrigerant": "R23",
+      "compressor": {"isentropic_efficiency": 0.71},
+      "evaporator": {"superheat_K": 5.0},
+      "condenser": {"subcool_K": 3.0}
+    },
+    {
+      "id": "HT",
+      "refrigerant": "Ammonia",
+      "compressor": {"isentropic_efficiency": 0.78},
+      "evaporator": {"superheat_K": 8.0},
+      "condenser": {"saturation_temperature_K": 308.15, "subcool_K": 4.0}
+    }
+  ],
+  "cascade_heat_exchangers": [
+    {"hot_stage": "LT", "cold_stage": "MT", "approach_temperature_K": 5.0},
+    {"hot_stage": "MT", "cold_stage": "HT", "approach_temperature_K": 5.0}
+  ],
+  "cascade_temperatures_K": [223.15, 268.15],
+  "cooling_capacity_W": 8000.0
+}

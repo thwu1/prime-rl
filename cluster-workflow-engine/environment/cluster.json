@@ -1,0 +1,14 @@
+{
+  "name": "messages-prd",
+  "nodes": [
+    {"name": "node-us-east1-a-1", "zone": "us-east1-a"},
+    {"name": "node-us-east1-a-2", "zone": "us-east1-a"},
+    {"name": "node-us-east1-a-3", "zone": "us-east1-a"},
+    {"name": "node-us-east1-b-1", "zone": "us-east1-b"},
+    {"name": "node-us-east1-b-2", "zone": "us-east1-b"},
+    {"name": "node-us-east1-b-3", "zone": "us-east1-b"},
+    {"name": "node-us-east1-c-1", "zone": "us-east1-c"},
+    {"name": "node-us-east1-c-2", "zone": "us-east1-c"},
+    {"name": "node-us-east1-c-3", "zone": "us-east1-c"}
+  ]
+}

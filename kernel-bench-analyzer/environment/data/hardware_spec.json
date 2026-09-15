@@ -1,0 +1,5 @@
+{
+  "name": "NVIDIA A100-SXM4-80GB",
+  "peak_fp32_tflops": 19.5,
+  "memory_bandwidth_gb_s": 2039.0
+}

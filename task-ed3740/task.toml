@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires: (1) exploring a SQLite database schema with multiple tables, analysis types, and statuses to identify target grids via correct JOINs and filters, (2) compiling a C-based Sudoku solution counter and integrating it via subprocess for fast candidate verification, (3) implementing combinatorial enumeration of unavoidable sets across three cell geometries with digit/box constraint filtering, (4) verifying minimality, and (5) solving the NP-hard maximum clique problem on the disjointness graph. Combines database querying, C compilation, cross-language tool integration, and deep combinatorial mathematics."""
+solution_explanation = """The solution queries the SQLite database joining completed_grids and analysis_queue to find pending ua_mcn tasks. It compiles the C solver via the provided Makefile and uses it via subprocess for verification. Size-4 UA sets are found by enumerating 2-row/2-column rectangles with band/stack constraints. Size-6 sets use 2x3, 3x2, and 3x3 geometries with digit/box filtering and solver verification. MCN is computed via backtracking maximum clique on the disjointness graph."""
+verification_explanation = """Tests independently query the database to verify correct grid selection, compile and use the C solver for independent unavoidable-set verification, check structural properties (digit counts, sorting, minimality, pairwise disjointness), and compare counts and MCN against reference values."""
+category = "mathematics"
+tags = ["combinatorics", "constraint-satisfaction"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ed3740"

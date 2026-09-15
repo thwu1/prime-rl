@@ -1,0 +1,112 @@
+{
+  "description": "MPLS VPN Service Provider backbone topology with IS-IS, LDP, and L3VPN configurations",
+  "routers": {
+    "PE1": {"loopback": "10.0.0.1", "role": "PE"},
+    "PE2": {"loopback": "10.0.0.2", "role": "PE"},
+    "PE3": {"loopback": "10.0.0.3", "role": "PE"},
+    "P1":  {"loopback": "10.0.0.11", "role": "P"},
+    "P2":  {"loopback": "10.0.0.12", "role": "P"},
+    "P3":  {"loopback": "10.0.0.13", "role": "P"},
+    "P4":  {"loopback": "10.0.0.14", "role": "P"}
+  },
+  "links": [
+    {"endpoints": ["PE1", "P1"],  "metric": 10, "bandwidth_mbps": 10000},
+    {"endpoints": ["PE1", "P3"],  "metric": 25, "bandwidth_mbps": 1000},
+    {"endpoints": ["P1",  "P2"],  "metric": 10, "bandwidth_mbps": 10000},
+    {"endpoints": ["P1",  "P4"],  "metric": 10, "bandwidth_mbps": 5000},
+    {"endpoints": ["P2",  "PE3"], "metric": 10, "bandwidth_mbps": 10000},
+    {"endpoints": ["P3",  "P4"],  "metric": 10, "bandwidth_mbps": 5000},
+    {"endpoints": ["P4",  "PE3"], "metric": 10, "bandwidth_mbps": 2000},
+    {"endpoints": ["P3",  "PE2"], "metric": 10, "bandwidth_mbps": 5000}
+  ],
+  "vrfs": {
+    "CustomerA": {
+      "type": "full_mesh",
+      "PE1": {"rd": "65000:100", "import_rt": ["65000:100"], "export_rt": ["65000:100"]},
+      "PE3": {"rd": "65000:100", "import_rt": ["65000:100"], "export_rt": ["65000:100"]}
+    },
+    "CustomerB": {
+      "type": "full_mesh",
+      "PE1": {"rd": "65000:200", "import_rt": ["65000:200"], "export_rt": ["65000:200"]},
+      "PE2": {"rd": "65000:200", "import_rt": ["65000:200"], "export_rt": ["65000:200"]}
+    },
+    "CustomerC": {
+      "type": "hub_and_spoke",
+      "PE1": {"rd": "65000:300", "import_rt": ["65000:301"], "export_rt": ["65000:300"], "role": "hub"},
+      "PE2": {"rd": "65000:301", "import_rt": ["65000:300"], "export_rt": ["65000:301"], "role": "spoke"},
+      "PE3": {"rd": "65000:302", "import_rt": ["65000:300"], "export_rt": ["65000:301"], "role": "spoke"}
+    }
+  },
+  "vpn_routes": [
+    {
+      "prefix": "172.16.1.0/24", "originating_pe": "PE1", "vrf": "CustomerA",
+      "vpn_label": 5001, "route_targets": ["65000:100"],
+      "local_pref": 100, "as_path": "64001"
+    },
+    {
+      "prefix": "172.16.2.0/24", "originating_pe": "PE3", "vrf": "CustomerA",
+      "vpn_label": 5002, "route_targets": ["65000:100"],
+      "local_pref": 100, "as_path": "64002"
+    },
+    {
+      "prefix": "172.16.10.0/24", "originating_pe": "PE3", "vrf": "CustomerA",
+      "vpn_label": 5010, "route_targets": ["65000:100", "65000:200"],
+      "local_pref": 100, "as_path": "64002",
+      "note": "Route leaked to CustomerB via dual route-targets"
+    },
+    {
+      "prefix": "172.16.3.0/24", "originating_pe": "PE1", "vrf": "CustomerB",
+      "vpn_label": 5003, "route_targets": ["65000:200"],
+      "local_pref": 100, "as_path": "64003"
+    },
+    {
+      "prefix": "172.16.4.0/24", "originating_pe": "PE2", "vrf": "CustomerB",
+      "vpn_label": 5004, "route_targets": ["65000:200"],
+      "local_pref": 100, "as_path": "64004"
+    },
+    {
+      "prefix": "172.16.5.0/24", "originating_pe": "PE1", "vrf": "CustomerC",
+      "vpn_label": 5005, "route_targets": ["65000:300"],
+      "local_pref": 100, "as_path": "64005"
+    },
+    {
+      "prefix": "172.16.6.0/24", "originating_pe": "PE2", "vrf": "CustomerC",
+      "vpn_label": 5006, "route_targets": ["65000:301"],
+      "local_pref": 100, "as_path": "64006"
+    },
+    {
+      "prefix": "172.16.7.0/24", "originating_pe": "PE3", "vrf": "CustomerC",
+      "vpn_label": 5007, "route_targets": ["65000:301"],
+      "local_pref": 100, "as_path": "64007"
+    },
+    {
+      "prefix": "172.16.6.0/24", "originating_pe": "PE1", "vrf": "CustomerC",
+      "vpn_label": 5016, "route_targets": ["65000:300"],
+      "local_pref": 100, "as_path": "64006",
+      "originator_id": "10.0.0.2",
+      "note": "Hub PE1 re-advertises spoke PE2 route with hub export RT"
+    },
+    {
+      "prefix": "172.16.7.0/24", "originating_pe": "PE1", "vrf": "CustomerC",
+      "vpn_label": 5017, "route_targets": ["65000:300"],
+      "local_pref": 100, "as_path": "64007",
+      "originator_id": "10.0.0.3",
+      "note": "Hub PE1 re-advertises spoke PE3 route with hub export RT"
+    }
+  ],
+  "ldp_labels": {
+    "PE1": {"10.0.0.1": 3, "10.0.0.2": 102, "10.0.0.3": 103, "10.0.0.11": 111, "10.0.0.12": 112, "10.0.0.13": 113, "10.0.0.14": 114},
+    "PE2": {"10.0.0.1": 201, "10.0.0.2": 3, "10.0.0.3": 203, "10.0.0.11": 211, "10.0.0.12": 212, "10.0.0.13": 213, "10.0.0.14": 214},
+    "PE3": {"10.0.0.1": 301, "10.0.0.2": 302, "10.0.0.3": 3, "10.0.0.11": 311, "10.0.0.12": 312, "10.0.0.13": 313, "10.0.0.14": 314},
+    "P1":  {"10.0.0.1": 1101, "10.0.0.2": 1102, "10.0.0.3": 1103, "10.0.0.11": 3, "10.0.0.12": 1112, "10.0.0.13": 1113, "10.0.0.14": 1114},
+    "P2":  {"10.0.0.1": 1201, "10.0.0.2": 1202, "10.0.0.3": 1203, "10.0.0.11": 1211, "10.0.0.12": 3, "10.0.0.13": 1213, "10.0.0.14": 1214},
+    "P3":  {"10.0.0.1": 1301, "10.0.0.2": 1302, "10.0.0.3": 1303, "10.0.0.11": 1311, "10.0.0.12": 1312, "10.0.0.13": 3, "10.0.0.14": 1314},
+    "P4":  {"10.0.0.1": 1401, "10.0.0.2": 1402, "10.0.0.3": 1403, "10.0.0.11": 1411, "10.0.0.12": 1412, "10.0.0.13": 1413, "10.0.0.14": 3}
+  },
+  "notes": {
+    "ldp_label_3": "Label 3 is implicit-null (PHP). A router advertises label 3 for its own loopback FEC.",
+    "ecmp_tiebreak": "When multiple equal-cost next-hops exist, prefer the neighbor with the lowest loopback IP address.",
+    "originator_id": "A PE drops a received BGP VPN route if the originator_id matches its own loopback (loop prevention).",
+    "hub_and_spoke": "In CustomerC, spokes export RT 65000:301, hub imports 65000:301. Hub exports RT 65000:300, spokes import 65000:300. Hub re-advertises spoke routes so spokes reach each other via hub."
+  }
+}

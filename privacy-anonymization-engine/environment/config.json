@@ -1,0 +1,18 @@
+{
+    "quasi_identifiers": ["age", "zipcode", "marital_status", "education"],
+    "sensitive_attribute": "diagnosis",
+    "privacy_models": {
+        "k_anonymity": {"k": 5},
+        "l_diversity": {"l": 3, "model": "entropy"},
+        "t_closeness": {"t": 0.2, "distance": "equal"}
+    },
+    "input_file": "/app/data/patients.csv",
+    "hierarchies": {
+        "age": "/app/data/age_hierarchy.csv",
+        "zipcode": "/app/data/zipcode_hierarchy.csv",
+        "marital_status": "/app/data/marital_status_hierarchy.csv",
+        "education": "/app/data/education_hierarchy.csv"
+    },
+    "output_file": "/app/output/anonymized.csv",
+    "report_file": "/app/output/report.json"
+}

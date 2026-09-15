@@ -1,0 +1,20 @@
+{
+  "stock_width": 5600,
+  "items": [
+    {"width": 2200, "demand": 42},
+    {"width": 1520, "demand": 68},
+    {"width": 1380, "demand": 33},
+    {"width": 1120, "demand": 57},
+    {"width": 930, "demand": 84},
+    {"width": 840, "demand": 41},
+    {"width": 770, "demand": 72},
+    {"width": 680, "demand": 29},
+    {"width": 520, "demand": 63},
+    {"width": 410, "demand": 91},
+    {"width": 350, "demand": 38},
+    {"width": 280, "demand": 55},
+    {"width": 220, "demand": 47},
+    {"width": 190, "demand": 82},
+    {"width": 140, "demand": 96}
+  ]
+}

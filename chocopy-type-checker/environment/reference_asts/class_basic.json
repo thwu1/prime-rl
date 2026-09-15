@@ -1,0 +1,14 @@
+{
+  "well_typed": true,
+  "globals": {
+    "c": {"type": "Counter", "kind": "var"}
+  },
+  "classes": {
+    "Counter": {
+      "superclass": "object",
+      "attributes": {"count": "int"},
+      "methods": {"increment": "(Counter) -> object", "get": "(Counter) -> int"}
+    }
+  },
+  "errors": []
+}

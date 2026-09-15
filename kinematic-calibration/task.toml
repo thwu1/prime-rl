@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing nonlinear least-squares kinematic calibration from scratch: formulating the parameter Jacobian of the forward kinematics with respect to joint origin offsets, solving the optimization problem (e.g. Levenberg-Marquardt), and validating results. The agent must understand homogeneous transformation matrices, URDF joint semantics, and numerical optimization. This is a standard but non-trivial robotics engineering task typically encountered in graduate-level courses or professional robot deployment."""
+solution_explanation = """Parse the URDF to extract the nominal kinematic chain. Implement forward kinematics as a function of both joint angles and kinematic parameter offsets. Compute the Jacobian of FK end-effector position w.r.t. the 18 origin-translation correction parameters (numerically via finite differences). Run iterative Gauss-Newton or Levenberg-Marquardt optimization to minimize the sum of squared residuals between FK predictions and measurements. Validate on held-out configurations."""
+verification_explanation = """Tests verify: (1) output JSON has correct structure with all 6 joints' corrections, (2) nominal RMS error matches independent FK computation within 1mm, (3) calibrated RMS error below 2mm, (4) improvement ratio >= 3x, (5) corrections independently verified via FK produce < 2mm RMS, (6) corrections are physically plausible (< 20mm each), (7) validation predictions match ground-truth positions within 2mm per point, (8) validation RMS below 1mm, (9) predictions are self-consistent with reported corrections (not copied from elsewhere)."""
+category = "robotics"
+tags = ["kinematics", "calibration"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kinematic-calibration"

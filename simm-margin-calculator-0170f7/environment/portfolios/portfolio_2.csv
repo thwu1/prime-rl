@@ -1,0 +1,5 @@
+RiskType,Currency,SubCurve,Tenor,Sensitivity
+Delta,EUR,OIS,2Y,15.0
+Delta,EUR,OIS,10Y,-20.0
+Delta,EUR,LIBOR6M,2Y,-5.0
+Delta,EUR,LIBOR6M,10Y,12.0

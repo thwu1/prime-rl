@@ -1,0 +1,32 @@
+BSPMAP2D Binary Format Specification v1.0
+=========================================
+
+All multi-byte values are stored in little-endian byte order.
+
+FILE HEADER — 16 bytes
+  Offset 0x00 (8 bytes):  Magic identifier "BSPMAP2D" (ASCII)
+  Offset 0x08 (2 bytes):  Wall count N_w (uint16)
+  Offset 0x0A (2 bytes):  Viewpoint count N_v (uint16)
+  Offset 0x0C (4 bytes):  Reserved (must be zero)
+
+WALL TABLE — starts at offset 0x10, N_w entries of 8 bytes each
+  Each entry encodes one wall segment:
+    +0 (2 bytes): start_x (int16, signed)
+    +2 (2 bytes): start_y (int16, signed)
+    +4 (2 bytes): end_x   (int16, signed)
+    +6 (2 bytes): end_y   (int16, signed)
+  The wall's ID is its 0-based position in this table.
+
+VIEWPOINT TABLE — starts immediately after the wall table, N_v entries of 12 bytes each
+  Each entry encodes one viewpoint query:
+    +0  (2 bytes): x         (int16, signed)
+    +2  (2 bytes): y         (int16, signed)
+    +4  (4 bytes): angle_deg (float32, IEEE 754)
+    +8  (4 bytes): fov_deg   (float32, IEEE 754)
+  The viewpoint's ID is its 0-based position in this table.
+
+COORDINATE SYSTEM
+  - Origin at lower-left (0,0)
+  - X increases rightward, Y increases upward
+  - angle_deg: look direction in degrees (0 = +X axis, 90 = +Y axis, counterclockwise)
+  - fov_deg: total symmetric field of view in degrees

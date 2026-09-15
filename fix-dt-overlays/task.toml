@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux Device Tree overlay architecture, BCM2711 SoC peripheral bindings, and embedded Linux driver model. The agent must cross-reference three information sources (hardware spec, broken DTS overlays, and a kernel boot log with misleading messages) to diagnose ~30 distinct issues. Bugs span multiple categories: syntax errors preventing overlay compilation (missing /plugin/ directive producing cryptic FDT_ERR_BADMAGIC), semantic errors that compile silently but bind wrong drivers (mcp23s17 SPI variant on I2C bus), swapped SPI chip selects causing cascading probe failures, wrong I2C bus targeting (i2c0 reserved vs i2c1), incorrect device addresses derived from pin configuration, missing gpio-controller/interrupt-controller properties, wrong interrupt edge trigger polarity, GPIO pin conflicts with UART, and incorrect input event keycodes. The boot log contains red herrings (-EPROBE_DEFER, WiFi firmware, under-voltage) that must be distinguished from actionable errors. The agent must also design and implement a parameterized combined overlay using the __overrides__ mechanism to support variant GPIO wiring — an architectural decision requiring knowledge of the Raspberry Pi firmware's runtime parameter system."""
+solution_explanation = """Fix spi-devices.dts: add /plugin/, add SPI bus status/cells, swap chip selects (CAN to CS0, ADC to CS1), fix SPI max freq to 10MHz, fix interrupt trigger to falling edge, add missing semicolon, fix clock to 16MHz, fix MCP3008 compatible string. Fix i2c-sensors.dts: retarget to i2c1, fix MCP23017 compatible to I2C variant, fix address to 0x20, add gpio-controller/#gpio-cells/interrupt-controller/#interrupt-cells, fix DS3231 vendor prefix to maxim, fix DS3231 address to 0x68, fix BME280 compatible with vendor prefix, fix BME280 address to 0x76. Fix gpio-io.dts: add /plugin/, fix LED GPIO to 17, fix LED polarity to active-high, change trigger to heartbeat, fix button keycode to KEY_POWER, fix 1-wire GPIO to 4 (not 14/UART). Create combined-hat.dts merging all fragments with __overrides__ for can_int_pin and expander_int_pin targeting the interrupts property cells. Compile all with dtc -@ -I dts -O dtb."""
+verification_explanation = """Tests decompile each .dtbo with dtc and verify: correct compatible strings for all 8 peripherals, correct I2C addresses (0x20, 0x68, 0x76), correct SPI chip selects (CAN@0, ADC@1), correct frequencies (10MHz SPI, 16MHz clock), falling edge interrupt trigger, gpio-controller and interrupt-controller boolean properties present, correct I2C bus targeting via __fixups__, correct GPIO numbers (17 LED, 22 button, 4 1-wire), correct LED polarity and trigger, correct KEY_POWER keycode, absence of broken values (wrong addresses, wrong GPIOs, wrong compatible strings). Combined overlay tested for all 8 peripheral types plus __overrides__ section with at least 2 configurable interrupt parameters. All DTS sources verified for /plugin/ directive and successful dtc compilation."""
+category = "systems"
+tags = ["device-tree", "embedded-linux"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-dt-overlays"

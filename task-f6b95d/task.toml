@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of formal verification, symbolic execution, and PEP 316 design-by-contract to audit a codebase for verification readiness. The solver must make evaluative judgments across four distinct defect categories — distinguishing implementation bugs from contract errors from weak specifications from missing specifications — which requires deep reasoning about the relationship between code semantics, formal postconditions, and verifier behavior. The weak-specification defect is particularly challenging: a postcondition using strict inequality masks an implementation bug that only becomes visible to CrossHair once the spec is strengthened to inclusive bounds. Writing correct PEP 316 postconditions from scratch for two unspecified functions demands formal reasoning about maximum-value semantics with tie-breaking and set-membership properties. Creating the CrossHair plugin requires understanding how SymbolicFactory constructors must preserve data structure invariants during symbolic construction. The defect classification report demands the solver evaluate and justify each judgment — not just fix code but correctly diagnose the category of each flaw."""
+solution_explanation = """Create a CrossHair plugin registering OrderedSet (via List[int] constructor) and SortedMapping (via List[Tuple[int,int]] constructor) using SymbolicFactory. Evaluate and fix setops.py: (1) judge intersect's == min contract as too strong (contract_error) and relax to <= min, (2) identify symmetric_difference's missing j += 1 on equal elements (implementation_bug), (3) identify range_count's spurious + 1 (implementation_bug). Evaluate and fix mapops.py: (4) judge merge_mappings' replacement instead of summation as implementation_bug, (5) evaluate range_lookup's lo < k < hi spec as too weak to catch the bisect_left/bisect_right bug (weak_specification + implementation_bug compound defect), (6) identify sum_values_in_range summing keys instead of values (implementation_bug). Design postconditions for: (7) keys_with_value_in (membership and completeness), (8) key_of_max_value (containment, maximality, tie-breaking). Compare and fix v2 modules: (9) setops_v2.intersect bounds check <= to <, (10) mapops_v2.range_lookup strict < to <=. Produce a defect classification report correctly categorizing all 10+ defects."""
+verification_explanation = """Tests verify the plugin file exists with register_type called for both OrderedSet and SortedMapping using SymbolicFactory. AST inspection confirms every function in setops.py and mapops.py has PEP 316 postconditions. Functional tests verify each fix: intersect allows empty results, symmetric_difference excludes common elements, range_count matches brute-force, merge_mappings sums duplicate keys, range_lookup includes boundary keys, sum_values_in_range sums values not keys. Contract-writing functions must produce correct results. V2 variants must match references. The defect classification report is validated for: structural correctness, completeness (all defective functions listed), accuracy (no correct functions falsely reported), and correct category assignment for each defect."""
+category = "formal_verification"
+tags = ["symbolic-execution", "specification-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f6b95d"

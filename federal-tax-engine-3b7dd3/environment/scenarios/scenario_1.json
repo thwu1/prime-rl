@@ -1,0 +1,60 @@
+{
+  "scenario_name": "scenario_1",
+  "tax_year": 2025,
+  "filing_status": "single",
+  "taxpayer": {
+    "first_name": "Tara",
+    "last_name": "Black",
+    "ssn": "400-00-1032"
+  },
+  "w2s": [
+    {
+      "employer_name": "The Green Ladies",
+      "employer_ein": "00-0000007",
+      "wages": 22970,
+      "federal_tax_withheld": 1073,
+      "ss_wages": 22970,
+      "ss_tax_withheld": 1424,
+      "medicare_wages": 22970,
+      "medicare_tax_withheld": 333
+    },
+    {
+      "employer_name": "C&R",
+      "employer_ein": "00-0000008",
+      "wages": 19500,
+      "federal_tax_withheld": 1640,
+      "ss_wages": 19500,
+      "ss_tax_withheld": 1209,
+      "medicare_wages": 19500,
+      "medicare_tax_withheld": 283
+    }
+  ],
+  "dividends": {
+    "qualified": 0,
+    "ordinary": 0
+  },
+  "capital_gains": {
+    "short_term": 0,
+    "long_term": 0
+  },
+  "schedule_h": {
+    "has_household_employees": true,
+    "total_cash_wages_ss": 3100,
+    "total_cash_wages_medicare": 3100,
+    "total_cash_wages_additional_medicare": 0,
+    "federal_income_tax_withheld": 0
+  },
+  "form_5695": {
+    "insulation_cost": 0,
+    "door_cost": 800,
+    "window_cost": 920,
+    "central_ac_cost": 0,
+    "water_heater_cost": 0,
+    "furnace_boiler_cost": 0,
+    "electrical_panel_cost": 0,
+    "home_energy_audit_cost": 0,
+    "heat_pump_cost": 0,
+    "heat_pump_water_heater_cost": 0,
+    "biomass_stove_cost": 0
+  }
+}

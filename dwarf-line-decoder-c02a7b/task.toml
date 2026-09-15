@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Nine interacting bugs across the DWARF .debug_frame CFI decoder spanning binary encoding (SLEB128 sign extension), format parsing (CIE augmentation data, 64-bit DWARF CIE identification), algebraic computation (three classes of alignment factor confusion for unsigned offset, signed offset, and CFA definition opcodes), location tracking (advance_loc factoring), data structure semantics (FIFO vs LIFO for remember/restore state), and initialization logic (FDE not inheriting CIE initial rules). Bugs cascade and mask each other. No hints in the instruction about which bugs exist; the solver must analyze ~740 lines of C code against the DWARF specification, systematically debug test failures across 15+ test cases, understand 32-bit vs 64-bit DWARF format differences, and use binary analysis tools (objcopy, readelf) for cross-validation against real compiled binaries."""
+solution_explanation = """Fix 1: SLEB128 sign extension checks bit 6 (0x40) not bit 7 (0x80). Fix 2: After reading augmentation 'z' length, advance pointer by aug_len bytes. Fix 3: DW_CFA_offset/offset_extended/val_offset multiply factored offset by data_alignment_factor, not code_alignment_factor (3 instances). Fix 4: All advance_loc variants multiply delta by code_alignment_factor (4 instances). Fix 5: Rewrite pop_state to use LIFO (decrement count, read from top) instead of FIFO (increment read_pos). Fix 6: FDE copies CIE initial_row instead of init_rule_row, passes &cie->initial_row to execute_cfi. Fix 7: 64-bit DWARF CIE_id comparison uses 0xFFFFFFFFFFFFFFFF for dwarf64 format. Fix 8: DW_CFA_offset_extended_sf multiplies by data_align not code_align. Fix 9: DW_CFA_def_cfa_sf multiplies factored offset by data_alignment_factor."""
+verification_explanation = """Tests construct handcrafted .debug_frame binary sections with known CIE/FDE parameters and CFI instructions in both 32-bit and 64-bit DWARF format, then validate the decoder output against expected register rule tables. Tests isolate each bug category and include integration tests combining 64-bit format with signed-factored opcodes. A cross-validation test compiles a real C program, extracts .debug_frame with objcopy, and validates structural consistency."""
+category = "debugging"
+tags = ["binary-formats", "dwarf"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dwarf-line-decoder-c02a7b"

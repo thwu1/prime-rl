@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert EDA verification knowledge: the agent must explore opaque normalized SQLite schemas with integer-encoded toggle directions, foreign-key-linked coverpoint hierarchies, and junction tables for cross-coverage components. Exclusion rules are embedded in the databases as JSON with integer category codes and must be discovered, parsed, and applied (including cascading FSM state/transition removal). A corrupted incomplete run must be detected and filtered. Distractor tables (assertion_results, condition_expr) must be ignored. The agent must reconstruct toggle identifiers from (signal_name, bit_idx, direction) tuples, resolve cross-coverage component membership through a junction table, compute Cartesian product bin totals, and perform hierarchical weighted coverage roll-ups — all without an output format specification."""
+solution_explanation = """The solution reads five SQLite databases, filters to PASSED runs only (skipping run_005 with status INCOMPLETE). It decodes integer toggle directions (0=rising, 1=falling) to reconstruct toggle IDs. Exclusion rules are extracted from the exclusion_rules table, parsing JSON targets with integer category codes (0=toggle, 1=cross_bin, 2=fsm_state). Coverage is merged with union semantics for code metrics and summation for functional bin counts. Coverpoint definitions, bins, and cross-component references are resolved through normalized tables (cg_inst, cp_defs, bin_defs, cross_refs). Cross-coverage totals use Cartesian products minus excluded bins. FSM transitions are reconstructed by joining fsm_trans_defs with fsm_state_defs. Hierarchical coverage uses bottom-up weighted averages from the YAML vplan tree."""
+verification_explanation = """46 pytest tests verify the complete coverage report: summary statistics, per-metric coverage percentages with exact counts, covergroup component-level detail, hierarchical weighted averages at every tree level, failed goal identification with gap calculations, and cross-coverage hole counts. The incomplete run (run_005) contains unique coverage data (line 29, branch B16, toggle pkt_data[7]_1to0) that would change results if incorrectly included, providing a strong correctness signal. Toggle direction decoding is verified through the specific uncovered toggle string format."""
+category = "eda"
+tags = ["verification-coverage", "multi-format-data"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coverage-merge-analysis"

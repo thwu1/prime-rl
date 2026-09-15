@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must diagnose and fix bugs distributed across three interoperating tools—a Makefile, a Python/SQL extraction script, and a Python metric computation module—each of which fails in ways that interact. The Makefile has broken target dependencies and passes invalid CLI flags, so the pipeline cannot run end-to-end without understanding Make's dependency graph. The SQL-based extraction script silently drops annotations via incorrect query logic (INNER JOIN excludes prediction-only images; a WHERE clause filters out rows with metadata flags; predictions are only extracted for GT-bearing images). The evaluator uses 11-point VOC interpolation instead of COCO 101-point, performs greedy matching without confidence sorting, averages mAP over all classes including zero-GT classes, and computes bounding-box area from normalized coordinates instead of pixel coordinates. Misleading developer notes confirm several bugs as intended behavior. The solver must independently determine the correct COCO evaluation protocol and fix all components to match pycocotools within tight tolerances across 9 imbalanced classes and 3 size categories."""
+solution_explanation = """The solution fixes 9 bugs across 3 tools: (Makefile) adds extraction target as prerequisite of evaluation target and removes invalid --num-classes flag; (extract.py) replaces INNER JOIN with plain SELECT on images table, removes WHERE clause that filters flagged annotations, iterates all images for prediction extraction; (evaluator.py) replaces 11-point with 101-point interpolation, sorts detections by descending confidence before greedy matching, averages mAP only over classes with n_gt > 0, computes area as aw*ah (pixel area) instead of w*h (normalized). The correct evaluator is deployed at /app/evaluate.py, the fixed Makefile and extract.py are placed in-situ, and 'make evaluate' runs extraction then evaluation end-to-end."""
+verification_explanation = """Tests generate an 80-image synthetic dataset in SQLite with fixed seed, run 'make -C /app evaluate', then compute reference values by querying the database directly and using pycocotools. Comparisons: mAP@0.5/0.75/0.5:0.95 within 0.02, per-class AP within 0.03, per-size AP within 0.05. Additional tests verify: total GT count matches database row count (catches extraction filtering bugs), manifest covers all images in DB (catches INNER JOIN bug), extraction produces files for every image, output schema completeness, value ranges, mAP ordering invariants, edge-case dataset with hand-crafted scenarios (perfect detection, missed detection, false positive, duplicate near-match, GT with extra fields), and code-level verification that pycocotools is not imported."""
+category = "machine_learning"
+tags = ["object-detection", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/yolo-map-evaluator-7970a3"

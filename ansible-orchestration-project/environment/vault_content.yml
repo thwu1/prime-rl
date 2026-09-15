@@ -1,0 +1,3 @@
+---
+db_root_password: "mysql_r00t_2024"
+api_secret_key: "sk-abc123def456ghi789"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building both a UCI chess engine with non-trivial search algorithms AND a multi-tool automated benchmarking pipeline. The engine demands expertise in game tree search (alpha-beta pruning, MTD-bi, iterative deepening), transposition table design, quiescence search, and coordinate transformation in sunfish's rotated board representation. The pipeline demands proficiency with shell process management (spawning and communicating with a UCI engine subprocess via pipes), SQLite database operations via the sqlite3 CLI (schema creation, parameterized inserts), JSON parsing and transformation with jq (extracting fields from test_suite.json, aggregating database results into structured reports), Make build system orchestration (dependency tracking, phony targets, multi-line recipes), and correct interoperation of all these tools within a coherent data pipeline."""
+solution_explanation = """The solution creates three interdependent components: (1) A Python UCI engine implementing MTD-bi search with transposition table, null-move pruning, quiescence search, and stalemate detection using chess_core's rotated-board model. The coordinate handler uses len(hist) % 2 parity to convert between UCI absolute coordinates and the engine's internal rotated representation. (2) A shell pipeline (run_suite.sh) that uses jq to parse test positions from JSON, spawns the engine subprocess for each position via printf/pipe, captures bestmove output with grep/awk, compares against expected moves, and stores results in SQLite via the sqlite3 CLI with proper quoting. (3) A Makefile with dependency-tracked targets where 'test' runs the pipeline, 'report' pipes sqlite3 JSON-mode output through jq to produce an aggregated report, and 'clean' removes artifacts."""
+verification_explanation = """Tests verify both the engine and the pipeline in two phases. Engine tests (9 tests) launch the subprocess and communicate via UCI, checking protocol compliance (uci/uciok, isready/readyok), mate-in-1 positions (queen backrank, rook with pawn shield, scholar's mate, double rook backrank), a mate-in-2 position, startpos handling, position-with-moves, and complex middlegame stability. Pipeline tests (9 tests) check infrastructure existence (Makefile, executable run_suite.sh), then execute 'make clean test report' and verify: SQLite database schema (7 required columns), row count (8 positions), make report success, report.json existence, JSON structure (total, correct, accuracy, positions fields with correct types and counts), and minimum accuracy threshold (50%). All engine verification uses chess_core.py for move application and checkmate detection."""
+category = "systems"
+tags = ["chess", "search-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-333e1a"

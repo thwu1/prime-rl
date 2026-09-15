@@ -1,0 +1,15 @@
+{
+  "trace_id": "trace_06_seq_mismatch",
+  "description": "SeqNumberMismatch and BadLSReq cause restart from Exchange/Loading back to ExStart",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R4", "event": "HelloReceived"},
+    {"time": 2, "router": "R3", "neighbor": "R4", "event": "2-WayReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 4, "router": "R3", "neighbor": "R4", "event": "SeqNumberMismatch"},
+    {"time": 5, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 6, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "ls_request_list_empty": false},
+    {"time": 7, "router": "R3", "neighbor": "R4", "event": "BadLSReq"},
+    {"time": 8, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 9, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "ls_request_list_empty": true}
+  ]
+}

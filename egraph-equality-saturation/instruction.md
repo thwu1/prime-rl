@@ -1,0 +1,7 @@
+A Rust project at `/app/` depends on `egg` 0.9.5, `serde`, and `serde_json`. All Cargo dependencies are pre-compiled in release mode. The file `/app/src/main.rs` is currently a stub that exits with an error.
+
+`/app/inputs.json` contains a JSON array of arithmetic optimization problems. Each entry has fields `id` (integer), `expr` (an S-expression using binary operators `+` and `*` over integer constants and symbolic variables), and `max_cost` (the maximum allowed AST-node count for the optimized form).
+
+Implement `/app/src/main.rs` so that `cargo build --release` succeeds and the resulting binary reads `/app/inputs.json`, produces a minimal-cost semantically equivalent S-expression for each input, and writes `/app/results.json` — a JSON array where each element is an object with fields `id`, `input` (original expression string), `output` (optimized S-expression string), and `cost` (integer AST-node count of the output).
+
+Semantic equivalence means the output expression must evaluate to the same integer as the input for every possible assignment of integer values to variables. Every output's AST-node cost must be at or below the entry's `max_cost`. The reported `cost` must equal the actual node count of the output S-expression.

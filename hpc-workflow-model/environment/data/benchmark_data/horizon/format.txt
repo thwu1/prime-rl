@@ -1,0 +1,11 @@
+Horizon Cluster Benchmark Data Format
+=====================================
+File: benchmark_log.jsonl (JSON Lines format)
+
+Fields:
+  benchmark  - Name of the benchmark application
+  run_id     - Trial identifier
+  runtime    - Wall-clock execution time in milliseconds
+  status     - 'success' or 'error'
+  error_msg  - Present only when status is 'error'
+  nodes      - Number of compute nodes used

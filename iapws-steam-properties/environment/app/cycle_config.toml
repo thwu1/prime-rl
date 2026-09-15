@@ -1,0 +1,15 @@
+[cycle]
+type = "rankine_superheat"
+
+[boiler]
+pressure_mpa = 10.0
+temperature_k = 800.0
+
+[condenser]
+pressure_mpa = 0.008
+
+[turbine]
+isentropic_efficiency = 0.90
+
+[pump]
+isentropic_efficiency = 0.85

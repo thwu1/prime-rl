@@ -1,0 +1,25 @@
+{
+  "filtered_error_count": 3,
+  "types": {
+    "mod.f1@x": {"kind": "Instance", "origin": "int", "args": []},
+    "mod.f1@y": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.f1::return": {"kind": "Instance", "origin": "bool", "args": []},
+    "mod.f2@data": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]},
+    "mod.f2@name": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.f2::return": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]},
+    "mod.Config.debug": {"kind": "Instance", "origin": "bool", "args": []},
+    "mod.Config.name": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.process@items": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]}]},
+    "mod.process::return": {"kind": "Union", "items": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "None"}]},
+    "mod.transform@matrix": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]}]},
+    "mod.transform::return": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]},
+    "mod.parse@raw": {"kind": "Instance", "origin": "bytes", "args": []},
+    "mod.parse::return": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "str", "args": []}]}]},
+    "mod.handle@path": {"kind": "Instance", "origin": "Path", "args": []},
+    "mod.handle::return": {"kind": "Union", "items": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "Path", "args": []}]},
+    "mod.aggregate@values": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]},
+    "mod.aggregate@weights": {"kind": "Union", "items": [{"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]}, {"kind": "None"}]},
+    "mod.aggregate::return": {"kind": "Instance", "origin": "float", "args": []},
+    "mod.convert@source": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]}
+  }
+}

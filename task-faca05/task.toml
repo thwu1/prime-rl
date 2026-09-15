@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert bioinformatics knowledge: independently recognizing and parsing the GEO SOFT multi-entity format, understanding Affymetrix probe-to-gene mapping conventions (handling multi-gene annotations, probe averaging, control probe filtering), selecting the correct statistical framework for a matched-pair experimental design, applying appropriate multiple testing correction, and producing numerically exact results across coordinated output files. No methodology is specified — the agent must draw on domain expertise to determine the right analytical approach at every step."""
+solution_explanation = """Parse the SOFT file by recognizing entity delimiters (^ lines), attribute lines (! lines), and data tables. Extract platform annotations to build probe-to-gene mappings, handling /// separators for multi-gene probes (keep first) and averaging log2 values for multi-probe genes. Extract sample metadata from characteristics fields to reconstruct the experimental design. Compute paired t-tests comparing each patient's tumor to their matched normal within each stage, apply Benjamini-Hochberg correction, and output sorted results."""
+verification_explanation = """Tests independently parse the SOFT file to verify metadata extraction, validate expression matrix dimensions and spot-check values, confirm DE results contain expected gene directions (known ccRCC biology: SLC2A1/HIF1A up, CDH1/ESR1 down), verify stage-progressive fold-change trends, and check summary statistics against independently computed values using scipy."""
+category = "bioinformatics"
+tags = ["microarray-analysis", "differential-expression"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-faca05"

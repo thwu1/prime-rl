@@ -1,0 +1,15 @@
+
+CC = gcc
+CFLAGS = -O2 -fPIC
+
+.PHONY: all lib clean
+
+all: lib
+
+lib: accel/libshell.so
+
+accel/libshell.so: accel/shell_kernel.c
+	$(CC) $(CFLAGS) -shared -o $@ $< -lm
+
+clean:
+	rm -f accel/libshell.so

@@ -1,0 +1,7 @@
+A multi-judge evaluation pipeline at `/app/pipeline/` scores AI agent performance on research paper reproductions. It ingests a hierarchical rubric (`/app/data/rubric.json`) defining weighted criteria in a DAG with parent-child relationships, inter-criteria dependencies, and different score types (binary vs. partial). Three judges independently assess each paper across leaf criteria; their raw scores are in `/app/data/judgments.jsonl`.
+
+The pipeline should: deduplicate and filter raw judgments, aggregate per-judge scores at leaf nodes (majority vote for binary criteria, median for partial), propagate scores upward through the hierarchy via weighted averages, enforce dependency constraints (zeroing criteria whose dependencies fall below a threshold), and compute summary statistics — Fleiss' kappa for inter-rater reliability on binary criteria, and a seeded bootstrap 95% confidence interval for the mean.
+
+The codebase has four modules: `loader.py` (ingestion/dedup), `aggregator.py` (judge aggregation), `scorer.py` (hierarchical resolution with dependency cascades), and `metrics.py` (Fleiss' kappa, bootstrap CI). Multiple interacting bugs across these modules cause `python3 /app/pipeline/main.py` to produce incorrect per-sample scores, wrong criterion means, an invalid kappa, and a degenerate confidence interval in `/app/output/scores.json`.
+
+Diagnose and fix all defects so the pipeline produces correct output.

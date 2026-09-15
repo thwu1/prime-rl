@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Simplified 10-nuclide PWR depletion chain.
+  Format inspired by OpenMC depletion chain XML.
+  Half-lives in seconds. Cross-sections are effective one-group values.
+-->
+<depletion_chain name="simplified_pwr_10">
+
+  <nuclide name="U234" half_life="7.788171e+12" n_decay_modes="1" n_reactions="1">
+    <decay type="alpha" target="Th230" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="U235">
+      <cross_section barn="50.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="U235" half_life="2.221626e+16" n_decay_modes="1" n_reactions="2">
+    <decay type="alpha" target="Th231" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="U236">
+      <cross_section barn="12.0"/>
+    </reaction>
+    <reaction type="fission">
+      <cross_section barn="45.0"/>
+      <neutron_fission_yields>
+        <fission_yields>
+          <products>I135 Xe135</products>
+          <data>0.0639 0.00228</data>
+        </fission_yields>
+      </neutron_fission_yields>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="U236" half_life="7.389629e+14" n_decay_modes="1" n_reactions="1">
+    <decay type="alpha" target="Th232" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="U237">
+      <cross_section barn="5.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="U238" half_life="1.408836e+17" n_decay_modes="1" n_reactions="1">
+    <decay type="alpha" target="Th234" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Np239">
+      <cross_section barn="1.5"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="Np239" half_life="2.032690e+05" n_decay_modes="1" n_reactions="1">
+    <decay type="beta_minus" target="Pu239" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Np240">
+      <cross_section barn="20.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="Pu239" half_life="7.608641e+11" n_decay_modes="1" n_reactions="2">
+    <decay type="alpha" target="U235" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Pu240">
+      <cross_section barn="60.0"/>
+    </reaction>
+    <reaction type="fission">
+      <cross_section barn="120.0"/>
+      <neutron_fission_yields>
+        <fission_yields>
+          <products>I135 Xe135</products>
+          <data>0.0611 0.01085</data>
+        </fission_yields>
+      </neutron_fission_yields>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="Pu240" half_life="2.069096e+11" n_decay_modes="1" n_reactions="1">
+    <decay type="alpha" target="U236" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Pu241">
+      <cross_section barn="100.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="Pu241" half_life="4.530374e+08" n_decay_modes="1" n_reactions="1">
+    <decay type="beta_minus" target="Am241" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Pu242">
+      <cross_section barn="40.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="Xe135" half_life="3.285058e+04" n_decay_modes="1" n_reactions="1">
+    <decay type="beta_minus" target="Cs135" branching_ratio="1.0"/>
+    <reaction type="(n,gamma)" target="Xe136">
+      <cross_section barn="200000.0"/>
+    </reaction>
+  </nuclide>
+
+  <nuclide name="I135" half_life="2.365690e+04" n_decay_modes="1" n_reactions="0">
+    <decay type="beta_minus" target="Xe135" branching_ratio="1.0"/>
+  </nuclide>
+
+</depletion_chain>

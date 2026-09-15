@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing static timing analysis (STA) from first principles: building a timing graph from a gate-level Verilog netlist, performing NLDM delay computation with bilinear interpolation of Liberty characterization tables, propagating input slew through cascaded stages, computing output load from fanout capacitance, and determining setup slack from constraint tables. Additionally requires driving Yosys for logic synthesis with custom ABC optimization scripts to restructure a ripple-carry adder into a lower-depth implementation, and using iverilog for gate-level simulation with proper cell model integration. The multi-tool workflow (Yosys Tcl scripting + iverilog compilation + Python-based STA engine + Liberty parsing) demands professional EDA expertise across synthesis, timing, and verification domains."""
+solution_explanation = """Parse the Liberty .lib file to extract NLDM delay/transition tables and pin capacitances. Parse the gate-level netlist to build a directed timing graph. Perform forward STA traversal: start from DFF clock-to-Q arcs, propagate arrival times through combinational gates using bilinear interpolation of NLDM tables (cell_rise/cell_fall indexed by input_net_transition and total_output_net_capacitance), compute output transition times from rise_transition/fall_transition tables, accumulate loads from fanout pin capacitances. At endpoint DFFs, interpolate setup constraints to compute required time. The critical path is the carry chain: DFF->AND->AND->OR->AND->OR->AND->OR->DFF. For optimization, use Yosys with ABC scripts (e.g. resyn2; dc2; map) to restructure the carry logic into shallower depth. Verify both netlists with iverilog simulation against RTL behavior."""
+verification_explanation = """Tests load /app/timing_report.json and verify: (1) correct cell count (30) and area (~73.7 um2) for the original netlist, (2) critical path delay is in the physically plausible range 0.20-0.40 ns, (3) timing correctly assessed as failing at 0.250 ns period, (4) negative slack reported, (5) critical path contains carry-chain gates (AND/OR pattern), (6) setup time is reasonable, (7) optimized netlist achieves lower delay, (8) simulation verification reported as passing, (9) optimized netlist file exists and is valid Verilog."""
+category = "debugging"
+tags = ["vlsi-sta", "eda-synthesis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/liberty-anomaly-detection"

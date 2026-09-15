@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tiled Attention Engine Analysis Report",
+  "description": "Performance profiling report for the tiled attention engine.",
+  "type": "object",
+  "required": ["engine_profiling", "memory_profiling"],
+  "properties": {
+    "engine_profiling": {
+      "type": "object",
+      "required": ["per_mask_stats"],
+      "properties": {
+        "per_mask_stats": {
+          "type": "object",
+          "description": "Per-mask profiling statistics keyed by mask class name. Must include at least FullMask and CausalMask.",
+          "required": ["FullMask", "CausalMask"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["mask_calls", "time_sec"],
+            "properties": {
+              "mask_calls": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of times mask() was invoked during tiled_attention execution. FullMask must report 0."
+              },
+              "time_sec": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Total execution time in seconds."
+              }
+            }
+          }
+        }
+      }
+    },
+    "memory_profiling": {
+      "type": "object",
+      "required": ["peak_memory_bytes"],
+      "properties": {
+        "peak_memory_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Peak memory usage in bytes during profiling run."
+        }
+      }
+    }
+  }
+}

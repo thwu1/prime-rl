@@ -1,0 +1,459 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <title>RESTful API - FHIR v5.0.0</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body { font-family: Georgia, serif; max-width: 960px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    h1, h2, h3, h4 { font-family: Arial, sans-serif; color: #333; }
+    code { background: #f4f4f4; padding: 2px 6px; font-size: 0.95em; }
+    pre { background: #f4f4f4; padding: 12px; overflow-x: auto; border: 1px solid #ddd; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #e8e8e8; }
+    .note { background: #ffffcc; border-left: 4px solid #e6db55; padding: 10px; margin: 1em 0; }
+    .rule { background: #e8f4fd; border-left: 4px solid #2196F3; padding: 10px; margin: 1em 0; }
+    a { color: #1565C0; }
+    .breadcrumb { color: #666; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+<p class="breadcrumb"><a href="#">Home</a> &gt; <a href="#">Exchange</a> &gt; RESTful API</p>
+
+<h1>3.2.0 RESTful API</h1>
+
+<p>This page is part of the FHIR Specification (v5.0.0: R5 &ndash; STU). This is the current published version.</p>
+
+<p>FHIR is described as a &lsquo;RESTful&rsquo; specification based on common industry level use of the term REST.
+In practice, FHIR only supports Level 2 of the REST Maturity model as part of the core specification,
+though full Level 3 conformance is possible through the use of extensions.</p>
+
+<p>For each &ldquo;resource type&rdquo; the same set of interactions are defined which can be used to manage
+the resources in a highly granular fashion.</p>
+
+<h2 id="interactions">3.2.0.1 Defined Interactions</h2>
+
+<table>
+  <tr><th colspan="2">Instance Level Interactions</th></tr>
+  <tr><td><a href="#read">read</a></td><td>Read the current state of the resource</td></tr>
+  <tr><td><a href="#vread">vread</a></td><td>Read the state of a specific version of the resource</td></tr>
+  <tr><td><a href="#update">update</a></td><td>Update an existing resource by its id (or create it if it is new)</td></tr>
+  <tr><td><a href="#patch">patch</a></td><td>Update an existing resource by posting a set of changes to it</td></tr>
+  <tr><td><a href="#delete">delete</a></td><td>Delete a resource</td></tr>
+  <tr><td><a href="#history">history</a></td><td>Retrieve the change history for a particular resource</td></tr>
+  <tr><th colspan="2">Type Level Interactions</th></tr>
+  <tr><td><a href="#create">create</a></td><td>Create a new resource with a server assigned id</td></tr>
+  <tr><td><a href="#search">search</a></td><td>Search the resource type based on some filter criteria</td></tr>
+  <tr><th colspan="2">Whole System Interactions</th></tr>
+  <tr><td><a href="#capabilities">capabilities</a></td><td>Get a capability statement for the system</td></tr>
+  <tr><td><a href="#transaction">batch/transaction</a></td><td>Update, create or delete a set of resources in a single interaction</td></tr>
+  <tr><td><a href="#history">history</a></td><td>Retrieve the change history for all resources</td></tr>
+</table>
+
+<h2 id="general">3.2.0.2 General Considerations</h2>
+
+<h3 id="mime-type">3.2.0.2.1 Content Types and encodings</h3>
+<p>The formal MIME-type for FHIR resources is <code>application/fhir+json</code> or <code>application/fhir+xml</code>.
+The correct mime type SHALL be used by clients and servers. Servers SHALL support JSON.</p>
+
+<h3 id="versioning">3.2.0.2.2 Resource Metadata and Versioning</h3>
+<p>Each resource has a set of metadata elements in the <code>meta</code> element. Version-aware servers track
+changes to resources and provide the <code>versionId</code> element. The version changes each time the resource
+changes, and the server populates it when the client does not provide it.</p>
+
+<div class="rule">
+<p><strong>Version Management:</strong> When a server processes an update (<code>PUT</code>) to an existing resource, the
+<code>meta.versionId</code> SHALL be incremented (typically by 1) from the current version of the resource on
+the server. For newly created resources (<code>POST</code>), <code>meta.versionId</code> is set to <code>"1"</code>.
+The <code>meta.lastUpdated</code> element SHALL be updated to reflect the time of the operation.</p>
+</div>
+
+<p>Note: the version id is a server-assigned value, and the client cannot predict its value.
+When comparing versions, the server SHOULD use string comparison.</p>
+
+<h3 id="security">3.2.0.2.3 Security</h3>
+<p>Communications SHALL be secured with TLS/SSL in production. For further information, see the
+<a href="#">Security Page</a>.</p>
+
+<hr/>
+
+<h2 id="read">3.2.0.3 read</h2>
+<p>The <code>read</code> interaction accesses the current contents of a resource. The interaction is performed
+by an HTTP <code>GET</code> command:</p>
+<pre>GET [base]/[type]/[id] {?_format=[mime-type]}</pre>
+<p>This returns a single instance with the content specified for the resource type. This url may be
+accessed by a browser. The possible response codes are:</p>
+<table>
+  <tr><th>Code</th><th>Description</th></tr>
+  <tr><td>200</td><td>Successfully retrieved the resource</td></tr>
+  <tr><td>404</td><td>Resource not found for the given id</td></tr>
+  <tr><td>410</td><td>Deleted resource</td></tr>
+</table>
+
+<h2 id="vread">3.2.0.4 vread</h2>
+<p>The <code>vread</code> interaction accesses a specific version of a resource instance:</p>
+<pre>GET [base]/[type]/[id]/_history/[vid]</pre>
+
+<h2 id="update">3.2.0.5 update</h2>
+<p>The <code>update</code> interaction creates a new current version for an existing resource, or creates
+an initial version if no resource already exists for the given id. The update interaction is
+performed by an HTTP <code>PUT</code> command:</p>
+<pre>PUT [base]/[type]/[id] {?_format=[mime-type]}</pre>
+
+<p>The request body SHALL be a Resource with an <code>id</code> element that has an identical value to the
+<code>[id]</code> in the URL. The server SHALL update the <code>meta.versionId</code> and <code>meta.lastUpdated</code>
+on the resource being stored.</p>
+
+<table>
+  <tr><th>Code</th><th>Description</th></tr>
+  <tr><td>200</td><td>Successfully updated (existing resource)</td></tr>
+  <tr><td>201</td><td>Successfully created (new resource via upsert)</td></tr>
+  <tr><td>400</td><td>Bad Request - resource could not be parsed or failed basic FHIR validation rules</td></tr>
+  <tr><td>404</td><td>Resource type not supported, or not a FHIR end-point</td></tr>
+  <tr><td>405</td><td>Not Allowed - the resource did not exist prior to the update, and the server does not allow client defined ids</td></tr>
+  <tr><td>409/412</td><td>Version conflict management</td></tr>
+  <tr><td>422</td><td>Proposed resource violated applicable FHIR profiles or server business rules</td></tr>
+</table>
+
+<h2 id="patch">3.2.0.6 patch</h2>
+<p>As an alternative to updating an entire resource, clients can perform a patch operation using
+HTTP <code>PATCH</code>.</p>
+
+<h2 id="delete">3.2.0.7 delete</h2>
+<p>The <code>delete</code> interaction removes an existing resource. The interaction is performed by an
+HTTP <code>DELETE</code> command:</p>
+<pre>DELETE [base]/[type]/[id]</pre>
+<p>A delete interaction means that subsequent non-version-specific read interactions will
+not result in the resource being found. Servers may choose to physically delete the resource,
+or mark it as inactive. For servers that don't support the delete interaction, the server
+should return a <code>405 Method Not Allowed</code> status code.</p>
+
+<table>
+  <tr><th>Code</th><th>Description</th></tr>
+  <tr><td>200</td><td>OK &ndash; resource deleted, response includes an OperationOutcome</td></tr>
+  <tr><td>204</td><td>No Content &ndash; resource successfully deleted, no response body</td></tr>
+  <tr><td>404</td><td>Not Found &ndash; resource type or id not supported</td></tr>
+  <tr><td>405</td><td>Method Not Allowed &ndash; delete not supported</td></tr>
+  <tr><td>409</td><td>Conflict &ndash; cannot be deleted due to referential integrity</td></tr>
+</table>
+
+<div class="note">
+<p><strong>Note:</strong> The typical response code for a successful deletion without a returned body is
+<code>204 No Content</code>. A server SHALL return a <code>200 OK</code> only if it returns a payload (e.g., an
+OperationOutcome) describing the result. If no payload is returned, the server SHOULD use <code>204</code>.</p>
+</div>
+
+<h2 id="create">3.2.0.8 create</h2>
+<p>The <code>create</code> interaction creates a new resource in a server-assigned location. If the
+client wishes to have control over the id of a newly submitted resource, it should use the
+<a href="#update">update</a> interaction instead. The create interaction is performed by an HTTP
+<code>POST</code> command:</p>
+<pre>POST [base]/[type] {?_format=[mime-type]}</pre>
+<p>The request body SHALL be a FHIR Resource. The server ignores the resource <code>id</code> if one
+is provided and assigns a new one. The server SHALL populate <code>meta.versionId</code> and
+<code>meta.lastUpdated</code>.</p>
+
+<table>
+  <tr><th>Code</th><th>Description</th></tr>
+  <tr><td>201</td><td>Created &ndash; resource was successfully created on the server, with a <code>Location</code> header</td></tr>
+  <tr><td>400</td><td>Bad Request</td></tr>
+  <tr><td>404</td><td>Not Found &ndash; resource type not supported</td></tr>
+  <tr><td>405</td><td>Method Not Allowed</td></tr>
+  <tr><td>422</td><td>Unprocessable Entity &ndash; proposed resource violated applicable profiles</td></tr>
+</table>
+
+<h3 id="ccreate">3.2.0.8.1 Conditional create</h3>
+<p>The conditional create interaction allows a client to create a new resource only if some
+equivalent resource does not already exist on the server. The client provides search parameters
+in the <code>If-None-Exist</code> header (or in the <code>ifNoneExist</code> field of a Bundle entry request):</p>
+<pre>POST [base]/[type]
+If-None-Exist: [search parameters]</pre>
+<p>If no resources match, the server performs the <code>create</code> as above. If a single match is found,
+the server returns <code>200 OK</code> and the existing resource. If multiple matches, the server returns
+<code>412 Precondition Failed</code>.</p>
+
+<h2 id="search">3.2.0.9 search</h2>
+<p>This interaction searches a set of resources based on some filter criteria. Search functionality
+is described in detail on the <a href="#">Search</a> page.</p>
+
+<h2 id="capabilities">3.2.0.10 capabilities</h2>
+<p>The capabilities interaction retrieves the information about a server&rsquo;s capabilities &ndash;
+which portions of this specification it supports:</p>
+<pre>GET [base]/metadata {?mode=[mode]} {&amp;_format=[mime-type]}</pre>
+
+<hr/>
+
+<h2 id="transaction">3.2.0.11 batch/transaction</h2>
+
+<p>The <em>batch</em> and <em>transaction</em> interactions submit a set of actions to perform on a server in a
+single HTTP request/response. The actions may be performed independently as a &ldquo;batch&rdquo;, or as
+a single atomic &ldquo;transaction&rdquo; where the entire set of changes succeed or fail as a single
+entity. Multiple actions on multiple resources of the same or different types may be submitted,
+and they may be a mix of interactions defined on this page (e.g., read, search, create, update,
+delete) or operations (at the system, resource type, or instance level).</p>
+
+<p>The transaction and batch interactions are performed by an HTTP <code>POST</code> command:</p>
+<pre>POST [base] {?_format=[mime-type]}</pre>
+
+<p>The content of the post submission is a Bundle with <code>Bundle.type</code> = <code>batch</code> or
+<code>transaction</code>. Each entry carries request details (<code>Bundle.entry.request</code>) that provide
+the HTTP verb, URL, and optional headers that together form the HTTP request the entry
+represents.</p>
+
+<h3 id="transaction-processing">3.2.0.11.1 Processing Rules &ndash; Transaction</h3>
+
+<p>A <em>transaction</em> is a single atomic action. For a transaction, servers SHALL either accept all
+actions and return a <code>200 OK</code>, along with a response bundle (see below), or reject all
+resources and return an HTTP <code>400</code> or <code>500</code> type response. Note that a transaction cannot
+be partially applied.</p>
+
+<div class="rule">
+<p><strong>Processing Order:</strong> Because of the atomicity requirement, a server SHOULD process
+a transaction in the following order to avoid dependency issues:</p>
+<ol>
+  <li>Process any <strong>DELETE</strong> interactions</li>
+  <li>Process any <strong>POST</strong> interactions (creates)</li>
+  <li>Process any <strong>PUT</strong> or <strong>PATCH</strong> interactions (updates)</li>
+  <li>Process any <strong>GET</strong> or <strong>HEAD</strong> interactions (reads/searches)</li>
+  <li>Resolve any conditional references</li>
+</ol>
+<p>If any resource identities (including resolved identities from conditional update/delete)
+overlap in steps 1&ndash;3, then the transaction SHALL fail.</p>
+</div>
+
+<p>The outcome of processing the transaction SHALL NOT depend on the order of the resources
+in the transaction. A resource can only appear in a transaction once (by identity).</p>
+
+<h3 id="transaction-refs">3.2.0.11.2 References in Transactions</h3>
+
+<p>Transactions may include references between entries where resources refer to each other.
+When the server assigns a new id to any resource in the transaction (i.e. in response to
+a <code>POST</code>/create), it <strong>SHALL</strong> also update any references to that resource in the same
+bundle as they are processed. References to resources that are not part of the transaction
+are left unchanged.</p>
+
+<div class="rule">
+<p><strong>Reference Resolution &ndash; fullUrl Mapping:</strong></p>
+<ul>
+  <li>For <code>POST</code> (create) entries, the <code>fullUrl</code> (typically a <code>urn:uuid:</code> or
+      <code>urn:oid:</code> value) serves as the identity of the resource within the Bundle.
+      The server ignores this value for the purpose of assigning a persistent id, but uses
+      it to resolve references.</li>
+  <li>When processing a transaction, the server SHALL build a mapping of all <code>fullUrl</code>
+      values for <code>POST</code> entries to their server-assigned identities
+      (<code>[type]/[id]</code>) <strong>before</strong> resolving any references. This is necessary to
+      support circular references between resources (e.g., resource A references resource B
+      and resource B references resource A).</li>
+  <li>After the mapping is established, the server SHALL replace <strong>all</strong> matching
+      <code>urn:uuid:</code> references throughout every resource in the transaction with the
+      corresponding server-assigned reference. This replacement applies to all elements in
+      the resource regardless of depth or position, including inside:
+      <ul>
+        <li>Standard reference elements (<code>subject</code>, <code>encounter</code>, etc.)</li>
+        <li>Extension elements (<code>extension[].valueReference.reference</code>)</li>
+        <li>Array elements (<code>hasMember[].reference</code>, <code>derivedFrom[].reference</code>,
+            <code>basedOn[].reference</code>, etc.)</li>
+        <li>Any element of type <code>uri</code>, <code>url</code>, <code>oid</code>, or <code>uuid</code></li>
+        <li>Narrative content (<code>&lt;a href=""&gt;</code> and <code>&lt;img src=""&gt;</code>)</li>
+      </ul>
+  </li>
+  <li>References to resources already existing on the server (e.g., <code>Practitioner/pract-001</code>)
+      are not modified.</li>
+</ul>
+</div>
+
+<div class="note">
+<p><strong>Implementation Note:</strong> A common implementation error is to only resolve references in
+&ldquo;well-known&rdquo; reference fields (such as <code>subject</code> and <code>encounter</code>). FHIR
+resources can contain references in <em>any</em> position, including within extensions, modifierExtensions,
+contained resources, and deeply nested array structures. Implementers SHOULD use a recursive
+traversal of the entire resource structure to find and resolve all <code>urn:uuid:</code> references,
+rather than enumerating individual field paths.</p>
+</div>
+
+<h3 id="transaction-identity">3.2.0.11.3 Identity Assignment</h3>
+<p>When a server processes a <code>POST</code> entry in a transaction, it assigns a new server-generated id.
+The <code>fullUrl</code> of the entry (if a <code>urn:uuid:</code>) is used only for cross-referencing within
+the bundle and is not stored as part of the resource.</p>
+
+<p>For <code>PUT</code> entries, the <code>request.url</code> identifies the resource being updated. The resource
+<code>id</code> element in the body should match the id in the URL.</p>
+
+<h3 id="transaction-conditional">3.2.0.11.4 Conditional Operations in Transactions</h3>
+<p>Conditional creates (<code>ifNoneExist</code>), conditional updates, and conditional deletes can all
+be used inside transactions. The server resolves the condition as part of transaction processing.
+If the condition on a conditional create matches zero existing resources, the create proceeds
+normally.</p>
+
+<h3 id="transaction-conditional-refs">3.2.0.11.4.1 Conditional References in Transactions</h3>
+
+<p>Resources within a transaction may contain <em>conditional references</em> &mdash; references
+of the form <code>[Type]?[search parameters]</code> (e.g.,
+<code>Patient?identifier=http://hospital.example.org/mrn|MRN-12345</code>). These are distinct from
+<code>urn:uuid:</code> references and represent a search-based reference that must be resolved by
+the server during transaction processing.</p>
+
+<div class="rule">
+<p><strong>Conditional Reference Resolution:</strong></p>
+<ul>
+  <li>When processing a transaction, the server SHALL resolve any conditional references
+      that appear in resource content by performing the implied search against the current
+      server state (including any modifications made by prior steps of the transaction).</li>
+  <li>If the search resolves to exactly one resource, the conditional reference SHALL be
+      replaced with a direct reference to that resource (e.g., <code>Patient/pat-001</code>).</li>
+  <li>If zero matches are found, the transaction SHALL fail with a <code>412 Precondition Failed</code> error.</li>
+  <li>If multiple matches are found, the transaction SHALL fail with a <code>412 Precondition Failed</code> error.</li>
+  <li>For token search parameters (such as <code>identifier</code>), the search value uses the
+      format <code>[system]|[value]</code>. Both system and value must match for a successful resolution.</li>
+</ul>
+</div>
+
+<div class="note">
+<p><strong>Implementation Note:</strong> Conditional references can appear alongside <code>urn:uuid:</code>
+references in the same resource. For example, a ServiceRequest might have its <code>subject</code>
+as a conditional reference (<code>Patient?identifier=...</code>) while its <code>encounter</code> uses a
+<code>urn:uuid:</code> reference to another entry in the same transaction. Implementers must handle
+both reference types during transaction processing.</p>
+</div>
+
+<h3 id="transaction-conditional-create-mapping">3.2.0.11.4.2 Conditional Create and Reference Mapping</h3>
+
+<p>When a conditional create (<code>ifNoneExist</code>) matches an existing resource and the create
+is therefore skipped, the server MUST handle the entry&rsquo;s <code>fullUrl</code> for reference
+resolution purposes:</p>
+
+<div class="rule">
+<ul>
+  <li>If the conditional create entry has a <code>fullUrl</code> (e.g., <code>urn:uuid:...</code>),
+      that <code>fullUrl</code> SHALL be mapped to the <em>existing</em> matched resource&rsquo;s server identity
+      (e.g., <code>AllergyIntolerance/allergy-001</code>) in the reference resolution mapping.</li>
+  <li>This ensures that other entries in the same transaction that reference the conditional
+      create&rsquo;s <code>fullUrl</code> will correctly resolve to the existing matched resource.</li>
+  <li>The response entry for a matched conditional create SHALL have status
+      <code>200 OK</code> (not <code>201 Created</code>), since no new resource was created.</li>
+  <li>Failure to map the <code>fullUrl</code> of a skipped conditional create will result in
+      unresolved <code>urn:uuid:</code> references in other transaction entries that depend on
+      the conditional create&rsquo;s identity, which constitutes a conformance violation.</li>
+</ul>
+</div>
+
+<h3 id="transaction-response">3.2.0.11.5 Transaction/Batch Response</h3>
+<p>For a successful transaction or batch, the server SHALL return a Bundle with
+<code>type</code> = <code>transaction-response</code> or <code>batch-response</code>. The response Bundle contains
+one entry for each entry in the request, in the same order. Each entry SHALL contain a
+<code>response</code> element which details:</p>
+<ul>
+  <li>The HTTP status code as a string (e.g., <code>"201 Created"</code>, <code>"200 OK"</code>,
+      <code>"204 No Content"</code>)</li>
+  <li>The <code>location</code> header value, where applicable (for creates)</li>
+  <li>The <code>etag</code> header value (for versioned resources)</li>
+  <li>The <code>lastModified</code> timestamp</li>
+</ul>
+
+<div class="rule">
+<p><strong>Status Codes in Transaction Responses:</strong> The status code for each entry in the response
+bundle should reflect the result of the individual operation within the transaction:</p>
+<table>
+  <tr><th>Operation</th><th>Success Code</th><th>Notes</th></tr>
+  <tr><td>DELETE</td><td><code>204 No Content</code></td><td>Resource was deleted; no response body for this entry. Do not use <code>200</code> unless an OperationOutcome is returned.</td></tr>
+  <tr><td>POST (create)</td><td><code>201 Created</code></td><td>New resource created; <code>location</code> header SHOULD be populated</td></tr>
+  <tr><td>PUT (update existing)</td><td><code>200 OK</code></td><td>Existing resource updated</td></tr>
+  <tr><td>PUT (create via upsert)</td><td><code>201 Created</code></td><td>New resource created at client-specified id</td></tr>
+  <tr><td>GET (read/search)</td><td><code>200 OK</code></td><td>Resource or search results returned</td></tr>
+</table>
+</div>
+
+<p>For a failed transaction, the server does NOT return a Bundle. Instead, it returns a single
+<code>OperationOutcome</code> resource with an HTTP status code in the 4xx or 5xx range.</p>
+
+<h3 id="batch-processing">3.2.0.11.6 Processing Rules &ndash; Batch</h3>
+<p>In a <em>batch</em>, there is no expectation of atomicity. Each entry is treated as an independent
+interaction. There SHALL be no interdependencies between different entries in a batch. The
+server processes each entry independently and returns a response for each.</p>
+
+<p>In contrast to transactions, references between entries in a batch that use <code>urn:uuid:</code>
+are considered non-conformant.</p>
+
+<hr/>
+
+<h2 id="history">3.2.0.12 history</h2>
+<p>The history interaction retrieves the history of either a particular resource, all resources
+of a given type, or all resources supported by the system:</p>
+<pre>GET [base]/[type]/[id]/_history{?[parameters]&amp;_format=[mime-type]}
+GET [base]/[type]/_history{?[parameters]&amp;_format=[mime-type]}
+GET [base]/_history{?[parameters]&amp;_format=[mime-type]}</pre>
+
+<h2 id="status-codes">3.2.0.13 HTTP Status Codes Summary</h2>
+
+<table>
+  <tr><th>Interaction</th><th>Common Success Codes</th></tr>
+  <tr><td>read</td><td>200</td></tr>
+  <tr><td>vread</td><td>200</td></tr>
+  <tr><td>update (existing)</td><td>200</td></tr>
+  <tr><td>update (new/upsert)</td><td>201</td></tr>
+  <tr><td>patch</td><td>200</td></tr>
+  <tr><td>delete</td><td>200, 202, 204</td></tr>
+  <tr><td>create</td><td>201</td></tr>
+  <tr><td>search</td><td>200</td></tr>
+  <tr><td>capabilities</td><td>200</td></tr>
+  <tr><td>transaction (overall)</td><td>200</td></tr>
+  <tr><td>batch (overall)</td><td>200</td></tr>
+</table>
+
+<hr/>
+
+<h2 id="extensions">3.2.0.14 Extensions and Data Types in RESTful Interactions</h2>
+<p>FHIR allows resources to include <a href="#">extensions</a> that carry additional data not defined
+in the base resource. Extensions use the <code>extension</code> element which contains:</p>
+<ul>
+  <li><code>url</code> &ndash; identifies the meaning of the extension</li>
+  <li>A value element chosen from the set of FHIR data types: <code>valueString</code>,
+      <code>valueBoolean</code>, <code>valueInteger</code>, <code>valueReference</code>,
+      <code>valueCodeableConcept</code>, etc.</li>
+</ul>
+
+<p>When an extension uses <code>valueReference</code>, it contains a standard FHIR Reference data type
+with a <code>reference</code> element. These references are subject to the same resolution rules as
+any other reference in the resource. During transaction processing, <code>urn:uuid:</code> references
+inside extensions MUST be resolved just like top-level references.</p>
+
+<div class="note">
+<p><strong>Common Pitfall:</strong> Extension-carried references are frequently overlooked during
+transaction reference resolution because they do not appear at predictable positions in the
+resource structure. Implementers must ensure their reference resolution logic traverses
+the complete resource tree, including all extensions at every level.</p>
+</div>
+
+<h2 id="bundles">3.2.0.15 Bundle Resource</h2>
+<p>A Bundle resource is a container for a collection of resources. Bundles are used in many
+contexts in FHIR:</p>
+<ul>
+  <li>Returning search results (<code>searchset</code>)</li>
+  <li>Sending a set of actions (<code>transaction</code> / <code>batch</code>)</li>
+  <li>Communicating a group of resources as part of a message (<code>message</code>)</li>
+  <li>Grouping a self-contained set of resources to act as an exchangeable document (<code>document</code>)</li>
+</ul>
+
+<p>For transaction bundles, each <code>entry</code> element contains:</p>
+<ul>
+  <li><code>fullUrl</code> &ndash; the identity of the resource for referencing within the bundle</li>
+  <li><code>resource</code> &ndash; the resource content</li>
+  <li><code>request</code> &ndash; HTTP request details: <code>method</code>, <code>url</code>,
+      and optionally <code>ifNoneMatch</code>, <code>ifModifiedSince</code>,
+      <code>ifMatch</code>, <code>ifNoneExist</code></li>
+</ul>
+
+<p>For transaction-response bundles, each entry contains:</p>
+<ul>
+  <li><code>response</code> &ndash; the outcome: <code>status</code>, <code>location</code>,
+      <code>etag</code>, <code>lastModified</code>, and optionally <code>outcome</code></li>
+  <li>Optionally <code>resource</code> &ndash; the resource as stored (controlled by
+      <code>Prefer</code> header)</li>
+</ul>
+
+<hr/>
+
+<p><em>Copyright &copy; 2023 HL7 International. FHIR R5 v5.0.0. All rights reserved.</em></p>
+</body>
+</html>

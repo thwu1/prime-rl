@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the HdrHistogram exponential-linear bucketing internals from stripped field declarations and test expectations alone, plus implementing a compact serialization codec and fixing a broken Makefile build system. The solver must: (1) deduce the relationship between lowestDiscernibleValue and unitMagnitude from field semantics and test-expected structural values, (2) determine how numberOfSignificantValueDigits maps to subBucketCount by analyzing test expectations across digits=0,2,3,5, (3) design the counts array index mapping (bucket-to-flat-array and inverse) from round-trip consistency tests, (4) implement O(1) bucket lookup using leading-zero-count without being given the formula, (5) handle extreme unitMagnitude values (51, 54, 61) near Long.MAX_VALUE where overflow and bit-width constraints create subtle failure modes, (6) implement statistics aggregation that respects the equivalent-value-range abstraction, (7) handle cross-configuration histogram merges where structurally incompatible histograms require value-by-value re-recording, (8) maintain correct min/max tracking state through add/subtract/reset cycles with proper recomputation after subtraction, (9) implement ZigZag varint encoding/decoding with zero-run compression and DEFLATE/Base64 round-trip serialization, and (10) diagnose and fix three distinct Makefile defects (wrong output directory, incorrect Make automatic variable, missing dependency chain) that require understanding Make syntax and semantics."""
+solution_explanation = """The solution implements the complete HdrHistogram algorithm: init() computes unitMagnitude = floor(log2(lowestDiscernibleValue)), subBucketCountMagnitude = ceil(log2(2*10^digits)), derives all bucket parameters, and validates that subBucketCountMagnitude + unitMagnitude <= 62. getBucketIndex uses leadingZeroCountBase - Long.numberOfLeadingZeros(value | subBucketMask). getSubBucketIndex does value >>> (bucketIndex + unitMagnitude). countsArrayIndex combines these via (bucketIndex+1) << subBucketHalfCountMagnitude + subBucketIndex - subBucketHalfCount. valueFromIndex reverses the mapping. The codec implements ZigZag encoding ((n<<1)^(n>>63)), varint byte encoding (7 bits per byte with MSB continuation), zero-run compression (negative varints for zero-count runs), DEFLATE compression, and Base64 encoding. The Makefile fix changes CLASSDIR from /app/build to /app/classes, replaces $< with $(SOURCES), and adds the build dependency to the verify target."""
+verification_explanation = """33 test classes verify exact numerical invariants: (1-5) bucket index and structural field calculations at unitMagnitude 0, 4, 12, 51, 54, 61 with specific input/output pairs, (6) basic recording and overflow exception, (7) coordinated-omission correction producing exact expected counts, (8-9) equivalent-value-range methods at specific boundary values including scaled histograms, (10) percentile queries with significant-digits contract across 8 histogram sizes, (11) empty histogram statistics, (12) histogram arithmetic with negative-count guard, (13) reset state verification, (14) footprint formula, (15) mean/stddev on controlled data, (16) percentile-at-value, (17) value-index round-trip across 5100 indices, (18) count-at-value, (19) structural field verification across 3 configurations (digits=0,3,5) checking countsArrayLength/subBucketCount/bucketCount, (20) 0th and 100th percentile edge cases, (21) multi-step add-then-subtract workflow, (22) min/max tracking recomputation after subtract, (23) boundary value recording (0 and highestTrackableValue), (24) percentile accuracy across 10 orders of magnitude, (25) percentile round-trip consistency invariant, (26) cross-configuration histogram add with different lowestDiscernibleValue, (27) ZigZag varint encoding/decoding with known values and round-trip, (28-30) codec round-trip for small, large, and empty histograms verifying counts/min/max/mean preservation, (31) codec determinism, (32) codec percentile preservation after round-trip, (33) Makefile full pipeline (make clean + make all producing ROUNDTRIP_OK)."""
+category = "algorithms"
+tags = ["data-structures", "build-systems"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hdr-histogram-internals-e2b232"

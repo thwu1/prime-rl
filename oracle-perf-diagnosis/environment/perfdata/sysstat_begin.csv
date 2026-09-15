@@ -1,0 +1,13 @@
+statistic_name,value
+consistent gets,30000000
+db block gets,15000000
+physical reads,8500000
+physical reads direct,350000
+parse count (total),2800000
+parse count (hard),840000
+execute count,3200000
+sorts (memory),180000
+sorts (disk),12000
+redo size,250000000
+user commits,45000
+session logical reads,45000000

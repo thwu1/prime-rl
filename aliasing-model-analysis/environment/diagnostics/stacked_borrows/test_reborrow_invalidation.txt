@@ -1,0 +1,31 @@
+$ cargo +nightly miri test --lib test_reborrow_invalidation
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_reborrow_invalidation ... error: Undefined Behavior: attempting a read access using <3102> at alloc1612[0x0], but that tag does not exist in the borrow stack for this location
+   --> src/lib.rs:36:5
+    |
+36  |     *child
+    |     ^^^^^^ attempting a read access using <3102> at alloc1612[0x0], but that tag does not exist in the borrow stack for this location
+    |
+    = help: this indicates a potential bug in the program: it performed an invalid operation, but the Stacked Borrows rules it violated are still experimental
+    = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md for further information
+help: <3102> was created by a Unique retag at offsets [0x0..0x4]
+   --> src/lib.rs:33:31
+    |
+33  |     let child: *mut i32 = &mut *parent;
+    |                           ^^^^^^^^^^^^ this tag was created here
+help: <3102> was later invalidated at offsets [0x0..0x4] by a write access through <3098>
+   --> src/lib.rs:35:5
+    |
+35  |     *parent = 3;
+    |     ^^^^^^^^^^^ <3098> is the parent tag of <3102>, so writing through <3098> invalidated <3102> on the borrow stack
+    = note: BACKTRACE (of the first span):
+    = note: inside `reborrow_invalidation` at src/lib.rs:36:5: 36:11
+    = note: inside `tests::test_reborrow_invalidation` at src/lib.rs:100:30: 100:53
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error

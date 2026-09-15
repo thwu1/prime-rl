@@ -1,0 +1,44 @@
+{
+  "graphs": [
+    {
+      "name": "conv_bn_relu",
+      "operators": [
+        {"id": 0, "type": "conv2d", "params": {"N": 32, "C_in": 64, "H": 56, "W": 56, "C_out": 128, "K": 3, "stride": 1, "padding": 1}},
+        {"id": 1, "type": "batchnorm", "params": {"shape": [32, 128, 56, 56]}},
+        {"id": 2, "type": "relu", "params": {"shape": [32, 128, 56, 56]}}
+      ],
+      "edges": [[0, 1], [1, 2]]
+    },
+    {
+      "name": "transformer_ffn",
+      "operators": [
+        {"id": 0, "type": "linear", "params": {"B": 128, "I": 768, "O": 3072}},
+        {"id": 1, "type": "gelu", "params": {"shape": [128, 3072]}},
+        {"id": 2, "type": "linear", "params": {"B": 128, "I": 3072, "O": 768}},
+        {"id": 3, "type": "add", "params": {"shape": [128, 768]}}
+      ],
+      "edges": [[0, 1], [1, 2], [2, 3]]
+    },
+    {
+      "name": "attention_scores",
+      "operators": [
+        {"id": 0, "type": "matmul", "params": {"M": 4096, "K": 64, "N": 512}},
+        {"id": 1, "type": "scale", "params": {"shape": [4096, 512]}},
+        {"id": 2, "type": "softmax", "params": {"shape": [4096, 512]}},
+        {"id": 3, "type": "matmul", "params": {"M": 4096, "K": 512, "N": 64}}
+      ],
+      "edges": [[0, 1], [1, 2], [2, 3]]
+    },
+    {
+      "name": "mlp_with_norm",
+      "operators": [
+        {"id": 0, "type": "linear", "params": {"B": 256, "I": 1024, "O": 4096}},
+        {"id": 1, "type": "layernorm", "params": {"shape": [256, 4096]}},
+        {"id": 2, "type": "gelu", "params": {"shape": [256, 4096]}},
+        {"id": 3, "type": "linear", "params": {"B": 256, "I": 4096, "O": 1024}},
+        {"id": 4, "type": "add", "params": {"shape": [256, 1024]}}
+      ],
+      "edges": [[0, 1], [1, 2], [2, 3], [3, 4]]
+    }
+  ]
+}

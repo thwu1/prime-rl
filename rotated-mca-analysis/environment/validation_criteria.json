@@ -1,0 +1,37 @@
+{
+  "description": "Statistical properties that correct analysis output must satisfy. Use these to evaluate the pipeline output and diagnose errors.",
+  "criteria": [
+    {
+      "id": "sv_positive_descending",
+      "check": "All 6 singular values must be strictly positive and in strictly descending order"
+    },
+    {
+      "id": "scf_valid",
+      "check": "All 6 squared covariance fractions must be in (0, 1) and their total must not exceed 1.0"
+    },
+    {
+      "id": "rotation_orthogonal",
+      "check": "The 6x6 rotation matrix R must satisfy R^T R = I within tolerance 1e-5"
+    },
+    {
+      "id": "rvf_valid",
+      "check": "All 6 rotated variance fractions must be strictly positive, in descending order, and sum to 1.0 within tolerance 1e-5"
+    },
+    {
+      "id": "leading_mode_strength",
+      "check": "The first (leading) rotated mode should capture at least 20% of total rotated variance"
+    },
+    {
+      "id": "cc_bounded",
+      "check": "All 6 cross-correlation values must lie in [-1, 1]"
+    },
+    {
+      "id": "cc_leading_significant",
+      "check": "The cross-correlation magnitude for the leading rotated mode should exceed 0.5"
+    },
+    {
+      "id": "nontrivial_rotation",
+      "check": "Rotation matrix must differ substantially from the identity matrix (max absolute deviation > 0.01)"
+    }
+  ]
+}

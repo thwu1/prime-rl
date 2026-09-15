@@ -1,0 +1,8 @@
+{
+  "BLOCK_SIZE_M": [64, 128, 256],
+  "BLOCK_SIZE_N": [64, 128, 256],
+  "BLOCK_SIZE_K": [32, 64, 128],
+  "GROUP_SIZE_M": [1, 4, 8],
+  "num_warps": [4, 8],
+  "num_stages": [2, 3, 4, 5]
+}

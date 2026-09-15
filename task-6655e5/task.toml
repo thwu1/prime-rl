@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing TTCN-3, a niche telecom testing language with no standard Python parsers. The agent must handle nested groups, multi-line declarations, block/line comment interleaving within the control block, and derive expected testcase names from guard function abbreviations using an implicit naming convention. Finding the 8+ structural defects (off-by-one guard numbering, duplicate guards, cross-group reference errors, behavior-type mismatches) demands careful cross-referencing across hundreds of test cases spanning three large source files totaling over 1MB."""
+solution_explanation = """Build a Python parser that: (1) extracts unique testcase declarations from Registration and CallControl modules via regex; (2) parses with-extension metadata blocks to extract RFC references; (3) walks the MainModule control block line-by-line with a state machine tracking block-comment nesting to separate active vs voided execute() calls and their guard functions; (4) derives expected testcase names from guard abbreviations by splitting into 2-letter segments and appending behavior type + number; (5) cross-references to find mismatches, duplicates, and cross-group errors; (6) builds RFC coverage map from parsed references."""
+verification_explanation = """Tests load the output JSON and verify: (a) structural completeness; (b) testcase counts are in expected ranges; (c) specific STF296-voided testcases are identified; (d) the two duplicate guard functions are found; (e) specific guard/execute number mismatches are detected in both CC_PR and MG_PR groups; (f) the cross-group mismatch (runCCPRMPRSV003 -> TR_CL_V_003) is found; (g) RFC section coverage maps include known entries; (h) total defect count meets minimum threshold."""
+category = "code-analysis"
+tags = ["ttcn3", "static-analysis"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6655e5"

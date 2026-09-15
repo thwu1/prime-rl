@@ -1,0 +1,32 @@
+[
+  {
+    "model_id": "aurora-72b",
+    "knowledge_cutoff": "2024-04-01",
+    "is_open": true
+  },
+  {
+    "model_id": "blazeai-13b",
+    "knowledge_cutoff": "2024-06-15",
+    "is_open": true
+  },
+  {
+    "model_id": "cognet-pro",
+    "knowledge_cutoff": "2024-09-01",
+    "is_open": false
+  },
+  {
+    "model_id": "deepmind-ultra",
+    "knowledge_cutoff": "2024-11-01",
+    "is_open": false
+  },
+  {
+    "model_id": "etheron-7b",
+    "knowledge_cutoff": "2025-01-01",
+    "is_open": true
+  },
+  {
+    "model_id": "frontier-max",
+    "knowledge_cutoff": "2025-02-15",
+    "is_open": false
+  }
+]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a PuzzleScript DSL parser and full game engine with directional pattern-rewrite rules, collision-layer movement resolution, and push-chain mechanics from a specification document. Beyond simulation, demands producing machine-verifiable formal proofs of solution optimality for all 6 levels. The solver must also generate valid Graphviz state-space visualizations. Combining DSL parsing, game engine implementation, optimal solving, formal verification, and graph generation in a single pipeline is expert-level work."""
+solution_explanation = """Parse each .pzl file into structured data, implement the complete turn-processing loop (player movement, directional rule application, push-chain resolution, collision-layer constraints, win checking), find minimum-length solutions, produce formal proofs that no shorter solutions exist using constraint-based verification, and generate Graphviz DOT state-space graphs."""
+verification_explanation = """An independent reference PuzzleScript engine in the test suite simulates each submitted solution and verifies it reaches a winning state. A separate solver independently computes optimal solution lengths and checks submitted solutions match. Proof JSON files are validated for correct structure, field values, and consistency with verified optimal lengths. DOT files are validated by running the graphviz dot layout engine."""
+category = "coding"
+tags = ["constraint-solving", "formal-verification"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-75afc4"

@@ -1,0 +1,38 @@
+Approximate Matching Semantics
+
+The fuzzy subcommand finds all keys within a given byte-level
+edit distance of a query string.
+
+Edit operations (each costs 1):
+  - Insert one byte into the query to approach a key
+  - Delete one byte from the query
+  - Substitute one byte for another
+
+Given keys: a(1) ab(5) abc(13) abd(21) b(34) bcd(55)
+
+fuzzy query="abc" distance=0:
+  abc	13	0
+
+fuzzy query="ab" distance=1:
+  a	1	1
+  ab	5	0
+  abc	13	1
+  abd	21	1
+  b	34	1
+
+fuzzy query="bce" distance=2:
+  b	34	2
+  bcd	55	1
+
+fuzzy query="zzzzz" distance=1:
+  (no results)
+
+Given keys: ""(42) a(10) ab(20)
+
+fuzzy query="" distance=1:
+  	42	0
+  a	10	1
+
+Output is always sorted lexicographically by key.
+Each result includes the key, its stored value, and the
+minimum edit distance from the query to that key.

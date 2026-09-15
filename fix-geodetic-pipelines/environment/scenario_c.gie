@@ -1,0 +1,49 @@
+<gie>
+
+# Scenario C: Lambert Azimuthal Equal-Area projection
+# Region: Europe (ETRS89-LAEA)
+# Reference data: GIGS Test 5110
+#
+# Fix the projection parameters so all test cases pass within tolerance.
+
+operation +proj=laea \
+          +lat_0=52 \
+          +lon_0=10 \
+          +x_0=4321000 \
+          +y_0=3200000 \
+          +ellps=intl \
+          +units=m
+
+tolerance 0.05 m
+
+accept    10 52
+expect    4321000.0 3210000.0
+
+accept    5 50
+expect    3962799.45 2999718.853
+
+accept    5 60
+expect    4041548.13 4109791.66
+
+accept    5 70
+expect    4127824.65822 5214090.649
+
+accept    5 40
+expect    3892127.02 1892578.962
+
+accept    5 30
+expect    3830117.9 796781.677
+
+accept    0.0 50.0
+expect    3606514.43 3036305.967
+
+accept    3.0 50.0
+expect    3819948.288 3011432.894
+
+accept    8.0 50.0
+expect    4177612.521 2989464.315
+
+accept    10.0 50.0
+expect    4321000.0 2987510.567
+
+</gie>

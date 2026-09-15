@@ -1,0 +1,12 @@
+CUDA Compiler Register Usage Profiles — sgemmWarptiling kernel
+Target: sm_86 (NVIDIA RTX A6000)
+Compiled with: nvcc -arch=sm_86 --ptxas-options=-v
+
+Each line shows (NUM_THREADS, BM, BN, BK, WM, WN, WNITER, TM, TN) and the
+compiler-reported register count per thread.
+
+Profile 1: (128, 128, 128, 16, 64, 64, 4, 8, 4) → 155 registers/thread
+Profile 2: (256, 64, 64, 16, 16, 32, 1, 4, 4)   →  39 registers/thread
+Profile 3: (128, 64, 128, 32, 16, 128, 1, 4, 4)  →  87 registers/thread
+Profile 4: (256, 128, 128, 16, 32, 64, 1, 4, 8)  →  91 registers/thread
+Profile 5: (128, 128, 128, 16, 64, 64, 1, 4, 4)  → 151 registers/thread

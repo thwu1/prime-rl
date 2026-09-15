@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: parsing the undocumented GEO SOFT format (four line-type conventions, embedded data tables, hierarchical entity structure), reconstructing a paired experimental design from heterogeneous sample metadata, selecting appropriate statistical methods for paired expression data (paired test, multiple testing correction), implementing QC outlier detection in expression data, and correctly handling probe-gene mapping with multi-probe gene summarization. The solver must independently determine the file format semantics, choose valid statistical approaches, and handle edge cases like missing annotations and paired-sample exclusion — none of which are prescribed in the instruction."""
+solution_explanation = """Parse the SOFT file by recognizing its four line-type convention (^, !, #, data rows). Extract platform probe-to-gene mappings and per-sample expression data with characteristics metadata. Build a design matrix from Sample_characteristics_ch1 fields. Detect outlier samples by computing median log2 intensity per sample within each tissue group and flagging those with z-score > 3. Exclude entire patient pairs where either sample is an outlier. Run paired t-tests per probe across valid patient pairs and apply Benjamini-Hochberg p-value adjustment with monotonicity enforcement. Rank genes by selecting the best probe per gene (smallest padj) and report top 20."""
+verification_explanation = """Tests independently re-parse the SOFT file and recompute all expected outputs using the same statistical methodology. Each output file is verified against independently computed ground truth for exact matches on key fields, correct row counts, proper sorting, fold-change direction and magnitude tolerances, and p-value bounds."""
+category = "bioinformatics"
+tags = ["microarray-analysis", "differential-expression"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geo-soft-deanalysis"

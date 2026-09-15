@@ -1,0 +1,22 @@
+[
+  {"index": 0, "process": 0, "type": "invoke", "f": "write", "value": 10},
+  {"index": 1, "process": 0, "type": "ok", "f": "write", "value": 10},
+  {"index": 2, "process": 1, "type": "invoke", "f": "write", "value": 20},
+  {"index": 3, "process": 2, "type": "invoke", "f": "read", "value": null},
+  {"index": 4, "process": 1, "type": "ok", "f": "write", "value": 20},
+  {"index": 5, "process": 2, "type": "ok", "f": "read", "value": 10},
+  {"index": 6, "process": 3, "type": "invoke", "f": "cas", "value": [20, 30]},
+  {"index": 7, "process": 3, "type": "ok", "f": "cas", "value": [20, 30]},
+  {"index": 8, "process": 4, "type": "invoke", "f": "read", "value": null},
+  {"index": 9, "process": 0, "type": "invoke", "f": "write", "value": 40},
+  {"index": 10, "process": 4, "type": "ok", "f": "read", "value": 30},
+  {"index": 11, "process": 0, "type": "ok", "f": "write", "value": 40},
+  {"index": 12, "process": 1, "type": "invoke", "f": "read", "value": null},
+  {"index": 13, "process": 1, "type": "ok", "f": "read", "value": 40},
+  {"index": 14, "process": 2, "type": "invoke", "f": "cas", "value": [40, 50]},
+  {"index": 15, "process": 3, "type": "invoke", "f": "cas", "value": [40, 60]},
+  {"index": 16, "process": 2, "type": "ok", "f": "cas", "value": [40, 50]},
+  {"index": 17, "process": 3, "type": "fail", "f": "cas", "value": [40, 60]},
+  {"index": 18, "process": 4, "type": "invoke", "f": "read", "value": null},
+  {"index": 19, "process": 4, "type": "ok", "f": "read", "value": 50}
+]

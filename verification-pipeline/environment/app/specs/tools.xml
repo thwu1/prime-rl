@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+     Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+     SPDX-License-Identifier: BSD-2-Clause
+-->
+<testsuite cpu-timeout="3600" depends="isabelle">
+
+    <!-- C Parser -->
+    <sequence cwd="c-parser">
+      <test name="CParser">make CParser</test>
+      <test name="CParserTest" cpu-timeout="7200">make cparser_test</test>
+      <test name="CParserTools">make cparser_tools</test>
+    </sequence>
+
+    <!-- AutoCorres -->
+    <set depends="CParser" cwd="autocorres">
+        <test name="AutoCorres">make AutoCorres</test>
+
+        <set depends="AutoCorres">
+            <test name="AutoCorresDoc">make AutoCorresDoc</test>
+            <test name="AutoCorresTest">make AutoCorresTest</test>
+            <test name="AutoCorresSEL4" depends="CBaseRefine" cpu-timeout="21600">
+                make AutoCorresSEL4
+            </test>
+        </set>
+    </set>
+
+    <!-- AsmRefine -->
+    <set depends="CParser" cwd="asmrefine">
+        <test name="AsmRefine">make AsmRefineTest</test>
+    </set>
+
+</testsuite>

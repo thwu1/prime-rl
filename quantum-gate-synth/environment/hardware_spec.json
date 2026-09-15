@@ -1,0 +1,13 @@
+{
+    "num_qubits": 3,
+    "coupling_graph": [[0, 1], [1, 2]],
+    "native_gates": {
+        "two_qubit": ["xxplusyy"],
+        "single_qubit": ["rz", "sx"]
+    },
+    "xxplusyy_definition": {
+        "num_params": 2,
+        "param_names": ["theta", "beta"],
+        "description": "XX+YY interaction gate: U(t,b) = diag(1, cos(t/2), cos(t/2), 1) with off-diagonal [1,2]=i*sin(t/2)*exp(i*b), [2,1]=i*sin(t/2)*exp(-i*b)"
+    }
+}

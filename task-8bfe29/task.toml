@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must explore reference materials in /app/data/ (a JSON specification, SQLite database, and CSV file) to discover the LABS problem formulation, Hamiltonian interaction index generation rules, counterdiabatic schedule parameter chain, and symmetry group structure. It must query the SQLite database using sqlite3 to extract validation data, parse LaTeX-formatted mathematical formulas from a JSON spec, and then implement six interdependent Python modules with correct mathematical logic — including nested-loop combinatorial index generation, trigonometric annealing schedules, O(N) incremental energy updates, and a metaheuristic optimizer that reliably finds known optima for N up to 21. Errors cascade across modules: wrong interaction indices break theta computation, wrong energy breaks the optimizer."""
+solution_explanation = """Explore /app/data/ to find spec.json, reference.db, and known_optima.csv. Query reference.db with sqlite3 to get validation data (interaction counts, exact G2/G4 sets, theta values, energy examples). Parse the mathematical specification from spec.json to implement: energy.py (autocorrelation, energy, merit factor, incremental flip update), interactions.py (G2/G4 enumeration from nested floor-division loop bounds, topology overlaps), theta.py (sin^2 annealing schedule, Gamma1/Gamma2/alpha/theta chain), symmetry.py (negation, reversal, alternating inversion, canonical form over 8-element group), mts.py (tabu search with aspiration criterion, memetic wrapper with crossover/mutation), solver.py (MTS with size-tuned parameters to hit known optima)."""
+verification_explanation = """48 pytest assertions verify each component: autocorrelation values on specific sequences, energy on known-optimal sequences (N=3-11), merit factor arithmetic, exact G2/G4 index sets for N=4-6 and sizes for N=7-10, topology overlap invariants, Gamma1 values for N=5/7/10, Gamma2 at specific lambda, theta values to 8 decimal places, energy preservation under all three symmetries and compositions, canonical form consistency and correctness, incremental flip energy for all positions, and solver achieving exact optima for N in {5,7,11,13} plus E<=30 for N=21."""
+category = "optimization"
+tags = ["combinatorial-optimization", "scientific-computing"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8bfe29"

@@ -1,0 +1,10 @@
+{
+  "scoring_method": "penalty_deduction",
+  "base_score": 1.0,
+  "minimum_score": 0.0,
+  "severity_penalties": {
+    "SHALL": 0.05,
+    "SHOULD": 0.02
+  },
+  "formula": "conformance_score = max(minimum_score, base_score - sum(severity_penalties[v.severity] for v in violations))"
+}

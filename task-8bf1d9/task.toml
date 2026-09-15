@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a Git Pack Index v2 file generator from scratch. The solver must: (1) parse the Pack v2 binary format including variable-length type+size encoding, OFS_DELTA negative-offset encoding, and zlib-compressed object data; (2) resolve delta chains by decompressing base objects and applying binary delta instructions (COPY and INSERT opcodes); (3) compute SHA-1 object identities by prepending git's 'type size\\0' header to resolved content; (4) compute CRC32 checksums over raw pack bytes for each entry; (5) construct the Pack Index v2 binary format with 256-entry fanout table, sorted SHA-1 table, CRC32 table, offset table, and dual trailing checksums; (6) independently diagnose and fix a poisoned git config extension and a bogus null-SHA branch ref. The pack index implementation is tested against an unseen pack file to prevent hardcoded solutions."""
+solution_explanation = """Write a Python program (pack_index_gen.py) that reads a .pack file, parses each entry's type/size/data using the pack v2 variable-length encoding, resolves OFS_DELTA chains by recursively applying binary deltas to base objects, computes each object's SHA-1 from its resolved type+content, computes CRC32 over each entry's raw pack bytes, then writes a Pack Index v2 file with correct magic/version, 256-entry cumulative fanout table, sorted SHA-1 table, CRC32 table, offset table, pack checksum copy, and index self-checksum. Fix the repository config by removing the unknown extension section and resetting repositoryformatversion to 0. Remove the bogus null-SHA loose branch ref so git falls back to the correct packed-refs entry."""
+verification_explanation = """Tests verify: (1) pack_index_gen.py exists at /app; (2) it successfully generates a valid .idx when run against a freshly-created independent pack file the solver has never seen — git verify-pack, git fsck, git log, and git show all work on the independent repo; (3) the generated idx matches the reference idx byte-for-byte; (4) the original repo passes git fsck --full --strict; (5) git log shows exactly 5 commits with correct messages; (6) all files (README.md, main.py, src/engine.py, data/records.csv, VERSION, CHANGELOG.md) are recoverable with correct content; (7) the annotated tag v1.0.0 is accessible; (8) git verify-pack succeeds on all packs."""
+category = "systems"
+tags = ["git-internals", "binary-formats"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8bf1d9"

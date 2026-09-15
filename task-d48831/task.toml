@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across multiple Kubernetes security domains: forensic analysis of kube-apiserver audit logs to reconstruct a multi-stage attack chain, writing correct OPA/Rego admission control policies with non-trivial semantics (set comprehensions, embedded pod template traversal, namespace-aware exemptions), authoring syntactically valid Falco detection rules with proper condition syntax and priority levels, and constructing a Kubernetes audit policy with correct level semantics and resource targeting. The attack scenario involves RBAC abuse, container escape via privileged pods with host mounts, lateral movement, and cryptominer deployment — requiring understanding of real-world Kubernetes attack patterns."""
+solution_explanation = """Analyze the JSONL audit logs to identify the compromised service account (frontend-sa in webapp namespace) by detecting cross-namespace secret access from an external IP using kubectl (vs the app's Go HTTP client). Trace the full attack chain: reconnaissance (secret enumeration), privilege escalation (ClusterRoleBinding to cluster-admin), execution (privileged pod with hostPID/hostPath), credential theft (etcd certs), persistence (new SA + CRB), impact (cryptominer DaemonSet). Write an OPA policy with deny[msg] rules blocking privileged containers, host namespace sharing, and hostPath volumes, with kube-system system-component exemption. Write Falco rules detecting privileged containers, sensitive file access, nsenter escape, and cryptomining. Write a K8s audit policy with RequestResponse for secrets/RBAC and Request for pods."""
+verification_explanation = """Tests validate four artifacts: (1) Incident report JSON checked for correct compromised identity (frontend-sa/webapp), affected namespaces (webapp, kube-system, payment), attack chain length >=5 with privilege escalation and persistence tactics, critical severity. (2) OPA policy tested by running opa eval against 8 admission review inputs — must deny privileged containers, hostPID, hostNetwork, hostPath mounts and allow normal pods and exempt kube-system system components. (3) Falco rules YAML parsed and verified for >=3 rules with required fields and keywords for privileged container, sensitive file, and cryptomining detection. (4) Audit policy YAML verified for correct apiVersion/kind, >=3 rules, secrets at Request+ level, RBAC resource logging, and pod logging."""
+category = "cybersecurity"
+tags = ["kubernetes", "incident-response"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d48831"

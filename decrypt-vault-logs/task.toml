@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic reasoning: the solver must independently analyze three distinct cipher implementations, identify vulnerability classes (deterministic block cipher, stream cipher nonce reuse, authenticated encryption), discover a nonce collision in database records, reconstruct known plaintext from formatter source code to mount a keystream-recovery attack, perform RSA key unwrapping with correct padding parameters found in config files, compute quantitative collision probabilities from first principles (birthday bound, deterministic analysis), design a production-grade remediation engine selecting appropriate authenticated-encryption and key-derivation primitives without guidance, and implement a correct database migration pipeline — all without algorithmic hints in the instructions."""
+solution_explanation = """1. Read engine source files to identify: v1 uses ECB (deterministic, no IV), v2 uses CTR with nonce = session_id||entry_seq (deterministic from daemon start time), v3 uses GCM with random nonces. 2. Find the RSA private key passphrase in config.py, unwrap the v1 AES-128 key from the RSA-OAEP wrapped blob. 3. Query the database for duplicate (session_id, entry_seq) pairs among v2 entries — these share the same CTR nonce. 4. Identify a HEARTBEAT and SECRET entry at the colliding nonce, reconstruct the HEARTBEAT plaintext from formatters.py, XOR the two ciphertexts and the known plaintext to recover the secret token. 5. Compute risk metrics: v1 collision_probability ≈ 1.0 (deterministic ECB), v1 data_at_risk = all v1 entries (key recovered); v2 collision_probability from birthday analysis on session_id space; v3 collision_probability = n²/2^97 (negligible). 6. Design SecureEngine with HKDF(SHA-256) key derivation and AES-256-GCM authenticated encryption. 7. Implement migrate.py to decrypt all v1 ECB entries and re-encrypt under SecureEngine with 'v1-migration' context."""
+verification_explanation = """Tests verify: (1) solution.txt contains correct token via SHA-256 hash comparison; (2) audit report has 3 engines with quantitative fields; (3) engine classifications: v1=CRITICAL, v2=HIGH|CRITICAL, v3=NONE|LOW; (4) v1 collision_probability > 0.5, v3 < 1e-10; (5) v1 data_at_risk_count matches DB row count, v3 = 0; (6) secure_engine.py is importable with SecureEngine class, uses HKDF and GCM, passes round-trip and nonce-uniqueness checks, enforces context isolation; (7) migrated_entries table exists with correct row count matching v1 entries; (8) migration key is 32 bytes; (9) migrated entries decrypt to valid plaintext."""
+category = "cybersecurity"
+tags = ["cryptanalysis", "security-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/decrypt-vault-logs"

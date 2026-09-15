@@ -1,0 +1,28 @@
+{
+  "slos": [
+    {
+      "name": "ttft_p99",
+      "metric": "sglang:time_to_first_token_seconds",
+      "type": "histogram_percentile",
+      "percentile": 0.99,
+      "threshold": 2.0,
+      "comparison": "less_than",
+      "target": 0.99,
+      "description": "99th percentile TTFT must be under 2 seconds"
+    },
+    {
+      "name": "e2e_p95",
+      "metric": "sglang:e2e_request_latency_seconds",
+      "type": "histogram_percentile",
+      "percentile": 0.95,
+      "threshold": 30.0,
+      "comparison": "less_than",
+      "target": 0.995,
+      "description": "95th percentile E2E latency must be under 30 seconds"
+    }
+  ],
+  "alert_rules": {
+    "critical": {"burn_rate_threshold": 14.4},
+    "warning": {"burn_rate_threshold": 6.0}
+  }
+}

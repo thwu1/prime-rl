@@ -1,0 +1,30 @@
+{
+  "valuation_date": "2024-06-21",
+  "spot_lag_business_days": 2,
+  "day_count_convention": "ACT360",
+  "business_day_convention": "modified_following",
+  "ois_quotes": [
+    {"label": "1M",  "tenor_months": 1,  "rate": 0.05330},
+    {"label": "3M",  "tenor_months": 3,  "rate": 0.05290},
+    {"label": "6M",  "tenor_months": 6,  "rate": 0.05150},
+    {"label": "1Y",  "tenor_months": 12, "rate": 0.04850},
+    {"label": "2Y",  "tenor_months": 24, "rate": 0.04350},
+    {"label": "3Y",  "tenor_months": 36, "rate": 0.04050},
+    {"label": "5Y",  "tenor_months": 60, "rate": 0.03850},
+    {"label": "10Y", "tenor_months": 120, "rate": 0.03750}
+  ],
+  "node_dates": [
+    "2024-07-31",
+    "2024-09-18",
+    "2024-12-18",
+    "2025-06-18",
+    "2026-06-17",
+    "2027-06-16",
+    "2029-06-20",
+    "2034-06-26"
+  ],
+  "fixed_payment_frequency": {
+    "up_to_1Y_months": 12,
+    "over_1Y_months": 6
+  }
+}

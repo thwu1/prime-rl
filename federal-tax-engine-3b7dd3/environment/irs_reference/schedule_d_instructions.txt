@@ -1,0 +1,31 @@
+SCHEDULE D (FORM 1040) -- CAPITAL GAINS AND LOSSES -- TAX YEAR 2025
+
+Use Schedule D to report sales or exchanges of capital assets.
+
+PART I -- Short-Term Capital Gains and Losses
+(Assets held one year or less)
+
+Line 7 -- Net short-term capital gain or (loss). Combine all
+  short-term capital gains and losses. Enter the net result. A net
+  loss is entered as a negative number.
+
+PART II -- Long-Term Capital Gains and Losses
+(Assets held more than one year)
+
+Line 15 -- Net long-term capital gain or (loss). Combine all
+  long-term capital gains and losses. Enter the net result. A net
+  loss is entered as a negative number.
+
+PART III -- Summary
+
+Line 16 -- Combine lines 7 and 15. Enter the result.
+
+  If line 16 is a gain, enter this amount on Form 1040, line 7.
+
+  If line 16 is a loss, enter this amount on Form 1040, line 7.
+  (For these scenarios, no capital loss deduction limitation is
+  required.)
+
+NEXT STEPS: After completing Schedule D, check whether the
+Qualified Dividends and Capital Gain Tax Worksheet applies.
+See that worksheet for conditions.

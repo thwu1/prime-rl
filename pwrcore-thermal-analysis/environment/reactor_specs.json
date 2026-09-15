@@ -1,0 +1,31 @@
+{
+  "geometry": {
+    "fuel_pin_od_mm": 9.50,
+    "clad_thickness_mm": 0.572,
+    "fuel_pellet_od_mm": 8.19,
+    "fuel_pin_pitch_mm": 12.60,
+    "active_fuel_length_m": 3.658,
+    "extrapolation_distance_m": 0.3048,
+    "num_spacer_grids": 8,
+    "spacer_grid_loss_coefficient": 0.4
+  },
+  "operating_conditions": {
+    "system_pressure_MPa": 15.51,
+    "coolant_inlet_temperature_C": 292.7,
+    "subchannel_mass_flow_rate_kg_s": 0.350,
+    "peak_linear_heat_rate_kW_m": 35.0
+  },
+  "saturation_properties": {
+    "temperature_C": 344.8,
+    "liquid_enthalpy_kJ_kg": 1630.0,
+    "vapor_enthalpy_kJ_kg": 2596.0,
+    "latent_heat_kJ_kg": 966.0
+  },
+  "fuel_properties": {
+    "gap_conductance_W_m2K": 5678,
+    "clad_thermal_conductivity_W_mK": 21.5,
+    "fuel_conductivity_a_mK_per_W": 0.0375,
+    "fuel_conductivity_b_m_per_W": 2.165e-4,
+    "fuel_melting_temperature_C": 2840
+  }
+}

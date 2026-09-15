@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a non-standard pre-aggregation tree data structure (star tree index) from scratch, including: recursive tree construction with configurable star-node creation thresholds and max-leaf splitting, a query engine supporting both point and group-by aggregations with partial dimension constraints and star-node fallback logic, and a tree merge operation that correctly combines pre-aggregated metrics. AVG must be decomposed into SUM/COUNT rather than naively averaged. The interaction between max_leaf_documents, star_node_creation_threshold, and query traversal creates subtle edge cases (e.g., some dimension levels lack star nodes, forcing child iteration; skip-dimension constraints require careful traversal). Tests verify exact numerical results against 50,000 records."""
+solution_explanation = """Build tree by recursively partitioning data along ordered dimensions, computing metric aggregations (sum/count/min/max) at each node, adding star nodes when cardinality meets threshold. Query engine traverses tree following constraints for constrained dimensions and star nodes (or all-children fallback) for unconstrained ones; group-by queries branch at the target dimension collecting per-value results. Merge combines non-star children by key, merges aggregation primitives directly, and rebuilds star nodes from merged children. AVG is computed from SUM/COUNT at query time, never stored directly."""
+verification_explanation = """Tests combine brute-force aggregation comparisons with hardcoded expected values (DNA markers) computed from the deterministic dataset. Structural tests verify document counts, star-node presence, and tree invariants. Merge tests validate that merged-tree queries match brute-force on the concatenated dataset, with special focus on AVG correctness (weighted merge, not average-of-averages)."""
+category = "data_structures"
+tags = ["olap", "pre-aggregation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a33e5e"

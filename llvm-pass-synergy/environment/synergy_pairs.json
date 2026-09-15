@@ -1,0 +1,7742 @@
+[
+ {
+  "a": "early-cse-memssa",
+  "b": "instcombine",
+  "score": 7062
+ },
+ {
+  "a": "early-cse",
+  "b": "instcombine",
+  "score": 7061
+ },
+ {
+  "a": "newgvn",
+  "b": "instcombine",
+  "score": 7056
+ },
+ {
+  "a": "newgvn",
+  "b": "simplifycfg",
+  "score": 7031
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "simplifycfg",
+  "score": 7023
+ },
+ {
+  "a": "early-cse",
+  "b": "simplifycfg",
+  "score": 7022
+ },
+ {
+  "a": "sroa",
+  "b": "early-cse-memssa",
+  "score": 7019
+ },
+ {
+  "a": "sroa",
+  "b": "early-cse",
+  "score": 7019
+ },
+ {
+  "a": "gvn",
+  "b": "instcombine",
+  "score": 7014
+ },
+ {
+  "a": "sroa",
+  "b": "newgvn",
+  "score": 7012
+ },
+ {
+  "a": "instcombine",
+  "b": "early-cse",
+  "score": 7011
+ },
+ {
+  "a": "mem2reg",
+  "b": "early-cse-memssa",
+  "score": 7010
+ },
+ {
+  "a": "mem2reg",
+  "b": "early-cse",
+  "score": 7010
+ },
+ {
+  "a": "simplifycfg",
+  "b": "early-cse",
+  "score": 7005
+ },
+ {
+  "a": "mem2reg",
+  "b": "newgvn",
+  "score": 7003
+ },
+ {
+  "a": "newgvn",
+  "b": "early-cse",
+  "score": 7000
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "early-cse",
+  "score": 6994
+ },
+ {
+  "a": "simplifycfg",
+  "b": "newgvn",
+  "score": 6987
+ },
+ {
+  "a": "simplifycfg",
+  "b": "early-cse-memssa",
+  "score": 6980
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "sroa",
+  "score": 6976
+ },
+ {
+  "a": "newgvn",
+  "b": "sroa",
+  "score": 6975
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "mem2reg",
+  "score": 6968
+ },
+ {
+  "a": "newgvn",
+  "b": "mem2reg",
+  "score": 6968
+ },
+ {
+  "a": "instcombine",
+  "b": "simplifycfg",
+  "score": 6960
+ },
+ {
+  "a": "gvn",
+  "b": "simplifycfg",
+  "score": 6953
+ },
+ {
+  "a": "instcombine",
+  "b": "newgvn",
+  "score": 6947
+ },
+ {
+  "a": "instcombine",
+  "b": "early-cse-memssa",
+  "score": 6940
+ },
+ {
+  "a": "sroa",
+  "b": "gvn",
+  "score": 6925
+ },
+ {
+  "a": "simplifycfg",
+  "b": "instcombine",
+  "score": 6925
+ },
+ {
+  "a": "mem2reg",
+  "b": "gvn",
+  "score": 6916
+ },
+ {
+  "a": "early-cse",
+  "b": "mem2reg",
+  "score": 6911
+ },
+ {
+  "a": "early-cse",
+  "b": "sroa",
+  "score": 6909
+ },
+ {
+  "a": "sroa",
+  "b": "instcombine",
+  "score": 6880
+ },
+ {
+  "a": "mem2reg",
+  "b": "instcombine",
+  "score": 6873
+ },
+ {
+  "a": "sroa",
+  "b": "simplifycfg",
+  "score": 6843
+ },
+ {
+  "a": "mem2reg",
+  "b": "simplifycfg",
+  "score": 6835
+ },
+ {
+  "a": "simplifycfg",
+  "b": "sroa",
+  "score": 6801
+ },
+ {
+  "a": "simplifycfg",
+  "b": "mem2reg",
+  "score": 6793
+ },
+ {
+  "a": "instcombine",
+  "b": "gvn",
+  "score": 6754
+ },
+ {
+  "a": "newgvn",
+  "b": "jump-threading",
+  "score": 6725
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "jump-threading",
+  "score": 6718
+ },
+ {
+  "a": "early-cse",
+  "b": "jump-threading",
+  "score": 6718
+ },
+ {
+  "a": "instcombine",
+  "b": "jump-threading",
+  "score": 6678
+ },
+ {
+  "a": "sroa",
+  "b": "jump-threading",
+  "score": 6640
+ },
+ {
+  "a": "gvn",
+  "b": "jump-threading",
+  "score": 6637
+ },
+ {
+  "a": "mem2reg",
+  "b": "jump-threading",
+  "score": 6635
+ },
+ {
+  "a": "jump-threading",
+  "b": "early-cse",
+  "score": 6589
+ },
+ {
+  "a": "jump-threading",
+  "b": "instcombine",
+  "score": 6511
+ },
+ {
+  "a": "jump-threading",
+  "b": "sroa",
+  "score": 6435
+ },
+ {
+  "a": "jump-threading",
+  "b": "newgvn",
+  "score": 6433
+ },
+ {
+  "a": "jump-threading",
+  "b": "mem2reg",
+  "score": 6430
+ },
+ {
+  "a": "jump-threading",
+  "b": "early-cse-memssa",
+  "score": 6416
+ },
+ {
+  "a": "gvn",
+  "b": "early-cse",
+  "score": 6397
+ },
+ {
+  "a": "gvn",
+  "b": "mem2reg",
+  "score": 6394
+ },
+ {
+  "a": "gvn",
+  "b": "sroa",
+  "score": 6394
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "early-cse-memssa",
+  "score": 6269
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "early-cse",
+  "score": 6269
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "newgvn",
+  "score": 6265
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-simplifycfg",
+  "score": 6264
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-simplifycfg",
+  "score": 6264
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-simplifycfg",
+  "score": 6264
+ },
+ {
+  "a": "mem2reg",
+  "b": "loop-simplifycfg",
+  "score": 6261
+ },
+ {
+  "a": "sroa",
+  "b": "loop-simplifycfg",
+  "score": 6261
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "instcombine",
+  "score": 6254
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "sroa",
+  "score": 6251
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "mem2reg",
+  "score": 6250
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-simplifycfg",
+  "score": 6242
+ },
+ {
+  "a": "gvn",
+  "b": "loop-simplifycfg",
+  "score": 6080
+ },
+ {
+  "a": "inline",
+  "b": "sroa",
+  "score": 5763
+ },
+ {
+  "a": "inline",
+  "b": "mem2reg",
+  "score": 5758
+ },
+ {
+  "a": "inline",
+  "b": "instcombine",
+  "score": 5675
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "gvn-hoist",
+  "score": 5673
+ },
+ {
+  "a": "early-cse",
+  "b": "gvn-hoist",
+  "score": 5673
+ },
+ {
+  "a": "newgvn",
+  "b": "gvn-hoist",
+  "score": 5673
+ },
+ {
+  "a": "instcombine",
+  "b": "gvn-hoist",
+  "score": 5605
+ },
+ {
+  "a": "mem2reg",
+  "b": "gvn-hoist",
+  "score": 5601
+ },
+ {
+  "a": "sroa",
+  "b": "gvn-hoist",
+  "score": 5601
+ },
+ {
+  "a": "gvn",
+  "b": "gvn-hoist",
+  "score": 5576
+ },
+ {
+  "a": "simplifycfg",
+  "b": "gvn-hoist",
+  "score": 5569
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "instcombine",
+  "score": 5443
+ },
+ {
+  "a": "licm",
+  "b": "instcombine",
+  "score": 5417
+ },
+ {
+  "a": "jump-threading",
+  "b": "gvn-hoist",
+  "score": 5395
+ },
+ {
+  "a": "instcombine",
+  "b": "sroa",
+  "score": 5365
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "jump-threading",
+  "score": 5261
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "gvn-hoist",
+  "score": 5024
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "early-cse",
+  "score": 4934
+ },
+ {
+  "a": "gvn",
+  "b": "newgvn",
+  "score": 4882
+ },
+ {
+  "a": "instcombine",
+  "b": "mem2reg",
+  "score": 4567
+ },
+ {
+  "a": "inline",
+  "b": "early-cse",
+  "score": 4489
+ },
+ {
+  "a": "licm",
+  "b": "early-cse",
+  "score": 4449
+ },
+ {
+  "a": "inline",
+  "b": "early-cse-memssa",
+  "score": 4437
+ },
+ {
+  "a": "inline",
+  "b": "newgvn",
+  "score": 4437
+ },
+ {
+  "a": "simplifycfg",
+  "b": "gvn",
+  "score": 4433
+ },
+ {
+  "a": "inline",
+  "b": "gvn",
+  "score": 4383
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "simplifycfg",
+  "score": 4281
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-simplifycfg",
+  "score": 4269
+ },
+ {
+  "a": "early-cse",
+  "b": "inline",
+  "score": 4262
+ },
+ {
+  "a": "sroa",
+  "b": "inline",
+  "score": 4252
+ },
+ {
+  "a": "mem2reg",
+  "b": "inline",
+  "score": 4251
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "inline",
+  "score": 4233
+ },
+ {
+  "a": "newgvn",
+  "b": "inline",
+  "score": 4233
+ },
+ {
+  "a": "instcombine",
+  "b": "inline",
+  "score": 4216
+ },
+ {
+  "a": "gvn",
+  "b": "inline",
+  "score": 4180
+ },
+ {
+  "a": "inline",
+  "b": "simplifycfg",
+  "score": 4165
+ },
+ {
+  "a": "simplifycfg",
+  "b": "inline",
+  "score": 4164
+ },
+ {
+  "a": "inline",
+  "b": "jump-threading",
+  "score": 4067
+ },
+ {
+  "a": "jump-threading",
+  "b": "inline",
+  "score": 4062
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-simplifycfg",
+  "score": 3955
+ },
+ {
+  "a": "simplifycfg",
+  "b": "jump-threading",
+  "score": 3876
+ },
+ {
+  "a": "gvn",
+  "b": "early-cse-memssa",
+  "score": 3826
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "inline",
+  "score": 3818
+ },
+ {
+  "a": "inline",
+  "b": "loop-simplifycfg",
+  "score": 3818
+ },
+ {
+  "a": "jump-threading",
+  "b": "gvn",
+  "score": 3611
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-simplifycfg",
+  "score": 3508
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "inline",
+  "score": 3307
+ },
+ {
+  "a": "inline",
+  "b": "gvn-hoist",
+  "score": 3307
+ },
+ {
+  "a": "licm",
+  "b": "gvn",
+  "score": 3273
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "gvn",
+  "score": 3145
+ },
+ {
+  "a": "newgvn",
+  "b": "gvn",
+  "score": 3107
+ },
+ {
+  "a": "early-cse",
+  "b": "gvn",
+  "score": 2421
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "early-cse-memssa",
+  "score": 2406
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "mem2reg",
+  "score": 2402
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "sroa",
+  "score": 2402
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "newgvn",
+  "score": 2397
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "early-cse-memssa",
+  "score": 2286
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "early-cse",
+  "score": 2286
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "elim-avail-extern",
+  "score": 2286
+ },
+ {
+  "a": "early-cse",
+  "b": "elim-avail-extern",
+  "score": 2286
+ },
+ {
+  "a": "newgvn",
+  "b": "elim-avail-extern",
+  "score": 2286
+ },
+ {
+  "a": "mem2reg",
+  "b": "elim-avail-extern",
+  "score": 2286
+ },
+ {
+  "a": "sroa",
+  "b": "elim-avail-extern",
+  "score": 2286
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "newgvn",
+  "score": 2286
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "mem2reg",
+  "score": 2286
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "sroa",
+  "score": 2286
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "instcombine",
+  "score": 2285
+ },
+ {
+  "a": "instcombine",
+  "b": "elim-avail-extern",
+  "score": 2284
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "simplifycfg",
+  "score": 2260
+ },
+ {
+  "a": "simplifycfg",
+  "b": "elim-avail-extern",
+  "score": 2240
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "gvn",
+  "score": 2228
+ },
+ {
+  "a": "gvn",
+  "b": "elim-avail-extern",
+  "score": 2206
+ },
+ {
+  "a": "jump-threading",
+  "b": "elim-avail-extern",
+  "score": 2179
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "jump-threading",
+  "score": 2179
+ },
+ {
+  "a": "newgvn",
+  "b": "early-cse-memssa",
+  "score": 2106
+ },
+ {
+  "a": "newgvn",
+  "b": "newgvn",
+  "score": 2097
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "elim-avail-extern",
+  "score": 2064
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "loop-simplifycfg",
+  "score": 2064
+ },
+ {
+  "a": "licm",
+  "b": "simplifycfg",
+  "score": 2043
+ },
+ {
+  "a": "licm",
+  "b": "jump-threading",
+  "score": 2023
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "gvn-hoist",
+  "score": 1979
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "gvn",
+  "score": 1927
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "elim-avail-extern",
+  "score": 1727
+ },
+ {
+  "a": "licm",
+  "b": "loop-simplifycfg",
+  "score": 1715
+ },
+ {
+  "a": "mem2reg",
+  "b": "licm",
+  "score": 1703
+ },
+ {
+  "a": "sroa",
+  "b": "licm",
+  "score": 1703
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "licm",
+  "score": 1702
+ },
+ {
+  "a": "early-cse",
+  "b": "licm",
+  "score": 1702
+ },
+ {
+  "a": "newgvn",
+  "b": "licm",
+  "score": 1702
+ },
+ {
+  "a": "instcombine",
+  "b": "licm",
+  "score": 1694
+ },
+ {
+  "a": "simplifycfg",
+  "b": "licm",
+  "score": 1636
+ },
+ {
+  "a": "early-cse",
+  "b": "newgvn",
+  "score": 1628
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "licm",
+  "score": 1590
+ },
+ {
+  "a": "gvn",
+  "b": "licm",
+  "score": 1570
+ },
+ {
+  "a": "jump-threading",
+  "b": "licm",
+  "score": 1496
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "newgvn",
+  "score": 1400
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "early-cse-memssa",
+  "score": 1399
+ },
+ {
+  "a": "licm",
+  "b": "early-cse-memssa",
+  "score": 1376
+ },
+ {
+  "a": "early-cse",
+  "b": "early-cse-memssa",
+  "score": 1355
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "gvn",
+  "score": 1321
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "early-cse",
+  "score": 1294
+ },
+ {
+  "a": "licm",
+  "b": "newgvn",
+  "score": 1238
+ },
+ {
+  "a": "licm",
+  "b": "inline",
+  "score": 980
+ },
+ {
+  "a": "inline",
+  "b": "licm",
+  "score": 980
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "dse",
+  "score": 913
+ },
+ {
+  "a": "early-cse",
+  "b": "dse",
+  "score": 913
+ },
+ {
+  "a": "gvn",
+  "b": "dse",
+  "score": 908
+ },
+ {
+  "a": "newgvn",
+  "b": "dse",
+  "score": 907
+ },
+ {
+  "a": "instcombine",
+  "b": "dse",
+  "score": 906
+ },
+ {
+  "a": "licm",
+  "b": "gvn-hoist",
+  "score": 904
+ },
+ {
+  "a": "sroa",
+  "b": "dse",
+  "score": 901
+ },
+ {
+  "a": "mem2reg",
+  "b": "dse",
+  "score": 898
+ },
+ {
+  "a": "dse",
+  "b": "gvn",
+  "score": 882
+ },
+ {
+  "a": "simplifycfg",
+  "b": "dse",
+  "score": 866
+ },
+ {
+  "a": "dse",
+  "b": "simplifycfg",
+  "score": 865
+ },
+ {
+  "a": "dse",
+  "b": "newgvn",
+  "score": 861
+ },
+ {
+  "a": "dse",
+  "b": "early-cse",
+  "score": 852
+ },
+ {
+  "a": "dse",
+  "b": "early-cse-memssa",
+  "score": 845
+ },
+ {
+  "a": "jump-threading",
+  "b": "dse",
+  "score": 823
+ },
+ {
+  "a": "dse",
+  "b": "jump-threading",
+  "score": 822
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "dse",
+  "score": 787
+ },
+ {
+  "a": "dse",
+  "b": "loop-simplifycfg",
+  "score": 787
+ },
+ {
+  "a": "instcombine",
+  "b": "instsimplify",
+  "score": 754
+ },
+ {
+  "a": "gvn",
+  "b": "gvn",
+  "score": 745
+ },
+ {
+  "a": "newgvn",
+  "b": "instsimplify",
+  "score": 743
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "instsimplify",
+  "score": 741
+ },
+ {
+  "a": "early-cse",
+  "b": "instsimplify",
+  "score": 741
+ },
+ {
+  "a": "gvn",
+  "b": "instsimplify",
+  "score": 740
+ },
+ {
+  "a": "sroa",
+  "b": "instsimplify",
+  "score": 738
+ },
+ {
+  "a": "instsimplify",
+  "b": "sroa",
+  "score": 738
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "dse",
+  "score": 735
+ },
+ {
+  "a": "mem2reg",
+  "b": "instsimplify",
+  "score": 734
+ },
+ {
+  "a": "instsimplify",
+  "b": "mem2reg",
+  "score": 734
+ },
+ {
+  "a": "dse",
+  "b": "gvn-hoist",
+  "score": 734
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "licm",
+  "score": 726
+ },
+ {
+  "a": "simplifycfg",
+  "b": "instsimplify",
+  "score": 725
+ },
+ {
+  "a": "instsimplify",
+  "b": "simplifycfg",
+  "score": 724
+ },
+ {
+  "a": "jump-threading",
+  "b": "instsimplify",
+  "score": 714
+ },
+ {
+  "a": "instsimplify",
+  "b": "jump-threading",
+  "score": 708
+ },
+ {
+  "a": "inline",
+  "b": "elim-avail-extern",
+  "score": 664
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "instsimplify",
+  "score": 657
+ },
+ {
+  "a": "instsimplify",
+  "b": "loop-simplifycfg",
+  "score": 657
+ },
+ {
+  "a": "licm",
+  "b": "elim-avail-extern",
+  "score": 626
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "licm",
+  "score": 626
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "newgvn",
+  "score": 604
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "instsimplify",
+  "score": 603
+ },
+ {
+  "a": "instsimplify",
+  "b": "gvn-hoist",
+  "score": 601
+ },
+ {
+  "a": "licm",
+  "b": "dse",
+  "score": 565
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "dse",
+  "score": 468
+ },
+ {
+  "a": "dse",
+  "b": "elim-avail-extern",
+  "score": 468
+ },
+ {
+  "a": "licm",
+  "b": "instsimplify",
+  "score": 461
+ },
+ {
+  "a": "instsimplify",
+  "b": "elim-avail-extern",
+  "score": 393
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "instsimplify",
+  "score": 393
+ },
+ {
+  "a": "inline",
+  "b": "dse",
+  "score": 371
+ },
+ {
+  "a": "dse",
+  "b": "inline",
+  "score": 371
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "simplifycfg",
+  "score": 347
+ },
+ {
+  "a": "simplifycfg",
+  "b": "lower-constant-intrinsics",
+  "score": 347
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "jump-threading",
+  "score": 345
+ },
+ {
+  "a": "jump-threading",
+  "b": "lower-constant-intrinsics",
+  "score": 345
+ },
+ {
+  "a": "jump-threading",
+  "b": "simplifycfg",
+  "score": 339
+ },
+ {
+  "a": "flattencfg",
+  "b": "instcombine",
+  "score": 335
+ },
+ {
+  "a": "dse",
+  "b": "instcombine",
+  "score": 324
+ },
+ {
+  "a": "gvn",
+  "b": "lower-constant-intrinsics",
+  "score": 321
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "instcombine",
+  "score": 318
+ },
+ {
+  "a": "instcombine",
+  "b": "lower-constant-intrinsics",
+  "score": 318
+ },
+ {
+  "a": "newgvn",
+  "b": "lower-constant-intrinsics",
+  "score": 318
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "newgvn",
+  "score": 318
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "early-cse-memssa",
+  "score": 316
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "early-cse",
+  "score": 316
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "lower-constant-intrinsics",
+  "score": 316
+ },
+ {
+  "a": "early-cse",
+  "b": "lower-constant-intrinsics",
+  "score": 316
+ },
+ {
+  "a": "lower-expect",
+  "b": "simplifycfg",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "early-cse-memssa",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "early-cse",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "gvn",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "instsimplify",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "instcombine",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "jump-threading",
+  "score": 309
+ },
+ {
+  "a": "simplifycfg",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "early-cse",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "gvn",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "instsimplify",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "instcombine",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "jump-threading",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "newgvn",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "sroa",
+  "b": "lower-expect",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "newgvn",
+  "score": 309
+ },
+ {
+  "a": "lower-expect",
+  "b": "sroa",
+  "score": 309
+ },
+ {
+  "a": "mem2reg",
+  "b": "lower-expect",
+  "score": 307
+ },
+ {
+  "a": "lower-expect",
+  "b": "mem2reg",
+  "score": 307
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "elim-avail-extern",
+  "score": 306
+ },
+ {
+  "a": "lower-expect",
+  "b": "elim-avail-extern",
+  "score": 306
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "instsimplify",
+  "score": 306
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "lower-constant-intrinsics",
+  "score": 306
+ },
+ {
+  "a": "instsimplify",
+  "b": "lower-constant-intrinsics",
+  "score": 306
+ },
+ {
+  "a": "lower-expect",
+  "b": "lower-constant-intrinsics",
+  "score": 306
+ },
+ {
+  "a": "mem2reg",
+  "b": "lower-constant-intrinsics",
+  "score": 306
+ },
+ {
+  "a": "sroa",
+  "b": "lower-constant-intrinsics",
+  "score": 306
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "lower-expect",
+  "score": 306
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "lower-expect",
+  "score": 306
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "mem2reg",
+  "score": 306
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "sroa",
+  "score": 306
+ },
+ {
+  "a": "loop-rotate",
+  "b": "jump-threading",
+  "score": 306
+ },
+ {
+  "a": "functionattrs",
+  "b": "early-cse",
+  "score": 305
+ },
+ {
+  "a": "inline",
+  "b": "instsimplify",
+  "score": 303
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "gvn-hoist",
+  "score": 300
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "lower-constant-intrinsics",
+  "score": 300
+ },
+ {
+  "a": "instsimplify",
+  "b": "inline",
+  "score": 297
+ },
+ {
+  "a": "ipsccp",
+  "b": "aggressive-instcombine",
+  "score": 296
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "ipsccp",
+  "score": 293
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "early-cse",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "gvn",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "instcombine",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "newgvn",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "mem2reg",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "sroa",
+  "b": "aggressive-instcombine",
+  "score": 288
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "mem2reg",
+  "score": 288
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "sroa",
+  "score": 288
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "gvn",
+  "score": 287
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "loop-simplifycfg",
+  "score": 287
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "lower-constant-intrinsics",
+  "score": 287
+ },
+ {
+  "a": "simplifycfg",
+  "b": "aggressive-instcombine",
+  "score": 286
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "simplifycfg",
+  "score": 286
+ },
+ {
+  "a": "lower-expect",
+  "b": "gvn-hoist",
+  "score": 286
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "lower-expect",
+  "score": 286
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "early-cse-memssa",
+  "score": 285
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "early-cse",
+  "score": 285
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "newgvn",
+  "score": 285
+ },
+ {
+  "a": "lower-expect",
+  "b": "loop-simplifycfg",
+  "score": 285
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "lower-expect",
+  "score": 285
+ },
+ {
+  "a": "jump-threading",
+  "b": "aggressive-instcombine",
+  "score": 278
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "jump-threading",
+  "score": 278
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "instcombine",
+  "score": 259
+ },
+ {
+  "a": "instcombine",
+  "b": "reassociate",
+  "score": 258
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "reassociate",
+  "score": 257
+ },
+ {
+  "a": "early-cse",
+  "b": "reassociate",
+  "score": 257
+ },
+ {
+  "a": "gvn",
+  "b": "reassociate",
+  "score": 257
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "aggressive-instcombine",
+  "score": 257
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "loop-simplifycfg",
+  "score": 257
+ },
+ {
+  "a": "reassociate",
+  "b": "simplifycfg",
+  "score": 249
+ },
+ {
+  "a": "newgvn",
+  "b": "reassociate",
+  "score": 246
+ },
+ {
+  "a": "sroa",
+  "b": "reassociate",
+  "score": 243
+ },
+ {
+  "a": "reassociate",
+  "b": "sroa",
+  "score": 241
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "aggressive-instcombine",
+  "score": 240
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "gvn-hoist",
+  "score": 240
+ },
+ {
+  "a": "simplifycfg",
+  "b": "reassociate",
+  "score": 239
+ },
+ {
+  "a": "mem2reg",
+  "b": "reassociate",
+  "score": 239
+ },
+ {
+  "a": "reassociate",
+  "b": "mem2reg",
+  "score": 237
+ },
+ {
+  "a": "jump-threading",
+  "b": "reassociate",
+  "score": 231
+ },
+ {
+  "a": "reassociate",
+  "b": "jump-threading",
+  "score": 230
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "jump-threading",
+  "score": 222
+ },
+ {
+  "a": "dse",
+  "b": "licm",
+  "score": 222
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "simplifycfg",
+  "score": 221
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "gvn-hoist",
+  "score": 217
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "loop-simplifycfg",
+  "score": 217
+ },
+ {
+  "a": "reassociate",
+  "b": "gvn",
+  "score": 213
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-instsimplify",
+  "score": 213
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-instsimplify",
+  "score": 213
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-instsimplify",
+  "score": 213
+ },
+ {
+  "a": "mem2reg",
+  "b": "loop-instsimplify",
+  "score": 213
+ },
+ {
+  "a": "sroa",
+  "b": "loop-instsimplify",
+  "score": 213
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-instsimplify",
+  "score": 212
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "mem2reg",
+  "score": 212
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "sroa",
+  "score": 212
+ },
+ {
+  "a": "gvn",
+  "b": "loop-instsimplify",
+  "score": 209
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-instsimplify",
+  "score": 208
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "gvn-hoist",
+  "score": 208
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-instsimplify",
+  "score": 206
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "loop-instsimplify",
+  "score": 206
+ },
+ {
+  "a": "reassociate",
+  "b": "gvn-hoist",
+  "score": 205
+ },
+ {
+  "a": "reassociate",
+  "b": "loop-simplifycfg",
+  "score": 205
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "reassociate",
+  "score": 205
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "reassociate",
+  "score": 205
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "inline",
+  "score": 201
+ },
+ {
+  "a": "instsimplify",
+  "b": "licm",
+  "score": 195
+ },
+ {
+  "a": "licm",
+  "b": "licm",
+  "score": 189
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "simplifycfg",
+  "score": 187
+ },
+ {
+  "a": "loop-rotate",
+  "b": "gvn",
+  "score": 186
+ },
+ {
+  "a": "simplifycfg",
+  "b": "load-store-vectorizer",
+  "score": 184
+ },
+ {
+  "a": "globalopt",
+  "b": "aggressive-instcombine",
+  "score": 181
+ },
+ {
+  "a": "licm",
+  "b": "aggressive-instcombine",
+  "score": 177
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "licm",
+  "score": 177
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "early-cse",
+  "score": 175
+ },
+ {
+  "a": "functionattrs",
+  "b": "early-cse-memssa",
+  "score": 172
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "jump-threading",
+  "score": 171
+ },
+ {
+  "a": "jump-threading",
+  "b": "load-store-vectorizer",
+  "score": 171
+ },
+ {
+  "a": "functionattrs",
+  "b": "newgvn",
+  "score": 170
+ },
+ {
+  "a": "inline",
+  "b": "aggressive-instcombine",
+  "score": 168
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "inline",
+  "score": 168
+ },
+ {
+  "a": "newgvn",
+  "b": "load-store-vectorizer",
+  "score": 163
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "load-store-vectorizer",
+  "score": 162
+ },
+ {
+  "a": "flattencfg",
+  "b": "gvn",
+  "score": 161
+ },
+ {
+  "a": "early-cse",
+  "b": "load-store-vectorizer",
+  "score": 161
+ },
+ {
+  "a": "reassociate",
+  "b": "early-cse-memssa",
+  "score": 160
+ },
+ {
+  "a": "early-cse",
+  "b": "early-cse",
+  "score": 159
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "early-cse-memssa",
+  "score": 158
+ },
+ {
+  "a": "mergefunc",
+  "b": "ipsccp",
+  "score": 157
+ },
+ {
+  "a": "reassociate",
+  "b": "newgvn",
+  "score": 157
+ },
+ {
+  "a": "reassociate",
+  "b": "inline",
+  "score": 156
+ },
+ {
+  "a": "inline",
+  "b": "reassociate",
+  "score": 156
+ },
+ {
+  "a": "instcombine",
+  "b": "load-store-vectorizer",
+  "score": 154
+ },
+ {
+  "a": "gvn",
+  "b": "load-store-vectorizer",
+  "score": 153
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "newgvn",
+  "score": 153
+ },
+ {
+  "a": "reassociate",
+  "b": "early-cse",
+  "score": 152
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "inline",
+  "score": 151
+ },
+ {
+  "a": "inline",
+  "b": "loop-instsimplify",
+  "score": 151
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "globalopt",
+  "score": 151
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "gvn",
+  "score": 149
+ },
+ {
+  "a": "instsimplify",
+  "b": "dse",
+  "score": 145
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "early-cse-memssa",
+  "score": 144
+ },
+ {
+  "a": "functionattrs",
+  "b": "gvn",
+  "score": 144
+ },
+ {
+  "a": "sroa",
+  "b": "load-store-vectorizer",
+  "score": 143
+ },
+ {
+  "a": "ipsccp",
+  "b": "mergefunc",
+  "score": 141
+ },
+ {
+  "a": "mem2reg",
+  "b": "load-store-vectorizer",
+  "score": 140
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "mem2reg",
+  "score": 140
+ },
+ {
+  "a": "dse",
+  "b": "instsimplify",
+  "score": 139
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-instsimplify",
+  "score": 137
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "load-store-vectorizer",
+  "score": 135
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "loop-simplifycfg",
+  "score": 135
+ },
+ {
+  "a": "ipsccp",
+  "b": "globalopt",
+  "score": 131
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "sroa",
+  "score": 129
+ },
+ {
+  "a": "sroa",
+  "b": "mem2reg",
+  "score": 127
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "licm",
+  "score": 123
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "aggressive-instcombine",
+  "score": 116
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "elim-avail-extern",
+  "score": 116
+ },
+ {
+  "a": "flattencfg",
+  "b": "gvn-hoist",
+  "score": 111
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "gvn-hoist",
+  "score": 104
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "load-store-vectorizer",
+  "score": 104
+ },
+ {
+  "a": "mergefunc",
+  "b": "aggressive-instcombine",
+  "score": 101
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "mergefunc",
+  "score": 101
+ },
+ {
+  "a": "instcombine",
+  "b": "adce",
+  "score": 95
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "adce",
+  "score": 94
+ },
+ {
+  "a": "early-cse",
+  "b": "adce",
+  "score": 94
+ },
+ {
+  "a": "gvn",
+  "b": "adce",
+  "score": 94
+ },
+ {
+  "a": "mergefunc",
+  "b": "simplifycfg",
+  "score": 94
+ },
+ {
+  "a": "simplifycfg",
+  "b": "mergefunc",
+  "score": 94
+ },
+ {
+  "a": "reassociate",
+  "b": "instcombine",
+  "score": 91
+ },
+ {
+  "a": "adce",
+  "b": "gvn",
+  "score": 90
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "licm",
+  "score": 90
+ },
+ {
+  "a": "lower-expect",
+  "b": "licm",
+  "score": 90
+ },
+ {
+  "a": "licm",
+  "b": "lower-constant-intrinsics",
+  "score": 90
+ },
+ {
+  "a": "licm",
+  "b": "lower-expect",
+  "score": 90
+ },
+ {
+  "a": "globalopt",
+  "b": "gvn",
+  "score": 89
+ },
+ {
+  "a": "instsimplify",
+  "b": "gvn",
+  "score": 88
+ },
+ {
+  "a": "licm",
+  "b": "reassociate",
+  "score": 87
+ },
+ {
+  "a": "functionattrs",
+  "b": "gvn-hoist",
+  "score": 87
+ },
+ {
+  "a": "instsimplify",
+  "b": "reassociate",
+  "score": 86
+ },
+ {
+  "a": "mergefunc",
+  "b": "jump-threading",
+  "score": 84
+ },
+ {
+  "a": "jump-threading",
+  "b": "mergefunc",
+  "score": 84
+ },
+ {
+  "a": "newgvn",
+  "b": "adce",
+  "score": 82
+ },
+ {
+  "a": "simplifycfg",
+  "b": "adce",
+  "score": 81
+ },
+ {
+  "a": "sroa",
+  "b": "adce",
+  "score": 81
+ },
+ {
+  "a": "adce",
+  "b": "sroa",
+  "score": 80
+ },
+ {
+  "a": "instcombine",
+  "b": "bdce",
+  "score": 79
+ },
+ {
+  "a": "globalopt",
+  "b": "mergefunc",
+  "score": 79
+ },
+ {
+  "a": "reassociate",
+  "b": "licm",
+  "score": 78
+ },
+ {
+  "a": "jump-threading",
+  "b": "adce",
+  "score": 78
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "bdce",
+  "score": 78
+ },
+ {
+  "a": "early-cse",
+  "b": "bdce",
+  "score": 78
+ },
+ {
+  "a": "gvn",
+  "b": "bdce",
+  "score": 78
+ },
+ {
+  "a": "gvn",
+  "b": "dce",
+  "score": 78
+ },
+ {
+  "a": "instcombine",
+  "b": "dce",
+  "score": 78
+ },
+ {
+  "a": "gvn",
+  "b": "die",
+  "score": 78
+ },
+ {
+  "a": "instcombine",
+  "b": "die",
+  "score": 78
+ },
+ {
+  "a": "mem2reg",
+  "b": "adce",
+  "score": 77
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "dce",
+  "score": 77
+ },
+ {
+  "a": "early-cse",
+  "b": "dce",
+  "score": 77
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "die",
+  "score": 77
+ },
+ {
+  "a": "early-cse",
+  "b": "die",
+  "score": 77
+ },
+ {
+  "a": "adce",
+  "b": "jump-threading",
+  "score": 77
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "inline",
+  "score": 77
+ },
+ {
+  "a": "inline",
+  "b": "load-store-vectorizer",
+  "score": 77
+ },
+ {
+  "a": "adce",
+  "b": "mem2reg",
+  "score": 76
+ },
+ {
+  "a": "mergefunc",
+  "b": "globalopt",
+  "score": 76
+ },
+ {
+  "a": "bdce",
+  "b": "gvn",
+  "score": 75
+ },
+ {
+  "a": "dce",
+  "b": "gvn",
+  "score": 75
+ },
+ {
+  "a": "die",
+  "b": "gvn",
+  "score": 75
+ },
+ {
+  "a": "tailcallelim",
+  "b": "early-cse-memssa",
+  "score": 75
+ },
+ {
+  "a": "tailcallelim",
+  "b": "newgvn",
+  "score": 75
+ },
+ {
+  "a": "adce",
+  "b": "simplifycfg",
+  "score": 71
+ },
+ {
+  "a": "reassociate",
+  "b": "elim-avail-extern",
+  "score": 69
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "reassociate",
+  "score": 69
+ },
+ {
+  "a": "flattencfg",
+  "b": "early-cse-memssa",
+  "score": 69
+ },
+ {
+  "a": "newgvn",
+  "b": "bdce",
+  "score": 67
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "instcombine",
+  "score": 67
+ },
+ {
+  "a": "newgvn",
+  "b": "dce",
+  "score": 66
+ },
+ {
+  "a": "newgvn",
+  "b": "die",
+  "score": 66
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "early-cse",
+  "score": 66
+ },
+ {
+  "a": "simplifycfg",
+  "b": "bdce",
+  "score": 65
+ },
+ {
+  "a": "sroa",
+  "b": "bdce",
+  "score": 64
+ },
+ {
+  "a": "bdce",
+  "b": "simplifycfg",
+  "score": 64
+ },
+ {
+  "a": "simplifycfg",
+  "b": "dce",
+  "score": 64
+ },
+ {
+  "a": "sroa",
+  "b": "dce",
+  "score": 64
+ },
+ {
+  "a": "simplifycfg",
+  "b": "die",
+  "score": 64
+ },
+ {
+  "a": "sroa",
+  "b": "die",
+  "score": 64
+ },
+ {
+  "a": "adce",
+  "b": "gvn-hoist",
+  "score": 64
+ },
+ {
+  "a": "jump-threading",
+  "b": "bdce",
+  "score": 63
+ },
+ {
+  "a": "dce",
+  "b": "simplifycfg",
+  "score": 63
+ },
+ {
+  "a": "die",
+  "b": "simplifycfg",
+  "score": 63
+ },
+ {
+  "a": "bdce",
+  "b": "sroa",
+  "score": 63
+ },
+ {
+  "a": "dce",
+  "b": "sroa",
+  "score": 63
+ },
+ {
+  "a": "die",
+  "b": "sroa",
+  "score": 63
+ },
+ {
+  "a": "newgvn",
+  "b": "mergefunc",
+  "score": 63
+ },
+ {
+  "a": "mergefunc",
+  "b": "newgvn",
+  "score": 63
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "adce",
+  "score": 62
+ },
+ {
+  "a": "jump-threading",
+  "b": "dce",
+  "score": 62
+ },
+ {
+  "a": "jump-threading",
+  "b": "die",
+  "score": 62
+ },
+ {
+  "a": "bdce",
+  "b": "jump-threading",
+  "score": 62
+ },
+ {
+  "a": "licm",
+  "b": "loop-instsimplify",
+  "score": 62
+ },
+ {
+  "a": "globalopt",
+  "b": "ipsccp",
+  "score": 62
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "early-cse-memssa",
+  "score": 62
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "newgvn",
+  "score": 62
+ },
+ {
+  "a": "globalopt",
+  "b": "mem2reg",
+  "score": 62
+ },
+ {
+  "a": "globalopt",
+  "b": "sroa",
+  "score": 62
+ },
+ {
+  "a": "mergefunc",
+  "b": "instcombine",
+  "score": 62
+ },
+ {
+  "a": "instcombine",
+  "b": "mergefunc",
+  "score": 62
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "adce",
+  "score": 61
+ },
+ {
+  "a": "dce",
+  "b": "jump-threading",
+  "score": 61
+ },
+ {
+  "a": "die",
+  "b": "jump-threading",
+  "score": 61
+ },
+ {
+  "a": "adce",
+  "b": "loop-simplifycfg",
+  "score": 61
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "elim-avail-extern",
+  "score": 61
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "load-store-vectorizer",
+  "score": 61
+ },
+ {
+  "a": "mergefunc",
+  "b": "early-cse-memssa",
+  "score": 61
+ },
+ {
+  "a": "mergefunc",
+  "b": "early-cse",
+  "score": 61
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "mergefunc",
+  "score": 61
+ },
+ {
+  "a": "early-cse",
+  "b": "mergefunc",
+  "score": 61
+ },
+ {
+  "a": "mem2reg",
+  "b": "bdce",
+  "score": 60
+ },
+ {
+  "a": "mem2reg",
+  "b": "dce",
+  "score": 60
+ },
+ {
+  "a": "mem2reg",
+  "b": "die",
+  "score": 60
+ },
+ {
+  "a": "mergefunc",
+  "b": "gvn",
+  "score": 60
+ },
+ {
+  "a": "gvn",
+  "b": "mergefunc",
+  "score": 60
+ },
+ {
+  "a": "flattencfg",
+  "b": "newgvn",
+  "score": 60
+ },
+ {
+  "a": "globalopt",
+  "b": "early-cse-memssa",
+  "score": 60
+ },
+ {
+  "a": "globalopt",
+  "b": "newgvn",
+  "score": 60
+ },
+ {
+  "a": "globalopt",
+  "b": "loop-simplifycfg",
+  "score": 60
+ },
+ {
+  "a": "bdce",
+  "b": "mem2reg",
+  "score": 59
+ },
+ {
+  "a": "dce",
+  "b": "mem2reg",
+  "score": 59
+ },
+ {
+  "a": "die",
+  "b": "mem2reg",
+  "score": 59
+ },
+ {
+  "a": "simplifycfg",
+  "b": "nary-reassociate",
+  "score": 59
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "gvn",
+  "score": 59
+ },
+ {
+  "a": "globalopt",
+  "b": "early-cse",
+  "score": 58
+ },
+ {
+  "a": "simplifycfg",
+  "b": "globalopt",
+  "score": 58
+ },
+ {
+  "a": "lowerinvoke",
+  "b": "simplifycfg",
+  "score": 57
+ },
+ {
+  "a": "gvn",
+  "b": "globalopt",
+  "score": 57
+ },
+ {
+  "a": "newgvn",
+  "b": "globalopt",
+  "score": 57
+ },
+ {
+  "a": "lower-expect",
+  "b": "dse",
+  "score": 56
+ },
+ {
+  "a": "dse",
+  "b": "lower-expect",
+  "score": 56
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "licm",
+  "score": 56
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "globalopt",
+  "score": 56
+ },
+ {
+  "a": "early-cse",
+  "b": "globalopt",
+  "score": 56
+ },
+ {
+  "a": "instcombine",
+  "b": "globalopt",
+  "score": 56
+ },
+ {
+  "a": "jump-threading",
+  "b": "globalopt",
+  "score": 56
+ },
+ {
+  "a": "globalopt",
+  "b": "instcombine",
+  "score": 56
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "simplifycfg",
+  "score": 55
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "simplifycfg",
+  "score": 55
+ },
+ {
+  "a": "simplifycfg",
+  "b": "slp-vectorizer",
+  "score": 55
+ },
+ {
+  "a": "mem2reg",
+  "b": "globalopt",
+  "score": 55
+ },
+ {
+  "a": "sroa",
+  "b": "globalopt",
+  "score": 55
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "dse",
+  "score": 54
+ },
+ {
+  "a": "dse",
+  "b": "lower-constant-intrinsics",
+  "score": 54
+ },
+ {
+  "a": "instsimplify",
+  "b": "early-cse",
+  "score": 53
+ },
+ {
+  "a": "instsimplify",
+  "b": "aggressive-instcombine",
+  "score": 53
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "instsimplify",
+  "score": 53
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "jump-threading",
+  "score": 52
+ },
+ {
+  "a": "jump-threading",
+  "b": "slp-vectorizer",
+  "score": 52
+ },
+ {
+  "a": "mergefunc",
+  "b": "gvn-hoist",
+  "score": 52
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "mergefunc",
+  "score": 52
+ },
+ {
+  "a": "inline",
+  "b": "adce",
+  "score": 50
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "bdce",
+  "score": 50
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "bdce",
+  "score": 50
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "dce",
+  "score": 50
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "dce",
+  "score": 50
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "die",
+  "score": 50
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "die",
+  "score": 50
+ },
+ {
+  "a": "adce",
+  "b": "inline",
+  "score": 50
+ },
+ {
+  "a": "bdce",
+  "b": "gvn-hoist",
+  "score": 50
+ },
+ {
+  "a": "dce",
+  "b": "gvn-hoist",
+  "score": 50
+ },
+ {
+  "a": "die",
+  "b": "gvn-hoist",
+  "score": 50
+ },
+ {
+  "a": "bdce",
+  "b": "loop-simplifycfg",
+  "score": 50
+ },
+ {
+  "a": "dce",
+  "b": "loop-simplifycfg",
+  "score": 50
+ },
+ {
+  "a": "die",
+  "b": "loop-simplifycfg",
+  "score": 50
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "simplifycfg",
+  "score": 50
+ },
+ {
+  "a": "reassociate",
+  "b": "aggressive-instcombine",
+  "score": 50
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "reassociate",
+  "score": 50
+ },
+ {
+  "a": "simplifycfg",
+  "b": "ipsccp",
+  "score": 50
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "slp-vectorizer",
+  "score": 50
+ },
+ {
+  "a": "early-cse",
+  "b": "slp-vectorizer",
+  "score": 50
+ },
+ {
+  "a": "instcombine",
+  "b": "slp-vectorizer",
+  "score": 50
+ },
+ {
+  "a": "newgvn",
+  "b": "slp-vectorizer",
+  "score": 50
+ },
+ {
+  "a": "globalopt",
+  "b": "gvn-hoist",
+  "score": 50
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "gvn",
+  "score": 49
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "elim-avail-extern",
+  "score": 49
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "loop-instsimplify",
+  "score": 49
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "ipsccp",
+  "score": 49
+ },
+ {
+  "a": "early-cse",
+  "b": "ipsccp",
+  "score": 49
+ },
+ {
+  "a": "newgvn",
+  "b": "ipsccp",
+  "score": 49
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "globalopt",
+  "score": 49
+ },
+ {
+  "a": "instsimplify",
+  "b": "early-cse-memssa",
+  "score": 48
+ },
+ {
+  "a": "dse",
+  "b": "sroa",
+  "score": 48
+ },
+ {
+  "a": "instcombine",
+  "b": "ipsccp",
+  "score": 48
+ },
+ {
+  "a": "instsimplify",
+  "b": "die",
+  "score": 47
+ },
+ {
+  "a": "dse",
+  "b": "mem2reg",
+  "score": 47
+ },
+ {
+  "a": "gvn",
+  "b": "ipsccp",
+  "score": 47
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "globalopt",
+  "score": 47
+ },
+ {
+  "a": "sroa",
+  "b": "mergefunc",
+  "score": 47
+ },
+ {
+  "a": "mergefunc",
+  "b": "sroa",
+  "score": 47
+ },
+ {
+  "a": "instsimplify",
+  "b": "newgvn",
+  "score": 46
+ },
+ {
+  "a": "flattencfg",
+  "b": "early-cse",
+  "score": 46
+ },
+ {
+  "a": "gvn",
+  "b": "slp-vectorizer",
+  "score": 46
+ },
+ {
+  "a": "sroa",
+  "b": "slp-vectorizer",
+  "score": 46
+ },
+ {
+  "a": "mergefunc",
+  "b": "elim-avail-extern",
+  "score": 46
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "mergefunc",
+  "score": 46
+ },
+ {
+  "a": "mem2reg",
+  "b": "mergefunc",
+  "score": 46
+ },
+ {
+  "a": "mergefunc",
+  "b": "mem2reg",
+  "score": 46
+ },
+ {
+  "a": "jump-threading",
+  "b": "ipsccp",
+  "score": 45
+ },
+ {
+  "a": "break-crit-edges",
+  "b": "gvn-hoist",
+  "score": 45
+ },
+ {
+  "a": "inline",
+  "b": "ipsccp",
+  "score": 44
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "mem2reg",
+  "score": 44
+ },
+ {
+  "a": "mem2reg",
+  "b": "slp-vectorizer",
+  "score": 44
+ },
+ {
+  "a": "mergefunc",
+  "b": "loop-simplifycfg",
+  "score": 44
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "mergefunc",
+  "score": 44
+ },
+ {
+  "a": "dse",
+  "b": "reassociate",
+  "score": 43
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "loop-simplifycfg",
+  "score": 43
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "slp-vectorizer",
+  "score": 43
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "aggressive-instcombine",
+  "score": 43
+ },
+ {
+  "a": "lower-expect",
+  "b": "aggressive-instcombine",
+  "score": 43
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "lower-constant-intrinsics",
+  "score": 43
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "lower-expect",
+  "score": 43
+ },
+ {
+  "a": "ipsccp",
+  "b": "gvn-hoist",
+  "score": 42
+ },
+ {
+  "a": "lowerswitch",
+  "b": "early-cse-memssa",
+  "score": 42
+ },
+ {
+  "a": "lowerswitch",
+  "b": "early-cse",
+  "score": 42
+ },
+ {
+  "a": "lowerswitch",
+  "b": "gvn",
+  "score": 42
+ },
+ {
+  "a": "lowerswitch",
+  "b": "instcombine",
+  "score": 42
+ },
+ {
+  "a": "sroa",
+  "b": "ipsccp",
+  "score": 41
+ },
+ {
+  "a": "simplifycfg",
+  "b": "sccp",
+  "score": 41
+ },
+ {
+  "a": "gvn",
+  "b": "sccp",
+  "score": 41
+ },
+ {
+  "a": "jump-threading",
+  "b": "sccp",
+  "score": 41
+ },
+ {
+  "a": "ipsccp",
+  "b": "sroa",
+  "score": 41
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "gvn-hoist",
+  "score": 41
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "slp-vectorizer",
+  "score": 41
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "slp-vectorizer",
+  "score": 41
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "sroa",
+  "score": 41
+ },
+ {
+  "a": "licm",
+  "b": "load-store-vectorizer",
+  "score": 41
+ },
+ {
+  "a": "mem2reg",
+  "b": "ipsccp",
+  "score": 40
+ },
+ {
+  "a": "ipsccp",
+  "b": "mem2reg",
+  "score": 40
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "sccp",
+  "score": 40
+ },
+ {
+  "a": "early-cse",
+  "b": "sccp",
+  "score": 40
+ },
+ {
+  "a": "instcombine",
+  "b": "sccp",
+  "score": 40
+ },
+ {
+  "a": "newgvn",
+  "b": "sccp",
+  "score": 40
+ },
+ {
+  "a": "sroa",
+  "b": "sccp",
+  "score": 39
+ },
+ {
+  "a": "ipsccp",
+  "b": "early-cse-memssa",
+  "score": 38
+ },
+ {
+  "a": "ipsccp",
+  "b": "early-cse",
+  "score": 38
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "ipsccp",
+  "score": 38
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "ipsccp",
+  "score": 38
+ },
+ {
+  "a": "ipsccp",
+  "b": "loop-simplifycfg",
+  "score": 38
+ },
+ {
+  "a": "mem2reg",
+  "b": "sccp",
+  "score": 38
+ },
+ {
+  "a": "sccp",
+  "b": "sroa",
+  "score": 38
+ },
+ {
+  "a": "inline",
+  "b": "bdce",
+  "score": 37
+ },
+ {
+  "a": "inline",
+  "b": "dce",
+  "score": 37
+ },
+ {
+  "a": "inline",
+  "b": "die",
+  "score": 37
+ },
+ {
+  "a": "bdce",
+  "b": "inline",
+  "score": 37
+ },
+ {
+  "a": "dce",
+  "b": "inline",
+  "score": 37
+ },
+ {
+  "a": "die",
+  "b": "inline",
+  "score": 37
+ },
+ {
+  "a": "reassociate",
+  "b": "dse",
+  "score": 37
+ },
+ {
+  "a": "loop-reroll",
+  "b": "gvn-hoist",
+  "score": 37
+ },
+ {
+  "a": "ipsccp",
+  "b": "jump-threading",
+  "score": 37
+ },
+ {
+  "a": "sccp",
+  "b": "mem2reg",
+  "score": 37
+ },
+ {
+  "a": "simplifycfg",
+  "b": "correlated-propagation",
+  "score": 36
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "dse",
+  "score": 36
+ },
+ {
+  "a": "dse",
+  "b": "loop-instsimplify",
+  "score": 36
+ },
+ {
+  "a": "loop-deletion",
+  "b": "gvn-hoist",
+  "score": 36
+ },
+ {
+  "a": "loop-reduce",
+  "b": "gvn-hoist",
+  "score": 36
+ },
+ {
+  "a": "ipconstprop",
+  "b": "globalopt",
+  "score": 36
+ },
+ {
+  "a": "sccp",
+  "b": "gvn-hoist",
+  "score": 36
+ },
+ {
+  "a": "sccp",
+  "b": "loop-simplifycfg",
+  "score": 36
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "sccp",
+  "score": 36
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "sccp",
+  "score": 36
+ },
+ {
+  "a": "indvars",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "irce",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-fusion",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-idiom",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-interchange",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-predication",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-simplify",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-sink",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-unroll",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "gvn-hoist",
+  "score": 35
+ },
+ {
+  "a": "ipsccp",
+  "b": "simplifycfg",
+  "score": 35
+ },
+ {
+  "a": "instsimplify",
+  "b": "ipsccp",
+  "score": 35
+ },
+ {
+  "a": "instsimplify",
+  "b": "loop-instsimplify",
+  "score": 34
+ },
+ {
+  "a": "reassociate",
+  "b": "lower-expect",
+  "score": 34
+ },
+ {
+  "a": "lower-expect",
+  "b": "reassociate",
+  "score": 34
+ },
+ {
+  "a": "sccp",
+  "b": "jump-threading",
+  "score": 34
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "instcombine",
+  "score": 34
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "simplifycfg",
+  "score": 34
+ },
+ {
+  "a": "adce",
+  "b": "early-cse",
+  "score": 33
+ },
+ {
+  "a": "reassociate",
+  "b": "instsimplify",
+  "score": 32
+ },
+ {
+  "a": "instsimplify",
+  "b": "adce",
+  "score": 32
+ },
+ {
+  "a": "loop-reroll",
+  "b": "simplifycfg",
+  "score": 32
+ },
+ {
+  "a": "indvars",
+  "b": "gvn",
+  "score": 32
+ },
+ {
+  "a": "loop-reroll",
+  "b": "gvn",
+  "score": 32
+ },
+ {
+  "a": "inferattrs",
+  "b": "early-cse-memssa",
+  "score": 32
+ },
+ {
+  "a": "inferattrs",
+  "b": "newgvn",
+  "score": 32
+ },
+ {
+  "a": "adce",
+  "b": "early-cse-memssa",
+  "score": 31
+ },
+ {
+  "a": "reassociate",
+  "b": "lower-constant-intrinsics",
+  "score": 31
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "reassociate",
+  "score": 31
+ },
+ {
+  "a": "globalopt",
+  "b": "elim-avail-extern",
+  "score": 31
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "globalopt",
+  "score": 31
+ },
+ {
+  "a": "instsimplify",
+  "b": "bdce",
+  "score": 30
+ },
+ {
+  "a": "instsimplify",
+  "b": "dce",
+  "score": 30
+ },
+ {
+  "a": "ipsccp",
+  "b": "inline",
+  "score": 30
+ },
+ {
+  "a": "functionattrs",
+  "b": "instcombine",
+  "score": 30
+ },
+ {
+  "a": "ipsccp",
+  "b": "newgvn",
+  "score": 30
+ },
+ {
+  "a": "instsimplify",
+  "b": "sccp",
+  "score": 29
+ },
+ {
+  "a": "tailcallelim",
+  "b": "gvn",
+  "score": 28
+ },
+ {
+  "a": "sccp",
+  "b": "simplifycfg",
+  "score": 28
+ },
+ {
+  "a": "speculative-execution",
+  "b": "early-cse-memssa",
+  "score": 28
+ },
+ {
+  "a": "speculative-execution",
+  "b": "early-cse",
+  "score": 28
+ },
+ {
+  "a": "speculative-execution",
+  "b": "gvn",
+  "score": 28
+ },
+ {
+  "a": "speculative-execution",
+  "b": "newgvn",
+  "score": 28
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "early-cse-memssa",
+  "score": 27
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "early-cse",
+  "score": 27
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "nary-reassociate",
+  "score": 27
+ },
+ {
+  "a": "early-cse",
+  "b": "nary-reassociate",
+  "score": 27
+ },
+ {
+  "a": "newgvn",
+  "b": "nary-reassociate",
+  "score": 27
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "newgvn",
+  "score": 27
+ },
+ {
+  "a": "dse",
+  "b": "aggressive-instcombine",
+  "score": 27
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "dse",
+  "score": 27
+ },
+ {
+  "a": "flattencfg",
+  "b": "jump-threading",
+  "score": 27
+ },
+ {
+  "a": "adce",
+  "b": "die",
+  "score": 26
+ },
+ {
+  "a": "bdce",
+  "b": "die",
+  "score": 26
+ },
+ {
+  "a": "dce",
+  "b": "die",
+  "score": 26
+ },
+ {
+  "a": "die",
+  "b": "die",
+  "score": 26
+ },
+ {
+  "a": "reassociate",
+  "b": "die",
+  "score": 26
+ },
+ {
+  "a": "loop-reduce",
+  "b": "simplifycfg",
+  "score": 26
+ },
+ {
+  "a": "sccp",
+  "b": "inline",
+  "score": 26
+ },
+ {
+  "a": "inline",
+  "b": "sccp",
+  "score": 26
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "instsimplify",
+  "score": 26
+ },
+ {
+  "a": "instsimplify",
+  "b": "load-store-vectorizer",
+  "score": 26
+ },
+ {
+  "a": "loop-rotate",
+  "b": "licm",
+  "score": 26
+ },
+ {
+  "a": "globalopt",
+  "b": "jump-threading",
+  "score": 26
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "early-cse",
+  "score": 25
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "reassociate",
+  "score": 25
+ },
+ {
+  "a": "loop-reroll",
+  "b": "jump-threading",
+  "score": 25
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "ipsccp",
+  "score": 25
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "sccp",
+  "score": 25
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "gvn",
+  "score": 25
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "early-cse-memssa",
+  "score": 25
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "early-cse",
+  "score": 25
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "newgvn",
+  "score": 25
+ },
+ {
+  "a": "loop-reduce",
+  "b": "gvn",
+  "score": 25
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "instcombine",
+  "score": 24
+ },
+ {
+  "a": "instcombine",
+  "b": "correlated-propagation",
+  "score": 24
+ },
+ {
+  "a": "lowerswitch",
+  "b": "jump-threading",
+  "score": 24
+ },
+ {
+  "a": "gvn",
+  "b": "correlated-propagation",
+  "score": 24
+ },
+ {
+  "a": "jump-threading",
+  "b": "correlated-propagation",
+  "score": 23
+ },
+ {
+  "a": "sccp",
+  "b": "early-cse-memssa",
+  "score": 23
+ },
+ {
+  "a": "sccp",
+  "b": "early-cse",
+  "score": 23
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "gvn",
+  "score": 23
+ },
+ {
+  "a": "gvn",
+  "b": "nary-reassociate",
+  "score": 23
+ },
+ {
+  "a": "loop-reduce",
+  "b": "newgvn",
+  "score": 23
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "correlated-propagation",
+  "score": 23
+ },
+ {
+  "a": "early-cse",
+  "b": "correlated-propagation",
+  "score": 23
+ },
+ {
+  "a": "newgvn",
+  "b": "correlated-propagation",
+  "score": 23
+ },
+ {
+  "a": "reassociate",
+  "b": "ipsccp",
+  "score": 22
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "elim-avail-extern",
+  "score": 22
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "slp-vectorizer",
+  "score": 22
+ },
+ {
+  "a": "ipsccp",
+  "b": "instcombine",
+  "score": 22
+ },
+ {
+  "a": "loop-reduce",
+  "b": "early-cse",
+  "score": 22
+ },
+ {
+  "a": "slsr",
+  "b": "simplifycfg",
+  "score": 22
+ },
+ {
+  "a": "simplifycfg",
+  "b": "slsr",
+  "score": 22
+ },
+ {
+  "a": "adce",
+  "b": "newgvn",
+  "score": 21
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "inline",
+  "score": 21
+ },
+ {
+  "a": "inline",
+  "b": "slp-vectorizer",
+  "score": 21
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "nary-reassociate",
+  "score": 21
+ },
+ {
+  "a": "globalopt",
+  "b": "inline",
+  "score": 21
+ },
+ {
+  "a": "loop-reduce",
+  "b": "early-cse-memssa",
+  "score": 21
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "early-cse-memssa",
+  "score": 20
+ },
+ {
+  "a": "loop-rotate",
+  "b": "instcombine",
+  "score": 20
+ },
+ {
+  "a": "ipsccp",
+  "b": "ipsccp",
+  "score": 20
+ },
+ {
+  "a": "indvars",
+  "b": "simplifycfg",
+  "score": 20
+ },
+ {
+  "a": "instcombine",
+  "b": "nary-reassociate",
+  "score": 20
+ },
+ {
+  "a": "inline",
+  "b": "globalopt",
+  "score": 20
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "jump-threading",
+  "score": 20
+ },
+ {
+  "a": "adce",
+  "b": "instcombine",
+  "score": 19
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "dse",
+  "score": 19
+ },
+ {
+  "a": "dse",
+  "b": "load-store-vectorizer",
+  "score": 19
+ },
+ {
+  "a": "ipsccp",
+  "b": "gvn",
+  "score": 19
+ },
+ {
+  "a": "loop-deletion",
+  "b": "gvn",
+  "score": 19
+ },
+ {
+  "a": "instsimplify",
+  "b": "instcombine",
+  "score": 18
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "adce",
+  "score": 18
+ },
+ {
+  "a": "adce",
+  "b": "elim-avail-extern",
+  "score": 18
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "instcombine",
+  "score": 18
+ },
+ {
+  "a": "irce",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-idiom",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-interchange",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-predication",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-sink",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-unroll",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "gvn",
+  "score": 18
+ },
+ {
+  "a": "bdce",
+  "b": "early-cse",
+  "score": 17
+ },
+ {
+  "a": "adce",
+  "b": "reassociate",
+  "score": 17
+ },
+ {
+  "a": "indvars",
+  "b": "early-cse",
+  "score": 17
+ },
+ {
+  "a": "loop-reroll",
+  "b": "early-cse",
+  "score": 17
+ },
+ {
+  "a": "indvars",
+  "b": "newgvn",
+  "score": 17
+ },
+ {
+  "a": "loop-reroll",
+  "b": "newgvn",
+  "score": 17
+ },
+ {
+  "a": "licm",
+  "b": "die",
+  "score": 17
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "gvn-hoist",
+  "score": 17
+ },
+ {
+  "a": "globalopt",
+  "b": "licm",
+  "score": 17
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "die",
+  "score": 16
+ },
+ {
+  "a": "dce",
+  "b": "early-cse",
+  "score": 16
+ },
+ {
+  "a": "die",
+  "b": "early-cse",
+  "score": 16
+ },
+ {
+  "a": "bdce",
+  "b": "reassociate",
+  "score": 16
+ },
+ {
+  "a": "dce",
+  "b": "reassociate",
+  "score": 16
+ },
+ {
+  "a": "die",
+  "b": "reassociate",
+  "score": 16
+ },
+ {
+  "a": "reassociate",
+  "b": "reassociate",
+  "score": 16
+ },
+ {
+  "a": "indvars",
+  "b": "early-cse-memssa",
+  "score": 16
+ },
+ {
+  "a": "loop-reroll",
+  "b": "early-cse-memssa",
+  "score": 16
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-reroll",
+  "score": 16
+ },
+ {
+  "a": "reassociate",
+  "b": "sccp",
+  "score": 16
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "load-store-vectorizer",
+  "score": 16
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "loop-instsimplify",
+  "score": 16
+ },
+ {
+  "a": "loop-reroll",
+  "b": "instcombine",
+  "score": 16
+ },
+ {
+  "a": "break-crit-edges",
+  "b": "simplifycfg",
+  "score": 16
+ },
+ {
+  "a": "bdce",
+  "b": "early-cse-memssa",
+  "score": 15
+ },
+ {
+  "a": "bdce",
+  "b": "newgvn",
+  "score": 15
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "gvn",
+  "score": 15
+ },
+ {
+  "a": "licm",
+  "b": "adce",
+  "score": 15
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "jump-threading",
+  "score": 15
+ },
+ {
+  "a": "jump-threading",
+  "b": "nary-reassociate",
+  "score": 15
+ },
+ {
+  "a": "globaldce",
+  "b": "ipsccp",
+  "score": 15
+ },
+ {
+  "a": "dse",
+  "b": "adce",
+  "score": 15
+ },
+ {
+  "a": "dse",
+  "b": "bdce",
+  "score": 15
+ },
+ {
+  "a": "dse",
+  "b": "dce",
+  "score": 15
+ },
+ {
+  "a": "dse",
+  "b": "die",
+  "score": 15
+ },
+ {
+  "a": "ipsccp",
+  "b": "flattencfg",
+  "score": 15
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "newgvn",
+  "score": 15
+ },
+ {
+  "a": "dce",
+  "b": "early-cse-memssa",
+  "score": 14
+ },
+ {
+  "a": "dce",
+  "b": "newgvn",
+  "score": 14
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-reroll",
+  "score": 14
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "bdce",
+  "score": 14
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "dce",
+  "score": 14
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "die",
+  "score": 14
+ },
+ {
+  "a": "bdce",
+  "b": "elim-avail-extern",
+  "score": 14
+ },
+ {
+  "a": "dce",
+  "b": "elim-avail-extern",
+  "score": 14
+ },
+ {
+  "a": "die",
+  "b": "elim-avail-extern",
+  "score": 14
+ },
+ {
+  "a": "globalopt",
+  "b": "sccp",
+  "score": 14
+ },
+ {
+  "a": "ipsccp",
+  "b": "sccp",
+  "score": 14
+ },
+ {
+  "a": "indvars",
+  "b": "instcombine",
+  "score": 14
+ },
+ {
+  "a": "globalopt",
+  "b": "flattencfg",
+  "score": 14
+ },
+ {
+  "a": "licm",
+  "b": "globalopt",
+  "score": 14
+ },
+ {
+  "a": "lowerinvoke",
+  "b": "newgvn",
+  "score": 14
+ },
+ {
+  "a": "newgvn",
+  "b": "slsr",
+  "score": 14
+ },
+ {
+  "a": "die",
+  "b": "early-cse-memssa",
+  "score": 13
+ },
+ {
+  "a": "die",
+  "b": "newgvn",
+  "score": 13
+ },
+ {
+  "a": "loop-reduce",
+  "b": "jump-threading",
+  "score": 13
+ },
+ {
+  "a": "ipsccp",
+  "b": "dse",
+  "score": 13
+ },
+ {
+  "a": "dse",
+  "b": "ipsccp",
+  "score": 13
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "slsr",
+  "score": 13
+ },
+ {
+  "a": "early-cse",
+  "b": "slsr",
+  "score": 13
+ },
+ {
+  "a": "gvn",
+  "b": "slsr",
+  "score": 13
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-reroll",
+  "score": 12
+ },
+ {
+  "a": "licm",
+  "b": "bdce",
+  "score": 12
+ },
+ {
+  "a": "licm",
+  "b": "dce",
+  "score": 12
+ },
+ {
+  "a": "sccp",
+  "b": "gvn",
+  "score": 12
+ },
+ {
+  "a": "slsr",
+  "b": "nary-reassociate",
+  "score": 12
+ },
+ {
+  "a": "speculative-execution",
+  "b": "simplifycfg",
+  "score": 12
+ },
+ {
+  "a": "memcpyopt",
+  "b": "gvn",
+  "score": 11
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-reroll",
+  "score": 11
+ },
+ {
+  "a": "gvn",
+  "b": "loop-reroll",
+  "score": 11
+ },
+ {
+  "a": "inferattrs",
+  "b": "instcombine",
+  "score": 11
+ },
+ {
+  "a": "globalopt",
+  "b": "dse",
+  "score": 11
+ },
+ {
+  "a": "dse",
+  "b": "globalopt",
+  "score": 11
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "slsr",
+  "score": 11
+ },
+ {
+  "a": "ipsccp",
+  "b": "elim-avail-extern",
+  "score": 11
+ },
+ {
+  "a": "sccp",
+  "b": "elim-avail-extern",
+  "score": 11
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "ipsccp",
+  "score": 11
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "sccp",
+  "score": 11
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "correlated-propagation",
+  "score": 11
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "gvn-hoist",
+  "score": 11
+ },
+ {
+  "a": "lowerinvoke",
+  "b": "instcombine",
+  "score": 11
+ },
+ {
+  "a": "slsr",
+  "b": "early-cse-memssa",
+  "score": 11
+ },
+ {
+  "a": "slsr",
+  "b": "early-cse",
+  "score": 11
+ },
+ {
+  "a": "slsr",
+  "b": "gvn",
+  "score": 11
+ },
+ {
+  "a": "slsr",
+  "b": "newgvn",
+  "score": 11
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-reroll",
+  "score": 10
+ },
+ {
+  "a": "memcpyopt",
+  "b": "instcombine",
+  "score": 10
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "load-store-vectorizer",
+  "score": 10
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "lower-constant-intrinsics",
+  "score": 10
+ },
+ {
+  "a": "loop-reduce",
+  "b": "instcombine",
+  "score": 10
+ },
+ {
+  "a": "adce",
+  "b": "licm",
+  "score": 10
+ },
+ {
+  "a": "lowerswitch",
+  "b": "simplifycfg",
+  "score": 10
+ },
+ {
+  "a": "instsimplify",
+  "b": "globalopt",
+  "score": 10
+ },
+ {
+  "a": "globalopt",
+  "b": "instsimplify",
+  "score": 10
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "jump-threading",
+  "score": 10
+ },
+ {
+  "a": "loop-rotate",
+  "b": "early-cse-memssa",
+  "score": 10
+ },
+ {
+  "a": "loop-rotate",
+  "b": "newgvn",
+  "score": 10
+ },
+ {
+  "a": "mldst-motion",
+  "b": "simplifycfg",
+  "score": 10
+ },
+ {
+  "a": "mldst-motion",
+  "b": "instcombine",
+  "score": 10
+ },
+ {
+  "a": "simplifycfg",
+  "b": "mldst-motion",
+  "score": 10
+ },
+ {
+  "a": "instcombine",
+  "b": "mldst-motion",
+  "score": 10
+ },
+ {
+  "a": "mergefunc",
+  "b": "lower-constant-intrinsics",
+  "score": 10
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "mergefunc",
+  "score": 10
+ },
+ {
+  "a": "sroa",
+  "b": "nary-reassociate",
+  "score": 9
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "sroa",
+  "score": 9
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "licm",
+  "score": 9
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "dse",
+  "score": 9
+ },
+ {
+  "a": "dse",
+  "b": "slp-vectorizer",
+  "score": 9
+ },
+ {
+  "a": "sink",
+  "b": "simplifycfg",
+  "score": 9
+ },
+ {
+  "a": "adce",
+  "b": "ipsccp",
+  "score": 9
+ },
+ {
+  "a": "bdce",
+  "b": "ipsccp",
+  "score": 9
+ },
+ {
+  "a": "dce",
+  "b": "ipsccp",
+  "score": 9
+ },
+ {
+  "a": "die",
+  "b": "ipsccp",
+  "score": 9
+ },
+ {
+  "a": "loop-reroll",
+  "b": "indvars",
+  "score": 9
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-reroll",
+  "score": 9
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "globalopt",
+  "score": 9
+ },
+ {
+  "a": "globalopt",
+  "b": "lower-constant-intrinsics",
+  "score": 9
+ },
+ {
+  "a": "mergefunc",
+  "b": "dse",
+  "score": 9
+ },
+ {
+  "a": "mergefunc",
+  "b": "licm",
+  "score": 9
+ },
+ {
+  "a": "dse",
+  "b": "mergefunc",
+  "score": 9
+ },
+ {
+  "a": "licm",
+  "b": "mergefunc",
+  "score": 9
+ },
+ {
+  "a": "indvars",
+  "b": "jump-threading",
+  "score": 9
+ },
+ {
+  "a": "loop-rotate",
+  "b": "early-cse",
+  "score": 9
+ },
+ {
+  "a": "mldst-motion",
+  "b": "early-cse",
+  "score": 9
+ },
+ {
+  "a": "mldst-motion",
+  "b": "gvn-hoist",
+  "score": 9
+ },
+ {
+  "a": "mldst-motion",
+  "b": "gvn",
+  "score": 9
+ },
+ {
+  "a": "mldst-motion",
+  "b": "jump-threading",
+  "score": 9
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "early-cse",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "gvn",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "jump-threading",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "newgvn",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "mem2reg",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "sroa",
+  "b": "mldst-motion",
+  "score": 9
+ },
+ {
+  "a": "mldst-motion",
+  "b": "mem2reg",
+  "score": 9
+ },
+ {
+  "a": "mergefunc",
+  "b": "instsimplify",
+  "score": 9
+ },
+ {
+  "a": "instsimplify",
+  "b": "mergefunc",
+  "score": 9
+ },
+ {
+  "a": "prune-eh",
+  "b": "instcombine",
+  "score": 8
+ },
+ {
+  "a": "prune-eh",
+  "b": "newgvn",
+  "score": 8
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "loop-simplifycfg",
+  "score": 8
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "nary-reassociate",
+  "score": 8
+ },
+ {
+  "a": "mem2reg",
+  "b": "nary-reassociate",
+  "score": 8
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "mem2reg",
+  "score": 8
+ },
+ {
+  "a": "licm",
+  "b": "slp-vectorizer",
+  "score": 8
+ },
+ {
+  "a": "adce",
+  "b": "dse",
+  "score": 8
+ },
+ {
+  "a": "bdce",
+  "b": "dse",
+  "score": 8
+ },
+ {
+  "a": "dce",
+  "b": "dse",
+  "score": 8
+ },
+ {
+  "a": "die",
+  "b": "dse",
+  "score": 8
+ },
+ {
+  "a": "memcpyopt",
+  "b": "simplifycfg",
+  "score": 8
+ },
+ {
+  "a": "memcpyopt",
+  "b": "jump-threading",
+  "score": 8
+ },
+ {
+  "a": "simplifycfg",
+  "b": "memcpyopt",
+  "score": 8
+ },
+ {
+  "a": "jump-threading",
+  "b": "memcpyopt",
+  "score": 8
+ },
+ {
+  "a": "reg2mem",
+  "b": "gvn-hoist",
+  "score": 8
+ },
+ {
+  "a": "slsr",
+  "b": "gvn-hoist",
+  "score": 8
+ },
+ {
+  "a": "lower-expect",
+  "b": "globalopt",
+  "score": 8
+ },
+ {
+  "a": "lowerswitch",
+  "b": "instsimplify",
+  "score": 8
+ },
+ {
+  "a": "globalopt",
+  "b": "lower-expect",
+  "score": 8
+ },
+ {
+  "a": "loop-reroll",
+  "b": "nary-reassociate",
+  "score": 8
+ },
+ {
+  "a": "licm",
+  "b": "ipsccp",
+  "score": 8
+ },
+ {
+  "a": "ipsccp",
+  "b": "instsimplify",
+  "score": 8
+ },
+ {
+  "a": "loop-deletion",
+  "b": "jump-threading",
+  "score": 8
+ },
+ {
+  "a": "mldst-motion",
+  "b": "loop-simplifycfg",
+  "score": 8
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "mldst-motion",
+  "score": 8
+ },
+ {
+  "a": "mldst-motion",
+  "b": "early-cse-memssa",
+  "score": 8
+ },
+ {
+  "a": "mldst-motion",
+  "b": "newgvn",
+  "score": 8
+ },
+ {
+  "a": "ipsccp",
+  "b": "adce",
+  "score": 8
+ },
+ {
+  "a": "ipsccp",
+  "b": "bdce",
+  "score": 8
+ },
+ {
+  "a": "ipsccp",
+  "b": "dce",
+  "score": 8
+ },
+ {
+  "a": "ipsccp",
+  "b": "die",
+  "score": 8
+ },
+ {
+  "a": "ipconstprop",
+  "b": "early-cse-memssa",
+  "score": 8
+ },
+ {
+  "a": "ipconstprop",
+  "b": "early-cse",
+  "score": 8
+ },
+ {
+  "a": "ipconstprop",
+  "b": "newgvn",
+  "score": 8
+ },
+ {
+  "a": "mergefunc",
+  "b": "load-store-vectorizer",
+  "score": 8
+ },
+ {
+  "a": "prune-eh",
+  "b": "simplifycfg",
+  "score": 7
+ },
+ {
+  "a": "loop-reduce",
+  "b": "indvars",
+  "score": 7
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "elim-avail-extern",
+  "score": 7
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "nary-reassociate",
+  "score": 7
+ },
+ {
+  "a": "loop-deletion",
+  "b": "instcombine",
+  "score": 7
+ },
+ {
+  "a": "memcpyopt",
+  "b": "early-cse-memssa",
+  "score": 7
+ },
+ {
+  "a": "memcpyopt",
+  "b": "early-cse",
+  "score": 7
+ },
+ {
+  "a": "memcpyopt",
+  "b": "gvn-hoist",
+  "score": 7
+ },
+ {
+  "a": "memcpyopt",
+  "b": "newgvn",
+  "score": 7
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "slsr",
+  "score": 7
+ },
+ {
+  "a": "loop-reroll",
+  "b": "loop-reduce",
+  "score": 7
+ },
+ {
+  "a": "flattencfg",
+  "b": "loop-simplifycfg",
+  "score": 7
+ },
+ {
+  "a": "flattencfg",
+  "b": "mem2reg",
+  "score": 7
+ },
+ {
+  "a": "flattencfg",
+  "b": "sroa",
+  "score": 7
+ },
+ {
+  "a": "irce",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-fusion",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-idiom",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-interchange",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-predication",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-simplify",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-sink",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-unroll",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "jump-threading",
+  "score": 7
+ },
+ {
+  "a": "ipsccp",
+  "b": "licm",
+  "score": 7
+ },
+ {
+  "a": "sccp",
+  "b": "dse",
+  "score": 7
+ },
+ {
+  "a": "dse",
+  "b": "sccp",
+  "score": 7
+ },
+ {
+  "a": "lower-expect",
+  "b": "adce",
+  "score": 7
+ },
+ {
+  "a": "adce",
+  "b": "lower-expect",
+  "score": 7
+ },
+ {
+  "a": "mldst-motion",
+  "b": "sroa",
+  "score": 7
+ },
+ {
+  "a": "mergefunc",
+  "b": "lower-expect",
+  "score": 7
+ },
+ {
+  "a": "lower-expect",
+  "b": "mergefunc",
+  "score": 7
+ },
+ {
+  "a": "slsr",
+  "b": "instcombine",
+  "score": 7
+ },
+ {
+  "a": "ipconstprop",
+  "b": "instcombine",
+  "score": 7
+ },
+ {
+  "a": "ipsccp",
+  "b": "reassociate",
+  "score": 7
+ },
+ {
+  "a": "sccp",
+  "b": "newgvn",
+  "score": 7
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "mergefunc",
+  "score": 7
+ },
+ {
+  "a": "reassociate",
+  "b": "loop-instsimplify",
+  "score": 7
+ },
+ {
+  "a": "loop-reroll",
+  "b": "load-store-vectorizer",
+  "score": 7
+ },
+ {
+  "a": "sink",
+  "b": "gvn",
+  "score": 7
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "early-cse",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "gvn",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "instcombine",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "newgvn",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "mem2reg",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "sroa",
+  "b": "prune-eh",
+  "score": 6
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "gvn-hoist",
+  "score": 6
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "instsimplify",
+  "score": 6
+ },
+ {
+  "a": "flattencfg",
+  "b": "simplifycfg",
+  "score": 6
+ },
+ {
+  "a": "irce",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-fusion",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-idiom",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-interchange",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-predication",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-simplify",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-sink",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-unroll",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "instcombine",
+  "score": 6
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "memcpyopt",
+  "score": 6
+ },
+ {
+  "a": "instcombine",
+  "b": "memcpyopt",
+  "score": 6
+ },
+ {
+  "a": "memcpyopt",
+  "b": "mem2reg",
+  "score": 6
+ },
+ {
+  "a": "globaldce",
+  "b": "aggressive-instcombine",
+  "score": 6
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "globaldce",
+  "score": 6
+ },
+ {
+  "a": "mergefunc",
+  "b": "mergefunc",
+  "score": 6
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "early-cse",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "gvn",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "instcombine",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "newgvn",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "mem2reg",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "sroa",
+  "b": "flattencfg",
+  "score": 6
+ },
+ {
+  "a": "flattencfg",
+  "b": "licm",
+  "score": 6
+ },
+ {
+  "a": "loop-fusion",
+  "b": "gvn",
+  "score": 6
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "gvn",
+  "score": 6
+ },
+ {
+  "a": "loop-simplify",
+  "b": "gvn",
+  "score": 6
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "gvn",
+  "score": 6
+ },
+ {
+  "a": "sccp",
+  "b": "licm",
+  "score": 6
+ },
+ {
+  "a": "licm",
+  "b": "sccp",
+  "score": 6
+ },
+ {
+  "a": "indvars",
+  "b": "nary-reassociate",
+  "score": 6
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "gvn",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "mem2reg",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "sroa",
+  "b": "loop-rotate",
+  "score": 6
+ },
+ {
+  "a": "loop-rotate",
+  "b": "mem2reg",
+  "score": 6
+ },
+ {
+  "a": "loop-rotate",
+  "b": "sroa",
+  "score": 6
+ },
+ {
+  "a": "lower-expect",
+  "b": "bdce",
+  "score": 6
+ },
+ {
+  "a": "lower-expect",
+  "b": "dce",
+  "score": 6
+ },
+ {
+  "a": "lower-expect",
+  "b": "die",
+  "score": 6
+ },
+ {
+  "a": "bdce",
+  "b": "lower-expect",
+  "score": 6
+ },
+ {
+  "a": "dce",
+  "b": "lower-expect",
+  "score": 6
+ },
+ {
+  "a": "die",
+  "b": "lower-expect",
+  "score": 6
+ },
+ {
+  "a": "ipconstprop",
+  "b": "instsimplify",
+  "score": 6
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "indvars",
+  "score": 6
+ },
+ {
+  "a": "separate-const-offset-from-gep",
+  "b": "reassociate",
+  "score": 5
+ },
+ {
+  "a": "simplifycfg",
+  "b": "prune-eh",
+  "score": 5
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "licm",
+  "score": 5
+ },
+ {
+  "a": "licm",
+  "b": "nary-reassociate",
+  "score": 5
+ },
+ {
+  "a": "instsimplify",
+  "b": "slp-vectorizer",
+  "score": 5
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "nary-reassociate",
+  "score": 5
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "slp-vectorizer",
+  "score": 5
+ },
+ {
+  "a": "gvn",
+  "b": "memcpyopt",
+  "score": 5
+ },
+ {
+  "a": "simplifycfg",
+  "b": "flattencfg",
+  "score": 5
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "flattencfg",
+  "score": 5
+ },
+ {
+  "a": "loop-deletion",
+  "b": "early-cse",
+  "score": 5
+ },
+ {
+  "a": "loop-fusion",
+  "b": "early-cse",
+  "score": 5
+ },
+ {
+  "a": "adce",
+  "b": "loop-instsimplify",
+  "score": 5
+ },
+ {
+  "a": "loop-rotate",
+  "b": "elim-avail-extern",
+  "score": 5
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-rotate",
+  "score": 5
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "loop-rotate",
+  "score": 5
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-rotate",
+  "score": 5
+ },
+ {
+  "a": "mldst-motion",
+  "b": "inline",
+  "score": 5
+ },
+ {
+  "a": "inline",
+  "b": "mldst-motion",
+  "score": 5
+ },
+ {
+  "a": "flattencfg",
+  "b": "aggressive-instcombine",
+  "score": 5
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "flattencfg",
+  "score": 5
+ },
+ {
+  "a": "instcombine",
+  "b": "slsr",
+  "score": 5
+ },
+ {
+  "a": "loop-rotate",
+  "b": "gvn-hoist",
+  "score": 5
+ },
+ {
+  "a": "sink",
+  "b": "newgvn",
+  "score": 5
+ },
+ {
+  "a": "loop-reroll",
+  "b": "correlated-propagation",
+  "score": 5
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "indvars",
+  "score": 5
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "load-store-vectorizer",
+  "score": 5
+ },
+ {
+  "a": "mergereturn",
+  "b": "simplifycfg",
+  "score": 5
+ },
+ {
+  "a": "indvars",
+  "b": "loop-reroll",
+  "score": 4
+ },
+ {
+  "a": "jump-threading",
+  "b": "prune-eh",
+  "score": 4
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "prune-eh",
+  "score": 4
+ },
+ {
+  "a": "sink",
+  "b": "gvn-hoist",
+  "score": 4
+ },
+ {
+  "a": "adce",
+  "b": "instsimplify",
+  "score": 4
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "adce",
+  "score": 4
+ },
+ {
+  "a": "adce",
+  "b": "aggressive-instcombine",
+  "score": 4
+ },
+ {
+  "a": "bdce",
+  "b": "licm",
+  "score": 4
+ },
+ {
+  "a": "dce",
+  "b": "licm",
+  "score": 4
+ },
+ {
+  "a": "die",
+  "b": "licm",
+  "score": 4
+ },
+ {
+  "a": "memcpyopt",
+  "b": "loop-simplifycfg",
+  "score": 4
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "early-cse",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "newgvn",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "mem2reg",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "sroa",
+  "b": "memcpyopt",
+  "score": 4
+ },
+ {
+  "a": "loop-reduce",
+  "b": "slsr",
+  "score": 4
+ },
+ {
+  "a": "inferattrs",
+  "b": "gvn",
+  "score": 4
+ },
+ {
+  "a": "irce",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-idiom",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-interchange",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-predication",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-simplify",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-sink",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-unroll",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "correlated-propagation",
+  "score": 4
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "lower-constant-intrinsics",
+  "score": 4
+ },
+ {
+  "a": "flattencfg",
+  "b": "adce",
+  "score": 4
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "ipsccp",
+  "score": 4
+ },
+ {
+  "a": "ipsccp",
+  "b": "nary-reassociate",
+  "score": 4
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "correlated-propagation",
+  "score": 4
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "load-store-vectorizer",
+  "score": 4
+ },
+ {
+  "a": "scalarizer",
+  "b": "instcombine",
+  "score": 4
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "loop-instsimplify",
+  "score": 4
+ },
+ {
+  "a": "lower-expect",
+  "b": "loop-instsimplify",
+  "score": 4
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "lower-constant-intrinsics",
+  "score": 4
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "lower-expect",
+  "score": 4
+ },
+ {
+  "a": "sink",
+  "b": "early-cse-memssa",
+  "score": 4
+ },
+ {
+  "a": "sink",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "loop-reroll",
+  "score": 4
+ },
+ {
+  "a": "functionattrs",
+  "b": "mergefunc",
+  "score": 4
+ },
+ {
+  "a": "hotcoldsplit",
+  "b": "mergefunc",
+  "score": 4
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "adce",
+  "score": 4
+ },
+ {
+  "a": "adce",
+  "b": "lower-constant-intrinsics",
+  "score": 4
+ },
+ {
+  "a": "reassociate",
+  "b": "slp-vectorizer",
+  "score": 4
+ },
+ {
+  "a": "slsr",
+  "b": "slp-vectorizer",
+  "score": 4
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "slsr",
+  "score": 4
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "nary-reassociate",
+  "score": 4
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-rotate",
+  "score": 4
+ },
+ {
+  "a": "prune-eh",
+  "b": "early-cse-memssa",
+  "score": 4
+ },
+ {
+  "a": "prune-eh",
+  "b": "early-cse",
+  "score": 4
+ },
+ {
+  "a": "prune-eh",
+  "b": "gvn",
+  "score": 4
+ },
+ {
+  "a": "prune-eh",
+  "b": "mem2reg",
+  "score": 4
+ },
+ {
+  "a": "prune-eh",
+  "b": "sroa",
+  "score": 4
+ },
+ {
+  "a": "licm",
+  "b": "prune-eh",
+  "score": 3
+ },
+ {
+  "a": "licm",
+  "b": "mem2reg",
+  "score": 3
+ },
+ {
+  "a": "licm",
+  "b": "sroa",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "adce",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "bdce",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "dce",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "die",
+  "score": 3
+ },
+ {
+  "a": "sink",
+  "b": "jump-threading",
+  "score": 3
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "dse",
+  "score": 3
+ },
+ {
+  "a": "dse",
+  "b": "nary-reassociate",
+  "score": 3
+ },
+ {
+  "a": "adce",
+  "b": "sccp",
+  "score": 3
+ },
+ {
+  "a": "bdce",
+  "b": "sccp",
+  "score": 3
+ },
+ {
+  "a": "dce",
+  "b": "sccp",
+  "score": 3
+ },
+ {
+  "a": "die",
+  "b": "sccp",
+  "score": 3
+ },
+ {
+  "a": "memcpyopt",
+  "b": "sroa",
+  "score": 3
+ },
+ {
+  "a": "tailcallelim",
+  "b": "licm",
+  "score": 3
+ },
+ {
+  "a": "loop-reduce",
+  "b": "nary-reassociate",
+  "score": 3
+ },
+ {
+  "a": "functionattrs",
+  "b": "simplifycfg",
+  "score": 3
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "memcpyopt",
+  "score": 3
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "adce",
+  "score": 3
+ },
+ {
+  "a": "break-crit-edges",
+  "b": "jump-threading",
+  "score": 3
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "loop-rotate",
+  "score": 3
+ },
+ {
+  "a": "loop-rotate",
+  "b": "loop-simplifycfg",
+  "score": 3
+ },
+ {
+  "a": "strip-nondebug",
+  "b": "mergefunc",
+  "score": 3
+ },
+ {
+  "a": "strip",
+  "b": "mergefunc",
+  "score": 3
+ },
+ {
+  "a": "dse",
+  "b": "dse",
+  "score": 3
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-reduce",
+  "score": 3
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "aggressive-instcombine",
+  "score": 3
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "loop-instsimplify",
+  "score": 3
+ },
+ {
+  "a": "tailcallelim",
+  "b": "instcombine",
+  "score": 3
+ },
+ {
+  "a": "loop-deletion",
+  "b": "early-cse-memssa",
+  "score": 3
+ },
+ {
+  "a": "loop-fusion",
+  "b": "early-cse-memssa",
+  "score": 3
+ },
+ {
+  "a": "loop-deletion",
+  "b": "newgvn",
+  "score": 3
+ },
+ {
+  "a": "loop-fusion",
+  "b": "newgvn",
+  "score": 3
+ },
+ {
+  "a": "mergefunc",
+  "b": "correlated-propagation",
+  "score": 3
+ },
+ {
+  "a": "mergefunc",
+  "b": "loop-reroll",
+  "score": 3
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "mergefunc",
+  "score": 3
+ },
+ {
+  "a": "loop-reroll",
+  "b": "mergefunc",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "load-store-vectorizer",
+  "score": 3
+ },
+ {
+  "a": "inline",
+  "b": "flattencfg",
+  "score": 3
+ },
+ {
+  "a": "flattencfg",
+  "b": "inline",
+  "score": 3
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "bdce",
+  "score": 3
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "dce",
+  "score": 3
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "die",
+  "score": 3
+ },
+ {
+  "a": "bdce",
+  "b": "lower-constant-intrinsics",
+  "score": 3
+ },
+ {
+  "a": "dce",
+  "b": "lower-constant-intrinsics",
+  "score": 3
+ },
+ {
+  "a": "die",
+  "b": "lower-constant-intrinsics",
+  "score": 3
+ },
+ {
+  "a": "inline",
+  "b": "mergefunc",
+  "score": 3
+ },
+ {
+  "a": "partially-inline-libcalls",
+  "b": "gvn",
+  "score": 3
+ },
+ {
+  "a": "reassociate",
+  "b": "load-store-vectorizer",
+  "score": 3
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "reassociate",
+  "score": 3
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "reassociate",
+  "score": 3
+ },
+ {
+  "a": "bdce",
+  "b": "loop-instsimplify",
+  "score": 3
+ },
+ {
+  "a": "dce",
+  "b": "loop-instsimplify",
+  "score": 3
+ },
+ {
+  "a": "die",
+  "b": "loop-instsimplify",
+  "score": 3
+ },
+ {
+  "a": "slsr",
+  "b": "jump-threading",
+  "score": 3
+ },
+ {
+  "a": "jump-threading",
+  "b": "slsr",
+  "score": 3
+ },
+ {
+  "a": "ipconstprop",
+  "b": "gvn",
+  "score": 3
+ },
+ {
+  "a": "loop-fusion",
+  "b": "simplifycfg",
+  "score": 3
+ },
+ {
+  "a": "indvars",
+  "b": "load-store-vectorizer",
+  "score": 3
+ },
+ {
+  "a": "mergereturn",
+  "b": "jump-threading",
+  "score": 3
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "lower-constant-intrinsics",
+  "score": 3
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "nary-reassociate",
+  "score": 3
+ },
+ {
+  "a": "flattencfg",
+  "b": "ipsccp",
+  "score": 3
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "loop-reroll",
+  "score": 2
+ },
+ {
+  "a": "loop-reroll",
+  "b": "lower-constant-intrinsics",
+  "score": 2
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "prune-eh",
+  "score": 2
+ },
+ {
+  "a": "flattencfg",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "bdce",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "adce",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "bdce",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "dce",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "die",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "adce",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "adce",
+  "b": "dce",
+  "score": 2
+ },
+ {
+  "a": "bdce",
+  "b": "aggressive-instcombine",
+  "score": 2
+ },
+ {
+  "a": "dce",
+  "b": "aggressive-instcombine",
+  "score": 2
+ },
+ {
+  "a": "die",
+  "b": "aggressive-instcombine",
+  "score": 2
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "dce",
+  "score": 2
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "die",
+  "score": 2
+ },
+ {
+  "a": "memcpyopt",
+  "b": "elim-avail-extern",
+  "score": 2
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "memcpyopt",
+  "score": 2
+ },
+ {
+  "a": "memcpyopt",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "loop-reduce",
+  "score": 2
+ },
+ {
+  "a": "functionattrs",
+  "b": "instsimplify",
+  "score": 2
+ },
+ {
+  "a": "functionattrs",
+  "b": "reassociate",
+  "score": 2
+ },
+ {
+  "a": "flattencfg",
+  "b": "elim-avail-extern",
+  "score": 2
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "flattencfg",
+  "score": 2
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "flattencfg",
+  "score": 2
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-reroll",
+  "score": 2
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "ipsccp",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "instsimplify",
+  "score": 2
+ },
+ {
+  "a": "ipsccp",
+  "b": "lower-constant-intrinsics",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "lower-constant-intrinsics",
+  "score": 2
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "sccp",
+  "score": 2
+ },
+ {
+  "a": "memcpyopt",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "tailcallelim",
+  "b": "gvn-hoist",
+  "score": 2
+ },
+ {
+  "a": "mldst-motion",
+  "b": "elim-avail-extern",
+  "score": 2
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "mldst-motion",
+  "score": 2
+ },
+ {
+  "a": "sink",
+  "b": "ipsccp",
+  "score": 2
+ },
+ {
+  "a": "mldst-motion",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "mldst-motion",
+  "score": 2
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "mldst-motion",
+  "score": 2
+ },
+ {
+  "a": "mldst-motion",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "loop-reduce",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-reduce",
+  "score": 2
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "loop-reduce",
+  "score": 2
+ },
+ {
+  "a": "irce",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-idiom",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-interchange",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-predication",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-simplify",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-sink",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-unroll",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "early-cse-memssa",
+  "score": 2
+ },
+ {
+  "a": "irce",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-guard-widening",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-idiom",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-interchange",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-load-elim",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-predication",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-simplify",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-sink",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-unroll-and-jam",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-unroll",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-unswitch",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-vectorize",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "loop-versioning-licm",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "simple-loop-unswitch",
+  "b": "newgvn",
+  "score": 2
+ },
+ {
+  "a": "sink",
+  "b": "correlated-propagation",
+  "score": 2
+ },
+ {
+  "a": "slsr",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "slsr",
+  "b": "loop-reroll",
+  "score": 2
+ },
+ {
+  "a": "indvars",
+  "b": "slsr",
+  "score": 2
+ },
+ {
+  "a": "loop-reroll",
+  "b": "slsr",
+  "score": 2
+ },
+ {
+  "a": "memcpyopt",
+  "b": "inline",
+  "score": 2
+ },
+ {
+  "a": "inline",
+  "b": "memcpyopt",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "adce",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "dce",
+  "score": 2
+ },
+ {
+  "a": "sccp",
+  "b": "die",
+  "score": 2
+ },
+ {
+  "a": "indvars",
+  "b": "correlated-propagation",
+  "score": 2
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "correlated-propagation",
+  "score": 2
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "correlated-propagation",
+  "score": 2
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "nary-reassociate",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "inline",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "licm",
+  "score": 2
+ },
+ {
+  "a": "inline",
+  "b": "prune-eh",
+  "score": 2
+ },
+ {
+  "a": "reassociate",
+  "b": "adce",
+  "score": 2
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "reassociate",
+  "b": "bdce",
+  "score": 2
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "dce",
+  "score": 2
+ },
+ {
+  "a": "reassociate",
+  "b": "dce",
+  "score": 2
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "loop-reroll",
+  "score": 2
+ },
+ {
+  "a": "loop-fusion",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "loop-fusion",
+  "b": "load-store-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "indvars",
+  "b": "loop-fusion",
+  "score": 2
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "loop-fusion",
+  "score": 2
+ },
+ {
+  "a": "loop-reroll",
+  "b": "loop-fusion",
+  "score": 2
+ },
+ {
+  "a": "mldst-motion",
+  "b": "licm",
+  "score": 2
+ },
+ {
+  "a": "licm",
+  "b": "mldst-motion",
+  "score": 2
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "early-cse",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "gvn",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "newgvn",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "sroa",
+  "b": "indvars",
+  "score": 2
+ },
+ {
+  "a": "indvars",
+  "b": "sroa",
+  "score": 2
+ },
+ {
+  "a": "loop-rotate",
+  "b": "inline",
+  "score": 2
+ },
+ {
+  "a": "inline",
+  "b": "loop-rotate",
+  "score": 2
+ },
+ {
+  "a": "memcpyopt",
+  "b": "licm",
+  "score": 2
+ },
+ {
+  "a": "reg2mem",
+  "b": "simplifycfg",
+  "score": 2
+ },
+ {
+  "a": "speculative-execution",
+  "b": "gvn-hoist",
+  "score": 2
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-reduce",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "instsimplify",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "jump-threading",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "loop-simplifycfg",
+  "score": 2
+ },
+ {
+  "a": "instsimplify",
+  "b": "prune-eh",
+  "score": 2
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "instsimplify",
+  "score": 2
+ },
+ {
+  "a": "instsimplify",
+  "b": "nary-reassociate",
+  "score": 2
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "correlated-propagation",
+  "score": 2
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "slp-vectorizer",
+  "score": 2
+ },
+ {
+  "a": "mergefunc",
+  "b": "inline",
+  "score": 2
+ },
+ {
+  "a": "prune-eh",
+  "b": "aggressive-instcombine",
+  "score": 1
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "prune-eh",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "prune-eh",
+  "score": 1
+ },
+ {
+  "a": "prune-eh",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "adce",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "dce",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "die",
+  "score": 1
+ },
+ {
+  "a": "adce",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "dce",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "die",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "instcombine",
+  "score": 1
+ },
+ {
+  "a": "reg2mem",
+  "b": "sroa",
+  "score": 1
+ },
+ {
+  "a": "lowerswitch",
+  "b": "ipsccp",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "globaldce",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "globaldce",
+  "score": 1
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "slsr",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "jump-threading",
+  "b": "flattencfg",
+  "score": 1
+ },
+ {
+  "a": "licm",
+  "b": "flattencfg",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "ipsccp",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "sccp",
+  "score": 1
+ },
+ {
+  "a": "break-crit-edges",
+  "b": "gvn",
+  "score": 1
+ },
+ {
+  "a": "reg2mem",
+  "b": "gvn",
+  "score": 1
+ },
+ {
+  "a": "mldst-motion",
+  "b": "dse",
+  "score": 1
+ },
+ {
+  "a": "dse",
+  "b": "mldst-motion",
+  "score": 1
+ },
+ {
+  "a": "memcpyopt",
+  "b": "lower-constant-intrinsics",
+  "score": 1
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "memcpyopt",
+  "score": 1
+ },
+ {
+  "a": "mldst-motion",
+  "b": "instsimplify",
+  "score": 1
+ },
+ {
+  "a": "instsimplify",
+  "b": "mldst-motion",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "aggressive-instcombine",
+  "score": 1
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "loweratomic",
+  "score": 1
+ },
+ {
+  "a": "scalarizer",
+  "b": "early-cse-memssa",
+  "score": 1
+ },
+ {
+  "a": "scalarizer",
+  "b": "early-cse",
+  "score": 1
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "loop-instsimplify",
+  "score": 1
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "instcombine",
+  "score": 1
+ },
+ {
+  "a": "inferattrs",
+  "b": "dse",
+  "score": 1
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "loop-reduce",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "ipsccp",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "loweratomic",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "loweratomic",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "loop-instsimplify",
+  "score": 1
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "instcombine",
+  "score": 1
+ },
+ {
+  "a": "bdce",
+  "b": "instcombine",
+  "score": 1
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "loop-reroll",
+  "b": "loop-simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "slsr",
+  "b": "loop-simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "slsr",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "adce",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "bdce",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "dce",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "die",
+  "score": 1
+ },
+ {
+  "a": "adce",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "bdce",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "dce",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "die",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "loop-fusion",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "memcpyopt",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "loop-reroll",
+  "b": "memcpyopt",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "memcpyopt",
+  "score": 1
+ },
+ {
+  "a": "memcpyopt",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-fusion",
+  "score": 1
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-fusion",
+  "score": 1
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "loop-fusion",
+  "score": 1
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-fusion",
+  "score": 1
+ },
+ {
+  "a": "loop-fusion",
+  "b": "nary-reassociate",
+  "score": 1
+ },
+ {
+  "a": "ipconstprop",
+  "b": "aggressive-instcombine",
+  "score": 1
+ },
+ {
+  "a": "loop-rotate",
+  "b": "dse",
+  "score": 1
+ },
+ {
+  "a": "dse",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "memcpyopt",
+  "b": "instsimplify",
+  "score": 1
+ },
+ {
+  "a": "licm",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "loop-rotate",
+  "b": "aggressive-instcombine",
+  "score": 1
+ },
+ {
+  "a": "loop-rotate",
+  "b": "instsimplify",
+  "score": 1
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "instsimplify",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "loop-rotate",
+  "score": 1
+ },
+ {
+  "a": "loop-rotate",
+  "b": "lower-constant-intrinsics",
+  "score": 1
+ },
+ {
+  "a": "loop-rotate",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "mldst-motion",
+  "b": "lower-constant-intrinsics",
+  "score": 1
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "mldst-motion",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "early-cse-memssa",
+  "score": 1
+ },
+ {
+  "a": "loweratomic",
+  "b": "early-cse",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "indvars",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "sroa",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "gvn",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "sroa",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "indvars",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "loop-reroll",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "loop-reduce",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "loop-reroll",
+  "b": "sroa",
+  "score": 1
+ },
+ {
+  "a": "loop-reduce",
+  "b": "sroa",
+  "score": 1
+ },
+ {
+  "a": "ipconstprop",
+  "b": "licm",
+  "score": 1
+ },
+ {
+  "a": "indvars",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "tailcallelim",
+  "b": "jump-threading",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "loop-instsimplify",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "loop-instsimplify",
+  "score": 1
+ },
+ {
+  "a": "lowerswitch",
+  "b": "loop-simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "tailcallelim",
+  "b": "simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "lowerswitch",
+  "b": "gvn-hoist",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "prune-eh",
+  "b": "elim-avail-extern",
+  "score": 1
+ },
+ {
+  "a": "prune-eh",
+  "b": "gvn-hoist",
+  "score": 1
+ },
+ {
+  "a": "prune-eh",
+  "b": "lower-constant-intrinsics",
+  "score": 1
+ },
+ {
+  "a": "prune-eh",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "prune-eh",
+  "score": 1
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "prune-eh",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "prune-eh",
+  "score": 1
+ },
+ {
+  "a": "loop-deletion",
+  "b": "elim-avail-extern",
+  "score": 1
+ },
+ {
+  "a": "simplifycfg",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "early-cse-memssa",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "early-cse",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "elim-avail-extern",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "gvn-hoist",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "gvn",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "instcombine",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "jump-threading",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "loop-simplifycfg",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "newgvn",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "mem2reg",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "sccp",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "sroa",
+  "b": "loop-deletion",
+  "score": 1
+ },
+ {
+  "a": "loop-deletion",
+  "b": "loop-simplifycfg",
+  "score": 1
+ },
+ {
+  "a": "loop-deletion",
+  "b": "mem2reg",
+  "score": 1
+ },
+ {
+  "a": "loop-deletion",
+  "b": "sccp",
+  "score": 1
+ },
+ {
+  "a": "loop-deletion",
+  "b": "sroa",
+  "score": 1
+ },
+ {
+  "a": "slsr",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "slsr",
+  "score": 1
+ },
+ {
+  "a": "functionattrs",
+  "b": "ipsccp",
+  "score": 1
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "nary-reassociate",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "adce",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "bdce",
+  "score": 1
+ },
+ {
+  "a": "adce",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "bdce",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "dce",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "die",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "dse",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "instsimplify",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "sroa",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "dce",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "die",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "dse",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "lower-expect",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "lower-expect",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "sroa",
+  "score": 1
+ },
+ {
+  "a": "flattencfg",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "flattencfg",
+  "score": 1
+ },
+ {
+  "a": "flattencfg",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "slsr",
+  "score": 1
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "loop-instsimplify",
+  "score": 1
+ },
+ {
+  "a": "loop-instsimplify",
+  "b": "nary-reassociate",
+  "score": 1
+ },
+ {
+  "a": "globalopt",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "ipsccp",
+  "b": "correlated-propagation",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "globalopt",
+  "score": 1
+ },
+ {
+  "a": "correlated-propagation",
+  "b": "ipsccp",
+  "score": 1
+ },
+ {
+  "a": "mergefunc",
+  "b": "globaldce",
+  "score": 1
+ },
+ {
+  "a": "globaldce",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "slp-vectorizer",
+  "b": "lower-constant-intrinsics",
+  "score": 1
+ },
+ {
+  "a": "lower-constant-intrinsics",
+  "b": "slp-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "loop-reroll",
+  "b": "instsimplify",
+  "score": 1
+ },
+ {
+  "a": "instsimplify",
+  "b": "loop-reroll",
+  "score": 1
+ },
+ {
+  "a": "nary-reassociate",
+  "b": "inline",
+  "score": 1
+ },
+ {
+  "a": "inline",
+  "b": "nary-reassociate",
+  "score": 1
+ },
+ {
+  "a": "sink",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "load-store-vectorizer",
+  "b": "aggressive-instcombine",
+  "score": 1
+ },
+ {
+  "a": "aggressive-instcombine",
+  "b": "load-store-vectorizer",
+  "score": 1
+ },
+ {
+  "a": "functionattrs",
+  "b": "adce",
+  "score": 1
+ },
+ {
+  "a": "functionattrs",
+  "b": "bdce",
+  "score": 1
+ },
+ {
+  "a": "functionattrs",
+  "b": "dce",
+  "score": 1
+ },
+ {
+  "a": "functionattrs",
+  "b": "die",
+  "score": 1
+ },
+ {
+  "a": "float2int",
+  "b": "early-cse-memssa",
+  "score": 1
+ },
+ {
+  "a": "float2int",
+  "b": "early-cse",
+  "score": 1
+ },
+ {
+  "a": "float2int",
+  "b": "newgvn",
+  "score": 1
+ },
+ {
+  "a": "reassociate",
+  "b": "loop-reduce",
+  "score": 1
+ },
+ {
+  "a": "loop-reduce",
+  "b": "reassociate",
+  "score": 1
+ },
+ {
+  "a": "deadargelim",
+  "b": "mergefunc",
+  "score": 1
+ },
+ {
+  "a": "licm",
+  "b": "memcpyopt",
+  "score": 1
+ }
+]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-mode forensic analysis tool for the DERP relay protocol demanding expert-level synthesis of binary protocol engineering, cryptographic security analysis, and distributed systems reasoning. The solver must: (1) implement multi-session detection via handshake state machine resets with correct lifecycle tracking — requiring understanding of real-world connection lifecycle behavior beyond what the spec alone provides; (2) detect ghost traffic by tracking PeerPresent/PeerGone lifecycle state and identifying data frames that violate session integrity — this requires holistic understanding of the DERP relay model where peer reachability is a stateful property, not just parsing frame bytes; (3) perform cross-relay traffic flow correlation by matching SendPacket/RecvPacket timing across relays within a 1-second window — this requires understanding traffic analysis as a security concept and implementing the correlation algorithm from the conceptual description; (4) synthesize multiple heterogeneous security signals (nonce reuse, policy violations, ghost traffic, session conflicts, blocklist hits) into a weighted risk score using signal weights that reflect the relative severity of different attack types — requiring professional security judgment about why nonce reuse (NaCl confidentiality compromise) is more severe than unauthorized relay access (policy violation); (5) implement bridge peer identification by reasoning about the relay mesh graph structure to find peers that interconnect otherwise-isolated segments; (6) integrate tshark for pcap extraction and SQLite for policy enforcement across three distinct operating modes with consistent output conforming to a JSON schema."""
+solution_explanation = """The solution implements a Python tool with three modes. The core analyze() function tracks a handshake state machine with session boundary detection, a gone_peers set for ghost traffic (PeerGone adds, PeerPresent removes, Send/RecvPacket checks membership), and NaCl nonce extraction. Directory mode retains raw parsed records for traffic correlation: for each relay pair (R1, R2), it checks if R1's client sends to R2's client AND R2 receives from R1's client with |T_send - T_recv| < 1M us. Threat classification computes risk_score as sum of signal weights (blocked_peer=60, nonce_reuse=40, unauthorized_relay=20, ghost_traffic=15, unauthorized_destination=15, cross_relay_conflict=10) capped at 100, with level derived from score thresholds (>=60=critical, >=40=high, >=20=medium, >=1=low, 0=none)."""
+verification_explanation = """Tests generate deterministic binary DPCAP captures and verify all analysis dimensions: handshake validation, routing, keepalive timing, ping/pong correlation, multi-session detection, anomaly detection, ghost traffic (PeerGone then data to gone peer, plus negative case with PeerPresent restore), pcap ingestion via tshark, topology reconstruction, policy enforcement, cross-relay conflicts, nonce reuse, bridge peers, traffic correlation (positive case with 500ms delta, negative case with 3s delta), risk scoring (exact numeric values for each signal combination), and threat level derivation across all five levels."""
+category = "networking"
+tags = ["binary-protocol", "network-forensics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/derp-capture-analyzer"

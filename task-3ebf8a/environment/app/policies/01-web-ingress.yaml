@@ -1,0 +1,24 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "web-ingress"
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: web
+  ingress:
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        tier: api
+    toPorts:
+    - ports:
+      - port: "3000"
+        protocol: TCP

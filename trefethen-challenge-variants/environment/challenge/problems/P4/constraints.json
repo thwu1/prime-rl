@@ -1,0 +1,14 @@
+{
+  "step_probabilities": {
+    "north": "1/4",
+    "south": "1/4",
+    "east": "1/4 + epsilon",
+    "west": "1/4 - epsilon"
+  },
+  "target": {
+    "quantity": "return_probability",
+    "value": "1/3"
+  },
+  "solve_for": "epsilon",
+  "constraint": "epsilon > 0"
+}

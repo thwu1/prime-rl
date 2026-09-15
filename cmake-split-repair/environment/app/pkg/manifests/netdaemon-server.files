@@ -1,0 +1,3 @@
+${prefix}/bin/ndserver
+${prefix}/lib/libndcore.so.3
+${prefix}/lib/systemd/system/netdaemon.service

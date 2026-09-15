@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a distributed consensus protocol correctly requires deep understanding of safety invariants and subtle corner cases in leader election, log replication, and commitment rules. The Go implementation adds tool proficiency requirements: the agent must navigate Go module structure, use go build/go test, understand Go's type system (interfaces, structs, slices, maps), and work within a multi-language verification pipeline (Go tests validated through a Python pytest harness). Common failure modes include incorrect term handling during state transitions, off-by-one errors in 1-based log indexing, failure to implement the commit restriction (which causes safety violations under leader changes), and incorrect conflict resolution during log replication."""
+solution_explanation = """The solution replaces node.go with a complete consensus implementation: (1) startElection increments term, self-votes, broadcasts vote requests; (2) handleRequestVote checks term freshness, existing votes, and the log up-to-date restriction; (3) handleRequestVoteResponse tracks votes and transitions to leader on majority; (4) becomeLeader initializes NextIndex/MatchIndex and sends initial heartbeats; (5) sendHeartbeats sends replication RPCs with correct prev-entry metadata and pending entries; (6) handleAppendEntries verifies log consistency, truncates conflicts, appends new entries, advances commit index; (7) handleAppendEntriesResponse updates replication tracking on success or decrements send offset on failure; (8) advanceCommitIndex finds highest N with majority replication AND current-term entry; (9) Submit appends to log and triggers immediate replication; (10) becomeFollower updates term and clears vote state."""
+verification_explanation = """14 Go tests verify consensus safety and liveness: leader election (3- and 5-node clusters, election safety, re-election after single and cascading failures), log replication (single entry, multiple entries, survival across leader changes), follower recovery (catch-up after crash), network partitions (majority continues, convergence after heal), and log consistency (committed logs agree, stale entries overwritten). Tests use deterministic seeded RNG. A Python pytest harness wraps the compiled Go test binary, providing granular per-test results."""
+category = "distributed_systems"
+tags = ["consensus", "go-tooling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1dc141"

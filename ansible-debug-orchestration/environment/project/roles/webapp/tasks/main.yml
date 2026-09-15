@@ -1,0 +1,19 @@
+---
+- name: Ensure nginx config directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d
+    state: directory
+    mode: '0755'
+
+- name: Deploy nginx upstream config
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/app.conf
+    mode: '0644'
+  notify: restart nginx
+
+- name: Deploy application config
+  ansible.builtin.template:
+    src: app_config.json.j2
+    dest: /etc/app_config.json
+    mode: '0644'

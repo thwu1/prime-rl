@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "signing": {
+    "tool": "cosign",
+    "transparency_log": false,
+    "key_storage": "/app/keys"
+  },
+  "attestation": {
+    "framework": "in-toto",
+    "statement_version": "v0.1"
+  },
+  "teams": ["engineering", "security", "release"],
+  "artifacts": [
+    {
+      "name": "api-server.bin",
+      "required_signers": ["engineering"],
+      "required_attestations": [
+        {"type": "slsaprovenance", "signer": "engineering"}
+      ]
+    },
+    {
+      "name": "auth-module.bin",
+      "required_signers": ["engineering", "security"],
+      "required_attestations": [
+        {"type": "slsaprovenance", "signer": "engineering"},
+        {"type": "vuln", "signer": "security"}
+      ]
+    },
+    {
+      "name": "data-pipeline.bin",
+      "required_signers": ["engineering"],
+      "required_attestations": [
+        {"type": "slsaprovenance", "signer": "engineering"}
+      ]
+    },
+    {
+      "name": "crypto-lib.bin",
+      "required_signers": ["engineering", "security", "release"],
+      "required_attestations": [
+        {"type": "slsaprovenance", "signer": "engineering"},
+        {"type": "vuln", "signer": "security"}
+      ]
+    },
+    {
+      "name": "monitoring-agent.bin",
+      "required_signers": ["engineering", "release"],
+      "required_attestations": [
+        {"type": "slsaprovenance", "signer": "engineering"}
+      ]
+    }
+  ]
+}

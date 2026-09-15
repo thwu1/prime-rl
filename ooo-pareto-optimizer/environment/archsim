@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""
+archsim - Analytical Out-of-Order Processor Simulator
+
+Cycle-approximate performance, area, and power modeling for OoO processor
+design space exploration. Supports solo and paired (shared-L2 interference)
+simulation modes.
+"""
+
+import argparse
+import json
+import math
+import sys
+
+ARCH_REGS = 32
+CLOCK_FREQ_GHZ = 1.0
+SIM_INSTS = 1000000
+INTERFERENCE_COEFF = 0.20
+
+WORKLOADS = {
+    "matmul": {
+        "description": "Dense matrix multiplication",
+        "ilp": 6.0,
+        "avg_inflight_cycles": 15.0,
+        "frac_int": 0.25,
+        "frac_fp": 0.75,
+        "avg_int_reg_lifetime": 4.0,
+        "avg_fp_reg_lifetime": 12.0,
+        "cache_pressure": 0.45,
+        "branch_rate": 0.05,
+        "branch_mispredict_rate": 0.02,
+    },
+    "bfs": {
+        "description": "Breadth-first search on graph",
+        "ilp": 1.8,
+        "avg_inflight_cycles": 25.0,
+        "frac_int": 0.9,
+        "frac_fp": 0.1,
+        "avg_int_reg_lifetime": 8.0,
+        "avg_fp_reg_lifetime": 3.0,
+        "cache_pressure": 0.85,
+        "branch_rate": 0.15,
+        "branch_mispredict_rate": 0.08,
+    },
+    "sort": {
+        "description": "Comparison-based sorting",
+        "ilp": 5.0,
+        "avg_inflight_cycles": 8.0,
+        "frac_int": 0.95,
+        "frac_fp": 0.05,
+        "avg_int_reg_lifetime": 6.0,
+        "avg_fp_reg_lifetime": 2.0,
+        "cache_pressure": 0.30,
+        "branch_rate": 0.20,
+        "branch_mispredict_rate": 0.12,
+    },
+    "queens": {
+        "description": "N-Queens backtracking solver",
+        "ilp": 4.0,
+        "avg_inflight_cycles": 18.0,
+        "frac_int": 0.97,
+        "frac_fp": 0.03,
+        "avg_int_reg_lifetime": 10.0,
+        "avg_fp_reg_lifetime": 2.0,
+        "cache_pressure": 0.55,
+        "branch_rate": 0.18,
+        "branch_mispredict_rate": 0.10,
+    },
+    "stream": {
+        "description": "Streaming integer array processing",
+        "ilp": 8.0,
+        "avg_inflight_cycles": 12.0,
+        "frac_int": 1.0,
+        "frac_fp": 0.0,
+        "avg_int_reg_lifetime": 3.0,
+        "avg_fp_reg_lifetime": 1.0,
+        "cache_pressure": 0.70,
+        "branch_rate": 0.03,
+        "branch_mispredict_rate": 0.01,
+    },
+    "crypto": {
+        "description": "Cryptographic hash computation",
+        "ilp": 3.5,
+        "avg_inflight_cycles": 10.0,
+        "frac_int": 0.80,
+        "frac_fp": 0.20,
+        "avg_int_reg_lifetime": 5.0,
+        "avg_fp_reg_lifetime": 8.0,
+        "cache_pressure": 0.25,
+        "branch_rate": 0.08,
+        "branch_mispredict_rate": 0.03,
+    },
+    "fft": {
+        "description": "Fast Fourier Transform",
+        "ilp": 7.0,
+        "avg_inflight_cycles": 14.0,
+        "frac_int": 0.15,
+        "frac_fp": 0.85,
+        "avg_int_reg_lifetime": 3.0,
+        "avg_fp_reg_lifetime": 10.0,
+        "cache_pressure": 0.40,
+        "branch_rate": 0.04,
+        "branch_mispredict_rate": 0.01,
+    },
+    "lzma": {
+        "description": "LZMA compression",
+        "ilp": 2.5,
+        "avg_inflight_cycles": 20.0,
+        "frac_int": 0.92,
+        "frac_fp": 0.08,
+        "avg_int_reg_lifetime": 7.0,
+        "avg_fp_reg_lifetime": 4.0,
+        "cache_pressure": 0.75,
+        "branch_rate": 0.12,
+        "branch_mispredict_rate": 0.06,
+    },
+}
+
+
+def compute_area(w, r, i, f):
+    """Silicon area score: models issue width scaling, ROB, and register files."""
+    return w * (2 * r + i + f) + 4 * w + 2 * r + i + f
+
+
+def compute_ipc(w, r, i, f, wl):
+    """IPC = min of applicable micro-architectural constraints."""
+    constraints = [
+        float(w),
+        wl["ilp"],
+        r / wl["avg_inflight_cycles"],
+    ]
+    if wl["frac_int"] > 0:
+        free_int = i - ARCH_REGS
+        constraints.append(free_int / (wl["avg_int_reg_lifetime"] * wl["frac_int"]))
+    if wl["frac_fp"] > 0:
+        free_fp = f - ARCH_REGS
+        constraints.append(free_fp / (wl["avg_fp_reg_lifetime"] * wl["frac_fp"]))
+    return min(constraints)
+
+
+def compute_power(area):
+    """Power model: base + sqrt(area) scaling."""
+    return round(0.5 + math.sqrt(area) * 0.05, 6)
+
+
+def compute_interference_factor(p1, p2, width):
+    """Shared-L2 cache interference degradation factor.
+    Returns IPC multiplier in [0.5, 1.0]."""
+    raw = INTERFERENCE_COEFF * p1 * p2 * (width / 4.0)
+    return max(0.5, 1.0 - raw)
+
+
+def output_stats(w, r, i, f, wl_name, wl, ipc, area,
+                 paired_wl_name=None, paired_wl=None, paired_ipc=None):
+    """Output simulation statistics in gem5-like format."""
+    power = compute_power(area)
+    num_cycles = int(SIM_INSTS / ipc) if ipc > 0 else SIM_INSTS * 10
+    sim_seconds = num_cycles / (CLOCK_FREQ_GHZ * 1e9)
+
+    miss_rate = wl["cache_pressure"] * 0.08
+    hits = int(SIM_INSTS * (1 - miss_rate))
+    misses = int(SIM_INSTS * miss_rate)
+    branch_count = int(SIM_INSTS * wl["branch_rate"])
+    mispredicts = int(branch_count * wl["branch_mispredict_rate"])
+
+    print("---------- Begin Simulation Statistics ----------")
+    print(f"sim_insts                                        {SIM_INSTS}")
+    print(f"sim_seconds                                      {sim_seconds:.10f}                       # Simulated time")
+    print(f"host_seconds                                     {sim_seconds * 100:.6f}                       # Real time")
+
+    if paired_wl_name:
+        print(f"system.cpu0.ipc                                  {ipc:.6f}                       # IPC for {wl_name}")
+        print(f"system.cpu0.committedInsts                       {SIM_INSTS}")
+        print(f"system.cpu0.numCycles                            {num_cycles}")
+        num_cycles_2 = int(SIM_INSTS / paired_ipc) if paired_ipc > 0 else SIM_INSTS * 10
+        print(f"system.cpu1.ipc                                  {paired_ipc:.6f}                       # IPC for {paired_wl_name}")
+        print(f"system.cpu1.committedInsts                       {SIM_INSTS}")
+        print(f"system.cpu1.numCycles                            {num_cycles_2}")
+    else:
+        print(f"system.cpu.ipc                                   {ipc:.6f}                       # Instructions per cycle")
+        print(f"system.cpu.committedInsts                        {SIM_INSTS}")
+        print(f"system.cpu.numCycles                             {num_cycles}")
+
+    print(f"system.cpu.rob.rob_reads                         {int(SIM_INSTS * 1.2)}")
+    print(f"system.cpu.rob.rob_writes                        {SIM_INSTS}")
+    print(f"system.cpu.intRegFile.totalReads                  {int(SIM_INSTS * wl['frac_int'] * 2.5)}")
+    print(f"system.cpu.intRegFile.totalWrites                 {int(SIM_INSTS * wl['frac_int'] * 1.2)}")
+    print(f"system.cpu.fpRegFile.totalReads                   {int(SIM_INSTS * wl['frac_fp'] * 2.5)}")
+    print(f"system.cpu.fpRegFile.totalWrites                  {int(SIM_INSTS * wl['frac_fp'] * 1.2)}")
+    print(f"system.cpu.branchPred.condPredicted              {branch_count}")
+    print(f"system.cpu.branchPred.condIncorrect              {mispredicts}")
+    print(f"board.processor.cores0.area_score                {area}")
+    print(f"board.processor.cores0.power_watts               {power:.6f}")
+    print(f"system.cpu.dcache.overall_hits::total            {hits}")
+    print(f"system.cpu.dcache.overall_misses::total          {misses}")
+    print(f"system.cpu.dcache.overall_miss_rate::total       {miss_rate:.6f}")
+    print("---------- End Simulation Statistics ----------")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="archsim - Analytical OoO Processor Simulator",
+        epilog="Example: archsim --width 4 --rob-size 64 --int-regs 96 --fp-regs 64 --workload matmul",
+    )
+    parser.add_argument("--width", type=int, help="Pipeline width (fetch/decode/commit)")
+    parser.add_argument("--rob-size", type=int, help="Reorder buffer entries")
+    parser.add_argument("--int-regs", type=int, help="Physical integer registers (must be > 32)")
+    parser.add_argument("--fp-regs", type=int, help="Physical FP registers (must be > 32)")
+    parser.add_argument("--workload", type=str, help="Primary workload name")
+    parser.add_argument("--paired", type=str, default=None,
+                        help="Second workload for paired/interference simulation (shared L2)")
+    parser.add_argument("--list-workloads", action="store_true", help="List available workloads")
+    parser.add_argument("--json", action="store_true", help="Output in JSON format instead of stats")
+
+    args = parser.parse_args()
+
+    if args.list_workloads:
+        print("Available workloads:")
+        for name, wl in sorted(WORKLOADS.items()):
+            print(f"  {name:12s}  {wl['description']}")
+        return
+
+    if not all([args.width, args.rob_size, args.int_regs, args.fp_regs, args.workload]):
+        parser.error("--width, --rob-size, --int-regs, --fp-regs, and --workload are required")
+
+    if args.workload not in WORKLOADS:
+        print(f"Error: unknown workload '{args.workload}'. "
+              "Use --list-workloads to see options.", file=sys.stderr)
+        sys.exit(1)
+
+    if args.paired and args.paired not in WORKLOADS:
+        print(f"Error: unknown workload '{args.paired}'. "
+              "Use --list-workloads to see options.", file=sys.stderr)
+        sys.exit(1)
+
+    if args.width < 1:
+        print("Error: width must be >= 1", file=sys.stderr)
+        sys.exit(1)
+
+    if args.rob_size < 1:
+        print("Error: rob-size must be >= 1", file=sys.stderr)
+        sys.exit(1)
+
+    if args.int_regs <= ARCH_REGS:
+        print(f"Error: int-regs must be > {ARCH_REGS} (architectural registers)",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if args.fp_regs <= ARCH_REGS:
+        print(f"Error: fp-regs must be > {ARCH_REGS} (architectural registers)",
+              file=sys.stderr)
+        sys.exit(1)
+
+    w, r, i, f = args.width, args.rob_size, args.int_regs, args.fp_regs
+    wl = WORKLOADS[args.workload]
+    area = compute_area(w, r, i, f)
+    solo_ipc = compute_ipc(w, r, i, f, wl)
+
+    if args.paired:
+        paired_wl = WORKLOADS[args.paired]
+        factor = compute_interference_factor(
+            wl["cache_pressure"], paired_wl["cache_pressure"], w
+        )
+        ipc1 = solo_ipc * factor
+        solo_ipc2 = compute_ipc(w, r, i, f, paired_wl)
+        ipc2 = solo_ipc2 * factor
+
+        if args.json:
+            result = {
+                "config": {"width": w, "rob_size": r,
+                           "num_int_regs": i, "num_fp_regs": f},
+                "area": area,
+                "power_watts": compute_power(area),
+                "workload1": args.workload,
+                "workload2": args.paired,
+                "solo_ipc1": solo_ipc,
+                "solo_ipc2": solo_ipc2,
+                "paired_ipc1": ipc1,
+                "paired_ipc2": ipc2,
+                "interference_factor": factor,
+            }
+            json.dump(result, sys.stdout, indent=2)
+            print()
+        else:
+            output_stats(w, r, i, f, args.workload, wl, ipc1, area,
+                         paired_wl_name=args.paired, paired_wl=paired_wl,
+                         paired_ipc=ipc2)
+    else:
+        if args.json:
+            result = {
+                "config": {"width": w, "rob_size": r,
+                           "num_int_regs": i, "num_fp_regs": f},
+                "area": area,
+                "power_watts": compute_power(area),
+                "workload": args.workload,
+                "ipc": solo_ipc,
+            }
+            json.dump(result, sys.stdout, indent=2)
+            print()
+        else:
+            output_stats(w, r, i, f, args.workload, wl, solo_ipc, area)
+
+
+if __name__ == "__main__":
+    main()

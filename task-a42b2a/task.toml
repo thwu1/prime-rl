@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires decoding PTP Announce messages from pcap captures using tshark for protocol-level frame identification and filtering (mixed traffic with non-PTP noise, 802.1Q VLAN-tagged and untagged frames), then correlating tshark-identified frames with capture log metadata across multiple network segments. The agent must implement the IEEE 1588-2008 Best Master Clock Algorithm (data set comparison and state decision) from domain knowledge, apply IEEE C37.238 Power Profile conformance requirements from reference documents, compute NISTIR 8002 timing statistics with population variance and 90% confidence intervals, and audit/remediate a linuxptp (ptp4l) configuration file against Power Profile requirements. Multi-tool interoperability between tshark (pcap analysis), Python (binary parsing, BMCA), and linuxptp config format knowledge is essential."""
+solution_explanation = """Use tshark to identify PTP frames in segment1.pcap and segment2.pcap (filtering out ARP/LLDP noise), then read raw pcap data and extract PTP payloads handling both VLAN-tagged and untagged Ethernet frames. Parse 86-byte PTP Announce messages at IEEE 1588-2008 byte offsets (per reference docs). Map parsed frames to capture_log entries for receiver context. Implement Announce qualification (reject same-clockIdentity, stepsRemoved>=255, alternateMasterFlag), foreign master windowing, and BMCA data set comparison. Check Power Profile conformance attributes against topology device types. Compute deduplicated timing statistics. Analyze ptp4l config against Power Profile requirements to identify 8 violations and produce corrected config."""
+verification_explanation = """Tests verify: (1) correct PTP field extraction from pcap-encapsulated messages across all clock types; (2) correct disqualification of exactly 7 rogue messages; (3) BMCA grandmaster selection and port states for all 4 clocks; (4) Power Profile conformance verdicts; (5) timing statistics with correct mean intervals and conformance booleans; (6) detection of all ptp4l config violations with correct current/required values; (7) corrected config file with all 8 parameters fixed to Power Profile compliant values."""
+category = "networking"
+tags = ["precision-time-protocol", "protocol-conformance"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a42b2a"

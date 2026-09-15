@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of solar geometry (azimuth/altitude to 3D direction vector conversion), terrain analysis (slope/aspect from DEM via finite differences, incidence angle formula), and implementation of ray-tracing through a gridded elevation model for cast shadow detection. The agent must correctly handle nodata regions and NaN propagation at nodata boundaries, distinguish self-shadow from cast shadow, and produce correctly formatted output arrays with proper nodata handling."""
+solution_explanation = """Read the DEM numpy array and sun parameters. Compute slope and aspect from the DEM using finite differences, handling NaN nodata neighbours by treating them as flat. Calculate the cosine of the solar incidence angle at each pixel using the standard formula involving solar zenith, slope, aspect, and sun azimuth. Implement ray-tracing by stepping from each pixel toward the sun direction through the DEM grid, checking if intervening terrain exceeds the ray elevation. Combine self-shadow (negative cosine) and cast shadow into a final illumination map. Write output numpy arrays and compute aggregate statistics."""
+verification_explanation = """Tests verify: (1) output files exist with correct array shape and dtype; (2) cast shadow mask is correct at specific known-shadowed pixels (north of escarpment, on ramp, north of hill) and known-lit pixels (far from features, plateau, hill summit); (3) illumination values match expected physics (flat terrain = sin(18 deg) = 0.309, shadowed = 0, south-facing slope > flat); (4) all valid illumination values are in [0,1]; (5) analysis.json statistics fall within computed bounds."""
+category = "geospatial"
+tags = ["terrain-analysis", "ray-tracing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/terrain-shadow-analysis"

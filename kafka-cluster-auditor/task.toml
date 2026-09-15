@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning the full Apache Kafka ecosystem: identifying subtle interactions between broker-level configs (unclean.leader.election.enable), topic-level settings (min.insync.replicas vs replication factor availability semantics), consumer lag vs retention data-loss conditions, producer durability anti-patterns, Kafka Connect task failure diagnosis, ACL security auditing from raw CLI output parsing, schema registry compatibility implications, and rack-aware partition placement. The agent must cross-reference four heterogeneous data sources (JSON cluster state, JMX metrics, Connect status, raw ACL text) and generate a valid kafka-reassign-partitions.sh reassignment plan JSON — a tool-specific format not derivable from general knowledge."""
+solution_explanation = """The solution reads all four data sources and implements 12 distinct checks across Kafka subsystems: (1) RF=1 on payments, (2) min.insync.replicas >= RF on user-events, (3) rack-awareness violations in partition assignments, (4) under-replicated partitions from ISR shrinkage, (5) leader imbalance detection, (6) consumer lag exceeding topic retention, (7) producer acks=0, (8) idle consumers, (9) unclean.leader.election.enable=true on all brokers, (10) Kafka Connect failed tasks, (11) wildcard ACL on payments topic parsed from raw CLI output, (12) schema registry compatibility=NONE. It also generates a kafka-reassign-partitions.sh compatible reassignment plan and a remediation script with valid Kafka CLI commands."""
+verification_explanation = """Tests verify: (a) report structure with required fields and consistent counts, (b) health score below 50, (c) 5 specific CRITICAL issues by entity name, (d) 7 specific WARNING issues spanning rack awareness, leader imbalance, under-replication, idle consumers, Connect failures, ACL security, and schema compatibility, (e) reassignment.json in valid version-1 format with rack-violation-free assignments including orders topic, (f) remediation.sh contains multiple Kafka CLI commands addressing min.insync.replicas, retention, ACLs, and unclean leader election."""
+category = "data_management"
+tags = ["apache-kafka", "distributed-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-cluster-auditor"

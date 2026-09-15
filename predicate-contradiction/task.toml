@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating data from two heterogeneous sources (YAML holdings files and a SQLite term database), using the pint library's unit registry for physical unit conversion across dimensional systems, and implementing a formal comparison engine that correctly handles multiple interacting subsystems: directed term compatibility (generic vs specific), bijective context register construction via Cartesian-product search over interchangeable-group permutations, truth-value entailment lattice with three-valued logic, and half-line interval arithmetic with strict/non-strict boundary distinctions. The specification is conceptual rather than algorithmic—the solver must derive correct containment and disjointness conditions from set-theoretic definitions, design an efficient search over meaning-preserving reorderings, and handle non-obvious edge cases where subsystems interact (e.g., mixed generic+specific terms with interchangeability, strict boundary arithmetic across unit conversion, null-truth non-contradiction). Multi-tool proficiency is essential: YAML parsing, SQLite querying, pint unit conversion, and dual-format output (JSON + SQLite)."""
+solution_explanation = """The solution parses the YAML holdings file to extract predicate templates, quantity comparisons, and truth values, then queries the SQLite terms database for entity term assignments and interchangeable group declarations. It merges these data sources by predicate_id. Unit conversion uses the pint library's UnitRegistry to handle cross-unit comparisons (mm↔cm, g↔oz, mph↔kph, g↔kg) without hardcoded factors. The engine normalizes comparison predicates with truth=false (flipping comparison signs), then for each predicate pair checks template compatibility, generates all interchangeable-group permutations via Cartesian product, searches for valid bijective context registers with directed term compatibility, and evaluates semantic content (range containment/disjointness for quantity predicates, truth entailment/contradiction for non-quantity predicates). Results are written to both JSON and a SQLite relationships table."""
+verification_explanation = """Tests verify exact sets of 3 equivalence pairs, 16 implication pairs, and 16 contradiction pairs via pytest against both JSON and SQLite outputs. Over 40 spot-check tests target each subsystem: unit conversion equivalence (5mm = 0.5cm), cross-unit implication (20g implies >= 0.5oz), truth normalization, interchangeable specific terms, generic-implies-specific, null-truth non-contradiction, strict boundary handling (> 1000g implies >= 1kg but NOT vice versa; >= 1kg and <= 1kg do NOT contradict), mixed generic/specific interchangeable terms, SQLite output schema validation, and JSON/SQLite consistency checks."""
+category = "applied_computing"
+tags = ["formal-logic", "multi-tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/predicate-contradiction"

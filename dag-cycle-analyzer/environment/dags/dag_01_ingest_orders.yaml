@@ -1,0 +1,15 @@
+dag_id: ingest_orders
+schedule: "*/30 * * * *"
+default_pool: io_pool
+max_active_runs: 2
+tasks:
+  extract:
+    pool_slots: 3
+    duration_estimate_minutes: 10
+  validate:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+    upstream: [extract]
+datasets:
+  produces: [orders_raw]
+  consumes: []

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level RL reward engineering, multi-objective optimization theory, and numerical methods. The agent must: (1) identify and fix 4 subtle mathematical bugs across 2 files — a Gaussian sigmoid scale derivation error (log(1-x) vs log(x)), an L1-vs-L2-squared norm in velocity tracking, swapped cubic Bezier control points, and a cost function that incorrectly penalizes yaw angular velocity (requiring understanding of robot body-frame physics), (2) solve a 10-variable inverse problem via least-squares on clipped reward data, (3) query a SQLite database to extract weight bounds and compute multi-objective metrics, (4) compute the 2D hypervolume indicator of the Pareto front (requiring multi-objective optimization theory), (5) design a novel reward configuration by formulating and solving a maximin fairness linear program over convex combinations of Pareto-optimal configurations using scipy.optimize, and (6) synthesize results from bug fixing, weight recovery, database analysis, and constrained optimization into a coherent audit."""
+solution_explanation = """Fix Gaussian sigmoid from log(1-x) to log(x), tracking_lin_vel from L1 to squared L2, Bezier from x*(1-x)^2 to x^2*(1-x), and ang_vel_xy from using all 3 components to only the first 2 (xy). Compute reward components from trajectory data, filter non-clipped samples, solve via numpy lstsq. Query SQLite for Pareto front, weight bounds (gait_quality_score > 0.7), and sensitivity. Compute hypervolume using sweep-line algorithm. Formulate maximin fairness as LP: maximize t subject to weighted normalized return >= t, weighted normalized transfer >= t, weights sum to 1, non-negative. Solve with scipy.optimize.linprog."""
+verification_explanation = """Unit tests verify Gaussian sigmoid behavior, tolerance function, tracking_lin_vel norm type, Bezier interpolation values, and ang_vel_xy component selection. Integration tests verify recovered weights within 5% relative / 0.02 absolute tolerance, reward reconstruction within 1e-4. Analysis tests verify correct ancestor_run_id, exact Pareto front membership, weight bounds within 1e-6, correct most/least sensitive component rankings, hypervolume indicator accuracy, and designed configuration properties (weight validity, maximin optimality, balance between objectives)."""
+category = "machine_learning"
+tags = ["reinforcement-learning", "multi-objective-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reward-function-forensics"

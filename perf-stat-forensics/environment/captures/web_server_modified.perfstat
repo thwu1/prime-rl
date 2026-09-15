@@ -1,0 +1,19 @@
+ Performance counter stats for './web_server --modified':
+
+         10,002.67 msec task-clock                       #    1.000 CPUs utilized
+            62,000      context-switches                 #    6,198.345 /sec
+             1,230      cpu-migrations                   #  122.967 /sec
+             9,000      page-faults                      #  899.760 /sec
+     3,500,000,000      cycles                           #    3.499 GHz
+     3,500,000,000      instructions                     #    1.00  insn per cycle
+     1,000,000,000      branch-instructions              #   99.973 M/sec
+        30,000,000      branch-misses                    #    3.00% of all branches
+       700,000,000      cache-references                 #   69.981 M/sec
+        49,000,000      cache-misses                     #    7.00% of all cache refs
+       280,000,000      stalled-cycles-frontend          #    8.00% frontend cycles idle
+       700,000,000      stalled-cycles-backend           #   20.00% backend cycles idle
+
+         10.003567890 seconds time elapsed
+
+          9.756789012 seconds user
+          0.245678901 seconds sys

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of SQLite indexing internals beyond standard covering-index recipes. The solver must fit covering indexes for 8 analytical queries within a budget of at most 7 on the events table — this forces strategic decisions that only a proficient/expert practitioner would recognize: (1) identifying that a wider covering index for one query can also satisfy another query whose required columns are a strict subset; (2) recognizing that queries sharing an event_type='purchase' filter can be served by a single partial index, achieving ~30x storage reduction versus a full index on 160K rows — and understanding that ANALYZE must be run so the planner prefers the smaller partial index over larger regular indexes; (3) recognizing that a JOIN lookup and a subquery can share an index when the JOIN columns match an index prefix; (4) understanding the HTTP VFS cost model where even 50-row table scans cost 20+ network round trips, requiring covering indexes on small join tables that would normally be left unindexed; (5) knowing that WAL mode and auto-vacuum break static HTTP file serving because they modify page offsets; (6) configuring FTS5 external-content mode with bm25() ranking and snippet() extraction. A competent developer following standard covering-index procedures would create 9+ indexes and fail the budget constraint without discovering partial-index and index-sharing optimizations."""
+solution_explanation = """Drop the 3 naive single-column indexes. Create 6 events indexes using 3 sharing strategies: (1) idx_q1_q8 ON events(event_type, timestamp, country, user_id) — covers both Q1 and Q8 since Q8's column needs {event_type, timestamp, user_id} are a subset of Q1's; (2) idx_q2 ON events(device_type, event_type, page_url, session_id); (3) idx_q3_q7 ON events(user_id, revenue_cents, country) WHERE event_type='purchase' — a partial index (~5500 rows vs 160K) serving both Q3 (covering scan for join+aggregation, planner prefers it over larger regular indexes after ANALYZE) and Q7 (covering scan with revenue_cents filter + country GROUP BY); (4) idx_q4_q5b ON events(event_type, session_id, device_type) — shared between Q4 (bounce rate subquery) and Q5's e2 side (purchase lookup via event_type+session_id prefix); (5) idx_q5a ON events(event_type, referrer, session_id); (6) idx_q6 ON events(event_type, page_url, duration_ms, user_id). Also create idx_pages ON pages(url, category) for Q6's join (HTTP VFS requires covering access even on small tables). Create FTS5 external-content virtual table. Set journal_mode=DELETE, auto_vacuum=NONE, page_size=1024, VACUUM, then ANALYZE to update planner statistics for partial index cost estimation."""
+verification_explanation = """Tests verify: (1) PRAGMA page_size=1024; (2) journal_mode=delete and auto_vacuum=0; (3) at most 7 user-created indexes on events; (4) at least one partial index on events (SQL contains WHERE); (5) EXPLAIN QUERY PLAN shows COVERING INDEX for all 8 queries; (6) Q6 specifically requires COVERING INDEX on both events and pages sides (2+ mentions); (7) no bare SCAN on events without an index; (8) FTS5 table exists and supports MATCH, bm25() ranking, and snippet() extraction; (9) all 8 queries return correct non-empty results with expected domain values (countries, plan types, devices, categories, dates)."""
+category = "databases"
+tags = ["sqlite", "query-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-covering-indexes"

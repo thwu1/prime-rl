@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level understanding of the OMOP CDM v5.4 specification, the Kahn Framework for data quality assessment (Conformance, Completeness, Plausibility), OHDSI vocabulary hierarchy (concept_ancestor for drug ingredient rollup), and the standard drug_era/condition_era derivation algorithms (interval merging with persistence windows). The agent must independently identify 9 distinct data quality violations across 6 clinical tables spanning different DQD check categories, implement appropriate fixes following OMOP conventions (e.g., using Maps-to relationships for non-standard concept remediation), then correctly implement the era derivation pipeline with ingredient-level rollup and gap-day calculation. This requires domain expertise in clinical informatics and health data standards that goes beyond general SQL/Python skills."""
+solution_explanation = """Connect to the PostgreSQL OMOP CDM database and systematically identify violations: (1) broken FK via LEFT JOIN to concept table, (2) NULL observation_period_end_date, (3) non-standard condition_concept_id via JOIN to concept checking standard_concept, (4) duplicate visit_occurrence_id via GROUP BY/HAVING, (5) missing observation_period via LEFT JOIN person to observation_period, (6) events before birth by comparing dates to person.year_of_birth, (7) events after death by comparing to death.death_date, (8) drug_exposure start > end dates, (9) negative measurement values. Fix each programmatically. Then implement drug_era derivation: map drug_concept_id to ingredient via concept_ancestor + concept.concept_class_id='Ingredient', sort exposures, detect era boundaries using 30-day gap threshold, aggregate into eras computing gap_days. Similarly derive condition_era. Write JSON report."""
+verification_explanation = """Tests connect to the PostgreSQL database and verify the end state: no broken FKs remain in drug_exposure, no NULL observation_period end dates, no non-standard condition concepts (checked via JOIN to concept.standard_concept), no duplicate visit_occurrence_ids, all persons have observation_periods, no events before birth or after death, no start>end dates, no implausible measurements. Drug_era table verified for correct count (9 eras), correct ingredient-level concept_ids, correct date boundaries and gap_days for specific test cases (Person 1 lisinopril era merging two exposures with 15 gap days). Condition_era verified for correct count (11 eras). DQD report verified for existence and valid JSON structure."""
+category = "clinical_informatics"
+tags = ["omop-cdm", "data-quality"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ba0144"

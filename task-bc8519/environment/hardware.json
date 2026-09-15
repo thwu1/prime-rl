@@ -1,0 +1,16 @@
+{
+  "name": "GPU-X100",
+  "num_sms": 108,
+  "max_threads_per_sm": 2048,
+  "max_warps_per_sm": 64,
+  "max_blocks_per_sm": 32,
+  "warp_size": 32,
+  "register_file_size": 65536,
+  "max_registers_per_thread": 255,
+  "shared_memory_per_sm": 167936,
+  "max_shared_memory_per_block": 167936,
+  "l2_cache_size_bytes": 41943040,
+  "memory_bandwidth_gb_s": 2039.0,
+  "fp16_tflops": 312.0,
+  "element_size_bytes": 2
+}

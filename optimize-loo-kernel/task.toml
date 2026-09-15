@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires recognizing two distinct O(N^2)->O(N) algorithmic reductions: (1) the PRESS residual formula for leave-one-out cross-validation in ridge regression, which demands knowledge of the hat matrix and Sherman-Morrison-Woodbury identity from statistical learning theory; (2) a symmetric pairwise kernel sum reduction via suffix sums exploiting the min() structure. Additionally, the agent must fix a misconfigured CMake build system (wrong source paths, target names, and optimization flags), use Valgrind's cachegrind tool to profile both naive and optimized implementations, parse cachegrind output to extract cache performance metrics using cg_annotate or regex parsing, and generate a structured JSON profiling comparison report. The combination of algorithmic optimization, CMake debugging, and cachegrind-based profiling requires expertise spanning statistics, numerical linear algebra, build systems, and performance analysis tooling."""
+solution_explanation = """First fix CMakeLists.txt: correct the source path from main.cpp to src/main.cpp, rename the target from analytics_tool to analytics, replace -O0 with -O2, and set RUNTIME_OUTPUT_DIRECTORY to /app. Build the naive version and profile it with valgrind --tool=cachegrind --cache-sim=yes on a 1000-record dataset (--cache-sim=yes is required on valgrind 3.22+ where the default changed to no, otherwise Dr/Dw/D1m*/DLm* events are not collected). For LOO CV, precompute X^T X + lambda*I once, invert the 5x5 matrix, compute full-model residuals and hat-matrix diagonal, then apply the PRESS formula. For the kernel sum, iterate backward accumulating suffix weights. Replace main.cpp with the optimized version, rebuild, re-profile with cachegrind --cache-sim=yes, parse both .out files to extract I_refs/D_refs/D1_misses/LLd_misses, and write the comparison to profile_report.json."""
+verification_explanation = """Tests generate a deterministic synthetic dataset (N=100K, seed=42) and compute reference LOO RMSE, MAE, and kernel sum using efficient formulas in Python/numpy. The C++ program's JSON output is compared against these references with relative tolerance 1e-4. A wall-clock assertion ensures the program completes in under 60 seconds. The profile report at /app/output/profile_report.json is validated for correct JSON structure (naive/optimized sections with integer cache metrics) and that the optimized version shows fewer instruction references than the naive version, confirming the algorithmic improvement was properly profiled with cachegrind."""
+category = "optimization"
+tags = ["performance-optimization", "profiling-tools"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-loo-kernel"

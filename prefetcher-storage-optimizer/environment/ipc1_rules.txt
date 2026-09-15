@@ -1,0 +1,41 @@
+IPC-1 Competition Rules (First Instruction Prefetching Championship, ISCA 2020)
+
+Storage Budget
+--------------
+Each submitted instruction prefetcher must fit within a total hardware storage
+budget of 128 KB (1,048,576 bits). This budget covers ALL stateful elements
+that would be implemented in silicon: lookup tables, tag arrays, replacement
+policy bits, registers, pointers, counters, and any other persistent state
+maintained by the prefetcher.
+
+The storage budget is measured in bits. Each data structure's contribution is
+the product of its total number of entries and the bits stored per entry. All
+fields stored per entry must be counted, including data payload fields, tag
+fields, and replacement policy metadata.
+
+Global registers and miscellaneous state (address pointers, counters, indices,
+arrays) are also counted toward the budget based on their bit-width in a
+hardware implementation.
+
+Simulator Parameters
+--------------------
+The ChampSim framework uses 64-byte cache blocks (LOG2_BLOCK_SIZE = 6).
+Virtual addresses are 64 bits wide. Cache-line-aligned addresses use the
+upper (64 - LOG2_BLOCK_SIZE) bits of the virtual address.
+
+The L1 instruction cache is 32 KB, 8-way set-associative with 64 sets.
+Prefetch queue capacity is 32 entries.
+
+Prefetcher Interface
+--------------------
+Contestants implement six callback functions:
+  l1i_prefetcher_initialize()
+  l1i_prefetcher_branch_operate(ip, branch_type, branch_target)
+  l1i_prefetcher_cache_operate(v_addr, cache_hit, prefetch_hit)
+  l1i_prefetcher_cycle_operate()
+  l1i_prefetcher_cache_fill(v_addr, set, way, prefetch, evicted_v_addr)
+  l1i_prefetcher_final_stats()
+
+Prefetchers are driven only by their function arguments plus any allowed
+global state. No logical complexity budget is imposed, but designs should
+be implementable in hardware.

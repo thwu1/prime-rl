@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must diagnose 8 distinct errors distributed across two layers: 5 wrong parameter values in a SQLite database (formula_coefficients and clinical_thresholds tables with composite primary keys) and 3 logic bugs in the Python engine. Database bugs require using sqlite3 CLI to inspect multi-table schemas, query composite-key rows, cross-reference values against 9 medical reference documents, and execute UPDATE statements. Code bugs include a missing ethanol term in osmolarity, an erroneous division-by-10 in the Figge-Fencl albumin charge approximation for Stewart SIDe, and an unhandled edge case in delta ratio interpretation. Four of the eight bugs cannot be discovered from calibration data alone and require reading reference documentation (metabolic acidosis compensation tolerance, metabolic alkalosis compensation coefficient, pCO2 gap threshold, delta ratio edge case for elevated AG with normal bicarbonate). The solver must handle 25 interdependent output fields across 11 patient panels."""
+solution_explanation = """The solution involves: (1) initializing the parameter database and running the baseline engine on calibration inputs to identify discrepancies in corrected AG (DB ref albumin 44→40), corrected potassium (DB factor 0.4→0.6), calculated osmolarity (code missing ethanol term), and SIDe (code divides albumin by 10 erroneously); (2) using sqlite3 CLI to inspect formula_coefficients and clinical_thresholds tables with composite keys; (3) reading reference documentation to discover the correct metabolic acidosis compensation tolerance (±2 not ±5), metabolic alkalosis coefficient (0.7 not 0.6), pCO2 gap threshold (>6 not >5), and the delta ratio edge case (cAG>12 with HCO3>=24 → hagma_plus_alkalosis); (4) executing 5 sqlite3 UPDATE commands to fix DB parameter values; (5) fixing 3 code bugs in Python (ethanol in osmolarity, albumin multiplication in SIDe, delta ratio edge case); (6) verifying the corrected engine produces all 25 fields correctly across 11 clinical scenarios."""
+verification_explanation = """Tests create 11 patient panels covering all primary disorders (metabolic acidosis, metabolic alkalosis, respiratory acidosis, respiratory alkalosis, normal), compensation patterns (appropriate, additional respiratory acidosis, additional metabolic alkalosis), AG patterns (HAGMA, NAGMA, masked HAGMA via hypoalbuminaemia, mixed HAGMA+NAGMA), and edge cases (elevated osmolar gap from toxic alcohol, normal pH with hidden HAGMA+metabolic alkalosis, chronic vs acute respiratory compensation, Winters' tolerance boundary case). Each of the 25 output fields is verified per patient with ±0.02 tolerance for numeric values and exact match for categoricals."""
+category = "applied_computing"
+tags = ["medical-informatics", "debugging-diagnostics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/abg-assessment-pipeline"

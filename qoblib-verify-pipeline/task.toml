@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding across combinatorial optimization, quantum computing formulations, graph theory, and multi-tool systems engineering. The agent must independently identify and parse four distinct domain-specific file formats (Market Split .dat with implicit Ax=b structure, DIMACS .col graph format, TSPLIB .vrp CVRP format with EUC_2D distance rounding semantics, DIMACS .gph topology format) and auto-detect three different solution encodings (binary string, index list, x#-variable format). The QUBO conversion demands understanding of the penalty-method reformulation used in quantum optimization: expanding the sum-of-squared-constraint-violations into upper-triangular QUBO form, correctly absorbing linear terms into the diagonal via the binary identity x²=x, tracking the constant offset, and verifying that feasible solutions yield zero objective. Cross-validation between an independently-implemented verifier and a compiled Rust reference checker requires Cargo build integration. The topology construction requires graph-theoretic reasoning about degree-constrained connected graphs with bounded diameter."""
+solution_explanation = """Build the Rust checker via cargo build --release and capture per-candidate exit codes. Parse the Market Split .dat file to extract the constraint matrix A and RHS vector b, auto-detect each candidate's encoding format, and verify Ax=b constraint satisfaction. Derive the upper-triangular QUBO matrix Q from the penalty formulation: Q_jj = (A^T A)_jj - 2(A^T b)_j for diagonal entries, Q_jk = 2(A^T A)_jk for off-diagonal j<k entries, with constant offset b^T b. Evaluate x^T Q x + b^T b for each candidate. For independent set, parse DIMACS graph, build adjacency structure, check pairwise non-adjacency. For CVRP, parse TSPLIB format, compute EUC_2D distances with nint rounding, verify capacity constraints and customer coverage. For topology, parse DIMACS graphs, compute max degree, connectivity via BFS, and diameter via all-pairs BFS. Construct a connected binary tree on 25 nodes (max degree 3, diameter 8). Assemble all results into schema-conforming JSON."""
+verification_explanation = """Tests independently verify: (1) results.json structure with all required keys, (2) Market Split: correct instance dimensions, Rust checker built, three candidates with correct valid/invalid verdicts, ones counts, matching Rust exit codes, and correct QUBO objectives (0 for feasible, 53245 for infeasible), (3) QUBO matrix properties: dimension=20, 210 non-zero entries, coefficient range [-215459, 35306], constant offset 806705, (4) Independent Set: correct graph metrics and two candidates with correct verdicts and set sizes, (5) CVRP: correct instance parsing, two candidates with correct validity, route counts, exact total costs and max route loads, (6) Topology verification of two candidates with correct structural properties, (7) Constructed topology graph independently verified for correct node count, max degree ≤ 3, connectivity, diameter ≤ 10, and valid node IDs."""
+category = "combinatorial_optimization"
+tags = ["quantum-optimization", "multi-format-verification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qoblib-verify-pipeline"

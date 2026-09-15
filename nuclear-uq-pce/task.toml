@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of polynomial chaos expansion theory including the Wiener-Askey scheme (mapping distribution types to orthogonal polynomial families), Gauss quadrature weight normalization for probability measures, multi-index enumeration with total-degree truncation, spectral projection for coefficient computation, and variance-based global sensitivity analysis (Sobol indices) extracted from PCE coefficient subsets. Common pitfalls include using physicist's vs probabilist's polynomial conventions, incorrect weight normalization, and wrong multi-index subset selection for first-order vs total-order Sobol indices."""
+solution_explanation = """Map Uniform inputs to Legendre polynomials with Gauss-Legendre quadrature (weights / 2) and Normal inputs to probabilist's Hermite polynomials with Gauss-Hermite quadrature (weights / sqrt(2*pi)). Enumerate multi-indices with total degree <= p, build tensor product quadrature grid, evaluate model at all 5^4=625 grid points, compute PCE coefficients via spectral projection c_alpha = sum_k f(x_k)*Psi_alpha(xi_k)*w_k / gamma_alpha. Extract mean from c_0, variance from sum of c_alpha^2 * gamma_alpha for alpha != 0, and Sobol indices from appropriate coefficient subsets."""
+verification_explanation = """Tests compute vectorized Monte Carlo reference statistics with 200K samples using a fixed seed and compare against PCE-derived values. Checks relative error on means (<0.5%) and variances (<5%), validates all Sobol index mathematical properties (non-negativity, first-order sum <= 1, total-order >= first-order, total-order sum >= 1), verifies std = sqrt(variance), checks physically motivated sensitivity rankings, and confirms PCE mean is close to the nominal-point model evaluation."""
+category = "computational_science"
+tags = ["uncertainty-quantification", "polynomial-chaos"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nuclear-uq-pce"

@@ -1,0 +1,32 @@
+[
+  {
+    "submission_id": "agent_precise",
+    "answers": {
+      "thermal_conductivity": {"conductivity": 0.614, "medium": "Deionized_Water"},
+      "reaction_kinetics": {"rate_constant": 2.44, "activation_energy": 45.4, "reaction_order": "Second", "products": ["CO2", "H2O"]},
+      "crystal_growth": {"growth_rate": 1.81, "lattice_constant": 5.431, "crystal_system": "Cubic"},
+      "spectral_emission": {"peak_wavelength": 589.0, "line_intensity": 3490, "element": "Sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      "polymer_testing": {"yield_strength": 42.8, "elongation_pct": 12.6, "failure_mode": "Ductile", "defect_types": ["void", "crack"]}
+    }
+  },
+  {
+    "submission_id": "agent_noisy",
+    "answers": {
+      "thermal_conductivity": {"conductivity": 0.625, "medium": "deionized_water"},
+      "reaction_kinetics": {"rate_constant": 2.50, "activation_energy": "45.5%", "reaction_order": "second", "products": ["CO2", "H2O"]},
+      "crystal_growth": {"growth_rate": 1.50, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      "spectral_emission": {"peak_wavelength": 589.0, "line_intensity": 4500, "element": "sodium", "spectral_lines": [589.0, 589.6, 330.2]},
+      "polymer_testing": {"yield_strength": "42.8%", "elongation_pct": 12.5, "failure_mode": "ductile", "defect_types": ["void", "crack"]}
+    }
+  },
+  {
+    "submission_id": "agent_partial",
+    "answers": {
+      "thermal_conductivity": {"conductivity": 0.615},
+      "reaction_kinetics": {"rate_constant": 2.45, "activation_energy": 45.5, "products": ["CO2", "H2O"]},
+      "crystal_growth": {"growth_rate": 1.82, "lattice_constant": 5.431, "crystal_system": "cubic"},
+      "spectral_emission": {"peak_wavelength": 589.0, "line_intensity": 3480, "element": "sodium"},
+      "polymer_testing": {"yield_strength": 42.9, "elongation_pct": 12.6, "defect_types": ["void", "crack"]}
+    }
+  }
+]

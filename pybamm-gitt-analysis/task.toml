@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level battery electrochemistry expertise and professional judgment to evaluate a GITT pipeline's design choices against established methodology, then compare two electrochemical model formulations. The agent must: (1) critically assess whether a 5C discharge rate is appropriate for GITT, recognizing it violates the quasi-equilibrium perturbation assumption and will deplete a 5 Ah cell too rapidly for valid resistance extraction; (2) evaluate the resistance formula's sign convention, understanding that during galvanostatic discharge the equilibrium OCV exceeds the loaded terminal voltage by the total cell overpotential; (3) judge whether the absence of open-circuit rest periods invalidates the entire GITT measurement principle — the defining "Intermittent" feature; (4) compare SPM and SPMe model formulations by running both, evaluating which captures the electrolyte concentration dynamics relevant to accurate internal resistance estimation, and making a justified selection. Each decision requires professional evaluation of electrochemical modeling principles, not merely following a diagnostic checklist."""
+solution_explanation = """Evaluate and apply corrections: (1) reduce C-rate from 5C to C/3 for quasi-equilibrium perturbation; (2) fix resistance formula sign from (V_end - V_eq)/I to (V_eq - V_end)/I; (3) add rest periods between pulses and an initial rest for OCV baseline; (4) run GITT with both SPM and SPMe, compute a physical consistency score for each (checking voltage ordering, recovery magnitude, resistance range, monotonicity), and select SPMe which captures electrolyte dynamics critical for accurate GITT resistance estimation in commercial Li-ion cells."""
+verification_explanation = """Tests verify physical self-consistency of the corrected GITT output: JSON schema with model_used field restricted to {SPM, SPMe}, all voltages within the NMC/graphite window (2.0-4.3V), correct voltage ordering during discharge and relaxation, minimum 20 mV voltage recovery per pulse, monotonically decreasing relaxed voltages and SOC, positive internal resistance in a physically reasonable range (1-500 mOhm), C/3 current magnitude (1.0-3.0A) for a 5Ah cell, consistent total charge within 5% of per-pulse sum using 300s pulses, SOC bounded [0,1] with first > 0.9 and last in (0.5, 0.95), all values finite, and self-consistent average resistance matching the arithmetic mean within 0.1 mOhm."""
+category = "modeling_simulation"
+tags = ["electrochemistry", "model-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pybamm-gitt-analysis"

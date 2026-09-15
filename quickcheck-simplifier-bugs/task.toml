@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing QuickCheck's Arbitrary trait for a recursive algebraic data type with proper depth-bounded generation (avoiding stack overflow) and meaningful structural shrinking. The agent must then design property-based test oracles using evaluation equivalence, interpret QuickCheck counterexamples to diagnose 4 subtle correctness bugs in an algebraic simplifier (including an unsafe self-division rule, swapped conditional branches, a sign-dropping subtraction rule, and a wrong-operand identity rule), and fix all bugs while ensuring idempotency."""
+solution_explanation = """The solution implements size-bounded recursive Arbitrary generation for Expr using Gen::choose and depth tracking, implements shrinking by yielding subexpressions then recursively shrinking components, writes eval-equivalence and idempotency properties using #[quickcheck], then fixes: (1) Sub(0,b)->Neg(b), (2) removes unsafe Div(a,a)->1 rule, (3) swaps If branches back, (4) fixes Mul(_,1)->a instead of b."""
+verification_explanation = """Tests copy a verification file into the Cargo project that exercises each of the 4 bug sites with specific inputs and asserts eval(e,env)==eval(simplify(e),env). Also runs cargo test to verify the agent's own property tests pass, and checks source code for Arbitrary implementation."""
+category = "software_testing"
+tags = ["rust", "property-based-testing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quickcheck-simplifier-bugs"

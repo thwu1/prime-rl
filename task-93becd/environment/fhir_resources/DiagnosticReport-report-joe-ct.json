@@ -1,0 +1,24 @@
+{
+  "resourceType": "DiagnosticReport",
+  "id": "report-joe-ct",
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "18748-4",
+        "display": "Diagnostic imaging study"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/ravi-siim"
+  },
+  "effectiveDateTime": "1986-03-30",
+  "imagingStudy": [
+    {
+      "reference": "ImagingStudy/study-joe-ct"
+    }
+  ],
+  "conclusion": "Left hilar mass concerning for malignancy."
+}

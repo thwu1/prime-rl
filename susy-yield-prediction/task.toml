@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete particle physics event selection pipeline with interrelated object definitions (electron crack veto, flavor-dependent isolation thresholds, Delta-R overlap removal), non-trivial kinematic variable computation (transverse mass, invariant mass M_lb, azimuthal-angle requirements with leading/subleading distinction), and a multi-factor normalization chain (LO cross-section in pb, NLO+NLL K-factor, luminosity in fb^-1 with unit conversion, generator filter efficiency). The Collider-Bench paper (arXiv:2605.13950) demonstrates that even frontier LLM agents systematically fail the normalization step, and the event selection requires domain-specific physics knowledge beyond standard software engineering."""
+solution_explanation = """Loads the Monte Carlo events from numpy format, implements all object definitions (baseline and signal leptons with crack veto for electrons, jets with overlap removal), applies the full nine-cut event selection (single lepton, veto, jet multiplicity, b-tag, MET, transverse mass, M_lb, Delta-phi requirements), bins selected events in MET, and normalizes yields using sigma_LO * 1000 * K_NLO * L_int / N_gen_total with correct pb-to-fb conversion."""
+verification_explanation = """An independent reference implementation applies the identical analysis to the same data and computes reference yields. Tests compare the agent's output via the Collider-Bench relative L2 distance metric (threshold 0.10 for absolute yields, 0.08 for shape-only), plus structural checks on the output YAML."""
+category = "physics"
+tags = ["particle-physics", "monte-carlo"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/susy-yield-prediction"

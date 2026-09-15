@@ -1,0 +1,12 @@
+test_cases:
+- batched:
+    - {in: testdata/1.in, out: testdata/1.out}
+    - {in: testdata/2.in, out: testdata/2.out}
+  points: 50
+- batched:
+    - {in: testdata/3.in, out: testdata/3.out}
+    - {in: testdata/4.in, out: testdata/4.out}
+  points: 50
+time_limit: 5.0
+memory_limit: 262144
+checker: standard

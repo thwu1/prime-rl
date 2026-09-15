@@ -1,0 +1,3 @@
+A logic analyzer capture of an I2C bus is stored at `/app/capture.sr` (sigrok session format). The command-line tool `sigrok-cli` is available on the system for protocol analysis.
+
+Produce `/app/output.json` — a diagnostic report that identifies every device on the bus, extracts fully calibrated sensor readings by applying each manufacturer's documented compensation procedures, and catalogs all protocol-level anomalies. The expected output structure is defined in `/app/expected_schema.json`.

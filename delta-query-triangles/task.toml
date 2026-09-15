@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independently deriving a correct and efficient incremental algorithm for maintaining directed triangle counts under batched edge updates — no algorithmic hints are provided. The agent must recognize that brute-force recomputation is infeasible under the time constraint, reason about how edge changes affect multi-way join results, and handle the subtle correctness pitfall where multiple edges of the same triangle change within a single batch (which causes naive incremental approaches to double-count). This demands deep understanding of incremental view maintenance at the intersection of database theory and graph algorithms. Additionally, the agent must work with heterogeneous data formats (SQLite database + Apache Parquet binary file), requiring proficiency with multiple data-access tools and libraries."""
+solution_explanation = """Read the initial graph from SQLite using Python's sqlite3 module and the update batches from Parquet using a library like duckdb or pyarrow. For the initial state, enumerate all directed triangles via brute-force (acceptable one-time cost). For each batch, decompose the triangle join Q(a,b,c) := E(a,b), E(b,c), E(a,c) into three delta rules, each treating the changed edge in a different role. Use a consistent old/new graph state ordering across the three rules (Rule 1 uses new state for both lookups; Rule 2 uses old for first lookup, new for second; Rule 3 uses old for both) to prevent double-counting when multiple edges of the same triangle change simultaneously. Consolidate duplicate edge changes within each batch before applying the delta computation."""
+verification_explanation = """Tests run the solution on the main dataset (50K nodes, 500K edges, 200 batches) with a 90-second timeout that excludes brute-force recomputation, then compare triangle counts against precomputed expected values. An anti-cheat test generates a fresh random graph at test time, writes it to SQLite and Parquet format, overwrites the data files, re-runs the solution, and verifies correctness against brute-force computation — preventing hardcoded answers or reading of expected-value files."""
+category = "data_processing"
+tags = ["incremental-computation", "graph-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/delta-query-triangles"

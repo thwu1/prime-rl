@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level CDISC SDTM expertise: the agent must examine raw CSV data with non-standard representations (mixed date formats, numeric severity codes, colloquial race/ethnicity terms, imperial units) and produce conformant XPT datasets without any procedural guidance. The agent must independently determine correct controlled terminology mappings (e.g., recognizing that a raw action of 'None' maps to CDISC's 'DOSE NOT CHANGED'), derive computed variables (AGE, study days, VSLOBXFL flag), perform unit conversions to metric, construct supplemental qualifier datasets for non-standard fields, handle screen failure subjects correctly across domains, and write valid SAS Transport v5 binary files. The schema specification defines WHAT the output must be, but the agent must bring deep SDTM domain knowledge to bridge from raw data to conformant output."""
+solution_explanation = """Parse four raw CSV files using pandas. Map free-text gender/race/ethnicity to CDISC controlled terminology. Parse dates from 7+ non-standard formats to ISO 8601. Perform unit conversions for height (inches to cm), weight (lbs to kg), and temperature (F to C). Derive AGE from birth date and RFSTDTC. Compute study days with no-day-zero convention. Derive VSLOBXFL by finding last observation per test per subject strictly before RFXSTDTC. Map numeric severity codes (1/2/3) and text variants to MILD/MODERATE/SEVERE. Map outcome/action free text to CDISC controlled terms. Create SUPPAE dataset for non-standard follow_up_needed field. Write all domains as valid XPT files using pyreadstat."""
+verification_explanation = """Tests read each output XPT file with pyreadstat and verify: correct columns present per schema, CDISC controlled terminology enforcement (SEX only M/F, AESEV only MILD/MODERATE/SEVERE, etc.), specific computed values (AGE=57 for subject 001, HEIGHT conversion to 172.72 cm, TEMP conversion to 37.0 C), ISO 8601 date format compliance, study day calculations (AESTDY=6 for subject 001 AE 1, VSDY=-1 for pre-treatment screening), VSLOBXFL flag correctness (Y only for strictly pre-exposure observations), SUPPAE structure with RDOMAIN/IDVAR/QNAM constraints, screen failure handling (no RFSTDTC, no ARM, ARMNRS=SCREEN FAILURE), and variable name length constraints."""
+category = "applied_computing"
+tags = ["clinical-data", "standards-compliance"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1ff1d5"

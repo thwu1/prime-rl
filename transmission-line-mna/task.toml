@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a frequency-domain circuit simulator from scratch supporting five element types (R, C, L, V, T) with no algorithm guidance. The solver must discover appropriate numerical methods by studying gnucap C++ source code, handle complex-valued linear system assembly and solution, derive transmission line two-port parameters, and implement resonance-avoidance logic for distributed elements — all in pure Python without numerical libraries."""
+solution_explanation = """Build a Modified Nodal Analysis (MNA) assembler: resistors contribute real conductance stamps, capacitors contribute jωC admittance stamps, inductors add extra matrix rows with jωL impedance (becoming short circuits at DC), voltage sources add augmented rows fixing node voltages, and transmission lines use two-port y-parameter stamps (y11 = −j/(Z0·tan θ), y12 = −j/(Z0·sin θ)). Near quarter-wave resonances (θ ≈ nπ/2), electrical length is offset by 1e-6 quarter-waves to avoid division by zero — this logic must be reverse-engineered from gnucap's do_ac() function in d_trln.cc. The resulting complex linear system is solved via Gaussian elimination with partial pivoting."""
+verification_explanation = """Tests verify voltage magnitudes against analytical formulas (RC/RL transfer functions, matched-line voltage division, open-stub unity far-end voltage) and dynamically generated circuits with independently computed expected values. Anti-cheat: no golden files in image, dynamic test circuits generated at runtime, standalone Python code verification."""
+category = "physics_engineering"
+tags = ["circuit-simulation", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/transmission-line-mna"

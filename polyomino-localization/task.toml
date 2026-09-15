@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in statistical inference and combinatorial optimization, plus proficiency with multi-format data integration (TOML config parsing, CSV shape files, SQLite measurement database). The solver must correctly model Gaussian measurement noise, implement efficient search over the exponential placement space (~300^5 combinations for 5 polyominoes on a 20x20 grid), and achieve high reconstruction accuracy. A naive approach cannot meet the F1 threshold due to the noisy, aggregate nature of measurements. The agent must also explore an unfamiliar SQLite schema, construct correct SQL queries, and produce output in a separate SQLite database with exact schema constraints."""
+solution_explanation = """Reads TOML config via tomllib, parses CSV shapes, queries SQLite measurements via JOINs, then uses coordinate descent with 100 random restarts followed by simulated annealing (300K iterations) to minimize weighted measurement error. Precomputes per-position measurement contributions for O(K) incremental updates. Writes results to SQLite with correct schema using executemany for efficiency."""
+verification_explanation = """test_state.py regenerates ground truth grids from deterministic seeds (only present in the test file, not in the Docker image) using Python's random.Random with fixed seeds. It reads solver results from /app/results.db via SQLite queries, computes per-instance F1 scores, and asserts average F1 >= 0.85."""
+category = "optimization"
+tags = ["data-pipeline", "combinatorial-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polyomino-localization"

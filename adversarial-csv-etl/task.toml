@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of database internals, graph algorithms, and financial analytics — not procedural option-setting. The agent must: (1) discover a completely undocumented 6-table database schema through exploration; (2) implement recursive CTE-based graph traversal with cycle detection using DuckDB's list functions (list_contains/list_append for visited-set tracking) to find rapid-fire transaction chains — a non-trivial graph algorithm that requires understanding of SQL:2023 recursive semantics, proper termination conditions, and the interaction between temporal constraints and cycle avoidance; (3) use DuckDB's ASOF JOIN — a database-specific temporal join operator with no standard SQL equivalent — to compute mark-to-market portfolio valuations by carrying forward the most recent price, including a completeness filter that excludes days with partial price coverage; (4) compose multiple statistical measures (coefficient of variation, Herfindahl-Hirschman Index, z-score normalization) across UNION'd transaction perspectives using window functions and complex aggregation; (5) perform 4-table joins with nested aggregation to compute regional flow matrices including branch-level HHI concentration and antisymmetric net flows. Each output requires a fundamentally different analytical approach and SQL technique. Wrong choices cascade: e.g., using a standard JOIN instead of ASOF JOIN silently drops dates with missing prices; omitting cycle detection in the recursive CTE causes infinite recursion; using sample-based type inference misses schema drift."""
+solution_explanation = """1) Connect to warehouse.duckdb, explore schema via SHOW TABLES and DESCRIBE. 2) Chain detection: recursive CTE with base case of all completed transactions, recursive step extending chains via from_account=current_account match within 60-minute window, cycle avoidance via list_contains on visited array, depth limit of 10, filter to hop_count >= 3, keep longest per start_txn via ROW_NUMBER window. 3) Portfolio: CROSS JOIN holdings × distinct trade dates, ASOF JOIN to market_data for latest price ≤ trade_date per symbol, aggregate to portfolio value, filter to days where num_positions equals account's total holdings count. 4) Risk scores: UNION from_account and to_account perspectives, compute velocity (txns/active_days), variability (stddev/mean), HHI concentration (sum of squared counterparty shares), z-score normalize each via window functions, combine as 0.3*vel_z + 0.3*var_z + 0.4*conc_z. 5) Regional flows: 4-table join (transactions→accounts→branches) for both sides, aggregate by region pair, LEFT JOIN for reverse flow to compute net_flow, compute branch-pair HHI within each corridor. 6) summary.json from output file queries."""
+verification_explanation = """50+ pytest tests verify correctness through structural invariants and cross-referencing rather than hard-coded values. Chain tests: file/column existence, hop_count ≥ 3, positive amounts, chain_end > chain_start, duration ≤ hop_count * 60 min, 28-45 chains found, unique chain_ids, injected chain origins/terminals/amounts detected, all accounts exist in DB. Portfolio tests: positive values, row count > 100K, only holding accounts appear, dates from market_data only, num_positions matches holdings count, no duplicate (account, date) pairs. Risk tests: velocity > 0, variability ≥ 0, 0 < concentration ≤ 1, 3500-4200 scored accounts, all have ≥ 10 txns verified against DB, mean composite ~0 (z-score property), stddev > 0.5. Regional tests: exactly 25 pairs, all 5×5 regions present, positive flows, self-pair net_flow = 0, antisymmetric net_flow (A→B + B→A = 0), valid HHI range, avg = total/count, corridor sum matches DB transaction total. Summary tests: JSON validity, key existence, values cross-checked against output Parquet files."""
+category = "data_engineering"
+tags = ["duckdb", "graph-analytics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adversarial-csv-etl"

@@ -1,0 +1,21 @@
+diff --git a/net/core/sock.c b/net/core/sock.c
+index abc1234..def5678 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1800,6 +1800,9 @@ void sock_release(struct socket *sock)
+ 	struct sock *sk = sock->sk;
+-	sk_free(sk);
++	if (sk) {
++		sock_orphan(sk);
++		sk_free(sk);
++	}
+ 	sock->sk = NULL;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1112223..3334445 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -100,4 +100,6 @@ int sk_attach_filter(struct sock *sk, struct sock_fprog *fprog)
+ 	ret = __sk_attach_prog(fprog, sk);
++	if (ret < 0)
++		sk_filter_release(sk);
+ 	return ret;

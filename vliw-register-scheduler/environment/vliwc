@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""vliwc - VLIW Compiler Toolkit
+
+Usage: vliwc <command> [arguments]
+
+Commands:
+  arch                              Show machine architecture (opcodes, units, slot limits)
+  parse  <file.vasm>                Parse .vasm file and print JSON representation
+  run    <file.vasm>                Execute program sequentially, print final memory state
+  verify <file.vasm> <bundles.json> Verify VLIW bundles against reference program
+  dump   <file.vasm>                Print annotated instruction listing with dependency info
+
+Assembly format (.vasm):
+  ; comment
+  .meta <key> <value>          Metadata (name, max_regs, max_cycles)
+  .data <address> <value>      Initial memory contents
+  <opcode> <dst> <src...>      Instruction (dst/src: v<N> or _ for none)
+  const <dst> #<imm>           Load immediate
+
+Bundle JSON format:
+  A JSON array of arrays. Each inner array is a bundle (list of instruction
+  dicts with keys: op, dst, srcs, and optionally imm). Registers must be
+  physical (0..max_regs-1). Example:
+    [[{"op":"const","dst":0,"srcs":[],"imm":0},{"op":"const","dst":2,"srcs":[],"imm":5}],
+     [{"op":"add","dst":1,"srcs":[0,2]}],
+     [{"op":"halt","dst":-1,"srcs":[]}]]
+"""
+
+
+import sys
+import json
+import os
+
+sys.path.insert(0, '/app')
+from vasm_parser import parse_vasm
+from machine import VLIWMachine, validate_bundle, max_register, OPCODES, UNIT_SLOTS
+
+
+def cmd_arch():
+    print("VLIW Machine Architecture")
+    print("=" * 50)
+    print()
+    print("Functional Units and Slot Limits (per bundle):")
+    for unit, limit in sorted(UNIT_SLOTS.items()):
+        print(f"  {unit:6s}  {limit} slot(s)")
+    print()
+    print("Opcodes:")
+    by_unit = {}
+    for op, info in OPCODES.items():
+        by_unit.setdefault(info["unit"], []).append(op)
+    for unit in sorted(by_unit):
+        ops = ", ".join(sorted(by_unit[unit]))
+        print(f"  [{unit}]  {ops}")
+    print()
+    print("VLIW Semantics:")
+    print("  - All source-register reads in a bundle occur BEFORE any writes")
+    print("  - No two instructions in a bundle may write the same register (WAW)")
+    print("  - Each bundle executes in exactly one cycle")
+    print()
+    print("Instruction format (dict):")
+    print('  {"op": <str>, "dst": <int>, "srcs": [<int>...], "imm": <int>}')
+    print("  dst=-1 means no destination register")
+
+
+def cmd_parse(filename):
+    with open(filename) as f:
+        program = parse_vasm(f.read())
+    # Convert integer keys to strings for JSON
+    program["initial_memory"] = {str(k): v for k, v in program["initial_memory"].items()}
+    print(json.dumps(program, indent=2))
+
+
+def cmd_run(filename):
+    with open(filename) as f:
+        program = parse_vasm(f.read())
+    machine = VLIWMachine(program["initial_memory"])
+    mem = machine.run_sequential(program["instructions"])
+    print(f"Program:    {program['name']}")
+    print(f"Instrs:     {len(program['instructions'])}")
+    print(f"Seq cycles: {machine.cycles}")
+    print(f"Targets:    max_regs={program['max_regs']}  max_cycles={program['max_cycles']}")
+    print(f"Memory:")
+    for addr in sorted(mem):
+        print(f"  [{addr}] = {hex(mem[addr])}")
+
+
+def cmd_verify(vasm_file, bundles_file):
+    with open(vasm_file) as f:
+        program = parse_vasm(f.read())
+    with open(bundles_file) as f:
+        bundles = json.load(f)
+
+    # Reference run
+    ref_machine = VLIWMachine(program["initial_memory"])
+    ref_mem = ref_machine.run_sequential(program["instructions"])
+
+    # Validate bundle structure
+    errors = []
+    for i, bundle in enumerate(bundles):
+        if not isinstance(bundle, list):
+            errors.append(f"Bundle {i}: not a list")
+            continue
+        valid, msg = validate_bundle(bundle)
+        if not valid:
+            errors.append(f"Bundle {i}: {msg}")
+
+    if errors:
+        print("FAIL: Invalid bundles")
+        for e in errors:
+            print(f"  {e}")
+        sys.exit(1)
+
+    # VLIW run
+    opt_machine = VLIWMachine(program["initial_memory"])
+    opt_mem = opt_machine.run_vliw(bundles)
+
+    # Correctness
+    if ref_mem != opt_mem:
+        print("FAIL: Memory state mismatch")
+        print(f"  Expected: { {str(k): hex(v) for k, v in sorted(ref_mem.items())} }")
+        print(f"  Got:      { {str(k): hex(v) for k, v in sorted(opt_mem.items())} }")
+        sys.exit(1)
+
+    num_regs = max_register(bundles)
+    num_cycles = len(bundles)
+    ok = True
+
+    print(f"Program:   {program['name']}")
+    print(f"Registers: {num_regs}/{program['max_regs']}", end="")
+    if num_regs > program["max_regs"]:
+        print("  ** OVER BUDGET **", end="")
+        ok = False
+    print()
+    print(f"Cycles:    {num_cycles}/{program['max_cycles']}", end="")
+    if num_cycles > program["max_cycles"]:
+        print("  ** OVER BUDGET **", end="")
+        ok = False
+    print()
+    print(f"Memory:    correct")
+
+    if ok:
+        print("PASS")
+    else:
+        print("FAIL")
+        sys.exit(1)
+
+
+def cmd_dump(filename):
+    with open(filename) as f:
+        program = parse_vasm(f.read())
+
+    instrs = program["instructions"]
+    print(f"Program: {program['name']}  ({len(instrs)} instructions)")
+    print(f"Targets: max_regs={program['max_regs']}  max_cycles={program['max_cycles']}")
+    print()
+
+    last_def = {}
+    for i, inst in enumerate(instrs):
+        op = inst["op"]
+        dst = inst["dst"]
+        srcs = inst["srcs"]
+        imm = inst.get("imm", "")
+
+        deps = []
+        for s in srcs:
+            if s in last_def:
+                deps.append(f"i{last_def[s]}")
+
+        dep_str = f"  <- {','.join(deps)}" if deps else ""
+        dst_str = f"v{dst}" if dst >= 0 else "_"
+        src_str = " ".join(f"v{s}" for s in srcs)
+        imm_str = f" #{hex(imm)}" if op == "const" else ""
+
+        print(f"  i{i:3d}: {op:7s} {dst_str:4s} {src_str:12s}{imm_str}{dep_str}")
+
+        if dst >= 0:
+            last_def[dst] = i
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help', 'help'):
+        print(__doc__.strip())
+        sys.exit(0)
+
+    cmd = sys.argv[1]
+    try:
+        if cmd == "arch":
+            cmd_arch()
+        elif cmd == "parse":
+            cmd_parse(sys.argv[2])
+        elif cmd == "run":
+            cmd_run(sys.argv[2])
+        elif cmd == "verify":
+            cmd_verify(sys.argv[2], sys.argv[3])
+        elif cmd == "dump":
+            cmd_dump(sys.argv[2])
+        else:
+            print(f"Unknown command: {cmd}")
+            print("Run 'vliwc --help' for usage.")
+            sys.exit(1)
+    except IndexError:
+        print(f"Missing arguments for '{cmd}'. Run 'vliwc --help' for usage.")
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Migrated Weaviate Backup Descriptor",
+  "type": "object",
+  "required": ["id", "version", "server_version", "cluster", "collections"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "server_version": {
+      "type": "string",
+      "description": "Must reflect the target cluster's Weaviate version"
+    },
+    "status": {"type": "string"},
+    "start_timestamp": {"type": "string"},
+    "completion_timestamp": {"type": "string"},
+    "cluster": {
+      "type": "object",
+      "required": ["node_count", "nodes"],
+      "properties": {
+        "node_count": {
+          "type": "integer",
+          "description": "Number of nodes in the target cluster"
+        },
+        "nodes": {
+          "type": "object",
+          "description": "Map of node name to node info. Must contain exactly the target cluster's nodes.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["address", "status"],
+            "properties": {
+              "address": {"type": "string"},
+              "status": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class", "schema", "shardingState"],
+        "properties": {
+          "class": {"type": "string"},
+          "schema": {
+            "type": "object",
+            "required": ["class", "vectorizer", "vectorIndexType", "replicationConfig"],
+            "properties": {
+              "class": {"type": "string"},
+              "description": {"type": "string"},
+              "vectorizer": {
+                "type": "string",
+                "description": "Must be a module available on the target cluster, or 'none'"
+              },
+              "vectorIndexType": {"type": "string"},
+              "vectorIndexConfig": {
+                "type": "object",
+                "properties": {
+                  "efConstruction": {"type": "integer"},
+                  "maxConnections": {"type": "integer"},
+                  "vectorCacheMaxObjects": {
+                    "type": "integer",
+                    "description": "Must not exceed the target cluster's configured maximum"
+                  },
+                  "ef": {"type": "integer"},
+                  "distance": {"type": "string"},
+                  "dimensions": {"type": "integer"},
+                  "skip": {"type": "boolean"},
+                  "pq": {
+                    "type": "object",
+                    "description": "Product Quantization compression settings. When enabled, segments must evenly divide the vector dimensions.",
+                    "properties": {
+                      "enabled": {"type": "boolean"},
+                      "segments": {
+                        "type": "integer",
+                        "description": "Number of segments for PQ. Must evenly divide the vector dimensions."
+                      },
+                      "centroids": {"type": "integer"},
+                      "trainingLimit": {"type": "integer"},
+                      "encoder": {"type": "object"}
+                    }
+                  }
+                }
+              },
+              "namedVectors": {
+                "type": "object",
+                "description": "Per-vector configurations for collections using named vectors.",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["vectorizer", "vectorIndexType", "vectorIndexConfig"],
+                  "properties": {
+                    "vectorizer": {
+                      "type": "string",
+                      "description": "Must be a module available on the target cluster"
+                    },
+                    "vectorIndexType": {"type": "string"},
+                    "vectorIndexConfig": {
+                      "type": "object",
+                      "properties": {
+                        "vectorCacheMaxObjects": {
+                          "type": "integer",
+                          "description": "Must not exceed the target cluster's configured maximum"
+                        },
+                        "dimensions": {"type": "integer"},
+                        "pq": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {"type": "boolean"},
+                            "segments": {"type": "integer"},
+                            "centroids": {"type": "integer"},
+                            "trainingLimit": {"type": "integer"},
+                            "encoder": {"type": "object"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "replicationConfig": {
+                "type": "object",
+                "required": ["factor"],
+                "properties": {
+                  "factor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Must not exceed the number of nodes in the target cluster"
+                  }
+                }
+              },
+              "multiTenancyConfig": {
+                "type": "object",
+                "properties": {
+                  "enabled": {"type": "boolean"}
+                }
+              },
+              "properties": {"type": "array"},
+              "invertedIndexConfig": {"type": "object"}
+            }
+          },
+          "shardingState": {
+            "type": "object",
+            "required": ["physical"],
+            "properties": {
+              "physical": {
+                "type": "object",
+                "description": "Map of shard or tenant name to shard placement info",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["name", "belongsToNodes", "owningNode", "objectCount", "status"],
+                  "properties": {
+                    "name": {"type": "string"},
+                    "belongsToNodes": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                      "description": "All referenced nodes must exist in the target cluster"
+                    },
+                    "owningNode": {
+                      "type": "string",
+                      "description": "Must be a node in the target cluster"
+                    },
+                    "objectCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "status": {"type": "string"},
+                    "tenantStatus": {
+                      "type": "string",
+                      "enum": ["ACTIVE", "INACTIVE", "OFFLOADED"],
+                      "description": "Only tenants in migratable states should appear in the output"
+                    },
+                    "replicaObjectCounts": {
+                      "type": "object",
+                      "description": "Per-node object counts for replicas. Keys must be target cluster nodes.",
+                      "additionalProperties": {"type": "integer"}
+                    },
+                    "tombstoneCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Number of tombstoned (deleted) entries pending compaction"
+                    },
+                    "compactionStatus": {
+                      "type": "string",
+                      "description": "Current compaction state of the shard"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

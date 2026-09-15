@@ -1,0 +1,43 @@
+{
+  "type": "Collection",
+  "id": "C1266136111-GES_DISC",
+  "stac_version": "1.0.0",
+  "title": "OMI/Aura Ozone Total Column Daily L2",
+  "description": "OMTO3d data collection from GES_DISC.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2025-06-01T00:00:00Z",
+          "2004-10-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "GES_DISC",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "Aura"
+    ],
+    "processing:level": "L2"
+  },
+  "links": [],
+  "license": "proprietary"
+}

@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires performing root cause analysis of a multi-component cascading failure across Python/SQL, Go, and Rust — tracing from a database permissions change through duplicated query results, crash-inducing validation failures, and data-corrupting parameter mishandling. The agent receives only production symptoms (crash, data loss) and must independently discover the cascade chain: DB schema duplication → doubled feature count → Rust unwrap() panic, plus a separate Go url.Values.Get() vs Has() semantic bug causing mass prefix deletion. Beyond debugging, the agent must design and implement two novel safety mechanisms: a bulk-deletion circuit breaker with correct threshold logic in Go, and a comprehensive pipeline integrity validator in Python that detects the class of failures that caused the incident. This demands holistic understanding of distributed system failure modes, defense-in-depth patterns, and production incident remediation.
+"""
+solution_explanation = """
+Three bugs must be found and fixed: (1) In configgen/generate.py, the SQL query lacks a schema_name filter — after the DB permissions change made the 'r0' replica schema visible, the query returns duplicate features from both schemas, doubling the count from ~105 to ~210. Fix: add AND schema_name = 'default' to the WHERE clause. (2) In prefixmgr/main.go, url.Query().Get("pending_delete") returns empty string for valueless query parameters like ?pending_delete (no =value), causing the != "" check to fail and the code to fall through to 'return all prefixes'. The cleanup task then deletes everything. Fix: use url.Values.Has() which correctly detects key presence regardless of value. (3) In loader/src/main.rs, .unwrap() on the Result from validate_feature_count() panics when the doubled feature count exceeds MAX_FEATURES (200). Fix: replace unwrap() with match-based error handling that fails open with a warning. Additionally: implement a circuit breaker in CleanupPrefixes that returns an error when len(toDelete) > 50% of total, and create validate_pipeline.py that checks for duplicate feature names, oversized configs, and data integrity.
+"""
+verification_explanation = """
+Tests verify: (1) Config generator produces <=110 unique features from the default schema only. (2) No duplicate feature names in generated config. (3) Rust loader exits 0 on oversized configs with 250 features without panicking. (4) Rust loader processes valid 100-feature configs successfully. (5) Prefix cleanup removes only 4 pending_delete prefixes of 20 total, leaving 16 active. (6) Prefix list with pending_delete filter returns only matching prefixes. (7) Circuit breaker blocks cleanup when 60% of prefixes would be deleted and verifies no data was modified. (8) Pipeline validator exits 0 on a valid config with unique features under the limit. (9) Validator exits 1 on configs with duplicate feature names. (10) Validator exits 1 on oversized configs exceeding the feature limit. (11) End-to-end pipeline generates and loads config successfully.
+"""
+category = "debugging"
+tags = ["cascading-failure", "incident-response"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascading-pipeline-debug"

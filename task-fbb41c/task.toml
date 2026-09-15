@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Solving this task requires expert-level understanding of two formal languages (GDL and Prolog) and the ability to bridge them without guidance. The agent must independently discover GDL semantics by reading KIF files — understanding how state predicates (init, true, next), action predicates (legal, does), control flow (implications, negation-as-failure, disjunction, inequality), and frame axioms interact — then design a correct transpilation to executable Prolog. The query engine requires non-trivial subprocess orchestration: dynamically injecting game state via Prolog assert/retract, generating correct query scripts, and parsing Prolog term output back into Python structures. The three games specifically target different failure modes: ticTacToe's simultaneous moves expose concurrency edge cases, connectFour's stacking physics requires correct negation handling, and breakthrough's frame axiom with distinctCell demands proper variable scoping. The game tree explorer must handle joint-move enumeration (Cartesian products across roles) and produce valid Graphviz output with correct graph statistics."""
+solution_explanation = """The solution implements: (1) a KIF S-expression tokenizer/parser, (2) a recursive GDL-to-Prolog syntax translator handling all GDL special forms (true→true_fact, does→does_fact, not→\\+, or→;, distinct→\\=, variables→capitalized), (3) a query engine that generates temporary Prolog scripts with state assertions, runs swipl subprocess, and parses writeq output to Python tuples, (4) a BFS game tree explorer that computes Cartesian products of per-role legal moves, tracks visited states, generates DOT graph descriptions, renders SVG via graphviz dot, and outputs analysis JSON."""
+verification_explanation = """Tests verify: transpiled Prolog files load in swipl without errors (3 games); role extraction matches expected sets; initial states have correct composition and cardinality; legal move sets match expected counts and contain specific moves; state transitions produce correct successor states including Connect Four stacking physics and Breakthrough frame axiom; terminal detection works for both terminal and non-terminal states; goal values are correct in terminal states; a full TicTacToe playthrough produces correct winner; simultaneous same-cell marking edge case; generated DOT files parse via graphviz dot; SVG rendering produces non-trivial output; analysis JSON has correct game tree statistics for Connect Four depth-1 exploration."""
+category = "artificial_intelligence"
+tags = ["logic-programming", "multi-tool-integration"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fbb41c"

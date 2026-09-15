@@ -1,0 +1,36 @@
+// Lark grammar for the IMP imperative language
+// Used with Lark's Earley parser for ambiguity-safe parsing
+
+start: stmt_list
+
+stmt_list: (stmt ";")*
+
+stmt: "int" NAME                                                       -> int_decl
+    | NAME "=" aexp                                                    -> assign
+    | "if" "(" bexp ")" "{" stmt_list "}" "else" "{" stmt_list "}"     -> if_else
+    | "while" "(" bexp ")" "{" stmt_list "}"                           -> while_loop
+    | "halt"                                                           -> halt_stmt
+    | "continue"                                                       -> continue_stmt
+    | "break"                                                          -> break_stmt
+
+aexp: NAME                                                             -> var_ref
+    | INT                                                              -> num_lit
+    | "(" aexp MATHOP aexp ")"                                         -> bin_arith
+    | "(" "-" aexp ")"                                                 -> unary_neg
+    | "(" "+" aexp ")"                                                 -> unary_pos
+
+bexp: BOOL                                                             -> bool_lit
+    | "(" aexp RELOP aexp ")"                                          -> rel_comp
+    | "(" "!" bexp ")"                                                 -> not_expr
+    | "(" bexp LOGOP bexp ")"                                          -> logic_expr
+
+MATHOP: "+" | "-" | "*" | "/" | "%"
+RELOP: "<=" | ">=" | "==" | "!=" | "<" | ">"
+LOGOP: "&&" | "||"
+BOOL: "true" | "false"
+
+NAME: /[a-zA-Z][a-zA-Z0-9]*/
+INT: /[0-9]+/
+
+%import common.WS
+%ignore WS

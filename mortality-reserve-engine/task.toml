@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-tool actuarial valuation pipeline spanning GNU Make (dependency DAG and shell variable expansion), SQL schema design (primary key composition affecting data integrity), Python XML parsing (XPath traversal of nested XTbML axis structures), and actuarial computation (select-ultimate boundary semantics, improvement factor accumulation range, annuity-due vs annuity-immediate discounting). Bugs cascade across tools: the Makefile skips the data loading stage, the SQL schema silently drops improvement factor data via a wrong composite primary key, the XML loader misses nested axis elements, and the computation engine has three independent actuarial errors. Diagnosing each layer requires domain knowledge of the specific tool and understanding how it interacts with adjacent pipeline stages."""
+solution_explanation = """Fix the Makefile: add 'load' as a prerequisite of 'pipeline' (or 'compute'), and escape shell variable $f as $$f. Fix schema.sql: change improvement_factors PRIMARY KEY from (table_id, year) to (table_id, age, year), and add PRIMARY KEY (table_id, issue_age, duration) to select_rates. Fix load_data.py: in _load_improvement_scale, change age_axis.findall('Y') to age_axis.find('Axis').findall('Y') to correctly traverse the nested XTbML axis structure. Fix compute_reserves.py: (1) change 'duration < 25' to 'duration <= 25' for select boundary, (2) change range(base_year, ...) to range(base_year + 1, ...) for improvement accumulation, (3) change v**(k+1) to v**k in annuity computation for annuity-due."""
+verification_explanation = """Tests independently parse the same XML files and reimplement the full computation pipeline to produce golden values. The SQLite database is verified for existence, correct table schema, exact row counts (1950 select, 103 ultimate, 8787 improvement for table 3265/3612), non-zero improvement factor values, and spot-checked individual rates. The agent's results.json is compared against independently-computed values with tolerance of 1e-6 relative error for all scalar outputs and per-element for projected_qx arrays across all 5 policies. Additional tests verify JSON schema, actuarial constraints (0 < qx < 1, annuity bounds, stress ordering), total reserve consistency, and select-to-ultimate boundary transitions."""
+category = "actuarial_science"
+tags = ["multi-tool-pipeline", "xml-sql-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mortality-reserve-engine"

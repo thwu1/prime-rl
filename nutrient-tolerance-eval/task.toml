@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-stage nutrient compliance evaluation pipeline spanning SQLite data storage, Makefile orchestration, TOML configuration parsing, and seven interconnected Python modules. Five subtle defects are distributed across different pipeline stages: a tolerance computation using the wrong reference value (requires EU Regulation 1169/2011 domain knowledge), an FSA traffic-light boundary classification error (requires UK food labeling expertise), swapped composite weight configuration keys, a bootstrap significance test missing the shift-method centering step (statistical methodology), and a SQL aggregation query with a missing GROUP BY clause. Beyond debugging, the agent must implement a complete error analysis module from a technical specification — designing the tolerance-margin computation, handling edge cases (zero-actual relative tolerance), and integrating with the SQLite schema. The agent must also diagnose and fix a Makefile dependency-graph gap where the error analysis target is defined but never chained into the build pipeline, requiring understanding of Make's dependency resolution."""
+solution_explanation = """The solution patches five source files for bugs, writes a complete error_analysis.py implementation, and fixes the Makefile dependency chain. Specifically: (1) tolerance_check.py — changes relative tolerance from using the predicted value to using the actual value as the regulatory reference; (2) fsa_labeler.py — changes the low threshold comparison from strict < to <= to correctly classify boundary values as green per FSA guidance; (3) scoring.py — swaps the composite weight config keys back to their correct mapping; (4) significance.py — inserts the centering step (subtracting observed mean from differences) before bootstrap resampling; (5) report.py — adds GROUP BY nutrient to the per-nutrient tolerance accuracy SQL query; (6) error_analysis.py — implements full error analysis with bias, MAE, RMSE, and tolerance margin computation including tolerance-bound tier lookup; (7) Makefile — adds .error_analysis_done as a dependency of the results.json target."""
+verification_explanation = """Tests independently reimplement all evaluation computations — tolerance checking, FSA classification, F1 computation, composite scoring, error analysis metrics (bias, MAE, RMSE, tolerance margin), and ranking logic — using reference implementations that read directly from the JSON data files (bypassing the pipeline's SQLite path). The agent's output values are compared against these independently computed correct values with floating-point tolerance of 1e-3. Dedicated tests verify structural correctness, per-nutrient accuracy variation (catching the GROUP BY bug), error analysis mathematical properties (RMSE >= MAE, MAE non-negative), and tolerance margin monotonicity across systems."""
+category = "data_science"
+tags = ["pipeline-debugging", "regulatory-compliance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nutrient-tolerance-eval"

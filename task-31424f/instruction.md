@@ -1,0 +1,13 @@
+A Puppet Forge dependency resolver at `/app/` must be hardened for production deployment. The resolver (`/app/resolver/`) parses Puppetfiles, evaluates version constraints (including Puppet's pessimistic `~>` operator), resolves transitive dependencies via backtracking, and writes lockfiles. A forge database mirror is at `/app/forge_db/modules.json`.
+
+The authoritative behavior specification is at `/app/spec/puppet_versioning.md`. The current implementation has multiple conformance violations across the constraint engine, the resolution algorithm, and the CLI pipeline. Some of these issues interact — a fix in one component may expose latent failures in another, and certain combinations of inputs exercise multiple bugs simultaneously. Audit the entire resolver codebase against the spec, identify all deviations, and correct them. All specification requirements — including operator semantics, name resolution rules, backtracking invariants, and source-type handling — must be satisfied.
+
+Beyond spec conformance, the resolver must handle pathological inputs safely. The forge database contains module pairs with circular dependencies (`testorg/circular_a` ↔ `testorg/circular_b`). The current resolver does not detect these cycles. It must detect dependency cycles during resolution and produce a structured JSON error including the full cycle path, conforming to the jq schema at `/app/schema/cycle.jq`. Note that cycle detection must correctly distinguish true circular dependencies from diamond dependency patterns (where two modules independently depend on a shared third module), which are valid and must resolve normally.
+
+Two observability features are required:
+
+**Conflict diagnostics**: When resolution fails due to mutually unsatisfiable version constraints, produce structured JSON identifying which modules have conflicting constraints and which upstream modules imposed them. Invocation: `python3 -m resolver resolve --explain <Puppetfile>`. Output must conform to `/app/schema/explain.jq`.
+
+**Dependency graph visualization**: On successful resolution, write a DOT-format dependency graph to a specified file. Each resolved module appears as a node labeled `name@version`, with directed edges for dependency relationships. Invocation: `python3 -m resolver resolve --graph <output.dot> <Puppetfile>`. The DOT output must render via `dot -Tsvg` without errors.
+
+All standard resolution JSON output must pass the jq schema at `/app/schema/resolution.jq`. Both `/app/Puppetfile` (production: 7 forge modules + 1 git module) and `/app/Puppetfile.staging` (staging: 12 forge modules) must resolve successfully with correct module versions and produce valid lockfiles.

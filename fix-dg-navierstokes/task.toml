@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level creation across five deeply interconnected domains: (1) Finite element theory — selecting H(div)-conforming velocity elements (Raviart-Thomas or BDM) paired with a discontinuous pressure space satisfying the inf-sup condition div(V_h) = Q_h, a pairing most FEM practitioners get wrong; (2) DG discretization — implementing the complete Symmetric Interior Penalty bilinear form from scratch, including interior facet consistency, symmetry, and penalty terms, plus boundary Nitsche terms, with a penalty parameter scaled as O(k^2) for coercivity; (3) Computational fluid dynamics — constructing upwind convective flux via conditional indicator functions, implementing Picard linearization through implicit Euler time stepping from an initial Stokes solve, and ensuring convergence to steady state; (4) Sparse linear algebra — configuring MUMPS to handle the singular saddle-point system (ICNTL 24/25 for null-pivot detection), an option buried in MUMPS documentation; (5) Numerical analysis — designing a convergence study framework, computing observed rates via log-log regression, and evaluating whether the implementation achieves expected convergence rates (noting that upwind DG flux limits pressure convergence to O(h) for Navier-Stokes)."""
+solution_explanation = """Create a complete DG Navier-Stokes solver using RT_{k+1}/DG_k function spaces (satisfying div(V_h)=Q_h for exact mass conservation), SIP viscous bilinear form with penalty alpha=6*k^2, saddle-point pressure-velocity coupling, Nitsche boundary enforcement, upwind convective flux via conditional indicator lmbda=conditional(gt(dot(u_n,n),0),1,0) with u_uw=lmbda('+')*u('+')+lmbda('-')*u('-'), MUMPS direct solver with ICNTL 24=1 and 25=0 for null-pivot handling, initial Stokes solve followed by Picard iteration via implicit Euler time stepping. The convergence study runs on meshes [8,16,32], collects L2 errors, and computes rates via np.polyfit in log space, achieving velocity rate ~2.0 and pressure rate ~1.1 (limited by upwind flux numerical viscosity)."""
+verification_explanation = """Tests verify: (1) solver.py exists with >60 non-comment lines containing structural markers of a real DG implementation (dS integrals, gradient operators, H(div) elements, upwind flux, MUMPS configuration); (2) solver.py runs successfully and produces results.json with e_u < 0.05, e_div_u < 1e-8, e_p < 0.5 on 16x16 mesh, with lower bounds preventing hardcoded results; (3) convergence.py exists and runs successfully, producing convergence.json with >= 3 mesh sizes, monotonically decreasing errors, velocity convergence rate >= 1.5, and pressure convergence rate >= 0.9 (accounting for the O(h) pressure limitation from upwind DG convective treatment). Subprocess timeouts and structural checks prevent both hardcoding and trivial implementations."""
+category = "scientific_computing"
+tags = ["fem", "computational-fluid-dynamics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 900.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-dg-navierstokes"

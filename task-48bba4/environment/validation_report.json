@@ -1,0 +1,62 @@
+{
+  "pipeline_script": "/app/pipeline.py",
+  "run_timestamp": "2025-06-10T14:32:17Z",
+  "input_circuit": "/app/circuit.qasm",
+  "input_unitary": "/app/target_unitary.json",
+  "hardware_specs": "/app/hardware_specs.json",
+  "validation_results": {
+    "target_a_circuit": {
+      "status": "FAIL",
+      "gate_set_check": "PASS",
+      "topology_check": "FAIL",
+      "topology_violations": [
+        "cx on qubits (0, 2): edge not in coupling_map",
+        "cx on qubits (1, 4): edge not in coupling_map",
+        "cx on qubits (0, 3): edge not in coupling_map"
+      ],
+      "fidelity_distance": 0.0,
+      "fidelity_check": "PASS",
+      "num_qubits": 5,
+      "two_qubit_gate_count": 6
+    },
+    "target_a_synth": {
+      "status": "PASS",
+      "gate_set_check": "PASS",
+      "topology_check": "PASS",
+      "fidelity_distance": 0.0,
+      "fidelity_check": "PASS",
+      "num_qubits": 2,
+      "two_qubit_gate_count": 2
+    },
+    "target_b_circuit": {
+      "status": "FAIL",
+      "gate_set_check": "FAIL",
+      "gate_set_violations": [
+        "Found 'h' (Hadamard) gates — not in target native set {'cz', 'rz', 'sx'}"
+      ],
+      "topology_check": "FAIL",
+      "topology_violations": [
+        "cz on qubits (0, 2): edge not in coupling_map",
+        "cz on qubits (2, 4): edge not in coupling_map",
+        "cz on qubits (0, 3): edge not in coupling_map"
+      ],
+      "fidelity_distance": 0.0,
+      "fidelity_check": "PASS",
+      "num_qubits": 5,
+      "two_qubit_gate_count": 10
+    },
+    "target_b_synth": {
+      "status": "FAIL",
+      "gate_set_check": "FAIL",
+      "gate_set_violations": [
+        "Found 'h' (Hadamard) gates — not in target native set {'cz', 'rz', 'sx'}"
+      ],
+      "topology_check": "PASS",
+      "fidelity_distance": 0.0,
+      "fidelity_check": "PASS",
+      "num_qubits": 2,
+      "two_qubit_gate_count": 2
+    }
+  },
+  "summary": "1/4 compilations passed all checks. Failures: topology violations in 5-qubit circuits (coupling map not enforced during transpilation), gate set violations in target_b outputs ('h' gates found where 'sx' gates expected due to incorrect gate name mapping)."
+}

@@ -1,0 +1,66 @@
+{
+  "output_file": "/app/output/evaluation.json",
+  "sections": {
+    "crash_analysis": {
+      "description": "Structured analysis of each KASAN crash report from the database, keyed by report_id",
+      "entry_fields": {
+        "bug_type": "string — KASAN bug classification (e.g. 'slab-out-of-bounds', 'slab-use-after-free', 'null-ptr-deref', 'use-after-free', 'global-out-of-bounds')",
+        "access_type": "string ('Read' or 'Write') or null",
+        "access_size": "integer — number of bytes in the offending access",
+        "faulting_function": "string — function name without +0x offset suffix",
+        "faulting_source_file": "string — kernel source file path",
+        "faulting_source_line": "integer",
+        "buggy_addr": "string — hex address without 0x prefix",
+        "task_name": "string — kernel task name",
+        "pid": "integer — process ID",
+        "cpu": "integer — CPU number",
+        "tainted": "boolean — kernel taint status",
+        "crash_stack": "array of stack_frame objects from the Call Trace",
+        "alloc_stack": "array of stack_frame objects or null",
+        "free_stack": "array of stack_frame objects or null",
+        "slab_cache": "string or null — slab cache name",
+        "slab_object_size": "integer or null — slab object size in bytes",
+        "alloc_size": "integer or null — actual allocation size in bytes",
+        "global_variable": "string or null — global variable name for global-OOB bugs",
+        "shadow_byte_value": "string (2-char hex, e.g. '04', 'fd') or null — KASAN shadow memory byte at the faulting address from the Memory state dump; null if no shadow memory section",
+        "shadow_byte_meaning": "string or null — corresponding description from the shadow_byte_legend table in the database"
+      },
+      "stack_frame_schema": {
+        "function": "string — function name",
+        "file": "string — source file path",
+        "line": "integer — line number",
+        "is_inline": "boolean — true if marked as [inline]"
+      }
+    },
+    "patch_verdicts": {
+      "description": "Multi-VM patch verification verdict for each test case, keyed by case_id",
+      "entry_fields": {
+        "verdict": "string — classified verification outcome (pass, trigger, racey, or boot_fail)",
+        "vm_count": "integer — total VMs in the test",
+        "pass_count": "integer — VMs where the reproducer did not trigger the bug",
+        "trigger_count": "integer — VMs where the bug was triggered",
+        "boot_fail_count": "integer — VMs that failed to boot"
+      }
+    },
+    "experiment_metrics": {
+      "description": "Cross-configuration APR evaluation metrics computed from experiment tables in the database",
+      "per_config": {
+        "description": "Metrics per configuration, keyed by config_name",
+        "entry_fields": {
+          "pass_rate": "float — fraction of bugs with pass verdict",
+          "pass_count": "integer — number of bugs passing",
+          "total_bugs": "integer — total bugs evaluated",
+          "unique_solves": "sorted list of bug_id strings solved exclusively by this configuration and no other",
+          "unique_solve_count": "integer",
+          "avg_cost_per_bug": "float — average USD cost per bug",
+          "compilation_fail_count": "integer — bugs with compilation_fail build status",
+          "bad_patch_count": "integer — bugs with bad_patch build status"
+        }
+      },
+      "combined_pass_rate": "float — union pass rate across all configurations",
+      "combined_pass_count": "integer — bugs solved by at least one config",
+      "combined_solved_bugs": "sorted list of all solved bug_id strings",
+      "total_bugs": "integer"
+    }
+  }
+}

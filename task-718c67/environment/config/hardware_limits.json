@@ -1,0 +1,50 @@
+{
+  "notes": "Astrobee hardware-specific constraints. Camera resolution and frame rate limits are per camera hardware. Operating limits represent physical actuator maximums.",
+  "cameras": {
+    "Science": {
+      "valid_resolutions": ["1920x1080", "1280x720", "960x540", "480x270"],
+      "max_frame_rate": 30.0,
+      "sensor": "Sony IMX214",
+      "notes": "Science camera (SciCam) on arm. H.264 streaming via RTSP."
+    },
+    "Navigation": {
+      "valid_resolutions": ["1280x960", "1024x768", "640x480", "320x240"],
+      "max_frame_rate": 15.0,
+      "sensor": "Onsemi MT9V024",
+      "notes": "Navigation camera (NavCam) forward-facing. Used for localization."
+    },
+    "Dock": {
+      "valid_resolutions": ["1280x960", "1024x768", "640x480", "320x240"],
+      "max_frame_rate": 15.0,
+      "sensor": "Onsemi MT9V024",
+      "notes": "Dock camera (DockCam) aft-facing. Used for AR tag localization during docking."
+    },
+    "Hazard": {
+      "valid_resolutions": ["224x171"],
+      "max_frame_rate": 5.0,
+      "sensor": "PMD Flexx2",
+      "notes": "Hazard camera (HazCam) forward-facing depth sensor. Fixed resolution."
+    },
+    "Perch": {
+      "valid_resolutions": ["224x171"],
+      "max_frame_rate": 5.0,
+      "sensor": "PMD Flexx2",
+      "notes": "Perch camera (PerchCam) aft-facing depth sensor. Fixed resolution."
+    }
+  },
+  "operating_limits": {
+    "max_linear_velocity": 0.5,
+    "max_linear_acceleration": 0.05,
+    "max_angular_velocity": 0.5236,
+    "max_angular_acceleration": 0.5236,
+    "min_collision_distance": 0.1,
+    "notes": "Physical actuator maximums. Operational profiles (quiet/nominal/difficult/precision) set limits below these values."
+  },
+  "arm": {
+    "pan_range": [-90, 90],
+    "tilt_range": [-20, 180],
+    "pan_zero_tilt_threshold": 90,
+    "gripper_close_tilt_threshold": 160,
+    "notes": "Pan must be 0 when tilt > 90 (arm in payload bay). Gripper must be closed when tilt > 160 (near stowed position)."
+  }
+}

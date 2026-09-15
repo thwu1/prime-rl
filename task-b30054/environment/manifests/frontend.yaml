@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ecommerce
+  labels:
+    app: frontend
+    tier: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:1.24
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ecommerce
+spec:
+  selector:
+    app: front-end
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

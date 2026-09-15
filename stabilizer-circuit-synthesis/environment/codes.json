@@ -1,0 +1,38 @@
+[
+  {
+    "name": "bell",
+    "n_qubits": 2,
+    "stabilizers": ["XX", "ZZ"],
+    "two_qubit_gate_budget": 4
+  },
+  {
+    "name": "ghz4",
+    "n_qubits": 4,
+    "stabilizers": ["XXXX", "ZZII", "IZZI", "IIZZ"],
+    "two_qubit_gate_budget": 8
+  },
+  {
+    "name": "ring4",
+    "n_qubits": 4,
+    "stabilizers": ["XZIZ", "ZXZI", "IZXZ", "ZIZX"],
+    "two_qubit_gate_budget": 8
+  },
+  {
+    "name": "five_qubit",
+    "n_qubits": 5,
+    "stabilizers": ["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ", "ZZZZZ"],
+    "two_qubit_gate_budget": 14
+  },
+  {
+    "name": "cycle6",
+    "n_qubits": 6,
+    "stabilizers": ["XZIIIZ", "ZXZIII", "IZXZII", "IIZXZI", "IIIZXZ", "ZIIIZX"],
+    "two_qubit_gate_budget": 16
+  },
+  {
+    "name": "steane",
+    "n_qubits": 7,
+    "stabilizers": ["IIIXXXX", "IXXIIXX", "XIXIXIX", "IIIZZZZ", "IZZIIZZ", "ZIZIZIZ", "ZZZZZZZ"],
+    "two_qubit_gate_budget": 24
+  }
+]

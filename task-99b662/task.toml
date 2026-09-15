@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptography knowledge combined with proficiency in cryptographic tooling and data formats. The agent must: (1) extract DSA parameters from PEM-encoded files using OpenSSL CLI or manual ASN.1/DER parsing, (2) extract public key values from SubjectPublicKeyInfo PEM files, (3) query an SQLite audit database to retrieve messages and DER-encoded signature BLOBs, (4) decode binary DER ASN.1 structures (SEQUENCE of two INTEGERs) to extract r,s signature values, (5) implement DSA verification to attribute 15 unlabeled signatures to 3 public keys, (6) detect nonce reuse for two keys and sequential nonce generation for the third to recover private keys, (7) produce output in cryptographic standard formats: traditional OpenSSL DSA private key PEM files and DER-encoded forged signatures. Requires interoperating between OpenSSL, sqlite3, ASN.1/DER encoding, and Python."""
+solution_explanation = """Parse DSA parameters from PEM using OpenSSL dsaparam or DER decoding. Extract y values from SubjectPublicKeyInfo PEM files. Query SQLite audit.db for messages and DER signature blobs. Decode DER SEQUENCE{INTEGER r, INTEGER s}. Verify each signature against all 3 public keys for attribution. For keys with matching r-values: apply nonce-reuse attack k=(h1-h2)*(s1-s2)^{-1} mod q, x=(s1*k-h1)*r^{-1} mod q. For the key with unique r-values: try all ordered pairs assuming k2=k1+1, derive k1 and recover x. Generate traditional DSA private key PEM files (SEQUENCE{version,p,q,g,y,x}) and DER-encoded forged signatures."""
+verification_explanation = """Tests verify: (1) results.json contains valid hex private keys where g^x mod p == y, (2) PEM private key files parse correctly with valid ASN.1 DER structure containing correct DSA parameters and matching key values, (3) DER forged signature files contain valid SEQUENCE{INTEGER r, INTEGER s} that pass DSA verification against the target public key, (4) JSON and PEM private key values are consistent. All verification is mathematical — no ground truth files needed."""
+category = "security"
+tags = ["cryptography", "digital-signatures"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-99b662"

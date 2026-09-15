@@ -1,0 +1,40 @@
+{
+  "description": "Required output format for mutation analysis results.",
+  "required_outputs": {
+    "results": "/app/output/results.json",
+    "enhanced_tests": "/app/tests/test_enhanced.py",
+    "subsumption_dot": "/app/output/subsumption.dot",
+    "subsumption_png": "/app/output/subsumption.png"
+  },
+  "schema": {
+    "total_mutants": "int: total number of mutants from manifest",
+    "killed": "int: mutants detected (test failure or timeout) by test suite",
+    "survived": "int: mutants not detected, includes equivalent and non-equivalent",
+    "equivalent": "int: survived mutants classified as semantically equivalent to original",
+    "mutation_score": "float: killed / (total_mutants - equivalent)",
+    "operator_counts": {
+      "AOR": "int: Arithmetic Operator Replacement mutant count",
+      "ROR": "int: Relational Operator Replacement mutant count",
+      "LCR": "int: Logical Connector Replacement mutant count",
+      "AOD": "int: Arithmetic Operator Deletion mutant count",
+      "UOI": "int: Unary Operator Insertion mutant count"
+    },
+    "kill_matrix": "dict: maps each killed mutant ID to the list of test function names that killed it",
+    "subsuming_mutants": "list of str: IDs of dynamically subsuming mutants — killed mutants whose kill set is not a proper superset of any other killed mutant's kill set",
+    "subsuming_mutation_score": "float: |subsuming_killed| / (|subsuming_killed| + |survived_non_equivalent|)",
+    "equivalent_mutants": "list of objects {id: str, reason: str} for each equivalent mutant with justification",
+    "surviving_non_equivalent": "list of str: IDs of survived mutants classified as non-equivalent (test gaps)",
+    "branch_coverage_original": "float: branch coverage percentage of test_basic.py against target/mathlib.py, measured with coverage.py branch=True (0.0-100.0)",
+    "branch_coverage_enhanced": "float: branch coverage percentage of test_basic.py + test_enhanced.py combined against target/mathlib.py (0.0-100.0)"
+  },
+  "notes": [
+    "A mutant is 'killed' if any test in the suite fails or times out when run against the mutated code.",
+    "A mutant M1 'dynamically subsumes' M2 if T(M1) is a proper subset of T(M2), where T(M) is the set of tests killing M.",
+    "A mutant is 'subsuming' if no other killed mutant has a kill set that is a proper subset of its kill set.",
+    "Indistinguishable mutants (same kill set) are all considered subsuming if none has a proper subset.",
+    "Enhanced tests in test_enhanced.py must pass on the original (unmutated) code and kill all surviving_non_equivalent mutants.",
+    "Branch coverage must be measured using coverage.py with branch=True against /app/target/mathlib.py.",
+    "The subsumption DOT file must represent the transitive reduction of the subsumption partial order: nodes are killed mutant IDs, directed edges M1 -> M2 mean M1 directly subsumes M2 (T(M1) ⊂ T(M2) with no intermediate M3 where T(M1) ⊂ T(M3) ⊂ T(M2)).",
+    "The subsumption PNG must be rendered from the DOT file using the graphviz dot command."
+  ]
+}

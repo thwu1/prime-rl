@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["operator_mapping", "programs"],
+  "additionalProperties": false,
+  "properties": {
+    "operator_mapping": {
+      "type": "object",
+      "required": [
+        "binary_+", "binary_-", "binary_*", "binary_/", "binary_%",
+        "unary_+", "unary_-",
+        "<", "<=", ">", ">=", "==", "!=",
+        "&&", "||", "!"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "binary_+": {"type": "string"},
+        "binary_-": {"type": "string"},
+        "binary_*": {"type": "string"},
+        "binary_/": {"type": "string"},
+        "binary_%": {"type": "string"},
+        "unary_+": {"type": "string"},
+        "unary_-": {"type": "string"},
+        "<": {"type": "string"},
+        "<=": {"type": "string"},
+        ">": {"type": "string"},
+        ">=": {"type": "string"},
+        "==": {"type": "string"},
+        "!=": {"type": "string"},
+        "&&": {"type": "string"},
+        "||": {"type": "string"},
+        "!": {"type": "string"}
+      }
+    },
+    "programs": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["final_state", "step_count", "rule_histogram"],
+        "additionalProperties": false,
+        "properties": {
+          "final_state": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": {"type": "integer"}
+              },
+              {
+                "type": "string",
+                "const": "ERROR"
+              }
+            ]
+          },
+          "step_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rule_histogram": {
+            "type": "object",
+            "additionalProperties": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    }
+  }
+}

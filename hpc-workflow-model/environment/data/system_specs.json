@@ -1,0 +1,47 @@
+{
+  "pinnacle": {
+    "vendor": "Cray-HPE",
+    "node_count": 500,
+    "cost_per_node_usd": 19000,
+    "power_per_node_kw": 2.5,
+    "architecture": "CPU+GPU hybrid",
+    "peak_tflops_per_node": 50.0,
+    "memory_bandwidth_tbs_per_node": 2.0
+  },
+  "horizon": {
+    "vendor": "IBM",
+    "node_count": 800,
+    "cost_per_node_usd": 12000,
+    "power_per_node_kw": 1.5,
+    "architecture": "CPU+GPU hybrid",
+    "peak_tflops_per_node": 30.0,
+    "memory_bandwidth_tbs_per_node": 3.5
+  },
+  "nexus": {
+    "vendor": "Dell",
+    "node_count": 1200,
+    "cost_per_node_usd": 7000,
+    "power_per_node_kw": 0.8,
+    "architecture": "CPU-only",
+    "peak_tflops_per_node": 15.0,
+    "memory_bandwidth_tbs_per_node": 5.0
+  },
+  "vanguard": {
+    "vendor": "Fujitsu",
+    "node_count": 400,
+    "cost_per_node_usd": 28000,
+    "power_per_node_kw": 3.0,
+    "architecture": "CPU+GPU hybrid",
+    "peak_tflops_per_node": 35.0,
+    "memory_bandwidth_tbs_per_node": 2.5
+  },
+  "summit_x": {
+    "vendor": "NVIDIA-Supermicro",
+    "node_count": 300,
+    "cost_per_node_usd": 35000,
+    "power_per_node_kw": 4.0,
+    "architecture": "GPU-dense",
+    "peak_tflops_per_node": 60.0,
+    "memory_bandwidth_tbs_per_node": 1.8
+  }
+}

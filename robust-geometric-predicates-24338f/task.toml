@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IEEE 754 floating-point arithmetic, expansion arithmetic (non-overlapping component representations), exact determinant computation via error-free transformations (Two_Sum, Two_Product, Split), and the structure of geometric predicate determinants (3x3 for orient3d, 4x4 lifted for incircle, 5x5 lifted for insphere). The insphere predicate alone involves computing 10 exact pairwise cross products, 10 triple cofactors, 5 quadruple cofactors, scaling by squared coordinates, and summing expansions of up to 5760 components. A single sign error or wrong variable in hundreds of lines of arithmetic code causes silent incorrect results. Understanding WHY the expansion arithmetic works (IEEE 754 rounding guarantees, Veltkamp splitting, nonoverlapping invariants) is necessary to write correct implementations."""
+solution_explanation = """Replace the naive orient3d/incircle/insphere stubs with implementations that use exact expansion arithmetic from expansion.hpp. The approach: (1) compute a fast double-precision estimate and check against error bounds; (2) if uncertain, fall back to exact computation using Two_Product to form exact 2-component products, Two_Two_Diff for exact cross products as 4-component expansions, fast_expansion_sum_zeroelim/scale_expansion_zeroelim to combine and scale expansions, and return the most significant component of the final expansion. For orient3d: 6 pairwise cross products, 4 cofactors, scale by z-coordinates. For incircle: same cross products but scale by squared x,y coordinates. For insphere: 10 pairwise cross products, 10 triple cofactors, 5 quadruple cofactors, scale by squared x,y,z coordinates. The orient2d reference implementation demonstrates the full pattern."""
+verification_explanation = """Builds the project with g++ -O2 -std=c++17 -ffp-contract=off, runs test_predicates which reads 400 near-degenerate test fixtures (100 per predicate), checks that each predicate returns the correct sign, and verifies all 400 pass. The test inputs are adversarial: naive double-precision evaluation gives the wrong sign for every case, so only implementations using exact or adaptive-precision arithmetic can pass."""
+category = "mathematics"
+tags = ["numerical-analysis", "computational-geometry"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robust-geometric-predicates-24338f"

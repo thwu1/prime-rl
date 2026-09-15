@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert integration across multiple security data standards: (1) discovering and applying the HMAC-based integrity signing protocol from documentation; (2) implementing CVSS v3.1 base score computation from vector strings including scope-dependent privilege-required adjustments and the Roundup function; (3) querying CPE configurations stored as JSON blobs in SQLite via the JSON1 extension; (4) cross-validating relational CPE data against nested NVD API 2.0 JSON including AND/OR operator trees representing hardware-firmware running-on relationships; (5) processing EPSS probability scores from CSV feeds with comment headers and CISA KEV catalog JSON; (6) implementing composite threat prioritization per a policy document; (7) generating valid CPE Dictionary 2.3 XML with correct namespaces, CPE 2.2 URIs, and CPE 2.3 formatted strings; (8) correctly handling versionStartExcluding vs versionStartIncluding boundary semantics in CPE matching. Demands holistic understanding across CVSS, CPE, CWE, EPSS, KEV, and SCAP frameworks."""
+solution_explanation = """The solution: (1) reads the signing protocol documentation and HMAC key, then verifies all DB records to identify 8 tampered entries; (2) implements CVSS v3.1 score computation from vectors to find 4 score anomalies; (3) compares DB CPE JSON blobs against canonical NVD JSON to find 3 CPE discrepancies; (4) compares CWE mappings to find 2 errors; (5) parses EPSS CSV (skipping comment header) and KEV JSON; (6) matches 15 inventory items against canonical CPE data with AND/OR tree logic, identifying 10 affected; (7) reads the scoring policy and computes composite priority scores; (8) generates CPE Dictionary XML with correct part types and namespaces."""
+verification_explanation = """Tests include both assertion-based and dynamic cross-validation: (1) assertion tests verify exact counts and CVE IDs for tampered records, score anomalies, CPE discrepancies, and CWE errors; (2) dynamic verification tests independently read the SQLite database, HMAC key, canonical NVD snapshot, EPSS CSV, and KEV catalog, then recompute all HMACs and CVSS v3.1 base scores from scratch — ensuring the solution performed genuine cryptographic and mathematical computation rather than echoing expected values; (3) dynamic tests verify every HMAC mismatch is reported and no false positives exist; (4) dynamic tests independently compare DB CPE configs and CWE mappings against canonical data; (5) EPSS scores and KEV statuses are cross-validated against their respective feed files; (6) priority formula and risk_score sum are verified computationally; (7) XML validation checks well-formedness, namespace correctness, 10 entries, CPE URI formats, and operating system part type for kernelos."""
+category = "security"
+tags = ["vulnerability-analysis", "threat-intelligence"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cvss-cpe-analyzer"

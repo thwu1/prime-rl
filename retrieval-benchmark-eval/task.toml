@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 interacting bugs across data format issues and evaluation code in a multi-system IR pipeline: (1) mixed tab/space delimiters in one task's qrel file causing silent relevance judgment loss, (2) a space-delimited run file invisible to the tab-only parser, (3) nDCG gain function using linear gain (rel) instead of exponential (2^rel-1), (4) MAP denominator using retrieved-relevant count instead of total-relevant count, and (5) micro-averaging instead of macro-averaging for domain/overall aggregation. Bugs interact — data parsing failures change which relevance judgments are loaded, affecting every downstream metric. The solver must use trec_eval as a cross-validation reference tool, understand TREC format nuances, and apply expert IR evaluation knowledge to systematically identify discrepancies."""
+solution_explanation = """Write a correct evaluation pipeline using whitespace-robust parsing (.split() instead of .split('\\t')) to handle mixed delimiters, exponential gain (2^rel-1) for nDCG, total relevant documents as MAP denominator, and macro-averaging for domain/overall aggregation. Cross-validate per-task metrics against trec_eval to confirm correctness."""
+verification_explanation = """Tests independently recompute all metrics using a reference implementation with correct parsing and formulas, comparing against the solver's output with tolerance 1e-6. The reference uses whitespace-robust parsing so results are correct regardless of whether the solver fixed data files or fixed the parser. Structural tests verify all keys; semantic tests verify system ranking."""
+category = "data_science"
+tags = ["information-retrieval", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/retrieval-benchmark-eval"

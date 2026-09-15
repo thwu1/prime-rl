@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Prometheus and SRE knowledge: parsing raw Prometheus exposition format with edge cases (colon-containing metric names, scientific notation, +Inf buckets), understanding how Prometheus computes histogram percentiles from cumulative bucket deltas with linear interpolation, detecting counter resets in monotonic counters, computing SLO burn rates and mapping to alert severity. Additionally requires producing syntactically valid PromQL recording and alerting rules that pass promtool validation — demanding deep familiarity with the Prometheus rule file format, PromQL functions (histogram_quantile, rate), and multi-window burn-rate SLO alerting patterns from the Google SRE book. Combines systems observability, SRE practices, and Prometheus toolchain proficiency."""
+solution_explanation = """Parse each scrape file to extract metric types, labels, and values. For histograms, compute delta buckets between consecutive scrapes and apply the histogram_quantile algorithm (linear interpolation within target bucket). Handle counter resets by detecting value decreases. Evaluate SLOs per interval, compute compliance ratio and burn rate as (1 - compliance) / (1 - target), derive alert level from config thresholds. Generate recording_rules.yml with PromQL rate() and histogram_quantile() expressions, and alerting_rules.yml with burn-rate threshold alerts. Validate both with promtool check rules."""
+verification_explanation = """Tests verify: (1) report.json counter rates including a counter-reset scenario, (2) interval histogram percentiles for TTFT and E2E latency across both intervals with 2% tolerance, (3) SLO compliance, burn rate, and alert levels, (4) recording_rules.yml passes promtool check rules and contains correct PromQL functions and metric references, (5) alerting_rules.yml passes promtool check rules, has properly structured alerts with severity labels, references both SLO metrics, and includes the configured burn-rate thresholds."""
+category = "Systems Engineering"
+tags = ["prometheus", "sre-observability"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prometheus-slo-analyzer"

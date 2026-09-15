@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a dynamic optimization benchmark from a mathematical specification with exact RNG reproducibility. The peak evaluation kernel must be written in C, compiled into a shared library, and interfaced from Python via ctypes — demanding cross-language FFI proficiency. An effective optimizer must be designed to handle dynamic landscapes where peak parameters change between environments — achieving the required offline error thresholds demands sophisticated algorithm design. Results must be persisted to both JSON and an SQLite database with a prescribed schema. The agent must orchestrate C compilation, Python-C interop, numerical optimization, and SQL database operations."""
+solution_explanation = """Write peaks.c implementing evaluate_peaks, create a Makefile to compile it into libpeaks.so, then implement the GMPB class loading the .so via ctypes with numpy.random.default_rng in the exact spec-defined call order. Implement a multi-swarm PSO with constriction coefficients, exclusion, and change response. The runner evaluates all instances and writes results to both results.json and results.db (SQLite with runs and env_stats tables)."""
+verification_explanation = """Tests verify the C shared library exists, exports evaluate_peaks, and computes correct values. Makefile tests rebuild the library in a temp directory. Source analysis confirms gmpb.py uses ctypes. Reference computations mirror the spec's RNG call order to verify exact GMPB initialization and dynamics. Optimizer tests check offline error thresholds. SQLite tests verify database schema, data integrity, and CLI queryability."""
+category = "optimization"
+tags = ["dynamic-optimization", "ctypes-ffi"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6bc2a9"

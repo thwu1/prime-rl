@@ -1,0 +1,11 @@
+solver:
+  max_iterations: 100
+  loss_function: None
+  trust_strategy: LEVENBERG_MARQUARDT
+  initial_lambda: 1.0e-5
+  function_tolerance: 1.0e-6
+  gradient_tolerance: 1.0e-10
+  parameter_tolerance: 1.0e-8
+
+output:
+  convergence_report: true

@@ -1,0 +1,17 @@
+c 6-variable instance with cycle and anti-diagonal constraints
+c models an independent set selection on a 6-cycle with complementarity
+h 1 2 0
+h 2 3 0
+h 3 4 0
+h 4 5 0
+h 5 6 0
+h 6 1 0
+h -1 -4 0
+h -2 -5 0
+h -3 -6 0
+10 -1 0
+20 -2 0
+15 -3 0
+25 -4 0
+5 -5 0
+30 -6 0

@@ -1,0 +1,4 @@
+database_path: /app/molecules.db
+integral_convention: chemist
+output_path: /app/results.json
+tolerance: 1.0e-10

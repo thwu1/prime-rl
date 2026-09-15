@@ -1,0 +1,58 @@
+{
+    "name": "AMD EPYC 7763 Dual Socket (NPS2)",
+    "description": "2 sockets, 2 NUMA nodes per socket (NPS2 mode), 4 cores per NUMA node, SMT enabled",
+    "sockets": [
+        {
+            "socket_id": 0,
+            "numa_nodes": [
+                {
+                    "node_id": 0,
+                    "cores": [
+                        {"physical_id": 0, "logical_ids": [0, 16]},
+                        {"physical_id": 2, "logical_ids": [2, 18]},
+                        {"physical_id": 4, "logical_ids": [4, 20]},
+                        {"physical_id": 6, "logical_ids": [6, 22]}
+                    ]
+                },
+                {
+                    "node_id": 1,
+                    "cores": [
+                        {"physical_id": 1, "logical_ids": [1, 17]},
+                        {"physical_id": 3, "logical_ids": [3, 19]},
+                        {"physical_id": 5, "logical_ids": [5, 21]},
+                        {"physical_id": 7, "logical_ids": [7, 23]}
+                    ]
+                }
+            ]
+        },
+        {
+            "socket_id": 1,
+            "numa_nodes": [
+                {
+                    "node_id": 2,
+                    "cores": [
+                        {"physical_id": 8, "logical_ids": [8, 24]},
+                        {"physical_id": 10, "logical_ids": [10, 26]},
+                        {"physical_id": 12, "logical_ids": [12, 28]},
+                        {"physical_id": 14, "logical_ids": [14, 30]}
+                    ]
+                },
+                {
+                    "node_id": 3,
+                    "cores": [
+                        {"physical_id": 9, "logical_ids": [9, 25]},
+                        {"physical_id": 11, "logical_ids": [11, 27]},
+                        {"physical_id": 13, "logical_ids": [13, 29]},
+                        {"physical_id": 15, "logical_ids": [15, 31]}
+                    ]
+                }
+            ]
+        }
+    ],
+    "numa_distances": [
+        [10, 12, 32, 32],
+        [12, 10, 32, 32],
+        [32, 32, 10, 12],
+        [32, 32, 12, 10]
+    ]
+}

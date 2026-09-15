@@ -1,0 +1,49 @@
+name: advanced
+topology:
+  defaults:
+    kind: linux
+    image: ubuntu:22.04
+    group: base-group
+  kinds:
+    srl:
+      image: ghcr.io/nokia/srlinux
+      group: srl-infra
+      env:
+        DISTRO: srlinux
+    ceos:
+      image: ceos:4.32.0F
+      env:
+        DISTRO: arista_eos
+    linux:
+      image: alpine:latest
+  groups:
+    base-group:
+      kind: ceos
+      labels:
+        managed: "true"
+    srl-infra:
+      labels:
+        vendor: nokia
+        tier: core
+    access:
+      kind: linux
+      labels:
+        tier: access
+  nodes:
+    core1:
+      kind: srl
+    core2:
+      kind: srl
+    distrib1: {}
+    distrib2: {}
+    access1:
+      group: access
+    access2:
+      group: access
+  links:
+    - endpoints: ["core1:eth1", "distrib1:eth1"]
+    - endpoints: ["core1:eth2", "distrib2:eth1"]
+    - endpoints: ["core2:eth1", "distrib1:eth2"]
+    - endpoints: ["core2:eth2", "distrib2:eth2"]
+    - endpoints: ["distrib1:eth3", "access1:eth1"]
+    - endpoints: ["distrib2:eth3", "access2:eth1"]

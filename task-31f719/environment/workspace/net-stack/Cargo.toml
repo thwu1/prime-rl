@@ -1,0 +1,17 @@
+[package]
+name = "net-stack"
+version = "0.13.0"
+edition = "2021"
+description = "Network protocol stack"
+
+[features]
+default = ["alloc", "medium-ethernet"]
+alloc = []
+medium-ethernet = []
+socket-tcp = ["alloc"]
+socket-udp = ["alloc"]
+socket-dns = ["alloc"]
+proto-dhcpv4 = []
+socket-dhcpv4 = ["alloc", "proto-dhcpv4"]
+verbose = ["log"]
+log = []

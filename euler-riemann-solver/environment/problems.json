@@ -1,0 +1,38 @@
+{
+    "gamma": 1.4,
+    "problems": [
+        {
+            "name": "sod",
+            "description": "Sod shock tube (Sod 1978)",
+            "domain": [0.0, 1.0],
+            "x0": 0.5,
+            "left": {"rho": 1.0, "u": 0.0, "p": 1.0},
+            "right": {"rho": 0.125, "u": 0.0, "p": 0.1},
+            "t_end": 0.25,
+            "ncells": 200,
+            "cfl": 0.9
+        },
+        {
+            "name": "einfeldt",
+            "description": "Einfeldt 1-2-3 two-rarefaction problem",
+            "domain": [0.0, 1.0],
+            "x0": 0.5,
+            "left": {"rho": 1.0, "u": -2.0, "p": 0.4},
+            "right": {"rho": 1.0, "u": 2.0, "p": 0.4},
+            "t_end": 0.15,
+            "ncells": 200,
+            "cfl": 0.5
+        },
+        {
+            "name": "blast",
+            "description": "Woodward-Colella blast wave (left half)",
+            "domain": [0.0, 1.0],
+            "x0": 0.5,
+            "left": {"rho": 1.0, "u": 0.0, "p": 1000.0},
+            "right": {"rho": 1.0, "u": 0.0, "p": 0.01},
+            "t_end": 0.012,
+            "ncells": 400,
+            "cfl": 0.9
+        }
+    ]
+}

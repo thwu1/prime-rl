@@ -1,0 +1,98 @@
+{
+  "scenarios": [
+    {
+      "id": "rv2coe_1",
+      "type": "rv2coe",
+      "description": "State vectors to classical orbital elements (Curtis Example 4.3)",
+      "params": {
+        "k": 398600.4418,
+        "r": [-6045.0, -3490.0, 2500.0],
+        "v": [-3.457, 6.618, 2.533]
+      }
+    },
+    {
+      "id": "coe2rv_1",
+      "type": "coe2rv",
+      "description": "Classical orbital elements to state vectors (roundtrip of rv2coe_1)",
+      "params": {
+        "k": 398600.4418,
+        "p": 8530.47436396927,
+        "ecc": 0.17121118195416898,
+        "inc_deg": 153.2492285182475,
+        "raan_deg": 255.27928533439618,
+        "argp_deg": 20.068139973005362,
+        "nu_deg": 28.445804984192122
+      }
+    },
+    {
+      "id": "lambert_1",
+      "type": "lambert",
+      "description": "Lambert problem - planar transfer (Vallado Example 7.5)",
+      "params": {
+        "k": 398600.4418,
+        "r0": [15945.34, 0.0, 0.0],
+        "r": [12214.83399, 10249.46731, 0.0],
+        "tof_s": 4560.0,
+        "prograde": true
+      }
+    },
+    {
+      "id": "lambert_2",
+      "type": "lambert",
+      "description": "Lambert problem - 3D transfer (Curtis Example 5.2)",
+      "params": {
+        "k": 398600.4418,
+        "r0": [5000.0, 10000.0, 2100.0],
+        "r": [-14600.0, 2500.0, 7000.0],
+        "tof_s": 3600.0,
+        "prograde": true
+      }
+    },
+    {
+      "id": "hohmann_1",
+      "type": "hohmann",
+      "description": "Hohmann transfer LEO to GEO (Vallado Example 6.1)",
+      "params": {
+        "k": 398600.4418,
+        "r_i": 6569.48071,
+        "r_f": 42159.48517
+      }
+    },
+    {
+      "id": "bielliptic_1",
+      "type": "bielliptic",
+      "description": "Bielliptic transfer (Vallado Example 6.2)",
+      "params": {
+        "k": 398600.4418,
+        "r_i": 6569.48071,
+        "r_b": 510251.1366,
+        "r_f": 382688.1366
+      }
+    },
+    {
+      "id": "j2_correction_1",
+      "type": "j2_correction",
+      "description": "J2 pericenter correction maneuver (Vallado p.895)",
+      "params": {
+        "k": 398600.4418,
+        "R": 6378.1366,
+        "J2": 0.00108263,
+        "a": 6570.0,
+        "ecc": 0.001,
+        "inc_deg": 45.0,
+        "max_delta_r": 30.0
+      }
+    },
+    {
+      "id": "transfer_comparison_1",
+      "type": "transfer_comparison",
+      "description": "Compare Hohmann vs bielliptic for high orbit ratio transfer",
+      "params": {
+        "k": 398600.4418,
+        "r_i": 6569.48071,
+        "r_f": 382688.1366,
+        "r_b": 510251.1366
+      }
+    }
+  ]
+}

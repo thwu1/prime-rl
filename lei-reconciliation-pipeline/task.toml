@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the GLEIF LEI ecosystem beyond procedural API usage: the solver must discover and interpret GLEIF's dual-layer data model (Level 1 entity records vs Level 2 relationship records with separate registration lifecycles), navigate JSON:API link structures to distinguish entities that declare parent relationships from those filing reporting exceptions (NO_KNOWN_PERSON, NATURAL_PERSONS, NON_CONSOLIDATING, NON_PUBLIC), extract relationship-specific registration status (PUBLISHED vs LAPSED — distinct from entity registration status), interpret conformity flags and corroboration levels as regulatory health signals, analyze cross-border ownership topology across multi-jurisdiction conglomerate structures, and synthesize these heterogeneous signals into a composite risk classification. None of these dimensions are reducible to simple API calls — each requires understanding the regulatory semantics of GLEIF data and making domain-informed implementation decisions."""
+solution_explanation = """A Python pipeline reads the portfolio, validates LEI checksums via ISO 17442 MOD 97-10, then for each valid LEI fetches the entity record from the GLEIF API and inspects the relationships.direct-parent.links structure: if it contains a 'reporting-exception' key, the entity is top-level and the reporting exception endpoint is queried for the exception category and reason; if it contains a 'relationship-record' key, the parent relationship is fetched including its registration status (PUBLISHED/LAPSED). The pipeline builds an ownership graph tracing chains to ultimate parents, computes cross-border ownership metrics by comparing country codes across parent-child links, identifies metadata drift through case-insensitive comparison against authoritative registry data, and classifies each entity into HIGH/MEDIUM/LOW risk tiers by counting five discrete risk factors (non-ISSUED registration, non-CONFORMING conformity, weak corroboration, stale relationship registration, metadata discrepancies)."""
+verification_explanation = """Tests verify: (1) correct ISO 17442 checksum validation separating 13 valid from 5 invalid LEIs, (2) registry assessment with specific Apple/GS/MS entity data including BIC codes, conformity flags, corroboration levels, and managing LOUs, (3) relationship registration status — GS Finance Corp shows LAPSED while MS Regional Sales Corp shows PUBLISHED, (4) ownership topology with GS and MS conglomerates spanning multiple jurisdictions with cross-border links, (5) reporting exceptions retrieved for top-level entities (Apple, GS, MS) with valid GLEIF exception categories and reasons, (6) Goldman Sachs metadata discrepancies (name and jurisdiction), (7) risk tier consistency — Apple and Microsoft are LOW risk, GS Group is not LOW due to metadata drift, GS subsidiaries are not LOW due to stale relationships, (8) all risk tiers match factor-count rules, (9) summary statistics are internally consistent with all report sections."""
+category = "data_engineering"
+tags = ["api-integration", "financial-regulatory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lei-reconciliation-pipeline"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level geodetic domain knowledge to debug 5 distinct PROJ transformation pipelines. Errors span projection type misidentification (polar vs oblique stereographic), wrong reference ellipsoids (International 1924 vs GRS80, Clarke 1866 vs WGS84), incorrect projection parameters (central meridian), and a missing variant flag (+no_uoff for Hotine Oblique Mercator). Each fix demands understanding how specific projection parameters affect coordinate output. The calibration step requires correctly applying each fixed projection to instance-specific random coordinates using PROJ CLI tools, preventing pre-memorized solutions."""
+solution_explanation = """Fix 1: Change +proj=stere to +proj=sterea (oblique stereographic). Fix 2: Change +ellps=intl to +ellps=GRS80 (SIRGAS 2000). Fix 3: Change +lon_0=134 to +lon_0=132 (Australian Albers). Fix 4: Add +no_uoff (Hotine variant A). Fix 5: Change +ellps=clrk66 to +ellps=WGS84. Then read random calibration coordinates from calibration_data.json, run cs2cs with corrected parameters for each projection, write results to calibration_results.json. Generate diagnostic report with task_instance_id and roundtrip GIE tests."""
+verification_explanation = """Runs gie on fixed transforms.gie verifying zero failures. Checks broken parameters removed and correct parameters present. Validates diagnostic_report.json structure and projection types. Runs gie on roundtrip_validation.gie. Independently computes calibration transforms via cs2cs and compares agent results within 0.05m tolerance. Verifies task_instance_id propagated from calibration_data.json to both output files."""
+category = "applied_computing"
+tags = ["geodesy", "coordinate-systems"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geodetic-pipeline-debug"

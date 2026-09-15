@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete quantum circuit compilation and characterization pipeline from scratch without any quantum computing libraries. The solver must: (1) parse OpenQASM 2.0 circuits; (2) implement a statevector simulator with correct MSB-first qubit ordering and multi-qubit operator construction; (3) decompose arbitrary gates (CCX, CZ, SWAP, Y, Z) into the Clifford+T gate set; (4) implement T-count optimization via phase-gate merging—tracking per-qubit gate timelines, identifying consecutive diagonal gate runs, merging accumulated phases, and re-expressing with minimal T gates; (5) compute entanglement entropy for every possible bipartition of an n-qubit system, requiring tensor permutation and partial trace over arbitrary subsystems; (6) compute the Meyer-Wallach global entanglement measure from single-qubit reduced density matrices; (7) classify multipartite entanglement (product/biseparable/genuine) by analyzing all bipartition entropies; (8) quantify non-stabilizerness by computing the sum of 4th powers of Pauli expectations over the full 4^n Pauli group, connecting Clifford+T resource theory to stabilizer formalism. Demands deep expertise in quantum information theory, linear algebra, and the interplay between circuit resources and state characterization."""
+solution_explanation = """Parse QASM files with regex to extract gate operations. Implement statevector simulation using full operator matrix construction. Decompose non-Clifford+T gates (CCX via standard 15-gate sequence, CZ via H-CNOT-H, etc.). For T-count optimization, build per-qubit timelines, scan for consecutive diagonal gate runs {T,Tdg,S,Sdg}, accumulate phases, and re-express merged phases modulo 2pi as k*pi/4 with 0 T gates for even k, 1 for odd k. Compute arbitrary bipartition entropy by tensor-transposing the state vector and partial-tracing. Compute Meyer-Wallach via single-qubit purities. Classify entanglement by checking all bipartition entropies. Compute magic fraction by iterating over all 4^n Pauli strings, computing expectations, and summing 4th powers. Store dual outputs in SQLite and JSON."""
+verification_explanation = """Tests use an independent reference statevector simulator with hardcoded circuit definitions. Probabilities verified against reference with 1e-6 tolerance. Known analytical values tested: GHZ entropy=1.0, Grover marked-state P=25/32, DJ balanced detection. T-counts verified exactly against reference decomposition and optimization. Phase gadget circuit tests optimization explicitly (naive=7, optimized=1). Meyer-Wallach, max entropy, entanglement class, and magic fraction verified against independent reference implementations for all circuits. Known classifications verified: GHZ=genuine/stabilizer, DJ=product/stabilizer, toffoli_cascade=biseparable/stabilizer. Cross-circuit consistency checks: probabilities sum to 1, decomposition preserves state, optimized<=naive, max_entropy>=standard_entropy. DB-JSON consistency verified for all fields."""
+category = "quantum_computing"
+tags = ["quantum-resource-theory", "circuit-compilation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-circuit-analyzer"

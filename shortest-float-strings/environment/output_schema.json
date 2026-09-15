@@ -1,0 +1,101 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "description": "Schema for IEEE 754 float serialization pipeline output",
+    "type": "object",
+    "required": ["results", "divergences", "summary"],
+    "additionalProperties": false,
+    "properties": {
+        "results": {
+            "type": "array",
+            "minItems": 100,
+            "items": {
+                "type": "object",
+                "required": ["id", "hex_bits", "category", "shortest", "notation", "min_digits", "predecessor_hex", "successor_hex"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "hex_bits": {
+                        "type": "string",
+                        "pattern": "^[0-9A-F]{16}$"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "shortest": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "notation": {
+                        "type": "string",
+                        "enum": ["fixed", "scientific", "special"]
+                    },
+                    "min_digits": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 17
+                    },
+                    "predecessor_hex": {
+                        "type": ["string", "null"]
+                    },
+                    "successor_hex": {
+                        "type": ["string", "null"]
+                    }
+                }
+            }
+        },
+        "divergences": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "fast_output", "correct_output", "bug_class"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "fast_output": {
+                        "type": "string"
+                    },
+                    "correct_output": {
+                        "type": "string"
+                    },
+                    "bug_class": {
+                        "type": "string",
+                        "enum": ["negative_zero", "exponent_padding", "notation_selection"]
+                    }
+                }
+            }
+        },
+        "summary": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "type": "object",
+                "required": ["count", "scientific_count", "fixed_count", "special_count"],
+                "additionalProperties": false,
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "scientific_count": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "fixed_count": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "special_count": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                }
+            }
+        }
+    }
+}

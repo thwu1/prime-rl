@@ -1,0 +1,7 @@
+LLVM 17+ replaced typed pointers with a single opaque `ptr` type, erasing all pointee type information from the IR. Your task is to build a tool that recovers the concrete pointee type of every pointer-valued SSA variable in a set of LLVM IR modules that use opaque pointers.
+
+Implement `/app/type_deducer.py`. When run as `python3 /app/type_deducer.py`, it must read the `.ll` files in `/app/ir/` and write `/app/results.json` — a JSON object mapping `{filename: {function_name: {variable_name: pointee_type_string}}}`. Each pointer-valued variable (SSA registers like `%x` and globals like `@g`) must be mapped to its deduced pointee type using LLVM type syntax (`i32`, `double`, `%struct.Point`, `[256 x i8]`, `ptr`, etc.).
+
+Corresponding C source files are provided in `/app/src/` for reference. An LLVM toolchain (`clang`, `opt`, `llvm-as`, `llc`) is installed.
+
+The four IR modules cover diverse patterns: simple local allocations and loads/stores, nested named struct hierarchies, arrays and arrays-of-structs, pointer-to-pointer indirection, global variables, recursive struct types (linked lists, trees), functions that call other functions or themselves, PHI nodes merging pointers from different control-flow paths, and `select` instructions choosing between pointer operands at runtime. Your tool must produce correct types for all pointer variables across all modules.

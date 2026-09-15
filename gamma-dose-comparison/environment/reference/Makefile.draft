@@ -1,0 +1,13 @@
+# Makefile.draft -- incomplete
+#
+#
+# Must produce accel/libshell.so from accel/shell_kernel.c
+# Required targets: all (default), lib, clean
+# Remember: math library linkage is needed for ceil/sin/cos
+
+CC = gcc
+CFLAGS = -O2 -fPIC
+
+# TODO: define phony targets
+# TODO: define build rule for shared library
+# TODO: define clean rule

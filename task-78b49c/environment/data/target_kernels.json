@@ -1,0 +1,18 @@
+{
+  "TK1_gemm": {
+    "registers_per_thread": 44,
+    "shared_mem_per_block": 24576
+  },
+  "TK2_softmax": {
+    "registers_per_thread": 56,
+    "shared_mem_per_block": "block_size * 4"
+  },
+  "TK3_layernorm": {
+    "registers_per_thread": 36,
+    "shared_mem_per_block": "block_size * 8 + 512"
+  },
+  "TK4_conv2d": {
+    "registers_per_thread": 72,
+    "shared_mem_per_block": 16384
+  }
+}

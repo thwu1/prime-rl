@@ -1,0 +1,7 @@
+{
+  "transactions": [
+    {"id": 1, "status": "committed", "ops": [["append", "x", 1]]},
+    {"id": 2, "status": "committed", "ops": [["r", "x", [1]], ["append", "y", 2]]},
+    {"id": 3, "status": "committed", "ops": [["r", "y", [2]], ["r", "x", [1]]]}
+  ]
+}

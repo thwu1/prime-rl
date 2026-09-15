@@ -1,0 +1,5 @@
+temperature 298.15
+total_Na 0.01
+total_Cl 0.01
+total_Ca 1e-6
+total_C 1e-4

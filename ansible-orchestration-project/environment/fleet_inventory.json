@@ -1,0 +1,144 @@
+{
+  "fleet_version": "3.2",
+  "generated": "2024-11-20",
+  "hosts": [
+    {
+      "hostname": "localhost",
+      "fqdn": "web-prod-01.dc1.corp.net",
+      "ip": "127.0.0.1",
+      "datacenter": "us_east_1",
+      "role": "webserver",
+      "status": "active",
+      "resources": {
+        "cpu_cores": 4,
+        "memory_bytes": 8589934592,
+        "disk_bytes": 107374182400,
+        "allocated_cpu": 3,
+        "allocated_memory_bytes": 6442450944,
+        "allocated_disk_bytes": 85899345920
+      },
+      "network": {
+        "cidr": "10.10.0.0/23",
+        "vlan_id": 110,
+        "gateway": "10.10.0.1"
+      },
+      "compliance_tags": ["soc2", "pci-dss"],
+      "risk_score": 35
+    },
+    {
+      "hostname": "db-primary",
+      "fqdn": "db-primary.dc1.corp.net",
+      "ip": "10.20.1.50",
+      "datacenter": "us_east_1",
+      "role": "database",
+      "status": "active",
+      "resources": {
+        "cpu_cores": 8,
+        "memory_bytes": 17179869184,
+        "disk_bytes": 214748364800,
+        "allocated_cpu": 7,
+        "allocated_memory_bytes": 12884901888,
+        "allocated_disk_bytes": 161061273600
+      },
+      "network": {
+        "cidr": "10.20.0.0/22",
+        "vlan_id": 200,
+        "gateway": "10.20.0.1"
+      },
+      "compliance_tags": ["soc2", "hipaa"],
+      "risk_score": 72
+    },
+    {
+      "hostname": "cache-node",
+      "fqdn": "cache-node.dc2.corp.net",
+      "ip": "10.30.0.50",
+      "datacenter": "us_west_2",
+      "role": "cache",
+      "status": "active",
+      "resources": {
+        "cpu_cores": 4,
+        "memory_bytes": 17179869184,
+        "disk_bytes": 107374182400,
+        "allocated_cpu": 1,
+        "allocated_memory_bytes": 4294967296,
+        "allocated_disk_bytes": 26843545600
+      },
+      "network": {
+        "cidr": "10.30.0.0/25",
+        "vlan_id": 300,
+        "gateway": "10.30.0.1"
+      },
+      "compliance_tags": ["soc2"],
+      "risk_score": 12
+    },
+    {
+      "hostname": "app-worker-01",
+      "fqdn": "app-worker-01.dc2.corp.net",
+      "ip": "10.40.1.10",
+      "datacenter": "us_west_2",
+      "role": "application",
+      "status": "active",
+      "resources": {
+        "cpu_cores": 4,
+        "memory_bytes": 68719476736,
+        "disk_bytes": 214748364800,
+        "allocated_cpu": 3,
+        "allocated_memory_bytes": 51539607552,
+        "allocated_disk_bytes": 107374182400
+      },
+      "network": {
+        "cidr": "10.40.0.0/20",
+        "vlan_id": 400,
+        "gateway": "10.40.0.1"
+      },
+      "compliance_tags": ["soc2", "hipaa", "pci-dss"],
+      "risk_score": 45
+    },
+    {
+      "hostname": "monitor-srv",
+      "fqdn": "monitor-srv.dc1.corp.net",
+      "ip": "10.50.0.10",
+      "datacenter": "us_east_1",
+      "role": "monitoring",
+      "status": "active",
+      "resources": {
+        "cpu_cores": 2,
+        "memory_bytes": 4294967296,
+        "disk_bytes": 53687091200,
+        "allocated_cpu": 1,
+        "allocated_memory_bytes": 2147483648,
+        "allocated_disk_bytes": 26843545600
+      },
+      "network": {
+        "cidr": "10.50.0.0/28",
+        "vlan_id": 500,
+        "gateway": "10.50.0.1"
+      },
+      "compliance_tags": ["soc2"],
+      "risk_score": 18
+    },
+    {
+      "hostname": "legacy-db",
+      "fqdn": "legacy-db.dc1.corp.net",
+      "ip": "10.60.0.20",
+      "datacenter": "us_east_1",
+      "role": "database",
+      "status": "decommissioned",
+      "resources": {
+        "cpu_cores": 4,
+        "memory_bytes": 8589934592,
+        "disk_bytes": 107374182400,
+        "allocated_cpu": 2,
+        "allocated_memory_bytes": 4294967296,
+        "allocated_disk_bytes": 53687091200
+      },
+      "network": {
+        "cidr": "10.60.0.0/24",
+        "vlan_id": 600,
+        "gateway": "10.60.0.1"
+      },
+      "compliance_tags": [],
+      "risk_score": 95
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+POLYOMINO FIELD ORACLE - PROTOCOL SPECIFICATION
+================================================
+
+
+OVERVIEW
+
+  The oracle simulates hidden polyomino fields on N x N grids. Each field
+  has M polyominoes (connected shapes) placed at unknown random positions.
+  Grid cells may be covered by multiple polyominoes. For cell (i,j), define
+  v(i,j) as the count of polyominoes covering it.
+
+  Your task: identify all cells where v(i,j) > 0, within an operation budget.
+
+CONNECTION
+
+  TCP to 127.0.0.1 port 9999.
+  Line-based protocol: each command and response is a single line
+  terminated by newline (\n).
+
+COMMANDS
+
+  PING
+    Health check.
+    Response: PONG
+
+  INIT <case_id>
+    Start a session for the given case (0 through 4).
+    Response:
+      SESSION <sid> N=<n> M=<m> EPS=<epsilon> MAXOPS=<max_ops> SHAPES=<shapes>
+    Where <shapes> is a pipe-separated list of polyomino shapes. Each shape
+    is a semicolon-separated list of relative cell coordinates (row,col).
+    Only shapes are given — positions are hidden.
+
+  DRILL <sid> <row> <col>
+    Exact point query. Returns the true value v(row, col).
+    Cost: 1.0 per query.
+    Response: OK VALUE=<v> COST=<cost> TOTAL=<total_cost> OPS=<num_ops>
+
+  DIVINE <sid> <cell_list>
+    Noisy group query over k >= 2 cells.
+    <cell_list> format: r1,c1;r2,c2;...;rk,ck
+
+    Let S denote the queried cell set and v(S) = sum of v(i,j) for (i,j) in S.
+    The returned value is:
+        result = max(0, round(X))
+    where X is sampled from Normal(mu, sigma^2) with:
+        mu    = (k - v(S)) * epsilon + v(S) * (1 - epsilon)
+        sigma = sqrt(k * epsilon * (1 - epsilon))
+
+    Cost: 1 / sqrt(k)
+    Response: OK VALUE=<v> COST=<cost> TOTAL=<total_cost> OPS=<num_ops>
+
+  SUBMIT <sid> <cell_list>
+    Submit the set of cells believed to have v(i,j) > 0.
+    <cell_list> format: r1,c1;r2,c2;...
+    Response: OK CORRECT=<0|1> PREC=<precision> RECALL=<recall> TOTAL=<total_cost>
+
+  STATUS <sid>
+    Query session state.
+    Response: OK COST=<cost> OPS=<num_ops> MAXOPS=<max_ops>
+
+  QUIT
+    Close connection gracefully.
+    Response: BYE
+
+ERROR HANDLING
+
+  Invalid commands return: ERROR <description>
+  Out-of-bounds cells, exceeded operation limits, and unknown sessions
+  all produce ERROR responses.
+
+LIMITS
+
+  Maximum operations per session: 2 * N^2.
+  There are 5 test cases (case_id 0 through 4), all with N = 20.

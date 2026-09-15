@@ -1,0 +1,142 @@
+Kafka Wire Protocol Reference
+==============================
+
+Transport: TCP. All multi-byte integers are big-endian (network byte order).
+
+Each request/response is length-prefixed:
+  int32  MessageSize -- byte count of everything AFTER this 4-byte field
+
+================================================================================
+REQUEST HEADERS
+================================================================================
+
+Request Header v1 (used by Metadata v0-v8, Fetch v0-v11):
+  int16  ApiKey
+  int16  ApiVersion
+  int32  CorrelationId
+  int16  ClientIdLength (-1 = null)
+  bytes  ClientId (ClientIdLength bytes; absent if length < 0)
+
+Request Header v2 (used by ApiVersions v3+; adds tagged field buffer):
+  int16  ApiKey
+  int16  ApiVersion
+  int32  CorrelationId
+  int16  ClientIdLength (-1 = null)
+  bytes  ClientId
+  uvarint TagBuffer (0 = empty; number of tagged fields, not byte count)
+
+================================================================================
+RESPONSE HEADERS
+================================================================================
+
+Response Header v0 (used by ApiVersions for ALL versions, Metadata v0-v8,
+                    Fetch v0-v11):
+  int32  CorrelationId
+
+Note: ApiVersions ALWAYS uses response header v0, even for v3+ responses.
+This is a special case because ApiVersions bootstraps version negotiation.
+
+================================================================================
+TYPE ENCODINGS
+================================================================================
+
+  STRING           int16 length prefix, then UTF-8 bytes. Length -1 = null.
+  NULLABLE_STRING  Same encoding as STRING; length -1 = null.
+  BOOLEAN          int8 (0 = false, 1 = true)
+  ARRAY            int32 element count, then elements. Count -1 = null array.
+  COMPACT_ARRAY    uvarint(count + 1), then elements. Value 0 = null array.
+  COMPACT_STRING   uvarint(length + 1), then UTF-8 bytes. Value 0 = null.
+  RECORDS          int32 byte count, then raw bytes (RecordBatch data).
+
+  uvarint encoding (unsigned variable-length integer):
+    Encode 7 bits per byte, LSB first. Set bit 7 (0x80) on all bytes
+    except the final byte. Examples: 0 -> 0x00, 4 -> 0x04, 128 -> 0x80 0x01
+
+================================================================================
+ApiVersions (API Key 18)
+================================================================================
+
+Request v3 body (flexible version):
+  COMPACT_STRING  ClientSoftwareName
+  COMPACT_STRING  ClientSoftwareVersion
+  uvarint         TagBuffer (0)
+
+Response v0-v2 body (non-flexible):
+  int16           ErrorCode (0 = success, 35 = UNSUPPORTED_VERSION)
+  ARRAY of:
+    int16         ApiKey
+    int16         MinVersion
+    int16         MaxVersion
+  int32           ThrottleTimeMs   [present in v1+]
+
+Response v3 body (flexible version):
+  int16           ErrorCode
+  COMPACT_ARRAY of:
+    int16         ApiKey
+    int16         MinVersion
+    int16         MaxVersion
+    uvarint       TagBuffer (0)
+  int32           ThrottleTimeMs
+  uvarint         TagBuffer (0)
+
+================================================================================
+Metadata (API Key 3)
+================================================================================
+
+Request v0 body:
+  ARRAY<STRING>   TopicNames
+    Empty array (count 0) = request all topics.
+
+Request v1 body:
+  ARRAY<NULLABLE_STRING>  TopicNames
+    Null array (count -1) = request all topics.
+
+Response v1 body:
+  ARRAY of Broker:
+    int32           NodeId
+    STRING          Host
+    int32           Port
+    NULLABLE_STRING Rack
+  int32             ControllerId
+  ARRAY of TopicMetadata:
+    int16           ErrorCode
+    STRING          TopicName
+    BOOLEAN         IsInternal
+    ARRAY of PartitionMetadata:
+      int16         ErrorCode
+      int32         PartitionIndex
+      int32         LeaderId
+      ARRAY<int32>  ReplicaNodes
+      ARRAY<int32>  IsrNodes
+
+================================================================================
+Fetch (API Key 1)
+================================================================================
+
+Request v4 body:
+  int32           ReplicaId (-1 for consumers)
+  int32           MaxWaitMs
+  int32           MinBytes
+  int32           MaxBytes          [present in v3+]
+  int8            IsolationLevel    [present in v4+, 0 = READ_UNCOMMITTED]
+  ARRAY of FetchTopic:
+    STRING        TopicName
+    ARRAY of FetchPartition:
+      int32       PartitionIndex
+      int64       FetchOffset
+      int32       PartitionMaxBytes
+
+Response v4 body:
+  int32           ThrottleTimeMs    [present in v1+]
+  ARRAY of TopicResponse:
+    STRING        TopicName
+    ARRAY of PartitionResponse:
+      int32       PartitionIndex
+      int16       ErrorCode
+      int64       HighWatermark
+      int64       LastStableOffset  [present in v4+]
+      ARRAY of AbortedTransaction:  [present in v4+, typically empty]
+        int64     ProducerId
+        int64     FirstOffset
+      RECORDS     RecordData (raw RecordBatch bytes; may contain multiple
+                  concatenated batches; size prefix = total byte count)

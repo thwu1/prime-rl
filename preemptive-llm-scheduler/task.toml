@@ -1,0 +1,53 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of paged KV cache memory management
+(PagedAttention), preemptive scheduling theory, and SLO-aware prioritization in LLM serving systems.
+The agent must first calibrate the simulator's disaggregated-memory bandwidth using iperf3 and
+understand the calibration formula, then analyze workload traces (using sqlite3 or structured
+JSONL analysis) to understand the pathology of the FCFS baseline. Designing the scheduler requires
+holistic reasoning about how page-level eviction costs interact with preemption frequency, how
+SLO tier deadlines constrain scheduling policy, and how the tight 256-page GPU memory budget
+makes naive aggressive preemption counterproductive due to page swap overhead. No algorithm is
+prescribed — the agent must make design trade-offs between quantum sizes, priority levels,
+skip-join thresholds, memory-pressure-aware preemption gating, and SLO-tier boosting."""
+solution_explanation = """Calibrate bandwidth via iperf3 on localhost, parse JSON output to derive
+the RDMA fabric bandwidth parameter. Implement a 4-level MLFQ with skip-join placement based on
+input token count (thresholds at 50/200/800 tokens) and exponentially increasing quanta
+(16/32/64/128 tokens). SLO tier-0 requests receive a priority boost (one level up). Preemption
+by higher-priority arrivals preserves the current level (no demotion penalty); quantum exhaustion
+demotes by one. Page-awareness: when GPU memory pressure is high (many pages allocated to
+preempted requests), skip preemption for requests with large swap costs to avoid cascading
+eviction overhead. The finite workload ensures all levels drain without explicit anti-starvation."""
+verification_explanation = """Tests first verify the calibration file exists with valid bandwidth
+measurements (iperf3 output parsing). Then they run the deterministic simulation with both FCFS
+and the custom scheduler on the same seeded 500-request workload. They verify: (1) scheduler class
+exists and extends Scheduler, (2) all 500 requests complete, (3) completion times are valid,
+(4) no duplicate completions, (5) average JCT <= 50% of FCFS, (6) short-request average JCT
+<= 25% of FCFS, (7) SLO compliance >= 60%, (8) preemption occurs, (9) short requests have
+lower avg JCT than long requests."""
+category = "systems"
+tags = ["scheduling", "llm-inference"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/preemptive-llm-scheduler"

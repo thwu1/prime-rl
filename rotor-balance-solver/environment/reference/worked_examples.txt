@@ -1,0 +1,59 @@
+WORKED EXAMPLES - BALANCE ANALYSIS
+
+Example 1: Four-Plane Rotating Balance
+---------------------------------------
+Shaft with four planes. Known masses:
+  Plane A: 2.0 kg at radius 50 mm, angle 0 degrees, axial position 0.0 m
+  Plane B: 3.0 kg at radius 40 mm, angle 60 degrees, axial position 0.15 m
+Correction planes:
+  Plane C: radius 60 mm, axial position 0.05 m
+  Plane D: radius 50 mm, axial position 0.25 m
+
+Results:
+  Correction C: 2.725 kg at 198.5 degrees
+  Correction D: 1.044 kg at 264.5 degrees
+  Both post-correction residuals < 1e-9
+
+
+Example 2: Three-Cylinder Inline Engine (120 degree spacing)
+-------------------------------------------------------------
+Equal reciprocating masses: 0.5 kg each
+Crank radius: 50 mm, connecting rod length: 150 mm
+Crank angles: 0, 120, 240 degrees
+Axial positions: 0.0, 0.1, 0.2 m
+Reference plane at 0.0 m
+Speed: 100 rad/s
+
+Results:
+  Primary force: BALANCED (resultant = 0)
+  Secondary force: BALANCED (resultant = 0)
+  Primary moment: UNBALANCED (resultant MRx = 0.004330 kg-m^2)
+  Secondary moment: UNBALANCED
+
+
+Example 3: Flywheel Sizing
+---------------------------
+Torque variation: T(theta) = 500 + 300*sin(theta) over one revolution (2*pi)
+Mean operating speed: 300 rev/min
+Target coefficient of fluctuation of speed: 0.05
+
+Results:
+  Mean torque: 500.0 Nm
+  Energy per cycle: 3141.6 J
+  Maximum energy fluctuation: 600.0 J
+  Required flywheel inertia: 12.159 kg-m^2
+
+
+Example 4: Two-Cylinder Opposed Engine (180 degree)
+-----------------------------------------------------
+Equal reciprocating masses: 0.3 kg each
+Crank radius: 40 mm, connecting rod length: 160 mm
+Crank angles: 0, 180 degrees
+Axial positions: 0.0, 0.15 m
+Speed: 80 rad/s
+
+Results:
+  Primary force: BALANCED
+  Secondary force: UNBALANCED (both cranks contribute in phase at 2*theta)
+  Primary moment: UNBALANCED (force couple due to offset)
+  Secondary moment: UNBALANCED

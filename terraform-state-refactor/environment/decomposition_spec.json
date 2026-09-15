@@ -1,0 +1,56 @@
+{
+  "description": "Decomposition specification for reorganizing a monolithic Terraform deployment into a module hierarchy",
+  "target_structure": {
+    "module.networking": {
+      "resource_types": ["aws_vpc", "aws_subnet", "aws_security_group", "aws_nat_gateway"]
+    },
+    "module.compute": {
+      "resource_types": ["aws_iam_role"]
+    },
+    "module.compute.module.web_servers": {
+      "resources": ["aws_instance.web"]
+    },
+    "module.compute.module.workers": {
+      "resources": ["aws_instance.worker"]
+    },
+    "module.database": {
+      "resource_types": ["aws_db_instance"]
+    },
+    "module.storage": {
+      "resources": ["aws_s3_bucket.logs", "aws_s3_bucket.assets"]
+    },
+    "module.storage.module.replication": {
+      "resources": ["aws_s3_bucket.replica"]
+    }
+  },
+  "renames": {
+    "aws_vpc.main": "this",
+    "aws_security_group.web_sg": "web",
+    "aws_security_group.db_sg": "database",
+    "aws_instance.web": "this",
+    "aws_instance.worker": "this",
+    "aws_db_instance.replica": "read_replica",
+    "aws_iam_role.ec2_role": "instance_role",
+    "aws_nat_gateway.main": "az",
+    "aws_s3_bucket.replica": "target"
+  },
+  "index_conversions": {
+    "aws_subnet.public": {
+      "strategy": "count_to_for_each",
+      "key_from_attribute": "availability_zone"
+    },
+    "aws_instance.web": {
+      "strategy": "count_to_for_each",
+      "key_map": {"0": "primary", "1": "secondary"}
+    },
+    "aws_instance.worker": {
+      "strategy": "count_to_for_each",
+      "key_map": {"0": "w1", "1": "w2", "2": "w3"}
+    },
+    "aws_nat_gateway.main": {
+      "strategy": "count_to_for_each",
+      "key_from_tag": "Name",
+      "key_pattern": "nat-(.*)"
+    }
+  }
+}

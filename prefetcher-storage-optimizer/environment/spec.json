@@ -1,0 +1,25 @@
+{
+  "budget_bits": 1048576,
+  "budget_description": "128 KB = 1048576 bits, the IPC-1 competition storage limit",
+  "fixed_params": {
+    "NTARGETS": 3,
+    "CBITS": 4,
+    "TAGBITS": 16,
+    "LHT_RPBITS": 3,
+    "SCC_LOGSETS": 5,
+    "SCC_NUMWAYS": 4,
+    "SCC_RPBITS": 2,
+    "NSCOUTS": 4
+  },
+  "variable_params": {
+    "OFFSETBITS": {"min": 12, "max": 28},
+    "LHT_LOGSETS": {"min": 6, "max": 14},
+    "LHT_NUMWAYS": {"min": 1, "max": 16}
+  },
+  "metrics": {
+    "lht_entries": "Total LHT entries = 2^LHT_LOGSETS * LHT_NUMWAYS",
+    "max_reach": "Maximum prefetch distance in cache lines = 2^(OFFSETBITS-1)"
+  },
+  "combined_metric": "harmonic_mean(lht_entries, max_reach) = 2*lht_entries*max_reach/(lht_entries+max_reach)",
+  "output_file": "/app/results.json"
+}

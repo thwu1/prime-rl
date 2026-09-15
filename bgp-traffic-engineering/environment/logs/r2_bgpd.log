@@ -1,0 +1,16 @@
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.255.0.3 (AS65002 iBGP)
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.0.12.1 (AS65001)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.0.12.1 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.255.0.3 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:04 BGP: [DWHJZ] 10.0.12.1 [FSM] TCP_connection_open (Connect -> OpenSent)
+2024/01/15 10:00:04 BGP: [DWHJZ] 10.0.12.1 [FSM] BGP_Open_Rcvd (OpenSent -> OpenConfirm)
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.0.12.1 [FSM] BGP_Keepalive_Rcvd (OpenConfirm -> Established)
+2024/01/15 10:00:05 BGP: [KYHQX] %ADJCHANGE: neighbor 10.0.12.1 (AS65001) Up
+2024/01/15 10:00:05 BGP: [YBXMH] 10.255.0.3 [Event] Connect start to 10.255.0.3 fd 23
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.255.0.3 [FSM] TCP_connection_open (Connect -> OpenSent)
+2024/01/15 10:00:05 BGP: [PYBMN] 10.255.0.3 [Event] Received TCP RST from 10.255.0.3
+2024/01/15 10:00:05 BGP: [DWHJZ] 10.255.0.3 [FSM] TCP_connection_open_failed (OpenSent -> Active)
+2024/01/15 10:00:35 BGP: [YBXMH] 10.255.0.3 Active: retry timer expired
+2024/01/15 10:00:35 BGP: [DWHJZ] 10.255.0.3 [FSM] TCP_connection_open (Active -> Connect)
+2024/01/15 10:00:35 BGP: [PYBMN] 10.255.0.3 [Event] Received TCP RST from 10.255.0.3
+2024/01/15 10:00:35 BGP: [DWHJZ] 10.255.0.3 [FSM] TCP_connection_open_failed (Connect -> Active)

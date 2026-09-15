@@ -1,0 +1,7 @@
+{
+    "source_file": "timer_queue.c",
+    "bug_id": "bug_004",
+    "patch_id": "patch_b",
+    "target_function": "tq_expire_first",
+    "replacement": "void tq_expire_first(struct timer_queue *tq) {\n    if (tq->count == 0) return;\n\n    struct timer_entry *te = tq->timers[0];\n\n    for (int i = 0; i < tq->count - 1; i++)\n        tq->timers[i] = tq->timers[i + 1];\n    tq->timers[tq->count - 1] = NULL;\n    tq->count--;\n\n    /* Save state to stack before freeing */\n    int saved_id = te->id;\n    char saved_name[32];\n    strncpy(saved_name, te->callback_name, 31);\n    saved_name[31] = '\\0';\n\n    free(te);\n\n    printf(\"firing timer %d: %s\\n\", saved_id, saved_name);\n}"
+}

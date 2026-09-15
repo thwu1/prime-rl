@@ -1,0 +1,28 @@
+[2023-11-14T22:10:01.234Z] daemon.scheduler INFO  Tick evaluation cycle starting
+[2023-11-14T22:10:01.456Z] daemon.storage  WARN  EventLogStorage.get_logs_for_run(deleted_run_0003): found 7 events but RunStorage.get_run raised RunNotFoundError
+[2023-11-14T22:10:01.678Z] daemon.storage  WARN  EventLogStorage.get_logs_for_run(deleted_run_0147): found 3 events but RunStorage.get_run raised RunNotFoundError
+[2023-11-14T22:10:02.012Z] daemon.storage  ERROR AssetKeyStatusCache: cached last_materialization_timestamp for 'cleaned_events' does not match computed value from event_logs
+[2023-11-14T22:10:02.345Z] daemon.storage  ERROR AssetKeyStatusCache: cached last_run_id for 'hourly_event_counts' does not match run of latest ASSET_MATERIALIZATION event
+[2023-11-14T22:10:02.567Z] daemon.storage  WARN  AssetKeyStatusCache: 8 of 15 asset_keys entries have stale metadata
+[2023-11-14T22:10:03.001Z] daemon.runs     WARN  Run 'zombie_run_004': status=STARTED, last update 35.2 days ago, no heartbeat
+[2023-11-14T22:10:03.234Z] daemon.runs     WARN  Run 'zombie_run_007': status=STARTED, last update 22.8 days ago, no heartbeat
+[2023-11-14T22:10:03.456Z] daemon.runs     WARN  10 runs stuck in STARTED with stale update_timestamp
+[2023-11-14T22:10:04.567Z] daemon.sensor   WARN  SensorTick(origin_event_sensor, id=12847): status=STARTED for 72.4h, no end_timestamp
+[2023-11-14T22:10:04.789Z] daemon.sensor   WARN  SensorTick(origin_schedule_daily, id=12903): status=STARTED for 48.1h, no end_timestamp
+[2023-11-14T22:10:05.012Z] daemon.sensor   WARN  Multiple sensor/schedule ticks stuck in STARTED state
+[2023-11-14T22:11:00.123Z] daemon.perf     SLOW  query=EVENTS_BY_RUN elapsed=3.2s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:01.456Z] daemon.perf     SLOW  query=LATEST_MATERIALIZATION elapsed=4.1s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:02.789Z] daemon.perf     SLOW  query=TICKS_BY_ORIGIN elapsed=2.8s plan="SCAN TABLE job_ticks"
+[2023-11-14T22:11:03.012Z] daemon.perf     SLOW  query=EVENTS_BY_TYPE_TIMERANGE elapsed=3.7s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:03.345Z] daemon.perf     SLOW  query=EVENTS_BY_ASSET_PARTITION elapsed=2.9s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:03.678Z] daemon.perf     SLOW  query=MAT_TIMESTAMPS_BY_ASSET elapsed=5.3s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:03.901Z] daemon.perf     SLOW  query=EVENT_COUNTS_BY_TIMERANGE elapsed=4.2s plan="SCAN TABLE event_logs"
+[2023-11-14T22:11:04.123Z] daemon.perf     INFO  7 hot-path queries performing full table scans; see /app/queries.py for workload
+[2023-11-14T22:11:05.123Z] daemon.reconc   ERROR ReconciliationEngine: topological_sort output is missing nodes that appear only as upstream dependencies
+[2023-11-14T22:11:06.456Z] daemon.reconc   ERROR PartitionMapper: get_weekly_partition_for_daily('2023-11-13') returned incorrect Monday alignment
+[2023-11-14T22:11:07.789Z] daemon.reconc   WARN  StalenessChecker: asset 'dashboard_cache' classified as fresh despite upstream 'daily_event_aggregates' having newer materialization
+[2023-11-14T22:11:08.012Z] daemon.reconc   WARN  ReconciliationPlan: downstream asset 'weekly_reports' not included in plan despite depending on stale upstream 'daily_user_metrics'
+[2023-11-14T22:11:08.345Z] daemon.reconc   ERROR PartitionValidator: validate_partition_completeness reports week complete but downstream materialization failed due to missing input partition
+[2023-11-14T22:12:30.123Z] daemon.storage  WARN  DuplicateEventDetector: 30 (asset_key, partition_key, run_id) groups with multiple ASSET_MATERIALIZATION events
+[2023-11-14T22:13:00.456Z] daemon.storage  WARN  event_logs table approaching storage threshold; retention policy not yet applied
+[2023-11-14T22:14:00.345Z] daemon.scheduler INFO  Tick evaluation cycle complete in 234.7s (degraded)

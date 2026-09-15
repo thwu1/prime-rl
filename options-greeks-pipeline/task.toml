@@ -1,0 +1,64 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires cross-format pipeline orchestration (proprietary binary parsing with struct,
+SQLite database querying for reference data, TOML configuration parsing, SQLite output
+writing with schema creation) combined with expert-level quantitative finance knowledge.
+The agent must independently recognize from the contract_type metadata that these are
+futures options and select the correct pricing model — which differs from equity options
+in discounting, delta formulation, and rho computation. The agent must implement
+numerical implied volatility solving, derive all five Greeks with proper futures-option
+formulas, interpret reporting convention specifications from TOML config, and detect
+put-call parity arbitrage using the futures-specific parity relationship. No algorithms,
+formulas, or model names are provided in the instructions.
+"""
+solution_explanation = """
+Parse config.toml with tomllib for market parameters and conventions. Query reference.db
+via sqlite3 for instrument definitions including contract_type='futures_option'. Parse
+OPTQ v1 binary format using struct: 16-byte header followed by 48-byte records. Filter
+heartbeats (instrument_id=0), handle INT64_MAX sentinel prices, and deduplicate by
+(instrument_id, exchange_id, sequence) keeping earliest timestamp. Compute NBBO as
+max valid bid / min valid ask across exchanges per instrument. Recognize futures options
+require Black-76 model (not Black-Scholes). Derive implied volatility via bisection.
+Compute all five Greeks with Black-76 formulas, applying convention scaling: theta per
+trading day, vega and rho per percentage point. Detect put-call parity violations using
+futures parity C-P = e^{-rT}(F-K). Write all results to SQLite output database with
+proper table schemas.
+"""
+verification_explanation = """
+Tests independently parse the binary data and query the reference database to verify
+NBBO computation. The output SQLite database is checked for correct table structure
+(5 tables: nbbo, implied_volatility, greeks, parity_violations). Implied volatility is
+verified by round-trip: Black76(F,K,T,IV) must reproduce the NBBO mid-price within
+tolerance. Greeks are validated against mathematical constraints specific to futures
+options: call delta in [0,1], put delta in [-1,0], put-call delta parity (delta_call -
+delta_put = e^{-rT}), gamma/vega positivity, and rho non-positivity (which distinguishes
+Black-76 from equity Black-Scholes). Parity violations are checked for correct strike
+identification, threshold exceedance, and formula consistency.
+"""
+category = "applied_computing"
+tags = ["financial-engineering", "multi-format-pipeline"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/options-greeks-pipeline"

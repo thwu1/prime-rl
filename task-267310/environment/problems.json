@@ -1,0 +1,57 @@
+{
+  "description": "Singularly Perturbed Boundary Value Problem Test Suite. Each problem is a second-order ODE eps*z''=f(t,z,z') rewritten as a first-order system y1'=y2, y2'=g(t,y1,y2,eps). Solve each for all listed epsilon values and output the solution y1(t) at 201 evenly-spaced points.",
+  "evaluation_points": 201,
+  "output_file": "/app/results.json",
+  "problems": {
+    "exponential_layer": {
+      "ode": "eps*z'' = z'",
+      "domain": [0.0, 1.0],
+      "y1_prime": "y2",
+      "y2_prime": "y2 / eps",
+      "bc_left_y1": 1.0,
+      "bc_right_y1": 0.0,
+      "epsilon_values": [0.1, 0.01, 0.001, 0.0001],
+      "notes": "Boundary layer of width O(eps) near t=1."
+    },
+    "turning_point_shock": {
+      "ode": "eps*z'' = -t*z' - eps*pi^2*cos(pi*t) - pi*t*sin(pi*t)",
+      "domain": [-1.0, 1.0],
+      "y1_prime": "y2",
+      "y2_prime": "(-t*y2 - eps*pi^2*cos(pi*t) - pi*t*sin(pi*t)) / eps",
+      "bc_left_y1": -2.0,
+      "bc_right_y1": 0.0,
+      "epsilon_values": [0.1, 0.01, 0.001, 0.0001],
+      "notes": "Interior shock layer near the turning point at t=0."
+    },
+    "dual_boundary_layers": {
+      "ode": "eps*z'' = z - (1 + eps*pi^2)*cos(pi*t)",
+      "domain": [-1.0, 1.0],
+      "y1_prime": "y2",
+      "y2_prime": "(y1 - (1 + eps*pi^2)*cos(pi*t)) / eps",
+      "bc_left_y1": "exp(-2/sqrt(eps))",
+      "bc_right_y1": "exp(-2/sqrt(eps))",
+      "epsilon_values": [0.1, 0.01, 0.001, 0.0001],
+      "notes": "Boundary layers of width O(sqrt(eps)) at both t=-1 and t=1. Boundary values depend on eps."
+    },
+    "nonlinear_corner": {
+      "ode": "eps*z'' = -(z')^2 + 1",
+      "domain": [0.0, 1.0],
+      "y1_prime": "y2",
+      "y2_prime": "(-y2^2 + 1) / eps",
+      "bc_left_y1": "1 + eps*ln(cosh(0.745/eps))",
+      "bc_right_y1": "1 + eps*ln(cosh(0.255/eps))",
+      "epsilon_values": [0.1, 0.01, 0.001, 0.0001],
+      "notes": "Nonlinear problem with corner layer at t=0.745. Boundary values depend on eps."
+    },
+    "double_corner_layers": {
+      "ode": "eps*z'' = -z*z' + z",
+      "domain": [0.0, 1.0],
+      "y1_prime": "y2",
+      "y2_prime": "(-y1*y2 + y1) / eps",
+      "bc_left_y1": -0.3333333333333333,
+      "bc_right_y1": 0.3333333333333333,
+      "epsilon_values": [0.1, 0.01, 0.001, 0.0001],
+      "notes": "Nonlinear problem. No known exact solution. Corner layers at t=1/3 and t=2/3."
+    }
+  }
+}

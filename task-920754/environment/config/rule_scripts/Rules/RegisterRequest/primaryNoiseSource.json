@@ -1,0 +1,19 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "ImportScript",
+            "description": "",
+            "parameters": {
+                "scriptFile": "CommonRules/notNullAndNotWhitespace.json"
+            }
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Primary noise source description must be at most 64 characters",
+            "parameters": {
+                "ruleText": "currentProperty.Length <= 64"
+            }
+        }
+    ]
+}

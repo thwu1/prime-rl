@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic knowledge spanning four ACVP algorithm families including two that demand Monte Carlo Test (MCT) implementation — a multi-layer iteration algorithm that cannot be solved by simply calling library functions. The solver must: (1) parse NIST ACVP JSON schemas to infer required computations from algorithm, testType, direction, and group-level fields across AES-GCM, HMAC-SHA2-256, SHA2-256, and AES-CBC, (2) implement the SHA-256 MCT iteration algorithm (100 outer x 1000 inner iterations with a 3-message sliding window: SHA-256(MD[j-3]||MD[j-2]||MD[j-1])) which requires understanding the ACVP specification's exact chained hashing procedure, (3) implement the AES-CBC MCT state machine (100 outer x 1000 inner iterations with plaintext/IV feedback and key update via XOR with the last ciphertext block) which requires deep understanding of CBC mode internals and the ACVP-specified iteration algorithm, (4) correctly handle AES-GCM authentication failures including non-96-bit IV processing and tag verification, (5) implement HMAC with per-test-case output truncation governed by macLen fields, and (6) systematically compare vendor responses against independently computed results across 27 test cases to identify the exact set of 14 discrepancies caused by four distinct implementation flaws."""
+solution_explanation = """Build a Python processor using pycryptodome for AES operations and stdlib hashlib/hmac for hash and MAC operations. For each vector file, dispatch to the appropriate handler based on the algorithm field. For AES-GCM: use decrypt_and_verify to catch authentication failures, handle non-96-bit IVs by passing full IV to the nonce parameter. For HMAC: truncate digest to macLen//8 bytes. For SHA-256 MCT: implement the ACVP MCT algorithm with MD[j] = SHA-256(MD[j-3]||MD[j-2]||MD[j-1]) for j=3..1002 across 100 outer iterations. For AES-CBC MCT: implement the 100x1000 iteration algorithm with correct plaintext feedback (PT[j+1]=CT[j-1] for j>0, PT[1]=IV) and key update (Key[i+1]=Key[i] XOR CT[999]). Compare computed results against vendor responses, build discrepancy report with field-level diffs."""
+verification_explanation = """Tests independently compute expected discrepancies at runtime by comparing vendor response files against known-correct expected results stored in /tests/expected/. Validates: (1) all four result files exist with correct vsId/algorithm metadata, (2) every computed result including all 100 MCT iteration outputs matches the expected correct value byte-exact across all 27 test cases, (3) audit report has valid structure with required fields, (4) total test case and discrepancy counts match independently computed ground truth, (5) per-file discrepancy counts match, (6) specific (tgId, tcId) pairs of reported discrepancies exactly match the set found by independent comparison."""
+category = "cryptography"
+tags = ["nist-acvp", "monte-carlo-test"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c5533a"

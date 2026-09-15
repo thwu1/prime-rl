@@ -1,0 +1,7 @@
+[
+  {"status": "ok", "pa": "0x10000100", "page_size": 4096},
+  {"status": "fault", "cause": "store_page_fault"},
+  {"status": "ok", "pa": "0x8abcdef0", "page_size": 1073741824},
+  {"status": "fault", "cause": "load_page_fault"},
+  {"status": "ok", "pa": "0x10003000", "page_size": 4096}
+]

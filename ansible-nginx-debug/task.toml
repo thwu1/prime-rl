@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Ansible knowledge across three distinct competency tiers. First, the solver must independently diagnose 7 interrelated defects spanning Ansible's variable precedence hierarchy, inventory group inheritance, Jinja2 template rendering, handler cross-role coupling, YAML type coercion, unguarded variable references, and dictionary hash_behaviour — several of which are 'silent' corruption bugs producing wrong output without errors. Second, the solver must create a novel fourth infrastructure tier (caching proxy) from scratch, making non-trivial architectural decisions about inventory placement, variable naming strategy, and template extension that demonstrate genuine understanding of the anti-patterns discovered during debugging — not just mechanical pattern-matching. Third, the solver must evaluate each defect at a meta-level, abstracting concrete bugs into named anti-patterns with reusable prevention principles, and justify their cache tier design decisions by explicit reference to those anti-patterns. This combination of diagnosis, architectural creation, and design evaluation demands proficient-to-expert infrastructure-as-code expertise."""
+solution_explanation = """Seven defects are identified and fixed: inventory hierarchy (backend sibling vs child of webservers), role vars precedence shadowing group_vars, Jinja2 attribute name mismatch (upstream.servers vs members), boolean string comparison bypassing SSL, handler notification name mismatch across roles, unguarded rate_limit_zone variable reference, and dictionary replacement losing base HTTP parameters. A fourth cache tier is created under webservers.children with correct boolean SSL enablement, split variable naming (nginx_site_params), proxy_cache_path template extension, and upstream/proxy_pass configuration — each design choice explicitly avoiding a discovered anti-pattern. The architecture evaluation classifies bugs into 6 named anti-patterns with prevention principles and provides cache tier rationale covering group placement, SSL implementation, and variable strategy."""
+verification_explanation = """Tests first run the fixed playbook and verify it exits cleanly, then check 19+ configuration properties across all four tiers (frontend SSL, backend upstreams, monitoring proxy_pass, cache SSL/upstream/cache_path). Cache tier tests validate group inheritance (server_tokens off, gzip on), SSL configuration, proxy_cache_path directive, upstream blocks, and proxy_pass. Architecture review tests verify JSON structure with three required sections, minimum 6 bug entries with both severity levels, at least 4 named anti-patterns with substantive prevention principles (>20 chars), and cache tier rationale covering all three required design decision areas."""
+category = "infrastructure"
+tags = ["ansible", "nginx"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ansible-nginx-debug"

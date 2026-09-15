@@ -1,0 +1,24 @@
+{
+    "reference_bearing": {
+        "name": "NICE",
+        "description": "NICE bearing used in MFPT Society fault dataset",
+        "rd": 0.235,
+        "pd": 1.245,
+        "ne": 8,
+        "ca_deg": 0.0,
+        "outer_fixed": true
+    },
+    "defect_frequencies_at_25hz": {
+        "BPFO": 81.1245,
+        "BPFI": 118.8755,
+        "BSF": 127.728,
+        "FTF": 10.1406
+    },
+    "formula_notes": {
+        "BPFO": "Ball Pass Frequency Outer Race",
+        "BPFI": "Ball Pass Frequency Inner Race",
+        "BSF": "Ball Spin Frequency — uses D/d convention (pitch_diam / roller_diam), NOT D/(2d)",
+        "FTF": "Fundamental Train Frequency (cage frequency) — depends on which race is fixed",
+        "general": "BPFO and BPFI do not depend on which race is fixed. Only FTF changes."
+    }
+}

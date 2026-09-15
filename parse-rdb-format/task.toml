@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete binary file format parser for Redis's RDB dump format from scratch. The agent must reverse-engineer or research the underdocumented binary protocol (header, opcodes, length encoding with 4 prefix patterns), implement three string encodings (raw, integer 8/16/32-bit, LZF compressed), build an LZF decompression algorithm, parse Redis 7's listpack data structure (7+ entry encoding types with variable-length backlen), handle quicklist2 (nested listpacks), decode intset format, manage multi-database selectors with key expiry timestamps, and produce correctly structured JSON. The combination of binary parsing, compression algorithms, and complex nested data structures demands professional-level systems expertise."""
+solution_explanation = """The solution is a single-file Python RDB parser using only stdlib (struct, json, sys). Key components: (1) binary header parsing (magic + version), (2) Redis length encoding (6/14/32/64-bit plus special), (3) string decoding with int8/int16/int32 and LZF decompression, (4) listpack parsing supporting 7-bit uint, 6-bit/12-bit/32-bit strings, 13/16/24/32/64-bit integers with variable-length backlen, (5) quicklist2 support with packed (listpack) and plain node containers, (6) intset parsing, (7) opcode dispatch for AUX/SELECTDB/RESIZEDB/EXPIRETIME_MS/EOF. The parser reads the file sequentially and builds a dict of databases with typed key-value entries."""
+verification_explanation = """Tests run the parser against the pre-generated RDB file and verify JSON output. Individual tests check: database discovery (DBs 0 and 2), simple string values, integer-encoded strings (int8 42, int16 12345, int32 2147483647, negative -100), LZF-compressed long string decompression, hash field extraction from listpack, list ordering from quicklist2, set membership from both listpack and intset encodings, sorted set member-score pairs, key expiry timestamp accuracy, secondary database contents, and total key count across all databases."""
+category = "systems_engineering"
+tags = ["binary-parsing", "redis-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parse-rdb-format"

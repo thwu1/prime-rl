@@ -1,0 +1,43 @@
+{
+  "n_qubits": 12,
+  "gates": [
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [3]},
+    {"gate": "H", "targets": [6]},
+    {"gate": "H", "targets": [9]},
+
+    {"gate": "X", "targets": [1], "controls": [{"qubit": 0, "value": 1}]},
+    {"gate": "X", "targets": [4], "controls": [{"qubit": 3, "value": 1}]},
+    {"gate": "X", "targets": [7], "controls": [{"qubit": 6, "value": 1}]},
+    {"gate": "X", "targets": [10], "controls": [{"qubit": 9, "value": 1}]},
+
+    {"gate": "X", "targets": [2], "controls": [{"qubit": 0, "value": 1}, {"qubit": 1, "value": 1}]},
+    {"gate": "X", "targets": [5], "controls": [{"qubit": 3, "value": 1}, {"qubit": 4, "value": 1}]},
+    {"gate": "X", "targets": [8], "controls": [{"qubit": 6, "value": 1}, {"qubit": 7, "value": 1}]},
+    {"gate": "X", "targets": [11], "controls": [{"qubit": 9, "value": 1}, {"qubit": 10, "value": 1}]},
+
+    {"gate": "T", "targets": [2]},
+    {"gate": "S", "targets": [5]},
+    {"gate": "T", "targets": [8]},
+    {"gate": "S", "targets": [11]},
+
+    {"gate": "H", "targets": [2]},
+    {"gate": "H", "targets": [5]},
+
+    {"gate": "SWAP", "targets": [2, 5]},
+
+    {"gate": "Z", "targets": [8], "controls": [{"qubit": 2, "value": 1}]},
+    {"gate": "X", "targets": [11], "controls": [{"qubit": 5, "value": 0}]},
+
+    {"gate": "RZ", "targets": [0], "params": {"theta": 0.7853981633974483}},
+    {"gate": "RX", "targets": [3], "params": {"theta": 1.0471975511965976}},
+    {"gate": "RY", "targets": [6], "params": {"theta": 0.5235987755982988}},
+
+    {"gate": "CUSTOM", "targets": [3, 9], "matrix_real": [[0.5, 0.5, 0.5, 0.5], [0.5, -0.5, 0.5, -0.5], [0.5, 0.5, -0.5, -0.5], [0.5, -0.5, -0.5, 0.5]], "matrix_imag": [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]},
+
+    {"gate": "H", "targets": [8]},
+    {"gate": "H", "targets": [11]},
+
+    {"gate": "X", "targets": [0], "controls": [{"qubit": 8, "value": 1}, {"qubit": 11, "value": 1}]}
+  ]
+}

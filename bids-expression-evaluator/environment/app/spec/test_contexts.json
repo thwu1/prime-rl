@@ -1,0 +1,86 @@
+[
+  {
+    "id": "func_bold_valid",
+    "suffix": "bold",
+    "datatype": "func",
+    "extension": ".nii.gz",
+    "entities": {"sub": "01", "task": "rest", "run": "01"},
+    "sidecar": {
+      "RepetitionTime": 2.0,
+      "TaskName": "rest",
+      "EchoTime": 0.03,
+      "SliceTiming": [0, 0.5, 1.0],
+      "PhaseEncodingDirection": "j"
+    },
+    "columns": null
+  },
+  {
+    "id": "func_bold_missing_rt",
+    "suffix": "bold",
+    "datatype": "func",
+    "extension": ".nii.gz",
+    "entities": {"sub": "01", "task": "rest"},
+    "sidecar": {
+      "TaskName": "rest",
+      "EchoTime": 0.03
+    },
+    "columns": null
+  },
+  {
+    "id": "events_valid",
+    "suffix": "events",
+    "datatype": "func",
+    "extension": ".tsv",
+    "entities": {"sub": "01", "task": "rest"},
+    "sidecar": {"TaskName": "rest"},
+    "columns": ["onset", "duration", "trial_type"]
+  },
+  {
+    "id": "events_missing_columns",
+    "suffix": "events",
+    "datatype": "func",
+    "extension": ".tsv",
+    "entities": {"sub": "01", "task": "rest"},
+    "sidecar": {"TaskName": "rest"},
+    "columns": ["trial_type", "response"]
+  },
+  {
+    "id": "anat_t1w",
+    "suffix": "T1w",
+    "datatype": "anat",
+    "extension": ".nii.gz",
+    "entities": {"sub": "01"},
+    "sidecar": {
+      "EchoTime": 0.005
+    },
+    "columns": null
+  },
+  {
+    "id": "func_bold_bad_taskname",
+    "suffix": "bold",
+    "datatype": "func",
+    "extension": ".nii.gz",
+    "entities": {"sub": "01", "task": "my-rest"},
+    "sidecar": {
+      "RepetitionTime": 2.0,
+      "TaskName": "my-rest",
+      "EchoTime": 0.03
+    },
+    "columns": null
+  },
+  {
+    "id": "func_bold_bad_echotime",
+    "suffix": "bold",
+    "datatype": "func",
+    "extension": ".nii.gz",
+    "entities": {"sub": "01", "task": "rest"},
+    "sidecar": {
+      "RepetitionTime": 2.0,
+      "TaskName": "rest",
+      "EchoTime": 1.5,
+      "SliceTiming": [],
+      "PhaseEncodingDirection": "j"
+    },
+    "columns": null
+  }
+]

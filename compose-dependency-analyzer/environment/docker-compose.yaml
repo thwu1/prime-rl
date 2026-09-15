@@ -1,0 +1,182 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: maindb
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbit
+      RABBITMQ_DEFAULT_PASS: rabbit123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ./services/auth
+    ports:
+      - "8080:3000"
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres:5432/maindb
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: supersecretkey256bit
+      JWT_EXPIRY: 3600
+      NOTIFICATION_CALLBACK_URL: http://notification-service:3004/callbacks
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - shared_data:/data/shared
+
+  user-service:
+    build:
+      context: ./services/user
+    ports:
+      - "8080:3001"
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres:5432/maindb
+      AUTH_SERVICE_URL: http://auth-service:3000
+      CACHE_SERVICE_URL: http://cache-service:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - shared_data:/data/shared
+
+  product-service:
+    build:
+      context: ./services/product
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres:5432/maindb
+      REDIS_URL: redis://redis:6379
+      SEARCH_INDEX_PATH: /data/index
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - product_index:/data/index
+
+  order-service:
+    build:
+      context: ./services/order
+    ports:
+      - "3003:3003"
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres:5432/maindb
+      RABBITMQ_URL: amqp://rabbit:rabbit123@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      INVENTORY_SERVICE_URL: http://inventory-service:3010
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: ./services/notification
+    ports:
+      - "3004:3004"
+    environment:
+      RABBITMQ_URL: amqp://rabbit:rabbit123@rabbitmq:5672
+      USER_SERVICE_URL: http://user-service:3001
+      AUTH_SERVICE_URL: http://auth-service:3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./services/gateway
+    ports:
+      - "80:8000"
+      - "443:8443"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:3000
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+      EXTERNAL_PAYMENT_API: https://api.stripe.com/v1/charges
+      RATE_LIMIT_STORE: redis://redis:6379/1
+      CORS_ORIGINS: "*"
+    depends_on:
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./services/worker
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres:5432/maindb
+      RABBITMQ_URL: amqp://rabbit:rabbit123@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  monitoring:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+volumes:
+  pg_data:
+  product_index:
+  shared_data:
+  prometheus_data:

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a GDL state machine engine requires multi-tool proficiency: (1) translating KIF s-expressions to valid SWI-Prolog source code, handling the impedance mismatch between KIF variable syntax (?x), GDL keywords, and Prolog's syntactic conventions (uppercase variables, operator precedence, quoting); (2) writing Prolog inference predicates that correctly implement GDL semantics including dynamic assertion of state/move context, findall-based query collection, and term-to-KIF output conversion; (3) orchestrating Python-Prolog interprocess communication via subprocess, marshalling game states and moves between JSON and Prolog term representations, and parsing Prolog stdout back to JSON. The three test games exercise increasingly complex GDL features: negation-as-failure (switches), simultaneous-move conflict resolution via or/distinct (tic-tac-toe), and gravity mechanics requiring nested negation over compound terms with alternating turn control (Connect Four). Game-defined predicates must be namespaced to avoid clashing with SWI-Prolog built-ins like succ/2."""
+solution_explanation = """The solution consists of two files: (1) gdl_prover.pl, a Prolog helper module declaring dynamic gdl_true/1 and gdl_does/2 predicates, query entry points (do_roles, do_initial, do_legal, do_next, do_terminal, do_goal) using findall/sort for deduplication, and a to_kif/2 predicate that converts Prolog terms back to KIF s-expression strings; (2) gdl_engine.py, a Python CLI that parses KIF s-expressions, translates them to Prolog source with proper variable renaming (?x->Vx), GDL keyword prefixing (role->gdl_role, etc.), game predicate namespacing (succ->g_succ), and special-form handling (not->\\+, or->;, distinct->\\=, true->gdl_true, does->gdl_does), combines the prover code with the translated game into a single temp file, constructs Prolog goals that assert state/moves and run queries, invokes swipl via subprocess, and parses the line-per-result output into sorted JSON arrays."""
+verification_explanation = """Tests exercise all six state machine operations across three games plus Prolog integration checks. Integration tests verify swipl is installed, .pl files with substantial inference code exist in /app/, and gdl_engine.py references swipl. Switches tests verify basic parsing, role extraction, initial state, legal moves with negation, state transitions, terminal detection, and goal evaluation. Tic-tac-toe tests verify simultaneous-move conflict resolution (same-cell marking stays blank via or/distinct), multi-step play, row/diagonal win detection, and draw outcomes. Connect Four tests verify turn control, gravity-based stacking (columnEmpty vs nested negation for top-of-stack placement), 4-in-a-row detection across horizontal/vertical orientations, and goal assignment. Each functional test runs the engine as a subprocess with deterministic JSON I/O."""
+category = "artificial_intelligence"
+tags = ["logic-programming", "prolog-interop"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-892881"

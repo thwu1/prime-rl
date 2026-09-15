@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a bash/gawk implementation of a scientific comparison engine with ten interacting bugs spanning numerical comparison semantics (complex modulus, vector norms, logical encoding, tolerance boundary conditions, relative tolerance formula), entry consumption state management (keep/nokeep defaults), exit code propagation, relative tolerance integration (magnitude computation, atol/rtol combination), config parser field-position ambiguity (rtol appearing in field 4 when keep/nokeep is omitted), and transparent gzipped file handling. Additionally requires fixing a test harness with missing config chaining, missing JSON output, and missing detail log generation. No reference implementation is explicitly identified; the solver must discover the Python reference in /app/lib/, cross-reference its behavior with the specification, trace interacting bugs across gawk embedded in bash, and design fixes for the config parsing ambiguity that correctly distinguishes keep/nokeep flags from rtol specifications based on content inspection."""
+solution_explanation = """Fix tagdiff.sh bugs: (1) invert keep/nokeep default from keep to nokeep, (2) add complex number pair-wise modulus comparison, (3) add sqrt to vector norm computation, (4) propagate Failed/Error status to exit code, (5) add logical T/F to 1/0 conversion, (6) change tolerance comparison from strict < to <=, (7) fix relative tolerance to use max(atol, rtol*max_magnitude) instead of atol + rtol*avg_magnitude computing magnitude as max absolute value not average, (8) fix config parser to detect rtol:VALUE in field 4 when keep/nokeep is omitted by checking field content prefix, (9) add read_file helper to transparently decompress .gz input files using zcat. Fix harness.sh: (1) add per-directory tagdiff.conf chaining before global config, (2) add results.json output generation, (3) add detail.log output with one PASS/FAIL line per test case."""
+verification_explanation = """Tests run tagdiff.sh against 7 test case directories covering pass, tolerance failure, missing entry, integer mismatch, shape mismatch, logical comparison, and vector comparison with local config. Parametric tests verify complex number handling, vector norm correctness, keep/nokeep semantics, multi-config accumulation, tolerance boundary behavior, and relative tolerance with multiple scenarios including rtol saving a failing atol, rtol failing when both thresholds exceeded, rtol fallback when reference magnitude is zero, rtol with max magnitude across multi-value entries, and distinguishing max(atol,rtol*mag) from sum(atol,rtol*mag). New tests verify rtol config field in position 4 (without explicit keep/nokeep) both for correct rtol parsing and for default nokeep consumption. Gzip tests verify transparent decompression of .gz ref files, new files, config files, and both-files-gzipped scenarios. Harness tests verify JSON output schema and exact pass/fail counts, plus detail.log existence, line count, format, per-case content, and alphabetical ordering."""
+category = "debugging"
+tags = ["shell-scripting", "scientific-computing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dftb-tagdiff-harness"

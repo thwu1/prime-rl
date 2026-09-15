@@ -1,0 +1,15 @@
+{
+  "name": "blackbody_cube",
+  "type": "rectangular_box",
+  "length_x": 1.0,
+  "width_y": 1.0,
+  "height_z": 1.0,
+  "surfaces": [
+    {"name": "floor",   "emissivity": 1.0, "condition": "temperature", "value": 800.0},
+    {"name": "ceiling", "emissivity": 1.0, "condition": "temperature", "value": 400.0},
+    {"name": "front",   "emissivity": 1.0, "condition": "temperature", "value": 600.0},
+    {"name": "back",    "emissivity": 1.0, "condition": "temperature", "value": 600.0},
+    {"name": "left",    "emissivity": 1.0, "condition": "temperature", "value": 600.0},
+    {"name": "right",   "emissivity": 1.0, "condition": "temperature", "value": 600.0}
+  ]
+}

@@ -1,0 +1,50 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires: (1) complex SQL querying of a normalized relational schema with priority-based
+parameter deduplication via JOINs and correlated subqueries, (2) full original UNIFAC activity-coefficient model
+implementation (Staverman-Guggenheim combinatorial + group-contribution residual with mixture/pure-component
+group mole fractions and Boltzmann interaction factors), (3) ternary LLE flash solver with iterative isoactivity
+convergence and Newton refinement, (4) gnuplot scripting for ternary phase diagrams including coordinate
+transformations from ternary to Cartesian space, and (5) integration of SQLite, Python numerical code, and gnuplot
+in a multi-tool pipeline. Demands graduate-level chemical engineering thermodynamics combined with non-trivial
+tool proficiency across SQL, gnuplot scripting, and subprocess orchestration."""
+solution_explanation = """Load the SQL dump into an in-memory SQLite database. Query compound_subgroups JOIN
+subgroups for UNIFAC decompositions, and interaction_params JOIN parameter_sources with MAX(priority)
+correlated subquery for the correct a_mn values. Implement the original UNIFAC model with combinatorial
+(volume/surface-area fractions) and residual (group activity coefficients via psi matrix) contributions.
+Solve ternary LLE flash via successive substitution on K-values with Rachford-Rice beta (Brent's method),
+damped relaxation, then Newton refinement via scipy.fsolve on 5 simultaneous equations (3 isoactivity +
+2 mass balance). Generate gnuplot script transforming ternary coordinates to Cartesian
+(X = x_acetone + x_toluene/2, Y = x_toluene*sqrt(3)/2) and plotting tie-lines with vector/arrow commands."""
+verification_explanation = """Tests independently load the SQL database, query parameters with highest-priority
+selection using the same correlated subquery pattern, and recompute UNIFAC activity coefficients for the
+solver's reported phase compositions. Isoactivity is verified within 3% relative tolerance. Mass balance,
+composition validity, phase distinctness, distribution coefficient consistency, selectivity consistency,
+and activity coefficient reasonableness are all checked. SVG phase diagram is validated for existence,
+XML well-formedness, component labels, and graphical content."""
+category = "applied_computing"
+tags = ["chemical-engineering", "thermodynamics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ternary-lle-unifac-1e30f2"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the TSPLIB95 specification across multiple problem types (symmetric TSP, asymmetric TSP, CVRP) and distance computation methods (EUC_2D, ATT pseudo-Euclidean, EXPLICIT with multiple matrix storage formats). One instance file has a deliberately corrupted EDGE_WEIGHT_FORMAT header (declares LOWER_DIAG_ROW but data is actually LOWER_COL) requiring the solver to detect a value-count mismatch, diagnose the true format from the data, and parse correctly. Solving the br17 ATSP and eil13 TSP relaxation to proven optimality requires implementing or leveraging an exact combinatorial optimization method. The ATT distance function has non-obvious rounding semantics that differ from standard Euclidean distance, and EUC_2D requires TSPLIB-specific nint() rounding rather than language-standard rounding. The agent must work across multiple unfamiliar tools (TSPLIB format, glpsol, optimization libraries) and synthesize domain knowledge from the TSPLIB95 specification."""
+solution_explanation = """Detect the eil13.vrp format mismatch: header says LOWER_DIAG_ROW (expects n*(n+1)/2=91 values) but only 78 values exist (matching n*(n-1)/2 for LOWER_COL). Parse correctly as LOWER_COL. Implement TSPLIB nint() rounding for EUC_2D and the ATT pseudo-Euclidean distance formula. Use bitmask dynamic programming to solve br17 (17-node ATSP, 2^17*17 states) and eil13 TSP relaxation (13-node, 2^13*13 states) exactly. Validate berlin52 optimal tour cost via EUC_2D. Compute att48 greedy nearest-neighbor tour. Derive CVRP vehicle lower bound from demands and capacity."""
+verification_explanation = """Tests verify all 13 output values in results.json against independently computed ground truth: br17 optimal cost (39) and tour validity/cost, berlin52 tour cost (7542), three ATT distances (1495, 1135, 235), att48 nearest-neighbor tour cost (12861), four eil13 distance matrix entries (9, 52, 9, 7), minimum vehicles (4), and eil13 TSP optimal (142). The br17 tour is validated by independently loading and parsing the ATSP matrix to verify the reported tour achieves cost 39."""
+category = "optimization"
+tags = ["combinatorial-optimization", "data-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tsplib-multiformat-solver"

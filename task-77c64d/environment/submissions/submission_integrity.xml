@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>REFORG</OrganizationIdentifier>
+      <OrganizationFormalName>Referential Integrity Testing Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-REF</ProjectIdentifier>
+      <ProjectName>Integrity Check Project</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-REF</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Reference Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>41.234567</LatitudeMeasure>
+        <LongitudeMeasure>-74.567890</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NY</StateCode>
+        <CountyCode>071</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <!-- Valid activity for ActivityGroup to reference -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-REF1</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-07-01</ActivityStartDate>
+        <ProjectIdentifier>PROJ-REF</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-REF</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Dissolved oxygen (DO)</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>7.8</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+    <!-- ERROR: References non-existent MonitoringLocation -> REF-001, non-existent Project -> REF-002 -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-GHOST</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-07-02</ActivityStartDate>
+        <ProjectIdentifier>GHOST-PROJ</ProjectIdentifier>
+        <MonitoringLocationIdentifier>GHOST-LOC</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Temperature, water</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>22.1</ResultMeasureValue>
+            <MeasureUnitCode>deg C</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+    <!-- ERROR: ActivityGroup references non-existent Activity -> REF-003 -->
+    <ActivityGroup>
+      <ActivityGroupIdentifier>GRP-REF1</ActivityGroupIdentifier>
+      <ActivityGroupName>Test Field Set</ActivityGroupName>
+      <ActivityGroupTypeCode>Field Set</ActivityGroupTypeCode>
+      <ActivityIdentifier>ACT-REF1</ActivityIdentifier>
+      <ActivityIdentifier>GHOST-ACT</ActivityIdentifier>
+    </ActivityGroup>
+  </Organization>
+</WQX>

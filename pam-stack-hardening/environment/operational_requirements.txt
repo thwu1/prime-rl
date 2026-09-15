@@ -1,0 +1,44 @@
+SYSTEM OPERATIONAL REQUIREMENTS
+================================
+
+1. USER POPULATIONS
+   Groups: admins, developers, restricted, svcaccounts, wheel
+   - admin1: admins + wheel (password: Admin1Pass)
+   - dev1: developers (password: Dev1Pass)
+   - restricted1: restricted (password: Restr1Pass)
+   - svcaccount: svcaccounts, shell=/usr/sbin/nologin (password: SvcAcct1Pass)
+
+2. AUTHENTICATION INTEGRITY
+   - pam_unix is the sole credential verification module
+   - No permissive fallback modules may bypass credential verification
+   - Authentication failure must result in denial
+
+3. BRUTE FORCE MITIGATION
+   - Account lockout after 5 consecutive failed attempts
+   - Automatic unlock after 900 seconds
+   - Root account exempt from lockout (even_deny_root = false)
+   - pam_faillock integrated with preauth/authfail/authsucc in auth stack
+   - pam_faillock required in account management stack
+
+4. PRIVILEGE ESCALATION CONTROL
+   - su restricted to wheel group via pam_wheel with use_uid
+   - pam_wheel placed after pam_rootok, before common-auth include
+
+5. GROUP-BASED ACCESS CONTROL
+   - restricted group: LOCAL terminal access only
+   - svcaccounts group: denied from ALL origins
+   - All other users: unrestricted
+   - pam_access enforced in account management stack
+
+6. PASSWORD QUALITY
+   - Minimum length: 12 characters
+   - All 4 character classes required (dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1)
+   - pam_pwquality enforced before pam_unix in password stack
+
+7. RESOURCE LIMITS
+   - @admins: nproc=unlimited, nofile=65536
+   - @developers: nproc=200, nofile=8192
+   - Default (*): nproc=100, nofile=4096
+   - pam_limits in session management stack
+
+ALL existing user passwords must continue to work after remediation.

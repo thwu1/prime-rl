@@ -1,0 +1,12 @@
+{
+  "workloads": [
+    {"workload_id": 1, "architecture": "volta", "kernel": "matmul_tiled", "block_size": 512},
+    {"workload_id": 2, "architecture": "volta", "kernel": "stencil_3d", "block_size": 128},
+    {"workload_id": 3, "architecture": "ampere", "kernel": "matmul_tiled", "block_size": 128},
+    {"workload_id": 4, "architecture": "ampere", "kernel": "fft_radix", "block_size": 512},
+    {"workload_id": 5, "architecture": "hopper", "kernel": "stencil_3d", "block_size": 512},
+    {"workload_id": 6, "architecture": "hopper", "kernel": "conv_shared", "block_size": 256},
+    {"workload_id": 7, "architecture": "ampere", "kernel": "attention", "block_size": 512},
+    {"workload_id": 8, "architecture": "volta", "kernel": "reduce_warp", "block_size": 256}
+  ]
+}

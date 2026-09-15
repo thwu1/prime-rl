@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of multi-version concurrency control and snapshot isolation semantics. The implementer must design correct conflict detection, lock management, atomic commit coordination, and expired-operation recovery logic entirely from domain knowledge, test behaviors, and the stub interfaces. The Redis storage requirement adds tool complexity: the agent must start and configure a Redis server, design an appropriate Redis key schema for three column families, handle serialization of heterogeneous Python values into Redis, and use redis-cli for debugging. Thread safety under concurrent access with multiple interleaving scenarios further increases difficulty. Property-based tests with randomized inputs probe edge cases that hand-written tests might miss."""
+solution_explanation = """Implement an MVCC engine with Redis-backed storage: TimestampOracle with thread-safe atomic counter, KvTable mapping three column families to Redis hashes (key pattern: namespace:column:hex_key, field: timestamp, value: pickled data), MemoryStorage with mutex-protected transactional operations including conflict detection, atomic commit coordination with primary-first ordering, and expired-lock resolution via primary state inspection. Client buffers writes in an ordered dict and commits atomically. Requires starting redis-server, installing the redis Python client, and designing the Redis key schema."""
+verification_explanation = """31 pytest tests verify correctness: TimestampOracle monotonicity and thread safety; KvTable read/write/erase semantics via Redis; basic transaction put/get/overwrite; 8 snapshot-isolation anomaly tests covering phantom reads, lost updates, read skew, write skew, and anti-dependency cycles; lock cleanup tests (stale rollback, partial commit roll-forward, full rollback); concurrent stress tests (contended writes, independent writes, snapshot consistency); hypothesis property-based tests verifying read-after-write, atomic multi-key writes, and snapshot-only visibility; and Redis integration tests verifying data persistence and erase semantics in the Redis backend."""
+category = "systems"
+tags = ["distributed-systems", "database-internals"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3a0c4e"

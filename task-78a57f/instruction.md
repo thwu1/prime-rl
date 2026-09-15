@@ -1,0 +1,5 @@
+A BPE tokenizer has been serialized as a flat mapping from byte sequences to integer ranks, stored at `/app/mergeable_ranks.json` (hex-encoded keys). This is the same representation format used internally by tiktoken. The mapping encodes a byte-level permutation on the base 256 byte tokens, a regex pre-tokenization splitting pattern, and the full BPE merge history — but none of these components are provided explicitly.
+
+Reconstruct the tokenizer from this flat rank mapping alone. Create `/app/tokenizer.py` exporting `encode(text) -> list[int]` and `decode(ids) -> str` that exactly reproduce the expected token sequences in `/app/test_cases.json` and satisfy roundtrip identity on arbitrary UTF-8 input.
+
+Reference `/app/metadata.json` and `/app/README.txt` for additional context about the data.

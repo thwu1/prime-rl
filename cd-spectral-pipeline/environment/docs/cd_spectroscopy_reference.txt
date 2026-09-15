@@ -1,0 +1,147 @@
+CIRCULAR DICHROISM SPECTROSCOPY: CONVENTIONS AND ANALYSIS METHODS
+================================================================
+
+
+1. MEASUREMENT AND UNITS
+
+Circular dichroism (CD) spectroscopy measures the differential absorption of left-
+and right-circularly polarized light by chiral molecules. CD instruments typically
+report signal in millidegrees of ellipticity (theta, mdeg), which reflects the raw
+instrument output.
+
+For meaningful comparison between proteins of different sizes and concentrations,
+the raw ellipticity must be normalized. Two standard normalized units are in common
+use:
+
+Mean Residue Ellipticity (MRE, [theta]):
+  The raw signal in millidegrees is normalized by the mean residue weight (MRW),
+  the optical pathlength, and the sample concentration. MRW is defined as the
+  protein molecular weight divided by the number of amino acid residues. The
+  normalization accounts for the approximately equal contribution of each peptide
+  bond to the far-UV CD signal. The standard relationship is:
+
+  [theta] = theta_obs * MRW / (10 * c * l)
+
+  where theta_obs is in millidegrees, c is the protein concentration in mg/mL,
+  l is the cuvette pathlength in cm, and MRW = MW / n_residues. The resulting
+  units of [theta] are deg*cm^2*dmol^-1.
+
+Delta Epsilon (delta_eps):
+  The molar circular dichroism per residue, expressed in M^-1*cm^-1. The
+  relationship between mean residue ellipticity and delta epsilon is:
+
+  [theta] = 3298 * delta_eps
+
+  This conversion factor (3298) derives from the relationship between ellipticity
+  and differential absorbance: theta(radians) = ln(10) * delta_A / 4, evaluated
+  per mean residue and converted to degrees.
+
+All three representations (mdeg, [theta]/MRE, delta_eps/de) are interconvertible
+when the sample parameters (concentration, molecular weight, residue count, and
+optical pathlength) are known. Note that the conversion between millidegrees and
+either normalized unit requires all four parameters, whereas converting between
+MRE and delta epsilon requires only the factor of 3298.
+
+
+2. SECONDARY STRUCTURE ESTIMATION BY BASIS-SPECTRUM DECONVOLUTION
+
+The far-UV CD spectrum of a protein (approximately 190-260 nm) is dominated by
+contributions from the polypeptide backbone. Different secondary structural elements
+produce characteristic spectral signatures:
+
+  - alpha-helix: strong negative bands near 208 nm and 222 nm, positive band near
+    192 nm
+  - beta-strand: weaker negative band near 218 nm, positive band near 196 nm
+  - turns: variable features in the 190-210 nm region
+  - unordered (coil): strong negative band near 198 nm
+
+The observed protein spectrum can be modeled as a linear combination of pure
+secondary structure basis spectra:
+
+  S_obs(lambda) = f_H * S_helix(lambda) + f_S * S_strand(lambda)
+                + f_T * S_turn(lambda) + f_C * S_coil(lambda)
+
+where f_i are the fractional contributions of each structural class. Because these
+fractions represent physical proportions of the protein's secondary structure content,
+they are subject to two fundamental constraints:
+
+  (i)  Each fraction must be non-negative: f_i >= 0 for all i
+  (ii) The fractions must sum to unity: sum(f_i) = 1.0
+
+Analysis programs such as DichroWeb, CDPro, and SELCON3 enforce these constraints
+during the optimization procedure. In practice, the fitting is performed as a
+constrained least-squares minimization, finding the fraction vector that minimizes
+the sum of squared residuals between the observed and reconstructed spectra subject
+to the above constraints.
+
+The quality of the deconvolution fit is assessed using the Normalized Root Mean
+Square Deviation (NRMSD):
+
+  NRMSD = sqrt( sum( (S_obs - S_calc)^2 ) / sum( S_obs^2 ) )
+
+where the sums are taken over all wavelength points. An NRMSD below 0.10 generally
+indicates an acceptable fit quality. Values above 0.25 suggest the basis set does
+not adequately represent the observed spectrum.
+
+When the observed spectrum and basis spectra are defined on different wavelength
+grids, linear interpolation onto a common grid is necessary before performing the
+deconvolution.
+
+
+3. THERMAL DENATURATION ANALYSIS
+
+CD signal at a characteristic wavelength (e.g. 222 nm for helical proteins) can be
+used to monitor thermal unfolding. In the simplest and most widely used model, the
+protein unfolds cooperatively between a folded native state (N) and an unfolded
+state (U):
+
+  N <=> U
+
+The temperature-dependent equilibrium constant K relates to thermodynamic parameters
+through the van't Hoff equation:
+
+  K(T) = exp[ dH_vH / R * (1/T_m - 1/T) ]
+
+where T_m is the midpoint temperature at which K = 1 (the protein is 50% unfolded),
+dH_vH is the van't Hoff enthalpy of unfolding in kJ/mol, and R is the gas constant
+(8.314 x 10^-3 kJ*mol^-1*K^-1). Temperature T is in Kelvin.
+
+The observed spectroscopic signal at temperature T is a population-weighted average
+of the native and unfolded signals:
+
+  theta(T) = [ theta_N(T) + theta_U(T) * K(T) ] / [ 1 + K(T) ]
+
+Importantly, both the native-state and unfolded-state signals exhibit intrinsic
+temperature dependence (baseline drift). This is modeled with linear functions:
+
+  theta_N(T) = a_N + b_N * T
+  theta_U(T) = a_U + b_U * T
+
+The complete model therefore has six adjustable parameters: a_N, b_N (native
+baseline intercept and slope), a_U, b_U (unfolded baseline intercept and slope),
+T_m (melting temperature), and dH_vH (van't Hoff enthalpy). These are determined
+by nonlinear least-squares regression against the experimental theta-vs-T data.
+
+The fraction of protein remaining in the native (folded) state at each temperature
+is:
+
+  f_folded(T) = 1 / (1 + K(T))
+
+This decreases from approximately 1.0 at temperatures well below T_m to
+approximately 0.0 at temperatures well above T_m.
+
+
+4. SPECTRAL COMPARISON AND SIMILARITY METRICS
+
+Quantitative comparison of CD spectra is essential for database searching and
+spectral matching applications such as DichroMatch. The standard distance metric
+is the Normalized Root Mean Square Deviation, defined as:
+
+  NRMSD(A, B) = sqrt( sum( (S_A - S_B)^2 ) / sum( S_A^2 ) )
+
+where A denotes the query spectrum and B denotes the reference spectrum. The
+summations are taken over all wavelength points in the common grid.
+
+When comparing spectra recorded on different wavelength grids, both must first be
+interpolated onto a common grid spanning their mutual wavelength overlap before
+computing the distance. Lower NRMSD values indicate greater spectral similarity.

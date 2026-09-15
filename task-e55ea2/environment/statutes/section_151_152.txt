@@ -1,0 +1,58 @@
+SECTION 151 — PERSONAL EXEMPTIONS
+
+(a) Allowance of deductions. — An exemption amount of $4,700 shall be allowed
+as a deduction for:
+  (1) The taxpayer;
+  (2) The taxpayer's spouse, if the taxpayer files as married filing jointly;
+  (3) Each individual who is a dependent of the taxpayer (as defined in
+      Section 152).
+
+(b) Exemption phase-out. — The total exemption amount determined under
+paragraph (a) shall be reduced (but not below zero) as follows:
+  (1) The exemption amount shall be reduced by 2 percentage points for each
+      $2,500 (or fraction thereof) by which the taxpayer's adjusted gross
+      income exceeds the applicable threshold amount.
+  (2) The applicable threshold amounts are:
+      (A) Married filing jointly or qualifying surviving spouse: $362,550
+      (B) Head of household: $289,800
+      (C) Single: $217,050
+      (D) Married filing separately: $181,275
+  (3) The total reduction shall not exceed 100 percent. The reduced exemption
+      amount shall be truncated to a whole dollar amount (round down).
+
+
+SECTION 152 — DEPENDENT DEFINED
+
+(a) In general. — The term "dependent" means a qualifying child or a
+qualifying relative of the taxpayer.
+
+(c) Qualifying child. — A qualifying child of the taxpayer is an individual
+who satisfies ALL of the following conditions:
+  (1) Relationship: the individual is the taxpayer's child, stepchild,
+      sibling, or step-sibling, or a descendant of any such individual;
+  (2) Abode: the individual has the same principal place of abode as the
+      taxpayer for more than one-half of the taxable year;
+  (3) Age: the individual has not attained the age of 19 as of the close of
+      the calendar year, OR is a student who has not attained the age of 24
+      as of the close of the calendar year;
+  (4) Support: the individual has not provided more than one-half of such
+      individual's own support for the calendar year;
+  (5) Joint return: the individual has not filed a joint return for the
+      taxable year.
+
+(d) Qualifying relative. — A qualifying relative of the taxpayer is an
+individual who satisfies ALL of the following conditions:
+  (1) Not a qualifying child: the individual is not a qualifying child of the
+      taxpayer or of any other taxpayer;
+  (2) Relationship or member of household: the individual either—
+      (A) bears one of the following relationships to the taxpayer: child,
+          stepchild, sibling, step-sibling, parent, stepparent, niece,
+          nephew, aunt, uncle, son-in-law, daughter-in-law, father-in-law,
+          mother-in-law, brother-in-law, or sister-in-law; or
+      (B) is an individual (other than the taxpayer's spouse) who has the
+          same principal place of abode as the taxpayer and is a member of
+          the taxpayer's household for the entire taxable year;
+  (3) Gross income: the individual's gross income for the calendar year is
+      less than $4,700;
+  (4) Support: the taxpayer provides more than one-half of the individual's
+      support for the calendar year.

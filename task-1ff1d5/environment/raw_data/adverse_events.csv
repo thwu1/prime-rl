@@ -1,0 +1,10 @@
+subject_id,ae_number,ae_term,severity,serious,causality,outcome,action_taken,start_date,end_date,follow_up_needed
+001,1,Headache,1,No,Not Related,Recovered,None,03/20/2023,03/22/2023,N
+001,2,Nausea,2,No,Possibly Related,Recovered,Dose Reduced,15-Apr-2023,18-Apr-2023,Y
+002,1,Fatigue,1,No,Unlikely Related,Recovered,None,2023-04-01,,N
+003,1,Dizziness,Mild,No,Related,Recovered with Sequelae,None,2023/04/10,2023/04/12,N
+005,1,Rash,3,Yes,Definitely Related,Not Recovered,Drug Withdrawn,01MAY2023,,Y
+005,2,Injection site reaction,1,No,Related,Recovered,None,2023-03-25,2023-03-26,N
+007,1,Insomnia,moderate,No,Possibly Related,Recovering,None,May 20 2023,,N
+007,2,Arthralgia,mild,No,Not Related,Resolved,None,Jun-01-2023,Jun-05-2023,N
+007,3,Elevated ALT,2,Yes,Probably Related,Not resolved,Dose Reduced,2023-06-15,,Y

@@ -1,0 +1,7 @@
+// Simple program: assignments and print
+func main() {
+  x = 10;
+  y = 20;
+  z = x + y;
+  print z;
+}

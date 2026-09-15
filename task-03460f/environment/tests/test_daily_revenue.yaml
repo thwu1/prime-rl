@@ -1,0 +1,43 @@
+test_daily_revenue_calculation:
+  model: analytics.daily_revenue
+  inputs:
+    intermediate.int_order_products:
+      rows:
+      - order_id: 1
+        customer_id: 101
+        order_timestamp: '2024-01-15'
+        amount: 29.99
+        status: completed
+        product_name: Widget A
+        category: Electronics
+        unit_price: 29.99
+      - order_id: 2
+        customer_id: 102
+        order_timestamp: '2024-01-15'
+        amount: 49.99
+        status: completed
+        product_name: Gadget B
+        category: Electronics
+        unit_price: 49.99
+      - order_id: 3
+        customer_id: 103
+        order_timestamp: '2024-01-16'
+        amount: 15.00
+        status: completed
+        product_name: Doohickey C
+        category: Accessories
+        unit_price: 15.00
+  outputs:
+    query:
+      rows:
+      - date: '2024-01-15'
+        category: Electronics
+        revenue: 79.98
+        num_orders: 2
+      - date: '2024-01-16'
+        category: Accessories
+        revenue: 15.0
+        num_orders: 1
+  vars:
+    start: '2024-01-01'
+    end: '2024-02-01'

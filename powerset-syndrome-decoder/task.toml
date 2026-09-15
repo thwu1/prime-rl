@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction fundamentals (detector error models, syndromes, symmetric-difference matching, log-likelihood costs) and the ability to independently design an efficient decoder for a combinatorial optimization problem over an exponentially large solution space. The agent must reason about the problem structure and devise a tractable approach without algorithmic guidance. Additionally, the decoder must interoperate with stim, Google's quantum circuit simulator, requiring the agent to learn an unfamiliar specialized tool to explore DEM structure, generate circuits, and validate results on real QEC codes (repetition, surface)."""
+solution_explanation = """Parse the DEM text format to extract error mechanisms with probabilities, detectors, and observables. Compute log-likelihood costs. Build a detector-to-error index. Implement A* search over the power set of errors — states are residual detector sets, transitions add errors, symmetric difference updates the residual. Use an admissible heuristic (per-detector minimum cost ratios) for informed search ordering. Apply canonical expansion ordering (restrict to errors incident to the minimum-index residual detector) to collapse factorial path redundancy. Use beam pruning and priority queue limits for resource bounding. Return the minimum-cost error set with XOR-derived observable predictions."""
+verification_explanation = """Pytest verifies: DEM parsing correctness (error/detector/observable counts), cost computation against known values, empty syndrome handling, single-error and multi-error decoding on chain/grid/boundary DEMs, exhaustive optimality on small instances (6-8 errors) via brute-force comparison over all 2^n subsets, syndrome consistency (decoded error XOR matches input), observable correctness, performance on medium/large ladder DEMs (32-62 errors) within time limits, pq_limit low-confidence triggering, and integration with stim-generated DEMs from repetition codes and surface codes (both rotated Z-basis and X-basis) including stim-sampled syndrome decoding."""
+category = "algorithms"
+tags = ["quantum-error-correction", "combinatorial-optimization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/powerset-syndrome-decoder"

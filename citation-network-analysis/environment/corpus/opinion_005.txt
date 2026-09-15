@@ -1,0 +1,25 @@
+UNITED STATES COURT OF APPEALS FOR THE SEVENTH CIRCUIT
+
+No. 23-2345
+
+MIDWEST ENVIRONMENTAL COALITION v. GREAT LAKES CHEMICAL CORP.
+
+EASTERBROOK, Circuit Judge.
+
+The Clean Water Act, 33 U.S.C. § 1251 et seq., provides a comprehensive framework for regulating the discharge of pollutants into navigable waters. Section 402 establishes the National Pollutant Discharge Elimination System (NPDES) permit program. 33 U.S.C. § 1342.
+
+The scope of the Clean Water Act's jurisdiction has been the subject of extensive litigation. In Rapanos v. United States, 547 U.S. 715 (2006), the Supreme Court fractured over the definition of "waters of the United States." Justice Scalia's plurality opinion would have limited jurisdiction to "relatively permanent, standing or continuously flowing bodies of water." Id. at 739. Justice Kennedy's concurrence proposed the "significant nexus" test. Id. at 759 (Kennedy, J., concurring in the judgment). Lower courts struggled with the proper application of these competing standards. See United States v. Gerke Excavating, Inc., 464 F.3d 723, 724-25 (7th Cir. 2006) (applying Justice Kennedy's significant nexus test as the controlling standard).
+
+More recently, the Supreme Court revisited this issue in Sackett v. EPA, 598 U.S. 651 (2023), where the Court adopted a narrower reading of the Act's jurisdictional reach. The Court held that the Act "extends to only those wetlands that are as a practical matter indistinguishable from waters of the United States." Id. at 678. This decision effectively abrogated the significant nexus test. See id. at 684.
+
+The question before us is whether Sackett abrogated our prior precedent in United States v. Rueth Dev. Co., 335 F.3d 598, 602 (7th Cir. 2003), which applied the significant nexus test to find jurisdiction over wetlands adjacent to, but not continuously connected to, navigable waters.
+
+We hold that it did. The wetlands at issue in this case -- a series of isolated vernal pools located approximately 200 yards from the nearest tributary of Lake Michigan -- do not satisfy Sackett's requirement of a "continuous surface connection" to navigable waters. 598 U.S. at 678.
+
+The Midwest Environmental Coalition argues that the vernal pools are connected to Lake Michigan through groundwater flow. But Sackett explicitly rejected groundwater connections as a basis for jurisdiction. Id. at 680. As the Fourth Circuit recognized in Chesapeake Bay Found. v. EPA, 85 F.4th 323, 331 (4th Cir. 2023), post-Sackett, "subsurface hydrological connections, however ecologically significant, do not establish the continuous surface connection required by the Act."
+
+Great Lakes Chemical Corp. further contends that even if jurisdiction exists, its discharge of PFAS compounds does not violate its NPDES permit. We disagree. In interpreting the scope of the EPA's authority to regulate specific pollutants under the Clean Water Act, we have traditionally applied the framework established in Chevron U.S.A., Inc. v. Nat. Res. Def. Council, Inc., 467 U.S. 837, 842-43 (1984), which instructs courts to defer to an agency's reasonable interpretation of an ambiguous statute. The permit's general prohibition on the discharge of "toxic pollutants in toxic amounts" encompasses PFAS compounds. See Piney Run Pres. Ass'n v. Cnty. Comm'rs of Carroll Cnty., 268 F.3d 255, 265 (4th Cir. 2001) (permit violations are determined by the terms of the permit itself).
+
+We note the Supreme Court's observation in County of Maui v. Hawaii Wildlife Fund, 590 U.S. 165, 177 (2020), that the Clean Water Act requires a "functional equivalent of a direct discharge" standard. This principle reinforces our conclusion that the PFAS discharge at issue constitutes a regulable point-source discharge.
+
+The judgment of the district court is AFFIRMED in part and REVERSED in part.

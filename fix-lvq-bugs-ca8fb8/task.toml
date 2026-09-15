@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of three LVQ variants (GLVQ, GMLVQ, RSLVQ) — a niche ML domain — to diagnose 4 conceptual bugs across cost functions, gradients, matrix normalization, and posteriors. Additionally, the solver must implement a fourth variant (GRLVQ) from scratch by studying the existing class hierarchy and its optimization framework. The GRLVQ implementation demands multi-tool interoperability: scipy.optimize.minimize with matched cost/gradient functions using L-BFGS-B, correct variable packing/unpacking between optimizer and model, scikit-learn's estimator protocol (fit/predict/score), and numpy vectorized operations for per-feature weighted distances. Bugs interact (regularization sign in cost and gradient must be consistent), and the GRLVQ implementation requires deriving the relevance weight gradient from the cost function and integrating it with the phased optimization pattern used throughout the codebase."""
+solution_explanation = """Four bugs must be fixed: (1) gmlvq.py _optimize: omega normalization uses np.sum(omega.T @ omega) (Frobenius) instead of np.sum(np.diag(omega.T @ omega)) (trace). (2a/2b) gmlvq.py _optfun and _optgrad: regularization term sign is + instead of -, must be flipped in both. (3) rslvq.py posterior(): returns raw cost ratios s1/s2 instead of exp-normalized probabilities — must use log-sum-exp normalization. (4) rslvq.py _optgrad: gradient multiplication missing negation sign (g *= (1+...) should be g *= -(1+...)). For GRLVQ: implement GrlvqModel extending GlvqModel with per-feature lambda_ weights, using _squared_euclidean(lambda*x, lambda*w) for optimization distances, delta^2*lambda_ for prediction distances, 3-phase L-BFGS-B optimization (prototypes→relevances→both), gradient computation for both prototypes and relevances, and post-training lambda_ normalization."""
+verification_explanation = """Fourteen pytest tests verify: GLVQ baseline accuracy (sanity), GMLVQ accuracy, trace normalization, eigenvalue spread under regularization, omega structure on 2D data, RSLVQ accuracy and convergence, posterior validity and dominance, GRLVQ accuracy on Iris, lambda_ normalization (shape/nonnegativity/sum-to-1), feature selection on 2D data, regularization preventing degeneracy, distance output shape, and prediction consistency."""
+category = "machine_learning"
+tags = ["lvq", "ml-implementation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-lvq-bugs-ca8fb8"

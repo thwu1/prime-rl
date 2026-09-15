@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deriving a 4×4 analytical Jacobian from a stiff ODE system with time-dependent forcing, implementing it in C using deSolve's column-major compiled-code Jacobian interface, and designing a complete solver configuration from scratch. The agent must understand: (1) how forcing values propagate through deSolve's auto-update mechanism into compiled code and must appear in the Jacobian; (2) the sign structure of the Jacobian for a catalytic reaction network with a fast intermediate; (3) per-species absolute tolerance tuning for species spanning 5+ orders of magnitude in concentration; (4) deSolve's forcing function, event, and DLL interfaces. Beyond implementation, the agent must empirically benchmark multiple solver configurations, extract and interpret diagnostics (istate attributes), and make a justified selection — requiring evaluation-level reasoning about numerical method trade-offs, not just applying a known procedure."""
+solution_explanation = """The Jacobian is derived by differentiating each ODE with respect to each state variable, noting that the forcing factor f(t) appears in ∂f1/∂y1 and ∂f2/∂y1, and that ∂f2/∂y3 = -k2·y2 (negative, a common sign error since the term -k2·y2·y3 in f2 is easy to misread). The R driver must: (a) convert forcing CSV to a matrix and pass via forcings=list(forc_table) with initforc="initforc"; (b) specify events with method="add" (not "replace"); (c) use per-species atol with y2 tolerance ~1e-14; (d) compile and load the C code; (e) run at least 3 configurations (e.g., lsoda with numerical Jacobian, lsoda with analytical Jacobian, vode with analytical Jacobian), extract istate diagnostics, and select the most efficient."""
+verification_explanation = """Tests verify: (1) compiled .so exports both derivs and jac symbols; (2) results.csv has 12 correct time points with 5 columns; (3) initial conditions match (1,0,0,0); (4) all concentrations non-negative; (5) y2 remains small as fast intermediate; (6) mass conservation holds in each event-separated interval (1.0/1.2/1.5); (7) mass jump of 0.2 between event intervals; (8) forcing effect confirmed via y1(400) < 0.43; (9) y1 decreases and y4 increases overall; (10) y4 dominant at final time; (11) benchmark.csv exists with ≥3 solver configurations and varied function evaluation counts."""
+category = "scientific_computing"
+tags = ["numerical-methods", "solver-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compiled-ode-model"

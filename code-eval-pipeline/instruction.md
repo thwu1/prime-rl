@@ -1,0 +1,5 @@
+A multi-stage code evaluation pipeline at `/app/` assesses LLM-generated solutions against a benchmark stored in a SQLite database (`/app/benchmark.db`). The pipeline orchestrator at `/app/run_eval.sh` chains `sqlite3` data extraction, a Python evaluation harness at `/app/harness/`, and `jq` post-processing to produce a ranked multi-model leaderboard. The pipeline specification is at `/app/SPEC.md`.
+
+The pipeline contains multiple interacting defects across its shell orchestration (SQL queries, `jq` transformations) and Python evaluation modules (code extraction, program assembly, metric computation). These cause the pipeline to produce incorrect output.
+
+Diagnose and fix all defects so that running `/app/run_eval.sh` writes a correct leaderboard to `/app/output/leaderboard.json` conforming to the schema described in the spec.

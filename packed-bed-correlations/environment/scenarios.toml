@@ -1,0 +1,45 @@
+# Packed-bed reactor scenario definitions
+# Each scenario defines fluid and particle properties for analysis.
+# Scenarios without a tube diameter omit the Dt field entirely.
+
+[[scenarios]]
+name = "aqueous_baseline"
+dp = 8e-4
+voidage = 0.4
+vs = 1e-3
+rho_fluid = 1000.0
+mu = 1e-3
+L = 1.0
+rho_particle = 2600.0
+
+[[scenarios]]
+name = "aqueous_walled"
+dp = 8e-4
+voidage = 0.4
+vs = 1e-3
+rho_fluid = 1000.0
+mu = 1e-3
+L = 1.0
+rho_particle = 2600.0
+Dt = 0.01
+
+[[scenarios]]
+name = "gas_phase"
+dp = 5e-3
+voidage = 0.45
+vs = 0.5
+rho_fluid = 1.2
+mu = 1.8e-5
+L = 2.0
+rho_particle = 2500.0
+Dt = 0.1
+
+[[scenarios]]
+name = "fine_particles"
+dp = 7e-5
+voidage = 0.38
+vs = 5e-4
+rho_fluid = 998.0
+mu = 1.002e-3
+L = 0.5
+rho_particle = 2200.0

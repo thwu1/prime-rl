@@ -1,0 +1,129 @@
+{
+  "run_id": "run_004",
+  "metadata": {
+    "test_name": "edge_case_test",
+    "seed": 13579,
+    "timestamp": "2024-01-15T16:05:00Z",
+    "simulator": "xcelium",
+    "version": "23.09"
+  },
+  "module": "packet_router",
+  "code_coverage": {
+    "line": {
+      "total_lines": 30,
+      "hit_lines": [4, 11, 12, 13, 14, 19, 21, 22, 27, 28]
+    },
+    "branch": {
+      "total_branches": ["B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11","B12","B13","B14","B15","B16"],
+      "hit_branches": ["B4","B6","B8","B9","B10","B15"]
+    },
+    "toggle": {
+      "signals": [
+        {"name": "pkt_data", "width": 8},
+        {"name": "route_ctrl", "width": 4},
+        {"name": "status", "width": 3}
+      ],
+      "all_toggles": [
+        "pkt_data[0]_0to1","pkt_data[0]_1to0",
+        "pkt_data[1]_0to1","pkt_data[1]_1to0",
+        "pkt_data[2]_0to1","pkt_data[2]_1to0",
+        "pkt_data[3]_0to1","pkt_data[3]_1to0",
+        "pkt_data[4]_0to1","pkt_data[4]_1to0",
+        "pkt_data[5]_0to1","pkt_data[5]_1to0",
+        "pkt_data[6]_0to1","pkt_data[6]_1to0",
+        "pkt_data[7]_0to1","pkt_data[7]_1to0",
+        "route_ctrl[0]_0to1","route_ctrl[0]_1to0",
+        "route_ctrl[1]_0to1","route_ctrl[1]_1to0",
+        "route_ctrl[2]_0to1","route_ctrl[2]_1to0",
+        "route_ctrl[3]_0to1","route_ctrl[3]_1to0",
+        "status[0]_0to1","status[0]_1to0",
+        "status[1]_0to1","status[1]_1to0",
+        "status[2]_0to1","status[2]_1to0"
+      ],
+      "hit_toggles": [
+        "route_ctrl[3]_1to0"
+      ]
+    }
+  },
+  "functional_coverage": {
+    "covergroups": [
+      {
+        "name": "cg_packet_type",
+        "coverpoints": [
+          {
+            "name": "cp_pkt_type",
+            "bins": ["DATA","CTRL","MGMT","ERR","SYNC","ACK","NACK","RESET"],
+            "at_least": 1,
+            "hit_bins": {"DATA": 3, "SYNC": 2, "ACK": 5, "RESET": 8}
+          },
+          {
+            "name": "cp_pkt_size",
+            "bins": ["SMALL","MEDIUM","LARGE","JUMBO"],
+            "at_least": 1,
+            "hit_bins": {"MEDIUM": 6, "JUMBO": 4}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_type_x_size",
+            "coverpoints": ["cp_pkt_type","cp_pkt_size"],
+            "at_least": 1,
+            "hit_bins": {
+              "DATA:MEDIUM": 1, "DATA:JUMBO": 2,
+              "SYNC:MEDIUM": 1, "SYNC:JUMBO": 3,
+              "ACK:MEDIUM": 2, "ACK:JUMBO": 1,
+              "RESET:MEDIUM": 4, "RESET:JUMBO": 1
+            }
+          }
+        ]
+      },
+      {
+        "name": "cg_priority",
+        "coverpoints": [
+          {
+            "name": "cp_priority",
+            "bins": ["LOW","MEDIUM","HIGH","CRITICAL"],
+            "at_least": 1,
+            "hit_bins": {"LOW": 7, "CRITICAL": 3}
+          },
+          {
+            "name": "cp_qos",
+            "bins": ["BEST_EFFORT","ASSURED","EXPEDITED","CONTROL"],
+            "at_least": 1,
+            "hit_bins": {"EXPEDITED": 5, "CONTROL": 8}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_priority_x_qos",
+            "coverpoints": ["cp_priority","cp_qos"],
+            "at_least": 1,
+            "hit_bins": {
+              "LOW:EXPEDITED": 3, "LOW:CONTROL": 4,
+              "CRITICAL:EXPEDITED": 2, "CRITICAL:CONTROL": 1
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fsm_coverage": {
+    "fsms": [
+      {
+        "name": "router_fsm",
+        "states": ["IDLE","PARSE_HDR","ROUTE","FORWARD","DROP","ERROR","RETRY"],
+        "transitions": [
+          "IDLE->PARSE_HDR","PARSE_HDR->ROUTE","PARSE_HDR->DROP",
+          "ROUTE->FORWARD","ROUTE->DROP","FORWARD->IDLE","DROP->IDLE",
+          "ROUTE->ERROR","ERROR->RETRY","RETRY->PARSE_HDR","RETRY->DROP",
+          "ERROR->IDLE","FORWARD->ERROR","PARSE_HDR->ERROR"
+        ],
+        "hit_states": ["IDLE","PARSE_HDR","ROUTE","FORWARD","ERROR"],
+        "hit_transitions": [
+          "IDLE->PARSE_HDR","PARSE_HDR->ROUTE","ROUTE->FORWARD",
+          "FORWARD->ERROR","ROUTE->ERROR","ERROR->IDLE"
+        ]
+      }
+    ]
+  }
+}

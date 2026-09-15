@@ -1,0 +1,22 @@
+# Scenario A: Large periodic domain with 26-point stencil
+domain:
+  Nx: 360
+  Ny: 288
+  Nz: 240
+
+num_processes: 72
+
+stencil:
+  type: 26
+  halo_depth: 1
+
+element_bytes: 8
+
+network:
+  latency_us: 1.5
+  bandwidth_GBps: 12.0
+
+periodic:
+  x: true
+  y: true
+  z: true

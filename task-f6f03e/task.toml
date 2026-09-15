@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete SameGame game engine with correct gravity and column-collapse mechanics, then building a beam search or Monte Carlo Tree Search solver with a well-tuned evaluation function. Achieving the score thresholds demands understanding of metaheuristic optimization and careful state-space search engineering. Simple greedy approaches will not meet the combined score threshold of 10000 across 5 boards."""
+solution_explanation = """The solution implements beam search (width 1000) over the SameGame state space. At each step, all possible group removals are explored for each state in the beam, generating candidates scored by accumulated points minus a penalty for isolated cells (cells lacking a same-colored cardinal neighbor). This heuristic steers the search toward board states preserving large removable groups. A 45-second time limit per board ensures termination within the verifier timeout."""
+verification_explanation = """test.sh runs the solver on all 5 boards with a 50-second timeout each, saving move sequences to files. pytest then replays each move sequence on a reference SameGame engine to validate move legality and compute scores. Tests assert each board scores >= 1000 and the total across all boards is >= 10000."""
+category = "optimization"
+tags = ["beam-search", "metaheuristics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f6f03e"

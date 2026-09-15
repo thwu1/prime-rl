@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical analysis to: (1) diagnose three interacting defects from anomalous benchmark output — a broken symplectic splitting, a sign error in a composition formula, and an incorrect convergence-rate estimator — each requiring domain knowledge of Hamiltonian mechanics, backward error analysis, and Richardson extrapolation; (2) implement a sixth-order symplectic integrator by correctly applying recursive Yoshida composition, requiring understanding of how composition order parameters propagate through nested closures and that the resulting method must preserve symplecticity; (3) instrument the force function with a call-counting wrapper to empirically measure computational cost per step for each method, then produce a structured work-precision CSV; (4) generate a convergence plot using gnuplot with log-log axes, multi-series data, and labeled curves, requiring knowledge of gnuplot's scripting syntax and terminal configuration for non-interactive PNG output."""
+solution_explanation = """Fix method_b by changing force_fn(q) to force_fn(q_new) in the second kick. Fix compose_method by changing (2.0 + c) to (2.0 - c) in the weight denominator. Fix convergence_test by replacing np.log2 with np.log(ratio)/np.log(step_ratio) using actual step-count ratios. Add method_f = compose_method(method_d, 4) for sixth-order. Update benchmark.py to import and test method_f. Export convergence data to a .dat file, write a gnuplot script with log-log axes and six labeled series, and run gnuplot to produce convergence.png. Implement a ForceCounter class that wraps the force function to count invocations, use it to measure force_evals_per_step for all six methods, and write work_precision.csv."""
+verification_explanation = """Tests verify: (1) convergence orders for all six methods fall within expected ranges (1st, 2nd, 4th, 6th order); (2) order estimates are self-consistent (low spread) to detect the formula bug; (3) structure-preserving methods exhibit bounded energy error and near-zero drift rate; (4) angular momentum is conserved to machine precision for symplectic methods on the central-force problem; (5) convergence.png exists with valid PNG header and non-trivial file size; (6) work_precision.csv contains correct force-evaluation counts matching each method's implementation structure; (7) direct functional tests on method_b (single-step angular momentum) and method_f (higher convergence order than method_d, angular momentum preservation) prevent hardcoded results."""
+category = "scientific_computing"
+tags = ["numerical-methods", "hamiltonian-mechanics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/symplectic-kepler-analysis"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three tightly coupled protocol mechanisms (SACK, selective retransmission, TCP Reno congestion control) within a running system. The agent must read and understand existing GBN code, reason about packet-level state machines, handle edge cases in SACK block generation/processing, implement the full TCP Reno state machine (slow start, AIMD, fast retransmit/recovery, timeout handling), and ensure correctness under adversarial network conditions (loss, reordering, corruption). The interaction between SACK and congestion control creates subtle bugs that require deep protocol understanding to resolve. This is graduate-level networking coursework from ETH Zurich."""
+solution_explanation = """The solution modifies sender.py to: (1) maintain a set of SACKed sequence numbers, processing SACK blocks from every ACK; (2) retransmit only the oldest unacked non-SACKed packet on timeout instead of the entire window; (3) implement TCP Reno with cwnd/ssthresh tracking, slow start exponential growth, AIMD congestion avoidance, fast retransmit on 3 duplicate ACKs with fast recovery, and slow start restart on timeout; (4) log cwnd, ssthresh, state, and SACK blocks in ACK/FAST_RETRANSMIT/TIMEOUT events. The receiver is modified to generate SACK blocks by sorting buffered out-of-order sequence numbers into contiguous byte-range blocks (up to 3) and including them in every ACK packet."""
+verification_explanation = """Seven pytest tests verify: (1) correct no-loss file transfer (MD5 match); (2) correct transfer under 10% loss within 35s; (3) correct transfer under 20% loss + 10% reorder within 55s; (4) SACK blocks appear in sender log events; (5) congestion control dynamics: cwnd grows above 2 (slow start), drops after max (multiplicative decrease), and FAST_RETRANSMIT or TIMEOUT events are logged; (6) correct transfer under 5% corruption + 5% loss; (7) retransmission ratio below 0.6 (SR efficiency vs GBN). All tests use deterministic seeds for reproducibility."""
+category = "networking"
+tags = ["transport-protocols", "congestion-control"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sack-congestion-control"

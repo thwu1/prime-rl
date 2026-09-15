@@ -1,0 +1,37 @@
+Hardware Accelerator Queue Device Interface (/dev/accelq)
+=========================================================
+
+The /dev/accelq device provides userspace access to a hardware acceleration
+engine supporting asynchronous job submission and DMA buffer management.
+
+Resource Lifecycle:
+1. Open /dev/accelq to obtain a file descriptor (fd_accelq)
+2. Create a context (ACCELQ_CREATE_CTX) -> produces ctx_id
+3. Create queues within context (ACCELQ_CREATE_QUEUE) -> produces queue_id
+4. Map DMA buffers (ACCELQ_MAP_BUFFER) -> produces buffer handle (__u64)
+5. Submit jobs with descriptor arrays (ACCELQ_SUBMIT) -> produces job_id
+6. Wait for job completion (ACCELQ_WAIT) -> consumes job_id
+7. Query statistics (ACCELQ_GET_STATS)
+8. Set queue priority (ACCELQ_SET_PRIORITY)
+9. Unmap buffers (ACCELQ_UNMAP_BUFFER) -> consumes buffer handle
+10. Destroy queues (ACCELQ_DESTROY_QUEUE) and contexts (ACCELQ_DESTROY_CTX)
+
+Resource Dependencies:
+- ctx_id (__u32 resource): produced by CREATE_CTX, consumed by all other ops
+- queue_id (__u32 resource): produced by CREATE_QUEUE, consumed by SUBMIT/WAIT/STATS/PRIO
+- job_id (__u32 resource): produced by SUBMIT, consumed by WAIT
+- buffer handle (__u64 resource): produced by MAP_BUFFER, consumed by UNMAP_BUFFER,
+  referenced in accelq_descriptor.src_handle and .dst_handle fields
+
+ioctl Direction Semantics:
+- _IOW commands (DESTROY_CTX, DESTROY_QUEUE, SET_PRIORITY, UNMAP_BUFFER):
+  Kernel only reads from the struct. Unused fields should be zero.
+- _IOWR commands (CREATE_CTX, CREATE_QUEUE, SUBMIT, WAIT, GET_STATS, MAP_BUFFER):
+  Bidirectional - some fields are input, others are output.
+  Individual struct fields have in/out annotations in comments.
+
+Key Modeling Challenge:
+The descs_ptr field in accelq_submit_args is a __u64 that semantically holds
+a userspace pointer to an array of accelq_descriptor structs. The nr_descs
+field specifies the length of that array. This indirection must be correctly
+modeled in the syscall descriptions.

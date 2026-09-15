@@ -1,0 +1,18 @@
+{
+  "name": "short_intense",
+  "soil": {
+    "Ke": 3.0,
+    "Ns": 150.0,
+    "theta_d": 0.35
+  },
+  "surface": {
+    "slope": 0.08,
+    "chezy_c": 15.0,
+    "length": 100.0,
+    "random_roughness": 12.0
+  },
+  "rainfall": [
+    {"time_min": 0, "intensity_mm_hr": 80.0},
+    {"time_min": 10, "intensity_mm_hr": 0.0}
+  ]
+}

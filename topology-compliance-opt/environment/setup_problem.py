@@ -1,0 +1,52 @@
+"""Generate the problem definition file for the topology optimization task."""
+import json
+import os
+
+os.makedirs("/app", exist_ok=True)
+
+problem = {
+    "mesh": {
+        "nelx": 60,
+        "nely": 20
+    },
+    "material": {
+        "E0": 1.0,
+        "Emin": 1e-9,
+        "nu": 0.3
+    },
+    "optimization": {
+        "volfrac": 0.4,
+        "penal": 3.0,
+        "rmin": 2.0,
+        "max_iter": 200,
+        "tol": 0.01
+    },
+    "boundary_conditions": {
+        "type": "cantilever",
+        "fixed_edge": "left",
+        "load_position": "right_mid",
+        "load_direction": "y",
+        "load_magnitude": -1.0
+    },
+    "node_numbering": {
+        "description": "Node (ix,iy) has index iy*(nelx+1)+ix. ix in [0,nelx], iy in [0,nely]. y=0 is bottom, y=nely is top. Node n has DOFs [2*n, 2*n+1] for (ux, uy)."
+    },
+    "element_numbering": {
+        "description": "Element (ex,ey) has index ey*nelx+ex. ex in [0,nelx-1], ey in [0,nely-1]. Element nodes: BL=(ex,ey), BR=(ex+1,ey), TR=(ex+1,ey+1), TL=(ex,ey+1)."
+    },
+    "output": {
+        "density_file": "results/density.npy",
+        "compliance_file": "results/compliance.txt",
+        "history_file": "results/history.csv",
+        "density_layout": "density[i,j] = physical density of element (ex=j, ey=i), ey=0 is bottom row"
+    }
+}
+
+with open("/app/problem.json", "w") as f:
+    json.dump(problem, f, indent=2)
+
+# Verify the file is readable and correct
+with open("/app/problem.json") as f:
+    d = json.load(f)
+assert "mesh" in d and d["mesh"]["nelx"] == 60, "problem.json verification failed"
+print("Created and verified /app/problem.json")

@@ -1,0 +1,7 @@
+domain:             beta.dn42
+descr:              Beta Network DNS delegation
+admin-c:            BOB-DN42
+tech-c:             FRANK-DN42
+mnt-by:             BETA-MNT
+nserver:            ns1.beta.dn42 172.20.11.1
+source:             DN42

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four subtle physics and numerical bugs in a multilayer thin-film optics simulator: an incorrect polarization-dependent transmitted power formula, a naive power-entering calculation that fails for absorptive incident media, missing numerical stability handling for very opaque layers, and a position-resolved Poynting/absorption calculation that ignores polarization differences. Each bug targets a different aspect of electromagnetic wave physics and cannot be fixed without domain expertise. Additionally requires implementing a nonlinear least-squares inversion of spectroscopic ellipsometry data against a Cauchy dispersion model, and building a shell-script CLI tool that bridges JSON stdin/stdout with Python TMM computation and writes parametric sweep results to a SQLite database with a required schema."""
+solution_explanation = """Four bugs must be found and fixed: (1) T_from_t uses the s-polarization power flux formula for both s and p, missing the conjugate correction needed for p-polarization power accounting; (2) power_entering_from_r uses the naive 1-|r|^2 formula which is incorrect when the incident medium is absorptive — the correct formula involves polarization-dependent products of (1+r) and (1-r) with complex conjugates; (3) coh_tmm lacks imaginary-phase clamping for numerical stability when layers are extremely opaque, causing exp() overflow; (4) position_resolved computes Poynting vector and absorption density using only the s-polarization field expressions, missing entirely different p-polarization formulas involving conjugates and mixed kz/conj(kz) terms. After all fixes, a least-squares fitting script fits spectroscopic ellipsometry measurements to recover Cauchy dispersion coefficients and film thickness. Finally, a shell CLI tool wraps the fixed solver with JSON I/O parsing, dispatches to compute and sweep subcommands, and writes sweep results into a SQLite database with the specified schema."""
+verification_explanation = """Tests validate against Mathematica-verified golden values for complex reflection/transmission amplitudes, power fractions (both s and p), and kz_list entries. Energy conservation checks verify absorption sums to 1 for various stack configurations including absorptive endpoint media and five-layer stacks. Poynting vector continuity is checked at interfaces, along with consistency with power_entering and T values. Derivative consistency verifies d(poyn)/dz = -absor via finite differences. Numerical stability tests confirm no NaN for 1e5 nm of absorptive material and that R matches a truncated stack. Normal-incidence s/p equivalence and single-interface R+T=1 are checked. Fitted film parameters are validated against ground truth within tight tolerances and forward-model residuals are checked. CLI tests verify the shell script reads JSON stdin and produces correct JSON stdout for the compute subcommand (both s and p polarizations against golden values), and that the sweep subcommand creates a SQLite database with correct table schema, row count, energy conservation at each wavelength, and spot-checked values cross-validated against direct coh_tmm calls."""
+category = "physics_engineering"
+tags = ["optics", "debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ellipsometry-thinfilm-inversion"

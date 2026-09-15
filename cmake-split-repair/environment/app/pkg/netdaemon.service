@@ -1,0 +1,14 @@
+[Unit]
+Description=NetDaemon Network Service
+After=network.target
+Documentation=man:ndserver(8)
+
+[Service]
+Type=forking
+ExecStart=/usr/local/sbin/netdaemon --config /etc/netdaemon.conf --daemonize
+PIDFile=/run/netdaemon.pid
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

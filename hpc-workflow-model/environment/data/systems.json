@@ -1,0 +1,38 @@
+{
+  "alpha": {
+    "peak_gflops_per_node": 1200,
+    "hbm_bandwidth_gbs": 900,
+    "network_latency_us": 1.5,
+    "network_bandwidth_gbs": 25,
+    "io_bandwidth_gbs": 2.0,
+    "cost_per_node_usd": 15000,
+    "max_nodes": 1024
+  },
+  "beta": {
+    "peak_gflops_per_node": 800,
+    "hbm_bandwidth_gbs": 1600,
+    "network_latency_us": 0.8,
+    "network_bandwidth_gbs": 50,
+    "io_bandwidth_gbs": 5.0,
+    "cost_per_node_usd": 22000,
+    "max_nodes": 2048
+  },
+  "gamma": {
+    "peak_gflops_per_node": 2000,
+    "hbm_bandwidth_gbs": 400,
+    "network_latency_us": 2.0,
+    "network_bandwidth_gbs": 12.5,
+    "io_bandwidth_gbs": 1.0,
+    "cost_per_node_usd": 18000,
+    "max_nodes": 256
+  },
+  "delta": {
+    "peak_gflops_per_node": 1500,
+    "hbm_bandwidth_gbs": 1200,
+    "network_latency_us": 1.0,
+    "network_bandwidth_gbs": 40,
+    "io_bandwidth_gbs": 3.5,
+    "cost_per_node_usd": 20000,
+    "max_nodes": 512
+  }
+}

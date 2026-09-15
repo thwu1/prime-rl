@@ -1,0 +1,21 @@
+// Test 08: Short-circuit evaluation with side effects
+int x;
+
+int sideEffect() {
+    x = x + 1;
+    return x;
+}
+
+int main() {
+    x = 0;
+    int r;
+    r = (0 && sideEffect());
+    putint(x); putch(32);
+    r = (1 || sideEffect());
+    putint(x); putch(32);
+    r = (1 && sideEffect());
+    putint(x); putch(32);
+    r = (0 || sideEffect());
+    putint(x); putch(10);
+    return 0;
+}

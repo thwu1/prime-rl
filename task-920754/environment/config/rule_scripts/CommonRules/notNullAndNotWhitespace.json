@@ -1,0 +1,19 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "ImportScript",
+            "description": "Check not null first",
+            "parameters": {
+                "scriptFile": "CommonRules/notNull.json"
+            }
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Property must not be empty or whitespace",
+            "parameters": {
+                "ruleText": "currentProperty.Trim().Length > 0"
+            }
+        }
+    ]
+}

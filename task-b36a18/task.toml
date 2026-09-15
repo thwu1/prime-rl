@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the CUBIC congestion control algorithm (RFC 8312bis) at the implementation level, not merely conceptual. The agent must identify 4 non-obvious bugs across different algorithm components: K computation (Eq. 2), fast convergence (Section 4.6), TCP-friendly AIMD increment (Eq. 4), and alpha_aimd adaptation. Each bug is a subtle mathematical error or missing conditional that mirrors real bugs found in production QUIC implementations. Fixing them requires reading the RFC, mapping formulas to code, and understanding how the components interact during congestion avoidance."""
+solution_explanation = """Fix 4 bugs: (1) cubic_k must subtract current cwnd from w_max before dividing by C in the cubic root computation; (2) fast convergence formula must use (1+beta)/2 not beta/2 to properly bound w_max between cwnd*beta and cwnd; (3) w_est_inc must multiply by max_datagram_size to produce byte-scale increments rather than fractional values; (4) alpha_aimd must be updated to 1.0 when w_est reaches w_max to ensure CUBIC is at least as aggressive as standard TCP. Each fix is a 1-line change but requires deep algorithmic understanding."""
+verification_explanation = """Pytest tests verify each CUBIC component independently: K computation against analytic values for multiple w_max/cwnd pairs, fast convergence w_max formula against the RFC formula, w_est increment magnitude (must be >10 bytes per ACK, not fractional), alpha_aimd update trigger. An integration test verifies cwnd recovery through slow start, loss, and congestion avoidance over a simulated 20-second epoch."""
+category = "networking"
+tags = ["congestion-control", "quic"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b36a18"

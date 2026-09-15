@@ -1,0 +1,16 @@
+apiVersion: platform.example.com/v1alpha1
+kind: PostgreSQLDatabase
+metadata:
+  name: team-alpha-postgres
+  namespace: team-alpha
+  labels:
+    app.kubernetes.io/name: team-alpha-postgres
+    app.kubernetes.io/managed-by: crossplane
+    platform.example.com/tenant: team-alpha
+spec:
+  parameters:
+    storageGB: 50
+    replicas: 3
+    version: "16"
+  compositionRef:
+    name: postgres-on-kubernetes

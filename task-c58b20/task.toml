@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of HPC 3D domain decomposition and halo exchange communication patterns. The solver must diagnose four interrelated bugs in a simulator by cross-referencing binary reference traces using a custom C-based trace inspection tool. Bugs span domain decomposition optimization (asymmetric search space), stencil hierarchy semantics (corner vs edge classification), bandwidth unit conventions (GB vs GiB), and boundary condition handling (off-by-one in non-periodic clipping). Each bug requires deep geometric reasoning about structured grid communication topology."""
+solution_explanation = """Use the trace_reader tool to extract reference values from binary traces, then compare against buggy simulator output to identify discrepancies. Fix four bugs: (1) decomposition search incorrectly constrains Px<=Py<=Pz, missing optimal asymmetric factorizations; (2) corner halo contributions applied at stencil>=18 instead of >=26; (3) bandwidth conversion uses GiB (1024^3/1e6) instead of GB (1e3); (4) non-periodic boundary check uses > instead of >= for upper bound, creating spurious neighbors."""
+verification_explanation = """Tests verify each simulator function independently against precomputed values: halo sizes for multiple subdomain configurations, per-process volume for all three stencil types, decomposition optimality for asymmetric domains, neighbor graph correctness (counts, symmetry, valid rank range), exchange time with GB-based bandwidth, and output JSON files matching reference trace data."""
+category = "hpc"
+tags = ["communication-patterns", "domain-decomposition"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c58b20"

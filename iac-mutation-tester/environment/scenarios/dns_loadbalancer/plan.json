@@ -1,0 +1,283 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_route53_zone.primary",
+          "mode": "managed",
+          "type": "aws_route53_zone",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "example.com",
+            "comment": "Managed by Terraform",
+            "force_destroy": false,
+            "tags": {}
+          },
+          "sensitive_values": {
+            "tags": {},
+            "vpc": []
+          }
+        },
+        {
+          "address": "aws_elb.main",
+          "mode": "managed",
+          "type": "aws_elb",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "main-elb",
+            "availability_zones": ["us-east-1a"],
+            "internal": false,
+            "idle_timeout": 60,
+            "connection_draining": false,
+            "connection_draining_timeout": 300,
+            "listener": [
+              {
+                "instance_port": 80,
+                "instance_protocol": "http",
+                "lb_port": 80,
+                "lb_protocol": "http",
+                "ssl_certificate_id": ""
+              }
+            ],
+            "tags": {}
+          },
+          "sensitive_values": {
+            "availability_zones": [],
+            "listener": [{}],
+            "tags": {}
+          }
+        },
+        {
+          "address": "aws_route53_record.www",
+          "mode": "managed",
+          "type": "aws_route53_record",
+          "name": "www",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 2,
+          "values": {
+            "name": "www.example.com",
+            "type": "A"
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_route53_zone.primary",
+      "mode": "managed",
+      "type": "aws_route53_zone",
+      "name": "primary",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "example.com",
+          "comment": "Managed by Terraform",
+          "force_destroy": false,
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "name_servers": true,
+          "primary_name_server": true,
+          "zone_id": true,
+          "vpc": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "tags": {},
+          "vpc": []
+        }
+      }
+    },
+    {
+      "address": "aws_elb.main",
+      "mode": "managed",
+      "type": "aws_elb",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "main-elb",
+          "availability_zones": ["us-east-1a"],
+          "internal": false,
+          "idle_timeout": 60,
+          "connection_draining": false,
+          "connection_draining_timeout": 300,
+          "listener": [
+            {
+              "instance_port": 80,
+              "instance_protocol": "http",
+              "lb_port": 80,
+              "lb_protocol": "http",
+              "ssl_certificate_id": ""
+            }
+          ],
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "dns_name": true,
+          "zone_id": true,
+          "source_security_group": true,
+          "source_security_group_id": true,
+          "instances": true,
+          "health_check": true,
+          "access_logs": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "availability_zones": [],
+          "listener": [{}],
+          "tags": {}
+        }
+      }
+    },
+    {
+      "address": "aws_route53_record.www",
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "www",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "www.example.com",
+          "type": "A"
+        },
+        "after_unknown": {
+          "id": true,
+          "fqdn": true,
+          "zone_id": true,
+          "alias": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {
+            "constant_value": "us-east-1"
+          }
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_route53_zone.primary",
+          "mode": "managed",
+          "type": "aws_route53_zone",
+          "name": "primary",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "example.com"
+            },
+            "tags": {
+              "constant_value": {}
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_elb.main",
+          "mode": "managed",
+          "type": "aws_elb",
+          "name": "main",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "main-elb"
+            },
+            "availability_zones": {
+              "constant_value": ["us-east-1a"]
+            },
+            "internal": {
+              "constant_value": false
+            },
+            "listener": [
+              {
+                "instance_port": {
+                  "constant_value": 80
+                },
+                "instance_protocol": {
+                  "constant_value": "http"
+                },
+                "lb_port": {
+                  "constant_value": 80
+                },
+                "lb_protocol": {
+                  "constant_value": "http"
+                }
+              }
+            ]
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_route53_record.www",
+          "mode": "managed",
+          "type": "aws_route53_record",
+          "name": "www",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "www.example.com"
+            },
+            "type": {
+              "constant_value": "A"
+            },
+            "zone_id": {
+              "references": [
+                "aws_route53_zone.primary.zone_id",
+                "aws_route53_zone.primary"
+              ]
+            },
+            "alias": [
+              {
+                "name": {
+                  "references": [
+                    "aws_elb.main.dns_name",
+                    "aws_elb.main"
+                  ]
+                },
+                "zone_id": {
+                  "references": [
+                    "aws_elb.main.zone_id",
+                    "aws_elb.main"
+                  ]
+                },
+                "evaluate_target_health": {
+                  "constant_value": true
+                }
+              }
+            ]
+          },
+          "schema_version": 2
+        }
+      ]
+    }
+  },
+  "timestamp": "2024-08-15T10:30:00Z"
+}

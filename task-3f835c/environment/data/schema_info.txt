@@ -1,0 +1,110 @@
+=== ORDERS TABLE ===
+Table: SCOTT.ORDERS
+Rows: 1,500,000
+Avg Row Len: 125 bytes
+Blocks: 25,000
+Last Analyzed: 2024-06-01
+
+Columns:
+  ORDER_ID         NUMBER(12)    NOT NULL  (Primary Key)
+  CUSTOMER_ID      NUMBER(10)    NOT NULL
+  ORDER_DATE       DATE          NOT NULL
+  STATUS           VARCHAR2(20)  NOT NULL
+  TOTAL_AMOUNT     NUMBER(12,2)  NOT NULL
+  SHIPPING_ADDR_ID NUMBER(10)
+  CREATED_AT       TIMESTAMP
+  UPDATED_AT       TIMESTAMP
+
+Indexes:
+  PK_ORDERS        UNIQUE    (ORDER_ID)    B-TREE
+  IDX_ORD_STATUS   NONUNIQUE (STATUS)      B-TREE
+
+Partitioning: NONE
+
+=== CUSTOMERS TABLE ===
+Table: SCOTT.CUSTOMERS
+Rows: 500,000
+Avg Row Len: 200 bytes
+Blocks: 14,000
+Last Analyzed: 2024-06-01
+
+Columns:
+  CUSTOMER_ID      NUMBER(10)    NOT NULL  (Primary Key)
+  CUSTOMER_NAME    VARCHAR2(100) NOT NULL
+  EMAIL            VARCHAR2(150) NOT NULL
+  PHONE            VARCHAR2(20)
+  ADDRESS          VARCHAR2(200)
+  CREATED_AT       TIMESTAMP
+
+Indexes:
+  PK_CUSTOMERS     UNIQUE    (CUSTOMER_ID)  B-TREE
+  IDX_CUST_EMAIL   UNIQUE    (EMAIL)         B-TREE
+
+=== PRODUCTS TABLE ===
+Table: SCOTT.PRODUCTS
+Rows: 50,000
+Avg Row Len: 150 bytes
+Blocks: 1,100
+Last Analyzed: 2024-06-01
+
+Columns:
+  PRODUCT_ID       NUMBER(10)    NOT NULL  (Primary Key)
+  PRODUCT_NAME     VARCHAR2(100) NOT NULL
+  PRICE            NUMBER(10,2)  NOT NULL
+  CATEGORY_ID      NUMBER(5)     NOT NULL
+  DESCRIPTION      VARCHAR2(500)
+  CREATED_AT       TIMESTAMP
+
+Indexes:
+  PK_PRODUCTS      UNIQUE    (PRODUCT_ID)    B-TREE
+  IDX_PROD_CAT     NONUNIQUE (CATEGORY_ID)   B-TREE
+
+=== INVENTORY TABLE ===
+Table: SCOTT.INVENTORY
+Rows: 200,000
+Avg Row Len: 50 bytes
+Blocks: 1,500
+Last Analyzed: 2024-06-01
+
+Columns:
+  PRODUCT_ID       NUMBER(10)    NOT NULL
+  WAREHOUSE_ID     NUMBER(5)     NOT NULL
+  QUANTITY          NUMBER(8)    NOT NULL
+  LAST_UPDATED     TIMESTAMP
+
+Indexes:
+  PK_INVENTORY     UNIQUE    (PRODUCT_ID, WAREHOUSE_ID)  B-TREE
+
+=== ORDER_ITEMS TABLE ===
+Table: SCOTT.ORDER_ITEMS
+Rows: 5,000,000
+Avg Row Len: 60 bytes
+Blocks: 42,000
+Last Analyzed: 2024-06-01
+
+Columns:
+  ITEM_ID          NUMBER(12)    NOT NULL  (Primary Key)
+  ORDER_ID         NUMBER(12)    NOT NULL
+  PRODUCT_ID       NUMBER(10)    NOT NULL
+  QUANTITY         NUMBER(5)     NOT NULL
+  UNIT_PRICE       NUMBER(10,2)  NOT NULL
+
+Indexes:
+  PK_ORDER_ITEMS   UNIQUE    (ITEM_ID)       B-TREE
+  IDX_OI_ORDER     NONUNIQUE (ORDER_ID)      B-TREE
+  IDX_OI_PRODUCT   NONUNIQUE (PRODUCT_ID)    B-TREE
+
+=== CATEGORIES TABLE ===
+Table: SCOTT.CATEGORIES
+Rows: 200
+Avg Row Len: 80 bytes
+Blocks: 5
+Last Analyzed: 2024-06-01
+
+Columns:
+  CATEGORY_ID      NUMBER(5)     NOT NULL  (Primary Key)
+  CATEGORY_NAME    VARCHAR2(50)  NOT NULL
+  PARENT_ID        NUMBER(5)
+
+Indexes:
+  PK_CATEGORIES    UNIQUE    (CATEGORY_ID)   B-TREE

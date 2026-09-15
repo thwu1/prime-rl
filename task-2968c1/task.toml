@@ -1,0 +1,52 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to independently design and implement a complete automated bug-finding
+pipeline for a 290-line interpreter with 5 correctness bugs across different subsystems (arithmetic
+semantics, comparison operators, escape sequence handling, modular arithmetic sign conventions,
+type conversion). No algorithms, tools, or architectural patterns are specified — the solver must
+discover appropriate techniques for automated input generation, execution coverage analysis,
+statistical fault ranking, and input minimization. Seeds do not directly trigger any bugs, so the
+solver cannot find differences by manual inspection of provided examples. Integrating multiple
+subsystems (test generation, coverage instrumentation, statistical analysis, search-based
+reduction) into a coherent pipeline that produces structured JSON output meeting specific
+correctness criteria requires deep understanding of software testing research concepts and
+significant engineering judgment."""
+solution_explanation = """Implement a coverage tracker using sys.settrace to capture (filename, lineno) tuples during
+execution. Build a greybox fuzzer with byte-level mutation, coverage-based seed retention, and an
+AFL-style exponential power schedule. Implement Ochiai fault localization computing
+failed(e)/sqrt((failed(e)+not_in_failed(e))*(failed(e)+passed(e))). Implement the ddmin algorithm
+for 1-minimal input reduction. The pipeline differentially tests target.py vs reference.py, feeds
+coverage data into Ochiai, then minimizes failures via ddmin. Results are written as JSON to
+/app/results/."""
+verification_explanation = """Integration tests run the full pipeline and verify: at least 5 genuine failure-inducing inputs
+are found (re-executed against both interpreters), at least 2 distinct categories of output
+difference are represented (numeric, boolean, string, or type-representation), suspiciousness
+rankings are valid (sorted descending, scores in [0,1], include target.py lines, top score > 0.3),
+minimized inputs are shorter than originals, still trigger bugs, and at least one is provably
+1-minimal (removing any single character eliminates the failure)."""
+category = "software_testing"
+tags = ["differential-testing", "fault-localization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2968c1"

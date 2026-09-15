@@ -1,0 +1,6 @@
+c unsatisfiable instance - contradictory hard clauses
+c 2 variables
+h 1 0
+h -1 0
+h 2 0
+1 -2 0

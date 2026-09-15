@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in neural IR ranking losses and mechanistic interpretability to diagnose and fix multiple subtle implementation bugs across a multi-module analysis framework, plus implement a complete IR evaluation metrics module from mathematical specifications. The agent must independently understand sigmoid-based approximate rank estimation direction, pairwise learning-to-rank index conventions, KL divergence argument ordering, activation patching causal effect semantics, and critical component aggregation — then map test failures back to root causes across interacting modules. Each bug produces plausible but incorrect output, demanding domain expertise rather than error-message-driven debugging. The metrics module requires implementing NDCG@k with proper DCG/IDCG computation and gain/discount formulas, Average Precision with correct precision-at-k accumulation and normalization by min(R,k), and Reciprocal Rank — all from formal definitions without reference implementations."""
+solution_explanation = """Fix 5 bugs: (1) In losses.py get_approx_ranks, correct the pairwise score difference tensor construction from pred[..., None]-pred[:, None] to pred[:, None]-pred[..., None] so that higher-scoring items receive lower approximate ranks. (2) In RankNetLoss, change triu_indices offset from 0 to 1 to exclude self-pairs on the diagonal. (3) In KLDivergenceLoss, swap the arguments so log_softmax is applied to predictions and softmax to labels. (4) In patching.py identify_top_k_critical, remove reverse=True from sort so components with smallest absolute effect (most causally critical) are returned first. (5) In analyze.py, change max to min for most_critical_layer since the most critical layer has the lowest mean absolute effect. Then implement framework/metrics.py: ndcg_at_k (sort by predictions descending, compute DCG@k and IDCG@k with 2^rel-1 gains and log2(rank+1) discounts), average_precision_at_k (accumulate precision at relevant ranks, normalize by min(R,k)), reciprocal_rank (1/rank of first relevant doc), and evaluate_queries (mean across queries)."""
+verification_explanation = """Tests verify: (1) each of 7 loss functions produces numerically correct outputs for multiple test inputs within 1e-3 tolerance, (2) patching metrics correctly compute causal effect values and identify critical components by ascending absolute effect, (3) NDCG@k, AP@k, and RR produce correct values for imperfect rankings, perfect rankings, all-irrelevant edge cases, and k-cutoff edge cases, (4) the analysis report contains correct top-5 critical components, per-component importance statistics, most critical layer/position, loss evaluation values, and evaluation metrics (NDCG@3, MAP@3, MRR) — all matching pre-computed reference values."""
+category = "machine_learning"
+tags = ["information_retrieval", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/neural-ir-patching"

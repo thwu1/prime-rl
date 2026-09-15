@@ -1,0 +1,58 @@
+# Component parameters for cubic EOS calculations
+
+[meta]
+gas_constant = 8.314462618153241
+description = "Hydrocarbon system: C1-C5 n-alkanes"
+
+[species]
+
+[species.methane]
+Tc = 190.564
+Pc = 4599200.0
+omega = 0.01142
+
+[species.ethane]
+Tc = 305.32
+Pc = 4872200.0
+omega = 0.09952
+
+[species.propane]
+Tc = 369.83
+Pc = 4248000.0
+omega = 0.15229
+
+[species."n-butane"]
+Tc = 425.12
+Pc = 3796000.0
+omega = 0.20017
+
+[species."n-pentane"]
+Tc = 469.70
+Pc = 3370000.0
+omega = 0.25148
+
+# Binary interaction parameters (symmetric; unlisted pairs default to 0)
+[[interactions]]
+species1 = "methane"
+species2 = "propane"
+kij = 0.01
+
+[[interactions]]
+species1 = "methane"
+species2 = "n-butane"
+kij = 0.02
+
+[[interactions]]
+species1 = "methane"
+species2 = "n-pentane"
+kij = 0.02
+
+[[interactions]]
+species1 = "ethane"
+species2 = "n-butane"
+kij = 0.01
+
+[[interactions]]
+species1 = "ethane"
+species2 = "n-pentane"
+kij = 0.01

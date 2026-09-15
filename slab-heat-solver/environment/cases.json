@@ -1,0 +1,114 @@
+{
+    "GC_BASE": {
+        "description": "Baseline: 12m slab, 15m depth, homogeneous soil k=1.9",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 15.0, "conductivity": 1.9}
+        ]
+    },
+    "GC_NARROW": {
+        "description": "Narrow 6m slab - higher perimeter-to-area ratio",
+        "slab_half_width": 3.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 15.0, "conductivity": 1.9}
+        ]
+    },
+    "GC_WIDE": {
+        "description": "Wide 20m slab - lower perimeter-to-area ratio",
+        "slab_half_width": 10.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 15.0, "conductivity": 1.9}
+        ]
+    },
+    "GC_HIGHK": {
+        "description": "Doubled soil conductivity k=3.8",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 15.0, "conductivity": 3.8}
+        ]
+    },
+    "GC_SHALLOW": {
+        "description": "Shallow 5m depth boundary",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 5.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 5.0, "conductivity": 1.9}
+        ]
+    },
+    "GC_LAYER": {
+        "description": "Two-layer soil: upper 5m clay (k=1.9), lower 10m shale (k=0.5)",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 5.0, "conductivity": 1.9},
+            {"depth_to": 15.0, "conductivity": 0.5}
+        ]
+    },
+    "GC_VINSUL": {
+        "description": "Vertical perimeter insulation (0.20m wide, 1m deep, k=0.04)",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 15.0, "conductivity": 1.9}
+        ],
+        "insulation": {
+            "x_start": 6.20,
+            "x_end": 6.40,
+            "z_start": 0.0,
+            "z_end": 1.0,
+            "conductivity": 0.04
+        }
+    },
+    "GC_COMBO": {
+        "description": "Layered soil with vertical perimeter insulation",
+        "slab_half_width": 6.0,
+        "wall_thickness": 0.20,
+        "domain_width": 40.0,
+        "domain_depth": 15.0,
+        "T_indoor": 30.0,
+        "T_outdoor": 10.0,
+        "soil_layers": [
+            {"depth_to": 5.0, "conductivity": 1.9},
+            {"depth_to": 15.0, "conductivity": 0.5}
+        ],
+        "insulation": {
+            "x_start": 6.20,
+            "x_end": 6.40,
+            "z_start": 0.0,
+            "z_end": 1.0,
+            "conductivity": 0.04
+        }
+    }
+}

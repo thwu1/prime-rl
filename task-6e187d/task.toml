@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level ROS 2 Nav2 knowledge to diagnose interrelated navigation failures from ambiguous simulation logs containing both genuine configuration issues and environmental noise. The solver must evaluate a buggy third-party validation tool (which produces false positives, false negatives, and omits entire check categories), independently discover issues the tool misses, separate configuration-caused failures from transient sensor/network events, fix 10+ mathematically interrelated parameter consistency violations spanning MPPI controller, costmap layers, velocity smoother, and motion model subsystems, and justify each parameter choice with evidence. The cross-subsystem parameter interactions (prediction horizon geometry, motion model kinematics, smoother/controller limit alignment, critic handoff thresholds) require deep domain expertise that goes well beyond textbook robotics."""
+solution_explanation = """Parse the broken YAML, robot spec, and simulation logs. Run and evaluate the provided validation tool, identifying its false positive (controller_frequency flagged at 20Hz), false negatives (angular velocity smoother PASS when it should FAIL, inflation radius PASS despite 0.30m mismatch), and missing checks (model_dt, acceleration limits, critic thresholds). Independently analyze the configuration to find all 10 bugs. Classify simulation log entries as config-caused vs environmental. Fix each parameter respecting robot spec constraints and inter-parameter math. Produce a justified diagnosis report, corrected YAML, and parameter change justification with evidence."""
+verification_explanation = """Tests parse the diagnosis report JSON to verify all 10 issue categories are detected via keyword matching, check that environmental observations are separately cataloged, verify the fixed YAML satisfies 13+ mathematical constraint relationships, and confirm the parameter justification covers key changes with substantive rationale."""
+category = "robotics"
+tags = ["ros2", "navigation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6e187d"

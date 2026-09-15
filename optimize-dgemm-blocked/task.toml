@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of CPU cache hierarchies, memory access patterns, loop tiling/blocking strategies, and copy optimization techniques for dense linear algebra. The agent must understand column-major storage, cache associativity conflicts at power-of-2 matrix sizes, and the interplay between block size selection and L1/L2 cache capacity. Achieving 4x speedup over the naive triple-loop demands multi-level optimization: proper outer loop ordering (GEBP variant), packing sub-matrices into contiguous aligned buffers to eliminate stride-dependent cache misses, and inner loop reordering to enable compiler auto-vectorization. Basic blocking alone is insufficient."""
+solution_explanation = """Replace the starter blocked DGEMM with a copy-optimized implementation: (1) reorder outer block loops to j-k-i for maximal B-panel reuse, (2) pack A and B sub-blocks into contiguous aligned buffers to eliminate stride-dependent cache misses, (3) use j-k-i inner loop ordering with scalar hoisting of B elements to enable compiler auto-vectorization of the inner i-loop, (4) choose block size ~48 to fit packed panels in L1 cache."""
+verification_explanation = """Tests build the project with CMake, then run benchmark-blocked and benchmark-naive. Correctness is verified by the benchmark's built-in error check (comparison against BLAS reference with componentwise error bounds). Performance is verified by parsing Mflops/s output and checking that the average speedup blocked/naive >= 4x. A source-code scan ensures no BLAS calls, dynamic loading, or other cheats. File integrity checks verify that only dgemm-blocked.c was modified."""
+category = "systems"
+tags = ["high-performance-computing", "cache-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-dgemm-blocked"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a cubic equation of state from scratch (cubic solver with correct root selection, fugacity coefficient derivation for pure and mixed components with proper mixing rules), parsing NIST WebBook TSV reference data, evaluating Robeson 2008 upper bound for polymer membranes, designing a two-stage membrane cascade with iterative recycle convergence, and building a multi-tool Makefile pipeline that orchestrates awk (TSV-to-CSV preprocessing with in-line compressibility factor computation), jq (JSON-to-CSV transformation of CLI output), and sqlite3 (schema creation, data import, view definition, and JSON report generation). Combines graduate-level chemical engineering with Unix tool interoperability."""
+solution_explanation = """The solution creates a Python package with four modules implementing Peng-Robinson EOS (cubic solver, fugacity coefficients, van der Waals mixing rules), NIST validation (TSV parsing, Z derivation from density), Robeson evaluation (P_UB = k*alpha^-n), and two-stage cascade design (iterative recycle with fugacity-corrected driving forces). A Makefile wires awk scripts that parse NIST TSV files and compute Z from density, jq filters that transform CLI JSON output into CSV for sqlite3 import, and sqlite3 commands that create the schema, import data, define a view, and generate a JSON report using shell-level jq assembly."""
+verification_explanation = """Tests invoke the CLI via subprocess and verify EOS accuracy against NIST reference data, Robeson ranking correctness, and cascade mass balance/convergence. Pipeline tests verify awk-generated CSV files (existence, header, Z values, non-vapor exclusion), SQLite database schema and data (tables, view ordering, row counts, correct gas pair coverage), and the JSON report (structure, error statistics, polymer list, gas pair count). The Makefile pipeline is exercised by running 'make all' before pytest."""
+category = "chemical_engineering"
+tags = ["thermodynamics", "membrane-separation", "makefile-pipeline", "sqlite3"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/membrane-cascade-design-b05ac8"

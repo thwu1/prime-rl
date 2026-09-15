@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-pass optimizing compiler with three execution backends: an IR interpreter, a C code generator, and an x86-64 assembly code generator. The agent must reverse-engineer which BF patterns correspond to each advanced IR instruction from the IR spec alone (no optimization algorithms are provided). The x86-64 backend demands knowledge of AT&T assembly syntax, the System V AMD64 ABI (callee-saved registers, calling conventions), position-independent code generation (RIP-relative addressing, PLT calls), and correct interoperation between as and gcc for linking. Optimization pass design (pattern detection for loop idioms, instruction merging, peephole folding) requires deep compiler internals knowledge. Composing all five passes correctly — where earlier passes create patterns consumed by later ones — adds significant integration complexity."""
+solution_explanation = """The solution implements a Python compiler with: (1) BF-to-IR translation, (2) five optimization passes (contraction, clear loop, copy/multiply loop, scan loop, set fold), (3) an IR interpreter with precomputed jump table, (4) a C code emitter translating each IR instruction to equivalent C constructs, and (5) an x86-64 AT&T assembly emitter using rbx as the data pointer, putchar/getchar@PLT for I/O, RIP-relative BSS addressing for the tape, and label-based control flow for loops and scans. The assembly output is designed to be both PIE-compatible and linkable with gcc."""
+verification_explanation = """Tests verify four dimensions: (1) execution correctness — optimized IR output matches a reference BF interpreter for multiple programs; (2) IR structure — presence of optimization-specific instructions (SET, MUL_ADD, SCAN_*) in IR output for programs that should trigger each optimization; (3) C code generation — generated C compiles with gcc and produces byte-identical output; (4) x86-64 assembly generation — generated assembly assembles with as, links with gcc, produces byte-identical output, and is verified as a valid ELF executable using readelf and inspected with objdump. Edge cases include nested loops, wrapping arithmetic, and empty programs."""
+category = "compilers"
+tags = ["code-generation", "x86-assembly"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bf-optimizing-compiler"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert LLM serving systems knowledge (MoE memory layout, GQA attention, KV cache sizing, TP/DP parallelism) combined with multi-tool data engineering: querying a SQLite database with JOINs and JSON-in-text columns for benchmark traces, parsing YAML deployment configuration for GPU hardware specs and server tuning parameters, processing JSON model architecture specs, and cross-referencing all data sources to produce a unified capacity plan. No tool usage instructions, formulas, or computation steps are provided."""
+solution_explanation = """Query SQLite database to extract per-request traces (JOIN runs and traces tables, parse ITL JSON arrays from text columns). Parse YAML config with PyYAML for mem_fraction_static and cluster specs. Compute per-rate percentile statistics (TTFT, TPOT, ITL) using numpy. Count all MoE parameters (embedding, untied LM head, GQA Q/K/V/O, MoE gate, per-expert gate/up/down MLPs, RMSNorm). Evaluate TP/DP configurations against GPU memory and SLO targets for optimal deployment."""
+verification_explanation = """Tests independently query the SQLite database and compute percentile statistics using numpy, comparing within 5% tolerance. Memory calculations are verified against exact parameter count formulas for the MoE architecture with 0.2% tolerance. KV cache capacity is checked against exact formulas. Configuration recommendation is validated for TP feasibility, GPU utilization, and SLO compliance."""
+category = "ml_systems"
+tags = ["llm-serving", "capacity-planning"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/llm-capacity-planner"

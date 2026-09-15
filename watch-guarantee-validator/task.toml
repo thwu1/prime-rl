@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of linearizability theory, non-deterministic state machine models, and the etcd KV consistency model. The agent must implement a backtracking linearizability checker that handles concurrent operations (overlapping time intervals), non-deterministic state forking for error responses (where an operation may or may not have been persisted), and etcd-specific transaction semantics (conditional compare-and-swap with multi-key atomic operations at a single revision). Additionally demands proficiency with the etcd toolchain — starting an etcd server, using etcdctl for KV operations and snapshot management, and using etcdutl for offline snapshot inspection — tools that most engineers have never used directly."""
+solution_explanation = """Implement a Python linearizability checker using backtracking search: (1) build the etcd state machine (put/get/delete/txn with revision tracking and mod_revision semantics); (2) enumerate valid total orderings of operations respecting real-time precedence (return_ns <= call_ns); (3) fork on error responses, trying both persisted and lost branches; (4) check response matching at each step. For violating operation identification, use incremental prefix checking. Then start an etcd server, replay final states from linearizable histories via etcdctl put/get, and create a snapshot with etcdctl snapshot save + etcdutl snapshot status for integrity verification."""
+verification_explanation = """Pytest checks: (1) results.json correctness — 6 linearizability verdicts (4 true, 2 false) and 2 violating operation indices verified against known ground truth; (2) groundtruth.json has correct final KV states for all 4 linearizable histories and excludes the 2 non-linearizable ones; (3) etcd tool usage evidence — etcd-snapshot.db exists and is non-empty, and an etcd data directory with member/wal or member/snap subdirectories is present, confirming the agent ran a live etcd instance."""
+category = "distributed_systems"
+tags = ["linearizability", "etcd"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/watch-guarantee-validator"

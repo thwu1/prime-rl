@@ -1,0 +1,23 @@
+# Maintainer: Grace Cache <grace@example.org>
+pkgname=cache-mgr
+pkgver=1.0.0
+pkgrel=1
+epoch=3
+pkgdesc="Distributed caching layer manager"
+arch=('x86_64')
+url="https://github.com/example/cache-mgr"
+license=('MIT')
+depends=('dbclient>=2.0' 'libnet')
+makedepends=('rust' 'cargo')
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('a6b7c8d9e0f10000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  cargo build --release
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  install -Dm755 "target/release/cache-mgr" "${pkgdir}/usr/bin/cache-mgr"
+}

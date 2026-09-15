@@ -1,0 +1,46 @@
+{
+  "type": "Collection",
+  "id": "C2746980408-LPCLOUD",
+  "stac_version": "1.0.0",
+  "title": "OPERA Land Surface Disturbance Alert from HLS product (Version 1)",
+  "description": "OPERA_L3_DIST-ALERT-HLS_V1 data collection from LPCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2022-01-01T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "LPCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "landsat-8",
+      "landsat-9",
+      "sentinel-2a",
+      "sentinel-2b"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

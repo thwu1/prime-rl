@@ -1,0 +1,8 @@
+person:             Alice Networkington
+# Primary network administrator
+e-mail:             alice@example.dn42
+nic-hdl:            ALICE-DN42
+mnt-by:             ALPHA-MNT
+remarks:            Available for peering requests
+                    on IRC #dn42 as alice_net
+source:             DN42

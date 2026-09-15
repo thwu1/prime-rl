@@ -1,0 +1,11 @@
+{
+  "description": "Reference stdout outputs for validation. Each file contains the expected stdout when running the corresponding job.",
+  "jobs": {
+    "synth-all": "ref_001.txt",
+    "synth-closed": "ref_002.txt",
+    "synth-maximal": "ref_003.txt",
+    "basket-all": "ref_004.txt",
+    "basket-closed": "ref_005.txt",
+    "basket-maximal": "ref_006.txt"
+  }
+}

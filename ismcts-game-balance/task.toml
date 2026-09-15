@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing an AI player for an imperfect-information trick-taking card game where the opponent's hand and talon are hidden. The agent must independently identify and implement an effective approach to handle partial observability — no algorithm is named or hinted at. The AI must beat both a random baseline and a non-trivial heuristic opponent that reasons about trumps and point values. Additionally, the agent must perform multi-criteria black-box optimization across a large configuration space to find game parameters satisfying simultaneous balance constraints (first-player fairness, strategic depth, scoring, game length). The task requires querying a pre-populated SQLite database of historical game statistics to inform the search, using make and sqlite3 tooling, and persisting analysis results in a structured database. This combines expertise in game AI under uncertainty, empirical optimization, and multi-tool terminal workflow orchestration."""
+solution_explanation = """The solution implements Information Set Monte Carlo Tree Search (ISMCTS): (1) determinization — cloning the game state and randomly redistributing unseen cards between opponent hand and talon; (2) a shared tree across determinizations with nodes keyed by action sequences; (3) UCB1 selection over actions legal in the current determinization; (4) heuristic-guided rollout using trump-aware card play to terminal state; (5) backpropagation of win/loss from the acting player's perspective. For balance optimization, a grid search over trump settings, point value distributions, hand sizes, and bonuses filters candidates by Random-vs-Random metrics using evaluate.py, stores all results in analysis.db via SQLite helpers, then verifies strategic depth with AI-vs-Random games."""
+verification_explanation = """Tests verify: (1) game engine correctness — dealing, suit-following, trump mechanics, completion, config serialization; (2) AI functional correctness — returns legal actions, beats RandomPlayer ≥56% over 50 games, beats HeuristicPlayer ≥52% over 80 games, shows proper scaling with increased budget; (3) balance optimization — optimal_params.json exists, deserializes to valid GameConfig, and satisfies all four criteria (first-player fairness, skill factor, scoring, game length) when independently verified with seeded games; (4) analysis infrastructure — analysis.db exists with search_results table (≥5 rows) and chosen_config table (≥1 row)."""
+category = "games"
+tags = ["game-ai", "optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ismcts-game-balance"

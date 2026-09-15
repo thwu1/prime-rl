@@ -1,0 +1,26 @@
+# OoO processor design space evaluation constraints
+# Workload mix reflects target deployment profile
+
+workload_weights:
+  bfs: 0.35
+  bubble_sort: 0.10
+  matrix_multiply: 0.40
+  nqueens: 0.15
+
+baseline_config: "w4_r32_i64_f64"
+temperature_kelvin: 350
+
+# Each scenario constrains both die area and thermal design power
+budget_scenarios:
+  mobile:
+    max_area: 1500
+    max_power: 12.0
+  laptop:
+    max_area: 4000
+    max_power: 25.0
+  desktop:
+    max_area: 8000
+    max_power: 40.0
+  server:
+    max_area: 15000
+    max_power: 60.0

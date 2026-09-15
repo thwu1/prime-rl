@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level NCO knowledge across multiple operators (ncap2, ncatted, ncks, ncrcat, ncra, ncwa, ncrename, ncdump). The agent must independently diagnose three distinct data-quality defects — NaN fill values that silently corrupt arithmetic averages, a non-unlimited record dimension blocking concatenation, and non-standard coordinate/dimension naming — then chain a 7-step pipeline: repair, concatenate, compute per-month climatology via stride-based hyperslabbing, derive variables with ncap2 scripting, and perform area-weighted spatial averaging with proper missing-value exclusion. Each step has subtle gotchas (IEEE NaN comparison semantics, change_miss vs ncatted, dimension vs variable renaming, ncwa weight broadcasting). Failure at any early step cascades."""
+solution_explanation = """1) Fix NaN _FillValue in file A with ncap2 change_miss(-9999) or ncatted+where(x!=x) trick. 2) Convert fixed time dimension in file B to unlimited via ncks --mk_rec_dmn. 3) Rename NEMO-style dims/vars in file C (y→lat, x→lon, nav_lat→lat, nav_lon→lon) via ncrename. 4) Concatenate with ncrcat. 5) Loop over months 0-11 with ncra -d time,i,,12 to compute per-month climatology, then ncrcat the 12 single-record files. 6) Derive wind_speed=sqrt(uas²+vas²) with ncap2. 7) Create cos(lat) weight with ncap2, then ncwa -a lat,lon -w gw -v tas for area-weighted global mean."""
+verification_explanation = """Tests read the output netCDF files with Python netCDF4 and verify: (1) climatology.nc exists with 12 time records, lat=4, lon=6; (2) tas/uas/vas/wind_speed variables present; (3) climatological values match the known analytical formula within 0.05 tolerance; (4) wind_speed = sqrt(uas²+vas²) within 0.01; (5) masked cells remain missing; (6) global_mean_tas.nc has 12 time records with tas as a 1D variable; (7) global mean values match the expected cos(lat)-weighted average within 0.05."""
+category = "data_engineering"
+tags = ["netcdf", "climate_data"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netcdf-climatology-pipeline"

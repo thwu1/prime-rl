@@ -1,0 +1,110 @@
+{
+  "block_size": 16,
+  "steps": [
+    {
+      "step_id": 1,
+      "prefills": [{"request_id": "r001", "tokens": 256, "cached_blocks": 0, "new_blocks_allocated": 16}],
+      "decodes": [],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 2,
+      "prefills": [{"request_id": "r002", "tokens": 128, "cached_blocks": 4, "new_blocks_allocated": 4}],
+      "decodes": [{"request_id": "r001", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 3,
+      "prefills": [{"request_id": "r003", "tokens": 512, "cached_blocks": 0, "new_blocks_allocated": 32}],
+      "decodes": [{"request_id": "r001", "tokens": 1}, {"request_id": "r002", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 4,
+      "prefills": [],
+      "decodes": [{"request_id": "r001", "tokens": 1}, {"request_id": "r002", "tokens": 1}, {"request_id": "r003", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 5,
+      "prefills": [{"request_id": "r004", "tokens": 64, "cached_blocks": 0, "new_blocks_allocated": 4}],
+      "decodes": [{"request_id": "r002", "tokens": 1}, {"request_id": "r003", "tokens": 1}],
+      "preemptions": [],
+      "completions": ["r001"]
+    },
+    {
+      "step_id": 6,
+      "prefills": [{"request_id": "r005", "tokens": 384, "cached_blocks": 8, "new_blocks_allocated": 16}],
+      "decodes": [{"request_id": "r002", "tokens": 1}, {"request_id": "r003", "tokens": 1}, {"request_id": "r004", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 7,
+      "prefills": [],
+      "decodes": [{"request_id": "r002", "tokens": 1}, {"request_id": "r003", "tokens": 1}, {"request_id": "r005", "tokens": 1}],
+      "preemptions": [{"victim_id": "r004", "beneficiary_id": "r003"}],
+      "completions": []
+    },
+    {
+      "step_id": 8,
+      "prefills": [{"request_id": "r004", "tokens": 64, "cached_blocks": 0, "new_blocks_allocated": 4}],
+      "decodes": [{"request_id": "r002", "tokens": 1}, {"request_id": "r003", "tokens": 1}, {"request_id": "r005", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 9,
+      "prefills": [],
+      "decodes": [{"request_id": "r003", "tokens": 1}, {"request_id": "r004", "tokens": 1}, {"request_id": "r005", "tokens": 1}],
+      "preemptions": [],
+      "completions": ["r002"]
+    },
+    {
+      "step_id": 10,
+      "prefills": [{"request_id": "r006", "tokens": 192, "cached_blocks": 2, "new_blocks_allocated": 10}],
+      "decodes": [{"request_id": "r003", "tokens": 1}, {"request_id": "r004", "tokens": 1}, {"request_id": "r005", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 11,
+      "prefills": [],
+      "decodes": [{"request_id": "r003", "tokens": 1}, {"request_id": "r004", "tokens": 1}, {"request_id": "r005", "tokens": 1}, {"request_id": "r006", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 12,
+      "prefills": [],
+      "decodes": [{"request_id": "r004", "tokens": 1}, {"request_id": "r005", "tokens": 1}, {"request_id": "r006", "tokens": 1}],
+      "preemptions": [],
+      "completions": ["r003"]
+    },
+    {
+      "step_id": 13,
+      "prefills": [{"request_id": "r007", "tokens": 320, "cached_blocks": 6, "new_blocks_allocated": 14}],
+      "decodes": [{"request_id": "r004", "tokens": 1}, {"request_id": "r005", "tokens": 1}, {"request_id": "r006", "tokens": 1}],
+      "preemptions": [],
+      "completions": []
+    },
+    {
+      "step_id": 14,
+      "prefills": [],
+      "decodes": [{"request_id": "r005", "tokens": 1}, {"request_id": "r006", "tokens": 1}, {"request_id": "r007", "tokens": 1}],
+      "preemptions": [],
+      "completions": ["r004"]
+    },
+    {
+      "step_id": 15,
+      "prefills": [],
+      "decodes": [{"request_id": "r005", "tokens": 1}, {"request_id": "r007", "tokens": 1}],
+      "preemptions": [{"victim_id": "r006", "beneficiary_id": "r007"}],
+      "completions": ["r005"]
+    }
+  ]
+}

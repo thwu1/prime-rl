@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding a non-trivial file format specification (positional precedence of = vs <<, heredoc boundary semantics, trailing-newline handling) AND multi-tool interoperability across bash, jq, sqlite3, openssl, and flock. The solver must identify and fix 11 interacting bugs: 7 in the parser/encoder (precedence logic, heredoc value corruption, empty-line handling, delimiter collision, unterminated heredoc detection, no-trailing-newline read guard, command-substitution newline stripping) and 4 in the tool integration layer (HMAC using wrong algorithm and data payload, SQL injection via unescaped single quotes, sqlite3 pipe-separator breaking multiline value queries, flock non-blocking mode silently dropping entries with broken value escaping in -c strings). Bugs span tool boundaries—fixing the HMAC requires coordinating openssl flags with sqlite3 storage, fixing the query requires switching sqlite3 output modes, and fixing the append requires restructuring flock invocation from -c strings to fd-based locking."""
+solution_explanation = """The solution replaces runner-env.sh with a corrected version: (1) compares character positions of = and << for format precedence, (2) tracks first_value_line flag for heredoc values, (3) skips empty lines, (4) adds || [[ -n "$line" ]] read guard, (5) checks in_heredoc after loop, (6) generates collision-safe delimiters with suffix counter, (7) uses jq -j with sentinel to preserve trailing newlines, (8) switches HMAC from md5-over-value to sha256-over-step_id:key:value, (9) escapes single quotes by doubling for SQL, (10) uses sqlite3 -json mode for multiline-safe queries, (11) replaces flock -n -c with fd-based blocking flock in a subshell."""
+verification_explanation = """62 pytest tests exercise every bug independently: parser precedence, heredoc value correctness, empty-line tolerance, round-trip fidelity with delimiter-colliding and trailing-newline values, error detection for unterminated heredocs. New tests verify SQLite store/query with single-quote values, HMAC format against independently computed Python hmac.sha256, multiline value queries via direct DB insertion, HMAC chain verification with correct algorithm, tamper detection, and flock contention tests that hold a lock externally to confirm blocking behavior."""
+category = "debugging"
+tags = ["shell", "multi-tool-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ghenv-file-processor-54b798"

@@ -1,0 +1,285 @@
+format-version: 1.2
+data-version: hp/releases/2024-01-15
+subsetdef: hposlim_core "Core clinical terminology"
+synonymtypedef: abbreviation "abbreviation"
+synonymtypedef: layperson "layperson term"
+default-namespace: human_phenotype
+ontology: hp.obo
+property_value: dc:title "Human Phenotype Ontology" xsd:string
+property_value: owl:versionInfo "2024-01-15" xsd:string
+
+[Term]
+id: HP:0000001
+name: All
+comment: Root of all terms in the Human Phenotype Ontology.
+xref: UMLS:C0444868
+
+[Term]
+id: HP:0000005
+name: Mode of inheritance
+def: "The pattern in which a particular genetic trait or disorder is passed from one generation to the next." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Inheritance" EXACT []
+xref: UMLS:C1708511
+is_a: HP:0000001 ! All
+
+[Term]
+id: HP:0000006
+name: Autosomal dominant inheritance
+def: "A mode of inheritance that is observed for traits related to a gene encoded on one of the autosomes in which a trait manifests in heterozygotes." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Autosomal dominant" EXACT []
+xref: SNOMEDCT_US:263681008
+xref: UMLS:C0443147
+is_a: HP:0000005 ! Mode of inheritance
+
+[Term]
+id: HP:0000118
+name: Phenotypic abnormality
+def: "A phenotypic abnormality." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Organ abnormality" EXACT []
+xref: UMLS:C4021819
+is_a: HP:0000001 ! All
+
+[Term]
+id: HP:0000152
+name: Abnormality of head or neck
+def: "An abnormality of head or neck." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormality of head or neck" EXACT layperson []
+synonym: "Head and neck abnormality" EXACT []
+xref: UMLS:C4025901
+is_a: HP:0000118 ! Phenotypic abnormality
+
+[Term]
+id: HP:0000234
+name: Abnormality of the head
+def: "An abnormality of the head." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormal head" EXACT layperson []
+synonym: "Head abnormality" EXACT []
+xref: UMLS:C4025864
+is_a: HP:0000152 ! Abnormality of head or neck
+
+[Term]
+id: HP:0000252
+name: Microcephaly
+alt_id: HP:0005484
+def: "Occipitofrontal (head) circumference (OFC) less than -3 standard deviations compared to appropriate, age matched, parsing-matched reference standards." [PMID:19125436]
+comment: Head circumference is measured from just above the glabella to the most prominent part of the occiput.
+synonym: "Decreased circumference of cranium" EXACT layperson []
+synonym: "Decreased size of skull" EXACT layperson []
+synonym: "Small head" EXACT layperson []
+synonym: "Small skull" EXACT layperson []
+synonym: "small calvarium" RELATED []
+synonym: "Small cranium" EXACT layperson []
+xref: SNOMEDCT_US:248153007
+xref: UMLS:C4551563
+is_a: HP:0002060 ! Abnormal cerebral morphology
+is_a: HP:0000234 ! Abnormality of the head
+
+[Term]
+id: HP:0000256
+name: Macrocephaly
+def: "Occipitofrontal (head) circumference greater than 97th centile compared to appropriate, age matched, parsing-matched reference standards." [PMID:19125436]
+synonym: "Big head" EXACT layperson []
+synonym: "Increased size of skull" EXACT layperson []
+synonym: "Large head" EXACT layperson []
+synonym: "Large head circumference" EXACT layperson []
+xref: SNOMEDCT_US:19410003
+xref: UMLS:C2243051
+is_a: HP:0000234 ! Abnormality of the head
+
+[Term]
+id: HP:0000478
+name: Abnormality of the eye
+def: "Any abnormality of the eye, including location, spacing, and internals." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormal eye" EXACT layperson []
+synonym: "Eye disease" RELATED layperson []
+xref: SNOMEDCT_US:371405004
+xref: UMLS:C0015397
+is_a: HP:0000118 ! Phenotypic abnormality
+
+[Term]
+id: HP:0000486
+name: Strabismus
+def: "Strabismus (also known as squint) is a condition in which the eyes are not properly aligned with each other." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Cross-eyed" EXACT layperson []
+synonym: "Squint" RELATED layperson []
+xref: SNOMEDCT_US:22066006
+xref: UMLS:C0038379
+is_a: HP:0000478 ! Abnormality of the eye
+
+[Term]
+id: HP:0000518
+name: Cataract
+def: "A cataract is an opacity or clouding that develops in the crystalline lens of the eye or in its envelope." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Cataracts" EXACT layperson []
+synonym: "Cloudy lens" EXACT layperson []
+xref: SNOMEDCT_US:193570009
+xref: UMLS:C0086543
+is_a: HP:0000478 ! Abnormality of the eye
+
+[Term]
+id: HP:0000707
+name: Abnormality of the nervous system
+def: "An abnormality of the nervous system." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Neurologic abnormalities" EXACT []
+synonym: "Neurological abnormality" EXACT layperson []
+xref: SNOMEDCT_US:88425004
+xref: UMLS:C0497552
+is_a: HP:0000118 ! Phenotypic abnormality
+
+[Term]
+id: HP:0001250
+name: Seizure
+alt_id: HP:0011097
+def: "A seizure is an intermittent abnormality of nervous system physiology characterized by a transient occurrence of signs and/or symptoms due to abnormal excessive or synchronous neuronal activity in the brain." [PMID:15816939]
+synonym: "Epileptic seizure" RELATED []
+synonym: "Seizures" EXACT []
+xref: SNOMEDCT_US:91175000
+xref: UMLS:C0036572
+is_a: HP:0012638 ! Abnormal nervous system physiology
+
+[Term]
+id: HP:0001251
+name: Ataxia
+def: "Cerebellar ataxia refers to ataxia due to dysfunction of the cerebellum." [https://orcid.org/0000-0002-0736-9199]
+comment: The term ataxia is often used in a general sense to describe motor incoordination that results from cerebellar dysfunction.
+synonym: "Cerebellar ataxia" EXACT []
+synonym: "Incoordination" RELATED layperson []
+xref: SNOMEDCT_US:20262006
+xref: UMLS:C0004134
+is_a: HP:0012638 ! Abnormal nervous system physiology
+
+[Term]
+id: HP:0001257
+name: Spasticity
+def: "A motor disorder characterized by a velocity-dependent increase in tonic stretch reflexes with increased muscle tone, exaggerated tendon jerks." [https://orcid.org/0000-0002-0736-9199, PMID:15816939]
+synonym: "Muscle spasticity" EXACT []
+synonym: "Spastic" RELATED layperson []
+xref: SNOMEDCT_US:397790002
+xref: UMLS:C0026838
+is_a: HP:0012638 ! Abnormal nervous system physiology
+
+[Term]
+id: HP:0001290
+name: Generalized hypotonia
+def: "Generalized muscular hypotonia (abnormally low muscle tone)." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Decreased muscle tone" EXACT layperson []
+synonym: "Floppy" RELATED layperson []
+synonym: "Low muscle tone" EXACT layperson []
+xref: SNOMEDCT_US:398152000
+xref: UMLS:C0026827
+is_a: HP:0012638 ! Abnormal nervous system physiology
+
+[Term]
+id: HP:0001507
+name: Growth abnormality
+def: "A deviation from normal growth." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormal growth" EXACT layperson []
+synonym: "Growth anomaly" EXACT []
+xref: UMLS:C0262361
+is_a: HP:0000118 ! Phenotypic abnormality
+
+[Term]
+id: HP:0001508
+name: Failure to thrive
+def: "Failure to thrive (FTT) refers to a child whose physical growth is substantially below the norm." [https://orcid.org/0000-0002-0736-9199, PMID:21846272]
+synonym: "Faltering weight" EXACT layperson []
+synonym: "Weight faltering" EXACT layperson []
+xref: SNOMEDCT_US:36440009
+xref: UMLS:C2315100
+is_a: HP:0001507 ! Growth abnormality
+
+[Term]
+id: HP:0001574
+name: Abnormality of the integument
+def: "An abnormality of the integument, which consists of the skin and the superficial fascia." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormality of the integument" EXACT layperson []
+synonym: "Skin abnormality" RELATED layperson []
+xref: UMLS:C4025877
+is_a: HP:0000118 ! Phenotypic abnormality
+
+[Term]
+id: HP:0001595
+name: Abnormality of the hair
+def: "An abnormality of the hair." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormal hair" EXACT layperson []
+synonym: "Hair abnormality" EXACT []
+xref: SNOMEDCT_US:119849003
+xref: UMLS:C0262483
+is_a: HP:0001574 ! Abnormality of the integument
+
+[Term]
+id: HP:0002011
+name: Morphological central nervous system abnormality
+def: "A structural abnormality of the central nervous system." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormality of the central nervous system morphology" EXACT []
+synonym: "Central nervous system abnormality" RELATED layperson []
+xref: UMLS:C4025867
+is_a: HP:0012639 ! Abnormal nervous system morphology
+
+[Term]
+id: HP:0002060
+name: Abnormal cerebral morphology
+def: "An abnormality of the cerebrum." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormality of the cerebrum" EXACT layperson []
+synonym: "Cerebral abnormality" EXACT []
+xref: UMLS:C4025853
+is_a: HP:0002011 ! Morphological central nervous system abnormality
+
+[Term]
+id: HP:0002197
+name: Generalized-onset seizure
+def: "A generalized seizure is a type of seizure that involves bilateral cerebral hemispheres from the onset." [PMID:15816939, PMID:28276064]
+synonym: "Generalised seizures" EXACT []
+synonym: "Generalized seizures" EXACT []
+xref: SNOMEDCT_US:246545002
+xref: UMLS:C0014544
+is_a: HP:0001250 ! Seizure
+
+[Term]
+id: HP:0002209
+name: Sparse scalp hair
+def: "Reduced density of scalp hair." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Decreased scalp hair density" EXACT layperson []
+synonym: "Sparse hair on scalp" EXACT layperson []
+synonym: "Thin scalp hair" EXACT layperson []
+xref: SNOMEDCT_US:64820002
+xref: UMLS:C0240334
+is_a: HP:0001595 ! Abnormality of the hair
+
+[Term]
+id: HP:0004322
+name: Short stature
+def: "A height below that which is expected according to age and gender norms." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Decreased body height" EXACT []
+synonym: "Height less than 3rd percentile" EXACT []
+synonym: "Short stature" EXACT layperson []
+synonym: "Small stature" EXACT layperson []
+xref: SNOMEDCT_US:237837007
+xref: UMLS:C0349588
+is_a: HP:0001507 ! Growth abnormality
+
+[Term]
+id: HP:0007360
+name: Aplasia/Hypoplasia of the cerebellum
+def: "Underdevelopment or absence of the cerebellum." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Absent/small cerebellum" EXACT layperson []
+synonym: "Absent/underdeveloped cerebellum" EXACT layperson []
+synonym: "Cerebellar aplasia/hypoplasia" EXACT []
+xref: UMLS:C4025792
+is_a: HP:0002011 ! Morphological central nervous system abnormality
+
+[Term]
+id: HP:0012638
+name: Abnormal nervous system physiology
+def: "A functional anomaly of the nervous system." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Neurological dysfunction" EXACT layperson []
+xref: UMLS:C4022811
+is_a: HP:0000707 ! Abnormality of the nervous system
+
+[Term]
+id: HP:0012639
+name: Abnormal nervous system morphology
+def: "A structural anomaly of the nervous system." [https://orcid.org/0000-0002-0736-9199]
+synonym: "Abnormal nervous system structure" EXACT layperson []
+xref: UMLS:C4022810
+is_a: HP:0000707 ! Abnormality of the nervous system

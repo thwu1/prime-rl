@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding C return-value conventions in cryptographic APIs (byte-count-on-success vs status-code), ASN.1 tagged-union type safety, and PBKDF2 parameter validation per RFC 9579. The bugs are subtle: one involves the truthiness of -1 in an if-check on a function that returns byte count or -1-on-error, and the other involves missing type-tag and bounds validation on ASN.1 parameters before accessing union members. Both bugs are surrounded by correct code following similar patterns, and the existing test suite passes despite the vulnerabilities. Finding both requires careful cross-referencing of API documentation with call-site usage."""
+solution_explanation = """Fix 1 (kem.c rsasve_generate): Change `if (ret)` after secops_rsa_public_encrypt to `if (ret <= 0 || ret != (int)nlen)` and restructure the error path to cleanse the secret and return 0. The original check treats -1 (error) as truthy/success, leaking key material. Fix 2 (kdf.c secops_pbmac1_derive): Add validation that param->salt->type == V_SECOPS_ASN1_OCTET_STRING before accessing the octet_string union member, and validate param->keylength is non-NULL with value in (0, SECOPS_MAX_MD_SIZE] before use."""
+verification_explanation = """Tests compile the patched library and run edge-case C test programs: (1) KEM encapsulate with an RSA key lacking a public exponent — must return 0 and cleanse the secret buffer; (2) PBMAC1 derive with invalid salt type — must return 0; (3) PBMAC1 derive with NULL keylength — must return 0; (4) PBMAC1 derive with excessive keylength — must return 0. Also verifies the project compiles, basic tests pass, and the agent wrote regression tests."""
+category = "security_and_privacy"
+tags = ["cryptography", "vulnerability-analysis"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crypto-kem-audit"

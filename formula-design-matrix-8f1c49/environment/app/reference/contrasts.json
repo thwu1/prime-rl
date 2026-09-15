@@ -1,0 +1,56 @@
+{
+  "test_cases": [
+    {
+      "name": "sum_coding",
+      "formula": "C(a, Sum)",
+      "data": {"a": ["a1", "a2", "a3", "a1", "a2", "a3"]},
+      "expected_columns": ["Intercept", "C(a, Sum)[S.a1]", "C(a, Sum)[S.a2]"],
+      "expected_matrix": [
+        [1, 1, 0],
+        [1, 0, 1],
+        [1, -1, -1],
+        [1, 1, 0],
+        [1, 0, 1],
+        [1, -1, -1]
+      ]
+    },
+    {
+      "name": "poly_coding",
+      "formula": "C(a, Poly)",
+      "data": {"a": ["a1", "a2", "a3", "a1", "a2", "a3"]},
+      "expected_columns": ["Intercept", "C(a, Poly).Linear", "C(a, Poly).Quadratic"],
+      "expected_matrix": [
+        [1, -0.7071067811865476, 0.4082482904638631],
+        [1, 0.0, -0.8164965809277261],
+        [1, 0.7071067811865476, 0.4082482904638631],
+        [1, -0.7071067811865476, 0.4082482904638631],
+        [1, 0.0, -0.8164965809277261],
+        [1, 0.7071067811865476, 0.4082482904638631]
+      ]
+    },
+    {
+      "name": "helmert_coding",
+      "formula": "C(a, Helmert)",
+      "data": {"a": ["a1", "a2", "a3", "a4"]},
+      "expected_columns": ["Intercept", "C(a, Helmert)[H.a2]", "C(a, Helmert)[H.a3]", "C(a, Helmert)[H.a4]"],
+      "expected_matrix": [
+        [1, -1, -1, -1],
+        [1, 1, -1, -1],
+        [1, 0, 2, -1],
+        [1, 0, 0, 3]
+      ]
+    },
+    {
+      "name": "diff_coding",
+      "formula": "C(a, Diff)",
+      "data": {"a": ["a1", "a2", "a3", "a4"]},
+      "expected_columns": ["Intercept", "C(a, Diff)[D.a1]", "C(a, Diff)[D.a2]", "C(a, Diff)[D.a3]"],
+      "expected_matrix": [
+        [1, -0.75, -0.5, -0.25],
+        [1, 0.25, -0.5, -0.25],
+        [1, 0.25, 0.5, -0.25],
+        [1, 0.25, 0.5, 0.75]
+      ]
+    }
+  ]
+}

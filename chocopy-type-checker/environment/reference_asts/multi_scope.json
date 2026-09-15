@@ -1,0 +1,9 @@
+{
+  "well_typed": true,
+  "globals": {
+    "g": {"type": "int", "kind": "var"},
+    "outer": {"type": "(int) -> int", "kind": "func"}
+  },
+  "classes": {},
+  "errors": []
+}

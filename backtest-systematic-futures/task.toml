@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconstructing a systematic futures backtesting pipeline from data scattered across four heterogeneous formats: a DuckDB analytical database (unfamiliar to most — different SQL dialect and CLI from SQLite/Postgres), Apache Parquet binary files for instrument metadata and forecast weights, YAML for global parameters, and TOML for trading rule definitions. The agent must master DuckDB's CLI (or Python API) to query prices and inspect Parquet files via read_parquet(), parse both YAML and TOML configurations, and integrate all data sources into a coherent pipeline. No algorithmic descriptions are provided — the agent must possess expert-level knowledge of quantitative trading systems to interpret parameter names (e.g., recognizing that volatility.fast_span/slow_span/proportion_slow implies a blended EWM volatility estimator, or that fdm_estimation parameters indicate a forecast diversification multiplier derived from time-varying correlation matrices). The FDM estimation is particularly demanding, requiring computation of time-varying EWM correlation matrices and quadratic form algebra (1/sqrt(w'Cw)) — a technique not commonly encountered outside professional systematic trading."""
+solution_explanation = """The solution uses DuckDB Python API to query prices from the .duckdb database and read Parquet files for instrument metadata and forecast weights. It parses YAML (global config) and TOML (trading rules) with different libraries, then implements: (1) mixed volatility from blended fast/slow EWM standard deviation of returns, (2) EWMAC crossover forecasts normalized by volatility, (3) expanding-window forecast scalar estimation targeting mean absolute forecast of 10, (4) forecast capping at +/-20, (5) per-instrument FDM from EWM correlation of capped forecasts using 1/sqrt(w'Cw), (6) weighted forecast combination with FDM, (7) volatility-targeted position sizing, (8) portfolio allocation with instrument weights and IDM, and (9) P&L and statistics calculation."""
+verification_explanation = """Tests independently verify: (1) output files exist with correct structure and columns, (2) mixed volatility for SP500 at a specific date is independently computed from raw DuckDB prices and matches reference within 0.1%, (3) combined forecast for US10 at a specific date matches within 2%, (4) portfolio position for EUROSTOXX at a specific date matches within 2%, (5) FDM reference is in valid range, (6) Sharpe ratio within 10%, (7) annual return within 15%, (8) max drawdown within 15%, (9) final equity within 10%, (10) positions vary over time with reasonable scale, (11) P&L is internally consistent (total equals sum of instruments)."""
+category = "finance"
+tags = ["quantitative-finance", "multi-tool-data-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/backtest-systematic-futures"

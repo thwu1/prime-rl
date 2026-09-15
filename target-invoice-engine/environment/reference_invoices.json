@@ -1,0 +1,20 @@
+{
+  "AS1": {"total": 10367.00},
+  "AS2": {"total": 49500.00},
+  "Bank1": {"total": 57294.00},
+  "Bank2": {"total": 3050.40},
+  "Bank3": {"total": 11450.19},
+  "Bank4": {"total": 12653.47},
+  "Bank5": {"total": 921.11},
+  "Bank6": {"total": 222.72},
+  "Bank7": {"total": 46.36},
+  "PSP1": {"total": 1646.26},
+  "ACH1": {"total": 7158.20},
+  "AS_Alpha": {"total": 36250.00},
+  "Bank_X": {"total": 64869.80},
+  "Bank_P": {"total": 38700.00},
+  "Bank_Q": {"total": 15549.00},
+  "Bank_T": {"total": 112.62},
+  "PSP_Beta": {"total": 1026.20},
+  "ACH_Gamma": {"total": 12320.00}
+}

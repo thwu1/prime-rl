@@ -1,0 +1,17 @@
+{
+    "earth": {
+        "gravitational_parameter_km3_s2": 398600.4418,
+        "equatorial_radius_km": 6378.137,
+        "J2": 0.00108262668,
+        "J3": -2.53265649e-06,
+        "rotation_rate_rad_s": 7.2921159e-05
+    },
+    "mission": {
+        "repeat_cycle_revolutions": 185,
+        "repeat_cycle_days": 13,
+        "target_raan_precession_deg_per_day": 0.9856473,
+        "altitude_min_km": 780,
+        "altitude_max_km": 820,
+        "frozen_arg_perigee_deg": 90.0
+    }
+}

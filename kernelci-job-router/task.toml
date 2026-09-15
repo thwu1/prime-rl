@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across a dense technical specification. The agent must explore unfamiliar CLI tools (labctl with 10 subcommands, kci-events with 5 subcommands), compose them with jq and sqlite3 to navigate a multi-source data topology, diagnose multiple interacting bugs in an existing router implementation (broken exclusion matching, missing capacity tracking, wrong scoring model, incorrect priority clamping, truncated job names, absent counterfactual analysis section), and produce a fully correct routing report. The specification is organized by policy concern rather than algorithmic steps, so the agent must synthesize the correct processing pipeline from scattered constraints across 7 sections. The bugs interact: fixing one (e.g., capacity tracking) changes which events are routable, affecting the scoring and counterfactual analysis."""
+solution_explanation = """Read the routing specification and input data. Diagnose bugs in the existing kci_router.py: (1) exclusion rules use exact string match instead of fnmatch glob matching; (2) no capacity tracking — events are routed without consuming slots; (3) lab selection uses a heuristic sort instead of the weighted reliability-based scoring formula with SQLite-backed reliability data; (4) clamp() has a bug returning lo instead of hi when value exceeds range; (5) job_name truncates commit hash to 8 chars instead of using the full value; (6) output is missing the capacity_impact section entirely. Fix all bugs or rewrite the router to match the specification. The correct output contains 15 routing decisions (11 routed, 4 unroutable), 3 validation errors, per-lab usage counts, and a capacity impact analysis showing 2 rerouted and 1 blocked event."""
+verification_explanation = """Tests verify the complete routing report: all 15 routing decisions with correct lab selections, eligible lab lists (capacity-filtered), priority assignments and clamping flags; 3 validation errors for excluded labs (lava-cip, lava-kontron, lava-riscv); summary statistics (11 routed, 4 unroutable — 3 by spec, 1 by capacity); per-lab usage counts totaling 11; LAVA job generation (boot methods for qemu/grub/fastboot/u-boot, job names, callback tokens/URLs, timeout structure); and capacity impact analysis (2 rerouted events where capacity shifted the optimal lab, 1 blocked event with specific lab assignments and exhausted lab lists)."""
+category = "devops"
+tags = ["ci-pipeline", "scheduling-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kernelci-job-router"

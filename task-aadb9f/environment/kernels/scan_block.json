@@ -1,0 +1,6 @@
+{
+  "name": "scan_block",
+  "registers_per_thread": 16,
+  "shared_memory_bytes": 0,
+  "description": "Block-level inclusive scan kernel"
+}

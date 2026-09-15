@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level chemical engineering thermodynamics knowledge: understanding cubic equations of state (Peng-Robinson), multi-phase flash algorithms, phase stability analysis, bubble/dew point calculation methods, and the interplay between binary interaction parameters and phase splitting in multi-component mixtures. The solver must correctly set up and orchestrate a complex computational thermodynamics library for systems ranging from binary VLE to 9-component three-phase VLL equilibria, including numerically challenging edge cases (sub-Pascal dew pressures, near-critical behavior, high-pressure VLL)."""
+solution_explanation = """Uses the thermo library (Caleb Bell's ChEDL). For each system: constructs ChemicalConstantsPackage and PropertyCorrelationsPackage with the given critical properties and heat capacity fits, creates CEOSGas/CEOSLiquid phase objects with PRMIX, then builds FlashVLN (with duplicate liquid phase objects for VLL-capable systems) or FlashVL flashers. Flash calculations use flash(T=T, P=P, zs=zs) for PT flash, flash(T=T, VF=0, zs=zs) for bubble pressure, and flash(T=T, VF=1, zs=zs) for dew pressure. Results are extracted from the EquilibriumState object's betas, gas.zs, and liquids[i].zs attributes. The key insight for VLL is that FlashVLN requires multiple identical CEOSLiquid objects in the liquids list to enable liquid-liquid splitting detection."""
+verification_explanation = """Tests load /app/results.json and verify: (1) exact phase counts for all flashes, (2) vapor/phase fractions against golden values to rtol=5e-3, (3) phase compositions matched order-independently to rtol=1e-2 with atol=1e-8 for near-zero values, (4) bubble and dew point pressures against literature-verified golden values to rtol=5e-3. Golden values come from the thermo library's own validated test suite, which pins results against DIPPR/textbook references."""
+category = "applied_computing"
+tags = ["chemical-engineering", "thermodynamics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multicomponent-phase-equilibria"

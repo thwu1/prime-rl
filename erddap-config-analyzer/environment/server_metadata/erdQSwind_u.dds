@@ -1,0 +1,15 @@
+Dataset {
+  Float64 time[time = 3339];
+  Float64 altitude[altitude = 1];
+  Float64 lat[latitude = 720];
+  Float64 lon[longitude = 1440];
+  Grid {
+    Array:
+      Float32 ux10[time = 3339][altitude = 1][latitude = 720][longitude = 1440];
+    Maps:
+      Float64 time[time = 3339];
+      Float64 altitude[altitude = 1];
+      Float64 lat[latitude = 720];
+      Float64 lon[longitude = 1440];
+  } ux10;
+} erdQSwind_u;

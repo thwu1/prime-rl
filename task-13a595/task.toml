@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 interrelated defects across different subsystems of a C/C++ shared library project, then designing and implementing a complete ABI stability architecture from scratch. Four defects produce build errors (CMake imported target duplication, Python codegen type mismatch, implicit C function declaration under hardening flags, pkg-config path error). Two are silent ABI defects: (1) VERSION/SOVERSION properties are swapped, producing an incorrect SONAME — the solver must evaluate ELF SONAME conventions against Debian policy; (2) the project sets -fvisibility=hidden but provides no export mechanism — the solver must design and create an export visibility scheme. Beyond fixing bugs, the solver must CREATE a GNU linker version script from scratch that defines a NETMON_2 version set, lists the four public API symbols as global exports, hides all internal symbols, and integrates the script into the CMake build. This requires evaluating the interaction between compile-time visibility attributes and link-time version scripts, choosing between alternative ABI architectures, and producing a novel artifact (the version script) that has no template in the project."""
+solution_explanation = """Fix 1: Add if(NOT TARGET IceCompat::core) guard in FindIceCompat.cmake. Fix 2: Convert version components to int() in codegen.py. Fix 3: Add #include <unistd.h> to netmon.c. Fix 4: Change 'netmon' to 'netmon-v2' in netmon.pc.in Cflags. Fix 5: Swap VERSION/SOVERSION properties in CMakeLists.txt. Fix 6 (create): Create netmon_export.h defining NETMON_EXPORT as __attribute__((visibility("default"))), apply to all four public API function declarations in api.h. Fix 7 (create): Write a GNU linker version script netmon.map defining version set NETMON_2 with the four public symbols as global and local: * to catch internals. Integrate via target_link_options appended to CMakeLists.txt."""
+verification_explanation = """Tests build the project from scratch with hardening flags and verify: (1) cmake/make/install succeed, (2) libnetmon.so is installed, (3) headers at correct netmon-v2 path, (4) generated_config.h contains version macros, (5) SONAME is exactly libnetmon.so.2 via readelf, (6) all four public API symbols appear in dynamic symbol table, (7) each public symbol carries the @@NETMON_2 GNU version tag via readelf --dyn-syms, (8) NETMON_2 version node exists in .gnu.version_d, (9) internal symbol resolve_hostname does NOT appear in dynamic exports, (10) pkg-config Cflags references netmon-v2, (11) a downstream C test program compiles, links, and executes correctly."""
+category = "debugging"
+tags = ["elf-abi", "cmake", "symbol-visibility", "gnu-version-script"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-13a595"

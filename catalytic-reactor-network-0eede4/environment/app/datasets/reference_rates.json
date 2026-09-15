@@ -1,0 +1,17 @@
+{
+  "notes": "Reference rate calculations for validation against literature values",
+  "data": [
+    {
+      "mechanism": "unimolecular",
+      "k_sr": 0.15,
+      "species": {"A": {"K": 2.5, "C": 0.3}, "P": {"K": 0.4, "C": 0.2}},
+      "expected_rate": 0.03360
+    },
+    {
+      "mechanism": "bimolecular",
+      "k_sr": 0.08,
+      "species": {"A": {"K": 1.2, "C": 0.5}, "B": {"K": 0.8, "C": 0.7}},
+      "expected_rate": 0.00576
+    }
+  ]
+}

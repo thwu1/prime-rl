@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing cursor-based SCAN over a progressively-rehashing hashtable requires understanding a non-obvious algorithm (reverse bit iteration) that handles table resizing between SCAN calls without losing keys. The solver must deeply understand the two-table rehashing mechanism, design a cursor encoding that survives table size changes, and correctly integrate with the server's binary protocol and serialization format. This is a real-world systems programming challenge requiring proficiency in low-level C++ data structure manipulation and the ability to independently derive or research the reverse-bit cursor algorithm."""
+solution_explanation = """The solution implements the Redis-style reverse-bit cursor iteration algorithm. A rev64() function reverses all 64 bits of the cursor. For a single table, each step visits the slot at cursor & mask, then advances via v |= ~mask; v = rev(v); v++; v = rev(v). For two tables during rehashing, the smaller table's slot is visited, then all corresponding slots in the larger table are visited in an inner loop using the larger mask, with the loop continuing while bits in (m0 ^ m1) remain set. This ensures all slots are covered exactly once even when the table doubles between calls."""
+verification_explanation = """A Python client speaking the server's binary protocol verifies: (1) SCAN over empty DB returns cursor 0, (2) SCAN returns all keys for small and large datasets, (3) SCAN correctly handles progressive rehashing by interleaving SET commands that trigger migration between SCAN calls and verifying all pre-existing keys appear, (4) SCAN works with mixed key types (string + sorted set), (5) SCAN terminates with cursor reaching 0, (6) COUNT hint influences batch size."""
+category = "systems_programming"
+tags = ["data_structures", "networking"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/redis-scan-cursor"

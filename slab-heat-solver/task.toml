@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across computational physics, numerical methods, and building thermal engineering. The solver must handle a variable-coefficient PDE with spatially discontinuous conductivities where conductivity ratios across material interfaces can exceed 47:1. Achieving the required accuracy (1.5-2%) demands correct treatment of these interfaces -- the standard naive approach produces O(1) errors that are invisible without knowing the analytical reference values. Beyond PDE solving, the agent must compute the linear thermal transmittance (psi-value) from ISO 10211/13370 thermal bridge methodology. The eight test cases span homogeneous soil, horizontally stratified heterogeneous soil with conductivity jumps, and thin embedded insulation elements that create severe resolution challenges. Physical reasoning about perimeter-dominated heat loss, insulation placement, and layered-soil thermal resistance is needed to validate results."""
+solution_explanation = """Implements a 2D finite-difference solver for the variable-coefficient Laplace equation using harmonic-mean cell-face conductivities on a uniform grid. A conductivity field k(x,z) is built from soil layer specifications and optional insulation rectangles. The sparse system is assembled in COO format and solved with scipy's direct solver at two grid resolutions (dx=0.20 and dx=0.10); Richardson extrapolation yields O(h^4) accuracy. Surface heat flux is computed via second-order forward differencing and trapezoidal integration. The psi-value is derived by subtracting the 1D series-resistance thermal transmittance from the 2D thermal coupling coefficient."""
+verification_explanation = """Tests use three independent verification strategies: (1) For homogeneous-soil cases, an analytical Fourier cosine series with 50000 terms provides exact reference values within 1.5% tolerance. (2) For the two-layer soil case, a transfer-matrix eigenfunction expansion (matching temperature and flux continuity at the layer interface) provides an independent analytical reference within 2%. (3) For insulation cases where no closed-form solution exists, tests verify physical consistency: insulation reduces Q by 5-70%, combo case yields lower Q than either layered-only or base case, and psi-values decrease with insulation. Cross-case physics checks verify conductivity linearity (Q_HIGHK/Q_BASE=2), slab-width monotonicity, perimeter flux density ordering, shallow-depth effect, and internal consistency of Q, flux_density, and psi_value."""
+category = "computational_physics"
+tags = ["heat-transfer", "numerical-pde"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/slab-heat-solver"

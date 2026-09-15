@@ -1,0 +1,1 @@
+0 2 * * * root /tmp/run_backup.sh

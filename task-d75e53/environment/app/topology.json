@@ -1,0 +1,46 @@
+{
+  "autonomous_systems": {
+    "65001": {"name": "TierOne-Alpha", "type": "tier1", "router": "R1", "router_id": "1.1.1.1"},
+    "65002": {"name": "TierOne-Beta", "type": "tier1", "router": "R2", "router_id": "2.2.2.2"},
+    "65010": {"name": "Transit-Gamma", "type": "transit", "router": "R3", "router_id": "3.3.3.3"},
+    "65020": {"name": "Transit-Delta", "type": "transit", "router": "R4", "router_id": "4.4.4.4"},
+    "65100": {"name": "Customer-Epsilon", "type": "stub", "router": "R5", "router_id": "5.5.5.5"},
+    "65200": {"name": "Customer-Zeta", "type": "stub", "router": "R6", "router_id": "6.6.6.6"}
+  },
+  "links": [
+    {
+      "from_as": 65001, "to_as": 65002,
+      "relationship": "peer",
+      "from_ip": "172.16.12.1", "to_ip": "172.16.12.2"
+    },
+    {
+      "from_as": 65001, "to_as": 65010,
+      "relationship": "customer-provider",
+      "provider_as": 65001, "customer_as": 65010,
+      "from_ip": "172.16.13.1", "to_ip": "172.16.13.3"
+    },
+    {
+      "from_as": 65002, "to_as": 65020,
+      "relationship": "customer-provider",
+      "provider_as": 65002, "customer_as": 65020,
+      "from_ip": "172.16.24.2", "to_ip": "172.16.24.4"
+    },
+    {
+      "from_as": 65010, "to_as": 65020,
+      "relationship": "peer",
+      "from_ip": "172.16.34.3", "to_ip": "172.16.34.4"
+    },
+    {
+      "from_as": 65010, "to_as": 65100,
+      "relationship": "customer-provider",
+      "provider_as": 65010, "customer_as": 65100,
+      "from_ip": "172.16.35.3", "to_ip": "172.16.35.5"
+    },
+    {
+      "from_as": 65020, "to_as": 65200,
+      "relationship": "customer-provider",
+      "provider_as": 65020, "customer_as": 65200,
+      "from_ip": "172.16.46.4", "to_ip": "172.16.46.6"
+    }
+  ]
+}

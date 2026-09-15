@@ -1,0 +1,143 @@
+MoldUDP64 Protocol Specification
+Version 1.00
+
+================================================================================
+1. Overview
+================================================================================
+
+MoldUDP64 is a lightweight protocol layer built on top of UDP for efficient
+and scalable transmission of data messages in a "one transmitter to many
+listeners" scenario. Each outbound packet is transmitted only once regardless
+of the number of listeners. Multiple messages may be aggregated into a single
+network packet to reduce traffic.
+
+================================================================================
+2. Assumptions
+================================================================================
+
+All numeric fields in MoldUDP64 messages (sequence numbers, message counts,
+message lengths) are unsigned binary numbers formatted in big-endian mode
+(most significant byte first).
+
+Note: This byte ordering applies to MoldUDP64 protocol fields only. The data
+contained in the Message Data fields of the Message Blocks is governed by
+the higher-level application protocol (e.g., ITCH 5.0).
+
+================================================================================
+3. Terms
+================================================================================
+
+Message:
+  An atomic piece of information carried by MoldUDP64. MoldUDP64 can
+  handle individual messages from zero bytes up to 64KB. The contents
+  of a message are defined by the higher-level application.
+
+Session:
+  A sequence of one or more messages. Once terminated, no more messages
+  can be sent on that session. Sessions typically group messages by
+  time (e.g., one trading day = one session).
+
+================================================================================
+4. Downstream Packet
+================================================================================
+
+A MoldUDP64 transmitter sends "downstream" packets received by listeners.
+Each packet consists of a Downstream Packet Header followed by zero or more
+Message Blocks.
+
+4.1 Downstream Packet Header
+---------------------------------
+
+  Offset  Length  Type    Field
+  ------  ------  ------  ----------------------------------------
+  0       10      Alpha   Session
+  10      8       Integer Sequence Number
+  18      2       Integer Message Count
+
+  Total header size: 20 bytes.
+
+  Session:
+    Identifies which session this packet belongs to. 10-byte ASCII
+    field, right-padded with spaces if shorter than 10 characters.
+
+  Sequence Number:
+    The sequence number of the first message in the packet. If there
+    are multiple messages in a packet, subsequent messages are
+    implicitly numbered sequentially (first+1, first+2, etc.).
+
+  Message Count:
+    The number of Message Blocks contained in this packet.
+    Special values:
+      0      = Heartbeat (no Message Blocks follow)
+      0xFFFF = End of Session (65535 decimal, no Message Blocks follow)
+
+4.2 Message Block
+---------------------------------
+
+Each Message Block carries one application-layer message:
+
+  Offset  Length  Type    Field
+  ------  ------  ------  ----------------------------------------
+  *       2       Integer Message Length
+  *       *       Bytes   Message Data
+
+  * = variable position (blocks are packed contiguously after the header)
+
+  Message Length:
+    Unsigned 16-bit count of the number of bytes of Message Data
+    following this field. Does NOT include the 2-byte length field
+    itself. Total block size = Message Length + 2.
+
+  Message Data:
+    The actual application-layer message (e.g., an ITCH 5.0 message).
+    Variable length, determined by the Message Length field.
+
+  The first Message Block starts immediately after the 20-byte header.
+  Subsequent blocks start immediately after the previous block ends.
+
+================================================================================
+5. Heartbeats
+================================================================================
+
+Heartbeat packets are sent periodically so receivers can detect packet loss
+during times of low traffic. Typically sent once per second.
+
+A heartbeat is a downstream packet with:
+  - Message Count = 0
+  - Sequence Number = the next expected sequence number
+
+No Message Blocks follow a heartbeat header.
+
+================================================================================
+6. End of Session
+================================================================================
+
+When a session is complete, downstream packets with Message Count = 0xFFFF
+(65535) are sent for a short period in place of heartbeats. These contain
+the next expected Sequence Number.
+
+No further data messages will be sent on this session.
+
+================================================================================
+7. Gap Detection
+================================================================================
+
+Receivers should track the expected next sequence number for each session.
+The expected next sequence number after processing a packet is:
+
+  For data packets (count > 0, count != 0xFFFF):
+    next_expected = packet_sequence_number + message_count
+
+  For heartbeats (count == 0):
+    next_expected = packet_sequence_number
+    (the heartbeat's sequence number IS the next expected)
+
+  For end-of-session (count == 0xFFFF):
+    No update needed.
+
+If a received packet's Sequence Number exceeds the expected value, a gap
+has been detected: one or more messages were lost in transit.
+
+================================================================================
+End of Specification
+================================================================================

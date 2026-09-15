@@ -1,0 +1,11 @@
+Dataset {
+  Sequence {
+    String station;
+    Float64 time;
+    Float64 latitude;
+    Float64 longitude;
+    Float32 sea_surface_temperature;
+    Float32 wind_speed;
+    Float32 air_temperature;
+  } s;
+} ndbc_stdmet;

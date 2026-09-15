@@ -1,0 +1,140 @@
+[
+  {
+    "id": 1,
+    "type": "evaluate",
+    "description": "Compute work and span for parallel reduce on a large input",
+    "algorithm": "reduce",
+    "n": 1048576,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 2,
+    "type": "evaluate",
+    "description": "Compute work and span for parallel scan",
+    "algorithm": "scan",
+    "n": 65536,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 3,
+    "type": "evaluate",
+    "description": "Compute work and span for parallel merge sort",
+    "algorithm": "mergesort",
+    "n": 262144,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 4,
+    "type": "evaluate",
+    "description": "Compute work and span for standard recursive matrix multiplication",
+    "algorithm": "standard_matmul",
+    "n": 32,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 5,
+    "type": "evaluate",
+    "description": "Compute work and span for Strassen's matrix multiplication",
+    "algorithm": "strassen_matmul",
+    "n": 32,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 6,
+    "type": "evaluate",
+    "description": "Compute work and span for Karatsuba multiplication",
+    "algorithm": "karatsuba",
+    "n": 32768,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 7,
+    "type": "brent",
+    "description": "Apply Brent's theorem: T_P = ceil(W/P) + S for merge sort on 2^20 elements with 128 processors",
+    "algorithm": "mergesort",
+    "n": 1048576,
+    "processors": 128,
+    "output_fields": ["T_P"]
+  },
+  {
+    "id": 8,
+    "type": "brent",
+    "description": "Apply Brent's theorem for reduce on 2^20 elements with 4 processors",
+    "algorithm": "reduce",
+    "n": 1048576,
+    "processors": 4,
+    "output_fields": ["T_P"]
+  },
+  {
+    "id": 9,
+    "type": "brent",
+    "description": "Apply Brent's theorem for standard matrix multiplication of 256x256 matrices with 16 processors",
+    "algorithm": "standard_matmul",
+    "n": 256,
+    "processors": 16,
+    "output_fields": ["T_P"]
+  },
+  {
+    "id": 10,
+    "type": "composition",
+    "description": "Sequential pipeline: first sort 2^20 elements, then reduce the sorted result. Total work = W_sort + W_reduce, total span = S_sort + S_reduce.",
+    "pipeline": ["mergesort", "reduce"],
+    "n": 1048576,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 11,
+    "type": "composition",
+    "description": "Sequential pipeline: first compute prefix sums, then reduce. Both on 2^16 elements.",
+    "pipeline": ["scan", "reduce"],
+    "n": 65536,
+    "output_fields": ["work", "span"]
+  },
+  {
+    "id": 12,
+    "type": "crossover",
+    "description": "Find the smallest power-of-2 input size n >= 2 at which Strassen's algorithm requires strictly less work than standard recursive matrix multiplication.",
+    "algorithms": ["standard_matmul", "strassen_matmul"],
+    "metric": "work",
+    "output_fields": ["n"]
+  },
+  {
+    "id": 13,
+    "type": "optimal_processors",
+    "description": "Find the smallest number of processors P such that T_P <= 1.1 * S (i.e., within 10% overhead of the span lower bound) for reduce on 2^20 elements.",
+    "algorithm": "reduce",
+    "n": 1048576,
+    "overhead_factor": 1.1,
+    "output_fields": ["processors"]
+  },
+  {
+    "id": 14,
+    "type": "min_parallelism_n",
+    "description": "Find the smallest power-of-2 input size n >= 2 such that the parallelism W(n)/S(n) of mergesort strictly exceeds 10000.",
+    "algorithm": "mergesort",
+    "min_parallelism": 10000,
+    "output_fields": ["n"]
+  },
+  {
+    "id": 15,
+    "type": "granularity",
+    "description": "Granularity optimization for hybrid parallel/sequential merge sort. Find the optimal power-of-2 threshold k (1 <= k <= n) to minimize T_P = ceil(W_hybrid/P) + S_hybrid. Below the threshold, switch to sequential mergesort with work m*log2(m) and span equal to work (since it runs sequentially). At threshold m=1, sequential cost is 0.",
+    "algorithm": "mergesort",
+    "n": 1048576,
+    "processors": 64,
+    "sequential_base": {
+      "work_formula": "m * log2(m)",
+      "span_equals_work": true
+    },
+    "output_fields": ["threshold", "T_P"]
+  },
+  {
+    "id": 16,
+    "type": "composition_brent",
+    "description": "Three-stage pipeline (scan, then mergesort, then reduce) on 2^20 elements. Compute total work and span of the composed pipeline, then apply Brent's theorem with 256 processors.",
+    "pipeline": ["scan", "mergesort", "reduce"],
+    "n": 1048576,
+    "processors": 256,
+    "output_fields": ["T_P"]
+  }
+]

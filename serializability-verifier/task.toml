@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of distributed database theory (MVCC version ordering, isolation anomaly taxonomy, cross-shard atomicity semantics) combined with PostgreSQL proficiency (service management, schema exploration via psql, SQL query composition with multi-table JOINs over hybrid logical clock timestamps). The agent must start and connect to PostgreSQL, reverse-engineer a normalized multi-table schema, extract ~2215 transactions via SQL, then build custom analysis tooling to detect 8 deliberately injected anomalies hidden among thousands of normal operations. No algorithms or detection approaches are provided in the instructions."""
+solution_explanation = """Start PostgreSQL (pg_ctlcluster), connect via psql -U auditor -d txstore, explore schema (\\dt, \\d operations, \\d tx_outcomes). Query operations and tx_outcomes tables to reconstruct transaction histories. Detect atomicity violations (cross-shard txs with mixed committed/aborted in tx_outcomes), dirty reads (committed tx reading a value written by an aborted tx), non-repeatable reads (same key read twice with different values within one committed tx). Build a multi-version serialization graph with WW/WR/RW edges ordered by HLC timestamps, find strongly connected components via Tarjan's algorithm, classify cycles as write_skew, lost_update, or generic serializability_cycle based on read/write set analysis."""
+verification_explanation = """Tests check: (1) /app/results.json exists with valid JSON and required fields, (2) total transaction count is ~2215 and cross-shard count ~102, (3) both atomicity violations (X_0051, X_0052) are detected, (4) at least one read anomaly found, (5) at least one serialization graph anomaly found, (6) overall coverage of at least 6/8 known anomalies, (7) anomaly count is reasonable (5-20, no excessive false positives)."""
+category = "distributed_systems"
+tags = ["database-consistency", "postgresql"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/serializability-verifier"

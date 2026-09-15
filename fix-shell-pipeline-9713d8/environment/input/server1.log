@@ -1,0 +1,5 @@
+2024-01-15T10:30:00|INFO|User login successful
+2024-01-15T10:30:15|INFO|Page view dashboard
+2024-01-15T10:30:45|ERROR|Database connection timeout
+2024-01-15T10:31:00|WARN|High memory usage detected
+2024-01-15T10:31:30|INFO|API request processed

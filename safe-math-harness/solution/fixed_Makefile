@@ -1,0 +1,26 @@
+CC ?= gcc
+CFLAGS = -Wall -Wextra -std=c11 -O2
+CFLAGS_SAN = -fsanitize=undefined -fno-sanitize-recover=all -std=c11 -O0
+
+COV_DIR = /tmp/cov_work
+
+expr_gen: expr_gen.c
+	$(CC) $(CFLAGS) -o expr_gen expr_gen.c
+
+expr_gen-san: expr_gen.c
+	$(CC) $(CFLAGS_SAN) -o expr_gen-san expr_gen.c
+
+coverage: expr_gen
+	@rm -rf $(COV_DIR) && mkdir -p $(COV_DIR)
+	@for s in $$(seq 1 50); do \
+		./expr_gen $$s > $(COV_DIR)/gen_$$s.c; \
+		cd $(COV_DIR) && gcc --coverage -O0 -std=c11 -I/app gen_$$s.c -o gen_$$s 2>/dev/null && ./gen_$$s > /dev/null 2>&1; cd /app; \
+	done
+	@cd $(COV_DIR) && gcov gen_*.c 2>/dev/null | grep -A1 safe_math || true
+	@echo "Coverage analysis complete"
+
+clean:
+	rm -f expr_gen expr_gen-san expr_gen_cov *.gcno *.gcda *.gcov *.o
+	rm -rf $(COV_DIR)
+
+.PHONY: clean coverage

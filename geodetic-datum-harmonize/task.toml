@@ -1,0 +1,45 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert geodetic knowledge: identifying the correct datum relationships
+for five European CRS, determining the appropriate transformation parameters from the EPSG registry,
+constructing executable PROJ pipeline strings with correct projection and datum transformation steps,
+computing geodesic distances and polygon area on the GRS80 ellipsoid, and producing a structured JSON
+output. The agent must independently research each CRS's datum, ellipsoid, and projection parameters,
+and select valid EPSG-registered transformation operations with the correct rotation conventions."""
+solution_explanation = """Build explicit PROJ pipelines for each CRS: research the CRS definitions using
+projinfo to identify datum, ellipsoid, and projection parameters. For CRS on different datums, look up
+appropriate datum transformation operations in the EPSG registry and construct pipelines with the correct
+intermediate steps. For same-datum CRS, only inverse projection is needed. Transform all 10 points,
+compute GRS80 geodesic distances and polygon area, and determine optimal UTM zone from mean longitude."""
+verification_explanation = """28 tests validate: JSON structure and required keys; pipeline format (explicit
+PROJ syntax, no EPSG shorthand); transformation parameter structure and plausibility (numeric values,
+reasonable ranges, nonzero translations, convention matches pipeline); coordinate accuracy against
+independent pyproj reference (0.5m for same-datum, 100m for cross-datum); pipeline-coordinate internal
+consistency (1m); geodesic distance consistency with coordinates (100m); polygon area consistency (1%);
+UTM zone correctness from mean longitude."""
+category = "earth_environmental"
+tags = ["geodesy", "coordinate-transformation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geodetic-datum-harmonize"

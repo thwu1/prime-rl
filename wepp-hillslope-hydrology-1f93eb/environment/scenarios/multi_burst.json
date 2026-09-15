@@ -1,0 +1,21 @@
+{
+  "name": "multi_burst",
+  "soil": {
+    "Ke": 8.0,
+    "Ns": 80.0,
+    "theta_d": 0.25
+  },
+  "surface": {
+    "slope": 0.03,
+    "chezy_c": 6.0,
+    "length": 200.0,
+    "random_roughness": 15.0
+  },
+  "rainfall": [
+    {"time_min": 0, "intensity_mm_hr": 20.0},
+    {"time_min": 15, "intensity_mm_hr": 55.0},
+    {"time_min": 25, "intensity_mm_hr": 5.0},
+    {"time_min": 45, "intensity_mm_hr": 35.0},
+    {"time_min": 60, "intensity_mm_hr": 0.0}
+  ]
+}

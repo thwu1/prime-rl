@@ -1,0 +1,16 @@
+{
+  "name": "q003",
+  "template": "chain3",
+  "join_graph": {
+    "nodes": ["p", "q", "r"],
+    "edges": [["p", "q"], ["q", "r"]]
+  },
+  "subplans": {
+    "p": {"actual": 400, "estimated": 350},
+    "q": {"actual": 1500, "estimated": 1200},
+    "r": {"actual": 600, "estimated": 900},
+    "p,q": {"actual": 3000, "estimated": 2500},
+    "q,r": {"actual": 5000, "estimated": 8000},
+    "p,q,r": {"actual": 12000, "estimated": 15000}
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Seven interacting bugs are spread across six modules of a recursive tree-walking serializer that handles rich types, referential equality, and deduplication. Each bug requires understanding a different subsystem: path escaping, identity-aware walker caching, root-level referential equality annotation format, Map container deep-set traversal, type dispatch for composite deserialization, object-property iteration semantics, and serialization metadata versioning. Some bugs are coupled — fixing one in isolation exposes or masks another — requiring the solver to reason about the full serialize/deserialize pipeline and the interaction between path escaping, annotation generation, and version-dependent path parsing."""
+solution_explanation = """Bug 1 (pathstringifier.ts): escapeKey must escape backslashes before dots to avoid ambiguous annotation paths. Bug 2 (plainer.ts walker): when dedupe=true and an object was already seen, return { transformedValue: null } instead of the cached result. Bug 3 (plainer.ts generateReferentialEqualityAnnotations): check representativePath.length === 0 to produce root equality tuple format. Bug 4 (accessDeep.ts setDeep): add isEnd check when traversing Maps to break before over-navigating. Bug 5 (transformer.ts untransformValue): add missing 'typed-array' case to the switch statement. Bug 6 (util.ts forEach): remove the guard that skips undefined values, as they must be walked to generate proper type annotations. Bug 7 (index.ts serialize): move meta version (v: 1) out of the annotations block so it is set whenever any meta exists, not only when type annotations are present — otherwise referential equality paths are parsed with legacy rules that mishandle escaped backslashes."""
+verification_explanation = """The vitest test suite covers each bug: backslash-key path escaping, dedupe serialization and round-trip, self-referencing root objects, referential equality through Maps, typed array round-trips, undefined value handling in arrays, and referential equality with backslash-containing keys (which couples path escaping with version-dependent path parsing). Tests verify both the serialization format and full round-trip correctness."""
+category = "debugging"
+tags = ["typescript", "serialization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rich-type-serializer-5f4892"

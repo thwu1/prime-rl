@@ -1,0 +1,18 @@
+// Basic arithmetic test
+/* Tests: addition, subtraction,
+   multiplication, division, modulo */
+int main() {
+    int a = 10;
+    int b = 3;
+    putint(a + b); // 13
+    putch(10);
+    putint(a - b);
+    putch(10);
+    putint(a * b);
+    putch(10);
+    putint(a / b); /* integer division: 10/3 = 3 */
+    putch(10);
+    putint(a % b);
+    putch(10);
+    return 42;
+}

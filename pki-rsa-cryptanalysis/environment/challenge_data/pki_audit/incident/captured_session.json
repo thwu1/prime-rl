@@ -1,0 +1,34 @@
+{
+  "timestamp": "2024-03-15T02:47:33Z",
+  "source_ip": "10.0.5.23",
+  "destination_ip": "10.0.1.100",
+  "relay_chain": [
+    {
+      "hop": 1,
+      "role": "outer_relay",
+      "server_certificate_sha256_fingerprint": "b92b71b92a109f9c522a85497e756bd116af437d850f3e545a583093eb3010d9",
+      "key_transport": "RSA-OAEP-SHA256",
+      "note": "Encrypts a 32-byte relay key used to wrap the inner layer"
+    },
+    {
+      "hop": 2,
+      "role": "inner_endpoint",
+      "server_certificate_sha256_fingerprint": "ef286d0f80deda693492e3dc0b83445df888c37c162c68a85d3634f80dcafe78",
+      "key_transport": "RSA-OAEP-SHA256",
+      "note": "Encrypts the 32-byte AES session key for payload decryption"
+    }
+  ],
+  "relay_wrapping": {
+    "description": "Inner RSA-OAEP blob wrapped with AES-256-GCM using the relay key",
+    "cipher": "AES-256-GCM",
+    "nonce_hex": "fee654be0e928e7422031ae5",
+    "tag_hex": "894ce689cff9cd765d888fa2e72a62b9",
+    "wrapped_file": "encrypted_session_key.bin"
+  },
+  "payload_encryption": {
+    "cipher": "AES-256-GCM",
+    "nonce_hex": "fafcb4ee683d88eb3ce3b6b0",
+    "tag_hex": "fdd900cebbd1e58bc22ce36fa9c591a8"
+  },
+  "analyst_notes": "Multi-hop encrypted exfiltration intercepted. Traffic was relayed through two internal servers before reaching external C2 infrastructure. The session key was nested inside two encryption layers. The outer relay server's certificate was used to encrypt a relay key, which in turn protects the inner RSA-encrypted session key. Reverse the layers in order: outer RSA first to obtain relay key, then AES unwrap to get inner RSA blob, then inner RSA to recover session key, finally AES-GCM decrypt the payload."
+}

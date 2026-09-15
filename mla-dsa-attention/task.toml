@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a novel compressed attention mechanism (MLA+DSA) from a high-level conceptual specification and layer definitions alone — no step-by-step procedure is provided. The agent must: (1) discover and initialize the configuration pipeline by diagnosing an import-time failure and navigating the build system, (2) reverse-engineer the data flow from projection weight shapes and dimension parameters to determine exact tensor reshape, split, and reassembly operations, (3) correctly implement asymmetric low-rank compression with partial rotary encoding and a shared broadcast positional key stream, (4) implement a multi-head sparse indexer with dual-cache semantics (reset on prefill, append on decode) that is separate from the main KV cache, (5) compose causal and sparse additive masks correctly, and (6) ensure prefill-decode numerical consistency across both cache layers. Requires expert-level understanding of modern attention architectures (DeepSeek-V2/V3/GLM-5 style MLA), rotary position embeddings, and sparse attention mechanisms."""
+solution_explanation = """The solution implements forward() and _compute_dsa_mask() by inferring the projection chain from __init__ weight shapes. The query path chains q_a_proj → RMSNorm → q_b_proj → reshape to multi-head → split nope/rope → RoPE on rope → concatenate. The KV path uses kv_a_proj_with_mqa to produce compressed KV + shared positional key, normalizes the compressed part, expands via kv_b_proj, splits into k_nope and v per head, broadcasts and RoPE-encodes the shared key, and concatenates. DSA indexer projects compressed queries and hidden states to lightweight scoring space, applies dedicated RoPE, computes per-head dot-product scores with ReLU, combines via learned weights, selects top-k, and builds an additive sparse mask."""
+verification_explanation = """11 pytest tests verify: output shapes for prefill and decode modes, causal masking (future token independence and zero attention weights for future positions), DSA sparsity (top-k restriction when active, full attention when inactive), KV cache growth and dimension correctness, prefill-decode consistency (identical last-position output), gradient flow through all MLA parameters, and training convergence. The test pipeline requires jq-based config extraction via make before pytest can run."""
+category = "machine_learning"
+tags = ["attention-mechanism", "sparse-attention"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mla-dsa-attention"

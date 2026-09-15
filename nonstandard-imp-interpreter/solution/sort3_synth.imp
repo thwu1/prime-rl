@@ -1,0 +1,39 @@
+int a;
+int b;
+int c;
+int temp;
+int sorted;
+a = 17;
+b = 5;
+c = 23;
+if((a < b))
+{
+    temp = a;
+    a = b;
+    b = temp;
+}
+else
+{
+    temp = temp;
+};
+if((b < c))
+{
+    temp = b;
+    b = c;
+    c = temp;
+}
+else
+{
+    temp = temp;
+};
+if((a < b))
+{
+    temp = a;
+    a = b;
+    b = temp;
+}
+else
+{
+    temp = temp;
+};
+sorted = 1;

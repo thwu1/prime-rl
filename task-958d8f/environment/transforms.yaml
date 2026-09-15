@@ -1,0 +1,50 @@
+# Chiptool transform pipeline for DMA controller peripheral.
+# Uses chiptool's tagged-union YAML syntax.
+# Sanitize runs first to normalize naming conventions, then subsequent
+# transforms reference sanitized names.
+transforms:
+  - !Sanitize
+
+  - !DeleteFieldsets
+    from: .*
+    useless: true
+
+  - !DeleteEnums
+    from: .*
+    bit_size: 1
+
+  - !DeleteRegisters
+    block: dma0::Dma
+    from: ch\d+_debug
+
+  - !DeleteFieldsets
+    from: dma0::regs::Ch\d+Debug
+
+  - !RenameFields
+    fieldset: dma0::regs::Ch\d+Ctrl
+    from: ch\d+_(.*)
+    to: $1
+
+  - !MergeEnums
+    from: dma0::vals::Ch\d+(Mode|Priority|BurstSize|ErrorCode)
+    to: dma0::vals::$1
+
+  - !MergeFieldsets
+    from: dma0::regs::Ch\d+(Ctrl|Status|XferCount)
+    to: dma0::regs::Ch$1
+
+  - !MakeBlock
+    blocks: dma0::Dma
+    from: ch(\d+)_(.*)
+    to_block: dma0::Channel
+    to_outer: ch$1
+    to_inner: $2
+
+  - !MakeRegisterArray
+    blocks: dma0::Dma
+    from: ch\d+
+    to: ch
+
+  - !Rename
+    from: dma0::(.*)
+    to: dma::$1

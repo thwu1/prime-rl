@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding component-resolved allergy diagnostics (CRD) domain, fixing subtle boundary errors in CAP banding, correcting inverted specificity weights in a cross-reactivity scoring algorithm, implementing seven clinical syndrome detection rules with precise allergen-property pattern matching, and fixing risk stratification that requires molecular-family-aware logic. The bugs produce wrong output rather than crashes, requiring deep domain knowledge to identify discrepancies between spec and code."""
+solution_explanation = """Fix classifyCapLevel to use strict < at all boundaries and add the 0.10 threshold. Fix computeSigeTigeRatio to cap at 1.0 and handle zero denominator. Correct getSpecificityWeight to map NONE->3.0, LOW->2.5, MODERATE->2.0, PROBABLE->1.5, HIGH->1.0 (values were inverted). Fix classifyAllergens to handle allergens without molecularFamily (PRIMARY if MAJOR or class>=3, else UNDETERMINED). Implement detectSyndromes with 7 rules using molecular family + category pattern matching. Fix computeRiskLevel to check STORAGE_PROTEINS for VERY_HIGH. Fix computeAitEligibility to reject HIGH crossReactivityLevel."""
+verification_explanation = """Tests run the CLI with carefully crafted patient panels and verify JSON output. CAP banding tested at all boundary values. Cross-reactivity resolution tested with panels where inverted weights change the winner. Each syndrome tested with a triggering panel. Risk and AIT tested with specific allergen/class combinations. A complex multi-family panel validates end-to-end correctness."""
+category = "debugging"
+tags = ["typescript", "medical-informatics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crd-diagnostics-engine"

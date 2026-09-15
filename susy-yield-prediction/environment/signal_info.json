@@ -1,0 +1,14 @@
+{
+    "process": "T2tt",
+    "description": "Top squark pair production via the T2tt simplified model: pp -> t~1 t~1*, t~1 -> t chi0_1. Mass point: m(t~1) = 1000 GeV, m(chi0_1) = 50 GeV.",
+    "cross_section_pb": 0.00615,
+    "cross_section_unit": "pb",
+    "cross_section_order": "LO",
+    "k_factor_nlo_nll": 1.18,
+    "luminosity_fb": 35.9,
+    "sqrt_s_tev": 13,
+    "n_events_generated": 100000,
+    "n_events_after_filter": 48270,
+    "generator_filter_efficiency": 0.4827,
+    "generator_filter_description": "At least one lepton (e, mu, or tau) with pT > 5 GeV at generator level"
+}

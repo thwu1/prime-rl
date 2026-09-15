@@ -1,0 +1,46 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of geometric multigrid theory, including
+bilinear prolongation via Kronecker products, full-weighting restriction as scaled transpose, weighted
+Jacobi smoothing analysis, and — critically — the Galerkin condition (A_c = R·A_f·P) for coarse-grid
+operators. Naively rediscretizing the 5-point stencil at each level yields convergence factor ~0.22,
+which fails the < 0.2 requirement. The solver must use Galerkin coarse-grid operators to achieve the
+theoretically optimal convergence rate. This subtle distinction between rediscretization and
+variational multigrid separates textbook implementations from production-quality solvers."""
+solution_explanation = """Build 1D linear interpolation and form 2D prolongation via Kronecker product.
+Restriction is (1/4)*P^T (full-weighting in 2D). The critical insight: coarse-grid operators are
+formed via the Galerkin condition A_c = R*A_f*P rather than rediscretizing the 5-point stencil at
+each level. This preserves the variational structure and yields convergence factor ~0.06-0.10,
+independent of mesh size. Weighted Jacobi smoothing (omega=2/3) damps high-frequency error; recursive
+V-cycle with pre/post-smoothing and direct coarsest-level solve completes the algorithm."""
+verification_explanation = """Tests verify: (1) prolongation/restriction operator shapes and the
+mathematical relationship R = (1/4)*P^T, (2) smoother effectiveness on high- vs low-frequency modes,
+(3) V-cycle convergence factor < 0.2 on all grid sizes (distinguishes Galerkin from rediscretization),
+(4) mesh-independent convergence factor (variation < 0.07), (5) O(h^2) discretization error
+convergence rate, (6) absolute solution accuracy on finest grid."""
+category = "scientific_computing"
+tags = ["multigrid", "numerical-pde"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0857b1"

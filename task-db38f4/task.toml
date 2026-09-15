@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a compiled x86-64 object file to discover an undocumented internal struct layout, identifying a buffer overflow vulnerability in an SB2 firmware update parser (modeled after CVE-2022-22819), determining three security magic constants from disassembly comparison instructions, computing a valid CRC-32 checksum over precisely the right byte range, and constructing a binary exploit payload with exact field offsets. Combines binary analysis, firmware security domain knowledge, and exploit development at a professional security researcher level."""
+solution_explanation = """Disassemble firmware_sim (or sb2_parser.o) with objdump to find parse_and_verify. Identify the buffer overflow: memcpy size is derived from the untrusted m_keyBlobBlock header field (at offset 0x2E) multiplied by 16, with no upper-bound check against the 128-byte header buffer. Map the parse_context struct layout from register offsets in load/store instructions: integrity_crc at +0x80, signature_verified at +0x88, auth_stage at +0x8C, debug_token at +0x90. Find expected magic values from cmp immediates: 0x55AACC33, 0x5AC3C35A, 0x4F584944. Set m_keyBlobBlock=10 to overflow 32 bytes past the header buffer. Compute CRC-32 of the first 96 header bytes. Place the CRC and three magic values at their respective overflow offsets (128, 136, 140, 144). dice_uds at offset 0xA0 (160) is untouched by the 160-byte copy. Run the exploit to extract the DICE UDS."""
+verification_explanation = """Tests verify: (1) exploit.sb2 exists and is at least 160 bytes, (2) running firmware_sim with exploit.sb2 exits with code 0 and stdout contains 'UPDATE ACCEPTED', (3) the DICE_UDS line in the output matches the known device secret, (4) dice_uds.hex file contains the matching 64-char hex string."""
+category = "cybersecurity"
+tags = ["binary-analysis", "firmware-exploitation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-db38f4"

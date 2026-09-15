@@ -1,0 +1,10 @@
+[
+  {"func_index": 0, "intended_operation": "sdiv", "intended_divisor": 7},
+  {"func_index": 1, "intended_operation": "sdiv", "intended_divisor": 10},
+  {"func_index": 2, "intended_operation": "umod", "intended_divisor": 17},
+  {"func_index": 3, "intended_operation": "sdiv", "intended_divisor": 6},
+  {"func_index": 4, "intended_operation": "sdiv", "intended_divisor": 125},
+  {"func_index": 5, "intended_operation": "udiv", "intended_divisor": 641},
+  {"func_index": 6, "intended_operation": "smod", "intended_divisor": 7},
+  {"func_index": 7, "intended_operation": "udiv", "intended_divisor": 31337}
+]

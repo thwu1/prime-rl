@@ -1,0 +1,18 @@
+{
+  "description": "Natural gas sweetening: CO2 removal from sour natural gas via two-stage membrane cascade",
+  "feed": {
+    "total_flow_mol_per_s": 1000.0,
+    "composition": {"CO2": 0.15, "CH4": 0.85},
+    "pressure_bar": 50.0,
+    "temperature_K": 308.15
+  },
+  "permeate_pressure_bar": 1.0,
+  "membrane": {
+    "polymer": "CA",
+    "thickness_um": 0.1
+  },
+  "targets": {
+    "stage1_retentate_CO2_mol_frac": 0.02,
+    "stage2_retentate_CO2_mol_frac": 0.15
+  }
+}

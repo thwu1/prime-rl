@@ -1,0 +1,27 @@
+type = "reciprocating"
+speed_rad_s = 50.0
+reference_plane_m = 0.0
+
+[[cylinders]]
+name = "Cyl1"
+mass_kg = 0.4
+crank_radius_m = 0.04
+con_rod_length_m = 0.12
+crank_angle_deg = 0
+axial_position_m = 0.0
+
+[[cylinders]]
+name = "Cyl2"
+mass_kg = 0.4
+crank_radius_m = 0.04
+con_rod_length_m = 0.12
+crank_angle_deg = 120
+axial_position_m = 0.1
+
+[[cylinders]]
+name = "Cyl3"
+mass_kg = 0.4
+crank_radius_m = 0.04
+con_rod_length_m = 0.12
+crank_angle_deg = 240
+axial_position_m = 0.2

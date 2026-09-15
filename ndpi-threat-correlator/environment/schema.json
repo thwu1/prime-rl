@@ -1,0 +1,216 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Incident Response Threat Report",
+  "description": "Structured threat analysis report correlating nDPI flow analysis with threat intelligence indicators.",
+  "type": "object",
+  "required": [
+    "meta",
+    "threat_intel_matches",
+    "c2_beaconing",
+    "dns_exfiltration",
+    "credential_exposure",
+    "tls_anomalies",
+    "dga_domains",
+    "attack_timeline"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["total_flows", "data_sources"],
+      "properties": {
+        "total_flows": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of network flows parsed from the ndpiReader output"
+        },
+        "data_sources": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "File paths of all input data sources used in the analysis"
+        }
+      }
+    },
+    "threat_intel_matches": {
+      "type": "array",
+      "description": "Each indicator from the threat intel feed that was found in the traffic data. Indicators not observed in any flow must be omitted.",
+      "items": {
+        "type": "object",
+        "required": ["indicator_value", "indicator_type", "threat_name", "matched_flow_ids"],
+        "properties": {
+          "indicator_value": {
+            "type": "string",
+            "description": "The indicator value exactly as it appears in the threat intel feed"
+          },
+          "indicator_type": {
+            "type": "string",
+            "enum": ["ip", "domain", "ja4", "cert_sha1"],
+            "description": "Type of the matched indicator"
+          },
+          "threat_name": {
+            "type": "string",
+            "description": "Threat name from the feed entry"
+          },
+          "matched_flow_ids": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 1,
+            "description": "1-based flow IDs from ndpiReader output where this indicator was observed"
+          }
+        }
+      }
+    },
+    "c2_beaconing": {
+      "type": "object",
+      "description": "Command-and-control beaconing activity detected via periodic connection timing analysis.",
+      "required": ["server_ip", "server_port", "beacon_count", "mean_interval_sec", "hostname", "ja4_fingerprint"],
+      "properties": {
+        "server_ip": {
+          "type": "string",
+          "description": "Destination IP of the C2 server"
+        },
+        "server_port": {
+          "type": "integer",
+          "description": "Destination port"
+        },
+        "beacon_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of beaconing connections observed"
+        },
+        "mean_interval_sec": {
+          "type": "number",
+          "description": "Mean time in seconds between consecutive beacon connections"
+        },
+        "hostname": {
+          "type": "string",
+          "description": "TLS SNI / hostname used by the beacon"
+        },
+        "ja4_fingerprint": {
+          "type": "string",
+          "description": "JA4 TLS client fingerprint of the beacon connections"
+        }
+      }
+    },
+    "dns_exfiltration": {
+      "type": "object",
+      "description": "Data exfiltration via DNS subdomain encoding. Encoded subdomain labels must be decoded to reveal the exfiltrated plaintext content.",
+      "required": ["tunnel_domain", "query_count", "decoded_payloads"],
+      "properties": {
+        "tunnel_domain": {
+          "type": "string",
+          "description": "Base domain used as the DNS tunnel endpoint (the authoritative domain under which encoded queries are sent)"
+        },
+        "query_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of tunneling DNS queries observed"
+        },
+        "decoded_payloads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["flow_id", "raw_labels", "decoded_text"],
+            "properties": {
+              "flow_id": {
+                "type": "integer",
+                "description": "Flow ID of the DNS query"
+              },
+              "raw_labels": {
+                "type": "string",
+                "description": "The encoded subdomain labels as observed in the DNS query"
+              },
+              "decoded_text": {
+                "type": "string",
+                "description": "The decoded plaintext content extracted from the encoded labels"
+              }
+            }
+          }
+        }
+      }
+    },
+    "credential_exposure": {
+      "type": "array",
+      "description": "Cleartext credential transmissions found in unencrypted protocol flows.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["flow_id", "dst_ip", "dst_port", "username", "url"],
+        "properties": {
+          "flow_id": {"type": "integer"},
+          "dst_ip": {"type": "string"},
+          "dst_port": {"type": "integer"},
+          "username": {"type": "string"},
+          "url": {"type": "string"}
+        }
+      }
+    },
+    "tls_anomalies": {
+      "type": "array",
+      "description": "TLS/certificate anomalies including trust issues, policy violations, and negotiation problems.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["flow_id", "dst_ip", "anomaly_type", "details"],
+        "properties": {
+          "flow_id": {"type": "integer"},
+          "dst_ip": {"type": "string"},
+          "anomaly_type": {
+            "type": "string",
+            "description": "Category of the TLS anomaly (e.g. excessive_validity, self_signed, version_downgrade)"
+          },
+          "details": {
+            "type": "string",
+            "description": "Human-readable explanation of the anomaly with relevant metadata"
+          }
+        }
+      }
+    },
+    "dga_domains": {
+      "type": "array",
+      "description": "Domains suspected of being algorithmically generated, identified from DNS query analysis.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["flow_id", "domain", "entropy"],
+        "properties": {
+          "flow_id": {"type": "integer"},
+          "domain": {"type": "string"},
+          "entropy": {
+            "type": "number",
+            "description": "Shannon entropy of the second-level domain label"
+          }
+        }
+      }
+    },
+    "attack_timeline": {
+      "type": "array",
+      "description": "Chronologically ordered sequence of significant security events reconstructed from the traffic analysis.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "event_type", "description", "flow_ids"],
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "description": "Unix epoch timestamp of the event"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Category of the event"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of what occurred"
+          },
+          "flow_ids": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

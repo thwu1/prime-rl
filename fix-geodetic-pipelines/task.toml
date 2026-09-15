@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient geodetic knowledge including map projection parameters (scale factors, standard parallels, false origins), ellipsoid models (GRS80 vs International 1924), and the Helmert 7-parameter position-vector vs coordinate-frame rotation convention. The agent must use PROJ CLI tools (gie, cs2cs, projinfo) to diagnose subtle parameter errors across four distinct transformation types, then chain two corrected transformations into a composite pipeline."""
+solution_explanation = """Use projinfo to look up correct EPSG definitions (EPSG:28992, EPSG:3577, EPSG:3035) and the DHDN-to-WGS84 Helmert parameters. Fix: (A) scale factor k=0.9996→0.9999079, (B) central meridian and standard parallels lon_0=134→132, lat_1=-20→-18, lat_2=-34→-36, (C) ellipsoid intl→GRS80 and false northing y_0=3200000→3210000, (D) Helmert rotation signs from coordinate-frame to position-vector convention. Verify each fix with gie, then chain the corrected Helmert and LAEA via cs2cs."""
+verification_explanation = """Run gie on each corrected test file and assert zero failures (exit code 0). Independently compute the chain transformation using cs2cs with known-correct Helmert and LAEA parameters, and compare chain_results.csv values within 1m tolerance."""
+category = "applied_computing"
+tags = ["geodesy", "coordinate-transformation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-geodetic-pipelines"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level thermodynamic cycle analysis: the solver must explore a multi-file data directory to discover and cross-reference system definitions, compressor performance curves, site conditions, ambient profiles, and refrigerant inventories across heterogeneous file formats (JSON, CSV). Compressor isentropic efficiency is not constant but follows pressure-ratio-dependent polynomial curves that must be discovered from equipment specification files, changing the optimization landscape for each system and ambient condition. The solver must implement cascade COP optimization at 7 ambient temperature bins × 3 systems = 21 independent optimizations with variable efficiency, compute component-level exergy destruction using entropy generation formulas, correctly handle near-critical-point constraints for CO2 and R23, compute seasonal COP as a harmonic-weighted average, and evaluate TEWI from cross-referenced inventory data. Subtle pitfalls include unit conversions, critical temperature limits that vary per refrigerant pair, the distinction between arithmetic and harmonic mean COP weighting, and correct condenser exergy destruction formulation."""
+solution_explanation = """The solution explores /app/data/ to load systems.json, site conditions, ambient profile CSV, environmental parameters, per-compressor polynomial specifications, and refrigerant inventory CSV. For each system, it resolves compressor model references to load efficiency curves, then for each ambient bin computes T_cond = T_ambient + approach, evaluates variable compressor efficiency via the polynomial at the actual pressure ratio, and optimizes cascade temperature using scipy bounded minimization. Design-point analysis includes full exergy destruction breakdown (T_0 * S_gen per component). Seasonal COP uses harmonic weighting: total_hours / sum(hours_i / COP_i). TEWI combines GWP-weighted direct emissions with indirect emissions from seasonal energy consumption."""
+verification_explanation = """Tests independently recompute COP at reported optimal cascade temperatures using CoolProp with the same polynomial efficiency curves, verifying within 2%. Optimization quality is checked by evaluating COP at neighboring cascade temperatures. Seasonal COP formula is verified algebraically from per-bin data. Per-bin COP values at extreme and nominal ambient conditions are independently validated. TEWI direct and indirect components are recomputed from inventory and energy data. Exergy destruction consistency is verified via the Gouy-Stodola relation (Ed = W - product_exergy). Dominant irreversibility is independently determined. Rankings are validated against all configurations. Physical constraints (COP < Carnot, second-law efficiency bounds, monotonic COP-vs-ambient trends) are enforced."""
+category = "engineering"
+tags = ["thermodynamics", "refrigeration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascade-refrigeration-optimizer-62e926"

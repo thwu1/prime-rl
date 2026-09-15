@@ -1,0 +1,9 @@
+README.md
+LICENSE
+{{ if eq .chezmoi.operatingSystem "windows" }}
+.bashrc
+.profile
+{{ end }}
+{{ if eq .chezmoi.operatingSystem "darwin" }}
+.Xresources
+{{ end }}

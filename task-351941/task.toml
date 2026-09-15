@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct competencies: (1) data exploration and assembly — the agent must discover a SQLite database, explore its schema (4 tables with foreign keys), identify which orders are pending, find the correct roll width through a chain of config lookups, parse demand adjustment CSVs, and aggregate everything correctly; (2) algorithm implementation — the agent must implement Gilmore-Gomory column generation for the cutting stock problem, including LP master problem formulation, knapsack-based pricing subproblem via dynamic programming, column generation iteration with convergence detection, and LP-to-IP rounding. Combining database exploration with advanced OR algorithm implementation is well beyond standard coursework."""
+solution_explanation = """The solution first explores the production database: reads machine_config to find the active material type ('standard'), queries roll_stock for the matching available roll (width=1000), joins work_orders (status='pending') with order_lines to aggregate base demands, then applies quantity adjustments from the CSV. It then implements Gilmore-Gomory column generation: initializes with homogeneous patterns, iterates LP solve + knapsack pricing until no improving column exists, then solves the IP over generated columns."""
+verification_explanation = """Tests verify: (1) solution file format, (2) cutting patterns respect roll width (hardcoded expected=1000), (3) all demands met against hardcoded expected demands (derived from pending orders + adjustments), (4) num_rolls consistency, (5) LP bound sanity (trivial LB, LP <= IP), (6) LP bound accuracy via independent column generation, (7) integer solution quality within ceil(LP_bound)+2."""
+category = "optimization"
+tags = ["column-generation", "cutting-stock"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-351941"

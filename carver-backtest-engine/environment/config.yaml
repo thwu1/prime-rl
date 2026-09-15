@@ -1,0 +1,79 @@
+# Systematic Trading Backtest Configuration
+# Following Rob Carver's methodology (pysystemtrade)
+
+# Volatility calculation parameters
+# Mixed vol = fast_vol * (1 - proportion_of_slow_vol) + slow_vol * proportion_of_slow_vol
+# fast_vol: exponential weighted std of daily price changes, span = days
+# slow_vol: simple rolling std of daily price changes, window = slow_vol_years * 252
+volatility_calculation:
+  days: 35
+  slow_vol_years: 10
+  proportion_of_slow_vol: 0.3
+  vol_abs_min: 0.0000000001
+
+# Trading rules
+# EWMAC: raw_forecast = (EMA(price, Lfast) - EMA(price, Lslow)) / mixed_vol
+# Carry: raw_forecast = (CARRY - PRICE) / mixed_vol, then EWM smoothed
+trading_rules:
+  ewmac16_64:
+    Lfast: 16
+    Lslow: 64
+    forecast_scalar: 3.75
+  ewmac32_128:
+    Lfast: 32
+    Lslow: 128
+    forecast_scalar: 2.65
+  ewmac64_256:
+    Lfast: 64
+    Lslow: 256
+    forecast_scalar: 1.87
+  carry:
+    smooth_days: 90
+    forecast_scalar: 30
+
+# Forecast processing
+forecast_cap: 20.0
+average_absolute_forecast: 10.0
+
+# Forecast combination weights (must sum to 1.0)
+forecast_weights:
+  ewmac16_64: 0.21
+  ewmac32_128: 0.08
+  ewmac64_256: 0.21
+  carry: 0.50
+
+# Position sizing
+percentage_vol_target: 20.0
+notional_trading_capital: 500000
+base_currency: USD
+
+# Portfolio construction
+instrument_weights:
+  BOND: 0.333
+  EQUITY: 0.333
+  COMMODITY: 0.334
+instrument_div_multiplier: 1.5
+
+# ---- Output specification ----
+# Write files to /app/output/:
+#
+#   positions.csv
+#     Index: DATETIME
+#     Columns: BOND, EQUITY, COMMODITY (portfolio-level positions)
+#
+#   diagnostics.json
+#     Per instrument: fdm, last_vol, last_combined_forecast,
+#     last_subsystem_position, last_portfolio_position,
+#     instrument_weight, idm
+#
+#   {INSTR}_vol.csv
+#     Index: DATETIME, Column: vol
+#
+#   {INSTR}_raw_forecasts.csv
+#     Index: DATETIME, Columns: ewmac16_64, ewmac32_128, ewmac64_256, carry
+#
+#   {INSTR}_scaled_forecasts.csv
+#     Index: DATETIME, Columns: ewmac16_64, ewmac32_128, ewmac64_256, carry
+#
+#   {INSTR}_combined_forecast.csv
+#     Index: DATETIME, Column: combined

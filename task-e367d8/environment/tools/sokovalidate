@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""
+sokovalidate - Sokoban puzzle validation and SSX extraction tool.
+
+Supports validating LURD solutions against XSB puzzles, extracting
+puzzles from SokoSolve SSX library files, and listing library contents.
+"""
+
+import argparse
+import json
+import sys
+import xml.etree.ElementTree as ET
+
+SSX_NS = 'http://sokosolve.sourceforge.net/SokoSolveLibrary.xsd'
+SSX_NSMAP = {'ss': SSX_NS}
+
+SSX_CHAR_MAP = {
+    '~': None,
+    '#': '#',
+    '.': ' ',
+    'O': '.',
+    'X': '$',
+    '$': '*',
+    'P': '@',
+    '*': '+',
+}
+
+
+def parse_xsb(text):
+    lines = []
+    for line in text.split('\n'):
+        s = line.rstrip()
+        if s and not s.startswith(';'):
+            lines.append(s)
+    walls = set()
+    goals = set()
+    boxes = set()
+    player = None
+    for r, line in enumerate(lines):
+        for c, ch in enumerate(line):
+            pos = (r, c)
+            if ch == '#':
+                walls.add(pos)
+            elif ch == '@':
+                player = pos
+            elif ch == '+':
+                player = pos
+                goals.add(pos)
+            elif ch == '$':
+                boxes.add(pos)
+            elif ch == '*':
+                boxes.add(pos)
+                goals.add(pos)
+            elif ch == '.':
+                goals.add(pos)
+    return walls, player, boxes, goals
+
+
+def replay_solution(walls, player, boxes, goals, solution):
+    boxes = set(boxes)
+    pr, pc = player
+    moves = 0
+    pushes = 0
+    dirs = {
+        'u': (-1, 0), 'd': (1, 0), 'l': (0, -1), 'r': (0, 1),
+        'U': (-1, 0), 'D': (1, 0), 'L': (0, -1), 'R': (0, 1),
+    }
+    for i, ch in enumerate(solution):
+        if ch not in dirs:
+            return {
+                'valid': False,
+                'moves': moves,
+                'pushes': pushes,
+                'error': 'invalid character at position {}: {}'.format(i, ch),
+            }
+        dr, dc = dirs[ch]
+        nr, nc = pr + dr, pc + dc
+        if (nr, nc) in walls:
+            return {
+                'valid': False,
+                'moves': moves,
+                'pushes': pushes,
+                'error': 'wall collision at move {}'.format(moves + 1),
+            }
+        if (nr, nc) in boxes:
+            br, bc = nr + dr, nc + dc
+            if (br, bc) in walls or (br, bc) in boxes:
+                return {
+                    'valid': False,
+                    'moves': moves,
+                    'pushes': pushes,
+                    'error': 'blocked push at move {}'.format(moves + 1),
+                }
+            boxes.remove((nr, nc))
+            boxes.add((br, bc))
+            pushes += 1
+        pr, pc = nr, nc
+        moves += 1
+    solved = (boxes == goals) or (boxes.issubset(goals) and len(boxes) == len(goals))
+    return {
+        'valid': solved,
+        'moves': moves,
+        'pushes': pushes,
+        'error': None if solved else 'not all boxes on goals after {} moves'.format(moves),
+    }
+
+
+def ssx_rows_to_xsb(rows):
+    xsb_lines = []
+    for row in rows:
+        line = ''
+        for ch in row:
+            mapped = SSX_CHAR_MAP.get(ch, ch)
+            if mapped is not None:
+                line += mapped
+        xsb_lines.append(line.rstrip())
+    return '\n'.join(xsb_lines)
+
+
+def extract_puzzle(ssx_path, puzzle_id, output_format):
+    tree = ET.parse(ssx_path)
+    root = tree.getroot()
+    for puzzle in root.findall('.//{{{}}}Puzzle'.format(SSX_NS)):
+        if puzzle.get('PuzzleID') == puzzle_id:
+            rows = []
+            for row_elem in puzzle.findall('.//{{{}}}Row'.format(SSX_NS)):
+                if row_elem.text:
+                    rows.append(row_elem.text)
+            if output_format == 'xsb':
+                return ssx_rows_to_xsb(rows)
+            else:
+                return '\n'.join(rows)
+    return None
+
+
+def list_puzzles(ssx_path):
+    tree = ET.parse(ssx_path)
+    root = tree.getroot()
+    puzzles = []
+    for puzzle in root.findall('.//{{{}}}Puzzle'.format(SSX_NS)):
+        pid = puzzle.get('PuzzleID')
+        rating = puzzle.get('Rating', 'N/A')
+        name_elem = puzzle.find('.//{{{}}}Name'.format(SSX_NS))
+        name = name_elem.text if name_elem is not None and name_elem.text else 'Unknown'
+        puzzles.append({'id': pid, 'name': name, 'rating': rating})
+    return puzzles
+
+
+def cmd_check(args):
+    with open(args.puzzle) as f:
+        text = f.read()
+    walls, player, boxes, goals = parse_xsb(text)
+    if player is None:
+        print(json.dumps({'valid': False, 'error': 'no player found in puzzle'}))
+        sys.exit(1)
+    if len(boxes) != len(goals):
+        print(json.dumps({'valid': False, 'error': 'box/goal count mismatch: {} boxes, {} goals'.format(len(boxes), len(goals))}))
+        sys.exit(1)
+    result = replay_solution(walls, player, boxes, goals, args.solution)
+    print(json.dumps(result))
+    sys.exit(0 if result['valid'] else 1)
+
+
+def cmd_extract(args):
+    result = extract_puzzle(args.ssx, args.puzzle_id, args.format)
+    if result is None:
+        print('Error: puzzle {} not found in {}'.format(args.puzzle_id, args.ssx), file=sys.stderr)
+        sys.exit(1)
+    print(result)
+
+
+def cmd_list(args):
+    puzzles = list_puzzles(args.ssx)
+    if not puzzles:
+        print('No puzzles found in {}'.format(args.ssx), file=sys.stderr)
+        sys.exit(1)
+    for p in puzzles:
+        print('{}: {} (rating: {})'.format(p['id'], p['name'], p['rating']))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='sokovalidate',
+        description='Sokoban puzzle validation and SSX library tool',
+        epilog=(
+            'examples:\n'
+            '  sokovalidate check --puzzle level.xsb --solution "uLRRddL"\n'
+            '  sokovalidate extract --ssx library.ssx --puzzle-id P3\n'
+            '  sokovalidate extract --ssx library.ssx --puzzle-id P3 --format ssx\n'
+            '  sokovalidate list --ssx library.ssx\n'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest='command', help='available commands')
+
+    cp = sub.add_parser('check', help='validate a LURD solution against an XSB puzzle')
+    cp.add_argument('--puzzle', required=True, help='path to XSB format puzzle file')
+    cp.add_argument('--solution', required=True, help='LURD solution string')
+
+    ep = sub.add_parser('extract', help='extract a puzzle from an SSX library file')
+    ep.add_argument('--ssx', required=True, help='path to SSX library file')
+    ep.add_argument('--puzzle-id', required=True, help='puzzle ID to extract (e.g. P3)')
+    ep.add_argument('--format', choices=['xsb', 'ssx'], default='xsb',
+                    help='output format (default: xsb)')
+
+    lp = sub.add_parser('list', help='list puzzles in an SSX library file')
+    lp.add_argument('--ssx', required=True, help='path to SSX library file')
+
+    args = parser.parse_args()
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+    elif args.command == 'check':
+        cmd_check(args)
+    elif args.command == 'extract':
+        cmd_extract(args)
+    elif args.command == 'list':
+        cmd_list(args)
+
+
+if __name__ == '__main__':
+    main()

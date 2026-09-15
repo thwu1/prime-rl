@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of multi-layer WAF architectures (YAML config + Python regex), HTTP header trust bypass mechanisms, SQL injection bypass techniques (UNION variants, whitespace encoding, SQLite schema aliases), AES-256-CBC decryption via OpenSSL CLI, and structured JSON log analysis with jq. The agent must chain together curl (HTTP POST with custom headers), jq (WAF log analysis), sqlite3 (database inspection for encryption metadata), openssl (credential decryption pipeline), and code editing across both Python and YAML formats to complete a multi-phase exploit-decrypt-patch workflow. Five distinct vulnerabilities span two WAF layers plus a configuration trust bypass."""
+solution_explanation = """Five WAF vulnerabilities are exploited: (1) Y01 YAML rule regex \\bunion\\s+select\\b fails to match UNION ALL SELECT because the ALL keyword breaks the direct whitespace-to-SELECT match, (2) Y03 YAML rule blocks sqlite_master but not the sqlite_schema alias introduced in SQLite 3.33, (3) P01 Python rule regex \\([ \\t]*select\\b uses character class [ \\t] instead of \\s, missing form-feed (0x0c) and vertical-tab (0x0b), (4) YAML preprocessing normalize_whitespace pattern [\\t\\r\\n] omits form-feed and vertical-tab from normalization, and (5) the trusted_headers YAML config allows an X-Forwarded-By header to skip all YAML rules entirely. The most efficient attack uses bypass (5) to skip YAML rules, then sends UNION SELECT (no Python UNION rule exists) to extract encrypted credential blobs. Decryption requires reading the salt from encryption_metadata via sqlite3, deriving the AES key via openssl dgst -sha256, and decrypting each blob using openssl enc -d -aes-256-cbc with per-row IVs. The patch fixes Y01 to optionally match ALL/DISTINCT, Y03 to cover sqlite_schema/sqlite_temp_* variants, P01 to use \\s, preprocessing to normalize all whitespace, and removes the trusted_headers bypass."""
+verification_explanation = """Eleven pytest tests verify correctness: (1) all 4 decrypted flags match expected values generated from deterministic seed, (2) patched YAML config exists with valid rules, (3) patched WAF module exists with correct dual-parameter check() interface, (4) UNION ALL/DISTINCT SELECT variants are blocked, (5) form-feed and vertical-tab subquery injections are blocked, (6) sqlite_schema/sqlite_temp_master/sqlite_temp_schema references are blocked, (7) the X-Forwarded-By header bypass no longer skips YAML rules (tested with OR tautology only blocked by Y02), (8) all legitimate queries pass unchanged, (9) WAF is not trivially broad, (10) standard injection patterns remain blocked."""
+category = "security"
+tags = ["sql-injection", "waf-bypass"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b794ad"

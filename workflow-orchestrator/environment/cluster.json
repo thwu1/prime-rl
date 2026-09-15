@@ -1,0 +1,14 @@
+{
+  "name": "scylla-messages-prd",
+  "nodes": [
+    {"name": "node-b-1", "zone": "us-east1-b"},
+    {"name": "node-b-2", "zone": "us-east1-b"},
+    {"name": "node-b-3", "zone": "us-east1-b"},
+    {"name": "node-c-1", "zone": "us-east1-c"},
+    {"name": "node-c-2", "zone": "us-east1-c"},
+    {"name": "node-c-3", "zone": "us-east1-c"},
+    {"name": "node-d-1", "zone": "us-east1-d"},
+    {"name": "node-d-2", "zone": "us-east1-d"},
+    {"name": "node-d-3", "zone": "us-east1-d"}
+  ]
+}

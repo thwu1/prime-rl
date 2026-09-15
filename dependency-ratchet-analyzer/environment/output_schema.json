@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Schema for the dependency ratchet audit report",
+  "type": "object",
+  "required": ["audit", "violations", "cycles", "critical_edges", "promotable", "migration_plan"],
+  "properties": {
+    "audit": {
+      "description": "Results of reconciling the static dependency graph with the runtime scan and auditing enforcement levels",
+      "type": "object",
+      "required": ["undeclared_dependencies", "invalid_levels"],
+      "properties": {
+        "undeclared_dependencies": {
+          "description": "Dependencies found in the runtime scan that are absent from the static dependency graph in the SQLite database. Sorted by (source, target).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "target", "evidence"],
+            "properties": {
+              "source": {"type": "string", "description": "Calling package"},
+              "target": {"type": "string", "description": "Called package"},
+              "evidence": {"type": "string", "description": "Module path from the runtime scan providing evidence of this dependency"}
+            }
+          }
+        },
+        "invalid_levels": {
+          "description": "Packages whose current enforcement level produces violations on the complete (static + runtime) dependency graph. Sorted by package name.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["package", "current_level", "max_valid_level"],
+            "properties": {
+              "package": {"type": "string"},
+              "current_level": {"type": "string", "description": "The declared enforcement level that is invalid"},
+              "max_valid_level": {"type": "string", "description": "The highest enforcement level at which this package has zero violations"}
+            }
+          }
+        }
+      }
+    },
+    "violations": {
+      "description": "All dependency edges that violate the source package's current (pre-correction) enforcement level on the complete graph. Sorted by (package, dependency).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package", "dependency", "rule", "reason"],
+        "properties": {
+          "package": {"type": "string", "description": "Package whose enforcement level is violated"},
+          "dependency": {"type": "string", "description": "Target package causing or connected to the violation"},
+          "rule": {"type": "string", "enum": ["layered", "layered_dag", "dag"], "description": "Which enforcement rule is violated"},
+          "reason": {"type": "string", "description": "Human-readable explanation of the violation"}
+        }
+      }
+    },
+    "cycles": {
+      "description": "All strongly connected components of size >= 2 in the complete dependency graph. Each component is a sorted list of package names. The list of components is sorted by first element.",
+      "type": "array",
+      "items": {"type": "array", "items": {"type": "string"}}
+    },
+    "critical_edges": {
+      "description": "A set of dependency edges whose removal makes the entire complete graph acyclic. Sorted lexicographically by (source, target).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": "string"},
+          "target": {"type": "string"}
+        }
+      }
+    },
+    "promotable": {
+      "description": "Packages that can be promoted to a higher enforcement level from their corrected (post-rollback) level. Report the highest achievable level for each. Sorted by package name.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package", "current", "promoted_to"],
+        "properties": {
+          "package": {"type": "string"},
+          "current": {"type": "string", "description": "Corrected (post-rollback) enforcement level"},
+          "promoted_to": {"type": "string", "description": "Highest achievable level without violations"}
+        }
+      }
+    },
+    "migration_plan": {
+      "description": "Ordered sequence of single-level promotions starting from corrected enforcement levels, following the ratchet policy's migration rules",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step", "package", "from", "to"],
+        "properties": {
+          "step": {"type": "integer", "description": "1-indexed step number"},
+          "package": {"type": "string"},
+          "from": {"type": "string"},
+          "to": {"type": "string"}
+        }
+      }
+    }
+  }
+}

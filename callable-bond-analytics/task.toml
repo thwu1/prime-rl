@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantitative finance knowledge and deep QuantLib API proficiency to translate a detailed methodology specification into a working implementation. The agent must correctly implement nine interrelated analytics covering yield curve construction, multiple spread measures, option-adjusted valuation via short-rate models, sensitivity analysis with parallel and key-rate shifts, and scenario-based P&L — all with correct day counters, compounding conventions, schedule generation, and boundary handling. There is no starter code; the agent must design the architecture and wire together dozens of QuantLib objects correctly."""
+solution_explanation = """Implements the full pipeline (~230 lines): builds the discount curve, constructs fixed-rate and callable bond objects, solves for yield, computes three spread measures and their decomposition, prices through a short-rate tree model for OAS, shifts curves for effective duration/convexity, applies tent-function bumps for key-rate durations, and runs a stressed-curve scenario for P&L — all matching the methodology specification exactly."""
+verification_explanation = """Tests independently recompute all nine analytics using correct QuantLib methodology and the same market data, then compare against the agent's results within calibrated tolerances (1e-5 for yield, 1-3 bps for spreads, 0.1-0.3 for KRDs, 0.5 for effective duration, 30 for convexity, $1000 for stress P&L). Additional consistency checks verify expected relationships between analytics (spread ordering, sign constraints, duration bounds) and plausibility ranges for all outputs."""
+category = "finance"
+tags = ["quantitative-finance", "quantlib"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/callable-bond-analytics"

@@ -1,0 +1,70 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level synthesis across multiple tool ecosystems and domain knowledge.
+The solver must: (1) discover and read data from three heterogeneous formats — SQLite
+for the module DAG, Apache Parquet files for quantization measurements, and TOML for
+deployment constraints — requiring installation and proficient use of pyarrow or pandas
+alongside sqlite3 and tomllib; (2) understand recursive error propagation through a
+directed acyclic graph of 96 transformer modules, where a module's effective error
+depends transitively on all upstream modules' quantization choices; (3) design an
+optimization algorithm that handles the coupled nature of DAG-propagated errors —
+unlike independent per-module optimization, reducing upstream error cascades to improve
+all downstream modules, creating non-obvious tradeoffs between local and global error
+reduction; (4) satisfy intersecting constraint sets (global bit budget, layer group
+min_bpw, pinned module precision) while navigating 12 quantization options per module
+with non-monotonic error surfaces.
+"""
+solution_explanation = """
+1. Query SQLite for module definitions and DAG edges; read Parquet files with pyarrow
+   to load measurement options; parse TOML for budget and precision constraints.
+2. Determine eligible options per module by filtering against layer group and pinned
+   module bpw constraints.
+3. Continuous binary search over effective error thresholds: for each candidate T,
+   process modules in topological order (ascending module_id), computing each module's
+   upstream effective error contribution from already-assigned predecessors, then
+   selecting the cheapest eligible option whose own error stays within T minus that
+   upstream contribution. Feasibility requires total bits within budget.
+4. Greedy post-processing: iteratively upgrade the module with highest effective error
+   by spending remaining budget on a lower-error option, re-evaluating cascading
+   effects after each upgrade until no improvement is possible.
+5. Output strategy.json with assignments, totals, and both effective and raw max errors.
+"""
+verification_explanation = """
+Tests install pyarrow and read all three data sources independently. They verify:
+(1) strategy.json exists with correct structure covering all 96 modules;
+(2) all option indices are valid against Parquet measurement data;
+(3) total bits within budget, pinned and layer group bpw constraints satisfied;
+(4) reported totals match computed values from measurements;
+(5) max_effective_error is correctly computed via recursive DAG propagation;
+(6) effective errors exceed raw errors for modules with predecessors;
+(7) max effective error within 15% of independently computed reference solution
+    (same binary search + greedy algorithm);
+(8) no single-module upgrade reduces raw error within remaining budget.
+"""
+category = "optimization"
+tags = ["quantization-dag-propagation", "multi-format-data-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantization-allocator"

@@ -1,0 +1,33 @@
+NLSP (Network Link State Protocol) - Binary Specification v1
+=============================================================
+
+Transport: UDP port 47891
+Direction: Unicast between adjacent routers
+
+Packet Payload (16 bytes, network byte order / big-endian):
+
+  Offset  Bytes  Field           Description
+  ------  -----  --------------  ------------------------------------
+  0       2      Magic           0x4E4C (ASCII "NL")
+  2       1      Version         Protocol version (currently 1)
+  3       1      Flags           Bit 0: 1 = link active, 0 = withdrawn
+  4       1      Source ID       Originating router identifier (1-255)
+  5       1      Destination ID  Adjacent router identifier (1-255)
+  6       2      Link Cost       Unsigned 16-bit metric
+  8       4      Sequence        Monotonically increasing per (src, dst)
+  12      4      Timestamp       Unix epoch seconds of last verification
+
+Router Identifiers:
+  ID 1 = Router A       ID 4 = Router D
+  ID 2 = Router B       ID 5 = Router E
+  ID 3 = Router C       ID 6 = Router F
+
+Semantics:
+  - Each packet advertises a unidirectional link from Source to Destination.
+  - Bidirectional adjacencies produce two advertisements (one per direction).
+  - For a given (Source ID, Destination ID) pair, the advertisement with
+    the highest Sequence number is authoritative; earlier ones are stale.
+  - A link is considered active only if its latest advertisement has
+    Flags bit 0 set to 1.
+  - The capture may contain non-NLSP traffic and malformed packets;
+    implementations must validate the magic field before processing.

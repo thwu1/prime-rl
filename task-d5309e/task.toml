@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives a partially implemented TEMA E shell-and-tube heat exchanger solver containing multiple interrelated bugs: a non-optimal 2-pass formula that incorrectly mirrors the optimal path, a completely missing 3-pass eigenvalue-based implementation (both optimal and non-optimal variants), a wrong sub-exchanger count parameter in the even-N general formula, an NTU inverse function that only handles a single case, a P-NTU wrapper that supports just one forward-mode temperature combination and no inverse mode, and an LMTD correction factor missing its degenerate-ratio branch. Diagnosing these from test failures requires thermal-engineering domain knowledge to distinguish formula errors from edge-case mishandling, and the fixes are tightly coupled—the NTU inverse depends on the corrected forward effectiveness, and the P-NTU inverse mode depends on the NTU inverse. The 3-pass formulas require implementing eigenvalue-based expressions from the heat-transfer literature with separate R1=1 limiting cases. The numerical root-finding demands correct bounds, peak-detection for non-monotonic even-N effectiveness, and appropriate scipy solver configuration."""
+solution_explanation = """Fix the 2-pass non-optimal to use the split-shell-stream formula with exp/B terms and R1=2 special case. Implement 3-pass optimal using eigenvalue λ1/λ2/δ with an R1=1 limiting form, and 3-pass non-optimal via convention swap (NTU2=NTU1*R1, R2=1/R1) using χ-based eigenvalue terms. Fix even-N by setting N1=Ntp/2 instead of Ntp. Extend NTU_from_P_E with an analytical 2-pass-optimal inverse and scipy.optimize.brentq for all other cases, including peak-detection via minimize_scalar for non-monotonic even-N. Complete P_NTU_method with all 6 temperature-pair combinations in forward mode (algebraic P-NTU rearrangements) and full inverse mode (3 temps → Q → 4th temp → P1 → NTU1 → UA). Create F_LMTD_Fakheri R=1 branch using W' formula with shells parameter."""
+verification_explanation = """45 pytest tests spanning 6 test classes verify correctness via golden-reference values at 1e-7 relative tolerance for each effectiveness sub-case, round-trip NTU inversions across all configurations, forward and inverse P-NTU solutions against known engineering examples, energy-balance consistency checks, and F_LMTD values for both general and degenerate R=1 cases including multi-shell and symmetry properties."""
+category = "engineering"
+tags = ["heat-transfer", "numerical-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d5309e"

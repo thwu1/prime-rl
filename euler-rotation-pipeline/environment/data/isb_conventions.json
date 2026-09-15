@@ -1,0 +1,18 @@
+{
+  "hip": {
+    "sequence": "ZXY",
+    "labels": ["flexion_extension", "adduction_abduction", "internal_external_rotation"]
+  },
+  "knee": {
+    "sequence": "ZXY",
+    "labels": ["flexion_extension", "adduction_abduction", "internal_external_rotation"]
+  },
+  "ankle": {
+    "sequence": "ZXY",
+    "labels": ["dorsiflexion_plantarflexion", "inversion_eversion", "internal_external_rotation"]
+  },
+  "shoulder": {
+    "sequence": "YXY",
+    "labels": ["plane_of_elevation", "elevation", "axial_rotation"]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "nodes": [
+    {"name": "gateway", "subnet": "10.0.1.0/24", "role": "edge"},
+    {"name": "auth", "subnet": "10.0.2.0/24", "role": "service"},
+    {"name": "api", "subnet": "10.0.3.0/24", "role": "core"},
+    {"name": "compute-east", "subnet": "10.0.4.0/24", "role": "compute"},
+    {"name": "compute-west", "subnet": "10.0.5.0/24", "role": "compute"},
+    {"name": "storage", "subnet": "10.0.6.0/24", "role": "storage"}
+  ],
+  "links": [
+    {"node_a": "gateway", "node_b": "auth", "cost": 10},
+    {"node_a": "gateway", "node_b": "api", "cost": 10},
+    {"node_a": "auth", "node_b": "api", "cost": 10},
+    {"node_a": "api", "node_b": "compute-east", "cost": 10},
+    {"node_a": "api", "node_b": "compute-west", "cost": 10},
+    {"node_a": "compute-east", "node_b": "storage", "cost": 10},
+    {"node_a": "compute-west", "node_b": "storage", "cost": 10}
+  ]
+}

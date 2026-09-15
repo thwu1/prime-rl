@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver receives a C++ histogram split finder built with CMake (CMakeLists.txt, split_math.hpp, histogram_scanner.hpp, main.cpp) containing 12 interacting defects across the CMake build configuration and C++ source. A CMake target_compile_definitions bug sets SPLIT_EPSILON to 1e-3 instead of 1e-15, causing subtle but measurable numerical errors throughout all gain computations — the solver must understand CMake's compile-definition machinery, find_package integration, and how build-time constants propagate to runtime numerical behavior. C++ bugs span: (1) L1 soft-thresholding that truncates without shrinking, (2-4) a leaf output calculator missing max_delta_step clamping, constraint clamping, and with a broken path smoothing formula, (5) a gain function whose constrained branch bypasses the output calculator, (6-7) both scans missing parent-gain subtraction and min_gain_shift checks, (8) no monotone constraint wiring in either scanner, (9-10) forward scan missing right-child min_data and min_hess breaks, (11) reverse scan off-by-one threshold, (12) reverse scan failing to skip the NaN sentinel bin. The CMake epsilon bug compounds with every other defect — fixing C++ bugs alone still yields numerical mismatches, forcing the solver to trace the issue from test output through compiled constants back to the build configuration."""
+solution_explanation = """Fix CMakeLists.txt: change NUMERIC_EPSILON from 1e-3 to 1e-15 so SPLIT_EPSILON has the correct negligible value. Fix ThresholdL1 to return Sign(s)*max(0,|s|-l1). Add max_delta_step clamping, correct path smoothing formula (output*ratio/(ratio+1)+parent/(ratio+1)), and constraint clamping to CalculateLeafOutput. Fix GetLeafGain constrained branch to call CalculateLeafOutput. In both scanners: compute parent gain with 2*epsilon offset, add min_gain_shift check, wire monotone constraint path with directional rejection and output-given gain. Forward scan: add right-side min_data and min_hess breaks. Reverse scan: fix threshold to t-1, skip NaN bin when has_na_bin. Rebuild via cmake -B build && cmake --build build."""
+verification_explanation = """22 pytest cases exercise isolated and combined configurations across both scan directions: L2-only forward/reverse, L1+L2 forward/reverse, max_delta_step, L1+max_delta, path smoothing forward/reverse, monotone increasing/decreasing/bounds/rejection, reverse monotone, right-side min_data/min_hess filtering, min_gain filtering, NaN bin skipping, many-bin mixed features, large-L1 zeroing, batch mode, parent gain subtraction, smoothing+monotone interaction, and full three-way forward/reverse interaction (L1+max_delta+mono+smoothing+bounds). Each test compares binary JSON output against a Python reference implementation with 1e-6 tolerance. Property checks verify monotonicity, bound compliance, and max_delta limits."""
+category = "machine_learning"
+tags = ["gradient-boosting", "histogram-split"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/histogram-split-gain"

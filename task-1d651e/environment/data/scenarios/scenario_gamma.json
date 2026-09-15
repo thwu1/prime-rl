@@ -1,0 +1,8 @@
+{
+    "name": "scenario_gamma",
+    "instance_file": "prob_gamma.dat",
+    "max_objective": 9000000,
+    "time_limit_sec": 90,
+    "require_lp_bound": false,
+    "notes": "Large instance. Heuristic solution only."
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete Intel 8086 binary decoder, execution simulator, and cycle-accurate timing estimator. The decoder must produce NASM-compatible output that round-trips through reassembly to identical bytes, demanding precise understanding of variable-length instruction encoding (MOD/RM bytes, displacement, immediates) and NASM syntax. The simulator must correctly execute instructions with proper arithmetic flag computation (CF, ZF, SF, OF, PF), conditional branch evaluation, and memory operations. The cycle estimator requires deep knowledge of the 8086 microarchitecture beyond the ISA: base instruction timing varies by operand type (reg-reg vs reg-mem vs mem-reg vs mem-imm), the EA calculation cost table has non-obvious asymmetries between base+index register pairs (BX+SI and BP+DI cost differently from BX+DI and BP+SI), conditional branches have different costs taken vs not-taken, and CMP has different memory timing than ADD/SUB because it doesn't write back. Correct timing requires holistic understanding of how instruction encoding, operand types, addressing modes, and microarchitectural data paths interact — not just following a procedure."""
+solution_explanation = """The solution implements a two-mode tool: (1) A decoder that performs a first pass to identify jump targets, then a second pass to emit NASM-compatible assembly with labels. It handles all MOV/ADD/SUB/CMP/INC/DEC/JCC/LOOP forms. (2) A simulator with integrated cycle estimator that executes instructions, computes flags, and accumulates clock cycles using the 8086 timing model. The EA cost function implements the asymmetric base+index table: rm 0,3 (BX+SI, BP+DI) cost 7/11 clocks vs rm 1,2 (BX+DI, BP+SI) at 8/12 clocks. Base instruction costs vary by form: MOV reg,reg=2 vs MOV reg,mem=8+EA vs MOV mem,reg=9+EA vs MOV mem,imm=10+EA; ADD mem,reg=16+EA vs CMP mem,reg=9+EA; JCC taken=16 vs not-taken=4; LOOP taken=17 vs not-taken=5."""
+verification_explanation = """16 tests total: 8 round-trip decode tests (decode to asm, reassemble with nasm -f bin, compare bytes) plus 8 simulation tests verifying register values, flags, total clock counts, and IP (dynamically validated against binary file size) against deterministic expected values. The cycle count tests specifically exercise: pure register-immediate timing (prog1), ALU register timing (prog2), loop with taken/not-taken JNZ asymmetry (prog3), moffs vs modrm direct-address EA costs (prog4), 100-iteration LOOP instruction accumulation (prog5), [BX+SI] base+index EA (prog6), byte-width ops with [BP+DI] vs [BP+DI+disp] EA difference (prog7), and the full EA asymmetry matrix with ADD mem,reg timing (prog8). An error in any EA clock value, base instruction cost, or taken/not-taken branch cost will cause a deterministic total_clocks mismatch."""
+category = "systems-programming"
+tags = ["8086-microarchitecture", "binary-analysis"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-03175b"

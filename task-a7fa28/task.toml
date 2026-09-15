@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD verification and validation expertise. The instruction provides only the output schema and data files—no algorithms, formulas, or constants are named. The agent must independently: (1) recognize that discretization uncertainty quantification requires the GCI/Richardson extrapolation procedure and implement it correctly from domain knowledge alone, (2) parse domain-specific scientific data formats (Tecplot multi-zone, PLOT3D 2D structured grids with Fortran ordering conventions), (3) make professional judgments about convergence quality—evaluating monotonicity and asymptotic range behavior are non-trivial assessments requiring deep understanding of what formal vs. observed convergence orders imply about solution reliability, (4) compute turbulent boundary layer integral properties from discrete velocity profiles, and (5) recover the Spalart-Allmaras working variable χ by recognizing the fv1 closure relation, recalling the model constant cv1=7.1, and implementing numerical root-finding to invert it—all without any equations being provided. The task demands holistic CFD V&V expertise and independent methodological judgment."""
+solution_explanation = """Parse Tecplot multi-zone files and PLOT3D 2D grid. For discretization uncertainty: identify GCI methodology, extract finest three grid levels, compute apparent order p = ln|eps32/eps21|/ln(r), Richardson-extrapolated value, relative errors, and GCI with Fs=1.25. For convergence assessment: check monotonicity across all five levels and compare observed p to design order 2 to judge asymptotic range. For grid quality: parse PLOT3D format (i-varies-fastest), compute wall spacing and stretching ratios over plate region. For BL: trapezoidal integration for delta_star and theta; interpolation for delta_99. For SA: recognize chi*fv1(chi)=mut/mu relation with cv1=7.1, implement bisection root-finding to invert fv1."""
+verification_explanation = """Tests verify GCI results against NASA TMR published reference values (p, ea21, eext21, GCI_fine) with tight tolerances. Grid quality metrics (dimensions 35x25, wall spacing ~8.32e-6, stretching ratio ~1.629, 29 plate points) are verified against values computed from the PLOT3D file. Convergence assessment booleans are checked: all four code/metric combinations are monotonic, CFL3D is in asymptotic range (p near 2), FUN3D is not (p < 1.5). BL quantities checked against trapezoidal-rule references and physical ranges. SA inversion verified by checking peak chi, freestream chi, and fv1 consistency."""
+category = "physics_engineering"
+tags = ["cfd-verification", "turbulence-modeling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a7fa28"

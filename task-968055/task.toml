@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Kubernetes security knowledge spanning multiple CKS domains: parsing raw K8s audit log JSON to distinguish attacker activity from legitimate controller/monitoring noise, understanding K8s RBAC model and service account namespace scoping, mapping attack patterns to MITRE ATT&CK techniques, authoring valid Kubernetes audit policies with appropriate log levels, writing correct NetworkPolicy YAML with proper pod/namespace selectors and port rules, and composing Falco detection rules with correct filter field syntax. The forensic analysis alone requires correlating user agents, source IPs, cross-namespace access patterns, and temporal ordering across 40+ events."""
+solution_explanation = """Parse the audit log JSON and identify the compromised service account by detecting cross-namespace activity anomalies (a pipeline-scoped SA accessing production secrets and kube-system). Reconstruct the 9-event attack chain: reconnaissance (cross-namespace pod listing), credential theft (secret reads), privilege escalation (ClusterRoleBinding to cluster-admin), execution (privileged pod in kube-system), persistence (deployment sidecar injection and CronJob creation). Generate an audit policy covering secrets at RequestResponse level, RBAC mutations, and pod creation in system namespaces. Create per-workload NetworkPolicies enforcing the frontend->backend->database/redis traffic flow. Write Falco k8s_audit rules detecting cross-namespace secret access, unauthorized ClusterRoleBinding creation, and production deployment modification."""
+verification_explanation = """Tests validate the forensic report identifies ci-bot as the compromised identity and 10.0.2.15 as the attack IP, that at least 7 attack events are found covering secret access, privilege escalation, kube-system pod creation, deployment modification, and persistence. Audit policy is checked for valid structure and coverage of secrets and RBAC resources. NetworkPolicies are validated for correct kind/apiVersion, database and redis isolation restricting ingress to backend-api only. Falco rules are parsed as valid YAML with at least 3 rules having required fields covering secret access and privilege escalation patterns."""
+category = "cybersecurity"
+tags = ["kubernetes", "forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-968055"

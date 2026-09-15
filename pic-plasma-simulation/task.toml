@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level computational plasma physics and multi-language systems debugging. The agent receives a broken PIC simulation with no indication of what is wrong — it must independently diagnose and fix: (1) a build system defect that silently produces a mis-named shared library, (2) a C-level boundary condition error in CIC charge deposition that causes out-of-bounds memory writes, (3) three unimplemented Python methods requiring deep understanding of CIC interpolation and ctypes FFI to implement from scratch, (4) a subtle spectral Poisson solver bug where the Fourier-space operator uses the wrong power of the wavenumber, (5) a physics initialization error that eliminates the counter-streaming condition needed for two-stream instability, and (6) a visualization output path mismatch. Validation demands quantitative comparison against analytic Langmuir oscillation frequency and cold two-stream dispersion theory, requiring graduate-level plasma physics knowledge to interpret failures and iterate toward correct implementations."""
+solution_explanation = """Fix Makefile target from pic_kernels.so to libpic_kernels.so. Fix C kernel cic_deposit to wrap j_right with (j_left+1)%%N_grid for periodic boundaries. Implement deposit_charge by allocating numpy array and calling C cic_deposit via ctypes pointers, returning n0-n_e. Implement compute_electric_field using np.roll central differences. Implement interpolate_field_to_particles by calling C cic_interpolate via ctypes. Fix Poisson solver denominator from np.abs(k) to k**2. Fix two-stream init to set second beam velocity to -v0. Fix gnuplot output path from phase_plot.png to phase_space.png."""
+verification_explanation = """Build test verifies libpic_kernels.so exists and is loadable with both exported symbols. Unit tests verify Poisson solver accuracy against analytic sin/cos modes at k=1,3,5 to machine precision. Charge deposition tests verify uniform particles give neutral plasma and sinusoidal perturbation yields correct dominant Fourier mode. Integration tests run full PIC simulations comparing Langmuir omega_p (within 5%% of 1.0, momentum conserved below 1e-6) and two-stream growth rate (within 15%% of cold dispersion relation, energy growth >10x). Visualization test verifies gnuplot produces PNG at expected path."""
+category = "computational_physics"
+tags = ["plasma-simulation", "particle-in-cell"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pic-plasma-simulation"

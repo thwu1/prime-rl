@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in computational seismology. The solver must examine the observation data to identify that the focal depth is not provided and must be inferred from multi-station arrival times. They must determine which seismic phases (direct, reflected, converted) could produce the observed arrivals at each epicentral distance, choose an appropriate 1D velocity model, and implement a depth-search algorithm that jointly optimizes depth and phase assignments across all stations. The problem couples geodesic distance computation on the WGS84 ellipsoid, seismic travel-time modeling through a layered Earth, and combinatorial matching of observations to theoretical phases — requiring proficiency in both seismological domain knowledge and scientific computing."""
+solution_explanation = """Install ObsPy, read the observation JSON, compute geodesic distances via gps2dist_azimuth + kilometers2degrees, then grid-search over depths 1–700 km in coarse (5 km) then fine (1 km) steps. At each candidate depth, compute theoretical travel times for candidate phases (P, pP, sP, PP, S, sS, SS, PcP, ScP, ScS) at each station using TauPyModel.get_travel_times() with the iasp91 model, solve a minimum-weight assignment (Hungarian algorithm via scipy.optimize.linear_sum_assignment) matching observed arrivals to theoretical phases, and accumulate the total squared residual. The depth with the lowest total RMS residual (~237 km) is the answer. At that depth, extract the phase assignments and per-arrival residuals."""
+verification_explanation = """Tests independently recompute the ground truth by running TauP at the true depth (237 km) with the iasp91 model and the known station coordinates. They verify: (1) the reported depth is within ±3 km of 237.0, (2) every phase assignment matches the ground truth, (3) the total RMS residual is below 0.5 seconds, (4) no individual residual exceeds 1.0 second, (5) all 8 stations are present, (6) epicentral distances are within 0.05°, and (7) the output JSON schema is correct."""
+category = "geoscience"
+tags = ["seismology", "obspy"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seismic-depth-phases"

@@ -1,0 +1,12 @@
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.0.14.3 (AS65001)
+2024/01/15 10:00:00 BGP: [DWHJZ] Initializing neighbor 10.255.0.3 (AS65002 eBGP multihop)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.0.14.3 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.255.0.3 [FSM] BGP_Start (Idle -> Connect)
+2024/01/15 10:00:03 BGP: [AXFZW] 10.0.14.3 [Event] Connect start to 10.0.14.3 failed - errno=111 (Connection refused)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.0.14.3 [FSM] TCP_connection_open_failed (Connect -> Active)
+2024/01/15 10:00:03 BGP: [AXFZW] 10.255.0.3 [Event] Connect start to 10.255.0.3 failed - errno=113 (No route to host)
+2024/01/15 10:00:03 BGP: [DWHJZ] 10.255.0.3 [FSM] TCP_connection_open_failed (Connect -> Active)
+2024/01/15 10:00:05 BGP: [PYBMN] Incoming connection from 10.0.14.1 port 37491 - no matching configured neighbor, rejecting
+2024/01/15 10:00:33 BGP: [AXFZW] 10.0.14.3 [Event] Connect start to 10.0.14.3 failed - errno=111 (Connection refused)
+2024/01/15 10:00:33 BGP: [AXFZW] 10.255.0.3 [Event] Connect start to 10.255.0.3 failed - errno=113 (No route to host)
+2024/01/15 10:00:35 BGP: [PYBMN] Incoming connection from 10.0.14.1 port 37627 - no matching configured neighbor, rejecting

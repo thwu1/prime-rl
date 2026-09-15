@@ -1,0 +1,45 @@
+//
+// Vector addition kernel — canonical PTX example.
+// 3 basic blocks: entry (BB0), compute (BB_COMPUTE), exit (BB_EXIT).
+
+.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry vecadd(
+    .param .u64 a_ptr,
+    .param .u64 b_ptr,
+    .param .u64 c_ptr,
+    .param .u32 n
+)
+{
+    .reg .pred %p<2>;
+    .reg .f32 %f<3>;
+    .reg .b32 %r<5>;
+    .reg .b64 %rd<7>;
+
+BB0:
+    ld.param.u64 %rd0, [a_ptr];
+    ld.param.u64 %rd1, [b_ptr];
+    ld.param.u64 %rd2, [c_ptr];
+    ld.param.u32 %r0, [n];
+    mov.u32 %r1, %tid.x;
+    mov.u32 %r2, %ctaid.x;
+    mov.u32 %r3, %ntid.x;
+    mad.lo.s32 %r1, %r2, %r3, %r1;
+    setp.ge.u32 %p0, %r1, %r0;
+    @%p0 bra BB_EXIT;
+
+BB_COMPUTE:
+    mul.wide.u32 %rd3, %r1, 4;
+    add.u64 %rd4, %rd0, %rd3;
+    add.u64 %rd5, %rd1, %rd3;
+    add.u64 %rd6, %rd2, %rd3;
+    ld.global.f32 %f0, [%rd4];
+    ld.global.f32 %f1, [%rd5];
+    add.f32 %f2, %f0, %f1;
+    st.global.f32 [%rd6], %f2;
+
+BB_EXIT:
+    ret;
+}

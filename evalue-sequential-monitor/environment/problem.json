@@ -1,0 +1,73 @@
+{
+  "output_file": "/app/results.json",
+  "part1_mixture_supermartingales": {
+    "description": "Compute optimal rho and log_superMG(s,v) values for each mixture supermartingale family",
+    "two_sided_normal": {
+      "v_opt": 100.0,
+      "alpha_opt": 0.05,
+      "eval_points": [[5.0, 50.0], [10.0, 100.0], [15.0, 200.0], [20.0, 400.0], [2.0, 10.0]]
+    },
+    "one_sided_normal": {
+      "v_opt": 100.0,
+      "alpha_opt": 0.05,
+      "eval_points": [[5.0, 50.0], [10.0, 100.0], [15.0, 200.0], [20.0, 400.0], [2.0, 10.0]]
+    },
+    "gamma_exponential": {
+      "v_opt": 100.0,
+      "alpha_opt": 0.05,
+      "c": 1.0,
+      "eval_points": [[5.0, 50.0], [10.0, 100.0], [15.0, 200.0], [20.0, 400.0], [2.0, 10.0]]
+    }
+  },
+  "part2_mixture_bounds": {
+    "description": "Compute mixture boundary values at given intrinsic times and determine which family produces tighter bounds at each point",
+    "two_sided_normal": {
+      "v_opt": 100.0,
+      "alpha_opt": 0.05,
+      "alpha": 0.05,
+      "v_values": [50.0, 100.0, 200.0, 500.0, 1000.0]
+    },
+    "gamma_exponential": {
+      "v_opt": 100.0,
+      "alpha_opt": 0.05,
+      "c": 1.0,
+      "alpha": 0.05,
+      "v_values": [50.0, 100.0, 200.0, 500.0, 1000.0]
+    }
+  },
+  "part3_sequential_test": {
+    "description": "Sequential two-sided mean test using TwoSidedNormalMixture on generated normal data",
+    "data_generation": "numpy.random.default_rng(seed).normal(true_mean, true_std, n_observations)",
+    "seed": 42,
+    "n_observations": 500,
+    "true_mean": 0.3,
+    "true_std": 1.0,
+    "null_value": 0.0,
+    "v_opt": 100.0,
+    "alpha_opt": 0.05,
+    "alpha": 0.05,
+    "checkpoints": [50, 100, 200, 300, 500]
+  },
+  "part4_evalue_merging": {
+    "description": "Merge each set of e-values using three strategies and compute calibrated p-values",
+    "sets": [
+      [3.5, 7.2, 0.8, 12.1, 1.5],
+      [0.1, 0.5, 20.0, 4.0],
+      [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    ]
+  },
+  "part5_confidence_sequence": {
+    "description": "Two-sided anytime-valid confidence sequence for the mean using GammaExponentialMixture",
+    "data_generation": "numpy.random.default_rng(seed).normal(true_mean, true_std, n_observations)",
+    "intrinsic_time": "n * sample_variance(ddof=1) at each checkpoint",
+    "seed": 123,
+    "n_observations": 1000,
+    "true_mean": 5.0,
+    "true_std": 2.0,
+    "v_opt": 200.0,
+    "c": 0.5,
+    "alpha": 0.05,
+    "alpha_opt": 0.05,
+    "checkpoints": [100, 250, 500, 750, 1000]
+  }
+}

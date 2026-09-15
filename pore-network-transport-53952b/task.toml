@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete pore network simulator from scratch: cubic lattice graph construction with C-order indexing, sparse weighted graph Laplacian assembly, Dirichlet BC elimination with cross-term correction, Newton-linearized nonlinear reactive transport with source term decomposition (S1/S2 split), stiff ODE integration for transient diffusion with algebraic BC constraints, mass-balance rate computation, and effective diffusivity derivation from pore-scale results. A buggy starter file and external data files require the solver to diagnose numerical errors and explore the environment before implementing. Combines graph theory, sparse linear algebra, computational physics, and numerical methods at graduate/professional level."""
+solution_explanation = """Build cubic network via np.unravel_index with C-order. Assemble graph Laplacian as COO->CSR with off-diagonal -g entries and diagonal accumulating +g from both throat endpoints. Apply Dirichlet BCs by subtracting A[:,bc]*values from b BEFORE zeroing rows/columns, then set diagonal to 1 and RHS to bc_value. The starter.py has two bugs: (1) diagonal only accumulates from p1 (missing p2), and (2) apply_value_bc skips cross-term correction entirely. For reactive transport, linearize r=A*X^b as S1=A*b*X^(b-1), S2=A*(1-b)*X^b, modify diagonal by -S1 and add S2 to RHS, iterate Newton until solution-change norm converges. For transient, set up ODE V*dC/dt=-(A@C) for interior pores with BCs held fixed, integrate with BDF. Rate=(A_original@concentration)[pores].sum(). Effective diffusivity=|rate|*L/(A_cross*|dc|)."""
+verification_explanation = """Tests verify: (1) network topology (pore/throat counts for 3D/flat/1D, face label sizes including degenerate dimensions, connection uniqueness, C-order raveling), (2) coefficient matrix properties (symmetry, zero row sums, positive diagonal, scalar/array conductance equivalence), (3) steady-state diffusion produces exact linear profiles on 9x9x9 and 5x5x5 networks, single-BC uniformity, and gradients along different axes, (4) mass balance: zero net rate, inlet/outlet balance, and specific rate magnitude, (5) reactive transport with standard kinetics converges to c_mean~0.717129, non-negativity, BC preservation, monotonic response to prefactor, diffusion degeneracy at zero source, (6) transient diffusion matches intermediate-time mean~0.40803, steady-state limit, BC fixity, and monotonic evolution, (7) effective diffusivity equals conductance for uniform networks and matches harmonic mean for layered conductances loaded from JSON data file, plus matching heterogeneous mean concentration."""
+category = "scientific_computing"
+tags = ["porous-media", "sparse-linear-algebra"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pore-network-transport-53952b"

@@ -1,0 +1,9 @@
+SDC Analysis Project
+
+This project requires implementing a spectral deferred correction (SDC) solver
+and performing convergence and stability analysis.
+
+The pySDC Python package (available via pip) provides reference implementations
+of SDC and parallel-in-time methods. Its source code and the qmat package it
+depends on are useful references for understanding the underlying mathematical
+framework.

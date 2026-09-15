@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level multiview geometry and 3DGS pipeline knowledge to: (1) reverse-engineer COLMAP binary format from scratch (struct-level little-endian parsing with variable-length records and null-terminated strings); (2) cross-reference camera intrinsics and image-to-camera mappings against a SQLite database to detect parameter corruption and metadata swaps; (3) detect denormalized quaternion rotations via unit-norm constraint checking; (4) identify orphan track entries referencing non-existent images; (5) evaluate geometric consistency by computing camera-space depth for every track entry and removing physically impossible behind-camera observations — requiring world-to-camera coordinate transforms; (6) design NeRF++ scene normalization (camera world position extraction via -R^T*t, centroid/bounding sphere computation, 1.1x radius convention) from understanding of the 3DGS training pipeline; (7) compute per-point maximum pairwise triangulation angles across observing cameras to assess reconstruction conditioning for Gaussian splatting. The solver must understand dependencies between repairs (quaternion normalization before geometric checks) and synthesize forensic analysis, geometric evaluation, and pipeline configuration into a coherent output."""
+solution_explanation = """Parse cameras.bin/images.bin/points3D.bin using struct-level binary format. Query database.db for ground-truth intrinsics and assignments. Fix: (a) 100x focal length corruption via DB comparison, (b) denormalized quaternions via norm check and rescaling, (c) swapped camera_id assignments via DB comparison, (d) orphan track refs via valid image set check, (e) behind-camera track entries by computing z_cam = R[2]·xyz + t[2] for each track entry. Then compute NeRF++ normalization from camera world positions (-R^T*t for each image), calculate per-point max triangulation angles to identify poorly-conditioned points, and produce scene_config.json with normalization and quality metrics."""
+verification_explanation = """Tests independently parse repaired binary files and verify: camera intrinsics match database values, quaternions are unit-length, camera assignments match database, no orphan track references exist, no track entries have negative camera-space depth (geometric consistency), scene normalization center/radius/translate match expected values from camera positions, behind-camera entry counts are correct, low-angle point counts are correct, point positions and errors are unchanged, and a diagnostic report with >= 4 distinct issue types exists."""
+category = "computer_vision"
+tags = ["3d-reconstruction", "multiview-geometry"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/colmap-scene-analysis"

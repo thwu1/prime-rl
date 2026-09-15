@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """NP-hard combinatorial optimization across five benchmark instances ranging from 6x6 to 20x15. Requires understanding the OR-Library JSP format, implementing a correct schedule builder that satisfies precedence and machine-disjunctive constraints, and developing a solver sophisticated enough to achieve makespans within reasonable bounds of known optima. Simple dispatching heuristics alone will not meet the tighter targets (ft10, ft20); a metaheuristic or constraint-programming approach is needed."""
+solution_explanation = """Uses a pure Python solver combining Giffler-Thompson active-schedule dispatching (4 deterministic rules + 5000 random restarts) with simulated annealing for improvement. SA explores the swap-adjacent-on-machine neighborhood with periodic reheating and restarts from the best-found solution."""
+verification_explanation = """Tests parse each original instance file and validate the submitted results.json: (1) structural completeness — all 5 instances present with correct job/operation counts, machine assignments, and durations; (2) feasibility — non-negative starts, job-internal precedence, no machine overlap; (3) solution quality — makespan equals actual schedule completion and is within the per-instance target."""
+category = "optimization"
+tags = ["scheduling", "combinatorial-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c2b5d3"

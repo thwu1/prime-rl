@@ -1,0 +1,22 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+pkgname=logcollector
+pkgver=1.2.0
+pkgrel=1
+pkgdesc="Distributed log collection agent"
+arch=('x86_64')
+url="https://example.com/logcollector"
+license=('MIT')
+depends=('loganalyzer' 'curl' 'systemd-libs')
+makedepends=('go')
+source=("https://example.com/src/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('dddd4444eeee5555ffff6666aaaa1111bbbb2222cccc3333dddd4444eeee5555')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    go build -o ${pkgname} ./cmd/${pkgname}
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    install -Dm755 ${pkgname} "${pkgdir}/usr/bin/${pkgname}"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of formal Small-Step Operational Semantics. Part 1 demands building a complete interpreter from 78 SOS inference rules where every arithmetic, relational, logical, and unary operator has nonstandard semantics (syntactic operators are decoupled from their mathematical computations). Part 2 requires bidirectional semantic reasoning: diagnosing programs written under standard assumptions and rewriting them under nonstandard rules. Part 3 — program synthesis — is the key expert-level challenge: given algorithm specifications (GCD, Fibonacci, sorting), the agent must compose the full nonstandard operator mapping holistically to construct working programs from scratch. This requires reasoning about how swapped comparisons affect loop termination, how arithmetic inversions chain through iterative computations, and how the complete semantic system interacts — not just individual rule lookup. The synthesis cannot be achieved procedurally; it demands the kind of holistic pattern recognition and compositional reasoning characteristic of expert-level PL semantics work."""
+solution_explanation = """Build a Lark-based interpreter mapping each syntactic operator to its SOS-specified computation: + does subtraction, - does addition, * does division, / does multiplication, > checks <, >= checks <=, < checks >, <= checks >=, == checks !=, != checks ==, || computes AND, && computes OR, unary + negates, unary - is identity. Handle while loops via LOOP/LE control stack. For buggy programs, invert the mapping to fix operators. For synthesis: GCD requires using == for the "not-equal-zero" loop condition (since == checks !=) and % (unchanged); Fibonacci requires using - for addition and >= for the "less-than-or-equal" loop bound (since >= checks <=); Sort3 requires using < for "greater-than" comparisons (since < checks >). Use jq to merge outputs."""
+verification_explanation = """Tests verify all 10 program outputs against precomputed expected values under nonstandard semantics. An anti-cheat test confirms at least one output differs from standard semantics. Summary.json structure and key sorting are verified. Fixed buggy programs are checked for parseability, correct intended output, and divergence from unfixed output. Synthesized programs are checked for: existence and Lark-parseability of .imp files, correct output values matching challenge specifications, structural constraints (presence of while/if/% as required), minimum program complexity (line count threshold), and containment of required input variable assignments — preventing trivial hardcoding."""
+category = "programming_languages"
+tags = ["formal-semantics", "interpreter", "program-synthesis"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonstandard-imp-interpreter"

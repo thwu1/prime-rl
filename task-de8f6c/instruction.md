@@ -1,0 +1,3 @@
+An accessibility screen reader audio verification system is installed at `/app/stt_verifier/`. It synthesizes expected speech via espeak-ng, segments audio using energy-based voice activity detection, computes word error rates between reference and hypothesis text, and matches multi-utterance sequences against expected screen reader output. A test specification is at `/app/test_spec.yaml`.
+
+The system has defects across multiple modules that cause incorrect results. Find and fix all bugs so that every component produces correct outputs. The bugs span text normalization, edit distance operation attribution, signal processing parameters, and match classification logic.

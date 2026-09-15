@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires domain expertise in tidal energy engineering (wake interaction models, actuator disc theory, Betz and Garrett-Cummins limits), proficiency in constrained numerical optimization, and ability to synthesize a complete computational pipeline from physics specifications. The agent must correctly implement Jensen wake decay, RSS superposition, turbine performance curve interpolation, and couple these into a working optimizer. Critically, the top-hat wake model creates a discontinuous objective landscape where naive gradient-based optimization gets trapped in local minima — the agent must recognize this and employ multi-start, global, or hybrid optimization strategies to achieve the required >15% improvement."""
+solution_explanation = """Implement linear interpolation for Cp/Ct curves using scipy.interpolate.interp1d with boundary extrapolation. The Jensen model computes velocity deficit as U_inf*(1-sqrt(1-Ct))*(D/(D+2kx))^2 within the top-hat wake cone, zero outside. RSS superposition combines deficits as U_eff = U_inf - sqrt(sum(deficit_j^2)). Power is 0.5*rho*A*Cp(U_eff)*U_eff^3. The top-hat wake creates a discontinuous objective landscape where gradient-based optimizers get stuck in local minima (the deficit is flat inside the wake cone and zero outside, yielding zero gradient for lateral movements). The solution uses multi-start SLSQP: 20+ random perturbations of the initial grid plus explicitly constructed staggered two-column layouts as starting points, each refined with SLSQP. The staggered layout places turbines in 2 columns offset in y so downstream turbines fall outside upstream wake cones, eliminating wake losses and achieving >50% improvement over the regular inline grid."""
+verification_explanation = """28 pytest tests verify: (1) module API exists, (2) Cp/Ct interpolation accuracy in rated/ramp/cutout regions and monotonicity, (3) Jensen deficit formula matches analytic values for known geometry, (4) correct zero-deficit behavior upstream and outside wake, (5) deficit decreases with distance, (6) single-turbine power within 2% of analytic P=0.5*rho*A*Cp*U^3, (7) power below Betz and GC limits, (8) wake reduces inline downstream power, (9) side-by-side turbines unaffected, (10) optimization achieves >15% improvement with all constraints satisfied, (11) results.json has correct schema and values."""
+category = "computational_science"
+tags = ["fluid-dynamics", "optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tidal-array-optimizer-21870e"

@@ -1,0 +1,1 @@
+"""LandCoverNet assessment pipeline."""

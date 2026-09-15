@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-component legislative change-tracking pipeline that integrates USLM XML parsing, git repository construction with backdated commits, legal citation extraction, structural diffing, and cross-reference resolution. The agent must discover how to parse sourceCredit elements using domain-specific legal citation patterns, compute semantic structural diffs between vintage pairs to classify changes as additions/amendments/repeals with attribution, handle the git fast-import wire protocol with UTF-8 byte-counted data blocks for multi-line commit messages, resolve cross-references as intra-title/inter-title/dangling using the US Code title headings map, handle edge cases like repealed sections and annual tag year-collisions where multiple vintages share a calendar year, and produce chapter-mode markdown with YAML frontmatter, section anchors, cross-reference URL rewriting, and statutory note rendering."""
+solution_explanation = """Pipeline: (1) Parse all 4 vintage XMLs to extract section metadata (identifiers, headings, status, sourceCredit text, content text) and chapter numbers. (2) For each section's sourceCredit, extract Pub. L. references using regex matching 'Pub. L. N\u2013M' with en-dash support. (3) Compute structural diffs between consecutive vintage pairs by comparing section sets (additions), section status (repeals), and section content/sourceCredit text (amendments), attributing each change to the newly-appearing Pub. L. reference. (4) Build provenance.json mapping each section to its legislative history from the latest vintage. (5) Build xref_analysis.json by classifying <ref> targets as intra-title (same title 9), inter-title (different title in headings map), or dangling (title not in map). (6) Convert each vintage's XML to chapter-mode markdown via the USLM-to-IR-to-markdown pipeline. (7) Construct git fast-import byte stream with structured commit messages containing Changes blocks, proper UTF-8 byte counts, and backdated timestamps. (8) Create annual tags on the last vintage per calendar year and congress tags on boundary vintages."""
+verification_explanation = """Tests verify: (1) Git repo has exactly 4 commits with correct backdated dates, author identity, and chronological order. (2) Commit messages contain structured Changes blocks with correct change types, section identifiers, and public law attributions. (3) Tags: annual/2021 on second commit (not first, testing year-collision), annual/2022, annual/2024, congress/116, congress/117 on correct commits. (4) Markdown working tree has chapter files with YAML frontmatter, section anchors, cross-reference links, and repealed section with [Repealed] annotation. (5) provenance.json has correct public law arrays extracted from sourceCredits including en-dash handling, correct first-appeared vintages and status values. (6) xref_analysis.json classifies 2 intra-title, 1 inter-title, 1 dangling reference correctly. (7) changelog.json has 3 diff entries with correct change counts and attributions. (8) fast-import.stream has 4 commit directives with proper timestamps."""
+category = "data_engineering"
+tags = ["legislative_data", "git_plumbing"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e8ca53"

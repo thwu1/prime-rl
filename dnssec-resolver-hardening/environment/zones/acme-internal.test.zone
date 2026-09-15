@@ -1,0 +1,18 @@
+$ORIGIN acme-internal.test.
+$TTL 86400
+@   IN  SOA  ns1.acme-internal.test. admin.acme-internal.test. (
+              2024010101  ; Serial
+              3600        ; Refresh
+              900         ; Retry
+              604800      ; Expire
+              86400       ; Negative cache TTL
+              )
+    IN  NS   ns1.acme-internal.test.
+
+ns1             IN  A       127.0.0.1
+www             IN  A       203.0.113.10
+mail            IN  A       203.0.113.20
+@               IN  MX      10 mail.acme-internal.test.
+_submission._tcp IN SRV     0 1 587 mail.acme-internal.test.
+cdn             IN  CNAME   www.acme-internal.test.
+*.apps          IN  A       203.0.113.50

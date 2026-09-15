@@ -1,0 +1,78 @@
+ICWS'94 Standard - Key Reference Sections
+
+=== ADDRESSING MODES ===
+
+# Immediate:   pointer = 0
+$ Direct:      pointer = offset (the A/B-number)
+* A-Indirect:  pointer = offset + A-number of instruction at offset
+@ B-Indirect:  pointer = offset + B-number of instruction at offset
+{ A-Predec:    decrement A-number at offset, then pointer = offset + decremented A-number
+< B-Predec:    decrement B-number at offset, then pointer = offset + decremented B-number
+} A-Postinc:   pointer = offset + A-number at offset, then increment A-number
+> B-Postinc:   pointer = offset + B-number at offset, then increment B-number
+
+=== MODIFIERS ===
+
+.A   A-value = A-number of A-instr; B-value = A-number of B-instr; writes A-number
+.B   A-value = B-number of A-instr; B-value = B-number of B-instr; writes B-number
+.AB  A-value = A-number of A-instr; B-value = B-number of B-instr; writes B-number
+.BA  A-value = B-number of A-instr; B-value = A-number of B-instr; writes A-number
+.F   Both fields, A->A, B->B
+.X   Both fields, A->B, B->A
+.I   Entire instruction
+
+=== OPCODES ===
+
+DAT: No operation, removes task from queue
+MOV: Replace B-target with A-value, queue PC+1
+ADD: Replace B-target with A-value + B-value, queue PC+1. .I acts as .F
+SUB: Replace B-target with B-value - A-value, queue PC+1. .I acts as .F
+MUL: Replace B-target with A-value * B-value, queue PC+1. .I acts as .F
+DIV: Replace B-target with B-value / A-value, queue PC+1. .I acts as .F
+     Division by zero: B-value unchanged, task removed. For .F/.X/.I: each
+     component independent - zero divisor leaves that component unchanged,
+     task still removed.
+MOD: Like DIV but remainder. Same zero handling.
+JMP: Queue PC + A-pointer
+JMZ: If B-value == 0, queue PC + A-pointer, else queue PC+1
+     .F/.I: jump if BOTH A-number and B-number of B-instr are zero
+JMN: If B-value != 0, queue PC + A-pointer, else queue PC+1
+     .F/.I: jump if EITHER A-number or B-number is non-zero
+DJN: Decrement B-value AND B-target, test decremented value.
+     If != 0, queue PC + A-pointer, else queue PC+1
+     .F/.I: decrement both fields, jump if either is non-zero
+SEQ/CMP: If A-value == B-value, queue PC+2, else PC+1
+SNE: If A-value != B-value, queue PC+2, else PC+1
+SLT: If A-value < B-value, queue PC+2, else PC+1
+     .F/.I: skip only if BOTH A-number < A-number AND B-number < B-number
+SPL: Queue PC+1 FIRST, then queue PC + A-pointer (if room)
+NOP: Queue PC+1
+
+=== EXECUTION ORDER ===
+
+1. Extract task pointer from warrior's queue -> PC
+2. Copy Core[PC] -> instruction register (IR)
+3. Evaluate A-operand -> A-pointer, A-instruction (IRA)
+4. Post-increment A-mode if applicable
+5. Evaluate B-operand -> B-pointer, B-instruction (IRB)
+6. Post-increment B-mode if applicable
+7. Execute opcode.modifier
+
+=== FOLD FUNCTION ===
+
+Fold(pointer, limit, M):
+    result = pointer % limit
+    if result > limit/2:
+        result += M - limit
+    return result
+
+Used for read/write distance limiting. When ReadLimit = WriteLimit = M,
+Fold is identity (no folding).
+
+=== LOAD FILE FORMAT ===
+
+Lines starting with ; are comments.
+;name and ;author set warrior metadata.
+ORG N sets execution start to instruction N (0-indexed).
+Instructions: OPCODE.MODIFIER AMODE AVALUE, BMODE BVALUE
+All values are integers, converted to range [0, M-1] on load.

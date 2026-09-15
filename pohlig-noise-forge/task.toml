@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """This task chains three distinct cryptographic attacks requiring graduate-level expertise:
+(1) Implementing the Pohlig-Hellman discrete logarithm algorithm from scratch, including baby-step-giant-step
+for subgroup DLs and the Chinese Remainder Theorem for recombination — a non-trivial number-theoretic algorithm
+with multiple interacting components. (2) Understanding a SHA-512 based KDF to derive subordinate keys from
+the recovered DH master secret and verifying correctness against ECDSA signatures. (3) Forging a Noise
+protocol K-pattern handshake without the legitimate user's private key, which requires deep understanding
+of the Noise protocol state machine and recognizing that DH commutativity (DH(a,B) = DH(b,A)) allows
+substituting DH(server_sk, client_pk) for DH(client_sk, server_pk) in the ss token. Each stage builds on
+the previous one, demanding both theoretical cryptographic knowledge and practical implementation skill."""
+solution_explanation = """The solution implements a complete Pohlig-Hellman attack pipeline (baby-step-giant-step
+DL solver, CRT, prime-power Pohlig-Hellman decomposition) to recover the DH private key from the public key
+in the smooth-order group. It then applies the server's KDF (SHA-512 with domain separator) to derive the
+Noise X25519 static private key. Finally, it manually constructs a Noise K-pattern handshake by: initializing
+the SymmetricState with the protocol name and pre-message public keys, generating a fresh ephemeral keypair
+for the 'e' token, computing DH(ephemeral, server_pk) for 'es', and crucially computing
+DH(server_sk, client_pk) for 'ss' (exploiting DH commutativity to bypass the need for the client's
+private key), then encrypting the target payload."""
+verification_explanation = """The test suite verifies three properties: (1) The recovered DH private key is
+correct by checking pow(g, recovered_key, p) == stored_public_key — this is a self-verifying algebraic check
+requiring no pre-stored secrets. (2) The ECDSA key derived from the DH key matches the stored public key and
+correctly verifies the stored signatures. (3) A fresh Noise K-pattern responder (constructed from the derived
+Noise key and the client's public key) can successfully decrypt the forged handshake, and the decrypted
+payload matches the target string exactly."""
+category = "cryptography"
+tags = ["discrete-log", "noise-protocol"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pohlig-noise-forge"

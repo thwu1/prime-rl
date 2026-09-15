@@ -1,0 +1,5 @@
+[run]
+source = src/intervals
+
+[report]
+show_missing = true

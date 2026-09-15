@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-ingress-policy
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      tier: monitoring
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              purpose: api
+          podSelector:
+            matchLabels:
+              role: monitored
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: monitoring
+      ports:
+        - port: 3000
+          protocol: TCP
+        - port: 9090
+          protocol: TCP

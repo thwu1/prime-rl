@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a TAC IR optimizer from scratch AND a GNU Makefile that orchestrates a multi-tool pipeline (optimizer, validator, interpreter, report generator). The agent must reverse-engineer the TAC language specification from the interpreter source (~290 lines), analyze 10 diverse programs, implement a multi-pass optimization pipeline handling control flow, 32-bit wrapping, side effects, and cross-block analysis, then wire it all together with proper Make pattern rules, dependency tracking, and JSON report generation. The interaction between different optimizations creates non-obvious bugs requiring deep compiler engineering expertise. The Makefile requires understanding pattern rules, phony targets, shell escaping in recipes, and incremental build semantics."""
+solution_explanation = """The solution consists of three components: (1) optimizer.py — a Python TAC optimizer implementing combined forward dataflow analysis for constant/copy propagation and arithmetic folding, branch resolution for constant conditions, reachability-based unreachable code elimination, iterative backward liveness analysis for dead store removal, and redundant jump simplification, all iterating to a fixed point with correct 32-bit overflow handling and side-effect preservation for calls; (2) a GNU Makefile with pattern rules for output/%.tac, phony targets for validate/report/all, .DELETE_ON_ERROR safety, and file-level dependency tracking on both source programs and optimizer.py; (3) gen_report.py — a helper that runs the interpreter and validator on each optimized program and produces a JSON report with per-program metrics."""
+verification_explanation = """Tests verify across five dimensions: (1) optimizer correctness — each optimized program produces identical return values through the interpreter; (2) structural validity — optimized output passes the TAC validator; (3) optimization quality — per-program instruction count thresholds in the target function; (4) Makefile pipeline — make all succeeds, produces output files for all 10 programs, and generates a valid JSON report with correct per-program schema and data; (5) incremental builds — make -q confirms file targets are up to date after a full build, verifying proper dependency tracking via pattern rules."""
+category = "compilers"
+tags = ["dataflow-analysis", "build-systems"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tac-ir-optimizer"

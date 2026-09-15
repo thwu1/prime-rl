@@ -1,0 +1,7 @@
+{
+  "name": "path-resolver",
+  "version": "1.2.0",
+  "description": "Safe path resolution utilities with cross-platform support",
+  "main": "index.js",
+  "license": "MIT"
+}

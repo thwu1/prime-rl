@@ -1,0 +1,8 @@
+mntner:             BETA-MNT
+descr:              Beta Network Maintainer
+admin-c:            BOB-DN42
+tech-c:             BOB-DN42
+auth:               pgp-fingerprint B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3
+# Peering arrangements documented at wiki.dn42/beta
+mnt-by:             BETA-MNT
+source:             DN42

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep analysis of 8 interacting bugs across 5 Java source files in a geodetic datum transformation pipeline. Bugs form a debugging cascade: a longitude convention mismatch blocks all execution, grid parser corruptions garble all data, a data-access row inversion produces position-dependent errors invisible at grid nodes, a block-positioning error causes boundary crashes, swapped interpolation basis polynomials corrupt non-gridpoint results, and coupled direction/error-propagation bugs affect backward chains. The solver must reverse-engineer correct behavior from a terse binary format spec and code comments alone — interpolation algorithm, error propagation method, and transform direction conventions are not provided."""
+solution_explanation = """Fix 8 bugs in 5 Java files: (1) GridParser reads deltaLat and deltaLon in wrong order — swap to match GTX spec header sequence; (2) GridParser reads grid data as 8-byte doubles instead of 4-byte floats — change readDouble() to readFloat(); (3) BlockExtractor uses Math.round() for base row/col instead of Math.floor(), causing wrong 3x3 block extraction and out-of-bounds crashes near grid boundaries; (4) BiquadraticInterpolator has Lagrange basis L0 and L2 swapped — L0(t) should be (t-1)(t-2)/2, not t(t-1)/2; (5) DatumChainTransformer backward step adds shift instead of subtracting; (6) DatumChainTransformer accumulates errors linearly instead of squaring before summing (RSS convention); (7) GridFile.getValue inverts row index (nRows-1-row instead of row), flipping the grid north-south — invisible at grid-node queries but corrupts interpolated results; (8) RegionConfig.findRegion applies wrong longitude normalization (converts positive-East to negative-West instead of negative-West to positive-East), blocking all region lookups."""
+verification_explanation = """Tests generate 8 synthetic binary GTX grid files with known biquadratic surface values for 2 datum-pair transitions (A-B, B-C), compile the Java code, and run 13 transformation test cases covering forward/backward directions, single/multi-step chains up to 2 steps, grid-point and interpolated positions, and near-boundary coordinates. Java output is compared against an independent Python reference implementation with tight tolerance (1e-8 degrees for coordinates, 1e-5 arcseconds for errors). Grid surfaces are biquadratic polynomials, ensuring exact interpolation for correct implementations. A boundary test case specifically detects the floor-vs-round block positioning bug by triggering an out-of-bounds crash."""
+category = "debugging"
+tags = ["geodesy", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geodetic-grid-transform"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network forensics combined with detection engineering and threat assessment. The analyst must: (1) independently reconstruct a multi-stage attack chain involving TCP SYN scanning, HTTP command injection, DNS TXT-based C2 tunneling with hex encoding, and ICMP covert channel exfiltration with XOR encoding — where the XOR key is only discoverable via the C2 channel, creating a critical cross-channel dependency; (2) evaluate a flawed preliminary report by identifying 10 factual errors made by a junior analyst who confused internal traffic with attack traffic, misclassified the attack vector, and attributed C2 to the wrong protocol and domain; (3) design working Suricata IDS rules that correctly detect each attack phase while understanding protocol-level content matching; (4) produce a severity assessment with technical justification considering stealth, impact, and dependency chains. The combination of forensic analysis, error evaluation, rule creation, and threat assessment requires holistic understanding that goes well beyond procedural pcap parsing."""
+solution_explanation = """Parse the pcap with scapy to identify port scanning (SYN-only packets to 8 ports from a single external source), extract and URL-decode HTTP POST bodies revealing command injection payloads including a malware download URL, recognize DNS TXT queries with hex-encoded subdomains as C2 tunneling to srv.update-check.net, decode all C2 commands to discover ICMP exfiltration parameters (relay IP 10.13.37.200 and XOR key d3a75e11), then XOR-decode ICMP echo request payloads to recover stolen credentials. Compare each finding against the preliminary report to identify which of 10 fields are wrong. Write Suricata rules using content matching, flag checks, and ICMP keywords. Assess severity based on technique sophistication and credential compromise impact."""
+verification_explanation = """Tests verify 25 aspects across three categories: (1) IoC accuracy — 16 tests checking attacker/victim IPs, scanned/open ports, exploit details, C2 channel properties, and decoded exfiltrated credentials; (2) Evaluation quality — 4 tests verifying identification of at least 8/10 preliminary report errors, presence of severity assessments with justifications for all phases, and reasonable severity ratings for exploitation and exfiltration; (3) Detection creation — 5 tests checking that the Suricata ruleset exists with ≥4 rules, has valid structure (alert/msg/sid keywords), covers at least 3 of 4 attack phases, and passes Suricata syntax validation."""
+category = "security"
+tags = ["detection-engineering", "network-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1bb8fd"

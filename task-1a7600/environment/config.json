@@ -1,0 +1,34 @@
+{
+  "parameter_bounds": {
+    "kappa": [0.01, 10.0],
+    "gamma": [0.01, 2.0],
+    "vbar": [0.001, 0.5],
+    "v0": [0.001, 0.5],
+    "rho": [-0.99, 0.0]
+  },
+  "output_format": {
+    "file": "/app/results.json",
+    "fields": {
+      "calibrated_params": {
+        "kappa": "float — mean reversion speed",
+        "gamma": "float — vol of vol",
+        "vbar": "float — long-run variance",
+        "v0": "float — initial variance",
+        "rho": "float — Brownian motion correlation"
+      },
+      "model_prices": {
+        "<maturity>": ["list of call prices for each strike"]
+      },
+      "model_implied_vols": {
+        "<maturity>": ["list of implied vols for each strike"]
+      },
+      "greeks": {
+        "<strike>": {
+          "delta": "float",
+          "gamma_greek": "float",
+          "vega": "float"
+        }
+      }
+    }
+  }
+}

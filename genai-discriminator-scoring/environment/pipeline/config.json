@@ -1,0 +1,10 @@
+{
+  "ece_bins": 5,
+  "composite_weights": {
+    "discrimination": 0.5,
+    "accuracy": 0.25,
+    "calibration": 0.25
+  },
+  "over_deception_threshold": 0.45,
+  "rounding_precision": 6
+}

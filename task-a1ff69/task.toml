@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 numerical defects spread across 2 source files and 4 distinct computational subsystems of a ~2800-line Lagrangian hydrodynamics code — with zero hints about which functions, algorithms, or constants are affected. The agent must understand the full simulation pipeline (equation of state, multi-stage energy integration, anti-hourglass mesh stabilization, and monotonic artificial viscosity limiting) to identify defects from output discrepancies alone. Then the agent must design a GCI-based verification framework implementing the Celik et al. iterative apparent-order method for non-uniform refinement ratios, compute convergence orders and uncertainty bands, evaluate asymptotic convergence regime membership, and produce a formal verification assessment — requiring synthesis of V&V theory with the specific physics of the Sedov blast problem."""
+solution_explanation = """Fix 5 bugs: (1) Gruneisen coefficient c1s=3/4→2/3 in CalcPressureForElems (lulesh.cc), (2) trapezoidal corrector weight 3→4 in CalcEnergyForElems (lulesh.cc), (3) Simpson corrector weights 8,7→7,8 in CalcEnergyForElems (lulesh.cc), (4) hourglass coefficient m_hgcoef=30→3 in Domain constructor (lulesh-init.cc), (5) Q limiter sign (1+phixi)→(1-phixi) in CalcMonotonicQRegionForElems (lulesh.cc). Then implement a GCI verification framework: run simulations at 4 mesh sizes, compute apparent convergence orders via iterative Richardson extrapolation for non-uniform refinement ratios across two overlapping grid triplets, calculate GCI uncertainty bands (Fs=1.25), evaluate asymptotic regime via extrapolation consistency, and write a JSON report with formal verification assessment."""
+verification_explanation = """Tests build the agent's code, run it at 6 parameter sets (s10/i100, s15/i50, s8/i50, s12/i50, s16/i50, s20/i50), and compare Final Origin Energy and symmetry metrics against reference values generated from a correct build in the Docker image (tight relative tolerance 1e-10). Additionally verifies the GCI framework: checks gci_analysis.py exists, gci_report.json is valid JSON with all required fields, reported energies match reference convergence outputs, and derived GCI metrics (convergence order, GCI values, asymptotic ratio) match a reference GCI computation (generated during Docker build using the same algorithm on correct outputs). Assessment field must be self-consistent with the stated criteria."""
+category = "scientific_computing"
+tags = ["hpc", "numerical_methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a1ff69"

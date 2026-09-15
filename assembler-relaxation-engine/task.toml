@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The assembler contains five interacting bugs across its layout engine and parser that produce cascading incorrect behavior. The solver must: (1) reverse-engineer correct x86-64 jump encoding sizes from reference programs or domain knowledge, since the specification deliberately omits exact values; (2) trace through the layout computation to identify a displacement calculation error, an alignment padding edge-case error, a jump size selection error using symmetric sizes where asymmetric are required, and a convergence failure in the iterative relaxation loop; (3) find a cross-module parser bug that only manifests with a specific syntax pattern involving collocated labels; (4) understand how these bugs interact — some mask each other on simple inputs and only surface through particular combinations of alignment, jump targets, and iteration depth. Requires deep understanding of assembler internals, x86-64 instruction encoding, iterative fixed-point layout algorithms, and systematic multi-module debugging."""
+solution_explanation = """Five targeted fixes: (1) In layout.c, change long jump size from symmetric 6 to asymmetric — use is_cond ? 6 : 5 — matching real x86-64 encoding (E9+rel32=5 for jmp, 0F 8x+rel32=6 for jcc); (2) fix alignment padding from a-(offset%a) to (a-(offset%a))%a to handle already-aligned offsets; (3) fix displacement from target-offset to target-(offset+size) to measure from instruction end; (4) replace single-pass relaxation with a loop that recomputes layout and re-checks all jumps until no changes occur; (5) in parser.c, save num_items before statement processing and use saved value for label item_index so inline labels point to the correct item."""
+verification_explanation = """Ten assembly programs form a diagnostic matrix: prog1 tests basic layout; prog2 tests forward jmp relaxation (reveals symmetric-size bug); prog3-4 test exact boundary conditions from both directions (reveal displacement bug); prog5 tests already-aligned offset (reveals alignment bug); prog6 tests alignment+jump interaction; prog7 tests inline labels (reveals parser bug); prog8 combines inline labels with alignment and multiple jumps; prog9 tests cascading relaxation requiring 2 iterations (reveals single-pass bug); prog10 tests simultaneous jmp+jcc relaxation (directly verifies asymmetric sizes). Tests check total_size, iteration count, label offsets, and per-jump offset/size/relaxed flags."""
+category = "compilers"
+tags = ["assembler", "x86-encoding"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/assembler-relaxation-engine"

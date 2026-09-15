@@ -1,0 +1,17 @@
+{
+  "well_typed": true,
+  "globals": {
+    "a": {"type": "Foo", "kind": "var"},
+    "b": {"type": "[int]", "kind": "var"},
+    "c": {"type": "object", "kind": "var"},
+    "d": {"type": "[Foo]", "kind": "var"}
+  },
+  "classes": {
+    "Foo": {
+      "superclass": "object",
+      "attributes": {"val": "int"},
+      "methods": {}
+    }
+  },
+  "errors": []
+}

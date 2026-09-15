@@ -1,0 +1,42 @@
+[
+  {
+    "country_name": "Montavia",
+    "base_year": 2023,
+    "initial_debt_to_gdp": 140.0,
+    "fc_debt_share": 0.05,
+    "macro_projections": [
+      {"real_gdp_growth": 0.008, "inflation_domestic": 0.025, "inflation_foreign": 0.025, "effective_interest_rate": 0.030, "real_exchange_rate_change": 0.0, "primary_balance": -0.5, "sfa": 1.5, "amortization": 20.0, "interest_revenue": 0.1},
+      {"real_gdp_growth": 0.010, "inflation_domestic": 0.020, "inflation_foreign": 0.020, "effective_interest_rate": 0.032, "real_exchange_rate_change": 0.0, "primary_balance": 0.5, "sfa": 1.0, "amortization": 19.0, "interest_revenue": 0.1},
+      {"real_gdp_growth": 0.012, "inflation_domestic": 0.020, "inflation_foreign": 0.020, "effective_interest_rate": 0.035, "real_exchange_rate_change": 0.0, "primary_balance": 1.0, "sfa": 0.5, "amortization": 18.5, "interest_revenue": 0.1},
+      {"real_gdp_growth": 0.010, "inflation_domestic": 0.020, "inflation_foreign": 0.020, "effective_interest_rate": 0.036, "real_exchange_rate_change": 0.0, "primary_balance": 1.2, "sfa": 0.0, "amortization": 18.0, "interest_revenue": 0.1},
+      {"real_gdp_growth": 0.008, "inflation_domestic": 0.020, "inflation_foreign": 0.020, "effective_interest_rate": 0.037, "real_exchange_rate_change": 0.0, "primary_balance": 1.0, "sfa": 0.0, "amortization": 17.5, "interest_revenue": 0.1},
+      {"real_gdp_growth": 0.008, "inflation_domestic": 0.020, "inflation_foreign": 0.020, "effective_interest_rate": 0.038, "real_exchange_rate_change": 0.0, "primary_balance": 0.8, "sfa": 0.0, "amortization": 17.0, "interest_revenue": 0.1}
+    ],
+    "stress_scenario": {
+      "growth_shock": -0.01,
+      "interest_rate_shock": 0.02,
+      "pb_shock": -0.5,
+      "fx_shock": 0.10
+    }
+  },
+  {
+    "country_name": "Valdoria",
+    "base_year": 2023,
+    "initial_debt_to_gdp": 65.0,
+    "fc_debt_share": 0.35,
+    "macro_projections": [
+      {"real_gdp_growth": 0.030, "inflation_domestic": 0.060, "inflation_foreign": 0.020, "effective_interest_rate": 0.080, "real_exchange_rate_change": 0.05, "primary_balance": 0.5, "sfa": 0.5, "amortization": 8.0, "interest_revenue": 0.3},
+      {"real_gdp_growth": 0.025, "inflation_domestic": 0.050, "inflation_foreign": 0.020, "effective_interest_rate": 0.075, "real_exchange_rate_change": 0.03, "primary_balance": 1.0, "sfa": 0.3, "amortization": 7.5, "interest_revenue": 0.3},
+      {"real_gdp_growth": 0.030, "inflation_domestic": 0.045, "inflation_foreign": 0.020, "effective_interest_rate": 0.070, "real_exchange_rate_change": -0.02, "primary_balance": 1.5, "sfa": 0.0, "amortization": 7.0, "interest_revenue": 0.3},
+      {"real_gdp_growth": 0.035, "inflation_domestic": 0.040, "inflation_foreign": 0.020, "effective_interest_rate": 0.065, "real_exchange_rate_change": 0.0, "primary_balance": 2.0, "sfa": 0.0, "amortization": 6.5, "interest_revenue": 0.3},
+      {"real_gdp_growth": 0.035, "inflation_domestic": 0.035, "inflation_foreign": 0.020, "effective_interest_rate": 0.060, "real_exchange_rate_change": -0.01, "primary_balance": 2.5, "sfa": 0.0, "amortization": 6.0, "interest_revenue": 0.3},
+      {"real_gdp_growth": 0.030, "inflation_domestic": 0.035, "inflation_foreign": 0.020, "effective_interest_rate": 0.060, "real_exchange_rate_change": 0.02, "primary_balance": 2.0, "sfa": 0.0, "amortization": 6.0, "interest_revenue": 0.3}
+    ],
+    "stress_scenario": {
+      "growth_shock": -0.015,
+      "interest_rate_shock": 0.025,
+      "pb_shock": -1.0,
+      "fx_shock": 0.15
+    }
+  }
+]

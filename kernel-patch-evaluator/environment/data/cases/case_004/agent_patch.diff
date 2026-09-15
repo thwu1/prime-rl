@@ -1,0 +1,16 @@
+diff --git a/drivers/gpu/drm/drm_mode.c b/drivers/gpu/drm/drm_mode.c
+index abc1234..def5678 100644
+--- a/drivers/gpu/drm/drm_mode.c
++++ b/drivers/gpu/drm/drm_mode.c
+@@ -51,8 +51,10 @@ int drm_mode_setcrtc(struct drm_crtc *crtc,
+     if (ret)
+         return ret;
+
+-    /* WARN if we're trying to set a mode while DPMS is off */
+-    WARN_ON(crtc->dpms_mode != DRM_MODE_DPMS_ON);
++    if (crtc->dpms_mode != DRM_MODE_DPMS_ON) {
++        crtc->dpms_mode = DRM_MODE_DPMS_ON;
++    }
+
+     if (num_connectors > DRM_MAX_CONNECTORS) {
+         return -EINVAL;

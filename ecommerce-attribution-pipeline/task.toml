@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level analytics engineering: the agent must explore an undocumented 7-table DuckDB schema, discover table relationships, and critically distinguish between post-sale refunds (which reduce actual revenue) and a promotional_credits table whose pre-sale discounts are already embedded in order totals — incorrectly subtracting promotional credits yields wrong results across three of the four analyses. The agent must independently determine the correct revenue adjustment methodology, implement weighted marketing channel attribution with position-dependent logic across a 30-day session window, construct monthly cohort retention with calendar-month arithmetic, build quintile-based customer segmentation with cascading classification rules, and compute association lift for category co-purchase analysis — all without any named algorithms, SQL hints, or explicit table references in the instructions."""
+solution_explanation = """Connect to DuckDB, explore the schema to identify that the refunds table contains post-sale reversals (subtract from order total_amount) while the promotional_credits table contains pre-sale discounts already reflected in total_amount (ignore). Then execute four analytical SQL queries: (1) channel attribution using ROW_NUMBER/COUNT windows over a 30-day session lookback with position-based revenue weighting on net revenue; (2) cohort retention using DATE_TRUNC, DATEDIFF, and conditional COUNT DISTINCT pivoted across 6 month columns; (3) customer segmentation using NTILE(5) windows over three dimensions (recency/frequency/monetary on net revenue) with cascading CASE segment assignment; (4) cross-sell lift using self-join on order categories, individual/joint support counts, and lift = (co_occurrence * N) / (count_a * count_b). Export each result to CSV."""
+verification_explanation = """Tests independently re-compute all four analytical outputs from the source DuckDB database using reference SQL queries that correctly use only the refunds table (not promotional_credits), then compare the agent's CSVs. Attribution is verified with 0.05 tolerance on revenue and exact match on touchpoint counts. Retention uses 0.15 tolerance on percentages. Customer segments require exact customer counts and 1.0 tolerance on monetary averages. Cross-sell requires exact co-occurrence counts and 0.001 tolerance on lift values."""
+category = "data_processing"
+tags = ["sql", "analytics", "duckdb"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecommerce-attribution-pipeline"

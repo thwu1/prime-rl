@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "mechanism_type": "unimolecular",
+      "reactants": ["A"],
+      "k_sr": 0.1,
+      "species": {
+        "A": {"K": 2.0, "C": 0.5},
+        "M": {"K": 0.5, "C": 0.1}
+      }
+    },
+    {
+      "mechanism_type": "bimolecular",
+      "reactants": ["A", "B"],
+      "k_sr": 0.05,
+      "species": {
+        "A": {"K": 1.5, "C": 0.3},
+        "B": {"K": 2.5, "C": 0.4}
+      }
+    }
+  ]
+}

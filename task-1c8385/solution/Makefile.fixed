@@ -1,0 +1,14 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -std=c11 -fPIC
+
+TARGET = libbf16.so
+
+all: $(TARGET)
+
+$(TARGET): bf16.c bf16.h
+	$(CC) $(CFLAGS) -shared -o $(TARGET) bf16.c -lm
+
+clean:
+	rm -f $(TARGET)
+
+.PHONY: all clean

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a precise binary wire format with little-endian struct packing, IEEE CRC-32 integrity checks, ECDSA-P256 digital signature generation/verification, schema-driven polymorphic field encoding across 6 types, device-binding verification logic, and a security policy engine with field-level access control and state-transition validation. Demands proficiency in binary protocols, applied cryptography, and security architecture."""
+solution_explanation = """The solution implements a single Python CLI tool (tlv_manager.py) with argparse subcommands. It uses struct.pack/unpack for the binary format, binascii.crc32 for integrity, the cryptography library for ECDSA-P256/SHA-256 signing and verification, and PyYAML for schema/policy parsing. Each field type has dedicated encode/decode functions. Device binding compares hex-normalized SoC IDs. Policy enforcement checks flags against policy rules and filters the decoded field dict by the visible_fields list. Transition validation checks priority ordering and the transitions_from list."""
+verification_explanation = """Tests exercise the tool via subprocess, checking: correct header encoding (magic, version, flags, CRC-32, payload length), round-trip encode/decode for all 6 field types, ECDSA signing and verification (including tamper detection), device binding acceptance and rejection, policy-based field filtering (lockdown vs factory vs development visibility), unsigned blob rejection under restrictive policies, and all 6 policy transition combinations (3 allowed, 3 denied). Error handling is tested for wrong magic, corrupted CRC, truncated blobs, and missing required fields."""
+category = "embedded_systems"
+tags = ["cryptography", "binary_formats"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tlv-factory-security"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-referencing three heterogeneous data sources (SQLite, Parquet, NDJSON logs) to forensically audit a prediction market scoring pipeline. The solver must: (1) explore the SQLite schema including IRT parameter tables, (2) read Parquet market feed data with pyarrow and compare closing prices against SQLite odds to discover stale cached data for 5 problems, (3) parse NDJSON pipeline logs with jq or equivalent to identify configuration errors, (4) detect temporal anomalies (post-resolution submissions) and sybil accounts via statistical analysis, (5) reverse-engineer the buggy Brier scoring formula by comparing published vs recomputed scores to find single-class vs multi-class inconsistency, (6) identify the IRT 2-PL probit-vs-logit link function error by re-estimating parameters and comparing the ability distributions, (7) implement proper scoring rules (Brier, log score) and IRT 2-PL estimation from scratch, and (8) perform rank-aggregation with robustness analysis. Demands expert knowledge of proper scoring rules, Item Response Theory, prediction market mechanics, and multi-tool data engineering."""
+solution_explanation = """Query SQLite for predictions and discover late submissions (oscar_oracle, 8 problems where submitted_at > resolved_at) and sybil accounts (foxtrot_fox/shadow_fox via cosine similarity > 0.99). Read Parquet market_ticks.parquet with pyarrow, extract closing prices (hours_before_close=0), and compare with SQLite market_odds to identify 5 problems with stale cached odds. Parse NDJSON logs revealing: (1) two-batch Brier with single_class formula for ids 11-20, (2) IRT estimation using probit link instead of logit, (3) market odds cache fallback for 5 problems. Re-estimate IRT 2-PL with logit link, producing ability range ~1.7x wider than published probit values. Compute full Brier, log score, and IRT abilities on clean data, aggregate via Borda count, producing corrected rankings with skilled forecasters in top positions."""
+verification_explanation = """Tests independently verify: (1) late submissions discovered with oscar_oracle mentioned, (2) sybil pair foxtrot_fox/shadow_fox identified, (3) stale odds for >= 3 of 5 affected problems found via cross-source comparison, (4) corrected rankings use >= 3 scoring methods with skilled forecasters in top 5, (5) Brier inconsistency identified with >= 3 affected forecasters, (6) IRT probit link function bug identified, (7) re-estimated IRT abilities have wider range than published probit values (ratio > 1.2), (8) IRT analysis contains item parameters, abilities, and published comparison, (9) robustness analysis contains valid rank_variance and sensitive_forecasters, (10) cross-validation against independently computed Brier scores confirms top-5 overlap."""
+category = "data_science"
+tags = ["prediction_markets", "forensic_analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/forecast-rank-audit"

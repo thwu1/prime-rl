@@ -1,0 +1,9 @@
+{
+  "allowed_dependencies": {
+    "ui": ["ui", "service", "shared"],
+    "service": ["service", "domain", "infrastructure", "shared"],
+    "domain": ["domain", "shared"],
+    "infrastructure": ["infrastructure", "shared"],
+    "shared": ["shared"]
+  }
+}

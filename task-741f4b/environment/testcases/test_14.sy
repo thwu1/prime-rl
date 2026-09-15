@@ -1,0 +1,16 @@
+// Test 14: Complex expressions, multiple parameters, nested function calls
+int add(int a, int b) { return a + b; }
+int mul(int a, int b) { return a * b; }
+
+int compute(int a, int b, int c, int d, int e) {
+    return add(mul(a, b), mul(c, add(d, e)));
+}
+
+int main() {
+    putint(compute(2, 3, 4, 5, 6)); putch(32);
+    int x = 2 + 3 * (4 - 1) + 10 / 2;
+    putint(x); putch(32);
+    int y = (1 < 2) && (2 < 3) && (3 < 4);
+    putint(y); putch(10);
+    return 0;
+}

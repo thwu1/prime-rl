@@ -1,0 +1,10 @@
+int a;
+int b;
+int c;
+int d;
+int e;
+a = 120;
+b = 8;
+c = (a + b);
+d = (a * b);
+e = (c - d);

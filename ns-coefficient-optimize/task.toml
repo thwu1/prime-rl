@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding polynomial dynamical systems (Newton-Schulz iterations for matrix polar decomposition), non-convex optimization in 3D and 15D parameter spaces, and careful analysis of convergence basins vs. divergence boundaries. The uniform case demands balancing the slope at zero against steady-state oscillation amplitude, while the per-step case requires coordinating 5 polynomial maps in sequence. The tight-epsilon variant requires finding coefficients that genuinely converge to a fixed point rather than oscillating."""
+solution_explanation = """The solution uses known-good coefficient families combined with optional Nelder-Mead refinement. For the steady case, the Muon coefficients (3.4445, -4.775, 2.0315) produce bounded 2-cycle oscillation with worst-case error ~0.318 and slope 3.4445. For the tight case, it exploits the analytical family b=5/2-2a, c=a-3/2 which has a super-attracting fixed point at x=1, using binary search to find the maximum safe a (~2.96). For per-step, the Polar Express 5-step schedule from the modded-nanogpt project achieves a1=8.157 with error ~0.141."""
+verification_explanation = """Tests independently recompute worst-case error by iterating the reported coefficients on a 100K-point grid. For uniform targets, 10 iterations from x in [0.01, 1.0] must yield values within epsilon of 1. For per-step, 5 iterations from x in [0.01, 0.9804] must land within epsilon of 1. Slope thresholds ensure non-trivial optimization. Cross-target checks verify the tight solution has lower error than the steady solution."""
+category = "optimization"
+tags = ["numerical-methods", "matrix-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ns-coefficient-optimize"

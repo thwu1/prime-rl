@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading ~400 lines of C systems code using pty, signals, and POSIX timing APIs to: (1) identify two subtle interacting timing bugs in the recorder (time() vs gettimeofday() for initial timestamp precision, and gettimeofday() sampled before the blocking read() instead of after, creating a persistent off-by-one shift), (2) recognize that the replayer's deferred-emission (oldblk) pattern is a deliberate compensating hack that must be removed, (3) design and implement a v2 timing format using CLOCK_MONOTONIC with absolute timestamps and a format header, (4) build format auto-detection and backward-compatible replay into sesplay, and (5) implement a --analyze mode computing JSON statistics with correct semantics for both formats including edge cases like single-chunk recordings. The solver must evaluate the coupled bug/workaround relationship across two programs, then create a new timing architecture on top of the fixes."""
+solution_explanation = """In sesrec.c: replace time(NULL) init with clock_gettime(CLOCK_MONOTONIC), move the clock sample from before read() to after it, add -f v1|v2 flag defaulting to v2, write v2 header and absolute timestamps. In sesplay.c: remove the oldblk deferred-emission hack, implement detect_format() to auto-detect v1/v2 by checking for the header line, implement separate replay_v1/replay_v2 functions with correct delay computation, add --analyze via getopt_long that computes and prints JSON statistics with format-specific semantics for duration and mean delay."""
+verification_explanation = """14 tests verify: (1) build succeeds, (2-3) v1 timing accuracy and initial precision after bug fixes, (4) default format is v2 with correct header, (5) v2 timestamps are monotonically increasing absolute values, (6) v2 timing accuracy for sleep gaps, (7-8) correct replay of synthetic v1 and v2 timing data, (9) replayer emits first block immediately without deferral, (10-12) analyze mode produces correct JSON for v1, v2, and single-chunk edge case, (13) source code uses CLOCK_MONOTONIC, (14) end-to-end v2 record-then-replay."""
+category = "systems_programming"
+tags = ["c_programming", "timing_systems"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-session-timing"

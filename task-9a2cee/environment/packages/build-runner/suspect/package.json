@@ -1,0 +1,7 @@
+{
+  "name": "build-runner",
+  "version": "1.6.0",
+  "description": "Build script runner with caching support",
+  "main": "index.js",
+  "license": "MIT"
+}

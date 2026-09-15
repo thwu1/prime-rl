@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct expert-level skills: (1) cross-architecture binary forensics — using riscv64-linux-gnu-objdump, nm, and readelf to extract prototype type tags and dispatch table structure from a RISC-V ELF object file, correlating symbol offsets with data-section hex dumps and relocation entries to determine the compiler's class processing order; (2) type system creation from formal specification — designing and implementing 13 interdependent type system operations from scratch (conformance with 6 rules including list-to-object subtyping, 4-rule assignment compatibility with recursive [<None>] handling, join with bidirectional assignability before LCA fallback, method override validation requiring parameter-type equality, and the 'is' operator's conjunctive non-primitive restriction). The operations form a dependency chain where errors in conformance cascade through assignment compatibility, join, conditional expressions, list displays, and method call typing. No reference implementation is provided — the solver must design each operation from the formal rules."""
+solution_explanation = """The solution (1) uses riscv64-linux-gnu-nm to extract prototype symbol addresses from the ELF object file, then riscv64-linux-gnu-objdump -s -j .data to read the data section hex dump and extract 32-bit little-endian type tag values at each prototype offset, determining class ordering A=4,C=5,F=6,B=7,G=8,D=9,E=10; (2) parses class_defs.py with Python's ast module to extract class definitions, superclass relationships, attributes, and method signatures including string-literal annotations; (3) combines both to write hierarchy.json with correct class ordering; (4) implements all 13 type system operations from scratch per the specification: conformance with list-to-object rule, assignment compatibility with recursive <None>-to-element check, bidirectional join using assignability, method resolution via ancestor walk, parameter-checking override validation, complete binary/unary operator typing with conjunctive 'is' rule, list display via iterative join, and method call type checking with argument assignability."""
+verification_explanation = """Tests use pytest with 140+ assertions across 19 test classes. TestHierarchy validates the reconstructed hierarchy.json (class presence, superclass relationships, attribute types, method signatures, and class ordering matching binary type tags). Type system tests cover every operation through targeted assertions including edge cases: list conformance to object, [<None>] recursive assignability, bidirectional join, invalid method overrides in a secondary hierarchy, 'is' operator primitive rejection, list concatenation with join, and three-way list display joins. A secondary independently-defined hierarchy prevents hardcoding."""
+category = "compilers"
+tags = ["type-systems", "binary-analysis"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chocopy-type-system"

@@ -1,0 +1,13 @@
+CC = gcc
+CFLAGS = -shared -fPIC -O2
+LDFLAGS = -lm
+
+all: libse2.so
+
+libse2.so: se2_ops.c se2_ops.h
+	$(CC) $(CFLAGS) -o $@ se2_ops.c $(LDFLAGS)
+
+clean:
+	rm -f libse2.so
+
+.PHONY: all clean

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete multi-recipient hybrid encryption tool in C using TweetNaCl's low-level primitives. The agent must: (1) understand NaCl's unusual zero-padding API (ZEROBYTES/BOXZEROBYTES) and correctly translate between in-memory padded buffers and the on-disk binary format, (2) design a cryptographically sound nonce derivation scheme that guarantees uniqueness across both recipient key-wrapping and content chunk encryption operations, (3) implement chunked streaming encryption/decryption with per-chunk authentication that detects corruption, reordering, and truncation, (4) handle subtle edge cases including empty files, exact chunk-boundary alignment, and multi-recipient key trial decryption, (5) parse and produce a specified binary format with correct endianness and field offsets. Combines cryptographic protocol design, systems-level C programming, and binary format engineering."""
+solution_explanation = """The solution implements nacl_vault.c (~280 lines of C) with three subcommands. Keygen uses crypto_box_keypair. Encryption generates a random 32-byte content key and 24-byte file nonce, writes a 40-byte header (magic/version/recipient-count/nonce/plaintext-length), then for each recipient generates an ephemeral Curve25519 keypair and wraps the content key via crypto_box with a nonce derived as SHA-512(file_nonce || 'R' || index)[0:24]. File content is split into 65536-byte chunks, each encrypted with crypto_secretbox using a nonce derived by XORing the file nonce's last 8 bytes with the chunk index. The 16-byte auth tag + ciphertext are written per chunk. Decryption parses the header, trial-decrypts each recipient record with crypto_box_open until one succeeds, then decrypts chunks sequentially, verifying per-chunk authentication and total length. NaCl's zero-padding is handled by allocating buffers with 32 extra leading bytes for input and skipping 16 leading zero bytes of output."""
+verification_explanation = """Tests compile the agent's nacl_vault.c via the provided Makefile. 22 pytest tests exercise: keypair generation (correct sizes, uniqueness), round-trip encrypt/decrypt at various sizes (empty, 1 byte, 255 bytes, exact chunk, chunk+1, multi-chunk, 5+ chunks), multi-recipient decrypt (2 and 3 recipients each able to decrypt, wrong-key rejection), tamper detection (magic corruption, chunk bit-flip, file truncation), and format compliance (header field parsing, file-size calculations matching the spec for single-chunk, multi-chunk, multi-recipient, and empty-file cases)."""
+category = "cybersecurity"
+tags = ["cryptography", "systems-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debug-tweetnacl-bugs"

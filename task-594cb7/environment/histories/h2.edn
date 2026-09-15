@@ -1,0 +1,8 @@
+[{:index 0 :type :invoke :f :txn :value [[:append 0 1] [:append 1 2]] :process 0 :time 0}
+ {:index 1 :type :invoke :f :txn :value [[:append 0 2] [:append 1 1]] :process 1 :time 0}
+ {:index 2 :type :ok :f :txn :value [[:append 0 1] [:append 1 2]] :process 0 :time 10000000}
+ {:index 3 :type :ok :f :txn :value [[:append 0 2] [:append 1 1]] :process 1 :time 10000000}
+ {:index 4 :type :invoke :f :txn :value [[:r 0 nil] [:r 1 nil]] :process 0 :time 15000000}
+ {:index 5 :type :ok :f :txn :value [[:r 0 [1 2]] [:r 1 [1 2]]] :process 0 :time 20000000}
+ {:index 6 :type :invoke :f :txn :value [[:r 0 nil] [:r 1 nil]] :process 1 :time 25000000}
+ {:index 7 :type :ok :f :txn :value [[:r 0 [1 2]] [:r 1 [1 2]]] :process 1 :time 30000000}]

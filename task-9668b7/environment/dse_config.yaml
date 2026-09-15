@@ -1,0 +1,37 @@
+# DSE configuration for HLS design space exploration
+# Based on Bench4HLS YAML-based DSE specification (DATE 2026)
+
+parameters:
+  clock_period_ns: [3.3, 5.0]
+  enable_pipeline: [true, false]
+  pipeline_ii: [1, 2]
+  enable_dataflow: [true, false]
+  unroll_factor: [1, 2, 4, 8]
+  array_partition_factor: [1, 2, 4]
+  allocation_limit_add: [0, 1, 2]
+  dsp_full_reg: [true, false]
+  vivado_strategy: ["Default", "Performance_Explore", "Area_Explore"]
+
+# Dependency constraints: dependent parameter only varies when
+# its parent parameter matches the specified condition value.
+# When inactive, the dependent parameter is fixed to its default.
+constraints:
+  - dependent: pipeline_ii
+    depends_on: enable_pipeline
+    condition: true
+    default_when_inactive: 1
+
+# Objectives to minimize in Pareto analysis
+objectives:
+  - name: area_luts
+    direction: minimize
+  - name: latency_ns
+    direction: minimize
+  - name: power_mw
+    direction: minimize
+
+# Reference point for hypervolume computation (must dominate all Pareto points)
+reference_point:
+  area_luts: 15000.0
+  latency_ns: 20000.0
+  power_mw: 600.0

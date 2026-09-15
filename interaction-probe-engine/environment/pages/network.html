@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Network Analyzer</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 20px auto; }
+    #node-list { list-style: none; padding: 0; }
+    .node-item { padding: 8px 12px; margin: 2px 0; background: #e8e8e8; cursor: pointer; }
+    .node-item.selected { background: #4a90d9; color: white; }
+    #preview-pane { cursor: pointer; border: 1px solid #ccc; padding: 16px; margin: 12px 0;
+                    background: #fafafa; text-align: center; color: #888; }
+    #results { margin-top: 12px; padding: 10px; background: #f0f0f0; min-height: 24px; }
+    #selected-info { margin: 8px 0; color: #444; }
+    label { display: inline-block; margin: 6px 8px 6px 0; }
+    button { padding: 6px 16px; margin: 4px; cursor: pointer; }
+    input[type="text"] { padding: 4px; width: 180px; }
+  </style>
+</head>
+<body>
+  <h1>Network Analyzer</h1>
+
+  <h2>Nodes</h2>
+  <ul id="node-list">
+    <li data-id="1" class="node-item">Alpha</li>
+    <li data-id="2" class="node-item">Beta</li>
+    <li data-id="3" class="node-item">Gamma</li>
+    <li data-id="4" class="node-item">Delta</li>
+  </ul>
+  <div id="selected-info">No node selected</div>
+
+  <h2>Edge Weight</h2>
+  <weight-slider id="edge-weight"></weight-slider>
+
+  <h2>Controls</h2>
+  <button id="analyze">Run Analysis</button>
+  <input type="text" id="search" placeholder="Filter nodes...">
+  <label><input type="checkbox" id="directed"> Directed Graph</label>
+
+  <div id="preview-pane">Graph Preview Area (click to preview)</div>
+
+  <div id="results"></div>
+
+  <script>
+    // Event delegation on node list
+    document.getElementById('node-list').addEventListener('click', function(e) {
+      var li = e.target.closest('.node-item');
+      if (!li) return;
+      var items = this.querySelectorAll('.node-item');
+      for (var i = 0; i < items.length; i++) { items[i].classList.remove('selected'); }
+      li.classList.add('selected');
+      document.getElementById('selected-info').textContent = 'Selected: ' + li.textContent + ' (ID: ' + li.getAttribute('data-id') + ')';
+    });
+
+    // Shadow DOM web component
+    var WeightSlider = (function() {
+      function WS() {
+        var self = Reflect.construct(HTMLElement, [], WS);
+        var shadow = self.attachShadow({mode: 'open'});
+        var style = document.createElement('style');
+        style.textContent = ':host { display: block; margin: 10px 0; } label { font-weight: bold; }';
+        shadow.appendChild(style);
+        var label = document.createElement('label');
+        label.textContent = 'Edge Weight Threshold: ';
+        var span = document.createElement('span');
+        span.id = 'val';
+        span.textContent = '0.5';
+        label.appendChild(span);
+        shadow.appendChild(label);
+        var input = document.createElement('input');
+        input.type = 'range';
+        input.id = 'slider';
+        input.min = '0';
+        input.max = '1';
+        input.step = '0.1';
+        input.value = '0.5';
+        shadow.appendChild(input);
+        input.addEventListener('input', function() {
+          span.textContent = input.value;
+          document.getElementById('results').setAttribute('data-threshold', input.value);
+        });
+        return self;
+      }
+      WS.prototype = Object.create(HTMLElement.prototype);
+      WS.prototype.constructor = WS;
+      Object.setPrototypeOf(WS, HTMLElement);
+      customElements.define('weight-slider', WS);
+      return WS;
+    })();
+
+    // Analyze button
+    document.getElementById('analyze').addEventListener('click', function() {
+      var directed = document.getElementById('directed').checked;
+      var nodeCount = document.querySelectorAll('.node-item').length;
+      document.getElementById('results').innerHTML =
+        '<p>Analysis complete: ' + nodeCount + ' nodes, ' +
+        (directed ? 'directed' : 'undirected') + ' graph, threshold=' +
+        (document.getElementById('results').getAttribute('data-threshold') || '0.5') + '</p>';
+    });
+
+    // Search filter
+    document.getElementById('search').addEventListener('input', function() {
+      var query = this.value.toLowerCase();
+      var items = document.querySelectorAll('.node-item');
+      for (var i = 0; i < items.length; i++) {
+        items[i].style.display = items[i].textContent.toLowerCase().indexOf(query) !== -1 ? '' : 'none';
+      }
+    });
+
+    // Directed checkbox
+    document.getElementById('directed').addEventListener('change', function() {
+      document.getElementById('results').setAttribute('data-directed', this.checked);
+    });
+  </script>
+</body>
+</html>

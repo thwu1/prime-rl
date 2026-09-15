@@ -1,0 +1,43 @@
+parameters:
+  dataset_path: "/data/mnist"
+  learning_rate: 0.01
+  epochs: 10
+  batch_size: 32
+  unused_param: "never_used"
+
+tasks:
+  load:
+    plugin: data.loading.load_dataset
+    outputs:
+      dataset: dataset
+  split:
+    plugin: data.preprocessing.train_test_split
+    outputs:
+      - {train_set: dataset}
+      - {test_set: dataset}
+  train:
+    plugin: ml.training.fit_model
+    outputs:
+      model: model
+  evaluate:
+    plugin: ml.evaluation.compute_metrics
+    outputs:
+      metrics: mapping
+
+graph:
+  load_data:
+    load:
+      path: $dataset_path
+  split_data:
+    split:
+      dataset: $load_data
+      batch_size: $batch_size
+  train_model:
+    train:
+      data: $split_data.train_set
+      lr: $learning_rate
+      epochs: $epochs
+  evaluate_model:
+    evaluate:
+      model: $train_model
+      data: $split_data.test_set

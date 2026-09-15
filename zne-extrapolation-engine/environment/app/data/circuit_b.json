@@ -1,0 +1,6 @@
+{
+  "circuit_id": "B",
+  "description": "1-qubit randomized benchmarking circuit with exponential fidelity decay",
+  "scale_factors": [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0],
+  "expectation_values": [0.7527400345267294, 0.6616087270705198, 0.5869967230879162, 0.5259095808785818, 0.47589565893415153, 0.40142238849599154, 0.3515014624274595]
+}

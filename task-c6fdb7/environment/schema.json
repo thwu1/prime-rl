@@ -1,0 +1,42 @@
+{
+  "description": "Search evaluation pipeline output schema",
+  "structure": {
+    "individual_systems": {
+      "description": "Evaluation metrics for each retrieval system, averaged over all queries",
+      "keys": ["bm25", "dense", "sparse"],
+      "value_schema": {
+        "ndcg@10": "float, normalized discounted cumulative gain at cutoff 10",
+        "map@10": "float, mean average precision at cutoff 10",
+        "mrr": "float, mean reciprocal rank",
+        "p@10": "float, precision at cutoff 10"
+      }
+    },
+    "fusion_methods": {
+      "rrf": {
+        "description": "Best RRF configuration found via parameter search",
+        "metrics": ["ndcg@10", "map@10", "mrr", "p@10"],
+        "best_k": "int, optimal k parameter"
+      },
+      "combsum": {
+        "description": "Best CombSUM configuration found via weight search",
+        "metrics": ["ndcg@10", "map@10", "mrr", "p@10"],
+        "best_weights": "list of 3 floats, per-system weights in system_order"
+      },
+      "combmnz": {
+        "description": "CombMNZ results (parameter-free)",
+        "metrics": ["ndcg@10", "map@10", "mrr", "p@10"]
+      }
+    },
+    "best_method": "string, name of method with highest nDCG@10 among all six",
+    "best_ndcg": "float, highest nDCG@10 value across all methods",
+    "improvement_over_best_single": "float, best_ndcg minus best individual system nDCG@10",
+    "significance_tests": {
+      "description": "Pairwise paired bootstrap significance tests between individual systems on nDCG@10",
+      "keys": ["bm25_vs_dense", "bm25_vs_sparse", "dense_vs_sparse"],
+      "value_schema": {
+        "p_value": "float in [0, 1], two-tailed p-value",
+        "significant": "boolean, true if p_value < alpha"
+      }
+    }
+  }
+}

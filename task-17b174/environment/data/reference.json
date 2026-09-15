@@ -1,0 +1,12 @@
+{
+  "activities": [
+    {"activity": "PersonRuns", "activityID": 1, "localization": {"vid_A.mp4": {"300": 1, "900": 0}}},
+    {"activity": "PersonRuns", "activityID": 2, "localization": {"vid_A.mp4": {"3000": 1, "4200": 0}}},
+    {"activity": "PersonRuns", "activityID": 3, "localization": {"vid_B.mp4": {"1500": 1, "2400": 0}}},
+    {"activity": "PersonRuns", "activityID": 4, "localization": {"vid_B.mp4": {"7000": 1, "8000": 0}}},
+    {"activity": "VehicleTurnsRight", "activityID": 5, "localization": {"vid_A.mp4": {"6000": 1, "6600": 0}}},
+    {"activity": "VehicleTurnsRight", "activityID": 6, "localization": {"vid_B.mp4": {"4000": 1, "5200": 0}}},
+    {"activity": "Loitering", "activityID": 7, "localization": {"vid_A.mp4": {"10000": 1, "11000": 0}}},
+    {"activity": "Loitering", "activityID": 8, "localization": {"vid_B.mp4": {"14000": 1, "15000": 0}}}
+  ]
+}

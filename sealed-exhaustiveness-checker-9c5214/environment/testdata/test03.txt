@@ -1,0 +1,13 @@
+# Test 03: Enum with class bodies (constants declared as A{}, B{}, C{})
+# All constants covered by enum constant patterns
+# Expected: exhaustive
+
+TYPES
+enum_body Status ACTIVE INACTIVE PENDING
+
+SWITCHES
+switch s1 Status
+enum Status.ACTIVE
+enum Status.INACTIVE
+enum Status.PENDING
+end

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level formal verification knowledge to build a multi-tool pipeline producing coordinated output artifacts from four interrelated input files. The agent must understand proof decomposition semantics across five strategy types, resolve feature-gated TCL configuration to ground-truth state enumerations, perform graph-theoretic analysis of assume-guarantee dependency structures, evaluate case-split completeness against dynamically resolved state spaces, validate structural consistency of stopat and edit-node configurations, compute cone-of-influence for 18 properties across a multi-module signal dependency graph, assess abstraction soundness by cross-referencing COI with stopat targets, derive proof coverage accounting for partition sub-property propagation, classify all nodes into a four-way execution schedule, and generate a Graphviz dependency visualization."""
+solution_explanation = """Execute the TCL configuration script to resolve feature-gated design state enumerations into JSON. Parse three JSON data files to build the design model. Construct the assume-guarantee dependency graph from assumption-to-guarantee linkages and detect cycles via strongly connected component decomposition. Validate case-split completeness against resolved states, stopat module hierarchy scope, and edit-node base references. Compute per-property cone of influence via transitive closure over the signal dependency graph. Perform abstraction soundness checking by intersecting each stopat node's target-property COI with its abstracted module signal prefixes. Derive proof coverage by collecting properties reachable through schedulable nodes including partition sub-properties. Generate a Graphviz DOT digraph with all 16 nodes and AG dependency edges, render to SVG via the dot layout engine."""
+verification_explanation = """Tests run the pipeline end-to-end and verify: resolved design states JSON contains correct feature-gated values, DOT graph contains all 16 nodes with exactly 11 dependency edges including a self-loop, SVG exists, analysis report contains correct AG dependency graph and three cycle groups, case-split completeness with exact missing values, stopat/edit-node validation errors, COI signal sets for selected properties, abstraction soundness assessments, proof coverage ratio and exact property sets, and four-way execution schedule classification."""
+category = "formal_methods"
+tags = ["formal-verification", "proof-management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d49c01"

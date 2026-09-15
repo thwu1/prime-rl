@@ -1,0 +1,3 @@
+; CHECK: alpha
+; ALT: beta
+; CHECK-NEXT: gamma

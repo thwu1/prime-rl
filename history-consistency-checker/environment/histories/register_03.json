@@ -1,0 +1,14 @@
+{
+  "type": "register",
+  "initial_value": 0,
+  "operations": [
+    {"process": 0, "type": "invoke", "f": "write", "value": 1, "time": 0},
+    {"process": 1, "type": "invoke", "f": "write", "value": 2, "time": 100},
+    {"process": 2, "type": "invoke", "f": "read",  "value": null, "time": 150},
+    {"process": 0, "type": "ok",     "f": "write", "value": 1, "time": 200},
+    {"process": 2, "type": "ok",     "f": "read",  "value": 1, "time": 250},
+    {"process": 1, "type": "ok",     "f": "write", "value": 2, "time": 300},
+    {"process": 3, "type": "invoke", "f": "read",  "value": null, "time": 350},
+    {"process": 3, "type": "ok",     "f": "read",  "value": 2, "time": 450}
+  ]
+}

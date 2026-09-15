@@ -1,0 +1,275 @@
+{
+  "$note": "All numeric values must be hex strings formatted as '0x...' unless stated otherwise.",
+  "header_info.json": {
+    "type": "object",
+    "required": [
+      "machine",
+      "number_of_sections",
+      "entry_point_rva",
+      "image_base_in_dump",
+      "original_image_base",
+      "section_alignment",
+      "file_alignment",
+      "size_of_image",
+      "sections"
+    ],
+    "properties": {
+      "machine": {
+        "type": "string",
+        "description": "CPU architecture identifier (e.g. 'AMD64')"
+      },
+      "number_of_sections": {
+        "type": "integer"
+      },
+      "entry_point_rva": {
+        "type": "string",
+        "format": "hex"
+      },
+      "image_base_in_dump": {
+        "type": "string",
+        "format": "hex",
+        "description": "ImageBase value as found in the dump's PE optional header"
+      },
+      "original_image_base": {
+        "type": "string",
+        "format": "hex",
+        "description": "The binary's original preferred ImageBase from case metadata"
+      },
+      "section_alignment": {
+        "type": "string",
+        "format": "hex"
+      },
+      "file_alignment": {
+        "type": "string",
+        "format": "hex"
+      },
+      "size_of_image": {
+        "type": "string",
+        "format": "hex"
+      },
+      "sections": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "virtual_address",
+            "virtual_size",
+            "raw_size",
+            "characteristics"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Section name (e.g. '.text')"
+            },
+            "virtual_address": {
+              "type": "string",
+              "format": "hex"
+            },
+            "virtual_size": {
+              "type": "string",
+              "format": "hex"
+            },
+            "raw_size": {
+              "type": "string",
+              "format": "hex"
+            },
+            "characteristics": {
+              "type": "string",
+              "format": "hex"
+            }
+          }
+        }
+      }
+    }
+  },
+  "relocations.json": {
+    "type": "object",
+    "required": [
+      "delta",
+      "total_entries",
+      "blocks"
+    ],
+    "properties": {
+      "delta": {
+        "type": "string",
+        "format": "hex",
+        "description": "Signed difference between the actual load address and the preferred ImageBase"
+      },
+      "total_entries": {
+        "type": "integer",
+        "description": "Total count of non-padding relocation entries across all blocks"
+      },
+      "blocks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "page_rva",
+            "entries"
+          ],
+          "properties": {
+            "page_rva": {
+              "type": "string",
+              "format": "hex",
+              "description": "Base RVA for this relocation block"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "rva",
+                  "type",
+                  "relocated_value",
+                  "original_value"
+                ],
+                "properties": {
+                  "rva": {
+                    "type": "string",
+                    "format": "hex",
+                    "description": "Absolute RVA of the relocation target"
+                  },
+                  "type": {
+                    "type": "integer",
+                    "description": "Relocation type code from the PE specification"
+                  },
+                  "relocated_value": {
+                    "type": "string",
+                    "format": "hex",
+                    "description": "Value currently stored at this RVA in the memory dump"
+                  },
+                  "original_value": {
+                    "type": "string",
+                    "format": "hex",
+                    "description": "Computed pre-relocation value"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "imports_reconstructed.json": {
+    "type": "object",
+    "required": [
+      "imports"
+    ],
+    "properties": {
+      "imports": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "dll_name",
+            "functions"
+          ],
+          "properties": {
+            "dll_name": {
+              "type": "string",
+              "description": "Name of the imported DLL"
+            },
+            "functions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "resolved_address"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Function name resolved by matching against the exports database"
+                  },
+                  "resolved_address": {
+                    "type": "string",
+                    "format": "hex",
+                    "description": "Runtime function address as found in the IAT"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "code_analysis.json": {
+    "type": "object",
+    "required": [
+      "functions",
+      "xor_key",
+      "decrypt_routine_address"
+    ],
+    "properties": {
+      "functions": {
+        "type": "array",
+        "description": "Function entry points identified via disassembly",
+        "items": {
+          "type": "object",
+          "required": [
+            "entry_point"
+          ],
+          "properties": {
+            "entry_point": {
+              "type": "string",
+              "format": "hex",
+              "description": "RVA of the function entry point"
+            },
+            "name": {
+              "type": "string",
+              "description": "Function name or label"
+            }
+          }
+        }
+      },
+      "xor_key": {
+        "type": "string",
+        "format": "hex",
+        "description": "XOR key extracted from the decryption routine's immediate operand"
+      },
+      "decrypt_routine_address": {
+        "type": "string",
+        "format": "hex",
+        "description": "RVA of the config decryption subroutine"
+      }
+    }
+  },
+  "config_decoded.json": {
+    "type": "object",
+    "required": [
+      "c2",
+      "port",
+      "interval",
+      "mutex"
+    ],
+    "properties": {
+      "c2": {
+        "type": "string",
+        "description": "C2 server address"
+      },
+      "port": {
+        "type": "integer",
+        "description": "C2 communication port"
+      },
+      "interval": {
+        "type": "integer",
+        "description": "Beacon interval in seconds"
+      },
+      "mutex": {
+        "type": "string",
+        "description": "Mutex name for single-instance enforcement"
+      }
+    }
+  },
+  "detection.yar": {
+    "description": "YARA rule file. Must contain at least one rule with specific string patterns and conditions. When scanned against dump.bin with the yara CLI tool, it must produce a positive match. Must not match arbitrary non-PE data."
+  },
+  "restored.bin": {
+    "description": "Copy of dump.bin with the ImageBase field and all relocatable address values restored to their pre-load state. Bytes not affected by loading must be identical to the original dump."
+  }
+}

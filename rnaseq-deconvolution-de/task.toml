@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in computational biology deconvolution (non-negative least squares or constrained regression), understanding of confounded linear models, batch effect correction, and multiple testing procedures. The critical insight — that naive differential expression conflates cell type composition changes with true expression changes — is a common pitfall that requires domain expertise to recognize and address properly. The agent must implement or correctly use NNLS-style deconvolution, construct multi-covariate OLS models, and apply BH correction."""
+solution_explanation = """1) Deconvolution: Per-sample NNLS of bulk expression against the signature matrix, followed by normalization to sum to 1. 2) Differential abundance: t-tests on per-cell-type estimated proportions between conditions, with BH correction. 3) Composition-aware DE: Per-gene OLS regression of expression on condition + batch dummies + estimated cell proportions. The condition coefficient captures true DE after controlling for composition shifts. BH correction on p-values identifies significant genes."""
+verification_explanation = """Tests verify: (a) all output files exist with correct columns, (b) proportions are non-negative, sum to ~1, and correlate with independently computed NNLS reference, (c) T_cells and B_cells are correctly identified as differentially abundant with correct direction, (d) at least 20/30 known DE genes are detected at padj < 0.05 with correct effect direction, (e) false positive rate among non-DE genes is controlled, (f) marker gene false positives are low (verifying composition correction)."""
+category = "bioinformatics"
+tags = ["deconvolution", "differential-expression"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rnaseq-deconvolution-de"

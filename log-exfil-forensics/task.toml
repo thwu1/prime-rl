@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires correlating evidence across four heterogeneous log sources (~40K lines) to reconstruct a multi-stage attack chain, then exercising professional judgment to evaluate eight candidate detection rules against the actual traffic patterns. The agent must: (1) identify the brute-force attacker among 80+ scanning IPs, (2) discover a hidden web shell with obfuscated parameters, (3) recover a fragmented AES-256 key from sequenced tokens in HTTP request parameters, (4) reassemble DNS-tunneled ciphertext and decrypt it, (5) evaluate each candidate rule by determining whether it would produce true positives, false positives, or miss the attack when applied to the full log corpus — distinguishing between a contractor's legitimate password-based SSH session, scanner noise, legitimate analytics DNS traffic, and actual attack indicators, and (6) design improved detection rules that avoid the pitfalls identified in the evaluation. The evaluation component requires comparing each rule's detection logic against actual traffic patterns and making nuanced judgments about false positive sources — not merely applying known analysis techniques."""
+solution_explanation = """Parse auth.log to identify the external IP with 500+ failed attempts followed by a successful login. Correlate in access.log to find hidden PHP requests carrying base64-encoded commands and sequenced AES key fragments in query parameters. Reassemble the key from 8 fragments. Parse dns_queries.log for hex-encoded subdomain queries to a consistent C2 domain — first 16 bytes are the IV, remainder is AES-256-CBC ciphertext. Decrypt to recover exfiltrated /etc/shadow content. For rule evaluation: test each candidate rule's detection logic against the full log corpus — determine that 'any external password auth' fires on 80+ scanner IPs (noisy), 'accepted external password' also catches the legitimate contractor session (noisy), '>400 failures' threshold isolates only the attacker (effective), 'POST to /uploads' misses GET-based webshell (ineffective), 'hidden dot-PHP file' has zero false positives (effective), 'analytics substring' matches legitimate analytics domains (noisy), 'TXT record tunneling' misses A-record-based exfiltration (ineffective), and '/etc/shadow audit read' uniquely identifies the attacker (effective). Finally design refined rules that correctly detect each phase."""
+verification_explanation = """Tests verify all 10 incident report fields against deterministic ground truth, with the SHA-256 hash of decrypted data as the critical gate requiring correct key recovery, ciphertext reassembly, and decryption. Eight parametrized tests verify each candidate rule's verdict (effective/noisy/ineffective) against expected classifications, ensuring the solver genuinely evaluated detection logic against log evidence rather than guessing. Additional tests validate that justifications are substantive (>=30 chars), that all 8 rules are evaluated, and that the solver's own detection rules have correct structure, stage coverage, accurate indicators present in the referenced logs, valid log sources, and unique IDs."""
+category = "forensics"
+tags = ["incident-response", "detection-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/log-exfil-forensics"

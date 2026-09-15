@@ -1,0 +1,48 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgbase=netstack
+_prefix="net"
+pkgname=("${_prefix}-core" "${_prefix}-tls" "${_prefix}-http")
+pkgver=4.0.2
+pkgrel=1
+epoch=2
+pkgdesc="Modular networking stack"
+arch=('x86_64')
+url="https://example.com/netstack"
+license=('BSD-3-Clause')
+makedepends=('cmake' 'openssl' 'baselib>=2.0.0')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592')
+
+build() {
+    cd "${pkgbase}-${pkgver}"
+    cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DWITH_TLS=ON
+    cmake --build build
+}
+
+package_net-core() {
+    pkgdesc="Network core library"
+    depends=('glibc' 'baselib')
+    provides=("libnetcore=${pkgver}")
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/core
+}
+
+package_net-tls() {
+    pkgdesc="TLS implementation for netstack"
+    depends=("${_prefix}-core" 'openssl>=3.0')
+    provides=("tls-provider=2.0")
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/tls
+}
+
+package_net-http() {
+    pkgdesc="HTTP client/server library"
+    depends=("${_prefix}-tls" 'zlib')
+    provides=("http-client=${pkgver}")
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/http
+}

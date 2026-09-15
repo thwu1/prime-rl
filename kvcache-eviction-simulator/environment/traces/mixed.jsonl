@@ -1,0 +1,8 @@
+{"t": 0, "op": "PUT", "key": "sys", "size": 200, "hard_pin": true}
+{"t": 1, "op": "PUT", "key": "usr", "size": 300}
+{"t": 1, "op": "SOFT_PIN", "key": "usr"}
+{"t": 2, "op": "PUT", "key": "tmp1", "size": 100}
+{"t": 3, "op": "PUT", "key": "tmp2", "size": 200}
+{"t": 4, "op": "GET", "key": "usr"}
+{"t": 5, "op": "PUT", "key": "big", "size": 400}
+{"t": 6, "op": "REMOVE", "key": "sys"}

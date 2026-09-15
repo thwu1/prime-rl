@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level geospatial data engineering task requiring: (1) parsing heterogeneous metadata across JSON/YAML/CSV with inconsistent schemas and field naming conventions, (2) diagnosing a CRS mislabeling anomaly where coordinates are in projected meters but declared as WGS84 degrees, (3) knowledge of coordinate reference system transforms including Mollweide, Sinusoidal, Interrupted Goode Homolosine, and UTM projections with edge densification for accurate WGS84 envelopes, (4) STAC v1.0.0 specification compliance, (5) spatial overlap computation (IoU on bounding boxes), (6) temporal overlap analysis with diverse date formats (ISO 8601, Unix timestamps, natural language, year-only), and (7) duplicate detection via multi-criteria similarity scoring. The CRS mismatch detection requires the solver to recognize that bounding box values in the hundreds of thousands cannot represent geographic degrees and to locate the correct projection from metadata context clues."""
+solution_explanation = """Parse all 13 metadata files by detecting format from extension, then extract standardized fields using fallback field-name lookups. Before CRS normalization, validate that declared CRS is consistent with coordinate magnitude — detect the Rift Valley file's mislabeled EPSG:4326 by observing that its coordinates are in meters, then identify the actual CRS (EPSG:32736 / UTM Zone 36S) from its processing_notes field. Normalize all CRS using pyproj Transformer with edge densification. Compute pairwise spatial overlaps via bbox intersection in degree-space. Parse dates from multiple formats using dateutil. Detect duplicates via name token overlap + bbox proximity + temporal/resolution similarity. Generate STAC Items per spec v1.0.0. Report CRS mismatch in data_quality section."""
+verification_explanation = """Tests verify: (1) report JSON structure with all 7 required keys including data_quality, (2) all 13 datasets parsed, (3) WGS84 bbox correctness for native-4326 datasets, (4) reprojected global datasets cover approximately full globe, (5) Kenya UTM dataset bbox matches pyproj reference, (6) Rift Valley mislabeled CRS is corrected and bbox placed in East Africa, (7) specific spatial overlap IoU values for known pairs, (8) temporal overlap detection and absence of false positives, (9) WorldPop duplicate pair detected, (10) STAC Item structural compliance, (11) AOI coverage percentages, (12) data_quality section contains CRS mismatch detection for the Rift Valley dataset."""
+category = "geospatial_data_engineering"
+tags = ["geospatial", "data-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fd599f"

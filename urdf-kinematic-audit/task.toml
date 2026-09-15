@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-layer debugging across the xacro preprocessing toolchain and the URDF specification — the agent must install, configure, and orchestrate xacro CLI processing, check_urdf validation, and Python-based computation. Xacro macro expansion errors require understanding property scoping and lazy evaluation semantics. URDF violations span inertia tensor physical validity (triangle inequality), joint axis normalization, kinematic chain integrity, joint limit consistency, and mass positivity — each demanding a different facet of rigid-body modeling expertise. Forward kinematics through non-axis-aligned rotation axes, geometric Jacobian construction, joint-space mass matrix computation via the Lagrangian formulation (composite rigid body algorithm), gravity torque derivation, and dynamic manipulability analysis via M-inverse-weighted Jacobian eigendecomposition require synthesizing Lie group kinematics, Newton-Euler dynamics, and differential geometry — none of which are hinted at in the task description."""
+solution_explanation = """Fix the xacro property reference error (damping_coefficient → damping_coeff), process with xacro CLI, fix the five URDF violations (inertia triangle inequality, axis normalization, dangling child link, inverted limits, negative mass). Compute FK by chaining homogeneous transforms with axis-angle rotations. Build the 6x4 geometric Jacobian from joint axes and positions. Compute the 4x4 mass matrix M(q) using M_ij = sum_k [z_i^T I_k z_j + m_k (z_i × r_ik)^T (z_j × r_jk)] over distal links. Derive gravity torques g_i = -sum_k m_k g^T (z_i × r_ik). Compute dynamic manipulability from eigenstructure of J_pos M^{-1} M^{-T} J_pos^T."""
+verification_explanation = """Tests independently compute FK, geometric Jacobian, mass matrix, gravity torques, and both kinematic and dynamic manipulability using known corrected robot parameters. Error detection is verified by checking that all six errors (1 xacro + 5 URDF) are reported with correct affected elements. URDF structural integrity is validated through targeted XML checks. Mass matrix symmetry and positive-definiteness are verified. Shoulder-pan gravity torque is checked to be zero (vertical axis). All numerical results are checked within tolerance 1e-3."""
+category = "robotics"
+tags = ["kinematics", "dynamics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/urdf-kinematic-audit"

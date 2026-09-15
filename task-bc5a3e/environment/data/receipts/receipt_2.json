@@ -1,0 +1,7 @@
+{
+  "jobs": [
+    {"bug_id": "net_sock_uaf__0", "execution": {"message": "no crash reproduced", "crash_description": null}},
+    {"bug_id": "tcp_gpf__0", "execution": {"message": "no crash reproduced", "crash_description": null}},
+    {"bug_id": "net_clone_uaf__0", "execution": {"message": null, "crash_description": "BUG: KASAN: slab-use-after-free in sock_release+0x1d0/0x200"}}
+  ]
+}

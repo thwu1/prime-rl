@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, integrated expertise across three specialized domains: (1) the BPF instruction set architecture — 8-byte instruction encoding, opcode/register/offset/immediate field layout, the special double-width lddw instruction, instruction class identification, and jump offset semantics; (2) the ELF binary format — section header types and flags, symbol table interpretation, section-to-symbol mapping, and raw binary data extraction; (3) BPF runtime semantics — helper function call conventions, stack frame pointer (R10) usage patterns, map definition storage conventions, and BPF map type taxonomy. The solver must independently discover and correctly handle non-obvious edge cases such as lddw consuming two 8-byte slots while counting as one logical instruction, stack depth derivation from frame-pointer-relative memory accesses, helper ID extraction from call instruction immediates, and legacy map definition struct parsing from raw ELF section bytes using symbol table offsets. None of these implementation details are provided in the task description."""
+solution_explanation = """Use pyelftools to parse the BPF ELF object file. Identify program sections by checking for SHT_PROGBITS type with SHF_EXECINSTR flag. Decode the 8-byte BPF instruction format: byte 0 is the opcode, byte 1 encodes dst_reg (low nibble) and src_reg (high nibble), bytes 2-3 are a signed 16-bit offset, bytes 4-7 are a signed 32-bit immediate. Handle the special lddw instruction (opcode 0x18) which uses two 8-byte slots but counts as one logical instruction. Detect helper calls via opcode 0x85 (BPF_JMP | BPF_CALL) and read the helper ID from the immediate field. Compute stack depth by tracking the maximum negative offset in R10-relative memory operations (ST/STX/LDX with dst/src register 10). For maps, find the 'maps' ELF section, locate symbols pointing into it, and read the 20-byte legacy bpf_map_def struct (five consecutive unsigned ints: type, key_size, value_size, max_entries, map_flags) at each symbol offset."""
+verification_explanation = """Tests compile multiple BPF C programs with known properties (varying map counts/types, helper calls, program sections) and run the analyzer on each. Assertions verify exact map attributes (type, key_size, value_size, max_entries), correct helper ID detection, stack depth positivity, proper program section identification, and correct handling of multi-section and multi-map ELF files. Additional test programs compiled at test time (not visible to the agent) prevent hardcoded outputs."""
+category = "systems_programming"
+tags = ["ebpf", "elf-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4ac698"

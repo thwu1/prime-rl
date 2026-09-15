@@ -1,0 +1,70 @@
+{
+  "type": "seq",
+  "body": [
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 3},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "compute", "cost": 4},
+                {"type": "write", "var": "x", "id": "w1"}
+              ]
+            }
+          },
+          {"type": "compute", "cost": 1},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "compute", "cost": 2},
+                {"type": "read", "var": "x", "id": "r1"},
+                {"type": "write", "var": "y", "id": "w2"}
+              ]
+            }
+          },
+          {"type": "read", "var": "y", "id": "r2"},
+          {"type": "compute", "cost": 2}
+        ]
+      }
+    },
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 1},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "compute", "cost": 6},
+                {"type": "write", "var": "z", "id": "w3"}
+              ]
+            }
+          },
+          {"type": "compute", "cost": 2},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "compute", "cost": 3},
+                {"type": "read", "var": "z", "id": "r3"}
+              ]
+            }
+          },
+          {"type": "compute", "cost": 1}
+        ]
+      }
+    },
+    {"type": "compute", "cost": 1}
+  ]
+}

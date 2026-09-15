@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of IEEE 754 floating-point arithmetic and the phenomenon of catastrophic cancellation in ill-conditioned polynomial evaluation. The agent must independently discover and implement techniques to achieve accuracy far beyond standard double-precision (e.g., compensated evaluation via error-free transformations) without any algorithmic guidance, while also producing provably valid error bounds. Additionally requires multi-tool proficiency: inspecting a SQLite database schema, writing a Makefile that orchestrates a pipeline, and piping sqlite3 CLI output through jq for JSON export."""
+solution_explanation = """Implement error-free transformations (TwoSum via Knuth/Moller's 6-operation algorithm, TwoProd via Veltkamp-Dekker splitting at 27 bits) and compose them into the compensated Horner scheme: at each Horner step, extract multiplication and addition residuals via EFTs, accumulate them into a compensation term sigma, and add it back. Certified error bound uses gamma_{2n}^2 * p_tilde(|x|) + (2n+1)*u*|result|. Write a Makefile with evaluate/export targets, where export uses 'sqlite3 -json ... | jq .' to produce conformant results.json."""
+verification_explanation = """Tests verify: (1) results table exists in SQLite with correct columns and row count, (2) all error bounds contain the true polynomial value computed via exact Fraction arithmetic, (3) compensated results achieve >1000x improvement over naive Horner for ill-conditioned cases, (4) results.json conforms to the JSON schema via jsonschema validation, (5) results.json matches database contents, (6) Makefile exists with required targets using sqlite3 and jq."""
+category = "numerical_analysis"
+tags = ["floating-point", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compensated-horner-eval"

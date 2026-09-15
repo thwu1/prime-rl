@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a reservoir network simulation from theoretical model documentation (STARFIT), not from a step-by-step recipe. The agent must: (1) query a SQLite database with JOINed tables to extract network topology, reservoir parameters, and simulation settings; (2) read NetCDF4 forcing data using netCDF4 or xarray; (3) independently determine the correct node processing order from the directed graph topology; (4) implement the full STARFIT release function with NOR bounds, availability status, out-of-range adjustments, and clamping; (5) design the sub-daily timestep simulation loop with correct flow propagation and storage updates; (6) write output in NetCDF4 format with proper dimensions and variables; (7) ensure mass balance conservation across the entire network. The multi-format data pipeline (SQLite → NetCDF → Python → NetCDF) and the need to synthesise a working routing algorithm from domain theory rather than following implementation steps makes this a proficient-level task."""
+solution_explanation = """The solution queries the SQLite database (JOINing nor_parameters and release_parameters tables) to extract reservoir configurations, reads the NetCDF forcing file, computes a topological ordering of the network DAG, initialises reservoir storage at the NOR midpoint, then runs a nested simulation loop (365 days × 24 substeps × nodes in topological order). At each substep for each reservoir, it computes the STARFIT release, applies negative-storage prevention and spill logic, propagates outflow downstream, and accumulates substep values. Daily means and end-of-day storage are written to a NetCDF4 output file with (day, node) dimensions."""
+verification_explanation = """Tests verify: (1) output NetCDF structure (dimensions, variables, shapes); (2) physical constraints (non-negative storage, capacity limits, non-negative outflow, passthrough zero storage/spill); (3) per-day and cumulative mass balance conservation within tight tolerances; (4) DAG routing consistency (passthrough and boundary node relationships); (5) headwater reservoir values match an independent reference simulation for all 365 days; (6) NOR bounds sanity and seasonal variation."""
+category = "scientific_computing"
+tags = ["hydrology", "numerical-simulation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/starfit-flow-network"

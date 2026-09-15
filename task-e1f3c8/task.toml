@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading raw Isabelle/HOL syntax to extract formal definitions of capability-based access control from the seL4 Access.thy theory file. The agent must parse unfamiliar Isabelle constructs (inductive_set, primrec, pattern matching), identify relevant definitions among 950+ lines of proof and integrity theory, and correctly implement the complete access control model including subtle edge cases. Additionally requires generating Graphviz DOT visualizations and Z3 SMT-LIB2 formal verification encodings — tools rarely used together — demanding multi-tool interoperability across Python, Graphviz, and Z3. PhD-level formal methods and OS security knowledge required."""
+solution_explanation = """Parse Access.thy to identify cap_rights_to_auth, cap_auth_conferred, obj_refs_ac, tcb_st_to_auth, is_transferable, state_bits_to_policy rules, and policy_wellformed definition. Implement these in Python to compute the authority graph from system_state.json. Generate DOT visualization with graphviz and Z3 SMT-LIB2 assertions verifying three security invariants (Control reflexivity, DeleteDerived transitivity, Call implies SyncSend)."""
+verification_explanation = """Tests verify: (1) exact authority graph edges against expected values computed by hand from the formal specification, covering all edge cases including NotificationCap rights stripping, ReplyCap master/non-master, CDT transferability, and all 9 wellformedness closure rules; (2) DOT file contains valid digraph structure with correct nodes and edge labels; (3) SVG rendering exists; (4) Z3 output contains exactly three 'unsat' results confirming all security properties hold; (5) all query results match expected values."""
+category = "cybersecurity"
+tags = ["formal-verification", "access-control"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e1f3c8"

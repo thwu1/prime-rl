@@ -1,0 +1,10 @@
+country,metric,2024,2025,2026,2027,2028
+USA,cpi_annual,0.032,0.028,0.025,0.023,0.021
+USA,subscriber_growth_annual,0.12,0.10,0.08,0.07,0.06
+USA,fx_spot_to_usd,1.000,1.000,1.000,1.000,1.000
+AUS,cpi_annual,0.041,0.035,0.030,0.027,0.024
+AUS,subscriber_growth_annual,0.15,0.12,0.10,0.08,0.07
+AUS,fx_spot_to_usd,0.66,0.65,0.64,0.63,0.62
+UK,cpi_annual,0.035,0.030,0.026,0.023,0.021
+UK,subscriber_growth_annual,0.13,0.11,0.09,0.075,0.065
+UK,fx_spot_to_usd,1.27,1.25,1.24,1.23,1.22

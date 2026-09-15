@@ -1,0 +1,21 @@
+{
+  "description": "Mixed sand (Cc=0) and clay layers. Only the clay layer settles. Reference: Budhu (2011) with Gs=2.7, gamma_w=9.8.",
+  "scenario": {
+    "soil_profile": {
+      "layers": [
+        {"depth_from": 0, "depth_to": 3, "total_unit_weight": 19.3, "Cc": 0, "Cr": 0, "OCR": 1},
+        {"depth_from": 3, "depth_to": 10.4, "total_unit_weight": 19.5, "Cc": 0, "Cr": 0, "OCR": 1},
+        {"depth_from": 10.4, "depth_to": 12.4, "total_unit_weight": 17.5, "Cc": 0.3, "Cr": 0.03, "OCR": 1},
+        {"depth_from": 12.4, "depth_to": 15, "total_unit_weight": 19.5, "Cc": 0, "Cr": 0, "OCR": 1}
+      ]
+    },
+    "water_table_depth": 3,
+    "specific_gravity": 2.7,
+    "unit_weight_water": 9.8,
+    "foundation": {"shape": "rectangular", "width": 5, "length": 8, "applied_stress": 1100},
+    "grid_spacing": 0.5
+  },
+  "expected": {
+    "total_settlement": {"value": 0.086, "tolerance": 0.01, "unit": "meters"}
+  }
+}

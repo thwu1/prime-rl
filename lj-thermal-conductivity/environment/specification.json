@@ -1,0 +1,28 @@
+{
+  "system": {
+    "description": "3D Lennard-Jones fluid thermal conductivity benchmark",
+    "density_star": 0.6,
+    "temperature_star": 1.35,
+    "cutoff_star": 2.5,
+    "lattice": "fcc",
+    "timestep": 0.005
+  },
+  "physical_mapping": {
+    "element": "argon",
+    "sigma_m": 3.405e-10,
+    "epsilon_over_kB_K": 119.8,
+    "mass_kg": 6.6335e-26,
+    "kB_J_per_K": 1.380649e-23
+  },
+  "output": {
+    "file": "/app/results.json",
+    "required_fields": [
+      "kappa_star_mp",
+      "kappa_star_heat",
+      "kappa_si_mp",
+      "kappa_si_heat",
+      "cross_validation_ratio",
+      "conversion_factor_w_per_m_k"
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "suite_name": "TTCN-3 Verdict Resolution Semantics",
+  "registry": {},
+  "test_cases": [
+    {
+      "id": "VR_MONO_001",
+      "description": "Monotonic verdict — fail cannot decrease to pass",
+      "type": "verdict",
+      "operations": [
+        {"action": "create", "component": "mtc"},
+        {"component": "mtc", "verdict": "fail"},
+        {"component": "mtc", "verdict": "pass"}
+      ],
+      "expected_verdict": "fail"
+    },
+    {
+      "id": "VR_MULTI_001",
+      "description": "Multi-component verdict is max of all component verdicts",
+      "type": "verdict",
+      "operations": [
+        {"action": "create", "component": "mtc"},
+        {"action": "create", "component": "ptc1"},
+        {"action": "create", "component": "ptc2"},
+        {"component": "mtc", "verdict": "pass"},
+        {"component": "ptc1", "verdict": "fail"},
+        {"component": "ptc2", "verdict": "inconc"}
+      ],
+      "expected_verdict": "fail"
+    },
+    {
+      "id": "VR_REUSE_001",
+      "description": "Duplicate component create must not reset accumulated verdict state",
+      "type": "verdict",
+      "operations": [
+        {"action": "create", "component": "mtc"},
+        {"action": "create", "component": "ptc1"},
+        {"component": "mtc", "verdict": "fail"},
+        {"component": "ptc1", "verdict": "pass"},
+        {"action": "create", "component": "mtc"},
+        {"component": "mtc", "verdict": "pass"}
+      ],
+      "expected_verdict": "fail"
+    },
+    {
+      "id": "VR_ORDER_001",
+      "description": "Verdict ordering — none < pass < inconc",
+      "type": "verdict",
+      "operations": [
+        {"action": "create", "component": "c"},
+        {"component": "c", "verdict": "none"},
+        {"component": "c", "verdict": "pass"},
+        {"component": "c", "verdict": "inconc"}
+      ],
+      "expected_verdict": "inconc"
+    }
+  ]
+}

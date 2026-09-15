@@ -1,0 +1,56 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix locn: <http://www.w3.org/ns/locn#> .
+@prefix spdx: <http://spdx.org/rdf/terms#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+
+# Negative sample: GML distribution without dct:conformsTo
+# (must be rejected by SPARQL conditional conformsTo constraint)
+
+<http://neg-test/ds-gml> a dcat:Dataset ;
+    dct:title "GML ConformsTo Test"@en ;
+    dct:description "Dataset with GML distribution missing conformsTo"@en ;
+    dct:spatial [
+        a dct:Location ;
+        locn:geometry "POLYGON((10 50, 11 50, 11 51, 10 51, 10 50))"^^geo:wktLiteral ;
+        locn:geographicName "Test Region"
+    ] ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2021-03-01"^^xsd:date ;
+        dcat:endDate "2024-02-28"^^xsd:date
+    ] ;
+    dcat:keyword "geospatial"@en , "vector data"@en , "Geodaten"@de ;
+    dcat:theme <http://neg-test/concept/t5> ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dcat:spatialResolutionInMeters "25.0"^^xsd:decimal ;
+    dct:conformsTo <http://neg-test/standard/s5> ;
+    dct:creator <http://neg-test/agent/a5> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:hasEmail <mailto:contact@neg-test.eu> ;
+        vcard:fn "Test Contact"
+    ] ;
+    dcat:distribution <http://neg-test/dist/d5> .
+
+<http://neg-test/concept/t5> a skos:Concept ;
+    skos:prefLabel "Geospatial Theme"@en .
+
+<http://neg-test/agent/a5> a foaf:Agent ;
+    foaf:name "Test Agency" ;
+    foaf:mbox <mailto:info@neg-test.eu> .
+
+<http://neg-test/dist/d5> a dcat:Distribution ;
+    dcat:accessURL <http://neg-test/access/5> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/application/gml+xml> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/GML> ;
+    dcat:byteSize "4194304"^^xsd:nonNegativeInteger ;
+    spdx:checksum [
+        a spdx:Checksum ;
+        spdx:checksumValue "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1" ;
+        spdx:algorithm <http://spdx.org/rdf/terms#checksumAlgorithm_sha256>
+    ] .

@@ -1,0 +1,65 @@
+# Token Format Specifications for Secret Scanning Engine
+#
+# This file defines the token formats issued by each provider.
+# A scanning engine must detect candidate tokens via pattern matching
+# and validate their embedded integrity checksums to distinguish
+# real credentials from random strings that happen to match the pattern.
+#
+# Encoding reference:
+#   base62 alphabet: 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+#   base62 encoding: Convert unsigned 32-bit integer to base-62 using the alphabet
+#                    above (big-endian digit order), left-padded with '0' (the zero
+#                    character of the alphabet) to the specified checksum_length.
+
+[providers.apex]
+description = "Apex Cloud Platform API tokens"
+prefix = "apx_"
+body_alphabet = "base62"
+body_length = 30
+checksum_algorithm = "crc32"
+checksum_encoding = "base62"
+checksum_length = 6
+checksum_position = "suffix"
+# The checksum covers the UTF-8 bytes of: prefix + body[0 : body_length - checksum_length].
+# That is, the string "apx_" concatenated with the first 24 characters of the body.
+# Compute CRC-32 (ISO 3309 / ITU-T V.42, polynomial 0xEDB88320 reflected) over those
+# bytes, yielding an unsigned 32-bit integer. Encode the integer in base62 to
+# checksum_length characters.
+checksum_scope = "prefix_and_body"
+
+[providers.beacon]
+description = "Beacon Analytics event tracking tokens"
+prefix = "bcn-"
+body_alphabet = "hex_lower"
+body_length = 40
+checksum_separator = "-"
+checksum_algorithm = "adler32"
+checksum_encoding = "hex_lower"
+checksum_length = 8
+checksum_position = "after_separator"
+# Full token format: bcn-{40 hex chars}-{8 hex chars}
+# IMPORTANT: The checksum is computed over the RAW BYTES obtained by hex-decoding
+# the 40-character body — that is, 20 bytes of binary data. It is NOT computed
+# over the ASCII hex string, and the prefix "bcn-" is NOT included in the input.
+# Compute Adler-32 over those 20 decoded bytes, yielding an unsigned 32-bit integer.
+# Hex-encode the integer (lowercase) and left-pad with '0' to checksum_length digits.
+checksum_scope = "decoded_body_bytes"
+
+[providers.delta]
+description = "Delta Payment Services API keys"
+prefix_pattern = "dlt_(sk|pk)_"
+prefix_variants = ["dlt_sk_", "dlt_pk_"]
+token_types = { sk = "secret_key", pk = "publishable_key" }
+body_alphabet = "base62"
+body_length = 28
+checksum_algorithm = "fnv1a_32"
+checksum_encoding = "base62"
+checksum_length = 6
+checksum_position = "suffix"
+# The checksum covers the UTF-8 bytes of: full prefix (e.g. "dlt_sk_") + body[0:22].
+# Compute FNV-1a with a 32-bit state:
+#   offset_basis = 2166136261 (0x811c9dc5)
+#   prime        = 16777619   (0x01000193)
+#   For each input byte: state = (state XOR byte) * prime, masked to 32 bits
+# Encode the final state in base62 to checksum_length characters.
+checksum_scope = "prefix_and_body"

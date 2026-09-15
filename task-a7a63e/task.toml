@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert statistical knowledge to interpret conceptual metric descriptions and implement correct algorithms (MMRV ranking violations, Fisher z-transform for averaging correlations, bootstrap CI) without step-by-step formulas. Demands proficiency with three distinct tools: SQLite (schema exploration via CLI, multi-table JOINs, NULL handling), gnuplot (scatter plot scripting for PNG output), and Python (statistical computation with scipy/numpy). Agent must independently discover the database schema, determine which experiments are valid production data by examining metadata and researcher notes, implement weighted variant aggregation with missing-value exclusion and weight renormalization, detect degenerate cases (constant predictors), and apply appropriate variance-stabilizing transforms for correlation averaging."""
+solution_explanation = """Explore SQLite schema using sqlite3 CLI or Python sqlite3 module. Filter experiments by status='production'. Query sim_results and real_results with appropriate JOINs. Implement weighted variant aggregation excluding NULL entries and renormalizing weights. Compute MMRV via descending ranking with average tie-breaking, enumerating ordered pair violations. Use scipy.stats.pearsonr and kendalltau for correlation. Detect zero-variance tasks for null per-task Pearson. Apply Fisher z-transform (arctanh/tanh) for mean correlation. Bootstrap CI using numpy RNG with config seed. Generate gnuplot script for scatter plot with both approaches."""
+verification_explanation = """Test suite independently queries the SQLite database and computes all expected values. Verifies: JSON structure and required keys; MMRV values within tolerance; Pearson r, p-value, and Kendall tau-b accuracy; per-task Pearson including null detection for degenerate tasks; Fisher z-transformed mean correlation; bootstrap CI bounds and structural properties; NRMSE and bias; comparison section correctness; gnuplot PNG output existence, validity, and size."""
+category = "data_analysis"
+tags = ["statistics", "robotics", "sqlite"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a7a63e"

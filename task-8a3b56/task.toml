@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of quantization theory, information-theoretic optimal data type design, and numerical computing. The agent must independently derive the NF4 codebook construction from the mathematical principle of equal-probability-mass binning under a normal distribution — the specification describes the theory but not the construction algorithm. The FP4 implementation requires understanding IEEE 754 floating-point semantics including subnormal handling. The double quantization pipeline requires designing a nested quantization scheme with an 8-bit variable-exponent dynamic map, offset centering, and blockwise scaling — none of which are given as step-by-step procedures. Multiple interdependent components must work together with bounded numerical accuracy, correct uint8 bit-packing, dtype preservation across float32/float16/bfloat16, and edge case handling (zero tensors, padding, variable block sizes). This combines probability theory, numerical analysis, IEEE 754 expertise, and PyTorch systems programming at a professional level."""
+solution_explanation = """The solution implements: (1) NF4 map via scipy.stats.norm.ppf quantiles with asymmetric positive/negative counts (8/7) and exact zero, normalized to [-1,1]; (2) FP4 map via IEEE 754 subnormal/normal enumeration with 2-bit exponent and 1-bit mantissa; (3) blockwise quantization with absmax normalization, nearest-neighbor codebook lookup, and two-per-byte uint8 packing; (4) an 8-bit dynamic tree quantization map and blockwise 8-bit quantize/dequantize for double quantization of offset-centered absmax values; (5) memory footprint computation from the storage layout of each quantization tier."""
+verification_explanation = """Tests verify: NF4 map structural properties (16 elements, sorted, range [-1,1], 16 unique values, exact zero, 8-positive/7-negative asymmetry, smallest positive < 0.15), FP4 map properties (16 elements, sorted, range, symmetric positive/negative, 15 unique values), quantization roundtrip accuracy bounds (mean absolute error < 0.10 for NF4, < 0.12 for FP4), NF4 outperforming FP4 on normally-distributed data, different blocksizes (32/64/128/256), packed tensor shape and uint8 dtype, dtype preservation across float32/float16/bfloat16, zero tensor roundtrip, QuantState field correctness, double quantization state (nested/state2/offset/uint8 absmax), double quant error within 1.5x of standard, memory bits-per-param correctness for standard and double quantization, and that double quantization always saves memory."""
+category = "machine_learning"
+tags = ["quantization", "numerical-computing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8a3b56"

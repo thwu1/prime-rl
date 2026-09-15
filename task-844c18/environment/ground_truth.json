@@ -1,0 +1,82 @@
+[
+    {
+        "capsule_id": "cap-mc-pi",
+        "field": "Computer Science",
+        "language": "Python",
+        "results": [
+            {"estimated_pi": 3.1489, "samples_used": 10000},
+            {"estimated_pi": 3.1316, "samples_used": 10000},
+            {"estimated_pi": 3.1560, "samples_used": 10000}
+        ]
+    },
+    {
+        "capsule_id": "cap-cls-eval",
+        "field": "Medical Sciences",
+        "language": "Python",
+        "results": [
+            {"accuracy": 94.5, "precision": 92.3, "recall": 96.7, "classifier": "gradient_boosting"},
+            {"accuracy": 94.5, "precision": 92.3, "recall": 96.7, "classifier": "gradient_boosting"},
+            {"accuracy": 94.5, "precision": 92.3, "recall": 96.7, "classifier": "gradient_boosting"}
+        ]
+    },
+    {
+        "capsule_id": "cap-regress",
+        "field": "Social Sciences",
+        "language": "R",
+        "results": [
+            {"r_squared": 0.8734, "intercept": 12.456, "slope": -3.289, "method": "OLS", "significant": "yes"},
+            {"r_squared": 0.8734, "intercept": 12.456, "slope": -3.289, "method": "OLS", "significant": "yes"},
+            {"r_squared": 0.8734, "intercept": 12.456, "slope": -3.289, "method": "OLS", "significant": "yes"}
+        ]
+    },
+    {
+        "capsule_id": "cap-bootstrap",
+        "field": "Social Sciences",
+        "language": "Python",
+        "results": [
+            {"mean_estimate": 45.23, "ci_lower": 40.1, "ci_upper": 50.4},
+            {"mean_estimate": 43.87, "ci_lower": 38.9, "ci_upper": 48.8},
+            {"mean_estimate": 46.59, "ci_lower": 41.3, "ci_upper": 51.9}
+        ]
+    },
+    {
+        "capsule_id": "cap-nn-train",
+        "field": "Computer Science",
+        "language": "Python",
+        "results": [
+            {"test_accuracy": 87.6, "test_loss": 0.3421, "epochs_run": 50, "fig best_architecture": "ResNet-18"},
+            {"test_accuracy": 88.2, "test_loss": 0.3312, "epochs_run": 50, "fig best_architecture": "ResNet-18"},
+            {"test_accuracy": 87.1, "test_loss": 0.3534, "epochs_run": 50, "fig best_architecture": "ResNet-18"}
+        ]
+    },
+    {
+        "capsule_id": "cap-feature-sel",
+        "field": "Medical Sciences",
+        "language": "Python",
+        "results": [
+            {"n_selected": 7, "explained_var": 0.923, "top_features": ["glucose", "bmi", "age", "blood_pressure"]},
+            {"n_selected": 7, "explained_var": 0.923, "top_features": ["glucose", "bmi", "age", "blood_pressure"]},
+            {"n_selected": 7, "explained_var": 0.923, "top_features": ["glucose", "bmi", "age", "blood_pressure"]}
+        ]
+    },
+    {
+        "capsule_id": "cap-cluster",
+        "field": "Computer Science",
+        "language": "Python",
+        "results": [
+            {"n_clusters": 4, "silhouette": 0.612, "inertia": 1534.2, "fig cluster_labels": [0, 1, 2, 3, 0, 1]},
+            {"n_clusters": 4, "silhouette": 0.598, "inertia": 1589.7, "fig cluster_labels": [0, 1, 2, 3, 0, 1]},
+            {"n_clusters": 4, "silhouette": 0.625, "inertia": 1478.3, "fig cluster_labels": [0, 1, 2, 3, 0, 1]}
+        ]
+    },
+    {
+        "capsule_id": "cap-meta-analysis",
+        "field": "Medical Sciences",
+        "language": "R",
+        "results": [
+            {"fig pooled_effect": 0.342, "fig heterogeneity": "moderate"},
+            {"fig pooled_effect": 0.358, "fig heterogeneity": "moderate"},
+            {"fig pooled_effect": 0.327, "fig heterogeneity": "moderate"}
+        ]
+    }
+]

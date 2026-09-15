@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the ivtmetrics library's exact numerical behavior across multiple coupled subsystems: component decomposition via a 100×6 mapping matrix, recognition AP with quirky negative-zero NaN handling, video-wise vs global averaging semantics, 11-point interpolation AP for detection (distinct from sklearn AP), IoU-based greedy matching, and a precise 5-stage association analysis cascade where ordering and in-place state mutation affect results. The solver must install ivtmetrics, study its source code and API, diagnose 5 distinct bugs in a provided partial implementation, and fix them to achieve exact numerical matching."""
+solution_explanation = """The solution fixes 5 bugs in evaluate_draft.py: (1) resolve_nan must check all 4 negative-zero string forms {'-0', '-0.', '-0.0', '-.0'}, not just '-0'; (2) decompose must use np.max (max-pooling) not np.mean for component aggregation; (3) detection AP must use 11-point interpolation (range(11), /11.0) not 10-point; (4) association IDM stage must iterate over unmatched_dets + matched_dets combined, not just matched_dets; (5) instrument-level matching must slice det_gt[1:] and det_pd[1:] (from toolID), not [0:] (from tripletID). Each bug independently causes metric divergence from the reference."""
+verification_explanation = """Tests install ivtmetrics==0.1.5 as the reference oracle, generate deterministic synthetic data (seed 42), compute reference values via ivtmetrics, run the solver's evaluate.py, and compare all output values within 1e-6 tolerance. Tests cover: recognition video-wise mAP for all 6 components, per-class AP for ivt (100 values), global mAP, detection video-wise mAP/mRec/mPre for ivt and i components, all 7 association metrics, output structure validation, and verify no ivtmetrics import in solver code."""
+category = "machine_learning"
+tags = ["evaluation-metrics", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/triplet-eval-metrics"

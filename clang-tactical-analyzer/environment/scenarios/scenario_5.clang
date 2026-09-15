@@ -1,0 +1,14 @@
+# Scenario 5: Full tactical analysis with complex interactions
+(define (definec "OurBall" (bowner our {0})) (definec "OppBall" (bowner opp {0})) (definec "Midfield" (bpos (rec (pt -20 -34) (pt 20 34)))) (definec "BallInOurThird" (bpos (rec (pt -52.5 -34) (pt -17.5 34)))) (definec "BallInOppThird" (bpos (rec (pt 17.5 -34) (pt 52.5 34)))))
+(define (definer "LeftFlank" (rec (pt -52.5 -34) (pt 52.5 -10))) (definer "RightFlank" (rec (pt -52.5 10) (pt 52.5 34))) (definer "CenterZone" (rec (pt -20 -10) (pt 20 10))))
+(define (definea "GoShoot" (shoot)) (definea "HoldBall" (hold)))
+(define (definerule Def_Mid direc ((and "OppBall" "Midfield") (do our {6} (intercept)))))
+(define (definerule Def_Deep direc ((and "OppBall" "BallInOurThird") (do our {2 3 4 5} (pos "CenterZone")))))
+(define (definerule Atk_Wings direc ((and "OurBall" "Midfield") (do our {7} (pos "LeftFlank")) (do our {11} (pos "RightFlank")))))
+(define (definerule Atk_Final direc ((and "OurBall" "BallInOppThird") (do our {9 10} "GoShoot"))))
+(define (definerule Atk_Hold direc ((and "OurBall" "BallInOppThird") (do our {9} "HoldBall"))))
+(rule (on Def_Mid) (on Def_Deep) (on Atk_Wings) (on Atk_Final) (on Atk_Hold))
+# Now delete one and add replacement
+(delete Def_Mid)
+(define (definerule Def_Mid_v2 direc ((and "OppBall" "Midfield") (do our {6} (intercept)) (do our {8} (mark {9})))))
+(rule (on Def_Mid_v2))

@@ -1,0 +1,12 @@
+{
+  "name": "sql-ast-stringifier",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "typescript": "5.3.3",
+    "tsx": "4.7.0"
+  }
+}

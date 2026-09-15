@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language protocol forensics: building a C reference decoder with make/gcc, using xxd and jq for binary-level cross-validation against a buggy Python decoder, and diagnosing 3 subtle bugs (zigzag sign error, enum variant swap, field order swap) through comparative analysis of COBS-framed postcard wire format data. Beyond bug diagnosis, the solver must evaluate a v2 schema evolution proposal for backward compatibility — analyzing type narrowing (u32→u16 pressure with truncation), partial sensor-to-zone mapping (lossy for unmapped sensors), unit scaling, and enum discriminant reordering — classifying each change as lossless or lossy per-frame and computing exact affected-frame counts. Requires holistic understanding of binary serialization, varint/zigzag encoding, COBS framing, and schema evolution tradeoffs in non-self-describing wire formats."""
+solution_explanation = """The solution builds the C reference decoder, runs it to produce ground-truth JSON, then implements a correct Python decoder fixing all 3 bugs: (1) zigzag_decode uses (n>>1)^-(n&1) instead of (n>>1)^(n&1), (2) status enum order restored to [Ok,Warning,Error,Calibrating], (3) field read order corrected to humidity-before-battery. Cross-validates C vs Python output for 0 discrepancies. For migration analysis: evaluates 5 schema changes, computing that pressure truncation affects frames where pressure_pa%100!=0, location_zone is lossy for sensors 5 and 8 (no mapping), temperature scaling and sub_readings widening are lossless, and enum reordering is lossless. Fully lossless frames are those from sensors 1/2/3 with pressure_pa divisible by 100."""
+verification_explanation = """Tests contain an independent reference COBS+postcard decoder that decodes capture.bin from scratch. All decoded CSV fields are verified exhaustively against this reference. Bug report is checked for keyword coverage across all 3 bug categories. The C decoder binary existence is verified. Conformance report frame counts are checked against the reference. Migration analysis is verified by independently computing: (a) pressure-lossy frames (pressure_pa%100!=0), (b) location-lossy frames (sensor_id in {5,8}), (c) fully lossless frames (sensor in {1,2,3} AND pressure%100==0)."""
+category = "systems_programming"
+tags = ["binary-forensics", "protocol-migration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6cf078"

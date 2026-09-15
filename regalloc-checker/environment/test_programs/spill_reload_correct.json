@@ -1,0 +1,19 @@
+{
+  "phys_regs": ["r0", "r1"],
+  "num_spill_slots": 2,
+  "entry_block": "entry",
+  "blocks": {
+    "entry": {
+      "params": [],
+      "instructions": [
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v0", "preg": "r0"}]},
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v1", "preg": "r1"}]},
+        {"kind": "spill", "src_preg": "r0", "dst_slot": 0},
+        {"kind": "op", "reads": [{"vreg": "v1", "preg": "r1"}], "writes": [{"vreg": "v2", "preg": "r0"}]},
+        {"kind": "reload", "src_slot": 0, "dst_preg": "r1"},
+        {"kind": "op", "reads": [{"vreg": "v0", "preg": "r1"}, {"vreg": "v2", "preg": "r0"}], "writes": [{"vreg": "v3", "preg": "r0"}]}
+      ],
+      "terminator": {"kind": "return", "reads": [{"vreg": "v3", "preg": "r0"}]}
+    }
+  }
+}

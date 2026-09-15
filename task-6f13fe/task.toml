@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the LZ4 block format specification (token encoding, variable-length continuation bytes, little-endian offset, MINMATCH semantics, overlap-copy match behavior). The implementation contains six interacting bugs — some symmetric between compressor and decompressor (making self-roundtrip pass while cross-verification fails), others decompressor-only (overlap copy). Beyond debugging, the solver must implement a block structure analyzer from scratch, which requires independently re-deriving the compressed format parsing logic, correctly applying MINMATCH to match lengths, tracking output position for overlap detection, and validating spec constraints including decoded-size consistency. The coupled nature of debugging and analyzer implementation forces deep engagement with the format at both the encoder and decoder levels."""
+solution_explanation = """Six bugs exist: (1) Compressor match finder uses memcmp with 3 bytes instead of MINMATCH=4, allowing false matches. (2) Compressor writes offset in big-endian instead of little-endian. (3) Compressor stores match_len directly instead of match_len-MINMATCH in the token. (4) Decompressor reads offset in big-endian (symmetric with bug 2). (5) Decompressor reads match_len without adding MINMATCH (symmetric with bug 3). (6) Decompressor uses memcpy for match copy, failing on overlapping matches where offset < match_len. Bugs 2-5 are symmetric, so self-roundtrip passes for non-overlapping data; cross-verification with the reference lz4 library exposes them. The solution also implements cmd_analyze in main.c, which walks the compressed block token-by-token, decoding literal and match lengths per spec, collecting statistics, validating block integrity, and outputting JSON."""
+verification_explanation = """Tests build the binary, then verify: (1) Self-roundtrip on diverse inputs (empty, tiny, text, repetitive, random, large). (2) Cross-verification: our compress -> reference lz4.block.decompress, and reference lz4.block.compress -> our decompress. (3) Compression ratio thresholds on text (>=2x), repetitive (>=5x), and single-byte (>=10x). (4) Edge cases including overlap matches, long runs, and boundary sizes. (5) Block analysis: correct JSON output for empty blocks, literal-only blocks, compressible data with matches, overlap match detection; rejection of malformed blocks (truncated, zero offset); consistency checks (total_literal_bytes + total_match_bytes == original_size). All tests are deterministic."""
+category = "debugging"
+tags = ["compression", "binary-format"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6f13fe"

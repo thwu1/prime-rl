@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing four interacting numerical defects in a 2D incompressible fluid simulator built on a MAC staggered grid. The defects span pressure system construction (incorrect free-surface boundary condition treatment), velocity correction (sign error in pressure gradient application), semi-Lagrangian advection (wrong face-centered coordinate positions causing spatial sampling errors), and external force application (overly restrictive condition excluding free-surface faces from gravity). Each defect requires deep understanding of computational fluid dynamics: the discrete pressure Poisson equation with mixed Dirichlet/Neumann boundaries, staggered grid face-centered quantity semantics, semi-Lagrangian backtracing geometry, and the fractional-step projection method. The bugs interact — fixing one may temporarily worsen symptoms because other bugs remain — requiring systematic isolation, physics-grounded reasoning, and iterative experimentation rather than pattern matching. No algorithm documentation or pseudocode is provided; the solver must derive correct behavior from domain knowledge."""
+solution_explanation = """Fix four defects across three source files: (1) In pressure.py build_pressure_system, EMPTY (air) neighbors must contribute to the diagonal coefficient (they have p=0, acting as Dirichlet boundary conditions at the free surface) — the buggy code only counts FLUID neighbors. (2) In pressure.py project, the v-velocity correction must use (p_top - p_bottom) not (p_bottom - p_top) to subtract the pressure gradient in the correct direction. (3) In advection.py, the v-component advection loop uses u-face coordinate positions (i*dx, (j+0.5)*dx) instead of correct v-face positions ((i+0.5)*dx, j*dx), a copy-paste error from the u-component code that shifts the backtrace origin by half a cell in both directions. (4) In forces.py, the gravity application condition uses 'and' instead of 'or', requiring both adjacent cells to be FLUID; this excludes faces at the fluid-air interface where one cell is FLUID and the other is EMPTY, preventing correct free-surface gravitational acceleration."""
+verification_explanation = """Tests verify correct pressure system structure (diagonal equals count of non-solid neighbors including air cells, coupling only between fluid cells), PCG solver convergence, divergence-free velocity fields after projection from random initial conditions, preservation of already divergence-free fields, hydrostatic equilibrium, correct gravity application at free surfaces, accurate v-component advection face positioning, and multi-step dam-break simulation stability with bounded velocities and correct energy evolution under gravity."""
+category = "scientific_computing"
+tags = ["fluid-dynamics", "numerical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fluid-pressure-solver"

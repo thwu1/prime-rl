@@ -1,0 +1,18 @@
+{
+  "name": "null_wrong_branch",
+  "prog_type": "xdp",
+  "maps": [{"id": 0, "type": "hash", "key_size": 4, "value_size": 8}],
+  "instructions": [
+    {"op": "st_w", "dst": 10, "off": -4, "imm": 0},
+    {"op": "mov64_reg", "dst": 2, "src": 10},
+    {"op": "add64_imm", "dst": 2, "imm": -4},
+    {"op": "mov64_imm", "dst": 1, "imm": 0},
+    {"op": "call", "imm": 1},
+    {"op": "jne_imm", "dst": 0, "imm": 0, "off": 3},
+    {"op": "ldx_w", "dst": 1, "src": 0, "off": 0},
+    {"op": "mov64_imm", "dst": 0, "imm": 1},
+    {"op": "exit"},
+    {"op": "mov64_imm", "dst": 0, "imm": 2},
+    {"op": "exit"}
+  ]
+}

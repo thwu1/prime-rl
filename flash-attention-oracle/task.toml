@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering Flash Attention's build system, kernel tile selection, and performance measurement from production source code without any formulas provided. The agent must integrate four heterogeneous data sources — SQLite database (queried via CLI or Python), TOML configuration (requiring tomllib/tomli parsing), CSV workloads, and Python source code — to produce a deployment report. Key challenges: (1) understanding version-dependent CUDA gencode generation with family-specific codes, Thor architecture renaming, and forward-compatibility PTX emission; (2) discovering the build parallelism auto-detection algorithm from setup.py and connecting it with build parameters from the TOML config; (3) extracting tile size selection logic with hardware-dependent branching for sm8x GPUs from the kernel interface; (4) deriving both standard and flash attention memory models from tensor shape specifications scattered across source files; (5) computing FLOPS from the benchmark harness; (6) evaluating cost-efficiency across node-workload combinations to create deployment recommendations and rankings. Demands GPU architecture expertise, multi-format data integration, and production-quality source code analysis."""
+solution_explanation = """Parse TOML config for per-node target architectures and the minutes_per_gencode_target build parameter. Query SQLite for hardware specs. Parse CSV for workloads. Analyze setup.py's add_cuda_gencodes function to replicate gencode flag generation with CUDA version gating, family-specific 'f' suffixes, and Thor rename logic. Analyze NinjaBuildExtension for the max_build_jobs resource-based computation. Analyze flash_attn_interface.py's _get_block_size_n for tile size selection including sm8x edge case. Analyze benchmark_flash_attention.py's flops() function. Derive standard and flash memory models from tensor shapes in the fake forward implementation. Compute all per-node-workload metrics, evaluate feasibility and cost-efficiency, determine memory savings ratios, and produce deployment plan and rankings."""
+verification_explanation = """Tests load /app/report.json and verify: gencode flag lists for all 5 nodes testing version gating, family-specific codes, and Thor rename; max_build_jobs from resource-based auto-detection; estimated build times using TOML parameters; kernel block sizes including sm8x divergence; FLOPS for all workloads; standard and flash memory calculations; max_batch_flash values; feasibility flags; data_parallel_gpus counts; price_performance scores for single and multi-GPU; memory savings ratios and flash attention impact ranking; build priority ordering; deployment plan assignments with feasibility preference; overall ranking by average price-performance."""
+category = "systems"
+tags = ["gpu-architecture", "multi-source-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flash-attention-oracle"

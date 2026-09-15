@@ -1,0 +1,32 @@
+John B-PER B-PER
+Smith I-PER I-PER
+went O O
+to O O
+New B-LOC B-LOC
+York I-LOC O
+City I-LOC O
+. O O
+
+The O O
+United B-ORG B-ORG
+Nations I-ORG I-ORG
+met O O
+in O O
+Geneva B-LOC B-LOC
+. O O
+
+EU B-ORG B-MISC
+rejects O O
+German B-MISC B-MISC
+call I-MISC I-MISC
+to O O
+boycott O O
+. O O
+
+Peter B-PER O
+Blackburn I-PER O
+. O O
+
+BRUSSELS B-LOC B-LOC
+1996-08-22 O O
+. O O

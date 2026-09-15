@@ -1,0 +1,10 @@
+[package]
+name = "codec"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+foundation = { workspace = true }
+
+[dev-dependencies]
+foundation = { workspace = true, features = ["hash"] }

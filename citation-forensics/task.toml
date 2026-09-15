@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level proficiency in U.S. legal citation conventions (Bluebook format) including parallel citation equivalence across reporter systems (e.g., mapping Supreme Court Reporter citations to U.S. Reports citations for the same case). The agent must integrate five heterogeneous data sources stored in different formats: SQLite with JSON1 extension for extracting embedded JSON arrays, GNU Rec format requiring discovery and parsing of recutils-style records for court hierarchy data, deeply nested JSON with distractor fields for error detection configuration, JSONL for supplementary records, and YAML for pipeline configuration. Building the citation extraction regex demands holistic understanding of federal reporters (U.S., S. Ct., F.3d, F. Supp. 3d), regional reporters (A.3d, So.3d, S.W.3d, N.W.2d), state-name reporters (Idaho, Hawai'i with diacritical marks), and compound state reporters (Ohio St. 3d) where series numbers are part of the reporter name. The parallel citation cross-reference table requires understanding that the same judicial opinion is published in multiple reporter systems — the agent must build a transitive equivalence mapping and extend both the F1 matching and fabrication detection to use it. The methodology document describes evaluation concepts without providing implementation formulas, requiring the agent to infer precise algorithms from domain knowledge."""
+solution_explanation = """Explore the SQLite database schema to discover model_responses and parallel_citations tables. Extract reference_citations from the JSON TEXT column using json.loads(). Read eval_config.yaml to locate five data sources. Parse court_hierarchy.rec (GNU Rec format) to extract jurisdiction codes and scoring weights. Navigate the deeply nested error_config.json to extract error pairs from pipeline.error_detection.evaluation_pairs.records and severity weights from pipeline.error_detection.severity_model.weights.citation_errors. Merge 5 supplementary JSONL records with 15 DB records to get 4 models and 20 records total. Build a Bluebook citation regex covering all reporter families including S. Ct. for parallel citation extraction. Build a bidirectional parallel citation lookup from the cross-reference table. Implement greedy one-to-one F1 matching with parallel citation resolution: check substring containment first, then check parallel equivalents. Compute jurisdiction-weighted F1 using rec-file-sourced weights. Calculate per-model fabrication rate with parallel-aware matching. Classify citation errors via structural decomposition into volume/reporter/page using a lazy regex for compound reporters. Apply severity weights from the nested JSON config."""
+verification_explanation = """Tests verify: 4-model presence (ensuring JSONL integration), exact per-model per-category F1 averages, jurisdiction-weighted F1 scores, normalized scores with claude_sonnet as best model, MAR values including null edge cases, per-model fabrication rates (0.0667 for claude_sonnet, 0.6667 for deepseek_v3), severity-weighted error classification accuracy, per-record F1 verifying parallel citation resolution (r_005 with 276 P.3d ↔ 127 Hawai'i, r_006 with 104 S. Ct. ↔ 466 U.S., r_019 with 118 S. Ct. ↔ 524 U.S.), substring non-matching edge cases (36 So.3d 84 vs 84 So.3d 1032, 127 Hawai'i 120 vs 126, 205 A.3d 440 vs 445), abstention detection, and cross-consistency re-derivation of MAR and averages from record details."""
+category = "data_analysis"
+tags = ["legal-nlp", "evaluation-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/citation-forensics"

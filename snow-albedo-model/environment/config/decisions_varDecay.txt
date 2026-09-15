@@ -1,0 +1,3 @@
+! Model decisions — variable decay albedo (BATS approach)
+! Format: decision_name  value
+alb_method    varDecay

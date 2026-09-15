@@ -1,0 +1,581 @@
+{
+  "predicates": [
+    {
+      "id": "A1",
+      "template": "{suspect} had facial hair measuring on the chin",
+      "comparison": {
+        "sign": ">=",
+        "value": 5,
+        "unit": "millimeter"
+      },
+      "terms": [
+        {
+          "name": "suspect",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "A2",
+      "template": "{suspect} had facial hair measuring on the chin",
+      "comparison": {
+        "sign": ">=",
+        "value": 0.5,
+        "unit": "centimeter"
+      },
+      "terms": [
+        {
+          "name": "suspect",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "A3",
+      "template": "{suspect} had facial hair measuring on the chin",
+      "comparison": {
+        "sign": ">=",
+        "value": 2,
+        "unit": "centimeter"
+      },
+      "terms": [
+        {
+          "name": "suspect",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "A4",
+      "template": "{suspect} had facial hair measuring on the chin",
+      "comparison": {
+        "sign": ">=",
+        "value": 5,
+        "unit": "millimeter"
+      },
+      "terms": [
+        {
+          "name": "suspect",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": false
+    },
+    {
+      "id": "A5",
+      "template": "{suspect} had facial hair measuring on the chin",
+      "comparison": {
+        "sign": "<",
+        "value": 3,
+        "unit": "millimeter"
+      },
+      "terms": [
+        {
+          "name": "suspect",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "B1",
+      "template": "{accused} was fined mass of gold",
+      "comparison": {
+        "sign": ">=",
+        "value": 20,
+        "unit": "gram"
+      },
+      "terms": [
+        {
+          "name": "accused",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "B2",
+      "template": "{accused} was fined mass of gold",
+      "comparison": {
+        "sign": ">=",
+        "value": 0.5,
+        "unit": "ounce"
+      },
+      "terms": [
+        {
+          "name": "accused",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "B3",
+      "template": "{accused} was fined mass of gold",
+      "comparison": {
+        "sign": "<=",
+        "value": 10,
+        "unit": "gram"
+      },
+      "terms": [
+        {
+          "name": "accused",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "C1",
+      "template": "{work} was an original work of authorship",
+      "terms": [
+        {
+          "name": "work",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "C2",
+      "template": "{work} was an original work of authorship",
+      "terms": [
+        {
+          "name": "work",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": null
+    },
+    {
+      "id": "C3",
+      "template": "{work} was an original work of authorship",
+      "terms": [
+        {
+          "name": "work",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": false
+    },
+    {
+      "id": "D1",
+      "template": "{party_a} and {party_b} entered into a contract",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Bob",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "D2",
+      "template": "{party_a} and {party_b} entered into a contract",
+      "terms": [
+        {
+          "name": "Bob",
+          "generic": false
+        },
+        {
+          "name": "Alice",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "D3",
+      "template": "{party_a} and {party_b} entered into a contract",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Carol",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "D4",
+      "template": "{party_a} and {party_b} entered into a contract",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Bob",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": false
+    },
+    {
+      "id": "E1",
+      "template": "{person} was a licensed barber",
+      "terms": [
+        {
+          "name": "person",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "E2",
+      "template": "{person} was a licensed barber",
+      "terms": [
+        {
+          "name": "Bob Smith",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "F1",
+      "template": "{employer} hired {employee}",
+      "terms": [
+        {
+          "name": "employer",
+          "generic": true
+        },
+        {
+          "name": "employee",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "F2",
+      "template": "{employer} hired {employee}",
+      "terms": [
+        {
+          "name": "employer",
+          "generic": true
+        },
+        {
+          "name": "employee",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": false
+    },
+    {
+      "id": "G1",
+      "template": "{driver} was driving at speed",
+      "comparison": {
+        "sign": ">=",
+        "value": 100,
+        "unit": "mile/hour"
+      },
+      "terms": [
+        {
+          "name": "driver",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "G2",
+      "template": "{driver} was driving at speed",
+      "comparison": {
+        "sign": ">=",
+        "value": 50,
+        "unit": "mile/hour"
+      },
+      "terms": [
+        {
+          "name": "driver",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "G3",
+      "template": "{driver} was driving at speed",
+      "comparison": {
+        "sign": ">=",
+        "value": 160,
+        "unit": "kilometer/hour"
+      },
+      "terms": [
+        {
+          "name": "driver",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "H1",
+      "template": "{judge} ruled that {plaintiff1} and {plaintiff2} could sue {defendant}",
+      "terms": [
+        {
+          "name": "judge",
+          "generic": true
+        },
+        {
+          "name": "Smith",
+          "generic": false
+        },
+        {
+          "name": "Jones",
+          "generic": false
+        },
+        {
+          "name": "defendant",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          1,
+          2
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "H2",
+      "template": "{judge} ruled that {plaintiff1} and {plaintiff2} could sue {defendant}",
+      "terms": [
+        {
+          "name": "judge",
+          "generic": true
+        },
+        {
+          "name": "Jones",
+          "generic": false
+        },
+        {
+          "name": "Smith",
+          "generic": false
+        },
+        {
+          "name": "defendant",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          1,
+          2
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "I1",
+      "template": "{item} had measured weight",
+      "comparison": {
+        "sign": ">",
+        "value": 1000,
+        "unit": "gram"
+      },
+      "terms": [
+        {
+          "name": "item",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "I2",
+      "template": "{item} had measured weight",
+      "comparison": {
+        "sign": ">=",
+        "value": 1,
+        "unit": "kilogram"
+      },
+      "terms": [
+        {
+          "name": "item",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "I3",
+      "template": "{item} had measured weight",
+      "comparison": {
+        "sign": "<=",
+        "value": 1,
+        "unit": "kilogram"
+      },
+      "terms": [
+        {
+          "name": "item",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [],
+      "truth": true
+    },
+    {
+      "id": "J1",
+      "template": "{party_a} collaborated with {party_b} on a venture",
+      "terms": [
+        {
+          "name": "party",
+          "generic": true
+        },
+        {
+          "name": "party",
+          "generic": true
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "J2",
+      "template": "{party_a} collaborated with {party_b} on a venture",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Bob",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "J3",
+      "template": "{party_a} collaborated with {party_b} on a venture",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Alice",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "J4",
+      "template": "{party_a} collaborated with {party_b} on a venture",
+      "terms": [
+        {
+          "name": "party",
+          "generic": true
+        },
+        {
+          "name": "Alice",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": true
+    },
+    {
+      "id": "J5",
+      "template": "{party_a} collaborated with {party_b} on a venture",
+      "terms": [
+        {
+          "name": "Alice",
+          "generic": false
+        },
+        {
+          "name": "Bob",
+          "generic": false
+        }
+      ],
+      "interchangeable_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "truth": false
+    }
+  ]
+}

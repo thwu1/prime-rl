@@ -1,0 +1,11 @@
+order_id,customer_name,part_width_mm,quantity_needed,due_date,priority,notes
+ORD-1001,Acme Packaging,141,97,2024-03-15,standard,
+ORD-1002,Beta Corp,168,48,2024-03-12,rush,expedite shipping
+ORD-1003,Acme Packaging,193,132,2024-03-18,standard,
+ORD-1004,Gamma Industries,207,78,2024-03-20,standard,
+ORD-1005,Delta Supply,248,59,2024-03-15,low,
+ORD-1006,Epsilon Ltd,271,105,2024-03-14,rush,
+ORD-1007,Zeta Manufacturing,314,43,2024-03-22,standard,combine with ORD-1008 if possible
+ORD-1008,Eta Solutions,337,67,2024-03-16,standard,
+ORD-1009,Theta Corp,379,34,2024-03-25,low,
+ORD-1010,Iota Industries,413,52,2024-03-19,rush,

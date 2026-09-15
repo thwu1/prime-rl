@@ -1,0 +1,31 @@
+# Kafka Cluster Rebalancing Operational Constraints
+# Applied to cluster: kafka-prod-east-1
+# Last updated: 2024-11-15
+
+cluster:
+  id: kafka-prod-east-1
+  environment: production
+
+rebalancing:
+  rack_awareness:
+    enabled: true
+    enforcement: strict
+  
+  balance_limits:
+    max_replica_imbalance: 2
+    max_leader_imbalance: 2
+  
+  throttling:
+    max_concurrent_partition_moves: 15
+    inter_broker_throttle_bytes_per_sec: 104857600
+    replication_throttle_bytes_per_sec: 52428800
+  
+  safety:
+    min_isr_during_reassignment: 1
+    preferred_leader_election_after: true
+    validate_rack_awareness_before_execute: true
+  
+  optimization:
+    objective: minimize_data_movement
+    allow_leader_only_moves: true
+    prefer_intra_rack_moves: false

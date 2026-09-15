@@ -1,0 +1,10 @@
+{
+  "name": "bell_z0",
+  "n_qubits": 2,
+  "operations": [
+    {"gate": "H", "targets": [0]},
+    {"gate": "X", "targets": [1], "controls": [0]}
+  ],
+  "params": [],
+  "observable_qubit": 0
+}

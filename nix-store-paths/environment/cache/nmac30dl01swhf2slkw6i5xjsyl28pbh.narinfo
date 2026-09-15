@@ -1,0 +1,9 @@
+StorePath: /nix/store/nmac30dl01swhf2slkw6i5xjsyl28pbh-configure
+URL: nar/nmac30dl01swhf2slkw6i5xjsyl28pbh.nar.xz
+Compression: xz
+FileHash: sha256:8043e54d3fb21f61128aa91a641be7dbe0e2b3985600327e5a995c14f5afcfc9
+FileSize: 2355240
+NarHash: sha256:0a055b082ab658c3a2e0e5e48a4e6f0f737e16d0e70e95a06975bb55b10ad390
+NarSize: 17374141
+References:
+CA: text:sha256:1q5bhd997r8xgyr34ll6vzbj933kysq05jbk01l33lyzrwmcd5fh

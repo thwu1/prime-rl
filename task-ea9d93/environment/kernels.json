@@ -1,0 +1,49 @@
+{
+  "kernels": [
+    {
+      "name": "stream_triad",
+      "description": "a[i] = b[i] + scalar * c[i]",
+      "flops_per_element": 2,
+      "bytes_read_per_element": 16,
+      "bytes_written_per_element": 8,
+      "write_allocate": true,
+      "working_set_bytes": 80000000
+    },
+    {
+      "name": "stencil_3d_7pt",
+      "description": "Weighted 7-point 3D Jacobi stencil (effective DRAM traffic with spatial reuse)",
+      "flops_per_element": 13,
+      "bytes_read_per_element": 16,
+      "bytes_written_per_element": 8,
+      "write_allocate": true,
+      "working_set_bytes": 64000000
+    },
+    {
+      "name": "fft_radix2",
+      "description": "Radix-2 FFT butterfly (per complex element, in-place)",
+      "flops_per_element": 5,
+      "bytes_read_per_element": 16,
+      "bytes_written_per_element": 16,
+      "write_allocate": false,
+      "working_set_bytes": 4000000
+    },
+    {
+      "name": "dgemm_blocked",
+      "description": "Cache-blocked DGEMM with block size 64",
+      "flops_per_element": 128,
+      "bytes_read_per_element": 16,
+      "bytes_written_per_element": 8,
+      "write_allocate": false,
+      "working_set_bytes": 200000
+    },
+    {
+      "name": "sparse_matvec",
+      "description": "Sparse CSR matrix-vector multiply (~10 nonzeros per row)",
+      "flops_per_element": 20,
+      "bytes_read_per_element": 112,
+      "bytes_written_per_element": 8,
+      "write_allocate": true,
+      "working_set_bytes": 50000000
+    }
+  ]
+}

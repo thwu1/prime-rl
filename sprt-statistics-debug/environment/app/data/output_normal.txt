@@ -1,0 +1,16 @@
+Finished game 1 (New-abc1234567 vs Base-def7890123): 1-0 {White wins by adjudication}
+Finished game 2 (Base-def7890123 vs New-abc1234567): 1/2-1/2 {Draw by adjudication}
+Finished game 3 (New-abc1234567 vs Base-def7890123): 0-1 {Black wins by adjudication}
+Finished game 4 (Base-def7890123 vs New-abc1234567): 1/2-1/2 {Draw by adjudication}
+Finished game 5 (New-abc1234567 vs Base-def7890123): 1-0 {White wins by adjudication}
+Finished game 6 (Base-def7890123 vs New-abc1234567): 1-0 {White wins by adjudication}
+Finished game 7 (New-abc1234567 vs Base-def7890123): 0-1 {Black wins by adjudication}
+Finished game 8 (Base-def7890123 vs New-abc1234567): 1/2-1/2 {Draw by adjudication}
+--------------------------------------------------
+Results of New-abc1234567 vs Base-def7890123 (10+0.1, 1t, 16MB, UHO_Lichess_4852_v1.epd):
+Elo: 3.45 +/- 15.27, nElo: 4.31 +/- 19.07
+LOS: 67.12 %, DrawRatio: 45.20 %, PairsRatio: 1.12
+Games: 200, Wins: 65, Losses: 55, Draws: 80, Points: 105.0 (52.50 %)
+Ptnml(0-2): [5, 22, 48, 18, 7], WL/DD Ratio: 3.45
+--------------------------------------------------
+Finished match

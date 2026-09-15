@@ -1,0 +1,69 @@
+HOURLY GEOMAGNETIC AND SOLAR ACTIVITY INDICES
+==============================================
+
+DATA FORMAT SPECIFICATION
+For file: geomag_2024.dat
+
+This file contains hourly values of geomagnetic and solar activity
+indices derived from a global network of ground-based magnetometers,
+ionospheric observatories, and upstream solar wind monitors. Coverage
+spans April 1 through June 15, 2024.
+
+FORMAT: Fixed-width ASCII, one record per hour, no header row.
+
+COLUMN SPECIFICATIONS:
+
+  Start  End  Width  Type    Name                    Units           Fill Value
+  -----  ---  -----  ------  ----------------------  --------------  ----------
+    1      4    4    INT     Year                    yyyy            -
+    6      8    3    INT     Day of Year             ddd (001-366)   -
+   10     11    2    INT     Hour                    hh (00-23)      -
+   13     16    4    INT     Bartels Rotation No.    -               9999
+   18     20    3    INT     Planetary Kp x 10       -               999
+   22     25    4    INT     Planetary ap index      nT              9999
+   27     31    5    INT     Dst index               nT              99999
+   33     37    5    INT     AE index                nT              99999
+   39     44    6    FLOAT   F10.7 solar flux        sfu             999.9
+   46     48    3    INT     Sunspot number          -               999
+   50     50    1    INT     ap qualifier flag       (see note 3)    9
+   52     57    6    FLOAT   IMF magnitude |B|       nT              999.9
+   59     64    6    FLOAT   SW proton density       n/cm^3          999.9
+   66     71    6    FLOAT   SW bulk flow speed      km/s            9999.9
+
+NOTES:
+1. Fill values indicate missing or unreliable data. Records containing
+   fill values for a given parameter should be excluded from analysis
+   involving that parameter.
+
+2. Kp values are stored as Kp x 10 (e.g., Kp = 3.7 is recorded as 37,
+   Kp = 5+ is recorded as 53, Kp = 5- is recorded as 47). This encoding
+   preserves the one-third resolution of the original index without
+   requiring fractional notation.
+
+3. The ap qualifier flag encodes data provenance:
+     0 = definitive (final, quality-controlled value)
+     1 = estimated or provisional (may be revised in future releases)
+   When the flag is set to the fill value (9), no provenance metadata
+   is available for that hour.
+
+4. All timestamps are in UTC. There is no daylight saving adjustment.
+
+5. Day of Year numbering: January 1 = 001. For leap years (2024 is a
+   leap year), February has 29 days and December 31 = 366.
+
+6. The columns labeled "Start" and "End" use 1-based character positions.
+   Fields are separated by single space characters, but parsers should
+   rely on the fixed-width column positions rather than delimiter-based
+   splitting, as some fields (especially negative Dst values) may abut
+   adjacent fields without a visible separator.
+
+7. The Dst index can take negative values during geomagnetic storm main
+   phase (ring current intensification). Values below -100 nT generally
+   indicate moderate to severe storm conditions.
+
+8. The AE (auroral electrojet) index measures high-latitude geomagnetic
+   activity. Values above 500 nT suggest substorm activity.
+
+9. F10.7 solar radio flux at 10.7 cm wavelength (2800 MHz) is a proxy
+   for solar extreme ultraviolet emission. Higher values correlate with
+   increased thermospheric density and satellite drag.

@@ -1,0 +1,61 @@
+=====================================
+SESSION CAPTURE #2 — Speed Boundary + Heartbeat
+Captured: 2024-03-15 15:01:44 UTC
+Server: prod-speed-01.freedom-island.local:9999
+Notes: Two parts. First: car at exactly the speed limit — observe
+       whether a ticket is issued. Second: heartbeat request/response
+       timing observation.
+=====================================
+
+--- PART A: Exact speed limit ---
+
+--- Connection A opened (camera) ---
+[T+0.000s] A -> Server | 80 00 c8 00 00 00 3c
+
+--- Connection B opened (camera) ---
+[T+0.020s] B -> Server | 80 00 c8 00 3c 00 3c
+
+--- Connection C opened (dispatcher) ---
+[T+0.100s] C -> Server | 81 01 00 c8
+
+[T+0.500s] A -> Server | 20 05 53 41 46 45 31 00 00 00 00
+[T+0.800s] B -> Server | 20 05 53 41 46 45 31 00 00 0e 10
+
+--- Waited 5.0s — no messages received from server on connection C ---
+--- Connections A, B, C closed by client ---
+
+#
+# Camera A: road 200, mile 0, limit 60. Plate "SAFE1" at timestamp 0.
+# Camera B: road 200, mile 60, limit 60. Plate "SAFE1" at timestamp 3600.
+# 60 miles / 3600 seconds = exactly 60 mph = the limit.
+# NO ticket was issued. The speed must EXCEED the limit, not equal it.
+#
+
+=====================================
+
+--- PART B: Heartbeat timing ---
+
+--- Connection D opened ---
+[T+10.000s] D -> Server | 40 00 00 00 0a
+[T+11.002s] Server -> D | 41
+[T+12.001s] Server -> D | 41
+[T+13.003s] Server -> D | 41
+
+--- Connection D closed by client at T+14.0s ---
+
+#
+# WantHeartbeat with interval=10.
+# Heartbeats arrive approximately every 1.0 second.
+# Inference: interval is in deciseconds (10ths of a second).
+# 10 deciseconds = 1.0 seconds.
+#
+
+--- Connection E opened ---
+[T+15.000s] E -> Server | 40 00 00 00 00
+--- Waited 10.0s — no heartbeats received ---
+--- Connection E closed by client ---
+
+#
+# WantHeartbeat with interval=0.
+# No heartbeats received. Interval 0 means no heartbeats.
+#

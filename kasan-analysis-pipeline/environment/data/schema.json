@@ -1,0 +1,77 @@
+{
+  "description": "Expected output format for the KASAN analysis framework",
+  "output_file": "/app/output/report.json",
+  "schema": {
+    "parsed_reports": {
+      "_description": "One entry per report file, keyed by report ID (filename without extension)",
+      "_entry_schema": {
+        "bug_type": "string: one of [slab-out-of-bounds, slab-use-after-free, use-after-free, null-ptr-deref, global-out-of-bounds, stack-out-of-bounds, wild-memory-access, invalid-free]",
+        "access_type": "string or null: 'Read' or 'Write' (null only for invalid-free)",
+        "access_size": "int: number of bytes accessed (from 'Read/Write of size N')",
+        "faulting_function": "string: function name from BUG line (without +0x... suffix)",
+        "faulting_source_file": "string: source file path (e.g., 'net/core/dev.c')",
+        "faulting_source_line": "int: source line number",
+        "buggy_addr": "string: hex address without '0x' prefix (from 'at addr ...')",
+        "task_name": "string: task/process name (from 'by task NAME/PID')",
+        "pid": "int: process ID",
+        "cpu": "int: CPU number",
+        "tainted": "bool: true if kernel is tainted, false if 'Not tainted'",
+        "crash_stack": [
+          {
+            "function": "string: function name",
+            "file": "string: source file path",
+            "line": "int: line number",
+            "is_inline": "bool: true if [inline] marker present"
+          }
+        ],
+        "alloc_stack": "list of stack frames (same format) or null if no 'Allocated by' section",
+        "free_stack": "list of stack frames (same format) or null if no 'Freed by' section",
+        "slab_cache": "string or null: slab cache name (e.g., 'kmalloc-64', 'ext4_extent_status')",
+        "slab_object_size": "int or null: slab object size in bytes",
+        "alloc_size": "int or null: actual allocation size (from 'allocated/freed N-byte region')",
+        "global_variable": "string or null: global variable name (only for global-out-of-bounds)"
+      }
+    },
+    "vm_verdicts": {
+      "_description": "One entry per VM test case, keyed by case ID",
+      "_entry_schema": {
+        "verdict": "string: one of [pass, trigger, racey, boot_fail]",
+        "vm_count": "int: total number of VMs",
+        "pass_count": "int: number of VMs that passed (no crash triggered)",
+        "trigger_count": "int: number of VMs where bug was triggered",
+        "boot_fail_count": "int: number of VMs that failed to boot",
+        "other_count": "int: number of VMs with other/unknown outcomes"
+      }
+    },
+    "experiment_metrics": {
+      "_description": "Aggregate metrics across APR configurations",
+      "per_config": {
+        "_entry_schema": {
+          "pass_rate": "float: fraction of bugs with 'pass' verdict",
+          "pass_count": "int: number of bugs with 'pass' verdict",
+          "total_bugs": "int: total number of bugs evaluated",
+          "unique_solves": "list of bug IDs solved ONLY by this config (not by any other)",
+          "unique_solve_count": "int: length of unique_solves",
+          "avg_cost_per_bug": "float: average cost per bug for this config",
+          "compilation_fail_count": "int: number of bugs with compilation_fail build status",
+          "bad_patch_count": "int: number of bugs with bad_patch build status"
+        }
+      },
+      "combined_pass_rate": "float: fraction of bugs solved by ANY config (union)",
+      "combined_pass_count": "int: number of bugs solved by at least one config",
+      "combined_solved_bugs": "sorted list of bug IDs solved by any config",
+      "total_bugs": "int: total number of bugs"
+    }
+  },
+  "verdict_classification_rules": {
+    "description": "Multi-VM verdict classification protocol",
+    "rules": [
+      "1. If ANY VM has 'boot_fail' outcome -> verdict is 'boot_fail'",
+      "2. Count remaining outcomes as 'pass' or 'trigger' (ignore 'other')",
+      "3. If all counted outcomes are 'pass' -> verdict is 'pass'",
+      "4. If all counted outcomes are 'trigger' -> verdict is 'trigger'",
+      "5. If mix of 'pass' and 'trigger' -> verdict is 'racey'",
+      "6. If no 'pass' or 'trigger' outcomes and no 'boot_fail' -> verdict is 'other'"
+    ]
+  }
+}

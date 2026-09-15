@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of turbulent boundary layer theory, experimental data analysis, inner/outer velocity scaling, wall-law fitting, and CFD verification methodology. The agent must correctly handle: parsing non-trivial data formats with header metadata, choosing appropriate numerical integration strategies for sparse experimental data, selecting and implementing an implicit wall-law fitting approach for friction velocity extraction, identifying convergence behavior across grid levels, computing grid-independent extrapolated values and discretization uncertainty bounds, and producing a structured validation report. Each sub-problem involves judgment calls that require deep domain knowledge."""
+solution_explanation = """Parse experimental data files with header metadata. Compute BL integral parameters via numerical integration of velocity deficit from wall to boundary layer edge. Fit an implicit wall-law (Spalding) using nonlinear optimization on the inner-layer PIV data to determine u_tau, then derive Cf. For grid convergence, compute refinement ratios from grid dimensions, determine observed order via three-grid Richardson extrapolation, compute extrapolated values and GCI for monotonic cases, and flag oscillatory convergence for Cp_te."""
+verification_explanation = """Tests verify: (1) BL integral parameters match published experimental values within 20% tolerance, (2) wall-law-derived u_tau matches PIV-reported values within 20%, (3) grid convergence order, extrapolated values, and GCI match analytical computations within 5%, (4) oscillatory convergence correctly identified for Cp_te, (5) JSON structure is correct with all required fields, (6) physical consistency checks (Reynolds number trends, shape factor ranges)."""
+category = "computational_fluid_dynamics"
+tags = ["turbulence-modeling", "verification-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cfd-boundary-validation"

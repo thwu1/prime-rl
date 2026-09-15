@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level IR evaluation knowledge spanning multiple sub-disciplines. Pipeline forensics demands diagnosing four distinct metric implementation bugs: unsorted IDCG grades (nDCG normalization theory), wrong MAX_GRADE constant (ERR cascade probability semantics), incorrect MAP denominator (precision averaging theory), and silent duplicate overwrite in qrels loading (data curation policy). Beyond bug-fixing, three advanced analyses require holistic understanding: (1) fitting a position-bias click model via power-law regression on log-transformed CTR data demands knowledge of the examination hypothesis from click modeling literature; (2) inter-metric concordance via Kendall's τ requires understanding that nDCG, ERR, and MAP encode different user models and can rank systems differently; (3) oracle per-query system selection analysis requires evaluation methodology expertise to quantify the upper bound of query-adaptive retrieval. The solver must synthesize tool-based diagnosis (trec_eval), code review, data auditing, statistical modeling, and metric theory."""
+solution_explanation = """Run trec_eval on each system to get reference nDCG and MAP. Compare with pipeline output to detect nDCG sorting bug and MAP denominator bug. Review pipeline.py source to find all four bugs: (1) load_qrels overwrites duplicates instead of max, (2) compute_ndcg IDCG not sorted, (3) compute_err MAX_GRADE=4 not 3, (4) compute_map divides by k not R. Scan qrels for 5 duplicate pairs with conflicting grades, clicks for 12 invalid entries. Re-implement correct metrics with deduplicated qrels. Compute per-category best system via query_taxonomy.json. Sweep RRF k from 1-100. For click model: group valid click entries by position, compute CTR, fit log(CTR) = log(a) - b*log(p) via OLS. For concordance: rank 5 systems by each metric, compute pairwise Kendall tau-a. For oracle: compute per-query max nDCG across systems, average, compare to best single system."""
+verification_explanation = """Tests independently implement all correct metrics (nDCG with sorted IDCG, ERR with MAX_GRADE=3, MAP with R denominator) using deduplicated qrels (max grade). All 15 system-metric combinations verified within 0.005 tolerance. Pipeline bug identification verified by checking all four function names. Duplicate qrels verified by exact set match. Invalid clicks verified exactly. Fusion optimal_k verified by checking achieved nDCG is within 0.003 of true optimum. Click model exponent and R² verified against independent log-log regression within 0.05 tolerance. Metric concordance tau values verified against independent computation within 0.01. Oracle analysis verified: best single system identity, oracle nDCG within 0.005, improvement percentage within 1.0."""
+category = "information_retrieval"
+tags = ["search_relevance", "evaluation_methodology"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6cc48e"

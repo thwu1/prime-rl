@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a physically-based snow column model from SUMMA-compatible configuration files without explicit formulas or algorithms provided. The solver must: parse four distinct SUMMA-format configuration files, research and implement snow energy balance physics (surface temperature solving, radiation, turbulent heat fluxes), implement two distinct albedo decay parameterizations based only on parameter names and the alb_method decision flag, implement precipitation partitioning and melt/sublimation/compaction dynamics, produce correctly-formatted NetCDF output, and generate a diagnostic comparison report with cross-configuration statistics including melt onset detection."""
+solution_explanation = """Reference implementation is a Python single-layer snow column model (~250 lines). Parses SUMMA-format file manager, decisions, and parameter files. Reads hourly forcing from NetCDF. At each timestep: partitions precipitation by temperature threshold, evolves albedo (conDecay: exponential decay with e-folding time tau_const; varDecay: fast exponential decay with rate c_warm in warm conditions, slow linear decrease c_cold per step in cold conditions), solves surface energy balance via Newton-Raphson iteration for temperature capped at 273.15K with excess driving melt, computes sublimation from latent heat deficit, and applies viscous snow compaction. A separate generate_report.py reads both outputs and computes peak SWE, melt/sublimation totals, snow cover duration, and cross-configuration divergence metrics including melt onset detection."""
+verification_explanation = """50 tests across 10 test suites: model execution (output files exist), output format (correct NetCDF variables, dimensions, shapes, no NaN), albedo physics (bounds enforcement, snowfall reset, exponential decay rate for conDecay, conDecay/varDecay divergence), mass conservation (non-negative SWE/depth, density bounds, approximate mass balance, non-negative sublimation), temperature physics (melting point ceiling, reasonable range, melt near melting point), snow accumulation (cold precip increases, peak timing, significant accumulation), cross-configuration comparison (different SWE/melt, varDecay format valid), varDecay-specific behavior (temperature-dependent decay rates, mass conservation), heat flux physics (sensible heat sign convention, no NaN), and comparison report (valid JSON, correct schema, peak SWE consistency, reasonable statistics, positive divergence)."""
+category = "scientific_computing"
+tags = ["hydrology", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/snow-albedo-model"

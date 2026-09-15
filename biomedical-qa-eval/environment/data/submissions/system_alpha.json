@@ -1,0 +1,70 @@
+{
+  "system_name": "alpha",
+  "questions": [
+    {
+      "id": "BQ001",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/28355001", "http://www.ncbi.nlm.nih.gov/pubmed/88000001", "http://www.ncbi.nlm.nih.gov/pubmed/29150432"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ002",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000002", "http://www.ncbi.nlm.nih.gov/pubmed/30203690"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ003",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/31200301", "http://www.ncbi.nlm.nih.gov/pubmed/32100402", "http://www.ncbi.nlm.nih.gov/pubmed/88000003", "http://www.ncbi.nlm.nih.gov/pubmed/33000503"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/34000604", "http://www.ncbi.nlm.nih.gov/pubmed/35000705", "http://www.ncbi.nlm.nih.gov/pubmed/88000004"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ005",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/36000806", "http://www.ncbi.nlm.nih.gov/pubmed/37000907"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ006",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/38001008", "http://www.ncbi.nlm.nih.gov/pubmed/88000005", "http://www.ncbi.nlm.nih.gov/pubmed/39001109", "http://www.ncbi.nlm.nih.gov/pubmed/40001210"],
+      "exact_answer": ["BRCA1", "p53", "EGFR"]
+    },
+    {
+      "id": "BQ007",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/41001311", "http://www.ncbi.nlm.nih.gov/pubmed/88000007", "http://www.ncbi.nlm.nih.gov/pubmed/42001412"],
+      "exact_answer": ["metformin"]
+    },
+    {
+      "id": "BQ008",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/43001513", "http://www.ncbi.nlm.nih.gov/pubmed/88000008"],
+      "exact_answer": ["c-KIT", "BCR-ABL"]
+    },
+    {
+      "id": "BQ009",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/44001614", "http://www.ncbi.nlm.nih.gov/pubmed/88000009", "http://www.ncbi.nlm.nih.gov/pubmed/45001715"],
+      "exact_answer": ["CRISPR-Cas9"]
+    },
+    {
+      "id": "BQ010",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/46001816", "http://www.ncbi.nlm.nih.gov/pubmed/47001917", "http://www.ncbi.nlm.nih.gov/pubmed/88000010"],
+      "exact_answer": ["aspirin", "ibuprofen", "celecoxib"]
+    },
+    {
+      "id": "BQ011",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/48002018", "http://www.ncbi.nlm.nih.gov/pubmed/49002119", "http://www.ncbi.nlm.nih.gov/pubmed/88000011", "http://www.ncbi.nlm.nih.gov/pubmed/50002220", "http://www.ncbi.nlm.nih.gov/pubmed/51002321", "http://www.ncbi.nlm.nih.gov/pubmed/52002422", "http://www.ncbi.nlm.nih.gov/pubmed/88000012", "http://www.ncbi.nlm.nih.gov/pubmed/53002523", "http://www.ncbi.nlm.nih.gov/pubmed/54002624", "http://www.ncbi.nlm.nih.gov/pubmed/55002725"],
+      "exact_answer": ["EGFR", "ALK", "MET", "ROS1"]
+    },
+    {
+      "id": "BQ012",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/62003430", "http://www.ncbi.nlm.nih.gov/pubmed/63003531"],
+      "exact_answer": ["adenine", "thymine", "guanine", "uracil"]
+    },
+    {
+      "id": "BQ013",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/64003632", "http://www.ncbi.nlm.nih.gov/pubmed/88000013", "http://www.ncbi.nlm.nih.gov/pubmed/65003733"],
+      "exact_answer": ["IL-6", "TNF-alpha", "CRP"]
+    }
+  ]
+}

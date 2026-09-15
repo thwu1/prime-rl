@@ -1,0 +1,30 @@
+{
+    "variable_map": {
+        "clock_period": "DRT::clock_period",
+        "instance_count": "IFP::instance_count"
+    },
+    "metrics": [
+        {"name": "IFP::instance_count", "comparison": "<", "tolerance_expr": "value * 1.2"},
+        {"name": "DPL::design_area", "comparison": "<", "tolerance_expr": "value * 1.2"},
+        {"name": "DPL::utilization", "comparison": "<", "tolerance_expr": "value * 1.2"},
+        {"name": "RSZ::repair_design_buffer_count", "comparison": "<=", "tolerance_expr": "int(value * 1.2)"},
+        {"name": "RSZ::max_slew_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "RSZ::max_fanout_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "RSZ::max_capacitance_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "RSZ::worst_slack_min", "comparison": ">", "tolerance_expr": "value - clock_period * .1"},
+        {"name": "RSZ::worst_slack_max", "comparison": ">", "tolerance_expr": "value - clock_period * .1"},
+        {"name": "RSZ::tns_max", "comparison": ">", "tolerance_expr": "value - clock_period * .1 * instance_count * .1"},
+        {"name": "RSZ::hold_buffer_count", "comparison": "<=", "tolerance_expr": "int(value * 1.2)"},
+        {"name": "GRT::ANT::errors", "comparison": "<=", "tolerance_expr": "value"},
+        {"name": "DRT::drv", "comparison": "<=", "tolerance_expr": "value"},
+        {"name": "DRT::worst_slack_min", "comparison": ">", "tolerance_expr": "value - clock_period * .1"},
+        {"name": "DRT::worst_slack_max", "comparison": ">", "tolerance_expr": "value - clock_period * .1"},
+        {"name": "DRT::tns_max", "comparison": ">", "tolerance_expr": "value - clock_period * .1 * instance_count * .1"},
+        {"name": "DRT::clock_skew", "comparison": "<=", "tolerance_expr": "value * 1.2"},
+        {"name": "DRT::max_slew_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "DRT::max_capacitance_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "DRT::max_fanout_slack", "comparison": ">=", "tolerance_expr": "min(0, value * 1.2)"},
+        {"name": "DRT::clock_period", "comparison": "<=", "tolerance_expr": "value"},
+        {"name": "DRT::ANT::errors", "comparison": "<=", "tolerance_expr": "value"}
+    ]
+}

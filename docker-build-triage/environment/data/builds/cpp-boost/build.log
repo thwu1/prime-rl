@@ -1,0 +1,19 @@
+Step 1/9 : FROM ubuntu:18.04
+ ---> d4e5f6g7h8i9
+Step 2/9 : ENV DEBIAN_FRONTEND=noninteractive
+ ---> Using cache
+ ---> j0k1l2m3n4o5
+Step 3/9 : RUN apt-get update && apt-get install -y g++ make libboost-all-dev && rm -rf /var/lib/apt/lists/*
+ ---> Running in p6q7r8s9t0u1
+Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
+...
+Setting up libboost-all-dev (1.65.1.0ubuntu1) ...
+Step 4/9 : WORKDIR /app
+ ---> Using cache
+ ---> v2w3x4y5z6a7
+Step 5/9 : COPY . .
+ ---> b8c9d0e1f2g3
+Step 6/9 : RUN mkdir -p build && cd build && cmake ..
+ ---> Running in h4i5j6k7l8m9
+/bin/sh: 1: cmake: not found
+The command '/bin/sh -c mkdir -p build && cd build && cmake ..' returned a non-zero code: 127

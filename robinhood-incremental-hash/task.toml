@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives a functionally correct but architecturally \
+deficient hash table and must diagnose which API contracts it violates by running and \
+interpreting a 22-test qualification suite whose requirements are not stated in the \
+instruction. The tests encode constraints that require expert data-structure engineering \
+to satisfy simultaneously: bounded worst-case probe displacement, amortized table growth \
+with a configurable per-operation migration budget, correct mutations and iteration \
+spanning split internal state during growth, and accurate statistics at all times. \
+Implementing a solution demands deep knowledge of open-addressing collision-resolution \
+variants and careful systems-level C with no memory errors across complex state transitions."""
+solution_explanation = """The solution uses FNV-1a hashing with robin-hood linear probing \
+(displacing entries with lower probe distance to bound max displacement), backward-shift \
+deletion (shifting entries backward to fill gaps without tombstones), and a dual-table \
+incremental resize scheme where at most HM_RESIZE_BATCH entries migrate per mutating \
+operation. Lookups and deletes search both tables during resize; inserts target the new \
+table. A cursor tracks migration progress through the old table."""
+verification_explanation = """Tests compile the agent's hashmap.c as a shared library \
+and exercise it via Python ctypes. 22 pytest cases verify: basic CRUD, update-in-place, \
+variable-length keys/values, zero-length values, iteration with early stop, incremental \
+resize (resize_remaining decreases by at most HM_RESIZE_BATCH per operation), multiple \
+resize cycles, operations during active resize (lookup/update/delete across split storage), \
+iteration across split storage with no duplicates, bounded probe displacement, deletion-preserves-reachability, \
+delete-and-reinsert cycles, stats accuracy mid-resize, a 5000-entry bulk \
+test, and a deterministic 10000-operation stress test."""
+category = "systems"
+tags = ["hash-table", "performance-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robinhood-incremental-hash"

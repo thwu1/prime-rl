@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete VLIW instruction scheduler with dependency analysis, list scheduling, and register allocation, then integrating the scheduler into a multi-tool pipeline using GNU Make, Graphviz, and jq. The agent must understand VLIW semantics (read-before-write within bundles), correctly handle RAW/WAR/WAW data hazards and memory ordering, implement priority-based list scheduling, perform liveness-based register allocation for programs whose virtual registers exceed the physical limit, generate valid Graphviz DOT dependency graph files, write a GNU Makefile with correct target dependencies and tab-indented recipes, and produce structured JSON statistics queryable with jq. This combines graduate-level compiler backend knowledge with multi-tool build orchestration."""
+solution_explanation = """Build a dependency DAG tracking RAW, WAR, WAW register hazards and memory ordering. Compute instruction priorities via longest-path-to-end. Apply list scheduling with greedy functional unit assignment. For register allocation, perform backward liveness analysis, build an interference graph, and apply greedy graph coloring. Write a pipeline script that serializes scheduled bundles as JSON, emits Graphviz DOT dependency graphs, and generates a statistics report. Wire everything together with a GNU Makefile that invokes the pipeline script and renders DOT to SVG via the dot CLI."""
+verification_explanation = """For each of 3 programs: (1) run the agent's scheduler, (2) validate bundle structure (one instruction per unit, no write-write conflicts), (3) simulate VLIW execution and compare memory against expected values, (4) verify registers in [0,255], (5) verify cycle improvement over sequential, (6) verify total instruction count preserved. Additionally: run make all and verify it completes, check SVG files produced by graphviz, validate report.json schema and values, and query report.json with jq."""
+category = "systems"
+tags = ["compiler", "build-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vliw-scheduler"

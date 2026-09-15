@@ -1,0 +1,30 @@
+[
+  {
+    "note_id": "N001",
+    "text": "Patient presents with acute chest pain radiating to the left arm. No evidence of myocardial infarction on ECG. History of hypertension and type 2 diabetes mellitus. Currently taking metformin and lisinopril."
+  },
+  {
+    "note_id": "N002",
+    "text": "Denies fever, cough, and dyspnea but complains of persistent headache and nausea."
+  },
+  {
+    "note_id": "N003",
+    "text": "Pneumonia was ruled out by chest imaging. Consider ruling out pulmonary embolism given the clinical presentation. Started aspirin and warfarin for prophylaxis."
+  },
+  {
+    "note_id": "N004",
+    "text": "Patient with no change in chronic obstructive pulmonary disease symptoms. No nausea or vomiting reported. Previously diagnosed with asthma. Taking albuterol and prednisone."
+  },
+  {
+    "note_id": "N005",
+    "text": "The patient has a h/o congestive heart failure and is suspected of having deep vein thrombosis. Edema noted in bilateral lower extremities. Denies chest pain or dyspnea but reports diarrhea. Atorvastatin and amlodipine continued."
+  },
+  {
+    "note_id": "N006",
+    "text": "Pt admitted with myocardial infraction and subsequent cardiogenic shock. No evidence of pneumona on chest X-ray. Started on insulin drip and omeprazole for stress ulcer prophylaxis."
+  },
+  {
+    "note_id": "N007",
+    "text": "Patient without fever or headache. Not currently experiencing nausea. Previous diagnosis of type 2 diabetes mellitus, now well controlled. Possible pulmonary embolism, CT angiography ordered."
+  }
+]

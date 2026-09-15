@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of floating-point arithmetic, catastrophic cancellation, and numerical stabilization techniques (conjugate rationalization, Taylor series, regime switching, log1p/expm1 substitution). Beyond the numerical analysis itself, the task demands multi-tool proficiency: parsing FPCore (an unfamiliar S-expression format from the FPBench ecosystem), writing and compiling C shared libraries with GCC using position-independent code flags, authoring Makefiles with correct dependency rules, implementing Python ctypes FFI bindings with proper type declarations, and generating structured accuracy reports by comparing double-precision results against arbitrary-precision references. This pipeline spans five distinct tool domains that must interoperate correctly."""
+solution_explanation = """For each of six expressions, apply the appropriate numerical stabilization: (1) conjugate rationalization for sqrt difference, (2) half-angle identity for cosine cancellation, (3) log1p decomposition for log ratio, (4) rationalized quadratic formula, (5) Taylor series with regime switching for exp cancellation, (6) expm1 substitution for Hamming expq3. Implement these in C, write a Makefile to compile into libimproved.so with -shared -fPIC -lm flags, create Python ctypes bindings with correct argtypes/restype declarations, and generate a JSON accuracy report by evaluating both naive and improved functions against mpmath arbitrary-precision references at challenging test points."""
+verification_explanation = """Tests verify the complete pipeline: (1) libimproved.so exists with correct exported symbols (checked via nm), (2) Makefile builds successfully and contains proper compilation flags, (3) Python ctypes bindings import correctly and expose all six functions as callables, (4) each improved C function achieves relative error below 1e-12 when loaded via ctypes and compared against mpmath at 50-digit precision across challenging inputs (near cancellation, large magnitude, near-zero), (5) report.json has correct structure with all required fields and valid accuracy metrics."""
+category = "numerical_analysis"
+tags = ["floating-point", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3a2057"

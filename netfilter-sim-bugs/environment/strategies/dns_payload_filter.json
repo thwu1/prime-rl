@@ -1,0 +1,14 @@
+{
+    "name": "dns_payload_filter",
+    "description": "Block UDP source port 53 with large payloads (DNS amplification signature)",
+    "rules": [
+        {
+            "match": {
+                "protocol": "udp",
+                "src_port": 53,
+                "min_payload_length": 200
+            },
+            "action": "drop"
+        }
+    ]
+}

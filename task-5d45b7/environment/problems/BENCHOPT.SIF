@@ -1,0 +1,103 @@
+***************************
+* SET UP THE INITIAL DATA *
+***************************
+
+NAME          BENCHOPT
+
+*   Problem :
+*   *********
+
+*   Custom benchmark optimization problem for evaluation.
+*   Minimize (x1-1)^2 + 4*(x2-2)^2 + 3*x1*x2
+*   Subject to x1 + x2 >= 2
+*   Bounds: -10 <= xi <= 10
+
+*   classification QLR2-AN-2-1
+
+VARIABLES
+
+    X1
+    X2
+
+GROUPS
+
+ N  OBJ1      X1        1.0
+ N  OBJ2      X2        1.0
+ N  OBJ2      'SCALE'   0.25
+ N  OBJ3
+ G  CON1      X1        1.0            X2        1.0
+
+CONSTANTS
+
+    BENCHOPT  OBJ1      1.0
+    BENCHOPT  OBJ2      2.0
+    BENCHOPT  CON1      2.0
+
+BOUNDS
+
+ LO BENCHOPT  'DEFAULT' -10.0
+ UP BENCHOPT  'DEFAULT' 10.0
+
+START POINT
+
+    BENCHOPT  X1        0.0
+    BENCHOPT  X2        0.0
+
+ELEMENT TYPE
+
+ EV 2PR       V1                       V2
+
+ELEMENT USES
+
+ T  E1        2PR
+ V  E1        V1                       X1
+ V  E1        V2                       X2
+
+GROUP TYPE
+
+ GV L2        GVAR
+
+GROUP USES
+
+ T  OBJ1      L2
+ T  OBJ2      L2
+ E  OBJ3      E1        3.0
+
+OBJECT BOUND
+
+*LO SOLTN               -1.0
+
+ENDATA
+
+***********************
+* SET UP THE FUNCTION *
+* AND RANGE ROUTINES  *
+***********************
+
+ELEMENTS      BENCHOPT
+
+INDIVIDUALS
+
+ T  2PR
+ F                      V1 * V2
+ G  V1                  V2
+ G  V2                  V1
+ H  V1        V2        1.0
+
+ENDATA
+
+*********************
+* SET UP THE GROUPS *
+* ROUTINE           *
+*********************
+
+GROUPS        BENCHOPT
+
+INDIVIDUALS
+
+ T  L2
+ F                      GVAR * GVAR
+ G                      GVAR + GVAR
+ H                      2.0
+
+ENDATA

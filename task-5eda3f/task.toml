@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level distributed systems debugging: the agent must diagnose a cascading failure across six interacting defects spread across five source files plus a SQLite database, with no bug listing provided. Red herring artifacts (deployment logs, config changes, memory warnings) create misleading signals. The agent must correlate incident logs across services, query the database to discover corrupted data, trace code paths to understand why the circuit breaker failed, recognize a thundering-herd retry pattern from log timing alone, identify an unused validation function in the replication pipeline, and detect a monitoring blind spot in the health subsystem. Each fix requires evaluating multiple valid approaches and understanding how the defects compound into a global outage."""
+solution_explanation = """Six code/data fixes plus a root cause analysis: (1) Move the circuit-breaker check to the top of check_quota so it short-circuits before data access. (2) Add None-field guards in the policy loop and convert the bare raise to fail-open (return allowed). (3) Insert a validate_policy_data() call at the start of replicate() and abort on failure. (4) Replace the fixed 0.5s sleep in _retry_connect with exponential backoff plus random jitter. (5) Add exception handling in HealthMonitor.check_health() so it returns degraded status instead of crashing. (6) Delete or update the corrupted pol-quota-7f3a9b row in the SQLite database. (7) Write a structured RCA report documenting all contributing factors and their interactions."""
+verification_explanation = """Ten pytest tests across eight classes: null-field handling (no crash + fail-open), circuit-breaker bypass (returns allow-all before touching data store), data-validation rejection (corrupt data not propagated), backoff jitter (sleep durations vary and increase), database integrity (corrupted row removed or fixed), health monitor resilience (returns unhealthy status instead of crashing), end-to-end integration (100 requests with corrupt data present, zero crashes), and RCA report quality (existence, substance, root cause coverage, and interaction analysis)."""
+category = "debugging"
+tags = ["distributed-systems", "incident-response"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5eda3f"

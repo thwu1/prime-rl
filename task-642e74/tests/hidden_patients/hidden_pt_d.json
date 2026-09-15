@@ -1,0 +1,96 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "hidden-pt-d",
+        "birthDate": "1985-03-15",
+        "gender": "female",
+        "name": [{"family": "Okafor", "given": ["Chioma"]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-htn-hidden-d",
+        "subject": {"reference": "Patient/hidden-pt-d"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetPeriod": {
+          "start": "2025-06-30",
+          "end": "2025-06-30"
+        },
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-pall-hidden-d",
+        "subject": {"reference": "Patient/hidden-pt-d"},
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "443761007", "display": "Anticipatory palliative care"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2025-01-15",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-outpt-hidden-d",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [
+          {"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99215", "display": "Office visit, high complexity"}]}
+        ],
+        "subject": {"reference": "Patient/hidden-pt-d"},
+        "period": {"start": "2025-07-01T10:00:00Z", "end": "2025-07-01T11:00:00Z"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "bp-hidden-d",
+        "status": "final",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs"}]}
+        ],
+        "code": {
+          "coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]
+        },
+        "subject": {"reference": "Patient/hidden-pt-d"},
+        "effectiveDateTime": "2025-07-01T10:30:00Z",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 125, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 78, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    }
+  ]
+}

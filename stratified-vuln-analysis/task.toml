@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level statistical reasoning: the agent must audit a flawed analysis of paired experimental data, independently identify multiple methodological errors by examining the raw data and draft methodology, determine the correct statistical approach for each analysis component, and produce a corrected analysis. This demands deep understanding of experimental design, data quality assessment, test selection, confounding control, and paired vs independent comparisons — knowledge typical of a biostatistician or experienced quantitative researcher."""
+solution_explanation = """The solution identifies five categories of errors in the draft: (1) cheating cases must be treated as baseline failures, not ignored; (2) appropriate exact tests are needed for 2x2 tables with small expected counts; (3) vulnerability type comparison requires controlling for a confounding variable using pooled estimation; (4) configuration comparisons must account for the matched/repeated-measures design of the experiment; (5) convergence run1 counts must be cheating-adjusted. The corrected script implements these using scipy and statsmodels."""
+verification_explanation = """Tests independently recompute all key statistical values from raw data using scipy and statsmodels. They verify: output structure and required keys; success rates match cheating-adjusted computation within tolerance; 2x2 test odds ratios and p-values match expected values within tolerance; vuln type OR matches the properly computed value (and is NOT the naive unadjusted value); config comparison p-values match expected values; convergence counts exactly match set operations; subsystem counts and commit message rates match. Tolerances account for minor implementation differences."""
+category = "data_analysis"
+tags = ["statistical-methodology", "experimental-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stratified-vuln-analysis"

@@ -1,0 +1,6 @@
+begin
+y = load
+store x
+x = load
+store x
+end

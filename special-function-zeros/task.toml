@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge spanning spectral theory of differential operators, Bessel function cross-products at different orders and arguments, Robin boundary value problem formulation, multiprecision root-finding, and asymptotic analysis. The agent must: (1) correctly implement three structurally distinct secular equations — two standard Bessel cross-products of orders 0 and 1, and a Robin-Dirichlet equation that couples Bessel functions and their derivatives at mismatched arguments (λ and 2λ) where the Wronskian identity does not simplify; (2) compute 40 eigenvalues to 60 significant digits, requiring careful management of working precision, guard digits, and convergence monitoring for Newton iteration on oscillatory functions; (3) compute a spectral zeta function that aggregates all eigenvalues with correct angular-mode multiplicities from spectral theory (m=0: multiplicity 1, m≥1: multiplicity 2), creating a global consistency check where any single incorrect zero corrupts the sum; (4) validate the m=0 eigenvalues against the McMahon asymptotic expansion, which requires understanding the relationship between large-n Bessel zeros and the annulus geometry. No single library call solves this — the agent must orchestrate domain knowledge across spectral theory, special functions, numerical analysis, and asymptotic methods."""
+solution_explanation = """Grid search at 30-digit precision with 10000 points identifies sign-change intervals for all three secular equations. Newton's method with mpmath's numerical differentiation at 80-digit working precision refines each zero to 65+ significant digits. The spectral zeta Z_4 is computed by summing 1/lambda^4 with multiplicities at 70-digit precision, yielding 55+ correct digits. McMahon asymptotic products P_n = n^2 * |lambda_n - n*pi/2| / lambda_n are computed from the m=0 zeros, converging to 1/(6*pi^2) as predicted by the leading McMahon correction term."""
+verification_explanation = """Tests independently evaluate each secular equation at the reported zeros using mpmath at 80-digit precision, verifying |f(zero)| < 1e-58. Structure tests check correct problem IDs, zero counts (15, 15, 10), ascending order, minimum separation, sign, and range bounds. The spectral zeta Z_4 is recomputed from the reported zeros with correct multiplicities and compared against the reported string to 45+ digits relative accuracy. Asymptotic products are independently recomputed from the m=0 zeros and checked for convergence behavior and consistency."""
+category = "mathematics"
+tags = ["numerical-analysis", "spectral-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/special-function-zeros"

@@ -1,0 +1,12 @@
+version: "1"
+nodes:
+  - id: deploy
+    name: Deploy
+    strategy:
+      type: matrix
+      values:
+        - { env: "staging", region: "us-east" }
+        - { env: "prod", region: "eu-west" }
+    steps:
+      - name: Deploy to environment
+        run: "deploy --env=${{ matrix.env }} --region=${{ matrix.region }}"

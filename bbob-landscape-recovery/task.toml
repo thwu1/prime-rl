@@ -1,0 +1,32 @@
+
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of BBOB benchmark function structure including the Tosz non-linear transformation (asymmetric constants for positive vs negative inputs), quadratic form analysis for non-separable functions, recovery of hidden orthogonal transformations from black-box evaluations, and resolving inherent ambiguities in the recovery process. The Tosz transformation introduces numerical subtleties (log-singularity at zero) that make parameter recovery at certain evaluation points unreliable. The agent must combine optimization theory, numerical linear algebra, and careful implementation of mathematical specifications to produce standalone function evaluators matching the COCO reference."""
+solution_explanation = """Use scipy L-BFGS-B with multiple restarts to find global optima of each (unimodal) function. For f10 (rotated ellipsoidal), compute the numerical Hessian at a point SHIFTED away from the optimum to avoid the Tosz transformation's log-singularity at z=0, which causes unreliable finite differences. Eigendecompose the shifted Hessian: eigenvectors yield rows of R. Resolve the inherent sign ambiguity of eigenvectors by testing all 2^D sign combinations against cocoex ground truth at probe points. Implement each BBOB function formula—including the subtle Tosz transformation—in a standalone Python module and verify predictions against cocoex at 20 random test points."""
+verification_explanation = """Tests install cocoex (coco-experiment) and evaluate the agent's bbob_impl.py functions at 20 deterministic random test points, comparing against cocoex ground truth. Checks: (1) bbob_impl.py imports only numpy/stdlib, (2) f(xopt_recovered) matches reported fopt within 1e-6, (3) condition numbers match expected values (1 for Sphere, ~10^6 for Ellipsoidal variants), (4) f10 rotation matrix is orthogonal, (5) all 80 predictions (4 functions x 20 points) match cocoex within 0.1% relative error, (6) stored predictions are consistent with bbob_impl output."""
+category = "optimization"
+tags = ["numerical-optimization", "benchmarking"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bbob-landscape-recovery"

@@ -1,0 +1,9 @@
+{
+  "jobs": [
+    {"bug_id": "net_sock_uaf__0", "execution": {"message": "no crash reproduced", "crash_description": null}},
+    {"bug_id": "ext4_oob__0", "execution": {"message": null, "crash_description": "BUG: KASAN: slab-out-of-bounds in ext4_getattr+0x3a4/0x500"}},
+    {"bug_id": "tcp_gpf__0", "execution": {"message": "no crash reproduced", "crash_description": null}},
+    {"bug_id": "sched_warn__0", "execution": {"message": "compilation error", "crash_description": null}},
+    {"bug_id": "net_clone_uaf__0", "execution": {"message": "no crash reproduced", "crash_description": null}}
+  ]
+}

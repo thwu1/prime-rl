@@ -1,0 +1,63 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level EPA regulatory domain knowledge, multi-format data
+integration, and holistic reasoning across multiple specialized tools:
+(1) Parsing a namespace-aware XML monitor registry (xmlstarlet or equivalent)
+    to determine method designations (FRM/FEM/ARM) and filter monitors eligible
+    for regulatory compliance — this information is NOT in the SQLite database;
+(2) Exploring an undocumented SQLite database schema to discover table structures,
+    column names, and join relationships, then independently mapping statistical
+    form descriptions (e.g., '3-yr avg of annual 4th highest daily max') to the
+    correct database columns without explicit column-name mappings;
+(3) Interpreting EPA regulatory guidance to determine pollutant-specific design
+    value methodology, including truncation vs round-half-up conventions (which
+    differs from Python's default), event type filtering rules ('Events Excluded'
+    records must NOT be used), data completeness requirements, and the PM10
+    exceedance-count compliance form;
+(4) Synthesizing information across XML, PSV, SQLite, and tar.gz/JSON formats
+    using tools like sqlite3, xmlstarlet/Python XML, jq, tar, and Python to
+    produce a unified compliance assessment;
+(5) Diagnosing 5+ independent methodological errors in previous reports spanning
+    different pollutants and error categories."""
+solution_explanation = """Parse the XML monitor registry (namespace-aware) to identify FRM/FEM monitors,
+excluding the ARM-designated monitor at 48-113-0069. Parse the PSV standards reference
+to identify current (non-superseded) standards and their statistical forms. Map
+statistical form descriptions to database columns by exploring the schema (e.g.,
+'4th highest daily max' → fourth_max_value, '99th percentile' → pct_99th). Query
+the SQLite database filtering on POC=1 and valid event types (excluding 'Events
+Excluded'). For each monitor-standard combination, extract the annual statistic,
+average across 3 years, and apply the specified rounding. Handle PM10's exceedance
+count compliance form. Check completeness indicators. Extract and merge previous
+per-state JSON reports from the tar.gz archive, then compare to identify errors."""
+verification_explanation = """Tests verify: (1) corrected compliance report has exactly 15 entries (ARM monitor
+excluded), correct design values, NAAQS levels, and compliance statuses for all
+monitor-standard combinations including edge cases; (2) ARM monitor 48-113-0069 does
+not appear in the report; (3) Events Excluded data did not contaminate O3 CA design
+value; (4) error analysis identifies at least 4 errors referencing monitors that
+actually had errors, spanning at least 3 different pollutant parameter codes."""
+category = "data_science"
+tags = ["environmental-science", "regulatory-compliance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9172ce"

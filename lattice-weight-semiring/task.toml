@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering semiring semantics from randomized property tests (the instruction does not specify how Plus, Times, Compare, or Divide work — only that they must satisfy axioms verified by test_main.cpp). The Compare function uses a non-standard reverse-order convention that the solver must discover from NaturalLess/Plus consistency tests. CompactLatticeWeight adds string concatenation and prefix-aware division that must satisfy exact distributivity. LatticeStringRepository demands a hash-interned parent-pointer data structure with manual memory management verified under valgrind. The normalize command requires understanding CommonDivisor folding and left-division interactions. The combination of abstract algebra inference, C++ memory safety, build system authoring, and binary format I/O makes this demanding."""
+solution_explanation = """Compare's reverse sign convention (smaller cost returns +1) is the central insight, discoverable from the NaturalLess test: NaturalLess(w1,w2) iff Compare(w1,w2)==1, and NaturalLess should be true when Plus(w1,w2)==w1 && w1!=w2 (i.e., w1 is preferred/has smaller cost). Plus(a,b) = Compare(a,b)>=0 ? a : b. CompactLatticeWeight Compare breaks weight ties by string length (shorter=higher) then lexicographic order (smaller elements=lower). LatticeStringRepository uses new_entry_ as a staging buffer for unordered_set insert-or-find. Rebuild traces parent pointers to build a reachable set and deletes orphans. The normalize command folds CompactLatticeWeightCommonDivisor across arcs, then left-divides each arc weight by the accumulated divisor."""
+verification_explanation = """Tests check compilation, 100-iteration randomized semiring axioms (idempotent Plus, commutativity, identity, annihilation, distributivity, Compare/NaturalLess consistency, Divide inverse, CommonDivisor, I/O roundtrip), valgrind memory safety (leaks/errors in LatticeStringRepository), and lattice_proc CLI behavior: stats computation, text conversion, binary roundtrip, and normalize with string prefix removal, empty-prefix, empty-file, and single-arc cases."""
+category = "systems"
+tags = ["semiring", "finite-state-transducers", "cpp-memory-management"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lattice-weight-semiring"

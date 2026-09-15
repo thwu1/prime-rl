@@ -1,0 +1,11 @@
+spack:
+  repos:
+    - /app/repo
+  specs:
+    - sciframe +parallel +io
+    - scifft +mpi precision=double
+  packages:
+    scibase:
+      require: "@1.0.0"
+  concretizer:
+    unify: true

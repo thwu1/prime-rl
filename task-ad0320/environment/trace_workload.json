@@ -1,0 +1,26 @@
+[
+    {"core": 0, "op": "store", "addr": 256, "data": 100},
+    {"core": 1, "op": "load", "addr": 256},
+    {"core": 2, "op": "load", "addr": 256},
+    {"core": 1, "op": "store", "addr": 256, "data": 200},
+    {"core": 0, "op": "load", "addr": 256},
+    {"core": 3, "op": "store", "addr": 256, "data": 300},
+
+    {"core": 0, "op": "store", "addr": 512, "data": 10},
+    {"core": 1, "op": "store", "addr": 576, "data": 20},
+    {"core": 2, "op": "store", "addr": 640, "data": 30},
+    {"core": 3, "op": "store", "addr": 704, "data": 40},
+
+    {"core": 0, "op": "store", "addr": 768, "data": 50},
+    {"core": 1, "op": "load", "addr": 768},
+    {"core": 2, "op": "load", "addr": 768},
+    {"core": 3, "op": "load", "addr": 768},
+    {"core": 2, "op": "store", "addr": 768, "data": 60},
+
+    {"core": 0, "op": "lr", "addr": 832},
+    {"core": 0, "op": "store", "addr": 832, "data": 70},
+
+    {"core": 1, "op": "store", "addr": 896, "data": 80},
+    {"core": 0, "op": "load", "addr": 896},
+    {"core": 0, "op": "store", "addr": 896, "data": 90}
+]

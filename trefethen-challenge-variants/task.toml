@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level expertise in four areas of numerical analysis: (1) oscillatory improper integration with rapidly oscillating integrands requiring Lambert W substitution and specialized quadrature, (2) large-scale sparse matrix construction from number-theoretic data and linear algebra, (3) Brownian motion exit probabilities via Laplace's equation on rectangles, and (4) lattice Green's functions for biased random walks with Fourier-analytic reduction and root-finding. Problem specifications are distributed across multiple files in various formats that the solver must discover and parse before any computation can begin."""
+solution_explanation = """The solver must first explore /app/challenge/ to find manifest.json (output spec) and four problem subdirectories P1-P4, each containing formulation and parameter files in different formats (markdown, JSON, plain text). Problem P1: substitute u=-ln(x) then s=alpha*u*e^u (Lambert W) to get a uniformly-oscillatory integral, computed via mpmath.quadosc. Problem P2: parse offsets.txt for matrix dimension and offset pattern, generate primes via sieve, build sparse CSC matrix, solve via sparse LU. Problem P3: parse domain.json for rectangle dimensions, recognize exit probability satisfies Laplace's equation, derive Fourier series. Problem P4: parse constraints.json for bias structure and target, reduce 2D lattice Green's function to 1D integral, use root-finding."""
+verification_explanation = """test_state.py independently computes each reference answer: P1 via mpmath quadosc on the Lambert W substituted form, P2 via scipy sparse solve with sieve-generated primes, P3 via direct mpmath series evaluation, P4 via scipy numerical integration of the reduced 1D Green's function combined with root-finding. Each agent answer is compared to the reference with a relative error tolerance of 5e-10 (10 significant digits)."""
+category = "mathematics"
+tags = ["numerical-analysis", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trefethen-challenge-variants"

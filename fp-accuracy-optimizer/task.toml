@@ -1,0 +1,49 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of floating-point arithmetic, numerical analysis,
+and mathematical function theory. The agent must parse an unfamiliar S-expression format (FPCore),
+diagnose multiple distinct numerical pathologies (second-order cancellation, divergent-term cancellation,
+indeterminate forms, divided-difference instability), independently discover appropriate stabilization
+strategies for each, implement four distinct numerically stable functions, and build measurement
+infrastructure using arbitrary-precision arithmetic to verify accuracy — all without any hints about
+which techniques to apply."""
+solution_explanation = """The solver must parse the FPCore benchmark file to extract four expressions
+and their domains, then apply regime-based rewrites: (1) Taylor series 1/2+x/6+x^2/24+... for
+|x|<0.002 combined with (expm1(x)-x)/x^2 for larger |x|, (2) Bernoulli-number series
+x/3-x^3/45+2x^5/945-... for x<0.3 combined with 1+2/expm1(2x)-1/x for larger x, (3) ratio of
+independent power series (1/3-x^2/30+...)/(1/6-x^2/120+...) for x<0.3 with direct computation
+for larger x, (4) midpoint decomposition exp(m)*sinhc(d/2) using Taylor series for |x-y|<1e-4
+with direct computation otherwise. Each rewrite is verified against mpmath at 200-digit precision."""
+verification_explanation = """Tests import improved_1 through improved_4 from /app/improved.py and
+evaluate each at 2000 sample points drawn from the specified domains (log-uniform for most, focusing
+on cancellation-prone regions). Accuracy is measured in bits by comparing float64 results against
+mpmath reference values at 60-digit precision. Each improved function must achieve at least 38
+average bits (out of 53), exceed the naive implementation by 5+ bits (3+ for Langevin), and pass
+spot checks at known points. Additional tests verify no arbitrary-precision library usage in
+improved.py and that report.json has the correct 4-entry schema showing improvement."""
+category = "numerical_analysis"
+tags = ["floating-point", "regime-splitting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fp-accuracy-optimizer"

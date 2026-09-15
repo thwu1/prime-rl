@@ -1,0 +1,16 @@
+{
+  "project_name": "crypto-api-service",
+  "language": "python",
+  "language_version": "3.11",
+  "build_system": "pip",
+  "dependencies": [
+    "Flask==3.0.0",
+    "cffi==1.16.0",
+    "cryptography==41.0.7",
+    "requests==2.31.0",
+    "pycparser==2.22"
+  ],
+  "test_framework": "pytest",
+  "test_command": "pytest tests/ -v",
+  "notes": "Service uses cffi for cryptographic operations via libffi bindings"
+}

@@ -1,0 +1,57 @@
+{
+  "BasicVertex": {
+    "address_space": "storage",
+    "alignment": 16,
+    "size": 32,
+    "members": {
+      "position": {"offset": 0, "alignment": 16, "size": 16},
+      "tex_coord": {"offset": 16, "alignment": 8, "size": 8},
+      "normal_x": {"offset": 24, "alignment": 4, "size": 4},
+      "normal_y": {"offset": 28, "alignment": 4, "size": 4}
+    }
+  },
+  "LightData": {
+    "address_space": "storage",
+    "alignment": 16,
+    "size": 32,
+    "members": {
+      "direction": {"offset": 0, "alignment": 12, "size": 12},
+      "intensity": {"offset": 12, "alignment": 4, "size": 4},
+      "color": {"offset": 16, "alignment": 16, "size": 12},
+      "radius": {"offset": 28, "alignment": 4, "size": 4}
+    }
+  },
+  "TransformData": {
+    "address_space": "storage",
+    "alignment": 16,
+    "size": 144,
+    "members": {
+      "model": {"offset": 0, "alignment": 16, "size": 64},
+      "normal_matrix": {"offset": 64, "alignment": 16, "size": 36},
+      "tex_transform": {"offset": 112, "alignment": 16, "size": 32}
+    }
+  },
+  "SceneUniforms": {
+    "address_space": "uniform",
+    "alignment": 16,
+    "size": 160,
+    "members": {
+      "view_proj": {"offset": 0, "alignment": 16, "size": 64},
+      "camera_pos": {"offset": 64, "alignment": 16, "size": 12},
+      "time": {"offset": 76, "alignment": 4, "size": 4},
+      "ambient_color": {"offset": 80, "alignment": 16, "size": 64},
+      "main_light": {"offset": 144, "alignment": 16, "size": 16}
+    }
+  },
+  "PackedData": {
+    "address_space": "storage",
+    "alignment": 16,
+    "size": 76,
+    "members": {
+      "flags": {"offset": 0, "alignment": 4, "size": 4},
+      "transform": {"offset": 16, "alignment": 16, "size": 32},
+      "weight": {"offset": 48, "alignment": 4, "size": 4},
+      "indices": {"offset": 64, "alignment": 4, "size": 12}
+    }
+  }
+}

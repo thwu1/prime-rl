@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level geospatial data engineering. The agent must independently diagnose three hidden data quality issues in the inputs — a systematic vertical datum bias detectable only by cross-referencing the DEM against ground control points, nodata-contaminated pixels stored without metadata flags, and a lat/lon coordinate swap in the exclusion zone GeoJSON — before it can perform any meaningful terrain analysis. Each defect requires domain-specific diagnostic reasoning: vertical datum offsets demand understanding of geoid vs ellipsoid elevation references, nodata contamination requires inspecting raster value distributions, and the coordinate swap requires knowledge of GeoJSON conventions and spatial extent validation. After correction the agent must chain terrain derivative computation, multi-criteria suitability filtering with proper CRS handling, connected-component region extraction, circular-statistics-based aspect uniformity, and min-max normalized weighted scoring."""
+solution_explanation = """Compare DEM values at control point locations to discover a +47.2 m vertical bias (median residual); set -9999 pixels as nodata (they lack metadata); subtract bias and write a calibrated DEM. Compute slope, aspect (with zero_for_flat), and TRI via gdaldem from the calibrated DEM. Detect the lat/lon swap in exclusion_zones.geojson by checking whether transformed points fall within the DEM extent; swap coordinates and transform corrected WGS84 points to UTM. Build a combined boolean mask (slope/aspect/elevation/TRI ranges, edge buffer, exclusion buffers, valid-data mask), label connected components with 8-connectivity, discard regions below the minimum area, compute per-region metrics including aspect uniformity (mean resultant length), apply min-max normalization with tie_value=0.5, weight and rank, and write all rasters and results.json."""
+verification_explanation = """Tests verify the calibrated DEM matches control points within 2 m per point and 1 m mean residual, confirming bias correction. Nodata metadata presence is checked, and raw -9999 pixels are verified absent from the suitability mask. Terrain derivatives are spot-checked via Horn's method on the calibrated DEM. Every suitable pixel is cross-validated against all criteria on the calibrated DEM. Exclusion buffers are verified against the known true UTM coordinates (not from the swapped GeoJSON). Connected components are independently re-labeled to confirm region counts and minimum area. results.json structure, metric bounds, score ranges, and rank ordering are all verified."""
+category = "applied_computing"
+tags = ["geospatial", "data-quality"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/terrain-suitability-analysis"

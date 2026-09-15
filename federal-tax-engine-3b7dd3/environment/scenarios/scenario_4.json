@@ -1,0 +1,70 @@
+{
+  "scenario_name": "scenario_4",
+  "tax_year": 2025,
+  "filing_status": "single",
+  "taxpayer": {
+    "first_name": "David",
+    "last_name": "Chen",
+    "ssn": "400-00-4071"
+  },
+  "w2s": [
+    {
+      "employer_name": "Northern Systems",
+      "employer_ein": "33-4455667",
+      "wages": 52000,
+      "federal_tax_withheld": 5800,
+      "ss_wages": 52000,
+      "ss_tax_withheld": 3224,
+      "medicare_wages": 52000,
+      "medicare_tax_withheld": 754
+    },
+    {
+      "employer_name": "DataFlow Analytics",
+      "employer_ein": "44-5566778",
+      "wages": 31500,
+      "federal_tax_withheld": 3200,
+      "ss_wages": 31500,
+      "ss_tax_withheld": 1953,
+      "medicare_wages": 31500,
+      "medicare_tax_withheld": 457
+    },
+    {
+      "employer_name": "Freelance Corp",
+      "employer_ein": "55-6677889",
+      "wages": 11500,
+      "federal_tax_withheld": 900,
+      "ss_wages": 11500,
+      "ss_tax_withheld": 713,
+      "medicare_wages": 11500,
+      "medicare_tax_withheld": 167
+    }
+  ],
+  "dividends": {
+    "qualified": 8500,
+    "ordinary": 11200
+  },
+  "capital_gains": {
+    "short_term": -2400,
+    "long_term": 15300
+  },
+  "schedule_h": {
+    "has_household_employees": true,
+    "total_cash_wages_ss": 5200,
+    "total_cash_wages_medicare": 5200,
+    "total_cash_wages_additional_medicare": 0,
+    "federal_income_tax_withheld": 0
+  },
+  "form_5695": {
+    "insulation_cost": 5000,
+    "door_cost": 1200,
+    "window_cost": 0,
+    "central_ac_cost": 0,
+    "water_heater_cost": 0,
+    "furnace_boiler_cost": 0,
+    "electrical_panel_cost": 0,
+    "home_energy_audit_cost": 600,
+    "heat_pump_cost": 7500,
+    "heat_pump_water_heater_cost": 0,
+    "biomass_stove_cost": 0
+  }
+}

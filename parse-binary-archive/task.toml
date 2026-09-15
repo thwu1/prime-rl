@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating three distinct C number-parsing libraries with different architectural strategies (pow-based fallback, strtod with off-by-one in extended fast path, strtod with undersized buffer) to determine relative IEEE 754 conformance. The solver must design a conformance test corpus targeting negative-zero preservation, subnormal handling, normal/subnormal boundary values, extended fast-path precision, and overflow — then systematically evaluate each parser, classify failures by category, and rank them. Finally, the solver must identify the best parser's remaining defect (a subtle snprintf buffer truncation in the strtod reconstruction path that silently corrupts exponents only for 19-digit mantissa inputs with 3+ digit exponents) and create a fully conformant library."""
+solution_explanation = """Load each parser via ctypes, run conformance tests and the full dataset against Python's float() as reference, classify failures by IEEE 754 category. Parser gamma has the fewest failures (buffer truncation affecting only 19-digit mantissa inputs with 3+ digit exponents in slow path), parser beta has moderate failures (extended fast-path off-by-one producing 10x errors for exponents 23-37), parser alpha has the most (negative-zero stripping + aggressive exponent clamping + subnormal flushing). Fix gamma by enlarging the slow-path snprintf buffer from 24 to 64 bytes, rebuild, and run the pipeline."""
+verification_explanation = """Tests independently load all three original parsers and run canonical IEEE 754 edge-case inputs to compute ground-truth failure counts, verifying the solver's ranking matches. The conformance corpus is validated for minimum size, required categories, and per-category coverage. The conformant parser is tested bit-exactly against negative zeros, subnormals, boundary values, extended-exponent values, normals, and overflow. Pipeline aggregates are independently recomputed from the input file using Python's float() and compared against results.json."""
+category = "systems_programming"
+tags = ["ieee754", "evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parse-binary-archive"

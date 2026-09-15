@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level knowledge of IEC 60193 hydraulic turbine model acceptance testing. The solver must independently research and derive the correct formulas for specific hydraulic energy, IEC dimensionless coefficients (nED, QED, TED), Reynolds number convention, efficiency step-up scaling, NPSE/sigma cavitation parameters, uncertainty propagation, and IEC similitude laws — none of which are given in the instruction. The multi-step pipeline chains 12+ coupled computations per operating point across 12 data points with temperature-dependent water property interpolation, unit conversions, barometric altitude correction, and prototype-scale transposition. Additionally, the solver must produce a gnuplot-generated SVG hill chart visualization and a structured SQLite results database with three tables, requiring proficiency with gnuplot scripting and SQL DDL/DML — tools typically unfamiliar in combination with numerical Python pipelines."""
+solution_explanation = """The reference solver reads CSV/JSON inputs, interpolates water properties (density, viscosity, vapor pressure) from the lookup table at each test temperature, converts units (RPM to rev/s, L/s to m^3/s, kPa to Pa), then computes E = (p1-p2)/rho + (c1^2-c2^2)/2 + g*dz for each point. It derives nED = n*D/sqrt(E), QED = Q/(D^2*sqrt(E)), TED = T/(rho*D^3*E), and eta_M = T*omega/(rho*Q*E). Reynolds numbers use Re = D*sqrt(2E)/nu. Step-up: delta_eta = (1-eta_M)*(1-(Re_M/Re_P)^0.16). Model sigma from NPSE = (p_atm_lab - p_v)/rho + g*submergence. Uncertainty: f(eta) = sqrt(f_T^2 + f_n^2 + f_Q^2 + f_E^2). BEP is max eta_prototype. Prototype values via similitude: Q_P = Q_M*(D_P/D_M)^2*sqrt(E_P/E_M), n_P = n_M*(D_M/D_P)*sqrt(E_P/E_M), P_P = rho_P*Q_P*E_P*eta_P. Cavitation: sigma_plant = ((p_atm_site - p_v)/rho_P + g*(z_tw - z_ref))/E_P. Hill chart generated via gnuplot SVG terminal with palette-mapped scatter of eta_prototype vs (nED, QED). SQLite database created with sqlite3 module, three tables populated from computed results."""
+verification_explanation = """Tests run transposer.py, then verify JSON output against an independent reference computation embedded in the test file, plus cross-validate against the SQLite database and check the gnuplot SVG. Numerical checks: (1) specific energy E within 0.1% relative, (2) nED/QED/TED within 0.1%, (3) model efficiency within 0.1%, (4) Reynolds numbers within 0.5%, (5) step-up and prototype efficiency within 0.1%, (6) correct BEP identification, (7) prototype Q/n/P within 0.5%, (8) cavitation sigma_plant within 0.001 absolute, (9) correct is_safe boolean, (10) uncertainty f_eta within 0.01 absolute. Structural checks: (11) SVG file exists with gnuplot provenance and graphical elements, (12) SQLite DB has correct tables/columns/row counts, (13) JSON-SQLite cross-consistency for operating points, BEP, and cavitation values."""
+category = "applied_computing"
+tags = ["hydraulic-engineering", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/turbine-transposition-pipeline-4c4470"

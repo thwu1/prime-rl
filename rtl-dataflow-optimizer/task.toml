@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a semantics-preserving optimization pipeline for a custom RTL intermediate representation across eight programs with distinct CFG topologies (linear, branching, looping, nested diamonds). The optimizer must handle programs with cascading inter-dependent redundancies where resolving one creates opportunities for others, programs where chain-reaction simplifications ultimately collapse computations to trivial results, and diamond CFGs requiring dominator-aware analysis. Correctness must hold not only on the provided programs but on arbitrary valid RTL programs verified by randomized fuzz testing — the solver must independently analyze each program to identify exploitable patterns, determine the right combination and ordering of analyses, and implement convergent dataflow computations requiring deep compiler engineering expertise."""
+solution_explanation = """Implement three cooperating analyses in Python: forward constant propagation with lattice-based fixed-point iteration to fold compile-time constants, resolve static branches, and apply algebraic strength reductions (identity/annihilator rules for mul, add, sub, and, or); backward liveness analysis with iterative dead code elimination to remove instructions whose results are never consumed; and value numbering over extended basic blocks for common subexpression elimination. Chain passes so constants enable dead code identification, CSE reduces duplicates, and a second DCE pass cleans residual dead code from CSE-introduced moves. Build integration via Makefile orchestrating optimization and Graphviz CFG rendering."""
+verification_explanation = """Tests verify: (1) semantic preservation — optimized programs produce identical outputs to originals across multiple test inputs per program; (2) fuzz correctness — 40 randomly generated programs are optimized and checked for semantic preservation with 15 inputs each; (3) optimization quality — per-program reduction thresholds on computation instruction counts; (4) pattern-specific structural checks — branch resolution, redundant expression elimination, cascading reductions, wide-range correctness on diamond and chain programs; (5) structural validity — well-formed RTL with valid entrypoints and successor references; (6) build artifacts — Makefile targets produce optimized JSON and valid SVG CFG visualizations."""
+category = "compilers"
+tags = ["dataflow-analysis", "compiler-optimization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rtl-dataflow-optimizer"

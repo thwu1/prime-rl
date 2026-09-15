@@ -1,0 +1,6 @@
+First Instruction Prefetching Championship (IPC-1), ISCA 2020
+
+Each prefetcher submission is a single C++ source file compiled within the ChampSim
+simulator framework. Prefetchers have a hardware storage budget of 128 KB (131,072
+bytes). Only prefetcher-specific state counts toward this budget; pipeline state
+(program counter, cycle counters) is excluded.

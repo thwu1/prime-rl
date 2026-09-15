@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed systems correctness: linearizability theory (Herlihy & Wing), the NP-hardness of linearizability checking, primary-backup replication protocols, and split-brain failure modes under network partitions. The agent must learn a custom CLI tool (dessim), compose SQLite queries to extract and analyze simulation traces, author TOML fault injection configurations that reliably trigger specific distributed systems bugs, and implement a multi-component Python pipeline that ties all these tools together. The subtle cases — where two primaries coexist but operations remain linearizable due to concurrency timing — require deep protocol reasoning, not just pattern matching on visible symptoms."""
+solution_explanation = """The solution writes a complete pipeline.py that implements a DFS-based Wing-Gong linearizability checker over operation histories extracted from the SQLite trace database. For each of 16 runs, it queries operations and node state snapshots, checks linearizability by enumerating valid linearization orderings respecting real-time precedence (including crashed operation subset enumeration), detects split-brain by querying for concurrent primary roles across distinct nodes, and classifies the violation type. It then crafts two TOML fault injection configs: one with a standard partition isolating the primary, another with a prolonged partition and high client rate to ensure extended dual-primary operation. Both are verified by running the simulator deterministically and checking the resulting traces for non-linearizability."""
+verification_explanation = """Tests verify all 16 pre-generated trace classifications (linearizability, violation type, multi-primary detection) against ground-truth values computed by a reference checker. The pipeline execution test removes results.json and re-runs pipeline.py to verify it produces correct output independently. Fault injection configs are tested by actually running dessim with the agent's configs and specific seeds, then checking the produced traces for non-linearizability and the extended-split requirement (>= 5 ops on each primary). A determinism test runs the pipeline twice and compares outputs."""
+category = "distributed_systems"
+tags = ["deterministic-simulation", "linearizability"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/detsim-linearizability"

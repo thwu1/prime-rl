@@ -1,0 +1,17 @@
+FROM ubuntu:18.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y g++ make libboost-all-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY . .
+
+RUN mkdir -p build && cd build && cmake ..
+
+RUN cd build && make -j$(nproc)
+
+RUN cd build && ctest --output-on-failure
+
+CMD ["./build/bin/dataprocessor"]

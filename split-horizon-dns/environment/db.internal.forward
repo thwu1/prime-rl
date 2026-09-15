@@ -1,0 +1,38 @@
+$TTL 86400
+@   IN  SOA ns1.infra.example.com. admin.infra.example.com. (
+        2024010101  ; Serial
+        3600        ; Refresh
+        900         ; Retry
+        604800      ; Expire
+        86400       ; Minimum TTL
+)
+
+        IN  NS  ns1.infra.example.com.
+        IN  NS  ns2.infra.example.com.
+
+; Redirect apex to primary web node
+@           IN  CNAME   web1.infra.example.com.
+
+; Host records
+ns1         IN  A       10.0.1.1
+ns2         IN  A       10.0.1.2
+web1        IN  A       10.0.1.10
+web2        IN  A       10.0.1.11
+db1         IN  A       10.0.1.20
+mail        IN  A       10.0.1.30
+vpn         IN  A       10.0.1.40
+
+; AAAA records
+ns1         IN  AAAA    fd00::1
+ns2         IN  AAAA    fd00::2
+web1        IN  AAAA    fd00::10
+web2        IN  AAAA    fd00::11
+db1         IN  AAAA    fd00::20
+mail        IN  AAAA    fd00::30
+
+; Service records
+@           IN  MX      10 mail.infra.example.com
+www         IN  CNAME   web1.infra.example.com.
+smtp        IN  CNAME   mail.infra.example.com.
+_ldap._tcp  IN  SRV     0 100 389 db1.infra.example.com.
+@           IN  TXT     "v=spf1 mx a:mail.infra.example.com -all"

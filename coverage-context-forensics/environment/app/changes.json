@@ -1,0 +1,6 @@
+{
+  "changes": [
+    {"file": "calclib/core.py", "lines": [18, 19]},
+    {"file": "calclib/stats.py", "lines": [50, 51, 52, 55, 56, 57]}
+  ]
+}

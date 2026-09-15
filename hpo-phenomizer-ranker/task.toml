@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing 10 interacting bugs across a multi-component pipeline spanning Python, AWK, Bash, and SQLite. Bugs include: incorrect alt_id storage in the OBO parser (stored as separate terms instead of in the alt_ids table), single-parent ancestor traversal (LIMIT 1 instead of all parents), AWK variable name typo causing NOT-qualifier bypass, missing Aspect=P filtering in the annotation processor, three incorrect similarity formulas (Lin missing 2x factor, JC missing 2x on resnik term, GraphIC using term counts instead of IC sums), two unimplemented set-level combiners (funSimMax, BMA), a positional-vs-flag CLI argument error in similarity.py, and a cascading CLI invocation bug in run_pipeline.sh. The solver must trace data flow across languages and tool boundaries, understand biomedical ontology semantics, and fix all components so they work together correctly."""
+solution_explanation = """Fix obo_graph.py: store alt_ids in the alt_ids table (not as terms) and remove LIMIT 1 from ancestor parent query to follow all DAG edges. Fix process_annotations.awk: change variable 'qual' to 'qualifier' for NOT check and add Aspect=P filtering. Fix similarity.py: add 2x factor to Lin formula, add 2x on resnik term in JC formula, use IC sums (not counts) in GraphIC, implement funSimMax (max of directional averages) and BMA ((sum_row_max + sum_col_max)/(|Q|+|D|)), change method from positional to --method flag, and add alt_id resolution when reading annotations and queries. Fix run_pipeline.sh: update example similarity query to use --method flag."""
+verification_explanation = """Tests first run the pipeline (run_pipeline.sh) then verify: (1) database structure — alt_ids table populated, alt_ids not in terms table, ancestors include both parent paths for multi-parent terms, annotations filtered to Aspect=P without NOT qualifier; (2) IC values for specific terms including root (0), propagated, alt_id-aggregated, NOT-excluded, and inheritance-filtered cases; (3) pairwise similarity for all 4 methods with specific numerical values, self-similarity, and symmetry; (4) disease ranking with all 3 combiners checking top/last scores, rank format, sequential ordering, and descending scores; (5) alt_id resolution in IC, similarity, and rank queries."""
+category = "bioinformatics"
+tags = ["ontology", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hpo-phenomizer-ranker"

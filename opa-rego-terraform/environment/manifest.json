@@ -1,0 +1,74 @@
+{
+  "description": "Infrastructure compliance policy validation system. Policies are evaluated against Terraform plan outputs to verify security and reliability requirements.",
+  "policies": {
+    "s3_security": {
+      "file": "/app/policies/s3_security.rego",
+      "requirement": "S3 buckets must have versioning enabled, KMS encryption, and a public access block with all four restrictions enabled.",
+      "query": "data.s3_security.is_valid"
+    },
+    "iam_trust": {
+      "file": "/app/policies/iam_trust.rego",
+      "requirement": "IAM execution roles must have a valid trust relationship for the Lambda service principal with a corresponding role-policy attachment.",
+      "query": "data.iam_trust_validation.is_valid"
+    },
+    "network_ha": {
+      "file": "/app/policies/network_ha.rego",
+      "requirement": "Network infrastructure must provide high availability through multi-AZ subnets within a DNS-enabled VPC, with HTTPS-only ingress.",
+      "query": "data.network_ha.is_valid"
+    },
+    "iam_least_privilege": {
+      "file": "/app/policies/iam_least_privilege.rego",
+      "requirement": "IAM policies must enforce least-privilege access. No policy statement may combine a wildcard Action with a wildcard Resource.",
+      "query": "data.iam_least_privilege.is_valid"
+    },
+    "s3_lifecycle": {
+      "file": "/app/policies/s3_lifecycle.rego",
+      "requirement": "All S3 buckets must have at least one enabled lifecycle rule with a positive expiration period.",
+      "query": "data.s3_lifecycle_rules.is_valid"
+    }
+  },
+  "plans": {
+    "s3_compliant": "/app/plans/s3_compliant.json",
+    "s3_noncompliant": "/app/plans/s3_noncompliant.json",
+    "iam_restricted": "/app/plans/iam_restricted.json",
+    "network_stack": "/app/plans/network_stack.json",
+    "multi_service": "/app/plans/multi_service.json"
+  },
+  "expected_results": {
+    "s3_security": {
+      "s3_compliant": true,
+      "s3_noncompliant": false,
+      "iam_restricted": false,
+      "network_stack": false,
+      "multi_service": false
+    },
+    "iam_trust": {
+      "s3_compliant": false,
+      "s3_noncompliant": false,
+      "iam_restricted": true,
+      "network_stack": false,
+      "multi_service": true
+    },
+    "network_ha": {
+      "s3_compliant": false,
+      "s3_noncompliant": false,
+      "iam_restricted": false,
+      "network_stack": true,
+      "multi_service": false
+    },
+    "iam_least_privilege": {
+      "s3_compliant": false,
+      "s3_noncompliant": false,
+      "iam_restricted": true,
+      "network_stack": false,
+      "multi_service": false
+    },
+    "s3_lifecycle": {
+      "s3_compliant": true,
+      "s3_noncompliant": true,
+      "iam_restricted": false,
+      "network_stack": false,
+      "multi_service": true
+    }
+  }
+}

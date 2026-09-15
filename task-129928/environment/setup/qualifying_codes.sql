@@ -1,0 +1,128 @@
+-- PhysioNet Challenge 2026: Qualifying ICD-9/ICD-10 codes for cognitive impairment
+-- Reference: https://physionetchallenges.org/2026/ICD_codes.csv
+-- Note: Codes are stored in their canonical form WITHOUT punctuation (no dots)
+
+DROP TABLE IF EXISTS qualifying_icd_codes;
+
+CREATE TABLE qualifying_icd_codes (
+    code TEXT PRIMARY KEY,
+    description TEXT,
+    code_type TEXT CHECK(code_type IN ('icd9', 'icd10')),
+    diagnosis_category TEXT
+);
+
+INSERT INTO qualifying_icd_codes VALUES ('33183', 'Mild cognitive impairment, so stated', 'icd9', 'MCI');
+INSERT INTO qualifying_icd_codes VALUES ('G3184', 'Mild cognitive impairment of uncertain or unknown etiology', 'icd10', 'MCI');
+INSERT INTO qualifying_icd_codes VALUES ('3310', 'Alzheimer''s disease', 'icd9', 'Alzheimer');
+INSERT INTO qualifying_icd_codes VALUES ('G300', 'Alzheimer''s disease with early onset', 'icd10', 'Alzheimer');
+INSERT INTO qualifying_icd_codes VALUES ('G301', 'Alzheimer''s disease with late onset', 'icd10', 'Alzheimer');
+INSERT INTO qualifying_icd_codes VALUES ('G308', 'Other Alzheimer''s disease', 'icd10', 'Alzheimer');
+INSERT INTO qualifying_icd_codes VALUES ('G309', 'Alzheimer''s disease, unspecified', 'icd10', 'Alzheimer');
+INSERT INTO qualifying_icd_codes VALUES ('2900', 'Senile dementia, uncomplicated', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29010', 'Presenile dementia, uncomplicated', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29011', 'Presenile dementia with delirium', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29012', 'Presenile dementia with delusional features', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29013', 'Presenile dementia with depressive features', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29020', 'Senile dementia with delusional features', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29021', 'Senile dementia with depressive features', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('2903', 'Senile dementia with delirium', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29040', 'Vascular dementia, uncomplicated', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29041', 'Vascular dementia, with delirium', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29042', 'Vascular dementia, with delusions', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29043', 'Vascular dementia, with depressed mood', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('2912', 'Alcohol-induced persisting dementia', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29282', 'Drug-induced persisting dementia', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29410', 'Dementia in conditions classified elsewhere without behavioral disturbance', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29411', 'Dementia in conditions classified elsewhere with behavioral disturbance', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29420', 'Dementia, unspecified, without behavioral disturbance', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('29421', 'Dementia, unspecified, with behavioral disturbance', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('33111', 'Pick''s disease', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('33119', 'Other frontotemporal dementia', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('33182', 'Dementia with lewy bodies', 'icd9', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0150', 'Vascular dementia, unspecified severity, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01511', 'Vascular dementia, unspecified severity, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01518', 'Vascular dementia, unspecified severity, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0152', 'Vascular dementia, unspecified severity, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0153', 'Vascular dementia, unspecified severity, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0154', 'Vascular dementia, unspecified severity, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A0', 'Vascular dementia, mild, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A11', 'Vascular dementia, mild, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A18', 'Vascular dementia, mild, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A2', 'Vascular dementia, mild, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A3', 'Vascular dementia, mild, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01A4', 'Vascular dementia, mild, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B0', 'Vascular dementia, moderate, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B11', 'Vascular dementia, moderate, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B18', 'Vascular dementia, moderate, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B2', 'Vascular dementia, moderate, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B3', 'Vascular dementia, moderate, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01B4', 'Vascular dementia, moderate, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C0', 'Vascular dementia, severe, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C11', 'Vascular dementia, severe, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C18', 'Vascular dementia, severe, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C2', 'Vascular dementia, severe, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C3', 'Vascular dementia, severe, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F01C4', 'Vascular dementia, severe, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0280', 'Dementia in other diseases classified elsewhere, unspecified severity, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02811', 'Dementia in other diseases classified elsewhere, unspecified severity, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02818', 'Dementia in other diseases classified elsewhere, unspecified severity, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0282', 'Dementia in other diseases classified elsewhere, unspecified severity, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0283', 'Dementia in other diseases classified elsewhere, unspecified severity, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0284', 'Dementia in other diseases classified elsewhere, unspecified severity, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A0', 'Dementia in other diseases classified elsewhere, mild, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A11', 'Dementia in other diseases classified elsewhere, mild, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A18', 'Dementia in other diseases classified elsewhere, mild, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A2', 'Dementia in other diseases classified elsewhere, mild, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A3', 'Dementia in other diseases classified elsewhere, mild, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02A4', 'Dementia in other diseases classified elsewhere, mild, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B0', 'Dementia in other diseases classified elsewhere, moderate, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B11', 'Dementia in other diseases classified elsewhere, moderate, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B18', 'Dementia in other diseases classified elsewhere, moderate, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B2', 'Dementia in other diseases classified elsewhere, moderate, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B3', 'Dementia in other diseases classified elsewhere, moderate, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02B4', 'Dementia in other diseases classified elsewhere, moderate, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C0', 'Dementia in other diseases classified elsewhere, severe, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C11', 'Dementia in other diseases classified elsewhere, severe, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C18', 'Dementia in other diseases classified elsewhere, severe, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C2', 'Dementia in other diseases classified elsewhere, severe, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C3', 'Dementia in other diseases classified elsewhere, severe, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F02C4', 'Dementia in other diseases classified elsewhere, severe, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0390', 'Unspecified dementia, unspecified severity, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03911', 'Unspecified dementia, unspecified severity, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03918', 'Unspecified dementia, unspecified severity, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0392', 'Unspecified dementia, unspecified severity, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0393', 'Unspecified dementia, unspecified severity, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F0394', 'Unspecified dementia, unspecified severity, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A0', 'Unspecified dementia, mild, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A11', 'Unspecified dementia, mild, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A18', 'Unspecified dementia, mild, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A2', 'Unspecified dementia, mild, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A3', 'Unspecified dementia, mild, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03A4', 'Unspecified dementia, mild, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B0', 'Unspecified dementia, moderate, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B11', 'Unspecified dementia, moderate, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B18', 'Unspecified dementia, moderate, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B2', 'Unspecified dementia, moderate, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B3', 'Unspecified dementia, moderate, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03B4', 'Unspecified dementia, moderate, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C0', 'Unspecified dementia, severe, without behavioral disturbance, psychotic disturbance, mood disturbance, and anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C11', 'Unspecified dementia, severe, with agitation', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C18', 'Unspecified dementia, severe, with other behavioral disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C2', 'Unspecified dementia, severe, with psychotic disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C3', 'Unspecified dementia, severe, with mood disturbance', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F03C4', 'Unspecified dementia, severe, with anxiety', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1027', 'Alcohol dependence with alcohol-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1097', 'Alcohol use, unspecified with alcohol-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1327', 'Sedative, hypnotic or anxiolytic dependence with sedative, hypnotic or anxiolytic-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1397', 'Sedative, hypnotic or anxiolytic use, unspecified with sedative, hypnotic or anxiolytic-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1817', 'Inhalant abuse with inhalant-induced dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1827', 'Inhalant dependence with inhalant-induced dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1897', 'Inhalant use, unspecified with inhalant-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1917', 'Other psychoactive substance abuse with psychoactive substance-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1927', 'Other psychoactive substance dependence with psychoactive substance-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('F1997', 'Other psychoactive substance use, unspecified with psychoactive substance-induced persisting dementia', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('G3101', 'Pick''s disease', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('G3109', 'Other frontotemporal neurocognitive disorder', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('G3183', 'Neurocognitive disorder with Lewy bodies', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('G3185', 'Corticobasal degeneration', 'icd10', 'Dementia');
+INSERT INTO qualifying_icd_codes VALUES ('G3187', 'Primary progressive aphasia', 'icd10', 'Dementia');

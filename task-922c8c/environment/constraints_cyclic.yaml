@@ -1,0 +1,16 @@
+anchors: []
+
+constraints:
+  - subject: alpha_block
+    predicate: on_top_of
+    reference: beta_block
+  - subject: beta_block
+    predicate: on_top_of
+    reference: gamma_block
+  - subject: gamma_block
+    predicate: on_top_of
+    reference: alpha_block
+
+settings:
+  collision_margin: 0.005
+  stability_required: false

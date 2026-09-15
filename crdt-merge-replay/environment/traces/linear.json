@@ -1,0 +1,9 @@
+{
+  "numAgents": 1,
+  "txns": [
+    {"parents": [], "agent": 0, "patches": [[0, 0, "Hllo"]]},
+    {"parents": [0], "agent": 0, "patches": [[1, 0, "e"]]},
+    {"parents": [1], "agent": 0, "patches": [[5, 0, ","]]},
+    {"parents": [2], "agent": 0, "patches": [[6, 0, " World!"]]}
+  ]
+}

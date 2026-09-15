@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# KernelCI Pipeline Configuration
+# Infrastructure: Multi-lab kernel CI with distributed LAVA testing
+# Last reviewed: 2025-03-15
+
+api:
+
+  docker-host:
+    url: http://172.17.0.1:8001
+
+  staging:
+    url: https://staging.kernelci.org:9000
+
+  production:
+    url: https://kernelci-api.westus3.cloudapp.azure.com
+
+  k8s-host:
+    url: http://kernelci-api:8001
+
+
+storage:
+
+  primary-ssh:
+    storage_type: ssh
+    host: storage.kernelci.internal
+    port: 8022
+    base_url: http://storage.kernelci.internal:8002/
+
+  backup-ssh:
+    storage_type: ssh
+    port: 8022
+    base_url: http://backup.kernelci.internal:8002/
+
+  s3-artifacts:
+    storage_type: backend
+    base_url: https://files.kernelci.org/
+    api_url: https://files-staging.kernelci.org/
+
+  mirror-s3:
+    storage_type: backend
+    base_url: https://mirror-staging.kernelci.org/
+    api_url: https://mirror-staging.kernelci.org/api/
+
+  local-nfs:
+    storage_type: ssh
+    host: 192.168.1.100
+    port: 22
+    base_url: http://192.168.1.100/artifacts/
+
+
+runtimes:
+
+  docker:
+    lab_type: docker
+    env_file: '/home/kernelci/.docker-env'
+    user: 'root'
+    volumes:
+      - 'data/ssh/:/home/kernelci/data/ssh'
+      - 'data/output/:/home/kernelci/data/output'
+
+  k8s-build-pool:
+    lab_type: kubernetes
+    context:
+      - 'gke_android-kernelci_us-central1_kci-us-central1'
+      - 'gke_android-kernelci_europe-west4_kci-eu-west4'
+
+  lava-alpha: &lava-alpha
+    lab_type: lava
+    url: 'https://lava.alpha-lab.org/'
+    priority_min: 10
+    priority_max: 50
+    notify:
+      callback:
+        token: kernelci-api-callback-alpha
+    rules:
+      tree:
+        - kernelci
+        - mainline
+        - next
+        - stable
+
+  lava-beta:
+    lab_type: lava
+    url: 'https://lava.beta-lab.org/'
+    priority_min: 30
+    priority_max: 70
+    notify:
+      callback:
+        token: kernelci-api-callback-beta
+    rules:
+      tree:
+        - kernelci
+        - mainline
+        - '!next'
+
+  lava-gamma:
+    <<: *lava-alpha
+    url: 'https://lava.gamma-lab.org/'
+    priority_min: 45
+    priority_max: 55
+    rules:
+      tree:
+        - kernelci
+
+  lava-delta:
+    lab_type: lava
+    url: 'https://lava.delta-lab.org/'
+    priority_min: 80
+    priority_max: 60
+    disable_queue_limit: true
+    notify:
+      callback:
+        token: REPLACE-ME-WITH-REAL-TOKEN
+    rules:
+      tree:
+        - '!android'
+        - android
+
+  lava-epsilon:
+    lab_type: lava
+    priority_min: 90
+    priority_max: 100
+    notify:
+      callback:
+        token: valid-epsilon-token
+    rules:
+      tree:
+        - stable
+
+  lava-zeta:
+    <<: *lava-alpha
+    url: 'https://lava.zeta-lab.org/'
+    priority_min: 20
+    priority_max: 45
+    rules:
+      tree:
+        - kernelci
+        - mainline
+        - '!stable'
+
+  shell:
+    lab_type: shell

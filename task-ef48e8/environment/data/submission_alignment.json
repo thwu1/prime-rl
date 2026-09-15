@@ -1,0 +1,43 @@
+[
+  {
+    "case_id": "1",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s1", "s2"]},
+      {"answer_id": "a2", "evidence_id": ["s4", "s7"]}
+    ]
+  },
+  {
+    "case_id": "2",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s2", "s3"]},
+      {"answer_id": "a2", "evidence_id": ["s3"]}
+    ]
+  },
+  {
+    "case_id": "3",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s1"]},
+      {"answer_id": "a2", "evidence_id": ["s5", "s3"]}
+    ]
+  },
+  {
+    "case_id": "4",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s2"]}
+    ]
+  },
+  {
+    "case_id": "5",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s3", "s4"]},
+      {"answer_id": "a2", "evidence_id": ["s8"]}
+    ]
+  },
+  {
+    "case_id": "6",
+    "prediction": [
+      {"answer_id": "a1", "evidence_id": ["s1", "s4"]},
+      {"answer_id": "a2", "evidence_id": ["s4"]}
+    ]
+  }
+]

@@ -1,0 +1,85 @@
+{
+  "$comment": "Required structure for /app/output.json. Type annotations show expected value types.",
+  "devices_found": [
+    {
+      "address": "hex string (7-bit I2C address, e.g. '0x76')",
+      "type": "one of: read_write, read_only, write_only"
+    }
+  ],
+  "failed_addresses": ["hex string (addresses that received NACK on address byte)"],
+  "bme280": {
+    "chip_id": "hex string",
+    "calibration": {
+      "dig_T1": "uint16",
+      "dig_T2": "int16",
+      "dig_T3": "int16",
+      "dig_P1": "uint16",
+      "dig_P2": "int16",
+      "dig_P3": "int16",
+      "dig_P4": "int16",
+      "dig_P5": "int16",
+      "dig_P6": "int16",
+      "dig_P7": "int16",
+      "dig_P8": "int16",
+      "dig_P9": "int16",
+      "dig_H1": "uint8",
+      "dig_H2": "int16",
+      "dig_H3": "uint8",
+      "dig_H4": "int16",
+      "dig_H5": "int16",
+      "dig_H6": "int8"
+    },
+    "raw_adc": {
+      "pressure": "int",
+      "temperature": "int",
+      "humidity": "int"
+    },
+    "compensated": {
+      "temperature_c": "float (degrees Celsius)",
+      "pressure_hpa": "float (hectopascals)",
+      "humidity_pct": "float (percent relative humidity)"
+    }
+  },
+  "mpu6050": {
+    "who_am_i": "hex string",
+    "config": {
+      "accel_range": "string: one of +-2g, +-4g, +-8g, +-16g",
+      "gyro_range": "string: one of +-250dps, +-500dps, +-1000dps, +-2000dps"
+    },
+    "raw": {
+      "accel_x": "int16",
+      "accel_y": "int16",
+      "accel_z": "int16",
+      "gyro_x": "int16",
+      "gyro_y": "int16",
+      "gyro_z": "int16"
+    },
+    "calibrated": {
+      "accel_g": {
+        "x": "float",
+        "y": "float",
+        "z": "float"
+      },
+      "gyro_dps": {
+        "x": "float",
+        "y": "float",
+        "z": "float"
+      }
+    }
+  },
+  "anomalies": [
+    {
+      "transaction_index": "int (0-based index in transaction sequence)",
+      "type": "string: address_nack | data_nack | incomplete",
+      "address": "hex string (7-bit device address involved)",
+      "description": "string (human-readable explanation)"
+    }
+  ],
+  "summary": {
+    "total_transactions": "int (all START-to-STOP groups)",
+    "successful_transactions": "int (no anomalies)",
+    "failed_transactions": "int (transactions containing anomalies)",
+    "total_anomalies": "int",
+    "devices_responding": "int (unique 7-bit addresses that ACKed)"
+  }
+}

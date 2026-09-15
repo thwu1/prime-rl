@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of BSP spatial decomposition theory beyond simple tree construction. The solver must: (1) parse a custom binary WAD format (struct packing, little-endian, directory-based lumps), (2) implement BSP tree construction with splitter selection heuristics that balance split minimization against tree depth, (3) reconstruct the convex polygon boundary for each leaf subsector by propagating half-plane constraints down the tree and performing iterative polygon-vs-halfplane clipping (Sutherland-Hodgman or equivalent) — this requires understanding that BSP partitions tile the full bounding space into convex cells, a non-obvious theoretical insight, (4) compute a subsector adjacency graph by detecting shared collinear edge overlaps between polygon boundaries, (5) produce four distinct serialization formats (recursive JSON, binary WAD with cross-referenced NODES/SEGS/SSECTORS lumps, adjacency JSON, Graphviz DOT→SVG). The polygon reconstruction is the core expert challenge: it requires synthesizing knowledge of plane equations, convex geometry, and spatial partitioning — not following a procedural recipe."""
+solution_explanation = """The solution parses the input WAD, builds initial segs from linedefs, then recursively partitions using a scoring heuristic (minimizing splits weighted 8x against balance). After BSP construction, convex polygons are reconstructed by propagating the map AABB polygon down the tree, clipping at each internal node by the splitting half-plane (keeping the front or back half as appropriate). Adjacency is computed by checking all leaf polygon pairs for collinear edge overlaps exceeding a minimum length threshold. Traversals are computed by recursive front-to-back tree walking. Binary output packs NODES (pre-order, negative-encoded leaf children), SEGS (grouped by subsector), and SSECTORS (ordered by ID) into a PWAD. Graphviz DOT is rendered to SVG via the dot command."""
+verification_explanation = """Tests verify twelve independent aspects: (1) all five output files exist, (2) JSON BSP tree structural validity including polygon fields, (3) unique subsector IDs, (4) segment conservation (total length and collinearity), (5) partition correctness (ancestor half-plane constraints), (6) traversal ordering via independent re-traversal, (7) binary WAD consistency (record sizes, counts, child encoding, cross-references), (8) SVG validity, (9) polygon convexity and CCW ordering via cross products, (10) polygon area conservation (sum equals bounding box area within 1%), (11) seg containment within polygons, (12) adjacency graph validity (canonical pairs, connectedness, valid shared edges on polygon boundaries, minimum edge count)."""
+category = "systems_programming"
+tags = ["computational_geometry", "spatial_algorithms"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bsp-tree-compiler"

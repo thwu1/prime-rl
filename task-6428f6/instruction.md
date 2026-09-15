@@ -1,0 +1,9 @@
+A NextGen Water Modeling Engine (ngen) hydrofabric is stored as a GeoPackage at `/app/data/hydrofabric.gpkg`. It contains `catchments` and `nexuses` layers representing a directed bipartite catchment-nexus drainage network. BMI model configs for CFE and PET are at `/app/config/cfe_bmi_config.txt` and `/app/config/pet_bmi_config.txt`. Per-catchment forcing CSVs are in `/app/data/forcing/`.
+
+Produce three JSON files in `/app/output/`:
+
+**`network_analysis.json`** containing: `headwater_catchments` (sorted list of catchment IDs with no upstream inflow), `outlet_nexus` (terminal outlet nexus ID), `total_drainage_area_sqkm` (sum of catchment areas), `strahler_orders` (dict of catchment ID to Strahler stream order), `max_strahler_order`, `shreve_magnitudes` (dict of catchment ID to Shreve magnitude), `bifurcation_ratio` (Horton's Rb), `contributing_areas` (dict of nexus ID to cumulative upstream drainage area in sq km), and `longest_flow_path` with `length` (catchment count) and `path` (ordered catchment IDs from headwater to outlet along the longest drainage path).
+
+**`realization_config.json`** -- a valid ngen realization using a `bmi_multi` global formulation coupling PET and CFE BMI modules so evapotranspiration output drives the water balance. Reference the provided BMI init configs and forcing directory with appropriate file patterns. Include a `time` section covering the forcing period with hourly output intervals.
+
+**`partition_config.json`** -- a 4-way ngen MPI partition: `num_partitions` (4), `partitions` (list of objects with `id` 0-3, `catchment_ids`, `nexus_ids`), and `remote_nexuses` (sorted list of nexus IDs requiring inter-partition communication). Every catchment and nexus must be assigned to exactly one partition; no partition may exceed 6 catchments; at most 5 remote nexuses.

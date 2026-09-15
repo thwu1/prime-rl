@@ -1,0 +1,5 @@
+#!/bin/bash
+
+pip3 install numpy==2.1.3 scipy==1.14.1 scikit-learn==1.5.2 pandas==2.2.3 -q
+
+python3 /solution/solve_helper.py

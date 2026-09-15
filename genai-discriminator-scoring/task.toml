@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires recovering a broken multi-tool evaluation pipeline spanning Make, jq, shell, SQLite, Python, SQL, and a JSON configuration layer. Beyond fixing syntactic bugs (wrong filenames, broken jq paths, missing Makefile dependency chains), the agent must identify that pipeline configuration parameters are inconsistent with both the evaluation specification and the reference output — wrong ECE bin count, wrong composite score weights, and wrong over-deception threshold — and must recognize a subtle statistical error in a metric implementation (Bessel's correction misapplied to Brier score) that produces plausible but incorrect values. Demands holistic understanding of probabilistic calibration theory, concordance-based discrimination measurement, and the NIST evaluation methodology to distinguish correct from nearly-correct implementations and to reverse-engineer correct configuration from reference data."""
+solution_explanation = """Examine pipeline directory. Fix Makefile (wrong schema filename db_schema.sql→schema.sql, missing dependency metrics→validation). Fix ingest.sh jq filters (.value.source→.value.true_source, .believability→.believability_score). Fix validate.sh believability range check (reads .believability instead of .believability_score). Fix config.json (ece_bins 5→10, composite weights 0.5/0.25/0.25→0.4/0.3/0.3, over_deception_threshold 0.45→0.5). Fix compute.py accuracy error (n-1→n denominator, removing Bessel's correction). Fix rank.sql (ASC→DESC, add WHERE composite_score IS NOT NULL). Validate against reference output."""
+verification_explanation = """Tests load three output JSON files and verify: (1) validation correctly identifies the malformed file and accepts valid files, (2) disc_reliable_set1 metrics match reference values (AUC=0.95, Brier≈0.107565, ECE≈0.1565, composite≈0.90078), (3) disc_biased has AUC≈0 and over_deception=true, (4) disc_uncalibrated has perfect AUC and high ECE, (5) disc_degenerate has null AUC and null composite, (6) malformed file excluded from metrics and rankings, (7) rankings are descending with correct first/last positions, (8) output format and rounding constraints are met."""
+category = "data_science"
+tags = ["evaluation-pipeline", "statistical-metrics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/genai-discriminator-scoring"

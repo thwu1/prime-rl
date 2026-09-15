@@ -1,0 +1,55 @@
+{
+  "bump_case": {
+    "description": "2D Bump-in-Channel Verification Case (NASA TMR)",
+    "turbulence_model": "Spalart-Allmaras",
+    "mach_number": 0.2,
+    "reynolds_number": 3000000,
+    "reference_length": 1.0,
+    "bump_geometry": {
+      "formula": "y = 0.05 * (sin(pi*x/0.9 - pi/3))^4",
+      "x_start": 0.3,
+      "x_end": 1.2,
+      "y_max": 0.05
+    }
+  },
+  "boundary_layer": {
+    "re250k": {
+      "Re_H": 250000,
+      "U_inf": 22.46,
+      "U_e": 22.1,
+      "nu": 1.6956e-05,
+      "delta": 0.0431,
+      "H_hill": 0.186944
+    },
+    "re650k": {
+      "Re_H": 650000,
+      "U_inf": 59.03,
+      "U_e": 58.4,
+      "nu": 1.6956e-05,
+      "delta": 0.0387,
+      "H_hill": 0.186944
+    },
+    "piv_re250k": {
+      "U_inf": 22.20,
+      "U_e": 22.15,
+      "nu": 1.6956e-05,
+      "delta": 0.0430,
+      "H_hill": 0.186944
+    },
+    "piv_re650k": {
+      "U_inf": 59.33,
+      "U_e": 58.35,
+      "nu": 1.6956e-05,
+      "delta": 0.0382,
+      "H_hill": 0.186944
+    }
+  },
+  "spalding_constants": {
+    "kappa": 0.41,
+    "B": 5.0
+  },
+  "gci": {
+    "safety_factor_Fs": 1.25,
+    "note": "Use Fs=1.25 for 3+ grid study with observed order"
+  }
+}

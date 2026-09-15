@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level computational mechanics task. Implementing a complete 3D eigenvalue buckling analysis pipeline from scratch requires graduate-level structural engineering knowledge, matrix methods expertise, and careful numerical programming. The geometric stiffness formulation with full internal-force coupling has 30+ unique coefficients derived from advanced stability theory. This task was directly inspired by the hardest tier of FEM-Bench — a benchmark where no frontier LLM achieved any correct solutions on the equivalent T3 variant. The full pipeline chains ~10 interdependent numerical routines where errors cascade."""
+solution_explanation = """The solution implements the complete pipeline: (1) local 12x12 elastic stiffness matrix for 3D Euler-Bernoulli beams, (2) coordinate transformation via direction cosine matrices, (3) global stiffness assembly, (4) load vector construction, (5) DOF partitioning for boundary conditions, (6) linear static solve, (7) per-element internal force recovery in local coordinates, (8) local 12x12 geometric stiffness matrix with full torsion-bending coupling (axial force terms, torsional moment coupling, and all end-moment terms), (9) global geometric stiffness assembly, (10) generalized eigenvalue solve with complex-eigenvalue handling and positive eigenvalue selection."""
+verification_explanation = """Tests verify the complete pipeline against Euler's analytical cantilever buckling formula across a 3x3 sweep of radii and lengths (9 cases, rtol < 1e-5). Orientation invariance is checked by rigidly rotating a rectangular-section cantilever 42 degrees about an arbitrary axis and comparing both lambda (rtol 1e-9) and the transformed mode shape. Mesh convergence is verified with 4 refinement levels checking monotone error decrease and finest-mesh accuracy < 1e-6. A moment coupling test confirms the geometric stiffness includes torsion-bending terms by comparing pure-axial vs combined-loading eigenvalues — an axial-only formulation gives identical results for both, which the test rejects."""
+category = "applied_computing"
+tags = ["finite-element-method", "structural-mechanics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e3d3fd"

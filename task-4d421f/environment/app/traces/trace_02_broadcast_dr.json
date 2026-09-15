@@ -1,0 +1,11 @@
+{
+  "trace_id": "trace_02_broadcast_dr",
+  "description": "Broadcast network adjacency formation between R3 (DROther) and R1 (DR) on network N1",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R1", "event": "HelloReceived"},
+    {"time": 2, "router": "R3", "neighbor": "R1", "event": "2-WayReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R1", "event": "NegotiationDone"},
+    {"time": 4, "router": "R3", "neighbor": "R1", "event": "ExchangeDone", "ls_request_list_empty": false},
+    {"time": 5, "router": "R3", "neighbor": "R1", "event": "LoadingDone"}
+  ]
+}

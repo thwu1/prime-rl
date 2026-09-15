@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool interoperability across the ANTLR4 parser-generator toolchain: running the Java-based ANTLR4 tool to generate Python lexer/parser/visitor code from a .g4 grammar file, installing the antlr4-python3-runtime Python package, understanding the generated parse tree context API, and writing a visitor that converts ANTLR4 parse trees into an intermediate representation for code generation. Beyond tooling, the solver must bridge five categories of Lox-to-Python semantic mismatch: block-level vs function-level scoping (environment chain emulation), truthiness rules (nil/false only), class init-returns-this semantics with super binding, closure capture by reference across block boundaries, and type-checked arithmetic operators with Lox number formatting."""
+solution_explanation = """Run 'make generate' to invoke the ANTLR4 Java tool, producing Python lexer/parser/visitor classes in /app/gen/. Install antlr4-python3-runtime. Write an ASTBuilder visitor that converts ANTLR4's parse tree contexts into Lox AST nodes (reusing the ast_nodes module from the reference interpreter), then a Transpiler that walks the AST emitting Python with a ~160-line runtime preamble: Env class for scope chains, LoxFn/LoxClass/LoxInstance for OOP semantics, helper functions for truthiness/stringify/type-checked arithmetic. Logical operators use lambda-based short-circuiting; for-loops are desugared into while-loops; super is resolved through the Env chain."""
+verification_explanation = """44 pytest tests across 11 categories transpile Lox programs, execute both the reference interpreter and the generated Python, and verify byte-for-byte identical stdout. Coverage includes arithmetic, strings, comparisons, nested block scoping, control flow, functions with early returns, closures, recursion, classes with init/fields/methods, multi-level inheritance with super, logical short-circuit, and complex interactions like class methods returning closures."""
+category = "programming-languages"
+tags = ["compilers", "parser-generators"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-30bf78"

@@ -1,0 +1,44 @@
+{
+  "type": "Collection",
+  "id": "C1327985578-ASF",
+  "stac_version": "1.0.0",
+  "title": "Sentinel-1A/B Single Look Complex",
+  "description": "SENTINEL-1_SLC data collection from ASF.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2014-04-03T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "ASF",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "Sentinel-1A",
+      "Sentinel-1B"
+    ],
+    "processing:level": "L1"
+  },
+  "links": [],
+  "license": "proprietary"
+}

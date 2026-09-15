@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc>
+  <meta>
+    <property role="is-positive-law">yes</property>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t9">
+      <num value="9">Title 9</num>
+      <heading>Arbitration</heading>
+      <chapter>
+        <num value="1">Chapter 1</num>
+        <heading>GENERAL PROVISIONS</heading>
+        <section identifier="/us/usc/t9/s1">
+          <num value="1">§ 1.</num>
+          <heading>"Maritime transactions" and "commerce" defined; exceptions to operation of title</heading>
+          <content>
+            <text>"Maritime transactions", as herein defined, means charter parties, bills of lading of water carriers, agreements relating to wharfage, supplies furnished vessels or repairs to vessels, collisions, or any other matters in foreign commerce which, if the subject of controversy, would be embraced within admiralty jurisdiction; "commerce", as herein defined, means commerce among the several States or with foreign nations, or in any Territory of the United States or in the District of Columbia, or between any such Territory and another, or between any such Territory and any State or foreign nation, or between the District of Columbia and any State or Territory or foreign nation, but nothing herein contained shall apply to contracts of employment of seamen, railroad employees, or any other class of workers engaged in foreign or interstate commerce.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 669.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s2">
+          <num value="2">§ 2.</num>
+          <heading>Validity, irrevocability, and enforcement of agreements to arbitrate</heading>
+          <content>
+            <text>A written provision in any maritime transaction or a contract evidencing a transaction involving commerce to settle by arbitration a controversy thereafter arising out of such contract or transaction, or the refusal to perform the whole or any part thereof, or an agreement in writing to submit to arbitration an existing controversy arising out of such a contract, transaction, or refusal, shall be valid, irrevocable, and enforceable, save upon such grounds as exist at law or in equity for the revocation of any contract.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 670.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s3">
+          <num value="3">§ 3.</num>
+          <heading>Stay of proceedings where issue therein referable to arbitration</heading>
+          <content>
+            <text>If any suit or proceeding be brought in any of the courts of the United States upon any issue referable to arbitration under an agreement in writing for such arbitration, the court in which such suit is pending, upon being satisfied that the issue involved in such suit or proceeding is referable to arbitration under such an agreement, shall on application of one of the parties stay the trial of the action until such arbitration has been had in accordance with the terms of the agreement, providing the applicant for the stay is not in default in proceeding with such arbitration.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 670.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s4">
+          <num value="4">§ 4.</num>
+          <heading>Failure to arbitrate under agreement; petition to United States court having jurisdiction; notice and service thereof; hearing and determination</heading>
+          <content>
+            <subsection>
+              <num value="a">(a)</num>
+              <heading>Petition</heading>
+              <content>
+                <text>A party aggrieved by the alleged failure, neglect, or refusal of another to arbitrate under a written agreement for arbitration may petition any United States district court which, save for such agreement, would have jurisdiction under <ref href="/us/usc/t28/s1332">title 28</ref>, in a civil action or in admiralty of the subject matter of a suit arising out of the controversy between the parties, for an order directing that such arbitration proceed in the manner provided for in such agreement.</text>
+              </content>
+            </subsection>
+            <subsection>
+              <num value="b">(b)</num>
+              <heading>Notice</heading>
+              <content>
+                <text>Five days' notice in writing of such application shall be served upon the party in default. Service thereof shall be made in the manner provided by the Federal Rules of Civil Procedure.</text>
+              </content>
+            </subsection>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 671; Pub. L. 116–150, § 2(a), Aug. 6, 2020, 134 Stat. 681.)</sourceCredit>
+          <notes type="statutory">
+            <note topic="amendments">
+              <heading>Amendments</heading>
+              <p>2020—Pub. L. 116–150 clarified procedures for compelling arbitration.</p>
+            </note>
+          </notes>
+        </section>
+      </chapter>
+    </title>
+  </main>
+</uscDoc>

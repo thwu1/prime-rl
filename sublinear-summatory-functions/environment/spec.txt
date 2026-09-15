@@ -1,0 +1,54 @@
+Number-Theoretic Summatory Functions — Specification
+=====================================================
+
+Definitions
+-----------
+
+Mobius function mu(n):
+  mu(1) = 1
+  mu(n) = (-1)^k  if n is a product of k distinct primes
+  mu(n) = 0       if n has a squared prime factor
+
+Euler's totient function phi(n):
+  phi(n) = |{k in [1,n] : gcd(k,n) = 1}|
+
+Liouville function lambda(n):
+  lambda(n) = (-1)^Omega(n)  where Omega(n) counts prime factors with multiplicity
+
+
+Summatory Functions
+-------------------
+
+  M(n)  = sum_{k=1}^{n} mu(k)       Mertens function      (exact integer)
+  Phi(n) = sum_{k=1}^{n} phi(k)     Totient summatory     (mod 998244353)
+  L(n)  = sum_{k=1}^{n} lambda(k)   Liouville summatory   (exact integer)
+
+
+Fundamental Identities
+----------------------
+
+The following identities hold for all positive integers n:
+
+  (I)    sum_{d|n} mu(d)     = [n = 1]                  (mu * 1 = epsilon)
+  (II)   sum_{d|n} phi(d)    = n                         (phi * 1 = id)
+  (III)  sum_{d|n} lambda(d) = [n is a perfect square]   (lambda * 1 = chi_sq)
+  (IV)   lambda(n)           = sum_{d^2|n} mu(n/d^2)
+
+
+Numerical Considerations
+------------------------
+
+For N = 10^10:
+  - N exceeds the range of 32-bit integers (max ~2.1e9)
+  - N*(N+1) exceeds the range of 64-bit integers (max ~9.2e18)
+  - Modular arithmetic for Phi(n) requires care to avoid overflow
+  - Integer square root computation must be exact; floating-point sqrt
+    of large values can be off by 1
+
+
+Performance Constraints
+-----------------------
+
+  - N can be up to 10^10
+  - Total computation time for all three functions: under 120 seconds
+  - Memory: under 2 GB

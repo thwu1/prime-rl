@@ -1,0 +1,134 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-001",
+        "name": [{"given": ["Maria"], "family": "Chen"}],
+        "gender": "female",
+        "birthDate": "1951-08-22"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-cr-001a",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma"}]},
+        "subject": {"reference": "Patient/pat-001"},
+        "effectiveDateTime": "2023-06-15T08:30:00Z",
+        "valueQuantity": {"value": 1.2, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-cr-001b",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma"}]},
+        "subject": {"reference": "Patient/pat-001"},
+        "effectiveDateTime": "2024-01-10T14:22:00Z",
+        "valueQuantity": {"value": 2.1, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bmi-001",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "39156-5", "display": "Body mass index (BMI)"}]},
+        "subject": {"reference": "Patient/pat-001"},
+        "effectiveDateTime": "2024-01-10T14:00:00Z",
+        "valueQuantity": {"value": 28.5, "unit": "kg/m2", "system": "http://unitsofmeasure.org", "code": "kg/m2"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-001a",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861004", "display": "metformin hydrochloride 1000 MG Oral Tablet"}],
+          "text": "Metformin 1000mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 1000, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-001b",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "197604", "display": "digoxin 0.25 MG Oral Tablet"}],
+          "text": "Digoxin 0.25mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 0.25, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-001c",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "1364430", "display": "apixaban 5 MG Oral Tablet"}],
+          "text": "Eliquis 5mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 5, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-001d",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "314077", "display": "lisinopril 20 MG Oral Tablet"}],
+          "text": "Lisinopril 20mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 20, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-001a",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.91", "display": "Unspecified atrial fibrillation"}]},
+        "subject": {"reference": "Patient/pat-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-001b",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}]},
+        "subject": {"reference": "Patient/pat-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-001c",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}]},
+        "subject": {"reference": "Patient/pat-001"}
+      }
+    }
+  ]
+}

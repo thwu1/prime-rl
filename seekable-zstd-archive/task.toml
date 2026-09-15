@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple independent corruptions in a Zstandard Seekable Format binary archive without being told what the issues are. The solver must parse raw binary data at the byte level, understand zstd frame headers and magic number encoding, master the seekable format specification including skippable frame structure, seek table entry layout, footer format, and descriptor bitfield semantics, and correctly compute xxH64 checksums with the right seed and truncation. Unlike a construction task where the format is given, the solver must first discover what is wrong through systematic binary forensics — comparing frame data, cross-referencing seek table entries against actual frame properties, and validating every field against the specification. This demands holistic compression-domain expertise and the ability to reason about interacting binary format constraints."""
+solution_explanation = """The solution reads the corrupted archive and the individual reference frames, performs a byte-level comparison of the archive's data region against the concatenated reference frames to identify and locate frame-level corruption (a corrupted zstd magic number), then rebuilds the entire seek table from scratch by decompressing each reference frame, computing its decompressed size and xxH64(data, seed=0) & 0xFFFFFFFF checksum, and assembling properly-formatted seek table entries and footer with the correct descriptor byte (0x80, only Checksum_Flag set, reserved bits zero)."""
+verification_explanation = """Tests decompress the repaired archive with zstd -d and verify SHA-256 matches expected output. The seek table is parsed from the binary end: footer magic, frame count, descriptor checksum flag, and reserved bits are validated. Skippable frame magic and Frame_Size consistency are checked. Each seek table entry's compressed and decompressed sizes are cross-referenced against original frame files and actual decompressed output. xxH64 checksums are independently recomputed with seed=0 and compared against stored values. Frame integrity checks verify every frame starts with valid zstd magic and frames are contiguous with no gaps."""
+category = "systems"
+tags = ["compression", "binary-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seekable-zstd-archive"

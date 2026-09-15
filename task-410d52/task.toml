@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of fixed-income derivatives pricing: yield-curve construction, Hull-White short-rate model calibration to swaption volatilities via nonlinear optimization, analytic vs tree-based pricing engines for European and Bermudan swaptions, early-exercise boundary computation, and finite-difference sensitivity analysis (DV01). The agent must navigate QuantLib-Python's complex API (date conventions, day-count fractions, schedule generation, swap/swaption construction, calibration helpers) or implement equivalent numerical methods from scratch. Multiple interacting components must be wired together correctly: a single wrong convention choice (day count, business-day rule, settlement lag) silently produces wrong prices."""
+solution_explanation = """Install QuantLib-Python. Build a FlatForward yield curve from the given rate. Create SwaptionHelper objects for each co-terminal swaption vol, attach JamshidianSwaptionEngine, and calibrate a HullWhite model via LevenbergMarquardt. Price the European 1Yx5Y payer swaption analytically via Jamshidian. Construct the co-terminal Bermudan payer swaption with BermudanExercise and price it using TreeSwaptionEngine. For DV01, bump the flat forward rate by 1bp, rebuild the curve (without recalibrating), and reprice the Bermudan swaption."""
+verification_explanation = """The test independently runs the full QuantLib pipeline with the same market data and compares the agent's results.json values against reference values within tight tolerances (1-5% relative). It also verifies structural invariants: Bermudan price >= European price, positive early-exercise premium, and correct DV01 sign."""
+category = "finance"
+tags = ["quantitative-finance", "derivatives-pricing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-410d52"

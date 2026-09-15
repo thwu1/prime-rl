@@ -1,0 +1,7 @@
+{
+  "asn": 65010,
+  "max_length": 16,
+  "prefix": "100.65.0.0/16",
+  "roa_id": "ROA10",
+  "signing_entity": "authority_alpha"
+}

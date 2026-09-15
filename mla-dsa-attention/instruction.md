@@ -1,0 +1,3 @@
+The attention module at `/app/mla_dsa.py` is incomplete — its computational methods raise `NotImplementedError`. Complete the module so that it passes the full test suite.
+
+The module implements a compressed multi-head attention mechanism with a dynamic sparse indexer. All layer definitions and projection parameters are initialized in the class constructor. Supporting infrastructure is provided in the `/app/` directory.

@@ -1,0 +1,56 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in usbtmc_interrupt+0x68d/0x6a0 drivers/usb/class/usbtmc.c:2309
+Read of size 1 at addr ffff88802284e281 by task swapper/1/0
+
+CPU: 1 UID: 0 PID: 0 Comm: swapper/1 Not tainted 6.13.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <IRQ>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_address_description mm/kasan/report.c:378 [inline]
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ usbtmc_interrupt+0x68d/0x6a0 drivers/usb/class/usbtmc.c:2309
+ __usb_hcd_giveback_urb+0x38d/0x610 drivers/usb/core/hcd.c:1657
+ usb_hcd_giveback_urb+0x3ca/0x4a0 drivers/usb/core/hcd.c:1741
+ dummy_timer+0xd85/0x3670 drivers/usb/gadget/udc/dummy_hcd.c:1995
+ __run_hrtimer kernel/time/hrtimer.c:1785 [inline]
+ __hrtimer_run_queues+0x50e/0xa70 kernel/time/hrtimer.c:1849
+ hrtimer_run_softirq+0x17d/0x350 kernel/time/hrtimer.c:1866
+ handle_softirqs+0x1eb/0x9e0 kernel/softirq.c:622
+ __do_softirq kernel/softirq.c:656 [inline]
+ invoke_softirq kernel/softirq.c:496 [inline]
+ __irq_exit_rcu+0xef/0x150 kernel/softirq.c:723
+ irq_exit_rcu+0x9/0x30 kernel/softirq.c:739
+ </IRQ>
+
+Allocated by task 29:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ poison_kmalloc_redzone mm/kasan/common.c:398 [inline]
+ __kasan_kmalloc+0xaa/0xb0 mm/kasan/common.c:415
+ kasan_kmalloc include/linux/kasan.h:263 [inline]
+ __do_kmalloc_node mm/slub.c:5219 [inline]
+ __kmalloc_noprof+0x301/0x850 mm/slub.c:5231
+ kmalloc_noprof include/linux/slab.h:966 [inline]
+ usbtmc_probe+0xa41/0x1bc0 drivers/usb/class/usbtmc.c:2452
+ usb_probe_interface+0x303/0x8f0 drivers/usb/core/driver.c:396
+ call_driver_probe drivers/base/dd.c:583 [inline]
+ really_probe+0x241/0xa60 drivers/base/dd.c:661
+ __driver_probe_device+0x1de/0x400 drivers/base/dd.c:803
+ driver_probe_device+0x4c/0x1b0 drivers/base/dd.c:833
+
+The buggy address belongs to the object at ffff88802284e280
+ which belongs to the cache kmalloc-8 of size 8
+The buggy address is located 0 bytes to the right of
+ allocated 1-byte region [ffff88802284e280, ffff88802284e281)
+
+Memory state around the buggy address:
+ ffff88802284e180: 04 fc fc fc 00 fc fc fc 06 fc fc fc fa fc fc fc
+ ffff88802284e200: fa fc fc fc fa fc fc fc fa fc fc fc 00 fc fc fc
+>ffff88802284e280: 01 fc fc fc fa fc fc fc 00 fc fc fc fa fc fc fc
+                   ^
+ ffff88802284e300: 00 fc fc fc fa fc fc fc 06 fc fc fc 00 fc fc fc
+ ffff88802284e380: 00 fc fc fc 00 fc fc fc fa fc fc fc fa fc fc fc
+==================================================================

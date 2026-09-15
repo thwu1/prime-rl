@@ -1,0 +1,11 @@
+--- a/fs/ext4/xattr.c
++++ b/fs/ext4/xattr.c
+@@ -1625,6 +1625,9 @@ static int ext4_xattr_set_entry(struct ext4_xattr_info *i,
+ 	struct ext4_xattr_entry *last;
+ 	size_t min_offs;
+
++	if (!s->base)
++		return -ENOSPC;
++
+ 	last = ENTRY(s->base + s->here);
+ 	min_offs = s->end - s->base;

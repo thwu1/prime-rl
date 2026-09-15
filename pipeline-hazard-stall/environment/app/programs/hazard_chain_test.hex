@@ -1,0 +1,8 @@
+// Program: hazard_chain_test - chain of dependent operations without NOPs
+// Requires pipeline hazard detection to produce correct results
+// Expected: r1=5, r2=10, r3=15, r4=25
+14100005  // loadi.u r1, 5
+38210100  // add r2, r1, r1 (r2 = 10, RAW hazard on r1)
+38320100  // add r3, r2, r1 (r3 = 15, RAW hazard on r2)
+38430200  // add r4, r3, r2 (r4 = 25, RAW hazard on r3)
+08000000  // halt

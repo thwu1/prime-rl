@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the x86-64 System V ABI specification — particularly the eightbyte classification algorithm for aggregate types (struct field merging, INTEGER vs SSE vs MEMORY classification), register allocation order for mixed parameter types, hidden-pointer return semantics for large structs, and variadic parameter passing via the register save area. Building a correct test generator demands programmatic C code generation that handles type declarations, separate compilation, cross-compiler linking, and self-checking logic. The cross-compiler testing dimension (gcc caller + clang callee and vice versa) adds complexity around ABI compatibility verification that goes beyond single-compiler testing."""
+solution_explanation = """A Python script generates 54 test pairs across 10 ABI scenarios. For scalar tests, caller and callee files are generated with extern declarations and parameter validation. For struct tests, shared header files define type aliases. For variadic and special-type tests (__int128, _Complex, long double), custom code handles the unique syntax. Each pair is compiled as separate .o files, linked, and run for all four compiler combinations. Results are aggregated into summary.json and a TAP report. The solution leverages exactly-representable floating-point values and stdint.h fixed-width types to ensure deterministic cross-compiler comparison."""
+verification_explanation = """Tests verify: (1) summary.json exists with correct schema, (2) at least 50 tests generated, (3) all required ABI scenarios covered, (4) zero failures/errors in same-compiler mode (gcc_gcc and clang_clang), (5) cross-compiler combinations tested, (6) source files use separate compilation (extern declarations), (7) callee functions contain non-trivial parameter checks, (8) independent recompilation of 3 random test pairs succeeds, (9) cross-compiler recompilation succeeds, (10) TAP report follows correct format."""
+category = "systems"
+tags = ["compiler-testing", "abi-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/calling-convention-validator"

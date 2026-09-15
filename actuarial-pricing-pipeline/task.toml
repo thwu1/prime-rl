@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level actuarial data science: the agent must independently explore a 10,000-policy auto insurance dataset to discover multiple hidden data quality issues — a target-derived leakage variable (risk_score) masquerading as a legitimate underwriting feature, near-perfect multicollinearity between two experience variables, censored income values, and noise predictors. The agent must diagnose claim count overdispersion and select an appropriate count distribution, choose a suitable severity distribution with proper link function, correctly handle exposure offsets, maintain consistent categorical encoding between training data and prediction profiles, and combine frequency and severity components into pure premium estimates. No modeling guidance is provided; the agent must apply domain knowledge to make all statistical and methodological decisions."""
+solution_explanation = """Explore the dataset to discover risk_score is strongly correlated with claim_count (data leakage — it was derived from claim outcomes). Compute VIF to find driving_experience and years_licensed have VIF >50 (near-perfect collinearity). Exclude both problematic variables. Fit a Poisson GLM with log-exposure offset to detect overdispersion (Pearson chi-squared / df_resid >> 1), then fit a Negative Binomial GLM with optimized alpha via AIC minimization. Fit a Gamma GLM with log link on positive claim severities. Combine NB frequency predictions (with profile-specific exposure offsets) and Gamma severity predictions to compute pure premiums for five risk profiles. Compute portfolio-level metrics including mean frequency at unit exposure, mean severity, mean pure premium, and observed loss ratio."""
+verification_explanation = """Tests independently verify data issues exist (risk_score-claim_count correlation >0.3, VIF >5 for collinear pair). Diagnostic tests check that the agent excluded risk_score and at least one collinear variable, and flagged at least 2 concerns. Prediction tests independently fit NB+Gamma reference models with known-good variable exclusions and compare pure premiums within 40% tolerance, frequency within 50%, and severity within 50%. Portfolio tests cross-check mean frequency, severity, and loss ratio against reference and empirical values. 31 tests cover file structure, diagnostic quality, prediction accuracy, and portfolio reasonableness."""
+category = "data_science"
+tags = ["actuarial_modeling", "data_quality_diagnosis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/actuarial-pricing-pipeline"

@@ -1,0 +1,467 @@
+#\#CIF_2.0
+##########################################################################
+#                                                                        #
+#  CIF CORE DICTIONARY (SUBSET)                                          #
+#  Extracted from IUCr CIF Core Dictionary v3.4.0                        #
+#  Contains definitions for common crystal structure data items           #
+#                                                                        #
+##########################################################################
+#
+
+data_CIF_CORE_SUBSET
+
+    _dictionary.title             CIF_CORE_SUBSET
+    _dictionary.version           3.4.0
+    _dictionary.date              2026-06-23
+
+save_CELL
+
+    _definition.id                CELL
+    _definition.scope             Category
+    _definition.class             Set
+    _description.text
+;
+    Data items in the CELL category record the details of the
+    crystallographic cell parameters and their related standard
+    uncertainty values.
+;
+save_
+
+save_cell.length_a
+
+    _definition.id                '_cell.length_a'
+    _alias.definition_id          '_cell_length_a'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+    _units.code                   angstroms
+
+save_
+
+save_cell.length_b
+
+    _definition.id                '_cell.length_b'
+    _alias.definition_id          '_cell_length_b'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+    _units.code                   angstroms
+
+save_
+
+save_cell.length_c
+
+    _definition.id                '_cell.length_c'
+    _alias.definition_id          '_cell_length_c'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+    _units.code                   angstroms
+
+save_
+
+save_cell.angle_alpha
+
+    _definition.id                '_cell.angle_alpha'
+    _alias.definition_id          '_cell_angle_alpha'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:180.0
+    _units.code                   degrees
+
+save_
+
+save_cell.angle_beta
+
+    _definition.id                '_cell.angle_beta'
+    _alias.definition_id          '_cell_angle_beta'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:180.0
+    _units.code                   degrees
+
+save_
+
+save_cell.angle_gamma
+
+    _definition.id                '_cell.angle_gamma'
+    _alias.definition_id          '_cell_angle_gamma'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:180.0
+    _units.code                   degrees
+
+save_
+
+save_cell.volume
+
+    _definition.id                '_cell.volume'
+    _alias.definition_id          '_cell_volume'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+    _units.code                   angstroms_cubed
+
+save_
+
+save_cell.formula_units_Z
+
+    _definition.id                '_cell.formula_units_Z'
+    _alias.definition_id          '_cell_formula_units_Z'
+    _type.container               Single
+    _type.contents                Count
+    _enumeration.range            1:
+
+save_
+
+save_CHEMICAL_FORMULA
+
+    _definition.id                CHEMICAL_FORMULA
+    _definition.scope             Category
+    _definition.class             Set
+    _description.text
+;
+    Data items in the CHEMICAL_FORMULA category record details about
+    the chemical formula of the compound under study.
+;
+save_
+
+save_chemical_formula.sum
+
+    _definition.id                '_chemical_formula.sum'
+    _alias.definition_id          '_chemical_formula_sum'
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_chemical_formula.weight
+
+    _definition.id                '_chemical_formula.weight'
+    _alias.definition_id          '_chemical_formula_weight'
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   daltons
+
+save_
+
+save_EXPTL_CRYSTAL
+
+    _definition.id                EXPTL_CRYSTAL
+    _definition.scope             Category
+    _definition.class             Set
+    _description.text
+;
+    Data items in the EXPTL_CRYSTAL category record the details of
+    the crystal used in the experiment.
+;
+save_
+
+save_exptl_crystal.density_diffrn
+
+    _definition.id                '_exptl_crystal.density_diffrn'
+    _alias.definition_id          '_exptl_crystal_density_diffrn'
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+    _units.code                   megagrams_per_cubic_metre
+
+save_
+
+save_exptl_absorpt.coefficient_mu
+
+    _definition.id                '_exptl_absorpt.coefficient_mu'
+    _alias.definition_id          '_exptl_absorpt_coefficient_mu'
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   reciprocal_millimetres
+
+save_
+
+save_ATOM_SITE
+
+    _definition.id                ATOM_SITE
+    _definition.scope             Category
+    _definition.class             Loop
+    _description.text
+;
+    Data items in the ATOM_SITE category record details about
+    the atom sites in a crystal structure, such as the positional
+    coordinates, atomic displacement parameters, and magnetic
+    moments and directions.
+;
+save_
+
+save_atom_site.label
+
+    _definition.id                '_atom_site.label'
+    _alias.definition_id          '_atom_site_label'
+    _type.container               Single
+    _type.contents                Code
+
+save_
+
+save_atom_site.type_symbol
+
+    _definition.id                '_atom_site.type_symbol'
+    _alias.definition_id          '_atom_site_type_symbol'
+    _type.container               Single
+    _type.contents                Code
+
+save_
+
+save_atom_site.fract_x
+
+    _definition.id                '_atom_site.fract_x'
+    _alias.definition_id          '_atom_site_fract_x'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+
+save_
+
+save_atom_site.fract_y
+
+    _definition.id                '_atom_site.fract_y'
+    _alias.definition_id          '_atom_site_fract_y'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+
+save_
+
+save_atom_site.fract_z
+
+    _definition.id                '_atom_site.fract_z'
+    _alias.definition_id          '_atom_site_fract_z'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+
+save_
+
+save_atom_site.U_iso_or_equiv
+
+    _definition.id                '_atom_site.U_iso_or_equiv'
+    _alias.definition_id          '_atom_site_U_iso_or_equiv'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site.adp_type
+
+    _definition.id                '_atom_site.adp_type'
+    _alias.definition_id          '_atom_site_adp_type'
+    _type.container               Single
+    _type.contents                Code
+
+    loop_
+      _enumeration_set.state
+         Uani
+         Uiso
+         Uovl
+         Umpe
+         Bani
+         Biso
+         Bovl
+
+save_
+
+save_atom_site.occupancy
+
+    _definition.id                '_atom_site.occupancy'
+    _alias.definition_id          '_atom_site_occupancy'
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:1.0
+    _enumeration.default          1.0
+
+save_
+
+save_atom_site.B_iso_or_equiv
+
+    _definition.id                '_atom_site.B_iso_or_equiv'
+    _alias.definition_id          '_atom_site_B_iso_or_equiv'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_ATOM_SITE_ANISO
+
+    _definition.id                ATOM_SITE_ANISO
+    _definition.scope             Category
+    _definition.class             Loop
+    _description.text
+;
+    Data items in the ATOM_SITE_ANISO category record details
+    about anisotropic displacement parameters. If the crystal
+    structure analysis employed anisotropic displacement parameters
+    for any atom, data items in this category should be used in
+    preference to the isotropic-only items in the ATOM_SITE category.
+;
+save_
+
+save_atom_site_aniso.label
+
+    _definition.id                '_atom_site_aniso.label'
+    _alias.definition_id          '_atom_site_aniso_label'
+    _type.container               Single
+    _type.contents                Code
+
+save_
+
+save_atom_site_aniso.U_11
+
+    _definition.id                '_atom_site_aniso.U_11'
+    _alias.definition_id          '_atom_site_aniso_U_11'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site_aniso.U_22
+
+    _definition.id                '_atom_site_aniso.U_22'
+    _alias.definition_id          '_atom_site_aniso_U_22'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site_aniso.U_33
+
+    _definition.id                '_atom_site_aniso.U_33'
+    _alias.definition_id          '_atom_site_aniso_U_33'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site_aniso.U_23
+
+    _definition.id                '_atom_site_aniso.U_23'
+    _alias.definition_id          '_atom_site_aniso_U_23'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site_aniso.U_13
+
+    _definition.id                '_atom_site_aniso.U_13'
+    _alias.definition_id          '_atom_site_aniso_U_13'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_atom_site_aniso.U_12
+
+    _definition.id                '_atom_site_aniso.U_12'
+    _alias.definition_id          '_atom_site_aniso_U_12'
+    _type.purpose                 Measurand
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms_squared
+
+save_
+
+save_SPACE_GROUP
+
+    _definition.id                SPACE_GROUP
+    _definition.scope             Category
+    _definition.class             Set
+    _description.text
+;
+    Data items in the SPACE_GROUP category record details about
+    the space-group symmetry.
+;
+save_
+
+save_space_group.name_H-M_alt
+
+    _definition.id                '_space_group.name_H-M_alt'
+
+    loop_
+      _alias.definition_id
+         '_symmetry_space_group_name_H-M'
+         '_space_group_name_H-M_alt'
+
+    _type.container               Single
+    _type.contents                Text
+
+save_
+
+save_DIFFRN_RADIATION
+
+    _definition.id                DIFFRN_RADIATION
+    _definition.scope             Category
+    _definition.class             Set
+
+save_
+
+save_diffrn_radiation.wavelength
+
+    _definition.id                '_diffrn_radiation.wavelength'
+    _alias.definition_id          '_diffrn_radiation_wavelength'
+    _type.container               Single
+    _type.contents                Real
+    _units.code                   angstroms
+
+save_
+
+save_REFINE
+
+    _definition.id                REFINE
+    _definition.scope             Category
+    _definition.class             Set
+
+save_
+
+save_refine.ls_R_factor_gt
+
+    _definition.id                '_refine.ls_R_factor_gt'
+    _alias.definition_id          '_refine_ls_R_factor_gt'
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+
+save_
+
+save_refine.ls_wR_factor_ref
+
+    _definition.id                '_refine.ls_wR_factor_ref'
+
+    loop_
+      _alias.definition_id
+         '_refine_ls_wR_factor_ref'
+         '_refine_ls_wR_factor_gt'
+
+    _type.container               Single
+    _type.contents                Real
+    _enumeration.range            0.0:
+
+save_

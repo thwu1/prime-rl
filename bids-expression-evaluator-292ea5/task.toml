@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-module TypeScript expression language interpreter with 11 distinct bugs spanning lexing, evaluation semantics, null propagation, built-in function behavior, and missing functionality. The solver must reverse-engineer correct semantics from the test oracle (77 expression/result pairs), trace failures through lexer→parser→evaluator pipeline, and understand non-obvious rules like BIDS null short-circuiting, intersects return-type behavior, sorted mode detection, and n/a value handling in numeric operations."""
+solution_explanation = """Fix lexer to tokenize '%'; fix &&/|| to properly short-circuit with null (false&&null→false, true||null→true); fix 'in' operator to return null when RHS is null; fix intersects() to return false instead of empty array; fix substr() to use end-index not length; fix sorted() to detect number arrays for default numeric sort and handle n/a in numeric mode; implement count() function; support string indexing in index-access; fix min()/max() for scalar args and n/a filtering; fix type() to check Array.isArray before typeof 'object'."""
+verification_explanation = """Tests run the TypeScript expression evaluator against all 77 canonical test cases from BIDS expression_tests.yaml. A Python test harness invokes the TypeScript runner, parses the JSON output, and asserts zero failures. A second test verifies clean TypeScript compilation."""
+category = "debugging"
+tags = ["typescript", "interpreter"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bids-expression-evaluator-292ea5"

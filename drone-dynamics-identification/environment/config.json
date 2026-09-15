@@ -1,0 +1,15 @@
+{
+    "dt": 0.002,
+    "freq": 500,
+    "g": 9.81,
+    "mass": 0.033,
+    "L": 0.046,
+    "motor_config": "x",
+    "motor_positions_note": "M0:(+a,-a) M1:(-a,-a) M2:(-a,+a) M3:(+a,+a) where a=L/sqrt(2)",
+    "motor_spin_dirs_note": "M0:CW M1:CCW M2:CW M3:CCW",
+    "n_steps_training": 750,
+    "n_steps_validation": 500,
+    "parameters_to_identify": ["Ixx", "Iyy", "Izz", "kf", "km", "drag", "motor_tau"],
+    "known_parameters": ["mass", "L", "g"],
+    "data_format_note": "Each .npz contains: times, commands, initial_pos/quat/vel/ang_vel/rotor_vel, positions, quaternions. Velocities and angular velocities are NOT recorded — only positions and orientations."
+}

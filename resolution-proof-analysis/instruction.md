@@ -1,0 +1,3 @@
+Instances under `/app/instances/` contain propositional CNF formulas with varying accompanying data — resolution proofs, clause partitions, or neither. Complete input/output format specifications and the required output schema are in `/app/formats.md`.
+
+Produce `/app/results.json` conforming to the schema in `/app/formats.md`. Every instance directory must have a corresponding entry keyed by its directory name.

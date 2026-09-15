@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding a dispatch-pattern AST stringifier architecture across 13 TypeScript modules, then discovering 9 interacting defects spanning window frame construction, CTE modifiers, PostgreSQL cast syntax, aggregate function clauses (DISTINCT and FILTER), subquery set-operation dispatch, DISTINCT ON, ORDER BY modifiers in two separate code paths, and LATERAL join handling. The instruction does not enumerate the bugs — the solver must cross-reference type definitions against handler implementations and use test output to identify each defect. Three compound tests require simultaneous fixes across different files. The FILTER clause bug requires implementing new functionality rather than fixing existing code, and the subquery UNION bug requires understanding the dispatch architecture to route expressions correctly."""
+solution_explanation = """Fix 9 bugs across 4 files: (1) select.ts windowFrameToSQL – add BETWEEN...AND when end bound exists; (2) union.ts withToSQL – check recursive flag and emit WITH RECURSIVE; (3) func.ts castToSQL – swap expr/target order for :: casts; (4) func.ts aggrToSQL – emit the DISTINCT keyword before the argument; (5) func.ts aggrToSQL – extract filter from expr and add FILTER (WHERE ...) clause handling (new functionality); (6) init.ts select handler – check _next and dispatch to unionToSQL for subquery set operations; (7) select.ts distinctToSQL – handle object-form distinct with ON (columns); (8) select.ts orderByToSQL and overToSQL – append nulls clause to ORDER BY items in both locations; (9) select.ts tablesToSQL – emit LATERAL keyword for lateral join references."""
+verification_explanation = """17 pytest test cases verify SQL output from AST JSON input via batch CLI invocation. 5 baseline tests confirm working functionality (simple SELECT, CASE, function calls, JOINs, top-level UNION). 9 individual bug tests each target a specific defect. 3 compound tests require multiple bugs fixed simultaneously: CTE+window+NULLS (3 bugs across 2 files), cast+DISTINCT (2 bugs in 1 file), and LATERAL+FILTER+subquery-UNION (3 bugs across 3 files)."""
+category = "debugging"
+tags = ["typescript", "sql-parsing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sql-ast-stringifier"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-tool pipeline spanning Shell orchestration, jq cost computation, Python graph algorithms, and awk statistical aggregation. Seven coupled bugs cascade across four tools/languages: jq division-by-zero crash from missing zero clamping, jq cost model NILJ formula with swapped operands, shell redirect semantics (overwrite vs append), shell argument ordering, Python cost-lookup for estimated plan path, awk field-separator mismatch with pipe-delimited input, and awk percentile computation using ceiling instead of linear interpolation. Each fix reveals the next bug in a cascade. The solver must understand CEB cost model C semantics, jq filter programming, awk data processing, shell pipeline data flow, and DP shortest-path algorithms. Multi-tool interoperability debugging at this level requires proficient-level expertise across four different languages and understanding how data formats flow between tools."""
+solution_explanation = """Seven bugs across four tools must be fixed: (1) costs.jq doesn't clamp zero cardinalities before arithmetic, causing jq division-by-zero crash on q004. (2) costs.jq NILJ formula has both branches using the same expression (c1+nilj*c2): when len1==1 it should be c2+nilj*c1. (3) analyze.sh uses > instead of >> when collecting q-errors from each query, discarding all but the last query's values. (4) analyze.sh passes planner.py arguments in wrong order (output before input). (5) planner.py computes estimated plan true cost using est_costs dict instead of true_costs dict. (6) stats.awk is missing FS="|" declaration, so pipe-delimited input is not split and all lines are skipped (NF<2). (7) stats.awk percentile function uses ceiling-index instead of linear interpolation between floor and ceil indices."""
+verification_explanation = """Tests run the fixed pipeline and compare output against a reference implementation embedded in the test file. The reference independently computes correct Q-Error statistics (with zero clamping), correct cost model C edge costs (with proper NILJ formula), optimal and estimated plan costs via DP shortest path, and true cost of the estimated plan. Numerical values are compared with tolerance for floating point. The q-error count must equal the total number of subplans across all queries (41). Additional unit tests verify the cost model formula semantics and zero-cardinality handling."""
+category = "debugging"
+tags = ["database-systems", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/plan-cost-pipeline"

@@ -1,0 +1,19 @@
+# Intended behavior: Run three initialization steps in sequence.
+# Step 1: Initialize database schema (short-lived, exits when done)
+# Step 2: Warm up cache (short-lived, exits when done)
+# Step 3: Start application listener on port 8080 (long-running main process)
+# All init steps must complete successfully before the main app starts.
+# The service should restart on failure.
+[Unit]
+Description=Multi-step Application Initialization
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/init-db --create-schema
+ExecStart=/usr/local/bin/warm-cache --preload
+ExecStart=/usr/local/bin/start-app --port 8080
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

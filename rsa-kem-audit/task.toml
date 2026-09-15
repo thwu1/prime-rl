@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding C integer semantics (truthy -1), OpenSSL API return-value contracts (RSA_public_encrypt returns byte count on success, -1 on failure), RSA-KEM security requirements (secret cleansing, output length validation), and the ability to distinguish dead code from reachable error paths. The return-value mischeck bug is subtle because `if (ret)` appears correct at first glance — recognising that -1 is truthy requires knowing the specific API contract. Finding all three vulnerabilities across two functions demands systematic code review, not pattern matching."""
+solution_explanation = """1. In rsasve_generate: replace `if (ret)` with `if (ret <= 0 || ret != (int)nlen)` and move OPENSSL_cleanse to the error path before return 0. 2. Verify that the cleanse is now reachable (it was previously dead code due to the return-value mischeck). 3. In rsasve_recover: add `if (inlen != nlen) return 0;` before RSA_private_decrypt. 4. Rebuild with make and verify test_roundtrip passes. 5. Write AUDIT.md documenting all three vulnerabilities."""
+verification_explanation = """Tests check: (1) source-code analysis verifies the buggy `if (ret)` pattern is removed and proper return-value checking exists; (2) output-length validation against nlen is present; (3) OPENSSL_cleanse is on the error path; (4) rsasve_recover validates inlen; (5) code compiles and test_roundtrip passes; (6) a linker-mock test confirms rsasve_generate returns 0 when RSA_public_encrypt returns -1; (7) AUDIT.md exists with meaningful vulnerability discussion."""
+category = "security_and_privacy"
+tags = ["cryptography", "code-audit"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rsa-kem-audit"

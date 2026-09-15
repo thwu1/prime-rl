@@ -1,0 +1,23 @@
+# Maintainer: Frank Mon <frank@example.org>
+pkgname=monitor
+pkgver=1.8.0
+pkgrel=1
+pkgdesc="Infrastructure monitoring and health check service"
+arch=('x86_64')
+url="https://github.com/example/monitor"
+license=('MIT')
+depends=('webapp-api>=5.0' 'libnet')
+makedepends=('go')
+provides=("health-check=${pkgver}")
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('f5a6b7c8d9e00000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  go build -o monitor ./cmd/monitor
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  install -Dm755 monitor "${pkgdir}/usr/bin/monitor"
+}

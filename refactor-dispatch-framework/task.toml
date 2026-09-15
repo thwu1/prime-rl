@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires simultaneously performing six interdependent refactoring operations on a C codebase: changing function return types with proper error propagation semantics (preserving handler-specific error codes like -23, -29, -37, -41, -47), extracting a module from a monolithic source file, breaking a circular header dependency using forward declarations, performing a consistent cross-file enum rename, consolidating duplicated code patterns into a helper function, and updating the build system. Each change in isolation is moderate, but the agent must reason about C header inclusion mechanics, understand how void-to-int return type changes affect pipeline control flow, preserve the FRAMEWORK_MAGIC integrity constant (0xA7F3C9E2) and context struct layout, and ensure all changes are coherent across the entire codebase."""
+solution_explanation = """The solution script runs a Python refactoring program that: (1) rewrites types.h/c with the renamed CMD_ALLOC_STRATEGY enum and preserved FRAMEWORK_MAGIC constant, (2) rewrites handlers.h to break the circular dependency using forward declarations of struct dispatch_ctx and changes all handler signatures to return int, (3) rewrites handlers.c with int returns preserving the specific error codes (-17 for null args, -23/-29/-37/-41/-47 for domain errors), (4) creates stats.h/stats.c by extracting the statistics code from dispatch.c, (5) rewrites dispatch.h with int return types, warn_unused_result attributes, the renamed enum, and preserved magic field, (6) rewrites dispatch.c with a consolidated execute_handler() helper, pipeline short-circuit logic, and FRAMEWORK_MAGIC initialization, (7) updates main.c for the new API, and (8) updates the Makefile to include stats.c."""
+verification_explanation = """Tests verify all refactoring objectives through 18 pytest checks: structural tests grep source files for correct return types, enum values, function names, include directives, compiler attributes, FRAMEWORK_MAGIC preservation (0xA7F3C9E2), and handler error code preservation (-23, -29, -37, -41, -47); compilation tests verify the code builds cleanly; a test_driver.c is compiled and exercised to verify exact handler error return values, exact dispatch_command error propagation, pipeline short-circuit with stats verification (insert errors=1, delete errors=0 proving the delete handler never ran), enum value correctness, and stats module independence with exact count verification. Each VERIFY output line in the test driver contains a specific computed value that pytest checks."""
+category = "refactoring"
+tags = ["c-programming", "code-architecture"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/refactor-dispatch-framework"

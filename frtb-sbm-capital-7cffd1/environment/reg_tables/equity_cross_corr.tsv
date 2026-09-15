@@ -1,0 +1,6 @@
+rule	correlation	notes
+both_in_1_to_10	0.15	Cross-bucket for any pair of buckets 1-10
+either_is_11	0.00	Bucket 11 (other sector) to any bucket
+between_12_and_13	0.75	Between index buckets 12 and 13
+index_to_sector	0.45	Between index bucket (12,13) and sector bucket (1-10)
+other_sector_bucket	11	Bucket number for "other sector"

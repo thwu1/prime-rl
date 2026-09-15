@@ -1,0 +1,16 @@
+{
+  "id": "problem_5",
+  "description": "SPD solve combined with diagonal and triangular",
+  "chain": [
+    {"matrix": "S", "transpose": false, "invert": true},
+    {"matrix": "U", "transpose": false, "invert": false},
+    {"matrix": "D", "transpose": false, "invert": false},
+    {"matrix": "A", "transpose": false, "invert": false}
+  ],
+  "matrices": {
+    "S": {"rows": 400, "cols": 400, "properties": ["spd"]},
+    "U": {"rows": 400, "cols": 400, "properties": ["upper_triangular"]},
+    "D": {"rows": 400, "cols": 400, "properties": ["diagonal"]},
+    "A": {"rows": 400, "cols": 1000, "properties": ["general"]}
+  }
+}

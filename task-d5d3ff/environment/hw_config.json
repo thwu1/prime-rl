@@ -1,0 +1,7 @@
+{
+    "dim": 16,
+    "sp_rows": 4096,
+    "acc_rows": 1024,
+    "dma_cost_per_row": 8,
+    "dma_setup_cost": 48
+}

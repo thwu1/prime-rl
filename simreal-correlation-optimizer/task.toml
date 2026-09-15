@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level mastery across multiple statistical subfields combined with multi-source data integration. The agent must: (1) navigate and integrate heterogeneous data sources — CSV files for simulation/real results and a SQLite database for experiment configuration — to assemble the complete dataset; (2) derive the error variance ratio for the calibration regression from trial count metadata stored in the database, recognizing that differing sample sizes induce different measurement noise levels and selecting the appropriate errors-in-variables regression model rather than defaulting to OLS; (3) implement the correct main-effects variance decomposition on a 3-way crossed design (policy x task x variant) over the sim-real discrepancy; (4) compute regression influence diagnostics (Cook's D via externally studentized residuals, DFFITS) on an n=8 model; (5) correctly combine per-task correlations avoiding the bias of naive averaging; (6) construct leave-one-out distribution-free prediction intervals — a relatively recent methodology; (7) read permutation test parameters from the database. These components are deeply interconnected and require the agent to discover appropriate statistical methods from the problem description rather than following named algorithms."""
+solution_explanation = """Query experiment.db for variant names, trial counts, and analysis parameters. Load simulation CSVs and real results CSV, combining them into a unified data structure. Compute MMRV via max-then-mean aggregation. For task correlations, compute Pearson r per task between max-variant sim and real scores, then combine via Fisher z-transform. For ANOVA, compute discrepancy d = sim - real, compute SS for each factor as n_other_levels x sum of squared deviations of factor means from grand mean, and derive F-stats using residual MS. For Deming regression, derive lambda = n_sim/n_real from trial counts and compute the TLS slope using the closed-form formula. For influence diagnostics, fit OLS on the 8 MMRV-vs-real points, compute the hat matrix, Cook's D, and DFFITS using externally studentized residuals. For the permutation test, permute real means using seed and count from the database and compute the one-sided p-value. For conformal intervals, fit n LOO models, evaluate each at all points, and compute quantile-based intervals adjusted by absolute LOO residuals."""
+verification_explanation = """Tests verify: (1) all required keys and policies present, (2) deterministic MMRV values match within 1e-3, (3) task correlations all exceed 0.96, (4) Fisher z mean r matches aggregate Pearson r within 0.005, (5) ANOVA eta-squared for variant exceeds 0.5 (dominant factor) while task is negligible, (6) F-stats have correct relative ordering (variant >> policy >> task), (7) calibration slopes bracket 1.0 appropriately, (8) calibration slopes differ from OLS (must account for noise in both variables), (9) influence diagnostics identify DiffusionPolicy as max Cook's D and only policy with |DFFITS| > 1.0, (10) permutation p-value < 0.001, (11) conformal intervals contain actual real performance for at least 6/8 policies, (12) cross-consistency checks recompute quantities from raw data loaded via CSVs and SQLite."""
+category = "data_science"
+tags = ["statistical-diagnostics", "sim-to-real-transfer"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/simreal-correlation-optimizer"

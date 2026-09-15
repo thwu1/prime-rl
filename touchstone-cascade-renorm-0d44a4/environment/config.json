@@ -1,0 +1,6 @@
+{
+    "network_a": "/app/network_a.s2p",
+    "network_b": "/app/network_b.ts",
+    "target_impedance_ohm": 75.0,
+    "output_dir": "/app/output"
+}

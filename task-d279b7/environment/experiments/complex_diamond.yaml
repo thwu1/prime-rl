@@ -1,0 +1,67 @@
+parameters:
+  seed: 42
+  dataset_path: "/data/imagenet"
+  epsilon: 0.3
+  num_epochs: 20
+  defense_type: "adversarial_training"
+
+tasks:
+  configure_rng:
+    plugin: system.config.set_rng_seed
+  load_dataset:
+    plugin: data.loading.load_image_dataset
+    outputs:
+      dataset: dataset
+  train_classifier:
+    plugin: ml.training.train_cnn
+    outputs:
+      model: model
+  generate_adversarial:
+    plugin: attacks.fgsm.generate_samples
+    outputs:
+      - {adversarial_dataset: dataset}
+      - {attack_metrics: mapping}
+  apply_defense:
+    plugin: defense.training.adversarial_retrain
+    outputs:
+      defended_model: model
+  evaluate_robustness:
+    plugin: ml.evaluation.robustness_metrics
+    outputs:
+      robustness_report: mapping
+  evaluate_accuracy:
+    plugin: ml.evaluation.accuracy_metrics
+    outputs:
+      accuracy_report: mapping
+
+graph:
+  init_rng:
+    configure_rng: $seed
+  load_data:
+    load_dataset:
+      path: $dataset_path
+    dependencies: [init_rng]
+  train_base:
+    train_classifier:
+      dataset: $load_data
+      epochs: $num_epochs
+    dependencies: [init_rng]
+  gen_adversarial:
+    generate_adversarial:
+      model: $train_base
+      dataset: $load_data
+      epsilon: $epsilon
+  defend_model:
+    apply_defense:
+      model: $train_base
+      adversarial_data: $gen_adversarial.adversarial_dataset
+      defense: $defense_type
+  eval_robust:
+    evaluate_robustness:
+      model: $defend_model
+      adversarial_data: $gen_adversarial.adversarial_dataset
+      metrics: $gen_adversarial.attack_metrics
+  eval_accuracy:
+    evaluate_accuracy:
+      model: $defend_model
+      dataset: $load_data

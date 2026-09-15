@@ -1,0 +1,5 @@
+Programs written in a custom imperative language are provided in `/app/programs/`. The language supports arithmetic, conditionals, loops, and function calls (including recursive functions). The full language grammar, abstract domain definitions, and correctness criteria are specified in `/app/spec.md`.
+
+Build a static analyzer at `/app/analyzer.py` that determines the abstract sign (`neg`, `zero`, `pos`, `top`, or `bottom`) of every variable in `main` at its return point. Invoke as `python3 /app/analyzer.py <program_file>` and print a JSON object to stdout mapping variable names to their sign strings.
+
+Your implementation must use the **Lark** parser generator library for parsing. Write the language grammar at `/app/grammar.lark`. A Makefile is provided at `/app/Makefile`; ensure that `make check-grammar`, `make analyze PROG=programs/<name>.lang`, and `make analyze-all` all succeed.

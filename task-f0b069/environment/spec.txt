@@ -1,0 +1,263 @@
+ANSI/NIST-ITL 1-2011 Traditional Encoding -- Conformance Specification Excerpt
+================================================================================
+
+SECTION 1: ENCODING ARCHITECTURE
+
+1.1 Separator Hierarchy
+
+Traditional encoding employs a four-level separator byte hierarchy:
+
+  Level 4 (lowest):  Unit Separator    US  0x1F  -- separates information items
+  Level 3:           Record Separator  RS  0x1E  -- separates subfields
+  Level 2:           Group Separator   GS  0x1D  -- separates fields
+  Level 1 (highest): File Separator    FS  0x1C  -- terminates logical records
+
+1.2 Record Encoding Categories
+
+Records are divided into two encoding categories determined by record type:
+
+  Tagged-field encoding (Types 1, 2, and 7 through 99):
+    Fields are ASCII-tagged entries in the format
+      {record_type}.{field_number:03d}:{value}
+    Fields within a record are separated by GS (0x1D).
+    Each tagged record is terminated by FS (0x1C).
+    The first field of every tagged record is the record length (field x.001).
+
+  Binary-header encoding (Types 3 through 6):
+    Fields are packed as fixed-size binary values with no ASCII tagging.
+    Records are NOT terminated by FS; the record length field (first 4 bytes,
+    big-endian unsigned 32-bit integer) defines the record's byte extent.
+
+1.3 Transaction Structure
+
+A transaction file consists of one or more logical records concatenated
+sequentially. The Type-1 record is always first and always uses tagged-field
+encoding. Subsequent records appear in the order declared in the Type-1
+CNT field (field 1.003). The parser must consult CNT to determine each
+subsequent record's type and therefore its encoding category.
+
+When a binary-header record's declared length exceeds remaining file bytes,
+the parser should use the actual remaining bytes as the record extent and
+flag a length mismatch.
+
+================================================================================
+SECTION 2: TYPE-1 RECORD FIELD REQUIREMENTS
+
+Field 1.001 -- LEN (Record Length)
+  The field value is an ASCII decimal integer representing the total byte
+  count of the Type-1 record, including the field tag "1.001:", the value
+  itself, all subsequent fields and separators, and the terminating FS byte.
+  Violation T1_LEN_MISMATCH: declared length does not equal actual byte count.
+
+Field 1.002 -- VER (Version Number)
+  Exactly four ASCII decimal digits (e.g. "0300" for ANSI/NIST-ITL 1-2007
+  Update 2011, "0500" for the 2015 revision).
+  Violation T1_VER_FORMAT: value does not consist of exactly 4 decimal digits.
+
+Field 1.003 -- CNT (Content Summary)
+  A structured field using the RS/US subfield hierarchy:
+    Subfield 1:  item 1 = "1" (Type-1 record type identifier)
+                 item 2 = total record count (decimal ASCII integer)
+    Subfields 2..N:  item 1 = IDC (image designation character, decimal ASCII)
+                     item 2 = record type number (decimal ASCII)
+  Items within a subfield are separated by US (0x1F).
+  Subfields are separated by RS (0x1E).
+  Violation T1_CNT_COUNT: total record count does not equal actual number of
+    records present in the transaction file.
+  Violation T1_CNT_MISSING_REF: a (record_type, IDC) pair declared in CNT
+    has no corresponding record in the file.
+
+Field 1.004 -- TOT (Type of Transaction)
+  Mandatory. Must be present and contain a non-empty value.
+  Violation T1_MISSING_TOT: field absent or empty.
+
+Field 1.005 -- DAT (Date)
+  Mandatory. Value must be exactly 8 ASCII decimal digits in YYYYMMDD format
+  with month in 01-12 and day in 01-31.
+  Violation T1_MISSING_DAT: field absent.
+  Violation T1_DAT_FORMAT: field present but value does not meet format
+    requirements (wrong length, non-digit characters, or invalid month/day).
+
+Field 1.006 -- PRY (Priority)
+  Optional. If present, must be a single ASCII decimal digit in range 1-9.
+  Violation T1_PRY_RANGE: value present but outside range or wrong length.
+
+Field 1.007 -- DAI (Destination Agency Identifier)
+  Mandatory. Must be present and contain a non-empty value.
+  Violation T1_MISSING_DAI: field absent or empty.
+
+Field 1.008 -- ORI (Originating Agency Identifier)
+  Mandatory. Must be present and contain a non-empty value.
+  Violation T1_MISSING_ORI: field absent or empty.
+
+Field 1.009 -- TCN (Transaction Control Number)
+  Mandatory. Must be present and contain a non-empty value.
+  Violation T1_MISSING_TCN: field absent or empty.
+
+Field 1.011 -- NSR (Native Scanning Resolution)
+  Mandatory. Value must match the pattern "dd.dd" -- exactly two ASCII decimal
+  digits, a period (0x2E), and two ASCII decimal digits (e.g. "19.69").
+  Violation T1_MISSING_NSR: field absent.
+  Violation T1_NSR_FORMAT: field present but value does not match pattern.
+
+Field 1.012 -- NTR (Native Transmitting Resolution)
+  Mandatory. Value must match the pattern "dd.dd" -- exactly two ASCII decimal
+  digits, a period (0x2E), and two ASCII decimal digits (e.g. "19.69").
+  Violation T1_MISSING_NTR: field absent.
+  Violation T1_NTR_FORMAT: field present but value does not match pattern.
+
+================================================================================
+SECTION 3: TYPE-2 RECORD FIELD REQUIREMENTS
+
+Field 2.001 -- LEN (Record Length)
+  Same self-referential semantics as field 1.001.
+  Violation T2_LEN_MISMATCH: declared length does not equal actual byte count.
+
+Field 2.002 -- IDC (Image Designation Character)
+  Must match the IDC declared for this record's position in the Type-1
+  CNT field (1.003).
+  Violation T2_IDC_MISMATCH: IDC value does not match expected CNT entry.
+
+================================================================================
+SECTION 4: TYPE-4 RECORD FIELD REQUIREMENTS
+
+Type-4 records use binary-header encoding. All multi-byte integer fields
+are stored in network byte order (big-endian).
+
+  Bytes 1-4:   Record length -- unsigned 32-bit integer. Total byte count of
+               the record including these 4 bytes.
+               Violation T4_LEN_MISMATCH: declared length != actual byte count.
+
+  Bytes 5-8:   IDC -- unsigned 32-bit integer. Must match the IDC declared for
+               this record's position in the Type-1 CNT field.
+               Violation T4_IDC_MISMATCH: IDC does not match expected CNT entry.
+
+  Byte 9:      IMP (Impression Type) -- unsigned 8-bit integer. Valid range 0-15.
+               Violation T4_IMP_RANGE: value > 15.
+
+  Bytes 10-15: FGP (Finger Position) -- six unsigned 8-bit integers. Each byte
+               must be in range 0-10 (specific finger) or 255 (0xFF, unused
+               slot). Any byte outside these ranges is a violation.
+               Violation T4_FGP_RANGE: one or more FGP bytes out of valid range.
+
+  Byte 16:     ISR (Image Scanning Resolution) -- unsigned 8-bit integer.
+               Must be 0 (default 500 ppi) or 1 (resolution specified in
+               Type-1 NSR field 1.011).
+               Violation T4_ISR_VALUE: value is not 0 or 1.
+
+  Bytes 17-18: HLL (Horizontal Line Length) -- unsigned 16-bit integer.
+               Must be greater than 0.
+               Violation T4_HLL_ZERO: value is 0.
+
+  Bytes 19-20: VLL (Vertical Line Length) -- unsigned 16-bit integer.
+               Must be greater than 0.
+               Violation T4_VLL_ZERO: value is 0.
+
+  Byte 21:     GCA (Grayscale Compression Algorithm) -- unsigned 8-bit integer.
+               Must be 0 (uncompressed) or 1 (WSQ compressed).
+               Violation T4_GCA_VALUE: value is not 0 or 1.
+
+  Bytes 22+:   Image data. Content is not validated, but must be present --
+               the record must contain at least one byte of image data
+               (i.e. record length must be > 21).
+               Violation T4_NO_IMAGE_DATA: record length <= 21.
+
+================================================================================
+SECTION 5: CROSS-RECORD VALIDATION
+
+When a Type-4 record's ISR byte equals 1, the fingerprint image scanning
+resolution is taken from the Type-1 NSR field (1.011). In this case the
+NSR value, interpreted as a decimal floating-point number, must be >= 19.69
+(approximately 500 pixels per inch, the minimum resolution for fingerprint
+images per ANSI/NIST-ITL requirements).
+
+  Violation T4_RESOLUTION_LOW: ISR = 1 and NSR (parsed as float) < 19.69.
+
+If the NSR field is missing or has invalid format when ISR = 1,
+T4_RESOLUTION_LOW is NOT raised (the missing/format error is already
+covered by T1_MISSING_NSR or T1_NSR_FORMAT).
+
+================================================================================
+SECTION 6: VIOLATION REPORTING
+
+Each violation is reported as a string code (e.g. "T1_LEN_MISMATCH").
+For a given transaction file, the violation list is sorted lexicographically
+and deduplicated -- each code appears at most once regardless of how many
+instances of that violation occur within the file.
+
+================================================================================
+SECTION 7: REPAIR POLICY
+
+When reconstructing a non-conforming transaction file, the toolkit must
+produce a valid binary output with all violations corrected. The following
+table defines the target value for each violation type:
+
+  Violation Code       Repair Target
+  -------------------  ---------------------------------------------------
+  T1_VER_FORMAT        Set 1.002 to "0300"
+  T1_DAT_FORMAT        Set 1.005 to "19700101"
+  T1_MISSING_DAT       Insert 1.005 with "19700101"
+  T1_PRY_RANGE         Remove field 1.006 entirely
+  T1_MISSING_TOT       Insert 1.004 with "UNK"
+  T1_MISSING_DAI       Insert 1.007 with "UNKNOWN"
+  T1_MISSING_ORI       Insert 1.008 with "UNKNOWN"
+  T1_MISSING_TCN       Insert 1.009 with "REPAIR000"
+  T1_MISSING_NSR       Insert 1.011 with "19.69"
+  T1_MISSING_NTR       Insert 1.012 with "19.69"
+  T1_NSR_FORMAT        Set 1.011 to "19.69"
+  T1_NTR_FORMAT        Set 1.012 to "19.69"
+  T2_IDC_MISMATCH      Set 2.002 to the IDC declared in CNT
+  T4_IMP_RANGE         Set IMP byte to 0
+  T4_FGP_RANGE         Set each out-of-range FGP byte to 0xFF
+  T4_ISR_VALUE         Set ISR byte to 0
+  T4_HLL_ZERO          Set HLL to 1
+  T4_VLL_ZERO          Set VLL to 1
+  T4_GCA_VALUE         Set GCA byte to 0
+  T4_NO_IMAGE_DATA     Ensure at least one byte of image data exists
+  T4_IDC_MISMATCH      Set IDC to the value declared in CNT
+  T4_RESOLUTION_LOW    Set Type-1 NSR (1.011) to "19.69"
+  T1_CNT_COUNT         Rebuild CNT to match actual records present
+  T1_CNT_MISSING_REF   Rebuild CNT to match actual records present
+
+After all repairs, every record's length field must be correct and the
+CNT field must accurately reflect the records in the file. The
+reconstructed transaction must pass validation with zero violations.
+
+IDENTITY PROPERTY: When the input file has no violations, the reconstructed
+output MUST be byte-identical to the input.
+
+================================================================================
+SECTION 8: HEX ANALYSIS FORMAT
+
+Produce an annotated hex dump of each original corpus file. Non-annotation
+lines must be in standard xxd output format and must exactly match what
+running `xxd` on the file would produce. Insert comment lines of the form:
+
+  # --- Record Type {N} at offset {hex_offset} ({dec_offset} bytes) ---
+
+before the first hex dump line whose byte range contains the start of
+each logical record. The hex offset is zero-padded to 8 lowercase hex
+digits (e.g. 00000000). One annotated hex dump file per transaction,
+named "{original_filename}.hexdump".
+
+================================================================================
+SECTION 9: CHECKSUM FORMAT
+
+Compute the SHA-256 hash of each reconstructed file. Write all results
+to a single file with one line per reconstructed file in the format:
+
+  {64-char_lowercase_hex_hash}  {filename}
+
+Lines are sorted by filename. Only the base filename (not the full path)
+appears after the hash.
+
+================================================================================
+SECTION 10: HMAC INTEGRITY SIGNATURE FORMAT
+
+Compute the HMAC-SHA256 digest of each reconstructed file using the key
+stored in /app/hmac.key (read the file, strip trailing whitespace to
+obtain the raw key string). Write results in the same format as Section 9:
+
+  {64-char_lowercase_hex_hash}  {filename}
+
+Lines sorted by filename, base filename only.

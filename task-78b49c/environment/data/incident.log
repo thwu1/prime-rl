@@ -1,0 +1,25 @@
+2025-03-14T08:00:12.345Z gpu-fleet-mgr[2341]: INFO  Starting fleet-wide GPU driver upgrade cycle: v550.90.07 -> v560.35.03
+2025-03-14T08:00:12.456Z gpu-fleet-mgr[2341]: INFO  Target devices: 5 GPUs across 2 racks (internal labels GPU_A through GPU_E)
+2025-03-14T08:12:33.891Z gpu-fleet-mgr[2341]: INFO  Driver v560.35.03 installation completed on all 5 devices
+2025-03-14T08:15:34.001Z nvml-discovery[4521]: INFO  Starting automated hardware discovery via nvidia-smi --query-gpu
+2025-03-14T08:15:34.123Z nvml-discovery[4521]: ERROR Device 0000:01:00.0 (GPU_A): nvmlDeviceGetCudaComputeCapability returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:34.234Z nvml-discovery[4521]: ERROR Device 0000:02:00.0 (GPU_B): nvmlDeviceGetCudaComputeCapability returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:34.345Z nvml-discovery[4521]: ERROR Device 0000:03:00.0 (GPU_C): nvmlDeviceGetCudaComputeCapability returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:34.456Z nvml-discovery[4521]: ERROR Device 0000:04:00.0 (GPU_D): nvmlDeviceGetCudaComputeCapability returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:34.567Z nvml-discovery[4521]: ERROR Device 0000:05:00.0 (GPU_E): nvmlDeviceGetCudaComputeCapability returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:35.001Z nvml-discovery[4521]: WARN  SM resource limit queries partially failed during driver re-init window
+2025-03-14T08:15:35.012Z nvml-discovery[4521]: WARN  Fields max_warps_per_sm, max_resident_blocks, shared_memory, alloc granularities returned NVML_ERROR_UNKNOWN
+2025-03-14T08:15:35.023Z nvml-discovery[4521]: INFO  Basic device attributes (warp_size, max_threads_per_block, register_file_size) successfully queried for all devices
+2025-03-14T08:15:35.034Z nvml-discovery[4521]: INFO  Discovery results exported to XML: /var/log/nvidia/hw_discovery.xml
+2025-03-14T08:30:00.100Z fleet-benchctl[5678]: INFO  Launching profiling benchmark suite across fleet
+2025-03-14T08:30:00.200Z fleet-benchctl[5678]: INFO  Test matrix: 26 kernel configurations x 5 GPUs = 130 launch records
+2025-03-14T08:30:00.300Z fleet-benchctl[5678]: INFO  Profiling database initialized: /var/data/profiling.db (SQLite, normalized schema with gpu_sessions, kernel_defs, launch_records tables)
+2025-03-14T08:30:00.400Z fleet-benchctl[5678]: INFO  Schema: launch_records references gpu_sessions(session_id) and kernel_defs(kernel_id) via foreign keys
+2025-03-14T09:15:22.456Z fleet-benchctl[5678]: INFO  All 130 profiling runs completed successfully
+2025-03-14T09:15:22.567Z fleet-benchctl[5678]: WARN  QA anomaly detector flagged potential measurement artifacts in profiling data
+2025-03-14T09:15:22.678Z fleet-benchctl[5678]: WARN  Affected region: records collected during driver state transitions showed occupancy counter anomalies
+2025-03-14T09:15:22.789Z fleet-benchctl[5678]: WARN  Estimated 5-10 records may have incorrect measured_active_blocks or measured_occupancy readings
+2025-03-14T09:15:22.890Z fleet-benchctl[5678]: WARN  Root cause: NVML occupancy counters briefly returned stale values during driver re-initialization
+2025-03-14T09:15:23.001Z fleet-benchctl[5678]: INFO  QA did not identify specific record IDs -- manual validation against occupancy model required
+2025-03-14T09:30:00.000Z incident-mgr[6789]: INFO  Incident ticket FLEET-2025-0314 created: GPU fleet telemetry integrity review
+2025-03-14T09:30:00.100Z incident-mgr[6789]: INFO  Action items: (1) reconstruct missing HW params from profiling data (2) flag corrupted records (3) identify GPU architectures (4) prepare optimized launch configs

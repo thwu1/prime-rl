@@ -1,0 +1,44 @@
+{
+    "directory": "/app/pki",
+    "ca": {
+        "key_type": "RSA",
+        "key_size": 2048,
+        "format": "PEM",
+        "files": {
+            "cert": "ca.pem",
+            "key": "ca.key"
+        },
+        "extensions": {
+            "basicConstraints": "critical,CA:TRUE",
+            "keyUsage": "critical,keyCertSign,cRLSign"
+        },
+        "self_signed": true
+    },
+    "server": {
+        "key_type": "RSA",
+        "key_size": 2048,
+        "format": "PEM",
+        "files": {
+            "cert": "server.pem",
+            "key": "server.key"
+        },
+        "subject_alt_names": [
+            "DNS:localhost",
+            "IP:127.0.0.1"
+        ],
+        "signed_by": "ca"
+    },
+    "client": {
+        "key_type": "RSA",
+        "key_size": 2048,
+        "format": "PEM",
+        "files": {
+            "cert": "client.pem",
+            "key": "client.key"
+        },
+        "subject": {
+            "CN": "ESVTestClient"
+        },
+        "signed_by": "ca"
+    }
+}

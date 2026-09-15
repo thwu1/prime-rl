@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "cache-ingress"
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: cache
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        tier: api
+    toPorts:
+    - ports:
+      - port: "6379"
+        protocol: TCP

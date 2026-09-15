@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of syzkaller syzlang semantics, Linux kernel UAPI conventions, and the interplay between multiple interacting components. The agent must simultaneously debug a broken validation tool (with 4 distinct bugs producing false positives and masking real issues) AND fix/complete ~18 semantic errors in a syzlang description file for a complex DMA controller with 11 ioctls, 3 resource types, packed structs, anonymous unions, and variable-length arrays. The validation tool's bugs create misleading signals: some linter errors are false positives from tool bugs, some real description bugs are masked by tool bugs, and fixing one component reveals new issues in the other. The agent must independently judge whether each reported error is a real description problem or a linter defect, requiring deep evaluation of syzlang type system rules, C struct layout semantics, ioctl direction conventions, and resource lifecycle modeling."""
+solution_explanation = """Fix 4 linter bugs: (1) constant extraction must handle bitshift expressions like (1 << N), (2) ioctl direction regex must match _IOWR before _IOW to avoid prefix collision, (3) struct field parser must handle nested braces from anonymous unions, (4) packed struct detection must not span across struct boundaries. Fix ~18 description bugs spanning: wrong include path, wrong resource base type for vdma_cookie, missing fd_vdma return type, incorrect ptr directions for _IOWR ioctls, missing resource types in ioctl args, wrong struct field orders, missing const/len/resource annotations, wrong flag namespace references, missing [packed] attributes, and incomplete event union modeling requiring creation of 3 sub-structs and a syzlang union type."""
+verification_explanation = """25 pytest tests verify: (1) syzlang file correctness via regex checks on include directives, resource types, syscall return types, ptr directions, struct field order, field type annotations, packed attributes, event union modeling, and sub-struct definitions; (2) linter correctness via subprocess execution checking zero errors on correct descriptions, correct error detection on known-bad input, and correct handling of bitshift constants and _IOWR classification."""
+category = "systems"
+tags = ["kernel-fuzzing", "syzlang"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-syzlang-descriptions"

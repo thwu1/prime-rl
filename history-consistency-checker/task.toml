@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building both a consistency analysis engine for distributed database operation histories and a multi-tool audit pipeline. The analysis component demands graduate-level distributed systems knowledge to correctly classify register linearizability and detect transaction anomalies (G1a, G1c, G2, causal_reverse) without explicit algorithmic guidance — the agent must research or infer definitions from the history data and test expectations. The pipeline component requires proficiency with jq (complex JSON-to-DOT graph transformations), graphviz dot (dependency graph rendering), and the sqlite3 CLI (database population), all integrated through shell scripting."""
+solution_explanation = """The solution implements a Python checker with register linearizability testing via backtracking search and transaction anomaly detection via dependency graph cycle analysis. A shell pipeline (audit.sh) orchestrates the full workflow: runs the checker on every history, uses jq to transform transactional history data into DOT-format dependency graphs showing read/write data flow through keys, renders them to SVG with graphviz, and stores all classification results in a SQLite database via the sqlite3 CLI."""
+verification_explanation = """Tests verify checker correctness against 11 history files with known ground-truth results (6 register linearizability, 5 transactional anomaly detection). Additional tests verify the audit pipeline: SVG dependency graphs exist for all transactional histories, DOT files contain valid directed graph structure with edges, the SQLite audit database has the required schema and correct pass/fail classifications for all histories, and audit.sh integrates jq, graphviz dot, and sqlite3."""
+category = "distributed_systems"
+tags = ["consistency_models", "data_pipelines"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/history-consistency-checker"

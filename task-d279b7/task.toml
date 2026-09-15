@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding a real-world ML experiment workflow schema with three distinct invocation styles (positional, keyword, mixed), implementing correct reference resolution with multiple scopes (global parameters, step outputs, escaped literals), building a dependency DAG from both implicit and explicit dependencies, and performing multiple graph analyses (cycle detection, topological sort with tie-breaking, critical path computation, parallelism metrics) plus static analysis (reference validation against task output definitions, unused parameter detection). The combination of parsing complexity, graph algorithms, and cross-referencing between schema components makes this significantly harder than textbook graph problems."""
+solution_explanation = """The solution implements a comprehensive Dioptra experiment graph analyzer (~300 lines) that: (1) parses experiment YAML with support for all three Dioptra invocation styles by inspecting the presence of a 'task' key; (2) recursively extracts $-references from nested parameter values while correctly ignoring $$-escaped literals; (3) builds the dependency DAG from both implicit reference-based edges and explicit dependency declarations; (4) detects cycles via DFS with gray/black coloring; (5) computes topological ordering using Kahn's algorithm with a min-heap for alphabetical tie-breaking; (6) calculates step depths as longest paths from roots, then traces back the critical path with alphabetical predecessor selection; (7) validates step output references against task definitions; (8) identifies unused parameters and undefined tasks."""
+verification_explanation = """Tests run the analyzer CLI on 5 curated experiment YAML files covering linear pipelines, diamond topologies with parallelism, cyclic dependencies, broken references, and mixed invocation styles. Each test parses the JSON output and verifies specific computed values: step/edge counts, topological ordering, critical path and cost, maximum parallelism, step depths, cycle detection, issue type detection (unresolvable references, undefined tasks, invalid output references, unused parameters), and correct reference classification."""
+category = "software_engineering"
+tags = ["graph-algorithms", "static-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d279b7"

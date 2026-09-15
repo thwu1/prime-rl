@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level bioinformatics expertise: the solver must parse SAM/BAM format internals (CIGAR string parsing, NM tag semantics, soft-clip handling), implement three distinct sequence identity definitions from documentation, recompute NM via CIGAR-guided reference traversal, produce a filtered coordinate-sorted indexed BAM with corrected tags, and compute the auN contiguity metric adapted to alignment lengths. No step-by-step instructions are given; the solver must design the implementation strategy from scratch."""
+solution_explanation = """The solver reads pipeline_config.yaml and docs/ to understand metric definitions. Using pysam, the solution parses each alignment, walks the CIGAR against the reference to recompute NM, derives identity metrics from the documented formulas, writes a TSV report, produces a filtered/corrected BAM, and computes summary statistics including auN."""
+verification_explanation = """Tests independently recompute correct NM values by CIGAR-guided comparison of read sequences against the reference genome (no reliance on pre-computed ground truth). Identity metrics are independently calculated and compared against the agent's output within floating-point tolerance (1e-4). The filtered BAM is verified for correct read count, coordinate sorting, index presence, read membership (only passing reads), and NM tag correction. Summary statistics are verified against independently computed values including auN."""
+category = "bioinformatics"
+tags = ["sequence-alignment", "sam-format"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-80cf6d"

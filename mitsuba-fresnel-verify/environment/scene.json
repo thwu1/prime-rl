@@ -1,0 +1,64 @@
+{
+  "materials": {
+    "glass": {
+      "kind": "dielectric",
+      "ext_ior": 1.0,
+      "int_ior": 1.5
+    },
+    "gold": {
+      "kind": "conductor",
+      "eta": [0.183, 0.312, 1.557],
+      "k": [3.424, 2.385, 1.893]
+    }
+  },
+  "test_configs": [
+    {
+      "name": "glass_fresnel",
+      "type": "fresnel_sweep",
+      "material": "glass",
+      "angles": [0, 15, 30, 45, 60, 75, 85]
+    },
+    {
+      "name": "gold_fresnel",
+      "type": "fresnel_sweep",
+      "material": "gold",
+      "angles": [0, 15, 30, 45, 60, 75, 85]
+    },
+    {
+      "name": "beckmann_ndf_eval",
+      "type": "ndf_eval",
+      "material": "gold",
+      "alpha": 0.3,
+      "angles": [0, 10, 20, 30, 45, 60]
+    },
+    {
+      "name": "smith_g1_eval",
+      "type": "g1_eval",
+      "material": "gold",
+      "alpha": 0.3,
+      "angles": [15, 30, 45, 60, 75, 85]
+    },
+    {
+      "name": "gold_brdf_eval",
+      "type": "brdf_eval",
+      "material": "gold",
+      "alpha": 0.3,
+      "pairs": [
+        {"theta_i": 30, "theta_o": 30, "phi_o": 180, "label": "specular_30"},
+        {"theta_i": 60, "theta_o": 60, "phi_o": 180, "label": "specular_60"},
+        {"theta_i": 45, "theta_o": 45, "phi_o": 180, "label": "specular_45"},
+        {"theta_i": 30, "theta_o": 50, "phi_o": 180, "label": "offspec_30_50"},
+        {"theta_i": 75, "theta_o": 30, "phi_o": 180, "label": "offspec_75_30"}
+      ]
+    },
+    {
+      "name": "gold_mc_refl",
+      "type": "mc_reflectance",
+      "material": "gold",
+      "alpha": 0.3,
+      "theta_i": 30,
+      "n_samples": 200000,
+      "seed": 42
+    }
+  ]
+}

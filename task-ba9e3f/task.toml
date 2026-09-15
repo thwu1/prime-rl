@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combining multiple CPU performance-engineering techniques: recognizing that pre-normalizing rows reduces Pearson correlation to dot products (algebraic insight), exploiting single-precision SIMD vectorization, ensuring cache-friendly memory access via blocking or layout changes, and using compiler pragmas or intrinsics to unlock auto-vectorization of reduction loops. Each technique alone is insufficient for the 10x target; the agent must compose them correctly, which demands proficient-level understanding of CPU microarchitecture and computational linear algebra."""
+solution_explanation = """Pre-normalize all rows (subtract mean, divide by L2 norm of centered row) so that correlation becomes a simple dot product. Use float instead of double throughout. Add #pragma GCC optimize("fast-math") to enable compiler auto-vectorization of reduction loops. Optionally apply cache-blocking to the pairwise dot-product computation. The combination yields 15-40x speedup over the naive baseline."""
+verification_explanation = """Tests compile both the optimized and naive implementations with identical flags (-O3 -march=native), run both on the same deterministic random input, and verify: (1) the optimized output matches the naive output within 1e-3 absolute tolerance, (2) diagonal entries are 1.0, (3) the output is symmetric, and (4) the optimized version achieves >= 10x wall-clock speedup over the naive version on n=1500, d=500."""
+category = "performance_optimization"
+tags = ["simd-vectorization", "cache-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ba9e3f"

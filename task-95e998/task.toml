@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a pre-existing IR evaluation pipeline containing three subtle methodology errors: (1) IDCG computed from retrieved documents only instead of all relevance judgments, inflating nDCG scores; (2) MAP denominator uses count of retrieved relevant documents instead of total relevant in qrels; (3) ERR normalization uses per-query maximum relevance grade instead of the global maximum. Identifying these requires deep understanding of TREC evaluation conventions and the ability to cross-validate results using standard IR evaluation tools (trec_eval, pytrec_eval, ir_measures). The solver must explore the environment, diagnose discrepancies between published results and tool output, trace errors back through the evaluation code, and produce corrected results matching standard tool implementations."""
+solution_explanation = """Install standard IR evaluation tools (pytrec_eval_ter, ir_measures) or implement correct formulas from scratch. Compute reference metric values from the raw qrels and run files. Compare against published_report.json to identify discrepancies. Read eval_pipeline.py to diagnose: (1) ndcg() uses IDCG from retrieved judged docs only — fix to use all qrels; (2) avg_precision() denominator counts only retrieved relevant — fix to use total relevant in qrels; (3) err() uses per-query max_grade — fix to use global max across all queries. Recompute all metrics with corrected formulas and write corrected_report.json."""
+verification_explanation = """Tests independently compute reference metric values from the raw experiment data using standard IR evaluation formulas (matching trec_eval). nDCG@10, MAP, and ERR@10 are verified for all systems at aggregate and per-query levels with tolerance 0.005. Anti-cheat tests verify the corrected report differs from the buggy published report and that nDCG values are properly deflated (indicating the IDCG fix was applied). Schema, ranking consistency, and metric range tests provide additional validation."""
+category = "data-science"
+tags = ["information-retrieval", "evaluation-audit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-95e998"

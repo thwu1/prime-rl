@@ -1,0 +1,50 @@
+[
+  {
+    "name": "bell",
+    "n_qubits": 2,
+    "stabilizers": ["XX", "ZZ"],
+    "two_qubit_gate_budget": 4
+  },
+  {
+    "name": "bit_flip3",
+    "n_qubits": 3,
+    "stabilizers": ["ZZI", "IZZ"],
+    "two_qubit_gate_budget": 4
+  },
+  {
+    "name": "ghz4",
+    "n_qubits": 4,
+    "stabilizers": ["XXXX", "ZZII", "IZZI", "IIZZ"],
+    "two_qubit_gate_budget": 8
+  },
+  {
+    "name": "code_alpha",
+    "n_qubits": 4,
+    "stabilizers": ["XZII", "ZZII", "IIXX", "IIZZ"],
+    "two_qubit_gate_budget": 8
+  },
+  {
+    "name": "five_qubit",
+    "n_qubits": 5,
+    "stabilizers": ["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"],
+    "two_qubit_gate_budget": 14
+  },
+  {
+    "name": "code_beta",
+    "n_qubits": 5,
+    "stabilizers": ["XZZX", "IXZZX", "XIXZZ", "ZXIXZ"],
+    "two_qubit_gate_budget": 14
+  },
+  {
+    "name": "code_gamma",
+    "n_qubits": 6,
+    "stabilizers": ["XZIIIZ", "ZXZIII", "IZXZII", "IIZXZI", "IIIZXZ", "ZIIIZW"],
+    "two_qubit_gate_budget": 16
+  },
+  {
+    "name": "steane",
+    "n_qubits": 7,
+    "stabilizers": ["IIIXXXX", "IXXIIXX", "XIXIXIX", "IIIZZZZ", "IZZIIZZ", "ZIZIZIZ"],
+    "two_qubit_gate_budget": 24
+  }
+]

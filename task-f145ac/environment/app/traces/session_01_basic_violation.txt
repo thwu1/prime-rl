@@ -1,0 +1,33 @@
+=====================================
+SESSION CAPTURE #1 — Basic Speed Violation
+Captured: 2024-03-15 14:23:07 UTC
+Server: prod-speed-01.freedom-island.local:9999
+Notes: Normal operation. Two cameras on road 123, one dispatcher.
+       Car "UN1X" exceeds speed limit between cameras.
+=====================================
+
+--- Connection A opened (camera) ---
+[T+0.000s] A -> Server | 80 00 7b 00 08 00 3c
+[T+0.312s] A -> Server | 20 04 55 4e 31 58 00 00 00 00
+
+--- Connection B opened (camera) ---
+[T+0.050s] B -> Server | 80 00 7b 00 09 00 3c
+[T+0.813s] B -> Server | 20 04 55 4e 31 58 00 00 00 2d
+
+--- Connection C opened (dispatcher) ---
+[T+1.200s] C -> Server | 81 01 00 7b
+[T+1.203s] Server -> C | 21 04 55 4e 31 58 00 7b 00 08 00 00 00 00 00 09 00 00 00 2d 1f 40
+
+--- Connections remain open, no further messages ---
+
+#
+# Observations:
+#   Camera A: road 123, mile 8, limit 60. Reports plate "UN1X" at timestamp 0.
+#   Camera B: road 123, mile 9, limit 60. Reports plate "UN1X" at timestamp 45.
+#   Dispatcher C: responsible for road 123. Receives a ticket.
+#
+#   The car travelled 1 mile in 45 seconds.
+#   1 / 45 * 3600 = 80 mph, which exceeds the 60 mph limit.
+#   The ticket's speed field value is 8000.
+#   Inference: speed field = mph * 100
+#

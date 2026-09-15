@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>DOMTEST</OrganizationIdentifier>
+      <OrganizationFormalName>Domain Value Test Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-DV</ProjectIdentifier>
+      <ProjectName>Domain Value Testing</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-DV</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Domain Test Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>Imaginary Station</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>41.0</LatitudeMeasure>
+        <LongitudeMeasure>-74.0</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NJ</StateCode>
+        <CountyCode>021</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-DV</ActivityIdentifier>
+        <ActivityTypeCode>Bogus Activity Type</ActivityTypeCode>
+        <ActivityMediaName>Plasma</ActivityMediaName>
+        <ActivityStartDate>2024-05-01</ActivityStartDate>
+        <ProjectIdentifier>PROJ-DV</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-DV</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>pH</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>7.2</ResultMeasureValue>
+            <MeasureUnitCode>None</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

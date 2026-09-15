@@ -1,0 +1,48 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgbase=appframework
+_group=appfw
+_apiver=2
+pkgver=2.5.0
+pkgrel=1
+pkgdesc="Application development framework"
+arch=('x86_64')
+url="https://example.com/appframework"
+license=('MIT')
+makedepends=('cmake' 'python' 'net-http')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d')
+
+build() {
+    cd "${pkgbase}-${pkgver}"
+    cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DAPI_VERSION=${_apiver}
+    cmake --build build
+}
+
+_package() {
+    pkgdesc="Full application framework (v${_apiver})"
+    depends=("${_group}-runtime" "${_group}-devtools")
+}
+
+_package-runtime() {
+    pkgdesc="Application framework runtime (API v${_apiver})"
+    depends=('net-http' 'baselib>=2.0.0' 'datastore-libs')
+    provides=("${_group}-runtime=${pkgver}")
+    conflicts=("${_group}-runtime")
+}
+
+_package-devtools() {
+    pkgdesc="Application framework development tools"
+    depends=("${_group}-runtime" 'python>=3.10')
+    provides=("${_group}-devtools=${pkgver}")
+    conflicts=("${_group}-devtools")
+}
+
+pkgname=("${_group}" "${_group}-runtime" "${_group}-devtools")
+
+for _p in "${pkgname[@]}"; do
+    eval "package_${_p}() {
+        $(declare -f _package${_p#${_group}})
+        _package${_p#${_group}}
+    }"
+done

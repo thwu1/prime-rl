@@ -1,0 +1,46 @@
+# Architecture Governance Configuration
+# Defines structural constraints and quality fitness functions
+# for the enterprise platform architecture
+
+layer_rules:
+  ui:
+    - ui
+    - service
+    - shared
+  service:
+    - service
+    - domain
+    - infrastructure
+    - shared
+  domain:
+    - domain
+    - shared
+  infrastructure:
+    - infrastructure
+    - shared
+  shared:
+    - shared
+
+fitness_thresholds:
+  max_distance_from_main_seq: 0.7
+  max_instability_for_stable: 0.3
+  min_abstractness_for_framework: 0.4
+  max_components_in_cycles: 5
+  max_layer_violations: 0
+
+component_classifications:
+  stable:
+    - shared-types
+    - security-core
+    - event-bus
+    - validation-lib
+    - serialization-lib
+    - metrics-collector
+  volatile:
+    - web-frontend
+    - mobile-app
+    - admin-panel
+  framework:
+    - db-adapter
+    - cache-adapter
+    - message-queue

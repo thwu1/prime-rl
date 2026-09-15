@@ -1,0 +1,14 @@
+{
+  "name": "boost",
+  "versions": ["1.84.0", "1.82.0", "1.78.0"],
+  "variants": [
+    {"name": "mpi", "type": "bool", "default": false},
+    {"name": "filesystem", "type": "bool", "default": true}
+  ],
+  "dependencies": [
+    {"name": "zlib"},
+    {"name": "mpi", "virtual": true, "when": "+mpi"}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

@@ -1,0 +1,5 @@
+A Ruby application at `/app/` uses `Marshal.load` to deserialize cached data. The application loads custom library modules from `/app/lib/` containing classes for caching, data transformation, stream I/O, event handling, method dispatch, and middleware processing.
+
+Examine `/app/deserialize.rb` and the library source code in `/app/lib/` to identify exploitable deserialization gadgets — classes whose `marshal_load` methods trigger controllable method dispatch chains through instance variables. Multiple classes define `marshal_load`; not all lead to viable chains. Some paths are blocked by input sanitization, method allowlists, or data loss through the chain.
+
+Construct a Ruby Marshal deserialization gadget chain that achieves arbitrary command execution. Write a payload generator script to `/app/exploit.rb` that outputs a base64-encoded Marshal payload to stdout without executing any commands itself. When the payload is deserialized via `ruby /app/deserialize.rb $(ruby /app/exploit.rb)`, it must create the file `/app/pwned.txt`.

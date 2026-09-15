@@ -1,0 +1,29 @@
+Incident Response — Token Generator Analysis
+=============================================
+
+Three stripped PRNG binaries were recovered from a compromised token service:
+  /app/gen_alpha
+  /app/gen_beta
+  /app/gen_gamma
+
+Each binary implements a different pseudo-random number generator algorithm.
+All accept the same command-line interface:
+
+  ./gen_X <hex_seed_string> <count>
+
+  hex_seed_string : seed as a hexadecimal string
+  count           : number of 32-bit tokens to generate
+  stdout          : raw little-endian uint32 values (4 bytes each)
+
+Example:
+  ./gen_alpha 00112233445566778899aabbccddeeff 5 | xxd
+
+Three output streams were captured from the service, but the logs recording
+which generator produced which stream were destroyed:
+
+  /app/stream_1.bin — 800 consecutive uint32 outputs (3200 bytes)
+  /app/stream_2.bin — 800 consecutive uint32 outputs (3200 bytes)
+  /app/stream_3.bin — 800 consecutive uint32 outputs (3200 bytes)
+
+Each stream was produced by exactly one generator (one-to-one mapping).
+The seeds used are not recorded and cannot be brute-forced.

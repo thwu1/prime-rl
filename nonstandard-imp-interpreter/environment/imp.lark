@@ -1,0 +1,41 @@
+// IMP Language Grammar for Lark Parser Generator
+
+start: stmt_list
+
+stmt_list: (stmt ";")*
+
+stmt: "int" ID                                                      -> decl
+    | ID "=" aexp                                                   -> assign
+    | "if" "(" bexp ")" "{" stmt_list "}" "else" "{" stmt_list "}"  -> if_else
+    | "while" "(" bexp ")" "{" stmt_list "}"                        -> while_loop
+    | "halt"                                                        -> halt_stmt
+    | "continue"                                                    -> continue_stmt
+    | "break"                                                       -> break_stmt
+
+aexp: ID                                                            -> var
+    | INT                                                           -> num
+    | "(" aexp "+" aexp ")"                                         -> add
+    | "(" aexp "-" aexp ")"                                         -> sub
+    | "(" aexp "*" aexp ")"                                         -> mul
+    | "(" aexp "/" aexp ")"                                         -> div
+    | "(" aexp "%" aexp ")"                                         -> mod
+    | "(" "+" aexp ")"                                              -> unary_plus
+    | "(" "-" aexp ")"                                              -> unary_minus
+
+bexp: "true"                                                        -> bool_true
+    | "false"                                                       -> bool_false
+    | "(" aexp "<" aexp ")"                                         -> lt
+    | "(" aexp "<=" aexp ")"                                        -> le
+    | "(" aexp ">" aexp ")"                                         -> gt
+    | "(" aexp ">=" aexp ")"                                        -> ge
+    | "(" aexp "==" aexp ")"                                        -> eq
+    | "(" aexp "!=" aexp ")"                                        -> ne
+    | "(" "!" bexp ")"                                              -> negation
+    | "(" bexp "&&" bexp ")"                                        -> logical_and
+    | "(" bexp "||" bexp ")"                                        -> logical_or
+
+ID: /[a-zA-Z][a-zA-Z0-9]*/
+INT: /[0-9]+/
+
+%import common.WS
+%ignore WS

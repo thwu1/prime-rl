@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in multiview geometry (polynomial system solving from geometric constraints, rigid point set alignment), numerical linear algebra (eigenvalue decomposition via LAPACK Fortran interface), systems programming (C shared library compilation, Makefile build systems, Python-C FFI via ctypes with row/column-major memory layout handling), and robust statistical estimation. The agent must integrate across C, make, LAPACK, ctypes, and Python to build a working pipeline."""
+solution_explanation = """1) Implement the C eigenvalue library (eigensolve.c) using LAPACK's dgeev_ with correct Fortran calling conventions and row/column-major transpositions, then compile via make. 2) Compute 18 polynomial coefficients from interpoint distance constraints. 3) Construct the expanded polynomial system matrices and solve via the action matrix eigenvalue method, calling the C library through ctypes FFI. 4) Implement rigid point set alignment via SVD for pose recovery. 5) Implement RANSAC-based robust estimation with inlier refinement."""
+verification_explanation = """Tests verify: (a) the compiled C shared library exists, is loadable via ctypes, and correctly computes eigenvalues/eigenvectors for known matrices, (b) polynomial coefficient computation matches analytical formulas, (c) the minimal solver recovers ground-truth affine parameters on noise-free synthetic data across multiple seeds, (d) recovered rotations are valid (orthogonal, det=+1) and match ground truth, (e) translation direction matches ground truth up to sign ambiguity, (f) RANSAC handles 30% outlier-contaminated data."""
+category = "computer_vision"
+tags = ["geometric-vision", "native-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1c8cf3"

@@ -1,0 +1,143 @@
+{
+  "description": "ESP32 TWAI acceptance filter test vectors. Register format: 8 bytes (4 code + 4 mask) as hex. Register mask polarity: set bit = don't care.",
+  "match_tests": [
+    {
+      "id": "ss_basic_accept",
+      "mode": "single_standard",
+      "registers": "a8200000ffdf0000",
+      "frame": "std:0x541:0:ab12",
+      "expected": "ACCEPT",
+      "note": "ID 0x541 = 10101000001, filter code byte0=0xa8 byte1=0x20 matches ID bits, mask=0xff 0xdf means care about ID bits 31-21 and RTR, don't care about payload"
+    },
+    {
+      "id": "ss_basic_reject",
+      "mode": "single_standard",
+      "registers": "a8200000ffdf0000",
+      "frame": "std:0x540:0:ab12",
+      "expected": "REJECT",
+      "note": "ID 0x540 differs in bit 21 from code"
+    },
+    {
+      "id": "ss_rtr_match",
+      "mode": "single_standard",
+      "registers": "a8300000ffff0000",
+      "frame": "std:0x541:1:",
+      "expected": "ACCEPT",
+      "note": "RTR=1 matches code bit 20=1, mask bit 20=0 means care"
+    },
+    {
+      "id": "ss_rtr_reject",
+      "mode": "single_standard",
+      "registers": "a8300000ffff0000",
+      "frame": "std:0x541:0:aabb",
+      "expected": "REJECT",
+      "note": "RTR=0 but code bit 20=1, mask cares"
+    },
+    {
+      "id": "ss_payload_match",
+      "mode": "single_standard",
+      "registers": "a820cafe ffdf ffff",
+      "frame": "std:0x541:0:cafe",
+      "expected": "ACCEPT",
+      "note": "Payload bytes 0xCA 0xFE match code, mask cares about all payload bits"
+    },
+    {
+      "id": "ss_payload_reject",
+      "mode": "single_standard",
+      "registers": "a820cafe ffdf ffff",
+      "frame": "std:0x541:0:caff",
+      "expected": "REJECT",
+      "note": "Second payload byte 0xFF != 0xFE"
+    },
+    {
+      "id": "ss_wildcard_all",
+      "mode": "single_standard",
+      "registers": "0000000000000000",
+      "frame": "std:0x7ff:1:dead",
+      "expected": "ACCEPT",
+      "note": "All mask bits set (register=0 means inverted=all-ones = don't care) = accept everything"
+    },
+    {
+      "id": "se_basic_accept",
+      "mode": "single_extended",
+      "registers": "a8200000ffdfff00",
+      "frame": "ext:0x15040000:0:",
+      "expected": "ACCEPT",
+      "note": "Extended ID 0x15040000, code=0xa8200000 → ID bits 31-3 = 0x15040000, mask cares about upper bits"
+    },
+    {
+      "id": "se_rtr_match",
+      "mode": "single_extended",
+      "registers": "a8200004ffdfffff",
+      "frame": "ext:0x15040000:1:",
+      "expected": "ACCEPT",
+      "note": "RTR bit 2 set in code, mask cares"
+    },
+    {
+      "id": "se_rtr_reject",
+      "mode": "single_extended",
+      "registers": "a8200004ffdfffff",
+      "frame": "ext:0x15040000:0:",
+      "expected": "REJECT",
+      "note": "RTR=0 but code has bit 2 set"
+    },
+    {
+      "id": "ds_filter1_accept",
+      "mode": "dual_standard",
+      "registers": "a820000bffdff00f",
+      "frame": "std:0x541:0:0b",
+      "expected": "ACCEPT",
+      "note": "Dual standard: filter 1 matches ID 0x541, payload upper nibble 0x0 at bits 19-16, lower nibble 0xb at bits 3-0"
+    },
+    {
+      "id": "ds_filter2_accept",
+      "mode": "dual_standard",
+      "registers": "00005410f000ffff",
+      "frame": "std:0x2a0:0:ff",
+      "expected": "ACCEPT",
+      "note": "Dual standard filter 2: ID at bits 15-5 = 0x541<<5>>5 ... filter 2 matches ID 0x2a0"
+    },
+    {
+      "id": "de_filter1_accept",
+      "mode": "dual_extended",
+      "registers": "a8200000ffdf0000",
+      "frame": "ext:0x15040000:0:",
+      "expected": "ACCEPT",
+      "note": "Dual extended filter 1: upper 16 bits of register match upper 16 bits of (ID<<3)"
+    },
+    {
+      "id": "de_both_reject",
+      "mode": "dual_extended",
+      "registers": "a820a820ffdfffdf",
+      "frame": "ext:0x00000000:0:",
+      "expected": "REJECT",
+      "note": "Neither filter matches ID 0"
+    }
+  ],
+  "synthesize_tests": [
+    {
+      "id": "synth_ss_single",
+      "mode": "single_standard",
+      "frames": ["std:0x541:0:cafe"],
+      "note": "Single frame → exact match for ID+RTR+payload"
+    },
+    {
+      "id": "synth_ss_two",
+      "mode": "single_standard",
+      "frames": ["std:0x540:0:0000", "std:0x541:0:0000"],
+      "note": "Two IDs differing in LSB → don't care for bit 21"
+    },
+    {
+      "id": "synth_se_single",
+      "mode": "single_extended",
+      "frames": ["ext:0x1ABCDEF0:1:"],
+      "note": "Single extended frame → exact match"
+    },
+    {
+      "id": "synth_ds_two",
+      "mode": "dual_standard",
+      "frames": ["std:0x100:0:aa", "std:0x200:0:bb"],
+      "note": "Two very different IDs → use dual filters, one per filter"
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "modules": {
+    "top": {
+      "children": ["cpu_core", "cache_ctrl", "mem_arbiter", "bus_bridge"],
+      "signals": ["clk", "rst_n", "sys_ready"],
+      "ports": {
+        "inputs": ["clk", "rst_n"],
+        "outputs": ["sys_ready"]
+      }
+    },
+    "cpu_core": {
+      "children": ["alu", "reg_file", "decode_unit"],
+      "signals": ["pc", "instr", "alu_result", "reg_data", "stall", "flush"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "cache_data", "cache_valid", "irq"],
+        "outputs": ["mem_req", "mem_addr", "mem_wdata", "mem_we"]
+      }
+    },
+    "alu": {
+      "children": [],
+      "signals": ["op_a", "op_b", "alu_op", "result", "overflow", "zero_flag"],
+      "ports": {
+        "inputs": ["op_a", "op_b", "alu_op"],
+        "outputs": ["result", "overflow", "zero_flag"]
+      }
+    },
+    "reg_file": {
+      "children": [],
+      "signals": ["rd_addr1", "rd_addr2", "wr_addr", "wr_data", "wr_en", "rd_data1", "rd_data2"],
+      "ports": {
+        "inputs": ["rd_addr1", "rd_addr2", "wr_addr", "wr_data", "wr_en", "clk"],
+        "outputs": ["rd_data1", "rd_data2"]
+      }
+    },
+    "decode_unit": {
+      "children": [],
+      "signals": ["opcode", "funct3", "funct7", "rd", "rs1", "rs2", "imm"],
+      "ports": {
+        "inputs": ["instr"],
+        "outputs": ["opcode", "funct3", "funct7", "rd", "rs1", "rs2", "imm", "alu_op"]
+      }
+    },
+    "cache_ctrl": {
+      "children": ["tag_ram", "data_ram"],
+      "signals": ["hit", "miss", "state", "evict", "fill", "dirty", "valid_bit", "tag_match"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "cpu_req", "cpu_addr", "cpu_wdata", "cpu_we", "mem_rdata", "mem_ready"],
+        "outputs": ["cpu_rdata", "cpu_ready", "mem_req_out", "mem_addr_out", "mem_wdata_out", "mem_we_out"]
+      }
+    },
+    "tag_ram": {
+      "children": [],
+      "signals": ["tag_addr", "tag_data_in", "tag_data_out", "tag_we"],
+      "ports": {
+        "inputs": ["tag_addr", "tag_data_in", "tag_we", "clk"],
+        "outputs": ["tag_data_out"]
+      }
+    },
+    "data_ram": {
+      "children": [],
+      "signals": ["data_addr", "data_in", "data_out", "data_we"],
+      "ports": {
+        "inputs": ["data_addr", "data_in", "data_we", "clk"],
+        "outputs": ["data_out"]
+      }
+    },
+    "mem_arbiter": {
+      "children": [],
+      "signals": ["grant", "req_queue", "priority", "active_master", "bus_busy"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "cache_req", "cache_addr", "dma_req", "dma_addr"],
+        "outputs": ["grant_cache", "grant_dma", "mem_addr", "mem_req"]
+      }
+    },
+    "bus_bridge": {
+      "children": [],
+      "signals": ["bridge_state", "src_ready", "dst_ready", "data_buf", "addr_buf"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "src_data", "src_addr", "src_valid", "dst_ack"],
+        "outputs": ["dst_data", "dst_addr", "dst_valid", "src_ack"]
+      }
+    },
+    "dma_engine": {
+      "children": [],
+      "signals": ["dma_state", "src_addr_reg", "dst_addr_reg", "count_reg", "transfer_active"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "cfg_addr", "cfg_data", "cfg_we", "mem_rdata", "mem_ready"],
+        "outputs": ["mem_req", "mem_addr", "mem_wdata", "mem_we", "irq_done"]
+      }
+    },
+    "interrupt_ctrl": {
+      "children": [],
+      "signals": ["irq_pending", "irq_mask", "irq_priority", "irq_active", "irq_vector"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "irq_sources", "cfg_addr", "cfg_data", "cfg_we", "irq_ack"],
+        "outputs": ["irq_out", "irq_vector_out"]
+      }
+    },
+    "timer_unit": {
+      "children": [],
+      "signals": ["counter", "compare_val", "timer_expired", "prescaler"],
+      "ports": {
+        "inputs": ["clk", "rst_n", "cfg_addr", "cfg_data", "cfg_we"],
+        "outputs": ["timer_irq", "counter_val"]
+      }
+    }
+  },
+  "signal_dependencies": {
+    "top.sys_ready": ["cpu_core.mem_req", "cache_ctrl.cpu_ready", "mem_arbiter.bus_busy"],
+    "cpu_core.pc": ["cpu_core.alu_result", "cpu_core.stall", "cpu_core.flush"],
+    "cpu_core.instr": ["cpu_core.pc", "cache_ctrl.cpu_rdata"],
+    "cpu_core.alu_result": ["alu.result"],
+    "cpu_core.stall": ["cache_ctrl.cpu_ready", "mem_arbiter.bus_busy"],
+    "cpu_core.flush": ["interrupt_ctrl.irq_out", "decode_unit.opcode"],
+    "cpu_core.reg_data": ["reg_file.rd_data1", "reg_file.rd_data2"],
+    "alu.result": ["alu.op_a", "alu.op_b", "alu.alu_op"],
+    "alu.overflow": ["alu.op_a", "alu.op_b", "alu.alu_op"],
+    "alu.zero_flag": ["alu.result"],
+    "reg_file.rd_data1": ["reg_file.rd_addr1", "reg_file.wr_addr", "reg_file.wr_data", "reg_file.wr_en"],
+    "reg_file.rd_data2": ["reg_file.rd_addr2", "reg_file.wr_addr", "reg_file.wr_data", "reg_file.wr_en"],
+    "decode_unit.alu_op": ["decode_unit.opcode", "decode_unit.funct3", "decode_unit.funct7"],
+    "decode_unit.opcode": ["cpu_core.instr"],
+    "cache_ctrl.hit": ["cache_ctrl.tag_match", "cache_ctrl.valid_bit"],
+    "cache_ctrl.miss": ["cache_ctrl.hit"],
+    "cache_ctrl.state": ["cache_ctrl.hit", "cache_ctrl.miss", "cache_ctrl.evict", "cache_ctrl.fill"],
+    "cache_ctrl.dirty": ["cache_ctrl.state", "data_ram.data_out"],
+    "cache_ctrl.cpu_rdata": ["data_ram.data_out", "cache_ctrl.hit"],
+    "cache_ctrl.cpu_ready": ["cache_ctrl.state", "cache_ctrl.hit"],
+    "cache_ctrl.tag_match": ["tag_ram.tag_data_out"],
+    "mem_arbiter.grant": ["mem_arbiter.req_queue", "mem_arbiter.priority"],
+    "mem_arbiter.bus_busy": ["mem_arbiter.active_master"],
+    "mem_arbiter.active_master": ["mem_arbiter.grant"],
+    "bus_bridge.bridge_state": ["bus_bridge.src_ready", "bus_bridge.dst_ready"],
+    "dma_engine.dma_state": ["dma_engine.transfer_active", "dma_engine.count_reg"],
+    "dma_engine.transfer_active": ["dma_engine.dma_state"],
+    "interrupt_ctrl.irq_out": ["interrupt_ctrl.irq_pending", "interrupt_ctrl.irq_mask", "interrupt_ctrl.irq_priority"],
+    "interrupt_ctrl.irq_pending": ["interrupt_ctrl.irq_sources"],
+    "timer_unit.timer_irq": ["timer_unit.timer_expired"],
+    "timer_unit.timer_expired": ["timer_unit.counter", "timer_unit.compare_val"],
+    "timer_unit.counter": ["timer_unit.prescaler"]
+  }
+}

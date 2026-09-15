@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing seven coupled defects spanning stochastic calculus, numerical analysis, option pricing theory, and QuantLib API semantics across a 250-line quantitative finance program. Bugs include: cumulant formula errors requiring derivation from the Kluge model's moment-generating function (eta exponent, hyperbolic function selection); a Monte Carlo drift correction sign error requiring understanding of the forward shape constraint; a swing option lower-bound indexing error requiring knowledge of no-arbitrage bound construction; an implied volatility parametrization error requiring Black's formula inversion; a swing option contract semantics error (minimum exercise rights) requiring reading C++ reference code and understanding VanillaSwingOption constructor arguments; and a Richardson extrapolation convergence order error requiring understanding the Douglas FDM scheme's spatial/temporal accuracy. Each bug interacts with the others through shared intermediate values and cross-section consistency checks."""
+solution_explanation = """Seven defects must be found and fixed: (1) skewness formula uses eta^2 instead of eta^3 — the 3rd cumulant of the compound Poisson jump component; (2) excess kurtosis uses np.cosh instead of np.sinh for the cross-term — comparing with the C++ test's std::sinh; (3) forward shape correction has sign error (+ instead of -) for the jump contribution, causing E[S_T] != f0; (4) lower bound sums european_prices[:n] (first n) instead of european_prices[-n:] (last n nearest maturity); (5) implied volatility solver finds total standard deviation instead of annualized volatility, failing the roundtrip test; (6) convergence function uses minExerciseRights=1 instead of 0, changing swing option contract semantics so medium prices don't match bs_swing; (7) Richardson extrapolation uses convergence order p=1 instead of p=2 (the Douglas scheme is second-order), giving wrong extrapolated values."""
+verification_explanation = """Tests independently compute Kluge model cumulants and moment-matching prices from analytical formulas, comparing against submitted values to 1e-6/1e-8. BS swing bounds are validated structurally across all 12 exercise-right counts. MC convergence is checked statistically (within 3-sigma). Implied vol roundtrip test verifies each vol reproduces its price through Black's formula. Convergence tests verify medium prices match bs_swing prices (catching minExerciseRights bug), algebraically verify the Richardson formula matches p=2 extrapolation (catching order bug), and check convergence ratios are in the expected range for a second-order scheme."""
+category = "applied_computing"
+tags = ["quantitative-finance", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kluge-swing-pricing-cf2af3"

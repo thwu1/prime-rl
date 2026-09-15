@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three intraprocedural dataflow analyses from scratch in Java without being told the analysis algorithms, directionality, or merge semantics. The solver must recognize and correctly implement distinct fixed-point semantics for each analysis from domain knowledge alone. Additional complexity: packaging the engine as an executable JAR using the jar tool with a proper manifest, producing Graphviz DOT control-flow graph output, and building a batch shell pipeline that chains java -jar, dot, and file I/O to produce both JSON analysis results and SVG CFG visualizations. The multi-tool interoperability (javac, jar, java -jar, graphviz dot) and hidden test programs with nested loops create coupled debugging across analysis correctness, packaging, and toolchain integration."""
+solution_explanation = """The solution implements: (1) a TAC parser identifying statement types, definitions, and variable uses; (2) CFG construction with successor/predecessor lists handling gotos, conditionals, returns, and fall-through; (3) reaching definitions via forward propagation with union merge; (4) live variables via backward propagation with union merge; (5) available expressions via forward propagation with intersection merge, universal-set initialization for non-entry nodes, and correct gen/kill considering defined-variable-in-operand edge cases; (6) DOT-format CFG serialization with proper node labeling and edge generation; (7) JAR packaging using jar cfm with a MANIFEST.MF specifying Main-Class; (8) a batch shell script that uses the JAR, pipes DOT output through graphviz dot to produce SVGs, and combines JSON results into an array."""
+verification_explanation = """Tests compile using make, run on five TAC programs (four shipped, one hidden with nested loops), and verify 100+ ground-truth properties. Tests cover: Makefile targets (compile, run), JAR packaging (existence, analysis output, dot mode, consistency with classpath execution), DOT output (graph name, node count, edge count, specific branch/loop/back edges, Graphviz compatibility via dot -Tsvg), SVG generation (file existence, valid SVG content), batch script (analyze.sh JSON array, structural validity, per-method JSON and SVG files), and all three analyses across straight-line, branching, loop, diamond, and nested-loop CFGs. Properties include correct gen/kill behavior, merge semantics (union vs intersection), fixed-point convergence through nested back edges, expression availability tracking, and liveness propagation across complex control flow."""
+category = "theory_of_computation"
+tags = ["dataflow-analysis", "program-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/jimple-dataflow-engine-70c400"

@@ -1,0 +1,25 @@
+{
+  "laser": {
+    "wavelength_m": 0.8e-6,
+    "e_max_Vm": 16e12,
+    "waist_m": 15e-6,
+    "duration_fwhm_s": 30e-15
+  },
+  "plasma": {
+    "electron_density_m3": 1.75e24,
+    "plateau_length_m": 3e-3,
+    "up_ramp_length_m": 0.5e-3,
+    "down_ramp_length_m": 0.5e-3
+  },
+  "grid": {
+    "dimensions": 3,
+    "n_cells": [64, 64, 480],
+    "domain_lo_m": [-48e-6, -48e-6, -56e-6],
+    "domain_hi_m": [48e-6, 48e-6, 12e-6],
+    "particle_shape_order": 3
+  },
+  "numerics": {
+    "cfl_factor": 0.999,
+    "moving_window_velocity_c": 1.0
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The scorer has four interacting defects across different pipeline stages that the agent must independently diagnose from numerical output discrepancies. Bug 1: the N-MIDE computation ignores the temporal collar parameter, using raw reference intervals instead of constructing collar-adjusted core (shrunk) and expanded (grown) intervals for miss and false-alarm calculations respectively. Bug 2: the DET curve sweep uses strict greater-than for confidence filtering instead of greater-than-or-equal, causing the lowest-confidence detections to never appear in any operating point — this manifests asymmetrically across activities depending on whether the lowest-confidence detection is a true match or a false alarm. Bug 3: the IoU threshold comparison uses >= instead of strict >, a latent defect that only surfaces under non-default threshold values where a pair's IoU exactly equals the threshold. Bug 4: metric aggregation uses a weighted mean (by reference instance count) instead of the required unweighted macro-average. Diagnosing each bug requires tracing incorrect metric values back through the scoring pipeline, understanding the mathematical semantics of each evaluation stage, and distinguishing genuine bugs from correct-but-coincidentally-matching behavior."""
+solution_explanation = """Fix all four defects: (1) Implement collar-adjusted N-MIDE by constructing core intervals [rs+c, re-c) for miss computation and expanded intervals [rs-c, re+c) for false-alarm computation, using these instead of raw reference intervals. (2) Change DET confidence filter from sys_confs[j] > threshold to sys_confs[j] >= threshold so detections at exactly the threshold confidence are included. (3) Change IoU threshold filter from >= to strict > so pairs with IoU exactly equal to the threshold are excluded. (4) Replace weighted aggregation with simple macro-average (np.mean) across activities."""
+verification_explanation = """Tests run the scorer on calibration data and verify all per-activity and aggregated metrics against precomputed reference values within tolerance 0.002. Anti-cheat tests modify inputs: (1) removing a detection and verifying changed instance counts and metrics; (2) setting collar to 0 and verifying N-MIDE values shift correctly; (3) raising IoU threshold to 0.5 where a pair has IoU exactly 0.5 and verifying it does not match (strict > semantics). These tests ensure the solution generalizes rather than hardcoding expected values."""
+category = "data_science"
+tags = ["evaluation_metrics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-17b174"

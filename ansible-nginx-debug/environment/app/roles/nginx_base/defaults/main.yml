@@ -1,0 +1,7 @@
+---
+nginx_worker_processes: 1
+nginx_worker_connections: 768
+nginx_keepalive_timeout: 30
+nginx_server_tokens: "on"
+nginx_gzip: false
+nginx_gzip_types: []

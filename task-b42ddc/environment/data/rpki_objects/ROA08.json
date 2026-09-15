@@ -1,0 +1,7 @@
+{
+  "asn": 65008,
+  "max_length": 16,
+  "prefix": "10.20.0.0/16",
+  "roa_id": "ROA08",
+  "signing_entity": "authority_delta"
+}

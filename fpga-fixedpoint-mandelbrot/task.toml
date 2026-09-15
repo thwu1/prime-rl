@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to reverse-engineer three SystemVerilog hardware modules (binary long division, fixed-point division, non-restoring square root) from source code alone — no algorithm documentation is provided. The agent must use Icarus Verilog (iverilog/vvp) to compile and simulate the modules: writing SystemVerilog testbenches with correct clock generation, reset sequencing, and start/done handshake protocols. Simulation output must be parsed and combined with a Q4.21 signed fixed-point Mandelbrot escape-time computation, requiring the agent to independently derive fixed-point multiply semantics (sign extension, product shift, truncation) and handle signed overflow comparison. The multi-tool workflow (SystemVerilog testbench authoring → iverilog compilation → vvp simulation → output parsing → Python fixed-point arithmetic → JSON assembly) demands proficiency across unfamiliar hardware simulation tools and fixed-point number representation."""
+solution_explanation = """Write SystemVerilog testbenches that instantiate each module (divu_int with WIDTH=32, sqrt_int with WIDTH=32, divu with WIDTH=25/FBITS=21), drive them with test vectors using negedge-setup/posedge-sample protocol, and capture outputs via $display. Compile with 'iverilog -g2012' and simulate with 'vvp'. Parse simulation text output in Python to extract division, sqrt, and fp-division results. Implement Q4.21 Mandelbrot by sign-extending operands, computing signed product, arithmetic right-shifting by 21, masking to 25 bits, and using signed escape comparison against 4.0 in Q4.21. Assemble all results into /app/results.json."""
+verification_explanation = """Tests contain independent Python reference implementations of all three hardware algorithms (translated from the Verilog source) and the fixed-point Mandelbrot computation. Results are loaded from /app/results.json and compared field-by-field against reference values. Division and square root are cross-checked against Python's native integer arithmetic (a//b, isqrt) as a sanity check on the reference itself."""
+category = "computer_architecture"
+tags = ["verilog-simulation", "fixed-point-arithmetic"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fpga-fixedpoint-mandelbrot"

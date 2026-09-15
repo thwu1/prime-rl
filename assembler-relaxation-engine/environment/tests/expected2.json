@@ -1,0 +1,10 @@
+{
+  "total_size": 206,
+  "iterations": 1,
+  "labels": {
+    "far": 205
+  },
+  "jumps": [
+    {"line": 1, "target": "far", "offset": 0, "size": 5, "relaxed": true}
+  ]
+}

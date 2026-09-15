@@ -1,0 +1,10 @@
+{
+  "well_typed": false,
+  "globals": {
+    "x": {"type": "int", "kind": "var"},
+    "y": {"type": "int", "kind": "var"},
+    "b": {"type": "bool", "kind": "var"}
+  },
+  "classes": {},
+  "errors": [{"message": "Cannot use 'is' with int and int"}]
+}

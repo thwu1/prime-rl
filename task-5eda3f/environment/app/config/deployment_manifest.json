@@ -1,0 +1,29 @@
+{
+  "service": "service-control",
+  "version": "2.14.3",
+  "previous_version": "2.14.2",
+  "deployed_at": "2025-06-12T17:30:00Z",
+  "deployer": "deploy-bot@corp.google.com",
+  "approval": "auto-approved (canary passed)",
+  "feature_flags": {
+    "enhanced_quota_checking": true,
+    "new_rate_limit_algorithm": false,
+    "debug_logging": false,
+    "async_replication": false
+  },
+  "rollback_version": "2.14.2",
+  "config_changes": [
+    {
+      "file": "config/rate_limits.yaml",
+      "type": "modified",
+      "diff_summary": "Increased default_burst_multiplier from 1.5 to 2.0",
+      "approved_by": "sre-team@corp.google.com"
+    }
+  ],
+  "canary_results": {
+    "duration_minutes": 2,
+    "requests_served": 14500,
+    "error_rate": 0.0,
+    "p99_latency_ms": 15
+  }
+}

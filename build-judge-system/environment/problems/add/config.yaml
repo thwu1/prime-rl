@@ -1,0 +1,6 @@
+name: add
+scoring: binary
+time_limit: 5
+memory_limit: 256
+checker: exact
+testcases: [1, 2, 3]

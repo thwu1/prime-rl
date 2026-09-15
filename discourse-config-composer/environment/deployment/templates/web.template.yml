@@ -1,0 +1,14 @@
+env:
+  DISCOURSE_DB_HOST: localhost
+  DISCOURSE_REDIS_HOST: localhost
+  UNICORN_SIDEKIQS: "1"
+
+expose:
+  - "80"
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git

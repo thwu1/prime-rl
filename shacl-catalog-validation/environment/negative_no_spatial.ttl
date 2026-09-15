@@ -1,0 +1,50 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix locn: <http://www.w3.org/ns/locn#> .
+@prefix spdx: <http://spdx.org/rdf/terms#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+
+# Negative sample: dataset is missing dct:spatial entirely
+
+<http://neg-test/ds-spatial> a dcat:Dataset ;
+    dct:title "Spatial Coverage Test"@en ;
+    dct:description "Dataset without geographic coverage"@en ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2020-01-01"^^xsd:date ;
+        dcat:endDate "2023-12-31"^^xsd:date
+    ] ;
+    dcat:keyword "keyword one"@en , "keyword two"@en , "Stichwort"@de ;
+    dcat:theme <http://neg-test/concept/t3> ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dcat:spatialResolutionInMeters "200.0"^^xsd:decimal ;
+    dct:conformsTo <http://neg-test/standard/s3> ;
+    dct:creator <http://neg-test/agent/a3> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:hasEmail <mailto:contact@neg-test.eu> ;
+        vcard:fn "Test Contact"
+    ] ;
+    dcat:distribution <http://neg-test/dist/d3> .
+
+<http://neg-test/concept/t3> a skos:Concept ;
+    skos:prefLabel "Test Theme"@en .
+
+<http://neg-test/agent/a3> a foaf:Agent ;
+    foaf:name "Test Agency" ;
+    foaf:mbox <mailto:info@neg-test.eu> .
+
+<http://neg-test/dist/d3> a dcat:Distribution ;
+    dcat:accessURL <http://neg-test/access/3> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/CSV> ;
+    dcat:byteSize "524288"^^xsd:nonNegativeInteger ;
+    spdx:checksum [
+        a spdx:Checksum ;
+        spdx:checksumValue "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9" ;
+        spdx:algorithm <http://spdx.org/rdf/terms#checksumAlgorithm_sha256>
+    ] .

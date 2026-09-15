@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantum error correction knowledge to diagnose and correct a flawed analysis pipeline. The agent must identify multiple subtle methodological errors in a provided draft script: incorrect per-round error rate conversion (naive linear division vs. the correct probabilistic formula), fitting an exponential relationship in linear space instead of log space, a sign error in the error suppression factor computation, the wrong physical qubit count formula for the rotated surface code geometry, and missing detector error model decomposition that degrades decoding quality. Each bug requires deep domain knowledge — understanding fault-tolerance thresholds, exponential error suppression scaling, multi-round failure probability, and surface code lattice structure. The agent must independently determine the correct methodology from QEC theory."""
+solution_explanation = """Review draft_analysis.py and identify five bugs: (1) per-round error rate uses naive division p/n instead of 1-(1-p)^(1/n); (2) exponential fit is on raw rates in linear space instead of log(rate) vs distance; (3) Lambda computed as exp(slope) instead of exp(-slope); (4) physical qubit count uses d^2 instead of 2d^2-1 for the rotated layout; (5) detector error model missing decompose_errors=True, degrading MWPM decoding. Fix all issues: load circuits, sample 100K shots with compiled detector sampler, decode with PyMatching from the decomposed DEM, apply correct per-round conversion, fit log(per_round_rate) vs distance, compute Lambda=exp(-slope), project minimum odd distance for sub-1e-12 per-round rate, and compute 2d^2-1 physical qubits."""
+verification_explanation = """Tests independently construct identical Stim circuits and verify circuit metadata (num_qubits, num_detectors, num_observables). Error rates must be positive, below 0.5, and monotonically decreasing with distance. The per-round/per-shot relationship is validated against the correct conversion formula within 1% tolerance, catching the naive division bug. Lambda must exceed 2.0 (catching both sign errors and linear-space fitting artifacts). The fit slope must be below -0.5 (catching linear-space fits). R-squared must exceed 0.9. Projected distance must be odd, exceed 7, and stay below 100. Physical qubit count must equal 2d^2-1."""
+category = "quantum_computing"
+tags = ["error_correction", "scientific_debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-200422"

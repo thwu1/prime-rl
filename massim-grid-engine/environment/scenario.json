@@ -1,0 +1,53 @@
+{
+  "agents": [
+    {"name": "agentA0", "team": "A", "role": "default", "x": 10, "y": 10},
+    {"name": "agentA1", "team": "A", "role": "worker", "x": 20, "y": 20}
+  ],
+  "blocks": [
+    {"id": "block_0", "type": "b0", "x": 10, "y": 11},
+    {"id": "block_1", "type": "b1", "x": 11, "y": 10},
+    {"id": "block_2", "type": "b0", "x": 20, "y": 21}
+  ],
+  "obstacles": [
+    {"x": 15, "y": 15}
+  ],
+  "dispensers": [
+    {"type": "b0", "x": 10, "y": 12}
+  ],
+  "goal_zones": [
+    {"cx": 10, "cy": 10, "radius": 2}
+  ],
+  "role_zones": [
+    {"cx": 25, "cy": 25, "radius": 3}
+  ],
+  "norms": [
+    {
+      "name": "norm_carry1",
+      "subject": "carry",
+      "start": 6,
+      "until": 20,
+      "level": "individual",
+      "requirements": [{"type": "block", "name": "any", "quantity": 1}],
+      "punishment": 15
+    }
+  ],
+  "tasks": [
+    {
+      "name": "task1",
+      "deadline": 20,
+      "reward": 50,
+      "requirements": [
+        {"x": 0, "y": 1, "type": "b0"},
+        {"x": 1, "y": 0, "type": "b1"}
+      ]
+    },
+    {
+      "name": "task2",
+      "deadline": 30,
+      "reward": 30,
+      "requirements": [
+        {"x": 1, "y": 0, "type": "b1"}
+      ]
+    }
+  ]
+}

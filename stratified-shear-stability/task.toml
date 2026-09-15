@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing spectral Chebyshev collocation for the Taylor-Goldstein equation governing stratified shear flow instability. The equation depends nonlinearly on the eigenvalue c through a 1/(U-c) term, necessitating reformulation as a quadratic eigenvalue problem or direct iteration on the nonlinear operator. Naive companion-matrix linearization of the QEP introduces spurious eigenvalues from the critical-layer multiplication and Holmboe bifurcation artifacts that contaminate results near the Miles-Howard stability boundary (Ri=0.25). The agent must combine expertise in fluid dynamics stability theory, spectral numerical methods, and eigenvalue problem solvers to produce quantitatively correct growth rate dispersion curves across Richardson number parameter space."""
+solution_explanation = """Construct Chebyshev differentiation matrices on the physical domain and evaluate the tanh velocity and buoyancy profiles. For Ri=0 (unstratified), solve the Rayleigh equation (U-c)Lψ - U''ψ = 0 as a standard generalized eigenvalue problem to identify the physical unstable mode. For Ri > 0, formulate the Taylor-Goldstein operator T(c) = diag(U-c)L - diag(U'') + diag(N²/(U-c)) and use Newton iteration (inverse power iteration for eigenvectors, Rayleigh quotient for eigenvalue correction) to track the physical mode as Ri increases. This avoids computing the full companion spectrum and its spurious eigenvalues, correctly recovering stability at Ri≥0.25 per the Miles-Howard theorem."""
+verification_explanation = """Tests verify: (1) maximum growth rate at Ri=0 matches the Michalke 1964 reference value of approximately 0.1897, (2) most unstable wavenumber k_max is approximately 0.44, (3) sigma_max decreases monotonically with Ri, (4) near-zero growth at Ri=0.25 confirming the Miles-Howard theorem, (5) critical Ri is approximately 0.250, (6) all growth rates are non-negative, and (7) growth rates decay for large wavenumbers."""
+category = "scientific_computing"
+tags = ["fluid-dynamics", "spectral-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stratified-shear-stability"

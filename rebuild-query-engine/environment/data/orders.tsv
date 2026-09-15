@@ -1,0 +1,9 @@
+id	employee_id	product	amount	date
+1	1	Widget	150.50	2024-01-15
+2	2	Gadget	200.00	2024-02-20
+3	1	Widget	75.25	2024-03-10
+4	3	Gizmo	300.00	2024-01-25
+5	5	Widget	150.50	2024-04-01
+6	NULL	Gadget	100.00	2024-05-15
+7	4	NULL	250.00	2024-03-20
+8	2	Widget	150.50	2024-06-01

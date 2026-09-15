@@ -1,0 +1,20 @@
+{
+    "evaluation_approaches": {
+        "visual_matching": {
+            "description": "Uses the best visually matched simulation environment",
+            "data_file": "sim_visual_matching.csv"
+        },
+        "variant_aggregation": {
+            "description": "Weighted average of success rates across visual variants for robustness",
+            "variant_files": ["sim_variant_1.csv", "sim_variant_2.csv", "sim_variant_3.csv"],
+            "variant_weights": [0.5, 0.3, 0.2],
+            "aggregation": "weighted_mean"
+        }
+    },
+    "real_world_file": "real_world_results.csv",
+    "output_file": "../results.json",
+    "bootstrap": {
+        "seed": 42,
+        "n_iterations": 1000
+    }
+}

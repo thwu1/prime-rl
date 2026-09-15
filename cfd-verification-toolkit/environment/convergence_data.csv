@@ -1,0 +1,8 @@
+# Grid convergence study: lift coefficient for HiOCFD5 Joukowski airfoil
+# Polynomial order P=2, mesh refinement ratio r=2
+h,CL
+0.5,1.08
+0.25,1.1356
+0.125,1.148725
+0.0625,1.15200625
+0.03125,1.1528265625

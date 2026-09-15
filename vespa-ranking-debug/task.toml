@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level evaluation of three competing Vespa ranking pipeline designs, each containing a distinct mix of correct and incorrect technical recommendations. The solver must judge the validity of claims about: (1) HNSW indexing — whether distance-metric alone triggers graph construction or whether the indexing pipeline must include '| index'; (2) closeness rank feature syntax — whether single-argument or two-argument form is correct with multiple embedding fields; (3) tensor dimension matching semantics — whether Vespa joins by name or position; (4) ranking expression operator precedence — mathematically verifying which price_factor formula satisfies the behavioral constraint (price=$150, max_price=$100 must yield exactly 0.5); (5) cell type trade-offs — evaluating arguments for/against bfloat16; (6) distance metric selection — evaluating a proposal to change euclidean to angular for tag embeddings; (7) rerank-count and feature vector dimensionality — evaluating whether 50 candidates and 4 features are acceptable when the trained model expects 100 and 5. After evaluating all proposals, the solver must synthesize the correct ranking pipeline from scratch, creating three rank profiles with 8 scoring functions, inline tensor construction, constant tensor references, and multi-phase scoring — none of which exists in the base schema."""
+solution_explanation = """The solution script reads the base schema and business requirements, then generates the complete correct schema by: (1) fixing category_weights dimension from 'cat' to 'category'; (2) changing tags_embedding cell type from float to bfloat16; (3) adding '| index' to both embedding field pipelines for HNSW; (4) adding fieldset default covering title and body; (5) declaring constant scoring_weights with file reference and tensor<float>(feature[5]) type; (6) creating text_match profile with BM25 first-phase; (7) creating hybrid profile with all query inputs, five scoring functions using two-arg closeness, correct price_factor precedence, first-phase expression, and match-features; (8) creating production profile with inline tensor feature_vector, learned_combination via constant weights, quality_boost, second-phase with rerank-count 100, and comprehensive summary-features. The correct design is synthesized from: Alpha's price_factor formula and production architecture, Beta's HNSW/closeness/dimension guidance, and Gamma's bfloat16/euclidean/closeness choices — rejecting Alpha's HNSW/closeness/dimension errors, Beta's price formula/cell-type/distance-metric errors, and Gamma's rerank-count/feature-count errors."""
+verification_explanation = """37 pytest tests across 8 groups verify the schema's structural and semantic correctness: (1) document field structure — 7 fields with correct types, BM25 on text, attributes on numerics, bfloat16 cell type for tags_embedding; (2) HNSW indexing — both embedding fields have 'index' in pipeline with correct distance-metrics; (3) schema structure — fieldset default covering both text fields, balanced braces; (4) rank profile hierarchy — 3 profiles with correct inheritance chain, first/second phase presence, rerank-count 100; (5) tensor semantics — dimension name alignment between document fields and query inputs for all three tensor pairs; (6) ranking expression correctness — closeness two-arg form, reduce/sum for preference_score, price_factor evaluated at 4 price points, inline tensor<float>(feature[5]) construction, constant reference in learned_combination, quality_boost formula; (7) constant tensor declaration — scoring_weights with file reference and correct type; (8) feature exposure — summary-features and match-features configured with valid defined function names."""
+category = "information_retrieval"
+tags = ["vespa", "ranking-architecture"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vespa-ranking-debug"

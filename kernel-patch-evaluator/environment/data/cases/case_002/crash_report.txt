@@ -1,0 +1,29 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in skb_put_data+0x8f/0xc0 net/core/skbuff.c:63
+Write of size 256 at addr ffff888012345678 by task syz.2.3/6712
+
+CPU: 0 UID: 0 PID: 6712 Comm: syz.2.3 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0xe8/0x150 lib/dump_stack.c:120
+ print_address_description+0x55/0x1e0 mm/kasan/report.c:378
+ kasan_report+0x117/0x150 mm/kasan/report.c:595
+ check_region_inline mm/kasan/generic.c:-1 [inline]
+ kasan_check_range+0x264/0x2c0 mm/kasan/generic.c:200
+ __asan_memcpy+0x29/0x70 mm/kasan/shadow.c:105
+ skb_put_data+0x8f/0xc0 net/core/skbuff.c:63
+ tcp_sendmsg_locked+0x1234/0x1800 net/ipv4/tcp.c:1456
+ tcp_sendmsg+0x2f/0x50 net/ipv4/tcp.c:1480
+ inet_sendmsg+0x99/0xd0 net/ipv4/af_inet.c:850
+ sock_sendmsg+0x10e/0x150 net/socket.c:730
+ __sys_sendto+0x258/0x2c0 net/socket.c:2191
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+
+Allocated by task 6710:
+ kmalloc_trace+0x29/0xa0 mm/slub.c:4123
+ skb_alloc+0x45/0x120 net/core/skbuff.c:37
+ tcp_sendmsg_locked+0x1140/0x1800 net/ipv4/tcp.c:1420
+==================================================================

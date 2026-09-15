@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in evolutionary computation and dynamic optimization, combined with multi-tool proficiency across C build systems, Python-C interoperability via ctypes, and SQLite databases. The solver must compile a C shared library using make/gcc, understand the ctypes-based evaluation harness, query SQLite for instance configurations, and implement a multi-population metaheuristic (e.g., mQSO) with exclusion, change-response, and diversity-maintenance mechanisms. Naive single-population or random approaches fail because the global-best peak switches identity due to stochastic height changes and relocating it from scratch is too slow. Achieving the required offline error thresholds across all 6 instances demands both algorithm design expertise and fluency with system-level tooling."""
+solution_explanation = """The solution first builds libgmpb.so via make, then implements Multi-Quantum Swarm Optimization (mQSO). It maintains one PSO sub-swarm per peak with 5 regular particles (constriction-coefficient PSO) and 2 quantum particles for local exploration. Exclusion re-initialises the worse swarm when two converge. Anti-convergence re-initialises stagnant swarms. On environment change, memorised fitness values reset so particles re-evaluate under the new landscape. The mQSO tracks all peaks simultaneously, so when the global-best peak switches, the swarm at the new best peak immediately provides a near-optimal solution."""
+verification_explanation = """Tests first build libgmpb.so via make and verify the C library loads correctly through ctypes (create/evaluate/destroy cycle). SQLite config database is validated for schema and data integrity. Optimizer interface tests check instantiation, ask/tell contract, bounds compliance, and non-trivial state updates. Performance tests run the full evaluation pipeline (ctypes → C library → optimizer) for each of the 6 instances and verify offline error is below the threshold read from SQLite."""
+category = "optimization"
+tags = ["evolutionary-computation", "ctypes-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-af9195"

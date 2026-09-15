@@ -1,0 +1,74 @@
+# Forecaster Evaluation Pipeline Configuration
+# Methodology: Prophet Arena (see /app/docs/ for reference)
+
+data:
+  source_directory: /app/raw
+  events_file: events.jsonl
+  outcomes_file: outcomes.csv
+  forecasts_directory: forecasts
+
+output:
+  directory: /app/results
+
+analyses:
+  - name: Quadratic Proper Score
+    output_file: brier_scores.json
+    description: "Standard quadratic proper scoring rule"
+    convention: "Report complement of mean score (higher = better)"
+    schema:
+      type: object
+      keys: forecaster_id
+      values: float
+
+  - name: Logarithmic Proper Score
+    output_file: log_scores.json
+    description: "Logarithmic proper scoring rule"
+    convention: "Mean score (higher = better)"
+    schema:
+      type: object
+      keys: forecaster_id
+      values: float
+
+  - name: Utility-Optimal Market Returns
+    output_file: crra_returns.json
+    description: "Optimal trading returns under CRRA utility at varying risk aversion"
+    parameters:
+      gamma_values: [0, 0.5, 1.0]
+    convention: "Mean realized return across all events"
+    schema:
+      type: object
+      keys: forecaster_id
+      values:
+        type: object
+        keys: ["gamma_0", "gamma_0.5", "gamma_1"]
+        values: float
+
+  - name: Pairwise Skill Estimation
+    output_file: bt_skills.json
+    description: "Latent skill parameters via pairwise comparison"
+    parameters:
+      comparison_metric: logarithmic_score
+      normalization: geometric_mean_unity
+      estimation: maximum_likelihood
+    schema:
+      type: object
+      keys: forecaster_id
+      values: float (positive)
+
+  - name: Inter-Method Rank Agreement
+    output_file: correlation_matrix.json
+    description: "Rank-based correlation between scoring methods"
+    input_rankings: ["brier", "log_score", "crra_0", "crra_1", "bt_skill"]
+    schema:
+      methods: list of method names
+      matrix: NxN float matrix
+
+  - name: Combined Rankings
+    output_file: rankings.json
+    description: "Forecaster rankings under each method"
+    ranking_methods: ["brier", "log_score", "crra_0", "crra_1", "bt_skill"]
+    convention: "Sorted best to worst"
+    schema:
+      type: object
+      keys: method_name
+      values: list of forecaster_ids

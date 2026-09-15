@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires finding globally optimal discount assignments in a combinatorial space where multiple overlapping discount types compete for the same cart items. The agent must reconstruct typed discount rules from a normalized SQLite schema spanning four tables with JOINs, type casting, and role-based product associations, then implement an optimizer that provably outperforms the greedy baseline on adversarial cart configurations. The cheapest_free_group discount type, which allows arbitrary item compositions within eligible product sets, makes the search space particularly challenging to navigate correctly."""
+solution_explanation = """The solution enumerates all single-application discount options (including all integer compositions for cheapest_free_group), then uses memoized dynamic programming over the tuple of remaining product quantities to find the minimum-cost assignment. SQLite loaders use JOINs across discounts, discount_params, and discount_products to reconstruct typed discount rule dicts with correct field names and types."""
+verification_explanation = """17 pytest cases cover: database integration (sqlite3 usage, catalog loading, discount reconstruction for multi_buy/bundle/cheapest_free_group types), basic pricing (empty carts, no-discount items), single discount types (buy-N-get-M-free, multi-buy, percentage, with remainders), competing discount scenarios where greedy provably fails (bundle vs multi-buy, cheapest-free vs multi-buy, homogeneous grouping), and large mixed carts."""
+category = "optimization"
+tags = ["combinatorial-optimization", "database-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimal-discount-assignment"

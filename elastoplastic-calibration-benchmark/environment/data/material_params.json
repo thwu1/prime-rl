@@ -1,0 +1,18 @@
+{
+  "r_values": {
+    "0": 0.82,
+    "22.5": 0.95,
+    "45": 1.06,
+    "67.5": 0.98,
+    "90": 0.93
+  },
+  "r_biaxial": 0.81,
+  "stress_ratios": {
+    "0": 1.0,
+    "45": 0.995,
+    "90": 1.01
+  },
+  "youngs_modulus_initial_GPa": 210.0,
+  "thickness_mm": 1.49,
+  "material": "DP800HHE"
+}

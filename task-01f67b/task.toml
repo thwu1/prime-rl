@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a terminal screen diff algorithm that produces correct ANSI escape sequences for arbitrary screen transitions while meeting strict efficiency thresholds — demanding deep understanding of VT100 escape sequence semantics and optimization trade-offs that must be discovered by reading the parser source. Additionally requires building a tmux integration layer that renders screen states into live tmux panes, sends raw escape sequence data through a real terminal emulator, captures the resulting pane state with attribute preservation, and parses tmux's capture output format back into Screen objects — requiring proficiency with tmux's session/pane API, PTY output processing, and ANSI output parsing."""
+solution_explanation = """The diff engine scans rows for changed cells, skipping unchanged rows entirely. It optimizes cursor movement by evaluating multiple positioning strategies and choosing the shortest encoding. SGR attribute transitions compare incremental cost vs reset-and-rebuild cost. Erase-to-end-of-line is used where all remaining cells are uniform spaces. The tmux validator creates an isolated tmux server, disables output processing (stty -opost), renders the prev screen via render_full, applies diff bytes, captures the result with capture-pane -e -p, parses the ANSI output line-by-line using VTParser, and retrieves cursor position from tmux pane variables."""
+verification_explanation = """Tests instantiate Screen pairs and call compute_diff(prev, curr). The diff bytes are fed through VTParser initialized with a clone of prev. The resulting screen is compared cell-by-cell against curr (character, all six attribute fields, and cursor position). Efficiency tests compare len(diff) against len(render_full(curr)) enforcing ratio thresholds. tmux validator tests verify text capture, colored text with attribute capture, cursor position capture from live tmux sessions, and cross-validate that diffs produce identical character content when applied through tmux vs VTParser."""
+category = "systems_programming"
+tags = ["terminal-emulation", "tmux"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-01f67b"

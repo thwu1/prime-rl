@@ -1,0 +1,47 @@
+{
+  "description": "Expected output format for /app/results.json. All numeric values are floats. effective_dof is null when infinite (all-Gaussian inputs). Coverage intervals are [lower, upper] arrays.",
+  "comparison_loss": {
+    "<case_id>": {
+      "gum": {
+        "estimate": "float: model evaluated at best estimates",
+        "uncertainty": "float: combined standard uncertainty u(y)",
+        "coverage_interval": ["float: y - k*u(y)", "float: y + k*u(y)"],
+        "coverage_probability": "float: e.g. 0.95",
+        "effective_dof": "float or null: Welch-Satterthwaite effective DOF"
+      },
+      "mcm": {
+        "estimate": "float: mean of all MC model values",
+        "uncertainty": "float: std dev of all MC model values",
+        "shortest_coverage_interval": ["float: lower", "float: upper"],
+        "num_trials": "int: total number of MC trials"
+      },
+      "validation": {
+        "d_low": "float: |gum_low - mcm_low|",
+        "d_high": "float: |gum_high - mcm_high|",
+        "delta": "float: numerical tolerance from MCM u(y)",
+        "validated": "bool: true iff d_low <= delta and d_high <= delta"
+      }
+    }
+  },
+  "gauge_block": {
+    "gum": {
+      "estimate": "float: delta_L in nm",
+      "uncertainty": "float: u(delta_L) in nm",
+      "coverage_interval": ["float: lower in nm", "float: upper in nm"],
+      "coverage_probability": "float: e.g. 0.99",
+      "effective_dof": "float: from Welch-Satterthwaite"
+    },
+    "mcm": {
+      "estimate": "float: in nm",
+      "uncertainty": "float: in nm",
+      "shortest_coverage_interval": ["float: lower in nm", "float: upper in nm"],
+      "num_trials": "int"
+    },
+    "validation": {
+      "d_low": "float: in nm",
+      "d_high": "float: in nm",
+      "delta": "float: numerical tolerance in nm",
+      "validated": "bool"
+    }
+  }
+}

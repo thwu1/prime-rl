@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple specialized routing strategies for different device topologies without algorithmic guidance. The agent must explore an SQLite database schema with sqlite3 to extract benchmark configurations, parse Graphviz DOT files and render them with dot to understand device connectivity, use jq to filter JSON exports from the CLI tool, and orchestrate these tools together with qroute.py for iterative solver development. The solver must independently recognize topology classes (paths, complete graphs, trees, cycles, grids, general) from edge structure alone and devise appropriate strategies for each. Path and complete graph benchmarks demand mathematically optimal solutions — the agent must discover the relationship between permutation structure and minimum swap counts. Tree-structured devices require a non-trivial routing heuristic that handles diverse shapes (binary trees, stars, caterpillars). General graphs require reduction to a tractable subproblem. The agent must iterate using the multi-tool workflow across 13 benchmarks with devices up to 200 qubits."""
+solution_explanation = """The reference solver classifies device topology from edge count and degree distribution: complete graphs have n(n-1)/2 edges, trees have n-1 edges (paths are trees with max degree 2), and all others reduce to spanning-tree routing. For path topologies, bubble sort along the canonical ordering yields exactly inv(perm) swaps — the theoretical minimum. For complete graphs, cycle decomposition gives n-c(perm) swaps. For trees, iterative leaf processing brings the correct token along unique tree paths. General graphs extract a BFS spanning tree and delegate to the tree solver."""
+verification_explanation = """Tests verify both correctness and quality across 13 benchmarks spanning 7 topology classes. Correctness checks: every swap uses a valid device edge, and applying swaps transforms identity into target permutation. Quality checks: path and complete graph tests enforce exact optimality (tight bounds matching theoretical minima); tree, star, cycle, and grid tests enforce bounded suboptimality with explicit upper bounds. A 200-qubit path benchmark tests scalability."""
+category = "algorithms"
+tags = ["graph-theory", "quantum-computing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graph-token-swapping"

@@ -1,0 +1,202 @@
+Design Criteria and Preload Requirements (VDI 2230)
+====================================================
+
+
+1. Embedding Loss
+-----------------
+Embedding is the permanent plastic deformation (flattening of asperities)
+that occurs at all contact surfaces when a bolted joint is first loaded.
+This deformation results in a loss of bolt preload because the effective
+bolt stretch is reduced.
+
+The per-interface embedding displacement depends on the surface finish
+quality of the clamped parts:
+
+  Surface class     Embedding per interface
+  -------------------------------------------
+  Fine              2 um (micrometres)
+  Normal            3 um
+  Rough             5 um
+
+Total embedding displacement:
+  f_Z = embedding_per_interface * number_of_interfaces
+
+The preload force lost to embedding is calculated by multiplying the
+total embedding displacement by the series spring rate of the bolt-joint
+system:
+
+  F_embedding = f_Z * K_series
+
+where K_series = (K_b * K_j) / (K_b + K_j)
+
+Note: f_Z must be in mm (divide um by 1000) when K_series is in N/mm.
+
+The number of interfaces counts all mating surfaces in the joint stack.
+For example, a joint with two clamped plates has 3 interfaces: bolt-head
+to plate 1, plate 1 to plate 2, and plate 2 to nut.
+
+
+2. Shear Grip Requirement
+--------------------------
+For friction-grip (slip-critical) joints, the bolt preload must provide
+sufficient normal force to resist the applied shear through friction at
+the interfaces. The minimum clamp force required is:
+
+  F_shear = V / mu_eff
+
+where:
+  V      = applied shear force
+  mu_eff = effective friction coefficient at the interfaces
+
+If a friction shim is present between the clamped surfaces, use the
+friction shim's coefficient instead of the bare interface friction
+coefficient. Friction shims typically have much higher friction
+coefficients (0.5-0.7) compared to bare steel (0.10-0.20), dramatically
+reducing the clamp force requirement.
+
+
+3. Axial Load Clamp Reduction
+------------------------------
+When an external tensile (axial) force is applied to the joint, it
+partially relieves the clamping force. The amount of clamp reduction
+depends on the load factor phi:
+
+  F_axial_reduction = (1 - phi) * F_axial
+
+This is the portion of the external axial load that reduces the clamp
+force rather than adding to bolt tension.
+
+
+4. Total Preload Requirement
+-----------------------------
+The minimum preload that the bolt must maintain after all losses and
+external loads is the sum of:
+
+  F_required = F_embedding + F_shear + F_axial_reduction
+
+The bolt's minimum achievable preload (at maximum friction) must exceed
+this requirement for the joint to be adequate.
+
+
+5. Design Margin
+----------------
+The design margin quantifies how much safety the joint provides:
+
+  DM = F_min_preload / F_required
+
+  DM >= 1.0: Joint is adequate (preload exceeds requirement)
+  DM < 1.0:  Joint is inadequate (preload may be insufficient)
+
+In practice, DM values of 1.2-1.5 or higher are preferred to account
+for uncertainties not captured in the deterministic analysis.
+
+
+6. Nut Compatibility (ISO 898-2 / DIN 934)
+-------------------------------------------
+The nut must be strong enough that the thread does not strip before the
+bolt reaches its full tensile capacity. The check is:
+
+  Nut proof load >= A_s * UTS_bolt
+
+where A_s is the thread stress area and UTS_bolt is the bolt's ultimate
+tensile strength.
+
+IMPORTANT: DIN standard nuts have approximately 10% lower proof loads
+than ISO equivalents of the same class marking. A DIN class 8 nut may
+be marginal or incompatible with an 8.8 bolt, while the ISO equivalent
+is fully compatible. Always use the correct proof load table for the
+specified nut standard.
+
+
+7. Washer Suitability (ISO 898-3)
+----------------------------------
+High-strength bolts require hardened washers to prevent bearing surface
+damage. Minimum washer hardness requirements by bolt property class:
+
+  Property class     Min washer hardness
+  ----------------------------------------
+  Below 8.8          No specific requirement
+  8.8                200 HV
+  10.9               300 HV
+  12.9               380 HV
+
+If the bolt property class is 8.8 or above and NO washer is present,
+the joint configuration is unsuitable regardless of hardness value.
+
+For grades below 8.8, washers are optional and always considered suitable.
+
+
+8. Temperature Suitability
+---------------------------
+Each bolt material has a maximum recommended service temperature beyond
+which mechanical properties degrade unacceptably:
+
+  Material           Max temperature (deg C)
+  -------------------------------------------
+  ISO 898            150
+  A193 B7            400
+  A193 B16           500
+  A286               700
+  Inconel 718        760
+
+The temperature check is simply: operating temperature <= material limit.
+
+
+9. Thread Root Radius (ISO 68-1)
+---------------------------------
+For ISO metric threads, the permissible thread root radius is bounded by:
+
+  r_min = 0.125 * p
+  r_max = 0.144 * p
+
+where p is the thread pitch. This range ensures adequate fatigue life
+while maintaining proper thread engagement.
+
+
+10. Differential Thermal Expansion
+------------------------------------
+When the bolt and clamped joint materials have different coefficients of
+thermal expansion (CTE), temperature changes from the assembly temperature
+alter the preload. The assembly reference temperature is 20 C.
+
+The differential thermal load is:
+
+  F_thermal = (alpha_joint - alpha_bolt) * delta_T * L_grip * K_series
+
+where:
+  alpha_joint = CTE of the joint (clamped) material in ppm/K (= 1e-6/K)
+  alpha_bolt  = CTE of the bolt material in ppm/K
+  delta_T     = T_operating - T_assembly = T_operating - 20 (in K or C)
+  L_grip      = grip length in mm
+  K_series    = series spring rate = (K_b * K_j) / (K_b + K_j) in N/mm
+
+Note: multiply alpha values by 1e-6 to convert from ppm/K to 1/K before
+the multiplication. F_thermal result is in Newtons.
+
+Physical interpretation:
+  - Positive F_thermal (alpha_joint > alpha_bolt): the joint material
+    expands more than the bolt, increasing bolt stretch and preload.
+  - Negative F_thermal (alpha_bolt > alpha_joint): the bolt expands more,
+    reducing bolt stretch and decreasing preload. This is dangerous.
+
+When F_thermal is negative, the magnitude of this loss must be included
+in the total preload requirement:
+
+  F_required = F_embedding + F_shear + F_axial_reduction + max(0, -F_thermal)
+
+When F_thermal is positive (preload gain), it does NOT reduce the
+preload requirement — it provides additional margin but the base
+requirement remains unchanged.
+
+Typical CTE values (ppm/K) for bolt materials:
+
+  Material           CTE (ppm/K)
+  --------------------------------
+  ISO 898            12.0
+  A193 B7            12.0
+  A193 B16           16.5
+  A286               16.0
+  Inconel 718        13.0
+
+The joint material CTE is specified in the input specification
+(cte_ppm_per_K field in the [joint] section).

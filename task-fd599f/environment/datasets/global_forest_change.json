@@ -1,0 +1,17 @@
+{
+  "title": "Global Forest Change 2000-2023",
+  "summary": "Results from time-series analysis of Landsat images in characterizing global forest extent and change from 2000 through 2023",
+  "srs": "EPSG:4326",
+  "geographic_extent": {
+    "westBoundLongitude": -180.0,
+    "eastBoundLongitude": 180.0,
+    "southBoundLatitude": -60.0,
+    "northBoundLatitude": 80.0
+  },
+  "time_range": "2000-01-01T00:00:00Z/2023-12-31T23:59:59Z",
+  "ground_sample_distance_m": 30,
+  "layers": ["treecover2000", "loss", "gain", "lossyear", "datamask"],
+  "institution": "University of Maryland, Department of Geographical Sciences",
+  "access": "CC-BY-4.0",
+  "domain": "land_cover"
+}

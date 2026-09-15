@@ -1,0 +1,1030 @@
+{
+  "resourceType": "Bundle",
+  "id": "cms165-valueset-bundle",
+  "type": "collection",
+  "timestamp": "2025-01-01T00:00:00.000Z",
+  "entry": [
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.104.12.1011",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-104-12-1011",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.104.12.1011",
+        "name": "EssentialHypertension",
+        "title": "Essential Hypertension",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.104.12.1011",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 8,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I10",
+              "display": "Essential (primary) hypertension"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I11.0",
+              "display": "Hypertensive heart disease with heart failure"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I11.9",
+              "display": "Hypertensive heart disease without heart failure"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I12.0",
+              "display": "Hypertensive CKD with stage 5 CKD or ESRD"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I12.9",
+              "display": "Hypertensive CKD with stage 1-4 or unspecified"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I13.0",
+              "display": "Hypertensive heart and CKD with HF and stage 1-4"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I13.10",
+              "display": "Hypertensive heart and CKD without HF"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "I13.2",
+              "display": "Hypertensive heart and CKD with HF and stage 5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1001",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1001",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1001",
+        "name": "OfficeVisit",
+        "title": "Office Visit",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1001",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 9,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99202",
+              "display": "Office visit, new patient, 15-29 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99203",
+              "display": "Office visit, new patient, 30-44 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99204",
+              "display": "Office visit, new patient, 45-59 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99205",
+              "display": "Office visit, new patient, 60-74 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99211",
+              "display": "Office visit, established, 5 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99212",
+              "display": "Office visit, established, 10-19 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99213",
+              "display": "Office visit, established, 20-29 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99214",
+              "display": "Office visit, established, 30-39 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99215",
+              "display": "Office visit, established, 40-54 min"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1240",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-526-3-1240",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1240",
+        "name": "AnnualWellnessVisit",
+        "title": "Annual Wellness Visit",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.526.3.1240",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 2,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "G0438",
+              "display": "Annual wellness visit, initial"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "G0439",
+              "display": "Annual wellness visit, subsequent"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1025",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1025",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1025",
+        "name": "PreventiveCareServicesEstablishedOfficeVisit18andUp",
+        "title": "Preventive Care Services Established Office Visit, 18 and Up",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1025",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99395",
+              "display": "Preventive care, established, 18-39"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99396",
+              "display": "Preventive care, established, 40-64"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99397",
+              "display": "Preventive care, established, 65+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1023",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1023",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1023",
+        "name": "PreventiveCareServicesInitialOfficeVisit18andUp",
+        "title": "Preventive Care Services Initial Office Visit, 18 and Up",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1023",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99385",
+              "display": "Preventive care, new, 18-39"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99386",
+              "display": "Preventive care, new, 40-64"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99387",
+              "display": "Preventive care, new, 65+"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1016",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1016",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1016",
+        "name": "HomeHealthcareServices",
+        "title": "Home Healthcare Services",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1016",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 6,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99341",
+              "display": "Home visit, new patient, 20 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99342",
+              "display": "Home visit, new patient, 30 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99347",
+              "display": "Home visit, established, 15 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99348",
+              "display": "Home visit, established, 25 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99349",
+              "display": "Home visit, established, 40 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99350",
+              "display": "Home visit, established, 60 min"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1008",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1008",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1008",
+        "name": "OutpatientConsultation",
+        "title": "Outpatient Consultation",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1008",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 5,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99241",
+              "display": "Outpatient consultation, 15 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99242",
+              "display": "Outpatient consultation, 30 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99243",
+              "display": "Outpatient consultation, 40 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99244",
+              "display": "Outpatient consultation, 60 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99245",
+              "display": "Outpatient consultation, 80 min"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1080",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1080",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1080",
+        "name": "TelephoneVisits",
+        "title": "Telephone Visits",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1080",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99441",
+              "display": "Telephone visit, 5-10 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99442",
+              "display": "Telephone visit, 11-20 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99443",
+              "display": "Telephone visit, 21-30 min"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1010",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-101-12-1010",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.101.12.1010",
+        "name": "EmergencyDepartmentVisit",
+        "title": "Emergency Department Visit",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.101.12.1010",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 5,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99281",
+              "display": "ED visit, level 1"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99282",
+              "display": "ED visit, level 2"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99283",
+              "display": "ED visit, level 3"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99284",
+              "display": "ED visit, level 4"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99285",
+              "display": "ED visit, level 5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.666.5.307",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-666-5-307",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.666.5.307",
+        "name": "EncounterInpatient",
+        "title": "Encounter Inpatient",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.666.5.307",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 6,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99221",
+              "display": "Initial hospital care, level 1"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99222",
+              "display": "Initial hospital care, level 2"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99223",
+              "display": "Initial hospital care, level 3"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99231",
+              "display": "Subsequent hospital care, level 1"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99232",
+              "display": "Subsequent hospital care, level 2"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99233",
+              "display": "Subsequent hospital care, level 3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.378",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-526-3-378",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.378",
+        "name": "Pregnancy",
+        "title": "Pregnancy",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.526.3.378",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 10,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.511",
+              "display": "Supervision of elderly primigravida, first trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.512",
+              "display": "Supervision of elderly primigravida, second trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.513",
+              "display": "Supervision of elderly primigravida, third trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.519",
+              "display": "Supervision of elderly primigravida, unspecified"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.521",
+              "display": "Supervision of elderly multigravida, first trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.522",
+              "display": "Supervision of elderly multigravida, second trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O09.523",
+              "display": "Supervision of elderly multigravida, third trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O26.841",
+              "display": "Uterine size-date discrepancy, first trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O26.842",
+              "display": "Uterine size-date discrepancy, second trimester"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "O26.843",
+              "display": "Uterine size-date discrepancy, third trimester"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.353",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-526-3-353",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.353",
+        "name": "EndStageRenalDisease",
+        "title": "End Stage Renal Disease",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.526.3.353",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 2,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "N18.6",
+              "display": "End stage renal disease"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "46177005",
+              "display": "End-stage renal disease"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1029",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-109-12-1029",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1029",
+        "name": "KidneyTransplantRecipient",
+        "title": "Kidney Transplant Recipient",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.109.12.1029",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 2,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "Z94.0",
+              "display": "Kidney transplant status"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "161665007",
+              "display": "History of renal transplant"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1002",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-526-3-1002",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.526.3.1002",
+        "name": "ChronicKidneyDiseaseStage5",
+        "title": "Chronic Kidney Disease, Stage 5",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.526.3.1002",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 2,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "N18.5",
+              "display": "Chronic kidney disease, stage 5"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "N18.6",
+              "display": "End stage renal disease"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1012",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-109-12-1012",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1012",
+        "name": "KidneyTransplant",
+        "title": "Kidney Transplant",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.109.12.1012",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 6,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY00Z0",
+              "display": "Transplant Right Kidney, Allogeneic, Open"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY00Z1",
+              "display": "Transplant Right Kidney, Syngeneic, Open"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY00Z2",
+              "display": "Transplant Right Kidney, Zooplastic, Open"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY10Z0",
+              "display": "Transplant Left Kidney, Allogeneic, Open"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY10Z1",
+              "display": "Transplant Left Kidney, Syngeneic, Open"
+            },
+            {
+              "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+              "version": "2025",
+              "code": "0TY10Z2",
+              "display": "Transplant Left Kidney, Zooplastic, Open"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1013",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-109-12-1013",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1013",
+        "name": "DialysisServices",
+        "title": "Dialysis Services",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.109.12.1013",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 4,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90935",
+              "display": "Hemodialysis, one evaluation"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90937",
+              "display": "Hemodialysis, repeated evaluation"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90945",
+              "display": "Dialysis other than hemodialysis, one evaluation"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90947",
+              "display": "Dialysis other than hemodialysis, repeated evaluation"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1014",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-109-12-1014",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.109.12.1014",
+        "name": "ESRDMonthlyOutpatientServices",
+        "title": "ESRD Monthly Outpatient Services",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.109.12.1014",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 4,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90960",
+              "display": "ESRD services, age 20+, 4+ visits/month"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90961",
+              "display": "ESRD services, age 20+, 2-3 visits/month"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90962",
+              "display": "ESRD services, age 20+, 1 visit/month"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "90966",
+              "display": "ESRD services, age 12-19, full month"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.1003",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-1003",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.1003",
+        "name": "HospiceEncounter",
+        "title": "Hospice Encounter",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.1003",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99377",
+              "display": "Physician supervision of hospice, 15-29 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99378",
+              "display": "Physician supervision of hospice, 30+ min"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "385763009",
+              "display": "Hospice care"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.1167",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-1167",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.1167",
+        "name": "PalliativeCareEncounter",
+        "title": "Palliative Care Encounter",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.1167",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99497",
+              "display": "Advance care planning, first 30 min"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "version": "2025",
+              "code": "99498",
+              "display": "Advance care planning, addtl 30 min"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "443761007",
+              "display": "Anticipatory palliative care"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.198.12.1135",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-198-12-1135",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.198.12.1135",
+        "name": "PalliativeCareIntervention",
+        "title": "Palliative Care Intervention",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.198.12.1135",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 2,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "Z51.5",
+              "display": "Encounter for palliative care"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "182964004",
+              "display": "Terminal care"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.113.12.1074",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-113-12-1074",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.113.12.1074",
+        "name": "FrailtyDiagnosis",
+        "title": "Frailty Diagnosis",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.113.12.1074",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 3,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "R54",
+              "display": "Age-related physical debility"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "713514007",
+              "display": "Muscle weakness of limb"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "version": "2025",
+              "code": "309257005",
+              "display": "Excessive frailty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.110.12.1082",
+      "resource": {
+        "resourceType": "ValueSet",
+        "id": "2-16-840-1-113883-3-464-1003-110-12-1082",
+        "url": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.110.12.1082",
+        "name": "AdvancedIllness",
+        "title": "Advanced Illness",
+        "status": "active",
+        "experimental": false,
+        "expansion": {
+          "identifier": "urn:uuid:vsac-expansion-2.16.840.1.113883.3.464.1003.110.12.1082",
+          "timestamp": "2025-01-01T00:00:00.000Z",
+          "total": 6,
+          "offset": 0,
+          "contains": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "G30.0",
+              "display": "Alzheimer disease with early onset"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "G30.1",
+              "display": "Alzheimer disease with late onset"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "G30.8",
+              "display": "Other Alzheimer disease"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "G30.9",
+              "display": "Alzheimer disease, unspecified"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "F02.80",
+              "display": "Dementia in other diseases, without behavioral disturbance"
+            },
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "version": "2025",
+              "code": "F02.81",
+              "display": "Dementia in other diseases, with behavioral disturbance"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

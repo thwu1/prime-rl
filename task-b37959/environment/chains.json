@@ -1,0 +1,149 @@
+{
+  "chains": [
+    {
+      "name": "basic_three_general",
+      "matrices": [
+        {"rows": 10, "cols": 30, "property": "general", "transposed": false},
+        {"rows": 30, "cols": 5, "property": "general", "transposed": false},
+        {"rows": 5, "cols": 60, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "diagonal_savings",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 200, "property": "general", "transposed": false},
+        {"rows": 200, "cols": 50, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "triangular_propagation",
+      "matrices": [
+        {"rows": 200, "cols": 200, "property": "lower_triangular", "transposed": false},
+        {"rows": 200, "cols": 200, "property": "lower_triangular", "transposed": false},
+        {"rows": 200, "cols": 200, "property": "lower_triangular", "transposed": false},
+        {"rows": 200, "cols": 50, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "transpose_effect",
+      "matrices": [
+        {"rows": 80, "cols": 80, "property": "upper_triangular", "transposed": true},
+        {"rows": 80, "cols": 80, "property": "lower_triangular", "transposed": false},
+        {"rows": 80, "cols": 40, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "identity_present",
+      "matrices": [
+        {"rows": 50, "cols": 50, "property": "identity", "transposed": false},
+        {"rows": 50, "cols": 100, "property": "general", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "upper_triangular", "transposed": false},
+        {"rows": 100, "cols": 200, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "all_diagonal",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false}
+      ]
+    },
+    {
+      "name": "property_critical",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "general", "transposed": false},
+        {"rows": 100, "cols": 50, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "six_matrix_stress",
+      "matrices": [
+        {"rows": 30, "cols": 35, "property": "general", "transposed": false},
+        {"rows": 35, "cols": 15, "property": "general", "transposed": false},
+        {"rows": 15, "cols": 5, "property": "general", "transposed": false},
+        {"rows": 5, "cols": 5, "property": "diagonal", "transposed": false},
+        {"rows": 5, "cols": 10, "property": "general", "transposed": false},
+        {"rows": 10, "cols": 20, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "nonsquare_transpose",
+      "matrices": [
+        {"rows": 60, "cols": 60, "property": "upper_triangular", "transposed": true},
+        {"rows": 60, "cols": 80, "property": "general", "transposed": false},
+        {"rows": 80, "cols": 30, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "sym_savings",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "symmetric", "transposed": false},
+        {"rows": 100, "cols": 200, "property": "general", "transposed": false},
+        {"rows": 200, "cols": 50, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "sym_tri_interact",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "lower_triangular", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "symmetric", "transposed": false},
+        {"rows": 100, "cols": 50, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "sym_transpose",
+      "matrices": [
+        {"rows": 80, "cols": 80, "property": "symmetric", "transposed": true},
+        {"rows": 80, "cols": 40, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "diag_sym_chain",
+      "matrices": [
+        {"rows": 100, "cols": 100, "property": "symmetric", "transposed": false},
+        {"rows": 100, "cols": 100, "property": "diagonal", "transposed": false},
+        {"rows": 100, "cols": 200, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "diag_tri_propagation",
+      "matrices": [
+        {"rows": 50, "cols": 50, "property": "lower_triangular", "transposed": false},
+        {"rows": 50, "cols": 50, "property": "diagonal", "transposed": false},
+        {"rows": 50, "cols": 50, "property": "lower_triangular", "transposed": false},
+        {"rows": 50, "cols": 100, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "upper_lower_collapse",
+      "matrices": [
+        {"rows": 60, "cols": 60, "property": "upper_triangular", "transposed": false},
+        {"rows": 60, "cols": 60, "property": "lower_triangular", "transposed": false},
+        {"rows": 60, "cols": 40, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "sym_propagation_trap",
+      "matrices": [
+        {"rows": 50, "cols": 50, "property": "symmetric", "transposed": false},
+        {"rows": 50, "cols": 50, "property": "symmetric", "transposed": false},
+        {"rows": 50, "cols": 200, "property": "general", "transposed": false}
+      ]
+    },
+    {
+      "name": "deep_propagation_chain",
+      "matrices": [
+        {"rows": 40, "cols": 40, "property": "lower_triangular", "transposed": false},
+        {"rows": 40, "cols": 40, "property": "diagonal", "transposed": false},
+        {"rows": 40, "cols": 40, "property": "lower_triangular", "transposed": false},
+        {"rows": 40, "cols": 40, "property": "diagonal", "transposed": false},
+        {"rows": 40, "cols": 60, "property": "general", "transposed": false}
+      ]
+    }
+  ]
+}

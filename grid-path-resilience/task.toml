@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level data quality forensics across four conflicting data sources. The solver must: (1) discover that the warehouse has missing rows, truncated order prices, and a missing table — none of which are disclosed; (2) discover that the fulfillment system's line item prices contain a hidden systematic 5% inflation bias by cross-referencing overlapping records against the warehouse or finance system and quantifying the ratio; (3) discover that the finance system excludes all returned items; (4) evaluate the trustworthiness of each source for each attribute and design a reconciliation strategy that combines the fulfillment system's row completeness with corrected prices, finance's accurate order totals, and procurement's part-supplier data; (5) implement the strategy and produce six complex analytical results that each test a different facet of the reconciliation. The 5% price inflation discovery is the critical expert-level challenge — it requires comparing overlapping data across sources, recognizing a systematic multiplicative bias (not random noise), computing the exact factor, and applying the correction."""
+solution_explanation = """Explore the warehouse (SHOW TABLES, row counts, sample data). Load each source system's exports and compare against the warehouse and each other. Key discoveries: (a) fulfillment lineitem has ~5% more rows than warehouse — warehouse deleted returned+filled+high-qty rows; (b) comparing prices on overlapping rows reveals fulfillment prices are exactly 1.05x warehouse prices — a systematic 5% inflation; (c) finance lineitem has zero returned items (l_returnflag='R'); (d) finance orders have decimal prices while warehouse has integer-truncated prices; (e) partsupp exists only in procurement. Reconciliation: use fulfillment lineitem with prices divided by 1.05 for complete+correct line items, finance orders for correct prices, procurement for partsupp, and warehouse for reference tables (customer, nation, region, supplier)."""
+verification_explanation = """Tests regenerate clean TPC-H SF=0.1 data (deterministic) and compute all six expected analytical results from the uncorrupted ground truth. Each result is compared against the solver's output with calibrated tolerances: tight enough to reject systematically wrong data (5% inflated prices, truncated order values, missing returned items) but generous enough to accept any valid reconciliation approach (e.g., using finance prices for non-returned items vs. dividing all fulfillment prices by 1.05)."""
+category = "data_management"
+tags = ["duckdb", "data-reconciliation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/grid-path-resilience"

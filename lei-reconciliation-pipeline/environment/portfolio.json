@@ -1,0 +1,146 @@
+[
+  {
+    "id": "P001",
+    "lei": "HWUPKR0MPOU8FGXBT394",
+    "local_name": "Apple Inc.",
+    "local_country": "US",
+    "local_jurisdiction": "US-CA",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P002",
+    "lei": "784F5XWPLTWKTBV3E584",
+    "local_name": "Goldman Sachs Inc.",
+    "local_country": "US",
+    "local_jurisdiction": "US-NY",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P003",
+    "lei": "INR2EJN1ERAN0W5ZP974",
+    "local_name": "Microsoft Corporation",
+    "local_country": "US",
+    "local_jurisdiction": "US-WA",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P004",
+    "lei": "549300L353AIX124FT40",
+    "local_name": "GS Finance Corp",
+    "local_country": "US",
+    "local_jurisdiction": "US-NY",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P005",
+    "lei": "LOHX32U76Y88P6ZDFO91",
+    "local_name": "Goldman Sachs International",
+    "local_country": "GB",
+    "local_jurisdiction": "GB",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P006",
+    "lei": "GGCMDC0OOHBLHHFALS29",
+    "local_name": "Microsoft Ireland Operations",
+    "local_country": "IE",
+    "local_jurisdiction": "IE",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P007",
+    "lei": "549300WCLFVEBTBNRF76",
+    "local_name": "Microsoft Regional Sales Corp",
+    "local_country": "US",
+    "local_jurisdiction": "US-NV",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P008",
+    "lei": "HWUPKR0MPOU8FGXBT395",
+    "local_name": "Phantom Corp Alpha",
+    "local_country": "US",
+    "local_jurisdiction": "US-DE",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P009",
+    "lei": "784F5XWPLTWKTBV3E585",
+    "local_name": "Phantom Corp Beta",
+    "local_country": "GB",
+    "local_jurisdiction": "GB",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P010",
+    "lei": "XXXXXXXXXXXXXXXXXXXX",
+    "local_name": "Invalid Entity One",
+    "local_country": "DE",
+    "local_jurisdiction": "DE",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P011",
+    "lei": "5493003GK0I4R67A1K76",
+    "local_name": "GS Capital Markets",
+    "local_country": "JP",
+    "local_jurisdiction": "JP",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P012",
+    "lei": "8EU8ZMZ2E88YR971GW85",
+    "local_name": "Goldman Sachs Bank USA",
+    "local_country": "US",
+    "local_jurisdiction": "US-NY",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P013",
+    "lei": "5493002T25TVL3GUHD37",
+    "local_name": "GS Holdings Inc",
+    "local_country": "US",
+    "local_jurisdiction": "US-DE",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P014",
+    "lei": "549300F3N5K27RILT474",
+    "local_name": "Goldman Sachs Realty Group",
+    "local_country": "US",
+    "local_jurisdiction": "US-NY",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P015",
+    "lei": "213800JCN6PSGDRLT915",
+    "local_name": "Microsoft Limited UK",
+    "local_country": "GB",
+    "local_jurisdiction": "GB",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P016",
+    "lei": "A1B2C3D4E5F6G7H8I900",
+    "local_name": "Fake Corp Gamma",
+    "local_country": "FR",
+    "local_jurisdiction": "FR",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P017",
+    "lei": "SHORT123",
+    "local_name": "Invalid Short LEI",
+    "local_country": "US",
+    "local_jurisdiction": "US",
+    "local_reg_status": "ISSUED"
+  },
+  {
+    "id": "P018",
+    "lei": "549300EW6ZGTZTR6TO90",
+    "local_name": "GS Ventures LLC",
+    "local_country": "JP",
+    "local_jurisdiction": "JP",
+    "local_reg_status": "ISSUED"
+  }
+]

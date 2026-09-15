@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of CPU microarchitecture, compiler optimization barriers (pointer aliasing, loop-carried dependencies, cross-TU inlining, cache-line access patterns), proficiency with llvm-mca for static performance analysis, and understanding of GCC/Clang optimization reports. The agent must diagnose four distinct optimization failures, apply correct source-level fixes, and verify correctness — combining systems programming, hardware-aware reasoning, and multi-tool terminal workflows."""
+solution_explanation = """1) scale_array: hoist *coeff to a local variable to break the potential pointer alias with out, enabling LICM. 2) column_sums: interchange the loop nest so the inner loop iterates over contiguous columns (j) instead of strided rows (i). 3) dot_product: replace the single floating-point accumulator with 4 independent accumulators to break the loop-carried dependency chain and expose ILP. 4) apply_transform: inline the body of my_transform (defined in a separate translation unit) directly into the loop, removing the opaque function call barrier. Then run llvm-mca on at least one kernel's assembly to validate the analysis."""
+verification_explanation = """Tests verify: (1) the program compiles and all four kernels produce numerically correct output (PASS), (2) analysis.json correctly identifies each kernel's bottleneck type against known ground truth, (3) llvm_mca_analysis.txt exists with valid llvm-mca output containing expected analysis keywords."""
+category = "systems_programming"
+tags = ["compiler_optimization", "performance_analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-loop-kernels"

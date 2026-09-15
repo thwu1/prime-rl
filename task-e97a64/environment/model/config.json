@@ -1,0 +1,32 @@
+{
+  "hazard": {
+    "exceedanceModel": "TRUNCATION_UPPER_ONLY",
+    "truncationLevel": 3.0,
+    "imts": ["PGA"],
+    "imls": [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0]
+  },
+  "distance": {
+    "model": "flat-earth",
+    "kmPerDegreeLat": 111.0,
+    "formula": "R_km = sqrt((dLon * 111.0 * cos(mean_lat_radians))^2 + (dLat * 111.0)^2)"
+  },
+  "faultDiscretization": {
+    "surfaceSpacing_km": 1.0
+  },
+  "deaggregation": {
+    "returnPeriod": 2475,
+    "site": "Site_A",
+    "bins": {
+      "mMin": 5.0,
+      "mMax": 8.0,
+      "deltaM": 0.2,
+      "rMin": 0.0,
+      "rMax": 300.0,
+      "deltaR": 10.0
+    }
+  },
+  "output": {
+    "returnPeriods": [475, 2475],
+    "directory": "/app/output"
+  }
+}

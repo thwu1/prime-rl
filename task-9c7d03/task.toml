@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert cheminformatics knowledge to diagnose five non-obvious scientific methodology errors in a QSAR virtual screening pipeline that executes without runtime errors. The agent must recognize: (1) that Murcko scaffolds require generification for proper scaffold-based data splitting, (2) the correct Morgan fingerprint radius for ECFP4 representations, (3) the correct molecular weight threshold in Lipinski's Rule of Five, (4) that applicability domain boundaries use the 95th-percentile of nearest-neighbor distances rather than the mean, and (5) appropriate Tanimoto distance cutoffs for Butina diversity clustering. Each error requires domain-specific understanding that cannot be resolved through code analysis alone."""
+solution_explanation = """Fix five bugs: (1) add MakeScaffoldGeneric() after GetScaffoldForMol() so scaffold splitting uses generic frameworks; (2) change Morgan fingerprint radius from 3 to 2 (ECFP4 standard); (3) correct Lipinski MW threshold from 600 to 500; (4) change applicability domain threshold from np.mean to np.percentile at the 95th percentile; (5) change Butina clustering cutoff from 0.65 to 0.4. Run the corrected pipeline to produce valid report.json."""
+verification_explanation = """Tests independently verify: JSON structure and all required fields; monotonically decreasing pipeline counts; model metric ranges and split proportions; recomputed molecular descriptors (MW, LogP, TPSA, QED) match reported values; all selected leads independently pass Lipinski, Veber, PAINS, and Brenk filters; leads fall within the applicability domain recomputed from training data using Morgan radius-2 fingerprints and the 95th-percentile threshold; cluster IDs are unique; screening count matches input file."""
+category = "computational_chemistry"
+tags = ["cheminformatics", "debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9c7d03"

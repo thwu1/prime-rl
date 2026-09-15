@@ -1,0 +1,23 @@
+{
+  "load_balancing": {
+    "num_servers": 10,
+    "num_clients": 5,
+    "base_arrival_rate": 0.2,
+    "service_time_mean": 8.0,
+    "staleness_intervals": [0, 2, 5, 10, 20, 40, 70],
+    "strategies": ["RANDOM", "BEST", "BEST_OF_2", "BEST_OF_3"],
+    "simulation_duration": 50000.0,
+    "seed": 42
+  },
+  "sfq": {
+    "num_queues": 4,
+    "num_customers": 8,
+    "noisy_customer_id": 0,
+    "noisy_multiplier": 15.0,
+    "base_customer_rate": 0.4,
+    "service_time_mean": 0.1,
+    "simulation_duration": 10000.0,
+    "perturb_interval": 500.0,
+    "seed": 123
+  }
+}

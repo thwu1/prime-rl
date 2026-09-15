@@ -1,0 +1,28 @@
+2025-11-18T10:55:01 [INFO] cmd=deploy.generate shard=4 features=113 status=success
+2025-11-18T10:55:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:00:01 [INFO] cmd=deploy.generate shard=2 features=226 status=success
+2025-11-18T11:00:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:00:03 [WARN] feature_count_changed from=113 to=226 shard=shard_2
+2025-11-18T11:05:01 [INFO] cmd=shard.list migrated=4 pending=1
+2025-11-18T11:10:01 [INFO] cmd=deploy.generate shard=0 features=226 status=success
+2025-11-18T11:10:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:10:04 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded({count: 226, max: 200})"
+2025-11-18T11:15:01 [INFO] cmd=deploy.generate shard=1 features=226 status=success
+2025-11-18T11:15:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:15:03 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded({count: 226, max: 200})"
+2025-11-18T11:20:01 [INFO] cmd=deploy.generate shard=3 features=226 status=success
+2025-11-18T11:20:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:20:03 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded"
+2025-11-18T11:25:01 [INFO] cmd=deploy.generate shard=4 features=113 status=success
+2025-11-18T11:25:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:25:02 [INFO] proxy_health_check status=PASS
+2025-11-18T11:30:01 [INFO] cmd=deploy.generate shard=0 features=226 status=success
+2025-11-18T11:30:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:30:03 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded"
+2025-11-18T11:35:01 [INFO] cmd=deploy.generate shard=1 features=226 status=success
+2025-11-18T11:35:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:35:03 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded"
+2025-11-18T11:40:01 [INFO] cmd=deploy.generate shard=2 features=226 status=success
+2025-11-18T11:40:01 [WARN] cmd=config.validate status=NOT_IMPLEMENTED msg="validation skipped (not implemented)"
+2025-11-18T11:40:03 [ERROR] proxy_health_check status=FAILED error="FeatureLimitExceeded"
+2025-11-18T11:40:09 [CRITICAL] escalation=P0 msg="Global outage declared, all hands incident response"

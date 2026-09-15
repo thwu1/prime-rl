@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool forensic workflow: parsing PCAP captures with tshark to extract authenticated messages, reverse-engineering a compiled ELF binary with objdump/readelf to recover the GF(2^64) reduction polynomial, querying an SQLite database for session metadata to identify nonce reuse, and then implementing a polynomial GCD attack over GF(2^64) to recover MAC keys and forge a valid authentication tag. Combines network forensics, binary analysis, database querying, and graduate-level algebraic cryptanalysis."""
+solution_explanation = """1. Use tshark to filter UDP port 4443 traffic from the PCAP and extract protocol v2 payloads. 2. Use sqlite3 to query sessions.db, discovering that session alpha-3 shares nonce 0011223344556677 across multiple messages and identifying the target ciphertext. 3. Use objdump -d on mac_engine to disassemble gf64_multiply and identify the reduction polynomial constant 0x1b (x^64 + x^4 + x^3 + x + 1). 4. Parse extracted PCAP payloads to get (nonce, ciphertext, tag) triples. 5. For messages sharing the target nonce, construct difference polynomials over GF(2^64)[x] where P(H)=0. 6. Compute GCD of two difference polynomials to recover H (the polynomial evaluation key). 7. Recover S (the one-time mask) from any known (ciphertext, tag) pair. 8. Forge the tag for the target ciphertext using recovered H and S."""
+verification_explanation = """The test independently computes the expected MAC tag using the secret TEA key (hardcoded in the test but absent from the Docker image), the target ciphertext, and target nonce. It compares the agent's output against this independently computed value."""
+category = "security"
+tags = ["cryptography", "network-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/poly-mac-forgery"

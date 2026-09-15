@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C systems debugging: the solver must independently reverse-engineer three interacting timing defects across two C programs by reading source code, understanding POSIX timing APIs and I/O loop semantics, and recognizing a coupled-bug dependency where one program's architecture compensates for another's systematic errors. No hints are given about the nature of the bugs — the solver must identify them from symptoms alone. Then the solver must derive a novel inverse transformation to migrate legacy recordings, which requires understanding the mathematical relationship between buggy and correct timing entries. The task demands holistic understanding of the entire recording pipeline, not isolated fixes."""
+solution_explanation = """Three bugs must be found and fixed: (1) recorder.c initializes oldtime via time(NULL), which has whole-second granularity, causing the first timing entry to include a random 0-1s offset; fix by using gettimeofday(). (2) recorder.c calls gettimeofday() before read() instead of after, creating a systematic off-by-one shift where each delay measures the wrong interval; fix by moving the call after read(). (3) replayer.c uses a deferred-emission pattern (oldblk) that compensates for bug #2 but is incorrect once the recorder is fixed; replace with direct emit-after-delay. The migrator applies the inverse transformation: corrected_delay[i] = buggy_delay[i+1] for i=0..N-2, corrected_delay[N-1] = 0.0. ANALYSIS.md documents all three defects, their coupled interaction, and the migration design."""
+verification_explanation = """Tests verify: (1) fixed recorder produces sub-150ms average first-entry delays and timing entries aligned with known sleep patterns, (2) fixed replayer emits first chunk promptly without deferred emission and replays all data correctly, (3) ANALYSIS.md exists and covers clock precision, measurement placement, off-by-one shift, coupled-bug interaction, and migration rationale, (4) migrator correctly shifts timing entries in synthetic buggy recordings and handles edge cases (single entry, comments, varied byte counts), (5) validator accepts valid recordings and rejects byte-count mismatches and negative delays, (6) end-to-end record-replay round-trip produces correct content and timing."""
+category = "debugging"
+tags = ["systems-programming", "timing-architecture"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-timing-bugs"

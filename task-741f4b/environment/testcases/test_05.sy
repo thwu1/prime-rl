@@ -1,0 +1,27 @@
+// Test 05: Functions, recursion, void functions, early return
+int factorial(int n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+
+int gcd(int a, int b) {
+    if (b == 0) return a;
+    return gcd(b, a % b);
+}
+
+void printSign(int n) {
+    if (n > 0) { putch(43); return; }
+    if (n < 0) { putch(45); return; }
+    putch(48);
+}
+
+int main() {
+    putint(factorial(10)); putch(32);
+    putint(gcd(48, 18)); putch(32);
+    putint(gcd(7, 13)); putch(32);
+    printSign(5);
+    printSign(-3);
+    printSign(0);
+    putch(10);
+    return 0;
+}

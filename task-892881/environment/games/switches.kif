@@ -1,0 +1,59 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Switches - A single-player GDL game
+;;; Goal: flip both switches on within 3 steps
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role player)
+
+(init (switch a off))
+(init (switch b off))
+(init (step 1))
+
+(switch_name a)
+(switch_name b)
+(succ 1 2)
+(succ 2 3)
+(succ 3 4)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (legal player (flip ?s)) (true (switch ?s off)))
+(<= (legal player noop)
+    (not (true (switch a off)))
+    (not (true (switch b off))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (next (switch ?s on))
+    (does player (flip ?s))
+    (true (switch ?s off)))
+
+(<= (next (switch ?s off))
+    (does player (flip ?s))
+    (true (switch ?s on)))
+
+(<= (next (switch ?s ?v))
+    (true (switch ?s ?v))
+    (not (does player (flip ?s))))
+
+(<= (next (step ?n))
+    (true (step ?m))
+    (succ ?m ?n))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+    (not (true (switch a off)))
+    (not (true (switch b off))))
+
+(<= terminal
+    (true (step 4)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (goal player 100)
+    (not (true (switch a off)))
+    (not (true (switch b off))))
+
+(<= (goal player 0)
+    (or (true (switch a off)) (true (switch b off))))

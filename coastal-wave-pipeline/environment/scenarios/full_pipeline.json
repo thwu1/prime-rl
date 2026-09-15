@@ -1,0 +1,14 @@
+{
+  "mode": "full",
+  "H0": 1.5,
+  "period": 8.0,
+  "theta0": 0.0,
+  "beach_slope": 0.05,
+  "Kr": 1.0,
+  "structure": {
+    "slope_cot": 2.5,
+    "Rc": 1.5,
+    "dtoe": 3.0,
+    "roughness": 1.0
+  }
+}

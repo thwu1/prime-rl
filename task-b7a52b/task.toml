@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading histogram data from a ROOT binary file (domain-specific HEP format), parsing a HistFactory-style model configuration, constructing a binned Poisson likelihood with Gaussian-constrained nuisance parameters and modifier interpolation, performing constrained profile likelihood optimization, and computing discovery significance and CLs exclusion limits. Demands expertise in both HEP data formats/tooling and advanced statistical inference methods."""
+solution_explanation = """The solution installs uproot to read histograms from the ROOT file, parses the model config to build the channel/sample/modifier structure, constructs the full binned Poisson likelihood with exponential (normsys) and piecewise-linear (histosys) interpolation modifiers and Gaussian constraint terms, performs constrained L-BFGS-B optimization to find global and conditional MLEs, computes the profile likelihood ratio test statistics, derives p-values and CLs using asymptotic formulae, and scans signal strength to find the 95% CLs upper limit via Brent root-finding."""
+verification_explanation = """Tests load the agent's results.json and compare each output quantity against reference values computed independently, using tolerances that accommodate different numerical optimization approaches while ensuring the underlying statistical model and inference procedure are correct."""
+category = "data_science"
+tags = ["statistics", "particle-physics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b7a52b"

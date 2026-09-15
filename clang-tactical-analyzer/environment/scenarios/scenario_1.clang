@@ -1,0 +1,7 @@
+# Scenario 1: Basic definitions, activation, and state tracking
+(define (definec "InOurHalf" (bpos (rec (pt -52.5 -34) (pt 0 34)))))
+(define (definea "PassTo7" (pass {7})))
+(define (definer "BoxArea" (rec (pt -52.5 -20.16) (pt -36 20.16))))
+(define (definerule Rule_A direc ((bowner opp {0}) (do our {2 3 4 5} (pos "BoxArea")))))
+(define (definerule Rule_B direc ("InOurHalf" (do our {6} (intercept)))))
+(rule (on Rule_A) (on Rule_B))

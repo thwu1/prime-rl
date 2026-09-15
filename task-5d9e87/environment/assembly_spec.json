@@ -1,0 +1,70 @@
+{
+  "parts": {
+    "base_plate": {
+      "description": "Mounting plate with central bore and bolt holes",
+      "central_bore_diameter_mm": 40,
+      "central_bore_axis": [0, 0, 1],
+      "bolt_hole_diameter_mm": 8,
+      "bolt_hole_count": 4
+    },
+    "housing": {
+      "description": "Main housing block with vertical through-bore for shaft passage",
+      "central_bore_diameter_mm": 40,
+      "central_bore_axis": [0, 0, 1]
+    },
+    "shaft": {
+      "description": "Stepped cylindrical shaft with two diameter sections",
+      "step1_diameter_mm": 38,
+      "step2_diameter_mm": 24
+    },
+    "flange": {
+      "description": "Mounting flange with central bore and bolt holes for coaxial alignment",
+      "central_bore_diameter_mm": 40,
+      "central_bore_axis": [0, 0, 1],
+      "bolt_hole_diameter_mm": 8,
+      "bolt_hole_count": 4
+    },
+    "bracket": {
+      "description": "L-shaped mounting bracket, prismatic profile"
+    },
+    "bushing": {
+      "description": "Cylindrical bushing sleeve for shaft step 1",
+      "outer_diameter_mm": 50,
+      "bore_diameter_mm": 40,
+      "bore_axis": [0, 0, 1]
+    }
+  },
+  "mates": {
+    "shaft_step1_in_bushing": {
+      "description": "Shaft step 1 (diam 38) inserts into bushing bore (spec diam 40) with clearance fit",
+      "type": "shaft_in_bore",
+      "shaft_part": "shaft",
+      "shaft_feature_diameter_mm": 38,
+      "bore_part": "bushing",
+      "bore_spec_diameter_mm": 40,
+      "min_radial_clearance_mm": 1.0
+    },
+    "shaft_step2_in_housing": {
+      "description": "Shaft step 2 (diam 24) inserts into housing bore (spec diam 40)",
+      "type": "shaft_in_bore",
+      "shaft_part": "shaft",
+      "shaft_feature_diameter_mm": 24,
+      "bore_part": "housing",
+      "bore_spec_diameter_mm": 40,
+      "min_radial_clearance_mm": 1.0
+    },
+    "flange_base_bore_match": {
+      "description": "Flange and base_plate central bores must both be diam 40 for coaxial alignment",
+      "type": "bore_diameter_match",
+      "parts": ["flange", "base_plate"],
+      "required_diameter_mm": 40
+    },
+    "housing_bore_axis": {
+      "description": "Housing bore axis must be vertical (Z-direction) for top-down shaft insertion",
+      "type": "axis_alignment",
+      "part": "housing",
+      "required_axis": [0, 0, 1],
+      "max_deviation_deg": 5.0
+    }
+  }
+}

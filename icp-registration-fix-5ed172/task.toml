@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding the mathematics of point-to-plane ICP registration: PCA-based normal estimation (centring requirement), the linearised error formulation and which surface normals to use (target vs source), squared vs linear distance metrics returned by nearest-neighbour search, rigid transformation composition order in homogeneous coordinates, and meaningful convergence criteria for near-identity matrices. Five interacting bugs are spread across the registration implementation; each appears plausible in isolation but together they prevent correct convergence. Diagnosing them requires coupled reasoning about 3D geometry, numerical linear algebra, and iterative optimisation."""
+solution_explanation = """Fix 5 bugs in registration.cpp: (1) PCA normal estimation computes the covariance matrix around the origin instead of the neighbourhood centroid — add centroid subtraction before building the covariance; (2) point-to-plane objective incorrectly uses source normals — switch to target normals at the matched index; (3) findNearestNeighbor returns squared distances but the threshold comparison uses the unsquared value — compare against max_dist*max_dist; (4) transform accumulation uses accumulated*delta instead of delta*accumulated, applying each increment in the wrong coordinate frame; (5) convergence check computes delta.norm() which is ~2.0 for a near-identity 4x4 matrix (dominated by diagonal) — must use (delta - Identity).norm() instead."""
+verification_explanation = """Tests generate two synthetic point cloud datasets with different random seeds and ground truth transforms, build the project, run the registration binary, parse the output transformation matrix, and compare against ground truth. Checks rotation error (<2 deg), translation error (<0.04), fitness (<0.01), convergence flag, rotation orthogonality, and homogeneous row. Two datasets with different parameters prevent hard-coded answers."""
+category = "debugging"
+tags = ["point-cloud", "3d-registration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/icp-registration-fix-5ed172"

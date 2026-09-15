@@ -1,0 +1,27 @@
+name,value,isdefault,ismodified,description
+db_cache_size,268435456,FALSE,FALSE,Size of DEFAULT buffer pool for standard block size buffers
+shared_pool_size,335544320,FALSE,FALSE,size in bytes of shared pool
+pga_aggregate_target,201326592,FALSE,FALSE,Target size for the aggregate PGA memory consumed by the instance
+pga_aggregate_limit,402653184,FALSE,FALSE,limit on the aggregate PGA memory consumed by the instance
+sga_target,0,TRUE,FALSE,Target size of SGA
+sga_max_size,1073741824,FALSE,FALSE,max total SGA size
+memory_target,0,TRUE,FALSE,Target size of Oracle Memory (SGA+PGA)
+memory_max_target,0,TRUE,FALSE,max size of Oracle Memory
+cursor_sharing,EXACT,TRUE,FALSE,always use similar or exact matching
+optimizer_mode,ALL_ROWS,TRUE,FALSE,optimizer mode
+db_block_size,8192,FALSE,FALSE,Size of database block in bytes
+statistics_level,TYPICAL,TRUE,FALSE,statistics level
+result_cache_mode,MANUAL,TRUE,FALSE,result cache operator usage mode
+open_cursors,300,TRUE,FALSE,max # cursors per session
+session_cached_cursors,50,TRUE,FALSE,Number of cursors to cache in a session
+log_buffer,16777216,FALSE,FALSE,redo circular buffer size
+processes,300,TRUE,FALSE,user processes
+db_files,200,TRUE,FALSE,max allowable # db files
+db_writer_processes,1,TRUE,FALSE,number of background database writer processes
+log_archive_dest_1,LOCATION=/u01/app/oracle/archive,FALSE,FALSE,archival destination #1 text string
+compatible,19.0.0,FALSE,FALSE,Database will be completely compatible with this software version
+undo_management,AUTO,TRUE,FALSE,instance runs in SMU mode if TRUE
+undo_tablespace,UNDOTBS1,TRUE,FALSE,use/switch undo tablespace
+undo_retention,900,TRUE,FALSE,undo retention in seconds
+optimizer_adaptive_plans,TRUE,TRUE,FALSE,controls all adaptive plans features
+optimizer_adaptive_statistics,FALSE,TRUE,FALSE,controls all adaptive statistics features

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring an undocumented SQLite database schema, reading and interpreting a multi-document procurement evaluation protocol, resolving conflicts between two benchmark specification formats (the TOML spec uses 'solve_time' for Kripke while the DB stores 'sweep_time'; the TOML omits PENNANT entirely), reverse-engineering FOM formulas from domain documentation, discovering five categories of embedded data quality issues (ERROR runs, NULL measurements, Kripke FOM calculation bug omitting iterations, Titan-X using non-standard grid/nnz, timing anomalies), performing cross-benchmark physical plausibility analysis (STREAM bandwidth efficiency bounds, AMG-to-bandwidth scaling with statistical outlier detection), computing robust small-sample statistics with t-distribution confidence intervals, and producing a weighted geometric mean procurement ranking. The agent must integrate HPC domain knowledge (memory-bound vs compute-bound benchmark classification, 7-point stencil nnz derivation, hardware bandwidth limits, roofline reasoning) with multi-source document synthesis, database exploration, and statistical analysis — requiring holistic understanding rather than procedural execution."""
+solution_explanation = """Explore the database schema (systems, benchmarks, runs, measurements, run_config tables). Read evaluation_protocol.md for the complete methodology and four required deliverables. Read benchmark_specs.md for authoritative FOM formulas and benchmark_spec.toml as supplementary reference, discovering the Kripke solve_time/sweep_time naming conflict and missing PENNANT spec — resolve by treating .md as authoritative. Read config.toml for weights, quality thresholds, and efficiency analysis parameters. Read standard_configs.toml for reference configurations. Phase 1: Detect timing anomalies via timestamp gap analysis. Phase 2: Process all 192 runs — exclude ERROR/null/timing-anomaly runs (10 total), compute FOMs from raw measurements, detect systematic discrepancies (Kripke reported_fom omits iterations factor → -90% error on 47 runs; Titan-X AMG reported_fom uses standard nnz=7M but actual nnz=3.5M → +100% error on 8 runs). Phase 3: Quality flags — Titan-X AMG configuration mismatch (grid 50^3 vs standard 100^3), Nova-7 STREAM zero variance (identical bandwidth across all runs), Pulsar-3 PENNANT timing anomaly. Phase 4: Performance summary with t-distribution CIs for small samples. Phase 5: Weighted geometric mean ranking normalized to Sierra-2. Phase 6: Efficiency analysis — compute per-system STREAM bandwidth efficiency (measured/theoretical_peak from DB), compute AMG/STREAM bandwidth ratios, apply 1.5-sigma outlier detection identifying Titan-X as sole outlier (ratio ~208 vs fleet mean ~316)."""
+verification_explanation = """Tests verify four output JSON files with deterministic expected values. audit_report.json: exact total runs (192), excluded run count (10) with specific run IDs for each exclusion category, exact quality flag count (3) with specific system-benchmark pairs, exact FOM discrepancy count (55) with correct error distributions (-90% for 47 Kripke runs, +100% for 8 Titan-X AMG runs). performance_summary.json: spot-checked median FOMs against independently computed values, correct valid run counts per system-benchmark, flagged status consistency, CI bounds containing mean. efficiency_analysis.json: all 6 systems present with STREAM efficiency in [0.70, 0.90], specific efficiency values verified (Sierra-2=0.84375, Titan-X=0.80, Frontier-X=0.775), Titan-X identified as sole cross-benchmark outlier with lowest AMG/STREAM ratio, fleet mean ~315.70 and std ~58.14, outlier threshold matches config. ranking.json: correct 6-system ordering, sequential ranks, reference system score=1.0, flagged systems have non-empty flags, clean systems have empty flags."""
+category = "hpc"
+tags = ["benchmarking", "data-quality-audit"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/amg-fom-pipeline"

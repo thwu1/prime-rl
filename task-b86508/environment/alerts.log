@@ -1,0 +1,12 @@
+[2026-06-10T14:22:00Z] INFO  cluster-monitor v3.1.2 starting health check sweep
+[2026-06-10T14:23:17Z] WARN  port=7000 rss_bytes=1917845504 maxmemory_bytes=2147483648 usage=89.3%
+[2026-06-10T14:23:17Z] OK    port=7001 rss_bytes=587202560  maxmemory_bytes=2147483648 usage=27.3%
+[2026-06-10T14:23:17Z] OK    port=7002 rss_bytes=612368384  maxmemory_bytes=2147483648 usage=28.5%
+[2026-06-10T14:25:01Z] WARN  port=7000 cmd_latency_p99=187ms threshold=50ms
+[2026-06-10T14:25:01Z] OK    port=7001 cmd_latency_p99=8ms
+[2026-06-10T14:25:01Z] OK    port=7002 cmd_latency_p99=9ms
+[2026-06-10T14:28:33Z] WARN  port=7000 evicted_keys_5m=1204 connected_clients=312 rejected=18
+[2026-06-10T14:28:33Z] OK    port=7001 evicted_keys_5m=0 connected_clients=84 rejected=0
+[2026-06-10T14:28:33Z] OK    port=7002 evicted_keys_5m=0 connected_clients=91 rejected=0
+[2026-06-10T14:30:00Z] CRIT  asymmetric_load_detected node_spread_factor=3.47 threshold=1.5
+[2026-06-10T14:35:00Z] TICKET OPS-4821 opened: "Investigate cluster performance anomaly on port 7000"

@@ -1,0 +1,47 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom binary format with deliberately
+undocumented encoding details: mixed endianness (big-endian sensor IDs and floats, little-endian
+timestamps), bit-field encoding in the type byte (calibration flag at bit 3, quality score at
+bits 4-7), CRC-16/CCITT integrity checks, and IEEE 754 big-endian float encoding. The agent must
+form and iteratively test hypotheses about field layout, endianness, and bit masks by cross-
+referencing 20 known records with raw binary bytes. After parsing all 50,000 records correctly,
+must compute aggregate statistics that depend on correctly identifying and excluding calibration
+records and correctly decoding quality scores — both of which are hidden in the type byte."""
+solution_explanation = """Parse the 32-byte header to get record count. For each 32-byte record:
+extract type (bits 0-2), calibration flag (bit 3), and quality score (bits 4-7) from byte 0;
+read sensor ID as big-endian uint16 from bytes 1-2; skip reserved byte 3; read timestamp as
+little-endian int64 from bytes 4-11; read primary and secondary values as big-endian float64
+from bytes 12-19 and 20-27; verify CRC-16/CCITT at bytes 28-29. Filter out calibration records
+and compute requested statistics including type counts, means, sensor queries, quality filtering,
+median, and standard deviation."""
+verification_explanation = """Tests independently parse the binary file using the correct format
+specification (reference parser embedded in test code), compute all expected statistics from the
+parsed data, and compare against the agent's output files. Integer fields require exact match;
+float fields allow small tolerance (0.01-0.1 depending on the statistic)."""
+category = "reverse_engineering"
+tags = ["binary-parsing", "data-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xor-filter-construction"

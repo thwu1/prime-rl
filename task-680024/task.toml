@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic analysis across multiple vulnerability classes. The solver must independently discover three distinct attack surfaces without any algorithmic hints: (1) identifying that certain keys share common prime factors exploitable via batch GCD — a technique from DJB's batch-attack research, (2) recognizing the ROCA fingerprint (CVE-2017-15361) on Infineon-generated keys by analyzing residue patterns modulo small primes and connecting hardware metadata to known firmware vulnerabilities, and (3) detecting a close-primes weakness exploitable via Fermat factoring. Each attack requires a different factoring strategy. The solver must also handle heterogeneous key formats (SPKI PEM, PKCS#1 PEM, and raw DER), design an exploration strategy across metadata and key material, and produce cryptographic proofs of exploitation via challenge decryption."""
+solution_explanation = """The solution: (1) parses all keys from PEM/DER formats to extract moduli using openssl or the cryptography library, (2) computes pairwise GCDs to find shared factors between cert_03 and cert_09, (3) checks each modulus for the ROCA fingerprint by testing subgroup membership of n mod q in <65537> mod q for each prime q | primorial(71), (4) detects a close-primes key factorable via Fermat's method, (5) factors shared-factor keys via GCD, ROCA keys via primorial subgroup enumeration, and the close-primes key via Fermat, and (6) decrypts all challenge ciphertexts using recovered private keys."""
+verification_explanation = """Tests independently verify: (a) all 10 keys are classified correctly as vulnerable or not, (b) all 6 vulnerable keys have decrypted challenge plaintexts matching the SHA-256-derived ground truth, and (c) the decrypted plaintexts demonstrate actual private key recovery since raw RSA decryption requires knowing d = e^(-1) mod lcm(p-1,q-1)."""
+category = "cryptography"
+tags = ["rsa-audit", "multi-vulnerability"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-680024"

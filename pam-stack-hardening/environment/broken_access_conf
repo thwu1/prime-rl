@@ -1,0 +1,4 @@
+# /etc/security/access.conf - login access control table
+#
+# Allow all users from all origins (temporary permissive policy)
++ : ALL : ALL

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Message xmlns="urn:hl7-org:v2:conformance" ID="ORU_R01" Name="ORU^R01" Type="ORU" Event="R01" StructID="ORU_R01">
+  <Segment Ref="MSH" Usage="R" Min="1" Max="1"/>
+  <Segment Ref="SFT" Usage="O" Min="0" Max="1"/>
+  <Group Name="PATIENT_RESULT" Usage="R" Min="1" Max="*">
+    <Group Name="PATIENT" Usage="O" Min="0" Max="1">
+      <Segment Ref="PID" Usage="R" Min="1" Max="1"/>
+      <Segment Ref="PD1" Usage="X" Min="0" Max="1"/>
+      <Segment Ref="NK1" Usage="R" Min="1" Max="*"/>
+    </Group>
+    <Group Name="ORDER_OBSERVATION" Usage="R" Min="1" Max="*">
+      <Segment Ref="ORC" Usage="R" Min="1" Max="1"/>
+      <Segment Ref="OBR" Usage="R" Min="1" Max="1"/>
+      <Group Name="OBSERVATION" Usage="R" Min="1" Max="*">
+        <Segment Ref="OBX" Usage="R" Min="1" Max="1"/>
+        <Segment Ref="NTE" Usage="O" Min="0" Max="*"/>
+      </Group>
+    </Group>
+  </Group>
+</Message>

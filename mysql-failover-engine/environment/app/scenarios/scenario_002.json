@@ -1,0 +1,51 @@
+{
+    "id": "002",
+    "name": "Dead Master",
+    "description": "Primary unreachable, all replicas confirm replication failure — classic dead master",
+    "servers": [
+        {
+            "hostname": "primary1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": false, "master_hostname": null, "master_port": null,
+            "replication_state": "running", "replication_lag_seconds": 0.0,
+            "gtid_position": 500, "is_sql_delayed": false, "read_only": false,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 490, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica2", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "stopped", "replication_lag_seconds": 0.0,
+            "gtid_position": 480, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "prefer", "is_downtimed": false
+        }
+    ],
+    "orchestrator_nodes": [],
+    "cluster_config": {},
+    "current_timestamp": 0.0,
+    "expected": {
+        "failure_count": 1,
+        "failures": [
+            {
+                "failed_hostname": "primary1",
+                "failure_type": "DeadMaster",
+                "is_actionable": true
+            }
+        ],
+        "notes": "Primary unreachable, all replicas reachable but all have failed/stopped replication. This confirms the master is dead — the replicas corroborate the failure."
+    }
+}

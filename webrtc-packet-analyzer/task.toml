@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the WebRTC protocol stack, binary packet analysis, and multi-tool terminal proficiency. The agent must: (1) use mergecap to reconstruct the full session from two partial captures taken at different network taps, (2) use capinfos to extract per-capture metadata (packet counts, duration), (3) use openssl dgst to verify the session config's HMAC-SHA256 integrity signature against the stored key and digest, (4) parse the libpcap binary format or use tshark to classify multiplexed WebRTC protocols (STUN, DTLS, RTP, RTCP) from raw UDP payloads using first-byte demuxing, (5) parse STUN binary TLV attributes and implement MESSAGE-INTEGRITY verification by determining credential mapping from USERNAME attributes and computing HMAC-SHA1 with correctly adjusted header length — a subtle requirement demanding deep ICE short-term credential knowledge, (6) parse RTP headers and compute per-SSRC interarrival jitter using the RFC 3550 algorithm with correct clock rate conversion, (7) distinguish RTP from RTCP in the multiplexed stream. The task demands orchestration of mergecap, capinfos, openssl, and custom scripting in a multi-tool pipeline."""
+solution_explanation = """The solution uses mergecap to combine the two partial captures, capinfos to extract packet counts and duration, and openssl dgst -sha256 -hmac to verify the session config HMAC. It then parses the merged pcap to classify each UDP payload by first-byte ranges (0-3 with magic cookie → STUN, 20-63 → DTLS, 128-191 → RTP/RTCP distinguished by second byte), parses STUN TLV attributes to verify MESSAGE-INTEGRITY via HMAC-SHA1 using ICE credentials mapped through USERNAME attribute correlation, tracks RTP per-SSRC statistics including RFC 3550 interarrival jitter with clock rate conversion, and identifies the nominated ICE pair from USE-CANDIDATE attributes."""
+verification_explanation = """Tests verify: (1) /app/merged.pcap exists and contains exactly 80 packets (validated via capinfos), (2) capture metadata (per-tap packet counts, merged total, duration), (3) session integrity HMAC verification result, (4) exact packet counts per protocol, (5) correct STUN integrity validation counts and nominated pair, (6) per-SSRC RTP statistics including jitter (within 0.5 RTP units) and duration (within 1ms), (7) RTCP report type counts, (8) report structure completeness."""
+category = "networking"
+tags = ["webrtc", "pcap-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/webrtc-packet-analyzer"

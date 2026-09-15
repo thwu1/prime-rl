@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in stochastic programming, LP duality, and decomposition methods for two-stage problems. The agent must independently identify and implement an appropriate decomposition algorithm (not simply solve the extensive form), correctly handle capacitated facilities with multiple stochastic scenarios, derive valid cuts from dual information, manage convergence criteria, and produce a provably near-optimal solution. This goes well beyond textbook exercises as it demands full algorithmic design and implementation from scratch."""
+solution_explanation = """Implement Benders decomposition: (1) Initialize master problem with binary facility-open variables and scenario epigraph variables. (2) Solve master MIP to get facility decisions. (3) For each scenario, solve LP transportation subproblem given opened facilities, extract dual variables. (4) Generate optimality cuts from dual information. (5) Add cuts to master, re-solve. (6) Iterate until convergence within tolerance. Handle infeasibility via penalty terms."""
+verification_explanation = """Test independently solves the deterministic equivalent program (DEP) as a monolithic MIP using PuLP/CBC to obtain the true optimal value. Then verifies: (1) the agent's solver file exists and uses a decomposition approach (not monolithic DEP), (2) solution.json has correct format, (3) opened facilities can serve all demand in all scenarios, (4) the actual objective for the opened facilities is within 1% of DEP optimal."""
+category = "optimization"
+tags = ["operations-research", "stochastic-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benders-facility-location"

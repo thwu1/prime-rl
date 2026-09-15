@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<seismicHazardModel xmlns="urn:nshmp:sources:1.0"
+                     xmlns:mfd="urn:nshmp:mfd:1.0"
+                     xmlns:fault="urn:nshmp:fault:1.0">
+  <source id="point-1" type="point" name="Background Zone Alpha">
+    <location lon="-118.2" lat="34.1" depth_km="10.0"/>
+    <mfd:gutenbergRichter a="2.5" b="0.9" mMin="5.0" mMax="6.5" dMag="0.1"/>
+  </source>
+  <source id="point-2" type="point" name="Background Zone Beta">
+    <location lon="-117.8" lat="34.3" depth_km="8.0"/>
+    <mfd:gutenbergRichter a="2.8" b="1.0" mMin="5.0" mMax="7.0" dMag="0.1"/>
+  </source>
+  <source id="fault-1" type="fault" name="Main Strike-Slip Fault">
+    <fault:trace>
+      <fault:vertex lon="-118.5" lat="34.0"/>
+      <fault:vertex lon="-117.5" lat="34.0"/>
+    </fault:trace>
+    <fault:geometry dip="90.0" upperDepth_km="0.0" lowerDepth_km="15.0" rake="0.0"/>
+    <fault:ruptureScaling model="wells-coppersmith-94-length"
+                          formula="log10(L_km) = -3.22 + 0.69 * M"/>
+    <mfd:gutenbergRichter a="3.0" b="0.8" mMin="5.0" mMax="7.5" dMag="0.1">
+      <mfd:mMaxEpistemic>
+        <mfd:branch mMax="7.3" weight="0.2"/>
+        <mfd:branch mMax="7.5" weight="0.6"/>
+        <mfd:branch mMax="7.7" weight="0.2"/>
+      </mfd:mMaxEpistemic>
+    </mfd:gutenbergRichter>
+  </source>
+  <source id="fault-2" type="fault" name="Frontal Thrust Fault">
+    <fault:trace>
+      <fault:vertex lon="-118.4" lat="34.25"/>
+      <fault:vertex lon="-117.6" lat="34.25"/>
+    </fault:trace>
+    <fault:geometry dip="45.0" upperDepth_km="2.0" lowerDepth_km="15.0" rake="90.0"/>
+    <fault:ruptureScaling model="wells-coppersmith-94-length"
+                          formula="log10(L_km) = -2.86 + 0.63 * M"/>
+    <mfd:gutenbergRichter a="2.6" b="0.85" mMin="5.0" mMax="7.0" dMag="0.1">
+      <mfd:mMaxEpistemic>
+        <mfd:branch mMax="6.8" weight="0.3"/>
+        <mfd:branch mMax="7.0" weight="0.5"/>
+        <mfd:branch mMax="7.2" weight="0.2"/>
+      </mfd:mMaxEpistemic>
+    </mfd:gutenbergRichter>
+  </source>
+</seismicHazardModel>

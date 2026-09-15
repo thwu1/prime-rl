@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a BPF ELF object verifier that combines multi-tool analysis with program verification. The solver must: (1) use readelf and llvm-objdump-18 to understand the BPF ELF object file structure — identifying .text, .maps, and .bpf_meta sections, their offsets and sizes, (2) extract raw BPF bytecode from ELF sections using objcopy or manual ELF parsing with struct, (3) parse the standard 8-byte BPF instruction encoding (opcode, register nibbles, signed offset/immediate fields), (4) implement verification covering register initialization tracking, null pointer dereference detection with branch-dependent type refinement, XDP packet bounds checking, loop detection, reachability analysis, and exit coverage across all execution paths, (5) invoke llvm-objdump-18 to produce correct BPF disassembly output matching the tool's exact mnemonic format. This requires interoperability between multiple specialized tools (readelf, llvm-objdump-18, objcopy) and deep understanding of both ELF binary format and BPF program analysis."""
+solution_explanation = """Build a Python verifier that: (1) parses the ELF64 header to locate section headers and .shstrtab, resolves section names, extracts .text bytecode, .bpf_meta prog_type, and .maps descriptors, (2) maps 8-byte instruction opcodes to mnemonics via a lookup table, (3) builds a CFG and performs structural checks (backward edges for loops, reachability via BFS, exit coverage), (4) runs DFS with per-path register type state and branch refinement for null checks and packet bounds, (5) calls llvm-objdump-18 -d --no-show-raw-insn via subprocess and parses instruction mnemonics from the output."""
+verification_explanation = """Tests run the verifier against 12 BPF ELF object files (8 visible in /app/objects/, 4 hidden generated at test time). Each has a deterministic expected verdict and rejection reason. Tests also verify that the disasm output matches llvm-objdump-18 ground truth exactly — instruction count, mnemonic text, and presence of key operations (exit, call). Additional tests verify that readelf and llvm-objdump-18 can successfully read all object files, confirming ELF validity. Hidden programs test branch-dependent type analysis and combined features that cannot be solved by hardcoding."""
+category = "systems_programming"
+tags = ["ebpf", "binary-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ebpf-bytecode-verifier"

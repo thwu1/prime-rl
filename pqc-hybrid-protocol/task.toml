@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of post-quantum cryptography spanning multiple NIST standards. The agent must: (1) determine the correct cmake build configuration for a minimal liboqs build restricted to FIPS 203/204 algorithm families, discovering internal algorithm identifiers; (2) diagnose and fix multiple interacting bugs in a C program using the liboqs KEM API — including incorrect algorithm identifier format, wrong buffer sizing between secret and public key lengths, incorrect operation ordering, and missing library lifecycle management; (3) identify which ML-KEM parameter sets map to which NIST security levels and design a cryptographically sound dual-KEM hybrid construction from scratch; (4) implement a signature verification matrix across all ML-DSA variants with knowledge of FIPS 204 specified parameter sizes and security levels. Each subtask demands holistic PQC domain knowledge that cannot be solved by following a procedure."""
+solution_explanation = """Build liboqs with OQS_MINIMAL_BUILD selecting the six FIPS 203/204 algorithm variants, install as a shared library with ldconfig. Fix broken_kem.c: correct algorithm name to 'ML-KEM-768', allocate secret key buffer with length_secret_key, reorder keypair before encapsulation, add OQS_init/OQS_destroy lifecycle. Implement hybrid_kem.c combining ML-KEM-512 (Level 1) and ML-KEM-1024 (Level 5) with XOR of their 32-byte shared secrets as the combiner. Implement sig_matrix.c generating dual keypairs per ML-DSA variant (44/65/87) and cross-verifying signatures to demonstrate unforgeability."""
+verification_explanation = """Tests re-execute compiled binaries and parse JSON output files. KEM result is validated against FIPS 203 ML-KEM-768 parameters (pk=1184, ct=1088, ss=32). Hybrid result is validated against combined ML-KEM-512+1024 sizes (pk=800+1568=2368, ct=768+1568=2336, ss=32). Signature matrix is validated against FIPS 204 parameter sizes and NIST security levels for all three ML-DSA variants. Build system presence and shared library installation are verified independently."""
+category = "security_and_privacy"
+tags = ["post-quantum-cryptography", "systems-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pqc-hybrid-protocol"

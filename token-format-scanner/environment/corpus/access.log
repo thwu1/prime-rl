@@ -1,0 +1,8 @@
+10.0.0.50 - - [15/Mar/2024:09:00:01 +0000] "GET /health HTTP/1.1" 200 2 "-" "kube-probe/1.28"
+10.0.0.50 - - [15/Mar/2024:09:00:31 +0000] "GET /health HTTP/1.1" 200 2 "-" "kube-probe/1.28"
+192.168.1.42 - - [15/Mar/2024:09:12:07 +0000] "GET /api/v2/users HTTP/1.1" 200 8492 "-" "python-requests/2.31.0"
+192.168.1.100 - - [15/Mar/2024:09:23:45 +0000] "GET /api/v2/repos?per_page=100&token=ghp_rJ6bV3wFtP8xZlNk1CdMqU0hGiA5eY3q4zth HTTP/1.1" 200 34210 "-" "curl/8.4.0"
+192.168.1.200 - - [15/Mar/2024:09:25:12 +0000] "POST /api/v2/deploy HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+10.0.0.1 - - [15/Mar/2024:09:30:00 +0000] "GET /metrics HTTP/1.1" 200 14523 "-" "Prometheus/2.48.0"
+192.168.1.42 - - [15/Mar/2024:09:45:33 +0000] "PUT /api/v2/config HTTP/1.1" 204 0 "-" "Go-http-client/2.0"
+10.0.0.50 - - [15/Mar/2024:10:00:01 +0000] "GET /health HTTP/1.1" 200 2 "-" "kube-probe/1.28"

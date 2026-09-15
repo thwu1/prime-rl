@@ -1,0 +1,51 @@
+{
+  "temperatures": {
+    "T_hot_in_C": 200.0,
+    "T_hot_out_C": 100.0,
+    "T_cold_in_C": 25.0,
+    "T_cold_out_C": 75.0
+  },
+  "geometry": {
+    "shell_id_m": 0.438,
+    "tube_od_m": 0.0254,
+    "tube_id_m": 0.02093,
+    "tube_pitch_m": 0.03175,
+    "tube_length_m": 6.096,
+    "layout_angle_deg": 90,
+    "n_tubes": 72,
+    "tube_passes": 4,
+    "n_baffles": 20,
+    "baffle_cut_pct": 25.0,
+    "baffle_spacing_central_m": 0.275,
+    "baffle_spacing_inlet_m": 0.305,
+    "baffle_spacing_outlet_m": 0.305,
+    "n_sealing_strip_pairs": 2,
+    "k_wall_W_mK": 16.2
+  },
+  "clearances": {
+    "delta_tb_m": 0.0004,
+    "delta_sb_m": 0.0024,
+    "delta_bundle_shell_m": 0.030
+  },
+  "shell_fluid": {
+    "mass_flow_kg_s": 5.0,
+    "density_kg_m3": 850.0,
+    "viscosity_Pa_s": 0.0005,
+    "viscosity_wall_Pa_s": 0.0007,
+    "Cp_J_kgK": 1900.0,
+    "k_W_mK": 0.11
+  },
+  "tube_fluid": {
+    "mass_flow_kg_s": 3.0,
+    "density_kg_m3": 870.0,
+    "viscosity_Pa_s": 0.05,
+    "viscosity_wall_Pa_s": 0.03,
+    "Cp_J_kgK": 2200.0,
+    "k_W_mK": 0.14
+  },
+  "fouling": {
+    "R_f_shell_m2KW": 0.000176,
+    "R_f_tube_m2KW": 0.000528
+  },
+  "n_shell_passes": 1
+}

@@ -1,0 +1,49 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a quantum state-vector simulator in Julia — an unfamiliar language
+for most practitioners — without any algorithmic specification provided. The agent must independently discover how
+to efficiently apply k-qubit unitary gates to an n-qubit state vector using only the state vector size (not full
+matrix construction), handle the complex bit-index mapping between target qubit positions and state vector indices,
+implement controlled gates with arbitrary control configurations including inverse controls, correctly process a
+12-qubit circuit with diverse gate types (H, X, Z, S, T, rotation gates, SWAP, custom unitary, controlled gates),
+and scale to 20+ qubits. The combination of Julia-specific tooling (package management, 1-based indexing, type
+system), quantum computing domain knowledge, and algorithmic design without guidance makes this task require
+professional-level expertise."""
+solution_explanation = """The solution implements subspace iteration in Julia: for each gate, it enumerates all
+configurations of non-target qubits using bit manipulation to compute base indices, generates complement offsets
+for target qubit combinations, extracts sub-vectors, multiplies by the gate matrix, and writes results back.
+Controlled gates fix control qubit bits in the base index. The circuit is then executed gate-by-gate starting
+from |0...0> and the final state is serialized to JSON. Julia's LinearAlgebra stdlib is used for in-place
+matrix-vector multiplication."""
+verification_explanation = """Tests invoke the agent's Julia simulator via subprocess on small test circuits and
+compare outputs against an independent Python reference implementation. Tests verify: (1) basic gate application
+(Hadamard + rotation), (2) controlled gates including CNOT, inverse controls, and multi-control Toffoli, (3)
+multi-qubit SWAP on non-adjacent qubits, (4) custom 2-qubit gate on non-adjacent qubits, (5) the full 12-qubit
+circuit output against an independently computed reference, (6) state normalization, and (7) scalability to 20
+qubits confirming efficient memory usage."""
+category = "quantum_computing"
+tags = ["quantum-simulation", "julia"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/subspace-gate-simulator"

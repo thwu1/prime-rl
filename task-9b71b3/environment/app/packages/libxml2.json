@@ -1,0 +1,10 @@
+{
+  "name": "libxml2",
+  "versions": ["2.12.3", "2.11.5", "2.10.4"],
+  "variants": [],
+  "dependencies": [
+    {"name": "zlib"}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

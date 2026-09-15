@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete analysis engine for Boolean regular expressions (with complement and intersection) and integrating it with multiple external toolchains. The agent must independently discover an approach that (1) correctly handles all eight node types for membership, emptiness, universality, and equivalence decisions, (2) guarantees termination of decision procedures over finite alphabets — demanding understanding of why naive approaches diverge and inventing an appropriate normalization strategy, (3) constructs a finite state graph suitable for Graphviz rendering, (4) generates valid C source code implementing the DFA as a state machine and compiles it with gcc into a working standalone binary, (5) generates a valid flex lexical specification (.l file) using exclusive start conditions to encode DFA states, compilable via flex and gcc into a standalone matcher, and (6) integrates all of this with a multi-subcommand CLI. The task requires deep formal language theory combined with proficiency in gcc, flex, and graphviz toolchains."""
+solution_explanation = """The solution uses Brzozowski derivatives with algebraic simplification (smart constructors) to guarantee a finite set of structurally distinct derivative states. Key components: nullable predicate for all 8 node types, derivative computation with simplification rules, BFS-based DFA exploration shared across dot/compile/flex-spec, C code generation with nested switch statements for DFA transitions and acceptance checks, flex spec generation mapping DFA states to exclusive start conditions with character-level transition rules and a DEAD absorbing state, recursive descent parser with 5-level precedence, and DOT generation via derivative automaton exploration. The compile subcommand generates C, writes to a temp file, and invokes gcc. The flex-spec subcommand generates a .l file with %x states, per-character transition rules, and an <<EOF>> handler."""
+verification_explanation = """Tests verify: (1) nullable for all 8 node types including complement/intersection edge cases, (2) string matching with complement/intersection patterns, (3) language emptiness for disjoint intersections and complement-of-universal, (4) universality detection including tautologies like r|~r, (5) equivalence of semantically identical but structurally different expressions including De Morgan's law and double complement, (6) parser integration covering all operators and precedence levels, (7) DOT output validity via graphviz rendering to SVG, (8) C code generation + gcc compilation + binary execution for various regex patterns including complement and intersection, (9) flex spec generation + flex compilation + gcc compilation + binary execution verifying correct matching, (10) flex spec structural requirements (exclusive states, noyywrap), (11) CLI subcommand integration for all seven operations."""
+category = "theory_of_computation"
+tags = ["formal_languages", "compiler_toolchains"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/brzozowski-regex-algebra"

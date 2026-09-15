@@ -1,0 +1,19 @@
+{
+  "name": "sql-dialect-transpiler",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "generate": "peggy --format commonjs -o src/generated/parser.js grammar/sql.pegjs",
+    "build": "npm run generate && tsc",
+    "test": "node test_runner.js"
+  },
+  "dependencies": {
+    "peggy": "4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.12",
+    "typescript": "5.4.5"
+  }
+}

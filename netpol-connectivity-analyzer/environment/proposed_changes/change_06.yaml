@@ -1,0 +1,50 @@
+description: "Restructure database access: remove pod-level gate for postgres, restrict redis to orders only"
+action: replace_multiple
+modifications:
+  - target_policy: db-allow-postgres-from-api
+    target_namespace: db
+    policy:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: db-allow-postgres-from-api
+        namespace: db
+      spec:
+        podSelector:
+          matchLabels:
+            app: postgres
+        policyTypes:
+        - Ingress
+        ingress:
+        - from:
+          - namespaceSelector:
+              matchLabels:
+                purpose: api
+          ports:
+          - port: 5432
+            protocol: TCP
+  - target_policy: db-allow-redis-from-api
+    target_namespace: db
+    policy:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: db-allow-redis-from-api
+        namespace: db
+      spec:
+        podSelector:
+          matchLabels:
+            app: redis
+        policyTypes:
+        - Ingress
+        ingress:
+        - from:
+          - namespaceSelector:
+              matchLabels:
+                purpose: api
+            podSelector:
+              matchLabels:
+                app: orders
+          ports:
+          - port: 6379
+            protocol: TCP

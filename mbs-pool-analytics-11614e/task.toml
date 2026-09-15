@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two distinct agency data formats from documentation (Freddie Mac pipe-delimited origination/performance and Ginnie Mae fixed-width factor data), designing a SQLite schema with computed tables and analytical SQL views using window functions, implementing domain-specific financial computations (pool-level weighted averages, prepayment decomposition, loss accounting, forward cash flow projection under a PSA speed assumption), producing a cross-agency summary, and generating a standalone SQL validation script executable via sqlite3 CLI. The solver must correctly handle edge cases including delinquent loan exclusion from scheduled principal, REO acquisition status codes, voluntary vs. involuntary termination semantics, and proper NULL handling in window function views."""
+solution_explanation = """The reference solution implements a complete multi-agency MBS analytics pipeline: (1) Freddie Mac parser handles pipe-delimited origination and performance with type coercion and missing value handling; (2) Ginnie Mae parser reads fixed-width records using column positions from documentation; (3) pool assignment derives vintage quarter from loan sequence prefix; (4) pool metrics aggregate UPB-weighted WAC/WAM/WALA; (5) prepayment engine computes per-loan scheduled amortization, excludes delinquent loans, captures voluntary prepayments via ZB code 01, and derives SMM/CPR/implied PSA; (6) loss calculator applies the documented formula for involuntary ZB codes; (7) cash flow projector uses PSA-speed-adjusted SMM; (8) SQLite database stores all raw data, computed metrics in prepayment_detail table, and creates analytical views using LAG() and AVG() window functions; (9) validation SQL script uses nested subqueries with CASE expressions for data integrity checks; (10) JSON report combines all analytics with proper rounding."""
+verification_explanation = """Tests verify: JSON structure with all required keys; correct pool identification and loan counts; WAC computation against golden values; pool factor accuracy; actual loss computation against formula; prepayment SMM spike detection; cash flow projection consistency (balance continuity, principal composition, monotonic pool factor decrease); format compliance (monetary 2dp, rates as decimals); SQLite database tables with correct record counts; v_prepayment_momentum view with correct NULL handling for first rows; v_factor_decline_rate view with trailing average verified against hand-computed values; validate.sql execution via sqlite3 CLI producing PASS lines for all integrity checks; cross-agency summary with both agencies."""
+category = "finance"
+tags = ["mbs", "securitization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mbs-pool-analytics-11614e"

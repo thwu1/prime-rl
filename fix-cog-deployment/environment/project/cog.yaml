@@ -1,0 +1,16 @@
+build:
+  python_version: "3.9"
+  gpu: true
+  python_packages:
+    - torch==2.1.0
+    - Pillow==10.1.0
+  python_requirements: requirements.txt
+  system_packages:
+    - ffmpeg
+    - libgl1-mesa-glx
+  sdk_version: "0.15.3"
+
+predict: "run.py:ImagePipeline"
+
+concurrency:
+  max: 3

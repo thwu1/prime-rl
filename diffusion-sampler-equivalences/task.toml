@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of statistical methods for inferring structural contacts from protein sequence data. The solver must: (1) discover that coevolutionary signal in multiple sequence alignments encodes residue-residue contacts, (2) choose and implement an appropriate inference method (e.g., direct coupling analysis with mean-field or pseudolikelihood approximation), (3) handle numerical challenges in covariance matrix estimation with varying sequence depths, (4) apply corrections for indirect correlations and phylogenetic bias, (5) learn gnuplot's scripting language to produce contact map heatmap PNGs from exported score matrices using the pngcairo terminal, and (6) produce a structured pipeline report combining outputs from multiple tools. No methodology or tool usage patterns are specified—the solver must independently identify the domain, select an approach, and orchestrate a multi-tool pipeline."""
+solution_explanation = """Implements mean-field Direct Coupling Analysis (mfDCA): parse FASTA alignments, compute pairwise sequence identity for phylogenetic reweighting, estimate weighted amino acid frequencies with pseudocounts, build the connected covariance matrix with Tikhonov regularization, invert to obtain the precision matrix (coupling parameters), extract inter-position coupling strengths via Frobenius norms, and apply Average Product Correction (APC). Exports symmetric score matrices as space-separated data files, writes gnuplot scripts using the pngcairo terminal to render L×L contact map heatmaps, and generates a tab-separated pipeline report with per-family statistics including Neff and top scores."""
+verification_explanation = """Tests verify: (1) results.json exists with correct structure and all required keys for three families, (2) predicted contacts are valid (within alignment range, satisfy |i-j| >= 5, no self-contacts), (3) confidence scores are sorted descending, (4) precision@L meets minimum thresholds for each family against hidden ground truth, (5) at least two families achieve strong precision >= 0.45, (6) family_1 self-assessed precision is accurate within 0.15, (7) alignment metadata matches actual data, (8) three contact map PNG files exist with valid PNG headers and minimum 1KB size, (9) pipeline_report.tsv has correct tab-separated header, three data rows with valid numeric fields, and correct precision_at_L values (float for family_1, NA for others)."""
+category = "computational_biology"
+tags = ["protein-informatics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/diffusion-sampler-equivalences"

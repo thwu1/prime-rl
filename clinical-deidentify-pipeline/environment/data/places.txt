@@ -1,0 +1,26 @@
+# Dutch city/place names
+Amsterdam
+Rotterdam
+Groningen
+Utrecht
+Den Haag
+Eindhoven
+Tilburg
+Almere
+Breda
+Nijmegen
+Haarlem
+Arnhem
+Enschede
+Apeldoorn
+Amersfoort
+Maastricht
+Leiden
+Dordrecht
+Zoetermeer
+Zwolle
+Delft
+Alkmaar
+Deventer
+Leeuwarden
+Hilversum

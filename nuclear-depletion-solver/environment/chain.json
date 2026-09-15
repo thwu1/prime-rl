@@ -1,0 +1,142 @@
+{
+  "description": "Simplified 10-nuclide PWR depletion chain with effective one-group cross sections",
+  "cross_section_note": "All cross sections in barns (1 barn = 1e-24 cm^2). Values are effective one-group cross sections for a representative PWR neutron spectrum.",
+  "nuclides": [
+    {
+      "name": "U234",
+      "Z": 92,
+      "A": 234,
+      "decay_constant_per_s": 8.9e-14,
+      "decay_modes": [
+        {"type": "alpha", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 50.0, "target": "U235"}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "U235",
+      "Z": 92,
+      "A": 235,
+      "decay_constant_per_s": 3.12e-17,
+      "decay_modes": [
+        {"type": "alpha", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 12.0, "target": "U236"},
+        {"type": "n_fission", "xs_barn": 45.0, "target": null}
+      ],
+      "fission_yields": [
+        {"product": "I135", "yield_fraction": 0.0639},
+        {"product": "Xe135", "yield_fraction": 0.00228}
+      ]
+    },
+    {
+      "name": "U236",
+      "Z": 92,
+      "A": 236,
+      "decay_constant_per_s": 9.38e-16,
+      "decay_modes": [
+        {"type": "alpha", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 5.0, "target": null}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "U238",
+      "Z": 92,
+      "A": 238,
+      "decay_constant_per_s": 4.92e-18,
+      "decay_modes": [
+        {"type": "alpha", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 1.5, "target": "Np239"}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "Np239",
+      "Z": 93,
+      "A": 239,
+      "decay_constant_per_s": 3.41e-6,
+      "decay_modes": [
+        {"type": "beta_minus", "target": "Pu239", "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 20.0, "target": null}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "Pu239",
+      "Z": 94,
+      "A": 239,
+      "decay_constant_per_s": 9.11e-13,
+      "decay_modes": [
+        {"type": "alpha", "target": "U235", "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 60.0, "target": "Pu240"},
+        {"type": "n_fission", "xs_barn": 120.0, "target": null}
+      ],
+      "fission_yields": [
+        {"product": "I135", "yield_fraction": 0.0611},
+        {"product": "Xe135", "yield_fraction": 0.01085}
+      ]
+    },
+    {
+      "name": "Pu240",
+      "Z": 94,
+      "A": 240,
+      "decay_constant_per_s": 3.35e-12,
+      "decay_modes": [
+        {"type": "alpha", "target": "U236", "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 100.0, "target": "Pu241"}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "Pu241",
+      "Z": 94,
+      "A": 241,
+      "decay_constant_per_s": 1.53e-9,
+      "decay_modes": [
+        {"type": "beta_minus", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 40.0, "target": null}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "Xe135",
+      "Z": 54,
+      "A": 135,
+      "decay_constant_per_s": 2.11e-5,
+      "decay_modes": [
+        {"type": "beta_minus", "target": null, "branching_ratio": 1.0}
+      ],
+      "reactions": [
+        {"type": "n_gamma", "xs_barn": 200000.0, "target": null}
+      ],
+      "fission_yields": []
+    },
+    {
+      "name": "I135",
+      "Z": 53,
+      "A": 135,
+      "decay_constant_per_s": 2.93e-5,
+      "decay_modes": [
+        {"type": "beta_minus", "target": "Xe135", "branching_ratio": 1.0}
+      ],
+      "reactions": [],
+      "fission_yields": []
+    }
+  ]
+}

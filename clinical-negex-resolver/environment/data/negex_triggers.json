@@ -1,0 +1,64 @@
+{
+  "pre_negation": [
+    "no evidence of",
+    "no signs of",
+    "no",
+    "denies",
+    "denied",
+    "without",
+    "not",
+    "never had",
+    "negative for",
+    "absent"
+  ],
+  "post_negation": [
+    "was ruled out",
+    "has been ruled out",
+    "is ruled out",
+    "were ruled out",
+    "unlikely"
+  ],
+  "pseudo_negation": [
+    "no change in",
+    "no increase in",
+    "no decrease in",
+    "not only",
+    "not necessarily",
+    "gram negative"
+  ],
+  "hypothetical": [
+    "rule out",
+    "ruling out",
+    "r/o",
+    "consider",
+    "if",
+    "should",
+    "risk for",
+    "at risk for",
+    "suspected",
+    "possible",
+    "differential diagnosis"
+  ],
+  "historical": [
+    "past medical history",
+    "history of",
+    "previous",
+    "previously",
+    "past history of",
+    "pmh",
+    "former",
+    "h/o"
+  ],
+  "termination": [
+    "however",
+    "but",
+    "except",
+    "although",
+    "yet",
+    "still",
+    "presents with",
+    "reports",
+    "complains of"
+  ],
+  "scope_window": 6
+}

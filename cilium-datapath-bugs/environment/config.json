@@ -1,0 +1,38 @@
+{
+  "local_identity": 1001,
+
+  "endpoints": [
+    {"address": "10.0.0.1", "identity": 1001, "lxc_id": 101},
+    {"address": "10.0.0.2", "identity": 1002, "lxc_id": 102},
+    {"address": "10.0.0.3", "identity": 1003, "lxc_id": 103}
+  ],
+
+  "cidr_identities": [
+    {"cidr": "192.168.0.0", "prefix_len": 16, "identity": 5001},
+    {"cidr": "192.168.1.0", "prefix_len": 24, "identity": 5002}
+  ],
+
+  "services": [
+    {
+      "vip": "10.96.0.10",
+      "port": 80,
+      "backends": [{"address": "10.0.0.2", "port": 8080, "id": 1}],
+      "rev_nat_index": 1
+    },
+    {
+      "vip": "10.96.0.20",
+      "port": 80,
+      "backends": [{"address": "10.0.0.1", "port": 9090, "id": 2}],
+      "rev_nat_index": 2
+    }
+  ],
+
+  "policies": [
+    {"src_identity": 1001, "dst_identity": 1002, "protocol": 6, "dport": 0, "action": "allow"},
+    {"src_identity": 1001, "dst_identity": 1003, "protocol": 6, "dport": 8443, "action": "allow"},
+    {"src_identity": 1001, "dst_identity": 1003, "protocol": 6, "dport": 8443, "action": "deny"},
+    {"src_identity": 1001, "dst_identity": 2, "protocol": 6, "dport": 80, "action": "allow", "proxy_port": 4000},
+    {"src_identity": 1001, "dst_identity": 5002, "protocol": 0, "dport": 0, "action": "allow"},
+    {"src_identity": 1001, "dst_identity": 5001, "protocol": 6, "dport": 443, "action": "deny"}
+  ]
+}

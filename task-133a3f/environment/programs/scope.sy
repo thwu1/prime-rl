@@ -1,0 +1,27 @@
+int x = 1;
+
+int getx() {
+    return x;
+}
+
+int main() {
+    putint(x);
+    putch(10);
+    {
+        int x = 2;
+        putint(x);
+        putch(10);
+        {
+            int x = 3;
+            putint(x);
+            putch(10);
+        }
+        putint(x);
+        putch(10);
+    }
+    putint(x);
+    putch(10);
+    putint(getx());
+    putch(10);
+    return 0;
+}

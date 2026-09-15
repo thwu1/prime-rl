@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Active Directory security knowledge to independently identify exploitable misconfigurations across certificate templates, Kerberos delegation, and SQL Server cross-forest link chains without algorithmic guidance. The agent must parse LDIF certificate template exports and decode AD-native bitfield attributes and OID-encoded EKU fields using domain expertise rather than provided references. It must correlate LDIF security properties with the SQLite graph database to identify vulnerable templates, then implement domain-aware graph traversal that understands AD attack semantics including implicit techniques (Kerberoast, ASREPRoast) and viability constraints (disabled accounts, Protected Users). The evaluation component requires the agent to independently assess which defensive mitigation most effectively eliminates cross-forest attack paths — a judgment requiring comprehensive understanding of the environment's topology and all available attack techniques."""
+solution_explanation = """The solution first parses the LDIF file to extract certificate template security properties, decoding bitfields and mapping OIDs to determine ESC1 vulnerability. It then queries the SQLite database to build the AD graph, correlating LDIF cert template data with CanEnroll edges and group memberships. It implements domain-aware BFS to find the shortest path via certificate impersonation of admin_jones through the SQL link chain to DA@secure.local. Additional analyses include Kerberoastable target identification, delegation enumeration, and three what-if mitigation scenarios using comprehensive attack path traversal including implicit techniques. The most_effective_mitigation is determined by evaluating which scenario fully eliminates viable attack paths (removing SQL links is the only complete mitigation since it is the sole cross-forest traversal mechanism). Finally, it generates a Graphviz DOT digraph visualizing the attack chain."""
+verification_explanation = """Tests validate answers.json against expected values for all seven deliverables computed from the graph data. Attack path tests verify correct start/end nodes, inclusion of cert template and SQL chain in correct order, exclusion of disabled and protected accounts, and optimal path length. Kerberoastable targets are validated against database properties. Certificate template tests verify correct ESC1 identification from LDIF-derived properties and exclusion of templates failing individual criteria. What-if scenarios are validated against expected boolean outcomes. The most_effective_mitigation test verifies the agent correctly identified the single fully-mitigating scenario and that it is consistent with the what-if analysis results. The DOT visualization is verified for valid syntax, required nodes, and Graphviz compilation."""
+category = "security_and_privacy"
+tags = ["active-directory", "attack-path-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-363d72"

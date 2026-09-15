@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a SysY-to-LLVM-IR compiler requires implementing a lexer (handling hex/octal/comments), recursive descent parser for the full EBNF grammar, and LLVM IR code generator that correctly handles SSA-style alloca/load/store patterns, GEP-based multi-dimensional array access, brace-matched array initialization with implicit zero-fill, pass-by-reference array parameters via pointer types, short-circuit boolean evaluation with conditional branches, and break/continue via nested label management. The agent must also configure a multi-tool pipeline: clang for runtime bitcode compilation, llvm-link for module merging, and lli for execution — requiring understanding of LLVM tool interoperability, bitcode formats, and linking semantics."""
+solution_explanation = """The solution implements a complete SysY-to-LLVM-IR compiler in Python (~600 lines). The compiler uses a hand-written lexer, recursive descent parser producing a tuple-based AST, and an IR emitter that generates valid LLVM IR using alloca/load/store for variables, GEP for array indexing, br/label for control flow, and declare for runtime library functions. A Makefile compiles sylib.c to bitcode via clang -emit-llvm, and a shell script orchestrates the pipeline: compiler → llvm-link → lli."""
+verification_explanation = """Tests verify the complete pipeline: make builds successfully, the compiler binary exists, and for each of 12 test programs the sysy_run pipeline produces correct stdout and exit code. Tests cover arithmetic, scoping, arrays, recursion, loops with break/continue, short-circuit evaluation, array parameters, const expressions, hex/octal literals, global initialization, unary operators, and stdin input processing."""
+category = "compilers"
+tags = ["llvm", "programming-languages"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sysy-interpreter-build"

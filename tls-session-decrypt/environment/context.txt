@@ -1,0 +1,36 @@
+Incident #IR-2024-0847
+
+Timeline: Suspicious outbound connections detected from web-app-prod-03
+(10.0.1.42) to four external IPs over port 443 on 2024-11-15 between
+03:41 and 03:52 UTC.
+
+Response team captured session data from the network tap before the
+connections terminated. Six private keys were found in /tmp/.cache on
+the compromised host.
+
+MALWARE ANALYSIS (partial):
+The malware binary recovered from the compromised host was partially
+reverse-engineered. It uses a TLS 1.3-like encrypted channel but with
+a MODIFIED key schedule. Static analysis of the crypto routines shows
+that for some sessions, the malware SKIPS the early_secret derivation
+step entirely:
+
+  Standard TLS 1.3:
+    early_secret = HKDF-Extract(salt=zeros(32), ikm=zeros(32))
+    derived = Derive-Secret(early_secret, 'derived', '')
+    handshake_secret = HKDF-Extract(salt=derived, ikm=shared_secret)
+
+  Malware variant:
+    handshake_secret = HKDF-Extract(salt=zeros(32), ikm=shared_secret)
+
+All other key derivation steps after handshake_secret follow standard
+TLS 1.3 (RFC 8446 Section 7.1). The sessions using the standard vs.
+modified key schedule are NOT labeled in the captures. You must determine
+which variant each session uses through trial decryption.
+
+ADDITIONAL NOTE: Some captures may have been partially corrupted during
+collection. At least one session may have corrupted encrypted records.
+
+Priority: Determine what data was exfiltrated, assess the security
+implications of the modified protocol, and identify any infrastructure
+reuse across sessions.

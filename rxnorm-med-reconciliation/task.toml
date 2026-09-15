@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering and orchestrating multiple RxNav REST API endpoints without explicit guidance — the solver must explore the API surface to find how to resolve NDCs, drug names, and misspelled inputs to RxCUIs, extract base ingredients from the concept hierarchy, determine generic equivalents for branded products, and retrieve ATC therapeutic classifications from a separate RxClass service. Beyond API discovery, the solver must build a formulary cross-referencing system that pre-computes ingredient sets for all formulary items and matches them against each medication's active ingredients to identify alternatives — this requires understanding the RxNorm concept graph well enough to join across product types. Multi-ingredient products (amlodipine/atorvastatin, metformin/sitagliptin) add graph traversal complexity. Therapeutic duplication detection must track ingredient overlap across single and multi-ingredient products. Domain knowledge of pharmacy informatics (brand vs generic TTY semantics, NDC format normalization, ATC classification hierarchy) is essential."""
+solution_explanation = """The solution builds a Python pipeline using the requests library that: (1) resolves each medication to an RxCUI using type-appropriate endpoints — findRxcuiById for NDCs, findRxcuiByString with disambiguation for drug names (handles multiple results by exact-name matching), approximateTerm for fuzzy matches; (2) calls getRxConceptProperties to get TTY and canonical name; (3) uses getAllRelatedInfo to extract IN-typed ingredients; (4) for SBD concepts calls getRelatedByRelationship with rela=tradename_of (with getGenericProduct fallback) to find the generic SCD equivalent; (5) queries the RxClass API /class/byRxcui with relaSource=ATC for each ingredient; (6) builds a formulary ingredient index by resolving ingredients for all formulary items, then for each non-formulary medication finds formulary items sharing at least one ingredient RxCUI; (7) tracks ingredient RxCUIs across all medications to detect therapeutic duplication groups."""
+verification_explanation = """Tests verify the full reconciliation report: JSON schema completeness, correct RxCUI resolution for NDC (0069-3150-83→1668240), brand name (Lipitor→617318), generic (metformin→861007, atorvastatin 40mg→617311), multi-ingredient (amlodipine/atorvastatin→597980, metformin/sitagliptin→861819), and approximate match (lisinoprl→lisinopril). Tests verify ingredient extraction, generic equivalent presence for SBD and null for SCD, ATC classification structure, therapeutic duplication groups (atorvastatin across M2/M4/M5, metformin across M3/M8), formulary membership flags, empty alternatives for on-formulary items, and alternatives-only-from-formulary anti-cheat check."""
+category = "applied_computing"
+tags = ["pharmacy-informatics", "api-orchestration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rxnorm-med-reconciliation"

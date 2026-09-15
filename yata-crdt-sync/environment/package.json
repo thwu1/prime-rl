@@ -1,0 +1,7 @@
+{
+  "name": "yjs-oracle",
+  "private": true,
+  "dependencies": {
+    "yjs": "13.6.20"
+  }
+}

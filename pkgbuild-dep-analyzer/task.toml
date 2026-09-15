@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Arch Linux PKGBUILD semantics (split packages with package_<name>() overrides, epoch-aware versioning, virtual provides/conflicts resolution), implementing pacman's vercmp algorithm faithfully, generating .SRCINFO files in exact makepkg --printsrcinfo format with all bash parameter expansions resolved, building dependency graphs with cycle detection and topological ordering, simulating package installation with provider selection and conflict avoidance across an interconnected 17-package ecosystem."""
+solution_explanation = """Build a bash extraction script that sources PKGBUILDs in subshells (overriding dangerous commands to no-ops for safe function evaluation), extracts global and per-package variables, correctly handling bash parameter expansion. Feed the extracted data into Python to: (1) build package/provider/conflict maps, (2) implement vercmp with epoch/segment/release parsing, (3) detect cycles via DFS and compute topological build order via min-heap Kahn's algorithm, (4) simulate installation by recursively resolving dependencies with highest-vercmp provider selection and version constraint validation, (5) generate .SRCINFO files with correct field ordering and variable-expanded values, (6) produce DOT source and render via graphviz."""
+verification_explanation = """Tests load /app/output/report.json and verify: correct 17-package discovery from 12 PKGBUILDs, epoch-aware version strings, variable-substituted dependency/provides arrays, 9 virtual provider mappings, 2 mutual conflict groups, plugin-host/ext-loader cycle detection, exact 15-element topological build order, 7 vercmp results covering epoch/numeric/alpha/segment-length cases, install simulation with correct provider selection (altdb-lib for dbclient via higher vercmp) and 10-package install order. SRCINFO tests verify file existence, tab indentation, variable expansion in source URLs, bash parameter expansion (${pkgver%%.*} -> 2, ${pkgver//./-} -> 3-1-0), split package section ordering, and correct field ordering. Graphviz test verifies SVG existence and content."""
+category = "devops"
+tags = ["package-management", "dependency-resolution"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pkgbuild-dep-analyzer"

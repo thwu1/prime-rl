@@ -1,0 +1,58 @@
+CD DATA QUALITY ASSESSMENT CRITERIA
+====================================
+
+
+Standard criteria for assessing the quality of circular dichroism spectroscopic
+measurements, derived from community validation protocols (cf. ValiDichro).
+
+REQUIRED CHECKS
+---------------
+
+1. DETECTOR HIGH-TENSION VOLTAGE (check name: ht_voltage)
+
+The photomultiplier tube high-tension (HT) voltage increases as sample absorbance
+rises, particularly at shorter wavelengths. Data recorded at excessive HT voltage
+is unreliable due to poor signal-to-noise characteristics.
+
+Acceptance criteria:
+  - Conventional (benchtop) instruments: maximum HT voltage must be <= 600 V
+  - Synchrotron radiation CD (SRCD) instruments: maximum HT voltage must be <= 700 V
+
+The instrument type is specified in the metadata JSON as the field "instrument_type"
+with possible values "benchtop" or "synchrotron". The maximum HT voltage recorded
+during the measurement is specified as the field "ht_voltage_max".
+
+2. WAVELENGTH RANGE COVERAGE (check name: wavelength_range)
+
+Reliable secondary structure estimation requires spectral data extending into the
+far-UV region. Spectra that do not extend below 200 nm contain insufficient
+information content for accurate deconvolution.
+
+Acceptance criterion: the minimum wavelength present in the spectrum must be
+at or below 200 nm (i.e., min_wavelength <= 200.0).
+
+3. BASELINE QUALITY (check name: baseline_flatness)
+
+Protein CD signals are negligible at wavelengths above approximately 250 nm.
+Non-zero signal in this long-wavelength region indicates systematic errors such
+as sample scattering, incorrect solvent blank subtraction, or instrumental drift.
+
+Acceptance criterion: the mean of the absolute values of the signal for all data
+points at wavelengths >= 250 nm must be less than 2.0 (in delta-epsilon units).
+
+4. CSA CALIBRATION VERIFICATION (check name: csa_calibration)
+
+Camphorsulfonic acid (CSA) is the NIST-traceable calibration standard for CD
+instruments. The ratio of the positive CD peak amplitude (~290.5 nm) to the
+absolute value of the negative peak (~192.5 nm) should be approximately 2.00.
+
+Acceptance criterion: when the metadata JSON provides a "csa_ratio" field, the
+value must fall within the range [1.95, 2.05] (inclusive bounds). If the metadata
+does not contain a "csa_ratio" field, this check passes by default.
+
+OUTPUT FORMAT
+-------------
+
+Each check should report: whether it passed (boolean), the measured or provided
+value, and the acceptance threshold that was applied. The overall assessment passes
+only when every individual check passes.

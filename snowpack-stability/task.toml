@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-algorithm stability computation pipeline from ~7600 lines of C++ source code (SNOWPACK stability module). The solver must understand the .pro file format by examining data files and cross-referencing with the source, implement grain-type-dependent shear strength parameterizations, stress reduction geometry, skier penetration depth, four interacting stability indices (Sn38, Sk38, SSI, CCL), Young's modulus parameterization, and a classification scheme — all without formulas provided in the instructions."""
+solution_explanation = """Parse the .pro file by recognizing code-prefixed CSV lines. Extract element properties (height, density, grain type, grain size, stress, marker, hardness) per timestep. Implement DEFAULT shear strength model from setShearStrengthDEFAULT (grain-type-dependent power laws of rho/rho_ice, with MFcr fixed at 4.0 kPa). Compute reduced stresses via cos(psi_ref)/cos(slope) ratio. Penetration depth from top-30cm mean density. Natural and skier stability via strength/stress ratios with Foehn skier stress formula. SSI from lemon counting (hardness diff > 1.5, grain size diff > 0.5 mm). Classification via Schweizer-Bellaire2 scheme using lemon count and Sk38 thresholds. CCL via Gaume et al. (2017) using Pow Young's modulus, weak layer compliance, and accumulated slab properties. All indices clamped to [0.05, 6.0], CCL to [0, 3.0]."""
+verification_explanation = """51 pytest tests across 7 classes: (1) thin snowpack parsing with 6 elements and undefined stability; (2) PP grain shear strength values; (3) Dec 15 full stability including class 3, MFcr/FC strengths, penetration depth, CCL range and count; (4) Feb 15 deep snowpack with class 1, weak layers, CCL distribution; (5) cross-timestep consistency (schema, clamping, relative stability, SSI>=Sk38); (6) slope angle sensitivity (38 vs 0 deg) verifying Sn38/Sk38/CCL decrease and shear strength invariance; (7) CCL structural validation (depth variation, Young's modulus dependence, bottom/top layer handling)."""
+category = "applied_computing"
+tags = ["snow-science", "geophysics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/snowpack-stability"

@@ -1,0 +1,7 @@
+error_code,category,severity,description
+E001,network,critical,Connection timeout
+E002,network,warning,DNS resolution failure
+E003,storage,critical,Disk space low
+E004,auth,high,Authentication failure
+E005,application,critical,Unhandled exception
+E006,memory,critical,Memory overflow

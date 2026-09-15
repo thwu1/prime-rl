@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing COLMAP sparse model text format (quaternion-based camera poses in a two-line-per-image structure with interleaved 2D observations), querying a SQLite metadata database for evaluation configuration, deriving camera world positions from the COLMAP coordinate convention, implementing a robust 7-DOF similarity alignment of 3D point sets that handles significant outlier fractions, and computing the mAA metric as normalized AUC. Demands expertise in multi-view geometry, 3D point set registration, the COLMAP ecosystem, and database-driven pipeline orchestration."""
+solution_explanation = """The solution queries the SQLite database for methods, scenes, and thresholds. It parses COLMAP images.txt files to extract quaternion-encoded poses, converts quaternions to rotation matrices, and computes camera world-space centers. For robust alignment, it implements Horn's absolute orientation (quaternion-based similarity transform via eigendecomposition of a 4x4 cross-covariance matrix) within a RANSAC-like exhaustive triplet search with inlier-based refinement. mAA is computed as the normalized trapezoidal AUC of per-threshold scene-averaged accuracies."""
+verification_explanation = """Tests verify JSON output format (required keys, threshold count, value ranges), method ranking order (method_a > method_b > method_c), mAA bounds, reference comparison within 0.04 tolerance using an independent implementation that parses COLMAP format and queries SQLite, per-threshold accuracy monotonicity, and AUC self-consistency."""
+category = "computer_vision"
+tags = ["3d-reconstruction", "pose-estimation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/camera-registration-maa"

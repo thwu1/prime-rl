@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the YATA sequence CRDT conflict resolution algorithm in Python from an algorithm reference document. The agent must correctly handle: Lamport-timestamped items in a doubly-linked list, the YATA integration scan (origin/originRight context matching with client-ID tiebreaking), state-vector-based differential sync, tombstone-based deletions, snapshot creation and temporal reconstruction via state-vector/delete-set filtering, and delta encoding between snapshots. Getting the conflict resolution exactly right — particularly the scanning loop with its multiple break conditions and the interaction between origin tracking and client ID ordering — is the core challenge. The tests check exact character ordering against 37 known outcomes covering 2-to-4-client conflicts, phased edit-sync cycles, and interleaved insert/delete scenarios."""
+solution_explanation = """Implements a doubly-linked list of Item nodes with Lamport timestamps, a struct store for efficient lookup, and the YATA integration algorithm (scanning between origin and originRight, comparing client IDs to resolve conflicts). State vectors track per-client clocks for diff-based sync. Snapshots combine state vectors with delete sets to enable temporal reconstruction. Delta encoding computes structural and deletion differences between snapshot pairs."""
+verification_explanation = """37 pytest tests verify: basic insert/delete operations (8), state vector computation (3), concurrent insert convergence for 2 and 3 clients (4), sync commutativity/idempotency/convergence/deletion propagation (4), snapshot creation and restoration including pre-deletion state recovery and multi-client scenarios (4), delta encoding with and without deletions and delta application (3), complex multi-phase editing and temporal reconstruction (3), and 8 advanced conflict resolution scenarios covering multi-char concurrent inserts, 4-client conflicts, inserts with deletes, phased edit-sync cycles, delete-and-insert in the same region, three-way conflicts, multi-round appends, and reverse client-ID ordering."""
+category = "distributed_systems"
+tags = ["crdt", "conflict-resolution"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/yata-crdt-temporal"

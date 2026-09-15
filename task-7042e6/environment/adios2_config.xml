@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<adios-config>
+    <io name="SimOutput">
+        <engine type="BP4">
+            <parameter key="SubStreams" value="1"/>
+        </engine>
+    </io>
+</adios-config>

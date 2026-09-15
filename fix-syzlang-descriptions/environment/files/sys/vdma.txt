@@ -1,0 +1,103 @@
+# Syzkaller syscall descriptions for /dev/vdma
+# Virtual DMA controller interface.
+
+include <linux/types.h>
+
+# Resource definitions
+resource fd_vdma[fd]
+resource vdma_channel[int32]: 0xffffffff
+resource vdma_cookie[int32]: 0xffffffff
+resource vdma_fence[int32]: 0xffffffff
+
+# Flag sets
+vdma_cap_flags = VDMA_CAP_SG, VDMA_CAP_CYCLIC, VDMA_CAP_INTERLEAVE, VDMA_CAP_MEMCPY, VDMA_CAP_MEMSET
+vdma_dir_flags = VDMA_DIR_MEM_TO_DEV, VDMA_DIR_DEV_TO_MEM, VDMA_DIR_MEM_TO_MEM
+vdma_xfer_flags = VDMA_XFER_INTERRUPT, VDMA_XFER_FENCE, VDMA_XFER_CYCLIC
+vdma_stat_flags = VDMA_STAT_IDLE, VDMA_STAT_RUNNING, VDMA_STAT_PAUSED, VDMA_STAT_ERROR, VDMA_STAT_COMPLETED
+vdma_evt_types = VDMA_EVT_XFER_DONE, VDMA_EVT_ERROR, VDMA_EVT_THRESHOLD
+vdma_err_codes = VDMA_ERR_BUS, VDMA_ERR_SLAVE, VDMA_ERR_DECODE, VDMA_ERR_TIMEOUT
+
+# Open/close device
+openat$vdma(fd const[AT_FDCWD], file ptr[in, string["/dev/vdma"]], flags flags[open_flags], mode const[0]) fd
+close$vdma(fd fd_vdma)
+
+# Ioctl definitions
+ioctl$VDMA_IOC_ALLOC(fd fd_vdma, cmd const[VDMA_IOC_ALLOC], arg ptr[in, vdma_alloc_req])
+ioctl$VDMA_IOC_FREE(fd fd_vdma, cmd const[VDMA_IOC_FREE], arg ptr[in, int32])
+ioctl$VDMA_IOC_CONFIG(fd fd_vdma, cmd const[VDMA_IOC_CONFIG], arg ptr[inout, vdma_chan_config])
+ioctl$VDMA_IOC_SUBMIT(fd fd_vdma, cmd const[VDMA_IOC_SUBMIT], arg ptr[in, vdma_xfer_desc])
+ioctl$VDMA_IOC_STATUS(fd fd_vdma, cmd const[VDMA_IOC_STATUS], arg ptr[inout, vdma_xfer_status])
+ioctl$VDMA_IOC_ABORT(fd fd_vdma, cmd const[VDMA_IOC_ABORT], arg ptr[in, vdma_channel])
+ioctl$VDMA_IOC_PAUSE(fd fd_vdma, cmd const[VDMA_IOC_PAUSE], arg ptr[in, vdma_channel])
+ioctl$VDMA_IOC_RESUME(fd fd_vdma, cmd const[VDMA_IOC_RESUME], arg ptr[in, vdma_channel])
+ioctl$VDMA_IOC_WAIT_EVT(fd fd_vdma, cmd const[VDMA_IOC_WAIT_EVT], arg ptr[inout, vdma_event])
+ioctl$VDMA_IOC_FENCE(fd fd_vdma, cmd const[VDMA_IOC_FENCE], arg ptr[inout, vdma_fence_req])
+ioctl$VDMA_IOC_BATCH(fd fd_vdma, cmd const[VDMA_IOC_BATCH], arg ptr[inout, vdma_batch_submit])
+
+# Struct definitions
+
+vdma_sg_entry {
+	len	int32
+	addr	int64
+	stride	int32
+}
+
+vdma_alloc_req {
+	caps		flags[vdma_cap_flags, int32]
+	priority	int32[0:3]
+	channel		int32
+	padding		int32
+}
+
+vdma_xfer_desc {
+	channel		vdma_channel
+	direction	flags[vdma_dir_flags, int32]
+	src_addr	int64
+	dst_addr	int64
+	length		int64
+	flags		flags[vdma_cap_flags, int32]
+	sg_count	int32
+	cookie		int64
+	sg_list		array[vdma_sg_entry]
+}
+
+vdma_xfer_status {
+	cookie			vdma_cookie	(in)
+	status			int32		(out)
+	bytes_remaining		int32		(out)
+	timestamp		int64		(out)
+}
+
+vdma_chan_config {
+	channel		vdma_channel
+	burst_len	int32
+	src_addr_width	int32
+	dst_addr_width	int32
+	max_sg_entries	int32		(out)
+	max_burst_len	int32		(out)
+	padding		int32
+}
+
+vdma_event {
+	channel		vdma_channel
+	evt_type	flags[vdma_evt_types, int32]
+	seq_num		int64
+	cookie		int64
+}
+
+vdma_fence_req {
+	channel		vdma_channel
+	timeout_ms	int32
+	fence_val	vdma_fence
+	status		int32		(out)
+}
+
+vdma_batch_hdr {
+	num_xfers	int32
+	flags		int32
+}
+
+vdma_batch_submit {
+	header		vdma_batch_hdr
+	cookies		array[int64]	(out)
+}

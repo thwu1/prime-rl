@@ -1,0 +1,7 @@
+{
+  "name": "config-utils",
+  "version": "1.3.0",
+  "description": "Configuration file parser and merger with YAML support and remote schema validation",
+  "main": "index.js",
+  "license": "MIT"
+}

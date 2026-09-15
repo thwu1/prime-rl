@@ -1,0 +1,37 @@
+[
+  {
+    "name": "wide_square",
+    "NX": 32,
+    "NY": 32,
+    "dtype": "float32",
+    "access": "column"
+  },
+  {
+    "name": "narrow_tile",
+    "NX": 16,
+    "NY": 32,
+    "dtype": "float32",
+    "access": "column"
+  },
+  {
+    "name": "wide_tile",
+    "NX": 64,
+    "NY": 32,
+    "dtype": "float32",
+    "access": "column"
+  },
+  {
+    "name": "small_tile",
+    "NX": 8,
+    "NY": 32,
+    "dtype": "float32",
+    "access": "column"
+  },
+  {
+    "name": "row_access",
+    "NX": 32,
+    "NY": 32,
+    "dtype": "float32",
+    "access": "row"
+  }
+]

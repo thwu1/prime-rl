@@ -1,0 +1,38 @@
+MAINTENANCE SESSION REPORT
+===========================
+Date: 2026-05-14
+Operator: J. Chen
+Vehicle: HexaCross-8 (SN: HC8-0042)
+Reason: Thruster 4 motor replacement (bearing failure)
+
+Work Performed
+--------------
+- Removed and replaced T4 motor assembly (Blue Robotics T200 #BR-100398)
+- Disconnected and re-seated all ESC wiring harnesses (T1-T8)
+- Updated frame.param with re-measured thruster positions and orientations
+  NOTE: Parameters entered manually from paper worksheets due to laptop
+  failure during maintenance session. Some measurement sheets had water
+  damage on the right margin making certain values difficult to read.
+
+Post-Maintenance Test (2026-05-15)
+----------------------------------
+- All 8 thrusters powered and responding to commands
+- Motor health check: all nominal (current draw, RPM, temperature)
+- Ran systematic thruster test sequence (session_id=3 in telemetry DB)
+  * Commands recorded in PWM microseconds (1100-1900, neutral=1500)
+  * Commands stored per-thruster in long format (one row per thruster
+    per timestep) -- must pivot to get simultaneous 8-channel view
+  * IMU accelerations (linear + angular) logged at 50 Hz
+  * Calibration data in /app/calibration/thrust_cal.dat required to
+    convert PWM commands to actual thrust force in Newtons
+
+Observed Anomalies
+------------------
+1. Position hold showed unexpected drift in surge/sway axis
+2. Heave axis showed unexplained lateral acceleration component
+3. Yaw response appeared incorrect during manual testing
+4. Roll moment distribution asymmetric during vertical thruster testing
+
+Recommendation: Use system identification on session 3 data to recover
+the true thruster-to-wrench mapping and compare against the configured
+allocation matrix. Vehicle mass/inertia properties are in vehicle.urdf.

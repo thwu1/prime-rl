@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interacting bugs across three files in a cache eviction system: (1) a clock-wrapping arithmetic error that silently corrupts idle-time computation after ~65K accesses, (2) a frequency counter that grows linearly instead of logarithmically, causing counters to explode to thousands for hot keys, (3) time-based frequency decay that silently fails across clock wrap boundaries (elapsed time clamped to zero), (4) a non-determinism bug from using the global RNG instead of a seeded instance in one workload generator, and (5) suboptimal stale-entry handling in the eviction pool. The bugs interact: fixing the clock wrap alone is insufficient because unbounded frequency counters dominate the eviction score, and fixing frequency alone fails because decay breaks at clock boundaries. Symptoms (poor adaptive performance, inconsistent results) do not map to root causes in obvious ways. Correct diagnosis requires understanding modular arithmetic, probabilistic counter design, and how recency/frequency signals compose in eviction scoring."""
+solution_explanation = """Fix idle_time() clock-wrap from `current + access_clock` to `(CLOCK_MAX - access_clock) + current + 1`. Replace linear frequency increment with logarithmic: P=1/(baseval*log_factor+1) where baseval=max(0, counter-FREQ_INIT_VAL), saturating at 255. Fix _decayed_frequency to compute wrap-aware elapsed time via the same modular formula instead of clamping negatives to zero. Fix temporal_locality_workload to use `rng.random()` instead of `random.random()`. Add retry loop in select_victim to skip stale pool entries. Run benchmark to produce deterministic results.json where adaptive outperforms baselines."""
+verification_explanation = """Tests verify: (1) results.json exists with all 5 scenarios (zipfian_standard, zipfian_moderate, temporal_locality, uniform, scan_mixed) and 4 policies, (2) adaptive beats random by 10%+ on Zipfian standard, 15%+ on moderate-skew Zipfian, and 10%+ on temporal locality, (3) adaptive not much worse than random on uniform, (4) idle_time consistency and ordering across clock wrap boundaries, (5) cache never exceeds max_entries, (6) frequency counter bounded at 255 after 10K accesses to a single key, (7) temporal_locality_workload produces identical traces with same seed, (8) re-running benchmark produces identical results.json."""
+category = "information_systems"
+tags = ["cache-eviction", "systems-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lfu-cache-eviction"

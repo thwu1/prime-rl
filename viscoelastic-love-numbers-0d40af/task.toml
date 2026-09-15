@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a ~18,000-line Fortran 90 program (TABOO) to extract Earth model parameters from coded profile identifiers, understanding the propagator-matrix formalism for viscoelastic Love numbers in a layered self-gravitating incompressible Earth, parsing a domain-specific configuration format, and implementing the full numerical pipeline (normalization, fundamental matrix construction, polynomial matrix products, secular determinant, eigenvalue extraction, residue computation) in Python with sufficient numerical accuracy."""
+solution_explanation = """Parse the TABOO Make_Model format to extract NV=2, CODE=2, LT=100, and layer viscosities. Look up the NV=2 CODE=2 model profile in TABOO's subroutine SPEC to obtain radii=[3480,5701,6271,6371]km, densities=[10927,4919,4430,2689]kg/m³, rigidities=[0,2.17e11,8.37e10,2.82e10]Pa. Normalize all quantities (DEFPA subroutine pattern). For each harmonic degree, build 6x6 propagator matrices via DIRETTA/INVERSA/MATPROD, form the Maxwell polynomial coefficients, compute the polynomial product (PROMAT), construct the 3x3 secular polynomial via surface projectors and core boundary conditions (COREBO), find roots of the secular determinant (DET_TU), filter physical modes, compute elastic Love numbers from leading polynomial coefficients, compute viscoelastic residues via adjoint/derivative evaluation, and derive fluid limits from the normal-mode sum."""
+verification_explanation = """Tests run the solver's script, load results.json, and verify: (1) correct JSON structure with degrees, elastic, fluid, spectrum, residues; (2) elastic h,l at sampled degrees match TABOO reference within 5e-4; (3) fluid h,l at sampled degrees match within 5e-3; (4) spectrum mode count and values at sampled degrees match within 5e-3; (5) self-consistency X_f = X_e - sum(X_v/s) for h,l,k within 1e-8; (6) physical constraints (h_e<0, k_e<0, h_f<h_e)."""
+category = "computational_geophysics"
+tags = ["numerical-linear-algebra", "viscoelastic-earth-model"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/viscoelastic-love-numbers-0d40af"

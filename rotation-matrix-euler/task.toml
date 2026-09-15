@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level 3D rotation math (Euler decomposition, quaternions, matrix logarithm, swing-twist decomposition) plus CMake build system debugging. The solver must: (1) diagnose and fix 3 CMake configuration errors (wrong C++ standard, wrong source filename, wrong test path) to get the project building, (2) analyze test failures to discover undocumented bugs in Euler conversion (sign error, missing orders), quaternion extraction (sign error in negative-trace branch), SLERP (missing antipodal correction), axis-angle extraction (missing 180-degree singularity), and conformal check (missing z-axis verification), (3) design and implement three novel algorithms from mathematical specifications: rotation matrix logarithmic map on SO(3) with singularity handling, geodesic distance metric satisfying metric properties, and quaternion swing-twist decomposition. The novel algorithms require genuine mathematical design, not pattern-matching."""
+solution_explanation = """Fix CMakeLists.txt: C++14→17, rotation_math_impl.cpp→rotation_math.cpp, /test/→/tests/. Fix rotation_math.cpp: (1) implement set_euler for XZY/YZX/ZXY/ZYX with correct matrix multiplication order, (2) fix get_euler XYZ sign error (atan2(-rows[0][1], rows[0][0])), (3) implement get_euler for 4 missing orders by deriving correct matrix element selections and gimbal lock branches, (4) fix get_quaternion negative-trace: rows[k][j]-rows[j][k] not +, (5) add slerp antipodal correction, (6) add 180-degree axis-angle singularity extraction from diagonal, (7) add z-axis length check in is_conformal. Implement log_rotation using theta/(2*sin(theta)) scaling with Taylor expansion for small angles and diagonal extraction for 180-degree. Implement geodesic_distance as acos((trace(A^T*B)-1)/2). Implement swing_twist_decompose by projecting quaternion vector part onto twist axis, normalizing, and computing swing = q * twist^-1."""
+verification_explanation = """Tests compile via CMake and run a C++ test binary producing deterministic PASS/FAIL lines parsed by pytest. Coverage: Euler set/get roundtrips for all 6 orders with 50+ angle vectors including gimbal lock, matrix-to-quaternion roundtrips for positive and negative trace, axis-angle extraction for identity/180-degree/general/near-zero, SLERP correctness including antipodal, conformal/orthogonal/orthonormal property checks, log_rotation roundtrips and singularity cases, geodesic distance metric properties (zero/symmetry/triangle inequality), swing-twist decomposition verification (composition, axis parallelism, perpendicularity)."""
+category = "numerical-computing"
+tags = ["3d-rotation-math", "cmake-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotation-matrix-euler"

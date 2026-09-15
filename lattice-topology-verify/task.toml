@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four independent bugs in a CSG pipeline that constructs a gyroid TPMS shell clipped to a rhombic dodecahedron using manifold3d. The bugs span: (1) a missing phase offset in the gyroid SDF that changes how the surface clips against the bounding polyhedron, (2) an incomplete rhombic dodecahedron construction missing a third box-intersection, (3) a level-set mesh resolution too coarse to capture the correct topology, and (4) a Boolean union where subtraction is required to create the shell. Fixing each requires understanding implicit surface geometry, polyhedral CSG, marching-cubes resolution effects on topology, and Boolean semantics for shell construction. No bug is indicated in the instructions — the solver must diagnose all issues from the mismatch between output and target."""
+solution_explanation = """Install manifold3d and numpy. Read build.py and target.json. Run the broken script and compare output to target (genus, volume, etc.). Diagnose four bugs: (1) add pi/4 phase shift to gyroid SDF arguments, (2) add missing third intersection in rhombic_dodecahedron, (3) increase mesh resolution parameter n from 6 to ~15, (4) change Boolean from union (+) to subtraction (-) for the inner level set. Verify the corrected script produces genus=15, 1 connected component, and valid manifold with volume/surface_area in expected ranges."""
+verification_explanation = """Tests check that result.json exists with correct schema, genus equals exactly 15 (the known topological invariant of a gyroid module bounded by a rhombic dodecahedron), num_components equals 1, is_valid is true, volume and surface_area are in analytically bounded ranges, mesh has positive vertex/triangle counts, and the Euler characteristic is internally consistent (2V - F = 4 - 4g)."""
+category = "computational_geometry"
+tags = ["csg", "manifold3d"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lattice-topology-verify"

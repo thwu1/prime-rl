@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional telecom testing expertise spanning two phases: (1) diagnosing and fixing six subtle semantic bugs in a TTCN-3 template matching engine where the bugs exploit Python language edge cases (bool subclassing int causing range match false positives, shallow copy mutation corrupting shared template registries across test case executions, incomplete backtracking in record-of list matching) and TTCN-3 specification nuances (complement requiring present values, charstring pattern zero-length semantics, verdict component identity immutability), using a CLI oracle diagnostic tool to identify failures and then cross-referencing three separate specification documents to determine correct behavior; (2) designing and implementing a complete TTCN-3 conformance test execution engine from ETSI specification documents without any starter code, requiring holistic understanding of PICS boolean expression evaluation, alt-block behavior execution with nested alternatives, template resolution through modification chains, multi-component parallel test coordination, and hierarchical verdict aggregation across component/test-case/suite/overall levels. The agent must also navigate an unfamiliar multi-stage build pipeline orchestrated by Make, using the validation CLI tool and oracle runner as diagnostic instruments."""
+solution_explanation = """The solution runs /solution/fix_matcher.py to patch six bugs in /app/matcher.py: (1) adding boolean type rejection before range numeric check, (2) adding None/absent rejection to complement matching, (3) fixing charstring star pattern translation from .+ to .* for zero-length match semantics, (4) expanding list AnyOrNone backtracking from two-point [0, N] to full range(0, N+1) for intermediate split positions, (5) replacing shallow copy.copy with copy.deepcopy in template modifies resolution to prevent cross-test registry mutation, (6) making VerdictResolver.create_component idempotent by checking existence before resetting. Then copies /solution/engine.py implementing a ConformanceEngine class with: a tokenizer and recursive-descent parser for PICS boolean expressions with correct AND/OR/NOT precedence; per-component state tracking (verdict, timers, pending response, response queue); alt-block evaluation with first-match semantics, receive/timeout/else guards, and bounded repeat iteration; template resolution through the suite registry supporting modifies chains; and hierarchical verdict aggregation using monotonic max across components, test cases, and suites. Finally runs make all to verify the complete four-stage pipeline."""
+verification_explanation = """Tests run in two phases: (1) execute /app/conformance_runner.py and verify exit code 0, confirming all 13 template matching oracle tests and verdict resolution tests pass across matcher_tests.json (9 tests covering range boolean rejection, complement null rejection, pattern zero-length, list backtracking, and modifies isolation) and verdict_tests.json (4 tests covering monotonic ordering, multi-component max, idempotent create, and verdict level ordering); (2) execute /app/run_conformance.py and verify both conformance report files against expected verdicts. For profile_a: SIP suite has 5/7 selected (V_002/V_006 skipped by PICS), verdicts V_001=pass, V_003=pass, I_001=inconc, I_002=fail, V_005=pass, suite=fail; Diameter has 5/6 selected (IPS_02 skipped), verdicts IPS_01=pass, STR_01=pass, IPS_03=inconc, IPS_04=pass, LEG_01=pass, suite=inconc; overall=fail. For profile_b: SIP has 7/7 selected including auth-challenge V_002 and multi-PTC V_006, suite=fail; Diameter has 5/6 selected (LEG_01 skipped by NOT PICS_LEGACY_MODE), suite=inconc; overall=fail. Tests verify PICS filtering asymmetry (AND/OR/NOT expressions), alt-block first-match ordering, repeat semantics for multi-response sequences, multi-component verdict aggregation, and template modifies chain resolution."""
+category = "protocol-engineering"
+tags = ["ttcn-3", "conformance-testing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-088b2e"

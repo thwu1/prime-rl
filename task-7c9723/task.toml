@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Network-on-Chip routing, dimension-ordered path computation, and link-level congestion modeling on mesh interconnects. The agent must formulate DRAM reader placement as a constrained combinatorial optimization problem — the hardest scenario (five harvested rows) forces multiple displaced banks onto a single available row, making naive greedy approaches suboptimal and requiring backtracking or ILP-based solving. Beyond placement, the agent must integrate three specialized tools: (1) PuLP or equivalent ILP solver for provably optimal placement, (2) SQLite for structured data persistence with a prescribed 4-table schema, and (3) Graphviz neato engine with pinned-position DOT generation for NoC topology visualization. The link utilization analysis requires holistic understanding of how dimension-ordered return paths create directional link sets and how congestion freedom is verified at the link level."""
+solution_explanation = """An ILP formulation using PuLP with CBC solver: binary assignment variables x[bank,position], objective minimizing total Manhattan-distance hops, with constraints for unique assignment, no position duplicates, and — critically — per-directional-link conflict constraints ensuring no two return paths on the same NoC share any link. Return paths are computed using dimension-ordered routing (East-then-South for NoC 0, West-then-North for NoC 1). Results are stored in SQLite following the provided schema, and Graphviz DOT files with explicit neato positions render the grid with color-coded return paths."""
+verification_explanation = """Tests independently recompute return-path directional links for each placement and verify no two paths on the same NoC share any link. Placement validity is checked (worker tiles, no harvested rows, no duplicates, correct NoC assignment, routing direction). Total hops are verified against known optimal bounds for each scenario. Bandwidth estimates are recomputed from the hop-penalty formula. SQLite database is queried to verify schema, row counts, max link load = 1, and consistency with JSON results. Graphviz DOT files are checked for structure (digraph declaration, positioned nodes, edges) and rendered SVGs are verified for existence and validity."""
+category = "systems_engineering"
+tags = ["noc-routing", "hardware-architecture"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7c9723"

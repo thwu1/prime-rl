@@ -1,0 +1,51 @@
+EPA ProUCL 5.2 - UCL Method Selection Decision Logic
+=====================================================
+
+FULLY DETECTED DATA (no non-detects)
+─────────────────────────────────────
+  │
+  ├── Is n < 10?
+  │   └── YES → Recommend simple parametric UCL only
+  │             (bootstrap and gamma methods not appropriate)
+  │
+  ├── Does data pass Normal GOF (Shapiro-Wilk, alpha=0.05)?
+  │   └── YES → Recommend parametric normal-theory UCL
+  │
+  ├── Does data pass Gamma GOF?
+  │   └── YES → Recommend gamma-based UCL
+  │
+  ├── Does data pass Lognormal GOF?
+  │   ├── YES and n >= 70 → Consider lognormal-based UCL
+  │   ├── YES and moderate skewness → Consider lognormal-based UCL
+  │   └── YES but high skewness or small n → Do NOT use lognormal UCL
+  │
+  └── No parametric fit
+      ├── n >= 20 → Recommend studentized bootstrap method
+      ├── n >= 10 → Recommend resampling-based UCL
+      └── n < 10  → Use simple parametric (with caution)
+
+IMPORTANT: Chebyshev UCL is computed but NEVER recommended (v5.2 change)
+
+
+DATA WITH NON-DETECTS (left-censored)
+─────────────────────────────────────
+  │
+  ├── Use censored-data estimators (KM, ROS) — NOT simple substitution
+  │
+  ├── Compute both KM-based and ROS-based estimates
+  │
+  ├── Apply UCL methods to the censored-data estimates
+  │   (e.g., t-UCL, BCA, Chebyshev based on KM statistics)
+  │
+  ├── Is censoring > 50%?
+  │   └── YES → Flag as potentially unreliable
+  │
+  ├── Is n_detect >= 10?
+  │   ├── YES → Test GOF on detected values, select UCL accordingly
+  │   └── NO  → Use t-based UCL on KM estimates
+  │
+  └── Is n < 10?
+      └── YES → Simple t-based methods only
+
+NOTE: The decision logic applies distribution testing to determine
+which UCL formula to pair with the censored-data estimator.

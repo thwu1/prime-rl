@@ -1,0 +1,38 @@
+name: east
+mgmt:
+  ipv4-subnet: 172.20.20.0/24
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+  kinds:
+    srl:
+      image: ghcr.io/nokia/srlinux
+      env:
+        DISTRO: srlinux
+  groups:
+    spines:
+      kind: srl
+      labels:
+        role: spine
+    leaves:
+      labels:
+        role: leaf
+  nodes:
+    spine1:
+      group: spines
+    spine2:
+      group: spines
+    leaf1:
+      group: leaves
+    leaf2:
+      group: leaves
+    server1:
+      labels:
+        role: server
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["leaf1:eth3", "server1:eth1"]

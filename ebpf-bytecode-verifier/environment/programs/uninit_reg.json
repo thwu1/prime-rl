@@ -1,0 +1,9 @@
+{
+  "name": "uninit_reg",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "mov64_reg", "dst": 0, "src": 7},
+    {"op": "exit"}
+  ]
+}

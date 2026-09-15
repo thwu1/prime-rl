@@ -1,0 +1,12 @@
+# LegalCiteBench Scoring Configuration (Base)
+
+citation_matching:
+  method: bidirectional_substring
+  case_sensitive: false
+
+cat1_cat2:
+  f1_scale: 100
+
+cat3:
+  raw_score_max: 5
+  report_scale: 100

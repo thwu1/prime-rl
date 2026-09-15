@@ -1,0 +1,95 @@
+=== Network Design Specification ===
+Router: OpenWrt-based, DSA, 4 LAN ports (lan1-lan4), WAN on eth1
+
+== Physical Port Assignments ==
+- lan1: Home LAN (VLAN 1, untagged)
+- lan2: Home LAN (VLAN 1, untagged) + DMZ trunk (VLAN 20, tagged)
+- lan3: Guest network (VLAN 30, untagged)
+- lan4: IoT devices (VLAN 50, untagged)
+- eth1: WAN uplink
+
+Port lan2 carries two VLANs simultaneously: LAN traffic as native/untagged
+frames, and DMZ traffic on 802.1Q VLAN tag 20. The DMZ server connected
+to lan2 has its NIC configured for VLAN 20 tagging on its end. The router's
+DSA bridge-vlan configuration must reflect this trunk arrangement so that
+tagged DMZ frames and untagged LAN frames coexist on the same physical link.
+
+== Network Zones & Addressing ==
+- LAN:   192.168.1.0/24,  gateway 192.168.1.1
+- DMZ:   192.168.20.0/24, gateway 192.168.20.1
+- Guest: 192.168.30.0/24, gateway 192.168.30.1
+- IoT:   192.168.50.0/24, gateway 192.168.50.1
+- WAN:   DHCP client
+
+== VLAN Configuration (DSA bridge-vlan) ==
+All LAN ports are members of a single bridge device 'br-lan'.
+Bridge VLANs segment traffic:
+- VLAN 1  on lan1, lan2 (both untagged)
+- VLAN 20 on lan2 (tagged -- 802.1Q trunk sharing the physical port with VLAN 1)
+- VLAN 30 on lan3 (untagged)
+- VLAN 50 on lan4 (untagged)
+
+Each zone's interface binds to its VLAN sub-device:
+  lan   -> br-lan.1
+  dmz   -> br-lan.20
+  guest -> br-lan.30
+  iot   -> br-lan.50
+
+All zone gateway interfaces (lan, dmz, guest, iot) use proto 'static'
+with their respective gateway IP address assigned via 'list ipaddr'
+in CIDR notation (e.g. '192.168.1.1/24').
+
+== Firewall Policy ==
+Default policies: input REJECT, output ACCEPT, forward REJECT
+
+Zone policies:
+- lan:   input ACCEPT,  output ACCEPT, forward ACCEPT (trusted home network)
+- wan:   input DROP, output ACCEPT, forward DROP, masquerade enabled, mtu_fix on
+         All WAN-facing interfaces (IPv4 DHCP and IPv6 DHCPv6) must be zone members.
+- dmz:   input DROP,    output ACCEPT, forward REJECT (public-facing, locked down)
+- guest: input DROP,    output ACCEPT, forward REJECT (isolated guest network)
+- iot:   input DROP,    output ACCEPT, forward REJECT (isolated IoT devices)
+
+Forwarding rules (all must be present and enabled):
+- lan   -> wan  (internet access for LAN)
+- lan   -> dmz  (LAN users can manage DMZ servers)
+- lan   -> iot  (management access from LAN to IoT devices)
+- dmz   -> wan  (DMZ servers can fetch updates from internet)
+- guest -> wan  (internet access for guests)
+- iot   -> wan  (IoT devices can reach cloud services)
+
+Isolation constraints: Only the LAN zone (as the trusted management network)
+may forward to internal zones (dmz, iot). No other internal zone may forward
+to another internal zone. The DMZ, guest, and IoT zones must forward
+exclusively to wan. Any forwarding from a non-LAN zone to an internal zone
+constitutes a lateral movement vulnerability and is prohibited.
+
+Traffic rules:
+- Guest zone: allow DNS (port 53 tcp/udp) and DHCP (port 67 udp) to router
+- IoT zone:   allow DNS (port 53 tcp/udp) and DHCP (port 67 udp) to router
+- DMZ zone:   allow DNS (port 53 tcp/udp) and DHCP (port 67 udp) to router
+- LAN -> IoT: allow TCP 8080 (web UI management) and TCP 1883 (MQTT broker)
+- WAN:        allow established/related connections
+
+Port forwarding (public services hosted in DMZ):
+- WAN TCP 80  -> 192.168.20.10:80  (HTTP web server in DMZ)
+- WAN TCP 443 -> 192.168.20.10:443 (HTTPS web server in DMZ)
+Note: The office HTTPS server has been relocated from the LAN to the DMZ.
+Any existing WAN port forwards for HTTPS must be updated to target the
+DMZ server's address. An HTTP port forward must also be created.
+
+== DHCP Configuration ==
+- LAN pool:   interface 'lan',   start 100, limit 150, lease 12h
+- DMZ pool:   interface 'dmz',   start 10,  limit 20,  lease 24h
+- Guest pool: interface 'guest', start 100, limit 150, lease 2h
+- IoT pool:   interface 'iot',   start 100, limit 150, lease 24h
+
+== DNS-over-TLS (dnsmasq + stubby) ==
+- dnsmasq has noresolv enabled (does not use /etc/resolv.conf)
+- dnsmasq forwards all queries to stubby via:
+    list server '127.0.0.1#5453'
+    list server '::1#5453'
+- stubby listens on 127.0.0.1@5453 and 0::1@5453
+- stubby upstream: Cloudflare DNS (1.1.1.1 and 1.0.0.1) on TLS port 853
+- TLS authentication required, auth name: cloudflare-dns.com
+- The dnsmasq forwarding port and stubby listen port MUST match (5453)

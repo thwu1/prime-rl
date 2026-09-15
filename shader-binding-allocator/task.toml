@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level GPU shader pipeline knowledge: converting sokol-shdc annotated GLSL to standalone Vulkan GLSL (auto-assigning I/O location qualifiers for cross-stage interface matching, remapping per-category binding indices to unique Vulkan descriptor set+binding pairs to avoid conflicts), then driving glslangValidator and spirv-cross CLI tools with correct flags for SPIR-V compilation and MSL/HLSL cross-compilation. The agent must understand why annotated GLSL binding numbers conflict in standard Vulkan (uniform blocks, textures, and storage buffers use overlapping binding indices across separate sokol-gfx arrays), design a descriptor set mapping scheme, handle shared vertex shader stages across multiple programs, and parse spirv-cross output to build unified reflection metadata. Combines compiler-frontend skills, GPU API domain expertise, and unfamiliar multi-tool CLI interoperability."""
+solution_explanation = """Parse annotated GLSL to extract @vs/@fs/@cs/@block blocks and @program definitions. For each program stage: expand @include_block directives, remap layout(binding=N) to layout(set=S, binding=N) using separate descriptor sets for each resource category (set=0 for UBs, set=1 for views, set=2 for samplers), auto-assign layout(location=N) to in/out variables ensuring VS outputs match FS inputs, prepend #version 450, write standalone .glsl file. Compile with glslangValidator -V --target-env vulkan1.1 -S <stage>. Cross-compile with spirv-cross --msl/--hlsl. Extract resource metadata from source parsing and emit metadata.json with per-program resource listings."""
+verification_explanation = """Tests run the pipeline on two annotated GLSL files (particles.glsl with 2 programs, scene.glsl with 3 programs including shared vertex shader and compute). Verifies: (1) SPIR-V bytecode produced for every stage with correct magic number, (2) MSL output contains Metal-specific keywords (vertex/fragment/kernel entry points, metal_stdlib), (3) HLSL output contains D3D-specific constructs (cbuffer, StructuredBuffer, RWStructuredBuffer, Texture2D), (4) metadata.json has correct program types and stage lists, (5) resource counts and names match expected values for each program, (6) readonly/readwrite storage buffer flags are correct, (7) shared vertex shader (vs_scene) works in both scene_textured and scene_flat programs, (8) @include_block expansion produces struct definitions in cross-compiled output."""
+category = "systems"
+tags = ["gpu-programming", "shader-compilation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shader-binding-allocator"

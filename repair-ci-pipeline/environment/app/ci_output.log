@@ -1,0 +1,110 @@
+=================================================================
+CI Pipeline Output — logminer v0.1.0
+Commit: a3f7c2d (HEAD -> main)
+Triggered: 2025-05-15T09:23:41Z
+Runner: ubuntu-latest
+Script: run_ci.sh (legacy — Makefile migration in progress)
+=================================================================
+
+##[group]Stage 1: Install Dependencies
+$ pip install -e ".[dev]"
+Obtaining file:///home/runner/work/logminer/logminer
+  Installing build dependencies ... done
+  Getting requirements to build wheel ... done
+  Preparing metadata (pyproject.toml) ... done
+Collecting pyyaml>=7.0 (from logminer==0.1.0)
+  ERROR: Could not find a version that satisfies the requirement pyyaml>=7.0 (from logminer)
+  ERROR: No matching distribution found for pyyaml>=7.0
+
+hint: the latest pyyaml release on PyPI is 6.0.2
+
+##[error]Process completed with exit code 1.
+##[endgroup]
+
+##[group]Stage 2: Lint (ruff check)
+$ ruff check src/
+src/logminer/parser.py:4:42: F401 [*] `typing.OrderedDict` imported but unused
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+
+##[error]Process completed with exit code 1.
+##[endgroup]
+
+##[group]Stage 3: Type Check (mypy)
+$ mypy src/logminer/
+src/logminer/localizer.py:195: error: Incompatible return value type (got "list[tuple[str, float, int]]", expected "list[dict[str, Any]]")  [return-value]
+Found 1 error in 1 file (checked 5 source files)
+
+##[error]Process completed with exit code 1.
+##[endgroup]
+
+##[group]Stage 4: Tests (pytest)
+$ pytest tests/ -v --tb=short
+
+========================= test session starts =========================
+platform linux -- Python 3.12.3, pytest-8.3.4
+collected 23 items
+
+tests/test_parser.py::test_strip_ansi_simple PASSED
+tests/test_parser.py::test_strip_ansi_no_codes PASSED
+tests/test_parser.py::test_strip_ansi_extended FAILED
+tests/test_parser.py::test_extract_mypy_errors PASSED
+tests/test_parser.py::test_extract_ruff_errors PASSED
+tests/test_parser.py::test_extract_pip_errors PASSED
+tests/test_parser.py::test_parse_full_log PASSED
+tests/test_parser.py::test_parse_log_with_colored_output SKIPPED (TODO: flaky on CI, ANSI parsing intermittently fails — see issue #47)
+tests/test_localizer.py::test_build_outline_functions PASSED
+tests/test_localizer.py::test_build_outline_class PASSED
+tests/test_localizer.py::test_find_enclosing_node_contained PASSED
+tests/test_localizer.py::test_find_enclosing_node_strict FAILED
+tests/test_localizer.py::test_bm25_basic PASSED
+tests/test_localizer.py::test_bm25_all_docs_term FAILED
+tests/test_localizer.py::test_localize_faults_direct PASSED
+tests/test_chunker.py::test_single_chunk PASSED
+tests/test_chunker.py::test_multiple_chunks PASSED
+tests/test_chunker.py::test_overlap_exceeds_chunk_size FAILED
+tests/test_chunker.py::test_empty_input PASSED
+tests/test_reporter.py::test_build_report_basic PASSED
+tests/test_reporter.py::test_report_keys FAILED
+tests/test_reporter.py::test_serialize_json PASSED
+tests/test_reporter.py::test_serialize_yaml PASSED
+
+================================ FAILURES ================================
+__ test_strip_ansi_extended __
+    text = "\x1b[38;5;196mError\x1b[0m: \x1b[0;1;31mfatal\x1b[0m"
+    result = strip_ansi(text)
+>   assert result == "Error: fatal", f"Got: {result!r}"
+E   AssertionError: Got: '\x1b[38;5;196mError: \x1b[0;1;31mfatal'
+
+__ test_find_enclosing_node_strict __
+>   assert result is None
+E   AssertionError: Expected None for range [3,6] (partially overlaps foo
+E     at lines 5-8), got foo
+
+__ test_bm25_all_docs_term __
+    score = scorer.score("the", 0)
+>   assert score >= 0
+E   ValueError: math domain error
+
+__ test_overlap_exceeds_chunk_size __
+>   result = split_with_overlap(...)
+E   TimeoutError: Infinite loop detected
+
+__ test_report_keys __
+>   assert 'error_summary' in report
+E   KeyError: 'error_summary'
+E   AssertionError: Missing 'error_summary' key, got keys:
+E     ['error_summry', 'fault_locations', 'metadata']
+
+=============== 5 failed, 17 passed, 1 skipped ===============
+
+##[error]Process completed with exit code 1.
+##[endgroup]
+
+=================================================================
+CI Result: FAILURE
+  Stage 1 — dependency resolution error (pyyaml>=7.0 not found)
+  Stage 2 — 1 lint error (unused import)
+  Stage 3 — 1 type error (return type mismatch)
+  Stage 4 — 5 test failures, 1 skipped
+=================================================================

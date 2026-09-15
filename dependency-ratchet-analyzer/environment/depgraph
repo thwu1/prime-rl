@@ -1,0 +1,120 @@
+#!/bin/bash
+# depgraph - Dependency graph query tool for the monolith
+# Database: /app/monolith.db | Policy: /app/ratchet_policy.yaml
+
+DB="/app/monolith.db"
+
+case "${1:-}" in
+  export-dot)
+    echo "digraph monolith {"
+    echo "  rankdir=TB;"
+    echo "  node [shape=box, style=filled, fillcolor=lightyellow];"
+    for layer in utility power business api services; do
+      echo "  subgraph cluster_${layer} {"
+      echo "    label=\"${layer}\";"
+      sqlite3 "$DB" "SELECT '    \"' || p.name || '\";' FROM packages p JOIN layers l ON p.layer_id = l.id WHERE l.name = '${layer}' ORDER BY p.name;"
+      echo "  }"
+    done
+    sqlite3 "$DB" "SELECT '  \"' || source || '\" -> \"' || target || '\";' FROM dependencies ORDER BY source, target;"
+    echo "}"
+    ;;
+
+  info)
+    [ -z "${2:-}" ] && echo "Usage: depgraph info <package>" && exit 1
+    sqlite3 -header -column "$DB" \
+      "SELECT p.name, l.name AS layer, l.rank AS layer_rank, p.enforcement_level
+       FROM packages p JOIN layers l ON p.layer_id = l.id
+       WHERE p.name = '${2}';"
+    ;;
+
+  deps)
+    [ -z "${2:-}" ] && echo "Usage: depgraph deps <package>" && exit 1
+    sqlite3 "$DB" "SELECT target FROM dependencies WHERE source = '${2}' ORDER BY target;"
+    ;;
+
+  rdeps)
+    [ -z "${2:-}" ] && echo "Usage: depgraph rdeps <package>" && exit 1
+    sqlite3 "$DB" "SELECT source FROM dependencies WHERE target = '${2}' ORDER BY source;"
+    ;;
+
+  layers)
+    sqlite3 -header -column "$DB" \
+      "SELECT l.name AS layer, l.rank, COUNT(p.name) AS package_count
+       FROM layers l LEFT JOIN packages p ON p.layer_id = l.id
+       GROUP BY l.id ORDER BY l.rank;"
+    ;;
+
+  check)
+    # TODO(infra): extend to cover layered_dag and dag constraint checks
+    [ -z "${2:-}" ] && echo "Usage: depgraph check <package>" && exit 1
+    LEVEL=$(sqlite3 "$DB" "SELECT enforcement_level FROM packages WHERE name = '${2}';")
+    if [ "$LEVEL" = "false" ]; then
+      echo "Package '${2}' has no enforcement (level: false)"
+      exit 0
+    fi
+    PKG_RANK=$(sqlite3 "$DB" \
+      "SELECT l.rank FROM packages p JOIN layers l ON p.layer_id = l.id WHERE p.name = '${2}';")
+    VIOLATIONS=$(sqlite3 -header -column "$DB" \
+      "SELECT d.target AS dependency, l2.name AS dep_layer, l2.rank AS dep_rank
+       FROM dependencies d
+       JOIN packages p2 ON d.target = p2.name
+       JOIN layers l2 ON p2.layer_id = l2.id
+       WHERE d.source = '${2}' AND l2.rank > ${PKG_RANK};")
+    if [ -z "$VIOLATIONS" ]; then
+      echo "No layer violations found for '${2}' (level: ${LEVEL})"
+    else
+      echo "Layer violations for '${2}' (level: ${LEVEL}):"
+      echo "$VIOLATIONS"
+    fi
+    ;;
+
+  sql)
+    shift
+    sqlite3 -header -column "$DB" "$@"
+    ;;
+
+  stats)
+    echo "=== Monolith Dependency Statistics ==="
+    echo ""
+    echo "Packages by layer:"
+    sqlite3 -header -column "$DB" \
+      "SELECT l.name AS layer, l.rank, COUNT(p.name) AS packages
+       FROM layers l LEFT JOIN packages p ON p.layer_id = l.id
+       GROUP BY l.id ORDER BY l.rank;"
+    echo ""
+    echo "Packages by enforcement level:"
+    sqlite3 -header -column "$DB" \
+      "SELECT enforcement_level, COUNT(*) AS count
+       FROM packages GROUP BY enforcement_level ORDER BY count DESC;"
+    echo ""
+    TOTAL_DEPS=$(sqlite3 "$DB" "SELECT COUNT(*) FROM dependencies;")
+    TOTAL_PKGS=$(sqlite3 "$DB" "SELECT COUNT(*) FROM packages;")
+    echo "Total packages: ${TOTAL_PKGS}"
+    echo "Total dependency edges: ${TOTAL_DEPS}"
+    ;;
+
+  --help|-h|"")
+    echo "depgraph - Dependency graph query tool"
+    echo ""
+    echo "Usage: depgraph <command> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  export-dot          Export dependency graph as DOT format"
+    echo "  info <package>      Show package metadata"
+    echo "  deps <package>      List direct dependencies"
+    echo "  rdeps <package>     List reverse dependencies (dependents)"
+    echo "  layers              List all layers with package counts"
+    echo "  check <package>     Check enforcement violations for a package"
+    echo "  stats               Show summary statistics"
+    echo "  sql <query>         Run arbitrary SQL against the database"
+    echo ""
+    echo "Database: /app/monolith.db"
+    echo "Policy:   /app/ratchet_policy.yaml"
+    echo "Schema:   /app/output_schema.json"
+    ;;
+
+  *)
+    echo "Unknown command: $1 (try --help)" >&2
+    exit 1
+    ;;
+esac

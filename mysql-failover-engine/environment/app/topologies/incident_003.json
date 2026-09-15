@@ -1,0 +1,194 @@
+{
+  "cluster": {
+    "name": "shard-gamma",
+    "timestamp": 1705312200.0,
+    "config": {
+      "auto_recovery": true,
+      "recovery_block_seconds": 3600,
+      "last_recovery_ts": null,
+      "global_recovery": true,
+      "enforce_semi_sync_count": false
+    }
+  },
+  "instances": [
+    {
+      "key": {"host": "db-primary-03", "port": 3306},
+      "role_info": {
+        "read_only": false,
+        "master": {"host": "", "port": 0}
+      },
+      "replication": {
+        "state": "none",
+        "lag_sec": null,
+        "sql_delayed": false
+      },
+      "gtid": {
+        "executed": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E:1-8000000"
+      },
+      "semi_sync": {
+        "master_on": false,
+        "replica_on": false,
+        "wait_count": 1,
+        "timeout_ms": 500
+      },
+      "dc": "us-east-1a",
+      "status": {
+        "reachable": true,
+        "version": "8.0.35",
+        "log_replica_updates": true,
+        "binlog_format": "ROW"
+      },
+      "ops": {
+        "promotion_rule": "neutral",
+        "downtimed": false
+      }
+    },
+    {
+      "key": {"host": "db-im-01", "port": 3306},
+      "role_info": {
+        "read_only": true,
+        "master": {"host": "db-primary-03", "port": 3306}
+      },
+      "replication": {
+        "state": "failed",
+        "lag_sec": null,
+        "sql_delayed": false
+      },
+      "gtid": {
+        "executed": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E:1-7999900"
+      },
+      "semi_sync": {
+        "master_on": false,
+        "replica_on": false,
+        "wait_count": 1,
+        "timeout_ms": 500
+      },
+      "dc": "us-east-1b",
+      "status": {
+        "reachable": false,
+        "version": "8.0.35",
+        "log_replica_updates": true,
+        "binlog_format": "ROW"
+      },
+      "ops": {
+        "promotion_rule": "neutral",
+        "downtimed": false
+      }
+    },
+    {
+      "key": {"host": "db-direct-01", "port": 3306},
+      "role_info": {
+        "read_only": true,
+        "master": {"host": "db-primary-03", "port": 3306}
+      },
+      "replication": {
+        "state": "running",
+        "lag_sec": 0.5,
+        "sql_delayed": false
+      },
+      "gtid": {
+        "executed": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E:1-7999995"
+      },
+      "semi_sync": {
+        "master_on": false,
+        "replica_on": false,
+        "wait_count": 1,
+        "timeout_ms": 500
+      },
+      "dc": "us-east-1a",
+      "status": {
+        "reachable": true,
+        "version": "8.0.35",
+        "log_replica_updates": true,
+        "binlog_format": "ROW"
+      },
+      "ops": {
+        "promotion_rule": "neutral",
+        "downtimed": false
+      }
+    },
+    {
+      "key": {"host": "db-sub-r1", "port": 3306},
+      "role_info": {
+        "read_only": true,
+        "master": {"host": "db-im-01", "port": 3306}
+      },
+      "replication": {
+        "state": "failed",
+        "lag_sec": null,
+        "sql_delayed": false
+      },
+      "gtid": {
+        "executed": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E:1-7999850"
+      },
+      "semi_sync": {
+        "master_on": false,
+        "replica_on": false,
+        "wait_count": 1,
+        "timeout_ms": 500
+      },
+      "dc": "us-east-1b",
+      "status": {
+        "reachable": true,
+        "version": "8.0.35",
+        "log_replica_updates": true,
+        "binlog_format": "ROW"
+      },
+      "ops": {
+        "promotion_rule": "neutral",
+        "downtimed": false
+      }
+    },
+    {
+      "key": {"host": "db-sub-r2", "port": 3306},
+      "role_info": {
+        "read_only": true,
+        "master": {"host": "db-im-01", "port": 3306}
+      },
+      "replication": {
+        "state": "failed",
+        "lag_sec": null,
+        "sql_delayed": false
+      },
+      "gtid": {
+        "executed": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E:1-7999800"
+      },
+      "semi_sync": {
+        "master_on": false,
+        "replica_on": false,
+        "wait_count": 1,
+        "timeout_ms": 500
+      },
+      "dc": "us-east-1c",
+      "status": {
+        "reachable": true,
+        "version": "8.0.35",
+        "log_replica_updates": true,
+        "binlog_format": "ROW"
+      },
+      "ops": {
+        "promotion_rule": "neutral",
+        "downtimed": false
+      }
+    }
+  ],
+  "orchestrator": {
+    "nodes": [
+      {
+        "host": "orch-01",
+        "dc": "us-east-1a",
+        "peers": {"orch-02": true, "orch-03": true}
+      },
+      {
+        "host": "orch-02",
+        "dc": "us-east-1b",
+        "peers": {"orch-01": true, "orch-03": true}
+      },
+      {
+        "host": "orch-03",
+        "dc": "us-west-2a",
+        "peers": {"orch-01": true, "orch-02": true}
+      }
+    ]
+  }
+}

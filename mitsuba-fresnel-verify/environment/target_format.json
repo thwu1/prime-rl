@@ -1,0 +1,37 @@
+{
+  "dielectric_fresnel": {
+    "<angle_deg_str>": "<float: unpolarized Fresnel reflectance>"
+  },
+  "conductor_fresnel": {
+    "<angle_deg_str>": ["<float: R channel>", "<float: G channel>", "<float: B channel>"]
+  },
+  "energy_conservation": {
+    "<angle_deg_str>": {
+      "reflectance": "<float: R>",
+      "transmittance": "<float: T>",
+      "sum": "<float: R + T, should be 1.0>"
+    }
+  },
+  "critical_angle_deg": "<float: critical angle in degrees for glass-to-air TIR>",
+  "tir_verified": "<bool: true if TIR confirmed above critical angle>",
+  "rough_total_throughput": "<float: MC estimate of total hemispherical throughput, should be ~1.0>",
+  "bsdf_flags": {
+    "dielectric": {
+      "has_reflection": "<bool>",
+      "has_transmission": "<bool>",
+      "is_delta": "<bool>"
+    },
+    "conductor": {
+      "has_reflection": "<bool>",
+      "has_transmission": "<bool>",
+      "is_delta": "<bool>"
+    },
+    "rough_dielectric": {
+      "has_reflection": "<bool>",
+      "has_transmission": "<bool>",
+      "is_delta": "<bool>"
+    }
+  },
+  "reflected_direction_30": ["<float: x>", "<float: y>", "<float: z>"],
+  "refracted_direction_30": ["<float: x>", "<float: y>", "<float: z>"]
+}

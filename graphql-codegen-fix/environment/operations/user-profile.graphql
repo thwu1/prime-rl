@@ -1,0 +1,32 @@
+fragment UserFields on User {
+  id
+  username
+  email
+  status
+  profile {
+    bio
+    avatarUrl
+  }
+}
+
+query UserProfile($userId: ID!) {
+  user(id: $userId) {
+    ...UserFields
+    createdAt
+    posts(first: 5) {
+      edges {
+        node {
+          id
+          title
+          priority
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      totalCount
+    }
+  }
+}

@@ -1,0 +1,311 @@
+{
+  "target_file": "target/mathlib.py",
+  "mutants": [
+    {
+      "id": "M001",
+      "operator": "ROR",
+      "function": "abs_val",
+      "line": 3,
+      "original": "x < 0",
+      "replacement": "x <= 0",
+      "description": "Replace < with <= in abs_val guard"
+    },
+    {
+      "id": "M002",
+      "operator": "ROR",
+      "function": "abs_val",
+      "line": 3,
+      "original": "x < 0",
+      "replacement": "x > 0",
+      "description": "Replace < with > in abs_val guard"
+    },
+    {
+      "id": "M003",
+      "operator": "ROR",
+      "function": "abs_val",
+      "line": 3,
+      "original": "x < 0",
+      "replacement": "x != 0",
+      "description": "Replace < with != in abs_val guard"
+    },
+    {
+      "id": "M004",
+      "operator": "AOR",
+      "function": "abs_val",
+      "line": 4,
+      "original": "return -x",
+      "replacement": "return x",
+      "description": "Remove negation in abs_val return"
+    },
+    {
+      "id": "M005",
+      "operator": "ROR",
+      "function": "clamp",
+      "line": 10,
+      "original": "value < low",
+      "replacement": "value <= low",
+      "description": "Replace < with <= in clamp lower bound"
+    },
+    {
+      "id": "M006",
+      "operator": "ROR",
+      "function": "clamp",
+      "line": 10,
+      "original": "value < low",
+      "replacement": "value > low",
+      "description": "Replace < with > in clamp lower bound"
+    },
+    {
+      "id": "M007",
+      "operator": "ROR",
+      "function": "clamp",
+      "line": 12,
+      "original": "value > high",
+      "replacement": "value >= high",
+      "description": "Replace > with >= in clamp upper bound"
+    },
+    {
+      "id": "M008",
+      "operator": "ROR",
+      "function": "clamp",
+      "line": 12,
+      "original": "value > high",
+      "replacement": "value < high",
+      "description": "Replace > with < in clamp upper bound"
+    },
+    {
+      "id": "M009",
+      "operator": "ROR",
+      "function": "linear_search",
+      "line": 20,
+      "original": "arr[i] == target",
+      "replacement": "arr[i] != target",
+      "description": "Replace == with != in linear_search comparison"
+    },
+    {
+      "id": "M010",
+      "operator": "AOR",
+      "function": "linear_search",
+      "line": 22,
+      "original": "return -1",
+      "replacement": "return 1",
+      "description": "Change return value from -1 to 1 in linear_search"
+    },
+    {
+      "id": "M011",
+      "operator": "ROR",
+      "function": "is_sorted",
+      "line": 28,
+      "original": "arr[i] > arr[i + 1]",
+      "replacement": "arr[i] >= arr[i + 1]",
+      "description": "Replace > with >= in is_sorted comparison"
+    },
+    {
+      "id": "M012",
+      "operator": "ROR",
+      "function": "is_sorted",
+      "line": 28,
+      "original": "arr[i] > arr[i + 1]",
+      "replacement": "arr[i] < arr[i + 1]",
+      "description": "Replace > with < in is_sorted comparison"
+    },
+    {
+      "id": "M013",
+      "operator": "AOR",
+      "function": "is_sorted",
+      "line": 28,
+      "original": "i + 1]",
+      "replacement": "i - 1]",
+      "description": "Replace + with - in is_sorted index offset"
+    },
+    {
+      "id": "M014",
+      "operator": "ROR",
+      "function": "dot_product",
+      "line": 35,
+      "original": "len(a) != len(b)",
+      "replacement": "len(a) == len(b)",
+      "description": "Replace != with == in dot_product validation"
+    },
+    {
+      "id": "M015",
+      "operator": "AOR",
+      "function": "dot_product",
+      "line": 39,
+      "original": "result + a[i]",
+      "replacement": "result - a[i]",
+      "description": "Replace + with - in dot_product accumulation"
+    },
+    {
+      "id": "M016",
+      "operator": "AOR",
+      "function": "dot_product",
+      "line": 39,
+      "original": "a[i] * b[i]",
+      "replacement": "a[i] + b[i]",
+      "description": "Replace * with + in dot_product multiplication"
+    },
+    {
+      "id": "M017",
+      "operator": "ROR",
+      "function": "mean",
+      "line": 45,
+      "original": "len(values) == 0",
+      "replacement": "len(values) != 0",
+      "description": "Replace == with != in mean empty check"
+    },
+    {
+      "id": "M018",
+      "operator": "AOR",
+      "function": "mean",
+      "line": 49,
+      "original": "total + v",
+      "replacement": "total - v",
+      "description": "Replace + with - in mean accumulation"
+    },
+    {
+      "id": "M019",
+      "operator": "AOR",
+      "function": "mean",
+      "line": 50,
+      "original": "total / len",
+      "replacement": "total * len",
+      "description": "Replace / with * in mean division"
+    },
+    {
+      "id": "M020",
+      "operator": "ROR",
+      "function": "variance",
+      "line": 55,
+      "original": "len(values) < 2",
+      "replacement": "len(values) <= 2",
+      "description": "Replace < with <= in variance minimum size check"
+    },
+    {
+      "id": "M021",
+      "operator": "AOR",
+      "function": "variance",
+      "line": 60,
+      "original": "v - m",
+      "replacement": "v + m",
+      "description": "Replace - with + in variance deviation calculation"
+    },
+    {
+      "id": "M022",
+      "operator": "AOR",
+      "function": "variance",
+      "line": 61,
+      "original": "diff * diff",
+      "replacement": "diff + diff",
+      "description": "Replace * with + in variance squaring"
+    },
+    {
+      "id": "M023",
+      "operator": "AOR",
+      "function": "variance",
+      "line": 62,
+      "original": "len(values) - 1",
+      "replacement": "len(values) + 1",
+      "description": "Replace - with + in variance Bessel correction"
+    },
+    {
+      "id": "M024",
+      "operator": "ROR",
+      "function": "gcd",
+      "line": 67,
+      "original": "b != 0",
+      "replacement": "b == 0",
+      "description": "Replace != with == in gcd loop condition"
+    },
+    {
+      "id": "M025",
+      "operator": "AOR",
+      "function": "gcd",
+      "line": 68,
+      "original": "a % b",
+      "replacement": "a * b",
+      "description": "Replace % with * in gcd modulo"
+    },
+    {
+      "id": "M026",
+      "operator": "AOR",
+      "function": "is_leap_year",
+      "line": 74,
+      "original": "year % 4",
+      "replacement": "year + 4",
+      "description": "Replace % with + in is_leap_year divisibility check"
+    },
+    {
+      "id": "M027",
+      "operator": "AOR",
+      "function": "is_leap_year",
+      "line": 76,
+      "original": "year % 100",
+      "replacement": "year + 100",
+      "description": "Replace % with + in is_leap_year century check"
+    },
+    {
+      "id": "M028",
+      "operator": "AOR",
+      "function": "is_leap_year",
+      "line": 78,
+      "original": "year % 400",
+      "replacement": "year + 400",
+      "description": "Replace % with + in is_leap_year 400-year check"
+    },
+    {
+      "id": "M029",
+      "operator": "ROR",
+      "function": "is_leap_year",
+      "line": 74,
+      "original": "!= 0",
+      "replacement": "== 0",
+      "description": "Replace != with == in is_leap_year first condition"
+    },
+    {
+      "id": "M030",
+      "operator": "AOD",
+      "function": "dot_product",
+      "line": 39,
+      "original": "result + a[i] * b[i]",
+      "replacement": "a[i] * b[i]",
+      "description": "Delete accumulator operand in dot_product"
+    },
+    {
+      "id": "M031",
+      "operator": "UOI",
+      "function": "abs_val",
+      "line": 5,
+      "original": "return x",
+      "replacement": "return -x",
+      "description": "Insert negation on abs_val positive return"
+    },
+    {
+      "id": "M032",
+      "operator": "UOI",
+      "function": "gcd",
+      "line": 69,
+      "original": "return a",
+      "replacement": "return -a",
+      "description": "Insert negation on gcd return value"
+    },
+    {
+      "id": "M033",
+      "operator": "LCR",
+      "function": "is_valid_triangle",
+      "line": 87,
+      "original": "> c and a + c",
+      "replacement": "> c or a + c",
+      "description": "Replace first AND with OR in triangle inequality"
+    },
+    {
+      "id": "M034",
+      "operator": "LCR",
+      "function": "is_valid_triangle",
+      "line": 87,
+      "original": "> b and b + c",
+      "replacement": "> b or b + c",
+      "description": "Replace second AND with OR in triangle inequality"
+    }
+  ]
+}

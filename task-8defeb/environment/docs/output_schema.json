@@ -1,0 +1,45 @@
+{
+  "_description": "Expected output schema for /app/results.json. All fields are required.",
+  "metrics": {
+    "<team_name>": {
+      "<case_id>": {
+        "dice": "<float: Sorensen-Dice coefficient>",
+        "avd_ml": "<float: absolute volume difference in milliliters>",
+        "lesion_f1": "<float: lesion-wise F1 score>",
+        "ald": "<int: absolute lesion count difference>"
+      }
+    }
+  },
+  "case_classification": {
+    "<case_id>": "<string: one of no_lesion | single_vessel_infarct | scattered_infarcts | mixed>"
+  },
+  "ranking": {
+    "final_order": ["<team names sorted best to worst by mean combined rank>"],
+    "mean_ranks": {
+      "<team_name>": "<float: mean combined rank across bootstrap iterations>"
+    },
+    "rank1_frequency": {
+      "<team_name>": "<float: fraction of iterations team achieved best combined rank>"
+    },
+    "confidence_intervals_95": {
+      "<team_name>": ["<float: 2.5th percentile of combined rank>", "<float: 97.5th percentile of combined rank>"]
+    }
+  },
+  "stability": {
+    "leave_one_out": {
+      "<case_id>": {
+        "ranking_change": "<int: total rank displacement summed across all teams>",
+        "order": ["<team names in ranking order with this case excluded>"]
+      }
+    },
+    "most_influential_case": "<case_id: case whose exclusion causes largest total displacement>"
+  },
+  "pairwise_significance": [
+    {
+      "team_a": "<higher-ranked team>",
+      "team_b": "<next lower-ranked team>",
+      "dice_p_value_raw": "<float: uncorrected two-sided Wilcoxon signed-rank p-value>",
+      "dice_p_value_corrected": "<float: Holm-Bonferroni corrected p-value>"
+    }
+  ]
+}

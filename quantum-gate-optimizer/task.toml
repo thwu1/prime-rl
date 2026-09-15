@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interrelated components: (1) a quantum circuit optimizer that must discover and exploit the algebraic structure of quantum gates to achieve aggressive gate reductions — demanding PhD-level quantum computing and linear algebra expertise; (2) an OpenQASM 2.0 parser/writer handling 14+ gate types with parametric syntax and name translation; (3) a benchmark pipeline integrating all components. The agent must reason about gate algebra, not just follow templates."""
+solution_explanation = """Four-phase iterative optimizer: (1) adjacent inverse pair cancellation (self-inverse gates, S/Sdg, T/Tdg pairs, opposite-angle rotations); (2) commutation-aware non-adjacent cancellation using algebraic rules (diagonal gates commute with CNOT on control, X on target, diagonal with CZ on either qubit, disjoint qubits always commute); (3) same-type rotation merging via angle addition with identity elimination; (4) general single-qubit matrix fusion with identity/diagonal detection. Phases loop until convergence. QASM I/O uses regex parsing with a gate name mapping table. Pipeline reads all benchmark QASM files, runs parse-optimize-verify, outputs JSON report."""
+verification_explanation = """Tests verify: (a) 15 optimizer correctness tests checking unitary equivalence (U†V = e^{iφ}·I) and gate count reduction targets covering adjacent cancellation, commutation-aware reduction, rotation merging, multi-pass cascading, and matrix fusion; (b) QASM I/O tests for parsing all gate types, parametric gates, name mapping, and round-trip fidelity; (c) pipeline integration via 'make benchmark' execution and JSON report validation against per-benchmark gate count targets."""
+category = "quantum_computing"
+tags = ["circuit_optimization", "qasm_pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-gate-optimizer"

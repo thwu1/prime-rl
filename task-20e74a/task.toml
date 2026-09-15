@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert bioinformatics knowledge spanning phylogenetic tree construction (UPGMA, NJ, BME and their assumptions), tree comparison metrics (Robinson-Foulds distance, cophenetic correlation), community ecology (weighted UniFrac, rarefaction strategy), and multivariate statistics (PERMANOVA, variance partitioning). The solver must evaluate and compare four tree topologies, design a variance partitioning scheme using only single-factor PERMANOVA (scikit-bio lacks multi-factor PERMANOVA), derive R² from pseudo-F using a formula found in documentation rather than returned by the API, reconcile three different OTU naming conventions, make data quality decisions, and synthesize results into a confounding assessment. No single step is textbook — the challenge is integrating phylogenetics, ecology, and statistics into a coherent analytical pipeline."""
+solution_explanation = """Reconcile OTU names (OTU_X → otuXXX). Build 30x30 sub-distance-matrix and reconstruct UPGMA, NJ, BME trees; prune reference tree outgroups. Crucially, NJ and BME produce unrooted trees but weighted UniFrac requires rooted trees — root them at midpoint via root_at_midpoint(). Compute pairwise RF distances via rf_dists and cophenetic correlations by comparing tree.cophenet() patristic distances to original DM via Pearson r on upper triangles. NJ achieves highest cophenetic correlation. Exclude 2 low-depth samples, rarefy to minimum passing depth, compute weighted UniFrac with each rooted tree, run PERMANOVA. For variance partitioning, create combined treatment×batch grouping variable for joint PERMANOVA, then decompose: unique_treatment = R²_combined - R²_batch, shared = R²_treatment + R²_batch - R²_combined. Treatment unique R² > batch unique R², so assessment is genuine."""
+verification_explanation = """Tests independently recompute all expected values from raw data files using the same scikit-bio algorithms and random seeds. RF distances verified within tolerance. Cophenetic correlations, PERMANOVA pseudo-F, R² values, and variance components compared with floating-point tolerances. Best tree method, QC exclusions, rarefaction depth, and final assessment verified as exact matches. Internal consistency of variance partition checked (treatment_total ≈ treatment_unique + shared)."""
+category = "computational_biology"
+tags = ["phylogenetics", "ecological_statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-20e74a"

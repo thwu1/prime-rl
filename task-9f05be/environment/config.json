@@ -1,0 +1,29 @@
+{
+  "fhirVersion": "R4",
+  "fhirPathRules": [
+    {"path": "nodesByType('Extension')", "method": "redact"},
+    {"path": "nodesByType('HumanName').use", "method": "keep"},
+    {"path": "nodesByType('Address').country", "method": "keep"},
+    {"path": "nodesByType('Address').state", "method": "keep"},
+    {"path": "Organization.identifier", "method": "keep"},
+    {"path": "Resource.id", "method": "cryptoHash"},
+    {"path": "Bundle.entry.fullUrl", "method": "redact"},
+    {"path": "nodesByType('Reference').reference", "method": "cryptoHash"},
+    {"path": "nodesByType('Narrative')", "method": "redact"},
+    {"path": "nodesByType('Identifier')", "method": "redact"},
+    {"path": "nodesByType('date')", "method": "dateShift"},
+    {"path": "nodesByType('dateTime')", "method": "dateShift"},
+    {"path": "nodesByType('instant')", "method": "dateShift"},
+    {"path": "nodesByType('Address')", "method": "redact"},
+    {"path": "nodesByType('HumanName')", "method": "redact"},
+    {"path": "nodesByType('ContactPoint')", "method": "redact"},
+    {"path": "nodesByType('Annotation')", "method": "redact"}
+  ],
+  "parameters": {
+    "dateShiftKey": "my-secret-shift-key-2024",
+    "dateShiftScope": "resource",
+    "cryptoHashKey": "my-secret-hash-key-2024",
+    "enablePartialAgesForRedact": true,
+    "enablePartialDatesForRedact": true
+  }
+}

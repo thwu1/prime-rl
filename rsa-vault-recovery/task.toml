@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of multiple RSA attack classes (GCD-based shared factor detection, Fermat's close-prime factorization, Wiener's continued fraction attack for small private exponents, Pollard's p-1 smooth-factor algorithm, and multi-prime factorization via Pollard's rho), combined with proficiency in diverse security tooling: openssl for X.509 certificate and DER key inspection, tshark/tcpdump for PCAP packet capture analysis, and pgpdump/manual PGP packet parsing. The agent must extract RSA parameters from each format, select the correct attack for each key's structural weakness, and implement Shamir's Secret Sharing reconstruction via Lagrange interpolation over a prime field."""
+solution_explanation = """First, extract RSA public key parameters using format-specific tools: openssl x509 for PEM certificates (parties 1-3), openssl pkey or manual DER parsing for the SubjectPublicKeyInfo key (party 4), manual PCAP parsing to extract JSON payloads containing the key and encrypted share (party 5), and manual PGP packet parsing for MPI values (party 6). Then analyze each key for weaknesses: parties 1-2 share a common factor (GCD attack), party 3 has close primes (Fermat factorization), party 4 has a small private exponent d (Wiener's continued fractions), party 5 has a smooth p-1 factor (Pollard p-1), party 6 is multi-prime RSA with small factors. After factoring at least 4 moduli, compute private keys, decrypt shares via textbook RSA, and reconstruct the secret using Lagrange interpolation over the SSS prime field."""
+verification_explanation = """The test computes SHA-256 of the recovered hex secret and compares it against a precomputed hash. This deterministically verifies correctness without leaking the secret."""
+category = "cryptography"
+tags = ["rsa-attacks", "multi-format-key-extraction"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rsa-vault-recovery"

@@ -1,0 +1,6 @@
+{
+  "name": "kernel_epsilon",
+  "registers_per_thread": 16,
+  "shared_memory_bytes": 0,
+  "description": "Lightweight kernel with minimal resource usage"
+}

@@ -1,0 +1,53 @@
+{
+  "description": "SBR (Serial Boot ROM) dumps from LSI SAS2008-based storage controllers. Each is a 256-byte EEPROM image that configures the controller PCI identity, operating mode, and SAS addressing.",
+  "samples": [
+    {
+      "filename": "supermicro_itir.bin",
+      "vendor": "Supermicro",
+      "model": "SAS9211-8i",
+      "firmware_mode": "IT/IR (HBA passthrough)",
+      "status": "working",
+      "notes": "All 8 SAS ports detected and operational"
+    },
+    {
+      "filename": "supermicro_imr.bin",
+      "vendor": "Supermicro",
+      "model": "SAS9211-8i",
+      "firmware_mode": "iMR (MegaRAID)",
+      "status": "working",
+      "notes": "All 8 SAS ports detected and operational"
+    },
+    {
+      "filename": "fujitsu_d2607_original.bin",
+      "vendor": "Fujitsu",
+      "model": "D2607",
+      "firmware_mode": "iMR (MegaRAID)",
+      "status": "partial",
+      "notes": "Only 4 of 8 SAS ports detected; second SFF-8087 connector dead after crossflash attempts with standard SBR files from other vendors"
+    },
+    {
+      "filename": "dell_h200.bin",
+      "vendor": "Dell",
+      "model": "PERC H200",
+      "firmware_mode": "IT (HBA passthrough)",
+      "status": "working",
+      "notes": "All 8 SAS ports detected; board uses vendor-specific configuration and analog tuning parameters"
+    },
+    {
+      "filename": "ibm_m1015.bin",
+      "vendor": "IBM",
+      "model": "ServeRAID M1015",
+      "firmware_mode": "iMR (MegaRAID)",
+      "status": "working",
+      "notes": "All 8 SAS ports detected and operational"
+    },
+    {
+      "filename": "lsi_generic_template.bin",
+      "vendor": "LSI",
+      "model": "Generic SAS2008 reference",
+      "firmware_mode": "IT/IR (HBA passthrough)",
+      "status": "template",
+      "notes": "Factory reference template SBR with no unique SAS address programmed"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+StorePath: /nix/store/9gikrkkngm7nq8dlqjzyzziqrz503cm4-git-2.44.0-src
+URL: nar/9gikrkkngm7nq8dlqjzyzziqrz503cm4.nar.xz
+Compression: xz
+FileHash: sha256:1194a4120d0a3bfa961a77dcf1178036bddab71e7219955002dd2f36f4117498
+FileSize: 1200103
+NarHash: sha256:23cef5b6833b97ddee7ed8d43c91f00541ab7a78004f3aaefa9e5092979e2279
+NarSize: 24033234
+References:
+CA: fixed:sha256:5460df6c699f7d2fdba6dbeb57d5a53ad5eb93eb2fad9516ebd9489168f233e8

@@ -1,0 +1,13 @@
+Date,Type,Security,Shares,Price,Amount,Notes
+2024-01-02,DEPOSIT,CASH,,,100000.00,Initial funding
+2024-01-15,BUY,APEX,200,50.00,10000.00,Market order
+2024-03-01,BUY,BOLT,300,20.00,6000.00,Market order
+2024-04-15,TRANSFER_IN,APEX,50,25.00,1250.00,Gift from J. Smith; donor acquired 2020-06-15 at $25.00/share
+2024-06-01,SPLIT,APEX,,,,Forward split 2:1; all APEX positions adjusted
+2024-07-10,SELL,APEX,150,30.00,4500.00,Disposition method: FIFO
+2024-08-05,SELL,APEX,100,22.00,2200.00,Disposition method: FIFO
+2024-08-20,BUY,APEX,80,23.00,1840.00,Market order
+2024-10-01,SELL,BOLT,50,25.00,1250.00,Disposition method: FIFO
+2024-11-15,BUY,BOLT,40,18.00,720.00,Market order
+2024-12-01,DIVIDEND,BOLT,,,180.00,Q4 2024 qualified dividend
+2024-12-15,SELL,BOLT,80,22.00,1760.00,Disposition method: FIFO

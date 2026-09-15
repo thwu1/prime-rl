@@ -1,0 +1,50 @@
+{
+  "compute_physical_offset": [
+    {"args": [0, 0, 128, "NONE"], "result": 0},
+    {"args": [1, 0, 128, "NONE"], "result": 16},
+    {"args": [7, 0, 128, "NONE"], "result": 112},
+    {"args": [8, 0, 128, "NONE"], "result": 128},
+    {"args": [0, 16, 128, "NONE"], "result": 2048},
+    {"args": [0, 5, 128, "NONE"], "result": 5},
+    {"args": [3, 21, 128, "NONE"], "result": 2101},
+    {"args": [0, 32, 16, "NONE"], "result": 512},
+    {"args": [0, 0, 128, "128B"], "result": 0},
+    {"args": [1, 0, 128, "128B"], "result": 144},
+    {"args": [0, 16, 128, "128B"], "result": 16},
+    {"args": [1, 16, 128, "128B"], "result": 128},
+    {"args": [7, 0, 128, "128B"], "result": 1008},
+    {"args": [8, 0, 128, "128B"], "result": 1024},
+    {"args": [0, 0, 128, "32B"], "result": 0},
+    {"args": [1, 0, 128, "32B"], "result": 48},
+    {"args": [1, 16, 128, "32B"], "result": 32},
+    {"args": [2, 0, 128, "32B"], "result": 64},
+    {"args": [3, 0, 128, "64B"], "result": 240},
+    {"args": [4, 0, 128, "64B"], "result": 256},
+    {"args": [2, 32, 128, "64B"], "result": 128}
+  ],
+  "compute_logical_coords": [
+    {"args": [0, 128, 128, "NONE"], "result": [0, 0]},
+    {"args": [16, 128, 128, "NONE"], "result": [1, 0]},
+    {"args": [144, 128, 128, "128B"], "result": [1, 0]},
+    {"args": [128, 128, 128, "128B"], "result": [1, 16]},
+    {"args": [48, 64, 32, "32B"], "result": [1, 0]},
+    {"args": [240, 32, 64, "64B"], "result": [3, 0]}
+  ],
+  "encode_smem_descriptor": [
+    {"args": [0, 128, "NONE"], "result": 70403112304640},
+    {"args": [256, 64, "NONE"], "result": 70403108110352},
+    {"args": [48, 128, "NONE"], "result": 70403112304643},
+    {"args": [0, 128, "128B"], "result": 4611756662049472512},
+    {"args": [1024, 128, "128B"], "result": 4611756662049472576}
+  ],
+  "encode_instruction_descriptor": [
+    {"args": ["FP32", "BF16", "BF16", 128, 64], "result": 135267472},
+    {"args": ["FP16", "FP16", "FP16", 64, 128], "result": 69206016},
+    {"args": ["S32", "S8", "U8", 128, 128], "result": 136321696}
+  ],
+  "compute_tma_params": [
+    {"args": [4096, 4096, 128, 64, 2, "NONE"], "result": {"globalDim": [8, 4096, 512], "globalStrides": [8192, 16], "boxDim": [8, 128, 8]}},
+    {"args": [4096, 4096, 128, 64, 2, "128B"], "result": {"globalDim": [64, 4096, 64], "globalStrides": [8192, 128], "boxDim": [64, 128, 1]}},
+    {"args": [2048, 1024, 64, 32, 4, "NONE"], "result": {"globalDim": [4, 2048, 256], "globalStrides": [4096, 16], "boxDim": [4, 64, 8]}}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "config-service",
+  "version": "1.0.0",
+  "description": "Configuration management service with validation and archiving",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

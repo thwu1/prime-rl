@@ -1,0 +1,85 @@
+# SecureCorp Root CA - OpenSSL Configuration
+
+####################################################################
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = /app/pki/root-ca
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+RANDFILE          = $dir/private/.rand
+
+private_key       = $dir/private/root-ca.key
+certificate       = $dir/certs/root-ca.crt
+
+crlnumber         = $dir/crlnumber
+crl               = $dir/crl/root-ca.crl
+crl_extensions    = crl_ext
+default_crl_days  = 30
+
+default_md        = md5
+
+name_opt          = ca_default
+cert_opt          = ca_default
+default_days      = 1825
+preserve          = no
+policy            = policy_strict
+
+x509_extensions   = v3_intermediate_ca
+copy_extensions   = copy
+
+####################################################################
+[ policy_strict ]
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+####################################################################
+[ req ]
+default_bits        = 4096
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+default_md          = sha384
+x509_extensions     = v3_ca
+prompt              = no
+
+[ req_distinguished_name ]
+countryName                     = US
+stateOrProvinceName             = California
+localityName                    = San Francisco
+organizationName                = SecureCorp
+organizationalUnitName          = PKI Operations
+commonName                      = SecureCorp Root CA
+emailAddress                    = pki@securecorp.lab
+
+####################################################################
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature
+
+[ v3_intermediate_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:TRUE, pathlen:0
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+[ crl_ext ]
+authorityKeyIdentifier = keyid:always

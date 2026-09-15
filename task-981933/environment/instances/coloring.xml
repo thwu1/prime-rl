@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instance format="XCSP3" type="CSP">
+  <variables>
+    <array id="c" size="[6]"> 0..2 </array>
+  </variables>
+  <constraints>
+    <intension> ne(c[0],c[1]) </intension>
+    <intension> ne(c[0],c[2]) </intension>
+    <intension> ne(c[1],c[2]) </intension>
+    <intension> ne(c[1],c[3]) </intension>
+    <intension> ne(c[2],c[4]) </intension>
+    <intension> ne(c[3],c[4]) </intension>
+    <intension> ne(c[3],c[5]) </intension>
+    <intension> ne(c[4],c[5]) </intension>
+  </constraints>
+</instance>

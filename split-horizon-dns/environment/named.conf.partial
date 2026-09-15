@@ -1,0 +1,31 @@
+// BIND9 Configuration — INCOMPLETE
+// Complete this configuration to implement split-horizon DNS for infra.example.com
+// Use the data in /app/hosts.csv and /app/services.csv to populate zone files
+// Refer to /app/db.infra.example.com.partial for the zone file template
+
+options {
+    directory "/var/cache/bind";
+
+    // TODO: Configure listening address and port (must use port 8053)
+    // TODO: Configure recursion policy
+    // TODO: Configure query access control
+    // TODO: Disable DNSSEC validation for this lab environment
+    dnssec-validation no;
+
+    auth-nxdomain no;
+};
+
+// TODO: Define ACL for internal networks
+// Internal networks: 10.0.0.0/8, 127.0.0.0/8, fd00::/16
+
+// TODO: Implement view "internal" for clients matching the internal ACL
+//   - Enable recursion for internal clients
+//   - Forward zone: infra.example.com (internal IPs from hosts.csv)
+//   - Reverse zone: 1.0.10.in-addr.arpa (PTR for 10.0.1.0/24)
+//   - Reverse zone: 0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.f.ip6.arpa (PTR for fd00::/64)
+//   - Restrict zone transfers to ns2 (10.0.1.2)
+
+// TODO: Implement view "external" for all other clients
+//   - Disable recursion
+//   - Forward zone: infra.example.com (external IPs where available)
+//   - Deny all zone transfers

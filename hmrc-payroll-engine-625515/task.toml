@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires interpreting three dense HMRC regulatory specification documents — two in OpenDocument Text (.odt) format requiring document extraction tools (pandoc, libreoffice, or odfpy) — to discover rates, thresholds, bandwidths, cumulative parameters, and non-obvious rounding rules. HMRC reference test data is provided only as .xlsx and .ods spreadsheets requiring openpyxl/xlrd or similar tools for extraction. The solver must implement three coupled payroll subsystems: (1) PAYE cumulative tax engine with income tests, free-pay splitting for codes >500, K/SK/CK-codes, BR/D0/D1/NT, W1/M1 basis, Scottish 6-rate/Welsh regimes, and the regulatory limit; (2) NIC exact percentage method across 6 earnings bands with HMRC's non-standard rounding rule; (3) student loan deductions for 5 plan types. Beyond computation, the solution must handle dual input formats (JSON and CSV with multi-employee grouping), produce dual output (JSON stdout and SQLite database with properly structured tables), requiring multi-tool interoperability across document extraction, spreadsheet parsing, SQL, and payroll computation."""
+solution_explanation = """The reference solution implements all three calculation engines in Python. PAYE uses PAYErout v24 Income Tests and Tax Formulae with 4-decimal intermediate precision. NIC uses the exact percentage method with band-specific rates per category grouping. Student loans use threshold-based percentage with floor-to-pound rounding. CSV input is parsed via csv.DictReader with employee grouping. SQLite output uses sqlite3 module to create payroll_results and student_loan_deductions tables. The solver must independently discover all parameters from the .odt specification documents and validate against .xlsx test data, requiring familiarity with document/spreadsheet extraction tools."""
+verification_explanation = """Tests create input JSON/CSV files covering HMRC official test data: cumulative PAYE with code changes across 10 periods (UK, Scottish, Welsh), K-codes (weekly/monthly, UK/Scottish), W1/M1 codes, BR/D0/D1 flat rates, large codes >500, regulatory limit, NIC categories A/H/J/M at threshold boundaries, and student loan Plans 1/2/4/5/PGL. Additional test groups verify CSV input mode produces identical results to JSON mode, and SQLite output has correct schema, data values, and constraints. Each test vector is derived from HMRC's published penny-accurate expected values."""
+category = "applied_computing"
+tags = ["finance", "payroll"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hmrc-payroll-engine-625515"

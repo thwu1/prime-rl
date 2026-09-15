@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing persistent set operations (union, intersection, difference) on a bitmap-indexed Hash Array Mapped Trie requires deep understanding of: (1) pointer tagging to discriminate leaf vs internal nodes, (2) popcount-based sparse-to-dense bitmap index mapping, (3) hash exhaustion across multiple trie depths, (4) structural sharing via copy-on-write path construction, and (5) recursive tree merging with all node-type combinations (leaf-leaf, leaf-internal, internal-internal). The agent must read and understand ~800 lines of non-trivial C99 systems code, then design and implement three mutually-dependent recursive algorithms that correctly handle all edge cases including hash collisions, empty tries, and conflict resolution."""
+solution_explanation = """The solution appends ~300 lines of C to hamt.c implementing three persistent operations: (1) punion merges two tries by combining bitmaps at each level, sharing structure for non-overlapping subtrees and recursively merging overlapping children; (2) pintersection restricts to common bitmap bits, recursively checking for matching leaves; (3) pdifference keeps only t1's entries not found in t2. Each handles four cases: both-leaf-same-key, both-leaf-different-key, leaf-vs-internal, both-internal. A helper computes hash indices at arbitrary trie depths using the generation-based rehashing scheme. Size is tracked via conflict counting (union) or post-hoc leaf counting (intersection/difference)."""
+verification_explanation = """Tests compile the HAMT source with a C test driver that exercises all three operations across 17 test cases: empty inputs, disjoint sets, partial and full overlaps, conflict resolution (keep-left/keep-right), large-scale correctness (1000+ elements), and persistence verification (inputs unchanged after operations). The test program returns 0 only when all assertions pass, covering both size invariants and per-key get correctness."""
+category = "systems_programming"
+tags = ["data_structures", "c_programming"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4cb283"

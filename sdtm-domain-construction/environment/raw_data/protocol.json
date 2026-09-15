@@ -1,0 +1,27 @@
+{
+  "study_id": "XYZ-2024-001",
+  "study_title": "A Phase 2, Randomized, Double-Blind, Placebo-Controlled Study of Drug A in Subjects with Moderate to Severe Condition X",
+  "sponsor": "PharmaCorp Inc.",
+  "planned_enrollment": 200,
+  "arms": [
+    {"code": "DRUGA50", "name": "Drug A 50mg", "description": "Drug A 50mg oral daily"},
+    {"code": "PLACEBO", "name": "Placebo", "description": "Matching placebo oral daily"}
+  ],
+  "elements": [
+    {"code": "SCREEN", "name": "Screening", "description": "Screening period up to 14 days"},
+    {"code": "TREAT", "name": "Treatment", "description": "12-week treatment period"},
+    {"code": "FOLLOW", "name": "Follow-up", "description": "4-week follow-up period"}
+  ],
+  "trial_summary": {
+    "SSTDTC": "2024-01-01",
+    "SENDTC": "2024-12-31",
+    "INDIC": "Condition X",
+    "TRT": "Drug A",
+    "PLTEFM": "PARALLEL",
+    "STYPE": "INTERVENTIONAL",
+    "TPHASE": "PHASE II TRIAL",
+    "PCLAS": "ANALGESIC",
+    "RANDOM": "Y",
+    "BLIND": "DOUBLE BLIND"
+  }
+}

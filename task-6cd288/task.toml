@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in computational number theory and cryptanalysis. The solver must: (1) recognize that certain RSA moduli have non-uniform residue distributions mod small primes, characteristic of the ROCA/Infineon-style vulnerability; (2) identify the generator (65537) and the set of 39 characteristic primes from the observed residue patterns; (3) compute M (the product of those primes) and the multiplicative order of 65537 mod M (360360); (4) enumerate candidate discrete-log exponents and check which candidate yields a factor of n. This combines abstract algebra, number theory, and cryptographic attack implementation at PhD/expert level."""
+solution_explanation = """The solution detects ROCA-vulnerable keys by checking whether n mod p is always a power of 65537 for a set of 39 characteristic small primes (from 2 to 491). For factoring, it computes M (the product of these primes) and the total multiplicative order of 65537 modulo M (360360). Since the vulnerable primes satisfy p = 65537^a mod M for some exponent a (with M > p for the key sizes used), the solver iterates over all 360360 candidate exponents, computes G^a mod M, and checks divisibility against n."""
+verification_explanation = """Tests verify that (1) results.json exists with correct format, (2) all 8 keys are classified, (3) ROCA-vulnerable keys are correctly identified, (4) for each vulnerable key the provided p and q satisfy p*q=n with both prime, and (5) no non-vulnerable key is incorrectly marked vulnerable."""
+category = "cryptography"
+tags = ["rsa-factoring", "number-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6cd288"

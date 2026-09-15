@@ -1,0 +1,280 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5/run-results.json",
+    "dbt_version": "1.7.0",
+    "generated_at": "2024-01-15T10:35:00Z"
+  },
+  "results": [
+    {
+      "unique_id": "seed.analytics.raw_customers",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "seed.analytics.raw_orders",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "seed.analytics.raw_payments",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "seed.analytics.raw_products",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "seed.analytics.raw_inventory",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "seed.analytics.raw_suppliers",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.stg_customers",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.stg_orders",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.stg_payments",
+      "status": "error",
+      "message": "Database Error: relation 'raw_payments' does not exist",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.stg_products",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.stg_inventory",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.stg_suppliers",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.int_customer_orders",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.int_payment_methods",
+      "status": "error",
+      "message": "Compilation Error: depends on stg_payments which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.int_product_inventory",
+      "status": "error",
+      "message": "Database Error: column 'quantity_on_hand' does not exist",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.int_supplier_products",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.fct_orders",
+      "status": "error",
+      "message": "Compilation Error: depends on int_payment_methods which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.fct_payments",
+      "status": "error",
+      "message": "Compilation Error: depends on int_payment_methods which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.fct_inventory_snapshots",
+      "status": "skipped",
+      "message": "SKIP: upstream model int_product_inventory errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.dim_customers",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.dim_products",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "model.analytics.rpt_customer_lifetime_value",
+      "status": "skipped",
+      "message": "SKIP: upstream model fct_orders errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.rpt_daily_revenue",
+      "status": "skipped",
+      "message": "SKIP: upstream model fct_orders errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "model.analytics.rpt_product_performance",
+      "status": "skipped",
+      "message": "SKIP: upstream models errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.unique_stg_customers_customer_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.not_null_stg_customers_customer_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.unique_stg_orders_order_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.not_null_stg_orders_order_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.unique_stg_payments_payment_id.abc123",
+      "status": "error",
+      "message": "depends on stg_payments which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.not_null_stg_payments_payment_id.abc123",
+      "status": "error",
+      "message": "depends on stg_payments which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.unique_stg_products_product_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.unique_fct_orders_order_id.abc123",
+      "status": "error",
+      "message": "depends on fct_orders which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.not_null_fct_orders_order_id.abc123",
+      "status": "error",
+      "message": "depends on fct_orders which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.not_null_fct_orders_amount.abc123",
+      "status": "error",
+      "message": "depends on fct_orders which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.unique_dim_customers_customer_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.unique_dim_products_product_id.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.not_null_rpt_daily_revenue_date.abc123",
+      "status": "skipped",
+      "message": "depends on rpt_daily_revenue which was skipped",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123",
+      "status": "skipped",
+      "message": "depends on rpt_customer_lifetime_value which was skipped",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.accepted_values_stg_orders_status.abc123",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    },
+    {
+      "unique_id": "test.analytics.accepted_values_stg_payments_method.abc123",
+      "status": "error",
+      "message": "depends on stg_payments which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123",
+      "status": "skipped",
+      "message": "depends on fct_inventory_snapshots which was skipped",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456",
+      "status": "error",
+      "message": "depends on fct_orders which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456",
+      "status": "error",
+      "message": "depends on fct_payments and fct_orders which errored",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456",
+      "status": "skipped",
+      "message": "depends on rpt_customer_lifetime_value which was skipped",
+      "execution_time": 0.0
+    },
+    {
+      "unique_id": "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456",
+      "status": "pass",
+      "message": "",
+      "execution_time": 1.5
+    }
+  ],
+  "elapsed_time": 45.0
+}

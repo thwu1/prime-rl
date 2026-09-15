@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of multi-objective optimization (Pareto dominance in 4D, hypervolume indicator computation) applied to FPGA resource modeling. The agent must independently reverse-engineer a deeply nested JSON data schema, choose appropriate tools and architecture, implement correct 4D Pareto frontier extraction and hypervolume computation, handle subtle data quality issues (null resources, whitespace-padded booleans, case-insensitive matching, empty objects), design a normalized relational schema, and produce a coherent multi-format output (JSONL, SQLite, JSON report) with precise sorting and ranking semantics — all without any prescribed approach or algorithm hints."""
+solution_explanation = """Parse the nested JSON to discover its model→category→module→solutions structure. Flatten to JSONL preserving null resources. Build a SQLite database with validity logic (pass status normalization + null checks), weighted cost computation, Pareto frontier extraction via dominance comparison in 4D resource space, and per-module statistics. Generate a JSON report with hypervolume indicator (computed via inclusion-exclusion over Pareto frontier), multi-key ranked solutions, and per-model NRE aggregates."""
+verification_explanation = """Tests verify all three artifacts: JSONL structure (24 lines, correct fields, null handling, whitespace preservation), SQLite database (schema validation, row counts, validity flags, weighted costs, Pareto membership, module statistics with exact values), and JSON report (exact Pareto frontier members and ordering, hypervolume values, ranking sequences with tie-breaking, floating-point aggregates within tolerance). Edge case tests confirm null resource exclusion, failed-pass exclusion, empty optimized dict handling, whitespace-padded and case-variant pass status normalization."""
+category = "optimization"
+tags = ["fpga", "multi-objective-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fpga-resource-dse"

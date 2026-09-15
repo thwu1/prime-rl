@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of legislative amendment semantics, not just XML parsing. The solver must: (1) process two interacting public laws in enactment order where the second law's amendments target text already modified by the first; (2) track redesignation chains across laws so that PL 119-67's references to post-redesignation identifiers resolve correctly; (3) detect and correctly handle a conditional savings clause embedded in natural language within the XML, determining whether a provision already exists from a prior enactment and skipping the duplicate amendment while preserving the original; (4) apply amendment-on-amendment patterns where PL 119-67 modifies values ($500,000→$750,000, 24h→12h) that PL 119-45 already changed from the base statute; (5) produce a structured reconciliation audit trail tracking every amendment action across both laws. This combination demands holistic understanding of how U.S. legislative drafting conventions encode inter-law dependencies — not achievable by procedurally following one amendment at a time."""
+solution_explanation = """Parse both USLM XMLs using namespace-aware XML processing. Read enactment_metadata.json to determine application order. For each law in order, traverse amendment sections extracting instructions from amendingAction, quotedText, quotedContent, and ref elements. Before applying each amendment, check for conditional language ('has not been added by prior enactment') and verify whether the referenced provision exists — if so, skip and log. Apply text substitutions, structural additions, redesignations, repeals, and full replacements to the statute dict. Track every action in an amendment log. After processing both laws, write the final statute and generate the reconciliation report with enactment order, amendment details, and summary counts."""
+verification_explanation = """Pytest validates both outputs: (1) the amended_statute.json is checked with 40+ assertions covering all amendment effects from both laws — term renames, paragraph additions, redesignation results, text substitution chains, conditional skip preservation (verifying PL 119-45's paragraph 7 text was retained, not overwritten by PL 119-67's shorter version), compliance timeline changes, penalty amount progression ($100K→$500K→$750K), and reporting timeline changes (24h→12h); (2) the reconciliation_report.json is validated for correct structure, enactment ordering, exactly one skipped amendment targeting the right provision, and consistent summary counts."""
+category = "information_retrieval"
+tags = ["xml-processing", "legislative-markup"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/uslm-amendment-compiler"

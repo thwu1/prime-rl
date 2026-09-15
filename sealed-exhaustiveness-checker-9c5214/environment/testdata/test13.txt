@@ -1,0 +1,18 @@
+# Test 13: Multi-level sealed hierarchy with dominance
+# Shape -> Literal | Op, Literal -> IntLit | StrLit
+# type Literal dominates type IntLit (IntLit is a subtype of Literal)
+# Expected: exhaustive, case 1 dominated by case 0
+
+TYPES
+sealed Expr Literal Op
+sealed Literal IntLit StrLit
+final IntLit parent:Literal
+final StrLit parent:Literal
+final Op parent:Expr
+
+SWITCHES
+switch s1 Expr
+type Literal
+type IntLit
+type Op
+end

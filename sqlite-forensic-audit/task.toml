@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level SQLite knowledge to diagnose data integrity issues in a broken reporting script. The solver must independently discover multiple interacting SQLite behaviors: (1) type affinity and BLOB-affinity columns that allow mixed-type storage silently corrupting financial calculations; (2) NULL semantics in UNIQUE constraints enabling "phantom" duplicate rows; (3) default PRAGMA foreign_keys=OFF allowing orphaned references; (4) sqlite_stat1 internal table format and cross-referencing with sqlite_master to validate query planner statistics; (5) recursive CTE design for hierarchy traversal vs naive approaches. Beyond fixing each metric, the solver must evaluate the original report to determine which of its values were already correct — requiring side-by-side comparison of broken vs corrected methodology for every metric. This evaluation layer demands holistic understanding rather than isolated query writing.
+"""
+solution_explanation = """
+The solution investigates the database schema to discover typeless columns causing mixed-type storage, then writes targeted queries for each metric the broken script attempts. It evaluates each broken query against its corrected counterpart: some (orphaned_product_categories, orphaned_transactions, json_price_discrepancies) turn out to be correct in the original, while others require fundamental redesign (typeof() filtering, recursive CTEs, stat1 cross-referencing). The solution produces both the corrected report and an error analysis identifying exactly which 3 of the 10 original metrics were already correct.
+"""
+verification_explanation = """
+Tests check the corrected report at /app/corrected_report.json against hardcoded expected values. Integer metrics use exact equality, float metrics use pytest.approx with ±0.10 tolerance, and the per-root-category dictionary is verified key-by-key. Additionally, tests verify /app/error_analysis.json contains the correct sorted list of 3 metric names that the original report computed correctly.
+"""
+category = "database_engineering"
+tags = ["sqlite", "data-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-forensic-audit"

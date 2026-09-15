@@ -1,0 +1,56 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix locn: <http://www.w3.org/ns/locn#> .
+@prefix spdx: <http://spdx.org/rdf/terms#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+
+# Negative sample: keywords are all English, no German keyword
+# (must be rejected by qualified value shape requiring >=1 @de keyword)
+
+<http://neg-test/ds-kw> a dcat:Dataset ;
+    dct:title "German Keyword Test"@en ;
+    dct:description "Dataset with only English keywords"@en ;
+    dct:spatial [
+        a dct:Location ;
+        locn:geometry "POLYGON((10 50, 11 50, 11 51, 10 51, 10 50))"^^geo:wktLiteral ;
+        locn:geographicName "Test Region"
+    ] ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2020-01-01"^^xsd:date ;
+        dcat:endDate "2023-12-31"^^xsd:date
+    ] ;
+    dcat:keyword "keyword alpha"@en , "keyword beta"@en , "keyword gamma"@en ;
+    dcat:theme <http://neg-test/concept/t2> ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dcat:spatialResolutionInMeters "50.0"^^xsd:decimal ;
+    dct:conformsTo <http://neg-test/standard/s2> ;
+    dct:creator <http://neg-test/agent/a2> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:hasEmail <mailto:contact@neg-test.eu> ;
+        vcard:fn "Test Contact"
+    ] ;
+    dcat:distribution <http://neg-test/dist/d2> .
+
+<http://neg-test/concept/t2> a skos:Concept ;
+    skos:prefLabel "Test Theme"@en .
+
+<http://neg-test/agent/a2> a foaf:Agent ;
+    foaf:name "Test Agency" ;
+    foaf:mbox <mailto:info@neg-test.eu> .
+
+<http://neg-test/dist/d2> a dcat:Distribution ;
+    dcat:accessURL <http://neg-test/access/2> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/CSV> ;
+    dcat:byteSize "2097152"^^xsd:nonNegativeInteger ;
+    spdx:checksum [
+        a spdx:Checksum ;
+        spdx:checksumValue "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" ;
+        spdx:algorithm <http://spdx.org/rdf/terms#checksumAlgorithm_sha256>
+    ] .

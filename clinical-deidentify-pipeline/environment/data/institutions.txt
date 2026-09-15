@@ -1,0 +1,12 @@
+# Healthcare institution names
+UMCG
+Universitair Medisch Centrum Groningen
+Erasmus MC
+Amsterdam UMC
+VUmc
+UMC Utrecht
+Radboudumc
+LUMC
+MUMC
+Isala
+Amphia

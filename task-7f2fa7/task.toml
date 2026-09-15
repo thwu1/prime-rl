@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires identifying and diagnosing three distinct computational errors in a multi-objective optimization pipeline (biased estimator, missing constraint filtering, incorrect volume computation) without being told what is wrong, then extending the pipeline with cross-validation, sensitivity analysis, and gnuplot visualization. The solver must possess domain expertise in statistical pass-rate estimation, Pareto dominance, 3D hypervolume computation, and weight-space robustness analysis, and must independently select correct algorithms and external libraries to produce self-consistent results across six interrelated output sections."""
+solution_explanation = """The solver: (1) identifies and replaces the biased pass@k with the correct unbiased combinatorial estimator, (2) discovers and applies DSP/BRAM constraint filtering before Pareto computation, (3) implements a correct 3D sweep-line hypervolume algorithm, (4) independently chooses pymoo's HV indicator for cross-validation, (5) designs and implements the weight-grid sensitivity analysis over 36 valid combinations, and (6) scripts gnuplot to produce 15 SVG scatter plots with .dat data files."""
+verification_explanation = """Tests verify exact Pass@K values, Pareto front sizes and membership, 3D hypervolume values within tight tolerance, final ranking order, cross-validation pass status, existence and validity of gnuplot SVG outputs, data file point counts, and sensitivity analysis structural correctness including total combination count and the invariant that beta always outranks alpha."""
+category = "optimization"
+tags = ["multi-objective-optimization", "hls-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7f2fa7"

@@ -1,0 +1,437 @@
+{
+  "name": "full_workflow",
+  "config": {
+    "grid": {
+      "width": 20,
+      "height": 20
+    },
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": [
+          "skip",
+          "move",
+          "rotate",
+          "adopt",
+          "request",
+          "attach",
+          "detach",
+          "connect",
+          "disconnect",
+          "submit",
+          "clear",
+          "survey"
+        ],
+        "speed": [
+          2,
+          1,
+          1,
+          0
+        ],
+        "clear": {
+          "chance": 1.0,
+          "maxDistance": 2
+        }
+      },
+      {
+        "name": "scout",
+        "vision": 7,
+        "actions": [
+          "skip",
+          "move",
+          "adopt",
+          "survey"
+        ],
+        "speed": [
+          3,
+          2,
+          1,
+          0
+        ],
+        "clear": {
+          "chance": 0.0,
+          "maxDistance": 0
+        }
+      }
+    ],
+    "maxEnergy": 100,
+    "stepRecharge": 1,
+    "clearEnergyCost": 2,
+    "deactivatedDuration": 3,
+    "refreshEnergy": 50,
+    "clearDamage": [
+      32,
+      16,
+      8,
+      4,
+      2,
+      1
+    ],
+    "attachLimit": 10,
+    "steps": 500,
+    "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [
+      {
+        "name": "a1",
+        "team": "A",
+        "x": 5,
+        "y": 5,
+        "role": "default",
+        "energy": 100
+      },
+      {
+        "name": "a2",
+        "team": "A",
+        "x": 10,
+        "y": 10,
+        "role": "scout",
+        "energy": 100
+      }
+    ],
+    "blocks": [],
+    "dispensers": [
+      {
+        "x": 5,
+        "y": 6,
+        "type": "b0"
+      },
+      {
+        "x": 6,
+        "y": 5,
+        "type": "b1"
+      }
+    ],
+    "obstacles": [
+      {
+        "x": 8,
+        "y": 8
+      }
+    ],
+    "tasks": [
+      {
+        "name": "task1",
+        "deadline": 200,
+        "reward": 50,
+        "requirements": [
+          {
+            "x": 0,
+            "y": 1,
+            "type": "b0"
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "type": "b1"
+          }
+        ]
+      }
+    ],
+    "norms": [],
+    "goalZones": [
+      [
+        5,
+        5
+      ],
+      [
+        5,
+        6
+      ],
+      [
+        6,
+        5
+      ],
+      [
+        6,
+        6
+      ]
+    ],
+    "roleZones": [
+      [
+        10,
+        10
+      ]
+    ]
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "a1 requests b0 south. a2 tries request but scout lacks it.",
+      "actions": {
+        "a1": {
+          "type": "request",
+          "p": [
+            "s"
+          ]
+        },
+        "a2": {
+          "type": "request",
+          "p": [
+            "s"
+          ]
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success",
+          "a2": "failed_role"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "scout"
+          }
+        },
+        "blocks": [
+          {
+            "x": 5,
+            "y": 6,
+            "type": "b0"
+          }
+        ],
+        "scores": {
+          "A": 0
+        }
+      }
+    },
+    {
+      "step": 1,
+      "comment": "a1 attaches b0 south.",
+      "actions": {
+        "a1": {
+          "type": "attach",
+          "p": [
+            "s"
+          ]
+        },
+        "a2": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a2": "success",
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "scout"
+          }
+        },
+        "blocks": [
+          {
+            "x": 5,
+            "y": 6,
+            "type": "b0"
+          }
+        ],
+        "scores": {
+          "A": 0
+        }
+      }
+    },
+    {
+      "step": 2,
+      "comment": "a1 requests b1 east.",
+      "actions": {
+        "a1": {
+          "type": "request",
+          "p": [
+            "e"
+          ]
+        },
+        "a2": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a2": "success",
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "scout"
+          }
+        },
+        "blocks": [
+          {
+            "x": 5,
+            "y": 6,
+            "type": "b0"
+          },
+          {
+            "x": 6,
+            "y": 5,
+            "type": "b1"
+          }
+        ],
+        "scores": {
+          "A": 0
+        }
+      }
+    },
+    {
+      "step": 3,
+      "comment": "a1 attaches b1 east. Now 2 blocks attached.",
+      "actions": {
+        "a1": {
+          "type": "attach",
+          "p": [
+            "e"
+          ]
+        },
+        "a2": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a2": "success",
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "scout"
+          }
+        },
+        "blocks": [
+          {
+            "x": 5,
+            "y": 6,
+            "type": "b0"
+          },
+          {
+            "x": 6,
+            "y": 5,
+            "type": "b1"
+          }
+        ],
+        "scores": {
+          "A": 0
+        }
+      }
+    },
+    {
+      "step": 4,
+      "comment": "a1 submits task1 with b0 south and b1 east. Score += 50.",
+      "actions": {
+        "a1": {
+          "type": "submit",
+          "p": [
+            "task1"
+          ]
+        },
+        "a2": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a2": "success",
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "scout"
+          }
+        },
+        "blocks": [],
+        "scores": {
+          "A": 50
+        }
+      }
+    },
+    {
+      "step": 5,
+      "comment": "a2 adopts default role on role zone.",
+      "actions": {
+        "a2": {
+          "type": "adopt",
+          "p": [
+            "default"
+          ]
+        },
+        "a1": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success",
+          "a2": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 100,
+            "role": "default"
+          },
+          "a2": {
+            "x": 10,
+            "y": 10,
+            "energy": 100,
+            "role": "default"
+          }
+        },
+        "blocks": [],
+        "scores": {
+          "A": 50
+        }
+      }
+    }
+  ],
+  "description": "Tests request, attach, submit, role permission checks, and role adoption."
+}

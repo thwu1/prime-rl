@@ -1,0 +1,24 @@
+# Maintainer: Iris Plugin <iris@example.org>
+pkgname=plugin-host
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Plugin hosting and lifecycle management service"
+arch=('x86_64')
+url="https://github.com/example/plugin-host"
+license=('MIT')
+depends=('auth-svc' 'ext-api>=1.0')
+makedepends=('cmake')
+provides=('plug-api=1.0.0')
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('c8d9e0f1a2b30000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr .
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" install
+}

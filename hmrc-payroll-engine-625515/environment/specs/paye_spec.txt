@@ -1,0 +1,3407 @@
+HMRC Logo
+Specification for PAYE Tax Table Routines
+Version 24.0 Issued February 2026
+Table of Contents
+Paragraph
+Version Control
+Introduction
+1
+Brief Description of Manual Tax Tables
+2
+Computerised PAYE Tax Routines
+- General
+3
+- Employees paid weekly or monthly
+- Cumulative Suffix Codes and
+Cumulative Prefix K, SK, CK Codes
+4
+- Cumulative Code BR, SBR, CBR
+5
+- Cumulative Prefix D, SD, CD Codes
+6
+- Cumulative Code NT
+7
+- Week 1/Month 1 Basis Suffix Codes and Week 1/Month 1
+Basis Prefix K, SK, CK Codes
+8
+- Week 1/Month 1 Basis Code BR, SBR, CBR
+9
+- Week 1/Month 1 Basis Prefix D, SD, CD Codes
+10
+- Week 1/Month 1 Basis Code NT
+11
+- Code specified for emergency use - all employees
+12
+- Employees paid at other than regular weekly or monthly intervals
+13
+- Cumulative Suffix Codes and
+Cumulative Prefix K, SK, CK Codes
+13.1
+- Cumulative Code BR, SBR, CBR
+13.2
+- Cumulative Prefix D, SD, CD Codes
+13.3
+- Cumulative Code NT
+13.4
+- Week 1/Month 1 Basis Suffix and Prefix K, SK, CK Codes
+13.5
+- Week 1/Month 1 Basis Code BR, SBR, CBR
+13.6
+- Week 1/Month 1 Basis Prefix D, SD, CD Codes
+13.7
+- Week 1/Month 1 Basis Code NT
+13.8
+- Payments in Weeks 53, 54 or 56
+14
+Use of the Code Suffix
+15
+Program Testing and Refined Tax Calculations
+16
+Tables of Parameters
+Appendix A
+Tables of Parameters (Scottish)
+Appendix B
+Tables of Parameters (Welsh)
+Appendix C
+Glossary of Symbols
+Appendix D
+Summary of Formulae
+Appendix E
+Version Control
+Version Number
+Details
+Version Date
+Version 20.0
+English & Northern Irish, Scottish and Welsh parameters for 2022/2023 entered at Appendices A, B and C. Scottish and Welsh parameters are subject to parliamentary approval.
+January 2022
+Version 21.0
+English & Northern Irish, Scottish and Welsh parameters for 2023/2024 entered at Appendices A, B and C. Scottish and Welsh parameters are subject to parliamentary approval.
+January 2023
+Version 22.0
+English & Northern Irish, Scottish and Welsh parameters for 2024/2025 entered at Appendices A, B and C. Scottish and Welsh parameters are subject to parliamentary approval.
+January 2024
+Version 23.0
+English & Northern Irish, Scottish and Welsh parameters for 2025/2026 entered at Appendices A, B and C. Scottish and Welsh parameters are subject to parliamentary approval.
+January 2025
+Version 24.0
+English & Northern Irish, Scottish and Welsh parameters for 2026/2027 entered at Appendices A, B and C. Scottish parameters are subject to parliamentary approval.
+February 2026
+1.
+Introduction
+1.1
+This Specification supersedes all earlier ones showing the method of computing PAYE tax and expands on the information contained in the "
+Employer Further Guide to PAYE and NICs" (CWG2).
+1.2
+In reading this Specification, it should be remembered that the manual Tax Tables are designed for the convenience of the manual user, incorporating various roundings to this end which make for some complications in the specification of the computerised PAYE tax routines.
+1.3
+The calculation, rules and processes in this specification remain unchanged by introduction of the Scottish Rate of Income Tax (SRIT) from 6 April 2016, the Further Scottish Income Tax Powers (FSITP) from 6 April 2017 and the Welsh Rate of Income Tax (WRIT) from 6 April 2019. The routines in this document currently incorporate Scottish and Welsh equivalents of the rates, values, bandwidths and formulae required at each stage of the calculation.
+Where a change of taxpayer status is notified mid-year the method described in this specification will still apply but the calculation will be carried out using the English & Northern Irish, SRIT or WRIT rates and bandwidths from that point forward in the year. The new taxpayer status will mean that the software must refer to a different set of rates and bandwidths but cumulative calculations will continue to use the taxable pay to date (specification value T
+n
+) and tax to date (specification value L
+n
+) throughout the year. These values do not have Scottish or Welsh equivalents, they are general values in the specification that can be used in SRIT, WRIT or English & Northern Irish calculations.
+The current process for non-cumulative codes will continue and is not impacted by SRIT, FSITP or WRIT. Where the taxpayer status changes and a non-cumulative code is applied the non-cumulative calculation should be carried out as normal until the employer is notified otherwise by HMRC. Any resulting under/overpayments of tax will be rectified when the employer is notified of the correct cumulative code. Or, if the tax year end has passed, any under/overpayments will be rectified by HMRC as part of the normal year end reconciliation process on the account.
+1.4
+Although the tax structure incorporates the Basic Rate, Scottish Rate, Welsh Rate and Higher Rate(s), these distinctions are mainly semantic, and for the purposes of paragraph 3 onwards of this Specification, the tax structure is treated as a uniform sequence of rates and associated bandwidths, in ascending order of rate.
+1.5
+Except where indicated, throughout this Specification, references to a week also refer to a month where relevant, and in such cases references to division by 52 or to Week 52 should be read as references to division by 12 or to Month 12 respectively.
+2.
+Brief description of manual Tax Tables
+2.1
+The manual Tax Tables comprise:
+Tables A
+- Pay Adjustment Tables - a single booklet showing for each
+code the Free Pay (for suffix codes)
+or the Additional pay (for prefix K, SK, CK codes) for each week or month.
+Tables B to D
+- Taxable Pay Tables 
+- a single booklet identifying and
+providing ready reckoners for
+Basic and Higher Rate
+tax cases as appropriate.
+2.2
+The manual system first requires the employer to enter on the payroll record the pay for the week. If the normal cumulative principle applies (i.e. the code is NOT being applied on a Week 1 basis), a figure of Cumulative Pay to date is then calculated. Where appropriate, the Free Pay or the Additional Pay for the relevant code is obtained from Pay Adjustment Tables (Table A) for the appropriate week. The Free Pay is subtracted from the Cumulative Pay to date or the Additional Pay is added to the Cumulative Pay to date to give the Taxable Pay to date. Reference to Tables B to D will then enable the employer to identify the rate of tax to which the employee is liable and calculate the tax due.
+2.3
+If the employee is liable at the first chargeable rate, Table B will identify such cases and show the tax due at that rate.
+2.4
+If the employee is liable at a rate of tax higher than the first chargeable rate, Table B is not appropriate. Tables C are designed to identify such cases and to determine the employee’s highest rate of liability. To do this each week of the year has listed against it a series of pairs of numbers, each pair setting the lower and upper limits of the proportion to date of one of the annual bands of Higher Rate tax (the final Higher Rates are not included, as they are of unlimited extent). Alongside each of these band ranges is an amount of tax which incorporates any entitlement at the first chargeable rate and any Higher Rate below the employee’s top rate of tax, and which has to be added to a figure of tax obtained from Tables D. Tables D give tax at the individual's top rate of liability, on the excess over the amount already charged to tax in Tables C. Thus Tables C and D between them identify an individual's current top rate of liability and give the total tax due to date.
+2.5
+For ease of use the band ranges in Tables C are quoted in round pounds, but the amount of tax is correctly computed on the exact amounts. It is this method of construction of Tables C (which is efficient for the manual user) that leads to the complex rounding rules in the detailed tax calculations given in this Specification.
+2.6
+The final stage in the manual PAYE system depends on the code being used. For cumulative suffix codes and cumulative codes BR, SBR, CBR, D, SD, CD and NT for this week's figure of tax due to date, less last week's corresponding figure, provides the amount of tax due to be deducted or refunded this week.
+2.7
+For cumulative tax codes this week's figure of tax due to date is added to any tax due for last week which could not be deducted because of the overriding Regulatory limit (see below) and the result, less last week's figure of tax due to date, provides the amount of tax due this week. The amount of the Regulatory limit for this week is then calculated (this is a statutory percentage of the pay for the week) and compared with the tax due this week. Where the amount of the Regulatory limit is lower than the tax due then the tax deducted is restricted to the amount of the Regulatory limit and the amount of the tax due which cannot be deducted is recorded (to be referred to next week). Where the amount of the Regulatory limit is equal to or higher than the tax due then the tax due is deducted. (Where, in a cumulative tax code case, a refund is due for this week, consideration of the Regulatory limit is unnecessary.)
+2.8
+For non-cumulative codes, the tax due is calculated for each pay period in isolation (the Regulatory limit being applied where necessary).
+3.
+Computer PAYE tax routines - General
+3.1
+The routines that follow are necessarily complex, and where it has been considered an appropriate aid to clarity both a narrative and a mathematical version of the calculations has been given. The following symbols are used throughout the Specification and additional symbols are introduced in the Definitions given in paragraph 3.3. A glossary of the symbols is provided in Appendix D: new users particularly may find it helpful to detach this for ease of reference when reading later parts of the Specification.
+3.2
+Basic Symbols
+Description
+Symbol
+Week number
+n
+Pay for Week n including any payrolled benefits in kind
+p
+n
+(NB. lower case p)
+Cumulative Pay including payrolled benefits in kind up to 
+P
+n
+and including Week n (NB. Upper case P)
+Payrolled benefits in kind for Week n
+pbik
+Free Pay for Week 1
+a
+1
+Additional Pay for Week 1
+e
+1
+Taxable Pay up to and including Week n
+- before applying rounding rules
+U
+n
+- after applying rounding rules
+T
+n
+Tax deductible or refundable in Week n (NB. lower case l)
+l
+n
+Tax liability up to and including Week n
+L
+n
+3.3
+Definition of terms
+3.3.1
+The various routines described later in this Specification make use of two distinct classes of parameters: Annual Constants whose values are supplied by HMRC, and Weekly Constants derived from them for the current payroll run.
+Only those items used in the tax calculations (shown in
+bold
+typeface) or in forming Weekly Constants (shown in
+Italic
+typeface) need to be permanently held. The other Definitions are given merely to show how the essential items are derived. Note that in order to avoid lengthy and unnecessary repetition, the listing of Definitions 1 to 5 and 9 to 11 inclusive which follows is incomplete and has been terminated once the pattern has been established.
+3.3.2
+Annual and Weekly Constants. (The mathematical derivation and current values of the parameters symbolised generally at B, SB, C, SC, K, SK, WK, R, SR and WR are given in Appendices A, B and C as is the current value of the parameters G, G1, G2 and M). The Practical Maximum Field Sizes recommended for the values of the Constants are:
+B 999999
+SB 999999
+C 999999
+SC 999999
+K 99999999.99
+SK 99999999.99
+WK 99999999.99
+R 99.99%
+SR 99.99%
+WR 99.99%
+G 9
+G1 9
+G2 9
+M 
+99.99%
+For all practical purposes the maximum values given in the Specification seem likely to be sufficient for several years. But the values will always have to be subject to change and when new programs are being developed, developers may think it prudent to allow extra £'s characters for B, SB, C, SC, K, SK and WK.
+In addition, developers should allow for tax codes of up to 7 characters in length (eg 999999T).
+3.3.3
+Annual Constants - definitions
+Symbol
+Definition 
+1(a)
+Rate 1
+= 1st rate of tax
+R
+1
+"
+1(b)
+Rate 2
+= 2nd rate of tax
+R
+2
+"
+1(c)
+Rate 3
+= 3rd rate of tax
+R
+3
+And so on as necessary to accommodate the current range of
+Rates
+shown
+in Appendix A.
+Definition
+1.1(a)
+Scottish Rate 1 =
+1st rate of tax
+SR
+1
+"
+1.1(b)
+Scottish Rate 2 =
+2nd rate of tax
+SR
+2
+"
+1.1(c)
+Scottish Rate 3 =
+3rd rate of tax
+SR
+3
+And so on as necessary to accommodate the current range of
+Scottish
+Rates
+shown in Appendix B.
+Definition
+1.2(a)
+Welsh Rate 1 =
+1st rate of tax
+WR
+1
+"
+1.2(b)
+Welsh Rate 2 =
+2nd rate of tax
+WR
+2
+"
+1.2(c)
+Welsh Rate 3 =
+3rd rate of tax
+WR
+3
+And so on as necessary to accommodate the current range of
+Welsh
+Rates
+shown in Appendix C.
+Definition
+2(a) Bandwidth 1 = Annual bandwidth of 1st rate of tax
+B
+1
+"
+2(b) Bandwidth 2 = Annual bandwidth of 2nd rate of tax
+B
+2
+"
+2(c) Bandwidth 3 = Annual bandwidth of 3rd rate of tax
+B
+3
+And so on as necessary to accommodate the current range of Bandwidths shown in 
+Appendix A.
+Definition
+2.1(a) Scottish Bandwidth 1 = Scottish Annual bandwidth
+S
+B
+1
+of 1st rate of tax
+"
+2.1(b) Scottish Bandwidth 2 = Scottish Annual bandwidth
+S
+B
+2
+of 2nd rate of tax
+"
+2.1(c) Scottish Bandwidth 3 = Scottish Annual bandwidth
+S
+B
+3
+of 3rd rate of tax
+And so on as necessary to accommodate the current range of Scottish
+Bandwidths shown in Appendix B.
+Definition
+3(a)
+Cumulative bandwidth 1
+= Bandwidth 1
+C
+1
+"
+3(b)
+Cumulative bandwidth 2
+= The sum of Bandwidths
+1 and 2
+C
+2
+"
+3(c)
+Cumulative bandwidth 3
+= The sum of Bandwidths
+1, 2 and 3
+C
+3
+And so on as necessary to accommodate the current range of
+Cumulative Bandwidths
+shown in Appendix A.
+Definition
+3.1(a)
+Scottish
+Cumulative bandwidth 1
+= Scottish Bandwidth 1
+S
+C
+1
+"
+3.1(b)
+Scottish
+= The sum of
+Cumulative bandwidth 2
+Scottish Bandwidths 1 and 2
+S
+C
+2
+"
+3.1(c)
+Scottish
+= The sum of
+Cumulative bandwidth 3
+Scottish Bandwidths 1, 2 and 3
+S
+C
+3
+And so on as necessary to accommodate the current range of
+Scottish
+Cumulative Bandwidths
+shown in Appendix B.
+Definition
+4(a) Annual tax 1 = Bandwidth 1 x
+Rate 1
+-
+"
+4(b) Annual tax 2 = Bandwidth 2 x
+Rate 2
+-
+"
+4(c) Annual tax 3 = Bandwidth 3 x
+Rate 3
+-
+And so on as necessary to accommodate the current range of Bandwidths shown in Appendix A
+Definition
+4.1(a) Annual Tax 1 = Scottish Bandwidth 1 x
+Scottish Rate 1
+-
+(Scotland)
+"
+4.1(b) Annual Tax 2 = Scottish Bandwidth 2 x
+Scottish Rate 2-
+(Scotland)
+"
+4.1(c) Annual Tax 3 = Scottish Bandwidth 3 x
+Scottish Rate 3-
+(Scotland)
+And so on as necessary to accommodate the current range of Scottish
+Bandwidths shown in Appendix B
+Definition
+4.2(a) Annual Tax 1 = Bandwidth 1 x
+Welsh Rate 1
+-
+(Wales)
+"
+4.2(b) Annual Tax 2 = Bandwidth 2 x
+Welsh Rate 2
+-
+(Wales)
+"
+4.2(c) Annual Tax 3 = Bandwidth 3 x
+Welsh Rate 3
+-
+(Wales)
+And so on as necessary to accommodate the current range of Bandwidths shown in Appendix C
+Definition
+5(a)
+Cumulative annual tax 1
+= Annual tax 1
+K
+1
+"
+5(b)
+Cumulative annual tax 2
+= The sum of Annual taxes
+1 and 2
+K
+2
+"
+5(c)
+Cumulative annual tax 3
+= The sum of Annual taxes
+1, 2 and 3
+K
+3
+And so on as necessary to accommodate the current range of
+Cumulative annual taxes
+shown in Appendix A.
+Definition
+5.1(a)
+Cumulative Annual Tax 1
+= Annual tax 1(Scotland)
+SK
+1
+(Scotland)
+“
+5.1(b)
+Cumulative Annual Tax 2 =
+The sum of Annual
+(Scotland)
+taxes 1 and 2 (Scotland)
+SK
+2
+“
+5.1(c)
+Cumulative Annual Tax 3
+= The sum of Annual
+(Scotland)
+taxes 1, 2 and 3 (Scotland)
+SK
+3
+And so on as necessary to accommodate the current range of
+Cumulative Annual Taxes (Scotland)
+shown in Appendix B
+Definition
+5.2(a)
+Cumulative Annual Tax 1
+= Annual tax 1(Wales)
+WK
+1
+(Wales)
+“
+5.2(b)
+Cumulative Annual Tax 2 =
+The sum of Annual
+(Wales)
+taxes 1 and 2 (Wales)
+WK
+2
+“
+5.2(c)
+Cumulative Annual Tax 3
+= The sum of Annual
+(Wales)
+taxes 1, 2 and 3 (Wales)
+WK
+3
+And so on as necessary to accommodate the current range of
+Cumulative Annual Taxes (Wales)
+shown in Appendix C
+Definition 6
+Gpointer
+Pointer to Basic Rate
+G
+Definition 6.1
+Gpointer
+Pointer to Basic Rate (Scotland)
+G1
+Definition 6.2
+Gpointer
+Pointer to Basic Rate (Wales)
+G2
+Definition 7
+Not used
+Definition 8
+Not used
+No rounding rules are necessary for the above Definitions 1 to 8. Definitions 6, 6.1 and 6.2 are a single value for the year and so unlike all other previous Definitions are not representative of a range of similar items.
+3.3.4
+Weekly Constants - definitions
+Definition
+9(a)
+Threshold 1
+=
+Cumulative bandwidth 1 x
+n
+c
+1
+52
+"
+9(b)
+Threshold 2
+=
+Cumulative bandwidth 2 x
+n
+c
+2
+52
+"
+9(c)
+Threshold 3
+=
+Cumulative bandwidth 3 x
+n
+c
+3
+52
+And so on as necessary to accommodate the current range of
+Cumulative bandwidths s
+hown in Appendix A.
+Definition
+9.1(a)
+Scottish
+Threshold 1
+=
+Scottish
+Cumulative
+S
+c
+1
+bandwidth 1 x
+n
+52
+"
+9.1(b)
+Scottish
+=
+Threshold 2
+Scottish
+Cumulative
+S
+c
+2
+bandwidth 2 x
+n
+52
+"
+9.1(c)
+Scottish
+=
+Threshold 3
+Scottish
+Cumulative
+S
+c
+3
+bandwidth 3 x
+n
+52
+And so on as necessary to accommodate the current range of
+Scottish
+hown in Appendix B.
+Cumulative bandwidths s
+Take the calculations for Definition 9 to 4 decimal places of a pound without applying any correction to the final place.
+Definition
+10(a)
+Cvalue 1 = Threshold 1
+}
+v
+1
+Calculated as above
+}
+"
+10(b)
+Cvalue 2 = Threshold 2
+rounded if necessary
+}
+v
+2
+to nearest £1 above
+}
+"
+10(c)
+Cvalue 3 = Threshold 3
+}
+v
+3
+And so on as necessary to accommodate the current range of
+Thresholds,
+(Definition 9).
+Definition
+10.1(a)
+S
+Cvalue 1 = Scottish Threshold 1 }
+Sv
+1
+Calculated as above
+}
+"
+10.1(b)
+S
+Cvalue 2 = Scottish Threshold 2 }
+rounded if necessary
+Sv
+2
+to nearest £1 above
+}
+"
+10.1(c)
+S
+Cvalue 3 = Scottish Threshold 3 }
+Sv
+3
+And so on as necessary to accommodate the current range of
+Scottish
+(Definition 9.1).
+Thresholds,
+Definition
+11(a)
+Threshold tax 1
+=
+Cumulative annual tax 1 x
+n
+k
+1
+52
+"
+11(b)
+Threshold tax 2
+=
+Cumulative annual tax 2 x
+n
+k
+2
+52
+"
+11(c)
+Threshold tax 3
+=
+Cumulative annual tax 3 x
+n
+k
+3
+52
+And so on as necessary to accommodate the current range of
+Cumulative annual taxes
+shown in Appendix A
+Take the calculations for Definition 11 to 4 decimal places of a pound without applying any correction to the final place.
+Definition
+11.1(a)
+Threshold tax 1
+=
+Cumulative Annual Tax 1
+x
+n
+Sk
+1
+(Scotland) 
+(Scotland)
+52
+“
+11.1(b)
+Threshold tax 2
+=
+Cumulative Annual Tax 2
+x
+n
+Sk
+2
+(Scotland) 
+(Scotland)
+52
+“
+11.1(c)
+Threshold Tax 3
+=
+Cumulative Annual Tax 3
+x
+n
+Sk
+3
+(Scotland) 
+(Scotland)
+52
+And so on as necessary to accommodate the current range of
+Cumulative
+Annual Taxes (Scotland)
+shown in Appendix B
+Take the calculations for Definition 11.1 to 4 decimal places of a pound
+without applying any correction to the final place.
+Definition
+11.2(a)
+Threshold tax 1
+=
+Cumulative Annual Tax 1
+x
+n
+Wk
+1
+(Wales) 
+(Wales)
+52
+“
+11.2(b)
+Threshold tax 2
+=
+Cumulative Annual Tax 2
+x
+n
+Wk
+2
+(Wales) 
+(Wales)
+52
+“
+11.2(c)
+Threshold Tax 3
+=
+Cumulative Annual Tax 3
+x
+n
+Wk
+3
+(Wales) 
+(Wales)
+52
+And so on as necessary to accommodate the current range of
+Cumulative
+Annual Taxes (Wales)
+shown in Appendix C
+Take the calculations for Definition 11.2 to 4 decimal places of a pound
+without applying any correction to the final place.
+Definition 12
+Maxrate
+Maximum percentage tax deductible.
+M
+(Also referred to as the overriding
+Regulatory limit)
+Definition 12 is a single value.
+It bears repeating here that in the manual Tax Tables, the limiting values given in Tables C are in round pounds (
+Cvalue
+and
+SCvalue
+above correspond to them), whereas the tax in Tables C is calculated on the exact figures (
+Threshold
+and
+Threshold tax
+above are used to do this).
+4.
+Computerised PAYE tax routines - cumulative suffix codes and cumulative prefix K, SK, CK codes - employees paid weekly or monthly
+4.1.
+The routine will pass through the stages summarised immediately below and dealt with in detail thereafter.
+Stage 1 Calculation of Cumulative Pay to date.
+Stage 2 Calculation of Taxable Pay to date.
+Stage 3 Calculation of tax due to date.
+Stage 4 Calculation of tax deduction or refund for the week.
+4.2
+Stage 1
+Calculation of Cumulative Pay to date.
+4.2.1
+There are no complications here. Merely add the pay for the week to the cumulative figure of pay to date for the previous week to give a new cumulative figure of pay to date. A definition of what constitutes pay for this purpose is given in the
+Employer Further Guide to PAYE and NICs
+(
+CWG2
+). There is no rounding at this stage.
+Expressed mathematically,
+P
+n
+= P
+(n - 1)
++ p
+n
+4.3
+Stage 2
+Calculation of Taxable Pay to date
+4.3.1
+This is done by taking the Cumulative Pay to date of Stage 1 and either subtracting the Free Pay for the week for ordinary suffix codes or adding the Additional Pay for the week for Prefix K, SK and CK codes. The value of either Free Pay or Additional Pay for Week
+n
+is simply
+n
+times the value for Week 1. A look-up table of Week 1 values may be held, or the values may be calculated from the numeric part of the codes as follows:
+a. Numeric part of code is 0. Value for Week 1 is 0.
+b. Numeric part of code is in range 1-500 inclusive. First calculate the annual value which is [(numeric part of code) x £10] + £9. Divide the annual value by 52, and if not already an exact multiple of 1p, round up the answer to the
+nearest multiple of 1p above to give the value for Week 1.
+(Note: Calculate initially to 4 decimal places of a pound without applying any correction to the final place and round up if necessary to the nearest 1p above).
+It can be seen that ordinary suffix code 1 thus represents annual allowances (Free Pay) of £19. As the next smaller suffix code is 0, representing an annual allowance of zero, suffix code 1 caters for annual allowances of £1-£19 inclusive, whereas all higher suffix codes cover an annual allowance range of only £10. Each Prefix K, SK or CK code represents an annual negative allowance (Additional Pay) of £10. There is no code K0, SK0 or CK0 and annual negative allowances in the range -£1 to -£19 are allocated code 0T, S0T or C0T.
+c. Numeric part of code EXCEEDS 500. The value for Week 1 is obtained 
+by adding 2 or more values calculated as follows:
+i.
+divide the code by 500. Note the quotient and remainder (e.g. for
+code 1567, the quotient is 3, that is 500 divides into 1567 three 
+times, leaving a remainder of 67).
+ii.
+If the remainder is 0, deduct 1 from the quotient and set the remainder
+to 500 (e.g. for code 1500, the quotient is 3 and the remainder is 0. Set
+the quotient to 2 and the remainder to 500).
+(NB. As a result of i. and ii. above, the quotient must be at least 1 and the
+remainder in the range 1 to 500 inclusive.)
+iii.
+The value (of either Free Pay or Additional Pay) for the remainder
+is calculated as for a code of 1 to 500 in paragraph 4.3.1b above.
+iv.
+The value (of either Free Pay or Additional Pay) for the balance of the
+code is:
+For Week 1 - quotient x £96.16*
+For Month 1 - quotient x £416.67*
+*Note: These figures, which may be held as constants, are 
+calculated as follows:
+(500 x £10 / 52 (rounded to 1p above) = £ 96.16
+(500 x £10 / 12 (rounded to 1p above) = £416.67
+v.
+The component values calculated as iii. and iv. above - which have
+already been rounded - are then added together as the final stage.
+(NB. It is stressed that the correct action at i. and ii. above will ensure that there are always values other than 0 calculated at iii. and iv. Above to be added together.)
+Note for programmers.
+The full explanation above has been given for purposes of clarity and understanding the manual Tax Tables. However, the method of breaking down the code number into multiples of 500 and a remainder described in paragraph 4.3.1c i. and ii, can also be achieved by:
+- subtract 1 from code
+- divide the result by 500
+- note the quotient and remainder
+- add 1 to the remainder
+- calculate the Free Pay or Additional Pay for the remainder and balance of
+code as in paragraph 4.3.1c i and iv.
+This alternative calculation can also be applied to codes in the range 1-500 inclusive, thus further simplifying the programming required. (The quotient will, of course, be 0 in these cases.)
+4.3.2
+The Week 1 value already being a multiple of 1p, no further rounding rule is necessary after multiplication by the week number, to give the value of Free Pay or Additional Pay for the week.
+Taxable Pay to date is then calculated by either:-
+a. 
+subtracting Free Pay for the week from Cumulative Pay to date for ordinary suffix codes, or
+b. adding Additional Pay for the week to Cumulative Pay to date for prefix K, SK and CK codes.
+Mathematically, FOR SUFFIX CODES,
+U
+n
+= P
+n
+- na
+1
+Mathematically, FOR PREFIX K, SK, CK CODES,
+U
+n
+= P
+n
++ ne
+1
+4.3.3
+For ordinary SUFFIX CODES since Taxable Pay to date is simply the excess of Cumulative Pay to date over the Free Pay for the week, it follows that an individual has no liability to tax to date if the Free Pay for the week equals or exceeds the Cumulative Pay to date, In such cases Stage 3 following is not relevant, and the calculation can go directly to Stage 4.
+Mathematically, FOR SUFFIX CODES
+since
+U
+n
+= P
+n
+- na
+1
+if
+na
+1
+≥
+P
+n
+then
+U
+n
+≤
+0
+In such a case
+L
+n
+= 0
+and it follows that in cases going through Stage 3,
+U
+n
+> 0
+For prefix K, SK, CK codes, all cases will proceed to Stage 3 since
+U
+n
+will always be positive.
+4.3.4
+Having determined a figure of Taxable Pay to date this stage is required to determine which calculation of tax due to date should be applied. To do this the routine must identify whether or not a Scottish or Welsh rate/bandwidth is applicable.
+For suffix and prefix K codes containing no `S’ or `C’ identifier, the routine must take the figure of Taxable Pay to date and apply the
+Income Test 1
+For suffix and prefix K codes containing the `S’ identifier, the routine must take the figure of Taxable Pay to date and apply the
+Income Test 1(S)
+.
+For suffix and prefix K codes containing the `C’ identifier, the routine must take the figure of Taxable Pay to date and apply the
+Income Test 1(C)
+.
+4.4
+Stage 3
+Calculation of tax due to date.
+4.4.1
+This is the most complex stage of all. The routine must take the figure of Taxable Pay to date from Stage 2, and test to see at which rate(s) of tax it is liable. If the Taxable Pay to date exceeds the proportion of the first rate annual bandwidth that has accrued to date, then the routine must identify which of the remaining rate bands have had their proportions accrued to date fully utilised. This process identifies the top rate of liability for the week, provides figures for calculating tax on the fully utilised rate bands, and also gives the balance of the Taxable Pay to date left to be charged at the top rate of liability that has been determined.
+4.4.2
+To achieve this use is made of the Annual and Weekly Constants defined in paragraphs 3.3.3 and 3.3.4. The actual tax calculation for an individual then consists of two operations. The first uses one of the Weekly Constants to ascertain the top rate of liability for the week, and hence determine the relevant Tax Formula. 
+The second operation takes this Tax Formula and makes use of other Annual and Weekly Constants to calculate the tax due to date.
+4.4.3
+Determination of the correct Tax Formula uses the figure of Taxable Pay to date (
+U
+n
+) from Stage 2, and the
+Cvalues/SCvalues
+provided by Definition 10 of the Weekly Constants. The narrative descriptions of the Income Tests below are immediately followed in brackets by their mathematical descriptions. In order to avoid lengthy and unnecessary repetition, the list of Income Tests which follows is incomplete, and has been terminated once the pattern has been established.
+Note: The routine must apply the following Income Tests depending on whether or not the Scottish or Welsh rates and associated bandwidths are applicable:
+Income Test 1 – for suffix and prefix K codes containing no ‘S’ or ‘C’ identifier.
+Income Test 1(S) – for suffix and prefix K codes containing the ‘S’ identifier
+Income Test 1(C) – for suffix and prefix K codes containing the ‘C’ identifier
+Income Test 1
+Is Taxable Pay to date less than or equal to
+Cvalue 1
+?
+(
+Is
+U
+n
+≤
+v
+1
+?
+)
+If yes, use Tax Formula 1.
+If no, consider Income Test 2.
+Income Test 1(S)
+Is Taxable Pay to date less than or equal to
+S
+Cvalue 1
+?
+( Is
+U
+n
+≤
+S
+v
+1
+?) 
+If yes, use Tax Formula 1(S)
+If no, consider Income Test 2(S)
+Income Test 1(C)
+Is Taxable Pay to date less than or equal to
+Cvalue 1
+?
+( Is
+U
+n
+≤
+v
+1
+?) 
+If yes, use Tax Formula 1(C)
+If no, consider Income Test 2(C)
+Income Test 2
+Is Taxable Pay to date less than or equal to
+Cvalue 2
+?
+(
+Is
+U
+n
+≤
+v
+2
+?
+)
+If yes, use Tax Formula 2.
+If no, consider Income Test 3.
+Income Test 2(S)
+Is Taxable Pay to date less than or equal to
+S
+Cvalue 2
+?
+( Is
+U
+n
+≤
+S
+v
+2
+? ) If yes, use Tax Formula 2(S)
+If no, consider Income Test 3(S)
+Income Test 2(C)
+Is Taxable Pay to date less than or equal to
+Cvalue 2
+?
+( Is
+U
+n
+≤
+v
+2
+? ) If yes, use Tax Formula 2(C)
+If no, consider Income Test 3(C)
+and so on, up to
+Income Test x
+Is Taxable Pay to date less than or equal to
+Cvalue (x)
+?
+(
+Is
+U
+n
+≤
+v
+(x)
+?
+)
+If yes, use Tax Formula (x).
+If no, use Tax Formula (x +1)
+Income Test x(S)
+Is Taxable Pay to date less than or equal to
+S
+Cvalue (x)
+?
+(Is
+U
+n
+<
+S
+v
+(x)
+?) If yes, use Tax Formula (x)
+If no, use Tax Formula (x + 1)(S)
+Income Test x(C)
+Is Taxable Pay to date less than or equal to
+Cvalue (x)
+?
+(Is
+U
+n
+<
+v
+(x)
+?) If yes, use Tax Formula (x)
+If no, use Tax Formula (x + 1)(C)
+where x = number of Bandwidths currently shown in Appendices A and B
+Note that Income Tests x, x(s) and x(c) have a different consequence to all the preceding ones, if the test should fail.
+4.4.4.
+Having determined the relevant Tax Formula, where the figure of Taxable Pay to date (
+U
+n
+) is not already an exact multiple of £1 for the purpose of calculating tax it should now be rounded down to the nearest pound below. This rounded figure of Taxable Pay to date (
+T
+n
+) is then used in the relevant Tax Formula.
+The narrative descriptions of the Tax Formulae are followed by their mathematical descriptions. Note that in order to avoid lengthy and unnecessary repetition, the list of Tax Formulae which follows is incomplete, and has been terminated once the pattern has been established.
+Tax Formula 1
+Tax to date = Tax at
+Rate 1
+on Taxable pay to date
+L
+n
+= T
+n
+R
+1
+Note: This Tax Formula may be expressed in the same style
+as all subsequent Tax Formulae, provided 2 additional
+parameter values (
+k
+0
+and
+c
+0
+) are included in the system,
+both always taking value zero. Thus
+L
+n
+= k
+0
++ ( T
+n
+– c
+0
+) R
+1
+Tax Formula 1(S)
+Tax to date = Tax at
+Scottish Rate 1
+on Taxable pay to date
+L
+n
+= T
+n
+SR
+1
+Note: This Tax Formula may be expressed in the same style
+as all subsequent Tax Formulae, provided 2 additional
+parameter values (
+Sk
+0
+and
+S
+c
+0
+) are included in the system,
+both always taking value zero. Thus
+L
+n
+= Sk
+0
++ ( T
+n
+– Sc
+0
+) SR
+1
+Tax Formula 1(C)
+Tax to date = Tax at
+Welsh Rate 1
+on Taxable pay to date
+L
+n
+= T
+n
+WR
+1
+Note: This Tax Formula may be expressed in the same style
+as all subsequent Tax Formulae, provided 2 additional
+parameter values (
+Wk
+0
+and
+c
+0
+) are included in the system,
+both always taking value zero. Thus
+L
+n
+= Wk
+0
++ ( T
+n
+– c
+0
+) WR
+1
+Tax Formula 2
+Tax to date =
+Threshold tax 1,
+plus tax at
+Rate 2
+on the excess of Taxable Pay to date over
+Threshold 1
+L
+n
+= k
+1
++ ( T
+n
+– c
+1
+) R
+2
+Tax Formula 2(S)
+Tax to date =
+Scottish
+Threshold tax 1
+, plus tax at
+Scottish Rate 2
+on the excess of Taxable Pay to date over
+Scottish
+Threshold 1
+L
+n
+= Sk
+1
++ ( T
+n
+– Sc
+1
+) SR
+2
+Tax Formula 2(C)
+Tax to date =
+Threshold tax 1
+, plus tax at
+Welsh Rate 2
+on the excess of Taxable Pay to date over
+Threshold 1
+L
+n
+= Wk
+1
++ ( T
+n
+– c
+1
+) WR
+2
+Tax Formula 3
+Tax to date =
+Threshold tax 2
+, plus tax at
+Rate 3
+on the
+excess of Taxable Pay to date over
+Threshold 2
+.
+L
+n
+= k
+2
++ (T
+n
+– c
+2
+) R
+3
+Tax Formula 3(S)
+Tax to date =
+Scottish
+Threshold tax 2
+, plus tax at
+Scottish Rate 3
+on the excess of Taxable Pay to date over
+Scottish
+Threshold 2
+.
+L
+n
+= Sk
+2
++ (T
+n
+– Sc
+2
+) SR
+3
+Tax Formula 3(C)
+Tax to date =
+Threshold tax 2
+, plus tax at
+Welsh Rate 3
+on the excess of Taxable Pay to date over
+Threshold 2
+.
+L
+n
+= Wk
+2
++ (T
+n
+– c
+2
+) WR
+3
+and so on, up to
+Tax Formula x + 1
+Tax to date =
+Threshold tax (x)
+, plus tax at
+Rate (x + 1)
+on the excess of Taxable Pay to date over
+Threshold (x)
+L
+n
+= k
+(x)
++ (T
+n
+- c
+(x)
+) R
+(x + 1)
+Tax Formula x + 1(S)
+Tax to date =
+Scottish
+Threshold tax (x)
+, plus tax at
+Scottish Rate (x +1)
+on the excess of Taxable Pay to date over
+Scottish
+Threshold (x)
+L
+n
+= Sk
+(x)
++ (T
+n
+- Sc
+(x)
+) SR
+(x + 1)
+Tax Formula x + 1(C) Tax to date =
+Threshold tax (x)
+, plus tax at
+Welsh Rate (x +1)
+on the excess of Taxable Pay to date over
+Threshold (x)
+L
+n
+= Wk
+(x)
++ (T
+n
+- c
+(x)
+) WR
+(x + 1)
+where
+x
+= number of Bandwidths currently shown in Appendices A or B
+Take the calculations for all Tax Formulae to 4 decimal places of a pound without applying any correction to the final place, and then finally round down the result if necessary to the nearest multiple of 1p below.
+4.5
+Stage 4
+Calculation of Tax Deduction or Refund for the Week
+4.5.1
+Normally, deducting the previous week's tax paid to date from the current equivalent gives the tax liability for the week (
+subject to paragraph 4.5.2 below)
+or, if appropriate, the tax refundable.
+Mathematically,
+l
+n
+= L
+n
+- L
+(n -1)
+Positive values of
+l
+n
+are deductions.
+Negative values of
+l
+n
+are refunds.
+4.5.2
+NB. Note, however, that the maximum tax deductible for the week is limited to the amount given by applying the overriding Regulatory limit,
+Maxrate
+, to the pay for the week excluding any payrolled benefits in kind. Calculate the maximum tax deductible for the week to 4 decimal places of a pound without applying any correction to the final place and round down if necessary to the nearest 1p below.
+Mathematically, where the overriding Regulatory limit applies
+l
+n
+= M x (p
+n
+– pbik)
+Note also, to ensure the correct action in subsequent cumulative (but NOT
+Week 1/Month 1 basis) calculations, the liability previously calculated by the Tax Table routines above has to be adjusted so that only the amount of tax actually deducted is included in the cumulative total of tax due and paid to date. Thus, where the code is operating cumulatively, the amount not deducted this week is effectively taken into account in subsequent calculations and recovered where possible.
+Mathematically, therefore, where the overriding Regulatory limit applies, and the tax code is operating cumulatively, the liability calculated at paragraph 4.4.4. has to be reduced to :-
+L
+n
+= L
+(n - 1)
++ (M x (p
+n
+– pbik))
+4.5.3
+NOTE.
+The method of operation for computer users (described in paragraph 4.5.2 above) differs from the manual method but achieves the same result.
+Where the Regulatory limit applies, the computer Specification reduces the cumulative liability for this week (originally calculated per the Tax Tables) to reflect the tax actually deducted because of the operation of the limit. This lower cumulative figure is then used in the calculation of the liability for the following week.
+The step by step manual calculation in cumulative cases is necessarily longer and involves, inter alia, recording the tax due per the tables, the Regulatory limit, the tax actually deducted in the week and any amount not deducted because of the operation of the Regulatory limit. But a cumulative tax paid figure is not maintained in the manual system. When the tax calculation is made for the following week, the amount not deducted last week is added to the Tax Table figure for this week and the Tax Table figure for last week is then deducted to give the liability for this week.
+Computer users can, if they wish, follow the manual method; the additional recording is not essential but some or all of the information may be thought helpful on output to the Pay Section or employee. The minimum requirement for Audit etc. purposes is to record the date, pay, code and tax deducted for any payment and to keep such records as to enable the detail of the calculation (eg. free pay or additional pay and overriding limit etc.) to be reproduced.
+Forms P45, P60 and the payroll records are only required to show the tax actually deducted. Any amount not deducted at the end of the year is not required to be reported to HMRC. Any tax outstanding at the end of the year (because of the correct operation of the Regulatory limit) will be a matter between HMRC and the employee.
+4.5.4
+Note for Programmers : Negative Pay
+If your system allows for the calculation or input of negative pay (eg. to correct an overpayment of pay in a preceding period) this would, in an ordinary cumulative suffix code case, normally create an apparent refund of tax.
+But in a cumulative Prefix K, SK or CK code case, either a refund or a deduction of tax can be created - dependent on the comparative values of the negative pay and any Additional Pay calculated by reference to the Prefix K, SK or CK code.
+Where a deduction is created, take care NOT to apply the Regulatory limit to the negative pay, as the result would also be negative and therefore arithmetically lower than the deduction previously calculated. (Using a negative Regulatory figure would - INCORRECTLY - change the nature of the liability from a tax deduction to an apparent tax refund).
+The application of the Regulatory limit is only intended to apply to positive pay. Where negative pay is concerned, set the Regulatory limit for that payment to zero. Consequently any tax deduction in a negative pay case will therefore also be reduced to zero.
+As the Regulatory limit is not relevant to refunds of tax, any apparent refund calculated in a negative pay case, where the code is operating cumulatively, can stand. (Indeed, setting the Regulatory limit to zero when the pay is negative will allow cumulative refunds to proceed - since these are themselves negative values and therefore arithmetically lower than the Regulatory limit of zero!) Where, in a negative pay case the code is operating on a Week 1 basis, each pay period is treated in isolation; no refund can be made and the tax will be Nil.
+5.
+Computer PAYE tax routines - cumulative code BR, SBR, CBR - employees paid weekly or monthly
+5.1
+Table B (or Table D – where a chargeable rate below the Basic Rate occupies Table B) of the manual Tax Tables is provided for these codes. The routine is basically the same as for cumulative suffix codes, but some of the stages are simpler, as follows:-
+5.2
+Stage 1
+As for cumulative suffix codes, add the pay for the week to the cumulative figure of pay to date for the previous week to give the new figure of pay to date; there is no rounding at this stage.
+5.3
+Stage 2
+Since the whole of the Cumulative Pay to date is to be charged to tax, Taxable Pay to date will be the same as the Cumulative Pay to date and this value may be passed directly to stage 3.
+5.4
+Stage 3
+The Taxable Pay should be rounded down to the nearest pound, the whole of the rounded pay to date (regardless of how large an amount it is) should be taxed. The routine must then identify whether or not the Scottish or Welsh rates and associated bandwidths are applicable.
+If the `S’ or ‘C’ identifier is
+not
+present in the code, the whole of the rounded pay to date (regardless of how large an amount it is) should be taxed at Rate
+G
+.
+If the ‘S’ identifier is present in the code, the whole of the rounded pay to date
+(regardless of how large an amount it is) should be taxed at Scottish
+Rate
+G1
+.
+If the ‘C’ identifier is present in the code, the whole of the rounded pay to date (regardless of how large an amount it is) should be taxed at Welsh
+Rate
+G2
+.
+5.5
+Stage 4
+Once again, as for cumulative suffix codes, deducting the previous week's liability to tax to date from the current equivalent gives the tax deductible for the week, or, if appropriate, the tax refundable.
+6.
+Computerised PAYE tax routines - cumulative prefix D, SD, CD codes - employees paid weekly or monthly
+6.1
+Tables D of the manual Tax Tables are provided for these codes. The routine is basically the same as for cumulative suffix codes, but some of the stages are simpler, as follows:-
+6.2
+Stage 1
+As for cumulative suffix codes, add the pay for the week to the cumulative figure of pay to date for the previous week to give the new figure of pay to date; there is no rounding at this stage.
+6.3
+Stage 2
+Since the whole of the Cumulative Pay to date is to be charged to tax, Taxable Pay to date will be the same as the Cumulative Pay to date and this value may be passed directly to stage 3.
+6.4
+Stage 3
+The Taxable Pay should be rounded down to the nearest pound, the whole of the rounded pay to date should be taxed. The routine must then identify whether or not the Scottish or Welsh rates and associated bandwidths are applicable.
+If the `S’ or ‘C’ identifier is
+not
+present in the code, the whole of the payment is taxed at the appropriate rate as follows:
+D0 means tax the whole of the rounded payment at
+Rate (G + 1)
+D1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Rate (G + 2)
+D2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Rate (G + 3)
+And so on as necessary to the limit of the current range of Rates shown in Appendix A, where G is the parameter of Definition 6.
+If the ‘S’ identifier is present in the code, the whole of the payment is taxed at the appropriate rate as follows:
+SD0 means tax the whole of the rounded payment at
+Scottish
+Rate (G1 + 1)
+SD1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Scottish
+Rate (G1 + 2)
+SD2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Scottish
+Rate (G1 + 3)
+And so on as necessary to the limit of the current range of Rates shown in Appendix B, where G1 is the parameter of Definition 6.1.
+If the ‘C’ identifier is present in the code, the whole of the payment is taxed at the appropriate rate as follows:
+CD0 means tax the whole of the rounded payment at
+Welsh
+Rate (G2 + 1)
+CD1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Welsh
+Rate (G2 + 2)
+CD2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Welsh
+Rate (G2 + 3)
+And so on as necessary to the limit of the current range of Rates shown in Appendix C, where G2 is the parameter of Definition 6.2.
+6.5
+Stage 4
+Once again, as for cumulative suffix codes, deducting the previous week's liability to tax to date from the current equivalent gives the tax deductible for the week, or, if appropriate, the tax refundable.
+7.
+Computerised PAYE tax routines – cumulative code NT - employees paid weekly or monthly
+7.1
+N stands for "no tax" and T is a suffix. Where the code is NT (which applies to the whole of the UK – there is
+no
+SNT or CNT code) no tax must be deducted whatever the amount of the pay, but a record of the payments must be kept. 
+The routine is basically the same as for cumulative suffix codes, but some of the stages are simpler, as follows:-
+7.2
+Stage 1
+As for cumulative suffix codes, add the pay for the week to the cumulative figure of pay to date for the previous week to give the new figure of pay to date; there is no rounding at this stage.
+7.3
+Stage 2
+Since the whole of the Cumulative Pay to date is NOT to be charged to tax, Taxable Pay to date will be the same as the Cumulative Pay to date and this value may be passed directly to stage 3
+7.4
+Stage 3
+As the whole of the Taxable Pay to date will NOT be taxed the action in this stage is to set the tax to date to zero.
+7.5
+Stage 4
+Once again, as for cumulative suffix codes, deducting the previous week's liability to tax to date from the current equivalent (this will be no tax in an NT case) gives the tax due for the week. 
+In most cases, this will be zero but when a cumulative code NT is first operated during a tax year, a refund may be due.
+8.
+Computerised PAYE tax routines - week 1/month 1 basis suffix codes and week 1/month 1 basis prefix K, SK, CK codes - employees paid weekly or monthly
+8.1
+These are suffix codes and prefix K, SK and CK codes not operated on the normal cumulative basis. Each week's payment is treated IN ISOLATION, as if it were the first payment of the Income Tax year to be taxed on a normal suffix or prefix K, SK or CK code. The calculation is in two stages which are explained in detail in the following paragraphs.
+8.2
+Stage 1
+Calculate Taxable Pay for the week. The Taxable Pay for the week is either the pay for the week less the Free Pay for Week 1 for suffix codes or the pay for the week plus the Additional Pay for Week 1 for prefix K, SK and CK codes. Free Pay or Additional Pay for Week 1 is calculated from the numeric part of the code in the normal way (see paragraph 4.3.1).
+8.3
+Stage 2
+Calculate the tax due exactly as for payment in Week 1 using a cumulative suffix or prefix K, SK or CK code (see paragraph 4.4). The result, rounded in accordance with paragraph 4.4.4 is the tax deductible for this week, SUBJECT, when necessary, to applying the overriding Regulatory limit to the pay for the week (as described in paragraph 4.5.2) for all tax codes. Note, however, since each week's payment is treated in isolation, that any tax not deducted because of the operation of the overriding Regulatory limit in a Week 1/Month 1 basis tax code case is NOT taken into account in the calculation for the following week or month; nor does it need to be reported on forms P45 and P60.
+Mathematically, where the overriding Regulatory limit applies:
+l
+n
+= M x (p
+n
+– pbik)
+9.
+Computerised PAYE tax routines - week 1/month 1 basis
+code BR, SBR, CBR - employees paid weekly or monthly
+9.1
+As for cumulative operation of code BR, SBR and CBR, Table B (or Table D – where a chargeable rate below the Basic Rate occupies Table B) of the manual Tax Tables is provided for these cases. However, each payment is dealt with in isolation and the payment should be rounded down if necessary to the nearest pound below. The routine must then identify whether or not the Scottish or Welsh rates and associated bandwidths are applicable.
+If the ‘S’ or ‘C’ identifier is
+not
+present in the code, the whole of the rounded payment should be taxed at
+Rate (G)
+, where G is the parameter of Definition 6.
+If the ‘S’ identifier is present in the code, the whole of the rounded payment should be taxed at
+Scottish
+Rate (G1)
+, where G1 is the parameter of Definition 6.1.
+If the ‘C’ identifier is present in the code, the whole of the rounded payment should be taxed at
+Welsh
+Rate (G2)
+, where G2 is the parameter of Definition 6.2.
+9.2
+The result of the tax calculation in paragraph 9.1 should be rounded down if necessary to the nearest multiple of 1p below.
+10.
+Computerised PAYE tax routines - week 1/month 1 basis
+prefix D, SD, CD codes - employees paid weekly or monthly
+10.1
+As for cumulative operation of Prefix codes D, SD and CD, Tables D of the manual Tax Tables are provided for these cases. However, each payment is dealt with in isolation and the payment should be rounded down if necessary to the nearest pound below. The routine must first identify whether or not the Scottish or Welsh rates and associated bandwidths are applicable.
+If the `S’ or ‘C’ identifier is
+not
+present in the code, each payment is dealt with in isolation, and the whole of the payment is taxed at the appropriate rate as follows:
+D0 means tax the whole of the rounded payment at
+Rate (G + 1)
+D1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Rate (G + 2)
+D2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Rate (G + 3)
+And so on as necessary to the limit of the current range of Rates shown in Appendix A,
+where G is the parameter of Definition 6.
+If the `S’ identifier is present in the code, each payment is dealt with in isolation, and the whole of the payment is taxed at the appropriate rate as follows:
+SD0 means tax the whole of the rounded payment at
+Scottish
+Rate (G1 + 1)
+SD1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Scottish
+Rate (G1 + 2)
+SD2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Scottish
+Rate (G1 + 3)
+And so on as necessary to the limit of the current range of Scottish
+Rates shown in Appendix B, where G1 is the parameter of Definition 6.1.
+If the ‘C’ identifier is present in the code, each payment is dealt with in isolation, and the whole of the payment is taxed at the appropriate rate as follows:
+CD0 means tax the whole of the rounded payment at
+Welsh
+Rate (G2 + 1)
+CD1 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Welsh
+Rate (G2 + 2)
+CD2 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+" 
+Welsh
+Rate (G2 + 3)
+And so on as necessary to the limit of the current range of Welsh
+Rates shown in Appendix C, where G2 is the parameter of Definition 6.2.
+10.2
+The result of the tax calculation in paragraph 10.1 should be rounded down if necessary to the nearest multiple of 1p below.
+11.
+Computerised PAYE tax routines - week 1/month 1 basis
+code NT - employees paid weekly or monthly
+11.1
+N stands for "no tax" and T is a suffix. Where the code is NT no tax must be deducted whatever the amount of the pay, but a record of the payments must be kept. 
+Where a code is amended to code NT on a week1 / month 1 basis the employer should not refund any tax previously deducted (if this is to be refunded the amended code NT will be issued on a cumulative basis (para 7)). The Scottish (S) and Welsh (C) code identifiers should NOT be applied to code NT – there is
+no
+SNT or CNT code.
+12.
+Computerised PAYE tax routines – code specified for emergency use – all employees
+12.1
+This is a suffix code which is prescribed for emergency use and in certain circumstances is operated on the Week 1/Month 1 basis (see paragraph 6 or 13.5 as appropriate). The value of the code may be changed from time to time, and will be notified on form P7X or form P9X. There is only one emergency code for the entire UK, therefore the ‘S’ and ‘C’ identifiers should NOT be applied to this code.
+13.
+Computerised PAYE tax routines - employees paid at other than regular weekly or monthly intervals
+13.1
+Cumulative suffix codes and cumulative prefix K, SK, CK codes
+. The "
+Employer Further Guide to PAYE and NICs" (CWG2)
+explains which week's or month's Tables should be used for each payment. The tax calculation will then be in accordance with paragraph 4 of this Specification, and will be SUBJECT, when necessary to applying the overriding
+Regulatory limit
+.
+13.2
+Cumulative code BR, SBR, CBR
+The tax will follow paragraph 5 of this Specification whatever the interval between payments.
+13.3
+Cumulative Prefix D, SD, CD Codes
+- The tax will follow paragraph 6 of this Specification whatever the interval between payments.
+13.4
+Cumulative Code
+NT
+- The tax will follow paragraph 7 of this Specification whatever the interval between payments.
+13.5
+Week 1/Month 1 basis suffix and prefix K, SK, CK codes
+.
+The appropriate Tables will be those for the number of weeks (or months) which have elapsed since the last payment. For example, where the previous payment was made in Week 10, and the current payment is being made in Week 13, then the appropriate Table will be that for Week 3. The tax calculation will then follow paragraph 4.3 and 4.4 of this Specification, SUBJECT, when necessary, to applying the
+overriding Regulatory limit
+to the pay for the period (as described in paragraph 4.5.2 and in the note in paragraph 8.3).
+13.6
+Week 1 / Month 1 Code BR, SBR, CBR 
+The tax calculation will follow paragraph 9 of this Specification, whatever the interval between payments.
+13.7
+Week 1 / Month 1 Prefix D, SD, CD codes
+The tax calculation will follow paragraph 10 of this Specification, whatever the interval between payments.
+13.8
+Week 1 / Month 1 Code NT
+The instructions at paragraph 11 of this Specification should be followed, whatever the interval between payments.
+14.
+Computerised PAYE tax routines – payments in weeks 53, 54 or 56
+14.1
+Full instructions are given in the "
+Employer Further Guide to PAYE and NICs" (CWG2)
+which explains the use of the Tables for Weeks 1, 2 or 4 as appropriate on a
+non-cumulative basis
+. The Taxable Pay should be rounded down if necessary to the nearest pound. The calculation will then follow paragraphs 4.3 and 4.4 of this Specification, SUBJECT, when necessary, to applying the
+overriding Regulatory limit
+to the pay for the period (as described in paragraph 4.5.2).
+14.2
+Tax codes BR, SBR, CBR, D, SD, CD and NT when operated in weeks 53, 54 or 56 require no special programming other than to operate on a non-cumulative basis and the stages already detailed in this specification should be followed.
+15.
+Use of the code suffix
+15.1
+The suffix plays no part in the actual tax calculations, but is used to identify those employees whose code is to be increased or reduced under a general authority from the HMRC Office. This authority will be on form P7X (for current year changes) or on form P9X (for changes from 6 April), and will relate to suffixes L, M, and N. It will indicate the date from which the changes are to take effect, and the amounts of the changes. It is important to realise that the change to the numeric part of the codes bearing a particular suffix will not necessarily be in the same amount as the change to the numeric part of the codes bearing other suffixes, nor necessarily will all suffixes be changed at the same time.
+15.2
+The method used for effecting this change to the numeric part of the suffix code should include some safeguard to prevent an inadvertent second change for the same Income Tax year.
+15.3
+Both forms P7X and P9X will include instructions covering the numeric parts of the codes of new employees starting between specified dates.
+15.4
+Any refunds arising from the uplifting of codes of existing employees under P7X authority may be made without further authority from the HMRC Office. No refunds will be due for those employees whose suffix code is operated on a Week 1 or Month 1 basis. (No refunds will be due under P9X authority as the effective date for the amended codes will be the following 6 April).
+15.5
+Prefix codes will not be changed by means of a general authority, nor will suffix codes bearing suffix T. They will be amended, if necessary, by the HMRC Office issuing form P6 at times when changes under a general authority are notified on form P7X; or by form P9 at times when changes under a general authority are notified on form P9X.
+15.6
+All suffix codes, including codes NT, are to be set to operate on a cumulative basis when they are carried forward to a new tax year.
+16.
+Program testing and refined tax calculations
+16.1
+Whilst the Specification is designed to achieve the same result as the manual Tax Tables, in certain limited circumstances a discrepancy of 1p (or exceptionally 2p) will arise. If these discrepancies do occur, they arise from circumstances which require the manual user to add together 2 or more figures of tax to arrive at the total tax due to date. There is accordingly the possibility of extra rounding taking place when the manual Tax Tables are used, with the result that the figure of tax due to date obtained from the manual tax Tables will be less than the result from this Specification.
+Users should bear this possibility in mind when constructing their own test data from the manual Tax Tables.
+16.2
+Those users of computerised payrolls who wish to achieve precisely the same results as the user of manual Tax Tables, will need to modify the Tax Formulae
+(G + 1)
+or
+(G1 +1)
+or
+(G2 +1)
+and above of paragraph 4.4.4 to the following style:
+If there is no ‘S’ or ‘C’ identifier in the code
+Tax Formula (y)
+Tax to date = [
+Threshold tax (y - 1)
+, plus tax at
+Rate (y)
+on
+the excess of
+Cvalue (y - 1)
+over
+Threshold (y - 1)
+] plus
+[ tax at
+Rate(y)
+on the excess of Taxable Pay to date over
+Cvalue (y - 1)
+]
+L
+n
+= [ k
+(y - 1)
++ ( v
+(y - 1)
+) - c
+(y - 1)
+) R
+(y)
+] + [ ( T
+n
+- v
+(y - 1)
+) R
+(y)
+]
+Where y = any whole number from (G + 1) up to and including the number of
+Rates currently shown in Appendix A and
+G
+is the parameter of Definition 6.
+If the code contains the ‘S’ identifier
+Tax Formula (y)
+Tax to date = [
+Scottish
+Threshold tax (y - 1)
+, plus tax at
+Scottish Rate (y)
+on the excess of
+S
+Cvalue (y - 1)
+over
+Scottish
+Threshold (y - 1)
+] plus [tax at
+Scottish Rate (y)
+on the excess of Taxable Pay to date over
+SCvalue (y - 1)
+]
+L
+n
+= [ Sk
+(y - 1)
++ ( Sv
+(y - 1)
+- Sc
+(y - 1)
+) SR
+(y)
+] + [ ( T
+n
+- Sv
+(y - 1)
+) SR
+(y)
+]
+Where y = any whole number from (G1 + 1) up to and including the number of Rates currently shown in Appendix B and
+G1
+is the parameter of Definition 6.1.
+If the code contains the ‘C’ identifier
+Tax Formula (y)
+Tax to date = [
+Threshold tax (y - 1)
+, plus tax at
+Welsh Rate (y)
+on the excess of
+Cvalue (y - 1)
+over
+Threshold (y - 1)
+] plus [tax at
+Welsh Rate (y)
+on the excess of Taxable Pay to date over
+Cvalue (y - 1)
+]
+L
+n
+= [ Wk
+(y - 1)
++ ( v
+(y - 1)
+- c
+(y - 1)
+) WR
+(y)
+] + [ ( T
+n
+- v
+(y - 1)
+) WR
+(y)
+]
+Where y = any whole number from (G2 + 1) up to and including the number of Rates currently shown in Appendix C and
+G2
+is the parameter of Definition 6.2.
+In applying these modified Tax Formulae, first complete the calculations within each pair of square brackets to 4 decimal places of a pound without applying any correction to the final place. Then round down, if necessary, each of the amounts obtained, to the nearest multiple of 1p below. Finally, add the 2 rounded figures together. It is emphasised that the rounding to 1p below MUST be made before the final summation.
+16.3
+To arrive at the same figure of tax as the manual Tax Tables where the code is BR, SBR or CBR and the rounded Taxable Pay exceeds the maximum value in the current print of Table B (or Table D – where a chargeable rate below the Basic Rate occupies Table B), the figure of Taxable Pay must be broken down into two or more parts each not exceeding the maximum shown in Table B. Tax should then be calculated AND ROUNDED DOWN on these components, the rounded figures being added together to give the total tax due to date.
+16.4
+The refined computations of paragraphs 16.2 and 16.3 are NOT obligatory, and in fact their use is not recommended.
+Appendix A - Tables of Parameters
+Annual Width of Tax Bands
+Symbol
+Description
+Rate Band
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+B
+1
+Annual
+Width of Tax Band
+(Bandwidth)
+1
+st
+Rate
+0
+0
+0
+0
+0
+0
+0
+B
+2
+Annual
+Width of Tax Band
+(Bandwidth)
+2
+nd
+Rate
+37,500
+37,700
+37,700
+37,700
+37,700
+37,700
+37,700
+B
+3
+Annual
+Width of Tax Band
+(Bandwidth)
+3
+rd
+Rate
+112,500
+112,300
+112,300
+87,440
+87,440
+87,440
+87,440
+Cumulative Bandwidths
+Symbol
+Description
+Derivation
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+C
+1
+BANDWIDTH 1
+CUMULATIVE
+= B
+1
+0
+0
+0
+0
+0
+0
+0
+C
+2
+BANDWIDTH 2
+CUMULATIVE
+= B
+1
++
+B
+2
+37,500
+37,700
+37,700
+37,700
+37,700
+37,700
+37,700
+C
+3
+BANDWIDTH 3
+CUMULATIVE
+= B
+1
++
+B
+2
++
+B
+3
+150,000
+150,000
+150,000
+125,140
+125,140
+125,140
+125,140
+Cumulative Annual Tax
+Symbol
+Description
+Derivation
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+K
+1
+ANNUAL TAX 1
+CUMULATIVE
+= B
+1
+R
+1
+0
+0
+0
+0
+0
+0
+0
+K
+2
+ANNUAL TAX 2
+CUMULATIVE
+= B
+1
+R
+1
++
+B
+2
+R
+2
+7,500
+7,540
+7,540
+7,540
+7,540
+7,540
+7,540
+K
+3
+ANNUAL TAX 3
+CUMULATIVE
+= B
+1
+R
+1
++
+B
+2
+R
+2
++
+B
+3
+R
+3
+52,500
+52,460
+52,460
+42,516
+42,516
+42,516
+42,516
+Tax Rates
+Symbol
+Description
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+R
+1
+Rate 1
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+R
+2
+Rate 2
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+R
+3
+Rate 3
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+R
+4
+Rate 4
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+G
+Gpointer
+2
+2
+2
+2
+2
+2
+2
+M
+Maxrate
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+Appendix B - Tables of Parameters (Scottish)
+Annual Width of Tax Bands
+Symbol
+Description
+Rate Band
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+SB
+1
+Annual
+Width of Scottish Tax Band
+(Bandwidth)
+1
+st
+Rate
+2,085
+2,097
+2,162
+2,162
+2,306
+2,827
+3,967
+SB
+2
+Annual
+Width of Scottish Tax Band
+(Bandwidth)
+2
+nd
+Rate
+10,573
+10,629
+10,956
+10,956
+11,685
+12,094
+12,989
+SB
+3
+Annual
+Width of Scottish Tax Band
+(Bandwidth)
+3
+rd
+Rate
+18,272
+18,366
+17,974
+17,974
+17,101
+16,171
+14,136
+SB
+4
+Annual
+Width of Scottish Tax Band
+(Bandwidth)
+4
+th
+Rate
+119,070
+118,908
+118,908
+94,048
+31,338
+31,338
+31,338
+SB
+5
+Annual
+Width of Scottish Tax Band
+(Bandwidth)
+5
+th
+Rate
+—
+—
+—
+—
+62,710
+62,710
+62,710
+Note:
+Parameters are subject to parliamentary approval.
+Cumulative Bandwidths
+Symbol
+Description
+Derivation
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+SC
+1
+BANDWIDTH 1
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+2,085
+2,097
+2,162
+2,162
+2,306
+2,827
+3,967
+SC
+2
+BANDWIDTH 2
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
++
+SB
+2
+12,658
+12,726
+13,118
+13,118
+13,991
+14,921
+16,956
+SC
+3
+BANDWIDTH 3
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
++
+SB
+2
++
+SB
+3
+30,930
+31,092
+31,092
+31,092
+31,092
+31,092
+31,092
+SC
+4
+BANDWIDTH 4
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
++
+SB
+2
++
+SB
+3
++ SB
+4
+150,000
+150,000
+150,000
+125,140
+62,430
+62,430
+62,430
+SC
+5
+BANDWIDTH 5
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
++
+SB
+2
++
+SB
+3
++ SB
+4
++ SB
+5
+—
+—
+—
+—
+125,140
+125,140
+125,140
+Note:
+Parameters are subject to parliamentary approval.
+Cumulative Annual Tax
+Symbol
+Description
+Derivation
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+SK
+1
+ANNUAL TAX 1
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+SR
+1
+396.15
+398.43
+410.78
+410.78
+438.14
+537.13
+753.73
+SK
+2
+ANNUAL TAX 2
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+SR
+1
++
+SB
+2
+SR
+2
+2,510.75
+2,524.23
+2,601.98
+2,601.98
+2,775.14
+2,955.93
+3,351.53
+SK
+3
+ANNUAL TAX 3
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+SR
+1
++
+SB
+2
+SR
+2
++
+SB
+3
+SR
+3
+6,347.87
+6,381.09
+6,376.52
+6,376.52
+6,366.35
+6,351.84
+6,320.09
+SK
+4
+ANNUAL TAX 4
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+SR
+1
++
+SB
+2
+SR
+2
++
+SB
+3
+SR
+3
++
+SB
+4
+SR
+4
+55,166.57
+55,133.37
+55,128.80
+45,876.68
+19,528.31
+19,513.80
+19,482.05
+SK
+5
+ANNUAL TAX 5
+(SCOTLAND)
+CUMULATIVE
+= SB
+1
+SR
+1
++
+SB
+2
+SR
+2
++
+SB
+3
+SR
+3
++
+SB
+4
+SR
+4
++
+SB
+5
+SR
+5
+—
+—
+—
+—
+47,747.81
+47,733.30
+47,701.55
+Note:
+Parameters are subject to parliamentary approval.
+Tax Rates
+Symbol
+Description
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+SR
+1
+Rate 1
+(Scotland)
+19.00%
+19.00%
+19.00%
+19.00%
+19.00%
+19.00%
+19.00%
+SR
+2
+Rate 2
+(Scotland)
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+SR
+3
+Rate 3
+(Scotland)
+21.00%
+21.00%
+21.00%
+21.00%
+21.00%
+21.00%
+21.00%
+SR
+4
+Rate 4
+(Scotland)
+41.00%
+41.00%
+41.00%
+42.00%
+42.00%
+42.00%
+42.00%
+SR
+5
+Rate 5
+(Scotland)
+46.00%
+46.00%
+46.00%
+47.00%
+45.00%
+45.00%
+45.00%
+SR
+6
+Rate 6
+(Scotland)
+—
+—
+—
+—
+48.00%
+48.00%
+48.00%
+G1
+Gpointer
+2
+2
+2
+2
+2
+2
+2
+M
+Maxrate
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+Note:
+Parameters are subject to parliamentary approval.
+Appendix C - Tables of Parameters (Welsh)
+Cumulative Annual Tax
+Symbol
+Description
+Derivation
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+WK
+1
+ANNUAL TAX 1
+(WALES)
+CUMULATIVE
+= B
+1
+WR
+1
+0
+0
+0
+0
+0
+0
+0
+WK
+2
+ANNUAL TAX 2
+(WALES)
+CUMULATIVE
+= B
+1
+WR
+1
++ B
+2
+WR
+2
+7,500
+7,540
+7,540
+7,540
+7,540
+7,540
+7,540
+WK
+3
+ANNUAL TAX 3
+(WALES)
+CUMULATIVE
+= B
+1
+WR
+1
++ B
+2
+WR
+2
++ 
+B
+3
+WR
+3
+52,500
+52,460
+52,460
+42,516
+42,516
+42,516
+42,516
+Tax Rates
+Symbol
+Description
+2020/2021
+6/4/2020
+2021/2022
+6/4/2021
+2022/2023
+6/4/2022
+2023/2024
+6/4/2023
+2024/2025
+6/4/2024
+2025/2026
+6/4/2025
+2026/2027
+6/4/2026
+WR
+1
+Rate 1
+(Wales)
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+10.00%
+WR
+2
+Rate 2
+(Wales)
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+20.00%
+WR
+3
+Rate 3
+(Wales)
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+40.00%
+WR
+4
+Rate 4
+(Wales)
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+45.00%
+G2
+Gpointer
+2
+2
+2
+2
+2
+2
+2
+M
+Maxrate
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+50.00%
+Appendix D - Glossary of symbols
+a
+1
+Free Pay for Week 1
+B
+1
+Bandwidth 1 - Annual bandwidth of 1st rate of tax
+B
+2
+Bandwidth 2 - Annual bandwidth of 2nd rate of tax
+B
+3
+Bandwidth 3 - Annual bandwidth of 3rd rate of tax
+C
+1
+Cumulative Bandwidth 1 -
+Bandwidth 1
+C
+2
+Cumulative Bandwidth 2 -
+The sum of Bandwidths 1 & 2
+C
+3
+Cumulative Bandwidth 3 -
+The sum of Bandwidths 1, 2 & 3
+c
+1
+-
+Threshold 1
+Cumulative Bandwidth 1 x
+n
+52
+c
+2
+-
+Threshold 2
+Cumulative Bandwidth 2 x
+n
+52
+c
+3
+-
+Threshold 3
+Cumulative Bandwidth 3 x
+n
+52
+e
+1
+Additional Pay for Week 1
+G
+- Pointer to Basic rate
+Gpointer
+G1
+- Pointer to Basic rate (Scotland)
+Gpointer
+G2
+- Pointer to Basic rate (Wales)
+Gpointer
+K
+1
+Cumulative Annual Tax 1
+- Annual tax 1
+K
+2
+Cumulative Annual Tax 2 -
+The sum of Annual taxes 1 & 2
+K
+3
+Cumulative Annual Tax 3 -
+The sum of Annual taxes 1, 2 & 3
+k
+1
+-
+Threshold tax 1
+Cumulative Annual tax 1 x
+n
+52
+k
+2
+-
+Threshold tax 2
+Cumulative Annual tax 2 x
+n
+52
+k
+3
+-
+Threshold tax 3
+Cumulative Annual tax 3 x
+n
+52
+L
+n
+Tax liability up to and including Week n
+l
+n
+Tax deductible or refundable in Week n (NB. lower case l)
+M
+- Maximum percentage tax deductible.
+Maxrate
+(Also referred to as the overriding Regulatory limit).
+n
+Week number
+P
+n
+Cumulative Pay including payrolled benefits in kind up to and
+including Week n (NB. upper case P)
+p
+n
+Pay for Week n including any payrolled benefits in kind
+(NB. lower case p)
+pbik
+Payrolled benefits in kind for Week n
+R
+1
+- 1st rate of tax
+Rate 1
+R
+2
+- 2nd rate of tax
+Rate 2
+R
+3
+Rate 3
+- 3rd rate of tax
+SB
+1
+Bandwidth 1 - Annual bandwidth of 1st rate of tax (Scotland)
+SB
+2
+Bandwidth 2 - Annual bandwidth of 2nd rate of tax (Scotland)
+SB
+3
+Bandwidth 3 - Annual bandwidth of 3rd rate of tax (Scotland)
+SB
+4
+Bandwidth 4 - Annual bandwidth of 4th rate of tax (Scotland)
+SB
+5
+Bandwidth 5 - Annual bandwidth of 5th rate of tax (Scotland)
+SC
+1
+Cumulative Bandwidth 1 -
+Bandwidth 1 (Scotland)
+SC
+2
+Cumulative Bandwidth 2 -
+The sum of Bandwidths 1 & 2 (Scotland)
+SC
+3
+Cumulative Bandwidth 3 -
+The sum of Bandwidths 1, 2 & 3 (Scotland)
+SC
+4
+Cumulative Bandwidth 4 -
+The sum of Bandwidths 1, 2, 3 & 4 (Scotland)
+SC
+5
+Cumulative Bandwidth 5 -
+The sum of Bandwidths 1, 2, 3, 4 & 5 (Scotland)
+Sc
+1
+-
+Threshold 1
+Cumulative Bandwidth 1 x
+n
+(Scotland)
+52
+Sc
+2
+-
+Threshold 2
+Cumulative Bandwidth 2 x
+n
+(Scotland)
+52
+Sc
+3
+-
+Threshold 3
+Cumulative Bandwidth 3 x
+n
+(Scotland)
+52
+SK
+1
+Cumulative Annual Tax 1
+- Annual tax 1 (Scotland)
+SK
+2
+Cumulative Annual Tax 2 -
+The sum of Annual taxes 1 & 2 (Scotland)
+SK
+3
+Cumulative Annual Tax 3 -
+The sum of Annual taxes 1, 2 & 3 (Scotland)
+SK
+4
+Cumulative Annual Tax 4 -
+The sum of Annual taxes 1, 2, 3 & 4 (Scotland)
+SK
+5
+Cumulative Annual Tax 5 -
+The sum of Annual taxes 1, 2, 3, 4 & 5 (Scotland)
+Sk
+1
+-
+Threshold tax 1 (Scotland)
+Cumulative Annual tax 1 (Scotland) x
+n
+52
+Sk
+2
+-
+Threshold tax 2 (Scotland)
+Cumulative Annual tax 2 (Scotland) x
+n
+52
+Sk
+3
+-
+Threshold tax 3 (Scotland)
+Cumulative Annual tax 3 (Scotland) x
+n
+52
+SR
+1
+- 1st rate of tax (Scotland)
+Rate 1
+SR
+2
+- 2nd rate of tax (Scotland)
+Rate 2
+SR
+3
+- 3rd rate of tax (Scotland)
+Rate 3
+SR
+4
+– 4th rate of tax (Scotland)
+Rate 4
+SR
+5
+– 5th rate of tax (Scotland)
+Rate 5
+SR
+6
+– 6th rate of tax (Scotland)
+Rate 6
+Sv
+1
+ie.
+SCvalue 1
+sc
+1
+(Scotland)
+Sv
+2
+ie.
+SCvalue 2
+sc
+2
+(Scotland)
+Sv
+3
+ie
+SCvalue 3
+.
+sc
+3
+(Scotland)
+T
+n
+Taxable Pay up to and including Week n after applying rounding rules
+U
+n
+Taxable Pay up to and including Week n before applying rounding rules
+v
+1
+ie.
+Cvalue 1
+c
+1
+v
+2
+ie. 
+Cvalue 2
+c
+2
+v
+3
+ie
+Cvalue 3
+. 
+c
+3
+WK
+1
+Cumulative Annual Tax 1
+- Annual tax 1 (Wales)
+WK
+2
+Cumulative Annual Tax 2 -
+The sum of Annual taxes 1 & 2 (Wales)
+WK
+3
+Cumulative Annual Tax 3 -
+The sum of Annual taxes 1, 2 & 3 (Wales)
+Wk
+1
+-
+Threshold tax 1 (Wales)
+Cumulative Annual tax 1 (Wales) x
+n
+52
+Wk
+2
+-
+Threshold tax 2 (Wales)
+Cumulative Annual tax 2 (Wales) x
+n
+52
+Wk
+3
+-
+Threshold tax 3 (Wales)
+Cumulative Annual tax 3 (Wales) x
+n
+52
+WR
+1
+- 1st rate of tax (Wales)
+Rate 1
+WR
+2
+- 2nd rate of tax (Wales)
+Rate 2
+WR
+3
+- 3rd rate of tax (Wales)
+Rate 3
+Appendix E – Summary of formulae
+Calculation of Cumulative Pay to date
+(paragraph 4.2.1)
+P
+n
+= P
+(n-1)
++ p
+n
+Calculation of Taxable Pay to date
+(paragraph 4.3.2)
+for suffix codes
+U
+n
+= P
+n
+- na
+1
+for prefix K, SK, CK codes
+U
+n
+= P
+n
++ ne
+1
+Calculation of the tax due to date
+(paragraphs 4.4.3 & 4.4.4)
+For Codes with
+no
+‘S’ or ‘C’ identifier
+Income Test 1
+Is
+U
+n
+≤
+v
+1
+?
+If yes, use Tax Formula 1
+If no, consider Income Test 2
+Income Test 2
+Is
+U
+n
+≤
+v
+2
+?
+If yes, use Tax Formula 2
+If no, consider Income Test 3
+and so on up to
+Income Test x
+Is
+U
+n
+≤
+v
+(x)
+?
+If yes, use Tax Formula (x)
+If no, use Tax Formula (x + 1)
+Tax Formula 1
+L
+n
+= T
+n
+R
+1
+or
+L
+n
+= k
+0
++ ( T
+n
+– c
+0
+) R
+1
+Tax Formula 2
+L
+n
+= k
+1
++
+( T
+n
+- c
+1
+) R
+2
+Tax Formula 3
+L
+n
+= k
+2
++ ( T
+n
+- c
+2
+) R
+3
+and so on up to
+Tax Formula x + 1
+L
+n
+= k
+(x)
++ (T
+n
+- c
+(x)
+) R
+(x + 1)
+For Codes with `S’ identifier
+Income Test 1(S)
+Is
+U
+n
+≤
+Sv
+1
+?
+If yes, use Tax Formula 1(S)
+If no, consider Income Test 2(S)
+Income Test 2(S)
+Is
+U
+n
+≤
+Sv
+2
+?
+If yes, use Tax Formula 2(S)
+If no, consider Income Test 3(S)
+and so on up to
+Income Test x(S)
+Is
+U
+n
+≤
+Sv
+(x)
+?
+If yes, use Tax Formula (x)(S)
+If no, use Tax Formula (x + 1)(S)
+Tax Formula 1(S)
+L
+n
+= T
+n
+SR
+1
+or
+L
+n
+= Sk
+0
++ (T
+n
+- Sc
+0
+) SR
+1
+Tax Formula 2(S)
+L
+n
+= Sk
+1
++ (T
+n
+- Sc
+1
+) SR
+2
+Tax Formula 3(S)
+L
+n
+= Sk
+2
++ (T
+n
+- Sc
+2
+) SR
+3
+and so on up to
+Tax Formula x + 1(S)
+L
+n
+= Sk
+(x)
++ (T
+n
+- Sc
+(x)
+)
+SR
+(x + 1)
+For Codes with ‘C’ identifier
+Income Test 1(C)
+Is
+U
+n
+≤
+v
+1
+?
+If yes, use Tax Formula 1(C)
+If no, consider Income Test 2(C)
+Income Test 2(C)
+Is
+U
+n
+≤
+v
+2
+?
+If yes, use Tax Formula 2(C)
+If no, consider Income Test 3(C)
+and so on up to
+Income Test x(C)
+Is
+U
+n
+≤
+v
+(x)
+?
+If yes, use Tax Formula (x)(C)
+If no, use Tax Formula (x + 1)(C)
+Tax Formula 1(C)
+L
+n
+= T
+n
+WR
+1
+or 
+L
+n
+= Wk
+0
++ (T
+n
+- c
+0
+) WR
+1
+Tax Formula 2(C)
+L
+n
+= Wk
+1
++ (T
+n
+- c
+1
+) WR
+2
+Tax Formula 3(C)
+L
+n
+= Wk
+2
++ (T
+n
+- c
+2
+) WR
+3
+and so on up to
+Tax Formula x + 1(C)
+L
+n
+= Wk
+(x)
++ (T
+n
+- c
+(x)
+) WR
+(x + 1)
+Calculation of Tax Deduction or Refund for the week
+(paragraph 4.5)
+l
+n
+= L
+n
+- L
+(n - 1)
+Positive values are deductions
+Negative values are refunds
+Where the overriding Regulatory limit applies
+l
+n
+= M x (p
+n
+– pbik)
+Where the tax code is operating cumulatively
+L
+n
+= L
+(n - 1)
++ (M x (p
+n
+– pbik))
+(The Tax Tables set out in this Specification are provided for use by Payroll Software Developers and employers whose payroll calculations are carried out by computer. Printed Tax tables are provided for use by other employers.)
+These Tax Tables have been prepared by the HMRC Board under Section 685 Income Tax (Earnings and Pensions) Act 2003.
+Crown copyright reserved.
+Version 24.0 Issued February 2026

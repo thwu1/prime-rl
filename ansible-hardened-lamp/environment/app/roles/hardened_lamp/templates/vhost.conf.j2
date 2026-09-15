@@ -1,0 +1,21 @@
+<VirtualHost *:80>
+    ServerName {{ apache_server_name }}
+{% for alias in apache_server_aliases %}
+    ServerAlias {{ alias }}
+{% endfor %}
+    DocumentRoot {{ apache_document_root }}
+
+    <Directory {{ apache_document_root }}>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+
+    ErrorLog ${APACHE_LOG_DIR}/{{ server_hostname }}-error.log
+    CustomLog ${APACHE_LOG_DIR}/{{ server_hostname }}-access.log combined
+</VirtualHost>

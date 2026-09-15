@@ -1,0 +1,14 @@
+pipeline:
+  k: 5
+  database: /app/eval.db
+  output: /app/output/leaderboard.json
+
+ranking:
+  primary_sort:
+    field: resolved_rate
+    order: descending
+  tiebreakers:
+    - field: sem
+      order: ascending
+    - field: pass_at_k
+      order: descending

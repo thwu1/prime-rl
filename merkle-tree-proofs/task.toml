@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in both Coq proof engineering and cryptographic data structures. The solver must discover that helper lemmas about list-append behavior of the reconstruct function are essential prerequisites, then compose them with structural induction over trees, careful option-type case analysis, and reasoning about hash injectivity. Each theorem demands a different proof strategy (coupling with append lemmas, injectivity chains, correlated induction over tree and set_leaf). Writing syntactically correct Coq with proper tactic sequencing, hypothesis management, and boolean-to-Prop conversions is notoriously error-prone even for experts."""
+solution_explanation = """The key insight is three helper lemmas: (1) reconstruct_app_GoRight showing reconstruct distributes over append with GoRight, (2) reconstruct_app_GoLeft for the symmetric case, (3) reconstruct_injective proving reconstruct is injective per-path via hash_inj. Completeness and update_soundness follow by tree induction using the append lemmas to handle gen_proof's path concatenation. Binding follows from reconstruct_injective plus Nat.eqb_eq. Extraction is straightforward tree induction. Path length uses tree induction with app_length and lia."""
+verification_explanation = """Verification compiles the modified .v file with coqc (Coq's kernel type-checker, which is sound). If coqc accepts the file with zero Admitted/admit and no extra axioms, every theorem has a valid proof term checked against the Calculus of Inductive Constructions. Additional pytest checks ensure definitions were not altered and theorem signatures are intact."""
+category = "formal_verification"
+tags = ["coq", "cryptography"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/merkle-tree-proofs"

@@ -1,0 +1,446 @@
+[
+  {
+    "snippet_id": "s001",
+    "paper_id": "diffxformer",
+    "lines_of_code": 12,
+    "function_name": "impl_diffxformer_1"
+  },
+  {
+    "snippet_id": "s002",
+    "paper_id": "diffxformer",
+    "lines_of_code": 28,
+    "function_name": "impl_diffxformer_2"
+  },
+  {
+    "snippet_id": "s003",
+    "paper_id": "diffxformer",
+    "lines_of_code": 45,
+    "function_name": "impl_diffxformer_3"
+  },
+  {
+    "snippet_id": "s004",
+    "paper_id": "diffxformer",
+    "lines_of_code": 8,
+    "function_name": "impl_diffxformer_4"
+  },
+  {
+    "snippet_id": "s005",
+    "paper_id": "diffxformer",
+    "lines_of_code": 33,
+    "function_name": "impl_diffxformer_5"
+  },
+  {
+    "snippet_id": "s006",
+    "paper_id": "diffxformer",
+    "lines_of_code": 19,
+    "function_name": "impl_diffxformer_6"
+  },
+  {
+    "snippet_id": "s007",
+    "paper_id": "diffxformer",
+    "lines_of_code": 51,
+    "function_name": "impl_diffxformer_7"
+  },
+  {
+    "snippet_id": "s008",
+    "paper_id": "diffxformer",
+    "lines_of_code": 15,
+    "function_name": "impl_diffxformer_8"
+  },
+  {
+    "snippet_id": "s009",
+    "paper_id": "diffxformer",
+    "lines_of_code": 22,
+    "function_name": "impl_diffxformer_9"
+  },
+  {
+    "snippet_id": "s010",
+    "paper_id": "diffxformer",
+    "lines_of_code": 37,
+    "function_name": "impl_diffxformer_10"
+  },
+  {
+    "snippet_id": "s011",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 25,
+    "function_name": "impl_diffusiondpo_11"
+  },
+  {
+    "snippet_id": "s012",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 14,
+    "function_name": "impl_diffusiondpo_12"
+  },
+  {
+    "snippet_id": "s013",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 42,
+    "function_name": "impl_diffusiondpo_13"
+  },
+  {
+    "snippet_id": "s014",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 31,
+    "function_name": "impl_diffusiondpo_14"
+  },
+  {
+    "snippet_id": "s015",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 9,
+    "function_name": "impl_diffusiondpo_15"
+  },
+  {
+    "snippet_id": "s016",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 55,
+    "function_name": "impl_diffusiondpo_16"
+  },
+  {
+    "snippet_id": "s017",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 18,
+    "function_name": "impl_diffusiondpo_17"
+  },
+  {
+    "snippet_id": "s018",
+    "paper_id": "diffusiondpo",
+    "lines_of_code": 36,
+    "function_name": "impl_diffusiondpo_18"
+  },
+  {
+    "snippet_id": "s019",
+    "paper_id": "dyntoken",
+    "lines_of_code": 20,
+    "function_name": "impl_dyntoken_19"
+  },
+  {
+    "snippet_id": "s020",
+    "paper_id": "dyntoken",
+    "lines_of_code": 48,
+    "function_name": "impl_dyntoken_20"
+  },
+  {
+    "snippet_id": "s021",
+    "paper_id": "dyntoken",
+    "lines_of_code": 11,
+    "function_name": "impl_dyntoken_21"
+  },
+  {
+    "snippet_id": "s022",
+    "paper_id": "dyntoken",
+    "lines_of_code": 33,
+    "function_name": "impl_dyntoken_22"
+  },
+  {
+    "snippet_id": "s023",
+    "paper_id": "dyntoken",
+    "lines_of_code": 27,
+    "function_name": "impl_dyntoken_23"
+  },
+  {
+    "snippet_id": "s024",
+    "paper_id": "dyntoken",
+    "lines_of_code": 44,
+    "function_name": "impl_dyntoken_24"
+  },
+  {
+    "snippet_id": "s025",
+    "paper_id": "dyntoken",
+    "lines_of_code": 16,
+    "function_name": "impl_dyntoken_25"
+  },
+  {
+    "snippet_id": "s026",
+    "paper_id": "dyntoken",
+    "lines_of_code": 39,
+    "function_name": "impl_dyntoken_26"
+  },
+  {
+    "snippet_id": "s027",
+    "paper_id": "dyntoken",
+    "lines_of_code": 7,
+    "function_name": "impl_dyntoken_27"
+  },
+  {
+    "snippet_id": "s028",
+    "paper_id": "optisteps",
+    "lines_of_code": 35,
+    "function_name": "impl_optisteps_28"
+  },
+  {
+    "snippet_id": "s029",
+    "paper_id": "optisteps",
+    "lines_of_code": 22,
+    "function_name": "impl_optisteps_29"
+  },
+  {
+    "snippet_id": "s030",
+    "paper_id": "optisteps",
+    "lines_of_code": 58,
+    "function_name": "impl_optisteps_30"
+  },
+  {
+    "snippet_id": "s031",
+    "paper_id": "optisteps",
+    "lines_of_code": 13,
+    "function_name": "impl_optisteps_31"
+  },
+  {
+    "snippet_id": "s032",
+    "paper_id": "optisteps",
+    "lines_of_code": 41,
+    "function_name": "impl_optisteps_32"
+  },
+  {
+    "snippet_id": "s033",
+    "paper_id": "optisteps",
+    "lines_of_code": 29,
+    "function_name": "impl_optisteps_33"
+  },
+  {
+    "snippet_id": "s034",
+    "paper_id": "optisteps",
+    "lines_of_code": 17,
+    "function_name": "impl_optisteps_34"
+  },
+  {
+    "snippet_id": "s035",
+    "paper_id": "optisteps",
+    "lines_of_code": 46,
+    "function_name": "impl_optisteps_35"
+  },
+  {
+    "snippet_id": "s036",
+    "paper_id": "optisteps",
+    "lines_of_code": 24,
+    "function_name": "impl_optisteps_36"
+  },
+  {
+    "snippet_id": "s037",
+    "paper_id": "optisteps",
+    "lines_of_code": 38,
+    "function_name": "impl_optisteps_37"
+  },
+  {
+    "snippet_id": "s038",
+    "paper_id": "optisteps",
+    "lines_of_code": 10,
+    "function_name": "impl_optisteps_38"
+  },
+  {
+    "snippet_id": "s039",
+    "paper_id": "fracgen",
+    "lines_of_code": 30,
+    "function_name": "impl_fracgen_39"
+  },
+  {
+    "snippet_id": "s040",
+    "paper_id": "fracgen",
+    "lines_of_code": 52,
+    "function_name": "impl_fracgen_40"
+  },
+  {
+    "snippet_id": "s041",
+    "paper_id": "fracgen",
+    "lines_of_code": 19,
+    "function_name": "impl_fracgen_41"
+  },
+  {
+    "snippet_id": "s042",
+    "paper_id": "fracgen",
+    "lines_of_code": 43,
+    "function_name": "impl_fracgen_42"
+  },
+  {
+    "snippet_id": "s043",
+    "paper_id": "fracgen",
+    "lines_of_code": 26,
+    "function_name": "impl_fracgen_43"
+  },
+  {
+    "snippet_id": "s044",
+    "paper_id": "fracgen",
+    "lines_of_code": 11,
+    "function_name": "impl_fracgen_44"
+  },
+  {
+    "snippet_id": "s045",
+    "paper_id": "fracgen",
+    "lines_of_code": 34,
+    "function_name": "impl_fracgen_45"
+  },
+  {
+    "snippet_id": "s046",
+    "paper_id": "fracgen",
+    "lines_of_code": 47,
+    "function_name": "impl_fracgen_46"
+  },
+  {
+    "snippet_id": "s047",
+    "paper_id": "schedfree",
+    "lines_of_code": 15,
+    "function_name": "impl_schedfree_47"
+  },
+  {
+    "snippet_id": "s048",
+    "paper_id": "schedfree",
+    "lines_of_code": 40,
+    "function_name": "impl_schedfree_48"
+  },
+  {
+    "snippet_id": "s049",
+    "paper_id": "schedfree",
+    "lines_of_code": 23,
+    "function_name": "impl_schedfree_49"
+  },
+  {
+    "snippet_id": "s050",
+    "paper_id": "schedfree",
+    "lines_of_code": 56,
+    "function_name": "impl_schedfree_50"
+  },
+  {
+    "snippet_id": "s051",
+    "paper_id": "schedfree",
+    "lines_of_code": 8,
+    "function_name": "impl_schedfree_51"
+  },
+  {
+    "snippet_id": "s052",
+    "paper_id": "schedfree",
+    "lines_of_code": 31,
+    "function_name": "impl_schedfree_52"
+  },
+  {
+    "snippet_id": "s053",
+    "paper_id": "schedfree",
+    "lines_of_code": 44,
+    "function_name": "impl_schedfree_53"
+  },
+  {
+    "snippet_id": "s054",
+    "paper_id": "schedfree",
+    "lines_of_code": 18,
+    "function_name": "impl_schedfree_54"
+  },
+  {
+    "snippet_id": "s055",
+    "paper_id": "schedfree",
+    "lines_of_code": 27,
+    "function_name": "impl_schedfree_55"
+  },
+  {
+    "snippet_id": "s056",
+    "paper_id": "gridiso",
+    "lines_of_code": 38,
+    "function_name": "impl_gridiso_56"
+  },
+  {
+    "snippet_id": "s057",
+    "paper_id": "gridiso",
+    "lines_of_code": 21,
+    "function_name": "impl_gridiso_57"
+  },
+  {
+    "snippet_id": "s058",
+    "paper_id": "gridiso",
+    "lines_of_code": 49,
+    "function_name": "impl_gridiso_58"
+  },
+  {
+    "snippet_id": "s059",
+    "paper_id": "gridiso",
+    "lines_of_code": 14,
+    "function_name": "impl_gridiso_59"
+  },
+  {
+    "snippet_id": "s060",
+    "paper_id": "gridiso",
+    "lines_of_code": 32,
+    "function_name": "impl_gridiso_60"
+  },
+  {
+    "snippet_id": "s061",
+    "paper_id": "gridiso",
+    "lines_of_code": 53,
+    "function_name": "impl_gridiso_61"
+  },
+  {
+    "snippet_id": "s062",
+    "paper_id": "gridiso",
+    "lines_of_code": 25,
+    "function_name": "impl_gridiso_62"
+  },
+  {
+    "snippet_id": "s063",
+    "paper_id": "gridiso",
+    "lines_of_code": 41,
+    "function_name": "impl_gridiso_63"
+  },
+  {
+    "snippet_id": "s064",
+    "paper_id": "gridiso",
+    "lines_of_code": 17,
+    "function_name": "impl_gridiso_64"
+  },
+  {
+    "snippet_id": "s065",
+    "paper_id": "gridiso",
+    "lines_of_code": 46,
+    "function_name": "impl_gridiso_65"
+  },
+  {
+    "snippet_id": "s066",
+    "paper_id": "repae",
+    "lines_of_code": 29,
+    "function_name": "impl_repae_66"
+  },
+  {
+    "snippet_id": "s067",
+    "paper_id": "repae",
+    "lines_of_code": 43,
+    "function_name": "impl_repae_67"
+  },
+  {
+    "snippet_id": "s068",
+    "paper_id": "repae",
+    "lines_of_code": 16,
+    "function_name": "impl_repae_68"
+  },
+  {
+    "snippet_id": "s069",
+    "paper_id": "repae",
+    "lines_of_code": 37,
+    "function_name": "impl_repae_69"
+  },
+  {
+    "snippet_id": "s070",
+    "paper_id": "repae",
+    "lines_of_code": 50,
+    "function_name": "impl_repae_70"
+  },
+  {
+    "snippet_id": "s071",
+    "paper_id": "repae",
+    "lines_of_code": 22,
+    "function_name": "impl_repae_71"
+  },
+  {
+    "snippet_id": "s072",
+    "paper_id": "repae",
+    "lines_of_code": 34,
+    "function_name": "impl_repae_72"
+  },
+  {
+    "snippet_id": "s073",
+    "paper_id": "repae",
+    "lines_of_code": 12,
+    "function_name": "impl_repae_73"
+  },
+  {
+    "snippet_id": "s074",
+    "paper_id": "repae",
+    "lines_of_code": 45,
+    "function_name": "impl_repae_74"
+  }
+]

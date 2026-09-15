@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete experimental modal analysis pipeline from scratch: frequency-domain pole extraction across ascending polynomial orders, cross-order stability classification and pole selection, modal constant estimation with FRF reconstruction supporting three FRF formulations, complex-valued mode shape correlation, and complex-to-real mode transformation. Demands graduate-level structural dynamics, digital signal processing, and numerical linear algebra."""
+solution_explanation = """The reference solution implements the LSCF (Least-Squares Complex Frequency) algorithm: zero-pads FRFs to project into the full Z-domain interval, computes adjusted-lower-limit IRFFT to build Toeplitz-structured normal equation submatrices (S, T, R), solves the common-denominator polynomial at ascending even orders, extracts poles via numpy.roots, and converts from Z-domain via -log(z)/dt. Stabilization classifies poles as stable when both frequency and damping match the previous order within relative thresholds. Pole selection uses iteratively narrowing least-squares optimization over stable pole frequencies. LSFD constructs a real/imaginary-separated participation matrix from the pole-residue model (with lower/upper residuals) and solves via least-squares. MAC uses the standard Hermitian formula. Complex-to-normal uses the eigenvector-of-outer-product rotation method."""
+verification_explanation = """Tests run the full pipeline on synthetic noise-free FRFs from a 5-DOF mass-spring-damper system with known ground truth. Natural frequencies are checked within 1 Hz or 2% relative tolerance, damping within 5%, FRF reconstruction magnitude error within 30% near resonances, autoMAC diagonal equals 1.0, and normal mode MAC with complex modes exceeds 0.85."""
+category = "physics_engineering"
+tags = ["signal-processing", "structural-dynamics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/modal-analysis-pipeline"

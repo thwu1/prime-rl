@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging and fixing 16 interacting bugs across three coupled subsystems plus implementing missing functionality in a fourth module. The expression evaluator pipeline (lexer, parser, AST evaluator, 13 built-in functions) contains 12 bugs spanning tokenization, operator precedence, null propagation semantics, and function behavior. The sidecar inheritance resolver has 2 bugs (compound extension parsing, entity subset matching direction) and one incomplete implementation (single-directory lookup must be extended to full ancestor-path walking with correct merge ordering). The validation rule engine has 4 bugs in selector matching, context construction, conditional check dependencies, and pass/fail determination. Bugs cascade across systems: expression evaluator defects cause misleading rule check failures, inheritance resolver defects produce incorrect metadata that masks or triggers wrong validation results, and rule engine defects misinterpret correctly-evaluated expressions. Systematic diagnosis requires understanding recursive-descent parsing, operator precedence, null flow-through semantics, the BIDS inheritance principle (entity-subset matching, directory-level merge precedence), context scoping for nested member access, and conditional dependency chains."""
+solution_explanation = """The 12 expression evaluator bugs: (1) lexer missing != two-char token, (2) parser missing % in multiplicative, (3) parser missing 'in' operator, (4) parser missing {} object literal, (5) && returns false instead of left value breaking null propagation, (6) !null returns null instead of true, (7) member access on null throws instead of returning null, (8) index access doesn't handle null/strings, (9) sorted auto mode uses String comparison, (10) intersects returns [] instead of false, (11) allequal crashes on null, (12) match returns false instead of null for null target. The 3 inheritance resolver issues: (A) parseFilename uses lastIndexOf('.') giving .gz instead of .nii.gz for compound extensions, (B) matchesSidecar iterates over target entities requiring all in sidecar (inverted — should iterate sidecar entities checking each in target), (C) resolveInheritance only checks deepest directory instead of walking all ancestor directories from root collecting and merging sidecars with correct precedence. The 4 rule engine bugs: (D) matchSelector ignores entity requirements, (E) buildEvalContext spreads sidecar flat and omits columns, (F) depends_on condition inverted, (G) passed counts all issues including warnings."""
+verification_explanation = """Pytest runs three test suites via subprocess: (1) expression evaluator checking all 77 YAML test cases with subtests for null propagation, arithmetic, built-in functions, comparisons, indexing, and sorted regression; (2) inheritance resolver checking 5 dataset scenarios covering multi-level inheritance with 4 ancestor sidecars, override semantics where deeper values replace shallower, suffix-based filtering, entity-subset filtering for task mismatch, and compound extension handling; (3) validation rule engine checking 7 file contexts for correct matched_rules, issue counts/levels, and passed status including valid files, missing fields, column validation, entity-only selectors, warning-vs-error distinction, and depends_on behavior."""
+category = "debugging"
+tags = ["expression-language", "typescript"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bids-expression-evaluator"

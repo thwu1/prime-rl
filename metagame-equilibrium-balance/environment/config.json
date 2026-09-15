@@ -1,0 +1,57 @@
+{
+  "matchup_table": {
+    "warriors_vs_warriors": 1.0,
+    "warriors_vs_mages": 0.55,
+    "warriors_vs_archers": 1.65,
+    "mages_vs_warriors": 1.85,
+    "mages_vs_mages": 1.0,
+    "mages_vs_archers": 0.45,
+    "archers_vs_warriors": 0.50,
+    "archers_vs_mages": 1.75,
+    "archers_vs_archers": 1.0
+  },
+  "strategies": {
+    "vanguard": {
+      "warriors": 9,
+      "mages": 3,
+      "archers": 3,
+      "lane_weights": [0.50, 0.30, 0.20],
+      "noise": 0.05
+    },
+    "arcane": {
+      "warriors": 3,
+      "mages": 9,
+      "archers": 3,
+      "lane_weights": [0.20, 0.50, 0.30],
+      "noise": 0.05
+    },
+    "ranger": {
+      "warriors": 3,
+      "mages": 3,
+      "archers": 9,
+      "lane_weights": [0.30, 0.20, 0.50],
+      "noise": 0.05
+    },
+    "knight": {
+      "warriors": 7,
+      "mages": 4,
+      "archers": 4,
+      "lane_weights": [0.40, 0.35, 0.25],
+      "noise": 0.08
+    },
+    "sage": {
+      "warriors": 4,
+      "mages": 7,
+      "archers": 4,
+      "lane_weights": [0.25, 0.40, 0.35],
+      "noise": 0.08
+    },
+    "hunter": {
+      "warriors": 4,
+      "mages": 4,
+      "archers": 7,
+      "lane_weights": [0.35, 0.25, 0.40],
+      "noise": 0.08
+    }
+  }
+}

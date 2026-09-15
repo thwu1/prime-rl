@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction concepts (detector error models, Tanner graphs, syndrome decoding), the stim DEM file format semantics (including compound error instructions and separator tokens), sparse matrix construction for parity check representations, probability handling for overlapping error mechanisms, and implementing a decoder that exploits soft information to outperform standard minimum-weight perfect matching. This is research-grade work at the intersection of quantum physics, graph theory, and probabilistic decoding."""
+solution_explanation = """Parse the DEM by iterating over flattened error instructions, splitting targets at separator tokens into edge groups, computing hyperedge detector/observable sets via symmetric difference, merging priors for repeated error mechanisms, and building CSC sparse matrices. The decoder runs belief propagation on the check matrix; if BP converges, applies the correction via the observables matrix; otherwise converts BP soft information to per-edge probabilities through the hyperedge-to-edge matrix and uses them as MWPM edge weights."""
+verification_explanation = """Tests verify the DEM-to-matrices conversion against known exact values (matrix shapes, entries, and priors) on inline reference DEMs, check matrix dimension consistency on the surface code DEM against config.json, verify decoder output shapes and binary constraints including zero-syndrome behavior, and confirm the decoder achieves fewer or equal errors compared to plain PyMatching MWPM on 500 pre-recorded surface code shots."""
+category = "quantum_computing"
+tags = ["error_correction", "graph_algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ae67d2"

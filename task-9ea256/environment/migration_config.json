@@ -1,0 +1,28 @@
+{
+  "source_dir": "/app/staging",
+  "output_dir": "/app/output",
+  "report_path": "/app/output/migration_stats.json",
+  "migrations": [
+    {
+      "resource_type": "Condition",
+      "source_file": "Condition.ndjson",
+      "fhirpath_selector": "code.coding.where(system = 'http://hl7.org/fhir/sid/icd-9-cm')",
+      "concept_map_id": "icd9-to-icd10",
+      "preserve_source_coding": true
+    },
+    {
+      "resource_type": "Observation",
+      "source_file": "Observation.ndjson",
+      "fhirpath_selector": "code.coding.where(system = 'http://hospital.example.org/lab-codes')",
+      "concept_map_id": "local-to-loinc",
+      "preserve_source_coding": false
+    },
+    {
+      "resource_type": "AllergyIntolerance",
+      "source_file": "AllergyIntolerance.ndjson",
+      "fhirpath_selector": "code.coding.where(system = 'http://hospital.example.org/allergy-codes')",
+      "concept_map_id": "allergy-to-snomed",
+      "preserve_source_coding": true
+    }
+  ]
+}

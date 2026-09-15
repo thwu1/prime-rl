@@ -1,0 +1,24 @@
+// DNS Views for split-horizon resolution
+
+view "internal" {
+    match-clients { "internal"; };
+
+    zone "weilburg.corp" {
+        type master;
+        file "/etc/bind/zones/db.weilburg.corp";
+    };
+
+    zone "0.10.10.in-addr.arpa" {
+        type master;
+        file "/etc/bind/zones/db.10.10.0";
+    };
+};
+
+view "external" {
+    match-clients { any; };
+
+    zone "weilburg.corp" {
+        type master;
+        file "/etc/bind/zones/db.weilburg.corp.external";
+    };
+};

@@ -1,0 +1,73 @@
+# IAPWS-IF97 Published Verification Values
+# From Tables 5, 7, 9, 15, 24-27, 33, 42 of IAPWS-IF97 Release
+# mode,arg1,arg2,field,expected
+# field: for props = v|h|u|s|cp|cv|w; for region/satT/satP/backward = result
+#
+# Region determination
+region,300,3,,1
+region,300,80,,1
+region,500,3,,1
+region,300,0.0035,,2
+region,700,0.0035,,2
+region,700,30,,2
+region,650,25.5837018,,3
+region,1500,0.5,,5
+region,2000,30,,5
+#
+# Saturation curve (Table 35/Eq 30-31)
+satT,300,,,0.00353658941301
+satT,500,,,2.63889776
+satT,600,,,12.3443145784
+satP,0.1,,,372.755919
+satP,1,,,453.035632
+satP,10,,,584.149488
+#
+# Region 1 forward (Table 5)
+props,300,3,v,0.00100215168
+props,300,3,h,115.331273
+props,300,3,u,112.324818
+props,300,80,s,0.368563852
+props,300,80,cp,4.01008987
+props,300,80,cv,3.91736606
+props,500,3,w,1240.71337
+#
+# Region 2 forward (Table 15)
+props,700,30,v,0.00542946619
+props,700,30,h,2631.49474
+props,700,30,u,2468.61076
+props,700,0.0035,s,10.1749996
+props,700,0.0035,cp,2.08141274
+props,700,0.0035,cv,1.61978333
+props,300,0.0035,w,427.920172
+#
+# Region 5 forward (Table 42)
+props,1500,0.5,v,1.38455090
+props,1500,0.5,h,5219.76855
+props,1500,0.5,u,4527.49310
+props,1500,30,s,7.72970133
+props,1500,30,cp,2.72724317
+props,2000,30,w,1067.36948
+#
+# Backward Region 1 T(P,h) (Table 7)
+backward_ph,3,500,,391.798509
+backward_ph,80,1500,,611.041229
+#
+# Backward Region 1 T(P,s) (Table 9)
+backward_ps,3,0.5,,307.842258
+backward_ps,80,3,,565.899909
+#
+# Backward Region 2 T(P,h) (Tables 24,25,29)
+backward_ph,0.001,3000,,534.433241
+backward_ph,3,4000,,1010.77577
+backward_ph,5,4000,,1015.31583
+backward_ph,25,3500,,875.279054
+backward_ph,40,2700,,743.056411
+backward_ph,60,3200,,882.756860
+#
+# Backward Region 2 T(P,s) (Tables 25-27)
+backward_ps,0.1,7.5,,399.517097
+backward_ps,2.5,8,,1039.84917
+backward_ps,8,6,,600.484040
+backward_ps,90,6,,1038.01126
+backward_ps,20,5.75,,697.992849
+backward_ps,80,5.75,,949.017998

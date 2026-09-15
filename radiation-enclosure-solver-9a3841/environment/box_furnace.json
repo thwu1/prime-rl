@@ -1,0 +1,15 @@
+{
+  "name": "box_furnace",
+  "type": "rectangular_box",
+  "length_x": 4.0,
+  "width_y": 3.0,
+  "height_z": 2.0,
+  "surfaces": [
+    {"name": "floor",   "emissivity": 0.85, "condition": "temperature", "value": 1200.0},
+    {"name": "ceiling", "emissivity": 0.70, "condition": "temperature", "value": 400.0},
+    {"name": "front",   "emissivity": 0.60, "condition": "temperature", "value": 900.0},
+    {"name": "back",    "emissivity": 0.90, "condition": "heatflux",    "value": 0.0},
+    {"name": "left",    "emissivity": 0.75, "condition": "temperature", "value": 600.0},
+    {"name": "right",   "emissivity": 0.80, "condition": "temperature", "value": 800.0}
+  ]
+}

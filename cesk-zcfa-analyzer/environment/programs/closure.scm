@@ -1,0 +1,6 @@
+(let ((make-adder (lambda (n) (lambda (x) (+ n x)))))
+  (let ((add5 (make-adder 5)))
+    (let ((add10 (make-adder 10)))
+      (let ((r1 (add5 3)))
+        (let ((r2 (add10 3)))
+          (+ r1 r2))))))

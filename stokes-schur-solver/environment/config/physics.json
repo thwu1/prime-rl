@@ -1,0 +1,7 @@
+{
+    "mu": 1.0,
+    "rho": 1.0,
+    "regime": "stokes",
+    "reynolds_number": 0,
+    "description": "Zero Reynolds number (no inertia), viscous-dominated flow"
+}

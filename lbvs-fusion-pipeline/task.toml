@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cheminformatics knowledge: the agent must explore the environment to discover the dataset, configuration, installed libraries, and a flawed prior analysis attempt. The prior script contains multiple subtle domain errors — missing substructure alert filtering, incorrect reference set construction (all training molecules vs. actives only), and wrong metric parameterization (percentage vs. fraction). The agent must independently diagnose these issues through domain expertise, not from explicit instructions. Designing the full pipeline requires architectural decisions: choosing appropriate similarity functions for binary vs. count fingerprints, implementing two distinct score-level fusion strategies (CombSUM with min-max normalization, rank fusion via average descending ranks), handling edge cases in normalization, and correctly interpreting randomized configuration parameters. The cascading nature of the pipeline means errors in early stages (parsing, filtering, splitting) propagate through all downstream computations."""
+solution_explanation = """Explore /app/ to find data/bace.json, task_config.json, and the broken previous_analysis.py. Diagnose the draft script's errors: no PAINS filtering, similarity computed against all training molecules instead of actives only, enrichment factor fraction not divided by 100. Build a correct pipeline: load BACE SMILES, parse with MolFromSmilesTransformer(valid_only=True), apply PAINSFilter for each configured variant via transform_x_y, then for each configured seed: randomized scaffold split, compute 4 fingerprint types (ECFP binary, ECFP count, AtomPair, MACCS) with appropriate similarity functions (count-aware for count fingerprints), implement CombSUM (min-max normalize then sum) and rank fusion (negative mean of average descending ranks), evaluate with bedroc_score and enrichment_factor using configured alpha and fraction. Aggregate cross-split statistics and identify best methods."""
+verification_explanation = """Tests independently verify: (1) config_used matches the actual task_config.json, (2) complete JSON schema with all required fields, (3) preprocessing molecule counts via independent recomputation with configured PAINS variants, (4) BEDROC values in [0,1] and EF >= 0, (5) train+test sizes sum to post-filtering total, (6) summary statistics consistency (means and stds match per-split values), (7) best_method fields match argmax of means, (8) full independent reference computation of ECFP binary BEDROC and EF for the first configured seed using the same library functions."""
+category = "applied_computing"
+tags = ["cheminformatics", "virtual-screening"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lbvs-fusion-pipeline"

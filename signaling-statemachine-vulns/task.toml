@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep analysis of a WebRTC signaling state machine (~550 lines) to identify three distinct vulnerability classes, then evaluating five proposed patches — determining which correctly fix vulnerabilities, which are subtly insufficient (e.g., fixing after the damage is already done in execution order), and which introduce regressions (e.g., consent-gate deadlock in the legitimate call flow). Additionally requires creating a Hypothesis RuleBasedStateMachine property-based fuzzer with correct invariant checks and Graphviz state transition diagrams. Combines security auditing, code review, property-based testing design, and graph visualization tooling."""
+solution_explanation = """The solution dynamically discovers vulnerabilities by running three exploit scenarios against the unpatched state machine (CONNECT_ACK role bypass, trickle ICE in SDP offer, SESSION_UPDATE without state check). It probes state transitions behaviorally to build the Graphviz diagram. For patch classification, it applies each patch, re-runs all exploits and a legitimate call flow test, then determines verdicts by comparing which exploits are blocked against which methods the patch modifies — targeted handler patches are effective if they block their specific vulnerability, defense-in-depth patches must block all exploits, and patches that break legitimate flow are regressions."""
+verification_explanation = """Tests verify: (1) state_graph.dot contains all 7 PeerState values with vulnerability annotations and is renderable by graphviz, (2) state_graph.png exists as valid image, (3) invariant_fuzzer.py uses RuleBasedStateMachine with @invariant and @rule decorators and detects violations when run against vulnerable code, (4) patch_verdicts.json correctly classifies all 5 patches (A=effective, B=insufficient, C=effective, D=insufficient, E=regression), (5) report.json identifies at least 3 distinct vulnerabilities with required fields."""
+category = "security_and_privacy"
+tags = ["state-machine-audit", "property-based-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/signaling-statemachine-vulns"

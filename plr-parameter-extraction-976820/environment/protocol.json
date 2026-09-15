@@ -1,0 +1,15 @@
+{
+  "sampling_rate_hz": 30,
+  "pre_stimulus_s": 2.0,
+  "stimulus_duration_s": 1.0,
+  "post_stimulus_s": 32.0,
+  "conditions": ["blue", "red"],
+  "trials_per_condition": 3,
+  "pipr_early_window_s": [2.0, 10.0],
+  "pipr_late_window_s": [10.0, 30.0],
+  "pipr_amplitude_time_s": 6.0,
+  "horner_dilation_lag_time_s": 4.0,
+  "blink_diameter_threshold_mm": 1.5,
+  "blink_velocity_threshold_mm_s": 20.0,
+  "artifact_trial_threshold_pct": 50.0
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of RFC 2328 OSPF SPF algorithm internals: (1) the asymmetric cost model between router→network and network→router edges in Dijkstra traversal, (2) correct classification of /32 stub networks vs unnumbered p2p endpoints, and (3) proper ECMP next-hop set merging during candidate list updates. Each bug is independently subtle — the code reads as plausible and has misleading comments that appear to cite the RFC correctly. The solver must cross-reference the actual RFC specification, trace the SPF computation through a multi-area topology, and verify routing table outputs against hand-computed expected values."""
+solution_explanation = """Three targeted fixes in ospf_spf.py: (1) Remove the plen==32 && !is_loopback guard in _install_stubs — all stub links are valid routes. (2) Change cost = v.cost + back.metric to cost = v.cost in _expand_network — the network→router transition carries zero cost per RFC 2328 §16.1. (3) Change c.next_hops = nh to c.next_hops |= nh in _offer — equal-cost paths must merge next-hop sets for ECMP."""
+verification_explanation = """Tests run the SPF calculator against a fixed 5-router 2-area topology and check: route presence (especially the /32 anycast VIP), exact metric values for all routes, ECMP next-hop completeness, and a comprehensive full-table comparison. Each bug causes distinct, independently testable failures."""
+category = "networking"
+tags = ["ospf", "routing-protocols"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-spf-debug"

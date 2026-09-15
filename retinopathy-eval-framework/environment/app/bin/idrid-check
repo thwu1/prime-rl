@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+"""
+idrid-check: Validation harness for the IDRiD evaluation framework.
+Tests the evaluator and generator against reference cases with known-correct scores.
+
+"""
+
+import csv
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+try:
+    import numpy as np
+    from PIL import Image
+except ImportError:
+    print("ERROR: Required packages missing. Run: pip3 install numpy Pillow",
+          file=sys.stderr)
+    sys.exit(2)
+
+CASES_FILE = "/app/reference/cases.json"
+EVAL_SCRIPT = "/app/src/evaluate.py"
+GEN_SCRIPT = "/app/src/generate_synthetic.py"
+
+
+def load_cases():
+    with open(CASES_FILE) as f:
+        return json.load(f)
+
+
+def create_segmentation_data(case, tmpdir):
+    gt_dir = os.path.join(tmpdir, "gt")
+    pred_dir = os.path.join(tmpdir, "pred")
+    os.makedirs(gt_dir)
+    os.makedirs(pred_dir)
+
+    images = case["images"]
+    lesion_types = case["lesion_types"]
+
+    for img_id, data in images.items():
+        gt_arr = np.array(data["gt"], dtype=np.uint8)
+        pred_arr = np.array(data["pred"], dtype=np.uint8)
+        for lesion in lesion_types:
+            Image.fromarray(gt_arr, mode="L").save(
+                os.path.join(gt_dir, f"{img_id}_{lesion}.png"))
+            Image.fromarray(pred_arr, mode="L").save(
+                os.path.join(pred_dir, f"{img_id}_{lesion}.png"))
+
+    return gt_dir, pred_dir
+
+
+def create_csv_data(case, tmpdir, task):
+    gt_csv = os.path.join(tmpdir, "gt.csv")
+    pred_csv = os.path.join(tmpdir, "pred.csv")
+
+    if task == "disease_grading":
+        header = ["image_id", "DR_grade", "DME_grade"]
+    else:
+        header = ["image_id", "OD_x", "OD_y", "fovea_x", "fovea_y"]
+
+    for path, rows in [(gt_csv, case["gt_rows"]), (pred_csv, case["pred_rows"])]:
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            for row in rows:
+                writer.writerow(row)
+
+    return gt_csv, pred_csv
+
+
+def run_evaluator(task, predictions, ground_truth, output_json):
+    result = subprocess.run(
+        ["python3", EVAL_SCRIPT,
+         "--task", task,
+         "--predictions", predictions,
+         "--ground-truth", ground_truth,
+         "--output-json", output_json],
+        capture_output=True, text=True, timeout=120
+    )
+    results = None
+    if result.returncode == 0 and os.path.isfile(output_json):
+        with open(output_json) as f:
+            results = json.load(f)
+    return result.returncode, results, result.stderr
+
+
+def check_case(case):
+    name = case["name"]
+    task = case["task"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_json = os.path.join(tmpdir, "result.json")
+
+        if task == "lesion_segmentation":
+            gt_path, pred_path = create_segmentation_data(case, tmpdir)
+        else:
+            gt_path, pred_path = create_csv_data(case, tmpdir, task)
+
+        if "expected_exit_code" in case:
+            ec, _, stderr = run_evaluator(task, pred_path, gt_path, output_json)
+            if ec == case["expected_exit_code"]:
+                return True, f"  [PASS] {name}: exit code {ec} as expected"
+            else:
+                return False, f"  [FAIL] {name}: expected exit code {case['expected_exit_code']}, got {ec}"
+
+        ec, results, stderr = run_evaluator(task, pred_path, gt_path, output_json)
+        if ec != 0:
+            return False, f"  [FAIL] {name}: evaluator exited with code {ec}\n         stderr: {stderr.strip()}"
+        if results is None:
+            return False, f"  [FAIL] {name}: no output JSON produced"
+
+        expected = case["expected"]
+        tolerance = case.get("tolerance", 1e-4)
+
+        for key, expected_val in expected.items():
+            if key not in results:
+                return False, f"  [FAIL] {name}: missing key '{key}' in output"
+            actual_val = results[key]
+            if abs(actual_val - expected_val) > tolerance:
+                return False, (f"  [FAIL] {name}: {key} = {actual_val:.6f}, "
+                               f"expected {expected_val:.6f} (tol={tolerance})")
+
+        return True, f"  [PASS] {name}"
+
+
+def check_generator():
+    results = []
+    data = load_cases()
+
+    # Basic run tests
+    for gt in data.get("generator_tests", []):
+        name = gt["name"]
+        task = gt["task"]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outdir = os.path.join(tmpdir, "out")
+            result = subprocess.run(
+                ["python3", GEN_SCRIPT,
+                 "--task", task,
+                 "--num-images", str(gt["num_images"]),
+                 "--output-dir", outdir,
+                 "--seed", str(gt["seed"]),
+                 "--noise-level", str(gt["noise_level"])],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode != 0:
+                results.append((False,
+                    f"  [FAIL] {name}: exit code {result.returncode}\n"
+                    f"         stderr: {result.stderr.strip()}"))
+                continue
+
+            if task == "lesion_segmentation":
+                gt_dir = os.path.join(outdir, "gt")
+                pred_dir = os.path.join(outdir, "pred")
+                if not os.path.isdir(gt_dir) or not os.path.isdir(pred_dir):
+                    results.append((False,
+                        f"  [FAIL] {name}: missing gt/ or pred/ directory"))
+                    continue
+                gt_files = [f for f in os.listdir(gt_dir) if f.endswith(".png")]
+                if len(gt_files) == 0:
+                    results.append((False, f"  [FAIL] {name}: no PNG files in gt/"))
+                    continue
+            else:
+                gt_csv = os.path.join(outdir, "gt.csv")
+                pred_csv = os.path.join(outdir, "pred.csv")
+                if not os.path.isfile(gt_csv) or not os.path.isfile(pred_csv):
+                    results.append((False,
+                        f"  [FAIL] {name}: missing gt.csv or pred.csv"))
+                    continue
+
+            results.append((True, f"  [PASS] {name}"))
+
+    # Deterministic seeding test for grading
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir1 = os.path.join(tmpdir, "run1")
+        dir2 = os.path.join(tmpdir, "run2")
+        ok = True
+        for d in [dir1, dir2]:
+            subprocess.run(
+                ["python3", GEN_SCRIPT,
+                 "--task", "disease_grading",
+                 "--num-images", "10",
+                 "--output-dir", d,
+                 "--seed", "99",
+                 "--noise-level", "0.3"],
+                capture_output=True, text=True, timeout=120
+            )
+        try:
+            with open(os.path.join(dir1, "gt.csv")) as f1, \
+                 open(os.path.join(dir2, "gt.csv")) as f2:
+                if f1.read() != f2.read():
+                    ok = False
+            with open(os.path.join(dir1, "pred.csv")) as f1, \
+                 open(os.path.join(dir2, "pred.csv")) as f2:
+                if f1.read() != f2.read():
+                    ok = False
+            if ok:
+                results.append((True, "  [PASS] gen_deterministic_grading"))
+            else:
+                results.append((False, "  [FAIL] gen_deterministic_grading: outputs differ"))
+        except Exception as e:
+            results.append((False, f"  [FAIL] gen_deterministic_grading: {e}"))
+
+    # Deterministic seeding test for segmentation
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dir1 = os.path.join(tmpdir, "run1")
+        dir2 = os.path.join(tmpdir, "run2")
+        for d in [dir1, dir2]:
+            subprocess.run(
+                ["python3", GEN_SCRIPT,
+                 "--task", "lesion_segmentation",
+                 "--num-images", "3",
+                 "--output-dir", d,
+                 "--seed", "77",
+                 "--noise-level", "0.1"],
+                capture_output=True, text=True, timeout=120
+            )
+        try:
+            gt1 = sorted(os.listdir(os.path.join(dir1, "gt")))
+            gt2 = sorted(os.listdir(os.path.join(dir2, "gt")))
+            if gt1 != gt2:
+                results.append((False, "  [FAIL] gen_deterministic_seg: file lists differ"))
+            else:
+                match = True
+                for f in gt1:
+                    a1 = np.array(Image.open(os.path.join(dir1, "gt", f)))
+                    a2 = np.array(Image.open(os.path.join(dir2, "gt", f)))
+                    if not np.array_equal(a1, a2):
+                        match = False
+                        break
+                if match:
+                    results.append((True, "  [PASS] gen_deterministic_seg"))
+                else:
+                    results.append((False, "  [FAIL] gen_deterministic_seg: masks differ"))
+        except Exception as e:
+            results.append((False, f"  [FAIL] gen_deterministic_seg: {e}"))
+
+    # Perfect score test: noise=0 grading should give accuracy 1.0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        outdir = os.path.join(tmpdir, "perfect")
+        result_json = os.path.join(tmpdir, "result.json")
+        subprocess.run(
+            ["python3", GEN_SCRIPT,
+             "--task", "disease_grading",
+             "--num-images", "20",
+             "--output-dir", outdir,
+             "--seed", "42",
+             "--noise-level", "0.0"],
+            capture_output=True, text=True, timeout=120
+        )
+        ec, scores, _ = run_evaluator(
+            "disease_grading",
+            os.path.join(outdir, "pred.csv"),
+            os.path.join(outdir, "gt.csv"),
+            result_json
+        )
+        if ec == 0 and scores:
+            keys = ["DR_accuracy", "DME_accuracy", "combined_accuracy"]
+            if all(abs(scores.get(k, 0) - 1.0) < 1e-6 for k in keys):
+                results.append((True, "  [PASS] gen_perfect_grading"))
+            else:
+                results.append((False,
+                    f"  [FAIL] gen_perfect_grading: noise=0 should give 1.0, got {scores}"))
+        else:
+            results.append((False,
+                f"  [FAIL] gen_perfect_grading: evaluator failed (exit {ec})"))
+
+    return results
+
+
+def check_pipeline():
+    """Verify the Make-based evaluation pipeline."""
+    results = []
+
+    # Clean any prior output
+    subprocess.run(["make", "-C", "/app", "clean"],
+                   capture_output=True, timeout=30)
+
+    # Run full pipeline
+    result = subprocess.run(
+        ["make", "-C", "/app", "all"],
+        capture_output=True, text=True, timeout=300
+    )
+
+    if result.returncode != 0:
+        results.append((False,
+            f"  [FAIL] pipeline_make_all: make all failed (exit {result.returncode})\n"
+            f"         stderr: {result.stderr.strip()[:500]}"))
+        return results
+
+    results.append((True, "  [PASS] pipeline_make_all"))
+
+    # Check report exists
+    report_path = "/app/output/report.json"
+    if not os.path.isfile(report_path):
+        results.append((False,
+            "  [FAIL] pipeline_report_exists: /app/output/report.json not found"))
+        return results
+
+    results.append((True, "  [PASS] pipeline_report_exists"))
+
+    # Validate report structure and values
+    try:
+        with open(report_path) as f:
+            report = json.load(f)
+
+        required_keys = ["segmentation", "grading", "localization", "pipeline_version"]
+        for key in required_keys:
+            if key not in report:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_schema: missing key '{key}'"))
+                return results
+
+        if report["pipeline_version"] != "1.0":
+            results.append((False,
+                f"  [FAIL] pipeline_report_schema: pipeline_version should be '1.0', "
+                f"got '{report['pipeline_version']}'"))
+            return results
+
+        # Validate segmentation sub-object
+        seg = report["segmentation"]
+        for k in ["MA_AUPR", "HE_AUPR", "SE_AUPR", "EX_AUPR", "mean_AUPR"]:
+            if k not in seg:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_schema: missing segmentation.{k}"))
+                return results
+            if not (0.0 <= seg[k] <= 1.0):
+                results.append((False,
+                    f"  [FAIL] pipeline_report_values: segmentation.{k}={seg[k]} out of [0,1]"))
+                return results
+
+        # Validate grading sub-object
+        grade = report["grading"]
+        for k in ["DR_accuracy", "DME_accuracy", "combined_accuracy"]:
+            if k not in grade:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_schema: missing grading.{k}"))
+                return results
+            if not (0.0 <= grade[k] <= 1.0):
+                results.append((False,
+                    f"  [FAIL] pipeline_report_values: grading.{k}={grade[k]} out of [0,1]"))
+                return results
+
+        # Validate localization sub-object
+        loc = report["localization"]
+        for k in ["OD_mean_euclidean", "fovea_mean_euclidean"]:
+            if k not in loc:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_schema: missing localization.{k}"))
+                return results
+            if loc[k] < 0:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_values: localization.{k}={loc[k]} < 0"))
+                return results
+
+        # Verify report matches individual result files
+        for fname, key in [("seg.json", "segmentation"),
+                           ("grade.json", "grading"),
+                           ("loc.json", "localization")]:
+            fpath = f"/app/output/results/{fname}"
+            if not os.path.isfile(fpath):
+                results.append((False,
+                    f"  [FAIL] pipeline_report_consistency: {fpath} not found"))
+                return results
+            with open(fpath) as f:
+                individual = json.load(f)
+            if report[key] != individual:
+                results.append((False,
+                    f"  [FAIL] pipeline_report_consistency: report.{key} != {fname}"))
+                return results
+
+        results.append((True, "  [PASS] pipeline_report_schema"))
+        results.append((True, "  [PASS] pipeline_report_values"))
+        results.append((True, "  [PASS] pipeline_report_consistency"))
+
+    except json.JSONDecodeError as e:
+        results.append((False,
+            f"  [FAIL] pipeline_report_schema: invalid JSON in report.json: {e}"))
+    except Exception as e:
+        results.append((False, f"  [FAIL] pipeline_report: {e}"))
+
+    # Clean up
+    subprocess.run(["make", "-C", "/app", "clean"],
+                   capture_output=True, timeout=30)
+
+    return results
+
+
+def main():
+    data = load_cases()
+
+    all_results = []
+
+    print("=" * 60)
+    print("IDRiD Evaluation Framework Validation")
+    print("=" * 60)
+
+    print("\n--- Reference Cases ---")
+    for case in data["cases"]:
+        passed, msg = check_case(case)
+        all_results.append(passed)
+        print(msg)
+
+    print("\n--- Generator Tests ---")
+    gen_results = check_generator()
+    for passed, msg in gen_results:
+        all_results.append(passed)
+        print(msg)
+
+    print("\n--- Pipeline Tests ---")
+    pipeline_results = check_pipeline()
+    for passed, msg in pipeline_results:
+        all_results.append(passed)
+        print(msg)
+
+    total = len(all_results)
+    passed_count = sum(all_results)
+    print(f"\n{'=' * 60}")
+    print(f"Results: {passed_count}/{total} passed")
+
+    if all(all_results):
+        print("ALL CHECKS PASSED")
+        sys.exit(0)
+    else:
+        print("SOME CHECKS FAILED")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

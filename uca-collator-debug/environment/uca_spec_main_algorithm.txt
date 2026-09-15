@@ -1,0 +1,70 @@
+Unicode Collation Algorithm — Main Algorithm
+(Excerpt from UTS #10, Section 7)
+
+The main algorithm has four steps:
+
+STEP 1 — Normalize Each String
+  S1.1  Convert the input string to Normalization Form D (NFD).
+        See UAX #15 for the NFD specification.
+
+STEP 2 — Produce Collation Element Arrays
+  Starting at the beginning of the normalized string, iterate through
+  the following steps until the end of the string is reached:
+
+  S2.1  Find the longest initial substring S at the current point that
+        has a match in the collation element table (DUCET).
+
+  S2.1.1  If there are any non-starters following S, process each
+          non-starter C.
+
+  S2.1.2  If C is an unblocked non-starter with respect to S, find if
+          S + C has a match in the collation element table.
+
+          A non-starter C is "unblocked" if there is no intervening
+          character between the end of S and C that has the same
+          Canonical_Combining_Class as C. A character with
+          Canonical_Combining_Class = 0 (a "starter") always blocks.
+
+  S2.1.3  If there is a match, replace S by S + C, and remove C from
+          the string.
+
+  S2.2  Fetch the corresponding collation element(s) from the table
+        if there is a match. If there is no match, synthesize
+        implicit collation elements (see implicit_weights.txt).
+
+  S2.3  Process collation elements according to the variable-weight
+        setting (see variable_weighting.txt).
+
+  S2.4  Append the collation element(s) to the collation element array.
+
+  S2.5  Proceed to the next point in the string (past S).
+
+STEP 3 — Form Sort Keys
+  Construct a sort key by appending non-zero weights from each level
+  in turn:
+
+  S3.1  For each weight level L from 1 to the maximum level:
+  S3.2  If L is not 1, append a level separator (zero value 0x0000).
+  S3.4  For each collation element CE in the array:
+  S3.5  Append CE[L] to the sort key if CE[L] is non-zero.
+
+  For NON_IGNORABLE mode, the maximum level is 3.
+  For SHIFTED mode, the maximum level is 4.
+
+STEP 4 — Compare Sort Keys
+  Compare the sort keys using binary comparison (tuple comparison).
+
+  For identical-level tiebreaking (S3.10): when sort keys are equal,
+  compare the NFD forms of the original strings as a final tiebreaker.
+
+NOTES ON COLLATION ELEMENT FORMAT
+  Each collation element in the DUCET (allkeys.txt) has the form:
+    [.XXXX.XXXX.XXXX]  — non-variable (dot prefix)
+    [*XXXX.XXXX.XXXX]  — variable (asterisk prefix)
+
+  The three weight fields are: primary (L1), secondary (L2), tertiary (L3).
+  The variable flag (* vs .) indicates elements subject to variable weighting.
+
+  Each DUCET entry maps a code point sequence to one or more collation
+  elements. Multi-element mappings are "expansions." Multi-code-point
+  entries are "contractions."

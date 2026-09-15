@@ -1,0 +1,20 @@
+{
+  "name": "q001",
+  "template": "chain4",
+  "join_graph": {
+    "nodes": ["a", "b", "c", "d"],
+    "edges": [["a", "b"], ["b", "c"], ["c", "d"]]
+  },
+  "subplans": {
+    "a": {"actual": 1000, "estimated": 100},
+    "b": {"actual": 500, "estimated": 500},
+    "c": {"actual": 200, "estimated": 2000},
+    "d": {"actual": 800, "estimated": 800},
+    "a,b": {"actual": 3000, "estimated": 400},
+    "b,c": {"actual": 600, "estimated": 5000},
+    "c,d": {"actual": 1500, "estimated": 12000},
+    "a,b,c": {"actual": 2000, "estimated": 8000},
+    "b,c,d": {"actual": 4000, "estimated": 25000},
+    "a,b,c,d": {"actual": 10000, "estimated": 50000}
+  }
+}

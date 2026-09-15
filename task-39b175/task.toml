@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level network forensics expertise combined with detection engineering judgment. Phase 1 (analysis) demands TCP stream reconstruction, HTTP payload analysis, DNS protocol internals, and base32 decoding with chunk reassembly. Phase 2 (evaluation) requires the solver to critically assess six IDS rules by reasoning about Snort semantics — matching rule direction, port, IP target, and content conditions against observed packet flows to determine whether each rule would actually fire, identifying subtle flaws like reversed connection direction for reverse shells or targeting the wrong DNS resolver. Phase 3 (creation) demands designing a novel multi-phase detection ruleset that corrects the identified deficiencies while balancing detection coverage against false positive risk. The cascading dependency — analysis informs evaluation which informs creation — prevents shortcutting any phase."""
+solution_explanation = """The solver analyzes the PCAP in phases: (1) identifies the SYN scan to find attacker IP and open ports, (2) follows HTTP streams to extract SQL injection payloads and credentials, (3) identifies the reverse shell via outbound TCP to port 4444, (4) isolates DNS tunnel queries to a non-standard resolver, decodes base32 chunks to recover exfiltrated data. Then evaluates each candidate rule: R2 targets port 443 but attack used port 80 (ineffective), R3 has reversed direction for reverse shell detection (ineffective), R4 monitors wrong DNS server (ineffective), while R1/R5/R6 fire but with false positive issues (partially effective). Finally designs improved rules covering all four attack phases with correct targeting."""
+verification_explanation = """Tests verify: findings.json contains correct IPs, ports, credentials, and attack metadata. Exfiltrated data contains specific decoded substrings. Rule evaluation correctly identifies R2/R3/R4 as ineffective (wrong port/direction/IP) and R1/R5/R6 as firing on attack traffic. Detection rules must contain at least 4 alert rules covering reconnaissance, SQL injection, reverse shell, and DNS exfiltration with proper Snort syntax and correct infrastructure references."""
+category = "security"
+tags = ["detection-engineering", "network-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-39b175"

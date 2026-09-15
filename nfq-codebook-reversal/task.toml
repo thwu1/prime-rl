@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom binary format (header parsing, nibble unpacking, scale extraction), understanding the QLoRA NF4 codebook construction (quantile functions of the standard normal parameterized by alpha), recovering alpha via numerical optimization with careful float32/float64 precision handling, then designing and implementing a Lloyd-Max optimal 4-bit quantizer (iterative centroid-nearest-neighbor algorithm with convergence guarantees) for per-block-scaled data. The evaluation phase demands correct computation of multiple error metrics and rigorous comparison with internally consistent conclusions. Combines binary forensics, numerical analysis, optimal quantization theory, and ML quantization expertise."""
+solution_explanation = """Parse binary header, extract per-block float32 scales and packed 4-bit indices. Recover alpha by minimizing reconstruction MSE over known indices, refined via nearest-neighbor consistency check. Build NF4 codebook, dequantize, compute metrics. Implement Lloyd-Max by iterating nearest-neighbor assignment then centroid update on all per-block-normalized weights to produce an optimal 16-level codebook. Apply Lloyd-Max with per-block scaling, compute metrics, produce structured comparison. Grid-search for optimal NF4 alpha by full re-quantization."""
+verification_explanation = """Tests verify correctness through mathematical property checks with no stored ground truth: NF4 codebook consistency with claimed alpha via QLoRA formula, nearest-neighbor index consistency to validate alpha recovery, Lloyd-Max centroid optimality condition, Lloyd-Max MSE improvement over NF4, dequantized value consistency with codebook and scales, error metric recomputation from raw data, comparison internal consistency, and optimal alpha local optimality."""
+category = "reverse_engineering"
+tags = ["numerical_computing", "quantization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nfq-codebook-reversal"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of Kubernetes/OpenShift configuration spanning 8+ resource types. The broken files contain 14+ embedded errors with NO diagnostic comments or indicators — the agent must discover each error through independent verification against the spec. A set of misleading admin notes creates false confidence in files that are actually broken and misdirects attention away from real issues. Errors range from silent cross-resource failures (a missing namespace label that causes NetworkPolicy selectors in other namespaces to silently fail to match) to semantic traps (resource field naming that's valid YAML but semantically incorrect for Kubernetes) to plausible-but-wrong values (port numbers, resource limits) that require careful cross-referencing. Beyond debugging, the agent must generate ~30 resource files, produce valid credential and TLS artifacts using CLI tools, and assemble a working kustomize overlay."""
+solution_explanation = """Parse spec.yaml and systematically verify every broken file against it — the admin notes are unreliable and must be independently validated. Discover errors including: wrong hash algorithm in htpasswd, missing users, missing namespace labels causing cross-resource NetworkPolicy failures, missing OAuth fields, wrong RBAC roleRef kinds and apiGroups, NetworkPolicy selector semantic issues, missing policyTypes, wrong port numbers, incorrect resource quota field naming, violated LimitRange ordering constraints, wrong resource quota values, and TLS route termination violations. Generate all resources from scratch using the spec as the single source of truth, produce htpasswd entries with the correct hash algorithm, generate CA-signed TLS certificates with correct SANs, and assemble a valid kustomize overlay."""
+verification_explanation = """20+ pytest tests validate: htpasswd has all users with correct hash format and passwords verified via htpasswd -vb; OAuth CR has correct mappingMethod; all namespace labels present; ClusterRoleBinding uses correct roleRef.kind; Group subjects have correct apiGroup; all role bindings exist with correct roles; deny-all NetworkPolicies have both Ingress+Egress policyTypes; NetworkPolicy from entries use AND semantics; egress policies include DNS port 53 UDP; LimitRange min<=defaultRequest<=default<=max; ResourceQuota uses qualified field names; passthrough route has no cert; edge route has cert; TLS cert SANs match spec; cert is CA-signed; SCC ServiceAccount and ClusterRoleBinding exist; kustomize build succeeds."""
+category = "infrastructure"
+tags = ["kubernetes", "openshift"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openshift-config-reconcile"

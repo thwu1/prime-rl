@@ -1,0 +1,55 @@
+ANION GAP
+=========
+
+Anion Gap = Na+ – (Cl- + HCO3-)
+
+The Anion Gap (AG) is a derived variable primarily used for the evaluation of
+metabolic acidosis to determine the presence of unmeasured anions. The normal
+anion gap depends on serum phosphate and serum albumin concentrations.
+
+The normal anion gap varies with different assays, but is typically 4 to 12
+mmol/L (if measured by ion selective electrode; 8 to 16 if measured by the older
+technique of flame photometry).
+
+If AG > 30 mmol/L then metabolic acidosis is invariably present. If AG 20-29
+mmol/L then approximately 1/3 will not have a metabolic acidosis. K can be
+added to Na+ but in practice offers little advantage.
+
+ALBUMIN AND PHOSPHATE
+---------------------
+The normal AG = 0.2 × [albumin] (g/L) + 1.5 × [phosphate] (mmol/L).
+
+Albumin is the major unmeasured anion and contributes almost the whole of the
+value of the anion gap. Every 1 g/L decrease in albumin will decrease anion gap
+by 0.25 mmoles. A normally high anion gap acidosis in a patient with
+hypoalbuminaemia may appear as a normal anion gap acidosis. This is
+particularly relevant in ICU patients where lower albumin levels are common.
+
+To overcome the effects of hypoalbuminaemia on the AG, the corrected AG can be
+used:
+
+  Corrected AG = AG + 0.25 × (40 – albumin)    [albumin expressed in g/L]
+
+where 40 g/L is the reference normal albumin level.
+
+HIGH ANION GAP METABOLIC ACIDOSIS (HAGMA)
+-----------------------------------------
+HAGMA results from accumulation of organic acids or impaired H+ excretion.
+
+Causes (LTKR): Lactate, Toxins, Ketones, Renal
+
+Causes (CATMUDPILES): CO/CN, Alcoholic ketoacidosis, Toluene, Metformin/
+Methanol, Uremia, DKA, Pyroglutamic acidosis/paracetamol/phenformin/propylene
+glycol/paraldehyde, Iron/Isoniazid, Lactic acidosis, Ethylene glycol,
+Salicylates
+
+NORMAL ANION GAP METABOLIC ACIDOSIS (NAGMA)
+-------------------------------------------
+NAGMA results from loss of HCO3- from ECF.
+
+LOW ANION GAP
+-------------
+Causes include decrease in unmeasured anions (albumin, dilution) or increase in
+unmeasured cations (myeloma, hypercalcaemia, hypermagnesaemia, lithium).
+
+Source: LITFL Critical Care Compendium — Anion Gap (Chris Nickson)

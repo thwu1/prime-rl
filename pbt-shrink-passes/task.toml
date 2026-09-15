@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of property-based testing internals, test-case reduction theory (shortlex ordering, adaptive delta debugging), and the subtle interactions between multiple shrink passes. The binary search bug is a classic off-by-one boundary error that manifests as slightly suboptimal results rather than crashes, making it hard to diagnose. Implementing the sorting and redistribution passes requires understanding why they're needed (sorting enables chunk deletion for length-dependent structures, redistribution handles additive properties) and correctly implementing the algorithms with tricky loop index management and closure semantics."""
+solution_explanation = """Fix bin_search_down by adding the missing 'if f(lo): return lo' check before the while loop. Implement three missing shrink passes: (1) block zeroing - replace contiguous blocks of k choices with 0 for k from 8 down to 2; (2) range sorting - sort sub-ranges of the choice sequence since sorted(x) <= x lexicographically; (3) pair redistribution - swap out-of-order pairs and use binary search to redistribute value from earlier choices to later ones."""
+verification_explanation = """The test suite uses pytest with 12 test functions (some parametrized). Tests verify exact shrink quality by checking printed output against expected minimal test cases. Key quality tests: test_finds_small_list (chunk deletion + binary search), test_finds_small_list_even_with_bad_lists (sorting), test_reduces_additive_pairs (redistribution), test_irrelevant_choice_zeroed (bin_search_down fix). Additional correctness tests verify preconditions, caching, targeting, and error handling."""
+category = "debugging"
+tags = ["property-based-testing", "test-case-reduction"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pbt-shrink-passes"

@@ -1,0 +1,121 @@
+OUT-OF-ORDER PROCESSOR DESIGN SPACE ANALYSIS
+=============================================
+
+You are given performance data for an out-of-order RISC-V processor simulated
+across multiple configurations and four workloads. Your task is to analyze this
+data and find optimal processor designs.
+
+DATA
+----
+File: /app/performance_data.csv
+Columns: config_id, width, rob_size, num_int_regs, num_fp_regs, workload, ipc
+
+The data contains IPC (Instructions Per Cycle) measurements for configurations
+varying across four parameters:
+  - width: pipeline width (fetch, decode, rename, issue, writeback, commit)
+  - rob_size: reorder buffer entries
+  - num_int_regs: physical integer register file size
+  - num_fp_regs: physical floating point register file size
+
+Parameter grid:
+  - width: [4, 8, 12]
+  - rob_size: [32, 64, 128, 256]
+  - num_int_regs: [64, 128, 256]
+  - num_fp_regs: [64, 128, 256]
+
+Workloads:
+  - bfs: Breadth-First Search (memory-intensive, irregular accesses)
+  - bubble_sort: Bubble Sort (branch-heavy, low ILP)
+  - matrix_multiply: Matrix Multiplication (compute-intensive, FP-heavy)
+  - nqueens: N-Queens solver (recursive backtracking)
+
+AREA MODEL
+----------
+The area score for a processor configuration is computed as:
+
+  area = width * (2 * rob_size + num_int_regs + num_fp_regs)
+       + 4 * width
+       + 2 * rob_size
+       + num_int_regs
+       + num_fp_regs
+
+This model accounts for:
+  - Width-proportional structures: issue queue entries, rename map tables,
+    and bypass network all scale with pipeline width and with the size of
+    the ROB and register files they must track.
+  - Width-independent overhead: 4 * width accounts for per-stage pipeline
+    registers; the remaining terms are base costs for the ROB and register
+    file storage.
+
+BASELINE CONFIGURATION
+----------------------
+config_id: w4_r32_i64_f64
+Parameters: width=4, rob_size=32, num_int_regs=64, num_fp_regs=64
+
+All speedups are computed relative to this baseline.
+
+REQUIRED ANALYSES
+-----------------
+Implement a program that reads the performance data and computes the following,
+writing all results to /app/results.json:
+
+1. AREA SCORES
+   For each unique configuration, compute its area score.
+   Key: "area_scores" -> dict mapping config_id (string) to area score (integer).
+
+2. GEOMETRIC MEAN SPEEDUPS
+   For each configuration, compute the speedup over the baseline for each
+   workload:
+     speedup_wl = IPC_config_wl / IPC_baseline_wl
+   Then compute the geometric mean across all four workloads:
+     gmean_speedup = (speedup_bfs * speedup_bubble_sort * speedup_matrix_multiply * speedup_nqueens) ^ (1/4)
+   Key: "gmean_speedups" -> dict mapping config_id to float (round to 6 decimal places).
+
+3. PARETO FRONTIER
+   Find the set of Pareto-optimal configurations where the two objectives are:
+     - MINIMIZE area score
+     - MAXIMIZE geometric mean speedup
+   A configuration X is dominated by configuration Y if and only if:
+     area(Y) <= area(X)  AND  gmean(Y) >= gmean(X)
+     with at least one strict inequality.
+   A configuration is Pareto-optimal if it is NOT dominated by any other
+   configuration. Include ALL non-dominated configurations.
+   Key: "pareto_front" -> list of config_id strings, sorted by ascending area score.
+
+4. BOTTLENECK IDENTIFICATION
+   For each workload, determine which microarchitectural parameter is the
+   primary performance bottleneck using the following methodology:
+
+   Starting from the baseline configuration (w4_r32_i64_f64), increase each
+   parameter independently to its NEXT value in the parameter grid while
+   keeping all other parameters at their baseline values:
+     - width:        4 -> 8    (config w8_r32_i64_f64)
+     - rob_size:    32 -> 64   (config w4_r64_i64_f64)
+     - num_int_regs: 64 -> 128 (config w4_r32_i128_f64)
+     - num_fp_regs:  64 -> 128 (config w4_r32_i64_f128)
+
+   For each workload, the bottleneck is the parameter whose single-step
+   increase yields the largest absolute IPC improvement (delta) over the
+   baseline IPC for that workload.
+
+   Key: "bottlenecks" -> dict mapping workload name to parameter name
+   (one of: "width", "rob_size", "num_int_regs", "num_fp_regs").
+
+5. BUDGET-OPTIMAL CONFIGURATIONS
+   For each area budget in [1500, 3000, 5000, 8000], find the configuration
+   whose area score does not exceed the budget and that maximizes the
+   geometric mean speedup. If multiple configurations achieve the same
+   maximum gmean_speedup, choose the one with the smallest area score.
+   Key: "budget_optimal" -> dict mapping budget as string to config_id.
+
+OUTPUT FORMAT
+-------------
+Write a single JSON file to /app/results.json with exactly these top-level keys:
+
+{
+  "area_scores": {"w4_r32_i64_f64": 976, ...},
+  "gmean_speedups": {"w4_r32_i64_f64": 1.0, ...},
+  "pareto_front": ["w4_r32_i64_f64", ...],
+  "bottlenecks": {"bfs": "rob_size", ...},
+  "budget_optimal": {"1500": "w4_r64_i64_f64", ...}
+}

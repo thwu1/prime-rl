@@ -1,0 +1,27 @@
+[
+  {
+    "name": "SBC imm - simple subtraction no overflow",
+    "initial": {"pc": 512, "s": 253, "a": 80, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 48]]},
+    "final": {"pc": 514, "s": 253, "a": 32, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 48]]}
+  },
+  {
+    "name": "SBC imm - positive minus negative overflow",
+    "initial": {"pc": 512, "s": 253, "a": 80, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 144]]},
+    "final": {"pc": 514, "s": 253, "a": 192, "x": 0, "y": 0, "p": 224, "ram": [[512, 233], [513, 144]]}
+  },
+  {
+    "name": "SBC imm - negative minus positive overflow",
+    "initial": {"pc": 512, "s": 253, "a": 128, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 1]]},
+    "final": {"pc": 514, "s": 253, "a": 127, "x": 0, "y": 0, "p": 97, "ram": [[512, 233], [513, 1]]}
+  },
+  {
+    "name": "SBC imm - same sign borrow no overflow",
+    "initial": {"pc": 512, "s": 253, "a": 80, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 96]]},
+    "final": {"pc": 514, "s": 253, "a": 240, "x": 0, "y": 0, "p": 160, "ram": [[512, 233], [513, 96]]}
+  },
+  {
+    "name": "SBC imm - result zero",
+    "initial": {"pc": 512, "s": 253, "a": 50, "x": 0, "y": 0, "p": 33, "ram": [[512, 233], [513, 50]]},
+    "final": {"pc": 514, "s": 253, "a": 0, "x": 0, "y": 0, "p": 35, "ram": [[512, 233], [513, 50]]}
+  }
+]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a segment tree that supports both forward and reverse composition of non-commutative affine functions, plus an HLD-based path query that correctly selects between forward and reverse queries depending on traversal direction (u-to-LCA goes deep-to-shallow requiring reverse composition, LCA-to-v goes shallow-to-deep requiring forward composition). The solver must create ~100 lines of correct algorithmic C++ from stub interfaces, handling subtle composition ordering, segment merging, and the v-side segment collection/reversal pattern. The inverse query operation requires the composed function to be correct before modular inverse can succeed, providing an additional verification layer. This is not a fix-the-bug task — it requires designing and implementing the core algorithm from interface specifications."""
+solution_explanation = """Implement recursive segment tree build/update/query_fwd/query_rev maintaining dual compositions (fwd = right.compose(left), rev = left.compose(right)), then implement query_path using HLD: collect u-side segments with query_rev walking upward, collect v-side segments from v upward but process them in reverse order with query_fwd, and combine as result_v.compose(lca_fn.compose(result_u))."""
+verification_explanation = """Compiles the implementation and runs it on three test cases with known correct outputs. Test 1 covers basic operations on a small tree. Test 2 uses a chain to verify non-commutativity (same endpoints, different directions yield different results). Test 3 tests a larger tree with updates, modular inverse queries, zero-coefficient edge cases, and large input values."""
+category = "algorithms"
+tags = ["data-structures", "tree-decomposition"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-hld-composition"

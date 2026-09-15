@@ -1,0 +1,15 @@
+params:
+  db_default_text_search_config: "pg_catalog.english"
+  db_shared_buffers: "256MB"
+
+env:
+  DISCOURSE_DB_HOST: localhost
+  DISCOURSE_DB_NAME: "{{config}}_discourse"
+
+hooks:
+  after_postgres:
+    - exec:
+        cmd: echo "PostgreSQL configured"
+
+expose:
+  - "5432"

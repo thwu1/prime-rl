@@ -1,0 +1,8 @@
+start: 0
+duration: 10
+steps: 50
+variables: A, B, C, D
+absolute: 1e-06
+relative: 0.001
+amount: A, B, C, D
+concentration:

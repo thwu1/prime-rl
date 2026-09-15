@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level climate science knowledge: the agent must independently identify which CMIP6 experiments to use for equilibrium and transient climate sensitivity (no algorithms or formulas are provided), correctly implement the Gregory regression framework to extract feedback parameter and radiative forcing alongside ECS, handle unit heterogeneity across models (K vs degC) by consulting variable metadata, implement the Stull (2011) wet-bulb temperature formula from literature, apply proper spherical area weighting, and synthesize inter-model ensemble statistics in the context of IPCC AR6 assessment ranges. The task demands holistic understanding of the CMIP6 experimental protocol and climate feedback framework, not procedural following."""
+solution_explanation = """Parse the intake-esm catalog to discover models and experiments. For ECS/feedback/forcing: use abrupt-4xCO2 and piControl data to perform a Gregory regression (TOA net imbalance vs global-mean temperature anomaly), extracting slope (feedback parameter lambda), intercept (4xCO2 forcing), F_2x = intercept/2, and ECS = -F_2x/lambda. For TCR: use 1pctCO2 experiment, averaging global-mean temperature anomaly over years 61-80. Compute ECS/TCR ratio for models with both. Handle K/degC unit inconsistency via metadata. Apply Stull (2011) WBT formula. Compute ensemble statistics and assess against IPCC AR6 likely ECS range 2.5-4.0 K."""
+verification_explanation = """Tests independently load raw Zarr data and recompute all metrics (ECS, lambda, F_2x, TCR, warming, WBT) using the same climate science methods. Agent results are compared within physical tolerances. Structural checks verify all required keys, model names, and derived quantities (ensemble stats, IPCC flags, rankings) are present and consistent."""
+category = "applied_computing"
+tags = ["climate-science", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-59959c"

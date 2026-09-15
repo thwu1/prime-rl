@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "name": "case_single_ramp",
+      "gas_model": "cpg",
+      "gamma": 1.4,
+      "R": 287.058,
+      "freestream": {
+        "mach": 2.0,
+        "temperature_K": 300.0,
+        "pressure_Pa": 101325.0
+      },
+      "ramp_angles_deg": [15.0],
+      "terminal_normal_shock": true
+    },
+    {
+      "name": "case_two_ramp",
+      "gas_model": "cpg",
+      "gamma": 1.4,
+      "R": 287.058,
+      "freestream": {
+        "mach": 3.0,
+        "temperature_K": 250.0,
+        "pressure_Pa": 50000.0
+      },
+      "ramp_angles_deg": [10.0, 10.0],
+      "terminal_normal_shock": true
+    },
+    {
+      "name": "case_three_ramp",
+      "gas_model": "cpg",
+      "gamma": 1.4,
+      "R": 287.058,
+      "freestream": {
+        "mach": 4.0,
+        "temperature_K": 220.0,
+        "pressure_Pa": 30000.0
+      },
+      "ramp_angles_deg": [8.0, 8.0, 8.0],
+      "terminal_normal_shock": true
+    },
+    {
+      "name": "case_optimize_2ramp",
+      "gas_model": "cpg",
+      "gamma": 1.4,
+      "R": 287.058,
+      "freestream": {
+        "mach": 3.0,
+        "temperature_K": 250.0,
+        "pressure_Pa": 50000.0
+      },
+      "optimize": true,
+      "num_ramps": 2,
+      "total_deflection_deg": 24.0,
+      "terminal_normal_shock": true
+    },
+    {
+      "name": "case_optimize_3ramp",
+      "gas_model": "cpg",
+      "gamma": 1.4,
+      "R": 287.058,
+      "freestream": {
+        "mach": 4.0,
+        "temperature_K": 220.0,
+        "pressure_Pa": 30000.0
+      },
+      "optimize": true,
+      "num_ramps": 3,
+      "total_deflection_deg": 30.0,
+      "terminal_normal_shock": true
+    },
+    {
+      "name": "case_tpg",
+      "gas_model": "tpg",
+      "gas_species": "air",
+      "freestream": {
+        "mach": 5.0,
+        "temperature_K": 250.0,
+        "pressure_Pa": 10000.0
+      },
+      "ramp_angles_deg": [10.0, 10.0],
+      "terminal_normal_shock": true
+    }
+  ]
+}

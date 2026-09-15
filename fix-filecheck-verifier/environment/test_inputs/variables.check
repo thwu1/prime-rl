@@ -1,0 +1,3 @@
+; CHECK: def [[TYPE:i\d+]] @[[FUNC:\w+]]
+; CHECK: [[TYPE]] [[VAL:\d+]]
+; CHECK: ret [[TYPE]]

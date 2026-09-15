@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-tool FRTB Standardised Approach capital pipeline: (1) loading 10 heterogeneous TSV regulatory parameter files into a SQLite database with correct table schemas; (2) querying the database to extract risk weights, multi-dimensional correlation structures, and cross-bucket aggregation rules; (3) interpreting Basel d457 MAR21/MAR22 regulatory text to implement nested within-bucket and across-bucket aggregation with floored square-root formulas across four risk classes and three correlation scenarios; (4) handling edge cases including GIRR parametric tenor correlation, zero-correlation cross-currency basis, CSR three-dimensional correlation, special sum-of-abs buckets, negative-sqrt alternative S_b capping, and specified-currency risk-weight divisors; (5) writing audit trail data (per-bucket K_b/S_b, per-scenario capital) back to the SQLite database; (6) validating JSON output with jq. Demands competence in shell orchestration, SQLite CLI/API, regulatory finance, and numerical computation."""
+solution_explanation = """The solution creates run.sh which orchestrates three tools: (a) sqlite3 CLI loads all TSV files into parameters.db via .import with auto-schema from headers, then creates audit_buckets and audit_scenarios tables; (b) Python reads parameters via sqlite3 queries, computes weighted sensitivities with risk-weight divisors for specified currencies, within-bucket aggregation via sqrt(max(0, sum(WS^2) + sum_pairs(rho*WS_k*WS_l))), across-bucket aggregation with alternative S_b capping, three-scenario scaling, and equity DRC with hedge benefit ratio — writing intermediate K_b/S_b and per-scenario capital to audit tables; (c) jq validates the output JSON schema. Total capital = max(scenario totals) + DRC."""
+verification_explanation = """Tests independently compute golden values from the raw TSV files using reference implementations of the full FRTB aggregation. They verify: (1) capital_report.json exists with correct schema, all values within tolerance (+-0.5 per risk-class-scenario, +-1.5 aggregates); (2) parameters.db exists as valid SQLite with all 10 parameter tables and 2 audit tables; (3) parameter data integrity via spot-check SQL queries (specific risk weights, correlations, row counts); (4) audit_buckets populated with correct K_b/S_b values for known single-position buckets; (5) audit_scenarios values match both capital_report.json and independently computed reference values; (6) cross-artifact consistency between jq-extracted JSON values and SQLite audit data; (7) database queryable via sqlite3 CLI subprocess."""
+category = "finance"
+tags = ["regulatory-capital", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/frtb-sbm-capital-7cffd1"

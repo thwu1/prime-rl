@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: database
+  namespace: production
+  labels:
+    app: database
+    tier: data
+spec:
+  serviceName: database
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database
+  template:
+    metadata:
+      labels:
+        app: database
+        tier: data
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15.4
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "db-super-secret-2024!"
+        - name: POSTGRES_USER
+          value: "appuser"
+        - name: POSTGRES_DB
+          value: "appdb"
+        securityContext:
+          runAsUser: 0
+          readOnlyRootFilesystem: false
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

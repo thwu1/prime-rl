@@ -1,0 +1,12 @@
+{
+  "name": "crdt-sync-engine",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "yjs": "13.6.20"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "@types/node": "20.14.10"
+  }
+}

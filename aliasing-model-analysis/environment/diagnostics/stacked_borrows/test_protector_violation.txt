@@ -1,0 +1,31 @@
+$ cargo +nightly miri test --lib test_protector_violation
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_protector_violation ... error: Undefined Behavior: not granting access to tag <3780> because that would remove [Unique for <3778>] which is strongly protected because it is an argument of call 750
+   --> src/lib.rs:73:5
+    |
+73  |     *raw = 200;
+    |     ^^^^^^^^^^ not granting access to tag <3780> because that would remove [Unique for <3778>] which is strongly protected because it is an argument of call 750
+    |
+    = help: this indicates a potential bug in the program: it performed an invalid operation, but the Stacked Borrows rules it violated are still experimental
+    = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md for further information
+help: <3778> was created by a Unique retag at offsets [0x0..0x4]
+   --> src/lib.rs:72:5
+    |
+72  |     *r = 100;
+    |     ^^^^^^^^ <3778> is this argument (a protected &mut i32 reference)
+help: <3780> was derived from <3776>, which in turn was created here
+   --> src/lib.rs:68:15
+    |
+68  |     let raw = &mut val as *mut i32;
+    |               ^^^^^^^^ <3776> was created by this cast from &mut to *mut
+    = note: BACKTRACE (of the first span):
+    = note: inside `protector_inner` at src/lib.rs:73:5: 73:15
+    = note: inside `protector_violation` at src/lib.rs:69:5: 69:34
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error

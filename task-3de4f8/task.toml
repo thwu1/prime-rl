@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of SMT-based program synthesis, including encoding combinatorial search over program structure as constraint satisfaction, designing verification loops, and handling a 10-operation DSL with up to 5-deep compositions over 4 inputs. The search space is billions of candidate programs that only formal methods can tractably prune. Hidden test oracles ensure the synthesizer is general-purpose, not hard-coded."""
+solution_explanation = """The solution encodes each candidate program as Z3 Int variables for per-instruction operation and operand selectors, plus BitVec(16) data-flow variables per I/O example. If-Then-Else chains model register selection and operation dispatch. Symmetry-breaking constraints prune the search space. A CEGIS loop iteratively deepens program size (1..5 instructions), solves for a candidate, verifies it against the oracle on random inputs, and adds counterexamples until convergence or exhaustion."""
+verification_explanation = """Tests verify that (1) synthesized JSON programs for all 5 provided oracles are correct on 50000 random inputs with a fixed seed, and (2) the synthesize() function generalizes to 3 previously-unseen oracle functions, each requiring multi-instruction programs. This prevents hard-coding and validates the synthesis engine end-to-end."""
+category = "program_synthesis"
+tags = ["smt-solving", "program-synthesis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3de4f8"

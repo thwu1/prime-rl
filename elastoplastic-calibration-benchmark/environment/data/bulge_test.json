@@ -1,0 +1,86 @@
+[
+  {
+    "equiv_strain": 0.01,
+    "equiv_stress": 678.5246
+  },
+  {
+    "equiv_strain": 0.02,
+    "equiv_stress": 758.2478
+  },
+  {
+    "equiv_strain": 0.04,
+    "equiv_stress": 849.9144
+  },
+  {
+    "equiv_strain": 0.06,
+    "equiv_stress": 903.6718
+  },
+  {
+    "equiv_strain": 0.08,
+    "equiv_stress": 939.6632
+  },
+  {
+    "equiv_strain": 0.1,
+    "equiv_stress": 965.3428
+  },
+  {
+    "equiv_strain": 0.12,
+    "equiv_stress": 983.8887
+  },
+  {
+    "equiv_strain": 0.15,
+    "equiv_stress": 1002.5982
+  },
+  {
+    "equiv_strain": 0.18,
+    "equiv_stress": 1014.6498
+  },
+  {
+    "equiv_strain": 0.2,
+    "equiv_stress": 1020.436
+  },
+  {
+    "equiv_strain": 0.22,
+    "equiv_stress": 1025.6769
+  },
+  {
+    "equiv_strain": 0.25,
+    "equiv_stress": 1032.1551
+  },
+  {
+    "equiv_strain": 0.28,
+    "equiv_stress": 1036.8985
+  },
+  {
+    "equiv_strain": 0.3,
+    "equiv_stress": 1038.8993
+  },
+  {
+    "equiv_strain": 0.33,
+    "equiv_stress": 1040.7349
+  },
+  {
+    "equiv_strain": 0.36,
+    "equiv_stress": 1042.0834
+  },
+  {
+    "equiv_strain": 0.4,
+    "equiv_stress": 1044.0988
+  },
+  {
+    "equiv_strain": 0.44,
+    "equiv_stress": 1046.1706
+  },
+  {
+    "equiv_strain": 0.48,
+    "equiv_stress": 1047.7972
+  },
+  {
+    "equiv_strain": 0.52,
+    "equiv_stress": 1048.4812
+  },
+  {
+    "equiv_strain": 0.55,
+    "equiv_stress": 1048.2129
+  }
+]

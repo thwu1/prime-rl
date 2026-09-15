@@ -1,0 +1,50 @@
+{
+  "bracket": {
+    "volume_mm3": 120000.0,
+    "surface_area_mm2": 17600.0,
+    "bounding_box_min": [-50.0, -30.0, 0.0],
+    "bounding_box_max": [50.0, 30.0, 25.0],
+    "num_solids": 1,
+    "num_faces": 8
+  },
+  "housing": {
+    "volume_mm3": 437588.5,
+    "surface_area_mm2": 41841.2,
+    "bounding_box_min": [-50.0, -40.0, -30.0],
+    "bounding_box_max": [50.0, 40.0, 30.0],
+    "num_solids": 1,
+    "num_faces": 7
+  },
+  "spacer": {
+    "volume_mm3": 78539.8,
+    "surface_area_mm2": 10210.2,
+    "bounding_box_min": [-25.0, -25.0, -20.0],
+    "bounding_box_max": [25.0, 25.0, 20.0],
+    "num_solids": 1,
+    "num_faces": 3
+  },
+  "mount": {
+    "volume_mm3": 104000.0,
+    "surface_area_mm2": 17200.0,
+    "bounding_box_min": [-30.0, -20.0, -15.0],
+    "bounding_box_max": [30.0, 20.0, 45.0],
+    "num_solids": 2,
+    "num_faces": 12
+  },
+  "adapter": {
+    "volume_mm3": 121327.1,
+    "surface_area_mm2": 15708.0,
+    "bounding_box_min": [-35.0, -35.0, 0.0],
+    "bounding_box_max": [35.0, 35.0, 45.0],
+    "num_solids": 1,
+    "num_faces": 5
+  },
+  "flange": {
+    "volume_mm3": 76576.0,
+    "surface_area_mm2": 16336.3,
+    "bounding_box_min": [-45.0, -45.0, 0.0],
+    "bounding_box_max": [45.0, 45.0, 15.0],
+    "num_solids": 1,
+    "num_faces": 4
+  }
+}

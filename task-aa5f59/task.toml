@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of matrix chain multiplication with property-aware cost models, transpose-aware operand resolution, and dynamic programming over a non-trivial state space. The agent must: (1) query a SQLite database to discover property propagation rules and transpose mappings, (2) reverse-engineer a priority-based BLAS kernel cost model from empirical benchmark measurements by grouping data and testing candidate formulas, (3) implement a generalized matrix chain DP that tracks structural properties through intermediate results (the standard O(n^3) MCM algorithm is insufficient since cost depends on properties, not just dimensions), (4) correctly handle transposed operands by swapping dimensions and transforming properties, (5) reconstruct the optimal parenthesization with correct step-by-step costs and propagated properties. The combination of data analysis, algebraic reasoning about matrix properties, and algorithm design makes this require proficient-level compiler/numerical-computing expertise."""
+solution_explanation = """The solver queries the benchmarks database for propagation rules and transpose mappings, then infers the cost model by grouping cost_measurements by (left_prop, right_prop) and testing candidate formulas (k, m*n, m*n*k, 2*m*n*k) against each group. It resolves transposed operands using the transpose_properties table, then runs a property-aware matrix chain DP where the state space is dp[i][j][property] -> (cost, split_k, left_prop, right_prop). For each split point, it considers all possible property combinations of the left and right subchains, computes the combination cost using the inferred model, and propagates the result property. After finding the globally optimal cost, it reconstructs the step sequence with correct costs and properties."""
+verification_explanation = """Tests independently verify: (1) output JSON structure with all required fields, (2) dimensional consistency — inner dimensions match at every multiplication step, (3) all original matrices are consumed exactly once, (4) correct step count (n-1 for n matrices), (5) property propagation matches rules from the database for every step, (6) step costs match the hardcoded cost model (diagonal×diagonal=k, diagonal×any=m*n, structured=m*n*k, general=2*m*n*k), (7) total_cost equals sum of step costs, (8) each chain achieves the known globally optimal cost (precomputed independently), (9) operand ordering preserves contiguous subchains, (10) final result covers the full chain, (11) database exists with all required tables populated."""
+category = "compiler-optimization"
+tags = ["matrix-chain-optimization", "property-propagation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-aa5f59"

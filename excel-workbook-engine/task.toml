@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing a multi-layered broken data pipeline: (1) messy CSV data with mixed date formats, currency-symbol-contaminated numeric fields, comma-separated salary values, inconsistent region casing, and whitespace issues that crash the existing parser; (2) a buggy workbook generator with wrong formula operators (addition vs multiplication), incorrect Excel function choices (VLOOKUP vs XLOOKUP, SUMIF vs SUMIFS), a missing computed column that shifts the entire column layout, hardcoded values where formulas are needed, and absent advanced features (conditional formatting, data validation, named ranges). The solver must understand the interplay between Python data parsing, openpyxl's formula-string API, and Excel's formula semantics across 15+ function families including XLOOKUP, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS, IFS, INDEX/MATCH, NPV, IRR, PMT, FV, and IF/AND nesting."""
+solution_explanation = """The solution replaces the broken build_workbook.py with a corrected version that: (1) adds flexible date parsing for YYYY-MM-DD and M/D/YYYY formats, (2) strips currency symbols and commas from numeric fields, (3) normalizes region names to title case and trims whitespace, (4) fixes revenue formula from addition to multiplication, (5) switches cost lookup from VLOOKUP to XLOOKUP, (6) adds the missing ProfitMargin column and corrects the Quarter formula to use INT((MONTH-1)/3)+1, (7) upgrades SUMIF/COUNTIF to SUMIFS/COUNTIFS, (8) implements nested IF/AND bonus logic, (9) adds AVERAGEIFS/COUNTIFS/MAXIFS/MINIFS metric rows, (10) uses the DiscountRate named range in NPV and adds IRR/FV formulas, (11) replaces hardcoded Dashboard values with INDEX/MATCH/MAX cross-sheet formulas, (12) adds conditional formatting and data validation, and (13) defines all five named ranges."""
+verification_explanation = """Tests open the generated .xlsx with openpyxl (data_only=False) and verify: (1) all six sheets exist with correct row counts, (2) formula cells contain required function keywords (XLOOKUP not VLOOKUP, SUMIFS not SUMIF, multiplication not addition), (3) all five named ranges exist and NPV uses the DiscountRate named range, (4) conditional formatting rules on Transactions and Dashboard, (5) data validation on FinancialModel, (6) Dashboard formulas are not hardcoded, (7) cross-sheet RegionalSummary reference exists in Dashboard, (8) data quality checks verify regions are normalized, dates are datetime objects, costs are numeric, names are trimmed, and salaries are numeric."""
+category = "applied_computing"
+tags = ["excel", "data-pipeline-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/excel-workbook-engine"

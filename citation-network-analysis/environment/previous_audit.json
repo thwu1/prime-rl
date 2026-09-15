@@ -1,0 +1,67 @@
+{
+  "court_mapping": {
+    "opinion_001.txt": "ca2",
+    "opinion_002.txt": "scotus",
+    "opinion_003.txt": "ca9",
+    "opinion_004.txt": "fed_circuit",
+    "opinion_005.txt": "ca7"
+  },
+  "citations_per_document": {
+    "opinion_001.txt": {
+      "full_case": [["521", "F.3d", "130"], ["477", "U.S.", "317"], ["411", "U.S.", "792"]],
+      "id_citations": 1,
+      "supra_citations": 0
+    },
+    "opinion_002.txt": {
+      "full_case": [["529", "U.S.", "120"], ["467", "U.S.", "837"]],
+      "id_citations": 2,
+      "supra_citations": 0
+    },
+    "opinion_003.txt": {
+      "full_case": [],
+      "id_citations": 0,
+      "supra_citations": 0
+    },
+    "opinion_004.txt": {
+      "full_case": [],
+      "id_citations": 0,
+      "supra_citations": 0
+    },
+    "opinion_005.txt": {
+      "full_case": [],
+      "id_citations": 0,
+      "supra_citations": 0
+    }
+  },
+  "id_resolutions": {
+    "opinion_001.txt": [],
+    "opinion_002.txt": [],
+    "opinion_003.txt": [],
+    "opinion_004.txt": [],
+    "opinion_005.txt": []
+  },
+  "scotus_shared": [],
+  "reporter_frequency": {},
+  "authority_hierarchy": {
+    "opinion_001.txt": [],
+    "opinion_003.txt": [
+      {"citation": ["49", "F.4th", "439"], "cited_court": "ca9", "binding": true},
+      {"citation": ["934", "F.3d", "53"], "cited_court": "ca9", "binding": true}
+    ],
+    "opinion_005.txt": [
+      {"citation": ["85", "F.4th", "323"], "cited_court": "ca7", "binding": true}
+    ]
+  },
+  "doctrinal_threads": [
+    {
+      "thread_name": "agency_authority",
+      "cases": [["467", "U.S.", "837"], ["597", "U.S.", "697"]],
+      "documents": ["opinion_002.txt"]
+    }
+  ],
+  "anomalies": {
+    "orphan_id_citations": [],
+    "court_reporter_mismatches": [],
+    "abrogation_risks": []
+  }
+}

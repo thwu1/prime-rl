@@ -1,0 +1,74 @@
+{
+  "name": "task_deadline_boundary",
+  "description": "Verifies task submission at exact deadline boundary. Per spec, a task is active while current_step <= deadline.",
+  "config": {
+    "grid": {"width": 20, "height": 20},
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": ["skip", "move", "rotate", "adopt", "request", "attach", "detach", "connect", "disconnect", "submit", "clear", "survey"],
+        "speed": [2, 1, 0],
+        "clear": {"chance": 1.0, "maxDistance": 2}
+      }
+    ],
+    "maxEnergy": 100, "stepRecharge": 1, "clearEnergyCost": 2,
+    "deactivatedDuration": 10, "refreshEnergy": 50,
+    "clearDamage": [32, 16, 8, 4, 2, 1], "attachLimit": 10,
+    "steps": 500, "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [{"name": "a1", "team": "A", "x": 3, "y": 3, "role": "default", "energy": 100}],
+    "blocks": [{"x": 3, "y": 4, "type": "b0"}],
+    "dispensers": [],
+    "obstacles": [],
+    "tasks": [
+      {"name": "tight_task", "deadline": 2, "reward": 40, "requirements": [{"x": 0, "y": 1, "type": "b0"}]},
+      {"name": "early_task", "deadline": 0, "reward": 20, "requirements": [{"x": 0, "y": 1, "type": "b0"}]}
+    ],
+    "norms": [],
+    "goalZones": [[3, 3], [3, 4], [4, 3], [4, 4]],
+    "roleZones": []
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "Attach block at south",
+      "actions": {"a1": {"type": "attach", "p": ["s"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 3, "y": 3, "energy": 100}},
+        "scores": {"A": 0}
+      }
+    },
+    {
+      "step": 1,
+      "comment": "Try to submit early_task (deadline=0). Step is now 1, so 1 > 0, task expired.",
+      "actions": {"a1": {"type": "submit", "p": ["early_task"]}},
+      "expected": {
+        "results": {"a1": "failed_target"},
+        "scores": {"A": 0}
+      }
+    },
+    {
+      "step": 2,
+      "comment": "Submit tight_task at step=2, deadline=2. 2 <= 2 so task is active. Should succeed.",
+      "actions": {"a1": {"type": "submit", "p": ["tight_task"]}},
+      "expected": {
+        "results": {"a1": "success"},
+        "scores": {"A": 40},
+        "blocks": []
+      }
+    },
+    {
+      "step": 3,
+      "comment": "Skip after successful submission",
+      "actions": {"a1": {"type": "skip", "p": []}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"x": 3, "y": 3}},
+        "scores": {"A": 40}
+      }
+    }
+  ]
+}

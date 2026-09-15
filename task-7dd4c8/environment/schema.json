@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["flows", "summary"],
+  "properties": {
+    "flows": {
+      "type": "object",
+      "description": "Per-flow security analysis keyed by capture filename (without .pcap extension)",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["classification", "src_addr", "dst_addr", "extension_headers", "threat_severity"],
+        "properties": {
+          "classification": {
+            "type": "string",
+            "enum": ["legitimate", "fragment_evasion", "header_chain_violation", "deprecated_routing", "oversized_reassembly"]
+          },
+          "src_addr": {
+            "type": "string",
+            "description": "Source IPv6 address in canonical RFC 5952 format"
+          },
+          "dst_addr": {
+            "type": "string",
+            "description": "Destination IPv6 address in canonical RFC 5952 format"
+          },
+          "extension_headers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["hop-by-hop", "routing", "fragment", "authentication", "esp", "destination"]
+            },
+            "description": "Extension headers present in the packet chain, in order of appearance"
+          },
+          "violation_description": {
+            "type": ["string", "null"],
+            "description": "Description of the security issue found, or null for legitimate traffic"
+          },
+          "threat_severity": {
+            "type": "string",
+            "enum": ["none", "low", "medium", "high", "critical"]
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_flows", "legitimate_count", "malicious_count", "threat_categories"],
+      "properties": {
+        "total_flows": {
+          "type": "integer",
+          "description": "Total number of flows analyzed"
+        },
+        "legitimate_count": {
+          "type": "integer",
+          "description": "Number of flows classified as legitimate"
+        },
+        "malicious_count": {
+          "type": "integer",
+          "description": "Number of flows classified as non-legitimate"
+        },
+        "threat_categories": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Sorted list of unique threat classification categories found (excluding legitimate)"
+        }
+      }
+    }
+  }
+}

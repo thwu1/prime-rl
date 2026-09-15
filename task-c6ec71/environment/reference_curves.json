@@ -1,0 +1,147 @@
+{
+  "quadratic": [
+    {
+      "name": "straight_line",
+      "px": [0.0, 0.5, 1.0],
+      "py": [0.0, 0.0, 0.0],
+      "arclen": 1.0,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "gentle_curve",
+      "px": [0.0, 0.5, 1.0],
+      "py": [0.0, 0.2, 0.0],
+      "arclen": 1.026060630426844,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "moderate_curve",
+      "px": [0.0, 0.5, 1.0],
+      "py": [0.0, 1.0, 0.0],
+      "arclen": 1.478942857544597,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "right_angle",
+      "px": [0.0, 0.0, 1.0],
+      "py": [0.0, 1.0, 1.0],
+      "arclen": 1.623225240140231,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "strong_curve",
+      "px": [0.0, 1.0, 1.0],
+      "py": [0.0, 1.0, 0.0],
+      "arclen": 1.540297615564526,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "near_linear",
+      "px": [0.0, 0.5, 1.0],
+      "py": [0.0, 1e-10, 0.0],
+      "arclen": 1.0,
+      "tolerance": 1e-12,
+      "note": "Tests numerical stability of analytical formula near degeneracy"
+    },
+    {
+      "name": "extreme_curve",
+      "px": [0.0, 5.0, 1.0],
+      "py": [0.0, 10.0, 0.0],
+      "arclen": 11.05260852610896,
+      "tolerance": 1e-12
+    },
+    {
+      "name": "asymmetric",
+      "px": [0.0, 0.2, 1.0],
+      "py": [0.0, 1.5, 0.0],
+      "arclen": 1.90395968569199,
+      "tolerance": 1e-12
+    }
+  ],
+  "cubic": [
+    {
+      "name": "straight_line",
+      "px": [0.0, 0.3333333333333333, 0.6666666666666666, 1.0],
+      "py": [0.0, 0.0, 0.0, 0.0],
+      "arclen": 1.0,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "c_curve",
+      "px": [0.0, 0.0, 1.0, 1.0],
+      "py": [0.0, 1.0, 1.0, 0.0],
+      "arclen": 2.0,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "s_curve",
+      "px": [0.0, 0.0, 1.0, 1.0],
+      "py": [0.0, 1.0, -1.0, 0.0],
+      "arclen": 1.65892783377134,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "quarter_circle",
+      "px": [1.0, 1.0, 0.5522847498307934, 0.0],
+      "py": [0.0, 0.5522847498307934, 1.0, 1.0],
+      "arclen": 1.571016698073856,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "near_linear",
+      "px": [0.0, 0.3333333333333333, 0.6666666666666666, 1.0],
+      "py": [0.0, 0.001, 0.001, 0.0],
+      "arclen": 1.000001499997975,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "deep_curve",
+      "px": [0.0, 0.0, 1.0, 1.0],
+      "py": [0.0, 3.0, 3.0, 0.0],
+      "arclen": 4.785080409296834,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "asymmetric",
+      "px": [0.0, 0.1, 0.9, 1.0],
+      "py": [0.0, 2.0, 0.0, 0.0],
+      "arclen": 2.156827896785513,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "self_intersecting",
+      "px": [0.0, 1.0, 0.0, 1.0],
+      "py": [0.0, 1.0, 1.0, 0.0],
+      "arclen": 1.82842712474619,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "cusp_like",
+      "px": [0.0, 0.3, 0.7, 1.0],
+      "py": [0.0, 1.0, -1.0, 0.0],
+      "arclen": 1.598567881217248,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "gentle_s",
+      "px": [0.0, 0.3333333333333333, 0.6666666666666666, 1.0],
+      "py": [0.0, 0.1, -0.1, 0.0],
+      "arclen": 1.008915531326433,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "wide_arc",
+      "px": [0.0, 0.25, 0.75, 1.0],
+      "py": [0.0, 0.5, 0.5, 0.0],
+      "arclen": 1.317091385754628,
+      "tolerance": 1e-8
+    },
+    {
+      "name": "extreme_curvature",
+      "px": [0.0, 0.0, 0.0, 1.0],
+      "py": [0.0, 5.0, -5.0, 0.0],
+      "arclen": 5.987622073010204,
+      "tolerance": 1e-8
+    }
+  ]
+}

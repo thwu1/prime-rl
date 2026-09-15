@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of linearizability theory (Herlihy & Wing), implementation of an NP-complete search algorithm with correct pruning, handling of ambiguous crashed/info operations, working with Clojure EDN data format via babashka (an unfamiliar tool for most), building a multi-tool pipeline (babashka for EDN parsing, Python for analysis, Graphviz for DOT-to-SVG visualization), and generating meaningful conflict-witness diagrams."""
+solution_explanation = """Use babashka to parse Clojure EDN histories and convert to JSON. Implement a backtracking linearizability checker that explores valid orderings respecting real-time precedence and CAS register semantics, with correct handling of info operations via subset enumeration. Generate Graphviz DOT diagrams showing operation timelines and real-time ordering for non-linearizable histories, then render to SVG with dot."""
+verification_explanation = """Tests verify correct linearizability verdicts for 12 pre-defined EDN histories covering edge cases (stale reads, CAS conflicts, info operations), validate that SVG and DOT visualizations exist and contain valid content for each non-linearizable history, and run 5 dynamically generated EDN histories through the full pipeline to ensure the analyzer is a working multi-tool pipeline rather than hardcoded answers."""
+category = "distributed_systems"
+tags = ["linearizability", "jepsen"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5a1e0f"

@@ -1,0 +1,132 @@
+{
+  "name": "connect_bidirectional_movement",
+  "description": "Verifies that connect creates a bidirectional edge so both agents can move the merged component.",
+  "config": {
+    "grid": {"width": 20, "height": 20},
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": ["skip", "move", "rotate", "adopt", "request", "attach", "detach", "connect", "disconnect", "submit", "clear", "survey"],
+        "speed": [3, 2, 2, 1, 1],
+        "clear": {"chance": 1.0, "maxDistance": 2}
+      }
+    ],
+    "maxEnergy": 100, "stepRecharge": 1, "clearEnergyCost": 2,
+    "deactivatedDuration": 10, "refreshEnergy": 50,
+    "clearDamage": [32, 16, 8, 4, 2, 1], "attachLimit": 10,
+    "steps": 500, "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [
+      {"name": "a1", "team": "A", "x": 5, "y": 5, "role": "default", "energy": 100},
+      {"name": "a2", "team": "A", "x": 5, "y": 8, "role": "default", "energy": 100}
+    ],
+    "blocks": [
+      {"x": 5, "y": 6, "type": "b0"},
+      {"x": 5, "y": 7, "type": "b1"}
+    ],
+    "dispensers": [], "obstacles": [], "tasks": [], "norms": [],
+    "goalZones": [], "roleZones": []
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "Both agents attach their adjacent blocks",
+      "actions": {
+        "a1": {"type": "attach", "p": ["s"]},
+        "a2": {"type": "attach", "p": ["n"]}
+      },
+      "expected": {
+        "results": {"a1": "success", "a2": "success"},
+        "agents": {
+          "a1": {"x": 5, "y": 5},
+          "a2": {"x": 5, "y": 8}
+        }
+      }
+    },
+    {
+      "step": 1,
+      "comment": "Connect the two blocks — should create bidirectional edge",
+      "actions": {
+        "a1": {"type": "connect", "p": ["a2", "0", "1"]},
+        "a2": {"type": "connect", "p": ["a1", "0", "-1"]}
+      },
+      "expected": {
+        "results": {"a1": "success", "a2": "success"}
+      }
+    },
+    {
+      "step": 2,
+      "comment": "a2 moves north — entire component (4 entities) should translate. speed[3]=1, so 1 step.",
+      "actions": {
+        "a2": {"type": "move", "p": ["n"]}
+      },
+      "expected": {
+        "results": {"a2": "success"},
+        "agents": {
+          "a1": {"x": 5, "y": 4},
+          "a2": {"x": 5, "y": 7}
+        },
+        "blocks": [
+          {"x": 5, "y": 5, "type": "b0"},
+          {"x": 5, "y": 6, "type": "b1"}
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "comment": "a1 moves south — entire component should translate south",
+      "actions": {
+        "a1": {"type": "move", "p": ["s"]}
+      },
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {
+          "a1": {"x": 5, "y": 5},
+          "a2": {"x": 5, "y": 8}
+        },
+        "blocks": [
+          {"x": 5, "y": 6, "type": "b0"},
+          {"x": 5, "y": 7, "type": "b1"}
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "comment": "a2 moves east — entire component should translate east",
+      "actions": {
+        "a2": {"type": "move", "p": ["e"]}
+      },
+      "expected": {
+        "results": {"a2": "success"},
+        "agents": {
+          "a1": {"x": 6, "y": 5},
+          "a2": {"x": 6, "y": 8}
+        },
+        "blocks": [
+          {"x": 6, "y": 6, "type": "b0"},
+          {"x": 6, "y": 7, "type": "b1"}
+        ]
+      }
+    },
+    {
+      "step": 5,
+      "comment": "a1 moves west — return to original column",
+      "actions": {
+        "a1": {"type": "move", "p": ["w"]}
+      },
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {
+          "a1": {"x": 5, "y": 5},
+          "a2": {"x": 5, "y": 8}
+        },
+        "blocks": [
+          {"x": 5, "y": 6, "type": "b0"},
+          {"x": 5, "y": 7, "type": "b1"}
+        ]
+      }
+    }
+  ]
+}

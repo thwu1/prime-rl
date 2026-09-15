@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc>
+<meta>
+<property role="is-positive-law">yes</property>
+</meta>
+<main>
+<title>
+<num value="99">Title 99</num>
+<heading>Digital Infrastructure</heading>
+<chapter>
+<num value="1">Chapter 1</num>
+<heading>General Provisions</heading>
+
+<section identifier="/us/usc/t99/s101">
+<num value="101">&#xA7;101.</num>
+<heading>Definitions</heading>
+<enacted>2024-03-15</enacted>
+<public-law>Pub. L. 118&#x2013;200</public-law>
+<last-amended>2025-01-10</last-amended>
+<last-amended-by>Pub. L. 119&#x2013;5</last-amended-by>
+<content>
+<subsection>
+<num value="a">(a)</num>
+<chapeau>As used in this chapter&#x2014;</chapeau>
+<paragraph>
+<num value="1">(1)</num>
+<content>
+<chapeau>The term &#x201C;digital infrastructure&#x201D; means any system, network, or facility that&#x2014;</chapeau>
+<subparagraph>
+<num value="A">(A)</num>
+<text>utilizes electronic communications protocols;</text>
+</subparagraph>
+<subparagraph>
+<num value="B">(B)</num>
+<content>
+<chapeau>processes, stores, or transmits data in digital form, including&#x2014;</chapeau>
+<clause>
+<num value="i">(i)</num>
+<text>fiber optic transmission lines,</text>
+</clause>
+<clause>
+<num value="ii">(ii)</num>
+<text>wireless communication towers,</text>
+</clause>
+<clause>
+<num value="iii">(iii)</num>
+<text>satellite ground stations, and</text>
+</clause>
+<clause>
+<num value="iv">(iv)</num>
+<text>data center facilities; or</text>
+</clause>
+</content>
+</subparagraph>
+<subparagraph>
+<num value="C">(C)</num>
+<text>is designated as critical infrastructure under <ref href="/us/usc/t42/s5195c">section 5195c of title 42</ref>.</text>
+</subparagraph>
+</content>
+</paragraph>
+<paragraph>
+<num value="2">(2)</num>
+<text>The term &#x201C;covered entity&#x201D; means any person who owns, operates, or maintains digital infrastructure serving more than 100,000 users.</text>
+</paragraph>
+<paragraph>
+<num value="3">(3)</num>
+<content>
+<chapeau>The term &#x201C;critical vulnerability&#x201D; means a security flaw that&#x2014;</chapeau>
+<subparagraph>
+<num value="A">(A)</num>
+<text>allows unauthorized access to protected systems;</text>
+</subparagraph>
+<subparagraph>
+<num value="B">(B)</num>
+<text>enables the exfiltration of personally identifiable information; or</text>
+</subparagraph>
+<subparagraph>
+<num value="C">(C)</num>
+<text>could result in the disruption of essential services as defined in <ref href="/us/usc/t99/s103">section 103 of this title</ref>.</text>
+</subparagraph>
+</content>
+</paragraph>
+</subsection>
+<subsection>
+<num value="b">(b)</num>
+<heading>Rules of construction</heading>
+<text>Nothing in this chapter shall be construed to limit the authority of the Secretary under <ref href="/us/usc/t6/s652">section 652 of title 6</ref>.</text>
+</subsection>
+</content>
+<sourceCredit>(Added Pub. L. 118&#x2013;200, title I, &#xA7;101, Mar. 15, 2024, 138 Stat. 1001; amended Pub. L. 119&#x2013;5, &#xA7;3, Jan. 10, 2025, 139 Stat. 42.)</sourceCredit>
+</section>
+
+<section identifier="/us/usc/t99/s102">
+<num value="102">&#xA7;102.</num>
+<heading>Reporting requirements</heading>
+<enacted>2024-03-15</enacted>
+<public-law>Pub. L. 118&#x2013;200</public-law>
+<content>
+<subsection>
+<num value="a">(a)</num>
+<heading>In general</heading>
+<text>Each covered entity (as defined in <ref href="/us/usc/t99/s101">section 101 of this title</ref>) shall submit to the Director an annual report containing the information described in subsection (b).</text>
+</subsection>
+<subsection>
+<num value="b">(b)</num>
+<heading>Contents</heading>
+<content>
+<chapeau>Each report submitted under subsection (a) shall include&#x2014;</chapeau>
+<paragraph>
+<num value="1">(1)</num>
+<text>a description of the digital infrastructure operated by the covered entity;</text>
+</paragraph>
+<paragraph>
+<num value="2">(2)</num>
+<content>
+<chapeau>an assessment of vulnerabilities, including&#x2014;</chapeau>
+<subparagraph>
+<num value="A">(A)</num>
+<text>any critical vulnerability (as defined in <ref href="/us/usc/t99/s101">section 101</ref>) discovered during the reporting period; and</text>
+</subparagraph>
+<subparagraph>
+<num value="B">(B)</num>
+<text>remediation actions taken with respect to each such vulnerability; and</text>
+</subparagraph>
+</content>
+</paragraph>
+<paragraph>
+<num value="3">(3)</num>
+<text>certification of compliance with applicable standards under <ref href="/us/usc/t15/s7431">section 7431 of title 15</ref>.</text>
+</paragraph>
+</content>
+</subsection>
+<subsection>
+<num value="c">(c)</num>
+<heading>Deadline</heading>
+<text>The report required under subsection (a) shall be submitted not later than 90 days after the end of each fiscal year.</text>
+</subsection>
+</content>
+<sourceCredit>(Added Pub. L. 118&#x2013;200, title I, &#xA7;102, Mar. 15, 2024, 138 Stat. 1003.)</sourceCredit>
+</section>
+
+<section identifier="/us/usc/t99/s103">
+<num value="103">&#xA7;103.</num>
+<heading>Penalties</heading>
+<enacted>2024-03-15</enacted>
+<public-law>Pub. L. 118&#x2013;200</public-law>
+<content>
+<subsection>
+<num value="a">(a)</num>
+<heading>Civil penalties</heading>
+<text>Any covered entity that fails to comply with <ref href="/us/usc/t99/s102">section 102 of this title</ref> shall be subject to a civil penalty of not more than $500,000 for each violation.</text>
+</subsection>
+<subsection>
+<num value="b">(b)</num>
+<heading>Criminal penalties</heading>
+<text>Any person who knowingly and willfully violates <ref href="/us/usc/t99/s102">section 102</ref> with intent to conceal a critical vulnerability shall be fined under <ref href="/us/usc/t18/s3571">section 3571 of title 18</ref>, imprisoned not more than 5 years, or both.</text>
+</subsection>
+</content>
+<sourceCredit>(Added Pub. L. 118&#x2013;200, title I, &#xA7;103, Mar. 15, 2024, 138 Stat. 1005.)</sourceCredit>
+<notes type="statutory">
+<note topic="effective-date">
+<heading>Effective Date</heading>
+<text>Pub. L. 118&#x2013;200, title I, &#xA7;104, Mar. 15, 2024, 138 Stat. 1006, provided that: &#x201C;This title [enacting this chapter] shall take effect on the date that is 180 days after the date of enactment of this Act [Mar. 15, 2024].&#x201D;</text>
+</note>
+<note topic="penalty-schedule">
+<heading>Penalty Schedule</heading>
+<text>Pub. L. 118&#x2013;200, title I, &#xA7;105, Mar. 15, 2024, 138 Stat. 1006, provided that the Director shall establish a penalty schedule as follows:</text>
+<table>
+<tr><th>Violation Category</th><th>First Offense</th><th>Subsequent Offense</th></tr>
+<tr><td>Late filing</td><td>$50,000</td><td>$150,000</td></tr>
+<tr><td>Material omission</td><td>$100,000</td><td>$300,000</td></tr>
+<tr><td>Willful concealment</td><td>$250,000</td><td>$500,000</td></tr>
+</table>
+</note>
+</notes>
+<note type="editorial">
+<text>Section 103 was included in the original enactment of chapter 1 of title 99 by Pub. L. 118&#x2013;200.</text>
+</note>
+</section>
+
+<section identifier="/us/usc/t99/s104">
+<num value="104">&#xA7;104.</num>
+<heading>Authorization of appropriations</heading>
+<status>repealed</status>
+<enacted>2024-03-15</enacted>
+<public-law>Pub. L. 118&#x2013;200</public-law>
+<content>
+<text>[Repealed. Pub. L. 119&#x2013;5, &#xA7;7, Jan. 10, 2025, 139 Stat. 45.]</text>
+</content>
+<sourceCredit>(Added Pub. L. 118&#x2013;200, title I, &#xA7;104, Mar. 15, 2024, 138 Stat. 1006; repealed Pub. L. 119&#x2013;5, &#xA7;7, Jan. 10, 2025, 139 Stat. 45.)</sourceCredit>
+<notes type="statutory">
+<note topic="repeal">
+<heading>Repeal</heading>
+<text>Pub. L. 119&#x2013;5, &#xA7;7, Jan. 10, 2025, 139 Stat. 45, repealed this section, which related to authorization of appropriations for fiscal years 2025 through 2029.</text>
+<section>
+<num value="104">&#xA7;104.</num>
+<heading>Authorization of appropriations</heading>
+<text>There are authorized to be appropriated to carry out this chapter $50,000,000 for each of fiscal years 2025 through 2029.</text>
+</section>
+</note>
+</notes>
+</section>
+
+</chapter>
+</title>
+</main>
+</uscDoc>

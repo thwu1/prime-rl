@@ -1,0 +1,42 @@
+{
+  "vrfs": [
+    {"name": "Production", "rd": "65000:1"},
+    {"name": "Management", "rd": "65000:2"}
+  ],
+  "aggregates": [
+    {"prefix": "10.0.0.0/8", "rir": "RFC1918"},
+    {"prefix": "2001:db8::/32", "rir": "IANA"}
+  ],
+  "allocations": [
+    {
+      "vrf": "Production",
+      "prefix": "10.0.0.0/16",
+      "status": "container",
+      "site": "HQ",
+      "children": [
+        {"prefix": "10.0.0.0/24", "status": "active", "is_pool": false, "allocate_ips": 10},
+        {"prefix": "10.0.1.0/24", "status": "active", "is_pool": true, "allocate_ips": 10},
+        {"prefix": "10.0.2.0/24", "status": "active", "is_pool": false, "allocate_ips": 0},
+        {"prefix": "10.0.3.0/24", "status": "active", "is_pool": false, "allocate_ips": 0}
+      ]
+    },
+    {
+      "vrf": "Management",
+      "prefix": "10.0.0.0/24",
+      "status": "active",
+      "site": "HQ",
+      "is_pool": false,
+      "allocate_ips": 5
+    },
+    {
+      "vrf": "Production",
+      "prefix": "2001:db8::/48",
+      "status": "container",
+      "site": "HQ",
+      "children": [
+        {"prefix": "2001:db8::/64", "status": "active", "is_pool": false, "allocate_ips": 5},
+        {"prefix": "2001:db8:0:1::/64", "status": "active", "is_pool": false, "allocate_ips": 5}
+      ]
+    }
+  ]
+}

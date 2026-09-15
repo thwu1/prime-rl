@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Rubik's Cube group theory combined with multi-tool \
+proficiency. The agent must: (1) explore a normalized SQLite database schema using sqlite3 to extract cube states \
+spread across multiple tables requiring JOINs; (2) start and interact with a buggy HTTP validation microservice, \
+querying it via curl or programmatic HTTP and parsing its JSON responses; (3) independently implement \
+facelet-to-cubie conversion, three solvability invariant checks (corner orientation mod 3, edge orientation mod 2, \
+permutation parity), group multiplication for generator verification, and order computation; (4) cross-reference \
+independent results with the service's responses to identify where the service disagrees — specifically its \
+missing permutation parity check and generic violation reporting. The task demands interoperability between \
+sqlite3, HTTP client tools, and Python computation."""
+solution_explanation = """The solution starts the validation server in the background, then runs a Python script \
+that: reads cube data from SQLite via JOINed queries across facelets/generators/order_claims tables; queries the \
+HTTP service for each cube's solvability assessment; independently validates each state using cubie-level algebra \
+with all three group-theoretic invariants; compares service responses with ground truth to flag discrepancies; \
+and writes the structured audit report as JSON."""
+verification_explanation = """Tests independently implement the full cubie algebra and verify every field: \
+solvability classification, violation type, generator verification, and group-theoretic order against \
+independently computed answers. A separate service simulation predicts the buggy server's exact responses \
+(no parity check, generic violation labels) and verifies the agent correctly reported service_response and \
+service_agrees for all 12 states. Cross-consistency checks confirm structural properties, and a sanity test \
+verifies the C07 permutation parity violation exists to ensure at least one service disagreement."""
+category = "algorithms"
+tags = ["group-theory", "service-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-931678"

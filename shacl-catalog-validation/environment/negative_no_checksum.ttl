@@ -1,0 +1,50 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix locn: <http://www.w3.org/ns/locn#> .
+@prefix spdx: <http://spdx.org/rdf/terms#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+
+# Negative sample: distribution is missing spdx:checksum
+
+<http://neg-test/ds-checksum> a dcat:Dataset ;
+    dct:title "Checksum Test Dataset"@en ;
+    dct:description "Dataset whose distribution lacks a checksum"@en ;
+    dct:spatial [
+        a dct:Location ;
+        locn:geometry "POLYGON((10 50, 11 50, 11 51, 10 51, 10 50))"^^geo:wktLiteral ;
+        locn:geographicName "Test Region"
+    ] ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2020-01-01"^^xsd:date ;
+        dcat:endDate "2023-12-31"^^xsd:date
+    ] ;
+    dcat:keyword "keyword one"@en , "keyword two"@en , "Stichwort"@de ;
+    dcat:theme <http://neg-test/concept/t4> ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dcat:spatialResolutionInMeters "75.0"^^xsd:decimal ;
+    dct:conformsTo <http://neg-test/standard/s4> ;
+    dct:creator <http://neg-test/agent/a4> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:hasEmail <mailto:contact@neg-test.eu> ;
+        vcard:fn "Test Contact"
+    ] ;
+    dcat:distribution <http://neg-test/dist/d4> .
+
+<http://neg-test/concept/t4> a skos:Concept ;
+    skos:prefLabel "Test Theme"@en .
+
+<http://neg-test/agent/a4> a foaf:Agent ;
+    foaf:name "Test Agency" ;
+    foaf:mbox <mailto:info@neg-test.eu> .
+
+<http://neg-test/dist/d4> a dcat:Distribution ;
+    dcat:accessURL <http://neg-test/access/4> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/CSV> ;
+    dcat:byteSize "3145728"^^xsd:nonNegativeInteger .

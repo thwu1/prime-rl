@@ -1,0 +1,40 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in skb_network_protocol+0x12d/0x1a0 net/core/dev.c:3268
+Read of size 2 at addr ffff88803a4c8594 by task syz-executor.0/5765
+
+CPU: 0 UID: 0 PID: 5765 Comm: syz-executor.0 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ skb_network_protocol+0x12d/0x1a0 net/core/dev.c:3268
+ skb_mac_gso_segment+0x2e4/0x5b0 net/core/gro.c:145
+ __skb_gso_segment+0x3a5/0x780 net/core/gso.c:254
+ validate_xmit_skb+0x567/0xf30 net/core/dev.c:3826
+ __dev_queue_xmit+0x1269/0x3a10 net/core/dev.c:4425
+ </TASK>
+
+Allocated by task 5765:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ __kasan_slab_alloc+0x89/0x90 mm/kasan/common.c:361
+ slab_post_alloc_hook+0x44/0x4e0 mm/slub.c:4086
+ __kmalloc_node_track_caller_noprof+0x2b3/0x480 mm/slub.c:5023
+ __alloc_skb+0x2fb/0x770 net/core/skbuff.c:658
+
+The buggy address belongs to the object at ffff88803a4c8580
+ which belongs to the cache kmalloc-64 of size 64
+The buggy address is located 0 bytes to the right of
+ allocated 20-byte region [ffff88803a4c8580, ffff88803a4c8594)
+
+Memory state around the buggy address:
+ ffff88803a4c8480: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff88803a4c8500: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+>ffff88803a4c8580: 00 00 04 fc fc fc fc fc fc fc fc fc fc fc fc fc
+                         ^
+ ffff88803a4c8600: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff88803a4c8680: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+==================================================================

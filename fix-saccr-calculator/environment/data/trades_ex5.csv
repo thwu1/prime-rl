@@ -1,0 +1,7 @@
+trade_id,asset_class,notional,mtm,currency,si,ei,buy_sell,option_type,underlying_price,strike_price,exercise_date,subclass,ref_entity,asset_subclass,commodity_hedging_set,commodity_type
+1,IRD,10000,30,USD,0,10,Buy,,,,,,,,,
+2,IRD,10000,-20,USD,0,4,Sell,,,,,,,,,
+3,IRD,5000,50,EUR,1,11,Buy,put,0.06,0.05,1,,,,,
+4,Commodity,10000,-50,USD,0,0.75,Buy,,,,,,,,Energy,Oil/Gas
+5,Commodity,20000,-30,USD,0,2,Sell,,,,,,,,Energy,Oil/Gas
+6,Commodity,10000,100,USD,0,5,Buy,,,,,,,,Metals,Silver

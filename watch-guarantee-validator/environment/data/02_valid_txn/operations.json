@@ -1,0 +1,13 @@
+{
+  "operations": [
+    {"type": "put", "key": "x/1", "value": "a", "revision": 2},
+    {"type": "put", "key": "x/2", "value": "b", "revision": 3},
+    {"type": "txn", "ops": [
+      {"type": "put", "key": "x/1", "value": "c"},
+      {"type": "put", "key": "x/2", "value": "d"}
+    ], "revision": 4},
+    {"type": "delete", "key": "x/1", "revision": 5},
+    {"type": "put", "key": "x/3", "value": "e", "revision": 6}
+  ],
+  "compact_revision": null
+}

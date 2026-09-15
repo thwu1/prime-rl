@@ -1,0 +1,43 @@
+{
+  "name": "diamond_cfg",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [
+      {
+        "label": "entry",
+        "instrs": [
+          {"op": "const", "dst": "x", "class": "gp", "val": 10},
+          {"op": "const", "dst": "y", "class": "gp", "val": 5},
+          {"op": "const", "dst": "z", "class": "gp", "val": 3},
+          {"op": "gt", "dst": "cond", "class": "gp", "src1": "x", "src2": "y"},
+          {"op": "cbranch", "src1": "cond", "true_target": "then_b", "false_target": "else_b"}
+        ]
+      },
+      {
+        "label": "then_b",
+        "instrs": [
+          {"op": "add", "dst": "a", "class": "gp", "src1": "x", "src2": "y"},
+          {"op": "mul", "dst": "b", "class": "gp", "src1": "a", "src2": "z"},
+          {"op": "jump", "target": "merge"}
+        ]
+      },
+      {
+        "label": "else_b",
+        "instrs": [
+          {"op": "sub", "dst": "a", "class": "gp", "src1": "x", "src2": "y"},
+          {"op": "add", "dst": "b", "class": "gp", "src1": "a", "src2": "z"},
+          {"op": "jump", "target": "merge"}
+        ]
+      },
+      {
+        "label": "merge",
+        "instrs": [
+          {"op": "add", "dst": "result", "class": "gp", "src1": "b", "src2": "z"},
+          {"op": "ret", "src1": "result"}
+        ]
+      }
+    ]
+  }]
+}

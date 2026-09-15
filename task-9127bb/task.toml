@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a program optimizer for a custom stack-based VM with two unfamiliar analysis tools. The solver must: (1) learn the VM binary's trace mode and the asmcheck static analysis tool to understand program structure and execution behavior, (2) reverse-engineer exact instruction semantics from the Go VM source and spec, (3) discover and implement multiple interdependent program transformations by analyzing assembly programs — recognizing that values flow through variable chains at multiple levels, that some code paths are unreachable under certain conditions, and that some variables are assigned in multiple control flow paths making naive transformations incorrect, (4) compose all discovered transformations in an iterative pipeline where each pass exposes new opportunities, (5) meet aggressive reduction targets (60-75% instruction reduction) while preserving semantic equivalence for all inputs."""
+solution_explanation = """The solution implements a Python optimizer with 11 cooperating passes iterated to convergence: peephole constant folding, algebraic simplification, global constant propagation (tracking push/store pairs for single-definition variables and replacing loads), copy propagation (resolving transitive variable chains), branch elimination (removing conditional jumps on known values), jump threading, dead code elimination, dead store elimination, jump-to-next removal, load consolidation, and redundant op removal. The key insight is the store-count heuristic: only variables with exactly one STORE in the program are safe to propagate, which correctly excludes multi-definition variables like 'factor' in prog4."""
+verification_explanation = """Tests verify both semantic correctness and optimization level. For each of 5 programs, the optimizer runs then the optimized output is executed through the Go VM binary with 4-5 diverse inputs (including edge cases: 0, negative numbers, boundary values) and byte-identical output is asserted against expected values. Separate tests verify static instruction counts meet the targets from targets.json. A validity test confirms all optimized programs parse and execute without VM errors. The prog4 test exercises all three control flow paths (positive, negative, zero) to catch incorrect handling of multi-definition variables."""
+category = "systems"
+tags = ["compilers", "program-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9127bb"

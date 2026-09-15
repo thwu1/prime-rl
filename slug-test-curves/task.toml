@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a second-order damped oscillator ODE from numerical reference data, identifying the correct parameterization (critical damping at CD=2, not CD=1), implementing numerically stable solutions across three damping regimes, and building a multi-parameter nonlinear curve-fitting pipeline with unknown time offset. Domain knowledge of groundwater hydrology and well hydraulics is needed to interpret the physical context."""
+solution_explanation = """The type curves follow d²wd/dtd² + CD·dwd/dtd + wd = 0 with wd(0)=1, dwd'(0)=0. For CD<2 (underdamped): wd = exp(-α·td)[cos(ω·td) + (α/ω)sin(ω·td)] where α=CD/2, ω=√(1-α²). For CD=2 (critically damped): wd = (1+td)exp(-td). For CD>2 (overdamped): use characteristic roots r₁=-α+β, r₂=-α-β where β=√(α²-1). Fitting uses profile fitting (sweep CD on a dense grid, optimise alpha/t0 for each) followed by joint trust-region refinement and Nelder-Mead polish."""
+verification_explanation = """Tests verify type curve generation against both the provided reference data and analytically computed values for CD values not in the reference set. Fitting is verified by generating synthetic field data from known parameters (with and without noise), running the solver, and checking that recovered CD and Le match within specified tolerances (2% clean, 5% noisy). Batch processing is verified end-to-end."""
+category = "scientific_computing"
+tags = ["hydrogeology", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/slug-test-curves"

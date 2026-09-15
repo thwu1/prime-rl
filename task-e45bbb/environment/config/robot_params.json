@@ -1,0 +1,7 @@
+{
+  "footprint": [[-0.2, -0.15], [-0.2, 0.15], [0.2, 0.15], [0.2, -0.15]],
+  "cost_scaling_factor": 3.0,
+  "inflation_radius": 0.5,
+  "lethal_cost": 254,
+  "inscribed_cost": 253
+}

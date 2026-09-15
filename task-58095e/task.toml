@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-IMT probabilistic seismic hazard analysis pipeline from a heterogeneous source model with multiple data formats (XML fault definitions, projected-coordinate CSV faults, gridded point sources), a ground motion model logic tree with differing distance metrics and sigma representations, and a configuration with rupture floating, epistemic branching, and deaggregation parameters including Unicode-keyed bins. The solver must parse and integrate all source data (including coordinate transformations), correctly implement the complete PSHA workflow for three IMTs simultaneously, produce a uniform hazard spectrum via curve interpolation, and decompose PGA hazard into magnitude-distance-epsilon bins — all while handling the model's deliberate heterogeneity in formats, distance conventions, and uncertainty representations."""
+solution_explanation = """The solution parses XML fault sources with xml.etree.ElementTree handling multiple IncrementalMfd branches per source, converts UTM coordinates via cs2cs, loads the nested calc-config.json with Unicode keys, and reads grid sources with depth. For each source-magnitude combination, it computes rupture length from WC94 scaling, generates floating rupture positions along the fault trace at surfaceSpacing intervals, computes R_JB via surface projection polygon and R_RUP as sqrt(R_JB^2+Ztor^2) for each position. GMM evaluation dispatches on distanceType (R_JB vs R_RUP) and sigmaModel (TOTAL vs PARTITIONED tau/phi). Hazard curves sum weighted exceedance rate contributions across all positions, branches, and GMMs for three IMTs. UHS is constructed by log-log interpolation at the target return period. PGA deaggregation bins contributions by M, R_JB, and epsilon."""
+verification_explanation = """Tests run the agent's pipeline and a compact reference implementation that independently parses all source data (XML with MFD branches, CSV, UTM via mathematical inverse projection), implements rupture floating with WC94 scaling, computes both R_JB and R_RUP, evaluates both GMM forms with correct sigma, and performs multi-IMT hazard, UHS, and deaggregation. Verification checks: (1) output existence and format, (2) monotonically decreasing curves per IMT, (3) Poisson conversion accuracy, (4) hazard values match reference within 5% per IMT, (5) UHS spectral ordinates within 10%, (6) deaggregation mean/mode within tolerances, (7) physical constraints."""
+category = "applied_computing"
+tags = ["seismology", "geospatial-computation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-58095e"

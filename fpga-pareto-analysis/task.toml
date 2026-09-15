@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of multi-objective optimization (identifying non-dominated sets in 4D, exact hypervolume computation in 3D), non-parametric statistics (Kendall's tau-b with tie handling), and careful data engineering over deeply nested JSON with missing/invalid entries. The agent must independently discover the dataset schema, parse a YAML specification, select and implement correct algorithms for Pareto dominance filtering, exact hypervolume calculation, and rank correlation — none of which are named or described in the instruction."""
+solution_explanation = """Parse the undocumented nested JSON dataset, read the YAML specification to learn required outputs and parameters, implement Pareto dominance in 4D with deduplication, 3D hypervolume via inclusion-exclusion, Kendall's tau-b with proper tie handling, composite efficiency scoring with normalization, and per-LLM/per-category aggregation — all while handling solutions with missing resource data."""
+verification_explanation = """Tests validate exact numerical values for pass rates, Pareto front sizes and specific resource vectors, hypervolume values against precomputed ground truth, LLM ranking order and scores, and Kendall's tau-b correlation coefficients — ensuring algorithmic correctness across all five analysis outputs."""
+category = "data_science"
+tags = ["multi-objective-optimization", "fpga-design-space"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fpga-pareto-analysis"

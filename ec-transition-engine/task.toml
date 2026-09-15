@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Two-part task requiring both binary forensics and deep erasure-coding expertise. Part 1 demands reverse-engineering an undocumented binary shard dump format using hex analysis tools, then applying RS decoding with mixed data/parity shard indices to reconstruct the original file. Part 2 requires implementing a full EC transition engine: the efficiency tests enforce that same-k transitions reuse existing data shards and only recompute parity — an optimization that must be independently derived from analyzing the encoding matrix's mathematical structure (systematic form with identity sub-matrix). The agent must also handle degraded reads via matrix inversion over GF(2^8), shard lifecycle ordering for availability during transitions, and multi-node repair with correct shard placement. No algorithmic hints are provided."""
+solution_explanation = """Part 1: Use xxd/hexdump to inspect crash_dump.bin, discover the ECDUMP01 magic and header layout (k, m, original_size, SHA-256 checksum, shard count, then per-shard index/length/data records — all little-endian). Parse with Python struct, call reed_solomon.decode() with the extracted shard indices (which include parity shards), truncate to original_size, and verify the embedded checksum. Part 2: The transition engine uses the RS libraries as building blocks. encode_file splits data, encodes, and places shards round-robin. plan_transition detects same-k case: data shards are unchanged (encoding matrix rows 0..k-1 are the identity), so only parity shards are recomputed using the target encoding matrix; different-k requires full reconstruct-and-re-encode. execute_transition writes before deleting for availability. reconstruct_read collects k surviving shards and decodes. repair decodes, re-encodes, and places lost shards on fresh nodes."""
+verification_explanation = """34 pytest tests across 7 classes. 3 tests verify crash dump recovery (file existence, size, SHA-256 checksum). 31 tests cover the TransitionEngine: metadata shape, distinct-node placement, data round-trips, same-k optimizations (data kept, old parity deleted, new parity created, movement < full re-encode), different-k full re-encode, sequential transitions, degraded reads under 0/1/max/excess failures, explicit failed_nodes parameter, post-transition degraded reads, basic and multi-node repair, repair-then-degrade resilience, and a full lifecycle end-to-end test."""
+category = "systems"
+tags = ["erasure-coding", "binary-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ec-transition-engine"

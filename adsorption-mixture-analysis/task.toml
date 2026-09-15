@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Ideal Adsorbed Solution Theory (IAST) from scratch: numerical integration of spreading pressure from tabulated isotherm data, inversion of the spreading pressure function, and root-finding to solve the coupled IAST equilibrium equations. Additionally requires implementing Clausius-Clapeyron isosteric enthalpy calculation involving multi-temperature isotherm interpolation and linear regression in ln(P) vs 1/T space. Demands knowledge of adsorption thermodynamics, numerical methods (quadrature, root-finding, interpolation), and careful treatment of edge cases in the Henry's law regime."""
+solution_explanation = """The reference solution analytically integrates linearly-interpolated isotherm segments (slope*(P2-P1) + intercept*ln(P2/P1)) to build spreading pressure tables, uses scipy interp1d for forward/inverse spreading pressure functions, and scipy brentq for IAST root-finding. For isosteric enthalpy, it inverts each isotherm (loading->pressure via interpolation) and performs scipy linregress on ln(P) vs 1/T at each loading point. The SVP subcommand reuses the IAST solver across a pressure sweep."""
+verification_explanation = """Tests run the CLI tool with the provided isotherm data and check JSON output against golden values from the pyGAPS library test suite: IAST adsorbed fractions [0.231, 0.769] at equimolar/1bar, isosteric enthalpy average ~29 kJ/mol, and SVP mean selectivity ~0.19. Physical consistency checks (positivity, normalization, monotonicity) validate correctness beyond golden values."""
+category = "applied_computing"
+tags = ["adsorption-thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adsorption-mixture-analysis"

@@ -1,0 +1,46 @@
+{
+  "request": {
+    "key": "x/",
+    "prefix": true,
+    "start_revision": 2,
+    "prev_kv": true
+  },
+  "responses": [
+    {
+      "events": [
+        {"type": "PUT", "key": "x/1", "value": "a", "revision": 2, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 2
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "x/2", "value": "b", "revision": 3, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 3
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "x/1", "value": "c", "revision": 4, "is_create": false, "prev_kv": {"value": "a", "mod_revision": 2}},
+        {"type": "PUT", "key": "x/2", "value": "d", "revision": 4, "is_create": false, "prev_kv": {"value": "b", "mod_revision": 3}}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 4
+    },
+    {
+      "events": [
+        {"type": "DELETE", "key": "x/1", "value": "", "revision": 5, "is_create": false, "prev_kv": {"value": "c", "mod_revision": 4}}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 5
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "x/3", "value": "e", "revision": 6, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 6
+    }
+  ]
+}

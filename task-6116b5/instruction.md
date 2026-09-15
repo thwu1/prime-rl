@@ -1,0 +1,9 @@
+Five candidate QUIC packet protection implementations reside at `/app/implementations/` (`impl_alpha.py` through `impl_epsilon.py`). Each exports `derive_initial_keys(dcid, version)`, `derive_keys_from_secret(secret, version, key_len)`, `protect_initial_packet(header, payload, key, iv, hp)`, `compute_retry_integrity_tag(odcid, retry_no_tag, version)`, and `protect_short_header_chacha20(header, payload, pn, key, iv, hp)`.
+
+Each claims full compliance with the QUIC packet protection specifications in RFC 9001 (QUIC v1) and RFC 9369 (QUIC v2). At least one is fully conformant; others contain subtle violations that produce incorrect cryptographic output for certain operations or protocol versions.
+
+Evaluate every implementation against the RFC Appendix A test vectors across all subsystems (key derivation, Initial packet protection for client and server, Retry integrity tags, ChaCha20-Poly1305 short header protection) for both QUIC v1 and v2, and produce:
+
+1. `/app/compliance_report.json` — A JSON object keyed by implementation name (`alpha`, `beta`, `gamma`, `delta`, `epsilon`). Each value has `"status"` (`"PASS"` or `"FAIL"`) and `"violations"` (a list of zero or more of these exact category strings: `v2_key_derivation`, `aead_nonce_construction`, `header_protection_sample_offset`, `retry_pseudo_packet`, `chacha20_header_protection`).
+
+2. `/app/reference_impl.py` — A correct reference implementation exporting all five functions listed above, plus `unprotect_initial_packet(packet, key, iv, hp)` which removes header protection, decrypts the AEAD payload, and returns `(header, payload)` — the reconstructed unprotected header bytes and decrypted plaintext. All functions must produce byte-exact output matching the published RFC test vectors. The `unprotect_initial_packet` function must correctly parse QUIC long header variable-length integer fields to locate the packet number offset in the protected packet.

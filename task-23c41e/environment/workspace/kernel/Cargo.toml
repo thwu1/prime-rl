@@ -1,0 +1,60 @@
+[package]
+name = "aurora-kernel"
+version = "0.5.0"
+edition = "2021"
+
+[features]
+default = ["acpi", "dhcpv4", "fsgsbase", "kernel-stack", "pci", "smp", "tcp", "virtio-fs", "virtio-net"]
+
+# Syscall features
+common-os = []
+mman = []
+
+# Platform features
+acpi = []
+fsgsbase = []
+pci = ["virtio-hal?/pci-transport"]
+smp = ["acpi"]
+
+# Network protocol features
+tcp = ["net", "dep:netstack", "netstack?/socket-tcp"]
+udp = ["net", "dep:netstack", "netstack?/socket-udp"]
+dhcpv4 = ["net", "dep:netstack", "netstack?/proto-dhcpv4", "netstack?/socket-dhcpv4"]
+dns = ["net", "dep:netstack", "netstack?/socket-dns"]
+net-trace = ["netstack?/log", "netstack?/verbose"]
+write-pcap-file = ["net-trace"]
+
+# Network drivers
+virtio-net = ["net", "virtio"]
+rtl8139 = ["net", "pci"]
+gem-net = ["net"]
+
+# Virtio drivers
+virtio-console = ["virtio"]
+virtio-fs = ["virtio", "dep:fuse-abi", "fuse-abi?/linux"]
+virtio-vsock = ["virtio"]
+
+# Other features
+vga = []
+idle-poll = []
+strace = []
+kernel-stack = ["smp"]
+randomize-layout = []
+
+# Internal features
+net = []
+virtio = ["dep:virtio-hal", "dep:mem-barrier", "virtio-hal?/alloc"]
+
+# Deprecated aliases
+console = ["virtio-console"]
+fs = ["virtio-fs"]
+fuse = ["virtio-fs"]
+mmap = ["mman"]
+trace = ["net-trace"]
+vsock = ["virtio-vsock"]
+
+[dependencies]
+virtio-hal = { path = "../virtio-hal", optional = true }
+netstack = { path = "../netstack", optional = true }
+fuse-abi = { path = "../fuse-abi", optional = true }
+mem-barrier = { path = "../mem-barrier", optional = true }

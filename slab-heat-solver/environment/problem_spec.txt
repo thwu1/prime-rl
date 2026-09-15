@@ -1,0 +1,96 @@
+GROUND-COUPLED SLAB HEAT TRANSFER: 2D STEADY-STATE WITH HETEROGENEOUS MEDIA
+=============================================================================
+
+PHYSICAL SETUP:
+A building's slab-on-grade floor loses heat to the surrounding ground.
+The 2D cross-section uses left-right symmetry: only the right half is modeled
+(x=0 at slab centerline).
+
+The ground may consist of multiple horizontal soil layers with different thermal
+conductivities, and may contain embedded insulation elements (rectangular regions
+of low-conductivity material near the slab perimeter).
+
+At the slab edge, a wall of finite thickness separates indoor and outdoor
+environments. The temperature transitions linearly across the wall width
+at the ground surface, preventing a boundary singularity.
+
+COORDINATE SYSTEM:
+- x: horizontal, x=0 at symmetry axis (slab center)
+- z: vertical, z=0 at ground surface, increasing downward
+
+DOMAIN: Rectangle [0, W] x [0, D]
+  W = domain_width (half-domain width to far field)
+  D = domain_depth (depth to deep ground boundary)
+
+GOVERNING EQUATION:
+  div(k(x,z) * grad(T)) = 0
+
+  This is the variable-coefficient steady-state heat equation. The thermal
+  conductivity k(x,z) varies spatially according to soil layers and any
+  embedded insulation elements.
+
+MATERIAL PROPERTIES:
+  The conductivity field k(x,z) is defined by:
+
+  1. Soil layers: horizontal strata specified as a list of
+     {"depth_to": z_max, "conductivity": k_value}. Layer boundaries are
+     horizontal lines at specified depths. The conductivity is constant
+     within each layer.
+
+  2. Insulation elements (optional): rectangular regions specified as
+     {"x_start", "x_end", "z_start", "z_end", "conductivity"}.
+     Where an insulation element exists, its conductivity overrides
+     the soil layer conductivity.
+
+  At interfaces between materials with different conductivities,
+  both temperature and normal heat flux (k * dT/dn) must be continuous.
+  The conductivity ratio across layer interfaces can be large (e.g. 47.5:1
+  between soil and insulation).
+
+BOUNDARY CONDITIONS:
+  (Using normalized temperature theta = (T - T_outdoor) / (T_indoor - T_outdoor))
+
+  Top surface (z=0):
+    x in [0, B]           : theta = 1  (indoor temperature)
+    x in (B, B+w]         : theta = (B + w - x) / w  (linear transition)
+    x in (B+w, W]         : theta = 0  (outdoor temperature)
+
+  Bottom (z=D)            : theta = 0
+  Left  (x=0)            : d(theta)/dx = 0  (symmetry / adiabatic)
+  Right (x=W)            : theta = 0
+
+  B = slab_half_width
+  w = wall_thickness
+
+REQUIRED OUTPUTS:
+  For each test case, compute three quantities:
+
+  1. heat_loss_per_meter (Q): Total building-to-ground heat loss per unit
+     slab length (W/m). Integrate the downward heat flux at z=0 over the
+     slab+wall region [0, B+w], then multiply by 2 for symmetry:
+
+       Q = 2 * integral_0^{B+w} [ -k(x,0) * delta_T * (d theta/dz)|_{z=0} ] dx
+
+     where delta_T = T_indoor - T_outdoor.
+
+  2. flux_density_avg (q_avg): Average slab heat flux density (W/m^2):
+       q_avg = Q / (2 * B)
+
+  3. psi_value: Linear thermal transmittance, also called the linear
+     thermal bridge coefficient (W/(m*K)). This quantifies how much heat
+     loss exceeds what a one-dimensional analysis would predict:
+
+       psi = Q / delta_T  -  U_1d * (2 * B)
+
+     where U_1d is the one-dimensional thermal transmittance through the
+     soil column directly beneath the slab center:
+
+       U_1d = 1 / sum(d_i / k_i)
+
+     with d_i and k_i being the thickness and conductivity of each soil
+     layer. NOTE: U_1d is computed from soil layers only; insulation
+     elements (which are at the perimeter, not under the slab center)
+     do not affect U_1d.
+
+     The psi-value is always positive because 2D edge effects always
+     add heat loss beyond the 1D prediction.

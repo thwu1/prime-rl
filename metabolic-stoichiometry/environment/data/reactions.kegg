@@ -1,0 +1,192 @@
+ENTRY       R01786
+NAME        Hexokinase
+DEFINITION  ATP + alpha-D-Glucose <=> ADP + alpha-D-Glucose 6-phosphate
+EQUATION    C00002 + C00267 <=> C00008 + C00668
+ENZYME      2.7.1.1
+///
+ENTRY       R02739
+NAME        Phosphoglucose isomerase
+DEFINITION  alpha-D-Glucose 6-phosphate <=> D-Fructose 6-phosphate
+EQUATION    C00668 <=> C00085
+ENZYME      5.3.1.9
+///
+ENTRY       R00756
+NAME        Phosphofructokinase
+DEFINITION  ATP + D-Fructose 6-phosphate <=> ADP + D-Fructose 1,6-bisphosphate
+EQUATION    C00002 + C00085 <=> C00008 + C00354
+ENZYME      2.7.1.11
+///
+ENTRY       R01068
+NAME        Fructose-bisphosphate aldolase
+DEFINITION  D-Fructose 1,6-bisphosphate <=> Glycerone phosphate + D-Glyceraldehyde 3-phosphate
+EQUATION    C00354 <=> C00111 + C00118
+ENZYME      4.1.2.13
+///
+ENTRY       R01015
+NAME        Triosephosphate isomerase
+DEFINITION  D-Glyceraldehyde 3-phosphate <=> Glycerone phosphate
+EQUATION    C00118 <=> C00111
+ENZYME      5.3.1.1
+///
+ENTRY       R01061
+NAME        Glyceraldehyde-3-phosphate dehydrogenase
+DEFINITION  D-Glyceraldehyde 3-phosphate + Orthophosphate + NAD+ <=> 3-Phospho-D-glyceroyl phosphate + NADH + H+
+EQUATION    C00118 + C00009 + C00003 <=> C00236 + C00004 + C00080
+ENZYME      1.2.1.12
+///
+ENTRY       R01512
+NAME        Phosphoglycerate kinase
+DEFINITION  ATP + 3-Phospho-D-glycerate <=> ADP + 3-Phospho-D-glyceroyl phosphate
+EQUATION    C00002 + C00197 <=> C00008 + C00236
+ENZYME      2.7.2.3
+///
+ENTRY       R01662
+NAME        Phosphoglycerate mutase
+DEFINITION  3-Phospho-D-glycerate <=> 2-Phospho-D-glycerate
+EQUATION    C00197 <=> C00631
+ENZYME      5.4.2.11
+///
+ENTRY       R00658
+NAME        Enolase
+DEFINITION  2-Phospho-D-glycerate <=> Phosphoenolpyruvate + H2O
+EQUATION    C00631 <=> C00074 + C00001
+ENZYME      4.2.1.11
+///
+ENTRY       R00200
+NAME        Pyruvate kinase
+DEFINITION  ATP + Pyruvate <=> ADP + Phosphoenolpyruvate
+EQUATION    C00002 + C00022 <=> C00008 + C00074
+ENZYME      2.7.1.40
+///
+ENTRY       R00209
+NAME        Pyruvate dehydrogenase complex
+DEFINITION  Pyruvate + CoA + NAD+ <=> Acetyl-CoA + CO2 + NADH + H+
+EQUATION    C00022 + C00010 + C00003 <=> C00024 + C00011 + C00004 + C00080
+ENZYME      1.2.4.1
+///
+ENTRY       R00351
+NAME        Citrate synthase
+DEFINITION  Acetyl-CoA + Oxaloacetate + H2O <=> Citrate + CoA + H+
+EQUATION    C00024 + C00036 + C00001 <=> C00158 + C00010 + C00080
+ENZYME      2.3.3.1
+///
+ENTRY       R01325
+NAME        Aconitase (citrate to cis-aconitate)
+DEFINITION  Citrate <=> cis-Aconitate + H2O
+EQUATION    C00158 <=> C00417 + C00001
+ENZYME      4.2.1.3
+///
+ENTRY       R01900
+NAME        Aconitase (cis-aconitate to isocitrate)
+DEFINITION  Isocitrate <=> cis-Aconitate + H2O
+EQUATION    C00311 <=> C00417 + C00001
+ENZYME      4.2.1.3
+///
+ENTRY       R00709
+NAME        Isocitrate dehydrogenase (NAD+)
+DEFINITION  Isocitrate + NAD+ <=> 2-Oxoglutarate + CO2 + NADH
+EQUATION    C00311 + C00003 <=> C00026 + C00011 + C00004
+ENZYME      1.1.1.41
+///
+ENTRY       R00621
+NAME        2-Oxoglutarate dehydrogenase complex
+DEFINITION  2-Oxoglutarate + CoA + NAD+ <=> Succinyl-CoA + CO2 + NADH
+EQUATION    C00026 + C00010 + C00003 <=> C00091 + C00011 + C00004
+ENZYME      1.2.4.2
+///
+ENTRY       R00432
+NAME        Succinyl-CoA synthetase (GDP-forming)
+DEFINITION  Succinyl-CoA + GDP + Orthophosphate <=> Succinate + CoA + GTP
+EQUATION    C00091 + C00035 + C00009 <=> C00042 + C00010 + C00044
+ENZYME      6.2.1.4
+///
+ENTRY       R02164
+NAME        Succinate dehydrogenase
+DEFINITION  Succinate + FAD <=> Fumarate + FADH2
+EQUATION    C00042 + C00016 <=> C00122 + C01352
+ENZYME      1.3.5.1
+///
+ENTRY       R01082
+NAME        Fumarase
+DEFINITION  (S)-Malate <=> Fumarate + H2O
+EQUATION    C00149 <=> C00122 + C00001
+ENZYME      4.2.1.2
+///
+ENTRY       R00342
+NAME        Malate dehydrogenase
+DEFINITION  (S)-Malate + NAD+ <=> Oxaloacetate + NADH + H+
+EQUATION    C00149 + C00003 <=> C00036 + C00004 + C00080
+ENZYME      1.1.1.37
+///
+ENTRY       R02736
+NAME        Glucose-6-phosphate dehydrogenase
+DEFINITION  alpha-D-Glucose 6-phosphate + NADP+ <=> D-Glucono-1,5-lactone 6-phosphate + NADPH + H+
+EQUATION    C00668 + C00006 <=> C01236 + C00005 + C00080
+ENZYME      1.1.1.49
+///
+ENTRY       R02035
+NAME        6-Phosphogluconolactonase
+DEFINITION  D-Glucono-1,5-lactone 6-phosphate + H2O <=> 6-Phospho-D-gluconate
+EQUATION    C01236 + C00001 <=> C00345
+ENZYME      3.1.1.31
+///
+ENTRY       R01528
+NAME        6-Phosphogluconate dehydrogenase
+DEFINITION  6-Phospho-D-gluconate + NADP+ <=> D-Ribulose 5-phosphate + CO2 + NADPH
+EQUATION    C00345 + C00006 <=> C00199 + C00011 + C00005
+ENZYME      1.1.1.44
+///
+ENTRY       R01056
+NAME        Ribulose-5-phosphate isomerase
+DEFINITION  D-Ribulose 5-phosphate <=> D-Ribose 5-phosphate
+EQUATION    C00199 <=> C00117
+ENZYME      5.3.1.6
+///
+ENTRY       R01529
+NAME        Ribulose-5-phosphate 3-epimerase
+DEFINITION  D-Ribulose 5-phosphate <=> D-Xylulose 5-phosphate
+EQUATION    C00199 <=> C00231
+ENZYME      5.1.3.1
+///
+ENTRY       R01641
+NAME        Transketolase (reaction 1)
+DEFINITION  D-Xylulose 5-phosphate + D-Ribose 5-phosphate <=> Sedoheptulose 7-phosphate + D-Glyceraldehyde 3-phosphate
+EQUATION    C00231 + C00117 <=> C05382 + C00118
+ENZYME      2.2.1.1
+///
+ENTRY       R01827
+NAME        Transaldolase
+DEFINITION  Sedoheptulose 7-phosphate + D-Glyceraldehyde 3-phosphate <=> D-Erythrose 4-phosphate + D-Fructose 6-phosphate
+EQUATION    C05382 + C00118 <=> C00279 + C00085
+ENZYME      2.2.1.2
+///
+ENTRY       R00258
+NAME        Alanine aminotransferase
+DEFINITION  L-Alanine + 2-Oxoglutarate <=> Pyruvate + L-Glutamate
+EQUATION    C00041 + C00026 <=> C00022 + C00025
+ENZYME      2.6.1.2
+///
+ENTRY       R00243
+NAME        Glutamate dehydrogenase (NAD+)
+DEFINITION  L-Glutamate + H2O + NAD+ <=> 2-Oxoglutarate + Ammonia + NADH + H+
+EQUATION    C00025 + C00001 + C00003 <=> C00026 + C00014 + C00004 + C00080
+ENZYME      1.4.1.2
+///
+ENTRY       R00355
+NAME        Aspartate aminotransferase
+DEFINITION  L-Aspartate + 2-Oxoglutarate <=> Oxaloacetate + L-Glutamate
+EQUATION    C00049 + C00026 <=> C00036 + C00025
+ENZYME      2.6.1.1
+///
+ENTRY       R00004
+NAME        Inorganic pyrophosphatase
+DEFINITION  Diphosphate + H2O <=> 2 Orthophosphate
+EQUATION    C00013 + C00001 <=> 2 C00009
+ENZYME      3.6.1.1
+///
+ENTRY       RX0001
+NAME        Erroneous isocitrate oxidoreductase (test entry)
+DEFINITION  Isocitrate + NAD+ <=> 2-Oxoglutarate + NADH
+EQUATION    C00311 + C00003 <=> C00026 + C00004
+ENZYME      1.1.1.41
+///

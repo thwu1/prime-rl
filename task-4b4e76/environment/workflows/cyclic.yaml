@@ -1,0 +1,20 @@
+version: "1"
+nodes:
+  - id: a
+    name: Node A
+    depends_on: [b]
+    steps:
+      - name: Work A
+        run: echo a
+  - id: b
+    name: Node B
+    depends_on: [c]
+    steps:
+      - name: Work B
+        run: echo b
+  - id: c
+    name: Node C
+    depends_on: [a]
+    steps:
+      - name: Work C
+        run: echo c

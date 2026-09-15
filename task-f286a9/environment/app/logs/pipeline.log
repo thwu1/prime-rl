@@ -1,0 +1,95 @@
+2025-11-18 11:20:01.102 pipeline INFO ============================================================
+2025-11-18 11:20:01.102 pipeline INFO Starting configuration pipeline run
+2025-11-18 11:20:01.102 pipeline INFO ============================================================
+2025-11-18 11:20:01.103 pipeline INFO Step 1: Generating feature configuration...
+2025-11-18 11:20:01.234 config_generator INFO Starting feature config generation
+2025-11-18 11:20:01.456 config_generator INFO Retrieved 224 features from API
+2025-11-18 11:20:01.478 config_generator INFO Config written: /app/configs/features_latest.json (224 features, 12.8KB)
+2025-11-18 11:20:01.479 config_generator INFO Config generation complete: /app/configs/features_latest.json
+2025-11-18 11:20:01.479 pipeline INFO Step 1 complete: config at /app/configs/features_latest.json
+2025-11-18 11:20:01.480 pipeline INFO Step 2: Loading feature configuration...
+2025-11-18 11:20:01.501 config_loader INFO Loading config: /app/configs/features_latest.json (224 features)
+2025-11-18 11:20:01.502 config_loader CRITICAL FATAL: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+2025-11-18 11:20:01.502 pipeline CRITICAL Step 2 FAILED: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+2025-11-18 11:25:01.102 pipeline INFO ============================================================
+2025-11-18 11:25:01.102 pipeline INFO Starting configuration pipeline run
+2025-11-18 11:25:01.102 pipeline INFO ============================================================
+2025-11-18 11:25:01.103 pipeline INFO Step 1: Generating feature configuration...
+2025-11-18 11:25:01.234 config_generator INFO Starting feature config generation
+2025-11-18 11:25:01.456 config_generator INFO Retrieved 112 features from API
+2025-11-18 11:25:01.478 config_generator INFO Config written: /app/configs/features_latest.json (112 features, 6.4KB)
+2025-11-18 11:25:01.479 config_generator INFO Config generation complete: /app/configs/features_latest.json
+2025-11-18 11:25:01.479 pipeline INFO Step 1 complete: config at /app/configs/features_latest.json
+2025-11-18 11:25:01.480 pipeline INFO Step 2: Loading feature configuration...
+2025-11-18 11:25:01.501 config_loader INFO Loading config: /app/configs/features_latest.json (112 features)
+2025-11-18 11:25:01.510 config_loader INFO Features loaded successfully: 112/200 slots used
+2025-11-18 11:25:01.510 pipeline INFO Step 2 complete: 112 features loaded
+2025-11-18 11:25:01.511 pipeline INFO Step 3: Running prefix cleanup...
+2025-11-18 11:25:01.678 cleanup_task INFO Starting prefix cleanup task
+2025-11-18 11:25:01.789 cleanup_task INFO Found 50 prefixes to clean up
+2025-11-18 11:25:01.823 cleanup_task INFO Withdrawn prefix 1 (198.51.100.0/24)
+2025-11-18 11:25:01.856 cleanup_task INFO Withdrawn prefix 2 (198.51.101.0/24)
+2025-11-18 11:25:01.889 cleanup_task INFO Withdrawn prefix 3 (198.51.102.0/24)
+2025-11-18 11:25:01.923 cleanup_task INFO Withdrawn prefix 4 (198.51.103.0/24)
+2025-11-18 11:25:01.956 cleanup_task INFO Withdrawn prefix 5 (198.51.104.0/24)
+2025-11-18 11:25:01.989 cleanup_task INFO Withdrawn prefix 6 (198.51.105.0/24)
+2025-11-18 11:25:02.023 cleanup_task INFO Withdrawn prefix 7 (198.51.106.0/24)
+2025-11-18 11:25:02.056 cleanup_task INFO Withdrawn prefix 8 (198.51.107.0/24)
+2025-11-18 11:25:02.089 cleanup_task INFO Withdrawn prefix 9 (198.51.108.0/24)
+2025-11-18 11:25:02.123 cleanup_task INFO Withdrawn prefix 10 (198.51.109.0/24)
+2025-11-18 11:25:02.156 cleanup_task INFO Withdrawn prefix 11 (198.51.110.0/24)
+2025-11-18 11:25:02.189 cleanup_task INFO Withdrawn prefix 12 (198.51.111.0/24)
+2025-11-18 11:25:02.223 cleanup_task INFO Withdrawn prefix 13 (198.51.112.0/24)
+2025-11-18 11:25:02.256 cleanup_task INFO Withdrawn prefix 14 (198.51.113.0/24)
+2025-11-18 11:25:02.289 cleanup_task INFO Withdrawn prefix 15 (198.51.114.0/24)
+2025-11-18 11:25:02.323 cleanup_task INFO Withdrawn prefix 16 (198.51.115.0/24)
+2025-11-18 11:25:02.356 cleanup_task INFO Withdrawn prefix 17 (198.51.116.0/24)
+2025-11-18 11:25:02.389 cleanup_task INFO Withdrawn prefix 18 (198.51.117.0/24)
+2025-11-18 11:25:02.423 cleanup_task INFO Withdrawn prefix 19 (198.51.118.0/24)
+2025-11-18 11:25:02.456 cleanup_task INFO Withdrawn prefix 20 (198.51.119.0/24)
+2025-11-18 11:25:02.489 cleanup_task INFO Withdrawn prefix 21 (198.51.120.0/24)
+2025-11-18 11:25:02.523 cleanup_task INFO Withdrawn prefix 22 (198.51.121.0/24)
+2025-11-18 11:25:02.556 cleanup_task INFO Withdrawn prefix 23 (198.51.122.0/24)
+2025-11-18 11:25:02.589 cleanup_task INFO Withdrawn prefix 24 (198.51.123.0/24)
+2025-11-18 11:25:02.623 cleanup_task INFO Withdrawn prefix 25 (198.51.124.0/24)
+2025-11-18 11:25:02.656 cleanup_task INFO Withdrawn prefix 26 (198.51.125.0/24)
+2025-11-18 11:25:02.689 cleanup_task INFO Withdrawn prefix 27 (198.51.126.0/24)
+2025-11-18 11:25:02.723 cleanup_task INFO Withdrawn prefix 28 (198.51.127.0/24)
+2025-11-18 11:25:02.756 cleanup_task INFO Withdrawn prefix 29 (198.51.128.0/24)
+2025-11-18 11:25:02.789 cleanup_task INFO Withdrawn prefix 30 (198.51.129.0/24)
+2025-11-18 11:25:02.823 cleanup_task INFO Withdrawn prefix 31 (198.51.130.0/24)
+2025-11-18 11:25:02.856 cleanup_task INFO Withdrawn prefix 32 (198.51.131.0/24)
+2025-11-18 11:25:02.889 cleanup_task INFO Withdrawn prefix 33 (198.51.132.0/24)
+2025-11-18 11:25:02.923 cleanup_task INFO Withdrawn prefix 34 (198.51.133.0/24)
+2025-11-18 11:25:02.956 cleanup_task INFO Withdrawn prefix 35 (198.51.134.0/24)
+2025-11-18 11:25:02.989 cleanup_task INFO Withdrawn prefix 36 (198.51.135.0/24)
+2025-11-18 11:25:03.023 cleanup_task INFO Withdrawn prefix 37 (198.51.136.0/24)
+2025-11-18 11:25:03.056 cleanup_task INFO Withdrawn prefix 38 (198.51.137.0/24)
+2025-11-18 11:25:03.089 cleanup_task INFO Withdrawn prefix 39 (198.51.138.0/24)
+2025-11-18 11:25:03.123 cleanup_task INFO Withdrawn prefix 40 (198.51.139.0/24)
+2025-11-18 11:25:03.156 cleanup_task INFO Withdrawn prefix 41 (198.51.140.0/24)
+2025-11-18 11:25:03.189 cleanup_task INFO Withdrawn prefix 42 (198.51.141.0/24)
+2025-11-18 11:25:03.223 cleanup_task INFO Withdrawn prefix 43 (198.51.142.0/24)
+2025-11-18 11:25:03.256 cleanup_task INFO Withdrawn prefix 44 (198.51.143.0/24)
+2025-11-18 11:25:03.289 cleanup_task INFO Withdrawn prefix 45 (198.51.144.0/24)
+2025-11-18 11:25:03.323 cleanup_task INFO Withdrawn prefix 46 (198.51.145.0/24)
+2025-11-18 11:25:03.356 cleanup_task INFO Withdrawn prefix 47 (198.51.146.0/24)
+2025-11-18 11:25:03.389 cleanup_task INFO Withdrawn prefix 48 (198.51.147.0/24)
+2025-11-18 11:25:03.423 cleanup_task INFO Withdrawn prefix 49 (198.51.148.0/24)
+2025-11-18 11:25:03.456 cleanup_task INFO Withdrawn prefix 50 (198.51.149.0/24)
+2025-11-18 11:25:03.457 cleanup_task INFO Cleanup complete: 50 withdrawn, 0 errors
+2025-11-18 11:25:03.457 pipeline INFO Step 3 complete: 50 prefixes withdrawn, 0 errors
+2025-11-18 11:25:03.457 pipeline INFO Pipeline run completed successfully
+2025-11-18 11:30:01.102 pipeline INFO ============================================================
+2025-11-18 11:30:01.102 pipeline INFO Starting configuration pipeline run
+2025-11-18 11:30:01.102 pipeline INFO ============================================================
+2025-11-18 11:30:01.103 pipeline INFO Step 1: Generating feature configuration...
+2025-11-18 11:30:01.234 config_generator INFO Starting feature config generation
+2025-11-18 11:30:01.456 config_generator INFO Retrieved 224 features from API
+2025-11-18 11:30:01.478 config_generator INFO Config written: /app/configs/features_latest.json (224 features, 12.8KB)
+2025-11-18 11:30:01.479 config_generator INFO Config generation complete: /app/configs/features_latest.json
+2025-11-18 11:30:01.479 pipeline INFO Step 1 complete: config at /app/configs/features_latest.json
+2025-11-18 11:30:01.480 pipeline INFO Step 2: Loading feature configuration...
+2025-11-18 11:30:01.501 config_loader INFO Loading config: /app/configs/features_latest.json (224 features)
+2025-11-18 11:30:01.502 config_loader CRITICAL FATAL: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+2025-11-18 11:30:01.502 pipeline CRITICAL Step 2 FAILED: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.

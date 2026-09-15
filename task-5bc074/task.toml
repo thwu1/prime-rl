@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 4 subtle bugs across a multi-tool bioinformatics pipeline chaining bcftools, bedtools, and a custom Python annotator. Bug 1: bcftools norm missing the -f reference flag so indels are not left-aligned. Bug 2: bedtools intersect uses -wa -wb instead of -loj, silently dropping intergenic variants. Bug 3: the Python classifier does not complement ALT alleles when annotating reverse-strand genes, producing wrong amino acid changes. Bug 4: CDS offset calculation uses naive gene_start subtraction instead of iterating through CDS regions, breaking codon identification across splice junctions in multi-exon genes. Each bug requires different domain knowledge and tool expertise to diagnose through interactive investigation of intermediate pipeline outputs."""
+solution_explanation = """Fix run_pipeline.sh: add '-f $REFERENCE' to bcftools norm for indel left-alignment, change bedtools intersect from '-wa -wb' to '-loj' for left outer join that preserves non-overlapping variants. Fix classify_effects.py: complement the ALT allele with COMPLEMENT[alt] for reverse-strand SNP annotation, replace naive get_cds_offset with a function that iterates CDS regions accounting for introns, and add intergenic variant handling when a variant ID is not found in the bedtools intersection output. Re-run the corrected pipeline."""
+verification_explanation = """Tests verify all 18 variant annotations against precomputed expected values: correct output file existence and row count, correct left-normalized indel position (218 not 220), presence of all 3 intergenic variants, correct amino acid changes for reverse-strand gene GAMMA (p.Ala51Thr, p.Leu17Leu), correct cross-splice-junction codon for BETA exon 2 (p.Ile67Asn), and exact match of gene/feature/effect/aa_change for every variant."""
+category = "applied_computing"
+tags = ["bioinformatics", "genomics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5bc074"

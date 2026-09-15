@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of dimensional modeling (Kimball methodology). The agent must identify three distinct anti-patterns — a fan-out trap from mixed-grain fact tables, a missing part-supplier cost relationship, and an incomplete date dimension causing silent data loss through inner joins. Diagnosing these requires evaluating the schema holistically, not just reading documentation, because the flaws produce subtly wrong results (inflated totals, wrong cost proxies, missing date ranges) rather than errors. Fixing them requires creating proper multi-grain fact tables, bridge dimensions, and extended coverage — genuine schema design decisions, not mechanical translations."""
+solution_explanation = """First, compare each report's output against staging-table reference results to identify reports 2, 4, and 5 as producing incorrect results. Root causes: (1) fact_sales stores order_total_price at lineitem grain causing ~4x fan-out on SUM; (2) the star schema lacks ps_supplycost, and the report substitutes retail_price which is unrelated; (3) dim_date covers only 1993-1997 while data spans 1992-1998, dropping ~24% of orders via inner joins. Fixes: create a separate fact_orders at order grain, add a dim_part_supplier bridge table from stg_partsupp, and extend dim_date to cover the full date range. Corrected reports query the fixed analytical model."""
+verification_explanation = """A fresh TPC-H SF=0.1 database is generated independently at test time to compute reference results. The agent's fix.sql is executed against the warehouse, then staging tables are dropped to ensure corrected reports cannot bypass the star schema. Each corrected report is run and compared row-by-row against reference results with floating-point tolerance. Additionally, diagnosis.json is validated: reports 2, 4, 5 must be flagged as incorrect and reports 1, 3 as correct, with substantive explanations."""
+category = "data_engineering"
+tags = ["dimensional-modeling", "sql"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/schema-migration-queries"

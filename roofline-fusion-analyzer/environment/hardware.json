@@ -1,0 +1,6 @@
+{
+  "name": "NVIDIA L40S",
+  "peak_flops_fp32": 19500000000000,
+  "memory_bandwidth_bytes_per_sec": 864000000000,
+  "dtype_bytes": 4
+}

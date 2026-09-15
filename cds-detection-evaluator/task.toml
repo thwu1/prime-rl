@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across autonomous driving perception evaluation, data engineering, and composite scoring methodology. The agent must: (1) derive the Composite Scene Flow Score by studying the CDS methodology from the Argoverse 2 detection evaluation code and adapting it to scene flow — mapping mAP to Dynamic IoU, ATE to EPE, ASE to Accuracy, and AOE to Angle Error with appropriate normalization thresholds inferred from the metric domains rather than given explicitly, (2) handle four different data serialization formats (Feather, Parquet with non-standard column remapping, ZIP-archived Feather, and CSV with a distinct column convention), (3) diagnose and correct ego-motion bias in the delta model's predictions by reading ego-pose displacement data and subtracting it from the global-frame flow vectors — a genuine autonomous driving data quality challenge requiring understanding of reference frame transformations in scene flow evaluation, (4) implement per-point scene flow metrics (EPE with L2 norm, dual-threshold accuracy with absolute OR relative inlier test and epsilon-stabilized division, space-time angle error with 4D time-augmentation and unit normalization) by carefully tracing the Python reference code, (5) use DuckDB for structured storage and SQL-based aggregation across multi-dimensional breakdowns (class/motion/distance) with correct exclusion rules derived from understanding which combinations are semantically invalid, and (6) produce a correctly ranked leaderboard with internally consistent metrics across all four models."""
+solution_explanation = """Study the CDS formula in detection_eval.py: CDS = mAP * mean(1 - ATE/2.0, 1 - ASE/1.0, 1 - AOE/pi). Map to scene flow: Dynamic IoU replaces mAP; EPE normalized by 2.0m (same as ATE threshold); Accuracy (mean of strict and relaxed) used directly as a quality score (analogous to 1-ASE); Angle Error normalized by pi (same as AOE threshold). For delta model: read ego_poses.json, subtract per-sweep ego displacement from CSV flow predictions to compensate for global-frame bias. For each model: load predictions in the correct format with appropriate column remapping, align with ground truth annotations filtered by is_valid, compute per-point metrics, insert into DuckDB. Aggregate with SQL GROUP BY queries, compute 3-way averages over FG/Dynamic + FG/Static + BG/Static, apply derived CSFS formula, rank models by CSFS descending."""
+verification_explanation = """test_state.py contains a fully independent reference implementation that loads raw data in all four formats (including ego-motion correction for delta), computes all per-point metrics from scratch, and aggregates them. Tests verify: (1) leaderboard.json structural completeness (4 models, all required fields, ranks 1-4), (2) all 96 per-subset metric values (4 models x 6 subsets x 4 metrics) within 5e-4 tolerance, (3) all 48 per-class-motion metric values, (4) Dynamic IoU, all four 3-way averages, and CSFS for each model, (5) correct ranking order (alpha > delta > beta > gamma) verified both structurally and against reference CSFS values, (6) DuckDB database existence with correct table schema, required columns, all four models present, and reasonable row count, (7) consistency between DuckDB SQL aggregation and leaderboard values, (8) metric bound validity (EPE>=0, accuracy in [0,1], strict<=relaxed, angle in [0,pi], CSFS in [0,1]), (9) internal consistency of 3-way averages and CSFS formula verification."""
+category = "data_science"
+tags = ["autonomous-driving-perception", "composite-scoring-derivation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cds-detection-evaluator"

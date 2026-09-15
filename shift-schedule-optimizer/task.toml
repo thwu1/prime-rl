@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of constraint programming and the CP-SAT solver API. The solver must correctly model: (1) soft sequence constraints with bounded spans and penalty literals, (2) night recovery constraints as conditional implications encoded as clauses, (3) role-based coverage as linear shortfall variables, (4) forbidden and penalized transitions, and (5) weekly sum constraints with max-equality for penalty computation. Combining these 6+ constraint types into a single coherent model with correct objective function is a task that requires proficient-to-expert level operations research knowledge."""
+solution_explanation = """The reference solution builds a CP-SAT model with ~900 boolean variables (8 employees x 4 shifts x 28 days) and encodes all hard constraints (exactly-one-shift-per-day, fixed assignments, unavailability, forbidden transitions, max consecutive work days, night recovery clauses, shift sequence hard bounds, weekly sum hard bounds, coverage minimums) and soft constraints (sequence length penalties via negated bounded spans, weekly sum penalties via max-equality, request weights, transition penalty literals, coverage excess variables, senior shortfall variables). The solver minimizes the weighted sum of all penalty terms. OR-Tools CP-SAT finds the optimal solution within the time limit."""
+verification_explanation = """Tests independently verify the solution by: (1) checking the schedule matrix dimensions and value ranges, (2) verifying all hard constraints are satisfied (fixed assignments, unavailability, forbidden transitions, max consecutive work days, night recovery, shift sequence hard bounds, weekly sum hard bounds, coverage minimums), (3) independently computing the total soft penalty from the schedule, and (4) asserting the penalty is below a threshold that requires genuine optimization."""
+category = "optimization"
+tags = ["constraint-programming", "scheduling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shift-schedule-optimizer"

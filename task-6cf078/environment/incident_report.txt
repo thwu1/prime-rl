@@ -1,0 +1,42 @@
+INCIDENT REPORT - Sensor Network Data Pipeline
+Date: 2024-11-15
+Severity: P2
+Reporter: Field Engineering Team
+
+Three anomalies have been identified in the decoded telemetry data produced
+by /app/buggy_decoder.py from /app/capture.bin:
+
+1. TEMPERATURE DATA QUALITY
+   All decoded temperature values are non-negative. Sensors deployed in
+   northern regions (IDs 1, 3, 5) are known to read sub-zero temperatures
+   during cold periods. Raw ADC calibration confirms the sensors ARE
+   recording negative values, but the decoded pipeline output never shows
+   any temperature below zero. Sub-reading auxiliary values also appear to
+   be exclusively non-negative, which contradicts the bipolar sensor range.
+
+2. STATUS CLASSIFICATION MISMATCH
+   The firmware engineering team reports that Warning status fires
+   approximately 3x more often than Error status based on the firmware's
+   threshold logic. However, the decoded data shows the opposite pattern:
+   Error appears roughly 3x more frequently than Warning. This is causing
+   false pages to the on-call rotation.
+
+3. BATTERY / HUMIDITY VALUE RANGES
+   The battery monitoring dashboard flags some sensors with battery
+   readings below 1000 mV, which is physically impossible for our 3.3V
+   LiPo cells (minimum operational voltage is 2800 mV). Conversely,
+   humidity percentage values exceeding 1200 (i.e., 120.0%) are appearing,
+   which is beyond the sensor's physical range of 0-100.0%. The value
+   ranges for these two fields appear to be inverted.
+
+The decoder source is at /app/buggy_decoder.py. All raw data originates
+from /app/capture.bin. The protocol specification is at
+/app/protocol_reference.md and the struct schema at /app/schema.json.
+
+A C reference decoder is available (unbuilt) at /app/libcobs/. It was
+written by the firmware team and is known to be correct. Build it with
+`make` and use its output as ground truth for cross-validation.
+
+Action required: identify root causes in the Python decoder, produce
+correct decoded output, cross-validate against the C reference decoder,
+and evaluate the v2 schema migration plan in /app/v2_delta.json.

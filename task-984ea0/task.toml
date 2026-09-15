@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of computational fluid dynamics, numerical methods, and systems-level C/Python interoperability. The agent must: (1) Use HDF5 command-line tools (h5ls, h5dump) to discover the undocumented hierarchical structure of the reference data — group names, dataset paths, attributes, and shapes — before implementing the solver. (2) Implement performance-critical finite difference kernels in C: periodic boundary padding for vertex-centered grids where endpoints coincide, central difference stencils for first and second derivatives, the coupled continuity/momentum/energy RHS with artificial viscosity, CFL-adaptive timestep computation, and forward Euler update with clipping — all with manual malloc/free memory management. (3) Compile the C code into a shared library using gcc and make, debugging any compilation or linker errors. (4) Write the Python ctypes interface layer: declare argtypes/restype for each C function, marshal numpy arrays to C double pointers, orchestrate the batch-level time integration loop, and implement NaN recovery. (5) Correctly tune numerical constants (gamma, CFL safety factor, artificial viscosity coefficient) to achieve nRMSE < 0.05 across two viscosity regimes."""
+solution_explanation = """(1) Implement periodic_pad in C: left ghost = x[N-2], right ghost = x[1] (vertex-centered endpoints coincide). (2) Implement compute_rhs: continuity via -d(rho*v)/dx with central differences, momentum via -v*dv/dx - dp/dx/rho + (eta+zeta+eta/3)*d2v/dx2 + art_visc*rho*dx^2*|div_v|*div_v, energy via total energy E = p/(gamma-1) + rho*v^2/2, flux (E+p)*v - v*(zeta+4*eta/3)*dv_dx, derive dp/dt = (gamma-1)*(dE/dt - v*rho*dv_dt - v^2/2*drho_dt). (3) euler_step with clipping [1e-4, 1e5]. (4) CFL: safety*dx/(max(|v|+c_s)+eps). (5) Compile: make -C /app/src. (6) Python ctypes: set up DP=POINTER(c_double), declare all argtypes, loop over batch elements calling C kernels, NaN recovery by resetting to last snapshot. Constants: GAMMA=5/3, SAFETY=0.1, MIN_DT=5e-7, MAX_DT=1e-4, ART_VISC=1.5."""
+verification_explanation = """Tests verify: (1) C shared library exists at /app/src/libkernels.so and exports required symbols (compute_rhs, euler_step, compute_cfl_timestep, has_nan) via ctypes loading. (2) C compute_rhs produces non-zero, NaN-free output for non-trivial sinusoidal input — validates the C stencil implementation. (3) C euler_step correctly performs forward Euler updates with expected numerical values. (4) Python solver outputs have correct shapes matching reference data. (5) No NaN values in solver output for either regime. (6) Initial conditions preserved at t=0. (7) nRMSE < 0.05 against HDF5 reference for both high-viscosity and low-viscosity regimes. (8) Spatial convergence rate > 1.3 via Richardson extrapolation across 64/128/256 grids using scipy interpolation."""
+category = "scientific_computing"
+tags = ["cfd-c-extension", "ctypes-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-984ea0"

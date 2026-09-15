@@ -1,0 +1,23 @@
+# loop.prog — Loop with specific iteration count
+# Solution: n=10, x=5 (loop runs 10 times, sum=50=10*5)
+n = input()
+x = input()
+i = 0
+t1 = 1
+sum = 0
+loop:
+if i >= n goto done
+sum = sum + x
+i = i + t1
+goto loop
+done:
+t2 = 5
+t3 = n * t2
+if sum != t3 goto end
+t4 = 10
+if n != t4 goto end
+t5 = 0
+t6 = 1
+assert t5 == t6
+end:
+halt

@@ -1,0 +1,42 @@
+{
+  "case_001": {
+    "bug_id": "bug_001",
+    "patch_id": "patch_001a",
+    "vm_results": ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass"]
+  },
+  "case_002": {
+    "bug_id": "bug_002",
+    "patch_id": "patch_002a",
+    "vm_results": ["trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger"]
+  },
+  "case_003": {
+    "bug_id": "bug_003",
+    "patch_id": "patch_003a",
+    "vm_results": ["trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "pass", "pass", "pass", "pass", "pass", "pass"]
+  },
+  "case_004": {
+    "bug_id": "bug_004",
+    "patch_id": "patch_004a",
+    "vm_results": ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger"]
+  },
+  "case_005": {
+    "bug_id": "bug_005",
+    "patch_id": "patch_005a",
+    "vm_results": ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "boot_fail", "boot_fail"]
+  },
+  "case_006": {
+    "bug_id": "bug_006",
+    "patch_id": "patch_006a",
+    "vm_results": ["trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "pass", "pass", "pass", "pass", "pass", "pass", "boot_fail", "boot_fail"]
+  },
+  "case_007": {
+    "bug_id": "bug_007",
+    "patch_id": "patch_007a",
+    "vm_results": ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "trigger"]
+  },
+  "case_008": {
+    "bug_id": "bug_008",
+    "patch_id": "patch_008a",
+    "vm_results": ["trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "trigger", "pass"]
+  }
+}

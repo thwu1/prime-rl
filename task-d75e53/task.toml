@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BGP domain knowledge to understand route leak semantics (valley-free model), RPKI ROA validation (origin and maxLength checks), and LOCAL_PREF policy conventions. The agent must correlate data across four heterogeneous formats: a normalized SQLite database requiring multi-table JOINs and schema discovery, namespaced XML requiring xpath with namespace handling, RPKI VRPs in a non-standard ASN format, and Cisco IOS-style configuration requiring domain-specific text parsing. No single tool suffices; the agent must orchestrate sqlite3, XML parsers, JSON processing, and config file parsing, then implement three independent detection algorithms and cross-reference results."""
+solution_explanation = """Query the SQLite database (JOIN rib_entries, routers, as_path_segments) for best-path routes. Parse the namespaced XML topology to build a bidirectional AS relationship map. Read RPKI VRPs and convert ASnnnn format to integers. Parse the Cisco IOS config to map neighbor IPs to expected LOCAL_PREF via route-map definitions. For route leaks: reconstruct each route's forwarding chain from the AS path, classify each hop as uphill/lateral/downhill using the relationship map, and flag valley-free violations. For RPKI: check each prefix's origin AS and length against covering ROA entries. For policy: compare actual vs expected LOCAL_PREF per neighbor. Deduplicate and write structured JSON output."""
+verification_explanation = """Tests load the JSON output files and verify: at least 2 route leaks exist (10.1.0.0/16 leaked by AS 65010, 10.2.0.0/16 leaked by AS 65020) with no false positives on customer routes; at least 2 RPKI violations (10.100.0.0/24 invalid origin, 10.10.0.0/24 invalid length) with no false positives on valid prefixes; at least 1 policy violation (R1/AS 65001 has LOCAL_PREF 80 instead of 150 for 10.10.0.0/16); and summary totals are consistent (total_issues >= 5)."""
+category = "networking"
+tags = ["bgp", "rpki"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d75e53"

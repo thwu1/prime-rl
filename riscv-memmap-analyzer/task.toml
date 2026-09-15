@@ -1,0 +1,50 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building two distinct parsers — one for the riscv_vhdl debugger's
+non-standard JSON-like format (with #include preprocessing, single-quoted strings, hex literals,
+true/false booleans, trailing commas, and nested attribute arrays) and one for VHDL package constant
+declarations (hex X"..." literals, integer expressions like 2**N, boolean values). Then requires
+implementing priority-based AXI bus address resolution and cross-validating seven specific hardware
+parameters between the functional simulation config and RTL hardware definition — a task that demands
+expertise in both RISC-V SoC architecture (memory-mapped I/O, address decoding, AXI bus, CLINT/PLIC)
+and hardware/software co-design verification."""
+solution_explanation = """The solution implements a Python tool that:
+1) Preprocesses #include directives recursively and uses ast.literal_eval to parse the config;
+2) Parses VHDL constant declarations via regex, handling X"hex", integer, boolean, and 2**N expressions;
+3) Extracts device instances with memory-mapped attributes and bus MapList configurations;
+4) Resolves addresses by finding matching devices in MapList, applying priority-based dispatch;
+5) Cross-validates 7 parameters between JSON simulation config and VHDL hardware constants,
+   detecting real mismatches (ImplementationID, DataregTotal, StackTraceSize, ResetVector)
+   caused by the functional simulator diverging from the synthesized hardware definition."""
+verification_explanation = """Tests verify: correct parsing of the non-standard config with #include
+chains across three files; memory map generation with all 20 bus-mapped devices sorted by address;
+address resolution for 10+ addresses covering bootrom, SRAM, DDR, PLIC, CLINT, UART, SPI flash,
+unmapped gaps, and out-of-range addresses; and cross-check of 7 hardware parameters between the
+actual riscv_vhdl debugger config and River CPU VHDL package, verifying exact match/mismatch
+detection (3 matches, 4 mismatches) with correct summary counts."""
+category = "embedded_systems"
+tags = ["risc-v", "hardware-verification"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-memmap-analyzer"

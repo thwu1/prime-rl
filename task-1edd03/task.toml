@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert graph theory and data engineering expertise. The agent receives only a terse output specification with field names and a one-line domain context — no algorithmic recipes, graph construction instructions, or data cleaning guidance. The agent must: (1) independently discover data quality issues in the raw CSV (duplicate rows, self-referencing regression loops) through exploratory analysis, (2) infer the correct directed-graph construction semantics from the domain context alone, (3) select and implement appropriate algorithms for SCC detection, DAG condensation, longest-path computation, and full forward-reachability analysis, (4) design a greedy iterative optimization procedure with complete reachability recomputation at each step from a high-level objective description, and (5) cross-reference heterogeneous data sources (CSV + JSONL) for component-level risk aggregation with correct handling of partial metadata coverage. Each step requires holistic domain understanding rather than following prescribed procedures."""
+solution_explanation = """Parse the CSV, deduplicate exact-duplicate rows, identify self-loop edges (FIX_ID appearing in its own BUG_IDS). Build a directed graph (bug_id -> fix_id), compute topology metrics via networkx (WCC, SCC, condensation longest path, degree extremes). Run BFS from every node for forward reachability. Execute greedy prevention: iteratively remove highest-reach node, recompute all reaches, accumulate until >= 50% of original total impact. Cross-reference patch_metadata.jsonl to aggregate forward_reach by component. Output structured JSON."""
+verification_explanation = """Tests independently parse the same CSV, build the same graph with identical deduplication and self-loop handling, compute all metrics via networkx, run the same greedy algorithm, and cross-reference the same JSONL metadata. Every field in results.json is compared against the independently computed reference."""
+category = "software_engineering"
+tags = ["graph-algorithms", "data-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1edd03"

@@ -1,0 +1,30 @@
+[
+  {
+    "r_hex": "01000000000000000000000000000000",
+    "s_hex": "00000000000000000000000000000000",
+    "message_hex": "48656c6c6f",
+    "expected_tag_hex": "48656c6c6f0100000000000000000000",
+    "description": "Short message with r=1, s=0"
+  },
+  {
+    "r_hex": "01000000000000000000000000000000",
+    "s_hex": "00000000000000000000000000000000",
+    "message_hex": "000102030405060708090a0b0c0d0e0f",
+    "expected_tag_hex": "000102030405060708090a0b0c0d0e0f",
+    "description": "Full 16-byte block with r=1, s=0"
+  },
+  {
+    "r_hex": "85d6be0854556d037c44520e40d50608",
+    "s_hex": "0103808afb0db2fd4abff6af4149f51b",
+    "message_hex": "43727970746f6772617068696320466f72756d2052657365617263682047726f7570",
+    "expected_tag_hex": "a8061dc1305136c6c22b8baf0c0127a9",
+    "description": "Multi-block message (RFC 8439 Section 2.5.2 key, pre-clamped)"
+  },
+  {
+    "r_hex": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+    "s_hex": "ffffffffffffffffffffffffffffffff",
+    "message_hex": "54657374",
+    "expected_tag_hex": "865b01a49f9f9f9f9f9f9f9f9f9f9f9f",
+    "description": "Short message with max s value"
+  }
+]

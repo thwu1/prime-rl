@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep pharmacogenomics domain knowledge combined with PostgreSQL database administration, relational schema design, and multi-format ETL. The solver must: start and configure PostgreSQL, design a normalized schema unifying heterogeneous data sources (six JSON files with different structures plus a SQL supplement), implement an ETL pipeline loading allele functions, diplotype-phenotype mappings, drug identifiers, and recommendation lookup tables into PostgreSQL, then build a query engine that resolves star-allele nomenclature, computes activity scores, determines lookup methods (phenotype vs activity-score vs allele-status) per gene-drug pair, handles multi-gene drugs (amitriptyline requires CYP2D6+CYP2C19, azathioprine requires TPMT+NUDT15), matches threshold-based activity score keys with Unicode ≥ operators, and produces structured JSON output — all querying exclusively through PostgreSQL. Cross-format data integration (e.g., TPMT has partial JSON data supplemented by SQL, NUDT15/CYP3A5 exist only in SQL) adds significant complexity."""
+solution_explanation = """Build a Python CLI with two subcommands. load-db: connect to PostgreSQL as user postgres, create cpic_cds database, create alleles/diplotypes/drugs/recommendations tables, load the SQL supplement via psql subprocess (creates supplement_alleles/supplement_diplotypes tables), load JSON data via psycopg2 INSERT statements, merge supplement data into main tables using INSERT...ON CONFLICT DO NOTHING, drop supplement tables. query: connect to cpic_cds, for each patient resolve diplotypes to phenotypes via SQL lookups, compute activity scores by summing allele activity values from the alleles table, determine lookup methods by inspecting recommendation lookup keys (JSONB), construct composite lookup keys for multi-gene drugs, find matching recommendations using JSONB equality comparison with population preference, output structured JSON. Key challenges: PostgreSQL service management, JSONB storage/comparison for recommendation lookup keys, cross-format data merging, and the multi-step clinical decision support pipeline."""
+verification_explanation = """Tests use a session-scoped pytest fixture that temporarily renames all JSON/SQL data files in /app/data/ before any tests run, verifying that the query subcommand exclusively uses PostgreSQL (not file reads). Additional tests verify the cpic_cds database exists and contains tables. Domain tests create patient input files with known genotype-drug combinations and verify exact output fields: phenotype assignments, activity score computations, recommendation text, classification strength, lookup methods, and multi-gene handling. Coverage spans JSON-only genes (CYP2C19/clopidogrel, CYP2D6/codeine, DPYD/capecitabine, HLA-B/abacavir, SLCO1B1/simvastatin, CYP2D6+CYP2C19/amitriptyline), SQL-only genes (CYP3A5/tacrolimus), and cross-format multi-gene cases (TPMT+NUDT15/azathioprine)."""
+category = "applied_computing"
+tags = ["pharmacogenomics", "clinical-decision-support"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pharmacogenomics-cds-engine"

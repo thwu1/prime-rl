@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a compiler backend: parsing an indentation-sensitive DSL (DaeDaLus DDL) into an AST, then generating correct C code that implements parser combinator semantics in an imperative language. The agent must discover how to map functional patterns (monadic sequencing, backtracking, sub-stream isolation) into C with proper memory management by studying the runtime API in parser.h and the language specification in SPEC.md. Getting the interaction between DDL features right in generated C demands holistic understanding of parser combinator theory and C memory ownership. Additionally, the agent must use the make build system for compilation and valgrind for memory validation — tools that require non-trivial expertise to interpret and debug effectively."""
+solution_explanation = """Parse DDL source into an AST using line-based indentation tracking (strip comments, group by indent to identify blocks, First alternatives, case branches). Walk the AST to emit C functions that use the runtime API: blocks become sequences of read/set operations; let bindings become local variables; First emits save/try/restore chains; case emits switch statements; Chunk calls ps_chunk; greedy Many emits loops with save/restore. Each function uses a goto-fail pattern to free allocations on failure. A main() function handles file I/O and calls parse_Main. The solution compiles via the provided Makefile and passes valgrind leak checks."""
+verification_explanation = """Tests run the transpiler on each of 4 DDL format specs, compile the generated C with gcc -Wall -Werror, execute compiled parsers on binary inputs, and verify JSON output field values. Tests also run each compiled parser under valgrind with --error-exitcode=99 to verify zero memory errors. A separate test checks that /app/valgrind_report.txt exists, contains output from all 4 parser runs, and shows zero errors in all summaries."""
+category = "compilers"
+tags = ["code-generation", "binary-formats"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ddl-binary-interpreter"

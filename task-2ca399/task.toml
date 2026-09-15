@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool analysis of a firmware ELF binary using readelf/objdump to discover custom ELF sections and symbol addresses, then parsing an undocumented compact binary type schema embedded in the .type_registry section (reverse-engineering the schema wire format from hex inspection). The solver must compute RAM offsets by cross-referencing symbol values against the _sram base address to locate ring buffer data within a raw SRAM dump, distinguish the telemetry buffer from a decoy debug-log buffer (which also contains valid COBS/CRC32-framed data but non-postcard payloads), extract BipBuffer regions handling the wrapped-buffer case (Region A before Region B), then implement a full postcard v1.0 deserializer driven by the parsed schema — including varint/LEB128, zigzag-encoded signed integers, a FixintLE u32 field (not varint), tagged enums mapped to string variant names, length-prefixed strings, Option types, and Vec sequences. The FixintLE field is only distinguishable from varint by the schema tag; mishandling it silently corrupts all subsequent fields."""
+solution_explanation = """Use readelf -S on firmware.elf to discover the .type_registry section. Use readelf -s to extract symbol addresses (_sram=0x20000000, g_telem_ringbuf, g_telem_meta). Extract and hexdump the .type_registry section content with objcopy --dump-section or readelf -x. Parse the binary schema: version byte, enum definitions with length-prefixed names, then message variants with typed fields. Compute RAM offsets (symbol_addr - _sram) to locate telemetry buffer data and metadata in ram_dump.bin. Parse BipBuffer metadata (write_head < read_head → wrapped), extract Region A = buf[rh:wm] and Region B = buf[0:wh]. Split on 0x00 COBS delimiters, COBS-decode each frame, verify CRC32, then deserialize postcard using the parsed schema. The schema's tag 0x06 indicates FixintLE u32 for timestamp_us (4 raw LE bytes, not varint)."""
+verification_explanation = """Tests load /app/recovered.json and verify: exactly 10 valid messages (2 corrupted excluded), correct buffer-read ordering (Region A first), exact field values for all Heartbeat/SensorData/DiagnosticLog/ConfigAck messages including integer fields, string fields, nested enum variant names, Option types, f32 approximate equality, and Vec contents. A dedicated test confirms FixintLE timestamp_us values are correct. Corrupted frames (seq=99, req_id=99) must not appear."""
+category = "systems_programming"
+tags = ["binary-forensics", "embedded-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2ca399"

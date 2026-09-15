@@ -1,0 +1,19 @@
+{
+  "description": "Projected CRS (UTM 17N) with Vertical CRS (EGM96 geoid height)",
+  "image": {
+    "width": 8,
+    "height": 8,
+    "bits_per_sample": 8
+  },
+  "geokeys": {
+    "GTModelTypeGeoKey": 1,
+    "GTRasterTypeGeoKey": 1,
+    "ProjectedCRSGeoKey": 32617,
+    "VerticalGeoKey": 5773,
+    "VerticalCitationGeoKey": "EGM96 geoid height",
+    "VerticalDatumGeoKey": 5171,
+    "VerticalUnitsGeoKey": 9001
+  },
+  "model_tiepoint": [0.0, 0.0, 0.0, 500000.0, 4649776.22, 100.0],
+  "model_pixel_scale": [1000.0, 1000.0, 1.0]
+}

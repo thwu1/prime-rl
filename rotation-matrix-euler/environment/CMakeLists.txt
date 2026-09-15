@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.16)
+project(RotationMath LANGUAGES CXX)
+
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_library(rotation_math STATIC rotation_math_impl.cpp)
+target_include_directories(rotation_math PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(rotation_math PRIVATE -O2)
+
+add_executable(test_runner /test/test_rotation.cpp)
+target_link_libraries(test_runner PRIVATE rotation_math)

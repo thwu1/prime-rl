@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extending a 2D Euler finite volume solver to ideal MHD while maintaining divergence-free magnetic fields to machine precision — a constraint that demands deep knowledge of staggered-grid numerics and specific update algorithms. The agent must also read initial conditions from HDF5 (requiring h5py or HDF5 command-line tools to inspect and parse the file), write a gnuplot script for density visualization (an unfamiliar tool for most), and create a Makefile orchestrating the simulation pipeline. The multi-tool interoperability (Python + HDF5 + gnuplot + make) combined with PhD-level computational physics makes this task very challenging."""
+solution_explanation = """The solution reads initial conditions from HDF5 using h5py, implements the full ideal MHD finite volume solver with constrained transport for divergence-free B-field evolution (face-centered B storage, corner electric fields, discrete curl updates), extends the Rusanov flux with magnetic pressure/tension/induction terms and fast magnetosonic wavespeed, writes density data as a text matrix, uses a gnuplot script to generate the contour plot, and ties everything together with a Makefile."""
+verification_explanation = """Tests verify: (1) mass conservation to machine precision, (2) total energy conservation to 1e-6 relative error, (3) momentum conservation, (4) divergence-free condition max|divB| < 1e-10, (5) density statistics in physically expected ranges for the test problem at t=0.5, (6) correct energy partition, (7) density_final.dat exists with correct NxN dimensions matching results.json statistics, (8) density_contour.png exists and is a valid non-trivial PNG, (9) Makefile exists with required targets."""
+category = "computational_physics"
+tags = ["mhd", "simulation-pipeline"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5ae88a"

@@ -1,0 +1,20 @@
+{
+    "name": "aes_cipher",
+    "description": "AES-128 encryption core",
+    "source": "CHStone",
+    "base_cycles": 1024,
+    "base_luts": 4200,
+    "base_ffs": 3100,
+    "base_dsps": 0,
+    "base_brams": 10,
+    "base_power_mw": 245.0,
+    "pipeline_depth": 10,
+    "reference_ppa": {
+        "latency_ns": 5120.0,
+        "luts": 4200,
+        "ffs": 3100,
+        "dsps": 0,
+        "brams": 10,
+        "power_mw": 245.0
+    }
+}

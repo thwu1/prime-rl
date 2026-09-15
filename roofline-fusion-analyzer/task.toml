@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across GPU performance theory, numerical computing, and statistical analysis. The solver must independently discover four distinct categories of data quality issues — physically impossible performance claims (requiring roofline model reasoning from hardware specs), inappropriate numerical validation parameters (requiring knowledge of precision-specific tolerance standards), unreliable timing measurements (requiring statistical distribution analysis), and systematic measurement artifacts (requiring bimodal distribution detection and domain knowledge of GPU cache behavior). No anomaly types are specified; the solver must diagnose each from raw data by cross-referencing hardware specifications, problem characteristics, and per-trial timing distributions."""
+solution_explanation = """The solution reads hardware specs, problem definitions, and evaluation results, then applies four independent detection methods: (1) computes theoretical minimum execution times via roofline model (max of compute-bound and memory-bound times) and flags results where kernel time falls below this physical limit; (2) cross-references validation tolerance against precision type and flags mismatches where overly lenient tolerance was used; (3) computes coefficient of variation across timing trials and flags results with excessive variance; (4) detects bimodal timing distributions indicating cache contamination and extracts cold-cache cluster for corrected measurements. After classifying each anomaly, it recomputes fast_p aggregate metrics using only trustworthy or corrected results."""
+verification_explanation = """Tests verify that all 8 anomalous results are correctly identified by result_id (2 roofline violations, 2 tolerance mismatches, 2 timing instabilities, 2 cache artifacts), no clean results are falsely flagged, exclusion/correction recommendations are appropriate, at least 3 distinct anomaly categories are recognized, and corrected fast_p metrics for both hardware configurations fall within tolerance of the deterministic ground truth values. Accepts both 'correct' and 'exclude' for cache artifacts to allow solver design freedom."""
+category = "performance_engineering"
+tags = ["gpu_benchmarking", "anomaly_detection"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/roofline-fusion-analyzer"

@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: search-ingress
+  namespace: gamma
+spec:
+  podSelector:
+    matchLabels:
+      app: elasticsearch
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchExpressions:
+        - key: tier
+          operator: In
+          values:
+          - backend
+          - infra
+    ports:
+    - port: es-http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: search-egress-deny
+  namespace: gamma
+spec:
+  podSelector:
+    matchLabels:
+      app: elasticsearch
+  policyTypes:
+  - Egress

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of two distinct nuclear transport code input formats (MCNP and OpenMC), including MCNP's card-based syntax with ZAID notation, CSG region definitions, and data card continuation conventions, plus OpenMC's XML schema for geometry surfaces, cell definitions, material nuclide specifications, and eigenvalue settings. The agent must independently determine the mapping between MCNP surface types (so) and OpenMC surface representations (sphere with coefficients), handle void cell elimination with vacuum boundary assignment, convert ZAID encodings to element-symbol nuclide names, and translate kcode parameters to OpenMC settings elements. The physics analysis requires deriving mass quantities from atom densities using nuclear data (atomic masses, Avogadro's number), computing uranium enrichment as a weight-percent metric, and performing CSG volume calculations for concentric shell geometries. Multi-tool interoperability is required: XML generation and validation with xmlstarlet, MCNP text parsing, CSV cross-referencing, and structured JSON output."""
+solution_explanation = """Build a Python pipeline that: (1) parses MCNP input files by splitting on blank-line delimiters into cell/surface/data sections, (2) extracts cell regions, material IDs, sphere-at-origin radii, nuclide ZAID-to-name mappings, and kcode parameters, (3) generates OpenMC geometry.xml with sphere surfaces (coeffs='0 0 0 R') and vacuum boundaries on outermost surfaces, materials.xml with nuclide ao attributes, and settings.xml with eigenvalue mode and batch parameters, (4) validates all XML using xmlstarlet, (5) computes shell volumes V=(4/3)pi(R_o^3-R_i^3), weight fractions wf_i=(n_i*A_i)/sum(n_j*A_j), uranium enrichment, and fissile mass m=sum(n*V*A*1e24/N_A) for U-235+Pu-239+Pu-241, (6) matches experimental keff from uncertainties CSV, (7) outputs structured JSON report."""
+verification_explanation = """55+ pytest tests verify: existence and well-formedness of all 9 OpenMC XML files (3 benchmarks x 3 files each) with correct root elements, geometry surface counts and radii matching MCNP values, correct vacuum boundary assignments, material counts and nuclide densities matching MCNP input to 1e-6 tolerance, density units='sum' on all materials, settings parameters (eigenvalue mode, 10000 particles, 3000 batches, 20 inactive), xmlstarlet validation log presence and absence of 'invalid' markers, JSON report structure with correct benchmark IDs, material compositions, weight fraction normalization to 1.0, enrichment values within 0.5% of known values, cell volumes within 1% of analytic values, fissile masses within physically meaningful bounds, exact experimental keff/uncertainty from CSV, and kcode parameter extraction."""
+category = "scientific_computing"
+tags = ["nuclear-engineering", "format-translation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f7c817"

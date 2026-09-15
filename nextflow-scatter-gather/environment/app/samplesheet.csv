@@ -1,0 +1,9 @@
+sample_id,experiment,priority,data_file
+S001,EXP_A,high,data/S001.tsv
+S002,EXP_A,low,data/S002.tsv
+S003,EXP_B,high,data/S003.tsv
+S004,EXP_B,high,data/S004.tsv
+S005,EXP_A,low,data/S005.tsv
+S006,EXP_C,high,data/S006.tsv
+S007,EXP_C,low,data/S007.tsv
+S008,EXP_B,low,data/S008.tsv

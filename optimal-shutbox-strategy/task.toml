@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires recovering game parameters from a multi-format research environment: extracting a compressed tar.gz backup to obtain a SQLite database, decrypting an AES-256-CBC encrypted scoring configuration using openssl with a passphrase found in the archive, decoding base64-encoded dice configurations from the database, and parsing a non-trivial database schema where tile ranges are stored as text strings requiring parsing. The solver must then implement a stochastic dynamic programming algorithm over 2^12 = 4096 bitmask states with exact rational arithmetic, computing not only the optimal expected cost but also the probability of a perfect game under the cost-optimal policy (a separate evaluation pass over the optimal policy's transition structure) and the policy divergence count (requiring understanding of how the optimal dice choice varies across the state space). The combination of multi-tool data recovery and advanced MDP analysis demands both systems proficiency and deep domain expertise."""
+solution_explanation = """Extract the backup archive to obtain the SQLite database and decryption passphrase. Query the database for the challenge experiment (status='challenge'), noting the tile_range='1-12' stored as text. Decode the base64-encoded dice option configs from the dice_options table. Decrypt the scoring weights file using openssl enc -d with the recovered passphrase to obtain tier-based multipliers (1x for tiles 1-4, 2x for 5-8, 3x for 9-12). Build a bottom-up DP over all 2^12 bitmask states using Fraction arithmetic, tracking the optimal dice and optimal remaining state for each state-roll pair. After computing E[cost] for all states, perform a second pass to compute P_perfect(s) = probability of reaching state 0 under the cost-optimal policy. Finally, count states where the optimal dice differs from the starting state's optimal dice."""
+verification_explanation = """The test independently extracts the same data from the research environment (tar archive, encrypted config, base64 DB entries), runs the identical DP and probability computation with exact rational arithmetic, and compares all six output values: p, q (expected cost fraction), a, b (perfect game probability fraction), optimal starting dice label, and policy divergence count."""
+category = "mathematics"
+tags = ["stochastic-optimization", "data-recovery"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimal-shutbox-strategy"

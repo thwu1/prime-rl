@@ -1,0 +1,20 @@
+$TTL 86400
+@   IN  SOA ns1.infra.example.com. admin.infra.example.com. (
+        2024010101  ; Serial
+        3600        ; Refresh
+        900         ; Retry
+        604800      ; Expire
+        86400       ; Minimum TTL
+)
+
+        IN  NS  ns1.infra.example.com.
+        IN  NS  ns2.infra.example.com.
+
+; PTR records
+10.0.1.1    IN  PTR     ns1.infra.example.com
+10.0.1.2    IN  PTR     ns2.infra.example.com
+10.0.1.10   IN  PTR     web1.infra.example.com
+10.0.1.11   IN  PTR     web2.infra.example.com
+10.0.1.20   IN  PTR     db1.infra.example.com
+10.0.1.30   IN  PTR     mail.infra.example.com
+10.0.1.40   IN  PTR     vpn.infra.example.com

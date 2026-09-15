@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete mutation testing pipeline from scratch with no procedural guidance — only operator definitions and an output schema are provided. The agent must independently determine how to parse and transform Python source code, execute mutated programs with proper isolation, and construct a detailed analysis report. Key challenges: (1) reliable AST-level code mutation across three operator families with precise semantics, (2) subprocess-isolated test execution with timeout handling for infinite-loop mutants and bytecode cache invalidation, (3) correct kill matrix construction with consistent test identification, (4) graph-theoretic subsumption analysis including transitive reduction (Hasse diagram) computation over the subsumption partial order, (5) dynamic equivalence detection via kill-vector comparison, (6) irredundant set cover for test minimization with deterministic tie-breaking, and (7) coherent JSON report generation tying all analyses together. The transitive reduction requires understanding of partial orders beyond simple pairwise comparison. Practical pitfalls (stale bytecode, mutant-induced hangs, AST unparsing edge cases) compound the theoretical complexity."""
+solution_explanation = """Parse the target source into a Python AST, walk it deterministically to collect mutation points for AOR (arithmetic operator replacement), ROR (relational operator replacement), and CRP (constant replacement). For each mutation point, generate a mutated source via AST node modification and ast.unparse. Execute the test suite per mutant using subprocess with PYTHONDONTWRITEBYTECODE=1 and 30s timeout, parsing junitxml output for per-test results. Build the kill matrix, compute subsumption by checking pairwise proper subset relationships on kill sets, compute the transitive reduction by filtering out relations with intermediate mutants (Hasse diagram), extract the minimal subsuming set, detect dynamic equivalences (identical kill vectors), compute the minimal test set via greedy set cover with alphabetical tie-breaking, and aggregate per-operator statistics. Write the complete JSON report."""
+verification_explanation = """Tests verify the report exists and has correct structure including reduced_relations, then check mathematical consistency: killed+survived=total, mutation_score=killed/total, kill matrix values are binary and match mutant status. Subsumption relations are validated via kill set proper subset checks. The transitive reduction (reduced_relations) is verified three ways: it must be a subset of full relations, each edge must have no intermediate mutant, and all immediate subsumption edges must be present. The minimal subsuming set is verified to contain no mutually subsuming pairs and to cover all non-subsuming killable mutants. The subsuming_mutation_score is verified as |minimal_set|/total. Dynamic equivalences are verified to have identical kill vectors. The minimal test set is checked for coverage and irredundancy. Operator stats cross-checked against mutant lists. Spot-checks independently verify specific mutant classifications."""
+category = "software_testing"
+tags = ["mutation_testing", "program_analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9d7c81"

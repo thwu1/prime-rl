@@ -1,0 +1,11 @@
+facility_id,location,region,setup_cost,throughput_limit
+W01,Atlanta,Southeast,2200,350
+W02,Chicago,Midwest,1800,300
+W03,Dallas,South,2500,400
+W04,Denver,Mountain,1400,250
+W05,Los_Angeles,West,3000,450
+W06,Miami,Southeast,1600,280
+W07,New_York,Northeast,2800,380
+W08,Phoenix,Southwest,1200,220
+W09,Seattle,Northwest,2100,320
+W10,Minneapolis,Midwest,1500,260

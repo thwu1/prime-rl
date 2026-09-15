@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and building a multi-tool ETL pipeline that transforms hierarchical FHIR R4 JSON into relational SQLite tables and produces analytics. The solver must write complex jq filters to handle FHIR-specific structures: choice-type polymorphism (valueQuantity vs medicationCodeableConcept vs medicationReference), contained resource fragment reference resolution to extract medication display names, nested CodeableConcept/Coding extraction, date-time normalization across varying precisions (date-only, datetime+Z, datetime+offset), and null-safe navigation for optional fields. The analytics phase demands SQL expertise for cross-table joins mapping FHIR reference strings to patient IDs, aggregate calculations (AVG by LOINC code), set intersection queries (patients with co-occurring active conditions and active medications), and threshold-based clinical flagging. No boilerplate or scaffolding is provided — the solver must create the entire pipeline integrating jq, SQLite, Python, and shell scripting."""
+solution_explanation = """Create /app/run.sh orchestrating: (1) jq filters extracting 6 resource types from FHIR bundles into /app/intermediate/*.ndjson, handling choice types via if/elif in jq, contained reference resolution via ltrimstr/select, dates via split(T)[0], and nested codings via chained accessors; (2) a Python script that reads NDJSON, creates SQLite tables from table_schemas.sql, inserts rows, runs 8 analytics queries (LEFT JOIN observations to patients, JOIN conditions+medications for comorbidity detection, AVG grouped by LOINC, COUNT by category, NULL checks for missing managing org references, MIN/MAX date range, threshold-based flagging from thresholds.json), and writes the JSON report."""
+verification_explanation = """32 pytest tests across 6 classes: TestPipeline (3) checks exit code and output file creation; TestIntermediateFiles (6 parametrized) verifies NDJSON files exist with correct row counts; TestDatabaseStructure (2) checks all 6 tables exist with correct row counts; TestDataExtraction (9) verifies FHIR extraction edge cases including choice-type medication display resolution for both medicationReference+contained and medicationCodeableConcept, date normalization from datetime+timezone to date-only, fragment reference preservation, CodeableConcept clinical/verification status, nested address/qualification extraction; TestAnalytics (10) validates all 8 analytics results; TestAntiHardcoding (2) cross-checks database-report consistency and specific database values."""
+category = "applied_computing"
+tags = ["fhir-hl7-etl", "jq-sqlite-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ed41c4"

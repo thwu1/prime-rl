@@ -1,0 +1,9 @@
+A 13-node CLOS datacenter fabric running EBGP over FRR is experiencing widespread connectivity failures. The operations team reports that most inter-rack host traffic is failing, several BGP sessions are in non-established states, and only one host-to-host path is operational across the entire fabric.
+
+Captured diagnostic state from every device — router configurations, BGP summaries, BGP routing tables, system routing tables, interface details, host configurations, nftables rulesets, tc qdisc dumps, FRR log excerpts, and a reachability matrix — is stored under `/app/network_state/`.
+
+Packet captures from key network segments during the incident are available at `/app/network_state/captures/`. Use `tshark` (installed on the system) to perform protocol-level forensic analysis of these PCAP files — extracting BGP message fields, TCP option details, SYN/SYN-ACK counts, and ARP target addresses. Some fault evidence requires packet-level analysis that cannot be derived from configuration or log files alone.
+
+The topology specification at `/app/network_state/topology.json` defines the intended design. An operations change log at `/app/network_state/ops_changelog.txt` documents recently approved intentional modifications to the network; not every anomaly in the captured state represents a fault.
+
+Perform a full network health audit. Write your assessment to `/app/results/assessment.json` following the schema at `/app/expected_schema.json`. The assessment must enumerate every anomaly across the fabric, classify each as either a genuine fault or a documented operational change, provide a corrected configuration or remediation command for each fault, specify a dependency-aware remediation order for the faults, and include a `packet_forensics` section with protocol-level evidence extracted from the PCAP files via `tshark`.

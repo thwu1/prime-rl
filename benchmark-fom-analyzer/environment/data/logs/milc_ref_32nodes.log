@@ -1,0 +1,79 @@
+MILC Version 7.8.1
+Machine = Cluster
+Username = benchuser
+start: Tue Jan 15 10:23:45 2024
+Options selected...
+  Generic single precision
+  C_PRECISION 1
+  WANT_MIXED_PRECISION_GPU 0
+type 0 for no prompts, 1 for prompts, or 2 for proofreading
+nx 144
+ny 144
+nz 144
+nt 288
+node_geometry 1 2 4 4
+ionode_geometry 1 2 4 4
+Lattice dimensions = 144 144 144 288
+
+Gauge group SU(3)
+Reconstruction = REUNIT
+Total number of sites = 882956288
+Nodes: 32, MPI ranks: 256
+
+WARMUP PHASE
+GFTIME:   time = 0.5123 (warmup)
+GFTIME:   time = 0.4987 (warmup)
+GFTIME:   time = 0.4876 (warmup)
+CONGRAD: niter = 42, rsq = 8.234e-13
+CONGRAD: niter = 38, rsq = 7.891e-13
+
+BEGIN TRAJECTORY 1
+GFTIME:   time = 0.4612
+CONGRAD: niter = 45, rsq = 6.234e-13
+GFTIME:   time = 0.4598
+CONGRAD: niter = 41, rsq = 7.123e-13
+GFTIME:   time = 0.4623
+CONGRAD: niter = 43, rsq = 6.891e-13
+GFTIME:   time = 0.4589
+CONGRAD: niter = 39, rsq = 7.456e-13
+GFTIME:   time = 0.4601
+CONGRAD: niter = 44, rsq = 6.567e-13
+GFTIME:   time = 0.4615
+CONGRAD: niter = 42, rsq = 6.789e-13
+GFTIME:   time = 0.4592
+CONGRAD: niter = 40, rsq = 7.234e-13
+GFTIME:   time = 0.4607
+CONGRAD: niter = 43, rsq = 6.456e-13
+GFTIME:   time = 0.4583
+CONGRAD: niter = 41, rsq = 7.012e-13
+GFTIME:   time = 0.4609
+PLAQ: 0.58789
+END TRAJECTORY 1
+
+BEGIN TRAJECTORY 2
+GFTIME:   time = 0.4523
+CONGRAD: niter = 42, rsq = 6.345e-13
+GFTIME:   time = 0.4518
+CONGRAD: niter = 40, rsq = 7.123e-13
+GFTIME:   time = 0.4521
+CONGRAD: niter = 43, rsq = 6.678e-13
+GFTIME:   time = 0.4519
+CONGRAD: niter = 41, rsq = 6.890e-13
+GFTIME:   time = 0.4520
+CONGRAD: niter = 44, rsq = 6.234e-13
+GFTIME:   time = 0.4522
+CONGRAD: niter = 42, rsq = 7.012e-13
+GFTIME:   time = 0.4517
+CONGRAD: niter = 40, rsq = 7.345e-13
+GFTIME:   time = 0.4521
+CONGRAD: niter = 43, rsq = 6.567e-13
+GFTIME:   time = 0.4519
+CONGRAD: niter = 41, rsq = 6.789e-13
+GFTIME:   time = 0.4520
+PLAQ: 0.58234
+END TRAJECTORY 2
+
+Number of nodes: 32
+Total MPI ranks: 256
+Total trajectories: 2
+RUNNING COMPLETED

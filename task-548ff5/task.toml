@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Active Directory security knowledge spanning multiple domains: NTLMv2/Kerberos TGS hash cracking, Windows Security event log forensic analysis (Event IDs 4624/4625/4662/4769/4776), AES-256-GCM decryption with PBKDF2 key derivation using recovered credentials, and holistic AD misconfiguration assessment. The agent must evaluate competing attack hypotheses by correlating event log evidence with credential artifacts, distinguish scanner noise from attacker activity, determine which of four undocumented encrypted packages contain engagement-relevant data (vs. decoys), and produce original security deliverables: a CVSS-scored vulnerability assessment derived from AD configuration analysis and a dependency-aware remediation plan. This goes well beyond procedural hash cracking — it requires the judgment and synthesis of an experienced penetration tester producing a professional assessment."""
+solution_explanation = """The solution proceeds in phases: (1) crack NTLMv2 and Kerberos TGS hashes from Responder/Kerberoast output using the provided wordlist, (2) systematically try each cracked credential against all four AES-256-GCM encrypted packages to identify which contain NTDS dump vs. decoys, (3) crack NTLM hashes from the identified NTDS dump, (4) use newly cracked DA password to decrypt the final objective package, (5) analyze Windows Security event logs to select Hypothesis A and build evidence-based justification distinguishing attacker (10.10.10.50) from scanner (10.10.10.100) traffic, (6) parse AD configuration to identify 8 specific misconfigurations (LLMNR, RC4, non-gMSA accounts, Backup Operators abuse, missing Protected Users, no tiered admin, unconstrained delegation, disabled auditing) with appropriate CVSS scores, (7) construct a remediation plan with correct operational dependency ordering."""
+verification_explanation = """Tests verify six dimensions: (1) credential accuracy — 3 critical chain credentials exact-match plus 6/9 breadth, (2) hypothesis evaluation — correct selection of Hypothesis A with justification referencing ≥3 evidence indicators and addressing scanner traffic, (3) attack chain — correct stage ordering with evidence references, (4) vulnerability assessment — ≥5 vulnerabilities identified including LLMNR, RC4/Kerberoasting, excessive privileges, and admin protection gaps, with valid CVSS scores consistent with severity labels, (5) remediation plan — ≥4 actions addressing ≥3 vulnerability IDs with at least one declared dependency, (6) domain admin NTLM hash correctness and decrypted objective flag presence."""
+category = "cybersecurity"
+tags = ["active-directory-security", "forensic-assessment"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-548ff5"

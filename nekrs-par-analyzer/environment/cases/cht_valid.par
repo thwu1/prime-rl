@@ -1,0 +1,31 @@
+# Conjugate Heat Transfer: Re=1000, Pr=7, conductivity_ratio=5
+[GENERAL]
+polynomialOrder = 7
+stopAt = endTime
+endTime = 200
+
+dt = 1e-3
+timeStepper = tombo2
+
+checkpointControl = simulationTime
+checkpointInterval = 20
+
+scalars = TEMPERATURE
+
+[FLUID PRESSURE]
+residualTol = 1e-04
+
+[FLUID VELOCITY]
+boundaryTypeMap = zeroDirichlet, zeroNeumann
+rho = 1.0
+viscosity = 1/1000 # 1/Re
+residualTol = 1e-06
+
+[SCALAR TEMPERATURE]
+boundaryTypeMap = udfDirichlet, zeroNeumann
+mesh = fluid+solid
+diffusionCoeff = 1/7000 # 1/(Re*Pr)
+transportCoeff = 1.0
+diffusionCoeffSolid = 5/7000
+transportCoeffSolid = 1.0
+residualTol = 1e-06

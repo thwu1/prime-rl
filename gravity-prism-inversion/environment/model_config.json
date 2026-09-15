@@ -1,0 +1,24 @@
+{
+  "model_space": {
+    "east_min": 0,
+    "east_max": 4000,
+    "north_min": 0,
+    "north_max": 4000,
+    "depth_min": 0,
+    "depth_max": 2000,
+    "cell_size_east": 500,
+    "cell_size_north": 500,
+    "cell_size_depth": 500,
+    "n_east": 8,
+    "n_north": 8,
+    "n_depth": 4
+  },
+  "gravitational_constant_SI": 6.674e-11,
+  "coordinate_system": "Cartesian, z-positive-up, depth increases with negative z",
+  "units": {
+    "length": "meters",
+    "density": "kg/m^3",
+    "gravity": "mGal"
+  },
+  "notes": "Prism boundaries: [west, east, south, north, bottom, top]. Bottom < top (z-up)."
+}

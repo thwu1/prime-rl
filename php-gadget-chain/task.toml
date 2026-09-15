@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level security assessment requiring the solver to: (1) discover and evaluate four deserialization entry points with three distinct protection mechanisms (none, allowed_classes filtering, HMAC signatures), correctly judging which are exploitable and why; (2) analyze 13+ PHP classes to identify viable vs dead-end gadget chains for RCE, reasoning about which magic methods trigger during deserialization and which call_user_func sinks are reachable; (3) construct a serialized PHP object payload with private property null-byte class-qualified encoding; (4) design and implement a custom deserialization guard that blocks all dangerous gadget chain classes while preserving legitimate session functionality — requiring the solver to synthesize offensive and defensive security expertise."""
+solution_explanation = """Audit PHP source to find 4 unserialize() sinks: index.php and dashboard.php (raw cookie, exploitable), api.php (allowed_classes filter, safe), import.php (HMAC signature required, safe). Analyze class library for gadget chains: NotificationService.__destruct()→EventHandler.dispatch()→DataMapper.transform()→call_user_func() is viable for RCE; NotificationService→ServiceLocator.__call()→call_user_func_array() is a second viable path; CacheManager.__destruct() writes JSON only (no code exec); Logger.__destruct() only closes file handles. Construct 3-class gadget chain with null-byte private property encoding, base64-encode, deliver via user_session cookie. Design deser_guard.php using PHP allowed_classes parameter restricted to UserSession and UserPreferences, with __PHP_Incomplete_Class detection to return null for blocked payloads."""
+verification_explanation = """Tests verify: (1) audit_report.json correctly identifies all deserialization sinks with correct exploitability verdicts (cookie sinks exploitable, api.php and import.php not exploitable); (2) at least one viable RCE gadget chain is identified involving NotificationService; (3) exploit payload achieves RCE by creating proof file via cookie delivery; (4) deser_guard.php blocks dangerous classes (NotificationService, DataMapper, EventHandler, ServiceLocator) via PHP CLI execution; (5) deser_guard.php allows legitimate UserSession deserialization; (6) correct flag extracted."""
+category = "security"
+tags = ["deserialization", "security-audit"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/php-gadget-chain"

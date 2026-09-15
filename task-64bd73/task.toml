@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of quantum error mitigation and statistical estimation theory. The agent must explore a SQLite reference database using sqlite3 CLI and jq to discover the mathematical relationships underlying ZNE extrapolation, then implement 7 interdependent methods with proper covariance accounting, integer-constrained optimization, and adaptive multi-round updating. Additionally, the agent must build a multi-tool validation pipeline (sqlite3 + jq + python3) that extracts, transforms, and validates against the reference database."""
+solution_explanation = """Use sqlite3 to query the reference database and jq to parse embedded JSON arrays. Discover input-output patterns for coefficient computation, extrapolation, covariance-aware variance estimation, constrained variance-minimizing shot allocation with integer rounding, and adaptive multi-round procedure. Implement all methods in the optimizer class based on discovered relationships. Build extract_and_validate.sh using sqlite3+jq pipelines to extract reference data and python3 to compare optimizer outputs, writing a structured validation report."""
+verification_explanation = """18 pytest tests verify: coefficient correctness and mathematical properties, extrapolation exactness for polynomials, covariance-aware variance estimation against known analytical values, allocation constraint satisfaction and optimality, ZNE variance formula correctness, end-to-end statistical tests (ZNE improves over noisy, adaptive outperforms uniform), and a validation pipeline test that checks the shell script exists with sqlite3+jq invocations, runs it, and verifies the JSON report structure with all_passed=true."""
+category = "quantum_computing"
+tags = ["error-mitigation", "shot-allocation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-64bd73"

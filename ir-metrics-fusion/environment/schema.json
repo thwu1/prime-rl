@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IR Evaluation Report",
+  "description": "Comprehensive evaluation report for passage retrieval systems.",
+  "type": "object",
+  "required": ["systems", "trec_eval_ndcg", "pairwise_significance", "fusion_optimization", "final_ranking"],
+  "properties": {
+    "systems": {
+      "description": "Evaluation metrics for five systems: three base retrieval systems ('bm25', 'neural', 'tfidf'), one RRF-fused system ('rrf_optimal'), and one CombSUM-fused system ('combsum'). All metrics are averaged across all queries present in the qrels. A passage is considered relevant if its qrels grade > 0.",
+      "type": "object",
+      "required": ["bm25", "neural", "tfidf", "rrf_optimal", "combsum"],
+      "additionalProperties": false,
+      "properties": {
+        "bm25": { "$ref": "#/definitions/system_metrics" },
+        "neural": { "$ref": "#/definitions/system_metrics" },
+        "tfidf": { "$ref": "#/definitions/system_metrics" },
+        "rrf_optimal": { "$ref": "#/definitions/system_metrics" },
+        "combsum": { "$ref": "#/definitions/system_metrics" }
+      }
+    },
+    "trec_eval_ndcg": {
+      "description": "nDCG@10 values obtained by running the trec_eval binary (at /usr/local/bin/trec_eval) on each base system. Run files must be converted to standard TREC run format (qid Q0 docid rank score tag) with scores inversely proportional to rank before running trec_eval.",
+      "type": "object",
+      "required": ["bm25", "neural", "tfidf"],
+      "additionalProperties": false,
+      "properties": {
+        "bm25": { "type": "number" },
+        "neural": { "type": "number" },
+        "tfidf": { "type": "number" }
+      }
+    },
+    "pairwise_significance": {
+      "description": "Paired two-tailed randomization test on per-query nDCG@10 for each unordered pair of base systems. Pairs are named in alphabetical order. Procedure for each pair: (1) Compute per-query nDCG@10 differences d_i = first_system(q_i) - second_system(q_i) for queries in ascending query ID order. (2) Compute observed_mean = mean(d_i). (3) Run 10000 iterations using Python random.Random(42): in each iteration, for each d_i draw r = rng.random(); set d'_i = d_i if r > 0.5, else d'_i = -d_i; compute permuted_mean = mean(d'_i); count iteration as extreme if |permuted_mean| >= |observed_mean|. (4) p_value = extreme_count / 10000.",
+      "type": "object",
+      "required": ["bm25_vs_neural", "bm25_vs_tfidf", "neural_vs_tfidf"],
+      "additionalProperties": false,
+      "properties": {
+        "bm25_vs_neural": { "$ref": "#/definitions/significance_result" },
+        "bm25_vs_tfidf": { "$ref": "#/definitions/significance_result" },
+        "neural_vs_tfidf": { "$ref": "#/definitions/significance_result" }
+      }
+    },
+    "fusion_optimization": {
+      "description": "Grid search for the RRF k parameter that maximizes nDCG@10 when fusing all three base systems. Evaluate k in [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].",
+      "type": "object",
+      "required": ["best_k", "best_ndcg_10", "grid_results"],
+      "additionalProperties": false,
+      "properties": {
+        "best_k": { "type": "integer", "description": "The k value that yields the highest nDCG@10." },
+        "best_ndcg_10": { "type": "number", "description": "nDCG@10 achieved with best_k." },
+        "grid_results": {
+          "type": "object",
+          "description": "Mapping from k value (as string) to the nDCG@10 achieved with that k.",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+    "final_ranking": {
+      "description": "All five system names sorted by nDCG@10 in descending order.",
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 5,
+      "maxItems": 5
+    }
+  },
+  "definitions": {
+    "system_metrics": {
+      "type": "object",
+      "required": ["MRR@10", "nDCG@10", "MAP@10", "Recall@10", "P@10"],
+      "additionalProperties": false,
+      "properties": {
+        "MRR@10": { "type": "number", "description": "Mean Reciprocal Rank at cutoff 10." },
+        "nDCG@10": { "type": "number", "description": "Normalized Discounted Cumulative Gain at cutoff 10." },
+        "MAP@10": { "type": "number", "description": "Mean Average Precision at cutoff 10." },
+        "Recall@10": { "type": "number", "description": "Recall at cutoff 10." },
+        "P@10": { "type": "number", "description": "Precision at 10: fraction of top-10 documents that are relevant (grade > 0), averaged across all queries." }
+      }
+    },
+    "significance_result": {
+      "type": "object",
+      "required": ["delta", "p_value", "significant_at_005"],
+      "additionalProperties": false,
+      "properties": {
+        "delta": { "type": "number", "description": "Observed mean of per-query nDCG@10 differences (first_system - second_system)." },
+        "p_value": { "type": "number", "description": "Two-tailed p-value from randomization test." },
+        "significant_at_005": { "type": "boolean", "description": "True if p_value < 0.05." }
+      }
+    }
+  }
+}

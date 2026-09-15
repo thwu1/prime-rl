@@ -1,0 +1,18 @@
+{
+  "name": "LandScan Global Population Database",
+  "description": "Community standard for global population distribution data representing ambient (24-hour average) population",
+  "crs_epsg": 4326,
+  "bounds": {
+    "lon_min": -180.0,
+    "lat_min": -90.0,
+    "lon_max": 180.0,
+    "lat_max": 90.0
+  },
+  "start_year": 2000,
+  "end_year": 2022,
+  "cell_size_arcsec": 30,
+  "data_fields": ["population_count"],
+  "organization": "Oak Ridge National Laboratory",
+  "terms": "restricted",
+  "category": "population"
+}

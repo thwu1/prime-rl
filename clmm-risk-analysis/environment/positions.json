@@ -1,0 +1,24 @@
+[
+  {
+    "id": 0,
+    "liquidity": 10000,
+    "price_lower": 81,
+    "price_upper": 121,
+    "entry_price": 100,
+    "fee_tier": 0.003,
+    "daily_volume": 500000,
+    "total_liquidity": 1000000,
+    "eval_prices": [64, 81, 90.25, 100, 110.25, 121, 144]
+  },
+  {
+    "id": 1,
+    "liquidity": 5000,
+    "price_lower": 400,
+    "price_upper": 900,
+    "entry_price": 625,
+    "fee_tier": 0.003,
+    "daily_volume": 2000000,
+    "total_liquidity": 500000,
+    "eval_prices": [324, 400, 529, 625, 784, 900, 1024]
+  }
+]

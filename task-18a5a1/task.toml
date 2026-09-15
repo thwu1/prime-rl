@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic binary analysis of a corrupted column-store database with five distinct corruption types across four relation files, where the crash diagnostic report is incomplete (one relation has no metadata) and partially misleading (endian conversion direction flag unreliable). The agent must: (1) reverse-engineer the column-major uint64 binary format from an intact reference file, (2) diagnose a header desync where column count is under-reported, (3) identify partial byte-order corruption by determining which rows are actually affected (crash report direction may be wrong), (4) diagnose an undocumented compound corruption in r3 with zero crash metadata — detecting a physical column permutation via schema constraint violations AND recognizing delta-encoded column data from its characteristic pattern of alternating small values and near-2^64 unsigned representations of negative deltas, then correctly decoding via prefix-sum reconstruction, (5) fix a tuple-count header desync using file-size analysis. The delta-encoding detection and the unreliable crash metadata require holistic database systems expertise beyond procedural execution."""
+solution_explanation = """Parse crash_report.txt for partial hints but verify all against actual binary data. Fix r1 by comparing file size against header-reported dimensions to find true column count (4 vs 3). Fix r2 by scanning c2 values against the schema CHECK constraint to find which rows are big-endian (first 200), regardless of crash report's stated direction. For r3 (no crash metadata): detect column swap by comparing per-column max values against schema constraints (physical col 1 has max ~199 but c1 should be ≤9), then detect delta encoding in c4 by recognizing the characteristic uint64 pattern of signed deltas — decode via cumulative unsigned addition mod 2^64. Fix r4 header tuple count using file-size arithmetic. Load all repaired data into DuckDB and execute the 10 analytical queries."""
+verification_explanation = """Tests independently regenerate correct (pre-corruption) data from the same PRNG seed, load into DuckDB, and compute expected query results. Separately, tests load the agent's repaired binary files and verify: (a) structural integrity — correct headers, column counts, tuple counts; (b) value range compliance — r3.c4 values in [0,9999] confirming delta decode, r2.c2 values ≤4999 confirming endian fix, r3.c1 max ≤9 confirming column unswap; (c) query result equivalence against independently computed ground truth. This multi-layer validation catches partial repairs, wrong decode direction, and incomplete corruption fixes."""
+category = "systems"
+tags = ["databases", "binary-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-18a5a1"

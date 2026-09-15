@@ -1,0 +1,10 @@
+{
+  "name": "yieldspace-math",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

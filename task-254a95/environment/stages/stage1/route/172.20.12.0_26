@@ -1,0 +1,6 @@
+route:              172.20.12.0/26
+descr:              Gamma Network primary route
+origin:             AS4242420003
+max-length:         26
+mnt-by:             GAMMA-MNT
+source:             DN42

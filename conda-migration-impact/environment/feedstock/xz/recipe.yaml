@@ -1,0 +1,36 @@
+context:
+  name: xz
+  version: "5.4.6"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/tukaani-project/xz/releases/download/v${{ version }}/xz-${{ version }}.tar.gz
+  sha256: aeba3e03bf8140ddedf62a0a367158340520f6b384f75ca6045ccc920064e66a
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - autoconf
+    - automake
+    - libtool
+  host: []
+  run: []
+
+test:
+  commands:
+    - xz --version
+    - test -f $PREFIX/lib/liblzma.so
+
+about:
+  homepage: https://tukaani.org/xz/
+  license: LGPL-2.1-or-later
+  license_file: COPYING
+  summary: XZ Utils - data compression utilities and libraries

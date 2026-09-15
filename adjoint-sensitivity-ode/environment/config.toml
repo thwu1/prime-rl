@@ -1,0 +1,16 @@
+[solver]
+method = "RK45"
+rtol = 1e-8
+atol = 1e-10
+
+[estimation]
+max_iterations = 200
+param_lower_bound = 0.01
+param_upper_bound = 20.0
+
+[data]
+observations_file = "/app/data/observations.csv"
+metadata_file = "/app/data/metadata.toml"
+
+[output]
+results_dir = "/app/results"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of pipelined processor microarchitecture, Verilog HDL, and data hazard resolution. The agent must trace pipeline timing across multiple modules with registered and combinational datapaths, identify all forwarding paths (ALU write, immediate load write, and their interactions with the AGU and ALU input muxes), handle both the normal write and write_immediate register file paths, and verify through iverilog simulation. The non-obvious timing of non-blocking assignments and the interplay between stage2 write signals and stage1 read indices make this a professional-level digital design task."""
+solution_explanation = """Add forwarding detection and bypass logic in maxicore32.v. Detect when registersstage2's write or write_immediate targets the same register that memorystage1 is reading via any of the three register file read ports. Compute the forwarded value (alu_result for ALU writeback, or sign/zero-extended immediate for LOADI). Insert bypass muxes on the ALU reg2/reg3 inputs, the AGU base_address/register_data inputs, and the store data output, selecting forwarded data when a hazard match is detected."""
+verification_explanation = """Compile the complete Verilog design with iverilog. Run vvp simulation which executes a test program containing 7 blocks of consecutive dependent instructions without NOP delays. The simulation halts and dumps all 16 register values. Parse the register dump and verify each against expected values computed from the instruction semantics with correct forwarding."""
+category = "computer_architecture"
+tags = ["verilog", "pipeline-forwarding"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipeline-forwarding"

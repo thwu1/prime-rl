@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!--
+     Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+     SPDX-License-Identifier: BSD-2-Clause
+-->
+<testsuite>
+
+  <!-- Build Isabelle and common theories (Pure, HOL, Word). -->
+  <sequence>
+    <test name="isabelle" cpu-timeout="3600">isabelle/bin/isabelle build -d . -vb Word_Lib</test>
+  </sequence>
+
+  <!-- Ensure that all of our XML files are strictly correct. -->
+  <test name="tests-xml-correct" cpu-timeout="60">
+    find . -name tests.xml -print0 | xargs -0 misc/regression/testspec.py
+  </test>
+
+</testsuite>

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level BGP expertise to remediate a non-functional dual-homed enterprise network. The solver must analyze three diagnostic documents (incident report with 7 symptoms, routing policy specifications, and architecture notes) to identify root causes and determine appropriate BGP mechanisms. Key challenges: (1) diagnosing that iBGP route propagation failure is caused by missing route-reflector configuration on R3, (2) recognizing that external next-hop unreachability requires next-hop-self on border routers, (3) selecting local-preference (not weight) for AS-wide outbound TE propagation, (4) choosing AS-path prepending for inbound TE without ISP cooperation, (5) designing prefix-list-based route-maps that simultaneously implement selective advertisement and transit prevention via implicit deny. The solver must synthesize information across multiple documents and make architectural decisions about which BGP mechanisms address each symptom."""
+solution_explanation = """Reads diagnostic files to identify all 7 issues, then generates 5 complete FRR configs. R1/R2/R3 get OSPF area 0 on internal links+loopbacks for IGP reachability. R3 is configured as route reflector with R1/R2 as clients. R1/R2 set next-hop-self toward R3. R3 originates all 5 customer prefixes. R4/R5 originate ISP prefixes. R1 inbound route-map from R4 sets local-preference 200 (outbound TE). R1 outbound route-map to R4: entry 10 matches AGG_ONLY prefix-list (10.100.0.0/22) with AS-path prepend 65100 65100 65100; entry 20 matches R1_EXPORT prefix-list (10.100.0.0/24, 10.100.1.0/24). R2 outbound route-map to R5: single entry matching R2_EXPORT prefix-list. All route-map entries have match clauses; implicit deny prevents transit."""
+verification_explanation = """67 pytest tests parse FRR config files to verify: OSPF networks on R1/R2/R3, BGP neighbor statements with correct ASNs and update-source, route-reflector-client on R3, next-hop-self on R1/R2, network origination on R3/R4/R5, inbound route-map with local-pref 200 on R1, outbound route-map on R1 with prefix-list-matched AS-path prepend for aggregate, selective advertisement via prefix-list checking (permits correct prefixes, blocks wrong ones using le/ge-aware matching), no catch-all permit entries for transit prevention, and interface/ASN integrity checks."""
+category = "networking"
+tags = ["bgp", "traffic-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bgp-topology-repair"

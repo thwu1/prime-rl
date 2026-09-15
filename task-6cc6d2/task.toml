@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of special function theory and classical analog filter design. The solver must explore an unfamiliar project with a custom multi-subcommand CLI toolchain (filterspec.py with analyze, export-zpk, bode-script, and pipeline subcommands), a multi-target Makefile pipeline (check-deps, validate, bode, full-pipeline), reference data in JSON, and gnuplot-based Bode plot generation — all requiring discovery and correct invocation. The implementation demands building the complete mathematical machinery — complete elliptic integrals via Landen transformations, forward and inverse Jacobian elliptic functions, degree equation solving, and elliptic rational function construction — all from scratch without library support. Numerical precision across complex arithmetic, correct branch-cut handling, proper pole/zero placement in the s-plane, and mastering the custom filterspec/gnuplot toolchain make this extremely challenging."""
+solution_explanation = """Implement K(k) via descending Landen transformations. Implement cd(u,k) and sn(u,k) via ascending Landen recursion with modulus reduction. Implement inverse functions via corresponding descending recursion. For the filter: derive ripple parameters from dB specs, solve the degree equation using the nome, compute zeros of the elliptic rational function on the imaginary axis, compute poles via complex evaluation of elliptic functions, assemble the transfer function with correct gain normalization for odd/even orders. Finally, use filterspec.py pipeline to export ZPK data and invoke gnuplot to render Bode magnitude SVGs for all reference configurations."""
+verification_explanation = """Tests compare K(k) against scipy.special.ellipk, cd/sn against scipy.special.ellipj, inverse functions via round-trip consistency, and the final filter's poles/zeros/gain against scipy.signal.ellip. Frequency response is verified against passband equiripple and stopband attenuation bounds. DC gain is checked for both odd and even orders. A source-code scan ensures no forbidden imports. Bode plot SVG files are checked for existence (one per reference config in /app/output/) and validated for correct SVG content exceeding 1000 bytes."""
+category = "signal_processing"
+tags = ["elliptic-functions", "filter-design"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6cc6d2"

@@ -1,0 +1,62 @@
+[
+  {
+    "experiment_id": "spectral_analysis",
+    "runs": [
+      {"dominant_frequency": 440.0, "signal_type": "sinusoidal"},
+      {"dominant_frequency": 440.0, "signal_type": "sinusoidal"},
+      {"dominant_frequency": 440.0, "signal_type": "sinusoidal"},
+      {"dominant_frequency": 440.0, "signal_type": "sinusoidal"},
+      {"dominant_frequency": 440.0, "signal_type": "sinusoidal"}
+    ]
+  },
+  {
+    "experiment_id": "monte_carlo",
+    "runs": [
+      {"pi_estimate": 3.140},
+      {"pi_estimate": 3.145},
+      {"pi_estimate": 3.138},
+      {"pi_estimate": 3.142},
+      {"pi_estimate": 3.150}
+    ]
+  },
+  {
+    "experiment_id": "optimization",
+    "runs": [
+      {"final_objective": 0.023, "iterations": 500},
+      {"final_objective": 0.025, "iterations": 500},
+      {"final_objective": 0.024, "iterations": 500},
+      {"final_objective": 0.022, "iterations": 500},
+      {"final_objective": 0.150, "iterations": 500}
+    ]
+  },
+  {
+    "experiment_id": "classification",
+    "runs": [
+      {"f1_score": 0.85, "best_model": "GradientBoosting", "top_features": ["age", "income", "score"]},
+      {"f1_score": 0.87, "best_model": "GradientBoosting", "top_features": ["age", "income", "score"]},
+      {"f1_score": 0.84, "best_model": "GradientBoosting", "top_features": ["age", "income", "score"]},
+      {"f1_score": 0.86, "best_model": "GradientBoosting", "top_features": ["age", "income", "score"]},
+      {"f1_score": 0.85, "best_model": "GradientBoosting", "top_features": ["age", "income", "score"]}
+    ]
+  },
+  {
+    "experiment_id": "regression",
+    "runs": [
+      {"rmse": 12.5, "mae": 8.3},
+      {"rmse": 12.8, "mae": 8.5},
+      {"rmse": 12.3, "mae": 8.1},
+      {"rmse": 12.6, "mae": 8.4},
+      {"rmse": 25.0, "mae": 20.0}
+    ]
+  },
+  {
+    "experiment_id": "survey_response",
+    "runs": [
+      {"response_rate": 45.2, "method": "online"},
+      {"response_rate": 44.8, "method": "online"},
+      {"response_rate": 45.5, "method": "online"},
+      {"response_rate": 45.0, "method": "online"},
+      {"response_rate": 44.5, "method": "online"}
+    ]
+  }
+]

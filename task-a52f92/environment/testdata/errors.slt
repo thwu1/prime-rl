@@ -1,0 +1,21 @@
+# Error matching tests
+
+# Any error (no pattern required)
+statement error
+SELECT * FROM nonexistent_table_1
+
+# Regex error match (partial match via re.search)
+statement error no such table: nonexistent_table_2
+SELECT * FROM nonexistent_table_2
+
+# Query error (any error)
+query error
+SELECT * FROM nonexistent_table_3
+
+# Query error with regex pattern
+query error no such table
+SELECT * FROM nonexistent_table_4
+
+# Regex with special characters
+statement error near "INVALID"
+INVALID SQL SYNTAX HERE

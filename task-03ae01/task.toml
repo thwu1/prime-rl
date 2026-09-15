@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The task demands expertise across two distinct compiler-construction domains. The lexer requires handling nested constructs, multi-mode scanning with precise error recovery, escape-sequence processing with length-bounded buffers, and integration with a C toolchain via Makefile. The type checker requires implementing a complete type system for an OO language with inheritance, polymorphic self-types, subtype conformance, least-upper-bound resolution, scope management for nested let/case bindings, and method signature compatibility checks across an inheritance hierarchy. Both components have numerous interacting corner cases that require deep understanding of language semantics."""
+solution_explanation = """The Flex lexer uses exclusive start conditions with a depth counter for nested block comments, a character buffer with overflow checking for string constants, case-insensitive keyword patterns ordered before identifier rules, and per-character escape processing. The Makefile orchestrates flex and gcc to produce the binary. The type checker builds a class hierarchy from built-in classes, validates inheritance constraints (cycles, illegal parents, redefinitions), checks for Main/main(), then recursively infers expression types with SELF_TYPE resolved at dispatch boundaries and LUB computed by walking ancestor chains."""
+verification_explanation = """Tests verify both deliverables independently: lexer tests run the compiled cool_lexer binary on inline Cool source and parse JSON output to validate token types, comment handling, string escapes, and keyword recognition. Type checker tests parse programs through the provided cool_parser and feed ASTs to check_program, verifying that valid programs produce 'ok' with correctly annotated static_type fields and that invalid programs produce 'error' with relevant error messages."""
+category = "programming_languages"
+tags = ["compilers", "type_systems"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-03ae01"

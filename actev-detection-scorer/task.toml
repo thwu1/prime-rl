@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-annotator temporal activity detection evaluation system from a mathematical protocol specification. The solver must independently identify that the specification describes multiple interacting optimization problems — consensus formation via maximum-weight bipartite matching, detection alignment via minimum-cost assignment, and decision-theoretic cost minimization — and select appropriate algorithms to solve each. Correct implementation demands holistic understanding: consensus-merged reference extents cascade into alignment eligibility, which determines TP/FP/FN labels, which shape DET curves and all downstream metrics. Two alignment paradigms (IoU and collar) require distinct cost models with different geometric interpretations. Time-weighted miss variants require threading reference durations through the entire scoring pipeline. MinNDCF requires understanding of Bayesian detection cost normalization against degenerate operating points. The protocol is deliberately declarative rather than procedural, requiring the solver to translate mathematical definitions into a correct implementation without step-by-step guidance."""
+solution_explanation = """The solution reads multi-annotator data from SQLite, detections from JSONL, and config from TOML. For each (activity, video) pair, it solves maximum-weight bipartite matching (via scipy linear_sum_assignment on negated IoU matrix) between annotator pairs, forming consensus references from the intersection of matched pairs exceeding the threshold. Detection-reference alignment uses minimum-cost bipartite assignment with mode-specific cost matrices. DET curves are built by sweeping detections in descending confidence order with TP-before-FP tie-breaking. AUDC via trapezoidal integration, MinNDCF by minimizing parametric Bayes risk over all operating points including reject-all, and time-weighted variants weight miss probability by reference duration."""
+verification_explanation = """Tests run the scorer on two independent datasets: (1) a primary dataset shipped with the task using IoU alignment mode and multi-annotator consensus, verifying per-activity nAUDC/AUDC/tw_nAUDC/tw_AUDC/MinNDCF and aggregate metrics against hand-computed values; (2) a secondary dataset generated programmatically using collar alignment mode with different consensus parameters, where MinNDCF differs from nAUDC due to interleaved TP/FP confidence ordering. An IoU threshold edge case test verifies that consensus-merged references interact correctly with threshold-dependent matching decisions. The secondary dataset prevents hardcoding."""
+category = "data_processing"
+tags = ["evaluation-metrics", "decision-theory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/actev-detection-scorer"

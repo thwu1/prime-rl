@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": false,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "declaration": false
+  },
+  "include": ["src/**/*.ts"]
+}

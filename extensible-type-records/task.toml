@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in GHC's type system: first-class type families (defunctionalization at the kind level), GADT existential types, type-level natural-number index computation via open/closed type families, safe use of unsafeCoerce for recovering typed values from existential wrappers, typeclass-based reification of type-level Maybe Nat, and custom type errors via TypeError. The upsert operation demands inventing a Placeholder1Of3 data type to work around GHC's inability to partially apply type families. The merge operation requires recursive constraint families for key-disjointness checking. Each operation must maintain a precise invariant between the term-level list and the type-level association list."""
+solution_explanation = """Fix UniqueKey to use Filter+Null FCFs to detect duplicate keys. Implement RequireUniqueKey as a closed type family that produces a TypeError for the False case with a descriptive message. Implement findElem via KnownNat+natVal+Proxy reification. Implement get using list indexing with unsafeCoerce to recover the typed value from the Any existential. Implement update/delete using take/drop list manipulation. For upsert: create a Placeholder1Of3 data type with an Eval instance that reorders arguments, enabling partial application of SetIndex; fix UpsertLoc to use FindIndex; fix UpsertElem to compose Map over Maybe with Placeholder1Of3+SetIndex and FromMaybe for the default; add a KnownNat-based FindUpsertElem instance for Just n. Implement peel via get+tail. Implement Eq instances inductively via peel. Implement AllKeysUnique as a recursive closed type family that checks UniqueKey for each key, and merge as list concatenation guarded by AllKeysUnique."""
+verification_explanation = """Compilation with GHC validates all type-level constraints and type family reductions. Runtime tests verify: insert+get roundtrips for single and multiple fields, update with same and different types, delete of first/middle fields, upsert insert and update cases, peel destructuring, Eq for equal and unequal records, and merge of disjoint products. Compile-time rejection tests verify that duplicate insert and overlapping merge produce type errors."""
+category = "type_systems"
+tags = ["haskell", "type-level-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/extensible-type-records"

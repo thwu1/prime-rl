@@ -1,0 +1,7 @@
+The BRIGHT benchmark (ICLR 2025) evaluates reasoning-intensive information retrieval — tasks where standard retrievers fail because finding relevant documents requires multi-step reasoning rather than surface-level keyword overlap. The Pony programming language subset is pre-loaded at `/app/data/` with 112 queries (`examples.json`) and 7,894 documents (`documents.json`). No relevance labels are provided — your system will be evaluated blindly against held-out ground truth.
+
+A baseline BM25 retriever at `/app/baseline/bm25_baseline.py` demonstrates the problem: simple keyword matching achieves approximately nDCG@10 of 0.04–0.06 on this dataset because queries describe programming problems or conceptual questions whose relevant documents use entirely different vocabulary.
+
+Build a retrieval system that substantially outperforms this baseline by addressing the core challenge of reasoning-intensive queries. Your system must respect per-query `excluded_ids` (documents that must not appear in results) and will be evaluated on nDCG@10 (minimum threshold: 0.10).
+
+Write retrieval scores to `/app/results/scores.json` in the format `{query_id: {doc_id: float_score, ...}, ...}` with top-1000 documents per query.

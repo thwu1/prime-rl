@@ -1,0 +1,18 @@
+---
+app_name: mywebapp
+app_port: 3000
+app_server_name: webapp.local
+
+services:
+  - name: api
+    port: 8001
+    enabled: true
+    weight: 3
+  - name: worker
+    port: 8002
+    enabled: true
+    weight: 5
+  - name: scheduler
+    port: 8003
+    enabled: false
+    weight: 1

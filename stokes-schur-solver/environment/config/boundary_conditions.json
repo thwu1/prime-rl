@@ -1,0 +1,19 @@
+{
+    "top": {
+        "type": "moving_wall",
+        "velocity": [1.0, 0.0],
+        "description": "Lid moving at constant horizontal velocity"
+    },
+    "bottom": {
+        "type": "no_slip_wall",
+        "velocity": [0.0, 0.0]
+    },
+    "left": {
+        "type": "no_slip_wall",
+        "velocity": [0.0, 0.0]
+    },
+    "right": {
+        "type": "no_slip_wall",
+        "velocity": [0.0, 0.0]
+    }
+}

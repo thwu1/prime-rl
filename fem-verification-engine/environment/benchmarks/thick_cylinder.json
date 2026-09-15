@@ -1,0 +1,28 @@
+{
+  "name": "thick_cylinder",
+  "type": "thermoelastic_cylinder",
+  "description": "Plane-strain thermoelastic thick-walled hollow cylinder under internal pressure and logarithmic radial temperature gradient",
+  "geometry": {
+    "inner_radius_m": 0.05,
+    "outer_radius_m": 0.10
+  },
+  "material": {
+    "E_MPa": 210000.0,
+    "nu": 0.3,
+    "alpha_per_C": 12.0e-6
+  },
+  "loading": {
+    "internal_pressure_MPa": 50.0,
+    "external_pressure_MPa": 0.0,
+    "T_inner_C": 200.0,
+    "T_outer_C": 0.0,
+    "T_ref_C": 0.0
+  },
+  "condition": "plane_strain",
+  "eval_radii_m": [0.05, 0.075, 0.10],
+  "outputs": [
+    "sigma_r_r1", "sigma_theta_r1", "u_r_r1",
+    "sigma_r_r2", "sigma_theta_r2", "u_r_r2",
+    "sigma_r_r3", "sigma_theta_r3", "u_r_r3"
+  ]
+}

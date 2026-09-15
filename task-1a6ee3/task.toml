@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of multiple network protocol layers (PCAP, Ethernet, IPv4, TCP) at the raw byte level, including variable-length header parsing. The p0f signature extraction demands correct implementation of TCP option parsing (8 option types with variable encoding), initial TTL inference, window size classification (mss*N vs mtu*N vs absolute), and quirk detection from IP/TCP flags. Database matching with wildcards adds another layer. Errors in any layer cascade — wrong IP header length breaks TCP parsing; wrong option parsing breaks signature extraction; wrong quirk ordering breaks matching. This is expert-level systems/network programming."""
+solution_explanation = """The solution implements a complete p0f-compatible fingerprinting engine in Python: (1) PCAP parser handling both endiannesses, (2) raw Ethernet/IPv4/TCP header parsing with correct IHL and data offset handling, (3) full TCP option parser supporting all common option types including EOL padding computation, (4) p0f signature extractor with TTL guessing, window classification, and comprehensive quirk detection, (5) database parser and wildcard matcher. The key insights are: MSS-relative window classification requires checking mss*N before mtu*N, TTL guessing rounds up to standard values, and quirk ordering must follow the canonical p0f sequence."""
+verification_explanation = """Tests run the agent's fingerprinting tool against 9 PCAP packets (8 SYN + 1 SYN-ACK distractor). Verifies: correct packet count (8, filtering out SYN-ACK), correct p0f signature extraction for each OS type (Linux 5.x, Windows 10, macOS 12, FreeBSD 13, Linux 4.x+ECN, Windows Server 2019, OpenBSD 7.x, Solaris 11), correct OS identification via database matching, correct network metadata parsing, and specific algorithmic correctness (TTL guessing, window classification, ECN detection, EOL padding)."""
+category = "networking"
+tags = ["tcp-ip", "os-fingerprinting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1a6ee3"

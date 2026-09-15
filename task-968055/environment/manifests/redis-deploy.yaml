@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: production
+  labels:
+    app: redis
+    tier: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: cache
+    spec:
+      hostNetwork: true
+      containers:
+      - name: redis
+        image: redis:7.2
+        ports:
+        - containerPort: 6379
+        securityContext:
+          privileged: true
+          runAsUser: 0

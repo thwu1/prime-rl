@@ -1,0 +1,64 @@
+%General Mission Analysis Tool(GMAT) Script
+%Created: 2024-01-15
+%
+% Geostationary Communications Satellite - Two-Body Reference Case
+% Ref: GMAT V&V Paper (AIAA 2014), Table 3 - GEO
+% This case uses point-mass gravity only (Degree=0, Order=0) to serve
+% as a baseline for energy and angular momentum conservation checks.
+%----------------------------------------
+
+%----------------------------------------
+%---------- Spacecraft
+%----------------------------------------
+
+Create Spacecraft CommSat;
+GMAT CommSat.DateFormat = UTCGregorian;
+GMAT CommSat.Epoch = '01 Jun 2004 12:00:00.000';
+GMAT CommSat.CoordinateSystem = EarthMJ2000Eq;
+GMAT CommSat.DisplayStateType = Cartesian;
+GMAT CommSat.X = 36607.35826;
+GMAT CommSat.Y = -20921.7237;
+GMAT CommSat.Z = 0;
+GMAT CommSat.VX = 1.525636;
+GMAT CommSat.VY = 2.669451;
+GMAT CommSat.VZ = 0;
+GMAT CommSat.DryMass = 500;
+GMAT CommSat.Cd = 2.2;
+GMAT CommSat.Cr = 1.2;
+GMAT CommSat.DragArea = 8;
+GMAT CommSat.SRPArea = 20;
+
+%----------------------------------------
+%---------- ForceModel
+%----------------------------------------
+
+Create ForceModel GEO_Forces;
+GMAT GEO_Forces.CentralBody = Earth;
+GMAT GEO_Forces.PrimaryBodies = {Earth};
+GMAT GEO_Forces.GravityField.Earth.Degree = 0;
+GMAT GEO_Forces.GravityField.Earth.Order = 0;
+GMAT GEO_Forces.GravityField.Earth.PotentialFile = 'JGM2.cof';
+GMAT GEO_Forces.Drag = None;
+GMAT GEO_Forces.SRP = Off;
+GMAT GEO_Forces.PointMasses = {};
+GMAT GEO_Forces.RelativisticCorrection = Off;
+
+%----------------------------------------
+%---------- Propagators
+%----------------------------------------
+
+Create Propagator GEO_Prop;
+GMAT GEO_Prop.FM = GEO_Forces;
+GMAT GEO_Prop.Type = PrinceDormand78;
+GMAT GEO_Prop.InitialStepSize = 600;
+GMAT GEO_Prop.Accuracy = 1e-12;
+GMAT GEO_Prop.MinStep = 0.01;
+GMAT GEO_Prop.MaxStep = 86400;
+GMAT GEO_Prop.MaxStepAttempts = 50;
+
+%----------------------------------------
+%---------- Mission Sequence
+%----------------------------------------
+
+BeginMissionSequence;
+Propagate GEO_Prop(CommSat) {CommSat.ElapsedDays = 7.0};

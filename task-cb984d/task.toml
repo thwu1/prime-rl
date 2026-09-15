@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing NIST SP 800-90A CTR-DRBG from scratch, including the Block_Cipher_df derivation function (a complex BCC-based key derivation mechanism), CTR_DRBG_Update state management, and correct handling of four distinct test procedures (prediction resistance with/without derivation function, explicit reseed with/without derivation function). Standard crypto libraries do not expose DRBG internals for test vector injection, so the agent must implement the algorithm at the specification level. Getting any single component wrong (df, update, increment, test procedure ordering) produces entirely incorrect output."""
+solution_explanation = """Implements CTR-DRBG per SP 800-90A using PyCryptodome's AES-ECB as the block cipher primitive. The solution includes: (1) Block_Cipher_df with BCC function for derivation-function mode, (2) CTR_DRBG_Update for state transitions, (3) instantiate/reseed/generate lifecycle functions for both df and no-df modes, (4) ACVP test procedure logic that correctly handles prediction resistance (reseed before generate, clear additional_input) vs explicit reseed scenarios. Processes all 12 test cases and writes ACVP-formatted response JSON."""
+verification_explanation = """Tests read /app/response.json and verify each of the 12 test cases by computing SHA-256 of the returned bits (raw bytes) and comparing against pre-computed hashes. This approach is cheat-resistant since SHA-256 hashes cannot be reversed to obtain the expected output. Tests also verify JSON structure, correct test case IDs, and hex encoding validity."""
+category = "cryptography"
+tags = ["drbg", "nist-sp800-90a"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cb984d"

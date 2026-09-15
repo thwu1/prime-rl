@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems programming to diagnose a subtle format-dispatch bug in a C binary codec (recursive decode call on untagged decompressed data hitting a wrong fallback path), then design and implement a complete new binary encoding format (TAG_PACKED) from a wire-format specification with three sub-encoding types (CONTIGUOUS, STRIDED, EXPLICIT). The agent must also implement a multi-format auto-selection algorithm that trial-encodes or computes sizes for all three formats and picks the smallest. This demands holistic understanding of binary protocol design, zlib compression semantics, little-endian serialization, and the trade-offs between text, compressed, and structured binary representations for different HPC rank topologies."""
+solution_explanation = """Fix the TAG_BLOB decoder by replacing the recursive ppn_decode() call with a direct call to deserialize_rank_list() on the decompressed payload (which is untagged text, not a tagged buffer). Implement TAG_PACKED encoder: classify each node's ranks as CONTIGUOUS (stride 1), STRIDED (constant non-unit stride), or EXPLICIT (irregular), then serialize using little-endian uint16/uint32/int16 fields per the spec. Implement TAG_PACKED decoder: read nnodes, then for each node read nranks, enc_type, and reconstruct ranks. Rewrite ppn_encode() to compute/compare all three format sizes and select the smallest with tie-breaking PACKED > BLOB > RAW."""
+verification_explanation = """Tests rebuild the project, run the built-in multi-format test driver, then independently compile a comprehensive C verification program that: (1) directly constructs a TAG_BLOB buffer from hand-built rank text + zlib compression and decodes it, verifying the bug fix; (2) encodes contiguous maps and verifies TAG_PACKED is selected with correct round-trip; (3) encodes strided rank maps and verifies compact encoding size indicating STRIDED sub-type usage; (4) encodes irregular rank maps and verifies round-trip; (5) verifies TAG_RAW is selected for small maps where it is more compact."""
+category = "systems_programming"
+tags = ["binary_protocols", "hpc_process_management"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pmix-compression-codec"

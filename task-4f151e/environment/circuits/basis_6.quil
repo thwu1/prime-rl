@@ -1,0 +1,3 @@
+# Prepare computational basis state j=6 on 4 qubits
+X 1
+X 2

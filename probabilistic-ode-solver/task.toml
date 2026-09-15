@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a probabilistic ODE solver from scratch with calibrated uncertainty. The agent must master HDF5 scientific data format (h5py: hierarchical groups, chunked/compressed datasets, typed attributes) and gnuplot scripting (log-log plot from SQLite data with reference slope line, SVG output). Multi-tool pipeline: Python solver → SQLite database → gnuplot convergence SVG; Python solver → HDF5 archive with compression. Combines deep numerical methods expertise with unfamiliar tool proficiency across HDF5, gnuplot, and SQLite interoperability."""
+solution_explanation = """Implement an EK0 probabilistic solver using IWP(3) state-space prior with Kalman predict/update loop. Compute Taylor-mode initial conditions, run the filter with MLE output-scale calibration. Build a SQLite database with trajectory, convergence, and metadata tables. Write HDF5 archive using h5py with /trajectory group (gzip-compressed, chunked datasets) and /metadata group (typed attributes). Generate a gnuplot script that queries convergence data and produces a log-log SVG plot with reference slope line. Run solver at four step sizes and cross-validate all outputs."""
+verification_explanation = """Tests verify: (1) all four output files exist (db, h5, json, svg), (2) SQLite schema correctness, (3) HDF5 group hierarchy and dataset shapes, (4) HDF5 gzip compression on all trajectory datasets, (5) HDF5 typed attributes on /metadata group and root, (6) convergence monotonicity, (7) trajectory accuracy against scipy DOP853 reference at terminal/midpoint/quarter-point, (8) solution positivity, (9) calibrated std properties, (10) Volterra invariant conservation, (11) SVG validity and gnuplot markers (log-log axes, title, axis labels, reference slope), (12) cross-file consistency between HDF5, SQLite, and JSON, (13) output scale and step count validity."""
+category = "scientific-computing"
+tags = ["probabilistic-numerics", "hdf5-gnuplot-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/probabilistic-ode-solver"

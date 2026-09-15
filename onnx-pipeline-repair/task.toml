@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in ONNX IR specification internals: protobuf schema (IR versioning, opset compatibility), graph topology rules (SSA/single-static-assignment), type system (FLOAT vs DOUBLE tensor types), operator semantics (Softmax axis behavior), and the composition API (merge_models with prefix handling, name collision resolution). The task combines 9 distinct bugs across 3 models spanning structural violations (caught by checker), type errors (caught by shape inference), and semantic errors (only detectable by output comparison). Additionally requires defining a model-local custom function and integrating it into a multi-model composition pipeline. Not solvable without proficient-level ONNX knowledge."""
+solution_explanation = """Load each broken model and systematically fix all bugs: (1) normalize — set ir_version to match onnx.IR_VERSION, swap Sub inputs to compute X-mean instead of mean-X, cast std initializer from DOUBLE to FLOAT; (2) transform — add opset_import for default domain version 13, rename duplicate matmul output to fix SSA, correct bias reference from 'bias1' to 'B1'; (3) classify — fix W dims from [3,4] to [4,3], change output type from INT32 to FLOAT, set Softmax axis from 0 to -1. Then compose using onnx.compose.merge_models with prefixes to avoid name collisions. After composition, replace the Relu node with a SiLU function call (domain='custom'), add the custom opset import, and define the SiLU function body using Sigmoid+Mul. Run shape inference and validate."""
+verification_explanation = """Six pytest tests verify: (1) pipeline passes onnx.checker.check_model with full_check=True; (2) SiLU function exists with correct structure (Sigmoid+Mul, 1 input, 1 output); (3) pipeline I/O matches spec (float32 [N,4] input, float32 [N,3] output); (4) numerical correctness against pre-computed expected output using onnxruntime with rtol/atol=1e-5; (5) dynamic batch handling (batch=1 and batch=7, softmax sums to 1); (6) shape inference succeeds in strict mode."""
+category = "machine_learning"
+tags = ["onnx", "model-surgery"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/onnx-pipeline-repair"

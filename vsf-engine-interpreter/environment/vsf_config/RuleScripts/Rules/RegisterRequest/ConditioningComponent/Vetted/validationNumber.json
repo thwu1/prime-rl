@@ -1,0 +1,38 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Branch",
+            "description": "When vetted, validationNumber is required",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "parameters": {
+                                    "ruleText": "parentProperty.IsVetted == true"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "ImportScript",
+                                "parameters": {
+                                    "scriptFile": "CommonRules/notNull.json"
+                                }
+                            },
+                            {
+                                "lineType": "ImportScript",
+                                "parameters": {
+                                    "scriptFile": "CommonRules/notNullAndNotWhitespace.json"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

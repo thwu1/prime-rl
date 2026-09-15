@@ -1,0 +1,5 @@
+{
+  "alpha": 3,
+  "domain": {"lower": 0, "upper": 1},
+  "singularity": "x = 0 (oscillatory, non-integrable without limit)"
+}

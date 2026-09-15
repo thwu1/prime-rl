@@ -1,0 +1,224 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-a
+  labels:
+    tenant: a
+    env: prod
+    compliance: pci
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b
+  labels:
+    tenant: b
+    env: prod
+    compliance: hipaa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shared-infra
+  labels:
+    tenant: shared
+    env: prod
+    tier: infrastructure
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-sandbox
+  labels:
+    tenant: dev
+    env: dev
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payment-api
+  namespace: tenant-a
+  labels:
+    app: payment
+    component: api
+    sensitivity: high
+status:
+  podIP: "10.100.1.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: payment-worker
+  namespace: tenant-a
+  labels:
+    app: payment
+    component: worker
+    sensitivity: high
+status:
+  podIP: "10.100.1.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: health-api
+  namespace: tenant-b
+  labels:
+    app: health
+    component: api
+    sensitivity: high
+status:
+  podIP: "10.100.2.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: logging
+  namespace: shared-infra
+  labels:
+    app: logging
+    component: collector
+    sensitivity: low
+status:
+  podIP: "10.100.3.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metrics
+  namespace: shared-infra
+  labels:
+    app: metrics
+    component: collector
+    sensitivity: low
+status:
+  podIP: "10.100.3.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-app
+  namespace: dev-sandbox
+  labels:
+    app: test
+    component: api
+    sensitivity: none
+status:
+  podIP: "10.100.4.1"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-a-deny-all
+  namespace: tenant-a
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-a-internal
+  namespace: tenant-a
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - podSelector: {}
+  egress:
+  - to:
+    - podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-a-allow-infra-egress
+  namespace: tenant-a
+spec:
+  podSelector: {}
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: infrastructure
+    ports:
+    - protocol: TCP
+      port: 5514
+    - protocol: TCP
+      port: 9090
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-deny-all
+  namespace: shared-infra
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: infra-allow-prod
+  namespace: shared-infra
+spec:
+  podSelector:
+    matchLabels:
+      component: collector
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchExpressions:
+        - key: env
+          operator: In
+          values:
+          - prod
+    ports:
+    - protocol: TCP
+      port: 5514
+    - protocol: TCP
+      port: 9090
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-b-default-deny
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-b-internal-and-infra
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - podSelector: {}
+  egress:
+  - to:
+    - podSelector: {}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: infrastructure
+    ports:
+    - protocol: TCP
+      port: 5514
+  policyTypes:
+  - Ingress
+  - Egress

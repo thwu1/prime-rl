@@ -1,0 +1,18 @@
+{
+  "name": "poly_eval",
+  "params": [1],
+  "entrypoint": 20,
+  "code": {
+    "20": {"kind": "op", "op": "const", "imm": 1, "args": [], "dst": 2, "succ": 19},
+    "19": {"kind": "op", "op": "add", "args": [1, 2], "dst": 3, "succ": 18},
+    "18": {"kind": "op", "op": "add", "args": [1, 2], "dst": 4, "succ": 17},
+    "17": {"kind": "op", "op": "mul", "args": [3, 4], "dst": 5, "succ": 16},
+    "16": {"kind": "op", "op": "const", "imm": 2, "args": [], "dst": 6, "succ": 15},
+    "15": {"kind": "op", "op": "add", "args": [1, 2], "dst": 7, "succ": 14},
+    "14": {"kind": "op", "op": "mul", "args": [6, 7], "dst": 8, "succ": 13},
+    "13": {"kind": "op", "op": "add", "args": [5, 8], "dst": 9, "succ": 12},
+    "12": {"kind": "op", "op": "const", "imm": 3, "args": [], "dst": 10, "succ": 11},
+    "11": {"kind": "op", "op": "add", "args": [9, 10], "dst": 11, "succ": 10},
+    "10": {"kind": "ret", "arg": 11}
+  }
+}

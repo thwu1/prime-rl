@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic expertise across PKI/mTLS infrastructure (openssl CA chain setup with proper X.509 extensions), TOTP-based authentication (RFC 6238 with 8-digit codes), JWT session management, and interpreting a domain-specific JSON-driven validation framework for NIST SP 800-90B entropy source conformance. The agent must reverse-engineer specification files to understand authentication secret derivation, discover the validation engine semantics from documentation and JSON rule definitions, and make openssl, Python ssl, and token libraries interoperate correctly — requiring expert-level systems thinking across cryptography, protocol design, and language interpretation domains."""
+solution_explanation = """The solution (1) generates a 3-tier PKI with openssl: self-signed CA with CA:TRUE constraint, server cert with SAN for localhost/127.0.0.1, client cert with CN=ESVTestClient; (2) implements a Python http.server with ssl.SSLContext configured for CERT_REQUIRED mTLS; (3) handles /login by verifying 8-digit TOTP against the seed file and issuing HS256 JWTs with sub from the peer certificate CN, using the SHA-256 hex digest of the CA key file as the JWT secret; (4) handles /entropyAssessments by decoding the Bearer JWT and running the payload through a tree-walking validation engine that interprets the JSON rule framework — PropertyWrapper for C#-like access, ExpressionEvaluator for syntax transformation, ScriptExecutor for ImportScript/Branch/Assert/State, TreeWalker for leaf/list/parent nodes with hooks."""
+verification_explanation = """20 pytest tests organized in 4 classes verify: (1) PKI infrastructure (8 tests) — CA/server/client certs and keys exist, CA has basicConstraints CA:TRUE, server cert has correct SAN entries, client cert has correct CN, both certificate chains validate with openssl verify; (2) mTLS enforcement (2 tests) — server accepts valid client certs, rejects connections without client certs; (3) TOTP login (3 tests) — valid TOTP returns JWT, invalid TOTP returns 403, JWT contains correct sub claim matching client cert CN; (4) entropy source registration (7 tests) — valid payloads accepted with 200, missing auth returns 401, invalid JWT returns 401, SP 800-90B violations (out-of-range bitsPerSample, hminEstimate exceeding bitsPerSample, vetted CC with bijectiveClaim, missing required fields) correctly rejected with 400."""
+category = "security_and_privacy"
+tags = ["cryptography", "mtls-authentication"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-920754"

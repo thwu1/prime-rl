@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing deletion for a persistent (immutable, structurally-shared) red-black tree in Lua 5.4. The existing skeleton provides only insertion (Okasaki's functional approach with 4-case balance). Deletion in a persistent red-black tree demands discovering and implementing the Germane-Might algorithm: extending the color system with double-black and negative-black sentinels, generalizing the balance function from 4 to 6 cases, implementing the bubble operation for propagating double-black weight up the tree, and handling all removal cases (leaf, one-child, two-child via in-order successor). The agent must understand structural sharing, copy-on-write path copying, and the interplay between color algebra and tree invariants — none of which are described in the task instructions."""
+solution_explanation = """Implements Germane-Might deletion by: (1) adding DOUBLE_BLACK=2 and NEGATIVE_BLACK=-1 color constants plus a BB_LEAF sentinel for deleted black leaves; (2) adding a redder function that decreases node color by one; (3) generalizing balance from `== BLACK` to `>= BLACK` and adding two cases for DOUBLE_BLACK parent with NEGATIVE_BLACK child; (4) implementing bubble which detects DOUBLE_BLACK children, promotes parent color, and applies redder+balance; (5) implementing find_min, remove_min, and remove_node (four cases: red leaf→nil, black leaf→BB_LEAF, one child→promote, two children→replace with successor); (6) implementing delete_node that traverses to the target key and wraps recursive returns in bubble; (7) updating blacken to handle BB_LEAF; (8) implementing M.dissoc."""
+verification_explanation = """18 pytest tests invoke Lua 5.4 via subprocess to exercise the sorted map. Tests verify: basic deletion (single, nonexistent, to-empty, all elements), persistence guarantees (old versions unchanged after deletion, 50-version chain), sorted iteration order after deletions, red-black tree invariants (root-is-black, no red-red violations, equal black-depth on all paths, no residual double-black/negative-black nodes) checked after 500 insertions, after 200 insert + 100 delete, and after complex interleaved insert/delete/reinsert sequences. Height bounds are verified against the theoretical 2*log2(n+1) limit after 1000 inserts + 500 deletes. Stress tests cover 2000-key bulk operations, reverse-order deletion of 500 keys with per-step invariant checks, delete-all-then-reinsert cycles, mixed key types, count accuracy verification at each step through 150 inserts and 150 deletes, and table conversion round-trips."""
+category = "data_structures"
+tags = ["persistent-data-structures", "balanced-trees"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-hamt-lua"

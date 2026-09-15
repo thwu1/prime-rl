@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert understanding of Linux CPU profiling: recognizing raw perf script output format, discovering and operating the FlameGraph toolchain (stackcollapse-perf.pl, difffolded.pl), filtering multi-process profile data to isolate the target service, normalizing profiles captured under different load levels, computing differential CPU deltas, and performing hierarchical call-chain clustering to identify regression root causes. The agent must discover the data format, find appropriate tools, handle interleaved multi-process noise, and implement non-trivial normalization and clustering algorithms—none of which are described in the instructions."""
+solution_explanation = """Process raw perf script output through stackcollapse-perf.pl to obtain folded stacks, filter by process name to isolate portal-api, compute total sample counts per profile for normalization, identify emerged/elided leaf functions, calculate load-normalized exclusive deltas to rank regression contributors, and walk each emerged leaf's call chain to find the shallowest intermediate function absent from all baseline stacks for hierarchical clustering."""
+verification_explanation = """Tests load /app/diagnosis.json and verify: correct target PID (4821), exact sample counts (945 baseline, 1661 regression), exact emerged/elided function sets, correct top-10 ranking with delta tolerance, and deterministic root-cause groupings matching the known call hierarchy. Numeric tolerances account for float precision without accepting fundamentally wrong normalization."""
+category = "systems_performance"
+tags = ["cpu-profiling", "flamegraph-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c0d69c"

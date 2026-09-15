@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of a ~300-line legacy Python monolith to identify five interacting behavioral defects against a specification, where fixing one bug (e.g., FlatDiscount accumulation) reveals another (discount cap threshold). The solver must then architect a multi-module decomposition with no circular dependencies, implement missing item categories (Conjured) and discount types (Bundle) with composition constraints (50% cap), fix state persistence that silently clips negative quality, design a plugin system with handler priority, and achieve CC <= 5 across all modules simultaneously. The cascading nature of the bugs and the cross-cutting architectural decomposition requirement demand holistic system understanding rather than procedural bug-fixing."""
+solution_explanation = """Identify 5 interacting bugs: (1) Aged quality cap bypass in expired path, (2) BuyNGetFree qty//N vs qty//(N+1) off-by-one, (3) FlatDiscount not added to discount_total, (4) save_state clips negative quality to 0, (5) discount cap uses 100% threshold instead of 50%. Bugs 3 and 5 interact: fixing FlatDiscount accumulation pushes total discount past the incorrectly enforced cap. Decompose into inventory.py (category handlers with dispatch), pricing.py (discount pipeline with 50% cap), persistence.py (state save/load preserving negatives and list args), and legacy_system.py (facade). Add Conjured (2x degradation), Bundle (10% off), register_category_handler with custom handler priority. All functions CC <= 5, no circular imports."""
+verification_explanation = """61 pytest tests verify: models.py SHA-256 integrity, cyclomatic complexity <= 5 across ALL app modules via radon, module decomposition (>= 3 modules), no circular imports via AST analysis, all 6 item categories with boundary conditions, all 4 discount types with edge cases, discount cap at 50% (including interaction between FlatDiscount and cap), state persistence round-trip with negative quality and list-arg offers, plugin system with custom handler registration/override/isolation, receipt formatting, and public API presence."""
+category = "software_maintenance"
+tags = ["refactoring", "software-architecture"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-decbbe"

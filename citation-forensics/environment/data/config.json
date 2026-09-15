@@ -1,0 +1,5 @@
+{
+  "mar_threshold": 40,
+  "f1_scale": 100,
+  "retrieval_categories": ["cat1", "cat2"]
+}

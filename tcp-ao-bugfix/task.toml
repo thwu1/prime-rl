@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two distinct Key Derivation Functions and the full TCP-AO MAC computation pipeline from scratch using only a provided AES-CMAC primitive. The agent must parse raw IP/TCP packets at the byte level (both IPv4 and IPv6), extract connection state from SYN/SYN-ACK handshakes, construct IP pseudoheaders, handle the subtle difference between covers-options and omits-options MAC modes, implement key normalization for non-16-byte master keys, write valid libpcap binary format, and use tshark for cross-validation. Algorithm suite detection requires trial computation across 4 possible combinations per session. Multiple interacting RFC specifications (5925, 5926, 4493, 4615) must be correctly synthesized, with numerous documented pitfalls (counter start value, label encoding, byte order, checksum zeroing, option coverage semantics)."""
+solution_explanation = """Build /app/tcp_ao_auditor.py that: (1) parses 16 raw IP packets to extract headers, TCP-AO options, and connection state; (2) implements KDF_HMAC_SHA1 using Python hmac/hashlib with counter starting at i=1, label 'TCP-AO' without null terminator, output_length in big-endian; (3) implements KDF_AES_128_CMAC using the provided aes_cmac.py with key normalization via AES-CMAC(0^128, MK) for non-16-byte keys; (4) implements MAC computation with correct pseudoheader construction, TCP checksum zeroing, and covers/omits-options handling; (5) determines algorithm suite per session by trial validation; (6) writes valid pcap with LINKTYPE_RAW=101; (7) runs tshark for verification; (8) outputs structured audit.json."""
+verification_explanation = """Tests verify: (a) audit.json exists with 8 sessions and correct structure; (b) each session's traffic keys match expected values via SHA-256 digest comparison (expected values are not stored in plaintext); (c) algorithm suite and coverage mode correctly identified per session; (d) all 16 MACs validated as correct; (e) pcap file has valid libpcap header with LINKTYPE_RAW=101; (f) tshark successfully parses the pcap and finds TCP-AO options."""
+category = "cryptography"
+tags = ["tcp-ao", "packet-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tcp-ao-bugfix"

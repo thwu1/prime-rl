@@ -1,0 +1,75 @@
+{
+  "_description": "Expected output format for /app/results.json. The analyzer must determine the correct scheduling semantics of each operator type found in the DAG definitions and correlate scheduler events with task anomalies to perform root cause analysis.",
+  "dependency_graph": {
+    "_description": "Map from each dag_id to a sorted list of dag_ids it has a true blocking scheduling dependency on. Only operators that create genuine blocking wait conditions in the scheduler should generate edges — understand the scheduling semantics of ExternalTaskSensor, TriggerDagRunOperator, ExternalTaskMarker, and any other operators present. Include all known DAGs, using an empty list for those with no cross-DAG dependencies.",
+    "_example": {"dag_a": ["dag_b", "dag_c"], "dag_d": []}
+  },
+  "cycles": {
+    "_description": "All simple (elementary) cycles in the cross-DAG dependency graph. Each cycle is a sorted list of participating dag_ids. The outer list is sorted lexicographically.",
+    "_example": [["dag_a", "dag_b", "dag_c"], ["dag_b", "dag_d"]]
+  },
+  "anomalies": {
+    "concurrent_executions": {
+      "_description": "Task instances where multiple attempts ran with overlapping time windows. A null end_time means the task is still running (treat as open-ended). Sorted by (dag_id, task_id).",
+      "_item": {
+        "dag_id": "string",
+        "task_id": "string",
+        "run_id": "string",
+        "attempts": "sorted list of int attempt numbers that overlapped"
+      }
+    },
+    "zombie_tasks": {
+      "_description": "Tasks in 'running' state with no end_time whose responsible scheduler process has gone unresponsive. A scheduler is unresponsive when its last heartbeat exceeds the configured zombie_heartbeat_threshold_seconds relative to the latest observed event timestamp and it has no job_end event. Sorted by (dag_id, task_id).",
+      "_item": {
+        "dag_id": "string",
+        "task_id": "string",
+        "run_id": "string",
+        "attempt": "int",
+        "scheduler_job_id": "int"
+      }
+    },
+    "orphaned_tasks": {
+      "_description": "Tasks in 'running' state with no end_time that reference a scheduler_job_id with no corresponding record in the scheduler event log. Sorted by (dag_id, task_id).",
+      "_item": {
+        "dag_id": "string",
+        "task_id": "string",
+        "run_id": "string",
+        "attempt": "int",
+        "scheduler_job_id": "int"
+      }
+    }
+  },
+  "anomaly_count": "int: total number of anomaly entries across all three categories",
+  "scheduler_timeline": {
+    "_description": "Health classification for each scheduler job observed in the event log. Sorted by job_id ascending. Status is one of: 'completed' (graceful shutdown via job_end event), 'active' (no job_end, last heartbeat within zombie_heartbeat_threshold_seconds of the latest event timestamp), 'unresponsive' (no job_end, heartbeat gap exceeds zombie_heartbeat_threshold_seconds relative to the latest event timestamp).",
+    "_item": {
+      "job_id": "int",
+      "hostname": "string or null",
+      "start_time": "ISO 8601 timestamp with timezone",
+      "last_heartbeat": "ISO 8601 timestamp with timezone, or null if no heartbeats recorded",
+      "end_time": "ISO 8601 timestamp with timezone (from job_end event), or null",
+      "status": "one of: completed, active, unresponsive",
+      "heartbeat_count": "int: number of heartbeat events for this job"
+    }
+  },
+  "split_brain_windows": {
+    "_description": "Time windows where the number of simultaneously active scheduler jobs exceeded the max_active_scheduler_jobs constraint from config.json. A scheduler job's active period spans from its job_start event until its job_end event (if present) or until last_heartbeat + zombie_heartbeat_threshold_seconds (if no job_end). Report only windows where the number of overlapping active jobs exceeds the configured maximum. Sorted by window_start.",
+    "_item": {
+      "overlapping_jobs": "sorted list of int job_ids that were simultaneously active",
+      "window_start": "ISO 8601 timestamp",
+      "window_end": "ISO 8601 timestamp",
+      "duration_seconds": "int"
+    }
+  },
+  "root_cause_analysis": {
+    "_description": "For each detected anomaly, correlate it with scheduler events to determine the root cause, and compute the set of DAGs transitively downstream that could be impacted. Sorted by (anomaly_type, dag_id, task_id). Root cause is one of: 'scheduler_unresponsive' (task's assigned scheduler went unresponsive), 'scheduler_failover_overlap' (concurrent execution arose because overlapping attempts were assigned to different schedulers during a transition), 'premature_retry' (same scheduler issued a retry while the previous attempt was still executing), 'unknown_scheduler' (task references a scheduler_job_id with no event record).",
+    "_item": {
+      "anomaly_type": "one of: zombie_task, concurrent_execution, orphaned_task",
+      "dag_id": "string",
+      "task_id": "string",
+      "root_cause": "classification string (see above)",
+      "causal_scheduler_job_id": "int or null: the scheduler job primarily responsible, or null if multiple jobs contributed",
+      "downstream_impact": "sorted list of dag_ids that transitively depend on the affected DAG in the dependency graph (excluding the affected DAG itself)"
+    }
+  }
+}

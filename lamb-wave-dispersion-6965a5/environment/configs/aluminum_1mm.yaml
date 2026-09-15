@@ -1,0 +1,26 @@
+material:
+  name: "Aluminum"
+  density: 2700
+  stiffness_GPa:
+    C11: 107.8445
+    C12: 54.9412
+    C13: 54.9412
+    C22: 107.8445
+    C23: 54.9412
+    C33: 107.8445
+    C44: 26.4516
+    C55: 26.4516
+    C66: 26.4516
+layup:
+  orientations: [0]
+  thicknesses: [1.0]
+  repetitions: 1
+  symmetric: false
+propagation_angle: 0
+analysis:
+  frequency_min: 100
+  frequency_max: 5000
+  frequency_steps: 250
+  num_modes: 5
+  phase_velocity_max: 15.0
+  phase_velocity_steps: 1500

@@ -1,0 +1,35 @@
+{
+  "pairs": [
+    {
+      "id": "pair_001",
+      "reference": "/app/scripts/ref_001.py",
+      "candidate": "/app/scripts/cand_001.py"
+    },
+    {
+      "id": "pair_002",
+      "reference": "/app/scripts/ref_002.py",
+      "candidate": "/app/scripts/cand_002.py"
+    },
+    {
+      "id": "pair_003",
+      "reference": "/app/scripts/ref_003.py",
+      "candidate": "/app/scripts/cand_003.py"
+    },
+    {
+      "id": "pair_004",
+      "reference": "/app/scripts/ref_004.py",
+      "candidate": "/app/scripts/cand_004.py"
+    },
+    {
+      "id": "pair_005",
+      "reference": "/app/scripts/ref_005.py",
+      "candidate": "/app/scripts/cand_005.py"
+    }
+  ],
+  "config": {
+    "n_sample_points": 5000,
+    "f1_threshold": 0.02,
+    "voxel_resolution": 0.05,
+    "execution_timeout": 30
+  }
+}

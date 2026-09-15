@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle coefficient errors in a ~900-line marine carbonate equilibrium solver by systematically comparing its output against PyCO2SYS reference values and an Octave validation script. The solver must isolate which of ~15 equilibrium constant parameterizations contain wrong coefficients (transposed digits, sign errors in pressure correction terms, incorrect ionic-strength exponents) — each affecting different variables under different oceanographic conditions. After fixing the bugs, the solver must parse WOCE-exchange format cruise data with quality flags, compute full carbonate system speciation, and build a crossover QC pipeline that identifies systematic measurement biases between cruises at shared deep-water stations, writing results to a SQLite database with a prescribed schema. Demands expert marine chemistry knowledge, multi-tool proficiency (Python, Octave, SQLite, domain-specific data formats), and coupled debugging-implementation workflow."""
+solution_explanation = """The reference solution (1) installs PyCO2SYS to generate reference values and compares them against the buggy solver to identify divergences, (2) uses the Octave validate_constants.m script to cross-check individual equilibrium constants at 1 atm and under pressure — revealing that K1 (Lueker 2000) has a transposed coefficient (3663.86 vs correct 3633.86), KF (Dickson-Riley 1979) has the wrong ionic-strength exponent (1.225 vs correct 1.525), and the KW pressure correction has a wrong deltaK coefficient (0.0714 vs correct 0.0794), (3) applies targeted string replacements to fix these three bugs, (4) parses all five cruise TSV files filtering on quality flags, (5) computes carbonate parameters using the corrected solver, and (6) performs crossover analysis at depth-matched stations writing offsets and adjustments to SQLite."""
+verification_explanation = """Tests install PyCO2SYS to generate reference values at runtime, then cross-validate the corrected solver against them for 3 oceanographic conditions (tropical surface, temperate with nutrients, deep ocean at 4000 dbar). Round-robin consistency is checked across all 15 input-pair combinations at both surface and deep conditions. Forbidden import checks scan the solver's AST. QC database tests verify the SQLite file exists with correct schema, row counts match the number of flag-2 cruise measurements (48 rows), crossover offsets contain 14 entries (7 variables x 2 pairs), DIC offset for the Southern Ocean crossover is approximately -5.0 umol/kg, and TA offset for the North Atlantic crossover is approximately +3.0 umol/kg."""
+category = "scientific_computing"
+tags = ["marine_chemistry", "numerical_debugging"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/carbonate-system-solver"

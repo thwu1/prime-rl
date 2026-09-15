@@ -1,0 +1,4 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_BaseCorr,CDX IG,,,,500000,USD,500000
+Credit,Risk_BaseCorr,CDX IG,,,,-200000,USD,-200000
+Credit,Risk_BaseCorr,iTraxx Main,,,,400000,USD,400000

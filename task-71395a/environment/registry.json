@@ -1,0 +1,274 @@
+{
+  "catalog_info": {
+    "title": "European Digital Infrastructure Open Data Portal",
+    "description": "Official open data catalog for the European Digital Infrastructure Authority (EDIA), aggregating datasets from all divisions and partner agencies.",
+    "homepage": "https://data.edia.europa.eu",
+    "publisher": {
+      "name": "European Digital Infrastructure Authority",
+      "homepage": "https://edia.europa.eu"
+    },
+    "language": ["en", "fr", "de"],
+    "spatial_coverage": ["EU"],
+    "themes_taxonomy": "http://publications.europa.eu/resource/authority/data-theme",
+    "license": "CC-BY-4.0",
+    "issued": "2022-06-15",
+    "modified": "03/15/2024"
+  },
+  "datasets": [
+    {
+      "id": "ds-001",
+      "title": "Cross-Border Payment Transaction Volumes",
+      "description": "Quarterly aggregated cross-border payment flows between EU member states via SEPA infrastructure, broken down by originating and destination country, payment type, and value band.",
+      "publisher_name": "DG Financial Stability",
+      "contact": {
+        "name": "Financial Data Team",
+        "email": "findata@edia.europa.eu",
+        "phone": "+32-2-555-0101"
+      },
+      "themes": ["ECON", "GOVE"],
+      "keywords": ["payments", "cross-border", "SEPA", "financial flows"],
+      "temporal": {
+        "start": "2023-01-01",
+        "end": "2023-12-31"
+      },
+      "spatial": "EU",
+      "frequency": "QUARTERLY",
+      "language": ["en"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-001",
+      "conforms_to": "https://ec.europa.eu/schemas/payment-flows/v2",
+      "distributions": [
+        {
+          "title": "Full Dataset CSV",
+          "description": "Complete quarterly payment flow data in CSV format with ISO country codes",
+          "format": "CSV",
+          "media_type": "text/csv",
+          "access_url": "https://data.edia.europa.eu/ds-001/latest.csv",
+          "download_url": "https://data.edia.europa.eu/ds-001/download/latest.csv",
+          "byte_size": 2458624,
+          "license": "CC-BY-4.0",
+          "issued": "2024-01-15"
+        },
+        {
+          "title": "Summary Statistics PDF",
+          "description": "Quarterly summary statistics report in PDF format",
+          "format": "PDF",
+          "access_url": "https://data.edia.europa.eu/ds-001/summary.pdf",
+          "byte_size": 524288,
+          "license": "CC-BY-4.0"
+        }
+      ]
+    },
+    {
+      "id": "ds-002",
+      "title": "EU Cybersecurity Incident Reports",
+      "description": "Anonymized and aggregated cybersecurity incident data reported by member state CERTs, classified by attack vector, impact severity, and affected sector.",
+      "publisher_name": "ENISA Liaison Office",
+      "contact": {
+        "name": "Cyber Threat Intelligence Unit",
+        "email": "cti@edia.europa.eu"
+      },
+      "themes": ["TECH", "JUST"],
+      "keywords": ["cybersecurity", "incidents", "CERT", "threat intelligence"],
+      "temporal": {
+        "start": "2020-01-01",
+        "end": "2024-06-30"
+      },
+      "spatial": "EU",
+      "frequency": "MONTHLY",
+      "language": ["en", "fr"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-002",
+      "access_rights": "NON_PUBLIC",
+      "distributions": [
+        {
+          "title": "Incident Database JSON-LD",
+          "description": "Machine-readable incident records in JSON-LD format with STIX 2.1 compatible structure",
+          "format": "JSONLD",
+          "media_type": "application/ld+json",
+          "access_url": "https://data.edia.europa.eu/ds-002/incidents.jsonld",
+          "license": "CC-BY-NC-4.0"
+        }
+      ]
+    },
+    {
+      "id": "ds-003",
+      "title": "Digital Single Market Regulatory Corpus",
+      "description": "Machine-readable collection of EU digital regulations, directives, and implementing acts including the Digital Services Act, Digital Markets Act, and AI Act.",
+      "publisher_name": "Legal Affairs Division",
+      "contact": {
+        "name": "Regulatory Data Management",
+        "email": "legal-data@edia.europa.eu"
+      },
+      "themes": ["GOVE", "JUST"],
+      "keywords": ["regulation", "digital single market", "legislation", "DSA", "DMA"],
+      "spatial": "EU",
+      "language": ["en", "fr", "de"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-003",
+      "applicable_legislation": "http://data.europa.eu/eli/reg/2022/2065",
+      "distributions": [
+        {
+          "title": "Full Corpus Akoma Ntoso XML",
+          "description": "Complete regulatory corpus in Akoma Ntoso XML format",
+          "format": "XML",
+          "media_type": "application/xml",
+          "access_url": "https://data.edia.europa.eu/ds-003/corpus.xml",
+          "byte_size": 157286400,
+          "license": "CC-BY-4.0"
+        },
+        {
+          "title": "Metadata RDF/XML Export",
+          "description": "Bibliographic metadata for all regulatory documents in RDF/XML",
+          "format": "RDF_XML",
+          "access_url": "https://data.edia.europa.eu/ds-003/metadata.rdf",
+          "license": "CC-BY-4.0"
+        },
+        {
+          "title": "Full-Text Search API",
+          "description": "RESTful search API for the regulatory corpus with faceted search support",
+          "format": "JSON",
+          "access_url": "https://api.edia.europa.eu/regulations/search",
+          "license": "CC-BY-4.0"
+        }
+      ]
+    },
+    {
+      "id": "ds-004",
+      "title": "European Broadband Coverage Map Data",
+      "description": "Geospatial data on fixed and mobile broadband infrastructure coverage across EU member states at NUTS-3 level, including technology type and speed tiers.",
+      "publisher_name": "DG Communications Networks",
+      "contact": {
+        "name": "Broadband Mapping Unit",
+        "email": "broadband@edia.europa.eu",
+        "phone": "+32-2-555-0404"
+      },
+      "themes": ["TECH", "REGI"],
+      "keywords": ["broadband", "coverage", "infrastructure", "NUTS-3", "geospatial"],
+      "temporal": {
+        "start": "2024-01-01",
+        "end": "2024-06-30"
+      },
+      "spatial": "EU",
+      "frequency": "ANNUAL",
+      "language": ["en"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-004",
+      "conforms_to": "https://inspire.ec.europa.eu/schemas/utility-networks/v4",
+      "distributions": [
+        {
+          "title": "GeoJSON Coverage Data",
+          "description": "Full coverage map polygons in GeoJSON format",
+          "format": "GEOJSON",
+          "media_type": "application/geo+json",
+          "access_url": "https://data.edia.europa.eu/ds-004/coverage.geojson",
+          "byte_size": 892010496,
+          "license": "CC-BY-4.0"
+        },
+        {
+          "title": "WMS Tile Service Endpoint",
+          "description": "OGC Web Map Service for broadband coverage visualization",
+          "format": "WMS",
+          "access_url": "https://maps.edia.europa.eu/wms/broadband",
+          "license": "CC-BY-4.0"
+        }
+      ]
+    },
+    {
+      "id": "ds-005",
+      "title": "AI Systems Risk Classification Registry",
+      "description": "Registry of AI systems classified by risk level under the EU AI Act framework, including provider information, intended use, and conformity assessment status.",
+      "publisher_name": "AI Governance Office",
+      "contact": {
+        "name": "AI Registry Team",
+        "email": "ai-registry@edia.europa.eu"
+      },
+      "themes": ["TECH", "GOVE"],
+      "keywords": ["artificial intelligence", "AI Act", "risk classification", "high-risk AI"],
+      "spatial": "EU",
+      "frequency": "WEEKLY",
+      "language": ["en"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-005",
+      "applicable_legislation": "http://data.europa.eu/eli/reg/2024/1689",
+      "issued": "August 1, 2024",
+      "distributions": [
+        {
+          "title": "Registry Export JSON",
+          "description": "Complete AI systems registry export in JSON format",
+          "format": "JSON",
+          "media_type": "application/json",
+          "access_url": "https://data.edia.europa.eu/ds-005/registry.json",
+          "license": "CC-BY-4.0"
+        },
+        {
+          "title": "Registry CSV Summary",
+          "description": "Tabular summary of classified AI systems",
+          "format": "CSV",
+          "access_url": "https://data.edia.europa.eu/ds-005/summary.csv",
+          "license": "CC-BY-4.0"
+        }
+      ]
+    },
+    {
+      "id": "ds-006",
+      "title": "eIDAS Trust Service Status Lists",
+      "description": "Consolidated trust service status information from all EU member state trusted lists under eIDAS regulation, including qualified and non-qualified service providers.",
+      "publisher_name": "Trust Services Division",
+      "contact": {
+        "name": "eIDAS Technical Secretariat",
+        "email": "eidas@edia.europa.eu"
+      },
+      "themes": ["TECH", "GOVE", "JUST"],
+      "keywords": ["eIDAS", "trust services", "electronic identification", "digital signatures", "qualified certificates"],
+      "temporal": {
+        "start": "2016-07-01"
+      },
+      "spatial": "EU",
+      "frequency": "DAILY",
+      "language": ["en"],
+      "landing_page": "https://data.edia.europa.eu/dataset/ds-006",
+      "applicable_legislation": "http://data.europa.eu/eli/reg/2014/910",
+      "conforms_to": "https://ec.europa.eu/tools/lotl/schema/v5",
+      "distributions": [
+        {
+          "title": "ETSI Trusted Lists XML",
+          "description": "ETSI TS 119 612 compliant XML trusted lists",
+          "format": "XML",
+          "media_type": "application/xml",
+          "access_url": "https://data.edia.europa.eu/ds-006/trusted-lists.xml",
+          "byte_size": 45088768,
+          "license": "CC-BY-4.0"
+        }
+      ]
+    }
+  ],
+  "data_services": [
+    {
+      "id": "svc-001",
+      "title": "EDIA SPARQL Query Service",
+      "description": "Public SPARQL 1.1 endpoint providing federated query access across all published EDIA open datasets with content negotiation support.",
+      "endpoint_url": "https://sparql.edia.europa.eu/query",
+      "endpoint_description": "https://sparql.edia.europa.eu/service-description",
+      "serves_datasets": ["ds-001", "ds-003", "ds-005", "ds-006"],
+      "publisher_name": "IT Infrastructure Division",
+      "contact": {
+        "name": "Data Platform Team",
+        "email": "platform@edia.europa.eu"
+      },
+      "conforms_to": "https://www.w3.org/TR/sparql11-protocol/",
+      "license": "CC-BY-4.0",
+      "themes": ["TECH"]
+    },
+    {
+      "id": "svc-002",
+      "title": "EDIA OGC Geospatial Feature Service",
+      "description": "OGC Web Feature Service 2.0 providing programmatic access to geospatial datasets with GML and GeoJSON output formats.",
+      "endpoint_url": "https://geo.edia.europa.eu/wfs",
+      "endpoint_description": "https://geo.edia.europa.eu/wfs?service=WFS&request=GetCapabilities",
+      "serves_datasets": ["ds-004"],
+      "publisher_name": "DG Communications Networks",
+      "contact": {
+        "name": "Geospatial Services Team",
+        "email": "geo@edia.europa.eu"
+      },
+      "conforms_to": "https://www.ogc.org/standards/wfs",
+      "themes": ["TECH", "REGI"]
+    }
+  ]
+}

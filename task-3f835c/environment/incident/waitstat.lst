@@ -1,0 +1,18 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> COLUMN CLASS FORMAT A25
+SQL> SELECT CLASS, COUNT, TIME FROM V$WAITSTAT ORDER BY COUNT DESC;
+
+CLASS                         COUNT       TIME
+------------------------- --------- ----------
+data block                   250000    5000000
+segment header                15000     300000
+undo header                    8000     160000
+undo block                     5000     100000
+free list                      2000      40000
+system undo header             1000      20000
+system undo block               500      10000
+
+7 rows selected.
+
+SQL> spool off

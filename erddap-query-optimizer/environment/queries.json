@@ -1,0 +1,73 @@
+[
+  {
+    "id": "sst_harmonize",
+    "description": "Multi-source SST fusion requiring unit harmonization across Kelvin and Celsius sources",
+    "region": {
+      "latitude": [30.0, 45.0],
+      "longitude": [-140.0, -120.0],
+      "lonConvention": "-180/180"
+    },
+    "time": {
+      "start": "2020-06-01T00:00:00Z",
+      "stop": "2020-06-30T00:00:00Z"
+    },
+    "requests": [
+      {"datasetID": "mur_sst", "variables": ["analysed_sst"], "targetResolution": 0.25},
+      {"datasetID": "oisst_avhrr", "variables": ["sst"], "targetResolution": null},
+      {"datasetID": "ndbc_stdmet", "variables": ["sea_surface_temperature", "wind_speed"], "targetResolution": null}
+    ]
+  },
+  {
+    "id": "quality_chlor",
+    "description": "Quality-aware chlorophyll analysis with SST context across different temporal resolutions",
+    "region": {
+      "latitude": [-10.0, 10.0],
+      "longitude": [70.0, 110.0],
+      "lonConvention": "0-360"
+    },
+    "time": {
+      "start": "2021-03-01T00:00:00Z",
+      "stop": "2021-03-15T00:00:00Z"
+    },
+    "requests": [
+      {"datasetID": "chlor_viirs", "variables": ["chlor_a"], "targetResolution": null},
+      {"datasetID": "mur_sst", "variables": ["analysed_sst"], "targetResolution": 0.1}
+    ]
+  },
+  {
+    "id": "antimeridian_wrap",
+    "description": "Multi-dataset query wrapping across the antimeridian with mixed grid and table sources",
+    "region": {
+      "latitude": [20.0, 40.0],
+      "longitude": [-170.0, 170.0],
+      "lonConvention": "-180/180"
+    },
+    "time": {
+      "start": "2021-06-01T00:00:00Z",
+      "stop": "2021-06-10T00:00:00Z"
+    },
+    "requests": [
+      {"datasetID": "mur_sst", "variables": ["analysed_sst"], "targetResolution": 1.0},
+      {"datasetID": "oisst_avhrr", "variables": ["sst"], "targetResolution": null},
+      {"datasetID": "argo_profile", "variables": ["temp", "psal", "pres"], "targetResolution": null}
+    ]
+  },
+  {
+    "id": "coverage_assess",
+    "description": "Near-global query exposing spatial coverage gaps in latitude-limited datasets",
+    "region": {
+      "latitude": [-70.0, 70.0],
+      "longitude": [10.0, 50.0],
+      "lonConvention": "-180/180"
+    },
+    "time": {
+      "start": "2020-12-01T00:00:00Z",
+      "stop": "2020-12-31T00:00:00Z"
+    },
+    "requests": [
+      {"datasetID": "mur_sst", "variables": ["analysed_sst"], "targetResolution": 0.5},
+      {"datasetID": "chlor_viirs", "variables": ["chlor_a"], "targetResolution": null},
+      {"datasetID": "argo_profile", "variables": ["temp", "psal"], "targetResolution": null}
+    ]
+  }
+]

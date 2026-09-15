@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-module speech feature extraction pipeline from reference source code that depends on unavailable external libraries (pysptk for RAPT pitch detection, Praat for formant analysis). The solver must: (1) navigate complex reference code with Spanish variable names, cross-file dependencies, and implicit algorithm details across 4 source files; (2) design and implement a standalone F0 detection algorithm to replace the unavailable RAPT library; (3) replicate non-obvious numerical behaviors in the perturbation measure functions from the reference source; (4) reconstruct a 103-element prosody feature layout from partially-available reference code with missing helper functions; (5) build a SoX-based audio preprocessing shell script and integrate it as a CLI pipeline; (6) handle numerous edge cases (silence, stereo input, short signals, unvoiced content) with correctly-dimensioned outputs."""
+solution_explanation = """preprocess.sh uses SoX with cascaded highpass 50 highpass 50 for second-order high-pass filtering, gain -n for peak normalization, and -r 16000 -c 1 -b 16 for format conversion. extract.py preprocesses input through SoX before passing to Python modules. F0 detection uses normalized FFT-based autocorrelation with Hamming windowing, parabolic peak interpolation, and energy-based voicing threshold, replacing the unavailable RAPT algorithm. Phonation perturbation measures follow the reference: jitter_env/shimmer_env apply unconditional 100/max normalization even on copied values during resampling; PQ uses center-deviation formula with odd-k constraint. PPQ converts F0 to periods (1/F0) before calling PQ with k=5. Static aggregation: [all_means, all_stds, all_skews, all_kurts] across 7 descriptors. Prosody segments speech via F0 contour with 140ms pause threshold, computes 30 F0 features, 48 energy features, and 25 duration features. Dynamic prosody uses degree-5 polynomial fits per voiced segment."""
+verification_explanation = """Tests verify SoX preprocessing pipeline (script existence, 44.1kHz stereo to 16kHz mono conversion, high-pass DC removal, 16-bit PCM output, sox command usage). Tests verify exact numerical outputs of low-level DSP functions against hand-computed golden values (jitter_env resampling, perturbation_quotient, PPQ period conversion). Pipeline tests verify feature dimensions (28 phonation, 103 prosody), value finiteness, F0 detection accuracy on synthetic tones and chirps, stereo handling, silence edge cases, prosody segmentation, and cross-module consistency. CLI tests verify output format across all mode combinations and non-standard input handling through SoX preprocessing."""
+category = "signal_processing"
+tags = ["dsp", "speech-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/speech-perturbation-analysis-cda0eb"

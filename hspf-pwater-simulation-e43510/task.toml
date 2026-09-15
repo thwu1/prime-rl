@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing an HSPF UCI configuration file (a domain-specific fixed-width text format with section delimiters, comment conventions, and multiple parameter tables), then reverse-engineering and reimplementing the ~600-line PWATER numerical algorithm from a reference implementation that cannot be run directly (missing numpy/numba/hsp2 dependencies). The solver must understand seven coupled storage zones, nonlinear routing equations, sub-daily recession parameter conversion, monthly parameter interpolation, and sequential multi-zone evapotranspiration. All results must be written to a hierarchical HDF5 file with specific group structure, gzip-compressed float64 datasets, typed attributes, and a mass-balance closure diagnostic—requiring proficiency with the h5py library and HDF5 data model. Getting any single component wrong cascades errors through all downstream calculations, requiring systematic debugging against reference output."""
+solution_explanation = """The solution first parses the UCI file by tracking section/subsection boundaries, skipping comment and header lines, and extracting fixed-width parameter values from PWAT-PARM1-4, MON-INTERCEP, and PWAT-STATE1. It then implements the full PWATER algorithm from the reference source: interception, infiltration/surface partitioning via linear distribution, upper zone absorption, interflow/surface split, ARM/NPS surface routing, interflow recession, percolation, lower zone distribution, groundwater recession with variable slope index, and sequential 5-zone evapotranspiration. State variables (UZS, LZS, AGWS) are tracked at each step, and a water balance is computed by accumulating ET and deep percolation losses. Output is written to an HDF5 file using h5py with hierarchical groups, gzip-compressed datasets, and summary attributes including the mass-balance residual."""
+verification_explanation = """Tests validate HDF5 structure (group hierarchy, dataset names, shapes, dtypes, gzip compression, root and summary attributes), cumulative sum accuracy within 0.01 inches for all flow components and total outflow, per-step accuracy at timesteps 0/180/first rain event within 0.001, non-negativity of all flows and states, PERO consistency (sum of components at each step), water balance closure (< 0.05 inches), physical behavior during dry periods and rain events, and simulation metadata correctness."""
+category = "hydrology"
+tags = ["numerical-simulation", "hdf5-data-engineering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hspf-pwater-simulation-e43510"

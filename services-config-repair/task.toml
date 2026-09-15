@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level expertise across multiple Linux service domains simultaneously: BIND9 DNS (RFC 1912/2181 compliance for CNAME restrictions, MX record requirements, IPv6 nibble-format reverse zone creation from scratch), HAProxy (TLS termination configuration, backend validation, ACL routing), Apache (virtual host configuration, SSL, multi-port listening), MariaDB (schema design with foreign keys, user privilege grants, access control), and Ansible (playbook structure with handlers, variables, template modules, idempotent design). The IPv6 reverse zone requires understanding nibble-reversed PTR record format for a /48 prefix. The combination of diagnosing subtle RFC-violating DNS errors alongside creating complete automation playbooks requires Dreyfus proficient-to-expert level skills."""
+solution_explanation = """Fix named.conf syntax (missing semicolon, wrong zone file path) and add IPv6 reverse zone stanza. Fix forward DNS zone: remove CNAME at apex (replace with A record), change smtp from CNAME to A record so MX doesn't point to CNAME, add trailing dots to all FQDN targets in CNAME and SRV records. Fix reverse zone: convert full IP owner to relative name, remove dangling PTR for nonexistent host. Create IPv6 reverse zone with correct nibble-format PTR records for 2001:db8:1::/48. Fix HAProxy: correct balance algorithm typo, remove reference to non-existent backend, add health checks. Fix Apache: correct directive typo, close unclosed tags, add missing Listen directives. Create MariaDB SQL with databases, tables, users, grants. Create Ansible playbook with variables, service tasks, and handlers."""
+verification_explanation = """Tests use real tooling and structural analysis: named-checkzone validates all three zones; named-checkconf validates BIND configuration; haproxy -c validates HAProxy configuration. Python structural tests verify no CNAME at zone apex, MX records don't target CNAMEs, FQDNs have trailing dots, PTR owners use relative names, forward/reverse records are consistent, Apache configs have proper structure and directives, MariaDB SQL creates required databases/tables/users with correct grants, and Ansible playbook has valid YAML structure with handlers, variables, and tasks covering all four services."""
+category = "systems_administration"
+tags = ["linux-services", "ansible-automation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/services-config-repair"

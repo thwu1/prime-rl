@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Kaplan-Meier survival estimation from scratch with Greenwood's formula for confidence intervals, a two-sample log-rank (Mantel-Haenszel) test, radiobiology calculations (BED/EQD2 using linear-quadratic model), and clinical data analysis (sarcopenia transition matrices). The CSV has encoding quirks (UTF-8 BOM, double-space column names, mixed missing value markers) that demand careful data engineering. Combines domain expertise in radiation oncology, survival analysis, and biostatistics in a single pipeline."""
+solution_explanation = """Parse the HNSCC dataset handling BOM encoding and column name irregularities. Compute BED = D(1 + d/(α/β)) and EQD2 = BED/(1 + 2/(α/β)) for each patient. Implement KM by sorting events, computing at-risk counts and conditional probabilities at each event time, with Greenwood variance. Implement log-rank by accumulating observed-minus-expected events and hypergeometric variance at each event time. Count sarcopenia transitions from categorical status columns. Output structured JSON."""
+verification_explanation = """Tests independently verify output JSON structure, exact integer counts (patients, sarcopenia status, dose inconsistencies) computed directly from the CSV, and floating-point values (BED, EQD2, KM probabilities, log-rank statistic) within defined tolerances against reference values. KM monotonicity and bound constraints are enforced. Stage patient counts are cross-validated against the raw data."""
+category = "applied_computing"
+tags = ["medical-physics", "survival-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/radiotherapy-survival-analysis"

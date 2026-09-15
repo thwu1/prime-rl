@@ -1,0 +1,27 @@
+// Test 06: Variable scoping, shadowing, global vars, global zero-initialization
+int a = 10;
+int g[3];
+int count;
+
+int getA() { return a; }
+
+void incCount() { count = count + 1; }
+
+int main() {
+    putint(a); putch(32);
+    putint(g[0]); putch(32);
+    putint(g[2]); putch(32);
+    putint(count); putch(32);
+    int a = 20;
+    putint(a); putch(32);
+    {
+        int a = 30;
+        putint(a); putch(32);
+    }
+    putint(a); putch(32);
+    putint(getA()); putch(32);
+    incCount();
+    incCount();
+    putint(count); putch(10);
+    return 0;
+}

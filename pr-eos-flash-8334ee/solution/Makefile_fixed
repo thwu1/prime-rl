@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -fPIC -O2
+
+all: libcubic.so
+
+libcubic.so: cubic_solver.c
+	$(CC) $(CFLAGS) -shared -o $@ $< -lm
+
+clean:
+	rm -f *.o *.so

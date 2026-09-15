@@ -1,0 +1,20 @@
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index aaa1111..bbb2222 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -55,11 +55,15 @@ void *skb_put_data(struct sk_buff *skb, const void *data, unsigned int len)
+ {
+     void *ptr;
+
++    if (skb->tail + len > skb->end) {
++        WARN_ONCE(1, "skb_put_data overflow: %u bytes\n", len);
++        return NULL;
++    }
++
+     ptr = skb->tail;
+     skb->tail += len;
+     skb->len += len;
+-    /* BUG: No bounds check against skb->end before memcpy */
+     memcpy(ptr, data, len);
+     return ptr;
+ }

@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HPC Benchmark Procurement Evaluation Report",
+  "description": "Schema for the benchmark evaluation report produced by the procurement pipeline",
+  "type": "object",
+  "required": ["system", "benchmarks", "scaling_analysis", "aggregate_score"],
+  "properties": {
+    "system": {
+      "type": "object",
+      "required": ["name", "total_nodes"],
+      "properties": {
+        "name": {"type": "string"},
+        "total_nodes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "benchmarks": {
+      "type": "object",
+      "required": ["lammps", "milc", "workflow"],
+      "properties": {
+        "lammps": {
+          "type": "object",
+          "required": ["runs", "best_valid_fom"],
+          "properties": {
+            "runs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["log_file", "num_atoms", "num_timesteps", "wall_time_seconds", "fom", "pe_per_molecule", "validation_passed"],
+                "properties": {
+                  "log_file": {"type": "string"},
+                  "num_atoms": {"type": "integer", "minimum": 1},
+                  "num_timesteps": {"type": "integer", "minimum": 1},
+                  "wall_time_seconds": {"type": "number", "exclusiveMinimum": 0},
+                  "fom": {"type": "number", "minimum": 0},
+                  "pe_per_molecule": {"type": "number"},
+                  "validation_passed": {"type": "boolean"}
+                }
+              }
+            },
+            "best_valid_fom": {"type": "number", "minimum": 0}
+          }
+        },
+        "milc": {
+          "type": "object",
+          "required": ["runs", "optimal_config", "best_valid_fom"],
+          "properties": {
+            "runs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["log_file", "nodes", "traj2_mean_step_time", "olcf_fom", "replicas", "final_fom", "plaquette", "plaquette_deviation_pct", "validation_passed"],
+                "properties": {
+                  "log_file": {"type": "string"},
+                  "nodes": {"type": "integer", "minimum": 1},
+                  "traj2_mean_step_time": {"type": "number", "exclusiveMinimum": 0},
+                  "olcf_fom": {"type": "number", "minimum": 0},
+                  "replicas": {"type": "integer", "minimum": 0},
+                  "final_fom": {"type": "number", "minimum": 0},
+                  "plaquette": {"type": "number"},
+                  "plaquette_deviation_pct": {"type": "number", "minimum": 0},
+                  "validation_passed": {"type": "boolean"}
+                }
+              }
+            },
+            "optimal_config": {
+              "type": "object",
+              "required": ["nodes_per_replica", "replicas", "olcf_fom", "final_fom"],
+              "properties": {
+                "nodes_per_replica": {"type": "integer", "minimum": 0},
+                "replicas": {"type": "integer", "minimum": 0},
+                "olcf_fom": {"type": "number", "minimum": 0},
+                "final_fom": {"type": "number", "minimum": 0}
+              }
+            },
+            "best_valid_fom": {"type": "number", "minimum": 0}
+          }
+        },
+        "workflow": {
+          "type": "object",
+          "required": ["runs", "best_valid_fom"],
+          "properties": {
+            "runs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["log_file", "num_voxels", "num_replicas", "makespan_seconds", "fom", "final_loss", "validation_passed"],
+                "properties": {
+                  "log_file": {"type": "string"},
+                  "num_voxels": {"type": "integer", "minimum": 1},
+                  "num_replicas": {"type": "integer", "minimum": 1},
+                  "makespan_seconds": {"type": "number", "exclusiveMinimum": 0},
+                  "fom": {"type": "number", "minimum": 0},
+                  "final_loss": {"type": "number", "minimum": 0},
+                  "validation_passed": {"type": "boolean"}
+                }
+              }
+            },
+            "best_valid_fom": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
+    "scaling_analysis": {
+      "type": "object",
+      "required": ["benchmark", "reference_nodes", "data_points"],
+      "properties": {
+        "benchmark": {"type": "string", "const": "milc"},
+        "reference_nodes": {"type": "integer", "minimum": 1},
+        "data_points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["nodes", "step_time", "speedup", "parallel_efficiency"],
+            "properties": {
+              "nodes": {"type": "integer", "minimum": 1},
+              "step_time": {"type": "number", "exclusiveMinimum": 0},
+              "speedup": {"type": "number", "exclusiveMinimum": 0},
+              "parallel_efficiency": {"type": "number", "exclusiveMinimum": 0, "maximum": 1.01}
+            }
+          }
+        }
+      }
+    },
+    "aggregate_score": {"type": "number", "minimum": 0}
+  }
+}

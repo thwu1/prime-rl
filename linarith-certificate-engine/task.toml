@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of: (1) the mathematical theory underlying certificates of infeasibility for linear arithmetic over the rationals, (2) implementing two independent and complete certificate-finding backends from scratch, (3) exact rational arithmetic with correct handling of equality constraints, strict vs non-strict comparisons, and cyclic variable dependencies, (4) CPLEX LP format specification and subprocess-based integration with an external solver, and (5) a verifier that correctly accepts valid certificates and rejects all invalid ones."""
+solution_explanation = """The solution implements a constraint parser, a certificate verifier, two complete oracle backends that find certificates via different mathematical approaches, a dispatch layer, a CPLEX LP format exporter, and a glpsol integration function that invokes the external solver and parses its output."""
+verification_explanation = """Tests construct constraint systems programmatically and verify: (1) correct unsatisfiability detection for 10+ problem classes including trivial, multi-variable, cyclic, equality-involving, fractional, and large systems, (2) correct satisfiability detection (no false positives), (3) independent certificate verification for every returned certificate, (4) both oracle backends produce valid certificates, (5) parse_constraint handles various input formats, (6) verify_certificate correctly rejects invalid certificates, (7) exported LP files are parseable by glpsol, and (8) glpsol feasibility results agree with oracle results on applicable systems."""
+category = "optimization"
+tags = ["linear-programming", "formal-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/linarith-certificate-engine"

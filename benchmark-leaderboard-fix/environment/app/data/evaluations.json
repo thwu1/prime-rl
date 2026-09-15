@@ -1,0 +1,2052 @@
+[
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-001",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-002",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-003",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-004",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-005",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-006",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-007",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-008",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-009",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "alpha-v1",
+    "task_id": "task-010",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 800000,
+        "cached_tokens": 480000,
+        "output_tokens": 40000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-001",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-002",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-003",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-004",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-005",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-006",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-007",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-008",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-009",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "beta-2",
+    "task_id": "task-010",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1000000,
+        "cached_tokens": 700000,
+        "output_tokens": 50000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-001",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-002",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-003",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-004",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-005",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-006",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-007",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-008",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-009",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "gamma-3b",
+    "task_id": "task-010",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1200000,
+        "cached_tokens": 960000,
+        "output_tokens": 55000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-001",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-002",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-003",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-004",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-005",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-006",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-007",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-008",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-009",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "delta-coder",
+    "task_id": "task-010",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 1500000,
+        "cached_tokens": 1275000,
+        "output_tokens": 60000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-001",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-002",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-003",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-004",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-005",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-006",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-007",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-008",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-009",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  },
+  {
+    "model_id": "epsilon-7b",
+    "task_id": "task-010",
+    "runs": [
+      {
+        "run_id": 1,
+        "resolved": true,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 2,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 3,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 4,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      },
+      {
+        "run_id": 5,
+        "resolved": false,
+        "input_tokens": 2000000,
+        "cached_tokens": 1800000,
+        "output_tokens": 70000
+      }
+    ]
+  }
+]

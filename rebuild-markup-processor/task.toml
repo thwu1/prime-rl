@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary implementing a proprietary binary archive format. The agent must use binary analysis tools (strings, strace, ltrace, xxd, objdump) to discover: (1) undocumented commands (info, verify, dump) hidden from --help output, (2) environment variables (ARKV_CHECKSUM, ARKV_SCRAMBLE) that control archive creation flags, (3) the exact binary wire format (magic bytes, LE-encoded headers, entry metadata, data payloads, footer), (4) a CRC32 checksum with non-standard seed (0x5A3C9E71) discoverable via ltrace, and (5) a filename-keyed XOR scrambling algorithm. The agent must then synthesize all findings into a Python reimplementation producing byte-identical archives."""
+solution_explanation = """The solution uses strings to discover hidden commands and env vars, ltrace to identify the CRC32 call with custom seed 0x5A3C9E71, xxd to map the binary format (4-byte magic, version, flags, LE uint32 count, per-entry path/type/mode/mtime/size/data/checksum, 8-byte footer), and black-box testing to deduce the XOR scramble key derivation (path[i%len] ^ 0xA5). The Python reimplementation uses struct for LE encoding and zlib.crc32 with the discovered seed."""
+verification_explanation = """Tests create archives with controlled files (fixed timestamps, permissions, content), then verify byte-level format identity between C binary and Python reimplementation across all modes (plain, checksum, scramble, combined). Additional tests compare stdout output of all commands (list, info, verify, dump), cross-compatibility (Python reads C archives and vice versa), extraction correctness, checksum corruption detection, and error handling."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "format-reversing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rebuild-markup-processor"

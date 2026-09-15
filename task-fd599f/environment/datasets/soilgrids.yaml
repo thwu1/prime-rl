@@ -1,0 +1,30 @@
+id: soilgrids-v2
+name: SoilGrids 250m v2.0
+description: >
+  Global gridded soil information system providing predictions of soil properties
+  at 250m resolution using machine learning and soil profile observations.
+coordinate_system:
+  type: projected
+  name: "Interrupted Goode Homolosine"
+  epsg: null
+  proj4: "+proj=igh +datum=WGS84 +no_defs"
+bounds:
+  xmin: -20037508.0
+  ymin: -9020048.0
+  xmax: 20037508.0
+  ymax: 9020048.0
+time_period:
+  begin: "2017-01-01"
+  end: "2017-12-31"
+spatial_resolution: 250
+parameters:
+  - clay_content
+  - sand_content
+  - silt_content
+  - organic_carbon
+  - bulk_density
+  - soil_ph
+  - cation_exchange_capacity
+provider: ISRIC World Soil Information
+license: CC-BY-4.0
+topic: soil

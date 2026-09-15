@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-layer graph compression format from C source code rather than a specification. The solver must: (1) read and understand the bitstream library's implementation of Elias gamma, Boldi-Vigna generalized zeta_k with minimal binary sub-codes, and Elias-Fano monotone sequence encoding — algorithms documented only as C code, not mathematical definitions; (2) understand how the Elias-Fano offset index (lower-bit/upper-bit splitting with optimal L parameter selection) provides random-access into sequentially-encoded node data; (3) reverse-engineer the full node encoding format by combining high-level structural notes with empirical probing via diagnostic tools and code reading — discovering the copy-list reference mechanism where nodes' successor lists are partially derived from nearby previously-decoded nodes via alternating copy/skip blocks with block-count, per-block gamma-coded lengths, and extra-count fields; (4) recognize that copy-mode decoding depends on sequential decode order (each node's copy-list references a previously-decoded node), creating a subtle ordering constraint not explicitly documented; (5) correctly implement the sorted merge of copied elements with extra values. This demands holistic understanding of succinct data structure theory, broadword coding families, and WebGraph-style reference compression — not merely following a procedural specification."""
+solution_explanation = """Build the cmake toolkit. Use header_info to extract N, W, K. Read bitstream.c to understand gamma, zeta_k (with minimal binary sub-code), and Elias-Fano algorithms. Run ef_dump to validate understanding of the EF index and get per-node bit offsets. Use bitprobe to validate individual code values at specific bit positions. Implement a big-endian bit reader with gamma, unary, minimal binary, and zeta_k decoders (matching bitstream.c). Parse the EF index by reading gamma(L), gamma(U), then N*L lower bits followed by N unary-coded upper-bit gaps. Decode nodes sequentially: read gamma(degree), gamma(ref_offset); in direct mode (ref=0), decode zeta_k-coded first successor and gaps; in copy mode (ref>0), read gamma(block_count), gamma-coded block lengths, apply alternating copy/skip to reference node's successor list, read gamma(extra_count) and zeta_k-coded extra values, sorted-merge copied+extras."""
+verification_explanation = """Tests re-encode the agent's decoded adjacency lists using the identical compression algorithm (Elias-Fano offset index + reference-compressed node data) and compare byte-for-byte against the original graph.bin. This round-trip verification ensures exact correctness without storing reference answers. Query answers are independently recomputed from the decoded adjacency lists."""
+category = "data_structures"
+tags = ["succinct-data-structures", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/decode-graph-bitstream"

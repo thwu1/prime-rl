@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of continuum mechanics and metal forming: calibrating three distinct hardening laws (Swift, Voce, Hockett-Sherby) with challenging nonlinear parameter landscapes, optimizing a constrained convex blend of these models, deriving the Hill48 anisotropic yield criterion from R-values under the associated flow rule, computing directional yield stress and R-value predictions at arbitrary orientations, and cross-validating the coupled model by predicting off-axis stress-strain response using work-conjugate strain transformation. The benchmark scoring pipeline requires implementing a multi-level normalized RMSE aggregation. No formulas are provided — the solver must know or derive the constitutive relationships from domain expertise."""
+solution_explanation = """Hardening models are fit via scipy curve_fit with appropriate bounds: Swift σ=K(ε₀+ε)^n, Voce σ=σ_sat-(σ_sat-σ_y)e^(-θε), Hockett-Sherby σ=σ_sat-(σ_sat-σ_i)e^(-mε^n). The optimal blend uses scipy.optimize.minimize with SLSQP and convexity constraints. Hill48 parameters are derived analytically: G=1/(1+r₀), H=r₀/(1+r₀), F=r₀/(r₉₀(1+r₀)), N=(r₀+r₉₀)(1+2r₄₅)/(2r₉₀(1+r₀)). The yield locus is traced parametrically: r=1/√(Fsin²θ+Gcos²θ+H(cosθ-sinθ)²). Directional R-values use R(θ)=[H+(2N-F-G-4H)sin²θcos²θ]/(Fsin²θ+Gcos²θ). Anisotropic flow curves use the work-conjugate relationship: σ_θ(ε_axial)=ratio(θ)×σ_model(ratio(θ)×ε_axial), where ratio(θ)=√((G+H)/A(θ)). Benchmark scoring implements a 3-level RMSE normalization pipeline."""
+verification_explanation = """Tests verify: (1) all 8 output files exist with correct schema, (2) fitted parameters produce flow curves within RMSE thresholds, (3) blended model weights are convex, RMSE ≤ best individual, stresses match weighted sum, (4) Hill48 parameters match R-value analytical relationships, (5) yield locus points satisfy Hill48 equation with correct symmetry, (6) directional R-values and yield stress consistent with Hill48, (7) anisotropic flow curves use correct best model, Hill48 ratios, strain transformation, and match measured data, (8) benchmark normalization factors and total scores recomputed independently."""
+category = "computational_mechanics"
+tags = ["plasticity", "numerical-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/elastoplastic-calibration-benchmark"

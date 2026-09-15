@@ -1,0 +1,4 @@
+name,batch_size,seq_len,nheads,headdim,causal,dtype_bytes,dropout
+llama-7b-short,32,2048,32,128,true,2,false
+llama-70b-long,4,16384,64,128,true,2,false
+bert-classifier,256,4096,96,128,false,2,false

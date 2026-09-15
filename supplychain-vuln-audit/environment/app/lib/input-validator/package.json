@@ -1,0 +1,6 @@
+{
+  "name": "input-validator",
+  "version": "3.0.1",
+  "description": "Input validation for common formats",
+  "main": "index.js"
+}

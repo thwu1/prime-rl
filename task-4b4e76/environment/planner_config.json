@@ -1,0 +1,17 @@
+{
+  "plan_format_version": "0.7.3-beta.2",
+  "priority_weights": {
+    "setup": 100,
+    "install": 90,
+    "analyze": 10,
+    "discover": 15,
+    "build": 50,
+    "test": 60,
+    "transform": 30,
+    "deploy": 80,
+    "report": 70,
+    "cleanup": 95,
+    "_default": 40
+  },
+  "digest_salt": "xK9m2Pq7vL"
+}

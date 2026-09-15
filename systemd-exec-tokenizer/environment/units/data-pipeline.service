@@ -1,0 +1,16 @@
+# Intended behavior: Run process-data reading from INPUT path,
+# pipe its output through transform, and save the final result
+# to OUTPUT path with stderr merged into stdout.
+# Both INPUT and OUTPUT paths must be expanded from environment variables.
+[Unit]
+Description=Data Processing Pipeline
+After=network.target
+
+[Service]
+Type=oneshot
+Environment="INPUT=/var/data/raw/input.csv"
+Environment="OUTPUT=/var/data/processed/output.json"
+ExecStart=/usr/local/bin/process-data --input ${INPUT} --format csv | /usr/local/bin/transform > ${OUTPUT} 2>&1
+
+[Install]
+WantedBy=multi-user.target

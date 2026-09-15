@@ -1,0 +1,86 @@
+{
+  "description": "Multiple policies selecting the same pod - their rules are unioned (OR across policies)",
+  "namespaces": [
+    {"name": "service-ns", "labels": {"env": "prod"}},
+    {"name": "team-a", "labels": {"team": "alpha"}},
+    {"name": "team-b", "labels": {"team": "beta"}},
+    {"name": "team-c", "labels": {"team": "gamma"}}
+  ],
+  "pods": [
+    {"name": "shared-svc", "namespace": "service-ns", "labels": {"app": "shared", "type": "api"}, "ip": "10.0.0.1"},
+    {"name": "client-a", "namespace": "team-a", "labels": {"app": "client", "tier": "frontend"}, "ip": "10.1.0.1"},
+    {"name": "client-b", "namespace": "team-b", "labels": {"app": "client", "tier": "backend"}, "ip": "10.2.0.1"},
+    {"name": "client-c", "namespace": "team-c", "labels": {"app": "client", "tier": "backend"}, "ip": "10.3.0.1"},
+    {"name": "rogue", "namespace": "team-c", "labels": {"app": "rogue", "tier": "unknown"}, "ip": "10.3.0.2"}
+  ],
+  "network_policies": [
+    {
+      "name": "base-deny",
+      "namespace": "service-ns",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "allow-team-a",
+      "namespace": "service-ns",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"app": "shared"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"team": "alpha"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 8080}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "allow-team-b-specific",
+      "namespace": "service-ns",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"app": "shared"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"team": "beta"}
+                },
+                "podSelector": {
+                  "matchLabels": {"tier": "backend"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 8080},
+              {"protocol": "TCP", "port": 8443}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "team-a", "src_pod": "client-a", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "team-a", "src_pod": "client-a", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8443, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "team-b", "src_pod": "client-b", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "team-b", "src_pod": "client-b", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8443, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "team-c", "src_pod": "client-c", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "team-c", "src_pod": "rogue", "dst_namespace": "service-ns", "dst_pod": "shared-svc", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"}
+  ]
+}

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc xmlns="http://xml.house.gov/schemas/uslm/1.0">
+  <meta>
+    <property role="is-positive-law">no</property>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t55">
+      <num value="55">Title 55</num>
+      <heading>Environmental Data Standards</heading>
+      <chapter identifier="/us/usc/t55/ch3">
+        <num value="3">CHAPTER 3</num>
+        <heading>MONITORING</heading>
+        <section identifier="/us/usc/t55/s201">
+          <num value="201">&#xA7; 201.</num>
+          <heading>Purpose</heading>
+          <content>
+            <subsection identifier="/us/usc/t55/s201/a">
+              <num value="a">(a)</num>
+              <text>The purpose of this chapter is to establish standards for environmental data monitoring.</text>
+            </subsection>
+            <subsection identifier="/us/usc/t55/s201/b">
+              <num value="b">(b)</num>
+              <chapeau>The standards shall address&#x2014;</chapeau>
+              <paragraph identifier="/us/usc/t55/s201/b/1">
+                <num value="1">(1)</num>
+                <text>air quality measurements;</text>
+              </paragraph>
+              <paragraph identifier="/us/usc/t55/s201/b/2">
+                <num value="2">(2)</num>
+                <text>water quality assessments as described in <ref href="/us/usc/t42/s300f">section 300f of title 42</ref>; and</text>
+              </paragraph>
+              <paragraph identifier="/us/usc/t55/s201/b/3">
+                <num value="3">(3)</num>
+                <text>soil contamination levels.</text>
+              </paragraph>
+            </subsection>
+          </content>
+        </section>
+        <section identifier="/us/usc/t55/s202">
+          <num value="202">&#xA7; 202.</num>
+          <heading>Reporting requirements</heading>
+          <content>
+            <subsection identifier="/us/usc/t55/s202/a">
+              <num value="a">(a)</num>
+              <chapeau>Each agency shall submit an annual report that includes&#x2014;</chapeau>
+              <paragraph identifier="/us/usc/t55/s202/a/1">
+                <num value="1">(1)</num>
+                <text>a summary of monitoring activities;</text>
+              </paragraph>
+              <paragraph identifier="/us/usc/t55/s202/a/2">
+                <num value="2">(2)</num>
+                <chapeau>an assessment of compliance with&#x2014;</chapeau>
+                <subparagraph identifier="/us/usc/t55/s202/a/2/A">
+                  <num value="A">(A)</num>
+                  <text>Federal standards;</text>
+                </subparagraph>
+                <subparagraph identifier="/us/usc/t55/s202/a/2/B">
+                  <num value="B">(B)</num>
+                  <text>State standards; and</text>
+                </subparagraph>
+                <subparagraph identifier="/us/usc/t55/s202/a/2/C">
+                  <num value="C">(C)</num>
+                  <text>local ordinances; and</text>
+                </subparagraph>
+              </paragraph>
+              <paragraph identifier="/us/usc/t55/s202/a/3">
+                <num value="3">(3)</num>
+                <text>recommendations for improvement.</text>
+              </paragraph>
+            </subsection>
+          </content>
+          <notes type="statutory">
+            <note>
+              <heading>Implementation</heading>
+              <p>Agencies shall comply with reporting requirements not later than 2 years after the date of enactment.</p>
+            </note>
+          </notes>
+        </section>
+      </chapter>
+    </title>
+  </main>
+</uscDoc>

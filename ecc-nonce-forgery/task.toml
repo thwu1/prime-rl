@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of elliptic curve signature schemes. The solver must: (1) identify which pair of ECDSA signatures share a nonce by scanning r values, (2) apply the nonce reuse key recovery attack (recovering k then the private key d via modular arithmetic), (3) understand the ECRDSA algorithm and its critical distinction from ECDSA (no k^-1 in signing equation), and (4) correctly handle the RFC/GOST vs ISO 14888-3 endianness divergence where the SHA-256 digest bytes must be reversed before conversion to integer. The FRP256V1 curve (ANSSI French national curve) is non-standard enough that pre-computed shortcuts are unavailable. Multi-step agentic interaction is required: reading JSON, implementing EC arithmetic, executing the attack, and writing structured output."""
+solution_explanation = """Scan the 6 ECDSA signatures for matching r values to identify the nonce-reused pair (indices 1 and 4). From two signatures (r, s1) and (r, s2) on messages m1 and m2 with the same k: compute e1 = SHA256(m1) mod q, e2 = SHA256(m2) mod q, then k = (e1 - e2) * (s1 - s2)^-1 mod q, and d = (s1*k - e1) * r^-1 mod q. Verify d by checking dG equals the given public key. For ECRDSA forgery: hash the challenge message with SHA-256, reverse the digest bytes (RFC standard), convert to integer e mod q, pick random nonce k', compute W = k'G, r = W.x mod q, s = (r*d + k'*e) mod q."""
+verification_explanation = """Tests verify: (1) the recovered private key file exists and is valid hex, (2) dG matches the public key in the challenge data, (3) the recovered key correctly verifies all 6 original ECDSA signatures, (4) the forged ECRDSA signature passes RFC-standard verification (with reversed hash endianness). All verification uses pure Python EC arithmetic on the FRP256V1 curve."""
+category = "security_and_privacy"
+tags = ["cryptography", "elliptic-curves"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecc-nonce-forgery"

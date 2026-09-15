@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in OFDM signal processing (FFT-based multicarrier modulation, cyclic prefix, pilot insertion), phase noise theory (power spectral density modeling, spectral shaping), and EVM measurement methodology (RMS error vector computation, CPE estimation, CPE/ICI decomposition). The solver must explore the environment to discover configuration parameters, interface specifications, and output format requirements. Implementation demands correct FFT normalization for lossless OFDM roundtrip, spectral filtering for phase noise synthesis matching a specified PSD profile, and statistically robust Monte Carlo analysis with deterministic seeding. Not solvable without graduate-level RF/DSP knowledge and multi-step implementation."""
+solution_explanation = """Explore /app/ to find config.yaml (system parameters), specs/api.md (interface contract), and specs/output_format.md (output schema). Implement phase noise synthesis via frequency-domain spectral shaping, OFDM modulation/demodulation with proper FFT scaling, and EVM analysis with pilot-based CPE correction. Run Monte Carlo trials with continuous phase noise realizations and compute the CPE/ICI variance decomposition from pre- and post-correction EVM measurements."""
+verification_explanation = """Tests verify: (1) results.json structure and all required keys with correct types, (2) EVM values in physically reasonable ranges with CPE correction reducing EVM, (3) CPE + ICI variance fractions summing to 1, (4) phase noise generator output properties (shape, type, variance magnitude, decreasing PSD), (5) OFDM roundtrip without noise yields near-zero EVM, (6) CPE estimation correctly recovers known constant phase rotation, (7) 64-QAM constellation has 64 normalized points, (8) EVM computation matches known analytical error, (9) seeded generation is reproducible."""
+category = "signal_processing"
+tags = ["ofdm", "phase-noise"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ofdm-phase-evm"

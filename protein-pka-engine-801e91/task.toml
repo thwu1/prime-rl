@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a protein pKa prediction engine consistent with PROPKA 3.x across three structurally diverse PDB files (4-group peptide, 57-group multi-chain protease-inhibitor complex with 10 disulfide bridges, and 49-group homodimeric protease with ligand). The solver must: (1) analyze the PROPKA codebase and configuration to understand the empirical energy model without any formulas given in the instruction; (2) devise a strategy for producing matching pKa predictions across multi-chain structures with ligand titratable groups and disulfide-bonded cysteines; (3) implement seven standalone energy/charge functions matching PROPKA's internal computations; (4) parse PROPKA's non-trivial .pka output format for both pKa values and isoelectric points; (5) ensure internal consistency between the isoelectric point, charge model, and predicted pKa values. The domain requires understanding of protein electrostatics, PDB file format conventions, and empirical energy parameterization."""
+solution_explanation = """The reference solution installs propka==3.5.1 and wraps propka.run.single() to produce predictions. It suppresses stdout/stderr during propka execution, runs in a temporary directory, then parses the generated .pka output file using regex to extract pKa values (from the summary section) and pI values (from the charge profile section). The standalone energy functions are reverse-engineered from PROPKA source: hydrogen_bond_energy uses linear interpolation between cutoffs, coulomb_energy uses distance-dependent dielectric screening with the Coulomb constant 244.12, burial_weight and scale_factor use simple linear clamped formulas from energy.py, and residue_charge uses the Henderson-Hasselbalch equation. compute_net_charge sums fractional charges, and find_isoelectric_point uses bisection."""
+verification_explanation = """Tests verify 8 hydrogen-bond energy cases, 5 Coulomb energy cases, 5 burial weight cases, 3 scale factor cases, 5 Henderson-Hasselbalch charge cases, 3 isoelectric point cases, and 3 net charge cases via analytically derived input/output pairs. Integration tests run the full pipeline on three PDB structures: sample-issue-140 (4 groups), 3SGB (57 groups including 10 disulfide CYS at 99.99), and 1HPX (49 groups with exact pI verification against reference values 9.54 folded / 8.90 unfolded). Two cross-function consistency tests verify that the reported pi_folded matches the pH of zero net charge computed from the returned pKa values for sample-issue-140 (4 groups, uncoupled) and 1HPX (49 groups including ligand with correct charge assignment)."""
+category = "computational_biology"
+tags = ["protein-electrostatics", "structural-biology"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protein-pka-engine-801e91"

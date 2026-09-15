@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete Proxy-based copy-on-write immutable state engine from scratch in TypeScript, including: proxy trap interception for property access and mutation, structural sharing with identity-preserving finalization, modification propagation through nested parent chains, RFC-6902-compatible patch and inverse-patch generation with array length-change handling, and a polymorphic patch application system supporting Objects/Arrays/Maps/Sets with prototype pollution prevention. Combines JavaScript runtime expertise (Proxy invariants, property descriptor semantics, Array.prototype method interop), algorithmic design (tree diffing, structural sharing), and security awareness."""
+solution_explanation = """The solution uses Proxy.revocable to create draft proxies that intercept get/set/delete/has/ownKeys operations. The get trap lazily creates child proxies for draftable values, storing them in a shallow copy. The set trap detects changes via Object.is, tracks assignments in a Map, and propagates modification flags up the parent chain. Finalization walks the draft tree, replacing modified nodes with their copies (with child drafts recursively finalized) and returning base references for unmodified nodes (structural sharing). Patch generation walks modified draft nodes before finalization, using the assigned map to distinguish add/replace/remove operations. Array patches use a base/copy swap when the copy is shorter to simplify length-change handling. applyPatches navigates paths while shallow-cloning each level to prevent base mutation, with type-specific dispatch for Map/Set/Array/Object targets."""
+verification_explanation = """Tests compile the TypeScript project and run 28 parameterized scenarios via a Node.js test runner that outputs JSON results, validated by pytest. Tests cover: identity/structural sharing semantics, base immutability, auto-freezing, array operations (push/splice/index), property deletion, patch generation correctness for objects and arrays, inverse patch symmetry (forward replay and backward restoration), applyPatches across Maps/Sets/objects, prototype pollution rejection, and deep cloning of patch values."""
+category = "software_construction"
+tags = ["typescript", "proxy-metaprogramming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cow-patch-engine"

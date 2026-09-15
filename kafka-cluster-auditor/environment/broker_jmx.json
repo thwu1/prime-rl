@@ -1,0 +1,90 @@
+{
+  "snapshot_timestamp": "2026-06-12T08:30:00Z",
+  "brokers": {
+    "broker-0": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 0},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 3, "MeanRate": 0.0012, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 3, "MeanRate": 0.0012, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 18},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 8},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 1},
+      "kafka.controller:type=KafkaController,name=OfflinePartitionsCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 2894012416, "MeanRate": 48233540.3, "OneMinuteRate": 51200000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 4341018624, "MeanRate": 72350310.4, "OneMinuteRate": 76800000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 28500000, "MeanRate": 475000.0, "OneMinuteRate": 490000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 4.8, "50thPercentile": 3.2, "99thPercentile": 38.5},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 2.9, "50thPercentile": 1.8, "99thPercentile": 18.2},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.72}
+    },
+    "broker-1": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 0},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 2, "MeanRate": 0.0008, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 2, "MeanRate": 0.0008, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 17},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 7},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 2680160256, "MeanRate": 44669337.6, "OneMinuteRate": 46080000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 4020240384, "MeanRate": 67004006.4, "OneMinuteRate": 69120000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 26400000, "MeanRate": 440000.0, "OneMinuteRate": 452000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 5.1, "50thPercentile": 3.4, "99thPercentile": 41.2},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 3.0, "50thPercentile": 1.9, "99thPercentile": 19.5},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.69}
+    },
+    "broker-2": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 0},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 4, "MeanRate": 0.0016, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 4, "MeanRate": 0.0016, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 16},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 6},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 2466308096, "MeanRate": 41105134.9, "OneMinuteRate": 43008000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 3699462144, "MeanRate": 61657702.4, "OneMinuteRate": 64512000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 24300000, "MeanRate": 405000.0, "OneMinuteRate": 418000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 5.5, "50thPercentile": 3.6, "99thPercentile": 44.8},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 3.3, "50thPercentile": 2.1, "99thPercentile": 21.0},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.66}
+    },
+    "broker-3": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 0},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 2, "MeanRate": 0.0008, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 2, "MeanRate": 0.0008, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 15},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 5},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 2252455936, "MeanRate": 37540932.3, "OneMinuteRate": 39936000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 3378683904, "MeanRate": 56311398.4, "OneMinuteRate": 59904000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 22200000, "MeanRate": 370000.0, "OneMinuteRate": 385000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 4.2, "50thPercentile": 2.8, "99thPercentile": 33.5},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 2.5, "50thPercentile": 1.5, "99thPercentile": 15.8},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.74}
+    },
+    "broker-4": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 2},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 47, "MeanRate": 0.148, "OneMinuteRate": 0.22},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 12, "MeanRate": 0.005, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 14},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 4},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 1824522240, "MeanRate": 30408704.0, "OneMinuteRate": 25600000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 2736783360, "MeanRate": 45613056.0, "OneMinuteRate": 38400000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 18000000, "MeanRate": 300000.0, "OneMinuteRate": 248000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 18.7, "50thPercentile": 12.4, "99thPercentile": 185.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 11.2, "50thPercentile": 7.5, "99thPercentile": 112.0},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.12}
+    },
+    "broker-5": {
+      "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions": {"Value": 0},
+      "kafka.server:type=ReplicaManager,name=IsrShrinksPerSec": {"Count": 5, "MeanRate": 0.002, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=IsrExpandsPerSec": {"Count": 5, "MeanRate": 0.002, "OneMinuteRate": 0.0},
+      "kafka.server:type=ReplicaManager,name=PartitionCount": {"Value": 14},
+      "kafka.server:type=ReplicaManager,name=LeaderCount": {"Value": 4},
+      "kafka.controller:type=KafkaController,name=ActiveControllerCount": {"Value": 0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec": {"Count": 2038603776, "MeanRate": 33976729.6, "OneMinuteRate": 35840000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec": {"Count": 3057905664, "MeanRate": 50965094.4, "OneMinuteRate": 53760000.0},
+      "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec": {"Count": 20100000, "MeanRate": 335000.0, "OneMinuteRate": 348000.0},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce": {"Mean": 4.9, "50thPercentile": 3.3, "99thPercentile": 39.8},
+      "kafka.network:type=RequestMetrics,name=TotalTimeMs,request=FetchConsumer": {"Mean": 2.8, "50thPercentile": 1.7, "99thPercentile": 17.5},
+      "kafka.server:type=KafkaRequestHandlerPool,name=RequestHandlerAvgIdlePercent": {"MeanRate": 0.71}
+    }
+  }
+}

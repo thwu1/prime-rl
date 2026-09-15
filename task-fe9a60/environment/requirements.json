@@ -1,0 +1,36 @@
+{
+  "description": "Business requirements for VRF architecture extension. No RT/RD values are provided — you must design an assignment scheme that satisfies all constraints using the existing RT/RD mappings in topology.json as context.",
+  "new_vrf_requirements": {
+    "R1:QUARANTINE": {
+      "router": "R1",
+      "vrf_name": "QUARANTINE",
+      "purpose": "Security quarantine zone for compromised hosts requiring remediation access through the management plane",
+      "constraints": [
+        "Must receive management infrastructure routes leaked from the MGMT VRF on R1 so quarantined hosts can be remotely remediated",
+        "Must be completely invisible to the customer-facing CUST VRF on R1 — no QUARANTINE routes may appear in CUST's routing table under any circumstances",
+        "Must not inject any routes back into the MGMT VRF to prevent quarantined hosts from advertising rogue routes to management infrastructure",
+        "Must use explicit VPN route-leak semantics (rd vpn export, rt vpn export, rt vpn import, export vpn, import vpn) — do not use the import vrf shortcut"
+      ]
+    },
+    "R2:MONITOR": {
+      "router": "R2",
+      "vrf_name": "MONITOR",
+      "purpose": "Centralized network monitoring VRF aggregating routes for traffic analysis and observability tooling",
+      "constraints": [
+        "Must aggregate routes from both the CUST VRF and the INTERNAL VRF on R2 for comprehensive network visibility",
+        "Must not inject any monitoring infrastructure routes back into the CUST VRF",
+        "Must not inject any monitoring infrastructure routes back into the INTERNAL VRF",
+        "Must use explicit VPN route-leak semantics (rd vpn export, rt vpn export, rt vpn import, export vpn, import vpn) — do not use the import vrf shortcut"
+      ]
+    }
+  },
+  "design_evaluation_requirements": {
+    "description": "Produce a security assessment of the complete VRF route-leak architecture including all original VRFs (after bug fixes) and newly designed VRFs",
+    "deliverables": [
+      "Identify any VRF that has route exposure beyond its minimum operational need",
+      "Identify any VRF pairs where bidirectional route leaking could create a lateral movement risk",
+      "Assess whether the RT assignment scheme follows minimum-privilege principles",
+      "Provide at least two concrete recommendations for improving the architecture's security posture"
+    ]
+  }
+}

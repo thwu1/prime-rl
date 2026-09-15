@@ -1,0 +1,7 @@
+{
+    "bounding_size": 20.0,
+    "num_periods": 2,
+    "target_volume_fraction": 0.35,
+    "volume_fraction_tolerance": 0.03,
+    "mesh_segments_per_period": 10
+}

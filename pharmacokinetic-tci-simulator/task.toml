@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep pharmacokinetics domain knowledge to identify subtle parameter defects in published PK models across four different model implementations. The solver must independently research original publications (Schnider 1998, Eleveld 2018, Minto 1997, James 1976) or validated reference implementations to discover what is wrong, as the bugs involve plausible but incorrect parameter values, formula structures, and algorithmic approaches. Additionally requires implementing a functional effect-site TCI algorithm that correctly targets the effect compartment rather than plasma."""
+solution_explanation = """Five defects must be fixed: (1) James LBM female coefficient 1.17→1.07, (2) Schnider k21 denominator v1→v2 (inter-compartmental transfer uses receiving compartment volume), (3) Eleveld female clearance uses theta[4]→theta[15] (sex-dependent allometric clearance), (4) Minto clearance/ke0 age reference 35→40 (matching the volume equation reference), (5) Effect-site TCI stub must be replaced with a peak-targeting algorithm that finds the infusion rate producing peak Ce equal to the target after redistribution."""
+verification_explanation = """Tests validate via two independent mechanisms: (1) Parameter spot-checks run the R model functions with known inputs and verify outputs against published reference values with tight tolerances (catches model bugs), (2) Convergence tests run the full simulation and verify that effect-site concentration tracks target within 5% after 5-minute stabilization windows (catches TCI algorithm bugs). Format, row count, and non-negativity checks provide structural validation."""
+category = "debugging"
+tags = ["pharmacokinetics", "numerical-simulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pharmacokinetic-tci-simulator"

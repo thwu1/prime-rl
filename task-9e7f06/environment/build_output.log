@@ -1,0 +1,98 @@
+================================================================================
+SGEMM CUDA Autotuning — Profiling Build Log
+Compiler: nvcc 12.2.140 (CUDA 12.2)
+Target: sm_86 (NVIDIA RTX A6000, Compute Capability 8.6)
+Host: gcc 11.4.0 on x86_64-linux-gnu
+Date: 2024-02-19T09:14:33+00:00
+================================================================================
+
+[INFO] Profiling 5 template instantiations of sgemmWarptiling
+[INFO] Source: src/kernel_warptiling.cuh via src/runner.cu
+[INFO] Output: build/profile_*.o
+
+=== Profile Build 1/5 ===
+$ nvcc -arch=sm_86 -O3 --ptxas-options=-v -std=c++17 \
+    -DNUM_THREADS=128 -DBM=128 -DBN=128 -DBK=16 \
+    -DWM=64 -DWN=64 -DWNITER=4 -DTM=8 -DTN=4 \
+    -I./src -o build/profile_001.o -c src/sgemm_profile.cu
+src/sgemm_profile.cu(23): warning #177-D: variable "elapsed_ms" was declared but never referenced
+src/sgemm_profile.cu(47): warning #177-D: variable "warmup_iters" was declared but never referenced
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z18sgemmWarptilingILi128ELi128ELi128ELi16ELi64ELi64ELi4ELi8ELi4EEviiifPfS0_fS0_' for 'sm_86'
+ptxas info    : Function properties for _Z18sgemmWarptilingILi128ELi128ELi128ELi16ELi64ELi64ELi4ELi8ELi4EEviiifPfS0_fS0_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 155 registers, 16384 bytes shared memory, 384 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z12verifyResultPfS_ii' for 'sm_86'
+ptxas info    : Used 14 registers, 0 bytes shared memory, 360 bytes of constant memory, 0 bytes of local memory
+Build 1/5: PASSED (1.234s)
+
+=== Profile Build 2/5 ===
+$ nvcc -arch=sm_86 -O3 --ptxas-options=-v -std=c++17 \
+    -DNUM_THREADS=256 -DBM=64 -DBN=64 -DBK=16 \
+    -DWM=16 -DWN=32 -DWNITER=1 -DTM=4 -DTN=4 \
+    -I./src -o build/profile_002.o -c src/sgemm_profile.cu
+src/sgemm_profile.cu(23): warning #177-D: variable "elapsed_ms" was declared but never referenced
+src/sgemm_profile.cu(47): warning #177-D: variable "warmup_iters" was declared but never referenced
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z18sgemmWarptilingILi256ELi64ELi64ELi16ELi16ELi32ELi1ELi4ELi4EEviiifPfS0_fS0_' for 'sm_86'
+ptxas info    : Function properties for _Z18sgemmWarptilingILi256ELi64ELi64ELi16ELi16ELi32ELi1ELi4ELi4EEviiifPfS0_fS0_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 39 registers, 8192 bytes shared memory, 384 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z12verifyResultPfS_ii' for 'sm_86'
+ptxas info    : Used 14 registers, 0 bytes shared memory, 360 bytes of constant memory, 0 bytes of local memory
+Build 2/5: PASSED (0.987s)
+
+=== Profile Build 3/5 ===
+$ nvcc -arch=sm_86 -O3 --ptxas-options=-v -std=c++17 \
+    -DNUM_THREADS=128 -DBM=64 -DBN=128 -DBK=32 \
+    -DWM=16 -DWN=128 -DWNITER=1 -DTM=4 -DTN=4 \
+    -I./src -o build/profile_003.o -c src/sgemm_profile.cu
+src/sgemm_profile.cu(23): warning #177-D: variable "elapsed_ms" was declared but never referenced
+src/sgemm_profile.cu(47): warning #177-D: variable "warmup_iters" was declared but never referenced
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z18sgemmWarptilingILi128ELi64ELi128ELi32ELi16ELi128ELi1ELi4ELi4EEviiifPfS0_fS0_' for 'sm_86'
+ptxas info    : Function properties for _Z18sgemmWarptilingILi128ELi64ELi128ELi32ELi16ELi128ELi1ELi4ELi4EEviiifPfS0_fS0_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 87 registers, 24576 bytes shared memory, 384 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z12verifyResultPfS_ii' for 'sm_86'
+ptxas info    : Used 14 registers, 0 bytes shared memory, 360 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z10sgemm_naivePKfS0_Pfiii' for 'sm_86'
+ptxas info    : Used 22 registers, 0 bytes shared memory, 376 bytes of constant memory, 0 bytes of local memory
+Build 3/5: PASSED (1.102s)
+
+=== Profile Build 4/5 ===
+$ nvcc -arch=sm_86 -O3 --ptxas-options=-v -std=c++17 \
+    -DNUM_THREADS=256 -DBM=128 -DBN=128 -DBK=16 \
+    -DWM=32 -DWN=64 -DWNITER=1 -DTM=4 -DTN=8 \
+    -I./src -o build/profile_004.o -c src/sgemm_profile.cu
+src/sgemm_profile.cu(23): warning #177-D: variable "elapsed_ms" was declared but never referenced
+src/sgemm_profile.cu(47): warning #177-D: variable "warmup_iters" was declared but never referenced
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z18sgemmWarptilingILi256ELi128ELi128ELi16ELi32ELi64ELi1ELi4ELi8EEviiifPfS0_fS0_' for 'sm_86'
+ptxas info    : Function properties for _Z18sgemmWarptilingILi256ELi128ELi128ELi16ELi32ELi64ELi1ELi4ELi8EEviiifPfS0_fS0_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, 16384 bytes shared memory, 384 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z12verifyResultPfS_ii' for 'sm_86'
+ptxas info    : Used 14 registers, 0 bytes shared memory, 360 bytes of constant memory, 0 bytes of local memory
+Build 4/5: PASSED (1.089s)
+
+=== Profile Build 5/5 ===
+$ nvcc -arch=sm_86 -O3 --ptxas-options=-v -std=c++17 \
+    -DNUM_THREADS=128 -DBM=128 -DBN=128 -DBK=16 \
+    -DWM=64 -DWN=64 -DWNITER=1 -DTM=4 -DTN=4 \
+    -I./src -o build/profile_005.o -c src/sgemm_profile.cu
+src/sgemm_profile.cu(23): warning #177-D: variable "elapsed_ms" was declared but never referenced
+src/sgemm_profile.cu(47): warning #177-D: variable "warmup_iters" was declared but never referenced
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z18sgemmWarptilingILi128ELi128ELi128ELi16ELi64ELi64ELi1ELi4ELi4EEviiifPfS0_fS0_' for 'sm_86'
+ptxas info    : Function properties for _Z18sgemmWarptilingILi128ELi128ELi128ELi16ELi64ELi64ELi1ELi4ELi4EEviiifPfS0_fS0_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 151 registers, 16384 bytes shared memory, 384 bytes of constant memory, 0 bytes of local memory
+ptxas info    : Compiling entry function '_Z12verifyResultPfS_ii' for 'sm_86'
+ptxas info    : Used 14 registers, 0 bytes shared memory, 360 bytes of constant memory, 0 bytes of local memory
+Build 5/5: PASSED (1.156s)
+
+================================================================================
+All 5 profile builds completed successfully.
+Total compilation time: 5.568s
+================================================================================

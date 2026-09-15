@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of operations research: LP duality, reduced cost pricing, Dantzig-Wolfe column generation, and integer programming rounding. The agent must recognize that the exponential pattern space makes direct MIP formulation intractable, devise a column generation scheme (master LP + knapsack pricing subproblem), implement the iterative algorithm from scratch, and finally solve the restricted MIP to obtain a near-optimal integer solution. Correctly extracting dual variables, formulating the knapsack subproblem, and handling convergence criteria are all non-trivial."""
+solution_explanation = """The solution implements Dantzig-Wolfe column generation: (1) initialize with trivial single-item patterns, (2) solve the LP relaxation of the master problem to get dual prices, (3) solve a knapsack pricing subproblem to find the pattern with minimum reduced cost, (4) add improving columns and repeat until no negative reduced cost exists, (5) solve the final MIP with all generated columns. PuLP with CBC is used for both the master LP and the knapsack IP."""
+verification_explanation = """Tests verify structural correctness of results.json, feasibility (all demands met, no pattern exceeds stock width, consistent totals, valid widths), optimality bounds (material lower bound, LP bound validity, near-optimality gap), and finally run an independent column generation reference solver using PuLP/CBC to confirm the agent's solution matches the optimal within a tolerance of 2 rolls."""
+category = "optimization"
+tags = ["operations-research", "column-generation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9b8ff4"

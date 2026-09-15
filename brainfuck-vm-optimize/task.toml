@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of compiler internals and VM execution: diagnosing a subtle data-structure misuse bug in the compiler's loop bracket matching (the stack uses wrong pop semantics, cross-pairing nested brackets), and a cell arithmetic bug in the VM (conditional boundary checks instead of modular arithmetic, causing underflowed cells to go negative and trigger infinite loops). The optimization phase requires the solver to independently identify which instruction patterns are causing performance bottlenecks by analyzing the compiled instruction stream, then design and implement peephole optimizations that replace multi-instruction loop patterns with single specialized opcodes, extend the instruction set and VM to support those new opcodes, and correctly re-pair remaining jump targets after optimization has removed instructions. This demands proficient-level compiler engineering skills and the ability to design solutions without being told what techniques to use."""
+solution_explanation = """Fix two bugs: (1) the compiler's loop stack uses queue semantics (pops from front) instead of stack semantics (pops from back), causing nested loop brackets to be cross-paired; (2) the VM's cell wrapping uses exact boundary comparison instead of modular arithmetic, which fails when folded instructions add/subtract past the byte boundary by more than 1. Then analyze the instruction stream to identify performance-critical loop patterns and implement peephole optimizations: detect common single-body loops and replace them with specialized opcodes (e.g. cell-zeroing loops, memory-scanning loops, copy/multiply loops), add corresponding VM execution cases for each new opcode, and re-pair remaining jump targets after optimization changes instruction indices."""
+verification_explanation = """Tests compile and run multiple Brainfuck programs through the fixed+optimized VM and compare output against known-correct results. Correctness tests cover: Hello World (exercises nested loops, detects bracket matching bug), nested loop arithmetic, cell underflow wrapping (0-3 should wrap to 253), cell overflow, and basic arithmetic. Optimization tests verify the compiler no longer emits raw loop patterns for common idioms (checking that JumpIfZero/body/JumpIfNotZero sequences are replaced by specialized instructions). A performance test runs mandelbrot.b and checks it completes within 20 seconds."""
+category = "systems"
+tags = ["compilers", "virtual-machines"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/brainfuck-vm-optimize"

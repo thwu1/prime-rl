@@ -1,0 +1,10 @@
+{
+  "name": "log-helper",
+  "version": "2.1.0",
+  "description": "Lightweight structured logging utility with JSON output and install telemetry",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge in quantitative finance and numerical methods. The solver must: (1) inspect raw SPX implied vol data and handle quality issues (missing values, strike coverage); (2) independently determine and implement a robust methodology for extracting variance and gamma swap term structures from an options surface — naive integration over Black-Scholes prices will fail due to strike truncation and smile extrapolation, so the solver must discover a robust replication technique; (3) know the rough Heston model's closed-form normalized leverage contract formula involving fractional calculus (two-parameter Mittag-Leffler functions); (4) design and execute a non-convex 4-parameter optimization to calibrate the model. No algorithms or implementation steps are given — the solver must synthesize domain expertise in stochastic volatility theory, robust swap estimation, and numerical optimization."""
+solution_explanation = """The solution implements: (1) Fukasawa's robust variance/gamma swap estimation using the z_-/z_+ domain transform with PCHIP interpolation and Gaussian CDF tail handling; (2) Mittag-Leffler function evaluation for the rough Heston normalized leverage formula L(T) = rho*nu/lambda_prime * (1 - E_{alpha,2}(-lambda_prime * T^alpha)); (3) weighted least squares calibration of (H, nu, rho, lambda) using L-BFGS-B optimizer with 1/T^0.9 weighting."""
+verification_explanation = """Tests verify: (1) output files exist with correct JSON schema and exactly 48 expiries; (2) variance swap values at 6 reference expiries match within 1.5-2% relative tolerance; (3) gamma swap values match similarly; (4) normalized leverage is negative for >=95% of expiries and increases in magnitude with maturity; (5) calibrated parameters lie in specified ranges (H in (0,1], rho in (-1,0), nu>0, lambda>=0); (6) admissibility condition lambda'=lambda-rho*nu>0; (7) calibration RMSE below 0.02; (8) model-empirical leverage correlation above 0.98; (9) model leverage is negative, monotonically increasing in magnitude, bounded at short and long ends."""
+category = "mathematics"
+tags = ["quantitative-finance", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-894439"

@@ -1,0 +1,9 @@
+glibc
+zlib
+openssl
+pcre2
+nodejs
+cmake
+unzip
+npm
+git

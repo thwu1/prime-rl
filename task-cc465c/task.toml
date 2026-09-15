@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and correctly implementing a priority-queue-based BPE training algorithm with a doubly-linked list for incremental pair-count maintenance. The core difficulty lies in: (1) correctly updating adjacent pair counts when merges create/destroy neighboring pairs, (2) handling overlapping pair occurrences (e.g. 'AAA' where pair (A,A) overlaps itself), (3) replicating the reference implementation's exact tie-breaking semantics (leftmost-occurrence-first, which emerges from Python dict insertion order and max() behavior), and (4) managing lazy deletion in the priority queue to avoid stale entries corrupting merge order. Each of these is individually tricky; getting all four right simultaneously requires deep algorithmic understanding."""
+solution_explanation = """The solution uses three coordinated data structures: (1) a doubly-linked list (via parallel arrays for val/nxt/prv/alive) representing the current token sequence, enabling O(k) merge operations where k is the number of occurrences instead of O(N) full scans; (2) a max-heap with lazy deletion for O(log P) best-pair lookup, using (-count, min_position, pair) tuples to replicate the reference's tie-breaking; (3) a pair-to-positions index (dict of sets) tracking where each pair occurs for O(1) lookup and O(k) enumeration. On each merge, the algorithm processes occurrences left-to-right, updating adjacent pair counts incrementally and pushing corrected entries to the heap."""
+verification_explanation = """Tests verify (1) exact merge-table equality against the naive reference on small inputs computed at test time, (2) exact match against precomputed reference merges for medium (500 merges) and large (2000 merges) corpora, (3) correct handling of edge cases (empty input, single byte, overlapping pairs like 'aaa'/'aaaa'/'ababab'), and (4) completion within a 120-second wall-clock budget on the ~640KB large corpus, which the naive O(N·M) implementation cannot achieve."""
+category = "algorithms"
+tags = ["optimization", "data-structures"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cc465c"

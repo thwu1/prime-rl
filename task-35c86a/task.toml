@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of Tenstorrent Wormhole NoC architecture: toroidal XY routing across two independent NoC fabrics, DRAM bank topology, harvesting constraints, virtual channel arbitration, and RISC-V firmware register programming. The solver must debug a C-based NoC simulator by identifying subtle architectural bugs (wrong routing direction for NoC 1, missing per-fabric link load separation), compile and validate using gcc/make, implement a combinatorial placement optimizer, generate RISC-V RV32I assembly for NoC Route Configuration Table entries, cross-assemble with riscv64-linux-gnu-as, and verify binary encodings with objdump — orchestrating a multi-tool pipeline across C, Python, RISC-V cross-compilation, and binary analysis."""
+solution_explanation = """The solution patches noc_sim.c to fix two bugs: (1) NoC 1 horizontal routing direction changed from east to west, (2) LinkKey struct extended with noc_id so per-fabric link loads are tracked independently. After compilation, a greedy-then-iterative optimizer places readers adjacent to their DRAM banks when possible, selecting between NoC 0 and NoC 1 to minimize path length and avoid link sharing. For firmware, each bank's RCT entry encodes target coordinates, NoC selection, VC, and enable bit as a 64-bit value, emitted as RISC-V assembly (lui + li + sw), cross-assembled for RV32I, and verified via objdump."""
+verification_explanation = """Tests verify: (1) C simulator compiles after bug fixes and produces correct NoC 1 westward routing and per-fabric load separation, (2) output JSON has all required fields including simulator_validation and firmware sections, (3) all 12 banks have valid distinct T-tile placements, (4) routes exactly match independently-computed NoC routing rules, (5) zero congestion for easy harvesting scenarios and bounded congestion for extreme cases, (6) bandwidth formula is consistent with recomputed link loads, (7) VC constraints are satisfied, (8) RISC-V firmware .o files exist and objdump confirms lui/sw instructions, (9) RCT register values correctly encode DRAM bank coordinates, NoC selection, and VC matching the placement, (10) end-to-end validation across 7 parametrized harvesting scenarios."""
+category = "systems"
+tags = ["hardware-architecture", "cross-compilation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-35c86a"

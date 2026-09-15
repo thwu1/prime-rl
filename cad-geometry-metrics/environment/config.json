@@ -1,0 +1,38 @@
+{
+  "pairs": [
+    {"candidate": "meshes/cand_01.stl", "reference": "meshes/ref_01.stl"},
+    {"candidate": "meshes/cand_02.stl", "reference": "meshes/ref_02.stl"},
+    {"candidate": "meshes/cand_03.stl", "reference": "meshes/ref_03.stl"},
+    {"candidate": "meshes/cand_04.stl", "reference": "meshes/ref_04.stl"},
+    {"candidate": "meshes/cand_05.stl", "reference": "meshes/ref_05.stl"}
+  ],
+  "parameters": {
+    "num_sample_points": 10000,
+    "f1_threshold": 0.02,
+    "voxel_resolution": 0.02,
+    "seed": 42
+  },
+  "output_schema": {
+    "pairs": [
+      {
+        "candidate": "string — relative path to candidate STL",
+        "reference": "string — relative path to reference STL",
+        "candidate_valid": "bool — whether the candidate mesh could be evaluated",
+        "repaired": "bool — whether the candidate required defect repair before evaluation",
+        "metrics": {
+          "chamfer_distance": "float >= 0",
+          "f1_score": "float in [0, 1]",
+          "volumetric_iou": "float in [0, 1]"
+        }
+      }
+    ],
+    "summary": {
+      "total_pairs": "int",
+      "valid_candidates": "int — count where candidate_valid is true",
+      "repaired_count": "int — count where repaired is true",
+      "mean_chamfer_distance": "float — mean over valid pairs",
+      "mean_f1_score": "float — mean over valid pairs",
+      "mean_volumetric_iou": "float — mean over valid pairs"
+    }
+  }
+}

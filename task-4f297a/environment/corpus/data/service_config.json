@@ -1,0 +1,26 @@
+{
+  "services": {
+    "payment_gateway": {
+      "endpoint": "https://payments.internal.example.com/v2",
+      "api_token": "cap_258be147ad0369cf258be147ad0369cffe12d7c7",
+      "timeout_ms": 5000,
+      "retry_count": 3
+    },
+    "notification_service": {
+      "endpoint": "https://notifications.internal.example.com/v1",
+      "api_token": "cap_369cf258be147ad0369cf258be147ad05abce1b0",
+      "timeout_ms": 3000,
+      "retry_count": 2
+    },
+    "cache_layer": {
+      "endpoint": "redis://cache.internal:6379",
+      "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+      "pool_size": 10
+    }
+  },
+  "metadata": {
+    "config_version": "2.4.1",
+    "last_updated": "2024-01-15T08:00:00Z",
+    "checksum": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+  }
+}

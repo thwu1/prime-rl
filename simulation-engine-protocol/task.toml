@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing 9 subtle protocol conformance bugs in a robotics simulation engine auto-translated from C++. The bugs span: (1) error code precedence inversion where set_simulation_state checks target validity before world-loaded status, producing INCORRECT_TRANSITION instead of INCORRECT_STATE when no world is loaded with an unsettable target, (2) entirely missing XML validation for resource_string spawns — the C++ XML parser was not translated, (3) spawn validation ordering where name uniqueness is checked before XML well-formedness — these two bugs are coupled and must both be fixed simultaneously for the XML-before-uniqueness test to pass, (4) AABB bounds filter using strict inequality on the max corner instead of inclusive, (5) auto-rename suffix counter starting at 1 instead of 0, (6) entity tag filter modes swapped (ANY logic applied when ALL is requested and vice versa), (7) reset scope flag handling where if/elif causes STATE to block SPAWNED from executing when both flags are set, (8) neither load_world nor unload_world resetting simulation time, causing time to persist across load/unload cycles, and (9) set_entity_state not deep-copying state fields causing silent external reference aliasing. Additionally, the diagnostic conformance probe tool has one false-positive failure (wrong expected step duration: 100μs instead of 1ms per step per the IDL) that the agent must identify by cross-referencing the IDL — fixing the engine to match the probe's wrong expectation would break the actual test suite. This demands proficient-level protocol engineering: holistic understanding of the type system, ability to distinguish tool bugs from engine bugs, and judgment about error precedence and validation ordering in underdocumented edge cases."""
+solution_explanation = """The solution replaces the buggy engine.py with the correct engine_impl.py implementation that: (1) checks _has_world() before target-state validity in set_simulation_state, (2) adds _validate_xml() using subprocess xmllint with xml.etree fallback, (3) places XML validation before name uniqueness in spawn_entity, (4) uses inclusive <= for AABB max corner bounds, (5) starts rename counter at i=0, (6) correctly maps FILTER_MODE_ANY to set intersection and FILTER_MODE_ALL to issubset, (7) checks SPAWNED before STATE using if/elif so entity removal takes precedence over state restoration, (8) resets _sim_time_nanosec=0 in both load_world and unload_world, and (9) uses deepcopy() for all state field assignments in set_entity_state. The agent must also recognize the conformance probe's step_time_advancement check as a false positive and NOT modify the engine's correct STEP_DT_NANOSEC=1_000_000."""
+verification_explanation = """~93 pytest assertions across 14 test classes covering: initial state and feature reporting, world lifecycle (load/unload/double-load/clear-entities/time-reset-on-unload), state machine (all valid/invalid transitions including error precedence for no-world+unsettable-target), entity spawning (name/resource/uniqueness/rename-suffix-zero/pose/XML validation), batch spawning (success/partial-failure/intra-batch conflicts), entity deletion and re-creation with fresh defaults, entity state (get/set with selective field control/no-op with all flags false/no-aliasing-after-set), entity info CRUD, multi-criteria filtering (name/category/tags-any/tags-all/bounds-inclusive/combined), step simulation (paused-only/time/accumulation/multi-second overflow), scoped resets (time/state/spawned/all/default/combined/SPAWNED-overrides-STATE/info preservation), XML resource validation (invalid/malformed/valid SDF+URDF/ordering-before-uniqueness), plus warehouse workflow integration test."""
+category = "software_engineering"
+tags = ["robotics-simulation", "protocol-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/simulation-engine-protocol"

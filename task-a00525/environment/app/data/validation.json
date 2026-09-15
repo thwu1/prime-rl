@@ -1,0 +1,13 @@
+{
+  "qc_01": {"satisfiable": true},
+  "qc_02": {"satisfiable": false},
+  "qc_03": {"satisfiable": true},
+  "qc_04": {"satisfiable": false},
+  "qc_05": {"satisfiable": true},
+  "qc_06": {"satisfiable": true},
+  "edp_01": {"satisfiable": true},
+  "edp_02": {"satisfiable": false},
+  "edp_03": {"satisfiable": true},
+  "edp_04": {"satisfiable": true},
+  "edp_05": {"satisfiable": false}
+}

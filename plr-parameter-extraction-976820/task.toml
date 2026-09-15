@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level biosignal processing knowledge: adaptive artifact detection on real-world-like blink-contaminated pupillometry data, robust numerical differentiation for velocity parameters, latency estimation from noisy onset detection, T75 computation requiring curve interpolation with correct handling of PIPR-induced non-recovery, multi-trial averaging with outlier rejection, correct integration bounds for early/late PIPR AUC, bilateral dilation dynamics comparison for Horner syndrome classification, and simultaneous correctness across 12+ interrelated parameters per condition. The coupling between artifact removal quality and downstream parameter accuracy creates cascading error propagation that demands careful signal processing pipeline design."""
+solution_explanation = """The solution uses a multi-stage pipeline: (1) artifact detection via combined amplitude threshold (<1.5mm) and velocity threshold (>20mm/s) with region expansion, (2) linear interpolation across artifact gaps, (3) Savitzky-Golay smoothing (window=7, order=3) for noise reduction and derivative estimation, (4) baseline computation from clean pre-stimulus data, (5) parameter extraction including MCV from SG derivative peak, latency from velocity threshold crossing, T75 via linear interpolation on the recovery curve with null handling when PIPR prevents 75% recovery, (6) trapezoidal AUC integration over protocol-specified windows, (7) bilateral T75 comparison and dilation lag measurement for Horner classification. Uses numpy and scipy for numerical operations."""
+verification_explanation = """Tests generate deterministic synthetic PLR recordings (seeded RNG) with known signal model parameters: exponential constriction/redilation with configurable PIPR fraction. Ground truth is computed analytically from the noise-free model. Tests verify 12+ parameters per condition within physiologically-informed tolerances (15-30% relative depending on parameter sensitivity to noise), correct null T75 for strong-PIPR conditions, artifact detection counts, net PIPR sign and magnitude, and correct Horner lateralization. The fixture generator creates recordings with both clean trials and blink-contaminated trials to test artifact handling."""
+category = "biomedical_signal_processing"
+tags = ["pupillometry", "biosignal-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/plr-parameter-extraction-976820"

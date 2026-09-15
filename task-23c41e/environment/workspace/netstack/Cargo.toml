@@ -1,0 +1,18 @@
+[package]
+name = "netstack"
+version = "0.13.0"
+edition = "2021"
+
+[features]
+socket-tcp = ["async"]
+socket-udp = ["async"]
+socket-dns = []
+proto-dhcpv4 = []
+socket-dhcpv4 = []
+async = ["alloc"]
+alloc = []
+log = []
+verbose = ["log"]
+medium-ethernet = []
+proto-ipv4 = []
+proto-ipv6 = []

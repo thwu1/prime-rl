@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: parsing GEO SOFT format (entity markers, bang-line attributes, channel-specific suffixes, embedded expression tables) without format documentation; understanding Affymetrix platform annotation conventions (multi-mapping delimiters, unmapped markers, control probe prefixes) from inspection alone; recognizing how GEO and SRA metadata schemas relate and devising a cross-database reconciliation strategy to detect planted errors across organism, library source, and sample naming fields; implementing a paired t-test for matched tumor/normal samples with Benjamini-Hochberg correction and monotonicity enforcement — all requiring deep domain knowledge to produce correct, publication-quality differential expression results."""
+solution_explanation = """Parse the SOFT file by recognizing ^ entity markers, ! attribute lines, and data table boundaries. Extract sample characteristics from ch1-suffixed attributes using tag:value parsing. Build probe-gene mapping by splitting on ' /// ' delimiter and treating '---' and AFFX- probes as unmapped. Match GEO samples to SRA runs via sample name, comparing organism and library source fields. Extract the expression matrix from per-sample data tables, pair samples by patient ID, compute paired log2 fold changes and t-statistics, then apply BH correction with monotonicity to rank significant genes."""
+verification_explanation = """Tests independently parse the same source data files using reference implementations to compute expected values. Verification checks: correct number of samples and probes extracted, proper handling of multi-mapped and unmapped probes, identification of all planted metadata discrepancies by field type (organism, library_source, sample_name), statistical results within numerical tolerance (atol=0.01 for fold changes, rtol=0.05 for p-values), adjusted p-value validity constraints, and correct gene lists after multiple testing correction including presence of known ccRCC markers CA9 and VEGFA."""
+category = "bioinformatics"
+tags = ["geo-soft-parsing", "differential-expression"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-54ea47"

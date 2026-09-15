@@ -1,0 +1,57 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Linux netfilter packet processing
+pipeline to debug a simulator with interacting bugs whose root causes are not described in the task.
+The solver must read scenario files, understand expected vs actual behavior, and reverse-engineer
+three coupled bugs across the conntrack lifecycle, target semantics, and flag propagation — each
+bug masks or alters the manifestation of the others. Then the solver must fix an incomplete
+pcap-based evaluation framework (implementing CIDR subnet matching and payload length comparison),
+analyze a mixed-traffic pcap capture to discover attack patterns (SYN flood, DNS amplification,
+port scan), write a classification that distinguishes attacks from legitimate traffic using payload
+analysis, evaluate five pre-built defense strategies to compare their precision/recall trade-offs,
+and finally design an optimal ruleset that meets four simultaneous constraints (100% attack drop,
+0% legitimate drop, conntrack budget, raw-chain drop ratio). The multi-tool workflow spans tshark
+pcap analysis, Python simulation, jq/JSON processing, and strategy evaluation."""
+solution_explanation = """Fix three bugs in netfilter_sim.py: (1) Pass the computed notrack variable
+to conntrack.process_packet() instead of hardcoded False. (2) Change NOTRACK handling in
+_process_chain from 'return Verdict.CONTINUE' to 'continue' so subsequent rules are evaluated.
+(3) Store new conntrack entries in _pending instead of entries, add rollback_pending() at each
+post-conntrack DROP, and confirm_pending() at acceptance. Fix evaluate.py: implement CIDR matching
+with ipaddress module and payload length comparison. Write classification identifying SYN flood
+(198.18.0.0/15 to port 80), DNS amp (UDP port 53 payload > 200), port scan (192.168.100.0/24).
+Evaluate all strategies — combined_basic is best by f1 but misses 40 port scan packets. Design
+rules: DROP 198.18.0.0/15 in raw, DROP 192.168.100.0/24 in raw, NOTRACK src_port 53 in raw,
+ACCEPT known resolvers in filter, DROP remaining UDP port 53 in filter."""
+verification_explanation = """Pytest independently verifies: (1) All five scenarios produce correct
+results via the fixed simulator. (2) evaluation.json contains correct per-strategy metrics computed
+against ground truth attack classification — tp/fp/fn/tn values are checked for multiple strategies
+to confirm both evaluate.py fixes and classification accuracy. (3) Mitigation rules in rules.json
+are run through the fixed simulator against traffic_mix.json — ground truth attack classification is
+hardcoded in tests. Tests verify all attacks dropped, all legitimate accepted, conntrack entries
+<= 120, no conntrack overflows, and raw drop ratio >= 60%."""
+category = "systems_programming"
+tags = ["netfilter-internals", "ddos-mitigation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netfilter-sim-bugs"

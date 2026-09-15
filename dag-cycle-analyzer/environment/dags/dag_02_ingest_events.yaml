@@ -1,0 +1,15 @@
+dag_id: ingest_events
+schedule: "*/15 * * * *"
+default_pool: io_pool
+max_active_runs: 3
+tasks:
+  capture:
+    pool_slots: 4
+    duration_estimate_minutes: 8
+  deduplicate:
+    pool_slots: 2
+    duration_estimate_minutes: 5
+    upstream: [capture]
+datasets:
+  produces: [events_raw]
+  consumes: []

@@ -1,0 +1,133 @@
+{
+  "description": "Output schema for critical care blood gas assessment results. Each patient produces one object with these fields.",
+  "fields": {
+    "id": {
+      "type": "string",
+      "description": "Patient identifier, copied from input"
+    },
+    "pH_status": {
+      "type": "string",
+      "values": ["acidaemia", "alkalaemia", "normal"],
+      "description": "Classification based on pH value relative to normal range"
+    },
+    "primary_disorder": {
+      "type": "string",
+      "values": ["metabolic_acidosis", "respiratory_acidosis", "metabolic_alkalosis", "respiratory_alkalosis", "normal"],
+      "description": "Identified primary acid-base disorder based on pH status, PaCO2, and HCO3"
+    },
+    "anion_gap": {
+      "type": "number",
+      "unit": "mmol/L",
+      "description": "Uncorrected anion gap"
+    },
+    "corrected_anion_gap": {
+      "type": "number",
+      "unit": "mmol/L",
+      "description": "Anion gap corrected for albumin level"
+    },
+    "anion_gap_classification": {
+      "type": "string",
+      "values": ["high", "normal", "low"],
+      "thresholds": {"high": ">12", "normal": "4 to 12 inclusive", "low": "<4"},
+      "description": "Based on the corrected anion gap"
+    },
+    "delta_ratio": {
+      "type": "number or null",
+      "description": "Ratio of change in AG to change in bicarbonate from reference values. Null when not applicable."
+    },
+    "delta_ratio_interpretation": {
+      "type": "string or null",
+      "values": ["pure_nagma", "mixed_hagma_nagma", "pure_hagma", "hagma_plus_alkalosis"],
+      "description": "Classification of the delta ratio. Refer to reference documentation for thresholds and edge cases."
+    },
+    "expected_paco2": {
+      "type": "number or null",
+      "description": "Expected PaCO2 for metabolic primary disorders. Null for respiratory or normal primaries."
+    },
+    "expected_hco3": {
+      "type": "number or null",
+      "description": "Expected HCO3 for respiratory primary disorders. Null for metabolic or normal primaries."
+    },
+    "compensation_status": {
+      "type": "string or null",
+      "values": ["appropriate", "additional_respiratory_acidosis", "additional_respiratory_alkalosis", "additional_metabolic_acidosis", "additional_metabolic_alkalosis"],
+      "description": "Whether the compensatory response is appropriate or indicates an additional disorder. Null when primary is normal."
+    },
+    "corrected_sodium": {
+      "type": "number",
+      "unit": "mmol/L",
+      "description": "Sodium corrected for hyperglycaemia"
+    },
+    "corrected_potassium": {
+      "type": "number",
+      "unit": "mEq/L",
+      "description": "Potassium corrected for pH deviation from normal"
+    },
+    "calculated_osmolarity": {
+      "type": "number",
+      "unit": "mOsm/L",
+      "description": "Calculated serum osmolarity. Must account for ethanol when present."
+    },
+    "osmolar_gap": {
+      "type": "number",
+      "unit": "mOsm",
+      "description": "Difference between measured osmolality and calculated osmolarity"
+    },
+    "osmolar_gap_elevated": {
+      "type": "boolean",
+      "threshold": ">10",
+      "description": "Whether the osmolar gap exceeds the clinical threshold"
+    },
+    "sid_apparent": {
+      "type": "number",
+      "unit": "mEq/L",
+      "description": "Apparent strong ion difference. Note: divalent cations contribute 2 mEq per mmol."
+    },
+    "sid_effective": {
+      "type": "number",
+      "unit": "mEq/L",
+      "description": "Effective strong ion difference. See Stewart reference documentation."
+    },
+    "strong_ion_gap": {
+      "type": "number",
+      "unit": "mEq/L",
+      "description": "Difference between apparent and effective SID"
+    },
+    "pf_ratio": {
+      "type": "number",
+      "unit": "mmHg",
+      "description": "PaO2 to FiO2 ratio"
+    },
+    "ards_severity": {
+      "type": "string",
+      "values": ["severe", "moderate", "mild", "none"],
+      "thresholds": {"severe": "<100", "moderate": "100 to <200", "mild": "200 to <300", "none": ">=300"},
+      "description": "ARDS severity per Berlin definition"
+    },
+    "o2_extraction_ratio": {
+      "type": "number",
+      "description": "Oxygen extraction ratio (fraction)"
+    },
+    "o2er_status": {
+      "type": "string",
+      "values": ["high", "normal", "low"],
+      "thresholds": {"high": ">0.30", "normal": "0.20 to 0.30 inclusive", "low": "<0.20"},
+      "description": "Clinical classification of oxygen extraction ratio"
+    },
+    "pco2_gap": {
+      "type": "number",
+      "unit": "mmHg",
+      "description": "Venous-arterial CO2 difference"
+    },
+    "pco2_gap_status": {
+      "type": "string",
+      "values": ["elevated", "normal"],
+      "description": "Classification based on clinical threshold. Refer to reference documentation."
+    }
+  },
+  "notes": {
+    "rounding": "All numeric values rounded to 2 decimal places. Use unrounded intermediates for classification logic.",
+    "nulls": "Fields not applicable to the patient's clinical scenario must be null.",
+    "units": "Ensure correct unit handling, especially for divalent cation valence conversion in SID calculations."
+  }
+}

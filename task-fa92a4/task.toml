@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BIND9 knowledge spanning four distinct security domains that must be integrated into an existing split-horizon architecture without breaking functionality. DNSSEC inline signing with views is non-trivial: the solver must configure dnssec-policy with correct NSEC3 parameters per RFC 9276, handle key-directory management across views sharing the same zone name, and ensure zone file directories are writable for inline-signing journals. TSIG integration requires understanding key scoping relative to views. RPZ deployment demands knowledge of RPZ trigger semantics (CNAME-dot for NXDOMAIN, A records for sinkhole redirects, wildcards), correct placement within the recursive view, and awareness that RPZ only applies during recursion. RRL configuration must coexist with all other features. The architectural challenge is designing a configuration that composes all four security layers without conflicts — each feature interacts with BIND's view system differently."""
+solution_explanation = """Generate TSIG key via Python secrets module, create dnssec-policy with ECDSAP256SHA256 and NSEC3 (0 iterations, 0 salt) using correct single-line nsec3param syntax, write RPZ zone file with correct trigger syntax (CNAME . for NXDOMAIN, A record for sinkhole redirect, wildcard CNAME . for subdomain blocking), rewrite named.conf to include TSIG key and DNSSEC policy files in correct order (ACL first), update named.conf.options to add RRL rate-limit block, rewrite named.conf.local to add dnssec-policy and allow-transfer to each zone in each view plus RPZ zone and response-policy in the internal view, set key-directory per zone to avoid cross-view key conflicts, fix /etc/bind/zones permissions for inline-signing, create key directories under /var/cache/bind/, validate config with named-checkconf, start named, and wait for DNSSEC signing to complete."""
+verification_explanation = """22 pytest tests verify all security features via functional checks: named responds and checkconf passes; original A/MX/CNAME/PTR records resolve correctly; DNSKEY records exist with algorithm 13; RRSIG records appear in DNSSEC-aware queries for A and SOA; NSEC3PARAM exists with zero iterations; TSIG key 'xfer-key' found in config and AXFR succeeds with it; AXFR without TSIG is refused; RPZ blocks malware.evil.test (NXDOMAIN), redirects phishing.evil.test to 10.10.0.99, blocks *.botnet.evil.test (wildcard NXDOMAIN), and leaves legitimate domains unaffected; RRL rate-limit configuration present in named.conf."""
+category = "systems_administration"
+tags = ["dns-security", "bind9-dnssec"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fa92a4"

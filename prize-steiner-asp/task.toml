@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The Prize-Collecting Steiner Tree is NP-hard and requires deep ASP expertise: choice rules for subset selection, integrity constraints for structural validity, recursive reachability for connectivity enforcement, tree-size constraints to prevent cycles, and weak constraints with mixed-sign weights for optimization. The solver must first explore the project to discover the problem definition, input format, expected output predicates, and optimality targets from documentation, instance files, and the checker script. Understanding how PCST differs from the legacy standard Steiner Tree encoding is a critical step before any encoding work can begin."""
+solution_explanation = """The solution explores the project, reads the problem specification and checker to discover required predicates (in_tree/1, use_edge/2), then constructs an ASP-Core-2 encoding with: (1) choice rules for node/edge selection, (2) integrity constraints requiring edge endpoints in tree, (3) root-based reachability using minimum-ID tree node with bidirectional traversal, (4) tree-size constraint (n-1 edges for n nodes), and (5) weak constraints minimizing edge cost minus node prize."""
+verification_explanation = """Tests verify: (1) encoding file exists and contains weak constraints, (2) clingo proves optimality on all 4 instances via SolveResult.exhausted, (3) optimal profit matches expected values (16, 51, 110, 50), (4) answer sets form valid connected subtrees (BFS connectivity, edge validity), and (5) independently computed profit equals clingo's reported optimization cost."""
+category = "logic_programming"
+tags = ["answer-set-programming", "combinatorial-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prize-steiner-asp"

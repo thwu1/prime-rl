@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in multivariate cryptography and post-quantum signature schemes. The solver must understand the Unbalanced Oil and Vinegar (UOV) construction, the vulnerability introduced by removing emulsifier matrices (Vinaigrette vs MAYO), and implement either an oil space recovery attack or a direct MQ system solver over finite fields. Understanding SHAKE256 XOF hashing with 5-bit extraction, multivariate quadratic polynomial evaluation, and the 'whipping up' construction is essential. The task demands multi-step reasoning: analyzing scheme structure, identifying attack surface, implementing algebraic attack, and performing finite field linear algebra for signature forging."""
+solution_explanation = """The solution exploits the fact that Vinaigrette (UOV without emulsifier matrices) allows direct signature forgery. The approach: (1) Choose s_1 = zero vector and s_2 = random vector, compute the residual target c = H(msg) - P(s_2). (2) Fix 4 of 14 unknowns in s_3 to obtain a 0-dimensional quadratic system of 10 equations in 10 unknowns over GF(31). (3) Solve using Groebner basis computation (SymPy) to find s_3 with P(s_3) = c. (4) Output (s_1, s_2, s_3) as the forged signature. The key insight is that the whipping construction P*(s) = P(s_1)+P(s_2)+P(s_3) separates into independent evaluations, allowing the problem to be reduced to a single-variable-set MQ system solvable by algebraic methods."""
+verification_explanation = """Tests verify: (1) signature.txt exists at /app/signature.txt, (2) contains exactly 42 space-separated integers each in range [0, 30], (3) the whipped-up evaluation P*(sig) equals the SHAKE256 hash of the message, and (4) the verify() function from vinaigrette.py returns True. Verification is deterministic: the SHAKE256 hash is fixed, polynomial evaluation is deterministic, and the equality check is exact."""
+category = "security_and_privacy"
+tags = ["cryptography", "post-quantum"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f715cf"

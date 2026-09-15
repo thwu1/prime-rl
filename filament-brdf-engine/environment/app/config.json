@@ -1,0 +1,68 @@
+{
+  "dfg_evaluations": [
+    {"id": "dfg_01", "NoV": 0.1, "perceptual_roughness": 0.1, "num_samples": 1024},
+    {"id": "dfg_02", "NoV": 0.1, "perceptual_roughness": 0.5, "num_samples": 1024},
+    {"id": "dfg_03", "NoV": 0.1, "perceptual_roughness": 0.9, "num_samples": 1024},
+    {"id": "dfg_04", "NoV": 0.3, "perceptual_roughness": 0.3, "num_samples": 1024},
+    {"id": "dfg_05", "NoV": 0.5, "perceptual_roughness": 0.1, "num_samples": 1024},
+    {"id": "dfg_06", "NoV": 0.5, "perceptual_roughness": 0.5, "num_samples": 1024},
+    {"id": "dfg_07", "NoV": 0.5, "perceptual_roughness": 0.9, "num_samples": 1024},
+    {"id": "dfg_08", "NoV": 0.8, "perceptual_roughness": 0.2, "num_samples": 1024},
+    {"id": "dfg_09", "NoV": 0.8, "perceptual_roughness": 0.7, "num_samples": 1024},
+    {"id": "dfg_10", "NoV": 0.95, "perceptual_roughness": 0.5, "num_samples": 1024},
+    {"id": "dfg_11", "NoV": 1.0, "perceptual_roughness": 0.5, "num_samples": 1024},
+    {"id": "dfg_12", "NoV": 0.02, "perceptual_roughness": 0.8, "num_samples": 1024}
+  ],
+  "brdf_evaluations": [
+    {
+      "id": "brdf_01",
+      "theta_v": 30.0, "theta_l": 45.0, "phi_l": 0.0,
+      "material": {"baseColor": [0.8, 0.2, 0.1], "roughness": 0.5, "metallic": 0.0, "reflectance": 0.5}
+    },
+    {
+      "id": "brdf_02",
+      "theta_v": 60.0, "theta_l": 30.0, "phi_l": 0.0,
+      "material": {"baseColor": [1.0, 0.71, 0.29], "roughness": 0.3, "metallic": 1.0, "reflectance": 0.5}
+    },
+    {
+      "id": "brdf_03",
+      "theta_v": 10.0, "theta_l": 10.0, "phi_l": 0.0,
+      "material": {"baseColor": [0.5, 0.5, 0.5], "roughness": 0.8, "metallic": 0.5, "reflectance": 0.5}
+    },
+    {
+      "id": "brdf_04",
+      "theta_v": 80.0, "theta_l": 20.0, "phi_l": 90.0,
+      "material": {"baseColor": [0.9, 0.9, 0.9], "roughness": 0.3, "metallic": 0.0, "reflectance": 0.35}
+    },
+    {
+      "id": "brdf_05",
+      "theta_v": 45.0, "theta_l": 45.0, "phi_l": 180.0,
+      "material": {"baseColor": [0.6, 0.3, 0.1], "roughness": 0.5, "metallic": 0.0, "reflectance": 0.5}
+    },
+    {
+      "id": "brdf_06",
+      "theta_v": 5.0, "theta_l": 5.0, "phi_l": 0.0,
+      "material": {"baseColor": [0.95, 0.64, 0.54], "roughness": 0.4, "metallic": 1.0, "reflectance": 0.5}
+    }
+  ],
+  "clear_coat_evaluations": [
+    {
+      "id": "cc_01",
+      "theta_v": 30.0, "theta_l": 45.0, "phi_l": 0.0,
+      "material": {"baseColor": [0.8, 0.1, 0.1], "roughness": 0.5, "metallic": 0.0, "reflectance": 0.5,
+                    "clearCoat": 1.0, "clearCoatRoughness": 0.1}
+    },
+    {
+      "id": "cc_02",
+      "theta_v": 70.0, "theta_l": 30.0, "phi_l": 0.0,
+      "material": {"baseColor": [0.1, 0.1, 0.8], "roughness": 0.3, "metallic": 1.0, "reflectance": 0.5,
+                    "clearCoat": 0.8, "clearCoatRoughness": 0.3}
+    }
+  ],
+  "energy_compensation": [
+    {"id": "ec_01", "NoV": 0.5, "perceptual_roughness": 0.5, "f0": [0.04, 0.04, 0.04]},
+    {"id": "ec_02", "NoV": 0.1, "perceptual_roughness": 0.8, "f0": [1.0, 0.71, 0.29]},
+    {"id": "ec_03", "NoV": 0.9, "perceptual_roughness": 0.2, "f0": [0.56, 0.57, 0.58]},
+    {"id": "ec_04", "NoV": 0.3, "perceptual_roughness": 0.9, "f0": [0.95, 0.64, 0.54]}
+  ]
+}

@@ -1,0 +1,38 @@
+analysis:
+  confidence_level: 0.95
+  bootstrap_iterations: 10000
+  bootstrap_seed: 42
+  multiple_testing_method: "holm"
+
+perturbation_taxonomy:
+  visual: [1, 2, 3, 4]
+  semantic: [5, 6, 7, 8, 9]
+  behavioral: [10]
+  compound:
+    SB: [11, 12]
+    VB: [13, 14]
+    VSB: [15]
+
+perturbation_names:
+  0: "default"
+  1: "v_aug"
+  2: "v_view"
+  3: "v_sc"
+  4: "v_light"
+  5: "s_prop"
+  6: "s_lang"
+  7: "s_mo"
+  8: "s_aff"
+  9: "s_int"
+  10: "b_hobj"
+  11: "sb_noun"
+  12: "sb_vrb"
+  13: "vb_pose"
+  14: "vb_mobj"
+  15: "vsb_nobj"
+
+output:
+  path: /app/output/report.json
+
+robustness:
+  critical_threshold: 0.5

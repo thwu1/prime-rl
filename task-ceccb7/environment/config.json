@@ -1,0 +1,11 @@
+{
+  "crc_width": 8,
+  "polynomials_koopman": ["0xe7", "0x97", "0x9b", "0xea", "0xa6"],
+  "max_dataword_length": 260,
+  "max_hd_check": 8,
+  "application_scenarios": [
+    {"name": "long_range", "dataword_bits": 200, "min_hd": 3},
+    {"name": "control_bus", "dataword_bits": 100, "min_hd": 4},
+    {"name": "short_cmd", "dataword_bits": 3, "min_hd": 5}
+  ]
+}

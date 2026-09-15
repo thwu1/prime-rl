@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing transactional concurrency control with correct isolation semantics (visibility rules, write-write conflict detection, transaction lifecycle management), a durable persistence layer using Protocol Buffers binary serialization (requiring protoc code generation, proto schema comprehension, binary framing, and protobuf API integration), crash recovery with checkpoint support, and wiring these into an existing SQL engine's parser and executor. The protobuf integration demands fluency with code-generation toolchains and binary wire formats beyond standard application development."""
+solution_explanation = """The solution creates a Makefile that runs protoc to generate Python bindings from the provided .proto schema. It then implements: a transaction manager with monotonic IDs and snapshot tracking; a storage backend with row versioning and snapshot-based visibility; a persistence module that converts internal dict representations to WalRecord protobuf messages, serializes them as length-prefixed binary records, and handles deserialization for recovery; checkpointing via CheckpointData protobuf messages; sessions with BEGIN/COMMIT/ROLLBACK and auto-commit; and the updated engine tying everything together."""
+verification_explanation = """Tests verify: persistence binary format (parsing wal.bin directly as length-prefixed WalRecord protobuf messages), checkpoint protobuf format (parsing checkpoint.bin as CheckpointData), that the log is not text/JSON, Makefile existence and proto/clean targets, make proto invocation, crash recovery, read isolation, snapshot-consistent reads, write-write conflict detection, rollback, checkpoint-based recovery, auto-commit, and complex multi-table interleaved recovery."""
+category = "databases"
+tags = ["mvcc", "protobuf"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mvcc-wal-sqlengine"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the MESI cache coherence protocol with all state transitions (M/E/S/I), bus transaction semantics (BusRd/BusRdX/BusUpgr/Flush), snooping behavior, dirty write-back on eviction, and the critical difference between MESI and MSI (the silent E→M upgrade). The agent must understand a multi-file C codebase, use the provided cache API correctly, handle subtle edge cases like false sharing and coherence-triggered invalidation across multiple processors, and produce exact statistics matching deterministic protocol behavior across 8 carefully-designed trace scenarios."""
+solution_explanation = """Implement process_access in protocol.c: (1) On read miss, issue BusRd, snoop other caches — if any has M, flush and transition M→S; if any has E, transition E→S; enter E if no other copy exists, S otherwise; handle LRU eviction with dirty write-back. (2) On write miss, issue BusRdX, flush any M copy, invalidate all other copies, enter M; handle eviction. (3) On write hit to S, issue BusUpgr, invalidate other S copies, transition S→M. (4) On write hit to E, silently upgrade to M (no bus traffic). (5) On write hit to M, no state change. Uses the provided cache API for all lookups, installations, and LRU management."""
+verification_explanation = """Tests build the simulator via make, then run it against 8 trace files covering: basic single-processor R/W, multi-processor read sharing (E→S), write invalidation (BusUpgr S→M), write misses (BusRdX with Flush), dirty LRU eviction, complex 4-processor interleaving, false sharing within a cache line, and MESI's silent E→M upgrade advantage. Each test parses the simulator's structured output and verifies exact match of per-processor read/write/hit/miss counts and bus transaction counts against hand-computed expected values."""
+category = "systems"
+tags = ["cache-coherence", "parallel-computing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1a354a"

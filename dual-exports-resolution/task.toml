@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of TypeScript module resolution under --moduleResolution nodenext, combined with nontrivial TypeScript implementation work. The solver must diagnose and fix 12 interconnected defects spanning package.json exports/imports maps (4 bugs: .mjs extension, wrong export key, wrong target filenames, source-path #imports), tsconfig compiler options (3 bugs: declaration disabled, wrong module/moduleResolution), TypeScript source syntax (3 bugs: missing .js extensions, isolatedModules type re-export violation), and missing implementations (2 bugs: Matrix.trace() method absent, plugins/statistics.ts module nonexistent). The missing implementations require writing correct TypeScript code that integrates with the library's strict compilation settings (isolatedModules, nodenext ESM extensions, proper relative .js imports) and produces mathematically correct results. Bugs cascade across compilation stages and between library and consumer projects."""
+solution_explanation = """Fix 12 defects: (1) root export "import" default uses .mjs but type:module emits .js -- change to ./dist/index.js; (2) export key "./vector.js" doesn't match import "@mathkit/linalg/vector" -- change key to "./vector"; (3) "./types" export paths reference "typedefs" but source is types.ts -- change to ./dist/types.js and ./dist/types.d.ts; (4) #platform imports point to source paths with wrong filenames -- change to ./dist/platform/node.js and ./dist/platform/fallback.js; (5) library declaration:false -- set true; (6) consumer module:"esnext" -- "nodenext"; (7) consumer moduleResolution:"bundler" -- "nodenext"; (8) types.ts "./vector" missing .js -- "./vector.js"; (9) index.ts re-exports VectorLike without type keyword under isolatedModules -- split to export type { VectorLike }; (10) consumer main.ts "./helpers" missing .js -- "./helpers.js"; (11) Matrix class missing trace() method -- implement sum-of-diagonal returning number; (12) plugins/statistics.ts doesn't exist -- create with mean() and covarianceMatrix() using sample covariance (N-1 denominator)."""
+verification_explanation = """Tests build library and consumer with tsc, verify declaration files exist (including statistics.d.ts), run consumer in Node.js and check all 10 output lines. Anti-cheat tests run separate Node.js scripts that call trace() on different matrices and mean()/covarianceMatrix() on different datasets to verify implementations are not hardcoded. Structural tests verify: exports map has no .mjs paths, ./vector key exists, ./types targets exist, #platform uses dist/ .js paths, library has declaration:true and isolatedModules:true, consumer tsconfig uses nodenext."""
+category = "software_configuration"
+tags = ["typescript", "module-resolution"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dual-exports-resolution"

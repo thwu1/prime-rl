@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-tool simulation pipeline: C binary format decoders compiled with gcc/make that parse two bit-packed binary formats (model bit arrays with coordinate indexing, trace command encoding with variable-length instructions and bitwise axis/offset extraction), plus a simulation engine implementing a multi-agent state machine with 9 command types including fission/fusion coordination, 3D grounding constraints via BFS, energy accounting across multiple sources, and volatile coordinate interference checking. The agent must understand gcc compilation, Makefile build systems, binary data inspection tools (xxd), tar archive extraction, and shell pipeline orchestration to connect compiled C tools with the simulation engine."""
+solution_explanation = """Two C programs are compiled via make: mdl2json parses .mdl binary (resolution byte + bit-packed voxel array) to JSON, nbt2json decodes .nbt commands byte-by-byte using bitwise operations for axis/index extraction and outputs a JSON command array. A Python simulation engine reads these JSON representations and implements the full NMMS execution model with multi-bot state management, fission/fusion pairing, grounding BFS, interference detection, and energy accounting. run.sh pipes the C tools' JSON output into the Python engine via temp files. The solver extracts test data from .tar.xz, installs C source and Python code, compiles with make, and configures the pipeline entry point."""
+verification_explanation = """Tests verify the complete pipeline: compiled C tools must be ELF binaries producing valid JSON, mdl2json must correctly decode bit-packed model formats (verified against case1 expected coordinates), nbt2json must accurately decode binary command traces (verified against case1 expected command sequence). End-to-end simulation tests verify three cases: (1) single-bot assembly with exact energy=3538 and model_match=true, (2) multi-bot fission/fusion with energy=14144 and model_match=true, (3) invalid trace with valid=false and energy=1775 at the error point."""
+category = "systems_programming"
+tags = ["binary-parsing", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/brainwall-pose-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires a multi-tool pipeline: (1) compile the Netlib emps.c decompressor with gcc, (2) use the compiled binary with shell redirection to decompress compressed MPS benchmark files into standard format, (3) implement a complete LP solver from scratch including MPS fixed-column format parser (ROWS, COLUMNS, RHS, BOUNDS sections), variable bound handling, two-phase revised simplex with anti-cycling, and numerical stability for degenerate problems. Combines C compilation, unfamiliar legacy tool usage, numerical optimization theory, and linear algebra expertise."""
+solution_explanation = """Compile emps.c with gcc -o emps emps.c -lm. Decompress each file via ./emps < compressed/name > problems/name.mps. Parse MPS to extract objective, constraints, RHS, and bounds. Shift variables for lower bounds, split free variables, add slacks/surplus, add upper-bound constraints. Two-phase revised simplex: Phase 1 minimizes artificial variable sum for initial BFS; Phase 2 optimizes original objective using Bland's rule. Each iteration solves B*d=a_j and B^T*pi=c_B via numpy."""
+verification_explanation = """Tests verify: (1) decompressed MPS files exist with valid format in /app/problems/, (2) results.json has all 5 problems, (3) each optimal value matches encoded Netlib reference within 1e-4 relative tolerance, (4) solver code has minimum complexity (100+ lines with matrix ops and MPS parsing), (5) no banned LP solver library imports. Reference values are encoded to prevent trivial extraction."""
+category = "numerical_optimization"
+tags = ["linear-programming", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netlib-lp-solver"

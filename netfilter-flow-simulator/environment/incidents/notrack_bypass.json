@@ -1,0 +1,10 @@
+{
+  "conntrack_max": 5,
+  "rules": {
+    "raw_PREROUTING": [
+      {"match": {"proto": "tcp", "dst_port": 443}, "action": "NOTRACK"}
+    ],
+    "mangle_PREROUTING": [],
+    "filter_INPUT": []
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extending a C library to support a Kalah rule variant, compiling it into a shared object, writing Python ctypes bindings with correct struct layouts and function signatures, designing and populating an SQLite endgame database via retrograde state enumeration, implementing minimax search with transposition-table integration across the C/Python/SQLite boundary, and performing pie-rule equilibrium analysis. Demands holistic understanding of combinatorial game theory (backward induction, game-theoretic values, pie-rule fairness), systems programming (C compilation, FFI, shared libraries), and database-backed solver architecture — not just following a recipe but making architectural decisions about how these components interact."""
+solution_explanation = """The solution modifies the C source to add a captures parameter to kalah_make_move, compiles via make, wraps the C library with ctypes, enumerates all valid board-state distributions for Kalah(3,1) and Kalah(3,2) using stars-and-bars combinatorics, solves each via minimax with memoization using the C library for state operations, stores results in SQLite, solves forward-search positions using the same minimax engine, computes pie-rule values by enumerating first-turn outcomes and analyzing swap incentives, and extracts balance statistics from the complete solution tables."""
+verification_explanation = """Tests use an independent pure-Python reference solver to compute exact game-theoretic values for all positions and all endgame database configurations. Standard, FairKalah, and pie-rule values are compared exactly. The SQLite database is queried to verify schema, entry counts (matching stars-and-bars combinatorial expectations), and spot-checked against reference values. Balance statistics are independently recomputed over all enumerated states and compared within floating-point tolerance. The compiled shared library existence is verified."""
+category = "algorithms"
+tags = ["game-theory", "systems-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fairkalah-pie-solver"

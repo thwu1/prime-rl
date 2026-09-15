@@ -1,0 +1,44 @@
+{
+  "edges": [
+    {
+      "id": "E1",
+      "description": "Bit-flip noise only",
+      "pX": 0.25,
+      "pZ": 0.0,
+      "threshold": 0.85,
+      "max_pairs": 2
+    },
+    {
+      "id": "E2",
+      "description": "Phase-flip noise only",
+      "pX": 0.0,
+      "pZ": 0.25,
+      "threshold": 0.85,
+      "max_pairs": 2
+    },
+    {
+      "id": "E3",
+      "description": "Bit-flip noise, high threshold",
+      "pX": 0.20,
+      "pZ": 0.0,
+      "threshold": 0.93,
+      "max_pairs": 3
+    },
+    {
+      "id": "E4",
+      "description": "Phase-flip noise, high threshold",
+      "pX": 0.0,
+      "pZ": 0.20,
+      "threshold": 0.93,
+      "max_pairs": 3
+    },
+    {
+      "id": "E5",
+      "description": "Mixed bit-flip and phase-flip noise",
+      "pX": 0.10,
+      "pZ": 0.05,
+      "threshold": 0.88,
+      "max_pairs": 5
+    }
+  ]
+}

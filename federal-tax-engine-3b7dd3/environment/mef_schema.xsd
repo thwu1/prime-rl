@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:irs:form1040:ty2025"
+           xmlns:tns="urn:irs:form1040:ty2025"
+           elementFormDefault="qualified">
+
+  <xs:simpleType name="FilingStatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="single"/>
+      <xs:enumeration value="mfj"/>
+      <xs:enumeration value="mfs"/>
+      <xs:enumeration value="hoh"/>
+      <xs:enumeration value="qss"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="WholeUSD">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TaxYear2025">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="2025"/>
+      <xs:maxInclusive value="2025"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="TaxReturn">
+    <xs:complexType>
+      <xs:sequence>
+
+        <xs:element name="Header">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="FilingStatus" type="tns:FilingStatusType"/>
+              <xs:element name="TaxYear" type="tns:TaxYear2025"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Form1040">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line1a" type="tns:WholeUSD"/>
+              <xs:element name="Line1z" type="tns:WholeUSD"/>
+              <xs:element name="Line3a" type="tns:WholeUSD"/>
+              <xs:element name="Line3b" type="tns:WholeUSD"/>
+              <xs:element name="Line7" type="xs:integer"/>
+              <xs:element name="Line9" type="tns:WholeUSD"/>
+              <xs:element name="Line11a" type="tns:WholeUSD"/>
+              <xs:element name="Line12e" type="tns:WholeUSD"/>
+              <xs:element name="Line15" type="tns:WholeUSD"/>
+              <xs:element name="Line16" type="tns:WholeUSD"/>
+              <xs:element name="Line18" type="tns:WholeUSD"/>
+              <xs:element name="Line20" type="tns:WholeUSD"/>
+              <xs:element name="Line22" type="tns:WholeUSD"/>
+              <xs:element name="Line23" type="tns:WholeUSD"/>
+              <xs:element name="Line24" type="tns:WholeUSD"/>
+              <xs:element name="Line25a" type="tns:WholeUSD"/>
+              <xs:element name="Line25d" type="tns:WholeUSD"/>
+              <xs:element name="Line33" type="tns:WholeUSD"/>
+              <xs:element name="Line34" type="tns:WholeUSD"/>
+              <xs:element name="Line37" type="tns:WholeUSD"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="ScheduleD">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line7" type="xs:integer"/>
+              <xs:element name="Line15" type="xs:integer"/>
+              <xs:element name="Line16" type="xs:integer"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="ScheduleH">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line1" type="tns:WholeUSD"/>
+              <xs:element name="Line2" type="tns:WholeUSD"/>
+              <xs:element name="Line3" type="tns:WholeUSD"/>
+              <xs:element name="Line4" type="tns:WholeUSD"/>
+              <xs:element name="Line5" type="tns:WholeUSD"/>
+              <xs:element name="Line6" type="tns:WholeUSD"/>
+              <xs:element name="Line7" type="tns:WholeUSD"/>
+              <xs:element name="Line8" type="tns:WholeUSD"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Form5695">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line18b" type="tns:WholeUSD"/>
+              <xs:element name="Line19h" type="tns:WholeUSD"/>
+              <xs:element name="Line20d" type="tns:WholeUSD"/>
+              <xs:element name="Line22d" type="tns:WholeUSD"/>
+              <xs:element name="Line23d" type="tns:WholeUSD"/>
+              <xs:element name="Line24d" type="tns:WholeUSD"/>
+              <xs:element name="Line25e" type="tns:WholeUSD"/>
+              <xs:element name="Line26c" type="tns:WholeUSD"/>
+              <xs:element name="Line27" type="tns:WholeUSD"/>
+              <xs:element name="Line28" type="tns:WholeUSD"/>
+              <xs:element name="Line29h" type="tns:WholeUSD"/>
+              <xs:element name="Line30" type="tns:WholeUSD"/>
+              <xs:element name="Line31" type="tns:WholeUSD"/>
+              <xs:element name="Line32" type="tns:WholeUSD"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Schedule2">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line9" type="tns:WholeUSD"/>
+              <xs:element name="Line21" type="tns:WholeUSD"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+        <xs:element name="Schedule3">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Line5b" type="tns:WholeUSD"/>
+              <xs:element name="Line8" type="tns:WholeUSD"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

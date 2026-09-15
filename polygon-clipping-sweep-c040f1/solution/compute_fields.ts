@@ -1,0 +1,96 @@
+import {
+  NORMAL,
+  SAME_TRANSITION,
+  DIFFERENT_TRANSITION,
+  NON_CONTRIBUTING,
+} from "./edge_type";
+import { INTERSECTION, UNION, DIFFERENCE, XOR } from "./operation";
+import SweepEvent from "./sweep_event";
+
+export default function computeFields(
+  event: SweepEvent,
+  prev: SweepEvent | null,
+  operation: number
+): void {
+  if (prev === null) {
+    event.inOut = false;
+    event.otherInOut = true;
+  } else {
+    if (event.isSubject === prev.isSubject) {
+      event.inOut = !prev.inOut;
+      event.otherInOut = prev.otherInOut;
+    } else {
+      event.inOut = !prev.otherInOut;
+      event.otherInOut = prev.isVertical() ? !prev.inOut : prev.inOut;
+    }
+
+    if (prev) {
+      event.prevInResult =
+        !inResult(prev, operation) || prev.isVertical()
+          ? prev.prevInResult
+          : prev;
+    }
+  }
+
+  let isInRes = inResult(event, operation);
+  if (isInRes) {
+    event.resultTransition = determineResultTransition(event, operation);
+  } else {
+    event.resultTransition = 0;
+  }
+}
+
+function inResult(event: SweepEvent, operation: number): boolean {
+  switch (event.type) {
+    case NORMAL:
+      switch (operation) {
+        case INTERSECTION:
+          return !event.otherInOut;
+        case UNION:
+          return event.otherInOut;
+        case DIFFERENCE:
+          return (
+            (event.isSubject && event.otherInOut) ||
+            (!event.isSubject && !event.otherInOut)
+          );
+        case XOR:
+          return true;
+      }
+      break;
+    case SAME_TRANSITION:
+      return operation === INTERSECTION || operation === UNION;
+    case DIFFERENT_TRANSITION:
+      return operation === DIFFERENCE;
+    case NON_CONTRIBUTING:
+      return false;
+  }
+  return false;
+}
+
+function determineResultTransition(event: SweepEvent, operation: number): number {
+  let thisIn = !event.inOut;
+  let thatIn = !event.otherInOut;
+
+  let isIn: boolean;
+  switch (operation) {
+    case INTERSECTION:
+      isIn = thisIn && thatIn;
+      break;
+    case UNION:
+      isIn = thisIn || thatIn;
+      break;
+    case XOR:
+      isIn = thisIn !== thatIn;
+      break;
+    case DIFFERENCE:
+      if (event.isSubject) {
+        isIn = thisIn && !thatIn;
+      } else {
+        isIn = thatIn && !thisIn;
+      }
+      break;
+    default:
+      isIn = false;
+  }
+  return isIn ? +1 : -1;
+}

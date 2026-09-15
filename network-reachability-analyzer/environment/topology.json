@@ -1,0 +1,81 @@
+{
+  "routers": {
+    "R1": {
+      "description": "Edge/core router - connects internal network to external, performs NAT and ACL filtering",
+      "interfaces": {
+        "eth0": {"ip": "203.0.113.1", "prefix": 24, "description": "external-facing"},
+        "eth1": {"ip": "10.0.0.1", "prefix": 30, "description": "link-to-R2"},
+        "eth2": {"ip": "10.0.0.5", "prefix": 30, "description": "link-to-R3"}
+      },
+      "static_routes": [
+        {"network": "10.1.0.0", "prefix": 24, "next_hop": "10.0.0.2"},
+        {"network": "10.2.0.0", "prefix": 24, "next_hop": "10.0.0.6"},
+        {"network": "10.3.0.0", "prefix": 24, "next_hop": "10.0.0.6"},
+        {"network": "10.4.0.0", "prefix": 24, "next_hop": "10.0.0.2"},
+        {"network": "0.0.0.0", "prefix": 0, "next_hop": "203.0.113.254"}
+      ],
+      "acls": {
+        "eth0_in": [
+          {"id": 10, "action": "deny", "src": "0.0.0.0/0", "dst": "10.0.0.0/8", "protocol": "any"},
+          {"id": 20, "action": "permit", "src": "203.0.113.0/24", "dst": "10.1.0.10/32", "protocol": "tcp", "dst_port": 443}
+        ]
+      },
+      "nat": {
+        "eth0_out": {
+          "type": "masquerade",
+          "src_match": "10.0.0.0/8",
+          "translate_to": "203.0.113.1"
+        }
+      }
+    },
+    "R2": {
+      "description": "Datacenter router - serves server subnet and connects to branch",
+      "interfaces": {
+        "eth0": {"ip": "10.0.0.2", "prefix": 30, "description": "link-to-R1"},
+        "eth1": {"ip": "10.1.0.1", "prefix": 24, "description": "server-subnet"},
+        "eth2": {"ip": "10.0.0.9", "prefix": 30, "description": "link-to-R4"}
+      },
+      "static_routes": [
+        {"network": "10.3.0.0", "prefix": 24, "next_hop": "10.0.0.13"},
+        {"network": "10.4.0.0", "prefix": 24, "next_hop": "10.0.0.10"},
+        {"network": "0.0.0.0", "prefix": 0, "next_hop": "10.0.0.1"}
+      ],
+      "acls": {},
+      "nat": {}
+    },
+    "R3": {
+      "description": "Campus router - serves user and guest subnets",
+      "interfaces": {
+        "eth0": {"ip": "10.0.0.6", "prefix": 30, "description": "link-to-R1"},
+        "eth1": {"ip": "10.2.0.1", "prefix": 24, "description": "user-subnet"},
+        "eth2": {"ip": "10.3.0.1", "prefix": 24, "description": "guest-subnet"}
+      },
+      "static_routes": [
+        {"network": "0.0.0.0", "prefix": 0, "next_hop": "10.0.0.5"}
+      ],
+      "acls": {},
+      "nat": {}
+    },
+    "R4": {
+      "description": "Branch router - serves branch office subnet",
+      "interfaces": {
+        "eth0": {"ip": "10.0.0.10", "prefix": 30, "description": "link-to-R2"},
+        "eth1": {"ip": "10.4.0.1", "prefix": 24, "description": "branch-subnet"}
+      },
+      "static_routes": [
+        {"network": "0.0.0.0", "prefix": 0, "next_hop": "10.0.0.9"}
+      ],
+      "acls": {},
+      "nat": {}
+    }
+  },
+  "hosts": {
+    "Server1": {"ip": "10.1.0.10", "prefix": 24, "gateway": "10.1.0.1"},
+    "Server2": {"ip": "10.1.0.11", "prefix": 24, "gateway": "10.1.0.1"},
+    "User1":   {"ip": "10.2.0.10", "prefix": 24, "gateway": "10.2.0.1"},
+    "User2":   {"ip": "10.2.0.11", "prefix": 24, "gateway": "10.2.0.1"},
+    "Guest1":  {"ip": "10.3.0.10", "prefix": 24, "gateway": "10.3.0.1"},
+    "Branch1": {"ip": "10.4.0.10", "prefix": 24, "gateway": "10.4.0.1"},
+    "External1": {"ip": "203.0.113.100", "prefix": 24, "gateway": "203.0.113.1"}
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Docker Build Triage Report",
+  "type": "object",
+  "required": ["builds", "summary"],
+  "properties": {
+    "builds": {
+      "type": "object",
+      "description": "Per-build analysis keyed by build directory name",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["failure_categories", "root_cause", "fixes", "system_packages_added", "base_image_change", "env_changes"],
+        "properties": {
+          "failure_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "missing_system_dep",
+                "version_conflict",
+                "build_tool_missing",
+                "incorrect_base_image",
+                "env_misconfiguration",
+                "missing_build_flag",
+                "package_conflict",
+                "test_framework_missing"
+              ]
+            },
+            "minItems": 1,
+            "description": "One or more failure category classifications"
+          },
+          "root_cause": {
+            "type": "string",
+            "description": "Detailed explanation of the root cause"
+          },
+          "fixes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of specific changes applied to fix the build"
+          },
+          "system_packages_added": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "apt/apk packages that were added"
+          },
+          "base_image_change": {
+            "type": ["object", "null"],
+            "properties": {
+              "from": {"type": "string"},
+              "to": {"type": "string"},
+              "reason": {"type": "string"}
+            },
+            "description": "Base image change if applicable, null otherwise"
+          },
+          "env_changes": {
+            "type": "object",
+            "description": "Environment variable changes (key: new_value)"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_builds", "failure_distribution", "total_system_packages_needed"],
+      "properties": {
+        "total_builds": {
+          "type": "integer",
+          "description": "Total number of builds analyzed"
+        },
+        "failure_distribution": {
+          "type": "object",
+          "description": "Count of each failure category across all builds"
+        },
+        "total_system_packages_needed": {
+          "type": "integer",
+          "description": "Total unique system packages needed across all builds"
+        }
+      }
+    }
+  }
+}

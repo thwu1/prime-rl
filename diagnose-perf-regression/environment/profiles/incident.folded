@@ -1,0 +1,29 @@
+# Incident CPU profile - post-deployment v2.3.1
+# Captured via: perf record -F 99 -a -g -- sleep 60 | perf script | stackcollapse-perf.pl
+# Date: 2024-11-18 14:05:00 UTC
+# Host: prod-dataflow-01
+# Load: 2,041 req/s (DEGRADED)
+main;handle_requests;process_request;parse_headers 185
+main;handle_requests;process_request;execute_query;scan_index;compare_keys 430
+main;handle_requests;process_request;execute_query;fetch_rows;decode_column 340
+main;handle_requests;process_request;send_response;format_output 155
+main;handle_requests;process_request;send_response;flush_buffer 125
+main;handle_requests;validate_request;check_auth;verify_hmac 580
+main;handle_requests;validate_request;check_rate_limit 85
+main;load_data;read_source;open_stream;init_buffer 45
+main;load_data;read_source;read_chunk;decompress_block 270
+main;load_data;read_source;read_chunk;copy_to_buffer 1950
+main;load_data;transform;apply_schema;map_fields 115
+main;load_data;transform;apply_schema;coerce_types 95
+main;load_data;transform;validate_record;check_constraints 65
+main;load_data;transform;validate_record;compute_checksum 55
+main;load_data;transform;validate_record;recompute_hash 1200
+main;manage_cache;evict_stale;scan_entries;check_ttl 125
+main;manage_cache;evict_stale;free_entry 55
+main;manage_cache;insert_entry;hash_key 105
+main;manage_cache;insert_entry;alloc_slot;find_free 75
+main;log_event;format_message;timestamp_now 50
+main;log_event;format_message;serialize_fields 45
+main;log_event;write_log;acquire_lock 40
+main;log_event;write_log;append_buffer;flush_to_disk 40
+main;idle;epoll_wait_loop 275

@@ -1,0 +1,22 @@
+{
+  "router": "R4",
+  "timestamp": "2024-11-15T14:22:55Z",
+  "ospf_process_id": 1,
+  "neighbors": [],
+  "interfaces": {
+    "GigabitEthernet1": {
+      "ospf_enabled": true,
+      "area": 1,
+      "state": "DOWN",
+      "hello_sent": 0,
+      "hello_received": 0
+    },
+    "GigabitEthernet2": {
+      "ospf_enabled": true,
+      "area": 1,
+      "state": "DR",
+      "hello_sent": 48231,
+      "hello_received": 0
+    }
+  }
+}

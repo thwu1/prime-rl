@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level quantum computing knowledge to recognise that Clifford+T circuits admit algebraic optimisation of their non-Clifford gate count, and the ability to build a multi-stage pipeline: parse OpenQASM 2.0 files (learning a QASM-handling library such as pyzx), design an internal representation, implement the optimisation algorithm, re-synthesise valid QASM output, and verify unitary equivalence. The agent must discover the optimisation strategy, handle circuits containing Hadamard-induced subcircuit boundaries, and perform linear algebra over GF(2) for parity-matrix decomposition — all without algorithmic guidance in the task description."""
+solution_explanation = """Parse QASM into an internal circuit model. For each {CNOT, Rz} subcircuit (partitioned at Hadamard gates), maintain per-qubit parity labels (binary vectors tracking which input-bit XOR produces each qubit value). CNOT updates labels; Rz records a phase term keyed by the current parity. Accumulated terms with identical parities merge; angles are normalised mod 2 and zero terms are dropped. The reduced terms are re-synthesised by computing each parity into a target qubit via CNOTs, applying Rz, undoing CNOTs, then decomposing the output parity matrix into CNOT gates via Gaussian elimination over GF(2). Results are written as QASM using named Clifford+T gates."""
+verification_explanation = """Tests install pyzx and use it to load both the original and optimised QASM files, compute their full unitary matrices, and verify equivalence up to global phase (tolerance 1e-6). Non-Clifford gate counts are checked against per-benchmark targets from targets.json. Additional tests verify qubit-count preservation and that the output is valid, parseable QASM."""
+category = "quantum_computing"
+tags = ["circuit-optimization", "qasm-processing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phase-polynomial-optimizer"

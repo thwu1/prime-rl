@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires both debugging 5 interconnected bugs across a ROS2 workspace AND designing/implementing a complete lifecycle-managed node from scratch. The bugs span multiple ROS2 subsystems (rosidl build configuration, DDS QoS compatibility, lifecycle state machine ordering, parameter YAML structure, topic remapping) and several produce no error messages, requiring systematic diagnostic investigation. The anomaly_filter node must be implemented as a full lifecycle node with proper QoS configuration, subscription/publishing, statistical outlier detection logic, and integration into the launch system with correctly ordered lifecycle transitions. The agent must evaluate the existing architecture, identify all failure points, and create a new component that fits the established patterns."""
+solution_explanation = """Fix 5 bugs: (1) Add DEPENDENCIES std_msgs to rosidl_generate_interfaces in CMakeLists.txt, (2) Change sensor_publisher QoS from BEST_EFFORT to RELIABLE, (3) Swap lifecycle transition ordering so data_processor is configured before activated in the launch file, (4) Fix the node name key in params.yaml to match the actual node name, (5) Remove the incorrect topic remapping from data_processor launch config. Then implement the anomaly_filter as a lifecycle node that subscribes to /sensor/processed, performs z-score based outlier detection with a sliding window, publishes clean readings on /sensor/filtered, and add it to the launch file with proper lifecycle transitions."""
+verification_explanation = """Tests rebuild the workspace, launch the pipeline, wait for /app/output/results.csv (max 90s), then verify: file existence, correct row count (10), correct CSV headers, calibrated values match expected formula within tolerance, correct sensor IDs, validity flags, and that calibration was actually applied. Additional tests verify the anomaly_filter.py is a real lifecycle node implementation (inherits LifecycleNode, has on_configure/on_activate callbacks, creates subscription and publisher, contains statistical computation), the result_writer subscribes to /sensor/filtered, and the implementation is non-trivial (40+ lines of code)."""
+category = "debugging"
+tags = ["ros2", "robotics-middleware"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-475a52"

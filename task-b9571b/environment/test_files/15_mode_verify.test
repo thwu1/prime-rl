@@ -1,0 +1,95 @@
+# Dual-execution plan verification
+# mode verify causes each query to be executed twice:
+# once with optimizer enabled, once without, asserting result equivalence
+
+mode verify
+
+statement ok
+CREATE TABLE vt(a INTEGER, b VARCHAR)
+
+statement ok
+INSERT INTO vt VALUES (1, 'alpha'), (2, 'beta'), (3, 'gamma'), (4, 'delta')
+
+# Simple scan — both plans must return identical results
+query IT
+SELECT * FROM vt ORDER BY a
+----
+1	alpha
+2	beta
+3	gamma
+4	delta
+
+# Aggregate — optimizer may choose hash vs sort aggregate
+query I
+SELECT SUM(a) FROM vt
+----
+10
+
+# Filter pushdown — optimizer applies filter at scan vs post-scan
+query IT
+SELECT a, b FROM vt WHERE a > 2 ORDER BY a
+----
+3	gamma
+4	delta
+
+# Join verification — optimizer may reorder join sides
+statement ok
+CREATE TABLE vt2(x INTEGER, label VARCHAR)
+
+statement ok
+INSERT INTO vt2 VALUES (1, 'one'), (2, 'two'), (3, 'three')
+
+query ITT rowsort
+SELECT a, b, label FROM vt JOIN vt2 ON vt.a = vt2.x
+----
+1	alpha	one
+2	beta	two
+3	gamma	three
+
+# Correlated subquery — optimizer may decorrelate
+query I rowsort
+SELECT a FROM vt WHERE a IN (SELECT x FROM vt2)
+----
+1
+2
+3
+
+# Window function — optimizer may use streaming vs blocking
+query II
+SELECT a, ROW_NUMBER() OVER (ORDER BY a) FROM vt ORDER BY a
+----
+1	1
+2	2
+3	3
+4	4
+
+# GROUP BY — optimizer may choose different grouping strategy
+query TI rowsort
+SELECT b, COUNT(*) FROM vt GROUP BY b
+----
+alpha	1
+beta	1
+delta	1
+gamma	1
+
+# DISTINCT — optimizer may use hash vs sort distinct
+query I
+SELECT DISTINCT a FROM vt WHERE a <= 3 ORDER BY a
+----
+1
+2
+3
+
+# CTE — optimizer may inline or materialize
+query I
+SELECT total FROM (SELECT SUM(a) AS total FROM vt)
+----
+10
+
+mode noverify
+
+statement ok
+DROP TABLE vt2
+
+statement ok
+DROP TABLE vt

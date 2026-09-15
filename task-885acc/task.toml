@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level robotics and optimization knowledge: extracting a pose graph from SQLite with packed binary BLOB information matrices, compiling a C shared library and calling it via FFI, implementing iterative nonlinear least-squares optimization on the SE(2) Lie group with analytical Jacobians, and choosing and integrating a robust cost function to reject outlier loop closures. Subtle errors in angle normalization, Jacobian derivation, information matrix reconstruction from BLOBs, or gauge freedom handling silently produce incorrect results."""
+solution_explanation = """Read pose graph from SQLite, unpacking binary BLOBs with struct. Compile the provided C SE(2) library and load via ctypes for edge error computation. Implement Gauss-Newton optimization: for each edge compute the error and analytical Jacobians, apply a robust kernel (e.g. Cauchy) to down-weight outliers, accumulate the weighted normal equation system H*dx=-b, fix gauge by anchoring node 0, solve, and iterate until convergence. The robust kernel automatically suppresses the two outlier loop closures."""
+verification_explanation = """Property-based tests verify the optimizer output without comparing to ground truth: trajectory spatial extent, heading patterns, loop closure satisfaction (>=4 of 7 edges well-fitted), outlier resistance (specific node pairs remain far apart), node 0 anchoring, and evidence that initial poses were actually modified."""
+category = "robotics"
+tags = ["slam", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-885acc"

@@ -1,0 +1,26 @@
+{
+  "name": "briggs_coalesce",
+  "functions": [{
+    "name": "target",
+    "params": [
+      {"name": "p0", "class": "gp"},
+      {"name": "p1", "class": "gp"},
+      {"name": "p2", "class": "gp"}
+    ],
+    "return_class": "gp",
+    "blocks": [{
+      "label": "entry",
+      "instrs": [
+        {"op": "add",  "dst": "t0", "class": "gp", "src1": "p0", "src2": "p1"},
+        {"op": "copy", "dst": "v0", "class": "gp", "src1": "t0"},
+        {"op": "mul",  "dst": "t1", "class": "gp", "src1": "p1", "src2": "p2"},
+        {"op": "copy", "dst": "v1", "class": "gp", "src1": "t1"},
+        {"op": "sub",  "dst": "t2", "class": "gp", "src1": "p2", "src2": "p0"},
+        {"op": "copy", "dst": "v2", "class": "gp", "src1": "t2"},
+        {"op": "add",  "dst": "s1", "class": "gp", "src1": "v0", "src2": "v1"},
+        {"op": "add",  "dst": "s2", "class": "gp", "src1": "s1", "src2": "v2"},
+        {"op": "ret", "src1": "s2"}
+      ]
+    }]
+  }]
+}

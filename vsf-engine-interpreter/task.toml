@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building five interoperating subsystems from a protocol spec: (1) PKI hierarchy generation using openssl CLI with correct X.509 extensions (SAN, key usage, CA signing) for mutual TLS; (2) RFC 6238 TOTP implementation (HMAC-SHA1, dynamic truncation, 8-digit codes) from the RFC specification; (3) JWT token management (HMAC-SHA256, base64url encoding, claims, expiry); (4) a recursive-descent expression evaluator and tree-walking validation engine interpreting a C#-like DSL; (5) an mTLS-enabled HTTPS server integrating all components with protocol-compliant endpoint handlers and camelCase-to-PascalCase field mapping. The difficulty arises from holistic integration: each subsystem constrains the others (PKI feeds mTLS config, TOTP feeds login flow, JWT feeds authorization middleware, validation engine feeds registration handler), requiring expert understanding of cryptographic protocols, X.509 PKI, and security architecture."""
+solution_explanation = """The solution (1) generates a PKI chain via openssl CLI with extension config files for SAN and key usage; (2) implements TOTP using hmac+hashlib with struct.pack for the time counter and dynamic truncation; (3) implements JWT with base64url encoding, JSON serialization, and HMAC-SHA256; (4) implements the VSF engine with ExpressionEvaluator (recursive descent) + ScriptRunner (line-type dispatch with short-circuiting) + tree walker (recursive node traversal with list item hooks); (5) builds a Flask server with ssl.SSLContext configured for CERT_REQUIRED, three endpoint handlers that integrate TOTP verification, JWT issuance/validation, field name mapping, and VSF engine validation."""
+verification_explanation = """Tests verify all five subsystems deterministically: PKI chain validity via openssl verify subprocess, correct SAN/key-usage extensions; TOTP against RFC 6238 test vectors (known seed + timestamps → expected 8-digit codes); JWT structure (3 base64url parts), roundtrip integrity, expiry enforcement, and signature validation; validation engine against 6 test cases covering valid payloads, null checks, range violations, branch logic, and list processing; server integration via subprocess startup + curl with mTLS client certs testing login, registration, invalid payload rejection, and status retrieval endpoints."""
+category = "systems_programming"
+tags = ["cryptographic-protocols", "pki-infrastructure"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vsf-engine-interpreter"

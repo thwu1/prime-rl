@@ -1,0 +1,19 @@
+ Performance counter stats for './sort_benchmark --modified':
+
+         10,001.45 msec task-clock                       #    1.000 CPUs utilized
+             3,000      context-switches                 #  299.957 /sec
+                28      cpu-migrations                   #    2.800 /sec
+             5,400      page-faults                      #  539.922 /sec
+     4,000,000,000      cycles                           #    3.999 GHz
+     3,600,000,000      instructions                     #    0.90  insn per cycle
+     1,400,000,000      branch-instructions              #  139.980 M/sec
+       112,000,000      branch-misses                    #    8.00% of all branches
+       620,000,000      cache-references                 #   61.991 M/sec
+        37,200,000      cache-misses                     #    6.00% of all cache refs
+   <not supported>      stalled-cycles-frontend
+     1,080,000,000      stalled-cycles-backend           #   27.00% backend cycles idle
+
+         10.001876543 seconds time elapsed
+
+          9.891234567 seconds user
+          0.109876000 seconds sys

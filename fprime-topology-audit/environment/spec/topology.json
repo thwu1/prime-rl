@@ -1,0 +1,73 @@
+{
+    "instances": {
+        "rateDriver": {"component": "Svc.RateGroupDriver", "base_id": "0x0100"},
+        "rg10Hz": {"component": "Svc.ActiveRateGroup", "base_id": "0x0200"},
+        "rg1Hz": {"component": "Svc.ActiveRateGroup", "base_id": "0x0300"},
+        "cmdDisp": {"component": "Svc.CommandDispatcher", "base_id": "0x0400"},
+        "cmdSeq": {"component": "Svc.CmdSequencer", "base_id": "0x0500"},
+        "health": {"component": "Svc.Health", "base_id": "0x0600"},
+        "tlmChan": {"component": "Svc.TlmChan", "base_id": "0x0700"},
+        "eventLog": {"component": "Svc.PassiveTextLogger", "base_id": "0x0800"},
+        "timeSrc": {"component": "Svc.LinuxTimer", "base_id": "0x0900"},
+        "sensorMgr": {"component": "App.SensorManager", "base_id": "0x0A00"}
+    },
+    "connections": [
+        {"source": "rateDriver", "source_port": "CycleOut", "source_index": 0, "target": "rg10Hz", "target_port": "CycleIn", "target_index": 0},
+        {"source": "rateDriver", "source_port": "CycleOut", "source_index": 1, "target": "rg1Hz", "target_port": "CycleIn", "target_index": 0},
+
+        {"source": "rg10Hz", "source_port": "RateGroupMemberOut", "source_index": 0, "target": "health", "target_port": "Run", "target_index": 0},
+        {"source": "rg10Hz", "source_port": "RateGroupMemberOut", "source_index": 1, "target": "sensorMgr", "target_port": "schedIn", "target_index": 0},
+        {"source": "rg10Hz", "source_port": "RateGroupMemberOut", "source_index": 2, "target": "tlmChan", "target_port": "Run", "target_index": 0},
+        {"source": "rg1Hz", "source_port": "RateGroupMemberOut", "source_index": 0, "target": "cmdSeq", "target_port": "schedIn", "target_index": 0},
+
+        {"source": "cmdDisp", "source_port": "compCmdSend", "source_index": 0, "target": "cmdSeq", "target_port": "cmdIn", "target_index": 0},
+        {"source": "cmdDisp", "source_port": "compCmdSend", "source_index": 1, "target": "health", "target_port": "CmdDisp", "target_index": 0},
+        {"source": "cmdDisp", "source_port": "compCmdSend", "source_index": 2, "target": "sensorMgr", "target_port": "cmdIn", "target_index": 0},
+
+        {"source": "cmdSeq", "source_port": "cmdRegOut", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdReg", "target_index": 0},
+        {"source": "health", "source_port": "CmdReg", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdReg", "target_index": 1},
+        {"source": "sensorMgr", "source_port": "cmdRegOut", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdReg", "target_index": 2},
+
+        {"source": "cmdSeq", "source_port": "cmdResponseOut", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdStat", "target_index": 0},
+        {"source": "health", "source_port": "CmdStatus", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdStat", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "cmdResponseOut", "source_index": 0, "target": "cmdDisp", "target_port": "compCmdStat", "target_index": 0},
+
+        {"source": "cmdSeq", "source_port": "comCmdOut", "source_index": 0, "target": "cmdDisp", "target_port": "seqCmdBuff", "target_index": 0},
+        {"source": "cmdDisp", "source_port": "seqCmdStatus", "source_index": 0, "target": "cmdSeq", "target_port": "cmdResponseIn", "target_index": 0},
+
+        {"source": "health", "source_port": "PingSend", "source_index": 0, "target": "rg10Hz", "target_port": "pingIn", "target_index": 0},
+        {"source": "rg10Hz", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 0},
+        {"source": "health", "source_port": "PingSend", "source_index": 1, "target": "rg1Hz", "target_port": "pingIn", "target_index": 0},
+        {"source": "rg1Hz", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 1},
+        {"source": "health", "source_port": "PingSend", "source_index": 2, "target": "cmdDisp", "target_port": "pingIn", "target_index": 0},
+        {"source": "cmdDisp", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 2},
+        {"source": "health", "source_port": "PingSend", "source_index": 3, "target": "cmdSeq", "target_port": "pingIn", "target_index": 0},
+        {"source": "cmdSeq", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 3},
+        {"source": "health", "source_port": "PingSend", "source_index": 4, "target": "tlmChan", "target_port": "pingIn", "target_index": 0},
+        {"source": "tlmChan", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 4},
+        {"source": "health", "source_port": "PingSend", "source_index": 5, "target": "sensorMgr", "target_port": "pingIn", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "pingOut", "source_index": 0, "target": "health", "target_port": "PingReturn", "target_index": 5},
+
+        {"source": "cmdDisp", "source_port": "Tlm", "source_index": 0, "target": "tlmChan", "target_port": "TlmRecv", "target_index": 0},
+        {"source": "cmdSeq", "source_port": "tlmOut", "source_index": 0, "target": "tlmChan", "target_port": "TlmRecv", "target_index": 0},
+        {"source": "health", "source_port": "Tlm", "source_index": 0, "target": "tlmChan", "target_port": "TlmRecv", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "tlmOut", "source_index": 0, "target": "tlmChan", "target_port": "TlmRecv", "target_index": 0},
+
+        {"source": "cmdDisp", "source_port": "Log", "source_index": 0, "target": "eventLog", "target_port": "LogRecv", "target_index": 0},
+        {"source": "cmdSeq", "source_port": "logOut", "source_index": 0, "target": "eventLog", "target_port": "LogRecv", "target_index": 0},
+        {"source": "health", "source_port": "Log", "source_index": 0, "target": "eventLog", "target_port": "LogRecv", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "logOut", "source_index": 0, "target": "eventLog", "target_port": "LogRecv", "target_index": 0},
+
+        {"source": "cmdDisp", "source_port": "LogText", "source_index": 0, "target": "eventLog", "target_port": "TextLogRecv", "target_index": 0},
+        {"source": "cmdSeq", "source_port": "LogText", "source_index": 0, "target": "eventLog", "target_port": "TextLogRecv", "target_index": 0},
+        {"source": "health", "source_port": "LogText", "source_index": 0, "target": "eventLog", "target_port": "TextLogRecv", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "LogText", "source_index": 0, "target": "eventLog", "target_port": "TextLogRecv", "target_index": 0},
+
+        {"source": "cmdDisp", "source_port": "timeGetOut", "source_index": 0, "target": "timeSrc", "target_port": "timeGetIn", "target_index": 0},
+        {"source": "cmdSeq", "source_port": "timeGetOut", "source_index": 0, "target": "timeSrc", "target_port": "timeGetIn", "target_index": 0},
+        {"source": "health", "source_port": "timeGetOut", "source_index": 0, "target": "timeSrc", "target_port": "timeGetIn", "target_index": 0},
+        {"source": "sensorMgr", "source_port": "timeGetOut", "source_index": 0, "target": "timeSrc", "target_port": "timeGetIn", "target_index": 0},
+
+        {"source": "sensorMgr", "source_port": "tempQuery", "source_index": 0, "target": "tlmChan", "target_port": "TlmGet", "target_index": 0}
+    ]
+}

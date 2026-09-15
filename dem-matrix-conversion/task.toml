@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """PhD-level quantum error correction task requiring understanding of Stim's detector error model format, sparse matrix representations for QEC decoding (check matrices, observables matrices, hyperedge-to-edge decomposition), probability theory for composing independent error channels over GF(2), and the non-obvious prior accumulation formula p_new = p_old*(1-p) + p*(1-p_old). The distinction between hyperedges and their edge decompositions via the ^ separator semantics is subtle and domain-specific."""
+solution_explanation = """Parse error instructions from the flattened DEM, tracking hyperedge and edge IDs in first-encounter order. For each error instruction, compute the net detector support via iterated symmetric difference across ^-separated components, and accumulate priors using the GF(2) independent event formula. Build sparse CSC matrices mapping detectors/observables to hyperedges/edges, plus the hyperedge-to-edge decomposition matrix. Requires understanding stim's DemTarget API (is_relative_detector_id, is_logical_observable_id, is_separator) and correct bookkeeping of six interrelated data structures."""
+verification_explanation = """Nine pytest tests verify: exact matrix values on hand-crafted DEMs (edge-only, hyperedge decomposition, prior accumulation, boundary errors, undecomposed hyperedges, multi-component decomposition), ValueError behavior for disallowed undecomposed hyperedges, and integration tests on stim-generated repetition and surface code circuits checking matrix shape consistency, valid probability ranges, and binary matrix entries."""
+category = "scientific_computing"
+tags = ["quantum-computing", "sparse-linear-algebra"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dem-matrix-conversion"

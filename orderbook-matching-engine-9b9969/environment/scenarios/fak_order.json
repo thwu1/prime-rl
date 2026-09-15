@@ -1,0 +1,33 @@
+{
+  "description": "Fill-and-kill order: partial fill then cancel remainder; FAK with no match",
+  "input": {
+    "config": {
+      "maker_fee": -0.0001,
+      "taker_fee": 0.0002,
+      "tick_size": 100,
+      "position_limit": 100,
+      "active_order_count_limit": 10,
+      "active_volume_limit": 200
+    },
+    "operations": [
+      {"type": "insert", "trader": "Alice", "order_id": 0, "side": "BUY", "price": 10000, "volume": 5, "lifespan": "GFD"},
+      {"type": "insert", "trader": "Bob", "order_id": 0, "side": "SELL", "price": 9900, "volume": 8, "lifespan": "FAK"},
+      {"type": "insert", "trader": "Carol", "order_id": 0, "side": "BUY", "price": 10000, "volume": 10, "lifespan": "FAK"},
+      {"type": "snapshot"}
+    ]
+  },
+  "expected_output": {
+    "events": [
+      {"type": "placed", "trader": "Alice", "order_id": 0, "side": "BUY", "price": 10000, "remaining": 5},
+      {"type": "fill", "maker": "Alice", "taker": "Bob", "price": 10000, "volume": 5, "maker_fee": -5, "taker_fee": 10},
+      {"type": "cancelled", "trader": "Bob", "order_id": 0, "remaining_cancelled": 3},
+      {"type": "cancelled", "trader": "Carol", "order_id": 0, "remaining_cancelled": 10},
+      {"type": "snapshot", "bids": [], "asks": []}
+    ],
+    "accounts": {
+      "Alice": {"position": 5, "balance": -49995, "total_fees": -5},
+      "Bob": {"position": -5, "balance": 49990, "total_fees": 10},
+      "Carol": {"position": 0, "balance": 0, "total_fees": 0}
+    }
+  }
+}

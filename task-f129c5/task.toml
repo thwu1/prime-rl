@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the ALP (Adaptive Lossless floating-Point) compression algorithm from the research literature. The solver must correctly implement: (1) exponent pair discovery via sampling with IEEE 754 bitwise comparison semantics, (2) encoding/decoding with correct handling of all IEEE 754 special values (NaN, ±Inf, -0.0, denormals), (3) frame-of-reference subtraction with signed integer arithmetic, (4) LSB-first bit-packing and unpacking of variable-width integers, (5) a binary serialization format with correct endianness and field alignment, and (6) chunk-based patch indexing with cumulative offset arrays. The interaction between floating-point rounding semantics and integer encoding creates subtle correctness traps that require proficient-level systems programming skill."""
+solution_explanation = """The solution implements the full ALP pipeline: precomputes FACT/FRAC lookup tables as f64, samples up to 32 non-special values to find the (e,f) exponent pair minimizing bitwise roundtrip failures, encodes each value as round(v * 10^e) with exception detection via struct.pack comparison, applies frame-of-reference by subtracting the minimum encoded integer, bit-packs the adjusted values LSB-first, serializes the 32-byte header followed by null bitmap, packed integers, patches, and chunk offsets, and reverses the process for decompression."""
+verification_explanation = """Tests verify: exact bitwise roundtrip for integers, decimals, special values (NaN, Inf, -0.0), and nulls; correct exponent selection (e=f=0 for integers); correct binary format header fields (magic, num_values, exponents, FOR base, bit_width, null flags); correct chunk offset arrays for multi-chunk arrays with known exception positions; compression ratio below 50% for clean integer data; and roundtrip correctness for large (10000-element) arrays with mixed content."""
+category = "data_processing"
+tags = ["compression", "floating-point"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f129c5"

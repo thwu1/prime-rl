@@ -1,0 +1,20 @@
+{
+  "type": "seq",
+  "body": [
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 2},
+          {
+            "type": "async",
+            "child": {"type": "compute", "cost": 5}
+          },
+          {"type": "compute", "cost": 3}
+        ]
+      }
+    },
+    {"type": "compute", "cost": 1}
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "routers": {
+    "R1":  {"loopback": "10.1.1.1/32",     "area": 0, "type": "internal"},
+    "R2":  {"loopback": "10.2.2.2/32",     "area": 0, "type": "internal"},
+    "R3":  {"loopback": "10.3.3.3/32",     "area": 0, "type": "internal"},
+    "R4":  {"loopback": "10.4.4.4/32",     "area": 0, "type": "ABR", "areas": [0, 1]},
+    "R5":  {"loopback": "10.5.5.5/32",     "area": 0, "type": "ABR", "areas": [0, 2]},
+    "R6":  {"loopback": "10.6.6.6/32",     "area": 0, "type": "ABR", "areas": [0, 3]},
+    "R7":  {"loopback": "10.7.7.7/32",     "area": 1, "type": "internal"},
+    "R8":  {"loopback": "10.8.8.8/32",     "area": 1, "type": "internal"},
+    "R9":  {"loopback": "10.9.9.9/32",     "area": 2, "type": "internal"},
+    "R10": {"loopback": "10.10.10.10/32",  "area": 2, "type": "ASBR"},
+    "R11": {"loopback": "10.11.11.11/32",  "area": 3, "type": "internal"},
+    "R12": {"loopback": "10.12.12.12/32",  "area": 3, "type": "ASBR"}
+  },
+  "links": [
+    {"endpoints": ["R1", "R2"],  "cost": 10, "area": 0},
+    {"endpoints": ["R1", "R3"],  "cost": 20, "area": 0},
+    {"endpoints": ["R2", "R3"],  "cost": 5,  "area": 0},
+    {"endpoints": ["R2", "R4"],  "cost": 8,  "area": 0},
+    {"endpoints": ["R3", "R5"],  "cost": 12, "area": 0},
+    {"endpoints": ["R1", "R6"],  "cost": 15, "area": 0},
+    {"endpoints": ["R4", "R7"],  "cost": 3,  "area": 1},
+    {"endpoints": ["R4", "R8"],  "cost": 6,  "area": 1},
+    {"endpoints": ["R7", "R8"],  "cost": 2,  "area": 1},
+    {"endpoints": ["R5", "R9"],  "cost": 7,  "area": 2},
+    {"endpoints": ["R5", "R10"], "cost": 14, "area": 2},
+    {"endpoints": ["R9", "R10"], "cost": 4,  "area": 2},
+    {"endpoints": ["R6", "R11"], "cost": 4,  "area": 3},
+    {"endpoints": ["R6", "R12"], "cost": 11, "area": 3},
+    {"endpoints": ["R11", "R12"], "cost": 2, "area": 3}
+  ],
+  "areas": {
+    "0": {"type": "backbone"},
+    "1": {"type": "stub", "default_cost": 1},
+    "2": {"type": "nssa", "default_cost": 1},
+    "3": {"type": "regular"}
+  },
+  "external_routes": [
+    {"asbr": "R10", "prefix": "172.16.0.0/16",   "metric_type": "E2", "metric": 20},
+    {"asbr": "R10", "prefix": "172.17.0.0/16",   "metric_type": "E1", "metric": 30},
+    {"asbr": "R12", "prefix": "192.168.0.0/16",  "metric_type": "E2", "metric": 15},
+    {"asbr": "R12", "prefix": "192.168.1.0/24",  "metric_type": "E1", "metric": 25}
+  ],
+  "queries": [
+    {"router": "R1",  "destination": "10.7.7.7/32"},
+    {"router": "R1",  "destination": "10.12.12.12/32"},
+    {"router": "R1",  "destination": "172.16.0.0/16"},
+    {"router": "R1",  "destination": "172.17.0.0/16"},
+    {"router": "R1",  "destination": "192.168.0.0/16"},
+    {"router": "R1",  "destination": "192.168.1.0/24"},
+    {"router": "R7",  "destination": "10.2.2.2/32"},
+    {"router": "R7",  "destination": "10.11.11.11/32"},
+    {"router": "R7",  "destination": "192.168.0.0/16"},
+    {"router": "R9",  "destination": "172.16.0.0/16"},
+    {"router": "R9",  "destination": "172.17.0.0/16"},
+    {"router": "R9",  "destination": "10.1.1.1/32"},
+    {"router": "R9",  "destination": "192.168.0.0/16"},
+    {"router": "R11", "destination": "192.168.0.0/16"},
+    {"router": "R4",  "destination": "10.10.10.10/32"}
+  ]
+}

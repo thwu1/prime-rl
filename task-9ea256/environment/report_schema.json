@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Report",
+  "description": "Schema for the HL7 v2 to FHIR R4 interoperability pipeline report",
+  "type": "object",
+  "required": ["conversion", "migration", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "conversion": {
+      "type": "object",
+      "required": ["messages_processed", "bundles"],
+      "properties": {
+        "messages_processed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of HL7 v2 messages converted"
+        },
+        "bundles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["message_control_id", "resource_counts"],
+            "properties": {
+              "message_control_id": {
+                "type": "string",
+                "description": "MSH-10 message control ID"
+              },
+              "resource_counts": {
+                "type": "object",
+                "description": "Count of each FHIR resource type generated",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "required": ["resources_processed", "translations", "unmapped_codes"],
+      "properties": {
+        "resources_processed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total FHIR resources processed by terminology migration"
+        },
+        "translations": {
+          "type": "array",
+          "description": "Individual code translations applied",
+          "items": {
+            "type": "object",
+            "required": ["resource_id", "resource_type", "source_system", "source_code", "target_system", "target_code", "equivalence"],
+            "properties": {
+              "resource_id": { "type": "string" },
+              "resource_type": { "type": "string" },
+              "source_system": { "type": "string" },
+              "source_code": { "type": "string" },
+              "target_system": { "type": "string" },
+              "target_code": { "type": "string" },
+              "equivalence": {
+                "type": "string",
+                "enum": ["equivalent", "wider", "narrower", "inexact", "unmatched", "disjoint"]
+              }
+            }
+          }
+        },
+        "unmapped_codes": {
+          "type": "array",
+          "description": "Source codes with no mapping in the ConceptMap",
+          "items": {
+            "type": "object",
+            "required": ["resource_id", "resource_type", "source_system", "source_code", "unmapped_mode"],
+            "properties": {
+              "resource_id": { "type": "string" },
+              "resource_type": { "type": "string" },
+              "source_system": { "type": "string" },
+              "source_code": { "type": "string" },
+              "unmapped_mode": {
+                "type": "string",
+                "enum": ["provided", "fixed"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["hl7_messages_converted", "total_resources_migrated", "codes_translated", "codes_unmapped"],
+      "properties": {
+        "hl7_messages_converted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of HL7 v2 messages successfully converted to FHIR bundles"
+        },
+        "total_resources_migrated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total FHIR resources processed during terminology migration"
+        },
+        "codes_translated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of distinct (resource, code) pairs successfully translated"
+        },
+        "codes_unmapped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of source codes with no mapping found"
+        }
+      }
+    }
+  }
+}

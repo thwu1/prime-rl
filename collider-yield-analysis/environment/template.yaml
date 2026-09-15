@@ -1,0 +1,66 @@
+#
+# VLQ T->tH Search Results — Signal Region SR-A
+# Replace each null value with your computed result.
+# Do not modify bin edges, metadata, or the structure of this file.
+metadata:
+  description: VLQ T->tH search results in SR-A
+  observable: MET
+  units: GeV
+  signal: VLQ T, m_T = 1200 GeV
+  luminosity_ifb: 137.0
+  cross_section_pb: 0.0252
+nominal_yields:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+jes_up_yields:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+jes_down_yields:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+btag_up_yields:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+btag_down_yields:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+total_uncertainty:
+  - bin: "[250, 350)"
+    value: null
+  - bin: "[350, 500)"
+    value: null
+  - bin: "[500, 700)"
+    value: null
+  - bin: "[700, inf)"
+    value: null
+significance: null

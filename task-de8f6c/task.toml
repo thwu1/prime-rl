@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four subtle defects across three interconnected speech processing modules without hints: (1) a restrictive regex in text normalization that silently drops three-digit number conversion, (2) swapped insertion/deletion attribution in edit distance backtracking that produces correct total WER but wrong operation counts, (3) transposed frame-length and hop-length parameters in VAD that distort temporal scale of silence-gap detection, and (4) an inverted comparison operator in sequence matching that reverses full/partial status. Each bug requires domain understanding of speech processing, signal analysis, or evaluation metrics to identify and fix correctly."""
+solution_explanation = """Patches four bugs: (1) In wer.py, expands the normalize_text regex from \\d{1,2} to \\d+ so three-digit numbers like 404 are converted to English words. (2) In wer.py, swaps the insertion/deletion counters in the backtracking loop. (3) In vad.py, restores the correct frame_length (25ms) and hop_length (10ms) which were transposed. (4) In matcher.py, changes 'wer >= threshold' to 'wer <= threshold' so low-error matches are classified as 'full'."""
+verification_explanation = """Tests verify WER accuracy on known string pairs with exact operation counts, text normalization for digits including three-digit numbers, DP matcher correctness on full/partial/missing scenarios, VAD segment detection on espeak-ng-synthesized multi-utterance audio, JUnit XML structural validity via lxml parsing, synthesis output validity, and integration tests chaining synthesis through VAD."""
+category = "speech_processing"
+tags = ["accessibility", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-de8f6c"

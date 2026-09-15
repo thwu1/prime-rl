@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing a multi-tool audit pipeline that chains buildozer, Python, and graphviz. The solver must: (1) understand why buildozer's 'print deps' query silently returns (missing) for py_service macro targets—requiring investigation of the macro's attribute schema (service_deps/internal_deps vs deps) and knowledge of buildozer's output semantics; (2) fix a Python import regex whose ^ anchor drops conditional imports inside try/except blocks; (3) correct an SCC filter off-by-one that inflates cycle counts; (4) implement five graph algorithms from scratch (articulation points, bridges, topological build schedule on condensed DAG, DAG critical path, transitive reduction) over a 22-node dependency graph with cycles and cross-cutting edges; (5) generate valid DOT syntax and render an SVG using graphviz's dot command. Demands holistic understanding of Bazel BUILD file semantics, buildozer's AST-level query model, graph theory, and multi-tool orchestration via subprocess."""
+solution_explanation = """Run depcheck.py, observe wrong declared_edge_count. Investigate monorepo BUILD files to discover py_service macro targets where deps is not a direct attribute. Learn buildozer's output format: 'print deps' returns '(missing)' for these targets. Fix extract_declared_deps to also query service_deps (bare names) and internal_deps (// labels) when deps returns (missing), merging results. Fix import regex by removing ^ anchor. Fix SCC filter from >= 1 to > 1. Implement graph algorithms using DFS-based articulation point and bridge detection on the undirected projection, SCC condensation for topological build schedule, DAG longest-path for critical path, and transitive reduction mapped back to original edges. Generate DOT digraph from declared deps and render to SVG via subprocess call to dot -Tsvg."""
+verification_explanation = """Tests independently parse monorepo BUILD files (handling both py_library deps and py_service service_deps/internal_deps) and source imports (including indented conditional imports) using Python regex, construct ground-truth dependency graphs with networkx, and compare every report field. Each of the 11 fields is verified: counts by exact comparison, set-valued fields by set equality, build schedule by topological ordering constraints with SCC co-layer validation, and critical path by independent DAG longest-path computation. Visualization is verified by checking that dep_graph.svg exists, contains valid SVG markup, and includes all package names."""
+category = "software_configuration"
+tags = ["build-system-tooling", "graph-algorithms"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a611d7"

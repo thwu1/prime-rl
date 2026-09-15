@@ -1,0 +1,23 @@
+{
+  "oid": "2.16.840.1.113883.1.11.11526",
+  "name": "Language",
+  "codeSystem": "2.16.840.1.113883.6.121",
+  "codes": [
+    {"code": "en", "displayName": "English"},
+    {"code": "es", "displayName": "Spanish"},
+    {"code": "fr", "displayName": "French"},
+    {"code": "de", "displayName": "German"},
+    {"code": "zh", "displayName": "Chinese"},
+    {"code": "ja", "displayName": "Japanese"},
+    {"code": "ko", "displayName": "Korean"},
+    {"code": "ar", "displayName": "Arabic"},
+    {"code": "pt", "displayName": "Portuguese"},
+    {"code": "ru", "displayName": "Russian"},
+    {"code": "it", "displayName": "Italian"},
+    {"code": "nl", "displayName": "Dutch"},
+    {"code": "hi", "displayName": "Hindi"},
+    {"code": "pl", "displayName": "Polish"},
+    {"code": "vi", "displayName": "Vietnamese"},
+    {"code": "tl", "displayName": "Tagalog"}
+  ]
+}

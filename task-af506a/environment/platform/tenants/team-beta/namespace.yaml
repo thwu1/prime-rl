@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-beta
+  labels:
+    platform.example.com/tenant: team-beta
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    platform.example.com/owner: "beta-team@acme-corp.com"
+    platform.example.com/cost-center: "eng-frontend"

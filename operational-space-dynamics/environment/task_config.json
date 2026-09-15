@@ -1,0 +1,39 @@
+{
+  "robot_urdf": "kuka_iiwa/model.urdf",
+  "end_effector_link_index": 6,
+  "gravity": [0, 0, -9.81],
+  "query_configurations": {
+    "q1": [0.0, -0.5236, 0.0, -1.5708, 0.0, 1.0472, 0.0],
+    "q2": [0.5, -0.7, 0.3, -1.2, 0.8, 0.9, -0.4],
+    "q3": [0.0, 0.001, 0.0, -0.001, 0.0, 0.001, 0.0],
+    "q4": [1.0, -1.0, 0.5, -1.8, -0.3, 1.5, 0.7],
+    "q5": [-0.8, 0.6, -0.4, -0.9, 1.2, 0.4, -0.6]
+  },
+  "desired_wrenches": {
+    "q1": [0.0, 0.0, -10.0, 0.0, 0.0, 0.0],
+    "q2": [5.0, 3.0, -8.0, 0.1, -0.2, 0.05],
+    "q3": [0.0, 0.0, -5.0, 0.0, 0.0, 0.0],
+    "q4": [10.0, 0.0, 0.0, 0.0, 0.5, 0.0],
+    "q5": [-3.0, 7.0, -6.0, 0.3, 0.1, -0.4]
+  },
+  "rest_posture": [0.0, -0.5236, 0.0, -1.5708, 0.0, 1.0472, 0.0],
+  "null_space_gain": 10.0,
+  "singularity_condition_threshold": 100.0,
+  "damping_factor": 0.01,
+  "output_file": "/app/results.json",
+  "output_schema": {
+    "description": "JSON object with a 'configurations' array, sorted by config_name (q1..q5), each element containing the fields below.",
+    "configuration_fields": {
+      "config_name": "string key matching query_configurations (q1 through q5)",
+      "jacobian_linear": "3x7 nested array of floats, row-major order",
+      "jacobian_angular": "3x7 nested array of floats, row-major order",
+      "mass_matrix": "7x7 nested array of floats, symmetric positive definite, row-major order",
+      "gravity_torques": "array of 7 floats",
+      "operational_inertia": "6x6 nested array of floats, row-major order",
+      "manipulability_index": "positive float: sqrt(det(J @ J.T))",
+      "condition_number": "positive float: sigma_max / sigma_min of the full 6x7 Jacobian",
+      "is_near_singular": "boolean: true iff condition_number > singularity_condition_threshold",
+      "joint_torques": "array of 7 floats"
+    }
+  }
+}

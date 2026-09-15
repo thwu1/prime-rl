@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of: (1) the OpenBao/Vault Transit BYOK key import protocol — the agent must discover and correctly implement the multi-layer cryptographic wrapping procedure to import external key material, (2) Transit secrets engine lifecycle management including convergent encryption with derived keys, key rotation, ciphertext rewrapping, and version constraint enforcement, (3) coordinating signing, HMAC, and key export operations across multiple key types. The BYOK import is the core challenge — the agent must study the API documentation and source code to figure out the correct wrapping procedure, key format requirements, and byte-level operations."""
+solution_explanation = """The solution starts OpenBao with file storage, initializes and unseals it, then enables Transit. Native keys are created via the API. For BYOK import, a Python script retrieves the Transit wrapping key, generates an ephemeral AES-256 key, wraps the target key material (PKCS8 DER format) using AES-KWP, wraps the ephemeral key with RSA-OAEP (SHA-256), concatenates both wrapped values, and base64-encodes the result. Records are encrypted with convergent encryption using derived contexts, the key is rotated 3 times, ciphertexts are rewrapped to v4, version constraints are set, and signatures/HMACs are generated for verification."""
+verification_explanation = """Tests start OpenBao using persisted file storage and unseal it. They verify: (1) all four keys exist with correct types and configurations, (2) imported-rsa has exportable=true and allow_plaintext_backup=true confirming successful key import with correct flags, (3) data-enc has latest_version=4 with correct min version constraints, (4) all encrypted records decrypt to expected plaintext, (5) convergent encryption produces identical ciphertext for same plaintext+context, (6) records with same data but different contexts produce different ciphertexts, (7) all ed25519 signatures verify against rewrapped ciphertexts, (8) all SHA2-512 HMACs verify against original plaintext, (9) exported RSA public key is valid PEM."""
+category = "security_and_privacy"
+tags = ["cryptography", "secrets-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/transit-byok-pipeline"

@@ -1,0 +1,9 @@
+{
+  "name": "rapid_focus_changes",
+  "utterances": [
+    {"id": 0, "text": "OK button", "start_ms": 0, "duration_ms": 1200},
+    {"id": 1, "text": "Cancel button", "start_ms": 500, "duration_ms": 1200, "interrupts": 0},
+    {"id": 2, "text": "Apply button focused", "start_ms": 1100, "duration_ms": 1500, "interrupts": 1},
+    {"id": 3, "text": "Help button", "start_ms": 2600, "duration_ms": 1200}
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "name": "diverging",
+    "description": "Aircraft diverging: intruder behind ownship, both heading away from each other. Co-altitude.",
+    "ownship": {
+        "sx_nmi": 0.0,
+        "sy_nmi": 0.0,
+        "sz_ft": 17000.0,
+        "trk_deg": 0.0,
+        "gs_knot": 200.0,
+        "vs_fpm": 0.0
+    },
+    "intruders": [
+        {
+            "id": "DIVERGER",
+            "sx_nmi": 0.0,
+            "sy_nmi": -2.0,
+            "sz_ft": 17000.0,
+            "trk_deg": 180.0,
+            "gs_knot": 300.0,
+            "vs_fpm": 0.0
+        }
+    ]
+}

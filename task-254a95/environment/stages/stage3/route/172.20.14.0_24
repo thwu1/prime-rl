@@ -1,0 +1,6 @@
+route:              172.20.14.0/24
+descr:              External route announcement
+origin:             AS4242420099
+max-length:         24
+mnt-by:             EPSILON-MNT
+source:             DN42

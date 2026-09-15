@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level networking knowledge: inferring TCP connection states from observed flag counters without being given state-transition rules, identifying six categories of network anomalies from raw telemetry without prescribed detection algorithms, and correlating events across five heterogeneous data sources (binary BPF map dumps with mixed endianness and C struct alignment, pcap packet captures, YAML configuration). The agent must use tshark to extract DNS domain names from a libpcap capture file, parse four different binary record formats with big-endian network fields and little-endian host counters, read anomaly threshold parameters from a YAML config, and synthesize all sources into a unified diagnostic report. Demands holistic understanding of TCP state machines, eBPF map semantics, DNS wire format, and network observability tooling."""
+solution_explanation = """Parse four binary telemetry files using Python struct module with correct format strings for mixed endianness. Infer TCP state from flag counts: RST overrides all, SYN asymmetry indicates SYN_SENT/SYN_RECV, bilateral FIN indicates TIME_WAIT, unilateral FIN indicates FIN_WAIT/CLOSE_WAIT, else ESTABLISHED. Use tshark to extract DNS query names from pcap (-Y 'dns.flags.response == 0' -T fields -e dns.id -e dns.qry.name). Read anomaly thresholds from YAML config (rst_storm min_rst_total=10, retransmit_heavy min_retransmits=10, asymmetric_flow min_byte_ratio=100). Correlate retransmit events by 4-tuple, DNS queries to responses by transaction ID. Analyze pcap for total packet count and capture duration. Produce JSON report with all sections."""
+verification_explanation = """Tests verify correct binary parsing (exact field values for all 12 connections), TCP state inference (8 state tests covering ESTABLISHED, SYN_SENT, RESET, TIME_WAIT, FIN_WAIT, ACTIVE), anomaly detection (exactly 6 anomalies of correct types), DNS correlation (4 correlations with correct match status, response codes, and latency), DNS query names from pcap (4 domain names), pcap analysis (13 packets, 6-second duration), drop event aggregation (4 records with exact counts), retransmit enrichment per connection, and exact summary statistics."""
+category = "networking"
+tags = ["ebpf-observability", "pcap-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ebpf-telemetry-analyzer"

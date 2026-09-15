@@ -1,0 +1,13 @@
+month_in_year,adjustment_factor,category,status
+1,0.92,seasonal,under_review
+2,0.88,seasonal,under_review
+3,0.95,seasonal,under_review
+4,1.02,seasonal,under_review
+5,1.05,seasonal,under_review
+6,1.08,seasonal,under_review
+7,0.85,seasonal,under_review
+8,0.90,seasonal,under_review
+9,1.10,seasonal,under_review
+10,1.05,seasonal,under_review
+11,1.08,seasonal,under_review
+12,1.12,seasonal,under_review

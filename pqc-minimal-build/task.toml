@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interconnected failures in a PQC deployment without being told what is wrong. Key challenges: (1) the liboqs CMake OQS_MINIMAL_BUILD flag uses algorithm display names ("ML-KEM-512") instead of CMake build identifiers ("KEM_ml_kem_512"), silently producing a library with zero enabled algorithms — diagnosing this requires understanding the liboqs naming convention split between API strings and CMake variables; (2) a C program iterates OQS_KEM_alg_count() without OQS_KEM_alg_is_enabled() guards, causing NULL-pointer dereference on disabled algorithms — requires understanding that alg_count returns total slots not enabled count; (3) hardcoded legacy "Dilithium2/3/5" algorithm names removed in liboqs 0.15 per FIPS 204 standardization (now "ML-DSA-44/65/87") — requires PQC standards knowledge; (4) a signature buffer allocated with sig->length_public_key instead of sig->length_signature causing heap overflow — requires careful OQS_SIG struct field analysis; (5) wrong compiler include/lib paths, missing BUILD_SHARED_LIBS=ON, and unconfigured ldconfig for Python FFI binding resolution. Each fix reveals the next failure in a cascade."""
+solution_explanation = """Fix OQS_MINIMAL_BUILD to use CMake identifiers (KEM_ml_kem_512 etc. instead of ML-KEM-512), add -DBUILD_SHARED_LIBS=ON, correct gcc paths to -I/opt/liboqs/include -L/opt/liboqs/lib with -Wl,-rpath, configure ldconfig. In pqc_audit.c: add OQS_KEM_alg_is_enabled() guard and NULL check on OQS_KEM_new(), replace Dilithium names with OQS_SIG_alg_identifier() iteration plus is_enabled check, fix signature buffer from length_public_key to length_signature. In verify_migration.py: replace hardcoded Kyber/Dilithium names with get_enabled_kem_mechanisms()/get_enabled_sig_mechanisms(). Set LD_LIBRARY_PATH for liboqs-python to find the custom .so."""
+verification_explanation = """Tests verify: (1) liboqs.so exists at /opt/liboqs with ML-KEM and ML-DSA symbols present, (2) nm -D confirms no excluded algorithm families (BIKE, HQC, Falcon, etc.), (3) output JSON files exist and parse correctly, (4) exactly 3 KEM and 3 SIG algorithms in audit, (5) algorithm parameters match FIPS 203/204 specifications, (6) all KEM encaps/decaps round-trips succeed with matching shared secrets, (7) all SIG sign/verify round-trips succeed, (8) Python audit independently produces matching parameters using standardized names, (9) cross-check confirms C/Python parameter agreement."""
+category = "cryptography"
+tags = ["post-quantum", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pqc-minimal-build"

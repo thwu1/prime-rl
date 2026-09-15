@@ -1,0 +1,42 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing symbolic execution over Python ASTs to extract all execution paths,
+handling variable substitution for let-bindings, and using SMT solving (e.g., Z3) to detect infeasible paths
+with logically contradictory constraints. The multi-variable infeasibility cases (where satisfiability depends
+on interactions between linear arithmetic constraints across variables) elevate this beyond simple static analysis.
+Combines program analysis, constraint solving, and code generation skills."""
+solution_explanation = """Parse each function's AST, symbolically execute through if/else branches collecting
+path conditions, substitute let-bound variables, use Z3 to check satisfiability of each path's constraint
+conjunction, filter out infeasible paths, and generate executable Python code for the check/evaluate interface.
+Key challenges: correct AST traversal of elif chains, variable environment tracking for nested_let, and
+translating Python comparison/boolean AST nodes to Z3 constraints for infeasibility detection."""
+verification_explanation = """Tests generate comprehensive input grids for each function, verify that exactly
+one region matches each input (coverage + disjointness), verify that the matching region's invariant equals
+the function's actual output (correctness), and check that region counts match expected values (minimality /
+infeasible path exclusion). Boundary values are tested explicitly."""
+category = "program_analysis"
+tags = ["symbolic-execution", "constraint-solving"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3bc2ac"

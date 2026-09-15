@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of analog in-memory computing: the agent must independently explore CrossSim's parameter API to discover how to selectively enable/disable device non-idealities (programming error, read noise), determine how bit-slicing parameters (cell_bits, core style) interact with weight_bits and slice count, design a complete error attribution experiment from the semantic description of the output fields, implement Pareto dominance filtering over the 72-configuration design space, and compute the correct cost metric. Domain reasoning about balanced vs offset weight mapping, proportional vs independent noise models, and their interplay under different architectures is essential."""
+solution_explanation = """Explore the CrossSim API to discover enable/disable flags for programming_error and read_noise. For error attribution: simulate the reference config in four modes (no errors, prog-only, noise-only, both) using deterministic seeds, compute SNR deltas from baseline, identify dominant source, and compute interaction term. For Pareto analysis: sweep all 72 configurations computing cost and SNR, then apply Pareto dominance filtering (O(n²) pairwise comparison). For recommendation: find the frontier config maximizing snr_db/cost ratio."""
+verification_explanation = """Tests independently re-simulate all 72 configurations plus 4 error attribution variants using the same deterministic seeds and CrossSim API. Error attribution SNR values are compared within 1.5 dB tolerance. The Pareto frontier is verified for correctness (no dominated configs in frontier, correct size matching ground truth), cost formula consistency, and completeness. Recommended config efficiency is verified against all frontier configs."""
+category = "computer_architecture"
+tags = ["analog-computing", "pareto-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crossbar-dft-optimization"

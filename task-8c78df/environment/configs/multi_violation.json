@@ -1,0 +1,25 @@
+{
+  "xlen": 64,
+  "extensions": {
+    "I": true,
+    "S": true,
+    "F": true,
+    "Zfinx": true,
+    "Zicsr": true,
+    "Sv32": true,
+    "Zdinx": true
+  },
+  "vector": {
+    "vlen_exp": 7,
+    "elen_exp": 6,
+    "max_index_eew_exp": 6
+  },
+  "pmp": {
+    "count": 16,
+    "grain": 4,
+    "na4_supported": true,
+    "usable_count": 20
+  },
+  "cache_block_size_exp": 6,
+  "reservation_set_size_exp": 3
+}

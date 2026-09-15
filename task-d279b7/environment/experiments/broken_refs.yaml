@@ -1,0 +1,27 @@
+parameters:
+  learning_rate: 0.01
+  dataset_path: "/data"
+  orphan_param: "never_used"
+
+tasks:
+  load:
+    plugin: data.loading.load
+    outputs:
+      dataset: dataset
+  train:
+    plugin: ml.training.fit
+    outputs:
+      model: model
+
+graph:
+  load_data:
+    load:
+      path: $dataset_path
+  train_model:
+    train:
+      data: $load_data.nonexistent_output
+      lr: $learning_rate
+      missing: $missing_reference
+  predict:
+    nonexistent_task:
+      model: $train_model

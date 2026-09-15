@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level WCAG 2.1 and Section 508 knowledge to diagnose 7 subtle defects in an existing conformance audit tool. The agent must independently identify: (1) incorrect sRGB gamma exponent (2.2 vs correct 2.4) affecting contrast boundary precision, (2) missing bold text classification in the large text threshold logic, (3) incomplete DOM ancestor traversal for background-color inheritance, (4) missing rgb() functional color notation parsing, (5) absent implicit wrapping label detection in accessible name computation, (6) single-ID limitation in multi-ID aria-labelledby resolution, and (7) complete lack of CSS <style> block parsing requiring integration of a CSS parsing library with selector matching. Each defect requires understanding the relevant WCAG specification to know what the correct behavior should be, then tracing the bug through the existing code."""
+solution_explanation = """Fix all 7 defects in /app/audit.py: correct the sRGB linearization exponent to 2.4, add bold text detection to is_large_text (>= 18.66px bold), implement full ancestor chain walking for background-color resolution, add rgb() color parsing to parse_color, add wrapping label ancestor walk to accessible_name_for_form, iterate all IDs in accessible_name_from_labelledby, and implement CSS <style> block parsing with selector matching (using tinycss2 or regex) to extract colors and backgrounds from stylesheet rules. Run the corrected tool to produce the report."""
+verification_explanation = """Tests verify across 5 sample pages plus 4 dynamically generated pages: (1) contrast boundary precision at #767676 vs #777777 (catches gamma exponent bug), (2) large text bold detection at 19px bold (catches missing bold classification), (3) background-sensitive element where #767676 on inherited #d4d4d4 must FAIL while white bg would give PASS (catches incomplete ancestor walk), (4) rgb() functional notation elements (catches missing parser), (5) implicit wrapping label and multi-ID labelledby with empty first ref (catches accessible name bugs), (6) CSS-styled elements where colors and backgrounds come from <style> blocks (catches missing CSS support), (7) dynamic pages with novel HTML combinations prevent hardcoded solutions."""
+category = "accessibility"
+tags = ["section508", "wcag"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/accessibility-audit-engine"

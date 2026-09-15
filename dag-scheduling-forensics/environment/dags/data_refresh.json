@@ -1,0 +1,33 @@
+{
+  "dag_id": "data_refresh",
+  "schedule_interval": "0 12 * * *",
+  "default_args": {
+    "retries": 2,
+    "retry_delay_seconds": 600,
+    "execution_timeout_seconds": 7200
+  },
+  "tasks": [
+    {
+      "task_id": "wait_ml",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "ml_pipeline",
+      "external_task_id": "register"
+    },
+    {
+      "task_id": "invalidate_cache",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_ml"]
+    },
+    {
+      "task_id": "rebuild_index",
+      "operator": "PythonOperator",
+      "dependencies": ["invalidate_cache"]
+    },
+    {
+      "task_id": "archive_complete",
+      "operator": "PythonOperator",
+      "dependencies": ["rebuild_index"]
+    }
+  ]
+}

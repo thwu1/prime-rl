@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: ecommerce
+  labels:
+    app: api-server
+    role: api-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+        role: api-server
+    spec:
+      serviceAccountName: api-sa
+      containers:
+      - name: api-server
+        image: node:18-alpine
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DATABASE_URL
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-server
+  namespace: ecommerce
+spec:
+  selector:
+    app: api-server
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

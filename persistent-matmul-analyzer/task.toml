@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert GPU systems knowledge to diagnose and fix four interacting bugs across a multi-module persistent matmul performance prediction system. The solver must: (1) run the system, compare buggy output against expected reference, and triage which numerical discrepancies trace to which modules; (2) explore an undocumented SQLite database schema using sqlite3 CLI to understand the GPU hardware constraints, kernel configs, and workload dimensions; (3) diagnose a subtle tile scheduler bug where pid_n uses group_size_m instead of actual_group_size as divisor, which only manifests for partial groups (when num_pid_m < GROUP_SIZE_M); (4) identify that the B-tile shared memory formula incorrectly uses block_m instead of block_k, requiring understanding that B tiles have dimensions BLOCK_K x BLOCK_N (the reduction dimension, not the M dimension) — this bug is masked for configs where block_m == block_k; (5) recognize that occupancy uses math.ceil instead of floor division, overestimating concurrent blocks per SM, which requires understanding that fractional thread blocks cannot physically occupy shared memory; (6) identify that the roofline model's compute ceiling omits SM utilization scaling, causing incorrect compute-bound classification for low-tile-count configs — this bug is only observable after fixing bugs in resource_model.py since affected configs appear invalid until shared memory is corrected. The layered bug interactions require iterative diagnosis: fixing some bugs reveals others, demanding strategic multi-pass debugging."""
+solution_explanation = """Fix four bugs across three modules: (1) tile_scheduler.py: change pid_n divisor from group_size_m to actual_group_size; (2) resource_model.py compute_shared_memory: change B-tile from block_m*block_n to block_k*block_n; (3) resource_model.py compute_occupancy: change math.ceil(shared_mem_per_sm / shared_mem_per_block) to shared_mem_per_sm // shared_mem_per_block (floor division); (4) roofline.py: add sm_util = active_sms / num_sms and multiply compute_ceiling by sm_util. Then run predict.py to regenerate results.json."""
+verification_explanation = """59 pytest tests verify: shared memory values for all 6 configs via JSON and direct function calls, occupancy and validity classification, descending sort order with invalid configs at bottom, best config identification, total bytes including output matrix, arithmetic intensity, compute-bound vs memory-bound classification (including SM utilization regime shift), wave utilization bounded at 1.0, attainable TFLOPS values, schedule info metadata, tile scheduler position correctness including partial group edge cases, bijection tests for multiple grid sizes, direct function tests for compute_shared_memory and compute_occupancy to prevent bypass, roofline SM utilization effect test, and full expected output comparison."""
+category = "systems_programming"
+tags = ["gpu-debugging", "performance-modeling"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-matmul-analyzer"

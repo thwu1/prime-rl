@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires performing a security audit of a C image parser given only CWE classifications and function names — no root-cause descriptions, trigger conditions, or fix strategies. The agent must independently identify five distinct vulnerability classes (uint32_t multiplication overflow masked by per-dimension validation, off-by-one operator error in bounds checking, signed/unsigned integer promotion confusion in comparisons, missing compound-length validation in deserialization, and heap buffer overflow in RLE decompression loop), derive precise MAGMA trigger conditions from first-principles C semantics analysis, master the MAGMA instrumentation conventions from the API header alone, correctly apply MAGMA_AND/MAGMA_OR for compound conditions to prevent coverage leakage, and craft binary inputs that exercise each specific vulnerability path."""
+solution_explanation = """The solution audits each function cited in the audit report, identifies the vulnerability by mapping CWE to specific code patterns, and instruments it: (1) IMG001: uint32_t multiplication overflow detected via uint64_t cast comparison against UINT32_MAX, with validate_dimensions providing false confidence, (2) IMG002: off-by-one where palette index equals palette_count due to <= vs <, (3) IMG003: negative offset exploiting int32_t vs uint16_t promotion where off < 0, (4) IMG004: compound condition using MAGMA_AND checking both count > 0 and 2 + count*4 > chunk_len, (5) IMG005: RLE decompression where write_pos + run_len > pixel_buf_size inside the loop. Each bug gets MAGMA_ENABLE_CANARIES-guarded MAGMA_LOG and MAGMA_ENABLE_FIXES-guarded fix/buggy code paths."""
+verification_explanation = """Tests verify: (1) all five MAGMA_LOG calls present in instrumented source, (2) MAGMA_ENABLE_FIXES guards for each bug, (3) no short-circuit operators in canary trigger conditions, (4) compilation succeeds under both canary and fix configurations, (5) crafted binary inputs trigger each bug's canary as confirmed by the monitor tool, (6) valid inputs produce no false positives."""
+category = "security"
+tags = ["fuzzing-instrumentation", "c-vulnerability-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0cc76a"

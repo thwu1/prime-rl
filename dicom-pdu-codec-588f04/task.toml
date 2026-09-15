@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 4 subtle bugs in a ~250-line DICOM PDU codec (endianness error in User Information parsing, swapped bit masks in P-DATA message control header, wrong item type bytes in AC Presentation Context and Implementation Version Name encoding). Must implement three missing functions: SCP/SCU Role Selection Negotiation (45-case truth table from PS3.8 Annex D), P-DATA fragmentation with max_pdu_length constraints, and a stream analyzer supporting three framing formats (raw, timestamped, PCAP). The PCAP framing mode requires using tshark for TCP stream reassembly — the solver must discover and correctly invoke tshark as a subprocess, parse its follow-stream output format, and handle PDUs split across TCP segments. This demands multi-tool interoperability (Python subprocess + tshark CLI + PCAP/TCP protocol knowledge) on top of deep binary protocol expertise."""
+solution_explanation = """Fix bug 1: change struct.unpack('<I', ...) to '>I' for Max PDU Length in _decode_user_info (line 130). Fix bug 2: swap MCH bit masks — is_command uses 0x01, is_last uses 0x02 (lines 179-180). Fix bug 3: change 0x20 to 0x21 for A-ASSOCIATE-AC Presentation Context item type (line 248). Fix bug 4: change 0x52 to 0x55 for Implementation Version Name sub-item type (line 258). Implement negotiate_roles using the PS3.8 Annex D truth table: default (True,False,False,True) when either side is None; otherwise r_scu=req_scu&acc_scu, r_scp=req_scp&acc_scp, a_scu=r_scp, a_scp=r_scu. Implement fragment_pdata: for each PDV, if max_pdu_length is 0, pack as single P-DATA-TF; otherwise compute max_data=max_pdu_length-12 and split PDV data into chunks, setting is_last=False on non-final fragments. Implement analyze_stream: detect PCAP by magic bytes (0xa1b2c3d4 or endian variant), use 'tshark -r <file> -q -z follow,tcp,raw,0' subprocess to extract reassembled TCP stream as hex, parse hex blocks from tshark output, then decode PDUs using raw framing logic. For raw/timestamped framing, detect by checking if first byte is a valid PDU type; parse timestamped frames by reading 8-byte headers (4-byte epoch + 4-byte size). Check NONZERO_RESERVED and UID_TOO_LONG violations on each PDU."""
+verification_explanation = """Tests verify: (1) decode correctness against 17+ pre-encoded PDU byte fixtures from real DICOM implementations, (2) round-trip invariant encode(decode(x))==x for all fixtures, (3) encoding from dicts produces correct wire bytes, (4) all 45 role negotiation cases match the PS3.8 truth table, (5) fragmentation splits large PDVs correctly with is_last semantics, (6) stream analysis for raw/timestamped/PCAP framing including PDU type detection, offset calculation, violation checking, and decoded field verification, (7) PCAP with TCP segment splitting to verify proper TCP reassembly via tshark, (8) CLI JSON output for all three framing formats."""
+category = "networking"
+tags = ["binary-protocol", "medical-imaging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dicom-pdu-codec-588f04"

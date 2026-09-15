@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering and implementing three tightly-coupled core modules of a sweep-line polygon clipping system from surrounding infrastructure code alone. The solver must: (1) analyze how each stub is invoked by callers to determine required semantics, (2) design correct logic for segment intersection processing with 4+ distinct cases including collinear overlap, (3) implement boolean membership flag propagation with operation-specific result determination across 4 edge types × 4 operations, (4) implement contour assembly with event-chain walking and exterior/hole classification via depth tracking, and (5) debug cascading failures since bugs in any module propagate through all three. Extensive edge cases (collinear segments, shared endpoints, concave polygons, multi-polygon inputs, T-crossings) require expert computational geometry knowledge. No algorithm name or implementation guidance is provided."""
+solution_explanation = """The solution implements three modules: (1) possibleIntersection detects segment intersections using segmentIntersection, then handles 4 return cases — no intersection, single point (subdivide both segments), and collinear overlap with/without shared endpoints (set edge types NON_CONTRIBUTING/SAME_TRANSITION/DIFFERENT_TRANSITION and subdivide). (2) computeFields propagates inOut/otherInOut flags from the sweep predecessor (with special handling for vertical segments and cross-polygon predecessors), computes prevInResult for depth tracking, and determines resultTransition based on edge type × operation type lookup tables. (3) connectEdges filters result events, bubble-sorts for stability, sets up otherPos cross-references, walks event chains to build closed rings, and classifies contours as exterior/hole using prevInResult's outputContourId and resultTransition for depth computation."""
+verification_explanation = """Tests run all four boolean operations on 9 categories of polygon pairs: overlapping rectangles (exact area checks), non-overlapping rectangles (null intersection, two-polygon union), overlapping triangles (fractional area), contained squares (hole creation), collinear edges, concave L-shaped polygons, multi-polygon inputs, a GeoJSON fixture with area identity validation, and ring closure checks. Each category verifies correct areas, polygon counts, ring counts, and the inclusion-exclusion identity area(A)+area(B)=area(intersection)+area(union)."""
+category = "computational_geometry"
+tags = ["sweep-line", "polygon-clipping"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polygon-clipping-sweep-c040f1"

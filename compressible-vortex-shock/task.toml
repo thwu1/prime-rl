@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level compressible gas dynamics: the agent must independently derive Rankine-Hugoniot normal shock jump relations, recognize that the prescribed vortex velocity field implies an isentropic thermodynamic perturbation governed by radial momentum equilibrium, derive the temperature ODE (dT/dr = (gamma-1)/(gamma*R) * v_theta^2/r) from first principles, analytically integrate it through both vortex regions with the correct boundary/continuity conditions, and reconstruct pressure and density via isentropic relations. The temperature integral in the outer region produces non-trivial terms (r^2, ln(r), 1/r^2) that must be combined with correct signs when a^2 - b^2 < 0. Additionally requires proficiency with Gmsh (command-line mesh generation, MSH 2.2 format parsing) and writing Gmsh post-processing NodeData format — a specialized file format used in CFD workflows. The agent must also compute element-area-weighted integrals over the mesh."""
+solution_explanation = """Derive R-H downstream state from normal shock theory. For vortex thermodynamics: from Euler radial momentum dp/dr = rho*v_theta^2/r combined with isentropic relation p*rho^(-gamma)=const, derive dT/dr = (gamma-1)/(gamma*R) * v_theta^2/r. Integrate analytically in both vortex regions: outer integral from r to b yields terms involving r^2, ln(r), 1/r^2; core integral from r to a with T(a) as starting value from outer formula. Generate mesh with gmsh CLI, parse MSH 2.2 format to extract node coordinates and quad element connectivity, evaluate analytical field at all nodes, compute element integrals via centroid evaluation times shoelace-formula areas, write NodeData sections appended to the mesh file."""
+verification_explanation = """Tests verify: (1) mesh.msh exists with correct node/element counts for the prescribed geometry, (2) solution.msh contains valid NodeData sections for all six flow variables with spot-checked values at known nodes, (3) Rankine-Hugoniot shock ratios match to machine precision, (4) probe point field values at 7 locations spanning all flow regions are validated against an independent reference at 1e-6 relative tolerance, (5) ideal gas law p=rho*R*T and isentropic relation hold at every probe, (6) domain-integrated quantities (mass, kinetic energy) and field extrema match reference computation on same mesh within 1e-3, (7) physical bounds are satisfied (mass between rho_u and rho_d, max Mach exceeds M_s, min pressure below p_u)."""
+category = "scientific_computing"
+tags = ["compressible-flow", "mesh-generation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compressible-vortex-shock"

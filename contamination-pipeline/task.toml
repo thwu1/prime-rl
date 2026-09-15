@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete geospatial data pipeline using PostgreSQL with PostGIS, demanding multi-tool orchestration (shell scripting, SQL DDL/DML, PostGIS spatial functions, Python). The agent must start and manage PostgreSQL, create a PostGIS-enabled database with proper geometry columns (SRID 4326), GiST spatial indices, and materialized views. Data loading requires harmonizing CSV files with evolving schemas, parsing fixed-width meteorological data, converting sentinel missing-value codes to SQL NULLs, and handling instrument artifacts. Spatial analysis requires fluency with PostGIS geography types, the <-> distance operator, and ST_DWithin for proximity queries. Statistical computations include Pearson correlation on temporally aggregated antecedent precipitation indices and z-score-based anomaly detection. This combination of database administration, spatial GIS tooling, data engineering, and environmental statistics requires expert-level multi-tool proficiency."""
+solution_explanation = """The solution starts PostgreSQL, creates the waterquality database with PostGIS extension, and builds four tables (sites, stations, samples, weather) with properly typed geometry columns and GiST spatial indices. It loads and harmonizes four years of CSV data (handling column renames, date format changes, '>' prefixes), parses fixed-width weather data with sentinel-to-NULL conversion, and populates geometry columns via ST_SetSRID(ST_MakePoint()). A materialized view aggregates site-month statistics. Nearest-station mapping uses PostGIS geography distance operator (<->). Buffer analysis uses ST_DWithin on geography type. Statistical metrics are computed via SQL aggregation and Python."""
+verification_explanation = """Tests verify both database structure (PostGIS extension, geometry columns with SRID 4326, GiST indices, materialized view with required columns, non-NULL geometries, populated tables) and analytical results (independently computed from raw data files using pure Python). Integer outputs checked exactly; floating-point outputs use tolerances. The stations_within_20km check uses ±1 tolerance per station to account for Haversine vs WGS84 spheroid boundary differences."""
+category = "data_science"
+tags = ["postgis", "data-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/contamination-pipeline"

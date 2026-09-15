@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconciling GPU kernel benchmark data across three heterogeneous sources (SQLite database with duplicate runs and data quality issues, legacy JSON logs with different field names and millisecond timing units, CSV catalog with errata corrections) without the data layout being documented. The solver must explore the environment to discover all sources, diagnose data quality issues (NULL runtimes, negative runtime corruption, cross-run duplicates, unit mismatches), determine deduplication strategy from DB metadata, apply FLOPs errata that affect roofline bottleneck classification and anomaly detection, and implement domain-specific metrics (unbiased pass@k estimator, roofline-model anomaly detection, geometric mean speedup) requiring GPU performance modeling expertise."""
+solution_explanation = """Explore /app/ to discover data layout. Load and deduplicate SQLite results by (problem_id, sample_id) preferring latest run_id. Load legacy JSON logs, convert ms to us, normalize field names, and merge only for problems not in DB (11-15). Parse TOML hardware specs. Load CSV catalog and apply errata corrections from errata.json. Filter invalid runtimes (NULL/negative) from speedup calculations while preserving correctness counts. Implement Chen et al. (2021) combinatorial pass@k estimator. Compute roofline times from corrected FLOPs and hardware bandwidth. Detect anomalies where sample speedups exceed roofline bounds. Produce structured report.json."""
+verification_explanation = """Tests independently reconcile all data sources using the same reconciliation logic (DB dedup, legacy merge, errata application, unit conversion), then verify every metric against reference computations. Specific tests check deduplication was applied (problem 1 greedy reflects run2 data), errata corrections affect roofline analysis (problem 8 corrected FLOPs), corrupt runtime handling (problem 6 negative runtime excluded from speedup but counts as correct), NULL runtime handling (problems 1, 8), exact anomaly detection (problems 7, 9, 12), and all 15 problems are present including legacy-only ones."""
+category = "performance_analysis"
+tags = ["gpu-benchmarking", "data-reconciliation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kernel-bench-analyzer"

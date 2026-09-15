@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level evaluation of Excel formula semantics against accounting conventions, statistical methodology, and financial modeling standards to identify 10 subtle formula errors embedded in a workbook specification. Errors span multiple professional domains: (1) GAAP gross profit margin vs markup ratio, (2) pre-discount vs post-discount tax assessment per sales tax law, (3) Excel NETWORKDAYS inclusive-endpoint semantics vs off-by-one, (4) simple arithmetic mean vs revenue-weighted mean for portfolio discount exposure, (5) financial growth rate convention (denominator = prior period, not current period), (6) inventory reorder trigger semantics (strict < vs <=), (7) stock classification multiplier boundaries, (8) wrong aggregation metric for top-category (COUNT vs SUM revenue), and (9-10) incorrect tier thresholds for order sizing and performance classification. The solver must holistically understand accounting principles, weighted statistics, financial percentage-change conventions, Excel function behavior, and inventory management to judge which formulas are wrong from domain first principles, not just line-by-line text comparison. Building the corrected database requires implementing pure-SQL NETWORKDAYS via Julian day modular arithmetic, LAG-based sequential growth rates, revenue-weighted aggregations, and window functions for quarterly top-category — all without custom SQLite extensions. The audit report demands root-cause analysis distinguishing upstream formula errors from downstream cascading effects (e.g., tax_amount → net_revenue, days_employed → revenue_per_day)."""
+solution_explanation = """Parse workbook_spec.json and business_rules.json. For each view, evaluate the spec formula against the business rule using domain expertise to identify semantic discrepancies. Key corrections: profit_margin uses profit/revenue not profit/cost; tax_amount applies to discounted revenue not pre-discount amount; NETWORKDAYS is inclusive on both endpoints; performance tier Gold threshold is 200k not 250k; weighted_avg_discount requires SUMPRODUCT(discount*revenue)/SUM(revenue) not simple AVG; qoq_growth_rate divides by LAG(revenue) not current revenue; needs_reorder uses strict < not <=; stock_status Adequate uses 2x not 3x reorder_level; order_size_tier uses 15/8/3 not 20/10/5; top_category by SUM(revenue) not COUNT. Build correct database with pure-SQL NETWORKDAYS using Julian day arithmetic, LAG window functions for growth, weighted aggregation formulas. Generate audit_report.json with root-cause-only errors, excluding cascading effects."""
+verification_explanation = """Tests verify: (1) database exists with correct base tables and row counts, (2) enriched_transactions implements correct profit/revenue margin, post-discount tax, and correct tier boundaries, (3) NETWORKDAYS values match Python weekday counter for all 10 employees, (4) performance tiers use correct 200k Gold threshold, (5) needs_reorder uses strict < comparison, (6) stock_status uses 2x reorder multiplier, (7) quarterly top_category matches highest-revenue category, (8) weighted_avg_discount matches revenue-weighted computation from CSV, (9) qoq_growth_rate uses prior quarter denominator, (10) cross-view revenue/cost/count consistency across all 5 views, (11) audit_report.json identifies all 10 root-cause formula errors by (view_name, column_name)."""
+category = "data_processing"
+tags = ["sql", "financial-auditing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/excel-sql-migration"

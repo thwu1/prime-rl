@@ -1,0 +1,161 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,AmountUSD
+RatesFX,Risk_IRCurve,USD,1,2w,OIS,4000000
+RatesFX,Risk_IRCurve,USD,1,3m,Municipal,-3000000
+RatesFX,Risk_IRCurve,USD,1,1y,Municipal,2000000
+RatesFX,Risk_IRCurve,USD,1,1y,Prime,3000000
+RatesFX,Risk_IRCurve,USD,1,1y,Prime,-1000000
+RatesFX,Risk_IRCurve,EUR,1,3y,Libor3m,-2000000
+RatesFX,Risk_IRCurve,EUR,1,3y,Libor6m,5000000
+RatesFX,Risk_IRCurve,EUR,1,5y,Libor12m,10000000
+RatesFX,Risk_IRCurve,EUR,1,5y,Libor12m,25000000
+RatesFX,Risk_IRCurve,EUR,1,10y,Libor12m,35000000
+RatesFX,Risk_IRCurve,AUD,1,1m,Libor3m,2000000
+RatesFX,Risk_IRCurve,AUD,1,6m,Libor3m,3000000
+RatesFX,Risk_IRCurve,AUD,1,2y,Libor3m,-2000000
+RatesFX,Risk_IRCurve,CHF,1,15y,Libor6m,-4000000
+RatesFX,Risk_IRCurve,CHF,1,20y,Libor6m,10000000
+RatesFX,Risk_IRCurve,CHF,1,30y,Libor6m,18000000
+RatesFX,Risk_Inflation,CHF,,,,-10000000
+RatesFX,Risk_XCcyBasis,CHF,,,,30000000
+RatesFX,Risk_IRCurve,JPY,2,2w,Libor1m,-1000000
+RatesFX,Risk_IRCurve,JPY,2,1m,Libor1m,-1500000
+RatesFX,Risk_IRCurve,JPY,2,3m,Libor3m,1500000
+RatesFX,Risk_IRCurve,JPY,2,6m,Libor3m,2000000
+RatesFX,Risk_IRCurve,JPY,2,1y,Libor6m,3000000
+RatesFX,Risk_IRCurve,JPY,2,2y,Libor6m,4000000
+RatesFX,Risk_IRCurve,JPY,2,3y,Libor6m,5000000
+RatesFX,Risk_IRCurve,JPY,2,5y,Libor12m,20000000
+RatesFX,Risk_IRCurve,JPY,2,10y,Libor12m,30000000
+RatesFX,Risk_IRCurve,JPY,2,15y,Libor12m,-1000000
+RatesFX,Risk_IRCurve,JPY,2,20y,Libor12m,-2000000
+RatesFX,Risk_IRCurve,JPY,2,30y,Libor12m,3000000
+RatesFX,Risk_Inflation,JPY,,,,5000000
+RatesFX,Risk_XCcyBasis,JPY,,,,500000
+RatesFX,Risk_IRCurve,CNY,3,2w,OIS,1000000
+RatesFX,Risk_IRCurve,CNY,3,1m,OIS,1500000
+RatesFX,Risk_IRCurve,CNY,3,3m,Libor1m,-500000
+RatesFX,Risk_IRCurve,CNY,3,6m,Libor3m,-1000000
+RatesFX,Risk_IRCurve,MXN,3,1y,Libor6m,9000000
+RatesFX,Risk_IRCurve,MXN,3,2y,Libor12m,10000000
+RatesFX,Risk_IRCurve,MXN,3,3y,OIS,-500000
+RatesFX,Risk_IRCurve,MXN,3,5y,OIS,-1000000
+Credit,Risk_IRCurve,BRL,3,10y,Libor6m,14000000
+Credit,Risk_IRCurve,BRL,3,15y,Libor6m,30000000
+Credit,Risk_IRCurve,BRL,3,20y,Libor12m,-800000
+Credit,Risk_IRCurve,BRL,3,30y,Libor12m,-800000
+Credit,Risk_Inflation,BRL,,,,2000000
+Credit,Risk_XCcyBasis,BRL,,,,-1000000
+RatesFX,Risk_FX,EUR,,,,50000000
+RatesFX,Risk_FX,EUR,,,,-50000000
+RatesFX,Risk_FX,EUR,,,,-5000000000
+RatesFX,Risk_FX,USD,,,,610000000
+RatesFX,Risk_FX,GBP,,,,910000000
+RatesFX,Risk_FX,EUR,,,,-900000000
+RatesFX,Risk_FX,CNY,,,,-200000000
+RatesFX,Risk_FX,KRW,,,,210000000
+RatesFX,Risk_FX,TRY,,,,80000000
+RatesFX,Risk_FX,BRL,,,,-300000000
+Credit,Risk_FX,BRL,,,,41000000
+Credit,Risk_FX,QAR,,,,-40000000
+Credit,Risk_CreditQ,ISIN:BE0934259525,1,1y,USD,800000
+Credit,Risk_CreditQ,ISIN:BE0934259525,1,2y,USD,-300000
+Credit,Risk_CreditQ,ISIN:CA112585AG91,2,2y,USD,180000
+Credit,Risk_CreditQ,ISIN:CA112585AG91,2,2y,EUR,-180000
+Credit,Risk_CreditQ,ISIN:CA82028KAP62,3,3y,GBP,180000
+Credit,Risk_CreditQ,ISIN:CA82028KAP62,3,5y,JPY,-100000
+Credit,Risk_CreditQ,ISIN:FR0000108359,4,5y,USD,180000
+Credit,Risk_CreditQ,ISIN:FR0000108359,4,5y,USD,-100000
+Credit,Risk_CreditQ,ISIN:CH0010519475,5,10y,USD,180000
+Credit,Risk_CreditQ,ISIN:CH9823105801,5,1y,USD,-100000
+Credit,Risk_CreditQ,ISIN:DE4830528795,6,2y,EUR,180000
+Credit,Risk_CreditQ,ISIN:GB0862147969,7,3y,GBP,-500000
+Credit,Risk_CreditQ,ISIN:CA6515779866,8,5y,USD,-100000
+Credit,Risk_CreditQ,ISIN:FR0003335977,9,10y,USD,180000
+Credit,Risk_CreditQ,ISIN:CA2201568701,10,1y,USD,-100000
+Credit,Risk_CreditQ,ISIN:CA6130123456,11,2y,USD,180000
+Credit,Risk_CreditQ,ISIN:FR0002226543,12,3y,USD,-100000
+Credit,Risk_CreditQ,ISIN:UNKNOWN1,Residual,1y,USD,180000
+Credit,Risk_CreditQ,ISIN:UNKNOWN1,Residual,3y,USD,-100000
+Credit,Risk_CreditQ,ISIN:UNKNOWN2,Residual,3y,EUR,180000
+Credit,Risk_CreditQ,ISIN:UNKNOWN3,Residual,5y,USD,180000
+Credit,Risk_CreditQ,ISIN:UNKNOWN3,Residual,10y,GBP,-100000
+Credit,Risk_BaseCorr,CDX IG,,,,500000
+Credit,Risk_BaseCorr,CDX IG,,,,-200000
+Credit,Risk_BaseCorr,iTraxx Main,,,,400000
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,1y,CMBX,6000000
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,2y,CMBX,3000000
+Credit,Risk_CreditNonQ,ISIN:AU3005621011,1,3y,CMBX,-3000000
+Credit,Risk_CreditNonQ,ISIN:DE0314227036,1,2y,ABX,-2000000
+Credit,Risk_CreditNonQ,ISIN:DE0314227036,1,3y,ABX,3000000
+Credit,Risk_CreditNonQ,ISIN:DE0314227036,1,5y,ABX,-4000000
+Credit,Risk_CreditNonQ,ISIN:ES0338093059,2,3y,CMBX,-400000
+Credit,Risk_CreditNonQ,ISIN:ES0338093059,2,5y,CMBX,-200000
+Credit,Risk_CreditNonQ,ISIN:ES0338093059,2,10y,CMBX,200000
+Credit,Risk_CreditNonQ,ISIN:CA0359093012,2,1y,CMBX,200000
+Credit,Risk_CreditNonQ,ISIN:CA0359093012,2,3y,CMBX,200000
+Credit,Risk_CreditNonQ,ISIN:CA0359093012,2,5y,CMBX,-300000
+Credit,Risk_CreditNonQ,ISIN:UNKNOWN1,Residual,1y,ABX,400000
+Credit,Risk_CreditNonQ,ISIN:UNKNOWN2,Residual,2y,CMBX,-200000
+Credit,Risk_CreditNonQ,ISIN:UNKNOWN1,Residual,5y,ABX,300000
+Credit,Risk_CreditNonQ,ISIN:UNKNOWN2,Residual,10y,CMBX,-100000
+Equity,Risk_Equity,ISIN:INE044A01036,1,,,6000000
+Equity,Risk_Equity,ISIN:INE406A01037,1,,,1000000
+Equity,Risk_Equity,ISIN:CNE000000J28,2,,,-2000000
+Equity,Risk_Equity,ISIN:CNE000000L16,2,,,1000000
+Equity,Risk_Equity,ISIN:RU0009024277,3,,,2000000
+Equity,Risk_Equity,ISIN:RU0009091573,3,,,-1000000
+Equity,Risk_Equity,ISIN:INE160A01022,4,,,-2000000
+Equity,Risk_Equity,ISIN:INE467B01029,4,,,-1000000
+Equity,Risk_Equity,ISIN:US1266501006,5,,,10000000
+Equity,Risk_Equity,ISIN:US28176E1082,5,,,2000000
+Equity,Risk_Equity,ISIN:CA7751092007,6,,,-4000000
+Equity,Risk_Equity,ISIN:CA85472N1096,6,,,2000000
+Equity,Risk_Equity,ISIN:DE000BASF111,7,,,4000000
+Equity,Risk_Equity,ISIN:DE000A1DAHH0,7,,,-2000000
+Equity,Risk_Equity,ISIN:US67066G1040,8,,,-4000000
+Equity,Risk_Equity,ISIN:US8574771031,8,,,-2000000
+Equity,Risk_Equity,ISIN:BRCESPACNPB4,9,,,400000
+Equity,Risk_Equity,ISIN:BRENBRACNOR2,9,,,-1000000
+Equity,Risk_Equity,ISIN:AU000000API4,10,,,600000
+Equity,Risk_Equity,ISIN:AU000000CTD3,10,,,-500000
+Equity,Risk_Equity,SPX,11,,,1000000000
+Equity,Risk_Equity,VPL,11,,,2000000
+Equity,Risk_Equity,EEM,11,,,-1000000
+Equity,Risk_Equity,VIX,12,,,3000000
+Equity,Risk_Equity,JINV,12,,,2000000
+Equity,Risk_Equity,VSTOXX,12,,,-1000000
+Equity,Risk_Equity,ISIN:UNKNOWN1,Residual,,,500000
+Credit,Risk_Equity,ISIN:UNKNOWN3,Residual,,,-300000
+Commodity,Risk_Commodity,Coal Americas,1,,,150000000
+Commodity,Risk_Commodity,Coal Europe,1,,,1000000
+Commodity,Risk_Commodity,Crude oil Americas,2,,,1500000000
+Commodity,Risk_Commodity,Crude oil Asia/Middle East,2,,,-1000000
+Commodity,Risk_Commodity,Light Ends Europe,3,,,-360000000
+Commodity,Risk_Commodity,Light Ends Asia,3,,,1000000
+Commodity,Risk_Commodity,Middle Distillates Asia,4,,,-10000000
+Commodity,Risk_Commodity,Middle Distillates Europe,4,,,-1000000
+Commodity,Risk_Commodity,Heavy Distillates Americas,5,,,10000000
+Commodity,Risk_Commodity,Heavy Distillates Europe,5,,,1000000
+Commodity,Risk_Commodity,NA Natural Gas Gulf Coast,6,,,650000000
+Commodity,Risk_Commodity,NA Natural Gas West,6,,,-1000000
+Commodity,Risk_Commodity,EU Natural Gas Europe,7,,,-10000000
+Commodity,Risk_Commodity,NA Power Eastern Interconnect,8,,,-300000000
+Commodity,Risk_Commodity,NA Power ERCOT,8,,,-1000000
+Commodity,Risk_Commodity,EU Power Germany,9,,,10000000
+Commodity,Risk_Commodity,EU Power UK,9,,,1000000
+Commodity,Risk_Commodity,Freight Wet,10,,,51000000
+Commodity,Risk_Commodity,Freight Dry,10,,,-1000000
+Commodity,Risk_Commodity,Base Metals Copper,11,,,-300000000
+Commodity,Risk_Commodity,Base Metals Lead,11,,,1000000
+Commodity,Risk_Commodity,Precious Metals Gold,12,,,-800000000
+Commodity,Risk_Commodity,Precious Metals Silver,12,,,-1000000
+Commodity,Risk_Commodity,Grains Corn,13,,,20000000
+Commodity,Risk_Commodity,Grains Wheat,13,,,1000000
+Commodity,Risk_Commodity,Softs Cocoa,14,,,10000000
+Commodity,Risk_Commodity,Softs Cotton,14,,,-1000000
+Commodity,Risk_Commodity,Livestock Live Cattle,15,,,-10000000
+Commodity,Risk_Commodity,Livestock Lean Hogs,15,,,1000000
+Commodity,Risk_Commodity,Ethanol,16,,,-25000000
+Commodity,Risk_Commodity,Random Length Lumber,16,,,-2000000
+Commodity,Risk_Commodity,Agriculture Index,17,,,1300000000
+Credit,Risk_Commodity,Natural Gas Index,17,,,2000000

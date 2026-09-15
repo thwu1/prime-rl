@@ -1,0 +1,8 @@
+{
+  "requirements": [
+    {"class_id": "1:11", "interface": "eth0", "min_bandwidth_mbps": 2000, "description": "Web traffic (HTTP/HTTPS)"},
+    {"class_id": "1:21", "interface": "eth0", "min_bandwidth_mbps": 1500, "description": "VoIP signaling"},
+    {"class_id": "1:31", "interface": "eth0", "min_bandwidth_mbps": 1000, "description": "Database replication"},
+    {"class_id": "2:21", "interface": "eth1", "min_bandwidth_mbps": 150, "description": "Management SNMP polling"}
+  ]
+}

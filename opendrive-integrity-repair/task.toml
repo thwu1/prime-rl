@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of two interacting ASAM automotive simulation standards: OpenDRIVE (static road geometry, lane topology, junction connectivity, elevation profiles, object placement) and OpenSCENARIO (dynamic scenario entity placement via LanePosition referencing road/lane/s-coordinate). The agent must independently discover multiple categories of structural violations spanning geometry s-coordinate contiguity, road length consistency, lane linkage validity across sections, elevation profile bounds, junction reference integrity, and object placement bounds. Cross-standard validation demands resolving which OpenDRIVE lane section contains a given s-coordinate and verifying lane existence there -- a non-trivial mapping that requires understanding the paramPoly3 geometry model and s-coordinate semantics."""
+solution_explanation = """Parse the OpenDRIVE XML to build an internal road model. Systematically audit each road's geometry chain for s-coordinate contiguity, verify declared lengths match geometry sums, validate lane link predecessor/successor references against adjacent section inventories, check elevation and object s-coordinates against road bounds, and verify junction connection references against the road index. Apply targeted XML repairs. Then parse the OpenSCENARIO file, extract all LanePosition elements from Init/TeleportAction blocks, and validate each against the repaired road model by resolving the containing lane section and checking lane existence."""
+verification_explanation = """Tests parse the repaired .xodr with lxml and verify all structural invariants: geometry s-contiguity within tolerance, length consistency, lane link validity, elevation bounds, junction reference existence, and object placement bounds. The audit JSON is parsed and checked for minimum defect count (>= 5), correct schema, all three entity placements present with correct coordinates, and all marked valid."""
+category = "reverse_engineering"
+tags = ["automotive-simulation", "xml-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/opendrive-integrity-repair"

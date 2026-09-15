@@ -1,0 +1,54 @@
+26 CFR § 1.163(j)-6 — Application of the section 163(j) limitation to partnerships (selected provisions)
+
+(a) Overview. If a deduction for business interest expense of a partnership is subject to the section 163(j) limitation, section 163(j)(4) provides that the section 163(j) limitation applies at the partnership level and any deduction for business interest expense is taken into account in determining the nonseparately stated taxable income or loss of the partnership.
+
+(b) Definitions.
+
+(4) Excess business interest income. The term excess business interest income means the amount by which a partnership's business interest income exceeds its business interest expense in a taxable year.
+
+(5) Deductible business interest expense. The term deductible business interest expense means the amount of a partnership's business interest expense that is deductible under section 163(j) in the current taxable year following the application of the limitation contained in § 1.163(j)-2(b).
+
+(6) Section 163(j) excess items. The term section 163(j) excess items means the partnership's excess business interest expense, excess taxable income, and excess business interest income.
+
+(e) Adjusted taxable income and business interest income of partners.
+
+(1) Modification of adjusted taxable income for partners. The ATI of a partner in a partnership generally is determined in accordance with § 1.163(j)-1(b)(1), without regard to such partner's distributive share of any items of income, gain, deduction, or loss of such partnership, and is increased by such partner's distributive share of such partnership's excess taxable income determined under paragraph (f) of this section.
+
+(4) Double counting of business interest income and floor plan financing interest expense prohibited. For purposes of calculating a partner's section 163(j) limitation, the partner does not include—
+  (i) Business interest income from a partnership that is subject to section 163(j), except to the extent the partner is allocated excess business interest income from that partnership pursuant to paragraph (f)(2) of this section.
+
+(f) Allocation and determination of section 163(j) excess items.
+
+(1) Overview. The purpose of this paragraph is to provide guidance regarding how a partnership must allocate its deductible business interest expense and section 163(j) excess items, if any, among its partners. Paragraph (f)(2) of this section provides an eleven-step computation for allocating these items. If the partnership determines that each partner has a pro rata share of allocable ATI, allocable business interest income, and allocable business interest expense, then the partnership may allocate its section 163(j) excess items in the same proportion. (See paragraph (f)(2)(ii).)
+
+(2) Steps for allocating deductible business interest expense and section 163(j) excess items.
+
+  (i) Partnership-level calculation required by section 163(j)(4)(A). First, a partnership must determine its section 163(j) limitation pursuant to § 1.163(j)-2(b). This calculation determines a partnership's total amounts of excess business interest income, excess taxable income, excess business interest expense, and deductible business interest expense under section 163(j) for a taxable year.
+
+(g) Carryforward of excess business interest expense at the partner level.
+
+(1) In general. The amount of any business interest not allowed as a deduction to a partnership for any taxable year by reason of § 1.163(j)-2(b) for any taxable year—
+  (i) Shall not be treated as business interest paid or accrued by the partnership in the succeeding taxable year, and
+  (ii) Subject to paragraph (g)(2) of this section, treated as excess business interest expense, which is allocated to each partner pursuant to paragraph (f)(2) of this section.
+
+(2) Treatment of excess business interest expense allocated to partners. If a partner is allocated excess business interest expense from a partnership under paragraph (f)(2) of this section for any taxable year—
+  (i) Solely for purposes of section 163(j), such excess business interest expense is treated as business interest expense paid or accrued by the partner in the next succeeding taxable year in which the partner is allocated excess taxable income or excess business interest income from such partnership, but only to the extent of such excess taxable income or excess business interest income; and
+  (ii) Any portion of such excess business interest expense remaining after the application of paragraph (g)(2)(i) of this section is excess business interest expense that is subject to the limitations of paragraph (g)(2)(i) of this section in succeeding taxable years.
+
+(o) Examples.
+
+(1) Example 1 — (i) Facts. X and Y are equal partners in partnership PRS. In Year 1, PRS has $100 of ATI and $40 of business interest expense. X has $100 of ATI and $20 of business interest expense from its sole proprietorship. Y has $0 of ATI and $20 of business interest expense from its sole proprietorship.
+
+(ii) Partnership-level. In Year 1, PRS's section 163(j) limit is 30 percent of its ATI, or $30 ($100 x 30 percent). Thus, PRS has $30 of deductible business interest expense and $10 of excess business interest expense.
+
+(iii) Partner-level allocations. X and Y are each allocated $15 of deductible business interest expense and $5 of excess business interest expense. At the end of Year 1, X and Y each have $5 of excess business interest expense from PRS, which is not treated as paid or accrued by the partner until such partner is allocated excess taxable income or excess business interest income from PRS in a succeeding taxable year. X and Y, in computing their limit under section 163(j), do not increase any of their section 163(j) items by any of PRS's section 163(j) items.
+
+(iv) Partner-level computations. X has $100 of ATI and $20 of business interest expense. X's section 163(j) limit is $30. Thus, X's $20 is fully deductible. Y has $20 of business interest expense. Y's limit is $0. Thus, Y's $20 is disallowed and carried forward.
+
+(2) Example 2 — (i) Facts. (Continuation of Example 1.) In Year 2, PRS has $200 of ATI, $0 of business interest income, and $30 of business interest expense. X has $100 of ATI and $20 of business interest expense. Y has $0 of ATI and $20 of business interest expense.
+
+(ii) Partnership-level. PRS's section 163(j) limit is $60 ($200 x 30 percent). Thus, PRS has $100 of excess taxable income, $30 of deductible business interest expense, and $0 of excess business interest expense.
+
+(iii) Partner-level allocations. X and Y are each allocated $50 of excess taxable income, $15 of deductible business interest expense. Because X and Y are each allocated $50 of excess taxable income, X and Y each treat $5 of excess business interest expense (from Year 1) as paid or accrued in Year 2.
+
+(iv) Partner-level computations. X has $150 of ATI ($100 + $50 ETI) and $25 of business interest expense ($20 + $5 EBIE converted). X's limit is $45. X's $25 is fully deductible. Y has $50 of ATI ($0 + $50 ETI) and $45 of BIE ($20 current + $20 carryforward + $5 EBIE converted). Y's limit is $15. Y deducts $15; $30 is disallowed and carried forward.

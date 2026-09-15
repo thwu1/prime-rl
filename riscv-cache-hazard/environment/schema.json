@@ -1,0 +1,34 @@
+{
+  "description": "Schema for results.json output",
+  "required_sections": ["cache_geometry", "cache_simulation", "hazard_analysis"],
+  "cache_geometry": {
+    "description": "For each configuration name, compute the address decomposition parameters as defined in cache.sv.",
+    "per_config_fields": {
+      "linebytelen": "Cache line size in bytes",
+      "offsetlen": "Number of byte offset bits within a cache line",
+      "numsets": "Number of sets in the cache",
+      "setlen": "Number of set index bits",
+      "settop": "Top bit position of the set index field (first bit above the set+offset range)",
+      "taglen": "Number of tag bits",
+      "total_bytes": "Total cache storage capacity in bytes across all ways"
+    }
+  },
+  "cache_simulation": {
+    "description": "Simulate each cache configuration against the memory access trace using the replacement policy implemented in the processor source.",
+    "per_config_fields": {
+      "hits": "Number of cache hits (integer)",
+      "misses": "Number of cache misses (integer)",
+      "miss_rate": "Miss rate as a fraction, rounded to 4 decimal places",
+      "evictions": "Number of cache line evictions (integer)",
+      "conflict_misses": "Number of misses attributable to limited associativity rather than capacity (integer)"
+    }
+  },
+  "hazard_analysis": {
+    "description": "For each scenario, compute the hazard unit outputs for each cycle by implementing the combinational logic from hazard.sv.",
+    "per_scenario_fields": {
+      "cycles": "Array of output signal objects, one per input cycle",
+      "per_cycle_signals": ["StallF", "StallD", "StallE", "StallM", "StallW", "FlushD", "FlushE", "FlushM", "FlushW"]
+    },
+    "notes": "All signal values are 0 or 1 (integers)."
+  }
+}

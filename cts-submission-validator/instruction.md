@@ -1,0 +1,5 @@
+A Vulkan CTS conformance submission package is located at `/data/`. Perform a full forensic audit and produce an audit report at `/app/report.json` that conforms to the JSON schema at `/data/report-schema.json`.
+
+The submission data includes mustpass test lists (`/data/mustpass/`), QPA result files (`/data/results/`), device metadata (`/data/device-info.json`, `/data/device-extensions.json`), extension-to-test mappings (`/data/extension-test-map.json`), waiver definitions (`/data/waivers/`), fraction-mandatory test list (`/data/fraction-mandatory.txt`), and a conformance statement (`/data/submission/`). Refer to `/data/docs/conformance-requirements.md` for the complete evaluation criteria and status semantics.
+
+An existing validator at `/data/validate.py` is available for reference but is known to be incomplete and produces incorrect results — do not rely on it.

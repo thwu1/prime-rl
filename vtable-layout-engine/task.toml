@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a correct Itanium C++ ABI vtable layout engine requires deep understanding of: (1) primary base class selection rules (nearly-empty virtual bases vs non-virtual bases), (2) vcall/vbase offset computation with correct ordering (reverse inheritance-graph preorder for vbase offsets, declaration-order for vcall offsets with deduplication), (3) thunk generation and this-pointer adjustment calculation for both non-virtual and virtual base overrides, (4) covariant return type handling with result adjustment thunks, (5) construction vtable generation with different vbase offsets than the complete-object vtable, (6) correct handling of diamond inheritance with shared virtual bases. Reference implementations (GCC's class.cc, LLVM's VTableBuilder.cpp) are each 3000+ lines of intricate C++. The algorithm has numerous subtle interactions between subobject layout, virtual function override resolution, and offset arithmetic that trip even experienced compiler engineers."""
+solution_explanation = """The solution implements a multi-pass algorithm: (1) Parse class definitions to build an inheritance DAG with virtual/non-virtual edge annotations. (2) Compute the C++ object layout following the Itanium ABI placement algorithm — allocate non-virtual bases in declaration order, then virtual bases in inheritance-graph preorder, tracking sizeof/alignment and primary base selection. (3) For each polymorphic class, build the vtable group: determine the primary vtable (function slots from primary base chain plus new virtuals), then secondary vtables for each non-primary base subobject. (4) For virtual base secondary vtables, compute vcall offsets by walking override sets. (5) Generate construction vtables for virtual bases with recalculated vbase offsets. The solution delegates to clang's own AST/vtable infrastructure via libclang or alternatively implements the full algorithm from scratch in ~1500 lines of C++, using the spec's category 0-4 rules."""
+verification_explanation = """Tests generate runtime introspection reference data by compiling the test headers into C++ programs that inspect actual object sizes (sizeof), alignment (alignof), base subobject offsets (static_cast pointer arithmetic), and virtual base offsets at runtime. The vtable_engine's JSON output is compared field-by-field against these runtime-measured values. Additional structural tests verify vtable component validity (correct kinds, RTTI presence, offset_to_top consistency, entry count). Seven test headers cover progressively harder cases from simple single inheritance to diamond hierarchies with covariant returns."""
+category = "systems"
+tags = ["c++-abi", "compiler-internals"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vtable-layout-engine"

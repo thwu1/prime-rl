@@ -1,0 +1,8 @@
+{
+  "matrix_families": ["moler", "pascal", "frank", "cauchy", "parter"],
+  "sizes": [5, 10, 15, 20, 25],
+  "output_file": "/app/results.json",
+  "crossover_threshold": 0.05,
+  "c_library_path": "/app/c_src/libblocked_est.so",
+  "hager_max_iter": 6
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires fixing four coupled subsystems: (1) TypeScript project configuration — the tsconfig.json uses NodeNext module resolution which enforces .js import extensions, incompatible with the project's extensionless imports and esbuild bundler workflow; solver must diagnose tsc errors and understand the module/moduleResolution interdependency to select the correct settings. (2) esbuild build pipeline — build.mjs has wrong entry point, output format, file path, target, and platform; solver must understand esbuild's configuration surface. (3) Reactive core — replacing a naive memo-as-signal+effect with push-pull scheduling using STALE/PENDING state propagation, ownership/disposal trees, batch deferral, untrack, and onCleanup; these are deeply coupled and incorrect state marking causes cascading failures. (4) Reactive store — implementing Proxy-based deep reactivity where property reads create and track signals lazily, nested objects are recursively wrapped, a multi-level path setter navigates to correct signals, and an updater function uses batch semantics via a mutable draft proxy. All four subsystems interact: store depends on reactive primitives, the build must bundle both modules, and tsc must validate the entire project."""
+solution_explanation = """Fix tsconfig.json: change module to ESNext and moduleResolution to bundler (NodeNext forces .js extensions incompatible with bare imports). Fix build.mjs: entry ./src/index.ts, format esm, outfile ./dist/index.mjs, target es2022, platform neutral. Fix reactive core: replace naive createMemo with unified computation nodes using CLEAN/STALE/PENDING states; push STALE to direct memo observers, PENDING transitively; pull-evaluate during flush; implement ownership tree with recursive disposal; add BatchDepth counter; implement untrack by nulling Listener; implement onCleanup via Owner's cleanup list. Fix store: proxy get handler reads through signals via getSignal+read (tracks dependencies); recursively wrap nested object values; proxy set returns false (read-only); path setter navigates raw object to parent then updates the signal at the leaf path; updater function creates a mutable draft proxy that writes through signals, wrapped in batch for atomic multi-property updates."""
+verification_explanation = """Three verification layers: (1) tsc --noEmit validates TypeScript compilation with strict mode. (2) node build.mjs verifies esbuild produces dist/index.mjs with all exports. (3) pytest runs tsx-based integration tests covering: signal read/write/equality, effect auto-tracking/dynamic deps, memo chains, diamond glitch-freedom (classic/deep/wide), memo equality cutoff, batch deferral with memos, ownership disposal, nested effect lifecycle, untrack, onCleanup on re-execution and disposal, store basic reactivity, nested property tracking, multi-level path setter, batch updater function, effect independence between properties, and store+memo integration."""
+category = "systems_programming"
+tags = ["reactive-programming", "typescript-tooling"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactive-glitch-free"

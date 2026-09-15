@@ -1,0 +1,11 @@
+{
+  "name": "toffoli_cascade",
+  "num_qubits": 4,
+  "description": "Cascade of Toffoli gates creating entangled multi-controlled state",
+  "gates": [
+    {"gate": "H", "targets": [0]},
+    {"gate": "X", "targets": [1]},
+    {"gate": "CCX", "targets": [0, 1, 2]},
+    {"gate": "CCX", "targets": [0, 2, 3]}
+  ]
+}

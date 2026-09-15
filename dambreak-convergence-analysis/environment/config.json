@@ -1,0 +1,16 @@
+{
+    "slope_angle_deg": 34.0,
+    "friction_angle_deg": 25.0,
+    "initial_height_m": 4.0,
+    "initial_column_x_min_m": -203.0,
+    "initial_column_x_max_m": 0.0,
+    "earth_pressure_coeff": 1.0,
+    "density_kg_m3": 200.0,
+    "gravity_m_s2": 9.81,
+    "domain_x_min_m": -300.0,
+    "domain_x_max_m": 700.0,
+    "domain_y_min_m": -10.0,
+    "domain_y_max_m": 10.0,
+    "time_steps_s": [5.0, 10.0, 15.0, 20.0],
+    "grid_resolutions_m": [10.0, 5.0, 2.0, 1.0]
+}

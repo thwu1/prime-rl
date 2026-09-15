@@ -1,0 +1,112 @@
+[
+  {
+    "name": "IFP::instance_count",
+    "cmp_op": "<",
+    "limit_expr": "$value * 1.2"
+  },
+  {
+    "name": "DPL::design_area",
+    "cmp_op": "<",
+    "limit_expr": "$value * 1.2"
+  },
+  {
+    "name": "DPL::utilization",
+    "cmp_op": "<",
+    "limit_expr": "$value * 1.2"
+  },
+  {
+    "name": "RSZ::repair_design_buffer_count",
+    "cmp_op": "<=",
+    "limit_expr": "int($value * 1.2)"
+  },
+  {
+    "name": "RSZ::max_slew_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "RSZ::max_capacitance_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "RSZ::max_fanout_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "RSZ::worst_slack_min",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1"
+  },
+  {
+    "name": "RSZ::worst_slack_max",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1"
+  },
+  {
+    "name": "RSZ::tns_max",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1 * $instance_count * 0.1"
+  },
+  {
+    "name": "RSZ::hold_buffer_count",
+    "cmp_op": "<=",
+    "limit_expr": "int($value * 1.2)"
+  },
+  {
+    "name": "GRT::ANT::errors",
+    "cmp_op": "<=",
+    "limit_expr": "$value"
+  },
+  {
+    "name": "DRT::drv",
+    "cmp_op": "<=",
+    "limit_expr": "$value"
+  },
+  {
+    "name": "DRT::worst_slack_min",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1"
+  },
+  {
+    "name": "DRT::worst_slack_max",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1"
+  },
+  {
+    "name": "DRT::tns_max",
+    "cmp_op": ">",
+    "limit_expr": "$value - $clock_period * 0.1 * $instance_count * 0.1"
+  },
+  {
+    "name": "DRT::clock_skew",
+    "cmp_op": "<=",
+    "limit_expr": "$value * 1.2"
+  },
+  {
+    "name": "DRT::max_slew_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "DRT::max_capacitance_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "DRT::max_fanout_slack",
+    "cmp_op": ">=",
+    "limit_expr": "min(0, $value * 1.2)"
+  },
+  {
+    "name": "DRT::clock_period",
+    "cmp_op": "<=",
+    "limit_expr": "$value"
+  },
+  {
+    "name": "DRT::ANT::errors",
+    "cmp_op": "<=",
+    "limit_expr": "$value"
+  }
+]

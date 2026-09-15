@@ -1,0 +1,19 @@
+$ cargo xtask dist app/oxide-controller-d/app.toml 2>&1
+    Compiling xtask v0.1.0 (/hubris/build/xtask)
+     Finished `dev` profile target(s)
+      Loading oxide-controller-d
+      Reading chip definition from chip.toml
+      Validating application manifest...
+
+error[H001]: application manifest validation failed
+  --> app/oxide-controller-d/app.toml
+  |
+  = note: multiple configuration errors detected during pre-build validation
+  = note: the build system validates the application manifest against the
+          chip definition and RTOS architectural constraints before proceeding
+          with cross-compilation and image generation
+  = help: consult the Hubris reference documentation for configuration
+          requirements and constraints
+  = help: re-run with `RUST_LOG=xtask=debug` for detailed diagnostics
+
+error: aborting due to previous errors

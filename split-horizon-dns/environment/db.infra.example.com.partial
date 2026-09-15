@@ -1,0 +1,15 @@
+$TTL 86400
+@   IN  SOA ns1.infra.example.com. admin.infra.example.com. (
+        2024010101  ; Serial
+        3600        ; Refresh (1 hour)
+        900         ; Retry (15 minutes)
+        604800      ; Expire (1 week)
+        86400       ; Minimum TTL (1 day)
+)
+
+; Nameserver records
+        IN  NS  ns1.infra.example.com.
+        IN  NS  ns2.infra.example.com.
+
+; Host records — populate from /app/hosts.csv
+; Service records — populate from /app/services.csv

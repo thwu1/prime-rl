@@ -1,0 +1,196 @@
+ENTRY       C00001
+NAME        H2O;Water
+FORMULA     H2O
+///
+ENTRY       C00002
+NAME        ATP;Adenosine 5'-triphosphate
+FORMULA     C10H16N5O13P3
+///
+ENTRY       C00003
+NAME        NAD+;NAD;Nicotinamide adenine dinucleotide
+FORMULA     C21H27N7O14P2
+///
+ENTRY       C00004
+NAME        NADH;DPNH
+FORMULA     C21H29N7O14P2
+///
+ENTRY       C00005
+NAME        NADPH;TPNH
+FORMULA     C21H30N7O17P3
+///
+ENTRY       C00006
+NAME        NADP+;NADP;TPN
+FORMULA     C21H28N7O17P3
+///
+ENTRY       C00008
+NAME        ADP;Adenosine 5'-diphosphate
+FORMULA     C10H15N5O10P2
+///
+ENTRY       C00009
+NAME        Orthophosphate;Phosphate;Pi
+FORMULA     H3O4P
+///
+ENTRY       C00010
+NAME        CoA;Coenzyme A
+FORMULA     C21H36N7O16P3S
+///
+ENTRY       C00011
+NAME        CO2;Carbon dioxide
+FORMULA     CO2
+///
+ENTRY       C00013
+NAME        Diphosphate;Pyrophosphate;PPi
+FORMULA     H4O7P2
+///
+ENTRY       C00014
+NAME        Ammonia;NH3
+FORMULA     H3N
+///
+ENTRY       C00016
+NAME        FAD;Flavin adenine dinucleotide
+FORMULA     C27H33N9O15P2
+///
+ENTRY       C00020
+NAME        AMP;Adenosine 5'-monophosphate
+FORMULA     C10H14N5O7P
+///
+ENTRY       C00022
+NAME        Pyruvate;Pyruvic acid
+FORMULA     C3H4O3
+///
+ENTRY       C00024
+NAME        Acetyl-CoA;Acetyl coenzyme A
+FORMULA     ?
+///
+ENTRY       C00025
+NAME        L-Glutamate;L-Glutamic acid
+FORMULA     C5H9NO4
+///
+ENTRY       C00026
+NAME        2-Oxoglutarate;alpha-Ketoglutarate
+FORMULA     C5H6O5
+///
+ENTRY       C00035
+NAME        GDP;Guanosine 5'-diphosphate
+FORMULA     C10H15N5O11P2
+///
+ENTRY       C00036
+NAME        Oxaloacetate;Oxaloacetic acid
+FORMULA     C4H4O5
+///
+ENTRY       C00041
+NAME        L-Alanine
+FORMULA     C3H7NO2
+///
+ENTRY       C00042
+NAME        Succinate;Succinic acid
+FORMULA     C4H6O4
+///
+ENTRY       C00044
+NAME        GTP;Guanosine 5'-triphosphate
+FORMULA     C10H16N5O14P3
+///
+ENTRY       C00049
+NAME        L-Aspartate;L-Aspartic acid
+FORMULA     C4H7NO4
+///
+ENTRY       C00074
+NAME        Phosphoenolpyruvate;PEP
+FORMULA     C3H5O6P
+///
+ENTRY       C00080
+NAME        H+;Proton
+FORMULA     H
+///
+ENTRY       C00085
+NAME        D-Fructose 6-phosphate;F6P
+FORMULA     C6H13O9P
+///
+ENTRY       C00091
+NAME        Succinyl-CoA
+FORMULA     ?
+///
+ENTRY       C00111
+NAME        Glycerone phosphate;DHAP;Dihydroxyacetone phosphate
+FORMULA     C3H7O6P
+///
+ENTRY       C00117
+NAME        D-Ribose 5-phosphate;R5P
+FORMULA     C5H11O8P
+///
+ENTRY       C00118
+NAME        D-Glyceraldehyde 3-phosphate;G3P
+FORMULA     C3H7O6P
+///
+ENTRY       C00122
+NAME        Fumarate;Fumaric acid
+FORMULA     C4H4O4
+///
+ENTRY       C00149
+NAME        (S)-Malate;L-Malate;Malic acid
+FORMULA     C4H6O5
+///
+ENTRY       C00158
+NAME        Citrate;Citric acid
+FORMULA     C6H8O7
+///
+ENTRY       C00197
+NAME        3-Phospho-D-glycerate;3PG
+FORMULA     C3H7O7P
+///
+ENTRY       C00199
+NAME        D-Ribulose 5-phosphate;Ru5P
+FORMULA     C5H11O8P
+///
+ENTRY       C00231
+NAME        D-Xylulose 5-phosphate;Xu5P
+FORMULA     C5H11O8P
+///
+ENTRY       C00236
+NAME        3-Phospho-D-glyceroyl phosphate;1,3-BPG
+FORMULA     ?
+///
+ENTRY       C00267
+NAME        alpha-D-Glucose
+FORMULA     C6H12O6
+///
+ENTRY       C00279
+NAME        D-Erythrose 4-phosphate;E4P
+FORMULA     C4H9O7P
+///
+ENTRY       C00311
+NAME        Isocitrate;Isocitric acid
+FORMULA     C6H8O7
+///
+ENTRY       C00345
+NAME        6-Phospho-D-gluconate;6PG
+FORMULA     ?
+///
+ENTRY       C00354
+NAME        D-Fructose 1,6-bisphosphate;FBP
+FORMULA     ?
+///
+ENTRY       C00417
+NAME        cis-Aconitate;cis-Aconitic acid
+FORMULA     C6H6O6
+///
+ENTRY       C00631
+NAME        2-Phospho-D-glycerate;2PG
+FORMULA     C3H7O7P
+///
+ENTRY       C00668
+NAME        alpha-D-Glucose 6-phosphate;G6P
+FORMULA     C6H13O9P
+///
+ENTRY       C01236
+NAME        D-Glucono-1,5-lactone 6-phosphate
+FORMULA     C6H11O9P
+///
+ENTRY       C01352
+NAME        FADH2;Reduced FAD
+FORMULA     C27H35N9O15P2
+///
+ENTRY       C05382
+NAME        Sedoheptulose 7-phosphate;Sed7P
+FORMULA     ?
+///

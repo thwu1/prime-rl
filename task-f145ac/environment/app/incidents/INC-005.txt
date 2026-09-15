@@ -1,0 +1,20 @@
+INCIDENT INC-005
+Severity: High
+Date: 2024-10-28
+Reporter: Revenue Audit
+
+SUMMARY: Duplicate tickets for violations spanning midnight
+
+DESCRIPTION:
+Vehicle plate ABC-1234 received two tickets on the same stretch of road.
+The first ticket covered observations from timestamp 86100 (day 0) to
+timestamp 86700 (day 1) — spanning the midnight boundary. A second ticket
+was then issued for observations entirely within day 1.
+
+The one-ticket-per-plate-per-day rule requires that a spanning ticket
+blocks ALL days it covers, including intermediate and end days. In this
+case, both day 0 and day 1 should have been marked as used, preventing
+any further tickets for this plate on either day.
+
+Impact: Revenue audit flagged 12 duplicate spanning-day tickets in the
+last billing cycle

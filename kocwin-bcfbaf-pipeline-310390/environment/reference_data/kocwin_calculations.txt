@@ -1,0 +1,686 @@
+#
+# EPA EPI Suite KOCWIN v2.01 / BCFBAF v3.02 Reference Outputs
+# Source: episuite.dev API (version 1.0.3-beta)
+# These outputs show detailed calculation traces for reference chemicals.
+
+================================================================================
+Chemical: BENZENE (CAS: 71-43-2)
+SMILES: C1=CC=CC=C1
+MW: 78.11
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 H6
+MOL WT : 78.11
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.000
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.1637
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.1637
+
+                         Estimated Koc:  145.8  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.13
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  1.8482
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.8482
+
+                         Estimated Koc:  70.51  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.13 - 0.333 + Correction
+Estimated logBCF: 1.07
+
+
+================================================================================
+Chemical: TOLUENE (CAS: 108-88-3)
+SMILES: CC1=CC=CC=C1
+MW: 92.14
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C7 H8
+MOL WT : 92.14
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.394
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.3690
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.3690
+
+                         Estimated Koc:  233.9  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.73
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.3690
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.3690
+
+                         Estimated Koc:  233.9  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.73 - 0.333 + Correction
+Estimated logBCF: 1.47
+
+
+================================================================================
+Chemical: 1,1,1-TRICHLOROETHANE (CAS: 71-55-6)
+SMILES: CC(Cl)(Cl)Cl
+MW: 133.41
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C2 H3 Cl3
+MOL WT : 133.41
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  2.000
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.6424
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.6424
+
+                         Estimated Koc:  43.89  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.49
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.1607
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.1607
+
+                         Estimated Koc:  144.8  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.49 - 0.333 + Correction
+Estimated logBCF: 1.31
+
+
+================================================================================
+Chemical: CHLOROFORM (CAS: 67-66-3)
+SMILES: C(Cl)(Cl)Cl
+MW: 119.38
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C1 H1 Cl3
+MOL WT : 119.38
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  1.732
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.5027
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.5027
+
+                         Estimated Koc:  31.82  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  1.97
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  1.7094
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.7094
+
+                         Estimated Koc:  51.21  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 1.97 - 0.333 + Correction
+Estimated logBCF: 0.97
+
+
+================================================================================
+Chemical: CARBON TETRACHLORIDE (CAS: 56-23-5)
+SMILES: C(Cl)(Cl)(Cl)Cl
+MW: 153.82
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C1 Cl4
+MOL WT : 153.82
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  2.000
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.6424
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.6424
+
+                         Estimated Koc:  43.89  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.83
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.4558
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.4558
+
+                         Estimated Koc:  285.6  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.83 - 0.333 + Correction
+Estimated logBCF: 1.53
+
+
+================================================================================
+Chemical: PENTACHLOROPHENOL (CAS: 87-86-5)
+SMILES: C1(=C(C(=C(C(=C1Cl)Cl)O)Cl)Cl)Cl
+MW: 266.34
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 H1 Cl5 O1
+MOL WT : 266.34
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  5.464
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.4482
+         Fragment Correction(s):
+                  *   Poly-Chlorinated Aromatic .............  :  0.3438
+                  1   Aromatic Hydroxy (aromatic-OH)  .......  : -0.0966
+         Corrected Log Koc  .................................. :  3.6954
+
+                         Estimated Koc:  4959  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  5.12
+         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  3.7571
+         Fragment Correction(s):
+                  *   Poly-Chlorinated Aromatic .............  :  0.1444
+                  1   Aromatic Hydroxy (aromatic-OH)  .......  :  0.1668
+         Corrected Log Koc  .................................. :  4.0684
+
+                         Estimated Koc:  1.170e+04  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 5.12 - 0.333 + Correction
+Estimated logBCF: 3.05
+
+
+================================================================================
+Chemical: HEXACHLOROBENZENE (CAS: 118-74-1)
+SMILES: C1(=C(C(=C(C(=C1Cl)Cl)Cl)Cl)Cl)Cl
+MW: 284.78
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 Cl6
+MOL WT : 284.78
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  5.464
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.4482
+         Fragment Correction(s):
+                  *   Poly-Chlorinated Aromatic .............  :  0.3438
+         Corrected Log Koc  .................................. :  3.7920
+
+                         Estimated Koc:  6195  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  5.73
+         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  4.0945
+         Fragment Correction(s):
+                  *   Poly-Chlorinated Aromatic .............  :  0.1444
+         Corrected Log Koc  .................................. :  4.2389
+
+                         Estimated Koc:  1.734e+04  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 5.73 - 0.333 + Correction
+Estimated logBCF: 3.45
+
+
+================================================================================
+Chemical: PHENANTHRENE (CAS: 85-01-8)
+SMILES: C1=CC2=C(C=C1)C3=C(C=CC=C3)C=C2
+MW: 178.24
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C14 H10
+MOL WT : 178.24
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  6.949
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  4.2226
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  4.2226
+
+                         Estimated Koc:  1.669e+04  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  4.46
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  3.8704
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  3.8704
+
+                         Estimated Koc:  7421  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 4.46 - 0.333 + Correction
+Estimated logBCF: 3.27
+
+
+================================================================================
+Chemical: PYRENE (CAS: 129-00-0)
+SMILES: C1=CC2=C3C(=C1)C=CC4=CC=CC(=C43)C=C2
+MW: 202.26
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C16 H10
+MOL WT : 202.26
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  7.933
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  4.7351
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  4.7351
+
+                         Estimated Koc:  5.434e+04  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  4.88
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  4.2350
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  4.2350
+
+                         Estimated Koc:  1.718e+04  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 4.88 - 0.333 + Correction
+Estimated logBCF: 2.89
+
+
+================================================================================
+Chemical: NAPHTHALENE (CAS: 91-20-3)
+SMILES: C1=CC2=C(C=C1)C=CC=C2
+MW: 128.18
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C10 H8
+MOL WT : 128.18
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  4.966
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.1887
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  3.1887
+
+                         Estimated Koc:  1544  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  3.30
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.8637
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.8637
+
+                         Estimated Koc:  730.6  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 3.3 - 0.333 + Correction
+Estimated logBCF: 1.84
+
+
+================================================================================
+Chemical: 1,4-DICHLOROBENZENE (CAS: 106-46-7)
+SMILES: C1=C(C=CC(=C1)Cl)Cl
+MW: 147.00
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 H4 Cl2
+MOL WT : 147.00
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.788
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.5743
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.5743
+
+                         Estimated Koc:  375.3  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  3.44
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.9852
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.9852
+
+                         Estimated Koc:  966.4  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 3.44 - 0.333 + Correction
+Estimated logBCF: 1.94
+
+
+================================================================================
+Chemical: ANTHRACENE (CAS: 120-12-7)
+SMILES: C1=CC2=C(C=C1)C=C3C=CC=CC3=C2
+MW: 178.24
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C14 H10
+MOL WT : 178.24
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  6.933
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  4.2138
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  4.2138
+
+                         Estimated Koc:  1.636e+04  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  4.45
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  3.8618
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  3.8618
+
+                         Estimated Koc:  7274  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 4.45 - 0.333 + Correction
+Estimated logBCF: 2.6
+
+
+================================================================================
+Chemical: 9H-FLUORENE (CAS: 86-73-7)
+SMILES: C1=CC2=C(C=C1)C3=C(C=CC=C3)C2
+MW: 166.22
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C13 H10
+MOL WT : 166.22
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  6.449
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.9619
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  3.9619
+
+                         Estimated Koc:  9161  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  4.18
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  3.6274
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  3.6274
+
+                         Estimated Koc:  4241  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 4.18 - 0.333 + Correction
+Estimated logBCF: 2.42
+
+
+================================================================================
+Chemical: TETRACHLOROETHENE (CAS: 127-18-4)
+SMILES: C(=C(Cl)Cl)(Cl)Cl
+MW: 165.83
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C2 Cl4
+MOL WT : 165.83
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  2.643
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.9775
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.9775
+
+                         Estimated Koc:  94.94  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  3.40
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.9505
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.9505
+
+                         Estimated Koc:  892.2  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 3.4 - 0.333 + Correction
+Estimated logBCF: 1.91
+
+
+================================================================================
+Chemical: DICHLOROMETHANE (CAS: 75-09-2)
+SMILES: C(Cl)Cl
+MW: 84.93
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C1 H2 Cl2
+MOL WT : 84.93
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  1.414
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  1.3370
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.3370
+
+                         Estimated Koc:  21.73  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  1.25
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  1.0845
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  1.0845
+
+                         Estimated Koc:  12.15  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 1.25 - 0.333 + Correction
+Estimated logBCF: 0.49
+
+
+================================================================================
+Chemical: ETHYLBENZENE (CAS: 100-41-4)
+SMILES: CCC1=CC=CC=C1
+MW: 106.17
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C8 H10
+MOL WT : 106.17
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.932
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.6495
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.6495
+
+                         Estimated Koc:  446.1  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  3.15
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.7335
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.7335
+
+                         Estimated Koc:  541.4  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 3.15 - 0.333 + Correction
+Estimated logBCF: 1.75
+
+
+================================================================================
+Chemical: CHLOROBENZENE (CAS: 108-90-7)
+SMILES: C1=CC=C(C=C1)Cl
+MW: 112.56
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 H5 Cl1
+MOL WT : 112.56
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.394
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.3690
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.3690
+
+                         Estimated Koc:  233.9  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.84
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.4644
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.4644
+
+                         Estimated Koc:  291.4  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.84 - 0.333 + Correction
+Estimated logBCF: 1.54
+
+
+================================================================================
+Chemical: 1,2-DICHLOROBENZENE (CAS: 95-50-1)
+SMILES: C1=CC(=C(C=C1)Cl)Cl
+MW: 147.00
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C6 H4 Cl2
+MOL WT : 147.00
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  3.805
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  2.5831
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.5831
+
+                         Estimated Koc:  382.9  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  3.43
+         Non-Corrected Log Koc (0.8679 logKow - 0.0004)  ..... :  2.9765
+         Fragment Correction(s) -->  NONE                      :   ---
+         Corrected Log Koc  .................................. :  2.9765
+
+                         Estimated Koc:  947.3  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 3.43 - 0.333 + Correction
+Estimated logBCF: 1.93
+
+
+================================================================================
+Chemical: ATRAZINE (CAS: 1912-24-9)
+SMILES: CCNC1=NC(=NC(=N1)NC(C)C)Cl
+MW: 215.69
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C8 H14 Cl1 N5
+MOL WT : 215.69
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  6.613
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  4.0474
+         Fragment Correction(s):
+                  2   Nitrogen to non-fused aromatic ring ...  : -1.0450
+                  2   Nitrogen to Carbon (aliphatic) (-N-C)..  : -0.4255
+                  1   Triazine  ring  .......................  : -0.2257
+         Corrected Log Koc  .................................. :  2.3512
+
+                         Estimated Koc:  224.5  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.61
+         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  2.3688
+         Fragment Correction(s):
+                  2   Nitrogen to non-fused aromatic ring ...  : -0.0432
+                  2   Nitrogen to Carbon (aliphatic) (-N-C)..  : -0.0436
+                  1   Triazine  ring  .......................  : -0.1239
+         Corrected Log Koc  .................................. :  2.1581
+
+                         Estimated Koc:  143.9  L/kg   <===========
+
+BCF Equation: Log BCF = 0.6598 * 2.61 - 0.333 + Correction
+Estimated logBCF: 0.87
+
+
+================================================================================
+Chemical: 2,4-DICHLOROPHENOXYACETIC ACID (CAS: 94-75-7)
+SMILES: C1=C(C=C(C(=C1)OCC(=O)O)Cl)Cl
+MW: 221.04
+================================================================================
+
+KOCWIN Output:
+MOL FOR: C8 H6 Cl2 O3
+MOL WT : 221.04
+---------------------------  KOCWIN v2.01 Results  ---------------------------
+
+  Koc Estimate from MCI:
+  ---------------------
+         First Order Molecular Connectivity Index  ........... :  6.092
+         Non-Corrected Log Koc (0.5213 MCI + 0.60)  .......... :  3.7757
+         Fragment Correction(s):
+                  1   Ether, aromatic  (-C-O-C-)  ...........  : -0.6791
+                  *   Organic Acid  (-CO-OH)  ...............  : -1.6249
+         Corrected Log Koc  .................................. :  1.4717
+
+                         Estimated Koc:  29.63  L/kg   <===========
+
+  Koc Estimate from Log Kow:
+  -------------------------
+         Log Kow  (User entered   )  ......................... :  2.81
+         Non-Corrected Log Koc (0.55313 logKow + 0.9251)  .... :  2.4794
+         Fragment Correction(s):
+                  1   Ether, aromatic  (-C-O-C-)  ...........  :  0.0559
+                  *   Organic Acid  (-CO-OH)  ...............  : -0.7694
+         Corrected Log Koc  .................................. :  1.7659
+
+                         Estimated Koc:  58.34  L/kg   <===========
+
+   ********************************************************************
+   *                            NOTE:                                 *
+   * The Koc of this structure may be sensitive to pH!  The estimated *
+   * Koc represents a best-fit to the majority of experimental values *
+   * however, the Koc may vary significantly with pH.                 *
+   ********************************************************************
+
+BCF Equation: Log BCF = 0.50 (Ionic; Log Kow dependent)
+Estimated logBCF: 0.5

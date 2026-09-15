@@ -1,0 +1,71 @@
+{
+  "cluster_id": "connect-cluster-01",
+  "workers": [
+    {"worker_id": "connect-0.svc:8083", "state": "RUNNING", "version": "3.6.1"},
+    {"worker_id": "connect-1.svc:8083", "state": "RUNNING", "version": "3.6.1"}
+  ],
+  "connectors": [
+    {
+      "name": "jdbc-sink-orders",
+      "type": "sink",
+      "state": "RUNNING",
+      "worker_id": "connect-0.svc:8083",
+      "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "topics": "orders",
+        "connection.url": "jdbc:postgresql://db.svc:5432/warehouse",
+        "auto.create": "true",
+        "insert.mode": "upsert",
+        "pk.mode": "record_key",
+        "errors.tolerance": "all",
+        "errors.deadletterqueue.topic.name": "dlq-orders",
+        "tasks.max": "3"
+      },
+      "tasks": [
+        {"id": 0, "state": "RUNNING", "worker_id": "connect-0.svc:8083"},
+        {"id": 1, "state": "FAILED", "worker_id": "connect-1.svc:8083", "trace": "org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:230)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:156)\nCaused by: java.sql.BatchUpdateException: Batch entry 0 INSERT INTO \"orders\" ... was aborted: ERROR: value too long for type character varying(255)\n\tat org.postgresql.jdbc.BatchResultHandler.handleError(BatchResultHandler.java:148)"},
+        {"id": 2, "state": "RUNNING", "worker_id": "connect-0.svc:8083"}
+      ]
+    },
+    {
+      "name": "s3-sink-clickstream",
+      "type": "sink",
+      "state": "RUNNING",
+      "worker_id": "connect-1.svc:8083",
+      "config": {
+        "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+        "topics": "clickstream",
+        "s3.bucket.name": "data-lake-clickstream",
+        "s3.region": "us-east-1",
+        "flush.size": "10000",
+        "rotate.interval.ms": "600000",
+        "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+        "format.class": "io.confluent.connect.s3.format.parquet.ParquetFormat",
+        "tasks.max": "2"
+      },
+      "tasks": [
+        {"id": 0, "state": "RUNNING", "worker_id": "connect-1.svc:8083"},
+        {"id": 1, "state": "RUNNING", "worker_id": "connect-0.svc:8083"}
+      ]
+    },
+    {
+      "name": "debezium-source-inventory",
+      "type": "source",
+      "state": "RUNNING",
+      "worker_id": "connect-0.svc:8083",
+      "config": {
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "database.hostname": "inventory-db.svc",
+        "database.port": "5432",
+        "database.user": "debezium",
+        "database.dbname": "inventory",
+        "topic.prefix": "inventory",
+        "plugin.name": "pgoutput",
+        "tasks.max": "1"
+      },
+      "tasks": [
+        {"id": 0, "state": "RUNNING", "worker_id": "connect-0.svc:8083"}
+      ]
+    }
+  ]
+}

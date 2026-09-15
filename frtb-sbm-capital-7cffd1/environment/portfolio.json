@@ -1,0 +1,39 @@
+{
+  "reporting_currency": "USD",
+  "config": {
+    "girr_use_specified_currency_reduction": true,
+    "fx_use_specified_pair_reduction": false
+  },
+  "equity_delta": [
+    {"issuer": "TelcoA", "bucket": 6, "sensitivity": 200.0},
+    {"issuer": "TelcoB", "bucket": 6, "sensitivity": -100.0},
+    {"issuer": "FincoC", "bucket": 9, "sensitivity": 100.0},
+    {"issuer": "EnergyD", "bucket": 7, "sensitivity": 150.0},
+    {"issuer": "EnergyE", "bucket": 7, "sensitivity": -200.0},
+    {"issuer": "OtherF", "bucket": 11, "sensitivity": 80.0}
+  ],
+  "equity_drc": [
+    {"issuer": "TelcoA", "rating": "BBB", "jtd": 200.0},
+    {"issuer": "TelcoB", "rating": "B", "jtd": -100.0},
+    {"issuer": "FincoC", "rating": "B", "jtd": 100.0},
+    {"issuer": "EnergyD", "rating": "A", "jtd": 150.0},
+    {"issuer": "EnergyE", "rating": "BB", "jtd": -200.0},
+    {"issuer": "OtherF", "rating": "NR", "jtd": 80.0}
+  ],
+  "fx_delta": [
+    {"currency": "EUR", "sensitivity": 400.0},
+    {"currency": "JPY", "sensitivity": -300.0},
+    {"currency": "GBP", "sensitivity": 200.0}
+  ],
+  "girr_delta": [
+    {"currency": "USD", "tenor": 1, "curve": "OIS", "sensitivity": 10000.0},
+    {"currency": "USD", "tenor": 5, "curve": "OIS", "sensitivity": -8000.0},
+    {"currency": "USD", "tenor": 10, "curve": "OIS", "sensitivity": 5000.0},
+    {"currency": "USD", "type": "inflation", "sensitivity": 3000.0}
+  ],
+  "csr_nonsec_delta": [
+    {"issuer": "SovA", "bucket": 1, "tenor": 5, "curve": "bond", "sensitivity": 800.0},
+    {"issuer": "SovB", "bucket": 1, "tenor": 10, "curve": "bond", "sensitivity": -400.0},
+    {"issuer": "BankC", "bucket": 3, "tenor": 5, "curve": "bond", "sensitivity": 300.0}
+  ]
+}

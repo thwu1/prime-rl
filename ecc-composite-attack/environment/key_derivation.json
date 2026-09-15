@@ -1,0 +1,8 @@
+{
+  "cipher": "AES-256-CBC",
+  "key_derivation": "PBKDF2",
+  "pbkdf2_hash": "SHA-256",
+  "pbkdf2_iterations": 600000,
+  "password_derivation": "Decimal string representation of the secret ECC scalar s (where Q = s*G)",
+  "payload_format": "Base64-encoded OpenSSL Salted__ binary (8-byte 'Salted__' magic header + 8-byte random salt + PKCS7-padded ciphertext)"
+}

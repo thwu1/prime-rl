@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level GPU architecture knowledge to derive an occupancy and performance model from sparse reference materials: a SQLite database of hardware specs with multiple tables and distractor GPU models, Triton kernel source code showing tiling and pipeline staging, and architecture documentation describing resource scheduling concepts. The agent must explore a database schema to extract hardware parameters and kernel profile data, study the Triton matmul kernel source to understand how configuration parameters (tile sizes, warps, pipeline stages, GROUP_SIZE_M) map to register pressure, shared memory consumption, and L2 cache reuse patterns, then synthesize these into a correct performance model. No formulas are provided — the agent must derive the computational model from understanding how GPU SMs schedule CTAs and how tiled matmul maps to hardware resources."""
+solution_explanation = """The solution queries the SQLite database for GPU specs (sm_resources, registers, shared_memory tables) and kernel profile data (register overhead for tiled_matmul). It enumerates all 648 configurations from the search space. For each, it computes per-thread register usage (BLOCK_M*BLOCK_N / threads + overhead, rounded to allocation granularity), shared memory per CTA (num_stages * (A_tile + B_tile) * element_size), and derives occupancy from the most restrictive resource limit. Effective arithmetic intensity models L2 cache reuse where effective_group_size = min(GROUP_SIZE_M, ceil(M/BLOCK_M)) amortizes B-tile DRAM loads. Pareto frontier is computed on (occupancy, effective_ai) with deduplication, and the overall best uses geometric mean across workloads."""
+verification_explanation = """Tests independently query the same SQLite database and compute expected values using an embedded reference implementation. Tests verify exact match on configuration counts, near-exact match on floating-point metrics (occupancy, effective_ai, score), correct Pareto non-domination property, spot-check specific configurations for known resource computations, and correct overall best by geometric mean ranking."""
+category = "systems"
+tags = ["gpu-architecture", "performance-modeling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bc8519"

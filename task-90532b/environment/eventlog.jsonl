@@ -1,0 +1,29 @@
+{"sequence":1,"name":"job.submit","context":{"job_id":"job1","queue":"debug","nnodes":1,"ncores_per_node":2,"ngpus_per_node":0,"duration":600,"constraints":[]}}
+{"sequence":2,"name":"job.submit","context":{"job_id":"job2","queue":"gpu","nnodes":2,"ncores_per_node":4,"ngpus_per_node":1,"duration":7200,"constraints":[]}}
+{"sequence":3,"name":"job.submit","context":{"job_id":"job3","queue":"batch","nnodes":3,"ncores_per_node":2,"ngpus_per_node":0,"duration":14400,"constraints":[]}}
+{"sequence":4,"name":"job.submit","context":{"job_id":"job4","queue":"batch","nnodes":2,"ncores_per_node":4,"ngpus_per_node":0,"duration":3600,"constraints":[]}}
+{"sequence":5,"name":"resource.drain","context":{"targets":"10-11","reason":"hardware fault"}}
+{"sequence":6,"name":"job.submit","context":{"job_id":"job5","queue":"gpu","nnodes":4,"ncores_per_node":2,"ngpus_per_node":1,"duration":10800,"constraints":[]}}
+{"sequence":7,"name":"job.submit","context":{"job_id":"job6","queue":"priority","nnodes":3,"ncores_per_node":4,"ngpus_per_node":0,"duration":21600,"constraints":[]}}
+{"sequence":8,"name":"job.submit","context":{"job_id":"job7","queue":"gpu","nnodes":2,"ncores_per_node":2,"ngpus_per_node":1,"duration":7200,"constraints":["highmem"]}}
+{"sequence":9,"name":"job.complete","context":{"job_id":"job1"}}
+{"sequence":10,"name":"job.complete","context":{"job_id":"job3"}}
+{"sequence":11,"name":"job.complete","context":{"job_id":"job5"}}
+{"sequence":12,"name":"job.submit","context":{"job_id":"job8","queue":"debug","nnodes":1,"ncores_per_node":1,"ngpus_per_node":0,"duration":3600,"constraints":[]}}
+{"sequence":13,"name":"job.submit","context":{"job_id":"job9","queue":"debug","nnodes":3,"ncores_per_node":1,"ngpus_per_node":0,"duration":900,"constraints":[]}}
+{"sequence":14,"name":"job.submit","context":{"job_id":"job10","queue":"gpu","nnodes":6,"ncores_per_node":2,"ngpus_per_node":1,"duration":10800,"constraints":[]}}
+{"sequence":15,"name":"resource.undrain","context":{"targets":"10-11"}}
+{"sequence":16,"name":"job.complete","context":{"job_id":"job2"}}
+{"sequence":17,"name":"job.submit","context":{"job_id":"job11","queue":"priority","nnodes":2,"ncores_per_node":4,"ngpus_per_node":0,"duration":7200,"constraints":["gpu"]}}
+{"sequence":18,"name":"job.complete","context":{"job_id":"job7"}}
+{"sequence":19,"name":"job.complete","context":{"job_id":"job4"}}
+{"sequence":20,"name":"job.complete","context":{"job_id":"job6"}}
+{"sequence":21,"name":"job.complete","context":{"job_id":"job10"}}
+{"sequence":22,"name":"job.complete","context":{"job_id":"job11"}}
+{"sequence":23,"name":"resource.drain","context":{"targets":"0-3","reason":"cluster upgrade"}}
+{"sequence":24,"name":"job.submit","context":{"job_id":"job12","queue":"batch","nnodes":1,"ncores_per_node":2,"ngpus_per_node":0,"duration":3600,"constraints":[]}}
+{"sequence":25,"name":"job.submit","context":{"job_id":"job13","queue":"gpu","nnodes":2,"ncores_per_node":4,"ngpus_per_node":1,"duration":14400,"constraints":[]}}
+{"sequence":26,"name":"job.submit","context":{"job_id":"job14","queue":"gpu","nnodes":2,"ncores_per_node":4,"ngpus_per_node":1,"duration":14401,"constraints":[]}}
+{"sequence":27,"name":"resource.undrain","context":{"targets":"0-3"}}
+{"sequence":28,"name":"job.complete","context":{"job_id":"job12"}}
+{"sequence":29,"name":"job.complete","context":{"job_id":"job13"}}

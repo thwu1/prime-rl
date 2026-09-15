@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of EIP-712 specification including canonical type encoding with dependency ordering, ABI-style value encoding for all Solidity types, recursive struct hashing, array encoding, and ERC-191 prefix assembly. The implementation has 10 distinct bugs and missing features that interact across the hashing pipeline: type dependency resolution ignores array type brackets, encodeType ordering is inverted, string encoding uses zero-padding instead of keccak256, address encoding produces 20 bytes instead of 32, negative integers use absolute value instead of two's complement, bytesN is left-padded instead of right-padded, the type dispatch architecture lets the uint prefix check incorrectly catch array types before the array handler can run, ERC-191 version byte is wrong, array encoding is entirely unimplemented, and null struct field values crash the recursive hasher. The uint type dispatch bug masks the array implementation gap specifically for uint arrays, creating a multi-layered debugging puzzle where fixing one bug reveals another. Correctly handling recursive types requires a design decision about null/undefined struct field encoding, and supporting arrays requires an architectural redesign of the type dispatch logic rather than simple point fixes."""
+solution_explanation = """Fix ten issues in /app/src/eip712.ts: (1) In findTypeDependencies, strip array brackets (e.g. 'Person[]' → 'Person') before type lookup. (2) In encodeType, place primaryType first in the sorted output instead of last. (3) For string encoding, apply keccak256 to UTF-8 bytes instead of zero-padding. (4) For address encoding, left-pad to 64 hex chars (32 bytes) instead of 40. (5) For intN, remove the absolute value conversion and rely on BigInt's native two's complement bit semantics. (6) For bytesN, right-pad by setting data at offset 0 instead of 32-length. (7+9) Move the array type check (endsWith ']') BEFORE all type prefix checks (startsWith 'uint'/'int'/'bytes') and implement array encoding: extract element type via lastIndexOf('['), recursively encode each element, concatenate, keccak256. This architectural change prevents the uint prefix check from incorrectly catching uint256[] etc. (8) Change ERC-191 version byte from 0x00 to 0x01. (10) Before recursing into struct types in encodeValue, check for null/undefined values and return 32 zero bytes to support recursive type termination."""
+verification_explanation = """Tests use a Python reference EIP-712 implementation (with pycryptodome's keccak256) to independently compute expected hashes. The reference is validated against the canonical 'Ether Mail' test vector (known type hash, domain separator, message struct hash, signing hash). Then the TypeScript CLI is tested against canonical vectors and edge cases: negative int256 values, bytes4 right-padding, uint256[] arrays, int256[] arrays with negative values, Person[] struct arrays with type dependency resolution, diamond-shaped type dependency graphs, domain-only hashing, recursive linked list types with null termination, and recursive tree structures combining array and self-referencing types."""
+category = "cryptography"
+tags = ["ethereum", "typescript"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2722d4"

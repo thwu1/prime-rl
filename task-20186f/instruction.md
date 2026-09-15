@@ -1,0 +1,5 @@
+A TLA+ formal specification of Kafka's KIP-966 "Eligible Leader Replicas" partition replication protocol is provided at `/app/spec/kip966.tla` (TLC configuration: `/app/spec/kip966.cfg`). This is the authoritative definition of the protocol's state machine for a single partition, covering ISR/ELR/LastKnownELR set management, HWM advancement, leader election with clean and unclean recovery modes, and data loss detection.
+
+Implement `/app/simulator.py`: a deterministic Python simulator that faithfully reproduces the protocol defined in the TLA+ specification. The simulator must process sequential event traces from JSON scenario files in `/app/scenarios/` and be compatible with the runner at `/app/run_scenario.py`. Expected outputs for two reference scenarios are in `/app/expected/`.
+
+Java is installed and the TLC model checker jar is at `/app/tools/tla2tools.jar`.

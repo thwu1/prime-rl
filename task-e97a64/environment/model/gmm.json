@@ -1,0 +1,32 @@
+{
+  "formula": "ln(PGA_g) = c0 + c1*(M-6) + c2*(M-6)^2 + c3*ln(sqrt(R_jb^2 + h^2)) + c_site*ln(min(Vs30,760)/760)",
+  "notes": "PGA in units of g (gravitational acceleration). R_jb = Joyner-Boore distance (km). Vs30 in m/s.",
+  "models": [
+    {
+      "id": "gmm-branch-A",
+      "weight": 0.4,
+      "coefficients": {
+        "c0": -0.5,
+        "c1": 0.8,
+        "c2": -0.1,
+        "c3": -1.3,
+        "h": 5.0,
+        "c_site": -0.6
+      },
+      "sigma": 0.55
+    },
+    {
+      "id": "gmm-branch-B",
+      "weight": 0.6,
+      "coefficients": {
+        "c0": -0.5,
+        "c1": 0.8,
+        "c2": -0.1,
+        "c3": -1.3,
+        "h": 5.0,
+        "c_site": -0.6
+      },
+      "sigma": 0.70
+    }
+  ]
+}

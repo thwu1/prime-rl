@@ -1,0 +1,13 @@
+{
+  "router": "R5",
+  "timestamp": "2024-11-15T14:23:12Z",
+  "ospf_routes": [
+    {"network": "1.1.1.1/32", "type": "O IA", "next_hop": "192.168.25.2", "interface": "GigabitEthernet1", "cost": 11},
+    {"network": "2.2.2.2/32", "type": "O IA", "next_hop": "192.168.25.2", "interface": "GigabitEthernet1", "cost": 11},
+    {"network": "6.6.6.6/32", "type": "O", "next_hop": "192.168.56.6", "interface": "GigabitEthernet2", "cost": 501},
+    {"network": "172.16.1.0/24", "type": "O", "next_hop": "directly connected", "interface": "GigabitEthernet3", "cost": 1, "area": 2},
+    {"network": "192.168.12.0/24", "type": "O IA", "next_hop": "192.168.25.2", "interface": "GigabitEthernet1", "cost": 20},
+    {"network": "192.168.56.0/24", "type": "O", "next_hop": "directly connected", "interface": "GigabitEthernet2", "cost": 500, "area": 2},
+    {"network": "10.6.1.0/24", "type": "O", "next_hop": "192.168.56.6", "interface": "GigabitEthernet2", "cost": 501, "area": 2}
+  ]
+}

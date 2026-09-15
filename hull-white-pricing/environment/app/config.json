@@ -1,0 +1,18 @@
+{
+  "mean_reversion": 0.1,
+  "volatility": 0.005,
+  "zero_rate_tenors": [0.5, 40.0],
+  "zero_rates": [0.03, 0.04],
+  "num_paths": 20000,
+  "seed": 3141,
+  "time_step": 0.5,
+  "horizon": 20.0,
+  "bond_maturities": [1.0, 2.0, 5.0, 10.0, 15.0, 20.0],
+  "caplet_maturities": [1.0, 2.0, 5.0, 10.0],
+  "caplet_tenor": 0.5,
+  "caplet_strike_offset": 0.01,
+  "bermudan_first_exercise": 1.0,
+  "bermudan_last_exercise": 4.5,
+  "bermudan_swap_end": 5.0,
+  "bermudan_period_length": 0.5
+}

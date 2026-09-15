@@ -1,0 +1,3 @@
+ALTER TABLE orders ADD COLUMN total_amount DECIMAL(10,2) DEFAULT 0.00;
+
+ALTER TABLE order_items ADD COLUMN discount DECIMAL(5,2) DEFAULT 0.00;

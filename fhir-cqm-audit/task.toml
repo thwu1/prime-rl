@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-step FHIR R4 API interaction across 6 patients (search, read, create, update), clinical reasoning including CHA2DS2-VASc score calculation for atrial fibrillation anticoagulation decisions, medication safety assessment (metformin contraindication in advanced CKD), interpretation of lab values against clinical thresholds, and correct FHIR resource construction for ServiceRequests and MedicationRequests. The agent must systematically cross-reference conditions, observations, and medications across each patient while avoiding false positives (e.g., not ordering anticoagulants for patients already on warfarin, not creating orders for well-controlled patients)."""
+solution_explanation = """Start the FHIR server, query all patients, then for each patient retrieve Conditions, Observations, and MedicationRequests. Evaluate each of the 5 CQMs: (1) check HbA1c >= 9% for diabetics, (2) check eGFR < 30 + active metformin, (3) calculate CHA2DS2-VASc from conditions/demographics and check anticoagulant status, (4) check LDL > 190 without statin, (5) check eGFR < 30 without nephrology referral. POST/PUT corrective FHIR resources for each gap. Expected gaps: pt-001 CQM-1, pt-002 CQM-2+CQM-5, pt-003 CQM-3, pt-004 CQM-4, pt-005 CQM-5."""
+verification_explanation = """Tests query the FHIR server directly via HTTP to verify: (1) endocrinology referral ServiceRequest exists for pt-001, (2) metformin MedicationRequest for pt-002 is stopped or new stopped order created, (3) anticoagulant MedicationRequest exists for pt-003 but NOT for pt-005 who is already on warfarin, (4) statin MedicationRequest exists for pt-004, (5) nephrology referral ServiceRequests exist for pt-002 and pt-005, (6) no unnecessary orders for pt-006, (7) audit report JSON is present and structurally correct with accurate gap counts."""
+category = "applied_computing"
+tags = ["fhir-api", "clinical-decision-support"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-cqm-audit"

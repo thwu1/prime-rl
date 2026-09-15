@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a coverage-guided fuzzing framework from scratch given only minimal interface stubs and a test suite. The agent must independently discover and correctly use Python 3.12's sys.monitoring API (an obscure, sparsely-documented API) for branch-level coverage, including the non-obvious bytecode-offset-to-source-position mapping via co_positions(). The corpus module demands understanding of reference-counted data structures with subtle eviction semantics and a coverage-count reset strategy whose correct behavior must be reverse-engineered from test expectations. The scheduler requires deriving rate-estimation formulas and implementing numerically stable softmax from behavioral specifications alone. Integrating all three components into a coherent pipeline requires holistic understanding of gray-box fuzzing architecture."""
+solution_explanation = """CoverageCollector uses sys.monitoring with BRANCH events and co_positions() for source location extraction (offset//2 indexing, None-filtering, stdlib/generated code exclusion). Corpus implements shortlex-ordered minimal covering examples with reference-counted fingerprint-to-input mapping and AFL-fast behavior count reset using Counter(fingerprint | set(behavior_counts)) on corpus change. FuzzScheduler computes behaviors_per_input as 1/since_new_behavior (or 1.0 when zero), multiplied by input throughput for behaviors_per_second, with softmax (subtract-max stability) for probability allocation and 1/min(behavior_count) power schedule weighting."""
+verification_explanation = """30+ pytest tests verify each component: coverage tracking across different code paths with stdlib/generated-code filtering and context-manager reuse; corpus invariant maintenance through add/replace/evict/reference-counting sequences including behavior count reset semantics; scheduler math for softmax stability, rate estimation, and power schedule weighting. An integration test runs the full coverage-to-corpus-to-scheduler pipeline on a classify_triangle function with 5 distinct inputs."""
+category = "software_testing"
+tags = ["fuzzing", "python-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fuzzing-corpus-manager"

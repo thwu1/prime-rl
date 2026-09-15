@@ -1,0 +1,21 @@
+federation:
+  name: multi-dc
+  mgmt:
+    ipv4-base: 10.100.0.0/22
+    pod-prefix-length: 24
+  pods:
+    - name: east
+      topology: /app/pods/east.clab.yml
+      border-nodes:
+        - spine1
+        - spine2
+    - name: west
+      topology: /app/pods/west.clab.yml
+      border-nodes:
+        - spine1
+        - spine2
+    - name: edge
+      topology: /app/pods/edge.clab.yml
+      border-nodes:
+        - router1
+  interconnect: full-mesh

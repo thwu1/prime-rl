@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of SysML v2 textual notation semantics — no off-the-shelf parser exists, so the agent must build a custom parser handling nested brace scoping, doc comments, cross-package wildcard imports, and multiple relationship types. Beyond parsing, the agent must independently discover how verification case semantics work: resolving verify targets from definitions through objectives, binding subjects from usages to concrete architecture elements, and then evaluating constraint expressions against the bound subject hierarchy. Critically, the agent must figure out without guidance that typed requirements (MassRequirement, PowerRequirement) require different evaluation strategies from untyped requirements — computing aggregate mass from children vs. finding attributes in the subject hierarchy vs. matching constraint attribute names to architecture attributes through recursive search. The mass/power rollup semantics, budget violation detection, and the distinction between generation and consumption must all be derived from the model structure rather than from instructions. This demands holistic MBSE domain knowledge and the ability to synthesize correct evaluation semantics from the model's type definitions alone."""
+solution_explanation = """Parse all .sysml files, strip comments, build type hierarchy from 'part def X :> Y' patterns across 6 files. Resolve transitive ancestor chains to classify instruments. Parse verification def/usage pairs, extracting verify references from objectives and subject bindings from usages. Evaluate constraints by: (1) special-casing MassRequirement (compute children mass sum) and PowerRequirement (find powerOutput), (2) for untyped requirements, matching constraint attribute names to architecture attributes via recursive child search. Compute mass/power budgets, requirement/verification coverage. Generate DOT traceability graph and render via graphviz. Filter conformance JSON for nonconformance summary."""
+verification_explanation = """35 pytest tests verify: type hierarchy (29 types, specific ancestor chains including 4-level Instrument chain), instrument classification (3 types), verification verdicts (6 cases with 1 fail for pointing accuracy where starTracker.accuracy=3.0 violates <=0.01), orphan and unverified requirements, mass analysis (6 subsystems totaling 241 kg, 2 budget violations), power analysis (900W generation, 484W consumption, 46.22% margin, 1 violation), coverage metrics (77.78% requirement satisfaction, 33.33% verification), action allocation, traceability SVG existence and DOT structure, and nonconformance summary correctness."""
+category = "modeling_simulation"
+tags = ["sysml-v2", "model-based-systems-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5b9ec8"

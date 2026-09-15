@@ -1,0 +1,17 @@
+{
+  "alpha": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "description": "High-altitude optimized receiver, NYC metropolitan area"
+  },
+  "bravo": {
+    "latitude": 41.0534,
+    "longitude": -73.5387,
+    "description": "Wide-area general receiver, Stamford CT area"
+  },
+  "charlie": {
+    "latitude": 40.6413,
+    "longitude": -73.7781,
+    "description": "Low-altitude approach monitor, JFK airport area"
+  }
+}

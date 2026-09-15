@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a multi-pass bytecode optimization pipeline from scratch for a custom stack-based VM. The agent must reverse-engineer optimization opportunities by studying compiler output patterns, VM execution semantics, AWK-like variable scoping (local params vs globals), and control flow structure. Correctly handling jump target maintenance when instructions are removed, preserving semantics across function call boundaries that modify global state, and iterating passes to convergence demands expert-level compiler engineering knowledge."""
+solution_explanation = """The solution implements an optimizer that converts absolute jump targets to labels, then iteratively applies passes until convergence: constant folding merges consecutive PUSH_INT+OP sequences into single values; constant propagation tracks PUSH_INT+STORE pairs to replace subsequent LOADs; dead store elimination removes stores overwritten before reads; unreachable code removal strips instructions after JMP/RET/HALT; algebraic identity simplification removes x+0, x*1, x-0 patterns; and peephole optimization eliminates NOT+NOT, NEG+NEG, PUSH+POP pairs. Labels are resolved back to absolute indices at the end."""
+verification_explanation = """Tests compile each .mc program, run unoptimized bytecode to get expected output, then run the optimizer and execute optimized bytecode to verify identical output. Additional tests verify that optimization patterns are eliminated (e.g., consecutive PUSH_INT+PUSH_INT+ADD sequences absent after optimization) and that instruction counts decrease for programs with optimization opportunities. Edge cases test empty programs, function parameter preservation, and programs with global state modified through function calls."""
+category = "systems"
+tags = ["compilers", "optimization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-db3fcf"

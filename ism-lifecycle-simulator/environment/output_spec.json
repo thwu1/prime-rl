@@ -1,0 +1,86 @@
+{
+  "description": "Output specification for the ISM forensics pipeline. All outputs must be generated under /app/output/. The pipeline should extract raw data supporting each finding, produce a structured diagnosis, and emit corrected policy files where applicable.",
+  "extraction_outputs": {
+    "directory": "/app/output/jq_extracts/",
+    "description": "Raw data extractions from cluster state. Each file is a JSON array sorted by index name.",
+    "files": {
+      "failed_actions.json": {
+        "description": "Every index where an ISM action is currently in a failed state",
+        "item_fields": {
+          "index": "string — index name",
+          "policy_id": "string — managing policy ID",
+          "state": "string — current ISM state name",
+          "action": "string — the failed action name",
+          "failed": "boolean — must be true",
+          "consumed_retries": "integer — retries consumed for this action",
+          "error_message": "string — error detail from the ISM explain info"
+        }
+      },
+      "policy_mismatches.json": {
+        "description": "Indices running a policy version that differs from the current policy definition",
+        "item_fields": {
+          "index": "string — index name",
+          "policy_id": "string — managing policy ID",
+          "index_policy_seq_no": "integer — policy version the index is currently running",
+          "current_policy_seq_no": "integer — latest _seq_no from the policy definition file"
+        }
+      },
+      "rollover_chains.json": {
+        "description": "Rollover chains reconstructed by grouping indices by their common prefix",
+        "item_fields": {
+          "pattern": "string — the common prefix (e.g. 'applogs')",
+          "indices": "array of string — all indices in the chain, sorted ascending",
+          "rolled_count": "integer — count of indices that have completed rollover",
+          "write_alias": "string — the write alias name for this pattern (pattern + '-write')",
+          "alias_target": "string — index the write alias currently resolves to per alias data, or null if not found"
+        }
+      }
+    }
+  },
+  "diagnosis_output": {
+    "path": "/app/output/diagnosis.json",
+    "description": "Structured diagnosis report. Each distinct operational issue found should be reported as one entry in the issues array, classified into the most applicable category from the taxonomy.",
+    "schema": {
+      "cluster_snapshot_time": "ISO 8601 timestamp of the cluster state snapshot",
+      "total_indices_analyzed": "integer — total number of indices present in the ISM explain data",
+      "issues": {
+        "type": "array",
+        "description": "One entry per distinct operational issue diagnosed",
+        "item_fields": {
+          "id": "string — unique identifier (e.g. ISSUE-001)",
+          "severity": "string — classified per the severity guidelines below",
+          "category": "string — exactly one category from the issue_category_taxonomy",
+          "title": "string — brief descriptive title",
+          "affected_indices": "array of string — sorted list of index names affected",
+          "root_cause": "string — detailed root cause analysis explaining WHY the issue occurred",
+          "remediation": "string — recommended corrective action"
+        }
+      },
+      "summary": {
+        "total_issues": "integer — number of distinct issues in the issues array",
+        "critical_count": "integer — issues with severity=critical",
+        "high_count": "integer — issues with severity=high",
+        "medium_count": "integer — issues with severity=medium",
+        "indices_with_failed_actions": "integer — total indices where action.failed=true",
+        "indices_with_stale_policy": "integer — total indices with policy version mismatch",
+        "indices_with_alias_issues": "integer — total indices affected by alias integrity problems"
+      }
+    },
+    "issue_category_taxonomy": {
+      "action_failure": "An ISM action (e.g. force_merge, allocation) has failed and is blocking lifecycle progression for an index",
+      "policy_version_mismatch": "Indices are running an outdated policy version, causing behavioral divergence from the current policy definition",
+      "allocation_failure": "Shard allocation routing is failing due to a mismatch between policy configuration and cluster topology",
+      "alias_integrity": "A write alias is not pointing to the correct index in a rollover chain",
+      "transition_deadlock": "An index is stuck because transition conditions can never be satisfied under the current policy and cluster state"
+    },
+    "severity_guidelines": {
+      "critical": "Data loss risk or active write failures (e.g., writes going to wrong index, data unable to reach required storage tier)",
+      "high": "Lifecycle progression blocked but no immediate data loss risk",
+      "medium": "Suboptimal configuration without immediate operational impact"
+    }
+  },
+  "corrected_policies": {
+    "directory": "/app/output/corrected_policies/",
+    "description": "For any ISM policy definition under /app/policies/ that contains a configuration error preventing correct cluster operation, produce a corrected version in this directory using the same filename. Only include policies that actually require changes. The corrected file must preserve the full policy structure."
+  }
+}

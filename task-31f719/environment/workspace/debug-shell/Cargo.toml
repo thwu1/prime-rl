@@ -1,0 +1,10 @@
+[package]
+name = "debug-shell"
+version = "0.0.1"
+edition = "2021"
+description = "Interactive debug shell"
+
+[features]
+default = ["history"]
+history = []
+completion = ["history"]

@@ -1,0 +1,109 @@
+{
+  "description": "Build specification for production renderer dependency chain. Each library documents its required dependencies, version constraints, build configuration, and peak memory usage during compilation.",
+  "install_prefix": "/opt/renderer/installs",
+  "libraries": {
+    "zlib": {
+      "version": "1.3.1",
+      "dependencies": [],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 0.5,
+      "requirements": "Base compression library. No special configuration needed."
+    },
+    "OpenEXR": {
+      "version": "3.1.8",
+      "dependencies": ["zlib"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 3.0,
+      "requirements": "HDR image format. Must be built as shared libraries (BUILD_SHARED_LIBS=ON) because downstream consumers including OpenColorIO and OpenImageIO link dynamically. The renderer plugin system requires shared library loading at runtime. Static archives with PIC are not sufficient."
+    },
+    "libjpeg-turbo": {
+      "version": "3.0.1",
+      "dependencies": [],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 1.0,
+      "requirements": "JPEG codec with SIMD acceleration. Required by libtiff for JPEG-in-TIFF compression support."
+    },
+    "libtiff": {
+      "version": "4.6.0",
+      "dependencies": ["zlib", "libjpeg-turbo"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 1.0,
+      "requirements": "TIFF format support. JPEG-in-TIFF codec (jpeg=ON) requires libjpeg-turbo to be installed and discoverable at configure time. If libjpeg is not found, the JPEG codec is silently disabled, causing downstream failures when OpenImageIO attempts to read JPEG-compressed TIFF images."
+    },
+    "Boost": {
+      "version": "1.82.0",
+      "dependencies": [],
+      "build_type": "b2",
+      "shared_libs": true,
+      "peak_memory_gb": 4.0,
+      "requirements": "C++ utility libraries. Uses b2 build system, not CMake."
+    },
+    "Random123": {
+      "version": "1.14.0",
+      "dependencies": [],
+      "build_type": "header_only",
+      "peak_memory_gb": 0.5,
+      "requirements": "Counter-based random number generators. Header-only, no build step."
+    },
+    "ISPC": {
+      "version": "1.21.0",
+      "dependencies": [],
+      "build_type": "prebuilt",
+      "install_location": "bin/ispc",
+      "peak_memory_gb": 0.5,
+      "requirements": "Intel SPMD Program Compiler. Pre-built binary extracted directly to ${INSTALL_DIR}/bin/ispc (flat bin directory, not a subdirectory)."
+    },
+    "TBB": {
+      "version": "2021.5.0",
+      "dependencies": [],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 2.0,
+      "requirements": "Threading Building Blocks. Version must be 2021.1 or later to provide the oneapi::tbb namespace and modern CMake targets (TBB::tbb) required by OpenSubdiv v3.5.0 and USD v23.08. Legacy TBB 2020.x uses the incompatible tbb:: namespace and deprecated cmake integration, which may appear to build successfully but causes ABI mismatches at runtime."
+    },
+    "OpenColorIO": {
+      "version": "2.2.1",
+      "dependencies": ["OpenEXR"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 2.0,
+      "requirements": "Color management framework. Depends on OpenEXR for EXR format color space support. The dependency direction is strictly unidirectional: OpenColorIO depends on OpenEXR, NOT the reverse."
+    },
+    "Embree": {
+      "version": "4.2.0",
+      "dependencies": ["ISPC", "TBB"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 4.0,
+      "requirements": "High-performance ray tracing kernels. Requires the ISPC compiler binary at ${INSTALL_DIR}/bin/ispc for SIMD kernel code generation."
+    },
+    "OpenImageIO": {
+      "version": "2.4.8.0",
+      "dependencies": ["OpenEXR", "libtiff", "Boost", "OpenColorIO"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 3.0,
+      "requirements": "Image I/O library. Requires OpenColorIO for color-managed image loading and conversion. All four dependencies must be fully built and installed before OpenImageIO begins configuration."
+    },
+    "OpenSubdiv": {
+      "version": "3.5.0",
+      "dependencies": ["TBB"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 2.0,
+      "requirements": "Subdivision surface evaluation library. Server-side headless build for the production renderer must disable all GUI and visualization targets: NO_PTEX, NO_OMP, NO_CUDA, NO_TUTORIALS, NO_REGRESSION. The tutorial programs depend on GLFW and OpenGL headers (GL/glx.h) which are not available in the headless server build environment."
+    },
+    "USD": {
+      "version": "23.08",
+      "dependencies": ["Boost", "TBB", "OpenEXR", "OpenSubdiv", "OpenImageIO"],
+      "build_type": "cmake",
+      "shared_libs": true,
+      "peak_memory_gb": 6.0,
+      "requirements": "Universal Scene Description. Version 23.08 or later required for OpenEXR 3.x API compatibility. Versions 23.02 and earlier reference the OpenEXR 2.x namespace (Imf_2_5) which does not exist in OpenEXR 3.x headers (Imf_3_1)."
+    }
+  }
+}

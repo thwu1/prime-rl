@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of rigid-body kinematics on Lie groups SE(3)/so(3), matrix exponentials/logarithms, omnidirectional mobile-base motion modeling, combined mobile-manipulator kinematic control, trajectory generation with time scaling, and closed-loop task-space control with integral action. Five tightly coupled subsystems must all be correct: an error in any one (chassis motion model, forward kinematics, kinematic control, reference trajectory, or integration) cascades to incorrect output. The solver must independently determine how to combine the base and arm kinematics into a unified controller, derive the correct frame transformations, and handle near-singular configurations."""
+solution_explanation = """Implement NextState (Euler integration + SE(2) odometry from mecanum wheel kinematics), TrajectoryGenerator (8-segment reference using ScrewTrajectory/CartesianTrajectory from MR library), FeedbackControl (feedforward + PI with Adjoint-transformed twist), and the mobile manipulator Jacobian Je = [Ad_{Teb}*F6 | Jb_arm]. The main loop iterates through the reference trajectory, computing controls via Je pseudoinverse and integrating forward. Key subtleties: F matrix derivation from wheel geometry, F6 embedding into 6-vector body twist, frame transformations via Adjoint, and singularity-robust pseudoinverse."""
+verification_explanation = """Tests verify: (1) output file format and dimensions, (2) initial configuration matches config, (3) gripper state transitions 0->1->0 for pick-and-place, (4) twist error convergence over the trajectory, (5) forward kinematics of output configurations produce physically reasonable end-effector poses, (6) odometry consistency between wheel angle changes and chassis displacement."""
+category = "robotics"
+tags = ["screw-theory", "mobile-manipulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-029985"

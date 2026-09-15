@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a static value analysis engine for SPIR-V GPU shader assembly from scratch, without algorithmic guidance. The solver must: (1) discover that some shader modules are in binary format and use spirv-dis to read them; (2) examine diverse shader patterns (arithmetic chains, conditional branches, phi-node merge points, switch statements, nested control flow, logical operator chains, mixed constant/dynamic values) to understand what analysis capabilities are needed; (3) design and implement a SPIR-V assembly parser handling both text and disassembled output formats; (4) devise a strategy for statically resolving output values through control flow analysis and value propagation — determining which branch paths are taken when conditions are compile-time constants, correctly resolving merge-point values when only a subset of incoming edges are executable, and handling cascading propagation through nested structures; (5) distinguish runtime-dependent values from statically-resolvable ones."""
+solution_explanation = """Use spirv-dis to convert .spv files to text assembly. Parse SPIR-V text into typed instruction dataclasses. Build per-function control flow graphs from OpLabel/terminator sequences. Implement conditional constant propagation with a three-level lattice (Top→Constant→Bottom) and dual worklists — one for newly-executable CFG edges, one for SSA value updates. Initialize from OpConstant/OpConstantTrue/OpConstantFalse. Fold integer arithmetic (IAdd, ISub, IMul, SDiv), signed comparisons (SGreaterThan, SLessThan, etc.), and logical operations (LogicalNot, LogicalAnd, LogicalOr). Resolve OpPhi by meeting only values from executable predecessor edges. Gate branch/switch successors on constant conditions — only mark the taken path as executable. At fixpoint, scan executable blocks for OpStore to Output variables and report their lattice values as JSON."""
+verification_explanation = """Ten pytest test cases verify the analyzer: seven test the provided shader files (4 text, 3 binary) against expected.json values, and three novel inline shaders (multiplication folding, logical-AND branch resolution, subtraction-comparison-phi chain) that are not in /app/shaders/ prevent hardcoded solutions. Each test invokes the analyzer as a subprocess and validates JSON output."""
+category = "compilers"
+tags = ["spirv", "static-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spirv-constant-propagation"

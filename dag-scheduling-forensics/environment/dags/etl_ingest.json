@@ -1,0 +1,56 @@
+{
+  "dag_id": "etl_ingest",
+  "schedule_interval": "0 1 * * *",
+  "default_args": {
+    "retries": 2,
+    "retry_delay_seconds": 300,
+    "execution_timeout_seconds": 7200
+  },
+  "tasks": [
+    {
+      "task_id": "wait_for_refresh",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "data_refresh",
+      "external_task_id": "archive_complete"
+    },
+    {
+      "task_id": "extract",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_for_refresh"]
+    },
+    {
+      "task_id": "validate_schema",
+      "operator": "PythonOperator",
+      "dependencies": ["extract"]
+    },
+    {
+      "task_id": "transform",
+      "operator": "PythonOperator",
+      "dependencies": ["validate_schema"]
+    },
+    {
+      "task_id": "load_staging",
+      "operator": "PythonOperator",
+      "dependencies": ["transform"]
+    },
+    {
+      "task_id": "load_warehouse",
+      "operator": "PythonOperator",
+      "dependencies": ["load_staging"]
+    },
+    {
+      "task_id": "trigger_quality_check",
+      "operator": "TriggerDagRunOperator",
+      "dependencies": ["load_warehouse"],
+      "trigger_dag_id": "data_quality"
+    },
+    {
+      "task_id": "mark_etl_complete",
+      "operator": "ExternalTaskMarker",
+      "dependencies": ["load_warehouse"],
+      "target_dag_id": "data_quality",
+      "target_task_id": "wait_report"
+    }
+  ]
+}

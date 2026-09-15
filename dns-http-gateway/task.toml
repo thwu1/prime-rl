@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires simultaneous implementation of three binary/text protocols from scratch: DNS wire format (RFC 1035 with label compression pointer parsing, header flag manipulation, CNAME chain traversal), HTTP/1.1 request/response parsing from raw TCP sockets, and bencode encoding/decoding. The agent must correctly handle bit-level DNS header packing, domain name label encoding, compression pointer dereferencing, concurrent UDP+TCP serving with shared mutable state, and protocol interop where records added via bencode-over-HTTP must be queryable via binary DNS. This combination of low-level binary protocol work, multi-protocol concurrency, and cross-protocol integration is well beyond undergraduate scope."""
+solution_explanation = """The solution implements a single Python server with three subsystems: (1) a bencode codec handling strings, integers, lists, and dicts; (2) a DNS engine that parses raw UDP packets including compression pointers, builds binary responses with proper header flags and CNAME chain resolution, and serves from a thread-safe record store; (3) an HTTP engine parsing raw TCP streams into method/path/headers/body, routing to REST endpoints, and serializing responses. Threading provides concurrency: one thread for the UDP DNS loop, one for the TCP HTTP accept loop spawning per-connection threads. The shared RecordStore uses a lock for thread safety."""
+verification_explanation = """Tests start the server as a subprocess, wait for readiness via HTTP health check, then exercise 15 scenarios: seed record DNS lookup, CNAME chain resolution, NXDOMAIN, DNS header flag correctness, question echo, label compression pointer parsing via crafted multi-question packets, HTTP CRUD for records with bencode bodies, cross-protocol add-via-HTTP/query-via-DNS, record deletion, zone-transfer export/import roundtrip, concurrent DNS queries, and multi-hop CNAME chains added dynamically. All tests use deterministic inputs and verify exact binary/JSON/bencode outputs."""
+category = "networking"
+tags = ["dns", "multi-protocol"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dns-http-gateway"

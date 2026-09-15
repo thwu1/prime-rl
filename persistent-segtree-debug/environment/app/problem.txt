@@ -1,0 +1,31 @@
+PERSISTENT SEGMENT TREE WITH RANGE TRANSFORMS
+
+Given an array A of N non-negative integers (1-indexed), support Q operations
+that create and query versioned snapshots of the array. All arithmetic is
+performed modulo P = 998244353.
+
+  1 v l r a b   Based on version v, transform every element in [l, r]:
+                 A[i] = (a * A[i] + b) mod P  for each l <= i <= r.
+                 This creates the next sequential version number.
+
+  2 v l r       Query the sum (A[l] + A[l+1] + ... + A[r]) mod P in version v.
+
+Version 0 is the initial array. Each type-1 operation creates a new version
+numbered sequentially starting from 1. Type-2 operations do not create
+new versions.
+
+Constraints:
+  1 <= N <= 200,000
+  1 <= Q <= 200,000
+  0 <= A[i] < P
+  0 <= a, b < P
+  0 <= v <= (number of versions created so far)
+  1 <= l <= r <= N
+
+Input format:
+  First line: N Q
+  Second line: N space-separated integers (the initial array)
+  Next Q lines: operations as described above
+
+Output format:
+  For each type-2 operation, print the answer on a separate line.

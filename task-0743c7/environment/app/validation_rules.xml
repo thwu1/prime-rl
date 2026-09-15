@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vocabularyValidationConfigurations>
+  <namespaces>
+    <namespace prefix="v3" uri="urn:hl7-org:v3"/>
+    <namespace prefix="sdtc" uri="urn:hl7-org:sdtc"/>
+  </namespaces>
+  <expressions>
+    <!--confidentialityCode SHALL be selected from ValueSet HL7 BasicConfidentialityKind-->
+    <expression id="R001" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:confidentialityCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.1.11.10228</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--administrativeGenderCode SHALL be selected from ValueSet Administrative Gender (HL7 V3)-->
+    <expression id="R002" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:administrativeGenderCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.1.11.1</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--raceCode SHALL be selected from ValueSet Race Category Extended (hierarchical composition)-->
+    <expression id="R003" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:raceCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.3.2074.1.1.3</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--ethnicGroupCode SHOULD be selected from ValueSet Ethnicity-->
+    <expression id="R004" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:ethnicGroupCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHOULD</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.114222.4.11.837</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--maritalStatusCode SHOULD be selected from ValueSet Marital Status-->
+    <expression id="R005" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:maritalStatusCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHOULD</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.1.11.12212</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--languageCommunication languageCode SHOULD be selected from ValueSet Language-->
+    <expression id="R006" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:languageCommunication/v3:languageCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHOULD</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.1.11.11526</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--routeCode SHALL be selected from ValueSet Medication Route FDA-->
+    <expression id="R007" xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section[v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1']]/v3:entry/v3:substanceAdministration[v3:templateId[@root='2.16.840.1.113883.10.20.22.4.16']]/v3:routeCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.3.88.12.3221.8.7</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--Allergy observation value SHALL be selected from ValueSet Allergy/Adverse Event Type (CWE binding — extensible)-->
+    <expression id="R008" xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section[v3:templateId[@root='2.16.840.1.113883.10.20.22.2.6.1']]/v3:entry/v3:act/v3:entryRelationship/v3:observation[v3:templateId[@root='2.16.840.1.113883.10.20.22.4.7']]/v3:value[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CWE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.3.88.12.3221.6.2</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--Problem observation code SHALL be selected from ValueSet Problem Type (CWE binding — extensible)-->
+    <expression id="R009" xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section[v3:templateId[@root='2.16.840.1.113883.10.20.22.2.5.1']]/v3:entry/v3:act/v3:entryRelationship/v3:observation[v3:templateId[@root='2.16.840.1.113883.10.20.22.4.4']]/v3:code[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CWE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.3.88.12.3221.7.2</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--Care Plan document code (template not present in this document)-->
+    <expression id="R010" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.15' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:code[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.11.20.6.1</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--Vital sign observation unit SHALL be selected from ValueSet UCUM Common Units-->
+    <expression id="R011" xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section[v3:templateId[@root='2.16.840.1.113883.10.20.22.2.4.1']]/v3:entry/v3:organizer/v3:component/v3:observation[v3:templateId[@root='2.16.840.1.113883.10.20.22.4.27']]/v3:value[@unit and not(@nullFlavor)]">
+      <validator>
+        <name>UnitValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113762.1.4.1099.2</allowedValuesetOids>
+      </validator>
+    </expression>
+  </expressions>
+  <supplementaryExpressions>
+    <!--sdtc:raceCode SHALL be selected from ValueSet Race Category Excluding Nulls (HL7 SDTC extension)-->
+    <expression id="R012" xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/sdtc:raceCode[not(@nullFlavor)]">
+      <validator>
+        <name>ValueSetCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.1.11.14914</allowedValuesetOids>
+      </validator>
+    </expression>
+    <!--Manufactured material codeSystem SHALL be from allowed clinical drug code systems-->
+    <expression id="R013" xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section[v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1']]/v3:entry/v3:substanceAdministration/v3:consumable/v3:manufacturedProduct[v3:templateId[@root='2.16.840.1.113883.10.20.22.4.23']]/v3:manufacturedMaterial/v3:code[not(@nullFlavor)]">
+      <validator>
+        <name>CodeSystemCodeValidator</name>
+        <bindingType>CNE</bindingType>
+        <validationResultSeverityLevels>
+          <codeSeverityLevel>SHALL</codeSeverityLevel>
+        </validationResultSeverityLevels>
+        <allowedValuesetOids>2.16.840.1.113883.3.88.12.80.17</allowedValuesetOids>
+      </validator>
+    </expression>
+  </supplementaryExpressions>
+</vocabularyValidationConfigurations>

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic judgment across multiple ECC subsystems. The agent must: (1) independently derive Montgomery representation formulas (pbitlen rounding, r, r_square, mpinv negation) from first principles — no formulas are given — and evaluate each curve's parameters against ground truth; (2) research the obscure ISO 14888-3 vs RFC 7091 hash endianness divergence in ECRDSA to classify signatures without being told what distinguishes them; (3) independently discover a critical vulnerability in the ECDSA data by recognizing the nonce reuse signal (matching r values) and algebraically exploit it; (4) synthesize all findings into a professional severity assessment, evaluating exploitability, blast radius, and real-world impact in a financial deployment context — this requires professional judgment rather than formulaic application; (5) design a general-purpose detection tool that validates Montgomery parameters for arbitrary primes and word sizes, not just the five challenge curves."""
+solution_explanation = """Challenge 1: compute correct Montgomery coefficients — pbitlen = ceil(bitlen/wlen)*wlen, r = 2^pbitlen mod p, r_square = 2^(2*pbitlen) mod p, mpinv = 2^wlen - modinv(p mod 2^wlen, 2^wlen). FRP256V1 has wrong mpinv (missing negation), SECP521R1 has wrong pbitlen (521 vs 576). Challenge 2: research ECRDSA signing equation s = (r*x + k*e) mod q and discover that ISO uses big-endian hash while RFC reverses the bytes. Challenge 3: recognize identical r values as nonce reuse, then recover k = (e1-e2)*(s1-s2)^(-1) mod q, x = (s1*k - e1)*r^(-1) mod q. Challenge 4: evaluate — nonce reuse is CRITICAL (full key compromise in financial system), Montgomery bugs are HIGH (silent arithmetic corruption), ECRDSA interop is MEDIUM. Challenge 5: design a portable bash+python script handling arbitrary primes/word sizes."""
+verification_explanation = """Tests independently compute all correct values from challenge data. Montgomery correctness verified by independent coefficient computation. ECRDSA classification verified by checking both endianness modes against the signing equation. Key recovery verified by checking recovered key reproduces both signatures. Security assessment verified for structure, presence of CRITICAL finding, and CRITICAL overall risk. Detection script verified by executing it against challenge data and checking it correctly identifies invalid curves without false positives."""
+category = "cryptography"
+tags = ["elliptic-curves", "security-audit"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecc-param-forensics"

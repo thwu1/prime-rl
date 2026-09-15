@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires triangulating the correct hierarchical weighted scoring algorithm from two conflicting legacy implementations (a Python scorer and a shell pipeline using sqlite3 recursive CTEs + jq), fragmentary documentation, and verified reference values. The agent must diagnose independent bugs across both tools — flat-weight aggregation vs tree propagation in the Python scorer, jq sorting/formatting bugs in the shell pipeline — then determine from a YAML scoring policy that agreement metrics must be weighted by effective tree weights. Implementing weighted Cohen's kappa with per-rater marginals using effective weights as observation weights demands expert-level understanding of both tree-structured data and inter-rater reliability statistics. The multi-tool debugging requires proficiency in sqlite3 CLI, jq filters, YAML parsing, and Python simultaneously."""
+solution_explanation = """Reconstruct the rubric tree from the adjacency-list representation in SQLite. Implement recursive weighted-average score propagation where each node's score is the weighted mean of its children. Compute effective weights as the product of normalized weight ratios (child_weight / sibling_sum) along each root-to-leaf path. Use effective weights for category stratification and greedy top-k leaf selection. Parse the YAML scoring policy to discover that agreement metrics must be weighted. Implement weighted Cohen's kappa using effective weights as observation weights, with per-rater weighted marginals for chance agreement. Produce all five output JSON files."""
+verification_explanation = """Tests load the five output JSON files and verify numerical values against hand-computed expected results using absolute tolerance of 1e-4. Root scores are checked for all six rubric/grading pairs. Sensitivity values are checked for sum-to-one, specific leaf weights, and correct ordering. Category scores, weighted agreement metrics, and improvement recommendations are each verified against independently derived values using exact fractional arithmetic."""
+category = "data_analysis"
+tags = ["tree-algorithms", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rubric-analysis-engine"

@@ -1,0 +1,61 @@
+{
+  "constants": {
+    "mu_earth_km3s2": 398600.4415,
+    "R_earth_km": 6378.1363,
+    "J2": 1.08263e-3,
+    "J3": -2.53266e-6
+  },
+  "integrator_settings": {
+    "tolerance": 1e-12,
+    "initial_step_size_sec": 60.0,
+    "min_step_size_sec": 1e-6,
+    "max_step_size_sec": 86400.0
+  },
+  "test_cases": {
+    "LEO_circular": {
+      "description": "ISS-like circular LEO, a=6778.137 km, i=51.6 deg, Omega=0, omega=0, nu=0",
+      "state_eci_km_kms": [6778.137, 0.0, 0.0, 0.0, 4.7633078868, 6.0097988669],
+      "duration_sec": 86400,
+      "central_body": "Earth",
+      "orbit_elements_reference": {
+        "sma_km": 6778.137,
+        "ecc": 0.0,
+        "inc_deg": 51.6
+      }
+    },
+    "GEO": {
+      "description": "Geostationary orbit, a=42164 km, i=0 deg",
+      "state_eci_km_kms": [42164.0, 0.0, 0.0, 0.0, 3.074666283, 0.0],
+      "duration_sec": 604800,
+      "central_body": "Earth",
+      "orbit_elements_reference": {
+        "sma_km": 42164.0,
+        "ecc": 0.0,
+        "inc_deg": 0.0
+      }
+    },
+    "HEO_molniya": {
+      "description": "Molniya orbit, a=26554 km, e=0.74, i=63.4 deg (critical-ish inclination), omega=270 deg, at perigee",
+      "state_eci_km_kms": [0.0, -3091.3466528024, -6173.2766173085, 10.0228645753, 0.0, 0.0],
+      "duration_sec": 259200,
+      "central_body": "Earth",
+      "orbit_elements_reference": {
+        "sma_km": 26554.0,
+        "ecc": 0.74,
+        "inc_deg": 63.4
+      }
+    },
+    "MEO_gps": {
+      "description": "GPS-like MEO orbit, a=26559.8 km, i=55 deg",
+      "state_eci_km_kms": [26559.8, 0.0, 0.0, 0.0, 2.2220191058, 3.1733721569],
+      "duration_sec": 172800,
+      "central_body": "Earth",
+      "orbit_elements_reference": {
+        "sma_km": 26559.8,
+        "ecc": 0.0,
+        "inc_deg": 55.0
+      }
+    }
+  },
+  "output_file": "/app/results.json"
+}

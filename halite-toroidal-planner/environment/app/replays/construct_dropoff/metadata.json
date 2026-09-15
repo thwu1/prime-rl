@@ -1,0 +1,17 @@
+{
+  "width": 8,
+  "height": 8,
+  "constants": {
+    "MAX_HALITE": 1000,
+    "SHIP_COST": 1000,
+    "DROPOFF_COST": 4000,
+    "EXTRACT_RATIO": 4,
+    "MOVE_COST_RATIO": 10,
+    "INSPIRATION_ENABLED": false,
+    "INSPIRATION_RADIUS": 4,
+    "INSPIRATION_SHIP_COUNT": 2,
+    "INSPIRED_EXTRACT_RATIO": 4,
+    "INSPIRED_BONUS_MULTIPLIER": 2,
+    "INSPIRED_MOVE_COST_RATIO": 10
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level chemical engineering thermodynamics and multi-tool CLI orchestration. The solver must: (1) reverse-engineer undocumented NIST TSV column layout to extract pressure, molar volume, and phase data, (2) parse an HTML saturation table with entity-encoded characters for cross-validation, (3) reconcile conflicting experimental critical property measurements from a multi-source CSV with varying uncertainties across multiple fluids, (4) implement the Peng-Robinson cubic equation of state with Cardano-style root finding and phase-dependent root selection, (5) implement thermodynamic departure functions for fugacity and enthalpy including temperature derivatives of the alpha function, (6) solve vapor-liquid equilibrium via fugacity matching at subcritical temperatures, (7) build a SQLite database with normalized schema from three heterogeneous data formats (TSV, CSV, HTML), (8) construct a shell pipeline orchestrating Python, sqlite3 CLI, and jq for cross-format validation, (9) handle data quality issues including duplicate rows with conflicting phase labels at phase transition boundaries. Multi-format parsing, equation of state numerics, database design, and CLI tool interoperability create coupled complexity."""
+solution_explanation = """Parse critical_measurements.csv using inverse-variance weighted averaging to determine CO2 Tc, Pc, omega. Parse NIST TSV isotherms to extract P, V, phase data by inspecting the header. Parse co2_saturation_nist.html table for reference saturation pressures. Create SQLite database with three tables (nist_isotherms, critical_props, saturation_ref) and populate from all parsed data. Implement Peng-Robinson EOS cubic Z^3-(1-B)Z^2+(A-3B^2-2B)Z-(AB-B^2-B^3)=0 using Cardano's formula with discriminant-based branch selection. Root selection: vapor=largest root, liquid=smallest, supercritical=unique root. Fugacity: ln(phi)=(Z-1)-ln(Z-B)-A/(2sqrt2*B)*ln((Z+(1+sqrt2)B)/(Z+(1-sqrt2)B)). Departure enthalpy via da/dT derivative. VLE by bisecting pressure to equalize liquid/vapor fugacity coefficients. Build pipeline.sh that runs Python (creates thermo.db + results.json), then uses jq to extract JSON structure counts and sqlite3 CLI to query database row counts, combining both into validation.json."""
+verification_explanation = """Tests verify: (1) pipeline.sh exists and invokes both jq and sqlite3, (2) SQLite database schema for three tables with correct column names, (3) database row counts and specific queried data values, (4) cross-consistency between database molar volumes and JSON Z_NIST values, (5) cross-consistency between database saturation pressures and model_accuracy NIST references, (6) validation.json structure and agreement with both database and JSON, (7) critical params within expected ranges, (8) Z_PR against independent PR EOS reference calculations at multiple state points, (9) correct phase labels including vapor/liquid/supercritical, (10) fugacity and departure enthalpy against independent reference implementations, (11) virial coefficients against analytical PR formulas with monotonicity, (12) VLE predictions within physical bounds, (13) compression work verification, (14) RMSE consistency with independent recalculation."""
+category = "applied_computing"
+tags = ["thermodynamics", "equation-of-state"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a6c7af"

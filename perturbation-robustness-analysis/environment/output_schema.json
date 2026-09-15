@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Perturbation Robustness Analysis Report",
+  "type": "object",
+  "required": ["effect_sizes", "category_aggregates", "real_to_sim_correlation", "composite_robustness_index"],
+  "properties": {
+    "effect_sizes": {
+      "type": "object",
+      "description": "One entry per (model, perturbation) pair, keyed as '<Model>_pert<id>' for perturbation ids 1-15. Total: 45 entries.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["hedges_g", "ci_lower", "ci_upper", "perturbation", "category"],
+        "properties": {
+          "hedges_g": {"type": "number"},
+          "ci_lower": {"type": "number"},
+          "ci_upper": {"type": "number"},
+          "perturbation": {"type": "string"},
+          "category": {"type": "string"}
+        }
+      }
+    },
+    "category_aggregates": {
+      "type": "object",
+      "description": "Per-model mean effect size averaged across perturbations within each non-baseline category. Outer keys: model names. Inner keys: category names.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": "number"}
+      }
+    },
+    "real_to_sim_correlation": {
+      "type": "object",
+      "required": ["spearman_rho", "p_value", "fisher_z_ci_lower", "fisher_z_ci_upper", "n_pairs"],
+      "properties": {
+        "spearman_rho": {"type": "number"},
+        "p_value": {"type": "number"},
+        "fisher_z_ci_lower": {"type": "number"},
+        "fisher_z_ci_upper": {"type": "number"},
+        "n_pairs": {"type": "integer"}
+      }
+    },
+    "composite_robustness_index": {
+      "type": "object",
+      "description": "Per-model composite robustness score.",
+      "additionalProperties": {"type": "number"}
+    }
+  }
+}

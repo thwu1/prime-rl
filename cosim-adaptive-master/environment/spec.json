@@ -1,0 +1,33 @@
+{
+  "subsystems": {
+    "stimuli": {
+      "class": "StimuliSubsystem",
+      "inputs": [],
+      "outputs": ["w_desired", "LoadTorque_Nm"]
+    },
+    "controller": {
+      "class": "ControllerSubsystem",
+      "inputs": ["w_desired", "w"],
+      "outputs": ["V"]
+    },
+    "drive": {
+      "class": "DriveSubsystem",
+      "inputs": ["V", "LoadTorque_Nm"],
+      "outputs": ["w"]
+    }
+  },
+  "connections": [
+    {"from": "stimuli.w_desired", "to": "controller.w_desired"},
+    {"from": "stimuli.LoadTorque_Nm", "to": "drive.LoadTorque_Nm"},
+    {"from": "controller.V", "to": "drive.V"},
+    {"from": "drive.w", "to": "controller.w"}
+  ],
+  "simulation": {
+    "start_time": 0.0,
+    "end_time": 1.0
+  },
+  "requirements": {
+    "rmse_threshold": 0.001,
+    "output_variable": "drive.w"
+  }
+}

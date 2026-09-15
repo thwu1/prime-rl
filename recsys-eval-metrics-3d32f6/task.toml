@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 9 distinct bugs across two interacting tools in a recommendation evaluation pipeline. The solver must: (1) run the buggy eval_tool.py on pre-processed JSON scenarios and compare outputs against expected results, (2) run the full pipeline (score_converter.py → eval_tool.py) on score-matrix scenarios with YAML configs and diagnose cascading failures, (3) explore unfamiliar RecBole framework source code to reverse-engineer correct metric semantics (NDCG IDCG capping, MAP normalization, MRR first-hit-only, Gini full-catalog population, Shannon entropy normalization, empty-user exclusion), (4) understand NumPy's argsort behavior and RecBole's item ID conventions to fix score-to-ranking conversion, (5) debug YAML config handling for scalar vs list topk values, (6) trace how num_items propagation from YAML config through the converter affects diversity metrics. Bugs interact across tools — ascending sort in the converter masks metric bugs by producing wrong rankings, and scalar topk crashes the pipeline before metric bugs are visible."""
+solution_explanation = """Fix 9 bugs across two tools: In score_converter.py: (1) use np.argsort(-scores[i]) or np.argsort(scores[i])[::-1] for descending sort instead of ascending np.argsort(scores[i]), (2) wrap scalar topk in a list when it's an int from YAML, (3) use config.get('num_items', n_items) instead of hardcoding n_items from score matrix shape. In eval_tool.py: (4) NDCG: cap IDCG at min(pos_len, K), (5) MAP: normalize by min(pos_len, K) not K, (6) MRR: return reciprocal rank of first relevant item only, (7) GiniIndex: use num_items (full catalog) not count of recommended items, (8) ShannonEntropy: divide by count of unique items, (9) exclude users with empty relevant_items from per-user metric averages."""
+verification_explanation = """Tests verify both tools independently and in pipeline. For eval_tool.py: runs on 3 pre-processed JSON scenarios comparing against expected outputs AND against an embedded reference implementation; targeted tests for each metric bug (NDCG IDCG capping, MAP normalization, MRR first-hit, Gini catalog size, Shannon normalization, empty users); large randomized datasets (200 users, 100 users with 40% empty). For score_converter.py: tests the full pipeline on 2 score-matrix scenarios with YAML configs; verifies correct descending sort order; verifies scalar topk handling; verifies num_items propagation from config. All comparisons use tolerance 1e-3."""
+category = "machine_learning"
+tags = ["recommendation-systems", "evaluation-metrics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/recsys-eval-metrics-3d32f6"

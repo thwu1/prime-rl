@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extracting pacman's sync database from a zstd-compressed tar archive, querying a SQLite metadata cache, implementing pacman-compatible vercmp with epoch semantics (epoch takes absolute precedence — a trap package with epoch 1:4.19.0-1 must NOT be flagged as behind sync 4.20.0-1), building a full dependency graph with versioned constraint checking across ~30 packages, detecting 6 distinct issue categories through cross-referencing local/sync databases, evaluating independent repair groups via connected-component analysis, checking for dependency cycles, and generating a topologically-ordered repair plan. Combines archive format knowledge, SQL querying, graph algorithms, and deep Linux package management internals."""
+solution_explanation = """Extract core.db with tar+zstd, parse desc files from both databases, implement epoch-aware vercmp, query SQLite for package sizes. Detect: missing desc (readline), corrupted desc (expat via truncated dep), 3 partial upgrades with epoch handling (openssl, ncurses, icu — while correctly skipping libtasn1 whose epoch makes it newer), missing dependency (libssh2→libgcrypt), file conflict (ca-certificates), 2 orphaned deps (mpdecimal, gdbm). Compute connected components to find 6 independent repair groups, verify no cycles via DFS, compare targeted vs full upgrade costs using SQLite size data. Generate report.json, strategy.json, and dependency-ordered repair.sh."""
+verification_explanation = """Tests verify report.json identifies all 9 planted issues with correct types/details, that epoch handling is correct (icu detected as partial upgrade, libtasn1 NOT falsely flagged), strategy.json recommends targeted repair with valid group partitioning and no circular dependencies, and repair.sh has correct dependency ordering (openssl→curl, ncurses→bash, icu→libxml2, libgcrypt→libssh2). A false-positive ceiling caps total issues at 18."""
+category = "debugging"
+tags = ["package-management", "linux-administration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pacman-database-forensics"

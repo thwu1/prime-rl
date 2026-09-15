@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = '''Requires diagnosing and fixing defects across two independent TLA+ formal specifications for concurrent lock protocols (ticket-based mutex and readers-writer lock with upgrade/downgrade). The solver receives no guidance about what the defects are — it must iteratively run SANY and TLC, interpret error messages and counterexample traces, and reason about protocol semantics to identify and repair layered issues spanning syntax errors, TLC runtime evaluation failures, semantic modeling bugs that violate safety invariants, incomplete action/invariant stubs, and misconfigured TLC configuration files. Implementing stub actions for the upgrade path requires deep understanding of reader-writer mutual exclusion, upgrade deadlock prevention, and atomic state transitions. Designing a safety invariant from scratch demands formal reasoning about variable relationships across reachable states. The dual-spec structure forces the solver to transfer TLA+ expertise across two different protocol domains rather than following a single debugging thread.'''
+solution_explanation = '''ticket_lock fixes: (1) add Sequences to EXTENDS for queue operators; (2) promote Nil from unbounded CHOOSE to CONSTANT and bind as model value n0 in config; (3) fix typo 'queu'→'queue' in AwaitWake UNCHANGED clause; (4) fix ReleaseLock to set holder'=Nil — the semantic bug causes NoStaleHolder violation because after release+wake the node reaches 'Idle' state but holder still references it; (5) fix config: Spec→Specification, add Nil=n0, declare all 4 invariants. rwlock fixes: (1) add Sequences to EXTENDS; (2) promote Nil to CONSTANT; (3) fix DowngradeToRead to set writer'=Nil — semantic bug causes WriterTracking violation because after downgrade pc moves to 'Reading' but writer still references the node; (4) implement UpgradeToWrite with guards pc[n]='Reading' and upgrader=Nil, setting upgrader'=n, transitioning to 'Upgrading' while keeping node in readers; (5) implement CompleteUpgrade with guards readers={n}, writer=Nil, atomic reader-to-writer transition; (6) implement UpgradeSafety invariant: upgrader/=Nil => upgrader in readers /\ pc[upgrader]='Upgrading'; (7) fix config similarly.'''
+verification_explanation = '''Run SANY syntax check then TLC exhaustive model checking with 3 nodes for each specification. For ticket_lock, all 4 safety invariants (MutualExclusion, HolderConsistency, QueueValidity, NoStaleHolder) must pass. For rwlock, all 5 safety invariants (NoReadWriteConflict, SingleWriter, QueueIntegrity, UpgradeSafety, WriterTracking) must pass. Source-level checks verify rwlock stubs are replaced (no /\\ FALSE) and UpgradeSafety is substantive (not TRUE). TLC is the definitive test — if it passes with all invariants for both specs, all defects have been correctly addressed.'''
+category = "formal_methods"
+tags = ["tla+", "model-checking", "concurrency"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tla-spec-repair"

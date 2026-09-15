@@ -1,0 +1,3 @@
+s001 images/img001.ppm frontal
+s002 images/img002.ppm frontal
+s003 images/img003.ppm frontal

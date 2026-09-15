@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple issues in a multi-tool pipeline (make, curl, Python) before implementation can begin: a missing Unicode data file with a broken download URL, and a logic gap in the property lookup module. The segmentation implementation itself demands understanding of UAX#29's context-dependent rules through analysis of the specification and test vectors — the task provides no algorithmic guidance. The GraphemeCursor chunked API adds a second layer of difficulty: maintaining correct state across arbitrary chunk boundaries with an exception-based context-request protocol, and ensuring forward/backward iteration equivalence."""
+solution_explanation = """First, fix the Makefile's emoji-data.txt download URL (add emoji/ subdirectory). Download the file. Then restore the InCB_Consonant category lookup that is missing from tables.py's grapheme_category(). Finally, implement grapheme_clusters() using check_pair() with backward-scanning helpers for InCB consonant sequences, emoji ZWJ chains, and RI parity counting; and implement GraphemeCursor with offset/category tracking, forward-tracked RI/InCB counts, and backward-scanning handlers that request pre-context when scanning reaches chunk boundaries."""
+verification_explanation = """Tests parse the official Unicode 17.0 GraphemeBreakTest.txt (700+ test vectors) and verify grapheme_clusters() produces correct clusters. Chunked cursor equivalence is tested by splitting multiple test strings at every possible character boundary and verifying next_boundary produces identical results to whole-string mode. Specific edge cases test ZWJ emoji, Regional Indicators, and Indic conjunct breaks split across 2-3 chunks with pre-context resolution. Bidirectional iteration is tested via prev_boundary consistency checks."""
+category = "text_processing"
+tags = ["unicode", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/grapheme-cursor-chunked"

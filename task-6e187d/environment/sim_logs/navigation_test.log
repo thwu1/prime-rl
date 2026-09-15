@@ -1,0 +1,57 @@
+[2024-11-18 09:14:01.002] [navigation_test] [INFO] === Navigation integration test sequence starting ===
+[2024-11-18 09:14:01.015] [navigation_test] [INFO] Loading robot configuration from nav2_params.yaml
+[2024-11-18 09:14:01.234] [controller_server] [INFO] Controller server initialized — frequency: 20Hz
+[2024-11-18 09:14:01.456] [local_costmap] [INFO] Local costmap initialized: 3x3m window, resolution 0.05m/cell
+[2024-11-18 09:14:01.501] [global_costmap] [INFO] Global costmap initialized: static map loaded
+[2024-11-18 09:14:01.780] [sensor_driver] [INFO] Lidar initialized: 360° FOV, 12m max range
+[2024-11-18 09:14:02.100] [navigation_test] [INFO] Sending goal 1/10: (3.2, 1.8, 0.0)
+
+[2024-11-18 09:14:02.503] [sensor_driver] [WARN] Laser scan frame 142: 3 points below minimum range threshold — likely reflective surface artifact
+[2024-11-18 09:14:03.012] [tf_broadcaster] [INFO] TF odom->base_link latency: 12ms (within tolerance)
+
+[2024-11-18 09:14:03.523] [controller_server] [WARN] MPPI trajectory rollout extends beyond local costmap boundary at step 62/80 — cost evaluation truncated to available map area (1.5m radius)
+[2024-11-18 09:14:03.890] [controller_server] [ERROR] Lateral velocity command vy=0.31 m/s generated but base_link reports zero lateral DOF — command cannot be executed
+[2024-11-18 09:14:04.100] [controller_server] [WARN] Trajectory contains lateral components inconsistent with robot kinematics — motion model may not match physical platform
+
+[2024-11-18 09:14:04.678] [battery_monitor] [INFO] Battery SOC: 87%, voltage: 24.2V, current draw: 3.1A
+
+[2024-11-18 09:14:05.201] [velocity_smoother] [WARN] Linear velocity clipped: controller commanded 0.48 m/s, smoother output 0.30 m/s (max_velocity[0] limit)
+[2024-11-18 09:14:05.567] [velocity_smoother] [WARN] Angular velocity clipped: controller commanded 1.72 rad/s, smoother output 1.50 rad/s (max_velocity[2] limit)
+
+[2024-11-18 09:14:06.890] [local_costmap] [WARN] Obstacle cell persists at map coordinates (42, 16) — world (2.1, 0.8) — with no active sensor detection for 45 seconds. Voxel layer did not clear despite robot traversal.
+[2024-11-18 09:14:07.234] [local_costmap] [WARN] 12 stale obstacle cells detected in voxel layer — possible clearing range deficiency
+
+[2024-11-18 09:14:08.100] [network_monitor] [WARN] WiFi RSSI dropped to -72dBm for 200ms — recovered to -54dBm
+
+[2024-11-18 09:14:09.345] [planner_server] [ERROR] Global path through corridor at world (5.2, 3.1) rejected by local controller — local costmap marks cells as LETHAL (254) where global costmap shows FREE (0). Corridor width in global map: 0.82m.
+[2024-11-18 09:14:09.780] [planner_server] [WARN] Path tracking failure rate 60% in narrow passages — robot_radius or inflation configuration may differ between costmap layers
+
+[2024-11-18 09:14:10.560] [controller_server] [WARN] MPPI forward simulation timestep (model_dt) is coarser than control loop period — prediction resolution degraded, multiple control cycles execute same prediction step
+[2024-11-18 09:14:11.234] [controller_server] [WARN] Observed acceleration discontinuity: commanded trajectory assumes 2.8 m/s² ramp but executed profile limited to 1.0 m/s² — trajectory prediction diverges from actual execution
+
+[2024-11-18 09:14:12.001] [sensor_driver] [INFO] Lidar self-test: nominal — 1800 points/scan, 10Hz rate
+
+[2024-11-18 09:14:13.456] [controller_server] [WARN] Near goal (4.1, 2.3): GoalCritic and PathFollowCritic both active with conflicting weights — GoalCritic pulls toward goal while PathFollowCritic constrains to path. threshold_to_consider values differ significantly.
+[2024-11-18 09:14:13.890] [controller_server] [WARN] Oscillation detected near goal — 4 direction reversals in 2.0 seconds
+
+[2024-11-18 09:14:14.560] [planner_server] [WARN] Global costmap contains no dynamic obstacle layer — replanning uses only static map data. Dynamic obstacles visible to local costmap are invisible to global planner.
+[2024-11-18 09:14:15.012] [planner_server] [WARN] Replanned path routes through area with known dynamic obstacle at (3.5, 2.0) — local controller will reject
+
+[2024-11-18 09:14:16.234] [joint_states] [INFO] Wheel encoders: left 3241 ticks, right 3238 ticks — differential: 3 ticks (nominal)
+
+[2024-11-18 09:14:17.001] [velocity_smoother] [WARN] Acceleration clipped: controller commanded 2.8 m/s², smoother output 1.0 m/s² (max_accel[0] limit active)
+[2024-11-18 09:14:17.456] [velocity_smoother] [WARN] Angular acceleration clipped: commanded 3.2 rad/s², smoother output 1.5 rad/s² (max_accel[2] limit active)
+
+[2024-11-18 09:14:18.890] [diagnostics] [WARN] CPU temperature: 72°C (threshold: 95°C)
+
+[2024-11-18 09:14:20.123] [navigation_test] [ERROR] Goal 1/10 FAILED: oscillation timeout at (4.1, 2.3) after 3 recovery attempts
+[2024-11-18 09:14:20.456] [navigation_test] [INFO] Sending goal 2/10: (7.0, 4.5, 1.57)
+
+[2024-11-18 09:14:22.789] [controller_server] [ERROR] Path tracking error exceeds tolerance: lateral offset 0.42m, heading error 0.31rad — controller cannot converge on planner path
+[2024-11-18 09:14:23.456] [controller_server] [WARN] MPPI optimal trajectory cost 8432.7 — trajectory quality degraded, all sampled trajectories have high cost
+
+[2024-11-18 09:14:25.123] [sensor_driver] [WARN] Laser scan frame 891: 1 point at max range — possible multipath reflection
+
+[2024-11-18 09:14:27.890] [navigation_test] [ERROR] Goal 2/10 FAILED: exceeded maximum path length tolerance
+[2024-11-18 09:14:28.012] [navigation_test] [INFO] Test sequence aborted after 2 consecutive failures
+[2024-11-18 09:14:28.234] [navigation_test] [INFO] === Navigation test summary: 0/2 goals reached, 8 goals skipped ===

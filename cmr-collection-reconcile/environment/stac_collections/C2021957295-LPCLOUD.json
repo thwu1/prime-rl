@@ -1,0 +1,44 @@
+{
+  "type": "Collection",
+  "id": "C2021957295-LPCLOUD",
+  "stac_version": "1.0.0",
+  "title": "HLS Sentinel-2 MSI Surface Reflectance Daily Global 30m v2.0",
+  "description": "HLSS30 data collection from LPCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2015-11-28T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "LPCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "sentinel-2a",
+      "sentinel-2b"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

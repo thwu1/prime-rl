@@ -1,0 +1,15 @@
+<http://seed.kg/entity/m1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://seed.kg/entity/m1> <http://www.w3.org/2000/01/rdf-schema#label> "The Godfather" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/director> <http://seed.kg/entity/p1> .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/production> <http://seed.kg/entity/c1> .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/genre> "Crime" .
+<http://seed.kg/entity/m1> <http://kg.org/ontology/genre> "Drama" .
+<http://seed.kg/entity/m2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Film> .
+<http://seed.kg/entity/m2> <http://www.w3.org/2000/01/rdf-schema#label> "Pulp Fiction" .
+<http://seed.kg/entity/m2> <http://kg.org/ontology/director> <http://seed.kg/entity/p2> .
+<http://seed.kg/entity/p1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://seed.kg/entity/p1> <http://www.w3.org/2000/01/rdf-schema#label> "Francis Ford Coppola" .
+<http://seed.kg/entity/p2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Person> .
+<http://seed.kg/entity/p2> <http://www.w3.org/2000/01/rdf-schema#label> "Quentin Tarantino" .
+<http://seed.kg/entity/c1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://kg.org/ontology/Company> .
+<http://seed.kg/entity/c1> <http://www.w3.org/2000/01/rdf-schema#label> "Paramount Pictures" .

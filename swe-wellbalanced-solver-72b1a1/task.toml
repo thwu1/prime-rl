@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Multi-layer debugging across C, Make, ctypes FFI, Python numerics, and HDF5 I/O. The solver pipeline has interleaved defects: the Makefile fails to produce a position-independent shared library with the correct name, the C HLL Riemann solver computes incorrect wave speed bounds, the Python ctypes binding declares a wrong argument type causing ABI-level precision corruption, the finite-volume scheme lacks hydrostatic reconstruction breaking well-balancedness, a boundary condition handler is missing, the wet/dry threshold is orders of magnitude too large, and the HDF5 writer uses wrong dataset names. Requires expertise in computational fluid dynamics, C toolchain debugging, foreign function interfaces, and scientific data formats."""
+solution_explanation = """Fix the Makefile by adding -fPIC to CFLAGS, -lm to LDFLAGS, and renaming the target from flux_kernels.so to libflux.so. Fix the C code by changing fmin to fmax for the right wave speed s_R in the HLL solver. Fix Python ctypes argtypes by replacing c_float with c_double for the gravity parameter. Lower the wet/dry threshold H_DRY from 1e-2 to 1e-6. Implement hydrostatic reconstruction in the Godunov step with pressure source term corrections for well-balancedness. Add the missing imposed_height boundary condition handler. Fix HDF5 dataset names from 'depth'/'velocity' to 'h'/'u'. Recompile and run all five scenarios."""
+verification_explanation = """Tests verify four layers: (1) C library build — file existence, symbol export, dam-break and symmetric flux correctness; (2) HDF5 output — file creation, dataset names/types, array lengths, data consistency with return values; (3) physics — all five scenarios against exact analytic solutions (Ritter, Stoker, energy-conserving subcritical, transcritical with conjugate depth shock) with L2/L-inf tolerances; (4) interface — required keys, numpy types, non-negative depth, parameter parsing, CLI JSON output."""
+category = "physics_engineering"
+tags = ["computational-fluid-dynamics", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/swe-wellbalanced-solver-72b1a1"

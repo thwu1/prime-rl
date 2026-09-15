@@ -1,0 +1,5 @@
+model.analytics.int_customer_orders
+model.analytics.stg_customers
+model.analytics.stg_orders
+source.analytics.raw.customers
+source.analytics.raw.orders

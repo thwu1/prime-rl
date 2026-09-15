@@ -1,0 +1,636 @@
+{
+  "system_name": "BigSpender Expense Management Platform",
+  "description": "A distributed web-based expense management system with 28 components deployed across heterogeneous infrastructure nodes. The system handles expense submission, approval workflows, payment processing, fraud detection, reporting, and compliance auditing.",
+  "components": [
+    {
+      "id": "web-gateway",
+      "description": "API gateway and request router",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "public",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "rate-limiter",
+      "description": "Request rate limiting and throttling",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "public",
+      "processing_time_ms": 0.5
+    },
+    {
+      "id": "session-manager",
+      "description": "User session management and token handling",
+      "cpu_units": 2,
+      "memory_mb": 4096,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "auth-service",
+      "description": "Authentication and identity verification",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "restricted",
+      "processing_time_ms": 3.0
+    },
+    {
+      "id": "user-service",
+      "description": "User profile and role management",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "internal",
+      "processing_time_ms": 2.0
+    },
+    {
+      "id": "expense-service",
+      "description": "Core expense CRUD and business logic",
+      "cpu_units": 4,
+      "memory_mb": 4096,
+      "security_classification": "internal",
+      "processing_time_ms": 2.0
+    },
+    {
+      "id": "approval-workflow",
+      "description": "Multi-level expense approval orchestration",
+      "cpu_units": 3,
+      "memory_mb": 3072,
+      "security_classification": "internal",
+      "processing_time_ms": 5.0
+    },
+    {
+      "id": "notification-service",
+      "description": "Email and push notification dispatch",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "report-generator",
+      "description": "Expense report compilation and aggregation",
+      "cpu_units": 4,
+      "memory_mb": 8192,
+      "security_classification": "internal",
+      "processing_time_ms": 5.0
+    },
+    {
+      "id": "pdf-renderer",
+      "description": "PDF document generation from report data",
+      "cpu_units": 3,
+      "memory_mb": 4096,
+      "security_classification": "internal",
+      "processing_time_ms": 10.0
+    },
+    {
+      "id": "audit-logger",
+      "description": "Immutable audit trail recording",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "restricted",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "policy-engine",
+      "description": "Expense policy rule evaluation",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "restricted",
+      "processing_time_ms": 3.0
+    },
+    {
+      "id": "budget-tracker",
+      "description": "Department budget tracking and enforcement",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "internal",
+      "processing_time_ms": 2.0
+    },
+    {
+      "id": "analytics-engine",
+      "description": "Spending pattern analysis and insights",
+      "cpu_units": 4,
+      "memory_mb": 8192,
+      "security_classification": "internal",
+      "processing_time_ms": 5.0
+    },
+    {
+      "id": "data-warehouse-etl",
+      "description": "ETL pipeline for analytics data warehouse",
+      "cpu_units": 6,
+      "memory_mb": 16384,
+      "security_classification": "internal",
+      "processing_time_ms": 15.0
+    },
+    {
+      "id": "cache-layer",
+      "description": "Distributed caching for hot data",
+      "cpu_units": 2,
+      "memory_mb": 8192,
+      "security_classification": "internal",
+      "processing_time_ms": 0.5
+    },
+    {
+      "id": "search-indexer",
+      "description": "Full-text search indexing and query",
+      "cpu_units": 3,
+      "memory_mb": 4096,
+      "security_classification": "internal",
+      "processing_time_ms": 3.0
+    },
+    {
+      "id": "file-storage-proxy",
+      "description": "Receipt and attachment storage abstraction",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "encryption-service",
+      "description": "Data encryption and key management",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "restricted",
+      "processing_time_ms": 2.0
+    },
+    {
+      "id": "config-service",
+      "description": "Centralized configuration management",
+      "cpu_units": 1,
+      "memory_mb": 512,
+      "security_classification": "internal",
+      "processing_time_ms": 0.5
+    },
+    {
+      "id": "health-monitor",
+      "description": "Component health checking and alerting",
+      "cpu_units": 1,
+      "memory_mb": 512,
+      "security_classification": "internal",
+      "processing_time_ms": 0.5
+    },
+    {
+      "id": "metrics-collector",
+      "description": "System metrics aggregation",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "internal",
+      "processing_time_ms": 0.5
+    },
+    {
+      "id": "log-aggregator",
+      "description": "Centralized log collection and forwarding",
+      "cpu_units": 2,
+      "memory_mb": 4096,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "fraud-detector",
+      "description": "ML-based expense fraud detection",
+      "cpu_units": 3,
+      "memory_mb": 4096,
+      "security_classification": "restricted",
+      "processing_time_ms": 5.0
+    },
+    {
+      "id": "compliance-checker",
+      "description": "Regulatory compliance verification",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "restricted",
+      "processing_time_ms": 3.0
+    },
+    {
+      "id": "payment-gateway-adapter",
+      "description": "External payment provider integration",
+      "cpu_units": 2,
+      "memory_mb": 2048,
+      "security_classification": "restricted",
+      "processing_time_ms": 2.0
+    },
+    {
+      "id": "currency-converter",
+      "description": "Multi-currency exchange rate conversion",
+      "cpu_units": 1,
+      "memory_mb": 512,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    },
+    {
+      "id": "tax-calculator",
+      "description": "Tax computation for expense reimbursements",
+      "cpu_units": 1,
+      "memory_mb": 1024,
+      "security_classification": "internal",
+      "processing_time_ms": 1.0
+    }
+  ],
+  "dependencies": [
+    {
+      "source": "web-gateway",
+      "target": "rate-limiter",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 5,
+      "encrypted": false
+    },
+    {
+      "source": "web-gateway",
+      "target": "session-manager",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": false
+    },
+    {
+      "source": "rate-limiter",
+      "target": "auth-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "rate-limiter",
+      "target": "expense-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 20,
+      "encrypted": false
+    },
+    {
+      "source": "session-manager",
+      "target": "auth-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "auth-service",
+      "target": "user-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 15,
+      "encrypted": true
+    },
+    {
+      "source": "auth-service",
+      "target": "encryption-service",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 5,
+      "encrypted": true
+    },
+    {
+      "source": "expense-service",
+      "target": "budget-tracker",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 15,
+      "encrypted": false
+    },
+    {
+      "source": "expense-service",
+      "target": "policy-engine",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "expense-service",
+      "target": "cache-layer",
+      "protocol": "Redis",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 3,
+      "encrypted": false
+    },
+    {
+      "source": "expense-service",
+      "target": "approval-workflow",
+      "protocol": "async",
+      "min_bandwidth_mbps": 10,
+      "max_latency_ms": 50,
+      "encrypted": false
+    },
+    {
+      "source": "approval-workflow",
+      "target": "notification-service",
+      "protocol": "async",
+      "min_bandwidth_mbps": 10,
+      "max_latency_ms": 100,
+      "encrypted": false
+    },
+    {
+      "source": "approval-workflow",
+      "target": "audit-logger",
+      "protocol": "async",
+      "min_bandwidth_mbps": 10,
+      "max_latency_ms": 50,
+      "encrypted": true
+    },
+    {
+      "source": "expense-service",
+      "target": "payment-gateway-adapter",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 20,
+      "encrypted": true
+    },
+    {
+      "source": "payment-gateway-adapter",
+      "target": "currency-converter",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "payment-gateway-adapter",
+      "target": "tax-calculator",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "payment-gateway-adapter",
+      "target": "fraud-detector",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 15,
+      "encrypted": true
+    },
+    {
+      "source": "fraud-detector",
+      "target": "compliance-checker",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "report-generator",
+      "target": "expense-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 30,
+      "encrypted": false
+    },
+    {
+      "source": "report-generator",
+      "target": "pdf-renderer",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 200,
+      "max_latency_ms": 20,
+      "encrypted": false
+    },
+    {
+      "source": "report-generator",
+      "target": "analytics-engine",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 30,
+      "encrypted": false
+    },
+    {
+      "source": "analytics-engine",
+      "target": "data-warehouse-etl",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 50,
+      "encrypted": false
+    },
+    {
+      "source": "search-indexer",
+      "target": "expense-service",
+      "protocol": "REST",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 30,
+      "encrypted": false
+    },
+    {
+      "source": "search-indexer",
+      "target": "cache-layer",
+      "protocol": "Redis",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 5,
+      "encrypted": false
+    },
+    {
+      "source": "file-storage-proxy",
+      "target": "encryption-service",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 100,
+      "max_latency_ms": 10,
+      "encrypted": true
+    },
+    {
+      "source": "config-service",
+      "target": "cache-layer",
+      "protocol": "Redis",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 5,
+      "encrypted": false
+    },
+    {
+      "source": "health-monitor",
+      "target": "metrics-collector",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 10,
+      "max_latency_ms": 20,
+      "encrypted": false
+    },
+    {
+      "source": "metrics-collector",
+      "target": "log-aggregator",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 30,
+      "encrypted": false
+    },
+    {
+      "source": "audit-logger",
+      "target": "log-aggregator",
+      "protocol": "async",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 50,
+      "encrypted": true
+    },
+    {
+      "source": "audit-logger",
+      "target": "encryption-service",
+      "protocol": "gRPC",
+      "min_bandwidth_mbps": 50,
+      "max_latency_ms": 10,
+      "encrypted": true
+    }
+  ],
+  "deployment_nodes": [
+    {
+      "id": "node-web-1",
+      "description": "Public-facing web tier, AZ-A",
+      "availability_zone": "AZ-A",
+      "security_zone": "public",
+      "cpu_capacity": 16,
+      "memory_capacity_mb": 32768,
+      "cost_per_hour": 2.50
+    },
+    {
+      "id": "node-web-2",
+      "description": "Public-facing web tier, AZ-B",
+      "availability_zone": "AZ-B",
+      "security_zone": "public",
+      "cpu_capacity": 16,
+      "memory_capacity_mb": 32768,
+      "cost_per_hour": 2.50
+    },
+    {
+      "id": "node-app-1",
+      "description": "Application tier, AZ-A",
+      "availability_zone": "AZ-A",
+      "security_zone": "internal",
+      "cpu_capacity": 32,
+      "memory_capacity_mb": 65536,
+      "cost_per_hour": 4.00
+    },
+    {
+      "id": "node-app-2",
+      "description": "Application tier, AZ-B",
+      "availability_zone": "AZ-B",
+      "security_zone": "internal",
+      "cpu_capacity": 32,
+      "memory_capacity_mb": 65536,
+      "cost_per_hour": 4.00
+    },
+    {
+      "id": "node-data-1",
+      "description": "Secure data tier, AZ-A",
+      "availability_zone": "AZ-A",
+      "security_zone": "restricted",
+      "cpu_capacity": 24,
+      "memory_capacity_mb": 131072,
+      "cost_per_hour": 6.00
+    },
+    {
+      "id": "node-data-2",
+      "description": "Secure data tier, AZ-B",
+      "availability_zone": "AZ-B",
+      "security_zone": "restricted",
+      "cpu_capacity": 24,
+      "memory_capacity_mb": 131072,
+      "cost_per_hour": 6.00
+    },
+    {
+      "id": "node-secure-1",
+      "description": "High-security processing, AZ-A",
+      "availability_zone": "AZ-A",
+      "security_zone": "restricted",
+      "cpu_capacity": 16,
+      "memory_capacity_mb": 32768,
+      "cost_per_hour": 5.00
+    },
+    {
+      "id": "node-monitor-1",
+      "description": "Monitoring and observability, AZ-A",
+      "availability_zone": "AZ-A",
+      "security_zone": "internal",
+      "cpu_capacity": 8,
+      "memory_capacity_mb": 16384,
+      "cost_per_hour": 1.50
+    }
+  ],
+  "quality_attributes": {
+    "latency_scenarios": [
+      {
+        "name": "User authentication flow",
+        "description": "End-to-end latency for user login through identity verification",
+        "path": ["web-gateway", "rate-limiter", "auth-service", "user-service"],
+        "max_end_to_end_ms": 25.0
+      },
+      {
+        "name": "Expense submission",
+        "description": "End-to-end latency for submitting an expense with policy check",
+        "path": ["web-gateway", "rate-limiter", "expense-service", "policy-engine"],
+        "max_end_to_end_ms": 25.0
+      },
+      {
+        "name": "Payment processing",
+        "description": "Latency from expense approval through payment and fraud check",
+        "path": ["expense-service", "payment-gateway-adapter", "fraud-detector", "compliance-checker"],
+        "max_end_to_end_ms": 30.0
+      },
+      {
+        "name": "Report retrieval",
+        "description": "Latency for generating a cached expense report",
+        "path": ["report-generator", "expense-service", "cache-layer"],
+        "max_end_to_end_ms": 20.0
+      },
+      {
+        "name": "End-to-end fraud check",
+        "description": "Full path from gateway to fraud detection completion",
+        "path": ["web-gateway", "rate-limiter", "expense-service", "payment-gateway-adapter", "fraud-detector"],
+        "max_end_to_end_ms": 35.0
+      }
+    ],
+    "az_distribution_requirements": [
+      {
+        "description": "Authentication components must span availability zones for fault tolerance",
+        "component_group": ["auth-service", "session-manager", "user-service"],
+        "min_zones": 2
+      },
+      {
+        "description": "Core business workflow must span availability zones",
+        "component_group": ["expense-service", "approval-workflow", "budget-tracker"],
+        "min_zones": 2
+      },
+      {
+        "description": "Payment and fraud components must span availability zones",
+        "component_group": ["fraud-detector", "compliance-checker", "payment-gateway-adapter"],
+        "min_zones": 2
+      }
+    ],
+    "affinity_rules": [
+      {
+        "description": "Cache must be co-located with primary consumer for sub-millisecond access",
+        "components": ["cache-layer", "expense-service"],
+        "type": "same_node"
+      },
+      {
+        "description": "Report generator and PDF renderer exchange large payloads",
+        "components": ["report-generator", "pdf-renderer"],
+        "type": "same_node"
+      },
+      {
+        "description": "Health monitor and metrics collector share memory-mapped data",
+        "components": ["health-monitor", "metrics-collector"],
+        "type": "same_node"
+      }
+    ],
+    "anti_affinity_rules": [
+      {
+        "description": "Auth and session services must be isolated for blast radius containment",
+        "components": ["auth-service", "session-manager"],
+        "type": "different_node"
+      },
+      {
+        "description": "Fraud and compliance must be on separate nodes for regulatory independence",
+        "components": ["fraud-detector", "compliance-checker"],
+        "type": "different_node"
+      }
+    ]
+  },
+  "latency_model": {
+    "same_node_ms": 0.5,
+    "same_az_different_node_ms": 2.0,
+    "cross_az_ms": 8.0,
+    "description": "End-to-end latency for a path equals the sum of each component's processing_time_ms plus the sum of network hop latencies between consecutive components. Network hop latency depends on the relative placement of the two components."
+  },
+  "security_zone_hierarchy": {
+    "description": "A component with security_classification X can only be placed on a node whose security_zone is at least X in the hierarchy. For example, a 'restricted' component requires a 'restricted' node; an 'internal' component can go on 'internal' or 'restricted' nodes.",
+    "ordering": ["public", "internal", "restricted"]
+  }
+}

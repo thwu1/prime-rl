@@ -1,0 +1,7 @@
+A validated spectral eigenvalue computation is specified in `/app/spec.json`. Three secular equations arise from boundary value problems for the Laplacian on cylindrical annuli: two Bessel cross-product equations of orders m=0 and m=1 for Dirichlet conditions on the annulus r ∈ [1,3], and a Robin-Dirichlet eigenvalue equation coupling Bessel function values and derivatives at mismatched arguments for the annulus r ∈ [1,2] with Biot number h=5.
+
+Compute all specified zeros of each secular equation to at least 60 correct significant digits. The Robin-Dirichlet secular equation is derived from expanding the radial eigenfunction as A·J₀(λr) + B·Y₀(λr) and applying the Robin condition at the inner boundary and Dirichlet at the outer — you must evaluate this composite expression correctly despite the coupling of Bessel functions at different arguments (λ and 2λ), where the standard Wronskian identity does not simplify.
+
+Then compute the spectral zeta function Z₄ = Σ dₘ/λₘₙ⁴ with angular-mode multiplicities (1 for m=0 Dirichlet, 2 for m=1 Dirichlet, 1 for Robin-Dirichlet modes) to 50 significant digits. Finally, compute the McMahon asymptotic convergence products Pₙ = n²·|λₙ − nπ/2|/λₙ for the m=0 annular eigenvalues; these quantify the deviation from the leading-order asymptotic spacing and should converge as n→∞.
+
+Write results to `/app/results.json` in the format specified in `/app/spec.json`.

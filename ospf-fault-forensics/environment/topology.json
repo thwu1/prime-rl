@@ -1,0 +1,123 @@
+{
+  "description": "Enterprise OSPF network with core-distribution architecture. All routers run FRR with OSPF in area 0. Three independent faults have been injected causing complete inter-site connectivity failure.",
+  "routers": {
+    "core_rtr": {
+      "role": "Core router connecting all distribution routers and server farm",
+      "router_id": "1.1.1.1",
+      "interfaces": {
+        "eth0": {
+          "address": "172.16.0.0/31",
+          "subnet": "172.16.0.0/31",
+          "type": "transit",
+          "peer": "dist_rtr1",
+          "peer_interface": "eth0"
+        },
+        "eth1": {
+          "address": "172.16.0.2/31",
+          "subnet": "172.16.0.2/31",
+          "type": "transit",
+          "peer": "dist_rtr2",
+          "peer_interface": "eth0"
+        },
+        "eth2": {
+          "address": "172.16.0.4/31",
+          "subnet": "172.16.0.4/31",
+          "type": "transit",
+          "peer": "dist_rtr3",
+          "peer_interface": "eth0"
+        },
+        "eth3": {
+          "address": "10.100.0.1/24",
+          "subnet": "10.100.0.0/24",
+          "type": "server",
+          "peer": "server"
+        },
+        "lo": {
+          "address": "1.1.1.1/32",
+          "subnet": "1.1.1.1/32",
+          "type": "loopback"
+        }
+      }
+    },
+    "dist_rtr1": {
+      "role": "Distribution router serving host1",
+      "router_id": "2.2.2.1",
+      "interfaces": {
+        "eth0": {
+          "address": "172.16.0.1/31",
+          "subnet": "172.16.0.0/31",
+          "type": "transit",
+          "peer": "core_rtr",
+          "peer_interface": "eth0"
+        },
+        "eth1": {
+          "address": "10.1.0.1/24",
+          "subnet": "10.1.0.0/24",
+          "type": "host",
+          "peer": "host1"
+        },
+        "lo": {
+          "address": "2.2.2.1/32",
+          "subnet": "2.2.2.1/32",
+          "type": "loopback"
+        }
+      }
+    },
+    "dist_rtr2": {
+      "role": "Distribution router serving host2",
+      "router_id": "2.2.2.2",
+      "interfaces": {
+        "eth0": {
+          "address": "172.16.0.3/31",
+          "subnet": "172.16.0.2/31",
+          "type": "transit",
+          "peer": "core_rtr",
+          "peer_interface": "eth1"
+        },
+        "eth1": {
+          "address": "10.2.0.1/24",
+          "subnet": "10.2.0.0/24",
+          "type": "host",
+          "peer": "host2"
+        },
+        "lo": {
+          "address": "2.2.2.2/32",
+          "subnet": "2.2.2.2/32",
+          "type": "loopback"
+        }
+      }
+    },
+    "dist_rtr3": {
+      "role": "Distribution router serving host3",
+      "router_id": "2.2.2.3",
+      "interfaces": {
+        "eth0": {
+          "address": "172.16.0.5/31",
+          "subnet": "172.16.0.4/31",
+          "type": "transit",
+          "peer": "core_rtr",
+          "peer_interface": "eth2"
+        },
+        "eth1": {
+          "address": "10.3.0.1/24",
+          "subnet": "10.3.0.0/24",
+          "type": "host",
+          "peer": "host3"
+        },
+        "lo": {
+          "address": "2.2.2.3/32",
+          "subnet": "2.2.2.3/32",
+          "type": "loopback"
+        }
+      }
+    }
+  },
+  "hosts": {
+    "host1": {"ip": "10.1.0.2/24", "gateway": "10.1.0.1"},
+    "host2": {"ip": "10.2.0.2/24", "gateway": "10.2.0.1"},
+    "host3": {"ip": "10.3.0.2/24", "gateway": "10.3.0.1"},
+    "server": {"ip": "10.100.0.2/24", "gateway": "10.100.0.1", "services": ["HTTP/80"]}
+  },
+  "server_subnet": "10.100.0.0/24",
+  "host_subnets": ["10.1.0.0/24", "10.2.0.0/24", "10.3.0.0/24"]
+}

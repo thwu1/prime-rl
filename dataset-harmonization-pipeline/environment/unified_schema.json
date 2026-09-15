@@ -1,0 +1,37 @@
+{
+    "description": "Mapping from source labels to unified categories. Note: multiple source labels may map to the same unified category.",
+    "unified_categories": ["vehicle_small", "vehicle_large", "pedestrian", "cyclist", "traffic_signal"],
+    "source_mappings": {
+        "team_alpha": {
+            "format": "coco_instances",
+            "label_map": {
+                "car": "vehicle_small",
+                "truck": "vehicle_large",
+                "bus": "vehicle_large",
+                "person": "pedestrian",
+                "cyclist": "cyclist",
+                "traffic_light": "traffic_signal",
+                "stop_sign": "traffic_signal"
+            }
+        },
+        "team_beta": {
+            "format": "voc",
+            "label_map": {
+                "vehicle": "vehicle_small",
+                "large_vehicle": "vehicle_large",
+                "walker": "pedestrian",
+                "rider": "cyclist"
+            }
+        },
+        "team_gamma": {
+            "format": "yolo",
+            "label_map": {
+                "auto": "vehicle_small",
+                "truck": "vehicle_large",
+                "person": "pedestrian",
+                "bike_rider": "cyclist",
+                "signal": "traffic_signal"
+            }
+        }
+    }
+}

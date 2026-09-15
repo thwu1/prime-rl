@@ -1,0 +1,6 @@
+{
+  "description": "Parameter values for the parametric oscillatory integral I(a)",
+  "integral_form": "I(a) = integral_0^inf cos(a * t * exp(t)) dt",
+  "parameter_name": "a",
+  "values": [1, 2, 3, 4, 5]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level synthesis of RTOS scheduling theory, graph algorithms, and microkernel fault-isolation semantics without algorithmic hand-holding. The solver must independently recognize that PIP effective priority computation requires identifying transitive callers and determining the most aggressive priority elevation — demanding understanding of how synchronous blocking propagates through IPC chains, not just the textbook PIP definition. Fault cascade analysis requires modeling how Hubris's crash-restart isolation interacts with transitive IPC blocking: the solver must determine which direction in the dependency graph to traverse (callers are disrupted, not callees) and correctly distinguish the danger score metric (counting only higher-priority victims) from the cascade size. The suggested priority reassignment demands recognizing that circular IPC dependencies create mutual constraints that no simple topological ordering can resolve — the solver must independently identify that cycle members need identical priorities and design an assignment that satisfies the global inversion-freedom constraint. The combination of six interdependent analyses (inversions, cycles, blocking depth, PIP, fault cascades, priority reassignment) requires holistic reasoning about how synchronous IPC, priority scheduling, fault isolation, and graph topology interact in a production RTOS — each analysis component draws on overlapping graph structure but serves a distinct safety concern."""
+solution_explanation = """Parse the Hubris app.toml with tomllib to extract tasks and task-slots, resolving aliased slots ({alias = 'target'} dicts). Build a forward IPC adjacency list and a reverse adjacency list. For direct inversions: iterate all edges where sender_priority < target_priority. For cycles: Tarjan's SCC algorithm to find strongly connected components of size >= 2. For max_call_depth: DFS with backtracking for longest simple path. For PIP effective priorities: BFS from each task in the reverse IPC graph to find all transitive callers, then take min(task_priority, min(caller_priorities)). For fault cascade: BFS from each task in the reverse graph (excluding the faulting task itself) to find all transitively disrupted tasks; danger_score = count of disrupted tasks with priority number strictly less than the faulting task's. For suggested priorities: contract SCCs, build condensation DAG, compute longest path from each condensed node to jefe (the sink), assign as priority; cycled tasks share priority; idle gets max+1. Generate DOT graph with red inversion edges, render SVG via graphviz dot command."""
+verification_explanation = """Tests validate all six analysis dimensions: (1) exactly 7 direct inversions with specific sender/target/priority values, (2) exactly 2 SCCs (gimlet_seq/power and control_plane_agent/dump_agent), (3) exact max_call_depth values for all 15 tasks (0 to 6), (4) exact PIP effective priorities for all 15 tasks — verifying transitive inheritance boosting (e.g., thermal from priority 6 to effective 3 via monitor's calling chain, power from 5 to 3), (5) exact fault cascade sizes and danger scores for all 15 tasks — verifying cascade propagation and correct identification of high-priority victims (e.g., sensor fault endangers gimlet_seq and monitor at priority 3), (6) suggested priorities produce zero inversions when applied and cycle partners share priorities. Also verifies DOT graph structure (all 15 tasks, 33+ edges) and SVG rendering."""
+category = "systems_programming"
+tags = ["rtos-scheduling", "graph-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hubris-config-analyzer"

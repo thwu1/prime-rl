@@ -1,0 +1,161 @@
+{
+  "description": "Required output format for the radiotherapy clinical analytics engine. All fields are required unless noted.",
+  "type": "object",
+  "properties": {
+    "n_patients": {
+      "type": "integer",
+      "description": "Total number of patient records in the dataset"
+    },
+    "radiobiology": {
+      "type": "object",
+      "properties": {
+        "bed_tumor_mean": {
+          "type": "number",
+          "description": "Mean BED for tumor (alpha/beta=10 Gy) across patients with valid dose data, in Gy10"
+        },
+        "bed_tumor_std": {
+          "type": "number",
+          "description": "Sample standard deviation of BED for tumor, in Gy10"
+        },
+        "eqd2_tumor_mean": {
+          "type": "number",
+          "description": "Mean EQD2 for tumor (alpha/beta=10 Gy), in Gy"
+        },
+        "eqd2_late_mean": {
+          "type": "number",
+          "description": "Mean EQD2 for late-responding tissue (alpha/beta=3 Gy), in Gy"
+        },
+        "n_inconsistent_dose": {
+          "type": "integer",
+          "description": "Count of patients where |total_dose - dose_per_fraction * n_fractions| > 1 Gy"
+        },
+        "n_extended_treatment": {
+          "type": "integer",
+          "description": "Count of patients with overall treatment time > 50 days"
+        }
+      }
+    },
+    "overall_survival": {
+      "type": "object",
+      "properties": {
+        "km_12m": {
+          "type": "number",
+          "description": "KM survival probability at 12 months"
+        },
+        "km_24m": {
+          "type": "number",
+          "description": "KM survival probability at 24 months"
+        },
+        "km_36m": {
+          "type": "number",
+          "description": "KM survival probability at 36 months"
+        },
+        "km_60m": {
+          "type": "number",
+          "description": "KM survival probability at 60 months"
+        },
+        "median_os_months": {
+          "type": ["number", "null"],
+          "description": "Median overall survival in months, or null if not reached"
+        },
+        "ci_95_lower_12m": {
+          "type": "number",
+          "description": "Lower bound of 95% CI for S(12) using Greenwood formula"
+        },
+        "ci_95_upper_12m": {
+          "type": "number",
+          "description": "Upper bound of 95% CI for S(12) using Greenwood formula"
+        }
+      }
+    },
+    "stage_stratified": {
+      "type": "object",
+      "description": "KM analysis stratified by disease stage",
+      "properties": {
+        "III": {
+          "type": "object",
+          "properties": {
+            "km_24m": {"type": "number"},
+            "n_patients": {"type": "integer"}
+          }
+        },
+        "IVA": {
+          "type": "object",
+          "properties": {
+            "km_24m": {"type": "number"},
+            "n_patients": {"type": "integer"}
+          }
+        },
+        "IVB": {
+          "type": "object",
+          "properties": {
+            "km_24m": {"type": "number"},
+            "n_patients": {"type": "integer"}
+          }
+        }
+      }
+    },
+    "log_rank": {
+      "type": "object",
+      "properties": {
+        "chi_square": {
+          "type": "number",
+          "description": "Log-rank chi-square statistic comparing Stage III vs Stage IV (IVA+IVB), 1 degree of freedom"
+        },
+        "p_value": {
+          "type": "number",
+          "description": "p-value from chi-square distribution with 1 degree of freedom"
+        }
+      }
+    },
+    "sarcopenia": {
+      "type": "object",
+      "properties": {
+        "pre_rt_depleted_count": {
+          "type": "integer",
+          "description": "Number of patients with pre-RT skeletal muscle status 'SM depleted'"
+        },
+        "post_rt_depleted_count": {
+          "type": "integer",
+          "description": "Number of patients with post-RT skeletal muscle status 'SM depleted'"
+        },
+        "pre_rt_prevalence": {
+          "type": "number",
+          "description": "Fraction of patients with pre-RT depletion (count / patients with valid status)"
+        },
+        "post_rt_prevalence": {
+          "type": "number",
+          "description": "Fraction of patients with post-RT depletion (count / patients with valid status)"
+        },
+        "mean_smi_pre_rt": {
+          "type": "number",
+          "description": "Mean pre-RT L3 skeletal muscle index in cm2/m2"
+        },
+        "mean_smi_post_rt": {
+          "type": "number",
+          "description": "Mean post-RT L3 skeletal muscle index in cm2/m2"
+        },
+        "mean_smi_change": {
+          "type": "number",
+          "description": "Mean SMI change (post - pre) in cm2/m2"
+        },
+        "transition_dd": {
+          "type": "integer",
+          "description": "Count: depleted pre-RT -> depleted post-RT"
+        },
+        "transition_dn": {
+          "type": "integer",
+          "description": "Count: depleted pre-RT -> not depleted post-RT"
+        },
+        "transition_nd": {
+          "type": "integer",
+          "description": "Count: not depleted pre-RT -> depleted post-RT"
+        },
+        "transition_nn": {
+          "type": "integer",
+          "description": "Count: not depleted pre-RT -> not depleted post-RT"
+        }
+      }
+    }
+  }
+}

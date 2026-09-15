@@ -1,0 +1,46 @@
+{
+  "description": "Compute Gauss quadrature rules for nonclassical weight functions and evaluate integrals.",
+  "weight_functions": {
+    "w1": {
+      "formula": "w(x) = -ln(x)",
+      "interval": "(0, 1)",
+      "moments": "mu_k = 1 / (k+1)^2  for k = 0, 1, 2, ...",
+      "moment_derivation": "Substitution t = -ln(x) yields mu_k = integral_0^inf t * exp(-(k+1)*t) dt = Gamma(2)/(k+1)^2 = 1/(k+1)^2",
+      "integrand": "f(x) = sin(pi*x) / (1 + x)",
+      "integral": "I = integral_0^1 (-ln(x)) * sin(pi*x) / (1 + x) dx"
+    },
+    "w2": {
+      "formula": "w(x) = x^(-1/4) * (1 - x)^(1/3)",
+      "interval": "(0, 1)",
+      "moments": "mu_k = B(k + 3/4, 4/3) = Gamma(k + 3/4) * Gamma(4/3) / Gamma(k + 25/12)",
+      "moment_derivation": "Direct evaluation of the Beta integral with shifted exponents: integral_0^1 x^(k - 1/4) * (1-x)^(1/3) dx",
+      "integrand": "f(x) = exp(x) * cos(pi*x)",
+      "integral": "I = integral_0^1 x^(-1/4) * (1-x)^(1/3) * exp(x) * cos(pi*x) dx"
+    },
+    "w3": {
+      "formula": "w(x) = exp(-x^4)",
+      "interval": "(0, infinity)",
+      "moments": "mu_k = Gamma((k+1)/4) / 4",
+      "moment_derivation": "Substitution t = x^4 yields mu_k = (1/4) * integral_0^inf t^((k-3)/4) * exp(-t) dt = Gamma((k+1)/4) / 4",
+      "integrand": "f(x) = besselj(0, x)  [Bessel function of the first kind, order 0]",
+      "integral": "I = integral_0^inf exp(-x^4) * J_0(x) dx"
+    }
+  },
+  "quadrature_orders": [4, 8, 16, 32],
+  "output_precision_significant_digits": 30,
+  "output_file": "/app/results.json",
+  "output_schema": {
+    "quadrature_rules": {
+      "description": "For each weight function key (w1, w2, w3) and each quadrature order N (as a string key: '4', '8', '16', '32'), provide an object with 'nodes' and 'weights' — both arrays of decimal strings with at least 30 significant digits, sorted in ascending order of nodes.",
+      "structure": "{w_name: {N_str: {nodes: [str, ...], weights: [str, ...]}}}"
+    },
+    "integrals": {
+      "description": "For each weight function key and each N, the quadrature approximation sum(w_i * f(x_i)) as a decimal string.",
+      "structure": "{w_name: {N_str: str}}"
+    },
+    "moment_check": {
+      "description": "For each weight function key, the maximum relative error max_{k=0..2N-1} |sum(w_i * x_i^k) - mu_k| / |mu_k| for the N=32 rule, as a decimal string in scientific notation.",
+      "structure": "{w_name: str}"
+    }
+  }
+}

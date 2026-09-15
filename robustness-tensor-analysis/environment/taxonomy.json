@@ -1,0 +1,21 @@
+{
+    "categories": {
+        "visual": ["v_aug", "v_view", "v_sc", "v_light"],
+        "semantic": ["s_prop", "s_lang", "s_mo", "s_aff", "s_int"],
+        "behavioral": ["b_hobj"]
+    },
+    "compound_categories": {
+        "semantic_behavioral": {
+            "perturbations": ["sb_noun", "sb_vrb"],
+            "components": ["semantic", "behavioral"]
+        },
+        "visual_behavioral": {
+            "perturbations": ["vb_pose", "vb_mobj"],
+            "components": ["visual", "behavioral"]
+        },
+        "visual_semantic_behavioral": {
+            "perturbations": ["vsb_nobj"],
+            "components": ["visual", "semantic", "behavioral"]
+        }
+    }
+}

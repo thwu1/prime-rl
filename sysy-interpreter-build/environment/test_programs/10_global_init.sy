@@ -1,0 +1,21 @@
+int g1;
+int g2 = 10;
+int g_arr[5] = {1, 2, 3};
+
+int main() {
+    putint(g1);
+    putch(32);
+    putint(g2);
+    putch(32);
+    putint(g_arr[0]);
+    putch(32);
+    putint(g_arr[1]);
+    putch(32);
+    putint(g_arr[2]);
+    putch(32);
+    putint(g_arr[3]);
+    putch(32);
+    putint(g_arr[4]);
+    putch(10);
+    return 0;
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a complete interpreter for SysY requires proficient knowledge of compiler construction: lexical analysis (with hex/octal literal support), recursive-descent parsing with correct operator precedence across 7 levels, scope chain management for variable shadowing across nested blocks, short-circuit boolean evaluation with side-effect correctness, multi-dimensional array layout and partial initialization, constant expression evaluation for array dimensions, and control flow signal propagation for break/continue in nested loops. The combination of these features — each with subtle semantic edge cases — makes this task infeasible without deep understanding of language implementation techniques."""
+solution_explanation = """The solution implements a tree-walk interpreter in Python (~550 lines): a regex-based lexer producing tokens for keywords, identifiers, integer literals (dec/oct/hex), operators, and delimiters; a recursive-descent parser following the SysY EBNF grammar that builds an AST; and an evaluator that walks the AST with a scope-chain environment, exception-based break/continue/return signaling, a flat-indexed Array class for multi-dimensional arrays, and built-in I/O functions (getint, putint, putch) backed by a stdin buffer."""
+verification_explanation = """Tests compile and run 7 SysY programs through the interpreter, comparing stdout and exit code against reference outputs. Each program targets specific language features: basic arithmetic/recursion, nested scoping, short-circuit evaluation with observable side effects, 1D/2D arrays, nested break/continue, stdin I/O with sorting, and advanced features (hex/octal literals, partial initialization, const expressions, operator precedence)."""
+category = "compilers"
+tags = ["interpreter", "language-implementation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-133a3f"

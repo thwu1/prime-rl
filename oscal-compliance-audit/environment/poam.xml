@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan-of-action-and-milestones xmlns="http://csrc.nist.gov/ns/oscal/1.0"
+    uuid="e3f81234-abcd-5678-ef90-aabbccddeeff">
+  <metadata>
+    <title>Acme Corp Cloud Platform Plan of Action and Milestones</title>
+    <last-modified>2025-07-15T14:30:00-04:00</last-modified>
+    <version>1.0.0</version>
+    <oscal-version>1.1.2</oscal-version>
+  </metadata>
+  <import-ssp href="system_ssp.json"/>
+  <system-id identifier-type="https://ietf.org/rfc/rfc4122">ACME-CP-001</system-id>
+
+  <observation uuid="obs-0001-aaaa-bbbb-cccc11112222">
+    <title>Remote Access Enhancement Not Implemented</title>
+    <description>AC-17(1) remote access monitoring enhancement is not implemented in the system.</description>
+    <prop name="control-id" value="ac-17.1"/>
+    <method>EXAMINE</method>
+    <type>finding</type>
+    <collected>2025-06-01T10:00:00-04:00</collected>
+  </observation>
+
+  <observation uuid="obs-0002-aaaa-bbbb-cccc33334444">
+    <title>Transmission Confidentiality Missing</title>
+    <description>SC-8 protections for data in transit have not been fully implemented across all communication paths.</description>
+    <prop name="control-id" value="sc-8"/>
+    <method>TEST</method>
+    <type>finding</type>
+    <collected>2025-06-01T10:00:00-04:00</collected>
+  </observation>
+
+  <observation uuid="obs-0003-aaaa-bbbb-cccc55556666">
+    <title>Account Management Statement Coverage Gap</title>
+    <description>AC-2 implementation is missing coverage for statement item (d) regarding conditions for group and role membership.</description>
+    <prop name="control-id" value="ac-2"/>
+    <method>EXAMINE</method>
+    <type>finding</type>
+    <collected>2025-06-01T10:00:00-04:00</collected>
+  </observation>
+
+  <observation uuid="obs-0004-aaaa-bbbb-cccc77778888">
+    <title>Audit Event Type Parameter Not Configured</title>
+    <description>AU-2 organization-defined audit event types parameter has not been configured in the SIEM platform.</description>
+    <prop name="control-id" value="au-2"/>
+    <method>TEST</method>
+    <type>finding</type>
+    <collected>2025-06-01T10:00:00-04:00</collected>
+  </observation>
+
+  <observation uuid="obs-0005-aaaa-bbbb-cccc99990000">
+    <title>Cryptographic Protection Not Implemented</title>
+    <description>SC-13 cryptographic protection mechanisms required by the baseline are not implemented.</description>
+    <prop name="control-id" value="sc-13"/>
+    <method>EXAMINE</method>
+    <type>finding</type>
+    <collected>2025-06-01T10:00:00-04:00</collected>
+  </observation>
+
+  <risk uuid="risk-0001-1111-2222-3333aaaabbbb">
+    <title>Remote Access Monitoring Gap</title>
+    <description>Without AC-17(1), remote access connections may not be adequately monitored, increasing risk of unauthorized access.</description>
+    <statement>Unmonitored remote access creates potential for unauthorized system access without detection.</statement>
+    <status>open</status>
+  </risk>
+
+  <risk uuid="risk-0002-4444-5555-6666ccccdddd">
+    <title>Data-in-Transit Exposure</title>
+    <description>Without SC-8, sensitive data may be exposed during transmission between system components.</description>
+    <statement>Lack of transmission confidentiality protection creates data exposure risk.</statement>
+    <status>open</status>
+  </risk>
+
+  <risk uuid="risk-0003-7777-8888-9999eeeeffff">
+    <title>Incomplete Account Management Controls</title>
+    <description>Partial implementation of AC-2 leaves gaps in account management lifecycle coverage.</description>
+    <statement>Incomplete account management implementation may result in orphaned accounts or unauthorized access.</statement>
+    <status>investigating</status>
+  </risk>
+
+  <risk uuid="risk-0004-aaaa-bbbb-ccccddddeeee">
+    <title>Audit Configuration Gap</title>
+    <description>Missing audit event type configuration may cause missed security events during incident response.</description>
+    <statement>Incomplete audit configuration may miss critical security events.</statement>
+    <status>open</status>
+  </risk>
+
+  <risk uuid="risk-0005-1111-2222-3333eeeeffff">
+    <title>Missing Cryptographic Protection</title>
+    <description>SC-13 cryptographic protections are entirely missing from the system implementation.</description>
+    <statement>Absence of required cryptographic protections exposes sensitive data to unauthorized access.</statement>
+    <status>open</status>
+  </risk>
+
+  <poam-item uuid="poam-0001-aaaa-1111-2222bbbbcccc">
+    <title>Implement Remote Access Monitoring Enhancement</title>
+    <description>Deploy remote access monitoring and control capabilities to satisfy AC-17(1) requirements.</description>
+    <prop name="status" value="in-progress"/>
+    <related-observation observation-uuid="obs-0001-aaaa-bbbb-cccc11112222"/>
+    <related-risk risk-uuid="risk-0001-1111-2222-3333aaaabbbb"/>
+  </poam-item>
+
+  <poam-item uuid="poam-0002-bbbb-3333-4444ccccdddd">
+    <title>Implement Transmission Confidentiality Protection</title>
+    <description>Deploy end-to-end encryption for all internal and external communication paths to satisfy SC-8.</description>
+    <prop name="status" value="risk-accepted"/>
+    <related-observation observation-uuid="obs-0002-aaaa-bbbb-cccc33334444"/>
+    <related-risk risk-uuid="risk-0002-4444-5555-6666ccccdddd"/>
+  </poam-item>
+
+  <poam-item uuid="poam-0003-cccc-5555-6666ddddeeee">
+    <title>Complete Account Management Implementation</title>
+    <description>Add missing statement coverage for AC-2 control implementation, specifically item (d).</description>
+    <prop name="status" value="in-progress"/>
+    <related-observation observation-uuid="obs-0003-aaaa-bbbb-cccc55556666"/>
+    <related-risk risk-uuid="risk-0003-7777-8888-9999eeeeffff"/>
+  </poam-item>
+
+  <poam-item uuid="poam-0004-dddd-7777-8888eeeeffff">
+    <title>Configure SIEM Audit Event Types</title>
+    <description>Configure organization-defined audit event types in SIEM platform per profile parameter requirements.</description>
+    <prop name="status" value="completed"/>
+    <related-observation observation-uuid="obs-0004-aaaa-bbbb-cccc77778888"/>
+    <related-risk risk-uuid="risk-0004-aaaa-bbbb-ccccddddeeee"/>
+  </poam-item>
+
+  <poam-item uuid="poam-0005-eeee-9999-0000ffffaaaa">
+    <title>Implement Cryptographic Protection Controls</title>
+    <description>Implement required cryptographic protection mechanisms per SC-13 control requirements.</description>
+    <prop name="status" value="in-progress"/>
+    <related-observation observation-uuid="obs-0005-aaaa-bbbb-cccc99990000"/>
+    <related-risk risk-uuid="risk-0005-1111-2222-3333eeeeffff"/>
+  </poam-item>
+</plan-of-action-and-milestones>

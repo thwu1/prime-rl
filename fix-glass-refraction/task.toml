@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independently discovering and implementing ray-intersection algorithms for cubes (axis-aligned slab test), cylinders (quadratic wall + disk cap intersection with truncation), shape groups (recursive child traversal with parent-chain coordinate transform composition), and CSG boolean operations (inside/outside state-tracking filter across union/intersection/difference). No algorithmic guidance is provided — the agent must derive the intersection mathematics, CSG filtering logic, and hierarchical coordinate transform composition from domain knowledge. The YAML scene format uses material inheritance and an implicit transform composition ordering that must be reverse-engineered from the file. The rendering pipeline is orchestrated via a Makefile whose verify target uses netpbm CLI utilities (pamfile, ppmhist) unfamiliar to most developers, requiring the agent to understand and debug these tools."""
+solution_explanation = """1) Read scene.yaml to identify needed shape types (cube, cylinder, group, csg). 2) Implement Cube with axis-slab intersection and axis-dominant normals. 3) Implement Cylinder with quadratic wall intersection, min/max truncation, and cap checks. 4) Implement Group with recursive child intersection and parent-chain coordinate transforms (world_to_object / normal_to_world). 5) Implement CSG with an intersection_allowed function encoding the boolean rules for union/intersection/difference, and filter_intersections tracking inside/outside state. 6) Write a YAML parser handling material extend inheritance and recursive shape trees. 7) Replace render_scene.py to parse the YAML and render to PPM. 8) Run make render and make verify, debugging netpbm tool output as needed."""
+verification_explanation = """Tests verify: (1) 13 cube intersection scenarios (7 hits, 6 misses) and 8 normal vectors. (2) 12+ cylinder scenarios including wall hits, misses, constrained truncation, closed caps, and normals. (3) All 24 entries of the CSG intersection_allowed truth table across union/intersection/difference. (4) CSG filter_intersections for each operation type. (5) CSG ray integration (union of overlapping spheres, difference producing 4-intersection pattern). (6) Group intersection (empty, nonempty, transformed) and parent-chain normal computation. (7) Default world render sanity check. (8) Cube render integration with computed pixel color. (9) PPM output validation (existence, header, dimensions, rendered content, color variety). (10) make verify pipeline using pamfile and ppmhist from netpbm."""
+category = "systems"
+tags = ["computer-graphics", "ray-tracing"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-glass-refraction"

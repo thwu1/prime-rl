@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring an undocumented SQLite database with five tables (only two are relevant), identifying six categories of data quality issues (decommissioned nodes, self-loops, zero-capacity links, down links, links to inactive nodes), and then performing four distinct graph-theoretic analyses on the cleaned 31-node weighted network: community detection via modularity maximization on a weighted graph with a pendant node, maximum s-t flow computation, sensitivity analysis over all edges to find the single most critical link, and bridge detection. The solver must independently discover the schema, determine which records are invalid, choose appropriate algorithms, and combine results into a structured report — none of which is prescribed in the instruction."""
+solution_explanation = """Open network.db, discover 5 tables. Filter nodes table to 31 active (exclude 2 decommissioned). Filter links to 86 valid (exclude 2 self-loops, 1 zero-capacity, 1 down, 2 referencing decommissioned nodes). Build weighted undirected graph: five K6 cliques (capacity 10) connected by 10 inter-community edges (capacity 1-6) plus one pendant edge (30-31, capacity 2). Louvain yields 5 communities: {1-6},{7-12},{13-18},{19-24},{25-31} with Q≈0.7592. Max flow 1→29 = 8 (min cut at C3-C4 + C0-C4 = 4+2+2). Removing edge (24,25) reduces max flow from 8 to 4 (impact=4). Only bridge is (30,31)."""
+verification_explanation = """Tests load /app/results.json and verify: file structure with all required keys; active_nodes==31; valid_links==86; data_issues_found>=4; community_count==5; community partition groups match expected five clusters with node 31 in C4; modularity within 0.01 of 0.7592; max_flow source=1, target=29, value=8; critical_link={24,25} with flow_impact=4; bridges contains exactly [(30,31)]."""
+category = "algorithms"
+tags = ["graph-algorithms", "data-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/community-flow-analysis"

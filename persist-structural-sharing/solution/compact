@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-compaction statistics via sqlite3 CLI
+echo "=== Raw Pool Statistics ==="
+sqlite3 /app/snapshots.db "SELECT name, length(pool_json) as bytes FROM raw_pools;"
+
+# Run compaction and diff via Python helper
+python3 /app/do_compact.py
+
+# Post-compaction node distribution via sqlite3 + awk formatted tabular output
+echo "=== Node Distribution ==="
+sqlite3 -separator '|' /app/compacted.db "SELECT node_type, COUNT(*) FROM nodes GROUP BY node_type;" | awk -F'|' 'BEGIN{printf "%-10s %6s\n", "Type", "Count"; printf "%-10s %6s\n", "----------", "------"} {printf "%-10s %6d\n", $1, $2}'
+
+echo "=== Compacted Statistics ==="
+sqlite3 /app/compacted.db "SELECT COUNT(*) || ' total nodes' FROM nodes;"
+sqlite3 /app/compacted.db "SELECT COUNT(*) || ' total vectors' FROM vectors;"
+
+# Validate exported JSON with jq
+echo "=== JSON Validation ==="
+NVECS=$(jq '.vectors | length' /app/exported_pool.json)
+NNODES=$(jq '.nodes | length' /app/exported_pool.json)
+echo "Exported $NVECS vectors with $NNODES unique nodes"
+
+# Display structural diff summary
+echo "=== Structural Diff Summary ==="
+jq -r '.diff_summary | to_entries[] | "\(.key): visited=\(.value.nodes_visited) skipped=\(.value.nodes_skipped) mods=\(.value.modifications) adds=\(.value.additions)"' /app/report.json
+
+# Display compaction report
+echo "=== Compaction Report ==="
+jq '.' /app/report.json

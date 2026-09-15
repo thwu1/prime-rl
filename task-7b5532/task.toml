@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The task combines two distinct challenges requiring different cognitive skills. First, three subtle logic bugs must be diagnosed across a 470-line Rust engine library and its application programs: a missing delta combination in semi-naive join evaluation (recent×recent omission), an inverted blocking predicate in a leaper filter (FilterAnti returning usize::MAX on match instead of 0), and a copy-paste key extraction error in a leapjoin application (extracting b instead of a for edge(a,c) verification). These bugs require deep understanding of incremental Datalog evaluation semantics — each produces a different deviation pattern that must be independently diagnosed. Second, the solver must design and implement a strongly-connected-components program from scratch using the engine's join API. This requires choosing how to encode transitive closure as join-keyed Variable tuples (the (key, value) representation determines which equijoins are possible), extracting mutual reachability from completed TC pairs, and correctly aggregating SCCs including singleton nodes. No standard SCC algorithm (Tarjan/Kosaraju) can be applied directly since the reachability computation must use the engine's join primitives."""
+solution_explanation = """Fix 1 (lib.rs join_into): add the missing recent×recent delta join that was omitted from the semi-naive strategy. Fix 2 (lib.rs FilterAnti::count): swap return values so binary_search hit returns 0 (block) and miss returns usize::MAX (pass). Fix 3 (triangles.rs): change second ExtendWith key from |&(_, b)| b to |&(a, _)| a so it verifies edge(a,c) existence. SCC implementation: compute transitive closure using join_into with reach stored as (dest, src) for join-key alignment with edges (src, dst), run fixpoint loop, extract completed pairs into a HashSet of forward-reach (src, dst) tuples, compute min-representative for each node via mutual reachability check over TC pairs, count distinct representatives and find maximum component size."""
+verification_explanation = """Tests rebuild the project with cargo, run each of the four binaries, and compare integer outputs against independently-computed Python reference implementations: iterative TC, directed triangle enumeration, reaching-definitions fixpoint, and Kosaraju's SCC algorithm. A structural check verifies that all binaries including scc import the datafrog_engine library."""
+category = "debugging"
+tags = ["rust", "datalog-engine"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7b5532"

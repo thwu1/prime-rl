@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the Cog ML model packaging framework as an integrated system. The agent must: (1) diagnose cascading configuration violations where concurrency.max > 1 requires an async method (Rule C4) but async methods require python_version >= 3.11 (Rule C5) — fixing one without the other leaves the project invalid, and the build log misleadingly reports concurrency as accepted; (2) recognize and resolve a Python module shadowing issue where an output_types/ package directory silently intercepts imports intended for output_types.py — after fixing the import path, the wrong definitions are loaded with subtly incorrect field types, producing schema errors with no obvious connection to the module layout; (3) distinguish real bugs from misleading build diagnostics that include a CUDA compatibility warning for a non-issue, a false positive on concurrency validation, and a schema error misdiagnosed as file corruption; (4) handle schema generation edge cases including falsy-but-valid defaults (0.0) that naive truthiness checks would drop, and Optional BaseModel fields that must be excluded from required arrays. No bug can be fully understood in isolation — the build log actively misdirects, and fixing the import path triggers a second silent failure."""
+solution_explanation = """Read /app/cog_reference.md and audit all files. Recognize that build_errors.log is misleading (CUDA warning is a red herring, concurrency OK is a false positive, schema error misdiagnoses the cause). Fix cog.yaml: remove python_packages (C1), bump sdk_version to >=0.16.0 (C2), remove concurrency section because the method is sync and python_version 3.9 < 3.11 required for async (C4+C5 cascade), migrate predict key to run. Fix run.py: change import from models.output_types to output_types (R4), remove duplicate run() method (R1), rename predict to run, fix Optional return type (R2), replace default_factory with default=None and Optional[List[str]] (R3). Fix output_types.py: replace Union[str,int] with str (T1). Critically, resolve module shadowing by removing the output_types/ package directory that shadows output_types.py — Python resolves packages over modules, so the import picks up wrong type definitions with int instead of float and missing fields. Then implement AST-based schema generation handling guidance_scale's 0.0 default (falsy but not None), watermark Optional field (excluded from required), and all standard type/constraint mappings."""
+verification_explanation = """25 pytest tests across 4 classes validate: cog.yaml compliance (no dual package specs, sdk_version >= 0.16.0, concurrency/async consistency, python_version/concurrency consistency), run.py API contracts (runner class exists, no dual methods, non-Optional return, no default_factory, import resolution, no import shadowing between module and package), output_types.py constraints (no unsupported Union), and comprehensive OpenAPI schema validation (correct version/info, 10 input properties with types/constraints/x-order/required/defaults including falsy 0.0 for guidance_scale, array items, output schema fields including watermark with correct required arrays excluding Optional fields, ProcessingMetrics component with correct number types, prediction envelopes)."""
+category = "devops"
+tags = ["ml-deployment", "schema-generation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-cog-deployment"

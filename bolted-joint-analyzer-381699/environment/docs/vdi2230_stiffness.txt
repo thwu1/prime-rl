@@ -1,0 +1,97 @@
+Bolt and Joint Stiffness Models (VDI 2230)
+==========================================
+
+
+1. Bolt Stiffness - Compliance Summation Method
+------------------------------------------------
+The VDI 2230 methodology models the bolt as several cylindrical sections
+connected in series, each contributing compliance (the inverse of stiffness).
+The total bolt compliance is the sum of the individual section compliances.
+
+For a standard hex bolt in a through-bolted joint, the three relevant
+sections are:
+
+  Section 1 - Head engagement zone:
+    Length:         L_head = 0.4 * d
+    Cross-section:  A_head = shank cross-sectional area = pi/4 * d^2
+
+  Section 2 - Grip (clamped) zone:
+    Length:         L_grip = grip_length
+    Cross-section:  A_grip = thread stress area A_s
+
+  Section 3 - Nut engagement zone:
+    Length:         L_nut = 0.4 * d
+    Cross-section:  A_nut = thread stress area A_s
+
+Each section's compliance is: delta_i = L_i / (E * A_i)
+
+Total bolt compliance: delta_b = delta_head + delta_grip + delta_nut
+
+Bolt stiffness: K_b = 1 / delta_b   (units: N/mm)
+
+Use E = 210,000 MPa (210 GPa) for steel bolts (applies to all ISO 898
+property classes and most alloy steel grades).
+
+Note: The head and nut engagement zones use 0.4*d as an empirical
+approximation validated by FEA studies. The head section uses the full
+shank area because it represents the unthreaded portion beneath the head,
+while the grip and nut sections use the stress area because the thread
+reduces the effective cross-section.
+
+
+2. Joint Stiffness - Roetscher Pressure-Cone (Frustum) Model
+-------------------------------------------------------------
+The VDI 2230 standard models the clamped material as a pair of truncated
+cones (frustums) that define the volume of compressed material. For a
+symmetric through-bolted joint (where the loading plane is at the
+midpoint of the grip), the joint consists of two identical frustums
+connected in series.
+
+Geometric parameters:
+  - Each frustum has height h = grip_length / 2 (half the total grip)
+  - Pressure cone half-angle: alpha = 30 degrees
+  - Inner diameter (clearance hole): d_h = d + 1 mm
+  - Bearing diameter (washer/head contact): d_w = 1.5 * d
+  - Outer diameter at the midplane:
+      D_A = d_w + grip_length * tan(alpha)
+    This represents the cone expanding from d_w at the bearing face to
+    D_A at the joint midplane, spanning height = grip_length/2, so:
+      D_A = d_w + 2 * (grip_length/2) * tan(alpha) = d_w + grip_length * tan(alpha)
+
+Single frustum stiffness (derived from integration of the conical
+compression region):
+
+  K_f = (E_joint * pi * d_h * tan(alpha)) / ln( ((D_A - d_h)*(d_w + d_h)) / ((D_A + d_h)*(d_w - d_h)) )
+
+where E_joint is the elastic modulus of the clamped material in MPa.
+
+Two frustums in series:
+  K_j = K_f / 2   (since 1/K_j = 1/K_f + 1/K_f = 2/K_f)
+
+This result follows from the standard series-spring relation.
+
+
+3. Load Introduction Factor (Force Ratio)
+------------------------------------------
+The load factor phi quantifies how an external axial force is shared
+between additional bolt tension and relief of the clamp force:
+
+  phi = K_b / (K_b + K_j)
+
+For a typical bolted joint, phi ranges from 0.05 to 0.25. Lower values
+are better because they mean less of the external load reaches the bolt.
+
+Physical interpretation:
+  - If phi = 0.15, then 15% of any external axial load adds to bolt
+    tension, while 85% reduces the clamp force.
+  - Stiffer joints (higher K_j) relative to bolt stiffness (K_b)
+    produce lower phi, which is desirable.
+
+4. Series Spring Rate
+---------------------
+The combined bolt-joint series spring rate is used for embedding loss
+calculations:
+
+  K_series = (K_b * K_j) / (K_b + K_j)
+
+This is the standard formula for two springs in series.

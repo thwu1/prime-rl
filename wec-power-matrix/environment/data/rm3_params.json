@@ -1,0 +1,59 @@
+{
+  "description": "RM3 two-body point absorber parameters for frequency-domain analysis",
+  "fluid": {
+    "rho": 1000.0,
+    "g": 9.81,
+    "rho_units": "kg/m^3",
+    "g_units": "m/s^2"
+  },
+  "bodies": [
+    {
+      "name": "Float",
+      "index": 1,
+      "heave_dof": 3,
+      "volume_m3": 725.833,
+      "mass_option": "equilibrium",
+      "mass_note": "mass = rho * volume (body in static equilibrium)",
+      "C33_nondim": 285.52,
+      "C33_note": "Hydrostatic stiffness nondimensionalized: C_bar = C / (rho * g). Dimensional C33 [N/m] = C33_nondim * rho * g"
+    },
+    {
+      "name": "Spar/Plate",
+      "index": 2,
+      "heave_dof": 9,
+      "volume_m3": 886.687,
+      "mass_option": "equilibrium",
+      "mass_note": "mass = rho * volume (body in static equilibrium)",
+      "C33_nondim": 28.238,
+      "C33_note": "Hydrostatic stiffness nondimensionalized: C_bar = C / (rho * g). Dimensional C33 [N/m] = C33_nondim * rho * g"
+    }
+  ],
+  "pto": {
+    "type": "translational",
+    "stiffness_Npm": 0.0,
+    "stiffness_note": "PTO stiffness K_PTO = 0 N/m (pure damper configuration)",
+    "damping_note": "PTO damping B_PTO is the optimization variable [N/(m/s)]",
+    "coupling": "PTO acts on relative heave displacement between Float (DOF 3) and Spar (DOF 9)"
+  },
+  "nondimensionalization": {
+    "source": "WAMIT v7.2 output format with ULEN=1m",
+    "added_mass": "A_bar = A_dim / rho. To dimensionalize: A_dim [kg] = A_bar * rho",
+    "radiation_damping": "B_bar = B_dim / (rho * omega). To dimensionalize: B_dim [kg/s] = B_bar * rho * omega",
+    "excitation_force": "F_bar = F_dim / (rho * g). To dimensionalize: F_dim [N/m_wave_amplitude] = F_bar * rho * g. Phase in degrees.",
+    "hydrostatic_stiffness": "C_bar = C_dim / (rho * g). To dimensionalize: C_dim [N/m] = C_bar * rho * g"
+  },
+  "wave_spectrum": {
+    "model": "Pierson-Moskowitz",
+    "parameterization": "Hs_Tp",
+    "note": "Standard Pierson-Moskowitz wave spectrum S(omega) parameterized by significant wave height Hs and peak period Tp. Use omega form (rad/s)."
+  },
+  "hydro_data_file": "rm3_hydro_coeffs.csv",
+  "hydro_columns": "omega[rad/s], A33_bar, B33_bar, A39_bar, B39_bar, A93_bar, B93_bar, A99_bar, B99_bar, |F3_bar|, Phase_F3[deg], |F9_bar|, Phase_F9[deg]",
+  "frequency_grid": {
+    "n_frequencies": 260,
+    "omega_min": 0.02,
+    "omega_max": 5.2,
+    "delta_omega": 0.02,
+    "units": "rad/s"
+  }
+}

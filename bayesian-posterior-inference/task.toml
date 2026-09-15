@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires translating three Stan model specifications into Python log-posterior density functions — a hierarchical normal model (Eight Schools, 10 parameters with non-centered parameterization and half-Cauchy prior), a Gaussian process regression model (3 parameters with Cholesky-based multivariate normal likelihood), and an ODE-based SIR epidemic model (4 parameters with Runge-Kutta integration, Poisson-count and lognormal-concentration likelihoods, and 80 transformed parameters from the ODE solution). Must implement MCMC from scratch with proper constraint handling via log-transforms and Jacobian corrections, tune the sampler across three very different posterior geometries, implement an ODE solver for the SIR forward model, and correctly compute expectations of nonlinear transformed parameters from joint posterior samples. Combines computational statistics, numerical ODE integration, probabilistic modeling, and scientific computing expertise at a graduate/professional level."""
+solution_explanation = """Implements adaptive Metropolis-Hastings MCMC for all three models. Uses log-transforms for constrained-positive parameters with correct Jacobian terms. For Eight Schools, samples in non-centered space and computes theta per-sample before averaging. For GP Regression, constructs the squared exponential kernel matrix and evaluates the multivariate normal log-density via Cholesky decomposition. For SIR, implements an RK4 ODE solver to integrate the compartmental dynamics at each MCMC step, evaluates Poisson and lognormal likelihoods against observed data, and averages ODE solutions across posterior samples to get transformed parameter means."""
+verification_explanation = """Tests decode compressed reference posteriors at runtime and check posterior mean estimates via z-scores |est_mean - true_mean| / true_std < 0.25. Tests also verify all required parameters are present (including all 80 ODE-derived transformed parameters for SIR) and that the solution contains actual MCMC inference code with numerical computation. Reference values are not stored in plaintext."""
+category = "computational_statistics"
+tags = ["bayesian-inference", "ode-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bayesian-posterior-inference"

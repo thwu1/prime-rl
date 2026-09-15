@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combining insights from numerical linear algebra (Pearson correlation reduces to dot product after row normalization), CPU microarchitecture (SIMD auto-vectorization requires breaking loop-carried dependency chains via -ffast-math or manual multi-accumulator patterns), and performance engineering (float32 for wider SIMD registers, cache-aware data layout, aggressive compiler flags). An agent that only applies surface-level optimizations (e.g. just -O3, or just pre-computing means) will not reach the 5x speedup threshold; the critical insight is that the entire correlation computation can be reduced to a simple dot product through pre-normalization, combined with data-type and SIMD-friendly layout changes."""
+solution_explanation = """Pre-normalize each row (subtract mean, divide by L2 norm) so Pearson correlation becomes a simple dot product. Convert data to float32 for 2x wider SIMD. Pad rows to SIMD width. Use -O3 -march=native -ffast-math to enable auto-vectorized sum reductions, or manually unroll with multiple independent accumulators. Combined speedup is 6-40x over the naive O2 baseline depending on hardware."""
+verification_explanation = """Test builds and times both the original naive baseline (compiled at -O2) and the agent's optimized version on the same input. A numpy reference computes ground-truth correlations in float64. Pytest checks (1) output format and size, (2) max absolute error < 5e-3 vs numpy reference, and (3) wall-clock speedup >= 5x vs baseline."""
+category = "performance_engineering"
+tags = ["simd-optimization", "numerical-computing"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-correlation-kernel"

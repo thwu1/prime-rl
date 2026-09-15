@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled analysis across electromagnetic simulation domain knowledge, two distinct NEC2 file formats (Fortran fixed-width output and card deck input), RF engineering theory (complex impedance, VSWR, radiation patterns, beamwidth), and C systems programming. The solver must diagnose unlabeled bugs in the output parser by understanding NEC2 column layouts, design and implement a card deck parser for an unfamiliar format, create cross-validation logic bridging both formats, and implement half-power beamwidth computation with interpolation and sentinel handling. Bugs are distributed across multiple source files with no hints, requiring the solver to trace data flow through the codebase and validate against domain knowledge of antenna theory."""
+solution_explanation = """Four bugs must be diagnosed and fixed: (1) impedance field extraction reads current columns (offsets 36,48) instead of impedance columns (60,72) in the fixed-width NEC2 output; (2) current magnitude uses L1 norm (fabs(re)+fabs(im)) instead of L2 norm (sqrt); (3) VSWR formula uses squared reflection coefficient magnitude instead of its square root; (4) maximum gain function reads vertical-polarization gain column instead of total gain, and doesn't filter -999.99 sentinels. Four features must be implemented: GW/EX/FR card parsing in the deck parser using sscanf on card fields; cross-validation comparing deck segment count and excitation against parsed output; HPBW computation requiring peak detection, phi-cut extraction, threshold interpolation, and boundary handling."""
+verification_explanation = """Tests compile the multi-module C program and run it against two NEC2 deck/output file pairs covering three simulation runs. Numerical results are verified against exact values from the NEC2 output files: impedance (82.698+j46.306 and 106.436+j9.905 ohms), VSWR, current magnitudes, radiation pattern peak gain, average power gain, and half-power beamwidth. Deck parsing is verified against known card contents. Cross-validation checks confirm segment count and excitation point agreement. Tests cover free-space dipole (no pattern), perfect ground (peak at boundary), and finite ground (interior peak) scenarios."""
+category = "computational_electromagnetics"
+tags = ["antenna-analysis", "nec2-parsing", "rf-engineering", "cross-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0ea1d"

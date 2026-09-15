@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading CUDA C++ template source to understand register and shared memory usage patterns of a warptiling SGEMM kernel, parsing nvcc/ptxas compiler build logs to extract register counts while filtering out non-target entry functions, then deriving a register usage model by correlating observed register counts with kernel-level data structure sizes across five calibration points. Must extract 12 static_assert constraints from runner.cu (understanding C++ constexpr and template parameter relationships), enumerate valid configurations from a 9-dimensional parameter space, and implement the full CUDA theoretical occupancy model including per-warp register quantization and shared memory alignment with runtime overhead. Requires deep knowledge of GPU architecture: register allocation granularity, shared memory banking, warp scheduling, and how hardware resource limits determine SM occupancy. Finally must design and populate a normalized SQLite database with tables, indexes, and SQL views implementing complex aggregation queries."""
+solution_explanation = """Parse build_output.log to extract (config params, register count) tuples for the sgemmWarptiling entry function only. Analyze the kernel source to identify per-thread register arrays (threadResults, regM, regN) and their sizes as functions of template parameters. Derive the register overhead constant by subtracting computed array sizes from observed register counts across profiles. Extract all static_assert constraints from runSgemmWarptiling in runner.cu. Enumerate the Cartesian product of search ranges, check all constraints plus hardware limits, compute occupancy using CUDA's register quantization and SMEM alignment model. Create the SQLite database with configurations and bottlenecks tables plus required views. Export JSON summary."""
+verification_explanation = """Tests verify both the SQLite database and JSON output. Database tests check: schema correctness (table columns, index, views), row count, specific config queries via SQL (register counts, shared memory, occupancy percentages, bottleneck resources), occupancy_histogram view (distinct levels with correct counts), and bottleneck_distribution view categories. JSON tests verify aggregate statistics and specific configuration analysis results."""
+category = "systems"
+tags = ["gpu-architecture", "cuda-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9e7f06"

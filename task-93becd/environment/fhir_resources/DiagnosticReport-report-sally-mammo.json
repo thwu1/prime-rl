@@ -1,0 +1,24 @@
+{
+  "resourceType": "DiagnosticReport",
+  "id": "report-sally-mammo",
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "18748-4",
+        "display": "Diagnostic imaging study"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/sally-siim"
+  },
+  "effectiveDateTime": "2008-04-12",
+  "imagingStudy": [
+    {
+      "reference": "ImagingStudy/study-sally-mammo"
+    }
+  ],
+  "conclusion": "OVERALL BI-RADS 2 (Benign)"
+}

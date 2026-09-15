@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert geochemistry knowledge (charge balance analysis, carbonate equilibria, open/closed CO2 systems, evaporative brine evolution, saturation indices, activity coefficients) and proficiency with the PHREEQC thermodynamic engine (solution definition, equilibrium phases, reaction blocks, mixing, charge-balance keywords, selected-output parsing). The solver must figure out how to: (1) audit ion charge balance from raw analytical data with mixed alkalinity conventions; (2) detect imbalanced analyses and apply appropriate corrections; (3) run speciation for 4 waters with correct handling of optional elements and redox; (4) compute CCPP under both closed and open CO2 systems requiring different PHREEQC modeling approaches; (5) implement sequential evaporative concentration with coupled mineral precipitation tracking. Several of these steps require constructing raw PHREEQC input beyond what typical Python wrappers expose."""
+solution_explanation = """Install phreeqpython (which bundles IPhreeqc). Use its high-level API for speciation (add_solution with 'charge' keyword on Cl for imbalanced waters), closed-system CCPP (desaturate), and blend analysis (solution mixing operators). For open-system CCPP, construct raw PHREEQC input with EQUILIBRIUM_PHASES for both Calcite and CO2(g) and execute via pp.ip.run_string. For evaporation, build sequential REACTION H2O -1.0 blocks with EQUILIBRIUM_PHASES for mineral precipitation, parse SELECTED_OUTPUT for results. Compute charge balance error from input data using ionic equivalent weights. The key insight is that the phreeqpython high-level API covers most tasks, but open-system CCPP and evaporation require raw IPhreeqc input strings."""
+verification_explanation = """Tests verify: (1) schema completeness and types; (2) charge balance — only brackish_well should be adjusted; (3) golden speciation values from PHREEQC Example 1 (seawater SI_Calcite approx 0.76, ionic_strength approx 0.67); (4) CCPP sign and relative magnitude (open differs from closed for supersaturated seawater); (5) blend endpoint consistency and monotonic SI trend; (6) evaporation mineral precipitation sequence (calcite first, gypsum at intermediate CF, halite at high CF) and physical trends (increasing ionic strength); (7) independent cross-verification using phreeqpython."""
+category = "applied_computing"
+tags = ["geochemistry", "phreeqc"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geochemical-water-blending"

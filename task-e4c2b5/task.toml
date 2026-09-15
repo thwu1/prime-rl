@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of lock-free concurrent programming, the C++ memory model (acquire/release semantics), and the bipartite buffer algorithm — a specialized data structure not found in standard textbooks. The agent must correctly implement wrap-around with invalidation tracking, handle subtle edge cases (wrapped-full state where w==r with active invalidation, buffer boundary at N), and produce ThreadSanitizer-clean code. The critical challenge is getting the store/load ordering correct for the two-store WriteRelease (write index + invalidation index) so that the consumer's ReadAcquire always sees a consistent snapshot through a proper acquire-release chain. Iterative debugging with TSan and stress tests is essential."""
+solution_explanation = """The solution implements a bipartite buffer using three atomic indices (write, read, invalidation) with cacheline alignment. WriteAcquire checks tail space first, then attempts wrapping to the head with invalidation. The critical correctness requirement is in WriteRelease for the wrapped path: _w must be stored (release) BEFORE _i (release), so that the _i release carries the _w update into the consumer's acquire chain. Correspondingly, ReadAcquire must load _i (acquire) BEFORE _w (acquire) — if the consumer sees the new _i, the synchronization guarantees that the preceding _w store is also visible. This ordering pair prevents the consumer from reading stale data when only one of the producer's two stores has propagated. ReadAcquire detects invalidation boundaries to wrap the read pointer, and returns contiguous regions. SIZE_MAX serves as the no-invalidation sentinel."""
+verification_explanation = """Five pytest tests verify: (1) compilation succeeds, (2) 10 single-threaded edge-case tests pass (wrap-around, full buffer, cancel acquire, etc.), (3) 100K-block multi-threaded stress test with data integrity checks, (4) 50K-message zero-copy framing test with header/payload verification, (5) stress test passes under ThreadSanitizer with no data races reported."""
+category = "systems_programming"
+tags = ["lock-free", "concurrency"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e4c2b5"

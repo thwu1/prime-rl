@@ -1,0 +1,8 @@
+[package]
+name = "ga"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ga"
+crate-type = ["cdylib"]

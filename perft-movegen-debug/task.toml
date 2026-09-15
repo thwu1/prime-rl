@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a UCI protocol adapter to communicate with Stockfish via subprocess I/O, designing a recursive perft tree-diffing algorithm to walk the game tree and isolate divergences, and diagnosing four interacting bugs across different move categories in a chess engine with ~170 lines of custom legality logic. The bugs include: (1) an en passant horizontal pin that requires understanding how removing two pawns from a rank exposes the king, (2) a queenside castling transit square off-by-one, (3) an off-by-one in promotion piece types, and (4) a queen promotion fast-path disguised as a valid optimization that actually skips king-safety checks for pinned pawns. Bug #4 is especially subtle because the misleading comment claims the optimization is safe. Deep chess domain knowledge, UCI protocol fluency, and systems programming (subprocess management, stdout parsing) are all required."""
+solution_explanation = """Build a Stockfish UCI adapter that sends 'position fen ... moves ...' and 'go perft N', parses the 'move: count' output, and implements recursive comparison against the engine's divide function to drill into subtrees with mismatched counts. Use this tool to identify all four bugs: (1) add captured pawn removal in EP simulation at (dst_file, src_rank), (2) change queenside transit offset from -2 to -1, (3) change promotion range start from KNIGHT+1 to KNIGHT, (4) remove the queen promotion fast-path that returns True without checking king safety."""
+verification_explanation = """Tests run perft on five standard positions (initial, Kiwipete, positions 3-5) at depths 3-4 and verify exact match with known-correct node counts. Additional targeted tests exercise each bug: EP horizontal pin positions, queenside castling with attacked transit square, knight promotion generation, and a pinned-pawn queen promotion position where only king moves are legal. Four tests verify the comparison tool exists with substantial content, references Stockfish, runs without crashing, and produces chess-relevant output. All 20 tests must pass for reward 1.0."""
+category = "debugging"
+tags = ["chess-engine", "uci-protocol"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perft-movegen-debug"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Arch Linux PKGBUILD internals: resolving nested bash variable references and brace expansions in source arrays, correctly handling split packages with per-package function overrides vs global metadata, generating .SRCINFO with precise field ordering and section structure, implementing epoch-aware version comparison for dependency constraint checking, and performing graph analysis (cycle detection, topological ordering) across a heterogeneous package set. No single sub-problem is trivial — the agent must synthesize knowledge of bash evaluation semantics, the makepkg metadata specification, and dependency resolution into a cohesive tool."""
+solution_explanation = """Source PKGBUILD files in bash to leverage native variable/brace expansion, then extract resolved values. For split packages, parse package_*() function bodies to capture per-package overrides separately from global metadata. Generate .SRCINFO with correct field ordering (pkgdesc, pkgver, pkgrel, epoch, url, install, arch, groups, license, checkdepends, makedepends, depends, optdepends, provides, conflicts, replaces, options, backup, validpgpkeys, noextract, source, checksums) under pkgbase/pkgname sections. Build a dependency graph mapping installable names (including provides) to in-repo deps, run DFS-based cycle detection, validate versioned constraints with epoch-aware comparison, and compute topological installation order excluding cyclic nodes."""
+verification_explanation = """Tests verify: (1) .SRCINFO files exist for all 6 packages with correct structure — resolved variable expansions in URLs, brace-expanded source entries, proper split package sections with per-package overrides, epoch field presence, tab indentation; (2) dependency_graph.json maps all 8 installable names to correct in-repo edges; (3) issues.json contains checksum_mismatch for webproxy (4 sources vs 3 checksums), circular_dependency for logcollector/loganalyzer, and version_conflict for appserver (needs netutils>=3.0 but repo has 2.4.1); (4) install_order.json is a valid topological ordering of 6 non-cyclic packages with correct precedence constraints."""
+category = "systems"
+tags = ["package-management", "bash-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pkgbuild-srcinfo-audit"

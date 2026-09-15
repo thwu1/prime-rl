@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combined expertise in S-expression parsing, IEEE 754 floating-point arithmetic, and classical numerical methods. The agent must parse the niche FPCore format (with let-bindings, unary negation, nested operators), build both float64 and arbitrary-precision evaluators, and — most critically — independently identify and apply the correct algebraic rewrite for each of 6 expressions: conjugate multiplication for sqrt differences, expm1/log1p compensated forms, half-angle trig identities, rationalization of the quadratic formula, and algebraic simplification of composite exponential expressions. Each rewrite demands a different mathematical insight into why the original loses precision."""
+solution_explanation = """Implements an FPCore S-expression tokenizer and recursive descent parser, float64 and mpmath-based evaluators with operator dispatch, and 6 targeted rewrites: (1) sqrt(x+1)-sqrt(x) -> 1/(sqrt(x+1)+sqrt(x)) via conjugate multiplication, (2) exp(x)-1 -> math.expm1(x), (3) log(1-x)/log(1+x) -> math.log1p(-x)/math.log1p(x), (4) (1-cos(x))/x^2 -> 2*sin(x/2)^2/x^2 with Taylor fallback for tiny x, (5) quadratic formula rationalized to 2c/(-b-d) when b>=0, (6) sqrt((exp(2x)-1)/(exp(x)-1)) simplified to sqrt(exp(x)+1)."""
+verification_explanation = """Tests verify parser correctness (6 expressions with exact name matching), float64 evaluator accuracy at non-problematic inputs (simple test cases with known answers), exact evaluator agreement with mpmath reference values, and — most importantly — that each improved function achieves >=40 bits of accuracy at multiple inputs where the original expression suffers catastrophic cancellation. Accuracy is measured as -log2(relative_error) against 200-bit mpmath reference computations."""
+category = "numerical_analysis"
+tags = ["floating-point", "expression-rewriting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2f2ee7"

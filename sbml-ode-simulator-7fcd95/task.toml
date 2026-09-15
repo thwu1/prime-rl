@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of SBML L3v2 semantics (amount vs concentration, boundary species, hasOnlySubstanceUnits, compartment dimensionality, initial assignments, event simultaneity), MathML expression evaluation (including nested piecewise, lambda functions, csymbol time), and numerical ODE solving with event detection. The solver must correctly handle five escalating test cases that probe subtle interactions between these features, plus dynamically generated novel models at test time. Building this from scratch without SBML-domain libraries demands coupled expertise in computational biology standards, XML parsing, numerical methods, and scientific computing."""
+solution_explanation = """The reference solution implements a full SBML L3v2 parser using xml.etree.ElementTree and a recursive MathML evaluator supporting arithmetic, comparison, piecewise, csymbol, and lambda-defined functions. It builds an ODE system from reactions (handling stoichiometry, boundary species, and amount/concentration semantics) and rate rules, uses scipy's solve_ivp with RK45 for integration, evaluates assignment rules at each output point, and handles events by detecting trigger transitions and applying simultaneous assignments with correct concentration-to-amount conversion."""
+verification_explanation = """Tests run the simulator on five SBML test cases of escalating complexity. Reference results are stored in compressed form in the test harness (not in the Docker image) and decompressed at verification time. For each case, the test parses the simulator's CSV output, then verifies every data point satisfies |expected - actual| <= (absolute + relative * |expected|) using the tolerances from settings.txt. Two additional anti-cheat perturbation tests generate novel SBML models at test time (one exponential decay, one event-driven) and verify against analytically computed solutions — these models do not exist in the task environment. Further tests ensure no SBML-domain libraries are imported, no answer files are read, and that the simulator contains genuine XML parsing and ODE solving logic."""
+category = "scientific_computing"
+tags = ["sbml", "ode-solver"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sbml-ode-simulator-7fcd95"

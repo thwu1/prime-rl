@@ -1,0 +1,19 @@
+# Service monitoring and health check configuration
+# Last updated: 2025-06-12 10:30:00 UTC
+monitoring:
+  metrics_endpoint: "https://metrics-collector.internal:9443/v1/ingest"
+  tls_verify: true
+  tls_cert_path: "/etc/ssl/certs/monitoring.pem"
+  push_interval_sec: 15
+  retry_count: 3
+
+health_checks:
+  upstream_probe_interval_sec: 5
+  upstream_timeout_sec: 2
+  consecutive_failures_before_alert: 3
+
+cache:
+  policy_cache_ttl_sec: 30
+  version_check_enabled: true
+  consistency_mode: "eventual"
+  invalidation_on_mismatch: true

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of FAT32 on-disk binary format including BPB parsing, dual-FAT layout, directory entry format with subdirectory traversal, FSInfo sector semantics, and cluster chain mechanics. The central challenge is that both FAT copies are independently corrupted with different damage patterns — some entries zeroed, some overwritten with incorrect non-zero values — making neither FAT copy authoritative. Resolving non-zero conflicts requires validating cluster chain consistency against directory entry file sizes (chain-length analysis), not just taking the non-zero value. Additionally, orphaned cluster chains must be detected by walking the entire directory tree and cross-referencing all allocated clusters, which demands recursive directory traversal and comprehensive reference tracking. The solver must also coordinate multiple unfamiliar tools (mtools suite for FAT inspection, fsck.vfat for diagnosis, xxd/hexdump for binary analysis) alongside custom repair code."""
+solution_explanation = """Parse BPB to locate FAT1, FAT2, FSInfo, data region, and backup boot sector dynamically. Restore backup boot sector from primary. Build a preliminary merged FAT using zero-vs-nonzero rule for directory traversal. Walk the entire directory tree (including subdirectories) to catalog all files with their start clusters and sizes. Resolve non-zero FAT conflicts by iteratively validating chain lengths: for each file whose chain length doesn't match expected (ceil(size/cluster_size)), find conflict clusters and try the alternate FAT value, accepting whichever produces the correct chain length. Write merged FAT to both positions. Walk directory tree again to collect all referenced clusters, then free any allocated-but-unreferenced clusters (orphans). Recompute FSInfo free count and next-free from the final FAT state, updating both primary and backup FSInfo sectors."""
+verification_explanation = """Tests verify: (1) original image is actually corrupted (fsck.vfat fails), (2) repaired image exists with correct size, (3) boot sector preserved and backup restored, (4) FAT1 equals FAT2, (5) no FAT chain cycles or cross-links, (6) no orphaned clusters remain (all non-zero FAT entries are reachable from directory tree), (7) FSInfo signatures, free count, and next-free match actual FAT state, (8) all six files (including subdirectory files) are extractable via mtools with byte-exact content matching originals, (9) data region unchanged, (10) fsck.vfat reports clean."""
+category = "systems"
+tags = ["filesystem-forensics", "binary-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ddce8d"

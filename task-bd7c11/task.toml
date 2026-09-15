@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full Gürkaynak-Sack-Wright (2006) Treasury yield curve estimation pipeline from scratch: Nelson-Siegel-Svensson parametric model, semiannual cashflow matrix construction, duration-weighted nonlinear optimization (with local-minima avoidance via multi-start), forward rate derivation, par yield computation, and relative-value bond classification. Demands graduate-level fixed-income mathematics and numerical optimization expertise."""
+solution_explanation = """Parse the 64-bond CSV, construct semiannual cashflow schedules from coupon rates and maturity dates, implement the NSS spot rate and discount factor functions, build the duration-weighted price-error objective, run multi-start Nelder-Mead or L-BFGS-B optimization to fit 6 parameters, then derive forward rates and par yields from the fitted curve and classify bonds by pricing residuals."""
+verification_explanation = """Tests verify: (1) fitted spot rates at 9 key maturities within 25 bps of reference curve, (2) internal consistency—forward rates and par yields are correctly derived from the agent's own fitted parameters, (3) model prices reproduce observed bond prices within 2% for every bond, (4) mean absolute pricing error below 0.5%, and (5) rich/cheap classifications match reference for at least 75% of bonds."""
+category = "finance"
+tags = ["yield-curve", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bd7c11"

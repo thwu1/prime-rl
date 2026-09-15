@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Oracle 19c performance tuning knowledge to independently derive correct metrics from raw V$ view data, determine optimal memory sizing from advisory curves, classify the root-cause bottleneck (distinguishing symptoms from causes), AND critically evaluate two competing expert analyses for accuracy. Additionally requires proficiency with SQLite for structured data loading/querying and gnuplot for advisory curve visualization. The peer review dimension demands Bloom evaluate-level reasoning: the solver must judge and score competing expert claims against independently computed ground truth, identifying subtle methodology errors such as using snapshot values vs deltas, confusing library cache with dictionary cache, or conflating I/O symptoms with buffer cache root causes."""
+solution_explanation = """Load all CSV data into SQLite with appropriate schemas. Compute sysstat deltas by joining begin/end snapshots, derive standard Oracle performance ratios (buffer cache hit ratio accounting for direct reads, library cache pin hit ratio, soft parse ratio, etc.), analyze advisory curves to find optimal sizing through diminishing-returns analysis, classify the primary bottleneck by correlating low buffer cache hit ratio with I/O-related wait event dominance and free buffer waits, detect literal SQL from version_count anomalies. Generate gnuplot charts of advisory curves. Then compare each report's claims against computed ground truth: Report A miscomputes buffer cache hit ratio (uses snapshot values instead of deltas), over-provisions db_cache, under-provisions PGA, confuses execute-to-parse with hard parse ratio, and misclassifies bottleneck as I/O instead of buffer cache. Report B correctly identifies buffer cache as root cause but confuses library cache with dictionary cache metrics, misorders top SQL, misses literal SQL detection, and wrongly recommends EXACT cursor sharing. Report B is more accurate overall (8/12 vs 7/12)."""
+verification_explanation = """Tests verify: (1) all metrics within tolerance of correct values computed from raw data, (2) memory recommendations match advisory-based optimal values, (3) wait analysis matches data, (4) SQL tuning correctly ranks top SQL and detects literal SQL, (5) primary bottleneck is correctly identified as buffer_cache, (6) SQLite database exists with loaded tables and data, (7) gnuplot PNG charts exist and are valid, (8) report evaluation correctly identifies specific errors in each report and determines Report B as more accurate."""
+category = "optimization"
+tags = ["database-tuning", "performance-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oracle-perf-diagnosis"

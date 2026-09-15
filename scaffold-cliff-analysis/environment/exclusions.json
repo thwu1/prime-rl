@@ -1,0 +1,4 @@
+{
+  "excluded_compounds": ["C026", "C031"],
+  "reason": "QC failure - unreliable measurements or confirmed structural artifacts"
+}

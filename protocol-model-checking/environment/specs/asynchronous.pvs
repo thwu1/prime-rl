@@ -1,0 +1,206 @@
+%% Asynchronous Dual-Channel Pilot Flying Protocol
+%% PVS Formal Specification (Low-Level Requirements)
+%% From NASA/CR-2014-218244: Formal Methods Case Studies for DO-333
+%%
+%% This file contains the PVS specification of the asynchronous version
+%% of the pilot flying protocol. Each component has an independent clock,
+%% and inter-component communication uses message-passing with a
+%% handshake-based state machine (4 states: Confirmed, Inhibited,
+%% Listening, Waiting).
+
+%% ================================================================
+%% Message Type
+%% ================================================================
+
+Message: THEORY
+BEGIN
+    Message: TYPE = [# pfs: bool, ack :bool #]
+
+    Msg(pfs, ack : bool) : Message = (# pfs := pfs, ack := ack #)
+
+    m: VAR Message
+ END Message
+
+%% ================================================================
+%% Asynchronous Bus High-Level Requirements
+%% ================================================================
+
+Bus_HLR[INIT_PFS: bool, INIT_ACK: bool]: THEORY
+BEGIN
+    Importing Message
+
+    State: TYPE+
+    Initial_State: State
+
+    next_state: [State, bool, Message -> State]
+    output: [State -> Message]
+
+    HLR1: AXIOM
+      output(Initial_State) = Msg(INIT_PFS, INIT_ACK)
+
+    HLR2: AXIOM
+      forall (s: State, clk: bool, input: Message) :
+          output(next_state(s, clk, input)) =
+              IF NOT clk THEN output(s) ELSE input ENDIF
+
+ END Bus_HLR
+
+%% ================================================================
+%% Asynchronous Bus Low-Level Requirements (Concrete)
+%% ================================================================
+
+Bus_LLR[INIT_PFS: bool, INIT_ACK: bool]: THEORY
+BEGIN
+    Importing Message
+
+    State: TYPE+ = Message
+
+    Initial_State: State = Msg(INIT_PFS, INIT_ACK)
+
+    next_state(s: State, clk: bool, input: Message): State =
+       IF NOT clk THEN s ELSE input ENDIF
+
+    output(s: State): Message = s
+
+ END Bus_LLR
+
+%% ================================================================
+%% Asynchronous Bus Theory Interpretation
+%% ================================================================
+
+Bus_Interpretation[INIT_PFS: bool, INIT_ACK: bool]: THEORY
+BEGIN
+  IMPORTING Bus_LLR[INIT_PFS, INIT_ACK]
+  IMPORTING Bus_HLR[INIT_PFS, INIT_ACK] {{
+                    State         := Bus_LLR.State,
+                    Initial_State := Bus_LLR.Initial_State,
+                    next_state    := Bus_LLR.next_state,
+                    output        := Bus_LLR.output
+    }}
+  END Bus_Interpretation
+
+%% ================================================================
+%% Asynchronous Side Low-Level Requirements (Concrete)
+%%
+%% The side implements a 4-state handshake protocol:
+%%   Confirmed  -- This side IS the pilot flying side
+%%   Inhibited  -- This side is giving up pilot flying (other side rose)
+%%   Listening  -- This side is NOT pilot flying, waiting for switch
+%%   Waiting    -- This side requested pilot flying via transfer switch
+%%
+%% Transitions:
+%%   Confirmed  -> Inhibited  : rise of other side pilot flying (rise_ospf)
+%%   Inhibited  -> Listening  : acknowledgment received (ack field true)
+%%   Listening  -> Waiting    : transfer switch pressed (rise_ts)
+%%   Waiting    -> Confirmed  : acknowledgment dropped (fall_ack)
+%%
+%% Output message:
+%%   pfs = Confirmed OR Waiting  (this side claims pilot flying)
+%%   ack = Confirmed OR Listening (this side acknowledges other side)
+%% ================================================================
+
+Side_LLR[Primary_Side : bool] : THEORY
+BEGIN
+    IMPORTING Message
+
+    Pilot_Flying_Side: TYPE = {Confirmed, Inhibited, Listening, Waiting}
+
+    Initial_Pilot_Flying_Side : Pilot_Flying_Side =
+      IF Primary_Side THEN Confirmed ELSE Listening ENDIF
+
+    State: TYPE           = [# st      : Pilot_Flying_Side,
+                               pre_ts  : bool,
+                               pre_msg : Message #]
+
+    Initial_State : State = (# st      := Initial_Pilot_Flying_Side,
+                               pre_ts  := TRUE,
+                               pre_msg := Msg(NOT Primary_Side, TRUE) #)
+
+    pre_TS (s: State) : bool    = pre_ts(s)
+    pre_MSG(s: State) : Message = pre_msg(s)
+
+    rise_ospf(s:State, m:Message): bool = NOT pfs(pre_MSG(s)) AND pfs(m)
+    rise_ts  (s:State, ts:bool  ): bool = NOT pre_TS(s) AND ts
+    fall_ack (s:State, m:Message): bool = ack(pre_MSG(s)) AND NOT ack(m)
+
+    next_state(s: State, clk: bool, ts: bool, m: Message) : State =
+      IF (NOT clk) THEN
+         s
+      ELSE LET
+         next_st =
+          IF (Confirmed?(st(s)) AND rise_ospf(s, m))
+            THEN Inhibited
+          ELSIF (Inhibited?(st(s)) AND ack(m))
+            THEN Listening
+          ELSIF (Listening?(st(s)) AND rise_ts(s, ts))
+            THEN Waiting
+          ELSIF (Waiting?(st(s)) AND fall_ack(s, m))
+            THEN Confirmed
+          ELSE
+           st(s)
+          ENDIF
+        IN
+          (# st:= next_st, pre_ts := ts, pre_msg := m #)
+      ENDIF
+
+    output(s:State) : Message =
+             (# pfs := Confirmed?(st(s)) OR Waiting?(st(s)),
+                ack := Confirmed?(st(s)) OR Listening?(st(s)) #)
+
+  END Side_LLR
+
+%% ================================================================
+%% Asynchronous Pilot Flying System (System Composition)
+%%
+%% The system consists of four components with independent clocks:
+%%   Left_Side  (CLK1) -- Primary side
+%%   LR_Bus     (CLK2) -- Bus from Left to Right
+%%   Right_Side (CLK3) -- Non-primary side
+%%   RL_Bus     (CLK4) -- Bus from Right to Left
+%%
+%% Each component only updates when its clock signal is TRUE.
+%% The Transfer Switch (TS) is shared but edge-detected locally.
+%% ================================================================
+
+Pilot_Flying_System: THEORY
+BEGIN
+  IMPORTING Side_LLR[TRUE]         AS Left_Side;
+  IMPORTING Bus_LLR [TRUE, TRUE]   AS LR_Bus;
+  IMPORTING Side_LLR[FALSE]        AS Right_Side;
+  IMPORTING Bus_LLR [FALSE, TRUE]  AS RL_Bus;
+
+  State : Type         = [# Left_Side  :  Left_Side.State,
+                            LR_Bus     :  LR_Bus.State,
+                            Right_Side :  Right_Side.State,
+                            RL_Bus     :  RL_Bus.State,
+                            pre_TS     :  bool                 #]
+
+  Initial_State: State = (# Left_Side  := Left_Side.Initial_State,
+                            LR_Bus     := LR_Bus.Initial_State,
+                            Right_Side := Right_Side.Initial_State,
+                            RL_Bus     := RL_Bus.Initial_State,
+                            pre_TS     := TRUE                 #)
+
+  next_state(s: State, CLK1, CLK2, CLK3, CLK4, TS: bool): State =
+    LET
+        C1      = Left_Side.output(Left_Side(s)),
+        next_LR = LR_Bus.next_state(LR_Bus(s), CLK2, C1),
+        C2      = LR_Bus.output(next_LR),
+        next_RS = Right_Side.next_state(Right_Side(s), CLK3, TS, C2),
+
+        C3      = Right_Side.output(Right_Side(s)),
+        next_RL = RL_Bus.next_state(RL_Bus(s), CLK4, C3),
+        C4      = RL_Bus.output(next_RL),
+        next_LS = Left_Side.next_state(Left_Side(s), CLK1, TS, C4)
+    IN
+       (# Left_Side  := next_LS,
+          LR_Bus     := next_LR,
+          Right_Side := next_RS,
+          RL_Bus     := next_RL,
+          pre_TS     := TS        #)
+
+  Left_Pilot_Flying_Side(s: State) : bool =  pfs(output(Left_Side(s)))
+
+  Right_Pilot_Flying_Side(s: State): bool = pfs(output(Right_Side(s)))
+
+  END Pilot_Flying_System

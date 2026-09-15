@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing why a local Lindblad master equation produces unphysical results for this quantum heat transport problem (energy conservation violation from using local qubit energies instead of the full Hamiltonian, perturbative breakdown in the structured-bath regime). The agent must then discover and correctly implement a non-perturbative open quantum systems solver from the QuTiP 5 ecosystem, understand Drude-Lorentz bath spectral densities and their numerical decomposition, extract bath heat currents from auxiliary density operators using a non-trivial formula involving correlation function exponents, handle finite truncation corrections, and compute thermal rectification coefficients across multiple coupling asymmetry ratios in both forward and reverse temperature bias. This is a research-level quantum physics computation requiring deep expertise in open quantum systems and numerical methods."""
+solution_explanation = """Run the broken initial simulation to observe energy conservation violations. Diagnose that the local Lindblad approach computes heat currents using local qubit energies rather than the full system Hamiltonian, missing the interaction energy contribution and failing to capture non-Markovian bath effects. Discover QuTiP's HEOMSolver and DrudeLorentzEnvironment API. Implement the correct approach: set up Drude-Lorentz baths with Pade-approximated correlation functions, add system terminator corrections to the Liouvillian, solve for HEOM steady state, and extract bath heat currents from level-1 auxiliary density operators using the Kato-Tanimura formula. Repeat for forward and reverse temperature bias for each asymmetry ratio."""
+verification_explanation = """Tests verify: (1) three output JSON files exist at /app/results/ with correct structure, (2) through-current magnitudes are strictly positive for all asymmetry ratios, (3) energy conservation error |j1+j2|/max(|j1|,|j2|) < 0.01 for all configurations, (4) rectification vanishes for symmetric coupling |R(alpha=1.0)| < 0.02, (5) rectification values are self-consistent with current magnitudes via R = (j_fwd - j_rev)/max(j_fwd, j_rev), and (6) numerical accuracy for alpha=2.0 verified against independent HEOM computation within 0.1% relative tolerance."""
+category = "quantum_physics"
+tags = ["open-quantum-systems", "heom"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-heat-rectification"

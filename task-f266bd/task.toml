@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires recovering a crashed database from heterogeneous data sources: a SQLite WAL database requiring sqlite3 CLI exploration with multi-table JOINs and views, a custom-format binary page store requiring xxd inspection and struct-level parsing, and a deeply-nested JSON crash report buried inside a compressed diagnostic archive requiring tar extraction and jq navigation. The agent must discover the correct recovery algorithm by analyzing WAL record types and their semantics — the instruction provides no algorithm name or procedural steps. Key challenges: correctly handling a crash-during-recovery scenario with partially-written compensation records from a prior aborted undo pass, and understanding nested top action semantics where certain page modifications (B+ tree structural changes) must persist regardless of parent transaction outcome."""
+solution_explanation = """Extract diagnostics.tar.gz to access crash_state.json and the binary page format documentation. Parse pages.bin (magic PGST, 104-byte entries with uint32 page_id, int32 value, null-padded strings) to extract 13 page baselines. Query wal.db with sqlite3 to reconstruct log records, checkpoint state, and master record. Implement three-phase WAL recovery: analysis (scan from checkpoint LSN 90, build DPT and TXN table), redo (replay unflushed UPDATE/CLR records from min recLSN=30 where LSN > on-disk pageLSN), undo (follow transaction chains for T2, handling NTA_COMPLETE skips at LSNs 80/230 and CLR chain traversal from first recovery's LSN 310). NTA-protected pages 10 and 12 retain their modifications despite parent transactions T2 and T4 aborting."""
+verification_explanation = """Nine pytest tests verify: output structure (all 8 required fields), exact DPT after analysis (13 entries with correct recLSNs), transaction table after analysis (T2 as RECOVERY_ABORTING with last_lsn=310), ordered redo LSN list [60,110,160,220,240,310], ordered undo LSN list [160,60,50], all 13 final page values (including NTA-protected pages 10=1090, 12=2290), committed transaction IDs [1,3], aborted transaction IDs [2,4], and NTA-protected page IDs [10,12]."""
+category = "database_systems"
+tags = ["crash-recovery", "binary-formats"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f266bd"

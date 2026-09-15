@@ -1,0 +1,41 @@
+{
+  "name": "Conntrack entry lifecycle with filter DROP",
+  "description": "Packets dropped after conntrack (in filter INPUT) should not leave confirmed conntrack entries. Tests whether the simulator correctly models the pending/confirm/rollback lifecycle.",
+  "conntrack_max": 5,
+  "tcp_loose": true,
+  "conntrack_enabled": true,
+  "rules": [
+    {"table": "filter", "chain": "INPUT", "dst_port": 80, "action": "DROP"}
+  ],
+  "packets": [
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 30001, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.2", "dst_ip": "192.0.2.1", "src_port": 30002, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.3", "dst_ip": "192.0.2.1", "src_port": 30003, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.4", "dst_ip": "192.0.2.1", "src_port": 30004, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.5", "dst_ip": "192.0.2.1", "src_port": 30005, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.6", "dst_ip": "192.0.2.1", "src_port": 30006, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.7", "dst_ip": "192.0.2.1", "src_port": 30007, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.8", "dst_ip": "192.0.2.1", "src_port": 30008, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"}
+  ],
+  "expected": {
+    "counters": {
+      "raw:PREROUTING": 8,
+      "mangle:PREROUTING": 8,
+      "filter:INPUT": 8
+    },
+    "conntrack_entries": 0,
+    "total_accepted": 0,
+    "total_dropped": 8,
+    "conntrack_drops": 0,
+    "packet_results": [
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input"
+    ]
+  }
+}

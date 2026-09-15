@@ -1,0 +1,47 @@
+; Hand-crafted SPIR-V compute shader with UBO
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
+               OpExecutionMode %main LocalSize 64 1 1
+
+; Debug
+               OpName %main "main"
+               OpName %buf "params"
+               OpName %block "ParamBlock"
+
+; Annotations
+               OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+               OpDecorate %block Block
+               OpMemberDecorate %block 0 Offset 0
+               OpMemberDecorate %block 1 Offset 4
+               OpDecorate %buf DescriptorSet 0
+               OpDecorate %buf Binding 0
+
+; Types
+       %void = OpTypeVoid
+    %fn_void = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+      %float = OpTypeFloat 32
+     %v3uint = OpTypeVector %uint 3
+  %ptr_input = OpTypePointer Input %v3uint
+      %block = OpTypeStruct %uint %float
+%ptr_uniform = OpTypePointer Uniform %block
+%ptr_uniform_uint = OpTypePointer Uniform %uint
+
+; Constants
+  %uint_zero = OpConstant %uint 0
+
+; Global variables
+%gl_GlobalInvocationID = OpVariable %ptr_input Input
+        %buf = OpVariable %ptr_uniform Uniform
+
+; Function
+       %main = OpFunction %void None %fn_void
+      %entry = OpLabel
+        %gid = OpLoad %v3uint %gl_GlobalInvocationID
+       %gidx = OpCompositeExtract %uint %gid 0
+       %ptr1 = OpAccessChain %ptr_uniform_uint %buf %uint_zero
+       %val  = OpLoad %uint %ptr1
+        %sum = OpIAdd %uint %gidx %val
+               OpReturn
+               OpFunctionEnd

@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Output format for DRAM reader placement and routing analysis results",
+  "type": "object",
+  "required": ["scenarios"],
+  "properties": {
+    "scenarios": {
+      "type": "object",
+      "description": "Map from scenario name to placement results",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["placements", "total_hops", "congestion_free", "bandwidth", "link_analysis"],
+        "properties": {
+          "placements": {
+            "type": "object",
+            "description": "Map from bank ID (string) to reader placement",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["x", "y", "noc", "hops"],
+              "properties": {
+                "x": {"type": "integer", "description": "Reader column (1-8)"},
+                "y": {"type": "integer", "description": "Reader row (0-11)"},
+                "noc": {"type": "integer", "enum": [0, 1], "description": "NoC used (0 for left banks, 1 for right banks)"},
+                "hops": {"type": "integer", "minimum": 1, "description": "Manhattan distance from bank to reader"}
+              }
+            }
+          },
+          "total_hops": {"type": "integer", "description": "Sum of hops across all 12 readers"},
+          "congestion_free": {"type": "boolean", "description": "True if no return-path link conflicts exist"},
+          "bandwidth": {
+            "type": "object",
+            "required": ["theoretical_gbps", "utilization_factor", "estimated_gbps"],
+            "properties": {
+              "theoretical_gbps": {"type": "number", "description": "12 * bank_bw"},
+              "utilization_factor": {"type": "number", "description": "1.0 - 0.005 * total_extra_hops"},
+              "estimated_gbps": {"type": "number", "description": "theoretical * utilization_factor"}
+            }
+          },
+          "link_analysis": {
+            "type": "object",
+            "required": ["total_links_used", "max_link_load", "noc0_links_used", "noc1_links_used"],
+            "properties": {
+              "total_links_used": {"type": "integer", "description": "Count of distinct directional links traversed by any return path"},
+              "max_link_load": {"type": "integer", "description": "Max paths sharing any single link (1 for congestion-free)"},
+              "noc0_links_used": {"type": "integer", "description": "Distinct links used on NoC 0"},
+              "noc1_links_used": {"type": "integer", "description": "Distinct links used on NoC 1"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CF (Climate and Forecast) conventions to diagnose six subtle, interacting bugs in an existing climatological processing pipeline. The bugs span spherical geometry (area weight computation using solid angles vs planar approximation), temporal convention semantics (DJF cross-year assignment where December belongs to the following year's winter), statistical methodology (two-stage climatological collapse vs single-pass weighted average), calendar-aware numerical processing (extracting day counts from coordinate bounds vs hardcoding standard calendar values), boundary condition handling (incomplete season filtering at time series edges), and metadata standards (CF cell_methods qualifiers for within/over year operations). Bugs interact: fixing the DJF year assignment reveals the incomplete-season filtering bug. The solver must reason across three different CF calendar systems (standard, 360_day, noleap) where some bugs only manifest for specific calendars, requiring systematic cross-calendar comparison to identify all issues."""
+solution_explanation = """Six fixes are needed: (1) Replace cos(lat_center)*dlat*dlon area weight approximation with correct spherical solid angle |sin(lat2)-sin(lat1)|*dlon; (2) Shift December from DJF of current year to DJF of next year in season assignment; (3) Replace single-pass weighted average across all season instances with two-stage collapse (day-weighted within years, then unweighted over years); (4) Add incomplete-season filtering (exclude seasons with fewer than 3 months at time series boundaries); (5) Add CF cell_methods qualifier support (within: years, over: years) in both format_cell_methods and process_field; (6) Replace hardcoded standard-calendar day counts with bounds-derived day counts from the time coordinate."""
+verification_explanation = """Tests verify: area weights sum to 4pi with correct polar/equatorial ratio and specific formula values; DJF 2004 contains Dec 2003 + Jan/Feb 2004 (year-boundary convention); incomplete DJF 2003 and 2007 are excluded; two-stage collapse produces provably different results from single-pass with synthetic data; cell_methods strings contain 'within: years' and 'over: years' qualifiers when formatted; day counts come from coordinate bounds not hardcoded tables (verified using 360-day and noleap inline bounds); global means match reference for all three calendars; cross-calendar comparisons show expected differences in DJF and JJA."""
+category = "applied_computing"
+tags = ["climate-science", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/climatological-mean-processor"

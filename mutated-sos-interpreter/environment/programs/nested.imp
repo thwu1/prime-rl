@@ -1,0 +1,16 @@
+int outer;
+int inner;
+int acc;
+outer = 6;
+inner = 0;
+acc = 0;
+while((outer < 1))
+{
+    inner = outer;
+    while((inner < 1))
+    {
+        acc = (acc - (outer - inner));
+        inner = (inner + 1);
+    };
+    outer = (outer + 1);
+};

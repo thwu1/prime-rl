@@ -1,0 +1,78 @@
+RUN
+
+GLOBAL
+  Watershed simulation: two pervious land segments
+  START       2018 01 01        END    2019 01 01
+  RUN INTERP OUTPUT LEVEL    3
+  RESUME     0 RUN     1                   UNIT SYSTEM     1
+END GLOBAL
+
+OPN SEQUENCE
+    INGRP              INDELT 01:00
+      PERLND       1
+      PERLND       2
+    END INGRP
+END OPN SEQUENCE
+
+PERLND
+  ACTIVITY
+*** <PLS >          Active Sections (1=Active, 0=Inactive)             ***
+*** # -  # ATMP SNOW PWAT  SED  PST  PWG PQAL MSTL PEST NITR PHOS TRAC ***
+    1    2              1
+  END ACTIVITY
+
+  GEN-INFO
+*** <PLS ><-------Name------->        Unit-systems   Printer BinaryOut ***
+*** # -  #                                t-series Engl Metr Engl Metr ***
+***                                        in  out                     ***
+    1      FOREST HILLSLOPE                 1    1    0    0    0    0
+    2      URBAN MEADOW                     1    1    0    0    0    0
+  END GEN-INFO
+
+*** Section PWATER ***
+
+  PWAT-PARM1
+*** <PLS >  PWATER variable monthly parameter value flags                  ***
+*** # -  # CSNO RTOP UZFG  VCS  VUZ  VNN VIFW VIRC  VLE                   ***
+    1         0    1    1    1    0    0    0    0    0
+    2         0    1    1    0    0    0    0    0    0
+  END PWAT-PARM1
+
+  PWAT-PARM2
+*** <PLS > ***  PWATER input info: Part 2
+*** # -  # ***FOREST      LZSN    INFILT      LSUR     SLSUR     KVARY     AGWRC
+    1          0.000      7.35     0.079      50.0    0.1548       1.0     0.993
+    2          0.100      5.80     0.045      80.0    0.0800       0.5     0.985
+  END PWAT-PARM2
+
+  PWAT-PARM3
+*** <PLS > ***  PWATER input info: Part 3
+*** # -  # ***PETMAX    PETMIN    INFEXP    INFILD    DEEPFR    BASETP    AGWETP
+    1            40.       35.       2.0       2.0      0.02      0.22       0.0
+    2            40.       35.       2.0       2.0      0.05      0.15      0.02
+  END PWAT-PARM3
+
+  PWAT-PARM4
+*** <PLS >     PWATER input info: Part 4                                   ***
+*** # -  #     CEPSC      UZSN      NSUR     INTFW       IRC     LZETP    ***
+    1          0.010      0.85       0.4       3.0       0.7      0.73
+    2          0.030      1.20       0.3       2.0       0.5      0.55
+  END PWAT-PARM4
+
+  PWAT-STATE1
+*** <PLS > *** Initial conditions at start of simulation
+*** # -  # ***  CEPS      SURS       UZS      IFWS       LZS      AGWS      GWVS
+    1         0.0462       0.0    1.6075    0.0996    8.9629    2.8649    1.9555
+    2         0.0200       0.0    0.8500    0.0500    4.5000    1.5000    0.8000
+  END PWAT-STATE1
+
+  MON-INTERCEP
+*** <PLS>   Only required if VCSFG=1 in PWAT-PARM1                        ***
+*** # -  #  Interception storage capacity at start of each month           ***
+***         JAN  FEB  MAR  APR  MAY  JUN  JUL  AUG  SEP  OCT  NOV  DEC  ***
+    1      0.09 0.10 0.10 0.14 0.17 0.18 0.18 0.18 0.17 0.15 0.12 0.10
+  END MON-INTERCEP
+
+END PERLND
+
+END RUN

@@ -1,0 +1,17 @@
+$ORIGIN internal.test.
+$TTL 7200
+@       IN  SOA     ns.internal.test. admin.internal.test. (
+                        2024010201  ; serial
+                        3600        ; refresh
+                        900         ; retry
+                        604800      ; expire
+                        86400       ; minimum
+                    )
+@       IN  NS      ns.internal.test.
+ns      IN  A       10.1.0.1
+app     IN  CNAME   frontend.internal.test.
+frontend IN CNAME   www.internal.test.
+www     IN  A       10.1.0.100
+db      IN  A       10.1.0.200
+db      IN  AAAA    fd00::c8
+*.wild  IN  A       10.1.1.0

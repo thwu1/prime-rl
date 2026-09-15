@@ -1,0 +1,106 @@
+{
+  "router_id": "1.1.1.1",
+  "local_as": 65001,
+  "neighbors": {
+    "172.16.12.2": {"remote_as": 65002, "description": "R2-TierOne-Beta"},
+    "172.16.13.3": {"remote_as": 65010, "description": "R3-Transit-Gamma"}
+  },
+  "routes": {
+    "10.1.0.0/16": [
+      {
+        "next_hop": "0.0.0.0",
+        "as_path": [],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65001:100"],
+        "best": true,
+        "source": "local"
+      }
+    ],
+    "10.2.0.0/16": [
+      {
+        "next_hop": "172.16.12.2",
+        "as_path": [65002],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65002:100"],
+        "best": true,
+        "source": "172.16.12.2"
+      }
+    ],
+    "10.10.0.0/16": [
+      {
+        "next_hop": "172.16.13.3",
+        "as_path": [65010],
+        "origin": "igp",
+        "local_pref": 80,
+        "med": 0,
+        "communities": ["65010:100"],
+        "best": true,
+        "source": "172.16.13.3"
+      }
+    ],
+    "10.10.0.0/24": [
+      {
+        "next_hop": "172.16.13.3",
+        "as_path": [65010],
+        "origin": "igp",
+        "local_pref": 150,
+        "med": 0,
+        "communities": ["65010:100"],
+        "best": true,
+        "source": "172.16.13.3"
+      }
+    ],
+    "10.20.0.0/16": [
+      {
+        "next_hop": "172.16.12.2",
+        "as_path": [65002, 65020],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65020:100"],
+        "best": true,
+        "source": "172.16.12.2"
+      }
+    ],
+    "10.100.0.0/16": [
+      {
+        "next_hop": "172.16.13.3",
+        "as_path": [65010, 65100],
+        "origin": "igp",
+        "local_pref": 150,
+        "med": 0,
+        "communities": ["65100:100"],
+        "best": true,
+        "source": "172.16.13.3"
+      }
+    ],
+    "10.100.0.0/24": [
+      {
+        "next_hop": "172.16.12.2",
+        "as_path": [65002, 65020, 65200],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": true,
+        "source": "172.16.12.2"
+      }
+    ],
+    "10.200.0.0/16": [
+      {
+        "next_hop": "172.16.12.2",
+        "as_path": [65002, 65020, 65200],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": true,
+        "source": "172.16.12.2"
+      }
+    ]
+  }
+}

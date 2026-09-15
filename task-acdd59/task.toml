@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of formal structural operational semantics: the agent must read 78 SOS inference rules with silently remapped operators, build a proper small-step abstract machine (not a recursive big-step interpreter), implement execution tracing that records the innermost rule of each derivation tree at every machine transition, and produce per-program rule histograms. Must also use the Lark parser generator with the provided grammar, validate output against a JSON schema using check-jsonschema, and holistically analyze the rule system to extract the operator remapping. Combines PL theory expertise with multi-tool interoperability (Lark, check-jsonschema, jq)."""
+solution_explanation = """Parse IMP programs using Lark with the provided grammar. Build AST via a Lark Transformer. Implement a small-step abstract machine that maintains an explicit configuration (statement list, store, control stack) and steps through SOS rules one transition at a time. At each step, identify the innermost rule in the derivation tree — the leaf rule that performs the actual computation. Track rule applications in a histogram. Analyze the 78 rules to discover operator remappings: + computes subtraction, - computes addition, * computes division, / computes multiplication, comparisons are reversed, logical operators are swapped, unary + negates, unary - is identity. Validate the structured JSON output against the provided schema."""
+verification_explanation = """Tests load /app/results.json and verify: (1) JSON schema validation passes, (2) operator mapping is correct for all 16 operators, (3) final states match for all 10 programs including ERROR cases, (4) step counts are exact for all programs, (5) rule histograms match expected innermost-rule frequencies for all programs. Covers arithmetic swaps, comparison reversals, logical operator swaps, loop execution traces, break/continue semantics, division-by-zero under swapped operators, and unary operator remapping."""
+category = "programming_languages"
+tags = ["formal-semantics", "interpreter-construction", "parser-generators"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-acdd59"

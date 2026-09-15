@@ -1,0 +1,17 @@
+version: "1"
+params:
+  schema:
+    greeting:
+      type: string
+      default: "hello"
+    name:
+      type: string
+      default: "world"
+nodes:
+  - id: greet
+    name: Greet
+    steps:
+      - name: Say hello
+        run: "echo ${{ params.greeting }} ${{ params.name }}"
+      - name: Complex expression
+        run: "deploy --tag=${{ params.greeting }}-${{ params.name }} --verbose"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool proficiency across jq (writing filter programs with reduce, conditional logic, and cross-object lookups for graph analysis), sqlite3 (schema design, data loading from jq output, analytical views with correlated subqueries), graphviz (DOT syntax for typed DAG visualization), and Python (debugging subtle interacting bugs in graph algorithms). The orchestrator bugs demand deep reverse-engineering of Cosmos source code: (1) test-node tag inheritance scope—whether tests inherit from first parent only or all parents must be determined by reading Cosmos NodeSelector._should_include_node and the PR #1466 comment about mutation ordering; (2) the @ operator's two-phase subgraph semantics (descendants first, then ancestors of the full union) must be extracted from GraphSelector._select_nodes; (3) barrier-mode synthetic dependency injection requires understanding which node's children to gate (the test's first parent, not the test itself), a pattern with no direct reference implementation. The jq filters demand advanced functional programming: building reverse dependency indices via reduce, implementing conditional tag inheritance, and computing aggregate risk metrics—all without mutable state. The sqlite3 database requires designing a normalized schema from hierarchical JSON and writing analytical views. The graphviz output requires generating syntactically valid DOT with type-differentiated node styling."""
+solution_explanation = """For orchestrator bugs: (1) change get_effective_tags to inherit from parents[0] only, matching Cosmos's node.depends_on[0] pattern; (2) change evaluate_single_selector's @ handler to compute ancestors of (roots | descendants) not just roots; (3) change compute_schedule's barrier loop from children_index.get(uid) to children_index.get(first_parent). For jq: dep_edges.jq merges all manifest sections and extracts depends_on pairs sorted as TSV; node_attrs.jq uses conditional logic to check resource_type==test and look up first parent's tags via $all[$node.depends_on.nodes[0]]; fanout_analysis.jq uses reduce to build a reverse dependency index for out-degree computation. For SQLite: load jq filter output into normalized tables, create v_bottlenecks and v_test_coverage views using correlated subqueries counting test children. For DOT: read manifest, emit nodes with type-specific shapes and all directed dependency edges."""
+verification_explanation = """29 pytest tests across 4 tool domains. JQ tests (9): dep_edges (32 edges, specific edges present, sorted order), node_attrs (27 nodes, first-parent-only tag inheritance verified for two multi-parent test nodes), fanout_analysis (27 nodes, top two bottlenecks with correct risk scores). SQLite tests (8): schema validation (tables and views exist, 27 nodes, 32 edges), analytical views (v_bottlenecks top entry mart_customers/135, v_test_coverage shows 9 untested models and stg_customers as most-tested with 3). Orchestrator tests (13): select (bare name, unlimited ancestors, @ operator two-phase, tag inheritance, comma intersection, depth-limited, exclude), schedule (full DAG 5-stage/154s, barrier 3-stage/28s, included 2-stage/24s), critical-path (full 97s, subset 80s), impact (8 affected/153 cost/4 tests). DOT tests (5): file exists, valid digraph header, 27 nodes with shapes, 32 edges, dot renders to SVG."""
+category = "data_engineering"
+tags = ["multi-tool-orchestration", "graph-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a66a6d"

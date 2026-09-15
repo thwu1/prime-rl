@@ -1,0 +1,117 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "intent": "Novation",
+  "eventDate": "2024-01-15",
+  "instruction": [{
+    "primitiveInstruction": {
+      "split": {
+        "breakdown": [{
+          "partyChange": {
+            "counterparty": {
+              "role": "Party1",
+              "partyReference": {
+                "@key:external": "partyC",
+                "partyId": [{"identifier": {"@data": "LEI-NOVP003"}, "identifierType": "LEI"}],
+                "name": {"@data": "Bank C"}
+              }
+            },
+            "tradeId": [{"issuer": {"@data": "LEI-NOVP003"}, "assignedIdentifier": [{"identifier": {"@data": "NOV-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          }
+        }, {
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}],
+            "direction": "Replace"
+          }
+        }]
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+          "economicTerms": {
+            "payout": [
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+            ],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [
+          {"quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "USD"}}}]},
+          {"price": [{"value": 0.0315, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "USD"}}}]}
+        ]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-NOVP001"}, "assignedIdentifier": [{"identifier": {"@data": "NOV-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2024-01-01"},
+        "party": [
+          {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-NOVP001"}, "identifierType": "LEI"}], "name": {"@data": "Bank A"}},
+          {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-NOVP002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}},
+          {"@key:external": "partyC", "partyId": [{"identifier": {"@data": "LEI-NOVP003"}, "identifierType": "LEI"}], "name": {"@data": "Bank C"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+        "economicTerms": {
+          "payout": [
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+          ],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [
+        {"quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "USD"}}}]},
+        {"price": [{"value": 0.0315, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "USD"}}}]}
+      ]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "partyC"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-NOVP003"}, "assignedIdentifier": [{"identifier": {"@data": "NOV-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-01-01"},
+      "party": [
+        {"@key:external": "partyC", "partyId": [{"identifier": {"@data": "LEI-NOVP003"}, "identifierType": "LEI"}], "name": {"@data": "Bank C"}},
+        {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-NOVP002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}}
+      ]
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+        "economicTerms": {
+          "payout": [
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+          ],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [
+        {"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]},
+        {"price": [{"value": 0.0315, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}
+      ]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-NOVP001"}, "assignedIdentifier": [{"identifier": {"@data": "NOV-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-01-01"},
+      "party": [
+        {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-NOVP001"}, "identifierType": "LEI"}], "name": {"@data": "Bank A"}},
+        {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-NOVP002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}}
+      ]
+    },
+    "state": {
+      "closedState": {"state": "Terminated"},
+      "positionState": "Closed"
+    }
+  }]
+}

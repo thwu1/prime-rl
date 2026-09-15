@@ -1,0 +1,349 @@
+[
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Lemma length_app : forall (A : Type) (l1 l2 : list A), length (l1 ++ l2) = length l1 + length l2.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall (A : Type) (l1 l2 : list A), length (l1 ++ l2) = length l1 + length l2",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Proof.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall (A : Type) (l1 l2 : list A), length (l1 ++ l2) = length l1 + length l2",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "intros A l1 l2.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "length (l1 ++ l2) = length l1 + length l2",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l1",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "induction l1 as [| a l1' IHl1'].",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "length ([] ++ l2) = length [] + length l2",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            }
+          ]
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "length ((a :: l1') ++ l2) = length (a :: l1') + length l2",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "a",
+              "body": null,
+              "type": "A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l1'",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHl1'",
+              "body": null,
+              "type": "length (l1' ++ l2) = length l1' + length l2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "(* nil case *) simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "length l2 = length l2",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "(* cons case *) simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "S (length (l1' ++ l2)) = S (length l1' + length l2)",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "a",
+              "body": null,
+              "type": "A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l1'",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHl1'",
+              "body": null,
+              "type": "length (l1' ++ l2) = length l1' + length l2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "f_equal.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "length (l1' ++ l2) = length l1' + length l2",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "A",
+              "body": null,
+              "type": "Type"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "a",
+              "body": null,
+              "type": "A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l1'",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "l2",
+              "body": null,
+              "type": "list A"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHl1'",
+              "body": null,
+              "type": "length (l1' ++ l2) = length l1' + length l2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "exact IHl1'.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Qed.",
+      "responses": [],
+      "goals": []
+    }
+  ],
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Check @length.",
+      "responses": [
+        "@length\n     : forall A : Type, list A -> nat"
+      ],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Compute (length [1; 2; 3]).",
+      "responses": [
+        "= 3\n     : nat"
+      ],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Definition my_list := [1; 2; 3; 4; 5].",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Check my_list.",
+      "responses": [
+        "my_list\n     : list nat"
+      ],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Eval compute in (length my_list).",
+      "responses": [
+        "= 5\n     : nat"
+      ],
+      "goals": []
+    }
+  ]
+]

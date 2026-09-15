@@ -1,0 +1,15 @@
+// Collect effect: accumulate values into a string
+effect Emit {
+    Yield(v)
+}
+
+val collected = handle {
+    do Yield(10);
+    do Yield(20);
+    do Yield(30);
+    ""
+} with Emit {
+    return(x) => x
+    Yield(v, resume) => v ++ " " ++ resume(unit)
+};
+print(collected)

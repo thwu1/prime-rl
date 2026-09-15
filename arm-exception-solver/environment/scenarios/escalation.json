@@ -1,0 +1,108 @@
+{
+  "test_cases": [
+    {
+      "id": "fe_usage_enabled",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "UndefInstr"}
+    },
+    {
+      "id": "fe_usage_disabled",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {
+          "UsageFault": false,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "UndefInstr"}
+    },
+    {
+      "id": "fe_memmanage_enabled",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "DAccViol"}
+    },
+    {
+      "id": "fe_memmanage_disabled",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": false
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "DAccViol"}
+    },
+    {
+      "id": "fe_busfault_enabled",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "PreciseDataBusError"}
+    },
+    {
+      "id": "fe_lockup_in_hardfault",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [
+          {"name": "HardFault", "priority": -1}
+        ],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "UndefInstr"}
+    },
+    {
+      "id": "fe_lockup_in_nmi",
+      "state": {
+        "arch": "armv7m",
+        "active_exceptions": [
+          {"name": "NMI", "priority": -2}
+        ],
+        "configurable_fault_enables": {
+          "UsageFault": true,
+          "BusFault": true,
+          "MemManage": true
+        }
+      },
+      "query": {"type": "fault_target", "fault_type": "UndefInstr"}
+    },
+    {
+      "id": "fe_armv6m_hardfault",
+      "state": {
+        "arch": "armv6m",
+        "active_exceptions": [],
+        "configurable_fault_enables": {}
+      },
+      "query": {"type": "fault_target", "fault_type": "UndefInstr"}
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BGP protocol knowledge beyond what a textbook provides. The agent must integrate data from three heterogeneous sources — a normalized SQLite database (explored via sqlite3 CLI), a PCAP file containing raw BGP UPDATE messages (dissected with tshark and its BGP-specific display filters), and a deeply nested JSON policy configuration (navigated with jq). Key expert-level subtleties include: MED comparison conditioned on matching neighbor AS, deterministic-MED grouping, confederation paths treated as internal, originator-ID substitution, and the interaction between compare_routerid and oldest-path selection. The multi-tool data integration (sqlite3 + tshark + jq + Python) and unfamiliarity of tshark's BGP protocol fields add significant tool-proficiency demand beyond basic programming."""
+solution_explanation = """The solution reads the SQLite database for route metadata, parses the PCAP file to extract origin/MED/AS-path for PCAP-sourced routes by matching source IP to neighbor_address, reads config profile flags from the nested JSON file, reconstructs full route dicts, and runs select_best_path for each query. The algorithm implements all 13 BGP decision steps as a pairwise comparison function, plus deterministic-MED grouping. Critical details: AS_SET counts as 1, confederation types excluded from path length, MED compared only when neighbor AS matches, originator_id replaces router_id, confederation paths are internal for eBGP preference, and oldest-path only applies to eBGP with different effective router IDs."""
+verification_explanation = """Tests are split into two parts. Part 1 validates /app/results.json against expected best-route answers for all 20 database queries — including 3 queries whose routes exist only in the PCAP capture, requiring successful multi-tool data integration. Part 2 imports select_best_path and runs it on ~35 independently generated scenarios exercising every algorithm step and edge case. Both parts must pass — hardcoding DB answers without implementing the algorithm will fail Part 2, and failing to parse the PCAP will fail queries 18-20."""
+category = "networking"
+tags = ["bgp", "packet-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1aed9f"

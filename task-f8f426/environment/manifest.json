@@ -1,0 +1,27 @@
+{
+  "description": "NMOS 6502 CPU functional test binary",
+  "cpu_model": "NMOS 6502 (original MOS Technology 6502)",
+  "binary": "/app/program.bin",
+  "binary_format": "65536-byte raw memory image. Byte at file offset N corresponds to memory address $N.",
+  "memory_map": {
+    "zero_page": "$0000-$00FF",
+    "stack": "$0100-$01FF",
+    "results": "$0200-$0211 (18 bytes written by the test program)",
+    "program": "$0400+ (executable code)",
+    "reset_vector": "$FFFC-$FFFD (little-endian start address)"
+  },
+  "emulator": {
+    "command": "python3 /app/emulator.py [binary_path]",
+    "default_binary": "/app/test_suite.bin",
+    "output_file": "/app/output.json",
+    "halt_condition": "PC unchanged after instruction execution",
+    "max_instructions": 1000000
+  },
+  "output_format": {
+    "results": {
+      "0x0200": "<integer 0-255>",
+      "...": "...",
+      "0x0211": "<integer 0-255>"
+    }
+  }
+}

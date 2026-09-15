@@ -1,0 +1,8 @@
+{
+  "well_typed": false,
+  "globals": {
+    "x": {"type": "int", "kind": "var"}
+  },
+  "classes": {},
+  "errors": [{"message": "Cannot assign <None> to variable of type int"}]
+}

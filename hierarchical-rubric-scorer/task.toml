@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting bugs across a multi-file Python evaluation pipeline spanning data deduplication, hierarchical weighted aggregation, Fleiss' kappa inter-rater reliability computation, and seeded bootstrap resampling. The solver must understand directed acyclic graph scoring with dependency cascades, statistical formulas for agreement coefficients, and RNG state management — then trace incorrect outputs back through the pipeline to identify subtle implementation errors that interact (e.g., a dedup bug alters scores, which changes dependency cascade behavior, which shifts aggregates and bootstrap intervals)."""
+solution_explanation = """Fix four bugs: (1) loader.py deduplication keeps first occurrence instead of last — remove the seen-set guard so later entries overwrite earlier ones; (2) scorer.py excludes zero-scored children from weighted averages — include all children regardless of score; (3) metrics.py Fleiss' kappa P_i denominator uses n^2 instead of n*(n-1); (4) metrics.py bootstrap reseeds the RNG each iteration instead of creating it once outside the loop."""
+verification_explanation = """Tests run the fixed pipeline and verify output against analytically derived expected values: exact per-sample scores (testing dependency cascade correctness), criterion means across all hierarchy levels, Fleiss' kappa against a known fraction (13/273), and bootstrap CI against an independently computed reference using the same seed. Additional tests verify correct handling of duplicate judgment entries, invalid criteria filtering, and the dependency cascade for paper_002 and paper_004."""
+category = "data_science"
+tags = ["debugging", "statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hierarchical-rubric-scorer"

@@ -1,0 +1,48 @@
+{
+  "ideal_weights": [
+    0.641634,
+    0.594429,
+    0.777995,
+    0.921367,
+    1.0,
+    1.0,
+    0.921367,
+    0.777995,
+    0.594429,
+    0.641634
+  ],
+  "coupled_weights": [
+    0.759549,
+    0.552218,
+    0.757224,
+    0.920312,
+    1.0,
+    1.0,
+    0.920312,
+    0.757224,
+    0.552218,
+    0.759549
+  ],
+  "array_directivity_dBi": 9.8326,
+  "coupled_directivity_dBi": 9.8257,
+  "tx_element_impedance_ohms": [
+    65.0005,
+    10.0049
+  ],
+  "tx_input_impedance_ohms": [
+    84.535,
+    -13.0117
+  ],
+  "tx_reflection_coefficient_mag": 0.10078,
+  "tx_vswr": 1.2241,
+  "tx_mismatch_loss_dB": 0.0443,
+  "rx_input_impedance_ohms": [
+    75.0,
+    0.0
+  ],
+  "rx_reflection_coefficient_mag": 0.0,
+  "rx_vswr": 1.0,
+  "rx_mismatch_loss_dB": 0.0,
+  "free_space_path_loss_dB": 103.5738,
+  "received_power_dBm": -63.8028
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing CPython's biased reference counting state machine as a native C shared library with Python ctypes bindings, working from behavioral protocol descriptions without reference implementations. The agent must internalize the BRC protocol's multi-state lifecycle (default, weakrefs, queued, merged), correctly handle uint32 overflow-based immortality detection, signed arithmetic right-shift for negative shared refcounts, two's complement encoding of state bits within the shared refcount field, and the distinction between quick deallocation and merge-then-dealloc paths. The FFI layer demands correct struct layout mirroring native alignment, proper function prototypes, and pointer management. Combining low-level C systems programming, Python FFI expertise, and deep protocol understanding from behavioral descriptions alone makes this a proficient-to-expert level task."""
+solution_explanation = """Write a C source file implementing BRCObject struct and the six required functions (brc_init, brc_incref, brc_decref, brc_immortalize, brc_create_weakref, brc_process_queued). Compile as a shared object. Write brc_engine.py loading the library and wrapping everything in BRCObject/BRCSimulator Python classes. The simulator manages the merge queue while delegating individual object operations to the native library. run_analysis.py loads scenarios and produces results.json."""
+verification_explanation = """Tests verify: (1) libbrc.so exists and exports required symbols via nm, (2) brc_engine.py uses ctypes to load a shared library, (3) results.json correctness against hand-traced expected values for 8 scenarios covering single-thread quick dealloc, cross-thread merge, immortalization, multi-object, full state cascade, shared contention, weakref+immortal mix, and deep cascade with queue processing, (4) engine-level API correctness including create, owner/nonowner incref, immortal no-ops, quick/merge dealloc, weakref transition, negative shared triggering queued, process_queue merge, arithmetic shift semantics, post-merge decref routing, (5) concurrent simulation across threads."""
+category = "systems_programming"
+tags = ["concurrency", "ffi"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/biased-refcount-simulator"

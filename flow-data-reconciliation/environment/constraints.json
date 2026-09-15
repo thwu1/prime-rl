@@ -1,0 +1,13 @@
+{
+  "variables": ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16"],
+  "constraints": [
+    {"name": "J1", "equation": "m1 + m2 - m3 = 0", "description": "Merge: two boiler feeds combine into main header"},
+    {"name": "J2", "equation": "m3 + m4 - m5 - m6 = 0", "description": "HP header distribution with auxiliary feed"},
+    {"name": "J3", "equation": "m5 - m7 - m8 = 0", "description": "Branch A split"},
+    {"name": "J4", "equation": "m6 - m9 - m10 = 0", "description": "Branch B split"},
+    {"name": "J5", "equation": "m7 + m9 - m11 = 0", "description": "Collector alpha merge"},
+    {"name": "J6", "equation": "m8 + m10 - m12 = 0", "description": "Collector beta merge"},
+    {"name": "J7", "equation": "m11 + m12 + m13 - m14 = 0", "description": "Main collector with external feed"},
+    {"name": "J8", "equation": "m14 - m15 - m16 = 0", "description": "Final product split"}
+  ]
+}

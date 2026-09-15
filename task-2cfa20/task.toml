@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of WCAG 2.0 success criteria and DHS Trusted Tester v5.1.3
+test conditions. The agent must implement the WCAG contrast ratio algorithm (sRGB linearization,
+relative luminance with BT.709 coefficients), analyze HTML DOM structure for form label associations,
+table header relationships, heading semantics, image alt-text correctness, ARIA attributes,
+CSS pseudo-element content detection, language subtag validation, and sensory-characteristic
+detection across three HTML files with 15 planted violations and multiple correct patterns that
+must not trigger false positives. Combines web accessibility domain expertise with multi-faceted
+HTML/CSS static analysis."""
+solution_explanation = """Build a Python tool using BeautifulSoup for HTML parsing and langdetect
+for language detection. Implement 13 distinct check functions covering: language attributes (11.A,
+11.B), page titles (12.A), iframe accessible names (12.D), meaningful vs decorative image alt text
+(7.A, 7.B), data table header associations (14.B), layout table misuse (14.C), form input label
+associations (5.C), link text descriptiveness (6.A), sensory-dependent instructions (13.B),
+color-only information conveyance (13.A), WCAG contrast ratio computation (13.C), visual heading
+markup (10.B), and CSS ::before/::after content equivalence (15.A). Output JSON report with
+test condition IDs, WCAG SC mappings, element selectors, and descriptions."""
+verification_explanation = """Pytest verifies: (1) report exists as valid JSON with required structure
+and fields, (2) all 15 expected violations detected by (file, test_id) pair across 3 HTML pages,
+(3) 4 specific false-positive patterns confirmed absent (valid lang, valid title, proper alt text,
+proper table headers), (4) WCAG Success Criterion mapping verified correct for each violation."""
+category = "accessibility"
+tags = ["wcag", "section-508"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2cfa20"

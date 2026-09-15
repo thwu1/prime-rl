@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires chaining multiple graduate-level cryptographic attacks: (1) identifying a subtle ECDSA nonce entropy flaw where only 1 byte of randomness feeds AES-ECB to generate signing nonces, yielding at most 256 distinct values, (2) implementing a nonce-reuse key recovery attack using the birthday paradox to find collisions, (3) reverse-engineering the relationship between the ECDSA signing key and the X25519 Noise static key (shared 16-byte master secret with ASCII-zero padding), and (4) manually constructing a valid Noise protocol K-pattern handshake state machine — including correct pre-message mixing, ephemeral key generation, and DH token computation — using the recovered server key to forge the ss token via DH commutativity, all while navigating a deliberate SHA256/SHA512 naming mismatch in the protocol configuration."""
+solution_explanation = """Collect ~100-200 ECDSA signatures from check_update() and find two with identical r values (nonce reuse due to 1-byte entropy in AES-ECB nonce generation). Use the standard nonce-reuse formula: k = (e1-e2)/(s1-s2) mod N, then sk = (s*k - e)/r mod N. The 16-byte ECDSA key material is also used — padded with 16 ASCII '0' bytes — as the X25519 static private key. Using the recovered static keypair, construct a Noise K-pattern handshake: initialize symmetric state with the (mismatched) protocol name and SHA512Hash, mix pre-message public keys, generate an ephemeral key for the e token, compute es = DH(e, server_pk), and compute ss = DH(s_server, client_pk) which equals DH(s_client, server_pk) by DH commutativity. Encrypt the target payload and send the forged message."""
+verification_explanation = """Tests create a fresh server with random keys and a registered user. test_recover_signing_key verifies the returned integer matches server.ecdsa_sk. test_forge_vault_update verifies server.get_user_storage() equals specific target data after the forged handshake. Both tests are probabilistically reliable: with 200 signature collections from 256 possible nonces, the probability of no birthday collision is less than 10^-50."""
+category = "security"
+tags = ["cryptography", "protocol-exploitation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/noise-ecdsa-attack"

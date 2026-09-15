@@ -1,0 +1,20 @@
+# Candidate IDS Rules - Junior Analyst Submission
+# Evaluate each rule (R1-R6) for effectiveness against the observed attack traffic.
+
+# Rule R1: C2 DNS Server Communication
+alert udp $HOME_NET any -> 198.51.100.53 53 (msg:"Suspicious DNS query to external resolver"; sid:100001; rev:1;)
+
+# Rule R2: Web Application SQL Injection
+alert tcp $EXTERNAL_NET any -> $HOME_NET 443 (msg:"SQL Injection via UNION SELECT"; content:"UNION"; nocase; content:"SELECT"; nocase; sid:100002; rev:1;)
+
+# Rule R3: Reverse Shell Detection
+alert tcp $EXTERNAL_NET any -> $HOME_NET 4444 (msg:"Inbound Reverse Shell Connection"; flags:S; sid:100003; rev:1;)
+
+# Rule R4: DNS Tunnel Data Exfiltration
+alert udp $HOME_NET any -> 8.8.8.8 53 (msg:"DNS Tunnel Exfiltration Detected"; content:"c2-ops"; nocase; sid:100004; rev:1;)
+
+# Rule R5: Network Reconnaissance SYN Scan
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"Possible Port Scan"; flags:S,12; threshold:type both, track by_src, count 3, seconds 120; sid:100005; rev:1;)
+
+# Rule R6: Anomalous DNS Query Length
+alert udp $HOME_NET any -> any 53 (msg:"Oversized DNS Query Possible Data Exfiltration"; dsize:>40; sid:100006; rev:1;)

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instance format="XCSP3" type="CSP">
+  <variables>
+    <array id="s" size="[5]" note="start time of each task"> 0..4 </array>
+  </variables>
+  <constraints>
+    <allDifferent> s[0] s[1] s[2] s[3] s[4] </allDifferent>
+    <!-- Precedence: task 0 before task 1 -->
+    <extension>
+      <list> s[0] s[1] </list>
+      <supports> (0,1)(0,2)(0,3)(0,4)(1,2)(1,3)(1,4)(2,3)(2,4)(3,4) </supports>
+    </extension>
+    <!-- Precedence: task 0 before task 2 -->
+    <extension>
+      <list> s[0] s[2] </list>
+      <supports> (0,1)(0,2)(0,3)(0,4)(1,2)(1,3)(1,4)(2,3)(2,4)(3,4) </supports>
+    </extension>
+    <!-- Precedence: task 1 before task 3 -->
+    <extension>
+      <list> s[1] s[3] </list>
+      <supports> (0,1)(0,2)(0,3)(0,4)(1,2)(1,3)(1,4)(2,3)(2,4)(3,4) </supports>
+    </extension>
+    <!-- Precedence: task 2 before task 3 -->
+    <extension>
+      <list> s[2] s[3] </list>
+      <supports> (0,1)(0,2)(0,3)(0,4)(1,2)(1,3)(1,4)(2,3)(2,4)(3,4) </supports>
+    </extension>
+    <!-- Precedence: task 3 before task 4 -->
+    <extension>
+      <list> s[3] s[4] </list>
+      <supports> (0,1)(0,2)(0,3)(0,4)(1,2)(1,3)(1,4)(2,3)(2,4)(3,4) </supports>
+    </extension>
+  </constraints>
+</instance>

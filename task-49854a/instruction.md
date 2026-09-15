@@ -1,0 +1,3 @@
+A prediction market forecaster evaluation system at `/app/` was left incomplete by a previous developer. The workspace contains raw data, configuration, partial documentation, and a legacy implementation with known issues.
+
+Investigate the workspace to understand the required evaluation methodology, diagnose and resolve data quality issues in the raw input, and produce all evaluation outputs specified in `/app/config.yaml`. Write results to `/app/results/`.

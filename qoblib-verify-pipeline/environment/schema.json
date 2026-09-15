@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "QOBLIB cross-verification and QUBO analysis output schema",
+  "type": "object",
+  "required": ["market_split", "independent_set", "cvrp", "topology_verify"],
+  "properties": {
+    "market_split": {
+      "type": "object",
+      "required": ["num_constraints", "num_variables", "rust_checker_built", "candidates", "qubo"],
+      "properties": {
+        "num_constraints": {
+          "type": "integer",
+          "description": "Number of constraint rows in the instance"
+        },
+        "num_variables": {
+          "type": "integer",
+          "description": "Number of binary decision variables"
+        },
+        "rust_checker_built": {
+          "type": "boolean",
+          "description": "Whether the Rust reference checker compiled successfully"
+        },
+        "candidates": {
+          "type": "object",
+          "description": "Map from solution filename to verification result",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["valid", "ones_count", "rust_exit_code", "qubo_objective"],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "description": "Whether the solution satisfies all constraints (Ax = b)"
+              },
+              "ones_count": {
+                "type": "integer",
+                "description": "Number of variables set to 1 in the solution"
+              },
+              "rust_exit_code": {
+                "type": "integer",
+                "description": "Exit code from the Rust reference checker (0=valid, 1=invalid)"
+              },
+              "qubo_objective": {
+                "type": "integer",
+                "description": "QUBO penalty objective value; 0 iff feasible"
+              }
+            }
+          }
+        },
+        "qubo": {
+          "type": "object",
+          "required": ["dimension", "num_nonzero", "min_coefficient", "max_coefficient", "constant_offset"],
+          "properties": {
+            "dimension": {
+              "type": "integer",
+              "description": "Number of binary variables (matrix side length)"
+            },
+            "num_nonzero": {
+              "type": "integer",
+              "description": "Number of non-zero entries in the upper-triangular QUBO matrix (including diagonal)"
+            },
+            "min_coefficient": {
+              "type": "integer",
+              "description": "Minimum non-zero coefficient in the QUBO matrix"
+            },
+            "max_coefficient": {
+              "type": "integer",
+              "description": "Maximum non-zero coefficient in the QUBO matrix"
+            },
+            "constant_offset": {
+              "type": "integer",
+              "description": "Constant term b^T b from the penalty expansion"
+            }
+          }
+        }
+      }
+    },
+    "independent_set": {
+      "type": "object",
+      "required": ["num_nodes", "num_edges", "candidates"],
+      "properties": {
+        "num_nodes": {
+          "type": "integer",
+          "description": "Number of nodes in the instance graph"
+        },
+        "num_edges": {
+          "type": "integer",
+          "description": "Number of edges in the instance graph"
+        },
+        "candidates": {
+          "type": "object",
+          "description": "Map from solution filename to verification result",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["valid", "set_size"],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "description": "Whether the proposed set is independent (no adjacent pair)"
+              },
+              "set_size": {
+                "type": "integer",
+                "description": "Number of nodes in the proposed set"
+              }
+            }
+          }
+        }
+      }
+    },
+    "cvrp": {
+      "type": "object",
+      "required": ["instance_name", "num_customers", "vehicle_capacity", "candidates"],
+      "properties": {
+        "instance_name": {
+          "type": "string",
+          "description": "NAME field from the TSPLIB instance file"
+        },
+        "num_customers": {
+          "type": "integer",
+          "description": "Number of customers (DIMENSION minus 1 for the depot)"
+        },
+        "vehicle_capacity": {
+          "type": "integer",
+          "description": "CAPACITY field from the instance"
+        },
+        "candidates": {
+          "type": "object",
+          "description": "Map from solution filename to verification result",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["valid", "num_routes", "total_cost", "max_route_load"],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "description": "Whether all customers are served exactly once and no route exceeds capacity"
+              },
+              "num_routes": {
+                "type": "integer",
+                "description": "Number of routes in the solution"
+              },
+              "total_cost": {
+                "type": "integer",
+                "description": "Sum of all route costs using EUC_2D distances"
+              },
+              "max_route_load": {
+                "type": "integer",
+                "description": "Maximum total demand across all routes"
+              }
+            }
+          }
+        }
+      }
+    },
+    "topology_verify": {
+      "type": "object",
+      "required": ["required_nodes", "required_max_degree", "candidates"],
+      "properties": {
+        "required_nodes": {
+          "type": "integer",
+          "description": "Required number of nodes from instance specification"
+        },
+        "required_max_degree": {
+          "type": "integer",
+          "description": "Required maximum degree from instance specification"
+        },
+        "candidates": {
+          "type": "object",
+          "description": "Map from graph filename to verification result",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["valid", "num_nodes", "num_edges", "max_degree", "diameter", "connected"],
+            "properties": {
+              "valid": {
+                "type": "boolean",
+                "description": "Whether graph meets required node count, max degree, and is connected"
+              },
+              "num_nodes": {
+                "type": "integer",
+                "description": "Number of nodes in the graph"
+              },
+              "num_edges": {
+                "type": "integer",
+                "description": "Number of edges in the graph"
+              },
+              "max_degree": {
+                "type": "integer",
+                "description": "Maximum node degree in the graph"
+              },
+              "diameter": {
+                "type": "integer",
+                "description": "Graph diameter (longest shortest path); -1 if disconnected"
+              },
+              "connected": {
+                "type": "boolean",
+                "description": "Whether the graph is connected"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

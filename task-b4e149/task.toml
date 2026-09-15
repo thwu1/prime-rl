@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting timing bugs from symptoms alone across three interdependent C programs — understanding the relationship between time() vs gettimeofday() precision, blocking I/O timing measurement semantics, and compensating workaround patterns that mask root causes in other components. The solver must reason holistically about how bugs in the recorder propagate to the replayer and analyzer, and why "fixing" one program in isolation breaks the compensating workarounds in others. Additionally requires designing and implementing a novel recording validation tool (evaudit) that cross-validates timing data against recorded output by parsing the data file's header/footer conventions and computing raw content size — demanding judgment about what constitutes correct recording behavior and how to detect defects programmatically."""
+solution_explanation = """Four coordinated bug fixes: (1) In evrecord.c, replace time(NULL) with gettimeofday() for ref_stamp initialization to get microsecond precision. (2) Move gettimeofday() from before the blocking read() to after it returns, so each timing entry measures actual I/O wait time. (3) Remove the prev_blk byte-count shifting hack from evreplay.c that compensated for the off-by-one timing. (4) Remove the skip-first-entry workaround from evanalyze.c. Plus design and implementation of evaudit.c — a new validation tool that parses timing files, cross-references byte counts against the data file (excluding header/footer metadata by detecting session markers), checks for anomalous first delays and negative timing entries, and reports a structured PASS/FAIL verdict. The Makefile must also be updated to build all four programs."""
+verification_explanation = """Tests build all four programs, then verify timing accuracy with known sleep delays, check source code for removed workarounds, test analyzer correctness, and exercise evaudit with both real recordings (PASS expected) and synthetic defective recordings (FAIL expected for anomalous first delay, byte count mismatch, negative delays, and empty input). An end-to-end test validates the complete record-replay-analyze-audit pipeline for consistency."""
+category = "debugging"
+tags = ["systems-programming", "tool-design"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b4e149"

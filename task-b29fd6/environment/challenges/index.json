@@ -1,0 +1,12 @@
+{
+  "challenges": [
+    {"id": "c1", "path": "c1/", "category": "integration"},
+    {"id": "c2", "path": "c2/", "category": "optimization"},
+    {"id": "c3", "path": "c3/", "category": "linear_algebra"}
+  ],
+  "output": {
+    "file": "/app/answers.txt",
+    "format": "one decimal number per line, ordered by challenge ID",
+    "required_precision": "10 significant digits"
+  }
+}

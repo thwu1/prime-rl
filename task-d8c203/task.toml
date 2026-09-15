@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PostgreSQL triage across five interacting defects with no solution hints. The agent receives only production incident reports (symptoms and desired outcomes) and must independently: (1) extract and reverse-engineer the PL/pgSQL dynamic SQL from pg_catalog, (2) evaluate each defect's root cause through execution plan analysis, function source inspection, and index metadata interrogation, (3) design a corrected implementation that addresses security (SQL injection hidden in string assembly), logical correctness (a subtle OR-instead-of-AND in a conditional branch), expression index engineering (two misleading indexes — a btree on raw email and a hash on lower(email) — neither supporting the needed query pattern), case handling, and query optimization (unconditional multi-table joins requiring redesign into conditional dynamic SQL). The setup files are removed from the container, forcing catalog-based investigation. The decoy indexes are deliberate red herrings requiring the agent to evaluate each index's access method, expression, and operator class to understand why none works."""
+solution_explanation = """The solution addresses five interacting issues: (1) replaces manual string concatenation for p_last_name with quote_literal() to prevent SQL injection, (2) changes departure_date condition from the conditional OR branch to use concat_ws(' AND ') like all other parameters for correct intersection semantics, (3) wraps email comparisons in lower() to match the expression index, (4) drops both the decoy btree on raw email and the hash index on lower(email), then creates a btree with text_pattern_ops to support LIKE prefix matching, and (5) implements conditional join logic using boolean flags that only add JOIN clauses and SELECT columns when corresponding parameters are non-NULL, returning NULL::type for columns from non-joined tables."""
+verification_explanation = """Tests verify outcomes without revealing root causes: (1) injection payloads return 0 rows without errors, (2) apostrophe names don't crash, (3) combined email+date counts match a reference AND-intersection query computed independently against the underlying tables, (4) mixed-case email insertion is found via lowercase prefix search, (5) the lower(email) index is verified as btree with text_pattern_ops via pg_catalog metadata queries, (6) EXPLAIN confirms index scan (not seq scan) for email prefix queries with seqscan disabled, (7) email-only search returns NULL for flight/passenger columns proving join elimination works, (8) departure airport filter count matches a direct reference query."""
+category = "databases"
+tags = ["postgresql", "performance-diagnosis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d8c203"

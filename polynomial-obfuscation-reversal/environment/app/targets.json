@@ -1,0 +1,11 @@
+{
+  "targets": [
+    "bdae33240eceae66",
+    "0fabc852105c5c42",
+    "329ec2e8e292995c",
+    "d92bc35dd7c08109",
+    "095590dfde463c5c"
+  ],
+  "description": "Each target is the output of the SEAT transform applied to an unknown 64-bit plaintext. Recover all five plaintexts.",
+  "output_format": "Write results to /app/results.json as a JSON array of five 16-character lowercase hex strings (no 0x prefix), in the same order as the targets."
+}

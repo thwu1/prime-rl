@@ -1,0 +1,32 @@
+Jun  8 14:20:44 prod-web-037 kernel: [332.001204] TCP: out of memory -- consider increasing tcp_mem
+Jun  8 14:21:03 prod-web-037 kernel: [345.212033] php-fpm invoked oom-killer: gfp_mask=0x280da, order=0, oom_score_adj=0
+Jun  8 14:21:03 prod-web-037 kernel: [345.212894] Mem-Info:
+Jun  8 14:21:03 prod-web-037 kernel: [345.213102]  active_anon:487231 inactive_anon:12044 isolated_anon:0
+Jun  8 14:21:03 prod-web-037 kernel: [345.213203]  active_file:1204 inactive_file:892 isolated_file:0
+Jun  8 14:21:03 prod-web-037 kernel: [345.213501] Out of memory: Kill process 28934 (php-fpm) score 821 or sacrifice child
+Jun  8 14:21:03 prod-web-037 kernel: [345.213611] Killed process 28934 (php-fpm) total-vm:2831244kB, anon-rss:1987612kB, file-rss:4112kB
+Jun  8 14:21:04 prod-web-037 kernel: [346.107223] php-fpm invoked oom-killer: gfp_mask=0x280da, order=0, oom_score_adj=0
+Jun  8 14:21:04 prod-web-037 kernel: [346.108112] Out of memory: Kill process 29001 (php-fpm) score 798 or sacrifice child
+Jun  8 14:21:04 prod-web-037 kernel: [346.108234] Killed process 29001 (php-fpm) total-vm:2614892kB, anon-rss:1892344kB, file-rss:3844kB
+Jun  8 14:21:17 prod-web-037 kernel: [349.892001] php-fpm invoked oom-killer: gfp_mask=0x280da, order=0, oom_score_adj=0
+Jun  8 14:21:17 prod-web-037 kernel: [349.893102] Out of memory: Kill process 29187 (php-fpm) score 756 or sacrifice child
+Jun  8 14:21:17 prod-web-037 kernel: [349.893244] Killed process 29187 (php-fpm) total-vm:2401120kB, anon-rss:1756892kB, file-rss:3200kB
+Jun  8 14:22:15 prod-web-037 kernel: [417.334102] __alloc_pages_slowpath: page allocation failure: order:0, mode:0x280da
+Jun  8 14:22:15 prod-web-037 kernel: [417.334891] Backtrace:
+Jun  8 14:22:15 prod-web-037 kernel: [417.335012]  [<ffffffff8112a5c3>] __alloc_pages_nodemask+0x6e3/0x920
+Jun  8 14:22:15 prod-web-037 kernel: [417.335201]  [<ffffffff81162d0a>] copy_process+0x12a/0x1540
+Jun  8 14:22:15 prod-web-037 kernel: [417.335344]  [<ffffffff81164209>] do_fork+0x89/0x360
+Jun  8 14:22:47 prod-web-037 supervisor[1847]: fork: Cannot allocate memory
+Jun  8 14:22:48 prod-web-037 supervisor[1847]: restarting 'web-worker' (1/10)
+Jun  8 14:23:01 prod-web-037 supervisor[1847]: restarting 'web-worker' (2/10)
+Jun  8 14:23:03 prod-web-037 init: sshd main process (1203) killed by TERM signal
+Jun  8 14:23:03 prod-web-037 init: cron main process (1156) killed by TERM signal
+Jun  8 14:23:03 prod-web-037 init: rsyslog main process (1089) killed by TERM signal
+Jun  8 14:23:03 prod-web-037 init: atd main process (1134) killed by TERM signal
+Jun  8 14:23:03 prod-web-037 init: monitoring-agent main process (1578) killed by TERM signal
+Jun  8 14:23:04 prod-web-037 init: acpid main process (1067) killed by TERM signal
+Jun  8 14:23:04 prod-web-037 kernel: [451.897001] TCP: out of memory -- consider increasing tcp_mem
+Jun  8 14:23:22 prod-web-037 kernel: [469.001344] NFS: nfs4_reclaim_open_state: unhandled error -10011
+Jun  8 14:23:22 prod-web-037 kernel: [469.002107] NFS: state manager: check lease failed on NFSv4 server nfs-prod.internal with error -10011
+Jun  8 14:23:30 prod-web-037 kernel: [478.112034] NFS: stale file handle on /mnt/backups
+Jun  8 14:23:30 prod-web-037 kernel: [478.113201] NFS: stale file handle on /mnt/backups/2024-06-07

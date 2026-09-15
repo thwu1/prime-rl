@@ -1,0 +1,5 @@
+A working AES-128 encryption module exists at `/app/aes128_encrypt.v`. Implement the corresponding decryption module at `/app/aes128_decrypt.v` following the FIPS 197 Inverse Cipher (Section 5.3). A module stub with the correct port interface is already in place.
+
+The decryption module must correctly implement all inverse AES operations: InvSubBytes (inverse substitution table), InvShiftRows (reverse row permutation), InvMixColumns (inverse GF(2^8) matrix multiplication), and the reverse-order key schedule. Since decryption applies round keys from round 10 down to round 0, all keys must be available before the inverse rounds begin.
+
+A testbench at `/app/tb_aes128_decrypt.v` validates correctness against 4 NIST standard decryption vectors (FIPS 197 Appendix B, SP 800-38A ECB, FIPS 197 Appendix A, and all-zeros) plus an encrypt-then-decrypt round-trip consistency check using the encryption module. Run `make test` in `/app/` to compile and simulate. The testbench prints `[PASS]` or `[FAIL]` for each of the 5 test cases.

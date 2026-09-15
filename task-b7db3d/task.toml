@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level proficiency across multiple domains: (1) Build system debugging—identifying why a Makefile produces a static archive instead of a shared library, fixing compiler flags (-fPIC), linker invocation (gcc -shared vs ar), and library naming conventions. (2) PBR rendering mathematics—identifying five interrelated bugs in C BRDF kernels (GGX NDF alpha-squaring, Smith-GGX exact sqrt vs fast approx visibility, Schlick Fresnel fifth-power exponent, Charlie NDF half-exponent, GGX sampling CDF inversion) by comparing implementations against the mathematical specification. (3) C/Python FFI engineering—implementing ctypes Structure definitions matching C struct layout, configuring function signatures with correct argtypes/restype, and handling cross-language type conversion. (4) Importance sampling theory—implementing three competing DFG integration strategies (GGX IS with PDF cancellation, cosine-weighted with explicit D term, uniform hemisphere with 2pi factor) and understanding why their convergence rates differ across roughness regimes. (5) Numerical evaluation—designing a convergence analysis framework that computes reference values at high sample counts, measures RMSE against multiple strategies, and correctly ranks them."""
+solution_explanation = """Fix three Makefile bugs (add -fPIC to CFLAGS, change TARGET from .a to .so, replace ar rcs with gcc -shared). Fix five C math bugs (D_GGX a2=alpha->alpha*alpha, V_SmithGGX linear approx->exact sqrt, F_Schlick pow 4->5, D_Charlie exponent inv_r->inv_r*0.5, sample_GGX a2=alpha->alpha*alpha). Implement complete ctypes bridge with Vec3 Structure and all function bindings. Implement four DFG integrators using Hammersley sequence and C kernels via FFI. Implement convergence analysis computing reference at 8192 samples, evaluating at 1024, ranking by RMSE. Implement LUT generation producing 16x16 standard and cloth DFG values."""
+verification_explanation = """Tests verify each layer independently: (1) Build system—libbrdf.so exists, loads with ctypes, exports all required symbols. (2) C BRDF correctness—each function tested against analytically computed expected values via direct ctypes calls, with specific tests distinguishing exact sqrt from fast approximation. (3) FFI bridge—Python wrappers produce correct values including Vec3 tuple unpacking. (4) Integrators—GGX IS, cosine, uniform, and cloth integrators compared against independent numpy-based reference implementations using identical Hammersley sequences. (5) Convergence report—structure validation, GGX IS always beats uniform, RMSE ordering consistent, large advantage ratio at low roughness. (6) DFG LUT—structure, bounds, specific entries compared to numpy reference, physical plausibility checks."""
+category = "computer_graphics"
+tags = ["pbr", "build-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b7db3d"

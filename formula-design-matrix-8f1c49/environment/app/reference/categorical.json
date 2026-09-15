@@ -1,0 +1,32 @@
+{
+  "test_cases": [
+    {
+      "name": "treatment_with_intercept",
+      "formula": "a",
+      "data": {"a": ["a1", "a2", "a3", "a1", "a2", "a3"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "a[T.a3]"],
+      "expected_matrix": [[1,0,0],[1,1,0],[1,0,1],[1,0,0],[1,1,0],[1,0,1]]
+    },
+    {
+      "name": "treatment_no_intercept",
+      "formula": "0 + a",
+      "data": {"a": ["a1", "a2", "a3", "a1", "a2", "a3"]},
+      "expected_columns": ["a[a1]", "a[a2]", "a[a3]"],
+      "expected_matrix": [[1,0,0],[0,1,0],[0,0,1],[1,0,0],[0,1,0],[0,0,1]]
+    },
+    {
+      "name": "two_categorical_additive",
+      "formula": "a + b",
+      "data": {"a": ["a1", "a1", "a2", "a2"], "b": ["b1", "b2", "b1", "b2"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "b[T.b2]"],
+      "expected_matrix": [[1,0,0],[1,0,1],[1,1,0],[1,1,1]]
+    },
+    {
+      "name": "full_rank_no_intercept_interaction",
+      "formula": "0 + a:b",
+      "data": {"a": ["a1", "a1", "a2", "a2"], "b": ["b1", "b2", "b1", "b2"]},
+      "expected_columns": ["a[a1]:b[b1]", "a[a2]:b[b1]", "a[a1]:b[b2]", "a[a2]:b[b2]"],
+      "expected_matrix": [[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]]
+    }
+  ]
+}

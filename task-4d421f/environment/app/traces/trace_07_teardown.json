@@ -1,0 +1,16 @@
+{
+  "trace_id": "trace_07_teardown",
+  "description": "1-Way teardown from Full, recovery, then AdjOK demotion when DR changes",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R1", "event": "HelloReceived"},
+    {"time": 2, "router": "R3", "neighbor": "R1", "event": "2-WayReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R1", "event": "NegotiationDone"},
+    {"time": 4, "router": "R3", "neighbor": "R1", "event": "ExchangeDone", "ls_request_list_empty": true},
+    {"time": 5, "router": "R3", "neighbor": "R1", "event": "1-Way"},
+    {"time": 6, "router": "R3", "neighbor": "R1", "event": "HelloReceived"},
+    {"time": 7, "router": "R3", "neighbor": "R1", "event": "2-WayReceived"},
+    {"time": 8, "router": "R3", "neighbor": "R1", "event": "NegotiationDone"},
+    {"time": 9, "router": "R3", "neighbor": "R1", "event": "ExchangeDone", "ls_request_list_empty": true},
+    {"time": 10, "router": "R3", "neighbor": "R1", "event": "AdjOK?", "dr_update": {"dr": "R2", "bdr": "R5"}}
+  ]
+}

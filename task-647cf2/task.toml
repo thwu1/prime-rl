@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert HEP analysis knowledge: the specification provides physics requirements (object definitions, selection criteria, systematic magnitudes, output format) but does not prescribe implementation algorithms. The agent must independently determine the correct jet-to-MET calibration propagation method, appropriate pyhf modifier types for each systematic source, proper MC yield normalization, and a valid background estimation strategy using the signal/control region structure — all requiring genuine particle physics and statistical modeling expertise at the proficient/expert level."""
+solution_explanation = """Read ROOT TTrees via uproot. Determine that JES calibration must be propagated to MET via standard Type-I correction using uncorrected jet momenta. Implement object selection, sequential overlap removal, and multi-stage event selection. Compute normalized yields per MET bin. Identify that JES shape systematics require reprocessing events with varied JES, and b-tag systematics require per-event reweighting. Determine appropriate pyhf modifier types (normfactor for signal strength and shared background normalization, normsys for luminosity, histosys for shape systematics). Build a valid HistFactory workspace and run CLs hypothesis testing for exclusion limits."""
+verification_explanation = """Tests independently re-implement the complete analysis pipeline to compute reference yields from the same ROOT data. Structural tests verify pyhf workspace validity (loadable by pyhf, correct channels/samples/modifier names, shared background normalization, POI configuration, Asimov observations). Yield accuracy tests compare agent's nominal signal and background yields against independent reference via relative L2 distance (< 10% threshold). Functional tests load the agent's workspace into pyhf, run hypothesis testing, and verify CLs consistency with the agent's reported results."""
+category = "applied_computing"
+tags = ["particle-physics", "statistical-inference"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-647cf2"

@@ -1,0 +1,5 @@
+{
+    "dot_product": "Compute the dot product of vectors (a1,a2)=(3,7) and (b1,b2)=(4,2). Store intermediate products in p1 and p2, and the final dot product in dot.",
+    "find_max": "Find the maximum of three integers a=7, b=19, c=4 by comparing each against the current max. Store the result in max.",
+    "sum_loop": "Sum all integers from 1 to n (n=5) inclusive using a while loop that increments i from 1 to n. Store the running total in sum."
+}

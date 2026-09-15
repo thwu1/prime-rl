@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a register allocator that handles two independent register classes, multiple control-flow patterns (loops, diamonds, nested loops), spill minimization, and copy elimination requires deep expertise in compiler internals and graph algorithms. The task combines dataflow analysis, graph-theoretic optimization, and systems programming. Additionally, the agent must compile and use a C-based IR generator with gcc, integrate with a Makefile-based build system, and debug using CLI validation tools and jq — requiring multi-tool orchestration beyond basic Python development."""
+solution_explanation = """The solution implements iterative backward liveness analysis, builds per-class interference graphs with copy-exception semantics, then performs graph-coloring allocation with optimistic spill handling and conservative move coalescing. The pipeline requires compiling the C stress-test generator with gcc, running it to produce additional IR programs, and deploying the allocator module."""
+verification_explanation = """Tests independently compute reference liveness and interference graphs, then verify: (1) every virtual register is allocated, (2) class constraints hold, (3) no interfering non-spilled pair shares a register, (4) spill counts meet proven bounds (K16 with k=12 needs exactly 4 GP spills; K16 with k=14 needs exactly 2 XMM spills), (5) copy coalescing eliminates all register-to-register moves where required. Generated stress-test programs must exist for all tests to run."""
+category = "systems_programming"
+tags = ["compiler", "register-allocation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1a4763"

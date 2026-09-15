@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing from scratch a complete 2D finite element solver for plane stress linear elasticity with Q4 elements (element stiffness via Gauss quadrature, sparse global assembly, Dirichlet BC enforcement by DOF elimination) coupled with iterative density-based topology optimization using SIMP penalization, spatial density filtering, sensitivity analysis via the adjoint method, and optimality criteria update with Lagrange multiplier bisection for the volume constraint. Demands graduate-level expertise in computational mechanics, numerical linear algebra, and mathematical optimization."""
+solution_explanation = """Compute the Q4 element stiffness matrix analytically via 2x2 Gauss quadrature over the reference square mapped to unit physical elements. Assemble the global stiffness matrix in COO sparse format, apply Dirichlet BCs by DOF elimination, and solve the reduced system with a sparse direct solver. Compute element compliance sensitivities using the self-adjoint property of compliance (dc/dxe = -p*x^(p-1)*(E0-Emin)*ue^T*KE*ue), filter both design-variable densities and sensitivities with a distance-weighted convolution, and update densities via the OC bisection scheme that enforces the volume fraction constraint on the filtered (physical) densities."""
+verification_explanation = """Tests independently re-evaluate structural compliance by implementing a separate FEM solver that takes the agent's output density field, assembles and solves the elasticity system from scratch, and computes compliance. Verification also checks volume fraction constraint satisfaction within tolerance, density value bounds, non-trivial topology (std > 0.1), monotonic compliance decrease, convergence of the design-variable change, and that the optimized design outperforms a uniform-density baseline by at least 10%."""
+category = "scientific_computing"
+tags = ["finite-elements", "topology-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/topology-compliance-opt"

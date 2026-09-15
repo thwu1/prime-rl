@@ -1,0 +1,35 @@
+{
+  "_description": "Schema for the multi-GPU attention workload evaluation report at /app/report.json",
+  "gpus": {
+    "_key": "GPU name from hardware.db",
+    "_value": {
+      "ridge_point": "float: peak_flops_per_sec / bandwidth_bytes_per_sec, where bandwidth uses SI convention (1 GB = 1e9 bytes)"
+    }
+  },
+  "scenarios": {
+    "_key": "scenario name from scenarios.json",
+    "_value": {
+      "attention_flops": "int: total FLOPs for one attention layer across all heads (each fused multiply-add = 2 FLOPs; both QK^T and score-value matmuls contribute)",
+      "attention_memory_bytes": "int: total HBM bytes accessed per layer (read Q using h query heads, read K using h_kv KV heads, read V using h_kv KV heads, write O using h query heads)",
+      "arithmetic_intensity": "float: attention_flops / attention_memory_bytes",
+      "kv_cache_bytes": "int: total KV cache bytes across all layers (includes both key and value tensors, uses h_kv heads per layer)",
+      "gpu_evaluation": {
+        "_key": "GPU name",
+        "_value": {
+          "roofline_tflops": "float: min(arithmetic_intensity * bandwidth_bytes_per_sec, peak_flops_per_sec) / 1e12",
+          "is_memory_bound": "bool: true if arithmetic_intensity < ridge_point for this GPU",
+          "kv_cache_fits": "bool: true if kv_cache_bytes <= memory_gb * 1e9"
+        }
+      },
+      "optimal_gpu": "string: GPU name with highest roofline_tflops among those where kv_cache_fits is true; ties broken by peak_tflops descending, then GPU name ascending alphabetically"
+    }
+  },
+  "critical_prefill_seq_lens": {
+    "_key": "GPU name",
+    "_value": "int: smallest integer L such that the arithmetic intensity for prefill (seq_len_q = seq_len_kv = L, batch_size=1) meets or exceeds this GPU's ridge point, using the attention config from analysis.json critical_prefill section"
+  },
+  "group_size_analysis": {
+    "_key": "group size g as string (only include valid divisors: n_heads % g == 0)",
+    "_value": "float: decode-phase arithmetic intensity with h_kv = n_heads/g, using params from analysis.json group_size_sweep section"
+  }
+}

@@ -1,0 +1,10 @@
+[{:index 0 :type :invoke :process 0 :f :txn :value [[:append "a" 1] [:r "b" nil]] :time #inst "2024-03-15T10:00:00.000-00:00"}
+ {:index 1 :type :ok :process 0 :f :txn :value [[:append "a" 1] [:r "b" [2]]] :time #inst "2024-03-15T10:00:00.050-00:00"}
+ {:index 2 :type :invoke :process 1 :f :txn :value [[:append "b" 2] [:r "a" nil]] :time #inst "2024-03-15T10:00:00.010-00:00"}
+ {:index 3 :type :ok :process 1 :f :txn :value [[:append "b" 2] [:r "a" [1]]] :time #inst "2024-03-15T10:00:00.060-00:00"}
+ {:index 4 :type :invoke :process 2 :f :txn :value [[:r "c" nil] [:append "d" 3]] :time #inst "2024-03-15T10:00:00.100-00:00"}
+ {:index 5 :type :ok :process 2 :f :txn :value [[:r "c" []] [:append "d" 3]] :time #inst "2024-03-15T10:00:00.120-00:00"}
+ {:index 6 :type :invoke :process 3 :f :txn :value [[:r "d" nil] [:append "c" 4]] :time #inst "2024-03-15T10:00:00.110-00:00"}
+ {:index 7 :type :ok :process 3 :f :txn :value [[:r "d" []] [:append "c" 4]] :time #inst "2024-03-15T10:00:00.150-00:00"}
+ {:index 8 :type :invoke :process 4 :f :txn :value [[:r "a" nil] [:r "b" nil] [:r "c" nil] [:r "d" nil]] :time #inst "2024-03-15T10:00:00.200-00:00"}
+ {:index 9 :type :ok :process 4 :f :txn :value [[:r "a" [1]] [:r "b" [2]] [:r "c" [4]] [:r "d" [3]]] :time #inst "2024-03-15T10:00:00.220-00:00"}]

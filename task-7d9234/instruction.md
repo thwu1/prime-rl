@@ -1,0 +1,15 @@
+`/app/metadata.json` contains `cargo metadata` JSON output from a Rust unikernel crate with a complex feature graph involving optional dependencies, strong dependency features (`dep/feat`), and conditional weak dependencies (`dep?/feat`). A feature resolver at `/app/buggy_resolver.py` reads this metadata to compute feature resolution but produces incorrect results for multiple feature combinations. Ground-truth expected outputs are in `/app/expected/`. A human-readable feature specification is at `/app/crate_features.toml`.
+
+Diagnose and fix all bugs in the resolver, then install the corrected resolver as an executable at `/app/resolver`. The resolver must support three subcommands:
+
+**`./resolver resolve <comma-separated-features>`** -- Resolve the transitive feature closure and output enabled features and activated optional dependencies with their features. Output: `{"enabled_features": [...], "activated_deps": {"dep": [...], ...}}`
+
+**`./resolver trace <comma-separated-features> <dep-name>`** -- Trace which feature entries caused a specific optional dependency to be activated and which features were propagated to it. Only include weak-dependency entries that actually fired (i.e., the dep was active when evaluated). Output: `{"dep": "...", "activated": <bool>, "features_on_dep": [...], "activation_chain": [{"source_feature": "...", "entry": "...", "type": "direct|strong|weak"}, ...]}`
+
+**`./resolver impact <feature>`** -- Resolve a single feature, track which weak dependency entries fired during fixpoint iteration, and determine which activated deps are "exclusive" -- not activated by the resolution of any other individual feature. Output: `{"feature": "...", "enabled_features": [...], "activated_deps": {...}, "weak_deps_fired": [{"source_feature": "...", "dep": "...", "dep_feature": "..."}], "exclusive_deps": [...]}`
+
+Use `jq` to extract a cross-referenced dependency analysis directly from `/app/metadata.json` and write the result to `/app/dep_analysis.json`. For each optional dependency, extract its default features from the cargo metadata dependencies array, identify which crate features directly activate it (via `dep:X` or `X/Y` syntax), and which reference it conditionally (via `X?/Y` weak syntax). Output: `{"optional_deps": [{"name": "...", "default_features": [...], "activating_features": [...], "weak_referencing_features": [...]}, ...]}` -- all arrays sorted alphabetically, deps sorted by name.
+
+Use `graphviz` to produce `/app/feature_graph.dot` and render `/app/feature_graph.svg`. Features must be box-shaped nodes; optional deps must be ellipse-shaped nodes. Use distinct edge styles: solid for feature-to-feature enablement, dashed for strong dep activation (`dep:X` or `X/Y`), dotted for weak dep references (`X?/Y`).
+
+All output arrays and object keys sorted alphabetically. Activation chain sorted by `(source_feature, entry)`. Weak deps fired sorted by `(source_feature, dep, dep_feature)`.

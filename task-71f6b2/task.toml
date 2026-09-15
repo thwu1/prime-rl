@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantitative finance knowledge to implement five portfolio strategies from high-level business objectives. Data is stored in a normalized SQLite database (prices, not returns), requiring the agent to use sqlite3 CLI to discover the schema, understand the multi-table structure, and extract/transform price data into return series. The agent must derive analytical closed-form solutions for minimum-variance and mean-variance efficient portfolios, implement constrained numerical optimization for the long-only case, and — critically — discover that the friction-aware strategy can be solved via moment augmentation of the covariance and expected return inputs (a non-obvious technique from the academic literature). No formulas, algorithms, or implementation approaches are provided. The agent must also build a rolling-window backtesting engine with passive weight evolution and conduct a grid search over a nested optimization problem."""
+solution_explanation = """Explores the SQLite database with the sqlite3 CLI tool to discover the price_history and assets tables. Extracts price data via SQL joins, computes simple returns from price ratios. Parses TOML config with tomllib. Implements analytical MVP and efficient portfolio formulas from first-order optimality conditions, scipy SLSQP for the constrained case, and moment augmentation (mu*=mu+beta*w_prev, Sigma*=Sigma+(beta/gamma)*I) for the friction-aware strategy. Runs a 36-month rolling-window backtest with passive weight drift across 84 out-of-sample periods. Performs grid search over 500 beta values to find the friction parameter maximizing net-of-costs Sharpe ratio."""
+verification_explanation = """Tests independently reconstruct the return matrix from the SQLite database, recompute all five strategy metrics using reference implementations, and compare against the agent's output within tolerance. Structural tests verify JSON format and field completeness. Invariant tests check TC-adjusted turnover < efficient turnover and constrained differs from efficient. Optimal beta is verified for self-consistency and local optimality."""
+category = "quantitative_finance"
+tags = ["portfolio-optimization", "database-etl"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-71f6b2"

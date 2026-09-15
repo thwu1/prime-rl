@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing SE(3) pose graph optimization from scratch with g2o format I/O and gnuplot visualization. The agent must parse the g2o file format (quaternion representations, upper-triangle information matrices with translation-first ordering), implement Lie group optimization on the SE(3) manifold with robust outlier rejection, write results back in g2o format with properly normalized quaternions, and generate trajectory plots using gnuplot. This combines Lie group theory, nonlinear optimization, robust statistics, domain-specific file format handling, and multi-tool pipeline integration."""
+solution_explanation = """Parses g2o VERTEX_SE3:QUAT and EDGE_SE3:QUAT lines, converting quaternions to rotation matrices and reordering information matrices from g2o [t,r] to internal [r,t] convention. Uses Graduated Non-Convexity (GNC) with a Cauchy robust kernel on the SE(3) manifold: anneals the kernel scale parameter from permissive (c²=1000) to strict (c²=25) across multiple Gauss-Newton passes with numerical Jacobians. This progressively downweights outlier edges while preserving convergence. After GNC, edges with squared Mahalanobis distance exceeding a chi-squared threshold are rejected as outliers. A final non-robust Gauss-Newton pass on inlier edges maximizes accuracy. Includes singularity handling in log_so3 near angle pi. Outputs optimized poses in JSON and g2o format, and generates a gnuplot PNG comparing initial vs optimized XY trajectories."""
+verification_explanation = """Tests verify: (1) all four output files exist (poses.json, outliers.json, optimized.g2o, trajectory.png), (2) poses.json format with valid SE(3) rotation matrices, (3) outliers.json schema, (4) optimized.g2o has correct g2o structure with 16 vertices, 19 edges, FIX line, and unit-normalized quaternions, (5) trajectory.png is a valid PNG >= 1KB, (6) anchor pose fixation, (7) pose accuracy against ground truth, (8) outlier detection with <=1 false positive, (9) loop closure consistency, (10) generalization on second dataset with different seed."""
+category = "robotics"
+tags = ["slam", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1fdcd0"

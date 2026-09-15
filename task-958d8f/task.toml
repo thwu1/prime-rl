@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete chiptool IR transform pipeline by reading and understanding ~3000 lines of Rust source across 16 modules. The Sanitize transform alone demands implementing per-NameKind case conversion (PathSnakePascal splits on :: boundaries applying snake to path segments and Pascal to terminal segments, Snake for item/field names, Pascal for variants), Rust keyword escaping (sanitize_ident), digit-boundary-aware word splitting (remove_boundaries), and post-sanitize duplicate variant merging/renaming. Critically, Sanitize runs first and changes ALL names — every subsequent transform's regex patterns reference post-sanitize names, forcing the solver to understand the full interaction chain rather than treating transforms independently. DeleteFieldsets with useless flag requires semantic understanding of when a fieldset is information-free (no fields, or single field spanning full bit_size with no enum ref). DeleteEnums with bit_size filter requires understanding cross-reference cleanup (clearing dangling enum refs in fields). RenameFields strips channel prefixes from fields within matching fieldsets before MergeFieldsets can merge them — incorrect ordering breaks the pipeline. The solver must reason about transform composition: sanitize→delete→rename→merge→restructure→rename, where each stage's correctness depends on the previous stage's output."""
+solution_explanation = """Build a Python transform engine that: (1) parses YAML with custom tag constructors, (2) implements case conversion with digit-boundary-aware word splitting and PathSnakePascal :: path handling, (3) implements sanitize_ident for Rust keyword escaping, (4) implements Sanitize by mapping all names (keys AND references) through case conversion then deduplicating variants, (5) implements DeleteFieldsets with useless detection and DeleteEnums with bit_size filtering including cross-reference cleanup, (6) implements RenameFields for field-level regex renaming within fieldsets, (7) implements MergeEnums/MergeFieldsets using match_groups with capture group expansion, (8) implements MakeBlock and MakeRegisterArray with offset arithmetic, (9) implements Rename for namespace-level renaming with full cross-reference update."""
+verification_explanation = """Tests validate: post-sanitize naming conventions (PascalCase variants, snake_case fields, PathSnakePascal keys, keyword-escaped type_ field), useless fieldset deletion (address fieldsets removed, refs cleared), single-bit enum deletion (enable enums removed, refs cleared), debug register/fieldset deletion, field renaming (channel prefix stripped), enum/fieldset merging (canonical names exist, per-channel duplicates gone), block structure (Channel sub-block with correct items and offsets), array properties (len=4, stride=32), complete cross-reference integrity (no dangling block/fieldset/enum refs), and specific enum variant names confirming PascalCase conversion."""
+category = "embedded_systems"
+tags = ["rust-port", "ir-transforms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-958d8f"

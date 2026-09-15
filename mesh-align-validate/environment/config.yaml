@@ -1,0 +1,5 @@
+expected_components: 1
+bbox_tolerance_mm: 1.0
+volume_threshold_percent: 2.0
+chamfer_threshold_mm: 1.0
+hausdorff_threshold_mm: 1.0

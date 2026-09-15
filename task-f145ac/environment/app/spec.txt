@@ -1,0 +1,98 @@
+SPEED DAEMON PROTOCOL — RECOVERED SPECIFICATION FRAGMENT
+=========================================================
+
+Source: Backup recovery from dev-archive-02, fragment ID 7c3a
+Recovery date: 2024-03-20
+Status: PARTIAL — behavioral rules section unrecoverable
+        (disk sectors 47-63 failed integrity verification)
+
+----- BEGIN RECOVERED CONTENT -----
+
+SYSTEM OVERVIEW
+===============
+Server for Freedom Island's road speed enforcement network. Coordinates
+between ANPR (Automatic Number Plate Recognition) cameras and ticket
+dispatchers over TCP connections using a binary protocol. The server must
+handle concurrent clients.
+
+Cameras are positioned at known mile markers on numbered roads. Each
+camera knows its road number, mile position, and the road's speed limit.
+Cameras report vehicle number plate observations with timestamps.
+
+When a vehicle is detected travelling in excess of the speed limit
+between two observation points, the server generates a ticket and sends
+it to a dispatcher responsible for that road.
+
+Roads are identified by numbers 0-65535. Positions are in integer miles
+from the start of the road. Number plates are uppercase alphanumeric
+strings. Timestamps are unsigned Unix timestamps (seconds since epoch).
+
+
+DATA TYPES
+==========
+All multi-byte integers are unsigned, network byte-order (big endian).
+
+  u8    Unsigned 8-bit integer (1 byte)
+  u16   Unsigned 16-bit integer (2 bytes)
+  u32   Unsigned 32-bit integer (4 bytes)
+  str   Length-prefixed string: u8 length followed by that many ASCII bytes
+
+Examples:
+  u16 value 123  ->  00 7b
+  u32 value 1000 ->  00 00 03 e8
+  str "UN1X"     ->  04 55 4e 31 58
+
+
+MESSAGE TYPES
+=============
+Each message begins with a u8 type code. Messages are concatenated
+directly with no delimiters or padding between them.
+
+0x10  Error (Server -> Client)
+      Fields: msg: str
+      Server disconnects the client after sending this message.
+
+      [Error trigger conditions: UNRECOVERED — see traces/]
+
+0x20  Plate (Client -> Server)
+      Fields: plate: str, timestamp: u32
+      A camera reports observing a number plate at its position.
+
+      [Preconditions and processing rules: UNRECOVERED — see traces/]
+
+0x21  Ticket (Server -> Client)
+      Fields: plate: str, road: u16, mile1: u16, timestamp1: u32,
+              mile2: u16, timestamp2: u32, speed: u16
+
+      [Speed encoding, issuance threshold, field ordering rules,
+       deduplication policy, and delivery semantics: UNRECOVERED
+       — see traces/]
+
+0x40  WantHeartbeat (Client -> Server)
+      Fields: interval: u32
+
+      [Interval unit, timing semantics, and constraints:
+       UNRECOVERED — see traces/]
+
+0x41  Heartbeat (Server -> Client)
+      No fields.
+
+      [Scheduling rules: UNRECOVERED — see traces/]
+
+0x80  IAmCamera (Client -> Server)
+      Fields: road: u16, mile: u16, limit: u16 (miles per hour)
+      Client identifies itself as a camera.
+
+      [Identification constraints: UNRECOVERED — see traces/]
+
+0x81  IAmDispatcher (Client -> Server)
+      Fields: numroads: u8, roads: [u16] (numroads elements)
+      Client identifies itself as a ticket dispatcher for the
+      listed roads.
+
+      [Routing and delivery rules: UNRECOVERED — see traces/]
+
+It is an error for a client to send a message type not listed above
+as "Client -> Server".
+
+----- END RECOVERED CONTENT -----

@@ -1,0 +1,11 @@
+{
+  "process": "standard 2D Brownian motion (Wiener process)",
+  "domain": {
+    "shape": "rectangle",
+    "vertices": [[-4.7, -0.8], [4.7, -0.8], [4.7, 0.8], [-4.7, 0.8]],
+    "dimensions": {"length": 9.4, "width": 1.6}
+  },
+  "start": [0.0, 0.0],
+  "quantity": "Probability that the particle first exits through the short sides (x = -4.7 or x = 4.7) rather than through the long sides (y = -0.8 or y = 0.8)",
+  "result_key": "exit_prob"
+}

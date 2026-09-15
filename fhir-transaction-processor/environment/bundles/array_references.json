@@ -1,0 +1,79 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:arr-patient",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-88888"
+          }
+        ],
+        "name": [
+          {
+            "family": "ArrayTest",
+            "given": ["Demo"]
+          }
+        ],
+        "gender": "male"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Patient"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:arr-practitioner",
+      "resource": {
+        "resourceType": "Practitioner",
+        "name": [
+          {
+            "family": "TestDoc",
+            "given": ["Array"]
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "Practitioner"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:arr-observation",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:arr-patient"
+        },
+        "performer": [
+          {
+            "reference": "urn:uuid:arr-practitioner"
+          }
+        ],
+        "valueQuantity": {
+          "value": 120,
+          "unit": "mmHg",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation"
+      }
+    }
+  ]
+}

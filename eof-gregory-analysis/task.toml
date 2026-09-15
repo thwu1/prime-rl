@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a multi-tool climate analysis pipeline that chains CDO (Climate Data Operators), NCO (NetCDF Operators), and Python. Errors span three tool domains: a CDO operator that silently corrupts missing-value handling, an NCO ncap2 formula using the wrong trigonometric function for area weighting, an NCO ncks command selecting the wrong temporal subset, a Python significance test using a naive threshold, and a Python regression formula inversion. The solver must possess climate science domain expertise AND proficiency with specialized command-line tools for scientific data manipulation (ncdump for inspection, CDO for field operations, NCO for variable algebra and subsetting). No hints indicate which tool components are flawed."""
+solution_explanation = """Read the pipeline orchestration script (run_analysis.sh) and identify five errors across CDO, NCO, and Python: (1) CDO setmisstoc,0 zero-fills NaN values instead of masking them; (2) NCO ncap2 uses sin(lat) instead of cos(lat) for area weights; (3) NCO ncks selects wrong time indices (0:149 instead of 100:299) for Gregory regression; (4) Python eof_analysis.py uses naive eigenvalue-above-mean significance test instead of broken-stick model; (5) Python gregory.py inverts the ECS formula (slope/intercept vs -intercept/slope). Implement a corrected analysis reading the source NetCDF directly, applying cos(lat) weighting, NaN masking, broken-stick test (yielding 4 significant modes with periods 25/30/50/60), and correct Gregory formula on time steps 100-299."""
+verification_explanation = """Tests verify corrected results in /app/results.json: n_significant_modes==4, mode_periods match [25,30,50,60] within ±5, explained_variance_pct values match expected within ±3%, ECS near 3.33 K within ±0.5, feedback near -1.20 within ±0.2, total variance near 73.5% within ±5%. Additionally verifies /app/audit.json exists with n_errors>=4 and structured error descriptions with non-trivial category and description fields."""
+category = "data_science"
+tags = ["climate-science", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/eof-gregory-analysis"

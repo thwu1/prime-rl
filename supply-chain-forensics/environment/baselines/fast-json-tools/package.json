@@ -1,0 +1,18 @@
+{
+  "name": "fast-json-tools",
+  "version": "1.2.0",
+  "description": "Fast JSON parsing and serialization utilities for Node.js",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "node test.js",
+    "postinstall": "node scripts/welcome.js"
+  },
+  "keywords": ["json", "parser", "serializer", "fast"],
+  "author": "jsontools-team <jsontools@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsontools-team/fast-json-tools"
+  },
+  "dependencies": {}
+}

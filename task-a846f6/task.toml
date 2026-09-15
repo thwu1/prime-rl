@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the W3C accessible name computation algorithm (aria-labelledby ID resolution, aria-label, native label association via for/id and wrapping, alt text, title fallback — in correct priority order), the WCAG color contrast formula (sRGB linearization, relative luminance, large text thresholds), filename-pattern detection for image alt text, and a composite NonInterference test dependency graph. Demands deep understanding of Section 508 ICT Testing Baseline specifications and WCAG 2.x success criteria. Verification includes dynamic HTML pages generated at test time that the agent has never seen."""
+solution_explanation = """Build a Python tool using an HTML parser (e.g. BeautifulSoup) that implements each baseline test: (1) parse HTML and compute accessible names using the W3C priority algorithm, (2) compute contrast ratios via sRGB→linear→luminance→ratio pipeline handling hex/rgb/named colors, (3) detect decorative image role conflicts, (4) check data table headers, (5) detect auto-playing audio, (6) implement composite NonInterference logic. Output a structured JSON report matching the schema."""
+verification_explanation = """Static tests verify exact violation counts, test pass/fail/not_applicable results, and WCAG SC mappings across 6 known HTML pages. DNA tests generate 4 novel HTML pages unseen by the agent (clean, broken, mixed, ARIA-heavy) and run the audit tool on them, verifying correct violation detection — including contrast ratio computation, aria-labelledby resolution, filename-pattern detection, and composite NonInterference logic. Additionally, 9 standalone DNA tests each independently generate a unique novel HTML page, invoke the audit tool via subprocess, and verify specific behaviors: contrast failure detection, large-text threshold (>=18pt), heading implicit large-text classification, aria-labelledby resolution, filename alt-text detection, decorative image conflicts, NonInterference composite dependency, empty link detection, headerless data tables, and false-positive-free clean pages."""
+category = "web_accessibility"
+tags = ["section508-conformance", "wcag-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a846f6"

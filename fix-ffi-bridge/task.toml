@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing 7 interrelated FFI bugs across orthogonal concern areas without enumeration of what is wrong. The agent must independently identify: (1) missing thread-safety architecture requiring a Mutex-based Handle wrapper that cascades to every function signature, (2) repr(C) struct field ordering mismatch causing ABI-level data misinterpretation between Rust and C, (3) CString use-after-free from as_ptr() on a temporary that is immediately dropped, (4) output parameter not written through despite correct return value, (5) incomplete deallocation in range_free leaking nested heap structures (CStrings + boxed slices), (6) callback user_data pointer silently replaced with null, and (7) off-by-one converting inclusive to exclusive range bounds. Each bug requires different domain expertise—diagnosing the CString lifetime bug requires understanding Rust ownership semantics across FFI, the ABI bug requires knowledge of how repr(C) maps struct fields to memory offsets, and the thread-safety fix is architectural (not a local patch) since it changes how all 12 functions access inner state."""
+solution_explanation = """Rewrite ffi.rs to wrap SortedSet in a Handle struct containing Mutex<SortedSet>—all FFI functions lock before accessing inner state, and mutex poisoning is recovered via into_inner(). Fix ZRangeResult field order to match C header (count, members, scores). Replace CString::as_ptr() with CString::into_raw() for ownership transfer in range results, and implement full deallocation in zset_range_free: reclaim each CString via from_raw, then drop the boxed slices for members and scores arrays. Write score through out_score pointer in zset_score. Forward the actual user_data parameter (not null) to the callback in zset_foreach. Remove the stop-1 adjustment in zset_range_by_rank to restore inclusive semantics."""
+verification_explanation = """Python tests load the cdylib via ctypes and exercise all 12 FFI functions. Thread safety is verified by spawning 4 threads doing concurrent adds (GIL released during ctypes calls), then asserting correct total cardinality. ABI layout is implicitly verified when accessing ZRangeResult fields by C-header offsets. CString ownership is verified by reading member strings from range results (dangling pointers yield garbage). Score output is verified by checking the written value matches expected. Memory leak detection monitors RSS over 50K alloc/free cycles. Callback user_data passthrough is verified by accumulating scores through an opaque pointer. Range inclusivity is verified by asserting exact element counts for rank-bounded queries."""
+category = "systems-programming"
+tags = ["rust-ffi", "memory-safety"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-ffi-bridge"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building three interlocking components from GDL game specifications: (1) a complete first-order logic reasoning engine in Python capable of parsing S-expression syntax, performing term matching with variable binding, handling negation and disjunction, and correctly computing game states across three structurally different games (simultaneous moves, turn-based gravity mechanics, inventory puzzles); (2) a cross-compiler translating GDL into executable SWI-Prolog programs, requiring deep understanding of both GDL and Prolog semantics and their divergences (dynamic predicates, operator translation, variable conventions); (3) a game-tree search to find provably optimal play in the maze domain. The agent must install and correctly interoperate with SWI-Prolog, an unfamiliar specialized tool, and verify that independently-derived results match across two different execution backends."""
+solution_explanation = """Build a Python reasoner implementing parsing, term matching, and recursive query evaluation for GDL. Build a separate GDL-to-Prolog compiler that translates KIF S-expressions into Prolog clauses (handling variable renaming, negation, disjunction, distinct, and dynamic true/does predicates). Use the Python reasoner with BFS to find the shortest 6-step maze solution. All three components must agree on game semantics across the three provided games."""
+verification_explanation = """40 pytest tests verify: (1) Python reasoner correctness across 3 games — roles, initial states, legal moves, state transitions, terminal detection, goal values, multi-step simulation, simultaneous-move conflict, and negation handling (30 tests); (2) Prolog compilation correctness — roles, initial states, legal moves, terminal detection, and goal computation verified by running swipl subprocess queries against the generated .pl files (9 tests); (3) maze solution — structure, optimality (6 steps), and validity via replay through the reasoner (2 tests). Cross-validation between Python and Prolog backends ensures deep semantic understanding."""
+category = "artificial_intelligence"
+tags = ["logic-programming", "cross-compilation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gdl-game-reasoner"

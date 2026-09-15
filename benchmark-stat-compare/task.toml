@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting bugs in a draft statistical comparison implementation, then fixing or reimplementing the tool correctly. Issues span data validation (non-model JSON crash), metric direction inference, null-value handling, fractional rank computation for ties, critical difference calculation via the studentized range distribution, maximal clique identification from rank differences, and step-down multiple testing correction. Bugs cascade — incorrect null handling changes means, which alters ranks, which shifts test statistics — requiring systematic root-cause analysis. The solver must also implement a missing clique-finding algorithm and replace a hardcoded lookup table with a proper parametric computation that generalizes across significance levels."""
+solution_explanation = """The solution loads result JSONs (skipping non-model files via schema validation), excludes null fold values from means, computes fractional midranks for tied per-dataset values, calculates Friedman chi-squared with Iman-Davenport correction, derives Nemenyi critical difference using scipy.stats.studentized_range quantiles divided by sqrt(2), finds maximal cliques by extending rank-sorted intervals while checking all pairwise distances, and applies Holm step-down procedure for Wilcoxon signed-rank p-value correction with enforced monotonicity."""
+verification_explanation = """Tests run the tool with --metric AUC, --metric 'Log Loss', and --alpha 0.10. Verified outputs include: correct non-model JSON skipping (5 models, no spurious entries), NaN handling (LinearModel jasmine mean = 0.7025), fractional tie ranks (XGBoost/LightGBM tied on credit-g), correct Friedman chi-squared (~26.225), Iman-Davenport F (~31.788), Nemenyi CD (~2.157), specific significant pairs and cliques, Wilcoxon step-down correction (non-uniform, monotone, tighter than Bonferroni), and CD variation with alpha (smaller at 0.10 than 0.05)."""
+category = "machine_learning"
+tags = ["statistics", "debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-stat-compare"

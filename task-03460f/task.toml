@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the SQLMesh data transformation framework, including INCREMENTAL_BY_TIME_RANGE model semantics (mandatory time-range macro filtering in WHERE clauses), time_column specification rules (must match output column names), audit query semantics (queries should return violating rows, not passing rows), SQL dialect transpilation (postgres vs duckdb), and YAML fixture-based unit test structure. Six interconnected bugs span configuration, model SQL, audit logic, and test fixtures. Diagnosing each requires correlating error messages with SQLMesh-specific domain knowledge rather than general SQL debugging."""
+solution_explanation = """Fix the model_defaults dialect from 'postgres' to 'duckdb' in config.yaml. Correct the time_column name from 'ordered_at' to 'order_timestamp' in stg_orders.sql. Add the required WHERE clause with @start_ds/@end_ds time-range macros to daily_revenue.sql. Fix the upstream model reference from 'intermediate.order_products' to 'intermediate.int_order_products' in top_products.sql. Invert the audit logic from 'WHERE total_revenue >= 0' to 'WHERE total_revenue < 0' in the revenue audit. Correct three column names in the unit test expected output (date->revenue_date, revenue->total_revenue, num_orders->order_count)."""
+verification_explanation = """Static file checks verify each specific bug fix was applied. Dynamic checks execute 'sqlmesh test' to validate unit tests pass, then 'sqlmesh plan --auto-apply --no-prompts' to verify the full pipeline (model creation, backfill, and audit execution) succeeds. Data correctness is verified by querying the resulting analytics tables for expected columns and non-empty result sets."""
+category = "debugging"
+tags = ["sqlmesh", "data-pipeline"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-03460f"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and understanding a custom ISA specification, then debugging a transaction-level simulator by comparing its Python implementation against the spec to find three subtle instruction-level bugs (VSUB operand swap, VMAC missing accumulation, VREDSUM off-by-one). After fixing the simulator, the solver must author three non-trivial assembly kernels implementing ML primitives (dot product with tiled accumulation, numerically-stable softmax, RMSNorm with weights) in an unfamiliar assembly language. The coupled debugging challenge — simulator bugs interact with kernel correctness — and the requirement for both systems programming and ML algorithm knowledge make this expert-level."""
+solution_explanation = """Fix three bugs in simulator.py: (1) VSUB computes vs2-vs1 instead of vs1-vs2 (operand swap), (2) VMAC overwrites vd instead of accumulating (vd = vs1*vs2 instead of vd += vs1*vs2), (3) VREDSUM sums only 15 of 16 elements ([:VLEN-1] instead of [:VLEN]). Then write three assembly kernels: dotproduct.asm uses VMUL+VMAC tiling across 4 chunks of 16 elements then VREDSUM; softmax.asm implements max-subtract-exp-sum-divide with VREDMAX/SMAX/VSUB/VEXP/VREDSUM/VDIV; rmsnorm.asm computes x^2 sum, mean, sqrt(mean+eps), normalizes x by 1/rms, and applies weights."""
+verification_explanation = """Seven pytest tests verify correctness: four unit tests run small assembly programs that exercise the specific buggy instructions (VADD baseline, VSUB, VMAC accumulation, VREDSUM) and compare against NumPy; three integration tests load the agent-written kernels, populate memory with seeded random data, execute through the simulator, and compare output against NumPy reference implementations (dot product, stable softmax, RMSNorm) within float32 tolerance."""
+category = "systems_programming"
+tags = ["assembly", "debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/npu-kernel-debug"

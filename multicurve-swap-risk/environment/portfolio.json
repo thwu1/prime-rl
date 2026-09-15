@@ -1,0 +1,42 @@
+{
+  "conventions": {
+    "calendar": "TARGET",
+    "settlement_days": 2,
+    "fixed_leg_frequency": "Annual",
+    "fixed_leg_day_counter": "30/360 European",
+    "fixed_leg_convention": "Unadjusted",
+    "floating_leg_frequency": "Semiannual",
+    "floating_leg_day_counter": "Actual/360",
+    "floating_leg_convention": "ModifiedFollowing",
+    "floating_index": "Euribor6M"
+  },
+  "swaps": [
+    {
+      "id": "swap_1",
+      "description": "5Y spot payer swap",
+      "type": "payer",
+      "notional": 1000000.0,
+      "fixed_rate": 0.007,
+      "maturity_tenor": "5Y",
+      "start": "spot"
+    },
+    {
+      "id": "swap_2",
+      "description": "5Y 1-year forward payer swap",
+      "type": "payer",
+      "notional": 1000000.0,
+      "fixed_rate": 0.007,
+      "maturity_tenor": "5Y",
+      "start": "1Y_forward"
+    },
+    {
+      "id": "swap_3",
+      "description": "10Y spot receiver swap",
+      "type": "receiver",
+      "notional": 5000000.0,
+      "fixed_rate": 0.020,
+      "maturity_tenor": "10Y",
+      "start": "spot"
+    }
+  ]
+}

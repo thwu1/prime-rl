@@ -1,0 +1,7 @@
+{
+    "source_file": "inode_cache.c",
+    "bug_id": "bug_002",
+    "patch_id": "patch_c",
+    "target_function": "icache_evict_oldest",
+    "replacement": "unsigned long icache_evict_oldest(struct inode_cache *ic) {\n    if (ic->used == 0) return 0;\n\n    struct inode_entry *victim = ic->slots[0];\n    for (int i = 0; i < ic->used - 1; i++)\n        ic->slots[i] = ic->slots[i + 1];\n    ic->slots[ic->used - 1] = NULL;\n    ic->used--;\n\n    free(victim);\n\n    /* Wrong fix: NULL check after free is useless since free does not NULL the pointer */\n    unsigned long evicted_ino = 0;\n    if (victim != NULL) {\n        evicted_ino = victim->ino;\n        printf(\"evicted inode %lu: %s\\n\", evicted_ino, victim->name);\n    }\n    return evicted_ino;\n}"
+}

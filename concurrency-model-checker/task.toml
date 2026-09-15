@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a full concurrent program model checker with DFS state-space exploration, state memoization, deadlock detection, data-race detection, assertion checking, and re-entrant lock support, plus partial-order reduction via ample-set computation—all without algorithmic guidance. The solver must also independently diagnose and fix a broken Makefile (per-file Java compilation fails on cross-package references; wrong main class name) and a framework bug (ConcurrentProgram.java only discovers locks from the first thread, causing lock-related programs to malfunction). Combining build debugging, framework defect tracing, checker architecture design, and subtle concurrency semantics makes this a proficient-level task."""
+solution_explanation = """Fix Makefile to batch-compile all sources with a single javac invocation and correct the main class from modelchecker.Main to Main. Fix ConcurrentProgram.java lock scanning to iterate all threads instead of only threads.get(0). Implement ModelChecker with: string-based state encoding for memoization via HashSet, DFS exploration with backtracking using cloned state arrays, enabled-thread computation respecting lock ownership and re-entrancy via lock depth counters, pairwise race detection at each state for conflicting variable accesses (same variable, at least one write, not protected by same lock), deadlock detection when non-halted threads exist but none is enabled, assertion checking during ASSERT_EQ execution, re-entrant lock tracking via per-lock depth counter (increment on LOCK, decrement on UNLOCK, release only at depth zero), and POR via ample-set computation with independence relation over shared variables and locks."""
+verification_explanation = """Tests build the project via make compile, run the checker with and without --por capturing stdout, then parse the structured text output. Pytest verifies: all seven programs appear in output, correct violation types per program (DEADLOCK in DiningPhilosophers and LockOrderDeadlock, DATA_RACE in SimpleRace and RaceCounter, ASSERTION_FAILURE in HighOrderRace, zero violations in MutualExclusion and ReentrantMutex), no false DATA_RACE in HighOrderRace, positive states and transitions counts for every program, POR preserves all violation types across all programs, and POR reduces DiningPhilosophers state count."""
+category = "formal_methods"
+tags = ["concurrency", "model-checking"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/concurrency-model-checker"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a CMake multi-target build system (wrong C++ standard blocking structured bindings, missing subdirectory for the executable target, unexported include paths, and a library name mismatch in target_link_libraries), identifying 6 arithmetic bugs across 3 era-based calendar algorithms and a weekday function (Gregorian month-boundary year adjustment, Julian epoch offset, Islamic day-of-year formula, weekday modular offset), implementing ISO 8601 week date conversion from scratch using the Thursday/Jan-4 rule, and fixing 2 timezone DST transition bugs (boundary hour comparison and southern hemisphere logic inversion). Bugs cascade: the weekday bug causes wrong DST transition dates, and calendar bugs cause wrong UTC conversions, requiring analysis of cross-component dependencies."""
+solution_explanation = """Fix 4 CMake issues: (1) C++ standard 14 to 17 for structured bindings; (2) add missing add_subdirectory(cli); (3) add target_include_directories to export src headers; (4) fix library name from calendar_lib to cal_core. Fix 6 calendar bugs: (5-6) Gregorian to_days/from_days use m==1 instead of m<=2; (7-8) Julian to_days/from_days use epoch 719468 instead of 719470; (9) Islamic to_days uses (m-1)/2 instead of m/2; (10) weekday_from_days uses z+3 instead of z+4. Implement (11) ISO week using Thursday-rule with Jan-4-in-week-1. Fix 2 TZ bugs: (12) DST start uses strict > instead of >= on transition hour; (13) southern hemisphere in_dst uses && instead of || (needs conditional based on start_month vs end_month)."""
+verification_explanation = """Python reference implementations independently compute all calendar conversions, weekday values, ISO week dates, and timezone offsets with correct algorithms. Tests cover Gregorian/Julian/Islamic round-trips, cross-calendar conversions with known equivalences, era/century/leap-year boundaries, negative serial days, known ISO week dates at year boundaries, exact DST transition hours (catching the >= vs > bug), no-DST zones, northern hemisphere seasonal DST, southern hemisphere seasonal DST (catching the && vs || bug), and UTC conversions with day rollover in both directions."""
+category = "debugging"
+tags = ["cmake-build-system", "calendar-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multicalendar-date-engine"

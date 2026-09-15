@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level evaluation of two competing syzkaller syzlang description files against a kernel UAPI header and interface spec. The solver must judge which of 10 divergent modeling decisions is correct in each candidate — covering ioctl pointer direction semantics (_IOW vs _IOWR), resource base type width correspondence (__u64 vs int32/int64), resource producer/consumer chain annotations ((out) on create structs), C struct field ordering for correct kernel ABI layout, indirect userspace pointer modeling (ptr64 vs raw int64), length field annotations (len[] vs plain int), flag set cross-referencing (accelq_op_types vs accelq_submit_flags), resource type propagation to descriptor handle fields, and include path resolution. The candidates are deliberately balanced — neither is clearly better overall — forcing aspect-by-aspect evaluation. Coverage reports provide subtle diagnostic clues (A's CREATE_CTX partially works while B's fails immediately) that require reasoning about pointer direction effects on bidirectional data flow."""
+solution_explanation = """Parse the kernel header to extract struct definitions, ioctl macros, field types, and directional annotations. Cross-reference each candidate's modeling decisions against the header: (1) A's include <accelq.h> is correct vs B's <uapi/linux/accelq.h>; (2) B's int64 buf_handle base type matches __u64 vs A's int32; (3) A's ptr[inout] for CREATE_CTX matches _IOWR vs B's ptr[in]; (4) A's accelq_ctx (out) enables resource production vs B's raw int32; (5) B's queue_id (out) in create_queue vs A's missing annotation; (6) B's nr_descs-before-flags matches C struct order vs A's swapped; (7) A's ptr64[in, array[...]] correctly models userspace pointer vs B's raw int64; (8) A's len[descs_ptr] vs B's plain int32; (9) B's accelq_op_types for descriptor op vs A's accelq_submit_flags; (10) A's accelq_buf_handle resource type for descriptor handles vs B's raw int64. Produce evaluation.json with these judgments and generate the correct unified syzlang file."""
+verification_explanation = """Pytest validates 40+ semantic properties: the evaluation.json is checked against ground truth for all 10 aspects (correct candidate identification), and the final accelq.txt is validated for resource declarations with correct base types, ioctl pointer directions matching _IOW/_IOWR macros, resource (out) annotations for producer/consumer chains, struct field ordering matching C layout, ptr64 indirect pointer modeling, len annotations, flag set references, resource-typed descriptor handles, reserved field constants, and include path correctness."""
+category = "systems_programming"
+tags = ["kernel-fuzzing", "security-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/syzlang-accelq-descriptions"

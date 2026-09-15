@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing a broken dbt-duckdb pipeline with multiple interacting bugs: (1) staging models use source() to reference seed tables, but source() does not create DAG dependencies on seeds, causing dbt build to attempt creating views before seed tables exist — the solver must recognize that ref() is the correct dbt pattern for seeds; (2) a Jinja macro performs integer division that silently truncates decimal values; (3) a mart model has a wrong join column (item_id vs order_id) and incorrect status filter value; (4) a uniqueness test is applied at the wrong aggregation grain. Beyond fixing bugs, the solver must extend the pipeline with event deduplication (ROW_NUMBER window function), multi-currency date-range exchange rate joins, order adjustment netting via LEFT JOIN with COALESCE, and a custom generic dbt test macro for cross-layer revenue reconciliation. Demands expert proficiency in dbt architecture (source vs ref semantics, DAG dependency resolution, generic test macros, seed materialization) and advanced SQL."""
+solution_explanation = """(1) Remove broken sources.yml and switch all staging models from source() to ref() for seed references, fixing the DAG ordering issue. (2) Fix stg_orders to include the currency column. (3) Add ROW_NUMBER event deduplication to stg_order_items. (4) Create new stg_exchange_rates and stg_order_adjustments models. (5) Fix cents_to_dollars macro with CAST to DOUBLE. (6) Replace int_order_revenue with int_net_order_items that LEFT JOINs with aggregated adjustments. (7) Replace mart_revenue_summary with mart_reconciled_revenue that joins exchange rates for USD conversion, uses correct join column and status filter. (8) Create test_reconciliation custom generic test macro. (9) Add schema YAML with appropriate tests."""
+verification_explanation = """Tests delete the DuckDB database for a clean state, run dbt build, then query DuckDB directly. Verify mart_reconciled_revenue has exactly 5 rows with total revenue of $416.90. Check each (date, category) combination for correct USD revenue and order count — validating dedup, currency conversion, adjustment netting, and status filtering. Confirm no returned or pending orders appear. Verify the custom reconciliation test exists in run_results.json and passed."""
+category = "data_engineering"
+tags = ["dbt", "analytics-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5f945a"

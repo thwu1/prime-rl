@@ -1,0 +1,1 @@
+{"buggy_line": 11, "function": "rle_encode", "description": "Resets count to 0 instead of 1 after encoding a run boundary"}

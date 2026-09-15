@@ -1,0 +1,120 @@
+{
+  "base": {
+    "xlen": 64
+  },
+  "extensions": {
+    "S": {"supported": true},
+    "U": {"supported": true},
+    "F": {"supported": true},
+    "D": {"supported": true},
+    "M": {"supported": true},
+    "A": {"supported": true},
+    "V": {"supported": false},
+    "Zicsr": {"supported": true},
+    "Zfinx": {"supported": false},
+    "Zdinx": {"supported": false},
+    "Zhinx": {"supported": false},
+    "Zhinxmin": {"supported": false},
+    "Zaamo": {"supported": true},
+    "Zabha": {"supported": false},
+    "Zacas": {"supported": true},
+    "Zalrsc": {"supported": true},
+    "Zic64b": {"supported": true},
+    "Zimop": {"supported": false},
+    "Zicfilp": {"supported": false},
+    "Zicfiss": {"supported": false},
+    "Zfbfmin": {"supported": false},
+    "Zvfbfmin": {"supported": false},
+    "Zvfbfwma": {"supported": false},
+    "Zvfhmin": {"supported": false},
+    "Zvfh": {"supported": false},
+    "Zfhmin": {"supported": false},
+    "Zvbb": {"supported": false},
+    "Zvbc": {"supported": false},
+    "Zvkb": {"supported": false},
+    "Zvkg": {"supported": false},
+    "Zvkned": {"supported": false},
+    "Zvknha": {"supported": false},
+    "Zvknhb": {"supported": false},
+    "Zvksed": {"supported": false},
+    "Zvksh": {"supported": false},
+    "Zvkt": {"supported": false},
+    "Sstvala": {"supported": false},
+    "Ssqosid": {"supported": false},
+    "Ssccptr": {"supported": true},
+    "Svadu": {"supported": true},
+    "Svade": {"supported": false},
+    "Svpbmt": {"supported": false},
+    "Svnapot": {"supported": false},
+    "Svrsw60t59b": {"supported": false},
+    "Svvptc": {"supported": false},
+    "Zcf": {"supported": false},
+    "Ziccamoa": {"supported": true},
+    "Ziccamoc": {"supported": true},
+    "Ziccif": {"supported": true},
+    "Zicclsm": {"supported": false},
+    "Ziccrse": {"supported": true},
+    "Sv32": {"supported": false},
+    "Sv39": {"supported": true},
+    "Sv48": {"supported": true},
+    "Sv57": {"supported": false},
+    "Stateen": {
+      "Smstateen": {"supported": false},
+      "Ssstateen": {"supported": false},
+      "SE0_readonly_zero": false,
+      "C_readonly_zero": true
+    }
+  },
+  "memory": {
+    "pmp": {
+      "count": 64,
+      "usable_count": 32,
+      "grain": 0,
+      "NA4_supported": true
+    },
+    "misaligned": {
+      "exceptions": {
+        "load_store": "None",
+        "vector": "None"
+      }
+    },
+    "regions": [
+      {
+        "base": "0x1000",
+        "size": "0x1000",
+        "mem_type": "IOMemory",
+        "cacheable": true,
+        "coherent": false,
+        "executable": false,
+        "readable": true,
+        "writable": false,
+        "read_idempotent": true,
+        "write_idempotent": true,
+        "atomic_support": "AMONone",
+        "reservability": "RsrvNone",
+        "supports_pte_read": false,
+        "supports_pte_write": false
+      },
+      {
+        "base": "0x80000000",
+        "size": "0x80000000",
+        "mem_type": "MainMemory",
+        "cacheable": true,
+        "coherent": true,
+        "executable": false,
+        "readable": true,
+        "writable": true,
+        "read_idempotent": true,
+        "write_idempotent": true,
+        "atomic_support": "AMONone",
+        "reservability": "RsrvNone",
+        "supports_pte_read": false,
+        "supports_pte_write": false
+      }
+    ]
+  },
+  "platform": {
+    "cache_block_size_exp": 6,
+    "reservation_set_size_exp": 3
+  }
+}

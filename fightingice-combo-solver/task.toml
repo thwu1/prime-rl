@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise across fighting game mechanics AND computational game theory — not just applying given formulas. The rules.json describes game mechanics conceptually (move phases, stun, cancels, frame advantage) without giving explicit mathematical formulas; the solver must derive correct formulations from domain understanding of how startup/active/recovery phases interact with hit stun to produce frame advantage, how cancel windows create combo timing constraints, and how damage scaling works. The combo optimizer requires constrained graph search with interacting state variables (energy, stun decay, scaling, knockdown). The punish analyzer chains frame advantage analysis with the combo optimizer. The payoff matrix demands modeling a game-theoretic interaction across attack/throw/block categories with correct payoff derivation from earlier pipeline stages. The IESDS computation requires implementing mixed-strategy dominance checking via LP for each strategy in each elimination round — a non-trivial application of linear programming to game theory that tests whether the solver understands the relationship between dominated strategies and Nash equilibrium. Finally, the Nash equilibrium computation itself requires formulating the maximin LP. The task demands holistic synthesis: each stage depends on correctly understanding and implementing the previous ones, and the IESDS output validates the solver's game-theoretic reasoning by verifying structural properties of the dominance hierarchy."""
+solution_explanation = """The solution installs grpcio-tools, protobuf, numpy, and scipy. It compiles the .proto schema, deserializes the binary data, then chains six analysis stages: (1) frame advantage derived from move phase timing — FA = stun - active - recovery, (2) optimal combos via DFS with memoization over cancel chains/energy/scaling/stun decay, (3) punish table by filtering eligible starters by frame advantage window and selecting the best combo, (4) payoff matrix construction with categorized attack/throw/block interactions, (5) IESDS by iteratively checking each strategy for strict mixed-strategy dominance via LP and eliminating all dominated strategies simultaneously per round, and (6) Nash equilibrium via scipy.optimize.linprog formulating the maximin LP."""
+verification_explanation = """Tests independently deserialize the protobuf data and verify frame advantage for all 20 moves, combo damages at E=0 and E=50, punish damages and starters for all moves, payoff matrix antisymmetry and specific entry values, IESDS structural properties (survivors include Nash support, specific dominated strategies eliminated, elimination round structure, coverage of all options), and Nash equilibrium properties (game value, valid distribution, support consistency, optimality via matrix-vector product verification)."""
+category = "systems"
+tags = ["game-theory", "protobuf"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fightingice-combo-solver"

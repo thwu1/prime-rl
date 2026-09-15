@@ -1,0 +1,17 @@
+# Program 1: Straight-line constant propagation and folding
+# All computations are on constants; a correct optimizer should fold everything.
+FUNC main():
+  LABEL start:
+    a = 5
+    b = 10
+    c = a + b
+    d = c * 2
+    e = d - a
+    f = e + b
+    g = f * c
+    h = g / 5
+    i = h % 10
+    j = i + d
+    PRINT j
+    RETURN 0
+ENDFUNC

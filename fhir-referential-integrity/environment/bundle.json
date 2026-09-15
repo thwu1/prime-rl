@@ -1,0 +1,485 @@
+{
+  "resourceType": "Bundle",
+  "id": "hospital-records-2024Q1",
+  "type": "collection",
+  "timestamp": "2024-03-15T10:30:00.000Z",
+  "entry": [
+    {
+      "fullUrl": "http://hospital.example.org/fhir/Patient/pat-001",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-001",
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">John Smith - MRN 78429</div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR", "display": "Medical Record Number"}]
+            },
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-78429"
+          },
+          {
+            "type": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "SS", "display": "Social Security Number"}]
+            },
+            "system": "http://hl7.org/fhir/sid/us-ssn",
+            "value": "999-34-5678"
+          }
+        ],
+        "name": [
+          {"use": "official", "family": "Smith", "given": ["John", "Michael"]},
+          {"use": "nickname", "given": ["Johnny"]}
+        ],
+        "telecom": [
+          {"system": "phone", "value": "(425) 555-0123", "use": "home"},
+          {"system": "email", "value": "john.smith@email.com", "use": "home"}
+        ],
+        "gender": "male",
+        "birthDate": "1985-03-15",
+        "address": [
+          {
+            "use": "home",
+            "line": ["123 Main Street", "Apt 4B"],
+            "city": "Bellevue",
+            "state": "WA",
+            "postalCode": "98004",
+            "country": "US"
+          }
+        ],
+        "contact": [
+          {
+            "relationship": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0131", "code": "EP"}]}],
+            "name": {"family": "Smith", "given": ["Mary"]},
+            "telecom": [{"system": "phone", "value": "(425) 555-0456"}]
+          }
+        ],
+        "managingOrganization": {"reference": "Organization/org-001", "display": "Bellevue General Hospital"}
+      }
+    },
+    {
+      "fullUrl": "http://hospital.example.org/fhir/Patient/pat-002",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-002",
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Jane Doe - MRN 91053</div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
+            },
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-91053"
+          }
+        ],
+        "name": [
+          {"use": "official", "family": "Doe", "given": ["Jane", "Elizabeth"]}
+        ],
+        "telecom": [
+          {"system": "phone", "value": "(206) 555-7890", "use": "mobile"}
+        ],
+        "gender": "female",
+        "birthDate": "1990-07-22",
+        "address": [
+          {
+            "use": "home",
+            "line": ["456 Oak Avenue"],
+            "city": "Kirkland",
+            "state": "WA",
+            "postalCode": "98034",
+            "country": "US"
+          }
+        ],
+        "managingOrganization": {"reference": "Organization/org-002"}
+      }
+    },
+    {
+      "fullUrl": "http://hospital.example.org/fhir/Patient/pat-003",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-003",
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Robert Johnson - MRN 44217</div>"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]
+            },
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-44217"
+          }
+        ],
+        "name": [
+          {"use": "official", "family": "Johnson", "given": ["Robert", "Lee"]}
+        ],
+        "telecom": [
+          {"system": "phone", "value": "(253) 555-3456", "use": "home"}
+        ],
+        "gender": "male",
+        "birthDate": "1932-11-08",
+        "deceasedBoolean": false,
+        "address": [
+          {
+            "use": "home",
+            "line": ["789 Pine Road"],
+            "city": "Montpelier",
+            "state": "VT",
+            "postalCode": "05901",
+            "country": "US"
+          }
+        ],
+        "managingOrganization": {"reference": "Organization/org-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "pract-001",
+        "identifier": [
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "value": "1234567890"
+          }
+        ],
+        "name": [
+          {"use": "official", "family": "Williams", "given": ["Alice"], "prefix": ["Dr."]}
+        ],
+        "telecom": [
+          {"system": "phone", "value": "(425) 555-9876", "use": "work"}
+        ],
+        "gender": "female",
+        "qualification": [
+          {
+            "code": {
+              "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0360", "code": "MD"}]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "pract-002",
+        "identifier": [
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "value": "0987654321"
+          }
+        ],
+        "name": [
+          {"use": "official", "family": "Anderson", "given": ["Bob", "James"], "prefix": ["Dr."]}
+        ],
+        "telecom": [
+          {"system": "phone", "value": "(206) 555-4321", "use": "work"}
+        ],
+        "gender": "male"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Organization",
+        "id": "org-001",
+        "identifier": [
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "value": "1122334455"
+          }
+        ],
+        "name": "Bellevue General Hospital",
+        "telecom": [
+          {"system": "phone", "value": "(425) 555-0000", "use": "work"}
+        ],
+        "address": [
+          {
+            "line": ["11811 NE 1st Street"],
+            "city": "Bellevue",
+            "state": "WA",
+            "postalCode": "98004",
+            "country": "US"
+          }
+        ],
+        "type": [
+          {
+            "coding": [{"system": "http://terminology.hl7.org/CodeSystem/organization-type", "code": "prov", "display": "Healthcare Provider"}]
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Organization",
+        "id": "org-002",
+        "identifier": [
+          {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "value": "5544332211"
+          }
+        ],
+        "name": "Kirkland Health Center",
+        "telecom": [
+          {"system": "phone", "value": "(425) 555-1111", "use": "work"}
+        ],
+        "address": [
+          {
+            "line": ["456 Market Street"],
+            "city": "Kirkland",
+            "state": "WA",
+            "postalCode": "98034",
+            "country": "US"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-001",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [
+          {
+            "coding": [{"system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up"}]
+          }
+        ],
+        "subject": {"reference": "Patient/pat-001", "display": "John Smith"},
+        "participant": [
+          {
+            "individual": {"reference": "Practitioner/pract-001", "display": "Dr. Alice Williams"}
+          }
+        ],
+        "period": {
+          "start": "2024-01-15T09:00:00Z",
+          "end": "2024-01-15T11:30:00Z"
+        },
+        "serviceProvider": {"reference": "Organization/org-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-002",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB"
+        },
+        "subject": {"reference": "Patient/pat-002", "display": "Jane Doe"},
+        "participant": [
+          {
+            "individual": {"reference": "Practitioner/pract-002"}
+          }
+        ],
+        "period": {
+          "start": "2024-02-20T14:00:00Z",
+          "end": "2024-02-20T15:45:00Z"
+        },
+        "serviceProvider": {"reference": "Organization/org-002"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-003",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB"
+        },
+        "subject": {"reference": "Patient/pat-003", "display": "Robert Johnson"},
+        "participant": [
+          {
+            "individual": {"reference": "Practitioner/pract-001"}
+          }
+        ],
+        "period": {
+          "start": "2024-03-05T10:00:00Z",
+          "end": "2024-03-05T12:00:00Z"
+        },
+        "serviceProvider": {"reference": "Organization/org-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-001",
+        "status": "final",
+        "code": {
+          "coding": [{"system": "http://loinc.org", "code": "15074-8", "display": "Glucose [Moles/volume] in Blood"}]
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "encounter": {"reference": "Encounter/enc-001"},
+        "effectiveDateTime": "2024-01-15T10:15:00Z",
+        "issued": "2024-01-15T10:30:00+00:00",
+        "valueQuantity": {
+          "value": 5.5,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-002",
+        "status": "final",
+        "code": {
+          "coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]
+        },
+        "subject": {"reference": "Patient/pat-002"},
+        "encounter": {"reference": "Encounter/enc-002"},
+        "effectiveDateTime": "2024-02-20T14:30:00Z",
+        "component": [
+          {
+            "code": {
+              "coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]
+            },
+            "valueQuantity": {"value": 120, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {
+              "coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]
+            },
+            "valueQuantity": {"value": 80, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-003",
+        "status": "final",
+        "code": {
+          "coding": [{"system": "http://loinc.org", "code": "2093-3", "display": "Cholesterol [Mass/volume] in Serum or Plasma"}]
+        },
+        "subject": {"reference": "Patient/pat-003"},
+        "encounter": {"reference": "Encounter/enc-003"},
+        "effectiveDateTime": "2024-03-05T11:00:00Z",
+        "valueQuantity": {
+          "value": 210,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Claim",
+        "id": "claim-001",
+        "status": "active",
+        "type": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/claim-type", "code": "institutional"}]
+        },
+        "use": "claim",
+        "patient": {"reference": "Patient/pat-001", "display": "John Smith"},
+        "created": "2024-01-20",
+        "provider": {"reference": "Organization/org-001"},
+        "priority": {
+          "coding": [{"code": "normal"}]
+        },
+        "careTeam": [
+          {
+            "sequence": 1,
+            "provider": {"reference": "Practitioner/pract-001", "display": "Dr. Alice Williams"}
+          }
+        ],
+        "insurance": [
+          {
+            "sequence": 1,
+            "focal": true,
+            "coverage": {"reference": "Coverage/cov-001"}
+          }
+        ],
+        "item": [
+          {
+            "sequence": 1,
+            "productOrService": {
+              "coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit, established patient"}]
+            },
+            "servicedDate": "2024-01-15",
+            "unitPrice": {"value": 150.00, "currency": "USD"},
+            "net": {"value": 150.00, "currency": "USD"}
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Coverage",
+        "id": "cov-001",
+        "status": "active",
+        "beneficiary": {"reference": "Patient/pat-001"},
+        "payor": [
+          {"reference": "Organization/org-001"}
+        ],
+        "period": {
+          "start": "2023-01-01",
+          "end": "2024-12-31"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-001",
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "44054006", "display": "Type 2 diabetes mellitus"}],
+          "text": "Type 2 Diabetes"
+        },
+        "subject": {"reference": "Patient/pat-001"},
+        "encounter": {"reference": "Encounter/enc-001"},
+        "onsetDateTime": "2023-06-15T00:00:00Z",
+        "recordedDate": "2024-01-15",
+        "asserter": {"reference": "Practitioner/pract-001", "display": "Dr. Alice Williams"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-001",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "860975", "display": "Metformin 500mg"}],
+          "text": "Metformin 500mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-002"},
+        "encounter": {"reference": "Encounter/enc-002"},
+        "authoredOn": "2024-02-20",
+        "requester": {"reference": "Practitioner/pract-002", "display": "Dr. Bob Anderson"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "id": "allergy-001",
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical", "code": "active"}]
+        },
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "387207008", "display": "Ibuprofen"}]
+        },
+        "patient": {"reference": "Patient/pat-003"},
+        "recordedDate": "2020-05-10",
+        "recorder": {"reference": "Practitioner/pract-001"}
+      }
+    }
+  ]
+}

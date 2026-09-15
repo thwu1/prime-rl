@@ -1,0 +1,51 @@
+Variable Weighting
+(Excerpt from UTS #10, Section 4)
+
+Variable collation elements are marked with '*' in allkeys.txt
+(as opposed to '.' for non-variable elements).
+
+A collation element is treated as variable if:
+  - It is explicitly marked as variable ('*'), OR
+  - Its primary weight is greater than zero AND less than or equal
+    to the maximum primary weight among all '*'-marked elements
+    in the DUCET.
+
+This means all collation elements with primary weights from 1 up to
+max_variable_primary are treated as variables, even if not explicitly
+marked. This property is called "non-interleaving."
+
+NON_IGNORABLE MODE
+  Variable elements keep their weights unchanged. The variable flag
+  is simply stripped. Each element produces a 3-level weight tuple:
+    (L1, L2, L3)
+
+SHIFTED MODE
+  Variable elements are modified to become quaternary weights.
+  The processing produces 4-level weight tuples (L1, L2, L3, L4).
+  A state flag "after_variable" tracks whether the previous
+  non-ignorable element was variable.
+
+  For each collation element (is_var, w1, w2, w3):
+
+  Case 1 — Variable element (is_var OR 0 < w1 <= max_variable_primary):
+    L1 = 0, L2 = 0, L3 = 0
+    L4 = original primary weight (w1)
+    Set the "after_variable" flag.
+
+  Case 2 — Completely ignorable (w1 = 0 AND w2 = 0 AND w3 = 0):
+    L1 = 0, L2 = 0, L3 = 0, L4 = 0
+
+  Case 3 — Ignorable primary (w1 = 0) AND after_variable is set:
+    L1 = 0, L2 = 0, L3 = 0, L4 = 0
+
+  Case 4 — Ignorable primary (w1 = 0) AND after_variable is NOT set:
+    L1 = 0, L2 = w2, L3 = w3, L4 = 0xFFFF
+
+  Case 5 — Non-variable, non-ignorable (w1 > max_variable_primary):
+    L1 = w1, L2 = w2, L3 = w3, L4 = 0xFFFF
+    Clear the "after_variable" flag.
+
+SORT KEY FORMATION IN SHIFTED MODE
+  The sort key includes 4 levels (with a zero-value level separator
+  between each pair of adjacent levels). For each level, append all
+  non-zero weights from that level in element order.

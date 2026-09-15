@@ -1,0 +1,30 @@
+{
+    "description": "Required format for /app/report.json. Produce by running branch coverage analysis and transforming the JSON output into this structure.",
+    "fields": {
+        "total_statements": "integer — total executable statements across all measured files",
+        "covered_statements": "integer — number of statements executed during testing",
+        "total_branches": "integer — total branch points (requires branch coverage mode)",
+        "covered_branches": "integer — number of branches taken during testing",
+        "branch_coverage_percent": "number — branch coverage as a percentage (must be >= 85.0)",
+        "files": "object — mapping from relative file paths to per-file metrics"
+    },
+    "per_file_fields": {
+        "total_statements": "integer",
+        "covered_statements": "integer",
+        "branch_coverage_percent": "number"
+    },
+    "example": {
+        "total_statements": 95,
+        "covered_statements": 88,
+        "total_branches": 48,
+        "covered_branches": 43,
+        "branch_coverage_percent": 89.58,
+        "files": {
+            "intervals/core.py": {
+                "total_statements": 95,
+                "covered_statements": 88,
+                "branch_coverage_percent": 89.58
+            }
+        }
+    }
+}

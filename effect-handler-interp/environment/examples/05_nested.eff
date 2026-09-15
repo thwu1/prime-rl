@@ -1,0 +1,18 @@
+// Nested handlers: inner handler shadows outer
+effect Amb {
+    Flip()
+}
+
+val outer = handle {
+    val inner = handle {
+        do Flip()
+    } with Amb {
+        return(x) => x
+        Flip(resume) => resume(42)
+    };
+    inner
+} with Amb {
+    return(x) => x
+    Flip(resume) => resume(99)
+};
+print(outer)

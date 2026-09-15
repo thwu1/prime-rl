@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 independent bugs in a computational geometry pipeline spanning point cloud registration, mesh topology checks, and statistical distance metrics. Each bug demands domain expertise: an incorrect voxel downsampling parameter that breaks feature-based alignment, a unidirectional distance metric that violates symmetry, missing manifold preprocessing that causes false negatives, absent topological guards on volume computation, and axis-dependent bounding box comparison. The solver must explore the codebase, run the tool against sample meshes, interpret geometric outputs, and reason about mathematical correctness to isolate each defect."""
+solution_explanation = """The solution reads mesh_validator.py and applies 5 targeted fixes: (1) adds mesh cleaning before the watertight check to handle degenerate/duplicate triangles, (2) adds watertight guards to volume computation so non-manifold meshes fail rather than producing meaningless volumes, (3) corrects the voxel downsampling size from 50.0 to 5.0 to restore FPFH feature resolution for registration, (4) changes chamfer distance from unidirectional to bidirectional average, and (5) sorts bounding box extents before comparison to handle axis permutations from alignment transforms."""
+verification_explanation = """Tests generate mesh pairs with known geometric properties and run the fixed pipeline via subprocess. Each test targets a specific bug: alignment quality for translated boxes verifies registration parameters, chamfer symmetry under input swap verifies bidirectional computation, watertight detection of duplicate-triangle meshes verifies cleaning, volume failure for non-watertight meshes with generous threshold verifies topological guards, and correct bbox detection verifies axis-invariant extent comparison."""
+category = "computational_geometry"
+tags = ["mesh-processing", "bug-diagnosis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mesh-align-validate"

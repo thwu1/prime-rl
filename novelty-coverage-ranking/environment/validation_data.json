@@ -1,0 +1,39 @@
+{
+  "description": "Validated reference output for the bloaty_fuzz_target benchmark. Use to verify pipeline correctness.",
+  "benchmark": "bloaty_fuzz_target",
+  "novelty_scores": {
+    "aflpp": {
+      "novelty_score": 2257.7121,
+      "total_edges": 3566,
+      "unique_edges": 964,
+      "rank": 1.0
+    },
+    "centipede": {
+      "novelty_score": 1599.6651,
+      "total_edges": 2907,
+      "unique_edges": 735,
+      "rank": 4.0
+    },
+    "libafl": {
+      "novelty_score": 1705.3483,
+      "total_edges": 2997,
+      "unique_edges": 764,
+      "rank": 3.0
+    },
+    "libfuzzer": {
+      "novelty_score": 2153.8112,
+      "total_edges": 3464,
+      "unique_edges": 922,
+      "rank": 2.0
+    }
+  },
+  "aggregate_ranking_order": ["libafl", "aflpp", "centipede", "libfuzzer"],
+  "velocity_reference": {
+    "bloaty_fuzz_target": {
+      "aflpp": {
+        "snapshots": [2086.8, 3382.8],
+        "velocity": 0.12
+      }
+    }
+  }
+}

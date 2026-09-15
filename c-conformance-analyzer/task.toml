@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of C language standards evolution (C11/C17/C23) and GCC's conformance modes to diagnose errors in an existing conformance analysis. The solver must independently discover how GCC distinguishes standard-conformant code from silently-accepted non-standard extensions, identify misclassified probes and missing runtime data in a provided report, determine the correct classification methodology without being told, and handle edge cases like implicit int acceptance, attribute syntax evolution, and preprocessor directive standardization across standard versions."""
+solution_explanation = """Examine the initial report and probe source files to identify errors. Discover that GCC's -pedantic-errors flag is the key to distinguishing standard features from extensions: compile first with -pedantic-errors -fsyntax-only (standard if successful), then without -pedantic-errors (extension if successful, else rejected). The initial report's flaw is that it lacks any 'extension' classifications because it never tested with pedantic strictness. Execute compilable probes to capture runtime output, including semantic differences like sizeof(true) changing from 4 (C11) to 1 (C23). Ensure summary statistics are consistent with per-probe data."""
+verification_explanation = """Tests independently compile each probe under c11/c17/c2x using the two-stage pedantic-errors classification algorithm and compare against the agent's report for exact match. Additional tests verify JSON structure completeness, summary count consistency with per-probe data, C17-equals-C11 invariant, sizeof(true) runtime behavior difference between standards, that compilable probes have captured runtime data, and that the corrected report meaningfully differs from the known-buggy initial_report.json."""
+category = "compilers"
+tags = ["c-standards", "conformance-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/c-conformance-analyzer"

@@ -1,0 +1,79 @@
+= IPC (Inter-Process Communication)
+(Excerpted from Hubris RTOS reference documentation)
+
+Hubris IPC provides a mechanism for communicating between tasks. It's designed
+to be easy to reason about, and to work well with Rust's ownership model.
+
+== Synchronous IPC basics
+
+Hubris IPC is based around _synchronous messaging._ Communication between tasks
+consists of sending and receiving messages. Sending a message always blocks the
+sender, waiting for a reply. A task that asks to receive a message will block
+if no messages are available.
+
+This style of messaging is also called a _rendezvous_ or _handoff,_ because both
+tasks need to arrange to "meet" in the right state for the message transfer
+to happen.
+
+=== Why synchronous?
+
+**It's fast.** Synchronous IPC can be implemented using a single message copy
+from sender to recipient. (The operating system that originally made this point
+was L4, and Hubris's IPC mechanism is directly inspired by L4's.)
+
+**There are no queues to size.** Asynchronous systems usually queue messages in
+kernel memory, which means there are now kernel-managed queues that must have
+their resources accounted for. With synchronous rendezvous messaging, we avoid
+having queues in the first place.
+
+**It limits the power of any single task.** A Hubris task can either be doing
+local work, or sending one message. It can't, for instance, spam every other
+task in the system with messages simultaneously. This avoids "fault amplification"
+scenarios where a bug in one task cascades into a much larger problem.
+
+NOTE: You may be wondering about deadlocks in synchronous IPC. We avoid
+IPC-level deadlocks and priority inversion by imposing rules around messaging
+and task priority. This makes IPC-level deadlock impossible, but of course you
+can still write software that deadlocks if you try.
+
+== Task slots and IPC dependencies
+
+In `app.toml`, each task can declare `task-slots` — a list of other task names
+that this task will communicate with via IPC. At build time, the build system
+resolves these names into task indices and bakes them into the task's binary.
+
+The task-slot mechanism creates a directed dependency graph between tasks:
+if task A lists task B in its task-slots, then A depends on B (A will send
+IPC messages to B). Because IPC is synchronous, A will block until B replies.
+
+This dependency graph has important implications for system correctness:
+
+- If the graph contains a cycle (A → B → ... → A), a deadlock is possible:
+  each task in the cycle could end up blocked waiting for the next.
+
+- If a high-priority task (lower priority number) depends on a low-priority
+  task (higher priority number), a priority inversion occurs: the high-priority
+  task blocks on the low-priority task's `recv`/`reply`, effectively running
+  at the lower priority. This can violate real-time deadlines.
+
+The build system enforces that task-slot references name tasks that actually
+exist in the application configuration. References to undefined tasks are
+configuration errors.
+
+== Notifications: the _other_ IPC mechanism
+
+In addition to synchronous messaging, Hubris also provides a very limited
+asynchronous communication mechanism called **notifications**.
+
+Each task has 32 notification bits, which together form a _notification set_.
+These bits can be _posted,_ which means they are set to 1 — the number
+of posts is not tracked. Each posting operation is effectively bitwise-OR-ing
+a 32-bit mask into the task's notification set.
+
+Notifications are used by the kernel to route hardware interrupts to tasks: a
+task can request that an interrupt appear as one of its notification bits.
+Notifications are also used to signal that a timer deadline has elapsed.
+
+Tasks check for notifications by calling `recv` with a _notification mask_ —
+a 32-bit word. Any 1-bits in the mask express to the kernel that the task would
+like to find out if the corresponding bit has been posted since it last checked.

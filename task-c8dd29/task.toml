@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level actuarial mathematics knowledge: the agent must recognize Makeham mortality from YAML parameters, derive one-year survival probabilities, apply age-banded selection factors, and compute fully discrete whole life insurance/annuity-due actuarial present values via summation. Premiums (net and gross under the equivalence principle with multi-component expense loading), prospective policy values, Full Preliminary Term modified reserves, expense reserves, and surplus/quota-share reinsurance allocation must all be derived from domain expertise — no formulas or procedures are given. Additionally demands multi-tool proficiency: extracting a compressed tar.gz archive, parsing YAML configuration (requiring PyYAML installation), parsing TOML, querying a normalized SQLite database, and producing output in both JSON and CSV formats — a genuine multi-format data-pipeline integration challenge."""
+solution_explanation = """Extract assumptions.tar.gz to obtain mortality.yaml and valuation.toml. Install and use PyYAML to parse the YAML file for Makeham parameters (A, B, c) and age-banded selection factors. Parse TOML for interest rate, maxage, and valuation duration. Query portfolio.db for policy groups, pivot expense_loadings rows, extract settlement expense, and load reinsurance terms. Build adjusted mortality table: base q_x from Makeham survival p(x) = exp(-A - B*c^x*(c-1)/ln(c)), multiplied by band-specific selection factors. Compute A_x and a-double-dot_x by summation. Net premium P = b*A_x/a-double-dot_x. Gross premium via equivalence with all expense terms. Prospective net/gross policy values at duration 10. FPT reserve = net reserve on (x+1) at duration 9. Reinsurance: retained = min(b, retention)*(1-QS%), reserves proportional to benefit split. Output results.json and summary.csv."""
+verification_explanation = """Tests extract the same tar.gz archive, parse YAML and TOML configs, and query the SQLite database, then use the actuarialmath library (LifeTable, Contract classes) to independently compute all insurance factors, premiums, reserves, and reinsurance allocations as an oracle. Each of 40+ computed values is compared with 0.5% relative tolerance. CSV structure, headers, row count, group ordering, and numeric consistency with JSON output are also verified."""
+category = "applied_math"
+tags = ["actuarial-science", "data-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c8dd29"

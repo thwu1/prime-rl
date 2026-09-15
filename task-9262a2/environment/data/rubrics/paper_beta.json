@@ -1,0 +1,126 @@
+{
+    "id": "root-beta",
+    "requirements": "Paper Beta has been reproduced",
+    "weight": 1,
+    "sub_tasks": [
+        {
+            "id": "data_prep",
+            "requirements": "Data preparation is complete",
+            "weight": 1,
+            "sub_tasks": [
+                {
+                    "id": "dataset_a",
+                    "requirements": "Dataset A has been acquired and preprocessed",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                },
+                {
+                    "id": "dataset_b",
+                    "requirements": "Dataset B has been acquired and preprocessed",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                }
+            ]
+        },
+        {
+            "id": "method",
+            "requirements": "The core method has been implemented",
+            "weight": 4,
+            "sub_tasks": [
+                {
+                    "id": "component_x",
+                    "requirements": "Component X has been implemented",
+                    "weight": 2,
+                    "sub_tasks": [
+                        {
+                            "id": "subcomp_x1",
+                            "requirements": "Subcomponent X1 is implemented correctly",
+                            "weight": 3,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        },
+                        {
+                            "id": "subcomp_x2",
+                            "requirements": "Subcomponent X2 is implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        },
+                        {
+                            "id": "subcomp_x3",
+                            "requirements": "Subcomponent X3 is implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        }
+                    ]
+                },
+                {
+                    "id": "component_y",
+                    "requirements": "Component Y has been implemented",
+                    "weight": 1,
+                    "sub_tasks": [
+                        {
+                            "id": "subcomp_y1",
+                            "requirements": "Subcomponent Y1 is implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        },
+                        {
+                            "id": "subcomp_y2",
+                            "requirements": "Subcomponent Y2 is implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "experiments",
+            "requirements": "The experiments have been run",
+            "weight": 3,
+            "sub_tasks": [
+                {
+                    "id": "exp1",
+                    "requirements": "Experiment 1 has been executed",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Execution"
+                },
+                {
+                    "id": "exp2",
+                    "requirements": "Experiment 2 has been executed",
+                    "weight": 2,
+                    "sub_tasks": [],
+                    "task_category": "Execution"
+                },
+                {
+                    "id": "exp3",
+                    "requirements": "Experiment 3 has been executed",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Execution"
+                }
+            ]
+        },
+        {
+            "id": "analysis",
+            "requirements": "Results analysis has been completed",
+            "weight": 2,
+            "sub_tasks": [
+                {
+                    "id": "res1",
+                    "requirements": "Primary result matches the paper",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Result Match"
+                }
+            ]
+        }
+    ]
+}

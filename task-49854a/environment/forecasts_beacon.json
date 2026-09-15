@@ -1,0 +1,20 @@
+{
+  "forecaster_id": "beacon",
+  "predictions": [
+    {"event_id": "EVT-001", "probability": 40.0},
+    {"event_id": "EVT-002", "probability": 60.0},
+    {"event_id": "EVT-003", "probability": 30.0},
+    {"event_id": "EVT-004", "probability": 70.0},
+    {"event_id": "EVT-005", "probability": 35.0},
+    {"event_id": "EVT-006", "probability": 55.0},
+    {"event_id": "EVT-007", "probability": 72.0},
+    {"event_id": "EVT-008", "probability": 50.0},
+    {"event_id": "EVT-009", "probability": 62.0},
+    {"event_id": "EVT-010", "probability": 78.0},
+    {"event_id": "EVT-011", "probability": 38.0},
+    {"event_id": "EVT-012", "probability": 25.0},
+    {"event_id": "EVT-013", "probability": 40.0},
+    {"event_id": "EVT-014", "probability": 55.0},
+    {"event_id": "EVT-015", "probability": 65.0}
+  ]
+}

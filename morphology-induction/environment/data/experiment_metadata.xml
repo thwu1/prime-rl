@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<experiment_log>
+  <project>
+    <name>Xenobiont Alpha Genome Characterization</name>
+    <principal_investigator>Dr. K. Vasquez</principal_investigator>
+    <facility code="ERS-K442">Exobiology Research Station Kepler-442</facility>
+  </project>
+  <sequencing_runs>
+    <run id="RUN_2157A" date="2157-03-15" protocol_version="v3.2">
+      <quality_control>
+        <validation status="validated"/>
+        <qc_passed>true</qc_passed>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="ORBITRAP-3"/>
+        <instrument ref="MALDI-TOF-1"/>
+      </assigned_instruments>
+      <notes>Standard sequencing run, all QC metrics nominal.</notes>
+    </run>
+    <run id="RUN_2157B" date="2157-05-22" protocol_version="v3.2">
+      <quality_control>
+        <validation status="validated"/>
+        <qc_passed>true</qc_passed>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="MALDI-TOF-1"/>
+        <instrument ref="ESI-QTOF-2"/>
+      </assigned_instruments>
+      <notes>Batch processed alongside RUN_2157C.</notes>
+    </run>
+    <run id="RUN_2157C" date="2157-05-22" protocol_version="v3.2">
+      <quality_control>
+        <validation status="validated"/>
+        <qc_passed>true</qc_passed>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="ORBITRAP-3"/>
+        <instrument ref="MALDI-TOF-1"/>
+        <instrument ref="ESI-QTOF-2"/>
+      </assigned_instruments>
+      <notes>Batch processed alongside RUN_2157B.</notes>
+    </run>
+    <run id="RUN_2158A" date="2158-01-10" protocol_version="v3.3">
+      <quality_control>
+        <validation status="validated"/>
+        <qc_passed>true</qc_passed>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="ORBITRAP-3"/>
+        <instrument ref="ESI-QTOF-2"/>
+      </assigned_instruments>
+      <notes>Updated protocol with improved sensitivity.</notes>
+    </run>
+    <run id="RUN_2158B" date="2158-02-28" protocol_version="v3.3">
+      <quality_control>
+        <validation status="validated"/>
+        <qc_passed>true</qc_passed>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="ORBITRAP-3"/>
+        <instrument ref="MALDI-TOF-1"/>
+        <instrument ref="ESI-QTOF-2"/>
+      </assigned_instruments>
+      <notes>Final characterization batch.</notes>
+    </run>
+    <run id="RUN_2156X" date="2156-11-03" protocol_version="v2.9">
+      <quality_control>
+        <validation status="invalidated"/>
+        <qc_passed>false</qc_passed>
+        <failure_flags>
+          <flag type="contamination">Cross-contamination with E. coli control strain detected</flag>
+        </failure_flags>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="MALDI-TOF-1"/>
+        <instrument ref="ESI-QTOF-OLD"/>
+      </assigned_instruments>
+      <notes>Cross-contamination with E. coli control strain detected. Sequencing lanes mixed terrestrial and xenobiont material. All samples from this run must be excluded from xenobiont codon analysis.</notes>
+    </run>
+    <run id="RUN_2157Y" date="2157-07-22" protocol_version="v3.2">
+      <quality_control>
+        <validation status="invalidated"/>
+        <qc_passed>false</qc_passed>
+        <failure_flags>
+          <flag type="instrument_drift">Mass spectrometer calibration drift detected post-hoc</flag>
+        </failure_flags>
+      </quality_control>
+      <assigned_instruments>
+        <instrument ref="ESI-QTOF-2"/>
+      </assigned_instruments>
+      <notes>Mass spectrometer calibration drift detected post-hoc. Protein identifications from this run are unreliable and should be discarded.</notes>
+    </run>
+  </sequencing_runs>
+  <instrument_registry>
+    <instrument id="ORBITRAP-3" type="orbitrap_ms">
+      <model>Thermo Fisher Orbitrap Elite</model>
+      <calibration>
+        <last_calibrated>2157-01-10</last_calibrated>
+        <expiry>2159-01-10</expiry>
+        <status>valid</status>
+      </calibration>
+      <certified_by>Instrument Services Division</certified_by>
+    </instrument>
+    <instrument id="MALDI-TOF-1" type="maldi_tof">
+      <model>Bruker ultrafleXtreme</model>
+      <calibration>
+        <last_calibrated>2157-02-15</last_calibrated>
+        <expiry>2159-02-15</expiry>
+        <status>valid</status>
+      </calibration>
+      <certified_by>Instrument Services Division</certified_by>
+    </instrument>
+    <instrument id="ESI-QTOF-2" type="esi_qtof">
+      <model>Agilent 6560 IM-QTOF</model>
+      <calibration>
+        <last_calibrated>2156-11-20</last_calibrated>
+        <expiry>2158-11-20</expiry>
+        <status>valid</status>
+      </calibration>
+      <certified_by>Exobiology Analytical Core</certified_by>
+    </instrument>
+    <instrument id="ESI-QTOF-OLD" type="esi_qtof">
+      <model>Agilent 6530 QTOF (decommissioned)</model>
+      <calibration>
+        <last_calibrated>2155-06-01</last_calibrated>
+        <expiry>2157-06-01</expiry>
+        <status>expired</status>
+      </calibration>
+      <certified_by>Instrument Services Division</certified_by>
+      <decommission_date>2157-08-01</decommission_date>
+    </instrument>
+  </instrument_registry>
+  <analysis_notes>
+    Only use data from validated sequencing runs (qc_passed elements with value 'true') for codon table reconstruction.
+    The xenobiont uses a non-standard genetic code with context-dependent translation rules
+    that modify amino acid output based on codon-boundary nucleotide context.
+    Cross-validate run QC status against individual batch QC reports before including data.
+  </analysis_notes>
+</experiment_log>

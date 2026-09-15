@@ -1,0 +1,342 @@
+%% Synchronous Dual-Channel Pilot Flying Protocol
+%% PVS Formal Specification (Low-Level and High-Level Requirements)
+%% From NASA/CR-2014-218244: Formal Methods Case Studies for DO-333
+%%
+%% This file contains the complete PVS specification of a simplified
+%% synchronous version of the pilot flying protocol for a dual-channel
+%% Flight Guidance System. All components share a single clock.
+
+%% ================================================================
+%% Bus High-Level Requirements (Abstract Specification)
+%% ================================================================
+
+Bus_HLR[Init:bool]: THEORY
+BEGIN
+    State : TYPE+
+    Initial_State : State
+    next_state: [State, bool -> State]
+    output: [State -> bool]
+
+    HLR1: AXIOM
+       output(Initial_State) = Init
+
+    HLR2: AXIOM
+       forall (s: State, i: bool) :
+          output(next_state(s, i)) = i
+
+ END Bus_HLR
+
+%% ================================================================
+%% Bus Low-Level Requirements (Concrete Implementation)
+%% ================================================================
+
+Bus_LLR[Init:bool]: THEORY
+BEGIN
+    State: TYPE = bool
+    Initial_State: State = Init
+
+    next_state(s: State, input: bool): State = input
+
+    output(s: State): bool = s
+
+ END Bus_LLR
+
+%% ================================================================
+%% Bus Theory Interpretation (LLR satisfies HLR)
+%% ================================================================
+
+Bus_Interpretation[Init : bool] : THEORY
+BEGIN
+  IMPORTING Bus_LLR[Init]
+  IMPORTING Bus_HLR[Init] {{
+                    State         := Bus_LLR.State,
+                    Initial_State := Bus_LLR.Initial_State,
+                    next_state    := Bus_LLR.next_state,
+                    output        := Bus_LLR.output
+    }}
+  END Bus_Interpretation
+
+%% ================================================================
+%% Side High-Level Requirements (Abstract Specification)
+%% ================================================================
+
+Side_HLR[Primary_Side : bool] : THEORY
+BEGIN
+    State: TYPE+
+    Initial_State: State
+    next_state: [State, bool, bool -> State]
+
+    pre_TS   : [State -> bool]
+    pre_OSPF : [State -> bool]
+    pilot_flying : [State -> bool]
+
+    rise_ospf(s:State, ospf:bool) : bool = NOT pre_OSPF(s) AND ospf
+    rise_ts  (s:State, ts  :bool) : bool = NOT pre_TS  (s) AND ts
+
+    HLR1: AXIOM
+       pilot_flying(Initial_State) = Primary_Side
+
+    HLR2: AXIOM
+       pre_TS(Initial_State)
+
+    HLR3: AXIOM
+       pre_OSPF(Initial_State) = NOT Primary_Side
+
+    HLR4: AXIOM
+       forall (s:State, ts, ospf: bool) :
+         pilot_flying(s) AND rise_ospf(s, ospf) =>
+            NOT pilot_flying(next_state(s, ts, ospf))
+
+    HLR5: AXIOM
+       forall (s:State, ts, ospf: bool) :
+          pilot_flying(s) AND NOT rise_ospf(s, ospf) =>
+             pilot_flying(next_state(s, ts, ospf))
+
+    HLR6: AXIOM
+       forall (s:State, ts, ospf: bool) :
+          NOT pilot_flying(s) AND rise_ts(s, ts) =>
+             pilot_flying(next_state(s, ts, ospf))
+
+    HLR7: AXIOM
+       forall (s:State, ts, ospf: bool) :
+          NOT pilot_flying(s) AND NOT rise_ts(s, ts) =>
+             NOT pilot_flying(next_state(s, ts, ospf))
+
+    HLR8: AXIOM
+       forall (s:State, ts, ospf: bool) :
+         pre_TS(next_state(s, ts, ospf)) = ts
+
+    HLR9: AXIOM
+       forall (s:State, ts, ospf: bool) :
+          pre_OSPF(next_state(s, ts, ospf)) = ospf
+
+END Side_HLR
+
+%% ================================================================
+%% Side Low-Level Requirements (Concrete Implementation)
+%% ================================================================
+
+Side_LLR[Primary_Side : bool] : THEORY
+BEGIN
+    Pilot_Flying_Side : TYPE =  {PilotFlying, NotPilotFlying}
+
+    Initial_Pilot_Flying_Side : Pilot_Flying_Side =
+            IF Primary_Side THEN  PilotFlying
+            ELSE NotPilotFlying ENDIF
+
+    State :TYPE+          = [# st       : Pilot_Flying_Side,
+                               pre_ts   : bool,
+                               pre_ospf : bool               #]
+
+    Initial_State: State  = (# st       := Initial_Pilot_Flying_Side,
+                               pre_ts   := TRUE,
+                               pre_ospf := NOT Primary_Side  #)
+
+    pre_TS  (s: State) : bool = pre_ts(s)
+    pre_OSPF(s: State) : bool = pre_ospf(s)
+
+    rise_ts  (s:State, ts  : bool) : bool = NOT pre_ts  (s) AND ts
+    rise_ospf(s:State, ospf: bool) : bool = NOT pre_ospf(s) AND ospf
+
+    next_state(s: State, ts:bool, ospf:bool) : State =
+     LET
+        next_pfs =
+          IF PilotFlying?(st(s)) AND rise_ospf(s, ospf)
+             THEN NotPilotFlying
+          ELSIF NotPilotFlying?(st(s)) AND rise_ts(s,ts)
+             THEN PilotFlying
+          ELSE
+             st(s)
+          ENDIF
+       IN (# st:= next_pfs, pre_ts := ts, pre_ospf := ospf #)
+
+    pilot_flying(s: State):bool = PilotFlying?(st(s))
+
+  END Side_LLR
+
+%% ================================================================
+%% Side Theory Interpretation (LLR satisfies HLR)
+%% ================================================================
+
+Side_Interpretation[Primary_Side : bool] : THEORY
+BEGIN
+  IMPORTING Side_LLR[Primary_Side]
+  IMPORTING Side_HLR[Primary_Side] {{
+                    State         := Side_LLR.State,
+                    Initial_State := Side_LLR.Initial_State,
+                    next_state    := Side_LLR.next_state,
+                    pre_TS        := Side_LLR.pre_TS,
+                    pre_OSPF      := Side_LLR.pre_OSPF,
+                    pilot_flying  := Side_LLR.pilot_flying
+    }}
+  END Side_Interpretation
+
+%% ================================================================
+%% Synchronous Pilot Flying System (System Composition)
+%% ================================================================
+
+Pilot_Flying_System : THEORY
+BEGIN
+  IMPORTING Side_HLR [TRUE]  AS Left_Side;
+  IMPORTING Bus_HLR  [TRUE]  AS LR_Bus;
+  IMPORTING Side_HLR [FALSE] AS Right_Side;
+  IMPORTING Bus_HLR  [FALSE] AS RL_Bus;
+
+  State : Type         = [# Left_Side  : Left_Side.State,
+                            LR_Bus     : LR_Bus.State,
+                            Right_Side : Right_Side.State,
+                            RL_Bus     : RL_Bus.State,
+                            pre_TS     : bool               #]
+
+  Initial_State: State = (# Left_Side  := Left_Side.Initial_State,
+                            LR_Bus     := LR_Bus.Initial_State,
+                            Right_Side := Right_Side.Initial_State,
+                            RL_Bus     := RL_Bus.Initial_State,
+                            pre_TS     := TRUE              #)
+
+  next_state(s: State, TS: bool) : State =
+    LET
+        C1      = Left_Side.pilot_flying(Left_Side(s)),
+        next_LR = LR_Bus.next_state(LR_Bus(s), C1),
+        C2      = LR_Bus.output(next_LR),
+        next_RS = Right_Side.next_state(Right_Side(s), TS, C2),
+
+        C3      = Right_Side.pilot_flying(Right_Side(s)),
+        next_RL = RL_Bus.next_state(RL_Bus(s), C3),
+        C4      = RL_Bus.output(next_RL),
+        next_LS = Left_Side.next_state(Left_Side(s), TS, C4)
+    IN
+       (# Left_Side  := next_LS,
+          LR_Bus     := next_LR,
+          Right_Side := next_RS,
+          RL_Bus     := next_RL,
+          pre_TS     := TS       #)
+
+  Left_Pilot_Flying_Side(s: State) : bool = pilot_flying(Left_Side(s))
+  Right_Pilot_Flying_Side(s: State): bool = pilot_flying(Right_Side(s))
+
+  END Pilot_Flying_System
+
+%% ================================================================
+%% System Requirements (Formal Theorems)
+%% ================================================================
+
+Pilot_Flying_System_Requirements: THEORY
+  BEGIN
+    IMPORTING Pilot_Flying_System
+
+    s:  VAR Pilot_Flying_System.State
+    ts: VAR bool
+
+    Reachable_State(s): INDUCTIVE bool =
+        s = Initial_State OR
+            (EXISTS (r: Pilot_Flying_System.State, t: bool) :
+                        Reachable_State(r) AND s = next_state(r,t))
+
+    Pre_TS_Consistency(s): bool =
+        pre_TS(Left_Side(s))  = pre_TS(s) and
+        pre_TS(Right_Side(s)) = pre_TS(s)
+
+    Pre_OSPF_Consistency(s): bool =
+        pre_OSPF(Right_Side(s)) = LR_Bus.output(LR_Bus(s)) and
+        pre_OSPF(Left_Side(s))  = RL_Bus.output(RL_Bus(s))
+
+    At_Least_One_Side_Flying(s): bool =
+        Left_Pilot_Flying_Side(s) OR Right_Pilot_Flying_Side(s)
+
+    Buses_Differ_When_Sides_Same(s): bool =
+        pilot_flying(Left_Side(s)) = pilot_flying(Right_Side(s)) =>
+            LR_Bus.output(LR_Bus(s)) /= RL_Bus.output(RL_Bus(s))
+
+    Valid_State(s) : bool =
+        At_Least_One_Side_Flying(s) AND
+        Pre_TS_Consistency(s) AND
+        Pre_OSPF_Consistency(s) AND
+        Buses_Differ_When_Sides_Same(s)
+
+    Reachable_States_Valid: THEOREM
+        Reachable_State(s) => Valid_State(s)
+
+    pressed(ts, s) : bool = not pre_TS(s) and ts
+
+    switching_sides(s) : bool =
+         pilot_flying(Left_Side(s))  AND NOT output(LR_Bus(s)) OR
+         pilot_flying(Right_Side(s)) AND NOT output(RL_Bus(s))
+
+    %% R1. At least one side shall be the pilot flying side.
+    R1: THEOREM
+        Reachable_State(s) =>
+           Left_Pilot_Flying_Side(s) or Right_Pilot_Flying_Side(s)
+
+    %% R2. At most one side shall be the pilot flying side
+    %%     except while the system is switching sides.
+    R2: THEOREM
+        Reachable_State(s) AND NOT switching_sides(s) =>
+           Left_Pilot_Flying_Side(s) /= Right_Pilot_Flying_Side(s)
+
+    %% R3. Pressing the Transfer Switch shall always change pilot
+    %%     flying side.
+    R3a: THEOREM
+        Reachable_State(s)  =>
+           (not Left_Pilot_Flying_Side(s) and pressed(ts,s) =>
+                Left_Pilot_Flying_Side(next_state(s,ts)))
+
+    R3b: THEOREM
+         Reachable_State(s) =>
+            (not Right_Pilot_Flying_Side(s) and pressed(ts,s) =>
+                 Right_Pilot_Flying_Side(next_state(s,ts)))
+
+    %% R4. The system shall start with the Primary Side as the pilot
+    %%     flying side.
+    R4: THEOREM
+        Left_Pilot_Flying_Side(Initial_State)
+
+    %% R5. The system shall not change the pilot flying side if it is
+    %%     not switching sides and the Transfer Switch is not pressed.
+    R5a: THEOREM
+        Reachable_State(s) AND
+           NOT switching_sides(s) AND NOT pressed(ts,s) =>
+               (Left_Pilot_Flying_Side(next_state(s,ts)) =
+                   Left_Pilot_Flying_Side(s))
+
+    R5b: THEOREM
+       Reachable_State(s) AND
+          NOT switching_sides(s) AND NOT pressed(ts,s) =>
+              (Right_Pilot_Flying_Side(next_state(s,ts)) =
+                   Right_Pilot_Flying_Side(s))
+
+  END Pilot_Flying_System_Requirements
+
+%% ================================================================
+%% Extended Requirements (Additional Valid State Properties)
+%% ================================================================
+
+Pilot_Flying_System_Requirements2: THEORY
+  BEGIN
+    IMPORTING Pilot_Flying_System_Requirements
+
+    s:  VAR Pilot_Flying_System.State
+    ts: VAR bool
+
+    At_Least_One_Bus_High(s) : bool =
+       output(LR_Bus(s)) OR output(RL_Bus(s))
+
+    Quiescent(s): bool =
+        (output(LR_Bus(s)) /= output(RL_Bus(s)) AND
+         pilot_flying(Left_Side(s)) /= pilot_flying(Right_Side(s))) =>
+        (output(LR_Bus(s)) = pilot_flying(Left_Side(s)) AND
+         output(RL_Bus(s)) = pilot_flying(Right_Side(s)))
+
+    Valid_State2(s) : bool =
+        Valid_State(s) AND
+        At_Least_One_Bus_High(s) AND
+        Quiescent(s)
+
+    Reachable_States_Valid2: THEOREM
+        Reachable_State(s) => Valid_State2(s)
+
+    Switching_Transient: THEOREM
+        Reachable_State(s) AND switching_sides(s) =>
+           NOT switching_sides(next_state(s,ts))
+
+  END Pilot_Flying_System_Requirements2

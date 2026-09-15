@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a correct lock-free concurrent hash map with dynamic resizing and QSBR memory reclamation requires expert-level understanding of: (1) CAS-based lock-free programming and CAS loop patterns, (2) C++ memory ordering semantics (relaxed, acquire, release, acq_rel) and their hardware implications, (3) table migration with redirect sentinels while handling concurrent reads, writes, and erases, (4) cooperative multi-threaded migration with chunk-based work partitioning, (5) quiescent-state-based reclamation (QSBR) lifecycle integration to avoid use-after-free of old tables. Subtle bugs — lost updates during migration, overwriting redirect values, premature root publication, incorrect memory ordering — are easy to introduce and hard to diagnose. This is squarely at Dreyfus "proficient/expert" level and Bloom "evaluate/create"."""
+solution_explanation = """The solution implements open-addressing linear probing with CAS-based cell claiming. Keys are claimed via compare_exchange_strong on the key field; values are updated via CAS loops that detect and handle Redirect sentinels. Migration creates a doubled-capacity table (CAS on Table::newTable), partitions cells into 64-cell chunks via atomic fetch_add on migrateIndex, redirects each cell's value to Redirect via CAS while capturing the old value, inserts captured values into the new table, tracks completion with migrateComplete, then publishes the new root and enqueues the old table for QSBR destruction. A critical correctness detail: after a successful value CAS, the insert path must re-check table->newTable; if a concurrent migration started, the newly-inserted value might reside in a table that migration already scanned past, so the insert must help complete the migration and retry in the current root."""
+verification_explanation = """Four pytest-driven tests: (1) single-threaded CRUD correctness (insert, update, get, erase, re-insert), (2) multi-threaded correctness with 4 threads x 10000 disjoint-key inserts plus overlapping-key insert races plus concurrent erase, (3) migration stress starting from capacity 16 with enough insertions to trigger many resizes under concurrent load, (4) ThreadSanitizer race detection compiled with -fsanitize=thread to verify no data races and correctness under TSan scheduling. Each C++ test program outputs PASS on success; pytest checks exit code and output."""
+category = "concurrency"
+tags = ["lock-free", "data-structures"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dc2a05"

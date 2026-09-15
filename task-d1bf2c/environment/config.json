@@ -1,0 +1,6 @@
+{
+    "initial_conditions": [30.0, 10.0],
+    "t_start": 0.0,
+    "observation_noise_std": 0.5,
+    "prediction_times": [26.0, 27.0, 28.0, 29.0, 30.0]
+}

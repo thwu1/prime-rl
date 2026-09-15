@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing an x86-64 assembly peephole optimizer from scratch. The solver must deeply understand chibicc's stack-based code generation model, x86-64 instruction semantics, register aliasing (e.g., %rax/%eax/%al are the same physical register), and control-flow constraints (cannot optimize across labels/jumps). Architectural decisions include: how to represent and match instruction patterns, how to detect register conflicts across a look-ahead window, how to handle floating-point stack operations, and how to ensure stack pointer invariants are maintained. The optimizer must be general-purpose — it is tested on C programs the solver never sees during development."""
+solution_explanation = """Create a Python-based peephole optimizer that applies iterative optimization passes: (1) Fold adjacent lea DISP(%rbp),%rax + load (%rax),%rax pairs into single load DISP(%rbp),%rax instructions, eliminating one instruction per variable read — this is the largest single win because chibicc's gen_addr+load pattern emits this pair for every variable access. (2) Replace push/pop pairs separated by non-conflicting instructions with register moves, eliminating stack operations. (3) Optimize floating-point push/pop sequences into direct register-to-register moves. (4) Fold setCC %al + movzbl %al,%eax + cmp $0,%rax + je/jne into a single conditional jump, saving 3 instructions per boolean condition — safe because setCC and movzbl do not modify flags. (5) Remove self-move no-ops. (6) Eliminate redundant jumps to immediately following labels. Register conflict detection uses alias families. Passes iterate until fixpoint."""
+verification_explanation = """Compiles 6 C programs (unseen by the solver) with chibicc to produce assembly, runs each through /app/optimize, assembles and links the optimized output with gcc, executes the binary and verifies exit code 0 (correctness). Also measures instruction count in original vs optimized assembly and asserts ≥10% average reduction and that every individual program's output is strictly smaller."""
+category = "systems_programming"
+tags = ["compilers", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-05fc2f"

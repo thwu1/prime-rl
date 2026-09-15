@@ -1,0 +1,29 @@
+{
+  "description": "Expected output format for /app/results.json",
+  "format": {
+    "<kernel_name>": {
+      "occupancy": {
+        "occupancy_pct": "float: theoretical occupancy percentage (0-100)",
+        "active_warps_per_sm": "int: number of active warps per SM",
+        "active_blocks_per_sm": "int: number of active thread blocks per SM",
+        "limiting_factor": "string: one of 'registers', 'shared_memory', 'block_size'"
+      },
+      "global_memory": {
+        "<access_name>": {
+          "sectors_per_request": "int: number of 32-byte sectors touched by one warp request",
+          "coalescing_efficiency_pct": "float: (warp_size * element_size) / (sectors * sector_size) * 100"
+        }
+      },
+      "shared_memory": {
+        "<access_name>": {
+          "bank_conflict_degree": "int: maximum number of threads accessing the same bank"
+        }
+      }
+    }
+  },
+  "notes": {
+    "sections": "Include 'occupancy' for all regular kernels. Include 'global_memory' only if the kernel has global_memory_accesses. Include 'shared_memory' only if the kernel has shared_memory_accesses.",
+    "optimal_launch": "The 'optimal_launch' kernel uses a different format: {'optimal_block_size': int, 'maximum_occupancy_pct': float}. No occupancy/global_memory/shared_memory sections.",
+    "limiting_factor_ties": "When multiple factors produce the same minimum block count, report the alphabetically first among the tied factors."
+  }
+}

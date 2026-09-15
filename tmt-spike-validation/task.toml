@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating proteomics domain knowledge, REST API navigation, text parsing, and computational biology. The solver must: (1) discover PRIDE API endpoints and navigate file listings to locate the correct mzTab and FASTA files without given filenames; (2) parse the semi-structured project description text to extract expected TMT reporter ion ratios and map spike-in protein names to classification categories; (3) determine the protease used (trypsin) from experimental context and implement in-silico digestion with correct cleavage rules; (4) parse the mzTab tabular format with dynamic column positions discovered from header rows; (5) look up or derive monoisotopic amino acid residue masses for mass computation; (6) design TMT ratio aggregation and normalization; (7) implement RMSD comparison between observed and expected ratios; (8) compute per-protein coefficient of variation across peptide-level ratios. The task couples API interaction, natural language parsing, domain-specific algorithms, statistical computation, and cross-format data reconciliation."""
+solution_explanation = """The reference solution queries PRIDE API v3 for project metadata (title + projectDescription) and file listings with fallback URLs. It parses the projectDescription field using regex to extract six-number ratio strings paired with preceding category keywords, normalizing each to channel 1. It discovers mzTab and FASTA downloads from the files endpoint, downloads both, parses FASTA into protein sequences, parses mzTab PEP rows with dynamic TMT column detection from the PEH header line, implements tryptic digestion (K/R not before P, 0-2 missed cleavages, min length 6), computes monoisotopic masses using NIST residue masses plus water, normalizes per-peptide TMT channels to channel 1 and aggregates with median per protein, classifies proteins by matching accessions against spike-in patterns extracted from the description (ENO1_YEAST, ALBU_BOVIN, PYGM_RABIT, CYC_BOVIN, ECA prefix), computes RMSD of mean observed vs expected ratios per category, and computes mean per-channel CV across peptides for proteins with >=3 contributing peptides."""
+verification_explanation = """Tests verify: JSON structure with 13 required keys including new spike_expected_ratios, ratio_rmsd, per_protein_cv; project metadata from PRIDE API; peptide/protein count ranges; tryptic coverage >50%; specific peptide masses (DGVSVAR~702.366, NVVLDK~686.396); classification of all 4 spike-in proteins by accession; TMT ratio patterns for all categories (Erwinia near-uniform, PhosB channels 5-6 drop, BSA channel 4 peak, Enolase channel 4 trough, CytC channel 6 elevated); exact expected ratio values parsed from description (enolase ch4=0.1, bsa ch4=10.0, phosb ch5/6=0.5, cytc ch6=2.0); RMSD bounds (erwinia <0.5, all <5.0, at least one nontrivial); per-protein CV non-negativity, count, range, and low values for Erwinia; cross-validation between classifications, ratios, expected ratios, and RMSD categories."""
+category = "bioinformatics"
+tags = ["proteomics", "mass-spectrometry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tmt-spike-validation"

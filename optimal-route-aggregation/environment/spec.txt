@@ -1,0 +1,143 @@
+IPv4 FIB Manager Specification
+==============================
+
+Operations (read from stdin, one per line):
+------------------------------------------
+
+INSERT <prefix>/<len> <nexthop>
+  Add or update a route. <prefix> is a dotted-quad IPv4 address in canonical
+  CIDR form (host bits must be zero, e.g., 10.0.0.0/8 not 10.1.2.3/8).
+  <len> is an integer 0-32. <nexthop> is an integer 0-255.
+  If a route with the same prefix/len already exists, its nexthop is replaced.
+  No output.
+
+DELETE <prefix>/<len>
+  Remove the exact route matching this prefix and length. No-op if no such
+  route exists. No output.
+
+LOOKUP <ip>
+  Find the nexthop of the longest matching prefix for <ip>. If multiple routes
+  match, the one with the greatest prefix length wins.
+  Output: a single line containing the nexthop integer, or "NONE" if no route
+  matches.
+
+AGGREGATE
+  Compute the optimal (minimum entry count) aggregated routing table. The
+  aggregated table must produce identical longest-prefix-match results for ALL
+  2^32 possible IPv4 addresses. An address that returns NONE in the original
+  table must also return NONE with the aggregated table.
+
+  AGGREGATE is read-only: it does not modify the internal routing table.
+  Subsequent INSERT/DELETE/LOOKUP operations work on the original table.
+
+  Output format:
+    Line 1: the number of entries N (integer)
+    Lines 2..N+1: "<prefix>/<len> <nexthop>", one per line, sorted by prefix
+    address numerically ascending, then by prefix length ascending.
+
+
+Key rules:
+----------
+
+- INSERT replaces any existing route with the same (prefix, len) pair.
+- DELETE only removes the exact (prefix, len) pair. It does not affect routes
+  with different prefix lengths. After DELETE, lookups may "fall back" to a
+  shorter matching prefix.
+- LOOKUP returns the nexthop of the longest (most specific) matching prefix.
+- AGGREGATE must produce the provably minimal table. Naive greedy merging of
+  sibling prefixes is not sufficient. The optimal solution may require
+  "promoting" routes to shorter prefixes and keeping more-specific exceptions.
+
+  IMPORTANT: There are no "discard" or "blackhole" routes. A route can only
+  forward to a nexthop (0-255), not to NONE. This means a promoted route must
+  NOT cover addresses that should return NONE. If a subtree contains addresses
+  with no route (NONE), you cannot promote a non-NONE route to that subtree's
+  parent without incorrectly covering those addresses.
+
+  An adapted ORTC (Optimal Routing Table Constructor) algorithm handles this:
+  1. Build a binary trie from all routes.
+  2. Normalize: ensure every internal node has exactly two children. Missing
+     children are created as leaves inheriting the effective nexthop from the
+     nearest ancestor with a route (or NONE if no ancestor has a route).
+  3. Bottom-up: compute a "nexthop set" at each node. For leaves, the set is
+     {forwarding_decision}. For internal nodes: if EITHER child's set contains
+     NONE, force the set to {NONE} (prevents promotion across uncovered
+     regions). Otherwise, take the intersection of children's sets; if empty,
+     take the union.
+  4. Top-down: at each node, if the inherited nexthop is in the nexthop set,
+     choose it (no new entry needed). Otherwise, choose any element from the
+     set and emit a route entry (skip emitting for NONE).
+
+  The resulting table is guaranteed to have the minimum possible number of
+  CIDR entries without discard routes.
+
+
+Worked examples:
+----------------
+
+Example 1 - Basic Aggregation:
+
+  INSERT 10.0.0.0/24 1
+  INSERT 10.0.1.0/24 1
+  AGGREGATE
+
+  Output:
+  1
+  10.0.0.0/23 1
+
+  Explanation: Two adjacent /24 prefixes with the same nexthop merge into a
+  single /23 prefix.
+
+Example 2 - ORTC (non-greedy) Aggregation:
+
+  INSERT 10.0.0.0/24 1
+  INSERT 10.0.1.0/24 1
+  INSERT 10.0.0.0/25 2
+  AGGREGATE
+
+  Output:
+  2
+  10.0.0.0/23 1
+  10.0.0.0/25 2
+
+  Explanation:
+  A greedy merge approach cannot combine the two /24s because 10.0.0.0/24 has
+  a more-specific override (/25 -> 2). Greedy produces 3 entries:
+    10.0.0.0/24 1, 10.0.0.0/25 2, 10.0.1.0/24 1
+
+  The ORTC approach promotes nexthop 1 to /23, covering both /24 ranges, and
+  keeps only the /25 exception. Result: 2 entries.
+
+  Verification (all IPs produce identical results):
+    10.0.0.0 - 10.0.0.127: LPM matches /25 -> 2  (correct)
+    10.0.0.128 - 10.0.0.255: LPM matches /23 -> 1 (correct)
+    10.0.1.0 - 10.0.1.255: LPM matches /23 -> 1   (correct)
+    all other IPs: NONE                             (correct)
+
+Example 3 - Longest Prefix Match:
+
+  INSERT 10.0.0.0/8 1
+  INSERT 10.0.0.0/16 2
+  INSERT 10.0.0.0/24 3
+  LOOKUP 10.0.0.1
+  LOOKUP 10.0.1.1
+  LOOKUP 10.1.0.1
+
+  Output:
+  3
+  2
+  1
+
+Example 4 - Delete with Fallback:
+
+  INSERT 10.0.0.0/8 1
+  INSERT 10.0.0.0/16 2
+  LOOKUP 10.0.0.1
+  DELETE 10.0.0.0/16
+  LOOKUP 10.0.0.1
+
+  Output:
+  2
+  1
+
+  After deleting the /16, the /8 route still covers 10.0.0.1.

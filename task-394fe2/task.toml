@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting defects in an IR evaluation pipeline: a buggy MaxP aggregation function (uses min instead of max), an incorrect nDCG gain formula (linear instead of exponential), silent data quality issues (null parent_id mappings in corpus, whitespace-corrupted document IDs in relevance judgments, duplicate passage entries in runs), and a flawed permutation test (missing per-pair seed reset). The agent must independently investigate the evaluation protocol specification, trace through the pipeline code, inspect raw JSONL data files for inconsistencies, and produce a correct reimplementation. This requires professional-level IR evaluation expertise, systematic debugging skills, and data forensics ability."""
+solution_explanation = """The solution audits the data files, discovering orphaned passages (null parent_id in corpus.jsonl) and whitespace-corrupted document IDs in qrels.jsonl. It identifies five bugs in pipeline.py by comparing the code against the protocol specification: (1) min instead of max for MaxP aggregation, (2) linear gain instead of exponential (2^rel - 1) for nDCG, (3) orphaned passages silently skipped instead of parent derived from ID prefix, (4) no whitespace normalization on qrel IDs, (5) numpy seed not reset per pairwise permutation test. The correct evaluator handles all data issues, implements the protocol-specified formulas, and produces results matching the output schema."""
+verification_explanation = """Tests independently recompute all evaluation metrics from the raw data files using a correct reference implementation that properly handles all data quality issues (null parent_id resolution via ID prefix extraction, whitespace normalization, passage deduplication). Computed nDCG@10, Recall@100, p-values, and run rankings are compared against the agent's output with tight numerical tolerances (0.003 for metrics, 0.025 for p-values). An additional test verifies the output differs materially from the known-buggy initial results."""
+category = "data_science"
+tags = ["information-retrieval", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-394fe2"

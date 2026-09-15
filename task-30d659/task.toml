@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the RISC-V Vector (RVV) extension ISA to reverse-engineer multiple classes of peephole optimizations from before/after assembly examples alone. The agent must study input/reference pairs to discover the optimization categories, determine the precise conditions under which each transformation is valid, identify negative cases where structurally similar patterns must be preserved, and then generalize these rules to assembly files that have no reference outputs. This demands deep knowledge of RVV instruction encoding, operand semantics, register liveness, control flow boundaries, and instruction commutativity properties. The cross-assembler validation step requires familiarity with the RISC-V toolchain."""
+solution_explanation = """The solution implements a two-pass Python optimizer. Pass 1 tracks vsetvli configuration state (full operand tuple including rd), resetting at labels and branches, removing instructions whose tuple matches the current state. Pass 2 scans for vmv.v.x/vfmv.v.f broadcasts, forward-scans uses checking if all are in fusable .vv instructions with the broadcast in the correct scalar operand position (handling commutative swaps and different FMA operand layouts), converts uses to .vx/.vf forms, and removes the dead broadcast. Non-fusable uses (stores, wrong position in non-commutative ops) abort fusion for that broadcast. Register kills (overwrites without read) stop the forward scan and allow fusion of preceding uses."""
+verification_explanation = """Tests run the optimizer on four assembly files covering: redundant vsetvli elimination (same/different configs, labels between them, different destination registers), broadcast fusion (float FMA, integer add/sub, multi-use, chained), negative cases (broadcast stored to memory, non-commutative wrong position), edge cases (different vsetvli rd, broadcast register overwritten between uses), and combined optimizations on inputs without references. Assembly validation via riscv64-linux-gnu-as -march=rv64gcv ensures output is syntactically valid RISC-V assembly. Stats JSON counts are verified against expected values for all four inputs."""
+category = "compiler_engineering"
+tags = ["risc-v", "peephole-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-30d659"

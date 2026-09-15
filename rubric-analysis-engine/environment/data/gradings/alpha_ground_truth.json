@@ -1,0 +1,17 @@
+{
+    "deps-installed": 1,
+    "data-loaded": 1,
+    "config-valid": 1,
+    "encoder": 1,
+    "decoder": 1,
+    "attention": 1,
+    "forward-pass": 1,
+    "backward-pass": 1,
+    "optimizer": 1,
+    "metrics": 1,
+    "eval-exec": 1,
+    "table1-match": 1,
+    "table2-match": 0,
+    "figure1-match": 0,
+    "ablation-exec": 1
+}

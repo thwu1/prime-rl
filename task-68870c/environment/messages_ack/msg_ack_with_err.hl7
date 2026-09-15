@@ -1,0 +1,3 @@
+MSH|^~\&|PACS|HOSP_B|RADIS|HOSP_A|20240315143100||ACK^A01^ACK|CTRL_ACK005|P|2.5.1
+MSA|AE|CTRL001|Error occurred during processing
+ERR|||207^Application internal error|E

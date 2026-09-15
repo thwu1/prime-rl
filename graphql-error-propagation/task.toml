@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the GraphQL spec's recursive CompleteValue algorithm, particularly the Non-Null error propagation semantics where null values must bubble up through Non-Null type wrappers to the nearest nullable ancestor. The bugs interact: fixing NonNull propagation requires introducing an exception-based signaling mechanism that must be correctly caught at object boundaries, list boundaries, and the root level. Additionally, scalar coercion edge cases (Int 32-bit boundaries, Float finite checks, ID integer acceptance) must be fixed, and list item error paths must include numeric indices. The interplay between List and NonNull types creates additional complexity ([T!] vs [T]! vs [T!]!)."""
+solution_explanation = """The core fix introduces a NonNullViolation exception class. When a NonNull field completes as null, an error is recorded and NonNullViolation is thrown instead of returning null. This exception propagates through: (1) completeObjectValue catches it and returns null — the entire object becomes null, and the caller (nullable or NonNull parent) decides whether propagation stops or continues; (2) List completion catches it for items, causing the entire list to return null; (3) The NonNull handler itself re-throws caught NonNullViolations from children without adding duplicate errors (using error-count tracking); (4) At root level, completeObjectValue returns null directly when a top-level NonNull field fails. Additionally: list item paths include the index i; Int coercion checks > 2147483647 or < -2147483648; Float coercion checks Number.isFinite(); ID coercion accepts typeof number with Number.isInteger() and returns String(value)."""
+verification_explanation = """Tests use pytest to invoke the TypeScript CLI via subprocess with JSON test cases. Each test provides a type descriptor tree and resolved values, then verifies the JSON response's data and errors fields. Tests cover: basic nullability (4 tests), NonNull propagation through nested objects and deep chains (5 tests), list completion with NonNull items and index paths (6 tests), scalar coercion including Int 32-bit boundaries, Float finite checks, ID integer acceptance, String and Boolean coercion (18 tests), enum coercion (2 tests), and complex integration scenarios combining multiple features (8 tests). Total: 43 test cases."""
+category = "debugging"
+tags = ["graphql", "typescript"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graphql-error-propagation"

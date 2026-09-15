@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of multi-limb integer representation across non-standard 24/24/16-bit limb boundaries. The solver must diagnose 11 unmarked correctness defects spanning carry propagation in multiplication, sign extension in comparison and arithmetic shifting, two's complement overflow in division/modulo, infinite loops in string conversion, MurmurHash3-compatible hashing for custom blocks, OCaml Marshal wire format compatibility, and three distinct bit-counting/rotation algorithms. Bugs cascade: multiplication errors corrupt string parsing; a to_string infinite loop blocks all subsequent tests. No hints or markers identify the defects — the solver must use differential testing output, trace through limb arithmetic, and reason about sign-extension semantics to locate each bug. Based on real production bugs from js_of_ocaml's runtime."""
+solution_explanation = """Key fixes: (1) mul carry extraction must use unsigned shift (lsr) not arithmetic (asr) to prevent sign-extension corruption of intermediate products; (2) compare must sign-extend the 16-bit hi limb before comparing, since negative numbers store hi with bit 15 set but as unsigned 0..0xFFFF; (3) shift_right in the 24-47 range must sign-extend hi before shifting into lower limbs; (4) div must special-case min_int / (-1) = min_int (two's complement overflow); (5) modulo must special-case min_int % ±1 = 0; (6) to_string must hard-code min_int since neg(min_int) = min_int causes infinite loop; (7) hash should delegate to Hashtbl.hash(to_native v) to match OCaml's internal hashing; (8) marshal/unmarshal should delegate to Marshal.to_bytes/from_bytes for wire compatibility; (9) popcount must include the hi limb (16 bits) not just lo+mi; (10) clz must add 16 to the count when hi=0 and mi≠0 to account for the empty hi limb; (11) rotate_left must use (64-s) not (63-s) for the right-shift complement."""
+verification_explanation = """Differential testing compares every Triint64 operation against native Int64/standard library for random inputs, boundary values (0, 1, -1, min_int, max_int), all 64 shift counts, all 64 rotation counts, marshal round-trips, hash consistency, popcount accuracy, and clz correctness. Tests include values specifically targeting limb boundaries (2^24, 2^48) and sign-extension edges. The main.exe driver prints ALL TESTS PASSED or exits 1 with FAIL diagnostics to stderr."""
+category = "debugging"
+tags = ["bit-manipulation", "compiler-runtime"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a84244"

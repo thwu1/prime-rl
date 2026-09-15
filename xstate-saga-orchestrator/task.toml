@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of XState v5 statechart semantics: parallel state completion (all children must reach final states for onDone), guard evaluation order in always transitions, the saga/compensation pattern for distributed transactions, and TypeScript type inference with XState's setup() API. The solver must fix ~10 interrelated bugs spanning structural issues (missing final states, wrong transition targets, inverted guard logic), cross-reference errors (wrong retry policy lookups, wrong confirmation ID references), and control-flow gaps (missing fallback transitions, missing requireAll checks). Bugs interact — e.g., fixing the parallel completion bug exposes guard ordering bugs — requiring systematic debugging across the full state machine. Beyond debugging, the solver must make architectural decisions: designing a sequential compensation phase with price-based ordering to replace the parallel compensation structure, and fixing the retry mechanism with correct exponential backoff delay calculations and per-service policy routing. The compensation redesign requires understanding XState's always-transition guards for dynamic dispatch and designing a selectNext/cancel loop pattern."""
+solution_explanation = """Fix bugs in saga.ts: (1) Remove negation in allSucceeded guard's carRental check. (2) Add requireAll check to needsCompensation guard. (3) Initialize requireAll from input.request.requireAll. (4) Add type:'final' to carRental parallel branch's terminal state and rename to 'done'. (5) Fix carRental compensation to use carRentalResult.confirmationId. (6) Change compensating.onDone target from 'failed' to 'compensated'. (7) Fix compensation guards to check status==='confirmed' instead of !==null. (8) Add fallback always transition in evaluating. (9) Fix flightCanRetry guard to reference flightRetryPolicy instead of hotelRetryPolicy. (10) Fix delay formulas to use multiplication with Math.pow(2, attempts) instead of addition. Then redesign: (11) Replace parallel compensation with sequential structure using selectNext state with shouldCompensateXxxNext guards that check confirmed status, compensatedServices tracking, and price-descending ordering. Add cancellingFlight/cancellingHotel/cancellingCarRental states that loop back to selectNext after updating compensatedServices."""
+verification_explanation = """Tests cover 9 behavioral scenarios plus TypeScript compilation. Each scenario creates the machine with test actor overrides via provide(), sends START_BOOKING, waits for completion, and checks final state and context. The compensation ordering tests use different price configurations to verify sequential highest-price-first execution. Retry tests verify both successful retry (retryable actor) and exhausted retry (always-failing actor). Different tests catch different bug subsets: the all_succeed test requires fixing the allSucceeded guard and carRental final state; the flight_fails_not_require_all test requires fixing requireAll initialization, needsCompensation guard, AND adding the fallback transition (coupled bugs). The car_expensive_compensation_order test specifically verifies that compensation ordering is by price, not by service declaration order."""
+category = "debugging"
+tags = ["xstate", "typescript", "state-machines", "saga-pattern"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xstate-saga-orchestrator"

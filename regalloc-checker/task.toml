@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of compiler backend theory: dataflow analysis across arbitrary control flow graphs including loops (which demand convergence through iteration), SSA form with block parameters (phi-node semantics), and register allocation correctness (spill/reload/move propagation). The agent must also explore an unfamiliar SQLite database schema using the sqlite3 CLI to reconstruct program structures, and produce valid Graphviz DOT output for CFG visualization — requiring multi-tool interoperability between sqlite3, Python, and graphviz. The core algorithmic challenge is discovering that naive single-pass analysis fails on loops, and that a fixed-point approach with appropriate value abstraction is needed to handle join points correctly."""
+solution_explanation = """The solution reads program data from SQLite by querying normalized tables (programs, blocks, block_params, instructions, terminators), reconstructing the program structure. It implements two-phase verification: Phase 1 uses worklist-based iterative dataflow with a three-element value abstraction (unknown/vreg/conflicted) to compute convergent entry/exit states for each block. Phase 2 replays symbolic execution over converged states, checking every read operand and terminator argument. Finally it generates DOT output with error blocks highlighted in red."""
+verification_explanation = """Tests run the checker against 10 pre-built programs from the SQLite database: 6 correct allocations (straight-line, diamond CFG with params, loop, spill/reload, move chain, complex loop) and 4 incorrect (swapped registers, conflicted join, uninitialized reload, wrong terminator arg). Tests verify JSON valid/invalid classification, exit codes, error detail fields, specific error properties, DOT file existence, DOT validity via the graphviz dot command, DOT content (block nodes, edges, red highlighting for errors), and that the checker handles every program in the database."""
+category = "compilers"
+tags = ["dataflow-analysis", "register-allocation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regalloc-checker"

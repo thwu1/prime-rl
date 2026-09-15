@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Output schema for the clinical text processing pipeline",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["note_id", "entities"],
+    "properties": {
+      "note_id": {
+        "type": "string",
+        "description": "Identifier for the clinical note"
+      },
+      "entities": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["text", "start", "end", "type", "assertion", "resolved_code", "resolved_term", "similarity"],
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The exact text span from the clinical note"
+            },
+            "start": {
+              "type": "integer",
+              "description": "Character offset start (inclusive) relative to note text"
+            },
+            "end": {
+              "type": "integer",
+              "description": "Character offset end (exclusive) relative to note text"
+            },
+            "type": {
+              "type": "string",
+              "enum": ["CONDITION", "SYMPTOM", "MEDICATION"],
+              "description": "Entity type from the terminology database"
+            },
+            "assertion": {
+              "type": "string",
+              "enum": ["affirmed", "negated", "hypothetical", "historical"],
+              "description": "Clinical assertion status of the entity"
+            },
+            "resolved_code": {
+              "type": "string",
+              "description": "Standardized code from the matched terminology entry"
+            },
+            "resolved_term": {
+              "type": "string",
+              "description": "Canonical term from the matched terminology entry"
+            },
+            "similarity": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Match confidence score (1.0 for exact match, <1.0 for approximate match)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

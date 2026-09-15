@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""
+trf2json - FIDE Tournament Report Format (TRF) to JSON converter.
+
+Converts TRF files as used by FIDE-endorsed Swiss pairing programs
+(bbpPairings, JaVaFo, etc.) to structured JSON output.
+
+Supports TRF16 format with XXR/XXC/XXS extensions.
+
+Usage:
+    trf2json FILE [OPTIONS]
+
+Options:
+    --meta          Output tournament metadata only
+    --players       Output player list with round data
+    --full          Output complete tournament data (default)
+    --pretty        Pretty-print JSON output
+    -h, --help      Show this help message
+"""
+
+import sys
+import json
+import argparse
+
+
+RESULT_MAP = {
+    '1': 1.0, '0': 0.0, '=': 0.5, '+': 1.0, '-': 0.0,
+    'H': 0.5, 'Z': 0.0, 'U': 0.0, 'F': 1.0, 'W': 1.0, 'D': 0.5, 'L': 0.0
+}
+
+
+def parse_player_line(line):
+    """Parse a 001 player data line in TRF fixed-width format.
+
+    Column layout (0-indexed):
+      0-2:   '001'
+      4-7:   Starting number (4 chars, right-justified)
+      9:     Sex
+      11-13: Title (3 chars)
+      14-46: Name (33 chars)
+      48-51: Rating (4 chars)
+      53-55: Federation (3 chars)
+      57-67: FIDE ID (11 chars)
+      69-78: Birth date (10 chars)
+      80-83: Points (4 chars, e.g. ' 3.5')
+      85-88: Rank (4 chars)
+      89+:   Round data, 10 chars per round
+               +0,+1: spaces
+               +2:    result char
+               +3:    space
+               +4-7:  opponent (4 chars, right-justified)
+               +8:    space
+               +9:    colour (w/b)
+    """
+    try:
+        tpn = int(line[4:8].strip())
+        sex = line[9:10].strip() if len(line) > 9 else ""
+        title = line[11:14].strip() if len(line) > 13 else ""
+        name = line[14:47].strip() if len(line) > 46 else ""
+        rating = int(line[48:52].strip() or "0") if len(line) > 51 else 0
+        federation = line[53:56].strip() if len(line) > 55 else ""
+        fide_id = line[57:68].strip() if len(line) > 67 else ""
+        birth_date = line[69:79].strip() if len(line) > 78 else ""
+        score = float(line[80:84].strip() or "0") if len(line) > 83 else 0.0
+        rank = int(line[85:89].strip() or "0") if len(line) > 88 else 0
+
+        rounds = []
+        pos = 89
+        round_num = 1
+        while pos + 10 <= len(line):
+            result_char = line[pos + 2:pos + 3].strip()
+            opp_str = line[pos + 4:pos + 8].strip()
+            colour_char = line[pos + 9:pos + 10].strip()
+
+            if not result_char and not opp_str:
+                break
+
+            opponent = int(opp_str) if opp_str and opp_str != "0" else 0
+            result_val = RESULT_MAP.get(result_char, 0.0)
+
+            rounds.append({
+                "round": round_num,
+                "result": result_char,
+                "result_value": result_val,
+                "opponent": opponent,
+                "colour": colour_char.upper() if colour_char else ""
+            })
+            pos += 10
+            round_num += 1
+
+        return {
+            "tpn": tpn,
+            "sex": sex,
+            "title": title,
+            "name": name,
+            "rating": rating,
+            "federation": federation,
+            "fide_id": fide_id,
+            "birth_date": birth_date,
+            "score": score,
+            "rank": rank,
+            "rounds": rounds
+        }
+    except (ValueError, IndexError) as e:
+        print(f"Warning: could not parse player line: {e}", file=sys.stderr)
+        return None
+
+
+def parse_trf(filepath):
+    """Parse a TRF file into metadata dict and player list."""
+    metadata = {}
+    players = []
+
+    with open(filepath, "r") as f:
+        for raw_line in f:
+            line = raw_line.rstrip("\n")
+            if len(line) < 3:
+                continue
+
+            tag = line[:3]
+            data = line[4:].strip() if len(line) > 4 else ""
+
+            if tag == "012":
+                metadata["tournament_name"] = data
+            elif tag == "022":
+                metadata["city"] = data
+            elif tag == "032":
+                metadata["federation"] = data
+            elif tag == "042":
+                metadata["start_date"] = data
+            elif tag == "052":
+                metadata["end_date"] = data
+            elif tag == "062":
+                try:
+                    metadata["num_players"] = int(data)
+                except ValueError:
+                    metadata["num_players"] = data
+            elif tag == "072":
+                try:
+                    metadata["num_rated"] = int(data)
+                except ValueError:
+                    metadata["num_rated"] = data
+            elif tag == "092":
+                metadata["type"] = data
+            elif tag == "102":
+                metadata["chief_arbiter"] = data
+            elif tag == "XXR":
+                metadata["total_rounds"] = int(data.strip())
+            elif tag == "XXC":
+                metadata["initial_colour_rule"] = data.strip()
+                if "white" in data.lower():
+                    metadata["initial_colour"] = "W"
+                else:
+                    metadata["initial_colour"] = "B"
+            elif tag == "XXS":
+                metadata["system"] = data.strip()
+            elif tag == "001":
+                player = parse_player_line(line)
+                if player:
+                    players.append(player)
+
+    return metadata, players
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="trf2json",
+        description="Convert FIDE Tournament Report Format (TRF) to JSON"
+    )
+    parser.add_argument("file", help="Path to TRF file")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--meta", action="store_true",
+                       help="Output tournament metadata only")
+    group.add_argument("--players", action="store_true",
+                       help="Output player list with round data")
+    group.add_argument("--full", action="store_true",
+                       help="Output complete tournament data (default)")
+    parser.add_argument("--pretty", action="store_true",
+                        help="Pretty-print JSON output")
+
+    args = parser.parse_args()
+    indent = 2 if args.pretty else None
+
+    try:
+        metadata, players = parse_trf(args.file)
+    except FileNotFoundError:
+        print(f"Error: file not found: {args.file}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error parsing TRF file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.meta:
+        json.dump(metadata, sys.stdout, indent=indent)
+    elif args.players:
+        json.dump(players, sys.stdout, indent=indent)
+    else:
+        json.dump({"metadata": metadata, "players": players},
+                  sys.stdout, indent=indent)
+
+    print()
+
+
+if __name__ == "__main__":
+    main()

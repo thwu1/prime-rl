@@ -1,0 +1,5 @@
+{"id": "brand_1", "name": "TechPro", "country": "US", "is_premium": true}
+{"id": "brand_2", "name": "ValueTech", "country": "CN", "is_premium": false}
+{"id": "brand_3", "name": "EuroGadget", "country": "DE", "is_premium": true}
+{"id": "brand_4", "name": "QuickByte", "country": "JP", "is_premium": false}
+{"id": "brand_5", "name": "NovaCorp", "country": "US", "is_premium": true}

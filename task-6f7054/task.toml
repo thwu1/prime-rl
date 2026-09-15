@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary to locate embedded S-box lookup tables in the .rodata section without guidance on extraction technique. The solver must then independently evaluate the cryptographic strength of these tables — choosing an analytical framework, discovering that the nonlinearity weakness is real (not a false positive), determining that both tables share an algebraic origin, and identifying that they decompose as compositions of GF(2)-linear maps with a shared modular-arithmetic core. The solver must design and implement a search to recover the core function parameters and produce the reduced permutation. No methodology or algebraic form is provided — the solver must discover the Z/256Z affine structure independently. This spans binary reverse engineering, Boolean function theory, and computational cryptanalysis."""
+solution_explanation = """Use readelf/objdump to inspect the stripped binary's sections. Scan .rodata for 256-byte permutation tables. Extract both S-boxes. Analyze their differential properties (DDT row multisets) to confirm shared algebraic structure. Hypothesize and test candidate modular-arithmetic permutations X(x)=a*x+b mod 256 with a odd, matching DDT row multisets against the extracted tables. The first valid answer found gives a=37, producing the core permutation as a 256-element list."""
+verification_explanation = """Tests extract S-box tables from the binary via permutation scanning, then verify the submitted report: (1) vulnerable==true, (2) core_permutation is a valid 256-element permutation, (3) core_permutation is a modular affine function x->ax+b mod 256, (4) its DDT row multiset matches both extracted S-boxes. DDT row multiset equality is necessary and sufficient for affine equivalence of 8-bit permutations under GF(2)-linear composition."""
+category = "cryptography"
+tags = ["reverse-engineering", "sbox-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6f7054"

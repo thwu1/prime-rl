@@ -1,0 +1,130 @@
+{
+  "correlation_scenarios": {
+    "medium": {
+      "description": "Use prescribed correlation values directly"
+    },
+    "high": {
+      "description": "Multiply all intra-bucket (rho) and cross-bucket (gamma) correlations by 1.25, cap at 1.0"
+    },
+    "low": {
+      "description": "Replace each rho with max(2*rho - 1, 0.75*rho); same rule for gamma"
+    }
+  },
+  "equity_delta": {
+    "risk_weights": {
+      "1": 0.55, "2": 0.60, "3": 0.45, "4": 0.55,
+      "5": 0.30, "6": 0.35, "7": 0.40, "8": 0.50,
+      "9": 0.70, "10": 0.50, "11": 0.70,
+      "12": 0.15, "13": 0.25
+    },
+    "intra_bucket_correlation": {
+      "1": 0.15, "2": 0.15, "3": 0.15, "4": 0.15,
+      "5": 0.25, "6": 0.25, "7": 0.25, "8": 0.25,
+      "9": 0.075, "10": 0.125,
+      "12": 0.80, "13": 0.80
+    },
+    "other_sector_bucket": 11,
+    "cross_bucket_correlation_rules": {
+      "both_in_1_to_10": 0.15,
+      "either_is_11": 0.0,
+      "between_12_and_13": 0.75,
+      "otherwise": 0.45
+    }
+  },
+  "fx_delta": {
+    "risk_weight": 0.15,
+    "specified_currency_pairs": [
+      "USD/EUR", "USD/JPY", "USD/GBP", "USD/AUD", "USD/CAD",
+      "USD/CHF", "USD/MXN", "USD/CNY", "USD/NZD", "USD/RUB",
+      "USD/HKD", "USD/SGD", "USD/TRY", "USD/KRW", "USD/SEK",
+      "USD/ZAR", "USD/INR", "USD/NOK", "USD/BRL"
+    ],
+    "specified_pair_rw_divisor": 1.4142135623730951,
+    "cross_bucket_correlation": 0.60
+  },
+  "girr_delta": {
+    "risk_weights_by_tenor": {
+      "0.25": 0.017, "0.5": 0.017, "1": 0.016, "2": 0.013,
+      "3": 0.012, "5": 0.011, "10": 0.011, "15": 0.011,
+      "20": 0.011, "30": 0.011
+    },
+    "inflation_risk_weight": 0.016,
+    "cross_currency_basis_risk_weight": 0.016,
+    "specified_currencies": ["EUR", "USD", "GBP", "AUD", "JPY", "SEK", "CAD"],
+    "specified_currency_rw_divisor": 1.4142135623730951,
+    "correlation": {
+      "same_curve_different_tenor": {
+        "formula": "max(exp(-theta * abs(Tk - Tl) / min(Tk, Tl)), floor)",
+        "theta": 0.03,
+        "floor": 0.40
+      },
+      "same_tenor_different_curve": 0.999,
+      "different_tenor_different_curve_factor": 0.999,
+      "inflation_to_yield_curve": 0.40,
+      "cross_currency_basis_to_any": 0.0
+    },
+    "cross_bucket_correlation": 0.50
+  },
+  "csr_nonsec_delta": {
+    "risk_weights": {
+      "1": 0.005, "2": 0.01, "3": 0.05, "4": 0.03,
+      "5": 0.03, "6": 0.02, "7": 0.015, "8": 0.025,
+      "9": 0.02, "10": 0.04, "11": 0.12, "12": 0.07,
+      "13": 0.085, "14": 0.055, "15": 0.05, "16": 0.12,
+      "17": 0.015, "18": 0.05
+    },
+    "intra_bucket_correlation": {
+      "buckets_1_to_15": {
+        "rho_name_same": 1.0,
+        "rho_name_diff": 0.35,
+        "rho_tenor_same": 1.0,
+        "rho_tenor_diff": 0.65,
+        "rho_basis_same": 1.0,
+        "rho_basis_diff": 0.999
+      },
+      "buckets_17_18": {
+        "rho_name_same": 1.0,
+        "rho_name_diff": 0.80,
+        "rho_tenor_same": 1.0,
+        "rho_tenor_diff": 0.65,
+        "rho_basis_same": 1.0,
+        "rho_basis_diff": 0.999
+      },
+      "bucket_16": "sum_abs"
+    },
+    "cross_bucket_correlation": {
+      "rating_factor": {
+        "ig_buckets": [1, 2, 3, 4, 5, 6, 7, 8],
+        "hy_buckets": [9, 10, 11, 12, 13, 14, 15],
+        "same_rating": 1.0,
+        "different_rating": 0.50
+      },
+      "sector_group_mapping": {
+        "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8,
+        "9": 1, "10": 2, "11": 3, "12": 4, "13": 5, "14": 6, "15": 7,
+        "16": 0, "17": 17, "18": 18
+      },
+      "sector_correlations": {
+        "1|2": 0.75, "1|3": 0.10, "1|4": 0.20, "1|5": 0.25,
+        "1|6": 0.20, "1|7": 0.15, "1|8": 0.10,
+        "2|3": 0.05, "2|4": 0.15, "2|5": 0.20, "2|6": 0.15,
+        "2|7": 0.10, "2|8": 0.10,
+        "3|4": 0.05, "3|5": 0.15, "3|6": 0.20, "3|7": 0.05, "3|8": 0.20,
+        "4|5": 0.20, "4|6": 0.25, "4|7": 0.05, "4|8": 0.05,
+        "5|6": 0.25, "5|7": 0.05, "5|8": 0.15,
+        "6|7": 0.05, "6|8": 0.20,
+        "7|8": 0.05
+      },
+      "bucket_16_to_any": 0.0,
+      "between_17_and_18": 0.75,
+      "index_to_sector": 0.45
+    }
+  },
+  "drc_equity": {
+    "risk_weights": {
+      "AAA": 0.005, "AA": 0.02, "A": 0.03, "BBB": 0.06,
+      "BB": 0.15, "B": 0.30, "CCC": 0.50, "NR": 0.15,
+      "D": 1.0
+    }
+  }
+}

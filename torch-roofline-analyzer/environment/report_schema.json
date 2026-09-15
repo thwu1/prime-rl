@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RooflineReport",
+  "description": "Performance analysis report from roofline model analyzer",
+  "type": "object",
+  "required": [
+    "total_matmul_flops",
+    "total_memory_bytes",
+    "overall_arithmetic_intensity",
+    "overall_classification",
+    "ridge_point",
+    "per_module",
+    "operations"
+  ],
+  "properties": {
+    "total_matmul_flops": {
+      "type": "integer",
+      "description": "Total FLOPs across all captured matmul operations"
+    },
+    "total_memory_bytes": {
+      "type": "integer",
+      "description": "Total estimated memory transfer in bytes across all matmul ops (all tensor inputs and outputs)"
+    },
+    "overall_arithmetic_intensity": {
+      "type": "number",
+      "description": "total_matmul_flops / total_memory_bytes"
+    },
+    "overall_classification": {
+      "type": "string",
+      "enum": ["compute_bound", "memory_bound"],
+      "description": "Classification based on whether overall arithmetic intensity exceeds the ridge point"
+    },
+    "ridge_point": {
+      "type": "number",
+      "description": "peak_flops_per_second / peak_memory_bandwidth_bytes_per_second"
+    },
+    "per_module": {
+      "type": "object",
+      "description": "Keyed by module name (as from named_modules())",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "total_flops",
+          "total_memory_bytes",
+          "arithmetic_intensity",
+          "classification",
+          "num_matmul_ops",
+          "aligned"
+        ],
+        "properties": {
+          "total_flops": { "type": "integer" },
+          "total_memory_bytes": { "type": "integer" },
+          "arithmetic_intensity": { "type": "number" },
+          "classification": {
+            "type": "string",
+            "enum": ["compute_bound", "memory_bound"]
+          },
+          "num_matmul_ops": { "type": "integer" },
+          "aligned": {
+            "type": "boolean",
+            "description": "True only if every matmul in this module has all matrix operands with a physically contiguous dimension size divisible by 8"
+          }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "description": "Per-operation metrics for each captured matmul",
+      "items": {
+        "type": "object",
+        "required": [
+          "op",
+          "module",
+          "flops",
+          "memory_bytes",
+          "arithmetic_intensity",
+          "classification",
+          "alignment"
+        ],
+        "properties": {
+          "op": { "type": "string", "description": "ATen operation name" },
+          "module": { "type": "string", "description": "Parent module name" },
+          "flops": { "type": "integer" },
+          "memory_bytes": { "type": "integer" },
+          "arithmetic_intensity": { "type": "number" },
+          "classification": {
+            "type": "string",
+            "enum": ["compute_bound", "memory_bound"]
+          },
+          "alignment": {
+            "type": "object",
+            "required": ["aligned", "operand_innermost_dims", "suggested_padding"],
+            "properties": {
+              "aligned": { "type": "boolean" },
+              "operand_innermost_dims": {
+                "type": "array",
+                "items": { "type": "integer" },
+                "description": "Physically contiguous dimension size per matrix operand (excluding any bias vectors)"
+              },
+              "suggested_padding": {
+                "description": "Next multiple of 8 for each misaligned dim, or null if already aligned",
+                "oneOf": [
+                  { "type": "array", "items": { "type": "integer" } },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

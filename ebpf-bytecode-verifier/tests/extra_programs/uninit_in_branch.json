@@ -1,0 +1,12 @@
+{
+  "name": "uninit_in_branch",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "mov64_imm", "dst": 6, "imm": 1},
+    {"op": "jeq_imm", "dst": 6, "imm": 1, "off": 1},
+    {"op": "mov64_imm", "dst": 7, "imm": 42},
+    {"op": "mov64_reg", "dst": 0, "src": 7},
+    {"op": "exit"}
+  ]
+}

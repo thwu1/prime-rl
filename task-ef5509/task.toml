@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of five distinct classes of OpenMP data-race bugs: (1) unsynchronised shared-array updates (histogram), (2) in-place stencil read/write conflicts requiring double-buffering (Jacobi), (3) Newton's-third-law force-accumulation race requiring algorithmic restructuring (N-body), (4) loop-carried dependency on the wrong loop level (LU factorization), and (5) wavefront dependency violation from incorrect collapse, requiring anti-diagonal decomposition. Diagnosing each bug demands knowledge of memory-consistency semantics, OpenMP scoping rules, and algorithmic data-flow analysis. Fixing them while preserving parallelism and numerical correctness adds further difficulty."""
+solution_explanation = """The solution applies five targeted transformations: (1) adds #pragma omp atomic to the histogram increment; (2) introduces a second grid buffer for Jacobi double-buffering with parallel for per iteration; (3) replaces the Newton's-3rd-law half-pair loop with a full O(N^2) loop so each thread writes only to its own particle's accumulators, with sequential position update after the parallel join; (4) moves #pragma omp parallel for from the k-loop (which has loop-carried dependency) to the independent i-loop inside it; (5) replaces collapse(2) with an anti-diagonal sweep where each diagonal gets its own parallel for."""
+verification_explanation = """Tests compile each kernel with gcc -O2 -fopenmp and verify success; run them and compare output against sequential reference implementations (exact match for integer results, tolerance-based for floating-point); run each binary 10 times with OMP_NUM_THREADS=4 and verify all runs produce identical output (data races cause non-deterministic results); and grep each source file to confirm OpenMP pragmas and omp.h are still present."""
+category = "parallel_computing"
+tags = ["openmp", "concurrency"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ef5509"

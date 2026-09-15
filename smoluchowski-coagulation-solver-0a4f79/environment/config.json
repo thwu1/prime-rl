@@ -1,0 +1,59 @@
+{
+  "scenarios": [
+    {
+      "name": "constant",
+      "kernel_type": "constant",
+      "beta0": 2.083333333333e-11,
+      "n_bins": 200,
+      "r_min": 1e-8,
+      "r_max": 1e-3,
+      "N0": 1e9,
+      "mean_radius": 1e-6,
+      "rho_p": 1000.0,
+      "times": [0, 600, 1200, 1800, 3600],
+      "dt": 1.0
+    },
+    {
+      "name": "additive",
+      "kernel_type": "additive",
+      "beta1": 1500.0,
+      "n_bins": 160,
+      "r_min": 5e-6,
+      "r_max": 5e-3,
+      "N0": 8388608,
+      "mean_radius": 30.531e-6,
+      "rho_p": 1000.0,
+      "times": [0, 600, 1200, 1800, 2400, 3000, 3600],
+      "dt": 1.0
+    },
+    {
+      "name": "brownian_pairs",
+      "kernel_type": "brownian_pairs",
+      "temp": 300.0,
+      "pressure": 101325.0,
+      "rho_p": 1800.0,
+      "pairs_radii_m": [
+        [1e-8, 1e-8],
+        [1e-8, 1e-7],
+        [1e-7, 1e-7],
+        [1e-8, 1e-6],
+        [1e-6, 1e-6]
+      ]
+    },
+    {
+      "name": "brownian_evolve",
+      "kernel_type": "brownian",
+      "temp": 293.15,
+      "pressure": 101325.0,
+      "n_bins": 120,
+      "r_min": 1e-9,
+      "r_max": 1e-4,
+      "N0": 1e10,
+      "median_radius": 50e-9,
+      "sigma_g": 1.8,
+      "rho_p": 1800.0,
+      "times": [0, 1800, 3600],
+      "dt": 10.0
+    }
+  ]
+}

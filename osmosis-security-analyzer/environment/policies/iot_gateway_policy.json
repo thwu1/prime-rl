@@ -1,0 +1,12 @@
+[
+    {"type": "max_tcb_size", "domain": "ota_updater", "max_size": 0},
+    {"type": "max_tcb_size", "domain": "secure_store", "max_size": 1},
+    {"type": "no_flow", "from": "ota_updater", "to": "secure_store"},
+    {"type": "no_flow", "from": "sensor_collector", "to": "eth_driver"},
+    {"type": "required_isolation", "domain_a": "ota_updater", "domain_b": "secure_store"},
+    {"type": "required_isolation", "domain_a": "data_processor", "domain_b": "secure_store"},
+    {"type": "blp_compliant", "domain": "eth_driver"},
+    {"type": "blp_compliant", "domain": "sensor_collector"},
+    {"type": "biba_compliant", "domain": "watchdog"},
+    {"type": "arch_compliant", "domain": "data_processor"}
+]

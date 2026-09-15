@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct push-pull reactive propagation algorithm with STALE/PENDING/CLEAN state machine, topological execution ordering, dynamic dependency tracking with proper observer list bookkeeping (swap-and-pop removal), batch coalescing via update queue management, and lookUpstream resolution for PENDING nodes. Each fix interacts with the others; the solver must understand the full reactive graph lifecycle. This is expert-level systems programming that combines graph algorithms, state machines, and careful pointer/index management."""
+solution_explanation = """Fix cleanNode to remove the computation from each source's observer list using swap-and-pop (maintaining cross-reference slots). Change markDownstream to mark indirect dependents as PENDING instead of STALE. Implement lookUpstream to resolve PENDING nodes by recursively checking if upstream sources actually changed. Update readSignal and runTop to handle PENDING state. Implement batch via runUpdates. Add ancestor walking in runTop for proper owner-chain propagation."""
+verification_explanation = """Tests run TypeScript reactive graph scenarios via subprocess (npx tsx), checking exit codes and stdout for PASS markers. Each test constructs a specific graph topology (diamond, linear convergence, exponential convergence, dynamic deps, etc.) and asserts exact evaluation counts, execution order strings, or disposal behavior. Tests are fully deterministic since all reactive updates are synchronous."""
+category = "software_engineering"
+tags = ["reactive-systems", "graph-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactive-graph-engine-55d75c"

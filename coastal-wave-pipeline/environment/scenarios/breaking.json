@@ -1,0 +1,7 @@
+{
+  "mode": "breaking",
+  "H0": 2.0,
+  "period": 10.0,
+  "beach_slope": 0.01,
+  "Kr": 1.05
+}

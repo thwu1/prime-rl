@@ -1,0 +1,23 @@
+[risk_thresholds]
+gfn_threshold = 15.0
+terminal_debt_ceiling = 100.0
+high_signal_min_conditions = 2
+
+[stress_rules]
+growth_shock_years = [1, 2]
+primary_balance_shock_years = [1, 2]
+fx_shock_years = [1]
+interest_rate_shock_years = "all"
+
+[risk_premium]
+d_threshold = 70.0
+beta1 = 0.0002
+convergence_tol = 0.001
+max_iterations = 100
+
+[consolidation]
+search_precision = 0.01
+max_adjustment = 20.0
+
+[output]
+decimal_places = 4

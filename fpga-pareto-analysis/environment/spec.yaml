@@ -1,0 +1,80 @@
+# ResBench Multi-Objective Design Space Analysis Specification
+#
+# This file defines the analyses to perform on the ResBench dataset
+# and the format of each output file.
+
+dataset:
+  solutions: /app/data/solutions_compact.json
+  module_categories: /app/data/problems_compact.json
+
+cost_model:
+  # Weighted cost = sum of (weight * resource_value) for each resource type
+  resource_weights:
+    LUT: 1.0
+    FF: 0.5
+    DSP: 10.0
+    BRAM: 20.0
+    IO: 0.2
+
+  # A solution has "valid resources" only when all five resource
+  # fields are present with numeric values.
+
+outputs:
+  directory: /app/results
+
+  # 1) Per-LLM and per-category aggregate statistics
+  summary.json:
+    scope: per LLM (top-level keys), with nested per-category breakdowns
+    fields:
+      total_solutions: count of all solutions (passing and failing)
+      passing_solutions: count of functionally correct solutions
+      passing_with_resources: passing solutions that also have valid resource data
+      pass_rate: "percentage, 2 decimal places"
+      avg_weighted_cost: "mean weighted cost over passing-with-resources solutions, 2dp, null if none"
+      categories: "same five statistics grouped by module category (use the module_categories mapping)"
+
+  # 2) Per-module efficient frontier across all LLMs
+  pareto_fronts.json:
+    scope: per hardware module (across all LLMs combined)
+    description: >
+      The set of non-dominated solutions in the four-dimensional resource
+      space (LUT, FF, DSP, BRAM). A solution is dominated if another solution
+      uses less-or-equal resources in every dimension and strictly less in at
+      least one. Deduplicate candidates by their (LUT, FF, DSP, BRAM) tuple
+      before determining the non-dominated set.
+    point_fields: "all five resource types plus weighted_cost (2dp)"
+    sort: ascending by weighted_cost
+    exclude_modules: those with zero valid passing solutions
+
+  # 3) Per-module design-space coverage metric
+  hypervolumes.json:
+    scope: per hardware module
+    description: >
+      The exact hypervolume indicator of the Pareto front projected onto
+      three dimensions (LUT, FF, DSP). The reference point for each module
+      is (max_LUT+1, max_FF+1, max_DSP+1) taken from that module's own
+      Pareto front.
+    fields:
+      hypervolume: the computed volume
+      reference_point: "[ref_LUT, ref_FF, ref_DSP]"
+      num_pareto_points: size of the Pareto front
+
+  # 4) Normalized composite efficiency scores
+  rankings.json:
+    scope: per LLM
+    formula: >
+      For each module, compute the LLM's pass rate and the minimum
+      weighted cost among its valid passing solutions. The module
+      contribution is: pass_rate * (1 / (1 + min_weighted_cost)).
+      Sum contributions across all modules. Normalize so the best
+      LLM scores 1.0.
+    precision: 4 decimal places
+
+  # 5) Pairwise rank agreement between LLMs
+  correlations.json:
+    scope: all LLM pairs
+    method: "Kendall's tau-b rank correlation"
+    input: per-module minimum weighted cost vectors
+    pair_filter: only modules where both LLMs have at least one valid passing solution
+    key_format: '"LLM_A|LLM_B" with LLM_A < LLM_B lexicographically'
+    precision: 4 decimal places

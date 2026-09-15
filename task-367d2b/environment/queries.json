@@ -1,0 +1,35 @@
+{
+  "queries": [
+    {
+      "query_id": "high_res_elevation_coverage",
+      "description": "Find all elevation datasets with resolution <= 10m and quality_score >= 0.92 that spatially intersect the target region. Compute the fraction of the target region covered by the union of matching datasets' bounding boxes (each clipped to the target).",
+      "target_bbox": [-123, 44, -118, 50],
+      "filters": {
+        "category": "elevation",
+        "max_resolution_m": 10,
+        "min_quality_score": 0.92
+      },
+      "output_format": {
+        "matching_dataset_ids": "sorted array of dataset_id strings for datasets passing ALL filters AND spatially intersecting target_bbox",
+        "union_coverage_fraction": "float: area of union of (each matching geometry clipped to target_bbox) divided by area of target_bbox. Areas in degree-squared."
+      }
+    },
+    {
+      "query_id": "cascade_2021_datasets",
+      "description": "Find all datasets whose temporal range overlaps the year 2021 (temporal_start <= '2021-12-31' AND temporal_end >= '2021-01-01') and whose bounding box geometry has strictly positive intersection area with the target region.",
+      "target_bbox": [-122.5, 46, -120.5, 48.5],
+      "temporal_filter": ["2021-01-01", "2021-12-31"],
+      "output_format": {
+        "matching_dataset_ids": "sorted array of dataset_id strings",
+        "matching_count": "integer count of matching datasets"
+      }
+    },
+    {
+      "query_id": "category_total_area",
+      "description": "For each unique category value in the catalog, compute the sum of individual dataset bounding box areas. Bounding box area = (east - west) * (north - south) in degree-squared units.",
+      "output_format": {
+        "category_areas": "object mapping each category string to its total area as a float (degree-squared)"
+      }
+    }
+  ]
+}

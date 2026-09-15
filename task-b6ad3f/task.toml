@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert FHIR R5 knowledge spanning transaction processing, conditional operations, and search semantics to evaluate three architecturally distinct processor implementations. The agent must: (1) read the FHIR R5 HTML specification using w3m to understand transaction processing rules; (2) systematically analyze pre-generated outputs from three processors against an 11-entry transaction bundle by reading source code and comparing output artifacts; (3) identify distinct classes of conformance violations across processors through code analysis and output inspection — each processor exhibits different architectural trade-offs and failure modes that must be independently discovered; (4) produce a structured conformance report with violation categorization, scoring, and architectural comparison; (5) build a jq-based validation toolkit of shell scripts using jq recursive descent queries to programmatically detect unresolved references, incorrect status codes, and versioning violations in arbitrary processor output directories — this requires fluency with jq's recursive descent operator, object filtering, and JSON construction, combined with shell scripting for multi-file iteration and exit-code-based reporting; (6) synthesize a correct reference processor that handles all FHIR R5 transaction semantics. The jq toolkit requirement demands multi-tool interoperability (jq + bash + diff) beyond standard Python scripting."""
+solution_explanation = """The solution: (1) deploys a reference FHIR R5 transaction processor that correctly handles all transaction semantics including phased operation ordering, pre-assigned identity mapping with conditional-create-aware urn:uuid resolution, recursive reference traversal, conditional reference resolution via server state search, and proper versioning; (2) runs an evaluation script that programmatically analyzes pre-generated outputs detecting status code violations, unresolved references, versioning defects, and duplicate resources; (3) generates a structured conformance report scoring processor C highest; (4) deploys four jq-based validation shell scripts: check_references.sh uses jq recursive descent (.. | objects | select(has("reference"))) to scan all state resources for unresolved urn:uuid and conditional references; check_status_codes.sh correlates input bundle methods with response statuses via jq field extraction; check_versioning.sh compares initial and output state meta fields via jq; diff_processors.sh aggregates per-processor metrics into a comparison JSON using jq -n construction."""
+verification_explanation = """Tests verify: (1) conformance report schema, violation categories per processor, scoring order, and architectural comparison structure; (2) reference processor output correctness by re-executing it at test time — checking response Bundle status codes, server state mutations, complete urn:uuid resolution at all depths including extensions and circular cross-references, no duplicate AllergyIntolerance, conditional reference resolution, and all internal reference integrity; (3) validation toolkit functionality by running each jq shell script as a subprocess — check_references.sh must detect violations in processor A and B outputs but pass for the reference output; check_status_codes.sh must detect DELETE status code violations in processor A but pass for the reference output; check_versioning.sh must detect violations in processors A and B but pass for the reference output; diff_processors.sh must produce valid JSON with per-processor metrics showing differing unresolved reference counts."""
+category = "applied_computing"
+tags = ["fhir", "healthcare-interoperability"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b6ad3f"

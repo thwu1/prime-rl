@@ -1,0 +1,29 @@
+{"event_id": 1, "type": "submit", "job_id": "job1", "queue": "debug", "nnodes": 1, "ncores_per_node": 2, "ngpus_per_node": 0, "duration": 600, "job_requires": []}
+{"event_id": 2, "type": "submit", "job_id": "job2", "queue": "gpu", "nnodes": 2, "ncores_per_node": 4, "ngpus_per_node": 1, "duration": 7200, "job_requires": []}
+{"event_id": 3, "type": "submit", "job_id": "job3", "queue": "batch", "nnodes": 3, "ncores_per_node": 2, "ngpus_per_node": 0, "duration": 14400, "job_requires": []}
+{"event_id": 4, "type": "submit", "job_id": "job4", "queue": "batch", "nnodes": 2, "ncores_per_node": 4, "ngpus_per_node": 0, "duration": 3600, "job_requires": []}
+{"event_id": 5, "type": "drain", "ranks": [10, 11], "reason": "hardware fault"}
+{"event_id": 6, "type": "submit", "job_id": "job5", "queue": "gpu", "nnodes": 4, "ncores_per_node": 2, "ngpus_per_node": 1, "duration": 10800, "job_requires": []}
+{"event_id": 7, "type": "submit", "job_id": "job6", "queue": "priority", "nnodes": 3, "ncores_per_node": 4, "ngpus_per_node": 0, "duration": 21600, "job_requires": []}
+{"event_id": 8, "type": "submit", "job_id": "job7", "queue": "gpu", "nnodes": 2, "ncores_per_node": 2, "ngpus_per_node": 1, "duration": 7200, "job_requires": ["highmem"]}
+{"event_id": 9, "type": "complete", "job_id": "job1"}
+{"event_id": 10, "type": "complete", "job_id": "job3"}
+{"event_id": 11, "type": "complete", "job_id": "job5"}
+{"event_id": 12, "type": "submit", "job_id": "job8", "queue": "debug", "nnodes": 1, "ncores_per_node": 1, "ngpus_per_node": 0, "duration": 3600, "job_requires": []}
+{"event_id": 13, "type": "submit", "job_id": "job9", "queue": "debug", "nnodes": 3, "ncores_per_node": 1, "ngpus_per_node": 0, "duration": 900, "job_requires": []}
+{"event_id": 14, "type": "submit", "job_id": "job10", "queue": "gpu", "nnodes": 6, "ncores_per_node": 2, "ngpus_per_node": 1, "duration": 10800, "job_requires": []}
+{"event_id": 15, "type": "undrain", "ranks": [10, 11]}
+{"event_id": 16, "type": "complete", "job_id": "job2"}
+{"event_id": 17, "type": "submit", "job_id": "job11", "queue": "priority", "nnodes": 2, "ncores_per_node": 4, "ngpus_per_node": 0, "duration": 7200, "job_requires": ["gpu"]}
+{"event_id": 18, "type": "complete", "job_id": "job7"}
+{"event_id": 19, "type": "complete", "job_id": "job4"}
+{"event_id": 20, "type": "complete", "job_id": "job6"}
+{"event_id": 21, "type": "complete", "job_id": "job10"}
+{"event_id": 22, "type": "complete", "job_id": "job11"}
+{"event_id": 23, "type": "drain", "ranks": [0, 1, 2, 3], "reason": "cluster upgrade"}
+{"event_id": 24, "type": "submit", "job_id": "job12", "queue": "batch", "nnodes": 1, "ncores_per_node": 2, "ngpus_per_node": 0, "duration": 3600, "job_requires": []}
+{"event_id": 25, "type": "submit", "job_id": "job13", "queue": "gpu", "nnodes": 2, "ncores_per_node": 4, "ngpus_per_node": 1, "duration": 14400, "job_requires": []}
+{"event_id": 26, "type": "submit", "job_id": "job14", "queue": "gpu", "nnodes": 2, "ncores_per_node": 4, "ngpus_per_node": 1, "duration": 14401, "job_requires": []}
+{"event_id": 27, "type": "undrain", "ranks": [0, 1, 2, 3]}
+{"event_id": 28, "type": "complete", "job_id": "job12"}
+{"event_id": 29, "type": "complete", "job_id": "job13"}

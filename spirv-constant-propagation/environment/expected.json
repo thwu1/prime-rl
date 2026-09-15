@@ -1,0 +1,9 @@
+{
+  "arith_fold.spvasm": {"outparm": 7},
+  "phi_merge.spv": {"outparm": 4},
+  "dead_branch.spvasm": {"outparm": 7},
+  "switch_case.spv": {"outparm": 19},
+  "nested_flow.spvasm": {"outparm": 13},
+  "logic_chain.spv": {"outparm": 20},
+  "mixed_io.spvasm": {"out_const": 8, "out_dyn": null}
+}

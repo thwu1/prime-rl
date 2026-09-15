@@ -1,0 +1,37 @@
+# Named connection tests
+
+# Create a table using conn1
+connection conn1
+statement ok
+CREATE TABLE conn_test(x INTEGER, label TEXT)
+
+# Insert data via conn1
+connection conn1
+statement ok
+INSERT INTO conn_test VALUES(42, 'from_conn1')
+
+# Read data from conn2 (same database, different connection)
+connection conn2
+query IT nosort
+SELECT x, label FROM conn_test
+----
+42 from_conn1
+
+# Insert via conn2
+connection conn2
+statement ok
+INSERT INTO conn_test VALUES(99, 'from_conn2')
+
+# Verify from default connection
+connection default
+query I nosort
+SELECT count(*) FROM conn_test
+----
+2
+
+connection default
+query IT rowsort
+SELECT x, label FROM conn_test
+----
+42 from_conn1
+99 from_conn2

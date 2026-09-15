@@ -1,0 +1,11 @@
+{
+  "model": "COMP-HTC-A",
+  "type": "open-drive screw",
+  "refrigerant_compatibility": ["Ammonia", "R717"],
+  "efficiency_curve": {
+    "type": "polynomial",
+    "variable": "pressure_ratio",
+    "coefficients": [0.90, -0.012, -0.0015],
+    "formula": "eta_is = c0 + c1*PR + c2*PR^2"
+  }
+}

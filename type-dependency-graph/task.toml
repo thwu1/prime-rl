@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires deep expertise in both the TypeScript Compiler API and graph algorithms. The broken implementation has eleven interacting deficiencies spanning two domains. AST-level bugs: (1) missing declaration kind visitors (only handles interfaces/classes, not type aliases, enums, or functions); (2) incomplete type node extraction (only handles direct TypeReferenceNode, not array/union/intersection/mapped/conditional/tuple/indexed-access/keyof types); (3) heritage clause handler extracts only the base expression symbol but ignores type arguments; (4) no generic constraint tracking; (5) no method signature handling; (6) no import alias resolution; (7) no TypeParameter symbol filtering; (8) unsorted output; (9) manual tsconfig parsing. Graph-level bugs: (10) transitive dependency computation only follows symbols present in the output, so missing declaration kinds cause cascading transitive errors; (11) cycle detection only finds direct mutual references (A→B && B→A), missing longer cycles that form strongly connected components. The registry.ts file introduces mutually recursive types (RegistryEntry ↔ Registry ↔ EntryMetadata) forming a 3-node SCC that cannot be detected by pair-checking alone. Fixing the AST bugs reveals the graph bugs, creating a layered debugging challenge.
+"""
+solution_explanation = """
+The solution rewrites analyzer.ts across two domains. For AST extraction: (1) visit all exported declaration kinds; (2) recursively traverse all type node kinds using ts.forEachChild with special handling for TypeReferenceNode and ExpressionWithTypeArguments; (3) extract heritage clause type arguments; (4) track generic constraints; (5) handle method signatures; (6) resolve import aliases via checker.getAliasedSymbol(); (7) filter TypeParameter symbols; (8) sort output by file then line; (9) use ts.readConfigFile/parseJsonConfigFileContent. For graph analysis: (10) compute transitive closure via BFS/DFS from each symbol over the complete dependency graph; (11) implement Tarjan's SCC algorithm to correctly identify all symbols in multi-node strongly connected components, including the 3-node cycle among RegistryEntry, Registry, and EntryMetadata.
+"""
+verification_explanation = """
+Pytest tests verify the analyzer output JSON against expected results for a 6-file TypeScript project with 23 exported symbols. Tests check: exact symbol count (23), each symbol's name/kind/file/dependencies/transitiveDependencies/cyclicWith, correct sorting order, no built-in types or type parameters in dependencies, exact line numbers, cycle symmetry (if A lists B in cyclicWith then B lists A), transitive completeness (direct deps are subset of transitive deps excluding self), specific edge cases including the 3-node cycle in registry.ts, self-referential types with empty transitive sets, intersection types, tuple types, conditional types with infer, heritage clause type arguments, and function return type literals.
+"""
+category = "debugging"
+tags = ["typescript", "compiler-api"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/type-dependency-graph"

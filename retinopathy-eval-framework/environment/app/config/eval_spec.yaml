@@ -1,0 +1,106 @@
+# IDRiD Evaluation Framework Specification
+# Defines data formats, output schemas, and scoring rules
+# for the three retinal imaging challenge sub-tasks.
+
+framework:
+  version: "1.0"
+  name: "IDRiD ISBI 2018 Evaluation"
+
+tasks:
+  lesion_segmentation:
+    description: "Pixel-level retinal lesion detection scoring"
+    lesion_types: ["MA", "HE", "SE", "EX"]
+    input:
+      ground_truth:
+        type: "directory"
+        format: "Binary PNG masks (pixel values 0 or 255)"
+        naming: "<image_id>_<lesion_type>.png"
+      predictions:
+        type: "directory"
+        format: "Grayscale PNG (0-255 intensity as confidence)"
+        naming: "<image_id>_<lesion_type>.png"
+    scoring:
+      method: "threshold-based precision-recall analysis"
+      thresholds: 33
+      threshold_range: "equally spaced from 0.0 to 1.0 inclusive"
+      aggregation: "global TP/FP/FN counts across all images per lesion type"
+      curve: "interpolated precision-recall curve with standard anchor at zero recall"
+      metric: "AUPR via trapezoidal integration of the interpolated PR curve"
+    output_schema:
+      MA_AUPR: "float"
+      HE_AUPR: "float"
+      SE_AUPR: "float"
+      EX_AUPR: "float"
+      mean_AUPR: "float (arithmetic mean of the four)"
+    edge_cases:
+      missing_prediction: "Treat as all-zero prediction image"
+      unknown_prediction_id: "Exit code 1 with descriptive stderr message"
+      zero_gt_positive_pixels: "Report AUPR as 0.0 for that lesion type"
+      precision_denominator_zero: "precision = 1.0 when TP + FP = 0"
+
+  disease_grading:
+    description: "Image-level DR and DME severity classification"
+    input:
+      ground_truth:
+        type: "CSV"
+        columns: ["image_id", "DR_grade", "DME_grade"]
+        dr_range: "integer 0-4"
+        dme_range: "integer 0-2"
+      predictions:
+        type: "CSV"
+        columns: ["image_id", "DR_grade", "DME_grade"]
+    scoring:
+      DR_accuracy: "fraction of images with correct DR grade"
+      DME_accuracy: "fraction of images with correct DME grade"
+      combined_accuracy: "fraction of images where BOTH DR and DME grades are simultaneously correct"
+    output_schema:
+      DR_accuracy: "float"
+      DME_accuracy: "float"
+      combined_accuracy: "float"
+    edge_cases:
+      missing_prediction: "Count as incorrect for both grades"
+      unknown_prediction_id: "Exit code 1 with descriptive stderr message"
+
+  localization:
+    description: "Optic disc and fovea center coordinate prediction"
+    input:
+      ground_truth:
+        type: "CSV"
+        columns: ["image_id", "OD_x", "OD_y", "fovea_x", "fovea_y"]
+        coordinate_type: "floating-point pixel positions"
+      predictions:
+        type: "CSV"
+        columns: ["image_id", "OD_x", "OD_y", "fovea_x", "fovea_y"]
+    scoring:
+      metric: "mean Euclidean distance across all images"
+    output_schema:
+      OD_mean_euclidean: "float"
+      fovea_mean_euclidean: "float"
+    edge_cases:
+      missing_prediction: "Use origin (0, 0) as fallback for all coordinates"
+      unknown_prediction_id: "Exit code 1 with descriptive stderr message"
+
+pipeline:
+  description: "Make-based orchestration of the full evaluation workflow"
+  orchestration: "GNU Make"
+  tool_dependencies:
+    - "jq (JSON command-line processor for merging results)"
+    - "GNU Make (build orchestration)"
+  targets:
+    all: "Run complete pipeline: generate, evaluate, report"
+    generate: "Generate synthetic data for all three sub-tasks"
+    evaluate: "Run evaluator on generated data for all three sub-tasks"
+    report: "Merge per-task JSON results into unified report using jq"
+    clean: "Remove all generated outputs"
+  dependency_chain: "all -> report -> evaluate -> generate"
+  output:
+    path: "/app/output/report.json"
+    schema:
+      segmentation: "object containing MA_AUPR, HE_AUPR, SE_AUPR, EX_AUPR, mean_AUPR"
+      grading: "object containing DR_accuracy, DME_accuracy, combined_accuracy"
+      localization: "object containing OD_mean_euclidean, fovea_mean_euclidean"
+      pipeline_version: "string, must be '1.0'"
+  parameters:
+    num_images: 20
+    seed: 42
+    noise_level: 0.2

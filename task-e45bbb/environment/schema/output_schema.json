@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Navigation Pipeline Output",
+  "description": "Schema for the warehouse navigation pipeline results. All numeric values must be finite.",
+  "type": "object",
+  "required": ["robot_geometry", "costmap_analysis", "transform_chain", "route_plan"],
+  "additionalProperties": false,
+  "properties": {
+    "robot_geometry": {
+      "type": "object",
+      "required": ["inscribed_radius", "circumscribed_radius", "footprint_vertices"],
+      "additionalProperties": false,
+      "properties": {
+        "inscribed_radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Minimum distance from the polygon centroid to any edge of the footprint"
+        },
+        "circumscribed_radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Maximum distance from the polygon centroid to any vertex of the footprint"
+        },
+        "footprint_vertices": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "minItems": 3,
+          "description": "Ordered list of [x, y] vertices defining the robot footprint polygon"
+        }
+      }
+    },
+    "costmap_analysis": {
+      "type": "object",
+      "required": ["lethal_cell_count", "inflated_cell_count", "max_cost", "inflation_coverage_ratio"],
+      "additionalProperties": false,
+      "properties": {
+        "lethal_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of cells at maximum (lethal) cost"
+        },
+        "inflated_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of cells with any non-zero cost"
+        },
+        "max_cost": {
+          "type": "number",
+          "description": "Maximum cost value in the inflated costmap"
+        },
+        "inflation_coverage_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of grid cells that have non-zero cost"
+        }
+      }
+    },
+    "transform_chain": {
+      "type": "object",
+      "required": ["map_to_odom", "odom_to_base", "composed", "test_point_input", "test_point_output"],
+      "additionalProperties": false,
+      "properties": {
+        "map_to_odom": {"$ref": "#/$defs/transform2d"},
+        "odom_to_base": {"$ref": "#/$defs/transform2d"},
+        "composed": {
+          "allOf": [{"$ref": "#/$defs/transform2d"}],
+          "description": "Result of composing map_to_odom with odom_to_base as rigid-body transforms"
+        },
+        "test_point_input": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[x, y] test point in the base_link frame"
+        },
+        "test_point_output": {
+          "type": "array",
+          "items": {"type": "number"},
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[x, y] result of transforming test_point through the composed transform"
+        }
+      }
+    },
+    "route_plan": {
+      "type": "object",
+      "required": ["waypoint_order", "total_cost", "segment_costs"],
+      "additionalProperties": false,
+      "properties": {
+        "waypoint_order": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "Waypoint IDs in the planned visit order"
+        },
+        "total_cost": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Sum of all segment costs along the planned route"
+        },
+        "segment_costs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "cost"],
+            "additionalProperties": false,
+            "properties": {
+              "from": {"type": "string", "description": "Starting node ID ('start' or waypoint ID)"},
+              "to": {"type": "string", "description": "Destination waypoint ID"},
+              "cost": {"type": "number", "minimum": 0, "description": "Path cost for this segment"}
+            }
+          },
+          "description": "Per-segment costs from start through each waypoint in visit order"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "transform2d": {
+      "type": "object",
+      "required": ["x", "y", "theta"],
+      "additionalProperties": false,
+      "properties": {
+        "x": {"type": "number", "description": "Translation along x-axis (meters)"},
+        "y": {"type": "number", "description": "Translation along y-axis (meters)"},
+        "theta": {"type": "number", "description": "Rotation angle (radians)"}
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in REST API integration with the USAspending.gov federal spending API, understanding of federal procurement domain concepts (NAICS codes, award type codes, fiscal year boundaries, contract vs grant vs loan classification), building a multi-stage data pipeline that orchestrates paginated requests across three different API endpoints per NAICS code, correctly implementing industrial organization concentration metrics (HHI, CR4, CR8), cross-referencing recipient identifiers across separate API calls for overlap detection, and fetching/integrating recipient profile data from a different endpoint. The solver must discover the correct POST body filter format (time_period, award_type_codes, naics_codes structure), handle pagination semantics, and produce a precisely-structured JSON report."""
+solution_explanation = """The solution uses Python with the requests library to query three USAspending.gov API endpoints per NAICS code: (1) POST /search/spending_by_category/recipient/ with pagination to get top 50+ recipients, (2) POST /search/spending_by_geography/ with geo_layer=state for geographic distribution, (3) POST /search/spending_by_category/awarding_agency/ for agency breakdown. Contract-only filtering uses award_type_codes ["A","B","C","D"]. Fiscal year dates are converted (FY2023 = 2022-10-01 to 2023-09-30). HHI is computed as sum of squared percentage-point shares. Recipients are tracked across NAICS codes by their API-assigned identifier for overlap detection. The top recipient's profile is fetched via GET /recipient/{hash}/ with year parameter, with a fallback to spending-data-only profile if the hash is unavailable."""
+verification_explanation = """Tests run the tool with NAICS codes 541511 and 541512 for FY2023, then validate: (1) output JSON matches required schema with all keys present, (2) HHI values are in [0,10000], CR4/CR8 in [0,100], CR4 <= CR8, (3) recipients are sorted descending by amount with valid share percentages, (4) geographic data has valid 2-letter state codes, (5) concentration metrics are recomputed from output data and compared to reported values for mathematical consistency, (6) cross-NAICS overlap entries reference only queried NAICS codes, (7) top recipient profile is a non-empty dict with required fields."""
+category = "data_processing"
+tags = ["api-integration", "financial-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/procurement-concentration-analysis"

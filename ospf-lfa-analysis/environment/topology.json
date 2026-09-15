@@ -1,0 +1,27 @@
+{
+  "routers": ["R1","R2","R3","R4","R5","R6","R7","R8","R9","R10","R11","R12","R13","R14"],
+  "links": [
+    {"from":"R1","to":"R2","cost":10},
+    {"from":"R1","to":"R3","cost":20},
+    {"from":"R1","to":"R4","cost":25},
+    {"from":"R1","to":"R13","cost":1},
+    {"from":"R2","to":"R3","cost":5},
+    {"from":"R2","to":"R5","cost":10},
+    {"from":"R3","to":"R6","cost":10},
+    {"from":"R3","to":"R7","cost":25},
+    {"from":"R4","to":"R7","cost":5},
+    {"from":"R4","to":"R8","cost":10},
+    {"from":"R4","to":"R14","cost":10},
+    {"from":"R5","to":"R6","cost":8},
+    {"from":"R5","to":"R9","cost":20},
+    {"from":"R6","to":"R7","cost":12},
+    {"from":"R7","to":"R8","cost":10},
+    {"from":"R7","to":"R10","cost":15},
+    {"from":"R8","to":"R9","cost":15},
+    {"from":"R9","to":"R10","cost":5},
+    {"from":"R9","to":"R11","cost":5},
+    {"from":"R10","to":"R12","cost":20},
+    {"from":"R11","to":"R12","cost":5}
+  ],
+  "source": "R1"
+}

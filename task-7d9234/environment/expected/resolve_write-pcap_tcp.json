@@ -1,0 +1,1 @@
+{"_input": "write-pcap,tcp", "enabled_features": ["net", "net-trace", "tcp", "write-pcap"], "activated_deps": {"smoltcp": ["alloc", "log", "medium-ethernet", "pcap", "proto-ipv4", "socket-tcp", "verbose"]}}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering undocumented sections of a proprietary binary format: discovering the journal integrity mechanism (must identify CRC-32 algorithm and input byte range through trial), inferring operation type encoding from data patterns (correlating flag values with erase/read/write signatures), and recovering the process attribution table layout via hex analysis (undocumented entry size and field structure). Beyond binary forensics, demands expert-level flash storage domain knowledge to compute WAF, TBW-based lifetime projection, and per-process write attribution without any formulas provided. The wear-leveling optimization requires recognizing and solving a minimax assignment problem. The combination of format reverse-engineering, hex tool proficiency, embedded storage expertise, and combinatorial optimization places this firmly at professional level."""
+solution_explanation = """Use xxd/hexdump to inspect raw binary structure. Parse header per partial spec. For the integrity field: test CRC-32 (zlib.crc32) on journal entry bytes 0-23 against the uint32 at offset 24. For op_type: correlate patterns — flag=1 entries have start_page=0 and page_count=pages_per_block (erases), flag=0 entries have nonzero data_fingerprint (writes), flag=2 are reads. For the process table: compute offset after journal, use xxd to discover 68-byte entries with uint16 pid + 2 reserved bytes + 64-byte null-terminated ASCII name. Compute WAF = total_nand_erase_bytes / total_host_writes_bytes. Remaining lifetime = (tbw - total_nand_erase) / daily_erase_rate. For optimized mapping: solve minimax by sorting logical blocks by write_heat descending and physical blocks by erase_count ascending, then pairing them."""
+verification_explanation = """Tests independently parse the binary flash dump using a reference implementation with full format knowledge, compute all expected values, and compare against the agent's output. Summary statistics are checked for exact equality or within tolerance. Process attribution is verified for correct ordering and values. Hot blocks are checked against reference ranking. The optimized mapping is verified as a valid permutation achieving the provably optimal projected_max_total."""
+category = "systems"
+tags = ["embedded-systems", "binary-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-db9581"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives a buggy idempotency processing engine backed by PostgreSQL and must diagnose multiple interrelated correctness bugs by analyzing the code, understanding the database schema constraints, and reasoning about PostgreSQL transaction isolation semantics. The bugs span missing parameter validation, incorrect crash recovery logic that ignores persisted recovery points, absence of row-level locking (SELECT FOR UPDATE) and SERIALIZABLE isolation for concurrency control, and non-atomic phase execution. Fixing these requires deep understanding of MVCC, transaction isolation levels, state machine design, and how ACID guarantees interact with crash recovery patterns — well beyond textbook SQL knowledge."""
+solution_explanation = """The correct implementation wraps each processing phase in a SERIALIZABLE transaction via an atomic_phase helper. Phase 1 upserts the idempotency key with SELECT FOR UPDATE to prevent concurrent processing, validates parameter consistency, and checks lock freshness. The core state machine uses a while loop over recovery_point values (started -> ride_created -> charge_created -> finished), resuming from the persisted recovery point rather than always restarting. Each phase commits its data mutations and recovery point advancement atomically, enabling crash recovery by retrying from the last committed point."""
+verification_explanation = """Eighteen pytest tests verify: (1) full request lifecycle with correct status codes, ride/audit/charge/job creation, (2) idempotent retry returns cached response without data duplication, (3) parameter mismatch detection raises ParameterMismatch, (4) crash at each recovery point persists correct state (ride without charge, etc.), (5) retry after crash resumes from persisted recovery point and completes successfully, (6) concurrent requests produce exactly one ride and charge, (7) staged jobs only appear after the finish phase commits, (8) completer pushes stale requests to completion, (9) reaper removes old finished keys while preserving ride data via ON DELETE SET NULL."""
+category = "database_systems"
+tags = ["postgresql", "transactions"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/idempotency-recovery-engine"

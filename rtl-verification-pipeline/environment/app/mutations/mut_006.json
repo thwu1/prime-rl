@@ -1,0 +1,8 @@
+{
+  "id": "mut_006",
+  "title": "SLL truncates shift amount to 4 bits",
+  "description": "Use b[3:0] instead of b[4:0] for SLL shift amount, truncating to 4 bits maximum",
+  "equivalent": false,
+  "original_line": "            4'b0010: result = a << b[4:0];",
+  "mutated_line": "            4'b0010: result = a << b[3:0];"
+}

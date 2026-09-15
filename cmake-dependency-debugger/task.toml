@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CMake ExternalProject_Add semantics, C/C++ shared/static library linking and PIC requirements, VFX Reference Platform version compatibility across OpenEXR/OpenColorIO/OpenImageIO/USD/TBB, dependency graph theory (topological sort, critical path, DAG scheduling), and the ability to triage misleading build diagnostics. Of 8 bugs, only 4 are clearly visible in the error log; 2 have misleading fix suggestions that lead to incorrect solutions, 1 produces silent degradation (builds but with missing functionality), and 1 produces no error at all. The solver must also design an optimal memory-constrained parallel build schedule, requiring evaluation of resource allocation trade-offs across dependency levels."""
+solution_explanation = """Read the buggy CMakeLists.txt, build_spec.json, and build_errors.log. Cross-reference spec requirements against the actual CMake configuration to find all 8 bugs: (1) circular dependency between OpenEXR and OpenColorIO, (2) wrong ISPC executable path for Embree, (3) missing libjpeg-turbo dep for libtiff causing silent JPEG codec loss, (4) missing OpenColorIO dep for OpenImageIO causing intermittent race failures, (5) USD v23.02 incompatible with OpenEXR 3.x namespace, (6) OpenEXR built static without PIC — must use BUILD_SHARED_LIBS=ON not just PIC despite error log suggestion, (7) OpenSubdiv missing NO_TUTORIALS=ON causing GL header errors on headless server, (8) TBB v2020.3.3 too old for oneAPI interface required by OpenSubdiv/USD — no error shown. Then compute corrected dependency graph, topological order, critical path (zlib→OpenEXR→OpenColorIO→OpenImageIO→USD, length 5), and design a 5-stage memory-constrained schedule under 7GB budget using greedy critical-path-priority packing."""
+verification_explanation = """Tests parse the fixed CMakeLists.txt using a balanced-parenthesis CMake block parser to verify all 8 bug fixes: correct DEPENDS lists, GIT_TAGs, and CMAKE_ARGS for each ExternalProject. Validates dependency graph is a cycle-free DAG matching the specification. Checks build_audit.json for correct graph structure, valid topological ordering, critical path length of 5, max parallelism of 6, 8 bug reports with root cause chains, and a valid 5-stage build schedule where each stage respects the 7GB memory budget and all dependency ordering constraints."""
+category = "build_systems"
+tags = ["cmake", "dependency-management"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cmake-dependency-debugger"

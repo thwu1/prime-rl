@@ -1,0 +1,3 @@
+A specification at `/app/SPEC.md` defines a CLI tool (`/app/proofquery.py`) for querying, minifying, and analyzing hierarchical proof-state documents from the Coq/Rocq proof assistant ecosystem. Sample data is at `/app/data/`; `jq` is at `/usr/bin/jq`.
+
+Implement the tool so it fully satisfies the specification, including all five commands: `query`, `minify`, `expand`, `jqgen`, and `dag`. The `dag` command requires reconstructing proof obligation trees from sequences of proof states, correctly tracking goal focusing across nested case analysis, and classifying tactic effects from observable state transitions.

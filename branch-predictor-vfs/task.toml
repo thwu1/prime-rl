@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of computer architecture scoring models and multi-dimensional design-space analysis. The agent must: (1) parse a dense mathematical specification defining the VFS scoring pipeline — including a conditional cycle model with P1/P2 latency branching, the distinction between hardware-global and per-trace quantities, and the non-linear VFS formula with derived technology constants; (2) reason about when harmonic vs arithmetic aggregation is appropriate at multiple granularities (per-trace, per-category, workload-weighted, and per-category VFS independently); (3) implement Pareto dominance analysis in a 3D metric space with mixed optimization directions; (4) derive numerical elasticities via central finite differences to identify marginal sensitivities; (5) compute per-category VFS scores requiring understanding that P1/P2 latencies are hardware invariants even when subsetting traces; (6) perform cross-ranking stability assessment between standard and weighted scoring; (7) integrate SQLite, gnuplot, and Python into a coherent multi-tool pipeline. The task combines deep microarchitecture domain knowledge with multi-step numerical analysis — getting any single formula or aggregation method wrong cascades through all downstream results."""
+solution_explanation = """Build a Python pipeline that: reads all CSV simulation data into a SQLite database with proper schema; computes per-trace IPC/CPI/EPI using the cycle model (with correct P1/P2 latency branching and global max-ceil latency determination); aggregates using harmonic mean for IPC and arithmetic mean for CPI/EPI; derives technology constants from alpha and applies the VFS formula; identifies Pareto frontier via pairwise dominance in (IPC up, CPI down, EPI down) space; computes elasticities via central differences at the best predictor's operating point; implements workload-weighted VFS using per-category aggregation then weighted harmonic/arithmetic combination; computes per-category VFS scores independently using global P1/P2; identifies category specialists; computes rank stability with classification thresholds; finds the most energy-efficient predictor by VFS/EPI ratio; generates a gnuplot script for the design-space visualization; writes results.json with all analyses."""
+verification_explanation = """Tests independently recompute all correct values from raw simulation data using a verified reference implementation. Standard VFS scores checked within 0.001 tolerance, elasticities within 0.05. Pareto set and rankings must match exactly. Per-category VFS scores verified per-predictor per-category within 0.001. Category specialists, rank stability positions/shifts/classifications, and most-efficient predictor must match exactly. Workload-weighted VFS scores and ranking verified against reference. SQLite database verified for existence, valid header, minimum table count (>= 2), and minimum row count (>= 150). Design-space PNG verified for valid header and minimum size."""
+category = "systems"
+tags = ["computer-architecture", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/branch-predictor-vfs"

@@ -1,0 +1,2 @@
+2024-01-15T11:00:00Z level=error code=e001 msg="connection reset by peer" src=worker-3
+2024-01-15T11:01:00Z level=error code=e004 msg="invalid credentials" src=worker-1

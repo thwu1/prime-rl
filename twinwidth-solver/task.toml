@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of twinwidth contraction semantics and the ability to build an efficient exact solver from a compact mathematical definition. The agent must explore the undocumented development environment to discover a C++ compiler, a contraction sequence verifier, and approach documentation — none of which are mentioned in the task instructions. The agent must analyze benchmark instances (whose filenames reveal nothing about their graph structure) to determine sizes and plan a solving strategy. Pure brute-force Python is insufficient for the larger instances (n=18–20); the agent must leverage compiled languages or constraint-based encodings and build a multi-tool pipeline (write, compile, verify, debug). The twinwidth problem itself demands deep graph-theoretic intuition: the contraction direction matters (the surviving vertex retains its edge colors to common neighbors), twin detection provides free contractions, and effective pruning requires understanding the interplay between red-degree bounds and search-tree depth."""
+solution_explanation = """The solution compiles a C++ branch-and-bound solver using g++ (discovered in the environment). Key techniques: (1) greedy heuristic trying both contraction directions for initial upper bound, (2) twin vertex detection for free contractions that never increase width, (3) aggressive pruning when current width meets or exceeds best known, (4) both contraction directions explored at each branch point since the surviving vertex retains its own edge colors. The compiled solver handles all instances including n=20 in under a second."""
+verification_explanation = """Tests verify three axes: (1) structural validity — sequences use only alive vertices, produce exactly n-1 steps, and reduce to one vertex via correct contraction semantics; (2) optimality — width equals known optimal twinwidth (K_n=0, P_n=1, C_n>=5=2, Petersen=4, 3x3 grid=2, triangular prism=2); (3) scalability — solver handles n=20 instances within 30-second per-instance timeout. Both file-based instances and dynamically generated graphs are tested."""
+category = "algorithms"
+tags = ["graph-theory", "parameterized-complexity"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/twinwidth-solver"

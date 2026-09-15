@@ -1,0 +1,193 @@
+SDF Scene Layout Solver — Interface Specification
+==================================================
+
+1. SDF Pose Semantics
+---------------------
+SDF uses CENTER-OF-GEOMETRY positioning. The <pose> element encodes:
+  x y z roll pitch yaw
+where (x, y, z) is the center of the object's geometry,
+and (roll, pitch, yaw) are Euler angles in radians.
+Rotation order: R = Rz(yaw) * Ry(pitch) * Rx(roll) (extrinsic XYZ).
+
+For a box of size (sx, sy, sz) at pose (px, py, pz, 0, 0, 0):
+  - Bottom face z: pz - sz/2
+  - Top face z:    pz + sz/2
+  - Extent: [px-sx/2, px+sx/2] x [py-sy/2, py+sy/2] x [pz-sz/2, pz+sz/2]
+
+For a cylinder of radius r and length l at pose (px, py, pz, 0, 0, 0):
+  - Axis aligned with z
+  - Bottom: pz - l/2
+  - Top:    pz + l/2
+
+For a sphere of radius r at pose (px, py, pz, 0, 0, 0):
+  - Center at (px, py, pz), extent: sphere of radius r
+
+2. Coordinate System
+--------------------
+Right-handed, z-up.
++x = front, -x = back
++y = right, -y = left
++z = up
+
+3. Constraint Types
+-------------------
+Constraints are defined in a YAML file. Each has: subject, predicate,
+reference, and optional params.
+
+on_top_of
+    Subject's bottom face rests on reference's top face.
+    z_center = ref_z + ref_half_height + subj_half_height.
+    Subject's footprint (after rotation) must fit within reference's
+    top face footprint.
+
+stacked_on
+    Like on_top_of, plus center-aligned: subject (x, y) = reference (x, y).
+
+inside
+    Subject fully contained within reference volume.
+    Subject rests at container bottom: z_center = ref_z - ref_half_height + subj_half_height.
+    Subject's rotated footprint must fit within reference interior.
+
+right_of
+    Subject center y > reference center y + params.clearance.
+
+left_of
+    Subject center y < reference center y - params.clearance.
+
+in_front_of
+    Subject center x > reference center x + params.clearance.
+
+behind
+    Subject center x < reference center x - params.clearance.
+
+next_to
+    Horizontal distance (xy-plane, center-to-center) is within
+    params.distance_range = [min, max].
+
+4. Orientation Handling
+-----------------------
+The solver computes positions (x, y, z) for non-anchor objects.
+Orientations (roll, pitch, yaw) from the input SDF are PRESERVED in the
+output — the solver does not modify orientations.
+
+Objects with non-zero rotation (e.g., yaw != 0) have rotated footprints.
+The solver must account for rotated geometry when computing:
+  - Footprint containment (on_top_of, inside)
+  - Valid placement ranges
+  - Collision detection
+
+5. Collision Detection
+----------------------
+Collision detection must use mesh-based intersection testing, not
+axis-aligned bounding box (AABB) approximations. Objects with non-zero
+orientation have rotated collision shapes that AABBs cannot represent
+accurately.
+
+Create triangulated meshes from SDF primitives:
+  - box -> box mesh
+  - cylinder -> tessellated cylinder mesh
+  - sphere -> icosphere mesh
+Apply the full 6DOF pose transform (position + orientation) to mesh
+vertices, then test for intersection between convex hulls.
+
+Objects in a direct support/containment relation (on_top_of, stacked_on,
+inside) are exempt from collision checks. All other pairs must be
+collision-free with the specified collision_margin clearance.
+
+6. Physics Stability Analysis
+-----------------------------
+For each stacked assembly (chain of stacked_on relations), verify:
+
+The projection of the combined center-of-mass of all objects ABOVE a
+support contact surface onto the horizontal plane must lie within the
+convex hull of the support polygon (top face of the support object).
+
+Mass is proportional to volume (uniform density assumed).
+  box volume     = sx * sy * sz
+  cylinder volume = pi * r^2 * h
+  sphere volume   = (4/3) * pi * r^3
+
+7. Input Format
+---------------
+Scene file: SDF 1.8 XML
+  <sdf version="1.8"><world>...<model name="...">...</world></sdf>
+  Each <model> has <pose>, <link>/<collision>/<geometry>.
+  Anchor objects have <static>true</static>.
+
+Constraints file: YAML
+  anchors:
+    - <name>
+  constraints:
+    - subject: <name>
+      predicate: <type>
+      reference: <name>
+      params:
+        clearance: <float>
+        distance_range: [<min>, <max>]
+  settings:
+    collision_margin: <float>
+    stability_required: <bool>
+
+8. Output Format
+----------------
+The solver writes to --output-dir:
+
+solved_scene.sdf:
+  Valid SDF with updated <pose> elements (first placement).
+
+placements.json:
+  {
+    "placements": [
+      {
+        "seed": <int>,
+        "objects": {
+          "<name>": {"pose": [x, y, z, roll, pitch, yaw]},
+          ...
+        }
+      }, ...
+    ],
+    "metadata": {"num_placements": N, "base_seed": S}
+  }
+
+stability_report.json:
+  {
+    "assemblies": [
+      {
+        "base": "<root_object>",
+        "chain": ["<root>", "<mid>", "<top>"],
+        "per_level": [
+          {"support": "<name>", "supported": "<name>", "com_in_hull": true},
+          ...
+        ],
+        "stable": true
+      }, ...
+    ],
+    "all_stable": true/false
+  }
+
+constraints_report.json:
+  {
+    "constraints": [
+      {"subject": "<name>", "predicate": "<type>", "reference": "<name>",
+       "satisfied": true, "detail": "..."},
+      ...
+    ],
+    "all_satisfied": true/false
+  }
+
+9. CLI
+------
+  python3 /app/solver.py \
+    --scene <path.sdf> \
+    --constraints <path.yaml> \
+    --output-dir <dir> \
+    --num-placements N \
+    --seed S
+
+10. Error Handling
+------------------
+Cyclic constraints: exit code 1, stderr containing "cycle" or "cyclic"
+  or "unsatisfiable".
+Missing objects: exit code 1 with descriptive error.
+Infeasible placement: exit code 1 with descriptive error.
+Same seed + same input -> identical output (deterministic).

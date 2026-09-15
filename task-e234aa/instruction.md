@@ -1,0 +1,5 @@
+A raw observational climate dataset at `/app/raw_data/SynthObs_raw.nc` contains atmospheric fields (`t2m`, `d2m`, `mslp`, `tp_acc`) with non-standard coordinates and units, along with per-variable quality flag arrays (`qf_t2m`, `qf_d2m`, `qf_mslp`, `qf_tp`) encoded as 8-bit bitmasks. A CMOR variable specification table at `/app/cmor_table.json` defines target output variables—including a derived quantity (near-surface specific humidity)—along with output conventions, quality screening rules, and derivation parameters.
+
+Write `/app/cmorize.py` to produce four CMOR-compliant NetCDF4 files in `/app/output/`, one per variable defined in the table. All outputs must conform to CF-1.7 and CMOR-3.5 conventions with correct coordinates, units, metadata, bounds, and filename structure as specified in the table.
+
+Inspect the raw NetCDF file and CMOR table to identify all required transformations.

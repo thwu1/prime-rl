@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration across multiple domains: (1) ELF binary inspection — the agent must use readelf/objdump to discover a .defmt section in firmware ELF images, then reverse-engineer a custom binary encoding within that section to extract string tables; (2) transport-layer reverse-engineering — the agent must discover the framing protocol (COBS) and integrity-check algorithm (CRC-16/CCITT) from Rust source code and binary inspection, with no algorithmic guidance in the instruction; (3) defmt wire-format decoding — the agent must study the upstream Rust decoder source to understand the binary frame layout, format-string grammar, and argument-decoding rules, then reimplement all type handlers (primitives, istr, nested Format, FormatSequence, bitfields, byte slices, floats, chars) along with display-hint semantics including Debug-hint delegation to parent and signed-integer two's-complement hex masking; (4) firmware disambiguation — trial-decode against three candidate tables extracted from different ELF builds and select the correct match; (5) multi-tool interoperability throughout: readelf/objdump for ELF inspection, xxd for binary capture analysis, Python for decoder implementation. The instruction provides no algorithmic hints — the agent must discover the entire solution approach from reference materials and binary analysis."""
+solution_explanation = """Extract string tables from ELF firmware files by parsing the .defmt section binary format (magic 'dFmT', version, encoding, timestamp entry, indexed string entries with tag and format fields). Implement COBS deframing (split at 0x00 delimiters, decode overhead bytes). Validate CRC-16/CCITT (poly=0x1021, init=0xFFFF) on each decoded frame. Trial-decode all valid frames against each of the three extracted tables — fw_alpha.elf succeeds on 15/15, the others fail on several frames due to missing entries or type-width mismatches. Decode all valid frames using the correct table's format strings, implementing the full defmt type system. Sort output by timestamp and write results."""
+verification_explanation = """Tests verify: (a) all 15 decoded output lines individually via parametrized exact-match checks; (b) analysis.json correctness — correct firmware identity, frame counts, and corrupt frame indices; (c) timestamp format and log level validity across all lines; (d) specific feature correctness — istr lookup, FormatSequence concatenation, signed hex masking, Debug hint propagation; (e) dynamic anti-cheat tests that create fresh ELF firmware files and COBS-framed captures at test time, run the decoder, and verify correct output — ensuring the decoder genuinely processes ELF and binary data rather than returning cached results."""
+category = "systems_programming"
+tags = ["binary-protocol", "embedded-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3a5e28"

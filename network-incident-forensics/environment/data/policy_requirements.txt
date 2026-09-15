@@ -1,0 +1,47 @@
+MITIGATION POLICY REQUIREMENTS
+===============================
+
+This document defines the organizational requirements for designing
+remediation configuration after a network incident.
+
+1. CONNTRACK TABLE SIZING
+   The new nf_conntrack_max must be at least 3x the current configured
+   limit to provide headroom for legitimate traffic growth, and must also
+   be no smaller than the total observed SYN flood volume to withstand
+   a repeat attack. Use whichever constraint yields the larger value.
+
+2. TCP SYN BACKLOG
+   When accept queue overflow is detected, set recommended tcp_max_syn_backlog = 2048.
+   This allows the kernel to hold more half-open connections during SYN cookie processing.
+
+3. SYN RATE LIMITING
+   Rate limiting must be applied at the netfilter raw priority stage of the
+   prerouting path to intercept packets before connection tracking processes them.
+   Rate limit value = legitimate_syn_rate_pps * 10 packets per second.
+
+4. EPHEMERAL PORT RANGE
+   When port exhaustion is detected, expand the range to "1024 65535".
+   This quadruples the available port space from the default range.
+
+5. ATTACK SOURCE CLASSIFICATION
+   A /24 source subnet is classified as a SYN flood attack source when BOTH:
+   (a) Hosts within the /24 send SYN-only packets (SYN flag set, ACK flag NOT set)
+       to the server.
+   (b) NO SYN-ACK packets are sent FROM the server TO any host within that /24
+       in the capture — indicating all connection attempts are unanswered,
+       consistent with spoofed source addresses.
+   Report attack /24 CIDRs in sorted order with "/24" suffix.
+
+6. LEGITIMATE SYN RATE CALCULATION
+   Compute from non-attack /24 source subnets only.
+   Rate = total_legitimate_syn_only_packets / capture_duration_seconds.
+   Round to nearest integer.
+
+7. UDP REFLECTION DETECTION
+   Count distinct source IP addresses sending UDP packets with source port 53.
+   These represent DNS resolvers being abused for amplification attacks.
+
+8. CAPTURE METADATA
+   Capture duration: 100 seconds.
+   Capture point: network ingress, before netfilter processing.
+   Capture file: /app/data/traffic_capture.pcap

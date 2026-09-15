@@ -1,0 +1,105 @@
+TECHCORP SECURITY POLICY v3.2
+==============================
+Effective Date: 2026-01-01
+Applies To: All production application servers
+
+SECTION 1: SUDO AND PRIVILEGE MANAGEMENT
+
+1.1 All sudo rules must follow the principle of least privilege. Groups
+    should only be granted access to commands required for their function.
+
+1.2 Wildcard arguments in sudo command specifications are prohibited unless
+    scoped to a specific directory path. Unscoped wildcards (e.g., allowing
+    any argument to any command) create privilege escalation vectors,
+    particularly for commands that support shell escape or host access.
+
+1.3 No group may be granted unrestricted sudo access (i.e., ALL commands)
+    unless that group is the designated system administration group. The
+    designated system administration group is "wheel".
+
+1.4 The sudo environment must not pass through dynamic linker variables
+    including LD_PRELOAD and LD_LIBRARY_PATH. These variables enable
+    library injection attacks during privileged execution.
+
+1.5 All sudoers drop-in files in /etc/sudoers.d/ must have ownership
+    root:root and mode 0440. Files with incorrect permissions may be
+    silently ignored by sudo, creating a false sense of security.
+
+1.6 All sudoers configuration must pass syntax validation (visudo -c).
+
+1.7 The designated system administration group is "wheel". Only members
+    of this group may hold unrestricted administrative privileges.
+
+
+SECTION 2: FILE SYSTEM SECURITY
+
+2.1 No SUID or SGID binaries shall exist in user-writable or world-writable
+    directories or files.
+
+2.2 Backups of sensitive system files (such as /etc/shadow, /etc/gshadow)
+    must have permissions no more permissive than mode 0600.
+
+2.3 Log directories must not be world-writable. Mode shall not exceed 0750
+    for application log directories.
+
+2.4 Files owned by non-existent users or groups (orphaned files) must be
+    reassigned to root:root ownership.
+
+2.5 The /opt/scripts/ directory and its contents must be owned by root:root
+    and writable only by root. Mode for scripts should not exceed 0750.
+
+
+SECTION 3: SERVICE ACCOUNTS
+
+3.1 Service accounts (identifiable by the "svc_" username prefix) must use
+    /usr/sbin/nologin or /bin/false as their login shell. Interactive shells
+    on service accounts create unnecessary attack surface.
+
+3.2 Service accounts must not be members of the "wheel" group or any other
+    administrative group. Service accounts should only belong to their
+    designated functional group plus their personal primary group.
+
+3.3 Service accounts must have password aging policies applied consistent
+    with Section 5.
+
+
+SECTION 4: SCHEDULED TASKS
+
+4.1 Root-level cron jobs and systemd services must not execute scripts
+    located in world-writable directories (/tmp, /var/tmp) or user home
+    directories (/home/*). Scripts executed by these scheduled tasks must
+    reside in /opt/scripts/ with ownership root:root and mode 0750.
+
+4.2 Cron access must be controlled via /etc/cron.allow. Only the root
+    user and members of the "wheel" group may use cron. All other users
+    are implicitly denied.
+
+4.3 User cron entries must not modify system file permissions or ownership.
+    Scheduled permission changes indicate either a misconfiguration or an
+    attempt to weaken security controls.
+
+4.4 Systemd timer and service units for root-level maintenance must
+    reference scripts in secure locations per rule 4.1.
+
+
+SECTION 5: AUTHENTICATION POLICY
+
+5.1 PASS_MAX_DAYS shall be set to 90 in /etc/login.defs.
+5.2 PASS_MIN_DAYS shall be set to 7 in /etc/login.defs.
+5.3 PASS_WARN_AGE shall be set to 14 in /etc/login.defs.
+5.4 All existing user accounts (both human and service) must have these
+    password aging values applied via chage, as login.defs only affects
+    newly created accounts.
+
+
+SECTION 6: COMPLIANCE MONITORING
+
+6.1 An automated compliance-checking script must exist at the path
+    /app/scripts/compliance-check.sh.
+6.2 The script must verify compliance across all policy sections (1-5).
+6.3 The script must exit with code 0 if all checks pass, and non-zero
+    if any check fails.
+6.4 The script must produce human-readable output describing the result
+    of each compliance check performed.
+6.5 The script must be executable (chmod +x) and begin with a valid
+    shell interpreter shebang line.

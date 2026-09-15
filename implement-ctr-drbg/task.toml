@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep cryptographic expertise to: (1) reverse-engineer the CAVS 14.3 test vector file format and extract structured data including intermediate Key/V states from annotated lifecycle blocks; (2) implement a fully correct AES-256 CTR_DRBG per NIST SP 800-90A Rev.1 covering both derivation-function and non-df modes with precise block cipher df, BCC, and counter-based update logic verified at intermediate state granularity across 5 configuration categories and 15 test vectors; (3) diagnose three subtly different vendor implementation bugs — one in the IV construction of the block cipher derivation function, one in reseed state handling, and one in counter endianness — by comparing intermediate DRBG states and cross-referencing failure patterns across configuration subsets; (4) build a validation harness that programmatically evaluates each implementation and synthesizes results into a structured conformance report with defect analysis and independent BCC verification via OpenSSL."""
+solution_explanation = """The solution deploys four Python modules to /app/: (1) cavs_parser.py parses the raw CAVS 14.3 format by splitting on [AES-256 ...] headers, extracting bracketed configuration parameters, parsing COUNT-indexed vectors with their regular fields and ** phase-tagged intermediate Key/V states; (2) harness.py loads implementations via importlib.util, runs each against parsed vectors comparing intermediate Key/V at instantiate/reseed/generate stages, and shells out to openssl enc -aes-256-ecb for BCC verification; (3) reference_impl.py implements correct CTR_DRBG with proper big-endian IV construction (counter + zero-pad), big-endian increment, and stateful reseed; (4) generate_report.py runs the harness against all three candidates, identifies impl_A's IV byte-order bug (nodf passes, df fails), impl_B's reseed state-zeroing bug (only df_reseed fails), impl_C's little-endian increment bug (all fail), and recommends impl_B as closest to conformance."""
+verification_explanation = """Tests verify: (1) reference_impl.py produces correct output and intermediate Key/V states for 15 CAVP vectors across 5 configurations (df_basic, df_addl, df_pers, nodf_basic, df_reseed); (2) conformance_report.json correctly identifies impl_A as failing df configs but passing nodf, impl_B as failing only df_reseed, impl_C as failing all configs, and recommends impl_B; (3) conformance report includes BCC verification data with key_hex and match fields; (4) cavs_parser.py correctly parses 5 groups from the raw CAVS file with intermediate states; (5) harness.py exposes the evaluate_implementation function."""
+category = "cryptography"
+tags = ["nist-sp-800-90a", "cavp-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-ctr-drbg"

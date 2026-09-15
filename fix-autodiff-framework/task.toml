@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reasoning across three domains simultaneously, with no hints about what is broken: (1) C build systems — the solver must read the Makefile and C source, diagnose why compilation fails, understand shared-library linking requirements, and also trace the ctypes loading code to find why the Python wrapper cannot locate the built artifact; (2) reverse-mode AD graph theory — the solver must evaluate the backward-pass graph traversal implementation, recognize that it silently produces wrong gradients for fan-out/fan-in (diamond) DAGs, understand the mathematical requirement for gradient accumulation before propagation, and design a correct replacement; (3) matrix calculus — the solver must independently derive VJP formulas for non-trivial operations (log-absolute-determinant requires recognizing that the gradient involves the matrix inverse transpose; linear solve requires the adjoint method with two separate argument sensitivities). The solver receives zero indication of which components are broken or how to fix them — they must systematically evaluate the entire codebase, form hypotheses, and create correct implementations."""
+solution_explanation = """Fix Makefile by adding -fPIC to CFLAGS, -shared and -lm to the linker command. Fix wrapper path to include csrc/ subdirectory. Replace broken toposort that yields nodes too early (before all children have propagated) with correct reverse-topological ordering that tracks child counts and only yields when count reaches zero. Implement 7 VJPs: sum broadcasts g back; matmul uses transposed dot products; transpose inverts permutation; getitem scatters via np.add.at; logabsdet returns g * inv(A).T; solve w.r.t. A returns -outer(solve(A^T, g), x) and w.r.t. b returns solve(A^T, g); custom_logsumexp returns g * softmax(x). Build C library after Makefile fix."""
+verification_explanation = """Tests compile the C library, then compute gradients of 25+ functions using grad() and compare against centered finite-difference approximations (step=1e-5, rtol=1e-4). Coverage: diamond graphs (fan-out/fan-in with 2-3 reuse levels), all 7 missing VJPs individually (including logabsdet on random diagonally-dominant matrices, solve on random well-conditioned systems, and C-accelerated logsumexp on 1D/2D inputs), composite functions (neural net layer, log-sum-exp, L2 norm), and higher-order derivatives (grad-of-grad for polynomials, exp, sin). Deterministic via fixed random seeds."""
+category = "systems_programming"
+tags = ["automatic-differentiation", "c-ffi-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-autodiff-framework"

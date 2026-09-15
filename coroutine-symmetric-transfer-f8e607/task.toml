@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert C++20 coroutine knowledge across four interacting components. The solver must diagnose multiple subtle, unlabeled defects in task.hpp (stack-overflow-inducing await_suspend signatures, missing exception-variant checks in result()) and generator.hpp (missing initial resume in begin(), missing exception propagation in operator++) purely from test failure symptoms — crashes, wrong exception types, silent exception swallowing. Additionally, two components (sync_wait, when_all) must be designed and implemented from scratch: sync_wait requires understanding how symmetric transfer drives a task graph from a single resume() call, while when_all demands variadic template metaprogramming with co_await inside parameter pack expansion, a technique with no direct textbook recipe. The bugs interact: fixing symmetric transfer changes how sync_wait must work, and the exception-handling fix is prerequisite for when_all exception tests."""
+solution_explanation = """Six changes across four files. task.hpp: (1) Change final_awaiter::await_suspend and task::awaiter::await_suspend from void-returning (which calls .resume() directly, causing recursive stack growth) to std::coroutine_handle<>-returning (enabling symmetric transfer via compiler tail-calls). (2) Add exception_ptr checks to task_promise<T>::result() — check variant index for exception before accessing value, preventing std::bad_variant_access from masking the real exception. generator.hpp: (3) Add m_coroutine.resume() and done/rethrow check in begin() so the first yielded value is available. (4) Add done/rethrow_if_exception check in operator++() so exceptions from the generator body propagate through the iterator. sync_wait.hpp: (5) Implement by calling handle().resume() then extracting result — works because symmetric transfer drives the entire task graph via tail-calls and returns through noop_coroutine. when_all.hpp: (6) Implement using brace-init pack expansion: co_return std::tuple<Ts...>{co_await std::move(tasks)...} — brace-init guarantees left-to-right evaluation of each co_await suspension point."""
+verification_explanation = """14 pytest tests compile individual C++ programs against the fixed headers and run them. Task tests: value chain propagation (3-deep nesting), exception type preservation through co_await relay, in-coroutine exception catch, 1M-iteration co_await loop (crashes without symmetric transfer fix), and 5-level exception chain. Generator tests: basic iteration correctness, exception propagation from generator body through iterator, and safe mid-iteration destruction. sync_wait tests: driving task<int> to completion, void task with exception propagation, and 1M-loop integration. when_all tests: composing heterogeneous-typed tasks into tuple, exception propagation from failing task, and three-task composition."""
+category = "systems_programming"
+tags = ["cpp20", "coroutines"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coroutine-symmetric-transfer-f8e607"

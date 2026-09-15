@@ -1,0 +1,29 @@
+type = "rotating"
+
+[[planes]]
+name = "A"
+axial_position = 0.0
+radius = 0.05
+mass = 2.0
+angle_deg = 0.0
+is_correction = false
+
+[[planes]]
+name = "B"
+axial_position = 0.1
+radius = 0.04
+is_correction = true
+
+[[planes]]
+name = "C"
+axial_position = 0.2
+radius = 0.06
+mass = 1.5
+angle_deg = 135.0
+is_correction = false
+
+[[planes]]
+name = "D"
+axial_position = 0.35
+radius = 0.05
+is_correction = true

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert VHDL verification skills to independently identify three distinct classes of arithmetic bugs in a parameterized ALU: width-dependent operand truncation in shift operations, incorrect signal referencing in two's-complement overflow detection, and incomplete overflow sensing in multiplication carry logic. The agent must deeply understand unsigned/signed arithmetic semantics, how parameterization affects bit-width-dependent behavior, and must independently discover NVC's coverage-driven verification workflow (no flags or CLI options are given). Writing a comprehensive parameterized testbench with edge cases across all 10 operations and 4 flags demands holistic digital design expertise typical of experienced verification engineers."""
+solution_explanation = """Fix three bugs: (1) SHL/SHR truncate shift amount to 4 bits via b(3 downto 0), failing for shifts >=16 at wider parameterizations — replace with full b vector. (2) SUB overflow detection references add_ext instead of sub_ext, a copy-paste error producing incorrect overflow flags — swap to sub_ext. (3) MUL carry flag checks only mul_full(WIDTH) (a single bit) instead of whether any bit in the upper half of the double-width product is set, missing overflow cases where carry propagates beyond that single bit — replace with a comparison against the full upper slice. Extend testbench with edge-case vectors for all operations and flags. Build NVC coverage pipeline using --cover, --cover-merge, and --cover-report across three WIDTH configurations."""
+verification_explanation = """Tests compile the agent's alu.vhd against three dedicated verification VHDL entities that assert: (1) SHL by 16 on WIDTH=32 produces 65536 (catches shift truncation), (2) SUB 0x80-0x01 on WIDTH=8 sets the overflow flag (catches wrong-signal reference), (3) MUL 64*8 on WIDTH=8 sets carry (catches single-bit-only overflow check). Simulates the complete testbench at WIDTH=8, 16, and 32 and checks all assertions pass. Verifies testbench source references all 10 opcode constants. Runs the coverage pipeline script and checks merged.ncdb and coverage_report/index.html exist, parsing NVC output to confirm >=90% statement coverage."""
+category = "hardware_design"
+tags = ["vhdl-verification", "code-coverage"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nvc-coverage-pipeline"

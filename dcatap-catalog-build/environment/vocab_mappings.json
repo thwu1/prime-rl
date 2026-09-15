@@ -1,0 +1,25 @@
+{
+  "_comment": "Mapping from human-readable labels to EU Publications Office authority table URIs. Note: this mapping may be incomplete — determine missing URIs from the authority table URI patterns.",
+  "themes": {
+    "environment": "http://publications.europa.eu/resource/authority/data-theme/ENVI",
+    "health": "http://publications.europa.eu/resource/authority/data-theme/HEAL"
+  },
+  "frequencies": {
+    "hourly": "http://publications.europa.eu/resource/authority/frequency/HOURLY",
+    "monthly": "http://publications.europa.eu/resource/authority/frequency/MONTHLY",
+    "annual": "http://publications.europa.eu/resource/authority/frequency/ANNUAL"
+  },
+  "formats": {
+    "CSV": "http://publications.europa.eu/resource/authority/file-type/CSV",
+    "JSON_LD": "http://publications.europa.eu/resource/authority/file-type/JSON_LD",
+    "XLSX": "http://publications.europa.eu/resource/authority/file-type/XLSX",
+    "RDF_XML": "http://publications.europa.eu/resource/authority/file-type/RDF_XML"
+  },
+  "languages": {
+    "en": "http://publications.europa.eu/resource/authority/language/ENG",
+    "fr": "http://publications.europa.eu/resource/authority/language/FRA"
+  },
+  "licenses": {
+    "Creative Commons BY 4.0": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0"
+  }
+}

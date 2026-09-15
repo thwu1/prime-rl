@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a PGAS distributed array library from scratch using MPI-3 RMA one-sided communication. The agent must correctly implement 2D block decomposition with remainder handling, MPI_Win creation, and ghost cell exchange using MPI_Get within fence epochs for all four directions (N/S/E/W) with precise source-destination offset calculations in a row-major buffer layout. Ghost exchange for distributed stencil computations is a well-known source of subtle indexing bugs even for experienced HPC programmers. The task also demands understanding of MPI RMA synchronisation semantics to ensure local stores are visible to remote Gets."""
+solution_explanation = """Create pgas_array.c implementing: (1) factor nprocs into a 2D process grid, (2) block-distribute rows and columns with remainder, (3) allocate local buffers with ghost padding and create MPI_Win over them, (4) implement ghost exchange via MPI_Get within paired MPI_Win_fence calls — for each of 4 directions compute the neighbour's rank, local buffer offsets, and displacement into the neighbour's window, (5) implement fill, sync, dgop_sum (MPI_Allreduce), and destroy. Compile with mpicc, run with mpirun -n 4."""
+verification_explanation = """Tests build the implementation with mpicc via the provided Makefile, run the Jacobi solver with 4 MPI processes, check that the source uses MPI_Win (confirming RMA usage), verify convergence within 8000 iterations, and compare 9 interior-point solution values against the closed-form analytical solution u(x,y) = 100*sin(pi*x)*sinh(pi*y)/sinh(pi) with tolerance 0.5."""
+category = "distributed_systems"
+tags = ["pgas", "mpi-rma"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pgas-ghost-stencil"

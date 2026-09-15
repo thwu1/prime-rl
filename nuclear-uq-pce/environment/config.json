@@ -1,0 +1,38 @@
+{
+    "inputs": [
+        {
+            "name": "power_level",
+            "distribution": "uniform",
+            "params": {"a": 0.9, "b": 1.1},
+            "index": 0
+        },
+        {
+            "name": "inlet_temp_perturbation",
+            "distribution": "normal",
+            "params": {"mu": 0.0, "sigma": 5.0},
+            "index": 1
+        },
+        {
+            "name": "pressure_factor",
+            "distribution": "uniform",
+            "params": {"a": 0.95, "b": 1.05},
+            "index": 2
+        },
+        {
+            "name": "flow_rate_factor",
+            "distribution": "normal",
+            "params": {"mu": 1.0, "sigma": 0.03},
+            "index": 3
+        }
+    ],
+    "outputs": [
+        {"name": "peak_clad_temp", "index": 0},
+        {"name": "dnbr", "index": 1}
+    ],
+    "pce": {
+        "polynomial_degree": 4,
+        "quadrature_rule": "gauss",
+        "construction": "tensor_product",
+        "points_per_dim": 5
+    }
+}

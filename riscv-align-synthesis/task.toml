@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging three interacting regressions across a binary parser and synthesis engine that implement ELF alignment relocation handling for ld -r linking. The bugs interact in non-obvious ways: (1) the parser silently treats REL-format relocations as RELA, reporting a spurious addend value instead of None, (2) the synthesis engine uses a naive existence-only suppression check (Approach A) instead of the correct strength-aware strategy (Approach B), and (3) the LoongArch threshold uses the wrong comparison operator. These produce compensating errors -- fixing the synthesis approach accidentally masks the parser bug for synthesis tests because addend=0 still compares correctly as insufficient, while the LoongArch threshold bug is independent. The built-in self-check is deliberately misleading (reports success for all scenarios because it only checks for exceptions, not correctness). The agent must use xxd to cross-verify binary data against parser output, understand ELF RELA/REL format semantics and how addends encode alignment strength, evaluate two competing suppression strategies from the spec using a disambiguating concrete scenario, and grasp architecture-specific threshold asymmetries (RISC-V c.nop=2 vs LoongArch nop=4)."""
+solution_explanation = """Fix three bugs across two files: (1) In rob_parser.py, condition r_addend on r_format -- when r_format==1 (REL), pass r_addend=None to the Relocation constructor instead of the raw binary value. (2) In synth_engine.py, replace the _is_covered() existence-only check with a strength-aware check that verifies RELA format AND addend >= (addralign - min_nop), treating REL-format (addend=None) as never covering. (3) In synth_engine.py, change the LoongArch threshold from addralign >= 4 to addralign > 4, restoring the asymmetry with RISC-V."""
+verification_explanation = """25 pytest tests verify both components independently and in integration: parser tests check REL format produces None addend and RELA produces integer addend, synthesis tests verify weak ALIGNs don't suppress while strong ones do, REL-format ALIGNs don't suppress for either architecture, LoongArch addralign=4 produces no synthesis while addralign=8 does, interior ALIGNs don't affect boundary decisions, dot advancement is correct with and without synthesis, and multi-section merging with weak ALIGNs yields correct combined output with proper addend values."""
+category = "systems_programming"
+tags = ["elf-linker", "binary-debugging"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-align-synthesis"

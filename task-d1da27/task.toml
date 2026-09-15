@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge spanning seismological statistics (frequency-magnitude analysis, catalog completeness estimation, b-value computation with uncertainty quantification), earthquake engineering (ASCE 7-22 spectral acceleration parameters, seismic design categories, risk categorization), and geospatial computation (great-circle distance calculations on the spherical Earth). The agent must independently determine appropriate methods for estimating completeness magnitude and computing Gutenberg-Richter parameters — no algorithms are prescribed. Additionally, the agent must discover the correct API query parameters and response structures for two distinct USGS web services, handle real-world data quality issues, compute annualized seismicity rates from time-bounded catalogs, spatially bin events into grid cells, and synthesize disparate data sources into a coherent hazard consistency assessment."""
+solution_explanation = """The solution fetches earthquake catalog data from the USGS FDSN Event API as CSV, bins events into 1-degree spatial grid cells, estimates completeness magnitude using the Maximum Curvature method with a +0.2 correction, computes b-values via Aki's (1965) MLE formula with Shi & Bolt (1982) standard errors, queries the USGS ASCE 7-22 Design Maps API for each of 5 building sites, computes per-site catalog activity metrics using Haversine distance calculations within a 200 km radius, and produces a hazard discrepancy analysis comparing normalized observed seismicity to code-based design spectral acceleration parameters."""
+verification_explanation = """Tests verify output file existence and JSON schema conformance, physical validity of computed b-values (range 0.3-3.0) and completeness magnitudes (range 2.0-6.0), correct ASCE 7-22 parameter retrieval with San Francisco SDS verified above 0.8 and Phoenix SDS below San Francisco, positive standard errors, non-negative activity metrics, presence of all 5 building sites in each output file, valid discrepancy classifications from the documented set of four values, catalog event count and time span reasonableness for the specified query, search radius specification, annualized rate consistency with event counts, and cross-file consistency of time span values and MLE b-value validity."""
+category = "data_science"
+tags = ["seismology", "geospatial-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d1da27"

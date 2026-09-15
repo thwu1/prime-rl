@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete automated program repair system from scratch using only the Python standard library. The system must analyze buggy programs, identify faults, search over candidate corrections, and produce repaired source code that passes all tests — and generalize this process to programs not seen during development. Demands deep understanding of Python runtime internals, program analysis, search algorithms, and AST manipulation."""
+solution_explanation = """The solution implements a multi-stage pipeline: (1) CoverageCollector using sys.settrace to record per-line execution traces; (2) Ochiai metric for statistical fault localization from pass/fail coverage sets; (3) StatementMutator performing suspiciousness-weighted AST mutations (variable name swaps, statement swaps, deletions); (4) GeneticRepairer evolving a population of AST candidates over generations with crossover and selection; (5) DeltaDebugMinimizer to reduce repaired source to a minimal fix. The repair_program function orchestrates all stages."""
+verification_explanation = """Tests verify outcome only: the repair_program function is called on each of the three provided buggy programs (middle, gcd, power) plus two unseen buggy programs (max_of_three, clamp). For each, the repaired source is executed and the repaired function is called with multiple input/output pairs to confirm correctness."""
+category = "software_testing"
+tags = ["program-analysis", "automated-repair"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/automated-repair-pipeline"

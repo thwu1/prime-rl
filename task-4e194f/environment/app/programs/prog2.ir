@@ -1,0 +1,20 @@
+# prog2 — common subexpression elimination
+# Expected output: 272
+
+func main():
+  .entry:
+    a = const 3
+    b = const 7
+    c = add a b
+    d = mul a b
+    e = add a b
+    f = mul a b
+    g = add a b
+    h = mul a b
+    p = add c e
+    q = add d f
+    r = mul g h
+    s = add p q
+    t = add s r
+    print t
+    ret 0

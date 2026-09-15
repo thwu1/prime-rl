@@ -1,0 +1,4 @@
+c Solver output for instance: inst01.wcnf
+o 3
+s OPTIMUM FOUND
+v 1 0 1

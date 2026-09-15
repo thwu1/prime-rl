@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must diagnose and fix 5 interacting bugs in a quantization library without any hints about what is wrong or where the bugs are located. Bug 1: the NF4 map construction uses linearly-spaced z-scores instead of quantiles of the normal distribution — requires understanding information-theoretic quantization. Bug 2: the dynamic map scale exponent is off by one, collapsing the dynamic range by 10x — only manifests through nested compression failures, not direct unit tests. Bug 3: pack/unpack nibble ordering mismatch — causes cascading failures across all roundtrip tests. Bug 4: dequantization offset sign is inverted in the nested compression path. Bug 5: memory footprint uses floor division instead of ceiling for weight bytes. The bugs interact: Bug 3 masks Bugs 1 and 2 by breaking all roundtrip tests; Bug 2 only surfaces after Bug 3 is fixed and its effect is isolated from Bug 4 through careful analysis. Requires expert understanding of quantile-based data types, variable-precision number representations, and two-level quantization schemes."""
+solution_explanation = """Fix 5 bugs: (1) Replace np.linspace(max_z, 0, N) with norm.ppf(np.linspace(offset, 0.5, N)) for NF4 map; (2) Change scale from 10^(-(max_exponent_bits)+i) to 10^(-(max_exponent_bits-1)+i) in dynamic map; (3) Swap nibble order in pack_4bit from (even<<4)|odd to (odd<<4)|even; (4) Change absmax = dq_values - offset to + offset in dequantize_nf4; (5) Change num_params // 2 to (num_params + 1) // 2 in compute_memory_bytes."""
+verification_explanation = """Tests verify: NF4 map values match reference within 1e-4 tolerance with correct structural properties; dynamic map covers >5 orders of magnitude with correct signed symmetry; pack/unpack roundtrip is lossless with verified byte values; quantize/dequantize roundtrip on N(0,1) data meets error bounds (abserr < 0.08); double quantization adds <50% error overhead; memory footprint matches exact formulas for both even and odd parameter counts."""
+category = "machine_learning"
+tags = ["quantization", "debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d37eb7"

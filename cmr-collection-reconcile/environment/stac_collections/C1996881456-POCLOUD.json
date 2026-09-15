@@ -1,0 +1,44 @@
+{
+  "type": "Collection",
+  "id": "C1996881456-POCLOUD",
+  "stac_version": "1.0.0",
+  "title": "GHRSST Level 4 MUR Global Foundation Sea Surface Temperature Analysis v4.1",
+  "description": "MUR-JPL-L4-GLOB-v4.1 data collection from POCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -60,
+          -180,
+          60,
+          180
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2002-06-01T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "POCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "Aqua",
+      "Terra"
+    ],
+    "processing:level": "L4"
+  },
+  "links": [],
+  "license": "proprietary"
+}

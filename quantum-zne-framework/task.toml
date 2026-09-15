@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert quantum computing knowledge: the solver must study the simulator source code to discover the depolarizing noise channel and gate adjoint mappings, independently determine that noise can be systematically amplified via circuit manipulation preserving the noiseless computation, figure out the appropriate extrapolation techniques (Richardson, polynomial, exponential) and implement them with correct mathematics including numerically stable nonlinear fitting, and orchestrate a benchmark pipeline that generalizes to arbitrary identity circuits — all without any algorithmic guidance."""
+solution_explanation = """Study the simulator to discover GATE_ADJOINTS and the per-gate depolarizing channel. Implement global folding as C(C†C)^((k-1)/2) where C-dagger reverses gates and replaces each with its adjoint. For Richardson, derive Lagrange basis polynomials evaluated at x=0. Polynomial extrapolation uses numpy polyfit/polyval. Exponential fitting uses scipy curve_fit on y=a+b*exp(c*x) with log-linear initialization. The benchmark pipeline loads circuits, runs the simulator at scale_factors [1,3,5] with noise_level=0.01, applies all three methods, and selects the one closest to ideal."""
+verification_explanation = """Tests verify the benchmark pipeline output: all circuits have ideal=1.0, unmitigated below ideal, noisy values monotonically decrease with scale factor, all corrected estimates improve on unmitigated, exponential is close to ideal for 1-qubit circuits, and best_method is correctly identified. Anti-cheat tests dynamically generate novel identity circuits (1-qubit T/Tdg and 2-qubit H/CNOT) unseen during development, re-run the pipeline, and verify the output meets the same quality criteria — preventing hardcoded solutions."""
+category = "quantum_computing"
+tags = ["error_mitigation", "numerical_methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-zne-framework"

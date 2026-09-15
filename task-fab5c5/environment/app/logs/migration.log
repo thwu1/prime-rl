@@ -1,0 +1,13 @@
+2025-11-18 11:05:00 INFO [permissions_migration] Starting ClickHouse user permissions update for cluster 'bot_analytics'
+2025-11-18 11:05:00 INFO [permissions_migration] Goal: Make r0 database metadata visible to users for improved distributed query security
+2025-11-18 11:05:00 INFO [permissions_migration] Rationale: Users already have implicit access to r0 tables; making access explicit enables per-user query limits and access grants
+2025-11-18 11:05:01 INFO [permissions_migration] Phase 1: Granting explicit r0 metadata access to distributed query users
+2025-11-18 11:05:01 INFO [permissions_migration] Shard 0: UPDATED - users can now see r0 database tables in system.columns
+2025-11-18 11:05:02 INFO [permissions_migration] Shard 1: UPDATED - users can now see r0 database tables in system.columns
+2025-11-18 11:05:03 INFO [permissions_migration] Shard 2: UPDATED - users can now see r0 database tables in system.columns
+2025-11-18 11:05:04 INFO [permissions_migration] Shard 3: UPDATED - users can now see r0 database tables in system.columns
+2025-11-18 11:05:04 INFO [permissions_migration] Shard 4: PENDING - scheduled for next maintenance window
+2025-11-18 11:05:05 INFO [permissions_migration] Phase 1 complete: 4/5 shards updated successfully
+2025-11-18 11:05:05 INFO [permissions_migration] Note: Users will now see metadata for both 'default' and 'r0' databases in system.columns on migrated shards
+2025-11-18 11:05:05 INFO [permissions_migration] This enables fine-grained per-user access evaluation for distributed subqueries
+2025-11-18 11:05:05 INFO [permissions_migration] Verification: Confirmed metadata visibility on shards 0-3. Shard 4 retains previous behavior.

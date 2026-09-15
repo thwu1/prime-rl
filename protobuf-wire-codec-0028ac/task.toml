@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Protocol Buffers wire format specification including base-128 varint overflow semantics, ZigZag signed integer encoding, little-endian fixed-width types, packed repeated field iteration, group wire types with SGROUP/EGROUP markers, and recursive merge semantics. Seven interacting bugs span three Go source files. Debugging requires cross-validation against protoc's canonical encoding using protoc --encode and --decode_raw to identify byte-level discrepancies between the custom codec and the reference implementation."""
+solution_explanation = """Fix 7 bugs: (1) DecodeVarint must reject 10th byte >= 2 as overflow; (2) DecodeZigZag XOR mask must be -(n&1) not (n&1); (3) EncodeFixed64/DecodeFixed64 must use LittleEndian not BigEndian; (4) decodePackedValues must loop through all values in payload; (5) WireStartGroup must call decodeGroup with schema; (6) skipField needs fieldNum parameter, skipGroup must scan for matching EGROUP tag; (7) Merge submessage must recursively merge via Merge() not replace."""
+verification_explanation = """Tests build the Go binary, then validate via two strategies: (a) protoc conformance tests encode data with both the codec and protoc --encode, comparing byte-for-byte output to catch encoding bugs; (b) behavioral tests use known hex-encoded protobuf test vectors for decode, merge, overflow rejection, and group handling to catch decode-path and merge-path bugs."""
+category = "systems_programming"
+tags = ["protobuf", "binary-encoding"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protobuf-wire-codec-0028ac"

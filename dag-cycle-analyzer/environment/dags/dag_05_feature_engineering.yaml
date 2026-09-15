@@ -1,0 +1,15 @@
+dag_id: feature_engineering
+schedule: "dataset:orders_clean,events_processed"
+default_pool: compute_pool
+max_active_runs: 1
+tasks:
+  join_sources:
+    pool_slots: 4
+    duration_estimate_minutes: 25
+  compute_features:
+    pool_slots: 5
+    duration_estimate_minutes: 30
+    upstream: [join_sources]
+datasets:
+  produces: [feature_store]
+  consumes: [orders_clean, events_processed]

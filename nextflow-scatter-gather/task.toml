@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level understanding of Nextflow's dataflow programming model to design and implement a complete multi-stage pipeline from process signatures and a specification alone. The solver receives no guidance on which channel operators to use or how to wire the workflow — they must independently: (1) design the complete channel topology from scratch, selecting and composing the correct operators for conditional routing, path reunification, experiment-level grouping with correct tuple element ordering, cross-referencing with a separately-loaded reference channel, and final collection; (2) implement process scripts with correct Nextflow GString interpolation semantics — understanding the behavioral difference between triple-double-quote and triple-single-quote script blocks, and properly escaping bash variables with \\$ while allowing Nextflow variable interpolation; (3) handle the non-obvious interaction between groupTuple output structure (lists of values) and downstream process input declarations; (4) implement embedded Python scripts within Nextflow process blocks for mathematical processing (quality-weighted means, filtered means, count-weighted grand means, deviation computation with specific precision requirements). Requires holistic understanding of Nextflow's execution model, not procedural step-following."""
+solution_explanation = """Implement all five process script bodies with Python code embedded in Nextflow script blocks using correct GString interpolation: DETAILED_ANALYSIS computes quality-weighted mean, QUICK_ANALYSIS filters by quality threshold and computes simple mean, AGGREGATE_EXPERIMENT reads grouped result CSVs and computes count-weighted grand mean, EVALUATE_EXPERIMENT compares against reference with rounding, and GENERATE_REPORT collects JSON files into a sorted array. The workflow block requires designing the complete channel topology: Channel.fromPath+splitCsv+map to parse the samplesheet, branch to route by priority, map to strip priority before process invocation, mix to reunify outputs, map+groupTuple to group by experiment, join with a reference channel, map+collect to extract evaluation files, and publishDir for the final report."""
+verification_explanation = """Tests parse /app/results/report.json and verify: (1) the file exists and is valid JSON; (2) Nextflow was actually executed (checking for .nextflow.log); (3) the report contains exactly 3 experiment entries with correct names; (4) each experiment has the correct numerical values within floating-point tolerance — EXP_A: grand_mean≈42.75, within_tolerance=false; EXP_B: grand_mean≈38.44, within_tolerance=true; EXP_C: grand_mean≈54.62, within_tolerance=true; (5) integer fields (num_samples, total_measurements, high/low counts) are exact; (6) all required fields are present with correct types."""
+category = "applied_computing"
+tags = ["nextflow", "workflow-orchestration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nextflow-scatter-gather"

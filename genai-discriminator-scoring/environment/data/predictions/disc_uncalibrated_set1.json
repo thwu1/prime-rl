@@ -1,0 +1,28 @@
+{
+  "team": "disc_uncalibrated",
+  "docker_id": "disc_uncalibrated/detector:3.0",
+  "input": "set_alpha",
+  "prediction_list": [
+    {"statement_id": "N0001", "ai_likelihood_score": 0.55, "believability_score": 0.85},
+    {"statement_id": "N0002", "ai_likelihood_score": 0.58, "believability_score": 0.72},
+    {"statement_id": "N0003", "ai_likelihood_score": 0.52, "believability_score": 0.91},
+    {"statement_id": "N0004", "ai_likelihood_score": 0.61, "believability_score": 0.68},
+    {"statement_id": "N0005", "ai_likelihood_score": 0.59, "believability_score": 0.45},
+    {"statement_id": "N0006", "ai_likelihood_score": 0.54, "believability_score": 0.78},
+    {"statement_id": "N0007", "ai_likelihood_score": 0.63, "believability_score": 0.56},
+    {"statement_id": "N0008", "ai_likelihood_score": 0.53, "believability_score": 0.83},
+    {"statement_id": "N0009", "ai_likelihood_score": 0.57, "believability_score": 0.69},
+    {"statement_id": "N0010", "ai_likelihood_score": 0.56, "believability_score": 0.77},
+    {"statement_id": "N0011", "ai_likelihood_score": 0.91, "believability_score": 0.80},
+    {"statement_id": "N0012", "ai_likelihood_score": 0.93, "believability_score": 0.71},
+    {"statement_id": "N0013", "ai_likelihood_score": 0.87, "believability_score": 0.86},
+    {"statement_id": "N0014", "ai_likelihood_score": 0.96, "believability_score": 0.49},
+    {"statement_id": "N0015", "ai_likelihood_score": 0.85, "believability_score": 0.62},
+    {"statement_id": "N0016", "ai_likelihood_score": 0.94, "believability_score": 0.77},
+    {"statement_id": "N0017", "ai_likelihood_score": 0.97, "believability_score": 0.41},
+    {"statement_id": "N0018", "ai_likelihood_score": 0.88, "believability_score": 0.69},
+    {"statement_id": "N0019", "ai_likelihood_score": 0.84, "believability_score": 0.64},
+    {"statement_id": "N0020", "ai_likelihood_score": 0.92, "believability_score": 0.83}
+  ],
+  "execution_time": 61.4
+}

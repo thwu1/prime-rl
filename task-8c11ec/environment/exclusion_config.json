@@ -1,0 +1,60 @@
+{
+  "reference_name": "chr_test",
+  "reference_length": 500000,
+  "reference_file": "reference.fa",
+  "variants_file": "calls.vcf.gz",
+  "steps": [
+    {
+      "name": "segmental_duplications",
+      "file": "annotations/segmental_duplications.bed",
+      "slop_bp": 100,
+      "merge_distance": 0,
+      "min_length": 0
+    },
+    {
+      "name": "tandem_repeats",
+      "file": "annotations/tandem_repeats.bed",
+      "slop_bp": 50,
+      "merge_distance": 0,
+      "min_length": 100
+    },
+    {
+      "name": "satellites",
+      "file": "annotations/satellites.bed",
+      "slop_bp": 200,
+      "merge_distance": 1000,
+      "min_length": 0
+    },
+    {
+      "name": "gaps",
+      "file": "annotations/gaps.bed",
+      "slop_bp": 500,
+      "merge_distance": 0,
+      "min_length": 0
+    },
+    {
+      "name": "complex_sv_regions",
+      "file": "annotations/complex_sv_regions.bed",
+      "slop_bp": 0,
+      "merge_distance": 0,
+      "min_length": 0
+    },
+    {
+      "name": "low_mappability",
+      "file": "annotations/low_mappability.bed",
+      "slop_bp": 0,
+      "merge_distance": 0,
+      "min_length": 0
+    }
+  ],
+  "stratification_files": {
+    "homopolymers": "annotations/homopolymers_gt6.bed",
+    "small_tandem_repeats": "annotations/small_tandem_repeats.bed"
+  },
+  "output": {
+    "benchmark_regions": "output/benchmark_regions.bed",
+    "exclusion_stats": "output/exclusion_stats.tsv",
+    "benchmark_variants": "output/benchmark_variants.vcf",
+    "variant_summary": "output/variant_summary.json"
+  }
+}

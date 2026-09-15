@@ -1,0 +1,9 @@
+{
+  "operations": [
+    {"type": "put", "key": "a", "value": "1", "revision": 2},
+    {"type": "put", "key": "b", "value": "2", "revision": 3},
+    {"type": "put", "key": "a", "value": "3", "revision": 4},
+    {"type": "delete", "key": "b", "revision": 5}
+  ],
+  "compact_revision": null
+}

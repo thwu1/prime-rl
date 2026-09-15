@@ -1,0 +1,24 @@
+pool,name,bytes
+shared pool,free memory,4829384
+shared pool,sql area,184729384
+shared pool,library cache,89472938
+shared pool,dictionary cache,28472938
+shared pool,PL/SQL DIANA,12847293
+shared pool,PL/SQL MPCODE,8472938
+shared pool,KGH: NO ACCESS,8472938
+shared pool,row cache,4829384
+shared pool,KGLS heap,2847293
+shared pool,kglsim object batch,1847293
+shared pool,db_handles,1284729
+shared pool,KQR L SO,847293
+shared pool,KGLDA,489234
+shared pool,event statistics per sess,284729
+shared pool,kokc descriptor,128472
+large pool,free memory,12847293
+large pool,PX msg pool,4829384
+large pool,RMAN buffers,2847293
+java pool,free memory,8472938
+java pool,joxs heap init,4829384
+buffer_cache,,268435456
+log_buffer,,16777216
+fixed_sga,,2847293

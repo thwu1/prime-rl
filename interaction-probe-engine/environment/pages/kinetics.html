@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enzyme Kinetics Calculator</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 20px auto; }
+    label { display: block; margin: 8px 0; }
+    input[type="number"] { width: 100px; padding: 4px; border: 1px solid #999; }
+    button { padding: 6px 16px; margin: 4px; cursor: pointer; }
+    #output { margin-top: 12px; padding: 10px; background: #f0f0f0; min-height: 24px; }
+    #status { margin-top: 8px; color: #666; font-size: 0.9em; }
+    .parameter-label { cursor: pointer; color: #336; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Enzyme Kinetics Calculator</h1>
+  <div id="params">
+    <label>Substrate Concentration [S]:
+      <input type="number" id="substrate" value="10" min="0" step="0.1">
+    </label>
+    <label>Maximum Velocity (Vmax):
+      <input type="number" id="vmax" value="100" min="0" step="1">
+    </label>
+    <label>Michaelis Constant (Km):
+      <input type="number" id="km" value="5" min="0" step="0.1">
+    </label>
+    <label>Kinetic Model:
+      <select id="model">
+        <option value="mm">Michaelis-Menten</option>
+        <option value="hill">Hill Equation</option>
+      </select>
+    </label>
+    <div id="hill-row" style="display:none">
+      <label>Hill Coefficient (n):
+        <input type="number" id="hill-n" value="2" min="1" step="0.1">
+      </label>
+    </div>
+    <button id="calculate">Calculate Rate</button>
+    <button id="reset">Reset</button>
+  </div>
+  <div id="output"></div>
+  <div id="status">Ready</div>
+
+  <script>
+    document.getElementById('model').addEventListener('change', function(e) {
+      document.getElementById('hill-row').style.display =
+        e.target.value === 'hill' ? 'block' : 'none';
+      document.getElementById('output').textContent = '';
+      document.getElementById('status').textContent = 'Model changed to ' + e.target.value;
+    });
+
+    document.getElementById('calculate').addEventListener('click', function() {
+      var S = parseFloat(document.getElementById('substrate').value);
+      var Vmax = parseFloat(document.getElementById('vmax').value);
+      var Km = parseFloat(document.getElementById('km').value);
+      var model = document.getElementById('model').value;
+      var rate;
+      if (model === 'mm') {
+        rate = (Vmax * S) / (Km + S);
+      } else {
+        var n = parseFloat(document.getElementById('hill-n').value);
+        rate = (Vmax * Math.pow(S, n)) / (Math.pow(Km, n) + Math.pow(S, n));
+      }
+      document.getElementById('output').textContent = 'Reaction Rate: ' + rate.toFixed(4) + ' mol/s';
+      document.getElementById('status').textContent = 'Calculated (' + model.toUpperCase() + ')';
+    });
+
+    document.getElementById('reset').addEventListener('click', function() {
+      document.getElementById('substrate').value = '10';
+      document.getElementById('vmax').value = '100';
+      document.getElementById('km').value = '5';
+      document.getElementById('model').value = 'mm';
+      document.getElementById('hill-n').value = '2';
+      document.getElementById('hill-row').style.display = 'none';
+      document.getElementById('output').textContent = '';
+      document.getElementById('status').textContent = 'Reset complete';
+    });
+
+    document.getElementById('params').addEventListener('input', function(e) {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
+        var val = parseFloat(e.target.value);
+        if (isNaN(val) || val < 0) {
+          e.target.style.borderColor = 'red';
+          document.getElementById('status').textContent = 'Invalid value in ' + (e.target.id || 'input');
+        } else {
+          e.target.style.borderColor = '';
+          document.getElementById('status').textContent = 'Ready';
+        }
+      }
+    });
+  </script>
+</body>
+</html>

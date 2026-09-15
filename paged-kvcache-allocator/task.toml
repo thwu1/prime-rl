@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 subtle interacting bugs across a paged KV-cache allocator and LLM inference scheduler: broken hash chaining in prefix caching, premature cache invalidation on free, missing reference count updates for shared blocks, inverted preemption priority ordering, incorrect token accounting in chunked prefill, and incomplete request lifecycle cleanup. Beyond debugging, the solver must build a multi-tool data pipeline: using jq with group_by/map/@csv to aggregate deeply nested JSON into per-request CSV statistics, creating a SQLite database and importing the CSV, and writing analytical SQL queries including Jain's fairness index computation to evaluate scheduling quality across requests."""
+solution_explanation = """Fix 6 bugs: (1) restore hash chaining via hash((prev_hash, chunk)), (2) stop clearing prefix cache entries in free(), (3) add ref_count increment when reusing cached blocks, (4) fix preemption sort to ascending priority, (5) compute remaining tokens as len(token_ids) - num_computed_tokens, (6) add _running.pop() in finish_request. Compute analysis.json from trace parsing. Use jq with group_by and map to extract per-request aggregates from nested JSON into CSV. Create SQLite database, import CSV, run SQL queries for cache efficiency ranking, average decode tokens, total block allocation, and Jain's fairness index."""
+verification_explanation = """18 pytest tests verify bug fixes: FreeBlockQueue operations, KVCacheManager allocation/free/hash/prefix-cache/ref-counting/invalidation/incremental-decode, hash chain position-dependence, Scheduler FCFS/priority ordering, decode-before-prefill, token budgets, preemption, chunked prefill, finish cleanup. Additional tests verify: analysis.json trace metrics, request_stats.csv per-request aggregates match expected values for all 7 requests, analysis.db SQLite database has correct table structure with 7 rows summing to 38 decode tokens, and evaluation.json contains correct SQL-derived values (highest efficiency r002, avg decode 5.43, total blocks 120, fairness index 0.8386)."""
+category = "systems"
+tags = ["llm-inference", "data-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/paged-kvcache-allocator"

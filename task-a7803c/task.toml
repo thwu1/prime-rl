@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, interconnected expertise across numerical PDEs, sparse linear algebra, and scientific computing: (1) deriving the full analytical sparse Jacobian for a coupled two-species reaction-diffusion system — understanding how reaction kinetics and the discrete Laplacian contribute to each block of the Jacobian, (2) implementing a working IMEX time integrator from scratch that correctly partitions stiff and non-stiff physics and remains stable over a long integration interval on a severely stiff system, (3) performing spectral analysis of a large sparse non-symmetric Jacobian to characterize stiffness and determine explicit stability limits, (4) assembling and comparing preconditioned vs unpreconditioned Krylov solver pipelines, interpreting fill ratios and convergence behavior. Each component requires different numerical analysis expertise, and the solver must integrate all pieces into a working pipeline on a 2048-DOF stiff system."""
+solution_explanation = """Builds 2D Neumann Laplacian via Kronecker product (L = I⊗T + T⊗I where T is the 1D Neumann second-difference). Jacobian J = [[D*L+diag(2UV-(A+1)), diag(U²)], [diag(A-2UV), D*L+diag(-U²)]]. BDF via solve_ivp with analytical Jacobian. IMEX via backward Euler diffusion + forward Euler reaction with pre-factored (I - dt*D*L) matrix over 4000 steps. Eigenvalues via scipy sparse eigs (ARPACK) with shift-invert for smallest. ILU preconditioner via spilu; GMRES with restart=100 — ILU-preconditioned converges much faster than unpreconditioned."""
+verification_explanation = """Tests independently compute a reference BDF solution and compare the agent's BDF output within tight tolerance (rtol=5e-3). IMEX output is compared to the same reference with looser tolerance (rtol=0.1, atol=0.3). The saved Jacobian is verified column-by-column against finite difference approximations at representative grid points. Eigenvalue magnitudes and stiffness ratios are compared against independently computed reference values. Preconditioner analysis is verified structurally: ILU must reduce GMRES iteration count below unpreconditioned, ILU residual must be < 1e-5, fill ratio must be in [0.5, 30]. Sparsity statistics are checked against the known 5-point stencil + reaction coupling structure."""
+category = "numerical_analysis"
+tags = ["stiff-ode", "iterative-solvers"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a7803c"

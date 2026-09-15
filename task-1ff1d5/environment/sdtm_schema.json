@@ -1,0 +1,166 @@
+{
+  "study": {
+    "study_id": "XYZ001",
+    "usubjid_format": "{STUDYID}-{SITEID}-{SUBJID}",
+    "subjid_zero_pad": 3
+  },
+  "conventions": {
+    "date_format": "ISO 8601 (YYYY-MM-DD or YYYY-MM-DDThh:mm)",
+    "variable_name_max_length": 8,
+    "study_day": {
+      "convention": "no_day_zero",
+      "description": "RFSTDTC is study day 1. Days before RFSTDTC are negative integers. There is no day 0."
+    }
+  },
+  "domains": {
+    "DM": {
+      "dataset_name": "dm",
+      "label": "Demographics",
+      "class": "Special Purpose",
+      "variables": [
+        {"name": "STUDYID", "type": "Char", "label": "Study Identifier", "required": true},
+        {"name": "DOMAIN", "type": "Char", "label": "Domain Abbreviation", "required": true, "fixed_value": "DM"},
+        {"name": "USUBJID", "type": "Char", "label": "Unique Subject Identifier", "required": true},
+        {"name": "SUBJID", "type": "Char", "label": "Subject Identifier for the Study", "required": true},
+        {"name": "RFSTDTC", "type": "Char", "label": "Subject Reference Start Date/Time", "required": true, "note": "Empty for screen failures"},
+        {"name": "RFENDTC", "type": "Char", "label": "Subject Reference End Date/Time"},
+        {"name": "RFXSTDTC", "type": "Char", "label": "Date/Time of First Study Treatment"},
+        {"name": "RFXENDTC", "type": "Char", "label": "Date/Time of Last Study Treatment"},
+        {"name": "RFICDTC", "type": "Char", "label": "Date/Time of Informed Consent"},
+        {"name": "RFPENDTC", "type": "Char", "label": "Date/Time of End of Participation"},
+        {"name": "SITEID", "type": "Char", "label": "Study Site Identifier", "required": true},
+        {"name": "BRTHDTC", "type": "Char", "label": "Date/Time of Birth"},
+        {"name": "AGE", "type": "Num", "label": "Age", "description": "Age in completed years at RFSTDTC. Null when BRTHDTC or RFSTDTC is missing."},
+        {"name": "AGEU", "type": "Char", "label": "Age Units", "controlled_terminology": ["YEARS"]},
+        {"name": "SEX", "type": "Char", "label": "Sex", "required": true, "controlled_terminology": ["M", "F"]},
+        {"name": "RACE", "type": "Char", "label": "Race", "controlled_terminology": [
+          "WHITE",
+          "BLACK OR AFRICAN AMERICAN",
+          "ASIAN",
+          "AMERICAN INDIAN OR ALASKA NATIVE",
+          "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
+          "MULTIPLE",
+          "OTHER"
+        ]},
+        {"name": "ETHNIC", "type": "Char", "label": "Ethnicity", "controlled_terminology": [
+          "HISPANIC OR LATINO",
+          "NOT HISPANIC OR LATINO"
+        ]},
+        {"name": "ARMCD", "type": "Char", "label": "Planned Arm Code", "note": "Empty for screen failures"},
+        {"name": "ARM", "type": "Char", "label": "Description of Planned Arm", "note": "Empty for screen failures"},
+        {"name": "ACTARMCD", "type": "Char", "label": "Actual Arm Code"},
+        {"name": "ACTARM", "type": "Char", "label": "Description of Actual Arm"},
+        {"name": "ARMNRS", "type": "Char", "label": "Reason Arm and/or Actual Arm is Null", "controlled_terminology": [
+          "SCREEN FAILURE",
+          "NOT ASSIGNED",
+          "UNBLINDED"
+        ]},
+        {"name": "COUNTRY", "type": "Char", "label": "Country", "format": "ISO 3166-1 Alpha-3", "required": true}
+      ]
+    },
+    "AE": {
+      "dataset_name": "ae",
+      "label": "Adverse Events",
+      "class": "Events",
+      "variables": [
+        {"name": "STUDYID", "type": "Char", "label": "Study Identifier", "required": true},
+        {"name": "DOMAIN", "type": "Char", "label": "Domain Abbreviation", "required": true, "fixed_value": "AE"},
+        {"name": "USUBJID", "type": "Char", "label": "Unique Subject Identifier", "required": true},
+        {"name": "AESEQ", "type": "Num", "label": "Sequence Number", "required": true},
+        {"name": "AETERM", "type": "Char", "label": "Reported Term for the Adverse Event", "required": true},
+        {"name": "AEDECOD", "type": "Char", "label": "Dictionary-Derived Term", "description": "Uppercased standardized form of AETERM"},
+        {"name": "AESEV", "type": "Char", "label": "Severity/Intensity", "required": true, "controlled_terminology": [
+          "MILD",
+          "MODERATE",
+          "SEVERE"
+        ]},
+        {"name": "AESER", "type": "Char", "label": "Serious Event", "required": true, "controlled_terminology": ["Y", "N"]},
+        {"name": "AEREL", "type": "Char", "label": "Causality"},
+        {"name": "AEOUT", "type": "Char", "label": "Outcome of Adverse Event", "controlled_terminology": [
+          "RECOVERED/RESOLVED",
+          "RECOVERING/RESOLVING",
+          "NOT RECOVERED/NOT RESOLVED",
+          "RECOVERED/RESOLVED WITH SEQUELAE",
+          "FATAL",
+          "UNKNOWN"
+        ]},
+        {"name": "AEACN", "type": "Char", "label": "Action Taken with Study Treatment", "controlled_terminology": [
+          "DOSE NOT CHANGED",
+          "DOSE REDUCED",
+          "DRUG WITHDRAWN",
+          "DRUG INTERRUPTED",
+          "NOT APPLICABLE",
+          "DOSE INCREASED"
+        ]},
+        {"name": "AESTDTC", "type": "Char", "label": "Start Date/Time of Adverse Event", "required": true},
+        {"name": "AEENDTC", "type": "Char", "label": "End Date/Time of Adverse Event"},
+        {"name": "AESTDY", "type": "Num", "label": "Study Day of Start of Adverse Event"},
+        {"name": "AEENDY", "type": "Num", "label": "Study Day of End of Adverse Event"}
+      ]
+    },
+    "VS": {
+      "dataset_name": "vs",
+      "label": "Vital Signs",
+      "class": "Findings",
+      "variables": [
+        {"name": "STUDYID", "type": "Char", "label": "Study Identifier", "required": true},
+        {"name": "DOMAIN", "type": "Char", "label": "Domain Abbreviation", "required": true, "fixed_value": "VS"},
+        {"name": "USUBJID", "type": "Char", "label": "Unique Subject Identifier", "required": true},
+        {"name": "VSSEQ", "type": "Num", "label": "Sequence Number", "required": true},
+        {"name": "VSTESTCD", "type": "Char", "label": "Vital Signs Test Short Name", "required": true, "controlled_terminology": [
+          "HEIGHT", "WEIGHT", "SYSBP", "DIABP", "HR", "TEMP"
+        ]},
+        {"name": "VSTEST", "type": "Char", "label": "Vital Signs Test Name", "required": true},
+        {"name": "VSORRES", "type": "Char", "label": "Result or Finding in Original Units", "required": true},
+        {"name": "VSORRESU", "type": "Char", "label": "Original Units", "required": true},
+        {"name": "VSSTRESC", "type": "Char", "label": "Character Result/Finding in Std Format"},
+        {"name": "VSSTRESN", "type": "Num", "label": "Numeric Result/Finding in Standard Units", "required": true},
+        {"name": "VSSTRESU", "type": "Char", "label": "Standard Units", "required": true, "standard_units_by_testcd": {
+          "HEIGHT": "cm",
+          "WEIGHT": "kg",
+          "SYSBP": "mmHg",
+          "DIABP": "mmHg",
+          "HR": "beats/min",
+          "TEMP": "C"
+        }},
+        {"name": "VSDTC", "type": "Char", "label": "Date/Time of Measurements", "required": true},
+        {"name": "VSDY", "type": "Num", "label": "Study Day of Vital Signs"},
+        {"name": "VISITNUM", "type": "Num", "label": "Visit Number"},
+        {"name": "VISIT", "type": "Char", "label": "Visit Name"},
+        {"name": "VSLOBXFL", "type": "Char", "label": "Last Observation Before Exposure Flag", "description": "Set to Y for the last non-missing result per test per subject obtained strictly prior to the date of first exposure (RFXSTDTC). Empty otherwise.", "controlled_terminology": ["Y", ""]}
+      ]
+    },
+    "TS": {
+      "dataset_name": "ts",
+      "label": "Trial Summary",
+      "class": "Trial Design",
+      "variables": [
+        {"name": "STUDYID", "type": "Char", "label": "Study Identifier", "required": true},
+        {"name": "DOMAIN", "type": "Char", "label": "Domain Abbreviation", "required": true, "fixed_value": "TS"},
+        {"name": "TSSEQ", "type": "Num", "label": "Sequence Number", "required": true, "description": "Sequential positive integers starting at 1"},
+        {"name": "TSPARMCD", "type": "Char", "label": "Trial Summary Parameter Short Name", "required": true},
+        {"name": "TSPARM", "type": "Char", "label": "Trial Summary Parameter", "required": true},
+        {"name": "TSVAL", "type": "Char", "label": "Parameter Value", "required": true}
+      ],
+      "required_parameters": ["SPONSOR", "SSTDTC", "SENDTC", "TITLE", "TPHASE", "RANDOM"],
+      "date_parameters_note": "Parameters whose values are dates (e.g. SSTDTC, SENDTC, DCUTDTC) must have TSVAL in ISO 8601 format"
+    },
+    "SUPPAE": {
+      "dataset_name": "suppae",
+      "label": "Supplemental Qualifiers for AE",
+      "class": "Special Purpose",
+      "description": "Captures non-standard AE source data fields that do not map to defined AE domain variables. One record per qualifier per parent AE record.",
+      "variables": [
+        {"name": "STUDYID", "type": "Char", "label": "Study Identifier", "required": true},
+        {"name": "RDOMAIN", "type": "Char", "label": "Related Domain Abbreviation", "required": true, "fixed_value": "AE"},
+        {"name": "USUBJID", "type": "Char", "label": "Unique Subject Identifier", "required": true},
+        {"name": "IDVAR", "type": "Char", "label": "Identifying Variable", "required": true, "fixed_value": "AESEQ"},
+        {"name": "IDVARVAL", "type": "Char", "label": "Identifying Variable Value", "required": true},
+        {"name": "QNAM", "type": "Char", "label": "Qualifier Variable Name", "required": true, "max_length": 8},
+        {"name": "QLABEL", "type": "Char", "label": "Qualifier Variable Label", "required": true},
+        {"name": "QVAL", "type": "Char", "label": "Data Value", "required": true},
+        {"name": "QORIG", "type": "Char", "label": "Origin", "required": true}
+      ]
+    }
+  }
+}

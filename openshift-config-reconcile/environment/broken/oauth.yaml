@@ -1,0 +1,11 @@
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+    - name: acme-htpasswd
+      type: HTPasswd
+      htpasswd:
+        fileData:
+          name: acme-htpasswd-secret

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to: (1) write a C shared library implementing N-sphere shell coordinate generation for 1D/2D/3D using elevation-azimuth discretization, identifying and fixing a subtle cos/sin bug in the reference Python fragment; (2) author a Makefile with correct gcc flags (-shared, -fPIC, -lm) and phony targets; (3) write Python ctypes bindings that load the .so, declare argtypes/restype for 5 C functions, allocate output buffers using count functions, and marshal data to/from numpy arrays; (4) synthesise the gamma index expanding-shell search algorithm from dispersed utility fragments and domain notes; (5) integrate SQLite persistence with proper schema, INSERT OR REPLACE conflict handling, and ISO 8601 timestamps. No complete reference implementation is provided — the algorithm must be reverse-engineered from incomplete, buggy code across multiple files and languages."""
+solution_explanation = """The solution implements: (1) shell_kernel.c with shell_1d (trivial +/-d), shell_2d (uniform angles on circle), shell_3d (elevation-azimuth with cos(phi) for z — fixing the sin(phi) bug in reference), plus count functions; (2) a Makefile compiling to accel/libshell.so with -shared -fPIC -lm; (3) gamma.py loading the .so via ctypes.CDLL, setting argtypes/restype, allocating c_double arrays, and wrapping results as numpy arrays; (4) the gamma function using RegularGridInterpolator, expanding-shell search with convergence pruning, local/global normalization, dose cutoff, and max_gamma capping; (5) qa_report.py creating a SQLite sessions table and persisting results with INSERT OR REPLACE."""
+verification_explanation = """Twenty-one tests across six classes verify: Makefile build/clean cycle; direct C library calls via ctypes (load, count, coordinate correctness, distance-zero, 1D/2D/3D); Python ctypes wrapper (shell coverage, gap constraints, dimensionality); 3D/2D/1D gamma regression against hardcoded arrays; gamma edge cases (dose cutoff, local vs global normalization, max_gamma cap, mismatched grids); QA report structure and values; SQLite database creation, schema validation, row value correctness, and replace-on-conflict behavior."""
+category = "scientific_computing"
+tags = ["medical-physics", "ffi-interop"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gamma-dose-comparison"

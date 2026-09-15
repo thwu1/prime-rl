@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a correct interpreter and sound flow analysis for an ANF lambda calculus with closures, mutable state, recursive bindings, and first-class continuations from only a parser and a Guile reference oracle — no formal semantics specification is provided. The agent must independently derive correct evaluation semantics for subtle feature interactions: closures over mutable variables, multi-shot continuations that persist heap mutations across re-entries, and set! rebinding variables to different lambdas mid-execution. The flow analysis must be designed from scratch to be sound, handling mutation-induced flow (set! adding new lambdas to a variable's flow set), higher-order propagation through shared parameters, and flow through closures that mutate free variables. These interactions require holistic understanding of PL semantics, not procedural rule-following."""
+solution_explanation = """The interpreter uses a state-machine architecture with environments mapping variables to store addresses, a mutable store mapping addresses to values, and continuations represented as linked frames. Mutation updates the store in-place; call/cc reifies the continuation as a callable value that discards the current continuation when invoked. Multi-shot continuations work because the store persists across re-entries while control flow rewinds. The flow analysis uses constraint-based computation with fixed-point iteration: each pass walks the AST propagating lambda labels through let bindings, function applications (parameter-to-argument flow), set! operations (adding labels to existing flow sets), and letrec mutual recursion. The DOT graph is generated from the analysis output."""
+verification_explanation = """Tests verify the interpreter against 20 programs covering arithmetic, closures, recursion, mutation, continuations (both escape and multi-shot), and mutation+continuation interaction (counted loops via multi-shot continuations with heap-persistent counters). Tests verify the flow analysis against 7 programs testing direct bindings, higher-order merging, lambda-returning-lambda, identity merging, mutation-induced flow (set! adding labels), mutation propagation through higher-order calls, and flow through closures that mutate free variables. Graph tests verify DOT/SVG structure and content."""
+category = "programming"
+tags = ["programming-languages", "static-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cesk-zcfa-analyzer"

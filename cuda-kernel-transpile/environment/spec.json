@@ -1,0 +1,81 @@
+{
+  "description": "CUDA kernel CPU reference implementation task. Implement Python equivalents of the provided CUDA kernels, matching their exact numerical behavior.",
+  "kernels": [
+    {
+      "name": "fdtd_3d",
+      "description": "3D finite-difference time-domain stencil computation on a padded volumetric grid",
+      "source": "kernels/fdtd_3d.cu",
+      "parameters": {
+        "DIMX": 16,
+        "DIMY": 16,
+        "DIMZ": 16,
+        "RADIUS": 4
+      },
+      "inputs": {
+        "volume": {
+          "file": "data/fdtd_input.bin",
+          "dtype": "float32",
+          "shape": [24, 24, 24],
+          "description": "Padded input volume (DIM + 2*RADIUS per axis)"
+        },
+        "stencil": {
+          "file": "data/fdtd_stencil.bin",
+          "dtype": "float32",
+          "shape": [5],
+          "description": "Stencil coefficients [center, radius_1, radius_2, radius_3, radius_4]"
+        }
+      },
+      "outputs": {
+        "volume": {
+          "file": "output/fdtd_output.bin",
+          "dtype": "float32",
+          "shape": [24, 24, 24],
+          "description": "Output volume. Only the inner DIM^3 region is computed; padding remains zero."
+        }
+      },
+      "tolerance": 1e-4,
+      "notes": "The kernel applies a 3D star stencil to the inner volume. The output is zero-initialized and only the inner region [RADIUS:RADIUS+DIM] along each axis is written. The CUDA kernel uses a z-slice sweeping algorithm with register-based front/back buffers and shared memory tiling, but the underlying computation is a weighted sum of axis-aligned neighbors."
+    },
+    {
+      "name": "black_scholes",
+      "description": "European option pricing using the Black-Scholes model with polynomial CND approximation",
+      "source": "kernels/black_scholes.cu",
+      "parameters": {
+        "OPT_N": 2048,
+        "RISKFREE": 0.02,
+        "VOLATILITY": 0.30
+      },
+      "inputs": {
+        "stock_price": {
+          "file": "data/stock_price.bin",
+          "dtype": "float32",
+          "shape": [2048]
+        },
+        "option_strike": {
+          "file": "data/option_strike.bin",
+          "dtype": "float32",
+          "shape": [2048]
+        },
+        "option_years": {
+          "file": "data/option_years.bin",
+          "dtype": "float32",
+          "shape": [2048]
+        }
+      },
+      "outputs": {
+        "call_result": {
+          "file": "output/call_out.bin",
+          "dtype": "float32",
+          "shape": [2048]
+        },
+        "put_result": {
+          "file": "output/put_out.bin",
+          "dtype": "float32",
+          "shape": [2048]
+        }
+      },
+      "tolerance": 1e-3,
+      "notes": "Uses a polynomial approximation (Abramowitz & Stegun 26.2.17) for the cumulative normal distribution, not standard library CDF. The CUDA kernel uses float2 vectorization for ILP, but this does not affect the computation. The __fdividef(1.0, rsqrtf(T)) intrinsic computes sqrt(T)."
+    }
+  ]
+}

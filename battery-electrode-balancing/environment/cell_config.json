@@ -1,0 +1,10 @@
+{
+    "base_parameter_set": "Chen2020",
+    "model_type": "SPMe",
+    "include_thermal": true,
+    "negative_electrode_thickness_multipliers": [0.90, 0.95, 1.00, 1.10, 1.25],
+    "discharge_c_rate": 1.0,
+    "voltage_limits_V": [2.5, 4.2],
+    "ambient_temperature_K": 298.15,
+    "plating_stoichiometry_safety_margin": 0.08
+}

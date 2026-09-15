@@ -1,0 +1,10 @@
+{
+  "demands": [
+    {"id": "d0", "source": "n0", "destination": "n7", "volume": 400},
+    {"id": "d1", "source": "n1", "destination": "n6", "volume": 300},
+    {"id": "d2", "source": "n0", "destination": "n6", "volume": 350},
+    {"id": "d3", "source": "n2", "destination": "n7", "volume": 300},
+    {"id": "d4", "source": "n1", "destination": "n7", "volume": 350},
+    {"id": "d5", "source": "n0", "destination": "n4", "volume": 250}
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "data_sources": {
+    "gpu_specs": "/app/gpu_specs.db — SQLite database, table 'gpu_specs' with columns (gpu_name TEXT, spec_key TEXT, spec_value TEXT)",
+    "param_ranges": "/app/param_ranges.csv — CSV with columns 'parameter' and 'values' (pipe-delimited integers)",
+    "kernel_source": "/app/kernel_warptiling.cuh",
+    "launch_constraints": "/app/runner_constraints.cu",
+    "team_analysis": "/app/team_analysis.json — The team's (potentially flawed) analysis to audit"
+  },
+  "register_model": {
+    "description": "Estimated registers per thread for the warptiling kernel. WMITER is derived as (WM * WN) / (WARPSIZE * TM * TN * WNITER) where WARPSIZE=32.",
+    "formula": "WMITER * TM * WNITER * TN + WMITER * TM + WNITER * TN + 20",
+    "hardware_cap": 255,
+    "note": "If the formula yields more than 255, cap at 255 (excess spills to local memory)."
+  },
+  "output_spec": {
+    "file": "/app/audit_results.json",
+    "schema": {
+      "config_audits": {
+        "<config_name>": {
+          "actually_valid": "boolean: true if the config satisfies all kernel constraints",
+          "validity_error": "boolean: true if team's claimed_valid differs from actually_valid",
+          "correct_occupancy": "object {GPU_NAME: float} or null if config is actually invalid",
+          "correct_bottleneck": "object {GPU_NAME: string} or null if config is actually invalid",
+          "occupancy_errors": "sorted list of GPU names where team's claimed occupancy differs by more than 1e-4. Empty list if config is invalid.",
+          "bottleneck_errors": "sorted list of GPU names where team's claimed bottleneck string differs. Empty list if config is invalid."
+        }
+      },
+      "best_pick_audit": {
+        "<GPU_NAME>": {
+          "team_pick_valid": "boolean: whether the team's chosen config is actually valid",
+          "team_pick_optimal": "boolean: whether the team's pick achieves the maximum possible occupancy on this GPU among all valid configs from the full parameter space",
+          "actual_best_occupancy": "float: the true maximum occupancy achievable on this GPU from full enumeration",
+          "actual_best_config": "object with keys BM, BN, BK, WM, WN, WNITER, TM, TN, NUM_THREADS — the config achieving maximum occupancy (ties broken by lowest smem_bytes, then lowest NUM_THREADS, then lowest BM, then lowest BN)"
+        }
+      },
+      "total_valid_configs": "integer: total count of valid parameter tuples from the full Cartesian product of param_ranges.csv",
+      "pareto_optimal_count": "integer: count of Pareto-optimal configurations across all three GPU architectures from the full valid config set",
+      "portability_scores": {
+        "<config_name>": "float or null: for valid configs, min(occupancy across GPUs) / max(occupancy across GPUs) rounded to 6 decimal places. null for invalid configs."
+      },
+      "total_errors_found": "integer: sum of all discrepancies: each validity_error counts 1, each GPU with wrong occupancy counts 1, each GPU with wrong bottleneck counts 1"
+    },
+    "bottleneck_definition": "The hardware resource producing the fewest concurrent blocks per SM. One of: 'blocks', 'regs', 'smem', 'warps'. If multiple resources tie at the minimum, report the alphabetically first.",
+    "best_config_tiebreaking": "Highest occupancy, then lowest smem_bytes, then lowest NUM_THREADS, then lowest BM, then lowest BN.",
+    "pareto_definition": "A configuration is Pareto-optimal if no other valid configuration achieves >= occupancy on every GPU and strictly > occupancy on at least one GPU."
+  }
+}

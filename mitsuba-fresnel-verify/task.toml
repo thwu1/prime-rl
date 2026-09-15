@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five independent bugs across a microfacet BRDF renderer's core routines: conductor Fresnel equations (complex-IOR trigonometric identity error), Beckmann NDF normalization (missing cosine power in denominator), Smith masking function parameterization (inverted roughness-angle coupling), Cook-Torrance evaluation convention (incorrect cosine weighting), and importance sampling CDF inversion (missing roughness scaling). Each bug demands understanding of the underlying physics and mathematical derivations — not just pattern matching — because the code is syntactically valid and structurally plausible. The solver must run the renderer, compare against physical constraints and analytical references, localize each defect to a specific function, and verify fixes produce correct output across Fresnel sweeps, NDF evaluations, masking values, full BRDF evaluations, and stochastic reflectance estimates."""
+solution_explanation = """Five targeted one-line fixes: (1) fresnel_conductor: change sin2=cos2 to sin2=1.0-cos2, (2) beckmann_ndf: add cos4=cos2**2 to denominator, (3) smith_g1: change a=alpha*tan_v to a=1.0/(alpha*tan_v), (4) eval_brdf_cosine: remove extra /cos_o to produce cosine-weighted output F*D*G/(4*cos_i), (5) sample_beckmann: change tan2=log_s to tan2=alpha**2*log_s. Then re-run the renderer to produce correct output.json."""
+verification_explanation = """Tests independently compute analytical reference values using correct Fresnel, Beckmann NDF (with erf-based exact Smith G1), and Cook-Torrance formulas, then compare against renderer output. Dielectric Fresnel within 1e-6, conductor within 1e-4, NDF within 2% relative, G1 within 0.015 (accommodates both exact and rational approximation), cosine-weighted BRDF within 5% relative. MC reflectance range-checked per channel against smooth Fresnel bounds and channel ordering verified."""
+category = "computer_graphics"
+tags = ["rendering-debug", "physically-based-rendering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mitsuba-fresnel-verify"

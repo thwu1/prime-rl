@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of EKF-SLAM mathematics across two programming languages (C and Python). Task 1: The agent must independently derive correct motion model and observation model equations, cross-reference C implementations with Python ctypes bindings, identify subtle mathematical inconsistencies (function/linearization mismatches) that cause filter divergence, fix C source code and recompile a shared library, and fix Python observation and initialization logic. No hints are given about bug locations or types. Task 2: The agent must design and implement a comparative evaluation of alternative EKF covariance update strategies (e.g., standard vs Joseph form), create a deterministic outlier corruption pipeline, run controlled experiments across formulation × condition combinations, compute statistical metrics (NIS, condition numbers, PSD checks), and synthesize results into a justified recommendation — requiring graduate-level understanding of numerical linear algebra, statistical filter theory, and experimental design."""
+solution_explanation = """Three categories of defects must be fixed: (1) In C motion_model.c, the motion_update function has cos/sin swapped — it computes x += v*dt*sin(theta) and y += v*dt*cos(theta) instead of the correct cos/sin respectively. The Jacobians are correct, creating a function/linearization inconsistency. After fixing, the C code must be recompiled. (2) In Python ekf_slam.py, the observation model uses atan2(dx, dy) instead of atan2(dy, dx), mismatching its own Jacobian. (3) In Python ekf_slam.py, landmark initialization uses z_bearing as absolute angle instead of z_bearing + rtheta. For Task 2, the agent must implement alternative covariance update formulations (e.g., the Joseph form: (I-KH)P(I-KH)^T + KQK^T which is numerically more stable), run controlled experiments comparing formulations under clean and outlier-corrupted conditions, and recommend the most robust formulation with quantitative evidence."""
+verification_explanation = """Tests run the corrected EKF-SLAM on deterministic scenario data (seed=42, 400 steps, 8 landmarks) and verify convergence thresholds. A separate test validates the C motion model directly via known-input checks and finite-difference Jacobian verification. The filter evaluation script is executed by the test suite, which verifies: report structure with required fields and types, at least two distinct strategies compared under both clean and corrupted conditions, clean-condition performance meets quality thresholds, corruption has measurable effect on metrics, PSD maintenance under clean conditions, metrics are in plausible ranges, and a valid recommendation is provided with substantive rationale."""
+category = "robotics"
+tags = ["state-estimation", "filter-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d81d80"

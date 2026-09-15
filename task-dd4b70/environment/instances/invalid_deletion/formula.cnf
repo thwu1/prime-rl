@@ -1,0 +1,6 @@
+c Complete binary clauses on 2 variables - UNSATISFIABLE
+p cnf 2 4
+1 2 0
+-1 2 0
+1 -2 0
+-1 -2 0

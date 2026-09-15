@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing Redis 7 multi-part AOF corruption from log analysis, implementing multi-strategy data reconciliation with business rule overrides, cleaning up Sentinel split-brain state, and debugging a Flask Sentinel integration. The solver must: (1) diagnose why Node A refuses to start by investigating logs and understanding AOF persistence internals — the error points to a corrupted incremental AOF file within Redis 7's multi-part AOF structure (manifest + base RDB + incremental AOF), (2) fix the corruption using redis-check-aof --fix with the correct manifest path and handle its interactive confirmation, (3) analyze divergent datasets across two independent masters and implement reconciliation that correctly applies the financial safety override (refunded status wins regardless of timestamp) alongside standard timestamp-based resolution — record 47 is the critical discriminator where naive timestamp comparison yields the wrong winner, (4) produce a structured conflict report with resolution reasons documenting which strategy was applied per conflict, (5) handle the ordering constraint that data must be merged to Node A before configuring replication (which flushes the replica), (6) clean Sentinel configs of stale runtime state including myid, epochs, known-replica, and known-sentinel entries accumulated during the split-brain, and (7) fix Flask application misconfigurations. This demands holistic understanding of Redis internals, distributed systems failure recovery, and the professional judgment to correctly prioritize business rules over raw data ordering."""
+solution_explanation = """First diagnose Node A failure from /var/log/redis/node-a.log showing AOF corruption. Fix with: echo y | redis-check-aof --fix /data/redis-node-a/appendonlydir/appendonly.aof.manifest (Redis 7 multi-part AOF). Restart Node A via supervisorctl. Analyze both nodes: 93 identical records in 1-100, 17 conflicts requiring dual-strategy resolution. Apply financial safety override for records 15, 47, 71 (refunded status wins regardless of timestamp — record 47 is the critical case where A has later timestamp 15:10 but B's refund at 14:50 must prevail). Apply timestamp-based resolution for remaining 14 conflicts. Result: 8 A-wins, 9 B-wins. Copy B's unique records 121-130 to A. Write reconciliation_report.json with resolution_reasons (3 financial_safety + 14 timestamp). Configure Node B as replica: CONFIG SET masterauth secretpass, then REPLICAOF 127.0.0.1 6379. Stop sentinels, clean stale runtime state (myid, epochs, known-replica, known-sentinel lines), fix sentinel1/2 monitor to 6379, restart. Fix Flask: SENTINEL_SERVICE 'redis-primary'->'mymaster', REDIS_PASSWORD 'wrongpass'->'secretpass', restart."""
+verification_explanation = """Tests verify: Node A is running with AOF enabled (not disabled as workaround), has exactly 130 records with correct conflict resolution including financial safety override (record 47 must be refunded from B, not cancelled from A), all overlapping records 101-110 have correct winner by timestamp, unique records from both nodes present, unmodified records intact, replication active with link up and 130 records on replica, all 3 sentinels agree on mymaster at 6379, reconciliation report has correct totals (130 records, 17 conflicts, 8 A-wins, 9 B-wins), exactly 3 financial_safety resolution reasons on records 15/47/71, 14 timestamp reasons, all details sorted with correct timestamps, 10 unique from each node, and Flask app returns correct health/count/individual records."""
+category = "system_administration"
+tags = ["redis", "data-reconciliation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/redis-sentinel-recovery"

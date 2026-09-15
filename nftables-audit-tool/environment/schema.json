@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Nftables Audit Report",
+  "type": "object",
+  "required": [
+    "tables", "base_chains", "named_sets", "jump_graph",
+    "open_tcp_ports", "open_udp_ports",
+    "allows_loopback", "allows_icmp", "uses_connection_tracking",
+    "has_rate_limiting", "rate_limited_ports",
+    "has_nat", "has_masquerade",
+    "packet_verdicts", "anomalies"
+  ],
+  "properties": {
+    "tables": {
+      "description": "All tables in the configuration, sorted by name",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "family"],
+        "properties": {
+          "name": {"type": "string"},
+          "family": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "base_chains": {
+      "description": "Base chains (chains with hook declarations), keyed by chain name",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["table", "family", "hook", "priority", "policy"],
+        "properties": {
+          "table": {"type": "string"},
+          "family": {"type": "string"},
+          "hook": {"type": "string"},
+          "priority": {"type": "integer"},
+          "policy": {"type": "string", "enum": ["accept", "drop"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "named_sets": {
+      "description": "Named sets, keyed by set name",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["table", "family", "type", "flags", "elements"],
+        "properties": {
+          "table": {"type": "string"},
+          "family": {"type": "string"},
+          "type": {"type": "string"},
+          "flags": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "elements": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "jump_graph": {
+      "description": "Chain-to-chain reference graph. Keys are source chains, values are sorted arrays of target chains referenced via jump or goto",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    },
+    "open_tcp_ports": {
+      "description": "TCP destination ports accepted on input-hook chains without source-IP restrictions",
+      "type": "array",
+      "items": {"type": "integer"}
+    },
+    "open_udp_ports": {
+      "description": "UDP destination ports accepted on input-hook chains without source-IP restrictions",
+      "type": "array",
+      "items": {"type": "integer"}
+    },
+    "allows_loopback": {
+      "description": "Whether loopback interface traffic is explicitly accepted",
+      "type": "boolean"
+    },
+    "allows_icmp": {
+      "description": "Whether ICMP or ICMPv6 traffic is explicitly accepted",
+      "type": "boolean"
+    },
+    "uses_connection_tracking": {
+      "description": "Whether connection tracking state matching is used",
+      "type": "boolean"
+    },
+    "has_rate_limiting": {
+      "description": "Whether rate limiting is configured in any chain",
+      "type": "boolean"
+    },
+    "rate_limited_ports": {
+      "description": "Ports subject to rate limiting, organized as {protocol: {port_string: rate_expression}}. Empty object if no rate limiting.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": "string"}
+      }
+    },
+    "has_nat": {
+      "description": "Whether network address translation is configured",
+      "type": "boolean"
+    },
+    "has_masquerade": {
+      "description": "Whether masquerading is configured",
+      "type": "boolean"
+    },
+    "packet_verdicts": {
+      "description": "Packet fate evaluation results, keyed by test ID from the queries file. Each value is the final verdict after full chain traversal.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["accept", "drop"]
+      }
+    },
+    "anomalies": {
+      "description": "Configuration anomalies detected in the ruleset",
+      "type": "object",
+      "required": ["unreachable_chains", "shadowed_rules"],
+      "properties": {
+        "unreachable_chains": {
+          "description": "Names of non-base chains that are never referenced by any jump or goto statement in the ruleset",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "shadowed_rules": {
+          "description": "Rules that can never execute because a preceding rule in the same chain matches unconditionally with a terminal verdict",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["table", "chain", "position"],
+            "properties": {
+              "table": {"type": "string", "description": "Table name"},
+              "chain": {"type": "string", "description": "Chain name"},
+              "position": {"type": "integer", "description": "0-based index of the shadowed rule within the chain (excluding the chain type declaration)"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

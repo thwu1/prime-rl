@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three distinct expert-level competencies working in concert: (1) Deep security-tooling domain expertise to audit a multi-module OWASP Benchmark scoring pipeline with 6 interacting bugs — including understanding CWE exception semantics (prefix-based tool matching via startsWith), macro-averaging methodology for imbalanced vulnerability categories, and schema integrity constraints — where each bug interacts with others and cannot be diagnosed in isolation. (2) Forensic evaluation skill to compare a reference scorecard produced by another analyst against the authoritative Java specification, determine which values are correct and which are wrong, identify the single root cause (CWE prefix matching using exact equality instead of startsWith) that cascades into incorrect hash-category classification for AppScan-prefixed tools and downstream overall metrics and ranking changes, and produce a structured discrepancy report with root cause analysis. (3) Multi-tool proficiency across Python, SQLite CLI (schema initialization, SQL queries for audit generation), and jq (diagnosing a broken jq filter with a wrong field name reference and a type-mismatch comparison, then using the fixed filter to generate a summary report). The evaluation component elevates beyond mechanical debugging — the solver must exercise expert judgment to determine which aspects of two competing outputs match the specification and why they diverge."""
+solution_explanation = """The solution: (1) programmatically patches all 6 pipeline bugs — rewrites run_pipeline.sh to initialize DB from schema.sql and generate audit CSV; removes inline schema creation from ingest.py and switches INSERT OR REPLACE to plain INSERT preserving duplicate findings; fixes analyze.py to use startswith() for CWE prefix matching and DELETE FROM instead of DROP+CREATE; fixes metrics.py macro-averaging computation; fixes export.py ranking sort to descending; (2) fixes report_template.jq by correcting '.ranking[0].j' to '.ranking[0].youdens_j' and changing the string comparison '.value.tpr == "0"' to numeric '.value.tpr == 0', then runs jq to produce summary_report.json; (3) compares the correct scorecard against reference_scorecard.json to identify that AppScanLike is the only tool with discrepancies (hash category: tp=0→8, fn=12→4, fp=0→3, tn=8→5) caused by exact CWE prefix matching, and produces evaluation.json."""
+verification_explanation = """Tests verify: (1) schema conformity — findings table has 'id' column, classifications enforces CHECK constraint; (2) database row counts across all 6 tables including 236 findings and 480 classifications; (3) per-tool per-category TP/FN/FP/TN counts with specific expected values for each tool; (4) per-category and macro-averaged rates catching micro-averaging mistakes; (5) correct descending ranking with expected J values; (6) mathematical invariants; (7) audit.csv existence and structure; (8) summary_report.json from jq — correct top tool, tool count, average J, and empty blind_spots; (9) evaluation.json — identifies AppScanLike as the only incorrect tool, flags hash category discrepancy with correct values (tp=8), mentions prefix matching as root cause."""
+category = "security"
+tags = ["sast-scoring", "forensic-evaluation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-025444"

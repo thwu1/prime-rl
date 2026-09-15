@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of the ROS2 Nav2 navigation stack parameter system, including cross-component dependencies (costmap sizing vs controller prediction horizon, velocity smoother limits vs controller limits, BT timeouts vs planner timeouts), physical constraints (inflation radius vs robot radius, motion model consistency), and architectural conventions (costmap layer ordering, filter type codes, frame ID consistency). An agent must read and synthesize information from multiple reference docs, analyze a 250+ line YAML config for 12 semantic bugs, build a general-purpose Python validation tool implementing 12+ rules, and produce a corrected configuration. Most bugs involve semantic mismatches between components that compile and load but cause the robot to collide, get stuck, or behave erratically at runtime."""
+solution_explanation = """The solution implements a Python auditor with 12 validation rules covering: (1) costmap plugin ordering — inflation must follow obstacle sources, (2) MPPI motion model/plugin class consistency, (3) robot_radius matching across costmaps, (4) inflation_radius >= robot_radius, (5) keepout filter type code = 0, (6) speed filter multiplier sign negative, (7) local costmap half-width >= MPPI prediction distance, (8) progress checker radius <= goal tolerance, (9) robot base frame ID consistency, (10) velocity smoother limits >= controller limits, (11) BT navigator timeout >= planner costmap timeout, (12) configured costmap layers present in plugins list. A separate fix script corrects each issue in the YAML."""
+verification_explanation = """Tests verify: (1) the auditor exists and runs successfully, (2) it detects >= 10 distinct issues in the broken config, (3) the fixed config is valid YAML with correct component structure, (4) each of the 12 specific fixes is verified by checking parameter relationships (e.g. inflation_radius >= robot_radius, consistent frame IDs, static_layer in plugins list), (5) the auditor reports 0 issues on the fixed config, and (6) the audit report file exists with >= 10 entries."""
+category = "robotics"
+tags = ["ros2", "configuration-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-719fc5"

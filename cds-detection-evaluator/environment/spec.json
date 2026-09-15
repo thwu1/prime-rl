@@ -1,0 +1,65 @@
+{
+  "task": "LiDAR Scene Flow and Dynamic Segmentation Evaluation",
+  "constants": {
+    "sweep_pair_time_delta_s": 0.1
+  },
+  "category_to_class": {
+    "Background": [0],
+    "Foreground": [1, 2, 3, 4]
+  },
+  "breakdown": {
+    "class": ["Background", "Foreground"],
+    "motion": {
+      "Dynamic": "is_dynamic == true",
+      "Static": "is_dynamic == false"
+    },
+    "distance": {
+      "Close": "is_close == true",
+      "Far": "is_close == false"
+    },
+    "exclude_combinations": [["Background", "Dynamic"]],
+    "valid_filter": "Only evaluate points where is_valid == true."
+  },
+  "metrics": {
+    "EPE": "Per-point end-point error: the L2 norm of (predicted_flow - ground_truth_flow). Report the mean over all valid points in each subset.",
+    "Accuracy Strict": "Per-point binary inlier test: a point is an inlier (value 1.0) if the absolute L2 flow error is below 0.05 OR the ratio of L2 flow error to ground truth flow magnitude is below 0.05; otherwise 0.0. Report the mean (fraction of inliers) over all valid points in each subset.",
+    "Accuracy Relaxed": "Same definition as Accuracy Strict but with threshold 0.10 instead of 0.05.",
+    "Angle Error": "Per-point angular discrepancy in space-time. Augment each 3D flow vector (fx, fy, fz) to 4D by appending sweep_pair_time_delta_s as the fourth component, yielding (fx, fy, fz, dt). Normalize both the predicted and ground truth augmented vectors to unit length. The angle error is arccos(clamp(dot_product, -1, 1)), in radians. Report the mean over all valid points in each subset."
+  },
+  "segmentation": {
+    "Dynamic IoU": "Global intersection-over-union for the dynamic/static point classification. Computed as TP / (TP + FP + FN) across ALL valid points in the entire dataset, where: TP = predicted_dynamic AND gt_dynamic, FP = predicted_dynamic AND gt_static, FN = predicted_static AND gt_dynamic."
+  },
+  "summary_metrics": {
+    "EPE 3-Way Average": "The arithmetic mean of three EPE values computed over: (1) all Foreground/Dynamic valid points, (2) all Foreground/Static valid points, (3) all Background/Static valid points. Each value is the global mean EPE over that class/motion group across all sweeps and both distance categories."
+  },
+  "output": {
+    "path": "/app/results.json",
+    "format": {
+      "per_subset": "Object keyed by 'Class/Motion/Distance' strings (e.g. 'Foreground/Dynamic/Close'). Each value is an object with keys: EPE, Accuracy Strict, Accuracy Relaxed, Angle Error — all floats.",
+      "per_class_motion": "Object keyed by 'Class/Motion' strings (e.g. 'Foreground/Dynamic'). Each value has the same four metric keys, computed over both distance categories combined.",
+      "summary": "Object with keys: 'Dynamic IoU' (float) and 'EPE 3-Way Average' (float)."
+    },
+    "precision": "Round all float values to 6 decimal places.",
+    "notes": "Excluded class/motion combinations must not appear in the output."
+  },
+  "data": {
+    "annotations_dir": "/app/data/annotations/",
+    "predictions_dir": "/app/data/predictions/",
+    "layout": "Each directory contains subdirectories named by log_id, each containing .feather files named by timestamp_ns.",
+    "annotation_columns": {
+      "flow_tx_m": "float32 — ground truth flow X component (meters)",
+      "flow_ty_m": "float32 — ground truth flow Y component (meters)",
+      "flow_tz_m": "float32 — ground truth flow Z component (meters)",
+      "category_indices": "uint8 — point category index (0 = background, 1–4 = foreground classes)",
+      "is_dynamic": "bool — whether the point belongs to a dynamic object",
+      "is_close": "bool — whether the point is within a spatial proximity box around the sensor",
+      "is_valid": "bool — whether the flow annotation is valid for evaluation"
+    },
+    "prediction_columns": {
+      "flow_tx_m": "float32 — predicted flow X component (meters)",
+      "flow_ty_m": "float32 — predicted flow Y component (meters)",
+      "flow_tz_m": "float32 — predicted flow Z component (meters)",
+      "is_dynamic": "bool — predicted dynamic classification"
+    }
+  }
+}

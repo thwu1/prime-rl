@@ -1,0 +1,13 @@
+{
+  "language_types": {
+    "dynamic": ["Python", "JavaScript", "Ruby", "Matlab", "Go"],
+    "static": ["Java", "C", "C++", "C#", "Rust"]
+  },
+  "framework_parsers": {
+    "junit": "junit",
+    "cargo_test": "cargo_test",
+    "pytest": "pytest",
+    "go_test": "go_test",
+    "gtest": "googletest"
+  }
+}

@@ -1,0 +1,57 @@
+VAULT SECURITY REMEDIATION REQUIREMENTS
+========================================
+
+The following security and operational issues must be remediated:
+
+1. PKI ROOT CA (mounted at pki/):
+   - Mount max_lease_ttl must be at least 87600h (10 years)
+   - Root certificate must be regenerated with TTL >= 87600h
+   - CRL and issuing certificate URLs must be configured
+
+2. PKI INTERMEDIATE CA (mounted at pki_int/):
+   - Must be re-signed by the updated root CA
+   - The existing intermediate is invalid because it was signed by the old short-lived root
+   - CRL and issuing certificate URLs must be configured
+
+3. PKI ROLE "web-server" (at pki_int/roles/web-server):
+   - allow_any_name must be false
+   - allowed_domains must be set to "example.com"
+   - allow_subdomains must be true
+   - max_ttl must be 720h (30 days)
+   - key_bits must be 4096
+
+4. POLICY "app-readonly":
+   - Must only allow read and list on secret/data/app/* and secret/metadata/app/*
+   - Must NOT grant write, delete, or sudo capabilities
+   - Must NOT grant access to any other paths (including PKI)
+
+5. POLICY "cert-issuer":
+   - Must only allow create and update on pki_int/issue/web-server
+   - Must allow list on pki_int/certs
+   - Must allow read on pki/cert/ca
+   - Must NOT grant broader access to PKI engines or secrets
+
+6. APPROLE "webapp" (at auth/approle/role/webapp):
+   - token_ttl must be 1h (3600 seconds)
+   - token_max_ttl must be 4h (14400 seconds)
+   - token_num_uses must be 10
+   - secret_id_bound_cidrs must restrict to private networks (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+
+7. AUDIT LOGGING:
+   - A file audit device must be enabled
+   - Audit log file at /var/log/vault/audit.log
+
+8. KV SECRETS ENGINE (at secret/):
+   - Must be upgraded from KV v1 to KV v2
+   - Existing secrets (secret/app/database, secret/app/api-key) must be preserved after upgrade
+   - Note: KV v2 changes API paths — policies must use secret/data/ and secret/metadata/ prefixes
+
+9. CERTIFICATE ISSUANCE:
+   - Issue a leaf certificate for "app.example.com" using the web-server role
+   - Save certificate to /app/certs/app.example.com.crt
+   - Save private key to /app/certs/app.example.com.key
+   - Save CA chain to /app/certs/ca-chain.pem
+
+CONSTRAINTS:
+   - Do NOT reinitialize Vault. Existing unseal keys and root token in /app/vault-creds/ must remain valid.
+   - Do NOT destroy and recreate secrets engines unless absolutely necessary (tune existing mounts where possible).

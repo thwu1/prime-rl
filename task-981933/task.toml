@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a cross-formalism compiler between two distinct constraint programming paradigms (XCSP3 and MiniZinc) with no guidance on which constructs exist or how they map. The agent must reverse-engineer the XCSP3-core XML schema from the instance files alone, recognizing variable arrays with heterogeneous domains, allDifferent global constraints, weighted sum constraints with comparison conditions, intension expressions using recursive prefix functional notation (with nested operators and variable references), extensional table constraints encoding allowed tuples, and group templates with parameter substitution — then independently design the semantic bridge to MiniZinc's fundamentally different syntax. This demands holistic expertise across constraint programming formalisms, compiler construction (recursive descent expression translation, template expansion), and solver toolchain integration (CLI invocation, multi-format output parsing for SAT/UNSAT/optimality detection). The agent receives only the desired output format, not the translation methodology."""
+solution_explanation = """Parse each XCSP3 XML instance using Python's xml.etree to extract variable arrays (with domains), constraint elements, and objectives. For each instance, generate a MiniZinc .mzn model: translate variable arrays to MiniZinc array declarations with 0-based index sets, allDifferent to alldifferent() with include, sum constraints to linear inequalities with operator mapping, intension expressions via recursive prefix-to-infix translation (dist->abs, comparison operators to infix symbols), extension/supports to table() with 2D array literals, group templates via %N parameter substitution then expression translation, and COP objectives to solve maximize/minimize. Add output statements for parseable variable values. Invoke minizinc --solver chuffed for each model, parse stdout splitting on ---------- delimiters, detect =====UNSATISFIABLE===== for UNSAT and ========== for proven optimality. Write structured JSON results."""
+verification_explanation = """Tests verify: (1) MiniZinc .mzn model files exist and contain expected keywords (alldifferent, table, abs, maximize) proving actual XCSP3-to-MiniZinc translation occurred; (2) magic_square — values 1-9 all different, rows/cols/diags sum to 15; (3) queens — 8 values 0-7 all different, no diagonal attacks; (4) knapsack — binary values, weight <= 40, optimal objective = 172; (5) scheduling — values 0-4 all different, all 5 precedence pairs satisfy strict ordering; (6) all_interval — x values 0-4 all different, y values 1-4 all different, y[i] = |x[i]-x[i+1]|; (7) unsat — status UNSAT for pigeonhole instance; (8) coloring — 6 nodes with values 0-2, 8 adjacency constraints all satisfied."""
+category = "optimization"
+tags = ["constraint-programming", "compiler-construction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-981933"

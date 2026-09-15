@@ -1,0 +1,17 @@
+{
+  "device_name": "NVIDIA RTX A6000",
+  "compute_capability": [8, 6],
+  "max_threads_per_block": 1024,
+  "max_threads_per_multiprocessor": 1536,
+  "warp_size": 32,
+  "max_warps_per_multiprocessor": 48,
+  "regs_per_block": 65536,
+  "regs_per_multiprocessor": 65536,
+  "register_allocation_unit_size": 256,
+  "register_allocation_granularity": "warp",
+  "shared_mem_per_block_bytes": 49152,
+  "shared_mem_per_multiprocessor_bytes": 102400,
+  "shared_mem_allocation_unit_bytes": 128,
+  "runtime_reserved_smem_per_block_bytes": 1024,
+  "multiprocessor_count": 84
+}

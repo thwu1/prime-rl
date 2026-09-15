@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a tiled attention computation that produces numerically identical results to a naive O(T²) reference without materializing the full score matrix. The solver must independently derive a numerically stable approach for computing softmax incrementally across tiles, handling rescaling when processing successive key blocks. Additionally requires implementing two compound attention mask subclasses with correct analytical range functions — IntersectionMask demands reasoning about tight bounds from composed constraints, while LocalGlobalMask demands handling non-contiguous attention regions (global prefix + local window) in range and full-range computations. Finally, the solver must produce a profiling report conforming to a JSON Schema and populate an SQLite benchmark database conforming to a provided DDL, requiring proficiency with Python profiling modules and the sqlite3 interface."""
+solution_explanation = """Engine: Implement tiled outer loop over Q tiles, inner loop over K tiles. For each Q tile, maintain per-row running max, sum-of-exponentials, and weighted-value accumulator. For each K tile: compute QK^T*scale, apply mask if tile not in fully-unmasked range, update running softmax state with proper rescaling of old state when the running maximum increases, then accumulate. Final output = acc/sum. IntersectionMask: mask = a & b, ranges = (max of mins, min of maxes), k_full_range = intersection of sub-ranges. LocalGlobalMask: mask = (|q-k| <= ws) | (k < ng), k_range spans from first global to end of local window, k_full_range merges global and local regions when contiguous or returns the larger range when disjoint. Benchmark DB created via Python sqlite3 module with timing loops and mask call counting."""
+verification_explanation = """Tests verify: (1) engine output+LSE match naive reference within 1e-10 across 48 parametrized configurations; (2) variable-length sequences; (3) large sequences stressing tile boundaries; (4) non-power-of-2 tile sizes; (5) edge cases (T=1, self-attention-only window, block-diagonal); (6) mask call counting via function wrapping (FullMask=0 calls, CausalMask<total); (7) IntersectionMask verify() across 10 combos × 5 lengths; (8) IntersectionMask pattern and k_full_range tests; (9) LocalGlobalMask verify() across 8 configs × 5 lengths; (10) LocalGlobalMask pattern, range, and k_full_range tests; (11) compound masks through tiled engine; (12) analysis.json validated against JSON Schema; (13) benchmarks.db schema, data quantity, correctness, and mask call efficiency via SQL queries."""
+category = "machine_learning"
+tags = ["attention-mechanism", "numerical-computing", "sqlite", "profiling"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-30baf2"

@@ -1,0 +1,67 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: api-gateway
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-frontend
+  namespace: api-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              tier: frontend
+        - podSelector:
+            matchLabels:
+              app: nginx-frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-backend
+  namespace: api-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              tier: backend
+          podSelector:
+            matchLabels:
+              app: order-processor
+      ports:
+        - protocol: TCP
+          port: 8443
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              tier: data
+          podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432

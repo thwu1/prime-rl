@@ -1,0 +1,18 @@
+{
+    "benchmarks": [
+        {
+            "path": "circuits/d3_p005.stim",
+            "distance": 3,
+            "noise": 0.005,
+            "threshold": 0.20
+        },
+        {
+            "path": "circuits/d5_p005.stim",
+            "distance": 5,
+            "noise": 0.005,
+            "threshold": 0.10
+        }
+    ],
+    "num_shots": 5000,
+    "seed": 42
+}

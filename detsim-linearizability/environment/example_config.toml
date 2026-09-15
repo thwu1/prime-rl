@@ -1,0 +1,31 @@
+# Example fault injection configuration for dessim.
+# See `dessim check-config <file>` to validate.
+
+[simulation]
+seed = 42
+node_count = 5
+duration = 800
+election_timeout = 80.0
+
+[clients]
+count = 3
+request_interval = 40.0
+write_ratio = 0.5
+
+# Fault injection schedule.
+# Each [[faults.schedule]] entry injects one fault event.
+# Supported types: crash, partition
+#
+# crash: kills a node. target = "primary" or node_id (integer).
+#   Optional: recover_after = <seconds> to schedule recovery.
+#
+# partition: isolates two groups of nodes.
+#   set_a = [node_ids], set_b = [node_ids]
+#   Optional: heal_after = <seconds> to heal partition.
+
+[[faults.schedule]]
+type = "partition"
+set_a = [0]
+set_b = [1, 2, 3, 4]
+time = 200
+heal_after = 300

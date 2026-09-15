@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="simm-calc" default="compile" basedir=".">
+    <description>ISDA SIMM v2.5 1-Day Delta Margin Calculator</description>
+
+
+    <property file="config/build.properties"/>
+
+    <target name="init">
+        <mkdir dir="${build.dir}"/>
+    </target>
+
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}" destdir="${build.dir}"
+               includeantruntime="false"
+               source="17" target="17"/>
+    </target>
+
+    <target name="run" depends="compile">
+        <java classname="SimmCalculator" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${build.dir}"/>
+            </classpath>
+            <arg value="${portfolio}"/>
+        </java>
+    </target>
+
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+    </target>
+</project>

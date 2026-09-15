@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional astrodynamics expertise across multiple dimensions: (1) Problem diagnosis — the solver must analyze a flawed pipeline output at /app/preliminary_analysis.json, recognize that all reported distances (~1 AU) are heliocentric rather than geocentric close approach distances, that the velocities are heliocentric orbital speeds rather than Earth-relative encounter velocities, and that downstream quantities (deflection, vis-viva) are corrupted by these upstream errors. The metadata reveals the center was 'Sun (code 10)' but the solver must independently deduce this is the root cause. (2) API discovery — no API URLs are provided; the solver must locate JPL's Close Approach Data API and Horizons API endpoints, discover the correct query syntax (DES= command format, field selection, ephemeris types), and handle rate limits and designation resolution ambiguities. (3) Physics computation — the solver must independently derive or recall formulas for hyperbolic excess velocity, gravitational deflection angle, vis-viva residual, and Tisserand parameter, choosing consistent reference frames and gravitational parameters."""
+solution_explanation = """Diagnose the preliminary analysis: distances ~1 AU reveal heliocentric coordinates with Sun as center instead of geocentric. Query the CAD API (https://ssd-api.jpl.nasa.gov/cad.api) with date/distance filters to find the 5 closest distinct NEO approaches in 2024. For each, query Horizons (https://ssd.jpl.nasa.gov/api/horizons.api) for heliocentric state vectors of both the NEO (DES=<designation>;) and Earth (399), then compute geocentric distance/velocity via vector subtraction. Compute v_inf from two-body energy, deflection from hyperbolic eccentricity, vis-viva residual from GM_Sun*(2/r - 1/a) vs v^2, and Tisserand parameter from osculating elements."""
+verification_explanation = """Tests independently query the CAD API to verify correct NEO designations were selected, then check cross-validation tolerances: computed distance and v_rel within 10% of CAD values, v_inf satisfies the energy equation to 5% and matches CAD within 15%, vis-viva residual under 1%, Tisserand parameter in (1,12), and deflection angle in (0,180) degrees with 5% internal consistency."""
+category = "scientific_computing"
+tags = ["orbital-mechanics", "api-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/neo-encounter-validation"

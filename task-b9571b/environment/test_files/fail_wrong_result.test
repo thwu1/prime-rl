@@ -1,0 +1,13 @@
+# This test has WRONG expected results and MUST fail
+
+statement ok
+CREATE TABLE fail_test(x INTEGER)
+
+statement ok
+INSERT INTO fail_test VALUES (42)
+
+# Wrong expected result: actual is 42, expected is 999
+query I
+SELECT x FROM fail_test
+----
+999

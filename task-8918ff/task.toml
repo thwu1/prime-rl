@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of applied cryptography across multiple primitives (AES-GCM, ECDSA, X25519), ASN.1/DER encoding subtleties, and the Wycheproof test-vector taxonomy. The agent must write a multi-algorithm test harness, diagnose distinct vulnerability classes, fix each without breaking valid-input behavior, and produce a correctly classified audit report. Understanding the security implications of each flaw demands professional cryptographic engineering knowledge."""
+solution_explanation = """The solution script analyses the buggy service, runs Wycheproof vectors to identify which test classes fail, then patches five specific code paths: (1) reject empty AES-GCM IVs instead of falling back to MD5(key), (2) remove the early-return-True for r=0/s=0 ECDSA signatures, (3) add a DER canonicality check to reject BER-encoded signatures, (4) remove r%n/s%n modular reduction and add explicit range checks, (5) reject all-zero X25519 shared secrets. The audit report maps each fix to its Wycheproof bug-type."""
+verification_explanation = """Pytest loads the full Wycheproof test-vector suites for AES-GCM, ECDSA secp256r1/SHA-256, HMAC-SHA256, X25519, and HKDF-SHA256. It verifies that all valid vectors pass, all invalid vectors are rejected, and specific vulnerability-class vectors are correctly handled. A separate test validates the audit report JSON contains all five required bug types mapped to the correct functions."""
+category = "cybersecurity"
+tags = ["cryptography", "wycheproof"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8918ff"

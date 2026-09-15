@@ -1,0 +1,5 @@
+% Excluded Diagonals Problem
+% 4x4 board with forward diagonal -1 excluded
+n=4
+D+ = {-1}
+D- = {}

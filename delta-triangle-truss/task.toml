@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing bugs across a multi-language pipeline (Rust + Python) orchestrated by Make. The solver must: (1) identify that the Makefile references the wrong binary name due to Cargo's hyphen-to-underscore naming convention for crate identifiers versus binary filenames, requiring understanding of how cargo names build artifacts; (2) read and understand Rust code using HashMap/HashSet to find an asymmetric adjacency removal bug in Graph::remove_edge where only one direction of the undirected edge is cleared from the adjacency map; (3) trace through the Rust pipeline logic to find a missing per-node triangle decrement in the deletion handler that is present in the symmetric insertion path; (4) implement k-truss decomposition in Python from its mathematical definition using heap-based support peeling. Each bug demands different tool proficiency: the Makefile/Cargo interop bug requires understanding build system naming conventions, the Rust bugs require reading and modifying compiled-language source then rebuilding with cargo, and the truss implementation requires algorithm design."""
+solution_explanation = """Fix Makefile GRAPH_ENGINE variable from graph_engine (underscore) to graph-engine (hyphen), since Cargo preserves hyphens in binary filenames even though the crate identifier uses underscores. Fix lib.rs remove_edge to also call self.adj.entry(b).or_default().remove(&a) for symmetric adjacency removal. Fix main.rs deletion handler to add 'for &w in &common { *node_tri.entry(w).or_default() -= 1; }' matching the insertion handler's loop. Implement truss decomposition using heap-based support peeling in Python."""
+verification_explanation = """Tests independently recompute all three outputs from raw CSV data: (1) triangle counts via delta queries with cross-validation against full enumeration at 5 checkpoint batches, (2) per-node triangle counts via full enumeration with consistency check (sum == 3 * total), and (3) truss decomposition via independent peeling algorithm. All comparisons use exact integer equality."""
+category = "debugging_and_systems"
+tags = ["rust_cargo", "multi_tool_pipeline", "incremental_computation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/delta-triangle-truss"

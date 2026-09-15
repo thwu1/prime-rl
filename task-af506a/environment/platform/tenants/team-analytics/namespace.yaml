@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-analytics
+  labels:
+    app.kubernetes.io/managed-by: platform-team
+    platform.example.com/tenant: team-analytics
+    platform.example.com/tier: gold
+    pod-security.kubernetes.io/enforce: baseline

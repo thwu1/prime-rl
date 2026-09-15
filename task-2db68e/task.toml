@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert macroeconomic knowledge: the solver must independently know the Taylor (1993) Rule formula and its standard coefficients, Hodrick-Prescott trend decomposition for output gap estimation, the Sahm Rule recession indicator specification and threshold, M2 velocity computation from GDP and money stock, and how to derive real rates from nominal rates and inflation. Additionally demands proficiency in data engineering: discovering that the 8 FRED CSVs span three different frequencies (daily, monthly, quarterly) with heterogeneous missing-value representations, choosing appropriate methods for frequency alignment (daily→monthly aggregation, quarterly→monthly interpolation), and handling edge cases across a 48-year analysis window."""
+solution_explanation = """Parse 8 FRED CSVs, diagnosing that DGS10/T10Y2Y are daily (requiring monthly aggregation), GDP is quarterly (requiring interpolation to monthly), and remaining series are monthly. Handle missing values encoded as empty/non-numeric strings. Compute CPI YoY inflation, ex-post real fed funds rate, Sahm Rule indicator (3-month MA of UNRATE minus trailing 12-month minimum of 3-month MAs, threshold 0.50), M2 velocity (GDP/M2 at quarterly frequency, interpolated to monthly). For Taylor Rule: deflate nominal GDP with CPI to get real GDP, apply HP filter (lambda=1600) to log real GDP for trend, compute output gap, apply standard Taylor (1993) coefficients (1 + 1.5*pi + 0.5*gap). Detect yield curve inversion episodes from monthly T10Y2Y averages. Produce structured JSON with 588 monthly entries, episode lists, trigger dates, and summary statistics."""
+verification_explanation = """Tests verify: JSON structure completeness (588 months, required fields present, no NaN values); spot-checked CPI inflation at known dates (Jan 2020 ~2.6%, Jan 2022 ~7.6%, Jan 2024 ~3.09%); real rate internal consistency (must equal fedfunds minus inflation); Sahm Rule triggers during 2008 and 2020 recessions but not 2019; Taylor gap strongly positive in early 2022 (>5.0) and narrowing by 2024; yield curve inversion episode starting 2022 with 20+ month duration and pre-1990 inversions; M2 velocity in plausible range (0.8-2.5) declining 2019→2021; summary statistics bounds and completeness."""
+category = "data-science"
+tags = ["macroeconomics", "time-series"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2db68e"

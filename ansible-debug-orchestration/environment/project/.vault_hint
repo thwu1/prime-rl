@@ -1,0 +1,2 @@
+The original vault password used to encrypt secrets.yml was: batterystaple
+This password no longer matches vault_pass.txt and needs to be reconciled.

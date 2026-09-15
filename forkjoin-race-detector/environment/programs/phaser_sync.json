@@ -1,0 +1,31 @@
+{
+    "name": "phaser_sync",
+    "phasers": [
+        {"id": "P1", "registered": {"T1": "SIG_WAIT", "T2": "SIG_WAIT"}}
+    ],
+    "body": [
+        {"op": "compute", "cost": 2, "id": "c0"},
+        {"op": "finish", "id": "F1", "body": [
+            {"op": "async", "task": "T1", "body": [
+                {"op": "compute", "cost": 5, "id": "c1"},
+                {"op": "write", "var": "x", "id": "w1"},
+                {"op": "signal", "phaser": "P1", "id": "s1"},
+                {"op": "compute", "cost": 3, "id": "c3"},
+                {"op": "wait", "phaser": "P1", "id": "wt1"},
+                {"op": "read", "var": "y", "id": "r1"},
+                {"op": "write", "var": "z", "id": "w3"}
+            ]},
+            {"op": "async", "task": "T2", "body": [
+                {"op": "compute", "cost": 4, "id": "c2"},
+                {"op": "write", "var": "y", "id": "w2"},
+                {"op": "signal", "phaser": "P1", "id": "s2"},
+                {"op": "compute", "cost": 2, "id": "c4"},
+                {"op": "wait", "phaser": "P1", "id": "wt2"},
+                {"op": "read", "var": "x", "id": "r2"},
+                {"op": "read", "var": "z", "id": "r3"}
+            ]},
+            {"op": "compute", "cost": 1, "id": "c5"}
+        ]},
+        {"op": "compute", "cost": 1, "id": "c6"}
+    ]
+}

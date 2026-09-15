@@ -1,0 +1,77 @@
+{
+  "test_cases": [
+    {
+      "name": "simple",
+      "description": "Basic 4-node network with node capacities",
+      "num_nodes": 4,
+      "source": 0,
+      "sink": 3,
+      "node_capacities": {"1": 2, "2": 3},
+      "edges": [
+        {"from": 0, "to": 1, "capacity": 3, "cost": 1},
+        {"from": 0, "to": 2, "capacity": 3, "cost": 2},
+        {"from": 1, "to": 3, "capacity": 3, "cost": 2},
+        {"from": 2, "to": 3, "capacity": 3, "cost": 1}
+      ]
+    },
+    {
+      "name": "medium",
+      "description": "6-node network with multiple parallel paths and tight node capacities",
+      "num_nodes": 6,
+      "source": 0,
+      "sink": 5,
+      "node_capacities": {"1": 4, "2": 3, "3": 3, "4": 4},
+      "edges": [
+        {"from": 0, "to": 1, "capacity": 5, "cost": 2},
+        {"from": 0, "to": 2, "capacity": 4, "cost": 3},
+        {"from": 1, "to": 3, "capacity": 3, "cost": 1},
+        {"from": 1, "to": 4, "capacity": 3, "cost": 4},
+        {"from": 2, "to": 3, "capacity": 2, "cost": 2},
+        {"from": 2, "to": 4, "capacity": 3, "cost": 1},
+        {"from": 3, "to": 5, "capacity": 5, "cost": 3},
+        {"from": 4, "to": 5, "capacity": 5, "cost": 2}
+      ]
+    },
+    {
+      "name": "reroute",
+      "description": "4-node network requiring flow rerouting through reverse edges for optimality",
+      "num_nodes": 4,
+      "source": 0,
+      "sink": 3,
+      "node_capacities": {"1": 3, "2": 3},
+      "edges": [
+        {"from": 0, "to": 1, "capacity": 3, "cost": 1},
+        {"from": 0, "to": 2, "capacity": 3, "cost": 5},
+        {"from": 1, "to": 2, "capacity": 2, "cost": 1},
+        {"from": 1, "to": 3, "capacity": 2, "cost": 10},
+        {"from": 2, "to": 3, "capacity": 4, "cost": 1}
+      ]
+    },
+    {
+      "name": "supply_chain",
+      "description": "10-node logistics network with tight node capacities across all intermediate hubs",
+      "num_nodes": 10,
+      "source": 0,
+      "sink": 9,
+      "node_capacities": {"4": 6, "5": 8, "6": 5, "7": 9, "8": 8},
+      "edges": [
+        {"from": 0, "to": 1, "capacity": 10, "cost": 2},
+        {"from": 0, "to": 2, "capacity": 8, "cost": 3},
+        {"from": 0, "to": 3, "capacity": 6, "cost": 1},
+        {"from": 1, "to": 4, "capacity": 5, "cost": 4},
+        {"from": 1, "to": 5, "capacity": 7, "cost": 1},
+        {"from": 2, "to": 4, "capacity": 4, "cost": 2},
+        {"from": 2, "to": 5, "capacity": 3, "cost": 5},
+        {"from": 2, "to": 6, "capacity": 5, "cost": 1},
+        {"from": 3, "to": 5, "capacity": 4, "cost": 3},
+        {"from": 3, "to": 6, "capacity": 6, "cost": 2},
+        {"from": 4, "to": 7, "capacity": 8, "cost": 3},
+        {"from": 5, "to": 7, "capacity": 6, "cost": 2},
+        {"from": 5, "to": 8, "capacity": 5, "cost": 1},
+        {"from": 6, "to": 8, "capacity": 7, "cost": 4},
+        {"from": 7, "to": 9, "capacity": 10, "cost": 1},
+        {"from": 8, "to": 9, "capacity": 10, "cost": 2}
+      ]
+    }
+  ]
+}

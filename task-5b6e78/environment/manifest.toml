@@ -1,0 +1,38 @@
+[[curves]]
+name = "bls12_standard"
+family = "BLS12"
+k = 12
+claimed_security_bits = 128
+params_gp = "params/bls12_standard.gp"
+
+[[curves]]
+name = "bls12_overclaim"
+family = "BLS12"
+k = 12
+claimed_security_bits = 192
+params_gp = "params/bls12_overclaim.gp"
+
+[[curves]]
+name = "bls12_corrupted"
+family = "BLS12"
+k = 12
+claimed_security_bits = 128
+u_hex = "-0xd201000000010000"
+p_hex_file = "params/bls12_corrupted_p.hex"
+r_hex_file = "params/bls12_corrupted_r.hex"
+
+[[curves]]
+name = "bn_small"
+family = "BN"
+k = 12
+claimed_security_bits = 3
+params_gp = "params/bn_small.gp"
+
+[[curves]]
+name = "bn_invalid"
+family = "BN"
+k = 12
+claimed_security_bits = 3
+u_hex = "0x1"
+p_hex = "0x6b"
+r_hex = "0x61"

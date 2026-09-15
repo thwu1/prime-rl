@@ -1,0 +1,8 @@
+{
+    "challenge_id": "zeta",
+    "problem_description": "Derive the transition probability for a two-level quantum system under resonant Rabi driving. Express the excitation probability as a function of the dimensionless time parameter tau.",
+    "answer_code": "import sympy as sp\n\ntau = sp.symbols('tau')\n\ndef answer(tau):\n    \"\"\"Transition probability for resonant Rabi oscillation.\"\"\"\n    return sp.sin(tau / 2)**2",
+    "comparison_mode": "symbolic",
+    "testcases": null,
+    "tolerance": null
+}

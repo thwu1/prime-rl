@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across numerical methods, fluid dynamics, and HPC I/O systems. No algorithms or formulas are provided — the agent must independently determine correct spatial resampling (corner-aligned bilinear for vertex-centered integer-index grids), temporal alignment strategy (linear interpolation with boundary clamping across three sensors with mismatched sampling rates), derived quantity computation (2D vorticity via finite differences, kinetic energy, speed from velocity components), and data quality analysis. The agent must discover a sensor artifact by examining raw temperature measurements, understand how it propagates through temporal processing to affect multiple output timesteps, and implement anomaly detection using calibration thresholds embedded solely in sensor metadata attributes. Requires deep familiarity with ADIOS2's step-based I/O model, hierarchical variable naming, and attribute system to read heterogeneous sensor data and produce a standards-compliant BP5 output."""
+solution_explanation = """Read three sensor BP5 files using ADIOS2 FileReader to discover grid dimensions, time vectors, and field data. Velocity (64x48, 8 steps, dt=0.1) passes through directly. Temperature (32x24, 4 steps, dt=0.2) and pressure (16x12, 6 steps, dt=0.125) require linear temporal interpolation with boundary clamping to align to velocity timebase, then corner-aligned bilinear spatial upsampling to 64x48 using xs=it*(Sx-1)/(Tx-1). Compute vorticity via numpy.gradient on velocity (dUy/dx - dUx/dy), kinetic energy as 0.5*(Ux^2+Uy^2), speed as sqrt(Ux^2+Uy^2). Read anomaly_threshold=400.0 from temperature sensor metadata. The +500K spike at thermal source step 2 (t=0.4) propagates to fused steps 3,4,5 through temporal interpolation. Write fused.bp with hierarchical ADIOS2 naming, proper attributes, and physical_time scalar per step. Generate fusion_report.json with per-step statistics."""
+verification_explanation = """Tests independently compute reference fields using analytical formulas matching sensor data generation. Verification covers: BP5 structure markers (mmd.0, md.idx); 8 variables as doubles with [64,48] shape across 8 steps; velocity passthrough exact match at steps 0,3,4,7; temperature interpolation at clean steps (0,1), anomalous step (4), and clamped step (7) to catch wrong interpolation method, missing clamping, or incorrect coordinate mapping; pressure interpolation at multiple steps; derived vorticity/KE/speed match independently computed references; unit and grid attributes present; physical_time values correct; fusion report anomalous_steps equals [3,4,5]; per-step max_speed, mean_temperature, mean_pressure match within tolerance; anomaly flags correct per step."""
+category = "systems-engineering"
+tags = ["hpc-io", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7042e6"

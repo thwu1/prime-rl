@@ -1,0 +1,196 @@
+[
+  {
+    "selector": "html",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 0
+  },
+  {
+    "selector": "body",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false},
+      {"property": "margin", "value": "8px", "important": false},
+      {"property": "color", "value": "black", "important": false},
+      {"property": "font-size", "value": "16px", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 1
+  },
+  {
+    "selector": "div",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 2
+  },
+  {
+    "selector": "h1",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false},
+      {"property": "font-size", "value": "32px", "important": false},
+      {"property": "font-weight", "value": "bold", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 3
+  },
+  {
+    "selector": "p",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 4
+  },
+  {
+    "selector": "a",
+    "declarations": [
+      {"property": "color", "value": "blue", "important": false},
+      {"property": "text-decoration", "value": "underline", "important": false},
+      {"property": "display", "value": "inline", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 5
+  },
+  {
+    "selector": "footer",
+    "declarations": [
+      {"property": "display", "value": "block", "important": false}
+    ],
+    "origin": "user-agent",
+    "source_order": 6
+  },
+
+  {
+    "selector": "body",
+    "declarations": [
+      {"property": "font-family", "value": "sans-serif", "important": false},
+      {"property": "color", "value": "#333", "important": false},
+      {"property": "line-height", "value": "1.5", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 0
+  },
+  {
+    "selector": ".wrapper",
+    "declarations": [
+      {"property": "margin", "value": "0 auto", "important": false},
+      {"property": "width", "value": "960px", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 1
+  },
+  {
+    "selector": "#main",
+    "declarations": [
+      {"property": "padding", "value": "20px", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 2
+  },
+  {
+    "selector": "h1.title",
+    "declarations": [
+      {"property": "color", "value": "navy", "important": false},
+      {"property": "font-size", "value": "36px", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 3
+  },
+  {
+    "selector": ".intro",
+    "declarations": [
+      {"property": "font-size", "value": "18px", "important": false},
+      {"property": "color", "value": "#666", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 4
+  },
+  {
+    "selector": ".content p",
+    "declarations": [
+      {"property": "line-height", "value": "1.8", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 5
+  },
+  {
+    "selector": ".content > p.highlight",
+    "declarations": [
+      {"property": "background-color", "value": "yellow", "important": true},
+      {"property": "font-weight", "value": "bold", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 6
+  },
+  {
+    "selector": "a[data-external=\"true\"]",
+    "declarations": [
+      {"property": "color", "value": "red", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 7
+  },
+  {
+    "selector": "#footer",
+    "declarations": [
+      {"property": "background-color", "value": "#333", "important": false},
+      {"property": "color", "value": "white", "important": false},
+      {"property": "text-align", "value": "center", "important": false},
+      {"property": "padding", "value": "10px 20px 30px", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 8
+  },
+  {
+    "selector": ".small",
+    "declarations": [
+      {"property": "font-size", "value": "12px", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 9
+  },
+  {
+    "selector": ".intro, .small",
+    "declarations": [
+      {"property": "text-decoration", "value": "underline", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 10
+  },
+  {
+    "selector": "a",
+    "declarations": [
+      {"property": "color", "value": "green", "important": false}
+    ],
+    "origin": "author",
+    "source_order": 11
+  },
+
+  {
+    "selector": "body",
+    "declarations": [
+      {"property": "font-size", "value": "20px", "important": true}
+    ],
+    "origin": "user",
+    "source_order": 0
+  },
+  {
+    "selector": "p.highlight",
+    "declarations": [
+      {"property": "background-color", "value": "lime", "important": true}
+    ],
+    "origin": "user",
+    "source_order": 1
+  },
+  {
+    "selector": "#footer p",
+    "declarations": [
+      {"property": "color", "value": "initial", "important": false}
+    ],
+    "origin": "user",
+    "source_order": 2
+  }
+]

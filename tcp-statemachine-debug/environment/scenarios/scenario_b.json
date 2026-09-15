@@ -1,0 +1,14 @@
+{
+    "name": "wan",
+    "description": "Moderate-latency WAN with periodic congestion loss",
+    "base_rtt": 0.050,
+    "rtt_jitter": 0.010,
+    "num_acks": 150,
+    "loss_pattern": {
+        "dup_ack_sets": [30, 70, 110],
+        "timeouts": [50, 130]
+    },
+    "targets": {
+        "min_avg_cwnd": 3000
+    }
+}

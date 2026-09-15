@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level applied cryptography AND multi-tool security audit proficiency. The solver must: (1) use openssl s_client/x509 to probe the HTTPS service on port 5003 and extract its TLS certificate fingerprint, (2) chain openssl enc -d to decrypt the previous assessor's notes using the fingerprint as passphrase, (3) use xxd to inspect raw binary ciphertext from port 5001's non-HTTP binary response format, (4) use curl with --cacert or -k flags for HTTPS interaction with port 5003, (5) perform differential error-response profiling across services with different interfaces (raw binary, HTTP/JSON, HTTPS/JSON) to identify AES modes, (6) design and implement mode-specific bit-flipping exploits for CTR fixed-nonce and CBC without-MAC services, and (7) correctly classify AES-GCM as non-exploitable authenticated encryption. The multi-tool interoperability (openssl x509 → openssl enc, xxd for binary analysis, curl with TLS options, nmap for reconnaissance) combined with the cryptographic exploitation chain goes well beyond textbook application."""
+solution_explanation = """First, extract the TLS cert fingerprint: openssl x509 -in /app/certs/server.crt -fingerprint -sha256 -noout, strip colons. Use this to decrypt analyst notes: openssl enc -d -aes-256-cbc -pbkdf2 -in /app/analyst_notes.enc -pass pass:FINGERPRINT. Notes reveal token format v2|<role>|<user>|<nonce>|<ts> with 'basic' at byte offset 3. Collect tokens: port 5001 returns 42-byte raw binary (stream cipher, no overhead), port 5002 returns 64-byte hex-encoded (16 IV + 48 padded → CBC), port 5003 returns 70-byte hex-encoded over HTTPS (12 nonce + 42 ct + 16 tag → GCM). Confirm via error profiling: port 5001 returns 403 for most modifications (stream cipher), port 5002 returns 500 for padding corruption (CBC padding oracle), port 5003 returns 400 for any tampering (authenticated encryption). Exploit CTR (port 5001): XOR raw ciphertext bytes 3-7 with delta('basic','admin'), submit as raw binary. Exploit CBC (port 5002): XOR IV bytes 3-7 with same delta, submit as hex JSON. Port 5003 (GCM): classified as non-exploitable."""
+verification_explanation = """Tests verify: (1) audit.json exists with correct structure for all three ports, (2) flags for exploitable services match SHA256 hashes written at startup to /var/run/svc/, (3) cipher_mode correctness verified via HMAC(flag, mode) comparison against stored MACs, (4) non-exploitable service classified with exploitable=false and authenticated encryption mode, (5) exactly 2 exploitable and 1 secure service, (6) services still running (including HTTPS health check)."""
+category = "security"
+tags = ["cryptography", "multi-tool-exploitation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cbc-token-forgery"

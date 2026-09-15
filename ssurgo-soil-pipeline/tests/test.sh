@@ -1,0 +1,17 @@
+#!/bin/bash
+
+pip3 install pytest==8.3.4 pytest-timeout==2.3.1 requests==2.32.3 -q
+
+cd /app
+
+pytest /tests/test_state.py -v --timeout=600 2>&1
+EXIT_CODE=$?
+
+mkdir -p /logs/verifier
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "1.0" > /logs/verifier/reward.txt
+else
+    echo "0.0" > /logs/verifier/reward.txt
+fi
+
+exit $EXIT_CODE

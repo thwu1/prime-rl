@@ -1,0 +1,94 @@
+{
+  "resourceType": "Patient",
+  "id": "patient-001",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">John Michael Smith, Male, DOB: 1985-06-15</div>"
+  },
+  "identifier": [
+    {
+      "use": "usual",
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MR"
+          }
+        ]
+      },
+      "system": "http://hospital.example.org/mrn",
+      "value": "MRN-78234",
+      "period": {
+        "start": "2010-03-15"
+      }
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Smith",
+      "given": [
+        "John",
+        "Michael"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "555-867-5309",
+      "use": "home"
+    },
+    {
+      "system": "email",
+      "value": "john.smith@example.com",
+      "use": "work"
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1985-06-15",
+  "address": [
+    {
+      "use": "home",
+      "type": "physical",
+      "line": [
+        "123 Oak Street",
+        "Apt 4B"
+      ],
+      "city": "Bellevue",
+      "state": "WA",
+      "postalCode": "98004",
+      "country": "US"
+    }
+  ],
+  "contact": [
+    {
+      "relationship": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+              "code": "N"
+            }
+          ]
+        }
+      ],
+      "name": {
+        "family": "Smith",
+        "given": [
+          "Jane"
+        ]
+      },
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-867-5310"
+        }
+      ]
+    }
+  ],
+  "managingOrganization": {
+    "reference": "Organization/org-001"
+  }
+}

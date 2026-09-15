@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reverse engineering of a stripped binary implementing a custom binary protocol with multiple deliberately undocumented behaviors. The agent must: (1) identify and reverse-engineer a Galois LFSR-based keystream generator used for payload scrambling on secure channels — the spec mentions a "seeded bitwise recurrence relation" but omits the algorithm entirely, forcing disassembly to extract the LFSR polynomial constant (0xB4BCD35C), the right-shift Galois structure, the seed derivation from the sequence number, and the zero-seed fallback value (0xACE1) — simple XOR or brute-force I/O matching cannot discover this, (2) discover stateful per-channel sequence tracking that produces gap warnings when DATA packets arrive with non-contiguous sequence numbers — this behavior only manifests when processing multiple packets on the same channel and is absent from the filter command, requiring the agent to understand that the tool maintains cross-packet state, (3) reverse-engineer undocumented fragment reassembly conflict resolution where fragments of the same message disagree on total count — the binary uses the maximum and emits a warning, (4) correctly implement CRC-16/CCITT with the ambiguously-specified computation scope, (5) handle all error recovery edge cases (magic-byte scanning, truncation, CRC mismatches, malformed payloads), and (6) match exact output formatting across 5 subcommands with 6+ message types. The LFSR discovery alone requires proficient disassembly skills: identifying a shift-mask-XOR loop in stripped x86-64 code, extracting a 32-bit constant from immediate operands, and understanding the polynomial feedback structure."""
+solution_explanation = """Use objdump -d to disassemble the binary and locate the scramble function by searching for XOR instructions near shift-right patterns. Identify the Galois LFSR loop: a right shift, AND with 1 to extract LSB, conditional XOR with 0xB4BCD35C, and XOR of the low byte with data. Find the zero-seed check (compare with 0, conditional move of 0xACE1). Use gdb with breakpoints to verify LFSR state transitions. Test decode with multiple DATA packets on the same channel to discover gap warnings. Test reassemble with fragments having mismatched total counts to discover conflict warnings. Implement a Python CLI replicating all 5 subcommands including LFSR descrambling, stateful gap detection, and conflict-aware reassembly."""
+verification_explanation = """47 pytest tests generate binary MLP packets and run the agent's /app/pktool against them, checking: all 6 message types decode correctly, CRC validation with correct byte scope, truncation and invalid-magic recovery, LFSR-descrambled DATA decoding on secure channels including zero-seed edge case and long payloads, per-channel sequence gap detection (gaps reported, contiguous not flagged, per-channel independence, not present in filter), fragment reassembly (complete with correct hex, incomplete with missing indices, out-of-order, duplicates, multiple messages, no-fragments case, conflicting totals with warning, consistent totals without warning), statistics including scrambled-packet counting, filter with channel matching for scrambled channels, and anti-copy verification."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "protocol-reverse-engineering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rebuild-protocol-tool"

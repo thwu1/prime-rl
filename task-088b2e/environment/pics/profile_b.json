@@ -1,0 +1,15 @@
+{
+  "profile_name": "Full SIP UA / Diameter AF",
+  "capabilities": {
+    "PICS_SIP_REG": true,
+    "PICS_UA": true,
+    "PICS_AUTH": true,
+    "PICS_DEREG": true,
+    "PICS_ADMIN_DEREG": true,
+    "PICS_MULTI_UA": true,
+    "PICS_DIA_RX": true,
+    "PICS_MEDIA_COMP": true,
+    "PICS_SESSION_TERM": true,
+    "PICS_LEGACY_MODE": true
+  }
+}

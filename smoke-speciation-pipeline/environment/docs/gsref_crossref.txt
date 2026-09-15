@@ -1,0 +1,62 @@
+GSREF: Speciation Cross-Reference File
+(From SMOKE v5.3 Documentation, Chapter 6)
+
+The GSREF assigns speciation profiles to emission sources. Format is
+semicolon-delimited with the following columns:
+
+  Column  Field           Type       Description
+  ------------------------------------------------------------------
+  A       SCC             Char(10)   Source Classification Code.
+                                     Set to 0000000000 if not SCC-specific.
+
+  B       PROFILE_CODE    Char(10)   Speciation profile code (required).
+                                     Must match codes in the GSPRO file.
+                                     Character field; leading zeros matter.
+
+  C       POLLUTANT       Char(16)   Pollutant name (required).
+                                     Must match inventory pollutant names.
+                                     Set to 0 if not pollutant-dependent.
+
+  D       FIPS            Char(6)    Country/State/County FIPS (optional).
+                                     Format: YSSCCC
+                                       Y   = country digit
+                                       SS  = 2-digit state FIPS
+                                       CCC = 3-digit county FIPS
+                                     Country digits: 0 = US, 1 = Canada,
+                                     2 = Mexico.
+                                     Leave blank if not location-specific.
+                                     YSS000 = state-level assignment.
+                                     YSSCCC = county-level assignment.
+
+  E       MACT            Char(6)    MACT code (optional; 0 if unused)
+  F       SIC             Char(20)   SIC code (optional; 0 if unused)
+
+Comment lines beginning with '#' are ignored.
+
+MATCHING PRECEDENCE:
+
+SMOKE resolves cross-reference assignments using a specificity-based hierarchy.
+The most-specific match always overrides less-specific ones.
+
+Specificity is determined along three independent dimensions:
+
+  1. Source specificity:
+     Entries with a specific SCC are more specific than entries with
+     SCC = 0000000000 (the "any SCC" wildcard).
+
+  2. Geographic specificity:
+     County-level FIPS (YSSCCC) > State-level FIPS (YSS000) > No FIPS (blank).
+
+  3. Pollutant specificity:
+     Entries for a named pollutant are more specific than entries with
+     pollutant = 0 (the "any pollutant" wildcard).
+
+Resolution rules:
+  - All pollutant-specific assignments (pollutant != 0) take precedence over
+    all non-pollutant-specific assignments (pollutant = 0), regardless of the
+    source or geographic specificity of the non-pollutant-specific entry.
+  - Within the pollutant-specific group, matches are attempted from the most
+    specific SCC+geographic combination to the least specific.
+  - If no pollutant-specific match is found, non-pollutant-specific entries
+    are searched in the same most-to-least-specific order of SCC and
+    geographic dimensions.

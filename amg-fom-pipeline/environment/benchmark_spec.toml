@@ -1,0 +1,34 @@
+# CORAL-2 Benchmark FOM Specification
+# This file defines the FOM formulas, anomaly detection rules,
+# and reference system for the benchmark analysis pipeline.
+
+[general]
+reference_system = "system_A"
+systems = ["system_A", "system_B", "system_C", "system_D"]
+
+[benchmarks.amg]
+description = "Algebraic Multigrid Solver"
+fom_formula = "nnz * iterations / solve_time"
+fom_fields = ["nnz", "iterations", "solve_time"]
+log_file = "amg.log"
+
+[benchmarks.amg.anomaly_rules]
+convergence_stall = { field = "convergence_factor", threshold = 0.9, condition = "greater_than" }
+
+[benchmarks.kripke]
+description = "Deterministic Transport Sweep"
+fom_formula = "zones * directions * groups * iterations / solve_time"
+fom_fields = ["zones", "directions", "groups", "iterations", "solve_time"]
+log_file = "kripke.log"
+
+[benchmarks.kripke.anomaly_rules]
+particle_count_mismatch = { check = "reported_particle_count != zones * particles_per_zone" }
+
+[benchmarks.stream]
+description = "Memory Bandwidth Benchmark"
+fom_formula = "triad_bandwidth"
+fom_fields = ["triad_bandwidth"]
+log_file = "stream.log"
+
+[benchmarks.stream.anomaly_rules]
+suspicious_bandwidth = { check = "triad_bandwidth / theoretical_peak > 0.95" }

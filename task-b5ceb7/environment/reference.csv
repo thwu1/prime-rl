@@ -1,0 +1,7 @@
+kernel,wavefronts,total_conflicts,conflict_free
+sequential,1,0,true
+column_major,32,31,false
+padded_column,1,0,true
+stride_7,1,0,true
+broadcast_groups,2,5,false
+quadratic_scatter,2,3,false

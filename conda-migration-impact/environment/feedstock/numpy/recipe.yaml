@@ -1,0 +1,42 @@
+context:
+  name: numpy
+  version: "1.26.4"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/numpy/numpy/releases/download/v${{ version }}/numpy-${{ version }}.tar.gz
+  sha256: 2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_compatible('numpy', max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - cmake
+    - ninja
+    - pkg-config
+    - cython
+  host:
+    - openblas
+    - python
+  run:
+    - python
+
+test:
+  commands:
+    - python -c "import numpy; print(numpy.__version__)"
+    - python -c "import numpy; numpy.show_config()"
+
+about:
+  homepage: https://numpy.org
+  license: BSD-3-Clause
+  license_file: LICENSE.txt
+  summary: Fundamental package for array computing in Python

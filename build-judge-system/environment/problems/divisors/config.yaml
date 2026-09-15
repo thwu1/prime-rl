@@ -1,0 +1,12 @@
+name: divisors
+scoring: partial
+time_limit: 5
+memory_limit: 256
+checker: exact
+subtasks:
+  - name: small
+    points: 50
+    testcases: [1, 2]
+  - name: large
+    points: 50
+    testcases: [3, 4]

@@ -1,0 +1,12 @@
+A C-CDA R2.1 vocabulary validation pipeline at `/app/` produces incorrect conformance results. The pipeline consists of:
+
+- `/app/validator.py` — Python validation engine that evaluates ONC-style XPath vocabulary rules against a clinical document and writes a conformance report to `/app/report.json`
+- `/app/validation_rules.xml` — XPath-based validation rule configuration referencing value set OIDs, validator types (ValueSetCodeValidator, UnitValidator, CodeSystemCodeValidator), HL7 conformance severity levels (SHALL/SHOULD/MAY), and coded element binding type annotations
+- `/app/valuesets.json` — Value set definitions mapping OIDs to code sets, with hierarchical composition via `includes` references and code system provenance metadata
+- `/app/patient_record.xml` — C-CDA R2.1 CCD document with standard (urn:hl7-org:v3) and extension (urn:hl7-org:sdtc) namespace elements
+
+## Objectives
+
+1. **Audit and fix the validator**: Identify and correct all defects in `/app/validator.py` so that `python3 /app/validator.py` produces a correct conformance report at `/app/report.json`. The report must be a JSON object with fields `total_rules`, `total_violations`, `shall_violations`, `should_violations`, and `violations` (an array of objects each with `rule_id`, `severity`, `actual_code`, `valueset_oid`). The validator must correctly implement all vocabulary validation semantics encoded in the rule configuration and value set definitions — including namespace resolution, expression section loading, value set composition, validator type distinctions, and coded element binding behaviors. No expected output is provided; correct behavior must be derived from the HL7 standards encoded in the configuration files and the clinical document.
+
+2. **Produce a remediated clinical document**: Write `/app/remediated_record.xml` — a corrected copy of the patient record where vocabulary violations are addressed according to HL7 conformance binding strength semantics. The remediation strategy must respect the distinction between mandatory (SHALL) and recommended (SHOULD) conformance levels, and must correctly distinguish between non-extensible (CNE) and extensible (CWE) coded element bindings — elements conformant under CWE binding semantics must not be altered. The remediated document must preserve XML structure, namespaces, and all conformant element attributes.

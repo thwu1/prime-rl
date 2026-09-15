@@ -1,0 +1,29 @@
+{
+  "initial_hp": 400,
+  "max_energy": 300,
+  "info_delay_frames": 15,
+  "rounds_per_game": 3,
+  "round_time_limit_frames": 3600,
+  "stage_width": 960,
+  "character": "ZEN",
+  "combo_scaling_factor": 0.8,
+  "standard_league": {
+    "type": "round_robin",
+    "competitors": ["AlphaStrike", "GuardBot", "ComboKing", "Rushdown"],
+    "games_per_pair": 2,
+    "match_prefix": "STD"
+  },
+  "speedrunning_league": {
+    "type": "speedrun",
+    "competitors": ["AlphaStrike", "GuardBot", "ComboKing", "Rushdown"],
+    "baseline_ai": "MctsBot",
+    "games_per_direction": 1,
+    "penalty_frames": 4200,
+    "match_prefix": "SPD"
+  },
+  "f1_scoring": {
+    "name": "F1 2010",
+    "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+  },
+  "tiebreaker": "total_remaining_hp"
+}

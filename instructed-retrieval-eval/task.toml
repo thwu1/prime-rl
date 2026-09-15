@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level IR evaluation knowledge: understanding how pytrec_eval-terrier's measure naming conventions (ndcg_cut_5, map_cut_10, P_5, recip_rank) map to standard IR metrics, recognizing that trec_eval's recip_rank has no built-in cutoff so MRR@k requires explicit run truncation before evaluation, diagnosing subtle bugs in BM25 scoring (Okapi saturation formula vs log-TF), nDCG gain function (exponential 2^rel-1 vs linear), and identifying missing evaluation components. The solver must integrate pytrec_eval-terrier (C-based NIST TREC evaluation library with non-obvious dict-of-dicts Python API requiring C compilation) and scipy (for Kendall's tau rank correlation analysis between system rankings induced by different metrics), converting between heterogeneous data formats (JSONL, TREC runs, pytrec dicts). Understanding rank correlation between IR metrics requires holistic grasp of what each metric measures and how system rankings may diverge across evaluation criteria."""
+solution_explanation = """The solver reads /app/config.json to understand required tools, metrics, and output schema. They explore /app/data/ for multi-domain data formats and examine the buggy /app/evaluate.py. They install pytrec_eval-terrier (requiring C compilation via build-essential) and scipy. They implement proper Okapi BM25 with correct IDF formula log((N-df+0.5)/(df+0.5)+1) and saturation tf*(k1+1)/(tf+k1*(1-b+b*dl/avgdl)). They compute all metrics via pytrec_eval's RelevanceEvaluator with correct measure names, handle MRR@10 by truncating runs to top-10 before computing recip_rank. They implement paired permutation tests for significance and compute Kendall's tau rank correlation using scipy.stats.kendalltau. Final output includes per-task metrics, macro-averaged aggregates, significance tests, rank correlations with system rankings, and tool metadata."""
+verification_explanation = """Tests verify at multiple levels: (1) output structure completeness against config schema including new rank_correlation section, (2) metric values match independent pytrec_eval-terrier computation run in the test fixture — the test installs pytrec_eval, loads the same qrels and runs, computes metrics independently, and verifies exact agreement, (3) metric values also match hand-coded reference implementations of nDCG/MAP/MRR/recall/precision, (4) Kendall's tau rank correlations independently verified via scipy.stats.kendalltau in the test, (5) system rankings in rank_correlation verified to be correctly sorted, (6) BM25 retrieval quality exceeds minimum thresholds, (7) significance test p-values valid and consistent with flags, (8) aggregate metrics equal macro-averages."""
+category = "data_science"
+tags = ["information-retrieval", "evaluation-tooling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/instructed-retrieval-eval"

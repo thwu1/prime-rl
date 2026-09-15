@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the NF4 quantization format from 16 published codebook values. The solver must: (1) recognize values as normalized Gaussian quantiles, (2) discover the asymmetric construction (N/2-1 negative + zero + N/2 positive), (3) find the undocumented parameter α = 929/960 via numerical optimization, (4) implement a general NFn constructor for arbitrary bit widths, and (5) implement block-wise absmax quantization with MSE computation. The QLoRA paper's description is ambiguous and does not directly yield the published values, making this a genuine reverse-engineering challenge requiring probability theory, numerical methods, and quantization domain knowledge."""
+solution_explanation = """The NF4 values are Gaussian quantile values normalized by Q(α) where Q is the standard normal PPF. The asymmetric construction uses δ_neg = (α-0.5)/(N/2-1) for negative values and δ_pos = (α-0.5)/(N/2) for positive values, with α = 929/960 discovered by optimization against the published values. The solution extends this to NF6/NF8 by generalizing N, implements block-wise absmax quantization, and compares NF vs uniform quantization error on Gaussian data."""
+verification_explanation = """Tests verify: (1) α = 929/960 exact fraction, (2) reproduced NF4 matches published values within 1e-6, (3) construction function produces correct NF4 and generalizes to NF3/NF5, (4) construction adapts to different α values (anti-hardcoding), (5) NF6/NF8 structural properties (length, monotonicity, endpoints, zero position), (6) NF8 matches independent computation via the construction function, (7) quantization errors are positive, NF beats uniform, and more bits reduce error."""
+category = "numerical_methods"
+tags = ["quantization", "reverse_engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-307574"

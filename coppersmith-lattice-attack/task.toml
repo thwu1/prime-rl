@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three distinct variants of Coppersmith's lattice-based RSA attacks: (1) partial factoring with known high bits of a prime factor via LLL on a Howgrave-Graham-style lattice, (2) stereotyped message recovery exploiting small public exponent e=3 with a known message prefix, and (3) Hastad's broadcast attack with affine padding requiring CRT on polynomial coefficients followed by small-root extraction. Each attack demands constructing the correct lattice basis matrix with proper scaling, running the LLL algorithm, interpreting reduced basis vectors as polynomials, and finding integer roots. The solver must understand the mathematical theory behind Coppersmith's theorem and its bounds, implement non-trivial polynomial arithmetic, and correctly handle large integer arithmetic across modular and integer polynomial rings."""
+solution_explanation = """Pure Python using only the standard library (fractions.Fraction for exact LLL arithmetic). Implements a Fraction-based LLL algorithm that recomputes Gram-Schmidt orthogonalization exactly, avoiding the numerical instability of integer-only LLL with large entries. Part 1: construct a 3x3 lattice from {N, f(xX), x*f(xX)} where f(x)=x+p_high, apply LLL, extract degree-2 polynomial from short vectors, find integer root r, recover p=p_high+r. Part 2: form 4x4 Coppersmith lattice for f(x)=(a+x)^3-c with shifts by N, apply LLL, find integer root giving the unknown suffix. Part 3: CRT on polynomial coefficients from three instances, then 4x4 Coppersmith lattice to find the small 300-bit root m."""
+verification_explanation = """Tests read /app/answer.json and /app/challenge/challenge.json. Part 1 is verified by checking p*q == N with both factors > 1 and both prime (deterministic Miller-Rabin). Part 2 is verified by encoding (prefix+suffix) in base-35, cubing modulo N, and comparing to the ciphertext. Part 3 is verified by checking (m+b_i)^3 mod N_i == c_i for all three instances. No answer key is embedded — all verification is property-based."""
+category = "cryptography"
+tags = ["lattice-reduction", "rsa-attack"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coppersmith-lattice-attack"

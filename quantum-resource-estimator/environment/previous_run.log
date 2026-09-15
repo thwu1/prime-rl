@@ -1,0 +1,93 @@
+=== Quantum Resource Estimation Pipeline - Run Log ===
+Timestamp: 2025-06-01T14:23:17Z
+Hardware: superconducting_v2 (p=0.001, p_th=0.01, t_cycle=1.0us)
+Library: /app/src/libqec.so (compilation failed, used fallback Python impl)
+
+--- Algorithm: small_qpe ---
+Parameters: n=10, T_base=10000, D=500, R=200, delta=1e-06
+T_synth per rotation: 60
+Total T-count: 22000
+Error budget: eps_mem=0.003333, eps_dist=0.003333
+
+Code distance search (via C library logical_error_rate):
+  d=3:  p_L=1.000e-02, p_L*n*D=5.000e+01  FAIL
+  d=5:  p_L=1.000e-03, p_L*n*D=5.000e+00  FAIL
+  d=7:  p_L=1.000e-04, p_L*n*D=5.000e-01  FAIL
+  d=9:  p_L=1.000e-05, p_L*n*D=5.000e-02  FAIL
+  d=11: p_L=1.000e-06, p_L*n*D=5.000e-03  FAIL
+  d=13: p_L=1.000e-07, p_L*n*D=5.000e-04  PASS
+Selected code distance: d=13
+
+Distillation search (15-to-1 protocol only):
+  k=1: p_T=3.500e-05, p_T*T=7.700e-01  FAIL
+  k=2: p_T=1.501e-12, p_T*T=3.301e-08  PASS
+Selected distillation level: k=2
+
+Factory count (15-to-1): F=220
+Data qubits: 5070
+Factory qubits: 59280
+Total physical qubits: 64350
+Execution time: 6500.0 us
+
+--- Algorithm: medium_chem ---
+Parameters: n=100, T_base=10000000, D=10000, R=5000, delta=1e-10
+T_synth per rotation: 100
+Total T-count: 10500000
+Error budget: eps_mem=0.003333, eps_dist=0.003333
+
+Code distance search (via C library logical_error_rate):
+  d=3:  p_L=1.000e-02, p_L*n*D=1.000e+04  FAIL
+  d=5:  p_L=1.000e-03, p_L*n*D=1.000e+03  FAIL
+  d=7:  p_L=1.000e-04, p_L*n*D=1.000e+02  FAIL
+  d=9:  p_L=1.000e-05, p_L*n*D=1.000e+01  FAIL
+  d=11: p_L=1.000e-06, p_L*n*D=1.000e+00  FAIL
+  d=13: p_L=1.000e-07, p_L*n*D=1.000e-01  FAIL
+  d=15: p_L=1.000e-08, p_L*n*D=1.000e-02  FAIL
+  d=17: p_L=1.000e-09, p_L*n*D=1.000e-03  PASS
+Selected code distance: d=17
+
+Distillation search (15-to-1 protocol only):
+  k=1: p_T=3.500e-05, p_T*T=3.675e+02  FAIL
+  k=2: p_T=1.501e-12, p_T*T=1.576e-05  PASS
+Selected distillation level: k=2
+
+Factory count (15-to-1): F=10500
+Data qubits: 86700
+Factory qubits: 96768000
+Total physical qubits: 96854700
+Execution time: 170000.0 us
+
+--- Algorithm: large_factoring ---
+Parameters: n=2000, T_base=1000000000, D=100000, R=0, delta=0
+No rotation synthesis needed
+Total T-count: 1000000000
+Error budget: eps_mem=0.003333, eps_dist=0.003333
+
+Code distance search (via C library logical_error_rate):
+  d=3:  p_L=1.000e-02, p_L*n*D=2.000e+06  FAIL
+  d=5:  p_L=1.000e-03, p_L*n*D=2.000e+05  FAIL
+  d=7:  p_L=1.000e-04, p_L*n*D=2.000e+04  FAIL
+  d=9:  p_L=1.000e-05, p_L*n*D=2.000e+03  FAIL
+  d=11: p_L=1.000e-06, p_L*n*D=2.000e+02  FAIL
+  d=13: p_L=1.000e-07, p_L*n*D=2.000e+01  FAIL
+  d=15: p_L=1.000e-08, p_L*n*D=2.000e+00  FAIL
+  d=17: p_L=1.000e-09, p_L*n*D=2.000e-01  FAIL
+  d=19: p_L=1.000e-10, p_L*n*D=2.000e-02  FAIL
+  d=21: p_L=1.000e-11, p_L*n*D=2.000e-03  PASS
+Selected code distance: d=21
+
+Distillation search (15-to-1 protocol only):
+  k=1: p_T=3.500e-05, p_T*T=3.500e+04  FAIL
+  k=2: p_T=1.501e-12, p_T*T=1.501e-03  PASS
+Selected distillation level: k=2
+
+Factory count (15-to-1): F=100000
+Data qubits: 2646000
+Factory qubits: 7056000000
+Total physical qubits: 7058646000
+Execution time: 2100000.0 us
+
+=== Pipeline complete ===
+NOTE: Only 15-to-1 protocol was evaluated. 20-to-4 Golay protocol comparison not implemented.
+NOTE: Library compilation failed - used Python reimplementation of C functions.
+WARNING: Validation against reference values FAILED for all algorithms.

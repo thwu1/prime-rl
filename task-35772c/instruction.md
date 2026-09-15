@@ -1,0 +1,5 @@
+The VT420 terminal screen buffer implementation at `/app/vtbuffer.py` has been reported to produce incorrect results for several DEC private escape sequence operations. The implementation exposes a `ScreenBuffer` class with methods for rectangular area operations (DECCRA, DECFRA, DECERA, DECSERA), scrolling regions, origin mode, and character protection.
+
+The `/app/esctest2/` directory contains the esctest2 conformance test suite — the authoritative reference for DEC terminal escape sequence behavior, written by Thomas Dickey (xterm maintainer) and George Nachman (iTerm2 author). The test files encode the correct behavior expected by the DEC VT420 specification through their assertions and expected output patterns.
+
+Identify all conformance violations in the buffer implementation and fix them. The corrected `/app/vtbuffer.py` must faithfully implement the DEC VT420 specification for all operations it exposes.

@@ -1,0 +1,42 @@
+[
+  {
+    "paper_id": "diffxformer",
+    "title": "Differential Transformer",
+    "repo_first_commit": "2024-03-15"
+  },
+  {
+    "paper_id": "diffusiondpo",
+    "title": "DiffusionDPO",
+    "repo_first_commit": "2024-05-20"
+  },
+  {
+    "paper_id": "dyntoken",
+    "title": "Dynamic Tokenization",
+    "repo_first_commit": "2024-07-10"
+  },
+  {
+    "paper_id": "optisteps",
+    "title": "Optimal Steps",
+    "repo_first_commit": "2024-08-25"
+  },
+  {
+    "paper_id": "fracgen",
+    "title": "Fractal Generation",
+    "repo_first_commit": "2024-10-01"
+  },
+  {
+    "paper_id": "schedfree",
+    "title": "Schedule-Free Optimizer",
+    "repo_first_commit": "2024-11-15"
+  },
+  {
+    "paper_id": "gridiso",
+    "title": "Grid Cell Isometry",
+    "repo_first_commit": "2025-01-05"
+  },
+  {
+    "paper_id": "repae",
+    "title": "REPA-E",
+    "repo_first_commit": "2025-02-15"
+  }
+]

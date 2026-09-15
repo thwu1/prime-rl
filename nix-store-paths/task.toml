@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Nix internals that is not provided in the task materials. The agent must reverse-engineer three distinct store path computation algorithms (flat FOD with double-hash indirection, recursive FOD, and text hash with sorted references) from the Nix toolchain, source code, or documentation. The provided calculator.py contains four subtle interacting bugs — wrong base-32 alphabet, reversed bit ordering, additive instead of XOR folding, and missing double-hash indirection — that cannot be identified without understanding the correct algorithms. The agent must also implement Nix's non-standard base-32 encoding (custom alphabet with LSB-first bit extraction), handle three hash encoding formats with automatic detection, and build type_inconsistency detection that cross-checks all derivation types. No specification document is provided; the Nix toolchain is the primary tool for verification and discovery."""
+solution_explanation = """Use Nix toolchain commands (nix-hash --to-base32, nix hash to-sri) to discover the correct base-32 encoding and hash conversion algorithms. Cross-reference calculator.py output against nix-hash output to identify the four bugs. Research or experimentally determine the three store path computation algorithms by examining narinfo CA field prefixes and testing against known-valid entries. Build a Python auditor that: (1) parses narinfo key-value format; (2) detects hash encoding format (hex/nix32/SRI) by length and charset; (3) implements correct Nix base-32 encoding/decoding; (4) implements all three store path algorithms; (5) performs type_inconsistency detection by trying alternative derivation types; (6) outputs the structured JSON report."""
+verification_explanation = """126 parameterized pytest tests verify: report structure (audit_results array, summary object), entry count (16), filename completeness, lexicographic sort order, all required fields present, correct status classification for each of 16 entries, exact store path matching, correct computed_path for valid/mismatch/inconsistency cases, correct hex/nix32/SRI hash conversions for all entries, derivation type classification, summary counts, and proper error_detail handling."""
+category = "reverse_engineering"
+tags = ["nix-internals", "cryptographic-hashing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nix-store-paths"

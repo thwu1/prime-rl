@@ -1,0 +1,3 @@
+gender,ln_age,ln_totchol,ln_hdl,ln_untreated_sbp,ln_treated_sbp,smoker,diabetes,group_mean,baseline_survival
+male,3.06117,1.12370,-0.93263,1.93303,1.99881,0.65451,0.57367,23.9802,0.88936
+female,2.32888,1.20904,-0.70833,2.76157,2.82263,0.52873,0.69154,26.1931,0.95012

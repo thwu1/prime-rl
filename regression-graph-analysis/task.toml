@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic auditing of three competing SZZ regression graph implementations against a 20K+ record Mozilla dataset with an actively misleading automated diagnostic report whose conclusions must be independently refuted. The solver must possess deep understanding of SZZ regression semantics (causal edge direction, fix-commit vs bug-commit column semantics), CSV field convention analysis (space vs comma delimiters in real-world messy data), and graph-theoretic definitions (path length as edge count vs node count, condensation DAGs). Beyond the audit, the solver must independently recognize data quality anomalies — cross-validating boolean flags against commit hash fields to detect internally inconsistent records — and understand the concept of extrinsic bugs (NO_FILE_SHARED) well enough to construct a reliability-filtered subgraph and recompute structural metrics. PageRank-based centrality analysis requires understanding iterative eigenvector methods and their interpretation in a regression propagation context. The combination of misleading diagnostic evidence, multi-dimensional methodology determination, data quality reasoning, filtered graph construction, and advanced centrality analysis demands holistic domain expertise that cannot be achieved by following any single procedure."""
+solution_explanation = """Study all three analyzers to identify their bugs: v1 reverses edge direction (FIX_ID->BUG_ID instead of BUG_ID->FIX_ID), v2 splits BUG_IDS on commas instead of spaces, v3 uses BUG_COMMITS_MERCURIAL instead of FIX_COMMITS_MERCURIAL for fix classification and uses len(dag_longest_path) instead of dag_longest_path_length. Critically, ignore the comparison.log's misleading conclusions that recommend v2's parsing and v3's fix classification. Parse the CSV to verify correct approaches: BUG_IDS uses space separators, edges go regressor->regression, FIX_COMMITS_MERCURIAL determines fix status. Build the correct graph with networkx, compute all standard and cascade metrics. For data quality: identify self-referencing pairs (FIX_ID in BUG_IDS), records where NO_BUG=True but BUG_COMMITS_MERCURIAL is non-empty, and extrinsic bug count. Build filtered graph excluding NO_FILE_SHARED=True records and recompute metrics. Compute PageRank on the full graph and extract top-10."""
+verification_explanation = """Tests independently parse the CSV, build the correct directed graph, and compute all metrics including audit ground truth, graph metrics, cascade metrics, data quality counts, filtered graph metrics, and PageRank scores. Anti-cheating checks verify results don't match any single analyzer's incorrect output. Consistency checks validate mathematical relationships. PageRank comparison uses tolerance-based matching to handle floating-point precision."""
+category = "data_science"
+tags = ["graph-algorithms", "software-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regression-graph-analysis"

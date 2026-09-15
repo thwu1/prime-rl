@@ -1,0 +1,28 @@
+# Baseline CPU profile - pre-deployment v2.3.0
+# Captured via: perf record -F 99 -a -g -- sleep 60 | perf script | stackcollapse-perf.pl
+# Date: 2024-11-15 03:22:00 UTC
+# Host: prod-dataflow-01
+# Load: 10,247 req/s
+main;handle_requests;process_request;parse_headers 180
+main;handle_requests;process_request;execute_query;scan_index;compare_keys 420
+main;handle_requests;process_request;execute_query;fetch_rows;decode_column 350
+main;handle_requests;process_request;send_response;format_output 160
+main;handle_requests;process_request;send_response;flush_buffer 120
+main;handle_requests;validate_request;check_auth;verify_hmac 200
+main;handle_requests;validate_request;check_rate_limit 80
+main;load_data;read_source;open_stream;init_buffer 40
+main;load_data;read_source;read_chunk;decompress_block 280
+main;load_data;read_source;read_chunk;copy_to_buffer 150
+main;load_data;transform;apply_schema;map_fields 110
+main;load_data;transform;apply_schema;coerce_types 90
+main;load_data;transform;validate_record;check_constraints 70
+main;load_data;transform;validate_record;compute_checksum 60
+main;manage_cache;evict_stale;scan_entries;check_ttl 130
+main;manage_cache;evict_stale;free_entry 50
+main;manage_cache;insert_entry;hash_key 100
+main;manage_cache;insert_entry;alloc_slot;find_free 80
+main;log_event;format_message;timestamp_now 40
+main;log_event;format_message;serialize_fields 50
+main;log_event;write_log;acquire_lock 30
+main;log_event;write_log;append_buffer;flush_to_disk 90
+main;idle;epoll_wait_loop 1520

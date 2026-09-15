@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ARM Cortex-M4 Thumb-2 firmware binary and cross-referencing the disassembly against a formal algorithm specification to identify three subtle parameter deviations. The solver must: (1) disassemble and trace variable-length Thumb-2 code without symbols, (2) reconstruct a SipHash-like mixing round and identify specific rotation constants from shift/rotate instruction operands, (3) extract loop bounds and finalization round counts from comparison immediates, (4) independently implement the spec algorithm to compute the intended output, and (5) compare both implementations to produce a structured deviation report. Alternatively, building a Thumb-2 emulator covering ~25 distinct instruction encodings is equally valid but similarly challenging."""
+solution_explanation = """The solution disassembles the firmware with arm-none-eabi-objdump, traces the Thumb-2 instructions to identify the XorShift32 PRNG, SipHash-like mixing round, and main loop. It discovers the firmware uses rotation constants (5,8,16,13,7,16) with 32 absorption iterations and 4 finalization rounds. Comparing against the spec (which specifies rotation 11, 24 iterations, 3 finalization rounds), it identifies 3 deviations. Both outputs are independently computed and written to analysis.json."""
+verification_explanation = """Tests load /app/analysis.json and verify firmware_output and spec_output by comparing SHA-256 digests of the submitted hex strings against pre-computed digests. This prevents answer leakage: no raw expected values appear anywhere in the test code. Deviation correctness is verified by checking the sorted set of (spec_value, firmware_value) pairs against a SHA-256 digest. The expected values were independently derived from both the firmware binary and the algorithm specification."""
+category = "reverse_engineering"
+tags = ["arm-thumb2", "firmware-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2287eb"

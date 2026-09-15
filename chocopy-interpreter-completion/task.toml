@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a source-to-source compiler from ChocoPy to C, which demands expert-level understanding of compiler code generation, object-oriented runtime systems, and C systems programming. The core challenge is implementing vtable-based dynamic dispatch: the agent must analyze class hierarchies to compute vtable layouts where inherited methods retain consistent indices across subclasses, generate vtable arrays with correct function pointer entries for overridden vs inherited methods, and emit constructor code that initializes object headers with the right vtable pointer. Additionally, the agent must generate correct C code for attribute access using compile-time index resolution from type annotations, implement method calls that route through the runtime's vtable dispatcher for polymorphic behavior, handle list and string operations via the runtime API, and ensure short-circuit boolean evaluation and proper runtime error propagation through exit codes. The task requires the agent to read and understand a non-trivial C runtime API, debug generated C code through gcc compilation errors, and reason about the interaction between static type information (for index resolution) and dynamic dispatch (for correct polymorphic behavior)."""
+solution_explanation = """The solution implements a Python-based transpiler that: (1) parses ChocoPy source using the ast module, (2) collects class definitions and resolves single-inheritance hierarchies to compute per-class vtable layouts (method names in vtable order, tracking which class provides each implementation) and attribute index maps, (3) generates forward declarations for all methods, constructors, and functions, (4) emits ChpyFuncPtr vtable arrays for each class with correct function pointers (substituting overridden implementations), (5) generates method and constructor C functions that use the runtime API for object creation, attribute access, and vtable-based dispatch, (6) generates user-defined functions as C functions with the (int nargs, ChpyVal** args) signature, and (7) emits a main() function that initializes globals and executes top-level statements. Type annotations are used to resolve vtable indices and attribute indices at transpile time."""
+verification_explanation = """Tests run the full transpilation pipeline for 10 ChocoPy programs: each is transpiled to C via the agent's transpile.py, compiled with gcc against the runtime library, and executed. Seven programs verify stdout matches expected output exactly (covering arithmetic, strings, control flow, functions with mutual recursion, classes with multi-level inheritance and dynamic dispatch, lists, and miscellaneous features). Three programs verify runtime errors produce the correct error message on stderr and exit code."""
+category = "compilers"
+tags = ["code-generation", "vtable-dispatch"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chocopy-interpreter-completion"

@@ -1,0 +1,100 @@
+{
+  "test_cases": [
+    {
+      "id": "TC-OSPF-NBR-001",
+      "title": "OSPF Basic Full Adjacency Establishment",
+      "objective": "Verify that two OSPF routers on a point-to-point link can establish a full adjacency through the complete state machine progression from Down to Full.",
+      "fsm_transitions": [
+        {"from": "Down", "event": "HelloReceived", "to": "Init"},
+        {"from": "Init", "event": "TwoWayReceived", "to": "ExStart", "condition": "adjacency_needed"},
+        {"from": "ExStart", "event": "NegotiationDone", "to": "Exchange"},
+        {"from": "Exchange", "event": "ExchangeDone", "to": "Loading", "condition": "ls_request_list_nonempty"},
+        {"from": "Loading", "event": "LoadingDone", "to": "Full"}
+      ],
+      "steps": [
+        {"step_id": "1", "description": "Initialize the device test environment with two routers connected via a point-to-point link, both configured in OSPF Area 0."},
+        {"step_id": "2", "description": "Enable OSPF on both router interfaces with matching HelloInterval (10s) and DeadInterval (40s)."},
+        {"step_id": "3", "description": "Wait for Hello packets to be exchanged between routers.", "expected_result": "Both routers transition from Down to Init state upon receiving HelloReceived event."},
+        {"step_id": "4", "description": "Verify that each router sees itself listed in the neighbor's Hello packet.", "expected_result": "TwoWayReceived event triggers transition to ExStart. DD negotiation begins."},
+        {"step_id": "5", "description": "Monitor Database Description exchange and LS Request/Update exchanges.", "expected_result": "Neighbor state progresses through Exchange to Loading and reaches Full."}
+      ],
+      "tags": ["function", "ospf", "adjacency", "positive"],
+      "test_reference": ["RFC 2328 Section 10.3"]
+    },
+    {
+      "id": "TC-OSPF-NBR-002",
+      "title": "OSPF DROther Neighbor Stays in TwoWay",
+      "objective": "Verify that two DROther routers on a broadcast network do not form a full adjacency and remain in TwoWay state.",
+      "fsm_transitions": [
+        {"from": "Down", "event": "HelloReceived", "to": "Init"},
+        {"from": "Init", "event": "TwoWayReceived", "to": "TwoWay", "condition": "no_adjacency_needed"}
+      ],
+      "steps": [
+        {"step_id": "1", "description": "Initialize the test environment with three routers on a broadcast segment, all in OSPF Area 0."},
+        {"step_id": "2", "description": "Configure Router A with priority 0 and Router B with priority 0, ensuring neither becomes DR or BDR."},
+        {"step_id": "3", "description": "Enable OSPF and allow DR election to complete.", "expected_result": "Neither Router A nor Router B is elected DR or BDR."},
+        {"step_id": "4", "description": "Observe neighbor state between Router A and Router B.", "expected_result": "Neighbor state between the two DROther routers reaches TwoWay and does not advance to ExStart."}
+      ],
+      "tags": ["function", "ospf", "adjacency", "drother"],
+      "test_reference": ["RFC 2328 Section 10.3", "RFC 2328 Section 10.4"]
+    },
+    {
+      "id": "TC-OSPF-NBR-003",
+      "title": "OSPF Link Failure During Exchange",
+      "objective": "Verify that a link-layer failure during database exchange correctly resets the neighbor to Down state via the LLDown event.",
+      "fsm_transitions": [
+        {"from": "Down", "event": "HelloReceived", "to": "Init"},
+        {"from": "Init", "event": "TwoWayReceived", "to": "ExStart", "condition": "adjacency_needed"},
+        {"from": "ExStart", "event": "NegotiationDone", "to": "Exchange"},
+        {"from": "Exchange", "event": "LLDown", "to": "Down"}
+      ],
+      "steps": [
+        {"step_id": "1", "description": "Initialize the test environment with two routers connected via a point-to-point link in OSPF Area 0."},
+        {"step_id": "2", "description": "Enable OSPF and wait for neighbor state to reach Exchange.", "expected_result": "Neighbor state reaches Exchange after DD negotiation."},
+        {"step_id": "3", "description": "Simulate link-layer failure by shutting down the physical interface on one router.", "expected_result": "LLDown event is generated; neighbor state immediately transitions to Down."},
+        {"step_id": "4", "description": "Verify that all neighbor data structures are cleared.", "expected_result": "Neighbor entry is removed from the neighbor table."}
+      ],
+      "tags": ["function", "ospf", "adjacency", "negative", "link-failure"],
+      "test_reference": ["RFC 2328 Section 10.3"]
+    },
+    {
+      "id": "TC-OSPF-NBR-004",
+      "title": "OSPF Inactivity Timer Expiry During Loading",
+      "objective": "Verify that inactivity timer expiry during Loading state correctly resets the neighbor to Down state.",
+      "fsm_transitions": [
+        {"from": "Down", "event": "HelloReceived", "to": "Init"},
+        {"from": "Init", "event": "TwoWayReceived", "to": "ExStart", "condition": "adjacency_needed"},
+        {"from": "ExStart", "event": "NegotiationDone", "to": "Exchange"},
+        {"from": "Exchange", "event": "ExchangeDone", "to": "Loading", "condition": "ls_request_list_nonempty"},
+        {"from": "Loading", "event": "InactivityTimer", "to": "Down"}
+      ],
+      "steps": [
+        {"step_id": "1", "description": "Initialize the test environment with two routers on a point-to-point link in OSPF Area 0."},
+        {"step_id": "2", "description": "Enable OSPF and wait for neighbor state to reach Loading.", "expected_result": "Neighbor state progresses to Loading with pending LS Requests."},
+        {"step_id": "3", "description": "Block Hello packets from the neighbor using an ACL filter to prevent Inactivity Timer refresh.", "expected_result": "Hello packets from the neighbor are dropped; Inactivity Timer is not reset."},
+        {"step_id": "4", "description": "Wait for the DeadInterval (40 seconds) to expire.", "expected_result": "InactivityTimer event fires; neighbor transitions to Down state."},
+        {"step_id": "5", "description": "Verify neighbor data structures are cleaned up.", "expected_result": "Neighbor is removed from the neighbor table and routing table entries via this neighbor are purged."}
+      ],
+      "tags": ["function", "ospf", "adjacency", "negative", "timer"],
+      "test_reference": ["RFC 2328 Section 10.3"]
+    },
+    {
+      "id": "TC-OSPF-NBR-005",
+      "title": "OSPF OneWay Event from TwoWay State",
+      "objective": "Verify that receiving a Hello without the local router ID listed causes transition from TwoWay back to Init via the OneWay event.",
+      "fsm_transitions": [
+        {"from": "Down", "event": "HelloReceived", "to": "Init"},
+        {"from": "Init", "event": "TwoWayReceived", "to": "TwoWay", "condition": "no_adjacency_needed"},
+        {"from": "TwoWay", "event": "OneWay", "to": "Init"}
+      ],
+      "steps": [
+        {"step_id": "1", "description": "Initialize the test environment with two DROther routers on a broadcast segment in OSPF Area 0."},
+        {"step_id": "2", "description": "Enable OSPF and wait for neighbor state to reach TwoWay.", "expected_result": "Neighbor state reaches TwoWay as no adjacency is needed between DROthers."},
+        {"step_id": "3", "description": "Send a crafted Hello packet from the tester that does not include the DUT router ID in the neighbor list.", "expected_result": "DUT generates OneWay event; neighbor state transitions from TwoWay to Init."},
+        {"step_id": "4", "description": "Verify that neighbor state is Init.", "expected_result": "Neighbor state shows Init in the neighbor table."}
+      ],
+      "tags": ["function", "ospf", "adjacency", "negative", "oneway"],
+      "test_reference": ["RFC 2328 Section 10.3", "RFC 2328 Section 10.5"]
+    }
+  ]
+}

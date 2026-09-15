@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete ELF-based toolchain for a custom RISC ISA: (1) a two-pass assembler that produces standards-compliant ELF32 relocatable object files with proper section headers, symbol tables (local/global/undefined bindings), string tables, and relocation entries — the output must be parseable by the system readelf utility; (2) a linker that merges .text sections across multiple object files, builds a global symbol table, resolves cross-module references, patches instruction words according to CPU0-specific relocation types (R_CPU0_PC24 for JSUB calls), and emits an ELF executable with program headers and entry point; (3) a simulator that parses ELF executables, loads PT_LOAD segments, and implements the full 50+ instruction ISA. The agent must have expert knowledge of ELF binary format internals, relocation semantics, linker operation, and ISA encoding — none of which is given step-by-step in the spec."""
+solution_explanation = """Three Python scripts forming a toolchain pipeline: cpu0asm.py (~200 lines) emits ELF32 big-endian .o files with correct headers, sections, symbol tables, and REL entries for undefined symbols; cpu0ld.py (~150 lines) parses multiple .o files, merges text sections, resolves global symbols, patches relocations, and writes an ELF executable with a LOAD segment; cpu0sim.py (~200 lines) loads ELF executables via program headers and implements the full Cpu0 ISA in a fetch-decode-execute loop."""
+verification_explanation = """Tests verify both ELF structural correctness and execution correctness: readelf is used to validate ELF headers (ELF32, big-endian, machine 0xc9), section presence (.text, .symtab), symbol binding (GLOBAL for .globl labels), relocation entries (3 R_CPU0_PC24 entries for cross-file JSUB calls at correct offsets), and executable type (ET_EXEC). Binary-level tests extract .text bytes and verify instruction encodings. Execution tests run single-file programs (arith→91, factorial→3628800, gcd→21) and multi-file linked programs (square(7)+cube(3)+sum_range(10)=131) with link-order independence verification."""
+category = "systems"
+tags = ["compilers", "elf-toolchain"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2c6873"

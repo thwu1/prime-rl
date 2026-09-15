@@ -1,0 +1,6 @@
+{
+  "shortage_penalty_per_unit": 50,
+  "tail_quantile": 0.95,
+  "risk_weight": 0.3,
+  "scenario_weighting": "equiprobable"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Fifteen+ intertwined issues spanning Python source, build configuration, tool config precedence, and CI workflow require holistic system-level reasoning rather than mechanical bug-fixing. The solver must evaluate and reconcile competing configuration sources: (1) ruff.toml overrides pyproject.toml's [tool.ruff] section with a reduced rule set (select=["E","W"], omitting "F" and "I"), silently hiding unused import and isort violations — the solver must understand ruff's config file precedence and evaluate which rules are appropriate; (2) mypy.ini overrides pyproject.toml's [tool.mypy] with lax settings (disallow_untyped_defs=False), so even after fixing the Makefile's --config-file=setup.cfg reference, mypy still uses the wrong config — the solver must understand mypy's config resolution order (mypy.ini > setup.cfg > pyproject.toml) and evaluate which config matches the project's type safety needs; (3) setup.cfg has a deliberately misleading mypy config (follow_imports=skip) that masks type errors; (4) test quarantine evaluation: one test is @pytest.mark.skip claiming flakiness but actually exposes a regex bug, requiring the solver to correlate the skip with the regex fix and evaluate whether to restore it; another test is @pytest.mark.xfail(strict=True) based on the assumption that BM25 IDF produces negative scores for ubiquitous terms — after fixing the IDF formula, this test XPASSes (strict failure), and the solver must evaluate whether the xfail assumption was correct by understanding the BM25 IDF formula's mathematical properties; (5) source-level bugs include an ANSI regex that silently fails on extended escape sequences, a find_enclosing_node using intersection instead of containment, a BM25 IDF formula that hits math domain errors, an infinite-loop guard, a key typo, and a wrong dependency constraint; (6) the Makefile references python3.11 (nonexistent) and passes --config-file=setup.cfg; (7) the GitHub Actions workflow has an invalid working-directory. The CI log is from a pre-migration run and doesn't cover Makefile, workflow, or config-file precedence issues."""
+solution_explanation = """Remove ruff.toml so ruff uses pyproject.toml's [tool.ruff] with correct select=["E","F","W","I"]. Remove mypy.ini so mypy uses pyproject.toml's [tool.mypy] with strict settings. Fix Makefile python binary (python3.11→python3) and remove --config-file=setup.cfg. Fix ci.yml working-directory (./logminer→.). Fix pyproject.toml pyyaml constraint (>=7.0→>=6.0). In parser.py remove unused OrderedDict import and fix ANSI regex to handle semicolon-delimited sequences. In localizer.py fix rank_candidates return type, remove unused Any import, change find_enclosing_node from intersection to strict containment, and fix BM25 IDF to log(1+(n-df+0.5)/(df+0.5)). In chunker.py guard against infinite loop. In reporter.py fix 'error_summry' typo. Remove @pytest.mark.skip from test_parser.py and its unused pytest import. Remove @pytest.mark.xfail from test_localizer.py (the IDF fix makes the test pass correctly) and its now-unused pytest import."""
+verification_explanation = """Verifies 10 conditions: pip install succeeds (dependencies resolved), ruff check reports no lint errors, ruff catches unused imports via a canary file (ensuring F rules are active), mypy type-checks cleanly, mypy enforces strict typing via an untyped-function canary (ensuring disallow_untyped_defs is active), all project tests pass with none skipped/xfailed/xpassed, make ci succeeds end-to-end, and the GitHub Actions workflow YAML is valid with correct paths."""
+category = "debugging"
+tags = ["ci-repair", "config-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/repair-ci-pipeline"

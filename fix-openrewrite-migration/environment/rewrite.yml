@@ -1,0 +1,8 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: com.example.UpgradeToSpringBoot3
+displayName: Upgrade to Spring Boot 3.0
+description: Custom composite recipe for Spring Boot 2.7 to 3.0 migration.
+recipeList:
+  - org.openrewrite.java.spring.boot3.MigrateSpringBoot_3_0
+  - org.openrewrite.java.spring.RemoveAutowired

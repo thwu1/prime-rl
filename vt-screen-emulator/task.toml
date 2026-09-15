@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of VT-420 terminal internals at the binary protocol level. The agent must implement a byte-stream CSI/DCS escape sequence parser (state machine handling prefix bytes, multi-parameter sequences, intermediate bytes, and final dispatch), generate correctly framed DCS responses, manage PTY I/O via stdin/stdout, and implement the full suite of VT rectangle operations (DECCRA with snapshot semantics for overlapping copies, DECSTBM scroll margins with IND/RI boundary behavior, DECOM origin-mode coordinate transformation, DECFRA/DECERA/ED). The protocol-level requirement—parsing raw escape sequences from a byte stream rather than calling named methods—demands holistic understanding of how terminal protocol framing, CSI grammar, screen buffer state, and process I/O interact. Debugging requires analyzing binary protocol traffic through a PTY."""
+solution_explanation = """Implement a Python process (vt_server.py) that reads stdin byte-by-byte through a state machine: GROUND → ESC → CSI_PREFIX → CSI_PARAMS → dispatch. The CSI parser collects an optional prefix ('?'), semicolon-separated numeric parameters, intermediate bytes ('$', '*'), and a final byte to dispatch to the appropriate handler. DECRQCRA responses are written as DCS sequences (ESC P pid ! ~ hex ESC \\) to stdout. The screen buffer is a 2D array of ordinals with cursor tracking, scroll margin state, and origin mode flag. Key methods: do_cup (origin-mode aware), do_ind/do_ri (margin-aware scrolling), do_deccra (snapshot copy), do_decfra/do_decera (rectangle fill/erase), do_decrqcra (checksum + DCS response)."""
+verification_explanation = """Tests launch the solution as a subprocess connected via PTY (using Python's pty and termios modules in raw mode), send raw escape sequences, and verify DECRQCRA checksums returned as DCS responses. Tests cover: protocol basics (empty screen, single/multiple chars, modulo-65536 wraparound), DECCRA snapshot semantics (non-overlapping, overlapping shift-right, overlapping shift-down, full esctest2-style overlap), scroll regions (IND at bottom margin, RI at top margin, cursor movement within margins, DECSTBM cursor homing), origin mode coordinate transformation, DECFRA/DECERA rectangle operations, and multi-operation compound scenarios. Non-standard screen dimensions (20x10) prevent hardcoded responses. Independent unit-level protocol verification makes it infeasible to fake results."""
+category = "systems"
+tags = ["terminal-emulation", "pty-protocol"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vt-screen-emulator"

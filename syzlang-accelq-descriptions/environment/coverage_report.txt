@@ -1,0 +1,70 @@
+=== Syntax Validation (syz-check) ===
+
+Candidate A:
+  $ syz-check -os linux -arch amd64 candidate_a.txt
+  Resources: 5 declared
+  Syscalls/ioctls: 11 declared
+  Structs: 10 declared
+  Flag sets: 7 declared
+  Result: 0 errors, 0 warnings
+
+Candidate B:
+  $ syz-check -os linux -arch amd64 candidate_b.txt
+  Resources: 5 declared
+  Syscalls/ioctls: 11 declared
+  Structs: 10 declared
+  Flag sets: 7 declared
+  Result: 0 errors, 0 warnings
+
+Note: syz-check validates syntax and naming conventions only.
+It does NOT verify semantic correctness (pointer directions,
+struct layout correspondence, resource lifecycle modeling, etc).
+
+=== Constant Extraction ===
+
+Candidate A (syz-extract):
+  Extracting constants for linux/amd64...
+  Extracted 42 constants successfully.
+
+Candidate B (syz-extract):
+  Extracting constants for linux/amd64...
+  WARNING: resolving include <uapi/linux/accelq.h>: using fallback header search path
+  Extracted 42 constants (3 required fallback resolution)
+  Note: fallback-resolved constants may use placeholder values
+
+=== Coverage Results (48h fuzzing runs, QEMU/KVM, 2 VMs each) ===
+
+--- Candidate A ---
+  /dev/accelq driver functions:
+    accelq_open:       covered (3/3 blocks)
+    accelq_ioctl:      partial (14/847 blocks)
+    accelq_create_ctx: partial (12/45 blocks)  <- enters handler, ctx created
+    accelq_queue_ops:  NOT covered             <- queue creation always returns -EINVAL
+    accelq_submit:     NOT covered             <- struct layout mismatch suspected
+    accelq_buf_map:    NOT covered             <- handle size mismatch at kernel boundary
+  Total: 29/14892 blocks (0.19%)
+
+  Analysis: CREATE_CTX partially succeeds — contexts are allocated and the
+  resource dependency chain begins. However, queue creation fails despite
+  receiving a valid ctx_id, suggesting a resource annotation issue in the
+  queue struct. SUBMIT consistently returns -EINVAL, possibly due to struct
+  field layout not matching the C definition. Buffer map/unmap never
+  succeeds — handle field width may not match the kernel's __u64 handle type.
+
+--- Candidate B ---
+  /dev/accelq driver functions:
+    accelq_open:       covered (3/3 blocks)
+    accelq_ioctl:      minimal (2/847 blocks)  <- dispatch table only
+    accelq_create_ctx: NOT covered             <- never enters handler
+    accelq_queue_ops:  NOT covered
+    accelq_submit:     NOT covered
+    accelq_buf_map:    NOT covered
+  Total: 5/14892 blocks (0.03%)
+
+  Analysis: All ioctl calls fail before reaching handler functions.
+  CREATE_CTX never enters the handler — the kernel receives the struct
+  but cannot write output fields back to userspace, indicating a possible
+  pointer direction issue. Because no context is ever created, the entire
+  resource chain (queue -> buffer -> submit -> wait) is dead.
+  The extract step also warns about the include path requiring fallback
+  resolution, which may cause incorrect constant values at runtime.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-layer build toolchain (Make delegating to Ant with wrong target name, Ant build.xml with wrong source directory and wrong output directory) before even reaching the source-code defects. The solver must then implement a packed 4-bit CountMinSketch from high-level class documentation and bit-mask constants alone (no pseudocode), debug three interacting logic errors in the cache eviction policy (wrong capacity base, missing counter decrement, inverted admission comparison), and trace a parameter-passing defect in the CLI entry point that silently swaps cache configuration values — producing cascading failures across build configuration and four interdependent Java source files. Understanding the Ant→javac toolchain, the bit-manipulation addressing scheme, and three-segment cache dynamics simultaneously is required."""
+solution_explanation = """The solution requires: (1) fixing the Makefile to call the correct Ant target ('build' instead of 'package'); (2) fixing build.xml: changing srcdir from 'src/main/java' to 'src' and destdir from 'classes' to 'bin'; (3) implementing four FrequencySketch methods (frequency, increment, incrementAt, reset) using 4-bit counter packing in 64-bit longs with block-based addressing derived from spread/rehash hash functions; (4) fixing WTinyLfuCache: maxProtected must be computed from maxMain (not maximumSize), sizeProtected must be decremented on demotion in onProbationHit, and the eviction comparison must evict the victim (not candidate) when the candidate has higher frequency; (5) fixing CacheSimulator where the two double constructor arguments (percentMain, percentMainProtected) are passed in swapped order."""
+verification_explanation = """Tests first verify the project compiles via make (which invokes Ant). Then twelve pytest cases run the Java simulator on deterministic traces and compare JSON output field-by-field against a Python reference implementation. Cases cover: empty traces, single-key repeats, all-unique sequences, small/medium/large random traces with hot/cold distributions, cache-size-one edge case, zero-window configuration, large traces triggering many sketch resets, high-contention scenarios, multiple cache configurations, and structural invariant validation across varied parameters."""
+category = "software_engineering"
+tags = ["cache-algorithms", "build-toolchain"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wtinylfu-cache-simulator"

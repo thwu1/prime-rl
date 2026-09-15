@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level OSCAL and GRC domain knowledge spanning the full compliance lifecycle across six interconnected document types. The agent must independently: (1) parse an XML catalog with OSCAL-namespaced elements to extract controls, enhancements, parameter definitions, and statement part structures; (2) resolve chained profile imports transitively to derive the effective baseline; (3) perform multi-dimensional SSP auditing including component reference integrity, parameter completeness against catalog definitions, and statement coverage analysis; (4) correlate assessment findings to controls by discovering the target-id convention; (5) perform indirect joins between POA&M items and findings through shared risk UUIDs; and (6) compute remediation coverage metrics distinguishing valid from orphaned POA&M items. The instruction describes only outcomes — the agent must discover all data relationships, processing semantics, and OSCAL conventions through inspection of the documents."""
+solution_explanation = """Parse catalog.xml with namespace-aware XML processing to extract control IDs (including nested enhancements), parameter-to-control mappings, and top-level statement part IDs. Resolve profile_low.json (with-ids selection) then profile_moderate.json (include-all of Low plus direct catalog imports with with-ids, glob matching on si-4*, minus exclude-controls) to produce the effective baseline. Audit the SSP across four dimensions: implementation gaps/stale (set difference), broken component refs (by-components UUIDs not in system-implementation), parameter gaps (profile set-parameters not reflected in SSP implemented-requirements), and statement coverage gaps (catalog statement parts missing from SSP). Correlate findings to controls by stripping _obj from target.target-id, join to POA&M through risk UUIDs in related-risks. Compute remediation coverage by checking POA&M related-risks against assessment result risk UUIDs."""
+verification_explanation = """Pytest verifies all ten sections of the reconciliation report against expected values: 37 catalog controls from XML, 29 effective controls from chained profile resolution, 4 implementation gaps, 3 stale implementations, 2 broken component references (ghost UUIDs not in system-implementation), 2 parameter gaps (au-5_prm_1 and au-6_prm_2 missing from SSP), 1 statement coverage gap (au-1 missing statement b), 4 finding correlations with correct POA&M cross-references, 1 untracked risk, and remediation coverage metrics (3 total / 2 valid / 1 orphaned POA&M items, 2 tracked / 1 untracked risks)."""
+category = "security"
+tags = ["oscal", "compliance-reconciliation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oscal-compliance-auditor"

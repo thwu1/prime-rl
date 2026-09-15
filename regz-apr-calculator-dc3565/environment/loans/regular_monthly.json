@@ -1,0 +1,10 @@
+{
+  "id": "regular_monthly",
+  "consummation_date": "2024-01-01",
+  "advances": [{"date": "2024-01-01", "amount": 10000.00}],
+  "payment_groups": [
+    {"first_date": "2024-02-01", "amount": 332.14, "count": 36, "period_months": 1}
+  ],
+  "disclosed_apr": 11.75,
+  "is_mortgage": false
+}

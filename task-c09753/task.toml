@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of constraint satisfaction and computational complexity. Beyond basic SAT encoding for the decision problem (NP-Complete), the agent must implement: (1) exact model counting via AllSAT enumeration or exhaustive search with proper blocking clauses — the counting variant is #P-Complete; (2) minimal unsatisfiable core (MUS) extraction, requiring understanding of UNSAT proof structure and deletion-based or insertion-based MUS algorithms to identify which pre-placed queens are responsible for infeasibility; (3) efficient SAT encoding with at-most-one constraints for scaling to n=100. The combination of decision, counting, and proof analysis across a single problem demands holistic understanding of SAT solving, complexity theory, and algorithmic design."""
+solution_explanation = """Encode n-Queens Completion as CNF using one Boolean variable per cell, with exactly-one constraints per row/column and at-most-one per diagonal, plus unit clauses for pre-placed queens. Solve with a CDCL SAT solver (Glucose3 via python-sat). For counting instances (small n), enumerate all solutions via backtracking with column/diagonal pruning. For UNSAT instances, extract a minimal unsatisfiable core using a deletion-based algorithm: iteratively try removing each pre-placed queen and check if the reduced instance remains UNSAT; keep only queens whose removal restores satisfiability."""
+verification_explanation = """SAT instances: verify solutions have exactly n queens, preserve all pre-placements, and satisfy row/column/diagonal uniqueness. Counting instances: independently compute exact solution counts using a backtracking solver and compare against reported counts. UNSAT core verification: (a) confirm the reported core subset alone makes the instance UNSAT via backtracking solver; (b) for each queen in the core, confirm removing that single queen makes the instance SAT — both properties must hold for minimality. All verifications use independent implementations in the test."""
+category = "theory_of_computation"
+tags = ["constraint-satisfaction", "sat-solving"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c09753"

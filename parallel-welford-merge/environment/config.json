@@ -1,0 +1,20 @@
+{
+    "warp_size": 32,
+    "num_banks": 32,
+    "bank_width_bytes": 4,
+    "block_size": 256,
+    "target_architectures": [
+        {"name": "gpu_ampere", "num_banks": 32, "bank_width_bytes": 4},
+        {"name": "accel_custom", "num_banks": 33, "bank_width_bytes": 4}
+    ],
+    "accumulator_struct": {
+        "fields": [
+            {"name": "count", "size_bytes": 8},
+            {"name": "mean", "size_bytes": 8},
+            {"name": "m2", "size_bytes": 8},
+            {"name": "m3", "size_bytes": 8},
+            {"name": "m4", "size_bytes": 8}
+        ],
+        "total_size_bytes": 40
+    }
+}

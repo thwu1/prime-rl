@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete algebraic multigrid preconditioned conjugate gradient solver from scratch for a 2D heterogeneous diffusion problem with high-contrast coefficients (ratios up to 10^4). The agent must read and interpret the configuration to determine the correct discretization, coarsening strategy, interpolation scheme, smoother, cycle type, and solver parameters. Each component requires graduate-level numerical methods knowledge and careful implementation. The high-contrast coefficient field makes the problem ill-conditioned and tests the preconditioner's robustness."""
+solution_explanation = """The solution implements a Python-based solver that: (1) assembles the sparse matrix from the problem config using 5-point stencil with face-centered diffusion coefficient evaluation, (2) builds a multilevel hierarchy using the coarsening, interpolation, and smoother parameters specified in the config, (3) applies the configured cycle as a preconditioner within the iterative solver until the specified tolerance is reached. The solver converges in under 50 iterations and produces correct solution values verified against an independent direct solve."""
+verification_explanation = """Tests independently assemble the same sparse matrix from the problem config and compute a reference solution via direct solve (scipy spsolve). They verify: (1) results.json structure and all required fields, (2) n_unknowns matches grid_size^2, (3) hierarchy properties (n_levels >= 3, grid_complexity in (1,3), operator_complexity in (1,6)), (4) convergence behavior (iterations < 100, convergence_factor in (0, 0.7)), (5) solution accuracy at probe points vs direct solve (combined tolerance), (6) solution norm consistency with direct solve (relative error < 1e-3)."""
+category = "mathematics"
+tags = ["numerical-methods", "multigrid"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/amg-heterogeneous-diffusion"

@@ -1,0 +1,69 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+The pipeline has three processing stages with distinct bottleneck categories that interact: \
+(1) iterative Gaussian smoothing with a cache-hostile column-major loop in the vertical pass — \
+the 32 MB double-precision buffer far exceeds L3 cache, making loop interchange essential but \
+insufficient alone; (2) gradient computation that stores per-pixel atan2 direction, which stage 3 \
+then round-trips through cos/sin to recover the original gradient components — recognizing this \
+cross-stage redundancy requires understanding the mathematical relationship between the pipeline \
+stages, not just local code inspection; (3) non-maximum suppression with an 8-way nested branch \
+tree driven by gradient direction octant — the branches are unpredictable on natural image data, \
+causing pipeline stalls that demand branchless or reduced-branch restructuring. Achieving 3x \
+requires combining cache-aware loop transformations, elimination of redundant transcendental \
+computation across stage boundaries, precision reduction from double to float, and branch \
+reduction — no single technique is sufficient. The solver must profile the full pipeline to \
+determine which stages dominate, understand how the stages interact mathematically, and design \
+a coherent optimization strategy that addresses cache, computation, and branch-prediction \
+bottlenecks simultaneously.
+"""
+solution_explanation = """
+Five synergistic optimizations: (1) Loop interchange in blur_vertical — swap x-outer/y-inner to \
+y-outer/x-inner for sequential row-major access, converting stride-2048 cache misses into L1 hits; \
+alone gives ~2.5x on the smoothing stage. (2) Eliminate the atan2/cos/sin round-trip — modify \
+compute_gradients to store raw gx/gy arrays instead of direction angle; modify non_max_suppress to \
+consume gx/gy directly, normalizing to the upper half-plane via sign flip; this removes 3 expensive \
+transcendental functions per pixel from stages 2+3. (3) Switch all buffers and arithmetic from \
+double to float, halving memory bandwidth and doubling SIMD width under -O3 auto-vectorization. \
+(4) Border/interior split in blur passes — process the KERNEL_RADIUS border rows/columns with \
+bounds checks, but run the vast interior loop branch-free with pre-summed kernel weights, enabling \
+compiler vectorization. (5) Reduce NMS branch depth from 3-level 8-way nesting to a 2-way split \
+on |gx| vs |gy| with sign-based neighbor offset, dramatically reducing branch mispredictions. \
+Combined speedup is 5-8x, well above the 3x threshold.
+"""
+verification_explanation = """
+Tests build both the agent's optimized binary and the unmodified baseline reference using the same \
+Makefile and compiler flags (-O3). Both are run on the same 2048x2048 deterministic input image with \
+8 smoothing iterations. Correctness is verified by comparing every output pixel of the NMS result: \
+max absolute error must be < 50.0 and mean absolute error < 1.0. The generous max tolerance \
+accommodates float/double precision differences that can cause NMS boundary decisions to flip on \
+isolated pixels, while the tight mean tolerance catches systematic algorithmic errors. Performance \
+is measured by comparing wall-clock times from each binary's stderr TIME output: the optimized \
+version must achieve >= 3.0x speedup over the baseline.
+"""
+category = "optimization"
+tags = ["performance", "cache-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-blur-pipeline"

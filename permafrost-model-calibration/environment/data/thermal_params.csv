@@ -1,0 +1,5 @@
+Texture,Bulk_Density,Heat_Capacity,Thermal_Conductivity_Thawed,Thermal_Conductivity_Frozen
+Silt,1400,730,0.19,0.22
+Sand,1300,690,0.30,0.35
+Clay,1500,900,0.80,1.00
+Peat,150,200,0.012,0.14

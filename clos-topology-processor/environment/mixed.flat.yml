@@ -1,0 +1,77 @@
+name: mixed-lab
+topology:
+  nodes:
+    spine1:
+      kind: linux
+      image: alpine:3.18
+      type: spine
+      env:
+        ROLE: spine
+        LOG_LEVEL: info
+        MONITOR: "true"
+      labels:
+        role: spine
+        dc: us-east
+    spine2:
+      kind: linux
+      image: alpine:3.18
+      type: spine
+      env:
+        ROLE: spine
+        LOG_LEVEL: info
+        MONITOR: "true"
+      labels:
+        role: spine
+        dc: us-east
+    leaf1:
+      kind: linux
+      image: alpine:3.18
+      type: leaf
+      env:
+        ROLE: leaf
+        LOG_LEVEL: debug
+        MONITOR: "true"
+      labels:
+        role: leaf
+        dc: us-east
+    leaf2:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:latest
+      type: leaf
+      env:
+        ROLE: leaf
+        LOG_LEVEL: info
+        MONITOR: "true"
+        VENDOR: nokia
+      labels:
+        role: leaf
+        dc: us-east
+        vendor: nokia
+    server1:
+      kind: linux
+      image: ubuntu:22.04
+      type: server
+      env:
+        ROLE: server
+        LOG_LEVEL: warn
+      labels:
+        role: server
+        dc: us-east
+    server2:
+      kind: linux
+      image: ubuntu:22.04
+      type: server
+      env:
+        ROLE: server
+        LOG_LEVEL: warn
+        DEBUG: "true"
+      labels:
+        role: server
+        dc: us-east
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["leaf1:eth3", "server1:eth1"]
+    - endpoints: ["leaf2:eth3", "server2:eth1"]

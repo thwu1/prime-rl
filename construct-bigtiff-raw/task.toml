@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the BigTIFF binary specification (version 43, 16-byte header, 20-byte IFD entries with 8-byte count/value fields, IFD chaining via next-pointers). The solver must independently diagnose three structurally distinct corruptions — a broken IFD chain hiding an entire page, a falsified compression tag causing codec failures, and transposed tile offset/bytecount entries causing spatial pixel data errors — using a combination of tifffile's Python API for symptom discovery, hex-level binary inspection tools (xxd/hexdump) for raw structure analysis, and Python's struct module for precise binary patching. A subtle complication is that tifffile writes duplicate tag 270 (ImageDescription) entries per IFD, requiring the solver's IFD scanner to tolerate non-strictly-ascending tag codes. No corruption type or location is given; the solver must iteratively probe, hypothesize, and verify each issue."""
+solution_explanation = """Parse the BigTIFF header to locate the first IFD, then walk the IFD chain. Discover only 2 pages are visible (chain broken at page 1's next-pointer, which is zeroed). Scan the file after the last known IFD for a valid orphaned IFD structure (non-decreasing tag codes to handle duplicate tags, reasonable entry count, contains ImageWidth and ImageLength tags). Restore the next-IFD pointer. For page 1, cross-check the Compression tag (says LZW=5) against the strip byte count, which equals the uncompressed raw data size — change the tag to 1 (None). For page 0, check TileOffsets for non-monotonic ordering indicating swapped tiles; swap entries 1 and 2 back in both TileOffsets and TileByteCounts arrays. Write the patched bytearray as the repaired file."""
+verification_explanation = """Tests open the repaired file with tifffile and verify: BigTIFF header bytes (byte order, version 43, offset size 8); page count (3); per-page shape, dtype, and samples-per-pixel; pixel-level data correctness for all 3 pages against deterministic expected patterns using numpy array comparison; quadrant-specific checks for page 0 (sensitive to tile swap corruption); ImageDescription metadata preservation across all pages (anti-regeneration measure); and that the original corrupted file is unchanged."""
+category = "systems_programming"
+tags = ["binary-forensics", "scientific-imaging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/construct-bigtiff-raw"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-language (C + Python) numerical integration toolkit with interleaved build-system, FFI, mathematical, and algorithmic issues. The agent must use gcc/make to compile a C shared library, debug ctypes bindings and a library-name mismatch between the Makefile and Python wrapper, identify a subtle numerical constant error in C code, implement missing Python algorithms from mathematical specifications in docstrings, then produce additional outputs using gnuplot (convergence plotting) and SQLite (structured data storage). The combination of C compilation, Python-C interoperability debugging, numerical mathematics, gnuplot scripting, and SQL operations is firmly at the expert level."""
+solution_explanation = """Fix Makefile target name mismatch (libkernels.so to libqmc.so), fix Bernoulli polynomial constant in kernels.c (1/3 to 1/6) and rebuild, add modular reduction to lattice point generation in lattice.py and implement shift-averaging, implement the CBC greedy construction algorithm in cbc.py, run the benchmark to produce benchmark.json, write a gnuplot script and execute it to create a log-log convergence plot, and populate a SQLite database with the convergence data."""
+verification_explanation = """Tests verify: (1) benchmark.json exists with all required fields, (2) exact integral matches analytical formula, (3) QMC error < 5e-4, (4) QMC convergence rate > 0.65, (5) QMC rate exceeds MC rate by margin, (6) generating vector components valid, (7) independent small-scale QMC integration is accurate, (8) lattice points lie in [0,1), (9) kernel omega(0) = pi^2/3, (10) convergence.gp is a valid gnuplot script with log-scale directives, (11) convergence.png is a valid PNG image, (12) benchmark.db has correct SQLite schema and data matching benchmark.json."""
+category = "mathematics"
+tags = ["quasi-monte-carlo", "multi-tool-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qmc-lattice-construction"

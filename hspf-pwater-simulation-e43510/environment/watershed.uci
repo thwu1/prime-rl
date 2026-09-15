@@ -1,0 +1,94 @@
+RUN
+
+GLOBAL
+  Pervious land water budget simulation - test watershed
+  START       2018              END    2018
+  RUN INTERP OUTPUT LEVEL    3
+  RESUME     0 RUN     1                   UNIT SYSTEM     1
+END GLOBAL
+
+OPN SEQUENCE
+    INGRP              INDELT 01:00
+      PERLND     101
+      RCHRES       1
+    END INGRP
+END OPN SEQUENCE
+
+PERLND
+  ACTIVITY
+    <PLS >          Active Sections                                    ***
+    # -  # ATMP SNOW PWAT  SED  PST  PWG PQAL MSTL PEST NITR PHOS TRAC ***
+  101    0    0    1    0    0    0    0    0    0    0    0    0
+  END ACTIVITY
+
+  GEN-INFO
+    <PLS ><-------Name------->        Unit-systems   Printer          ***
+    # -  #                                t-series Engl Metr          ***
+                                           in  out                    ***
+  101      TEST WATERSHED                   1    1    1    0
+  END GEN-INFO
+
+  PWAT-PARM1
+    <PLS >  PWATER variable monthly parameter value flags             ***
+    # -  # CSNO RTOP UZFG  VCS  VUZ  VNN VIFW VIRC  VLE              ***
+  101         0    1    1    1    0    0    0    0    0
+  END PWAT-PARM1
+
+  PWAT-PARM2
+    <PLS > ***  PWATER input info: Part 2
+    # -  # ***FOREST      LZSN    INFILT      LSUR     SLSUR     KVARY     AGWRC
+  101          0.000      7.35     0.079       50.    0.1548       1.0     0.993
+  END PWAT-PARM2
+
+  PWAT-PARM3
+    <PLS > ***  PWATER input info: Part 3
+    # -  # ***PETMAX    PETMIN    INFEXP    INFILD    DEEPFR    BASETP    AGWETP
+  101            40.       35.       2.0       2.0      0.02      0.22       0.0
+  END PWAT-PARM3
+
+  PWAT-PARM4
+    <PLS >     PWATER input info: Part 4                              ***
+    # -  #     CEPSC      UZSN      NSUR     INTFW       IRC     LZETP ***
+  101           0.01      0.85       0.4       3.0       0.7      0.73
+  END PWAT-PARM4
+
+  MON-INTERCEP
+    <PLS>   Only required if VCSFG=1 in PWAT-PARM1                    ***
+    # -  #  Interception storage capacity at start of each month      ***
+            JAN  FEB  MAR  APR  MAY  JUN  JUL  AUG  SEP  OCT  NOV  DEC***
+  101      0.09 0.10 0.10 0.14 0.17 0.18 0.18 0.18 0.17 0.15 0.12 0.10
+  END MON-INTERCEP
+
+  PWAT-STATE1
+    <PLS > *** Initial conditions at start of simulation
+    # -  # ***  CEPS      SURS       UZS      IFWS       LZS      AGWS      GWVS
+  101         0.0462       0.0    1.6075    0.0996    8.9629    2.8649    1.9555
+  END PWAT-STATE1
+
+  PSTEMP-PARM2
+    <PLS >                                                             ***
+    # -  #      ASLT      BSLT     ULTP1     ULTP2     LGTP1     LGTP2 ***
+  101           14.5     0.365       1.2       4.0       1.2       6.0
+  END PSTEMP-PARM2
+
+  PWT-PARM2
+    <PLS >                                                             ***
+    # -  #      ELEV     IDOXP     ICO2P     ADOXP     ACO2P          ***
+  101           500.        6.       .05        5.       .05
+  END PWT-PARM2
+END PERLND
+
+RCHRES
+  GEN-INFO
+    <RCH ><-------Name------->   Unit-systems   Printer               ***
+    # -  #                           t-series Engl Metr                ***
+                                      in  out                          ***
+    1      OUTLET REACH                1    1    1    0
+  END GEN-INFO
+
+  HYDR-PARM2
+    <RCH > *** Routing parameters                                     ***
+    # -  #       LEN     DELTH    STCOR       KS      DB50            ***
+    1            1.0      10.0      0.0      0.1     0.001
+  END HYDR-PARM2
+END RCHRES

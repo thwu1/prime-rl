@@ -1,0 +1,28 @@
+# Query label equivalence checking
+
+# Two queries with the same label must produce identical results
+query I nosort sum_equiv
+SELECT 1 + 2 + 3 + 4 + 5
+----
+
+query I nosort sum_equiv
+SELECT 15
+----
+
+# Another equivalence pair using aggregation
+query I nosort agg_equiv
+SELECT SUM(i) FROM range(1, 6) t(i)
+----
+
+query I nosort agg_equiv
+SELECT 5 * (5 + 1) // 2
+----
+
+# Multiple columns with label
+query II nosort multi_equiv
+SELECT 10, 20
+----
+
+query II nosort multi_equiv
+SELECT 5*2, 4*5
+----

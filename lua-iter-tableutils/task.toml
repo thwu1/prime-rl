@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Lua knowledge across multiple coupled subsystems: (1) table semantics — raw access vs metamethod-respecting access for islist, metatable sharing vs copying in deepcopy, cycle detection via memoization with correct key identity, thread type guarding across nested structures; (2) recursive merge — three behavior modes (keep/force/function) with correct argument threading, dict-vs-list discrimination, and EMPTY_DICT type preservation across deepcopy boundaries; (3) table diffing — correct added/removed/changed classification with recursive sub-diff pruning for identical subtrees; (4) dual-mode lazy iterator — array-backed vs function-backed state machines, a transform pipeline (filter/map/enumerate) that must be respected by take/peek/skip/group_by, multi-value Lua return semantics through peek buffering, and iterator combinators (chain/zip/scan) requiring correct index management and termination. The ~23 bugs have no comments or hints, span all subsystems, and include subtle interactions (e.g., take on arrays must detect transforms and materialize through them; skip-with-predicate must buffer the first non-matching element for function iterators but advance head directly for arrays; flatten must decrement depth; group_by must use transformed values not raw; partition must not swap result tables). Several bugs share a common pattern (uncaptured return value) that must be independently diagnosed in fold, scan, and the resolve function. The solver has no test suite available — they must analyze the 800+ line module against the API specification to find and fix each bug."""
+solution_explanation = """Fix ~23 bugs: (1) islist: rawget(t,i) instead of t[i]; (2) deepcopy memo: memo[v]=copy instead of memo[copy]=copy; (3) deepcopy: add thread type check before copying; (4) tbl_deep_extend resolve: swap keep/force returns (keep→prev, force→new); (5) tbl_deep_extend resolve: fix function-behavior arg order from (new,prev,k) to (k,prev,new); (6) tbl_deep_extend: preserve EMPTY_DICT marker on first table; (7) tbl_deep_diff: iterate b (not a) for added keys detection; (8) tbl_deep_diff: only include non-empty sub-diffs in changed; (9) enumerate: counter from 1→0; (10) peek array: apply transforms via save/restore of head; (11) peek function: return all packed values not just [1]; (12) skip predicate arrays: advance head directly instead of consuming via _next_transformed; (13) skip predicate functions: buffer first non-matching in _peeked; (14) rev: loop bound from len/2 to len/2-1; (15) take n array: guard with #transforms==0 before array shortcut; (16) take pred array: same guard; (17) fold: capture acc=f(...); (18) flatten: recurse with d-1 not d; (19) chain: idx from 1→0; (20) zip: return nil when other exhausts; (21) scan: capture acc=f(...); (22) group_by: use _next_transformed() not _raw_next(), store value not key; (23) partition: swap pass/fail assignment."""
+verification_explanation = """test.sh copies test_runner.lua to /app/ and runs pytest. test_state.py runs lua5.4 /app/test_runner.lua which exercises every public API method with edge cases derived from Neovim's test suite across 20+ sections. Additional pytest tests independently verify cycle detection, keep/force, function behavior, tbl_deep_diff (basic, nested identical, added-only), filter+map+take chaining, enumerate, flatten depth, chain concatenation, zip stopping, scan accumulation, peek with transforms, skip predicate, fold capture, islist raw access, rev even-length, group_by (basic and with transforms), and partition (basic and ordering)."""
+category = "debugging"
+tags = ["lua", "data-structures"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lua-iter-tableutils"

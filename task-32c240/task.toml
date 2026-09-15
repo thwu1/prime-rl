@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Linux UDP socket internals. The solver must: (1) understand why SO_REUSEADDR on UDP enables silent 4-tuple collisions ("overshadowing") where the kernel routes incoming packets to the newest matching socket, breaking older connections without any error; (2) design a system-wide conflict detection mechanism — this requires either parsing /proc/net/udp with correct hex address conversion (little-endian IP representation, connected-state filtering) or implementing SOCK_DIAG netlink queries with correct struct packing; (3) implement the SO_REUSEADDR toggle trick — temporarily clearing SO_REUSEADDR after bind to prevent concurrent binds during the conflict check window, providing atomicity; (4) handle edge cases including external sockets not managed by this instance, auto-port retry on conflict, explicit-port error on conflict, and 4-tuple reuse after close. The /proc/net/udp hex format and the SO_REUSEADDR-as-mutex trick are not covered in standard networking textbooks."""
+solution_explanation = """The fix adds a _check_udp_4tuple_conflict() function that reads /proc/net/udp line by line, converting source/destination IP:port pairs to the kernel's hex format (little-endian 32-bit IP + 16-bit port) and checking for connected (state 01) sockets matching the requested 4-tuple. The create_udp_connection() method is rewritten to: (1) bind with SO_REUSEADDR=1, (2) clear SO_REUSEADDR to 0 to prevent concurrent binds during check, (3) scan /proc/net/udp for conflicts, (4) if conflict found on explicit port raise ConnectionConflictError or on auto-port retry with new socket, (5) if no conflict connect() and restore SO_REUSEADDR=1."""
+verification_explanation = """Tests create UDP echo servers and verify: (1) TCP regression — source IP binding and explicit port reuse still work; (2) UDP port sharing — explicit and auto-port connections to different destinations all echo correctly; (3) conflict detection — duplicate 4-tuple with explicit port raises ConnectionConflictError; (4) external socket detection — a socket created outside the manager is detected via kernel socket table query; (5) post-conflict integrity — the original connection still works after a failed conflict attempt; (6) lifecycle — closed 4-tuples become available for reuse across multiple cycles."""
+category = "networking"
+tags = ["udp", "linux-kernel"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-32c240"

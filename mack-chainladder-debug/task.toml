@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires fixing four subtle mathematical bugs in a Mack Chain Ladder implementation (recursive SE formulas, total reserve parameter risk, skewness bias correction), then completing a Munich Chain Ladder implementation from a partially-written skeleton. The Munich work demands implementing standardized residual computation with proper triangular matrix operations and weight masking, fixing Q-model regression weights, correcting the recursive paid/incurred correction formula's ratio direction, and wiring up lambda correlation estimation. The two methods are coupled: Munich depends on a correct Mack implementation. Domain expertise in actuarial reserving or ability to derive the formulas from the statistical model is essential."""
+solution_explanation = """Four Mack bugs: (1) process risk recursion uses f[k] instead of f[k]^2; (2) parameter risk recursion omits FullTriangle[i,k]^2 multiplier; (3) total M vector sums rows 1:k instead of (m+1-k):m; (4) skewness Sk3k denominator uses simplified 1/(n-i) instead of bias-corrected 1/(n-i-Interm1[i]^2/Interm2[i]^3). Munich bugs: (5) Q-model regression weights use 1/Paid instead of 1/Incurred; (6) paid recursive correction uses P/I-q.f instead of I/P-qinverse.f. Munich implementation: compute four types of standardized residuals (paid development, incurred development, Q-ratio, Q-inverse), implement getMCLResiduals to extract upper triangle as vector with last two columns masked, and wire lambda regression."""
+verification_explanation = """Tests run the pipeline and verify 5 outputs against published golden values: RAA Total Mack S.E. from the ChainLadder test suite, GenIns per-origin and overall skewness from Dal Moro (2016), and Munich Chain Ladder paid/incurred ultimate totals from Quarg & Mack (2004) with weighted Last-3 LDF selection."""
+category = "debugging"
+tags = ["actuarial-science", "numerical-computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mack-chainladder-debug"

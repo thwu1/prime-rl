@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete automated program repair system from scratch with no guidance on approach. The agent must independently discover how to perform fault localization (e.g., via coverage instrumentation), devise a patch search strategy (e.g., mutation-based), orchestrate compile-test validation loops, and ensure the engine generalises to unseen buggy programs. This demands deep understanding of compiler toolchains, software testing theory, program analysis, and systems-level Python scripting — combining research concepts from automated program repair with practical engineering under strict correctness constraints."""
+solution_explanation = """The solution builds a Python-based APR engine that: (1) compiles each subject with gcov coverage flags, (2) runs tests individually to collect per-test line coverage, (3) computes Ochiai suspiciousness scores to rank likely-buggy lines, (4) applies four families of mutation operators (relational, arithmetic, constant, index) to the most suspicious lines, and (5) validates each candidate by recompiling and re-running the full test suite, accepting the first plausible patch. The engine handles both the provided five subjects and arbitrary new subjects following the same directory structure."""
+verification_explanation = """Tests verify provided subjects have correct fixed.c (compiles and passes all tests) and valid repair.json metadata. Critically, the test suite also creates three hidden subjects (fibonacci with arithmetic bug, inversion counter with relational bug, binary search with boundary bug) not present in the Docker image, runs repair.py on each, and verifies the engine produces correct patches — ensuring the tool genuinely generalises rather than relying on hardcoded fixes."""
+category = "software_engineering"
+tags = ["automated-program-repair", "fault-localization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/build-repair-engine"

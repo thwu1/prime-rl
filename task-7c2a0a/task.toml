@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic understanding to diagnose subtle implementation bugs across three vendor ACVP submissions. The solver must independently implement correct AES-CBC (AFT + MCT with chained state across 100x1000 iterations and key-length-dependent shuffle) and SHA2-256 (AFT + alternate MCT + multi-GB LDT streaming) processors, then systematically compare vendor outputs to identify which of 42+ test groups fail for each vendor. Diagnosing root causes demands holistic understanding: distinguishing a 192-bit MSB/LSB key shuffle error from a 256-bit operand swap, recognizing a CBC chain IV feedback bug from its failure pattern across decrypt-only MCTs, and differentiating an MCT algorithm version bug from an MCT state propagation bug — all from output discrepancies alone, without access to vendor source code. The overlapping failure matrix (e.g., tgId 41 fails for two vendors with different root causes) requires cross-vendor comparative analysis."""
+solution_explanation = """The solution implements a complete ACVP processor for AES-CBC and SHA2-256, generates correct reference results, then compares each vendor's output test-group-by-test-group. It identifies failing groups per vendor (Alpha: 38,41 AES + 3 SHA; Beta: 40,41,42 AES + 2 SHA; Gamma: 39,42 AES + 2 SHA). It classifies bugs by analyzing failure patterns: which key lengths are affected (key_schedule), whether only decrypt MCTs fail (cbc_chain), whether LDT outputs are trivially wrong (ldt_expansion), whether MCT results diverge from first iteration vs all being identical (mct_algorithm vs mct_state)."""
+verification_explanation = """Tests verify: (1) audit report has correct failing_groups lists per vendor per algorithm, (2) each bug's category and affected_groups match expected values, (3) reference AES-CBC AFT results independently recomputed using pycryptodome match, (4) reference AES-CBC MCT checkpoints at iterations 0/1/49/99 for all 6 MCT groups match pre-computed values, (5) reference SHA2-256 AFT results independently recomputed match, (6) SHA2-256 MCT checkpoints match, (7) SHA2-256 LDT digests match known correct values."""
+category = "cryptography"
+tags = ["nist-acvp", "conformance-audit"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7c2a0a"

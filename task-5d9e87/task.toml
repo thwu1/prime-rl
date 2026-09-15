@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cross-domain understanding spanning CadQuery modeling semantics, OpenCASCADE B-Rep kernel APIs, and mechanical assembly analysis. The agent must independently discover how to interrogate the OCC topology (BRepAdaptor_Surface, GeomAbs surface type classification) to extract cylindrical face radii and axis directions — information not directly exposed by CadQuery's high-level API. Diagnosing the housing defect demands understanding CadQuery face selectors (.faces(">Y") vs .faces(">Z")) and their 3D implications: the bore has the correct diameter but its axis is along Y instead of Z, making volume-only checking insufficient. The bushing defect requires assembly-level reasoning: its bore diameter exactly matches the shaft, creating zero clearance which violates the mating specification — the agent must correlate features across parts. The flange defect requires understanding the relationship between bore diameters and assembly coaxiality requirements. Assembly mate analysis spans multiple parts and requires computing clearances from extracted features and verifying axis alignment constraints."""
+solution_explanation = """Execute each CadQuery script and extract cylindrical surface parameters via OCP.BRepAdaptor.BRepAdaptor_Surface and GeomAbs_Cylinder classification. For each cylindrical face, extract radius from Cylinder().Radius() and axis from Cylinder().Axis().Direction(). Compare extracted features to assembly_spec.json: housing bore r=20 is correct but axis is [0,1,0] instead of [0,0,1] (wrong face selector), flange bore r=7.5 instead of r=20 (undersized hole), bushing bore r=19 instead of r=20 (zero clearance with shaft). Fix housing by changing faces(">Y") to faces(">Z"), flange by changing hole(15) to hole(40), bushing by changing circle(19) to circle(20). For assembly mates: shaft_step1_in_bushing has 0mm clearance (infeasible), housing_bore_axis deviates 90 degrees (infeasible), flange_base_bore_match has diameter mismatch 15 vs 40 (infeasible)."""
+verification_explanation = """Tests verify: (1) JSON structure with all required keys and subkeys, (2) cylindrical surface extraction for conforming parts — base_plate must have r=20 bore and 4x r=4 bolt holes all Z-aligned, shaft must have r=19 and r=12 steps, bracket must have zero cylindrical surfaces, (3) defective parts' measured features reflect actual defects — housing bore axis is Y-aligned, bushing bore r=19, flange bore r=7.5, (4) conformance correctly classifies base_plate/shaft/bracket as passing and housing/flange/bushing as failing, (5) corrected files in /app/parts_corrected/ execute and produce correct volumes and bore axes verified via OCC API calls in the tests, (6) assembly mate checks correctly identify all three infeasible mates."""
+category = "computational_geometry"
+tags = ["cadquery", "brep-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5d9e87"

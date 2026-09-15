@@ -1,0 +1,13 @@
+func main() {
+  a := 5
+  b := 10
+  c := call id(a)
+  d := call id(b)
+  e := c + d
+  return e
+}
+
+func id(x) {
+  r := x
+  return r
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level quantum computing knowledge to debug three subtle implementation errors in a qubitization-based QPE pipeline. The agent must: (1) discover that the pipeline produces incorrect energy estimates by running it and comparing against known reference values, (2) navigate and understand unfamiliar reference code from the qpe-toolbox library to learn the correct algorithms, (3) diagnose three independent bugs — missing coefficient sign absorption in the SELECT oracle, incorrect reflector construction projecting onto the wrong state, and a trigonometric error in the eigenphase-energy conversion — each requiring deep understanding of LCU decomposition, qubitization walk operators, and QPE theory. The bugs interact across the pipeline, making root-cause analysis challenging."""
+solution_explanation = """Fix three bugs: (1) In build_select_operator, multiply each Pauli block by sign(coeff) to absorb negative coefficient phases into the unitary operators. (2) In build_reflection_operator, transform e0 through the PREPARE unitary (L_state = prepare @ e0) and project onto the resulting |L> state instead of |0>. (3) In eigenphase_to_energy, use cos(2*pi*phase) instead of sin(2*pi*phase) per the qubitization eigenphase-energy relationship E = lambda*cos(2*pi*theta). Then re-run the pipeline to produce correct results.json."""
+verification_explanation = """Tests verify mathematical invariants across all three systems: Pauli algebra correctness, Hamiltonian eigenvalues against known values (heisenberg_2: [-0.75, 0.25, 0.25, 0.25], heisenberg_3 ground state: -1.0), LCU parameter values, PREPARE unitarity and correct state preparation, SELECT self-inverse property and the fundamental LCU relation <L|SELECT|L> = H/lambda, walk operator unitarity and eigenphase-energy correspondence, QPE energy accuracy within tolerance of exact diagonalization, and structural/numerical correctness of the results file."""
+category = "quantum_computing"
+tags = ["quantum-algorithms", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qubitization-walk-qpe"

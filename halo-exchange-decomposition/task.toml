@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of HPC domain decomposition and parallel simulation performance. The agent must: (1) navigate four distinct data formats — HDF5 particle data (h5py), nested YAML configuration, SQLite benchmark profiles, and Python source code comprising multiple interlinked modules; (2) reverse-engineer the complete performance model from the simulation source code, discovering the computation/communication tradeoff, face-neighbor halo exchange pattern, and latency-bandwidth communication model without any algorithmic guidance in the instruction; (3) map non-obvious nested configuration parameters (e.g. msg_startup_latency_sec, per_datum_transfer_cost_sec) to the correct model variables while ignoring irrelevant parameters; (4) implement the full optimization pipeline from data ingestion through grid enumeration and performance evaluation; (5) understand physical constraints on valid decompositions from the code's documentation. No algorithm or procedure is given — the agent must discover everything from the codebase and data."""
+solution_explanation = """The solution reads particle positions from HDF5, extracts simulation parameters from nested YAML configuration, and implements the performance model discovered from the /app/sim/ source modules. It enumerates all valid 3D processor grid factorizations (respecting the subdomain >= 2*cutoff constraint found in the decompose module), evaluates each using spatial binning for particle assignment, face-neighbor halo exchange for communication volume, and the latency-bandwidth timing model, then selects the factorization minimizing T_total = T_comp + T_comm."""
+verification_explanation = """Tests independently verify: (1) structural correctness of results.json, (2) load imbalance via independent spatial binning against HDF5 particle data, (3) communication volumes via independent halo computation, (4) optimal decomposition truly minimizes T_total among all valid candidates, (5) all valid factorizations are enumerated, (6) subdomain size constraints are satisfied, (7) timing model consistency (T_total = T_comp + T_comm, T_comp = max_particles * t_compute)."""
+category = "hpc"
+tags = ["domain-decomposition", "performance-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/halo-exchange-decomposition"

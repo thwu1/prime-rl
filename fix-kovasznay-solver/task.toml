@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of: (1) weak formulations for incompressible Navier-Stokes equations including correct signs in the saddle-point structure, (2) the relationship between Reynolds number and kinematic viscosity (nu = 1/Re), (3) Picard linearization and the requirement to update the convecting velocity each iteration, (4) finite element boundary condition specification in DOLFINx for all domain boundaries. The four bugs are spread across the variational form, boundary conditions, and iteration loop, requiring professional FEM/CFD expertise to identify and fix simultaneously."""
+solution_explanation = """Four bugs must be fixed: (1) The viscous diffusion term uses Re as coefficient instead of 1/Re (kinematic viscosity). (2) The pressure-velocity coupling term inner(p, div(v)) has wrong sign (positive instead of negative). (3) Dirichlet boundary conditions are only applied on three of four boundaries, missing x=1.5. (4) The Picard iteration loop never updates the convecting velocity u_n from the computed solution, so the nonlinear iteration is ineffective."""
+verification_explanation = """The test runs the fixed solver and checks that the L2 velocity error is below 5e-3 and L2 pressure error below 5e-2 compared to the known exact Kovasznay analytical solution. These thresholds are achievable with P2-P1 Taylor-Hood elements on a 24x24 mesh when all bugs are fixed, providing roughly an order of magnitude of margin above the expected discretization error."""
+category = "debugging"
+tags = ["fem", "cfd"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-kovasznay-solver"

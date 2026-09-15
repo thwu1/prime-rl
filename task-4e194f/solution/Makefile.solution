@@ -1,0 +1,26 @@
+SHELL := /bin/bash
+PYTHON := python3
+PROGRAMS := prog1 prog2 prog3 prog4 prog5
+PROGS_DIR := programs
+
+.PHONY: all optimize-all verify report clean
+
+all: optimize-all verify report
+
+optimize-all:
+	@for p in $(PROGRAMS); do \
+		$(PYTHON) optimize.py $(PROGS_DIR)/$$p.ir $(PROGS_DIR)/$$p.opt.ir; \
+	done
+
+verify:
+	@for p in $(PROGRAMS); do \
+		$(PYTHON) interpreter.py $(PROGS_DIR)/$$p.ir > /tmp/$${p}_orig.out; \
+		$(PYTHON) interpreter.py $(PROGS_DIR)/$$p.opt.ir > /tmp/$${p}_opt.out; \
+		diff -q /tmp/$${p}_orig.out /tmp/$${p}_opt.out > /dev/null || { echo "FAIL: $$p"; exit 1; }; \
+	done
+
+report:
+	@$(PYTHON) gen_report.py | jq -s 'reduce .[] as $$item ({}; . + $$item)' > optimization_report.json
+
+clean:
+	rm -f $(PROGS_DIR)/*.opt.ir optimization_report.json

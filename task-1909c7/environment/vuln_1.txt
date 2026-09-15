@@ -1,0 +1,43 @@
+[  123.456789] ==================================================================
+[  123.456790] BUG: KASAN: use-after-free in kmalloc64_write_handler+0x48/0x80 [vuln_mod]
+[  123.456791] Write of size 64 at addr ffff888100a23400 by task exploit_poc/1234
+[  123.456792]
+[  123.456793] CPU: 2 PID: 1234 Comm: exploit_poc Tainted: G    O      6.1.75 #1
+[  123.456794] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.2-1.fc38 04/01/2014
+[  123.456795] Call Trace:
+[  123.456796]  <TASK>
+[  123.456797]  dump_stack_lvl+0x49/0x63
+[  123.456798]  print_report+0x171/0x486
+[  123.456799]  ? kmalloc64_write_handler+0x48/0x80 [vuln_mod]
+[  123.456800]  kasan_report+0xb4/0x100
+[  123.456801]  ? kmalloc64_write_handler+0x48/0x80 [vuln_mod]
+[  123.456802]  __asan_store8+0x85/0xa0
+[  123.456803]  kmalloc64_write_handler+0x48/0x80 [vuln_mod]
+[  123.456804]  vuln_ioctl+0x1c4/0x300 [vuln_mod]
+[  123.456805]  __x64_sys_ioctl+0x12d/0x1a0
+[  123.456806]  do_syscall_64+0x3b/0x90
+[  123.456807]  entry_SYSCALL_64_after_hwframe+0x72/0xdc
+[  123.456808]  </TASK>
+[  123.456809]
+[  123.456810] Allocated by task 1234:
+[  123.456811]  kasan_save_stack+0x1e/0x40
+[  123.456812]  kasan_set_track+0x21/0x30
+[  123.456813]  __kasan_kmalloc+0x7e/0x90
+[  123.456814]  __kmalloc+0x50/0x140
+[  123.456815]  vuln_ioctl+0x84/0x300 [vuln_mod]
+[  123.456816]  __x64_sys_ioctl+0x12d/0x1a0
+[  123.456817]
+[  123.456818] Freed by task 1234:
+[  123.456819]  kasan_save_stack+0x1e/0x40
+[  123.456820]  kasan_set_track+0x21/0x30
+[  123.456821]  kasan_save_free_info+0x2a/0x50
+[  123.456822]  __kasan_slab_free+0x106/0x190
+[  123.456823]  kfree+0xa8/0x2e0
+[  123.456824]  vuln_ioctl+0x114/0x300 [vuln_mod]
+[  123.456825]  __x64_sys_ioctl+0x12d/0x1a0
+[  123.456826]
+[  123.456827] The buggy address belongs to the object at ffff888100a23400
+[  123.456828]  which belongs to the cache kmalloc-64 of size 64
+[  123.456829] The buggy address is located 0 bytes inside of
+[  123.456830]  freed 64-byte region [ffff888100a23400, ffff888100a23440)
+[  123.456831] ==================================================================

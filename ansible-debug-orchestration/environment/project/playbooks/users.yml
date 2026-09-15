@@ -1,0 +1,21 @@
+---
+- name: Create application users
+  hosts: local
+  vars_files:
+    - /app/secrets.yml
+  tasks:
+    - name: Create app group
+      ansible.builtin.group:
+        name: appteam
+        state: present
+
+    - name: Create application users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        groups: appteam
+        shell: /bin/bash
+        password: "{{ item.password | password_hash('sha512', 'saltsalt') }}"
+        create_home: yes
+      loop:
+        - { name: appuser1, password: "{{ db_password }}" }
+        - { name: appuser2, password: "{{ api_key }}" }

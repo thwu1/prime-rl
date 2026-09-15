@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level numerical analysis expertise. The agent must first explore the pySDC reference implementation to discover and understand the mathematical framework: Gauss-Radau IIa node computation via orthogonal polynomial roots, spectral integration matrix construction through Lagrange basis integration, the SDC predictor-corrector sweep iteration with backward-Euler preconditioning, and convergence/stability theory. Then the agent must implement all of this independently, including a non-trivial optimization over a non-smooth spectral radius objective for the diagonal preconditioner. The exploration, synthesis, and implementation chain spans collocation methods, iterative defect correction, numerical linear algebra, and nonlinear optimization."""
+solution_explanation = """The solution studies pySDC's collocation and sweeper modules to understand node generation (roots of P_M(x)-P_{M-1}(x) in Legendre polynomials mapped to [0,1]), Q matrix construction (Lagrange polynomial integration), and the SDC sweep structure (backward-Euler preconditioned predictor + correction iterations). It then implements these independently using numpy polynomial routines, runs a convergence study on u'=-u verifying orders min(K+1, 2M-1), evaluates the stability function R(z), and optimizes the diagonal preconditioner via Nelder-Mead on log-transformed variables with multiple restarts."""
+verification_explanation = """Tests verify: (1) M=3 nodes match the analytical formula (4+-sqrt(6))/10 to 1e-12; (2) M=5 nodes satisfy P_5(2t-1)-P_4(2t-1)=0; (3) Q matrix integrates polynomials of degree 0-4 exactly and matches Vandermonde-based computation; (4) convergence orders are within +-0.5 of theoretical 2,3,4,5,5 for K=1..5; (5) stability function matches independent reference to 1e-10; (6) optimal diagonal achieves spectral radius < 0.5 and improves upon diagonal-of-Q baseline."""
+category = "scientific_computing"
+tags = ["numerical-methods", "spectral-deferred-corrections"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0802d0"

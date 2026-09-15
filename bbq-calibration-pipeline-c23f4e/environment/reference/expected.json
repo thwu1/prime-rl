@@ -1,0 +1,21 @@
+{
+  "uncalibrated": {
+    "ece": 0.20524226,
+    "mce": 0.31940786,
+    "ace": 0.19566772,
+    "brier": 0.28910651
+  },
+  "histogram_binning": {
+    "ece": 0.03711108,
+    "mce": 0.2,
+    "ace": 0.07737375,
+    "brier": 0.24253628
+  },
+  "temperature_scaling": {
+    "ece": 0.02391516,
+    "mce": 0.90761569,
+    "ace": 0.14733278,
+    "brier": 0.24115523,
+    "optimal_temperature": 2.10186242
+  }
+}

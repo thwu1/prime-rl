@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three independent bugs in a MIP-based job shop scheduling pipeline that uses GLPK's glpsol and the GMPL modeling language. Bug 1: the big-M constant in the Manne disjunctive formulation is set to max(processing_times) instead of sum(processing_times), rendering the model infeasible — diagnosing this requires understanding how big-M relaxations work in MIP. Bug 2: the precedence constraint indexes the wrong operation's duration (k+1 instead of k), a subtle off-by-one that produces schedules violating job-internal ordering — requires reading GMPL constraint semantics against the mathematical formulation. Bug 3: the glpsol invocation uses a 10-second time limit, insufficient for branch-and-bound on 225-binary-variable MIPs. Fixing all three demands fluency in mathematical programming, GMPL syntax, and GLPK CLI tooling."""
+solution_explanation = """Three targeted fixes: (1) change big_m = max(all_durations) to sum(all_durations) in generate_data.py to provide a valid big-M upper bound; (2) replace duration[j, k+1] with duration[j, k] in the precedence constraint of jsp.mod; (3) increase --tmlim from 10 to 300 and add --mipgap 0.05 in run.sh. The corrected GLPK pipeline works for ft06 (6x6), but is slow on 10x5 instances due to the weak LP relaxation of the Manne formulation — a standalone simulated-annealing solver with critical-path neighborhood is used to produce reliable schedules for all four instances."""
+verification_explanation = """Tests parse both instance files and solver output CSVs. They verify: (1) output files exist for all four instances, (2) all operations are present, (3) machine assignments match the instance data, (4) processing durations match, (5) start times are non-negative, (6) job precedence is respected (each operation starts after its predecessor ends), (7) no two operations overlap on any machine, and (8) the makespan meets the quality target for each instance."""
+category = "optimization"
+tags = ["mip-debugging", "operations-research"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/jobshop-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of the ERDDAP/OPeNDAP scientific data ecosystem: parsing two bespoke OPeNDAP text protocols (DAS for variable attributes, DDS for dataset structure) that are not standard formats like JSON/XML; cross-referencing source server metadata against ERDDAP datasets.xml configuration to detect type mismatches (using OPeNDAP-to-config type mapping), attribute conflicts, and CF convention violations; recursively resolving composite dataset hierarchies (SideBySide, AggregateExistingDimension, Lon0360/LonPM180 wrappers) through multi-level nesting; inspecting binary NetCDF files via ncdump CLI (no Python NetCDF library available); and generating ERDDAP's proprietary NCCSV metadata format. The agent must work with multiple specialized tools (ncdump, xmlstarlet, jq) and understand the semantic relationships between OPeNDAP protocols, ERDDAP configuration, CF conventions, and NetCDF data models."""
+solution_explanation = """Parse DAS files with regex state machine (depth-tracked brace matching), DDS files with Grid/Array block extraction, and datasets.xml with ElementTree. Run ncdump -h to extract NetCDF structure. Cross-reference source variables against XML config by source name, compare types using OPeNDAP-to-config mapping table, detect attribute conflicts by comparing DAS/ncdump values against XML addAttributes, validate standard_names against CF table. Recursively resolve composite hierarchies: SideBySide collects from all children, Aggregate takes first child, wrappers delegate. Check axis compatibility by comparing children's axis source names. Generate NCCSV from DAS data with proper ordering (globals, axes by dim order, data vars alphabetically) and alphabetical attributes."""
+verification_explanation = """Tests load /app/output/reconciliation.json and verify: erdMBsstd1day has quality_level as source_only_var and units attribute conflict (deg_C vs degree_C); erdTAsshl1day has Float64-vs-float type mismatch; erdAGchla_part1 has chlorophyll_concentration CF violation and standard_name attribute conflict; erdQSwind_u has zero discrepancies (control); localBathyGrid has land_mask as source_only_var from ncdump and long_name attribute conflict. Hierarchy tests verify SideBySide merges variables with correct from_child, deep nesting resolves through Lon0360->SideBySide, aggregate takes first child vars. NetCDF summary checks dimensions and variable list from ncdump. NCCSV tests verify file existence, format structure, and data type entries."""
+category = "applied_computing"
+tags = ["opendap-protocols", "scientific-data-management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/erddap-config-analyzer"

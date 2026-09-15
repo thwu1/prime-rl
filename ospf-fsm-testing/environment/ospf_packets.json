@@ -1,0 +1,247 @@
+{
+  "description": "OSPF Hello packet samples for conformance validation. Each packet represents a decoded OSPF Hello received on a broadcast network interface. The reference_config describes the receiving interface's configuration against which packets must be validated per RFC 2328 Section 10.5.",
+  "reference_config": {
+    "interface_ip": "10.0.1.2",
+    "network_mask": "255.255.255.0",
+    "area_id": "0.0.0.0",
+    "hello_interval": 10,
+    "dead_interval": 40,
+    "options": {
+      "e_bit": true
+    },
+    "auth_type": 0,
+    "router_id": "2.2.2.2"
+  },
+  "packets": [
+    {
+      "id": "PKT-001",
+      "timestamp": 1000.000,
+      "src_ip": "10.0.1.1",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "1.1.1.1",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-002",
+      "timestamp": 1010.000,
+      "src_ip": "10.0.1.1",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "1.1.1.1",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "10.0.1.1",
+          "backup_designated_router": "10.0.1.2",
+          "neighbors": ["2.2.2.2"]
+        }
+      }
+    },
+    {
+      "id": "PKT-003",
+      "timestamp": 1020.000,
+      "src_ip": "10.0.1.3",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 3,
+        "type": 1,
+        "router_id": "3.3.3.3",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-004",
+      "timestamp": 1030.000,
+      "src_ip": "10.0.1.4",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "4.4.4.4",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 30,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-005",
+      "timestamp": 1040.000,
+      "src_ip": "10.0.1.5",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "5.5.5.5",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 120,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-006",
+      "timestamp": 1050.000,
+      "src_ip": "10.0.1.6",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "6.6.6.6",
+        "area_id": "0.0.0.1",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-007",
+      "timestamp": 1060.000,
+      "src_ip": "10.0.1.7",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "7.7.7.7",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.0.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-008",
+      "timestamp": 1070.000,
+      "src_ip": "10.0.1.8",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "8.8.8.8",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": false, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "0.0.0.0",
+          "backup_designated_router": "0.0.0.0",
+          "neighbors": []
+        }
+      }
+    },
+    {
+      "id": "PKT-009",
+      "timestamp": 1080.000,
+      "src_ip": "10.0.1.9",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "9.9.9.9",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 2,
+          "dead_interval": 40,
+          "designated_router": "10.0.1.1",
+          "backup_designated_router": "10.0.1.2",
+          "neighbors": ["2.2.2.2", "1.1.1.1"]
+        }
+      }
+    },
+    {
+      "id": "PKT-010",
+      "timestamp": 1200.000,
+      "src_ip": "10.0.1.1",
+      "dst_ip": "224.0.0.5",
+      "ospf": {
+        "version": 2,
+        "type": 1,
+        "router_id": "1.1.1.1",
+        "area_id": "0.0.0.0",
+        "auth_type": 0,
+        "hello": {
+          "network_mask": "255.255.255.0",
+          "hello_interval": 10,
+          "options": {"e_bit": true, "mc_bit": false, "np_bit": false, "ea_bit": false, "dc_bit": false},
+          "router_priority": 1,
+          "dead_interval": 40,
+          "designated_router": "10.0.1.1",
+          "backup_designated_router": "10.0.1.2",
+          "neighbors": ["2.2.2.2", "9.9.9.9"]
+        }
+      }
+    }
+  ]
+}

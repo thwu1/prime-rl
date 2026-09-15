@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the VGDL domain-specific language semantics from the GVGAI Java framework source code (VGDLParser.java, Game.java, ontology class hierarchy), then implementing a compatible parser in Python that correctly handles indentation-based tree construction, sprite class inheritance with parameter cascading, multi-sprite interaction rules, and multiple termination condition types. The agent must also implement winnability analysis that traces kill mechanisms through transformation chains, projectile availability, and SpawnPoint self-exhaustion across 6 structurally different games. Finally, all results must be stored in a correctly-schemaed SQLite database with cross-game queryability. The combination of Java source comprehension, unfamiliar DSL parsing, game-theoretic reasoning, and SQLite database design makes this a multi-domain expert task."""
+solution_explanation = """Parse the GVGAI Java source to understand VGDL indentation-based tree construction (stack-based indent tracking), sprite class inheritance (declared class cascades to children, parameters merge parent-to-child with child override), interaction parsing (sprite1 sprite2... > Effect params), level mapping (char > sprite list), and termination parsing. Build a Python VGDL parser implementing these semantics. For winnability: trace SpriteCounter win conditions to kill interactions, check killer availability via level presence, transformation chains, or avatar projectile stype matching. Handle MultiSpriteCounter by checking SpawnPoint self-exhaustion (total parameter) and separate kill availability for each type. Store all results in SQLite using the specified schema."""
+verification_explanation = """Tests run the analyzer on all 6 games (zelda, aliens, sokoban, chipschallenge, firecaster, lemmings) with 8 level files including 2 intentionally unwinnable levels (zelda_nokey: missing key breaks transformation chain; sokoban_noholes: no holes means boxes cannot be destroyed). Verification queries the SQLite database via SQL to check: correct table schemas, sprite class inheritance resolution (ShootAvatar, FlakAvatar, Resource, Chaser, etc.), parameter inheritance, level dimensions, specific sprite counts, interaction counts, and winnability verdicts including correct detection of unwinnable configurations."""
+category = "game_ai"
+tags = ["dsl-reverse-engineering", "sqlite-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-797ea1"

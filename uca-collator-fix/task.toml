@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of UTS #10 (Unicode Collation Algorithm), including: parsing the DUCET variable element markers (* vs .), implementing the Shifted variable weighting algorithm with its state-machine logic (Table 11), fixing a subtle implicit weight derivation formula for @implicitweights ranges, and correctly extending sort key formation to 4 levels. The agent must cross-reference the UCA specification, diagnose two distinct bugs plus a missing feature, and verify against official conformance test data."""
+solution_explanation = """Three fixes are needed: (1) In _implicit_weight, change the BBBB formula for @implicitweights ranges from (cp & 0x7FFF) | 0x8000 to (cp - start) | 0x8000 — the range-relative offset, not the bit-masked value. (2) Add variable element tracking during DUCET parsing by detecting the * prefix in allkeys.txt entries and computing variable_max (the maximum L1 weight of any variable element). (3) Implement _apply_shifted per UTS #10 Section 4/Table 11: variable CEs get L1-L3 zeroed and L4 = old L1; ignorable CEs following a variable get all-zero; non-variable CEs get L4 = 0xFFFF. Also update _form_sort_key to emit 4 levels for Shifted mode."""
+verification_explanation = """Tests parse official UCA conformance test subsets (600 lines each for Non-Ignorable and Shifted modes) and verify monotonic ordering of sort keys. Unit tests check specific sort key values for Tangut ideographs (implicit weights) and variable-weighted strings (Shifted mode). All tests are deterministic — correctness is defined by the UCA specification."""
+category = "data_structures"
+tags = ["unicode", "algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/uca-collator-fix"

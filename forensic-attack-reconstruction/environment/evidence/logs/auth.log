@@ -1,0 +1,44 @@
+Mar 15 06:25:01 prod-web-01 CRON[1102]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 06:25:01 prod-web-01 CRON[1102]: pam_unix(cron:session): session closed for user root
+Mar 15 07:00:01 prod-web-01 CRON[1145]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 07:00:01 prod-web-01 CRON[1145]: pam_unix(cron:session): session closed for user root
+Mar 15 08:05:22 prod-web-01 sshd[1201]: Accepted publickey for admin from 10.0.4.5 port 55412 ssh2: ED25519 SHA256:aBcDeFgHiJkLmNoPqRsTuVwXyZ01234567890abcde
+Mar 15 08:05:22 prod-web-01 sshd[1201]: pam_unix(sshd:session): session opened for user admin(uid=1000) by (uid=0)
+Mar 15 08:05:22 prod-web-01 systemd-logind[185]: New session 14 of user admin.
+Mar 15 09:00:01 prod-web-01 CRON[1289]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 09:00:01 prod-web-01 CRON[1289]: pam_unix(cron:session): session closed for user root
+Mar 15 09:30:01 prod-web-01 CRON[1312]: pam_unix(cron:session): session opened for user www-data(uid=33) by (uid=0)
+Mar 15 09:30:01 prod-web-01 CRON[1312]: pam_unix(cron:session): session closed for user www-data
+Mar 15 10:00:01 prod-web-01 CRON[1356]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 10:00:01 prod-web-01 CRON[1356]: pam_unix(cron:session): session closed for user root
+Mar 15 11:00:01 prod-web-01 CRON[1423]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 11:00:01 prod-web-01 CRON[1423]: pam_unix(cron:session): session closed for user root
+Mar 15 12:00:01 prod-web-01 CRON[1467]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 12:00:01 prod-web-01 CRON[1467]: pam_unix(cron:session): session closed for user root
+Mar 15 12:30:01 prod-web-01 CRON[1489]: pam_unix(cron:session): session opened for user www-data(uid=33) by (uid=0)
+Mar 15 12:30:01 prod-web-01 CRON[1489]: pam_unix(cron:session): session closed for user www-data
+Mar 15 13:00:01 prod-web-01 CRON[1512]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 13:00:01 prod-web-01 CRON[1512]: pam_unix(cron:session): session closed for user root
+Mar 15 14:00:01 prod-web-01 CRON[1589]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 14:00:01 prod-web-01 CRON[1589]: pam_unix(cron:session): session closed for user root
+Mar 15 14:31:15 prod-web-01 su[1834]: Successful su for devops by www-data
+Mar 15 14:31:15 prod-web-01 su[1834]: + /dev/pts/1 www-data:devops
+Mar 15 14:31:15 prod-web-01 su[1834]: pam_unix(su:session): session opened for user devops(uid=1001) by www-data(uid=33)
+Mar 15 14:38:22 prod-web-01 sudo:   devops : TTY=pts/1 ; PWD=/opt/maintenance ; USER=root ; COMMAND=/opt/maintenance/run-diagnostics.sh
+Mar 15 14:38:22 prod-web-01 sudo: pam_unix(sudo:session): session opened for user root(uid=0) by devops(uid=1001)
+Mar 15 14:38:23 prod-web-01 su[1901]: pam_unix(su:session): session opened for user root(uid=0) by devops(uid=1001)
+Mar 15 14:45:01 prod-web-01 CRON[1945]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 14:45:01 prod-web-01 CRON[1945]: pam_unix(cron:session): session closed for user root
+Mar 15 15:00:01 prod-web-01 CRON[2012]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 15:00:01 prod-web-01 CRON[2012]: pam_unix(cron:session): session closed for user root
+Mar 15 15:15:01 prod-web-01 CRON[2045]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 15:15:01 prod-web-01 CRON[2045]: pam_unix(cron:session): session closed for user root
+Mar 15 15:30:01 prod-web-01 CRON[2078]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 15:30:01 prod-web-01 CRON[2078]: pam_unix(cron:session): session closed for user root
+Mar 15 16:00:01 prod-web-01 CRON[2134]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 16:00:01 prod-web-01 CRON[2134]: pam_unix(cron:session): session closed for user root
+Mar 15 16:30:33 prod-web-01 sshd[2178]: Accepted publickey for admin from 10.0.4.5 port 55890 ssh2: ED25519 SHA256:aBcDeFgHiJkLmNoPqRsTuVwXyZ01234567890abcde
+Mar 15 16:30:33 prod-web-01 sshd[2178]: pam_unix(sshd:session): session opened for user admin(uid=1000) by (uid=0)
+Mar 15 16:30:33 prod-web-01 systemd-logind[185]: New session 27 of user admin.
+Mar 15 17:00:01 prod-web-01 CRON[2234]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+Mar 15 17:00:01 prod-web-01 CRON[2234]: pam_unix(cron:session): session closed for user root

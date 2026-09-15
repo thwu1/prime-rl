@@ -1,0 +1,135 @@
+Kafka RecordBatch Binary Format Reference
+==========================================
+
+RecordBatch Layout (on-disk and on-wire):
+  Offset  Size  Field                    Encoding
+  0       8     BaseOffset               int64 big-endian
+  8       4     BatchLength              int32 big-endian (byte count of everything after this field)
+  12      4     PartitionLeaderEpoch     int32 big-endian
+  16      1     Magic                    int8 (must be 2 for current format)
+  17      4     CRC                      uint32 big-endian, CRC-32C Castagnoli
+  21      2     Attributes               int16 big-endian
+  23      4     LastOffsetDelta          int32 big-endian
+  27      8     FirstTimestamp           int64 big-endian (milliseconds since epoch)
+  35      8     MaxTimestamp             int64 big-endian
+  43      8     ProducerId               int64 big-endian (-1 if non-idempotent)
+  51      2     ProducerEpoch            int16 big-endian (-1 if non-idempotent)
+  53      4     BaseSequence             int32 big-endian (-1 if non-idempotent)
+  57      4     NumRecords               int32 big-endian
+  61      var   Records                  concatenated record data (possibly compressed)
+
+CRC Scope:
+  CRC-32C (Castagnoli, polynomial 0x1EDC6F41) computed over bytes from
+  the Attributes field (offset 21) through the end of the batch.
+
+  Fields NOT covered by CRC: BaseOffset, BatchLength, PartitionLeaderEpoch,
+  Magic, and the CRC field itself.
+
+  IMPORTANT: CRC is computed over the COMPRESSED records data (if compression
+  is enabled), not the decompressed form.
+
+Compression:
+  The Attributes field (int16 at offset 21) encodes the compression codec
+  in its lowest 3 bits (bits 0-2):
+
+    Value  Codec
+    0      None (records stored as raw bytes)
+    1      GZIP (records compressed with gzip/deflate)
+    2      Snappy (Xerial framed format)
+    3      LZ4 (LZ4 frame format)
+    4      ZStandard
+
+  When compression is enabled:
+  - The NumRecords field (offset 57) still contains the UNCOMPRESSED record count
+  - The Records data starting at offset 61 is the COMPRESSED form of all
+    concatenated individual record encodings
+  - To read individual records: decompress the data at offset 61, then parse
+    records from the decompressed bytes
+  - CRC covers bytes 21 through end of batch (including the compressed records)
+  - BatchLength accounts for the compressed size, not the decompressed size
+
+  Other Attributes bits:
+    Bit 3:    timestampType (0=CreateTime, 1=LogAppendTime)
+    Bit 4:    isTransactional
+    Bit 5:    isControlBatch
+    Bit 6:    hasDeleteHorizonMs
+    Bits 7-15: unused
+
+Idempotent Producer Fields:
+  ProducerId (int64): identifies the producer instance (-1 if not idempotent)
+  ProducerEpoch (int16): epoch/generation of the producer (-1 if not idempotent)
+  BaseSequence (int32): sequence number of the first record in the batch (-1 if not idempotent)
+  These fields enable exactly-once semantics and duplicate detection.
+
+Record Format (variable-length, within RecordBatch):
+  Field            Encoding
+  Size             signed varint (total byte length of remaining fields)
+  Attributes       int8 (1 byte)
+  TimestampDelta   signed varint
+  OffsetDelta      signed varint
+  KeyLength        signed varint (-1 = null key)
+  Key              raw bytes (KeyLength bytes, omitted if null)
+  ValueLength      signed varint (-1 = null value)
+  Value            raw bytes (ValueLength bytes, omitted if null)
+  HeadersCount     signed varint
+  Headers          repeated (key_length varint + key bytes + value_length varint + value bytes)
+
+Signed Varint (Zigzag + LEB128):
+  Encode: value -> zigzag = (value >= 0) ? value*2 : (-value)*2-1 -> unsigned LEB128
+  Decode: unsigned LEB128 -> zigzag -> value = (zigzag >> 1) ^ -(zigzag & 1)
+
+  Unsigned LEB128: emit 7 bits per byte, high bit = 1 means more bytes follow.
+
+Cluster Metadata Log:
+  Located at __cluster_metadata-0/00000000000000000000.log
+  Contains standard RecordBatches. Each record's value is a metadata payload:
+
+    Byte 0: FrameVersion (int8, always 1)
+    Byte 1: Type (int8)
+      2 = TopicRecord
+      3 = PartitionRecord
+      12 = FeatureLevelRecord
+    Byte 2: Version (int8)
+    Remaining: type-specific data (see below)
+
+  TopicRecord (Type 2, Version 0):
+    TopicName    compact string
+    TopicUUID    16 bytes (UUID, big-endian)
+    TagBuffer    uvarint(0)
+
+  PartitionRecord (Type 3, Version 1):
+    PartitionId         int32
+    TopicUUID           16 bytes (UUID)
+    Replicas            compact array of int32
+    ISRReplicas         compact array of int32
+    RemovingReplicas    compact array of int32
+    AddingReplicas      compact array of int32
+    Leader              int32
+    LeaderEpoch         int32
+    PartitionEpoch      int32
+    DirectoryUUIDs      compact array of UUIDs (16 bytes each)
+    TagBuffer           uvarint(0)
+
+  FeatureLevelRecord (Type 12, Version 0):
+    Name           compact string
+    FeatureLevel   int16
+    TagBuffer      uvarint(0)
+
+Compact Encodings:
+  Compact String:  uvarint(byte_length + 1) followed by UTF-8 bytes
+  Compact Array:   uvarint(element_count + 1) followed by elements
+  Note the +1 offset: a raw uvarint value of 0 means null, 1 means empty (length/count 0).
+
+Base Offset Sequencing:
+  Within a partition log, batches are sequential. The next batch's BaseOffset
+  equals the previous batch's BaseOffset + LastOffsetDelta + 1.
+
+Diagnostic Tools:
+  kafka-dump-log.sh --files <path> --print-data-log
+    Parses and displays RecordBatch contents from a log file. Shows structural
+    errors (invalid CRC, wrong magic, etc.) in-line. Handles compressed batches
+    automatically. Requires KAFKA_HOME and Java.
+
+  xxd <path>
+    Hex dump of binary file. Useful for byte-level inspection of corrupted regions.
+    Example: xxd -s 17 -l 4 <path>  (show 4 bytes at CRC offset)

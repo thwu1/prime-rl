@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<XTbML>
+  <ContentClassification>
+    <TableIdentity>3281</TableIdentity>
+    <ProviderDomain>soa.org</ProviderDomain>
+    <ProviderName>American Academy of Actuaries along with the Society of Actuaries</ProviderName>
+    <TableReference>Joint American Academy of Actuaries Life Experience Committee and Society of Actuaries Preferred Mortality Oversight Group CSO Development Subgroup, Report on the 2017 CSO, (2015).</TableReference>
+    <ContentType tc="85">CSO / CET</ContentType>
+    <TableName>2017 Loaded CSO Composite Gender-Blended 80% Male ANB</TableName>
+    <TableDescription>2017 Loaded CSO Composite Gender-Blended, Male, 80%, Age Nearest Birthday. Minimum Age: 0. Maximum Age: 95.</TableDescription>
+    <Comments>The 2017 Commissioners Standard Ordinary Tables (CSO) are a series of mortality tables developed for regulatory uses including CRVM, net premium reserves and non-forfeiture determination.</Comments>
+    <KeyWord>Select</KeyWord>
+    <KeyWord>CSO/CET</KeyWord>
+    <KeyWord>United States of America</KeyWord>
+  </ContentClassification>
+  <Table>
+    <MetaData>
+      <ScalingFactor>0</ScalingFactor>
+      <DataType tc="2">Floating Point</DataType>
+      <Nation tc="1">United States of America</Nation>
+      <TableDescription>2017 CSO Blended 80% Male ANB - Select</TableDescription>
+      <AxisDef id="Age">
+        <ScaleType tc="3">Age</ScaleType>
+        <AxisName>Age</AxisName>
+        <MinScaleValue>0</MinScaleValue>
+        <MaxScaleValue>95</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+      <AxisDef id="Duration">
+        <ScaleType tc="2">Ordinal Date</ScaleType>
+        <AxisName>Duration</AxisName>
+        <MinScaleValue>1</MinScaleValue>
+        <MaxScaleValue>25</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+    </MetaData>
+    <Values>
+      <Axis t="18">
+        <Axis>
+          <Y t="1">0.00130</Y>
+          <Y t="2">0.00120</Y>
+          <Y t="3">0.00115</Y>
+          <Y t="4">0.00113</Y>
+          <Y t="5">0.00112</Y>
+        </Axis>
+      </Axis>
+      <Axis t="30">
+        <Axis>
+          <Y t="1">0.00095</Y>
+          <Y t="2">0.00100</Y>
+          <Y t="3">0.00107</Y>
+          <Y t="4">0.00116</Y>
+          <Y t="5">0.00127</Y>
+        </Axis>
+      </Axis>
+    </Values>
+  </Table>
+  <Table>
+    <MetaData>
+      <ScalingFactor>0</ScalingFactor>
+      <DataType tc="2">Floating Point</DataType>
+      <Nation tc="1">United States of America</Nation>
+      <TableDescription>2017 CSO Blended 80% Male ANB - Ultimate</TableDescription>
+      <AxisDef id="Age">
+        <ScaleType tc="3">Age</ScaleType>
+        <AxisName>Age</AxisName>
+        <MinScaleValue>18</MinScaleValue>
+        <MaxScaleValue>95</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+    </MetaData>
+    <Values>
+      <Axis>
+        <Y t="18">0.00130</Y>
+        <Y t="19">0.00140</Y>
+        <Y t="20">0.00148</Y>
+        <Y t="30">0.00155</Y>
+        <Y t="50">0.00490</Y>
+        <Y t="70">0.02540</Y>
+        <Y t="95">0.39910</Y>
+      </Axis>
+    </Values>
+  </Table>
+</XTbML>

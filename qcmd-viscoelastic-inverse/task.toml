@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver receives a partially implemented QCM-D analysis system with defects in both the C shared library (incorrect multi-layer acoustic wave propagation) and the Python module (wrong frequency-scaling exponent), plus missing inverse solver, sensitivity analysis, and CLI components. Diagnosing the bugs requires understanding acoustic impedance transfer-matrix physics for layered media — the solver must compare computed outputs against reference data, trace failures to specific mathematical errors in the C complex-arithmetic code and Python power-law model, then implement the missing nonlinear inverse solver (bounded least-squares) and CLI JSON pipeline. Combines C systems programming, ctypes FFI, scipy optimization, and niche domain physics."""
+solution_explanation = """Fix the C library's multi-layer transfer-matrix propagation: the buggy starter code inverts the impedance ratio at the terminal interface (uses Z[last-1]/Zf instead of Zf/Z[last-1]). Fix the Python grho() power-law exponent from phi/180 to phi/90. Implement solve_inverse using scipy.optimize.least_squares with bounded parameters, compute_sensitivity via central finite differences, and a CLI tool (qcm_cli.py) with JSON I/O supporting forward and inverse modes."""
+verification_explanation = """Tests verify: (1) C shared library loads and exports qcm_delfstar. (2) Direct C calls match reference values for single-layer and multi-layer cases. (3) Python module uses ctypes to load libqcm_transfer. (4) Sauerbrey mass formula correctness. (5) Power-law grho scaling at multiple overtones. (6) Forward calculations match reference data (rigid film, bulk liquid, viscoelastic film+liquid, 3-layer stacks). (7) Numerical sensitivity analysis. (8) Round-trip inverse solver convergence. (9) CLI JSON I/O for forward and inverse modes. (10) Edge cases: thin-film Sauerbrey limit, Newtonian liquid symmetry, overtone scaling."""
+category = "scientific_computing"
+tags = ["acoustics", "ffi-integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qcmd-viscoelastic-inverse"

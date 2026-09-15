@@ -1,0 +1,14 @@
+{
+  "description": "Two objects: one with weakref and cross-thread merge, one immortalized",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 1, "op": "create", "obj": "B"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "create_weakref", "obj": "A"},
+    {"tid": 1, "op": "immortalize", "obj": "B"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "B"},
+    {"tid": 2, "op": "decref", "obj": "B"},
+    {"tid": 1, "op": "decref", "obj": "A"}
+  ]
+}

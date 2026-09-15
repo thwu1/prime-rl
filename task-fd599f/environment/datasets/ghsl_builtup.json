@@ -1,0 +1,17 @@
+{
+  "dataset": "GHS-BUILT-S R2023A",
+  "info": "Global Human Settlement Layer - Built-up surface fraction grid derived from Sentinel-2 composite and Landsat imagery",
+  "projection": "ESRI:54009",
+  "bounding_box": {
+    "min_x": -18040095.0,
+    "min_y": -9020047.5,
+    "max_x": 18040095.0,
+    "max_y": 9020047.5
+  },
+  "temporal_coverage": "1975/2030",
+  "pixel_spacing_m": 100,
+  "layers": ["built_up_fraction"],
+  "origin": "European Commission Joint Research Centre",
+  "use_terms": "CC-BY-4.0",
+  "classification": "population"
+}

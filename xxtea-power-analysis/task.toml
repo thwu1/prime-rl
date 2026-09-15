@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires recovering a 128-bit cryptographic key from noisy, jittered side-channel power traces stored in an undocumented custom binary format across multiple batch files. The solver must reverse-engineer the binary capture format using metadata in a SQLite database and hex inspection, implement a statistical side-channel attack appropriate for the leakage model discovered in the workspace, handle temporal misalignment and noise in the trace data, and finally decrypt an encrypted report using parameters retrieved from the database. Combines side-channel cryptanalysis expertise with binary format reverse-engineering, database querying, and multi-tool CLI proficiency."""
+solution_explanation = """Query sqlite3 for capture config (samples_per_trace, batch paths, binary format schema, AES IV). Inspect binary files with xxd to verify format. Parse SCTF batch files: 32-byte header (magic, version, trace count, samples_per_trace, data_type), then per-trace records (16B plaintext + 16B ciphertext + N*4B float32 samples). Load all 5000 traces from 5 batches. Implement iterative SAD-based trace alignment (max_shift=35, 2 passes). For each of 16 key bytes, run CPA: compute HW(plaintext[i] XOR guess) for all 256 guesses, correlate against aligned power samples, select guess with maximum positive Pearson correlation. Combine 16 bytes into 128-bit key hex. Verify with /app/verify. Retrieve AES IV from sqlite3, decrypt encrypted_report.enc with openssl enc -d -aes-128-cbc."""
+verification_explanation = """Five pytest checks: (1) /app/recovered_key.hex exists, (2) contains valid 32-char hex, (3) key passes the compiled /app/verify binary (constant-time comparison against obfuscated embedded key), (4) /app/decrypted_report.txt exists, (5) decrypted report contains expected verification tokens confirming correct decryption."""
+category = "security"
+tags = ["side-channel-analysis", "cryptanalysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xxtea-power-analysis"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert CFD knowledge to diagnose five interacting configuration errors (hex vertex topology, convection scheme boundedness, SIMPLE relaxation factors, pressure reference cell, and Reynolds number via viscosity), plus proficiency in numerical analysis to implement a Richardson extrapolation-based mesh convergence study from scratch. The solver must create a Python script that programmatically runs OpenFOAM at multiple mesh levels, parses structured output files, implements bilinear interpolation on cell-centered data, applies the Richardson extrapolation formula to estimate grid-converged solutions, computes the observed order of convergence and Grid Convergence Index, and evaluates asymptotic convergence range — all validated against the Ghia et al. (1982) benchmark. This combines CFD debugging, numerical methods theory, and scientific programming in a way that goes well beyond textbook exercises."""
+solution_explanation = """Five case fixes are required: (1) Swap vertices 2 and 3 in blockMeshDict to restore correct hex block topology. (2) Change div(phi,U) from unbounded 'Gauss linear' to bounded 'Gauss linearUpwind grad(U)'. (3) Reduce relaxation factors from 1.0 to SIMPLE standards (U=0.7, p=0.3). (4) Add pRefCell/pRefValue to the SIMPLE block. (5) Change nu from 1e-06 to 0.001 for Re=100. Then a Python script (analyze.py) is created that writes tight solver settings for the convergence study, runs the case at 20x20, 40x40, and 80x80 mesh levels, extracts vertical centerline u-velocity profiles by interpolating between cell columns, computes Richardson extrapolation at five Ghia reference y-coordinates, derives observed convergence order and GCI, and writes a JSON report."""
+verification_explanation = """Tests verify in two stages: (1) Base case validation — blockMesh produces a valid mesh, simpleFoam converges without fatal errors, and a velocity field is produced. (2) Convergence report validation — the JSON report exists with correct structure, Richardson extrapolation formula is verified algebraically against stored mesh values, GCI formula consistency is checked, extrapolated velocities are compared against Ghia et al. reference data within tolerance, observed convergence orders are in a physically reasonable range, and monotone convergence is confirmed at the majority of sample points."""
+category = "cfd"
+tags = ["openfoam", "numerical-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-75d175"

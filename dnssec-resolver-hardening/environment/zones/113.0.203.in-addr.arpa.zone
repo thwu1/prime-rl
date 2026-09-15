@@ -1,0 +1,12 @@
+$ORIGIN 113.0.203.in-addr.arpa.
+$TTL 86400
+@   IN  SOA  ns1.acme-internal.test. admin.acme-internal.test. (
+              2024010101
+              3600
+              900
+              604800
+              86400 )
+    IN  NS   ns1.acme-internal.test.
+
+10  IN  PTR  www.acme-internal.test.
+20  IN  PTR  mail.acme-internal.test.

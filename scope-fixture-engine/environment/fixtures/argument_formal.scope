@@ -1,0 +1,24 @@
+void bar(int aaa, int bbb) {}
+---
+
+[Content] = 0:9-0:16
+         >-------<
+0| void bar(int aaa, int bbb) {}
+[Removal] = 0:9-0:18
+         >---------<
+0| void bar(int aaa, int bbb) {}
+[Domain] = 0:8-0:26
+        >------------------<
+0| void bar(int aaa, int bbb) {}
+[Insertion delimiter] = ", "
+
+[Content] = 0:18-0:25
+                  >-------<
+0| void bar(int aaa, int bbb) {}
+[Removal] = 0:16-0:25
+                >---------<
+0| void bar(int aaa, int bbb) {}
+[Domain] = 0:8-0:26
+        >------------------<
+0| void bar(int aaa, int bbb) {}
+[Insertion delimiter] = ", "

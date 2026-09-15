@@ -1,0 +1,39 @@
+subj_id,visit,visit_date,test_name,result,unit,position
+001,Screening,10-JAN-2024,Systolic Blood Pressure,128,mmHg,SITTING
+001,Screening,10-JAN-2024,Diastolic Blood Pressure,82,mmHg,SITTING
+001,Screening,10-JAN-2024,Heart Rate,72,beats/min,SITTING
+001,Screening,10-JAN-2024,Temperature,36.5,C,
+001,Screening,10-JAN-2024,Weight,82.3,kg,
+001,Screening,10-JAN-2024,Height,175.2,cm,
+001,Baseline,15-JAN-2024,Systolic Blood Pressure,130,mmHg,SITTING
+001,Baseline,15-JAN-2024,Diastolic Blood Pressure,84,mmHg,SITTING
+001,Baseline,15-JAN-2024,Heart Rate,70,beats/min,SITTING
+001,Baseline,15-JAN-2024,Temperature,36.6,C,
+001,Baseline,15-JAN-2024,Weight,82.5,kg,
+001,Week 4,12-FEB-2024,Systolic Blood Pressure,125,mmHg,SITTING
+001,Week 4,12-FEB-2024,Diastolic Blood Pressure,80,mmHg,SITTING
+001,Week 4,12-FEB-2024,Heart Rate,68,beats/min,SITTING
+001,Week 4,12-FEB-2024,Temperature,36.4,C,
+001,Week 4,12-FEB-2024,Weight,82.0,kg,
+003,Screening,14-JAN-2024,Systolic Blood Pressure,145,mmHg,SITTING
+003,Screening,14-JAN-2024,Diastolic Blood Pressure,92,mmHg,SITTING
+003,Screening,14-JAN-2024,Heart Rate,78,beats/min,SITTING
+003,Screening,14-JAN-2024,Temperature,36.7,C,
+003,Screening,14-JAN-2024,Weight,90.5,kg,
+003,Screening,14-JAN-2024,Height,180.0,cm,
+003,Baseline,20-JAN-2024,Systolic Blood Pressure,142,mmHg,SITTING
+003,Baseline,20-JAN-2024,Diastolic Blood Pressure,90,mmHg,SITTING
+003,Baseline,20-JAN-2024,Heart Rate,76,beats/min,SITTING
+003,Baseline,20-JAN-2024,Temperature,36.8,C,
+003,Baseline,20-JAN-2024,Weight,90.8,kg,
+005,Screening,18-JAN-2024,Systolic Blood Pressure,118,mmHg,SITTING
+005,Screening,18-JAN-2024,Diastolic Blood Pressure,75,mmHg,SITTING
+005,Screening,18-JAN-2024,Heart Rate,65,beats/min,SITTING
+005,Screening,18-JAN-2024,Temperature,98.1,F,
+005,Screening,18-JAN-2024,Weight,170.0,lbs,
+005,Screening,18-JAN-2024,Height,68.5,in,
+005,Baseline,25-JAN-2024,Systolic Blood Pressure,120,mmHg,SITTING
+005,Baseline,25-JAN-2024,Diastolic Blood Pressure,76,mmHg,SITTING
+005,Baseline,25-JAN-2024,Heart Rate,66,beats/min,SITTING
+005,Baseline,25-JAN-2024,Temperature,97.7,F,
+005,Baseline,25-JAN-2024,Weight,169.5,lbs,

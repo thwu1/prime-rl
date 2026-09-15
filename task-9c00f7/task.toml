@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CPU microarchitecture (vector register files, FMA execution units, memory hierarchy), x86 SIMD intrinsic programming, and high-performance dense linear algebra implementation. The agent must independently discover and correctly implement a production-quality SGEMM including: a vectorized computational kernel with appropriate register allocation for accumulator and operand registers, data packing/rearrangement to achieve cache-friendly access patterns across the memory hierarchy, multi-level tiling with correct index arithmetic across nested loops, and edge-case handling for arbitrary matrix dimensions using masked or conditional stores. A single indexing error in any of these tightly-coupled components causes silent data corruption detectable only by exhaustive correctness testing against the reference."""
+solution_explanation = """The solution writes a complete optimized.c implementing: (1) a 16x6 AVX2/FMA micro-kernel that zero-initializes or loads 12 YMM accumulators from C, performs kc rank-1 updates via _mm256_fmadd_ps with broadcast scalars from packed B, then stores results with _mm256_maskstore_ps using precomputed int8 sign-extension masks; (2) pack_blockA/pack_blockB routines that copy sub-matrices into contiguous column-panel (A) and row-panel (B) formats padded to 16/6 respectively; (3) a 5-loop matmul driver with NC/KC/MC tiling that packs B into L3-resident blocks, packs A into L2-resident blocks, and dispatches micro-kernel calls with zero-init on the first K-tile and accumulation on subsequent tiles."""
+verification_explanation = """Tests build the project via CMake, then run a C test harness that compares matmul() output against matmul_naive() across 20 matrix sizes spanning aligned tiles (16x6, 512x384), non-aligned edges (17x7, 127x63, 513x257), degenerate cases (1x1, 3x5), and a large 1000x1000 case. Each comparison checks element-wise absolute error against a K-scaled tolerance. Additional pytest checks verify the compiled assembly contains vfmadd and vbroadcastss instructions (proving real SIMD usage) and that the source code uses vector intrinsics rather than wrapping the naive implementation."""
+category = "systems_programming"
+tags = ["simd-optimization", "cache-blocking"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9c00f7"

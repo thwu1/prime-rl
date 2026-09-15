@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing persistent red-black tree deletion in Lua, which extends the standard Okasaki purely functional insertion with transient node colors (DOUBLE_BLACK and NEGATIVE_BLACK) for rebalancing. The algorithm is not part of standard curricula and appears primarily in research literature. Six interconnected functions must be implemented correctly with no algorithmic guidance in the stub comments: redder, extended balance, bubble, remove_node, remove_min, and delete_node. The agent must independently discover the correct deletion algorithm from the existing code structure, color constants, and validation logic. Correct structural sharing for persistence adds another dimension of difficulty."""
+solution_explanation = """The solution implements the Germane-Might deletion algorithm: (1) redder decrements a node's color by one, mapping BB_LEAF/nil to nil; (2) balance is generalised from == BLACK to >= BLACK and adds two cases for DOUBLE_BLACK parent with NEGATIVE_BLACK child; (3) bubble checks for double-black children and propagates blackness upward via balance(color+1, redder(left), ..., redder(right)); (4) remove_node handles four cases: RED leaf -> nil, BLACK leaf -> BB_LEAF, one child -> blackened child, two children -> swap with right-subtree minimum then remove_min; (5) remove_min recurses left then uses bubble; (6) delete_node searches by key and uses bubble after recursive calls. The public delete function blackens the root."""
+verification_explanation = """Pytest tests invoke Lua via subprocess, checking: basic deletion (single element, three elements, each position), sequential delete-all in forward and reverse order, non-existent key returns same tree object, persistence across multiple deletions, sorted traversal correctness, double-black propagation on specific tree shapes, internal node deletion (two-children case), 100 random operations with per-operation invariant validation, and 500 random operations with final state verification. The validate function checks root-is-black, no red-red violations, uniform black height, no transient colors, and BST ordering."""
+category = "algorithms"
+tags = ["data-structures", "functional-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-rbtree-deletion"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level cryptography expertise combined with systems-level tool proficiency. The solver must: (1) query a SQLite database to identify which of several exported symbols in a compiled shared library is the target S-box, (2) use ELF binary analysis tools (readelf, nm, objdump, xxd) or ctypes FFI to extract a 256-byte lookup table from a stripped shared library with no source code, distinguishing the target from decoy tables, (3) implement the algebraic decomposition algorithm using Mobius transforms for ANF computation, staircase filtration detection, GF(2) matrix inversion, and modular arithmetic. The multi-tool workflow — database query, binary extraction, and cryptographic analysis — requires interoperability between specialized, unfamiliar tools."""
+solution_explanation = """1. Query cipher.db via sqlite3 to discover target_component='cipher_sbox_forward' from cipher_metadata and cross-reference with library_symbols. 2. Extract the 256-byte table from libcipher.so using readelf/nm to locate the symbol address plus xxd/dd to read bytes, or ctypes in_dll for direct memory access. 3. Compute algebraic normal forms of all 255 nonzero linear combinations of S-box output bits via Mobius transform. 4. Detect the staircase degree structure: build the filtration V_k = {v : deg(v·S) <= k}. 5. Tree-search for A_inv rows respecting the filtration with arithmetic structure pruning at each level. 6. Once a valid A_inv is found, extract a, b, B from the decomposed mapping and verify against all 256 inputs."""
+verification_explanation = """Tests load the shared library via ctypes in_dll and query the SQLite database to extract the ground-truth S-box at runtime (no hardcoded values). Verification checks: (1) answer.json exists with required keys, (2) a is odd and in [1,255], b in [0,255], (3) A and B are 8x8 binary matrices invertible over GF(2), (4) for every x in 0..255, applying B then f(y)=ay+b mod 256 then A exactly reproduces the S-box output. Deterministic and complete."""
+category = "cryptography"
+tags = ["binary-analysis", "sbox-decomposition"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-695943"

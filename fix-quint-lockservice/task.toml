@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of both the Quint specification language and distributed consensus protocols. The solver must diagnose 5 interleaved bugs across actions and invariants by running simulations, interpreting counterexample traces, and reasoning about which component (action logic vs invariant predicate) is at fault for each failure. Three action bugs require understanding why specific state transitions are essential for protocol safety (epoch synchronization during voting, fencing token monotonicity, leader step-down on partition). Two invariant bugs require distinguishing correct from incorrect formalizations of safety properties and writing a new quantified predicate from scratch. The bugs interact — e.g., the castVote bug enables both singleLeader and voteConsistency violations — requiring holistic reasoning about the protocol's safety envelope."""
+solution_explanation = """Fix castVote to update voter's epoch (epoch.set(voter, epoch.get(candidate))), preventing double-voting across same-epoch candidates. Fix grantLock to increment fencingToken (fencingToken + 1), ensuring the token is positive whenever a lock is held. Fix partitionNode to step down to follower (role.set(node, "follower")), preventing partitioned leaders. Fix epochMonotonicity to use >= instead of > for the leader-lockEpoch comparison, since a leader's epoch equals lockEpoch immediately after granting. Formalize voteConsistency as a universally quantified predicate requiring disjoint votesReceived sets for same-epoch candidate/leader pairs."""
+verification_explanation = """Tests run quint typecheck for well-formedness, then quint run simulation (200 samples, 20 steps) for all 5 invariants. Structural checks verify each fixed action contains the required correction pattern (epoch.set in castVote, fencingToken+1 in grantLock, follower role.set in partitionNode). Invariant structural checks verify epochMonotonicity uses >= for lockEpoch comparison and voteConsistency is non-trivial with references to votesReceived, epoch, and intersect. Diagnosis file is validated for required entries and content depth."""
+category = "formal_methods"
+tags = ["quint", "distributed-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-quint-lockservice"

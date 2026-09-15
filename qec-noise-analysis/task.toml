@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of quantum error correction (stabilizer codes,
+syndrome extraction, post-selection), the bloqade-tsim API (circuit construction with non-Clifford
+gates, detector/observable definitions, detector sampling), and statistical analysis of Monte Carlo
+QEC simulations. The agent must independently figure out how to construct a correct [[7,1,3]]
+Steane code encoding circuit, properly place noise channels, define Z-stabilizer detectors and the
+logical-X observable, implement post-selection logic, and run a comparative noise sweep — all
+producing a structured JSON output that meets precise numerical constraints."""
+solution_explanation = """Constructs the Steane code encoding circuit using CZ and single-qubit
+Clifford gates (SQRT_Y, SQRT_Y_DAG), adds depolarizing noise layers after each gate layer,
+defines Z-stabilizer detectors via parity checks on measurement records and the logical-X
+observable. Uses tsim's compile_detector_sampler with separate_observables=True for the encoded
+circuit and compile_sampler for the physical reference. Post-selection filters shots where any
+detector fired. The noise sweep compares logical post-selected error rate with physical error
+rate, demonstrating encoding advantage at moderate noise."""
+verification_explanation = """Tests verify: (1) circuit structural properties match the [[7,1,3]]
+code (7 qubits, 3 detectors, 1 observable, T-count=1), (2) DEM contains valid error mechanisms,
+(3) noiseless sampling matches the theoretical observable rate sin²(π/8) with zero detection
+rate, (4) noisy post-selection improves logical error rate, (5) noise sweep shows correct trends
+(detection increases with noise, yield decreases), (6) encoding provides measurable advantage
+over unencoded physical qubit at p=0.01."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "zx-calculus"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qec-noise-analysis"

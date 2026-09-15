@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems reasoning across a multi-component toolchain: (1) the ISA spec deliberately underspecifies shift direction (arithmetic vs logical), comparison signedness, and modulo sign convention — the solver must evaluate pre-compiled binary evidence against multiple possible interpretations to infer the canonical semantics, a judgment task that cannot be solved procedurally; (2) six interacting bugs across Python and C (negative immediate truncation, jump offset base, arithmetic vs logical shift, signed vs unsigned comparison, stack element selection, signed vs unsigned modulo) must be diagnosed holistically since fixing one can mask or reveal another; (3) design and implement a peephole optimizer from scratch that performs constant folding, identity elimination, and dead code removal while correctly handling jump target boundaries and branch offset recalculation — a novel creation task requiring deep understanding of binary-level program transformation; (4) implement a disassembler with two-pass label resolution; (5) create a comprehensive ISA conformance program covering all instructions including the inferred signed edge cases."""
+solution_explanation = """Resolve 3 ISA ambiguities via binary analysis: SHR is arithmetic (signed_ops.bin: -16>>2=-4), LT is signed (-5<3=1), MOD is signed (-7%3=-1). Fix 6 bugs: assembler—(1) negative PUSH mask 0xFF→0xFFFF, (2) jump offset base addr→addr+3; emulator—(3) SHR remove uint16_t cast, (4) LT remove uint16_t casts, (5) OVER push(a)→push(b), (6) MOD remove uint16_t casts. Implement disassembler with opcode table and two-pass label resolution. Design peephole optimizer handling constant folding, identity removal, dead code elimination with jump-target-aware basic block analysis and offset recalculation. Write semantics_report.json with evidence chains. Write selftest.asm exercising all 19 instruction categories."""
+verification_explanation = """24 tests: (1) 4 program correctness tests comparing output to expected files; (2) 2 assembler-specific tests for negative push and jump offsets; (3) 3 disassembler tests for existence, assembly output, and label resolution; (4) 4 round-trip tests (disassemble→reassemble→run); (5) 1 semantics report validation checking JSON structure and correct resolutions for SHR/LT/MOD; (6) 3 optimizer tests: existence, size reduction on synthetic program, and semantic preservation across all 4 original programs; (7) 3 selftest tests for existence, mnemonic coverage, and output correctness. Total: 24 deterministic pytest tests."""
+category = "reverse-engineering"
+tags = ["virtual-machine", "binary-analysis", "compiler-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debug-stack-vm"

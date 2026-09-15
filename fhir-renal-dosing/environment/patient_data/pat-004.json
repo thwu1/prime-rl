@@ -1,0 +1,108 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-004",
+        "name": [{"given": ["Sarah"], "family": "Johnson"}],
+        "gender": "female",
+        "birthDate": "1958-10-25"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-cr-004",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma"}]},
+        "subject": {"reference": "Patient/pat-004"},
+        "effectiveDateTime": "2024-03-01T10:20:00Z",
+        "valueQuantity": {"value": 1.4, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-weight-004",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "29463-7", "display": "Body weight"}]},
+        "subject": {"reference": "Patient/pat-004"},
+        "effectiveDateTime": "2024-03-01T10:00:00Z",
+        "valueQuantity": {"value": 72.5, "unit": "kg", "system": "http://unitsofmeasure.org", "code": "kg"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-004a",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "1114198", "display": "rivaroxaban 20 MG Oral Tablet"}],
+          "text": "Xarelto 20mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-004"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily with evening meal", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 20, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-004b",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "197361", "display": "amlodipine 5 MG Oral Tablet"}],
+          "text": "Amlodipine 5mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-004"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 5, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-004c",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861001", "display": "metformin hydrochloride 850 MG Oral Tablet"}],
+          "text": "Metformin 850mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-004"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily with meals", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 850, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-004a",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.91", "display": "Unspecified atrial fibrillation"}]},
+        "subject": {"reference": "Patient/pat-004"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-004b",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}]},
+        "subject": {"reference": "Patient/pat-004"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-004c",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}]},
+        "subject": {"reference": "Patient/pat-004"}
+      }
+    }
+  ]
+}

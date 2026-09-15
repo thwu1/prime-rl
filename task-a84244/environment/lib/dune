@@ -1,0 +1,4 @@
+(library
+ (name triint64_lib)
+ (modules triint64 triint64_conv)
+ (public_name triint64_lib))

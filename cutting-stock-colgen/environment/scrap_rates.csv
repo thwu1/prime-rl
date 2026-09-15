@@ -1,0 +1,7 @@
+month,material_type,scrap_pct,total_rolls,notes
+2023-07,standard_roll,12.3,245,normal operations
+2023-08,standard_roll,11.8,260,normal operations
+2023-09,standard_roll,14.1,230,equipment calibration issue
+2023-10,standard_roll,10.5,275,post-maintenance improvement
+2023-11,standard_roll,11.2,290,normal operations
+2023-12,standard_roll,13.7,210,holiday reduced output

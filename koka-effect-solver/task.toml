@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multi-shot delimited continuations in Python (which lacks native continuation support) AND correctly implementing composable handler semantics where handler nesting order determines shared-vs-local state behavior. The solver must explore a pre-compiled oracle binary and Koka reference source files to discover the exact semantics for five distinct handler composition scenarios. Getting branch isolation, lexicographic ordering, shared/local state interaction, and correct three-handler composition right demands graduate-level PL knowledge, careful CPS-based implementation, and iterative tool-driven exploration."""
+solution_explanation = """Uses continuation-passing style (CPS) to implement multi-shot algebraic effect handlers. choose(options, k) calls continuation k once per option, collecting results. State handlers use mutable closures — shared when the state handler is outside choice (CPS naturally sequential), local when fresh state is created per branch. The N-Queens solver yields Choose/Fail effects processed by the CPS runner. Handler composition programs directly encode the Koka semantics discovered via the oracle."""
+verification_explanation = """Tests verify: (1) oracle binary runs and produces expected outputs; (2) solve_queens(n) correctness for N=1..8 with known counts and lexicographic-first solutions; (3) queen safety validation on all solutions; (4) programs.py handler composition functions return exact expected values matching oracle semantics; (5) effects.py source has sufficient complexity and algebraic-effect vocabulary; (6) zero-solution cases (N=2,3) handled correctly."""
+category = "programming_languages"
+tags = ["algebraic-effects", "handler-composition"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/koka-effect-solver"

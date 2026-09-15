@@ -1,0 +1,29 @@
+SubjectID,VisitName,VisitDate,Parameter,Value,Units
+101-001,Screening,01/15/2024,Systolic Blood Pressure,148,mmHg
+101-001,Screening,01/15/2024,Diastolic Blood Pressure,92,mmHg
+101-001,Screening,01/15/2024,Pulse Rate,76,bpm
+101-001,Screening,01/15/2024,Body Weight,185,lbs
+101-001,Baseline,01/29/2024,Systolic Blood Pressure,152,mmHg
+101-001,Baseline,01/29/2024,Diastolic Blood Pressure,95,mmHg
+101-001,Baseline,01/29/2024,Pulse Rate,78,bpm
+101-001,Baseline,01/29/2024,Body Weight,184,lbs
+102-001,Screening,01/22/2024,Systolic Blood Pressure,155,mmHg
+102-001,Screening,01/22/2024,Diastolic Blood Pressure,88,mmHg
+102-001,Screening,01/22/2024,Pulse Rate,72,bpm
+102-001,Screening,01/22/2024,Body Weight,210,lbs
+102-002,Screening,01/25/2024,Systolic Blood Pressure,142,mmHg
+102-002,Screening,01/25/2024,Diastolic Blood Pressure,90,mmHg
+102-002,Screening,01/25/2024,Pulse Rate,80,bpm
+102-002,Screening,01/25/2024,Body Weight,135,lbs
+103-001,Screening,02/01/2024,Systolic Blood Pressure,160,mmHg
+103-001,Screening,02/01/2024,Diastolic Blood Pressure,98,mmHg
+103-001,Screening,02/01/2024,Pulse Rate,68,bpm
+103-001,Screening,02/01/2024,Body Weight,175,lbs
+103-002,Screening,02/05/2024,Systolic Blood Pressure,145,mmHg
+103-002,Screening,02/05/2024,Diastolic Blood Pressure,91,mmHg
+103-002,Screening,02/05/2024,Pulse Rate,74,bpm
+103-002,Screening,02/05/2024,Body Weight,155,lbs
+101-002,Screening,01/18/2024,Systolic Blood Pressure,150,mmHg
+101-002,Screening,01/18/2024,Diastolic Blood Pressure,94,mmHg
+101-002,Screening,01/18/2024,Pulse Rate,70,bpm
+101-002,Screening,01/18/2024,Body Weight,140,lbs

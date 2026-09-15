@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires navigating SEC EDGAR APIs (EFTS full-text search, submissions, filing index) to locate a specific ABS-EE filing among thousands, downloading and stream-parsing a 100MB+ XML exhibit with proper namespace handling and memory management, then computing pool-level statistics (WAC, WART, pool factor), delinquency bucket analysis, and tranche-level interest using both ACT/360 and 30/360 day-count conventions — all verified against the issuer's 10-D servicer report golden numbers. Combines structured finance domain knowledge, SEC API proficiency, large-scale XML processing, and precise financial computation."""
+solution_explanation = """The solution searches EDGAR EFTS for the trust's ABS-EE filing, extracts the EX-102 URL from the filing index, downloads the ~287MB XML file, and uses iterparse to stream through ~82K loan elements. For each active loan (non-zero end balance), it accumulates weighted sums for WAC/WART and buckets delinquent loans by currentDelinquencyStatus (days past due) into 31-60/61-90/91-120 ranges. Interest rates in the XML are decimal fractions (0.1835 = 18.35%), which must be scaled by 100 for WAC output. Tranche interest uses ACT/360 for Class A-1 (balance * rate/100 * 31/360) and 30/360 for all other classes (balance * rate/100 * 30/360). Pool factor is end balance / original balance rounded to 6 decimal places."""
+verification_explanation = """Tests read the three output JSON files and verify 21 values against golden numbers from the SDART 2026-1 10-D servicer report (June 2026 distribution): pool balance ($1.747B ±$5), pool factor (0.902114 ±0.000005), WAC (18.35% ±0.10), WART (63.67 months ±0.65), active loan count (80,381 ±10), three delinquency buckets (units ±10, dollars ±$5, percentages ±0.02), and seven tranche interest amounts (±$0.02). Wider tolerances on WAC/WART/count accommodate minor methodology differences between raw EX-102 XML computation and servicer-prepared 10-D aggregate statistics. These values can only be derived by correctly fetching and parsing the actual EX-102 data from EDGAR."""
+category = "finance"
+tags = ["structured-finance", "sec-edgar-api"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/abs-securitization-pipeline"

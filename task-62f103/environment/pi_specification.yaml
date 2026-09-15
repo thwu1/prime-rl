@@ -1,0 +1,200 @@
+# Eurobench Performance Indicator Specification
+# Defines required performance indicators, output formats, and analysis requirements.
+#
+
+data_format:
+  separator: ";"
+  sampling_rate_hz: 100
+  file_naming: "subject_{X}_cond_{Y}_run_{Z}_{type}.csv"
+  joint_angle_columns:
+    - time
+    - hip_flexion_r
+    - hip_flexion_l
+    - knee_flexion_r
+    - knee_flexion_l
+    - ankle_flexion_r
+    - ankle_flexion_l
+
+preprocessing:
+  signal_conditioning: >
+    Joint angle signals contain high-frequency measurement noise that must
+    be attenuated before kinematic analysis. Apply appropriate filtering that
+    preserves the physiological signal content without introducing phase
+    distortion. The filter parameters must be determined empirically from
+    the signal characteristics — a fixed cutoff is not appropriate as the
+    noise content varies across recordings. Only joint angle columns require
+    conditioning; the time column must not be modified.
+
+gait_event_quality: >
+  The automated gait event detection system used during data collection has
+  imperfect reliability. Raw event files may contain measurement artifacts
+  that will corrupt gait cycle segmentation and downstream analysis if not
+  addressed. Event sequences must be validated against physiological
+  plausibility constraints for adult bipedal walking before being used
+  for cycle-based analysis.
+
+gait_cycle_segmentation:
+  right_cycles: "Defined by consecutive right heel strikes (r_heel_strike)"
+  left_cycles: "Defined by consecutive left heel strikes (l_heel_strike)"
+  boundary_handling: >
+    Gait cycles at recording boundaries may be incomplete or exhibit
+    transient effects. Appropriate boundary cycles should be excluded.
+
+per_cycle_indicators:
+  - name: hip_rom_r
+    formula: "max(hip_flexion_r) - min(hip_flexion_r) within right gait cycle"
+    unit: degrees
+  - name: hip_rom_l
+    formula: "max(hip_flexion_l) - min(hip_flexion_l) within left gait cycle"
+    unit: degrees
+  - name: knee_rom_r
+    formula: "max(knee_flexion_r) - min(knee_flexion_r) within right gait cycle"
+    unit: degrees
+  - name: knee_rom_l
+    formula: "max(knee_flexion_l) - min(knee_flexion_l) within left gait cycle"
+    unit: degrees
+  - name: ankle_rom_r
+    formula: "max(ankle_flexion_r) - min(ankle_flexion_r) within right gait cycle"
+    unit: degrees
+  - name: ankle_rom_l
+    formula: "max(ankle_flexion_l) - min(ankle_flexion_l) within left gait cycle"
+    unit: degrees
+  - name: stride_time
+    formula: "r_heel_strike[i+1] - r_heel_strike[i]"
+    unit: seconds
+  - name: step_time_r
+    formula: "first l_heel_strike after r_heel_strike[i] minus r_heel_strike[i]"
+    unit: seconds
+  - name: step_time_l
+    formula: "first r_heel_strike after l_heel_strike[i] minus l_heel_strike[i]"
+    unit: seconds
+  - name: stance_ratio_r
+    formula: "(r_toe_off[i] - r_heel_strike[i]) / stride_time[i] * 100"
+    unit: percent
+
+per_run_indicators:
+  - name: cadence
+    formula: "120.0 / mean(stride_time)"
+    unit: steps_per_minute
+    note: "2 steps per stride cycle"
+  - name: stride_time_cv
+    formula: "std(stride_time) / mean(stride_time)"
+    unit: dimensionless
+    note: "Coefficient of Variation"
+  - name: knee_rom_symmetry
+    formula: >
+      abs(mean(knee_rom_r) - mean(knee_rom_l)) /
+      (0.5 * (mean(knee_rom_r) + mean(knee_rom_l))) * 100
+    unit: percent
+  - name: step_time_symmetry
+    formula: >
+      abs(mean(step_time_r) - mean(step_time_l)) /
+      (0.5 * (mean(step_time_r) + mean(step_time_l))) * 100
+    unit: percent
+
+output_format:
+  per_run:
+    path_pattern: "/app/output/subject_{X}_cond_{Y}_run_{Z}_pi.yaml"
+    format: yaml
+    structure: |
+      Per-cycle indicators: {name: {mean: float, std: float}}
+      Per-run indicators: {name: float}
+
+  sal_scores:
+    path: "/app/output/sal_scores.csv"
+    format: csv
+    separator: ";"
+    columns: ["subject", "condition", "run", "sal_score"]
+
+  condition_comparison:
+    path: "/app/output/condition_comparison.csv"
+    format: csv
+    separator: ";"
+    columns:
+      - metric
+      - cond_1_mean
+      - cond_1_std
+      - cond_2_mean
+      - cond_2_std
+      - pct_change
+      - direction
+    metrics_to_compare:
+      - cadence
+      - knee_rom_r
+      - knee_rom_l
+      - stride_time_cv
+      - knee_rom_symmetry
+    direction_rules: >
+      pct_change = (cond_2_mean - cond_1_mean) / cond_1_mean * 100.
+      direction = "increased" if pct_change > 5,
+                  "decreased" if pct_change < -5,
+                  "unchanged" otherwise.
+
+  reliability_report:
+    path: "/app/output/reliability_report.csv"
+    format: csv
+    separator: ";"
+    columns: ["metric", "icc", "sem", "mdc95"]
+
+  quality_classification:
+    path: "/app/output/quality_classification.csv"
+    format: csv
+    separator: ";"
+    columns: ["metric", "icc", "quality_level"]
+    thresholds:
+      excellent: "ICC >= 0.90"
+      good: "0.75 <= ICC < 0.90"
+      moderate: "0.50 <= ICC < 0.75"
+      poor: "ICC < 0.50"
+
+reliability_analysis:
+  scope: >
+    Assess test-retest reliability for each per-run indicator across
+    repeated runs. The experimental design has multiple measurement
+    contexts (subject-condition combinations) with three independent
+    measurement sessions (runs) per context. Select an appropriate
+    intraclass correlation model for this design — consider whether
+    raters (runs) should be treated as random or fixed effects, and
+    whether absolute agreement or consistency is the correct agreement
+    definition for interchangeable measurement sessions.
+  derived_metrics:
+    SEM: "Standard Error of Measurement — the within-subject variability attributable to measurement error"
+    MDC95: "Minimal Detectable Change at 95% confidence — the smallest change that exceeds measurement noise"
+  indicators_to_assess:
+    - knee_rom_r
+    - knee_rom_l
+    - hip_rom_r
+    - hip_rom_l
+    - ankle_rom_r
+    - ankle_rom_l
+    - stride_time
+    - cadence
+    - stride_time_cv
+    - knee_rom_symmetry
+
+sal_scoring:
+  description: >
+    System Ability Level — composite score combining cadence, joint mobility,
+    gait symmetry, and temporal consistency. Range [0, 1].
+  formula: |
+    avg_knee_rom = (mean(knee_rom_r) + mean(knee_rom_l)) / 2.0
+
+    norm_cadence     = clamp((cadence - 60) / (120 - 60), 0, 1)
+    norm_knee_rom    = clamp((avg_knee_rom - 20) / (70 - 20), 0, 1)
+    norm_symmetry    = clamp(1.0 - knee_rom_symmetry / 100, 0, 1)
+    norm_consistency = clamp(1.0 - stride_time_cv / 0.20, 0, 1)
+
+    SAL = 0.30 * norm_cadence
+        + 0.25 * norm_knee_rom
+        + 0.25 * norm_symmetry
+        + 0.20 * norm_consistency
+  weights:
+    cadence: 0.30
+    knee_rom: 0.25
+    symmetry: 0.25
+    consistency: 0.20
+  normalization_ranges:
+    cadence: { min: 60, max: 120 }
+    knee_rom: { min: 20, max: 70 }
+    symmetry: { max_index: 100 }
+    consistency: { max_cv: 0.20 }

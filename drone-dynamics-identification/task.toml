@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a full rigid-body quadrotor simulator from first-principles equations (quaternion kinematics, motor dynamics, gyroscopic coupling), then solving a nonlinear parameter estimation problem with 7 coupled unknowns across 5 multi-second trajectories. Only positions and orientations are observable — velocities must be inferred through the dynamics, preventing analytic shortcuts. The agent must handle numerical stability, choose an appropriate optimization strategy, and tune convergence across parameters spanning 10 orders of magnitude."""
+solution_explanation = """The solution implements the complete quadrotor dynamics as a JAX-differentiable function using jax.lax.scan for trajectory rollout. Parameters are optimized in log-space using Adam (optax) with a multi-phase learning rate schedule. The loss compares predicted positions and quaternions against training data. After convergence, identified parameters and the model are written to /app/."""
+verification_explanation = """Tests check (1) that all 7 identified parameters are within 10% of ground truth decoded from an obfuscated constant, and (2) that forward simulation with the identified model and parameters produces position RMSE < 0.15 m on held-out validation trajectories. The forward simulation test imports the agent's model.py and runs it with JAX, verifying both parameter accuracy and model correctness."""
+category = "robotics"
+tags = ["differentiable-simulation", "system-identification"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/drone-dynamics-identification"

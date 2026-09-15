@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum computing knowledge combined with multi-tool debugging proficiency. The agent must: (1) diagnose and fix a broken Makefile with variable reference errors, wrong paths, and missing targets; (2) identify a config-vs-data integral convention mismatch causing incorrect Hamiltonian construction; (3) fix an off-by-one parity-chain bug in the Jordan-Wigner encoding; (4) implement Bravyi-Kitaev encoding from scratch using basis-change matrices; (5) implement Z2 symmetry detection via GF(2) null-space computation and Hamiltonian tapering via subspace projection; (6) write correct sqlite3 CLI queries for database auditing; (7) construct a valid jq expression for JSON summarization. Requires interoperability across Make, Python, SQLite CLI, and jq."""
+solution_explanation = """Fixes the Makefile (DB_PATH→DATABASE variable, wrong script path, missing audit target in all, wrong jq field names, wrong RESULTS path). Fixes config.yaml (chemist→physicist convention). Fixes the off-by-one bug in the parity chain (range(1,p)→range(p)). Implements BK encoding via binary-indexed-tree basis change matrix applied to the JW Hamiltonian matrix. Implements Z2 symmetry detection using symplectic representation and GF(2) null-space, then tapers qubits via projector-based subspace restriction. Runs make all to produce audit report via sqlite3, results via Python pipeline, and summary via jq."""
+verification_explanation = """Tests verify ground state energies, qubit counts, Pauli term counts, full eigenvalue spectra (including trace and max-eigenvalue cross-checks), spectral match between encodings, symmetry counts, tapered qubit counts, and tapered ground state energies against pre-computed DNA reference values. Also verifies: no openfermion usage in agent code; Makefile exists with correct targets invoking sqlite3/python3/jq; db_audit.txt contains schema and system information; summary.json matches results.json values."""
+category = "quantum_computing"
+tags = ["multi-tool-debugging", "quantum-chemistry"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fermion-qubit-transform"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of IEEE 754 floating-point semantics including all five rounding modes, subnormal/denormal gradual underflow, NaN propagation, signed zero algebra, and overflow clamping rules that vary per rounding mode. Beyond the numerical analysis, the task demands multi-tool proficiency: implementing the library in C, diagnosing and fixing a broken Makefile to produce a proper shared library (requiring knowledge of gcc flags like -fPIC, -shared, and -lm), and completing Python ctypes FFI bindings with correct argument/return type declarations including pointer-based output parameters. This cross-language, multi-toolchain integration elevates the task beyond pure algorithm implementation."""
+solution_explanation = """Uses C with double-precision intermediates (exact for bfloat16 since p=8 << 53) to compute exact results, then rounds to bfloat16 using integer rounding logic with guard/round/sticky-equivalent remainder comparison. The Makefile is fixed by adding -fPIC -shared flags and -lm linker flag. The Python ctypes wrapper loads libbf16.so, declares argtypes/restype for each function (including POINTER(c_int) for bf16_unpack output parameters), and maps between Python string rounding modes and C integer enum constants."""
+verification_explanation = """Tests verify correctness through ~80 assertions across 18 test classes covering: pack/unpack roundtrips, classification, float conversion, all five rounding modes for from_float (with hand-computed tie-to-even vs tie-away midpoint cases), addition special values (NaN, Inf, signed zero rules), addition rounding (midpoint and above-midpoint cases), overflow clamping per rounding mode, subnormal arithmetic (add/sub of subnormals, subnormal-to-normal promotion), multiplication special values, multiplication rounding (midpoint cases with even and odd LSB), multiplication overflow per rounding mode, and underflow to subnormal/zero including the exact midpoint between zero and min-subnormal. Tests run through the ctypes Python wrapper, exercising the full C-to-Python FFI pipeline."""
+category = "systems"
+tags = ["floating-point", "c-ffi"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1c8385"

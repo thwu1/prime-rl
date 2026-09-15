@@ -1,0 +1,75 @@
+{
+  "requests": [
+    {
+      "id": "REQ-001",
+      "description": "New server farm in DC-West",
+      "vrf": "Production",
+      "parent": "10.1.0.0/16",
+      "count": 4,
+      "prefix_length": 24,
+      "contiguous": true,
+      "site": "DC-West"
+    },
+    {
+      "id": "REQ-002",
+      "description": "Management network expansion DC-East",
+      "vrf": "Management",
+      "parent": "172.16.0.0/16",
+      "count": 1,
+      "prefix_length": 23,
+      "exclude": ["172.16.2.0/23", "172.16.6.0/23"],
+      "site": "DC-East"
+    },
+    {
+      "id": "REQ-003",
+      "description": "IPv6 expansion DC-West",
+      "vrf": "Production",
+      "parent": "2001:db8:1::/48",
+      "count": 3,
+      "prefix_length": 64,
+      "site": "DC-West"
+    },
+    {
+      "id": "REQ-004",
+      "description": "New point-to-point inter-router links",
+      "vrf": "Production",
+      "parent": "10.255.0.0/24",
+      "count": 5,
+      "prefix_length": 31,
+      "site": "Global"
+    },
+    {
+      "id": "REQ-005",
+      "description": "Guest WiFi expansion",
+      "vrf": "Guest",
+      "parent": "10.0.0.0/16",
+      "count": 2,
+      "prefix_length": 24,
+      "is_pool": true,
+      "site": "DC-East"
+    },
+    {
+      "id": "REQ-006",
+      "description": "DC-East server VLAN segments",
+      "vrf": "Production",
+      "parent": "10.0.0.0/16",
+      "count": 3,
+      "prefix_length": 25,
+      "site": "DC-East"
+    },
+    {
+      "id": "REQ-007",
+      "description": "Management network expansion DC-West",
+      "vrf": "Management",
+      "parent": "172.17.0.0/16",
+      "count": 2,
+      "prefix_length": 24,
+      "contiguous": true,
+      "site": "DC-West"
+    }
+  ],
+  "global_constraints": {
+    "prefer_lower_addresses": true,
+    "require_cidr_alignment": true
+  }
+}

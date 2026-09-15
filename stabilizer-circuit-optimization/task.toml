@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of stabilizer formalism, CSS code structure, and Clifford group decomposition. Solver must recognize code families (GHZ-type, CSS, non-CSS), exploit structural properties for each, and apply tableau-based synthesis with combinatorial search for codes lacking obvious structure. Domain expertise in quantum error correction at PhD level is essential."""
+solution_explanation = """GHZ-type codes (detector, iceberg) use a single H plus CNOT fan-out. CSS codes (Steane, Shor) exploit X/Z separation: H on source qubits with CNOT fan-out from parity-check structure. The non-CSS perfect [[5,1,3]] code requires exhaustive search over stabilizer orderings and logical operator choices, using Clifford tableau decomposition to find the minimum-gate circuit."""
+verification_explanation = """Tests use stim.TableauSimulator to verify each stabilizer generator has +1 expectation value on the prepared state. Gate validity, qubit count, and two-qubit gate counts are checked independently. Total budget constraint (<=45) verified across all codes."""
+category = "quantum_computing"
+tags = ["stabilizer-codes", "circuit-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stabilizer-circuit-optimization"

@@ -1,0 +1,338 @@
+[
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Theorem add_comm : forall n m : nat, n + m = m + n.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall n m : nat, n + m = m + n",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Proof.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall n m : nat, n + m = m + n",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "induction n as [| n' IHn'].",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "forall m : nat, 0 + m = m + 0",
+          "hypotheses": []
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "forall m : nat, S n' + m = m + S n'",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "n'",
+              "body": null,
+              "type": "nat"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHn'",
+              "body": null,
+              "type": "forall m : nat, n' + m = m + n'"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "(* Base case *) intro m.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "0 + m = m + 0",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "m = m + 0",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "rewrite <- plus_n_O.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "m = m",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "(* Inductive step *) intro m.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "S n' + m = m + S n'",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "n'",
+              "body": null,
+              "type": "nat"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHn'",
+              "body": null,
+              "type": "forall m : nat, n' + m = m + n'"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "S (n' + m) = m + S n'",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "n'",
+              "body": null,
+              "type": "nat"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHn'",
+              "body": null,
+              "type": "forall m : nat, n' + m = m + n'"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "rewrite IHn'.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "S (m + n') = m + S n'",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "n'",
+              "body": null,
+              "type": "nat"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHn'",
+              "body": null,
+              "type": "forall m : nat, n' + m = m + n'"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "rewrite plus_n_Sm.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "S (m + n') = S (m + n')",
+          "hypotheses": [
+            {
+              "_type": "hypothesis",
+              "name": "n'",
+              "body": null,
+              "type": "nat"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "IHn'",
+              "body": null,
+              "type": "forall m : nat, n' + m = m + n'"
+            },
+            {
+              "_type": "hypothesis",
+              "name": "m",
+              "body": null,
+              "type": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Qed.",
+      "responses": [],
+      "goals": []
+    }
+  ],
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Print add_comm.",
+      "responses": [
+        "add_comm = \nfun n m : nat =>\nnat_ind (fun n0 : nat => n0 + m = m + n0)\n  (eq_ind_r (fun n0 : nat => 0 + m = n0) eq_refl (Nat.add_0_r m))\n  (fun (n' : nat) (IHn' : n' + m = m + n') =>\n   eq_ind_r (fun n0 : nat => S (n' + m) = n0)\n     (f_equal S IHn') (Nat.add_succ_r m n')) n\n     : forall n m : nat, n + m = m + n"
+      ],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Check add_comm.",
+      "responses": [
+        "add_comm\n     : forall n m : nat, n + m = m + n"
+      ],
+      "goals": []
+    }
+  ]
+]

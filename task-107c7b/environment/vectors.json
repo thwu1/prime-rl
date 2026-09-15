@@ -1,0 +1,159 @@
+{
+  "master_key_ascii": "testvector",
+  "description": "RFC 9235 TCP-AO test vectors for KDF validation",
+  "note": "Each connection tests a unique combination of IP version, KDF algorithm, and TCP option coverage. Traffic keys are derived per RFC 5925 Section 5.2 using the key type mappings: Send_SYN uses (local_ISN, 0), Receive_SYN/Receive_other use (remote_ISN, local_ISN), Send_other uses (local_ISN, remote_ISN). Active side is the client.",
+  "connections": [
+    {
+      "id": "4.1",
+      "rfc_section": "4.1",
+      "description": "IPv4 HMAC-SHA-1-96 Default (Covers TCP Options)",
+      "ip_version": 4,
+      "kdf_alg": "HMAC-SHA1",
+      "client_ip": "10.11.12.13",
+      "server_ip": "172.27.28.29",
+      "client_port": 59863,
+      "server_port": 179,
+      "client_isn_hex": "fbfbab5a",
+      "server_isn_hex": "11c14261",
+      "traffic_keys": {
+        "Send_SYN": "6d63ef1b02fe1509d4b1402707fd7b0416abb74f",
+        "Receive_SYN": "d9e217e4834a80ca2f3fd8de2e41b8e6797fea96",
+        "Send_other": "d2e59c65ffc7b1a39347656463b70edc24a13d71",
+        "Receive_other": "d9e217e4834a80ca2f3fd8de2e41b8e6797fea96"
+      }
+    },
+    {
+      "id": "4.2",
+      "rfc_section": "4.2",
+      "description": "IPv4 HMAC-SHA-1-96 Omits TCP Options",
+      "ip_version": 4,
+      "kdf_alg": "HMAC-SHA1",
+      "client_ip": "10.11.12.13",
+      "server_ip": "172.27.28.29",
+      "client_port": 65298,
+      "server_port": 179,
+      "client_isn_hex": "cb0efbee",
+      "server_isn_hex": "acd5b5e1",
+      "traffic_keys": {
+        "Send_SYN": "30eaa1560cf0be57dab5c045229fb10a423cd7ea",
+        "Receive_SYN": "b5b2896bb3664e8176b0edc6e799524101a8307f",
+        "Send_other": "f3db1793d7910ecd806c34f155ea1f00345953e3",
+        "Receive_other": "b5b2896bb3664e8176b0edc6e799524101a8307f"
+      }
+    },
+    {
+      "id": "5.1",
+      "rfc_section": "5.1",
+      "description": "IPv4 AES-128-CMAC-96 Default (Covers TCP Options)",
+      "ip_version": 4,
+      "kdf_alg": "AES-128-CMAC",
+      "client_ip": "10.11.12.13",
+      "server_ip": "172.27.28.29",
+      "client_port": 50426,
+      "server_port": 179,
+      "client_isn_hex": "787a1ddf",
+      "server_isn_hex": "fadd6de9",
+      "traffic_keys": {
+        "Send_SYN": "f5b8b3d5f34fdbb6eb8d4ab9660e60e3",
+        "Receive_SYN": "4bc7571a486f3264bbd888474066b4b1",
+        "Send_other": "8c8ae0e8371ec5cbb97ea79d90418391",
+        "Receive_other": "4bc7571a486f3264bbd888474066b4b1"
+      }
+    },
+    {
+      "id": "5.2",
+      "rfc_section": "5.2",
+      "description": "IPv4 AES-128-CMAC-96 Omits TCP Options",
+      "ip_version": 4,
+      "kdf_alg": "AES-128-CMAC",
+      "client_ip": "10.11.12.13",
+      "server_ip": "172.27.28.29",
+      "client_port": 55836,
+      "server_port": 179,
+      "client_isn_hex": "389bed71",
+      "server_isn_hex": "d3844a6f",
+      "traffic_keys": {
+        "Send_SYN": "2cdbae1392c49449fa92c4509735d50e",
+        "Receive_SYN": "3ce67a551869506b6347b633c50a624a",
+        "Send_other": "035bc400a341ffe595f59f58005006ca",
+        "Receive_other": "3ce67a551869506b6347b633c50a624a"
+      }
+    },
+    {
+      "id": "6.1",
+      "rfc_section": "6.1",
+      "description": "IPv6 HMAC-SHA-1-96 Default (Covers TCP Options)",
+      "ip_version": 6,
+      "kdf_alg": "HMAC-SHA1",
+      "client_ip": "fd00::1",
+      "server_ip": "fd00::2",
+      "client_port": 63460,
+      "server_port": 179,
+      "client_isn_hex": "176a833f",
+      "server_isn_hex": "3f51994b",
+      "traffic_keys": {
+        "Send_SYN": "625ec09d575836edc9b6428418bbf06989a361bb",
+        "Receive_SYN": "e4a37ada2a0afca8711434913fe138c771ebcb4a",
+        "Send_other": "1ed82975f4ea444c61580c5bd90dbd61bbc91b7e",
+        "Receive_other": "e4a37ada2a0afca8711434913fe138c771ebcb4a"
+      }
+    },
+    {
+      "id": "6.2",
+      "rfc_section": "6.2",
+      "description": "IPv6 HMAC-SHA-1-96 Omits TCP Options",
+      "ip_version": 6,
+      "kdf_alg": "HMAC-SHA1",
+      "client_ip": "fd00::1",
+      "server_ip": "fd00::2",
+      "client_port": 50893,
+      "server_port": 179,
+      "client_isn_hex": "020c1e69",
+      "server_isn_hex": "eba3734d",
+      "traffic_keys": {
+        "Send_SYN": "31a3faf69effae52931b7f845467315c270a4edc",
+        "Receive_SYN": "405108947f996575e7bdbc26d40216a2c7fa91bd",
+        "Send_other": "b34eed6a9396a669f1c4f4f57618f3656f52c7ab",
+        "Receive_other": "405108947f996575e7bdbc26d40216a2c7fa91bd"
+      }
+    },
+    {
+      "id": "7.1",
+      "rfc_section": "7.1",
+      "description": "IPv6 AES-128-CMAC-96 Default (Covers TCP Options)",
+      "ip_version": 6,
+      "kdf_alg": "AES-128-CMAC",
+      "client_ip": "fd00::1",
+      "server_ip": "fd00::2",
+      "client_port": 63578,
+      "server_port": 179,
+      "client_isn_hex": "193cccec",
+      "server_isn_hex": "a6744ecb",
+      "traffic_keys": {
+        "Send_SYN": "fa5a2108882d39d0c71929175ab1b7b8",
+        "Receive_SYN": "cf1b1e225e06a63616764a067b46f4b1",
+        "Send_other": "6174c3557abed27574dba37185f00300",
+        "Receive_other": "cf1b1e225e06a63616764a067b46f4b1"
+      }
+    },
+    {
+      "id": "7.2",
+      "rfc_section": "7.2",
+      "description": "IPv6 AES-128-CMAC-96 Omits TCP Options",
+      "ip_version": 6,
+      "kdf_alg": "AES-128-CMAC",
+      "client_ip": "fd00::1",
+      "server_ip": "fd00::2",
+      "client_port": 62088,
+      "server_port": 179,
+      "client_isn_hex": "b01da74a",
+      "server_isn_hex": "a6246145",
+      "traffic_keys": {
+        "Send_SYN": "a94f511263e4093d35dd818c13bbbf53",
+        "Receive_SYN": "92dea5bbc78b1d9f5b2952e9cd30642a",
+        "Send_other": "4fb2086e402c679079ed65d4bf97693d",
+        "Receive_other": "92dea5bbc78b1d9f5b2952e9cd30642a"
+      }
+    }
+  ]
+}

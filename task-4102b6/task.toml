@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep Scapy expertise and binary protocol engineering. The solver receives only a raw hex capture and a protocol specification — no implementation guidance. They must independently: (1) design a multi-layer Scapy packet class hierarchy with correct field types, conditional version-dependent header fields, custom CRC-16/CCITT-FALSE trailer handling, TLV-encoded parameter lists, and fragment reassembly — requiring intimate knowledge of Scapy internals (do_dissect, post_build, extract_padding, ConditionalField, PacketListField, FieldLenField); (2) determine from the spec which fields are version-dependent and how to dispatch payload parsing based on flag bits; (3) implement anomaly detection by reading the spec's protocol violation rules and applying them to the capture; (4) handle type-dependent parameter decoding (IEEE 754 float32 for numeric IDs vs UTF-8 for others); (5) implement cross-packet fragment reassembly with correct ordering; (6) craft syntactically valid response packets with proper flag/sequence semantics. The protocol spec uses custom encodings, conditional layouts, and integrity checks that require expert-level understanding of both Scapy's packet architecture and binary protocol design."""
+solution_explanation = """The solution implements four Scapy Packet subclasses (SIDP_Param, SIDP_Message, SIDP_Fragment, SIDP_Header) with ConditionalField for v2-only priority/timestamp, FieldLenField+StrLenField for TLV params, PacketListField for param lists, and custom do_dissect/post_build for payload-length-bounded dissection and CRC-16 auto-computation. The analysis script iterates the capture, checks sync bytes, validates CRC on flagged packets, checks fragment index validity, extracts device info and parameter readings with type-appropriate decoding, and reassembles firmware fragments by sorting on index then concatenating payloads."""
+verification_explanation = """Tests verify: (1) Scapy layer classes exist and can parse known packet hex vectors with correct field extraction, (2) v1/v2 conditional fields behave correctly, (3) CRC-16 computation matches reference, (4) analysis.json contains correct counts, session IDs, anomaly indices/reasons, device strings, parameter values (within float tolerance), and firmware reassembly CRC-32, (5) craft_response returns a valid packet with correct response flag, session, and sequence."""
+category = "networking"
+tags = ["scapy", "binary-protocol"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4102b6"

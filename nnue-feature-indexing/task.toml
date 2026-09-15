@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a Java chess engine's NNUE feature computation from production source code spread across multiple files (NNUE.java, Feature.java, Bits.java, Piece.java), understanding the interplay of perspective-based transforms, horizontal mirroring, king bucket assignment, and incremental update logic, then implementing a complete Python port that handles all chess move types (standard, capture, castling, en passant, promotion) with full game-state tracking. The agent must synthesize understanding from cross-language source analysis — no algorithmic specification is provided."""
+solution_explanation = """The solution reads the Java reference files to reconstruct the algorithm: (1) FEN parser extracting piece positions, castling rights, EP square, and clocks; (2) UCI move application handling all move types with full state updates; (3) feature index computation using perspective rank-flip, king-based horizontal mirror, and relative colour offset to produce indices in [0,767]; (4) king bucket lookup via perspective-adjusted king square into the 64-entry bucket map; (5) refresh detection comparing old/new bucket and mirror state for king moves; (6) incremental delta computation using pre-move king square for consistent indexing."""
+verification_explanation = """Tests verify correctness through: (1) unit tests of feature_index with expected values covering varied king positions and perspectives; (2) king_bucket unit tests; (3) hard-coded active feature sets for the starting position and simple positions; (4) consistency checks across a 10-move Ruy Lopez game verifying make_move + active_features matches parse_fen + active_features at every step; (5) en passant and promotion game sequences; (6) needs_refresh tests for king moves crossing boundaries; (7) feature_delta tests with expected add/sub lists; (8) delta consistency checks verifying deltas applied to old features equal new features."""
+category = "algorithms"
+tags = ["chess-engine", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nnue-feature-indexing"

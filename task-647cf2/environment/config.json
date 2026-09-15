@@ -1,0 +1,13 @@
+{
+    "signal_model": "T2tt",
+    "mass_stop_GeV": 1000,
+    "mass_neutralino_GeV": 100,
+    "signal_cross_section_pb": 0.0855,
+    "background_process": "ttbar_allhad_filtered",
+    "background_cross_section_pb": 2.0,
+    "luminosity_ifb": 137.0,
+    "sqrt_s_TeV": 13,
+    "jet_energy_scale": 1.023,
+    "n_signal_generated": 50000,
+    "n_background_generated": 200000
+}

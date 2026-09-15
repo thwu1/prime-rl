@@ -1,0 +1,225 @@
+{
+  "sdtm_version": "3.3",
+  "output": {
+    "directory": "/app/sdtm_output",
+    "format": "SAS Transport v5 (XPT)",
+    "extension": ".xpt",
+    "define_xml": {
+      "filename": "define.xml",
+      "odm_namespace": "http://www.cdisc.org/ns/odm/v1.3",
+      "def_namespace": "http://www.cdisc.org/ns/def/v2.0",
+      "standard_name": "SDTMIG",
+      "standard_version": "3.3",
+      "required_elements": {
+        "ItemGroupDef": "One per domain with Name and SASDatasetName attributes",
+        "ItemDef": "One per variable with Name, DataType, Length, and def:Label",
+        "CodeList": "One per controlled terminology codelist with CodeListItem children"
+      }
+    },
+    "xpt_constraints": {
+      "max_variable_name_length": 8,
+      "max_variable_label_length": 40,
+      "sas_data_types": {
+        "numeric": "Use for --SEQ, --DY, --ENDY, AGE, VSSTRESN, VISITNUM, TSSEQ, EXDOSE",
+        "character": "Use for all other variables including dates (stored as ISO 8601 strings)"
+      }
+    }
+  },
+  "global_rules": {
+    "usubjid_format": "{STUDYID}-{SUBJID}",
+    "study_day": {
+      "description": "No Day 0 rule: RFSTDTC date = Day 1, day before = Day -1",
+      "partial_dates": "Leave --DY empty (SAS numeric missing) when date is partial"
+    },
+    "rfstdtc": "First dose date; empty for untreated subjects (screen failures)",
+    "age_reference": "Calculate AGE at RFSTDTC; use informed consent date for untreated subjects",
+    "epoch_derivation": {
+      "SCREENING": "Event date before RFSTDTC, or all events for untreated subjects (no RFSTDTC)",
+      "TREATMENT": "Event date from RFSTDTC through last dose date (RFXENDTC), inclusive",
+      "FOLLOW-UP": "Event date after last dose date",
+      "partial_dates": "Compare event year-month to RFSTDTC and RFXENDTC year-months"
+    },
+    "partial_dates": {
+      "representation": "Truncated ISO 8601: YYYY-MM for month-only, YYYY-MM-DD for complete",
+      "input_formats": "Mon-YYYY (e.g., Feb-2024) or Mon YYYY in raw data"
+    },
+    "unit_standardization": {
+      "applies_to": "VS domain: convert imperial to SI in VSSTRESN/VSSTRESU; preserve originals in VSORRES/VSORRESU",
+      "conversions": {
+        "temperature": {"from": "F", "to": "C", "formula": "(value - 32) * 5 / 9", "round_decimals": 1},
+        "weight": {"from": "lbs", "to": "kg", "formula": "value * 0.453592", "round_decimals": 1},
+        "height": {"from": "in", "to": "cm", "formula": "value * 2.54", "round_decimals": 1}
+      },
+      "no_conversion_needed": ["mmHg", "beats/min", "C", "kg", "cm"]
+    },
+    "controlled_terminology": {
+      "SEX": ["M", "F"],
+      "AESEV": ["MILD", "MODERATE", "SEVERE"],
+      "AESER": ["Y", "N"],
+      "DTHFL": ["Y", ""],
+      "EPOCH": ["SCREENING", "TREATMENT", "FOLLOW-UP"],
+      "AGEU": ["YEARS"],
+      "severity_mapping": {"1": "MILD", "2": "MODERATE", "3": "SEVERE"},
+      "serious_mapping": {"Yes": "Y", "No": "N"},
+      "sex_mapping": {"Male": "M", "Female": "F"}
+    }
+  },
+  "domains": {
+    "DM": {
+      "description": "Demographics",
+      "observation_class": "Special Purpose",
+      "structure": "One record per subject",
+      "key_variables": ["STUDYID", "USUBJID"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "DM"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "SUBJID", "label": "Subject Identifier for the Study", "type": "Char", "required": true},
+        {"name": "RFSTDTC", "label": "Subject Reference Start Date/Time", "type": "Char", "required": true},
+        {"name": "RFENDTC", "label": "Subject Reference End Date/Time", "type": "Char"},
+        {"name": "RFXSTDTC", "label": "Date/Time of First Study Treatment", "type": "Char"},
+        {"name": "RFXENDTC", "label": "Date/Time of Last Study Treatment", "type": "Char"},
+        {"name": "RFICDTC", "label": "Date/Time of Informed Consent", "type": "Char"},
+        {"name": "DTHDTC", "label": "Date/Time of Death", "type": "Char"},
+        {"name": "DTHFL", "label": "Subject Death Flag", "type": "Char", "codelist": "DTHFL"},
+        {"name": "SITEID", "label": "Study Site Identifier", "type": "Char", "required": true},
+        {"name": "BRTHDTC", "label": "Date/Time of Birth", "type": "Char"},
+        {"name": "AGE", "label": "Age", "type": "Num", "required": true},
+        {"name": "AGEU", "label": "Age Units", "type": "Char", "required": true, "codelist": "AGEU"},
+        {"name": "SEX", "label": "Sex", "type": "Char", "required": true, "codelist": "SEX"},
+        {"name": "RACE", "label": "Race", "type": "Char", "required": true},
+        {"name": "ETHNIC", "label": "Ethnicity", "type": "Char"},
+        {"name": "ARMCD", "label": "Planned Arm Code", "type": "Char", "required": true},
+        {"name": "ARM", "label": "Description of Planned Arm", "type": "Char", "required": true},
+        {"name": "ACTARMCD", "label": "Actual Arm Code", "type": "Char"},
+        {"name": "ACTARM", "label": "Description of Actual Arm", "type": "Char"},
+        {"name": "COUNTRY", "label": "Country", "type": "Char"}
+      ]
+    },
+    "AE": {
+      "description": "Adverse Events",
+      "observation_class": "Events",
+      "structure": "One record per adverse event per subject",
+      "key_variables": ["STUDYID", "USUBJID", "AESEQ"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "AE"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "AESEQ", "label": "Sequence Number", "type": "Num", "required": true},
+        {"name": "AETERM", "label": "Reported Term for the AE", "type": "Char", "required": true},
+        {"name": "AEDECOD", "label": "Dictionary-Derived Term", "type": "Char"},
+        {"name": "AEBODSYS", "label": "Body System or Organ Class", "type": "Char"},
+        {"name": "AESEV", "label": "Severity/Intensity", "type": "Char", "codelist": "AESEV"},
+        {"name": "AESER", "label": "Serious Event", "type": "Char", "codelist": "AESER"},
+        {"name": "AEREL", "label": "Causality", "type": "Char"},
+        {"name": "AEACN", "label": "Action Taken with Study Treatment", "type": "Char"},
+        {"name": "AEOUT", "label": "Outcome of Adverse Event", "type": "Char"},
+        {"name": "AESTDTC", "label": "Start Date/Time of AE", "type": "Char"},
+        {"name": "AEENDTC", "label": "End Date/Time of AE", "type": "Char"},
+        {"name": "AESTDY", "label": "Study Day of Start of AE", "type": "Num"},
+        {"name": "AEENDY", "label": "Study Day of End of AE", "type": "Num"},
+        {"name": "EPOCH", "label": "Epoch", "type": "Char", "codelist": "EPOCH"}
+      ]
+    },
+    "EX": {
+      "description": "Exposure",
+      "observation_class": "Interventions",
+      "structure": "One record per constant dosing interval per subject",
+      "key_variables": ["STUDYID", "USUBJID", "EXSEQ"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "EX"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "EXSEQ", "label": "Sequence Number", "type": "Num", "required": true},
+        {"name": "EXTRT", "label": "Name of Treatment", "type": "Char", "required": true},
+        {"name": "EXDOSE", "label": "Dose", "type": "Num"},
+        {"name": "EXDOSU", "label": "Dose Units", "type": "Char"},
+        {"name": "EXDOSFRQ", "label": "Dosing Frequency per Interval", "type": "Char"},
+        {"name": "EXROUTE", "label": "Route of Administration", "type": "Char"},
+        {"name": "EXSTDTC", "label": "Start Date/Time of Treatment", "type": "Char"},
+        {"name": "EXENDTC", "label": "End Date/Time of Treatment", "type": "Char"},
+        {"name": "EXSTDY", "label": "Study Day of Start of Treatment", "type": "Num"},
+        {"name": "EXENDY", "label": "Study Day of End of Treatment", "type": "Num"},
+        {"name": "EXADJ", "label": "Reason for Dose Adjustment", "type": "Char"},
+        {"name": "EPOCH", "label": "Epoch", "type": "Char", "codelist": "EPOCH"}
+      ]
+    },
+    "VS": {
+      "description": "Vital Signs",
+      "observation_class": "Findings",
+      "structure": "One record per vital sign measurement per time point per subject",
+      "key_variables": ["STUDYID", "USUBJID", "VSSEQ"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "VS"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "VSSEQ", "label": "Sequence Number", "type": "Num", "required": true},
+        {"name": "VSTESTCD", "label": "Vital Signs Test Short Name", "type": "Char", "required": true},
+        {"name": "VSTEST", "label": "Vital Signs Test Name", "type": "Char", "required": true},
+        {"name": "VSPOS", "label": "Position of Subject", "type": "Char"},
+        {"name": "VSORRES", "label": "Result or Finding in Orig Units", "type": "Char"},
+        {"name": "VSORRESU", "label": "Original Units", "type": "Char"},
+        {"name": "VSSTRESC", "label": "Char Result/Finding in Std Format", "type": "Char"},
+        {"name": "VSSTRESN", "label": "Numeric Result/Finding in Std Units", "type": "Num"},
+        {"name": "VSSTRESU", "label": "Standard Units", "type": "Char"},
+        {"name": "VSBLFL", "label": "Baseline Flag", "type": "Char"},
+        {"name": "VISITNUM", "label": "Visit Number", "type": "Num"},
+        {"name": "VISIT", "label": "Visit Name", "type": "Char"},
+        {"name": "VSDTC", "label": "Date/Time of Measurements", "type": "Char"},
+        {"name": "VSDY", "label": "Study Day of Vital Signs", "type": "Num"},
+        {"name": "EPOCH", "label": "Epoch", "type": "Char", "codelist": "EPOCH"}
+      ]
+    },
+    "DS": {
+      "description": "Disposition",
+      "observation_class": "Events",
+      "structure": "One record per disposition event per subject",
+      "key_variables": ["STUDYID", "USUBJID", "DSSEQ"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "DS"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "DSSEQ", "label": "Sequence Number", "type": "Num", "required": true},
+        {"name": "DSTERM", "label": "Reported Term for Disposition Event", "type": "Char", "required": true},
+        {"name": "DSDECOD", "label": "Standardized Disposition Term", "type": "Char", "required": true},
+        {"name": "DSCAT", "label": "Category for Disposition Event", "type": "Char"},
+        {"name": "DSSTDTC", "label": "Start Date/Time of Disposition", "type": "Char"},
+        {"name": "DSSTDY", "label": "Study Day of Start of Disposition", "type": "Num"},
+        {"name": "EPOCH", "label": "Epoch", "type": "Char", "codelist": "EPOCH"}
+      ]
+    },
+    "TS": {
+      "description": "Trial Summary",
+      "observation_class": "Trial Design",
+      "structure": "One record per trial summary parameter",
+      "key_variables": ["STUDYID", "TSSEQ"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "DOMAIN", "label": "Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "TS"},
+        {"name": "TSSEQ", "label": "Sequence Number", "type": "Num", "required": true},
+        {"name": "TSPARMCD", "label": "Trial Summary Parameter Short Name", "type": "Char", "required": true},
+        {"name": "TSPARM", "label": "Trial Summary Parameter", "type": "Char", "required": true},
+        {"name": "TSVAL", "label": "Parameter Value", "type": "Char", "required": true}
+      ],
+      "required_parameters": ["SSTDTC", "SENDTC", "INDIC", "TRT", "STYPE", "TPHASE", "RANDOM"]
+    },
+    "SUPPAE": {
+      "description": "Supplemental Qualifiers for Adverse Events",
+      "observation_class": "Relationship",
+      "structure": "One record per supplemental qualifier per AE per subject",
+      "key_variables": ["STUDYID", "RDOMAIN", "USUBJID", "IDVAR", "IDVARVAL", "QNAM"],
+      "variables": [
+        {"name": "STUDYID", "label": "Study Identifier", "type": "Char", "required": true},
+        {"name": "RDOMAIN", "label": "Related Domain Abbreviation", "type": "Char", "required": true, "fixed_value": "AE"},
+        {"name": "USUBJID", "label": "Unique Subject Identifier", "type": "Char", "required": true},
+        {"name": "IDVAR", "label": "Identifying Variable", "type": "Char", "required": true, "fixed_value": "AESEQ"},
+        {"name": "IDVARVAL", "label": "Identifying Variable Value", "type": "Char", "required": true},
+        {"name": "QNAM", "label": "Qualifier Variable Name", "type": "Char", "required": true, "fixed_value": "AELOC"},
+        {"name": "QLABEL", "label": "Qualifier Variable Label", "type": "Char", "required": true},
+        {"name": "QVAL", "label": "Data Value", "type": "Char", "required": true},
+        {"name": "QORIG", "label": "Origin", "type": "Char"},
+        {"name": "QEVAL", "label": "Evaluator", "type": "Char"}
+      ]
+    }
+  }
+}

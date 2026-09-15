@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an entirely undocumented 256-byte binary format from six reference samples with NO format hints given. The agent must independently discover: two distinct checksum algorithms (primary and SAS regions, each with a non-obvious target residue), a 76-byte data mirroring mechanism, PCI ID encoding and endianness, an interface mode byte, and a subtle PHY lane enable byte that controls port count. Two samples contain silent corruption — one with a broken primary checksum (masked by a manifest claiming 'working' status) and another with a valid checksum but inconsistent mirror — requiring the agent to implement and apply multiple independent validation strategies before trusting any reference data. The agent must then synthesize all discoveries to construct a valid crossflashed binary, produce verification artifacts, and document the complete reverse-engineered format layout."""
+solution_explanation = """First, validate all reference dumps by discovering and applying integrity checks: compute sum(0x00..0x4B) mod 256 for each (should be 0x5B — IBM M1015 fails), then compare bytes 0x4C-0x97 against 0x00-0x4B (LSI template fails with mirror mismatch despite valid primary checksum). Using only validated samples, compare IT/IR vs iMR cards: PCI PID at 0x0E (0x0072 vs 0x0073 LE), mode byte at 0x10 (0x00 vs 0x10), PHY lane at 0x12 (0x07=8ports, 0x04=4ports). Start from the Fujitsu SBR, change PID to 0x0072, mode to 0x00, PHY to 0x07, recompute primary checksum, update mirror, and preserve SAS address/checksum at 0xD8-0xEF. Produce xxd hex dump, cmp diff report, JSON field map, and integrity audit."""
+verification_explanation = """Twenty-two pytest tests verify: file size (256 bytes), PCI vendor/product IDs, interface mode, PHY lane enable, subsystem IDs, SAS address, primary checksum, mirror consistency, SAS checksum, preserved PHY analog config, preserved timing parameters, zeroed reserved regions, xxd hex dump existence and roundtrip fidelity, cmp diff report, field_map.json structural validity with 10+ required offset entries, integrity_audit.json structure covering all 6 dumps, correct detection of IBM corruption (silent checksum failure), correct detection of LSI template corruption (mirror-only inconsistency), and correct validation of the four structurally sound samples."""
+category = "reverse_engineering"
+tags = ["binary-forensics", "firmware"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sbr-firmware-crossflash"

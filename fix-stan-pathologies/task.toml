@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of HMC/NUTS diagnostics (divergent transitions, E-BFMI, R-hat, ESS), Bayesian hierarchical model reparameterization (non-centered parameterization, unconditional-mean AR(1) form), and prior calibration for scale parameters. The model contains three interacting pathologies that must each be independently identified and fixed: (1) AR(1) intercept parameterization creating extreme alpha-rho correlation near the unit root, (2) a single shared raw vector used for non-centered parameterization of two distinct hierarchical effects, and (3) heavy-tailed Cauchy scale priors creating funnel geometry. Diagnosing these requires reading Stan code, running MCMC, interpreting diagnostic output, and understanding the geometric properties of the posterior."""
+solution_explanation = """Three fixes are required: (1) Replace AR(1) intercept form (alpha + rho*y) with unconditional-mean form ((1-rho)*mu + rho*y) to decouple the subject-level mean from the AR coefficient near the unit root, eliminating the singularity in alpha/(1-rho). (2) Introduce separate z_mu and z_logsigma raw vectors instead of a single shared z for the non-centered parameterization of subject-level means and log-SDs, which were spuriously forced to be perfectly correlated. (3) Replace cauchy(0,5) scale priors with exponential(1) or half-normal priors, and narrow overly diffuse location priors from normal(0,100) to normal(0,10), eliminating heavy-tailed funnel geometry that prevents efficient HMC exploration."""
+verification_explanation = """Tests compile the fixed model with CmdStan, run 4 MCMC chains (500 warmup + 500 sampling), then verify: (1) zero divergent transitions parsed from CSV output, (2) E-BFMI above 0.2 via CmdStan diagnose utility, (3) R-hat below 1.05 for all parameters via stansummary, (4) effective sample size above 100 for all parameters, (5) AR coefficient recovered with posterior mean between 0.75 and 0.99, and (6) the fixed model retains AR(1) time-series structure with lagged observations."""
+category = "probabilistic_programming"
+tags = ["stan", "mcmc-diagnostics"]
+expert_time_estimate_hours = 1.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-stan-pathologies"

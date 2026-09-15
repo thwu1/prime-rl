@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete Sokoban analysis pipeline from scratch: (1) reading and parsing puzzle data from a SQLite database, (2) implementing full game simulation to diagnose errors in solution attempts — including identifying the exact failure point, error type, and the subtle case where all moves are legal but the puzzle remains unsolved, (3) designing and implementing a solver for PSPACE-complete Sokoban puzzles with 3–5 boxes, demanding understanding of state-space search, state normalization, and deadlock detection, (4) computing the complete set of simple dead positions through game-theoretic reachability analysis, and (5) writing structured results back to SQLite tables with correct schemas. The forensic analysis of broken attempts combined with algorithmic puzzle-solving and multi-tool database I/O requires deep domain expertise."""
+solution_explanation = """The solution reads levels and attempts from SQLite, then for each level: (a) replays the attempt move-by-move while tracking full game state to identify the first illegal move or detect incompleteness, (b) computes dead positions using reverse reachability analysis from each goal — pulling a virtual box backward to find all positions from which at least one goal is reachable, (c) solves the puzzle using BFS over the push-based state space with player-position normalization and freeze-deadlock pruning, (d) reconstructs the full walk+push move string, and (e) writes analysis, solution, and dead position results back to the database."""
+verification_explanation = """Tests independently verify three aspects per level (12 parametrized tests): (1) analysis correctness by replaying each attempt with a reference simulator and comparing attempt_valid, first_error_move, and error_type nullability, (2) solution validity by replaying the agent's solution and checking all moves are legal and all boxes end on goals, (3) dead position correctness by computing the reference set via reverse BFS from goals and comparing exactly against the agent's output."""
+category = "algorithms"
+tags = ["search", "game-solving"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c8427f"

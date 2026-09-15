@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -u
+
+cd "$(dirname "$0")"
+
+# Compile
+iverilog -g2012 \
+    arithmetic_blocks/pipe_add.sv \
+    arithmetic_blocks/pipe_sub.sv \
+    arithmetic_blocks/pipe_mult.sv \
+    arithmetic_blocks/pipe_isqrt.sv \
+    compute.sv \
+    testbench.sv \
+    -o sim.vvp \
+    > simulation.log 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "COMPILATION FAILED"
+    cat simulation.log
+    exit 1
+fi
+
+# Simulate
+vvp sim.vvp >> simulation.log 2>&1
+rm -f sim.vvp
+
+# Filter warnings
+sed -i -e '/always_comb process has no sensitivities/d' simulation.log
+sed -i -e '/sorry: constant selects/d' simulation.log
+sed -i -e '/finish called/d' simulation.log
+
+# Show results
+grep -e PASS -e FAIL -e ERROR -e Error -e error -e Timeout simulation.log \
+    | sed -e 's/PASS/\x1b[0;32m&\x1b[0m/g' -e 's/FAIL/\x1b[0;31m&\x1b[0m/g'

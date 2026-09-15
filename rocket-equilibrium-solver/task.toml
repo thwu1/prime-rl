@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a NASA RP-1311 fixed-width thermodynamic database, compiling a Fortran 90 module to a shared library and interfacing via Python ctypes, implementing a chemical equilibrium solver from scratch (constrained Gibbs minimization with element balance, enthalpy-conserving temperature iteration), isentropic nozzle expansion with re-equilibration at each station to find throat and exit conditions, and computing rocket performance parameters. Combines graduate-level chemical thermodynamics, numerical optimization, Fortran/Python FFI, and rocket propulsion physics."""
+solution_explanation = """The solver compiles thermo_eval.f90 with gfortran -shared -fPIC and loads it via ctypes. It parses the NASA polynomial database, then minimizes mixture Gibbs energy G/(RT) = sum(n_j * (g0_j + ln(x_j) + ln(P))) via SLSQP with element balance constraints. The HP problem wraps TP equilibrium in a Brent root-finder on temperature. Nozzle expansion solves successive SP problems to find throat (max mass flux) and exit stations (matching area ratio). Performance: c*=Pc/(rho_t*v_t), Isp_vac=v_e+Pe/(rho_e*v_e)."""
+verification_explanation = """Tests verify: (1) Fortran shared library compilation and ctypes integration (library exists, exports expected symbols, produces correct values for known inputs); (2) solver source uses ctypes.CDLL; (3) golden rocket performance values from CEA RP-1311 Example 8 - chamber temperature 3383.8 K ±0.5%, major species mole fractions ±5%, c* 2332 m/s ±0.3%, throat conditions ±1.5%, vacuum Isp at three area ratios ±0.5%."""
+category = "physics_engineering"
+tags = ["chemical-equilibrium", "fortran-ffi"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rocket-equilibrium-solver"

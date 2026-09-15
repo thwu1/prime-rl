@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of rigid-body dynamics including quaternion kinematics (body-to-world rotation matrices, scalar-first quaternion convention), inertia tensor frame transformations (I_world = R·I_body·R^T for non-spherical bodies), and conservation law verification for tumbling asymmetric bodies. The agent must interoperate between three non-trivial tools: HDF5 trajectory files (h5py with group/dataset/attribute navigation), TOML configuration parsing (tomllib), and gnuplot command-line scripting (generating .gp scripts and executing them to produce PNG phase-space plots). The physics demands distinguishing correctly-precessing torque-free ellipsoids (where angular velocity changes but world-frame angular momentum stays constant) from defective trajectories where angular momentum drifts — a distinction that fails without proper quaternion-based inertia tensor rotation. No step-by-step procedure is given for anomaly detection, collision identification, or scoring."""
+solution_explanation = """Build a Python validator that reads TOML config, parses HDF5 trajectories via h5py, and for each: (1) reconstructs the world-frame inertia tensor I_world = R(q)·I_body·R(q)^T using the quaternion orientation, (2) computes per-frame total energy (translational KE + rotational KE via I_world + gravitational PE) and checks conservation, (3) checks total linear momentum conservation at velocity-discontinuity events, (4) detects body-body interpenetration via centre distance vs sum-of-radii, (5) estimates positional jitter from RMS acceleration deviation, (6) verifies velocity-position kinematic consistency via central finite differencing, (7) checks world-frame angular momentum L = I_world·ω conservation for torque-free segments. Results are written to JSON reports, a SQLite database, and gnuplot-generated PNG phase-space plots."""
+verification_explanation = """Nine trajectory datasets exercise specific anomaly classes or correctness. Pytest verifies high scores for physically correct trajectories (bouncing sphere, two-body collision, tumbling ellipsoid) and detection of anomalies in defective ones (energy gain, momentum violation, interpenetration, jitter, kinematic mismatch, Euler-equation drift). The tumbling ellipsoid test is critical: it passes only when the validator correctly transforms the body-frame inertia tensor to the world frame via quaternion rotation. SQLite structure, score consistency, and gnuplot PNG output are also validated."""
+category = "scientific_computing"
+tags = ["rigid_body_dynamics", "multi_tool_integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trajectory-physics-validator"

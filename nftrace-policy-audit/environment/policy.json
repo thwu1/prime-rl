@@ -1,0 +1,41 @@
+{
+  "inter_zone_policies": [
+    {
+      "from_zone": "LAN",
+      "to_zone": "WAN",
+      "default_action": "accept"
+    },
+    {
+      "from_zone": "WAN",
+      "to_zone": "LAN",
+      "default_action": "drop"
+    },
+    {
+      "from_zone": "LAN",
+      "to_zone": "DMZ",
+      "default_action": "drop",
+      "rules": [
+        {"protocol": "tcp", "dst_ports": [80, 443], "action": "accept"}
+      ]
+    },
+    {
+      "from_zone": "DMZ",
+      "to_zone": "LAN",
+      "default_action": "drop"
+    },
+    {
+      "from_zone": "WAN",
+      "to_zone": "DMZ",
+      "default_action": "drop",
+      "rules": [
+        {"protocol": "tcp", "dst_ports": [80, 443], "action": "accept"}
+      ]
+    },
+    {
+      "from_zone": "DMZ",
+      "to_zone": "WAN",
+      "default_action": "accept"
+    }
+  ],
+  "default_action": "drop"
+}

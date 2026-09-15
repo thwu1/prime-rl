@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating three CIM solver implementations to identify distinct correctness defects in each: a Hamiltonian energy computation error (symmetric matrix double-counting), a local search convergence failure (missing flag update), and a dynamics parameter misconfiguration (pump clamped below bifurcation threshold). The agent must understand CIM bifurcation physics, Ising/QUBO Hamiltonian theory, and iterative optimization convergence to judge which components are correct. Additionally requires diagnosing a Rust format converter's case-sensitivity data contract bug and synthesizing a correct composite solver from the working pieces of each candidate."""
+solution_explanation = """Evaluate all three solvers: alpha has ising_energy using s@J@s instead of 0.5*s@J@s (double-counts symmetric couplings), beta's local_search never sets improved=True (exits after one pass), gamma clamps pump_max to 0.5 (below bifurcation threshold p>1.0). Fix the Rust converter's case mismatch ("Ising"/"QUBO" vs required "ising"/"qubo") by reconverting with Python. Create a composite solver using alpha's correct local search, beta's correct energy, and gamma's correct pump handling. Write verdict.json documenting each defect. Run the composite solver to produce near-optimal results for all 6 instances."""
+verification_explanation = """Tests verify the verdict.json correctly identifies each solver's defect categories (energy_computation for alpha, local_search for beta, dynamics_parameters for gamma). Brute-force enumeration computes ground state energies for all instances and verifies solutions are within tolerance. Self-consistency tests verify reported energies match recomputed values from solution vectors. QUBO-to-Ising conversion correctness is verified via energy correspondence."""
+category = "quantum_computing"
+tags = ["solver-evaluation", "combinatorial-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qubo-cim-solver"

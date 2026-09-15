@@ -1,0 +1,158 @@
+{
+  "description": "Enterprise network configuration audit comparing actual IOS-XE configs against a SQLite design specification database and Cisco DNA Center API data for a 6-router multi-protocol topology using OSPF, EIGRP, and BGP.",
+  "output_directory": "/app/output",
+  "required_outputs": {
+    "adjacency_audit": {
+      "file": "adjacency_audit.json",
+      "description": "Identify all routing protocol adjacency issues by comparing actual interface parameters against the design_ospf_links table. Each issue must specify: the two routers involved, interfaces, protocol, specific mismatch type, parameter details (actual vs design), and operational impact.",
+      "schema": {
+        "type": "array",
+        "items": {
+          "routers": ["RouterA", "RouterB"],
+          "interfaces": ["InterfaceOnA", "InterfaceOnB"],
+          "protocol": "OSPF|BGP|EIGRP",
+          "issue_type": "short category string",
+          "details": "specific parameter values causing the mismatch",
+          "impact": "operational consequence"
+        }
+      }
+    },
+    "redistribution_audit": {
+      "file": "redistribution_audit.json",
+      "description": "Compare actual redistribution configurations against the design_redistribution table. Identify where the design requires route-maps but actual configs lack them.",
+      "schema": {
+        "routers_with_issues": ["list of router names"],
+        "issues": [
+          {
+            "router": "RouterX",
+            "from_protocol": "source routing protocol with AS/process",
+            "to_protocol": "destination routing protocol with process",
+            "issue": "what control mechanism is missing",
+            "risk": "potential routing consequence"
+          }
+        ]
+      }
+    },
+    "bgp_audit": {
+      "file": "bgp_audit.json",
+      "description": "Compare actual BGP configurations against the design_bgp_sessions table. Focus on sessions where the design specifies next_hop_self=1 but the actual config lacks it.",
+      "schema": {
+        "issues": [
+          {
+            "router": "RouterX",
+            "issue_type": "category of BGP issue",
+            "details": "specific configuration problem",
+            "affected_neighbors": ["list of affected neighbor IPs"],
+            "impact": "routing consequence"
+          }
+        ]
+      }
+    },
+    "security_audit": {
+      "file": "security_audit.json",
+      "description": "Compare actual security features against the design_security table. Identify routers where required features (CoPP, VTY ACLs) are missing.",
+      "schema": {
+        "issues": [
+          {
+            "router": "RouterX",
+            "category": "control-plane|management-access|data-plane",
+            "issue": "description of the security gap",
+            "severity": "critical|high|medium|low"
+          }
+        ]
+      }
+    },
+    "ip_plan_audit": {
+      "file": "ip_plan_audit.json",
+      "description": "Compare actual interface IP assignments against the ip_plan table. Report total planned entries, how many match, and list all deviations with type (ip_mismatch, prefix_length_mismatch, missing_interface).",
+      "schema": {
+        "total_planned": "integer count of ip_plan entries",
+        "matching": "integer count of matching allocations",
+        "deviations": [
+          {
+            "router": "RouterX",
+            "interface": "InterfaceName",
+            "type": "ip_mismatch|prefix_length_mismatch|missing_interface",
+            "planned": {"ip": "address", "prefix_length": "integer"},
+            "actual": {"ip": "address or null", "prefix_length": "integer or null"}
+          }
+        ]
+      }
+    },
+    "path_analysis": {
+      "file": "path_analysis.json",
+      "description": "For each traffic flow in the sla_requirements table of the design database, determine the Layer 3 forwarding path assuming all adjacency issues are corrected. Use the configured OSPF interface costs to compute shortest paths.",
+      "format": {
+        "flows": [
+          {
+            "id": "flow identifier from sla_requirements",
+            "status": "reachable|unreachable",
+            "path": ["list of router names in forwarding order"],
+            "ospf_cost": "numeric total OSPF cost if applicable",
+            "explanation": "routing protocol chain and reasoning"
+          }
+        ]
+      }
+    },
+    "remediation": {
+      "file": "remediation.json",
+      "description": "For every issue found across all audits, provide the specific Cisco IOS-XE configuration commands to remediate it.",
+      "schema": {
+        "fixes": [
+          {
+            "issue_reference": "brief description of issue being fixed",
+            "router": "RouterX",
+            "commands": ["ordered list of IOS-XE CLI commands"]
+          }
+        ]
+      }
+    },
+    "topology_diagram": {
+      "file": "topology.svg",
+      "description": "SVG network topology diagram. Nodes represent routers labeled with hostname and loopback IP. Edges represent links with OSPF cost labels. Links with adjacency issues must use red color and include issue annotation text."
+    },
+    "dnac_reconciliation": {
+      "file": "dnac_reconciliation.json",
+      "description": "Three-way reconciliation comparing DNA Center compliance/assurance data against the design database and actual device configurations. Authenticate with the DNA Center API at http://localhost:9443, retrieve device inventory, compliance status, and assurance issues, then classify each finding.",
+      "schema": {
+        "managed_device_count": "integer count of devices in DNAC inventory",
+        "unmanaged_devices": ["list of router names not in DNAC inventory"],
+        "dnac_accuracy": {
+          "true_positives": [
+            {
+              "dnac_issue_id": "ID from DNAC",
+              "router": "RouterX",
+              "description": "issue DNAC correctly identified",
+              "classification": "true_positive"
+            }
+          ],
+          "false_negatives": [
+            {
+              "router": "RouterX",
+              "missed_issue": "description of issue DNAC missed",
+              "category": "adjacency|redistribution|bgp|security",
+              "classification": "false_negative",
+              "dnac_status": "COMPLIANT status that was incorrect"
+            }
+          ],
+          "false_positives": [
+            {
+              "dnac_issue_id": "ID from DNAC",
+              "router": "RouterX",
+              "description": "issue DNAC reported",
+              "classification": "false_positive",
+              "reason": "why this is not a real issue per design spec"
+            }
+          ]
+        },
+        "per_device": {
+          "R1": {
+            "dnac_status": "COMPLIANT|NON_COMPLIANT",
+            "actual_issue_count": "integer",
+            "assessment": "accurate|inaccurate|partial"
+          }
+        }
+      }
+    }
+  }
+}

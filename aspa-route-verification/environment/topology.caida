@@ -1,0 +1,49 @@
+# CAIDA AS Relationships Dataset (Serial-2 Format)
+# ================================================
+# Generated: 2025-03-01
+# Source: Regional ISP topology snapshot
+# Format: <AS1>|<AS2>|<relationship>
+#
+# Relationship codes:
+#   -1 : AS1 is a transit provider of AS2 (provider-to-customer)
+#    0 : AS1 and AS2 are settlement-free peers (peer-to-peer)
+#
+# AS number range: 64500-64545 (RFC 5398 documentation/private use)
+# Total ASes: 20
+# Total links: 26 provider-customer + 2 peering
+#
+# Topology tiers (approximate):
+#   Tier-1 transit-free: 64500, 64501
+#   Tier-2 regional transit: 64510, 64511, 64512
+#   Tier-3 metro/access: 64520-64524
+#   Tier-4 local: 64530-64534
+#   Stub/edge: 64540-64545
+#
+# --- Provider-Customer links ---
+64500|64510|-1
+64500|64511|-1
+64501|64511|-1
+64501|64512|-1
+64510|64520|-1
+64510|64521|-1
+64511|64521|-1
+64511|64522|-1
+64512|64522|-1
+64512|64523|-1
+64520|64530|-1
+64520|64531|-1
+64521|64531|-1
+64521|64532|-1
+64522|64532|-1
+64522|64533|-1
+64523|64533|-1
+64523|64534|-1
+64530|64540|-1
+64531|64541|-1
+64532|64542|-1
+64533|64543|-1
+64534|64544|-1
+64534|64545|-1
+# --- Peering links ---
+64500|64501|0
+64510|64511|0

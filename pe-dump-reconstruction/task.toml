@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in PE64 internals (DOS header, COFF file header, PE32+ optional header, section headers, data directories) and understanding of how the Windows loader transforms a PE image in memory. The agent must independently: (1) parse a raw memory dump to extract PE structures without standard loaders; (2) disassemble x86-64 code to identify function boundaries and extract cryptographic parameters from machine code; (3) write valid YARA detection rules and validate them; (4) compose SQL queries against a normalized exports database to resolve destroyed IAT entries from runtime addresses; (5) parse the PE base relocation table in block-and-entry format, reverse relocations, and produce a byte-exact restored binary. The multi-tool pipeline with interoperability between outputs places this at the proficient-to-expert level."""
+solution_explanation = """Open the dump as raw x86-64 in radare2, define functions at 0x1000 and 0x1100, disassemble the decrypt routine to find the MOV CL,0x5A instruction carrying the XOR key. Read case_info.json for original ImageBase and load address, compute the relocation delta. Parse the base relocation directory (DataDirectory[5]) in block format, extracting DIR64 entries and skipping ABSOLUTE padding. For each entry, read the current relocated value and subtract delta for the original. Query the SQLite exports database via JOINs to build a reverse lookup (resolved_address -> function_name), then walk the import directory IAT entries matching each pointer. Write a YARA rule using distinctive byte patterns from the decrypt routine and config marker with correct syntax (strings in strings section, at-offsets in condition section). Locate the CAFEBABE marker in .data, read the encrypted config, XOR-decrypt with the key found via radare2, and output as JSON. Produce the restored binary with ImageBase and all relocation targets reversed."""
+verification_explanation = """Tests derive expected values from the dump binary and case metadata rather than hardcoding. Relocation reversal is verified by re-parsing the relocation table and comparing restored bytes. Import reconstruction is validated against the SQLite exports database. The XOR key test scans the dump for the B1 opcode pattern adjacent to a LEA instruction to extract the expected key independently. Config decryption is verified by independently decrypting from the dump. The YARA rule is tested by running the yara binary against both the dump (must match) and random non-PE data (must not match). Function entry points are checked against known addresses in the binary."""
+category = "reverse_engineering"
+tags = ["pe-format", "malware-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pe-dump-reconstruction"

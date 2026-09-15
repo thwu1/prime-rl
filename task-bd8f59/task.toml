@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across multiple domains: (1) RISC-V cross-compilation toolchain proficiency — the agent must discover and chain together the correct tools with appropriate architecture flags for bare-metal RV32I targets to produce missing hex files; (2) deep ISA knowledge — the agent must consult the RISC-V unprivileged specification to implement a complete instruction decoder and cycle-accurate simulator covering all six encoding formats, ~40 instructions, sign-extension, 2's complement arithmetic, and little-endian byte-addressable memory; (3) computer architecture expertise — the agent must determine correct pipeline stall behavior (including load-use penalties) from first principles given only the pipeline stage description, with no encoding tables, stall formulas, or algorithmic guidance provided."""
+solution_explanation = """Use the RISC-V cross-compilation toolchain (riscv64-linux-gnu-as with -march=rv32i, ld with the provided linker script, objcopy -O binary) to assemble each .s source file and convert the raw binary to hex word format. Build a complete RV32I decoder by consulting the ISA specification for all instruction format bit-field layouts. Implement a simulator with a 32-entry register file (x0 hardwired to zero), byte-addressable little-endian memory, and correct execution semantics. Implement trace error detection by simulating and diffing against provided traces. Implement pipeline hazard analysis tracking register writers and computing stall cycles based on producer-consumer distance and instruction type (ALU vs load)."""
+verification_explanation = """Tests verify five dimensions: (1) instruction decoding for representative instructions of all encoding formats including edge cases like negative immediates and backward branches, (2) simulation of 7 programs covering ALU operations, branches, loops, function calls, signed/unsigned edge cases, memory loads/stores, and load-use patterns, checking final register state, (3) trace error detection on 2 corrupted traces verifying exact error count and locations, (4) pipeline hazard analysis on 4 programs verifying correct hazard identification with distance and stall-cycle counts including load-use penalties with forwarding, (5) correct trace files that must match simulation output."""
+category = "systems"
+tags = ["computer-architecture", "risc-v"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bd8f59"

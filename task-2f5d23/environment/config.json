@@ -1,0 +1,21 @@
+{
+  "crc_bits": 8,
+  "polynomials_koopman_hex": ["0xe7", "0xa6", "0x97", "0xea", "0x9c"],
+  "max_dataword_length_bits": 260,
+  "crc_params": {
+    "init": "0x00",
+    "reflect_in": false,
+    "reflect_out": false,
+    "xor_out": "0x00"
+  },
+  "hamming_weight_queries": [
+    {"polynomial": "0xe7", "dataword_length": 247, "error_weight": 2},
+    {"polynomial": "0xe7", "dataword_length": 248, "error_weight": 2},
+    {"polynomial": "0xea", "dataword_length": 85, "error_weight": 2},
+    {"polynomial": "0xea", "dataword_length": 86, "error_weight": 2},
+    {"polynomial": "0x97", "dataword_length": 119, "error_weight": 3},
+    {"polynomial": "0x97", "dataword_length": 120, "error_weight": 2},
+    {"polynomial": "0x9c", "dataword_length": 9, "error_weight": 2},
+    {"polynomial": "0x9c", "dataword_length": 10, "error_weight": 2}
+  ]
+}

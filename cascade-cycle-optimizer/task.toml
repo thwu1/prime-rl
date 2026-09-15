@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level thermodynamic modeling: the solver must independently design an N-stage cascade refrigeration cycle analyzer by determining how to query CoolProp's PropsSI API for saturation pressures, superheated/subcooled states (with phase imposition near critical conditions), isentropic compression endpoints, and isenthalpic expansion. They must figure out the energy-balance coupling between cascade stages to derive mass flow rates, implement multi-dimensional optimization of cascade temperatures for a 3-stage system, and solve an inverse thermodynamic problem to back-calculate compressor isentropic efficiencies from measured discharge temperatures. The near-critical R410A condenser in Plant C requires discovering and correctly applying CoolProp's phase imposition syntax."""
+solution_explanation = """The reference solution uses CoolProp PropsSI to compute saturation pressures from temperatures (Q=0/1 inputs), then determines four state points per cycle: (1) superheated compressor inlet via T+superheat at P_evap, (2) isentropic discharge enthalpy from P_cond and S1, then actual enthalpy via isentropic efficiency, (3) subcooled condenser outlet using P|liquid phase imposition at T_cond-subcool, (4) isenthalpic expansion. Cascade coupling is resolved by propagating mass flows from the lowest stage upward: mdot_lowest = Q_cool/q_evap, then for each cascade HX, Q_cascade = mdot_lower * q_cond_lower determines mdot_upper = Q_cascade/q_evap_upper. Optimization uses scipy.optimize.minimize_scalar (1D) or scipy.optimize.brute for grid search initialization followed by Nelder-Mead refinement (multi-D). Diagnosis inverts the isentropic efficiency equation: eta_actual = (H2s - H1) / (H2_measured - H1)."""
+verification_explanation = """Tests independently compute all thermodynamic state points and derived quantities using CoolProp PropsSI with an embedded reference implementation. Verification covers: (1) system and per-stage COP, compressor work, cooling/heating capacities, mass flows, and discharge temperatures for all three plants against independent reference values at 0.01% relative tolerance; (2) first-law energy balance q_cond = q_evap + w_comp per stage; (3) cascade HX energy balance (heat rejected by lower stage = heat absorbed by upper stage) for both 2-stage and 3-stage systems; (4) total power consistency; (5) optimization verified by checking COP at coarse and fine perturbations around the reported optimum; (6) diagnosed efficiencies verified against independent back-calculation from measured discharge temperatures; (7) near-critical R410A state point correctness in Plant C."""
+category = "engineering"
+tags = ["thermodynamics", "coolprop"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascade-cycle-optimizer"

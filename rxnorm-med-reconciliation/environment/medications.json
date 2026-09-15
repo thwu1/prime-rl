@@ -1,0 +1,13 @@
+{
+  "patient_id": "RECON-2024-001",
+  "medications": [
+    {"id": "M1", "type": "ndc", "value": "0069-3150-83"},
+    {"id": "M2", "type": "drug_name", "value": "Lipitor 20 MG Oral Tablet"},
+    {"id": "M3", "type": "drug_name", "value": "metformin hydrochloride 500 MG Oral Tablet"},
+    {"id": "M4", "type": "drug_name", "value": "atorvastatin 40 MG Oral Tablet"},
+    {"id": "M5", "type": "drug_name", "value": "amlodipine 5 MG / atorvastatin 20 MG Oral Tablet"},
+    {"id": "M6", "type": "drug_name", "value": "warfarin sodium 5 MG Oral Tablet"},
+    {"id": "M7", "type": "approximate", "value": "lisinoprl 10mg tabs"},
+    {"id": "M8", "type": "drug_name", "value": "metformin hydrochloride 500 MG / sitagliptin 50 MG Oral Tablet"}
+  ]
+}

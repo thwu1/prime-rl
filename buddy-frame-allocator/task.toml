@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary to understand a multi-zone physical memory frame allocator's internal algorithms and data structures (block splitting/coalescing, zone/mobility fallback chains, page compaction, fragmentation analysis). The agent must use binary analysis tools (objdump, gdb, nm, strings, strace, ltrace) alongside the probe wrapper to reconstruct how the allocator works, then reimplement it in Python to produce bit-identical results. Demands expert OS kernel memory management knowledge to interpret disassembly patterns and infer the allocator's design from observed behavior."""
+solution_explanation = """Probe the reference binary via probe.py and reverse-engineer its behavior with disassembly/debugging tools. Determine: (1) memory is organized as per-zone, per-mobility-type, per-order free lists of aligned blocks, (2) allocation splits larger blocks downward and selects the lowest PFN for determinism, (3) deallocation coalesces adjacent same-order free blocks via XOR-based buddy calculation up to zone boundaries, (4) compaction uses a two-pointer scan relocating order-0 movable pages, extracting destination pages by splitting containing blocks, (5) fragmentation index is the ratio of pages trapped in undersized blocks. Implement a matching FrameAllocator class and copy it into /app/allocator.py."""
+verification_explanation = """23 pytest tests verify: correct initialization (all pages free in maximally-sized blocks), block splitting and coalescing, zone-restricted allocation with fallback, mobility type tracking and cross-type fallback, non-overlapping allocations across mixed orders, compaction preserving allocation counts and only moving eligible order-0 pages, fragmentation index for normal/low-memory/scattered states, stress tests with full allocation/deallocation cycles and exhaustion recovery, and edge cases (invalid order, double-free, wrong-order free, out-of-range PFN queries)."""
+category = "systems_programming"
+tags = ["reverse-engineering", "memory-management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/buddy-frame-allocator"

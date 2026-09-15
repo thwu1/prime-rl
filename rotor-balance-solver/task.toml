@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a buggy C shared library (fixing Makefile linker flags, correcting a sign error in rotating moment balance, fixing secondary reciprocating angle doubling, and implementing missing flywheel analysis), writing Python ctypes bindings with correct struct layout and argument marshalling, implementing multi-format CLI with JSON/TOML parsing, and building a SQLite batch-processing and query pipeline. The solver must understand multi-plane rotor balancing physics, reciprocating engine primary/secondary force decomposition, and flywheel energy analysis to identify and fix the numerical defects."""
+solution_explanation = """Fix the Makefile by adding -lm to link the math library. In balance_core.c: (1) fix rotating_balance by negating the moment sum before dividing by d_other; (2) fix reciprocating_balance by using 2*alpha for secondary force/moment components; (3) implement flywheel_analysis with trapezoidal integration for total work, mean torque, and cumulative energy fluctuation. Write Python ctypes bindings defining CorrectionResult/ResidualResult structs, marshalling double arrays, and calling C functions. The Python CLI handles JSON/TOML I/O, computes derived quantities (inertia, mass, speed range), and reciprocating primary corrections via complex arithmetic. Batch mode writes to SQLite; query mode executes SQL and returns JSON."""
+verification_explanation = """Tests cover: C library existence and ctypes loadability; 4-plane, 5-plane, and already-balanced rotating systems; 3-cylinder, 4-cylinder, and 2-cylinder reciprocating engines plus correction planes; piecewise-linear, dense sinusoidal, and energy-only flywheel analysis; TOML input format for all three modes; SQLite batch processing with schema validation, nullable column checks, and result JSON parsing; and SQL query mode with aggregation and numeric column verification. All use deterministic numeric checks with appropriate tolerances."""
+category = "engineering_simulation"
+tags = ["mechanical-engineering", "systems-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotor-balance-solver"

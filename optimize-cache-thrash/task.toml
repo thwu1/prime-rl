@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient use of valgrind's cachegrind tool and cg_annotate to diagnose per-kernel performance bottlenecks in a 4-kernel data pipeline. The solver must correctly distinguish cache-bound kernels (column-major traversal causing stride-4096 L1 set conflicts on an 8-way 32KB L1) from compute-bound kernels (row-major smooth_data with low miss rate but O(n*w) redundant window computation). Producing an accurate analysis.json demands parsing cachegrind's binary output format, extracting per-function D1 read miss rates, and cross-referencing with each kernel's memory access pattern. The optimization phase requires different strategies per kernel type: loop interchange for analyze/normalize, loop-nest inversion with accumulators for distances, and a sliding-window algorithmic improvement for smooth_data."""
+solution_explanation = """1) Run valgrind --tool=cachegrind on the original binary and parse the cachegrind.out file to extract per-function D-cache statistics. 2) Read L1D cache configuration from the cachegrind desc: lines or sysfs. 3) Classify each kernel: analyze_sensors, normalize_data, compute_distances show D1 read miss rates >30% due to column-major stride-4096 access — these are cache_bound. smooth_data shows <5% miss rate with row-major access — it is compute_bound. 4) Write analysis.json. 5) Fix cache-bound kernels via loop interchange and data-locality improvements. 6) Fix smooth_data via sliding-window algorithm reducing O(n*w) to O(n)."""
+verification_explanation = """Tests validate two aspects: (1) the diagnosis report — analysis.json must correctly classify all four kernels by bottleneck type, report plausible D1 miss rates with cache-bound rates exceeding compute-bound rates, and identify a cache-bound kernel as most impactful; (2) the optimization — the modified binary must produce numerically identical output within 1e-6 relative tolerance and achieve at least 3x speedup across three median-filtered runs."""
+category = "performance_optimization"
+tags = ["cachegrind-profiling", "cache-diagnosis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-cache-thrash"

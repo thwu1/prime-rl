@@ -1,0 +1,6 @@
+sql_id,plan_hash_value,executions,buffer_gets,disk_reads,rows_processed,elapsed_time_us,cpu_time_us,module,sql_text
+4qr7st8u9v0w1,3847291056,1,8923456,4231892,3567821,245678901,198234567,SQL*Plus,"SELECT /*+ FULL(o) */ o.*, c.customer_name FROM orders o, customers c WHERE o.customer_id = c.customer_id AND o.order_date BETWEEN TO_DATE('2024-01-01','YYYY-MM-DD') AND TO_DATE('2024-12-31','YYYY-MM-DD')"
+7xy8za9b0c1d2,1928374650,4892103,24460515,48921,4892103,146763090,97842060,JDBC Thin Client,"SELECT customer_name, email FROM customers WHERE customer_id = 12345"
+2ef3gh4i5j6k7,5738291046,1234,6789012,3456789,12340,178456123,145678901,JDBC Thin Client,"SELECT p.product_name, SUM(oi.quantity) AS total_qty, SUM(oi.quantity * oi.unit_price) AS total_revenue FROM order_items oi JOIN products p ON oi.product_id = p.product_id GROUP BY p.product_name HAVING SUM(oi.quantity * oi.unit_price) > 10000 ORDER BY total_revenue DESC"
+8lm9no0p1q2r3,4829301756,987654,5925924,2961962,987654,89012345,67890123,JDBC Thin Client,"SELECT order_id, order_total FROM orders WHERE status = 'PENDING'"
+3st4uv5w6x7y8,6182739405,456,12345678,8765432,456,312456789,267890123,JDBC Thin Client,"SELECT /*+ NO_INDEX(oi) */ oi.order_id, oi.product_id, oi.quantity FROM order_items oi WHERE oi.order_id IN (SELECT o.order_id FROM orders o WHERE o.order_date > SYSDATE - 365)"

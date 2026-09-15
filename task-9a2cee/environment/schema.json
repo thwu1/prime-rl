@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Output schema for npm supply chain security audit report",
+  "type": "object",
+  "required": ["audit"],
+  "properties": {
+    "audit": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["package", "version", "integrity_match", "compromised"],
+        "properties": {
+          "package": {
+            "type": "string",
+            "description": "Package name"
+          },
+          "version": {
+            "type": "string",
+            "description": "Package version"
+          },
+          "integrity_match": {
+            "type": "boolean",
+            "description": "Whether tarball SHA-512 SRI hash matches the expected integrity value from registry metadata"
+          },
+          "compromised": {
+            "type": "boolean",
+            "description": "Whether the package contains embedded malicious code"
+          },
+          "attack_type": {
+            "type": ["string", "null"],
+            "description": "How the malicious code is triggered (e.g. postinstall, runtime)"
+          },
+          "cwe": {
+            "type": ["string", "null"],
+            "description": "CWE identifier (e.g. CWE-506)"
+          },
+          "malicious_file": {
+            "type": ["string", "null"],
+            "description": "Relative path to file containing malicious code"
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Evidence entries. Compromised packages must include at least one semgrep:-prefixed entry."
+          },
+          "related_advisories": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Advisory IDs from the NDJSON feed whose indicators are confirmed present in source code."
+          },
+          "behavior_summary": {
+            "type": ["string", "null"],
+            "description": "Description of the malicious behavior if compromised."
+          }
+        }
+      }
+    }
+  }
+}

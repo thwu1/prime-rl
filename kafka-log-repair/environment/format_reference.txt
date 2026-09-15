@@ -1,0 +1,50 @@
+Kafka RecordBatch Binary On-Disk Format Reference
+===================================================
+
+A .log file contains one or more RecordBatch structures concatenated sequentially.
+
+RecordBatch Layout (all fixed-width integers are big-endian):
+
+Offset  Size  Type     Field
+------  ----  ------   ---------
+0       8     int64    BaseOffset
+8       4     int32    BatchLength (total bytes from PartitionLeaderEpoch to end of last record)
+12      4     int32    PartitionLeaderEpoch
+16      1     int8     Magic (must be 2 for current format)
+17      4     uint32   CRC
+21      2     int16    Attributes
+23      4     int32    LastOffsetDelta
+27      8     int64    FirstTimestamp
+35      8     int64    MaxTimestamp
+43      8     int64    ProducerId
+51      2     int16    ProducerEpoch
+53      4     int32    BaseSequence
+57      4     int32    RecordCount
+61      var   Record[] Records (RecordCount entries)
+
+BatchLength = 4 (PartitionLeaderEpoch) + 1 (Magic) + 4 (CRC) + size_of_properties
+where properties = Attributes through end of Records
+
+CRC coverage: bytes from Attributes (offset 21) through end of Records.
+Fields NOT covered by CRC: BaseOffset, BatchLength, PartitionLeaderEpoch, Magic.
+CRC algorithm: CRC32-C (Castagnoli, generator polynomial 0x1EDC6F41).
+
+Record Layout (all variable-width fields use zigzag-encoded signed varints):
+
+  varint  Size (byte length of record body = everything after this field)
+  int8    Attributes (1 byte, currently unused, always 0)
+  varint  TimestampDelta (delta from batch FirstTimestamp)
+  varint  OffsetDelta (delta from batch BaseOffset)
+  varint  KeyLength (-1 for null key)
+  bytes   Key (KeyLength bytes, absent if KeyLength < 0)
+  varint  ValueLength (-1 for null value)
+  bytes   Value (ValueLength bytes, absent if ValueLength < 0)
+  varint  HeaderCount (number of record headers, typically 0)
+  Header[] Headers
+
+Zigzag varint encoding for signed integer n:
+  1. Map signed to unsigned:  zigzag(n) = (n << 1) ^ (n >> 63)
+     Equivalently: non-negative n maps to 2*n, negative n maps to 2*|n| - 1
+  2. Encode unsigned result as base-128 varint:
+     - Write 7 bits per byte, LSB first
+     - Set MSB (0x80) on all bytes except the last

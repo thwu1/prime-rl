@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing ~1000 lines of SysML v2 textual notation — a language launched in 2024 with minimal tooling — across 6 interconnected model files containing 15+ distinct element kinds (parts, part defs, requirements, connections, interfaces, ports, states, actions, constraints, calculations, verification cases, metadata annotations, enumerations, items, and use cases). The agent must discriminate part usages from non-part constructs (connections, interfaces, ports, states, metadata) to avoid inflating the part count, and must distinguish actual engineering attributes (mass, powerGeneration, powerConsumption) from numerous red-herring design-margin attributes (designMass, allocatedMass, contingencyMass, peakPowerDraw, peakPowerBOL) scattered across the same parts. The analysis requires discovering the Tsiolkovsky equation from Calculations.sysml, the two-stage burn sequence from MissionContext.sysml, and five distinct requirement constraint semantics from Requirements.sysml, then integrating results into three different output formats (SQLite, JSON, Graphviz DOT)."""
+solution_explanation = """Parse all .sysml files using brace-depth tracking, stripping block and line comments. Recognize and skip non-part element types (connection, interface, port, state, action, use case, constraint, calc, verification, metadata, enum, item blocks). Extract part usages into a tree with typed attributes. Build SQLite database with normalized tables. Recursively compute mass rollup using only the 'mass' attribute, ignoring designMass/allocatedMass/contingencyMass. Apply Tsiolkovsky equation (Isp * 9.80665 * ln(m_i/m_f)) with correct staging: TV initial mass = full stack (TV+Lander), lander initial mass = lander-only post-separation. Aggregate powerGeneration and powerConsumption (ignoring peak/transient variants) per vehicle subtree. Evaluate each requirement type's constraint direction against computed values. Map satisfy link paths for traceability with gap detection (REQ-SYS-001 has no satisfy link). Extract derive chains from requirement specialization blocks. Generate DOT graph with color-coded pass/fail nodes and gap annotations."""
+verification_explanation = """Tests verify three artifacts: (1) JSON report with correct mass rollup values for 9 key nodes, delta-v values matching Tsiolkovsky computation with correct staging, power budget for both vehicles, requirement pass/fail status (exactly 2 failures: REQ-SYS-001 and REQ-TV-DV-001), traceability gaps, and 2 derivation chains; (2) SQLite database with 6 tables, exactly 27 parts in correct hierarchy (not inflated by connections/interfaces/ports), 8 requirements with correct IDs, 7 satisfy links, 2 derive links, correct attribute values via SQL joins, and proper parent-child relationships; (3) DOT file validated by graphviz, containing all 8 requirement IDs, at least 7 edges, at least 2 distinct visual styles for pass/fail, and gap markers."""
+category = "systems_engineering"
+tags = ["sysml-v2", "model-verification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8ec164"

@@ -1,0 +1,6 @@
+# sharing.trace — four processors reading same line
+# Tests: E->S transition on snooped BusRd, multiple S copies
+0 R 0x0000
+1 R 0x0000
+2 R 0x0000
+3 R 0x0000

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to: (1) parse 108 gem5-format simulation output files with hierarchical stat names and workload-delimited sections — an unfamiliar, domain-specific data format, (2) debug a Python power model by identifying two physically-motivated bugs using calibration data (additive vs multiplicative activity factor, wrong sign on temperature-dependent leakage coefficient), demanding understanding of MOSFET power dissipation principles, (3) install and use a YAML parser for design constraints (runtime dependency management), (4) implement 3-objective Pareto frontier extraction (area/power/performance) — a non-trivial generalization of the standard 2-objective case, (5) compute weighted geometric-mean speedups using heterogeneous workload priority weights, and (6) perform constrained multi-objective optimization under joint area+power budgets per scenario. The task demands holistic understanding of out-of-order processor microarchitecture, semiconductor power modeling, cache hierarchy behavior, and multi-objective optimization theory."""
+solution_explanation = """The solution parses all stats.txt files using regex section splitting to extract per-config per-workload IPC (from committedInsts/numCycles) and L1D miss rates (from cache hit/miss counts), distinguishing relevant stats from noise. It fixes the power model's two bugs: converting the additive activity factor to multiplicative form and correcting the leakage temperature coefficient sign. It then computes area scores via arch_model.py, power estimates via the fixed model using geometric-mean IPC and arithmetic-mean miss rate, and weighted geometric-mean performance using YAML workload weights. It builds a 3-objective Pareto front via pairwise non-dominance checking, identifies per-workload bottlenecks via marginal sensitivity analysis from baseline, and selects scenario-optimal configs under joint area+power constraints."""
+verification_explanation = """Tests independently reparse all 108 stats files using the same extraction logic and recompute all expected values using the correct power formula hardcoded in the test. They verify: exact area scores, power estimates within 0.05 absolute tolerance, weighted perf within 1e-4, exact Pareto front membership via independent non-dominance verification (both completeness and no-dominated-inclusion), correct bottleneck parameter identification per workload, and scenario-optimal config selection with constraint satisfaction validation against the YAML budget scenarios."""
+category = "computer_architecture"
+tags = ["microarchitecture", "power-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ooo-pareto-design"

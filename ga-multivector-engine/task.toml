@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a hybrid Rust/Python geometric algebra engine where bugs span both languages and the ctypes FFI boundary. The Rust layer has three bugs: incorrect blade-ordering sweep direction in compute_tables, wrong bit-shift stride in reorder sign computation, and metric factor applied to the wrong bitmask (result instead of common) in the product kernel. The Python layer has three bugs: swapped p/q parameters in the Clifford algebra flavor encoding passed to Rust, incorrect grade-filter mode for the inner product (passes outer-product mode), and wrong sign exponent in the reverse operation. Each Rust fix requires rebuilding the shared library with cargo. Additionally two functions (sandwich product, grade involution) must be implemented from mathematical definitions. Demands understanding of Clifford algebra, Rust FFI via ctypes, and cross-language debugging."""
+solution_explanation = """In Rust lib.rs: (1) reverse the dimension sweep loop from 0..dims to (0..dims).rev() in compute_tables; (2) change shifted >>= 2 to shifted >>= 1 in ga_reorder_sign; (3) change metric iteration variable from result_mask to common in ga_product_core. Rebuild with cargo build --release. In Python ga_engine.py: (4) fix _parse_flavor to return (2, p, q, r) instead of (2, q, p, r); (5) change inner_product to pass mode=2 instead of mode=1; (6) fix reverse_mv exponent from k*(k+1)//2 to k*(k-1)//2; (7) implement sandwich as R * x * reverse(R) via two geometric products; (8) implement grade_involution by multiplying each component by (-1)^grade."""
+verification_explanation = """Tests verify mask tables against exact expected values for dims 1-5 including roundtrip and grade-ordering properties, check reorder signs for various blade pairs including high-bit cases and anticommutativity, validate metric values across VGA/PGA/Cl flavors, test geometric/outer/inner products against hand-computed results in 2D/3D/4D with PGA and Cl metric flavors, verify reverse operation sign patterns across dimensions, check associativity for multiple metric flavors, validate rotor rotations via sandwich products including composition, and test grade involution sign patterns and self-inverse property."""
+category = "mathematics"
+tags = ["geometric-algebra", "rust-ffi"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ga-multivector-engine"

@@ -1,0 +1,20 @@
+{
+  "identifier": "worldpop_ppp_v2",
+  "title": "WorldPop PPP Gridded Population Estimates v2",
+  "abstract": "Constrained individual country gridded population estimates using Random Forest and census data, adjusted to match UN population estimates",
+  "spatial_ref": {
+    "epsg": 4326
+  },
+  "geographic_bounds": {
+    "min_longitude": -180.0,
+    "max_longitude": 180.0,
+    "min_latitude": -60.0,
+    "max_latitude": 85.0
+  },
+  "time_extent": "2000/2020",
+  "ground_resolution_m": 100,
+  "variables": ["ppp_population_count", "ppp_population_density"],
+  "producer": "WorldPop Research Group, University of Southampton",
+  "usage": "CC-BY-4.0",
+  "topic": "demographics"
+}

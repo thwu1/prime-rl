@@ -1,0 +1,25 @@
+$ORIGIN example.test.
+$TTL 3600
+@   IN  SOA ns1.example.test. admin.example.test. (
+            2024010101  ; serial
+            3600        ; refresh
+            900         ; retry
+            604800      ; expire
+            86400       ; minimum
+        )
+@       IN  NS   ns1.example.test.
+@       IN  NS   ns2.example.test.
+@       IN  A    192.0.2.1
+@       IN  AAAA 2001:db8::1
+ns1     IN  A    192.0.2.10
+ns2     IN  A    192.0.2.20
+www     IN  CNAME example.test.
+mail    IN  A    192.0.2.25
+@       IN  MX   10 mail.example.test.
+@       IN  MX   20 backup-mail.example.test.
+backup-mail IN A 192.0.2.26
+@       IN  TXT  "v=spf1 include:example.test ~all"
+sub     IN  NS   ns1.sub.example.test.
+ns1.sub IN  A    192.0.2.100
+*.wild  IN  A    192.0.2.200
+deep.wild IN A   192.0.2.201

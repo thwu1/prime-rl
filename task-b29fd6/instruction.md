@@ -1,0 +1,3 @@
+Three numerical challenge problems have been staged under `/app/challenges/`. Explore the directory structure to discover each problem's specification files, determine what is being asked, and solve each problem to at least 10 correct significant digits.
+
+Write your answers to `/app/answers.txt` as exactly three lines — one plain decimal number per line, no labels, no extra text. Order the answers according to the challenge index found in the environment.

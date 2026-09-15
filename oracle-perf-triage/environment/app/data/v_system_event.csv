@@ -1,0 +1,18 @@
+event,total_waits,time_waited_micro,avg_wait_micro,wait_class
+db file sequential read,12847293,89931051000,6998,User I/O
+db file scattered read,3421876,17109380000,5001,User I/O
+log file sync,2156789,6470367000,2999,Commit
+latch: cache buffers chains,1847231,5541693000,2999,Concurrency
+buffer busy waits,1234567,3703701000,3000,Concurrency
+log file parallel write,2109834,4219668000,2000,System I/O
+latch: shared pool,987654,2962962000,3000,Concurrency
+enq: TX - row lock contention,456789,4567890000,10000,Application
+read by other session,345678,691356000,2000,User I/O
+direct path read,234567,468134000,1996,User I/O
+cursor: pin S wait on X,198765,596295000,3000,Concurrency
+SQL*Net message from client,89456123,1789122460000,20000,Idle
+SQL*Net message to client,89456123,89456123,1,Network
+pmon timer,43200,864000000000,20000000,Idle
+rdbms ipc message,86400,1728000000000,20000000,Idle
+DIAG idle wait,86400,864000000000,10000000,Idle
+VKTM Logical Idle Wait,86400,864000000000,10000000,Idle

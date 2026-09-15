@@ -1,0 +1,58 @@
+# EXPLAIN plan verification with regex matching
+
+statement ok
+PRAGMA explain_output = PHYSICAL_ONLY;
+
+statement ok
+CREATE TABLE plan_test(i INTEGER, j INTEGER, k VARCHAR)
+
+statement ok
+INSERT INTO plan_test SELECT range, range * 2, 'val_' || range::VARCHAR FROM range(100)
+
+# Verify scan operator appears in plan
+query TT
+EXPLAIN SELECT * FROM plan_test WHERE i > 50
+----
+physical_plan	<REGEX>:.*SCAN.*
+
+# Simple projection should NOT produce a join operator
+query TT
+EXPLAIN SELECT i FROM plan_test WHERE i < 10
+----
+physical_plan	<!REGEX>:.*JOIN.*
+
+# Aggregation query should have grouping operator
+query TT
+EXPLAIN SELECT k, COUNT(*) FROM plan_test GROUP BY k
+----
+physical_plan	<REGEX>:.*GROUP.*
+
+# Join should produce a join operator
+statement ok
+CREATE TABLE plan_join(x INTEGER)
+
+statement ok
+INSERT INTO plan_join SELECT range FROM range(50)
+
+query TT
+EXPLAIN SELECT * FROM plan_test t1 JOIN plan_join t2 ON t1.i = t2.x
+----
+physical_plan	<REGEX>:.*JOIN.*
+
+# Window function should appear in plan
+query TT
+EXPLAIN SELECT i, ROW_NUMBER() OVER () FROM plan_test
+----
+physical_plan	<REGEX>:.*WINDOW.*
+
+# Negative regex: scan-only plan should not have window
+query TT
+EXPLAIN SELECT i FROM plan_test
+----
+physical_plan	<!REGEX>:.*WINDOW.*
+
+statement ok
+DROP TABLE plan_test
+
+statement ok
+DROP TABLE plan_join

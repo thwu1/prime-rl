@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing bugs across a multi-language pipeline (bash/Python) without any ground-truth reference values stored in the environment, then implementing L-moment ratio diagram theory for distribution selection from scratch. Bug diagnosis demands cross-layer tracing: a subtle awk column-variable vs literal mismatch in the shell extractor, an off-by-one in the PWM combinatorial denominator (comb(n,r) vs comb(n-1,r)), and a shape parameter sign convention error (Hosking kappa negation). The implementation component requires expert knowledge of Hosking & Wallis (1997) L-moment theory: computing theoretical GEV L-kurtosis via numerical inversion of the tau3-to-kappa relation followed by the tau4(kappa) formula, implementing GLO and GPA closed-form tau4(tau3) relations, designing a bootstrap confidence interval procedure for GEV return levels with proper resampling and percentile extraction. Holistic understanding of extreme value distribution families and their L-moment ratio diagram properties is essential."""
+solution_explanation = """Five issues must be resolved: (1) extract.sh: awk uses hardcoded $4 instead of the $col variable from jq extraction; (2) lmoments.py: PWM denominator comb(n,r) must be comb(n-1,r) for unbiased Hosking estimators; (3) fit.py: shape=-kappa_h must be shape=kappa_h since the return level formula uses Hosking convention directly; (4) distselect.py _gev_tau4: invert tau3 to kappa via Brent root-finding on the GEV tau3(kappa) relation, then compute tau4=[5(1-4^-k)-10(1-3^-k)+6(1-2^-k)]/(1-2^-k) with Gumbel limit 16-10*ln3/ln2; _glo_tau4=(1+5*t3^2)/6; _gpa_tau4=t3*(1+5*t3)/(5+t3); select_distribution computes sample tau3,tau4 and picks minimum-distance candidate; bootstrap_return_level resamples with replacement, refits GEV each time, and takes percentile-based CIs."""
+verification_explanation = """Tests independently parse CSV files, compute reference L-moments and GEV parameters using a correct embedded implementation, and compare pipeline output within 1% tolerance. Distribution selection is verified by independently computing theoretical tau4 values for each distribution family and checking reported distances match. Bootstrap CIs are checked for structural properties: contain point estimate, ordered bounds, reasonable width, sufficient resamples. No ground-truth values are stored anywhere in the Docker image or environment files."""
+category = "scientific_computing"
+tags = ["extreme-value-statistics", "l-moment-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lmoment-analysis-toolkit"

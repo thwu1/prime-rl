@@ -1,0 +1,25 @@
+=== Pipeline Run 2024-03-15 14:22:31 ===
+[14:22:31] Loading configuration from /app/pipeline/config.ini
+[14:22:31] Found 3 scenarios in /app/data/scenarios/
+[14:22:31] Running solver on prob_alpha.dat for scenario_alpha...
+[14:22:44] Solver completed. Validating...
+[14:22:44] VALIDATION FAILED: Facility 3 over capacity: demand 842 > capacity 823
+[14:22:44] VALIDATION FAILED: Facility 17 over capacity: demand 619 > capacity 610
+[14:22:44] WARNING: Reported objective 2847.32 - computed Euclidean objective is 3291.08
+[14:22:44] NOTE: Distance metric mismatch? Solver may not be using Euclidean distance.
+[14:22:44] WARNING: Objective 3291.08 exceeds threshold 1990
+[14:22:44] scenario_alpha: FAILED
+
+[14:22:44] Running solver on prob_beta.dat for scenario_beta...
+[14:24:03] Solver completed. Validating...
+[14:24:03] VALIDATION FAILED: Facility 0 over capacity: demand 89421 > capacity 42018
+[14:24:03] WARNING: Multiple capacity violations detected (12 total)
+[14:24:03] WARNING: Objective 38941823.17 exceeds threshold 28500000
+[14:24:03] scenario_beta: FAILED
+
+[14:24:03] Running solver on prob_gamma.dat for scenario_gamma...
+[14:25:35] TIMEOUT: Solver exceeded 90 second limit for scenario_gamma
+[14:25:35] scenario_gamma: FAILED
+
+=== Summary: 0/3 scenarios passed ===
+=== All scenarios failed. Check solver implementation. ===

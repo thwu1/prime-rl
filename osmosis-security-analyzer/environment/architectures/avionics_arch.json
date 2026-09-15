@@ -1,0 +1,7 @@
+{
+    "allowed_flows": [
+        ["flight", "flight"],
+        ["flight", "support"],
+        ["comms", "comms"]
+    ]
+}

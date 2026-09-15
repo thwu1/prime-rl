@@ -1,0 +1,10 @@
+{"ts":"2024-01-15T10:00:00Z","level":"INFO","event":"RECONCILIATION_START","run_id":"recon-042","config":"/app/pipeline.yaml","db":"/app/warehouse.db"}
+{"ts":"2024-01-15T10:00:01Z","level":"INFO","event":"DB_VALIDATION","status":"OK","message":"Schema valid, all required columns present","record_count":23}
+{"ts":"2024-01-15T10:00:01Z","level":"INFO","event":"CONFIG_LOADED","assets":["raw","summary","report"],"mappings":{"raw_to_summary":"multi_to_daily","summary_to_report":"identity"},"status":"OK"}
+{"ts":"2024-01-15T10:00:02Z","level":"DEBUG","event":"STALENESS_CHECK","asset":"summary","partition":"2024-01-01","upstream_resolved":7,"upstream_materialized":0,"result":"fresh"}
+{"ts":"2024-01-15T10:00:02Z","level":"DEBUG","event":"STALENESS_CHECK","asset":"summary","partition":"2024-01-02","upstream_resolved":7,"upstream_materialized":0,"result":"fresh"}
+{"ts":"2024-01-15T10:00:02Z","level":"DEBUG","event":"STALENESS_CHECK","asset":"summary","partition":"2024-01-03","upstream_resolved":7,"upstream_materialized":0,"result":"fresh"}
+{"ts":"2024-01-15T10:00:03Z","level":"INFO","event":"RECONCILE_ASSET","asset":"raw","stale_count":0,"unmaterialized_count":0,"status":"OK"}
+{"ts":"2024-01-15T10:00:03Z","level":"INFO","event":"RECONCILE_ASSET","asset":"summary","stale_count":0,"unmaterialized_count":0,"status":"OK"}
+{"ts":"2024-01-15T10:00:04Z","level":"INFO","event":"RECONCILE_ASSET","asset":"report","stale_count":0,"unmaterialized_count":0,"status":"OK"}
+{"ts":"2024-01-15T10:00:05Z","level":"INFO","event":"RECONCILIATION_COMPLETE","status":"OK","total_stale":0,"total_unmaterialized":0,"duration_ms":5000}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux kernel KASAN shadow memory encoding, call stack parsing across interrupt context boundaries (IRQ/TASK), slab allocator metadata interpretation, and multi-VM patch verification semantics for non-deterministic kernel bugs. The agent must discover an undocumented SQLite database schema using sqlite3, extract and parse raw crash reports with complex nested structure, decode shadow memory bytes at faulting addresses, and compute cross-configuration APR evaluation metrics with set-theoretic unique-solve analysis. The combination of kernel debugging expertise, SQL schema discovery, and multi-tool orchestration (sqlite3 + Python + shell) places this at expert level."""
+solution_explanation = """Connect to the SQLite database to discover its schema (crash_reports, vm_test_runs, experiment_configs/results/bugs, shadow_byte_legend tables). Parse raw KASAN crash text from the crash_reports table using regex extraction of bug type, access info, call stacks (handling inline frames and IRQ/TASK section markers), slab/global metadata, and taint status. Decode shadow memory by finding the '>' marker row and '^' arrow in the Memory state dump, looking up the byte value in the shadow_byte_legend table. Classify multi-VM patch verdicts by aggregating per-case VM outcomes from vm_test_runs with boot_fail priority. Compute per-config and union APR metrics from experiment tables."""
+verification_explanation = """Tests verify exact correctness of: (1) parsed crash analysis fields for all 5 KASAN bug types including shadow byte values and meanings; (2) VM verdict classification for 8 test cases covering all outcome patterns (all-pass, all-trigger, racey splits, boot_fail priority); (3) per-config pass rates, unique solve sets, build failure counts, and combined union metrics for a 3-config x 8-bug experiment."""
+category = "systems_programming"
+tags = ["kernel-debugging", "database-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kasan-analysis-pipeline"

@@ -1,0 +1,43 @@
+{
+  "type": "Collection",
+  "id": "C1598621093-GES_DISC",
+  "stac_version": "1.0.0",
+  "title": "GPM IMERG Final Precipitation L3 1 day 0.1 degree",
+  "description": "GPM_3IMERGDF data collection from GES_DISC.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -70.0,
+          180.0,
+          70.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2014-03-12T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "GES_DISC",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "GPM"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

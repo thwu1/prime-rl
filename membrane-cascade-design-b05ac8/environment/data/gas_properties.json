@@ -1,0 +1,61 @@
+{
+  "gases": {
+    "CO2": {
+      "name": "Carbon Dioxide",
+      "molecular_weight": 44.010,
+      "Tc_K": 304.128,
+      "Pc_bar": 73.773,
+      "omega": 0.2239,
+      "kinetic_diameter_A": 3.30
+    },
+    "CH4": {
+      "name": "Methane",
+      "molecular_weight": 16.043,
+      "Tc_K": 190.564,
+      "Pc_bar": 45.992,
+      "omega": 0.01142,
+      "kinetic_diameter_A": 3.80
+    },
+    "N2": {
+      "name": "Nitrogen",
+      "molecular_weight": 28.014,
+      "Tc_K": 126.192,
+      "Pc_bar": 33.958,
+      "omega": 0.0372,
+      "kinetic_diameter_A": 3.64
+    },
+    "O2": {
+      "name": "Oxygen",
+      "molecular_weight": 31.999,
+      "Tc_K": 154.581,
+      "Pc_bar": 50.430,
+      "omega": 0.0222,
+      "kinetic_diameter_A": 3.46
+    },
+    "H2": {
+      "name": "Hydrogen",
+      "molecular_weight": 2.016,
+      "Tc_K": 33.145,
+      "Pc_bar": 12.964,
+      "omega": -0.219,
+      "kinetic_diameter_A": 2.89
+    },
+    "He": {
+      "name": "Helium",
+      "molecular_weight": 4.003,
+      "Tc_K": 5.195,
+      "Pc_bar": 2.276,
+      "omega": -0.382,
+      "kinetic_diameter_A": 2.60
+    }
+  },
+  "binary_interaction_parameters": {
+    "CO2/CH4": 0.0919,
+    "CO2/N2": -0.017,
+    "CO2/H2": -0.1622,
+    "CH4/N2": 0.0311,
+    "N2/H2": 0.1030,
+    "N2/O2": -0.0119
+  },
+  "R_J_per_mol_K": 8.314462
+}

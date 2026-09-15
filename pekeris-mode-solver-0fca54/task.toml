@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of ocean acoustic normal mode theory for the Pekeris waveguide. Seven distinct issues must be resolved: (1) Makefile compilation order bug — main.f90 depends on a module defined in pekeris_solver.f90 but the build attempts main.o first, causing a missing-module error that requires understanding Fortran module dependencies; (2) swapped density coefficients in the impedance-matching characteristic equation; (3) incomplete mode normalization missing the bottom half-space energy contribution; (4) a module-state bug in group velocity numerical differentiation where kw/kb are not recomputed at perturbed frequencies, so char_func evaluates the original dispersion relation and the bisection converges to the original eigenvalue; (5) missing wavenumber-dependent 1/kr cylindrical spreading factor in incoherent TL modal sum; (6) incorrect far-field Hankel function approximation in coherent TL missing both the 1/sqrt(kr) amplitude scaling and the -pi/4 phase shift; (7) the pressure field computation over the depth-range grid is stubbed with a geometric-spreading placeholder and must be implemented from scratch using coherent modal summation with proper mode shapes and Hankel asymptotics. Bugs interact: fixing normalization changes attenuation which affects TL; fixing the characteristic equation changes all eigenvalues; the pressure field requires all other fixes to produce correct results."""
+solution_explanation = """Seven fixes applied: (0) Add module dependency 'main.o: pekeris_solver.o' to Makefile; (1) In char_func, swap density coefficients to rho_bottom*gamma*cos(gamma*H) + rho_water*delta*sin(gamma*H); (2) In mode_norm, add bottom half-space term (rho_water/rho_bottom)*sin^2(gamma*H)/(2*delta); (3) In compute_incoherent_tl, divide modal contribution by modal_kr(m)*r_m instead of just r_m; (4) In compute_group_vel, add kw=omega/c_water and kb=omega/c_bottom after each omega assignment; (5) In compute_coherent_tl, change amplitude to 1/sqrt(8*pi*kr*r) and phase to kr*r-pi/4; (6) Replace the geometric-spreading stub in compute_pressure_field with a full coherent modal summation over the depth grid, using mode shapes sin(gamma*z)/sqrt(norm) and the same Hankel asymptotics as the coherent TL."""
+verification_explanation = """Tests independently compute reference eigenvalues using scipy brentq on the correct dispersion relation, reference group velocities via numerical differentiation at perturbed frequencies, reference incoherent TL with correct 1/(kr*r) spreading, reference coherent TL with correct Hankel asymptotics, and reference pressure field at sampled depth-range points. Mode count, individual eigenvalues (1e-6 rel), group velocities (0.1% rel), incoherent TL (0.5 dB), coherent TL (0.5 dB), and pressure field (1.0 dB + cross-check against coherent TL at receiver depth) are all verified. An alternate-config test with different frequency, depth, sound speeds, densities, and ranges ensures no hardcoding. The pressure field test verifies row count, accuracy at 20 spot-check points, depth-dependent mode interference pattern, and consistency with the coherent TL at receiver depth."""
+category = "physics_engineering"
+tags = ["ocean-acoustics", "fortran"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pekeris-mode-solver-0fca54"

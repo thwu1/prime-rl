@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the 2D shallow water equations (local inertial / ACC formulation), CFL stability theory, Manning friction numerics, the semi-implicit momentum scheme of Bates et al. (2010), free-outflow boundary condition physics, and the temporal ordering of explicit numerical schemes. The project presents layered, interacting debugging challenges across four source files with no guidance on which files are broken. First, CMake build issues (wrong C++ standard causing compilation failure from std::optional, missing source file causing linker error). Then, five numerical bugs in the solver: the friction denominator has two independent errors (missing n-squared and wrong Manning exponent) that interact non-linearly; the CFL adaptive timestep formula is dimensionally wrong; the stability correction uses incorrect Q-clamping instead of the correct semi-implicit fallback; and the continuity update has reversed y-flux signs. The outflow boundary implements a reflective wall instead of free outflow. Finally, the simulation driver calls the boundary condition enforcement AFTER the depth update rather than before, meaning boundary fluxes are never applied during continuity integration — this bug compounds with the boundary condition bug, so fixing one without the other still produces zero outflow. Diagnosing these coupled issues requires understanding staggered-grid data layout, flux-divergence temporal coupling, and systematic investigation of four C++ files without hints about which are correct."""
+solution_explanation = """Nine fixes across four files. CMake: (1) C++ standard 11→17 for std::optional; (2) add boundary.cpp to sources. solver.cpp: (3) Manning's n must be squared in friction denominator; (4) hflow exponent 7/3→10/3; (5) CFL timestep formula sqrt(g*max_h) not sqrt(g)*max_h; (6) Q=0 stability clamp replaced with semi-implicit fallback; (7) y-flux signs in update_water_depths reversed. boundary.cpp: (8) reflective wall BC replaced with free-outflow BC. main.cpp: (9) enforce_outflow_boundary moved from after update_water_depths to after compute_fluxes, so boundary fluxes are applied before the continuity integration."""
+verification_explanation = """Tests first perform a clean CMake build. Then the solver runs for 1800s and pytest checks twelve physical invariants: output file existence, non-negative depths, depth range (0.1-5.0 m), mass conservation (<2%), downstream WSE ordering, cross-valley symmetry (RMSE<0.02m), positive south-boundary outflow, gauge convergence, inflow-outflow balance (ratio>0.5), flow arrival order (upstream before downstream), and step count bounds (100-100000). The flow arrival order test catches y-flux sign errors and temporal ordering bugs. The outflow and mass balance tests fail unless BOTH the boundary condition fix (boundary.cpp) AND the simulation loop reordering (main.cpp) are correct, creating a coupled verification that prevents partial solutions from passing."""
+category = "debugging"
+tags = ["computational-fluid-dynamics", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flood-solver-debug"

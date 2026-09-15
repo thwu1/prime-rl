@@ -1,0 +1,12 @@
+name: "lockdown"
+priority: 100
+rules:
+  allow_unsigned: false
+  allow_unbound_device: false
+  visible_fields:
+    - "serial_number"
+    - "mac_address"
+  writable: false
+transitions_from:
+  - "development"
+  - "factory"

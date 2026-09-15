@@ -1,0 +1,26 @@
+{
+  "resourceType": "Patient",
+  "id": "kim-siim",
+  "identifier": [
+    {
+      "system": "urn:oid:1.2.826.0.1.3680043.8.499",
+      "value": "HN-01-0421"
+    }
+  ],
+  "name": [
+    {
+      "family": "SIIM",
+      "given": [
+        "Kim"
+      ],
+      "prefix": [
+        "Jr."
+      ],
+      "suffix": [
+        "Dr."
+      ]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1975-06-15"
+}

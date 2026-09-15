@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IEEE 754 floating-point arithmetic, error analysis, and computational geometry. The solver must diagnose why naive double-precision evaluation of the incircle determinant fails on near-degenerate inputs, then independently discover and implement an adaptive-precision approach (e.g., expansion arithmetic with error-free transformations) without being told the algorithm. Critically, the solver must recognize that even an exact expansion path can fail if coordinate differences are computed with lossy double subtraction — the exact path must use error-free TwoDiff for coordinate differences and carry tail terms through all expansion multiplications. Additionally requires programming against the MPFR C API to build an independent verification oracle, and constructing a CMake build system that correctly links MPFR/GMP. The combination of deep numerical analysis, non-trivial C++ implementation, and multi-tool integration makes this expert-level."""
+solution_explanation = """The solution implements a header-only C++ library with two evaluation stages: (1) A fast filtered path computing the standard incircle determinant using doubles, with a semi-static error bound. If |det| > bound, the sign is returned immediately. (2) An exact fallback that uses TwoDiff for all coordinate differences (capturing roundoff tails as 2-expansions), then computes cross products and lifts via exact 2-expansion multiplication (mul_2exp), and finally multiplies the cross-product and lift expansions using arbitrary-length expansion multiplication (mul_exp with scale_expansion_zeroelim). The key insight is that plain subtraction like `bdy = by - dy` can round away ULP-level differences that determine the sign; TwoDiff preserves these as tail terms. The verification program uses MPFR at 256-bit precision as an independent oracle over 200 deterministic test configurations."""
+verification_explanation = """Tests verify that: (1) incircle.h, verify_mpfr.cpp, and CMakeLists.txt exist with correct content structure, (2) cmake build succeeds producing both binaries, (3) the test_incircle harness reports ALL_TESTS_PASSED covering basic, adversarial near-cocircular, near-ULP, collinear, symmetry, large-coordinate, and shifted-circle cases, (4) the MPFR verification program reports MPFR_VERIFICATION_PASSED on 200 configurations, and (5) incircle.h does not use external arbitrary-precision libraries."""
+category = "systems"
+tags = ["computational-geometry", "numerical-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robust-incircle-predicate"

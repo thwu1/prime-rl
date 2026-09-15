@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in probabilistic forecasting, energy systems, and statistical modeling. The agent must: (1) detect and clean temperature sensor anomalies, (2) impute missing load values accounting for informative missingness near holidays, (3) engineer nonlinear temperature response features (heating/cooling degree days with multiple thresholds), (4) build quantile regression models for 99 quantiles, (5) handle an extreme cold event in the test period not seen in training (extrapolation), (6) enforce quantile monotonicity, and (7) achieve a tight pinball loss threshold. No single off-the-shelf approach suffices — the task demands combining domain knowledge (load-temperature relationships, calendar effects) with statistical rigor (proper scoring rules, quantile coherence)."""
+solution_explanation = """Uses LightGBM quantile regression with 45 engineered features including multiple HDD/CDD thresholds, extreme cold indicators, temperature-hour interactions, cyclic calendar encodings, holiday lead/lag effects, trend, and smoothed temperatures. Temperature sensor spikes are detected via rolling z-scores. Missing load values are imputed using temporal interpolation and hour-of-week similarity. Recency weighting gives more importance to recent training data. All 99 quantile models are trained independently then monotonicity is enforced via cumulative max post-processing. Achieves ~37 MW mean pinball loss against the 45 MW threshold."""
+verification_explanation = """Tests verify: (1) output file exists with correct format (744 rows, 100 columns with proper naming), (2) all values are finite and non-negative, (3) quantile monotonicity holds for every hour (no crossing), (4) mean pinball loss is below 45.0 MW computed against held-out test actuals. The test actuals are pre-generated deterministically and shipped with the test files."""
+category = "data_science"
+tags = ["probabilistic-forecasting", "quantile-regression"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9f0750"

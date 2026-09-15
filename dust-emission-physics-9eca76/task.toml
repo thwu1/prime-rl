@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of aeolian dust emission physics (Shao-Lu threshold velocity, Fecan moisture correction, Raupach drag partitioning, White saltation flux, Lu-Shao vertical flux ratio, Kok 2014 emission parameterization, MacKinnon roughness partition, Ito-Kok clay-silt parameter). The solver must identify 6 subtle physics bugs in FENGSHA by comparing Fortran implementations against cited equations in header comments, implement a complete K14 emission scheme sharing physics infrastructure, wire module dispatch in the driver, and ensure cross-scheme consistency. Requires coupled domain knowledge in computational geophysics and Fortran module architecture."""
+solution_explanation = """Six bugs are fixed in dust_physics_mod.f90: (1) missing interparticle cohesion term in Shao-Lu threshold velocity, (2) wrong Fecan moisture coefficient (0.14 vs 0.0014), (3) sign error in Raupach drag partition first vegetation factor, (4) wrong lambda threshold (0.045 vs 0.2) and missing negative exponent in surface roughness, (5) missing squared exponent on White flux (1+ut/u*) term, (6) missing u*-dependent term in Lu-Shao vertical flux ratio. Shared physics functions are made public for reuse by K14. The K14 module implements Ito-Kok clay-silt parameter, MacKinnon roughness partition, Kok emission coefficient, and K14 vertical flux formula. The main driver imports and dispatches to compute_k14_cell."""
+verification_explanation = """33 pytest tests verify each physics component independently and in combination. Tests compare Fortran program output against Python reference implementations of the correct published equations. FENGSHA tests check threshold velocity (with cohesion), moisture correction, drag partition, surface roughness, horizontal flux, vertical flux ratio, and final emissions across 8 diverse scenarios. K14 tests verify shared physics reuse, clay-silt parameter, MacKinnon partition, aeolian velocity, emission coefficient, vertical flux, threshold behavior, and cross-scheme consistency. 2% relative tolerance on physics values."""
+category = "scientific_computing"
+tags = ["fortran", "geophysics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dust-emission-physics-9eca76"

@@ -1,0 +1,26 @@
+{
+    "ERNIE-4.5-300B-A47B": {
+        "total_params_billions": 300.0,
+        "num_layers": 60,
+        "hidden_dim": 6144,
+        "num_attention_heads": 48,
+        "is_moe": true,
+        "model_name_or_path": "baidu/ERNIE-4.5-300B-A47B-Paddle"
+    },
+    "ERNIE-4.5-21B-A3B": {
+        "total_params_billions": 21.0,
+        "num_layers": 28,
+        "hidden_dim": 3072,
+        "num_attention_heads": 24,
+        "is_moe": true,
+        "model_name_or_path": "baidu/ERNIE-4.5-21B-A3B-Paddle"
+    },
+    "ERNIE-4.5-0.3B": {
+        "total_params_billions": 0.3,
+        "num_layers": 12,
+        "hidden_dim": 1024,
+        "num_attention_heads": 16,
+        "is_moe": false,
+        "model_name_or_path": "baidu/ERNIE-4.5-0.3B-Paddle"
+    }
+}

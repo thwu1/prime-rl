@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of spherical trigonometry: Cagnoli's theorem for spherical excess area computation, Brock's inertia tensor for spherical centroid, winding-number point-in-polygon on a sphere with antimeridian/pole handling, Vincenty formula for great-circle distance, and SLERP for great-circle interpolation. The bugs are embedded in mathematical formulas and require understanding why specific constants and signs are chosen in the spherical geometry context. Two functions have only stub implementations that need complete rewrites."""
+solution_explanation = """Fix area.ts: (1) change phi/2 + PI/2 to phi/2 + PI/4 (half angular distance from south pole per Cagnoli's theorem), (2) add tau normalization for negative ring area. Fix centroid.ts: negate the area weight multiplier v from w/m to -w/m (Brock inertia tensor sign). Fix polygonContains.ts: swap phiArc sign from (cond ? 1 : -1) to (cond ? -1 : 1). Replace distance.ts with Vincenty formula using atan2(sqrt(...), ...). Replace interpolate.ts with proper SLERP using haversine distance and sin-weighted Cartesian interpolation."""
+verification_explanation = """Tests compile the TypeScript, then call each function via Node.js subprocess with known GeoJSON inputs. Golden values are from d3-geo: sphere area = 4pi, semilune = pi/2, hemisphere = 2pi (tests both winding directions). Centroid tests verify point, line, polygon, and mixed geometry fallback. Polygon containment tests include south pole enclosure. Distance tests compare against known great-circle values that diverge from Euclidean. Interpolation tests verify great-circle midpoints at non-equatorial latitudes."""
+category = "computational_geometry"
+tags = ["spherical-trigonometry", "geojson"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spherical-geometry-debug"

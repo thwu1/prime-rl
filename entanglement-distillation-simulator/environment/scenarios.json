@@ -1,0 +1,36 @@
+{
+  "format": {
+    "bell_diagonal": "[p_Phi_plus, p_Phi_minus, p_Psi_plus, p_Psi_minus]",
+    "note": "Phi+ = (|00>+|11>)/sqrt(2), Phi- = (|00>-|11>)/sqrt(2), Psi+ = (|01>+|10>)/sqrt(2), Psi- = (|01>-|10>)/sqrt(2)"
+  },
+  "S1": {
+    "description": "Bit-flip noise channel",
+    "bell_diagonal": [0.80, 0.00, 0.20, 0.00],
+    "threshold": 0.90,
+    "max_bell_pairs": 8
+  },
+  "S2": {
+    "description": "Phase-flip noise channel",
+    "bell_diagonal": [0.80, 0.20, 0.00, 0.00],
+    "threshold": 0.90,
+    "max_bell_pairs": 8
+  },
+  "S3": {
+    "description": "Bit-flip noise, high threshold",
+    "bell_diagonal": [0.75, 0.00, 0.25, 0.00],
+    "threshold": 0.96,
+    "max_bell_pairs": 8
+  },
+  "S4": {
+    "description": "Phase-flip noise, high threshold",
+    "bell_diagonal": [0.75, 0.25, 0.00, 0.00],
+    "threshold": 0.96,
+    "max_bell_pairs": 8
+  },
+  "S5": {
+    "description": "Heavy bit-flip noise channel, very high threshold",
+    "bell_diagonal": [0.70, 0.00, 0.30, 0.00],
+    "threshold": 0.98,
+    "max_bell_pairs": 8
+  }
+}

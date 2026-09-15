@@ -1,0 +1,36 @@
+{
+  "mesh_quality": {
+    "num_nodes": "total mesh node count (int, >= 160000)",
+    "num_elements": "total 2D element count (int)",
+    "min_quality": "minimum element quality from Gmsh (float in (0,1])"
+  },
+  "shock_conditions": {
+    "rho_d": "density downstream of discontinuity (float)",
+    "u_d": "x-velocity downstream (float)",
+    "p_d": "pressure downstream (float)",
+    "T_d": "temperature downstream (float)",
+    "M_d": "Mach number downstream (float)"
+  },
+  "conservation": {
+    "H_upstream": "total specific stagnation enthalpy upstream (float)",
+    "H_downstream": "total specific stagnation enthalpy downstream (float)",
+    "relative_error": "|H_up - H_down| / H_up (float)"
+  },
+  "entropy": {
+    "s_upstream": "isentropic invariant upstream (float)",
+    "s_downstream": "isentropic invariant downstream (float)",
+    "entropy_ratio": "s_downstream / s_upstream (float)"
+  },
+  "vortex_properties": {
+    "center_pressure": "pressure at the rotational structure center (float)",
+    "center_temperature": "temperature at the rotational structure center (float)",
+    "center_density": "density at the rotational structure center (float)",
+    "peak_vorticity": "maximum vorticity magnitude in the rotational region (float)",
+    "circulation_r012": "velocity circulation at radius 0.12 from center (float)"
+  },
+  "field_statistics": {
+    "max_mach": "maximum Mach number on the mesh (float)",
+    "min_pressure": "minimum pressure on the mesh (float)",
+    "max_vorticity": "maximum vorticity magnitude on the mesh (float)"
+  }
+}

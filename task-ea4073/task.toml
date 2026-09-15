@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise with CDO (Climate Data Operators), a specialized CLI tool used by climate scientists. The key challenges are: (1) understanding the ydrunpctl operator's unique 3-input requirement where the data file, a running-minimum file, and a running-maximum file must all be computed separately and passed in the correct order, (2) correctly selecting reference vs. evaluation periods across multiple interdependent pipeline steps, (3) using CDO's unusual right-to-left piping model for multi-input operators like eca_hwfi and ymonsub, (4) knowing the correct CDO operator names (remapcon, ydrunmin, ydrunmax, ydrunpctl, eca_hwfi, ymonmean, ymonsub, fldmean) among 600+ available operators, (5) handling time-axis matching between percentile threshold files and evaluation-period data when computing warm spell indices, and (6) combining six interdependent processing steps where errors in early stages cascade. This is routine for climate data analysts but essentially unsolvable without CDO-specific knowledge."""
+solution_explanation = """The solution creates a 6-step CDO pipeline: (1) remapcon,r36x18 for conservative regridding, (2) selyear + ydrunmin/ydrunmax/ydrunpctl,90,5 to compute the 90th percentile from the reference period with the required 3-input workflow, (3) year-by-year eca_hwfi with mergetime for WSDI computation — processing each evaluation year individually against the day-of-year percentile threshold avoids time-axis mismatch issues between the reference-period percentile and evaluation-period data, (4) ymonmean with piped selyear for the monthly climatology, (5) ymonsub with piped monmean for anomaly computation, and (6) fldmean for the area-weighted spatial average. The critical insight is that ydrunpctl requires three separate input files (data, min bounds, max bounds) computed from the same reference period and running window, and that eca_hwfi must match daily data against day-of-year percentile thresholds."""
+verification_explanation = """Tests verify outputs through data-specific numerical fingerprinting (DNA): area-weighted field means computed independently from the raw data at multiple timesteps (1, 1826, 3652) must match the regridded output within 0.05K (conservative remapping preservation), the warming trend magnitude must be preserved within 0.1K, monthly climatology field means for January and July must match raw-data monthly means within 0.1K, reference-period anomaly time-mean must be near zero (<0.15K), evaluation-period anomaly must reflect the 0.3K/yr warming trend (0.5-2.5K), annual anomaly progression must show late-period exceeding early-period by >0.5K, and field mean anomalies must match independently computed fldmean within 0.001K. Additional structural checks verify grid dimensions (648 for r36x18), timestep counts (3652/365-366/5/12/120), value ranges (200-340K), WSDI non-negativity and positive total, and 90th percentile exceeding reference mean."""
+category = "earth_science"
+tags = ["cdo", "climate-data"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ea4073"

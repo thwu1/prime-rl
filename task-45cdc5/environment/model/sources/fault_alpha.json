@@ -1,0 +1,19 @@
+{
+  "name": "Alpha Fault",
+  "type": "fault",
+  "trace": [[-122.5, 38.3], [-121.5, 38.3]],
+  "dip": 90.0,
+  "dipDirection": "N",
+  "upperDepth": 0.0,
+  "width": 14.0,
+  "rake": 0.0,
+  "mfd": {
+    "type": "GR",
+    "a": 2.5,
+    "b": 0.9,
+    "mMin": 5.0,
+    "mMax": 7.4,
+    "dMag": 0.2,
+    "weight": 1.0
+  }
+}

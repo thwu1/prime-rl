@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing both register allocation and instruction scheduling for a VLIW processor — two NP-hard problems that interact (scheduling affects register pressure and vice versa). The agent must also integrate its solution into a multi-tool CLI pipeline: compiling a C-based bundle validator with gcc via make, producing output in a custom .vliw text format, and using the compiled validator binary plus the Python simulator CLI to verify correctness. This demands fluency with gcc, make, custom file formats, and CLI tool interoperability alongside the core compiler engineering challenge."""
+solution_explanation = """Build a dependency DAG from SSA program data dependencies and conservative memory ordering. Compute critical-path priorities for list scheduling. Schedule instructions cycle-by-cycle into VLIW bundles respecting latency and slot constraints. After scheduling, compute live ranges and perform linear-scan register allocation. Emit VLIW bundles with physical registers via both the Python API and .vliw CLI output. Verify via the compiled C validator and simulator compare command."""
+verification_explanation = """Tests verify via two paths: (1) Python API tests call optimize() directly, validate bundle structure, simulate on the VLIW machine, compare memory at check addresses, and verify cycle counts. (2) CLI pipeline tests compile the C bundle validator with make, run the optimizer CLI to produce .vliw files, validate with the compiled binary, and compare simulation output via machine.py compare. All 10 tests must pass."""
+category = "systems"
+tags = ["compiler", "toolchain"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vliw-compiler-backend"

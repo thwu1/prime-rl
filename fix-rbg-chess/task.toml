@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete English Draughts game description from scratch in the RBG domain-specific language — a novel regular-expression-based formalism for declarative board game rule encoding. The agent must first deeply learn the RBG DSL by studying reference game descriptions for entirely different games (chess, breakthrough, amazons, etc.), then design and implement the full draughts rule set: mandatory captures enforced via global negative lookaheads, multi-jump continuation sequences using Kleene-star iteration with termination guards, king promotion that halts mid-sequence, and proper game-end detection through the keeper transition mechanism. The fundamental difficulty is synthesizing a novel encoding in an unfamiliar DSL where forced-capture semantics require combining multiple advanced language features (lookaheads, iteration, state modification) in ways not directly demonstrated by any single reference game. Getting the exact perft counts right at depth 7 (179,740 leaves) requires every rule interaction — capture priority, jump exhaustion, promotion-stops-jump, and move legality — to be precisely correct."""
+solution_explanation = """Generate a complete RBG game description implementing English Draughts with: (1) man simple moves using forward diagonal patterns with promotion check via {! forward}; (2) king simple moves using all four diagonal directions; (3) man capture sequences using manJump macros with Kleene-star continuation guarded by {? forward} to prevent jumping past promotion rank, terminated by {! canManJump} to enforce exhaustive jumping; (4) king capture sequences using all-direction kingJump macros with {! canKingJump} termination; (5) a global forced-capture guard {! anyCapture(...)} on non-capture moves to enforce mandatory captures; (6) turn structure with ->> keeper transition setting winner scores for game-end detection."""
+verification_explanation = """Compiles the agent's draughts.rbg with rbg2cpp, builds a perft test binary, and verifies exact leaf-node counts at depths 1 through 7 against the universally accepted standard English Draughts perft values (7, 49, 302, 1469, 7361, 36768, 179740). Each successive depth exercises increasingly complex rule interactions: depth 1-2 test basic diagonal movement, depth 3+ test capture mechanics and forced-capture enforcement, depth 5+ test multi-jump sequences and king interactions, and depth 7 provides comprehensive coverage of all rule edge cases including promotion-stops-jump."""
+category = "programming"
+tags = ["dsl-design", "game-theory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-rbg-chess"

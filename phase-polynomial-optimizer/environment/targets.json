@@ -1,0 +1,7 @@
+{
+  "bench_a.qasm": 1,
+  "bench_b.qasm": 3,
+  "bench_c.qasm": 2,
+  "bench_d.qasm": 3,
+  "bench_e.qasm": 1
+}

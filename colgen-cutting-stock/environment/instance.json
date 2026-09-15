@@ -1,0 +1,15 @@
+{
+  "roll_width": 1000,
+  "orders": [
+    {"width": 141, "demand": 97},
+    {"width": 168, "demand": 48},
+    {"width": 193, "demand": 132},
+    {"width": 207, "demand": 78},
+    {"width": 248, "demand": 59},
+    {"width": 271, "demand": 105},
+    {"width": 314, "demand": 43},
+    {"width": 337, "demand": 67},
+    {"width": 379, "demand": 34},
+    {"width": 413, "demand": 52}
+  ]
+}

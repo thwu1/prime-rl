@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the SeisBench pick-benchmark evaluation protocol from a config file and dataset, implementing evaluation target windowing with phase isolation constraints across variable sampling rates, mapping seismological phase variants through a phase dictionary, scoring predictions using domain-specific formulas (noise channel complement, P/S probability ratio, onset argmax), and computing metrics with dev-set threshold optimization via precision-recall curves. The combination of seismological domain knowledge, HDF5/signal processing expertise, and ML evaluation methodology makes this PhD-level."""
+solution_explanation = """The solution reads the SeisBench dataset metadata and config, then implements three components: (1) evaluation target generation — iterating over dev/test traces, extracting 30s detection windows and 10s phase picking windows with proper phase isolation using the min-spacing constraint and random window placement within valid bounds; (2) prediction scoring — reading per-trace model output arrays, extracting predictions within each target window using the configured scoring formulas; (3) metric computation — using sklearn precision_recall_curve on dev-set scores to find F1-optimal detection and phase discrimination thresholds, then evaluating precision/recall/F1/AUC on test set, plus computing onset timing MAE in seconds per phase."""
+verification_explanation = """Tests verify output file structure (required columns, valid values), target generation properties (earthquake traces have arrivals, noise traces don't, window sizes correct, onsets within bounds), edge case handling (close-spacing exclusion, variant phase mapping, sampling rate conversion, noise window extraction for early arrivals), and metric quality (detection F1 > 0.85, phase F1 > 0.8, onset MAE < 0.5s, valid threshold ranges). All checks are property-based rather than exact-match, making them robust to implementation variation."""
+category = "machine_learning"
+tags = ["seismology", "evaluation-pipeline"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4bd92a"

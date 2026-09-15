@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["elements", "summary"],
+  "properties": {
+    "url": {"type": "string"},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action_type", "state_changed", "mutations_observed"],
+        "properties": {
+          "selector": {"type": "string"},
+          "tag": {"type": "string"},
+          "role": {"type": "string"},
+          "label": {"type": "string"},
+          "action_type": {
+            "type": "string",
+            "enum": ["click", "type", "select", "check", "slide"]
+          },
+          "in_shadow_dom": {"type": "boolean"},
+          "mutations_observed": {"type": "integer", "minimum": 0},
+          "meaningful_mutations": {"type": "integer", "minimum": 0},
+          "state_changed": {"type": "boolean"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_elements", "interaction_rate"],
+      "properties": {
+        "total_elements": {"type": "integer", "minimum": 0},
+        "state_changing_elements": {"type": "integer", "minimum": 0},
+        "interaction_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "total_mutations": {"type": "integer", "minimum": 0},
+        "meaningful_mutations": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+mntner:             DELTA-MNT
+descr:              Delta Network Maintainer
+admin-c:            ALICE-DN42
+tech-c:             BOB-DN42
+auth:               pgp-fingerprint D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5
+mnt-by:             DELTA-MNT
+source:             DN42

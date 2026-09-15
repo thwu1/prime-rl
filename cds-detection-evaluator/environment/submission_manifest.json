@@ -1,0 +1,27 @@
+{
+  "alpha": {
+    "path": "alpha/",
+    "format": "feather",
+    "layout": "log_id/timestamp_ns.feather",
+    "schema": "Standard scene flow submission columns"
+  },
+  "beta": {
+    "path": "beta/",
+    "format": "parquet",
+    "layout": "log_id/timestamp_ns.parquet",
+    "schema": "Non-standard column naming; inspect files to determine the mapping to standard flow and segmentation columns"
+  },
+  "gamma": {
+    "path": "gamma.zip",
+    "format": "zip",
+    "inner_format": "feather",
+    "layout": "log_id/timestamp_ns.feather (paths inside archive)",
+    "schema": "Standard scene flow submission columns"
+  },
+  "delta": {
+    "path": "delta/",
+    "format": "csv",
+    "layout": "log_id/timestamp_ns.csv",
+    "schema": "Non-standard column naming. Flow vectors are in the global reference frame and have not been compensated for ego-vehicle motion between sweeps. Per-sweep ego-motion displacements are provided in /app/ego_poses.json"
+  }
+}

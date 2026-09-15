@@ -1,0 +1,70 @@
+title Sokoban
+
+========
+OBJECTS
+========
+
+Background
+black
+
+Wall
+darkgrey
+
+Player
+blue
+
+Crate
+orange
+
+Target
+red
+
+=======
+LEGEND
+=======
+
+. = Background
+# = Wall
+P = Player
+* = Crate
+O = Target
+
+================
+COLLISIONLAYERS
+================
+
+Background
+Target
+Player, Wall, Crate
+
+======
+RULES
+======
+
+[ > Player | Crate ] -> [ > Player | > Crate ]
+
+==============
+WINCONDITIONS
+==============
+
+All Crate on Target
+
+=======
+LEVELS
+=======
+
+######
+#..O.#
+#....#
+#P.*.#
+#....#
+######
+
+########
+#......#
+#.P....#
+#......#
+#.*.O..#
+#...*O.#
+#......#
+########

@@ -1,0 +1,5 @@
+# RL high-pass filter
+V1 1 0 1
+R1 1 2 100
+L1 2 0 10m
+.ac 0 10k 500

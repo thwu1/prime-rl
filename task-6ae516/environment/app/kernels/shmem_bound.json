@@ -1,0 +1,15 @@
+{
+  "name": "shmem_bound",
+  "description": "A kernel using large shared memory tiles, limited by shared memory capacity",
+  "block_dim": [128, 1, 1],
+  "registers_per_thread": 32,
+  "static_shared_memory_bytes": 49152,
+  "dynamic_shared_memory_bytes": 0,
+  "global_memory_accesses": [
+    {
+      "name": "load_input",
+      "element_size_bytes": 4,
+      "stride_elements": 1
+    }
+  ]
+}

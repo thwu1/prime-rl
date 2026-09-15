@@ -1,0 +1,12 @@
+{
+    "name": "weighted",
+    "num_queues": 2,
+    "global_rate_mbps": 80,
+    "duration_sec": 2.0,
+    "flows": [
+        {"id": 0, "queue": 0, "weight": 1.0, "start_sec": 0.0},
+        {"id": 1, "queue": 0, "weight": 3.0, "start_sec": 0.0},
+        {"id": 2, "queue": 1, "weight": 2.0, "start_sec": 0.0},
+        {"id": 3, "queue": 1, "weight": 2.0, "start_sec": 0.0}
+    ]
+}

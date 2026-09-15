@@ -1,0 +1,94 @@
+# Observable Hamiltonian terms for quantum circuit measurement
+# Parse with Python tomllib (stdlib 3.11+) or tomli package
+
+[[observables]]
+coefficient = 0.5
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 0
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 1
+
+[[observables]]
+coefficient = 0.5
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 2
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 3
+
+[[observables]]
+coefficient = 0.5
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 4
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 5
+
+[[observables]]
+coefficient = 0.5
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 6
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 7
+
+[[observables]]
+coefficient = 0.5
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 8
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 9
+
+[[observables]]
+coefficient = 0.25
+
+[[observables.terms]]
+pauli = "X"
+qubit = 0
+
+[[observables.terms]]
+pauli = "X"
+qubit = 5
+
+[[observables]]
+coefficient = 0.25
+
+[[observables.terms]]
+pauli = "Y"
+qubit = 1
+
+[[observables.terms]]
+pauli = "Y"
+qubit = 6
+
+[[observables]]
+coefficient = 0.1
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 0
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 1
+
+[[observables.terms]]
+pauli = "Z"
+qubit = 2

@@ -1,0 +1,104 @@
+[
+  {
+    "id": "REC001",
+    "identifiers": {
+      "iban": "GB29 NWBK 6016 1331 9268 19",
+      "bic": "NWBKGB2L"
+    }
+  },
+  {
+    "id": "REC002",
+    "identifiers": {
+      "cusip": "037833100",
+      "isin": "US0378331005"
+    }
+  },
+  {
+    "id": "REC003",
+    "identifiers": {
+      "lei": "213800KUD8LAJWSQ9D15"
+    }
+  },
+  {
+    "id": "REC004",
+    "identifiers": {
+      "figi": "BBG000BLNQ16"
+    }
+  },
+  {
+    "id": "REC005",
+    "identifiers": {
+      "sedol": "B15KXQ8",
+      "isin": "GB00B15KXQ89"
+    }
+  },
+  {
+    "id": "REC006",
+    "identifiers": {
+      "iban": "GB28 NWBK 6016 1331 9268 19"
+    }
+  },
+  {
+    "id": "REC007",
+    "identifiers": {
+      "bic": "NWBKIP2L"
+    }
+  },
+  {
+    "id": "REC008",
+    "identifiers": {
+      "lei": "213800KUD8LXJWSQ9D15"
+    }
+  },
+  {
+    "id": "REC009",
+    "identifiers": {
+      "cusip": "037833105"
+    }
+  },
+  {
+    "id": "REC010",
+    "identifiers": {
+      "cusip": "DUS0421C5",
+      "isin": "US0378331005"
+    }
+  },
+  {
+    "id": "REC011",
+    "identifiers": {
+      "ref1": "DE89370400440532013000",
+      "ref2": "US0378331005",
+      "ref3": "BBG000BLNQ16"
+    }
+  },
+  {
+    "id": "REC012",
+    "repair": {
+      "BE??435411161155": "iban",
+      "03783310?": "cusip",
+      "US037833100?": "isin",
+      "213800KUD8LAJWSQ9D??": "lei",
+      "B15KXQ?": "sedol",
+      "BBG000BLNQ1?": "figi"
+    }
+  },
+  {
+    "id": "REC013",
+    "identifiers": {
+      "figi": "BSG000BLNR71"
+    }
+  },
+  {
+    "id": "REC014",
+    "identifiers": {
+      "iban": "DE89 3704 0044 0532 0130 00",
+      "bic": "NWBKGB2L"
+    }
+  },
+  {
+    "id": "REC015",
+    "identifiers": {
+      "iban": "FR14 2004 1010 0505 0001 3M02 606"
+    }
+  }
+]

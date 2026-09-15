@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of LSM-tree compaction internals: multi-way merge with timestamp-based conflict resolution, tombstone shadowing and gc_grace-aware purging with overlap safety checks, TTL-to-tombstone conversion, size-tiered bucket selection with ratio-based grouping and small-SSTable handling, and leveled compaction with exponential capacity formulas and key-range overlap detection. The solver must identify and fix 12 distinct bugs across two Java files spanning merge logic, tombstone lifecycle, and two compaction strategies — each requiring understanding of the specific invariant being violated."""
+solution_explanation = """MergeEngine.java fixes: (1) timestamp comparison reversed from < to > to pick highest; (2) add TTL expiry conversion creating implicit tombstones at timestamp+ttl; (3) gc_grace check flipped from < to >= so old tombstones are purged; (4) add overlap check against unmerged SSTables before purging. CompactionSelector.java fixes: (5) STCS bucketing condition from || to && for proper range check; (6) add small-SSTable grouping clause; (7) select max hotness bucket instead of min; (8) sort descending by hotness when trimming to keep hottest; (9) LCS formula from (fanout+level) to Math.pow(fanout,level); (10) LCS level iteration from ascending to descending; (11) add overlap detection to include next-level SSTables."""
+verification_explanation = """Tests compile and run the Java engine against carefully crafted SSTable files and configs. Merge tests verify: latest-timestamp-wins resolution, tombstone retention when gc_grace hasn't elapsed, tombstone purging when gc_grace elapsed with all SSTables included, tombstone non-purging when overlapping SSTable excluded, TTL expiry to tombstone conversion, and non-expired TTL preservation. STCS tests verify correct bucket formation and hottest-bucket selection. LCS tests verify exponential capacity formula, highest-level-first selection, and overlap inclusion from the next level."""
+category = "debugging"
+tags = ["databases", "java"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lsm-compaction-engine-d8b57d"

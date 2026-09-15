@@ -1,0 +1,21 @@
+[
+  {"op": "prefill", "seq_id": "s0", "prompt_length": 10},
+  {"op": "prefill", "seq_id": "s1", "prompt_length": 7},
+  {"op": "fork", "source_seq_id": "s0", "new_seq_id": "s0_a"},
+  {"op": "fork", "source_seq_id": "s0", "new_seq_id": "s0_b"},
+  {"op": "decode", "seq_id": "s0", "num_tokens": 6},
+  {"op": "decode", "seq_id": "s0_a", "num_tokens": 2},
+  {"op": "fork", "source_seq_id": "s0_a", "new_seq_id": "s0_a1"},
+  {"op": "decode", "seq_id": "s0_a", "num_tokens": 4},
+  {"op": "decode", "seq_id": "s0_a1", "num_tokens": 4},
+  {"op": "decode", "seq_id": "s0_b", "num_tokens": 6},
+  {"op": "fork", "source_seq_id": "s1", "new_seq_id": "s1_a"},
+  {"op": "decode", "seq_id": "s1", "num_tokens": 3},
+  {"op": "decode", "seq_id": "s1_a", "num_tokens": 3},
+  {"op": "free", "seq_id": "s0"},
+  {"op": "free", "seq_id": "s0_a"},
+  {"op": "free", "seq_id": "s0_a1"},
+  {"op": "free", "seq_id": "s0_b"},
+  {"op": "free", "seq_id": "s1"},
+  {"op": "free", "seq_id": "s1_a"}
+]

@@ -1,0 +1,4 @@
+def i32 @compute
+  i32 42
+  more code
+  ret i32

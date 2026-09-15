@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of quantum error correction: stabilizer formalism, Pauli group algebra, commutativity via the symplectic inner product, and Clifford circuit synthesis. The agent must independently determine what properties define a valid stabilizer code (mutual commutativity, consistent operator length, valid Pauli characters), diagnose three distinct types of corruption in a mixed database without being told what to look for, and synthesize optimized state-preparation circuits for all valid codes under tight gate budgets. Frontier LLMs consistently struggle with stabilizer validation and circuit synthesis as demonstrated by the StabilizerBench benchmark."""
+solution_explanation = """Loads codes_db.json and validates each entry: checks that all stabilizer strings contain only valid Pauli characters (I/X/Y/Z), that string lengths match the declared qubit count, and that all generator pairs commute (symplectic inner product equals zero mod 2). Invalid entries are reported with specific diagnoses. For valid entries, uses stim.Tableau.from_stabilizers() to construct a Clifford tableau and decomposes it via to_circuit(). A peephole optimizer reduces two-qubit gate counts to meet budgets. Each circuit is verified with check_stabilizers() before output."""
+verification_explanation = """Tests load /app/output/results.json, verify that all 8 codes are present with required fields, check that valid codes (bell, bit_flip3, ghz4, five_qubit, steane) have status 'valid' with working circuits that preserve all stabilizers and meet gate budgets, and check that invalid codes (code_alpha, code_beta, code_gamma) have status 'invalid' with diagnoses mentioning the correct defect category (commutativity, length, invalid character). All circuit verification is polynomial-time via the Gottesman-Knill theorem."""
+category = "quantum_computing"
+tags = ["stabilizer-codes", "circuit-synthesis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stabilizer-circuit-synthesis"

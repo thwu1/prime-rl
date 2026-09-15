@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Python compilation, native library loading, and Nuitka internals. The agent receives no enumeration of what is broken — they must holistically diagnose three independent failure categories in the standalone build: (1) dynamically-discovered modules invisible to static import analysis, (2) runtime-loaded data files absent from the distribution, and (3) a native C shared library loaded via ctypes that is not bundled. Each category requires reading and understanding different parts of Nuitka's 80+ method plugin API (getImplicitImports, considerDataFiles, getExtraDlls / makeIncludedDataFile / makeDllEntryPoint) and understanding the standalone distribution's file layout and path semantics. The ctypes .so issue requires understanding how __file__-relative path resolution changes in standalone mode and choosing the correct bundling API to preserve the directory structure. Debugging requires iterative compilation, runtime testing, and cross-referencing error messages against Nuitka's compilation model."""
+solution_explanation = """Write a Nuitka user plugin inheriting from NuitkaPluginBase that: (1) overrides getImplicitImports to yield the five dynamically-loaded backend module names (backends, backends.text_reverse, backends.text_cipher, backends.text_stats, backends.text_hash) — Nuitka then follows the static import chain to discover backends.helpers.char_utils automatically; (2) overrides considerDataFiles to yield makeIncludedDataFile entries for the two template files (data/header.txt, data/footer.txt) and the native shared library (native/libhashutil.so), with dest_paths preserving the directory structure so __file__-relative lookups resolve correctly in standalone mode. Compile with python3 -m nuitka --mode=standalone --user-plugin=nuitka_plugin.py main.py."""
+verification_explanation = """Tests verify: (1) plugin file exists at /app/nuitka_plugin.py with correct API structure, (2) application runs correctly under CPython as a baseline producing output from all four backends, (3) Nuitka standalone compilation succeeds using the plugin, (4) standalone binary output matches CPython output character-for-character including the native hash computation."""
+category = "compiler_toolchains"
+tags = ["python-compilation", "nuitka-plugin-api"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nuitka-standalone-plugin"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing a correct discrete-time processing pipeline from scattered operational documentation that describes subsystem behaviors independently without an explicit processing-order specification. The agent must infer the correct causal ordering between event application, state transitions, load computation with adaptive throttling, traffic distribution, sliding window updates, crash detection, and retry pool management from behavioral descriptions and implicit constraints. The interplay between client-side throttling (sliding window FIFO with specific update timing relative to distribution), retry amplification under budget caps, overload-triggered crash detection with consecutive-tick thresholds, and a three-state crash-recovery lifecycle with cold-cache capacity effects creates chaotic dynamics where small modeling errors compound through crash-recovery feedback loops. Multi-format I/O (YAML topology, SQLite parameters/events, JSON time series, SQLite output tables + SQL view) demands cross-tooling interoperability. The crash-detection-versus-traffic-processing timing creates a subtle edge case where crashed status appears in output but traffic metrics reflect pre-crash processing. No numbered-step algorithm is provided — the agent must derive the correct pipeline from distributed behavioral specifications."""
+solution_explanation = """Parse cluster topology from YAML, extract parameters and events from SQLite, then build a per-tick processing pipeline by synthesizing causal ordering from the documentation: events first, then state transitions, then load computation (throttle from prior-tick window, retries from prior-tick rejected), then weight-proportional traffic distribution, then window update, then crash detection, then result recording, then retry pool update. Run 80 ticks, compute analysis metrics from the full time series, write JSON and SQLite outputs including a capacity_headroom SQL view."""
+verification_explanation = """Tests include a reference implementation that reads the same YAML/SQLite inputs and independently derives the correct results. The suite verifies: (1) JSON structural correctness and field presence, (2) exact match on deterministic analysis metrics (crash times, crashed clusters, max simultaneous crashes), (3) approximate match on computed values (peak error rate, total requests lost, recovery time), (4) behavioral properties across incident phases (zero errors during normal operation, high errors during cascade, recovery after intervention), (5) consistency invariants (accepted+rejected=effective_load, utilization=incoming/capacity), (6) time-series value comparisons at key ticks across phases, (7) SQLite table/view existence with correct schema, (8) SQLite-JSON cross-consistency at start and end of simulation, and (9) capacity_headroom view accuracy including crashed-tick exclusion."""
+category = "sre"
+tags = ["cascading-failures", "multi-format-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0d4c48"

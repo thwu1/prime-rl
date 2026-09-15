@@ -1,0 +1,32 @@
+{
+  "name": "Fallon NV AgriMet",
+  "elevation_m": 1208.5,
+  "latitude_deg": 39.4575,
+  "longitude_deg": -118.77388,
+  "anemometer_height_m": 3.0,
+  "daily": {
+    "doy": 182,
+    "date": "2015-07-01",
+    "tmin_fahrenheit": 66.65,
+    "tmax_fahrenheit": 102.80,
+    "tdew_fahrenheit": 49.84,
+    "ea_kpa": 1.2206674169951346,
+    "rs_langley": 674.07,
+    "wind_speed_mph": 4.80
+  },
+  "hourly": {
+    "doy": 182,
+    "time_utc": 18.0,
+    "note": "18:00 UTC = 11:00 AM PDT",
+    "tmean_fahrenheit": 91.80,
+    "ea_kpa": 1.1990099614301906,
+    "rs_langley": 61.16,
+    "wind_speed_mph": 3.33
+  },
+  "unit_conversions": {
+    "fahrenheit_to_celsius": "(F - 32) * 5 / 9",
+    "langley_to_mj_m2": "Ly * 0.041868",
+    "mph_to_m_s": "mph * 0.44704",
+    "degrees_to_radians": "deg * pi / 180"
+  }
+}

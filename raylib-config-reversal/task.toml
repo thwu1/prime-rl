@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficiency in C build systems (Makefiles, linker flags, static libraries), binary analysis (nm/objdump symbol table inspection), understanding of raylib's modular architecture and config.h flag system, C programming with image processing APIs, and the ability to cross-reference source code with compiled artifacts. The agent must perform multi-step investigation: symbol analysis -> source correlation -> config inference -> adaptive C programming -> compilation/linking troubleshooting -> output verification. A critical subtlety is that several raylib feature flags (SUPPORT_RPRAND_GENERATOR, SUPPORT_COMPRESSION_API) have public API functions that exist as stubs even when disabled — the agent must read the source to identify internal implementation symbols (rprand.h, sdefl/sinfl.h) as the true indicators."""
+solution_explanation = """Use nm to extract symbols from libraylib.a. For module-level flags, check for unique module functions (InitAudioDevice for RAUDIO, LoadModel for RMODELS, DrawText for RTEXT). For feature flags like CAMERA_SYSTEM and GESTURES_SYSTEM, check for UpdateCamera and SetGesturesEnabled. For RPRAND_GENERATOR, note that SetRandomSeed always exists (stdlib fallback) — instead check for rprand_* internal symbols from rprand.h. For COMPRESSION_API, note CompressData always exists as stub — check for sdeflate/sinflate from sdefl.h/sinfl.h. Write a C program using available image functions (LoadImage, ImageColorGrayscale, ImageKernelConvolution, ImageCrop, ImageFlipVertical, ImageColorBrightness, ExportImage, GetImageColor). Compile against the target library with correct linker flags (-lraylib -lGL -lm -lpthread -ldl -lrt -lX11)."""
+verification_explanation = """Tests verify: (1) config_report.json exists and correctly identifies all 13 required flags, (2) the pipeline binary exists at /app/pipeline, (3) result.png exists and is a valid 100x100 PNG, (4) report.txt contains pixel values at the 4 specified coordinates within tolerance of the expected values computed from the known input image and transformation pipeline."""
+category = "systems_programming"
+tags = ["c_build_systems", "binary_analysis"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raylib-config-reversal"

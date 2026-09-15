@@ -1,0 +1,49 @@
+{
+    "site_id": "BWC-ALD-01",
+    "site_name": "Blackwood Creek Anoxic Limestone Drain",
+    "sampling_date": "2024-03-15",
+    "operator": "Regional Environmental Monitoring Services",
+    "drain_design": {
+        "total_length_m": 5.0,
+        "num_cells": 10,
+        "cell_length_m": 0.5,
+        "media": "crushed limestone (>95% calcite)",
+        "initial_calcite_per_cell_mol": 5.0,
+        "pore_volume_residence_time_per_cell_s": 3600
+    },
+    "influent_chemistry": {
+        "source": "Blackwood Creek AMD seep",
+        "pH": 3.0,
+        "temperature_C": 15,
+        "pe": 4.0,
+        "Ca_mg_L": 150,
+        "Mg_mg_L": 40,
+        "Na_mg_L": 30,
+        "SO4_mg_L": 600,
+        "Cl_mg_L": 20,
+        "K_mg_L": 5
+    },
+    "initial_porewater": {
+        "description": "Limestone-equilibrated groundwater sampled from drain cells prior to AMD introduction",
+        "pH": 7.5,
+        "temperature_C": 15,
+        "pe": 4.0,
+        "Ca_mg_L": 60,
+        "Mg_mg_L": 5,
+        "Na_mg_L": 10,
+        "K_mg_L": 2,
+        "alkalinity_mg_L_as_CaCO3": 150,
+        "SO4_mg_L": 20,
+        "Cl_mg_L": 10
+    },
+    "effluent_measurements_after_30_pore_volumes": {
+        "pH": {"value": 6.8, "uncertainty_1sigma": 0.3, "method": "combination electrode"},
+        "Ca_mol_kgw": {"value": 0.0085, "uncertainty_1sigma": 0.002, "method": "ICP-OES"},
+        "SO4_mol_kgw": {"value": 0.0063, "uncertainty_1sigma": 0.001, "method": "ion chromatography"}
+    },
+    "core_sample_analysis_cell_1": {
+        "description": "Acid-digestion analysis of limestone core from inlet cell after 30 pore volumes",
+        "calcite_remaining_mol": {"value": 4.65, "uncertainty_1sigma": 0.25}
+    },
+    "mineralogical_notes": "No visible gypsum precipitation observed. Geochemical modeling suggests the effluent may be approaching gypsum saturation at the drain outlet. Drain operates under anoxic conditions with unidirectional forward flow."
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple interlocking advanced data structures from scratch (a balanced BST with split/merge augmented with subtree sizes, the piece table text buffer pattern, branching undo via structural persistence, and a line-level diff algorithm), PLUS building a multi-tool pipeline that parses a custom binary protocol, validates it with xxd, orchestrates stages through a Makefile with correct dependency ordering, integrates with Unix diff/patch utilities, stores results in SQLite, and generates a formatted report using the sqlite3 CLI tool. Each component demands proficient-level understanding; the multi-tool interoperability (Make + xxd + Python + diff/patch + sqlite3 CLI) demands expert-level tool proficiency."""
+solution_explanation = """The solution implements a persistent implicit-key treap where each node holds a piece descriptor and is augmented with subtree_len. Split and merge are path-copied primitive operations enabling O(log n) insert/delete. The undo tree stores immutable root references. For the pipeline, a Makefile orchestrates five dependent stages: (1) xxd validates the binary journal header, (2) Python parses and replays the journal, (3) diff generates unified patches, (4) Python populates a SQLite database, (5) sqlite3 CLI generates a column-formatted report."""
+verification_explanation = """Tests validate: (1) insert/delete/get_text correctness; (2) char_at random access; (3) line counting; (4) piece table invariants (original buffer unchanged, add buffer append-only); (5) BST structural invariants and logarithmic height; (6) linear and branching undo/redo; (7) persistence (old snapshots survive edits); (8) Myers diff correctness; (9) performance (5000 inserts < 30s); (10) journal replay producing correct snapshot files; (11) generated patches being applicable with patch; (12) SQLite database having correct schema and data; (13) Makefile existence and required targets; (14) make clean + rebuild cycle; (15) xxd-based header validation producing correct hex dump and stamp file; (16) sqlite3 CLI-generated report with correct formatting and content."""
+category = "data_structures_and_algorithms"
+tags = ["persistent_data_structures", "text_editors", "binary_protocol", "makefile_orchestration"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-494b1f"

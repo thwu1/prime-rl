@@ -1,0 +1,22 @@
+{
+  "name": "interval_limits",
+  "vars": ["n", "i", "d", "v"],
+  "arrays": {"a": 50},
+  "body": [
+    {"stmt": "assign", "target": "n", "expr": {"expr": "nondet"}, "line": 1},
+    {"stmt": "if", "cond": {"expr": "binop", "op": ">", "left": {"expr": "var", "name": "n"}, "right": {"expr": "const", "value": 0}},
+     "then_body": [
+       {"stmt": "if", "cond": {"expr": "binop", "op": "<=", "left": {"expr": "var", "name": "n"}, "right": {"expr": "const", "value": 50}},
+        "then_body": [
+          {"stmt": "assign", "target": "i", "expr": {"expr": "const", "value": 0}, "line": 4},
+          {"stmt": "while", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "i"}, "right": {"expr": "var", "name": "n"}},
+           "body": [
+             {"stmt": "assign", "target": "d", "expr": {"expr": "binop", "op": "-", "left": {"expr": "var", "name": "n"}, "right": {"expr": "var", "name": "i"}}, "line": 6},
+             {"stmt": "assign", "target": "v", "expr": {"expr": "binop", "op": "/", "left": {"expr": "const", "value": 100}, "right": {"expr": "var", "name": "d"}}, "line": 7},
+             {"stmt": "array_write", "array": "a", "index": {"expr": "var", "name": "i"}, "value": {"expr": "var", "name": "v"}, "line": 8},
+             {"stmt": "assign", "target": "i", "expr": {"expr": "binop", "op": "+", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 1}}, "line": 9}
+           ], "line": 5}
+        ], "line": 3}
+     ], "line": 2}
+  ]
+}

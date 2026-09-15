@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of GADTs, existential types, the Applicative/Monad distinction for batching semantics, Haskell concurrency primitives (MVar, IORef, forkIO), heterogeneous type-indexed stores via Typeable/unsafeCoerce, and exception safety. The solver must identify 11 interrelated defects spanning type safety, concurrency, cache consistency, statistics tracking, and API design, then implement a new preFetch feature requiring cache architecture comprehension — all without any inline annotations indicating where problems exist."""
+solution_explanation = """Fix Applicative <*> to explore both branches when left blocks. Fix CacheKey string to include TypeRep for cross-type safety. Fix cache hits on pending requests to use tryReadMVar and return Blocked instead of blocking the scheduler. Fix traverseFetch to use applicative folding. Fix dispatchGroup to batch all requests into one fetch call. Add concurrent dispatch via forkIO + MVar synchronization. Add exception safety wrapping fetch calls with tryPutMVar for idempotent result writes. Fix stats to count individual requests not groups, add per-data-source tracking. Implement preFetch using makeCacheKeyStr for consistent cache keys."""
+verification_explanation = """The test harness compiles MicroHaxl.hs with a TestDriver.hs that creates mock data sources and runs specific fetch patterns. It checks: (1) applicative batching yields correct round counts, (2) identical requests are deduplicated, (3) stats report correct totals/batch sizes/per-source counts, (4) different data sources run concurrently, (5) exceptions propagate correctly, (6) cache handles type-safe lookups, (7) preFetch seeds the cache for subsequent dataFetch calls. All checks produce deterministic pass/fail assertions."""
+category = "debugging"
+tags = ["haskell", "concurrency"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/haxl-fetch-framework"

@@ -1,0 +1,16 @@
+{
+  "description": "Worked example showing an expected optimal plan. Use this to understand and validate your approach before tackling the full workload.",
+  "examples": [
+    {
+      "query_id": "q1",
+      "notes": "2-table join, no filters. R has 1000 rows; S has 10000 rows. Join predicate: R.r_id = S.s_r_id.",
+      "expected_plan": {
+        "left": {"table": "R", "estimated_rows": 1000.0, "total_cost": 0.0},
+        "right": {"table": "S", "estimated_rows": 10000.0, "total_cost": 0.0},
+        "estimated_rows": 10000.0,
+        "node_cost": 11000.0,
+        "total_cost": 11000.0
+      }
+    }
+  ]
+}

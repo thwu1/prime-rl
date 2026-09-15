@@ -1,0 +1,12 @@
+event,total_waits,total_timeouts,time_waited_micro,average_wait_micro,wait_class
+latch: shared pool,2500000,0,75000000000,30000,Concurrency
+db file sequential read,8000000,0,48000000000,6000,User I/O
+log file sync,3000000,0,36000000000,12000,Commit
+db file scattered read,500000,0,10000000000,20000,User I/O
+buffer busy waits,200000,50000,8000000000,40000,Concurrency
+log file parallel write,2800000,0,5600000000,2000,System I/O
+latch: cache buffers chains,100000,0,3000000000,30000,Concurrency
+enq: TX - row lock contention,15000,5000,2250000000,150000,Application
+control file sequential read,500000,0,500000000,1000,System I/O
+SQL*Net message from client,50000000,0,900000000000,18000000,Idle
+SQL*Net message to client,50000000,0,500000000,10,Idle

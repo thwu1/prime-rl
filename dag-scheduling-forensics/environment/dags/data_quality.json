@@ -1,0 +1,38 @@
+{
+  "dag_id": "data_quality",
+  "schedule_interval": "0 4 * * *",
+  "default_args": {
+    "retries": 3,
+    "retry_delay_seconds": 120,
+    "execution_timeout_seconds": 1800
+  },
+  "tasks": [
+    {
+      "task_id": "wait_report",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "reporting",
+      "external_task_id": "distribute"
+    },
+    {
+      "task_id": "schema_check",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_report"]
+    },
+    {
+      "task_id": "value_check",
+      "operator": "PythonOperator",
+      "dependencies": ["schema_check"]
+    },
+    {
+      "task_id": "completeness_check",
+      "operator": "PythonOperator",
+      "dependencies": ["value_check"]
+    },
+    {
+      "task_id": "quality_summary",
+      "operator": "PythonOperator",
+      "dependencies": ["completeness_check"]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+slabinfo - version: 2.1
+# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab> : tunables <limit> <batchcount> <sharedfactor> : slabdata <active_slabs> <num_slabs> <sharedavail>
+ext4_inode_cache     2048   2048   1184   27    8 : tunables    0    0    0 : slabdata     76     76      0
+fat_inode_cache         0      0    792   41    8 : tunables    0    0    0 : slabdata      0      0      0
+sighand_cache          96     96   1024   32    8 : tunables    0    0    0 : slabdata      3      3      0
+kmalloc-1024         1280   1280   1024   32    8 : tunables    0    0    0 : slabdata     40     40      0
+kmalloc-512           512    512    512   32    4 : tunables    0    0    0 : slabdata     16     16      0
+kmalloc-256           384    384    256   32    2 : tunables    0    0    0 : slabdata     12     12      0
+kmalloc-192           420    420    192   42    2 : tunables    0    0    0 : slabdata     10     10      0
+kmalloc-128           256    256    128   32    1 : tunables    0    0    0 : slabdata      8      8      0
+kmalloc-96            336    336     96   42    1 : tunables    0    0    0 : slabdata      8      8      0
+kmalloc-64            512    512     64   64    1 : tunables    0    0    0 : slabdata      8      8      0
+kmalloc-32            512    512     32  128    1 : tunables    0    0    0 : slabdata      4      4      0
+cred_jar              384    384    192   42    2 : tunables    0    0    0 : slabdata     12     12      0
+drill_cache           128    128    192   42    2 : tunables    0    0    0 : slabdata      4      4      0
+dentry               4096   4096    192   42    2 : tunables    0    0    0 : slabdata     98     98      0
+inode_cache          2560   2560    720   45    8 : tunables    0    0    0 : slabdata     57     57      0
+radix_tree_node       768    768    584   28    4 : tunables    0    0    0 : slabdata     28     28      0
+task_struct           256    256   6720    4    8 : tunables    0    0    0 : slabdata     64     64      0

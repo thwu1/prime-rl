@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of KASAN crash report internals (bug classifications, call trace structure, slab allocator metadata), robust C function boundary detection handling comments/strings/nested braces, AddressSanitizer compilation and runtime configuration including non-obvious flags like -static-libasan, Valgrind memory checking invocation, and the critical insight that ASan-instrumented binaries cannot be run under Valgrind requiring separate compilation passes. The agent must reverse-engineer the KASAN report format from examples, discover appropriate sanitizer compilation flags, and build a multi-tool evaluation pipeline without procedural guidance."""
+solution_explanation = """Build a Python pipeline that: parses KASAN reports via pattern matching to extract bug metadata (type, access info, call stack, slab cache); implements a C function extractor handling nested braces, comments, and string/char literals; applies function-wise patches by locating and replacing function definitions; compiles patched sources twice — once with gcc -fsanitize=address -static-libasan for ASan testing and once with gcc -g for Valgrind testing; classifies each patch as pass/trigger/build_fail from ASan results and records valgrind_clean from Valgrind --error-exitcode; aggregates into a structured JSON report."""
+verification_explanation = """Tests run the pipeline and validate report.json: correct KASAN field extraction for all 4 bugs, correct patch classification for all 12 patches (6 pass, 3 trigger, 3 build_fail), correct Valgrind results (passing patches are clean, triggering patches are dirty, build failures are null), correct aggregate statistics (50% pass rate), and cross-cutting consistency tests verifying ASan and Valgrind results agree across all patches."""
+category = "systems"
+tags = ["kernel-debugging", "memory-sanitizers"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c6a913"

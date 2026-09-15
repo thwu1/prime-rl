@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete stiff ODE solver from scratch across four numerical domains (sparse matrix analysis, nonlinear rootfinding, adaptive step control, numerical differentiation) while bridging C and Python via ctypes and producing gnuplot visualizations. The agent must compile a C shared library with gcc/make, load it via ctypes with correct function signatures and numpy memory layout, implement an implicit solver that exploits Jacobian sparsity to minimize evaluations, design an adaptive step size controller with error estimation, and produce gnuplot-rendered diagnostics — all without the instruction naming which algorithms to use. Debugging stiff numerical instabilities requires expert-level intuition about eigenvalue structure and convergence."""
+solution_explanation = """Compile librhs.so with make in /app/rhs_native, load via ctypes with ndpointer signatures. Build the Jacobian column intersection graph from the sparsity pattern and apply greedy graph coloring (~4 colors for the Brusselator). Use color groups for compressed finite difference Jacobian computation. Implement implicit Euler with Newton iteration using LU factorization from scipy.linalg. Cache the Jacobian and LU factors across steps (quasi-Newton reuse). Use Milne device error estimation with a PI step-size controller. Write solution data in gnuplot matrix format and invoke gnuplot for heatmap rendering."""
+verification_explanation = """Tests verify: (1) C library librhs.so was compiled, (2) solver code uses ctypes to call it, (3) heatmap.png is a valid PNG, (4) column labeling is valid (no two columns sharing a nonzero row have the same label) with <=10 labels, (5) compressed Jacobian matches dense FD to 1e-4, (6) final solution within 10% of scipy Radau reference, (7) LU factorizations < accepted steps (proving reuse), (8) step-size ratios in [0.1, 10] (smooth adaptation), (9) no scipy.integrate usage in solver."""
+category = "numerical_methods"
+tags = ["stiff-odes", "ctypes-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0418ef"

@@ -1,0 +1,7 @@
+broker_id,hostname,capacity_bytes,allocated_bytes,reserved_pct
+0,kafka-0.prod-east-1.internal,858993459200,880468295680,10
+1,kafka-1.prod-east-1.internal,858993459200,845034815488,10
+2,kafka-2.prod-east-1.internal,858993459200,827854946304,10
+3,kafka-3.prod-east-1.internal,858993459200,922344226816,10
+4,kafka-4.prod-east-1.internal,1288490188800,0,10
+5,kafka-5.prod-east-1.internal,1288490188800,0,10

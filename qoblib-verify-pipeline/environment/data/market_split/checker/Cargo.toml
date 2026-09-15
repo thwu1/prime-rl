@@ -1,0 +1,11 @@
+[package]
+name = "check_marketsplit"
+version = "1.0.0"
+edition = "2021"
+
+[[bin]]
+name = "check_marketsplit"
+path = "src/bin/check_marketsplit.rs"
+
+[dependencies]
+regex = "1.11"

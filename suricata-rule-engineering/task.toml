@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle semantic bugs in five production Suricata rules by cross-referencing them against actual PCAP traffic. Each deployed rule passes syntax validation (suricata -T) but produces zero alerts due to a distinct class of semantic error: a missing DNS application-layer sticky buffer causing raw wire-format content mismatch (DNS labels are length-prefixed, not dot-separated), an incorrect TCP flow direction keyword preventing stream content matching in the correct reassembly direction, a wrong ICMP type code targeting echo replies instead of echo requests, an HTTP sticky buffer that inspects the Host header instead of the User-Agent header, and a mismatched destination port. The threshold.config additionally uses incorrect suppression tracking direction. The agent must independently analyze the PCAP to catalog all attack vectors, understand Suricata's protocol parsers, stream engine, and sticky buffer architecture, diagnose each rule's failure mode, write corrected rules, fix suppression configuration, and produce a forensic incident report from EVE JSON output."""
+solution_explanation = """Analyze the PCAP with tcpdump/tshark to catalog attack vectors (DNS tunneling via evil-c2.example.net subdomains, reverse shells on port 4444, ICMP echo request scanning, HTTP requests with Trojan User-Agent, binary exfiltration with 0xDEADBEEF magic on port 9999). Read deployed rules and cross-reference detection logic against observed traffic to diagnose each semantic bug. Write corrected rules: add dns.query sticky buffer for normalized domain matching (SID 2100001), change flow direction from from_server to to_server (SID 2100002), change itype from 0 to 8 for echo requests (SID 2100003), change http.host to http.user_agent sticky buffer (SID 2100004), fix destination port from 8888 to 9999 (SID 2100005). Fix threshold.config by changing track by_dst to track by_src. Run Suricata in offline PCAP replay mode, parse EVE JSON alerts to generate the incident report."""
+verification_explanation = """Tests independently run Suricata with the agent's corrected rules and threshold.config against the known PCAP, then parse EVE JSON to verify: exactly 3 DNS tunneling alerts (SID 2100001) from 10.0.0.100, exactly 2 reverse shell alerts (SID 2100002) from 10.0.0.100 and 10.0.0.101, exactly 8 ICMP scan alerts (SID 2100003, one per unique scanner IP due to threshold limiting), exactly 1 Trojan UA alert (SID 2100004) from 10.0.0.200, at least 1 binary exfiltration alert (SID 2100005) from 10.0.0.100, zero alerts from the suppressed trusted host 10.0.0.1, and that the incident report contains the correct compromised IPs (10.0.0.100, 10.0.0.101), C2 infrastructure IPs (203.0.113.50/51), and tunneling domain (evil-c2.example.net)."""
+category = "security_and_privacy"
+tags = ["suricata", "network-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/suricata-rule-engineering"

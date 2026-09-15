@@ -1,0 +1,58 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level TypeScript type system knowledge including recursive conditional types,
+tuple manipulation, template literal types, and the infer keyword. The solver must trace
+type-level computations across three interacting modules to identify 5 distinct operational bugs
+(wrong accumulator in Multiply, reversed SUB operands, missing SWAP case, incorrect OVER/ROT
+tuple constructions, single-digit parser limitation). Beyond debugging, the solver must architect
+and implement a conditional execution engine (IFZERO/ELSE/ENDIF) by redesigning the Execute type
+to track execution state with proper nesting support — a non-trivial type-level state machine
+design challenge that requires understanding how control flow differs from stack operations and
+cannot be delegated to the single-instruction Step type.
+"""
+solution_explanation = """
+Fix arithmetic.ts: change Add<Acc, B> to Add<Acc, A> in Multiply.
+Fix stack-machine.ts: (1) Subtract<A,B> to Subtract<B,A> in SUB, (2) add SWAP case returning
+[B,A,...Rest], (3) fix OVER to return [B,A,B,...Rest], (4) fix ROT to return [C,A,B,...Rest].
+Fix parser.ts: replace single-digit PUSH match with ParseDigits-based multi-digit parsing.
+Redesign Execute: add a SkipDepth tuple parameter (defaults to []). When SkipDepth is empty,
+execute normally; on IFZERO, pop top and set depth to [unknown] if nonzero (skip), or [] if zero
+(execute). On ELSE while active, set depth to [unknown] (start skipping). On ENDIF while active,
+continue. When skipping: increment depth on nested IFZERO, only switch to active on ELSE at
+depth exactly 1, decrement depth on ENDIF, skip all other instructions.
+"""
+verification_explanation = """
+Runs tsc --noEmit which type-checks all files including test assertions across 5 test files.
+Expect<Equal<actual, expected>> assertions produce compile errors when types don't match.
+Tests cover arithmetic correctness, individual stack operations, parser output for all
+instruction types including multi-digit PUSH, full string programs, and conditional branching
+with nesting. Pytest also verifies test files are unmodified, source files exist, no custom
+Equal/Expect bypass, and tsconfig integrity.
+"""
+category = "debugging"
+tags = ["typescript", "type-level-programming"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/typelevel-stack-machine"

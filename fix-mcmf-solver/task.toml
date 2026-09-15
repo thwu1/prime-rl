@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of min-cost max-flow algorithms (residual graphs, reverse edge cost conventions, SPFA). The Python solver contains 3 subtle bugs: wrong reverse edge cost sign, bottleneck indexing into wrong node's adjacency list, and reverse edge capacity update targeting the wrong node. The C++ solver must be compiled by diagnosing two Makefile errors (wrong C++ standard version for structured bindings, wrong source filename). Evaluating proposed solutions demands understanding flow feasibility (edge capacity, supply/demand bounds, hub throughput constraints) and comparing against true optimal cost. The agent must orchestrate g++/make for C++ compilation, jq for structured JSON extraction, sqlite3 for relational database population, and Python for algorithmic computation — a multi-tool pipeline requiring proficiency across toolchains."""
+solution_explanation = """Fix 3 bugs in mcmf.py: negate reverse edge cost in add_edge, use prev_node[v] for bottleneck capacity lookup, use self.graph[v] for reverse edge update. Fix Makefile: change -std=c++11 to -std=c++17 (required for structured bindings) and fix source filename from mcmf_solver.cpp to mcmf.cpp. Use jq to extract instance metadata into JSON array. Build flow networks from JSON instances using super source/sink and vertex splitting for hub nodes. Solve all instances with MCMF. Evaluate proposed solutions: instance_1 is feasible but suboptimal (cost 25 vs optimal 18, gap 7), instance_2 is infeasible (hub throughput 9 exceeds capacity 7), instance_3 is optimal (cost 20 matches optimal). Populate SQLite database from schema.sql."""
+verification_explanation = """Tests verify: (1) Python MCMF correctness on chain and diamond reference graphs, (2) C++ binary exists, is executable, and produces correct results on reference graphs via subprocess, (3) jq-generated instance_summary.json has correct metadata for all 3 instances, (4) result files contain exact optimal values (9/18, 14/64, 8/20), (5) evaluation JSONs contain correct feasibility verdicts, optimality flags, and cost gaps, (6) SQLite database has properly structured tables with correct data matching all computed results."""
+category = "algorithms"
+tags = ["network-flow", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-mcmf-solver"

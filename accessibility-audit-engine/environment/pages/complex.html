@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Compliance Portal</title>
+</head>
+<body style="background-color: #ffffff;">
+    <!-- Deeply nested background inheritance: body(white) > section(#d4d4d4) > div > p -->
+    <section id="nested-section" style="background-color: #d4d4d4; padding: 10px;">
+        <div class="inner">
+            <p id="deep-contrast-pass" style="color: #1a1a1a; font-size: 16px;">Dark text on inherited gray background</p>
+            <p id="deep-contrast-fail" style="color: #a8a8a8; font-size: 16px;">Light text on inherited gray background</p>
+            <p id="bg-sensitive" style="color: #767676; font-size: 16px;">Text requiring accurate background resolution</p>
+        </div>
+    </section>
+
+    <!-- rgb() functional notation colors -->
+    <p id="rgb-func-fail" style="color: rgb(160, 160, 160); font-size: 16px;">Text using RGB functional notation</p>
+    <p id="rgb-func-pass" style="color: rgb(40, 40, 40); font-size: 16px;">Dark text in RGB notation</p>
+
+    <!-- Implicit label wrapping (no for attribute) -->
+    <label>Preferred Language <input type="text" id="wrapped-field"></label>
+
+    <!-- No accessible name at all -->
+    <input type="text" id="orphan-field">
+
+    <!-- aria-labelledby with multiple space-separated IDs (first is empty) -->
+    <span id="lbl-prefix"></span>
+    <span id="lbl-zipcode">Billing ZIP Code</span>
+    <input type="text" id="multi-ref" aria-labelledby="lbl-prefix lbl-zipcode">
+
+    <!-- Submit input with value as accessible name -->
+    <input type="submit" id="submit-val" value="Confirm Order">
+
+    <!-- Link with child img alt providing accessible name -->
+    <a href="/dashboard"><img src="dash-icon.png" alt="Dashboard Overview"></a>
+
+    <!-- Link with only whitespace text = no accessible name -->
+    <a href="/void">   </a>
+
+    <!-- Image with alt="" without role=presentation (still decorative) -->
+    <img src="pixel.gif" alt="">
+
+    <!-- Meaningful image with alt text -->
+    <img src="org-chart.png" alt="Organization hierarchy diagram for Q1 2025">
+
+    <!-- Image with no alt attribute at all -->
+    <img src="unlabeled-photo.jpg">
+
+    <!-- iframe with title -->
+    <iframe src="analytics.html" title="Usage analytics dashboard"></iframe>
+
+    <!-- iframe without title -->
+    <iframe src="tracking.html"></iframe>
+</body>
+</html>

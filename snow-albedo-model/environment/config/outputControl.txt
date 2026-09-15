@@ -1,0 +1,10 @@
+! Output control — list of variables to write
+! Format: variable_name  output_frequency
+scalarSWE              1
+scalarSnowDepth        1
+scalarSnowAlbedo       1
+scalarSurfaceTemp      1
+scalarSenHeatTotal     1
+scalarLatHeatTotal     1
+scalarRainPlusMelt     1
+scalarSnowSublimation  1

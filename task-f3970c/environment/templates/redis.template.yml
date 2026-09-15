@@ -1,0 +1,10 @@
+env:
+  DISCOURSE_REDIS_HOST: localhost
+
+hooks:
+  after_redis:
+    - exec:
+        cmd: echo "Redis configured"
+
+expose:
+  - "6379"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of mutation testing theory: dynamic subsumption hierarchies, the equivalent mutant problem, and mutation score computation — none of which are explained in the task instructions. The agent must independently read and interpret a formal output schema, design a robust test execution harness with subprocess isolation and timeout handling, perform semantic code analysis to identify equivalent mutants, compute the transitive reduction of a partial order for Graphviz visualization, and integrate coverage.py for branch coverage measurement. Multi-tool interoperability (pytest, coverage.py, graphviz dot, Python subprocess management) is required throughout."""
+solution_explanation = """The solution iterates over all 34 pre-generated mutant files, temporarily replacing the target module and running the test suite in isolated subprocesses with timeouts. It collects per-test outcomes into a kill matrix, identifies 3 equivalent mutants (boundary condition changes that are semantically neutral), classifies 4 survivors as non-equivalent, computes the subsumption partial order and its transitive reduction for the Graphviz DAG, measures branch coverage with coverage.py for both original and enhanced test suites, and writes targeted tests to kill surviving non-equivalent mutants."""
+verification_explanation = """Tests verify: (1) output JSON structure and all required fields including coverage metrics, (2) mathematical consistency of counts and scores, (3) correct identification of known equivalent mutants, (4) kill matrix validity, (5) subsumption antichain property, (6) subsumption DOT file validity and edge consistency with kill matrix, (7) subsumption PNG existence and valid format, (8) branch coverage values are reasonable and enhanced >= original, (9) enhanced tests pass on original code, and (10) enhanced tests actually detect specific surviving mutations."""
+category = "software_testing"
+tags = ["mutation-testing", "program-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7debf6"

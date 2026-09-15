@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise across multiple domains: (1) binary reverse engineering of a stripped ELF shared library to extract the operation sequence and constants; (2) evaluating three candidate decryptors, each with a distinct subtle implementation flaw, and producing minimal targeted corrections; (3) critically analyzing a deliberately obfuscated Python re-implementation that uses misleading function names, fake "nonlinear" primitives, and fraudulent documentation to disguise the true mathematical operations; (4) recognizing a critical structural weakness in the construction that makes it fully breakable with a small number of known plaintext-ciphertext pairs; (5) designing and implementing a novel attack that recovers the transform parameters and uses them to decrypt all targets without knowledge of the internal key schedule; (6) writing a security assessment that precisely characterizes the vulnerability class and proposes a structural fix. The evaluate+create cognitive demand — judging security claims, designing an original attack, synthesizing a written assessment — goes well beyond applying known RE techniques."""
+solution_explanation = """Disassemble libseat.so to determine the 7-operation sequence (XOR/MUL alternating with pool constants) and the GF(2^64) reduction polynomial 0x1B. Evaluate the three candidates: A uses wrong reduction polynomial (0x1D vs 0x1B), B swaps pool indices for K1/K2, C checks carry at bit 62 instead of 63. Create a correct inverse transform to recover all 5 plaintexts. Recognize that the obfuscated.py functions _nlc, _acm, _sdm are all equivalent to XOR, and _fde/_fde_v2 are both standard GF(2^64) multiplication — so the entire transform is affine: y = (C0*C1*C2)*x XOR B. Implement the KPA attack via recover_params: given 2 pairs (x1,y1),(x2,y2), compute A = (y1^y2)*(x1^x2)^{-1} in GF(2^64), then B = y1^A*x1. Decrypt via x = (y^B)*A^{-1}. Write a security assessment identifying the affine structure as the root vulnerability."""
+verification_explanation = """Tests verify: (1) results.json contains 5 hex strings that transform to the target ciphertexts via runner.py; (2) each fixed candidate correctly decrypts all test vectors with >0.95 similarity to the original; (3) kpa_attack.py's recover_params function, given only 2 of the 3 test vectors, recovers parameters that correctly decrypt the held-out 3rd vector; (4) this works for all three pairs of test vectors (0+1, 1+2, 0+2); (5) the recovered parameters correctly decrypt all 5 targets consistently with results.json; (6) security_assessment.md exists with sufficient depth and identifies the algebraic vulnerability, attack class, and field context."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "cryptography"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polynomial-obfuscation-reversal"

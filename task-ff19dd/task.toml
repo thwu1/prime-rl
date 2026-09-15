@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep combinatorial optimization expertise spanning three distinct problem classes (symmetric TSP, asymmetric TSP, CVRP) with heterogeneous input representations. The agent must independently: (1) reverse-engineer parsing of TSPLIB95 format across multiple edge weight types (EUC_2D with nint rounding, ATT pseudo-Euclidean, EXPLICIT with FULL_MATRIX and LOWER_COL storage) — each with specification-specific integer rounding semantics that are easy to get subtly wrong; (2) select and implement appropriate optimization strategies for each problem class — symmetric TSP requires high-quality heuristic search to stay within 5% of optimum, asymmetric TSP requires an exact solver for proven optimality, and CVRP requires constrained routing with capacity enforcement; (3) handle index translation between 0-based solver internals and 1-based TSPLIB node numbering without introducing off-by-one errors. No tools or approaches are prescribed; the agent must draw on domain knowledge to make correct architectural and algorithmic choices."""
+solution_explanation = """Load instances via tsplib95, extract distance matrices. Solve symmetric TSPs with OR-Tools guided local search (achieves <5% gap on 48-52 node instances). Solve 17-node ATSP exactly via Held-Karp dynamic programming (O(n^2 * 2^n), feasible for n=17). Write GMPL MIP model and data file as formulation artifacts. Solve CVRPs with OR-Tools routing and capacity dimension. Convert all results to 1-indexed TSPLIB node numbering and output as JSON."""
+verification_explanation = """Tests independently parse all five TSPLIB instances using a self-contained parser (no third-party library) and recompute distance matrices from scratch for each edge weight type. Spot-checks specific distance values against hand-verified ground truth. Validates tour structure (permutation of 1..n). Recomputes tour lengths independently and cross-checks against reported values. Enforces 5% quality bound for symmetric TSP and exact optimality for ATSP. Verifies full CVRP constraint satisfaction: depot bookends, customer coverage, capacity limits, and distance consistency."""
+category = "optimization"
+tags = ["combinatorial-optimization", "vehicle-routing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ff19dd"

@@ -1,0 +1,48 @@
+{
+  "routers": {
+    "R1": {"hostname": "R1-CORE", "role": "core", "loopback0": "10.0.0.1/32"},
+    "R2": {"hostname": "R2-DIST-W", "role": "distribution-west", "loopback0": "10.0.0.2/32"},
+    "R3": {"hostname": "R3-DIST-E", "role": "distribution-east", "loopback0": "10.0.0.3/32"},
+    "R4": {"hostname": "R4-BRANCH-W", "role": "branch-west", "loopback0": "10.0.0.4/32"},
+    "R5": {"hostname": "R5-BRANCH-E", "role": "branch-east", "loopback0": "10.0.0.5/32"},
+    "R6": {"hostname": "R6-ISP", "role": "isp", "loopback0": "172.16.0.1/32"}
+  },
+  "links": [
+    {
+      "id": "L1",
+      "endpoints": ["R1:GigabitEthernet0/0", "R2:GigabitEthernet0/0"],
+      "subnet": "10.1.12.0/30",
+      "description": "Core to Distribution-West"
+    },
+    {
+      "id": "L2",
+      "endpoints": ["R1:GigabitEthernet0/1", "R3:GigabitEthernet0/0"],
+      "subnet": "10.1.13.0/30",
+      "description": "Core to Distribution-East"
+    },
+    {
+      "id": "L3",
+      "endpoints": ["R2:GigabitEthernet0/1", "R4:GigabitEthernet0/0"],
+      "subnet": "10.1.24.0/30",
+      "description": "Distribution-West to Branch-West"
+    },
+    {
+      "id": "L4",
+      "endpoints": ["R3:GigabitEthernet0/1", "R5:GigabitEthernet0/0"],
+      "subnet": "10.1.35.0/30",
+      "description": "Distribution-East to Branch-East"
+    },
+    {
+      "id": "L5",
+      "endpoints": ["R2:GigabitEthernet0/2", "R3:GigabitEthernet0/2"],
+      "subnet": "10.1.23.0/30",
+      "description": "Backup link Distribution-West to Distribution-East"
+    },
+    {
+      "id": "L6",
+      "endpoints": ["R1:GigabitEthernet0/2", "R6:GigabitEthernet0/0"],
+      "subnet": "10.99.1.0/30",
+      "description": "Core to ISP (eBGP peering)"
+    }
+  ]
+}

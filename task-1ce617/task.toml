@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interconnected data structures from scratch in C++: a rank-augmented AVL tree (with rotations, rebalancing, and O(log N) offset navigation), a dual-indexed sorted set (AVL tree + hashtable with intrusive container_of pattern), and a min-heap with position back-references. The AVL tree alone is notoriously difficult to implement correctly -- maintaining parent pointers, height, and subtree counts through double rotations is error-prone. The sorted set adds complexity through the intrusive container_of pattern, dual-index coordination (tree + hashtable must stay in sync through inserts, score updates, and deletes), and the (score, name) composite ordering. The heap's back-reference update pattern is unusual and requires careful tracking during every swap. All three must integrate correctly with an existing event-loop server using a custom binary wire protocol."""
+solution_explanation = """The solution implements avl.cpp with left/right rotations maintaining parent, height, and cnt invariants; avl_fix walks up to the root rebalancing at each ancestor; avl_del handles the two-child case by finding the in-order successor, detaching it, then swapping it into the deleted node's position; avl_offset uses subtree counts to navigate in O(log N). zset.cpp implements a dual-indexed sorted set with an AVL tree ordered by (score, name) and a hashtable keyed by name, using the container_of macro for intrusive node access -- score updates detach from the AVL tree and re-insert at the correct position. heap.cpp implements a min-heap with sift-up/sift-down that updates the ref pointer on every swap so owners always know their heap position."""
+verification_explanation = """A Python test client speaks the server's length-prefixed binary protocol with typed serialization (nil, error, string, int64, double, array). Tests verify: basic ZADD/ZSCORE/ZREM operations, score updates changing ordering, ZQUERY range queries with various score/name/offset/limit combinations, name-based alphabetical tiebreaking for equal scores, TTL expiration via PEXPIRE/PTTL with timed verification, large-scale insertion ordering (200 elements with pseudo-random scores), sequential insertion stress test (300 elements verifying O(log N) offset queries), deletion patterns exercising AVL rebalancing, negative scores, and combined sorted-set-with-TTL expiration scenarios."""
+category = "systems_programming"
+tags = ["data_structures", "cpp"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1ce617"

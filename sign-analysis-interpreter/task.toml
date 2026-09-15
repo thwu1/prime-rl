@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete abstract interpreter from scratch using the Lark parser generator: writing a context-free grammar in Lark's DSL, implementing AST transformation via Lark's Transformer API, encoding the five-element sign lattice with all lattice operations and abstract transfer functions, implementing conditional refinement rules, computing least fixed points for loops, and performing context-sensitive interprocedural analysis with correct handling of recursive functions. The agent must also ensure compatibility with a provided Makefile pipeline. Each subsystem (grammar, parser integration, lattice, analysis engine, Makefile) must be correct for the overall analyzer to pass."""
+solution_explanation = """The solution installs the lark Python package, writes a Lark grammar file (grammar.lark) defining the language's syntax with proper handling of operator precedence, keyword disambiguation, and call-vs-assignment ambiguity. A Lark Transformer converts parse trees to an internal AST. The analysis engine implements the sign lattice with join/meet/negate and abstract arithmetic, conditional refinement, loop fixed-point iteration, and context-sensitive interprocedural analysis keyed by (function_name, call_string, argument_signs). The analyzer outputs JSON and integrates with the provided Makefile."""
+verification_explanation = """Tests verify: (1) the Lark grammar file exists and is loadable by Lark, (2) the grammar successfully parses all five test programs, (3) the analyzer imports/uses the lark library, (4) the Makefile check-grammar and analyze targets succeed, (5) the analyzer produces correct sign analysis results for all programs covering basic arithmetic, conditional refinement, loop fixed points, context-sensitive interprocedural analysis, and combined scenarios. Context-sensitivity is explicitly validated by checking that interproc and context programs yield precise (non-top) results."""
+category = "program-analysis"
+tags = ["abstract-interpretation", "parser-generator"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sign-analysis-interpreter"

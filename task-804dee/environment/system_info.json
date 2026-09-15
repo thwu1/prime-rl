@@ -1,0 +1,7 @@
+{
+    "system_memory_mb": 4096,
+    "cpu_cores": 2,
+    "disk_gb": 80,
+    "docker_version": "24.0.7",
+    "os": "Ubuntu 22.04.4 LTS"
+}

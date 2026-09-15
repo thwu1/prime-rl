@@ -1,0 +1,24 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: data-tier-egress
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: data
+  egress:
+    - toCIDRSet:
+        - cidr: 10.0.0.0/8
+          except:
+            - 10.0.5.0/24
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: monitoring
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP

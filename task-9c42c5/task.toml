@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of Ltac2 (Coq's typed tactic metaprogramming language), which has limited documentation and training data compared to Ltac1. The solver must independently discover how to build a complete proof search engine for intuitionistic propositional logic using Ltac2's backtracking primitives, goal/hypothesis pattern matching, and tactic APIs. Key challenges include understanding the stream-based backtracking model, correctly matching all connective forms including negation (which behaves differently from implication in Ltac2 pattern matching), designing a strategy ordering that is both complete for IPL and terminating, and correctly implementing depth-bounded search where only speculative operations consume depth."""
+solution_explanation = """The solution implements solve_prop as a recursive Ltac2 function with 14 backtracking strategies chained via Control.plus: (1) assumption, (2) True by constructor, (3) False hypothesis via case, (4) conjunction goal via split, (5) iff goal via split, (6) implication/forall goal via intro, (7) negation goal via intro on not _, (8) conjunction hyp via case+clear+intros, (9) iff hyp via case+clear+intros, (10) disjunction hyp via case+clear+enter+intro, (11-12) left/right for disjunction goals, (13) apply implication hypothesis via Std.apply, (14) apply negation hypothesis via Std.apply on not _. Strategies 7 and 14 are essential because Ltac2's match! goal does not delta-reduce not to _ -> False, so explicit not _ patterns are required. Non-branching decompositions don't consume depth; speculative operations do."""
+verification_explanation = """The test compiles IPL.v with coqc, then compiles a test Coq file that imports IPL and applies solve_prop/ipl_auto to ~30 goals. Positive goals (propositional tautologies) must be proved via Qed. Negative goals use Coq's Fail command to assert that classically-valid but intuitionistically-invalid formulas are NOT provable. A depth-bound test verifies that solve_prop 3 fails on a long implication chain while solve_prop 15 succeeds. coqc returns nonzero on any failure, making verification fully deterministic."""
+category = "formal_verification"
+tags = ["coq", "ltac2"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9c42c5"

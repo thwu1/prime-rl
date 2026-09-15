@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Kubernetes administration knowledge across PKI, static pod manifests, etcd, kubeconfig, and RBAC. The solver receives compromised artifacts with no indication of what was modified — they must independently evaluate each certificate's SANs, Subject fields, and CA chain; audit every manifest flag against kubeadm defaults; identify port swaps, path errors, insecure settings, and missing flags; then design and produce corrected versions. The interdependencies between components (kubeconfig depends on corrected admin cert, manifest cert paths must align with PKI) add further complexity."""
+solution_explanation = """The solver must discover all issues by inspection: use openssl to find the apiserver cert is missing SANs, admin cert has wrong O field, scheduler cert is signed by wrong CA; parse manifests to find etcd port swaps, wrong TLS paths, insecure authorization mode, missing flags, volume name mismatches; then regenerate certificates, rewrite manifests, restore the etcd snapshot, rebuild the kubeconfig with corrected embedded certs, and create RBAC resources from the requirements spec."""
+verification_explanation = """Tests use openssl to verify certificate properties (SANs, Organization, CA issuer chain), PyYAML to parse and validate manifest fields (correct ports, paths, flags, volume consistency), etcdutl to verify snapshot integrity, YAML parsing for kubeconfig structure with embedded cert extraction and subject inspection, and structured RBAC manifest analysis checking API groups, resources, verbs, and subject bindings."""
+category = "cybersecurity"
+tags = ["kubernetes", "pki-certificates"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-68398e"

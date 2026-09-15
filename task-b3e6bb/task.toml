@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of quantum error correction (CSS codes, surface code stabilizer structure, circuit-level noise models) combined with proficiency in Google's Stim quantum simulator (detector error model format, circuit analysis CLI, compiled sampler API). The solver must figure out how to parse Stim's DEM to build a decoding structure, choose and implement an appropriate decoding algorithm, handle boundary conditions correctly, and orchestrate a benchmarking pipeline that interfaces Stim's sampling with the custom decoder to meet strict error-rate thresholds."""
+solution_explanation = """Parse the detector error model to extract error mechanisms with their probabilities and detector/observable associations. Use PyMatching (or equivalent MWPM library) to build a matching graph from the DEM and decode detection events in batch. The benchmark script loads circuits via stim.Circuit, extracts DEMs, samples with compile_detector_sampler, and applies the decoder batch-wise, writing per-circuit logical error rates to results.json."""
+verification_explanation = """Tests verify: (1) decoder module is importable with correct class and method signatures; (2) zero detection events produce zero predictions; (3) decoder handles both d=3 and d=5 circuits and DEMs from both Python API and CLI; (4) logical error rate below 20% at d=3 and 10% at d=5 over 3000 Monte Carlo samples; (5) threshold behavior (d=5 LER < d=3 LER); (6) benchmark.py runs and produces a valid results.json with required fields."""
+category = "quantum_computing"
+tags = ["error-correction", "stim-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b3e6bb"

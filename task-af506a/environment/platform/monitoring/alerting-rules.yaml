@@ -1,0 +1,81 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/managed-by: platform-team
+    app.kubernetes.io/component: alerting
+spec:
+  groups:
+    - name: platform.errors
+      interval: 30s
+      rules:
+        - alert: HighErrorRate
+          expr: rate(http_requests_total{code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+          labels:
+            severity: critical
+            team: platform
+            runbook: "https://wiki.internal/runbooks/high-error-rate"
+          annotations:
+            summary: "High HTTP error rate detected"
+            description: "Error rate exceeds 5% for {{ $labels.namespace }}/{{ $labels.service }}"
+            dashboard: "https://grafana.internal/d/http-overview"
+
+    - name: platform.resources
+      interval: 60s
+      rules:
+        - alert: HighMemoryUsage
+          expr: |
+            sum by (namespace, pod) (container_memory_working_set_bytes)
+            / sum by (namespace, pod) (kube_pod_container_resource_limits{resource="memory"})
+            > 0.9
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Pod memory usage above 90%"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} memory usage is above 90% of limits"
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[15m]) * 60 * 15 > 3
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Pod crash looping"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted more than 3 times in 15 minutes"
+
+        - alert: PVCNearCapacity
+          expr: |
+            kubelet_volume_stats_used_bytes
+            / kubelet_volume_stats_capacity_bytes
+            > 0.85
+          for: 30m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "PVC usage above 85%"
+            description: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full"
+
+    - name: platform.slos
+      interval: 30s
+      rules:
+        - record: namespace_service:http_request_duration_seconds:p99
+          expr: |
+            histogram_quantile(0.99,
+              sum by (namespace, service, le) (
+                rate(http_request_duration_seconds_bucket[5m])
+              )
+            )
+          labels:
+            quantile: "0.99"
+
+        - record: namespace_service:http_request_error_ratio:5m
+          expr: |
+            sum by (namespace, service) (rate(http_requests_total{code=~"5.."}[5m]))
+            / sum by (namespace, service) (rate(http_requests_total[5m]))

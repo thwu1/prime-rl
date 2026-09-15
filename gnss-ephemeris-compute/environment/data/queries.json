@@ -1,0 +1,34 @@
+{
+  "queries": [
+    {
+      "satellite": "G06",
+      "gps_week": 1025,
+      "tow_seconds": 410000.0
+    },
+    {
+      "satellite": "G06",
+      "gps_week": 1025,
+      "tow_seconds": 413000.0
+    },
+    {
+      "satellite": "G13",
+      "gps_week": 1025,
+      "tow_seconds": 415000.0
+    },
+    {
+      "satellite": "G13",
+      "gps_week": 1025,
+      "tow_seconds": 420000.0
+    },
+    {
+      "satellite": "E12",
+      "gps_week": 1849,
+      "tow_seconds": 440000.0
+    },
+    {
+      "satellite": "E12",
+      "gps_week": 1849,
+      "tow_seconds": 445000.0
+    }
+  ]
+}

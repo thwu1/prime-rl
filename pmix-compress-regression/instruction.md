@@ -1,0 +1,5 @@
+A PMIx-inspired process-per-node (PPN) map library at `/app/` encodes rank-to-node mappings using a pluggable compression pipeline. The library supports multiple wire formats and compression backends; the header files in `/app/include/` define the API contracts and compression module interface.
+
+The project includes a comprehensive test suite exercising 12 cases: backend compression roundtrips, encode/decode at scales from 100 to 50,000 processes, and backward compatibility with legacy formats. Running `make clean && make && ./test_ppn` in `/app/` currently shows widespread failures — the compression codepath is non-functional, all encodings fall back to the uncompressed raw format regardless of data size, and any attempt to decode a compressed payload fails.
+
+Diagnose the root causes across the codebase and fix the compression pipeline so that `make clean && make && ./test_ppn` in `/app/` reports 12/12 tests passed.

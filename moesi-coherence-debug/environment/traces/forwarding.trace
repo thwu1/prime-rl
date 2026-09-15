@@ -1,0 +1,5 @@
+# Trace: Modified data forwarding
+# Tests that reading from a Modified address forwards data from the owner
+# Core 0 writes (gets Modified), core 1 reads (should see dirty data)
+0 WRITE 0x2000 0xC3
+1 READ 0x2000

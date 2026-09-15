@@ -1,0 +1,18 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -std=c11
+TARGET = decode_capture
+OBJECTS = decode_capture.o cobs_postcard.o
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
+
+decode_capture.o: decode_capture.c cobs_postcard.h
+	$(CC) $(CFLAGS) -c decode_capture.c
+
+cobs_postcard.o: cobs_postcard.c cobs_postcard.h
+	$(CC) $(CFLAGS) -c cobs_postcard.c
+
+clean:
+	rm -f $(TARGET) $(OBJECTS)
+
+.PHONY: clean

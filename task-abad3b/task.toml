@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level particle physics knowledge (relativistic invariant mass, event selection criteria, PDG resonance catalog), advanced signal processing (multi-scale peak detection across 3 orders of magnitude with data-driven background estimation), statistical fitting (Gaussian signal extraction over non-trivial backgrounds), and robust data engineering (handling CSV quirks, NaN values, charge/quality-type filtering). The combination of physics domain expertise with numerical analysis and data wrangling makes this inaccessible to undergraduates and requires multiple iterative debugging cycles."""
+solution_explanation = """Load the CSV and strip whitespace from column names. Drop NaN rows. Apply quality cuts: opposite-charge pairs, at least one Global muon, transverse momentum thresholds, pseudorapidity acceptance. Recompute invariant mass from 4-vectors and validate against the M column. Build a logarithmically-binned mass spectrum. Estimate background via morphological filtering (SNIP or minimum filter) in log-count space. Detect peaks as excesses above background with >3-sigma significance. Fit each peak with Gaussian+polynomial in a local mass window to extract center, width, yield. Match fitted masses to PDG values for known resonances (rho/omega, phi, J/psi, psi-prime, Upsilon states, Z boson)."""
+verification_explanation = """Tests load the two output JSON files and verify: (1) resonance_catalog.json contains at least 5 detected resonances with all required fields, (2) the J/psi (~3.097 GeV), Upsilon(1S) (~9.460 GeV), and Z (~91.188 GeV) are each detected within 5% mass accuracy, (3) analysis_summary.json reports exactly 50000 total events and a mass recomputation max absolute difference below 0.01 GeV, confirming correct 4-vector handling, (4) all signal yields and significances are positive."""
+category = "data_science"
+tags = ["particle-physics", "signal-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-abad3b"

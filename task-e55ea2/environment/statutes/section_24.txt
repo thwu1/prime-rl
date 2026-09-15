@@ -1,0 +1,24 @@
+SECTION 24 — CHILD TAX CREDIT
+
+(a) Allowance of credit. — There shall be allowed as a credit against the tax
+imposed by Section 1 an amount equal to $2,000 for each qualifying child of
+the taxpayer.
+
+(b) Qualifying child. — For purposes of this section, a qualifying child is
+an individual who:
+  (1) is a qualifying child of the taxpayer as defined in Section 152(c); and
+  (2) has not attained the age of 17 as of the close of the taxable year.
+
+(c) Limitation based on adjusted gross income. — The amount of the credit
+under paragraph (a) shall be reduced (but not below zero) by $50 for each
+$1,000 (or fraction thereof) by which the taxpayer's adjusted gross income
+exceeds the applicable threshold amount.
+
+(d) Threshold amounts. — The applicable threshold amounts are:
+  (1) $400,000 in the case of married individuals filing jointly or a
+      qualifying surviving spouse;
+  (2) $200,000 in the case of all other filing statuses.
+
+(e) Non-refundable credit. — The credit determined under this section shall
+not exceed the tax imposed by Section 1 for the taxable year. That is, the
+credit cannot reduce the taxpayer's tax liability below zero.

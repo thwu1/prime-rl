@@ -1,0 +1,8 @@
+{
+  "description": "Cross-linked pNIPAM brush in aqueous buffer",
+  "type": "viscoelastic_in_liquid",
+  "bulk_liquid": {
+    "grho3": 9.4e7,
+    "phi": 90.0
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of HL7 v2 conformance testing combined with proficiency in XML tooling. The solver must independently discover how to resolve XInclude-fragmented, namespace-qualified XML profiles using xmllint or equivalent, then parse the urn:hl7-org:v2:conformance namespace-qualified elements to extract message structure hierarchies and segment field definitions. The core challenge is computing the semantic intersection of two conformance profiles: reasoning about usage code composition (R∩O→R, R∩X→irreconcilable, O∩X→X), field-level incompatibility propagation (e.g., NTE Comment field R in A and X in B makes NTE irreconcilable), and cardinality/length range narrowing. The output must validate against a provided XSD schema using xmllint --schema, requiring proper namespace-qualified XML generation. The recursive descent ER7 message structure matcher must handle optional groups with entry segment ID computation through the group hierarchy."""
+solution_explanation = """Use xmllint --xinclude to resolve each profile's XInclude fragments into complete XML documents. Parse the namespace-qualified XML using {urn:hl7-org:v2:conformance} element lookups to build internal representations of message structure trees and segment field definitions. Parse ER7 messages by extracting the field separator from MSH[3]. For profile reconciliation: compute per-element usage intersection (R∩O→R, O∩X→X, R∩X→incompatible), cardinality intersection (max of mins, min of maxes), and length intersection (tighter bounds). Detect field-level incompatibilities (R∩X on a field) and propagate them upward to mark the parent segment as X. Generate namespace-qualified reconciled XML and validate it against the XSD using xmllint --schema. Validate all messages against all three profiles and produce the assessment JSON."""
+verification_explanation = """Tests verify XSD validation of the reconciled profile using xmllint --schema, namespace compliance (root element must be in urn:hl7-org:v2:conformance namespace), 12 messages against expected conformance verdicts for each of the three profiles (36 parametrized boolean checks), reconciled profile XML structure constraints (SFT=X, PATIENT=R, PD1=X, NK1=R, ORC=R, NTE=X from field incompatibility), field-level constraint tightening (PID-5 MaxLength=100, PID-7 Usage=R, PID-8 MaxLength=1, PID-2 Usage=W, OBX-11 MaxLength=1), and consistency checks (reconciled never more permissive than either input, both-valid implies reconciled-valid)."""
+category = "data_validation"
+tags = ["hl7-healthcare", "xml-tooling"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0de12"

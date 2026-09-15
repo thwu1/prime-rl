@@ -1,0 +1,81 @@
+{
+  "root_cause_values": ["lock_contention", "mvcc_tombstone", "concurrency_limit", "scan_overhead"],
+  "cases": {
+    "case1": {
+      "fields": {
+        "bottleneck_operator": "string",
+        "root_cause": "string",
+        "self_time_ms": "float",
+        "resolve_lock_time_ms": "float",
+        "get_time_ms": "float",
+        "backoff_retries": "int"
+      }
+    },
+    "case2": {
+      "fields": {
+        "bottleneck_operator": "string",
+        "index_task_concurrency": "int",
+        "table_task_concurrency": "int",
+        "index_distsql_concurrency": "int",
+        "table_distsql_concurrency": "int",
+        "max_concurrent_cop_tasks": "int",
+        "index_cop_estimated_time_ms": "float",
+        "table_cop_estimated_time_ms": "float"
+      }
+    },
+    "case3": {
+      "fields": {
+        "bottleneck_operator": "string",
+        "root_cause": "string",
+        "max_query": {
+          "cop_tasks": "int",
+          "proc_keys": "int",
+          "scan_order": "string"
+        },
+        "min_query": {
+          "cop_tasks": "int",
+          "max_proc_keys": "int",
+          "estimated_cop_time_ms": "float",
+          "scan_order": "string"
+        },
+        "cop_task_ratio": "float",
+        "proc_keys_ratio": "float",
+        "gc_tombstone_keys_cleaned": "int",
+        "max_store_sst_count": "int"
+      }
+    },
+    "case4": {
+      "fields": {
+        "bottleneck_operator": "string",
+        "operators": "array of {id: string, task_type: string, time_ms: float|null}",
+        "hashjoin_self_time_ms": "float",
+        "table_reader_cop_estimated_time_ms": "float",
+        "probe_cop_estimated_time_ms": "float",
+        "indexlookup_max_concurrent_cop": "int"
+      }
+    },
+    "triage_summary": {
+      "fields": {
+        "priority_ranking": "array of string",
+        "root_cause_groups": {
+          "gc_related": "array of string",
+          "concurrency_related": "array of string"
+        },
+        "cluster_risk_metrics": {
+          "stores_above_90pct_usage": "int",
+          "min_available_storage_gb": "float",
+          "gc_tombstone_ratio": "float",
+          "max_sst_file_count": "int",
+          "total_pending_compaction_mb": "int"
+        },
+        "impact_assessment": {
+          "gc_related_total_latency_ms": "float",
+          "concurrency_related_total_latency_ms": "float",
+          "highest_impact_category": "string",
+          "gc_urgency": "string",
+          "storage_urgency": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+    "Header": {
+        "table_id": "Table Amon",
+        "realm": "atmos",
+        "frequency": "mon",
+        "cmor_version": "3.5",
+        "table_date": "18 November 2020",
+        "missing_value": "1e20",
+        "product": "observations",
+        "approx_interval": "30.00000"
+    },
+    "variable_entry": {
+        "tas": {
+            "frequency": "mon",
+            "modeling_realm": "atmos",
+            "standard_name": "air_temperature",
+            "units": "K",
+            "cell_methods": "area: time: mean",
+            "long_name": "Near-Surface Air Temperature",
+            "dimensions": "longitude latitude time height2m",
+            "out_name": "tas",
+            "type": "real",
+            "valid_min": "150.0",
+            "valid_max": "350.0"
+        },
+        "huss": {
+            "frequency": "mon",
+            "modeling_realm": "atmos",
+            "standard_name": "specific_humidity",
+            "units": "1",
+            "cell_methods": "area: time: mean",
+            "long_name": "Near-Surface Specific Humidity",
+            "dimensions": "longitude latitude time height2m",
+            "out_name": "huss",
+            "type": "real",
+            "valid_min": "0.0",
+            "valid_max": "0.04",
+            "comment": "Derived from near-surface air temperature, relative humidity, and surface pressure using standard atmospheric thermodynamic relations",
+            "source_variables": "t2m rh2m mslp"
+        },
+        "pr": {
+            "frequency": "mon",
+            "modeling_realm": "atmos",
+            "standard_name": "precipitation_flux",
+            "units": "kg m-2 s-1",
+            "cell_methods": "area: time: mean",
+            "long_name": "Precipitation",
+            "dimensions": "longitude latitude time",
+            "out_name": "pr",
+            "type": "real",
+            "valid_min": "0.0",
+            "valid_max": "0.01"
+        },
+        "psl": {
+            "frequency": "mon",
+            "modeling_realm": "atmos",
+            "standard_name": "air_pressure_at_mean_sea_level",
+            "units": "Pa",
+            "cell_methods": "area: time: mean",
+            "long_name": "Sea Level Pressure",
+            "dimensions": "longitude latitude time",
+            "out_name": "psl",
+            "type": "real",
+            "valid_min": "85000.0",
+            "valid_max": "110000.0"
+        }
+    },
+    "coordinate_entry": {
+        "longitude": {
+            "standard_name": "longitude",
+            "units": "degrees_east",
+            "axis": "X",
+            "type": "double",
+            "stored_direction": "increasing",
+            "valid_min": "0.0",
+            "valid_max": "360.0"
+        },
+        "latitude": {
+            "standard_name": "latitude",
+            "units": "degrees_north",
+            "axis": "Y",
+            "type": "double",
+            "stored_direction": "increasing",
+            "valid_min": "-90.0",
+            "valid_max": "90.0"
+        },
+        "time": {
+            "standard_name": "time",
+            "units": "days since 1950-01-01 00:00:00",
+            "axis": "T",
+            "type": "double",
+            "calendar_type": "gregorian"
+        },
+        "height2m": {
+            "standard_name": "height",
+            "units": "m",
+            "axis": "Z",
+            "type": "double",
+            "positive": "up",
+            "value": "2.0"
+        }
+    }
+}

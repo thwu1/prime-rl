@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level computational mechanics knowledge to implement a 3D geometric stiffness matrix with ~40 unique entries, global assembly via internal force recovery, and a generalized eigenvalue buckling solver. The agent must first diagnose and fix a broken import using git history, then study an unfamiliar multi-module FEM codebase to understand its conventions before implementing three interdependent functions that produce numerically precise results verified against analytical Euler buckling solutions."""
+solution_explanation = """First recover the deleted config.py from git history (git checkout HEAD~1 -- frame3d/config.py). Then implement: (1) the 12x12 local geometric stiffness matrix with axial-force diagonal/off-diagonal entries, torsion-bending coupling, and moment-displacement/moment-rotation coupling terms; (2) global geometric stiffness assembly that recovers element internal forces, builds local geometric stiffness matrices, transforms to global coordinates, and assembles; (3) an eigenvalue solver that extracts free-DOF blocks, symmetrizes, solves the generalized eigenvalue problem, filters to smallest positive eigenvalue, and embeds the mode into the full DOF vector."""
+verification_explanation = """Tests verify the local geometric stiffness matrix properties (shape, symmetry, zero-force identity, linear scaling, compression softening) and specific entry values against closed-form beam element formulas. The full pipeline is checked against analytical Euler buckling for cantilever columns across a parameter sweep (3 radii x 3 lengths), monotonic mesh convergence with 4 refinement levels, and orientation invariance under a 35-degree rigid rotation."""
+category = "scientific_computing"
+tags = ["finite-elements", "structural-mechanics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1e4e97"

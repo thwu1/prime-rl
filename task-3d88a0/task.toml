@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of x86_64 4-level page table architecture to parse a raw binary physical memory dump, locate and walk PML4→PDPT→PD→PT hierarchies, handle 4KB and 2MB huge page entries, and detect subtle architectural violations. The solver must independently write binary parsing tools, understand page table entry bit layouts (present, writable, user, huge page, NX flags), compute effective permissions via AND/OR propagation across hierarchy levels, identify out-of-bounds physical addresses, misaligned huge pages, self-referencing entries, orphaned intermediate tables, and NX inheritance issues. Crash root cause analysis requires correlating CPU register state (error code semantics, faulting address) with page table structure to diagnose the specific permission violation."""
+solution_explanation = """Parse memory.bin with struct.unpack to read 8-byte little-endian page table entries. Starting from CR3=0x1000, walk the 4-level hierarchy checking PRESENT at each level. Detect 6 anomalies: (1) self-referencing PTE at 0x4020 mapping to its own PT frame, (2) OOB physical address at 0x4050 pointing beyond 4MB, (3) misaligned 2MB huge page at 0x3010 with non-2MB-aligned physical address, (4) missing PRESENT on PD[4] at 0x3020 despite valid child PT, (5) NX bit on PML4[256] at 0x1800 blocking kernel execution, (6) missing WRITABLE on kernel PD[0] at 0x7000 while leaf PTEs have it set. Crash root cause: write to 0xFFFF800000002000 faulted because PD entry effective permission is read-only. Apply corrections to produce fixed memory image."""
+verification_explanation = """30 pytest tests verify: report structure with all required fields, correct CR3 (0x1000) and physical memory size (4MB), exact count of 19 reachable leaf mappings, presence of specific identity-mapped/kernel/huge pages in memory map, exclusion of unreachable pages behind not-present PD[4], identification of all 6 anomalies by entry_physical_location with correct current values and valid corrections (2MB alignment, PRESENT/WRITABLE/NX bits), crash root cause mentioning write permission and faulting address, and fixed memory binary with corrected entries at all anomaly locations while preserving valid entries unchanged."""
+category = "systems_programming"
+tags = ["x86_64_paging", "binary_forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3d88a0"

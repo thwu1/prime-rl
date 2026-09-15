@@ -1,0 +1,6 @@
+{
+  "num_sets": 256,
+  "num_ways": 16,
+  "block_size": 64,
+  "trace_dir": "/app/traces"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of EVPN/VXLAN overlay networking and multi-tool proficiency across Python, FRR configuration syntax, and Linux iproute2 command semantics. The compiler has 7 interacting bugs across 3 modules where partial fixes expose hidden issues: (1) fixing the route-map action from permit to deny is insufficient because duplicate sequence entries (copy-paste artifacts from a multi-zone config) must also be identified and removed, (2) fixing the route target VNI source from L2 to L3 still produces incorrect output because the per-VNet loop structure must be redesigned to emit a single zone-level RT pair. The solver must also design and implement a VNI namespace conflict detector that understands both L2/L3 VNI collision semantics (traffic crossover on the VXLAN data plane) and cross-zone broadcast domain merge risks. This requires holistic understanding of the EVPN data plane model — not just following FRR documentation procedures — and the ability to evaluate whether generated configurations would produce correct behavior in a production fabric."""
+solution_explanation = """Bugs 1+2 (frr.py route_maps): MAP_VTEP_IN seq 1 uses 'permit' instead of 'deny' for IPv4 default route matching, AND has duplicate seq 3-4 entries (copy-paste artifacts matching the same prefix-lists as seq 1-2). Fix: change seq 1 to 'deny', remove seq 3-4 entirely, renumber the permit-all rule to seq 3. Bugs 3+4 (frr.py vrf_config): Route targets use vnet.tag (L2 VNI) inside a per-VNet loop, creating multiple different RTs per zone. Fix: replace the loop body with a single zone-level RT pair using zone.vrf_vxlan (L3 VNI), removing the per-VNet iteration. Bug 5 (generator.py): VXLAN local IP uses node.management_ip instead of node.vtep_ip, coupling overlay traffic to the management plane. Bug 6 (generator.py): Bridge MAC uses a per-node hash instead of zone.anycast_mac for EVPN zones, breaking distributed anycast gateway. Bug 7 (validator.py): Gateway validation with 'gw in network' accepts network and broadcast addresses as valid gateways. Feature (validator.py): Implement validate_vni_conflicts() checking (a) L2/L3 VNI collisions across the entire config and (b) cross-zone L2 VNI reuse, then wire it into validate_config()."""
+verification_explanation = """Tests verify each fix and the new feature: TestEVPNRouteTargets checks RT uses VRF VXLAN ID AND produces exactly one import/export pair per zone (catches both VNI source and loop structure bugs); TestRouteMapFiltering checks deny action for defaults, exactly 3 MAP_VTEP_IN sequences, and no duplicate match clauses (catches both action and duplication bugs); TestVXLANTunnelEndpoint checks VXLAN local IP is VTEP IP across all nodes; TestAnycastGatewayMAC checks bridge MAC matches zone anycast MAC on all nodes; TestSubnetGatewayValidation checks rejection of network/broadcast addresses; TestVNIConflicts checks L2/L3 VNI collision detection (same zone and cross-zone) and cross-zone tag reuse detection via validate_vni_conflicts(); TestEndToEnd validates full pipeline output correctness including FRR structure, network config, and validation pass."""
+category = "debugging"
+tags = ["networking", "python"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-sdn-compiler"

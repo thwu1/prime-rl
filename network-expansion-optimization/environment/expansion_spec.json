@@ -1,0 +1,20 @@
+{
+  "new_junctions": [
+    {"id": "41", "elevation_ft": 720, "demand_gpm": 100, "pattern": "1"},
+    {"id": "42", "elevation_ft": 730, "demand_gpm": 100, "pattern": "1"},
+    {"id": "43", "elevation_ft": 715, "demand_gpm": 120, "pattern": "1"},
+    {"id": "44", "elevation_ft": 735, "demand_gpm": 80, "pattern": "1"}
+  ],
+  "new_pipes": [
+    {"id": "201", "from": "31", "to": "41", "length_ft": 4000, "roughness": 130},
+    {"id": "202", "from": "41", "to": "42", "length_ft": 3000, "roughness": 130},
+    {"id": "203", "from": "32", "to": "43", "length_ft": 3500, "roughness": 130},
+    {"id": "204", "from": "43", "to": "44", "length_ft": 2500, "roughness": 130}
+  ],
+  "constraints": {
+    "min_pressure_psi": 20.0,
+    "max_budget_usd": 500000,
+    "simulation_duration_hrs": 24,
+    "hydraulic_timestep_hrs": 1
+  }
+}

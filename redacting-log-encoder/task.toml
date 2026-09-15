@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Go's zapcore.Encoder interface hierarchy (Encoder, ObjectEncoder, ArrayEncoder, PrimitiveArrayEncoder) and how ObjectMarshalers interact with encoders during serialization. The solver must design an objectRedactor proxy that wraps any ObjectEncoder to intercept nested Add* calls, implement correct namespace-path tracking across object boundaries, handle array-element redaction via an arrayRedactor, fix Clone to preserve the redacting wrapper with independent state, and fix EncodeEntry to process fields through redaction without breaking idempotency. These fixes are architecturally coupled: a naive EncodeEntry fix that mutates encoder state breaks idempotency, and a naive AddObject fix that doesn't track namespace depth produces incorrect path matching."""
+solution_explanation = """The solution introduces two helper types: objectRedactor (wrapping zapcore.ObjectEncoder) and arrayRedactor (wrapping zapcore.ArrayEncoder). For AddObject, the original ObjectMarshaler is wrapped so that when the inner encoder calls MarshalLogObject, the marshaler receives an objectRedactor that intercepts all Add* calls and checks redaction rules at the correct namespace depth. The objectRedactor itself implements all 25+ ObjectEncoder methods, each checking rules before delegating. For AddArray, the ArrayMarshaler is similarly wrapped with an arrayRedactor whose AppendObject wraps each element's marshaler. Clone is fixed to return a new *Encoder with deep-copied nsPath. EncodeEntry clones the inner encoder, wraps it in a temporary Encoder, processes all fields through Field.AddTo (which routes through the redacting Add* methods), then calls EncodeEntry on the inner clone with no additional fields."""
+verification_explanation = """14 pytest tests drive 12 Go tests in redact_test.go covering: top-level mask/drop (baseline), nested object mask with drop (bug 1), three-level deep nested mask (bug 1), wildcard pattern matching at depth (bug 1), Clone returning correct type with preserved redaction (bug 3), EncodeEntry with primitive field redaction (bug 4), EncodeEntry with nested object field (bugs 1+4), EncodeEntry idempotency (bug 4), array-of-objects redaction (bug 2), namespace tracking via OpenNamespace, and a comprehensive multi-rule test combining all scenarios. Each test produces JSON output and parses it to verify field values, presence/absence, and absence of raw sensitive values."""
+category = "debugging"
+tags = ["go-interfaces", "structured-logging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/redacting-log-encoder"

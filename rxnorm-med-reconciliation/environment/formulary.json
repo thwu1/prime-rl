@@ -1,0 +1,12 @@
+{
+  "formulary_id": "HOSP-2024-Q4",
+  "preferred_medications": [
+    {"rxcui": "617310", "name": "atorvastatin 20 MG Oral Tablet"},
+    {"rxcui": "617311", "name": "atorvastatin 40 MG Oral Tablet"},
+    {"rxcui": "861007", "name": "metformin hydrochloride 500 MG Oral Tablet"},
+    {"rxcui": "855332", "name": "warfarin sodium 5 MG Oral Tablet"},
+    {"rxcui": "314076", "name": "lisinopril 10 MG Oral Tablet"},
+    {"rxcui": "861819", "name": "metformin hydrochloride 500 MG / sitagliptin 50 MG Oral Tablet"},
+    {"rxcui": "597980", "name": "amlodipine 5 MG / atorvastatin 20 MG Oral Tablet"}
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of the WebAssembly binary format: the agent must coordinate modifications across five interdependent sections (type, function, code, global, export) while correctly managing two distinct index spaces (function and global) that are each split between imported and locally-defined entries. Synthesizing the reporter function demands understanding of WASM's structured control flow model, block typing rules, br_table dispatch semantics, and stack discipline — reasoning about bytecode correctness rather than following a procedure. Type section deduplication, LEB128 variable-length re-encoding with cascading size changes, section-ordering constraints, and the interplay between the function section (mapping function index to type index) and the parallel code section (containing the corresponding body) require a practitioner who can hold the entire module structure in mind simultaneously."""
+solution_explanation = """Parse the WASM binary into sections. Count imported/defined globals and functions from sections 2, 3, and 6 to compute both index spaces. For each defined function, append a mutable i32 counter global (init=0) and inject a prologue (global.get idx / i32.const 1 / i32.add / global.set idx) into its code body, using the correct counter global index. Append an immutable i32 __num_functions global. Find or create a (i32)->(i32) type entry in the type section, deduplicating if present. Add a function section entry for the reporter pointing to that type. Synthesize the __get_call_count function body using br_table dispatch: N+2 nested blocks where br_table targets route 0-based indices to per-function global.get handlers, with a default returning 0 for out-of-range values. Export __get_call_count (function) and __num_functions (global) with correct index-space-aware indices. Create any missing sections at correct positions. Reassemble with LEB128-encoded sizes."""
+verification_explanation = """Tests compile 10 WAT modules (covering: simple, multi-function, existing globals, imported globals, functions with locals, void functions, empty modules, complex multi-import modules, type-reuse cases, imported-function cases) to WASM via wat2wasm, run wasm_profiler.py, then structurally verify: (1) all outputs pass wasm-validate; (2) global section count = existing_defined + N_counters + 1; (3) counter globals are mutable i32 init=0 at correct positions; (4) __num_functions global is immutable i32 with correct init value; (5) exports __get_call_count (kind=func) and __num_functions (kind=global) at correct index-space-aware indices; (6) per-function prologues reference the correct counter global index; (7) reporter function's type index maps to (i32)->(i32) in the type section; (8) type section count unchanged when (i32)->(i32) already exists; (9) code and function sections both grow by exactly 1; (10) reporter body contains global.get opcodes for all counter globals; (11) known sections in ascending order; (12) original instructions preserved after prologue; (13) wasm2wat decompilation shows expected structure."""
+category = "systems"
+tags = ["webassembly", "binary-format"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wasm-binary-instrument"

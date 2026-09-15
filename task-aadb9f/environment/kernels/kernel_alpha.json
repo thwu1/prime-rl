@@ -1,0 +1,6 @@
+{
+  "name": "kernel_alpha",
+  "registers_per_thread": 128,
+  "shared_memory_bytes": 0,
+  "description": "Register-heavy kernel with no shared memory usage"
+}

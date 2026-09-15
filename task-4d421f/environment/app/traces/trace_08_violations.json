@@ -1,0 +1,10 @@
+{
+  "trace_id": "trace_08_violations",
+  "description": "Trace with 3 RFC-non-conformant transitions to detect",
+  "transitions": [
+    {"time": 1, "router": "R3", "neighbor": "R4", "event": "HelloReceived", "from_state": "Down", "to_state": "Init"},
+    {"time": 2, "router": "R3", "neighbor": "R4", "event": "2-WayReceived", "from_state": "Init", "to_state": "Exchange"},
+    {"time": 3, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "from_state": "Exchange", "to_state": "Full", "ls_request_list_empty": false},
+    {"time": 4, "router": "R3", "neighbor": "R4", "event": "HelloReceived", "from_state": "Full", "to_state": "Init"}
+  ]
+}

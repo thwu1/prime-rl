@@ -1,0 +1,15 @@
+int main() {
+    int i = 0;
+    int sum = 0;
+    while (i < 20) {
+        i = i + 1;
+        if (i % 3 == 0) continue;
+        if (i > 10) break;
+        sum = sum + i;
+    }
+    putint(sum);
+    putch(10);
+    putint(i);
+    putch(10);
+    return 0;
+}

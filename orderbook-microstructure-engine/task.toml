@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five distinct bugs in a market microstructure analysis engine, each rooted in a different domain concept: event-processing order for order book snapshots, volume-clock trade splitting for bars and flow toxicity metrics, directional spread decomposition (Huang-Stoll), and regression specification for price impact estimation (Kyle's lambda). The solver must understand L3 order book reconstruction, volume-synchronized sampling, and spread/impact models deeply enough to distinguish subtly incorrect implementations from correct ones, and cross-reference against a SQLite audit database with different schema conventions. No formulas or algorithms are provided in the task description."""
+solution_explanation = """The solution processes the L3 event stream with correct implementations of all five components: (1) snapshots captured after event processing at each timestamp rather than before, (2) volume bars with trade splitting at bar boundaries so each complete bar has exactly the threshold volume, (3) VPIN buckets with trade splitting across bucket boundaries, (4) realized spread using directional sign (d = +1 for buyer-initiated, -1 for seller-initiated) rather than absolute value, and (5) Kyle's lambda computed as Cov(delta_mid, signed_vol) / Var(signed_vol) rather than Var(delta_mid) in the denominator."""
+verification_explanation = """The test suite independently reimplements the complete analysis pipeline from raw event data and compares results. Integer metrics (trade count, volumes) are checked exactly. Floating-point metrics use tolerances: 1e-4 relative for VWAP, 1e-3 relative for effective spread, 0.5 bps absolute for realized spread and price impact. Volume bar structure is validated for correct count, threshold volumes, and OHLCV/VWAP accuracy. VPIN values are checked within 1e-4 absolute tolerance. Kyle's lambda is verified for correct sign and within 5% relative tolerance."""
+category = "applied_computing"
+tags = ["market-microstructure", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orderbook-microstructure-engine"

@@ -1,0 +1,5 @@
+An NMOS 6502 emulator at `/app/emulator.py` was written to implement the original MOS Technology 6502 CPU. A pre-compiled diagnostic ROM at `/app/program.bin` exercises various CPU operations, storing results to memory addresses `$0200`–`$0211`. The binary format and memory layout are documented in `/app/manifest.json`, and the known-correct output values are in `/app/expected.json`.
+
+The emulator currently produces incorrect results at several addresses when run against this ROM. The `cc65` cross-development suite (`ca65`, `ld65`, `da65`) and `xxd` are available for binary analysis.
+
+Fix all defects in `/app/emulator.py` so it faithfully reproduces correct NMOS 6502 hardware behavior. Write a conformance report to `/app/conformance.json` documenting at least 6 behavioral categories you identified through your analysis, each mapped to `{"status": "pass"|"fail", "detail": "<description of emulator behavior vs correct NMOS 6502 behavior>"}`. At least 4 categories must document initially-failing behaviors (before your fixes).

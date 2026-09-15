@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge spanning quantum computing (gate semantics, state vector simulation, qubit indexing conventions), high-performance computing (efficient gate application avoiding full matrix construction), and automatic differentiation (computing gradients of quantum expectation values via the adjoint method). Additionally demands multi-tool interoperability: writing a C shared library for the performance-critical gate kernel, compiling it with gcc (-shared -fPIC), loading it in Python via ctypes with correct complex128 memory layout, orchestrating the build-benchmark-report pipeline via Make targets, using jq for JSON field extraction, and storing/querying benchmark results in a SQLite database via the sqlite3 CLI. The combination of cross-language FFI (C/Python), build system integration, and multiple CLI tool orchestration with the core quantum simulation challenge makes this significantly harder than any individual component."""
+solution_explanation = """Implement rotation gates via Euler's formula. Write the C kernel using bit-mask iteration over qubit subspace pairs: for each basis state with target bit 0, pair it with target bit 1, multiply by the 2x2 gate matrix. Compile with gcc -shared -fPIC -O2. In the Python engine, load libqsim.so via ctypes.CDLL, declare argtypes/restype for both exported functions, and dispatch single-qubit/single-control operations through the native kernel while falling back to Python subspace iteration for multi-qubit gates. For gradient computation, use the adjoint method: forward pass saving intermediate states, backward pass propagating chi = O|psi> through each gate's adjoint, accumulating gradients via 2*Re(<chi|dU/dtheta|psi_prev>). The CLI parses JSON circuit definitions and outputs results as JSON. The Makefile orchestrates: gcc compilation, batch circuit processing with jq for JSON extraction, and sqlite3 CLI for database insertion and reporting."""
+verification_explanation = """Tests verify rotation gate matrices, their derivatives against finite differences, single/multi-qubit gate application, controlled gates (CNOT, Toffoli), Bell and GHZ state preparation, full circuit simulation, gradient accuracy against finite-difference for multiple circuit configurations, absence of np.kron in engine code, 12-qubit simulation performance, CLI output correctness, jq compatibility, C library existence and loadability via ctypes, direct C kernel correctness for X/H/CNOT operations, engine source using ctypes and referencing libqsim, make benchmark producing both JSON results and a SQLite database with correct schema and data, and make report querying the database to produce formatted output."""
+category = "scientific_computing"
+tags = ["quantum-simulation", "ffi-ctypes"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-adjoint-simulator"

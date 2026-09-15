@@ -1,0 +1,13 @@
+---
+- name: Create sites-enabled directory
+  file:
+    path: "{{ nginx_output_dir }}/sites-enabled"
+    state: directory
+    mode: '0755'
+
+- name: Generate site configuration
+  template:
+    src: site.conf.j2
+    dest: "{{ nginx_output_dir }}/sites-enabled/{{ nginx_site_name | default('default') }}.conf"
+    mode: "{{ nginx_site_config_mode }}"
+  notify: restart nginx

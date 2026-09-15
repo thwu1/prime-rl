@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-component clinical evaluation pipeline spanning SQLite queries, Python metric implementations, TOML configuration, and shell orchestration. Six interacting defects must be identified and corrected: an incorrect Dice coefficient aggregation method for lymph-node tumors, inverted concordance index risk-score orientation, wrong C-index pair admissibility logic for censored survival data, flawed missing-submission penalty computation, broken rank tie-resolution across multi-level Borda count, and a misconfigured bootstrap seed. Diagnosing each defect requires domain expertise in medical image segmentation evaluation and survival analysis — understanding why pooled DSC differs from per-case averaging for variable-size structures, how risk-score orientation affects concordance, and correct censored-pair admissibility rules. The defects interact through the Borda count ranking system, making isolated testing insufficient."""
+solution_explanation = """Examine the buggy evaluator against the validation report symptoms and domain knowledge. Fix GTVn DSC to use aggregated (sum-then-divide) instead of per-patient mean. Add risk-score negation to the C-index. Restore same-time-different-event pairs in C-index admissibility. Correct missing-segmentation F1 to check ground truth lesion count and return 0.0 when lesions exist. Implement fractional average ranking for ties instead of competition ranking. Fix the bootstrap seed in config.toml from 42 to 12345. Regenerate the leaderboard with all corrections applied."""
+verification_explanation = """Tests independently compute all expected metric values from the raw CSV data using a reference implementation. They verify aggregated DSC is not confused with mean DSC, C-index handles NaN predictions and risk orientation correctly, Borda count rankings use proper tie-breaking, missing segmentation submissions produce zero scores, the overall ranking order matches, weighted scores are correct, and bootstrap CIs match reference values computed with the correct seed."""
+category = "data_science"
+tags = ["clinical-evaluation-debugging", "survival-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-87c2ef"

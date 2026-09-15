@@ -1,0 +1,59 @@
+# prog3.asm
+
+READ_INT
+STORE n
+
+LOAD n
+STORE a
+LOAD a
+STORE b
+LOAD b
+STORE c
+
+PUSH_INT 3
+STORE k1
+LOAD k1
+STORE k2
+LOAD k2
+STORE k3
+
+LOAD c
+PUSH_INT 1
+ADD
+STORE c_inc
+
+LOAD c_inc
+STORE d
+LOAD d
+STORE e
+LOAD e
+STORE f
+
+LOAD k3
+PUSH_INT 0
+ADD
+STORE k4
+LOAD k4
+PUSH_INT 1
+MUL
+STORE mult
+
+LOAD c
+LOAD f
+MUL
+LOAD mult
+MUL
+STORE result
+
+LOAD result
+PRINTLN
+
+LOAD n
+PUSH_INT 0
+CMP_EQ
+JUMP_FALSE skip_zero
+PUSH_STR zero
+PRINTLN
+LABEL skip_zero
+
+HALT

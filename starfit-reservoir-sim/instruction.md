@@ -1,0 +1,7 @@
+A three-reservoir cascade system at `/app/` models daily regulated water operations using the STARFIT operating framework with Muskingum channel routing between reservoirs. The input NetCDF dataset is at `/app/data/cascade.nc`, the full system specification is at `/app/specification.md`, and a diagnostic report of observed failures is at `/app/anomaly_report.md`.
+
+The input dataset was produced by an upstream data pipeline and contains structural inconsistencies with the schema expected by `/app/reservoir/io_utils.py`. NetCDF CLI tools (`ncdump`, `ncgen`) and the NCO toolkit (`ncrename`, `ncatted`, `ncks`) are installed for data inspection and repair.
+
+The simulation framework under `/app/reservoir/` has both defective modules producing physically invalid results and unimplemented modules raising `NotImplementedError`. The anomaly report describes observable symptoms; the specification defines correct behavior.
+
+Complete the system so that `python3 /app/run_cascade.py` generates correct output in `/app/output/`. The output must satisfy: mass conservation per-reservoir and system-wide, storage within capacity bounds, non-negative flows, spill only at full storage, and the coordinated operating policy must achieve downstream demand reliability at least as high as the independent policy.

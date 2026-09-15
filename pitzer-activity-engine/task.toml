@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep physical chemistry expertise to identify the ion-interaction model from parameter names (Beta0, Beta1, Cphi, alpha1, alpha2, A_phi) in a SQLite database, implement the full mathematical framework for binary and mixed electrolyte solutions, and build a multi-tool pipeline (sqlite3 CLI, Make, Python sqlite3 module, CSV parsing). The solver must handle 1:1, 2:1, and 1:2 electrolyte stoichiometries, implement charge-balance validation, design salt-matching logic for mixed electrolytes, ensure thermodynamic consistency across activity coefficients, osmotic coefficients, water activity, and osmotic pressure, and produce dual-format output (JSON + SQLite) orchestrated by a Makefile."""
+solution_explanation = """The solution identifies the parameters as belonging to the Pitzer ion-interaction model and implements: (1) Debye-Huckel A_phi electrostatic term with the universal b parameter, (2) g(x) = 2[1-(1+x)e^(-x)]/x^2 helper function, (3) B_MX and B^phi intermediate quantities using Beta0, Beta1, Beta2, alpha1, alpha2, (4) ln(gamma) equation combining electrostatic, binary interaction, and triple interaction terms, (5) osmotic coefficient phi equation, (6) water activity from phi, (7) osmotic pressure from water activity. Salt matching maps ion compositions to database entries. Mixed electrolytes use effective molality m_eff = 2I/(nu+*z+^2+nu-*z-^2) with concentration-weighted osmotic coefficient averaging. Parameters are loaded from a SQLite database created by the Makefile's init-db target. Results are written to both JSON and SQLite."""
+verification_explanation = """Tests validate: (1) Makefile existence with all four targets, (2) SQLite parameter database creation and schema, (3) SQLite results database schema, row count, and consistency with JSON output, (4) charge-balance validation raising ValueError for >1% imbalance, (5) ionic strength calculations for 1:1, 2:1, 1:2, and mixed electrolytes, (6) activity coefficients against CRC Handbook data at 5% tolerance for NaCl, KBr, LiCl, HCl, RbCl, BaCl2, K2SO4, (7) symmetry (both ions get same mean activity coefficient), (8) dilute solution limiting behavior, (9) osmotic coefficient, water activity, osmotic pressure physical constraints and monotonicity, (10) temperature dependence of osmotic pressure, (11) mixed electrolyte physically reasonable ranges, (12) results.json completeness and physical validity."""
+category = "computational_science"
+tags = ["physical-chemistry", "data-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pitzer-activity-engine"

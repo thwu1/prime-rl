@@ -1,0 +1,74 @@
+[
+  {
+    "migration_id": "M1",
+    "message_type": "SensorReading",
+    "description": "Widen temperature field from i32 to i64 to support higher-precision readings from new sensor hardware",
+    "v1_field": {"name": "temperature", "type": "i32"},
+    "v2_field": {"name": "temperature", "type": "i64"}
+  },
+  {
+    "migration_id": "M2",
+    "message_type": "SensorReading",
+    "description": "Append an optional battery percentage field at the end of the SensorReading struct for power monitoring",
+    "action": "append_field",
+    "new_field": {"name": "battery_pct", "type": {"option": "u8"}}
+  },
+  {
+    "migration_id": "M3",
+    "message_type": "MotorCommand",
+    "description": "Change speed from signed i16 to unsigned u16 since direction is tracked by the direction enum",
+    "v1_field": {"name": "speed", "type": "i16"},
+    "v2_field": {"name": "speed", "type": "u16"}
+  },
+  {
+    "migration_id": "M4",
+    "message_type": "DeviceStatus",
+    "description": "Change firmware_version from a fixed 3-element tuple to a variable-length sequence to support semver pre-release segments",
+    "v1_field": {"name": "firmware_version", "type": {"tuple": ["u8", "u8", "u8"]}},
+    "v2_field": {"name": "firmware_version", "type": {"seq": "u8"}}
+  },
+  {
+    "migration_id": "M5",
+    "message_type": "Alert",
+    "description": "Reorder severity enum variants: swap Warning and Critical positions so severity ordering matches numeric discriminant order",
+    "field": "severity",
+    "v1_variant_order": ["Info", "Warning", "Critical"],
+    "v2_variant_order": ["Info", "Critical", "Warning"]
+  },
+  {
+    "migration_id": "M6",
+    "message_type": "DeviceStatus",
+    "description": "Widen error codes from u16 to u32 to support the extended error code range in firmware v2",
+    "v1_field": {"name": "errors", "type": {"seq": "u16"}},
+    "v2_field": {"name": "errors", "type": {"seq": "u32"}}
+  },
+  {
+    "migration_id": "M7",
+    "message_type": "SensorReading",
+    "description": "Widen humidity from f32 to f64 for double-precision environmental readings",
+    "v1_field": {"name": "humidity", "type": "f32"},
+    "v2_field": {"name": "humidity", "type": "f64"}
+  },
+  {
+    "migration_id": "M8",
+    "message_type": "DeviceStatus",
+    "description": "Change config from a map to a sequence of key-value tuples for deterministic iteration order",
+    "v1_field": {"name": "config", "type": {"map": ["string", "i32"]}},
+    "v2_field": {"name": "config", "type": {"seq": {"tuple": ["string", "i32"]}}}
+  },
+  {
+    "migration_id": "M9",
+    "message_type": "DeviceStatus",
+    "description": "Change error codes from unsigned u16 to signed i16 to encode diagnostic polarity for bidirectional fault indicators",
+    "v1_field": {"name": "errors", "type": {"seq": "u16"}},
+    "v2_field": {"name": "errors", "type": {"seq": "i16"}}
+  },
+  {
+    "migration_id": "M10",
+    "message_type": "MotorCommand",
+    "description": "Append a Coast variant to the direction enum for unpowered free-wheeling mode",
+    "field": "direction",
+    "v1_variant_order": ["Forward", "Reverse", "Brake"],
+    "v2_variant_order": ["Forward", "Reverse", "Brake", "Coast"]
+  }
+]

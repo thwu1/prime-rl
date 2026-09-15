@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a legacy HSPF UCI fixed-width text configuration format to extract parameters for two pervious land segments, then implementing the full PWATER water budget simulation (interception, infiltration partitioning, upper zone absorption, surface routing, interflow recession, percolation, lower zone storage, groundwater recession with variable slope, and sequential multi-zone evapotranspiration). The solver must handle monthly parameter interpolation, daily-recomputed recession coefficients, coupled nonlinear storage zones where errors cascade, and produce numerically accurate output matching HSPF reference results to tight tolerance. Additionally, the solver must persist results in HDF5 format with a specific hierarchical group/dataset schema and build a SQLite database with parameter, hourly output, and water-balance tables — requiring multi-tool interoperability between UCI parsing, numerical simulation, HDF5 (h5py), and SQL database workflows."""
+solution_explanation = """The solution implements a UCI parser that reads fixed-width HSPF tables (PWAT-PARM1 through PWAT-PARM4, PWAT-STATE1, MON-INTERCEP) to extract per-segment parameters and initial states. For each segment, it runs the PWATER algorithm: (1) daily-interpolated monthly CEPSC for interception, (2) triangular infiltration capacity distribution, (3) UZFG=1 fully-forward upper zone absorption, (4) second triangular division for interflow vs surface detention, (5) RTOPFG=1 ARM/NPS surface routing with dec/src detention-discharge, (6) exponential interflow recession with IRC-derived daily coefficients, (7) ratio-driven percolation from UZ to LZ with lzfrac caching, (8) KVARY-based variable groundwater recession with 3% daily gwvs decay, and (9) sequential ET from baseflow, interception, upper zone, groundwater, and lower zone. Results are written per-segment CSV, area-weighted aggregate CSV, an HDF5 archive with parameter/state/hourly datasets under /segments/ and /aggregate/ groups with metadata attributes, and a SQLite database containing segment parameters, all 17520 hourly output rows, and a water_balance table with closure error computed from tracked ET and deep percolation totals."""
+verification_explanation = """Tests verify UCI parsing correctness (parameter values and initial states match expected), output shape and format (8760 rows, 3 columns), physical constraints (non-negative, not all zeros, reasonable max), numerical accuracy via column-sum comparison against reference (tolerance 0.01), spot checks at specific timesteps, interflow range bounds, temporal pattern checks (storm response in SURO, recession in AGWO), and aggregate consistency (area-weighted sum equals per-segment combination). HDF5 tests verify group hierarchy (/metadata, /segments/<id>/parameters, /segments/<id>/states, /segments/<id>/hourly, /aggregate), attribute types and values, dataset shapes and dtypes, and numerical identity with CSV outputs. SQLite tests verify table schemas (segments, hourly_output, water_balance), row counts (17520 hourly rows), data consistency with CSV, and water balance closure error < 0.5."""
+category = "applied_science"
+tags = ["hydrology", "numerical-simulation"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pervious-water-budget"

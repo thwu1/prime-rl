@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of EPA ProUCL 5.2 environmental statistics methodology, including: the v5.2-specific asymmetric significance levels for hierarchical goodness-of-fit testing (alpha=0.01/0.05/0.10 for normal/gamma/lognormal), the removal of Chebyshev UCL recommendations, proper handling of left-censored (non-detect) data using Kaplan-Meier or ROS estimation rather than naive substitution, and correct UCL method selection (Student's-t, adjusted gamma, H-UCL). The solver must independently diagnose multiple methodological errors in an existing analysis without being told what the errors are, requiring deep domain understanding rather than procedure-following."""
+solution_explanation = """The solution reads the flawed original analysis and the raw data, then: (1) identifies that Arsenic and Cadmium used Chebyshev UCL, which ProUCL 5.2 no longer recommends; (2) identifies that Benzo_a_pyrene was misclassified as normal when it is clearly right-skewed (gamma/lognormal); (3) identifies that Benzene and Trichloroethene used naive DL substitution instead of proper censored-data methods; (4) implements the correct ProUCL 5.2 pipeline with ROS imputation, hierarchical GOF testing at asymmetric significance levels, and appropriate UCL computation; (5) produces both corrected results and a detailed audit report."""
+verification_explanation = """Tests verify: correct output structure and all analytes present; accurate sample counts matching raw data; UCL >= mean invariant; no Chebyshev recommendations (v5.2 requirement); correct distribution classification for clearly normal (Arsenic) and clearly non-normal (BaP) data; numerical accuracy of Student's-t UCL for Arsenic; censoring-adjusted means between zero-substitution and naive-DL bounds; proper censored-data methods for heavily censored TCE; audit report structure with errors identified for all analytes; Chebyshev flagged for Arsenic/Cadmium; distribution misclassification flagged for BaP; censoring errors flagged for Benzene/TCE; and consistency between audit UCL values and corrected results."""
+category = "data_science"
+tags = ["environmental-statistics", "censored-data"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-079665"

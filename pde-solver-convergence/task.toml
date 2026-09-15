@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three PDE solvers using fundamentally different numerical techniques: Crank-Nicolson or IMEX for a variable-coefficient drift-diffusion equation, split-step Fourier (Strang splitting) for a complex-valued dispersive nonlinear PDE, and a sparse direct solve for an indefinite elliptic system. Each solver must achieve specific L2 error thresholds against known analytic solutions, and the agent must run grid-refinement convergence studies demonstrating the correct theoretical convergence orders. Demands graduate-level numerical PDE expertise spanning stability analysis, scheme selection, and error estimation across parabolic, dispersive, and elliptic equation classes."""
+solution_explanation = """Implements Crank-Nicolson with tridiagonal sparse factorization for the Fokker-Planck equation (expanding the divergence-form drift term), Strang-split spectral method for the focusing NLS soliton (FFT-based linear propagator with phase-rotation nonlinear step), and 5-point finite difference stencil with Kronecker-product sparse assembly and direct solve for the 2D Helmholtz equation. Runs each at 4 resolutions to establish O(h^2) convergence rates. Saves solutions as .npz for independent verification."""
+verification_explanation = """Tests independently load the agent's numerical solutions from .npz files and compute analytic solutions on the agent's own grid to verify L2 errors. Convergence rates and monotonic error decrease are checked from results.json. NLS mass conservation (relative L2 norm drift < 1e-4) and Fokker-Planck non-negativity are independently verified from saved solution data."""
+category = "scientific_computing"
+tags = ["numerical-pde", "convergence-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pde-solver-convergence"

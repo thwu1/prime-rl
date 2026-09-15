@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across four distinct protocol analysis domains: (1) tshark-based pcap forensics to extract SCTP INIT/INIT-ACK association parameters from a raw IPv4 capture, including navigating tshark display filters, field extraction, and CRC-32C checksum preferences; (2) binary protocol parsing of DCEP DATA_CHANNEL_OPEN messages (RFC 8832) to reconstruct data channel metadata from raw wire-format bytes; (3) SCTP receiver-side state machine implementation handling TSN serial number arithmetic with uint32 wraparound (RFC 1982), Selective Acknowledgment gap block computation (RFC 4960 Section 3.3.4), FORWARD-TSN processing with cascading cumulative TSN advancement (RFC 3758), and duplicate detection; (4) cross-artifact delivery analysis computing abandoned TSNs by correlating receiver state at the time of each FORWARD-TSN event. The uint32 boundary crossing (0xFFFFFFF0 through 0x00000000+) and serial number comparison semantics are notoriously error-prone."""
+solution_explanation = """Extract INIT/INIT-ACK fields from the pcap using tshark field extraction (e.g., tshark -r handshake.pcap -T fields -e sctp.init_initiate_tag ...). Parse the DCEP binary file by reading the framing header and decoding DATA_CHANNEL_OPEN message fields. Implement an SCTP receiver state machine tracking cumulative TSN and out-of-order TSN set. For each data_received, advance cumTSN or buffer as out-of-order. For forward_tsn, advance cumTSN and cascade. At each compute_sack, emit gap blocks as RFC 4960 offset pairs. For abandoned TSN computation, snapshot the received set before each FORWARD-TSN and compute the difference between the range (old_cum, new_cum] and the received set."""
+verification_explanation = """Tests verify exact correctness across 4 output sections totaling 70+ parametrized assertions: 6 association fields extracted from pcap, 4 data channel records decoded from DCEP binary (24 field checks), 15 SACK checkpoint computations (45 field checks covering cumulative TSN, gap blocks, and duplicate TSNs), and 2 abandoned TSN lists from FORWARD-TSN analysis. Each section tests a different tool/skill: tshark pcap extraction, binary protocol parsing, state machine implementation, and cross-artifact correlation."""
+category = "networking"
+tags = ["protocol-forensics", "pcap-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sctp-sack-engine"

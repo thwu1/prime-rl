@@ -1,0 +1,7 @@
+env:
+  LETSENCRYPT_ACCOUNT_EMAIL: "admin@example.com"
+  DISCOURSE_FORCE_HTTPS: "true"
+
+labels:
+  letsencrypt: "enabled"
+  ssl_provider: "letsencrypt"

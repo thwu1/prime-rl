@@ -1,0 +1,5 @@
+% Stratum 0: reachability (positive recursion)
+reach(X, Y) :- edge(X, Y).
+reach(X, Y) :- reach(X, Z), edge(Z, Y).
+% Stratum 1: unreachable pairs (stratified negation)
+disconnected(X, Y) :- node(X), node(Y), not reach(X, Y).

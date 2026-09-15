@@ -1,0 +1,37 @@
+[
+    {
+        "name": "methane",
+        "tc": 190.564,
+        "pc": 4599200.0,
+        "omega": 0.0115,
+        "molarweight": 16.043
+    },
+    {
+        "name": "ethane",
+        "tc": 305.32,
+        "pc": 4872200.0,
+        "omega": 0.0995,
+        "molarweight": 30.07
+    },
+    {
+        "name": "propane",
+        "tc": 369.96,
+        "pc": 4250000.0,
+        "omega": 0.153,
+        "molarweight": 44.0962
+    },
+    {
+        "name": "butane",
+        "tc": 425.2,
+        "pc": 3800000.0,
+        "omega": 0.199,
+        "molarweight": 58.123
+    },
+    {
+        "name": "pentane",
+        "tc": 469.7,
+        "pc": 3370000.0,
+        "omega": 0.2515,
+        "molarweight": 72.146
+    }
+]

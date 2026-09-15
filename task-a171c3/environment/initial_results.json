@@ -1,0 +1,28 @@
+{
+  "four_qubit": {
+    "ground_energy_dmrg": -1.616025403784439,
+    "lambda_norm": 2.25,
+    "n_lcu_terms": 9,
+    "n_auxiliary_qubits": 4,
+    "lcu_error_bounds": {
+      "2": 3.534291735288517,
+      "3": 1.7671458676442586,
+      "4": 0.8835729338221293,
+      "5": 0.44178646691106464,
+      "6": 0.22089323345553232,
+      "7": 0.11044661672776616,
+      "8": 0.05522330836388308
+    },
+    "min_phase_qubits_precision_0.8": 5
+  },
+  "two_qubit_validation": {
+    "ground_energy_dmrg": -0.75,
+    "lambda_norm": 0.75,
+    "theta": 0.5,
+    "extracted_energy": 9.184850993605149e-17,
+    "energy_matches_dmrg": false
+  },
+  "method_evaluated": "lcu_walk_operator",
+  "other_methods_evaluated": [],
+  "notes": "Error bound: delta_E = lambda * 2pi / 2^m_ph. Energy: E = lambda * sin(2*pi*theta)"
+}

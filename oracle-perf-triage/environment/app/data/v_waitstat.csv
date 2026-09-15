@@ -1,0 +1,16 @@
+class,count,time
+data block,987654,2962962
+undo header,123456,370368
+undo block,89012,267036
+segment header,45678,137034
+free list,12345,37035
+extent map,3456,10368
+1st level bmb,2345,7035
+2nd level bmb,1234,3702
+3rd level bmb,567,1701
+bitmap block,234,702
+bitmap index block,123,369
+file header block,89,267
+system undo header,45,135
+system undo block,23,69
+unused,0,0

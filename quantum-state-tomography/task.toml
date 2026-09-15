@@ -1,0 +1,49 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum physics (density matrix formalism, tomographic
+reconstruction, entanglement quantification) combined with multi-tool data engineering: querying a
+normalized SQLite database via multi-table SQL JOINs, parsing custom binary calibration files using
+struct unpacking from a YAML-documented format, reading YAML configuration, generating matplotlib
+visualizations, and writing results to both files and a new SQLite database. The agent must discover
+the database schema, decode the binary format from specifications, and integrate data from heterogeneous
+sources before tackling the quantum physics reconstruction and analysis pipeline."""
+solution_explanation = """Parse YAML manifest for experiment configuration. Query the SQLite database
+using multi-table JOINs to extract per-state measurement counts organized by Pauli basis. Decode
+binary calibration files using struct unpacking and construct per-qubit confusion matrices, then build
+the full assignment matrix via Kronecker product and invert to correct measured probabilities. Run
+iterative MLE (R*rho*R algorithm) to reconstruct physical density matrices. Compute purity from
+Tr(rho^2), Wootters concurrence from eigenvalues of rho*rho_tilde product, and bipartite negativity
+from partial transpose eigenvalues. Generate density matrix visualizations with matplotlib and write
+results to CSV/JSON files and a summary SQLite database."""
+verification_explanation = """Tests check: (1) output files exist for all three states including PNG
+visualizations and summary SQLite database, (2) density matrices are physical (Hermitian, PSD, trace 1),
+(3) purity and concurrence values match known targets within tolerance, (4) entanglement classifications
+are correct, (5) fidelity with target states exceeds thresholds, (6) self-consistency between reported
+properties and density matrix, (7) summary database has correct schema with consistent values, (8)
+visualization PNGs are non-trivial in file size."""
+category = "quantum_computing"
+tags = ["quantum-state-tomography", "multi-format-data-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-state-tomography"

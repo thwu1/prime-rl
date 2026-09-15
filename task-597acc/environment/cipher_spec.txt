@@ -1,0 +1,41 @@
+Dual-Round XOR Block Cipher — Specification
+=============================================
+
+Block size: 8 bytes (64 bits)
+Key size:   16 bytes (128 bits), denoted K[0..15]
+
+Encryption Algorithm
+--------------------
+Given 8-byte plaintext P[0..7] and 16-byte key K[0..15]:
+
+  Round 1 — for i = 0 to 7:
+      S[i] = P[i] XOR K[i]
+
+  Round 2 — for i = 0 to 7:
+      C[i] = S[i] XOR K[8 + i]
+
+Output ciphertext: C[0..7]
+
+Power Leakage Model
+--------------------
+The target device executes 16 sequential byte-level XOR-and-store operations
+per encryption: 8 in Round 1 followed by 8 in Round 2. Each register write
+produces a transient power consumption proportional to the Hamming weight
+(number of set bits) of the byte being stored.
+
+  Round 1 operations 0-7:   leaks HW( S[i] ) = HW( P[i] XOR K[i] )
+  Round 2 operations 8-15:  leaks HW( C[i] ) = HW( S[i] XOR K[8+i] )
+
+Trace Capture Details
+---------------------
+  - Each trace records 3000 analog-to-digital samples of power consumption
+    during one encryption operation.
+  - A trigger pulse fires near the beginning of each trace, marking the
+    approximate start of computation.
+  - Inter-trace clock jitter causes all operations (including the trigger)
+    to shift by a variable offset from trace to trace.
+  - Minor per-operation timing jitter is also present.
+  - The traces contain a fixed-frequency clock baseline, additive Gaussian
+    measurement noise, and low-frequency voltage drift.
+  - Operation timing is not uniform — the 16 operations are spaced at
+    non-equal intervals within the trace.

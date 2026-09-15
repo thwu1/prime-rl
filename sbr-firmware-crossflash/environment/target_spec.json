@@ -1,0 +1,14 @@
+{
+  "description": "Produce an SBR for crossflashing the Fujitsu D2607 from iMR (MegaRAID) mode to IT/IR (HBA) mode with all 8 SAS ports enabled.",
+  "base_dump": "fujitsu_d2607_original.bin",
+  "requirements": {
+    "target_firmware_mode": "IT/IR (HBA passthrough)",
+    "port_count": 8,
+    "preserve_board_identity": "Keep Fujitsu subsystem vendor/product IDs unchanged",
+    "preserve_sas_address": "Keep original SAS World Wide Name from the Fujitsu dump",
+    "preserve_hardware_calibration": "Keep board-specific analog and timing parameters unchanged",
+    "all_integrity_checks_valid": "All internal data integrity mechanisms must pass validation"
+  },
+  "output_path": "/app/output/target.bin",
+  "output_size_bytes": 256
+}

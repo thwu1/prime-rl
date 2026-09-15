@@ -1,0 +1,32 @@
+{
+  "scenarios": [
+    {
+      "id": "S1",
+      "N": 2,
+      "noise": {"phi_plus": 0.75, "psi_plus": 0.25, "phi_minus": 0.0, "psi_minus": 0.0},
+      "threshold": 0.85,
+      "description": "Bit-flip noise (Phi+/Psi+ mixture), N=2 bilateral CNOT distillation"
+    },
+    {
+      "id": "S2",
+      "N": 2,
+      "noise": {"phi_plus": 0.80, "psi_plus": 0.0, "phi_minus": 0.20, "psi_minus": 0.0},
+      "threshold": 0.90,
+      "description": "Phase-flip noise (Phi+/Phi- mixture), N=2 Hadamard-rotated distillation"
+    },
+    {
+      "id": "S3",
+      "N": 3,
+      "noise": {"phi_plus": 0.70, "psi_plus": 0.30, "phi_minus": 0.0, "psi_minus": 0.0},
+      "threshold": 0.90,
+      "description": "Strong bit-flip noise requiring N=3 recurrence with two sacrificial pairs"
+    },
+    {
+      "id": "S4",
+      "N": 3,
+      "noise": {"phi_plus": 0.70, "psi_plus": 0.10, "phi_minus": 0.10, "psi_minus": 0.10},
+      "threshold": 0.78,
+      "description": "Mixed Bell-diagonal noise requiring combined phase and bit purification"
+    }
+  ]
+}

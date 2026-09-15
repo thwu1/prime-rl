@@ -1,0 +1,10 @@
+id,type
+corp_alpha,c_corp
+corp_beta,c_corp
+corp_gamma,c_corp
+prs,partnership
+partner_x,individual
+partner_y,individual
+prs_two,partnership
+corp_delta,c_corp
+indiv_phi,individual

@@ -1,0 +1,18 @@
+{
+  "name": "combined_simple",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 3},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 8},
+    "3": {"type": "Iop", "op": "const", "args": [], "dest": "r3", "succ": 4, "imm": 5},
+    "4": {"type": "Icond", "cond": "lt", "args": ["r1", "r3"], "ifso": 5, "ifnot": 8},
+    "5": {"type": "Inop", "succ": 6},
+    "6": {"type": "Inop", "succ": 7},
+    "7": {"type": "Iop", "op": "mul", "args": ["r1", "r2"], "dest": "r6", "succ": 9},
+    "8": {"type": "Iop", "op": "const", "args": [], "dest": "r6", "succ": 9, "imm": 0},
+    "9": {"type": "Iop", "op": "const", "args": [], "dest": "r7", "succ": 10, "imm": 999},
+    "10": {"type": "Iop", "op": "const", "args": [], "dest": "r8", "succ": 11, "imm": 888},
+    "11": {"type": "Ireturn", "arg": "r6"}
+  }
+}

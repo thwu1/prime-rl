@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct 2D BSP tree compiler from scratch: splitting plane selection from input segments, line-line intersection computation for segment splitting, proper classification of collinear/spanning/front/back segments, numerical precision handling with floating-point epsilon comparisons, recursive tree construction with anti-degenerate splitter selection, and front-to-back traversal. The algorithm must handle adversarial inputs (grid patterns with many crossings, rooms with interior walls) and produce structurally valid trees verified by independent geometric raycasting."""
+solution_explanation = """The solution implements a Python BSP engine that: (1) reads map JSON with 2D segments and viewpoint queries, (2) builds a BSP tree by choosing splitting lines from input segments using a cost heuristic (minimize splits weighted 8x, then balance), with a guard against degenerate splitters that don't make progress, (3) splits spanning segments at precise intersection points using parametric line intersection, (4) classifies segments as FRONT/BACK/COLLINEAR/SPANNING using cross-product point-side tests, and (5) traverses the tree front-to-back by visiting the viewpoint's side of each splitting plane first."""
+verification_explanation = """Tests verify 5 independent properties: (1) output JSON structure matches specification, (2) all original segments are fully covered by BSP segs (collinearity + parametric interval coverage), (3) no two segments in any leaf cross each other (interior intersection test), (4) traversal order matches independent re-traversal of the BSP tree, (5) geometric front-to-back correctness via 720-angle raycasting from each viewpoint (checking that closer cross-leaf segments precede farther ones). Additionally checks splitting behavior: maps with crossings produce non-trivial trees, tree depth is bounded, and seg counts are consistent."""
+category = "algorithms"
+tags = ["computational-geometry", "game-engine"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0dbec9"

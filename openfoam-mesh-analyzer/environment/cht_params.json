@@ -1,0 +1,16 @@
+{
+    "heater_region": {
+        "x_range": [0.08, 0.12],
+        "y_range": [0.0, 0.01]
+    },
+    "thermal_properties": {
+        "solid_conductivity": 50.0,
+        "volumetric_heat_generation": 5e5,
+        "fluid_bulk_temperature": 300.0,
+        "convective_htc": 500.0
+    },
+    "flow_properties": {
+        "friction_velocity": 0.05,
+        "kinematic_viscosity": 1.5e-5
+    }
+}

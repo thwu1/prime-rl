@@ -1,0 +1,45 @@
+{
+  "$description": "Statistical comparison report for a FuzzBench fuzzing experiment. All floating-point values should be rounded to 6 decimal places where applicable.",
+  "fields": {
+    "median_final_coverage": {
+      "type": "object { benchmark: { fuzzer: float } }",
+      "description": "Median edges covered at the final time point across all trials, per benchmark, per fuzzer."
+    },
+    "overall_test_statistic": {
+      "type": "float",
+      "description": "Omnibus test statistic for differences in fuzzer performance across benchmarks."
+    },
+    "overall_test_p_value": {
+      "type": "float",
+      "description": "P-value for the omnibus test."
+    },
+    "average_ranks": {
+      "type": "object { fuzzer: float }",
+      "description": "Each fuzzer's average rank across benchmarks. Rank 1 = best (highest coverage)."
+    },
+    "pairwise_p_values": {
+      "type": "object { '<a>_vs_<b>': float }",
+      "description": "Post-hoc pairwise comparison p-values with appropriate multiple-comparison correction. Keys use format '<a>_vs_<b>' where a < b lexicographically."
+    },
+    "critical_difference": {
+      "type": "float",
+      "description": "Minimum average rank difference required for statistical significance at alpha=0.05."
+    },
+    "average_normalized_scores": {
+      "type": "object { fuzzer: float }",
+      "description": "Per benchmark, trial coverages are min-max normalized to [0,1] using the global min and max across ALL fuzzers' trials in that benchmark. The median normalized value per fuzzer per benchmark is then averaged across benchmarks."
+    },
+    "pairwise_effect_sizes": {
+      "type": "object { benchmark: { '<a>_vs_<b>': float } }",
+      "description": "Per benchmark, per ordered fuzzer pair: the probability that a randomly chosen observation from fuzzer A exceeds one from fuzzer B, plus half the probability of a tie. Keys use '<a>_vs_<b>' where a < b lexicographically."
+    },
+    "ranking": {
+      "type": "array of strings",
+      "description": "Fuzzers ordered from best (lowest average rank) to worst (highest average rank)."
+    },
+    "equivalent_groups": {
+      "type": "array of arrays of strings",
+      "description": "Groups of fuzzers whose pairwise differences are not statistically significant (p > 0.05). Each group is a connected component in the graph where fuzzers are linked iff their pairwise p-value exceeds 0.05. Inner arrays sorted alphabetically; outer array sorted by first element."
+    }
+  }
+}

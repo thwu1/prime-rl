@@ -1,0 +1,41 @@
+[queues.debug]
+
+[queues.debug.policy.limits]
+duration = 1800
+
+[queues.debug.policy.limits.range.nnodes]
+min = 1
+max = 2
+
+[queues.batch]
+requires = ["standard"]
+
+[queues.batch.policy.limits]
+duration = 28800
+
+[queues.batch.policy.limits.range.nnodes]
+min = 1
+max = 4
+
+[queues.gpu]
+requires = ["gpu"]
+
+[queues.gpu.policy.limits]
+duration = 14400
+
+[queues.gpu.policy.limits.range.nnodes]
+min = 1
+max = 8
+
+[queues.priority]
+requires = ["highmem"]
+
+[queues.priority.policy.limits]
+duration = 43200
+
+[queues.priority.policy.limits.range.nnodes]
+min = 1
+max = 8
+
+[policy.jobspec.defaults.system]
+queue = "batch"

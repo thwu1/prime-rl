@@ -1,0 +1,36 @@
+{
+    "name": "diamond_pattern",
+    "body": [
+        {"op": "compute", "cost": 2, "id": "c0"},
+        {"op": "finish", "id": "F1", "body": [
+            {"op": "async", "task": "T1", "body": [
+                {"op": "compute", "cost": 4, "id": "c1"},
+                {"op": "write", "var": "x", "id": "w1"},
+                {"op": "finish", "id": "F2", "body": [
+                    {"op": "async", "task": "T3", "body": [
+                        {"op": "compute", "cost": 6, "id": "c3"},
+                        {"op": "write", "var": "z", "id": "w4"}
+                    ]},
+                    {"op": "async", "task": "T4", "body": [
+                        {"op": "compute", "cost": 3, "id": "c4"},
+                        {"op": "read", "var": "z", "id": "r3"},
+                        {"op": "write", "var": "w", "id": "w5"}
+                    ]},
+                    {"op": "read", "var": "x", "id": "r4"},
+                    {"op": "compute", "cost": 2, "id": "c8"}
+                ]},
+                {"op": "compute", "cost": 5, "id": "c5"}
+            ]},
+            {"op": "async", "task": "T2", "body": [
+                {"op": "compute", "cost": 3, "id": "c2"},
+                {"op": "read", "var": "x", "id": "r1"},
+                {"op": "write", "var": "y", "id": "w2"},
+                {"op": "compute", "cost": 7, "id": "c9"}
+            ]},
+            {"op": "write", "var": "y", "id": "w3"},
+            {"op": "compute", "cost": 3, "id": "c6"}
+        ]},
+        {"op": "read", "var": "w", "id": "r5"},
+        {"op": "compute", "cost": 1, "id": "c7"}
+    ]
+}

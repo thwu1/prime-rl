@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the CUTEst SIF format -- an arcane fixed-format Fortran-era specification with multiple interdependent sections, nested loop constructs, and nonlinear function definitions spread across ENDATA-delimited blocks. The agent must build a correct interpreter for this underdocumented format, reconstruct the mathematical problems from the parsed representation, and solve constrained nonlinear optimization problems to verified tolerances. One problem is custom (not publicly available), preventing answer lookup."""
+solution_explanation = """Parse each SIF file section by section (VARIABLES, GROUPS, CONSTANTS, BOUNDS, START POINT, ELEMENT TYPE, ELEMENT USES, GROUP TYPE, GROUP USES, then ELEMENTS and GROUPS function definitions). Handle DO-loop variable generation and R-card internal variable transformations. Build callable objective/constraint functions from the compositional element-group structure. Solve using scipy.optimize with SLSQP for constrained problems and BFGS/Nelder-Mead for unconstrained."""
+verification_explanation = """Tests verify: (1) results.json has correct structure with all 3 problems, (2) n_vars and n_constraints match expected values, (3) optimal values are within tolerance of known solutions (including a custom problem with no public answer), (4) reported solution points re-evaluate to the claimed objective value, (5) constraints and bounds are satisfied at solution points, (6) a SIF parser module exists in /app."""
+category = "numerical_optimization"
+tags = ["nonlinear-optimization", "parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5d45b7"

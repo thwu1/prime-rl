@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of component-based flight software architecture. The solver must analyze typed port definitions with match specifier constraints, derive compatible port pairings from component specifications without explicit wiring instructions, perform rate-monotonic scheduling analysis to identify and resolve CPU budget overruns under competing time-criticality constraints, wire health monitoring with correctly indexed bidirectional pairs satisfying match constraints, integrate a redundant command dispatcher with vacuously-satisfied match specifiers, and produce a topology that simultaneously satisfies six interdependent connection rules across 50+ connections. The task demands holistic reasoning about constraint interactions — a port index choice in command dispatch affects health monitoring index availability, rate-group rebalancing constrains scheduling feasibility, and match specifiers impose non-local correctness conditions that span the entire topology graph."""
+solution_explanation = """A Python script loads all spec files, computes rate-group utilization to discover that rg10Hz exceeds its 70ms budget when fileDownlink (18ms) is added to the existing 60ms load, determines sensorMgr (35ms) is the only movable component since health and tlmChan are constrained to 10Hz, then constructs all new connections by analyzing component port definitions for type-compatible pairings. Buffer connections are derived from matching Fw.BufferGet and Fw.BufferSend port types between fileDownlink and bufferMgr. The backup dispatcher uses compCmdSend-only connections with vacuously satisfied match specifiers (no compCmdReg connections exist). Health monitoring extends to new active components at indices 6 and 7. Infrastructure wiring is derived from component port type analysis. The DOT file uses port-type-based edge coloring and is rendered via graphviz."""
+verification_explanation = """Tests programmatically validate every FPP rule against the redesigned topology, verify all three new instances exist with correct component types, confirm all 10 baseline instances and critical paths are preserved (command dispatch, rate driver, sequence command, primary cmdDisp match specifier), check rate-group budget feasibility via WCET summation, verify buffer management connections between fileDownlink and bufferMgr, confirm backupCmdDisp dispatches to all command-bearing components with satisfied match specifiers, validate health monitoring coverage and index matching for all active/queued components, verify infrastructure wiring completeness (telemetry, events, text events, time), validate DOT syntax and presence of 6 color-coded edge categories, check SVG validity, and verify the scheduling report schema and design decisions format."""
+category = "systems_engineering"
+tags = ["flight-software", "topology-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fprime-topology-audit"

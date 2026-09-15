@@ -1,0 +1,55 @@
+Implicit Weight Derivation
+(Excerpt from UTS #10, Section 10.1.3)
+
+Code points without explicit mappings in the DUCET are assigned
+implicit collation elements consisting of two collation elements
+with primary weight units AAAA and BBBB:
+
+  [.AAAA.0020.0002][.BBBB.0000.0000]
+
+BBBB always has bit 15 set (OR with 0x8000) to ensure it is never zero.
+Both elements are non-variable.
+
+COMPUTING AAAA AND BBBB
+
+The values depend on the code point category. For each code point CP,
+find the matching category and compute accordingly:
+
+1. Siniform Ideographic Scripts
+   Parameters are specified by @implicitweights lines in allkeys.txt.
+   Format: @implicitweights START..END ; BASE
+   For assigned code point CP in range [START, END]:
+     AAAA = BASE
+     BBBB = (CP - START) | 0x8000
+
+2. Core Han Unified Ideographs
+   Unified_Ideograph=True AND (Block=CJK_Unified_Ideographs OR
+   Block=CJK_Compatibility_Ideographs):
+   Code point ranges: U+4E00..U+9FFF, plus specific compatibility
+   ideographs (FA0E, FA0F, FA11, FA13, FA14, FA1F, FA21, FA23,
+   FA24, FA27, FA28, FA29).
+     AAAA = 0xFB40 + (CP >> 15)
+     BBBB = (CP & 0x7FFF) | 0x8000
+
+3. Other Han Unified Ideographs (Extensions)
+   Unified_Ideograph=True but NOT in core Han blocks.
+   Includes CJK Extension A (3400..4DBF), Extension B (20000..2A6DF),
+   Extension C (2A700..2B739), Extension D (2B740..2B81D),
+   Extension E (2B820..2CEA1), Extension F (2CEB0..2EBE0),
+   Extension G (30000..3134A), Extension H (31350..323AF).
+     AAAA = 0xFB80 + (CP >> 15)
+     BBBB = (CP & 0x7FFF) | 0x8000
+
+4. All Other Code Points (unassigned, miscellaneous)
+     AAAA = 0xFBC0 + (CP >> 15)
+     BBBB = (CP & 0x7FFF) | 0x8000
+
+NOTES:
+- The code point's Unicode General Category should be checked.
+  The @implicitweights ranges apply only to assigned (non-Cn
+  category) code points.
+- Decomposable characters are handled via NFD normalization and
+  should not reach implicit weight derivation under normal
+  circumstances.
+- Each implicit mapping produces exactly two collation elements,
+  both non-variable (is_variable = False).

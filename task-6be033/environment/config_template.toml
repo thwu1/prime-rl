@@ -1,0 +1,13 @@
+# War of Attrition — Game Configuration Template
+# All parameters must be integers within the specified ranges.
+# Pass to woa-sim via: woa-sim --config <this_file.toml> --matchup ...
+
+[parameters]
+base_hp = 60           # [20, 100] Starting hit points per player
+base_mana = 10         # [3, 25]   Starting mana per player
+attack_damage = 8      # [2, 15]   Base damage per attack action
+defend_block = 5       # [1, 10]   Shield points gained per defend
+charge_gain = 3        # [1, 8]    Mana gained per charge action
+spell_damage = 15      # [5, 25]   Base damage per cast action
+spell_cost = 8         # [3, 20]   Mana cost per cast
+mana_regen = 1         # [0, 5]    Passive mana regeneration per action

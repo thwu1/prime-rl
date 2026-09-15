@@ -1,0 +1,18 @@
+{
+  "cluster_id": "weaviate-prod-v2",
+  "nodes": [
+    {"name": "weaviate-0", "address": "10.0.2.20"},
+    {"name": "weaviate-1", "address": "10.0.2.21"}
+  ],
+  "version": "1.35.5",
+  "memory_per_node_mb": 4096,
+  "max_vector_cache_objects": 100000,
+  "available_modules": [
+    "text2vec-transformers",
+    "text2vec-ollama",
+    "generative-ollama",
+    "img2vec-neural",
+    "backup-filesystem"
+  ],
+  "tokenizer_support": ["word", "lowercase", "whitespace", "field", "trigram", "gse", "kagome_kr"]
+}

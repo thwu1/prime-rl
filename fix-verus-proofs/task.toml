@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of formal verification with Verus, a Rust-based SMT-backed verification tool. The agent must complete multiple incomplete proof obligations across a 120-line file implementing verified merge sort and binary search. Key challenges: (1) writing a full inductive proof for multiset distribution over sequence concatenation, including correct decreases measures, base case reasoning, and inductive step with drop_last/push decomposition; (2) designing 8 interrelated loop invariants for the merge function that simultaneously track index bounds, sortedness preservation, element ordering with respect to current indices, and multiset equality over subranges; (3) constructing proof blocks that invoke lemmas with precisely typed subrange arguments to maintain multiset invariants across push operations; (4) understanding Verus-specific concepts like broadcast use declarations, extensional equality (=~=), spec-mode triggers, and the proof/exec mode separation; (5) devising loop invariants for binary search using existential witnesses and trigger-based SMT reasoning. Each proof component requires understanding how Verus's SMT backend processes specifications and where manual proof guidance is needed."""
+solution_explanation = """Eight categories of fixes totaling ~60 lines of proof code: (1) Add loop invariant to extend_from_idx relating r@ to the accumulated subrange; (2) Write complete inductive proof body for lemma_to_multiset_distributes_over_add with decreases s2.len(), base case for empty s2, and inductive step using drop_last decomposition and to_multiset_ensures; (3) Add ensures clause to lemma_subrange_push establishing that push(s1[end]) extends the subrange; (4) Add broadcast use declaration at top of merge to make multiset distribution facts available; (5) Add 8 loop invariants to merge's while loop covering bounds, sortedness, element ordering, multiset tracking, and result sortedness; (6) Add proof blocks inside merge loop body invoking multiset distribution and subrange push lemmas with correct subrange arguments before and after index increments; (7) Add proof blocks after merge loop invoking subrange_add for the remaining tail; (8) Add 3 loop invariants to binary_search using existential witness narrowing and sortedness."""
+verification_explanation = """Run 'verus /app/verified_algorithms.rs' and check for exit code 0 (all verification conditions discharged). Additionally verify the file contains no assume(false) and no verifier::external bypass attributes, and retains all required function signatures."""
+category = "formal_methods"
+tags = ["verus", "formal-verification"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-verus-proofs"

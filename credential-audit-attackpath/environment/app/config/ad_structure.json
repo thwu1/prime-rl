@@ -1,0 +1,561 @@
+{
+  "domain": "ACMECORP.LOCAL",
+  "domain_controllers": [
+    {
+      "hostname": "DC01",
+      "fqdn": "DC01.acmecorp.local",
+      "os": "Windows Server 2022",
+      "ip": "10.10.1.10",
+      "ou": "OU=Domain Controllers,DC=acmecorp,DC=local"
+    }
+  ],
+  "organizational_units": [
+    "OU=Domain Controllers,DC=acmecorp,DC=local",
+    "OU=Service Accounts,DC=acmecorp,DC=local",
+    "OU=IT Staff,DC=acmecorp,DC=local",
+    "OU=Standard Users,DC=acmecorp,DC=local",
+    "OU=Executives,DC=acmecorp,DC=local",
+    "OU=Workstations,DC=acmecorp,DC=local",
+    "OU=Servers,DC=acmecorp,DC=local"
+  ],
+  "users": [
+    {
+      "samaccountname": "Administrator",
+      "display_name": "Built-in Administrator",
+      "enabled": true,
+      "groups": ["Domain Admins", "Administrators", "Domain Users"],
+      "ou": "CN=Users,DC=acmecorp,DC=local",
+      "description": "Built-in account for administering the domain",
+      "spn": [],
+      "last_password_set": "2024-01-15T08:30:00Z",
+      "admin_count": 1
+    },
+    {
+      "samaccountname": "krbtgt",
+      "display_name": "Key Distribution Center Service Account",
+      "enabled": false,
+      "groups": ["Domain Users"],
+      "ou": "CN=Users,DC=acmecorp,DC=local",
+      "description": "Key Distribution Center Service Account",
+      "spn": [],
+      "last_password_set": "2024-01-15T08:30:00Z",
+      "admin_count": 1
+    },
+    {
+      "samaccountname": "da_admin",
+      "display_name": "Domain Admin Service",
+      "enabled": true,
+      "groups": ["Domain Admins", "Administrators", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Dedicated Domain Admin account",
+      "spn": [],
+      "last_password_set": "2024-11-01T14:00:00Z",
+      "admin_count": 1
+    },
+    {
+      "samaccountname": "j.smith",
+      "display_name": "John Smith",
+      "enabled": true,
+      "groups": ["Help Desk", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Help Desk Technician - Tier 1",
+      "spn": [],
+      "last_password_set": "2024-09-10T09:15:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "m.johnson",
+      "display_name": "Maria Johnson",
+      "enabled": true,
+      "groups": ["HR", "Domain Users"],
+      "ou": "OU=Standard Users,DC=acmecorp,DC=local",
+      "description": "HR Manager",
+      "spn": [],
+      "last_password_set": "2024-08-22T11:30:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "a.williams",
+      "display_name": "Alex Williams",
+      "enabled": true,
+      "groups": ["Developers", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Senior Software Developer",
+      "spn": [],
+      "last_password_set": "2024-10-05T16:45:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "s.davis",
+      "display_name": "Sarah Davis",
+      "enabled": true,
+      "groups": ["DB Admins", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Database Administrator",
+      "spn": [],
+      "last_password_set": "2024-07-18T13:20:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "r.brown",
+      "display_name": "Robert Brown",
+      "enabled": true,
+      "groups": ["Server Admins", "Network Admins", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Senior Network/Systems Administrator",
+      "spn": [],
+      "last_password_set": "2024-06-30T10:00:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "k.taylor",
+      "display_name": "Kyle Taylor",
+      "enabled": true,
+      "groups": ["Interns", "Domain Users"],
+      "ou": "OU=Standard Users,DC=acmecorp,DC=local",
+      "description": "Summer Intern - IT Department",
+      "spn": [],
+      "last_password_set": "2024-06-01T08:00:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "e.wilson",
+      "display_name": "Emily Wilson",
+      "enabled": true,
+      "groups": ["Finance", "Domain Users"],
+      "ou": "OU=Standard Users,DC=acmecorp,DC=local",
+      "description": "Financial Analyst",
+      "spn": [],
+      "last_password_set": "2024-09-25T14:10:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "svc_backup",
+      "display_name": "Backup Service Account",
+      "enabled": true,
+      "groups": ["Backup Operators", "Domain Users"],
+      "ou": "OU=Service Accounts,DC=acmecorp,DC=local",
+      "description": "Service account for Veeam backup operations",
+      "spn": ["backupexec/DC01.acmecorp.local"],
+      "last_password_set": "2023-03-15T12:00:00Z",
+      "admin_count": 0,
+      "password_never_expires": true
+    },
+    {
+      "samaccountname": "svc_sql",
+      "display_name": "SQL Service Account",
+      "enabled": true,
+      "groups": ["DB Admins", "Domain Users"],
+      "ou": "OU=Service Accounts,DC=acmecorp,DC=local",
+      "description": "Service account for SQL Server instances",
+      "spn": ["MSSQLSvc/SRV-SQL01.acmecorp.local:1433", "MSSQLSvc/SRV-SQL01.acmecorp.local"],
+      "last_password_set": "2023-06-01T09:00:00Z",
+      "admin_count": 0,
+      "password_never_expires": true,
+      "delegation": {
+        "type": "constrained",
+        "allowed_to_delegate_to": ["cifs/DC01.acmecorp.local", "cifs/DC01"]
+      }
+    },
+    {
+      "samaccountname": "svc_web",
+      "display_name": "Web Application Service Account",
+      "enabled": true,
+      "groups": ["Web Services", "Domain Users"],
+      "ou": "OU=Service Accounts,DC=acmecorp,DC=local",
+      "description": "Service account for IIS web applications",
+      "spn": ["HTTP/WEBSRV01.acmecorp.local", "HTTP/portal.acmecorp.local"],
+      "last_password_set": "2023-09-20T15:30:00Z",
+      "admin_count": 0,
+      "password_never_expires": true
+    },
+    {
+      "samaccountname": "admin.t",
+      "display_name": "Tom Admin",
+      "enabled": true,
+      "groups": ["Server Admins", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "IT Systems Administrator",
+      "spn": [],
+      "last_password_set": "2024-10-15T08:00:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "p.martinez",
+      "display_name": "Patricia Martinez",
+      "enabled": true,
+      "groups": ["Security Team", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Security Operations Analyst",
+      "spn": [],
+      "last_password_set": "2024-10-20T11:45:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "d.anderson",
+      "display_name": "Derek Anderson",
+      "enabled": true,
+      "groups": ["Unix Admins", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "Linux Systems Administrator",
+      "spn": [],
+      "last_password_set": "2024-05-12T09:30:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "l.jackson",
+      "display_name": "Linda Jackson",
+      "enabled": true,
+      "groups": ["Executives", "Domain Users"],
+      "ou": "OU=Executives,DC=acmecorp,DC=local",
+      "description": "Chief Financial Officer",
+      "spn": [],
+      "last_password_set": "2024-04-01T10:00:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "b.lee",
+      "display_name": "Brian Lee",
+      "enabled": true,
+      "groups": ["Developers", "Domain Users"],
+      "ou": "OU=IT Staff,DC=acmecorp,DC=local",
+      "description": "DevOps Engineer",
+      "spn": [],
+      "last_password_set": "2024-10-01T13:00:00Z",
+      "admin_count": 0
+    },
+    {
+      "samaccountname": "svc_monitor",
+      "display_name": "Monitoring GMSA",
+      "enabled": true,
+      "groups": ["Domain Users"],
+      "ou": "OU=Service Accounts,DC=acmecorp,DC=local",
+      "description": "Group Managed Service Account for monitoring infrastructure",
+      "spn": ["MonSvc/MONSRV01.acmecorp.local"],
+      "last_password_set": "2024-10-30T00:00:00Z",
+      "admin_count": 0,
+      "is_gmsa": true,
+      "gmsa_managed_password_interval": 30
+    }
+  ],
+  "groups": [
+    {
+      "name": "Domain Admins",
+      "dn": "CN=Domain Admins,CN=Users,DC=acmecorp,DC=local",
+      "members": ["Administrator", "da_admin"],
+      "description": "Designated administrators of the domain",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Administrators",
+      "dn": "CN=Administrators,CN=Builtin,DC=acmecorp,DC=local",
+      "members": ["Administrator", "da_admin", "Domain Admins"],
+      "description": "Built-in Administrators group",
+      "scope": "DomainLocal",
+      "type": "Security"
+    },
+    {
+      "name": "Server Admins",
+      "dn": "CN=Server Admins,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["admin.t", "r.brown"],
+      "description": "Server infrastructure administrators",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Help Desk",
+      "dn": "CN=Help Desk,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["j.smith"],
+      "description": "Tier 1 help desk support staff",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "HR",
+      "dn": "CN=HR,OU=Standard Users,DC=acmecorp,DC=local",
+      "members": ["m.johnson"],
+      "description": "Human Resources department",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Developers",
+      "dn": "CN=Developers,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["a.williams", "b.lee"],
+      "description": "Software development team",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "DB Admins",
+      "dn": "CN=DB Admins,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["s.davis", "svc_sql"],
+      "description": "Database administration team",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Network Admins",
+      "dn": "CN=Network Admins,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["r.brown"],
+      "description": "Network infrastructure team",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Interns",
+      "dn": "CN=Interns,OU=Standard Users,DC=acmecorp,DC=local",
+      "members": ["k.taylor"],
+      "description": "Temporary intern accounts",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Finance",
+      "dn": "CN=Finance,OU=Standard Users,DC=acmecorp,DC=local",
+      "members": ["e.wilson"],
+      "description": "Finance department",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Backup Operators",
+      "dn": "CN=Backup Operators,CN=Builtin,DC=acmecorp,DC=local",
+      "members": ["svc_backup"],
+      "description": "Members can back up and restore files on domain controllers",
+      "scope": "DomainLocal",
+      "type": "Security"
+    },
+    {
+      "name": "Web Services",
+      "dn": "CN=Web Services,OU=Service Accounts,DC=acmecorp,DC=local",
+      "members": ["svc_web"],
+      "description": "Web application service accounts",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Security Team",
+      "dn": "CN=Security Team,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["p.martinez"],
+      "description": "Security operations team",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Unix Admins",
+      "dn": "CN=Unix Admins,OU=IT Staff,DC=acmecorp,DC=local",
+      "members": ["d.anderson"],
+      "description": "Linux/Unix systems administrators",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Executives",
+      "dn": "CN=Executives,OU=Executives,DC=acmecorp,DC=local",
+      "members": ["l.jackson"],
+      "description": "Executive management",
+      "scope": "Global",
+      "type": "Security"
+    },
+    {
+      "name": "Domain Users",
+      "dn": "CN=Domain Users,CN=Users,DC=acmecorp,DC=local",
+      "members": ["ALL_USERS"],
+      "description": "All domain users",
+      "scope": "Global",
+      "type": "Security"
+    }
+  ],
+  "acls": [
+    {
+      "id": "ACL-001",
+      "source": "Server Admins",
+      "source_type": "group",
+      "target": "OU=Domain Controllers,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "GenericAll",
+      "inheritance": true,
+      "notes": "Delegated full control over Domain Controllers OU for server management"
+    },
+    {
+      "id": "ACL-002",
+      "source": "Help Desk",
+      "source_type": "group",
+      "target": "OU=Standard Users,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ResetPassword",
+      "inheritance": true,
+      "notes": "Help desk can reset passwords for standard users"
+    },
+    {
+      "id": "ACL-003",
+      "source": "Help Desk",
+      "source_type": "group",
+      "target": "OU=Standard Users,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ReadProperty",
+      "inheritance": true,
+      "notes": "Help desk can view standard user properties"
+    },
+    {
+      "id": "ACL-004",
+      "source": "svc_web",
+      "source_type": "user",
+      "target": "Server Admins",
+      "target_type": "group",
+      "right": "GenericAll",
+      "inheritance": false,
+      "notes": "MISCONFIGURATION - Web service account has full control over Server Admins group"
+    },
+    {
+      "id": "ACL-005",
+      "source": "Developers",
+      "source_type": "group",
+      "target": "svc_web",
+      "target_type": "user",
+      "right": "GenericWrite",
+      "inheritance": false,
+      "notes": "Developers can modify web service account properties for deployment automation"
+    },
+    {
+      "id": "ACL-006",
+      "source": "Backup Operators",
+      "source_type": "group",
+      "target": "DC01",
+      "target_type": "computer",
+      "right": "SeBackupPrivilege",
+      "inheritance": false,
+      "notes": "Backup operators have backup privileges on the domain controller"
+    },
+    {
+      "id": "ACL-007",
+      "source": "Security Team",
+      "source_type": "group",
+      "target": "svc_monitor",
+      "target_type": "user",
+      "right": "ReadGMSAPassword",
+      "inheritance": false,
+      "notes": "Security team can read monitoring GMSA password for health checks"
+    },
+    {
+      "id": "ACL-008",
+      "source": "svc_monitor",
+      "source_type": "user",
+      "target": "Domain Admins",
+      "target_type": "group",
+      "right": "GenericAll",
+      "inheritance": false,
+      "notes": "MISCONFIGURATION - Monitoring GMSA has full control over Domain Admins group"
+    },
+    {
+      "id": "ACL-009",
+      "source": "Finance",
+      "source_type": "group",
+      "target": "OU=Workstations,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ReadProperty",
+      "inheritance": true,
+      "notes": "Finance can read workstation properties for asset management"
+    },
+    {
+      "id": "ACL-010",
+      "source": "Executives",
+      "source_type": "group",
+      "target": "OU=Standard Users,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ReadProperty",
+      "inheritance": true,
+      "notes": "Executives can view standard user directory information"
+    },
+    {
+      "id": "ACL-011",
+      "source": "Unix Admins",
+      "source_type": "group",
+      "target": "OU=Servers,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ReadProperty",
+      "inheritance": true,
+      "notes": "Unix admins can view server properties"
+    },
+    {
+      "id": "ACL-012",
+      "source": "DB Admins",
+      "source_type": "group",
+      "target": "svc_sql",
+      "target_type": "user",
+      "right": "GenericWrite",
+      "inheritance": false,
+      "notes": "DB Admins can modify SQL service account configuration"
+    },
+    {
+      "id": "ACL-013",
+      "source": "Domain Users",
+      "source_type": "group",
+      "target": "OU=Standard Users,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "ReadProperty",
+      "inheritance": true,
+      "notes": "All domain users can read standard user directory info"
+    },
+    {
+      "id": "ACL-014",
+      "source": "HR",
+      "source_type": "group",
+      "target": "OU=Standard Users,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "WriteProperty",
+      "inheritance": true,
+      "notes": "HR can update user profile information (title, department, phone)"
+    },
+    {
+      "id": "ACL-015",
+      "source": "Network Admins",
+      "source_type": "group",
+      "target": "OU=Workstations,DC=acmecorp,DC=local",
+      "target_type": "ou",
+      "right": "GenericAll",
+      "inheritance": true,
+      "notes": "Network admins manage workstation objects"
+    }
+  ],
+  "computers": [
+    {
+      "hostname": "DC01",
+      "fqdn": "DC01.acmecorp.local",
+      "os": "Windows Server 2022",
+      "ip": "10.10.1.10",
+      "ou": "OU=Domain Controllers,DC=acmecorp,DC=local",
+      "roles": ["Domain Controller", "DNS Server", "LDAP Server"],
+      "local_admins": ["Domain Admins", "Administrators"]
+    },
+    {
+      "hostname": "SRV-SQL01",
+      "fqdn": "SRV-SQL01.acmecorp.local",
+      "os": "Windows Server 2019",
+      "ip": "10.10.2.20",
+      "ou": "OU=Servers,DC=acmecorp,DC=local",
+      "roles": ["SQL Server"],
+      "local_admins": ["DB Admins", "Server Admins"]
+    },
+    {
+      "hostname": "WEBSRV01",
+      "fqdn": "WEBSRV01.acmecorp.local",
+      "os": "Windows Server 2019",
+      "ip": "10.10.3.30",
+      "ou": "OU=Servers,DC=acmecorp,DC=local",
+      "roles": ["IIS Web Server"],
+      "local_admins": ["Web Services", "Server Admins"]
+    },
+    {
+      "hostname": "MONSRV01",
+      "fqdn": "MONSRV01.acmecorp.local",
+      "os": "Windows Server 2022",
+      "ip": "10.10.2.25",
+      "ou": "OU=Servers,DC=acmecorp,DC=local",
+      "roles": ["Monitoring Server"],
+      "local_admins": ["Server Admins"]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to: (1) investigate an unfamiliar MJCF model to understand its kinematic structure, degrees of freedom, and actuation topology; (2) diagnose why a naive proportional controller fails for this underactuated, inherently unstable system; (3) independently determine what approach is needed to stabilize a 1-actuator, 3-DOF unstable plant — the instruction gives no algorithmic guidance; (4) discover the correct MuJoCo API for obtaining dynamics information suitable for controller design; (5) implement a full-state feedback controller that meets tight stabilization tolerances; (6) produce properly formatted analysis artifacts (matrices, eigenvalues, trajectory). The combination of model investigation, control-theoretic reasoning without prescribed methods, and MuJoCo API expertise makes this a proficient-level task."""
+solution_explanation = """Inspect the model XML to identify the cart-double-pendulum structure (slide joint + 2 hinges, 1 motor actuator). Run the broken P-controller to observe divergence. Recognize that proportional-only feedback on an underactuated multi-DOF unstable system is insufficient — full-state feedback with velocity terms is required. Linearize at the upright equilibrium using mjd_transitionFD with centered finite differences to obtain discrete-time A and B matrices. Verify controllability (rank 6). Solve the Discrete Algebraic Riccati Equation with aggressive angle penalties (Q) and small control cost (R) to get gain matrix K. Simulate u=-Kx with actuator clipping from the perturbed initial condition."""
+verification_explanation = """Tests independently compute reference A and B matrices using MuJoCo's mjd_transitionFD and compare against submitted matrices (atol=1e-3). They verify controllability rank equals the state dimension. They check all closed-loop eigenvalues of (A-BK) have magnitude < 0.999. They run an independent 10-second simulation using the submitted K matrix from the specified perturbation and verify: angles < 0.02 rad at t=10s, angles < 0.01 rad and velocities < 0.1 rad/s after t=5s, cart within +/-2m, control within actuator limits. Trajectory format is checked for 8 columns, >=100 rows, >=9.9s span."""
+category = "robotics"
+tags = ["control-theory", "physics-simulation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lqr-double-pendulum"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 interrelated bugs in a ~300-line asyncio TCP load balancer using network diagnostic tools (tcpdump, ss, strace, lsof). Bugs span: batch vs smooth WRR scheduling, PROXY protocol v1 field-order corruption (best found via packet capture), health check threshold bypass, token-bucket rate limiter that never decrements tokens, drain flag ignored in backend selection, least-connections first-match instead of round-robin tie-breaking, and missing bytes_received tracking. The solver must correlate runtime symptoms with code-level defects across multiple subsystems — networking, concurrency, and protocol implementation — rather than building from a specification."""
+solution_explanation = """The fixed lb.py applies 7 targeted corrections: (1) TokenBucket.consume decrements tokens on success, (2) _available() filters draining backends, (3) WRR uses Nginx-style smooth current-weight algorithm instead of batch counter, (4) least-connections uses _lc_rr_idx round-robin for tie-breaking, (5) _pipe tracks bytes_received in b2c direction, (6) PROXY header swaps fc['port'] and src_port to correct order, (7) health check only restores when consecutive_successes >= healthy_threshold."""
+verification_explanation = """Tests start 7 echo backends and the load balancer, then verify: (1) WRR distributes at ~3:2 ratio with max consecutive run <= 2 (smooth, not batch), (2) least-connections spreads across all backends via round-robin tie-breaking, (3) IP hash is sticky, (4) PROXY header has correct port order (dst=8080, src>1024), (5) admin /stats shows bytes_received > 0, (6) rate limiting rejects excess connections, (7) killing backend triggers removal from rotation, (8) restarted backend not restored until healthy_threshold met, (9) draining removes backend from rotation."""
+category = "systems_programming"
+tags = ["networking", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8e847d"

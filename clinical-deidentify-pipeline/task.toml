@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across multiple domains without prescribed implementation steps: (1) discovering and correctly implementing the Dutch BSN elfproef validation algorithm from domain knowledge alone — the specification intentionally omits the formula, (2) mastering the docdeid v1.0.1 framework API through code exploration since no component listing or import paths are provided, (3) engineering context-dependent disambiguation where the same word ("Henoch") must be redacted as a patient surname but preserved within a medical eponym in the same document — a problem requiring NLP judgment beyond pattern matching, (4) handling Dutch linguistic features (multi-word surnames with interfixes, hyphenated married names, multiple date and phone formats including international) across three documents with distinct edge cases, and (5) orchestrating 10+ interacting annotation components with correct overlap resolution and priority ordering. The task demands holistic understanding of clinical NLP de-identification pipelines rather than following a prescribed checklist."""
+solution_explanation = """Build a DocDeid pipeline with custom Annotator subclasses: BsnAnnotator implementing elfproef (sum of digits multiplied by [9,8,7,6,5,4,3,2,-1] mod 11 == 0), SingleTokenLookupAnnotator for names and places, MultiTokenLookupAnnotator for interfix+surname combinations, RegexpAnnotators for dates/phones/emails/postal codes/ages/streets/institutions, a MedicalTermFilter DocProcessor that removes annotations falling within medical term character spans, a CustomOverlapResolver keeping highest-priority and longest annotations, and SimpleRedactor. Process each document with patient-specific metadata from patients.json."""
+verification_explanation = """Tests run the pipeline against three clinical documents with known PHI and verify: (1) output files exist with correct structure, (2) specific PHI strings are absent from redacted output across all categories (patient/doctor names with interfixes, BSNs, dates in multiple formats, phone numbers including international format, emails, institutions, addresses with postal codes), (3) medical eponyms are preserved in output (Henoch-Schönlein, Parkinson, Alzheimer), (4) BSN elfproef validation is correct (valid BSN tagged and redacted, invalid 9-digit number NOT tagged as bsn), (5) redacted text contains [TAG-N] format markers with at least 3 distinct tag types, (6) annotation JSON has correct structure with required fields."""
+category = "nlp"
+tags = ["clinical-nlp", "de-identification"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clinical-deidentify-pipeline"

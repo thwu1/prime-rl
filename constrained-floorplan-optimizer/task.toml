@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a constrained combinatorial optimizer for NP-hard rectangular floorplanning. Must simultaneously handle five interacting constraint types (overlap-free, area tolerance, fixed/preplaced dimension immutability, boundary edge placement, MIB dimension sharing, cluster adjacency) across instances of 15-48 blocks. Demands EDA domain knowledge (VLSI floorplanning, HPWL wirelength, packing representations), metaheuristic optimization expertise (simulated annealing with constraint-aware cost functions and move operators), and careful multi-objective cost balancing to achieve quality thresholds."""
+solution_explanation = """Simulated annealing optimizer with numpy-vectorized cost evaluation. Initializes blocks in a non-overlapping grid layout respecting preplaced/fixed constraints, then iteratively applies translate, area-preserving resize, and position swap moves. The cost function combines weighted HPWL, bounding-box area, overlap area penalty, and soft constraint violation penalties (boundary distance, MIB dimension mismatch, cluster gap). Post-processing greedily pushes apart any remaining overlapping blocks to ensure hard-constraint feasibility."""
+verification_explanation = """Runs the optimizer on all 5 instances, then evaluates each solution using the ICCAD-style evaluator: checks hard constraint feasibility (zero overlaps, area within 1% tolerance, dimension immutability for fixed/preplaced), computes soft constraint violations (boundary, MIB, cluster), calculates HPWL and area gaps relative to baselines, and applies the contest cost formula with exponential penalty. Requires all instances feasible with per-instance cost < 6.0 and overall exponentially-weighted score < 5.0."""
+category = "optimization"
+tags = ["eda", "floorplanning"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/constrained-floorplan-optimizer"

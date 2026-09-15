@@ -1,0 +1,36 @@
+// Reference protobuf definitions for conformance testing.
+
+syntax = "proto2";
+
+message FloatTest {
+  optional double val = 1;
+}
+
+message Fixed64Test {
+  optional fixed64 val = 1;
+}
+
+message Sint64Test {
+  optional sint64 val = 1;
+}
+
+message RoundtripTest {
+  optional sint64 signed_val = 1;
+  optional double float_val = 2;
+}
+
+message PackedTest {
+  repeated int32 vals = 1 [packed = true];
+}
+
+message NestedInner {
+  optional string label = 1;
+  optional int32 count = 2;
+}
+
+message CompositeTest {
+  optional int32 version = 1;
+  optional NestedInner info = 2;
+  optional sint32 offset = 3;
+  optional double score = 4;
+}

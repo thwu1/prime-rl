@@ -1,0 +1,35 @@
+; SPIR-V
+; Minimal compute shader - no dead code
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
+               OpExecutionMode %main LocalSize 64 1 1
+               OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+               OpDecorate %Buffer BufferBlock
+               OpMemberDecorate %Buffer 0 Offset 0
+               OpDecorate %ssbo DescriptorSet 0
+               OpDecorate %ssbo Binding 0
+               OpDecorate %arr ArrayStride 4
+       %void = OpTypeVoid
+    %fn_void = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+     %v3uint = OpTypeVector %uint 3
+%ptr_in_v3uint = OpTypePointer Input %v3uint
+      %float = OpTypeFloat 32
+        %arr = OpTypeRuntimeArray %float
+     %Buffer = OpTypeStruct %arr
+  %ptr_u_buf = OpTypePointer Uniform %Buffer
+  %ptr_u_flt = OpTypePointer Uniform %float
+     %uint_0 = OpConstant %uint 0
+  %float_1_0 = OpConstant %float 1.0
+%gl_GlobalInvocationID = OpVariable %ptr_in_v3uint Input
+       %ssbo = OpVariable %ptr_u_buf Uniform
+       %main = OpFunction %void None %fn_void
+      %entry = OpLabel
+       %gid3 = OpLoad %v3uint %gl_GlobalInvocationID
+        %idx = OpCompositeExtract %uint %gid3 0
+        %ptr = OpAccessChain %ptr_u_flt %ssbo %uint_0 %idx
+               OpStore %ptr %float_1_0
+               OpReturn
+               OpFunctionEnd

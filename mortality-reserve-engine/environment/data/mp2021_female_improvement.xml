@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<XTbML>
+  <ContentClassification>
+    <TableIdentity>3611</TableIdentity>
+    <ProviderDomain>soa.org</ProviderDomain>
+    <ProviderName>Retirement Plans Experience Committee</ProviderName>
+    <TableReference>Retirement Plans Experience Committee, Mortality Improvement Scale MP-2021, Society of Actuaries, (2021).</TableReference>
+    <ContentType tc="22">Projection Scale</ContentType>
+    <TableName>Scale MP-2021 Female</TableName>
+    <TableDescription>Scale MP-2021 Female</TableDescription>
+    <Comments>This update to Scale MP-2021 and its predecessors reflects historical U.S. population mortality experience through 2018. Rates for years beyond 2037 are equal to the rates for the year 2037.</Comments>
+    <KeyWord>Generational</KeyWord>
+    <KeyWord>Projection Scale</KeyWord>
+    <KeyWord>United States of America</KeyWord>
+  </ContentClassification>
+  <Table>
+    <MetaData>
+      <ScalingFactor>0</ScalingFactor>
+      <DataType tc="2">Floating Point</DataType>
+      <Nation tc="1">United States of America</Nation>
+      <TableDescription>Scale MP-2021 Female</TableDescription>
+      <AxisDef id="Age">
+        <ScaleType tc="3">Age</ScaleType>
+        <AxisName>Age</AxisName>
+        <MinScaleValue>20</MinScaleValue>
+        <MaxScaleValue>120</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+      <AxisDef id="Year">
+        <ScaleType tc="2">Ordinal Date</ScaleType>
+        <AxisName>Year</AxisName>
+        <MinScaleValue>1951</MinScaleValue>
+        <MaxScaleValue>2036</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+    </MetaData>
+    <Values>
+      <Axis t="20">
+        <Axis>
+          <Y t="1951">-0.0100</Y>
+          <Y t="1960">0.0050</Y>
+          <Y t="1970">0.0120</Y>
+          <Y t="1980">0.0089</Y>
+          <Y t="1990">0.0103</Y>
+          <Y t="2000">0.0145</Y>
+          <Y t="2010">0.0098</Y>
+          <Y t="2020">0.0112</Y>
+          <Y t="2030">0.0134</Y>
+          <Y t="2036">0.0138</Y>
+          <Y t="2037">0.0139</Y>
+        </Axis>
+      </Axis>
+      <Axis t="50">
+        <Axis>
+          <Y t="1951">0.0021</Y>
+          <Y t="1960">0.0088</Y>
+          <Y t="1970">0.0156</Y>
+          <Y t="1980">0.0201</Y>
+          <Y t="1990">0.0134</Y>
+          <Y t="2000">0.0187</Y>
+          <Y t="2010">0.0112</Y>
+          <Y t="2020">0.0098</Y>
+          <Y t="2030">0.0089</Y>
+          <Y t="2036">0.0085</Y>
+          <Y t="2037">0.0084</Y>
+        </Axis>
+      </Axis>
+    </Values>
+  </Table>
+</XTbML>

@@ -1,0 +1,20 @@
+program Control
+{
+  void main()
+    int i; int sum; int n;
+  {
+    n = 50 + 50;
+    sum = 0;
+    i = 0;
+    while (i < n) {
+      if (i > 30 + 30) {
+        break;
+        sum = sum + 1000 + 2000;
+      }
+      sum = sum + i * 8;
+      i++;
+    }
+    print(sum, 1);
+    print(chr(10), 1);
+  }
+}

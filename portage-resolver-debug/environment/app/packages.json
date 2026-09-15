@@ -1,0 +1,140 @@
+{
+    "sys-libs/zlib": {
+        "1.3": {
+            "slot": "0",
+            "subslot": "1.3",
+            "deps": ""
+        },
+        "1.3a": {
+            "slot": "0",
+            "subslot": "1.3a",
+            "deps": ""
+        }
+    },
+    "dev-libs/openssl": {
+        "1.1.1w": {
+            "slot": "0",
+            "subslot": "1.1",
+            "deps": "sys-libs/zlib:0="
+        },
+        "3.2.0": {
+            "slot": "0",
+            "subslot": "3",
+            "deps": "sys-libs/zlib:0="
+        }
+    },
+    "dev-libs/icu": {
+        "73.2": {
+            "slot": "0",
+            "subslot": "73",
+            "deps": ""
+        },
+        "74.1": {
+            "slot": "0",
+            "subslot": "74",
+            "deps": ""
+        }
+    },
+    "dev-libs/boost": {
+        "1.83.0": {
+            "slot": "0",
+            "subslot": "1.83",
+            "deps": "dev-libs/icu:0="
+        },
+        "1.84.0": {
+            "slot": "0",
+            "subslot": "1.84",
+            "deps": "dev-libs/icu:0="
+        }
+    },
+    "net-misc/curl": {
+        "8.4.0": {
+            "slot": "0",
+            "subslot": "4",
+            "deps": "ssl? ( dev-libs/openssl:0= ) sys-libs/zlib:0="
+        },
+        "8.5.0": {
+            "slot": "0",
+            "subslot": "4",
+            "deps": "ssl? ( dev-libs/openssl:0= ) sys-libs/zlib:0="
+        }
+    },
+    "dev-libs/expat": {
+        "2.5.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": ""
+        },
+        "2.6.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": ""
+        }
+    },
+    "dev-libs/libxml2": {
+        "2.12.0": {
+            "slot": "2",
+            "subslot": "2",
+            "deps": "sys-libs/zlib"
+        }
+    },
+    "media-libs/codec": {
+        "2.0": {
+            "slot": "0",
+            "subslot": "2",
+            "deps": ""
+        },
+        "3.0": {
+            "slot": "0",
+            "subslot": "3",
+            "deps": ""
+        }
+    },
+    "dev-libs/render": {
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "media-libs/codec:0="
+        }
+    },
+    "app-misc/viewer": {
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "dev-libs/render:0="
+        }
+    },
+    "app-misc/client": {
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "!minimal? ( dev-libs/expat ) xml? ( dev-libs/libxml2 ) ssl? ( dev-libs/openssl )"
+        }
+    },
+    "dev-libs/crypto": {
+        "2.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "dev-libs/nonexistent"
+        },
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "dev-libs/icu"
+        }
+    },
+    "app-misc/secure": {
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "dev-libs/crypto"
+        }
+    },
+    "app-misc/analyzer": {
+        "1.0": {
+            "slot": "0",
+            "subslot": "0",
+            "deps": "<sys-libs/zlib-1.3a"
+        }
+    }
+}

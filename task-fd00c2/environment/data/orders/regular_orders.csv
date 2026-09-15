@@ -1,0 +1,16 @@
+order_id,product_code,description,width_mm,quantity_required
+ORD-1001,P01,Kraft liner 1520mm,1520,72
+ORD-1002,P02,Corrugated medium 1380mm,1380,115
+ORD-1003,P03,Fluting 1710mm,1710,48
+ORD-1004,P04,Test board 2150mm,2150,33
+ORD-1005,P05,Liner board 960mm,960,205
+ORD-1006,P06,Heavy kraft 2340mm,2340,41
+ORD-1007,P07,White top liner 1090mm,1090,163
+ORD-1008,P08,Semi-chem fluting 830mm,830,134
+ORD-1009,P09,Recycled liner 1860mm,1860,56
+ORD-1010,P10,Lightweight medium 670mm,670,187
+ORD-1011,P11,Double wall board 2540mm,2540,29
+ORD-1012,P12,Micro flute 410mm,410,245
+ORD-1013,P13,High performance liner 1230mm,1230,98
+ORD-1014,P14,Single face board 1440mm,1440,67
+ORD-1015,P15,Core board 560mm,560,210

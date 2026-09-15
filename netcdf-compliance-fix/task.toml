@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of CF-1.6 conventions (standard name table lookups, canonical unit mappings via udunits, cell_methods grammar, bounds variable semantics, valid_range consistency, flag variable requirements, coordinate variable metadata) and ACDD-1.3 discovery metadata (required vs recommended attributes, spatiotemporal coverage computation from data arrays). The agent must independently discover all violations by running and interpreting compliance-checker output, resolve interrelated issues (e.g., changing a standard_name requires verifying unit compatibility; fixing a dangling bounds reference requires creating a properly shaped bounds variable), decide between competing remediation strategies (remove vs repair invalid attributes), and produce a structured audit report that accurately reflects the checker's weighted scoring algorithm. No violation catalog is provided — the agent must diagnose everything from first principles."""
+solution_explanation = """The solution creates a new netCDF4 file copying all dimensions and data exactly, then systematically remediates every violation: corrects time units to canonical CF format and resolves the dangling time_bnds bounds reference by creating a proper 2D bounds variable; adds positive/axis attributes to depth; adds units to lat/lon; replaces invalid standard_names with valid CF entries and fixes associated unit mismatches; corrects cell_methods syntax; removes the invalid valid_range that clips pressure data; creates flag_meanings for the QC variable; removes dangling ancillary_variables references; adds all required and recommended ACDD global attributes with geospatial and temporal coverage computed from the data. Finally, it runs compliance-checker on both original and fixed files to produce an accurate audit report with per-violation documentation."""
+verification_explanation = """Tests run compliance-checker in JSON mode against the fixed file, parse scored_points/possible_points ratios for both CF-1.6 and ACDD-1.3, and assert they meet elevated thresholds (0.92 and 0.87). Data integrity is verified by element-wise comparison of all 11 measurement/coordinate arrays between original and fixed files. Structural tests verify specific CF attribute fixes (bounds resolution, valid_range consistency, flag_meanings, cell_methods syntax, no dangling references). The audit report is validated for correct JSON schema, accurate baseline scores cross-checked against actual compliance-checker output on the original file, demonstration of score improvement, at least 10 documented violations covering both standards with required fields."""
+category = "scientific_computing"
+tags = ["netcdf-compliance", "oceanographic-metadata"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netcdf-compliance-fix"

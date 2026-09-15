@@ -1,0 +1,8 @@
+expose:
+  - "443:443"
+
+env:
+  DISCOURSE_FORCE_HTTPS: "true"
+
+labels:
+  ssl: "enabled"

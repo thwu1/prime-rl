@@ -1,0 +1,93 @@
+//
+// grammar.lark — Grammar for a small functional language
+//
+// Supports: literals, variables, arithmetic, comparisons,
+// string concatenation, conditionals, lambdas, function
+// application, let/def bindings, sequences, print
+//
+// The language also has algebraic effect features (effect declarations,
+// handle expressions, do operations) but these are NOT YET defined
+// in this grammar. All ten example programs use this syntax but only
+// 01_basic.eff will parse successfully without effect-related rules.
+
+start: expr
+
+// --- Expressions ---
+
+?expr: sequence
+
+_seq_item: val_binding
+         | def_binding
+         | ternary
+
+sequence: _seq_item (";" _seq_item)* ";"?
+
+val_binding: "val" NAME "=" ternary ";" expr
+
+def_binding: "def" NAME "(" param_list? ")" "=" ternary ";" expr
+
+?ternary: if_expr
+        | lambda_expr
+        | comparison
+
+if_expr: "if" comparison "then" expr "else" expr
+
+lambda_expr: "fun" "(" param_list? ")" "=>" ternary
+
+// --- Operators (by precedence, low to high) ---
+
+?comparison: concat
+           | comparison "==" concat -> eq
+           | comparison "!=" concat -> neq
+           | comparison "<=" concat -> leq
+           | comparison ">=" concat -> geq
+           | comparison "<" concat -> lt
+           | comparison ">" concat -> gt
+
+?concat: addition
+       | concat "++" addition -> str_concat
+
+?addition: multiplication
+         | addition "+" multiplication -> add
+         | addition "-" multiplication -> sub
+
+?multiplication: unary
+               | multiplication "*" unary -> mul
+               | multiplication "/" unary -> div
+               | multiplication "%" unary -> mod_op
+
+?unary: "-" unary -> negate
+      | "not" unary -> logical_not
+      | postfix
+
+?postfix: atom
+        | postfix "(" arg_list? ")" -> application
+
+// --- Atoms ---
+
+?atom: INT -> integer
+     | STRING -> string_lit
+     | "true" -> true_lit
+     | "false" -> false_lit
+     | "unit" -> unit_lit
+     | "print" "(" expr ")" -> print_expr
+     | NAME -> variable
+     | "(" expr ")"
+
+// --- Lists ---
+
+param_list: NAME ("," NAME)*
+arg_list: ternary ("," ternary)*
+
+// --- Terminals ---
+
+NAME: /(?!(?:val|def|fun|if|then|else|true|false|unit|not|print|effect|handle|with|do|return)\b)[a-zA-Z_]\w*/
+
+STRING: /"[^"]*"/
+
+COMMENT: "//" /[^\n]*/
+
+%import common.INT
+%import common.WS
+%ignore WS
+%ignore COMMENT

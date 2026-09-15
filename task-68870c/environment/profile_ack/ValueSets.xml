@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValueSetLibrary xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ValueSetLibraryIdentifier="tbench_ack_a01">
+  <MetaData Name="RAD-1-ACK" OrgName="IHE" Version="1.0" Date="2024-01-01" Status="Active" />
+  <NoValidation>
+    <BindingIdentifier>0361</BindingIdentifier>
+    <BindingIdentifier>0362</BindingIdentifier>
+    <BindingIdentifier>0399</BindingIdentifier>
+  </NoValidation>
+  <ValueSetDefinitions>
+    <ValueSetDefinition BindingIdentifier="0003" Name="Event type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="A01" DisplayName="ADT/ACK - Admit/visit notification" />
+      <ValueElement Value="A02" DisplayName="ADT/ACK - Transfer a patient" />
+      <ValueElement Value="A03" DisplayName="ADT/ACK - Discharge/end visit" />
+      <ValueElement Value="A04" DisplayName="ADT/ACK - Register a patient" />
+      <ValueElement Value="A05" DisplayName="ADT/ACK - Pre-admit a patient" />
+      <ValueElement Value="A08" DisplayName="ADT/ACK - Update patient information" />
+      <ValueElement Value="A11" DisplayName="ADT/ACK - Cancel admit" />
+      <ValueElement Value="A12" DisplayName="ADT/ACK - Cancel transfer" />
+      <ValueElement Value="A13" DisplayName="ADT/ACK - Cancel discharge" />
+      <ValueElement Value="A40" DisplayName="ADT/ACK - Merge patient" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0008" Name="Acknowledgment code" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="AA" DisplayName="Original mode: Application Accept" />
+      <ValueElement Value="AE" DisplayName="Original mode: Application Error" />
+      <ValueElement Value="AR" DisplayName="Original mode: Application Reject" />
+      <ValueElement Value="CA" DisplayName="Enhanced mode: Accept acknowledgment commit accept" />
+      <ValueElement Value="CE" DisplayName="Enhanced mode: Accept acknowledgment commit error" />
+      <ValueElement Value="CR" DisplayName="Enhanced mode: Accept acknowledgment commit reject" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0076" Name="Message type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="ACK" DisplayName="General acknowledgment message" />
+      <ValueElement Value="ADT" DisplayName="ADT message" />
+      <ValueElement Value="BAR" DisplayName="Add/change billing account" />
+      <ValueElement Value="DFT" DisplayName="Detail financial transactions" />
+      <ValueElement Value="MDM" DisplayName="Medical document management" />
+      <ValueElement Value="OML" DisplayName="Laboratory order message" />
+      <ValueElement Value="ORM" DisplayName="Order message" />
+      <ValueElement Value="ORU" DisplayName="Observation result/unsolicited" />
+      <ValueElement Value="QBP" DisplayName="Query by parameter" />
+      <ValueElement Value="RSP" DisplayName="Segment pattern response" />
+      <ValueElement Value="SIU" DisplayName="Schedule information unsolicited" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0103" Name="Processing ID" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="D" DisplayName="Debugging" />
+      <ValueElement Value="P" DisplayName="Production" />
+      <ValueElement Value="T" DisplayName="Training" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0354" Name="Message structure" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="ACK" DisplayName="Varies" />
+      <ValueElement Value="ADT_A01" DisplayName="A01, A04, A08, A13" />
+      <ValueElement Value="ADT_A02" DisplayName="A02" />
+      <ValueElement Value="ADT_A03" DisplayName="A03" />
+      <ValueElement Value="ADT_A05" DisplayName="A05, A14, A28, A31" />
+      <ValueElement Value="ADT_A06" DisplayName="A06, A07" />
+      <ValueElement Value="ADT_A09" DisplayName="A09, A10, A11" />
+      <ValueElement Value="ADT_A12" DisplayName="A12" />
+      <ValueElement Value="ADT_A38" DisplayName="A38" />
+      <ValueElement Value="ADT_A39" DisplayName="A39-A41, A45" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0516" Name="Error severity" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="E" DisplayName="Error" />
+      <ValueElement Value="F" DisplayName="Fatal Error" />
+      <ValueElement Value="I" DisplayName="Information" />
+      <ValueElement Value="W" DisplayName="Warning" />
+    </ValueSetDefinition>
+  </ValueSetDefinitions>
+</ValueSetLibrary>

@@ -1,0 +1,7 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Equity,Risk_Equity,ISIN:INE160A01022,4,,,-2000000,USD,-2000000
+Equity,Risk_Equity,ISIN:US1266501006,5,,,10000000,USD,10000000
+Equity,Risk_Equity,ISIN:CA7751092007,6,,,-4000000,USD,-4000000
+Equity,Risk_Equity,ISIN:AU000000API4,10,,,600000,USD,600000
+Equity,Risk_Equity,SPX,11,,,1000000000,USD,1000000000
+Equity,Risk_Equity,VIX,12,,,3000000,USD,3000000

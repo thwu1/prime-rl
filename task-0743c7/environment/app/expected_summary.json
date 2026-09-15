@@ -1,0 +1,46 @@
+{
+  "total_rules": 13,
+  "total_violations": 6,
+  "shall_violations": 4,
+  "should_violations": 2,
+  "violation_rule_ids": ["R001", "R002", "R005", "R006", "R007", "R012"],
+  "non_violation_rule_ids": ["R003", "R004", "R008", "R009", "R010", "R011", "R013"],
+  "expected_violations": [
+    {
+      "rule_id": "R001",
+      "severity": "SHALL",
+      "actual_code": "X",
+      "valueset_oid": "2.16.840.1.113883.1.11.10228"
+    },
+    {
+      "rule_id": "R002",
+      "severity": "SHALL",
+      "actual_code": "Q",
+      "valueset_oid": "2.16.840.1.113883.1.11.1"
+    },
+    {
+      "rule_id": "R005",
+      "severity": "SHOULD",
+      "actual_code": "Z",
+      "valueset_oid": "2.16.840.1.113883.1.11.12212"
+    },
+    {
+      "rule_id": "R006",
+      "severity": "SHOULD",
+      "actual_code": "xx",
+      "valueset_oid": "2.16.840.1.113883.1.11.11526"
+    },
+    {
+      "rule_id": "R007",
+      "severity": "SHALL",
+      "actual_code": "INVALID_ROUTE",
+      "valueset_oid": "2.16.840.1.113883.3.88.12.3221.8.7"
+    },
+    {
+      "rule_id": "R012",
+      "severity": "SHALL",
+      "actual_code": "9999-4",
+      "valueset_oid": "2.16.840.1.113883.1.11.14914"
+    }
+  ]
+}

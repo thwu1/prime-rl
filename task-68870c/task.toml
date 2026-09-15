@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the IHE Gazelle IGAMT conformance profile XML schema (Profile.xml with segment/field/datatype definitions and Ref/ID indirection, Constraints.xml with assertion evaluation and boolean predicate combinators, ValueSets.xml with binding resolution and NoValidation exclusions) and building a validator that correctly interprets all structural, semantic, and referential relationships within and across these files. The solver must also integrate ISO Schematron rule processing, design an intermediate representation whose structure satisfies the Schematron XPath expectations, and merge heterogeneous validation results into a unified report. Works across two distinct profiles (ADT_A01 and ACK) preventing hardcoded solutions."""
+solution_explanation = """The reference solution implements a shell orchestrator (validate.sh) chaining four tools. igamt_validate.py (~830 lines) parses ER7 messages and validates against IGAMT profiles outputting JSON. er7_to_xml.py converts ER7 to XML with segments as elements, fields as SEG.N, components always as SEG.N.M. xsltproc compiles rules.sch via iso_svrl.xsl then applies compiled stylesheet producing SVRL. xmlstarlet sel with -N svrl namespace extracts failed-assert IDs and text. merge_results.py combines IGAMT JSON with parsed SVRL failures into unified report."""
+verification_explanation = """Tests cover both ADT_A01 and ACK profiles across all six error categories. ADT tests: valid message, missing segment, group structure, constraints, value sets, usage, predicates, length, multi-error, edge cases, plus Schematron-specific (inpatient without location, missing assigning authority). ACK tests: valid ACK, ACK with ERR, missing MSA, bad ack code, bad severity, wrong type, plus Schematron (error ack without ERR). Cross-profile generality test. All deterministic."""
+category = "healthcare_informatics"
+tags = ["hl7v2", "multi-tool-pipeline"]
+expert_time_estimate_hours = 5.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-68870c"

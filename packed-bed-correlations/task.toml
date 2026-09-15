@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 8 distinct bugs scattered across 7 source files in a multi-language (Python + C) packed-bed reactor analysis pipeline. Two correlations are implemented as a compiled C shared library loaded via ctypes, requiring the solver to read and fix C code, recompile with gcc via make, and verify results by querying an SQLite database. Bugs span coefficient errors in correlation formulas (both Python and C), structural formula omissions, a drag coefficient sign error, a root-finding convergence failure, and a pipeline integration bug. The solver must navigate a multi-file project spanning make, gcc, ctypes FFI, SQLite, and TOML configuration, understand fluid dynamics domain knowledge to identify which formulas are wrong, and fix all bugs to achieve 0.1% tolerance across 108+ numerical test points."""
+solution_explanation = """The 8 bugs are: (1) Ergun inertial coefficient 1.56 should be 1.75 (Python), (2) Hicks voidage exponent 1.0 should be 1.2 (Python), (3) Fahien-Schriver exponential decay missing holdup factor in exponent (Python), (4) Idelchik Reynolds number missing (1-voidage) divisor (C code in native_impl.c), (5) Harrison-Brunner-Hecker wall correction A factor missing holdup in denominator (C code in native_impl.c), (6) Barati drag coefficient 4th tanh term has wrong sign (Python), (7) Pipeline never passes tube diameter Dt to minimum fluidization velocity computation for wall-corrected correlations (Python), (8) Fluidization bisection bracket upper bound too small (0.5) without dynamic widening, causing convergence failure for gas-phase scenarios (Python). After fixing, the solver must recompile the C library via make and re-run the pipeline to produce results.db."""
+verification_explanation = """Tests install fluids==1.3.1 as reference oracle, query the SQLite database results.db, and compare all 13 pressure drop correlations, 13 minimum fluidization velocities, and terminal settling velocity across 4 scenarios (aqueous baseline, walled aqueous, gas phase, fine particles) = 108 numerical comparisons at 0.1% relative tolerance. Additional tests verify SQLite schema (tables and row counts), physics sanity (positive values, vmf < v_terminal), and that no /app/ code imports fluids."""
+category = "engineering"
+tags = ["fluid-dynamics", "multi-language-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/packed-bed-correlations"

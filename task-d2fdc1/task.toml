@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep reading comprehension of a 750-line hardware cost model specification with multiple interacting subsystems that deviate from standard formulations: asymmetric read/write memory bandwidth (separate roofline calculations per direction), inter-subgraph transition costs, operator fusion with ephemeral tensor detection, split-K pipelining with output-stationary accumulation, and traversal-order-dependent data reuse tracking. The asymmetric bandwidth permeates every latency calculation and changes the compute-vs-memory bottleneck balance, while transition costs affect multi-subgraph scheduling. Getting any component wrong cascades into incorrect results across all 16 test cases."""
+solution_explanation = """The solution implements a Python evaluator that: (1) parses problem/solution JSON with separate read/write bandwidths and transition cost, (2) identifies ephemeral tensors based on producing op type and split-K status, (3) computes working sets differently for pipeline vs sequential mode, (4) iterates over spatial tiles in traversal order with k-step nesting, (5) tracks loaded strip identities for data reuse detection, (6) accumulates per-step latencies using asymmetric roofline max(compute, read_time + write_time), and (7) adds transition costs between consecutive subgraphs. All test cases including a novel MatMul-with-retention example are verified to exact floating-point precision."""
+verification_explanation = """Tests reconstruct all six worked examples from the specification (14 valid strategies + 2 OOM cases) as inline JSON fixtures. Each test runs the evaluator as a subprocess, checks the exit code, and compares the output latency against the known-correct value within 0.01 tolerance. Additional structural tests verify that traversal order affects latency, fusion reduces latency, retention reduces latency, and transition costs increase with more subgraphs."""
+category = "systems"
+tags = ["compiler-optimization", "performance-modeling"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d2fdc1"

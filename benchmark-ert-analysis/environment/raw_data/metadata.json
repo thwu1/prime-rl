@@ -1,0 +1,52 @@
+{
+  "algorithms": [
+    "CMAES",
+    "DiffEvolution",
+    "NelderMead"
+  ],
+  "functions": [
+    1,
+    8,
+    10,
+    15,
+    21
+  ],
+  "dimensions": [
+    5,
+    10,
+    20,
+    40
+  ],
+  "instances": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "targets": [
+    "10.0",
+    "1.0",
+    "0.01",
+    "0.0001",
+    "1e-08"
+  ],
+  "function_groups": {
+    "separable": [
+      1
+    ],
+    "moderate_conditioning": [
+      8
+    ],
+    "high_conditioning": [
+      10
+    ],
+    "multimodal_global": [
+      15
+    ],
+    "multimodal_weak": [
+      21
+    ]
+  },
+  "budget_formula": "10000 * dimension"
+}

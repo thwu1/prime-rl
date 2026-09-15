@@ -1,0 +1,27 @@
+description: "Restrict redis access to orders service only"
+action: replace
+target_policy: db-allow-redis-from-api
+target_namespace: db
+policy:
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: db-allow-redis-from-api
+    namespace: db
+  spec:
+    podSelector:
+      matchLabels:
+        app: redis
+    policyTypes:
+    - Ingress
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            purpose: api
+        podSelector:
+          matchLabels:
+            app: orders
+      ports:
+      - port: 6379
+        protocol: TCP

@@ -1,0 +1,3 @@
+A researcher's incomplete numerical experiments workspace is set up at `/app/`. It contains three computational problems with configuration and code files in `/app/experiments/`, workspace calibration data, and logs from previous batch runs.
+
+Explore the workspace to understand its full structure, determine what each experiment requires mathematically, choose appropriate numerical methods, compute all requested quantities to at least 10 significant digits of accuracy, and write results to `/app/results.json` conforming to the schema in `/app/schema.json`.

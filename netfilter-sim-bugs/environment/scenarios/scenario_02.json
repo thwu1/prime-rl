@@ -1,0 +1,46 @@
+{
+  "name": "NOTRACK bypass under constrained conntrack",
+  "description": "NOTRACK-marked packets must bypass conntrack entirely, and packets dropped after conntrack must not consume table slots. Tests interaction of NOTRACK passthrough with conntrack entry lifecycle.",
+  "conntrack_max": 4,
+  "tcp_loose": true,
+  "conntrack_enabled": true,
+  "rules": [
+    {"table": "raw", "chain": "PREROUTING", "dst_port": 53, "action": "NOTRACK"},
+    {"table": "filter", "chain": "INPUT", "dst_port": 80, "action": "DROP"}
+  ],
+  "packets": [
+    {"src_ip": "8.8.8.8", "dst_ip": "192.0.2.1", "src_port": 40001, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 30001, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "1.1.1.1", "dst_ip": "192.0.2.1", "src_port": 40002, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.2", "dst_ip": "192.0.2.1", "src_port": 30002, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "8.8.4.4", "dst_ip": "192.0.2.1", "src_port": 40003, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.3", "dst_ip": "192.0.2.1", "src_port": 30003, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "1.0.0.1", "dst_ip": "192.0.2.1", "src_port": 40004, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.4", "dst_ip": "192.0.2.1", "src_port": 30004, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "9.9.9.9", "dst_ip": "192.0.2.1", "src_port": 40005, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.5", "dst_ip": "192.0.2.1", "src_port": 30005, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"}
+  ],
+  "expected": {
+    "counters": {
+      "raw:PREROUTING": 10,
+      "mangle:PREROUTING": 10,
+      "filter:INPUT": 10
+    },
+    "conntrack_entries": 0,
+    "total_accepted": 5,
+    "total_dropped": 5,
+    "conntrack_drops": 0,
+    "packet_results": [
+      "accepted",
+      "dropped:filter_input",
+      "accepted",
+      "dropped:filter_input",
+      "accepted",
+      "dropped:filter_input",
+      "accepted",
+      "dropped:filter_input",
+      "accepted",
+      "dropped:filter_input"
+    ]
+  }
+}

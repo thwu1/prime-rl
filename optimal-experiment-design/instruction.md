@@ -1,0 +1,5 @@
+An experimental design optimization pipeline at `/app/` computes optimal allocations for candidate experiments under D-optimal, A-optimal, and E-optimal criteria. It processes experiment vectors from `/app/experiments.npy` (shape m×d) with parameters from `/app/config.json`, and is described in `/app/README.md`.
+
+The optimizer script `/app/optimizer.py` executes without runtime errors but produces mathematically incorrect results. The script contains multiple bugs spanning the optimization formulations, post-processing computations, and derived quantities. Not all parts of the pipeline are broken.
+
+Diagnose all mathematical errors and produce a corrected `/app/results.json` whose contents are consistent with the standard definitions from the optimal experimental design literature. The corrected output must use the same JSON schema as the existing output.

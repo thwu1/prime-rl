@@ -1,0 +1,10 @@
+{
+  "resourceType": "Patient",
+  "id": "pat-002",
+  "meta": {"versionId": "1", "lastUpdated": "2024-01-15T11:00:00Z"},
+  "identifier": [{"system": "http://hospital.example.org/mrn", "value": "MRN-67890"}],
+  "name": [{"family": "Smith", "given": ["Jane"]}],
+  "gender": "female",
+  "birthDate": "1990-07-22",
+  "telecom": [{"system": "phone", "value": "555-0202"}]
+}

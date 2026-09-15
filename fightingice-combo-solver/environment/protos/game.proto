@@ -1,0 +1,32 @@
+syntax = "proto3";
+package fightingice;
+
+// Character move definition for FightingICE-style 2D fighting game.
+// Inspired by the DareFightingICE gRPC protocol (IEEE CoG competition).
+
+message MoveData {
+    string name = 1;
+    int32 startup_frames = 2;
+    int32 active_frames = 3;
+    int32 recovery_frames = 4;
+    int32 damage = 5;
+    int32 guard_damage = 6;
+    int32 energy_cost = 7;
+    int32 energy_gain = 8;
+    int32 hit_stun = 9;
+    int32 block_stun = 10;
+    int32 cancel_start_frame = 11;
+    int32 cancel_end_frame = 12;
+    int32 attack_level = 13;     // 0=light, 1=medium, 2=heavy, 3=special
+    bool is_launcher = 14;
+    bool is_knockdown = 15;
+    bool is_projectile = 16;
+    repeated string cancel_into = 17;
+}
+
+message CharacterMoveSet {
+    string character_name = 1;
+    int32 max_hp = 2;
+    int32 max_energy = 3;
+    repeated MoveData moves = 4;
+}

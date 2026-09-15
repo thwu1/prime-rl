@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:hl7-org:v2:conformance"
+           xmlns:cp="urn:hl7-org:v2:conformance"
+           elementFormDefault="qualified">
+
+  <!-- Usage code enumeration: R=Required, O=Optional, C=Conditional, X=Not supported, W=Withdrawn -->
+  <xs:simpleType name="UsageType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="R"/>
+      <xs:enumeration value="O"/>
+      <xs:enumeration value="C"/>
+      <xs:enumeration value="X"/>
+      <xs:enumeration value="W"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Cardinality/length max: a non-negative integer or unbounded "*" -->
+  <xs:simpleType name="CardinalityMax">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:nonNegativeInteger"/>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="*"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
+  <!-- Segment reference within message structure -->
+  <xs:complexType name="SegmentRefType">
+    <xs:attribute name="Ref" type="xs:string" use="required"/>
+    <xs:attribute name="Usage" type="cp:UsageType" use="required"/>
+    <xs:attribute name="Min" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="Max" type="cp:CardinalityMax" use="required"/>
+  </xs:complexType>
+
+  <!-- Recursive group within message structure -->
+  <xs:complexType name="GroupType">
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="Segment" type="cp:SegmentRefType"/>
+      <xs:element name="Group" type="cp:GroupType"/>
+    </xs:choice>
+    <xs:attribute name="Name" type="xs:string" use="required"/>
+    <xs:attribute name="Usage" type="cp:UsageType" use="required"/>
+    <xs:attribute name="Min" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="Max" type="cp:CardinalityMax" use="required"/>
+  </xs:complexType>
+
+  <!-- Field definition within a segment definition -->
+  <xs:complexType name="FieldType">
+    <xs:attribute name="Name" type="xs:string" use="required"/>
+    <xs:attribute name="Datatype" type="xs:string" use="required"/>
+    <xs:attribute name="Usage" type="cp:UsageType" use="required"/>
+    <xs:attribute name="Min" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="Max" type="cp:CardinalityMax" use="required"/>
+    <xs:attribute name="MinLength" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="MaxLength" type="cp:CardinalityMax" use="required"/>
+  </xs:complexType>
+
+  <!-- Segment definition in the Segments catalog -->
+  <xs:complexType name="SegmentDefType">
+    <xs:sequence>
+      <xs:element name="Field" type="cp:FieldType" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="ID" type="xs:string" use="required"/>
+    <xs:attribute name="Name" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <!-- Root element -->
+  <xs:element name="ConformanceProfile">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Message">
+          <xs:complexType>
+            <xs:choice minOccurs="1" maxOccurs="unbounded">
+              <xs:element name="Segment" type="cp:SegmentRefType"/>
+              <xs:element name="Group" type="cp:GroupType"/>
+            </xs:choice>
+            <xs:attribute name="ID" type="xs:string" use="required"/>
+            <xs:attribute name="Name" type="xs:string"/>
+            <xs:attribute name="Type" type="xs:string"/>
+            <xs:attribute name="Event" type="xs:string"/>
+            <xs:attribute name="StructID" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Segments">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Segment" type="cp:SegmentDefType" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

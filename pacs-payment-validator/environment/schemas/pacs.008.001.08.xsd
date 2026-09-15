@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimal structural XSD for pacs.008.001.08 -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+           xmlns:tns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+           elementFormDefault="qualified">
+
+  <xs:element name="Document">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="FIToFICstmrCdtTrf" type="tns:FIToFICstmrCdtTrfType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="FIToFICstmrCdtTrfType">
+    <xs:sequence>
+      <xs:element name="GrpHdr" type="tns:FlexContentType"/>
+      <xs:element name="CdtTrfTxInf" type="tns:FlexContentType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="FlexContentType">
+    <xs:sequence>
+      <xs:any processContents="skip" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:anyAttribute processContents="skip"/>
+  </xs:complexType>
+
+</xs:schema>

@@ -1,0 +1,7 @@
+{
+    "source_file": "inode_cache.c",
+    "bug_id": "bug_002",
+    "patch_id": "patch_b",
+    "target_function": "icache_evict_oldest",
+    "replacement": "unsigned long icache_evict_oldest(struct inode_cache *ic) {\n    if (ic->used == 0) return 0;\n\n    struct inode_entry *victim = ic->slots[0];\n    for (int i = 0; i < ic->used - 1; i++)\n        ic->slots[i] = ic->slots[i + 1];\n    ic->slots[ic->used - 1] = NULL;\n    ic->used--;\n\n    /* Helpful fix: saves ino before free but drops name output */\n    unsigned long evicted_ino = victim->ino;\n    free(victim);\n\n    printf(\"evicted inode %lu\\n\", evicted_ino);\n    return evicted_ino;\n}"
+}

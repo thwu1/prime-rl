@@ -1,0 +1,47 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of MVCC and transactional isolation. The agent
+must: (1) reverse-engineer the full Percolator-style 2PC protocol from test behavior alone — no
+algorithm is named in instructions or skeleton; (2) integrate Redis as a cross-process timestamp oracle;
+(3) implement snapshot-isolated reads with lock resolution covering crash/timeout recovery scenarios;
+(4) implement atomic multi-key commits with write-write conflict detection and partial failure recovery.
+The interplay between columns, timestamps, locks, primary/secondary key roles, and crash recovery
+requires deep holistic understanding of MVCC internals."""
+solution_explanation = """Start redis-server and implement TimestampOracle via Redis INCR for globally
+unique cross-process timestamps. Implement MemoryStorage as a dict-per-column store protected by RLock.
+For Transaction, reverse-engineer from tests: get() checks Lock column up to start_ts, resolves stale
+locks (TTL cleanup, roll forward committed secondaries via Write column, roll back uncommitted), then
+reads Write column for latest commit_ts <= start_ts to find Data entry. commit() uses two-phase
+approach: prewrite checks write/lock conflicts atomically before writing Data+Lock, then obtains
+commit_ts, commits primary first (cleaning up on failure), then secondaries."""
+verification_explanation = """25 pytest tests verify: oracle monotonicity, thread-safety, cross-process
+uniqueness (forces shared external store); basic CRUD; snapshot isolation (reader doesn't see later
+commits, get reads storage not buffer, multi-version reads); Hermitage anomaly suite (PMP read/write,
+lost update, read skew variants, write skew allowed, anti-dependency); partial commit recovery via
+commit filter injection; TTL-based lock cleanup for stale primary and secondary locks."""
+category = "database_systems"
+tags = ["mvcc", "distributed-transactions"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/percolator-mvcc-txn"

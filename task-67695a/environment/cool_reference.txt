@@ -1,0 +1,193 @@
+Cool Language Reference (Condensed)
+====================================
+
+1. LEXICAL STRUCTURE
+
+Identifiers:
+  Type identifiers begin with an uppercase letter: Int, String, MyClass, SELF_TYPE
+  Object identifiers begin with a lowercase letter: x, foo, main, self
+
+Integer constants: sequence of digits (e.g., 42, 0, 1234)
+
+String constants: enclosed in double quotes with escape sequences:
+  \n = newline    \t = tab       \b = backspace   \f = form feed
+  \\ = backslash  \" = double quote
+  \<newline> = newline (escaped actual newline continues string)
+  \<other> = the character itself (e.g., \q = q)
+  Maximum length: 1024 characters. May not contain literal null bytes.
+
+Boolean constants: true, false
+  First letter MUST be lowercase. Rest is case-insensitive (tRuE is valid).
+
+Keywords (case-insensitive): class, else, fi, if, in, inherits, isvoid,
+  let, loop, new, of, not, pool, then, while, case, esac
+
+Operators and punctuation:
+  + - * / ~ < = ( ) { } @ . , ; :
+  <= (less-or-equal)   <- (assignment)   => (case arrow)
+
+Comments:
+  Single-line: -- to end of line
+  Block: (* ... *), may be NESTED: (* outer (* inner *) still outer *)
+
+Whitespace: spaces, tabs, form feeds, carriage returns, newlines (ignored).
+
+2. GRAMMAR
+
+program      := class_def ; { class_def ; }
+class_def    := class TYPEID [ inherits TYPEID ] { { feature ; } }
+feature      := method | attribute
+method       := OBJECTID ( [ formal { , formal } ] ) : TYPE { expr }
+attribute    := OBJECTID : TYPE [ <- expr ]
+formal       := OBJECTID : TYPE
+TYPE         := TYPEID    (includes SELF_TYPE)
+
+3. EXPRESSIONS (by precedence, lowest first)
+
+Level 1 (lowest): OBJECTID <- expr                   (assignment, right-assoc)
+Level 2:          not expr                            (boolean negation)
+Level 3:          expr <= expr, expr < expr, expr = expr  (non-associative)
+Level 4:          expr + expr, expr - expr            (left-associative)
+Level 5:          expr * expr, expr / expr            (left-assoc, integer div)
+Level 6:          isvoid expr
+Level 7:          ~ expr                              (integer negation)
+Level 8:          expr [ @ TYPEID ] . OBJECTID ( args )  (dispatch, left-assoc)
+Level 9 (highest): primary expressions
+
+Primary expressions:
+  OBJECTID                              variable reference
+  OBJECTID ( [ expr { , expr } ] )      self-dispatch (implicit self.method)
+  integer_literal                       Int constant
+  string_literal                        String constant
+  true | false                          Bool constant
+  self                                  current object
+  ( expr )                              grouping
+  if expr then expr else expr fi        conditional
+  while expr loop expr pool             loop (returns void)
+  { expr ; { expr ; } }                 block (value = last expr)
+  let bindings in expr                  variable binding
+  case expr of { OBJECTID : TYPEID => expr ; } esac
+  new TYPEID                            object creation
+
+Let bindings:
+  let OBJECTID : TYPE [ <- expr ] { , OBJECTID : TYPE [ <- expr ] } in expr
+  Comma-separated bindings are equivalent to nested lets:
+    let a:T1<-e1, b:T2<-e2 in body  =  let a:T1<-e1 in (let b:T2<-e2 in body)
+  Each binding's initializer can reference previously-bound variables.
+  The init expression is evaluated BEFORE the new variable enters scope.
+  If no initializer, the variable gets its type's default value.
+
+4. OPERATIONAL SEMANTICS
+
+Classes and Inheritance:
+  - Single inheritance; default parent is Object.
+  - Cannot inherit from Int, String, or Bool.
+  - Cannot redefine Object, IO, Int, String, Bool.
+
+Object Creation (new T):
+  1. Allocate object with class tag = T
+  2. Set all attributes to default values
+  3. Initialize attributes in INHERITANCE ORDER (ancestors first):
+     For each class from Object down to T, evaluate attribute initializers
+     with self = the new object. Un-initialized attributes keep defaults.
+  - new SELF_TYPE: T = runtime class of self (not the static class).
+
+Default Values:
+  Int = 0,  String = "",  Bool = false
+  All other types (including SELF_TYPE) = void
+
+Method Dispatch:
+  Dynamic: expr.method(args)
+    Evaluate expr to get object obj. Starting from obj's RUNTIME class,
+    search up the inheritance chain for method. Execute with self = obj.
+  Static: expr @ Type . method(args)
+    Same, but start search from Type instead of obj's runtime class.
+    The object's runtime class must conform to Type.
+  Self-dispatch: method(args) is equivalent to self.method(args).
+
+Assignment: OBJECTID <- expr
+  Assigns to the nearest enclosing binding:
+    1. Local variable (let, case, method formal) - checked first
+    2. Attribute of self - checked second
+  Returns the assigned value.
+
+Let: let x:T <- init in body
+  Evaluate init in the OUTER scope (x not yet visible).
+  Bind x to the result. Evaluate body in the extended scope.
+  If init is omitted, x gets default value for type T.
+
+Case: case expr of x1:T1 => e1; x2:T2 => e2; ... esac
+  Evaluate expr to get value v with runtime type Tv.
+  Select the branch Ti that is the CLOSEST ANCESTOR of Tv:
+    (smallest distance from Tv to Ti walking up the inheritance chain).
+  Bind xi to v and evaluate ei.
+  Runtime error if v is void or if no branch type is an ancestor of Tv.
+
+If-Then-Else: if pred then e1 else e2 fi
+  Evaluate pred (must be Bool). If true, evaluate e1; else evaluate e2.
+
+While: while pred loop body pool
+  Repeat: evaluate pred; if true, evaluate body; otherwise stop.
+  The result of a while expression is always void.
+
+Block: { e1; e2; ...; en; }
+  Evaluate expressions in order. Return the value of the LAST expression.
+
+Arithmetic (+, -, *, /):
+  Both operands must be Int. Result is Int.
+  / is integer division truncating towards zero. Division by zero is an error.
+
+Comparison:
+  < and <=: both operands must be Int, result is Bool.
+  =: For Int, String, Bool: compare by VALUE.
+     For other types: compare by REFERENCE (pointer equality).
+     void = void is true; void = non-void is false.
+
+not: Bool -> Bool (logical negation)
+~:   Int -> Int (arithmetic negation, i.e., 0 - x)
+
+isvoid expr: returns true (Bool) if expr evaluates to void, false otherwise.
+
+5. BUILT-IN CLASSES
+
+Object (root of all classes):
+  abort() : Object       -- halt program with error
+  type_name() : String   -- return the runtime class name as a string
+  copy() : SELF_TYPE     -- return a shallow copy of the object
+
+IO (inherits Object):
+  out_string(x : String) : SELF_TYPE  -- print string to stdout, return self
+  out_int(x : Int) : SELF_TYPE       -- print integer to stdout, return self
+  in_string() : String               -- read a line from stdin
+  in_int() : Int                     -- read an integer from stdin
+
+Int (inherits Object): wraps an integer value. Cannot be inherited from.
+
+String (inherits Object): wraps a string value. Cannot be inherited from.
+  length() : Int                    -- number of characters
+  concat(s : String) : String      -- return new concatenated string
+  substr(i : Int, l : Int) : String -- substring starting at index i, length l
+                                       Indices are 0-based. Error if out of bounds.
+
+Bool (inherits Object): wraps a boolean value. Cannot be inherited from.
+
+6. SELF_TYPE
+
+SELF_TYPE is a special type that refers to the class of self at runtime.
+It may appear in:
+  - Method return types
+  - new SELF_TYPE expressions
+  - let variable types
+  - Attribute types
+
+At runtime:
+  - new SELF_TYPE creates an object whose class equals self's runtime class.
+  - A method declared to return SELF_TYPE returns self (which has the caller's
+    runtime type), enabling method chaining across inheritance.
+
+7. PROGRAM ENTRY POINT
+
+Every valid Cool program must contain a class Main with a method:
+  main() : Object { ... }
+(taking no arguments). Execution begins by creating a Main object and
+invoking its main() method.

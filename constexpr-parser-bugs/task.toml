@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a multi-phase constexpr expression compiler from scratch: (1) a recursive-descent parser spanning eight precedence levels including right-to-left associativity for the power operator and keyword-delimited let-bindings that interact with variable scoping, (2) a constexpr-compatible AST representation using fixed-size arrays with no heap allocation, (3) a tree-based optimizer performing constant folding across arithmetic/comparison/function nodes, constant propagation through let-bindings with correct shadowing semantics, and dead branch elimination for ternary conditionals, and (4) a bytecode code generator with jump backpatching for conditional expressions and local variable slot management. The solver must reason holistically about how these phases interact: constant propagation through let-bindings enables further folding in the body, ternary dead branch elimination requires the comparison to fold first, cascading lets require iterative re-optimization, and local variable scoping must handle shadowing across nested bindings without conflicting slots. The constexpr constraint eliminates standard approaches (no heap, no exceptions, no virtual dispatch), forcing architectural decisions about fixed-size node pools, scope stacks, and optimization strategies that only emerge from deep understanding of both compiler theory and C++20 constexpr semantics."""
+solution_explanation = """Build a constexpr AST using a fixed-size node array (Pool) with 22 node kinds covering literals, global/local variables, 6 arithmetic ops, 6 comparisons, 4 built-in functions, ternary, and let-binding. Parse with recursive descent across 8 precedence levels: p_let handles let/in keywords with scope stack management (push after init, pop after body), p_tern handles ternary with right-to-left recursion on else branch, p_cmp handles 6 comparison operators including 2-char lookahead for <=/>=/==/!=, p_add/p_term handle left-to-right arithmetic, p_power uses right recursion for right-to-left ^ associativity, p_unary handles recursive negation, p_primary handles literals/variables/function-calls/parentheses with keyword-aware identifier parsing. The optimizer (opt) recursively optimizes children bottom-up, then applies: binary constant folding for all 14 binary node kinds, unary folding for NEG/ABS/SQRT, ternary elimination when condition is constant (returning the live branch node), and let-binding propagation when init is constant (substituting all LOAD_LOCAL references via subst() which respects shadowing, then re-optimizing the body to enable cascading folds). The code generator (gen) emits bytecode from the optimized AST: PUSH_CONST/LOAD_VAR/LOAD_LOCAL for leaves, operator instructions for internal nodes, emit_placeholder+patch for JZ/JMP backpatching in ternary nodes, and STORE_LOCAL for let-binding initialization."""
+verification_explanation = """Nine C++ test programs exercise specific capabilities via static_assert at compile time; compilation success proves correctness. test_arithmetic: literals, operator precedence, left-to-right associativity, parentheses, unary minus including chained double negation. test_variables: global variable loading, variable arithmetic, different environment bindings. test_functions: abs/min/max/sqrt including nested calls and mixed constant/variable arguments. test_power: right-to-left associativity of ^ (2^3^2=512 vs (2^3)^2=64), precedence higher than *, modulo operator. test_comparisons: all 6 comparison operators with constants and variables. test_ternary: constant/variable conditions, nested ternary (signum), ternary with function calls. test_letbind: simple bindings, shadowing globals, nested lets, inner-shadowing-outer, chained lets referencing outer bindings, let inside function arguments. test_constfold: bytecode structure verification for constant folding, partial folding, function folding, power/modulo folding, comparison folding, ternary dead branch elimination, let constant propagation, and cascading let propagation. test_complex: mixed expressions combining all features with structural and value verification. A pytest harness compiles and runs each test program."""
+category = "systems"
+tags = ["cpp", "compilers"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/constexpr-parser-bugs"

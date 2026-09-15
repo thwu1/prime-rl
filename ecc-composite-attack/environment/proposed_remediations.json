@@ -1,0 +1,25 @@
+{
+  "context": "The security team has identified a vulnerability in the ECC key exchange. Four remediations have been proposed. Evaluate whether each one would prevent an attacker from recovering the secret scalar s from the public parameters.",
+  "remediations": [
+    {
+      "id": "R1",
+      "title": "Scale modulus size",
+      "description": "Double the composite modulus bit-length from 170 to 340 bits while retaining the identical curve algebraic structure and the same prime selection method (both primes p with p congruent to 3 mod 4, and p+1 being B-smooth for B = 2^18)."
+    },
+    {
+      "id": "R2",
+      "title": "Switch to prime-field ECC",
+      "description": "Replace the composite modulus with a single prime of equivalent bit-length (170+ bits) and use an elliptic curve whose group order is nearly prime (cofactor h at most 4)."
+    },
+    {
+      "id": "R3",
+      "title": "Harden subgroup orders",
+      "description": "Retain the composite modulus and the same curve algebraic form, but select primes so that the curve group orders over each prime field each contain a prime factor exceeding 2^128."
+    },
+    {
+      "id": "R4",
+      "title": "Upgrade symmetric layer",
+      "description": "Replace AES-256-CBC with XChaCha20-Poly1305 authenticated encryption for the symmetric layer, keeping the ECC key exchange parameters entirely unchanged."
+    }
+  ]
+}

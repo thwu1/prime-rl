@@ -1,0 +1,3 @@
+common:
+  daemonize: false
+  log_media: stdout

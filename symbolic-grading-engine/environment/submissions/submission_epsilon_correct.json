@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_epsilon_correct",
+    "challenge_id": "epsilon",
+    "generated_code": "def answer(n, k):\n    \"\"\"Equivalent computation using perm and comb.\"\"\"\n    from math import perm, comb\n    return perm(n, k) * comb(n, k)"
+}

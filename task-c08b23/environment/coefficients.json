@@ -1,0 +1,208 @@
+{
+    "_info" : "BESSPIN coefficient factors weights for weakness categories.",
+    "_TI" : "Technical Impact: critical, moderate, limited",
+    "_AV" : "Access Vector: user, supervisor, machine",
+    "_ENV_BI" : "Business Impact: high, low",
+    "_ENV_LDX" : "Likelihood of Discovery and Exploitation: high, low",
+
+    "bufferErrors" : {
+        "BE" : {
+            "name" : "Boundary Error",
+            "cwes" : ["118", "119", "120", "121", "122", "123", "124", "125", "126", "127", "786", "787", "788", "805", "806", "823"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        },
+        "ISH" : {
+            "name" : "Improper Size Handling",
+            "cwes" : ["120", "123", "124", "125", "126", "127", "129", "130", "131", "680", "785", "786", "787", "788", "805", "806", "823"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        }
+    },
+
+    "PPAC" : {
+        "AUT" : {
+            "name" : "Authorization",
+            "cwes" : ["PPAC_1", "PPAC_2"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "low"
+                }
+            }
+        },
+        "ACC" : {
+            "name" : "Accountability",
+            "cwes" : ["PPAC_3"],
+            "factors" : {
+                "TI" : "limited",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "low",
+                    "LDX" : "low"
+                }
+            }
+        }
+    },
+
+    "resourceManagement" : {
+        "MDL" : {
+            "name" : "Memory/Data Layout",
+            "cwes" : ["188", "463", "467", "562", "587", "588", "590", "762", "763"],
+            "factors" : {
+                "TI" : "moderate",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "low"
+                }
+            }
+        },
+        "RC" : {
+            "name" : "Resource Control",
+            "cwes" : ["400", "404", "415", "416", "672", "770", "771", "772", "789", "908", "909", "911"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "low"
+                }
+            }
+        },
+        "PM" : {
+            "name" : "Pointers misuse",
+            "cwes" : ["415", "416", "468", "476", "588", "690", "761", "825"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        }
+    },
+
+    "informationLeakage" : {
+        "IE" : {
+            "name" : "Information Exposure",
+            "cwes" : ["200", "201", "202"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        },
+        "OD" : {
+            "name" : "Observable Discrepancy",
+            "cwes" : ["203", "205", "206"],
+            "factors" : {
+                "TI" : "moderate",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "low",
+                    "LDX" : "low"
+                }
+            }
+        },
+        "IS" : {
+            "name" : "Improper Sanitization",
+            "cwes" : ["200", "212", "226", "244", "524"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        }
+    },
+
+    "numericErrors" : {
+        "RDE" : {
+            "name" : "Range/Domain Errors",
+            "cwes" : ["128", "190", "191", "369"],
+            "factors" : {
+                "TI" : "moderate",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "low",
+                    "LDX" : "high"
+                }
+            }
+        },
+        "TE" : {
+            "name" : "Type Errors",
+            "cwes" : ["192", "194", "195", "196", "197", "681"],
+            "factors" : {
+                "TI" : "moderate",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "low",
+                    "LDX" : "high"
+                }
+            }
+        },
+        "VE" : {
+            "name" : "Value Errors",
+            "cwes" : ["234", "456", "457", "665", "824"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        }
+    },
+
+    "hardwareSoC" : {
+        "Selected" : {
+            "name" : "Selected",
+            "cwes" : ["1037", "1050", "1256"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "machine",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "low"
+                }
+            }
+        }
+    },
+
+    "injection" : {
+        "UD" : {
+            "name" : "Trust Untrusted Data",
+            "cwes" : ["INJ_1", "INJ_2", "INJ_3"],
+            "factors" : {
+                "TI" : "critical",
+                "AV" : "user",
+                "ENV" : {
+                    "BI" : "high",
+                    "LDX" : "high"
+                }
+            }
+        }
+    }
+}

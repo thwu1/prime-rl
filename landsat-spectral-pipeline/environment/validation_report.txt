@@ -1,0 +1,59 @@
+FIELD VALIDATION REPORT
+Scene: LC09_L2SP_017041_20230615 — Processing Quality Review
+================================================================
+
+The following discrepancies were observed between pipeline outputs and
+independent validation data collected during concurrent field campaigns.
+
+1. QUALITY MASKING GAPS
+
+   Scene border fill pixels (corners of the acquisition footprint) are
+   not flagged in the cloud mask and propagate as valid observations into
+   all downstream products. These locations contain no valid Earth surface
+   measurements and must be excluded.
+
+   A cirrus-contaminated region in the lower-right portion of the scene
+   (approximately rows 140-160, columns 140-160) confirmed by concurrent
+   aircraft overflight is not being masked. Thin cirrus introduces
+   additive path radiance that corrupts surface reflectance retrievals.
+
+   Cloud buffer regions immediately adjacent to identified opaque cloud
+   bodies are not being excluded. Partial cloud contamination in these
+   transition zones degrades spectral index accuracy for pixels that
+   border cloud features.
+
+2. SURFACE REFLECTANCE CALIBRATION
+
+   Portable field spectrometer measurements at a dense canopy validation
+   site in the northwest quadrant recorded NIR surface reflectance of
+   approximately 0.45 sr. The pipeline's calibrated reflectance values
+   at the corresponding pixels read approximately 0.85 — nearly double
+   the expected magnitude. This systematic overestimation is consistent
+   across all spectral bands and surface types, suggesting an error in
+   the digital-number-to-reflectance conversion rather than a
+   band-specific sensor artifact. The multiplicative scale factor appears
+   correct; the additive component warrants investigation.
+
+3. DERIVED INDEX ACCURACY
+
+   As a consequence of the calibration anomaly, NDVI values for dense
+   forest canopy (approximately 0.31) are substantially lower than the
+   0.80 expected from field-verified sites. Water body NDVI reads near
+   zero rather than the expected moderately negative values. MNDWI
+   dynamic range is similarly compressed — open water that should exhibit
+   strongly positive MNDWI shows values near zero.
+
+4. ZONAL STATISTICS
+
+   The reported clear_pixel_count for zone 1 (northwest_forest) equals
+   the total zone area despite this zone overlapping known cloud and
+   cloud shadow features. The count should reflect only quality-assured
+   uncontaminated pixels. Cross-referencing with the cloud mask confirms
+   that contaminated pixels exist within this zone but are not being
+   excluded from the count.
+
+5. PRODUCT COMPLETENESS
+
+   The geographic-coordinate (EPSG:4326) reprojection of the NDVI
+   product required for web mapping service integration was not generated.
+   This deliverable is required for the final data package.

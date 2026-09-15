@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing an e-graph equality saturation engine from scratch requires deep understanding of union-find data structures with path compression, congruence closure (rebuilding the hashcons after merges to maintain structural invariants), e-matching (pattern matching over equivalence classes with consistent multi-occurrence variable binding), and cost-based bottom-up extraction. The interplay of commutativity, associativity, distributivity, and strength reduction rules creates non-trivial optimization chains (e.g., factoring, constant folding, then shift conversion) that only emerge through correct multi-iteration saturation. This is a core topic in programming language implementation research (PLDI/EGRAPHS community)."""
+solution_explanation = """Build a Python e-graph library: (1) union-find with path compression for equivalence classes, (2) hashcons-based e-node storage with canonicalization, (3) rebuild loop for congruence closure after merges, (4) recursive e-matching that handles repeated pattern variables by checking binding consistency, (5) equality saturation loop applying all 17 rewrite rules plus constant folding per iteration, (6) iterative fixpoint extraction computing minimum cost bottom-up across e-classes. Apply to each benchmark and extract the optimal S-expression."""
+verification_explanation = """Tests verify: (1) the optimizer module exists and exposes optimize(), (2) for each of 8 benchmarks, the output is semantically equivalent to the input (checked by evaluating both expressions with 100 random positive-integer variable assignments and comparing results), (3) for each benchmark, the output expression cost does not exceed the specified maximum (computed by summing node costs per the cost model). This ensures both correctness and optimization quality."""
+category = "programming_languages"
+tags = ["compiler-optimization", "equality-saturation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bc15dd"

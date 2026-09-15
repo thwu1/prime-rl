@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Yjs CRDT semantics including transaction origins, the update event model, state vector differential sync protocol, the distinction between doc-level and binary-level update APIs, and JavaScript typed array comparison semantics. Defects are coupled — fixing the origin filter in addPeer exposes a stale-snapshot bug in compact that only manifests through specific sync-then-docless sequences. The solver must also design and implement correct versions of syncIncremental (pending-buffer exchange protocol), createCheckpoint (must store state vector, not full state), and diffSinceCheckpoint (differential update from stored baseline) from broken stubs, requiring both Yjs API knowledge and protocol design reasoning. Additionally, forkPeer requires recognizing and applying patterns from addPeer in a new context with constraints around initial state transfer, and broadcastSync requires understanding multi-peer topology requirements."""
+solution_explanation = """Fourteen distinct fixes across the engine: (1) addPeer's update listener must filter sync-originated updates via origin !== 'sync'; (2) forkPeer must register an update listener with the same origin filter; (3) forkPeer must apply initial state with 'sync' origin to avoid polluting pendingUpdates; (4) syncDelta swaps state vectors — encodeStateAsUpdate(p1.doc, sv1) should use sv2 and vice versa; (5) syncFull must invalidate compactedSnapshot on both peers; (6) syncDelta must also invalidate compactedSnapshot; (7) compact must always rebuild from current doc state, removing the stale early-return optimization; (8) syncDocless must use encodeStateVectorFromUpdate(snapshot) instead of encodeStateVector(doc); (9) checkConvergence must do byte-by-byte comparison instead of reference equality on Uint8Array; (10) broadcastSync must iterate all (i,j) pairs, not just adjacent; (11) syncIncremental must cross-apply pending updates (p1's pending to p2 and vice versa) with 'sync' origin, merge before applying, clear buffers, and invalidate snapshots; (12) createCheckpoint must store encodeStateVector instead of encodeStateAsUpdate; (13) drainPendingUpdates must clear the buffer after merging; (14) getNetworkStats must guard against division by zero."""
+verification_explanation = """test.sh compiles TypeScript, runs a Node.js test harness exercising 18 scenarios (two-peer full/delta/docless/incremental sync, three-peer broadcast, stale snapshot detection, update buffer hygiene, four-peer multi-round mixed-strategy convergence, fork state and tracking, fork-then-sync integration, drain semantics, checkpoint differential computation, checkpoint no-change null return, incremental buffer management, and network stats edge cases), writes JSON results, then pytest asserts each scenario passed. Reward is 1.0 only if all 18 tests pass."""
+category = "debugging"
+tags = ["crdt", "typescript"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crdt-sync-engine-7458b5"

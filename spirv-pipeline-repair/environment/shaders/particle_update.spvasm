@@ -1,0 +1,119 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Manual
+; Bound: 60
+; Schema: 0
+;
+; Particle position update compute shader with velocity integration.
+; Reads particle positions from a storage buffer, scales each position
+; by a factor involving dt and damping from a uniform parameter block,
+; and writes the updated positions back.
+; Contains an unused utility function and redundant arithmetic.
+; Intended for Vulkan 1.0 compute pipeline.
+
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Physical32 GLSL450
+               OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
+               OpSource GLSL 450
+               OpName %main "main"
+               OpName %dead_util "dead_util"
+               OpName %Particles "Particles"
+               OpName %Params "Params"
+
+               ; Decorations for Particles SSBO
+               OpMemberDecorate %Particles 0 Offset 0
+               OpDecorate %particles DescriptorSet 0
+               OpDecorate %particles Binding 0
+
+               ; Decorations for Params UBO
+               OpDecorate %Params Block
+               OpMemberDecorate %Params 0 Offset 0
+               OpMemberDecorate %Params 1 Offset 4
+               OpDecorate %params DescriptorSet 0
+
+               ; Built-in decoration
+               OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+
+       ; Types
+       %void = OpTypeVoid
+    %void_fn = OpTypeFunction %void
+      %float = OpTypeFloat 32
+       %uint = OpTypeInt 32 0
+        %int = OpTypeInt 32 1
+     %v3uint = OpTypeVector %uint 3
+    %v4float = OpTypeVector %float 4
+
+  %float_fn2 = OpTypeFunction %float %float %float
+
+    %_runtimearr_v4float = OpTypeRuntimeArray %v4float
+    %Particles = OpTypeStruct %_runtimearr_v4float
+    %_ptr_Uniform_Particles = OpTypePointer Uniform %Particles
+    %particles = OpVariable %_ptr_Uniform_Particles Uniform
+
+    %Params = OpTypeStruct %float %float
+    %_ptr_Uniform_Params = OpTypePointer Uniform %Params
+    %params = OpVariable %_ptr_Uniform_Params Uniform
+
+    %_ptr_Input_v3uint = OpTypePointer Input %v3uint
+    %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
+
+    %_ptr_Input_uint = OpTypePointer Input %uint
+    %_ptr_Uniform_v4float = OpTypePointer Uniform %v4float
+    %_ptr_Uniform_float = OpTypePointer Uniform %float
+
+    %uint_0 = OpConstant %uint 0
+     %int_0 = OpConstant %int 0
+     %int_1 = OpConstant %int 1
+    %float_0 = OpConstant %float 0.0
+    %float_1 = OpConstant %float 1.0
+
+    ; Dead utility function — never called from main
+  %dead_util = OpFunction %float None %float_fn2
+    %du_a    = OpFunctionParameter %float
+    %du_b    = OpFunctionParameter %float
+  %du_entry  = OpLabel
+    %du_mul  = OpFMul %float %du_a %du_b
+    %du_add  = OpFAdd %float %du_mul %du_a
+    %du_sub  = OpFSub %float %du_add %du_b
+    %du_res  = OpFMul %float %du_sub %du_mul
+               OpReturnValue %du_res
+               OpFunctionEnd
+
+       %main = OpFunction %void None %void_fn
+      %entry = OpLabel
+
+              ; Load global invocation ID x-component
+    %gid_ptr = OpAccessChain %_ptr_Input_uint %gl_GlobalInvocationID %uint_0
+        %gid = OpLoad %uint %gid_ptr
+
+              ; Load time delta from params uniform (member 0)
+     %dt_ptr = OpAccessChain %_ptr_Uniform_float %params %int_0
+         %dt = OpLoad %float %dt_ptr
+
+              ; Load damping from params uniform (member 1)
+    %dmp_ptr = OpAccessChain %_ptr_Uniform_float %params %int_1
+        %dmp = OpLoad %float %dmp_ptr
+
+              ; Load particle position at index gid
+    %pos_ptr = OpAccessChain %_ptr_Uniform_v4float %particles %int_0 %gid
+        %pos = OpLoad %v4float %pos_ptr
+
+              ; Compute velocity scale: dt * dmp
+    %vscale  = OpFMul %float %dt %dmp
+
+              ; Redundant: vscale + 0.0 (identity, should be optimizable)
+   %vscale2  = OpFAdd %float %vscale %float_0
+
+              ; Redundant: vscale2 * 1.0 (identity, should be optimizable)
+   %vscale3  = OpFMul %float %vscale2 %float_1
+
+              ; Scale position by velocity factor
+      %scale = OpVectorTimesScalar %v4float %pos %vscale3
+     %newpos = OpFAdd %v4float %pos %scale
+
+              ; Store updated position
+               OpStore %pos_ptr %newpos
+
+               OpReturn
+               OpFunctionEnd

@@ -1,0 +1,52 @@
+{
+  "GPU_A": {
+    "warp_size": 32,
+    "max_threads_per_block": 1024,
+    "total_registers_per_sm": 65536,
+    "max_warps_per_sm": "unknown",
+    "max_blocks_per_sm": "unknown",
+    "total_shared_mem_per_sm": "unknown",
+    "shared_mem_alloc_granularity": "unknown",
+    "register_alloc_granularity": "unknown"
+  },
+  "GPU_B": {
+    "warp_size": 32,
+    "max_threads_per_block": 1024,
+    "total_registers_per_sm": 65536,
+    "max_warps_per_sm": "unknown",
+    "max_blocks_per_sm": "unknown",
+    "total_shared_mem_per_sm": "unknown",
+    "shared_mem_alloc_granularity": "unknown",
+    "register_alloc_granularity": "unknown"
+  },
+  "GPU_C": {
+    "warp_size": 32,
+    "max_threads_per_block": 1024,
+    "total_registers_per_sm": 65536,
+    "max_warps_per_sm": "unknown",
+    "max_blocks_per_sm": "unknown",
+    "total_shared_mem_per_sm": "unknown",
+    "shared_mem_alloc_granularity": "unknown",
+    "register_alloc_granularity": "unknown"
+  },
+  "GPU_D": {
+    "warp_size": 32,
+    "max_threads_per_block": 1024,
+    "total_registers_per_sm": 65536,
+    "max_warps_per_sm": "unknown",
+    "max_blocks_per_sm": "unknown",
+    "total_shared_mem_per_sm": "unknown",
+    "shared_mem_alloc_granularity": "unknown",
+    "register_alloc_granularity": "unknown"
+  },
+  "GPU_E": {
+    "warp_size": 32,
+    "max_threads_per_block": 1024,
+    "total_registers_per_sm": 65536,
+    "max_warps_per_sm": "unknown",
+    "max_blocks_per_sm": "unknown",
+    "total_shared_mem_per_sm": "unknown",
+    "shared_mem_alloc_granularity": "unknown",
+    "register_alloc_granularity": "unknown"
+  }
+}

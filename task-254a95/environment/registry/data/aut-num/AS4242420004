@@ -1,0 +1,7 @@
+aut-num:            AS4242420004
+as-name:            DELTA-AS
+descr:              Delta Network Autonomous System
+admin-c:            DAVE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             DELTA-MNT
+source:             DN42

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux system administration. The core challenge is a chicken-and-egg permission cascade: chmod itself is non-executable, so standard permission repair fails. The agent must know alternative recovery methods (Python os.chmod, the ld-linux dynamic linker trick, the install -m command, or setfacl). Beyond that, chown and useradd have also lost execute permissions. The PAM authentication stack has been subtly broken by injecting a deny rule before the unix module, requiring knowledge of PAM module ordering. A deferred sabotage mechanism in /etc/bash.bashrc modifies nsswitch.conf on first shell login (replacing 'files' with 'ldap'), requiring the agent to trace the root cause of name resolution failure back to a startup script and neutralize it. Additionally, adduser.conf has an invalid default shell, and login.defs has inverted UID/GID allocation ranges making user creation impossible. The interdependencies mean repairs must be done in the correct order, and diagnosis itself is part of the challenge."""
+solution_explanation = """1) Use Python3 os.chmod() to restore /usr/bin/chmod to 0755, bypassing the broken chmod binary entirely. 2) Use os.chmod to fix /usr/bin/chown and /usr/sbin/useradd permissions. 3) Remove the injected pam_deny.so requisite line from /etc/pam.d/common-auth. 4) Find and remove the nsswitch sabotage trigger from /etc/bash.bashrc that rewrites nsswitch.conf passwd line to 'ldap' on each fresh shell session. 5) Restore 'files' to the passwd line in /etc/nsswitch.conf. 6) Fix DSHELL in /etc/adduser.conf back to /bin/bash. 7) Fix UID_MIN/GID_MIN in /etc/login.defs back to sane values (they were set above UID_MAX/GID_MAX, inverting the allocation range)."""
+verification_explanation = """10 pytest tests verify the complete system state: chmod/chown are executable and functional, useradd is executable, PAM common-auth has pam_unix.so before any pam_deny.so, getent passwd root resolves correctly, adduser.conf DSHELL points to a valid shell, login.defs has valid UID and GID ranges, nsswitch.conf passwd line includes 'files' backend, no startup scripts contain active nsswitch sabotage, and a full integration test creates a new user with useradd and verifies it via getent."""
+category = "systems_administration"
+tags = ["linux-troubleshooting", "permission-recovery"]
+expert_time_estimate_hours = 0.75
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2ea95d"

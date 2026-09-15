@@ -1,0 +1,8 @@
+{
+  "name": "optimal_launch",
+  "type": "optimization",
+  "description": "Find the block size (multiple of warp_size, from warp_size to max_threads_per_block) that maximizes theoretical occupancy for a kernel with fixed register and shared memory usage",
+  "registers_per_thread": 40,
+  "static_shared_memory_bytes": 4096,
+  "dynamic_shared_memory_bytes": 0
+}

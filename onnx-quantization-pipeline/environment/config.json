@@ -1,0 +1,10 @@
+{
+    "quantization": {
+        "scheme": "symmetric",
+        "weight_bits": 8,
+        "activation_bits": 8,
+        "per_channel_weights": true,
+        "calibration_method": "minmax",
+        "fuse_bn": true
+    }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level service provider networking knowledge spanning IS-IS path computation with ECMP tie-breaking, bandwidth-constrained path selection, MPLS LDP label distribution, L3VPN route-target import/export resolution through JunOS policy indirection, BGP originator-id loop prevention, inter-VRF route leaking via shared route-targets, and hub-and-spoke VPN forwarding with double MPLS encapsulation. Additionally demands multi-tool proficiency: the agent must query a SQLite database for topology data, use a packet analyzer (tshark) to decode MPLS-labeled PCAP files for LDP label bindings, parse hierarchical JunOS router configuration files to resolve VRF policy chains, and process CSV-formatted BGP route advertisements — then synthesize information from all four sources into a coherent forwarding model."""
+solution_explanation = """The solver loads topology from SQLite, extracts LDP label-FEC bindings by parsing binary PCAP files containing MPLS-labeled packets, parses JunOS configuration files to resolve VRF import/export route-targets through policy-statement and community indirection, and reads VPN routes from CSV. It then implements Dijkstra's algorithm for shortest-path computation with ECMP enumeration and IP-based tie-breaking, constrained path selection by pruning sub-bandwidth links, VRF route resolution with originator-id filtering, and MPLS forwarding path computation including hub-and-spoke spoke-to-spoke forwarding with two transport tunnels through the hub PE."""
+verification_explanation = """Tests read /app/results.json and compare each query result against precomputed expected values. Paths are compared exactly. Prefix lists are compared order-independently. ECMP paths are compared as sorted sets. MPLS forwarding hops are compared field-by-field for exact router names, actions, label values, and next-hops."""
+category = "networking"
+tags = ["mpls", "bgp-vpn"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mpls-vpn-forwarding"

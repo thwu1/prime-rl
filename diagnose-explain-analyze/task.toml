@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of TiDB's distributed execution model to build a diagnostic engine from production EXPLAIN ANALYZE outputs. The agent must parse TiDB's complex tabular format with nested brace-delimited execution info strings containing mixed time units and keys with spaces, then independently determine detection logic for four distinct anti-patterns (lock contention, MVCC tombstone amplification, memory-to-disk spill, suboptimal hash join build-side selection) based solely on domain knowledge of distributed database internals — no detection algorithms are provided. Understanding TiDB's two-tier execution model (root vs cop[tikv]) is essential for self-time computation and concurrency analysis. The agent must also persist results into a SQLite database with a specific relational schema and generate Graphviz DOT/SVG operator tree visualizations, requiring multi-tool interoperability across Python, sqlite3, and graphviz."""
+solution_explanation = """Parse the tabular plan format using pipe-delimited splitting with Unicode tree depth calculation. Implement a recursive descent parser for nested execution info handling all time units. Build operator hierarchies and compute self-times by subtracting root-type children's times. Detect lock contention via ResolveLock time dominance (>50%), MVCC tombstone via high cop_task count and proc_keys thresholds, memory spill from non-zero disk column, and suboptimal join when build-side actRows exceeds probe-side. Compute IndexLookUp concurrency as table_task concurrency × distsql_concurrency. Persist all operator data and issues into SQLite tables and generate DOT files rendered to SVG via the dot command."""
+verification_explanation = """Tests verify: (1) correct JSON structure with all 5 plans, (2) accurate total_time_ms values, bottleneck operators, and operator counts per plan, (3) lock contention detection with resolve_lock_time_ms≈3860 and backoff_count=18, (4) MVCC tombstone detection only in MIN plan (no false positive on MAX), (5) concurrency values and max_table_cop_tasks=160, (6) memory spill with disk_mb≈245, (7) suboptimal join with build=1180000 > probe=142000, (8) comparative analysis time ratio and root cause, (9) SQLite database with correct operators and issues tables, column schemas, row counts matching JSON, and queryable issue details, (10) Graphviz DOT files containing operator ids and task types with valid SVG renderings for all plans."""
+category = "database_systems"
+tags = ["query-optimization", "distributed-databases"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/diagnose-explain-analyze"

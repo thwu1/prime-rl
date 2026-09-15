@@ -1,0 +1,21 @@
+parameters:
+  clock_period_ns: [3.3, 5.0]
+  enable_pipeline: [true, false]
+  pipeline_ii: [1, 2]
+  enable_dataflow: [true, false]
+  unroll_factor: [1, 2, 4, 8]
+  array_partition_factor: [1, 2, 4]
+  allocation_limit_add: [0, 1, 2]
+  dsp_full_reg: [true, false]
+  vivado_strategy: ["Default", "Performance_Explore", "Area_Explore"]
+
+constraints:
+  - dependent: pipeline_ii
+    requires:
+      enable_pipeline: true
+  - dependent: array_partition_factor
+    requires:
+      unroll_factor: [2, 4, 8]
+  - dependent: allocation_limit_add
+    requires:
+      enable_dataflow: true

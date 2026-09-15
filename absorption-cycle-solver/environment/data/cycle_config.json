@@ -1,0 +1,8 @@
+{
+  "T_evap_K": 268.15,
+  "T_cond_K": 308.15,
+  "T_gen_K": 373.15,
+  "T_abs_K": 308.15,
+  "shx_effectiveness": 0.7,
+  "x_ref_molar": 0.9999
+}

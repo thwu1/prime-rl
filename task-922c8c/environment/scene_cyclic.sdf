@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="cyclic_test">
+
+    <model name="alpha_block">
+      <pose>0 0 0 0 0 0</pose>
+      <link name="body">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.1 0.1 0.1</size></box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="beta_block">
+      <pose>0 0 0 0 0 0</pose>
+      <link name="body">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.1 0.1 0.1</size></box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="gamma_block">
+      <pose>0 0 0 0 0 0</pose>
+      <link name="body">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.1 0.1 0.1</size></box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+  </world>
+</sdf>

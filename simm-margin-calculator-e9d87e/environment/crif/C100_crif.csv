@@ -1,0 +1,2 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_CreditQ,ISIN:UNKNOWN1,Residual,3y,USD,-100000,USD,-100000

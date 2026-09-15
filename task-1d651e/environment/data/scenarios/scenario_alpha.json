@@ -1,0 +1,8 @@
+{
+    "name": "scenario_alpha",
+    "instance_file": "prob_alpha.dat",
+    "max_objective": 1990,
+    "time_limit_sec": 90,
+    "require_lp_bound": true,
+    "notes": "Small instance. LP relaxation bound required."
+}

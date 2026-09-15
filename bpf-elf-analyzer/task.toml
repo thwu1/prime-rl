@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of BPF ELF binary format, BPF instruction set encoding (64-bit fixed-width instructions, helper call convention), BTF (BPF Type Format) parsing including header, type table with 15+ type kinds, and string table resolution. Map extraction requires understanding libbpf's __uint/__type macro encoding in BTF (PTR→ARRAY for integer properties, PTR→type for sized properties). Packet access detection requires register tracking through BPF bytecode. Combines ELF parsing, binary protocol decoding, control flow analysis, and deep Linux kernel subsystem knowledge."""
+solution_explanation = """The solution uses pyelftools to parse ELF structure and implements a custom BTF parser. It decodes BPF instructions to identify helper calls (opcode 0x85 with src_reg=0), tracks context register copies to detect packet data access patterns, and walks BTF type graphs (DATASEC→VAR→STRUCT→members) to extract map definitions. The __uint convention (PTR→ARRAY, nelems=value) and __type convention (PTR→actual_type, sizeof=size) are handled separately for map property extraction."""
+verification_explanation = """Tests load the JSON reports produced by the analyzer and verify: correct license strings, program names/sections/types, exact helper function sets, packet access booleans, map names/types/key_size/value_size/max_entries. Tests cover all 5 object files including a multi-program file with 2 tracepoints and 2 maps of different types."""
+category = "systems"
+tags = ["ebpf", "binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bpf-elf-analyzer"

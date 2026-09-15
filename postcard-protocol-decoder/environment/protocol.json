@@ -1,0 +1,47 @@
+{
+  "messages": {
+    "a1b2c3d4e5f60718": {
+      "name": "SensorReading",
+      "fields": [
+        {"name": "sensor_id", "type": "u16"},
+        {"name": "temperature", "type": "i32"},
+        {"name": "humidity", "type": "f32"},
+        {"name": "label", "type": "string"}
+      ]
+    },
+    "1234567890abcdef": {
+      "name": "MotorCommand",
+      "fields": [
+        {"name": "motor_idx", "type": "u8"},
+        {"name": "speed", "type": "i16"},
+        {"name": "direction", "type": {"unit_variant": ["Forward", "Reverse", "Brake"]}},
+        {"name": "duration_ms", "type": {"option": "u32"}}
+      ]
+    },
+    "fedcba9876543210": {
+      "name": "DeviceStatus",
+      "fields": [
+        {"name": "uptime_secs", "type": "u64"},
+        {"name": "errors", "type": {"seq": "u16"}},
+        {"name": "firmware_version", "type": {"tuple": ["u8", "u8", "u8"]}},
+        {"name": "config", "type": {"map": ["string", "i32"]}}
+      ]
+    },
+    "55aa55aa55aa55aa": {
+      "name": "Alert",
+      "fields": [
+        {"name": "timestamp", "type": "u64"},
+        {"name": "severity", "type": {"enum": [
+          {"name": "Info", "data": null},
+          {"name": "Warning", "data": "string"},
+          {"name": "Critical", "data": {"struct": [
+            {"name": "code", "type": "u16"},
+            {"name": "detail", "type": "string"},
+            {"name": "recoverable", "type": "bool"}
+          ]}}
+        ]}},
+        {"name": "acknowledged", "type": "bool"}
+      ]
+    }
+  }
+}

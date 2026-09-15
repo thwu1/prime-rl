@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in marine hydrodynamics (radiation/excitation forces, frequency-to-time-domain conversion via integral transforms, state-space system identification from impulse response data, coupled body dynamics integration), ocean wave spectra (JONSWAP parameterization with random-phase superposition), and constrained optimization. The solver must independently discover the correct mathematical transformations (cosine transform for radiation kernel, Hankel-matrix realization for state-space fitting, Cummins-type integrodifferential formulation), implement stable numerical integration with radiation memory, and handle multi-sea-state weighted optimization with motion constraints — a tightly coupled pipeline where errors in any stage propagate through all downstream results."""
+solution_explanation = """The solution computes the radiation IRF via cosine transform of B(omega) with fine-grid interpolation. State-space identification uses Kung's method: Hankel matrix from IRF samples, SVD truncation by cumulative energy, discrete-time realization, eigenvalue stabilization, and matrix-logarithm conversion to continuous time. JONSWAP spectrum is generated per sea state with seeded random phases and cosine ramp. The Cummins equation (coupling heave displacement, velocity, and radiation states) is solved via RK4 for each PTO damping across all sea states. Unconstrained optimization finds the damping maximizing probability-weighted power. Constrained optimization restricts to dampings where peak heave stays within the motion limit across all sea states, reporting binding constraints."""
+verification_explanation = """Tests independently verify: (1) K_r(0) matches cosine-transform integral of B(omega) within 2%; (2) state-space eigenvalues have negative real parts; (3) state-space reproduces K_r via C@expm(A*t)@B with R2>=0.95; (4) per-sea-state m0 matches (Hs/4)^2 within 5%; (5) heave std scales with Hs across sea states; (6) unconstrained weighted power matches recomputed maximum from individual power curves; (7) constrained power <= unconstrained power; (8) constraint consistency between unconstrained simulation stats and binding sea states; (9) frequency-domain cross-check of heave std within 30%."""
+category = "physics_engineering"
+tags = ["hydrodynamics", "wave-energy"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wec-timedomain-optimizer"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconciling pharmacological interaction data from two heterogeneous sources (REST API returning JSON with refIds and a 7MB CSV with different column naming conventions). The solver must discover CSV column mappings (Affinity High/Median/Low vs API's single affinity string), handle the edge case where CSV's median column is empty for range values (requiring fallback to mean of High/Low), collect PubMed IDs from a source the listing API does not expose directly (it only returns reference IDs, not PMIDs), skip the CSV's version comment header line, compute selectivity metrics in both log and linear binding space (Shannon entropy, fold-selectivity, molar conversion), and orchestrate a multi-phase pipeline with rate limiting across API endpoints and a large CSV download. Cross-validation logic requires understanding how identical pharmacological measurements are represented differently across the two data sources."""
+solution_explanation = """Queries /targets/{id}/interactions for each target filtered by species and affinityParameter. Parses affinity strings handling ranges as arithmetic midpoints. Downloads the full interactions CSV, skipping the version comment line, and parses with csv.DictReader. Filters CSV rows by Target ID, Target Species, and Affinity Units. For CSV medians, uses the Affinity Median column with fallback to mean of Affinity High and Affinity Low for range entries. Aggregates API measurements per (ligand, target) via statistics.median. Cross-validates by comparing API median vs CSV median within 0.15 tolerance. Collects PubMed IDs from the CSV PubMed ID column (pipe-separated) since the listing endpoint only returns refIds not full refs with pmid. Computes selectivity_window, ki_selectivity_ratio (10^top/10^second), selectivity_entropy (Shannon H in bits from linear-scale probabilities), original_affinity_nm (10^(9-pKi)), measurement_count, target_coverage. Fetches /ligands/{id} for approval status and /ligands/{id}/molecularProperties for physicochemical data. Strips HTML tags. Sorts by selectivity_window desc, primary_affinity desc."""
+verification_explanation = """Tests invoke the profiler with serotonin receptor targets (IDs 1,2,3) at two min-targets thresholds. Validates: complete JSON schema including csv_verification section and all 18 ligand-level fields; mathematical recomputation of all selectivity metrics from affinities dict; correct pKi-to-nM conversion (10^(9-pKi)) with inverse relationship check; measurement_count structure, positivity, and multi-measurement existence; PMIDs as sorted unique positive integers within plausible range; serotonin PMIDs count; csv_concordance in [0,1] with high average across ligands; csv_verification.rows_matched > 0, pairs compared > 0, and concordance_rate arithmetic consistency; independent CSV download in tests to verify rows_matched count and spot-check serotonin's median pKi at target 1; direct API cross-validation of approved status, affinity values, interaction_types, and measurement_counts for target 1; HTML stripping; sorting order; min-targets filtering with target_coverage checks; empty-result edge case with csv_verification defaults."""
+category = "computational_biology"
+tags = ["pharmacology", "data-reconciliation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 900.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gpcr-selectivity-profiler"

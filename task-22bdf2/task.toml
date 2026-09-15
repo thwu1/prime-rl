@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a 2D incompressible Navier-Stokes solver from physical requirements alone — no algorithmic specification or pseudocode is provided. The agent must independently determine: (1) appropriate spatial discretization for velocity-pressure coupling on a staggered grid, (2) a convergent iterative pressure correction method, (3) a stable advection scheme handling steep velocity gradients near obstacles, and (4) correct boundary condition implementation for multiple boundary types (inflow, wall, free surface). One scenario defines obstacle geometry via a Wavefront OBJ mesh file, requiring the agent to parse a 3D file format, extract 2D polygon vertices, implement a computational geometry algorithm for point-in-polygon testing, and rasterize the polygon onto the grid. Subtle errors in staggered grid indexing, interpolation offsets, or boundary handling produce physically incorrect results that require deep CFD domain knowledge to diagnose."""
+solution_explanation = """Implements a MAC (Marker-and-Cell) staggered grid solver: gravity integration on v-velocities between fluid cells, Gauss-Seidel pressure projection with successive over-relaxation (SOR) to enforce divergence-free velocity, boundary velocity extrapolation, semi-Lagrangian advection of both velocity components and smoke using bilinear interpolation with field-specific staggered offsets. Handles circular obstacles via analytic distance test and polygon obstacles by parsing Wavefront OBJ vertex/face data and applying ray-casting point-in-polygon for grid cell classification."""
+verification_explanation = """Tests verify implementation-independent physical invariants: (1) velocity divergence near zero at fluid cells across all scenarios, (2) correct inflow boundary velocities, (3) obstacle cells correctly classified as solid for both circular and OBJ-defined polygon geometries (polygon verification uses independent ray-casting PIP against known vertices), (4) hydrostatic equilibrium (velocities near zero, pressure gradient with depth), (5) scalar transport bounds, (6) numerical stability (no velocity blowup). No test depends on specific algorithmic choices."""
+category = "computational_science"
+tags = ["fluid-dynamics", "numerical-methods"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-22bdf2"

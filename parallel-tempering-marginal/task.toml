@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires estimating the log marginal likelihood for an unidentifiable Bayesian model using CmdStan. The agent must: (1) understand the CmdStan CLI for compiling and running Stan models, including its non-obvious make-based build system and CSV output format; (2) recognize that standard MCMC gives posterior samples but NOT marginal likelihoods, requiring a creative multi-run strategy; (3) modify the Stan model to support a temperature/power parameter for thermodynamic integration or implement an alternative approach such as bridge sampling; (4) correctly parse CmdStan output, handle numerical stability, and compute accurate marginal likelihood estimates. The unidentifiable product parameterization creates a ridge-shaped posterior that challenges standard samplers. Combines deep Bayesian inference knowledge with CmdStan tool proficiency."""
+solution_explanation = """The solution creates a tempered version of the Stan model that includes a beta_temp scaling parameter on the likelihood. It compiles this model with CmdStan, then runs it at 25 equally-spaced temperatures from 0 to 1. At beta=0, uniform samples are generated directly in Python since the target is flat. For each temperature level, CmdStan samples are collected and log-likelihood values extracted from the CSV output. The stepping stone estimator combines these to produce log P(data). Posterior summaries are computed from the beta=1 chain samples."""
+verification_explanation = """Tests compare the stepping stone log marginal likelihood estimate against an analytically derived true value using the identity: log P(data) = log C(n,k) + log B(k+1,n-k+1) + log(psi(n+2)-psi(k+1)), where the integral arises from the product-uniform prior density f(p)=-log(p). The analytical formula is cross-validated against numerical double quadrature. Posterior mean and standard deviation of p1*p2 are similarly verified against analytically computable moments using beta function and digamma function identities."""
+category = "mathematics_of_computing"
+tags = ["bayesian-inference", "cmdstan"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parallel-tempering-marginal"

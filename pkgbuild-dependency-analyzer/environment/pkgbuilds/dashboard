@@ -1,0 +1,25 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgname=dashboard
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Web-based monitoring dashboard"
+arch=('x86_64')
+url="https://example.com/dashboard"
+license=('MIT')
+depends=('metrics-collector' 'baselib' 'nodejs')
+makedepends=('npm')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('0bba0f5e82c979e902c014a8b6a3268bfd1709d5a1af1e8dbb0782fbd4314a65')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    npm install
+    npm run build
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    install -dm755 "${pkgdir}/usr/share/${pkgname}"
+    cp -r dist/* "${pkgdir}/usr/share/${pkgname}/"
+}

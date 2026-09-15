@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 interacting defects across a distributed consensus simulation framework ported from Zig to Python. The solver must understand Flexible Paxos quorum theory (including the non-obvious R=2 durability special case and ceiling-vs-floor division), consensus safety invariants (detecting divergent recommits on replica restart/replay), network partition semantics (why partition sizes must be drawn from [1,N-1] not [0,N-1]), the resonance bug pattern in round-robin repair targeting (why self-targeting must be skipped), and inclusive range arithmetic (off-by-one in modular range computation). Bugs interact: the PRNG range defect cascades into partition and core selection behavior, requiring the solver to isolate root causes across module boundaries by cross-referencing Zig source code."""
+solution_explanation = """Fix 5 defects: (1) quorums.py — use math.ceil instead of floor division and add replica_count==2 special case for both replication and view_change quorums; (2) state_checker.py — add divergent checksum validation in the recommit early-return path (op <= commit_min); (3) packet_simulator.py — change uniform_size partition_size from range_inclusive(0, n-1) to range_inclusive(1, n-1) to ensure non-empty partition groups; (4) liveness.py — add self-targeting skip in detect_repair_deadlock so replicas don't attempt to repair from themselves; (5) prng.py — fix range_inclusive modulus from (high-low) to (high-low+1) to include the upper bound."""
+verification_explanation = """Tests verify: exact quorum values for R=1-6 against a known-correct table (catches floor-div and missing R=2 case), Flexible Paxos invariants for R=1-12, PRNG output matches reference SplitMix64 implementation, range_inclusive covers all values in specified range (catches off-by-one), packet simulator determinism across identical seeds, partition modes produce valid non-empty groups across 50 seeds, state checker detects divergent recommits (catches missing checksum validation), state checker detects op skipping and parent chain violations, liveness deadlock detector finds resonance patterns without false positives (catches missing self-skip), and end-to-end simulation pipeline is deterministic."""
+category = "distributed_systems"
+tags = ["deterministic_simulation", "consensus_debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/consensus-sim-checker"

@@ -1,0 +1,9 @@
+pga_target_for_estimate_mb,pga_target_factor,advice_status,estd_extra_bytes_rw,estd_pga_cache_hit_percentage,estd_overalloc_count
+64,0.25,ON,45000000000,34,850
+128,0.50,ON,28000000000,52,420
+192,0.75,ON,15000000000,68,180
+256,1.00,ON,8500000000,78,75
+384,1.50,ON,2100000000,90,10
+512,2.00,ON,400000000,96,0
+768,3.00,ON,0,100,0
+1024,4.00,ON,0,100,0

@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""
+dtrain - Distributed Training Simulation CLI
+
+Command-line interface for discovering, running, validating, and profiling
+distributed training strategies against the simulation framework.
+"""
+
+import argparse
+import asyncio
+import json
+import sqlite3
+import sys
+import importlib.util
+import os
+
+DB_PATH = '/app/constraints.db'
+
+
+def get_db():
+    if not os.path.exists(DB_PATH):
+        print(f"Error: database not found at {DB_PATH}", file=sys.stderr)
+        sys.exit(1)
+    return sqlite3.connect(DB_PATH)
+
+
+def cmd_list(args):
+    db = get_db()
+    rows = db.execute(
+        "SELECT name, description FROM strategies ORDER BY id"
+    ).fetchall()
+    for name, desc in rows:
+        print(f"{name}: {desc}")
+    db.close()
+
+
+def cmd_schema(args):
+    db = get_db()
+    rows = db.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' ORDER BY name"
+    ).fetchall()
+    for (sql,) in rows:
+        if sql:
+            print(sql)
+            print()
+    db.close()
+
+
+def cmd_config(args):
+    db = get_db()
+    row = db.execute(
+        "SELECT ranks, layers, batches, time_limit, memory_limit "
+        "FROM strategies WHERE name=?",
+        (args.strategy,)
+    ).fetchone()
+    db.close()
+    if not row:
+        print(f"Error: unknown strategy '{args.strategy}'", file=sys.stderr)
+        print("Run './dtrain list' to see available strategies.", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps({
+        "strategy": args.strategy,
+        "ranks": row[0],
+        "layers": row[1],
+        "batches": row[2],
+        "time_limit": row[3],
+        "memory_limit": row[4]
+    }, indent=2))
+
+
+def load_strategy(name):
+    strat_path = '/app/strategies.py'
+    if not os.path.exists(strat_path):
+        raise FileNotFoundError(
+            f"strategies.py not found at {strat_path}. "
+            "Create it with your strategy implementations."
+        )
+    spec = importlib.util.spec_from_file_location("strategies", strat_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    fn = getattr(mod, name, None)
+    if fn is None:
+        raise AttributeError(
+            f"Strategy function '{name}' not found in strategies.py. "
+            f"Available: {[x for x in dir(mod) if not x.startswith('_')]}"
+        )
+    return fn
+
+
+def run_strategy(strategy_fn, ranks, layers, batches, timeout=120):
+    sys.path.insert(0, '/app')
+    from lib import Model, Dist
+
+    async def _inner():
+        dist = Dist(ranks)
+        return await asyncio.wait_for(
+            asyncio.gather(*[
+                strategy_fn(
+                    Model(layers=layers, batches=batches, rank=i, dist=dist)
+                )
+                for i in range(ranks)
+            ]),
+            timeout=timeout
+        )
+    return asyncio.run(_inner())
+
+
+def cmd_run(args):
+    db = get_db()
+    row = db.execute(
+        "SELECT ranks, layers, batches, time_limit, memory_limit "
+        "FROM strategies WHERE name=?",
+        (args.strategy,)
+    ).fetchone()
+    db.close()
+    if not row:
+        print(f"Error: unknown strategy '{args.strategy}'", file=sys.stderr)
+        sys.exit(1)
+
+    ranks, layers, batches, time_limit, memory_limit = row
+
+    try:
+        strategy_fn = load_strategy(args.strategy)
+    except Exception as e:
+        result = {
+            "strategy": args.strategy,
+            "status": "error",
+            "error": str(e)
+        }
+        print(json.dumps(result, indent=2))
+        sys.exit(1)
+
+    sys.path.insert(0, '/app')
+    from lib import Model
+
+    try:
+        timeout = 180 if ranks > 8 else 120
+        models = run_strategy(strategy_fn, ranks, layers, batches, timeout)
+        Model.check(models)
+        max_time = max(m.time for m in models)
+        peak_mem = max(m.peak_memory() for m in models)
+
+        result = {
+            "strategy": args.strategy,
+            "status": "pass" if (max_time <= time_limit and peak_mem <= memory_limit) else "fail",
+            "correctness": "pass",
+            "time": round(max_time, 2),
+            "time_limit": time_limit,
+            "time_ok": max_time <= time_limit,
+            "peak_memory": int(peak_mem),
+            "memory_limit": memory_limit,
+            "memory_ok": peak_mem <= memory_limit,
+        }
+    except AssertionError as e:
+        result = {
+            "strategy": args.strategy,
+            "status": "fail",
+            "correctness": "fail",
+            "error": str(e)
+        }
+    except Exception as e:
+        result = {
+            "strategy": args.strategy,
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}"
+        }
+
+    print(json.dumps(result, indent=2))
+    if result["status"] != "pass":
+        sys.exit(1)
+
+
+def cmd_profile(args):
+    db = get_db()
+    row = db.execute(
+        "SELECT ranks, layers, batches, time_limit, memory_limit "
+        "FROM strategies WHERE name=?",
+        (args.strategy,)
+    ).fetchone()
+    db.close()
+    if not row:
+        print(f"Error: unknown strategy '{args.strategy}'", file=sys.stderr)
+        sys.exit(1)
+
+    ranks, layers, batches, time_limit, memory_limit = row
+
+    try:
+        strategy_fn = load_strategy(args.strategy)
+    except Exception as e:
+        print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
+        sys.exit(1)
+
+    timeout = 180 if ranks > 8 else 120
+    models = run_strategy(strategy_fn, ranks, layers, batches, timeout)
+
+    profile = {
+        "strategy": args.strategy,
+        "config": {
+            "ranks": ranks,
+            "layers": layers,
+            "batches": batches,
+            "time_limit": time_limit,
+            "memory_limit": memory_limit
+        },
+        "per_rank": []
+    }
+
+    for m in models:
+        rank_data = {
+            "rank": m.rank,
+            "total_time": round(m.time, 2),
+            "peak_memory": int(m.peak_memory()),
+            "event_count": len(m.log),
+            "events": []
+        }
+        for e in m.log:
+            rank_data["events"].append({
+                "type": e.typ,
+                "layer": e.layer,
+                "time": round(e.time, 2),
+                "duration": round(e.length, 2),
+                "memory_at_event": int(e.memory),
+                "batches": sorted(e.batches) if e.batches else []
+            })
+        profile["per_rank"].append(rank_data)
+
+    print(json.dumps(profile, indent=2))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Distributed Training Simulation CLI",
+        epilog="Use 'dtrain <command> --help' for command-specific help."
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("list", help="List available strategies and descriptions")
+    sub.add_parser("schema", help="Show constraints database schema")
+
+    p = sub.add_parser("config", help="Show JSON configuration for a strategy")
+    p.add_argument("strategy", help="Strategy name")
+
+    p = sub.add_parser("run", help="Run, validate, and check constraints")
+    p.add_argument("strategy", help="Strategy name to run")
+
+    p = sub.add_parser("profile", help="Run and output detailed event timeline")
+    p.add_argument("strategy", help="Strategy name to profile")
+
+    args = parser.parse_args()
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+
+    cmds = {
+        "list": cmd_list,
+        "schema": cmd_schema,
+        "config": cmd_config,
+        "run": cmd_run,
+        "profile": cmd_profile,
+    }
+    cmds[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

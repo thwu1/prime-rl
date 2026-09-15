@@ -1,0 +1,14 @@
+{
+  "id": "problem_1",
+  "description": "Diagonal matrix in middle of chain",
+  "chain": [
+    {"matrix": "A", "transpose": false, "invert": false},
+    {"matrix": "D", "transpose": false, "invert": false},
+    {"matrix": "B", "transpose": false, "invert": false}
+  ],
+  "matrices": {
+    "A": {"rows": 100, "cols": 2000, "properties": ["general"]},
+    "D": {"rows": 2000, "cols": 2000, "properties": ["diagonal"]},
+    "B": {"rows": 2000, "cols": 100, "properties": ["general"]}
+  }
+}

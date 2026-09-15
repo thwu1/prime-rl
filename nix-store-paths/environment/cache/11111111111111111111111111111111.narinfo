@@ -1,0 +1,9 @@
+StorePath: /nix/store/11111111111111111111111111111111-wget-1.24.tar.gz
+URL: nar/11111111111111111111111111111111.nar.xz
+Compression: xz
+FileHash: sha256:70989f5e5e78b5532a1e6fe0cbbb539df23b72e0b9d7e27af3603481a54d32d8
+FileSize: 3748434
+NarHash: sha256:b3b1e584fb1b658b9ec3d996bea6a84ec21fe1af8d03f0e0903ffed25824fe2b
+NarSize: 5514121
+References:
+CA: fixed:sha256:1gp4x9n5mqlrkdv048fkq1n3w2v5wl0lf53b5nq1axq27dqe5zoe

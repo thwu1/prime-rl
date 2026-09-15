@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering the active PML4 base (CR3) from a raw memory dump containing multiple decoy page table hierarchies, reverse-engineering a kernel ELF binary to extract expected virtual/physical layout and permissions, cross-referencing crash diagnostics with actual page table state to identify four distinct corruption types, producing corrected binary patches, constructing new page table structures (including large page demotion with new PT allocation) to eliminate all W^X violations per a security hardening policy, and evaluating security posture metrics across corrupted/repaired/hardened states including privilege escalation path analysis."""
+solution_explanation = """The solution parses the kernel ELF to extract section VAs, PAs, and permission flags from program headers. It scans for PML4 candidates validated against boot-time reference mappings to find CR3=0x5000. It cross-references ELF-derived expected permissions with actual page table entries to find NX injection and present-clearing corruptions, and uses pre-crash user-space snapshots to find address bitflip and unauthorized mapping corruptions. After repair, it walks all page tables to audit W^X violations, then applies hardening: setting NX on 4KB W^X pages and demoting a 2MB RWX page by creating a new PT at the lowest unused physical page (0x11000) with 512 entries. Finally it evaluates posture metrics by walking page tables in each state."""
+verification_explanation = """Tests verify: (a) CR3=0x5000 and not decoy values, (b) exactly 4 corruptions at specific byte offsets with correct values and types, (c) repaired.bin has correct entries at all 4 offsets while preserving decoys and uncorrupted entries, (d) 3 W^X violations at specific VAs in repaired state, (e) hardened.bin has NX set on 4KB W^X pages, 2MB page demoted with correct PD pointer and 512 PT entries, full walk confirms zero W^X violations, (f) posture.json has correct metrics: corrupted=4/1/1, repaired=3/0/0, hardened=0/0/0 with 3 remediation entries sorted by VA."""
+category = "systems"
+tags = ["x86-64", "memory-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pagetable-security-audit"

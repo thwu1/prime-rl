@@ -1,0 +1,73 @@
+%General Mission Analysis Tool(GMAT) Script
+%Created: 2024-01-15
+%
+% ISS-like Low Earth Orbit Propagation Test Case
+% Ref: GMAT V&V Paper (AIAA 2014), Table 3 - LEO (ISS)
+%----------------------------------------
+
+%----------------------------------------
+%---------- Spacecraft
+%----------------------------------------
+
+Create Spacecraft ISS;
+GMAT ISS.DateFormat = UTCGregorian;
+GMAT ISS.Epoch = '01 Jun 2004 12:00:00.000';
+GMAT ISS.CoordinateSystem = EarthMJ2000Eq;
+GMAT ISS.DisplayStateType = Cartesian;
+GMAT ISS.X = -4453.78359;
+GMAT ISS.Y = -5038.20376;
+GMAT ISS.Z = -426.384456;
+GMAT ISS.VX = 3.831888;
+GMAT ISS.VY = -2.887221;
+GMAT ISS.VZ = -6.018232;
+GMAT ISS.DryMass = 850;
+GMAT ISS.Cd = 2.2;
+GMAT ISS.Cr = 1.8;
+GMAT ISS.DragArea = 15;
+GMAT ISS.SRPArea = 15;
+
+%----------------------------------------
+%---------- ForceModel
+%----------------------------------------
+
+Create ForceModel LEO_Forces;
+GMAT LEO_Forces.CentralBody = Earth;
+GMAT LEO_Forces.PrimaryBodies = {Earth};
+GMAT LEO_Forces.GravityField.Earth.Degree = 4;
+GMAT LEO_Forces.GravityField.Earth.Order = 0;
+GMAT LEO_Forces.GravityField.Earth.PotentialFile = 'JGM2.cof';
+GMAT LEO_Forces.Drag = None;
+GMAT LEO_Forces.SRP = Off;
+GMAT LEO_Forces.PointMasses = {};
+GMAT LEO_Forces.RelativisticCorrection = Off;
+
+%----------------------------------------
+%---------- Propagators
+%----------------------------------------
+
+Create Propagator LEO_Prop;
+GMAT LEO_Prop.FM = LEO_Forces;
+GMAT LEO_Prop.Type = RungeKutta89;
+GMAT LEO_Prop.InitialStepSize = 60;
+GMAT LEO_Prop.Accuracy = 1e-12;
+GMAT LEO_Prop.MinStep = 0.001;
+GMAT LEO_Prop.MaxStep = 2700;
+GMAT LEO_Prop.MaxStepAttempts = 50;
+
+%----------------------------------------
+%---------- Subscribers
+%----------------------------------------
+
+Create ReportFile LEO_Report;
+GMAT LEO_Report.SolverIterations = Current;
+GMAT LEO_Report.UpperLeft = [ 0 0 ];
+GMAT LEO_Report.Filename = 'LEO_ISS_Ephemeris.txt';
+GMAT LEO_Report.Add = {ISS.ElapsedSecs, ISS.EarthMJ2000Eq.X, ISS.EarthMJ2000Eq.Y, ISS.EarthMJ2000Eq.Z, ISS.EarthMJ2000Eq.VX, ISS.EarthMJ2000Eq.VY, ISS.EarthMJ2000Eq.VZ};
+GMAT LEO_Report.WriteHeaders = true;
+
+%----------------------------------------
+%---------- Mission Sequence
+%----------------------------------------
+
+BeginMissionSequence;
+Propagate LEO_Prop(ISS) {ISS.ElapsedDays = 1.0};

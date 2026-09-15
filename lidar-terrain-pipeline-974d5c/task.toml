@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional GIS/remote sensing expertise: statistical outlier removal from noisy point clouds, morphological ground classification (e.g. SMRF/PMF), DTM generation via rasterization and gap-filling interpolation, canopy height model computation (DSM minus DTM with clamping), slope derivation, and correct GeoTIFF output with CRS metadata. The solver must understand ASPRS LAS classification codes, coordinate reference systems, rasterization of irregular 3D point clouds, and spatial interpolation. Multiple processing stages must be correctly chained with appropriate parameter tuning."""
+solution_explanation = """The solution reads the LAS file with laspy, removes statistical outliers using scipy cKDTree nearest-neighbor distance thresholding, classifies ground via progressive morphological filtering (erosion-dilation with increasing window sizes and slope-dependent thresholds), writes ground/non-ground LAS files, rasterizes ground points to a DTM using scipy griddata with linear+nearest fill, computes DSM as max-Z per cell, derives CHM = max(0, DSM - DTM), computes slope from DTM using numpy gradient, writes all GeoTIFFs via osgeo.gdal with EPSG:32618, and generates the statistics report."""
+verification_explanation = """Tests validate: all 7 output artifacts exist (process.sh + 6 outputs); DTM is a valid GeoTIFF with EPSG:32618 CRS and ~1m resolution; DTM RMSE against encoded validation points is below 2.0m; DTM elevations fall within 85-120m range; at least 80% cell coverage; CHM values are non-negative with max height between 3-30m; slope values are in 0-60 degrees; report.json has all required fields with plausible values; ground.las contains 10k-60k points."""
+category = "geospatial"
+tags = ["lidar", "point-cloud"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lidar-terrain-pipeline-974d5c"

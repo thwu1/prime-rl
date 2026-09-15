@@ -1,0 +1,35 @@
+{
+  "type": "transactional",
+  "initial_state": {"x": 0, "y": 0},
+  "transactions": [
+    {
+      "id": 1,
+      "status": "committed",
+      "start_time": 0,
+      "end_time": 100,
+      "operations": [
+        {"f": "write", "key": "x", "value": 1}
+      ]
+    },
+    {
+      "id": 2,
+      "status": "committed",
+      "start_time": 200,
+      "end_time": 300,
+      "operations": [
+        {"f": "read", "key": "x", "value": 1},
+        {"f": "write", "key": "y", "value": 1}
+      ]
+    },
+    {
+      "id": 3,
+      "status": "committed",
+      "start_time": 400,
+      "end_time": 500,
+      "operations": [
+        {"f": "read", "key": "x", "value": 1},
+        {"f": "read", "key": "y", "value": 1}
+      ]
+    }
+  ]
+}

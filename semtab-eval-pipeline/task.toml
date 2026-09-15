@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level semantic web knowledge beyond textbook coverage: (1) recognizing and implementing semantics for four distinct W3C OWL 2 / RDFS constructs — owl:sameAs (equivalence closure), rdfs:subClassOf (class subsumption), owl:equivalentClass (mutual subsumption), and rdfs:subPropertyOf (property subsumption) — from their formal W3C definitions rather than from explicit instructions; (2) understanding that owl:equivalentClass implies bidirectional rdfs:subClassOf, which is not stated in the KG data and must be inferred from OWL semantics; (3) recognizing the deep analogy between class hierarchies and property hierarchies and applying subsumption matching to both CTA and CPA evaluation; (4) handling namespace-aware URI mapping between two Wikidata namespaces (entity and property); (5) implementing union-find for owl:sameAs with correct symmetric closure when triples are stated in only one direction; (6) producing valid N-Triples RDF output conforming to a custom evaluation ontology with XSD-typed literals. The instruction deliberately does not explain the semantics of each construct — the solver must draw on deep domain knowledge of the OWL 2 and RDFS specifications."""
+solution_explanation = """The solution uses rdflib to parse the Turtle KG, then implements: (1) a union-find algorithm for owl:sameAs equivalence classes, processing both directions for symmetry; (2) a unified hierarchy closure function that computes transitive ancestors/descendants from any RDFS/OWL sub-relation (subClassOf, subPropertyOf), with optional equivalence expansion (owl:equivalentClass expanded to mutual sub-relations); (3) namespace-aware URI conversion handling both Wikidata entity (wd:) and property (wdt:) prefixes; (4) subsumption-based matching for both CTA (using class hierarchy + equivalentClass) and CPA (using property hierarchy via subPropertyOf); (5) standard CEA evaluation with ABSTAIN/NIL handling; (6) N-Triples RDF output construction with properly typed XSD literals."""
+verification_explanation = """Tests verify: (1) exact metric values for all 3 systems across all 3 tasks with 0.001 tolerance; (2) specific owl:equivalentClass handling — System A CTA F1=1.0 only passes if Q7930989 matches Q515 via equivalentClass expansion (without it, F1 would be 0.8); (3) specific rdfs:subPropertyOf handling — System C CPA P=1.0 only passes if P276 matches P131 via subPropertyOf (without it, P=0.5), and P625 does NOT match P131 (keeping System B CPA F1=2/3); (4) owl:sameAs symmetry inference (Q2 matches Q100 via Q3); (5) equivalence class separation ({Q10,Q11} distinct from {Q200,Q201}); (6) N-Triples parsability with correct property values including CPA subsumption results and all 9 Evaluation instances."""
+category = "data-science"
+tags = ["semantic-web", "knowledge-graphs"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/semtab-eval-pipeline"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of SAT solving theory, DRAT proof verification semantics, and Boolean satisfiability. The solver must explore an unfamiliar environment to discover benchmarks, claimed results, and verification tools. Four distinct types of errors are embedded: misclassified verdicts (SAT claimed as UNSAT and vice versa), invalid satisfying assignments, a fabricated unsatisfiability proof for a satisfiable formula, and — most critically — a DRAT proof that exploits a bug in the provided proof checker. The proof checker incorrectly treats clause deletion lines as comments, making an invalid proof appear valid. Discovering this requires reading the tool's source code and understanding that DRAT deletion steps must modify the active clause database, affecting subsequent RUP/RAT verification. This demands holistic understanding of proof systems, not just procedural tool usage."""
+solution_explanation = """The solution independently solves each benchmark using a DPLL solver to determine correct SAT/UNSAT verdicts. It verifies satisfying assignments by checking every clause. For DRAT proof verification, it implements a correct checker that handles clause additions (RUP then RAT fallback), clause deletions (removing from active database), and proper step counting. This reveals that the mutex proof is invalid when deletions are correctly applied (the proof deletes clauses needed for RUP of a later step), contradicting the buggy tool's output. The solution cross-references all findings against claimed results to produce the audit report."""
+verification_explanation = """Tests verify: (1) audit.json exists with all 8 benchmark entries, (2) correct SAT/UNSAT verdict for each benchmark, (3) correct original_correct flag identifying the 2 misclassified instances, (4) correct certificate_valid flag identifying the 4 invalid certificates (including the mutex proof that the buggy tool wrongly validates), (5) an independent SAT check on graph_color confirms it's satisfiable, (6) an independent UNSAT check on parity_chain confirms it's unsatisfiable, (7) the mutex proof is independently verified as invalid with correct deletion handling."""
+category = "formal_methods"
+tags = ["sat-solving", "proof-verification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dd4b70"

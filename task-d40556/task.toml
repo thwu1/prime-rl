@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of NIST SCTK's scoring ecosystem. The agent must first diagnose format errors in a failed evaluation attempt, then discover correct sclite and ROVER command-line syntax from documentation or tool help. It must understand STM/CTM file formats, parse complex multi-format output reports (sum reports, Labeled Utterance Reports, NCE), implement a combinatorial search over C(5,3)=10 ROVER system combinations, and determine the non-obvious parameter configuration for word_frequency voting without being told. No step-by-step instructions are provided."""
+solution_explanation = """Diagnose the broken eval script (wrong reference format flag 'trn' instead of 'stm', missing ROVER format specifiers on -h args). Build a pipeline that: (1) runs sclite with correct STM/CTM format flags on all 5 systems to extract WER and NCE from sum reports; (2) enumerates all C(5,3) ROVER combinations with avgconf voting and scores each output; (3) identifies the optimal combination; (4) compares avgconf, maxconf, and word_frequency voting (avgconf with -a 1.0 -c 0.0); (5) generates LUR report for the best system and parses category-level WER with label ID mapping from column headers."""
+verification_explanation = """Tests independently run sclite and ROVER with the same data and parameters to compute ground-truth values. Agent results are compared against ground truth with floating-point tolerance (0.15 for WER, 0.005 for NCE). CSV structure, method names, category IDs, and system names are validated."""
+category = "data_science"
+tags = ["speech-recognition", "system-combination"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d40556"

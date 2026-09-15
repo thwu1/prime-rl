@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-search-egress
+  namespace: beta
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: storage
+    ports:
+    - port: es-http
+      protocol: TCP

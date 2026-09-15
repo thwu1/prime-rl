@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering the relationship between separately stored matrices and the full system (including a non-obvious sign convention), extracting block structure from a sparse matrix, computing dense derived quantities from large sparse factors, solving an indefinite system to high accuracy, and handling generalized eigenvalue problems with block-diagonal pencils. No algorithmic guidance is given."""
+solution_explanation = """The solution inspects the block structure of M, discovers it is assembled as [A, B'; B, -C] (symmetric indefinite with negated lower-right block), computes Q1 = B*inv(A)*B'+C via sparse factorization and Q2 via diagonal approximation, computes generalized eigenvalues of (M, blkdiag(A,Qi)), then uses GMRES with a block-diagonal preconditioner to solve the system to the required tolerance."""
+verification_explanation = """Tests independently compute Q1, Q2 and their eigenvalues from the stored blocks, verify generalized eigenvalues of the block-diagonal pencils within rtol tolerances, and check the solution vector via relative residual < 1e-7 with consistency between reported and actual residuals."""
+category = "numerical_analysis"
+tags = ["krylov-methods", "preconditioning"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/krylov-preconditioner-analysis"

@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  namespace: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+        tier: api
+        db-access: "true"
+        role: monitored
+    spec:
+      containers:
+      - name: api
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: users-api
+  namespace: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: users
+  template:
+    metadata:
+      labels:
+        app: users
+        tier: api
+        db-access: "true"
+        role: monitored
+    spec:
+      containers:
+      - name: api
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-api
+  namespace: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics
+  template:
+    metadata:
+      labels:
+        app: analytics
+        tier: api
+    spec:
+      containers:
+      - name: api
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8080

@@ -1,0 +1,24 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgname=baselib
+pkgver=2.1.0
+pkgrel=1
+pkgdesc="Core utility library for the ecosystem"
+arch=('x86_64')
+url="https://example.com/baselib"
+license=('MIT')
+depends=('glibc' 'openssl')
+makedepends=('cmake')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    cmake -B build -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build
+}

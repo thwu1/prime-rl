@@ -1,0 +1,21 @@
+{
+  "description": "AND vertex: blue edge can reverse outward only after both red edges point inward.",
+  "vertices": {
+    "V": {"min_inflow": 2},
+    "X": {"min_inflow": 0},
+    "Y": {"min_inflow": 0},
+    "Z": {"min_inflow": 0}
+  },
+  "edges": {
+    "r1": {"endpoints": ["V", "X"], "weight": 1},
+    "r2": {"endpoints": ["V", "Y"], "weight": 1},
+    "b":  {"endpoints": ["V", "Z"], "weight": 2}
+  },
+  "initial_orientation": {
+    "r1": "X",
+    "r2": "V",
+    "b":  "V"
+  },
+  "target_edge": "b",
+  "target_direction": "Z"
+}

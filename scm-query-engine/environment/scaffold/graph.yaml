@@ -1,0 +1,23 @@
+nodes:
+  - name: X
+    visible: true
+    num_values: 2
+  - name: H
+    visible: false
+    num_values: 2
+  - name: T
+    visible: true
+    num_values: 2
+  - name: M
+    visible: true
+    num_values: 2
+  - name: Y
+    visible: true
+    num_values: 2
+
+edges:
+  - [X, T]
+  - [H, T]
+  - [T, M]
+  - [M, Y]
+  - [H, Y]

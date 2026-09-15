@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert applied cryptography knowledge spanning four distinct primitives (AES-GCM, ECDSA, HMAC, HKDF) and their security properties. The agent must parse four different Wycheproof JSON test vector schemas, map them to the Python cryptography library API, and build a comprehensive test harness. Identifying the bugs requires understanding ASN.1 DER vs BER encoding semantics, GCM IV security requirements (CVE-2017-7822), and HKDF output length limits per RFC 5869. The bugs are subtle: a lenient ASN.1 parser that silently accepts BER-encoded ECDSA signatures, a fallback that masks zero-length IV errors, and a size-clamping catch block that silently truncates HKDF output."""
+solution_explanation = """Fix three bugs: (1) AES-GCM decrypt catches ValueError for zero-length IV and returns empty bytes -- remove the try/except and let the error propagate. (2) ECDSA verify uses a custom lenient ASN.1 parser that accepts BER encodings then re-encodes to DER -- replace with direct signature passthrough to the library's strict DER parser. (3) HKDF derive catches ValueError for oversized output and silently clamps to max -- remove the fallback. Build a test harness processing all four Wycheproof formats and document findings in JSON."""
+verification_explanation = """Tests load actual Wycheproof test vectors from /app/vectors/ and verify: (1) Valid AES-GCM vectors decrypt correctly and zero-length IV raises an exception. (2) Valid ECDSA vectors verify, BER-encoded signatures are rejected via synthetic test, and all invalid signatures are rejected. (3) Valid HKDF vectors produce correct output and oversized requests raise errors. (4) HMAC operates correctly as baseline. (5) findings.json exists documenting all three bugs with correct function names and classifications."""
+category = "cybersecurity"
+tags = ["cryptography", "wycheproof"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3ab3b1"

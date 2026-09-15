@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing the dn42 registry's self-describing RPSL schema format to discover validation rules dynamically, then implementing a schema-driven validator across nine interdependent object types. Beyond schema validation, the solver must interpret a policy document with both structured fields and natural-language remarks to extract IP allocation ranges, ROA community values, and AS-SET member validation rules. Generating valid BIRD2 configuration demands proficiency with an unfamiliar networking tool's DSL — correctly expressing ROA4/ROA6 table declarations, static protocol entries, and import filters using roa_check() with BGP community tagging — and iterating with bird -p to pass syntax validation. AS-SET transitive expansion requires graph traversal with cycle detection across mutually recursive membership. The combination of RPSL parsing, CIDR arithmetic, RPKI ROA semantics, BIRD2 configuration generation, and IRR-style AS-SET resolution requires holistic understanding of BGP operational practices rather than procedural following."""
+solution_explanation = """Parse schema files to extract field rules (required/optional, single/multiple, lookup targets, enum values). Parse the policy file for valid IP ranges and ROA community values (64511,1/2/3). Walk each object type directory, validate every object against its schema (check required fields, enum values, lookup references). Apply policy checks: verify inetnum/inet6num CIDRs fall within 172.20.0.0/14 and fd00::/8, detect pairwise CIDR overlaps, verify route prefixes are covered by allocations, check max-length >= prefix length, validate AS-SET members reference existing aut-num or as-set objects. Generate ROA entries only from violation-free route/route6 objects. Build BIRD2 config with roa4/roa6 table declarations, static protocols loading ROA entries, and named import filters using roa_check() with community tagging per policy. Validate config with bird -p. Expand AS-SETs transitively using DFS with visited-set cycle detection. Output violations.json (18 violations), roa_table.csv (4 valid entries), bird.conf (BIRD2 config), and expanded_sets.json."""
+verification_explanation = """Tests load violations.json and search for each planted violation by content — matching object names, field names, and referenced values. Tests verify minimum violation count >= 16 and check specific schema violations (missing required fields, invalid enums, broken lookups) and policy violations (out-of-range CIDRs, overlapping allocations, uncovered prefixes, max-length issues, broken AS-SET member references). ROA table tests verify the header format, exactly 4 data rows, presence of specific valid entries, and absence of entries for violated routes. BIRD2 tests run bird -p -c /app/bird.conf to verify syntax, check for ROA table declarations and correct ROA entries, verify filters use roa_check() with correct community values, and confirm invalid routes are excluded. AS-SET expansion tests verify transitive membership resolution, cycle handling, and broken reference graceful degradation."""
+category = "networking"
+tags = ["bgp", "bird2"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9fedb9"

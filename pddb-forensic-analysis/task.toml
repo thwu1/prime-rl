@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level applied cryptography and security analysis. The agent must: (1) reconstruct a three-stage key derivation pipeline from a deliberately ambiguous natural-language description that omits explicit HMAC key/message parameter assignments — correct composition requires understanding standard PRF conventions, with incorrect parameter ordering producing silently wrong keys; (2) parse a custom binary image format and brute-force ~1500 credential combinations with block cipher decryption and integrity validation; (3) independently identify what security weaknesses exist in the encryption scheme by analyzing the ciphertext blocks and understanding the implications of the chosen cipher mode; (4) derive false-positive rates for the integrity mechanism from first principles to assess reliability for basis attribution under wrong-key decryption; (5) compute theoretical collision probabilities for the nonce space and detect actual collisions in the data; (6) perform temporal differential analysis comparing two free-space cache snapshots to quantify metadata leakage about hidden basis activity — requiring understanding of how partial free-space caching interacts with multi-snapshot observation to degrade plausible deniability. The task demands synthesis across symmetric cryptography, probabilistic security analysis, binary forensics, and information-theoretic deniability assessment."""
+solution_explanation = """The solution determines correct HMAC parameter ordering from standard PRF conventions, iterates all credential pairs performing block cipher decryption with integrity validation to discover four bases, scans the full image for identical ciphertext blocks to detect determinism vulnerability pairs, computes integrity check false positive rates analytically, applies birthday-problem formulas for nonce collision analysis while detecting actual collisions, computes FSCB deniability metrics, and compares two temporal FSCB snapshots to identify page transitions attributable to known bases versus unattributable transitions indicating potential hidden activity."""
+verification_explanation = """Tests independently re-derive all basis keys using the three-stage KDF, decrypt every image entry, validate integrity checksums to confirm page attribution, verify page mappings match ground truth, independently scan for duplicate ciphertext pairs and verify basis attribution, check false positive calculations against exact analytic values within floating-point tolerance, verify collision probabilities and independently detect nonce collisions from ground-truth data, validate FSCB deniability metrics, and independently compute FSCB differential transitions by comparing snapshot data against discovered basis page sets."""
+category = "cryptography"
+tags = ["applied-cryptography", "security-audit"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pddb-forensic-analysis"

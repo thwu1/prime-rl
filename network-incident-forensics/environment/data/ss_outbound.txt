@@ -1,0 +1,23 @@
+# Outbound Connection Analysis
+# Generated: 2024-01-15T14:23:15Z
+# Source: ss -tn state established | post-processing
+#
+# All outbound connections originate from 10.0.0.100
+#
+# Destination Breakdown:
+#   10.0.1.50:6379           9411 connections
+#   10.0.1.51:6379           9412 connections
+#   10.0.1.52:6379           9407 connections
+#
+# Statistics:
+total_outbound_established=28230
+unique_source_ports=28230
+unique_destinations=3
+source_port_overlap_across_destinations=0
+source_ip=10.0.0.100
+#
+# Note: "source_port_overlap" counts source ports used by more than one
+# destination simultaneously. Value 0 means every source port is exclusive
+# to a single destination -- no port is shared across different destinations,
+# even though the 4-tuples would be unique. This indicates the application
+# reserves ports at bind() time rather than at connect() time.

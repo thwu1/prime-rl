@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>THIS-ORG-IDENTIFIER-EXCEEDS-MAX-LENGTH</OrganizationIdentifier>
+      <OrganizationFormalName>Field Length Test Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-FL</ProjectIdentifier>
+      <ProjectName>Field Length Testing</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-FL</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Delaware River Basin Monitoring Station at the Upstream Reach Near the Confluence of Brodhead Creek and McMichaels Creek in East Stroudsburg Monroe County Pennsylvania DEP Long-Term Ambient Water Quality Ecological Assessment Program Survey Alpha Extended Site Recording Network Facility</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>40.5</LatitudeMeasure>
+        <LongitudeMeasure>-75.0</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>PA</StateCode>
+        <CountyCode>089</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-FIELDLENGTH-TEST-WITH-IDENTIFIER-EXCEEDING-MAXIMUM-LIMIT</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-04-10</ActivityStartDate>
+        <ProjectIdentifier>PROJ-FL</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-FL</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>pH</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>7.4</ResultMeasureValue>
+            <MeasureUnitCode>None</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

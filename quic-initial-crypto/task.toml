@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering QUIC Initial packet protection from protocol specifications. The agent must discover the complete cryptographic pipeline — key derivation scheme, header protection mechanism, and authenticated encryption — for both QUIC v1 and v2 without any algorithm names or steps provided in the instruction. Additionally requires precise byte-level handling of QUIC long-header parsing, variable-length integers, and frame extraction, plus end-to-end application to decrypt a captured packet."""
+solution_explanation = """Research QUIC RFCs to discover: HKDF-Extract (HMAC-SHA256) with version-specific salts, TLS 1.3 HKDF-Expand-Label with version-specific key/iv/hp labels, AES-ECB-based header protection removal via 16-byte ciphertext sampling, and AES-128-GCM AEAD decryption with nonce = IV XOR zero-padded packet number. Implement all operations for both QUIC v1 and v2, then apply the pipeline to decrypt the captured packet and extract CRYPTO frame data."""
+verification_explanation = """Tests verify key derivation against RFC 9001 Appendix A.1 hardcoded test vectors (v1) and dynamically computed reference values (v2, custom DCIDs to prevent hardcoding). Varint parsing is tested against RFC 9000 Section 16 examples at all four sizes. Frame parsing is verified with constructed payloads covering PADDING, PING, ACK, and CRYPTO frames. Full decryption pipeline is tested by constructing valid encrypted/protected QUIC Initial packets using independent reference crypto, then verifying recovery of original plaintext. Captured packet decryption is independently verified by decrypting the same packet with reference crypto and comparing the agent's output."""
+category = "networking"
+tags = ["cryptography", "protocol-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quic-initial-crypto"

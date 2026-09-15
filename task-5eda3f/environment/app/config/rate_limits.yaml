@@ -1,0 +1,33 @@
+# Rate limiting configuration for Service Control
+# Last modified: 2025-06-12T17:27:00Z (pre-deployment config update)
+
+global:
+  default_burst_multiplier: 2.0  # Changed from 1.5 to 2.0
+  window_duration_seconds: 60
+  max_concurrent_checks: 1000
+  policy_cache_ttl_seconds: 30
+
+per_region:
+  us-east1:
+    capacity_multiplier: 1.2
+    max_connections: 500
+  us-central1:
+    capacity_multiplier: 1.0
+    max_connections: 400
+  us-west1:
+    capacity_multiplier: 0.9
+    max_connections: 350
+  europe-west1:
+    capacity_multiplier: 0.8
+    max_connections: 300
+  asia-east1:
+    capacity_multiplier: 0.6
+    max_connections: 250
+  asia-northeast1:
+    capacity_multiplier: 0.5
+    max_connections: 200
+
+alerting:
+  error_rate_threshold_percent: 1.0
+  latency_p99_threshold_ms: 500
+  health_check_interval_seconds: 10

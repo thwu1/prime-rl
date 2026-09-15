@@ -1,0 +1,1 @@
+{"buggy_line": 8, "function": "merge_intervals", "description": "Uses strict less-than instead of less-than-or-equal, failing to merge adjacent intervals"}

@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TY2025 Federal Tax Return Result",
+  "type": "object",
+  "required": ["form_1040", "schedule_d", "schedule_h", "form_5695", "schedule_2", "schedule_3"],
+  "additionalProperties": false,
+  "properties": {
+    "form_1040": {
+      "type": "object",
+      "required": [
+        "line_1a", "line_1z", "line_3a", "line_3b", "line_7",
+        "line_9", "line_11a", "line_12e", "line_15", "line_16",
+        "line_18", "line_20", "line_22", "line_23", "line_24",
+        "line_25a", "line_25d", "line_33", "line_34", "line_37"
+      ],
+      "properties": {
+        "line_1a": {"type": "integer", "minimum": 0, "description": "Wages from W-2s"},
+        "line_1z": {"type": "integer", "minimum": 0, "description": "Total wages"},
+        "line_2b": {"type": "integer", "minimum": 0, "description": "Taxable interest"},
+        "line_3a": {"type": "integer", "minimum": 0, "description": "Qualified dividends"},
+        "line_3b": {"type": "integer", "minimum": 0, "description": "Ordinary dividends"},
+        "line_7": {"type": "integer", "description": "Capital gain or loss (may be negative)"},
+        "line_9": {"type": "integer", "minimum": 0, "description": "Total income"},
+        "line_10": {"type": "integer", "minimum": 0, "description": "Adjustments to income"},
+        "line_11a": {"type": "integer", "minimum": 0, "description": "Adjusted gross income"},
+        "line_12e": {"type": "integer", "minimum": 0, "description": "Standard or itemized deduction"},
+        "line_14": {"type": "integer", "minimum": 0, "description": "Total deductions"},
+        "line_15": {"type": "integer", "minimum": 0, "description": "Taxable income"},
+        "line_16": {"type": "integer", "minimum": 0, "description": "Tax"},
+        "line_17": {"type": "integer", "minimum": 0, "description": "Schedule 2 Part I additions"},
+        "line_18": {"type": "integer", "minimum": 0, "description": "Tax plus additions"},
+        "line_19": {"type": "integer", "minimum": 0, "description": "Child tax credit"},
+        "line_20": {"type": "integer", "minimum": 0, "description": "Nonrefundable credits from Schedule 3"},
+        "line_21": {"type": "integer", "minimum": 0, "description": "Total credits"},
+        "line_22": {"type": "integer", "minimum": 0, "description": "Tax after credits"},
+        "line_23": {"type": "integer", "minimum": 0, "description": "Other taxes from Schedule 2"},
+        "line_24": {"type": "integer", "minimum": 0, "description": "Total tax"},
+        "line_25a": {"type": "integer", "minimum": 0, "description": "Federal income tax withheld from W-2s"},
+        "line_25d": {"type": "integer", "minimum": 0, "description": "Total withholding"},
+        "line_33": {"type": "integer", "minimum": 0, "description": "Total payments"},
+        "line_34": {"type": "integer", "minimum": 0, "description": "Overpaid (refund)"},
+        "line_37": {"type": "integer", "minimum": 0, "description": "Amount owed"}
+      }
+    },
+    "schedule_d": {
+      "type": "object",
+      "required": ["line_7", "line_15", "line_16"],
+      "properties": {
+        "line_7": {"type": "integer", "description": "Net short-term capital gain or loss (may be negative)"},
+        "line_15": {"type": "integer", "description": "Net long-term capital gain or loss (may be negative)"},
+        "line_16": {"type": "integer", "description": "Combined gain or loss (may be negative)"}
+      }
+    },
+    "schedule_h": {
+      "type": "object",
+      "required": ["line_1", "line_2", "line_3", "line_4", "line_5", "line_6", "line_7", "line_8"],
+      "properties": {
+        "line_1": {"type": "integer", "minimum": 0, "description": "Cash wages subject to SS tax"},
+        "line_2": {"type": "integer", "minimum": 0, "description": "Social security tax"},
+        "line_3": {"type": "integer", "minimum": 0, "description": "Cash wages subject to Medicare tax"},
+        "line_4": {"type": "integer", "minimum": 0, "description": "Medicare tax"},
+        "line_5": {"type": "integer", "minimum": 0, "description": "Wages subject to additional Medicare tax"},
+        "line_6": {"type": "integer", "minimum": 0, "description": "Additional Medicare tax"},
+        "line_7": {"type": "integer", "minimum": 0, "description": "Federal income tax withheld"},
+        "line_8": {"type": "integer", "minimum": 0, "description": "Total household employment taxes"}
+      }
+    },
+    "form_5695": {
+      "type": "object",
+      "required": [
+        "line_18b", "line_19h", "line_20d", "line_22d", "line_23d",
+        "line_24d", "line_25e", "line_26c", "line_27", "line_28",
+        "line_29h", "line_30", "line_31", "line_32"
+      ],
+      "properties": {
+        "line_18b": {"type": "integer", "minimum": 0, "description": "Insulation credit"},
+        "line_19h": {"type": "integer", "minimum": 0, "description": "Exterior door credit"},
+        "line_20d": {"type": "integer", "minimum": 0, "description": "Window/skylight credit"},
+        "line_22d": {"type": "integer", "minimum": 0, "description": "Central AC credit"},
+        "line_23d": {"type": "integer", "minimum": 0, "description": "Water heater credit"},
+        "line_24d": {"type": "integer", "minimum": 0, "description": "Furnace/boiler credit"},
+        "line_25e": {"type": "integer", "minimum": 0, "description": "Electrical panel credit"},
+        "line_26c": {"type": "integer", "minimum": 0, "description": "Home energy audit credit"},
+        "line_27": {"type": "integer", "minimum": 0, "description": "Sum of Section A credits"},
+        "line_28": {"type": "integer", "minimum": 0, "description": "Section A aggregate (capped at $1,200)"},
+        "line_29h": {"type": "integer", "minimum": 0, "description": "Heat pump/biomass credit (capped at $2,000)"},
+        "line_30": {"type": "integer", "minimum": 0, "description": "Total credit before limitation"},
+        "line_31": {"type": "integer", "minimum": 0, "description": "Tax liability limitation"},
+        "line_32": {"type": "integer", "minimum": 0, "description": "Allowed energy credit"}
+      }
+    },
+    "schedule_2": {
+      "type": "object",
+      "required": ["line_9", "line_21"],
+      "properties": {
+        "line_9": {"type": "integer", "minimum": 0, "description": "Household employment taxes"},
+        "line_21": {"type": "integer", "minimum": 0, "description": "Total other taxes"}
+      }
+    },
+    "schedule_3": {
+      "type": "object",
+      "required": ["line_5b", "line_8"],
+      "properties": {
+        "line_5b": {"type": "integer", "minimum": 0, "description": "Energy efficient home improvement credit"},
+        "line_8": {"type": "integer", "minimum": 0, "description": "Total nonrefundable credits"}
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+CUTTING LINE OPERATIONS MANUAL — PAPER MILL PM-4
+=================================================
+
+OVERVIEW
+--------
+This cutting line processes jumbo stock rolls into customer-ordered widths.
+Stock rolls are fed through the slitter-rewinder, which cuts them into
+multiple narrower rolls according to a cutting pattern. Any width not
+assigned to a customer order becomes trim waste.
+
+The fundamental planning problem is to determine which cutting patterns to
+use and how many rolls to cut with each pattern, such that all customer
+orders are fulfilled with minimal material usage.
+
+DATA SOURCES
+------------
+Stock roll specifications:
+  Database: /app/data/inventory/stock.db
+  Table 'stock_rolls' contains available roll types and their widths.
+  Table 'item_catalog' lists all orderable product widths and descriptions.
+
+Customer orders:
+  Directory: /app/data/orders/
+  Orders are maintained in CSV files. Regular production orders and
+  priority/rush orders may be stored in separate files with different
+  column naming conventions. All orders must be fulfilled regardless
+  of priority level — priority only affects scheduling sequence, not
+  whether an order is included.
+
+Configuration:
+  File: /app/data/config/cutting_params.json
+  Contains machine configuration, optimization parameters, and
+  output path specifications.
+
+NOTES
+-----
+The number of feasible cutting patterns grows combinatorially with the
+number of product types. Direct enumeration of all patterns is generally
+not practical for production-scale instances. Historical practice at this
+mill has been to rely on decomposition-based methods that generate patterns
+on demand rather than enumerating them upfront.

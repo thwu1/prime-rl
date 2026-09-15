@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of MOESI cache coherence protocol state machines, directory-based coherence controllers, banked cache address interleaving, and multi-level cache inclusion invariants. The solver must diagnose multiple cross-language defects spanning a C shared library and Python controller code, reason about protocol state transitions that trigger assertion failures, understand bitwise address decomposition for cache banking and set indexing, identify off-by-one range boundary errors in a heterogeneous memory system, and design an L2 inclusion enforcement mechanism that preserves dirty data integrity. Finally, the solver must implement protocol traffic instrumentation infrastructure that integrates with the simulator's message-passing architecture."""
+solution_explanation = """Bug 1: Guard _remove_from_dir with dir_entry_allocated check in DIR_WB_ACK handler. Bug 2a: Fix get_intlv_mask in addr_calc.c from (1u << intlv_bits) to (1u << intlv_bits) - 1, then rebuild with make. Bug 2b: Add bank_intlv_bits parameter to L2Controller, fix _get_set_index to pass (BLOCK_OFFSET_BITS + bank_intlv_bits) to compute_set_index; pass intlv_bits from BankedL2Cache to each bank. Bug 3: Remove +1 from DRAM range end. Bug 4: Evaluate three candidate approaches — back-invalidation discards dirty data (incorrect), victim pinning causes capacity stalls (incorrect), dirty data recall preserves integrity (correct). Implement recall_callback on L2Controller that, during eviction in _allocate_line, calls back into the simulator to invalidate all L1 copies and collect dirty data from M-state holders before writeback. Bug 5: Add _track_message helper and get_protocol_traffic_report method to CoherenceSimulator, instrument step() message processing loops and recall_l1_copies with counters, generate traffic_report.json."""
+verification_explanation = """Tests verify: (1) no assertion errors during 4-core writeback-storm; (2) L2 bank distribution is balanced with correct mask from native library; (3) per-bank set utilization exceeds 50%; (4) memory ranges don't overlap; (5) L2 inclusion property holds after eviction pressure; (6) dirty data from M-state L1 holders is preserved through L2 eviction; (7) MOESI invariants including no dual M-state copies; (8) get_protocol_traffic_report method exists and returns correct structure; (9) message counters increment during simulation; (10) messages_by_type contains expected protocol message types; (11) recall_events and dirty_collections are counted when inclusion enforcement triggers; (12) traffic_report.json is produced with valid data."""
+category = "systems"
+tags = ["cache-coherence", "computer-architecture"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-moesi-protocol"

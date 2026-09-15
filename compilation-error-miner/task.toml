@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C++ compilation knowledge to perform root-cause analysis on 9 compilation errors across 5 source files and 3 compiler configurations. The agent must trace error causality through #include dependency chains, distinguishing header-level root causes (forward-declaration incompleteness, macro-expansion type mismatches) from self-contained errors (template misuse, static_assert, API mismatch). Critically, the agent must evaluate a candidate patch for semantic correctness—identifying that changing a macro definition globally is semantically wrong compared to fixing its usage sites—which requires understanding macro expansion scope, API contract preservation, and the distinction between fixing a definition vs. fixing a usage. The agent must then synthesize a minimal, semantically correct repair patch and verify it compiles across all translation units."""
+solution_explanation = """Build a Python pipeline that: (1) parses CI logs from 3 compiler configs, extracting errors while filtering CI noise and warnings, normalizing /home/runner/work/engine/ paths to project-relative; (2) builds the #include dependency graph from project source files; (3) performs root-cause analysis by tracing each error through its include chain—ENGINE_CAST errors at engine.cpp:58,64 are traced to the macro definition in engine.h:7, NetworkManager errors at network.cpp:30 and engine.cpp:70 are traced to the forward declaration in types.h:22; (4) builds a causal DAG mapping header root causes to their cascading errors; (5) evaluates the candidate patch: types.h hunk is necessary+correct, engine.h hunk is necessary but semantically incorrect (changes macro contract globally), plugin.cpp hunk is necessary+correct, config.h and network.h hunks are unnecessary, and 4 errors have no fix; (6) generates a repair that fixes types.h (add class definition), engine.cpp usage sites (change const char* to int*), engine.cpp template/assert, plugin.cpp typo, crypto.cpp args, main.cpp semicolon; (7) applies repair and compiles with g++ to verify zero errors."""
+verification_explanation = """Tests run the pipeline and validate the JSON output: correct error count (9 unique after dedup), correct identification of 4 cascading errors traced to 2 header root causes (engine.h:7 and types.h:22), correct causal DAG structure, correct candidate patch evaluation (3 necessary hunks with 1 semantically incorrect, 2 unnecessary hunks, 4 missing fixes), successful independent compilation verification of the repair patch against the actual project sources with g++, and proper deduplication of network.cpp:30 across 2 logs with source tracking."""
+category = "software_engineering"
+tags = ["compiler-diagnostics", "root-cause-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compilation-error-miner"

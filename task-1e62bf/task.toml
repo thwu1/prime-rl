@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level firmware security assessment with no methodology guidance. The solver must independently: (1) reverse engineer an undocumented proprietary binary container format with two different compression schemes, (2) identify that one section is an ELF binary and choose to disassemble it, discovering obfuscated authentication backdoor and embedded signing key material through static analysis, (3) determine the firmware's signature algorithm and verify its integrity, (4) reverse engineer a custom encryption scheme protecting configuration data without any hints about the algorithm, (5) detect supply-chain compromise indicators by cross-referencing different firmware sections, (6) synthesize all findings into a coherent incident narrative with justified risk assessment, and (7) design YARA detection rules from the identified compromise patterns. The task requires evaluation-level reasoning: judging threat severity, determining attack vectors, and justifying risk ratings based on synthesized evidence."""
+solution_explanation = """Parse the 64-byte FWPK header and variable-length section table. Extract and decompress 5 sections handling standard zlib and 0xCAFE-prefixed custom_lz variants. Save the bootloader ELF and disassemble with objdump to find debug_authenticate() (XOR mask 0x5A on 16-byte token yields 'Gh0st_D3bug_K3y!') and get_hmac_key() (XOR mask 0xA7 on 32-byte token yields 'NX7800_FIRMWARE_SIGNING_KEY_V3.1'). Verify the trailing HMAC-SHA256 signature using the extracted key. Reverse-engineer the CNFG config encryption: varint-encoded lengths with a rotating XOR key stream derived from a 4-byte LE seed. Parse the rootfs archive and cross-reference with manifest expected_files to find the injected /tmp/.update_hook and signature algorithm mismatch. Synthesize an incident summary identifying supply-chain compromise, C2 persistence, and critical risk level with justification. Design a YARA rule matching the obfuscated key byte patterns and C2 indicators."""
+verification_explanation = """37 pytest tests verify: container structure (magic, device ID, 5 section names), backdoor identification (exact debug key, function name containing 'debug', critical/high severity), signing key extraction (exact key string with valid signature), all 14 decrypted config entries with exact values, supply chain anomaly detection (unlisted file and algorithm mismatch), incident summary quality (substantive attack vector, specific persistence mechanism referencing compromise artifacts, critical/high risk rating with detailed justification), and YARA rule structural validity (rule/strings/condition sections). These values can only be obtained through correct multi-tool analysis combining format reverse engineering, ELF disassembly, cryptographic verification, cross-referential anomaly detection, and threat synthesis."""
+category = "reverse_engineering"
+tags = ["firmware-forensics", "binary-analysis", "supply-chain-security"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1e62bf"

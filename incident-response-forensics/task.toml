@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level incident response, digital forensics, malware reverse engineering, and detection engineering expertise. The analyst must: (1) parse and correlate multiple log formats with network packet captures using tshark, (2) reverse-engineer a compiled ELF backdoor binary using strings/readelf/xxd to extract XOR-obfuscated C2 configuration, (3) analyze PCAP traffic to discover a secondary C2 channel and DNS-based data exfiltration invisible in text logs, (4) CREATE functional YARA detection rules that match both the binary and script malware samples, and (5) EVALUATE remediation priorities across 8+ findings with justified severity ratings. Demands multi-tool proficiency (tshark, yara, strings, readelf, xxd, objdump) and cross-evidence correlation across 7+ artifact categories. Not solvable by surface-level log reading — requires binary analysis, network forensics, and detection engineering skills."""
+solution_explanation = """Use tshark to analyze capture.pcap and discover: secondary C2 at 192.0.2.100:8443 (HTTPS beacon every 300s), DNS exfiltration via exfil.updates-cdn.example.net subdomain queries. Use strings on the backdoor binary to find plaintext markers (CACHE_SVC_v2.1, SystemUpdater/2.1, cache_update_mtx). Search binary with xxd/Python for XOR key {0x5A,0x3C,0x7E,0x1D} and decrypt embedded C2 config confirming 192.0.2.100 and updates-cdn.example.net. Parse web logs to identify attacker IP 198.51.100.47 and command injection in /api/v1/diagnostic. Cross-reference syslog for primary C2 203.0.113.89:4444. Analyze bash histories for pkexec/PwnKit privesc. Enumerate 4 persistence mechanisms (cron backdoor, SSH key, UID-0 svc_backup, PAM bypass). Write YARA rules matching binary markers and script C2 strings. Evaluate remediation across all findings with justified severity."""
+verification_explanation = """Tests validate three deliverables: (1) findings.json is checked for correct attacker IP, both C2 servers (primary 203.0.113.89:4444 and secondary 192.0.2.100:8443), initial access method/endpoint/timestamp, privilege escalation technique, all 4 persistence mechanisms, backdoor username, compromised accounts, exfiltration details including DNS domain, malware indicators (user_agent, xor_key, mutex, beacon_interval), and timeline completeness. (2) detection.yar is compiled with yara for syntax validity, then scanned against the backdoor binary and decoded dropper script to verify actual detection. (3) remediation.json is validated for structure (>=8 findings), required fields, severity/priority values, and coverage of persistence, vulnerability, and network filtering categories."""
+category = "cybersecurity"
+tags = ["incident-response", "detection-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/incident-response-forensics"

@@ -1,0 +1,24 @@
+Dataset {
+  Float64 time[time = 345];
+  Float64 altitude[altitude = 1];
+  Float64 lat[latitude = 1201];
+  Float64 lon[longitude = 2881];
+  Grid {
+    Array:
+      Float32 MBsstd[time = 345][altitude = 1][latitude = 1201][longitude = 2881];
+    Maps:
+      Float64 time[time = 345];
+      Float64 altitude[altitude = 1];
+      Float64 lat[latitude = 1201];
+      Float64 lon[longitude = 2881];
+  } MBsstd;
+  Grid {
+    Array:
+      Byte quality_level[time = 345][altitude = 1][latitude = 1201][longitude = 2881];
+    Maps:
+      Float64 time[time = 345];
+      Float64 altitude[altitude = 1];
+      Float64 lat[latitude = 1201];
+      Float64 lon[longitude = 2881];
+  } quality_level;
+} erdMBsstd1day;

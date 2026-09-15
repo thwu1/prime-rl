@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and interpreting a dense QARTOD specification document, then implementing seven distinct QC algorithms (gross range, spike with average/differential methods, rate of change with time normalization, flat line with time-to-count conversion and rolling windows, climatology with period-based temporal matching and optional depth filtering, attenuated signal with range/std over full series, density inversion with depth-direction sign adjustment and missing-data forward propagation), a non-intuitive priority-based flag aggregation system (where GOOD outranks MISSING), YAML config parsing, CSV data ingestion, and correct NaN/masked-value propagation through every algorithm. Edge cases include masked-array arithmetic in spike computation, forward-propagation of MISSING in density inversion, rolling-window pre-fill boundary behavior in flat-line detection, and the opposing-sign check in differential spike detection."""
+solution_explanation = """Implement each QARTOD test function using numpy masked arrays. Parse config.yaml and sensor_data.csv, dispatch to per-test functions keyed by config names, collect flag arrays, and aggregate using the QARTOD priority hierarchy (MISSING < UNKNOWN < GOOD < SUSPECT < FAIL, where later priorities overwrite). Key subtleties: spike_test differential method requires checking that forward/backward diffs have opposing signs before using the minimum magnitude; flat_line_test converts second-based thresholds to observation counts via median sampling interval and uses stride-tricks rolling windows; density_inversion_test applies sign(diff(depth)) * diff(density) and propagates MISSING to the following observation; climatology_test extracts datetime period attributes for temporal matching. Output as JSON mapping stream names to test-name→flag-array dicts plus aggregate."""
+verification_explanation = """Tests verify exact integer flag arrays for all tests across three sensor streams (water_temperature, salinity, density). Expected outputs were computed by tracing through the QARTOD algorithms against the provided 20-point dataset, covering edge cases: NaN propagation in spike computation, flat-line rolling-window boundaries, density-inversion forward MISSING propagation, differential spike opposing-sign check, climatology period matching, and aggregation priority (GOOD overwrites MISSING). Structure tests verify stream presence, test keys, array lengths, and flag value validity."""
+category = "data_science"
+tags = ["oceanography", "signal-processing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qartod-qc-pipeline"

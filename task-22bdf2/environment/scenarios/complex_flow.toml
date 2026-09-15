@@ -1,0 +1,26 @@
+[grid]
+numX = 50
+numY = 25
+h = 0.03
+
+[physics]
+density = 1000.0
+gravity = 0.0
+dt = 0.006
+num_iters = 40
+over_relaxation = 1.9
+
+[boundary]
+type = "wind_tunnel"
+inflow_velocity = 1.5
+
+[obstacle]
+enabled = true
+type = "mesh"
+mesh_file = "/app/obstacles/bluff_body.obj"
+
+[smoke]
+enabled = false
+
+[simulation]
+num_steps = 150

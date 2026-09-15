@@ -1,0 +1,38 @@
+Database: PROD (Oracle 19c Enterprise Edition 19.21.0)
+Character Set: AL32UTF8
+Block Size: 8192 bytes
+Instance: PROD (single instance, non-RAC)
+
+Schema: ECOMMERCE
+
+Tables:
+  ORDERS (12,000,000 rows, 4.5 GB)
+    Columns: ORDER_ID (NUMBER, PK), CUSTOMER_ID (NUMBER), STATUS (VARCHAR2(20)),
+             ORDER_DATE (DATE), TOTAL_AMOUNT (NUMBER(12,2)), SHIPPING_ADDRESS (VARCHAR2(500))
+    Indexes: PK_ORDERS (ORDER_ID), IDX_ORDERS_CUST (CUSTOMER_ID), IDX_ORDERS_STATUS (STATUS)
+
+  CUSTOMERS (2,500,000 rows, 800 MB)
+    Columns: ID (NUMBER, PK), NAME (VARCHAR2(200)), EMAIL (VARCHAR2(200)),
+             CREATED_DATE (DATE), REGION (VARCHAR2(50))
+    Indexes: PK_CUSTOMERS (ID), IDX_CUSTOMERS_EMAIL (EMAIL)
+
+  INVENTORY (500,000 rows, 200 MB)
+    Columns: PRODUCT_ID (NUMBER, PK), PRODUCT_NAME (VARCHAR2(300)),
+             QUANTITY (NUMBER), WAREHOUSE_ID (NUMBER), LAST_UPDATED (TIMESTAMP)
+    Indexes: PK_INVENTORY (PRODUCT_ID)
+
+  AUDIT_LOG (50,000,000 rows, 15 GB)
+    Columns: LOG_ID (NUMBER, PK), USER_ID (NUMBER), ACTION (VARCHAR2(50)),
+             TIMESTAMP (DATE), DETAILS (VARCHAR2(1000))
+    Indexes: PK_AUDIT_LOG (LOG_ID)
+    Sequence: AUDIT_SEQ (CACHE 20)
+
+  ORDER_ITEMS (35,000,000 rows, 8 GB)
+    Columns: ITEM_ID (NUMBER, PK), ORDER_ID (NUMBER), PRODUCT_ID (NUMBER),
+             QUANTITY (NUMBER), UNIT_PRICE (NUMBER(10,2))
+    Indexes: PK_ORDER_ITEMS (ITEM_ID), IDX_ITEMS_ORDER (ORDER_ID)
+
+Tablespaces:
+  USERS (default for ECOMMERCE schema objects, autoextend ON)
+  TEMP (temporary tablespace, 2 GB)
+  UNDOTBS1 (undo tablespace, 4 GB)

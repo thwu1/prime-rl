@@ -1,0 +1,80 @@
+frontends:
+  - name: web
+    bind: "0.0.0.0"
+    port: 8080
+    algorithm: weighted_round_robin
+    backend_pool: web_backends
+
+  - name: api
+    bind: "0.0.0.0"
+    port: 8081
+    algorithm: least_connections
+    backend_pool: api_backends
+
+  - name: cache
+    bind: "0.0.0.0"
+    port: 8082
+    algorithm: ip_hash
+    backend_pool: cache_backends
+
+  - name: rate_limited
+    bind: "0.0.0.0"
+    port: 8083
+    algorithm: weighted_round_robin
+    backend_pool: web_backends
+    rate_limit:
+      max_per_sec: 5
+
+backend_pools:
+  web_backends:
+    health_check:
+      interval_sec: 2
+      timeout_sec: 1
+      unhealthy_threshold: 3
+      healthy_threshold: 4
+    backends:
+      - address: "127.0.0.1"
+        port: 9001
+        weight: 3
+      - address: "127.0.0.1"
+        port: 9002
+        weight: 2
+
+  api_backends:
+    health_check:
+      interval_sec: 2
+      timeout_sec: 1
+      unhealthy_threshold: 3
+      healthy_threshold: 4
+    backends:
+      - address: "127.0.0.1"
+        port: 9003
+        weight: 1
+      - address: "127.0.0.1"
+        port: 9004
+        weight: 1
+      - address: "127.0.0.1"
+        port: 9005
+        weight: 1
+
+  cache_backends:
+    health_check:
+      interval_sec: 2
+      timeout_sec: 1
+      unhealthy_threshold: 3
+      healthy_threshold: 4
+    backends:
+      - address: "127.0.0.1"
+        port: 9006
+        weight: 1
+      - address: "127.0.0.1"
+        port: 9007
+        weight: 1
+
+admin:
+  bind: "0.0.0.0"
+  port: 8090
+
+proxy_protocol:
+  enabled: true
+  version: 1

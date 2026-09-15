@@ -1,0 +1,2 @@
+{"resourceType":"Patient","id":"p1","name":[{"family":"Doe","given":["John"]}],"birthDate":"1990-01-15","gender":"male","address":[{"state":"CA","city":"Los Angeles"}]}
+{"resourceType":"Patient","id":"p2","name":[{"family":"Smith","given":["Jane"]}],"birthDate":"1985-06-20","gender":"female","address":[{"state":"NY","city":"New York"}]}

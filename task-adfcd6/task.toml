@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level digital forensics and network security skills. The agent must: (1) perform statistical/entropy analysis on ~5700 DNS queries to distinguish exfiltration from legitimate traffic and decoy patterns, (2) recognize three distinct encoding schemes (base32, hex, XOR+hex) from raw subdomain labels without hints, (3) distinguish the XOR+hex channel from the plaintext hex channel (both use hex characters, but one decodes to readable text while the other yields ciphertext), (4) reverse the XOR cipher by determining key length and recovering key bytes through frequency analysis or known-plaintext techniques, (5) correctly reassemble fragmented data from sequence-numbered DNS queries across each channel."""
+solution_explanation = """Parse the DNS log to extract unique parent domains and compute per-domain metrics (query count, subdomain entropy, label structure). Identify 3 anomalous domains with high-entropy, structured subdomain patterns from a single source IP. For the base32 channel, detect encoding by character set (a-z, 2-7) and decode. For the two hex channels, hex-decode both; one produces readable /etc/shadow content (plaintext hex), the other produces binary gibberish (XOR-encrypted). Apply frequency analysis or known-plaintext attack to recover the 3-byte XOR key and decrypt the ciphertext. Reassemble data using embedded 4-digit hex sequence numbers."""
+verification_explanation = """Tests load the agent's results.json and verify: (1) exactly 3 exfiltration domains identified (checked via SHA256 of domain names for anti-cheat), (2) SHA256 of decoded data for each domain matches expected values, (3) XOR key matches expected value. All expected values are derived from deterministic data generation with fixed seed."""
+category = "cybersecurity"
+tags = ["forensics", "dns-exfiltration"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-adfcd6"

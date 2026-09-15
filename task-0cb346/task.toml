@@ -1,0 +1,56 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of Z3 SMT solver theory (bitvector + array reasoning),
+OS kernel security semantics (page table ownership, bounds invariants, permission enforcement),
+and formal verification methodology. The agent must map abstract security policy invariants to
+concrete Z3 satisfiability queries for each applicable (specification, invariant) pair — this
+demands holistic understanding of which invariants govern which system calls, not just applying
+a single procedure. Discovering the four subtle bugs (off-by-one bounds, duplicated ownership
+check on wrong operand, missing index guard, misreferenced source operand) requires reading
+nested Z3 array expressions and understanding their kernel-level semantics. Producing correct
+minimal fixes requires knowing what each precondition should enforce and how Z3's Store/Select
+primitives interact with the nested Array(BV64, Array(BV64, BV64)) page_data structure."""
+solution_explanation = """For each specification, determine which of the four invariants (S1: bounds, S2: ownership,
+S3: index validity, S4: read-only) are applicable based on the syscall's semantics. Formalize
+each applicable invariant as: Solver.add(precondition AND NOT(invariant)). If SAT, the
+invariant is violated and the model provides a counterexample; if UNSAT, the invariant holds.
+The four bugs discovered are: (1) spec_map_page_desc uses ULT(n, 65) instead of ULT(n, 64),
+(2) spec_free_frame checks page_owner[from_pn] twice instead of page_owner[to_pn],
+(3) spec_protect_frame omits is_page_index_valid(index), (4) spec_copy_frame checks
+page_owner[to_pn] instead of page_owner[from_pn]. Each fix targets only the incorrect
+precondition clause. The fixed specifications are verified by re-running all invariant checks."""
+verification_explanation = """Tests verify: (1) audit.json structure and completeness for all six specifications,
+(2) correct SOUND/VULNERABLE classification against ground truth (4 vulnerable, 2 sound),
+(3) correct invariant-to-specification mapping (S1->map_page_desc, S2->free_frame+copy_frame,
+S3->protect_frame), (4) counterexample value validity (n==64 for bounds, index>=512 for index),
+(5) Z3-based re-verification that counterexamples actually demonstrate the violation when
+plugged back into the specification, (6) specs_fixed.py importability and function presence,
+(7) Z3-based verification that all four previously-violated invariants HOLD on fixed specs,
+(8) Z3-based verification that sound specs still satisfy all applicable invariants in the
+fixed module (no regressions from the fixes)."""
+category = "formal_verification"
+tags = ["z3-smt", "kernel-security"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0cb346"

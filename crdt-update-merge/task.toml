@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding CRDT binary protocols (lib0 varint encoding, YATA struct format with origin/rightOrigin references), debugging subtle bit-manipulation errors in flag parsing, fixing serialization ordering constraints, implementing a merge algorithm with struct deduplication, understanding state vector semantics for the sync protocol (next expected clock computation and boundary-aware update diffing), and diagnosing Node.js binary I/O corruption from incorrect text encoding of binary files. The bugs span parsing, serialization, algorithmic implementation, protocol semantics, and runtime I/O layers."""
+solution_explanation = """Six defects must be fixed: (1) parse-update.ts has swapped bit masks for hasOrigin (uses 0x02, should be 0x01) and hasRightOrigin (uses 0x01, should be 0x02). (2) write-update.ts sorts client IDs ascending instead of the required descending order. (3) delete-set.ts uses strict > instead of >= when checking for adjacent range merging, causing adjacent ranges to remain unconsolidated. (4) merge-updates.ts is a stub returning only the first update; must be replaced with a full implementation that parses all updates, collects and deduplicates structs per client by clock range, merges all delete sets, and re-serializes. (5) state-vector.ts computeStateVector has off-by-one (uses clock + length - 1 instead of clock + length), and diffUpdate uses clock >= remoteClock instead of clock + length > remoteClock, missing structs that span the boundary. (6) cli.ts readBinaryFile reads with utf-8 encoding which corrupts binary data containing bytes > 0x7F; must use raw Buffer read without encoding."""
+verification_explanation = """test.sh installs dependencies, compiles TypeScript, runs test_runner.ts that exercises 31 test scenarios: varint/varstring encoding round-trips, update parse/write fidelity with origin combinations, client ordering, content types, delete range consolidation (overlapping/adjacent/disjoint/complex), multi-update merge correctness (deduplication, delete set union, three-way merge, idempotency, empty updates, content type preservation), state vector computation and encoding round-trips, update diffing with boundary conditions, and CLI tool integration tests (inspect, merge, sv, diff commands exercised via subprocess invocation with binary fixtures containing high-value clientIDs that trigger the binary I/O bug). pytest validates all test results via JSON output."""
+category = "debugging"
+tags = ["crdt", "binary-protocol"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crdt-update-merge"

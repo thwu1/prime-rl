@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise across three domains: (1) probabilistic programming — diagnosing four interacting bugs in NumPyro model specification involving forward algorithm axis semantics, conditioning direction in supervised likelihood, factor sign conventions, and NUTS sampler tuning for Dirichlet-constrained posteriors; (2) HMM algorithm design — implementing both the Viterbi algorithm (joint MAP via log-space DP with backpointer tracking) and the full forward-backward algorithm (requiring a correct backward pass recursion with different axis semantics than the forward pass); (3) statistical evaluation and judgment — designing a controlled decoder comparison experiment, understanding why marginal MAP decoding is Bayes-optimal for per-position 0-1 loss while Viterbi maximizes whole-sequence probability, and building an evaluation that empirically validates this theoretical relationship. The solver must judge which decoding strategy is superior, not just implement known algorithms."""
+solution_explanation = """Four fixes to model.py: (1) change logsumexp axis from 1 to 0 in forward_one_step to marginalize over previous states; (2) swap supervised category indexing to model forward chain P(cat[t+1]|cat[t]); (3) remove negation in numpyro.factor; (4) raise NUTS target_accept_prob to 0.99. Then implement four new functions: viterbi_decode using log-space DP with backpointers; forward_backward with a forward pass collecting all intermediate log-alphas and a backward pass computing log-betas via reversed recursion over transition*emission*beta, then combining and normalizing to get marginal posteriors; marginal_decode as argmax of forward_backward output; and evaluate_decoders that generates HMM sequences, decodes with both methods, and computes accuracy metrics revealing marginal's Bayes-optimality advantage."""
+verification_explanation = """Tests verify at multiple levels: (1) forward algorithm against brute-force state enumeration for 2-cat and 3-cat models; (2) forward-backward marginal posteriors against exhaustive enumeration of all state sequences, checking both shape and numerical agreement; (3) Viterbi against exhaustive joint-probability maximization; (4) marginal_decode consistency with forward_backward argmax; (5) evaluate_decoders structural correctness (keys, types, ranges), winner-field consistency, above-chance accuracy, and the critical theoretical test that marginal per-position accuracy >= Viterbi — validating the Bayes optimality guarantee; (6) full MCMC convergence, sample finiteness, and parameter recovery within tolerance."""
+category = "probabilistic_programming"
+tags = ["bayesian-inference", "hidden-markov-model"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-hmm-inference"

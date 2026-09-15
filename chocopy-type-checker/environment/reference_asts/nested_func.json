@@ -1,0 +1,8 @@
+{
+  "well_typed": true,
+  "globals": {
+    "make_adder": {"type": "(int) -> int", "kind": "func"}
+  },
+  "classes": {},
+  "errors": []
+}

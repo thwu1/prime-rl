@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed transaction protocols, MVCC, and snapshot isolation semantics. The implementer must: (1) discover protocol design from git history containing Rust reference sources and a pointer to the Google Percolator paper, (2) translate the architectural pattern to Python with SQLite as the storage backend, writing correct SQL queries for multi-version operations, (3) implement lock cleanup logic for crash recovery where readers must determine whether a partially-committed transaction's primary succeeded or failed by querying the write column by value, (4) correctly handle nuanced failure modes (request drops vs response drops) with different observable outcomes. Requires proficiency across git archaeology, SQL, Rust reading comprehension, and Python — multiple tools that must be combined to understand and implement the protocol."""
+solution_explanation = """Recover reference material from git history (git show HEAD~1:reference/). Study the Rust server/client/test stubs and README pointing to the Percolator paper. Implement KvTable methods as SQL queries against the pre-defined SQLite schema. Implement MemoryStorage using the Percolator protocol: get() checks for locks, cleans up stale ones by inspecting the primary's state in kv_write, then follows write->data chain. prewrite() checks for write-write conflicts and existing locks via SQL queries. commit() verifies lock, writes commit record, erases lock, respects hooks. back_off_maybe_clean_up_lock() uses a custom SQL query to find the primary's commit timestamp by searching kv_write by start_ts value. Client orchestrates two-phase commit with correct error handling for each failure mode."""
+verification_explanation = """16 pytest tests verify: 4 basic operations (read/write, multi-key, nonexistent, overwrite), 8 Hermitage snapshot isolation anomaly tests (PMP-read, PMP-write, P4, G-Single read-only/predicate/write-predicate, G2-item, G2), and 4 crash recovery tests (primary commits with secondary requests dropped, duplicate scenario, primary commits with response dropped, primary commit fails). Tests are deterministic and single-threaded."""
+category = "distributed_systems"
+tags = ["transactions", "snapshot-isolation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/percolator-snapshot-isolation"

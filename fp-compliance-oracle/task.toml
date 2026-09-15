@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert IEEE 754 binary64 knowledge. The buggy source has no comments indicating defects — the solver must diagnose each failure by analyzing bit-level behavior against the specification. Bugs span five interacting functions: value classification with sign and NaN subtype handling, a software nextafter with a subtle sign-comparison operator error in the stepping direction logic for negative values plus missing NaN detection and exception flag reporting, a totalOrder predicate with incorrect negative-value mapping, a completely unimplemented counterexample generator requiring knowledge of NaN/infinity/signed-zero semantics, and a rounding mode evaluator with silently swapped mode indices. The direction bug in nextafter requires understanding IEEE 754 sign-magnitude representation and how bitwise operators interact with sign bits across both operands."""
+solution_explanation = """Fix decode_binary64: check sign bit for NEG_ZERO, use 1-bias for subnormal exponent, check quiet bit (bit 51) to distinguish qNaN/sNaN. Fix soft_nextafter: add NaN detection (absolute value > INF_BITS), return y_bits when equal, step from zero to smallest subnormal with y's sign, change the direction condition's sign check from bitwise OR to XOR (| to ^) so same-sign negative pairs step in the correct direction, add overflow+inexact and underflow+inexact exception flags based on result exponent. Fix soft_totalorder: use ia ^= INT64_MAX instead of ia = ~ia for negative values. Implement find_counterexample with concrete IEEE 754 special values (Inf for x-x, -0 for x+0, Inf for 0*x, Inf for x/x, 1.0 for x-y vs -(y-x), +0 for -x vs 0-x). Fix eval_rounding_modes by correcting FE_UPWARD/FE_DOWNWARD order in the modes array."""
+verification_explanation = """Tests compile the oracle and verify bit-exact outputs via subprocess. Decode tests check classification, sign, exponent, and NaN payload for 10 special values. Nextafter tests check result bits and exception flags for 11 edge cases including negative-to-more-negative stepping and negative-zero-toward-positive. Totalorder tests verify 9 ordering relationships. Counterexample tests verify each returned value actually invalidates the corresponding transformation. Rounding tests verify exact hex values for division under all four modes."""
+category = "systems_programming"
+tags = ["ieee754", "floating-point"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fp-compliance-oracle"

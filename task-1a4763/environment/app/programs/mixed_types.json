@@ -1,0 +1,38 @@
+{
+  "name": "mixed_types",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [{
+      "label": "entry",
+      "instrs": [
+        {"op": "const", "dst": "g1", "class": "gp", "val": 1},
+        {"op": "const", "dst": "g2", "class": "gp", "val": 2},
+        {"op": "const", "dst": "g3", "class": "gp", "val": 3},
+        {"op": "const", "dst": "g4", "class": "gp", "val": 4},
+        {"op": "const", "dst": "g5", "class": "gp", "val": 5},
+        {"op": "const", "dst": "g6", "class": "gp", "val": 6},
+        {"op": "const", "dst": "x1", "class": "xmm", "val": 1.0},
+        {"op": "const", "dst": "x2", "class": "xmm", "val": 2.0},
+        {"op": "const", "dst": "x3", "class": "xmm", "val": 3.0},
+        {"op": "const", "dst": "x4", "class": "xmm", "val": 4.0},
+        {"op": "const", "dst": "x5", "class": "xmm", "val": 5.0},
+        {"op": "const", "dst": "x6", "class": "xmm", "val": 6.0},
+        {"op": "add",  "dst": "gs1",  "class": "gp",  "src1": "g1", "src2": "g2"},
+        {"op": "add",  "dst": "gs2",  "class": "gp",  "src1": "gs1", "src2": "g3"},
+        {"op": "add",  "dst": "gs3",  "class": "gp",  "src1": "gs2", "src2": "g4"},
+        {"op": "add",  "dst": "gs4",  "class": "gp",  "src1": "gs3", "src2": "g5"},
+        {"op": "add",  "dst": "gs5",  "class": "gp",  "src1": "gs4", "src2": "g6"},
+        {"op": "add",  "dst": "xs1",  "class": "xmm", "src1": "x1", "src2": "x2"},
+        {"op": "add",  "dst": "xs2",  "class": "xmm", "src1": "xs1", "src2": "x3"},
+        {"op": "add",  "dst": "xs3",  "class": "xmm", "src1": "xs2", "src2": "x4"},
+        {"op": "add",  "dst": "xs4",  "class": "xmm", "src1": "xs3", "src2": "x5"},
+        {"op": "add",  "dst": "xs5",  "class": "xmm", "src1": "xs4", "src2": "x6"},
+        {"op": "dbl2int", "dst": "conv", "class": "gp", "src1": "xs5"},
+        {"op": "add",  "dst": "result", "class": "gp", "src1": "gs5", "src2": "conv"},
+        {"op": "ret", "src1": "result"}
+      ]
+    }]
+  }]
+}

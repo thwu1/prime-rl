@@ -1,0 +1,35 @@
+==================================================================
+BUG: KASAN: slab-use-after-free in sock_release+0x1d0/0x200
+Read of size 4 at addr ffff888023456789 by task syz-executor.3/2345
+
+CPU: 1 PID: 2345 Comm: syz-executor.3 Not tainted 6.1.0-rc5-syzkaller #0
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 10/26/2022
+Call Trace:
+ <TASK>
+ dump_stack_levels+0x1c/0x30
+ print_report+0x171/0x473
+ kasan_report+0xb6/0x130
+ sock_release+0x1d0/0x200
+ __sk_destruct+0x48/0x90
+ sock_def_wakeup+0x7c/0x100
+ sk_free+0x24/0x40
+ sk_clone_lock+0x56/0x80
+ </TASK>
+
+Allocated by task 6789:
+ kasan_save_stack+0x1e/0x40
+ __kasan_kmalloc+0x7a/0x90
+ sk_alloc+0x58/0x80
+ inet6_create+0x2d0/0x400
+
+Freed by task 1011:
+ kasan_save_stack+0x1e/0x40
+ kasan_save_free_info+0x2a/0x40
+ __kasan_slab_free+0x100/0x170
+ sk_release_cb+0x34/0x60
+
+The buggy address belongs to the object at ffff888023456700
+ which belongs to the cache sock_inode_cache of size 1152
+The buggy address is located 137 bytes inside of
+ freed 1152-byte region [ffff888023456700, ffff888023456b80)
+==================================================================

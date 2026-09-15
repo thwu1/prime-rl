@@ -1,0 +1,529 @@
+[
+  {
+    "input": "AA",
+    "valid": true,
+    "sequence": "AA",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "AAHCFKUOT",
+    "valid": true,
+    "sequence": "AAHCFKUOT",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "EM[Oxidation]EVEES[Phospho]PEK",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"},
+      {"position": 7, "value": "Phospho"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "EM[+15.9949]EVEES[+79.9663]PEK",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "+15.9949"},
+      {"position": 7, "value": "+79.9663"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "EM[MOD:00719]EVEES[MOD:00046]PEK",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "MOD:00719"},
+      {"position": 7, "value": "MOD:00046"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "EM[U:Oxidation]EVEES[U:Phospho]PEK",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "U:Oxidation"},
+      {"position": 7, "value": "U:Phospho"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK",
+    "valid": true,
+    "sequence": "EMEVNESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"},
+      {"position": 7, "value": "Phospho"}
+    ],
+    "n_terminal": ["iTRAQ4plex"],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "PEPTIDEG-[Methyl]",
+    "valid": true,
+    "sequence": "PEPTIDEG",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": ["Methyl"],
+    "features": []
+  },
+  {
+    "input": "[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]",
+    "valid": true,
+    "sequence": "EMEVNESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"},
+      {"position": 7, "value": "Phospho"},
+      {"position": 10, "value": "iTRAQ4plex"}
+    ],
+    "n_terminal": ["iTRAQ4plex"],
+    "c_terminal": ["Methyl"],
+    "features": []
+  },
+  {
+    "input": "EM[Oxidation]EVE[Cation:Mg[II]]ES[Phospho]PEK",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"},
+      {"position": 5, "value": "Cation:Mg[II]"},
+      {"position": 7, "value": "Phospho"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": []
+  },
+  {
+    "input": "SEQUEN[Formula:C12H20O2]CE",
+    "valid": true,
+    "sequence": "SEQUENCE",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 6, "value": "Formula:C12H20O2"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["formula"]
+  },
+  {
+    "input": "SEQUEN[Formula:[13C2]C-2H2N]CE",
+    "valid": true,
+    "sequence": "SEQUENCE",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 6, "value": "Formula:[13C2]C-2H2N"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["formula"]
+  },
+  {
+    "input": "SEQUEN[Glycan:HexNAc1Hex2]CE",
+    "valid": true,
+    "sequence": "SEQUENCE",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 6, "value": "Glycan:HexNAc1Hex2"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["glycan"]
+  },
+  {
+    "input": "ELVIS[Phospho|INFO:newly discovered]K",
+    "valid": true,
+    "sequence": "ELVISK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 5, "value": "Phospho|INFO:newly discovered"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["info"]
+  },
+  {
+    "input": "EMEVEESPEK/2",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": 2,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge"]
+  },
+  {
+    "input": "PEPTIDE/[Na:z+1]",
+    "valid": true,
+    "sequence": "PEPTIDE",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": 1,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge"]
+  },
+  {
+    "input": "SEK[XLMOD:02001#XL1]UENCE//EMEVTK[#XL1]SESPEK",
+    "valid": true,
+    "sequence": "SEKUENCE",
+    "chain_count": 2,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 3, "value": "XLMOD:02001#XL1"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["cross_link", "label"]
+  },
+  {
+    "input": "EMEVEESPEK+ELVISLIVER",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 2,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["chimeric"]
+  },
+  {
+    "input": "<13C>ATPEILTVNSIGQLK",
+    "valid": true,
+    "sequence": "ATPEILTVNSIGQLK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["global_isotope"]
+  },
+  {
+    "input": "<[Oxidation]@C,M>MTPEILTCNSIGCLK",
+    "valid": true,
+    "sequence": "MTPEILTCNSIGCLK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["global_fixed"]
+  },
+  {
+    "input": "{Glycan:Hex}EM[Oxidation]EVNESPEK",
+    "valid": true,
+    "sequence": "EMEVNESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["labile"]
+  },
+  {
+    "input": "[Phospho]?EM[Oxidation]EVTSESPEK",
+    "valid": true,
+    "sequence": "EMEVTSESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["unlocalised"]
+  },
+  {
+    "input": "(?DQ)NGTWEM[Oxidation]ESNENFEGYM[Oxidation]K",
+    "valid": true,
+    "sequence": "DQNGTWEMESNENFEGYMK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 8, "value": "Oxidation"},
+      {"position": 18, "value": "Oxidation"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["ambiguous_aa"]
+  },
+  {
+    "input": "PRT(ESFRMS)[+19.0523]ISK",
+    "valid": true,
+    "sequence": "PRTESFRMSISK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 9, "value": "+19.0523"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["range"]
+  },
+  {
+    "input": "ELVIS[Phospho|INFO:newly discovered|INFO:really awesome [new-to-science] #cool]K",
+    "valid": true,
+    "sequence": "ELVISK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 5, "value": "Phospho|INFO:newly discovered|INFO:really awesome [new-to-science] #cool"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["info", "label"]
+  },
+  {
+    "input": "EM[Oxidation]EVT[#g1(0.01)]S[#g1(0.09)]ES[Phospho#g1(0.90)]PEK",
+    "valid": true,
+    "sequence": "EMEVTSESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"},
+      {"position": 5, "value": "#g1(0.01)"},
+      {"position": 6, "value": "#g1(0.09)"},
+      {"position": 8, "value": "Phospho#g1(0.90)"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["label"]
+  },
+  {
+    "input": "EMEVEESPEK/2+ELVISLIVER/3",
+    "valid": true,
+    "sequence": "EMEVEESPEK",
+    "chain_count": 1,
+    "ion_count": 2,
+    "charge": 2,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge", "chimeric"]
+  },
+  {
+    "input": "<13C><15N>ATPEILTVNSIGQLK",
+    "valid": true,
+    "sequence": "ATPEILTVNSIGQLK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["global_isotope"]
+  },
+  {
+    "input": "{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK",
+    "valid": true,
+    "sequence": "EMEVNESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["labile"]
+  },
+  {
+    "input": "[Phospho]^2?[Acetyl]-EM[Oxidation]EVTSESPEK",
+    "valid": true,
+    "sequence": "EMEVTSESPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 2, "value": "Oxidation"}
+    ],
+    "n_terminal": ["Acetyl"],
+    "c_terminal": [],
+    "features": ["unlocalised"]
+  },
+  {
+    "input": "EVTSEKC[X:Disulfide#XL1]LEMSC[#XL1]EFD",
+    "valid": true,
+    "sequence": "EVTSEKCLEMSCEFD",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 7, "value": "X:Disulfide#XL1"},
+      {"position": 12, "value": "#XL1"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["label"]
+  },
+  {
+    "input": "PEPTIDE/[Na:z+1,H:z+1^2]",
+    "valid": true,
+    "sequence": "PEPTIDE",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": 3,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge"]
+  },
+  {
+    "input": "SEK[XLMOD:02001#XL1]UENCE//EMEVTK[#XL1]SESPEK/2",
+    "valid": true,
+    "sequence": "SEKUENCE",
+    "chain_count": 2,
+    "ion_count": 1,
+    "charge": 2,
+    "modifications": [
+      {"position": 3, "value": "XLMOD:02001#XL1"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge", "cross_link", "label"]
+  },
+  {
+    "input": "<13C>[Phospho]?{Glycan:Hex}ACDEFGHIK",
+    "valid": true,
+    "sequence": "ACDEFGHIK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["global_isotope", "labile", "unlocalised"]
+  },
+  {
+    "input": "(?DQ)(NGTWEM)[Oxidation]K",
+    "valid": true,
+    "sequence": "DQNGTWEMK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": null,
+    "modifications": [
+      {"position": 8, "value": "Oxidation"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["ambiguous_aa", "range"]
+  },
+  {
+    "input": "<[Carbamidomethyl]@C><[Oxidation]@M>AC[+42.0106]MPEK/+2",
+    "valid": true,
+    "sequence": "ACMPEK",
+    "chain_count": 1,
+    "ion_count": 1,
+    "charge": 2,
+    "modifications": [
+      {"position": 2, "value": "+42.0106"}
+    ],
+    "n_terminal": [],
+    "c_terminal": [],
+    "features": ["charge", "global_fixed"]
+  },
+  {
+    "input": "A[+1]-",
+    "valid": false,
+    "error": "expected '[' but reached end of input"
+  },
+  {
+    "input": "()[Dehydro]S",
+    "valid": false,
+    "error": "empty parenthesized range"
+  },
+  {
+    "input": "ELVIS[Phospho|INFO:newly]discovered]K",
+    "valid": false,
+    "error": "unexpected character ']' at position 35"
+  },
+  {
+    "input": "P(RT(ESFRMS)[+19.0523]IS)[+19.0523]K",
+    "valid": false,
+    "error": "nested parenthesized regions are not allowed"
+  },
+  {
+    "input": "/",
+    "valid": false,
+    "error": "empty sequence"
+  },
+  {
+    "input": "<>PEPTIDE",
+    "valid": false,
+    "error": "empty global modification"
+  },
+  {
+    "input": "PEPTIDE//",
+    "valid": false,
+    "error": "empty sequence"
+  }
+]

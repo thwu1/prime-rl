@@ -1,0 +1,21 @@
+{
+  "xlen": 64,
+  "extensions": {
+    "I": true,
+    "S": true,
+    "Sv39": true
+  },
+  "vector": {
+    "vlen_exp": 7,
+    "elen_exp": 6,
+    "max_index_eew_exp": 6
+  },
+  "pmp": {
+    "count": 0,
+    "grain": 0,
+    "na4_supported": false,
+    "usable_count": 0
+  },
+  "cache_block_size_exp": 6,
+  "reservation_set_size_exp": 3
+}

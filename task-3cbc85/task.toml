@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires implementing scaled dot-product attention with causal masking in assembly for a novel custom vector ISA. The solver must understand attention mechanisms at an algorithmic level, implement numerically stable softmax (the max-subtraction technique) entirely in scalar register operations, correctly integrate causal masking with softmax computation (-inf scores must yield zero attention weight), manage limited registers (8 vector, 16 scalar, 8 address) across five interacting computation phases (dot products, scaling, masking, softmax, weighted sum), and handle tiled vector processing (d_k=32 with VLEN=16). Unlike simple GEMV or activation functions, this requires holistic pipeline design where each phase's register and memory usage constrains subsequent phases. The softmax alone demands a three-pass implementation (find max, compute exp, normalize) that cannot be derived from the ISA documentation alone — it requires understanding of floating-point overflow behavior. KernelCraft benchmark reports show frontier LLMs achieving under 50% success on composite tasks of comparable complexity.
+"""
+solution_explanation = """
+The solution generates assembly that: (1) pre-loads Q tiles into persistent vector registers and computes 8 tiled dot products against K vectors via a VLOAD/VMUL/VREDSUM loop, storing scores to scratch memory; (2) scales scores by dividing by sqrt(d_k) using SSQRT and SDIV; (3) applies causal masking via conditional jump (JLT) to skip or store -inf based on comparing loop index against n_valid; (4) implements three-pass numerically stable softmax: SMAX loop to find maximum score, SSUB/SEXP loop to compute shifted exponentials while accumulating the sum, then SDIV loop to normalize; (5) computes the weighted sum by loading each V[i] tiled across two VLOAD/VMULS/VADD sequences using the attention weight as a scalar multiplier, accumulating into dedicated vector register accumulators; (6) stores the 32-element output via two VSTORE instructions and halts.
+"""
+verification_explanation = """
+Tests generate random Q, K, V inputs with three fixed seeds and varying n_valid values (5, 8, 3) to exercise partial masking, no masking, and heavy masking. Reference outputs are computed via NumPy (K@Q/sqrt(d_k), causal mask, stable softmax, attn@V). The submitted kernel is executed on the Python-based ISA simulator with the same inputs loaded at specified memory addresses. Outputs are compared element-wise with rtol=1e-5, atol=1e-5. Multiple seeds with different masking configurations prevent hardcoded solutions. Additional tests verify the kernel file exists, parses without error, and terminates via HALT within the cycle budget.
+"""
+category = "systems_programming"
+tags = ["assembly", "attention-mechanism"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3cbc85"

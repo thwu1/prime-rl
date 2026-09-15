@@ -1,0 +1,52 @@
+{
+  "description": "Required schema for /app/output/analysis.json",
+  "schema": {
+    "cache_analysis": {
+      "_description": "Results of slab cache merge analysis",
+      "merged_caches": {
+        "_description": "Map from named cache name to the kmalloc cache it was merged into",
+        "_type": "object<string, string>"
+      },
+      "standalone_caches": {
+        "_description": "List of named caches that remain independent (not merged)",
+        "_type": "array<string>"
+      }
+    },
+    "vulnerability_analysis": {
+      "_description": "Array with one entry per vulnerability report",
+      "_type": "array",
+      "_items": {
+        "vuln_id": "string - derived from KASAN report filename without extension",
+        "vuln_type": "string - 'uaf_write' or 'oob_write'",
+        "source_cache": "string - the slab cache identified in the KASAN report",
+        "effective_cache": "string - the physical cache serving allocations (accounting for allocator merging)",
+        "reachable_targets": {
+          "_description": "Kernel structures reachable through heap manipulation via this vulnerability, filtered to those with security-relevant fields in the controllable range",
+          "_type": "array",
+          "_items": {
+            "structure": "string - kernel structure name",
+            "target_cache": "string - cache this structure is allocated from",
+            "collision_type": "string - 'same_cache' or 'adjacent_object'",
+            "controllable_region": {
+              "offset_in_target": "int - byte offset where attacker control begins within the target structure",
+              "size": "int - number of bytes under attacker control in the target"
+            },
+            "controllable_fields": {
+              "_description": "Security-relevant fields overlapping the controllable region, one entry per (field, capability) pair",
+              "_type": "array",
+              "_items": {
+                "field_name": "string",
+                "field_offset": "int - byte offset within structure",
+                "field_size": "int - field size in bytes",
+                "capability": "string - security capability (e.g. code_exec, info_leak, arbitrary_rw, arbitrary_read, privilege_escalation)",
+                "exploit_method": "string - exploitation technique for this field",
+                "mitigated": "bool - whether an active mitigation neutralizes this capability",
+                "mitigation_reason": "string or null - mitigation name if mitigated, null otherwise"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic knowledge combined with multi-tool proficiency: (1) understanding three distinct ECC signature algorithms (ECDSA, ECGDSA, ECRDSA) well enough to verify signatures and identify vulnerabilities, (2) recognizing that ECRDSA has two hash byte-order conventions (ISO 14888-3 vs RFC 7091) and determining which was used for each signature — a subtle distinction absent from textbooks, (3) detecting cross-algorithm nonce reuse between ECDSA and ECGDSA and understanding that this produces a non-standard quadratic equation (not the well-known linear system from same-algorithm nonce reuse), (4) solving the quadratic mod a prime via Tonelli-Shanks, (5) constructing OpenSSL-compatible PEM key files from recovered key material using the cryptography library, and (6) producing and verifying DER-encoded signatures via OpenSSL CLI — requiring fluency with openssl ec/pkey/dgst subcommands on custom key material."""
+solution_explanation = """(1) Scan signature pairs for matching r values to find nonce reuse between sig 0 (ECDSA) and sig 3 (ECGDSA). (2) For each ECRDSA signature, implement verification with both ISO (big-endian hash) and RFC (byte-reversed hash) conventions, determine sig 2 uses ISO and sig 4 uses RFC. (3) From ECDSA equation s0=k^{-1}(e0+xr) and ECGDSA equation s3=x(kr+e3') where e3'=-H(m3), derive quadratic r^2*x^2+(r*e0+e3'*s0)*x-s0*s3=0. (4) Solve via discriminant and Tonelli-Shanks modular square root, verify candidate against public key Q. (5) Use Python cryptography library to construct PKCS#8 PEM from the recovered integer on SECP256R1. (6) Use 'openssl pkey -pubout' to extract public key PEM, 'openssl dgst -sha256 -sign' to produce DER signature, 'openssl dgst -sha256 -verify' to self-check."""
+verification_explanation = """Tests verify: (1) audit_report.json has findings for all 6 signatures with correct status (vulnerable/safe) and vulnerability_type (nonce_reuse for exploited sigs); (2) exploited_pair is [0,3]; (3) ecrdsa_conventions identifies sig 2 as iso and sig 4 as rfc; (4) recovered_key.pem loads via OpenSSL and cryptography library with correct private key value on prime256v1; (5) public_key.pem matches openssl pkey -pubout derivation; (6) challenge_sig.der is valid ASN.1 DER that passes openssl dgst -sha256 -verify."""
+category = "cryptography"
+tags = ["elliptic-curves", "openssl"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecc-nonce-recovery"

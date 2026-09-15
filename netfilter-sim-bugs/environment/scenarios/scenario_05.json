@@ -1,0 +1,67 @@
+{
+  "name": "CIDR-based filtering with full pipeline",
+  "description": "Tests CIDR subnet matching in DROP rules, NOTRACK for DNS response traffic (src_port 53), and correct conntrack accounting across the full netfilter pipeline.",
+  "conntrack_max": 10,
+  "tcp_loose": true,
+  "conntrack_enabled": true,
+  "rules": [
+    {"table": "raw", "chain": "PREROUTING", "src_network": "198.18.0.0/15", "action": "DROP"},
+    {"table": "raw", "chain": "PREROUTING", "src_network": "172.16.0.0/12", "action": "DROP"},
+    {"table": "raw", "chain": "PREROUTING", "src_port": 53, "action": "NOTRACK"}
+  ],
+  "packets": [
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 50001, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.18.5.1", "dst_ip": "192.0.2.1", "src_port": 20001, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "8.8.8.8", "dst_ip": "192.0.2.1", "src_port": 53, "dst_port": 12345, "protocol": "UDP"},
+    {"src_ip": "198.18.100.2", "dst_ip": "192.0.2.1", "src_port": 20002, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.2", "dst_ip": "192.0.2.1", "src_port": 50002, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "172.16.5.1", "dst_ip": "192.0.2.1", "src_port": 20003, "dst_port": 22, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "1.1.1.1", "dst_ip": "192.0.2.1", "src_port": 53, "dst_port": 12346, "protocol": "UDP"},
+    {"src_ip": "198.18.200.3", "dst_ip": "192.0.2.1", "src_port": 20004, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.19.50.4", "dst_ip": "192.0.2.1", "src_port": 20005, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.3", "dst_ip": "192.0.2.1", "src_port": 50003, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "8.8.4.4", "dst_ip": "192.0.2.1", "src_port": 53, "dst_port": 12347, "protocol": "UDP"},
+    {"src_ip": "198.18.10.5", "dst_ip": "192.0.2.1", "src_port": 20006, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "172.16.5.2", "dst_ip": "192.0.2.1", "src_port": 20007, "dst_port": 22, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.18.60.6", "dst_ip": "192.0.2.1", "src_port": 20008, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "1.0.0.1", "dst_ip": "192.0.2.1", "src_port": 53, "dst_port": 12348, "protocol": "UDP"},
+    {"src_ip": "198.18.150.7", "dst_ip": "192.0.2.1", "src_port": 20009, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.4", "dst_ip": "192.0.2.1", "src_port": 50004, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.18.220.8", "dst_ip": "192.0.2.1", "src_port": 20010, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "9.9.9.9", "dst_ip": "192.0.2.1", "src_port": 53, "dst_port": 12349, "protocol": "UDP"},
+    {"src_ip": "10.0.0.5", "dst_ip": "192.0.2.1", "src_port": 50005, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"}
+  ],
+  "expected": {
+    "counters": {
+      "raw:PREROUTING": 20,
+      "mangle:PREROUTING": 10,
+      "filter:INPUT": 10
+    },
+    "conntrack_entries": 5,
+    "total_accepted": 10,
+    "total_dropped": 10,
+    "conntrack_drops": 0,
+    "packet_results": [
+      "accepted",
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting",
+      "dropped:raw_prerouting",
+      "accepted",
+      "accepted",
+      "dropped:raw_prerouting",
+      "dropped:raw_prerouting",
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting",
+      "accepted",
+      "accepted"
+    ]
+  }
+}

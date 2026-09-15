@@ -1,0 +1,32 @@
+{
+  "name": "grover_3",
+  "num_qubits": 3,
+  "description": "3-qubit Grover search for marked state |101> (one iteration)",
+  "gates": [
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [1]},
+    {"gate": "H", "targets": [2]},
+
+    {"gate": "X", "targets": [1]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "CCX", "targets": [0, 1, 2]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "X", "targets": [1]},
+
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [1]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "X", "targets": [0]},
+    {"gate": "X", "targets": [1]},
+    {"gate": "X", "targets": [2]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "CCX", "targets": [0, 1, 2]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "X", "targets": [0]},
+    {"gate": "X", "targets": [1]},
+    {"gate": "X", "targets": [2]},
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [1]},
+    {"gate": "H", "targets": [2]}
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing an e-graph data structure with union-find, e-matching, equality saturation loop, constant folding via e-class analysis, and cost-based extraction. Additionally demands generating valid LLVM IR text in SSA form with correct i64 types and instruction selection (add, mul, shl, etc.), and SMT-LIB2 scripts over QF_BV 64-bit bitvector theory for formal equivalence proofs. The agent must understand and correctly use the LLVM opt verifier and Z3 SMT solver CLI tools. Benchmarks include phase-ordering challenges where greedy rewriting fails — some require temporarily increasing expression size before reaching the optimum."""
+solution_explanation = """Build an e-graph with hash-consing and union-find. Parse rewrite rules into patterns. For each saturation iteration: rebuild the e-graph, propagate constants, e-match all rules against all e-classes. Apply matches by merging e-classes. Extract cheapest expression via dynamic programming. Then generate LLVM IR by traversing the optimized expression tree depth-first, emitting i64 instructions in SSA form with a single entry block and ret. Generate SMT-LIB2 by encoding both original and optimized expressions as 64-bit bitvector formulas using bvadd/bvmul/bvshl/etc., asserting their inequality, and checking for unsatisfiability via z3."""
+verification_explanation = """Tests verify (1) semantic correctness: each optimized expression is evaluated with 50 random variable assignments and compared against the original, (2) cost optimality: the cost must meet or beat a known-achievable bound for each benchmark, (3) LLVM IR validity: opt -passes=verify is run on each generated .ll file and must exit 0, (4) formal equivalence: z3 is run on each generated .smt2 file and must output 'unsat'."""
+category = "compilers"
+tags = ["equality-saturation", "llvm-ir", "smt-verification"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rewrite-saturation"

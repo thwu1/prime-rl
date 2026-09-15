@@ -1,0 +1,10 @@
+{
+    "TaskName": "demo",
+    "StimulusPresentation": {
+        "ScreenDistance": 0.6,
+        "ScreenSize": [0.386, 0.29],
+        "ScreenResolution": [1024, 768],
+        "ScreenOrigin": ["top", "left"],
+        "ScreenRefreshRate": 60
+    }
+}

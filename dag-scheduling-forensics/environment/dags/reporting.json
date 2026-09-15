@@ -1,0 +1,40 @@
+{
+  "dag_id": "reporting",
+  "schedule_interval": "0 3 * * *",
+  "default_args": {
+    "retries": 1,
+    "retry_delay_seconds": 600,
+    "execution_timeout_seconds": 3600
+  },
+  "tasks": [
+    {
+      "task_id": "wait_etl",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "etl_ingest",
+      "external_task_id": "load_warehouse"
+    },
+    {
+      "task_id": "aggregate",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_etl"]
+    },
+    {
+      "task_id": "build_report",
+      "operator": "PythonOperator",
+      "dependencies": ["aggregate"]
+    },
+    {
+      "task_id": "wait_alerts",
+      "operator": "ExternalTaskSensor",
+      "dependencies": ["build_report"],
+      "external_dag_id": "alerts",
+      "external_task_id": "send_alerts"
+    },
+    {
+      "task_id": "distribute",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_alerts"]
+    }
+  ]
+}

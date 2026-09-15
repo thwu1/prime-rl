@@ -1,0 +1,42 @@
+[
+  {
+    "problem_id": 1,
+    "name": "matmul_4096",
+    "description": "Dense matrix multiplication C = A @ B, A: 4096x4096, B: 4096x4096",
+    "total_flops": 137438953472,
+    "total_memory_bytes": 201326592,
+    "default_precision": "fp32"
+  },
+  {
+    "problem_id": 2,
+    "name": "conv_resnet_block",
+    "description": "Conv2d 64->128 channels, 3x3 kernel, stride 1, pad 1, batch 32, 56x56 spatial",
+    "total_flops": 14797504512,
+    "total_memory_bytes": 77365248,
+    "default_precision": "fp32"
+  },
+  {
+    "problem_id": 3,
+    "name": "attention_qk_product",
+    "description": "Multi-head attention QK^T product, 16 heads, seq_len=512, head_dim=64",
+    "total_flops": 536870912,
+    "total_memory_bytes": 10485760,
+    "default_precision": "fp16"
+  },
+  {
+    "problem_id": 4,
+    "name": "gelu_activation",
+    "description": "GELU activation on 4M element tensor (batch=1024, features=4096)",
+    "total_flops": 33554432,
+    "total_memory_bytes": 33554432,
+    "default_precision": "fp32"
+  },
+  {
+    "problem_id": 5,
+    "name": "transformer_ffn",
+    "description": "Transformer FFN: Linear(768,3072) -> GELU -> Linear(3072,768), batch=128",
+    "total_flops": 1211105280,
+    "total_memory_bytes": 25952256,
+    "default_precision": "fp32"
+  }
+]

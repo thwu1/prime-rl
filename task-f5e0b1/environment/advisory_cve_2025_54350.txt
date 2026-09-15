@@ -1,0 +1,40 @@
+ESnet Software Security Advisory ESNET-SECADV-2025-0002
+
+Topic:          iperf3 crash on malformed authentication token
+Issued:         25 July 2025
+Credits:        Han Lee (Apple Information Security)
+Affects:        All versions of iperf3 from 3.2 through 3.19
+Corrected:      iperf-3.19.1
+CVE:            CVE-2025-54350
+
+I. Background
+
+iperf3 is a utility for testing network performance using TCP, UDP,
+and SCTP, running over IPv4 and IPv6. It uses a client/server model.
+Beginning with version 3.2, iperf3 has supported authentication of
+clients to the iperf3 server.
+
+II. Problem Description
+
+An iperf3 client session containing a malformed Base64-encoded
+authentication token could trigger an assertion in the server-side
+code, causing the server process to crash. The attack takes place
+before any credential validation has occurred.
+
+III. Impact
+
+It might be possible for a malfunctioning or malicious iperf3 client
+to crash an iperf3 server that has SSL authentication enabled.
+iperf3 servers running without authentication support are not affected.
+
+IV. Workaround
+
+Discontinue use of SSL authentication if not required.
+
+V. Solution
+
+This has been fixed in iperf-3.19.1. Upgrade to iperf-3.19.1 or newer.
+
+VI. Correction details
+
+Fix commit: 4eab661da0bbaac04493fa40164e928c6df7934a

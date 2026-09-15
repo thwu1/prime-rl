@@ -1,0 +1,50 @@
+2025-06-12 17:29:48 WARN  [us-east1] Memory usage at 78% — approaching soft limit
+2025-06-12 17:29:55 INFO  [us-east1] GC pause: 45ms (within threshold)
+2025-06-12 17:30:00 INFO  [us-east1] Deploying Service Control v2.14.3 (feature: enhanced_quota_checking)
+2025-06-12 17:30:15 INFO  [us-east1] Service Control v2.14.3 starting up
+2025-06-12 17:30:16 INFO  [us-east1] Connected to regional policy store (policies.db)
+2025-06-12 17:30:16 INFO  [us-east1] Loaded policies for 12847 active projects
+2025-06-12 17:30:18 INFO  [us-east1] Ready — serving on :8443
+2025-06-12 17:35:12 WARN  [us-east1] Slow query: get_policies took 420ms for project-zeta (expected <100ms)
+2025-06-12 17:38:44 WARN  [us-east1] Network latency spike to config-service: 340ms (threshold: 500ms)
+2025-06-12 17:42:10 INFO  [us-east1] Memory usage normalized: 62%
+2025-06-12 17:44:50 INFO  [us-east1] Policy store update notification: 1 new/modified policy
+2025-06-12 17:44:51 WARN  [us-east1] Transient network timeout to metadata-service (retrying)
+2025-06-12 17:45:22 INFO  [us-east1] check_quota project=project-alpha api=compute.googleapis.com
+2025-06-12 17:45:22 ERROR [us-east1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:22 FATAL [us-east1] Unhandled exception — process terminating
+2025-06-12 17:45:23 INFO  [us-east1] Service Control v2.14.3 restarting (attempt 1)
+2025-06-12 17:45:24 INFO  [us-east1] check_quota project=project-alpha api=compute.googleapis.com
+2025-06-12 17:45:24 ERROR [us-east1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:24 FATAL [us-east1] Unhandled exception — process terminating
+2025-06-12 17:45:25 INFO  [us-east1] Service Control v2.14.3 restarting (attempt 2)
+2025-06-12 17:45:25 ERROR [us-east1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:25 FATAL [us-east1] Unhandled exception — process terminating
+2025-06-12 17:45:26 INFO  [us-east1] Service Control v2.14.3 restarting (attempt 3)
+2025-06-12 17:45:26 ERROR [us-east1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:26 FATAL [us-east1] Unhandled exception — process terminating
+2025-06-12 17:45:27 INFO  [us-central1] Service Control v2.14.3 restarting (attempt 3)
+2025-06-12 17:45:27 ERROR [us-central1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:27 FATAL [us-central1] Unhandled exception — process terminating
+2025-06-12 17:45:28 INFO  [europe-west1] Service Control v2.14.3 restarting (attempt 4)
+2025-06-12 17:45:28 ERROR [europe-west1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:45:28 FATAL [europe-west1] Unhandled exception — process terminating
+2025-06-12 17:50:00 WARN  [us-east1] Memory pressure detected during crash recovery — RSS 1.8GB
+2025-06-12 17:55:00 WARN  [us-east1] Connection pool exhausted — all 10 slots in use
+2025-06-12 17:57:00 WARN  [us-east1] Circuit breaker manually tripped via red-button
+2025-06-12 17:57:01 INFO  [us-east1] Service Control v2.14.3 restarting (attempt 15)
+2025-06-12 17:57:01 INFO  [us-east1] check_quota project=project-alpha api=compute.googleapis.com
+2025-06-12 17:57:01 ERROR [us-east1] PolicyChecker error: unsupported operand type(s) for -: 'NoneType' and 'int'
+2025-06-12 17:57:01 FATAL [us-east1] Unhandled exception — process terminating (crash persists after red-button activation)
+2025-06-12 18:10:00 WARN  [us-east1] ConnectionManager: attempt 1 failed: database is locked
+2025-06-12 18:10:00 WARN  [us-central1] ConnectionManager: attempt 1 failed: database is locked
+2025-06-12 18:10:00 WARN  [europe-west1] ConnectionManager: attempt 1 failed: database is locked
+2025-06-12 18:10:00 WARN  [asia-east1] ConnectionManager: attempt 1 failed: database is locked
+2025-06-12 18:10:01 WARN  [us-east1] ConnectionManager: attempt 2 failed: database is locked
+2025-06-12 18:10:01 WARN  [us-central1] ConnectionManager: attempt 2 failed: database is locked
+2025-06-12 18:10:01 WARN  [europe-west1] ConnectionManager: attempt 2 failed: database is locked
+2025-06-12 18:10:01 WARN  [asia-east1] ConnectionManager: attempt 2 failed: database is locked
+2025-06-12 18:10:01 WARN  [us-east1] ConnectionManager: attempt 3 failed: database is locked
+2025-06-12 18:10:01 WARN  [us-central1] ConnectionManager: attempt 3 failed: database is locked
+2025-06-12 18:25:00 INFO  [us-east1] Problematic policy removed from store
+2025-06-12 18:25:02 INFO  [us-east1] Service Control recovering — requests succeeding

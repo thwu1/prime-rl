@@ -1,0 +1,27 @@
+# prog1 — constant propagation + unreachable code elimination
+# Expected output: 35 30 45
+
+func main():
+  .entry:
+    x = const 5
+    y = const 10
+    z = add x y
+    w = mul x y
+    cmp = gt z 20
+    cbr cmp .then .else
+  .then:
+    a = add w 100
+    b = mul a 2
+    print a
+    print b
+    br .done
+  .else:
+    a = sub w z
+    print a
+    br .done
+  .done:
+    c = add z z
+    d = mul z 3
+    print c
+    print d
+    ret 0

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the SPIR-V binary format (5-word header, variable-length instruction encoding with word-count/opcode packing), understanding which instruction operands are IDs vs literals vs strings (requires an opcode grammar table), implementing call-graph reachability analysis for dead function elimination, a correct ID remapping algorithm that handles forward/backward references across all instruction types, and a module merging algorithm that correctly shifts IDs, deduplicates types per the spec, and preserves SPIR-V section ordering constraints. Each subcommand is independently non-trivial and they build on each other. A GPU tooling expert would need 2-3 hours."""
+solution_explanation = """The solution implements a SpvModule class that parses SPIR-V binaries using struct.unpack, classifying each instruction via the opcode reference JSON. get_id_positions() maps each opcode to its ID-bearing word positions (handling type_id, result_id, and operand-specific ID/literal/string kinds). strip-dead builds a call graph from OpFunctionCall instructions, BFS-walks from entry points, then removes unreachable function bodies and their associated OpName/OpDecorate. compact collects all IDs in first-appearance order and creates a contiguous 1..N remapping. merge shifts module B's IDs by module A's bound-1, then deduplicates structurally identical type declarations by computing canonical fingerprints (opcode + operands with result IDs zeroed and other IDs resolved through a growing dedup map), remapping B's duplicate type IDs to A's equivalents. Finally it interleaves sections in correct SPIR-V layout order (capabilities, extensions, memory model, entry points, execution modes, debug, annotations, types/constants, functions)."""
+verification_explanation = """Tests validate each subcommand: analyze checks JSON output structure (header magic, function names, entry point names, capabilities). strip-dead verifies spirv-val passes and disassembly shows correct function count with dead functions removed. compact verifies spirv-val passes and header bound is reduced after eliminating ID gaps. merge verifies spirv-val passes and both entry points appear in the merged output. All outputs are cross-checked with spirv-dis for structural correctness."""
+category = "systems_programming"
+tags = ["binary-parsing", "gpu-tooling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spirv-binary-tool"

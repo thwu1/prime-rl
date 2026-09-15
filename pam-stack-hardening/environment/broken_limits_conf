@@ -1,0 +1,7 @@
+# /etc/security/limits.conf
+#
+# Each line describes a limit for a user in the form:
+#
+# <domain>  <type>  <item>  <value>
+#
+# No limits currently configured.

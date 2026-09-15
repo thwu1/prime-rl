@@ -1,0 +1,56 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level robotics knowledge: URDF XML parsing with RPY orientation conventions
+and joint-link tree traversal, homogeneous transformation matrix algebra for forward kinematics,
+optimization-based inverse kinematics using scipy, positional Jacobian computation via finite
+differences or analytical methods, Yoshikawa manipulability measure maximization over a bounded
+joint space, and dual-arm inverse kinematics with shared torso joint constraints requiring custom
+multi-objective optimization. The dual-arm coordination problem cannot be solved with standard
+single-chain IK solvers and requires formulating a custom cost function over 11 coupled variables.
+"""
+solution_explanation = """
+Uses ikpy to parse the Poppy Torso URDF and build left/right arm kinematic chains with the
+specified base elements, last link vectors, and active link masks. Forward kinematics solved
+directly via ikpy's chain.forward_kinematics(). Inverse kinematics solved via ikpy's built-in
+optimization-based solver. Jacobian computed via finite differences of FK. Manipulability
+maximized using scipy.optimize.minimize with L-BFGS-B and random restarts over the 4 active
+joint dimensions. Dual-arm IK formulated as scipy optimization over 11 variables (3 shared
+torso + 4 per arm) minimizing sum of squared position errors for both arms subject to joint
+limit bounds.
+"""
+verification_explanation = """
+Forward kinematics verified against ikpy reference implementation with atol=1e-4. Rotation
+matrices checked for validity (det approx 1). IK solutions verified by computing FK of the
+solution and checking position matches target within 1cm, plus joint limit compliance. Jacobian
+verified against independent finite-difference computation with atol=1e-3. Manipulability value
+independently recomputed and compared, checked against specific reference configurations, and
+joint bounds verified. Dual-arm solution checked for shared torso joint values (within 1e-3),
+both arms reaching targets (within 2cm), joint limits, and FK consistency of reported positions.
+"""
+category = "robotics"
+tags = ["kinematics", "optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dual-arm-kinematics"

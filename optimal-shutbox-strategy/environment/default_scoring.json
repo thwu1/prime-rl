@@ -1,0 +1,6 @@
+{
+  "scoring_version": "2.1",
+  "method": "uniform",
+  "description": "Standard scoring: all tiles have equal weight in penalty calculation",
+  "multiplier": 1
+}

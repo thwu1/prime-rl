@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of CPU cache microarchitecture and hardware storage budget accounting at bit-level precision. The agent must: (1) set up the ChampSim header include chain for gcc preprocessing, handling the multi-file dependency graph (pips_prefetcher.cc → ooo_cpu.h → cache.h → memory_class.h → champsim.h); (2) read a 420-line C++ prefetcher implementation and independently derive the storage formula from LHT_ENTRY::size() methods, LINE_HISTORY_TABLE::size() constructors, and global variable declarations — computing bit-widths for cache-line-aligned pointers (requiring LOG2_BLOCK_SIZE from a separate header), signed offset encodings, replacement policy metadata, and round-robin indices; (3) build a multi-tool shell pipeline orchestrating gcc preprocessing and Python analysis; (4) perform multi-objective optimization over a 2448-configuration design space to identify non-dominated tradeoff configurations. Getting misc_bits correct (350 bits) requires tracing through the global state declarations and the comment in l1i_prefetcher_initialize to understand cache-line-address bit-widths."""
+solution_explanation = """Use gcc -dM -E -I/app/include to extract all resolved macro definitions. Derive the storage formula from the C++ source: entry_data_bits = NTARGETS*OFFSETBITS + (NTARGETS+1)*CBITS, per_lht_entry = entry_data + TAGBITS + LHT_RPBITS, LHT total = (2^LOGSETS * NUMWAYS) * per_entry. Add SCC table with same entry format but different dimensions/rpbits, plus misc state = (2+NSCOUTS)*58 + ceil(log2(NSCOUTS)) = 350 bits. Sweep 17*9*16=2448 configs, 1407 valid. Build Pareto front: for each OFFSETBITS pick max-entries config, filter non-dominated → 7 points. Harmonic mean optimum at OFFSETBITS=19 with 11264 entries and reach=262144."""
+verification_explanation = """Tests verify exact integer values: original config total_bits=1047390 (LHT=1034240 + SCC=12800 + misc=350), 1407 valid out of 2448 evaluated, 7-point Pareto front with specific (entries, reach) pairs, best harmonic mean at OFFSETBITS=19."""
+category = "computer_architecture"
+tags = ["microarchitecture", "hardware-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prefetcher-storage-optimizer"

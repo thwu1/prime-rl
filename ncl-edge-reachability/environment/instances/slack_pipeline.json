@@ -1,0 +1,33 @@
+{
+  "description": "Linear chain of 8 vertices connected by 7 weight-2 edges. Slack must propagate backward from the rightmost endpoint through the entire chain to reverse the target. Optimal solution requires 7 moves.",
+  "vertices": {
+    "v0": {"min_inflow": 0},
+    "v1": {"min_inflow": 2},
+    "v2": {"min_inflow": 2},
+    "v3": {"min_inflow": 2},
+    "v4": {"min_inflow": 2},
+    "v5": {"min_inflow": 2},
+    "v6": {"min_inflow": 2},
+    "v7": {"min_inflow": 0}
+  },
+  "edges": {
+    "e01": {"endpoints": ["v0", "v1"], "weight": 2},
+    "e12": {"endpoints": ["v1", "v2"], "weight": 2},
+    "e23": {"endpoints": ["v2", "v3"], "weight": 2},
+    "e34": {"endpoints": ["v3", "v4"], "weight": 2},
+    "e45": {"endpoints": ["v4", "v5"], "weight": 2},
+    "e56": {"endpoints": ["v5", "v6"], "weight": 2},
+    "e67": {"endpoints": ["v6", "v7"], "weight": 2}
+  },
+  "initial_orientation": {
+    "e01": "v1",
+    "e12": "v2",
+    "e23": "v3",
+    "e34": "v4",
+    "e45": "v5",
+    "e56": "v6",
+    "e67": "v7"
+  },
+  "target_edge": "e01",
+  "target_direction": "v0"
+}

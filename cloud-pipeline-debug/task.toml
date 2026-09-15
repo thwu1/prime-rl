@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-stage satellite imagery pipeline with cascading bugs across 5 files spanning shell orchestration (stage ordering, error handling, missing directories), binary file parsing (byte-order mismatch in struct.unpack for .cal calibration format — complicated by FORMAT_SPEC.md incorrectly documenting big-endian when files are actually little-endian), arithmetic formula inversion (gain/offset swap), format validation constants, and statistical metric computation (Cohen's kappa denominator). Beyond debugging, the classifier is unimplemented: the agent must reverse-engineer the relationship between calibrated spectral indices and 4-class ground truth labels through iterative data analysis on per-chip calibrated data with per-chip varying calibration coefficients. Standard remote sensing thresholds do not apply — the agent must empirically derive the correct decision boundaries from the data by computing spectral indices and analyzing their distributions against ground truth labels."""
+solution_explanation = """Fix run_pipeline.sh: remove set -e, reorder stages so classification runs before validation, add mkdir. Fix calibrate.py: correct path to /app/data/test_features, switch struct.unpack from big-endian ('>') to little-endian ('<'), fix formula from offset*dn+gain to gain*dn+offset. Fix validate.py: correct EXPECTED_SHAPE to (512,512), add class 3 to VALID_CLASSES. Fix score.py: correct LABEL_DIR to /app/data/test_labels, fix kappa denominator from p_e to (1-p_e). Then run calibration and computationally analyze calibrated bands vs ground truth labels to discover optimal spectral index thresholds (brightness, NDWI, NDVI) via percentile-based gap analysis across all chips. Generate classify.py with the computed thresholds."""
+verification_explanation = """Cleans output directories, runs the fixed pipeline, then independently verifies with pytest: prediction directory exists, all 12 chip predictions present with no extras, correct 512x512 shape, uint8 dtype, values in {0,1,2,3}, all 4 classes represented across predictions, combined score (geometric mean of Cohen's kappa and weighted recall) >= 0.80 computed independently against ground truth labels, and pipeline log file exists and is non-empty."""
+category = "debugging"
+tags = ["remote-sensing", "binary-formats"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cloud-pipeline-debug"

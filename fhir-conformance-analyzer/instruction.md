@@ -1,0 +1,5 @@
+A multi-tool FHIR conformance checking pipeline at `/app/` audits clinical data exports against US Core v6.1.0 implementation guide requirements. It uses a `Makefile` to orchestrate `jq` filter files (`/app/filters/*.jq`) for JSON preprocessing and scoring, alongside Python analysis scripts (`/app/checker/*.py`) for Must Support coverage and reference integrity checks.
+
+The pipeline reads from `/app/data/` (profile manifest, FHIR Bundles, CapabilityStatement), produces intermediate JSON in `/app/build/`, and writes a final conformance report to `/app/output/conformance_report.json`. Execute via `make` from `/app/`.
+
+QA has reported inaccuracies in the conformance report — resource coverage percentages, capability gap counts, and scoring metrics do not match manual audit results for the provided dataset. Bugs reside across the jq filters and Python scripts. Diagnose and fix all issues across the pipeline so its output correctly reflects the conformance state of the input data.

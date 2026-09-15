@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of data engineering, graph algorithms, and statistical analysis, starting from an undocumented database that must be explored and understood before any implementation. The solver must reverse-engineer the schema—discovering tables, foreign key relationships, recipient type semantics, and the meaning of join tables—then identify and evaluate pre-existing database views (an email_communication_graph view exists but silently includes all recipient types, producing incorrect PageRank results if used without diagnosis). Q2 requires implementing iterative PageRank computation with proper dangling-node handling—an algorithm requiring understanding of convergence criteria, transition matrices, and random walk theory on directed weighted graphs—and the solver must determine which recipient type constitutes a "direct recipient" by examining the data. Q4 demands knowledge of temporal point process statistics: the burstiness parameter B = (σ−μ)/(σ+μ) from Barabási's theory, requiring correct use of population standard deviation. The Parquet cache design demands understanding of columnar storage internals (compression codecs, encoding strategies, column statistics, Hive partitioning). No single domain expertise suffices."""
+solution_explanation = """Build a Parquet analytics cache from SQLite using PyArrow: denormalize messages with sender info into Hive-partitioned Parquet (by year) with Snappy compression and dictionary encoding, plus separate recipients, labels, and attachments files. Then: (Q1) DuckDB LAG window function for inter-message gaps, median per thread, categorical aggregation; (Q2) extract weighted directed graph edges from Parquet via DuckDB filtering to recipient_type='to' only (not using the misleading view), implement power-iteration PageRank in Python with damping=0.85, uniform init, dangling-node redistribution, convergence tol=1e-8, combine with DuckDB metric queries for degree/count fields; (Q3) DuckDB self-join on label assignments for pairwise co-occurrence with Jaccard = intersection/union over message sets; (Q4) extract per-sender timestamps via DuckDB, compute population std and mean of inter-message gaps in Python, derive burstiness parameter B = (σ−μ)/(σ+μ), aggregate by category; (Q5) DuckDB join of attachments with messages for domain-level aggregation."""
+verification_explanation = """Tests independently compute expected results from the original SQLite database using Python stdlib (sqlite3, statistics, collections, datetime). For Parquet, pyarrow metadata inspection verifies Snappy compression on every column chunk, dictionary encoding on ≥3 string columns, column statistics presence, and ≥3 Hive-style year partition directories. For Q2, an independent PageRank implementation using power iteration with identical parameters (damping=0.85, tol=1e-8, max_iter=100) produces reference scores compared with abs=1e-6 tolerance. For Q4, independent burstiness computation from SQLite timestamps provides reference values. Integer fields are matched exactly; floating-point fields use 1–2% relative tolerance."""
+category = "data_processing"
+tags = ["parquet", "graph-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6d6031"

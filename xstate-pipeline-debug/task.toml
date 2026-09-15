@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of XState v5's setup() API, TypeScript type system for state machines, parallel state completion semantics, actor input/output typing, and eventless (always) transition patterns. The solver must diagnose cascading type errors and runtime behavioral defects across four tightly coupled files, then design and implement a complete compensation subsystem from a non-functional stub. Bugs interact—fixing one reveals the next—and the compensation architecture demands understanding compound state lifecycle, sequential actor invocation, and final-state propagation through nested states."""
+solution_explanation = """Fix stages.ts: add missing fromPromise import, change input key stageConfig to config. Fix compensation.ts: change return shape from {name,success,message} to {stageName,status,output} matching CompensationResult with correct literal types. Fix types.ts: add compensationResults:CompensationResult[] and pendingCompensations:string[] to PipelineContext. Fix pipeline.ts: context.results→context.stageResults in guard, event.output.data→event.output globally, add target:'done' to parallel regions' invoke onDone, stageTimeout→STAGE_TIMEOUT, add fallback always→failed in evaluating, register compensation actor in setup, add hasMoreCompensations guard, add initial context values, replace compensating stub with compound state machine using checking/executing/done sub-states that cycle through compensations via invoke."""
+verification_explanation = """Tests verify TypeScript compilation (tsc --noEmit), happy path (6 stages passed, succeeded state, no compensations), deploy failure (failed state with error, compensations for lint and build in reverse order, all compensations succeeded), and test failure (failed state without deploying or compensating). A TypeScript test harness uses pipelineMachine.provide() to inject mock actors, waitFor to await terminal states, and dynamic context access to verify compensation results shape and ordering."""
+category = "debugging"
+tags = ["xstate", "typescript", "state-machines", "saga-pattern"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xstate-pipeline-debug"

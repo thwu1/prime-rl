@@ -1,0 +1,105 @@
+Post-Incident Follow-Up Notes — prod-web-037
+=============================================
+
+Investigator: J. Chen
+Date: 2024-06-10 (2 days after incident)
+
+Investigation Summary
+---------------------
+Several hypotheses were explored to determine root cause:
+
+1. KERNEL OOM KILLER (INITIAL SUSPECT)
+   The syslog shows multiple OOM kill events in the 14:21-14:22
+   window.  Initial theory: the kernel OOM killer terminated sshd
+   and other services directly.
+
+   FINDING: OOM kills targeted php-fpm processes (high oom_score
+   due to memory consumption), not system services.  Critically,
+   the OOM killer uses SIGKILL (signal 9), but the init logs show
+   services received SIGTERM (signal 15).  This rules out OOM killer
+   as the direct cause of the mass termination.
+
+   Status: RULED OUT as direct cause.  OOM pressure is a
+   contributing factor (caused fork failures) but the OOM killer
+   did not kill system services.
+
+2. NFS STALE FILE HANDLES
+   Several NFS stale file handle errors appeared in syslog around
+   14:23.  Team suspected NFS mount issues may have caused a
+   cascade failure through dependent services.
+
+   FINDING: NFS errors were from /mnt/backups, used by the nightly
+   backup job.  The backup cron job was killed (along with everything
+   else), causing the NFS client to log stale handle errors when the
+   connection was interrupted.  The NFS errors are a SYMPTOM of the
+   mass kill, not a cause.
+
+   Status: RULED OUT.  NFS errors are downstream of the incident.
+
+3. SUPERVISOR INTERMITTENT HANGS
+   Operators have reported 3 instances of the supervisor "freezing"
+   for several seconds during busy restart cycles in the past month.
+   No crash, no core dump — it resumes on its own.  Originally
+   attributed to network latency when workers fetch configuration
+   from a remote endpoint.
+
+   FINDING: Workers are local binaries — no network fetch involved.
+   The hang does NOT correlate with network metrics.  Suspect this
+   may be related to stdio locking.  The signal handler appears to
+   call into the logging subsystem, which uses fprintf/fflush.  If
+   a signal arrives while elog() is mid-write (holding a stdio lock),
+   the signal handler's elog() call will attempt to acquire the same
+   lock, causing a deadlock.  The deadlock eventually resolves when
+   a second signal (e.g., SIGCHLD from a dying worker) interrupts
+   the blocked call.
+
+   Status: PROBABLE ROOT CAUSE of intermittent hangs.  Requires
+   code review of signal handler for async-signal-safety violations.
+
+4. SUPERVISOR PID TRACKING
+   The supervisor event log from the incident shows "pid=-1" in
+   restart entries.  This is clearly wrong — valid PIDs are always
+   positive.
+
+   FINDING: The spawn_worker() function correctly checks for fork()
+   failure and returns -1.  However, restart_worker() calls fork()
+   DIRECTLY instead of using spawn_worker(), and does NOT check the
+   return value.  When fork() fails (returns -1), the value -1 is
+   stored in the worker slot's pid field.
+
+   When stop_all() later iterates over worker slots, it calls
+   kill(slot.pid, SIGTERM).  With pid == -1, this becomes
+   kill(-1, SIGTERM), which on Linux sends SIGTERM to every process
+   the caller has permission to signal — except init (pid 1) and
+   the calling process itself.  Since the supervisor runs as root,
+   this kills EVERYTHING on the host.
+
+   Status: CONFIRMED as root cause of mass kill.
+
+5. EVENT LOG TIMING ANOMALY
+   The first entry in the event log always shows a delta of ~0.5-0.9
+   seconds, regardless of how quickly events occur after startup.
+   Subsequent entries have accurate microsecond-resolution deltas.
+
+   FINDING: elog_open() initializes the baseline timestamp using
+   time(NULL), which returns whole seconds only.  The fractional
+   component is lost.  Later calls to elog() use gettimeofday()
+   which has microsecond precision.  The first delta computation
+   subtracts a truncated baseline from a precise current time,
+   producing a spurious offset equal to however far into the
+   current second the process started.
+
+   Status: CONFIRMED.  Baseline should use gettimeofday() or
+   clock_gettime() for consistent precision.
+
+Open Questions
+--------------
+- Has the intermittent hang issue ever led to a missed SIGCHLD that
+  caused a zombie leak?  Need to check if zombie accumulation is
+  possible under the current signal/reap architecture.
+
+- During restart_worker(), there is a window between the waitpid()
+  call for the dying child and the fork() of the replacement.  If
+  SIGTERM arrives during this window (or during the exponential
+  back-off sleep), restart_worker will still fork a new child that
+  will never be tracked or cleaned up.  Is this an actual risk?

@@ -1,0 +1,8 @@
+{
+  "id": "mut_001",
+  "title": "SRA uses logical shift instead of arithmetic shift",
+  "description": "Replace arithmetic right shift (>>>) with logical right shift (>>) in SRA operation, removing sign extension",
+  "equivalent": true,
+  "original_line": "            4'b0111: result = $signed(a) >>> b[4:0];",
+  "mutated_line": "            4'b0111: result = a >> b[4:0];"
+}

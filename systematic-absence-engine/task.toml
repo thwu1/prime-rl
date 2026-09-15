@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of crystallographic symmetry and reciprocal-space mathematics. The solver must: (1) implement or derive a general algorithm that correctly determines systematic absences for all 230 space groups from their symmetry operations — no lookup table is provided; (2) solve the inverse identification problem (which space groups are consistent with observed/absent reflections); (3) build a symbolic condition extractor that algorithmically discovers and expresses modular reflection conditions in ITC notation (e.g. h+k+l=2n, 2h+l=4n) from raw numerical absence data; (4) implement reciprocal-space basis transformations that correctly map Miller indices between standard and non-standard settings, handling non-lattice points. Covers lattice centering (P/A/B/C/I/F/R), glide planes (a/b/c/n/d), screw axes (21/31/41/42/43/61/62/63/64/65), R-centering in obverse hexagonal axes, and cubic index permutability. Combines mathematical crystallography, group theory, and non-trivial algorithm design at PhD level."""
+solution_explanation = """The reference solution uses spglib to obtain symmetry operations {W,t} for each space group via hall numbers. For each (h,k,l), it groups operations by reciprocal-space image q = h @ W (= W^T h), computes the sum of phase factors exp(2πi h·t) within each group, and declares the reflection absent iff all group sums vanish. The derive command generates sample indices for each standard reflection subset (hkl, 0kl, h0l, hk0, hhl, h00, 0k0, 00l), classifies each as absent/allowed, then matches the partition against a library of ITC condition predicates to produce symbolic rules. The check-transformed command applies the contragredient transformation h_old = h_new @ P^{-1} (from the direct-space basis change (a',b',c') = (a,b,c)P) and checks for non-integer mappings before evaluating absences."""
+verification_explanation = """Tests cover all 7 crystal systems with well-known space groups: P1 (no absences), P21/c (monoclinic screw+glide), Pnma (orthorhombic multi-condition), I4/mmm (I centering), P42 (42 screw), R-3 (R centering), P63/P61 (hexagonal screws), Fm-3m (F centering), Ia-3d (complex cubic). Batch-check and identify commands are tested with structured observation sets that uniquely determine specific space groups. Derive tests verify symbolic condition extraction for 8 space groups spanning all centering types and complex conditions (2h+l=4n, -h+k+l=3n, l=6n). Check-transformed tests verify axis swaps, cell doublings (with non-lattice rejection), non-trivial shear transformations, identity invariance, and cubic axis permutation."""
+category = "crystallography"
+tags = ["symmetry", "diffraction"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/systematic-absence-engine"

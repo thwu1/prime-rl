@@ -1,0 +1,9 @@
+{
+  "records": [
+    {"id": "rec-001", "data": "SSN:123-45-6789"},
+    {"id": "rec-002", "data": "CC:4111-1111-1111-1111"},
+    {"id": "rec-003", "data": "API_KEY:sk-prod-a8f3nq92mx"},
+    {"id": "rec-004", "data": "DB_PASS:Sup3rS3cretP@ss!"},
+    {"id": "rec-005", "data": "SSN:123-45-6789"}
+  ]
+}

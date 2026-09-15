@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "description": "NEO encounter dynamics analysis for Earth close approaches in 2024",
+    "pipeline_version": "0.3.1",
+    "ephemeris_source": "JPL Horizons",
+    "coordinate_frame": "ecliptic J2000",
+    "center": "Sun (code 10)",
+    "units": {"distance": "AU", "velocity": "km/s", "angle": "degrees"},
+    "generated_utc": "2025-01-15T08:30:00Z"
+  },
+  "neo_encounters": [
+    {
+      "designation": "2024 BX1",
+      "close_approach_jd": 2460331.174,
+      "dist_au": 0.98847,
+      "velocity_kms": 32.41,
+      "v_inf_kms": 32.408,
+      "vis_viva_residual": 0.1417,
+      "tisserand_jupiter": 5.12,
+      "deflection_angle_deg": 0.000213
+    },
+    {
+      "designation": "2024 MK",
+      "close_approach_jd": 2460490.833,
+      "dist_au": 1.01423,
+      "velocity_kms": 25.87,
+      "v_inf_kms": 25.868,
+      "vis_viva_residual": 0.0891,
+      "tisserand_jupiter": 3.45,
+      "deflection_angle_deg": 0.000148
+    },
+    {
+      "designation": "2024 PT5",
+      "close_approach_jd": 2460581.500,
+      "dist_au": 1.00234,
+      "velocity_kms": 30.12,
+      "v_inf_kms": 30.118,
+      "vis_viva_residual": 0.2013,
+      "tisserand_jupiter": 6.78,
+      "deflection_angle_deg": 0.000176
+    },
+    {
+      "designation": "2024 YR4",
+      "close_approach_jd": 2460658.300,
+      "dist_au": 0.99563,
+      "velocity_kms": 28.94,
+      "v_inf_kms": 28.938,
+      "vis_viva_residual": 0.1674,
+      "tisserand_jupiter": 4.23,
+      "deflection_angle_deg": 0.000119
+    },
+    {
+      "designation": "2020 QG",
+      "close_approach_jd": 2460193.000,
+      "dist_au": 1.01871,
+      "velocity_kms": 27.35,
+      "v_inf_kms": 27.348,
+      "vis_viva_residual": 0.1342,
+      "tisserand_jupiter": 5.67,
+      "deflection_angle_deg": 0.000089
+    },
+    {
+      "designation": "2024 UQ",
+      "close_approach_jd": 2460609.000,
+      "dist_au": 0.97781,
+      "velocity_kms": 31.56,
+      "v_inf_kms": 31.558,
+      "vis_viva_residual": 0.1783,
+      "tisserand_jupiter": 3.89,
+      "deflection_angle_deg": 0.000237
+    },
+    {
+      "designation": "2024 GJ2",
+      "close_approach_jd": 2460420.000,
+      "dist_au": 1.00654,
+      "velocity_kms": 26.43,
+      "v_inf_kms": 26.428,
+      "vis_viva_residual": 0.1123,
+      "tisserand_jupiter": 4.56,
+      "deflection_angle_deg": 0.000162
+    }
+  ]
+}

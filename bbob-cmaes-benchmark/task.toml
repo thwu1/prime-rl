@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must: (1) explore an unfamiliar /app/experiment/ directory to discover which BBOB functions (identified only by numeric IDs) and dimensions are tested, (2) learn to operate the COCO benchmarking tools (cocoex Suite/Observer/Problem API, experiment runner, post-processing analyzer) to run experiments and interpret results, (3) execute the baseline optimizer through the experiment runner to observe its failure patterns across function groups, (4) diagnose from the performance data which function properties (ill-conditioning up to 10^6, non-separability via rotation, multimodality with ~10^D local optima, narrow valley structures) cause failures and what algorithmic features are needed, and (5) implement from scratch a sophisticated optimizer (e.g. CMA-ES with IPOP restarts) incorporating covariance matrix adaptation, cumulative step-size control, rank-1/rank-mu updates, eigendecomposition scheduling, and population restart strategies. Requires graduate-level numerical optimization expertise."""
+solution_explanation = """The solver first explores /app/experiment/ to find config.py (BBOB functions 1,2,3,8,10,11,12,15 across dimensions 2,5,10), runs the baseline via run_benchmark.py to observe it fails on ill-conditioned and multimodal functions, then implements IPOP-CMA-ES from scratch: weighted recombination of mu-best individuals, cumulative path updates for step-size (CSA) and covariance, rank-1 and rank-mu covariance updates with hsig correction, lazy eigendecomposition, boundary handling, stagnation/condition-number termination, and IPOP restart with population doubling. The implementation is ~200 lines of NumPy code placed at /app/optimizer.py."""
+verification_explanation = """Tests verify: (1) module interface at /app/optimizer.py with no forbidden imports, (2) convergence on analytic functions (sphere, rosenbrock, ellipsoid) without COCO, (3) COCO BBOB performance on separable functions f1/f2 hitting final target, (4) Rosenbrock f8 in 5D reaching final target, (5) high-conditioning functions f10/f11/f12 reaching final target via covariance adaptation, and (6) multimodal functions f3/f15 reaching final target via restart mechanisms. Each BBOB test runs 3 instances and requires a minimum number of final-target hits."""
+category = "optimization"
+tags = ["black-box-optimization", "coco-bbob"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bbob-cmaes-benchmark"

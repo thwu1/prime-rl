@@ -1,0 +1,10 @@
+2025-11-18 11:28:03.412 config_loader CRITICAL FATAL: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+Traceback (most recent call last):
+  File "/app/run_pipeline.py", line 40, in run_pipeline
+    features = load_features(config_path)
+  File "/app/config_loader.py", line 48, in load_features
+    raise RuntimeError(
+RuntimeError: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+
+2025-11-18 11:28:03.413 pipeline CRITICAL Step 2 FAILED: Feature count 224 exceeds maximum allocation limit of 200. Aborting to prevent unbounded memory consumption.
+2025-11-18 11:28:03.413 pipeline CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value

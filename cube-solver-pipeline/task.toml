@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct cubie-level decomposition of the Rubik's Cube from scratch — mapping 54 facelets to 20 cubies with correct permutation and orientation. The corner orientation convention (twist 0/1/2 based on which facelet position holds the U/D-colored sticker) and edge flip convention (reference color at primary vs secondary facelet) are notoriously error-prone, requiring deep understanding of the 3D geometry and the group-theoretic structure of the cube. Computing permutation orders algebraically (via augmented cycle lengths in the wreath product Z_3 wr S_8 x Z_2 wr S_12) demands understanding how orientation contributes to cycle order through the semidirect product structure — not merely iterating until identity. Diagnosing solvability violations in corrupted states requires holistic understanding of all three independent invariants of the Rubik's Cube group (corner twist mod 3, edge flip mod 2, and permutation parity matching), plus the ability to correctly implement parity computation on permutations. A subtle bug in any cubie mapping silently corrupts all downstream analysis."""
+solution_explanation = """The solution implements the complete facelet-to-cubie mapping using the Kociemba convention: 8 corners with 3-facelet triplets (reference/CW1/CW2) and 12 edges with 2-facelet pairs (primary/secondary). It determines corner orientation by locating the U/D-colored sticker among the three facelet positions, and edge orientation by checking whether the reference color (U/D for UD-layer, F/B for E-layer) is at the primary position. Cycle analysis decomposes corner and edge permutations into disjoint cycles, computes the total orientation sum along each cycle, and derives augmented orders (3k for non-zero corner twist mod 3, 2k for non-zero edge flip mod 2). The overall order is the LCM of all augmented orders. Solvability analysis checks three invariants independently. Solutions use the kociemba library, and statistics are computed via standard TSV parsing."""
+verification_explanation = """Tests independently implement the full cubie decomposition using hardcoded facelet-to-cubie mappings, verify all 8 corner permutations/orientations and 12 edge permutations/orientations match, verify algebraic orders match brute-force iteration, independently check solvability invariants on the corrupted states, verify solutions restore the solved state via independent simulation, and confirm statistics against values recomputed from raw TSV data."""
+category = "puzzle_solving"
+tags = ["group_theory", "rubiks_cube"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cube-solver-pipeline"

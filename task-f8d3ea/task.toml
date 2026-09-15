@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing CRC-32C (Castagnoli) from scratch, implementing six of seven Steim2 variable-width differential compression packing modes with precise bit manipulation (each mode has distinct nibble/dnib encoding, shift offsets, and bit masks), diagnosing and fixing swapped integration constant word positions in the Steim2 frame-0 layout, and correcting the header encoding-type field. The solver must read and cross-reference a binary format specification header file, write ~100 lines of non-trivial C bit-manipulation code, and debug cascading failures where the X0/Xn swap causes all decoded sample values to be wrong."""
+solution_explanation = """(1) Implement compute_crc32c using Castagnoli polynomial 0x82F63B78 with reflected bit-by-bit algorithm. (2) Implement 7x4-bit packing: mask to 0xF, shifts 0/4/8/12/16/20/24, dnib=10, nibble=11. (3) Implement 6x5-bit: mask 0x1F, shifts 0/5/10/15/20/25, dnib=01, nibble=11. (4) Implement 5x6-bit: mask 0x3F, shifts 0/6/12/18/24, dnib=00, nibble=11. (5) Implement 4x8-bit: byte-level int8 casting, nibble=01. (6) Implement 3x10-bit: mask 0x3FF, shifts 0/10/20, dnib=11, nibble=10. (7) Implement 2x15-bit: mask 0x7FFF, shifts 0/15, dnib=10, nibble=10. (8) Fix X0/Xn: swap frameptr[1] and frameptr[2] assignments. (9) Fix encoding: DE_STEIM1 -> DE_STEIM2."""
+verification_explanation = """Tests compile and run the packer, then independently verify the output binary: header field checks (indicator, version, encoding type, sample count, SID, sample rate), CRC-32C recomputation with a reference Python implementation, full Steim2 decoding in Python compared sample-by-sample against truncated sine reference data, X0/Xn integration constant checks, and verification that all 7 packing modes appear in the output nibble words."""
+category = "systems"
+tags = ["binary-formats", "compression"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f8d3ea"

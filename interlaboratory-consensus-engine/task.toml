@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-file R codebase implementing an interlaboratory consensus statistical engine and translating it to numerically equivalent Python. The agent must read and understand six interconnected R source files containing non-obvious statistical methods (random-effects meta-analysis, gamma-approximation variance sampling, mixture-model pooling, nested parametric bootstrap for degrees of equivalence), map R-specific idioms and package functions (metafor::rma, rgamma, rt, sweep, apply) to scipy/numpy equivalents, reverse-engineer the undocumented .ncb data format from example files, and handle subtle edge cases for degrees of freedom, negative variance estimates, and chi-squared resampling of uncertainties."""
+solution_explanation = """The solution reads the six R source files to understand each algorithm, then implements all seven functions in Python (~250 lines) using numpy and scipy. Key translation challenges: R's metafor::rma() must be reimplemented manually as a DL moment estimator, R's rgamma/rt/rnorm map to numpy.random.Generator methods, R's qt/qchisq map to scipy.stats distributions, and R's sweep/apply patterns become numpy broadcasting. The parse_ncb function is reverse-engineered from the .ncb key-value format observed in the data files."""
+verification_explanation = """Tests verify deterministic outputs (consensus mu, tau-squared, q*, weights) against an independent reference computation, and check mathematical invariants (first-order optimality, CI formula consistency, q*>=1, bilateral antisymmetry). Stochastic components are validated via fixed seeds for reproducibility, non-negativity constraints, statistical property checks (sampler mean near DL estimate, normal CI half-width near 1.96), and structural checks (D matrix shape, DoE interval bracketing)."""
+category = "mathematics"
+tags = ["metrology", "r-to-python"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interlaboratory-consensus-engine"

@@ -1,0 +1,31 @@
+name: "DualBank"
+variants:
+  - name: "DB32F100"
+    memory_map:
+      - type: ram
+        name: "SRAM"
+        range:
+          start: 0x20000000
+          end: 0x20008000
+      - type: nvm
+        name: "Bank A"
+        range:
+          start: 0x08000000
+          end: 0x08040000
+        flash_properties:
+          page_size: 512
+          erased_byte_value: 0xFF
+          sectors:
+            - size: 8192
+              address: 0x08000000
+      - type: nvm
+        name: "Bank B"
+        range:
+          start: 0x10000000
+          end: 0x10010000
+        flash_properties:
+          page_size: 256
+          erased_byte_value: 0x00
+          sectors:
+            - size: 4096
+              address: 0x10000000

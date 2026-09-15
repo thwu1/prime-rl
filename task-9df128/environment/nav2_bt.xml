@@ -1,0 +1,36 @@
+<!--
+  Navigation behavior tree for warehouse AGV.
+  Uses NavigateToPose with replanning and recovery behaviors.
+  Platform: warehouse_agv_01
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="1.0">
+          <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+        </RateController>
+        <FollowPath path="{path}" controller_id="FollowPath"/>
+      </PipelineSequence>
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+        <RoundRobin name="RecoveryActions">
+          <Sequence name="ClearCostmapAndSpin">
+            <ClearEntireCostmap name="ClearLocalCostmap-Spin"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Spin"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <Spin spin_dist="1.57"/>
+          </Sequence>
+          <Sequence name="ClearCostmapAndWait">
+            <ClearEntireCostmap name="ClearLocalCostmap-Wait"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Wait"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <Wait wait_duration="5"/>
+          </Sequence>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

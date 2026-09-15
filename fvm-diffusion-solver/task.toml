@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of finite volume method discretization on unstructured meshes, including non-orthogonal diffusion flux correction, Green-Gauss gradient reconstruction, proper treatment of mixed Dirichlet/Neumann boundary conditions, sparse linear system assembly, and grid convergence analysis. An undergraduate CFD student would struggle with the non-orthogonal correction and unstructured mesh data structures; this is graduate/professional-level numerical methods work."""
+solution_explanation = """The solver parses the unstructured triangular mesh JSON, computes cell/face geometry (centroids, areas, normals), builds a sparse linear system using the over-relaxed non-orthogonal decomposition of face area vectors, iterates with deferred correction using Green-Gauss cell gradients, solves via scipy sparse direct solver, and computes L2 error norms and boundary flux integrals against the manufactured solution. A convergence study across three mesh refinement levels confirms second-order accuracy."""
+verification_explanation = """Tests verify (1) results.json contains monotonically decreasing L2 errors, (2) observed convergence order is between 1.3 and 2.7, (3) inner boundary flux on the finest mesh matches the analytical value -pi within 15%, (4) finest-mesh L2 error is below 0.1, and (5) the solver produces correct results on a previously unseen mesh with a different random seed (anti-cheat)."""
+category = "modeling_simulation"
+tags = ["finite-volume-method", "computational-fluid-dynamics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fvm-diffusion-solver"

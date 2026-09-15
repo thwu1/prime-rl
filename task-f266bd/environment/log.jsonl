@@ -1,0 +1,28 @@
+{"lsn": 0, "type": "MASTER", "last_checkpoint_lsn": 140}
+{"lsn": 10, "type": "BEGIN_CHECKPOINT"}
+{"lsn": 20, "type": "END_CHECKPOINT", "dpt": {}, "txn_table": {}}
+{"lsn": 30, "type": "UPDATE", "txn_id": 1, "prev_lsn": 0, "page_id": 1, "before": 0, "after": 10}
+{"lsn": 40, "type": "UPDATE", "txn_id": 2, "prev_lsn": 0, "page_id": 2, "before": 0, "after": 20}
+{"lsn": 50, "type": "UPDATE", "txn_id": 1, "prev_lsn": 30, "page_id": 3, "before": 0, "after": 30}
+{"lsn": 60, "type": "UPDATE", "txn_id": 3, "prev_lsn": 0, "page_id": 4, "before": 0, "after": 40}
+{"lsn": 70, "type": "UPDATE", "txn_id": 2, "prev_lsn": 40, "page_id": 5, "before": 0, "after": 50}
+{"lsn": 80, "type": "UPDATE", "txn_id": 4, "prev_lsn": 0, "page_id": 6, "before": 0, "after": 60}
+{"lsn": 90, "type": "COMMIT", "txn_id": 1, "prev_lsn": 50}
+{"lsn": 100, "type": "UPDATE", "txn_id": 3, "prev_lsn": 60, "page_id": 7, "before": 0, "after": 70}
+{"lsn": 110, "type": "END", "txn_id": 1, "prev_lsn": 90}
+{"lsn": 120, "type": "UPDATE", "txn_id": 5, "prev_lsn": 0, "page_id": 8, "before": 0, "after": 80}
+{"lsn": 130, "type": "UPDATE", "txn_id": 2, "prev_lsn": 70, "page_id": 9, "before": 0, "after": 90}
+{"lsn": 140, "type": "BEGIN_CHECKPOINT"}
+{"lsn": 150, "type": "UPDATE", "txn_id": 4, "prev_lsn": 80, "page_id": 10, "before": 0, "after": 100}
+{"lsn": 160, "type": "ABORT", "txn_id": 3, "prev_lsn": 100}
+{"lsn": 170, "type": "UPDATE", "txn_id": 5, "prev_lsn": 120, "page_id": 11, "before": 0, "after": 110}
+{"lsn": 180, "type": "END_CHECKPOINT", "dpt": {"1": 30, "2": 40, "3": 50, "4": 60, "5": 70, "6": 80, "7": 100, "8": 120, "9": 130}, "txn_table": {"2": ["RUNNING", 130], "3": ["RUNNING", 100], "4": ["RUNNING", 80], "5": ["RUNNING", 120]}}
+{"lsn": 190, "type": "COMMIT", "txn_id": 5, "prev_lsn": 170}
+{"lsn": 200, "type": "CLR", "txn_id": 3, "prev_lsn": 160, "page_id": 7, "undo_next_lsn": 60, "after": 0}
+{"lsn": 210, "type": "ABORT", "txn_id": 2, "prev_lsn": 130}
+{"lsn": 220, "type": "ABORT", "txn_id": 4, "prev_lsn": 150}
+{"lsn": 230, "type": "END", "txn_id": 5, "prev_lsn": 190}
+{"lsn": 240, "type": "CLR", "txn_id": 4, "prev_lsn": 220, "page_id": 10, "undo_next_lsn": 80, "after": 0}
+{"lsn": 250, "type": "CLR", "txn_id": 2, "prev_lsn": 210, "page_id": 9, "undo_next_lsn": 70, "after": 0}
+{"lsn": 260, "type": "CLR", "txn_id": 4, "prev_lsn": 240, "page_id": 6, "undo_next_lsn": 0, "after": 0}
+{"lsn": 270, "type": "END", "txn_id": 4, "prev_lsn": 260}

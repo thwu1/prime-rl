@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete static analysis tool from scratch — an LLVM IR type deduction pass that reconstructs pointee types from opaque-pointer IR. The agent must: (1) understand LLVM IR opaque-pointer semantics including named struct type declarations, GEP index semantics through nested struct hierarchies, PHI node SSA dataflow, select instructions, and interprocedural call conventions; (2) design an IR parsing strategy that extracts type declarations, global variables, function signatures, and per-instruction type evidence; (3) architect a type propagation algorithm that correctly resolves GEP index chains through nested named types, propagates types bidirectionally through PHI nodes and interprocedural call edges, handles select-based conditional pointer merges, and iterates to a fixed point; (4) produce correctly formatted output across 4 IR modules covering 64 pointer variables. This is a genuine compiler analysis design problem requiring synthesis of parsing, dataflow analysis, and type system knowledge."""
+solution_explanation = """The solution implements a ~370-line Python type deduction analysis with three components: (1) An IR parser that extracts named type definitions, global variable types, function bodies with parameter types using regex-based line-by-line parsing with bracket-depth-aware comma splitting; (2) A local analysis pass that examines alloca (direct type), load (loaded type reveals pointee), store (stored type reveals pointee), GEP (index chain walk through resolved named types), PHI (records source edges for propagation), select (records conditional merge edges), and call (records caller-callee argument edges) instructions; (3) A fixed-point propagation loop that iterates: PHI bidirectional propagation (result type flows backward to sources AND forward from sources to result), select bidirectional propagation, and interprocedural call propagation in both directions (caller arg type -> callee param AND callee param type -> caller arg). The critical design decisions are resolving named types at each GEP index step, propagating backward through PHI and select, and implementing callee-to-caller return flow."""
+verification_explanation = """Tests verify deduced pointee types for 64 specific pointer variables across 4 IR files organized into 23 test classes. Test classes cover: basic alloca/load/store, single-level struct GEP, nested named struct GEP (Rect -> Point -> double), arrays, pointer-to-pointer, globals, linked list traversal with recursive structs, matrix struct with pointer fields, interprocedural chains (caller -> process -> store_value), PHI back-edge propagation (result type -> source operands), recursive call propagation (tree_depth self-calls), arrays of structs, select instruction propagation, callee-to-caller type flow, and nested GEP-only cases where type evidence comes solely from correct GEP resolution with no load/store backup. Tests verify JSON output correctness against the C source ground truth."""
+category = "compilers"
+tags = ["llvm", "type-inference"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/opaque-pointer-deduction"

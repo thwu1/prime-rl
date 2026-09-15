@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in both formal verification (Coq proof engineering) and digital logic (AIG semantics with complement edges). The solver must: (1) understand the interplay between xorb-based complement edges and AND evaluation, (2) complete 10 non-trivial proofs ranging from simple Boolean case analysis through structural induction with nested case splits, (3) identify and fix a subtle semantic bug in a transformation function by reasoning about why a correctness proof fails, and (4) compose individual correctness results into a pipeline theorem via transitivity. The bug diagnosis requires understanding that the identity-elimination function omits a guard on one complement flag, silently producing wrong results when the flag is set — a mistake only revealed by attempting the formal proof."""
+solution_explanation = """Fix identity_elim by adding a conjunctive check on both complement flags (c1 and c2 must both be false) before eliminating an AND with a constant-true child. Then complete all proofs: xorb lemmas by Boolean case analysis (destruct a, b); equiv_trans by unfolding and rewriting; negate_correct by unfolding, simpl, and destruct on eval; negate_involutive via two applications of negate_correct plus negb_involutive; aig_eqb_eq by structural induction with repeated application of eqb_true_iff and Nat.eqb_eq; const_fold_correct by induction then destruct on recursive results; complement_elim_correct by induction, splitting the if-condition with andb_true_iff/aig_eqb_eq/negb_true_iff, and Boolean case analysis on the flags; identity_elim_correct by induction, destructing the complement flags, then destructing recursive results; optimize_correct by composing the three correctness theorems via equiv_trans."""
+verification_explanation = """Tests run coqc on the AIG.v file and check exit code 0 (all proofs accepted). Source is scanned for Admitted./Axiom/Parameter/admit to prevent incomplete proofs or smuggled axioms. Required theorem and definition names are checked for presence. The _chk_* type-checking definitions at the end of the file enforce exact type signatures, preventing the solver from weakening theorem statements."""
+category = "formal_verification"
+tags = ["coq", "logic-synthesis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/aig-coq-verification"

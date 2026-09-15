@@ -1,0 +1,24 @@
+BUG REPORT #4721
+Component: hashtable (libkv)
+Severity: P0 — Service hang
+
+SYMPTOMS:
+  Under concurrent load, threads calling ht_get() and ht_put() enter infinite
+  loops: 100% CPU, zero progress. Always occurs after the hash table has
+  undergone at least one resize. Never occurs in single-threaded usage.
+
+MINIMAL REPRODUCTION PARAMETERS:
+  Initial capacity: 2
+  Concurrent threads: 2
+  Keys: "alpha" (hash value 3), "bravo" (hash value 7)
+  Both threads trigger resize to capacity 4 simultaneously.
+
+BUCKET ASSIGNMENTS:
+  Capacity 2: alpha -> bucket 1 (3%2=1), bravo -> bucket 1 (7%2=1)
+  Capacity 4: alpha -> bucket 3 (3%4=3), bravo -> bucket 3 (7%4=3)
+
+NOTES:
+  - The hash values above are simplified for the minimal reproduction case.
+    Both entries share a bucket before and after resize.
+  - stress_test (8 threads, 5000 ops, initial capacity 2) reliably hangs.
+  - The resize path is suspected but root cause is undiagnosed.

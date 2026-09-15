@@ -1,0 +1,3 @@
+The reproducibility scoring pipeline at `/app/pipeline/evaluator.py` evaluates agent submissions against ground truth from repeated experimental runs, but it is producing incorrect results. Correct aggregate scores (manually verified) are provided in `/app/data/validation.csv`.
+
+Investigate the pipeline, identify and fix all issues, and produce correct evaluation results at `/app/output/results.json`. See `/app/README.md` for context on the data and scoring system.

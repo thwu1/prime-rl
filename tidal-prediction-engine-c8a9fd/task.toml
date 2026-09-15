@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge in physical oceanography, geodesy, and celestial mechanics. The solver must reverse-engineer the complete tidal prediction formalism from a reference library (pyTMD): (1) discover the correct astronomical mean longitude parameterization and its epoch, (2) reconstruct a 60+ entry coefficient table mapping constituent names to 7-dimensional argument vectors, (3) identify and implement over 20 distinct trigonometric nodal correction formulas for the OTIS model involving functions of the lunar node longitude, lunar perigee, and their combinations, (4) determine the harmonic superposition formula relating complex harmonic constants to tidal elevations, and (5) extract the admittance interpolation coefficients for inferring 18 minor constituents from 8 major ones. No algorithm names, formulas, or implementation steps are given in the instruction — only the API contract and a reference oracle. A single wrong coefficient in the Doodson table or a sign error in any nodal correction formula causes cascading test failures. Compound constituent corrections (M4, M6, M8, MK3, MS4, etc.) require understanding how parent constituent corrections compose."""
+solution_explanation = """The solution implements the complete pyTMD-style tidal prediction engine. mean_longitudes uses Cartwright's linear polynomials in T=MJD-51544.4993 with mod 360 normalization. equilibrium_arguments builds the 7×60+ Doodson coefficient matrix and computes G = fargs·coef where fargs=[tau,s,h,p,n,ps,k] with tau=15*hour-s+h and k=90. nodal_corrections implements all OTIS trigonometric formulas: Q1/O1 family uses 0.189·cosN, M2/N2 family uses 0.03731·cosN, K1 uses 0.1158·cosN with 0.1554·sinN for the angle, K2 uses 0.2852·cosN, L2 uses functions of 2p and 2p-N, M1 uses Ray's coefficients (1.36·cos(p) + 0.267·cos(p-N)). Compound constituents compose parent factors (e.g., M4=M2², MK3=M2·K1). predict_tide sums hc_real·pf·cos(θ) - hc_imag·pf·sin(θ) where θ=radians(G)+pu. infer_minor applies 18 admittance relationships (e.g., 2Q1=0.263·Q1-0.0252·O1, T2=0.0585·S2) and sums their harmonic contributions."""
+verification_explanation = """67 tests verify: (1) module independence from pyTMD, (2) mean longitudes at reference epoch match constant terms and daily rates for all 5 longitudes, (3) S2=30·hour and M2=2·tau algebraic identities, (4) 9 shallow water argument relationships (M4=2·M2, MS4=M2+S2, MK3=K1+M2, M6=3·M2, M8=4·M2, N4=2·N2, MN4=M2+N2), (5) Mf=2·s and Mm=s-p identities, (6) Sa daily rate ~0.986°, (7) solar constituents have exact f=1 u=0, (8) M2/K1/K2/O1 nodal corrections match OTIS formulas with specific coefficients, (9) L2 and Mf nodal formulas verified against analytical expressions, (10) compound nodal factors for MK3/MS4/M6/M8, (11) M1 nodal variation with perigee, (12) prediction linearity and complex amplitude orthogonality, (13) minor inference linearity, zero-input, insufficient-majors, skip-existing, and 5-major edge case, (14) full pipeline with year-long stability."""
+category = "applied_computing"
+tags = ["tidal-analysis", "geophysics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tidal-prediction-engine-c8a9fd"

@@ -1,0 +1,57 @@
+# Heterogeneous Multi-Core Chip Design Constraints
+
+[chip]
+# The chip has 4 core clusters arranged in a 2x2 grid.
+# Each cluster contains 2 identical OoO cores sharing an L2 cache.
+# Cluster layout:
+#   [0] [1]
+#   [2] [3]
+num_clusters = 4
+cores_per_cluster = 2
+total_area_budget = 28000
+total_power_budget_watts = 35.0
+
+[thermal]
+# A cluster is "hot" if its per-core area exceeds this threshold.
+# No two adjacent clusters may both be hot.
+hot_threshold_area = 2500
+adjacent_pairs = [[0, 1], [0, 2], [1, 3], [2, 3]]
+
+[workload_assignment]
+# All 8 workloads must be assigned: exactly 2 per cluster.
+# Workloads on the same cluster share L2 cache, causing interference.
+# Use the paired simulation mode of archsim to characterize interference.
+workloads = ["matmul", "bfs", "sort", "queens", "stream", "crypto", "fft", "lzma"]
+
+[objective]
+# Maximize weighted throughput:
+#   sum over all workloads w_i: priority_weight(w_i) * interference_adjusted_ipc(w_i)
+# Priority weights are stored in workloads.db in the workloads table.
+# Interference-adjusted IPC accounts for shared L2 cache contention
+# between co-located workloads.
+
+[output]
+# Write results to /app/results.json with the following structure:
+# {
+#   "clusters": [
+#     {
+#       "cluster_id": <int 0-3>,
+#       "core_config": {
+#         "width": <int>,
+#         "rob_size": <int>,
+#         "num_int_regs": <int>,
+#         "num_fp_regs": <int>
+#       },
+#       "area_per_core": <int>,
+#       "power_per_core_watts": <float>,
+#       "assigned_workloads": [<str>, <str>],
+#       "solo_ipc": {<workload_name>: <float>, ...},
+#       "interference_adjusted_ipc": {<workload_name>: <float>, ...}
+#     },
+#     ...  (4 clusters total)
+#   ],
+#   "total_area": <int>,
+#   "total_power_watts": <float>,
+#   "weighted_throughput": <float>,
+#   "experiments_run": <int>
+# }

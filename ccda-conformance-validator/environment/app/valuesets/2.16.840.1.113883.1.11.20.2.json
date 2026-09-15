@@ -1,0 +1,20 @@
+{
+  "oid": "2.16.840.1.113883.1.11.20.2",
+  "name": "DocumentSectionTypeCodes",
+  "codeSystem": "2.16.840.1.113883.6.1",
+  "codes": [
+    {"code": "48765-2", "displayName": "Allergies and adverse reactions Document"},
+    {"code": "10160-0", "displayName": "History of Medication use Narrative"},
+    {"code": "11450-4", "displayName": "Problem list - Reported"},
+    {"code": "30954-2", "displayName": "Relevant diagnostic tests/laboratory data Narrative"},
+    {"code": "8716-3", "displayName": "Vital signs"},
+    {"code": "47519-4", "displayName": "History of Procedures Document"},
+    {"code": "46240-8", "displayName": "History of hospitalizations+Outpatient visits Narrative"},
+    {"code": "29762-2", "displayName": "Social history Narrative"},
+    {"code": "10190-7", "displayName": "Mental status Narrative"},
+    {"code": "18776-5", "displayName": "Plan of care note"},
+    {"code": "47420-5", "displayName": "Functional status assessment note"},
+    {"code": "11369-6", "displayName": "History of Immunization Narrative"},
+    {"code": "34133-9", "displayName": "Summarization of Episode Note"}
+  ]
+}

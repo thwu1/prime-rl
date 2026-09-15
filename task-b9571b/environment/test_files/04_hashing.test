@@ -1,0 +1,13 @@
+# Hash-based result verification
+
+# Single column hash: values 0-9
+query I
+SELECT * FROM range(10) t(i)
+----
+10 values hashing to e20b902b49a98b1a05ed62804c757f94
+
+# Two column hash: i, i*i for i in 0..9
+query II
+SELECT i, i*i FROM range(10) t(i)
+----
+20 values hashing to 726adea2fb076db15567b4c5b0bb30c3

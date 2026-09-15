@@ -1,0 +1,34 @@
+{
+  "system": {
+    "mpu_regions_per_process": 8,
+    "mpu_type": "PMSAv7",
+    "min_region_size": 32,
+    "subregions_per_region": 8
+  },
+  "kernel": {
+    "flash": {"start": 0, "size": 262144},
+    "ram": {"start": 536870912, "size": 65536}
+  },
+  "processes": [
+    {
+      "name": "sensor",
+      "flash": {"start": 262144, "size": 20480},
+      "ram": {"start": 536936448, "size": 4096}
+    },
+    {
+      "name": "network",
+      "flash": {"start": 294912, "size": 40960},
+      "ram": {"start": 536940544, "size": 8192}
+    },
+    {
+      "name": "crypto",
+      "flash": {"start": 376832, "size": 32768},
+      "ram": {"start": 536952832, "size": 2048}
+    },
+    {
+      "name": "display",
+      "flash": {"start": 417792, "size": 26624},
+      "ram": {"start": 536956928, "size": 6144}
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+
+_electronVersion=28
+pkgname=frontend
+pkgver=1.8.3
+pkgrel=1
+pkgdesc="Web frontend application"
+arch=('x86_64')
+url="https://example.com/frontend"
+license=('AGPL-3.0')
+depends=("electron${_electronVersion}" 'appserver' 'nodejs')
+makedepends=('npm' 'git')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('a1a2a3a4a5a6a1a2a3a4a5a6a1a2a3a4a5a6a1a2a3a4a5a6a1a2a3a4a5a6a1a2')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    npm install
+    npm run build
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    install -d "${pkgdir}/usr/lib/${pkgname}"
+    cp -r dist/* "${pkgdir}/usr/lib/${pkgname}/"
+}

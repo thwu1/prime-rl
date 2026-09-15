@@ -1,0 +1,16 @@
+FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN apt-get update && apt-get install -y \
+    default-jdk \
+    make \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN mkdir -p /app/src
+COPY src/HdrHistogram.java /app/src/HdrHistogram.java
+COPY src/HistogramCodec.java /app/src/HistogramCodec.java
+COPY Makefile /app/Makefile
+
+WORKDIR /app

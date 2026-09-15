@@ -1,0 +1,20 @@
+{
+  "forecaster_id": "atlas",
+  "predictions": [
+    {"event_id": "EVT-001", "probability": 0.72},
+    {"event_id": "EVT-002", "probability": 0.25},
+    {"event_id": "EVT-003", "probability": 0.85},
+    {"event_id": "EVT-004", "probability": 0.35},
+    {"event_id": "EVT-005", "probability": 0.78},
+    {"event_id": "EVT-006", "probability": 0.18},
+    {"event_id": "EVT-007", "probability": 0.58},
+    {"event_id": "EVT-008", "probability": 0.93},
+    {"event_id": "EVT-009", "probability": 0.28},
+    {"event_id": "EVT-010", "probability": 0.62},
+    {"event_id": "EVT-011", "probability": 0.68},
+    {"event_id": "EVT-012", "probability": 0.55},
+    {"event_id": "EVT-013", "probability": 0.88},
+    {"event_id": "EVT-014", "probability": 0.20},
+    {"event_id": "EVT-015", "probability": 0.42}
+  ]
+}

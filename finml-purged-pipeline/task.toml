@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple interconnected financial ML algorithms from scratch to classify 20 opaquely-named features into informative/redundant/noise categories. The agent must: (1) query structured data from a DuckDB database using its Python API, (2) design a sampling scheme that corrects for temporal overlap bias in label windows, (3) build a cross-validation framework that prevents information leakage through overlapping label outcomes, (4) compute sample weights via return attribution adjusted for concurrent events, (5) implement multiple independent feature importance evaluation methods, (6) reach consensus classification across methods, and (7) write self-consistent outputs across three storage systems (DuckDB input, SQLite intermediate analysis, JSON final results). The agent must discover appropriate algorithms without algorithm names being provided, navigate multi-tool interoperability between DuckDB/SQLite/JSON, and produce cross-validated consistent results that match between output formats."""
+solution_explanation = """The solution reads data from DuckDB using its Python API, implements sequential bootstrap for bias-corrected sampling by iteratively selecting samples with probability proportional to their average uniqueness, constructs an indicator matrix for temporal overlap analysis, computes return-attribution sample weights divided by concurrent event counts, builds purged K-Fold cross-validation with embargo that excludes training observations whose label windows overlap the test period, evaluates feature importance via three methods (impurity decrease from fitted trees, permutation accuracy under purged CV, single-feature evaluation under purged CV), classifies features by consensus across methods using MDA rank to distinguish informative from redundant, and writes all results to both JSON and SQLite with cross-validated consistency."""
+verification_explanation = """Tests verify: (1) JSON and SQLite outputs exist with complete structure including all required sections and tables, (2) bias-corrected sampling achieves measurably higher uniqueness than random, (3) sample weights are normalized to mean ~1 with non-zero variance, (4) evaluation scores indicate proper leakage prevention (between 0.45 and 0.95), (5) feature importance rankings place signal features above noise in at least one method's top-10, (6) feature classification correctly identifies at least 3/5 informative and 6/10 noise features, (7) SQLite analysis.db contains consistent intermediate results cross-validated against JSON output including matching exclusion counts per fold and matching weight statistics, and (8) average feature scores in SQLite show higher values for signal than noise features."""
+category = "applied_computing"
+tags = ["financial-ml", "cross-validation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/finml-purged-pipeline"

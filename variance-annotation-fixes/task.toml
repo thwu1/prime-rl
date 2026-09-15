@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level TypeScript type system knowledge. The solver must: (1) diagnose why the library fails to compile by discovering a deliberately weakened compiler safety option and 21+ incorrect variance annotations across 7 source files — including circular type reference chains that prevent automatic variance inference, interface declaration merging with conflicting annotations, reversed codec annotations, and types where parameter/return position analysis crosses multiple nesting levels; (2) design and implement 8 new generic types from scratch in compose.ts, each requiring structurally sound member definitions that establish specific variance relationships — including types with inter-type references (Source uses Through, Sink uses Through), a three-parameter type (Splitter), and types where the required variance must be inferred from test-driven assignability checks; (3) ensure all 75 bidirectional assignability tests pass, each compiling standalone TypeScript snippets that exercise the Animal/Dog class hierarchy against every type parameter's variance. No hints are given about what is broken or how to fix it — the solver must investigate tsc errors, analyze structural positions, and synthesize correct annotations and implementations."""
+solution_explanation = """1. Remove strictFunctionTypes: false from tsconfig.json (with strict: true, this defaults to true and unmasks annotation errors in function parameter positions). 2. Fix types.ts: Provider<in T> to <out T>, Consumer<out T> to <in T>, Mapper<out T, in U> to <in T, out U>, Store<out T> to <in out T>. ReadonlyStore<out T> is already correct. 3. Fix events.ts: EventHandler<out T> to <in T>, EventBus<out T> to <in T>, EventEmitter<out T> to <in out T> (T consumed via emit param and produced via latest return). 4. Fix stream.ts: Add <in out T> to Stream, StreamTransform, and StreamPipeline (circular reference chain creates both co/contravariant usage, preventing inference). 5. Fix config.ts: second Config<in T> to <out T> (merged declarations must agree; T only in output positions). 6. Fix transform.ts: Lens<out S, in A> to <in out S, in out A>, Reducer<in T, out A> to <in T, in out A>, Predicate<out T> to <in T>. 7. Fix codec.ts: Encoder<out T> to <in T>, Decoder<in out T> to <out T>, Codec<out T> to <in out T>. 8. Fix middleware.ts: Handler<out Req, in out Res> to <in Req, out Res>, Interceptor<out T> to <in out T>. 9. Implement compose.ts: Source<out T> with pull/pipe, Sink<in T> with push/compose, Through<in T, out U> with transform/andThen, Pipeline<in T, out U> with feed/append, Duplex<out T, in U> with read/write/adapt, Channel<in out T> with send/receive/bimap, Fold<in T, in out R> with step/extract, Splitter<in T, out A, out B> with split/classify. 10. Add export * from './codec', './middleware', './compose' to index.ts."""
+verification_explanation = """75 tests across 30 test classes verify: (1) tsconfig strictness settings via JSON inspection, (2) zero tsc compilation errors, (3) all 9 source files exist, (4) every exported type parameter has an explicit variance annotation (prevents annotation removal shortcut), (5) variance behavior via standalone TypeScript snippets compiled with --strict --strictFunctionTypes using Animal/Dog class hierarchy — each type tested bidirectionally to confirm correct assignability. Coverage: config (2), compilation (2), annotation presence (1), Provider covariance (2), Consumer contravariance (2), Mapper mixed (2), Store invariance (3), ReadonlyStore covariance (2), EventHandler contravariance (2), EventBus contravariance (2), EventEmitter invariance (2), Stream invariance (2), Config covariance (2), Lens invariance S+A (4), Reducer T+A variance (4), Predicate contravariance (2), Encoder contravariance (2), Decoder covariance (2), Codec invariance (3), Handler mixed (2), Interceptor invariance (2), Source covariance (2), Sink contravariance (2), Through mixed (2), Pipeline mixed (2), Duplex T+U variance (4), Channel invariance (2), Fold T+R variance (4), Splitter T+A+B variance (6), module integration (4)."""
+category = "debugging"
+tags = ["typescript", "type-system"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/variance-annotation-fixes"

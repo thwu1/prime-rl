@@ -1,0 +1,39 @@
+context:
+  name: libxml2
+  version: "2.12.6"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://download.gnome.org/sources/libxml2/2.12/libxml2-${{ version }}.tar.xz
+  sha256: 889c593a881a3db5fdd96cc9318c87df34eb648edfc458272ad46fd607353fbb
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cmake
+    - ninja
+    - pkg-config
+  host:
+    - xz
+    - zlib
+  run: []
+
+test:
+  commands:
+    - xml2-config --version
+    - xmllint --version
+    - test -f $PREFIX/lib/libxml2.so
+
+about:
+  homepage: https://gitlab.gnome.org/GNOME/libxml2
+  license: MIT
+  license_file: Copyright
+  summary: GNOME XML parser and toolkit

@@ -1,0 +1,111 @@
+{
+  "point2d": {
+    "kind": "record",
+    "fields": [["x", "f32"], ["y", "f32"]]
+  },
+  "rgba": {
+    "kind": "record",
+    "fields": [["r", "u8"], ["g", "u8"], ["b", "u8"], ["a", "u8"]]
+  },
+  "mixed-align": {
+    "kind": "record",
+    "fields": [["flag", "bool"], ["value", "f64"], ["tag", "u16"]]
+  },
+  "direction": {
+    "kind": "enum",
+    "labels": ["north", "east", "south", "west"]
+  },
+  "small-flags": {
+    "kind": "flags",
+    "labels": ["read", "write", "execute", "delete", "create"]
+  },
+  "medium-flags": {
+    "kind": "flags",
+    "labels": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11"]
+  },
+  "large-flags": {
+    "kind": "flags",
+    "labels": [
+      "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
+      "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+      "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+      "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+      "f32", "f33", "f34", "f35", "f36", "f37", "f38", "f39"
+    ]
+  },
+  "error-info": {
+    "kind": "variant",
+    "cases": [
+      ["none", null],
+      ["code", "u32"],
+      ["detail", "point2d"]
+    ]
+  },
+  "maybe-value": {
+    "kind": "option",
+    "type": "f64"
+  },
+  "op-result": {
+    "kind": "result",
+    "ok": "u32",
+    "error": "error-info"
+  },
+  "pair": {
+    "kind": "tuple",
+    "types": ["u32", "f64"]
+  },
+  "nested-record": {
+    "kind": "record",
+    "fields": [
+      ["id", "u64"],
+      ["pos", "point2d"],
+      ["color", "rgba"],
+      ["active", "bool"]
+    ]
+  },
+  "nested-opt": {
+    "kind": "option",
+    "type": "maybe-value"
+  },
+  "complex-variant": {
+    "kind": "variant",
+    "cases": [
+      ["empty", null],
+      ["flag", "bool"],
+      ["small", "u8"],
+      ["medium", "u32"],
+      ["large", "f64"],
+      ["compound", "pair"]
+    ]
+  },
+  "wide-record": {
+    "kind": "record",
+    "fields": [
+      ["a", "f64"], ["b", "f64"], ["c", "f64"],
+      ["d", "f64"], ["e", "f64"], ["f", "f64"],
+      ["g", "f64"], ["h", "f64"], ["i", "f64"]
+    ]
+  },
+  "mega-record": {
+    "kind": "record",
+    "fields": [
+      ["f0", "u32"], ["f1", "u32"], ["f2", "u32"], ["f3", "u32"],
+      ["f4", "u32"], ["f5", "u32"], ["f6", "u32"], ["f7", "u32"],
+      ["f8", "u32"], ["f9", "u32"], ["f10", "u32"], ["f11", "u32"],
+      ["f12", "u32"], ["f13", "u32"], ["f14", "u32"], ["f15", "u32"],
+      ["f16", "u32"]
+    ]
+  },
+  "message": {
+    "kind": "record",
+    "fields": [
+      ["priority", "u8"],
+      ["text", "string"],
+      ["timestamp", "u64"]
+    ]
+  },
+  "point-list": {
+    "kind": "list",
+    "type": "point2d"
+  }
+}

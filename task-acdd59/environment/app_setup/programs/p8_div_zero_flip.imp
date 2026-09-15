@@ -1,0 +1,8 @@
+int x;
+int y;
+int z;
+int w;
+x = 10;
+y = 0;
+z = (x / y);
+w = 99;

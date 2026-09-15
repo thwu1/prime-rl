@@ -1,0 +1,69 @@
+# Combined test exercising multiple features
+
+# Multi-line DDL
+statement ok
+CREATE TABLE inventory(
+    id INTEGER PRIMARY KEY,
+    product VARCHAR NOT NULL,
+    quantity INTEGER DEFAULT 0
+)
+
+# Loop-based data insertion
+loop i 1 6
+
+statement ok
+INSERT INTO inventory VALUES (${i}, 'product_' || CAST(${i} AS VARCHAR), ${i} * 10)
+
+endloop
+
+# Verify row count
+query I
+SELECT COUNT(*) FROM inventory
+----
+5
+
+# Verify with rowsort
+query IT rowsort
+SELECT id, product FROM inventory
+----
+1	product_1
+2	product_2
+3	product_3
+4	product_4
+5	product_5
+
+# Verify with hash
+query II
+SELECT id, quantity FROM inventory ORDER BY id
+----
+10 values hashing to 460bb1111c7da81c37885eb536086a35
+
+# Error handling in context
+statement error
+INSERT INTO inventory VALUES (1, 'duplicate', 0)
+----
+Duplicate key
+
+# Regex in context
+query T
+SELECT product FROM inventory WHERE id = 3
+----
+<REGEX>:product_\d+
+
+# Aggregation query
+query I
+SELECT SUM(quantity) FROM inventory
+----
+150
+
+# Label equivalence in context
+query I nosort inv_count
+SELECT COUNT(*) FROM inventory
+----
+
+query I nosort inv_count
+SELECT 5
+----
+
+statement ok
+DROP TABLE inventory

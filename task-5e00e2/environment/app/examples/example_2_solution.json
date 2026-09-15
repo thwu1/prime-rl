@@ -1,0 +1,8 @@
+{
+  "program": [
+    {"op": "add", "arg1": "x0", "arg2": "x1", "dest": "t0"},
+    {"op": "sub", "arg1": "x0", "arg2": "x1", "dest": "t1"},
+    {"op": "bxor", "arg1": "t0", "arg2": "t1", "dest": "t2"}
+  ],
+  "result": "t2"
+}

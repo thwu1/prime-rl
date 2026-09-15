@@ -1,0 +1,83 @@
+FPCore Syntax Quick Reference
+=============================
+
+FPCore is a standardized S-expression format for floating-point benchmarks,
+defined by the FPBench community (fpbench.org). This reference covers the
+subset used in the benchmark file.
+
+## Basic Structure
+
+  (FPCore (param1 param2 ...)
+   :property value
+   ...
+   body-expression)
+
+## Properties
+
+  :name "string"           — Human-readable name for the expression
+  :pre condition            — Precondition defining the input domain
+  :description "string"     — Description of numerical issues
+
+## Preconditions (Input Domains)
+
+Preconditions use nested boolean/comparison operators:
+
+  (and expr1 expr2 ...)    — Logical conjunction
+  (<= a b)                 — Less-than-or-equal
+  (< a b)                  — Strict less-than
+  (!= a b)                 — Not equal
+
+Example domain specification:
+  :pre (and (<= -50 x 50) (!= x 0))
+  This means: x is in [-50, 50] and x is not zero
+
+For multi-variable expressions:
+  :pre (and (<= -50 x 50) (<= -50 y 50) (!= x y))
+  This means: x in [-50, 50], y in [-50, 50], and x != y
+
+## Arithmetic Operators
+
+  (+ a b)                  — Addition
+  (- a b)                  — Subtraction
+  (* a b)                  — Multiplication
+  (/ a b)                  — Division
+  (- a)                    — Unary negation (single argument)
+
+## Mathematical Functions
+
+  (sqrt x)                 — Square root
+  (exp x)                  — Exponential (e^x)
+  (log x)                  — Natural logarithm
+  (sin x)                  — Sine
+  (cos x)                  — Cosine
+  (tan x)                  — Tangent
+
+## Constants
+
+  PI                       — The constant pi (3.14159265...)
+
+## Numeric Literals
+
+  Integer: 1, 4, 100
+  Decimal: 0.1, 0.01
+  Scientific: 1e-8, 1e15, 1e-15
+
+## Parsing Notes
+
+- Expressions are nested S-expressions (Lisp-like syntax)
+- Each (FPCore ...) block defines one benchmark expression
+- The body-expression is the last element inside the FPCore form
+- Parameters in the first list define the function signature
+- Whitespace and newlines are not significant (except inside strings)
+
+## Full Example
+
+  (FPCore (x)
+   :name "example subtraction"
+   :pre (and (<= 0.0 x) (<= x 1.0))
+   :description "Cancellation near x=0"
+   (- (sqrt (+ x 1)) 1))
+
+This defines: f(x) = sqrt(x + 1) - 1, for x in [0, 1].
+The mathematical expression tree is:
+  subtract(sqrt(add(x, 1)), 1)

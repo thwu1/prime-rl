@@ -1,0 +1,39 @@
+{
+  "T_evap_C": -45,
+  "T_cond_C": 35,
+  "Q_evap_kW": 150,
+  "eta_s": 0.75,
+  "cascade_approach_K": 5,
+  "T_dead_C": 25,
+  "system_lifetime_years": 15,
+  "annual_leakage_rate": 0.05,
+  "recovery_efficiency": 0.90,
+  "grid_carbon_intensity_kgCO2_per_kWh": 0.5,
+  "annual_operating_hours": 6000,
+  "refrigerant_pairs": [
+    {
+      "ltc": "CO2",
+      "htc": "Ammonia",
+      "charge_ltc_kg": 50,
+      "charge_htc_kg": 80,
+      "gwp_ltc": 1,
+      "gwp_htc": 0
+    },
+    {
+      "ltc": "CO2",
+      "htc": "R134a",
+      "charge_ltc_kg": 50,
+      "charge_htc_kg": 120,
+      "gwp_ltc": 1,
+      "gwp_htc": 1430
+    },
+    {
+      "ltc": "R23",
+      "htc": "R134a",
+      "charge_ltc_kg": 60,
+      "charge_htc_kg": 120,
+      "gwp_ltc": 14800,
+      "gwp_htc": 1430
+    }
+  ]
+}

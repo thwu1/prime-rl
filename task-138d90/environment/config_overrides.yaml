@@ -1,0 +1,5 @@
+# Deployment overrides - site-specific tuning parameters
+# Applied for Sensor Suite v3.2 extended-range field trials
+evaluation:
+  tp_threshold_m: 4.0
+  max_detections_per_category: 100

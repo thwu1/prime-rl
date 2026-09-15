@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a full-amplitude quantum state-vector simulator from data scattered across three heterogeneous formats: a normalized SQLite database (six relational tables requiring JOINs), a raw binary file of IEEE 754 doubles for gate rotation parameters (requiring binary decoding via xxd/od/struct), and a TOML configuration for observable Hamiltonian terms. The agent must master sqlite3 CLI for schema discovery, binary inspection tools (xxd/od) to decode params.bin, TOML parsing (tomllib or equivalent), and SHA-256 hashing of serialized binary state-vector data. On the physics side, the agent implements controlled gates (including inverse-control conditions), custom multi-qubit unitaries, Pauli-string expectation values, and Von Neumann entanglement entropy via SVD. The multi-format data pipeline and quantum computing domain knowledge combine to create essential difficulty."""
+solution_explanation = """Use sqlite3 CLI to discover the database schema and understand that gate_params stores bin_offset (not values). Decode params.bin using struct.unpack to retrieve IEEE 754 doubles at each offset. Parse observables.toml with Python tomllib. Implement state-vector simulation via subspace iteration with bit-mask addressing. Handle controlled gates by restricting iteration to basis states satisfying control conditions. Compute Pauli expectations via operator application and inner products. Compute entanglement entropy by reshaping state into bipartite matrix, SVD, and entropy formula. Serialize state as binary LE float64 pairs and compute SHA-256 hash."""
+verification_explanation = """Tests independently reconstruct the circuit from the same SQLite database and binary params file, parse the TOML observables, and run a brute-force reference simulator. All 1024 amplitudes, 8 expectation values, total energy, entanglement entropy, and the SHA-256 state hash are compared against the agent's results.json within tight tolerances."""
+category = "quantum_computing"
+tags = ["state-vector-simulation", "heterogeneous-data"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/subspace-qsim"

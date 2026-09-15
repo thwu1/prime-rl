@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PKI and cryptographic engineering knowledge beyond standard procedures. The agent must perform cross-artifact forensic analysis — detecting private key reuse between certificates by comparing key material, identifying RFC 5280 path length constraint violations across the CA hierarchy, recognizing weak Diffie-Hellman parameters and their Logjam implications, and spotting subtle X.509 extension misconfigurations (basicConstraints, keyUsage, extKeyUsage, SAN). Remediation demands holistic understanding of three-tier CA architecture, certificate chain construction, OCSP responder bootstrapping, and TLS hardening with forward secrecy. No individual issue is trivially discoverable — the agent must reason about inter-certificate relationships and cross-reference multiple artifacts."""
+solution_explanation = """Systematically inspect every artifact in /app/pki/ using openssl x509/rsa/pkey/dhparam -text, comparing outputs across certificates to detect both per-certificate issues and cross-artifact problems like key reuse and path constraint violations. Produce structured JSON audit report. Then generate a complete remediated PKI: 4096-bit root CA with proper basicConstraints, 3072-bit intermediate CA with SHA-256 and correct pathlen, server cert with SAN and proper keyUsage (no keyCertSign), client cert with unique key and clientAuth EKU, full chain file, hardened nginx TLS config (TLSv1.2+ only, ECDHE/DHE PFS ciphers, OCSP stapling), and executable OCSP responder bootstrap script."""
+verification_explanation = """pytest validates: audit report contains >= 11 findings covering all planted vulnerabilities including cross-artifact key reuse and path length violations; remediated chain validates with openssl verify; all certificate extensions are correct (basicConstraints, keyUsage, extKeyUsage, SAN); key sizes meet minimums; signature algorithms are SHA-256+; server and client keys are distinct (no reuse); TLS config enforces modern protocols and PFS ciphers with OCSP stapling; OCSP script exists and is executable."""
+category = "security"
+tags = ["pki", "cryptography"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2ab238"

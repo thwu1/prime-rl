@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of GPU shader compilation: parsing sokol-shdc annotated GLSL with @block/@include_block resolution, discovering and orchestrating unfamiliar SPIR-V toolchain binaries to compile/validate/inspect shader stages, reverse-engineering the SPIR-V binary format to extract uniform block layout decorations, tracing through SPIR-V's type system to distinguish uniform buffer objects from storage buffers, computing std140 memory layouts including vec3 alignment edge cases and array stride rules, cross-validating compiler-produced offsets against independently computed values, and implementing optimal member reordering with vec3+scalar gap-packing."""
+solution_explanation = """Parse annotated GLSL with regex, resolve @include_block by inlining @block content, prepend #version 450 to generate standalone GLSL. Invoke glslangValidator -V -S <stage> to compile to SPIR-V, spirv-val to validate, spirv-dis to disassemble. Parse SPIR-V text for OpName/OpMemberName (names), OpDecorate Block/BufferBlock (type classification), OpMemberDecorate Offset (layout), OpDecorate Binding (resource binding), OpVariable/OpTypePointer (storage class tracing). Filter out BufferBlock/StorageBuffer variables as SSBOs. Compute std140 offsets from GLSL types, merge with SPIR-V offsets, flag mismatches. Greedy alignment-descending reorder with vec3+scalar pairing for optimization."""
+verification_explanation = """Deterministic pytest suite verifies: (1) all stages compile and validate in SPIR-V, (2) @block resolution works -- lighting.glsl fs_lit requires fog_util function for compilation, (3) specific SPIR-V-extracted and computed offsets for 10 uniform blocks across 5 files match expected std140 values, (4) storage buffer in compute.glsl correctly excluded, (5) cross-validation flags all-match for every block, (6) program definitions parsed, (7) dynamic anti-cheat test creates a new shader at test time and validates full pipeline output."""
+category = "systems_programming"
+tags = ["gpu-shader-pipeline", "spirv-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-46ac7f"

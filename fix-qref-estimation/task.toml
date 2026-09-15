@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to author two complete, compilable QREF v1 quantum resource estimation specifications from a mathematical description alone. The solver must discover bartiq's input format (QREF v1 JSON schema with ports, connections, linked_params, local_variables, and typed resources), correctly wire a two-level hierarchy (root → 3 stages, one of which has 3 sub-operations), set up parameter propagation via linked_params across nesting levels, and ensure all port topologies pass bartiq's strict verification. Beyond construction, the solver must perform a comparative evaluation across 9 parameter regimes to judge which strategy dominates, and determine exact crossover points by reasoning about or iterating over the parameter space. The task combines quantum computing domain knowledge, symbolic computation, hierarchical DAG construction, and quantitative comparison — none of which are individually sufficient."""
+solution_explanation = """Build two QREF v1 JSON specifications for the eigenvalue transformation algorithm, differing only in the select subroutine's resource expressions. Each specification requires: correct port directions and sizes, connection wiring between all stages (system register flows through state_prep → block_encoding → signal_processing; ancilla flows through block_encoding → signal_processing), linked_params to propagate N and K to appropriate children at each nesting level, local_variables computing ceiling(log2(N)) and ceiling(log2(K)), and properly typed additive resources. After constructing both specs, compile with bartiq.compile_routine via SchemaV1 from qref, evaluate with bartiq.evaluate for all 9 parameter sets, determine T-gate-efficient variant per parameter set, and iterate K values to find crossover points for each N."""
+verification_explanation = """Tests install bartiq and qref, load variant_a.json and variant_b.json, validate them as SchemaV1 objects, compile with compile_routine, and evaluate for all 9 parameter sets. Expected T-gate and rotation values are hardcoded in the test (not in the instruction). Tests verify: both specs compile without errors, all 18 resource evaluations match expected values (9 per variant), results.json contains correct better_variant mappings and crossover_k values, and anti-cheat checks confirm the specs use symbolic expressions, hierarchical structure, and proper connections."""
+category = "quantum-computing"
+tags = ["symbolic-computation", "resource-estimation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-qref-estimation"

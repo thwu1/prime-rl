@@ -1,0 +1,13 @@
+name = "polyroots-bench"
+version = "0.1.0"
+
+[build]
+link = ["lapack", "blas"]
+
+[dependencies]
+polyroots-fortran = { git = "https://github.com/jacobwilliams/polyroots-fortran.git" }
+
+[[executable]]
+name = "bench"
+source-dir = "app"
+main = "main.f90"

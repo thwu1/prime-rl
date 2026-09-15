@@ -1,0 +1,10 @@
+{
+    "n_atoms": 400,
+    "n_occupied": 100,
+    "n_chains": 5,
+    "chain_coupling": 0.15,
+    "tolerance": 1e-10,
+    "truncation_threshold": 1e-6,
+    "n_blocks": 8,
+    "seed": 42
+}

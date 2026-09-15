@@ -1,0 +1,14 @@
+{
+  "name": "narrowing_proof",
+  "vars": ["x"],
+  "arrays": {},
+  "body": [
+    {"stmt": "assign", "target": "x", "expr": {"expr": "const", "value": 0}, "line": 1},
+    {"stmt": "while", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 100}},
+     "body": [
+       {"stmt": "assign", "target": "x", "expr": {"expr": "binop", "op": "+", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 1}}, "line": 3}
+     ], "line": 2},
+    {"stmt": "assert", "cond": {"expr": "binop", "op": ">=", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 100}}, "line": 4},
+    {"stmt": "assert", "cond": {"expr": "binop", "op": "<=", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 100}}, "line": 5}
+  ]
+}

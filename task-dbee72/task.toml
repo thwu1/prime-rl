@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across browser automation (Playwright async API), DOM internals (shadow root traversal, element semantics), web standards (ARIA, input type taxonomy), and runtime state observation. The solver receives only the desired output schema and sample applications — they must independently devise a strategy for discovering elements across shadow boundaries, inferring semantic action types, probing each element without state contamination from prior interactions, detecting and recording DOM mutations, classifying mutations as meaningful vs cosmetic, and computing a consistent Interaction Rate. No algorithms or APIs are named in the instruction; the solver must draw on deep domain knowledge to architect the entire pipeline."""
+solution_explanation = """The solution creates a Python script using Playwright's async API. It injects JavaScript that recursively walks the DOM including open shadow roots to discover interactive elements. For each element, it reloads the page for state isolation, injects a MutationObserver on document.body, re-discovers the element by stable index, executes the inferred semantic action (click/type/select/check/slide), waits for async mutations, then collects and classifies mutations using heuristics about meaningful attributes (aria-*, display, visibility) vs cosmetic ones (class toggles for hover/focus). Finally it computes the Interaction Rate and outputs structured JSON."""
+verification_explanation = """Tests verify: (1) the probe file exists at /app/interaction_probe.py and runs, (2) output conforms to the required JSON schema with all mandatory fields, (3) calculator sample yields >=15 interactive elements with IR>=0.50 and >=10 click actions, (4) dynamic form correctly identifies select/type actions and detects conditional field visibility via state_changed, (5) tabbed dashboard discovers tabs (>=2 with tab-related role/label/selector), slider (slide action), and shadow DOM elements, (6) mutation classification separates meaningful from total correctly (meaningful <= total, some > 0), (7) IR is computed consistently from per-element state_changed flags."""
+category = "web-development"
+tags = ["browser-automation", "dom-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dbee72"

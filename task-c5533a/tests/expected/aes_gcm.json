@@ -1,0 +1,87 @@
+{
+  "vsId": 1001,
+  "algorithm": "ACVP-AES-GCM",
+  "revision": "1.0",
+  "testGroups": [
+    {
+      "tgId": 1,
+      "tests": [
+        {
+          "tcId": 1,
+          "ct": "",
+          "tag": "9E557D92647C1510D4101EBEED0C52DD"
+        },
+        {
+          "tcId": 2,
+          "ct": "",
+          "tag": "6A7BBCDB4834109B6AA067B5358D94F3"
+        },
+        {
+          "tcId": 3,
+          "ct": "",
+          "tag": "72445E31C5DF05DFA2CCBA54AE385DFD"
+        },
+        {
+          "tcId": 4,
+          "ct": "",
+          "tag": "4F8508CB9C385C72935DEFD397BEB317"
+        },
+        {
+          "tcId": 5,
+          "ct": "",
+          "tag": "374A8920101702D1CCDE488A3ED7BD74"
+        }
+      ]
+    },
+    {
+      "tgId": 2,
+      "tests": [
+        {
+          "tcId": 6,
+          "pt": ""
+        },
+        {
+          "tcId": 7,
+          "pt": ""
+        },
+        {
+          "tcId": 8,
+          "testPassed": false
+        },
+        {
+          "tcId": 9,
+          "testPassed": false
+        },
+        {
+          "tcId": 10,
+          "pt": ""
+        }
+      ]
+    },
+    {
+      "tgId": 3,
+      "tests": [
+        {
+          "tcId": 11,
+          "pt": "A840015C977767637E951EE79F060F"
+        },
+        {
+          "tcId": 12,
+          "testPassed": false
+        },
+        {
+          "tcId": 13,
+          "pt": "1E8BAAFB94BC02C2DED10563ADADAC"
+        },
+        {
+          "tcId": 14,
+          "testPassed": false
+        },
+        {
+          "tcId": 15,
+          "testPassed": false
+        }
+      ]
+    }
+  ]
+}

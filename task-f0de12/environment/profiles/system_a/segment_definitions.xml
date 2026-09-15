@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Segments xmlns="urn:hl7-org:v2:conformance">
+  <Segment ID="MSH" Name="Message Header">
+    <Field Name="Field Separator" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="1"/>
+    <Field Name="Encoding Characters" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="4" MaxLength="5"/>
+    <Field Name="Sending Application" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="227"/>
+    <Field Name="Sending Facility" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="227"/>
+    <Field Name="Receiving Application" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="227"/>
+    <Field Name="Receiving Facility" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="227"/>
+    <Field Name="Date/Time of Message" Datatype="TS" Usage="R" Min="1" Max="1" MinLength="4" MaxLength="26"/>
+    <Field Name="Security" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="40"/>
+    <Field Name="Message Type" Datatype="MSG" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="25"/>
+    <Field Name="Message Control ID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="199"/>
+    <Field Name="Processing ID" Datatype="PT" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="3"/>
+    <Field Name="Version ID" Datatype="VID" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="60"/>
+  </Segment>
+
+  <Segment ID="PID" Name="Patient Identification">
+    <Field Name="Set ID" Datatype="SI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4"/>
+    <Field Name="Patient ID" Datatype="CX" Usage="W" Min="0" Max="1" MinLength="1" MaxLength="20"/>
+    <Field Name="Patient Identifier List" Datatype="CX" Usage="R" Min="1" Max="*" MinLength="1" MaxLength="250"/>
+    <Field Name="Alternate Patient ID" Datatype="CX" Usage="W" Min="0" Max="1" MinLength="1" MaxLength="20"/>
+    <Field Name="Patient Name" Datatype="XPN" Usage="R" Min="1" Max="*" MinLength="1" MaxLength="250"/>
+    <Field Name="Mother Maiden Name" Datatype="XPN" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="250"/>
+    <Field Name="Date/Time of Birth" Datatype="TS" Usage="R" Min="1" Max="1" MinLength="4" MaxLength="26"/>
+    <Field Name="Administrative Sex" Datatype="IS" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="1"/>
+  </Segment>
+
+  <Segment ID="PD1" Name="Patient Additional Demographic">
+    <Field Name="Living Dependency" Datatype="IS" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="2"/>
+    <Field Name="Living Arrangement" Datatype="IS" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="2"/>
+    <Field Name="Patient Primary Facility" Datatype="XON" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="250"/>
+  </Segment>
+
+  <Segment ID="NK1" Name="Next of Kin">
+    <Field Name="Set ID" Datatype="SI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4"/>
+    <Field Name="Name" Datatype="XPN" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="250"/>
+    <Field Name="Relationship" Datatype="CE" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="250"/>
+    <Field Name="Address" Datatype="XAD" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="250"/>
+    <Field Name="Phone Number" Datatype="XTN" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="250"/>
+  </Segment>
+
+  <Segment ID="ORC" Name="Common Order">
+    <Field Name="Order Control" Datatype="ID" Usage="R" Min="1" Max="1" MinLength="2" MaxLength="2"/>
+    <Field Name="Placer Order Number" Datatype="EI" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="427"/>
+    <Field Name="Filler Order Number" Datatype="EI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="427"/>
+  </Segment>
+
+  <Segment ID="OBR" Name="Observation Request">
+    <Field Name="Set ID" Datatype="SI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4"/>
+    <Field Name="Placer Order Number" Datatype="EI" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="427"/>
+    <Field Name="Filler Order Number" Datatype="EI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="427"/>
+    <Field Name="Universal Service Identifier" Datatype="CWE" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="250"/>
+  </Segment>
+
+  <Segment ID="OBX" Name="Observation/Result">
+    <Field Name="Set ID" Datatype="SI" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4"/>
+    <Field Name="Value Type" Datatype="ID" Usage="R" Min="1" Max="1" MinLength="2" MaxLength="3"/>
+    <Field Name="Observation Identifier" Datatype="CWE" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="250"/>
+    <Field Name="Observation Sub-ID" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="20"/>
+    <Field Name="Observation Value" Datatype="varies" Usage="R" Min="1" Max="*" MinLength="1" MaxLength="99999"/>
+    <Field Name="Units" Datatype="CWE" Usage="C" Min="0" Max="1" MinLength="1" MaxLength="250"/>
+    <Field Name="References Range" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="60"/>
+    <Field Name="Interpretation Codes" Datatype="CWE" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="250"/>
+    <Field Name="Probability" Datatype="NM" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="5"/>
+    <Field Name="Nature of Abnormal Test" Datatype="ID" Usage="O" Min="0" Max="*" MinLength="1" MaxLength="2"/>
+    <Field Name="Observation Result Status" Datatype="ID" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="1"/>
+  </Segment>
+
+  <Segment ID="NTE" Name="Notes and Comments">
+    <Field Name="Set ID" Datatype="SI" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="4"/>
+    <Field Name="Source of Comment" Datatype="ID" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="8"/>
+    <Field Name="Comment" Datatype="FT" Usage="R" Min="1" Max="*" MinLength="1" MaxLength="65536"/>
+  </Segment>
+
+  <Segment ID="SFT" Name="Software Segment">
+    <Field Name="Software Vendor Organization" Datatype="XON" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="567"/>
+    <Field Name="Software Certified Version" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="15"/>
+    <Field Name="Software Product Name" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="20"/>
+    <Field Name="Software Binary ID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="20"/>
+  </Segment>
+</Segments>

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom 33-opcode stack-based VM instruction set from C source, building a bytecode disassembler, and analyzing three firmware binaries each with a fundamentally different vulnerability class (hidden backdoor, weak PRNG keystream, and insufficient hash-based comparison). Demands crafting working exploit tokens for each — including computing a hash collision via modular arithmetic for the third. Requires professional CVSS 3.1 scoring with proper vector strings, comparative threat assessment evaluating intent vs. implementation weakness, and designing two fundamentally different binary patches: a surgical jump-target redirect for the backdoor, and a complete firmware rewrite replacing checksum-based authentication with byte-level comparison using hand-assembled VM bytecode."""
+solution_explanation = """Parse ooovm.c to learn the Field Code ISA, build a disassembler. Alpha: identify backdoor via magic-byte check pattern (LI16/LDM/LI8/TEQ → JMA bypass), extract backdoor prefix and legitimate key from init_key. Beta: locate PRNG seed init, extract LCG constants, compute deterministic keystream, derive valid token as keystream XOR target. Gamma: discover key stored at 0x1100 but validation uses weighted checksum with weights at 0x1108, extract weights and target constant, compute checksum collision by adjusting two bytes using weight ratios to maintain invariant sum. Score all three with CVSS 3.1, rank alpha highest (intentional backdoor). Patch alpha by redirecting backdoor JMA target. Create gamma patch by constructing new OOOV firmware using hand-assembled bytecode implementing byte-by-byte comparison against extracted key."""
+verification_explanation = """Tests verify: exploit tokens authenticate against original firmware, gamma exploit differs from legitimate key, CWE classifications are correct for each vulnerability class, CVSS vectors are valid 3.1 format with scores in expected ranges, alpha ranked most critical in risk assessment, alpha patch preserves size/header/legitimate auth while rejecting backdoor, gamma patch accepts legitimate key while rejecting collision exploit and random tokens."""
+category = "reverse_engineering"
+tags = ["vulnerability-assessment", "binary-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vm-firmware-backdoor"

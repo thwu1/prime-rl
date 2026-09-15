@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives 16-band satellite embedding vectors whose informative dimensions are mixed across all bands via an unknown orthogonal rotation (simulating real foundation model embeddings with correlated channels), sparse labels covering ~15% of pixels, and only a report schema defining required output fields — with no guidance on analytical methodology. The agent must independently recognize that the embedding space has a low-rank informative subspace hidden across correlated bands (not identifiable by per-band inspection), determine its true intrinsic dimensionality, discover the natural number of land cover groups through unsupervised analysis, solve the non-trivial combinatorial problem of mapping arbitrary group IDs to ground-truth class labels using only sparse reference data, produce spatially-varying per-pixel confidence estimates, and write correctly georeferenced multi-format raster outputs preserving CRS and affine transforms. Stringent quality thresholds (>85% accuracy, >0.70 per-class F1, >80% spatial accuracy, >0.5 cluster validation score) demand expert-level integration of multivariate statistics, unsupervised learning, combinatorial optimization, uncertainty quantification, and geospatial raster I/O — all without algorithmic hints in the task description."""
+solution_explanation = """Load the 16-band GeoTIFF, reshape to per-pixel vectors, mask NaN pixels. Apply PCA to discover that 4 components capture >=95% variance (data has 4 informative dimensions rotated across all 16 bands via an orthogonal matrix, plus noise). Sweep K-means K=2..10, identify K=5 as optimal via silhouette score (>0.5). Use the Hungarian algorithm (scipy.optimize.linear_sum_assignment) on a cost matrix built from labeled pixels to optimally map cluster IDs to ground-truth classes. Compute accuracy, per-class F1, and confusion matrix on the labeled subset. Generate per-pixel confidence from normalized centroid distances (1/(1+d/median_d)). Write classified uint8 and confidence float32 GeoTIFFs preserving input CRS/transform, plus a JSON metrics report."""
+verification_explanation = """Tests verify: (1) all three output files exist with correct formats, (2) report.json has all 7 required keys with correct types, (3) discovered n_components equals the true intrinsic dimensionality of 4, (4) cumulative explained variance >= 0.95, (5) each retained component explains > 5%, (6) discovered optimal K equals the true 5 land cover classes, (7) silhouette at K=5 > 0.5, (8) classification accuracy > 0.85, (9) all per-class F1 > 0.70, (10) classified GeoTIFF is 100x100 single-band with values in {0..5} and >= 5 unique, (11) CRS and transform match input, (12) NaN-embedding pixels are 0, (13) spatial accuracy > 80% via optimal class-ID alignment, (14) confidence map is float32 in [0,1] with 0 for nodata and mean > 0.3, (15) confidence values vary (std > 0.01), (16) confidence map preserves CRS and transform."""
+category = "data_science"
+tags = ["geospatial", "machine-learning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/embedding-landcover-pipeline"

@@ -1,0 +1,31 @@
+$TTL 86400
+; Forward zone for weilburg.corp (internal view)
+@   IN  SOA ns1.weilburg.corp. admin.weilburg.corp. (
+            2025051801  ; serial
+            3600        ; refresh
+            1800        ; retry
+            604800      ; expire
+            86400       ; minimum
+)
+
+@       IN  NS      ns1.weilburg.corp.
+@       IN  NS      ns2.weilburg.corp.
+@       IN  A       10.10.0.1
+
+@       IN  MX  10  mx.weilburg.corp.
+
+@       IN  TXT     "v=spf1 mx a:mail.weilburg.corp -all"
+
+ns1     IN  A       10.10.0.2
+ns2     IN  A       10.10.0.3
+web     IN  A       10.10.0.10
+mx      IN  A       10.10.0.11
+mail    IN  CNAME   mx.weilburg.corp.
+www     IN  CNAME   web.weilburg.corp.
+portal  IN  A       10.10.0.20
+dc1     IN  A       10.10.0.30
+dc2     IN  A       10.10.0.31
+fsrv    IN  A       10.10.0.40
+
+_ldap._tcp      IN  SRV 0 100 389 dc1.weilburg.corp.
+_kerberos._tcp  IN  SRV 0 100 88  dc1.weilburg.corp.

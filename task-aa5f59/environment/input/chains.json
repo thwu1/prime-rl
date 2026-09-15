@@ -1,0 +1,84 @@
+{
+  "chains": {
+    "basic": {
+      "operands": [
+        {"matrix": "A", "transpose": false},
+        {"matrix": "B", "transpose": false},
+        {"matrix": "C", "transpose": false}
+      ],
+      "matrices": {
+        "A": {"rows": 10, "cols": 30, "property": "general"},
+        "B": {"rows": 30, "cols": 5, "property": "general"},
+        "C": {"rows": 5, "cols": 60, "property": "general"}
+      }
+    },
+    "diagonal_propagation": {
+      "operands": [
+        {"matrix": "P", "transpose": false},
+        {"matrix": "Q", "transpose": false},
+        {"matrix": "R", "transpose": false}
+      ],
+      "matrices": {
+        "P": {"rows": 1000, "cols": 1000, "property": "diagonal"},
+        "Q": {"rows": 1000, "cols": 1000, "property": "diagonal"},
+        "R": {"rows": 1000, "cols": 2000, "property": "general"}
+      }
+    },
+    "transpose_dims": {
+      "operands": [
+        {"matrix": "A", "transpose": false},
+        {"matrix": "B", "transpose": true},
+        {"matrix": "C", "transpose": false}
+      ],
+      "matrices": {
+        "A": {"rows": 300, "cols": 300, "property": "symmetric"},
+        "B": {"rows": 100, "cols": 300, "property": "general"},
+        "C": {"rows": 100, "cols": 400, "property": "general"}
+      }
+    },
+    "diagonal_transpose": {
+      "operands": [
+        {"matrix": "D", "transpose": false},
+        {"matrix": "E", "transpose": true},
+        {"matrix": "F", "transpose": false}
+      ],
+      "matrices": {
+        "D": {"rows": 500, "cols": 500, "property": "diagonal"},
+        "E": {"rows": 500, "cols": 500, "property": "diagonal"},
+        "F": {"rows": 500, "cols": 1000, "property": "general"}
+      }
+    },
+    "triangular_transpose": {
+      "operands": [
+        {"matrix": "M1", "transpose": false},
+        {"matrix": "M2", "transpose": true},
+        {"matrix": "M3", "transpose": false},
+        {"matrix": "M4", "transpose": false}
+      ],
+      "matrices": {
+        "M1": {"rows": 300, "cols": 300, "property": "upper_triangular"},
+        "M2": {"rows": 300, "cols": 300, "property": "lower_triangular"},
+        "M3": {"rows": 300, "cols": 300, "property": "diagonal"},
+        "M4": {"rows": 300, "cols": 200, "property": "general"}
+      }
+    },
+    "complex_mixed": {
+      "operands": [
+        {"matrix": "W", "transpose": false},
+        {"matrix": "X", "transpose": true},
+        {"matrix": "Y", "transpose": false},
+        {"matrix": "Z", "transpose": false},
+        {"matrix": "V", "transpose": true},
+        {"matrix": "U", "transpose": false}
+      ],
+      "matrices": {
+        "W": {"rows": 400, "cols": 400, "property": "diagonal"},
+        "X": {"rows": 400, "cols": 400, "property": "upper_triangular"},
+        "Y": {"rows": 400, "cols": 400, "property": "symmetric"},
+        "Z": {"rows": 400, "cols": 400, "property": "diagonal"},
+        "V": {"rows": 400, "cols": 400, "property": "symmetric"},
+        "U": {"rows": 400, "cols": 200, "property": "general"}
+      }
+    }
+  }
+}

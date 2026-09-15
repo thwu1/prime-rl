@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-stage compiler pipeline: WASM binary parsing (LEB128, section layout), annotated bytecode compilation with branch target resolution across nested structured control flow (block/loop/if/else with multi-level branching), a stack-machine interpreter supporting function calls, and super-instruction pattern detection. Each stage demands distinct compiler-engineering expertise and the stages must compose correctly end-to-end."""
+solution_explanation = """Build a Python tool with four components: (1) a WASM binary parser that decodes sections and LEB128 immediates, (2) a two-pass bytecode compiler that first computes annotated stream positions then resolves branch targets (block→forward, loop→backward, if→else/end), (3) an annotated bytecode interpreter with operand stack, call stack, and stack-restore semantics for branches, and (4) a greedy left-to-right fusion pattern detector. The tool is invoked via CLI for compile (JSON report) and run (execute + print result) subcommands."""
+verification_explanation = """Tests compile all 5 WASM modules and verify: (1) execution correctness for 15+ function invocations covering arithmetic, if/else, loops, nested blocks, function calls, and br_table; (2) structural properties of the compiled output (function counts, expansion ratios, branch target validity); (3) correct super-instruction fusion candidate detection with expected counts per module."""
+category = "compilers"
+tags = ["webassembly", "bytecode-compiler"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wasm-bytecode-compiler"

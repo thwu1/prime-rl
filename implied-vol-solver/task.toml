@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a high-precision implied volatility solver as a C shared
+library with Python ctypes bindings and a Makefile build system. The solver must achieve near-machine-epsilon
+accuracy across a 64000-point parameter grid spanning extreme volatility (0.01-4.0), maturity (0.01-2.0),
+and moneyness regimes. Key challenges: (1) The standard C library lacks erfcx (scaled complementary error
+function), which is critical for deep OTM numerical stability — the agent must discover this gap and
+implement erfcx from scratch using asymptotic expansions. (2) Building a correct shared library requires
+gcc shared-object flags (-fPIC -shared), a working Makefile, and properly configured ctypes FFI bindings
+with correct argtypes/restype declarations. (3) Test parameters and edge cases are defined in JSON and CSV
+data files that the agent must discover, parse, and satisfy. (4) Price normalization via put-call parity
+and in-out duality, robust initial guess computation, and higher-order iteration on a log-price objective
+require deep numerical analysis expertise."""
+solution_explanation = """Implements Stefanica-Radoicic initial guess with Halley third-order iteration
+on the log-price objective in C. Key techniques: (1) erfcx implemented via exp(x^2)*erfc(x) for moderate
+x and asymptotic series for large x, (2) price normalization to undiscounted OTM call via put-call parity
+and in-out duality, (3) log-price iteration providing uniform cubic convergence across all vol regimes,
+(4) compiled as shared library with -fPIC -shared flags, wrapped via Python ctypes with correct function
+signatures. The C implementation achieves sub-microsecond per-point performance."""
+verification_explanation = """Tests verify: (1) shared library builds via make and loads via ctypes with
+correct symbol signatures, (2) Cui grid accuracy using parameters read from /app/data/test_config.json,
+(3) wide volatility range sweep, (4) edge case round-trips from both test_config.json and
+market_quotes.csv, (5) put-call parity consistency, (6) CLI interface, (7) performance timing on full
+grid. Test parameters come from environment data files, requiring the agent to discover and understand
+JSON and CSV formats to know what accuracy targets to meet."""
+category = "numerical_computing"
+tags = ["quantitative_finance", "c_ffi"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implied-vol-solver"

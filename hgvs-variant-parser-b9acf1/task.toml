@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of HGVS variant nomenclature (a formal bioinformatics standard with complex interacting rules across 6 coordinate types), implementing a parser from a PEG grammar, configurable formatting with multiple interacting options, amino acid code conversion, and edit classification. Additionally requires building an executable CLI tool with argparse subcommands including SQLite database integration (load/query), stdin/stdout JSON/TSV I/O, batch TSV processing, jq-compatible pipeline output, and a Makefile for workflow orchestration — demanding multi-tool interoperability across Python, SQLite, Make, jq, awk, and shell pipelines."""
+solution_explanation = """The solution has three parts: (1) A Python package (hgvs_parser) implementing a complete recursive descent parser with backtracking from the PEG grammar, model classes for positions/intervals/edits with configurable format() methods, AA code conversion, and grammar validation dispatch. (2) An executable CLI wrapper (hgvs-tool) using argparse with nested subcommands that reads from stdin, processes batch TSV files, outputs jq-compatible JSON/TSV, and supports SQLite database operations (load variants with parsed fields, run arbitrary SQL queries returning JSON). (3) A Makefile with .PHONY targets for batch processing, database creation from sample data, and statistics generation via db query. Key implementation details: NARefAlt handles ref truncation via max_ref_length while preserving original ref for substitution detection; protein edits store AA codes as 1-letter internally and convert on output; delXinsY single-char normalization checks both ref and alt are single non-digit characters."""
+verification_explanation = """Tests verify 8 dimensions: (1) Round-trip fidelity: 28 canonical variants across all coordinate types. (2) Normalization: 12 non-canonical inputs (ref stripping, AA conversion, Ter/* normalization). (3) Edit classification: 14 variants. (4) Configurable formatting: 14 format_variant calls with various conf dicts. (5) Grammar validation: 52 rule/input pairs. (6) CLI tool: parse/classify/validate/batch subcommands with JSON/TSV output. (7) SQLite database: db load creates correct schema and data, db query returns correct JSON with GROUP BY and WHERE clauses, sqlite3 CLI interop. (8) Makefile targets: batch/db-create/db-stats produce correct output files. Plus multi-tool pipeline composition tests verifying jq filtering and awk processing. Total ~170 assertions."""
+category = "bioinformatics"
+tags = ["parser", "multi-tool"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hgvs-variant-parser-b9acf1"

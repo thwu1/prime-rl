@@ -1,0 +1,42 @@
+IMP Language Grammar
+====================
+
+<program>   ::= <stmt_list>
+<stmt_list> ::= ε | <stmt> ';' <stmt_list>
+<stmt>      ::= 'int' <id>
+            | <id> '=' <aexp>
+            | 'if' '(' <bexp> ')' '{' <stmt_list> '}' 'else' '{' <stmt_list> '}'
+            | 'while' '(' <bexp> ')' '{' <stmt_list> '}'
+            | 'LOOP' '(' <bexp> ')' '{' <stmt_list> '}'
+            | 'halt'
+            | 'continue'
+            | 'break'
+            | 'LE'
+<aexp>      ::= <id>
+            | <literal>
+            | '(' <aexp> <mathop> <aexp> ')'
+            | '(' '+' <aexp> ')'
+            | '(' '-' <aexp> ')'
+<bexp>      ::= <bool>
+            | '(' <aexp> <relop> <aexp> ')'
+            | '(' '!' <bexp> ')'
+            | '(' <bexp> <logop> <bexp> ')'
+<bool>      ::= 'true' | 'false'
+<mathop>    ::= '-' | '+' | '/' | '*' | '%'
+<relop>     ::= '>' | '>=' | '<' | '<=' | '!=' | '=='
+<logop>     ::= '||' | '&&'
+<id>        ::= <letter> (<letter>|<digit>)*
+<literal>   ::= <digit>+
+<letter>    ::= 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
+            | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
+            | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+            | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
+            | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
+            | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+<digit>     ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+Notes:
+- LOOP and LE are internal constructs used by the SOS reduction rules;
+  they do not appear in source programs.
+- All binary operations in expressions are fully parenthesized.
+- Statements are separated by semicolons.

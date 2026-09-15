@@ -1,0 +1,10 @@
+name: "Unrecoverable error test"
+
+concurrency_unit: zonal
+concurrency_limit: 1
+
+node_tasks:
+  - name: trigger_failure
+    action: trigger_unrecoverable
+    retries: 0
+    on_error: halt

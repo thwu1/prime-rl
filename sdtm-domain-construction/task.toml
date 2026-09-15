@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of CDISC SDTM IG v3.3 across 5 observation classes, SAS Transport v5 binary format, and Define-XML 2.0 metadata generation. The solver must interpret a dense JSON specification, apply it to messy real-world CRF data with non-standard formats and mixed measurement systems, derive temporal classifications and computed fields, and produce cross-domain relational integrity across 7 output datasets plus an XML metadata document — all from a single specification file with no worked examples."""
+solution_explanation = """The solution reads raw CSV/JSON clinical data and applies SDTM conformance rules from the spec to produce 7 XPT domain files plus a Define-XML 2.0 document. Key transformations: (1) flexible date parsing including Mon-YYYY partial dates to truncated ISO 8601, (2) severity/sex/serious CT mapping per codelist rules, (3) study day with no Day 0 and NaN for partial dates, (4) imperial to SI unit conversion in VS with originals preserved, (5) EPOCH derivation per study design with partial-date month-year comparison, (6) XPT output via pyreadstat with correct numeric/character types and metadata, (7) Define-XML 2.0 generation via lxml with ItemGroupDef, ItemDef, and CodeList elements."""
+verification_explanation = """Tests use pyreadstat to read XPT files back into DataFrames, verifying: structural correctness (record counts, required columns, domain values), SAS Transport metadata (variable name/label lengths, numeric types), controlled terminology mapping, study day calculations, unit conversions with specific expected values, EPOCH derivation across all study phases, partial date ISO 8601 truncation, SUPPAE relational integrity, and Define-XML namespace/structure conformance."""
+category = "clinical_data_standards"
+tags = ["sdtm", "clinical-trials"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sdtm-domain-construction"

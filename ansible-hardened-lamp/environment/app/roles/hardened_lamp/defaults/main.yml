@@ -1,0 +1,17 @@
+---
+# Default values for hardened_lamp role
+apache_package: apache2
+apache_service: apache2
+fail2ban_package: fail2ban
+fail2ban_service: fail2ban
+
+# Security packages to install
+security_packages:
+  - openssh-server
+  - fail2ban
+  - iptables
+
+# Apache modules to enable
+apache_modules:
+  - rewrite
+  - headers

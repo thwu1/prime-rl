@@ -1,0 +1,132 @@
+problem:
+  name: Cantilever Beam Reliability-Based Design Optimization
+  description: >
+    Minimize beam cross-sectional area subject to probabilistic
+    constraints on bending stress and tip displacement under
+    uncertain loads and material properties.
+
+beam:
+  length: 100.0
+  max_tip_displacement: 2.2535
+
+design_variables:
+  width:
+    symbol: w
+    bounds: [1.0, 10.0]
+    initial: 4.0
+  thickness:
+    symbol: t
+    bounds: [1.0, 10.0]
+    initial: 4.0
+
+random_variables:
+  yield_strength:
+    symbol: R
+    distribution: normal
+    mean: 40000.0
+    std_dev: 2000.0
+  youngs_modulus:
+    symbol: E
+    distribution: normal
+    mean: 29.0e6
+    std_dev: 1.45e6
+  horizontal_load:
+    symbol: X
+    distribution: normal
+    mean: 500.0
+    std_dev: 100.0
+  vertical_load:
+    symbol: Y
+    distribution: normal
+    mean: 1000.0
+    std_dev: 100.0
+
+objective:
+  type: minimize
+  formula: "w * t"
+  description: Cross-sectional area (proportional to weight per unit length)
+
+constraints:
+  stress:
+    type: reliability
+    limit_state: "1 - (600*Y/(w*t^2) + 600*X/(w^2*t)) / R"
+    target_beta: 3.0
+    description: >
+      Bending stress must not exceed yield strength with reliability
+      index beta >= 3.0. Stress = 600*Y/(w*t^2) + 600*X/(w^2*t).
+  displacement:
+    type: reliability
+    limit_state: "1 - (4*L^3/(E*w*t)) * sqrt((Y/t^2)^2 + (X/w^2)^2) / D_max"
+    target_beta: 3.0
+    description: >
+      Tip displacement must not exceed D_max with reliability
+      index beta >= 3.0. D = (4*L^3/(E*w*t)) * sqrt((Y/t^2)^2 + (X/w^2)^2).
+
+deliverables:
+  simulation_driver:
+    path: "/app/cantilever_driver.py"
+    description: >
+      A standalone Python simulation driver compatible with Dakota's
+      fork interface. Must support evaluation of function values and
+      gradients as directed by the calling framework.
+    responses:
+      - name: area
+        formula: "w * t"
+        description: "Beam cross-sectional area (objective function)"
+      - name: stress_con
+        formula: "stress/R - 1"
+        description: "Normalized stress constraint (negative when feasible)"
+      - name: disp_con
+        formula: "D/D0 - 1"
+        description: "Normalized displacement constraint (negative when feasible)"
+
+  dakota_input_file:
+    path: "/app/dakota_cantilever.in"
+    description: >
+      A syntactically valid Dakota input file that configures structural
+      reliability analysis for the cantilever beam problem, using the
+      simulation driver via fork interface.
+
+  results:
+    directory: "/app/results"
+    files:
+      form_validation:
+        path: "form_validation.json"
+        description: >
+          Apply the structural reliability analysis to the linear limit
+          state g(u1,u2) = 5 + 0.6*u1 - 0.8*u2 in standard normal space,
+          and report the computed reliability index and most probable
+          failure point.
+        schema:
+          beta: "Computed reliability index"
+          mpp: "Most probable failure point as 2-element list"
+
+      optimal_design:
+        path: "optimal_design.json"
+        description: >
+          The optimized beam design that minimizes cross-sectional area
+          while satisfying all probabilistic constraints.
+        schema:
+          w: "Optimal beam width"
+          t: "Optimal beam thickness"
+          area: "Optimal cross-sectional area (w * t)"
+          beta_stress: "Reliability index for stress constraint"
+          beta_displacement: "Reliability index for displacement constraint"
+          algorithm: "Name of the optimization algorithm used"
+
+      monte_carlo:
+        path: "monte_carlo.json"
+        description: >
+          Independent Monte Carlo verification at the optimal design point.
+          Must use at least 500,000 samples.
+        schema:
+          n_samples: "Number of MC samples used"
+          pf_stress: "Estimated probability of stress failure"
+          pf_displacement: "Estimated probability of displacement failure"
+          beta_stress_mc: "Reliability index derived from MC stress pf"
+          beta_displacement_mc: "Reliability index derived from MC displacement pf"
+
+      convergence:
+        path: "convergence.csv"
+        description: "Design optimization convergence history"
+        columns: [iteration, w, t, area, beta_stress, beta_displacement]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level forensic debugging across four tool domains with zero hints about defect locations or types: (1) Makefile — two distinct defects in variable expansion syntax and jq validation field references that require understanding Make's single-character variable interpolation rules and cross-referencing the JSON schema against the actual jq filter; (2) Python numerical computation — three modules contain subtle math errors (missing coordinate origin offset, wrong operator in exponential decay formula, incorrect rigid-body transform composition) that require evaluating each formula against its mathematical specification; (3) Algorithmic design — the path planner degenerates to Dijkstra with no costmap awareness and the route optimizer returns input order instead of exploring the solution space, requiring the solver to judge what correct behavior should be from context; (4) Data integrity — a silent parameter-order swap in the SQLite persistence layer stores values in wrong columns, only detectable by inspecting the database after pipeline execution. Beyond fixing all 9 defects, the solver must create a structured defect manifest that classifies each issue by category, requiring evaluation of root causes across the full toolchain."""
+solution_explanation = """Fix Makefile variable expansion ($DB_PATH to $(DB_PATH)) and jq field reference (.segments to .segment_costs). Fix map_loader.py world_to_grid to subtract origin. Fix costmap.py decay formula (multiplication to subtraction). Fix transforms.py compose to rotate child translation by parent angle. Fix planner.py to add Euclidean heuristic and costmap traversal cost. Fix router.py to enumerate permutations for minimum-cost ordering. Fix db_manager.py to correct swapped parameter order in INSERT. Generate defect_manifest.json cataloging all 9 defects with categories. Run make all."""
+verification_explanation = """Tests verify: (1) PGM map loading dimensions/walls/barriers, (2) coordinate roundtrip consistency and known world-to-grid mappings, (3) footprint inscribed/circumscribed radii, (4) costmap inflation with exponential decay values, (5) SE(2) transform composition with rotation, (6) A* path planning obstacle avoidance and costmap awareness, (7) results.json schema compliance and numeric correctness, (8) SQLite database contents and DB/JSON consistency, (9) Makefile dry-run verification of variable expansion and field names, (10) route optimality and segment cost summation, (11) defect manifest structure — valid JSON array with at least 7 entries spanning at least 4 categories, covering build system and at least 5 source modules."""
+category = "robotics"
+tags = ["multi-tool-debugging", "build-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e45bbb"

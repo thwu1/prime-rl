@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expert knowledge of multiple intersecting W3C specifications (WAI-ARIA 1.2, HTML-AAM 1.0, ACCNAME 1.2) to correctly implement an accessibility tree builder. The childrenPresentational pass-through behavior, inert-with-modal-escape semantics, aria-owns tree reparenting, and presentational role conflict resolution are non-obvious spec interactions that require proficient-level understanding. The implementation spans ~300 lines of recursive tree-building logic with many edge cases."""
+solution_explanation = """The solution uses Python's built-in html.parser to parse HTML fragments into a simple DOM tree, then recursively builds an accessibility tree. Each node's ARIA role is computed from explicit role attributes or HTML-AAM implicit role mapping. The tree is built depth-first with special handling for: (1) hidden/inert nodes (skipped, but children of inert nodes still processed to find escaping modal dialogs), (2) presentational nodes (children promoted to parent), (3) childrenPresentational roles (text children consumed as accessible name, focusable children escape with pass-through), (4) aria-owns (owned elements appended to owner's children, excluded from original position). The tree is flattened into a linear list where container nodes produce start/end entries and leaf nodes produce single entries. Navigation commands search the flat list for matching roles. No external dependencies are required."""
+verification_explanation = """Tests verify exact spoken-phrase-log sequences for 8 HTML fixtures covering: basic landmark/heading traversal, aria-hidden/hidden filtering, heading-link nesting with childrenPresentational, inert-with-modal-escape, aria-owns reparenting, aria-label/labelledby naming, presentational role promotion, and aria-roledescription. Additional tests verify heading/landmark navigation commands, previous/wrap-around behavior, and log management. All 37 pytest assertions must pass."""
+category = "accessibility"
+tags = ["wai-aria", "html-accessibility"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d06068"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding RFC 6901 JSON Pointer escape/unescape ordering, JavaScript type coercion pitfalls (== vs ===), patch compression with ancestor-path pruning, OT array index adjustment for concurrent patches, conflict detection across path hierarchies, correct array splice semantics for patch application, and stateful inverse patch generation that tracks intermediate state changes across a multi-patch sequence. Each function's bugs interact through shared path utilities, requiring holistic analysis."""
+solution_explanation = """Twelve defects across seven functions: (1) escape order in toRFC6902 must process ~ before /; (2) unescape order in fromRFC6902 must process ~1 before ~0; (3) isPathPrefix must use !== not != for type-strict comparison; (4) fromRFC6902 must not treat "/" as root—only "" is root; (5) compressPatches must prune descendant patches when a parent remove is added; (6) detectConflicts must check ancestor/descendant path relationships not just exact matches; (7) rebasePatches must adjust array indices when over patches insert/remove elements; (8) applyPatches add on arrays must use splice to insert, not assignment; (9) applyPatches remove on arrays must use splice to delete, not delete operator; (10) invertPatches must retrieve old values from pre-state via path traversal instead of using undefined; (11) invertPatches must forward-simulate intermediate state using applyPatches to capture correct old values for each successive patch; (12) invertPatches must reverse the output array order."""
+verification_explanation = """A TypeScript test runner exercises all exported functions with 49 deterministic test cases covering RFC-6902 escaping edge cases, path type sensitivity, compression semantics, ancestor conflict detection, OT index adjustment, array splice application, and stateful inverse patch generation with round-trip verification. Python pytest orchestrates execution via npx tsx and validates JSON output."""
+category = "software_engineering"
+tags = ["json-patch", "operational-transform"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/patch-algebra-engine-322da1"

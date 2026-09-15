@@ -1,0 +1,59 @@
+{
+  "nodes": [
+    {
+      "name": "ampere-a100",
+      "gpu": "NVIDIA A100 80GB SXM",
+      "compute_capability": [8, 0],
+      "gpu_memory_gb": 80,
+      "cuda_version": "11.8.0",
+      "target_archs": ["80", "90"],
+      "cpu_cores": 64,
+      "system_memory_gb": 256,
+      "nvcc_threads": 4
+    },
+    {
+      "name": "ampere-a10",
+      "gpu": "NVIDIA A10",
+      "compute_capability": [8, 6],
+      "gpu_memory_gb": 24,
+      "cuda_version": "12.4.0",
+      "target_archs": ["80", "90"],
+      "cpu_cores": 16,
+      "system_memory_gb": 64,
+      "nvcc_threads": 2
+    },
+    {
+      "name": "hopper-h100",
+      "gpu": "NVIDIA H100 80GB SXM",
+      "compute_capability": [9, 0],
+      "gpu_memory_gb": 80,
+      "cuda_version": "12.8.0",
+      "target_archs": ["80", "90", "100"],
+      "cpu_cores": 128,
+      "system_memory_gb": 512,
+      "nvcc_threads": 4
+    },
+    {
+      "name": "blackwell-b200",
+      "gpu": "NVIDIA B200",
+      "compute_capability": [10, 0],
+      "gpu_memory_gb": 192,
+      "cuda_version": "12.9.0",
+      "target_archs": ["80", "90", "100", "120"],
+      "cpu_cores": 128,
+      "system_memory_gb": 1024,
+      "nvcc_threads": 4
+    },
+    {
+      "name": "thor-gh200",
+      "gpu": "NVIDIA GH200 Thor",
+      "compute_capability": [11, 0],
+      "gpu_memory_gb": 141,
+      "cuda_version": "12.8.0",
+      "target_archs": ["80", "90", "100", "110"],
+      "cpu_cores": 72,
+      "system_memory_gb": 480,
+      "nvcc_threads": 4
+    }
+  ]
+}

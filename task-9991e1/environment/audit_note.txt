@@ -1,0 +1,33 @@
+SIGMA-256 Block Cipher — Substitution Layer Security Audit
+============================================================
+
+CIPHER OVERVIEW
+The SIGMA-256 SPN block cipher applies four parallel 8-bit S-boxes
+(T0, T1, T2, T3) per round. The substitution tables are stored in
+the compiled object file sbox.o. Symbol declarations are in sbox.h.
+
+The original source file containing the S-box values has been removed
+per operational security policy. The tables can be recovered from
+the compiled object file using standard binary analysis tools.
+
+AUTOMATED ANALYSIS RESULTS
+---------------------------
+Static algebraic analysis of the substitution layer flagged a
+potential vulnerability in one of the four tables.
+
+Finding: One S-box exhibits anomalously low effective algebraic
+complexity. Specifically, certain linear combinations of its output
+coordinate Boolean functions achieve algebraic degrees significantly
+below the expected maximum of 7 for an 8-bit permutation. This
+"degree staircase" pattern is characteristic of permutations that
+decompose into compositions of GF(2)-linear maps with modular
+arithmetic operations.
+
+Severity: CRITICAL — if confirmed, the decomposition would reduce
+the cipher's resistance to algebraic, interpolation, and higher-order
+differential attacks.
+
+ACTION REQUIRED
+Identify the affected S-box table. Perform a full decomposition
+analysis to confirm the vulnerability and recover the component
+factors. Document findings in /app/findings.json.

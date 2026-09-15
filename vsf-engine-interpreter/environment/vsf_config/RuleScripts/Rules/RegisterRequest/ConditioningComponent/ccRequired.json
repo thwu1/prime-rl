@@ -1,0 +1,39 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Branch",
+            "description": "Conditioning components are required when the noise source is not IID",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "parameters": {
+                                    "ruleText": "parentProperty.IidClaim == false"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "ImportScript",
+                                "parameters": {
+                                    "scriptFile": "CommonRules/notNull.json"
+                                }
+                            },
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "parameters": {
+                                    "ruleText": "currentProperty.Count() > 0"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

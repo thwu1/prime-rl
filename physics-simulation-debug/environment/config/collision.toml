@@ -1,0 +1,16 @@
+[physics]
+mass1 = 2.0
+mass2 = 3.0
+v1x = 3.0
+v1y = 1.0
+v2x = -2.0
+v2y = 0.5
+collision_radius = 0.5
+x1 = -3.0
+y1 = -1.1
+x2 = 2.0
+y2 = -0.4
+
+[numerical]
+dt = 0.001
+t_end = 2.0

@@ -1,0 +1,59 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:new-patient",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-99999"
+          }
+        ],
+        "name": [
+          {
+            "family": "Wilson",
+            "given": ["Robert"]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1975-11-08"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Patient"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:new-obs",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5",
+              "display": "Body temperature"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:new-patient"
+        },
+        "valueQuantity": {
+          "value": 37.2,
+          "unit": "C",
+          "system": "http://unitsofmeasure.org",
+          "code": "Cel"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation"
+      }
+    }
+  ]
+}

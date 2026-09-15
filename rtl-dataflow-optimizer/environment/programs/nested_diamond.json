@@ -1,0 +1,17 @@
+{
+  "name": "nested_diamond",
+  "params": [1, 2],
+  "entrypoint": 34,
+  "code": {
+    "34": {"kind": "op", "op": "const", "imm": 0, "args": [], "dst": 3, "succ": 33},
+    "33": {"kind": "cond", "cmp": "gt", "arg1": 1, "arg2": 3, "ifso": 32, "ifnot": 28},
+    "32": {"kind": "op", "op": "mul", "args": [1, 2], "dst": 4, "succ": 31},
+    "31": {"kind": "op", "op": "mul", "args": [1, 2], "dst": 5, "succ": 30},
+    "30": {"kind": "op", "op": "add", "args": [4, 5], "dst": 6, "succ": 24},
+    "28": {"kind": "op", "op": "mul", "args": [1, 2], "dst": 7, "succ": 27},
+    "27": {"kind": "op", "op": "sub", "args": [7, 2], "dst": 8, "succ": 26},
+    "26": {"kind": "op", "op": "mul", "args": [1, 2], "dst": 9, "succ": 25},
+    "25": {"kind": "op", "op": "add", "args": [8, 9], "dst": 6, "succ": 24},
+    "24": {"kind": "ret", "arg": 6}
+  }
+}

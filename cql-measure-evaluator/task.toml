@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Clinical Quality Language (CQL) semantics — including temporal interval algebra (overlaps, during, half-open intervals, prevalenceInterval), fluent function resolution (isActive, isConfirmedOrUnspecified, isDuringEDorInpatient, getEncounter), and the eCQM population flow model (IPP→DENOM→DENEX→NUMER). The agent must independently parse and cross-reference three distinct FHIR artifact formats: CQL source files, a FHIR Measure resource (navigated via jq), and a SQLite terminology database requiring SQL joins for value set membership checks. No reference guide or algorithm descriptions are provided — all logic must be reverse-engineered from the CQL specification. Twenty test patients exercise boundary conditions on CQL null propagation (absent verificationStatus), clinical status edge cases (relapse vs active), observation status filtering, FHIR encounter class-code disqualification, and the subtle distinction between age-based frailty exclusion tiers (66-80 requiring dual criteria vs 81+ requiring single). The multi-tool pipeline requires combining sqlite3 for terminology, jq for FHIR data extraction, and Python for CQL evaluation logic."""
+solution_explanation = """Use jq to extract population-to-CQL-expression mappings from the FHIR Measure resource. Query the SQLite terminology database to build value set membership lookups via SQL joins between value_sets and codes tables. Use jq to extract typed resources from FHIR patient bundles. Implement each CQL definition as Python functions: age calculation, condition prevalence intervals, temporal overlap/containment, encounter-type and encounter-class filtering for blood pressure qualification, set-intersection of BP dates, lowest-reading selection, and multi-path denominator exclusion evaluation. Handle all CQL edge cases including null verificationStatus (isConfirmedOrUnspecified), non-'active' clinical statuses (isActive includes relapse/recurrence), observation status filtering (only final/amended/corrected), and encounter class-code based BP disqualification."""
+verification_explanation = """Pytest loads /app/results.json and compares each of 20 patients' population membership (IPP, DENOM, DENEX, NUMER) against pre-computed expected values. Tests cover: IPP boundary conditions (age, HTN onset timing, encounter type), observation status filtering, BP threshold edge cases (exact boundary values), encounter class-code disqualification, multiple-observation lowest-reading selection, incomplete BP day handling, five exclusion pathways (pregnancy, ESRD procedures, hospice, palliative care, age-tiered frailty), and CQL null/status edge cases."""
+category = "applied_computing"
+tags = ["clinical-informatics", "fhir"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cql-measure-evaluator"

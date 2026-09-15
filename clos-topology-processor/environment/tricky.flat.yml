@@ -1,0 +1,76 @@
+name: tricky-lab
+topology:
+  nodes:
+    alpha:
+      kind: linux
+      image: alpine:3.18
+      type: worker
+      env:
+        SHARED: common
+        MODE: batch
+        FEATURE_A: "on"
+        FEATURE_B: "on"
+      labels:
+        team: platform
+        env: prod
+    beta:
+      kind: linux
+      image: alpine:3.18
+      type: worker
+      env:
+        SHARED: common
+        MODE: batch
+        FEATURE_A: "on"
+      labels:
+        team: platform
+        env: prod
+    gamma:
+      kind: linux
+      image: alpine:3.18
+      type: controller
+      env:
+        SHARED: common
+        MODE: streaming
+        FEATURE_A: "on"
+        FEATURE_C: "on"
+      labels:
+        team: platform
+        env: staging
+    delta:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:latest
+      type: gateway
+      env:
+        SHARED: common
+        MODE: routing
+        NOS_VERSION: "24.3"
+      labels:
+        team: network
+        env: prod
+    epsilon:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:latest
+      type: gateway
+      env:
+        SHARED: common
+        MODE: routing
+        NOS_VERSION: "24.3"
+      labels:
+        team: network
+        env: prod
+    zeta:
+      kind: linux
+      image: debian:12
+      type: monitor
+      env:
+        SHARED: common
+        MODE: passive
+      labels:
+        team: ops
+        env: prod
+  links:
+    - endpoints: ["alpha:eth1", "delta:eth1"]
+    - endpoints: ["beta:eth1", "delta:eth2"]
+    - endpoints: ["gamma:eth1", "epsilon:eth1"]
+    - endpoints: ["zeta:eth1", "delta:eth3"]
+    - endpoints: ["zeta:eth2", "epsilon:eth2"]

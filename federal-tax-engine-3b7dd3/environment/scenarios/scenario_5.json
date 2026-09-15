@@ -1,0 +1,50 @@
+{
+  "scenario_name": "scenario_5",
+  "tax_year": 2025,
+  "filing_status": "qss",
+  "taxpayer": {
+    "first_name": "Linda",
+    "last_name": "Nguyen",
+    "ssn": "400-00-5084"
+  },
+  "w2s": [
+    {
+      "employer_name": "Riverside Health",
+      "employer_ein": "66-7788990",
+      "wages": 55000,
+      "federal_tax_withheld": 4800,
+      "ss_wages": 55000,
+      "ss_tax_withheld": 3410,
+      "medicare_wages": 55000,
+      "medicare_tax_withheld": 798
+    }
+  ],
+  "dividends": {
+    "qualified": 20000,
+    "ordinary": 25000
+  },
+  "capital_gains": {
+    "short_term": 0,
+    "long_term": 0
+  },
+  "schedule_h": {
+    "has_household_employees": true,
+    "total_cash_wages_ss": 2500,
+    "total_cash_wages_medicare": 2500,
+    "total_cash_wages_additional_medicare": 0,
+    "federal_income_tax_withheld": 200
+  },
+  "form_5695": {
+    "insulation_cost": 0,
+    "door_cost": 0,
+    "window_cost": 0,
+    "central_ac_cost": 0,
+    "water_heater_cost": 0,
+    "furnace_boiler_cost": 0,
+    "electrical_panel_cost": 0,
+    "home_energy_audit_cost": 0,
+    "heat_pump_cost": 0,
+    "heat_pump_water_heater_cost": 0,
+    "biomass_stove_cost": 0
+  }
+}

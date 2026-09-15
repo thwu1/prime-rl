@@ -1,0 +1,18 @@
+[database]
+path = "/app/missions.db"
+
+[output]
+path = "/app/results.json"
+
+[missions]
+ids = [
+    "rv2coe_1",
+    "coe2rv_1",
+    "lambert_1",
+    "lambert_2",
+    "hohmann_1",
+    "bielliptic_1",
+    "j2_correction_1",
+    "plane_change_1",
+    "mission_budget_1"
+]

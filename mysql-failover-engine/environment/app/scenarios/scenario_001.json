@@ -1,0 +1,53 @@
+{
+    "id": "001",
+    "name": "Healthy Topology",
+    "description": "All servers operational, replication running normally across two datacenters",
+    "servers": [
+        {
+            "hostname": "primary1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": null, "master_port": null,
+            "replication_state": "running", "replication_lag_seconds": 0.0,
+            "gtid_position": 200, "is_sql_delayed": false, "read_only": false,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "running", "replication_lag_seconds": 0.5,
+            "gtid_position": 198, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica2", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "running", "replication_lag_seconds": 1.2,
+            "gtid_position": 195, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        }
+    ],
+    "orchestrator_nodes": [],
+    "cluster_config": {
+        "cluster_name": "production",
+        "auto_recovery_enabled": true,
+        "recovery_period_block_seconds": 3600,
+        "last_recovery_timestamp": null,
+        "global_recoveries_enabled": true,
+        "reasonable_replication_lag_seconds": 10.0,
+        "enforce_exact_semi_sync_replicas": false
+    },
+    "current_timestamp": 1000.0,
+    "expected": {
+        "failure_count": 0,
+        "failures": [],
+        "notes": "No failures detected. All servers reachable, all replicas replicating normally."
+    }
+}

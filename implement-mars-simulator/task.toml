@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Debugging this MARS simulator requires deeply understanding the ICWS'94 specification across multiple interacting subsystems: addressing mode side-effect ordering (pre-decrement vs post-increment timing relative to pointer resolution), process queue scheduling semantics (SPL insertion order determines execution flow for all multi-process warriors), full-instruction comparison semantics for CMP.I/SNE.I (which must compare opcodes, modifiers, and modes — not just field values), and DIV/MOD partial-zero handling for compound modifiers (.F/.X) where one component's zero divisor must not prevent the other component from being computed. The solver must discover which of 112+ opcode-modifier-mode combinations are implemented incorrectly by analyzing behavior discrepancies, tracing execution through the simulator, and cross-referencing with the ICWS'94 specification — without access to a reference implementation."""
+solution_explanation = """The solution fixes four bugs: (1) SPL queues PC+1 before A-target (was reversed), (2) CMP.I/SNE.I compares full instruction structure including opcode/modifier/modes (was comparing only field values), (3) B-operand post-increment happens after address computation not before (was incrementing then computing address), (4) DIV/MOD .F/.X performs the non-zero component's division even when the other component has a zero divisor (was skipping both components on any zero)."""
+verification_explanation = """Tests combine unit-level verification (importing mars.py as a module to check internal state like process queue ordering, core contents after DIV.F with partial zero, CMP.I behavior on differing-opcode instructions, and B-postincrement pointer resolution) with integration tests comparing CLI battle outputs against known-correct results for diverse warrior matchups. Module-level tests ensure the simulator is a genuine Python implementation rather than a wrapper around an external binary."""
+category = "systems"
+tags = ["virtual-machine", "debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-mars-simulator"

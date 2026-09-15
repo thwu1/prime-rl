@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of B+ tree rebalancing invariants for in-memory sorted sets — a niche data structure choice inspired by DragonflyDB's skip-list replacement. The agent must diagnose a subtle leaf-split bug (wrong separator promotion causes entries to become unreachable via tree navigation while remaining physically present in leaves), fix a leaf-merge bug that orphans nodes in the doubly-linked leaf chain producing duplicate entries in scans, and implement augmented subtree-size maintenance across all mutation paths (insert, delete, split, merge, borrow) to support O(log n) rank queries. The interplay between the split bug and deletion means some deletions silently fail, creating orphan entries detectable only via range-scan inconsistencies — not via the dictionary-based score lookup API."""
+solution_explanation = """Fix 1: In _split_leaf, change promote_key from keys[mid-1] to keys[mid] so the first key of the right half becomes the parent separator. Fix 2: In _merge_nodes for leaf merges, add left.next_leaf = right.next_leaf and update prev_leaf so the orphaned right node is bypassed. Fix 3: Remove the pos = pos + 1 line in zrangebyscore. Fix 4: Maintain subtree_size by incrementing along the root path on insert and decrementing on delete, recomputing during split (leaf: len(keys), internal: sum of children), merge, and borrow operations. Fix 5: Implement zrank by traversing from root to leaf, accumulating left-children subtree sizes at each internal node, plus the bisect position within the leaf."""
+verification_explanation = """Nine pytest tests verify: (1) basic CRUD without splits, (2) deleted entries absent from range scans after many splits, (3) score-update consistency — no orphan entries at old scores, (4) no duplicate entries after merge-heavy deletion, (5) zrangebyscore includes exact boundary scores, (6) zrank returns correct positions for all entries, (7) zrank correct after updates and deletions, (8) structural B+ tree invariants (key ordering, children count, leaf-chain integrity) after mixed operations, (9) data integrity under 3000-operation mixed workload with seeded RNG."""
+category = "data_structures"
+tags = ["b-plus-tree", "sorted-set"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lsm-compaction-debug"

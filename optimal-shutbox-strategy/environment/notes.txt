@@ -1,0 +1,20 @@
+2024-08-01
+Set up experiment 7 with weighted scoring. Config file is in the
+usual configs/ directory. Still need to compute the optimal expected
+value. The greedy heuristic simulations suggest it should be well
+below the heuristic mean (~35 weighted score).
+
+2024-08-02
+The 3d4 option seems underwhelming for high tile states compared
+to d6+d8 since d6+d8 can reach sum 14. But 3d4 concentrates mass
+around 7-8 which is useful for certain mid-range states.
+
+2024-07-15
+Reminder: the scoring weights for exp7 are NOT uniform. The penalty
+for leaving tiles open depends on their tier. Check the scoring
+config referenced in the database for the exact multipliers.
+
+2024-07-10
+Database schema finalized. Each experiment references its scoring
+config via the scoring_config table. For non-uniform scoring, the
+config_ref column points to the JSON file (relative to research/).

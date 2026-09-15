@@ -1,0 +1,48 @@
+{
+  "plan_name": "compliance_pipeline",
+  "state_ttl_seconds": 900,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Source",
+      "name": "product_listings",
+      "inputs": [],
+      "rate_per_second": 500,
+      "avg_row_size_bytes": 512
+    },
+    {
+      "id": 2,
+      "type": "Source",
+      "name": "seller_info",
+      "inputs": [],
+      "rate_per_second": 100,
+      "avg_row_size_bytes": 256
+    },
+    {
+      "id": 3,
+      "type": "Join",
+      "name": "join_listings_sellers",
+      "inputs": [1, 2],
+      "join_type": "INNER",
+      "join_keys": [{"left": "seller_id", "right": "seller_id"}],
+      "estimated_output_rate": 400,
+      "estimated_output_row_size": 640
+    },
+    {
+      "id": 4,
+      "type": "AsyncMLPredict",
+      "name": "compliance_check",
+      "inputs": [3],
+      "target_qps": 400,
+      "p99_latency_seconds": 1.5,
+      "avg_request_size_bytes": 2048,
+      "max_ops_per_subtask": 128
+    },
+    {
+      "id": 5,
+      "type": "Sink",
+      "name": "risk_output",
+      "inputs": [4]
+    }
+  ]
+}

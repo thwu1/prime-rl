@@ -1,0 +1,10 @@
+name: "Parallel cleanup"
+
+concurrency_unit: zonal
+concurrency_limit: 2
+
+node_tasks:
+  - name: run_cleanup
+    action: run_cleanup
+    retries: 1
+    on_error: retry

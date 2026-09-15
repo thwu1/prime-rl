@@ -1,0 +1,43 @@
+# Benchmark space configurations for causal-profiler pipeline
+spaces:
+  - name: linear_random
+    seed: 42
+    number_of_nodes: 5
+    variable_dimensionality: 1
+    mechanism_family: linear
+    expected_edges: 3
+    noise_mode: additive
+    noise_distribution: gaussian
+    noise_args: [0, 0.5]
+    variable_type: continuous
+    number_of_queries: 3
+    query_type: ate
+    number_of_data_points: 500
+
+  - name: confounded_hidden
+    seed: 42
+    predefined_graph_file: /app/graphs/confounded.yaml
+    number_of_nodes: [3, 3]
+    variable_dimensionality: 1
+    mechanism_family: linear
+    noise_mode: additive
+    noise_distribution: gaussian
+    noise_args: [0, 0.5]
+    variable_type: continuous
+    number_of_queries: 2
+    query_type: ate
+    number_of_data_points: 1000
+
+  - name: mediation_path
+    seed: 42
+    predefined_graph_file: /app/graphs/mediation.yaml
+    number_of_nodes: [3, 3]
+    variable_dimensionality: 1
+    mechanism_family: linear
+    noise_mode: additive
+    noise_distribution: gaussian
+    noise_args: [0, 0.5]
+    variable_type: continuous
+    number_of_queries: 2
+    query_type: ate
+    number_of_data_points: 1000

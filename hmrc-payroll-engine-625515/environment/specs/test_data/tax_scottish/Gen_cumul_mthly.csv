@@ -1,0 +1,16 @@
+Employer :,2026 - 27,Scottish tax examples
+Year,2026 - 27
+,,,,,,,,,,,,,,,,,,,
+Pay frequency/type,Gross pay,Taxable pay to date,Code,W1/M1,Period , Tax due,Tax due to date,,,,,,,,,,,,
+Gen_cumul_mthly,1156.25,1156.25,S1257L,,1,20.329999999999998,20.329999999999998
+Gen_cumul_mthly,1156.26,2312.5100000000002,S1257L,,2,20.520000000000003,40.85
+Gen_cumul_mthly,31123.26,33435.769999999997,S1257L,,3,11436.779999999999,11477.63
+Gen_cumul_mthly,14465.71,47901.479999999996,S1257L,,4,5380.3200000000015,16857.95
+Gen_cumul_mthly,52681.25,100582.73,S1257L,,5,23753.37,40611.32
+Gen_cumul_mthly,50000,150582.72999999998,S1257L,,6,22466.489999999998,63077.81
+Gen_cumul_mthly,15000,165582.72999999998,S1257L,,7,5666.0100000000093,68743.820000000007
+Gen_cumul_mthly,14000.55,179583.27999999997,S1257L,,8,5186.9699999999866,73930.789999999994
+Gen_cumul_mthly,12590.45,192173.72999999998,SBR,,9,-35496.189999999995,38434.6
+Gen_cumul_mthly,11245.05,203418.77999999997,NT,,10,-38434.6,0
+HMRC are aware that the results of some payroll calculations may differ from the test data provided.,,,,,,,,,,,,,,,,,,,,
+As long as those results differ by no more than £00.01 then this is acceptable.,,,,,,,,,,,,,,,,,,,,

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of the SPIR-V intermediate representation, Vulkan environment rules, and the complete SPIR-V toolchain (spirv-as, spirv-val, spirv-opt, spirv-cross, glslang). Beyond diagnosing and repairing subtle validation errors (addressing model, execution modes, buffer layout decorations, descriptor bindings), the solver must architect multiple optimization strategies using different spirv-opt pass combinations, quantitatively evaluate each across three metrics (binary size, instruction count, ID count), implement a weighted normalized scoring formula from a configuration file, and produce justified platform-specific recommendations — a task requiring professional GPU/graphics programming expertise combined with systematic empirical evaluation."""
+solution_explanation = """Fix five SPIR-V validation errors (Physical32→Logical, missing LocalSize, missing BufferBlock, missing ArrayStride, missing Binding). Then design 5 optimization strategies: baseline (compact-ids only), strip-debug, DCE-only, strip+DCE combined, and full performance optimization (-O). Measure binary_size/instruction_count/id_count for each via spirv-dis analysis. Compute normalized weighted scores per platform profile and select the strategy with lowest score for each. Cross-compile the winning strategy's output to each platform's target format. Compile the fragment shader and cross-compile to GLSL 310 ES."""
+verification_explanation = """Tests validate end-to-end: the fixed assembly must pass spirv-val for Vulkan 1.0, at least 4 distinct strategies must be evaluated with reproducible metrics (tests re-run spirv-opt with reported passes and verify measurements match), the weighted scoring formula is independently recomputed from the platform profiles and checked against reported scores, recommendations must select the lowest-scoring strategy per platform, cross-compiled outputs must contain backend-specific markers, and the GLSL 450 output must round-trip through glslang back to valid SPIR-V."""
+category = "optimization"
+tags = ["spirv", "shader-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spirv-pipeline-repair"

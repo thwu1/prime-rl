@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level spectroscopy and scientific computing knowledge: the agent must independently determine how to perform continuum removal (selecting the appropriate geometric method), devise a feature extraction strategy for absorption bands (local minimum detection, FWHM interpolation, area integration), choose a spectral similarity metric for mixture component identification, and implement constrained spectral unmixing — all without algorithm names or procedural guidance. Additionally demands navigating the ScienceBase REST API, parsing the non-standard one-value-per-line ASCII format with sentinel bad-band values, handling multi-spectrometer wavelength grids, and integrating data engineering with domain-specific signal processing and linear algebra."""
+solution_explanation = """Downloads splib07a ASCII data via the ScienceBase REST API, navigates ChapterM directory structure to locate five mineral ASD AREF spectra plus the ASD wavelength file, parses reflectance values with bad-band filtering, implements Andrew's monotone-chain upper convex hull for continuum removal, extracts absorption features using scipy local-minima detection with interpolated FWHM and trapezoidal area integration, writes per-mineral continuum-removed CSV files, creates a seeded synthetic mixture, and identifies components via Spectral Angle Mapper matching with NNLS unmixing."""
+verification_explanation = """Tests verify that known diagnostic mineral absorption bands appear at literature-documented wavelengths (within tolerances), that continuum-removed spectra have physically valid properties (values in [0,1] with clear absorption dips), that all required output files exist with correct structure, and that spectral unmixing correctly identifies Kaolinite and Montmorillonite as the mixture components with approximately correct proportions."""
+category = "scientific_computing"
+tags = ["spectroscopy", "signal_processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spectral-absorption-analysis"

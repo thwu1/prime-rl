@@ -1,0 +1,21 @@
+name: JRC Global Surface Water
+description: >
+  Mapping the location and temporal distribution of surface water
+  from 1984 to 2021 using the entire archive of Landsat 5, 7, and 8
+  imagery, totalling over 4.4 million satellite scenes.
+epsg: 4326
+bbox: [-180, -56, 180, 78]
+date_range:
+  from: "March 16, 1984"
+  to: "December 31, 2021"
+resolution_m: 30
+bands:
+  - occurrence
+  - change_intensity
+  - seasonality
+  - recurrence
+  - transitions
+  - max_extent
+provider: European Commission Joint Research Centre
+license: free-for-non-commercial
+theme: hydrology

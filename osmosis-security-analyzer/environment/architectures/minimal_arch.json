@@ -1,0 +1,6 @@
+{
+    "allowed_flows": [
+        ["core", "core"],
+        ["core", "audit"]
+    ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must diagnose three subtle algorithmic bugs distributed across four Python modules implementing CTR_DRBG, plus implement the missing without-derivation-function mode from the SP 800-90A specification. Bug 1 (derivation.py): the S-string in Block_Cipher_df has L and N values swapped — a single struct.pack ordering error that produces entirely different derived keys. Bug 2 (update.py): CTR_DRBG_Update encrypts V before incrementing instead of after, violating the counter-mode operation order specified in §10.2.1.2. Bug 3 (core.py): in CTR_DRBG_Generate with prediction resistance, additional_input is not cleared after being consumed by the PR reseed, causing it to be double-processed through both the reseed and a subsequent update. All three bugs produce cascading state errors with no runtime exceptions — every test case silently outputs wrong hex. Additionally, the no-DF code path (§10.2.1.3.1, §10.2.1.4.1, §10.2.1.5.1) must be implemented from scratch, requiring understanding of how seed construction differs without the derivation function (XOR-based instead of BCC-based). Standard crypto libraries do not expose DRBG internals at this level; the solver must work at the specification level across a multi-file codebase."""
+solution_explanation = """Fix three bugs: (1) In derivation.py, swap N||L to L||N in the S-string construction. (2) In update.py, reorder encrypt/increment so V is incremented before encryption. (3) In core.py, add 'additional_input = b\"\"' after the prediction resistance reseed call. Then implement the no-DF code path in core.py: for instantiate, XOR personalization_string (padded to seedlen) with entropy_input; for reseed, XOR additional_input (padded to seedlen) with entropy_input; for generate, pad additional_input to seedlen and pass directly to update without derivation function processing. Re-run the processor to produce correct ACVP response JSON for all 8 test cases."""
+verification_explanation = """Verifies the response JSON exists, conforms to the documented schema (vsId, algorithm, testGroups with correct structure, no extra properties), and that each of the 8 returnedBits values matches NIST-provided expected results via case-insensitive hex comparison. Tests cover all 4 groups: AES-128 df+PR, AES-256 df+PR, AES-128 df+reseed, and AES-128 no-df+PR."""
+category = "cryptography"
+tags = ["nist-sp800-90a", "drbg"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/acvp-ctrdrbg-processor"

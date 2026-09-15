@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a space-efficient minimal perfect hash function from scratch as a C shared library with Python CLI bindings. The solver receives only a read-only C header (API contract) and a naive 312-bits/key reference implementation — no algorithm description is provided. Meeting the tight space bound [1.5, 4.0] bits/key eliminates simple displacement arrays, full-key lookup tables, and open-addressing approaches, forcing the solver to independently research and implement a fundamentally different data structure. The adversarial key distributions (zero-padded low bits, sequential integers) demand a hash function with strong avalanche properties. The 1M-key scale test requires an efficient O(n) construction algorithm. The decomposed space reporting (pilots vs remap attribution) forces understanding of how each internal component contributes to the total space budget. The alpha-sensitivity test verifies theoretical understanding of the relationship between load factor and overflow fraction. The solver must integrate C systems programming (shared libraries, 128-bit arithmetic, memory management), hashing theory (bijective mixers), combinatorial optimization, and Python ctypes interop — all without algorithmic guidance."""
+solution_explanation = """Implement a pilot-based MPHF: (1) hash keys with SplitMix64 bijective finalizer, (2) partition into buckets via fast-reduce (128-bit multiply), (3) for each bucket (largest-first) search 256 possible 8-bit pilots for collision-free slot placement, (4) when greedy search fails use cuckoo-style eviction with weighted collision scoring and anti-cycle recent-bucket tracking, (5) build a remap table mapping overflow slots (>= n) to free positions (< n), tracking the count of remapped keys, (6) expose decomposed statistics (pilots_bytes, remap_bytes, remap_count, key_count) via C API, (7) serialize/deserialize including the remap_count field, (8) build Python ctypes CLI computing decomposed bits-per-key and remap fraction from the C API. The resulting structure uses ~3.3 bits per key with default parameters."""
+verification_explanation = """Tests load libmphf.so via ctypes to verify all 10 required API symbols. Then exercises the Python CLI on five key datasets: 1K random, 200K random, 1M random (timed at 120s), 10K sequential, and 20K adversarial (keys with zero low-32-bits). For each, builds an MPHF and verifies bijectivity (distinct values covering {0..n-1}). Additional tests check tight space bounds (total_bits_per_key in [1.5, 4.0]), decomposed info output consistency (pilots_bpk + remap_bpk ≈ total_bpk, remap_fraction in reasonable range), alpha-sensitivity (alpha=0.95 produces higher remap_fraction than alpha=0.99), query determinism, custom parameter support, and serialization round-trip."""
+category = "systems"
+tags = ["hashing", "algorithms"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pilot-mphf-build"

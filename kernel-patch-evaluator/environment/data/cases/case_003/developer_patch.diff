@@ -1,0 +1,17 @@
+diff --git a/block/blk-mq.c b/block/blk-mq.c
+index abc1234..ghi9012 100644
+--- a/block/blk-mq.c
++++ b/block/blk-mq.c
+@@ -42,8 +42,11 @@ static int blk_mq_init_hctx(struct blk_mq_tag_set *set,
+  */
+ int blk_mq_get_tag(struct blk_mq_hw_ctx *hctx, unsigned int flags)
+ {
+     struct blk_mq_tag_set *tags = hctx->tags;
+     int tag;
+
++    if (!tags)
++        return -EINVAL;
++
+     if (!tags->driver_data)
+         return -EINVAL;
+

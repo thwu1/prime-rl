@@ -1,0 +1,9 @@
+Employer :,2026 - 27,UK tax examples
+Year,2026 - 27
+,,,,,,,,,,,,,,,,,,,,
+Pay frequency/type,Gross pay,Taxable pay to date,Code,W1/M1,Period , Tax due,Tax due to date
+K_cumul_Wkly,150,150,K630,,1,54.2,54.2
+K_cumul_Wkly,300,450,K630,,2,84.2,138.4
+K_cumul_Wkly,245,695,K630,,3,73.400000000000006,211.8
+HMRC are aware that the results of some payroll calculations may differ from the test data provided.,,,,,,,,,,,,,,,,,,,,
+As long as those results differ by no more than £00.01 then this is acceptable.,,,,,,,,,,,,,,,,,,,,

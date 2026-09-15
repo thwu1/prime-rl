@@ -1,0 +1,35 @@
+/*
+ * Device Tree Overlay for MCP2515 CAN controller on SPI0
+ * Target: Raspberry Pi 4B (BCM2711)
+ */
+/dts-v1/;
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+        target = <&spi0>;
+        __overlay__ {
+
+            can0: can@1 {
+                compatible = "microchip,mcp2515";
+                reg = <1>;
+                spi-max-frequency = <125000000>;
+                interrupt-parent = <&gpio>;
+                interrupts = <25 0x1>
+                clocks = <&can0_osc>;
+            };
+        };
+    };
+
+    fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            can0_osc: can0_osc {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <8000000>;
+            };
+        };
+    };
+};

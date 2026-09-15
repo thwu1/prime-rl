@@ -1,0 +1,19 @@
+{
+  "description": "1D FD consolidation with double drainage: uniform initial u=50 kPa, cv=100 m2/yr. Midpoint pore pressure at t=10000s should be ~45.23 kPa.",
+  "scenario": {
+    "consolidation": {
+      "height": 1.0,
+      "total_time": 10000,
+      "no_nodes": 21,
+      "cv": 100,
+      "top_drainage": true,
+      "bottom_drainage": true,
+      "initial_excess_pore_pressure": 50,
+      "output_times_seconds": [10000]
+    }
+  },
+  "expected": {
+    "pore_pressure_midpoint": {"time": 10000, "node_index": 10, "value": 45.23, "tolerance": 0.5, "unit": "kPa"},
+    "boundary_values": {"top": 0.0, "bottom": 0.0}
+  }
+}

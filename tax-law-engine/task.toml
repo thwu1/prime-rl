@@ -1,0 +1,58 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IRC §121 across nine interacting
+subsections: basic exclusion with period aggregation clipped to a 5-year window, four filing
+scenarios (single, qualifying joint, non-qualifying joint with merged ownership, surviving
+spouse with temporal back-evaluation), prior-sale blocking, non-qualified use gain allocation
+with pre-first-use and post-last-use exclusion rules, depreciation recapture coordination per
+§121(b)(5)(D) and §121(d)(6), reduced maximum exclusion proration under §121(c), and the
+§121(d)(10) like-kind exchange 5-year blocking rule. The statutory text is written in authentic
+legal language without computation formulas — the agent must independently derive the correct
+algorithms from cross-referential legal provisions and identify how subsection interactions
+cascade. Additionally requires designing and implementing formal verification of four invariants
+using an appropriate automated reasoning tool, without being told which tool or encoding to use.
+Errors in subsection interactions cascade; the NQ exclusion rules, depreciation ordering, 1031
+blocking, and §121(c) proration require holistic reasoning about how the statute's provisions
+compose."""
+solution_explanation = """The solution creates two Python files: (1) tax_engine.py implementing
+helpers for 5-year window aggregation, 1031 exchange blocking, NQ ratio computation with
+pre-first-use/post-last-use filtering, reduced cap proration, and a main compute_exclusion
+that dispatches on return_type with §121(b)(2)(A)/(B) joint logic including 1031 checks,
+§121(b)(4) surviving spouse with 730-day evaluation, and §121(c) fallback;
+(2) formal_verify.py using z3-solver to encode the exclusion formula as Real-valued
+constraints, proving single/joint cap bounds and reduced-cap monotonicity via UNSAT checks,
+and finding a witness for NQ-use reduction via SAT."""
+verification_explanation = """33 pytest tests verify: single-person basics (3), ownership/usage
+requirements (2), period aggregation with clipping (3), joint qualifying/non-qualifying (3),
+prior-sale blocking at exact 730/731-day boundaries (3), surviving spouse within/after 730
+days of death (2), §121(c) reduced exclusion with proration (3), §121(b)(5) non-qualified use
+with depreciation and pre-first-use/post-last-use exclusions (4), combined joint+prior-sale
+and joint+reduced interactions (2), §121(d)(10) like-kind exchange blocking within/after 5
+years and joint interaction (3), and formal verification results (5 tests checking JSON output
+for proved/witnessed properties)."""
+category = "applied_computing"
+tags = ["tax-law", "formal-verification"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tax-law-engine"

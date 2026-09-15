@@ -1,0 +1,19 @@
+ Performance counter stats for './matrix_multiply --baseline':
+
+         10,001.23 msec task-clock                       #    1.000 CPUs utilized
+             1,800      context-switches                 #  179.978 /sec
+                22      cpu-migrations                   #    2.200 /sec
+             3,900      page-faults                      #  389.951 /sec
+     4,000,000,000      cycles                           #    4.000 GHz
+     8,000,000,000      instructions                     #    2.00  insn per cycle
+     1,000,000,000      branch-instructions              #   99.988 M/sec
+        18,000,000      branch-misses                    #    1.80% of all branches
+       800,000,000      cache-references                 #   79.990 M/sec
+        18,400,000      cache-misses                     #    2.30% of all cache refs
+       320,000,000      stalled-cycles-frontend          #    8.00% frontend cycles idle
+       480,000,000      stalled-cycles-backend           #   12.00% backend cycles idle
+
+         10.002145378 seconds time elapsed
+
+          9.876543210 seconds user
+          0.124321000 seconds sys

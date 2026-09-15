@@ -1,0 +1,29 @@
+{
+  "description": "Output schema. Each error object must include a 'type' field matching one of these names, plus the listed additional fields.",
+  "types": [
+    {
+      "type": "BITMAP_MARKED_FREE",
+      "fields": {"block": "integer", "inodes": "array of integers, sorted ascending"}
+    },
+    {
+      "type": "BITMAP_MARKED_USED",
+      "fields": {"block": "integer"}
+    },
+    {
+      "type": "INODE_NLINK_MISMATCH",
+      "fields": {"inode": "integer", "expected": "integer", "actual": "integer"}
+    },
+    {
+      "type": "ORPHAN_INODE",
+      "fields": {"inode": "integer"}
+    },
+    {
+      "type": "DUPLICATE_BLOCK_REF",
+      "fields": {"block": "integer", "inodes": "array of integers, sorted ascending"}
+    },
+    {
+      "type": "INVALID_BLOCK_REF",
+      "fields": {"inode": "integer", "block": "integer"}
+    }
+  ]
+}

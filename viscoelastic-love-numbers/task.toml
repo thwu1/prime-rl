@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires compiling a legacy Fortran 90 program (TABOO) that uses quadruple-precision arithmetic and non-standard features, reverse-engineering its undocumented keyword-driven input format by reading ~18,000 lines of Fortran source, correctly configuring it for a specific Earth model, parsing multi-format output files (relaxation spectrum with physical/non-physical mode discrimination, Love number files with elastic/fluid/viscoelastic residue columns), and computing time-domain viscoelastic Heaviside response functions using the normal-mode decomposition formula. Requires coupled expertise in computational geophysics (GIA theory, viscoelastic relaxation), Fortran toolchain debugging, and scientific data processing."""
+solution_explanation = """The reference solution: (1) sanitizes the Fortran source of non-ASCII characters and compiles with gfortran using -fallow-argument-mismatch -std=legacy flags; (2) creates task_1.dat with Active/Harmonic_Degrees/Make_Model/El_Fluid_Viscel keywords in the correct order and format (NV=2, CODE=2, LT=100, viscosities 2.0/1.0); (3) creates inactive task_2.dat and task_3.dat (required by TABOO); (4) runs TABOO to produce spectrum.dat, h.dat, l.dat, k.dat; (5) parses spectrum.dat to extract physical modes (negative s values), h/l/k.dat to extract elastic, fluid, and all residue columns; (6) computes the Heaviside response h^H(l,t) = h_e(l) + sum_k [h_v_k/s_k * (exp(s_k*t) - 1)] using only physical modes; (7) writes CSV output files."""
+verification_explanation = """Tests independently compile and run TABOO with the same Earth model configuration (NV=2, CODE=2, Yuen-Sabadini-Boschi 1982) to generate reference data. The test parses TABOO output files and compares against solver CSV output: elastic Love numbers to 1e-6 relative error, fluid to 1e-5, relaxation modes to 1e-3, and Heaviside response values to 5e-4 (or 1e-10 absolute for near-zero values). Coverage tests verify all degrees and time points are present."""
+category = "geophysics"
+tags = ["fortran-compilation", "viscoelastic-modeling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/viscoelastic-love-numbers"

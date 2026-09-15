@@ -1,0 +1,25 @@
+mutation CreateNewPost($input: CreatePostInput!) {
+  createPost(input: $input) {
+    id
+    title
+    body
+    tags
+    priority
+    author {
+      id
+      username
+    }
+    createdAt
+  }
+}
+
+mutation UpdateExistingPost($postId: ID!, $changes: UpdatePostInput!) {
+  updatePost(id: $postId, input: $changes) {
+    id
+    title
+    body
+    tags
+    priority
+    updatedAt
+  }
+}

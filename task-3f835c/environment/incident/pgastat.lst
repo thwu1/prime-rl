@@ -1,0 +1,23 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> COLUMN NAME FORMAT A45
+SQL> COLUMN VALUE FORMAT A20
+SQL> COLUMN UNIT FORMAT A10
+SQL> SELECT NAME, VALUE, UNIT FROM V$PGASTAT;
+
+NAME                                          VALUE                UNIT
+--------------------------------------------- -------------------- ----------
+aggregate PGA target parameter                268435456            bytes
+aggregate PGA auto target                     157286400            bytes
+global memory bound                           26843546             bytes
+total PGA inuse                               293601280            bytes
+total PGA allocated                           367001600            bytes
+maximum PGA allocated                         524288000            bytes
+total extra bytes read/written                891289600            bytes
+cache hit percentage                          62.5                 percent
+recompute count (total)                       150000
+over allocation count                         45
+
+10 rows selected.
+
+SQL> spool off

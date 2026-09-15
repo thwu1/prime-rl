@@ -1,0 +1,12 @@
+{
+  "trace_id": "trace_03_drother_pair",
+  "description": "Two DROther routers (R3 and R5) on broadcast network N1 - no adjacency formed",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R5", "event": "HelloReceived"},
+    {"time": 2, "router": "R5", "neighbor": "R3", "event": "HelloReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R5", "event": "2-WayReceived"},
+    {"time": 4, "router": "R5", "neighbor": "R3", "event": "2-WayReceived"},
+    {"time": 5, "router": "R3", "neighbor": "R5", "event": "HelloReceived"},
+    {"time": 6, "router": "R5", "neighbor": "R3", "event": "HelloReceived"}
+  ]
+}

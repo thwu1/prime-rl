@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a SysY-to-LLVM-IR code generator requires expert-level understanding of both source language semantics and LLVM IR's complex type/instruction system. Key challenges: (1) Designing a correct mapping from SysY's tree-structured AST to LLVM IR's SSA-based basic-block structure, choosing between alloca+load/store vs phi-node approaches for variable handling; (2) Mastering getelementptr (GEP) — LLVM's notoriously subtle address-computation instruction — for multi-dimensional array access, sub-array slicing for pass-by-reference parameters, and the interaction between opaque pointers and aggregate indexing; (3) Generating well-formed control flow graphs where every basic block has exactly one terminator, handling unreachable blocks after break/continue/return, and implementing short-circuit boolean evaluation via conditional branching with correct side-effect suppression; (4) Bridging SysY's C-style brace initialization (flat-fill and partial-brace alignment rules) to LLVM IR's static global initializer syntax and runtime store sequences for locals; (5) Working with the LLVM toolchain (clang, llvm-as, opt) for compilation, validation, and debugging of generated IR — tools that have complex interfaces and produce domain-specific error messages requiring deep IR knowledge to interpret."""
+solution_explanation = """The solution implements a single-pass recursive-descent code generator (~400 lines Python). It uses the alloca+load/store pattern throughout, avoiding phi nodes. Each local variable and parameter gets an alloca in the entry block. Expressions generate LLVM arithmetic/comparison instructions with zext for i1→i32 promotion. Short-circuit &&/|| use alloca-based result storage with conditional branching to skip the right-hand side. Arrays use getelementptr with the full array type for locals/globals and i32-based pointer arithmetic for array parameters. Global arrays with non-zero initializers use LLVM constant aggregate syntax; others use zeroinitializer. The generated IR is compiled with clang alongside a C runtime library implementing putint/putch/getint/etc."""
+verification_explanation = """18 public test programs (in /app/programs/) and 8 hidden test programs (embedded in test_state.py) cover all SysY features. Each test: (1) runs the codegen to produce LLVM IR, (2) compiles the IR with clang alongside the C runtime library to a native executable, (3) executes the binary and captures stdout + exit code, (4) compares against known-correct expected values. Tests specifically exercise: basic arithmetic, recursion, 1D/2D arrays, C-style brace initialization variants, pass-by-reference array mutation via GEP, short-circuit evaluation with side effects, nested block scoping, break/continue, const declarations, negative division/modulo (sdiv/srem semantics), global arrays, and unary operators."""
+category = "compilers"
+tags = ["llvm-ir-codegen", "compiler-backend"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1ca74b"

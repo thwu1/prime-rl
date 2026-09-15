@@ -1,0 +1,52 @@
+version: "1"
+params:
+  schema:
+    dry_run:
+      type: boolean
+      default: false
+    target_lib:
+      type: string
+      default: "react"
+state:
+  schema:
+    - name: shards
+      type: array
+      items:
+        type: object
+        properties:
+          shard_id: { type: string }
+          file_count: { type: number }
+    - name: processed_count
+      type: number
+nodes:
+  - id: analyze
+    name: Analyze Codebase
+    steps:
+      - name: Count files
+        run: |
+          shards@={"shard_id":"s1","file_count":15}
+          shards@={"shard_id":"s2","file_count":22}
+          shards@={"shard_id":"s3","file_count":8}
+          processed_count=0
+  - id: transform
+    name: Transform Shard
+    depends_on: [analyze]
+    strategy:
+      type: matrix
+      from_state: shards
+    steps:
+      - name: Apply JSSG transform
+        js-ast-grep:
+          js_file: "scripts/migrate.ts"
+          language: "tsx"
+      - name: Apply codemod
+        run: "codemod run --shard=${{ matrix.shard_id }} --lib=${{ params.target_lib }}"
+      - name: Apply dry-run check
+        if: params.dry_run == true
+        run: "codemod verify --shard=${{ matrix.shard_id }}"
+  - id: report
+    name: Generate Report
+    depends_on: [transform]
+    steps:
+      - name: Aggregate results
+        run: "generate-report --lib=${{ params.target_lib }}"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete correctly-rounded IEEE 754 binary32 cube root from a minimal skeleton that only handles special cases. The solver must: (1) devise a range-reduction scheme decomposing the float exponent as e = 3q + r with correct Euclidean division for negative exponents — C's truncation-toward-zero semantics make this non-trivial, (2) construct a double-precision bit-level initial approximation for cube root and derive the correct additive constant (0x2AA0000000000000) from IEEE 754 bias arithmetic, (3) implement Newton-Raphson refinement y=(2y+x/y²)/3 and determine through error analysis that exactly 4 iterations are needed (3 iterations yield only ~40-bit accuracy, insufficient for correct rounding of worst-case binary32 inputs that require ~29 extra bits beyond the 24-bit mantissa), (4) handle subnormal normalization with correct scaling factor and compensation exponent (-24, not the off-by-one trap of -23), (5) correctly reconstruct the final result by manipulating double-precision exponent bits, converting to float with IEEE round-to-nearest-even, and restoring the sign bit. Requires deep understanding of IEEE 754 representation, floating-point error analysis, Newton-Raphson convergence, the MPFR C library for reference testing, and C-level bit manipulation of float/double unions."""
+solution_explanation = """The implementation uses double-precision intermediates: (A) Subnormal inputs are scaled by 2^24 with e_adj=-24 exponent compensation. (B) The unbiased exponent e is decomposed via Euclidean division e = 3q + r (using (e-2)/3 for negative e to ensure 0≤r≤2). (C) The mantissa is placed in [1, 8) by setting the double exponent to 1023+r. (D) An initial cube root approximation is computed via the bit-hack bits(x)/3 + 0x2AA0000000000000 (derived from 2*bias*2^52/3). (E) Four Newton-Raphson iterations y=(2y+x/y²)/3 bring accuracy from ~5 bits to full double precision (~53 bits). (F) The result is scaled by 2^q via direct exponent addition, then converted to float and sign-restored."""
+verification_explanation = """Tests compile the implementation with an exhaustive MPFR-based verifier that checks 9 groups: special values, perfect cubes, all powers of 2 (including subnormal range), near-perfect-cube neighborhoods (±200 ULP), sampled subnormals (every 31st value), 1M random inputs via xorshift32, and exhaustive sweeps of [0.5,1), [1,2), [2,4) — totaling over 25 million test cases. Any single bit-level mismatch against MPFR's correctly-rounded result causes failure."""
+category = "mathematics"
+tags = ["floating-point", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5bcb69"

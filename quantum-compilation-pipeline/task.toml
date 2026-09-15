@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires quantum computing domain knowledge (unitary matrices, tensor products, Hamiltonian exponentiation), numerical differentiation of matrix-valued functions, understanding of quantum compiler pass architecture (async passes, circuit DAG manipulation, pickle constraints), and practical mastery of the BQSKit API for gate definition, machine modeling, and multi-pass compilation workflows."""
+solution_explanation = """Implement CrossResonanceGate with analytical unitary CR(θ)=cos(θ/2)I-i·sin(θ/2)(Z⊗X) and its derivative, write RotationFoldingPass using BQSKit's circuit pop/replace_gate API to merge consecutive RZ gates, then compile the input circuit using bqskit.compile() with a MachineModel configured for a 4-qubit linear chain with {CZ,RZ,SX} native gates, followed by a post-compilation rotation folding pass."""
+verification_explanation = """Tests verify CR gate unitary correctness at θ=0 and θ=π, unitarity for random angles, gradient agreement with numerical finite differences, rotation pass merge/elimination behavior on synthetic circuits with unitary preservation, and compiled circuit properties including native-gate-only compliance, coupling graph respect, and unitary equivalence to the input up to qubit permutation and global phase."""
+category = "quantum_computing"
+tags = ["quantum-compilation", "numerical-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-compilation-pipeline"

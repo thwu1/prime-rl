@@ -1,0 +1,31 @@
+FF10_NONPOINT: Area-Source Nonpoint Inventory Format
+(From SMOKE v5.3 Documentation, Chapter 6)
+
+File uses comma-delimited (list-directed) format. Lines beginning with '#' are
+header or comment lines.
+
+Required header lines:
+  #FORMAT FF10_NONPOINT
+  #COUNTRY <country_code>
+  #YEAR <year>
+  #DESC <description>       (optional, may repeat)
+
+Data record columns (comma-separated, 1-indexed):
+
+  Position  Field         Type       Description
+  ---------------------------------------------------------------
+  1         COUNTRY       Char(3)    Country code (e.g. "US", "CA", "MX")
+  2         REGION_CD     Char(5)    State/county FIPS code (SSCCC)
+  3         TRIBAL_CODE   Char(3)    Tribal code (optional)
+  4         CENSUS_TRACT  Char       Census tract (optional)
+  5         SHAPE_ID      Char       Shape ID (optional)
+  6         SCC           Char(20)   Source Classification Code
+  7         EMIS_TYPE     Char(3)    Emissions type (optional)
+  8         POLID         Char(16)   Pollutant code
+  9         ANN_VALUE     Real       Annual emissions (short tons/year)
+  10-45     [additional optional fields for controls, projections, monthly values]
+
+The COUNTRY field stores a country abbreviation. REGION_CD stores a 5-digit
+state+county FIPS (SSCCC format, where SS = 2-digit state code and CCC =
+3-digit county code). The full 6-digit FIPS used in cross-reference lookups
+is constructed by prepending a country digit to the REGION_CD.

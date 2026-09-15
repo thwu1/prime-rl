@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the DEC VT420 terminal specification to diagnose 5 subtle conformance bugs in a screen buffer implementation. The solver must independently explore the esctest2 test suite (39 files, ~3000 lines) to discover correct behavior for overlapping DECCRA copies, DECSERA vs DECERA character protection semantics (DEC vs ISO protection modes), origin mode coordinate translation across rectangular area operations, and DECSTBM cursor reset side effects. Each bug requires cross-referencing multiple esctest2 source files and understanding nuanced spec interactions that are not documented outside the test assertions themselves."""
+solution_explanation = """Read vtbuffer.py and systematically compare each operation against the esctest2 test expectations. Bug 1: DECCRA copies in-place without a temporary buffer, corrupting overlapping regions -- fix by snapshotting source cells first. Bug 2: DECSERA uses 'if not cell.protected' which treats ISO protection (mode 2) as protective -- fix to check 'cell.protected != 1' (only DEC mode). Bug 3: DECFRA bypasses _translate_coords, ignoring origin mode -- fix by adding coordinate translation. Bug 4: set_scrolling_region omits cursor reset to (1,1) -- add it per DECSTBM spec. Bug 5: DECERA incorrectly respects DEC character protection -- remove the protection check since DECERA erases unconditionally."""
+verification_explanation = """24 pytest tests organized by bug category exercise each conformance violation with targeted scenarios: overlapping DECCRA copies in both directions, DECSERA with DEC/ISO/mixed protection modes, DECFRA with and without origin mode, DECSTBM cursor position after region changes, and DECERA with various protection states. Integration tests combine multiple operations. All tests use the ScreenBuffer API directly with deterministic grid assertions."""
+category = "systems"
+tags = ["terminal-emulation", "vt420-conformance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-35772c"

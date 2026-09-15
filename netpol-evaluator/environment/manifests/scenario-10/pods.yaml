@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: envoy-proxy
+  namespace: mesh-control
+  labels:
+    app: envoy
+    role: proxy
+status:
+  podIP: "10.50.1.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: config-server
+  namespace: mesh-control
+  labels:
+    app: config
+    role: management
+status:
+  podIP: "10.50.1.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-a
+  namespace: mesh-data
+  labels:
+    app: processor
+    shard: a
+status:
+  podIP: "10.50.2.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-b
+  namespace: mesh-data
+  labels:
+    app: processor
+    shard: b
+status:
+  podIP: "10.50.2.2"

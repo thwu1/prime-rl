@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating CFD solver quality from multi-format benchmark submissions — parsing Tecplot ASCII, CSV with metadata headers, Fortran fixed-width scientific notation, JSON-lines, and TSV with comment blocks. The agent must independently determine appropriate grid convergence analysis methods, compute grid-independent extrapolated values, assess convergence order, detect anomalous solver behavior, and rank solvers using quantitative accuracy metrics against experimental data. Generating gnuplot comparison plots demands learning an unfamiliar scripting language. The combination of multi-format data parsing, CFD domain knowledge for convergence assessment, anomaly detection, and gnuplot interoperability makes this inaccessible to non-specialists."""
+solution_explanation = """Parse each of the five submission formats. For grid convergence, apply Richardson extrapolation using the three finest grids: compute observed order p = ln((f3-f2)/(f2-f1))/ln(r) and extrapolated value f_ext = f1 + (f1-f2)/(r^p-1). Detect the TAU_RSM anomaly at grid level 1 by checking convergence consistency. Compute RMS errors of finest-grid alpha-sweep predictions against experimental reference. Rank solvers by combined accuracy. Generate gnuplot scripts for convergence and drag polar plots."""
+verification_explanation = """Tests parse evaluation.json and verify: convergence orders within ±0.3 of reference (2.0 for second-order solvers, 1.0 for SU2_SA); extrapolated CL within ±0.005 and CD within ±0.002 of analytically known values; correct identification of best (CFL3D_SA) and worst (SU2_SA) solvers; TAU_RSM anomaly detected; ranking first two and last positions correct; PNG plot files and gnuplot scripts exist."""
+category = "engineering"
+tags = ["cfd-benchmarking", "multi-format-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-230cbf"

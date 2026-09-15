@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires querying a normalized SQLite database (three tables with foreign keys) to extract complete tournament state, then generating a valid FIDE TRF (Tournament Report File) — a complex fixed-width text format with precise column positioning that must be independently researched from FIDE's published specification. The agent must then apply deep knowledge of the FIDE Dutch System pairing rules (C.04.3, 2026 edition) including the 21-criterion hierarchy, colour preference taxonomy (absolute/strong/mild computed from colour difference and consecutive-colour detection), topscorer identification, float tracking from cumulative round-by-round scores, and the 5-level colour allocation cascade. Demands multi-tool interoperability: SQL proficiency for database access via sqlite3, understanding of the TRF format specification for file generation, and algorithmic implementation of the FIDE pairing criteria in code."""
+solution_explanation = """Query the SQLite database tables (tournament_info, players, round_results) using SQL to extract per-player colour history, opponent history, score, and round-by-round results. Generate a FIDE TRF file with correct fixed-width column positioning (33-char names, 4-char ratings, 10-char round blocks, etc.) from the extracted data. Compute cumulative scores to derive float history (downfloat/upfloat per round). For each candidate pairing set: check C1 (rematches via opponent list), C3 (non-topscorer pairs sharing absolute colour preference), colour allocation via the Article 5.2 cascade (preference comparison, strength ordering, alternation history, rank tiebreak, TPN parity), C12/C13 (colour preference denials at mild vs strong/absolute levels), and C14/C15 (repeat downfloat/upfloat violations from float history)."""
+verification_explanation = """Tests verify both the generated TRF file and the audit results. TRF tests check: file existence, presence of all 15 required header lines (012-132, XXR, XXC), correct player count, data consistency between TRF fixed-width columns and SQLite database (names, ratings, scores, round results verified at correct column positions), and adherence to the 10-character-per-round-block format. Audit tests compare each field of audit_result.json against pre-computed expected values for all 5 candidate sets, covering rematch detection, C3 violations, legality classification, colour allocation error counts, colour preference denials at both C12 and C13 levels, float violation counts for C14 and C15, quality penalty sums, and structural completeness."""
+category = "games_puzzles"
+tags = ["chess-tournament", "multi-tool-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/swiss-pairing-validator"

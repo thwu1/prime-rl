@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level debugging task requiring deep knowledge of SAT encoding theory, constraint satisfaction problem modeling, and bitmask-based backtracking algorithms. The solver must independently explore the pipeline, diagnose a subtle anti-diagonal bitmask computation error in the solution counter, identify that the SAT encoder's at-most-one encoding strategy produces quadratically many clauses and replace it with an efficient scheme using auxiliary variables, and correct misconfigured phase transition analysis parameters — all without hints about which components are broken or what algorithms to use."""
+solution_explanation = """Three bugs must be found and fixed: (1) The solution counter uses r+c+n-1 instead of r-c+n-1 for anti-diagonal bitmask positions, causing it to track diagonals twice and miss anti-diagonal conflicts entirely — fix requires understanding bitmask geometry of chess constraints. (2) The SAT encoder uses naive pairwise at-most-one encoding producing O(n^2) clauses per constraint group, exceeding the 9000-clause threshold for n=20 — must be replaced with an efficient encoding (e.g., Commander, ladder, or sequential counter) that introduces auxiliary variables and achieves O(n) clause scaling. (3) The phase transition script uses wrong board size (10 vs 14) and insufficient seeds (10 vs 50) — parameters must match benchmarks.json. Finally, the corrected phase transition analysis must be executed to generate results."""
+verification_explanation = """Tests verify: (1) generator produces valid deterministic non-attacking placements, (2) encoder outputs valid DIMACS CNF with auxiliary variables beyond n*n primary vars and stays under 9000 clauses for n=20, (3) solver correctly identifies known SAT/UNSAT instances and returns valid solutions preserving pre-placed queens, (4) counter returns exact known values (n=4:2, n=5:10, n=6:4, n=8:92, various partial placements), (5) counter and solver agree on satisfiability, (6) phase transition CSV contains 13 data rows for m=1..13 with monotonically decreasing satisfiability trend."""
+category = "combinatorial_optimization"
+tags = ["sat-encoding", "constraint-satisfaction"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nqueens-sat-pipeline"

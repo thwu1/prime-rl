@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deeply understanding a 58KB reverse-engineered binary format specification for ESRI FileGDB (varuint/varint encodings, type-specific field descriptions, nullable bitmaps, delta-encoded geometry coordinates with origin/scale transforms, dual-file .gdbtable/.gdbtablx parsing) AND producing valid OGC GeoPackage output—a second format requiring correct SQLite metadata schemas (gpkg_spatial_ref_sys, gpkg_contents, gpkg_geometry_columns), GeoPackage Standard Binary geometry blobs (GP header with envelope + OGC WKB payload), proper type mapping, and cross-validation with GDAL ogrinfo CLI. The solver must couple binary parsing, SQLite schema design, WKB encoding, and GDAL tool interoperability."""
+solution_explanation = """The solution implements a complete FGDB binary reader (BinaryReader with varuint/varint decoders, 40-byte header parser, type-dispatched field description parser, gdbtablx index reader, nullable bitmap decoder, point/polyline geometry decoders with origin/scale/delta transforms). It then creates a GeoPackage SQLite database with correct metadata tables, encodes each geometry as GeoPackage Standard Binary (GP magic + version + flags + srs_id + 2D envelope + OGC WKB), maps FGDB types to SQLite column types, and handles both spatial and non-spatial tables. The output passes ogrinfo validation."""
+verification_explanation = """Tests programmatically generate known-good .gdbtable/.gdbtablx binary files, run the converter, then verify GeoPackage correctness via: (1) SQLite metadata table structure (application_id, SRS entries, contents, geometry_columns), (2) feature table schema and data values via SQL queries, (3) geometry blob binary parsing to verify GeoPackage Standard Binary format with correct WKB encoding and 2D envelopes, (4) GDAL ogrinfo validation ensuring the output is recognized and features are accessible. Three test suites cover non-spatial tables, point geometry, and multi-part polyline geometry with null handling and deleted row exclusion."""
+category = "reverse_engineering"
+tags = ["binary-parsing", "geospatial", "format-conversion"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fgdb-binary-parser"

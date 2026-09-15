@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in multibody dynamics, numerical methods, and estimation theory. The stub files provide only function signatures, physical conventions, and I/O shapes — no equations or algorithmic guidance. The agent must independently derive the X-configuration mixing matrix from motor positions, implement quaternion kinematics in the scalar-last convention (getting the Hamilton product, rotation matrix, and kinematic derivative correct), formulate the full 6-DOF rigid-body equations of motion coupling translational and rotational dynamics (including gyroscopic terms), implement numerical integration that preserves quaternion manifold constraints, and design a system identification strategy to recover three physical constants from noisy flight recordings — all without being told what approach to use."""
+solution_explanation = """Derive the mixing matrix geometry from the motor positions (+/-d, +/-d) to map per-motor thrusts and reaction torques into net body wrench. Implement scalar-last Hamilton quaternion product and the standard quaternion-to-rotation-matrix formula. Formulate rigid-body state derivatives: translational acceleration from rotated thrust plus gravity minus drag, quaternion derivative from the kinematic relation, angular acceleration from Euler's equation with gyroscopic coupling. Build an RK4 integrator that renormalizes quaternions at each sub-step to prevent drift off the unit sphere. For system identification, finite-difference velocities from training data to obtain observed accelerations, then solve a nonlinear least-squares problem minimizing residuals between observed and model-predicted accelerations across all flights."""
+verification_explanation = """Tests verify: (1) body wrench produces correct thrust at hover and correct torques for asymmetric/yaw inputs, (2) rotation matrix correctness for identity, 90-degree rotations, and arbitrary orientations, (3) free-fall acceleration equals -g, (4) quaternion normalization preserved over 200+ integration steps, (5) hover positional stability within 1mm, (6) estimated parameters within 3-5% of true values, (7) predicted trajectories within 5cm position RMSE of ground truth for three distinct scenarios."""
+category = "robotics"
+tags = ["dynamics-simulation", "system-identification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quadrotor-sysid-predict"

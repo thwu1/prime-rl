@@ -1,0 +1,7 @@
+Implement the gravitational forward model for rectangular prisms in `/app/prism_gravity.py`.
+
+The mathematical specification in `/app/spec.md` describes the Nagy (2000) formulation with Fukushima (2020) numerically stable auxiliary functions for computing the gravitational potential, acceleration vector, and full gradient tensor of a uniform-density rectangular prism. Complete every function marked `raise NotImplementedError` in the skeleton file.
+
+The implementation must correctly handle all singularity branches in `safe_atan2` and `safe_log`, implement all 10 gravity field kernel functions (potential, 3 gradient components, 6 tensor components), implement the vertex summation over all 8 prism corners with correct signs, return NaN for tensor components when an observation point coincides with a prism vertex, satisfy Laplace's equation (g_ee + g_nn + g_uu = 0) for the gradient tensor at points external to the prism, and converge to the analytical infinite Bouguer slab solution (g_u -> -2*pi*G*rho*h) for large horizontal extent.
+
+Golden reference values for specific prism configurations are provided in `/app/reference_cases.json`. Your implementation must reproduce these values to within the specified numerical tolerances. Pay careful attention to the argument ordering in each `safe_log` call (the first argument identifies the coordinate appearing in the logarithm, with the other two being the remaining coordinates) and the sign conventions in the gradient kernels.

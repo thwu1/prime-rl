@@ -1,0 +1,98 @@
+{
+  "billing_groups": [
+    {
+      "id": "BG_Alpha",
+      "leader": "Bank_P",
+      "members": ["Bank_P", "Bank_Q"]
+    }
+  ],
+  "participants": [
+    {
+      "id": "AS_Alpha",
+      "type": "ancillary_system",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "daily_gross_underlying_value_eur_millions": 5500,
+      "cash_transfer_orders": 30000
+    },
+    {
+      "id": "Bank_X",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "payment_orders": 250000,
+      "addressable_bics": 5,
+      "unpublished_bics": 2,
+      "multi_addressee_bics": 1,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 4,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 2
+    },
+    {
+      "id": "Bank_P",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "payment_orders": 100000,
+      "addressable_bics": 0,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 3,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 1
+    },
+    {
+      "id": "Bank_Q",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "A",
+      "payment_orders": 45000,
+      "addressable_bics": 1,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 0,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 0
+    },
+    {
+      "id": "Bank_T",
+      "type": "payment_bank",
+      "service": "T2S",
+      "messages_bundled_into_file": 500,
+      "transmissions": 2000,
+      "u2a_queries": 100,
+      "a2a_queries": 800,
+      "a2a_reports": 10000,
+      "internal_t2s_liquidity_transfers": 200,
+      "intra_balance_movements": 30
+    },
+    {
+      "id": "PSP_Beta",
+      "type": "psp",
+      "service": "TIPS",
+      "tips_dcas": 1,
+      "tips_dca_aau_bics": 3,
+      "settled_ip_originator": 100000,
+      "unsettled_ip_originator": 5000,
+      "settled_ip_beneficiary": 80000,
+      "unsettled_ip_beneficiary": 0,
+      "settled_recall_originator": 1000,
+      "unsettled_recall_originator": 0,
+      "settled_recall_beneficiary": 0,
+      "unsettled_recall_beneficiary": 200
+    },
+    {
+      "id": "ACH_Gamma",
+      "type": "ach",
+      "service": "TIPS",
+      "tips_astas": 1,
+      "tips_asta_aau_bics": 3,
+      "internally_settled_ip": 28500000,
+      "settled_ip_originator": 0,
+      "unsettled_ip_originator": 0,
+      "settled_ip_beneficiary": 0,
+      "unsettled_ip_beneficiary": 0,
+      "settled_recall_originator": 0,
+      "unsettled_recall_originator": 0,
+      "settled_recall_beneficiary": 0,
+      "unsettled_recall_beneficiary": 0
+    }
+  ]
+}

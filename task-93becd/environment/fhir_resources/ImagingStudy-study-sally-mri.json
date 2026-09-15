@@ -1,0 +1,54 @@
+{
+  "resourceType": "ImagingStudy",
+  "id": "study-sally-mri",
+  "identifier": [
+    {
+      "system": "urn:dicom:uid",
+      "value": "urn:oid:1.2.826.0.1.3680043.8.499.4012345002"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "ACSN"
+          }
+        ]
+      },
+      "value": "a085557173658239"
+    }
+  ],
+  "status": "available",
+  "subject": {
+    "reference": "Patient/sally-siim"
+  },
+  "started": "2008-04-29",
+  "numberOfSeries": 1,
+  "numberOfInstances": 1,
+  "modality": [
+    {
+      "system": "http://dicom.nema.org/resources/ontology/DCM",
+      "code": "US"
+    }
+  ],
+  "description": "Bilateral Breast MRI",
+  "series": [
+    {
+      "uid": "1.2.826.0.1.3680043.8.499.4012345002.1",
+      "modality": {
+        "system": "http://dicom.nema.org/resources/ontology/DCM",
+        "code": "US"
+      },
+      "description": "T1",
+      "numberOfInstances": 1,
+      "instance": [
+        {
+          "uid": "1.2.826.0.1.3680043.8.499.4012345002.1.1",
+          "sopClass": {
+            "code": "1.2.840.10008.5.1.4.1.1.7"
+          }
+        }
+      ]
+    }
+  ]
+}

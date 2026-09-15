@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing quantum programs in the Quil instruction language (an unfamiliar domain-specific language), parsing GraphViz DOT hardware topology files, building a state-vector quantum circuit simulator handling parameterized gates with correct little-endian qubit indexing conventions, computing density matrix spectral properties via tensor algebra, constructing Hamiltonians from Pauli tensor products with matrix exponentiation for time dynamics, and performing graph-theoretic circuit-hardware compatibility analysis with DOT file generation. The multi-format input parsing (Quil + DOT + JSON), combined with the numerical precision requirements and cross-tool coordination, makes this task require both quantum computing domain expertise and multi-tool proficiency."""
+solution_explanation = """Write a Quil parser to tokenize gate instructions with parameter extraction. Parse the DOT topology file to extract the hardware connectivity graph. Implement a state-vector simulator applying gates via index-based amplitude manipulation for single-qubit gates and conditional bit operations for two-qubit gates. For the spectral transform, construct and apply the DFT unitary matrix. For subsystem entropy, reshape the state tensor, transpose to separate subsystem axes, contract to form the reduced density matrix, and eigendecompose it. For the Hamiltonian, build Pauli tensor products via Kronecker products, diagonalize for the spectrum, and use scipy matrix exponential for time evolution. For topology analysis, extract two-qubit gate pairs from the parsed circuit, compare against topology edges, and generate a DOT file for the interaction graph."""
+verification_explanation = """Tests independently compute reference state vectors using explicit matrix operations, verify DFT outputs against the analytical formula, compute entanglement entropy via independent eigendecomposition, and verify Hamiltonian eigenvalues and time-evolved expectations against scipy references. Topology analysis is verified against known edge counts and the DOT file is validated by running the graphviz dot command and checking edge structure via regex parsing. All numerical comparisons use tight tolerances."""
+category = "quantum_computing"
+tags = ["quantum-simulation", "multi-format-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4f151e"

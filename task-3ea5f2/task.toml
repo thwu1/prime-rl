@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level HPC benchmarking knowledge and multi-tool forensic skills. The agent must: (1) run and debug an unfamiliar awk/shell/bc FOM extraction pipeline to discover two bugs — the awk script exits on the first 'Loop time of' line (failing on restart logs) and uses >= 300 instead of > 300 for the boundary condition, (2) discover a manifest discrepancy where the validation run claims 32 nodes but the log shows 24 nodes, (3) implement corrected log parsing that handles SPARTA restarts (multiple statistics blocks), (4) fit two competing scaling models via regression and compute R² in FOM space, (5) store all results in an SQLite database using the provided schema, (6) generate gnuplot scaling visualizations with model fits, and (7) cross-validate the chosen model against a held-out run. The task demands proficiency with awk, bc, sqlite3, and gnuplot — all specialized tools in HPC sysadmin workflows — alongside statistical analysis and domain-specific knowledge."""
+solution_explanation = """Run the reference sparta_fom.sh against all logs to observe failures on scaling_16 (wall time < 600 from aborted first block) and incorrect boundary handling. Parse each SPARTA log robustly: detect multiple statistics blocks (restarts) and use the last valid block (wall_time >= 600s). Compute FOM per the ATS-5 spec: harmonic mean of QOI = Step*Np/CPU/1e6 for rows with strictly 300 < CPU < 600, divided by node count. Cross-reference manifest against actual MPI ranks to discover validation has 2688 ranks (24 nodes), not 3584 (32). Fit power-law (log-log regression) and Amdahl's (1/FOM vs p-1 regression), compute R² in original FOM space. Power-law achieves R² near 1.0 vs Amdahl's near 0.80, so select power-law. Populate SQLite database using the provided schema. Generate gnuplot data files and run gnuplot to produce the scaling plot. Write report.json with all findings."""
+verification_explanation = """Tests independently parse all log files with correct restart handling, recompute all FOM values, fit both scaling models, and compare against /app/report.json. FOM values are checked within 0.5% tolerance. Model parameters and R² within 5-15% tolerance. Tests verify the agent discovered the restart issue, manifest mismatch, and reference script bugs. Additionally, tests verify the SQLite database at /app/benchmark.db exists with correct schema and data (runs, scaling_models, audit_issues tables populated with matching values), and that /app/scaling_plot.png exists as a valid PNG image. Cross-validation checks actual node count is 24."""
+category = "scientific_computing"
+tags = ["hpc-benchmarking", "performance-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3ea5f2"

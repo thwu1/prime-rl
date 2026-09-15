@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must interpret a dense mathematical methodology specification and translate it into a correct, working implementation from scratch. The specification contains several non-obvious choices that differ from naive defaults: a particular area-weighting convention for spherical grids, a specific bias-correction factor, a rotation algorithm with precise angle formulas, and a significance test that uses a specific test statistic rather than the normalized alternative that appears more natural. The normalized variant is invalid for subtle statistical reasons explained in the specification, but a solver who skims rather than carefully reading will default to the wrong quantity and produce incorrect p-values. The pipeline spans preprocessing, linear algebra, iterative optimization, and Monte Carlo simulation — each stage feeds the next, so errors compound. Producing numerically precise output across all fields requires deep understanding of the mathematics and meticulous implementation."""
+solution_explanation = """Write a Python script that: loads NetCDF data via xarray; preprocesses according to the methodology spec (centering, area weighting, NaN removal); computes the cross-covariance matrix with the specified correction; performs truncated SVD retaining 6 modes; computes squared covariance fractions using all singular values; forms concatenated loadings and applies the specified rotation algorithm; sorts rotated modes by descending variance; computes expansion coefficient cross-correlations; runs the Monte Carlo permutation test with the specified RNG and test statistic; determines significance at the specified threshold; writes all results to /app/results.json."""
+verification_explanation = """Tests independently recompute the full pipeline from raw NetCDF data following the same methodology specification. Verification includes: exact feature counts after NaN removal, singular values within rtol=1e-4, rotation matrix orthogonality within atol=1e-5, rotated variance fractions within atol=2e-3 (sorted comparison for sign/order invariance), cross-correlation magnitudes within atol=0.03, permutation p-values within atol=0.015, exact count of significant modes, correct per-mode significance determinations, and sanity checks (leading modes significant, trailing modes not significant)."""
+category = "applied_computing"
+tags = ["climate-science", "statistical-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotated-mca-analysis"

@@ -1,0 +1,9 @@
+# TiDB System Variables for the monitored cluster
+# These values were active when the execution plans were captured.
+
+tidb_executor_concurrency: 8
+tidb_distsql_scan_concurrency: 20
+tidb_max_chunk_size: 1024
+tidb_index_lookup_size: 20000
+tidb_mem_quota_query: 1073741824
+gc_life_time: "10m0s"

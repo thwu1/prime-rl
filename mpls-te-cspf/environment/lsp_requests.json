@@ -1,0 +1,77 @@
+{
+  "lsps": [
+    {
+      "name": "lsp-gold",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 7,
+      "constraints": {
+        "include_all": [0]
+      },
+      "setup_priority": 0,
+      "hold_priority": 0
+    },
+    {
+      "name": "lsp-silver",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 7,
+      "constraints": {
+        "include_all": [1]
+      },
+      "setup_priority": 0,
+      "hold_priority": 0
+    },
+    {
+      "name": "lsp-diverse-1",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 5,
+      "constraints": {
+        "srlg_diverse_from": "lsp-gold"
+      },
+      "setup_priority": 1,
+      "hold_priority": 1
+    },
+    {
+      "name": "lsp-diverse-2",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 3,
+      "constraints": {
+        "srlg_diverse_from": "lsp-silver"
+      },
+      "setup_priority": 1,
+      "hold_priority": 1
+    },
+    {
+      "name": "lsp-best-effort",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 4,
+      "constraints": {},
+      "setup_priority": 7,
+      "hold_priority": 7
+    },
+    {
+      "name": "lsp-premium",
+      "source": "A",
+      "destination": "E",
+      "bandwidth_gbps": 5,
+      "constraints": {},
+      "setup_priority": 0,
+      "hold_priority": 0
+    },
+    {
+      "name": "lsp-constrained",
+      "source": "B",
+      "destination": "D",
+      "bandwidth_gbps": 2,
+      "constraints": {
+        "exclude": [1]
+      },
+      "setup_priority": 3,
+      "hold_priority": 3
+    }
+  ]
+}

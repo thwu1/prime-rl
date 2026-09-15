@@ -1,0 +1,9 @@
+A system administrator hardened this Ubuntu system according to DISA STIG requirements. Each of the 8 security controls defined in `/app/controls.json` appears correctly configured on surface inspection, but every control has a subtle defect — exploiting Linux configuration layering mechanisms — that renders it ineffective.
+
+Remediate all defects and produce three artifacts:
+
+`/app/validator.py` — A compliance validation engine that checks each of the 8 controls by modeling the actual configuration resolution behavior of each relevant subsystem. Surface-level value checks are insufficient; the validator must resolve effective values through the same precedence logic the system uses, including detecting dynamically introduced override files. Write structured JSON results to `/app/validator_results.json` (array of objects with fields: `id`, `status` [PASS/FAIL], `effective_value`, `expected_value`, `explanation`). After remediation the validator must report all controls as PASS.
+
+`/app/risk_assessment.json` — A severity-ranked JSON array evaluating each control's security impact. Each entry: `id`, `severity_score` (1-10), `attack_scenario` describing real-world exploitation of the misconfiguration, `cascading_impacts` (list of downstream security effects), `remediation_priority` (unique integer 1-8, 1 = most urgent), and `justification` for the ranking. The sole CAT I finding must receive priority 1.
+
+`/app/remediation_report.json` — A JSON array documenting each fix. Per-control entries: `id`, `root_cause` description, `files_modified` (list of paths changed), `fixed` (boolean).

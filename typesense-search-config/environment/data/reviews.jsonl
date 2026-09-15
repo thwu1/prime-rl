@@ -1,0 +1,10 @@
+{"id": "rev_1", "product_id": "prod_1", "rating": 5, "text": "Best laptop I have ever used", "user_id": "user_100"}
+{"id": "rev_2", "product_id": "prod_1", "rating": 4, "text": "Great performance but expensive", "user_id": "user_101"}
+{"id": "rev_3", "product_id": "prod_2", "rating": 3, "text": "Good value for money notebook", "user_id": "user_102"}
+{"id": "rev_4", "product_id": "prod_3", "rating": 5, "text": "Amazing display and camera quality", "user_id": "user_103"}
+{"id": "rev_5", "product_id": "prod_5", "rating": 4, "text": "Ultra thin and very powerful machine", "user_id": "user_104"}
+{"id": "rev_6", "product_id": "prod_5", "rating": 5, "text": "Perfect portable computer for work", "user_id": "user_105"}
+{"id": "rev_7", "product_id": "prod_10", "rating": 4, "text": "Great android phone overall", "user_id": "user_106"}
+{"id": "rev_8", "product_id": "prod_6", "rating": 5, "text": "Crystal clear 4K display quality", "user_id": "user_107"}
+{"id": "rev_9", "product_id": "prod_4", "rating": 2, "text": "Battery dies too fast", "user_id": "user_108"}
+{"id": "rev_10", "product_id": "prod_8", "rating": 4, "text": "Great for drawing and notes", "user_id": "user_109"}

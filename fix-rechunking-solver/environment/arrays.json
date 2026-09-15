@@ -1,0 +1,54 @@
+{
+  "arrays": [
+    {
+      "name": "grid_2d",
+      "description": "2D ocean grid temperature field, transposing chunk layout",
+      "target_chunks": [10, 200],
+      "max_mem": 32000,
+      "access_patterns": {
+        "column_extract": [1.0, 0.005],
+        "row_extract": [0.01, 1.0]
+      }
+    },
+    {
+      "name": "spectral",
+      "description": "2D spectral coefficient matrix, fully transposing chunks",
+      "target_chunks": [5, 500],
+      "max_mem": 40000,
+      "access_patterns": {
+        "mode_access": [0.002, 1.0],
+        "freq_scan": [1.0, 0.002]
+      }
+    },
+    {
+      "name": "climate_3d",
+      "description": "3D climate field (time x lat x lon), daily to yearly chunks",
+      "target_chunks": [365, 10, 10],
+      "max_mem": 1048576,
+      "access_patterns": {
+        "time_series": [1.0, 0.01, 0.01],
+        "spatial_slice": [0.003, 1.0, 1.0]
+      }
+    },
+    {
+      "name": "pressure_1d",
+      "description": "1D pressure time series, small to large chunks",
+      "target_chunks": [200],
+      "max_mem": 2000,
+      "access_patterns": {
+        "window_read": [0.01],
+        "full_read": [1.0]
+      }
+    },
+    {
+      "name": "velocity_2d",
+      "description": "2D velocity field, row-major to tile chunks",
+      "target_chunks": [200, 15],
+      "max_mem": 96000,
+      "access_patterns": {
+        "row_strip": [0.005, 1.0],
+        "tile_access": [0.05, 0.05]
+      }
+    }
+  ]
+}

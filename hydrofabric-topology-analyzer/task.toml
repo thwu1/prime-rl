@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing six interdependent subcommands over a GeoPackage-compatible SQLite hydrofabric database with no schema documentation in the instructions. The solver must reverse-engineer the relational data model from a raw SQL dump, discover the bipartite flowpath-nexus-catchment routing topology, implement graph cycle detection and multi-type topology validation, recursive upstream drainage-area accumulation at confluences without double-counting, reverse network traversal for upstream subsetting with cross-table referential integrity, deeply nested ngen BMI realization config generation with template substitution, segment-to-segment downstream resolution for t-route YAML config with joined hydraulic parameters, and Graphviz DOT network graph generation requiring understanding of DOT syntax and the `dot` rendering tool. The multi-format I/O pipeline (SQL→SQLite→Python graph analysis→JSON+YAML+DOT) and domain-specific conventions (GeoPackage metadata, CSDMS variable names, Muskingum routing parameters, hydroseq ordering) compound the difficulty."""
+solution_explanation = """The solution loads the SQL dump into in-memory SQLite via executescript, queries tables into Python dicts, builds lookup indices for O(1) traversal. Validate performs four passes: dangling-ref check on flowpath.toid vs nexus table, orphan-nexus detection via zero-upstream + non-existent downstream target, DFS-based cycle detection on the bipartite cat-nex graph, and cross-ref check on flowpath.divide_id vs divides. Drainage uses memoized recursive upstream traversal accumulating divide areas, excluding error features. Subset does BFS upstream from pour-point nexus alternating nexus→upstream-flowpaths and flowpath-catchment→upstream-nexuses. Realize deep-copies model-config templates substituting {{id}} per catchment. Route-config joins flowpath_attributes via SQL, resolves bipartite downstream to direct segment-to-segment, sorts by hydroseq descending, emits structured YAML. Graph generates DOT digraph with typed node shapes and directed routing edges, using subset topology."""
+verification_explanation = """Tests invoke each CLI subcommand and parse stdout: validate must detect all four planted error types; drainage values checked within 0.01 tolerance against hand-computed accumulations for 11 valid flowpaths; subset checked against exact feature ID sets for multiple pour points; realize verified for correct keys, module ordering, template preservation, per-catchment substitution, variable-name maps; route-config YAML parsed for segment count, hydroseq-descending ordering, downstream resolution correctness, attribute value accuracy; graph DOT output verified for correct node counts and shapes, edge connectivity, terminal nexus bold styling, and successful rendering via the `dot -Tsvg` command."""
+category = "hydrology"
+tags = ["graph-algorithms", "geospatial-data"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hydrofabric-topology-analyzer"

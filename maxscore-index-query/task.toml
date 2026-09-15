@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert IR knowledge: reverse-engineer a PISA-style binary inverted index where document postings use fixed-width uint32 but frequencies use Variable Byte encoding, extract BM25 parameters and term/document mappings from a SQLite metadata store via CLI queries, implement a MaxScore dynamic pruning algorithm for top-k retrieval, produce output in TREC run format with external document identifiers, compile the trec_eval C tool from source, and use it to evaluate retrieval quality against qrels. The agent must coordinate multiple unfamiliar tools (sqlite3 CLI, make/gcc for trec_eval compilation, trec_eval for IR evaluation, xxd for binary inspection) alongside custom Python implementation of VByte decoding and BM25 scoring."""
+solution_explanation = """The solution queries SQLite for BM25 params (k1, b, top_k), term-to-ID mapping, and doc-to-external-ID mapping. It decodes VByte-encoded frequencies by reading 7 data bits per byte with MSB continuation flag. It parses standard uint32 .docs and .sizes files, then implements MaxScore: sorts terms by ascending upper-bound BM25 score, maintains prefix sums, iterates essential cursors in docID order, conditionally evaluates non-essential terms. Outputs TREC run format using external doc IDs. Compiles trec_eval with make and runs it to produce NDCG@10 and MAP metrics. Combines everything into results.json."""
+verification_explanation = """Tests independently parse the binary index (including VByte decoding), read SQLite for config and mappings, and compute exhaustive BM25 top-k as ground truth. Each query's output is verified for correct document IDs and scores within 1e-3 tolerance. TREC run format is validated for structure and correct external doc IDs. Evaluation metrics are independently computed (NDCG@10, MAP) and compared against agent's reported values within 0.03 tolerance. Pruning effectiveness is enforced for 3+ term queries."""
+category = "information_retrieval"
+tags = ["search-engine", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/maxscore-index-query"

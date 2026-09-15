@@ -1,0 +1,64 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PostgreSQL security knowledge across multiple interacting domains:
+(1) recognizing that type-based quoting via needs_quoting() is architecturally wrong — not merely
+incomplete — because all dynamic values require parameterization regardless of column type;
+(2) understanding PL/pgSQL format() behavior with NULL arguments (%s produces empty string vs %L
+producing unquoted NULL literal), causing silent cascade failures for composite keys with nullable
+columns; (3) constructing safe dynamic SQL with variable numbers of key columns where
+EXECUTE...USING cannot be used (parameter count unknown at compile time), requiring format() with
+%I/%L; (4) understanding the SECURITY DEFINER + search_path interaction where dynamic SQL executes
+as the function owner with an uncontrolled object resolution path;
+(5) diagnosing a DDL event trigger that silently strips search_path from SECURITY DEFINER functions
+after CREATE OR REPLACE — the fix appears to apply without error but search_path does not persist,
+requiring investigation of pg_event_trigger system catalogs and understanding of ddl_command_end
+hooks to discover that the event trigger's stated rationale (INFRA-4821 policy) is itself incorrect;
+(6) discovering that a RULE on _cascade_log suppresses INSERT for update cascade operations,
+producing misleading diagnostic output when debugging cascade behavior via log inspection.
+These complications interact: the event trigger silently reverts search_path fixes until removed,
+and the log rule hides update cascade activity from the diagnostic log."""
+solution_explanation = """First, identify and remove environmental interference: drop the
+ddl_normalize event trigger and its handler function _ddl_normalize_handler(), then drop the
+cascade_log_suppress_updates rule on _cascade_log. Then fix the trigger functions: drop
+needs_quoting() and all information_schema type lookups. Replace all format('%s') for identifiers
+with %I and all manual value quoting (''%s'' and bare %s) with %L. Replace WHERE equality (=) with
+IS NOT DISTINCT FROM for NULL-safe composite key matching. Add SET search_path = pg_catalog, public
+to SECURITY DEFINER functions — which now persists because the event trigger has been removed.
+Use %I for table name interpolation in EXECUTE statements. format('%L', NULL) correctly produces
+the unquoted NULL literal, making IS NOT DISTINCT FROM NULL equivalent to IS NULL."""
+verification_explanation = """Tests verify: (1) basic single-key and composite-key cascades work
+including update and delete paths; (2) SQL injection payloads in WHERE and SET clause values don't
+corrupt unrelated rows; (3) values with single quotes, double quotes, and backslashes cascade
+correctly; (4) NULL values in composite key columns cascade correctly; (5) function source code
+doesn't use needs_quoting(), information_schema type queries, or ''%s'' patterns; (6) functions
+use %I/%L/USING/quote_ident/quote_literal; (7) functions are SECURITY DEFINER with search_path
+actually set and persisting; (8) no active ddl_command_end event triggers exist; (9) no rules on
+_cascade_log suppress logging; (10) cascade_log functionally records UPDATE cascade entries;
+(11) combined update-then-delete cascades maintain data consistency; (12) deliverable files exist
+and cover at least 3 vulnerability classes."""
+category = "security"
+tags = ["postgresql", "dynamic-sql-hardening"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascade-trigger-injection"

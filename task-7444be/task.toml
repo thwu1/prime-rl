@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge across multiple domains: (1) C shared library compilation and Makefile debugging (diagnosing missing -lm linker flag), (2) Python ctypes/FFI programming to write bindings from a C header file — including opaque pointer lifecycle management, array marshalling, and proper argtypes/restype declarations, (3) SQLite schema design and SQL aggregate queries for metric computation, and (4) dynamic optimization algorithm design featuring multi-population swarm management, gradient-based local search exploiting cone-peak geometry, environment change response strategies, and peak memory. The multi-tool interoperability (C toolchain → shared library → ctypes → Python → SQLite) creates genuine integration complexity beyond any single skill."""
+solution_explanation = """Fix the Makefile by adding -lm for math library linkage. Write a complete ctypes wrapper that loads libgmpb.so, declares all function signatures (argtypes/restype), and wraps the opaque gmpb_t* handle in a Python GMPB class with proper memory management (__del__ calling gmpb_free). Implement a multi-swarm particle swarm optimizer with constriction coefficients, dimension-scaled gradient ascent exploiting cone-peak geometry for efficient peak-center location, exclusion mechanism, peak memory archive, per-environment personal best re-evaluation, and memory-to-swarm swap for robust peak tracking. Create a SQLite database with env_results table, populate it via an evaluation-tracking wrapper that monitors environment changes and computes per-environment mean errors. Compute final offline error via SQL AVG(mean_error) query."""
+verification_explanation = """Tests verify: (1) the C shared library is compiled and loadable via ctypes, (2) the ctypes wrapper correctly creates GMPB instances, evaluates fitness, tracks environments, and enforces budget, (3) the SQLite database exists with correct schema and complete per-environment data for all three instances, (4) SQL-computed offline errors are consistent with results.json, (5) the optimizer achieves offline error below specified thresholds on a novel (non-task) problem instance to prevent hardcoded results."""
+category = "optimization"
+tags = ["dynamic-optimization", "ffi-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7444be"

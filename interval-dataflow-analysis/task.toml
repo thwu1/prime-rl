@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete integer range analysis engine over control flow graphs from scratch within a Maven-based Java project. The solver must understand Maven build conventions and dependency management (Gson), design an abstract domain for integer intervals with correct lattice semantics, implement abstract arithmetic including subtle cases (negative-interval multiplication via four-corner analysis, division guarding against zero-containing divisors), build a convergent fixed-point computation that terminates on loops while recovering precision, and implement conditional branch refinement for six comparison operators in both variable-vs-constant and variable-vs-variable forms. The interplay between convergence and precision is subtle; getting both correct simultaneously on all test inputs demands proficiency-level understanding of program analysis theory and multi-tool Java build infrastructure."""
+solution_explanation = """The solution implements three main components: (1) An Interval class representing [lo,hi] or bot with operations for join (convex hull), meet (intersection), widening (widen bounds to infinity when they increase), and narrowing (replace infinity with finite bounds from recomputation), plus abstract arithmetic (add, sub, mul via four-corner analysis, div with zero-divisor check). (2) An IntervalStore class mapping variable names to intervals with component-wise lattice operations. (3) An IntervalAnalyzer that runs two-phase fixed-point iteration — ascending with widening at LOOP_HEADER blocks until convergence, then descending with narrowing — using a simple worklist. Branch refinement narrows variable intervals based on the condition and its negation for true/false successors. Uses Long.MIN_VALUE/4 and Long.MAX_VALUE/4 as sentinel infinity values to avoid overflow in arithmetic. The Main class outputs both text and Gson-serialized JSON."""
+verification_explanation = """Tests compile the Java code via Maven (mvn compile dependency:copy-dependencies) and run the analysis on 6 CFG inputs plus a dynamically-generated 7th covering: constant arithmetic, branching with condition refinement, loops requiring convergence and precision recovery, division with bounded and unbounded divisors, negative-interval multiplication, variable-to-variable comparison with unreachable code detection, and division-by-zero yielding full range. A JSON output validation test verifies the Gson-based structured report matches the text output. Each test checks specific interval values at specific block entry/exit points."""
+category = "program_analysis"
+tags = ["abstract-interpretation", "dataflow-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interval-dataflow-analysis"

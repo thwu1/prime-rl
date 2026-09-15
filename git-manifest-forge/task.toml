@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting corruption issues in a git repository without being told what they are: wrongly-sorted tree objects (alphabetical instead of Git's canonical directory-suffix sort, causing cascading SHA changes through trees, commits, and refs), a zeroed index checksum that blocks git status until fixed (forcing the solver to inspect the binary index format directly), a misplaced loose object stored at the wrong SHA path (requiring object store scanning and SHA verification), and a truncated working tree file. The solver must use git plumbing commands (fsck, cat-file, ls-tree, status), binary inspection tools, and Python zlib/hashlib/struct to discover and understand each issue before writing a repair script. The cascading tree sort fix is particularly challenging: fixing a subtree's sort order changes its SHA, which requires rewriting the parent tree (with the new child SHA and corrected sort), which changes the root tree SHA, which requires rewriting the commit object, updating refs, and cleaning up old corrupt objects to satisfy git fsck --strict."""
+solution_explanation = """Write a Python script that: (1) scans all loose objects and moves any whose SHA-1 doesn't match their storage path, (2) recursively parses tree objects bottom-up, re-sorts entries with Git's canonical sort key (directories get '/' suffix for comparison), writes new tree objects with correct sort order, (3) rewrites commit objects that reference changed trees with updated tree SHAs, (4) updates refs/heads/main to the new HEAD commit SHA, (5) deletes old corrupt tree and commit objects so they don't cause git fsck errors, (6) recomputes the index file's SHA-1 trailer checksum, (7) restores truncated working tree files by reading correct content from blob objects."""
+verification_explanation = """Tests run the solver's repair.py then verify the repaired repository using: git fsck --full --strict for structural integrity (checks stderr for residual errors), git log for commit history/authors/timestamps, git ls-tree for tree structure and canonical sort order (data.txt before data/, lib.py before lib/ before lib0.py — the core sort-order corruption), git ls-files --stage for index-tree SHA consistency, direct binary parsing of the index file for DIRC header/version/entry count/SHA-1 checksum, git status --porcelain for clean working tree, and content verification of blob objects including zlib+header format checks."""
+category = "systems"
+tags = ["git-internals", "binary-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/git-manifest-forge"

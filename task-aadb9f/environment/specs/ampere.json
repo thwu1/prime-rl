@@ -1,0 +1,14 @@
+{
+  "name": "ampere",
+  "compute_capability": "8.0",
+  "max_threads_per_multiprocessor": 2048,
+  "max_warps_per_multiprocessor": 64,
+  "max_thread_blocks_per_multiprocessor": 32,
+  "max_threads_per_block": 1024,
+  "warp_size": 32,
+  "max_registers_per_multiprocessor": 65536,
+  "register_alloc_unit_size": 128,
+  "max_shared_memory_per_multiprocessor": 167936,
+  "shared_memory_alloc_unit_size": 128,
+  "max_shared_memory_per_block": 101376
+}

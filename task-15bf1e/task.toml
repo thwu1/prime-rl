@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a full 42-coefficient multiparameter equation of state for CO2 from scratch, discovering three distinct residual term types from the CoolProp JSON structure and computing their first and second partial derivatives. The NonAnalytic terms involve auxiliary functions with fractional-power singularities that are numerically treacherous near the critical point. Beyond the EOS core, a vapor-liquid equilibrium saturation solver must solve coupled nonlinear equations, a density inversion solver is needed, and a transcritical refrigeration cycle analysis requires nested root-finding. Additionally, the solver must navigate complex nested JSON with jq, write a Makefile orchestrating a multi-step pipeline, and produce a gnuplot-rendered P-h diagram — demanding multi-tool proficiency across unfamiliar CLI tools."""
+solution_explanation = """The reference solution uses jq to extract EOS coefficients from the deeply nested CoolProp fluid JSON (navigating EOS[0].STATES.reducing, STATES.critical, EOS[0].alpha0, EOS[0].alphar). A Makefile orchestrates extract → compute → diagram with proper dependencies. The EOS implementation discovers and handles three residual term types from the JSON (Power with exponential damping, Gaussian with bell-shaped exponentials, NonAnalytic with auxiliary theta/Delta/psi functions). Properties are computed from Helmholtz derivative relations. The saturation solver uses fugacity matching with successive substitution. The density solver uses Newton-Raphson. The cycle analyzer chains these solvers for four state points. A gnuplot script reads results.json via system() calls to render the P-h diagram with log-scaled pressure axis."""
+verification_explanation = """Tests verify: (1) EOS accuracy at 9 state points across subcritical liquid/vapor, near-critical, and supercritical regions against NIST data (0.1% tolerance, 1% near-critical cp); (2) saturation solver at 5 temperatures from 220K to 295K; (3) density solver round-trip consistency; (4) Makefile existence with extract/compute/diagram/all targets using jq and gnuplot; (5) co2_coefficients.json extraction with correct structure; (6) ph_diagram.png existence and valid PNG format; (7) cycle results schema, COP ranges, energy balance identity, pressure consistency, and enthalpy self-consistency."""
+category = "applied_computing"
+tags = ["thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-15bf1e"

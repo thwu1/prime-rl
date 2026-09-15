@@ -1,0 +1,17 @@
+{
+  "name": "sof-viewdef-evaluator",
+  "version": "1.0.0",
+  "description": "SQL-on-FHIR ViewDefinition evaluator",
+  "scripts": {
+    "start": "ts-node src/cli.ts",
+    "test": "ts-node src/cli.ts run testdata/*.json"
+  },
+  "dependencies": {
+    "fhirpath": "4.10.1"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3",
+    "ts-node": "10.9.2",
+    "@types/node": "20.11.5"
+  }
+}

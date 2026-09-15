@@ -1,0 +1,22 @@
+# Mortality basis and adjustments for reserve valuation
+
+basis:
+  law: makeham
+  parameters:
+    A: 0.00015
+    B: 4.0e-6
+    c: 1.110
+
+adjustments:
+  method: multiplicative
+  bands:
+    - range: [0, 30]
+      factor: 0.90
+    - range: [31, 50]
+      factor: 0.95
+    - range: [51, 70]
+      factor: 1.00
+    - range: [71, 100]
+      factor: 1.05
+    - range: [101, 130]
+      factor: 1.10

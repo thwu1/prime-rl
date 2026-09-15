@@ -1,0 +1,70 @@
+{
+  "Essential Hypertension": [
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I11.9", "display": "Hypertensive heart disease without heart failure"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I13.10", "display": "Hypertensive heart and chronic kidney disease"}
+  ],
+  "Qualifying Encounters": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit, established patient, low complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99214", "display": "Office visit, established patient, moderate complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99215", "display": "Office visit, established patient, high complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99395", "display": "Periodic preventive medicine, 18-39 years"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99396", "display": "Periodic preventive medicine, 40-64 years"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99397", "display": "Periodic preventive medicine, 65+ years"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99341", "display": "Home visit, new patient"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99342", "display": "Home visit, new patient, moderate complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99421", "display": "Online digital evaluation, 5-10 minutes"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "98966", "display": "Telephone assessment, 5-10 minutes"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99385", "display": "Initial preventive medicine, 18-39 years"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99386", "display": "Initial preventive medicine, 40-64 years"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99387", "display": "Initial preventive medicine, 65+ years"}
+  ],
+  "Encounter Inpatient": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99221", "display": "Initial hospital care, low complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99222", "display": "Initial hospital care, moderate complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99223", "display": "Initial hospital care, high complexity"},
+    {"system": "http://snomed.info/sct", "code": "32485007", "display": "Hospital admission"}
+  ],
+  "Emergency Department Visit": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99281", "display": "ED visit, self-limited problem"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99282", "display": "ED visit, low complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99283", "display": "ED visit, moderate complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99284", "display": "ED visit, high complexity"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "99285", "display": "ED visit, high complexity with threat"}
+  ],
+  "Pregnancy": [
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.90", "display": "Supervision of high risk pregnancy, unspecified"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O80", "display": "Encounter for full-term uncomplicated delivery"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z33.1", "display": "Pregnant state, incidental"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O26.90", "display": "Pregnancy related condition, unspecified"}
+  ],
+  "End Stage Renal Disease": [
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.6", "display": "End stage renal disease"}
+  ],
+  "Chronic Kidney Disease, Stage 5": [
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.5", "display": "Chronic kidney disease, stage 5"}
+  ],
+  "Kidney Transplant Recipient": [
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z94.0", "display": "Kidney transplant status"}
+  ],
+  "Kidney Transplant": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "50360", "display": "Renal allotransplantation, implantation"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "50365", "display": "Renal allotransplantation, from living donor"}
+  ],
+  "Dialysis Services": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "90935", "display": "Hemodialysis procedure with single evaluation"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "90937", "display": "Hemodialysis procedure requiring repeated evaluation"}
+  ],
+  "ESRD Monthly Outpatient Services": [
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "90960", "display": "ESRD related services, per full month, age 20+"},
+    {"system": "http://www.ama-assn.org/go/cpt", "code": "90961", "display": "ESRD related services, per full month, age 12-19"}
+  ],
+  "Hospice": [
+    {"system": "http://snomed.info/sct", "code": "385763009", "display": "Hospice care"},
+    {"system": "http://snomed.info/sct", "code": "385765002", "display": "Hospice care management"}
+  ],
+  "Palliative Care": [
+    {"system": "http://snomed.info/sct", "code": "443761007", "display": "Anticipatory palliative care"},
+    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z51.5", "display": "Encounter for palliative care"}
+  ]
+}

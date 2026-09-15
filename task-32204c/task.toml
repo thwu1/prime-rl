@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a pcap file to extract UDP payloads matching specific multicast ports, interpreting a custom binary protocol with channel-level framing and 64-byte XMBO records, deduplicating records delivered across redundant multicast channels, reconstructing independent per-instrument limit order books with correct semantics for five distinct action types (Add/Cancel/Modify/Trade/Fill), detecting channel-level sequence gaps, computing market microstructure analytics (VWAP, spread tracking, iceberg reload detection with sub-millisecond timing), and writing structured results to a multi-table SQLite database. Demands integrated understanding of network packet analysis, binary protocol parsing, financial market data infrastructure, and order book mechanics."""
+solution_explanation = """Use tshark or raw pcap parsing to extract UDP packets filtered by destination ports from the reference database. Parse each UDP payload's 8-byte channel header (channel ID, sequence start, message count) and decode the 64-byte XMBO records within. Track per-channel sequences for gap detection. Deduplicate records by their embedded record sequence number and sort globally. Process per-instrument: maintain order book state mapping order_id to (price, qty, side), handle all five action types with correct semantics, accumulate VWAP from trade/fill events, track max spread when both sides exist, and detect iceberg reloads (fills followed by adds at same price/side within 100us). Write per-instrument metrics, individual trades, gap reports, and per-packet latency to the output SQLite database."""
+verification_explanation = """Tests verify the output SQLite database against hardcoded expected values computed from the deterministic data generation (seed 54321). Checks include: correct schema (4 tables with proper columns), per-instrument VWAP and volume within tolerance, correct trade counts, gap detection on channel A (intentionally injected gaps), non-empty latency table, structural invariants (positive prices, bid < ask, non-negative volumes), and cross-table consistency (metrics totals match trades table aggregates). Expected values are embedded in the test file which is not accessible to the agent during solving."""
+category = "systems"
+tags = ["market-data", "pcap-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-32204c"

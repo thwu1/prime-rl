@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level game AI and game theory knowledge. The agent must: (1) reverse-engineer hidden game mechanics by identifying discrepancies between a simplified documented engine and the actual black-box simulator — discovering 5 undocumented mechanics (consecutive attack bonus, critical hit, shield fatigue, mana surplus scaling, attrition drain) requires systematic empirical analysis and source code inspection; (2) perform multi-objective optimization over an 8-dimensional integer parameter space with tightened constraints (fairness>=0.72, decisiveness>=0.72, depth>=0.58, variety>=0.48, composite>=0.80, no strategy >56%) plus cross-seed robustness verification; (3) compute a 3x3 game-theoretic payoff matrix and solve for the mixed-strategy Nash equilibrium using support enumeration or linear programming — requiring understanding of strategic dominance and indifference conditions; (4) orchestrate a multi-tool pipeline producing 6 interrelated output artifacts. The hidden mechanics create non-obvious parameter interactions (e.g., consecutive attack bonus amplifying aggressive strategy, shield fatigue degrading defensive strategy in late game, mana surplus rewarding charge-then-cast patterns) that make blind optimization insufficient."""
+solution_explanation = """Build a comprehensive analysis and optimization pipeline: (1) read woa-sim source to discover 5 hidden mechanics not present in game_engine.py — consecutive attack bonus (1.25x at 3+ consec), critical hit (1.5x when HP<=25%), shield fatigue (diminishing after turn 50), mana surplus spell scaling (bonus from leftover mana), attrition drain (HP loss after turn 50); (2) embed the true engine and run three-phase search: random sampling, hill climbing across multiple seeds, then seed-targeted refinement with robustness validation on a secondary seed; (3) compute the full 3x3 payoff matrix by simulating all 9 ordered strategy matchups; (4) solve for Nash equilibrium via support enumeration over all non-empty subsets of {h,a,d}, checking indifference conditions and best-response validity; (5) produce SQLite database, balance report, mechanics report, payoff matrix, and Nash equilibrium JSON."""
+verification_explanation = """Loads parameters and validates types/ranges. Runs 300 games per matchup (6 matchups) with seed=50000 using an independent reference engine. Checks tightened per-matchup thresholds (fairness>=0.72, decisiveness>=0.72, depth>=0.58, variety>=0.48). Verifies no strategy exceeds 56% aggregate win rate and overall composite>=0.80. Tests robustness by re-running with seed=60000 (composite>=0.70, per-matchup>=0.50). Verifies mechanics report identifies >=4 of 5 hidden mechanics via keyword matching. Computes reference 3x3 payoff matrix (500 games, seed=50000) and checks submitted matrix within tolerance 0.015 — this implicitly verifies correct engine usage. Validates Nash equilibrium: probabilities form valid distribution, best-response condition holds (active strategies have equal expected payoff within 0.045, no inactive strategy yields higher payoff). Checks tournament.db schema and data completeness, and balance_report.json structure."""
+category = "optimization"
+tags = ["game-ai", "game-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6be033"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-species chemical equilibrium solver coupled with rocket nozzle expansion analysis. The solver must handle constrained optimization for equilibrium composition, nonlinear iteration for combustion temperature, and coupled thermodynamic state calculations along the nozzle. The nested iteration structure (temperature iteration wrapping equilibrium solve wrapping nozzle expansion) creates significant debugging and convergence challenges. Demands expertise in computational thermochemistry, constrained nonlinear optimization, and rocket propulsion theory."""
+solution_explanation = """Uses scipy SLSQP to minimize Gibbs free energy at each (T,P) point subject to element conservation constraints. Chamber temperature found via bisection on enthalpy. Throat found by maximizing rho*v along the isentrope using bounded scalar minimization. Exit conditions found by root-finding on the area ratio equation. Each evaluation requires an isentropic temperature solve (bisection on entropy), which itself calls the equilibrium solver. Total ~2000-4000 equilibrium evaluations, each a small constrained optimization."""
+verification_explanation = """Tests load /app/results.json and compare all computed values against NASA RP-1311 Example 8 reference data. Checks chamber temperature, c*, throat conditions, and exit performance (Isp, CF, Ivac, Mach) at three area ratios with relative tolerances of 1.5-2.5%. Also verifies chamber equilibrium composition (H2, H2O mole fractions) against published values."""
+category = "physics_engineering"
+tags = ["computational-thermochemistry", "rocket-propulsion"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rocket-nozzle-equilibrium"

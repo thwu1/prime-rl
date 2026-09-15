@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a self-similar blast wave solver from first principles. The solver involves computing interdependent similarity exponents from gas dynamics parameters, evaluating nonlinear similarity functions, numerically integrating energy integrands with near-singular behavior, implementing shock jump conditions, and solving a nonlinear inverse mapping problem to generate full radial profiles across three geometries. Numerical precision challenges arise in the energy integral quadrature and root-finding for the spatial-to-similarity variable inversion."""
+solution_explanation = """The solution implements all five API functions following the Kamm & Timmes mathematical framework. Similarity exponents are computed from algebraic expressions involving geometry, gamma, and omega. Sedov functions are evaluated by constructing intermediate variables and combining them with power-law exponents. Energy integrals are computed via scipy.integrate.quad with tight absolute tolerance. Post-shock quantities follow directly from Rankine-Hugoniot relations. The full profile solver uses bounded optimization to find the similarity variable corresponding to each spatial position, then maps through the Sedov functions to physical quantities."""
+verification_explanation = """Tests verify: (1) exact algebraic values of similarity exponents for known parameter combinations, (2) Sedov function values at specific points against published reference data for all three geometries, (3) energy integrals and normalization constant against reference values, (4) post-shock Rankine-Hugoniot conditions for multiple geometries and gamma values, and (5) full profile properties including ambient conditions outside the shock, density enhancement near the shock, velocity monotonicity, and non-negativity of thermodynamic quantities."""
+category = "computational_physics"
+tags = ["self-similar-solutions", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-88e9b4"

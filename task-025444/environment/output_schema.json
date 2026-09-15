@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "OWASP Benchmark scoring engine output schema",
+  "type": "object",
+  "required": ["tools", "ranking"],
+  "properties": {
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "categories", "overall"],
+        "properties": {
+          "name": {"type": "string"},
+          "commercial": {"type": "boolean"},
+          "categories": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["tp", "fn", "fp", "tn", "tpr", "fpr"],
+              "properties": {
+                "tp": {"type": "integer", "minimum": 0},
+                "fn": {"type": "integer", "minimum": 0},
+                "fp": {"type": "integer", "minimum": 0},
+                "tn": {"type": "integer", "minimum": 0},
+                "tpr": {"type": "number", "minimum": 0, "maximum": 1},
+                "fpr": {"type": "number", "minimum": 0, "maximum": 1}
+              }
+            }
+          },
+          "overall": {
+            "type": "object",
+            "required": ["macro_tpr", "macro_fpr", "youdens_j"],
+            "properties": {
+              "macro_tpr": {"type": "number"},
+              "macro_fpr": {"type": "number"},
+              "youdens_j": {"type": "number"}
+            }
+          }
+        }
+      }
+    },
+    "ranking": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["rank", "name", "youdens_j"],
+        "properties": {
+          "rank": {"type": "integer", "minimum": 1},
+          "name": {"type": "string"},
+          "youdens_j": {"type": "number"}
+        }
+      }
+    }
+  }
+}

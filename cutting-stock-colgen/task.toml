@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-phase problem solving: (1) exploring scattered production data across /app/ in multiple formats (TOML config, CSV order batches, production logs) to identify relevant vs. archived data, (2) reconciling net demand by aggregating orders, subtracting cancellations, and deducting prior partial fulfillments parsed from a crash log, (3) recognizing the resulting problem as a 1D cutting stock / bin packing instance, and (4) implementing the Gilmore-Gomory column generation algorithm (iterative LP master + integer knapsack pricing subproblem) with pattern pool augmentation to close the integrality gap and achieve the provably optimal 113-roll solution. Naive heuristics yield 114-115 rolls; only exact column generation with diverse pattern augmentation reaches the LP relaxation ceiling."""
+solution_explanation = """The solution first gathers data: parses stock_specs.toml for the active roll width (5600mm), aggregates orders from three batch CSVs, subtracts canceled.csv quantities and prior_run.log partial fulfillments to compute 15 net demands. It then implements Gilmore-Gomory column generation using PuLP/CBC: initializes with trivial+greedy patterns, iteratively solves LP relaxation and knapsack pricing to generate columns, augments the pattern pool with combinatorial heuristic patterns, and solves the final integer program to obtain the optimal 113-roll cutting plan."""
+verification_explanation = """Tests hardcode the known net demands (derived deterministically from the environment data files) and verify: (1) solution JSON exists and is well-formed, (2) every cutting pattern respects the 5600mm stock width, (3) all 15 item demands are met or exceeded, (4) pattern counts are consistent with stated objective, (5) total rolls used equals or beats the known optimal of 113."""
+category = "optimization"
+tags = ["column-generation", "cutting-stock"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cutting-stock-colgen"

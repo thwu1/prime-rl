@@ -1,0 +1,117 @@
+# Search Evaluation Framework Specification
+
+data:
+  corpus: data/corpus.jsonl
+  judgments_db: data/judgments.db
+  systems:
+    bm25:
+      file: data/systems/bm25.run
+      format: trec
+    dense:
+      file: data/systems/dense.json.gz
+      format: gzipped_json
+    sparse:
+      file: data/systems/sparse.csv
+      format: csv
+
+relevance_aggregation:
+  method: expertise_weighted_mean
+  description: >
+    The judgments database contains ratings from multiple annotators with
+    varying expertise levels. Each annotator has a numeric 'weight' field
+    in the annotators table reflecting their reliability. Aggregate the
+    relevance for each (query_id, doc_id) pair as the weighted mean of
+    annotator ratings (weighted by annotator expertise weight from the
+    annotators table), rounded to the nearest integer.
+
+metrics:
+  - name: "ndcg@10"
+    description: >
+      Normalized Discounted Cumulative Gain at cutoff 10.
+      DCG@k = sum_{i=1}^{k} (2^{rel_i} - 1) / log2(i + 1)
+      where i is 1-based position.
+      IDCG@k uses the same formula with the ideal ranking (sorted by
+      relevance descending). nDCG@k = DCG@k / IDCG@k. Return 0 if IDCG is 0.
+  - name: "map@10"
+    description: >
+      Mean Average Precision at cutoff 10.
+      AP@k = (sum of precision@i for each relevant doc at positions 1..k)
+             / min(R, k)
+      where R is the total number of relevant documents (relevance > 0)
+      in the qrels for that query. If R = 0, AP = 0.
+  - name: "mrr"
+    description: >
+      Mean Reciprocal Rank. RR = 1 / rank of first relevant document
+      (no cutoff). If no relevant document appears, RR = 0.
+  - name: "p@10"
+    description: >
+      Precision at 10. Fraction of top-10 retrieved documents that have
+      relevance > 0.
+
+fusion:
+  system_order: [bm25, dense, sparse]
+  rrf:
+    description: >
+      Reciprocal Rank Fusion. For each document d, RRF score =
+      sum over systems of 1 / (k + rank_d) where rank is 1-based.
+      Grid search over k_candidates to find the k that maximizes
+      mean nDCG@10 across all queries.
+    k_candidates: [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  combsum:
+    description: >
+      CombSUM with per-system weights and min-max normalization.
+      For each system, min-max normalize scores to [0, 1] per query.
+      Then compute weighted sum: score(d) = sum_i w_i * norm_score_i(d).
+      Grid search over all weight combinations from weight_range at
+      weight_step granularity. Skip all-zero weight combinations.
+      Optimize for mean nDCG@10.
+    weight_step: 0.2
+    weight_range: [0.0, 1.0]
+  combmnz:
+    description: >
+      CombMNZ with min-max normalization. For each document d,
+      CombMNZ score = (sum of min-max normalized scores across systems)
+      * (count of systems that returned d). No tunable parameters.
+
+significance:
+  method: paired_bootstrap
+  description: >
+    Paired bootstrap resampling test for statistical significance of
+    nDCG@10 differences between individual systems.
+    For each pair (A, B) of the three individual systems:
+    1. Compute per-query nDCG@10 scores for both A and B.
+    2. For each of B iterations, sample n query indices with replacement
+       (where n = number of queries), using a fresh RandomState(seed=42)
+       per pair.
+    3. Count how many iterations have resampled mean(A) >= resampled mean(B).
+    4. Let ratio = count / B.
+    5. Two-tailed p_value = 2 * min(ratio, 1 - ratio).
+    Report p_value and whether the difference is significant at alpha.
+  iterations: 10000
+  seed: 42
+  metric: "ndcg@10"
+  alpha: 0.05
+
+output:
+  file: report.json
+  schema:
+    individual_systems:
+      description: "Mapping of system name -> {metric_name: float}"
+      keys: [bm25, dense, sparse]
+      metrics: ["ndcg@10", "map@10", "mrr", "p@10"]
+    fusion_methods:
+      rrf:
+        metrics: ["ndcg@10", "map@10", "mrr", "p@10"]
+        extra: {best_k: "int, optimal k parameter"}
+      combsum:
+        metrics: ["ndcg@10", "map@10", "mrr", "p@10"]
+        extra: {best_weights: "list of 3 floats, per-system weights in system_order"}
+      combmnz:
+        metrics: ["ndcg@10", "map@10", "mrr", "p@10"]
+    best_method: "string, name of method with highest nDCG@10 among all six"
+    best_ndcg: "float, highest nDCG@10 across all methods"
+    improvement_over_best_single: "float, best_ndcg minus best individual system nDCG@10"
+    significance_tests:
+      description: "Pairwise statistical significance between individual systems"
+      keys: [bm25_vs_dense, bm25_vs_sparse, dense_vs_sparse]
+      value_keys: ["p_value", "significant"]

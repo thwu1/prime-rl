@@ -1,0 +1,13 @@
+// Discard continuation (zero-shot): early exit from loop
+effect Break {
+    Quit()
+}
+
+def loop(n) = handle {
+    if n <= 0 then do Quit()
+    else (print(n); loop(n - 1))
+} with Break {
+    return(x) => unit
+    Quit(resume) => unit
+};
+loop(5)

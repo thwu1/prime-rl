@@ -1,0 +1,14 @@
+[
+  {"customer_as": 65001, "provider_set": [65002, 65003]},
+  {"customer_as": 65002, "provider_set": [65005, 65006]},
+  {"customer_as": 65003, "provider_set": [65005, 65007]},
+  {"customer_as": 65004, "provider_set": [65006]},
+  {"customer_as": 65005, "provider_set": [65008]},
+  {"customer_as": 65006, "provider_set": [65008]},
+  {"customer_as": 65007, "provider_set": [65008]},
+  {"customer_as": 65008, "provider_set": []},
+  {"customer_as": 65010, "provider_set": [65001]},
+  {"customer_as": 65011, "provider_set": [65010]},
+  {"customer_as": 65020, "provider_set": [65006]},
+  {"customer_as": 65030, "provider_set": [65005, 65007]}
+]

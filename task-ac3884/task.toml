@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two binary serialization formats from scratch: DNS wire format (RFC 1035) with label compression pointers and BitTorrent bencoding. The agent must correctly serialize 7 different DNS record types (A, AAAA, NS, CNAME, MX, TXT, SOA) each with distinct RDATA encodings, implement suffix-sharing label compression with offset tracking across a multi-record serialized stream, compute HMAC-SHA1 piece digests (not plain SHA1) using a specific 8-byte key over 384-byte pieces (not the conventional 512), sort records by (type_code, name, rdata) rather than the conventional (name, type), produce a bencoded manifest with 7 sorted byte-string keys including algorithm and fingerprint fields, build an HTTP API with 6 endpoints, and run an authoritative DNS server on UDP. The non-standard piece length, HMAC keying, and sort order prevent rote application of standard BitTorrent or DNS serialization patterns."""
+solution_explanation = """Solution implements a threaded HTTP server on port 8080 and a UDP DNS server on port 5353 sharing a thread-safe ZoneStore. Zone records are serialized by sorting on (RTYPE_MAP[type], name, rdata), encoding names with a suffix compression table tracking absolute byte offsets, and encoding RDATA per type (struct.pack for A/AAAA, label encoding for NS/CNAME/MX/SOA, length-prefixed strings for TXT). The serialized data is split into 384-byte pieces with HMAC-SHA1 digests (key=0xa3f7c9e1d2b4685f) concatenated into a bencoded manifest that also carries algorithm and fingerprint fields. DNS responses use compression from the question section. Bencoding handles ints, byte strings, lists, and dicts with sorted keys."""
+verification_explanation = """Tests create a zone via HTTP POST with 9 records spanning all 7 supported types using task-specific data (domain relay-9f.nebula.internal, IP 10.47.203.91, MX priority 20, SOA serial 2025071542), then trigger snapshot creation. Manifest validation decodes bencoded response and checks all 7 required keys including algorithm=hmac-sha1 and fingerprint=0xa3f7c9e1d2b4685f. Piece integrity tests download each piece and verify HMAC-SHA1 with the task key. Sort order is verified by parsing the concatenated wire format and checking (type_code, name) tuples are non-decreasing. DNS tests send raw UDP queries for each record type and parse wire-format responses, verifying specific IP addresses, MX priority/exchange, CNAME targets, NS nameservers, TXT content containing the fingerprint, and SOA fields. Label compression is verified by checking NS response size. Concurrency tests send 20 parallel HTTP and 10 parallel DNS queries."""
+category = "networking"
+tags = ["dns", "bittorrent"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ac3884"

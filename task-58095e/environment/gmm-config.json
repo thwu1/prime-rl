@@ -1,0 +1,33 @@
+{
+  "description": "Ground motion model logic tree with mixed distance metrics and sigma decomposition",
+  "formula_notes": "ln(Y) = c0 + c1*(M-6) + c2*(M-6)^2 + c3*ln(sqrt(D^2 + h^2)) + c_site*ln(Vs30/v_ref) [+ c_ztor*ln(Ztor+1) when present]. D is the distance metric specified by distanceType. sigma is total (TOTAL) or sqrt(tau^2+phi^2) (PARTITIONED).",
+  "imt_periods": {
+    "PGA": 0.0,
+    "SA0P2": 0.2,
+    "SA1P0": 1.0
+  },
+  "models": [
+    {
+      "id": "GMM_A",
+      "weight": 0.6,
+      "distanceType": "R_JB",
+      "sigmaModel": "TOTAL",
+      "coefficients": {
+        "PGA":  {"c0": 0.60, "c1": 1.00, "c2": -0.10, "c3": -0.80, "h": 5.0, "c_site": -0.36, "v_ref": 760.0, "sigma": 0.65},
+        "SA0P2": {"c0": 1.10, "c1": 1.10, "c2": -0.12, "c3": -0.85, "h": 5.0, "c_site": -0.42, "v_ref": 760.0, "sigma": 0.70},
+        "SA1P0": {"c0": -0.30, "c1": 0.90, "c2": -0.08, "c3": -0.70, "h": 5.0, "c_site": -0.60, "v_ref": 760.0, "sigma": 0.72}
+      }
+    },
+    {
+      "id": "GMM_B",
+      "weight": 0.4,
+      "distanceType": "R_RUP",
+      "sigmaModel": "PARTITIONED",
+      "coefficients": {
+        "PGA":  {"c0": 0.30, "c1": 0.90, "c2": -0.08, "c3": -0.75, "h": 6.0, "c_site": -0.32, "v_ref": 760.0, "c_ztor": -0.02, "tau": 0.35, "phi": 0.48},
+        "SA0P2": {"c0": 0.80, "c1": 1.00, "c2": -0.10, "c3": -0.80, "h": 6.0, "c_site": -0.38, "v_ref": 760.0, "c_ztor": -0.03, "tau": 0.38, "phi": 0.52},
+        "SA1P0": {"c0": -0.50, "c1": 0.80, "c2": -0.06, "c3": -0.65, "h": 6.0, "c_site": -0.55, "v_ref": 760.0, "c_ztor": -0.04, "tau": 0.40, "phi": 0.53}
+      }
+    }
+  ]
+}

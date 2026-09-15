@@ -1,0 +1,26 @@
+[
+  {
+    "id": "P001", "pH": 7.25, "PaCO2": 28, "HCO3": 12,
+    "Na": 140, "K": 5.2, "Cl": 100, "albumin": 40,
+    "glucose": 25, "urea": 8, "measured_osmolality": 310,
+    "ethanol_mg_dl": null, "PaO2": 95, "FiO2": 0.21,
+    "SaO2": 0.97, "SvO2": 0.72, "PcvCO2": 33,
+    "Ca": 2.2, "Mg": 0.9, "lactate": 2.0, "chronicity": "acute"
+  },
+  {
+    "id": "P004", "pH": 7.15, "PaCO2": 18, "HCO3": 6,
+    "Na": 135, "K": 5.5, "Cl": 100, "albumin": 40,
+    "glucose": 5, "urea": 3, "measured_osmolality": 340,
+    "ethanol_mg_dl": 50, "PaO2": 100, "FiO2": 0.40,
+    "SaO2": 0.98, "SvO2": 0.60, "PcvCO2": 25,
+    "Ca": 2.1, "Mg": 0.85, "lactate": 6.0, "chronicity": "acute"
+  },
+  {
+    "id": "P008", "pH": 7.40, "PaCO2": 40, "HCO3": 24,
+    "Na": 140, "K": 4.0, "Cl": 104, "albumin": 40,
+    "glucose": 5.0, "urea": 5, "measured_osmolality": 290,
+    "ethanol_mg_dl": null, "PaO2": 100, "FiO2": 0.21,
+    "SaO2": 0.98, "SvO2": 0.73, "PcvCO2": 44,
+    "Ca": 2.4, "Mg": 1.0, "lactate": 1.0, "chronicity": "acute"
+  }
+]

@@ -1,0 +1,273 @@
+{
+  "suite_name": "Diameter Rx Conformance (TS 101 580)",
+  "registry": {
+    "aaa_2xx_base_tmpl": {
+      "t": "record",
+      "fields": {
+        "message_type": {"tmpl": {"t": "exact", "v": "AAA"}, "opt": false},
+        "result_code": {"tmpl": {"t": "range", "lo": 2000, "hi": 2999}, "opt": false},
+        "session_id": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "aaa_success_tmpl": {
+      "t": "record",
+      "fields": {
+        "message_type": {"tmpl": {"t": "exact", "v": "AAA"}, "opt": false},
+        "result_code": {"tmpl": {"t": "range", "lo": 2000, "hi": 2999}, "opt": false},
+        "session_id": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "aaa_success_media_tmpl": {
+      "t": "modifies",
+      "base": "aaa_2xx_base_tmpl",
+      "delta": {
+        "media_component": {"t": "any"}
+      }
+    },
+    "aaa_error_tmpl": {
+      "t": "record",
+      "fields": {
+        "message_type": {"tmpl": {"t": "exact", "v": "AAA"}, "opt": false},
+        "result_code": {"tmpl": {"t": "range", "lo": 5000, "hi": 5999}, "opt": false},
+        "session_id": {"tmpl": {"t": "any"}, "opt": false},
+        "error_message": {"tmpl": {"t": "any"}, "opt": true}
+      }
+    },
+    "sta_success_tmpl": {
+      "t": "record",
+      "fields": {
+        "message_type": {"tmpl": {"t": "exact", "v": "STA"}, "opt": false},
+        "result_code": {"tmpl": {"t": "range", "lo": 2000, "hi": 2999}, "opt": false},
+        "session_id": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    }
+  },
+  "sut_responses": {
+    "aar_basic": {"message_type": "AAA", "result_code": 2001, "session_id": "sess-af-001"},
+    "aar_media": {"message_type": "AAA", "result_code": 2001, "session_id": "sess-af-002", "media_component": {"media_type": "audio", "codec": "AMR", "bandwidth": 64000}},
+    "str_basic": {"message_type": "STA", "result_code": 2001, "session_id": "sess-af-003"},
+    "aar_timeout": null,
+    "aar_error": {"message_type": "AAA", "result_code": 5012, "session_id": "sess-af-005", "error_message": "UNABLE_TO_COMPLY"},
+    "aar_legacy": {"message_type": "AAA", "result_code": 2001, "session_id": "sess-af-006"}
+  },
+  "test_cases": [
+    {
+      "id": "TC_AF_IPS_01",
+      "description": "AF sends AA-Request and receives successful AA-Answer from PCRF",
+      "pics_expr": "PICS_DIA_RX",
+      "group": "AF/IP-Sessions/Establish",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "aar_basic"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "aaa_success_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "aaa_error_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "TC_AF_IPS_02",
+      "description": "AF sends AA-Request with media component description and receives AAA with media info",
+      "pics_expr": "PICS_DIA_RX AND PICS_MEDIA_COMP",
+      "group": "AF/IP-Sessions/MediaComp",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "aar_media"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "aaa_success_media_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "aaa_error_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "TC_AF_STR_01",
+      "description": "AF sends Session-Termination-Request and receives successful STA",
+      "pics_expr": "PICS_DIA_RX AND PICS_SESSION_TERM",
+      "group": "AF/SessionTermination",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "str_basic"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "sta_success_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "TC_AF_IPS_03",
+      "description": "AF sends AA-Request to unresponsive PCRF and verifies timeout handling",
+      "pics_expr": "PICS_DIA_RX",
+      "group": "AF/IP-Sessions/Timeout",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "aar_timeout"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "aaa_success_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "TC_AF_IPS_04",
+      "description": "AF sends AA-Request and correctly identifies error response from PCRF",
+      "pics_expr": "PICS_DIA_RX",
+      "group": "AF/IP-Sessions/Error",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "aar_error"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "aaa_success_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "aaa_error_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "TC_AF_LEG_01",
+      "description": "Verify non-legacy AF correctly handles basic AA exchange",
+      "pics_expr": "PICS_DIA_RX AND NOT PICS_LEGACY_MODE",
+      "group": "AF/Legacy",
+      "components": {"mtc": {}},
+      "timers": {"TWait": 5.0},
+      "behavior": {
+        "mtc": [
+          {"op": "send", "msg_key": "aar_legacy"},
+          {"op": "start_timer", "name": "TWait"},
+          {"op": "alt", "alts": [
+            {
+              "guard": "receive",
+              "template_ref": "aaa_success_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "pass"}
+              ]
+            },
+            {
+              "guard": "receive",
+              "template_ref": "aaa_error_tmpl",
+              "body": [
+                {"op": "stop_timer", "name": "TWait"},
+                {"op": "setverdict", "v": "fail"}
+              ]
+            },
+            {
+              "guard": "timeout",
+              "timer": "TWait",
+              "body": [
+                {"op": "setverdict", "v": "inconc"}
+              ]
+            }
+          ]}
+        ]
+      }
+    }
+  ]
+}

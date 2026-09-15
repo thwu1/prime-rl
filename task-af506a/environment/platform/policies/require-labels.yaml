@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v2beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Standard Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      All workload resources must have the standard Kubernetes labels
+      'app.kubernetes.io/name' and 'app.kubernetes.io/managed-by' to
+      ensure consistent resource identification and management.
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-required-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              apiVersions:
+                - "apps/v1"
+              operations:
+                - CREATE
+                - UPDATE
+          - resources:
+              kinds:
+                - Service
+              apiVersions:
+                - "v1"
+              operations:
+                - CREATE
+                - UPDATE
+      validate:
+        cel:
+          expressions:
+            - expression: >-
+                has(object.metadata.labels) &&
+                'app.kubernetes.io/name' in object.metadata.labels &&
+                'app.kubernetes.io/managed-by' in object.metadata.labels
+              message: "Resources must have 'app.kubernetes.io/name' and 'app.kubernetes.io/managed-by' labels."

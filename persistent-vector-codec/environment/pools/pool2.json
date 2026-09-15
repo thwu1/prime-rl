@@ -1,0 +1,25 @@
+{
+  "B": 2,
+  "BL": 2,
+  "leaves": [
+    [10, [1, 2, 3, 4]],
+    [11, [5, 6, 7, 8]],
+    [12, [9, 10, 11, 12]],
+    [13, [13, 14, 15, 16]],
+    [14, [17, 18, 19, 20]],
+    [15, [21, 22, 23, 24]],
+    [16, [100, 200, 300]]
+  ],
+  "inners": [
+    [20, {"children": [10], "relaxed": false}],
+    [21, {"children": [10, 11, 12, 13], "relaxed": false}],
+    [22, {"children": [21, 23], "relaxed": false}],
+    [23, {"children": [14], "relaxed": false}]
+  ],
+  "vectors": [
+    {"root": 20, "tail": 11, "size": 8},
+    {"root": 21, "tail": 14, "size": 20},
+    {"root": 22, "tail": 15, "size": 24},
+    {"root": null, "tail": 16, "size": 3}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "types": {
+    "mod.f1@x": {"kind": "Any"},
+    "mod.f1@y": {"kind": "Any"},
+    "mod.f1::return": {"kind": "Any"},
+    "mod.f2@data": {"kind": "Any"},
+    "mod.f2@name": {"kind": "Any"},
+    "mod.f2::return": {"kind": "Any"},
+    "mod.Config.debug": {"kind": "Any"},
+    "mod.Config.name": {"kind": "Any"},
+    "mod.process@items": {"kind": "Any"},
+    "mod.process::return": {"kind": "Any"},
+    "mod.transform@matrix": {"kind": "Any"},
+    "mod.transform::return": {"kind": "Any"},
+    "mod.parse@raw": {"kind": "Any"},
+    "mod.parse::return": {"kind": "Any"},
+    "mod.handle@path": {"kind": "Any"},
+    "mod.handle::return": {"kind": "Any"},
+    "mod.aggregate@values": {"kind": "Any"},
+    "mod.aggregate@weights": {"kind": "Any"},
+    "mod.aggregate::return": {"kind": "Any"},
+    "mod.convert@source": {"kind": "Any"}
+  }
+}

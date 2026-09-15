@@ -1,0 +1,19 @@
+{
+  "description": "GPU-CPU swap operations",
+  "config": {"num_gpu_blocks": 6, "num_cpu_blocks": 4},
+  "operations": [
+    {"op": "allocate", "args": {"seq_id": 1, "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}},
+    {"op": "allocate", "args": {"seq_id": 2, "token_ids": [10, 11, 12, 13]}},
+    {"op": "allocate", "args": {"seq_id": 3, "token_ids": [20, 21, 22, 23]}},
+    {"op": "select_preemption_victim", "args": {}},
+    {"op": "swap_out", "args": {"seq_id": 3}},
+    {"op": "swap_out", "args": {"seq_id": 2}},
+    {"op": "allocate", "args": {"seq_id": 4, "token_ids": [30, 31, 32, 33, 34, 35, 36, 37]}},
+    {"op": "free", "args": {"seq_id": 1}},
+    {"op": "swap_in", "args": {"seq_id": 2}},
+    {"op": "swap_in", "args": {"seq_id": 3}},
+    {"op": "free", "args": {"seq_id": 2}},
+    {"op": "free", "args": {"seq_id": 3}},
+    {"op": "free", "args": {"seq_id": 4}}
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing an algorithm to invert containerlab's four-level property inheritance model. The solver must deeply understand the asymmetry between scalar field resolution (first-match: node > group > kind > defaults) and map field resolution (overlay merge: defaults < kind < group < node), then create a factoring strategy that correctly promotes shared properties to higher inheritance levels without introducing spurious keys via map merge side-effects. Naively promoting map keys to a shared level breaks nodes that shouldn't have those keys, since map merge is additive and keys cannot be removed at more specific levels. Additionally, scalar fields at the group level override kind-level values, so group image/type must not be set when group members have different kinds with different values for those fields. The clustering/grouping decision requires evaluating which node similarities can be safely exploited given these dual resolution semantics — a novel algorithmic design problem with no existing solution to reference."""
+solution_explanation = """The solution implements a multi-pass factoring algorithm: (1) compute defaults as the intersection of all nodes' properties — for maps, only keys present in ALL nodes with the same value; for scalars, only if uniform across all nodes; (2) compute kind-level properties as the intersection of same-kind nodes minus defaults; (3) cluster nodes by type and compute group-level map properties as the intersection of cluster members' desired state minus defaults (NOT minus kind, because group overlays kind in map merge order), while group scalars require ALL members to have the same desired value; (4) compute per-node remainders after simulating the full resolution chain. The key insight is that map fields use safe-intersection (only keys present in ALL nodes at that level) to prevent spurious inheritance, while scalar fields at a group level override kind-provided values and must be set only when all group members agree."""
+verification_explanation = """Tests run the compiler on three progressively complex flat topologies, parse the factored output, and verify semantic equivalence by resolving both flat and factored topologies through the same Python resolver and comparing per-node state. Additional tests verify: inheritance features are used (defaults/kinds/groups), per-node properties are reduced, map field isolation is correct (env keys don't leak to nodes that shouldn't have them), scalar field handling respects the resolution order, edge cases like single-node and all-identical topologies work correctly, and factoring quality achieves at least 40% reduction for the hardest topology."""
+category = "networking"
+tags = ["containerlab", "topology-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clos-topology-processor"

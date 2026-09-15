@@ -1,0 +1,23 @@
+{
+  "name": "q005",
+  "template": "diamond4",
+  "join_graph": {
+    "nodes": ["a", "b", "c", "d"],
+    "edges": [["a", "b"], ["a", "c"], ["b", "d"], ["c", "d"]]
+  },
+  "subplans": {
+    "a": {"actual": 1000, "estimated": 100},
+    "b": {"actual": 800, "estimated": 8000},
+    "c": {"actual": 600, "estimated": 600},
+    "d": {"actual": 1200, "estimated": 120},
+    "a,b": {"actual": 5000, "estimated": 500},
+    "a,c": {"actual": 3000, "estimated": 3000},
+    "b,d": {"actual": 4000, "estimated": 4000},
+    "c,d": {"actual": 2000, "estimated": 200},
+    "a,b,c": {"actual": 15000, "estimated": 1500},
+    "a,b,d": {"actual": 20000, "estimated": 2000},
+    "a,c,d": {"actual": 8000, "estimated": 8000},
+    "b,c,d": {"actual": 12000, "estimated": 12000},
+    "a,b,c,d": {"actual": 40000, "estimated": 4000}
+  }
+}

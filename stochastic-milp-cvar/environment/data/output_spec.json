@@ -1,0 +1,23 @@
+{
+  "_description": "Required output format for /app/results/analysis.json",
+  "cost_minimizing": {
+    "opened_facilities": "sorted list of 0-indexed facility IDs selected for opening",
+    "total_cost": "total cost (facility opening + expected variable transport costs)",
+    "expected_transport_cost": "probability-weighted average transport cost across all scenarios",
+    "fixed_cost": "total facility opening cost"
+  },
+  "risk_aware": {
+    "opened_facilities": "sorted list of 0-indexed facility IDs selected for opening",
+    "total_cost": "total cost including facility opening, expected transport, and risk penalty",
+    "expected_transport_cost": "probability-weighted average transport cost",
+    "fixed_cost": "total facility opening cost",
+    "tail_risk_value": "the average transport cost in the worst (1-confidence)% of scenarios, as measured by the risk-aware model",
+    "risk_threshold": "the cost level at which scenarios begin to be considered worst-case"
+  },
+  "comparison": {
+    "facilities_differ": "boolean: do the two plans open different facility sets?",
+    "additional_facilities_in_risk_plan": "list of facility IDs opened in risk-aware but not cost-minimizing",
+    "expected_cost_change_pct": "percentage change in expected transport cost (risk-aware vs cost-minimizing)",
+    "tail_risk_change_pct": "percentage change in tail risk (risk-aware vs cost-minimizing, negative means reduction)"
+  }
+}

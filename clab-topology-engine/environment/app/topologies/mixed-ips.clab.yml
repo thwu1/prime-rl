@@ -1,0 +1,17 @@
+name: mixed-ips
+mgmt:
+  ipv4-subnet: 10.0.0.0/28
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+  nodes:
+    alpha:
+      mgmt-ipv4: 10.0.0.2
+    bravo: {}
+    charlie: {}
+    delta:
+      mgmt-ipv4: 10.0.0.3
+  links:
+    - endpoints: ["alpha:eth1", "bravo:eth1"]
+    - endpoints: ["charlie:eth1", "delta:eth1"]

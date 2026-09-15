@@ -1,0 +1,13 @@
+{
+  "name": "branch_tunnel",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 42},
+    "2": {"type": "Inop", "succ": 3},
+    "3": {"type": "Inop", "succ": 4},
+    "4": {"type": "Inop", "succ": 5},
+    "5": {"type": "Inop", "succ": 6},
+    "6": {"type": "Ireturn", "arg": "r1"}
+  }
+}

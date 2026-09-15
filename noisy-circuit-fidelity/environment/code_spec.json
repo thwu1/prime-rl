@@ -1,0 +1,61 @@
+{
+  "code": {
+    "name": "[[4,2,2]] error-detecting code",
+    "n_physical_qubits": 4,
+    "n_logical_qubits": 2,
+    "distance": 2,
+    "stabilizer_generators": ["XXXX", "ZZZZ"],
+    "logical_operators": {
+      "X_A": "XIXI",
+      "X_B": "XXII",
+      "Z_A": "ZZII",
+      "Z_B": "ZIZI"
+    },
+    "pauli_notation": "Each character is a single-qubit Pauli (I, X, Y, Z) acting on the corresponding qubit. E.g. XIXI means X on qubit 0, I on qubit 1, X on qubit 2, I on qubit 3."
+  },
+  "encoding_circuit": {
+    "description": "Prepares logical state |00>_L from initial state |0000>. Gates are listed in chronological order (first gate applied first).",
+    "initial_state": "|0000>",
+    "target_logical_state": "|00>_L",
+    "gates": [
+      {
+        "type": "H",
+        "target": 0,
+        "noisy": false
+      },
+      {
+        "type": "CNOT",
+        "control": 0,
+        "target": 1,
+        "noisy": true,
+        "noise_qubits": [0, 1]
+      },
+      {
+        "type": "CNOT",
+        "control": 1,
+        "target": 2,
+        "noisy": true,
+        "noise_qubits": [1, 2]
+      },
+      {
+        "type": "CNOT",
+        "control": 2,
+        "target": 3,
+        "noisy": true,
+        "noise_qubits": [2, 3]
+      }
+    ]
+  },
+  "noise_model": {
+    "type": "two_qubit_depolarizing",
+    "formula": "rho_out = (1-p)*rho + (p/15) * sum_{k=1}^{15} P_k rho P_k^dagger",
+    "pauli_basis": "The sum ranges over the 15 non-identity elements of {I,X,Y,Z}^{tensor 2} applied to the two noise qubits, embedded in the full 4-qubit Hilbert space via tensor product with identity on the remaining qubits.",
+    "parameter": "p",
+    "parameter_range": "[0, 1]",
+    "applied_after": "each CNOT gate on the gate's control and target qubits"
+  },
+  "post_selection": {
+    "description": "Project onto the codespace: the joint +1 eigenspace of all stabilizer generators.",
+    "projector_construction": "For stabilizer generators S_1, S_2, ..., the codespace projector is Pi = product_i (I + S_i) / 2"
+  }
+}

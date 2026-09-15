@@ -1,0 +1,64 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must implement a complete block-packed hash table with incremental
+dynamic resizing from a skeleton that provides only struct definitions and low-level helpers. No
+algorithm is named or described in the instructions — the agent must reverse-engineer the intended
+resizing strategy from the struct fields (total_slots, active_slots, countdown, rps), the calc_slot
+helper (which implements a folding scheme), and the behavioral expectations encoded in the tests.
+This requires holistic understanding of dynamic hashing theory, not just following a procedure.
+The agent must independently discover: (1) how calc_slot's folding maps to an incremental expansion
+scheme where active_slots advances one at a time through a doubled slot array, (2) the correct
+ordering constraint — active_slots must be incremented BEFORE scanning the partner slot for record
+migration, because calc_slot uses active_slots to route records — (3) that the countdown field gates
+expansion and must only decrement on new inserts, not updates, to prevent premature expansion,
+(4) how to distinguish same-length value updates (in-place memcpy) from different-length updates
+(remove + reinsert) while maintaining correct record counts, and (5) how block_remove must compact
+data via memmove to preserve the packed invariant. Getting any of these wrong causes silent data
+corruption that only manifests under load in the 50K-record stress tests."""
+solution_explanation = """The implementation requires ~250 lines of C across helper functions plus
+the 6 API functions. Key design decisions: (1) block_append writes RecHdr + key + value at the
+current used_bytes offset and updates block metadata; (2) block_remove compacts remaining data via
+memmove after the deleted record; (3) chain_find does linear scan across blocks matching key_len
+and key bytes; (4) chain_put walks the overflow chain to find a block with space or allocates a new
+overflow block; (5) expand doubles the slot array when all slots are active, then increments
+active_slots BEFORE scanning the partner slot so calc_slot maps migrating records to the new slot;
+(6) bht_insert tracks an is_update flag to skip countdown decrement for existing keys, does memcpy
+for same-length in-place value updates, and remove+reinsert for different-length updates; (7)
+bht_stats iterates all blocks accumulating only key_len+val_len for total_data_bytes, excluding
+the 4-byte RHDR. chain_gc frees empty overflow blocks, and chain_free recursively deallocates
+entire chains for bht_destroy."""
+verification_explanation = """Tests use Python ctypes to load libblockht.so and exercise the API.
+Twelve test cases cover: compilation and symbol exports, basic CRUD with same-length and
+different-length value updates, absent-key handling, variable-length records up to ~1800 bytes,
+50K-record mass insert with full verification, 30K insert-delete cycles with selective verification,
+expansion data preservation under tiny initial sizes (2 slots), exact expansion schedule timing
+with specific active_slots counts after each step, power-of-two invariant maintenance over 5000
+inserts, overflow block creation with 3000-byte records, comprehensive stats accuracy checking
+data bytes and allocation accounting, and update-vs-insert expansion isolation verifying that
+value updates do not trigger premature expansion."""
+category = "systems_programming"
+tags = ["hash-tables", "dynamic-hashing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fa8067"

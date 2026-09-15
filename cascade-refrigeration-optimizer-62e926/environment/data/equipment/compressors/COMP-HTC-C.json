@@ -1,0 +1,11 @@
+{
+  "model": "COMP-HTC-C",
+  "type": "semi-hermetic scroll",
+  "refrigerant_compatibility": ["R134a"],
+  "efficiency_curve": {
+    "type": "polynomial",
+    "variable": "pressure_ratio",
+    "coefficients": [0.87, -0.009, -0.002],
+    "formula": "eta_is = c0 + c1*PR + c2*PR^2"
+  }
+}

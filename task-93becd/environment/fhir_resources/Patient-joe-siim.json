@@ -1,0 +1,20 @@
+{
+  "resourceType": "Patient",
+  "id": "joe-siim",
+  "identifier": [
+    {
+      "system": "urn:oid:1.2.826.0.1.3680043.8.499",
+      "value": "TCGA-17-Z058"
+    }
+  ],
+  "name": [
+    {
+      "family": "SIIM",
+      "given": [
+        "Joe"
+      ]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1926-01-01"
+}

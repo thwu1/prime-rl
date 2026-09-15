@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of numerical linear algebra to implement Higham's alternating projections algorithm with Dykstra's correction for nearest correlation matrices, extended to handle weighted Frobenius norms and entry-preserving constraints. Additionally requires implementing modified Cholesky factorization via block LDL^T decomposition and computing both normwise and componentwise backward errors for linear systems. Getting all five problems correct with tight numerical tolerances demands careful handling of floating-point precision, convergence criteria, and the subtle interplay between projection steps — omitting the Dykstra correction term, for instance, causes convergence to a non-optimal point."""
+solution_explanation = """Implement the Higham alternating projections algorithm with Dykstra's correction: repeatedly project onto the positive semidefinite cone (via eigendecomposition, clamping negative eigenvalues to zero) and the unit-diagonal constraint set, accumulating the Dykstra correction term dS to ensure convergence to the true Frobenius-norm minimizer. For weighted problems, scale by sqrt(w_i * w_j) before PSD projection and unscale after. For constrained problems, restore fixed entries after each unit-diagonal projection. Compute modified Cholesky via scipy's LDL^T factorization (Bunch-Kaufman pivoting), perturbing the block-diagonal factor's eigenvalues to ensure positive definiteness and computing the resulting perturbation norm. Solve linear systems via Cholesky or LU and compute normwise (infinity-norm based) and componentwise backward errors using standard formulas from Higham's backward error analysis theory."""
+verification_explanation = """Each solution is verified for mathematical correctness: the nearest correlation matrix must be symmetric, have unit diagonal, and be positive semidefinite. Frobenius distances are compared against a reference alternating projections implementation to ensure near-optimality (within 0.1%). Weighted distances use the correct weighted norm. Constrained entries are checked for exact preservation. Modified Cholesky perturbation norms are verified against eigenvalue-based lower bounds. Linear system backward errors are independently recomputed from the reported solution and compared."""
+category = "numerical_analysis"
+tags = ["linear_algebra", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nearest-correlation-solver"

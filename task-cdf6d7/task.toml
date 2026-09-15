@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing groundwater transfer function models from scratch: discretizing impulse response functions (exponential and gamma) on a daily grid, convolving with a recharge signal computed from precipitation and evapotranspiration, handling non-equidistant observations via daily-index mapping, and jointly optimizing 4-5 physical parameters using nonlinear least squares. The agent must also implement AIC-based model comparison, temporal cross-validation with proper warmup handling, and compute residual diagnostics (Durbin-Watson, ACF). This combines applied hydrology domain knowledge with numerical optimization and time-series analysis skills at a professional level."""
+solution_explanation = """Build a daily recharge time series R=P-f*E, discretize exponential and gamma impulse responses as block responses, convolve with recharge using FFT, map non-equidistant observations to daily grid indices, optimize parameters via scipy.optimize.least_squares with multi-start, compute EVP/RMSE/AIC, select best model, re-fit on pre-2007 data for cross-validation, and compute residual diagnostics. Write structured JSON output."""
+verification_explanation = """Tests verify the existence and schema of results.json, check that model fit metrics (EVP, RMSE) fall within physically reasonable bounds, verify AIC-based model selection consistency, validate cross-validation performance metrics, and confirm diagnostic statistics are consistent with a well-fitted groundwater transfer function model."""
+category = "earth_science"
+tags = ["hydrology", "time-series-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cdf6d7"

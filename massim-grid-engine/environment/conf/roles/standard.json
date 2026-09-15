@@ -1,0 +1,26 @@
+[
+  {
+    "name": "default",
+    "vision": 5,
+    "actions": ["move", "skip", "attach", "detach", "rotate", "request", "submit", "connect", "disconnect", "clear", "adopt", "survey"],
+    "speed": [2, 1, 0],
+    "clearChance": 0.3,
+    "clearMaxDistance": 1
+  },
+  {
+    "name": "explorer",
+    "vision": 7,
+    "actions": ["move", "skip", "attach", "detach", "rotate", "request", "adopt", "survey"],
+    "speed": [3, 2, 1],
+    "clearChance": 0.0,
+    "clearMaxDistance": 0
+  },
+  {
+    "name": "worker",
+    "vision": 4,
+    "actions": ["move", "skip", "attach", "detach", "rotate", "request", "submit", "connect", "disconnect", "adopt", "survey"],
+    "speed": [2, 2, 1, 0],
+    "clearChance": 0.0,
+    "clearMaxDistance": 0
+  }
+]

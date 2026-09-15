@@ -1,0 +1,84 @@
+queries:
+  - id: Q01
+    from: frontend
+    to: backend-api
+    port: 8080
+    protocol: TCP
+
+  - id: Q02
+    from: staging-fe
+    to: backend-api
+    port: 8080
+    protocol: TCP
+
+  - id: Q03
+    from: backend-api
+    to: database
+    port: 5432
+    protocol: TCP
+
+  - id: Q04
+    from: frontend
+    to: database
+    port: 22
+    protocol: TCP
+
+  - id: Q05
+    from: monitoring
+    to: database
+    port: 5432
+    protocol: TCP
+
+  - id: Q06
+    from: frontend
+    to: cache
+    port: 6379
+    protocol: TCP
+
+  - id: Q07
+    from: backend-worker
+    to: cache
+    port: 6379
+    protocol: TCP
+
+  - id: Q08
+    from: backend-api
+    to: monitoring
+    port: 9090
+    protocol: TCP
+
+  - id: Q09
+    from: backend-api
+    to: monitoring
+    port: 8080
+    protocol: TCP
+
+  - id: Q10
+    from: staging-fe
+    to: monitoring
+    port: 9090
+    protocol: TCP
+
+  - id: Q11
+    from: frontend
+    to: backend-worker
+    port: 8080
+    protocol: TCP
+
+  - id: Q12
+    from: database
+    to: staging-fe
+    port: 443
+    protocol: TCP
+
+  - id: Q13
+    from: cache
+    to: monitoring
+    port: 9090
+    protocol: TCP
+
+  - id: Q14
+    from: database
+    to: backend-api
+    port: 443
+    protocol: TCP

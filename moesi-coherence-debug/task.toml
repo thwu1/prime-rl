@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle coherence protocol bugs in a MOESI directory simulator by running traces and analyzing state machine behavior, then building a NUMA-aware coherence extension for a multi-chiplet topology with configurable optimizations and an asymmetric latency model. The final deliverable is a multi-tool analysis pipeline producing a normalized SQLite database with analytical views, a gnuplot SVG chart, and a JSON report — all cross-validated for consistency."""
+solution_explanation = """The solution first fixes two bugs in moesi_sim.py: (1) missing memory writeback in _dir_putm when directory is in Exclusive state (silent E->M upgrade loses data on eviction), and (2) incomplete sharer tracking in _dir_gets E->S transition (old owner not included in sharers set). Then creates NUMACoherenceSimulator with chiplet-based topology, block-interleaved home assignment, asymmetric cycle costs, Owner-state forwarding, and per-chiplet shared caches. The comparison script uses jq to parse --json-stats output into shell variables, sqlite3 CLI to INSERT results and define analytical views, gnuplot with SVG terminal for histogram chart generation, and sqlite3 .mode json piped through jq to assemble the final results.json from database queries."""
+verification_explanation = """Tests verify: (1) Base simulator bug fixes via diagnostic traces. (2) NUMA extension interface, cross-chiplet correctness, and cycle model. (3) Owner optimization reduces writebacks/cycles. (4) Chiplet cache reduces inter-chiplet messages. (5) CLI --json-stats produces valid JSON. (6) SQLite database has correct trace_stats schema, both configs, all traces, positive values. (7) optimization_impact view exists with correct columns and shows improvement. (8) Database values match results.json. (9) Gnuplot SVG chart exists, is valid SVG with rect elements and legend labels. (10) results.json schema and optimization improvements."""
+category = "computer_architecture"
+tags = ["cache_coherence", "numa_systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/moesi-coherence-debug"

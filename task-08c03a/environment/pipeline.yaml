@@ -1,0 +1,47 @@
+# Multi-source financial data pipeline configuration
+# Each source provides instruments at specific date ranges with a priority level
+# Lower priority number = higher priority for source selection
+
+sources:
+  alpha:
+    instruments: ["AAPL", "GOOGL", "MSFT"]
+    available_dates: ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]
+    priority: 1
+
+  beta:
+    instruments: ["AAPL", "MSFT", "TSLA"]
+    available_dates: ["2024-01-03", "2024-01-04", "2024-01-05", "2024-01-06", "2024-01-07"]
+    priority: 2
+
+  gamma:
+    instruments: ["GOOGL", "TSLA", "AMZN"]
+    available_dates: ["2024-01-01", "2024-01-02", "2024-01-06", "2024-01-07", "2024-01-08"]
+    priority: 3
+
+  delta:
+    instruments: ["NFLX", 0050, "AMZN"]
+    available_dates:
+      - 2024-01-02
+      - 2024-01-03
+      - 2024-01-04
+      - 2024-01-05
+      - 2024-01-06
+    priority: 2
+
+  epsilon:
+    instruments: ["MSFT", "TSLA", "NFLX"]
+    available_dates: ["2024-01-05", "2024-01-06", "2024-01-07", "2024-01-08", "2024-01-09"]
+    priority: 1
+
+backfill:
+  assets:
+    raw_prices:
+      dependencies: []
+      sequential: true
+    enriched_prices:
+      dependencies: ["raw_prices"]
+      sequential: false
+    analytics:
+      dependencies: ["enriched_prices"]
+      sequential: false
+  concurrency_limit: 3

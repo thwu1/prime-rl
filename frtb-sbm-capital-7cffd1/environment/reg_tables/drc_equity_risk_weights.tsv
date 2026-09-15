@@ -1,0 +1,10 @@
+rating	risk_weight
+AAA	0.005
+AA	0.02
+A	0.03
+BBB	0.06
+BB	0.15
+B	0.30
+CCC	0.50
+NR	0.15
+D	1.00

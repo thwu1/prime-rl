@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of seven interdependent Linux security subsystems. The solver must diagnose ~20 bugs across sysctl multi-file configuration precedence with conflicting drop-in files, OpenSSH Include directive semantics and Match block scoping, CIS file permission and ownership requirements, login.defs sed pattern failures, PAM pwquality parameter naming, modprobe.d directory structure and directive syntax, and limits.conf/sysctl coordination for core dumps. Bugs include subtle parameter name typos that silently fail, multi-source configuration precedence conflicts, missing directives, wrong configuration file paths, incorrect directive syntax, and idempotency failures. The solver must investigate the full system state to understand why the existing script fails before designing a comprehensive fix."""
+solution_explanation = """Fix the broken harden.sh: (1) handle both insecure sysctl.d drop-ins (99-insecure.conf and 50-network.conf) that override sysctl.conf entries, by removing them and writing correct values to a sysctl.d file; (2) fix typos accept_redirect→accept_redirects and icmp_echo_ignore_broadcast→broadcasts; (3) add missing icmp_ignore_bogus_error_responses; (4) handle the SSH drop-in in sshd_config.d/ that overrides MaxAuthTries via Include first-match-wins by removing or correcting it; (5) fix ClientAliveCountMax 3→0; (6) add missing PermitEmptyPasswords directive; (7) ensure Banner is placed before the Match block; (8) fix shadow chmod 0644→0640; (9) add missing chown root:shadow for gshadow; (10) fix PASS_MAX_DAY typo→PASS_MAX_DAYS in sed pattern; (11) fix pwquality min_len→minlen and set value to >=14; (12) add dcredit/ucredit/ocredit/lcredit=-1; (13) change modprobe.conf→modprobe.d/*.conf path; (14) fix blacklist= syntax to blacklist<space>; (15) add install<module>/bin/true directives; (16) fix core 1→core 0 in limits.conf; (17) fix fs.suid_dumpable 2→0 and move to sysctl.d; (18) make limits.conf update idempotent."""
+verification_explanation = """test.sh restores the system to its insecure baseline (copying original configs, resetting permissions, restoring all drop-in files, modprobe.d, limits.conf, sysctl.conf), runs the agent's harden.sh twice to verify idempotency, then pytest checks: effective sysctl values via file-based resolution of sysctl.conf + sysctl.d/*.conf with last-assignment-wins, SSH directives with Include processing and first-match-wins semantics, file permissions and ownership on 4 system files, login.defs values, pwquality.conf parameters, modprobe.d blacklist and install directives for 3 kernel modules plus absence of /etc/modprobe.conf, and limits.conf core dump restriction plus fs.suid_dumpable sysctl value."""
+category = "systems_security"
+tags = ["cis-benchmark", "linux-hardening"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-cis-hardening"

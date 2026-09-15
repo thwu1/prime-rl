@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network forensics and multi-layer protocol analysis. The solver must correlate evidence across four distinct capture points (perimeter, DMZ, core trunk, internal segment), each providing a partial view of a multi-stage intrusion. Key challenges: (1) recognizing TCP SYN scan patterns from raw packet flags and distinguishing scanning from legitimate connections via TCP state machine analysis, (2) identifying DNS-based covert channels where command-and-control data and exfiltrated content are base64-encoded in query subdomain labels — requiring understanding of DNS tunneling mechanics and the ability to decode, concatenate, and reassemble the plaintext, (3) parsing 802.1Q VLAN tags on the core trunk capture to detect cross-VLAN policy violations against documented security policy, (4) detecting ARP cache poisoning by cross-referencing gratuitous ARP source MACs against topology-documented gateway MACs to identify gateway impersonation, (5) reconstructing a coherent 8-phase attack chain (recon → initial access → C2 → internal recon → lateral movement → data access → exfiltration → persistence) from fragmented evidence distributed across captures. This requires holistic understanding of TCP state machines, DNS protocol semantics, ARP mechanics, VLAN encapsulation, and attack chain methodology — not procedural checklist following."""
+solution_explanation = """Parse all four pcap files with scapy. Perimeter: identify SYN scan by detecting multiple SYN-only packets from 203.0.113.50 to different ports, classify responses as SYN-ACK (open) or RST-ACK (closed); extract HTTP exploit from TCP payload containing path traversal URI. DMZ switch: extract DNS TXT queries, identify C2 domain from query subdomain structure (base64-encoded labels before c2.evil.example.com). Core switch: parse Dot1Q headers for VLAN IDs, detect internal SSH scan from VLAN 100 host crossing to VLAN 200 targets, identify completed SSH handshake (SYN+SYN-ACK+ACK) as lateral movement distinct from scan-only probes, find MySQL connection (port 3306) from VLAN 200 to VLAN 300. Internal monitor: extract DNS TXT queries to exfil.evil.example.com, base64-decode subdomain labels and concatenate to recover 'CONFIDENTIAL:customer_db_dump_2024'; detect ARP poisoning by finding gratuitous ARPs where gateway IP 10.0.2.1 is claimed by MAC 02:00:02:00:02:14 (ws-eng-02), not legitimate gateway MAC 02:00:02:00:02:01. Correlate all findings into chronological timeline and compile IoCs."""
+verification_explanation = """40 deterministic packets across 4 captures. Tests validate: (1) all 8 attack phases present in correct chronological order with correct source/target IPs, (2) attacker IP 203.0.113.50 and both malicious domains identified, (3) exactly 2 compromised hosts (10.0.1.10, 10.0.2.20), (4) decoded exfiltration plaintext exactly equals 'CONFIDENTIAL:customer_db_dump_2024' — the critical expert test requiring DNS tunnel label extraction, base64 decode, and concatenation, (5) all 4 anomaly types detected with ARP poisoning referencing gateway IP or attacker MAC, (6) IoCs including targeted MySQL service 10.0.3.10:3306, (7) exact per-capture counts (14/6/12/8) and protocol breakdown (TCP:26, UDP:8, ARP:6)."""
+category = "networking"
+tags = ["network-forensics", "intrusion-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/network-path-engine"

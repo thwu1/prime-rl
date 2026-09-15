@@ -1,0 +1,55 @@
+[
+  {
+    "query_id": "R01",
+    "metrics": ["total_premium"],
+    "dimensions": ["policy_number"]
+  },
+  {
+    "query_id": "R02",
+    "metrics": ["claim_count"],
+    "dimensions": []
+  },
+  {
+    "query_id": "R03",
+    "metrics": ["claim_count"],
+    "dimensions": ["party_name"],
+    "filters": ["policy_party.role = 'policyholder'"]
+  },
+  {
+    "query_id": "R04",
+    "metrics": ["total_premium"],
+    "dimensions": ["catastrophe_name"]
+  },
+  {
+    "query_id": "R05",
+    "metrics": ["loss_ratio"],
+    "dimensions": ["policy_number"]
+  },
+  {
+    "query_id": "R06",
+    "metrics": ["total_loss_payment"],
+    "dimensions": ["policy_number"],
+    "filters": ["policy.status = 'active'"]
+  },
+  {
+    "query_id": "R07",
+    "metrics": ["total_loss_payment", "total_loss_reserve"],
+    "dimensions": ["claim_number"]
+  },
+  {
+    "query_id": "R08",
+    "metrics": ["total_premium", "claim_count"],
+    "dimensions": ["policy_number"]
+  },
+  {
+    "query_id": "R09",
+    "metrics": ["total_incurred"],
+    "dimensions": ["catastrophe_name"]
+  },
+  {
+    "query_id": "R10",
+    "metrics": ["avg_premium"],
+    "dimensions": ["party_name"],
+    "filters": ["policy_party.role = 'policyholder'"]
+  }
+]

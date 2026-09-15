@@ -1,0 +1,80 @@
+title Color Sort
+
+========
+OBJECTS
+========
+
+Background
+black
+
+Wall
+darkgrey
+
+Player
+blue
+
+RedCrate
+red
+
+BlueCrate
+darkblue
+
+RedTarget
+darkred
+
+BlueTarget
+cyan
+
+=======
+LEGEND
+=======
+
+. = Background
+# = Wall
+P = Player
+r = RedCrate
+b = BlueCrate
+R = RedTarget
+B = BlueTarget
+
+================
+COLLISIONLAYERS
+================
+
+Background
+RedTarget, BlueTarget
+Player, Wall, RedCrate, BlueCrate
+
+======
+RULES
+======
+
+[ > Player | RedCrate ] -> [ > Player | > RedCrate ]
+[ > Player | BlueCrate ] -> [ > Player | > BlueCrate ]
+
+==============
+WINCONDITIONS
+==============
+
+All RedCrate on RedTarget
+All BlueCrate on BlueTarget
+
+=======
+LEVELS
+=======
+
+######
+#.B.R#
+#....#
+#.b.r#
+#.P..#
+######
+
+#########
+#..B....#
+#.......#
+#.R.b.r.#
+#.......#
+#...P...#
+#.......#
+#########

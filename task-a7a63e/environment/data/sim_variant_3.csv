@@ -1,0 +1,10 @@
+# Variant 3: Dark lighting condition
+# Reduced ambient lighting to 40% of default
+task,RT-1,RT-1-X,Octo-Base,Octo-Small,PolicyX
+pick_coke_can,0.60,0.65,0.42,0.32,0.35
+move_near,0.45,0.52,0.35,0.28,0.38
+open_drawer,0.30,0.38,0.28,0.25,0.26
+close_drawer,0.65,0.70,0.52,0.42,0.45
+stack_blocks,0.25,0.22,0.38,0.12,0.15
+pick_apple,0.55,0.48,0.35,NaN,0.40
+push_buttons,0.40,0.38,0.30,0.45,0.35

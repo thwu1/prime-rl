@@ -1,0 +1,11 @@
+A packet capture from a 5-router OSPF broadcast network is at `/app/capture/ospf_adjacency.pcap`. The network topology description (including expected OSPF parameters for the segment) is at `/app/topology/topology.json`. An excerpt of RFC 2328 covering the OSPF Neighbor State Machine and packet formats is at `/app/rfc_text/neighbor_fsm.txt`.
+
+Multiple routers on this shared segment are attempting to form OSPF adjacencies, but only some succeed. The failures have different root causes. Perform a forensic analysis of the capture and produce the following files in `/app/output/`:
+
+**`packet_inventory.json`** — Complete inventory of all OSPF packets. Must include `total_packets`, `hello_packets` (type 1 count), `dd_packets` (type 2 count), `routers_observed` (sorted list of unique Router IDs), and a `packets` array. Each packet entry: `packet_number`, `timestamp`, `src_ip`, `dst_ip`, `ospf_type` (integer), `router_id`. For Hello packets also include `hello_interval`, `dead_interval`, `options_e_bit` (boolean), `neighbors` (list). For DD packets also include `mtu`, `flags` (integer), `dd_sequence`.
+
+**`adjacency_matrix.json`** — Per-router-pair adjacency analysis. Must include an `adjacencies` array. Each entry: `router_a`, `router_b` (Router IDs), `final_state` (the RFC 2328 neighbor FSM state reached: "Down", "Init", "2-Way", "ExStart", "Exchange", "Full", etc.), `successful` (boolean), `failure_reason` (string, empty if successful). Cover every pair where at least one side attempted communication. Determine final states by applying the RFC 2328 neighbor state machine to the observed packet sequence.
+
+**`protocol_violations.json`** — RFC 2328 conformance violations detected in the capture. Must include a `violations` array. Each entry: `router_id`, `violation_type`, `rfc_section` (e.g., "10.5" or "10.6"), `evidence` (specific field values from packets), `affected_pairs` (list of impacted router pairs as strings).
+
+**`root_cause_report.json`** — Summary with `successful_adjacencies` (integer count), `failed_adjacencies` (integer count), and `root_causes` array. Each root cause: `category`, `affected_router` (Router ID), `description`, `rfc_reference`, `remediation`.

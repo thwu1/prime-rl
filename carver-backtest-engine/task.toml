@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging and implementing components of a multi-module systematic trading backtest system with 7 interacting defects across 6 files. Defects span volatility estimation (proportion weight ordering), carry signal generation (two independent errors in one formula: sign convention AND vol normalization — divides by annualized vol instead of daily), FX rate lookup (pair name construction causes silent fallback to 1.0), YAML configuration path traversal (nested key not found by code), position sizing (annualization formula), and a forecast diversification multiplier that is a non-functional stub returning a constant. The FDM must be implemented from scratch using the correlation matrix of scaled forecasts with the quadratic form FDM = 1/sqrt(w'Hw), requiring domain expertise (why correlation not covariance, how forecast weights enter, cap at 2.5) and implementation skill (pandas correlation, numpy matrix algebra, edge cases for insufficient data or degenerate matrices). All defects produce silently wrong output — the solver must independently compute reference values from raw SQLite data using domain knowledge to identify which stages are wrong. Requires SQLite introspection for data schema discovery, multi-file Python debugging across 6+ modules, and YAML config tracing."""
+solution_explanation = """Fix six defects and implement one component: (1) swap inverted fast/slow vol proportion weights, (2) correct carry signal sign from (price-carry) to (carry-price), (3) fix carry vol normalization from /(vol*sqrt(252)) to /vol — carry is a daily-return-equivalent so must be normalized by daily not annualized vol, (4) fix FX pair name construction from BASE_INSTR to INSTR_BASE so EUR_USD is found in the database, (5) fix config key nesting so forecast_weights under forecast_combination are accessible at top level, (6) fix position sizing annualization from *252 to *sqrt(252). Then design and implement the FDM: compute correlation matrix H of scaled forecasts, form quadratic w'Hw with normalized forecast weights, compute FDM = min(1/sqrt(w'Hw), 2.5) with edge-case handling. Re-run backtest to produce correct output."""
+verification_explanation = """Tests independently compute reference values from raw SQLite data: (1) vol accuracy via independent mixed-vol computation within 5% median relative error, (2) EWMAC structure via correlation >0.95 with reference computation, (3) carry sign consistency with actual carry_price-price spread direction, (4) carry vol normalization verified two ways — scaled carry mean|fc| > 1.0 (rejects annualized-vol normalization which would be ~15x too small) AND smoothed reference correlation >0.90 with regression slope in [0.3, 3.0] (rejects 1/sqrt(252) ≈ 0.063 slope of annualized-vol), (5) FDM in [1.0, 2.5] matching correlation-based quadratic form within 10% for all instruments, (6) position sizing formula consistency with vol-target within 15%, (7) FX conversion verified by checking EQUITY positions use actual EUR/USD rate, (8) combined forecast structure via weighted-sum correlation >0.95, (9) carry weight dominance via regression on combined forecast."""
+category = "applied_computing"
+tags = ["systematic_trading", "quantitative_finance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/carver-backtest-engine"

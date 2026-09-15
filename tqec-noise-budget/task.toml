@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of quantum error correction, rotated surface code circuits, Stim's noise model semantics, and detector error model (DEM) analysis. The solver must know how different physical noise mechanisms (gate depolarization, idle depolarization, reset errors, measurement errors) map to Stim's circuit generation parameters, correctly produce isolated-noise circuit variants via stim.Circuit.generated(), extract DEM statistics from each, and compute meaningful error budget fractions. This demands familiarity with stim's internal API and QEC circuit structure beyond standard documentation."""
+solution_explanation = """Generate isolated-noise circuit variants using stim.Circuit.generated() with only one noise parameter active at a time while zeroing out others. For each variant, extract the detector error model, count error entries, sum probability weights, and divide by the full circuit's total DEM weight to obtain the budget fraction. Read provided circuits for full circuit property extraction at both code distances."""
+verification_explanation = """Tests verify JSON structure, mechanism names, positive DEM statistics, budget fraction consistency (fractions sum near 1.0, each fraction matches weight/total_weight), circuit property scaling with code distance, and independently regenerate isolated-noise circuits via stim to cross-check exact DEM statistics against the reported values."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "stim"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tqec-noise-budget"

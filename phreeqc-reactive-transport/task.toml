@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building PHREEQC from C++ source using CMake, then diagnosing five distinct errors in a reactive transport model that span geochemical thermodynamics (mineral saturation index targets), carbonate chemistry (missing alkalinity buffering), transport theory (boundary condition types, dispersivity parameterization), and PHREEQC output configuration. The agent must compare model output against field observations, reason about why results diverge, apply domain expertise to identify root causes, and iteratively fix and re-run the model. Demands holistic understanding of aqueous geochemistry, reactive transport modeling, and the PHREEQC domain-specific language — not achievable by procedure-following alone."""
+solution_explanation = """Build PHREEQC from source via cmake/make. Run the broken model and observe that effluent pH is far too low and key output columns are missing. Diagnose five errors: (1) initial porewater lacks alkalinity specification, removing carbonate buffering; (2) calcite equilibrium target SI is set to -2.0 instead of 0.0, preventing proper mineral-solution equilibration; (3) transport boundary conditions are 'constant constant' instead of 'flux flux', forcing unrealistic fixed-composition boundaries; (4) dispersivity is 1.0 m instead of ~0.05 m, causing excessive numerical dispersion in a 5 m column; (5) SELECTED_OUTPUT is missing -totals and -equilibrium_phases directives needed for concentration and mineral mass output. Fix all errors, re-run, and parse the TSV output to extract effluent chemistry and mineral state at the final transport shift."""
+verification_explanation = """Tests verify that PHREEQC is built, the corrected model file exists with required keywords, and the agent's results.json matches a reference simulation (run at test time with the correct parameters) within tight tolerances: pH within 0.1 units, concentrations within 5% relative, calcite mass within 5%, gypsum SI within 0.2 units. Physical reasonableness checks confirm limestone neutralization raises pH above 5, Ca is elevated from dissolution, sulfate is present from influent, and calcite is only partially consumed."""
+category = "scientific_computing"
+tags = ["geochemistry", "reactive-transport"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phreeqc-reactive-transport"

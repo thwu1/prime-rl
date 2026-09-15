@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of PostgreSQL's dual SQL-92/SQL-99 ORDER BY identifier resolution paths to diagnose 10 distinct bugs spanning alias shadowing, quoted identifier case sensitivity, GROUP BY/ORDER BY scope disagreement, window function alias blindness, COLLATE/CAST/unary-plus expression promotion, UNION ORDER BY restrictions, aggregate alias scoping in windows, and DISTINCT ON ordering constraints. The solver must create a Python diagnostic tool that classifies bugs into a taxonomy, assesses risk (silent wrong results vs. errors), generates corrected SQL, and produces a structured audit report — requiring both PostgreSQL parser-internals expertise and substantial software engineering."""
+solution_explanation = """The solution creates query_doctor.py which connects to PostgreSQL, executes each of the 10 broken queries, compares results against expected output, classifies each bug using pattern analysis on the SQL text and error messages, generates specific fixes (table-qualifying identifiers, matching quoted alias case, using expressions instead of aliases in GROUP BY/WINDOW/UNION contexts, removing expression-promoting operators, adding DISTINCT ON prefix constraints), and writes both a corrected SQL file and a JSON audit report with per-query classifications and summary statistics."""
+verification_explanation = """Tests restore the original broken queries, run query_doctor.py to regenerate output, then execute all 10 fixed queries against PostgreSQL and compare tuple-by-tuple against hardcoded expected results. The audit report JSON is validated for correct structure, bug type classifications (alias_resolution, identifier_mismatch, scope_restriction, expression_promotion, ordering_constraint), failure modes (error vs wrong_results), risk levels, and summary statistics."""
+category = "database_systems"
+tags = ["postgresql", "sql-parsing", "developer-tools"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orderby-parser-seam"

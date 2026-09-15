@@ -1,0 +1,17 @@
+{
+  "sources": [
+    {"id": "A", "supply": 5},
+    {"id": "B", "supply": 3}
+  ],
+  "sinks": [
+    {"id": "X", "demand": 4},
+    {"id": "Y", "demand": 6}
+  ],
+  "hubs": [],
+  "edges": [
+    {"from": "A", "to": "X", "capacity": 3, "cost": 1},
+    {"from": "A", "to": "Y", "capacity": 4, "cost": 3},
+    {"from": "B", "to": "X", "capacity": 2, "cost": 2},
+    {"from": "B", "to": "Y", "capacity": 3, "cost": 5}
+  ]
+}

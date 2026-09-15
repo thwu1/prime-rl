@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete reliable transport protocol from scratch that handles five interacting concerns: adaptive retransmission under varying loss rates (up to 50%), sequence number arithmetic in small modular spaces (8-bit with frequent wraparound), congestion-responsive sending rate management observable via cwnd_log, efficient recovery leveraging the wire format's SACK block support, and correct concurrent operation of sender/receiver in separate threads. Understanding the provided wire format, channel API, and threading harness requires significant code reading. Producing a gnuplot-rendered visualization of congestion window dynamics adds cross-tool integration requirements. Each concern is non-trivial alone; making them interoperate under adversarial channel conditions demands expert-level networking and systems programming knowledge."""
+solution_explanation = """The solution implements TCP-like reliable transport with sliding window indexed by segment number with modular sequence arithmetic, SACK-based selective retransmission (receiver generates SACK blocks for out-of-order segments, sender avoids retransmitting SACKed data), Reno-style congestion control (slow start, congestion avoidance, fast retransmit on 3 duplicate ACKs with fast recovery, exponential backoff on timeout), and Jacobson/Karn adaptive RTO estimation. The receiver buffers out-of-order packets, delivers in-order data, and handles FIN/FIN+ACK teardown with redundant transmissions for robustness. A Python helper runs a benchmark transfer, exports cwnd_log data, writes a gnuplot script, and invokes gnuplot to render the congestion window timeline as SVG."""
+verification_explanation = """Sixteen pytest tests verify: basic delivery with no loss (small and medium transfers), empty payload handling, delivery under 10%/30%/50% loss, resilience to reordering and corruption, combined adversarial conditions, correct wraparound in 8-bit and 10-bit sequence spaces, congestion window growth (cwnd >= 4 under no loss) and decrease (under 15% loss), throughput exceeding 200 Kbps, SHA-256 data integrity of 100KB transfers, correct handling of all 256 byte values, and existence of a valid gnuplot-generated SVG visualization."""
+category = "networking"
+tags = ["transport-protocols", "congestion-control"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sack-congestion-transport"

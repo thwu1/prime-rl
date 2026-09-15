@@ -1,0 +1,45 @@
+@prefix tmdb: <http://tmdb.source/entity/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+
+tmdb:f1 rdf:type dbo:Film ;
+    rdfs:label "The Godfather" ;
+    dbo:budget "6000000" ;
+    dbo:gross "245066411" ;
+    dbo:runtime "175" ;
+    dbo:starring tmdb:pb .
+
+tmdb:f2 rdf:type dbo:Film ;
+    rdfs:label "Pulp Fiction" ;
+    dbo:budget "8000000" ;
+    dbo:runtime "154" ;
+    dbo:starring tmdb:pt ;
+    dbo:starring tmdb:pjt .
+
+tmdb:f3 rdf:type dbo:Film ;
+    rdfs:label "Inception" ;
+    dbo:budget "160000000" ;
+    dbo:runtime "148" ;
+    dbo:director tmdb:pn ;
+    dbo:distributor tmdb:cw .
+
+tmdb:pb rdf:type dbo:Person ;
+    rdfs:label "Marlon Brando" ;
+    dbo:birthDate "1924-04-03" .
+
+tmdb:pt rdf:type dbo:Person ;
+    rdfs:label "Uma Thurman" ;
+    dbo:birthDate "1970-04-29" .
+
+tmdb:pjt rdf:type dbo:Person ;
+    rdfs:label "John Travolta" ;
+    dbo:birthDate "1954-02-18" .
+
+tmdb:pn rdf:type dbo:Person ;
+    rdfs:label "Christopher Nolan" ;
+    dbo:birthDate "1970-07-30" .
+
+tmdb:cw rdf:type dbo:Organisation ;
+    rdfs:label "Warner Bros." ;
+    dbo:industry "Entertainment" .

@@ -1,0 +1,28 @@
+{
+  "gev": [
+    {"id": "gev_gumbel", "obs": 0.3, "shape": 0.0, "location": 0.0, "scale": 1.0},
+    {"id": "gev_frechet", "obs": 0.3, "shape": 0.7, "location": 0.0, "scale": 1.0},
+    {"id": "gev_weibull", "obs": 0.3, "shape": -0.7, "location": 0.0, "scale": 1.0},
+    {"id": "gev_loc_shift", "obs": 0.4, "shape": 0.0, "location": 0.1, "scale": 1.0},
+    {"id": "gev_scale_shift", "obs": 0.27, "shape": 0.0, "location": 0.0, "scale": 0.9},
+    {"id": "gev_frechet_scaled", "obs": 0.27, "shape": 0.7, "location": 0.0, "scale": 0.9}
+  ],
+  "gpd": [
+    {"id": "gpd_standard", "obs": 0.3, "shape": 0.9, "location": 0.0, "scale": 1.0, "mass": 0.0}
+  ],
+  "gtcnormal": [
+    {"id": "gtcn_full", "obs": 0.9, "location": -2.3, "scale": 4.1, "lower": -7.3, "upper": 1.7, "lmass": 0.0, "umass": 0.21},
+    {"id": "gtcn_as_normal", "obs": 0.9, "location": -2.3, "scale": 4.1}
+  ],
+  "mixnorm": [
+    {"id": "mix_equal_w", "obs": 0.3, "m": [0.0, -2.9, 0.9], "s": [0.5, 1.4, 0.7]},
+    {"id": "mix_unequal_w", "obs": 0.3, "m": [0.0, -2.9, 0.9], "s": [0.5, 1.4, 0.7], "w": [0.3, 0.1, 0.6]}
+  ],
+  "ensemble": [
+    {
+      "id": "ens_10member",
+      "obs": -0.6042506,
+      "fct": [1.7812118, 0.5863797, 0.7038174, -0.7743998, -0.2751647, 1.1863249, 1.2990966, -0.3242982, -0.5968781, 0.9064937]
+    }
+  ]
+}

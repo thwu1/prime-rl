@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a correct GDL reasoner from scratch requires implementing: (1) an S-expression parser for KIF format, (2) a unification algorithm with occurs check and variable walking, (3) a backward-chaining theorem prover with negation-as-failure, disjunction, and inequality constraints, (4) proper variable renaming to avoid capture across rule instantiations, and (5) the GDL state machine semantics mapping `true`/`does` context-dependent facts to prover queries. The test games exercise all these features simultaneously — simultaneous moves with `or`/`distinct` interactions, gravity mechanics via negation in derived predicates, and nested negation-as-failure for mutex invariants. Getting any single component wrong causes cascading failures across multiple tests."""
+solution_explanation = """The solution implements a complete GDL reasoner in ~350 lines of Python: an S-expression tokenizer/parser, term types (Var/Atom/Compound/Negation/Disjunction/Distinct), standard unification with occurs check, a backward-chaining prover that indexes facts and rules by predicate name and yields substitutions via generators, and a GDL state machine wrapper that translates between string state representations and the prover's internal term format. The CLI dispatches to the appropriate state machine method and outputs JSON."""
+verification_explanation = """Tests run the reasoner CLI against four GDL games of increasing complexity: maze (basic transitions, distinct), tictictoe (simultaneous moves, or, not), connectFour (gravity, negation in derived predicates), and simpleMutex (nested negation-as-failure with derived predicates). Each test verifies specific state machine operations (roles, initial_state, legal_moves, next_state, is_terminal, goal) with deterministic expected values computed by hand from the GDL rules. A full playthrough test verifies end-to-end consistency."""
+category = "artificial_intelligence"
+tags = ["logic-programming", "game-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e514c6"

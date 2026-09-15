@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a stable and accurate 1D compressible Navier-Stokes solver requires simultaneous expertise in compressible fluid dynamics (conservation laws, equation of state, viscous stress tensor), numerical PDE methods (CFL conditions, adaptive timestepping, artificial viscosity, positivity preservation), and scientific Python programming. The system couples three nonlinear PDEs (continuity, momentum, energy) with stiff viscous terms that demand careful timestep selection. Even frontier LLMs (o3, Gemini 2.5 Pro, Claude 3.7 Sonnet) achieve only ~38% pass rate on the CodePDE benchmark with scaffolding; this task uses the hardest PDE family (CNS1D) where the best seed nRMSE is 0.024 after extensive iteration."""
+solution_explanation = """The solution uses a forward Euler time integration scheme with: (1) central finite differences for spatial derivatives on a periodic coincident-endpoint grid (dx = 2/(N-1)), (2) CFL-based adaptive timestep respecting both hyperbolic (wave speed) and viscous (diffusion) stability limits, (3) artificial viscosity to stabilize shock-like features, (4) NaN recovery by reverting to previous saved state, and (5) density/pressure positivity via clipping. Pure NumPy with vectorized batch operations provides sufficient performance."""
+verification_explanation = """Tests download the PDEBench development reference HDF5 dataset from HuggingFace and run the solver on up to 20 instances (N=1024 spatial points, 21 time snapshots) with eta=zeta=0.1. The normalized RMSE is computed across velocity, density, and pressure fields jointly. The pass criterion is nRMSE < 0.05, matching the CodePDE benchmark standard. Output shape correctness and NaN absence are also verified."""
+category = "scientific_computing"
+tags = ["pde-solver", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cdbaea"

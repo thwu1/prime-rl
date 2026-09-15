@@ -1,0 +1,32 @@
+{
+  "analyst": "J. Thompson",
+  "report_date": "2023-11-15",
+  "classification": "PRELIMINARY - REQUIRES SENIOR REVIEW",
+  "incident_id": "IR-2023-0847",
+  "summary": "Possible intrusion detected on corporate network segment. Initial triage suggests insider threat originating from internal workstation 192.168.1.10. HTTP-based attack against web application identified. C2 communications appear to leverage encrypted HTTPS to a CDN provider. Limited direct evidence of credential compromise or significant data loss.",
+  "findings": {
+    "suspected_attacker_ip": "192.168.1.10",
+    "victim_ip": "192.168.1.50",
+    "attack_type": "sql_injection",
+    "target_endpoint": "/api/query",
+    "target_parameter": "id",
+    "c2_detected": true,
+    "c2_protocol": "https",
+    "c2_destination": "cdn.jsdelivr.net",
+    "exfiltration_detected": true,
+    "exfil_protocol": "dns",
+    "exfil_encoding": "base64",
+    "malware_present": true,
+    "overall_severity": "low",
+    "reconnaissance_activity": false,
+    "credentials_at_risk": false
+  },
+  "analyst_notes": [
+    "Host 192.168.1.10 was observed establishing TCP connections to the victim server on port 22, suggesting this internal host as the threat actor.",
+    "Multiple HTTP POST requests to /api/query endpoint with anomalous URL-encoded parameters detected from an external source, but assessed as automated scanning rather than targeted attack.",
+    "HTTPS traffic to cdn.jsdelivr.net identified as probable C2 channel based on unusual request cadence from internal hosts.",
+    "DNS anomalies observed in query patterns — long subdomain strings in several queries suggest possible base64-encoded DNS tunneling used for data exfiltration.",
+    "No clear evidence of credential theft in cleartext network traffic. Severity assessed as low pending deeper forensic analysis of endpoint artifacts.",
+    "Recommend monitoring 192.168.1.10 for additional suspicious activity and blocking cdn.jsdelivr.net at the proxy."
+  ]
+}

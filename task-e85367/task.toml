@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a novel, post-cutoff attention architecture (from GLM-5, Feb 2026) without an algorithmic specification — the agent must reverse-engineer the complete data flow from module attribute names and projection dimensions in the skeleton, research the architecture online, and synthesize a correct implementation that satisfies tightly coupled behavioral constraints. The five subsystems (dual compression paths with partial RoPE, shared positional key broadcasting, multi-head sparse indexer with weighted scoring, three-key KV cache management, combined causal+sparse mask attention) must all interact correctly. Additionally, the TorchScript export requires understanding torch.jit.trace constraints with optional arguments and tuple returns, and the profiler trace demands familiarity with PyTorch's profiling API. No mathematical specification or algorithmic hints are provided in the instruction — the agent must infer everything from structural clues and domain expertise."""
+solution_explanation = """The solution implements all five subsystems by analyzing the skeleton's projection dimensions to infer the data flow: query compression with RMSNorm and per-head expansion, KV compression with shared positional key broadcasting, DSA indexer with RoPE-split scoring heads and weighted aggregation via einsum, sparse mask via top-k and scatter, and combined-mask attention with float32 softmax. A PrefillWrapper class strips optional arguments for clean torch.jit.trace export, and torch.profiler.profile with CPU activity recording produces the Chrome trace."""
+verification_explanation = """Nine pytest test classes verify: (1-2) correct output shape for batch and single-token inputs, (3) KV cache consistency — 8-token autoregressive decode matches full forward within atol=1e-4 plus cache shape growth with "key"/"value"/"idx_key" dict keys, (4) causal masking — future token modification doesn't affect past outputs, (5) DSA sparse selection count per position via _compute_dsa_mask, (6) gradient flow through at least 7 parameters, (7) training convergence — MSE loss decreases >10% over 10 Adam steps, (8) TorchScript model loads with torch.jit.load and produces valid, deterministic outputs from 5 positional args, (9) profiler Chrome trace exists with valid traceEvents array and cat-field events."""
+category = "machine_learning"
+tags = ["attention-mechanisms", "pytorch-internals"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e85367"

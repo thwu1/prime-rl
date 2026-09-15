@@ -1,0 +1,42 @@
+# Production configuration for microservices platform
+# Last updated: 2024-03-15
+
+app:
+  name: platform-services
+  version: 3.2.1
+  environment: production
+
+database:
+  host: db-primary.internal.example.com
+  port: 5432
+  name: platform_prod
+  pool_size: 25
+  idle_timeout: 300
+
+services:
+  apex_cloud:
+    api_key: "apx_d1HDjft5Q1DV1CeXDao0nhL92UX8nn"
+    region: us-east-1
+    timeout_ms: 5000
+    retry_count: 3
+
+  beacon_analytics:
+    token: "bcn-d4af211849b3a47ed1640ca4b8601ee8d9224ecd-671909f4"
+    endpoint: https://ingest.beacon-analytics.io/v2/events
+    batch_size: 100
+    flush_interval_ms: 10000
+
+  delta_payments:
+    secret_key: "dlt_sk_ghwVU42QJF5xpZwzfG2kTe0rlXMO"
+    api_version: "2024-01-15"
+    webhook_secret: wh_sec_random_value_here
+
+# Deprecated keys scheduled for rotation (DO NOT USE)
+deprecated:
+  apex_legacy: "apx_lXmW0K1vspJ3sw5U4ll7TYGsQDXjCJ"
+  beacon_v1: "bcn-68636e9bdc605cdf6b8933605a627290690a2706-35c6cd41"
+
+logging:
+  level: info
+  format: json
+  build_sha: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0

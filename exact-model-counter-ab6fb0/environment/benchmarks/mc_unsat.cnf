@@ -1,0 +1,5 @@
+c Unsatisfiable formula
+c t mc
+p cnf 1 2
+1 0
+-1 0

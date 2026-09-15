@@ -1,0 +1,39 @@
+fragment PostSummary on Post {
+  id
+  title
+  body
+  priority
+  author {
+    username
+  }
+  tags
+}
+
+query SearchContent($filter: SearchFilter!) {
+  search(filter: $filter) {
+    ... on User {
+      id
+      username
+      email
+      status
+    }
+    ... on Post {
+      ...PostSummary
+      comments {
+        id
+        text
+      }
+    }
+    ... on Comment {
+      id
+      text
+      author {
+        username
+      }
+      post {
+        id
+        title
+      }
+    }
+  }
+}

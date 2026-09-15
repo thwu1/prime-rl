@@ -1,0 +1,8 @@
+{
+    "challenge_id": "beta",
+    "problem_description": "Simplify the partial-fraction decomposition arising from the residue computation of a two-pole Green's function in condensed matter theory. Express the result in terms of symbolic variables a and b.",
+    "answer_code": "import sympy as sp\n\na, b = sp.symbols('a b')\n\ndef answer():\n    \"\"\"Simplified Green's function residue sum.\"\"\"\n    return a**2 / (a - b) + b**2 / (b - a)",
+    "comparison_mode": "symbolic",
+    "testcases": null,
+    "tolerance": null
+}

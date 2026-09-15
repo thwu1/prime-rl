@@ -1,0 +1,15 @@
+{
+  "datasetID": "buoy_met",
+  "type": "table",
+  "baseUrl": "https://coastwatch.pfeg.noaa.gov/erddap",
+  "lonConvention": "-180/180",
+  "variables": [
+    {"name": "station", "type": "String"},
+    {"name": "time", "type": "temporal"},
+    {"name": "latitude", "type": "double"},
+    {"name": "longitude", "type": "double"},
+    {"name": "sea_surface_temperature", "units": "degree_C"},
+    {"name": "air_temperature", "units": "degree_C"},
+    {"name": "wind_speed", "units": "m s-1"}
+  ]
+}

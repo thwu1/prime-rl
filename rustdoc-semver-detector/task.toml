@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Rust's semantic versioning rules, the undocumented and unstable rustdoc JSON format, and subtle edge cases around #[non_exhaustive] (struct and enum), struct external constructibility (private field analysis via stripped-fields detection), #[repr(C)] attribute parsing, and trait method default-body detection. The agent must reverse-engineer the JSON schema from the actual data files, build path-resolution logic from the index/paths mapping, and implement 8 distinct violation detectors with correct false-positive filtering."""
+solution_explanation = """Parse both rustdoc JSON files. Build maps of public items indexed by their import path (from the 'paths' dict). For each item in the baseline, check if the corresponding item exists in the current version and compare properties: function parameter counts via sig.inputs, struct fields via kind.plain.fields with visibility and has_stripped_fields checks, enum variants via the variants list, trait methods via items list with has_body filtering, and attributes for repr(C) and non_exhaustive. Output violations as JSON."""
+verification_explanation = """Pytest verifies that all 8 expected violations are present in the report (by type and path), that 3 specific false-positive traps are not triggered (non-exhaustive struct field addition, private-field struct field addition, non-exhaustive enum variant addition), and that the total violation count is within a reasonable range."""
+category = "systems"
+tags = ["rust", "semver"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rustdoc-semver-detector"

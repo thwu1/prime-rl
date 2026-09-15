@@ -1,0 +1,64 @@
+COMPENSATION IN ACID-BASE DISORDERS
+====================================
+
+The extent of respiratory compensation for a metabolic disorder is determined
+by the balance between the abnormality in the pH (the drive to change) and the
+work required (e.g. respiratory muscle effort in hyperventilation).
+
+Knowledge of the expected degree of compensation is necessary to determine the
+presence of an additional respiratory or metabolic disorder. The direction of
+change in the compensating parameter should normalise the pH.
+
+METABOLIC ACIDOSIS — Expected Respiratory Compensation
+------------------------------------------------------
+The commonest formula in use:
+
+  Expected PaCO2 = (1.5 × [HCO3-]) + 8    (±2)
+
+Alternative: Expected PaCO2 ≈ last two digits of the pH (from pH 7.1 to 7.6,
+±2-5 mmHg). Other approaches: expected change in PaCO2 = Standard Base Excess;
+or 1.2 mmHg fall in PaCO2 for each 1 mmol/L reduction in HCO3.
+
+If measured PaCO2 is more than the expected PaCO2 + tolerance, there is an
+additional respiratory acidosis. If measured PaCO2 is less than expected
+PaCO2 - tolerance, there is an additional respiratory alkalosis.
+
+METABOLIC ALKALOSIS — Expected Respiratory Compensation
+-------------------------------------------------------
+  Expected PaCO2 = (0.7 × [HCO3-]) + 20    (±5)
+
+The reliability may be less than with metabolic acidosis. Other approaches:
+change in PaCO2 = 0.6 × Standard Base Excess; 0.7 mmHg rise in PaCO2 for each
+1 mmol/L increase in HCO3.
+
+RESPIRATORY ACIDOSIS — Expected Metabolic Compensation (1-2-3-4-5 Rule)
+-----------------------------------------------------------------------
+Acute:
+  Expected HCO3 = 24 + 1 × (PaCO2 - 40) / 10
+
+Chronic:
+  Expected HCO3 = 24 + 4 × (PaCO2 - 40) / 10
+
+Tolerance: ±3
+
+Metabolic compensation begins within 5-10 minutes (whole body buffering) but
+requires 3-5 days to complete with further renal processes.
+
+If measured HCO3 < expected - 3 → additional metabolic acidosis
+If measured HCO3 > expected + 3 → additional metabolic alkalosis
+
+RESPIRATORY ALKALOSIS — Expected Metabolic Compensation (1-2-3-4-5 Rule)
+------------------------------------------------------------------------
+Acute:
+  Expected HCO3 = 24 - 2 × (40 - PaCO2) / 10
+
+Chronic:
+  Expected HCO3 = 24 - 5 × (40 - PaCO2) / 10
+
+Tolerance: ±3
+
+Respiratory compensation occurs quickly (within 30 minutes, complete within
+12-24 hours).
+
+Source: LITFL Critical Care Compendium — Respiratory Compensation in Metabolic
+Disorders & Blood Gas Interpretation (Chris Nickson, Jeremy Rogers, Mike Cadogan)

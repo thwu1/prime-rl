@@ -1,0 +1,48 @@
+{
+  "description": "Three-step PWR depletion problem with irradiation, shutdown, and reduced-power restart",
+  "initial_concentrations": {
+    "U234": 5.0e19,
+    "U235": 8.0e20,
+    "U236": 0.0,
+    "U238": 2.2e22,
+    "Np239": 0.0,
+    "Pu239": 0.0,
+    "Pu240": 0.0,
+    "Pu241": 0.0,
+    "Xe135": 0.0,
+    "I135": 0.0
+  },
+  "concentration_unit": "atoms/cm3",
+  "steps": [
+    {
+      "flux_n_cm2_s": 3.0e14,
+      "duration_s": 864000,
+      "description": "Full power irradiation for 10 days"
+    },
+    {
+      "flux_n_cm2_s": 0.0,
+      "duration_s": 259200,
+      "description": "Shutdown decay for 3 days"
+    },
+    {
+      "flux_n_cm2_s": 1.0e14,
+      "duration_s": 2592000,
+      "description": "Reduced power operation for 30 days"
+    }
+  ],
+  "output": {
+    "file": "/app/results.json",
+    "format": {
+      "step_results": [
+        {
+          "step": "integer: 0 for initial state, 1-3 for after each depletion step",
+          "time_s": "float: cumulative time in seconds from start",
+          "concentrations": {
+            "<nuclide_name>": "float: concentration in atoms/cm3"
+          }
+        }
+      ]
+    },
+    "note": "Must contain 4 entries: initial state (step 0) plus one entry after each of the 3 depletion steps"
+  }
+}

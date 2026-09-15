@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning computational physics, numerical methods, and statistical analysis. Without any algorithmic specification, the agent must independently recognize that the data requires: (1) a locality-constrained time-series distance metric appropriate for SPH regression data (DTW with Sakoe-Chiba banding), (2) a robust outlier detection method suitable for small ensembles (MAD-based modified Z-scores), (3) spatial convergence order estimation from multi-resolution data (Richardson extrapolation), and (4) correct pipeline ordering where outlier exclusion must precede ensemble statistics to avoid corrupted convergence analysis. The agent must also parse the SPHinXsys-specific XML attribute format, integrate an xmlstarlet validation pipeline via Make, and produce a precisely structured JSON assessment. This combination of domain expertise selection, numerical implementation, and build system integration requires PhD-level computational science proficiency."""
+solution_explanation = """Parse SPHinXsys XML files to extract time series per resolution and quantity. Compute normalized DTW distances with Sakoe-Chiba band constraint between each run and its reference. Apply modified Z-score (MAD-based) outlier detection on DTW distances to identify anomalous ensemble members. Compute ensemble mean and variance excluding outliers, check convergence against reference. Use Richardson extrapolation on cleaned ensemble means at the final snapshot to estimate spatial convergence order (~2.0). Ensure the Make pipeline (XML validation + analysis) passes."""
+verification_explanation = """Tests verify: (1) make check succeeds, (2) similarity distances behave correctly (zero for identical series, linear scaling with offset), (3) outlier run_5 in medium resolution detected while normal runs are clean, (4) convergence order is approximately 2.0 (only achievable with correctly cleaned data), (5) ensemble convergence criteria pass, (6) correct JSON structure. Pipeline ordering is implicitly validated since including outlier data drops convergence order well below the 2.0 threshold."""
+category = "scientific_computing"
+tags = ["simulation-validation", "convergence-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sph-convergence-analysis"

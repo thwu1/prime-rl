@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of loss normalization mathematics in the context of gradient accumulation with variable-length sequences AND per-token importance weights. The solver must (1) read and understand 4 distinct normalization strategies with subtle mathematical differences, (2) run empirical benchmarks across 4 scenarios (uniform/variable × unweighted/weighted), (3) mathematically evaluate WHY each strategy fails for certain scenarios — distinguishing mean-of-means vs mean-of-all, token-count-based vs weight-based normalization denominators, and per-step vs global aggregation, (4) design a novel UnifiedNormalizer that correctly pre-computes the global weight total W_total across all GA minibatches and uses it as a consistent denominator, handling both weighted and unweighted cases uniformly, (5) implement it in PyTorch with correct gradient flow, and (6) write a structured evaluation report with mathematical justification. The key difficulty is that strategies 2 and 4 appear correct (and ARE correct for unweighted) but fail for weighted sequences due to a subtle distinction between token-count fractions and weight fractions — requiring the solver to reason about when sum(CE)/N_total vs sum(w*CE)/W_total diverge."""
+solution_explanation = """The solution analyzes each strategy: (1) naive_mean_scaling computes mean-of-means, wrong for variable lengths; (2) global_token_count uses sum(CE)/N_total, correct unweighted but ignores weights; (3) per_step_weighted_mean computes mean-of-weighted-means, wrong when weight sums differ across minibatches; (4) scaled_token_fraction uses token fraction n_g/N_total instead of weight fraction sum(w_g)/W_total. The UnifiedNormalizer pre-computes W_total = sum of all effective weights (importance_weight * non-padding mask) across all minibatches, then each minibatch computes sum(w*CE)/W_total. Summing across GA steps gives sum(all w*CE)/W_total = full-batch weighted loss. For unweighted, w=1 so W_total=N_total, reducing to strategy 2."""
+verification_explanation = """Tests verify: (1) UnifiedNormalizer class exists with prepare/compute_loss/aggregate methods; (2) GA matches full-batch within 1e-5 for unweighted variable-length with GA=2,4,8; (3) GA matches full-batch for weighted variable-length with GA=2,4 and extreme weight ratios; (4) model weights match between full-batch and GA after training steps; (5) multi-step loss trajectories remain consistent over 3 steps with weighted data; (6) evaluation_report.json correctly identifies naive_mean_scaling as incorrect and global_token_count as partially correct; (7) report includes mathematical justification with relevant normalization terms."""
+category = "machine_learning"
+tags = ["loss-normalization", "gradient-accumulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d2a97e"

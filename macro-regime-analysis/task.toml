@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level macroeconomic domain knowledge (Sahm Rule computation, Fisher equation, yield curve inversion significance) combined with complex multi-tool interoperability. The agent must: (1) explore an undocumented SQLite database schema and mixed-format CSV data to discover available series; (2) implement five non-trivial quantitative analyses with proper frequency alignment, missing-value handling, and z-score normalization; (3) store results in a normalized SQLite database with 7 specific tables; (4) construct a non-trivial shell pipeline using sqlite3 JSON output mode and jq to extract, reshape, and assemble the final JSON report from the database. The sqlite3-to-jq pipeline requires proficiency with CLI JSON tools — converting tabular SQL results into nested JSON objects with key remapping (e.g., rows to dicts via jq's map/add pattern)."""
+solution_explanation = """Explore /app/data/ to discover two CSV files (T10Y2Y, CPIAUCSL) and a SQLite database (macro.db) containing FEDFUNDS, UNRATE, and M2SL in a unified observations table with series_metadata. Implement the five analyses in Python, writing results to /app/results.db with 7 normalized tables. Then create /app/build_report.sh — a shell script that queries each table via sqlite3 -json, pipes the results through jq to reshape tabular JSON arrays into the nested output structure (using map/add for dict construction, array indexing for single-row extracts, tonumber for count conversion), and writes /app/results.json."""
+verification_explanation = """Tests verify: (1) JSON structural completeness and field presence; (2) exact correctness of computed values (21 inversions, 15 Sahm episodes, 79 stress months, specific historical event values with tolerances); (3) behavioral constraints (chronological ordering, threshold compliance); (4) database integrity (all 7 tables exist with correct record counts); (5) build_report.sh is executable, contains sqlite3/jq references, regenerates valid JSON when re-run, and reads live data from results.db (anti-cheat: modifies a DB value and verifies the regenerated JSON reflects the change)."""
+category = "data_analysis"
+tags = ["macroeconomics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/macro-regime-analysis"

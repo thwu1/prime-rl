@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a C++ source analyzer that correctly extracts symbol definitions and references from non-trivial C++ code featuring CRTP (Curiously Recurring Template Pattern), multi-level virtual dispatch hierarchies, operator overloading, template metaprogramming, and namespace-scoped function definitions. The solver must understand C++ scoping semantics deeply enough to distinguish file/namespace-scope definitions from class members, template parameters from concrete types, member-access identifiers from free references, and handle edge cases where tree-sitter classifies user-defined names (e.g. size_t via using-alias) as primitive_type keywords. The ray-tracer-inspired session (gamma) involves a 13-PTU dependency DAG with CRTP base classes (Arithmetic<Derived>), a Shape/Sphere inheritance hierarchy with virtual dispatch, cross-namespace function references, and const_cast expressions — all of which must be parsed and resolved correctly. The compilation-tiers query requires implementing topological layering (longest-path stratification) of the DAG, composing correctly with the dependency model. Getting any single aspect wrong (e.g., treating template parameter names as symbol references, or tracking member field names as definitions) propagates errors throughout all query results."""
+solution_explanation = """Uses tree-sitter with the C++ grammar to parse each PTU's code. Extracts top-level symbol definitions (struct/class names, function names, variable names, type aliases) via AST walking, with a regex fallback for using-declarations where the alias name is a primitive_type keyword (e.g. size_t). Collects all type_identifier, identifier, and primitive_type references from the AST, supplemented by raw regex tokenization to catch references inside tree-sitter ERROR nodes. Builds a global symbol table mapping each simple name to its earliest defining PTU, then constructs the dependency graph by matching references against the symbol table. Graph queries use BFS for transitive closures (undo-cascade, minimal-replay), set filtering for dead-PTU detection, memoized recursive longest-path computation with lexicographic tiebreaking for critical-path, and recursive memoized level computation for compilation-tiers (topological layering by longest incoming path)."""
+verification_explanation = """51 pytest test cases verify the tool's JSON output against pre-computed expected results for all three session files, covering all seven commands including the new compilation-tiers topological layering. Tests invoke the tool via subprocess and compare parsed JSON output exactly. Expected values were derived by manual symbol-level analysis of each PTU's C++ code following the specified dependency model, including careful handling of CRTP patterns, virtual dispatch hierarchies, operator overloading, and namespace-scoped definitions."""
+category = "compilers"
+tags = ["incremental-compilation", "dependency-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ptu-dependency-analyzer"

@@ -1,0 +1,29 @@
+=== syz-check output (2024-11-15) ===
+$ syz-check -os linux -arch amd64 accelq.txt
+Loading descriptions from accelq.txt...
+  5 resource types declared
+  10 syscall/ioctl declarations found
+  10 struct definitions found
+  7 flag/constant sets found
+Syntax check: OK (0 errors, 0 warnings)
+All declaration names follow naming conventions.
+Resource dependency graph: connected (no orphan resources)
+
+=== syz-extract output ===
+$ syz-extract -os linux -sourcedir /usr/src/linux accelq.txt
+Extracting constants for linux/amd64...
+WARNING: resolving include <uapi/linux/accelq.h>: using fallback header search path
+Extracted 42 constants successfully (3 required fallback resolution)
+Note: fallback-resolved constants may use placeholder values if original header was not found
+
+=== coverage report excerpt (48h fuzzing run) ===
+  /dev/accelq driver:
+    accelq_open:       covered (3 blocks / 3 blocks)
+    accelq_ioctl:      covered (2 blocks / 847 blocks)   <- entry + dispatch only
+    accelq_create_ctx: NOT covered
+    accelq_queue_ops:  NOT covered
+    accelq_submit:     NOT covered
+    accelq_buf_map:    NOT covered
+  Total: 5 / 14892 blocks (0.03%)
+  Analysis: all ioctl calls appear to fail before reaching handler functions.
+  Possible causes: malformed arguments, incorrect struct layout, or resource ID issues.

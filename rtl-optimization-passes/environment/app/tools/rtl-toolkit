@@ -1,0 +1,499 @@
+#!/usr/bin/env python3
+"""
+rtl-toolkit — RTL IR Analysis Toolkit
+
+Multi-command CLI for inspecting, tracing, visualizing, and validating
+RTL intermediate representations. Part of the CompCert-inspired RTL
+optimization framework.
+"""
+
+import argparse
+import json
+import sys
+import os
+import textwrap
+
+sys.path.insert(0, '/app')
+
+from rtl import (
+    Function, Inop, Iop, Icond, Ireturn,
+    load_function, save_function, interpret, deep_copy_function,
+    eval_op, eval_cond,
+)
+
+
+def _fmt_instr(node, instr):
+    if isinstance(instr, Inop):
+        return f"Inop -> {instr.succ}"
+    elif isinstance(instr, Iop):
+        if instr.op == "const":
+            return f"Iop {instr.dest} = const {instr.imm} -> {instr.succ}"
+        else:
+            args = ', '.join(instr.args)
+            return f"Iop {instr.dest} = {instr.op}({args}) -> {instr.succ}"
+    elif isinstance(instr, Icond):
+        args = ', '.join(instr.args)
+        return f"Icond {instr.cond}({args}) ? {instr.ifso} : {instr.ifnot}"
+    elif isinstance(instr, Ireturn):
+        return f"Ireturn {instr.arg or '(void)'}"
+    return "???"
+
+
+# ─── inspect ────────────────────────────────────────────────────────
+
+def cmd_inspect(args):
+    func = load_function(args.file)
+    print(f"Program: {func.name}")
+    print(f"Parameters: {', '.join(func.params) if func.params else '(none)'}")
+    print(f"Entry: node {func.entry}")
+    reachable = func.reachable_nodes()
+    print(f"Total nodes: {len(func.code)}  Reachable: {len(reachable)}")
+    print()
+
+    # Node listing
+    for n in sorted(func.code.keys()):
+        instr = func.code[n]
+        marker = " " if n in reachable else "!"
+        print(f"  {marker} {n:>3}: {_fmt_instr(n, instr)}")
+    print()
+
+    if args.verbose:
+        # Register analysis
+        defs = {}
+        uses = {}
+        for n, instr in func.code.items():
+            if isinstance(instr, Iop):
+                defs.setdefault(instr.dest, []).append(n)
+                for a in instr.args:
+                    uses.setdefault(a, []).append(n)
+            elif isinstance(instr, Icond):
+                for a in instr.args:
+                    uses.setdefault(a, []).append(n)
+            elif isinstance(instr, Ireturn) and instr.arg:
+                uses.setdefault(instr.arg, []).append(n)
+
+        all_regs = sorted(set(list(defs.keys()) + list(uses.keys())))
+        print("Register analysis:")
+        for r in all_regs:
+            d = defs.get(r, [])
+            u = uses.get(r, [])
+            status = ""
+            if d and not u:
+                status = " [DEAD]"
+            elif not d and u:
+                status = " [PARAM/EXTERNAL]"
+            print(f"  {r}: def@{d} use@{u}{status}")
+        print()
+
+        # Nop chains
+        nop_chains = []
+        visited = set()
+        for n in sorted(func.code.keys()):
+            if isinstance(func.code[n], Inop) and n not in visited:
+                chain = [n]
+                visited.add(n)
+                cur = func.code[n].succ
+                while cur in func.code and isinstance(func.code[cur], Inop) and cur not in visited:
+                    chain.append(cur)
+                    visited.add(cur)
+                    cur = func.code[cur].succ
+                if len(chain) > 1:
+                    nop_chains.append(chain)
+        if nop_chains:
+            print("Nop chains:")
+            for ch in nop_chains:
+                print(f"  {' -> '.join(str(n) for n in ch)} -> {func.code[ch[-1]].succ}")
+        else:
+            print("Nop chains: (none)")
+        print()
+
+        # Predecessor map
+        preds = {n: [] for n in func.code}
+        for n, instr in func.code.items():
+            for s in instr.successors():
+                if s in preds:
+                    preds[s].append(n)
+        print("Predecessors:")
+        for n in sorted(preds.keys()):
+            if preds[n]:
+                print(f"  node {n} <- {preds[n]}")
+
+
+# ─── trace ──────────────────────────────────────────────────────────
+
+def cmd_trace(args):
+    func = load_function(args.file)
+    input_args = [int(x) for x in args.args]
+
+    regs = {}
+    for i, p in enumerate(func.params):
+        regs[p] = input_args[i] if i < len(input_args) else 0
+
+    print(f"Tracing {func.name} with args={input_args}")
+    if func.params:
+        bindings = ', '.join(f"{p}={regs[p]}" for p in func.params)
+        print(f"Initial bindings: {bindings}")
+    print()
+
+    pc = func.entry
+    max_steps = args.max_steps
+    path = []
+
+    for step in range(1, max_steps + 1):
+        if pc not in func.code:
+            print(f"ERROR: pc={pc} not in code")
+            sys.exit(1)
+        instr = func.code[pc]
+        path.append(pc)
+
+        desc = _fmt_instr(pc, instr)
+
+        if isinstance(instr, Inop):
+            print(f"  step {step:>3}: [node {pc:>2}] {desc}")
+            pc = instr.succ
+
+        elif isinstance(instr, Iop):
+            if instr.op == "const":
+                regs[instr.dest] = instr.imm
+                val_str = str(instr.imm)
+            else:
+                arg_vals = [regs.get(a, 0) for a in instr.args]
+                result = eval_op(instr.op, arg_vals)
+                regs[instr.dest] = result
+                arg_detail = ', '.join(f"{a}={regs.get(a, 0)}" for a in instr.args)
+                val_str = f"{result} (from {arg_detail})"
+            print(f"  step {step:>3}: [node {pc:>2}] {desc}")
+            print(f"           => {instr.dest} = {val_str}")
+            if args.verbose:
+                print(f"           regs: {dict(sorted(regs.items()))}")
+            pc = instr.succ
+
+        elif isinstance(instr, Icond):
+            arg_vals = [regs.get(a, 0) for a in instr.args]
+            taken = eval_cond(instr.cond, arg_vals)
+            target = instr.ifso if taken else instr.ifnot
+            arg_detail = ', '.join(f"{a}={v}" for a, v in zip(instr.args, arg_vals))
+            print(f"  step {step:>3}: [node {pc:>2}] {desc}")
+            print(f"           => {instr.cond}({arg_detail}) = {taken} -> node {target}")
+            pc = target
+
+        elif isinstance(instr, Ireturn):
+            retval = regs.get(instr.arg, 0) if instr.arg else 0
+            print(f"  step {step:>3}: [node {pc:>2}] {desc}")
+            print()
+            print(f"Result: {retval}")
+            print(f"Path: {' -> '.join(str(n) for n in path)}")
+            print(f"Steps: {step}")
+            return
+
+    print(f"ERROR: max steps ({max_steps}) exceeded")
+    sys.exit(1)
+
+
+# ─── dot ────────────────────────────────────────────────────────────
+
+def cmd_dot(args):
+    func = load_function(args.file)
+    reachable = func.reachable_nodes()
+
+    lines = []
+    lines.append(f'digraph "{func.name}" {{')
+    lines.append('  rankdir=TB;')
+    lines.append('  node [shape=record, fontname="monospace", fontsize=10];')
+    lines.append(f'  entry [shape=point, width=0.2];')
+    lines.append(f'  entry -> n{func.entry};')
+
+    for n in sorted(func.code.keys()):
+        instr = func.code[n]
+        label = f"{n}: {_fmt_instr(n, instr)}"
+        label = label.replace('"', '\\"')
+
+        color = "black"
+        style = ""
+        if n not in reachable:
+            color = "gray60"
+            style = ', style=dashed'
+        elif isinstance(instr, Inop):
+            color = "gray40"
+        elif isinstance(instr, Icond):
+            color = "blue"
+        elif isinstance(instr, Ireturn):
+            color = "red"
+
+        if args.highlight and n in args.highlight:
+            style = ', style=bold, color=red, penwidth=2'
+
+        lines.append(f'  n{n} [label="{label}", fontcolor={color}{style}];')
+
+    for n in sorted(func.code.keys()):
+        instr = func.code[n]
+        if isinstance(instr, Icond):
+            lines.append(f'  n{n} -> n{instr.ifso} [label="T", color=green4];')
+            lines.append(f'  n{n} -> n{instr.ifnot} [label="F", color=red3];')
+        else:
+            for s in instr.successors():
+                lines.append(f'  n{n} -> n{s};')
+
+    lines.append('}')
+    print('\n'.join(lines))
+
+
+# ─── validate ───────────────────────────────────────────────────────
+
+def cmd_validate(args):
+    orig = load_function(args.original)
+    opt = load_function(args.optimized)
+
+    # Parse input sets
+    input_sets = []
+    if args.inputs:
+        for group in args.inputs.split(';'):
+            group = group.strip()
+            if group:
+                input_sets.append([int(x) for x in group.split(',')])
+    else:
+        # Auto-generate based on params
+        if not orig.params:
+            input_sets = [[]]
+        else:
+            import itertools
+            vals = [0, 1, -1, 5, -5, 10, 100]
+            n = len(orig.params)
+            if n == 1:
+                input_sets = [[v] for v in vals]
+            else:
+                input_sets = [list(c) for c in itertools.product(vals[:4], repeat=n)]
+
+    all_pass = True
+    for inp in input_sets:
+        try:
+            orig_result = interpret(orig, inp)
+        except Exception as e:
+            print(f"  ORIG ERROR with args={inp}: {e}")
+            all_pass = False
+            continue
+        try:
+            opt_result = interpret(opt, inp)
+        except Exception as e:
+            print(f"  OPT ERROR with args={inp}: {e}")
+            all_pass = False
+            continue
+
+        match = orig_result == opt_result
+        status = "PASS" if match else "FAIL"
+        print(f"  [{status}] args={inp}: orig={orig_result}, opt={opt_result}")
+        if not match:
+            all_pass = False
+
+    print()
+    if all_pass:
+        print(f"All {len(input_sets)} tests passed: semantic equivalence confirmed.")
+    else:
+        print("SEMANTIC MISMATCH DETECTED.")
+    sys.exit(0 if all_pass else 1)
+
+
+# ─── diff ───────────────────────────────────────────────────────────
+
+def cmd_diff(args):
+    f1 = load_function(args.file1)
+    f2 = load_function(args.file2)
+
+    all_nodes = sorted(set(list(f1.code.keys()) + list(f2.code.keys())))
+    has_diff = False
+
+    for n in all_nodes:
+        in1 = n in f1.code
+        in2 = n in f2.code
+        if in1 and in2:
+            d1 = f1.code[n].to_dict()
+            d2 = f2.code[n].to_dict()
+            if d1 != d2:
+                has_diff = True
+                print(f"Node {n}:")
+                print(f"  - {_fmt_instr(n, f1.code[n])}")
+                print(f"  + {_fmt_instr(n, f2.code[n])}")
+        elif in1 and not in2:
+            has_diff = True
+            print(f"Node {n}:")
+            print(f"  - {_fmt_instr(n, f1.code[n])}")
+            print(f"  + (removed)")
+        elif not in1 and in2:
+            has_diff = True
+            print(f"Node {n}:")
+            print(f"  - (absent)")
+            print(f"  + {_fmt_instr(n, f2.code[n])}")
+
+    if not has_diff:
+        print("No structural differences.")
+
+
+# ─── stats ──────────────────────────────────────────────────────────
+
+def cmd_stats(args):
+    func = load_function(args.file)
+    reachable = func.reachable_nodes()
+
+    type_counts = {"Inop": 0, "Iop": 0, "Icond": 0, "Ireturn": 0}
+    const_nodes = []
+    op_nodes = []
+    dead_defs = []
+
+    # Use/def analysis
+    used_regs = set()
+    for n, instr in func.code.items():
+        if n not in reachable:
+            continue
+        if isinstance(instr, Iop):
+            for a in instr.args:
+                used_regs.add(a)
+        elif isinstance(instr, Icond):
+            for a in instr.args:
+                used_regs.add(a)
+        elif isinstance(instr, Ireturn) and instr.arg:
+            used_regs.add(instr.arg)
+
+    for n in sorted(func.code.keys()):
+        if n not in reachable:
+            continue
+        instr = func.code[n]
+        tname = type(instr).__name__
+        type_counts[tname] = type_counts.get(tname, 0) + 1
+        if isinstance(instr, Iop):
+            if instr.op == "const":
+                const_nodes.append(n)
+            else:
+                op_nodes.append(n)
+            if instr.dest not in used_regs:
+                dead_defs.append((n, instr.dest))
+
+    # Nop chains
+    nop_count = 0
+    visited = set()
+    for n in sorted(func.code.keys()):
+        if n in reachable and isinstance(func.code[n], Inop) and n not in visited:
+            chain = [n]
+            visited.add(n)
+            cur = func.code[n].succ
+            while cur in func.code and isinstance(func.code[cur], Inop) and cur not in visited:
+                chain.append(cur)
+                visited.add(cur)
+                cur = func.code[cur].succ
+            if len(chain) > 1:
+                nop_count += 1
+
+    total = sum(type_counts.values())
+    print(f"Program: {func.name}")
+    print(f"Total nodes: {len(func.code)}  Reachable: {len(reachable)}")
+    print()
+    print("Instruction mix:")
+    for tname in ["Iop", "Inop", "Icond", "Ireturn"]:
+        cnt = type_counts[tname]
+        pct = 100 * cnt / total if total else 0
+        print(f"  {tname:>8}: {cnt:>3} ({pct:5.1f}%)")
+    print()
+    print(f"Constants: {len(const_nodes)} (nodes: {const_nodes})")
+    print(f"Operations: {len(op_nodes)} (nodes: {op_nodes})")
+    print(f"Nop chains: {nop_count}")
+    print(f"Potential dead defs: {len(dead_defs)}")
+    if dead_defs:
+        for n, r in dead_defs:
+            print(f"  node {n}: {r} defined but never used")
+
+    if args.format == "json":
+        print()
+        print(json.dumps({
+            "name": func.name,
+            "total_nodes": len(func.code),
+            "reachable_nodes": len(reachable),
+            "instruction_mix": type_counts,
+            "constants": const_nodes,
+            "operations": op_nodes,
+            "nop_chains": nop_count,
+            "dead_defs": [{"node": n, "reg": r} for n, r in dead_defs],
+        }, indent=2))
+
+
+# ─── main ───────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='rtl-toolkit',
+        description='RTL IR Analysis Toolkit — inspect, trace, visualize, and validate RTL programs',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              rtl-toolkit inspect program.json -v
+              rtl-toolkit trace program.json 5 -1 --max-steps 200
+              rtl-toolkit dot program.json | dot -Tsvg -o cfg.svg
+              rtl-toolkit validate orig.json opt.json --inputs "5;-1;0"
+              rtl-toolkit diff orig.json opt.json
+              rtl-toolkit stats program.json --format json
+        """),
+    )
+
+    sub = parser.add_subparsers(dest='command', help='available commands')
+
+    # inspect
+    p_inspect = sub.add_parser('inspect', help='show program structure and register usage')
+    p_inspect.add_argument('file', help='RTL program JSON file')
+    p_inspect.add_argument('-v', '--verbose', action='store_true',
+                           help='show register analysis, nop chains, predecessors')
+
+    # trace
+    p_trace = sub.add_parser('trace', help='execute with step-by-step register tracing')
+    p_trace.add_argument('file', help='RTL program JSON file')
+    p_trace.add_argument('args', nargs='*', help='integer arguments for the program')
+    p_trace.add_argument('--max-steps', type=int, default=500,
+                         help='maximum execution steps (default: 500)')
+    p_trace.add_argument('-v', '--verbose', action='store_true',
+                         help='show full register state at each step')
+
+    # dot
+    p_dot = sub.add_parser('dot', help='generate GraphViz DOT representation')
+    p_dot.add_argument('file', help='RTL program JSON file')
+    p_dot.add_argument('--highlight', type=str, default=None,
+                       help='comma-separated node IDs to highlight')
+
+    # validate
+    p_validate = sub.add_parser('validate', help='check semantic equivalence')
+    p_validate.add_argument('original', help='original RTL program JSON')
+    p_validate.add_argument('optimized', help='optimized RTL program JSON')
+    p_validate.add_argument('--inputs', type=str, default=None,
+                            help='semicolon-separated input sets, e.g. "5;-1;0,3"')
+
+    # diff
+    p_diff = sub.add_parser('diff', help='structural diff between two IRs')
+    p_diff.add_argument('file1', help='first RTL program JSON')
+    p_diff.add_argument('file2', help='second RTL program JSON')
+
+    # stats
+    p_stats = sub.add_parser('stats', help='optimization-relevant statistics')
+    p_stats.add_argument('file', help='RTL program JSON file')
+    p_stats.add_argument('--format', choices=['text', 'json'], default='text',
+                         help='output format (default: text)')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    # Parse highlight nodes
+    if args.command == 'dot' and args.highlight:
+        args.highlight = set(int(x) for x in args.highlight.split(','))
+
+    dispatch = {
+        'inspect': cmd_inspect,
+        'trace': cmd_trace,
+        'dot': cmd_dot,
+        'validate': cmd_validate,
+        'diff': cmd_diff,
+        'stats': cmd_stats,
+    }
+
+    dispatch[args.command](args)
+
+
+if __name__ == '__main__':
+    main()

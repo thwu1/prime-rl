@@ -1,0 +1,39 @@
+{
+  "grid_size": 64,
+  "domain": [0.0, 1.0, 0.0, 1.0],
+  "pde": "-div(K(x,y) * grad(u)) = f",
+  "boundary_conditions": "dirichlet_zero",
+  "rhs_value": 1.0,
+  "coefficients": {
+    "background": 1.0,
+    "inclusions": [
+      {"x_range": [0.25, 0.5], "y_range": [0.25, 0.5], "value": 1000.0},
+      {"x_range": [0.6, 0.8], "y_range": [0.1, 0.3], "value": 100.0},
+      {"x_range": [0.1, 0.3], "y_range": [0.6, 0.9], "value": 0.1}
+    ]
+  },
+  "discretization": {
+    "stencil": "5-point",
+    "face_evaluation": "point_evaluation_at_face_center"
+  },
+  "amg": {
+    "strength_threshold": 0.25,
+    "max_levels": 25,
+    "coarsest_size": 50,
+    "coarsening": "classical_rs",
+    "interpolation": "direct",
+    "smoother": "symmetric_gauss_seidel",
+    "cycle": "V",
+    "pre_smoothing": 1,
+    "post_smoothing": 1
+  },
+  "solver": {
+    "type": "pcg",
+    "tolerance": 1e-10,
+    "max_iterations": 200
+  },
+  "output": {
+    "file": "/app/results.json",
+    "probe_points_ij": [[16, 16], [32, 32], [48, 48], [16, 48], [48, 16]]
+  }
+}

@@ -1,0 +1,38 @@
+GSPRO: Speciation Profile File
+(From SMOKE v5.3 Documentation, Chapter 6)
+
+Contains factors for splitting aggregated inventory pollutants into individual
+model species required by air quality models. All inventory pollutants must
+appear even if the split factor is 1.0 (e.g. CO).
+
+Format is semicolon-delimited. Comment lines beginning with '#' are allowed
+anywhere in the file.
+
+  Column  Field           Type       Description
+  ------------------------------------------------------------------
+  A       PROFILE_CODE    Char(10)   Speciation profile number.
+                                     Character string; leading zeros are
+                                     significant. Must match codes assigned
+                                     in GSREF.
+
+  B       POLLUTANT       Char(10)   Pollutant ID/name.
+                                     Must match the pollutant name used in
+                                     the speciation lookup. Note: this may
+                                     differ from the inventory pollutant if
+                                     a GSCNV conversion applies.
+
+  C       SPECIES_ID      Char(16)   Model species name.
+
+  D       SPLIT_FACTOR    Real       Mole-based speciation: numerator.
+
+  E       DIVISOR         Real       Mole-based speciation: denominator.
+
+  F       MASS_FRACTION   Real       Mass-based speciation factor.
+
+Calculation:
+  For each species in the assigned profile, given emission quantity E:
+    Mass-based result  = MASS_FRACTION * E
+    Mole-based result  = (SPLIT_FACTOR / DIVISOR) * E
+
+Note: The ratio MASS_FRACTION / SPLIT_FACTOR equals the average molecular
+weight for that species within the profile (when DIVISOR = 1).

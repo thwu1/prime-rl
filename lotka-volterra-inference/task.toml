@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to analyze ecological time series data, independently identify predator-prey dynamics from the oscillatory pattern, discover CmdStan in the environment, and autonomously design a full Bayesian ODE-based mechanistic model. The agent must choose the appropriate differential equation system, observation error model, prior distributions, and ODE solver; write a complete Stan program with proper block structure; configure and tune the MCMC sampler to achieve convergence on a model with challenging posterior geometry (8+ coupled parameters); handle initial condition treatment; and extract/format results using the CmdStanPy API with version-robust column name detection. Multiple failure modes: wrong ecological model, ODE solver crashes, divergent transitions from poor parameterization, incorrect Stan syntax for modern ODE interfaces."""
+solution_explanation = """Examine the hare-lynx pelt data and recognize the phase-shifted oscillatory pattern as classic predator-prey dynamics. Choose the Lotka-Volterra ODE system (du/dt = (alpha - beta*v)*u, dv/dt = (-gamma + delta*u)*v). Discover CmdStan under /opt and use CmdStanPy. Write a Stan model with the ODE system in a functions block, ode_rk45 in transformed parameters, lognormal observation error in model, and posterior predictive + forward predictions in generated quantities. Use weakly informative priors and tune the sampler (adapt_delta=0.9, good initial values) for convergence. Extract posterior summaries with robust column name handling across CmdStan versions."""
+verification_explanation = """Tests verify outcomes without requiring specific parameter names: posterior predictive means must correlate (r > 0.5) with observed pelt data for both species, population peaks must be captured, magnitudes must be ecologically plausible. All MCMC convergence diagnostics must pass (R-hat < 1.1, ESS > 50, divergences < 500) for every parameter. The Stan model file must contain proper program blocks and use an ODE solver. Forward prediction CSVs must have correct format, year sequences, positive values, and valid credible intervals."""
+category = "scientific_computing"
+tags = ["bayesian-inference", "differential-equations"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lotka-volterra-inference"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of tree-based persistent data structures, pool-based serialization with identity deduplication, graph analysis, integrity validation with cycle detection, GraphViz integration for visual rendering, and normalized relational database persistence with faithful round-trip reconstruction. The combination of data structure internals, serialization format design, multi-tool interop (Python + GraphViz + SQLite), and the novel pool format demands proficient-level systems programming skill."""
+solution_explanation = """The solution implements PersistentVector using LeafNode/InnerNode classes with Python object identity for structural sharing. push_back checks tail capacity, pushes full tails into the tree via path copying, and grows depth when capacity is exceeded. set creates new nodes only along the modified path. Serialization traverses all vectors' node graphs using id() for deduplication. Deserialization reconstructs elements by recursively resolving node IDs. Transform replaces leaf elements while preserving inner structure. Validate checks ID uniqueness, reference validity, capacity constraints, and cycles. Visualize generates DOT source with color-coded nodes (#ffd700 for shared, #90ee90/#add8e6 for unique) and pipes through `dot -Tsvg`. Store decomposes the pool into six normalized SQLite tables (metadata, leaf_nodes, inner_nodes, inner_children, vectors, named_vectors) with foreign keys. Load reconstructs pool JSON from the database."""
+verification_explanation = """Tests verify round-trip correctness (build then reconstruct) for multiple B/BL configurations and tree depths, structural sharing preservation (analyze confirms shared nodes and storage savings), transform correctness and structure preservation, validation of both valid and invalid pools (dangling refs, overlapping IDs, capacity violations), edge cases (single element, tail-only vectors, long chains), reconstruction from hand-crafted pool JSON, SVG visualization output (valid SVG with correct shared-node color #ffd700, unique-node colors #90ee90/#add8e6, vector descriptor color #ffc0cb), and SQLite store/load round-trips (required tables, foreign key definitions, metadata storage, element type preservation, sharing statistics preservation)."""
+category = "data_structures"
+tags = ["persistent-data-structures", "tree-serialization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ba4fc3"

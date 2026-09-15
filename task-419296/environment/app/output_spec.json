@@ -1,0 +1,104 @@
+{
+  "description": "Produce a JSON diagnostic report for each case in /app/reports/. Each file must be valid JSON with the fields listed below.",
+  "formulas": {
+    "root_operator_self_time": "For root operators: self_time_ms = time_ms - sum(direct_children_time_ms)",
+    "cop_estimated_execution_time": "For cop[tikv] operators with cop_task stats: estimated_ms = avg_ms * num / concurrency. Use distsql_concurrency from the cop_task stats if present; otherwise fall back to tidb_distsql_scan_concurrency from /app/config.json.",
+    "max_concurrent_cop_tasks": "For IndexLookUp operators: table_task_concurrency * distsql_concurrency_of_table_scan_cop_task"
+  },
+  "root_cause_values": ["lock_contention", "mvcc_tombstone", "concurrency_limit", "scan_overhead"],
+  "operator_id_format": "Strip any (Build) or (Probe) suffix from operator IDs in output (e.g. IndexLookUp_35(Probe) becomes IndexLookUp_35).",
+  "plan_format_note": "Execution plans in /app/plans/ are stored in a proprietary binary format. Explore the system PATH for diagnostic utilities that can decode them.",
+  "cases": {
+    "case1": {
+      "inputs": ["plans/case1_lock_contention.planpb"],
+      "output": "reports/case1.json",
+      "description": "Diagnose a point query with intermittent latency jitter exceeding 2 seconds.",
+      "fields": {
+        "bottleneck_operator": "string - operator ID causing the performance issue",
+        "root_cause": "string - one of root_cause_values",
+        "self_time_ms": "float - total execution time of the bottleneck operator in milliseconds",
+        "resolve_lock_time_ms": "float - ResolveLock total_time converted to ms",
+        "get_time_ms": "float - Get total_time converted to ms",
+        "backoff_retries": "int - txnNotFound_backoff num field"
+      }
+    },
+    "case2": {
+      "inputs": ["plans/case2_concurrency.planpb"],
+      "output": "reports/case2.json",
+      "description": "Analyze operator execution concurrency for an IndexLookUp query. Determine actual and maximum concurrent cop tasks.",
+      "fields": {
+        "bottleneck_operator": "string - the root operator",
+        "index_task_concurrency": "int - from index_task concurrency in execution info (default 1 if not explicitly shown)",
+        "table_task_concurrency": "int - from table_task concurrency in execution info",
+        "index_distsql_concurrency": "int - distsql_concurrency from IndexRangeScan cop_task",
+        "table_distsql_concurrency": "int - distsql_concurrency from TableRowIDScan cop_task",
+        "max_concurrent_cop_tasks": "int - table_task_concurrency * table_distsql_concurrency",
+        "index_cop_estimated_time_ms": "float - avg * num / distsql_concurrency for IndexRangeScan cop_task",
+        "table_cop_estimated_time_ms": "float - avg * num / distsql_concurrency for TableRowIDScan cop_task"
+      }
+    },
+    "case3": {
+      "inputs": ["plans/case3_max.planpb", "plans/case3_min.planpb"],
+      "output": "reports/case3.json",
+      "description": "Compare MAX and MIN aggregate queries on the same indexed column. Identify why MIN is orders of magnitude slower than MAX.",
+      "fields": {
+        "bottleneck_operator": "string - the operator causing the MIN query slowdown (from the IndexReader level)",
+        "root_cause": "string - one of root_cause_values",
+        "max_query": {
+          "total_time_ms": "float - time of outermost operator in ms",
+          "cop_tasks": "int - cop_task num from IndexReader",
+          "proc_keys": "int - proc_keys from IndexReader cop_task (total when num=1)",
+          "scan_order": "string - 'asc' or 'desc' based on IndexFullScan operator_info"
+        },
+        "min_query": {
+          "total_time_ms": "float - time of outermost operator in ms",
+          "cop_tasks": "int - cop_task num from IndexReader",
+          "max_proc_keys": "int - max_proc_keys from IndexReader cop_task",
+          "estimated_cop_time_ms": "float - avg * num / tidb_distsql_scan_concurrency for IndexReader cop_task",
+          "scan_order": "string - 'asc' or 'desc'"
+        },
+        "cop_task_ratio": "float - min_query.cop_tasks / max_query.cop_tasks",
+        "proc_keys_ratio": "float - min_query.max_proc_keys / max_query.proc_keys"
+      }
+    },
+    "case4": {
+      "inputs": ["plans/case4_complex_join.planpb"],
+      "output": "reports/case4.json",
+      "description": "Analyze a multi-table HashJoin query. Compute operator self-times, estimated cop execution times, and maximum concurrency.",
+      "fields": {
+        "bottleneck_operator": "string - the direct child of HashJoin with the highest execution time",
+        "operators": "array of {id: string, task_type: string, time_ms: float or null}",
+        "hashjoin_self_time_ms": "float - HashJoin time minus sum of its direct children's times",
+        "table_reader_cop_estimated_time_ms": "float - avg * num / distsql_concurrency from TableReader cop_task",
+        "probe_cop_estimated_time_ms": "float - avg * num / distsql_concurrency from TableRowIDScan cop_task",
+        "indexlookup_max_concurrent_cop": "int - table_task_concurrency * distsql_concurrency for IndexLookUp"
+      }
+    },
+    "triage_summary": {
+      "inputs": ["All case analysis results", "cluster_topology.json", "diagnostics.db"],
+      "output": "reports/triage_summary.json",
+      "description": "Cross-incident risk evaluation. Classify incidents by root cause category, rank by production impact, and assess cluster-level health indicators. Requires synthesizing findings from all four incident diagnoses with cluster operational data.",
+      "fields": {
+        "priority_ranking": "array of incident_id strings ordered by max exec_time_ms descending per incident (from slow_queries table, GROUP BY incident_id)",
+        "root_cause_groups": {
+          "gc_related": "array of incident_ids where root cause stems from garbage collection behavior (stale lock resolution, MVCC version accumulation)",
+          "concurrency_related": "array of incident_ids where the primary constraint is operator task concurrency"
+        },
+        "cluster_risk_metrics": {
+          "stores_above_90pct_usage": "int - count of stores with capacity used_ratio > 0.90",
+          "min_available_storage_gb": "float - smallest available_gb across all stores",
+          "gc_tombstone_ratio": "float - tombstone_keys_cleaned / keys_processed from last GC run",
+          "max_sst_file_count": "int - highest sst_file_count across all stores",
+          "total_pending_compaction_mb": "int - sum of compaction_pending_bytes_mb across all stores"
+        },
+        "impact_assessment": {
+          "gc_related_total_latency_ms": "float - sum of max exec_time_ms for gc_related incidents",
+          "concurrency_related_total_latency_ms": "float - sum of max exec_time_ms for concurrency_related incidents",
+          "highest_impact_category": "string - 'gc_related' or 'concurrency_related', whichever group has higher total latency",
+          "gc_urgency": "string - 'high' if gc_tombstone_ratio > 0.40, 'medium' if > 0.25, else 'low'",
+          "storage_urgency": "string - 'critical' if any store used_ratio > 0.90, 'warning' if > 0.80, else 'normal'"
+        }
+      }
+    }
+  }
+}

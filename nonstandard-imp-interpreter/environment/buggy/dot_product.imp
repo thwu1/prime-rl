@@ -1,0 +1,14 @@
+int a1;
+int a2;
+int b1;
+int b2;
+int p1;
+int p2;
+int dot;
+a1 = 3;
+a2 = 7;
+b1 = 4;
+b2 = 2;
+p1 = (a1 * b1);
+p2 = (a2 * b2);
+dot = (p1 + p2);

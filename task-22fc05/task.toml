@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a Go cryptographic hash algorithm from source code and faithfully reimplementing it in Python with correct integer encoding and type-casting semantics, building a hybrid routing system that dispatches between SQLite legacy lookups and algorithmic hashing based on per-table thresholds, analyzing production transaction logs to identify table coupling relationships for atomic migration batching, computing routing conflict rates that quantify the divergence between legacy random shard assignments and deterministic hash-based routing across ~90K records, generating valid Vitess VSchema configuration, and reasoning about distributed query routing semantics to classify scatter behavior. The agent must synthesize understanding across cryptography, distributed database internals, graph theory, and query planning — none of which are named in the instructions."""
+solution_explanation = """The solution reads the Go reference to identify the DES null-key ECB encryption algorithm, implements it in Python using pycryptodome with correct big-endian uint64 encoding and int64-to-uint64 bit-pattern-preserving cast, maps keyspace IDs to shards by comparing the first byte against hex boundaries from shard_config.json, builds a hybrid router dispatching to SQLite for legacy IDs and hash for new IDs, discovers transaction coupling via BFS/union-find on the multi-table transaction co-occurrence graph, computes per-table conflict rates by comparing every legacy record's SQLite shard against its hash-derived shard, generates a Vitess VSchema with hash vindex and per-table column_vindexes, and classifies queries as scatter vs targeted by checking for shard key column presence in WHERE clauses."""
+verification_explanation = """Tests independently compute DES hash values using pycryptodome and verify the solution's vhash output matches byte-for-byte (including the well-known DES null-key test vector for input 0). Legacy and hash routing are verified against ground truth from SQLite and independent keyspace ID computation. Conflict counts are independently recomputed per-table by comparing every legacy record's SQLite shard assignment against the hash-derived shard. Transaction coupling is checked against known connected components. VSchema is validated for structure, vindex type, and table coverage. Scatter classification is verified by independent shard-key-in-WHERE analysis."""
+category = "database_systems"
+tags = ["distributed_databases", "database_sharding"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-22fc05"

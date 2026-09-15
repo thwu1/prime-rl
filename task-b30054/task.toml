@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Kubernetes knowledge to independently discover 14 cross-resource configuration defects across 12 manifest files spanning Deployments, Services, ConfigMaps, Secrets, ServiceAccounts, PV/PVC, NetworkPolicies, CronJobs, RBAC (Role/RoleBinding), and HorizontalPodAutoscalers. The solver receives no enumeration of error types or counts — they must systematically audit every inter-resource dependency using deep understanding of Kubernetes admission control, label selector semantics, ResourceQuota enforcement, PV binding constraints, RBAC authorization model, HPA targeting, and NetworkPolicy ingress matching. Part 2 requires generalizing the discovered patterns into a reusable cross-resource validation tool that correctly handles both broken and clean manifest sets — a qualitatively harder design task requiring the solver to evaluate which invariants across resource types must hold and implement novel checking logic."""
+solution_explanation = """The solution parses all YAML manifests, builds a multi-kind resource index, and performs 14 systematic cross-resource validations: matching Service selectors against Deployment pod labels, verifying probe/targetPort consistency, checking ResourceQuota compliance, validating ConfigMap/Secret/ServiceAccount references, auditing security contexts, checking PV/PVC storage and access mode compatibility, verifying NetworkPolicy selectors, validating CronJob schedules, checking RoleBinding subject SA references, and verifying HPA scaleTargetRef targets. It then deploys a standalone validator implementing all check categories generically."""
+verification_explanation = """Tests parse the fixed YAML manifests and independently verify each of the 14 fixes via dedicated pytest assertions. The audit.json report is validated for structure and completeness (>= 14 findings with required fields). A separate TestValidator suite runs validate.py as a subprocess against both /app/fixed/ (must report 0 issues, exit 0) and /app/manifests/ (must report >= 5 issues, exit non-zero), and validates the JSON output schema."""
+category = "devops"
+tags = ["kubernetes", "yaml-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b30054"

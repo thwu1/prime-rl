@@ -1,0 +1,4 @@
+experiment,expected_mean,tolerance
+EXP_A,42.5,0.2
+EXP_B,38.0,3.0
+EXP_C,55.0,8.0

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle regressions in a multi-file text editor engine by investigating git history to identify a commit that introduced shared-state mutation in a persistent data structure, recognizing that a diff implementation produces suboptimal edit scripts despite being functionally correct, restructuring a linear undo/redo system into a tree with correct branching semantics, designing a 3-way branch merge with LCA computation and conflict detection, and implementing a SQLite-backed session store by inspecting the database schema with sqlite3. The combination of git forensics, algorithm design, data structure debugging, and database tooling makes this a proficient-level task requiring multiple rounds of terminal interaction."""
+solution_explanation = """Fix PieceTable.insert to build a fresh descriptor list instead of mutating self._desc in place (identified via git diff of the optimization commit). Replace the positional diff with an O(ND) shortest-edit-distance algorithm for minimal edit scripts. Restructure UndoTree from linear stacks to a tree of nodes with parent/child pointers. Implement merge_branches via LCA search (ancestor set intersection), difflib-based 3-way merge with conflict markers. Implement SessionStore using sqlite3 module after discovering the schema via the sqlite3 CLI tool."""
+verification_explanation = """Tests verify: piece table persistence across divergent edits; undo tree branching with multi-branch navigation; diff minimality with edit-count assertions; diff validity via reconstruction; 3-way merge with non-overlapping edits producing combined result; conflicting edits producing conflict markers; identical edits merging cleanly; LCA detection for non-root ancestors; SessionStore list/replay/record operations against a test SQLite database; replay with branching operations producing correct tree structure."""
+category = "data_structures_and_algorithms"
+tags = ["debugging", "text-editors"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8520a6"

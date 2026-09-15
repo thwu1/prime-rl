@@ -1,0 +1,12 @@
+{
+  "benchmarks": [
+    {"id": 1, "expr": "(* x 8)", "max_cost": 4},
+    {"id": 2, "expr": "(* 4 (+ x y))", "max_cost": 8},
+    {"id": 3, "expr": "(+ (* 2 x) (* 2 y))", "max_cost": 8},
+    {"id": 4, "expr": "(+ (* x 3) (* x 5))", "max_cost": 4},
+    {"id": 5, "expr": "(+ (* x 4) (* x 4))", "max_cost": 4},
+    {"id": 6, "expr": "(* (+ x 0) 1)", "max_cost": 1},
+    {"id": 7, "expr": "(+ (* (+ a b) 2) (* (+ a b) 2))", "max_cost": 8},
+    {"id": 8, "expr": "(+ (+ (* x 8) (* y 4)) (* x 8))", "max_cost": 11}
+  ]
+}

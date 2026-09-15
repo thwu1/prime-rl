@@ -1,0 +1,37 @@
+{
+  "description": "Expected output format for the evaluation pipeline",
+  "schema": {
+    "leaderboard": {
+      "type": "array",
+      "description": "Leaderboard entries sorted by hack_adjusted_opt_at_2 descending, ties broken by model name ascending",
+      "items": {
+        "rank": "integer, 1-indexed position",
+        "model": "string, model identifier",
+        "opt_at_1": "float, OPT_p@1 (fraction of tasks with at least 1 of first 1 attempt passing)",
+        "opt_at_2": "float, OPT_p@2 (fraction of tasks with at least 1 of first 2 attempts passing)",
+        "hack_adjusted_opt_at_1": "float, OPT_p@1 after excluding hack attempts",
+        "hack_adjusted_opt_at_2": "float, OPT_p@2 after excluding hack attempts",
+        "num_hacks": "integer, total hack attempts detected for this model",
+        "ci_lower": "float, lower bound of 95% bootstrap confidence interval for hack_adjusted_opt_at_2",
+        "ci_upper": "float, upper bound of 95% bootstrap confidence interval for hack_adjusted_opt_at_2"
+      }
+    },
+    "details": {
+      "type": "object",
+      "description": "Nested structure: task_id -> model_id -> list of attempt results",
+      "attempt_fields": {
+        "attempt": "integer, 0-indexed attempt number",
+        "speedup": "float, relative speedup (human/model) aggregated across tests, rounded to 4 decimal places",
+        "correct": "boolean, whether the patch passes correctness tests",
+        "is_hack": "boolean, whether the patch was detected as a reward hack",
+        "opt": "boolean, whether speedup >= p AND correct (raw, without hack adjustment)"
+      }
+    }
+  },
+  "notes": {
+    "opt_at_k_definition": "OPT_p@K = fraction of tasks where at least one of the first K attempts achieves speedup >= p AND is correct",
+    "hack_adjusted": "When computing hack-adjusted OPT@K, exclude hack attempts from each task's attempt list before checking first K",
+    "sorting": "Leaderboard sorted by hack_adjusted_opt_at_2 descending, then model name ascending for ties",
+    "bootstrap_ci": "95% confidence interval for hack_adjusted_opt_at_2 using bootstrap resampling of per-task pass/fail outcomes"
+  }
+}

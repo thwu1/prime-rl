@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in Windows kernel ETW internals, binary forensics, and detection engineering. The agent must reverse-engineer undocumented structure field offsets within a custom binary format containing 13 interlinked session entries with noise-filled gaps, then identify TWO distinct bypass sessions among multiple legitimate SecurityTrace sessions that act as false-positive traps (three PPL-protected sessions must be correctly excluded). Crucially, the two bypasses use fundamentally different attack techniques — LogBuffersLost union overlap and DKOM — requiring the agent to comparatively evaluate all four documented techniques against observed forensic evidence for each session, judge which technique matches, and produce evidence-based explanations for ruling out the other three. This comparative forensic reasoning across multiple attack vectors elevates the task beyond pattern matching to expert-level evaluation and judgment. Finally, the YARA detection rule must reliably discriminate the dual-technique attack dump from a structurally similar clean reference dump."""
+solution_explanation = """Parse the dump header to locate table offsets. Use radare2 to search for known flag patterns (e.g., 0x28 for NT Kernel Logger) within session entries to discover the Flags field at offset 0x330. Locate consumer/provider count and list pointer fields at offsets 0x340-0x358. For each session with SecurityTrace (bit 14) set, follow consumer list pointers to consumer entries, dereference ProcessObject to the process table, and check Protection.Level. Session 12 (0-ThreatIntelConsumer) has flags 0x4008 and an unprotected consumer (PID 5932, ThreatIntel.exe, protection 0x00). Session 14 (SecurityAuditConsumer) has flags 0x4008 and an unprotected consumer (PID 6844, AuditCapture.exe, protection 0x00). For session 12, read LogBuffersLost at offset 0x070 — it contains 0x4008, exactly matching Flags, which is the forensic signature of the union overlap technique. For session 14, LogBuffersLost is 7 (normal range), meaning Flags was modified independently — the DKOM signature. For each session, evaluate all four techniques, identify the match, and explain why the other three do not fit. Generate a YARA rule combining ETWDUMP1 magic, the 0x4008 LE pattern count, and both protected provider GUIDs (TI and Kernel-Audit-API) in mixed-endian format."""
+verification_explanation = """Tests parse /app/findings.json and verify: (1) exactly 2 anomalous sessions with logger_ids 12 and 14, (2) session 12 has flags 0x4008, consumer PID 5932/ThreatIntel.exe/protection 0x00, TI provider GUID, (3) session 14 has flags 0x4008, consumer PID 6844/AuditCapture.exe/protection 0x00, Kernel-Audit-API provider GUID, (4) SecurityTrace bit=14 and mask=0x4000, (5) legitimate sessions 3/4/5 NOT falsely flagged, (6) technique_analysis has 2 entries — session 12 identified as union overlap, session 14 as DKOM, each with 3 substantive ruling-out explanations, both severity critical, techniques are distinct, (7) YARA rule compiles, matches etw_dump.bin, does NOT match etw_clean.bin, has metadata."""
+category = "security_and_privacy"
+tags = ["forensics", "detection-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/etw-forensic-analysis"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Redis sorted set internals: skiplist node memory layout, level promotion probability, listpack-to-skiplist encoding transition thresholds, and allocator rounding effects. The solver must start Redis, load a workload, diagnose a non-obvious configuration issue (elevated zset-max-listpack-entries=500 set at runtime, not in any config file), debug a Python profiler with multiple domain-specific bugs (wrong overhead formula, wrong promotion probability, missing type filtering), compute theoretical skiplist overhead from first principles, identify pathological sorted sets, fix the configuration, trigger re-encoding, and produce a verified audit report."""
+solution_explanation = """Start Redis and load the workload via the provided script. Discover that zset-max-listpack-entries was set to 500, causing 15 medium-sized sorted sets (200-450 entries) to remain in listpack encoding instead of being promoted to skiplist at the default 128 threshold. Fix the profiler by: (1) filtering keys by type=zset, (2) correcting the per-entry overhead formula to subtract key base overhead and useful-data-per-entry from total memory, (3) fixing the theoretical calculation to use p=0.25 and correct base node size of 40 bytes. Use CONFIG SET to lower the threshold to 128, then trigger re-encoding by adding/removing a dummy member to each affected set. Produce the audit report with all required metrics."""
+verification_explanation = """Tests verify: (1) audit_report.json exists with correct structure and all required fields, (2) report identifies exactly 25 sorted sets with correct cardinalities, (3) encoding types are correctly reported for each category, (4) medium-sized sets (timeline, index, cache) are flagged as suboptimally encoded, (5) theoretical skiplist overhead is in the valid range [25-50] bytes, (6) report recommends a listpack threshold of 128 or less, (7) Redis config was actually fixed (CONFIG GET returns ≤128), (8) affected sorted sets were re-encoded to skiplist, (9) the fixed profiler runs without errors."""
+category = "systems_administration"
+tags = ["redis-internals", "memory-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ranked-sorted-set"

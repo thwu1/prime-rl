@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in Pearl's causal hierarchy, graphical models, and probabilistic reasoning, combined with multi-tool integration proficiency. The solver must: (1) parse a YAML graph definition and construct an SCM from the parsed structure with correct attribute handling, (2) implement paired counterfactual estimation under same noise realization for ATE, (3) implement posterior inference over exogenous variables for Level-3 counterfactual queries via abduction-action-prediction, (4) implement d-separation via Bayes-Ball with ancestor-of-Z precomputation for collider activation, (5) implement latent variable projection and backdoor adjustment set search, (6) build a pipeline that loads YAML query configs, writes structured results to a SQLite database conforming to a provided schema, and generates ADMG visualizations in DOT format via pydot — requiring interoperability between PyYAML, sqlite3, pydot, and numpy across a single coherent workflow."""
+solution_explanation = """Implement evaluate_ate using paired noise sampling (sample once, intervene twice with preserved noise). Implement evaluate_ctf_te via abduction-action-prediction (sample observationally, filter to factual evidence, store matching noise, re-run interventions on filtered noise). Implement d-separation via Bayes-Ball with ancestor precomputation. Implement graph mutilation, latent projection via recursive ancestor/descendant traversal, and backdoor adjustment via subset enumeration with d-separation check. Build run_pipeline.py that: loads graph from YAML with correct visible attribute handling, constructs SCM in topological order, reads YAML query configs, runs all queries with specified seeds, writes structured results to SQLite via schema.sql, generates ADMG DOT with pydot using dir=both for bidirected edges."""
+verification_explanation = """20 tests split into algorithm verification (12) and pipeline output verification (8). Algorithm tests: 2 ATE (correct value, upstream no-effect), 2 Ctf-TE (simple case, informative conditioning), 1 mutilated graph, 5 d-separation (chain blocked, collider opened, unconditional collider blocks, descendant activation), 1 latent projection, 2 backdoor (visible confounder, hidden confounder). Pipeline tests: verify SQLite database has correct ATE estimates, Ctf-TE estimates, d-separation boolean results, ADMG directed and bidirected edges, backdoor identifiability; verify ADMG DOT file is parseable by pydot, contains only visible nodes, and has correct bidirected edge with dir=both attribute."""
+category = "machine_learning"
+tags = ["causal-inference", "graphical-models"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scm-query-engine"

@@ -1,0 +1,50 @@
+{
+  "name": "pk_2cmt_oral_allometric",
+  "description": "Two-compartment PK model with first-order oral absorption and allometric covariate scaling",
+  "compartments": [
+    {"index": 1, "name": "DEPOT"},
+    {"index": 2, "name": "CENTRAL"},
+    {"index": 3, "name": "PERIPHERAL"}
+  ],
+  "theta": {
+    "TVCL": 4.0,
+    "TVV1": 70.0,
+    "TVV2": 105.0,
+    "TVQ": 4.5,
+    "TVKA": 1.0
+  },
+  "individual_parameters": {
+    "CL": {"expression": "TVCL * exp(ETA_CL) * (WT/70)^0.75", "unit": "L/hr"},
+    "V1": {"expression": "TVV1 * exp(ETA_V1) * (WT/70)", "unit": "L"},
+    "V2": {"expression": "TVV2", "unit": "L"},
+    "Q":  {"expression": "TVQ", "unit": "L/hr"},
+    "KA": {"expression": "TVKA * exp(ETA_KA)", "unit": "1/hr"}
+  },
+  "covariates": {
+    "WT": {"default": 70.0, "unit": "kg", "description": "Body weight"}
+  },
+  "ode": {
+    "dA1_dt": "-KA * A1",
+    "dA2_dt": "KA * A1 - (CL/V1 + Q/V1) * A2 + (Q/V2) * A3",
+    "dA3_dt": "(Q/V1) * A2 - (Q/V2) * A3",
+    "note": "During active zero-order infusions, the constant infusion rate for that compartment is added to the right-hand side"
+  },
+  "derived_quantities": {
+    "CP": {"expression": "A2 / V1", "description": "Plasma concentration"}
+  },
+  "omega": {
+    "matrix": [[0.09, 0.0, 0.0], [0.0, 0.04, 0.0], [0.0, 0.0, 0.16]],
+    "labels": ["ETA_CL", "ETA_V1", "ETA_KA"],
+    "description": "Between-subject variability variance-covariance matrix"
+  },
+  "sigma": {
+    "proportional": 0.01,
+    "description": "Proportional residual error variance"
+  },
+  "error_model": {
+    "type": "proportional",
+    "formula": "Y = F * (1 + eps)",
+    "variance": "VAR(Y|F) = sigma_prop * F^2",
+    "description": "Observed = predicted * (1 + eps), where eps ~ N(0, sigma_prop)"
+  }
+}

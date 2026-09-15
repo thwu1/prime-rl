@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires deriving the blending time formula t = (x - a_j)/(μ - a_j) from a physical description of linear interpolation, then implementing an efficient solver. A naive O(n·k·m) brute-force approach is prohibitively slow for the given input size (n=5000, k=500, m=10000), so the solver must employ algorithmic optimization — sorting each window and using binary search to locate the optimal element in O(log k) per window. Key mathematical insight: for target x > μ the minimum-time element is the smallest a_j > x (due to monotonicity of t w.r.t. a_j), and symmetrically for x < μ. Edge cases include division by zero when a_j equals the window mean, exact rational equality for x = μ, targets already present in the sequence, and targets outside all window ranges.
+"""
+solution_explanation = """
+For each window, sort elements and compute the sum (for exact mean). For target x > μ, binary-search for the smallest a_j > x; for x < μ, binary-search for the largest a_j < x. Compute t = (x - a_j)/(μ - a_j). Take the global minimum over all windows. Targets already in the original sequence yield t=0; targets unreachable by any window yield -1. Uses O((n-k+1)·k·log(k)) precomputation and O(m·(n-k+1)·log(k)) total query time.
+"""
+verification_explanation = """
+The test independently computes reference answers using the same binary-search-optimized algorithm over all windows, then compares each of the m output values against the reference with absolute tolerance 1e-8. Unreachable targets must be exactly '-1', present targets must be within tolerance of 0, and all other targets must match the computed minimum blending time. A cross-validation test also checks a subset of targets against a brute-force reference.
+"""
+category = "algorithmic_problem_solving"
+tags = ["numerical_computation", "optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/linear-blending-reachability"

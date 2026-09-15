@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of ARM Cortex-M3 exception model (EXC_RETURN values, PSP/MSP distinction, CONTROL register), correct stack frame initialization (17-word layout with specific offsets for hardware and software-saved registers), PendSV-based context switching where the handler must be naked with only pure inline assembly to avoid r7 frame-pointer corruption, safe thread self-termination without freeing the active stack (which PendSV still writes to), SysTick timer configuration for preemptive scheduling, and K&R-style heap allocator implementation. Multiple interacting subsystems must all be correct for the kernel to boot without hardfaulting."""
+solution_explanation = """Implement threads.c with a PendSV handler split into a naked ASM stub (saves r4-r11+LR to PSP, calls schedule via bl, restores next task context) and a separate C schedule() function (round-robin search for in_use tasks). thread_create allocates stack via K&R malloc and initializes the 17-word ARM exception frame. thread_start is a naked function that calls a C helper for peripheral setup then manually switches from MSP to PSP and bootstraps the first thread, critically loading lr from the hardware frame so thread return goes to thread_self_terminal rather than the EXC_RETURN magic value. thread_self_terminal marks the task as dead without freeing the stack (since PendSV still writes to it). Also implement malloc.c with K&R sbrk-based allocator."""
+verification_explanation = """Build the kernel with make, run in QEMU for 45 seconds capturing UART output. Verify: binary builds, BOOT message appears, all 4 threads produce output, output is interleaved (proving preemption), worker threads terminate after bounded iterations, sentinel outlasts workers proving system stability after thread cleanup, and os.c API calls are unchanged."""
+category = "systems_programming"
+tags = ["arm-cortex-m", "rtos-kernel"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f36f89"

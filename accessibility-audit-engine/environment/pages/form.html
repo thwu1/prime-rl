@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body style="background-color: #ffffff; font-family: Arial, sans-serif; font-size: 16px;">
+    <h1>Registration Form</h1>
+    <form action="/submit" method="post">
+        <div>
+            <label for="fullname">Full Name</label>
+            <input type="text" id="fullname">
+        </div>
+        <div>
+            <input type="email" id="email">
+        </div>
+        <div>
+            <input type="text" id="search" aria-label="Search records">
+        </div>
+        <div>
+            <select id="state">
+                <option value="">Select your state</option>
+                <option value="CA">California</option>
+                <option value="NY">New York</option>
+            </select>
+        </div>
+        <div>
+            <input type="text" id="phone" title="Phone number">
+        </div>
+        <div>
+            <textarea id="comments" rows="4" cols="50"></textarea>
+        </div>
+        <div>
+            <button id="submit-btn">Submit Application</button>
+            <input type="submit" id="hidden-submit" value="">
+        </div>
+    </form>
+    <iframe src="widget.html"></iframe>
+    <iframe src="help.html" title="Help documentation"></iframe>
+</body>
+</html>

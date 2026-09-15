@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in symbolic computation (determining mathematical equivalence of SymPy expressions across diverse algebraic forms including rational functions, partial fractions, and trigonometric identities), safe dynamic Python code execution with proper scoping and timeout enforcement, numerical analysis with tolerance-based comparison, and function signature introspection. The agent must independently design a multi-strategy symbolic equivalence checker, figure out sandboxing of arbitrary code, and handle edge cases in floating-point comparison — none of which are prescribed in the specification."""
+solution_explanation = """The solution implements a complete grading engine that: (1) loads challenge and submission JSONs, (2) executes answer code via exec() in isolated namespaces with thread-based timeout, (3) introspects function signatures to create matching SymPy symbols for symbolic mode, (4) chains multiple simplification strategies (cancel, expand, numerical sampling, simplify, trigsimp, expand_trig, rewrite_exp) for symbolic equivalence, (5) uses dual absolute/relative tolerance for numerical comparison, (6) evaluates functions against test cases for functional mode, and (7) produces a structured JSON evaluation report."""
+verification_explanation = """Tests verify the grader exists, runs successfully, and produces correct scores for all 12 initial submissions (6 correct scoring 1, 6 incorrect scoring 0), including a trigonometric identity challenge requiring non-trivial symbolic reasoning. Anti-cheat tests inject new synthetic submissions after the initial run and re-execute the grader to verify it produces correct scores dynamically."""
+category = "scientific_computing"
+tags = ["symbolic-math", "evaluation-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/symbolic-grading-engine"

@@ -1,0 +1,38 @@
+context:
+  name: h5py
+  version: "3.10.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/h5py/h5py/releases/download/${{ version }}/h5py-${{ version }}.tar.gz
+  sha256: d2c5e2e5ed5e5c3b4c8de1a7c9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - pkg-config
+    - cython
+  host:
+    - numpy
+    - libhdf5 >=1.14.0,<1.15.0a0
+    - python
+  run:
+    - numpy
+    - python
+
+test:
+  commands:
+    - python -c "import h5py; print(h5py.__version__)"
+    - python -c "import h5py; print(h5py.version.hdf5_version)"
+
+about:
+  homepage: https://www.h5py.org
+  license: BSD-3-Clause
+  license_file: licenses/license.txt
+  summary: Pythonic interface to the HDF5 binary data format

@@ -1,0 +1,13 @@
+site_id,patient_num,ae_verbatim,start_date,end_date,severity_grade,serious_flag,causality,outcome,seq,body_location
+201,1,Maculopapular rash,01/05/2024,,3,Yes,RELATED,Not Yet Resolved,1,TRUNK
+201,1,Diarrhoea,01/15/2024,01/22/2024,1,No,POSSIBLY RELATED,Recovered,2,
+201,2,Photosensitivity reaction,01/10/2024,01/25/2024,2,No,RELATED,Recovered,1,FACE AND ARMS
+201,2,Pyrexia,02/03/2024,02/05/2024,1,No,NOT RELATED,Recovered,2,
+202,3,Arthralgia,01/20/2024,,2,No,PROBABLY RELATED,Not Recovered,1,
+202,3,Cutaneous squamous cell carcinoma,02/28/2024,,3,Yes,RELATED,Not Recovered,2,LEFT FOREARM
+202,4,Nausea,01/22/2024,01/28/2024,1,No,NOT RELATED,Recovered,1,
+203,5,Fatigue,02/05/2024,02/20/2024,2,No,PROBABLY RELATED,Recovered,1,
+203,5,QT prolongation,03/01/2024,,3,Yes,RELATED,Recovering,2,
+203,6,Alopecia,02/15/2024,,1,No,POSSIBLY RELATED,Not Yet Resolved,1,
+204,7,Hepatotoxicity,02/20/2024,,3,Yes,RELATED,Not Recovered,1,
+204,8,Palmar-plantar erythrodysaesthesia,03/01/2024,,2,No,RELATED,Not Yet Resolved,1,HANDS AND FEET

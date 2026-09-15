@@ -1,0 +1,95 @@
+{
+  "module_path": "/app/ospf_fsm.py",
+  "description": "OSPF Neighbor FSM Conformance Engine per RFC 2328",
+  "classes": {
+    "NeighborFSM": {
+      "description": "Represents a single OSPF neighbor finite state machine instance",
+      "constructor_params": {
+        "router_id": "str - identifier for this router (e.g., 'R1')",
+        "neighbor_id": "str - identifier for the neighbor router",
+        "network_type": "str - 'broadcast', 'point-to-point', 'point-to-multipoint', 'virtual-link', or 'nbma'",
+        "is_dr": "bool - True if this router is DR on the shared network (default False)",
+        "is_bdr": "bool - True if this router is BDR (default False)",
+        "neighbor_is_dr": "bool - True if the neighbor is DR (default False)",
+        "neighbor_is_bdr": "bool - True if the neighbor is BDR (default False)"
+      },
+      "attributes": {
+        "state": "str - current FSM state, initialized to 'Down'",
+        "is_dr": "bool - mutable, updated when DR election changes",
+        "is_bdr": "bool - mutable",
+        "neighbor_is_dr": "bool - mutable",
+        "neighbor_is_bdr": "bool - mutable"
+      },
+      "methods": {
+        "should_form_adjacency": {
+          "description": "Evaluate RFC 2328 Section 10.4 adjacency decision",
+          "params": {},
+          "returns": "bool"
+        },
+        "process_event": {
+          "description": "Process an FSM event. Returns tuple (old_state, new_state). If the event causes no state change, new_state equals old_state.",
+          "params": {
+            "event": "str - one of the 13 FSM events from Section 10.2",
+            "ls_request_list_empty": "bool or None - required context for ExchangeDone event (default None)"
+          },
+          "returns": "tuple[str, str] - (old_state, new_state)"
+        }
+      }
+    },
+    "OSPFNetwork": {
+      "description": "Manages network topology, DR/BDR roles, and processes event traces",
+      "constructor_params": {
+        "topology_file": "str - path to topology JSON file"
+      },
+      "methods": {
+        "process_trace": {
+          "description": "Process an event trace file. Creates fresh FSM instances per trace (traces are independent). If an event includes a 'dr_update' field, update the network DR/BDR and FSM role properties BEFORE processing the event.",
+          "params": {
+            "trace_file": "str - path to trace JSON file containing 'events' array"
+          },
+          "returns": {
+            "trace_id": "str",
+            "transitions": [
+              {
+                "time": "int",
+                "router": "str",
+                "neighbor": "str",
+                "event": "str",
+                "from_state": "str",
+                "to_state": "str"
+              }
+            ],
+            "final_states": {
+              "<router>-><neighbor>": "state_str"
+            }
+          }
+        },
+        "validate_transitions": {
+          "description": "Validate claimed state transitions against RFC spec. For each transition, create a temporary FSM in the claimed from_state with appropriate network context, process the event, and check whether the to_state matches. DR updates in the trace are applied cumulatively. Returns list of violations.",
+          "params": {
+            "trace_file": "str - path to trace JSON file containing 'transitions' array with from_state and to_state fields"
+          },
+          "returns": [
+            {
+              "index": "int - 0-based index of the violating transition",
+              "type": "str - 'invalid_transition'",
+              "detail": "str - description of the violation"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "trace_event_format": {
+    "time": "int - event timestamp",
+    "router": "str - router experiencing the event",
+    "neighbor": "str - the neighbor router",
+    "event": "str - FSM event name from Section 10.2",
+    "ls_request_list_empty": "bool (optional) - context for ExchangeDone events",
+    "dr_update": {
+      "dr": "str - new DR router ID for the shared network",
+      "bdr": "str - new BDR router ID for the shared network",
+      "_note": "Optional. When present, the network's DR/BDR must be updated and FSM role properties refreshed before processing the event."
+    }
+  }
+}

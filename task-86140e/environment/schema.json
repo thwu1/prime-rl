@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Triage report for incoming TiDB slow query execution plans",
+  "type": "object",
+  "required": ["classifications", "top_remediations", "correlated_plans", "shared_root_cause"],
+  "properties": {
+    "classifications": {
+      "type": "object",
+      "description": "Map of plan_id (string key) to classified root cause. Use 'healthy' for plans matching no known anomaly pattern. Root cause labels must match verified_root_cause values in the incidents database.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "top_remediations": {
+      "type": "object",
+      "description": "Map of plan_id (string key) to a ranked list of remediation strategies, ordered by average historical effectiveness (highest first). Only include entries for plans classified as anomalous (not 'healthy').",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["strategy", "avg_effectiveness"],
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "description": "Name of the remediation strategy (must match strategy values in remediations table)"
+            },
+            "avg_effectiveness": {
+              "type": "number",
+              "description": "Average actual_improvement_pct across all historical applications of this strategy for the matched root cause"
+            }
+          }
+        }
+      }
+    },
+    "correlated_plans": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "description": "Sorted list of plan_id values for plans that appear to be related symptoms of a single underlying issue (e.g., same table/index accessed under different conditions producing divergent performance)"
+    },
+    "shared_root_cause": {
+      "type": "string",
+      "description": "The root cause shared by the correlated plans"
+    }
+  }
+}

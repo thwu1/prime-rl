@@ -1,0 +1,11 @@
+id	operation	input
+RT1	roundtrip	AC_01234.5:c.76A>C
+RT2	roundtrip	AC_01234.5:g.5dupT
+RT3	roundtrip	NP_000001.1:p.Gly25Trpfs*10
+CL1	classify	AC_01234.5:c.76_78del
+CL2	classify	NP_000001.1:p.Gly25TrpfsTer10
+CL3	classify	AC_01234.5:c.76_77insT
+VL1	validate:accn	NM_123456.7
+VL2	validate:accn	NM_
+VL3	validate:dna	A
+VL4	validate:dna	U

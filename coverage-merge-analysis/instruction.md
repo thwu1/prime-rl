@@ -1,0 +1,7 @@
+Xcelium simulation regression runs of a `packet_router` RTL module produced individual coverage databases (normalized SQLite `.db` files) in `/data/coverage_dbs/`. A hierarchical verification plan is at `/data/vplan.yaml`. The required output format and computation rules are fully specified in `/data/output_schema.json`.
+
+Only regression runs that completed successfully should contribute to the consolidated analysis. Each database contains its own embedded coverage exclusion rules that must be discovered, decoded, and applied to the merged data before computing final results. The databases also contain tables unrelated to coverage analysis.
+
+Build `/app/coverage_analyzer.py` that consolidates all valid regression coverage, applies the discovered exclusion rules, evaluates each leaf goal in the verification plan, and writes `/app/coverage_report.json` conforming to the schema in `/data/output_schema.json`. The report must contain five top-level keys: `summary` (overall coverage and goal counts), `metrics` (per verification-plan leaf with coverage percentages, goal status, counts, and uncovered item identifiers), `covergroups` (per-covergroup with component-level detail), `hierarchy` (coverage for every node in the vplan tree), and `failed_goals` (list of goals not meeting their target with gap calculations).
+
+Run: `python3 /app/coverage_analyzer.py`

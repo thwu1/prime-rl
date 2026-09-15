@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple specialized tools (kustomize, yq) with deep Kubernetes domain knowledge. The solver must: (1) understand Kustomize overlay mechanics including strategic merge patch semantics to render desired state, (2) implement wildcard annotation extraction from raw YAML text before parsing (since standard parsers discard comments), (3) design a recursive leaf-node extraction algorithm handling nested mappings and sequences-of-mappings without embedding sequence indices in key paths, (4) implement Kubernetes resource quantity normalization converting between suffixed strings (256Mi, 500m) and raw numeric types (int 268435456, float 0.5) — requiring understanding of K8s quantity formats AND YAML type semantics, (5) implement port protocol defaulting by traversing container specs to inject missing TCP defaults, and (6) orchestrate a multi-tool pipeline: kustomize build → YAML parsing → resource identity matching by GVK+name → semantic comparison → IoU scoring. The YAML type coercion traps (string "true" vs boolean true) require expert understanding of YAML spec semantics beyond what's explicitly stated."""
+solution_explanation = """The solution implements a Python audit pipeline: (1) reads audit.yaml for environment configs, (2) shells out to `kustomize build` for each overlay to render desired state, (3) reads live state YAML files twice — once raw for resource identity extraction, once with wildcard preprocessing that detects '# *' comment patterns and appends '*' to the key before ':' so wildcards survive YAML parsing, (4) matches resources between desired and live by apiVersion/kind/name triple, (5) applies K8s semantic extensions: port protocol defaulting injects protocol=TCP into port objects lacking it; resource quantity normalization parses Mi/Gi/Ki/m suffixes and converts to base units (bytes/cores), handling both string and numeric input types, (6) extracts leaf nodes recursively (list-of-dict items flattened without indices), (7) computes KV-wildcard IoU intersection (wildcarded refs always match, quantities compared numerically, all else by Python equality), and (8) aggregates per-resource scores into environment means and an overall aggregate mean."""
+verification_explanation = """Tests verify the output JSON contains correct drift scores for all 6 resource comparisons across 3 environments: alpha/Deployment=7/8 (tests K8s quantity equivalence: 256Mi==268435456, 500m==0.5, and protocol defaulting), alpha/ConfigMap=4/9 (value drift with wildcards), beta/Deployment=13/17 (annotation wildcards, env value drift, extra resource requests in live), beta/ConfigMap=6/7 (extra key in live), gamma/Deployment=11/12 (extra label in live, protocol defaulting), gamma/ConfigMap=6/8 (YAML type coercion: string 'true' vs boolean True). Tests also verify per-environment means, aggregate mean consistency, structural correctness, and value ranges."""
+category = "devops"
+tags = ["kubernetes-config", "kustomize-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/yaml-wildcard-scorer"

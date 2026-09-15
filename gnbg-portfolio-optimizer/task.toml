@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level expertise in numerical optimization. The solver must handle unimodal, multimodal, coupled-interaction, and deceptive landscapes within a fixed function-evaluation budget — no single textbook method suffices. Building an effective portfolio algorithm (e.g., IPOP-CMA-ES with restart strategies) that adapts to diverse landscape morphologies is a research-level challenge. The agent must also reverse-engineer the iohgnbg Python API (sparse documentation) and integrate the solver correctly."""
+solution_explanation = """Implements IPOP-CMA-ES (Increasing Population CMA-ES) with automatic restarts and exponentially growing population sizes, combined with Nelder-Mead local refinement on remaining budget. CMA-ES adapts the search distribution's covariance matrix to learn problem structure. IPOP restarts with doubled population size escape local optima on multimodal landscapes. Nelder-Mead polishes the best-found solution using residual evaluations."""
+verification_explanation = """Tests install iohgnbg and run the solver on a sphere validation test plus 4 GNBG benchmark problems spanning foundational (unimodal), coupled-interaction, and multimodal categories. Each problem has an error threshold calibrated to its difficulty: tighter for easier problems, more lenient for harder ones. Budget compliance is checked per problem (max 2% overshoot). Return type contract (non-None best_x with correct dimension, numeric best_f) is also verified."""
+category = "optimization"
+tags = ["numerical-optimization", "evolutionary-computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gnbg-portfolio-optimizer"

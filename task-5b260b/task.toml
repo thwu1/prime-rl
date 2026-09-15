@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Lean 4 formal verification skills combined with systematic debugging. The project contains three independent issues that must be diagnosed before theorems can be proved: (1) an artificially low maxHeartbeats setting disguised as a CI configuration that causes all non-trivial proofs to timeout with misleading 'heartbeat exceeded' errors suggesting proof complexity rather than configuration problems, (2) an irreducible attribute on myReverse that silently prevents tactic-based unfolding for three theorems with unhelpful 'simp made no progress' errors that misdirect toward wrong proof strategies, and (3) a logically false theorem statement (equality instead of inequality for filter_length) whose tactic failures point at the proof rather than the statement. Each issue's error messages are misleading, requiring the agent to look beyond immediate symptoms. Even after fixing all environmental issues, completing the 8 induction proofs with inter-theorem dependencies (e.g. reverse_reverse requires reverse_append which itself requires append_nil and append_assoc) demands expert Lean 4 tactic knowledge. Frontier LLMs achieve <15% compilation rate on similar Lean 4 proof tasks per the VeriBench benchmark (ICML 2025)."""
+solution_explanation = """The solution has two phases: (1) Diagnose and fix three project issues — remove 'set_option maxHeartbeats 4000' (which throttles the proof engine), remove 'attribute [irreducible] myReverse' (which blocks definition unfolding for reverse-related proofs), and correct filter_length's statement from = to le (since filtering can reduce length). (2) Complete all 8 theorem proofs by structural induction: foundation theorems (append_nil, append_assoc) use simple induction + simp; intermediate theorems (length_append, map_append) add omega for arithmetic; hard theorems (reverse_append, reverse_reverse) require referencing earlier theorems as rewrite lemmas in specific order; filter_length requires case-splitting on the boolean predicate and omega for inequality reasoning."""
+verification_explanation = """Tests verify: (1) lake build succeeds with exit 0, (2) no occurrence of 'sorry' in any .lean source file outside block comments, lakefile.lean, and .lake/, (3) lake build produces no sorry-related warnings, (4) a dedicated axiom-check Lean file confirms no theorem depends on the sorryAx axiom by running #print axioms on all 8 theorems, (5) original function definitions and theorem statement signatures are preserved, (6) filter_length is verified to be a non-trivial statement that actually references myFilter and myLength."""
+category = "formal_verification"
+tags = ["lean4", "theorem-proving"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5b260b"

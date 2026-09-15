@@ -1,0 +1,21 @@
+// RUN: %ir-opt --canonicalize %s | FileCheck --implicit-check-not="arith." %s
+
+func @simplify(%arg0: i32) -> i32 {
+  %z = arith.constant 0 : i32
+  %o = arith.constant 1 : i32
+  %a = arith.addi %arg0, %z : i32
+  %b = arith.muli %a, %o : i32
+  return %b : i32
+}
+
+func @self_sub(%arg0: i32) -> i32 {
+  %a = arith.subi %arg0, %arg0 : i32
+  return %a : i32
+}
+
+// CHECK-LABEL: func @simplify
+// CHECK: return %arg0
+
+// CHECK-LABEL: func @self_sub
+// CHECK: arith.constant 0
+// CHECK: return

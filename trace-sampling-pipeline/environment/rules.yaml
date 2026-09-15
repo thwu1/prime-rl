@@ -1,0 +1,77 @@
+# Tail-based trace sampling rules
+# Rules evaluated in priority order (lowest number = highest priority)
+# First matching rule determines the sampling decision for the entire trace
+
+rules:
+  - name: "keep-errors"
+    priority: 1
+    description: "Keep all traces containing any error span"
+    match:
+      scope: "trace"
+      conditions:
+        - any_span_where:
+            field: "error"
+            equals: true
+    decision:
+      action: "keep"
+      sample_rate: 1
+
+  - name: "keep-5xx"
+    priority: 2
+    description: "Keep all traces with HTTP 5xx status codes"
+    match:
+      scope: "trace"
+      conditions:
+        - any_span_where:
+            field: "http_status_code"
+            gte: 500
+    decision:
+      action: "keep"
+      sample_rate: 1
+
+  - name: "keep-adaptive-latency"
+    priority: 3
+    description: "Keep traces where root span duration exceeds the per-endpoint P95 latency computed dynamically from telemetry.db"
+    match:
+      scope: "trace"
+      conditions:
+        - root_span_where:
+            adaptive_threshold:
+              field: "duration_ms"
+              percentile: 95
+              group_by: "http_route"
+              source: "sqlite:///app/data/telemetry.db"
+    decision:
+      action: "keep"
+      sample_rate: 1
+
+  - name: "keep-anomalous-topology"
+    priority: 4
+    description: "Keep traces with unexpected service call patterns — missing expected downstream services"
+    match:
+      scope: "trace"
+      conditions:
+        - topology_anomaly:
+            detection: "missing_expected_service"
+            min_presence_ratio: 0.8
+    decision:
+      action: "keep"
+      sample_rate: 1
+
+  - name: "dynamic-baseline"
+    priority: 100
+    description: "Dynamically sample remaining traces with per-key rate computation and fairness constraint"
+    match:
+      scope: "all"
+    decision:
+      action: "sample"
+      algorithm: "avg_sample_rate_with_min"
+      key_fields:
+        - "service_name"
+        - "http_route"
+      fairness:
+        min_traces_per_key: 1
+      min_sample_rate: 1
+
+budget:
+  max_output_traces: 2000

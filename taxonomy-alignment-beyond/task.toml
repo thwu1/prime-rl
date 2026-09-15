@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert understanding of OWL/RDF ontology semantics, multi-relational ontology alignment, and semantic similarity. The agent must independently design and implement a complete alignment pipeline that distinguishes five relation types (equivalence, subsumption in both directions, overlap, and disjointness) between two structurally divergent product taxonomies with different naming conventions and granularity. No algorithms or strategies are specified — the agent must determine how to combine lexical, structural, and semantic evidence, handle ambiguity between near-equivalent and subsumption relationships, and calibrate its approach to satisfy simultaneous precision and per-type recall constraints."""
+solution_explanation = """Parse both OWL/XML ontologies to extract class URIs, labels, alt-labels, comments, and subclass hierarchies. Build a multi-strategy matcher combining: token-based and character-based string similarity on all label variants for equivalence detection, anchor-based structural propagation where equivalences between parents inform sub/superclass relationships among their children, comment-token analysis for subsumption clues, partial-match heuristics for overlap detection, and cross-branch disjointness. Output results in OAEI alignment XML format with all five relation types."""
+verification_explanation = """Tests parse the output alignment XML, extract all correspondence cells, and compare against a 52-pair gold standard spanning all five relation types. Verification checks valid XML format, correct namespace usage, minimum alignment count (20), relation type diversity (>=4 types), per-type F1 thresholds (equivalence>=0.40, superclass>=0.30, subclass>=0.25), weighted macro-F1>=0.55, and overall precision>=0.30."""
+category = "data_processing"
+tags = ["ontology-alignment", "semantic-web"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/taxonomy-alignment-beyond"

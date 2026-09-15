@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extending a multi-tool computational pipeline (gmsh mesh generation + GNU Octave FVM solver + Python post-processing) from single-phase to two-phase stratified Poiseuille flow. The agent must write gmsh .geo scripts, modify Octave .m code with sparse matrix assembly for a discontinuous-coefficient PDE, discover that naive face averaging fails at material interfaces and identify the correct treatment, derive the analytical relative permeability solution from coupled ODEs with interface conditions, orchestrate parametric studies across viscosity ratios and saturations, and perform mesh convergence analysis. Combines unfamiliar tool proficiency (gmsh scripting, Octave CLI), numerical PDE expertise, and porous media physics at PhD level."""
+solution_explanation = """Write a gmsh .geo script to generate 1D meshes at specified resolutions. Extend the Octave solver to assign piecewise viscosities and use harmonic averaging at cell faces spanning the interface (critical for second-order convergence with discontinuous diffusion coefficients). Solve the analytical two-phase Poiseuille profile via interface/wall boundary conditions, integrate for flow rates, and compute kr_i = 12*Q_i*mu_i/(H^3*G). Run the Octave solver at multiple mesh sizes, compute L2 velocity errors vs analytical, and fit convergence order. Assemble all results into JSON."""
+verification_explanation = """Tests verify analytical kr values against exact closed-form results (equal-viscosity kr1=Sw^2(3-2Sw), specific unequal-viscosity rational values), check physical consistency (monotonicity, non-negativity, lubrication effect), validate convergence order is approximately 2.0, and confirm numerical-analytical agreement at the finest mesh."""
+category = "computational_science"
+tags = ["cfd", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/poiseuille-relative-perm"

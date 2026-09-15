@@ -1,0 +1,84 @@
+{
+  "reference_system": "alpha",
+  "output_path": "/app/results/analysis.json",
+  "model": {
+    "roofline": {
+      "description": "Attainable performance per node using the roofline model",
+      "formula": "P_attainable = min(peak_gflops_per_node, hbm_bandwidth_gbs * arithmetic_intensity_flop_per_byte)",
+      "regime": "compute-bound if peak_gflops_per_node <= hbm_bandwidth_gbs * arithmetic_intensity_flop_per_byte, else memory-bound"
+    },
+    "effective_nodes": {
+      "description": "Actual number of nodes used, capped by system capacity",
+      "formula": "effective_nodes = min(target_nodes, max_nodes)"
+    },
+    "single_node_compute": {
+      "description": "Time to compute the workload on a single node",
+      "formula": "T_compute = total_flops / (P_attainable * 1e9)",
+      "units": "seconds"
+    },
+    "parallel_scaling": {
+      "description": "Parallel execution time using Amdahl's law",
+      "formula": "T_parallel = T_compute * (serial_fraction + (1 - serial_fraction) / effective_nodes)",
+      "units": "seconds"
+    },
+    "communication": {
+      "description": "Communication overhead using the alpha-beta model with logarithmic spanning tree",
+      "formula": "T_comm = num_comm_steps * (network_latency_us * 1e-6 + message_size_bytes / (network_bandwidth_gbs * 1e9)) * log2(effective_nodes)",
+      "units": "seconds",
+      "note": "log2 is the base-2 logarithm; use math.log2 in Python"
+    },
+    "io_time": {
+      "description": "I/O time using aggregate system bandwidth",
+      "formula": "T_io = io_data_bytes / (io_bandwidth_gbs * 1e9)",
+      "units": "seconds"
+    },
+    "total_time": {
+      "description": "Total predicted execution time per application per system",
+      "formula": "T_total = T_parallel + T_comm + T_io",
+      "units": "seconds"
+    },
+    "ssi": {
+      "description": "Workflow System Sustained Investment metric relative to reference system",
+      "formula": "SSI = sum_over_all_apps(ssi_weight_i * T_reference_i / T_system_i)",
+      "note": "SSI for the reference system equals sum of all weights (should be 1.0)"
+    },
+    "cost": {
+      "description": "Total system procurement cost based on peak node allocation",
+      "formula": "total_cost = cost_per_node_usd * allocated_nodes",
+      "allocated_nodes": "max(effective_nodes across all applications for this system)"
+    },
+    "cost_efficiency": {
+      "description": "SSI normalized by relative cost compared to reference system",
+      "formula": "cost_efficiency = ssi_score / (total_cost / reference_total_cost)"
+    }
+  },
+  "output_schema": {
+    "roofline": {
+      "_key_pattern": "<app_name>.<system_name>",
+      "attainable_gflops": "float",
+      "regime": "string: compute-bound or memory-bound"
+    },
+    "timing": {
+      "_key_pattern": "<app_name>.<system_name>",
+      "effective_nodes": "int",
+      "t_compute_s": "float (single-node compute time)",
+      "t_parallel_s": "float (Amdahl-scaled parallel time)",
+      "t_comm_s": "float (communication time)",
+      "t_io_s": "float (I/O time)",
+      "t_total_s": "float (total predicted time)",
+      "dominant_bottleneck": "string: compute, communication, or io (whichever of t_parallel, t_comm, t_io is largest)"
+    },
+    "ssi_scores": {
+      "_key_pattern": "<system_name>",
+      "_value": "float"
+    },
+    "cost_analysis": {
+      "_key_pattern": "<system_name>",
+      "allocated_nodes": "int",
+      "total_cost_usd": "float",
+      "ssi_score": "float",
+      "cost_efficiency": "float"
+    },
+    "optimal_system": "string (system name with highest cost_efficiency)"
+  }
+}

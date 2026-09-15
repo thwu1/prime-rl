@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of fractal tree / hitchhiker tree internals without algorithmic guidance: the agent must independently discover how to implement buffer overflow cascading during writes (sorting, distributing by child key ranges, deferring at leaves), correct boundary-based operation filtering during reads (left-sibling max, rightmost-leaf detection across tree levels, chronological depth ordering), and design a per-node Redis serialization scheme that preserves the full tree state including buffered operations. The combination of write-optimized data structure design and Redis persistence demands holistic understanding of both domains."""
+solution_explanation = """Implement enqueue with a recursive helper that distributes overflowing buffer ops to children by key range, deferring ops that reach leaves for later core insert/delete. Implement apply_ops_in_path by collecting ops from index nodes deepest-first for chronological ordering, filtering by left_max and right boundary. For Redis persistence, serialize each tree node as a Redis hash with config, children (as JSON key-value pairs for DataNodes, as JSON list of child Redis keys for IndexNodes), and op_buf (as JSON list of tagged operation entries). Deserialize recursively by loading each node from its Redis key."""
+verification_explanation = """Tests compare the hitchhiker tree messaging layer against a Python dict reference for random sequences of inserts, deletes, and lookups (up to 5000 operations). Also verifies forward iteration, structural B+ tree invariants, various configurations, and Redis persistence: save/load roundtrips, buffer preservation across serialization, continued operations on loaded trees, per-node storage granularity, and cross-process data durability via subprocess."""
+category = "data_structures"
+tags = ["fractal-tree", "redis-persistence"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fractal-tree-messaging"

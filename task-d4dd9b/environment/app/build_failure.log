@@ -1,0 +1,29 @@
+=== Build attempt: cmake -B build ===
+Date: 2026-05-20 14:23:07 UTC
+Host: builder-amd64-01
+
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features - done
+CMake Error at src/parser/CMakeLists.txt:1 (find_package):
+  Could not find a package configuration file provided by "DataFlow" with any
+  of the following names:
+
+    DataFlowConfig.cmake
+    dataflow-config.cmake
+
+  Add the installation prefix of "DataFlow" to CMAKE_PREFIX_PATH or set
+  "DataFlow_DIR" to a directory containing one of the above files.  If
+  "DataFlow" provides a separate development package or SDK, be sure it has
+  been installed.
+
+-- Configuring incomplete, errors occurred!
+
+=== Build status: FAILED ===
+=== Fail-Stage: configure ===
+
+Notes from previous maintainer:
+  - DataFlow v2 was installed from source (compiled headers + static lib)
+  - CMake package configuration was never set up after installation
+  - The old project code still references DataFlow v1 API in several places
+  - Multiple issues beyond just the missing CMake config likely need fixing

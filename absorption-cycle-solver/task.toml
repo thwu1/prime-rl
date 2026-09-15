@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert thermodynamic engineering knowledge. The solver must: (1) diagnose and fix 5+ distinct bugs across a draft property library — including coefficient digit-transposition errors, wrong exponent conventions, and incorrect operator choices — by cross-referencing the draft code against separate coefficient tables and benchmark validation data; (2) implement robust numerical inversion functions for non-monotonic polynomial correlations; (3) design and build a complete single-effect absorption chiller cycle solver from scratch, determining state-point relationships, mass/energy balance equations, circulation ratio, SHX effectiveness modeling, and COP calculation from domain knowledge alone (no recipe provided); (4) handle the degenerate edge case of zero SHX effectiveness. The task demands coupled debugging, thermodynamic analysis, numerical methods, and systems integration."""
+solution_explanation = """Fix the 5 bugs in nh3h2o_draft.py: (1) bubble_temperature coefficient #10 has digit swap 0.785401->0.785041; (2) dew_temperature uses (1-y)^m instead of (1-y)^(m/4); (3) vapor_composition uses exp(ln(1-x)+s) instead of exp(ln(1-x)*s); (4) liquid_enthalpy coefficient #14 has wrong sign +0.207588e3->-0.207588e3; (5) vapor_enthalpy has two digit transpositions -0.670155->-0.670515 and -0.858907->-0.858807. Bugs 1,4,5 are found by comparing coefficients with correlations.json; bugs 2,3 by comparing equation structure. Then implement bubble_pressure/liquid_composition via scipy.optimize.brentq. For the cycle: compute P_low/P_high from refrigerant bubble pressures, x_strong/x_weak from phase equilibrium at absorber/generator, circulation ratio from NH3 mass balance in mass fractions, SHX via temperature effectiveness, all component heat duties, COP=Q_evap/Q_gen."""
+verification_explanation = """Tests verify: (1) all 5 forward correlations against 50 benchmark data points with tight tolerances; (2) inverse function round-trip accuracy; (3) molar/mass fraction conversion; (4) cycle solver with 3 different configs including zero-SHX edge case — checking output structure, pressure/composition ordering, physical constraints, energy balance closure, isenthalpic constraints, mass balance, and SHX temperature relationships."""
+category = "engineering"
+tags = ["thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/absorption-cycle-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CPU performance monitoring counters (IPC, cache miss rates, branch misprediction, pipeline stall cycles) and their derivation from raw perf stat output. The agent must independently recognize that perf stat files contain hardware counter event values, discover the data format through inspection, and compute standard PMC-derived metrics without being told the formulas. Bottleneck classification requires interpreting a JSON rules engine with priority ordering and conjunctive conditions. Regression detection demands understanding relative IPC degradation and multi-metric root cause attribution. Stack trace analysis requires knowledge of exclusive (self) vs inclusive profiling semantics and differential analysis across profiles. The FlameGraph toolchain (difffolded.pl, flamegraph.pl) must be used correctly to produce differential visualizations. No methodology is given in the instruction — only the problem, data locations, and output schema."""
+solution_explanation = """Parse perf stat output using regex to extract raw PMC values, handling <not supported> gracefully as null. Compute derived metrics (IPC = instructions/cycles, cache_miss_rate = cache-misses/cache-references, etc.). Load thresholds.json and implement a priority-ordered rule evaluation engine for bottleneck classification. Detect regressions via relative IPC decrease threshold from config, determine primary cause by finding the metric with the largest relative increase among cause_labels, and assign severity using ipc_delta thresholds. Parse folded stacks to compute exclusive (leaf) and inclusive (any position) sample percentages with proper deduplication. Generate differential flame graph SVG by piping difffolded.pl output through flamegraph.pl."""
+verification_explanation = """Tests verify: (1) correct metric computation within floating-point tolerance for all 6 perf stat configurations, (2) correct bottleneck classification per the priority rules (compute-bound, memory-bound, branch-heavy, mixed), (3) correct regression detection including primary cause attribution and severity, (4) proper null handling for <not supported> counters, (5) correct exclusive/inclusive stack percentage computation and differential regression identification, (6) system validation flags for noisy and migration-affected workloads, and (7) generation of a valid differential flame graph SVG containing expected function names."""
+category = "systems_programming"
+tags = ["performance-engineering", "linux-profiling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perf-stat-forensics"

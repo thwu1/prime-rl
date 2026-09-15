@@ -1,0 +1,6 @@
+# Matched load transmission line
+V1 1 0 1
+Rs 1 11 50
+T1 11 0 12 0 z=50 f=10meg nl=0.25
+Rl 12 0 50
+.ac 0 40meg 2meg

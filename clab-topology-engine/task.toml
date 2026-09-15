@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering containerlab's property resolution algorithm from Go source code (generics, transitive group/kind fallbacks) and translating it faithfully to Python -- a proficient-level cross-language code comprehension task. The Go source contains non-obvious resolution paths: GetNodeKind falls back through defaults.group -> groups -> kind (not just defaults.kind), and GetNodeGroup falls back through kind -> kind.group. These subtle interactions affect all property lookups and cannot be discovered from documentation alone. Additionally, the solver must produce valid Graphviz DOT output (requiring graphviz tool proficiency), ensure JSON outputs are queryable with jq (multi-tool interoperability), implement IPv4 subnet partitioning with feasibility checking, generate full-mesh border links with correct interface numbering, and produce containerlab-compatible Ansible inventory. The combination of cross-language reverse-engineering, multi-tool pipeline orchestration (Python + graphviz + jq), and deep networking domain knowledge places this at the proficient/expert level."""
+solution_explanation = """Read the Go source at /app/containerlab_src/types_topology.go to understand the exact property resolution algorithm. Implement resolve_nodes with three resolution stages: (1) GetNodeKind -- check node.kind, then node's group's kind, then defaults.group's kind, then defaults.kind; (2) GetNodeGroup -- check node.group, then resolved kind's group field, then defaults.group; (3) use resolved kind+group in getField (scalar) and mergeStringMapFields (map merge: defaults->kind->group->node). Build five subcommands: 'check' for feasibility, 'allocate-ips' for sequential IP assignment, 'federate' for merged topology with namespace prefixing and border links, 'inventory' for Ansible output, and 'graph' for Graphviz DOT with subgraph clusters and dashed border links."""
+verification_explanation = """Tests invoke the CLI via subprocess against pre-staged topologies. Existing federation tests verify basic property resolution (group->kind chain), IP allocation, border link generation, and infeasible detection. New advanced tests exercise Go source edge cases: distrib nodes whose kind resolves through defaults.group->base-group->ceos (not defaults.kind=linux), and core nodes whose group resolves through kind.group fallback (srl kind has group=srl-infra). Graph tests validate DOT output with graphviz's 'dot -Tcanon' and check for subgraph clusters and dashed border links. jq integration tests pipe check/allocate-ips JSON through jq filters to verify queryability."""
+category = "engineering"
+tags = ["containerlab", "network-topology"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clab-topology-engine"

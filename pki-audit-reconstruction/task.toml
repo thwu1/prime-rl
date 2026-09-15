@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PKI and X.509 knowledge: identifying SHA-1 signatures, weak RSA keys, path length constraint violations, missing SAN extensions, incorrect Extended Key Usage, CA/Browser Forum validity limits, expired certificates, and CRL signing key mismatches. The agent must then reconstruct a compliant multi-tier CA hierarchy from scratch with correct extensions, key usage, and chain validation — skills at the Dreyfus proficient/expert level typically held by senior security engineers or PKI administrators."""
+solution_explanation = """The solver loads every certificate and CRL using the cryptography library, programmatically checks each against the compliance requirements (signature algorithm, key size, path constraints, extensions, validity, CRL signer), generates a structured audit report, then rebuilds the entire PKI hierarchy: 4096-bit SHA-256 root CA, 4096-bit intermediate CA with correct pathlen, server cert with SAN/serverAuth/825-day max validity, and a valid client cert — all with proper chain linkage verified by openssl."""
+verification_explanation = """Tests validate: (1) audit.json exists with >=5 findings and keyword coverage for SHA-1, 1024-bit keys, pathlen violations, missing SAN, EKU issues, expiry, and excessive validity; (2) fixed PKI files exist with correct structure; (3) root CA has >=4096-bit key and non-SHA1 signature; (4) intermediate CA has >=2048-bit key and is signed by root; (5) server cert has SAN with required domains, serverAuth EKU, <=825-day validity; (6) client cert is not expired and has clientAuth EKU; (7) both server and client certificate chains validate via openssl verify."""
+category = "security_and_privacy"
+tags = ["pki", "cryptography"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pki-audit-reconstruction"

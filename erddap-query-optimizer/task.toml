@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of scientific data management: parsing ERDDAP's native DAS and DDS metadata formats (domain-specific text structures unfamiliar outside oceanographic data engineering); inferring longitude coordinate conventions from geospatial attributes and implementing bidirectional conversion with antimeridian-crossing query decomposition; detecting unit mismatches across datasets by interpreting CF standard_name semantics (understanding that variables sharing the same standard_name measure the same quantity and must be harmonized); parsing CF ancillary_variables attributes to auto-discover quality/error companion variables and include them in requests; computing spatial coverage overlap fractions by comparing dataset extents to query regions across different coordinate systems; analyzing temporal resolution compatibility from DAS spacing attributes; handling heterogeneous dimensional structures (altitude, zlev, depth) across datasets; and generating syntactically correct URLs for both griddap bracket-constraint and tabledap filter-constraint APIs simultaneously. The agent must synthesize information from DAS, DDS, server registry, query specs, and output schema to produce a coherent fusion plan — no single file provides a complete picture."""
+solution_explanation = """Parse DAS files to extract variable attributes (standard_name, units, ancillary_variables, actual_range, spacing) and NC_GLOBAL attributes (geospatial bounds, cdm_data_type). Parse DDS files to determine dataset type (GRID vs Sequence), dimension ordering, and available variables. For each query: (1) group datasets by CF standard_name to detect unit mismatches and select harmonization targets (majority unit, tie-break degree_C>kelvin); (2) for each dataset, convert query coordinates to native convention, detect antimeridian splitting when converted range inverts, compute strides from target/source resolution ratio; (3) parse ancillary_variables attribute and verify referenced variables exist in DDS; (4) compute spatial coverage fractions by comparing dataset actual_range bounds to query extents after coordinate conversion; (5) extract temporal resolution from time spacing attribute; (6) construct correctly-ordered griddap dimension constraints including vertical dims or tabledap filter expressions; (7) build valid ERDDAP REST API URLs including ancillary variables."""
+verification_explanation = """Tests parse the output JSON and verify across 4 queries and 5 datasets: unit harmonization target detection (sea_surface_temperature→degree_C when K and °C datasets coexist), correct K→°C conversion factors (offset=-273.15, scale=1.0), CF ancillary variable detection (analysis_error/mask from mur_sst, quality_flags from chlor_viirs), spatial coverage fractions (chlor_viirs latitude coverage 6/7≈0.857 and argo 13/14≈0.929 for near-global query), temporal resolution alignment (daily vs 8-day vs irregular), antimeridian split detection with correct longitude range decomposition at dataset boundaries, zlev/altitude vertical dimension constraints, griddap bracket syntax and tabledap filter syntax in URLs, stride calculations, multi-server URL correctness, and structural completeness of all output fields."""
+category = "data_engineering"
+tags = ["geospatial", "scientific-data"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/erddap-query-optimizer"

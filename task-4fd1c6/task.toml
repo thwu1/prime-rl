@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional security expertise spanning multiple tool domains: (1) binary reverse engineering with strings, objdump, readelf, or nm to extract a compiled sanitizer's character blocklist and embedded build identifier from a stripped ELF binary, (2) HTTP API interaction via curl to probe a running service's endpoints and deliver exploit payloads, (3) knowledge of bash arithmetic expression error handling — $[] syntax errors causing exec line failure with continuation to next line, as exploited in CVE-2025-61984, (4) understanding that newline characters are shell metacharacters routinely omitted from blocklist-based sanitizers, (5) ability to spot a regex anchoring bug (re.match vs re.fullmatch) in Python allowlist code, and (6) designing a correct allowlist-based sanitizer that blocks all control characters."""
+solution_explanation = """Phase 1 — Binary analysis: use strings/objdump on /app/bin/sanitize_direct to extract the blocklist string and build identifier from the .rodata section of the stripped ELF binary. Phase 2 — Three distinct bypass vectors: (1) exec_proxy: inject $[+]\\n<cmd> as username — bash arithmetic syntax error on the exec line causes bash to continue to the injected command on the next line. (2) direct_tunnel: inject \\n<cmd> in hostname — the compiled binary's blocklist doesn't include newline (0x0a); without exec prefix, bash runs each line independently. (3) checked_health: inject valid\\n<cmd> — re.match() only checks the string prefix (no $ anchor), so any string starting with valid chars passes. Phase 3 — Hardened sanitizer: blocks all control characters (ord < 0x20 and 0x7f) and uses a properly-anchored regex allowlist."""
+verification_explanation = """Tests verify: (1) binary analysis files contain correct build_id and blocklist extracted dynamically from the binary via strings at test time (not hardcoded in tests), (2) each exploit JSON exists with correct structure, (3) each exploit passes through the vulnerable sanitizer — including the compiled binary for direct_tunnel — and creates a marker file when executed via bash -c, (4) the fixed sanitizer module exists and exports sanitize(), (5) the fixed sanitizer blocks all three exploit payloads, (6) the fixed sanitizer allows legitimate inputs (usernames, FQDNs, IPs, ports), and (7) the fixed sanitizer blocks all control characters, spaces, and common shell metacharacters."""
+category = "cybersecurity"
+tags = ["shell-injection", "binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4fd1c6"

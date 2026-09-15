@@ -1,0 +1,43 @@
+templates:
+  - "templates/postgres.template.yml"
+  - "templates/redis.template.yml"
+  - "templates/web.template.yml"
+  - "templates/web.ratelimited.template.yml"
+
+expose:
+  - "80:80"
+  - "443:443"
+
+params:
+  db_default_text_search_config: "pg_catalog.english"
+  db_shared_buffers: "512MB"
+
+env:
+  LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
+  LANGUAGE: en_US.UTF-8
+  DISCOURSE_HOSTNAME: "forum.mysite.com"
+  DISCOURSE_DEVELOPER_EMAILS: "admin@mysite.com,dev@mysite.com"
+  DISCOURSE_SMTP_ADDRESS: smtp.mailgun.org
+  DISCOURSE_SMTP_PORT: 587
+  DISCOURSE_SMTP_USER_NAME: "postmaster@mysite.com"
+  DISCOURSE_SMTP_PASSWORD: "secret123"
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/standalone
+      guest: /shared
+  - volume:
+      host: /var/discourse/shared/standalone/log/var-log
+      guest: /var/log
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git
+          - git clone https://github.com/discourse/discourse-solved.git
+          - git clone https://github.com/discourse/discourse-data-explorer.git
+
+docker_args: "--shm-size=512m"

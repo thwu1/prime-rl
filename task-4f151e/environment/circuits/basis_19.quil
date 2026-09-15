@@ -1,0 +1,4 @@
+# Prepare computational basis state j=19 on 5 qubits
+X 0
+X 1
+X 4

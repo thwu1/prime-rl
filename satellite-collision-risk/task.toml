@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a broken Maven build (non-existent dependency version, missing transitive artifact, incorrect shade plugin main class), fixing two subtle CDM parser bugs (string literal mismatch and missing symmetric covariance assignment), and implementing a high-accuracy numerical integration algorithm for collision probability spanning 30+ orders of magnitude — all without the algorithm being named or described in the instructions. CDM mode additionally requires discovering that covariance matrices must be rotated from per-object local frames to a common inertial frame before encounter-plane projection."""
+solution_explanation = """Fix pom.xml by correcting or removing the Hipparchus dependency (version 5.0 does not exist), optionally adding hipparchus-geometry, and fixing the shade/jar plugin mainClass to conjanalysis.Main. Fix CdmParser: correct MISS_DIST to MISS_DISTANCE and add the missing symmetric assignment cov[0][2]=cov[2][0] for CN_R. Implement CollisionAnalyzer.computePc via polar-coordinate Romberg integration with restricted angular range (Patera 2005 method). Implement analyzeCdm with RTN-to-inertial covariance rotation, Gram-Schmidt encounter-plane basis construction, 2D covariance projection and diagonalization, then Pc computation."""
+verification_explanation = """Tests verify: Maven build produces runnable JAR; 18 direct-mode collision probability reference cases (Chan 1997, CSM, CDM-derived, Alfano) spanning 1e-27 to 0.1 within 0.5% relative tolerance; CDM parsing extracts correct metadata and state vectors; risk classification; batch processing; numerical edge cases (zero miss, symmetric miss, very large miss, extreme covariance ratio >1000:1)."""
+category = "applied_computing"
+tags = ["astrodynamics", "numerical-integration"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/satellite-collision-risk"

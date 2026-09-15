@@ -1,0 +1,21 @@
+{
+  "crc_width": 16,
+  "polynomial": "0x755B",
+  "initial_crc": "0xC3A5",
+  "reflect_input": true,
+  "reflect_output": false,
+  "xor_output": "0x29B1",
+  "data_width": 8,
+  "test_vectors": [
+    {"id": "tv1", "data_hex": "00"},
+    {"id": "tv2", "data_hex": "FF"},
+    {"id": "tv3", "data_hex": "48656C6C6F2C20576F726C6421"},
+    {"id": "tv4", "generate": "range_256"},
+    {"id": "tv5", "generate": "repeat_0xAA_128"}
+  ],
+  "composition_tests": [
+    {"id": "comp1", "data_source": "tv3", "split_point": 7},
+    {"id": "comp2", "data_source": "tv4", "split_point": 100},
+    {"id": "comp3", "data_source": "tv5", "split_point": 64}
+  ]
+}

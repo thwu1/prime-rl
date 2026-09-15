@@ -1,0 +1,108 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-002",
+        "name": [{"given": ["James"], "family": "Walker"}],
+        "gender": "male",
+        "birthDate": "1965-09-14"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-cr-002",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory", "display": "Laboratory"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine [Mass/volume] in Serum or Plasma"}]},
+        "subject": {"reference": "Patient/pat-002"},
+        "effectiveDateTime": "2024-02-05T09:15:00Z",
+        "valueQuantity": {"value": 0.9, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bp-002",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs", "display": "Vital Signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel with all children optional"}]},
+        "subject": {"reference": "Patient/pat-002"},
+        "effectiveDateTime": "2024-02-05T09:00:00Z",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 138, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 85, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-002a",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "617318", "display": "atorvastatin calcium 40 MG Oral Tablet"}],
+          "text": "Atorvastatin 40mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-002"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily at bedtime", "timing": {"code": {"text": "QHS"}}, "doseAndRate": [{"doseQuantity": {"value": 40, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-002b",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "314076", "display": "lisinopril 10 MG Oral Tablet"}],
+          "text": "Lisinopril 10mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-002"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}, "doseAndRate": [{"doseQuantity": {"value": 10, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-002c",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "860999", "display": "metformin hydrochloride 500 MG Oral Tablet"}],
+          "text": "Metformin 500mg tablet"
+        },
+        "subject": {"reference": "Patient/pat-002"},
+        "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily with meals", "timing": {"code": {"text": "BID"}}, "doseAndRate": [{"doseQuantity": {"value": 500, "unit": "mg"}}]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-002a",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}]},
+        "subject": {"reference": "Patient/pat-002"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-002b",
+        "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+        "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}]},
+        "subject": {"reference": "Patient/pat-002"}
+      }
+    }
+  ]
+}

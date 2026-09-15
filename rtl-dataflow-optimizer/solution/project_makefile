@@ -1,0 +1,11 @@
+.PHONY: optimize render all
+
+all: optimize render
+
+optimize:
+	mkdir -p /app/optimized
+	python3 /app/optimize_all.py
+
+render:
+	mkdir -p /app/cfg_output
+	python3 /app/render_cfgs.py

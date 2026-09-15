@@ -1,0 +1,49 @@
+# nftables trace capture - VyOS router
+# Captured via: nft monitor trace
+# Router interfaces: eth0 (WAN 10.0.0.1/24), eth1 (LAN 192.168.10.1/24), eth2 (DMZ 172.16.0.1/24)
+trace id a1b2c3d4 ip raw VYOS_PREROUTING_HOOK packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 203.0.113.80 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10001 ip protocol tcp ip length 60 tcp sport 45678 tcp dport 443 tcp flags == syn tcp window 65535
+trace id a1b2c3d4 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id e5f6a7b8 ip raw VYOS_PREROUTING_HOOK packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 1.1.1.1 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10002 ip protocol udp ip length 60 udp sport 49152 udp dport 53 udp length 40
+trace id e5f6a7b8 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id a1b2c3d4 ip vyos_conntrack PREROUTING packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 203.0.113.80 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10001 ip protocol tcp ip length 60 tcp sport 45678 tcp dport 443 tcp flags == syn tcp window 65535
+trace id a1b2c3d4 ip vyos_conntrack PREROUTING verdict accept
+trace id c9d0e1f2 ip raw VYOS_PREROUTING_HOOK packet: iif "eth0" ether saddr 00:50:56:c0:99:01 ether daddr 00:50:56:a0:00:01 ip saddr 198.51.100.99 ip daddr 10.0.0.1 ip dscp cs0 ip ecn not-ect ip ttl 52 ip id 20001 ip protocol tcp ip length 60 tcp sport 12345 tcp dport 8080 tcp flags == syn tcp window 65535
+trace id c9d0e1f2 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id e5f6a7b8 ip vyos_conntrack PREROUTING packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 1.1.1.1 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10002 ip protocol udp ip length 60 udp sport 49152 udp dport 53 udp length 40
+trace id e5f6a7b8 ip vyos_conntrack PREROUTING verdict accept
+trace id c9d0e1f2 ip vyos_nat VYOS_PRE_DNAT_HOOK packet: iif "eth0" ether saddr 00:50:56:c0:99:01 ether daddr 00:50:56:a0:00:01 ip saddr 198.51.100.99 ip daddr 10.0.0.1 ip dscp cs0 ip ecn not-ect ip ttl 52 ip id 20001 ip protocol tcp ip length 60 tcp sport 12345 tcp dport 8080 tcp flags == syn tcp window 65535
+trace id c9d0e1f2 ip vyos_nat VYOS_PRE_DNAT_HOOK rule handle 50 tcp dport 8080 dnat to 172.16.0.10:80 (verdict accept)
+trace id a1b2c3d4 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 203.0.113.80 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10001 ip protocol tcp ip length 60 tcp sport 45678 tcp dport 443 tcp flags == syn tcp window 65535
+trace id a1b2c3d4 ip vyos_filter VYOS_FORWARD_filter rule handle 100 iifname "eth1" oifname "eth0" accept (verdict accept)
+trace id 13243546 ip raw VYOS_PREROUTING_HOOK packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 172.16.0.10 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10004 ip protocol tcp ip length 60 tcp sport 33333 tcp dport 22 tcp flags == syn tcp window 65535
+trace id 13243546 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id e5f6a7b8 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 1.1.1.1 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10002 ip protocol udp ip length 60 udp sport 49152 udp dport 53 udp length 40
+trace id e5f6a7b8 ip vyos_filter VYOS_FORWARD_filter rule handle 100 iifname "eth1" oifname "eth0" accept (verdict accept)
+trace id 57687980 ip raw VYOS_PREROUTING_HOOK packet: iif "eth2" ether saddr 00:50:56:b2:02:10 ether daddr 00:50:56:a0:02:01 ip saddr 172.16.0.10 ip daddr 192.168.10.50 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 30001 ip protocol tcp ip length 60 tcp sport 55555 tcp dport 3306 tcp flags == syn tcp window 65535
+trace id 57687980 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id c9d0e1f2 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth0" oif "eth2" ether saddr 00:50:56:c0:99:01 ether daddr 00:50:56:a0:02:01 ip saddr 198.51.100.99 ip daddr 172.16.0.10 ip dscp cs0 ip ecn not-ect ip ttl 51 ip id 20001 ip protocol tcp ip length 60 tcp sport 12345 tcp dport 80 tcp flags == syn tcp window 65535
+trace id c9d0e1f2 ip vyos_filter VYOS_FORWARD_filter rule handle 110 iifname "eth0" oifname "eth2" tcp dport 80 accept (verdict accept)
+trace id a1b2c3d4 ip vyos_nat VYOS_POST_SNAT_HOOK packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 203.0.113.80 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10001 ip protocol tcp ip length 60 tcp sport 45678 tcp dport 443 tcp flags == syn tcp window 65535
+trace id a1b2c3d4 ip vyos_nat VYOS_POST_SNAT_HOOK rule handle 200 oifname "eth0" masquerade (verdict accept)
+trace id 13243546 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth1" oif "eth2" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:02:01 ip saddr 192.168.10.50 ip daddr 172.16.0.10 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10004 ip protocol tcp ip length 60 tcp sport 33333 tcp dport 22 tcp flags == syn tcp window 65535
+trace id 13243546 ip vyos_filter VYOS_FORWARD_filter policy drop
+trace id 9a8b7c6d ip raw VYOS_PREROUTING_HOOK packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 8.8.8.8 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10003 ip protocol icmp ip length 84 icmp type echo-request icmp code 0 icmp id 4096
+trace id 9a8b7c6d ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id 57687980 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth2" oif "eth1" ether saddr 00:50:56:b2:02:10 ether daddr 00:50:56:a0:01:01 ip saddr 172.16.0.10 ip daddr 192.168.10.50 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 30001 ip protocol tcp ip length 60 tcp sport 55555 tcp dport 3306 tcp flags == syn tcp window 65535
+trace id 57687980 ip vyos_filter VYOS_FORWARD_filter rule handle 999 accept (verdict accept)
+trace id e5f6a7b8 ip vyos_nat VYOS_POST_SNAT_HOOK packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 1.1.1.1 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10002 ip protocol udp ip length 60 udp sport 49152 udp dport 53 udp length 40
+trace id e5f6a7b8 ip vyos_nat VYOS_POST_SNAT_HOOK rule handle 200 oifname "eth0" masquerade (verdict accept)
+trace id 0f1e2d3c ip raw VYOS_PREROUTING_HOOK packet: iif "eth1" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:01:01 ip saddr 192.168.10.50 ip daddr 172.16.0.10 ip dscp cs0 ip ecn not-ect ip ttl 64 ip id 10005 ip protocol tcp ip length 60 tcp sport 60000 tcp dport 80 tcp flags == syn tcp window 65535
+trace id 0f1e2d3c ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id 9a8b7c6d ip vyos_filter VYOS_FORWARD_filter packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 8.8.8.8 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10003 ip protocol icmp ip length 84 icmp type echo-request icmp code 0 icmp id 4096
+trace id 9a8b7c6d ip vyos_filter VYOS_FORWARD_filter rule handle 100 iifname "eth1" oifname "eth0" accept (verdict accept)
+trace id 4b5a6978 ip raw VYOS_PREROUTING_HOOK packet: iif "eth0" ether saddr 00:50:56:c0:77:01 ether daddr 00:50:56:a0:00:01 ip saddr 198.51.100.77 ip daddr 10.0.0.1 ip dscp cs0 ip ecn not-ect ip ttl 56 ip id 20003 ip protocol tcp ip length 60 tcp sport 4444 tcp dport 3389 tcp flags == syn tcp window 65535
+trace id 4b5a6978 ip raw VYOS_PREROUTING_HOOK verdict accept
+trace id 4b5a6978 ip vyos_nat VYOS_PRE_DNAT_HOOK packet: iif "eth0" ether saddr 00:50:56:c0:77:01 ether daddr 00:50:56:a0:00:01 ip saddr 198.51.100.77 ip daddr 10.0.0.1 ip dscp cs0 ip ecn not-ect ip ttl 56 ip id 20003 ip protocol tcp ip length 60 tcp sport 4444 tcp dport 3389 tcp flags == syn tcp window 65535
+trace id 4b5a6978 ip vyos_nat VYOS_PRE_DNAT_HOOK rule handle 55 tcp dport 3389 dnat to 192.168.10.50:3389 (verdict accept)
+trace id 0f1e2d3c ip vyos_filter VYOS_FORWARD_filter packet: iif "eth1" oif "eth2" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:02:01 ip saddr 192.168.10.50 ip daddr 172.16.0.10 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10005 ip protocol tcp ip length 60 tcp sport 60000 tcp dport 80 tcp flags == syn tcp window 65535
+trace id 0f1e2d3c ip vyos_filter VYOS_FORWARD_filter rule handle 120 iifname "eth1" oifname "eth2" tcp dport 80 accept (verdict accept)
+trace id 9a8b7c6d ip vyos_nat VYOS_POST_SNAT_HOOK packet: iif "eth1" oif "eth0" ether saddr 00:50:56:b1:01:50 ether daddr 00:50:56:a0:00:01 ip saddr 192.168.10.50 ip daddr 8.8.8.8 ip dscp cs0 ip ecn not-ect ip ttl 63 ip id 10003 ip protocol icmp ip length 84 icmp type echo-request icmp code 0 icmp id 4096
+trace id 9a8b7c6d ip vyos_nat VYOS_POST_SNAT_HOOK rule handle 200 oifname "eth0" masquerade (verdict accept)
+trace id 4b5a6978 ip vyos_filter VYOS_FORWARD_filter packet: iif "eth0" oif "eth1" ether saddr 00:50:56:c0:77:01 ether daddr 00:50:56:a0:01:01 ip saddr 198.51.100.77 ip daddr 192.168.10.50 ip dscp cs0 ip ecn not-ect ip ttl 55 ip id 20003 ip protocol tcp ip length 60 tcp sport 4444 tcp dport 3389 tcp flags == syn tcp window 65535
+trace id 4b5a6978 ip vyos_filter VYOS_FORWARD_filter rule handle 999 accept (verdict accept)

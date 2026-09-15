@@ -1,0 +1,3 @@
+tool	avg_l1_norm	avg_bray_curtis	avg_precision	avg_recall	avg_f1	avg_jaccard	composite_score
+ToolA	0.050000	0.025000	1.000000	1.000000	1.000000	1.000000	0.991667
+ToolC	0.787500	0.393750	0.754167	0.850000	0.796104	0.687500	0.716712

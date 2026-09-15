@@ -1,0 +1,57 @@
+[
+    {
+        "name": "stencil_3d",
+        "description": "7-point 3D stencil on 512^3 grid, 5 sweeps",
+        "total_flops": 1.2e9,
+        "bytes_per_level": {
+            "L1": 6.0e9,
+            "L2": 3.0e9,
+            "L3": 1.5e9,
+            "DRAM": 6.0e8
+        }
+    },
+    {
+        "name": "dense_matmul",
+        "description": "Tiled DGEMM 1024x1024, block size 64",
+        "total_flops": 8.0e9,
+        "bytes_per_level": {
+            "L1": 2.0e10,
+            "L2": 4.0e9,
+            "L3": 8.0e8,
+            "DRAM": 2.0e8
+        }
+    },
+    {
+        "name": "sparse_mv",
+        "description": "SpMV with irregular access pattern, 10M nonzeros",
+        "total_flops": 5.0e8,
+        "bytes_per_level": {
+            "L1": 2.0e10,
+            "L2": 1.0e10,
+            "L3": 5.0e9,
+            "DRAM": 4.0e9
+        }
+    },
+    {
+        "name": "fft_radix2",
+        "description": "Radix-2 FFT of 2^24 complex doubles",
+        "total_flops": 2.5e9,
+        "bytes_per_level": {
+            "L1": 2.5e10,
+            "L2": 5.0e9,
+            "L3": 1.25e9,
+            "DRAM": 5.0e8
+        }
+    },
+    {
+        "name": "particle_force",
+        "description": "Direct N-body force calculation, N=50000",
+        "total_flops": 1.0e10,
+        "bytes_per_level": {
+            "L1": 4.0e9,
+            "L2": 1.0e9,
+            "L3": 2.5e8,
+            "DRAM": 5.0e7
+        }
+    }
+]

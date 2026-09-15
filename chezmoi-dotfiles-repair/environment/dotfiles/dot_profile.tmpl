@@ -1,0 +1,12 @@
+# ~/.profile - managed by chezmoi
+# User: {{ .full_name }}
+export EDITOR=vim
+export VISUAL=vim
+export EMAIL="{{ .email }}"
+export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+
+if [ -n "$BASH_VERSION" ]; then
+    if [ -f "$HOME/.bashrc" ]; then
+        . "$HOME/.bashrc"
+    fi
+fi

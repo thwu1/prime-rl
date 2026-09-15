@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the dn42 registry trust model, including RPSL object semantics, maintainer authorization chains with mnt-lower delegation, BGP peering policy syntax parsing, route origin authorization (ROA) analysis, and CIDR arithmetic. The solver must independently determine what constitutes a violation by reasoning holistically about the interplay between maintainer objects, address allocations, route announcements, and peering policies — not by following a checklist. Multi-tool integration across git forensics (blame/log/diff for commit attribution), RPSL parsing (continuation lines, multi-valued attributes, policy expressions), Python ipaddress/sipcalc for network analysis, and authorization chain traversal is essential. The authorization chain analysis requires understanding that route objects must be authorized by the covering allocation's mnt-by or mnt-lower, which is a deep dn42-specific semantic constraint not derivable from structural checks alone."""
+solution_explanation = """Parse all RPSL objects handling continuation lines and multi-valued attributes. Build indexes of valid mntner/person/aut-num names. For each route/route6, find the covering inetnum/inet6num allocation and verify authorization: route mnt-by must match the allocation's mnt-by or be listed in its mnt-lower attribute. Parse import/export policy lines in aut-num objects to extract referenced AS numbers and verify they exist. Validate all cross-references (mnt-by, admin-c, tech-c, origin), check route containment in allocated space, validate max-length constraints. Use git blame to trace each violating attribute to its introducing commit. Build a ROA table from all route/route6 objects with authorization status. Compute usable hosts per IPv4 allocation using sipcalc. Assemble the structured forensic report."""
+verification_explanation = """Tests load /app/forensic_report.json and validate: (1) structure with all required top-level keys, (2) exact object counts for 8 types totaling 31, (3) all 11 violations present matched by object path and detail substring, (4) commit attribution verified for each violation against expected commit messages, (5) no false positives, (6) network analysis with 6 IPv4 allocations totaling 612 usable hosts and 2 IPv6 /48 allocations, (7) routing security ROA table with 9 entries — 6 authorized and 3 unauthorized — verified per-prefix against expected authorization status."""
+category = "networking"
+tags = ["bgp", "rpsl"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-254a95"

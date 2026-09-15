@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a terminal rasterizer from a specification, with no reference implementation. The solver must create an SGR state machine that tracks foreground color, background color, and style attributes across cells, deciding when to emit incremental attribute changes versus full resets. The differential renderer requires designing a cell-comparison algorithm with cursor movement optimization (CUP vs implicit advance). The solver must deeply understand ANSI escape sequence semantics, 24-bit color encoding (SGR 38;2;R;G;B), the interaction between multiple SGR parameters in a single sequence, and the notcurses composited cell data model. Edge cases around default-color transitions, combined style flags (UNDERCURL/UNDERLINE mapping), and trailing blank trimming require careful reasoning about terminal state invariants."""
+solution_explanation = """Implement rasterizer.c with a growable buffer, an SGR state tracker struct, and a transition-emitter that computes the minimal SGR parameter list to move from current state to target cell attributes. rasterize_full iterates rows, finds the last non-blank cell per row, emits CUP at row start, then emits cells with state-tracked SGR transitions. rasterize_diff iterates all cells, skips identical ones, emits CUP only when the cursor is not already at the right position, and emits transitions for changed cells. Both begin and end with ESC[0m. The state tracker handles reset-vs-incremental by counting attributes to turn off."""
+verification_explanation = """Tests use a Python VT100 state machine emulator that parses the rasterizer's ANSI escape sequence output and builds a virtual terminal grid. Each test creates scene files, runs the compositor in text mode to get expected cell values, runs it in raster mode to get escape sequences, feeds the sequences through the VT emulator, and compares cell-by-cell. Diff tests apply the diff output on top of a VT already showing the previous frame and verify the result matches a fresh render of the new frame. Optimization tests verify byte counts: identical-frame diffs produce minimal output, and single-cell diffs are much smaller than full renders. Format tests verify output starts and ends with ESC[0m."""
+category = "systems_programming"
+tags = ["tui-rendering", "ansi-escape-sequences"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a526cf"

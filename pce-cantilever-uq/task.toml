@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of polynomial chaos expansion (PCE) theory including: orthogonal polynomial bases and the Wiener-Askey scheme, isoprobabilistic transformation from physical to standard normal space, spectral projection via Gauss-Hermite quadrature, multi-index set construction with total-degree truncation, ANOVA decomposition for variance-based sensitivity analysis (Sobol indices), and first-order second-moment reliability analysis. The implementation demands correct handling of probabilists' Hermite polynomial normalization, quadrature weight conventions (exp(-x^2/2) vs standard normal PDF), and the distinction between first-order and total Sobol indices from PCE coefficients. Multiple subtle numerical pitfalls exist around weight normalization and multi-index bookkeeping."""
+solution_explanation = """Build Gauss-Hermite quadrature nodes and weights for standard normal integration (dividing scipy's roots_hermitenorm weights by sqrt(2*pi)). Construct a tensor-product grid in 4D standard normal space. Transform each node to physical space via x = mu + sigma*xi. Evaluate cantilever stress and displacement at all nodes. Generate total-degree multi-index set with |alpha| <= 4. Evaluate normalized multivariate Hermite basis Phi_alpha(xi) = prod He_{alpha_i}(xi_i)/sqrt(alpha_i!) at each node. Compute PCE coefficients c_alpha via spectral projection c_alpha = sum w_k f(xi_k) Phi_alpha(xi_k). Extract mean (c_0), variance (sum c_alpha^2 for alpha != 0), first-order Sobol indices (variance from single-variable terms / total variance), total Sobol indices (variance from all terms involving that variable / total variance). For failure probabilities, build PCE of limit states g=stress-R and g=displacement-1, compute FOSM beta=-mean_g/std_g and P_f=Phi(-beta)."""
+verification_explanation = """Tests verify stress statistics against exact analytical values (stress is linear in X,Y), displacement statistics against Monte Carlo reference with 500K samples, Sobol index structure (R and E have zero contribution to stress, R has zero contribution to displacement), stress failure probability against exact analytical formula (linear limit state), displacement failure probability for internal consistency, and re-runs the pipeline with a modified design point to verify it reads the config dynamically rather than hardcoding answers."""
+category = "computational_science"
+tags = ["uncertainty_quantification", "polynomial_chaos"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pce-cantilever-uq"

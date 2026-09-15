@@ -1,0 +1,12 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "hOut should not exceed nOut",
+            "parameters": {
+                "ruleText": "currentProperty.HOut <= currentProperty.NOut"
+            }
+        }
+    ]
+}

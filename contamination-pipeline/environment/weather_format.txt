@@ -1,0 +1,54 @@
+================================================================================
+  COASTAL ENVIRONMENTAL MONITORING NETWORK
+  Daily Weather Observations — Data Format Specification
+================================================================================
+
+FILE:    weather_daily.fwf
+FORMAT:  Fixed-width fields (no delimiters between fields)
+PERIOD:  2019-01-01 through 2022-12-31
+STATIONS: WX01 (Harbor_Central), WX02 (North_Point), WX03 (South_Bay)
+
+Lines beginning with '#' are comments and should be skipped.
+Blank lines may appear between yearly blocks and should be skipped.
+
+--------------------------------------------------------------------------------
+  FIELD DEFINITIONS
+--------------------------------------------------------------------------------
+
+  Field         Columns    Width   Type     Units        Description
+  ------------- ---------- -----  -------  ------------ -------------------------
+  StationID      1 -  4      4    char     —            Weather station identifier
+  Date           5 - 14     10    char     YYYY-MM-DD   Observation date
+  Temperature   15 - 21      7    float    °C           Mean daily air temperature
+  RelHumidity   22 - 25      4    int      %            Mean daily relative humidity
+  Precipitation 26 - 33      8    float    mm           Total daily precipitation
+  WindSpeed     34 - 39      6    float    km/h         Mean daily wind speed
+
+All numeric fields are right-justified within their column range.
+
+--------------------------------------------------------------------------------
+  MISSING VALUE CODES
+--------------------------------------------------------------------------------
+
+  Field           Missing Code    Meaning
+  --------------- --------------- ---------------------------------
+  Temperature       -99.9         Sensor offline / data unavailable
+  RelHumidity          -9         Sensor offline / data unavailable
+  Precipitation     -99.9         Gauge malfunction / data unavailable
+  WindSpeed           -9.9        Anemometer failure / data unavailable
+
+Missing values should be excluded from any computation that uses the field.
+
+--------------------------------------------------------------------------------
+  EXAMPLE LINES
+--------------------------------------------------------------------------------
+
+WX012019-06-15   22.3  74     0.0   5.2
+WX022019-06-15   21.8  71     3.4   6.1
+WX032019-06-15  -99.9  68     1.2  -9.9
+WX012019-12-01   -5.1  82     0.0   8.3
+WX022020-03-15    4.2 100    12.7   3.9
+
+Note: When RelHumidity reaches 100 (3 digits), there is no whitespace gap
+between the Temperature and RelHumidity fields. Parsers must use the fixed
+column positions, not whitespace splitting.

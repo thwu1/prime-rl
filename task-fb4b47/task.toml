@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete ground-truth fuzzing instrumentation framework from a specification. The agent must independently analyze 5 memory safety vulnerabilities in C code — integer overflow (32-bit vs 64-bit arithmetic), heap buffer over-read (palette bounds), off-by-one (loop boundary), buffer overflow (write position threshold), and signed/unsigned confusion — to derive the precise trigger condition for each. Trigger conditions must be exact predicates that distinguish exploitable from safe executions, requiring deep understanding of C type semantics, integer promotion rules, and memory layout. The agent must also create non-short-circuiting logical operators using noinline function calls to prevent compiler optimization from leaking branch information, and design correct fix paths that eliminate each vulnerability without altering non-buggy behavior."""
+solution_explanation = """Create canary.h/canary.c with MAGMA_LOG macro, magma_init/magma_log functions, and noinline magma_and/magma_or operators. Create monitor.c reading MAGMA_STORAGE env var and outputting CSV. Instrument imgutil.c with three-tier guards: BUG001 detects integer overflow via ((uint64_t)w*h*bpp) != (uint64_t)total_size; BUG002 detects OOB via idx >= palette_entries; BUG003 detects off-by-one via i == length; BUG004 detects buffer overflow via write_pos >= output_size; BUG005 detects sign confusion via stated_len < 0. Update Makefile with CANARIES/FIXES flags and monitor target."""
+verification_explanation = """Tests compile in three modes (plain, canaries, canaries+fixes), run the driver with specific inputs for each bug, parse the monitor CSV output, and verify exact reached/triggered counts that can only be correct if trigger conditions precisely match vulnerability semantics. Additional tests verify FIXES mode zeros all counts, MAGMA_AND/MAGMA_OR avoid short-circuit evaluation via side-effect counters, and CSV format conformance."""
+category = "systems_programming"
+tags = ["fuzzing", "vulnerability-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fb4b47"

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<citation_authority version="1.0"
+    description="Parallel citation equivalence mappings across US reporter systems. Citations within the same case_group reference the same judicial decision through different reporter series.">
+
+  <case_group id="grp_001" jurisdiction="federal" case_name="Strickland v. Washington">
+    <citation reporter="U.S.">466 U.S. 668</citation>
+    <citation reporter="S.Ct.">104 S.Ct. 2052</citation>
+    <citation reporter="L.Ed.2d">80 L.Ed.2d 674</citation>
+  </case_group>
+
+  <case_group id="grp_002" jurisdiction="federal" case_name="Terry v. Ohio">
+    <citation reporter="U.S.">392 U.S. 1</citation>
+    <citation reporter="S.Ct.">88 S.Ct. 1868</citation>
+  </case_group>
+
+  <case_group id="grp_003" jurisdiction="south_carolina" case_name="Doe v. State">
+    <citation reporter="S.C.">391 S.C. 297</citation>
+    <citation reporter="S.E.2d">589 S.E.2d 760</citation>
+  </case_group>
+
+  <case_group id="grp_004" jurisdiction="montana" case_name="State v. Adams">
+    <citation reporter="Mont.">82 Mont. 250</citation>
+    <citation reporter="P.">276 P. 20</citation>
+  </case_group>
+
+  <case_group id="grp_005" jurisdiction="florida" case_name="Taylor v. State">
+    <citation reporter="Fla.">131 Fla. 127</citation>
+    <citation reporter="So.2d">160 So.2d 413</citation>
+  </case_group>
+
+  <case_group id="grp_006" jurisdiction="south_carolina" case_name="Brown v. State">
+    <citation reporter="S.C.">349 S.C. 558</citation>
+    <citation reporter="S.E.2d">563 S.E.2d 671</citation>
+  </case_group>
+
+  <case_group id="grp_007" jurisdiction="north_dakota" case_name="Strata Corp v. Erhardt">
+    <citation reporter="N.W.2d">522 N.W.2d 439</citation>
+    <citation reporter="ND">1994 ND 88</citation>
+  </case_group>
+
+  <case_group id="grp_008" jurisdiction="hawaii" case_name="State v. Udo">
+    <citation reporter="Hawai'i">127 Hawai&#x2018;i 126</citation>
+    <citation reporter="P.3d">276 P.3d 687</citation>
+  </case_group>
+
+  <case_group id="grp_009" jurisdiction="new_jersey" case_name="State v. Dunbar">
+    <citation reporter="N.J.">224 N.J. 530</citation>
+    <citation reporter="A.3d">141 A.3d 254</citation>
+  </case_group>
+
+  <case_group id="grp_010" jurisdiction="ohio" case_name="Bohlen v. Anadarko">
+    <citation reporter="Ohio St.3d">149 Ohio St. 3d 628</citation>
+    <citation reporter="N.E.3d">86 N.E.3d 570</citation>
+  </case_group>
+
+  <case_group id="grp_011" jurisdiction="south_carolina" case_name="Worthington v. Belcher">
+    <citation reporter="F.3d">807 F.3d 619</citation>
+    <citation reporter="WL">2015 WL 7574663</citation>
+  </case_group>
+
+  <case_group id="grp_012" jurisdiction="south_carolina" case_name="Miller v. State">
+    <citation reporter="S.C.">412 S.C. 534</citation>
+    <citation reporter="S.E.2d">773 S.E.2d 576</citation>
+  </case_group>
+
+  <case_group id="grp_013" jurisdiction="kansas" case_name="State v. Gonzalez">
+    <citation reporter="Kan.">303 Kan. 785</citation>
+    <citation reporter="P.3d">376 P.3d 58</citation>
+  </case_group>
+
+  <case_group id="grp_014" jurisdiction="florida" case_name="Henderson v. Bowden">
+    <citation reporter="So.2d">833 So.2d 149</citation>
+    <citation reporter="Fla.App.">28 Fla. L. Weekly D1023</citation>
+  </case_group>
+
+  <case_group id="grp_015" jurisdiction="rhode_island" case_name="Oliver v. Narragansett Bay Ins.">
+    <citation reporter="A.3d">205 A.3d 445</citation>
+    <citation reporter="R.I.WL">2019 WL 582073</citation>
+  </case_group>
+
+</citation_authority>

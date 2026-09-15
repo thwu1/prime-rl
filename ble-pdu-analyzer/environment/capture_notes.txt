@@ -1,0 +1,9 @@
+BLE Sniffer Capture - 2024-11-15
+================================
+nRF52840-DK based sniffer, 30 sec per advertising channel.
+
+Channels 37, 38, 39 captured separately.
+Different capture/export tools used per channel due to equipment swap mid-session.
+
+Target device: Nordic_HRM peripheral (random static address)
+Issue reported: Central devices unable to discover target peripheral

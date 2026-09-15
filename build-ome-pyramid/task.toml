@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of multiple domains: (1) binary data forensics — reverse-engineering heterogeneous detector formats from a natural-language acquisition log including big-endian byte streams, IEEE 754 floats behind variable-offset ASCII headers, column-major raster dumps, and MSB-first 12-bit packed integer storage; (2) microscopy image processing — spatial drift correction with integer translation and zero-fill, float-to-integer intensity rescaling, and dimension axis transposition for column-major detectors; (3) TIFF specification internals — constructing a conformant pyramidal OME-TIFF with SubIFD-based multi-resolution levels, tiled BigTIFF organization, deflate compression, and well-formed OME-XML metadata; (4) low-level bit manipulation — unpacking 12-bit samples from 3-byte pairs with correct MSB-first ordering. The combination of four distinct binary formats, header boundary detection with 64-byte alignment, and OME-TIFF structural requirements demands holistic understanding across scientific imaging, binary I/O, and file format specifications."""
+solution_explanation = """The solution parses the acquisition log to determine each channel's binary format, then: (1) reads DAPI as big-endian uint16 via numpy dtype '>u2'; (2) detects the END_HEADER marker in the GFP file, aligns to the next 64-byte boundary, reads float32 data, and rescales [0,1] -> [0,65535] with float64 intermediate precision; (3) reads mCherry as little-endian uint16, reshapes as TZXY (accounting for column-major detector), transposes to TZYX, then applies the calibrated spatial drift correction (dy=+3, dx=-5) with zero-fill; (4) unpacks TdTomato 12-bit packed data by extracting bit fields from 3-byte groups and left-shifts by 4 for 16-bit expansion. All channels are stacked into a TCZYX array, a 3-level pyramid is built via iterative 2x area averaging, and the result is written as a BigTIFF pyramidal OME-TIFF using tifffile's SubIFD API with complete OME-XML metadata."""
+verification_explanation = """Tests verify: (1) output is valid BigTIFF OME-TIFF with deflate compression and 256x256 tiles; (2) correct pyramid structure with 3 levels at expected spatial dimensions; (3) OME-XML contains all four channel names and correct physical pixel sizes; (4) per-channel data integrity by independently re-reading each raw binary file with the correct format interpretation and comparing pixel values — DAPI exact match, GFP within atol=1.0 for float rounding, mCherry exact match after transpose and drift, TdTomato exact match after 12-bit unpack and shift; (5) pyramid mean intensity consistency across levels; (6) thumbnail series presence; (7) analysis.json structure, dimensions, channel stats ranges, pyramid level shapes, and format metadata."""
+category = "scientific_computing"
+tags = ["microscopy-imaging", "binary-formats"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/build-ome-pyramid"

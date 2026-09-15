@@ -1,0 +1,13 @@
+{
+    "n_paths": 16384,
+    "contracts": [
+        {"id": 1, "type": "european_call", "S0": 100.0, "K": 100.0, "r": 0.05, "sigma": 0.2, "T": 1.0},
+        {"id": 2, "type": "european_call", "S0": 100.0, "K": 110.0, "r": 0.05, "sigma": 0.2, "T": 1.0},
+        {"id": 3, "type": "european_put",  "S0": 100.0, "K": 100.0, "r": 0.05, "sigma": 0.2, "T": 1.0},
+        {"id": 4, "type": "european_put",  "S0": 100.0, "K": 100.0, "r": 0.08, "sigma": 0.25, "T": 2.0},
+        {"id": 5, "type": "asian_call",    "S0": 100.0, "K": 100.0, "r": 0.05, "sigma": 0.2, "T": 1.0, "n_steps": 6},
+        {"id": 6, "type": "asian_call",    "S0": 100.0, "K": 95.0,  "r": 0.05, "sigma": 0.3, "T": 0.5, "n_steps": 4},
+        {"id": 7, "type": "barrier_up_out_call", "S0": 100.0, "K": 100.0, "r": 0.05, "sigma": 0.2, "T": 1.0, "barrier": 140.0, "n_steps": 6},
+        {"id": 8, "type": "barrier_up_out_call", "S0": 100.0, "K": 95.0,  "r": 0.05, "sigma": 0.25, "T": 0.5, "barrier": 120.0, "n_steps": 4}
+    ]
+}

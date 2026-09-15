@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering PLUMED's HILLS file format from headers and reference data, implementing the correct FES reconstruction algorithm (Gaussian kernel summation with well-tempered bias correction, periodic minimum-image convention, multivariate covariance matrix handling, and analytical gradient computation) purely from data file inspection and domain knowledge. Additionally demands building a Make-orchestrated multi-tool pipeline integrating GNU AWK for time-windowed HILLS preprocessing with Python FES reconstruction, and implementing convergence analysis with correct cumulative-window semantics, pairwise metrics, and structured JSON output. The solver must wire together Make, AWK, and Python with correct subprocess orchestration and inter-tool data flow."""
+solution_explanation = """The solution implements four coupled components: (1) A GNU AWK script that filters HILLS data rows by time range while preserving #! headers. (2) A Python sum_hills tool that parses HILLS files, builds bin-center grids, sums Gaussian kernels with periodic wrapping via minimum-image convention, handles diagonal and multivariate (full covariance matrix with upper-triangular storage) cases, applies -gamma/(gamma-1) well-tempered correction, and computes analytical gradients. (3) A Makefile with phony targets that pass command-line variables to the Python tools. (4) A convergence analyzer that orchestrates AWK preprocessing and FES reconstruction across cumulative time windows, computing RMSD and max absolute difference between successive reconstructions."""
+verification_explanation = """Tests independently compute reference FES using numpy-based calculation and compare against tool output at multiple grid resolutions (anti-hardcoding). AWK preprocessing is verified for header preservation, time filtering, boundary conditions, and empty windows. Makefile targets are tested for correct invocation and output. Convergence pipeline output is validated against independently-computed metrics. Subprocess integration tests verify that converge.py actually depends on preprocess.awk and sum_hills by temporarily removing each and confirming pipeline failure."""
+category = "computational_science"
+tags = ["molecular-dynamics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reconstruct-fes-hills"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a complete type similarity metric from calibration examples alone — no algorithm specification is provided. The solver must: (1) analyze attribute set data and calibration scores to discover the exact origin similarity formula, including the non-obvious exclusion of base attributes from the shared count in the denominator, (2) determine the recursive composition strategy for generic type arguments and the specific halving penalty for arity mismatches purely from numerical constraints across multiple calibration pairs, (3) infer that union-type comparison requires optimal bipartite matching (not positional or greedy) from the union calibration examples showing order invariance and size-normalized scoring, (4) derive the consistency scoring formula (exponential decay with a specific constant) from exactly two calibration data points, and (5) construct a complete repository evaluation pipeline — determining variable filtering, missing-variable handling, and depth-based aggregation strategy — from sparse output calibration. Each sub-problem requires independent analytical reasoning and hypothesis testing against the data, then all components must compose correctly to pass blind test cases not present in calibration."""
+solution_explanation = """Analyze calibration pairs against the attribute registry to derive the origin similarity formula: 1 - (|A-B| + |B-A|) / (|A∩B - base| + |A-B| + |B-A|). From pair_04 (List[int] vs List[float] = 0.906250) determine that generic arguments are composed as the mean of origin similarity and positional argument similarity. From pair_11 (int vs List[int] = 0.030303) determine that arity mismatches halve the origin score. From pair_06 and pair_07, infer union dispatch uses optimal bipartite matching (scipy linear_sum_assignment) normalized by the larger member count. For metadata, derive recursive depth/count computation from calibration examples. For repo evaluation, discover that all 20 GT variables are eligible, compute per-variable similarity, and derive the consistency formula exp(-errors/total * 10) from the two calibration points (exp(-3/20*10) ≈ 0.223130 and exp(-8/20*10) ≈ 0.018316)."""
+verification_explanation = """Tests verify exact numerical correctness (within 1e-6) of: 12 pairwise type similarity scores (7 given as calibration, 5 blind) covering identical types, cross-type comparison, generic types, nested generics, union types, asymmetric unions, tuples, and arity mismatches; 6 type metadata depth/count values (3 given as calibration, 3 blind); and full repository evaluation including overall score, score-without-missing, missing count, per-depth breakdowns, and consistency scores. The 5 blind pair scores and 3 blind metadata values test generalization beyond calibration data."""
+category = "programming_languages"
+tags = ["type-systems", "metric-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/typesim-metric-engine"

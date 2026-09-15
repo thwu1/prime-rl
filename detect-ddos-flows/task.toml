@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network security forensics with multi-tool interoperability. The agent must: (1) use tshark to extract TCP flags and packet-level features from a binary pcap file, since the SQLite flow database intentionally omits TCP flag information; (2) correlate pcap-derived features with flow records in SQLite by 5-tuple matching; (3) distinguish SYN flood traffic from legitimate health-check bursts that share identical flow-level statistics (packet counts, byte sizes, durations, temporal clustering) — only distinguishable by TCP flags in the pcap; (4) apply multi-source signal fusion across pcap, SQLite, firewall logs, and Apache access logs to classify ~48K flows into three concurrent attack types with high precision and recall. The task cannot be solved without genuine pcap analysis tool proficiency."""
+solution_explanation = """The solution uses tshark to extract TCP flags grouped by 5-tuple from the pcap, then loads flow records from SQLite. SYN flood detection filters to flows with SYN-only flags (from pcap), then applies temporal windowing and source diversity thresholds. Slowloris detection uses flow-level thresholds (long duration, low packets/bytes on HTTP ports). DNS amplification detection identifies large UDP responses from port 53 with high destination concentration."""
+verification_explanation = """Tests regenerate deterministic ground truth at test time using the same PRNG seed and generation logic (no ground truth stored in the Docker image). For each attack type, precision and recall are computed by comparing agent-classified flow IDs against regenerated truth. Tests require >=85% precision and >=80% recall per category, >=80% overall precision, no cross-category overlap, and reasonable prediction counts (<=3x ground truth per category)."""
+category = "cybersecurity"
+tags = ["network-forensics", "pcap-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/detect-ddos-flows"

@@ -1,0 +1,48 @@
+{
+  "type": "seq",
+  "body": [
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 1},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "compute", "cost": 2},
+                {
+                  "type": "async",
+                  "child": {
+                    "type": "seq",
+                    "body": [
+                      {"type": "write", "var": "x", "id": "w1"},
+                      {"type": "compute", "cost": 4}
+                    ]
+                  }
+                },
+                {"type": "compute", "cost": 1},
+                {"type": "read", "var": "x", "id": "r1"}
+              ]
+            }
+          },
+          {"type": "compute", "cost": 3},
+          {"type": "write", "var": "x", "id": "w2"}
+        ]
+      }
+    },
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 2},
+          {"type": "read", "var": "x", "id": "r2"}
+        ]
+      }
+    },
+    {"type": "compute", "cost": 1}
+  ]
+}

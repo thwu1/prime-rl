@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 coupled defects across a Java build system (Makefile working directory), configuration layer (case-sensitive strategy parsing in ConfigLoader), and optimizer infrastructure (expression tree recursion, rule engine iteration semantics, structural equality), plus implementing 4 non-trivial optimization rules (constant folding with NULL/div-zero semantics, boolean simplification under SQL three-valued logic with 7+ identities, null propagation via type metadata, predicate pushdown through joins). The bugs interact: fixing only the RuleExecutor without fixing ConfigLoader still produces single-pass behavior, and fixing rules without fixing transformExpressions breaks child-plan tests. The Makefile bug prevents iterative development via make test until diagnosed."""
+solution_explanation = """Fix 5 bugs: (1) Plan.transformExpressions must recurse into child plan nodes. (2) RuleExecutor.execute must iterate FIXED_POINT batches until convergence. (3) Comparison.nodeEquals must compare the op field. (4) ConfigLoader must use case-insensitive comparison for strategy parsing (config says FIXED_POINT, code checks lowercase fixed_point). (5) Makefile test target must not cd into the build directory (breaks config file resolution). Then implement 4 rules: ConstantFolding evaluates foldable expressions; BooleanSimplification applies 7+ algebraic identities respecting SQL NULL semantics; NullPropagation resolves IsNull/IsNotNull on non-nullable expressions; PredicatePushdown decomposes AND-conjuncts and routes them through joins."""
+verification_explanation = """TestRunner.java constructs plan trees, runs the optimizer, and compares canonical string representations. 22 tests cover constant folding (basic/null/div-zero/child-plan), boolean simplification (AND/OR with literals, NOT-NOT, idempotence, complement with nullable vs non-nullable, absorption, common factor extraction, different-op structural equality guards), null propagation (non-nullable IsNull/IsNotNull, nullable unchanged, nested plans), predicate pushdown (basic/both-sides/stacked requiring multi-pass), and combined multi-rule interaction requiring all 4 rules plus fixed-point convergence across iterations."""
+category = "data_processing"
+tags = ["query-optimization", "tree-transformation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/catalyst-rule-engine"

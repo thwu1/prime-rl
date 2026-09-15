@@ -1,0 +1,21 @@
+{
+  "name": "SensorReading",
+  "description": "Telemetry reading from an embedded sensor node, serialized in postcard wire format",
+  "fields": [
+    {"name": "sensor_id", "type": "u16", "description": "Sensor node identifier"},
+    {"name": "timestamp_ms", "type": "u64", "description": "Milliseconds since epoch"},
+    {"name": "temperature_cdeg", "type": "i32", "description": "Temperature in centidegrees Celsius (e.g., 2350 = 23.50 C)"},
+    {"name": "humidity_pct_x10", "type": "u16", "description": "Relative humidity in tenths of percent (e.g., 650 = 65.0%)"},
+    {"name": "pressure_pa", "type": "u32", "description": "Atmospheric pressure in Pascals"},
+    {"name": "battery_mv", "type": "u16", "description": "Battery voltage in millivolts"},
+    {"name": "status", "type": "enum", "variants": ["Ok", "Warning", "Error", "Calibrating"], "description": "Device status as a unit variant enum"},
+    {"name": "sub_readings", "type": "seq<i16>", "description": "Variable-length sequence of auxiliary sensor readings"}
+  ],
+  "encoding_notes": {
+    "integer_encoding": "u16, u32, u64 use unsigned varint (LEB128). i16, i32 use zigzag encoding before varint.",
+    "enum_encoding": "Discriminant encoded as varint(u32). Unit variants have no following data. Variant indices: Ok=0, Warning=1, Error=2, Calibrating=3.",
+    "seq_encoding": "Prefixed by varint(usize) element count, followed by that many individually encoded elements.",
+    "struct_encoding": "Fields encoded in declaration order with no separators, no field names, no length prefix.",
+    "framing": "Each serialized message is COBS-encoded (sentinel=0x00) and terminated by a 0x00 delimiter byte."
+  }
+}

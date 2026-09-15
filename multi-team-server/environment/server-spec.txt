@@ -1,0 +1,97 @@
+MULTI-TEAM DEVELOPMENT SERVER SPECIFICATION
+=============================================
+
+A junior system administrator partially configured this server.
+Multiple configurations are incorrect and need to be diagnosed and fixed.
+
+TEAM STRUCTURE
+--------------
+Users and their team assignments:
+
+  User     | UID  | Shell             | Team Groups (supplementary)
+  ---------|------|-------------------|----------------------------
+  alice    | 2001 | /bin/bash         | devops, backend, frontend (cross-team lead)
+  bob      | 2002 | /bin/bash         | backend
+  charlie  | 2003 | /usr/sbin/nologin | devops (service account)
+  diana    | 2004 | /bin/bash         | backend
+  eric     | 2005 | /bin/bash         | frontend
+  frank    | 2006 | /bin/bash         | frontend
+
+Note: Each user keeps their personal primary group (same name as username).
+Team groups are supplementary group memberships.
+
+PASSWORD POLICIES
+-----------------
+All users:
+  - Maximum password age: 90 days
+  - Minimum password age: 7 days
+  - Password warning period: 14 days
+
+Account expiration:
+  - devops team members (alice, charlie): account NEVER expires
+  - All other users (bob, diana, eric, frank): account expires on 2027-06-30
+
+PROJECT DIRECTORIES
+-------------------
+Three project directories with specific ownership, permissions, and ACLs:
+
+/projects/platform
+  - Owner: root:devops
+  - Mode: 2770 (SGID set, no sticky bit)
+  - Default ACL: backend group gets r-x
+  - Default ACL: frontend group gets r-x
+
+/projects/api
+  - Owner: root:backend
+  - Mode: 2770 (SGID set, no sticky bit)
+  - Default ACL: devops group gets rwx
+  - Default ACL: frontend group gets r-- (read only)
+
+/projects/webapp
+  - Owner: root:frontend
+  - Mode: 3770 (SGID set AND sticky bit set)
+  - Default ACL: devops group gets rwx
+  - Default ACL: backend group gets r-x
+
+SCHEDULED TASKS
+---------------
+Audit script (/app/scripts/audit.sh):
+  - Must log the current date/time
+  - Must log disk usage of /projects/ subdirectories
+  - Must append output to /var/log/project-audit.log
+  - Must be executable and exit successfully
+
+Systemd timer:
+  - Service unit: /etc/systemd/system/project-audit.service
+    - Type: oneshot
+    - Runs /app/scripts/audit.sh
+  - Timer unit: /etc/systemd/system/project-audit.timer
+    - Fires every 6 hours
+    - Must be enabled (symlinked in timers.target.wants)
+
+Cron jobs:
+  - alice: Run /app/scripts/cleanup.sh every Sunday at 3:15 AM
+  - bob: Run /app/scripts/backup.sh every day at 1:30 AM
+
+Helper scripts:
+  - /app/scripts/cleanup.sh: must exist and be executable
+  - /app/scripts/backup.sh: must exist and be executable
+
+CRON ACCESS CONTROL
+-------------------
+Only the following users may use cron:
+  - alice, bob, diana
+
+All other users (charlie, eric, frank) must be denied cron access.
+Use /etc/cron.allow for enforcement.
+
+SUDO CONFIGURATION
+------------------
+All rules must use NOPASSWD and be syntactically valid (pass visudo -c).
+
+  - devops group (%devops): ALL commands
+  - backend group (%backend): /usr/bin/systemctl restart nginx,
+                               /usr/bin/systemctl reload nginx
+  - frontend group (%frontend): /usr/bin/npm, /usr/bin/npx
+
+Place rules in /etc/sudoers.d/ with mode 0440.

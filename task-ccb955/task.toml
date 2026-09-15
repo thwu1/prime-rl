@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task combining network forensics with protocol exploitation. Requires: (1) analyzing binary PCAP captures with tshark to extract TCP MSS values from SYN-ACK packets amid noise traffic — distinguishing the relevant handshake from red-herring connections on other ports; (2) reverse-engineering the ALG simulator's SIP parsing logic, segment boundary behavior, and strict-mode header validation; (3) discovering how TCP segmentation interacts with the ALG's per-segment inspection model to allow protocol smuggling; (4) computing precise byte-level payload alignment accounting for a Content-Length circular dependency. Directly inspired by Samy Kamkar's NAT Slipstreaming research."""
+solution_explanation = """Two-phase solution: (1) Use tshark to filter each PCAP for the SYN-ACK from port 5060 and extract the MSS option value, then update config.json; (2) For each scenario, construct a SIP REGISTER packet satisfying all ALG validation (Contact, Via, Call-ID, CSeq, Expires, Max-Forwards for strict mode), embed it in a multipart/form-data POST body with a variable-length padding field, and calculate the padding such that (HTTP_headers_length + multipart_preamble + padding + separator) mod MSS == 0, placing the SIP REGISTER at a TCP segment boundary. Must iterate over possible Content-Length digit counts to resolve the circular dependency."""
+verification_explanation = """Tests verify: (1) config.json MSS values match those extracted from PCAPs via tshark (anti-cheat: expected values come from the PCAPs themselves, not hardcoded); (2) exploit.py produces payloads that trigger ALG pinhole creation for all four scenarios; (3) pinholes target correct ports and IPs; (4) SIP REGISTER appears at TCP segment boundaries; (5) payloads are well-formed multipart/form-data with consistent Content-Length headers."""
+category = "security"
+tags = ["network-forensics", "protocol-exploitation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ccb955"

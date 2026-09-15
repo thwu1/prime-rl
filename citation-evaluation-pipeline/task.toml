@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-source legal citation evaluation pipeline from scratch. The solver must: (1) explore an undocumented SQLite schema using sqlite3 CLI to understand instance/response structure; (2) parse a nested JSONL ground truth manifest using jq or programmatic JSON processing; (3) query an XML citation authority index using xmlstarlet or XML parsing to extract parallel citation groups mapping different reporter references to the same judicial decision; (4) merge YAML base configuration with JSON scoring overrides where JSON takes precedence; (5) implement comprehensive citation extraction covering 20+ US legal citation formats spanning federal, regional, state-specific, neutral, and Westlaw reporters discovered by examining ground truth data; (6) implement bidirectional substring matching with parallel citation equivalence — two citations referencing the same case through different reporters (e.g., official state reporter vs. regional reporter) must be treated as matches; (7) implement rule-based Cat3 scoring with negation detection distinguishing "no error" from affirmative error claims, plus raw-to-scaled score conversion; (8) compute Misleading Answer Rate (MAR) using the threshold from merged configuration. Success demands professional understanding of US legal citation systems, parallel citation conventions across reporter hierarchies, and the ability to synthesize an evaluation methodology from a condensed academic reference rather than step-by-step instructions."""
+solution_explanation = """The solution loads and merges YAML+JSON configuration, parses the JSONL ground truth manifest for per-instance citation lists, parses the XML authority index to build parallel citation groups, queries the SQLite database for model responses, implements 25 citation extraction patterns covering all reporter formats, applies bidirectional matching with parallel citation equivalence through authority group membership, implements Cat3 scoring with negation detection and 0-5 to 0-100 scaling, and computes MAR using the merged configuration threshold."""
+verification_explanation = """Tests verify the output results.json against pre-computed expected values: Cat1 mean F1 ~56.47 (±1.5), Cat2 mean F1 ~70.19 (±1.5), Cat3 mean score ~78.0 (±2.0), Cat1 MAR ~0.667 (±0.05), Cat2 MAR ~0.5 (±0.05), overall MAR ~0.6 (±0.05), and exactly 30 instances. The tolerance ranges ensure correct parallel citation resolution, negation handling, and multi-source data reconciliation while allowing minor extraction variations."""
+category = "nlp"
+tags = ["legal-citation-analysis", "multi-format-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/citation-evaluation-pipeline"

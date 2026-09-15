@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """One-sided crossing minimization (OCM) is NP-hard. The solver must: (1) formulate the problem as an ILP with binary ordering variables and transitivity constraints — requiring knowledge of polyhedral combinatorics; (2) express this formulation in CPLEX LP format, a specialized syntax with strict formatting rules for objectives, constraints, bounds, and variable types; (3) orchestrate the glpsol command-line solver with correct flags and parse its fixed-width tabular output to extract variable values; (4) reconstruct optimal permutations from ILP variable assignments; (5) store structured results in a SQLite database with a specified relational schema. The largest instance (n_b=22) yields 231 binary variables and ~3000 transitivity constraints."""
+solution_explanation = """The reference solution builds a Python pipeline that: (a) computes pairwise crossing costs for each pair of B-vertices; (b) generates CPLEX LP files with binary x_i_j variables, transitivity 3-dicycle constraints, and a crossing-minimization objective; (c) invokes glpsol --lp with --output to solve each ILP; (d) parses glpsol's columnar output via regex to extract variable activities; (e) reconstructs the optimal permutation by ranking vertices based on ordering variable values; (f) writes PACE-format solution files and populates a SQLite database."""
+verification_explanation = """Tests verify four layers: (1) LP model files exist with valid CPLEX LP structure (Minimize/Subject To/Binary/End sections) and the correct number of binary variables matching C(n_b,2); (2) glpsol output files exist and report OPTIMAL status; (3) solution files encode valid permutations achieving the precomputed optimal crossing numbers; (4) the SQLite database has the required schema and contains correct instance metadata, crossing counts, and permutation data."""
+category = "algorithms"
+tags = ["combinatorial-optimization", "ilp-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1215eb"

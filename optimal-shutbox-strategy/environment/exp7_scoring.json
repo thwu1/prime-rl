@@ -1,0 +1,11 @@
+{
+  "experiment_id": 7,
+  "scoring_version": "2.1",
+  "method": "weighted_penalty",
+  "description": "Tiles in higher tiers incur larger penalties when left open at game end",
+  "tiers": [
+    {"tiles": [1, 2, 3, 4], "multiplier": 1},
+    {"tiles": [5, 6, 7, 8], "multiplier": 2},
+    {"tiles": [9, 10, 11, 12], "multiplier": 3}
+  ]
+}

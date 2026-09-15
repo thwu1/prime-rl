@@ -1,0 +1,14 @@
+{
+    "dataset": {
+        "n_subjects": 9,
+        "n_channels": 22,
+        "n_trials_per_class": 40,
+        "n_samples": 1000,
+        "fs": 250,
+        "base_seed": 42
+    },
+    "requirements": {
+        "min_mean_accuracy": 0.65,
+        "min_per_subject_accuracy": 0.52
+    }
+}

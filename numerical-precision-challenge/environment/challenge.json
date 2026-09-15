@@ -1,0 +1,30 @@
+{
+  "description": "Multi-precision numerical analysis challenge",
+  "problems": [
+    {
+      "id": "P1",
+      "name": "Parametric Oscillatory Integral",
+      "spec_file": "/app/specs/oscillatory.md",
+      "data_files": ["/app/data/integral_params.json"],
+      "output_file": "/app/results/integrals.txt"
+    },
+    {
+      "id": "P2",
+      "name": "Fibonacci-Banded Sparse Matrix",
+      "spec_file": "/app/specs/matrix.md",
+      "data_files": ["/app/data/matrix_config.json"],
+      "output_file": "/app/results/matrix_entry.txt"
+    },
+    {
+      "id": "P3",
+      "name": "Slowly Convergent Series",
+      "spec_file": "/app/specs/series.md",
+      "data_files": ["/app/data/series_def.json"],
+      "output_file": "/app/results/series_sum.txt"
+    }
+  ],
+  "requirements": {
+    "min_significant_digits": 10,
+    "method": "All values must be computed programmatically, not hard-coded."
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding 6 active learning acquisition functions (least confidence, breaking ties, prediction entropy, BALD, greedy coreset, lightweight coreset), 3 stopping criteria (Cohen's kappa agreement, normalized entropy uncertainty, classification change), and the small-text library's stateful stopping criterion API. The solver must identify and fix 4 subtle algorithmic bugs in query strategies, implement 5 missing functions from mathematical specifications, diagnose and correct 3 API misuse errors in the small-text library integration (stateful object lifecycle, incorrect keyword arguments, missing sequential calls), and wire everything into a deterministic evaluation pipeline that cross-validates against the library."""
+solution_explanation = """Fix breaking_ties by changing argpartition(-margins,...) to argpartition(margins,...). Fix bald_scores by swapping subtraction to model_entropy - expected_entropy. Fix _cosine_distance by dividing by both norms_a and norms_b. Fix greedy_coreset by mapping selected local indices through indices_unlabeled. Implement least_confidence, prediction_entropy, lightweight_coreset, kappa_average_stop, overall_uncertainty_stop. Fix run_validation: use a single KappaAverage instance across all iterations (not one per iteration), change indices= to indices_stopping= for OverallUncertainty, call ClassificationChange.stop() twice (first with previous predictions to establish state, then with current predictions to trigger comparison). Install small-text==1.4.1 via pip. Complete pipeline.py by calling all strategies and stopping criteria with specified parameters."""
+verification_explanation = """Tests call each function directly with deterministic synthetic data and compare outputs element-wise against independent reference implementations. Pipeline tests run the full pipeline as a subprocess and verify output JSON files contain exact expected values. Validation tests verify that custom stopping criteria produce identical results to small-text's library implementations, ensuring cross-tool agreement. Cosine distance tests verify geometric properties (self-distance=0, orthogonal=0.5, anti-parallel=1.0)."""
+category = "machine_learning"
+tags = ["active-learning", "library-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/active-learning-strategies"

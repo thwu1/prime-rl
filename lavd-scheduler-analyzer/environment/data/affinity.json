@@ -1,0 +1,17 @@
+{
+  "assignments": {
+    "Render": "0-3",
+    "AI": "0-3",
+    "Physics": "4-7",
+    "GC": "4-7",
+    "PostProc": "4-7",
+    "Audio": "4-7",
+    "GameLoop": "8-11",
+    "Input": "8-11",
+    "AIDecide": "8-11",
+    "NetRecv": "8-11",
+    "NetSend": "8-11",
+    "NetProc": "8-11"
+  },
+  "description": "Tasks assigned to CPU clusters by descending average runtime"
+}

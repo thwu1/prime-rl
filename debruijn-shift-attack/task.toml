@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom binary UDP protocol by analyzing receiver source code, parsing a packed binary configuration file (zones.dat) using hex analysis tools (xxd) to extract zone parameters, physical encoding tables, and a passphrase, then using openssl to decrypt an AES-256-CBC encrypted master seed with PBKDF2 key derivation. The agent must derive authentication keys via SHA-256 truncation, implement a programmatic UDP client, generate De Bruijn sequences using the necklace enumeration algorithm for three different alphabet sizes (binary, trinary, quaternary-equivalent), handle OOK and tri-state physical encoding layers with different bit-pattern lengths (4-bit and 18-bit per symbol), and recognize that a B(2,12) sequence covers all shorter code lengths by the pigeonhole principle. Integrates network protocol analysis, binary format reverse engineering, cryptographic key management, combinatorial algorithm design, and multi-layer signal encoding — a pipeline requiring holistic understanding across security domains."""
+solution_explanation = """Parse zones.dat binary format to extract the passphrase and zone parameters (k, n, flags, encoding tables). Decrypt seed.enc via 'openssl enc -aes-256-cbc -d -pbkdf2 -iter 100000'. Compute auth_key = SHA-256(seed)[:16]. Start the receiver daemon and implement a UDP client speaking the binary protocol. Generate De Bruijn sequences B(k,n) using the Martin/Fredericksen necklace algorithm for each zone. For Zone C (OOK), encode logical symbols to 4-bit physical patterns. For Zone D (tri-state), encode to 18-bit patterns from the NSCD-style encoding table in zones.dat. For Zone E, recognize B(2,12) covers all code lengths 8-12 by pigeonhole. Submit sequences via authenticated UDP SUBMIT commands and collect cracked codes from responses."""
+verification_explanation = """Tests independently derive secret codes using the same SHA-256-based key derivation with a hardcoded seed, verifying each zone's reported code matches. Sequence files are validated for correct De Bruijn properties: exact length k^n + n - 1, all k^n possible n-symbol windows appearing exactly once. Physical encodings are verified by independently re-encoding logical sequences using the known OOK and tri-state lookup tables and comparing against submitted physical bitstreams. Multi-length Zone E is verified for coverage of all 2^m possible m-length windows (m=8..11) and presence of all five derived codes within the sequence."""
+category = "security"
+tags = ["protocol-analysis", "binary-exploitation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debruijn-shift-attack"

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>VPORG</OrganizationIdentifier>
+      <OrganizationFormalName>Vertical Profile Testing Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-VP</ProjectIdentifier>
+      <ProjectName>Reservoir Stratification Study</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-VP</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Deep Reservoir Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>Reservoir</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>42.512345</LatitudeMeasure>
+        <LongitudeMeasure>-73.876543</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NY</StateCode>
+        <CountyCode>001</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <!-- ERROR: Vertical Profile WITHOUT depth measures -> 2x BR-002 -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-VP1</ActivityIdentifier>
+        <ActivityTypeCode>Sample-Integrated Vertical Profile</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-06-10</ActivityStartDate>
+        <ProjectIdentifier>PROJ-VP</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-VP</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Temperature, water</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>18.5</ResultMeasureValue>
+            <MeasureUnitCode>deg C</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+    <!-- VALID: Vertical Profile WITH depth measures -> no error -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-VP2</ActivityIdentifier>
+        <ActivityTypeCode>Sample-Integrated Vertical Profile</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-06-11</ActivityStartDate>
+        <ActivityTopDepthHeightMeasure>
+          <MeasureValue>0</MeasureValue>
+          <MeasureUnitCode>m</MeasureUnitCode>
+        </ActivityTopDepthHeightMeasure>
+        <ActivityBottomDepthHeightMeasure>
+          <MeasureValue>10</MeasureValue>
+          <MeasureUnitCode>m</MeasureUnitCode>
+        </ActivityBottomDepthHeightMeasure>
+        <ProjectIdentifier>PROJ-VP</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-VP</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Dissolved oxygen (DO)</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>6.2</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

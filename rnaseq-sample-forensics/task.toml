@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring a relational SQLite database to understand its schema and discover the batch-condition confounding structure, detecting technical count artifacts (outlier genes with extreme spikes), then critically evaluating four RNA-seq analysis pipelines with progressively subtle flaws: batch-condition confounding destruction of biological signal, PCA on untransformed count data, directional restriction in enrichment analysis, and mean-variance-biased feature selection on raw counts. The solver must synthesize holistic understanding of how the experimental design constrains analytical choices — connecting the confounding structure to Pipeline A's failure, the mean-variance relationship to Pipeline D's biased gene selection, and the biology of heat shock to Pipeline C's directional error — rather than evaluating each pipeline in isolation."""
+solution_explanation = """Explore the database schema to understand the relational structure and discover batch-condition confounding (Batch1=Control, Batch2=Treatment). Detect technical outlier genes (BGENE_0042 with 50x spikes in Sample_02/06, BGENE_0200 with 30x spikes in Sample_15/23). Pipeline A: per-gene batch mean centering removes the treatment effect because batch is perfectly confounded with condition. Pipeline B: PCA on raw counts without log-transform lets high-expression genes dominate variance. Pipeline C: enrichment restricted to downregulated genes finds CELL_CYCLE_REGULATION instead of HEAT_SHOCK_RESPONSE. Pipeline D: gene selection by raw count variance biases toward housekeeping genes and technical outlier genes due to the mean-variance relationship in count data, corrupting the clustering. Correct approach: library-size normalization, StandardScaler, PCA+K-means clustering on all filtered genes, then bidirectional DEA and Fisher's exact enrichment on ALL DE genes to identify heat shock. Mislabeled: Sample_04, Sample_09, Sample_17, Sample_21."""
+verification_explanation = """Tests parse /app/results.json and verify: (1) all four pipelines marked correct=false with flaw descriptions containing domain-specific keywords for each flaw type; (2) Pipeline A references batch-condition confounding; (3) Pipeline B references missing transformation; (4) Pipeline C references directional restriction in enrichment; (5) Pipeline D references gene selection/filtering bias from raw count variance; (6) mislabeled_samples exactly matches [Sample_04, Sample_09, Sample_17, Sample_21]; (7) perturbation contains 'heat'; (8) technical_outlier_genes matches [BGENE_0042, BGENE_0200]; (9) confound_summary explains batch-condition confounding."""
+category = "bioinformatics"
+tags = ["rna-seq", "experimental-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rnaseq-sample-forensics"

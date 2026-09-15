@@ -1,0 +1,18 @@
+dag_id: quality_monitor
+schedule: "dataset:user_scores"
+default_pool: compute_pool
+max_active_runs: 1
+tasks:
+  check_data_quality:
+    pool_slots: 2
+    duration_estimate_minutes: 10
+  check_model_drift:
+    pool_slots: 2
+    duration_estimate_minutes: 15
+  generate_corrections:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+    upstream: [check_data_quality, check_model_drift]
+datasets:
+  produces: [quality_alerts, data_corrections]
+  consumes: [user_scores]

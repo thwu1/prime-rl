@@ -1,0 +1,54 @@
+# /var/log/auth.log excerpt — security incident window
+# Period: Jun 5 01:00 to Jun 5 03:15
+# System: prodserver
+
+Jun  5 01:12:15 prodserver sshd[3201]: Accepted password for admin1 from 10.0.1.50 port 44201 ssh2
+Jun  5 01:12:15 prodserver sshd[3201]: pam_unix(sshd:session): session opened for user admin1(uid=1001) by (uid=0)
+Jun  5 01:45:33 prodserver sshd[3201]: pam_unix(sshd:session): session closed for user admin1
+Jun  5 01:55:08 prodserver sshd[3288]: Accepted password for dev1 from 10.0.1.55 port 39102 ssh2
+Jun  5 01:55:08 prodserver sshd[3288]: pam_unix(sshd:session): session opened for user dev1(uid=1002) by (uid=0)
+Jun  5 02:10:44 prodserver sshd[3288]: pam_unix(sshd:session): session closed for user dev1
+Jun  5 02:14:01 prodserver sshd[4501]: Failed password for admin1 from 203.0.113.42 port 54301 ssh2
+Jun  5 02:14:03 prodserver sshd[4502]: Failed password for admin1 from 203.0.113.42 port 54302 ssh2
+Jun  5 02:14:05 prodserver sshd[4503]: Failed password for admin1 from 203.0.113.42 port 54303 ssh2
+Jun  5 02:14:07 prodserver sshd[4504]: Failed password for admin1 from 203.0.113.42 port 54304 ssh2
+Jun  5 02:14:09 prodserver sshd[4505]: Failed password for admin1 from 203.0.113.42 port 54305 ssh2
+Jun  5 02:14:11 prodserver sshd[4506]: Failed password for admin1 from 203.0.113.42 port 54306 ssh2
+Jun  5 02:14:13 prodserver sshd[4507]: Failed password for admin1 from 203.0.113.42 port 54307 ssh2
+Jun  5 02:14:15 prodserver sshd[4508]: Failed password for admin1 from 203.0.113.42 port 54308 ssh2
+Jun  5 02:14:17 prodserver sshd[4509]: Failed password for admin1 from 203.0.113.42 port 54309 ssh2
+Jun  5 02:14:19 prodserver sshd[4510]: Failed password for admin1 from 203.0.113.42 port 54310 ssh2
+Jun  5 02:14:21 prodserver sshd[4511]: Failed password for admin1 from 203.0.113.42 port 54311 ssh2
+Jun  5 02:14:23 prodserver sshd[4512]: Failed password for admin1 from 203.0.113.42 port 54312 ssh2
+Jun  5 02:14:25 prodserver sshd[4513]: Failed password for admin1 from 203.0.113.42 port 54313 ssh2
+Jun  5 02:14:27 prodserver sshd[4514]: Failed password for admin1 from 203.0.113.42 port 54314 ssh2
+Jun  5 02:14:29 prodserver sshd[4515]: Failed password for admin1 from 203.0.113.42 port 54315 ssh2
+Jun  5 02:14:31 prodserver sshd[4516]: Failed password for admin1 from 203.0.113.42 port 54316 ssh2
+Jun  5 02:14:33 prodserver sshd[4517]: Failed password for admin1 from 203.0.113.42 port 54317 ssh2
+Jun  5 02:14:35 prodserver sshd[4518]: Failed password for admin1 from 203.0.113.42 port 54318 ssh2
+Jun  5 02:14:37 prodserver sshd[4519]: Failed password for admin1 from 203.0.113.42 port 54319 ssh2
+Jun  5 02:14:39 prodserver sshd[4520]: Failed password for admin1 from 203.0.113.42 port 54320 ssh2
+Jun  5 02:14:41 prodserver sshd[4521]: Failed password for admin1 from 203.0.113.42 port 54321 ssh2
+Jun  5 02:14:43 prodserver sshd[4522]: Failed password for admin1 from 203.0.113.42 port 54322 ssh2
+Jun  5 02:14:45 prodserver sshd[4523]: Failed password for admin1 from 203.0.113.42 port 54323 ssh2
+Jun  5 02:14:47 prodserver sshd[4524]: Failed password for admin1 from 203.0.113.42 port 54324 ssh2
+Jun  5 02:15:01 prodserver sshd[4530]: Failed password for dev1 from 203.0.113.42 port 54330 ssh2
+Jun  5 02:15:03 prodserver sshd[4531]: Failed password for dev1 from 203.0.113.42 port 54331 ssh2
+Jun  5 02:15:05 prodserver sshd[4532]: Failed password for dev1 from 203.0.113.42 port 54332 ssh2
+Jun  5 02:15:07 prodserver sshd[4533]: Failed password for dev1 from 203.0.113.42 port 54333 ssh2
+Jun  5 02:15:09 prodserver sshd[4534]: Failed password for dev1 from 203.0.113.42 port 54334 ssh2
+Jun  5 02:15:11 prodserver sshd[4535]: Failed password for dev1 from 203.0.113.42 port 54335 ssh2
+Jun  5 02:15:13 prodserver sshd[4536]: Failed password for dev1 from 203.0.113.42 port 54336 ssh2
+Jun  5 02:15:15 prodserver sshd[4537]: Failed password for dev1 from 203.0.113.42 port 54337 ssh2
+Jun  5 02:17:22 prodserver sshd[4589]: Accepted password for dev1 from 203.0.113.42 port 54400 ssh2
+Jun  5 02:17:22 prodserver sshd[4589]: pam_unix(sshd:session): session opened for user dev1(uid=1002) by (uid=0)
+Jun  5 02:18:05 prodserver su[4612]: pam_unix(su:session): session opened for user root(uid=0) by dev1(uid=1002)
+Jun  5 02:18:05 prodserver su[4612]: Successful su for root by dev1
+Jun  5 02:19:33 prodserver sshd[4650]: Accepted password for svcaccount from 203.0.113.42 port 54450 ssh2
+Jun  5 02:19:33 prodserver sshd[4650]: pam_unix(sshd:session): session opened for user svcaccount(uid=1004) by (uid=0)
+Jun  5 02:22:17 prodserver sshd[4700]: Accepted password for restricted1 from 203.0.113.42 port 54500 ssh2
+Jun  5 02:22:17 prodserver sshd[4700]: pam_unix(sshd:session): session opened for user restricted1(uid=1003) by (uid=0)
+Jun  5 03:01:44 prodserver sshd[4589]: pam_unix(sshd:session): session closed for user dev1
+Jun  5 03:01:45 prodserver su[4612]: pam_unix(su:session): session closed for user root
+Jun  5 03:02:01 prodserver sshd[4650]: pam_unix(sshd:session): session closed for user svcaccount
+Jun  5 03:02:15 prodserver sshd[4700]: pam_unix(sshd:session): session closed for user restricted1

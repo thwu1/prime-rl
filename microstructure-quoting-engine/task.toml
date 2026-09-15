@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 subtle mathematical bugs across 5 interconnected quantitative finance modules (GARCH volatility, microprice estimation, order flow imbalance, regime classification, reservation pricing, and adverse selection detection). Each bug involves an inverted or swapped term in a domain-specific formula that produces plausible-looking but mathematically incorrect results. The solver must understand the financial theory behind each model to recognize what correct behavior looks like, then trace through the code to identify where the implementation deviates. Bugs interact across modules — e.g., inverted regime classification feeds wrong parameters to the quoting engine, compounding with a reservation price sign error. An expert quantitative developer with market microstructure knowledge would need to systematically audit each module against its theoretical foundations."""
+solution_explanation = """Systematically examine each engine module, identify the mathematical invariant violations, and apply targeted fixes: (1) swap the alpha/beta coefficients in the GARCH variance update, (2) correct the microprice size-weighting formula, (3) fix the OFI sign convention, (4) swap the Crisis/LowVol labels in the regime classifier, (5) correct the reservation price sign in the quoting engine, and (6) fix the adverse selection detection logic in the toxicity module. Then run the simulation to verify output validity."""
+verification_explanation = """44 pytest tests verify correctness at unit and integration levels. Unit tests check GARCH variance update formula, convergence to long-run variance, shock response, and MLE parameter recovery. Microstructure tests verify microprice directional behavior under buying/selling pressure, OFI sign correctness, VPIN bounds, and Kyle's Lambda non-negativity. Regime tests check stable classification, elevated regime under vol spikes, extreme spike risk escalation, and parameter monotonicity. Quoting tests verify bid-ask bracketing, inventory skew direction, toxicity halting, volatility-dependent spread widening, VPIN widening, and OFI-induced quote shift. Integration tests run the full simulation and validate output file structure, parameter ranges, and regime detection."""
+category = "quantitative_finance"
+tags = ["market-microstructure", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microstructure-quoting-engine"

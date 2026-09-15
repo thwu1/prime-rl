@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Rust's unsafe semantics, specifically the Stacked Borrows and Tree Borrows aliasing models. The project environment has a pre-configured MIRIFLAGS variable that silently forces Tree Borrows mode on all Miri runs, meaning naive invocations of 'cargo miri run' do not test Stacked Borrows as the agent expects. The agent must notice that their Stacked Borrows and Tree Borrows results are suspiciously identical, investigate the runtime environment to discover the hidden MIRIFLAGS override, and correctly isolate each aliasing model before recording classifications. Beyond this environmental trap, the agent must interpret Miri's UB diagnostics, understand why certain pointer aliasing patterns are accepted by one model but rejected by the other (two-phase borrows, delayed uniqueness, raw pointer confinement, addr_of_mut! semantics), and write corrected unsafe code that is sound under both models simultaneously. This is frontier PL research knowledge."""
+solution_explanation = """First discover that MIRIFLAGS is pre-set to '-Zmiri-tree-borrows' in the environment, causing all Miri runs to use Tree Borrows by default. Override this by explicitly setting MIRIFLAGS='' for Stacked Borrows tests and MIRIFLAGS='-Zmiri-tree-borrows' for Tree Borrows tests. Run each of the six example binaries under cargo miri with both configurations, recording exit codes to determine UB/OK classification. Then write fixed versions that derive all raw pointers from a single source (avoiding conflicting reborrows), don't interleave direct local access with raw pointer operations, and don't create overlapping mutable references — ensuring soundness under both aliasing models."""
+verification_explanation = """Tests parse classification.json and compare against the known-correct classification for all six functions under both models. A test runner calls all five fixed functions compiled and executed under cargo miri with both Stacked Borrows and Tree Borrows modes (explicitly setting MIRIFLAGS to isolate each model) verifying zero UB. Finally the fixed functions are run natively to verify they produce the expected return values."""
+category = "systems_programming"
+tags = ["rust", "formal-methods"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/aliasing-model-miri"

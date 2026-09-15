@@ -1,0 +1,97 @@
+{
+  "problems": [
+    {
+      "id": "P1",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": "initial",
+      "pie_rule": false
+    },
+    {
+      "id": "P2",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "none",
+      "objective": "normal",
+      "starting_position": "initial",
+      "pie_rule": false
+    },
+    {
+      "id": "P3",
+      "pits_per_side": 4,
+      "seeds_per_pit": 2,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": "initial",
+      "pie_rule": false
+    },
+    {
+      "id": "P4",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "standard",
+      "objective": "misere",
+      "starting_position": "initial",
+      "pie_rule": false
+    },
+    {
+      "id": "P5",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "none",
+      "objective": "misere",
+      "starting_position": "initial",
+      "pie_rule": false
+    },
+    {
+      "id": "P6",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": {
+        "south_pits": [0, 2, 1],
+        "south_store": 5,
+        "north_pits": [3, 0, 4],
+        "north_store": 3,
+        "side_to_move": "north"
+      },
+      "pie_rule": false
+    },
+    {
+      "id": "P7",
+      "pits_per_side": 4,
+      "seeds_per_pit": 2,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": {
+        "south_pits": [0, 3, 0, 1],
+        "south_store": 4,
+        "north_pits": [1, 0, 2, 3],
+        "north_store": 2,
+        "side_to_move": "south"
+      },
+      "pie_rule": false
+    },
+    {
+      "id": "P8",
+      "pits_per_side": 3,
+      "seeds_per_pit": 3,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": "initial",
+      "pie_rule": true
+    },
+    {
+      "id": "P9",
+      "pits_per_side": 4,
+      "seeds_per_pit": 2,
+      "capture_rule": "standard",
+      "objective": "normal",
+      "starting_position": "initial",
+      "pie_rule": true
+    }
+  ]
+}

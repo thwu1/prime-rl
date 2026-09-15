@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the ISDA SIMM v2.6 methodology across two risk types (Delta and Curvature) with fundamentally different aggregation formulas. The solver must: (1) diagnose and fix three subtle domain-specific bugs in DeltaCalculator.java (concentration risk sqrt, sub-curve phi correlation, min-based tenor correlation denominator), (2) implement the complete IR Curvature margin computation from a methodology specification including CVR calculation with hyperbolic cosine, lambda-adjusted per-bucket aggregation using squared correlations, and gamma-squared inter-bucket aggregation with S-capping, (3) fix the CVR computation method which has two bugs (wrong scale factor and wrong formula), and (4) fix the RiskAggregator which uses simple addition instead of correlated square root combination. The task requires navigating a multi-file Java project where bugs interact across components and only manifest on specific portfolios."""
+solution_explanation = """DeltaCalculator fixes: (1) CR = max(1, sqrt(|net|/T)) not max(1, |net|/T), (2) phiFactor = same subcurve ? 1.0 : phi not hardcoded 1.0, (3) tenor correlation denominator is min(tk,tl) not max(tk,tl). CurvatureCalculator: fix computeCVR to use shift=sigma*RW*0.01 (not 0.001) and formula V*(exp(shift)+exp(-shift)-2)/2 (not V*(exp-exp)); implement per-bucket aggregation computing sumCVR, lambda=sumCVR/sumAbsCVR, K with rho^2*phi, margin=max(sumCVR+lambda*K,0); implement inter-bucket with gamma^2 and S-capping. RiskAggregator: change from deltaMargin+curvatureMargin to sqrt(d^2+c^2+2*rho*d*c)."""
+verification_explanation = """Tests compile the Java code and run it against 5 portfolios. A Python reference implementation independently computes correct SIMM values. Portfolios 1-3 test delta-only scenarios (single currency, multi-subcurve, multi-currency with concentration risk). Portfolio 4 tests delta+curvature with a single currency. Portfolio 5 tests the full integration: multi-currency, multi-subcurve delta+curvature with inter-bucket aggregation. Per-bucket fields and top-level margins are compared with 0.01 absolute tolerance."""
+category = "finance"
+tags = ["quantitative-finance", "java"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/simm-margin-calculator-0170f7"

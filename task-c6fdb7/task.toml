@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing 5 interacting bugs in a multi-file IR evaluation pipeline, plus implementing a missing statistical testing component from scratch. The bugs cascade — fixing the judgment aggregation bug (expertise-weighted mean vs last-annotator-wins) changes all downstream metric values, revealing a previously-masked IDCG computation error (ideal from retrieved docs vs all qrels). The solver must independently recognize: (1) that raw SQL without GROUP BY causes crowd-worker ratings to dominate via dict overwrite, requiring a JOIN with the annotators table for weighted aggregation; (2) that nDCG's ideal ranking must come from ALL judged documents, not just retrieved ones; (3) that MAP@k's denominator is min(R,k), not R (Buckley-Voorhees correction); (4) that RRF uses 1-based ranking per Cormack et al.; (5) that CombSUM requires per-query score normalization, not global; (6) how to implement paired bootstrap significance testing. No specification or formulas are provided — the solver must apply expert IR knowledge to identify what's correct."""
+solution_explanation = """Fix load_judgments to JOIN annotators table and compute ROUND(SUM(rel*weight)/SUM(weight)) per (query,doc) pair. Fix ndcg_at_k to compute IDCG from sorted(qrels.values())[:k] instead of from retrieved docs only. Fix ap_at_k to divide by min(total_relevant, k). Fix rrf_fuse to use enumerate(..., 1) for 1-based ranking. Fix combsum_fuse to use per-query min-max normalization instead of global normalization. Implement paired_bootstrap_test using numpy RandomState(seed=42), 10000 iterations, computing two-tailed p-values for each individual system pair."""
+verification_explanation = """Tests verify: correct JSON schema including significance_tests; individual system metrics within ±0.01 of precomputed reference values (computed with correct aggregation, IDCG, MAP, etc.); fusion nDCG@10 within ±0.01 of reference; correct best_method identification (combsum); positive improvement; metric ranges in [0,1]; significance test structure with valid p-values, boolean flags, and consistency between p_value and significant; known-different system pairs showing statistical significance."""
+category = "data_science"
+tags = ["information-retrieval", "evaluation-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c6fdb7"

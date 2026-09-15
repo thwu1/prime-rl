@@ -1,0 +1,16 @@
+##fileformat=VCFv4.2
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency in reference population">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes">
+##contig=<ID=chr22,length=50818468>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr22	17050000	rs100001	G	T	.	.	AF=0.005;AN=152312;AC=762
+chr22	17150000	rs100002	A	C	.	.	AF=0.002;AN=152312;AC=305
+chr22	19050000	rs100003	A	G	.	.	AF=0.35;AN=152312;AC=53309
+chr22	19150000	rs100004	T	C	.	.	AF=0.03;AN=152312;AC=4569
+chr22	19250000	rs100005	G	A	.	.	AF=0.42;AN=152312;AC=63971
+chr22	19350000	rs100006	C	T	.	.	AF=0.28;AN=152312;AC=42647
+chr22	19450000	rs100007	A	C	.	.	AF=0.55;AN=152312;AC=83772
+chr22	20350000	rs100008	A	G	.	.	AF=0.03;AN=152312;AC=4569
+chr22	21150000	rs100009	A	T	.	.	AF=0.08;AN=152312;AC=12185
+chr22	21250000	rs100010	T	A	.	.	AF=0.001;AN=152312;AC=152

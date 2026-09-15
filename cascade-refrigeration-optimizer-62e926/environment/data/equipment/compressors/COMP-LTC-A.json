@@ -1,0 +1,11 @@
+{
+  "model": "COMP-LTC-A",
+  "type": "semi-hermetic reciprocating",
+  "refrigerant_compatibility": ["CO2", "R744"],
+  "efficiency_curve": {
+    "type": "polynomial",
+    "variable": "pressure_ratio",
+    "coefficients": [0.88, -0.010, -0.002],
+    "formula": "eta_is = c0 + c1*PR + c2*PR^2"
+  }
+}

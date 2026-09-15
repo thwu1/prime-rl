@@ -1,0 +1,57 @@
+{
+  "name": "Combined conntrack lifecycle under load",
+  "description": "Tests interaction of NOTRACK bypass, conntrack entry lifecycle, and DROP rule placement under a constrained conntrack table. Only correct when NOTRACK packets bypass conntrack AND filter-dropped packets do not leave confirmed entries.",
+  "conntrack_max": 6,
+  "tcp_loose": true,
+  "conntrack_enabled": true,
+  "rules": [
+    {"table": "raw", "chain": "PREROUTING", "src_ip": "198.18.0.1", "action": "DROP"},
+    {"table": "raw", "chain": "PREROUTING", "dst_port": 53, "action": "NOTRACK"},
+    {"table": "filter", "chain": "INPUT", "dst_port": 9999, "action": "DROP"}
+  ],
+  "packets": [
+    {"src_ip": "10.0.0.50", "dst_ip": "192.0.2.1", "src_port": 40000, "dst_port": 9999, "protocol": "UDP"},
+    {"src_ip": "10.0.0.51", "dst_ip": "192.0.2.1", "src_port": 40001, "dst_port": 9999, "protocol": "UDP"},
+    {"src_ip": "10.0.0.52", "dst_ip": "192.0.2.1", "src_port": 40002, "dst_port": 9999, "protocol": "UDP"},
+    {"src_ip": "198.18.0.1", "dst_ip": "192.0.2.1", "src_port": 1001, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.18.0.1", "dst_ip": "192.0.2.1", "src_port": 1002, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "198.18.0.1", "dst_ip": "192.0.2.1", "src_port": 1003, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.1.1", "dst_ip": "192.0.2.1", "src_port": 40100, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.1.2", "dst_ip": "192.0.2.1", "src_port": 40101, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.1.3", "dst_ip": "192.0.2.1", "src_port": 40102, "dst_port": 53, "protocol": "UDP"},
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 50001, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.2", "dst_ip": "192.0.2.1", "src_port": 50002, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.3", "dst_ip": "192.0.2.1", "src_port": 50003, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.4", "dst_ip": "192.0.2.1", "src_port": 50004, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.5", "dst_ip": "192.0.2.1", "src_port": 50005, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.6", "dst_ip": "192.0.2.1", "src_port": 50006, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"}
+  ],
+  "expected": {
+    "counters": {
+      "raw:PREROUTING": 15,
+      "mangle:PREROUTING": 12,
+      "filter:INPUT": 12
+    },
+    "conntrack_entries": 6,
+    "total_accepted": 9,
+    "total_dropped": 6,
+    "conntrack_drops": 0,
+    "packet_results": [
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:filter_input",
+      "dropped:raw_prerouting",
+      "dropped:raw_prerouting",
+      "dropped:raw_prerouting",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted"
+    ]
+  }
+}

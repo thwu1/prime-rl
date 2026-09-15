@@ -1,0 +1,14 @@
+# Program 1: Constant propagation chain with dead code
+# Expected output: 130
+func main()
+  a = 5
+  b = 10
+  c = a + b
+  d = c * 2
+  e = d + 100
+  print e
+  unused1 = 42
+  unused2 = unused1 + 7
+  unused3 = unused2 * 3
+  return 0
+endfunc

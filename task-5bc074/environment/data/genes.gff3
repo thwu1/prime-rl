@@ -1,0 +1,16 @@
+##gff-version 3
+##sequence-region chr1 1 1500
+chr1	.	gene	101	400	.	+	.	ID=gene_ALPHA;Name=ALPHA
+chr1	.	mRNA	101	400	.	+	.	ID=mRNA_ALPHA;Parent=gene_ALPHA
+chr1	.	exon	101	400	.	+	.	ID=exon_ALPHA_1;Parent=mRNA_ALPHA
+chr1	.	CDS	101	400	.	+	0	ID=CDS_ALPHA;Parent=mRNA_ALPHA
+chr1	.	gene	501	900	.	+	.	ID=gene_BETA;Name=BETA
+chr1	.	mRNA	501	900	.	+	.	ID=mRNA_BETA;Parent=gene_BETA
+chr1	.	exon	501	650	.	+	.	ID=exon_BETA_1;Parent=mRNA_BETA
+chr1	.	exon	751	900	.	+	.	ID=exon_BETA_2;Parent=mRNA_BETA
+chr1	.	CDS	501	650	.	+	0	ID=CDS_BETA_1;Parent=mRNA_BETA
+chr1	.	CDS	751	900	.	+	0	ID=CDS_BETA_2;Parent=mRNA_BETA
+chr1	.	gene	1051	1350	.	-	.	ID=gene_GAMMA;Name=GAMMA
+chr1	.	mRNA	1051	1350	.	-	.	ID=mRNA_GAMMA;Parent=gene_GAMMA
+chr1	.	exon	1051	1350	.	-	.	ID=exon_GAMMA_1;Parent=mRNA_GAMMA
+chr1	.	CDS	1051	1350	.	-	0	ID=CDS_GAMMA;Parent=mRNA_GAMMA

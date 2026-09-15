@@ -1,0 +1,43 @@
+selectors:
+  - name: nightly_run
+    definition:
+      union:
+        - method: tag
+          value: nightly
+        - method: tag
+          value: executive
+
+  - name: mart_tables
+    definition:
+      intersection:
+        - method: tag
+          value: mart
+        - method: config.materialized
+          value: table
+
+  - name: marketing_pipeline
+    definition:
+      method: tag
+      value: marketing
+      children: true
+
+  - name: staging_no_marketing
+    definition:
+      method: path
+      value: models/staging
+      exclude:
+        - method: tag
+          value: marketing
+
+  - name: full_nightly
+    definition:
+      union:
+        - method: selector
+          value: nightly_run
+        - method: tag
+          value: mart
+          parents: true
+          parents_depth: 1
+        - exclude:
+            - method: resource_type
+              value: test

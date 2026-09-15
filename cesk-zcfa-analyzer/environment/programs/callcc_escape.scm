@@ -1,0 +1,5 @@
+(let ((f (lambda (k)
+           (let ((r (k 10)))
+             (+ 2 r)))))
+  (let ((v (call/cc f)))
+    (+ 1 v)))

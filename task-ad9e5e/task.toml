@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep PostgreSQL DBA expertise to systematically investigate and diagnose multiple interacting vacuum pathologies from symptoms alone (no hints about what is broken). The agent must inspect system catalogs, GUC parameters, prepared transaction state, per-table storage options, and physical table statistics to identify all root causes. Beyond diagnosis, the agent must design and implement a reusable PL/pgSQL health monitoring function that synthesizes knowledge of all discovered pathology categories into a structured diagnostic with appropriate threshold logic and status classification."""
+solution_explanation = """Query pg_prepared_xacts to find and ROLLBACK PREPARED the orphaned transaction. Check pg_class.reloptions to discover autovacuum_enabled=false on audit_log and re-enable it. Inspect postgresql.auto.conf to find pathological vacuum_cost_delay (50ms), cost_limit (50), and maintenance_work_mem (32MB), then fix via ALTER SYSTEM SET. Set per-table autovacuum_vacuum_scale_factor (<0.05) on all large tables. Set idle_in_transaction_session_timeout to prevent future blocking. Reload config, VACUUM all tables. Write the four global parameters to /app/postgresql_tuning.conf. Then design and create a vacuum_health_report() PL/pgSQL function that queries pg_prepared_xacts, pg_class.reloptions, SHOW parameters, and pgstattuple() to evaluate vacuum health across all categories, returning structured check results with status classification."""
+verification_explanation = """Tests connect via psycopg2 and verify: (1) no prepared transactions in pg_prepared_xacts, (2) audit_log autovacuum not disabled in reloptions, (3-5) per-table autovacuum_vacuum_scale_factor < 0.05 on orders, order_items, audit_log, (6) autovacuum_vacuum_cost_delay <= 5ms, (7) autovacuum_vacuum_cost_limit >= 200, (8) maintenance_work_mem >= 256MB, (9) idle_in_transaction_session_timeout > 0, (10-12) dead_tuple_percent < 5% on all three tables via pgstattuple, (13) /app/postgresql_tuning.conf exists, (14) config file contains all four required global parameters. Additionally tests verify the vacuum_health_report() function: (15) callable and returns rows, (16) correct four-column structure, (17) at least 8 distinct check_names, (18) valid status values only (OK/WARNING/CRITICAL), (19) zero CRITICAL rows after remediation."""
+category = "systems"
+tags = ["postgresql", "database-administration"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ad9e5e"

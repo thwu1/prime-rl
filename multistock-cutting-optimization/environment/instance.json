@@ -1,0 +1,14 @@
+{
+    "stock_types": [
+        {"width": 200, "cost": 12},
+        {"width": 150, "cost": 8}
+    ],
+    "items": [
+        {"width": 82, "demand": 44},
+        {"width": 67, "demand": 53},
+        {"width": 55, "demand": 38},
+        {"width": 43, "demand": 61},
+        {"width": 31, "demand": 72},
+        {"width": 19, "demand": 85}
+    ]
+}

@@ -1,0 +1,4 @@
+model.analytics.int_customer_orders
+model.analytics.int_order_payments
+model.analytics.int_product_sales
+model.analytics.int_regional_sales

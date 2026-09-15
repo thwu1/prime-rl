@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TestNG results from OGC CITE TEAM Engine - ets-ogcapi-features10 v1.9 -->
+<!-- Run date: 2024-01-20 against server revision v0.7                      -->
+<!-- NOTE: The server has been updated since this report was generated.      -->
+<!--       Some failures below may have been resolved; new issues may exist. -->
+<testng-results skipped="3" failed="4" total="33" passed="26">
+  <suite name="ets-ogcapi-features10" duration-ms="21847">
+
+    <test name="Core Conformance Class">
+
+      <!-- A.2.1 Landing Page -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.landingpage.LandingPage">
+        <test-method name="landingPageRetrieval" status="PASS" duration-ms="245"/>
+        <test-method name="landingPageValidation" status="PASS" duration-ms="89"/>
+        <test-method name="apiDefinitionLinkExists" status="PASS" duration-ms="67"/>
+        <test-method name="conformanceLinkExists" status="PASS" duration-ms="54"/>
+        <test-method name="dataLinkExists" status="PASS" duration-ms="48"/>
+      </class>
+
+      <!-- A.2.4 Conformance -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.conformance.Conformance">
+        <test-method name="validateConformanceOperationAndResponse" status="FAIL" duration-ms="312">
+          <exception class="java.lang.AssertionError">
+            <message><![CDATA[The conformance document at /conformance does not declare the required Core conformance class. Expected URI 'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/core' was not found in the conformsTo array. Declared classes: [http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/cors, http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/oas30, http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/geojson]]]></message>
+          </exception>
+        </test-method>
+      </class>
+
+      <!-- A.2.3 API Definition -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.apidefinition.ApiDefinition">
+        <test-method name="openapiDocumentRetrieval" status="PASS" duration-ms="156"/>
+        <test-method name="apiDefinitionValidation" status="PASS" duration-ms="423"/>
+      </class>
+
+      <!-- A.2.5 Feature Collections -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.FeatureCollections">
+        <test-method name="validateFeatureCollectionsMetaDataOperation" status="PASS" duration-ms="178"/>
+        <test-method name="validateFeatureCollectionsMetaDataResponse_Links" status="FAIL" duration-ms="289">
+          <exception class="java.lang.AssertionError">
+            <message><![CDATA[Feature collection metadata response is missing required 'self' link on individual collection entries. Each collection in the /collections response must include a link with rel='self' pointing back to the collection resource. [/req/core/fc-md-op]]]></message>
+          </exception>
+        </test-method>
+        <test-method name="validateFeatureCollectionsMetaDataResponse_Extent" status="PASS" duration-ms="98"/>
+      </class>
+
+      <!-- A.2.7 Features -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.Features">
+        <test-method name="validateFeaturesOperation" status="PASS" duration-ms="267"/>
+        <test-method name="validateFeaturesResponse_Links" status="PASS" duration-ms="145"/>
+        <test-method name="validateFeaturesResponse_Type" status="PASS" duration-ms="78"/>
+        <test-method name="validateNumberMatchedAndReturned" status="FAIL" duration-ms="534">
+          <exception class="java.lang.AssertionError">
+            <message><![CDATA[numberMatched value (15) does not agree with the actual count of features matching the active bbox filter (1). When query filters are active, numberMatched must report the count of all features matching the filter criteria, not the total collection size. [/req/core/fc-response, Table 6]]]></message>
+          </exception>
+        </test-method>
+        <test-method name="validatePaginationNextLink" status="PASS" duration-ms="234"/>
+        <test-method name="validatePaginationNextLinkPreservesQueryParameters" status="PASS" duration-ms="187">
+          <!-- Note: This test used a small result set that fit on a single page.
+               Pagination link generation was not actually exercised with active filters. -->
+        </test-method>
+      </class>
+
+      <!-- A.2.7 Features BBox -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.FeaturesBBox">
+        <test-method name="validateFeaturesWithBboxOperation_AllCollection" status="PASS" duration-ms="345">
+          <!-- Tested with bbox=-180,-90,180,90 (full global extent).
+               All features fell within the box. No targeted spatial filter applied. -->
+        </test-method>
+        <test-method name="validateFeaturesWithBboxResponse_SpatialFilter" status="SKIP" duration-ms="0">
+          <exception class="org.testng.SkipException">
+            <message>Skipped: no suitable asymmetric bbox test data configured for this run</message>
+          </exception>
+        </test-method>
+      </class>
+
+      <!-- A.2.7 Features Limit -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.FeaturesLimit">
+        <test-method name="validateFeaturesWithLimitOperation" status="PASS" duration-ms="213"/>
+        <test-method name="validateFeaturesWithLimitResponse" status="PASS" duration-ms="178"/>
+      </class>
+
+      <!-- A.2.7 Features Time -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.FeaturesTime">
+        <test-method name="validateFeaturesWithDateTimeOperation_Instant" status="PASS" duration-ms="298"/>
+        <test-method name="validateFeaturesWithDateTimeOperation_ClosedInterval" status="PASS" duration-ms="345"/>
+        <test-method name="validateFeaturesWithDateTimeOperation_OpenInterval" status="FAIL" duration-ms="412">
+          <exception class="java.lang.AssertionError">
+            <message><![CDATA[Server returned HTTP 400 for request with open-ended datetime interval '../2024-02-03T08:11:45Z'. Open-ended intervals using '..' notation must be supported per /req/core/fc-time-definition. The '..' boundary indicates an unbounded start or end.]]></message>
+          </exception>
+        </test-method>
+        <test-method name="validateFeaturesWithDateTimeResponse" status="SKIP" duration-ms="0">
+          <exception class="org.testng.SkipException">
+            <message>Skipped: depends on validateFeaturesWithDateTimeOperation_OpenInterval</message>
+          </exception>
+        </test-method>
+      </class>
+
+      <!-- A.2.8 Error Conditions -->
+      <class name="org.opengis.cite.ogcapifeatures10.conformance.core.collections.FeaturesErrorConditions">
+        <test-method name="validateInvalidBboxParameter" status="PASS" duration-ms="123"/>
+        <test-method name="validateInvalidLimitParameter" status="PASS" duration-ms="98"/>
+      </class>
+
+    </test>
+  </suite>
+</testng-results>

@@ -1,0 +1,43 @@
+# NULL and empty string handling
+
+# NULL renders as the string "NULL"
+query I
+SELECT NULL::INTEGER
+----
+NULL
+
+# Empty string renders as "(empty)"
+query T
+SELECT ''
+----
+(empty)
+
+# Table with NULLs and empty strings
+statement ok
+CREATE TABLE nulltest(a INTEGER, b VARCHAR)
+
+statement ok
+INSERT INTO nulltest VALUES (1, 'hello'), (NULL, ''), (2, NULL), (NULL, NULL)
+
+query IT
+SELECT * FROM nulltest ORDER BY a NULLS FIRST, b NULLS FIRST
+----
+NULL	NULL
+NULL	(empty)
+1	hello
+2	NULL
+
+# NULL in expressions
+query I
+SELECT CASE WHEN 1=0 THEN 42 ELSE NULL END
+----
+NULL
+
+# Empty string vs NULL distinction
+query TT
+SELECT '', NULL::VARCHAR
+----
+(empty)	NULL
+
+statement ok
+DROP TABLE nulltest

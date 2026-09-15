@@ -1,0 +1,24 @@
+# Mesh decimation pipeline
+# Process all meshes, decimate to 50% face count, validate results
+#
+
+MESHES := $(wildcard /app/meshes/*.obj)
+OUTPUTS := $(patsubst /app/meshes/%.obj,/app/output/%.obj,$(MESHES))
+
+.PHONY: all validate clean
+
+all: $(OUTPUTS) validate
+
+/app/output/%.obj: /app/meshes/%.obj /app/simplify.py
+	@mkdir -p /app/output
+	@FACES=$$(python3 /app/mesh_stats.py $< | jq '.face_count') && \
+	TARGET=$$(( FACES / 2 )) && \
+	if [ $$TARGET -lt 4 ]; then TARGET=4; fi && \
+	echo "Decimating $< ($$FACES faces -> $$TARGET target)" && \
+	python3 /app/simplify.py $< $$TARGET $@
+
+validate: $(OUTPUTS)
+	@bash /app/validate.sh
+
+clean:
+	rm -rf /app/output

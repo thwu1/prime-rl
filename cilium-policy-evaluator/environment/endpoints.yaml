@@ -1,0 +1,47 @@
+endpoints:
+  - name: frontend
+    labels:
+      app: frontend
+      env: prod
+      team: platform
+    ip: "10.0.1.10"
+
+  - name: backend-api
+    labels:
+      app: backend
+      component: api
+      env: prod
+    ip: "10.0.2.20"
+
+  - name: backend-worker
+    labels:
+      app: backend
+      component: worker
+      env: prod
+    ip: "10.0.2.30"
+
+  - name: database
+    labels:
+      app: database
+      env: prod
+      tier: data
+    ip: "10.0.3.40"
+
+  - name: cache
+    labels:
+      app: cache
+      env: prod
+      tier: data
+    ip: "10.0.3.50"
+
+  - name: monitoring
+    labels:
+      app: monitoring
+      env: ops
+    ip: "10.0.4.60"
+
+  - name: staging-fe
+    labels:
+      app: frontend
+      env: staging
+    ip: "10.0.5.70"

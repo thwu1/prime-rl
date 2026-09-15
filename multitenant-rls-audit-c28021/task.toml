@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level PostgreSQL expertise across multiple interacting security domains: RLS policy semantics (USING vs WITH CHECK, cross-table policy composition, self-referential evaluation loops), SECURITY DEFINER function isolation (schema placement, search_path hardening), view security invocation, JWT claim trust boundaries, and classification-based access tiering. The solver must discover 8 interacting vulnerabilities across policies, functions, and views without being told what they are, design fixes that enforce confidential-document isolation while preserving org-wide access for lower classifications, create a helper function to break circular RLS dependencies, and ensure all fixes compose correctly without breaking legitimate access patterns including transitive re-sharing."""
+solution_explanation = """Fix policies.sql: (1) Replace user_metadata-based org check with org_members table join AND add classification != 'confidential' guard so org membership alone cannot access confidential documents. (2) Move get_user_role from public to private schema with SET search_path=''. (3) Add security_invoker=true to document_overview view. (4) Create a private.user_has_document_access SECURITY DEFINER function that checks creator/write-share access without triggering RLS recursion, then use it in the shares_insert policy's WITH CHECK. (5) Drop the audit_delete policy. (6) Wrap all bare auth.uid()/auth.jwt() calls in (select ...). (7) Add TO authenticated to org_members_select policy. (8) Update docs_delete policy reference from public.get_user_role to private.get_user_role."""
+verification_explanation = """Tests start PostgreSQL, load the fixed SQL, seed test data with known users/orgs/documents of varying classification levels, then assert each security invariant: Eve with spoofed user_metadata cannot see documents, confidential documents are invisible to org members without shares, get_user_role is in private schema with search_path set, view respects RLS via security_invoker, unauthorized shares are blocked, audit deletes fail, policy expressions use (SELECT ...) wrappers, and anon cannot read org_members. Regression tests verify legitimate operations still succeed including creator access to confidential docs, org member access to non-confidential docs, sharing by creators, and write-share-based re-sharing."""
+category = "security"
+tags = ["postgresql", "rls"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multitenant-rls-audit-c28021"

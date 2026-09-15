@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering Git's packed object storage format from a gc'd repository: the binary pack index format, pack data file structure with variable-length headers, zlib-compressed entries, and recursive delta chain resolution. Additionally requires building a CLI tool that matches git cat-file's output format exactly, including correct tree pretty-printing with zero-padded modes and type resolution. The agent must investigate the repository's internal structure, consult documentation or use inspection tools (hexdump, git verify-pack, git plumbing commands) to understand the binary formats, and integrate multiple components (library module, monkey-patch, CLI wrapper) into a working system."""
+solution_explanation = """Write a packfile reader module that: (1) parses .idx v2 files to map SHA-1 to pack offsets via the fanout table and binary search, (2) reads pack object headers with variable-length type/size encoding, (3) decompresses zlib-compressed object data, (4) resolves OFS_DELTA and REF_DELTA objects by recursively reading base objects and applying copy/insert delta instructions, (5) patches gitlib.py's object_read to fall through to packfile reading. Then create a wyag-cat-file CLI tool with argparse that reads objects via the library, with special tree pretty-printing that zero-pads modes and resolves entry types from mode bits."""
+verification_explanation = """Tests use git CLI commands (rev-parse, cat-file, ls-tree, rev-list) as ground truth oracles. Library tests cover: reading HEAD commit, commit serialization roundtrip, tree entries matching ls-tree, blob content matching, full commit history traversal, annotated tag reading, all reachable objects type-checked, hash roundtrip verification, and delta decompression via historical blob versions. CLI tool tests verify: the executable exists with proper permissions, -t flag returns correct types for commits/blobs/trees, -p flag produces byte-identical output to git cat-file -p for commits/blobs/trees/subtrees, and a multi-object sweep testing both flags across different object types."""
+category = "systems"
+tags = ["git-internals", "binary-format-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/git-packfile-reader"

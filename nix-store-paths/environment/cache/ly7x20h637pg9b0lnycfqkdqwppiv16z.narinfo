@@ -1,0 +1,9 @@
+StorePath: /nix/store/ly7x20h637pg9b0lnycfqkdqwppiv16z-coreutils-9.4.tar.xz
+URL: nar/ly7x20h637pg9b0lnycfqkdqwppiv16z.nar.xz
+Compression: xz
+FileHash: sha256:b93777dc206061f1d90e84787fabc47c84877567859e1da95e65d37b8f772936
+FileSize: 2986792
+NarHash: sha256:1f1746cc9533661eae927fc5f1ba348761e7df9926ab4a2c5a28062fc4226ea8
+NarSize: 39429810
+References:
+CA: fixed:sha256:0y8krs8s3i31nn147v9hlcxibnd9qjzca9df2h3i299pxmm1k551

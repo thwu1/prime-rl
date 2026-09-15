@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Linux kernel crash report formats (KASAN, GPF, WARNING) to extract structured metadata without any parsing hints. The agent must design a stack-trace similarity metric for deduplication, implement a stateful multi-trial verification protocol by reading external documentation, compute standard IR metrics from unified diffs, and orchestrate SQLite database operations alongside Python scripting and JSON output — all without step-by-step guidance."""
+solution_explanation = """The solution parses five kernel crash reports using regex-based format detection for KASAN (slab-use-after-free, slab-out-of-bounds), general protection fault, and WARNING types. It extracts bug type, memory access details, faulting function, call trace frames from TASK blocks, task identity, and kernel version. Stack traces are compared using positional-weighted function name similarity with union-find grouping. The kBenchSyz multi-trial protocol is implemented from the reference documentation: first receipt seeds tracking for clean-run bugs, subsequent receipts update trial slots, bugs resolve after 3 clean runs or are removed on crash/exhaustion. Localization computes precision@K, recall@K, and file-level IoU. Results are stored in SQLite and written as JSON."""
+verification_explanation = """Tests verify both the SQLite database and JSON report. Database tests check each crash row's parsed fields (bug type, access details, faulting function, call trace structure, task info, kernel version), dedup group assignments (crash_001+crash_005 grouped, others singleton), and evaluation table entries with correct resolution status and trial counts. Report tests verify crash group structure, evaluation verdicts, and all seven localization metrics against deterministic expected values."""
+category = "systems"
+tags = ["kernel", "crash-triage"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bc5a3e"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux HTB qdisc internals, tc command syntax (tc-htb, tc-u32), and nftables netdev table classification. Part 1 demands debugging a tc command generator with four interacting bugs: DSCP-to-TOS byte encoding, HTB class hierarchy parent references, u32 filter mask semantics (ECN bits), and Python truthiness edge cases with DSCP 0. Part 2 requires independently determining HTB invariant violation detection, devising a valid fix strategy (fix ordering matters as fixes interact), implementing correct HTB steady-state bandwidth simulation, and evaluating SLA compliance. Part 3 requires generating syntactically valid nftables rules using the netdev family with meta priority for tc class assignment. Multi-tool proficiency across tc, nft, and Python is essential."""
+solution_explanation = """The solution: (1) fixes 4 bugs in tc_generator.py — dscp_to_tos must shift left by 2, child parent must reference parent classid not root, filter mask must be 0xfc not 0xff, DSCP 0 must use 'in' check not truthiness; (2) tc_analyzer.py detects 5 violations, fixes in correct order (rate>ceil first since ceil fix affects scaling, then ceil clamping, then proportional rate scaling, then default reassignment), simulates HTB three-phase bandwidth lending (guaranteed → intra-parent surplus → link-level surplus by priority), identifies 5 SLA violations; (3) nft_generator.py produces netdev table with per-interface chains mapping DSCP values to tc classids via meta priority set."""
+verification_explanation = """Tests verify: (A) tc_generator.py fixed output has correct DSCP-to-TOS hex values (0xb8, 0xb0, 0x68), correct parent hierarchy (children reference parent classid not root), 0xfc filter masks, DSCP 0 filter included, 6 total filters; (B) tc_analyzer.py produces exact violation count (5), optimized config passes all HTB invariants with specific scaled values, bandwidth simulation matches expected allocations within 1mbit, SLA counts (8/5/13); (C) nft_classify.nft uses netdev table, has chains for both interfaces, includes all classids and priority assignments."""
+category = "networking"
+tags = ["linux-tc", "nftables", "traffic-shaping"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-tc-generator"

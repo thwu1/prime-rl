@@ -1,0 +1,17 @@
+{
+  "description": "Two-layer profile: NC clay over heavily OC clay, rectangular 5x8m foundation at 100 kPa. Reference: Budhu (2011).",
+  "scenario": {
+    "soil_profile": {
+      "layers": [
+        {"depth_from": 0, "depth_to": 4.2, "total_unit_weight": 15, "Cc": 0.7, "Cr": 0.07, "OCR": 1},
+        {"depth_from": 4.2, "depth_to": 20, "total_unit_weight": 17, "Cc": 0.45, "Cr": 0.045, "OCR": 4}
+      ]
+    },
+    "water_table_depth": 0.8,
+    "foundation": {"shape": "rectangular", "width": 5, "length": 8, "applied_stress": 100},
+    "grid_spacing": 0.5
+  },
+  "expected": {
+    "total_settlement": {"value": 0.741, "tolerance": 0.02, "unit": "meters"}
+  }
+}

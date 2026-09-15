@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Ramulator 2.0's architecture: the solver must reverse-engineer the self-registering factory system (RAMULATOR_REGISTER_IMPLEMENTATION macro, CRTP pattern), the IScheduler interface, and the controller's multi-stage request scheduling pipeline (scheduler selection → command readiness check → issue) to design a correct plugin that integrates with the build system. DDR4 timing parameter derivation demands reading C++ source to locate JEDEC tables indexed by organization and speed grade, understanding ceiling-division ns-to-cycle conversion, and computing derived rank-level timing constraints from the populate_timingcons() formulas. The comparative evaluation requires understanding how scheduling policy interacts with DRAM row buffer state, address mapping, and multi-level timing constraints to explain observed performance differences — a holistic grasp of memory system architecture, not just procedural steps."""
+solution_explanation = """Build Ramulator 2.0 with CMake/C++20, study the IScheduler interface and FRFCFS implementation to understand the compare/get_best_request pattern, implement a pure FCFS scheduler that selects by arrival order without readiness checking, register it via RAMULATOR_REGISTER_IMPLEMENTATION and add to CMakeLists.txt, rebuild. Generate SimpleO3 traces (sequential stride-64, random seed-42), write 4 YAML configs, run simulations, parse YAML output for row_hits/misses/conflicts. Derive DDR4_8Gb_x8/DDR4_2400R timing from source: nRRDS=4, nRRDL=6, nFAW=26 from JEDEC tables[dq_id=1][rate_id=3], nRFC=ceil(360000/833)=433, nREFI=ceil(7800000/833)=9364, read_latency=nCL+nBL=20, rd_to_wr=nCL+nBL+2-nCWL=10, wr_to_rd=nCWL+nBL+nWTRS=19. Evaluate: FRFCFS optimal for random workloads because its First-Ready policy avoids scheduling timing-blocked commands."""
+verification_explanation = """Tests verify: (1) FCFS scheduler C++ source exists with correct factory registration, IScheduler inheritance, compare method, and arrival-time ordering, (2) CMakeLists.txt updated, (3) binary built, (4) traces have correct SimpleO3 format, (5) all 4 simulation outputs exist with expected stat names, (6) 9 DDR4 timing parameters match exact deterministic values, (7) FRFCFS correctly identified as optimal for random workloads, (8) evaluation is internally consistent with reported metrics, (9) simulation output metrics cross-validated against results.json."""
+category = "computer_architecture"
+tags = ["dram-simulation", "scheduling-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-36bdd9"

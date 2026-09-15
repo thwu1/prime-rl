@@ -1,0 +1,20 @@
+# branches.prog — Multiple nested conditions over three inputs
+# Solution: a=108, b=42, c=21
+a = input()
+b = input()
+c = input()
+t1 = 100
+if a <= t1 goto end
+t2 = 0
+if b <= t2 goto end
+t3 = a + b
+t4 = 150
+if t3 != t4 goto end
+t5 = 2
+t6 = c * t5
+if t6 != b goto end
+t7 = 0
+t8 = 1
+assert t7 == t8
+end:
+halt

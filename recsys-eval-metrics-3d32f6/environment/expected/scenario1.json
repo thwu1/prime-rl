@@ -1,0 +1,11 @@
+{
+  "recall@5": 0.8125,
+  "precision@5": 0.7,
+  "hit@5": 1.0,
+  "mrr@5": 0.75,
+  "ndcg@5": 0.8255,
+  "map@5": 0.75,
+  "itemcoverage@5": 0.5,
+  "giniindex@5": 0.5833,
+  "shannonentropy@5": 0.2246
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security engineering across multiple dimensions: (1) Performing a security audit that identifies four distinct vulnerability classes (auth bypass via implicit None, command injection via partial sanitization, path traversal via incomplete component checking, command injection via unsafe dict.get fallback) in a realistic C2 teamserver. (2) Running bandit SAST and evaluating its coverage gaps — understanding WHY automated tools miss logic bugs and incomplete sanitization patterns. (3) Authoring a custom AST-based Python vulnerability scanner using the ast module that precisely detects these patterns in vulnerable code while avoiding false positives on patched code — this requires deep understanding of Python's abstract syntax tree representation and how vulnerability patterns manifest at the AST level. (4) Computing CVSS 3.1 base scores from vector strings using the formal specification formula. (5) Analyzing attack chains — how individually exploitable vulnerabilities can be composed for amplified impact (e.g., auth bypass enabling authenticated-only command injection). The combination of automated tool evaluation, custom tool creation, formal scoring, and compositional threat analysis demands proficient-to-expert security engineering skill."""
+solution_explanation = """1. Run bandit to establish SAST baseline (finds subprocess shell=True but misses logic/semantic vulns). 2. Write custom AST scanner with 4 rules: (a) implicit-none-return — detects auth functions whose body ends with a for-loop instead of explicit return, (b) manual-shell-quoting — detects f-strings in shell commands where a FormattedValue is surrounded by literal double-quote characters instead of shlex.quote, (c) incomplete-path-validation — detects os.path.join + file I/O with manual split-based checking but no os.path.realpath, (d) dict-get-identity-fallback — detects .get(x, x) pattern where fallback is the lookup key itself. 3. Compute CVSS 3.1 scores: auth bypass AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N=9.1, builder injection AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H=8.8, path traversal AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N=7.5, modules injection AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H=9.8. 4. Identify attack chains: auth bypass enables builder injection for unauthenticated RCE. 5. Patch: add return False to ServiceAuthenticator, shlex.quote service_name, use os.path.realpath for path validation, reject unknown architectures."""
+verification_explanation = """Tests validate all deliverables: (1) Bandit baseline JSON exists with valid structure. (2) Custom scanner runs on original code finding >=3 issues and on patched code finding 0 issues; scanner file verified to use ast module. (3) Assessment JSON validated against explicit schema — required keys, vulnerability fields, CVSS vector format via regex, CVSS score consistency (computed from vector must match reported within ±0.2), severity rating matches CVSS score ranges. (4) Vulnerability identification checked by CWE-ID and affected file keywords. (5) Original vulnerabilities verified exploitable (auth returns None, command injection creates marker files, path traversal writes outside loot dir). (6) Patched code verified to block each exploit. (7) Patched code verified to preserve legitimate functionality. (8) Exploit scripts verified to exit 0."""
+category = "security_and_privacy"
+tags = ["static_analysis", "cvss_scoring", "custom_tooling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-567b43"

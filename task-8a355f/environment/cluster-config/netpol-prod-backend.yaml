@@ -1,0 +1,76 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: prod-backend
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-server-ingress
+  namespace: prod-backend
+spec:
+  podSelector:
+    matchLabels:
+      app: api-server
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: prod-frontend
+    - podSelector:
+        matchLabels:
+          app: react-app
+    ports:
+    - port: 8443
+      protocol: TCP
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - port: 9090
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          app: worker
+    ports:
+    - port: 8443
+      protocol: TCP
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-worker-ingress
+  namespace: prod-backend
+spec:
+  podSelector:
+    matchLabels:
+      app: worker
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-server
+    ports:
+    - port: 8080
+      protocol: TCP
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+      podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - port: 9090
+      protocol: TCP
+  policyTypes:
+  - Ingress

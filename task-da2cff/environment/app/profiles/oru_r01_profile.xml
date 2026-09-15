@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConformanceProfile ID="test-oru-001" Type="Constrainable" HL7Version="2.5.1" SchemaVersion="2.5">
+
+  <MetaData Name="TestORU" OrgName="TestOrg" Version="1.0" Date="2024-01-01"/>
+
+  <Encodings>
+    <Encoding>ER7</Encoding>
+  </Encodings>
+
+  <Messages>
+    <Message ID="ORU_R01" Type="ORU" Event="R01" StructID="ORU_R01" Description="Observation Result">
+      <Segment Ref="MSH" Usage="R" Min="1" Max="1"/>
+      <Segment Ref="SFT" Usage="W" Min="0" Max="*"/>
+      <Segment Ref="UAC" Usage="X" Min="0" Max="1"/>
+      <Group ID="1" Name="PATIENT" Usage="R" Min="1" Max="2">
+        <Segment Ref="PID" Usage="R" Min="1" Max="1"/>
+        <Segment Ref="NK1" Usage="RE" Min="0" Max="*"/>
+        <Group ID="2" Name="VISIT" Usage="O" Min="0" Max="1">
+          <Segment Ref="PV1" Usage="R" Min="1" Max="1"/>
+          <Segment Ref="PV2" Usage="O" Min="0" Max="1"/>
+        </Group>
+        <Group ID="3" Name="OBSERVATION" Usage="R" Min="1" Max="*">
+          <Segment Ref="OBR" Usage="R" Min="1" Max="1"/>
+          <Segment Ref="OBX" Usage="R" Min="1" Max="*"/>
+          <Segment Ref="NTE" Usage="O" Min="0" Max="*"/>
+        </Group>
+      </Group>
+    </Message>
+  </Messages>
+
+  <Segments>
+    <Segment ID="MSH" Label="MSH" Name="MSH" Description="Message Header">
+      <Field Name="Field Separator" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="1" ItemNo="00001"/>
+      <Field Name="Encoding Characters" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="4" MaxLength="5" ItemNo="00002"/>
+      <Field Name="Sending Application" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00003"/>
+      <Field Name="Sending Facility" Datatype="HD" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00004"/>
+      <Field Name="Receiving Application" Datatype="HD" Usage="RE" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00005"/>
+      <Field Name="Receiving Facility" Datatype="HD" Usage="RE" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00006"/>
+      <Field Name="Date/Time of Message" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="12" MaxLength="26" ItemNo="00007"/>
+      <Field Name="Security" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="40" ItemNo="00008"/>
+      <Field Name="Message Type" Datatype="CM_MSG" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00009"/>
+      <Field Name="Message Control ID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="199" ItemNo="00010"/>
+      <Field Name="Processing ID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="3" ItemNo="00011"/>
+      <Field Name="Version ID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="60" ItemNo="00012"/>
+    </Segment>
+    <Segment ID="SFT" Label="SFT" Name="SFT" Description="Software Segment">
+      <Field Name="Software Vendor Organization" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="01834"/>
+      <Field Name="Software Product Name" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="01835"/>
+    </Segment>
+    <Segment ID="UAC" Label="UAC" Name="UAC" Description="User Authentication Credential Segment">
+      <Field Name="User Authentication Credential Type Code" Datatype="ST" Usage="X" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="02267"/>
+    </Segment>
+    <Segment ID="PID" Label="PID" Name="PID" Description="Patient Identification">
+      <Field Name="Set ID - PID" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="2" MaxLength="4" ItemNo="00104"/>
+      <Field Name="Patient ID" Datatype="ST" Usage="W" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00105"/>
+      <Field Name="Patient Identifier List" Datatype="CX" Usage="R" Min="1" Max="3" MinLength="1" MaxLength="*" ItemNo="00106"/>
+      <Field Name="Alternate Patient ID" Datatype="ST" Usage="X" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00107"/>
+      <Field Name="Patient Name" Datatype="XPN" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00108"/>
+    </Segment>
+    <Segment ID="NK1" Label="NK1" Name="NK1" Description="Next of Kin">
+      <Field Name="Set ID - NK1" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4" ItemNo="00190"/>
+      <Field Name="Name" Datatype="XPN" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00191"/>
+      <Field Name="Relationship" Datatype="ST" Usage="RE" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00192"/>
+    </Segment>
+    <Segment ID="PV1" Label="PV1" Name="PV1" Description="Patient Visit">
+      <Field Name="Set ID - PV1" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4" ItemNo="00131"/>
+      <Field Name="Patient Class" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="1" ItemNo="00132"/>
+    </Segment>
+    <Segment ID="PV2" Label="PV2" Name="PV2" Description="Patient Visit - Additional Info">
+      <Field Name="Prior Pending Location" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00181"/>
+    </Segment>
+    <Segment ID="OBR" Label="OBR" Name="OBR" Description="Observation Request">
+      <Field Name="Set ID - OBR" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4" ItemNo="00237"/>
+      <Field Name="Placer Order Number" Datatype="ST" Usage="RE" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00238"/>
+      <Field Name="Filler Order Number" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00239"/>
+      <Field Name="Universal Service Identifier" Datatype="CWE" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00238b"/>
+    </Segment>
+    <Segment ID="OBX" Label="OBX" Name="OBX" Description="Observation/Result">
+      <Field Name="Set ID - OBX" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="4" ItemNo="00569"/>
+      <Field Name="Value Type" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="2" MaxLength="3" ItemNo="00570"/>
+      <Field Name="Observation Identifier" Datatype="CWE" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00571"/>
+      <Field Name="Observation Sub-ID" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="20" ItemNo="00572"/>
+      <Field Name="Observation Value" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00573"/>
+      <Field Name="Units" Datatype="CWE" Usage="RE" Min="0" Max="1" MinLength="1" MaxLength="*" ItemNo="00574"/>
+    </Segment>
+    <Segment ID="NTE" Label="NTE" Name="NTE" Description="Notes and Comments">
+      <Field Name="Set ID - NTE" Datatype="ST" Usage="O" Min="0" Max="1" MinLength="1" MaxLength="4" ItemNo="00096"/>
+      <Field Name="Comment" Datatype="ST" Usage="R" Min="1" Max="1" MinLength="1" MaxLength="*" ItemNo="00098"/>
+    </Segment>
+  </Segments>
+
+  <Datatypes>
+    <Datatype ID="-" Name="-" Description="withdrawn"/>
+    <Datatype ID="ST" Name="ST" Description="String Data"/>
+    <Datatype ID="CX" Name="CX" Description="Extended Composite ID with Check Digit">
+      <Component Name="ID Number" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Identifier Check Digit" Datatype="ST" Usage="O" MinLength="1" MaxLength="*"/>
+      <Component Name="Check Digit Scheme" Datatype="ST" Usage="C" MinLength="1" MaxLength="3"/>
+      <Component Name="Assigning Authority" Datatype="HD" Usage="C" MinLength="1" MaxLength="*"/>
+    </Datatype>
+    <Datatype ID="HD" Name="HD" Description="Hierarchic Designator">
+      <Component Name="Namespace ID" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Universal ID" Datatype="ST" Usage="C" MinLength="1" MaxLength="*"/>
+      <Component Name="Universal ID Type" Datatype="ST" Usage="C" MinLength="1" MaxLength="6"/>
+    </Datatype>
+    <Datatype ID="XPN" Name="XPN" Description="Extended Person Name">
+      <Component Name="Family Name" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Given Name" Datatype="ST" Usage="RE" MinLength="1" MaxLength="*"/>
+      <Component Name="Second Name" Datatype="ST" Usage="O" MinLength="1" MaxLength="*"/>
+      <Component Name="Suffix" Datatype="ST" Usage="O" MinLength="1" MaxLength="*"/>
+      <Component Name="Prefix" Datatype="ST" Usage="O" MinLength="1" MaxLength="*"/>
+      <Component Name="Degree" Datatype="ST" Usage="W" MinLength="1" MaxLength="*"/>
+      <Component Name="Name Type Code" Datatype="ST" Usage="O" MinLength="1" MaxLength="1"/>
+    </Datatype>
+    <Datatype ID="CWE" Name="CWE" Description="Coded with Exceptions">
+      <Component Name="Identifier" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Text" Datatype="ST" Usage="RE" MinLength="1" MaxLength="*"/>
+      <Component Name="Name of Coding System" Datatype="ST" Usage="RE" MinLength="1" MaxLength="12"/>
+    </Datatype>
+    <Datatype ID="CM_MSG" Name="CM_MSG" Description="Message Type">
+      <Component Name="Message Code" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Trigger Event" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+      <Component Name="Message Structure" Datatype="ST" Usage="R" MinLength="1" MaxLength="*"/>
+    </Datatype>
+  </Datatypes>
+
+</ConformanceProfile>

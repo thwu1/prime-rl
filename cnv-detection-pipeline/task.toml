@@ -1,0 +1,52 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a complete somatic CNV analysis pipeline from first principles without
+prescriptive steps: the agent must independently determine how to handle GC content bias in read depth data,
+choose a normalization strategy against the panel of normals, select and implement a segmentation algorithm
+(CBS, HMM, or equivalent), call integer copy number states under unknown and varying tumor purity, estimate
+tumor purity from the observed attenuation of copy number signals using the mathematical mixture model
+(observed = purity*true_cn + (1-purity)*2), perform cohort-level recurrence analysis with fuzzy region merging,
+and annotate results using bedtools genomic interval operations with proper BED formatting, coordinate sorting,
+bgzip compression, and tabix indexing. The purity estimation alone demands expert understanding of the
+relationship between tumor cellularity and observed log2 ratios — not a standard textbook exercise."""
+solution_explanation = """Normalizes tumor read depths against the median normal panel reference, corrects GC
+content bias via binned median subtraction, implements rolling-median segmentation with thresholding for
+genome segmentation, calls integer copy number states from log2 ratios, estimates tumor purity per sample by
+inverting the mixture model (for deletions: p=2*(1-2^lr) assuming CN=1, falling back to CN=0; for gains:
+p=2*(2^lr-1) assuming CN=3, falling back to CN=4), writes per-sample sorted BED files,
+uses bedtools sort + bgzip + tabix to create indexed combined output, identifies recurrent regions by
+per-window overlap counting across samples, and uses bedtools intersect with gene annotation BED to
+map cancer-relevant genes to recurrently altered regions."""
+verification_explanation = """Tests verify: (1) output CSV file structure and required columns, (2) per-sample
+BED file existence, format validity (tab-delimited, >=5 columns), and coordinate sorting, (3) bgzip-compressed
+combined BED and tabix index existence and readability, (4) detection sensitivity >=70% across 10 known CNV
+events in 6 tumor samples with varying purity, (5) chr1 recurrent deletion and chr3 recurrent amplification
+identified with correct sample counts >=3, (6) key cancer genes (tumor suppressors in deletions, oncogenes
+in amplifications) present in affected genes output with n_samples >=2, and (7) tumor purity estimates within
+0.15 of ground truth for at least 4 of 6 samples."""
+category = "bioinformatics"
+tags = ["cancer-genomics", "bedtools-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cnv-detection-pipeline"

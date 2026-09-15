@@ -1,0 +1,17 @@
+federation:
+  name: complex-dc
+  mgmt:
+    ipv4-base: 10.50.0.0/21
+    pod-prefix-length: 24
+  pods:
+    - name: east
+      topology: /app/pods/east.clab.yml
+      border-nodes:
+        - spine1
+        - spine2
+    - name: advanced
+      topology: /app/pods/advanced.clab.yml
+      border-nodes:
+        - core1
+        - core2
+  interconnect: full-mesh

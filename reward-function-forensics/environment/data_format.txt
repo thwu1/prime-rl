@@ -1,0 +1,86 @@
+Trajectory Data Format
+======================
+
+File: /app/data/trajectory.npz
+Contains recorded state data from 500 timesteps of a quadruped
+locomotion simulation with control dt = 0.02s.
+
+Arrays:
+  commands         (500, 3)     Velocity commands [vx, vy, wz]
+  local_vel        (500, 3)     Local-frame linear velocity
+  ang_vel          (500, 3)     Gyroscope readings (body angular velocity)
+  global_linvel    (500, 3)     Global-frame linear velocity
+  global_angvel    (500, 3)     Global-frame angular velocity
+  up_vector        (500, 3)     Torso z-axis in world frame
+  joint_pos        (500, 12)    Joint positions (12 DOF: 3 per leg x 4 legs)
+  default_pose     (12,)        Default/home joint configuration
+  actions          (500, 12)    Control actions at each timestep
+  prev_actions     (500, 12)    Actions from previous timestep
+  actuator_force   (500, 12)    Actuator torques/forces
+  joint_vel        (500, 12)    Joint velocities
+  foot_vel         (500, 4, 3)  Foot velocities [vx, vy, vz] per foot
+  contact          (500, 4)     Foot ground contact flags (1=contact)
+  first_contact    (500, 4)     First-contact-after-swing flags
+  air_time         (500, 4)     Accumulated time since last ground contact
+  foot_z           (500, 4)     Foot z-positions (height above ground)
+  gait_phase       (500, 4)     Gait phase angles in [-pi, pi] per foot
+  soft_lowers      (12,)        Soft joint position lower limits
+  soft_uppers      (12,)        Soft joint position upper limits
+
+File: /app/data/reference_rewards.npy
+  reference_rewards (500,)      Total scalar rewards from correct code
+
+Reward Structure
+----------------
+Total reward at each timestep is computed as:
+  total_reward = clip(sum(w_i * component_i) * dt, 0.0, 10000.0)
+
+Known parameters:
+  dt = 0.02            Control timestep
+  sigma = 0.25         Tracking reward bandwidth
+  swing_height = 0.08  Gait clearance target height
+
+Unknown: the 10 weight coefficients w_i.
+
+Reward Components (10 total)
+-----------------------------
+  tracking_lin_vel   Exponential tracking reward for xy linear velocity
+  tracking_ang_vel   Exponential tracking reward for yaw angular velocity
+  lin_vel_z          Squared vertical linear velocity (cost)
+  ang_vel_xy         Squared roll/pitch angular velocity (cost)
+  orientation        Squared torso tilt from upright (cost)
+  action_rate        Squared action change per timestep (cost)
+  torques            Combined L2+L1 actuator torque penalty (cost)
+  joint_limits       Soft joint limit violation via tolerance/sigmoid (cost)
+  feet_air_time      Swing-phase timing reward
+  feet_clearance     Deviation from gait clearance trajectory (cost)
+
+Training History Database
+=========================
+File: /app/data/training_history.db (SQLite3)
+
+Table: training_runs
+
+Schema:
+  run_id                      INTEGER PRIMARY KEY
+  run_name                    TEXT        Experiment name
+  reward_version              TEXT        Reward code version tag
+  w_tracking_lin_vel          REAL        Weight for tracking_lin_vel
+  w_tracking_ang_vel          REAL        Weight for tracking_ang_vel
+  w_lin_vel_z                 REAL        Weight for lin_vel_z
+  w_ang_vel_xy                REAL        Weight for ang_vel_xy
+  w_orientation               REAL        Weight for orientation
+  w_action_rate               REAL        Weight for action_rate
+  w_torques                   REAL        Weight for torques
+  w_joint_limits              REAL        Weight for joint_limits
+  w_feet_air_time             REAL        Weight for feet_air_time
+  w_feet_clearance            REAL        Weight for feet_clearance
+  avg_episode_return          REAL        Mean episode return
+  convergence_episodes        INTEGER     Episodes to convergence
+  gait_quality_score          REAL        Gait smoothness metric [0, 1]
+  sim_to_real_transfer_score  REAL        Sim-to-real success rate [0, 1]
+  notes                       TEXT        Experiment notes
+
+Contains 20 past training experiments with different reward weight
+configurations and associated performance metrics from sim and
+real-robot evaluation.

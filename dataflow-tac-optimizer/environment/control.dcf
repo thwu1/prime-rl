@@ -1,0 +1,15 @@
+// Tests while loops and if/else control flow
+func main() {
+  i = 0;
+  total = 0;
+  while (i < 5) {
+    total = total + i;
+    i = i + 1;
+  }
+  print total;
+  if (total == 10) {
+    print 1;
+  } else {
+    print 0;
+  }
+}

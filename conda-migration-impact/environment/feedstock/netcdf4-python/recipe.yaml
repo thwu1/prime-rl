@@ -1,0 +1,39 @@
+context:
+  name: netcdf4-python
+  version: "1.6.5"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/Unidata/netcdf4-python/releases/download/v${{ version }}rel/netcdf4-${{ version }}.tar.gz
+  sha256: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cython
+  host:
+    - python
+    - numpy
+    - netcdf4-c
+    - libhdf5
+  run:
+    - python
+    - numpy
+    - cftime
+
+test:
+  commands:
+    - python -c "import netCDF4; print(netCDF4.__version__)"
+    - python -c "import netCDF4; print(netCDF4.__hdf5libversion__)"
+
+about:
+  homepage: https://unidata.github.io/netcdf4-python/
+  license: MIT
+  license_file: LICENSE
+  summary: Python interface to the netCDF C library

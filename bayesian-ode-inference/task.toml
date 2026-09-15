@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in Bayesian computation, probabilistic programming (NumPyro/JAX), and numerical ODE methods. The agent must diagnose multiple interacting bugs: (1) a sign error in the Lotka-Volterra ODE equations that causes population divergence, (2) unconstrained Normal priors on strictly-positive ODE parameters allowing NaN propagation through negative parameter draws, (3) Normal priors on initial conditions that should be log-normal to ensure positivity, (4) excessively loose ODE solver tolerances (rtol/atol=1e-2, mxstep=100) that produce inaccurate trajectories, (5) a bare NUTS kernel missing dense_mass and target_accept_prob needed for the correlated posterior geometry. Additionally, two stub functions (compute_predictions, compute_diagnostics) require understanding of NumPyro's Predictive API and diagnostics module. These bugs interact: fixing one without the others still yields failures."""
+solution_explanation = """Eight fixes: (1) correct ODE sign alpha+beta*v -> alpha-beta*v, (2) replace Normal priors with TruncatedNormal(low=0) for ODE parameters, (3) replace Normal with LogNormal for initial conditions, (4) tighten ODE solver to rtol=1e-6/atol=1e-5/mxstep=1000, (5) add dense_mass=True and target_accept_prob=0.9 to NUTS, (6) tune warmup/samples for convergence, (7) implement compute_predictions using numpyro.infer.Predictive, (8) implement compute_diagnostics using numpyro.diagnostics.split_gelman_rubin and effective_sample_size."""
+verification_explanation = """Tests verify ODE correctness (exact derivatives, equilibrium, sign regimes), trajectory integration (bounded, oscillatory), output file structure (JSON/CSV schema), parameter recovery (ground truth within 90% CIs), MCMC convergence (r_hat < 1.1, n_eff > 50), and posterior predictive quality (positive predictions, CI ordering, data coverage)."""
+category = "probabilistic_programming"
+tags = ["bayesian-inference", "ode-modeling"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bayesian-ode-inference"

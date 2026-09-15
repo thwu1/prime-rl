@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of seismological domain knowledge, signal processing, and ML evaluation methodology. The solver must: (1) detect and normalize heterogeneous component orderings (ZNE/ENZ) across stations, requiring understanding of 3C seismogram conventions; (2) perform anti-aliased decimation from 200 Hz to 100 Hz with proportional pick index adjustment; (3) compute signal-to-noise ratio using physics-informed window selection (pre-P noise vs P-to-S signal on the vertical component); (4) implement the exact SeisBench pick-benchmark evaluation methodology — precision-recall curve F1 optimization (not grid search), separate MCC threshold optimization via 50 quantile candidates (not the F1 threshold), RMSE for onset timing 'std' (not population standard deviation), and per-entry sampling rate division (not a global constant). Each of these represents a subtle domain-specific decision that naive or procedural approaches get wrong."""
+solution_explanation = """The solution reads station metadata to detect native sampling rates and component orders. For each waveform, it reorders components using the source-to-target mapping (ENZ index [2,1,0] -> ZNE) and decimates 200 Hz traces to 100 Hz using scipy.signal.decimate with zero-phase anti-aliasing. Pick sample indices are adjusted by the decimation factor. SNR is computed on the Z component using pre-P and P-to-S windows. The SeisBench dataset is built with NCW trace blocks respecting split boundaries. Evaluation uses sklearn's precision_recall_curve for F1 threshold optimization, separately optimizes MCC via 50 quantile candidates from sorted dev scores, and computes onset timing residuals with per-entry sampling rate and RMSE (not std)."""
+verification_explanation = """Tests independently verify: (1) metadata.csv has all required columns including trace_snr_db and trace_quality; (2) all traces are 100 Hz / 3000 samples; (3) HDF5 component_order is ZNE verified both by metadata and by energy analysis (Z channel has P-wave energy at arrival); (4) native 100 Hz ZNE traces exactly match raw data; (5) SNR values match independent computation from output HDF5 waveforms; (6) quality tiers are consistent with SNR thresholds; (7) quality_report.json has correct tier counts; (8) evaluation metrics match sklearn-computed expected values using the exact benchmark methodology (P-R curve F1, separate MCC optimization, RMSE timing, per-entry sampling rate)."""
+category = "data_science"
+tags = ["seismology", "signal-processing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seismic-benchmark-pipeline"

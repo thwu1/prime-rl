@@ -1,0 +1,36 @@
+{
+  "crc_width": 8,
+  "polynomials": [
+    {
+      "id": "P1",
+      "notation": "koopman",
+      "value": "0x97",
+      "description": "CRC-8-AUTOSAR"
+    },
+    {
+      "id": "P2",
+      "notation": "explicit",
+      "value": "0x1cf",
+      "description": "CRC-8 polynomial in explicit+1 form"
+    },
+    {
+      "id": "P3",
+      "notation": "koopman",
+      "value": "0x9b",
+      "description": "CRC-8F/6"
+    },
+    {
+      "id": "P4",
+      "notation": "algebraic",
+      "value": "x^8+x^7+x^6+x^4+x^2+1",
+      "description": "CRC-8 polynomial in algebraic form"
+    },
+    {
+      "id": "P5",
+      "notation": "koopman",
+      "value": "0xa6",
+      "description": "CRC-8K/3"
+    }
+  ],
+  "max_dataword_bits": 250
+}

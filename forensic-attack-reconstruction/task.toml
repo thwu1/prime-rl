@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level incident response, digital forensics, and security architecture capabilities. The agent must: (1) correlate evidence across 10+ forensic artifacts to reconstruct a multi-stage intrusion chain, (2) distinguish genuine attack indicators from false positives including an authorized vulnerability scanner and a benign base64-encoded monitoring crontab, (3) reverse-engineer a custom encryption tool's key derivation and stream cipher to recover exfiltrated data, (4) write syntactically valid YARA detection rules, (5) evaluate the organization's security controls against the MITRE ATT&CK framework — judging why each control failed rather than just identifying the attack, (6) design novel Sigma-format detection rules that would catch each attack stage through log correlation, and (7) create a ranked architecture critique assessing defense-in-depth failures and proposing compensating controls. The evaluation and design components require professional security architecture expertise beyond standard IR playbook execution."""
+solution_explanation = """The solver analyzes web logs to identify the real attacker (198.51.100.47) via SSTI payloads while classifying the Nikto scanner as a false positive. It traces the intrusion chain through bash histories and auth logs: www-data exploited SSTI for RCE, found credentials in config.py, used su to become devops, overwrote a group-writable sudo script to escalate to root. It identifies 3 persistence mechanisms while correctly excluding the benign monitoring crontab. It recovers the encryption seed from root's bash history and reverse-engineers the encryption tool to decrypt the exfiltrated archive. For the security assessment, it maps each attack stage to MITRE ATT&CK techniques (T1190, T1552, T1078, T1548, T1053, T1543, T1098, T1048), evaluates why existing controls failed at each stage (no WAF, plaintext credentials, permissive file permissions, no egress filtering), designs 3+ Sigma detection rules targeting SSTI patterns, suspicious privilege escalation sequences, and base64-encoded crontab persistence, ranks 5 architectural weaknesses by impact with evidence-based justification, and rates organizational maturity at 1-2 based on pervasive control failures."""
+verification_explanation = """Tests verify incident_report.json via keyword matching for attacker IP, SSTI identification, privilege escalation chain, backdoors, C2 infrastructure, encryption seed, and exfiltrated filenames. False positive classification is validated. YARA rules are scanned against evidence files. Security_assessment.json is validated structurally: control_failure_analysis must cover initial access, privilege escalation, and persistence with MITRE technique IDs; detection_coverage_matrix must identify coverage gaps; sigma_rules are parsed as YAML and checked for required Sigma fields (title, logsource, detection) covering three attack stages; architecture_weaknesses must have 5+ ranked entries with evidence; overall_maturity must have a score of 1-3 with substantive justification. An independent decryption test verifies archive integrity."""
+category = "cybersecurity"
+tags = ["incident-response", "detection-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/forensic-attack-reconstruction"

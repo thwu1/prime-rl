@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level information retrieval knowledge applied in two distinct competencies: (1) implementing NDCG@10 evaluation from scratch, which requires understanding DCG gain discounting, ideal ranking construction, and normalization — a creative act that cannot be pattern-matched from the codebase; and (2) diagnosing six interacting BM25 defects without any formula specification to compare against, requiring the solver to derive correct behavior from domain expertise. The defects interact non-linearly: fixing the tokenizer deduplication without fixing k1=0 has no visible effect (both independently suppress term frequency), fixing global document frequencies without correcting the IDF formula compounds scoring errors in unpredictable ways, and switching from max to sum aggregation without fixing per-field statistics amplifies cross-field contamination. The solver must evaluate each component holistically — understanding how BM25 parameters, tokenization, index statistics, IDF computation, and score aggregation interact — rather than following a repair procedure. The data access defect (INNER JOIN excluding 5 documents) requires SQL investigation with the sqlite3 CLI and understanding of the database schema, adding a cross-domain diagnostic dimension."""
+solution_explanation = """Implement DCG@10 and NDCG@10 in evaluation/metrics.py using the standard rel_i/log2(i+1) gain formula and ideal-ranking normalization. Then fix six interacting defects: (1) change INNER JOIN to LEFT JOIN in db_reader.py so all 25 documents are indexed (the document_metadata table only has entries for docs 1-20); (2) set k1=1.2 in config.json (was 0.0, disabling term frequency sensitivity); (3) remove set() deduplication in tokenizer.py that destroys term frequency counts and document lengths; (4) compute per-field document frequencies instead of global DFs in indexer.py (global DF cross-contaminates field statistics); (5) replace log(N/df) with log(1+(N-df+0.5)/(df+0.5)) in scorer.py for correct BM25 IDF with smoothing; (6) replace max() with sum() in searcher.py for proper multi-term score aggregation. Run 'make evaluate' to verify all queries achieve NDCG@10 >= 0.80."""
+verification_explanation = """Tests verify in three layers: (1) NDCG implementation correctness — eight tests compare DCG and NDCG outputs against analytically computed reference values for ideal, reversed, partial, truncated, and edge-case rankings, plus cross-validation against an independent reference NDCG implementation on the actual pipeline output. (2) Pipeline quality — per-query NDCG@10 must reach >= 0.80 using the solver's evaluation module, rankings must match an independent reference BM25 implementation in top-1 document identity, top-5 set overlap (>= 4), top-3 ordering preservation, top-1 score accuracy (within 5%), and score ratio preservation between rank positions. (3) Anti-cheat — deterministic re-runs must produce identical output, documents with IDs > 20 must appear in results (detecting the JOIN defect), and an unseen query must be handled correctly to prevent hardcoded results."""
+category = "information_retrieval"
+tags = ["bm25-optimization", "ndcg-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tantivy-compound-ranker"

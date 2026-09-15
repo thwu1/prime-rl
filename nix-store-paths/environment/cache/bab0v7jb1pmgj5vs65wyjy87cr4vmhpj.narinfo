@@ -1,0 +1,9 @@
+StorePath: /nix/store/bab0v7jb1pmgj5vs65wyjy87cr4vmhpj-hello-2.12.3.tar.gz
+URL: nar/bab0v7jb1pmgj5vs65wyjy87cr4vmhpj.nar.xz
+Compression: xz
+FileHash: sha256:abc68b51920d18c4ed1317d95e5d20c01ace170474acaba7e34ddf24ce3bf6ef
+FileSize: 7124251
+NarHash: sha256:0c7250e0a5fe651a58eca2a6470eac6316c2a9c0d8454553b7ec61a1ab57df95
+NarSize: 37555436
+References:
+CA: fixed:sha256:c149573c77f04b8a62755d5b36bd9016edd2fff818e01fd6d507ca60c9723fec

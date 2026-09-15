@@ -1,0 +1,22 @@
+# Scenario B: Non-periodic domain with 6-point stencil
+domain:
+  Nx: 240
+  Ny: 120
+  Nz: 96
+
+num_processes: 24
+
+stencil:
+  type: 6
+  halo_depth: 1
+
+element_bytes: 8
+
+network:
+  latency_us: 2.0
+  bandwidth_GBps: 10.0
+
+periodic:
+  x: false
+  y: false
+  z: false

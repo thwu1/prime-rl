@@ -1,0 +1,10 @@
+[
+    {"name": "resnet_fc", "M": 64, "N": 1000, "K": 2048},
+    {"name": "conv_1x1", "M": 3136, "N": 64, "K": 64},
+    {"name": "attention_qk", "M": 512, "N": 512, "K": 64},
+    {"name": "transformer_ffn", "M": 512, "N": 2048, "K": 512},
+    {"name": "large_gemm", "M": 1024, "N": 1024, "K": 1024},
+    {"name": "irregular_gemm", "M": 100, "N": 200, "K": 300},
+    {"name": "deep_reduce", "M": 128, "N": 128, "K": 4096},
+    {"name": "skinny_reduce", "M": 32, "N": 32, "K": 4096}
+]

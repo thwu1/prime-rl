@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 subtle bugs across 5 query handlers in a court database resolver: a bankruptcy filter that silently drops false-valued flags due to truthiness checking, a date parameter computed but never passed to the resolution API, exclusive vs inclusive boundary comparison in temporal lookups, null-start date ranges included with sentinel substitution corrupting gap computation, off-by-one day adjustments on gap boundaries, shallow single-level descendant collection instead of recursive BFS, and substring name matching instead of exact equality for collision detection. The solver must reverse-engineer the courts-db library's internal data model (template-variable-substituted regex patterns, multi-range temporal records, parent-child court hierarchies) by reading installed package source code to understand what correct behavior looks like, then systematically diagnose each defect through test failure analysis."""
+solution_explanation = """Install courts-db v0.10.27 and examine its find_court API signature to discover that bankruptcy uses `is not None` gating and dates use the `date_found` keyword. Read the filter_courts_by_date source to find inclusive boundary semantics. Study the data model to understand null-start date ranges must be excluded from gap computation and that gap boundaries use raw dates without adjustment. Build a parent-to-children map and perform recursive BFS for full descendant collection. Use exact string equality for name collision matching. Each fix requires understanding a different aspect of the library's internals."""
+verification_explanation = """Tests install courts-db and independently compute expected results for all 47 queries using the library's own APIs and data. Resolve queries call find_court with correct parameters. Temporal queries manually check date ranges with inclusive comparison. Gap queries filter null-start ranges and compute gaps with raw boundaries. Hierarchy queries perform recursive BFS. Collision queries use exact name matching. Each query type has its own parametrized test class with separate assertions."""
+category = "applied_computing"
+tags = ["legal-informatics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/court-resolver-engine"

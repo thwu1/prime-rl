@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level control systems and system identification knowledge. The agent must: (1) implement a nonlinear actuator dynamics forward model with four cascaded stages at 1000 Hz, (2) perform parameter identification from noisy step response data across three amplitudes using numerical optimization, (3) detect that one actuator's internal pipeline ordering differs from the reference specification by recognizing systematic model-data mismatch and hypothesizing/testing alternative stage orderings — this demands holistic understanding of how reordering acceleration limiting and low-pass filtering fundamentally changes transient dynamics, (4) validate model adequacy through calibration RMSE analysis, and (5) predict responses to novel multi-modal command profiles using the correctly identified model structure per actuator."""
+solution_explanation = """Implement both standard (LPF→accel_limit) and swapped (accel_limit→LPF) forward models. For each actuator, extract heuristic initial estimates (dead_time from response onset, max_velocity from steady-state, time_constant from 63.2% rise, max_acceleration from initial slope) and refine via Nelder-Mead optimization in log-space against all three step responses simultaneously. Fit both pipeline orderings and select the one with lower total MSE — actuator D shows clearly better fit with the swapped ordering. Compute calibration RMSE per step, then predict novel responses by upsampling commands via zero-order hold, simulating at 1000 Hz with the identified model, and downsampling to output rate."""
+verification_explanation = """Tests verify: (1) all output files exist with correct JSON/CSV structure and positive numeric parameters, (2) each identified parameter matches ground truth within engineering tolerance (dead_time ±0.025s absolute, time_constant/max_acceleration within 25% relative, max_velocity within 8% relative), (3) pipeline ordering is correctly identified for all four actuators — A/B/C standard, D swapped, (4) novel response RMSE < 0.15 m/s against ground truth computed with true parameters and true pipeline at 1000 Hz, (5) calibration RMSE < 0.05 per step indicating adequate model fit."""
+category = "modeling_simulation"
+tags = ["control-systems", "system-identification"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-da8cb6"

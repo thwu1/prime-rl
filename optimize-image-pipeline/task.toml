@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires profiling a multi-stage C++ image pipeline to identify bottlenecks spanning different microarchitectural categories: cache-unfriendly memory access patterns in a 2D convolution (loop interchange), expensive per-pixel sqrt that can be eliminated via strength reduction on comparison thresholds, branch-heavy classification amenable to branchless arithmetic, and redundant per-pixel normalization division for interior pixels. The agent must correctly diagnose each bottleneck category through profiling, apply the appropriate transformation, and prove correctness is maintained (bit-identical output). Combining all of these in one program under a strict correctness constraint elevates the task beyond textbook exercises."""
+solution_explanation = """Key optimizations: (1) Interchange the outer column/inner row loops in the vertical convolution to achieve sequential (row-major) memory access, eliminating cache thrashing — this alone provides the largest single speedup. (2) Remove sqrt() from gradient magnitude and instead store squared magnitude, squaring the classification thresholds correspondingly; since (int32_t)sqrt(v) >= t iff v >= t*t for non-negative v and integer t, the output is bit-identical. (3) Split convolution loops into border and interior regions, eliminating bounds checks and redundant weight-sum divisions for interior pixels. (4) Replace the branch cascade in classify() with branchless arithmetic. Combined optimizations yield 3-4x speedup."""
+verification_explanation = """Tests compile both the original baseline and the agent's optimized version with identical flags (g++ -O2 -std=c++17 -lm). Both are run and their stdout compared for exact string equality — any change to the pipeline output causes test failure. Performance is measured by running each version 3 times (interleaved) and comparing the minimum wall-clock times; a speedup ratio of at least 2.0x is required. The ratio-based comparison is robust to container CPU speed variation."""
+category = "performance_optimization"
+tags = ["cpp", "cache-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-image-pipeline"

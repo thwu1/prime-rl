@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the NCO (netCDF Operators) tool suite and the netCDF data model. The core challenge is diagnosing why NCO averaging operations produce incorrect results when input data uses NaN for missing values but _FillValue is set to the numeric default — a well-known but subtle gotcha in MATLAB-exported climate data. Beyond the NaN issue, the agent must construct a multi-step pipeline: fixing fill values, renaming non-standard dimensions, concatenating multi-year files, computing monthly climatology via hyperslabbing, converting units, deriving new variables with ncap2, computing area-weighted global means with ncwa using cosine-latitude weighting, and ensuring CF convention compliance with ncatted. Each step requires specific NCO operator expertise and correct flag usage."""
+solution_explanation = """The solution first replaces NaN data values with a numeric fill value using ncap2's where(var!=var) idiom (exploiting IEEE NaN!=NaN) and sets _FillValue via ncatted. It then renames latitude/longitude dimensions to lat/lon with ncrename, concatenates the three yearly files with ncrcat, and computes monthly climatology by looping ncra with hyperslabbing (-d time,m,,12) across the 36 concatenated records. Temperature is converted from Celsius to Kelvin via ncap2 arithmetic. Wind speed is derived as sqrt(uas²+vas²) with ncap2. Area-weighted global means are computed by creating a cosine-latitude weight variable with ncap2, then using ncwa -a lat,lon -w gw. CF metadata is fixed with ncatted. The corrupt August 2011 record (all NaN) is automatically excluded from the August climatology because NCO correctly skips fill values in the average."""
+verification_explanation = """Tests use the netCDF4 Python library to verify: (1) correct file structure — 12 time records, lat/lon/time dimensions, all required variables; (2) data integrity — no NaN values in output, numeric _FillValue; (3) physical correctness — temperature in Kelvin range (250–320K), wind speed equals sqrt(uas²+vas²); (4) corrupt record handling — August climatology reflects the 2-year average (offset 0.25) rather than the 3-year average (offset 0.5), verified at specific grid cells; (5) CF compliance — correct units, standard_name, and long_name attributes; (6) area-weighted global mean exists with 12 reasonable values."""
+category = "data_processing"
+tags = ["netcdf", "climate-data"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nco-climatology-pipeline"

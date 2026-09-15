@@ -1,0 +1,45 @@
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=orders, patternType=LITERAL)`:
+ 	(principal=User:order-service, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:order-service, host=*, operation=DESCRIBE, permissionType=ALLOW)
+ 	(principal=User:order-processor, host=*, operation=READ, permissionType=ALLOW)
+ 	(principal=User:order-processor, host=*, operation=DESCRIBE, permissionType=ALLOW)
+ 	(principal=User:connect-worker, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=payments, patternType=LITERAL)`:
+ 	(principal=User:*, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:payment-service, host=*, operation=READ, permissionType=ALLOW)
+ 	(principal=User:payment-service, host=*, operation=DESCRIBE, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=user-events, patternType=LITERAL)`:
+ 	(principal=User:user-service, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:user-service, host=*, operation=DESCRIBE, permissionType=ALLOW)
+ 	(principal=User:analytics-consumer, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=audit-logs, patternType=LITERAL)`:
+ 	(principal=User:audit-producer, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:audit-processor, host=*, operation=READ, permissionType=ALLOW)
+ 	(principal=User:audit-processor, host=*, operation=DESCRIBE, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=clickstream, patternType=LITERAL)`:
+ 	(principal=User:clickstream-producer, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:analytics-consumer, host=*, operation=READ, permissionType=ALLOW)
+ 	(principal=User:connect-worker, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=notifications, patternType=LITERAL)`:
+ 	(principal=User:notification-service, host=*, operation=WRITE, permissionType=ALLOW)
+ 	(principal=User:notification-service, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=order-processor, patternType=LITERAL)`:
+ 	(principal=User:order-processor, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=payment-service, patternType=LITERAL)`:
+ 	(principal=User:payment-service, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=audit-processor, patternType=LITERAL)`:
+ 	(principal=User:audit-processor, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=analytics-pipeline, patternType=LITERAL)`:
+ 	(principal=User:analytics-consumer, host=*, operation=READ, permissionType=ALLOW)
+
+Current ACLs for resource `ResourcePattern(resourceType=CLUSTER, name=kafka-cluster, patternType=LITERAL)`:
+ 	(principal=User:admin, host=*, operation=ALL, permissionType=ALLOW)

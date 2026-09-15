@@ -1,0 +1,47 @@
+---
+- name: Deploy infrastructure services
+  hosts: infrastructure
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - bind9
+          - haproxy
+          - mariadb-server
+        state: present
+        update_cache: true
+
+    - name: Deploy BIND9 configuration
+      ansible.builtin.copy:
+        src: /app/dns/named.conf
+        dest: /etc/bind/named.conf
+        mode: "0644"
+      notify: restart_bind9
+
+    - name: Deploy HAProxy configuration
+      ansible.builtin.copy:
+        src: /app/haproxy/haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+        mode: "0644"
+      notify: reload haproxy
+
+    - name: Enable and start services
+      ansible.builtin.systemd:
+        name: named
+        enabled: true
+        state: started
+
+  handlers:
+    - name: restart bind9
+      ansible.builtin.systemd:
+        name: named
+        state: restarted
+    - name: restart haproxy
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted
+    - name: restart mariadb
+      ansible.builtin.systemd:
+        name: mariadb
+        state: restarted

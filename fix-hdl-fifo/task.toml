@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SystemVerilog proficiency spanning cross-file debugging and original RTL design. The agent must: (1) diagnose and fix 6 bugs across 3 FIFO modules involving missing package imports, parameter name mismatches, port binding errors, and functional logic flaws in pointer arithmetic and status flag generation; (2) design and implement from scratch a round-robin arbiter with valid/ready handshaking, combinational data path, backpressure support, and correct priority alternation — requiring architectural decisions about turn-state management, fallthrough behavior, and output registration; (3) evaluate the complete system holistically to ensure correct end-to-end data flow through FIFOs and arbiter under all test scenarios including interleaving, backpressure, and overflow rejection."""
+solution_explanation = """Fix 6 bugs across 3 FIFO files: (1) Add missing 'import fifo_pkg::*' to fifo_mem.sv, (2) Fix parameter typo AFULL_THR->AFULL_THRESH in fifo_ctrl.sv, (3) Fix port name .write_en->.wr_en in fifo.sv, (4) Fix port name .rd_pointer->.rd_addr in fifo.sv, (5) Add !full guard to write pointer increment in fifo_ctrl.sv, (6) Fix reversed subtraction in fill count (rd_ptr-wr_ptr -> wr_ptr-rd_ptr) in fifo_ctrl.sv. Then create /app/rtl/arbiter.sv implementing a round-robin arbiter: always_comb block for select_a/select_b decision based on turn register, combinational output mux, backpressure-gated ready signals, and always_ff turn toggle on prioritized-channel service."""
+verification_explanation = """Tests check all RTL files exist including the solver-created arbiter.sv, verify module names are preserved, and validate the arbiter port interface. Then compile the full 6-module system with Verilator and run simulation. The testbench exercises 6 scenarios: (1) idle state after reset, (2) single-channel drain from A, (3) single-channel drain from B, (4) round-robin interleaving with deterministic A0-B0-A1-B1 expected order, (5) backpressure hold verification, and (6) FIFO full flag and write-when-full rejection with data integrity check."""
+category = "hardware_design"
+tags = ["systemverilog", "digital-design"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-hdl-fifo"

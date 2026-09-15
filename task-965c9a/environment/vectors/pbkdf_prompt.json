@@ -1,0 +1,36 @@
+{
+  "vsId": 44,
+  "algorithm": "PBKDF",
+  "revision": "1.0",
+  "isSample": false,
+  "testGroups": [
+    {
+      "tgId": 1,
+      "testType": "AFT",
+      "hmacAlg": "SHA2-224",
+      "tests": [
+        {
+          "tcId": 1,
+          "keyLen": 680,
+          "salt": "85E59EE31C4702AD3A4BAF1852A3C97BD8115B17B6BC469F225C8A",
+          "password": "QZlajvgQyW",
+          "iterationCount": 1402
+        },
+        {
+          "tcId": 2,
+          "keyLen": 496,
+          "salt": "BC0F2ACAADF2049516878B1AF50AA1281E363E25277C695C422A1281111E10058CCF",
+          "password": "uhrdDKLrKRxkrYZrjal",
+          "iterationCount": 1045
+        },
+        {
+          "tcId": 3,
+          "keyLen": 1288,
+          "salt": "C0B8A0D4CF5E3E7A70042A35F37D47D57212A1D95AA39C516E05C0F9C92BA5",
+          "password": "JbjwJADTCnkePYiJwbdFEUtTximCIHRUdzadjdHJeMBbPqiyXDtCEXYO",
+          "iterationCount": 5135
+        }
+      ]
+    }
+  ]
+}

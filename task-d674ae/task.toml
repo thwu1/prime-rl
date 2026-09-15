@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-domain expertise spanning C compiler internals (dead-store elimination of memset at -O2), ARM Cortex-M binary analysis with objdump, timing side-channel identification (memcmp in authentication), and knowledge of secure coding patterns for bare-metal firmware. The memset optimization vulnerability is a subtle, expert-level issue that was missed by 45 of 47 university teams (including CMU, UIUC, Purdue) in the MITRE eCTF competition. Fixing it requires understanding volatile semantics, compiler barriers, and the distinction between C abstract machine and physical memory behavior. The agent must compile, disassemble, reason about optimization behavior, implement fixes using correct low-level techniques, and verify the fixes survive recompilation."""
+solution_explanation = """Build the original firmware and disassemble the ELF with arm-none-eabi-objdump. Compare the number of memset calls in source vs binary to discover that 7 memset calls on local buffers (in verify_pin, process_unlock_command, pair_device, compute_challenge_response) are eliminated as dead stores by -O2 optimization. Implement a volatile-based secure_wipe function to prevent elision. Replace memcmp in verify_pin with a constant-time XOR-accumulate comparison to eliminate the timing side channel. Add -fstack-protector-strong to the Makefile CFLAGS. Generate a structured JSON audit report documenting all findings."""
+verification_explanation = """Tests verify: (1) audit report is valid JSON identifying memset/compiler optimization, timing side-channel, and stack protection issues across at least 3 affected functions; (2) fixed firmware directory exists with source files; (3) fixed firmware compiles cleanly with arm-none-eabi-gcc at -O2; (4) fixed source uses volatile or asm-barrier-based secure wipe technique; (5) fixed verify_pin does not call memcmp (verified via binary disassembly); (6) fixed Makefile includes -fstack-protector-strong or -fstack-protector-all."""
+category = "cybersecurity"
+tags = ["embedded-security", "compiler-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d674ae"

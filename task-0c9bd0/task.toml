@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep IEEE 754 knowledge (all five rounding modes, subnormal handling, NaN/infinity propagation, signed zero conventions, FMA single-rounding semantics) AND multi-tool proficiency across three distinct implementation domains: (1) C shared library development with gcc, position-independent code, and Makefile build orchestration; (2) Python ctypes FFI binding with correct type marshalling between C and Python; (3) Verilog HDL combinational design compiled and simulated with Icarus Verilog (iverilog/vvp). The agent must coordinate outputs across all three toolchains and ensure interoperability."""
+solution_explanation = """The C implementation uses exact integer arithmetic (int64_t mantissa * 2^exponent representation) mirroring the Python Fraction approach but in C. All FP8 values are converted to this exact form, arithmetic is performed exactly, and a single rounding step converts back to FP8. The shared library is built with gcc -shared -fPIC. The ctypes wrapper loads libfp8.so and sets argtypes/restype for each function. The Verilog adder converts both operands to a fixed-point integer representation (M * 2^-9), performs integer addition, then converts back to FP8 with rounding."""
+verification_explanation = """Tests verify: (1) The C shared library builds via make and loads via ctypes; (2) Decode/encode correctness for all value classes (normal, subnormal, zero, infinity, NaN); (3) All five rounding modes for arithmetic; (4) FMA cases where results provably differ from separate mul-then-add; (5) The Verilog adder produces correct results via iverilog simulation, checked against known-correct vectors covering special values, overflow, tie-breaking, and signed zeros."""
+category = "numerical_analysis"
+tags = ["floating-point", "ieee754", "verilog", "ctypes"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0c9bd0"

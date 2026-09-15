@@ -1,0 +1,123 @@
+{
+  "vehicle_name": "HexaCross-8 AUV",
+  "coordinate_frame": "body_NED",
+  "origin": "center_of_buoyancy",
+  "units": {
+    "position": "meters",
+    "direction": "unit_vector"
+  },
+  "thrusters": [
+    {
+      "id": 1,
+      "label": "front_right_horizontal",
+      "position": [
+        0.18,
+        0.15,
+        0.0
+      ],
+      "direction": [
+        0.7071068,
+        -0.7071068,
+        0.0
+      ]
+    },
+    {
+      "id": 2,
+      "label": "front_left_horizontal",
+      "position": [
+        0.18,
+        -0.15,
+        0.0
+      ],
+      "direction": [
+        0.7071068,
+        0.7071068,
+        0.0
+      ]
+    },
+    {
+      "id": 3,
+      "label": "rear_right_horizontal",
+      "position": [
+        -0.2,
+        0.18,
+        0.0
+      ],
+      "direction": [
+        0.7071068,
+        -0.7071068,
+        0.0
+      ]
+    },
+    {
+      "id": 4,
+      "label": "rear_left_horizontal",
+      "position": [
+        -0.2,
+        -0.18,
+        0.0
+      ],
+      "direction": [
+        -0.7071068,
+        0.7071068,
+        0.0
+      ]
+    },
+    {
+      "id": 5,
+      "label": "front_right_vertical",
+      "position": [
+        0.12,
+        0.16,
+        0.03
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": 6,
+      "label": "front_left_vertical",
+      "position": [
+        0.12,
+        -0.25,
+        0.03
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": 7,
+      "label": "rear_right_vertical",
+      "position": [
+        -0.14,
+        0.16,
+        0.03
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": 8,
+      "label": "rear_left_vertical",
+      "position": [
+        -0.14,
+        -0.16,
+        0.03
+      ],
+      "direction": [
+        0.258819,
+        0.0,
+        0.9659258
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Include directive test (main file)
+
+statement ok
+CREATE TABLE inc_test(x INTEGER)
+
+include include_sub.slt
+
+query I nosort
+SELECT sum(x) FROM inc_test
+----
+6
+
+query I nosort
+SELECT count(*) FROM inc_test
+----
+3

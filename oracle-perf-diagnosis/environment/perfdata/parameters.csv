@@ -1,0 +1,12 @@
+name,value,description
+db_cache_size,536870912,Size of the DEFAULT buffer cache in bytes (512 MB)
+shared_pool_size,1073741824,Size of the shared pool in bytes (1024 MB)
+pga_aggregate_target,536870912,Target aggregate PGA memory in bytes (512 MB)
+sga_target,0,SGA target size (0 = manual SGA management)
+memory_target,0,Memory target (0 = no AMM)
+cursor_sharing,EXACT,Controls cursor sharing for similar statements
+optimizer_mode,ALL_ROWS,Optimizer goal
+db_block_size,8192,Standard database block size in bytes
+log_buffer,16777216,Redo log buffer size in bytes (16 MB)
+db_cache_advice,ON,Buffer cache sizing advisory status
+pga_aggregate_limit,1073741824,Hard limit on PGA memory (1024 MB)

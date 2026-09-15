@@ -1,0 +1,5 @@
+A capacitated facility location optimization pipeline at `/app/` is broken. Previous runs produced infeasible solutions with capacity violations and incorrect objective values. Diagnostic logs are in `/app/logs/`. Scenario configurations under `/app/data/scenarios/` specify which problem instances to solve, quality thresholds that must be met, and whether an LP relaxation lower bound is required.
+
+The pipeline must produce a valid solution file at `/app/output/<scenario_name>.sol` for every scenario. All scenarios must pass: feasible assignments respecting facility capacities, correct objective computation, objective value within the scenario's quality threshold, and LP relaxation bounds where required.
+
+The system has `glpsol` (GLPK) available for LP solving. Instance data, solver code, a validation tool, and a partial GMPL model template are in the `/app/` tree.

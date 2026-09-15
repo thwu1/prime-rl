@@ -1,0 +1,41 @@
+{
+  "case_env": {
+    "ATM_GRID": "ne30pg2",
+    "COMPSET": "WCYCL1850_EAM_ELM",
+    "CMAKE_OPTIONS": "SCREAM_NUM_VERTICAL_LEV 72 SCREAM_NUM_TRACERS 10",
+    "DIN_LOC_ROOT": "/data/inputdata"
+  },
+  "expected": {
+    "atmosphere.dynamics.time_step": 900.0,
+    "atmosphere.dynamics.nsplit": 2,
+    "atmosphere.dynamics.rsplit": 3,
+    "atmosphere.dynamics.qsplit": 1,
+    "atmosphere.dynamics.coupling_frequency": 2,
+    "atmosphere.dynamics.partmethod": 4,
+    "atmosphere.physics.microphysics.scheme": "p3",
+    "atmosphere.physics.microphysics.max_total_ni": 740000.0,
+    "atmosphere.physics.microphysics.autoconversion_prefactor": 1350.0,
+    "atmosphere.physics.microphysics.do_prescribed_ccn": true,
+    "atmosphere.physics.microphysics.subcycles": 1,
+    "atmosphere.physics.radiation.do_aerosol_rad": true,
+    "atmosphere.physics.radiation.orbital_year": 1850,
+    "atmosphere.physics.radiation.radiation_dt": 3600.0,
+    "atmosphere.physics.radiation.rrtmgp_coefficients": "/data/inputdata/rrtmgp/coefficients_lw.nc",
+    "atmosphere.physics.radiation.subcycles": 3,
+    "atmosphere.physics.turbulence.lambda_low": 0.001,
+    "atmosphere.physics.turbulence.lambda_high": 0.04,
+    "atmosphere.physics.turbulence.tke_min": 0.0001,
+    "atmosphere.physics.turbulence.apply_tms": true,
+    "atmosphere.physics.convection.deep_scheme": "zm",
+    "atmosphere.physics.convection.cape_threshold": 70.0,
+    "atmosphere.physics.convection.zmconv_tau": 3600.0,
+    "atmosphere.physics.convection.apply_to_test_grids": true,
+    "atmosphere.output.output_frequency": 6,
+    "atmosphere.output.output_frequency_units": "nhours",
+    "atmosphere.output.averaging_type": "instant",
+    "atmosphere.physics.radiation.active_gases": ["h2o", "co2", "o3", "n2o", "co", "ch4", "o2", "n2"],
+    "atmosphere.output.output_fields": ["T_mid", "p_mid", "qv", "omega"],
+    "atmosphere.initial_conditions.ic_file": "/data/inputdata/init/ne30pg2_L72.nc",
+    "atmosphere.initial_conditions.topography_file": "/data/inputdata/topo/ne30pg2_topo.nc"
+  }
+}

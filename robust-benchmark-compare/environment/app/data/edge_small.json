@@ -1,0 +1,9 @@
+{
+  "label": "small",
+  "command": "./benchmark --config small.cfg",
+  "samples": [
+    {"wall_time_ns": 100, "cpu_cycles": 300, "cache_misses": 10, "peak_rss_bytes": 1000},
+    {"wall_time_ns": 110, "cpu_cycles": 320, "cache_misses": 12, "peak_rss_bytes": 1050},
+    {"wall_time_ns": 105, "cpu_cycles": 310, "cache_misses": 11, "peak_rss_bytes": 1025}
+  ]
+}

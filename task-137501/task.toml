@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives only a vague business complaint (conversion rates are unreliable) and raw event data. They must independently: (1) diagnose that the data is right-censored — recent cohorts have shorter observation windows, biasing naive rates downward; (2) recognize that not all users will ever convert, requiring a cure-fraction / conversion-ceiling parameter; (3) choose and implement an appropriate statistical framework (e.g. survival analysis with modified Weibull/exponential, EM mixture models, or Bayesian approaches); (4) implement numerical optimization for MLE with proper parameter constraints; (5) perform model selection and compute bootstrap or asymptotic confidence intervals; (6) package the solution as a reusable CLI tool. This requires graduate-level statistical knowledge and substantial software engineering."""
+solution_explanation = """Implement a cure-fraction survival model: F(t) = c*(1 - exp(-(lam*t)^p)) where c is the conversion ceiling. Derive the log-likelihood for censored observations, fit via scipy.optimize with sigmoid/exp parameter transformations for unconstrained optimization using multiple starting points. Compare exponential (p=1) and full Weibull models using AIC = 2k + 2*NLL. Compute bootstrap CIs by resampling with replacement and refitting. Package as a Python module with __main__.py entry point."""
+verification_explanation = """Tests verify: (1) results.json schema and value ranges; (2) estimated long-term rates are in correct ballpark for each channel (known ground-truth from data generation); (3) channel ordering matches ground truth; (4) estimates are censoring-aware (higher than naive rates); (5) confidence intervals are well-formed and reasonably sized; (6) the module is executable via python3 -m; (7) parameter recovery on synthetic data with known ground-truth parameters at three difficulty levels including heavy censoring."""
+category = "statistics"
+tags = ["survival-analysis", "maximum-likelihood"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-137501"

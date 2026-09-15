@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 interrelated bugs across 3 JavaScript source files AND implementing 2 missing subsystems in a FHIRPath quantity evaluator. The solver must: (1) explore an unfamiliar Node.js project, install deps, and run a Jest test suite with YAML-based test cases; (2) interpret failures spanning arithmetic, comparison, parsing, and unit conversion subsystems; (3) read a specification document to understand correct behavior for two distinct unit systems (calendar durations vs UCUM); (4) trace through a recursive-descent parser, AST evaluator, and unit conversion layer to locate root causes; (5) fix 6 interacting bugs where some mask others (e.g., the above-week threshold bug hides the calendar-to-UCUM comparison stub, and the missing UCUM time units prevent cross-system tests from even reaching the comparison path); (6) implement the missing extended UCUM time unit table entries ('d','wk','ms') with correct conversion factors; (7) design and implement a mixed calendar/UCUM arithmetic subsystem that handles at-or-below-week calendar durations combined with UCUM time units, including directional unit conversion and singular/plural normalization; (8) validate that the new implementation interacts correctly with all bug fixes across both test suites."""
+solution_explanation = """Eight fixes/implementations across three files: (1) units.js: remove 'week'/'weeks' from the above-week threshold set; (2) units.js: add 'd' (86400s), 'wk' (604800s), 'ms' (0.001s) to the ucumUnits table; (3) evaluator.js addQuantities: add year/month special case using exact 1y=12mo factor before seconds-based conversion; (4) evaluator.js multiply: change compound unit separator from '*' to '.'; (5) evaluator.js compareMixedDurations: implement calendar-to-UCUM time comparison via seconds conversion; (6) evaluator.js divide: fix number/quantity result unit from '/' to '1/'; (7) parser.js: change UCUM tokenizer regex from /[a-zA-Z]/ to /[a-zA-Z0-9]/ to match unit '1'; (8) evaluator.js addQuantities: implement mixed calendar/UCUM arithmetic by detecting operand systems, enforcing above-week and time-dimension checks, converting both to seconds, and returning result in left operand's unit system with proper normalization."""
+verification_explanation = """test_state.py invokes the CLI (node /app/src/index.js) with ~55 expressions covering all 8 bug/implementation categories. Tests include: year+month arithmetic (bug 3), compound unit multiplication (bug 4), calendar-vs-UCUM comparison at/below week threshold (bugs 1+5), dimensionless unit '1' (bug 7), number/quantity division unit format (bug 6), extended UCUM time unit arithmetic and comparison (gap A: 'd','wk','ms'), mixed calendar/UCUM arithmetic in both directions (gap B), cross-system comparison with extended units requiring all three of bugs 1+5 and gap A to be fixed simultaneously, plus regression tests for correct behavior that must remain unbroken."""
+category = "applied_computing"
+tags = ["fhirpath", "debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhirpath-quantity-eval"

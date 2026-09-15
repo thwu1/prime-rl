@@ -1,0 +1,7 @@
+test_cases:
+- {in: testdata/1.in, out: testdata/1.out, points: 0}
+- {in: testdata/2.in, out: testdata/2.out, points: 0}
+time_limit: 5.0
+memory_limit: 262144
+checker: bridged
+custom_judge: checker.cpp

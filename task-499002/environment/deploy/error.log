@@ -1,0 +1,22 @@
+[2025-01-15 14:32:18] KTransformers SGLang Server v0.5.2 starting...
+[2025-01-15 14:32:18] Loading model configuration from /models/DeepMoE-47B-FP8/config.json
+[2025-01-15 14:32:18] Model architecture: MoEForCausalLM
+[2025-01-15 14:32:18]   MoE layers: 8, Experts per layer: 12, Active per token: 2
+[2025-01-15 14:32:19] Hardware detection:
+[2025-01-15 14:32:19]   GPU 0: NVIDIA GeForce RTX 4090 (24576 MiB)
+[2025-01-15 14:32:19]   CPU threads requested: 96
+[2025-01-15 14:32:20] Initializing kt-kernel with method: BF16
+[2025-01-15 14:32:20] WARNING: Model quantization_config specifies quant_method=fp8, but kt_method is set to BF16. Precision mismatch may cause errors or degraded quality.
+[2025-01-15 14:32:21] Allocating non-expert GPU tensors... 25000000000 bytes (23841 MiB)
+[2025-01-15 14:32:22] Allocating expert GPU memory:
+[2025-01-15 14:32:22]   kt_num_gpu_experts=8 x num_moe_layers=8 = 64 expert slots
+[2025-01-15 14:32:22]   Expert weight size: 25559040 bytes per expert
+[2025-01-15 14:32:22]   Total expert GPU memory: 1635778560 bytes (1560 MiB)
+[2025-01-15 14:32:22]   Total GPU memory required: 26635778560 bytes (25401 MiB)
+[2025-01-15 14:32:22]   Available GPU memory: 25769803776 bytes (24576 MiB)
+[2025-01-15 14:32:22] FATAL ERROR: CUDA out of memory
+[2025-01-15 14:32:22]   Required: 26635778560 bytes
+[2025-01-15 14:32:22]   Available: 25769803776 bytes
+[2025-01-15 14:32:22]   Overshoot: 865974784 bytes (825 MiB)
+[2025-01-15 14:32:22] Hint: reduce --kt-num-gpu-experts or adjust --mem-fraction-static
+[2025-01-15 14:32:22] Server terminated with exit code 1

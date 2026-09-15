@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level expertise in CDISC SDTM clinical data standards (SDTMIG v3.3). The solver must handle 8 interdependent output domains including a Laboratory domain with SI unit conversions (using test-specific factors for glucose, creatinine, ALT, hemoglobin), reference range indicator derivation, dose modification handling (splitting EX records for dose reductions and interruptions), cross-year Study Day computations with the non-intuitive "no day 0" convention, leap year birthday age calculation, and multi-arm treatment assignment — all while maintaining strict cross-domain USUBJID/STUDYID consistency. This combination of regulatory domain knowledge, numerical computation, and multi-domain data transformation is well beyond undergraduate capability."""
+solution_explanation = """A Python script reads all raw CSV/JSON files, builds a RFSTDTC lookup per subject, then iterates through each domain applying the correct transformations: date parsing (MM/DD/YYYY to ISO 8601) with cross-year handling, age computation with leap year birthday support, severity/seriousness/outcome controlled terminology mappings, VSTESTCD standardization, Study Day derivation across year boundaries, Lab SI unit conversion using protocol-specified factors with 2dp rounding and reference range flagging, EX record sequencing for dose modifications, SUPPAE extraction for body location, and TS parameter assembly. Outputs 8 conformant CSV files."""
+verification_explanation = """Tests verify ~90 specific assertions across all 8 domains: file existence, required columns, exact row counts, STUDYID/DOMAIN values, USUBJID format via regex, specific computed AGE values for all 8 subjects (including leap year birthday), specific Study Day values for cross-year calculations, exact SI-converted lab values (6.99 mmol/L glucose, 132.6 umol/L creatinine, etc.), reference range flags (HIGH/LOW/NORMAL), dose modification record counts and specific doses, cross-domain USUBJID consistency, and TS parameter completeness."""
+category = "applied_computing"
+tags = ["clinical-data-standards", "sdtm"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sdtm-dataset-construction"

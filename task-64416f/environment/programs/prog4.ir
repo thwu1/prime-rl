@@ -1,0 +1,19 @@
+# Program 4: Loop with constant propagation and invariant computation
+# Expected output: 200
+func main()
+  n = 10
+  i = 0
+  s = 0
+  loop:
+  cond = i < n
+  if cond goto body
+  goto done
+  body:
+  t = n * 2
+  s = s + t
+  i = i + 1
+  goto loop
+  done:
+  print s
+  return 0
+endfunc

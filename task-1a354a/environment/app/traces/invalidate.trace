@@ -1,0 +1,6 @@
+# invalidate.trace — read sharing then write invalidation
+# Tests: BusUpgr (S->M), coherence miss, Flush on snooped BusRd of M line
+0 R 0x0000
+1 R 0x0000
+0 W 0x0000
+1 R 0x0000

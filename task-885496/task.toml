@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a complete GPU ISA and execution model from ~12 SystemVerilog modules without any specification document. The agent must synthesize understanding across decoder, ALU, register file, program counter, scheduler, dispatcher, LSU, and memory controller modules to extract: the 16-bit instruction encoding format with instruction-type-specific field semantics, all opcodes, the unsigned 8-bit CMP-to-NZP flag mapping (where Verilog's unsigned subtraction means the P flag is always zero — a subtle trap), shared-PC branching with last-thread-wins resolution, block-based thread dispatch with partial final blocks, special register write protection, and async memory load/store semantics. Getting the CMP/NZP behavior correct requires understanding Verilog unsigned arithmetic evaluation, not just reading the RTL superficially."""
+solution_explanation = """The solution implements a two-pass assembler that parses assembly text, resolves labels to instruction addresses, maps register names and immediates to 4-bit fields, and encodes each instruction type according to the decoder's format. The simulator processes blocks sequentially, executing each instruction across all active threads in a block with correct 8-bit unsigned wrapping, CMP-to-NZP flag propagation (N=nonzero, Z=zero, P=never), memory load/store, and last-thread branch resolution."""
+verification_explanation = """Tests verify assembler encoding for every instruction type against known binary values. Simulator tests verify final data memory state for matrix addition (8 threads), matrix multiplication with loops (4 threads), SAXPY (4 threads), polynomial evaluation (4 threads), and non-aligned thread counts (6 threads / 4 per block). Edge-case tests verify 8-bit unsigned overflow wrapping, special register write protection, and the non-obvious unsigned CMP/NZP semantics (BRz on equal, BRn on unequal, BRp never taken). End-to-end tests combine assembler and simulator."""
+category = "computer_architecture"
+tags = ["gpu-simulation", "hardware-reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-885496"

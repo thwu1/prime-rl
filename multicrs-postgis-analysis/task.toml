@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level GIS expertise: setting up PostgreSQL/PostGIS from scratch in a container, correctly identifying and handling three different coordinate reference systems (EPSG:4326, EPSG:32633, EPSG:3035) across heterogeneous data formats, writing complex spatial SQL queries involving ST_Transform, ST_ClusterDBSCAN, ST_Contains, ST_Intersection, ST_Distance, and ST_Area with proper CRS selection for metric accuracy. An agent must read metadata to discover non-standard CRS in GeoJSON files and use ogr2ogr's -a_srs flag correctly — a subtle but critical step that requires understanding the GeoJSON spec vs. actual data encoding."""
+solution_explanation = """Configure PostgreSQL trust authentication, start the service, create a PostGIS-enabled database. Load stations from CSV and add a geometry column in EPSG:4326. Use ogr2ogr with -a_srs to load districts (EPSG:32633) and protected areas (EPSG:3035) with correct SRID assignment. Load rivers as EPSG:4326. Run five spatial analysis queries: (1) LEFT JOIN stations to districts via ST_Contains with ST_Transform, compute area in EPSG:3035; (2) ST_ClusterDBSCAN on stations projected to EPSG:3035; (3) ST_Intersection to clip rivers to districts, ST_Length and ST_Distance in EPSG:3035; (4) spatial join stations to protected areas via ST_Contains; (5) aggregate summary from prior queries. Export results as CSV/JSON."""
+verification_explanation = """Tests independently verify results using Python (shapely + pyproj) without relying on PostGIS. Key checks: (1) station-to-district counts verified by transforming district polygons from EPSG:32633 to EPSG:4326 and testing point containment with shapely; (2) pollutant averages cross-checked; (3) cluster structure consistency validated; (4) station-in-protected-area containment independently computed by transforming EPSG:3035 polygons; (5) summary.json cross-checked against CSV outputs for internal consistency."""
+category = "applied_computing"
+tags = ["postgis", "spatial-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multicrs-postgis-analysis"

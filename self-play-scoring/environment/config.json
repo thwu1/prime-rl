@@ -1,0 +1,5 @@
+{
+  "tiebreak_strategy": "lowest_index",
+  "missing_entry_default": {"fail_to_pass": 0, "pass_to_pass": 0},
+  "zero_denominator_value": 0.0
+}

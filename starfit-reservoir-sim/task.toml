@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of hydrological domain knowledge with NetCDF data engineering tools: (1) diagnose and repair structural inconsistencies in a NetCDF dataset using ncdump for inspection and NCO utilities (ncrename, ncatted) for schema repair — identifying misnamed variables, missing global attributes, and schema mismatches from Python tracebacks and data inspection rather than explicit instructions; (2) diagnose three interacting defects in a STARFIT reservoir simulation framework from physical symptoms alone (a Fourier phase-shift in NOR envelopes, a standardized-inflow normalization bias producing ~1× mean-flow excess release, and a mass-conservation-violating storage protection mechanism) — requiring the solver to map observable anomalies to specific code paths through domain reasoning; (3) implement Muskingum channel routing with stability-constrained coefficients from a mathematical specification; (4) build a multi-reservoir cascade orchestrator coupling three reservoirs via incrementally-routed flows with both independent and coordinated operating policies including upstream hedging and downstream demand awareness; (5) implement standard reservoir performance metrics (reliability, resilience, vulnerability) and demonstrate that coordinated operation outperforms independent operation. The solver must holistically understand how NetCDF metadata structure, single-reservoir physics modules, and cascade-level orchestration interact as a coupled system."""
+solution_explanation = """1. Use ncdump -h to inspect cascade.nc structure, discover misnamed variables (muskingum_K vs expected reach_K_days, muskingum_x vs reach_x, init_storage_mcm vs initial_storage_MCM) and that demand_target_cms global attribute is absent (stored as variable downstream_demand_cms). 2. Fix with: ncrename -v muskingum_K,reach_K_days -v muskingum_x,reach_x -v init_storage_mcm,initial_storage_MCM cascade.nc; extract demand value; ncatted -a demand_target_cms,global,c,d,<value> cascade.nc. 3. Fix nor.py: swap sin/cos in nor_lower to match the standard Fourier form used in nor_upper (alpha*sin + beta*cos). 4. Fix release.py: change i_std = v_f/v_m to v_f/v_m - 1.0 (deviation from mean, not ratio). 5. Fix simulation.py: in negative storage protection, adjust release_cms to equal q_in + storage*MCM_TO_M3PS_DAY to preserve mass balance. 6. Implement routing.py: Muskingum coefficients D=K(1-x)+dt/2, C0/C1/C2; route via Q_out(t)=C0*Q_in(t)+C1*Q_in(t-1)+C2*Q_out(t-1). 7. Implement cascade.py: wire three reservoirs with incremental Muskingum routing and coordinated policy with upstream hedging factor=clamp(1+0.5*(0.5-ds_avail),0.5,1.5). 8. Implement metrics.py: reliability, resilience, vulnerability. 9. Run pipeline."""
+verification_explanation = """Tests verify: (1) all 5 output files exist with correct format and 730 rows per reservoir; (2) per-reservoir mass balance within 1e-8 relative error for all 3 reservoirs under both policies; (3) daily mass balance per reservoir; (4) storage non-negative and within capacity for all reservoirs; (5) spill only at capacity; (6) outflow = release + spill; (7) all flows non-negative; (8) routing volume conservation within 1%; (9) routing attenuation (peak out <= peak in); (10) routing non-negative flows; (11) performance metrics in valid [0,1] ranges; (12) system mass balance < 1e-6; (13) coordinated reliability >= independent; (14) coordinated vulnerability <= independent + 0.01; (15) cascade inflow consistency — each reservoir's total inflow equals lateral plus routed upstream."""
+category = "scientific_computing"
+tags = ["hydrology", "netcdf_tooling"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/starfit-reservoir-sim"

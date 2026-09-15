@@ -1,0 +1,18 @@
+{
+    "architecture": "Intel Xeon E5-2680 v3 (Haswell)",
+    "num_sockets": 1,
+    "cores_per_socket": 12,
+    "clock_ghz": 2.5,
+    "simd_width_dp": 4,
+    "fma_capable": true,
+    "cache_sizes_bytes": {
+        "L1": 32768,
+        "L2": 262144,
+        "L3": 20971520
+    },
+    "cache_line_bytes": 64,
+    "theoretical_peak_gflops": 120.0,
+    "theoretical_peak_bw_gb_per_s": 59.7,
+    "precision": "FP64",
+    "bytes_per_element": 8
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-tool pipeline (Makefile + Python + SQLite) to evaluate metagenome profiling data. The solver must: parse the Bioboxes profiling format v0.10.0 handling comments, multi-sample boundaries, duplicate TAXID merging, zero-abundance filtering, and missing samples; reverse-engineer metric computations from partial reference outputs without formulas; parse NCBI nodes.dmp tab-pipe-tab format and load it into a SQLite database; validate TAXPATH consistency via database queries; deduce the composite ranking formula from two reference data points; and design a Makefile with proper target dependencies orchestrating separate pipeline stages. Combines format-reverse-engineering, multi-tool integration (Make, Python, SQLite), metric computation, and data validation."""
+solution_explanation = """Create a Makefile with phony targets (all, taxonomy-db, metrics, validate) and file targets that orchestrate a Python pipeline script. The taxonomy sub-command parses nodes.dmp (tab-pipe-tab delimited) and loads it into a SQLite database with schema (tax_id INTEGER PRIMARY KEY, parent_id INTEGER, rank TEXT). The metrics sub-command parses Bioboxes profiles handling comments (#), duplicate TAXID merging (sum), zero-abundance filtering, and missing samples. Compute per-rank metrics: L1 = sum|gs-pred|/100, Bray-Curtis = sum|gs-pred|/(sum_gs+sum_pred), precision/recall/F1/Jaccard from presence/absence sets, Shannon = -sum(p*ln(p)) where p=pct/100. For missing samples, pred is empty yielding L1=1, BC=1, P=R=F1=J=0. Composite = (avg_P + avg_R + avg_F1 + avg_J + (1-avg_L1/2) + (1-avg_BC)) / 6, deducible from reference_rankings.tsv. The validate sub-command checks percentage sums and TAXPATH parent consistency via SQL queries against taxonomy.db."""
+verification_explanation = """Tests verify: (1) Makefile existence and independent taxonomy-db target operation, (2) SQLite database schema, row count (21), and specific parent-child relationships, (3) output file existence, format, correct columns, and row counts (32 results, 4 rankings), (4) exact metric values across all four tools for specific (tool, sample, rank) tuples including edge cases, (5) duplicate TAXID merging in ToolA species and ToolD genus, (6) zero-abundance filtering in ToolB S2 genus, (7) missing sample S2 for ToolD with default values, (8) ToolD phylum sum=95 affecting Bray-Curtis denominator, (9) correct ranking order with verified composite scores, (10) validation.json with exactly 2 warnings (ToolD phylum sum + TAXPATH mismatch) and no false positives, (11) all metrics within valid ranges, (12) correct sorting of output files."""
+category = "data_science"
+tags = ["bioinformatics", "metagenomics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/metagenome-profiling-assessment"

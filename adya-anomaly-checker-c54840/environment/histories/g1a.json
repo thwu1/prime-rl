@@ -1,0 +1,6 @@
+{
+  "transactions": [
+    {"id": 0, "type": "fail", "ops": [{"op": "append", "key": "x", "val": 1}]},
+    {"id": 1, "type": "ok", "ops": [{"op": "r", "key": "x", "val": [1]}]}
+  ]
+}

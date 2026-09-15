@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Cisco IOS-XE knowledge across OSPF multi-area design, BGP redistribution, security hardening (CoPP, ACLs, NTP authentication), and BFD. The agent must independently discover 10+ subtle configuration deviations by systematically comparing 6 router configs against a design specification and cross-referencing operational state data for corroboration. Beyond identification, the agent must evaluate risk severity, design safe remediation sequences that avoid adjacency disruptions during migration, generate unified diff patches via diff tooling, and produce a Graphviz topology diagram annotating defect locations. Demands fluency with graphviz/dot, diff, jq, ipcalc, and Python scripting for config parsing — tools that must be composed together to produce 4 distinct deliverables."""
+solution_explanation = """Parse each IOS-XE configuration file and cross-reference against the design specification and operational state data. Identify 10 planted defects spanning authentication, prefix-list references, redistribution loop prevention, interface costs, ACL scope, NTP completeness, CoPP direction, BFD enablement, passive-interface assignments, and network statement conflicts. For each defect, assign a risk score based on blast radius and impact, determine a safe migration phase, and generate corrected IOS-XE commands. Create remediated config copies and produce unified diff patches. Build a migration plan with dependency ordering. Generate a Graphviz DOT topology diagram and render to SVG."""
+verification_explanation = """Tests verify: (1) audit_report.json contains all 10 planted defects with correct structure including risk_score and migration_phase fields, (2) remediation_patches/ directory contains unified diff patch files for affected routers, (3) migration_plan.json has valid phase structure with dependency reasoning, (4) topology.svg and topology.dot exist and contain valid content."""
+category = "networking"
+tags = ["enterprise-networking", "configuration-audit", "graphviz", "risk-assessment"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/network-config-audit"

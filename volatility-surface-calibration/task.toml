@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantitative finance knowledge: implementing Newton-Raphson implied volatility solvers with numerical stability, fitting SVI parametric models via constrained nonlinear optimization across multiple expiration slices, verifying Durrleman's no-arbitrage condition (a non-trivial density positivity check involving first and second derivatives of the total variance function), implementing vectorized Monte Carlo simulation with path-dependent volatility lookup from the calibrated surface using total variance interpolation, and computing analytical Black-Scholes Greeks for a multi-leg portfolio. The combination of numerical methods, mathematical finance theory, optimization, and simulation is beyond standard textbook exercises."""
+solution_explanation = """The solution implements: (1) Newton-Raphson IV solver with Brenner-Subrahmanyam initial guess and bisection fallback for robustness, (2) SVI fitting via L-BFGS-B with multiple random restarts to avoid local minima, (3) Durrleman's condition evaluated on a dense grid of log-moneyness values, (4) vectorized Monte Carlo with SVI surface interpolation for barrier and Asian exotic pricing, (5) analytical BS Greeks aggregation with proper sign conventions for long/short positions."""
+verification_explanation = """Tests verify: IV roundtrip consistency (BS(IV) matches market price within 0.05), SVI fit quality (RMSE < 5e-5), parameter constraint satisfaction (b>=0, |rho|<1, sigma>0), butterfly and calendar arbitrage freedom, exotic option prices within structural bounds (barrier < vanilla, Asian < vanilla, positive prices, reasonable standard errors), put-call parity, call/put IV consistency, and iron condor Greek sign properties (negative gamma, negative vega, positive theta, near-zero delta)."""
+category = "quantitative_finance"
+tags = ["options-pricing", "volatility-surface"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/volatility-surface-calibration"

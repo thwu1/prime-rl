@@ -1,0 +1,15 @@
+{
+  "trace_id": "trace_04_link_failure",
+  "description": "Link failure and recovery on point-to-point network N2 between R3 and R4",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R4", "event": "HelloReceived"},
+    {"time": 2, "router": "R3", "neighbor": "R4", "event": "2-WayReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 4, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "ls_request_list_empty": true},
+    {"time": 5, "router": "R3", "neighbor": "R4", "event": "InactivityTimer"},
+    {"time": 6, "router": "R3", "neighbor": "R4", "event": "HelloReceived"},
+    {"time": 7, "router": "R3", "neighbor": "R4", "event": "2-WayReceived"},
+    {"time": 8, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 9, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "ls_request_list_empty": true}
+  ]
+}

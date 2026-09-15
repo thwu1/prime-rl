@@ -1,0 +1,11 @@
+{
+  "processor": "Intel Xeon E5-2698 v4",
+  "cores": 16,
+  "clock_ghz": 2.2,
+  "simd_width_bytes": 32,
+  "fma_capable": true,
+  "memory_channels": 2,
+  "memory_type": "DDR4",
+  "memory_frequency_mhz": 3200,
+  "memory_bus_width_bytes": 8
+}

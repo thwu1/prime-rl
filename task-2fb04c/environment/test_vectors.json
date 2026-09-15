@@ -1,0 +1,392 @@
+[
+  {
+    "name": "daa_low_nibble_adjust",
+    "description": "DAA: low nibble > 9, only low adjustment needed",
+    "bytes": [39],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 75, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 81,
+      "flags": 18
+    }
+  },
+  {
+    "name": "daa_high_nibble_adjust",
+    "description": "DAA: AL > 0x99, only high adjustment needed",
+    "bytes": [39],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 163, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 3,
+      "flags": 7
+    }
+  },
+  {
+    "name": "daa_both_adjust_wrapping",
+    "description": "DAA: AL=0xFA triggers both adjustments with wrapping; second condition must use original AL",
+    "bytes": [39],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 250, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 96,
+      "flags": 23
+    }
+  },
+  {
+    "name": "daa_both_adjust_af_set",
+    "description": "DAA: AL=0xFB with AF=1; second condition must check original AL not adjusted",
+    "bytes": [39],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 251, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 18, "ip": 4096
+    },
+    "expected": {
+      "ax": 97,
+      "flags": 19
+    }
+  },
+  {
+    "name": "das_basic_no_adjust",
+    "description": "DAS: AL=0x73, no adjustment needed",
+    "bytes": [47],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 115, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 115,
+      "flags": 2
+    }
+  },
+  {
+    "name": "das_both_adjust_wrapping",
+    "description": "DAS: AL=0x9A triggers both adjustments; second condition must use original AL",
+    "bytes": [47],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 154, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 52,
+      "flags": 19
+    }
+  },
+  {
+    "name": "das_both_adjust_af_set",
+    "description": "DAS: AL=0x9E with AF=1; hardware validates old_al check",
+    "bytes": [47],
+    "flags_mask": 213,
+    "initial": {
+      "ax": 158, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 18, "ip": 4096
+    },
+    "expected": {
+      "ax": 56,
+      "flags": 19
+    }
+  },
+  {
+    "name": "aam_standard_base10",
+    "description": "AAM with standard base 10 (0x0A immediate)",
+    "bytes": [212, 10],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 55, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 1285,
+      "flags": 6
+    }
+  },
+  {
+    "name": "aam_base7",
+    "description": "AAM with non-standard base 7; must use actual immediate operand",
+    "bytes": [212, 7],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 23, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 770,
+      "flags": 2
+    }
+  },
+  {
+    "name": "aam_base16",
+    "description": "AAM with base 16; validates generalized immediate operand",
+    "bytes": [212, 16],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 47, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 527,
+      "flags": 6
+    }
+  },
+  {
+    "name": "aad_standard_base10",
+    "description": "AAD with standard base 10",
+    "bytes": [213, 10],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 773, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 35,
+      "flags": 2
+    }
+  },
+  {
+    "name": "aad_base8",
+    "description": "AAD with non-standard base 8; must use actual immediate operand",
+    "bytes": [213, 8],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 1283, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 43,
+      "flags": 6
+    }
+  },
+  {
+    "name": "aad_base3",
+    "description": "AAD with base 3; validates generalized immediate operand",
+    "bytes": [213, 3],
+    "flags_mask": 196,
+    "initial": {
+      "ax": 1801, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 30,
+      "flags": 6
+    }
+  },
+  {
+    "name": "salc_cf_set",
+    "description": "SALC (0xD6): undocumented opcode, AL=0xFF when CF=1",
+    "bytes": [214],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 0, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 3, "ip": 4096
+    },
+    "expected": {
+      "ax": 255,
+      "flags": 3
+    }
+  },
+  {
+    "name": "salc_cf_clear",
+    "description": "SALC (0xD6): AL=0x00 when CF=0, preserves AH",
+    "bytes": [214],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 4863, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 4608,
+      "flags": 2
+    }
+  },
+  {
+    "name": "salc_preserves_flags",
+    "description": "SALC (0xD6): does not modify any flags",
+    "bytes": [214],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 22136, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 131, "ip": 4096
+    },
+    "expected": {
+      "ax": 22271,
+      "flags": 131
+    }
+  },
+  {
+    "name": "shl_ax_cl_small",
+    "description": "SHL AX, CL with CL=4; works correctly with or without count masking",
+    "bytes": [211, 224],
+    "flags_mask": 2245,
+    "initial": {
+      "ax": 32769, "bx": 0, "cx": 4, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 16,
+      "flags": 2
+    }
+  },
+  {
+    "name": "shl_ax_cl_33",
+    "description": "SHL AX, CL with CL=33; 8088 does NOT mask count, all bits shift out",
+    "bytes": [211, 224],
+    "flags_mask": 2245,
+    "initial": {
+      "ax": 32769, "bx": 0, "cx": 33, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 0,
+      "flags": 70
+    }
+  },
+  {
+    "name": "shl_ax_cl_32",
+    "description": "SHL AX, CL with CL=32; on 8088 all bits vanish, on 286+ count masked to 0",
+    "bytes": [211, 224],
+    "flags_mask": 2245,
+    "initial": {
+      "ax": 4660, "bx": 0, "cx": 32, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 0,
+      "flags": 70
+    }
+  },
+  {
+    "name": "shr_ax_cl_33",
+    "description": "SHR AX, CL with CL=33; 8088 processes full count, all bits shift out",
+    "bytes": [211, 232],
+    "flags_mask": 2245,
+    "initial": {
+      "ax": 43981, "bx": 0, "cx": 33, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 0,
+      "flags": 70
+    }
+  },
+  {
+    "name": "add_al_cl_overflow",
+    "description": "ADD AL, CL: 0x7F + 0x01 = 0x80, signed overflow",
+    "bytes": [0, 200],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 127, "bx": 0, "cx": 1, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 128,
+      "flags": 2194
+    }
+  },
+  {
+    "name": "xor_ax_bx",
+    "description": "XOR AX, BX: 0xAAAA ^ 0x5555 = 0xFFFF",
+    "bytes": [49, 216],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 43690, "bx": 21845, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 65535,
+      "flags": 134
+    }
+  },
+  {
+    "name": "sub_bl_al_borrow",
+    "description": "SUB BL, AL: 0x03 - 0x05 = 0xFE, borrow",
+    "bytes": [40, 195],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 5, "bx": 3, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "bx": 254,
+      "flags": 147
+    }
+  },
+  {
+    "name": "inc_si_wrap",
+    "description": "INC SI: 0xFFFF + 1 wraps to 0, CF preserved",
+    "bytes": [70],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 0, "bx": 0, "cx": 0, "dx": 0,
+      "si": 65535, "di": 0, "bp": 0, "sp": 256,
+      "flags": 3, "ip": 4096
+    },
+    "expected": {
+      "si": 0,
+      "flags": 87
+    }
+  },
+  {
+    "name": "neg_al_0x80",
+    "description": "NEG AL: NEG 0x80 = 0x80 (overflow), CF=1, OF=1",
+    "bytes": [246, 216],
+    "flags_mask": 2261,
+    "initial": {
+      "ax": 128, "bx": 0, "cx": 0, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 128,
+      "flags": 2179
+    }
+  },
+  {
+    "name": "mul_al_cl",
+    "description": "MUL CL: AL * CL = 80 * 3 = 240; AH=0 so CF=OF=0",
+    "bytes": [246, 225],
+    "flags_mask": 2049,
+    "initial": {
+      "ax": 80, "bx": 0, "cx": 3, "dx": 0,
+      "si": 0, "di": 0, "bp": 0, "sp": 256,
+      "flags": 2, "ip": 4096
+    },
+    "expected": {
+      "ax": 240,
+      "flags": 2
+    }
+  }
+]

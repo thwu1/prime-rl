@@ -1,0 +1,42 @@
+! ============================================================
+!  Reactor Transient Benchmark - Configuration Input
+!  Derived from OECD/NEA reactor physics benchmark parameters
+!  Format: keyword-value card structure; units in brackets
+! ============================================================
+!
+! Kinetics card - delayed neutron precursor data
+! -------------------------------------------------------
+CARD KINETICS
+  NUM_PRECURSOR_GROUPS  6
+  PROMPT_GEN_TIME       2.0E-05    ! [s]
+  !
+  ! Delayed neutron precursor group data
+  ! Columns: group_id  decay_constant  delayed_yield_fraction
+  PRECURSOR_DATA
+    1   0.0124    0.000215
+    2   0.0305    0.001424
+    3   0.111     0.001274
+    4   0.301     0.002568
+    5   1.14      0.000748
+    6   3.01      0.000273
+  END_PRECURSOR_DATA
+END_CARD
+!
+! Thermal-hydraulic card - lumped two-node model parameters
+! -------------------------------------------------------
+CARD THERMAL
+  POWER_NOMINAL    50.0       ! [kW]
+  FUEL_HEAT_CAP    600.0      ! [J/K]
+  MOD_HEAT_CAP     4000.0     ! [J/K]
+  FUEL_MOD_HTC     100.0      ! [W/K]
+  MOD_COOL_HTC     2500.0     ! [W/K]
+  COOLANT_INLET_T  286.85     ! [C]
+  ALPHA_FUEL       -3.0E-05   ! [dk/k/K]
+  ALPHA_MOD        -1.0E-04   ! [dk/k/K]
+END_CARD
+!
+! Cross-section library configuration
+! -------------------------------------------------------
+CARD XS_CONFIG
+  XS_SOURCE  spectral_feedback.f90  ! [Fortran 90 source]
+END_CARD

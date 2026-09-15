@@ -1,0 +1,15 @@
+{
+  "qemu-arm64": ["lava-collabora", "lava-baylibre", "lava-broonie", "lava-pengutronix", "lava-internal"],
+  "rk3399-gru-kevin": ["lava-collabora", "lava-baylibre", "lava-pengutronix"],
+  "sun50i-h6-pine-h64": ["lava-collabora", "lava-baylibre"],
+  "x86-64-pc": ["lava-collabora", "lava-kontron", "lava-pengutronix", "lava-internal"],
+  "qemu-riscv64": ["lava-riscv", "lava-internal"],
+  "db410c": ["lava-baylibre"],
+  "sifive-hifive-unmatched": ["lava-riscv"],
+  "imx8mp-evk": ["lava-pengutronix", "lava-kontron"],
+  "meson-g12b-a311d-khadas-vim3": ["lava-baylibre", "lava-broonie"],
+  "bcm2711-rpi-4-b": ["lava-broonie", "lava-collabora"],
+  "qemu-x86_64": ["lava-collabora", "lava-broonie", "lava-pengutronix", "lava-kontron", "lava-internal"],
+  "renesas-rzg2l": ["lava-cip", "lava-pengutronix"],
+  "unknown-prototype-board": []
+}

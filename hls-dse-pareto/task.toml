@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing 3D dominated hypervolume computation (non-trivial exact algorithm), deriving the combinatorial sampling probability formula for without-replacement draws, multi-objective non-dominated sorting, building a Make-orchestrated CLI pipeline with proper dependency graphs, and integrating an HLS cost model with multi-stage feasibility filtering. The agent must understand multi-objective optimization theory, combinatorial probability, and build-system design without being told which algorithms to use."""
+solution_explanation = """The solution builds a Python CLI tool (argparse --mode) and a Makefile with file-based dependency targets. It expands the YAML configuration space (3456 configs), evaluates each against 5 HLS designs, implements non-dominated sorting for 3-objective Pareto fronts, computes Pass@K via log-space hypergeometric formula, computes 3D hypervolume using a z-sweep algorithm with 2D front tracking, and generates structured JSON/CSV outputs. The Makefile encodes evaluate -> optimize|statistics -> report dependency ordering."""
+verification_explanation = """Tests verify: Makefile existence and target structure with make dry-run validation; CLI tool existence and mode support; output file JSON/CSV structure; total configuration count (3456); Pass@K formula consistency via independent log-space computation; Pareto non-domination mathematical property; spot-check PPA values for known configs; synthesis failure detection; Pass@K monotonicity; stage count consistency; full Pareto completeness via independent recomputation; differential PPA sign and magnitude correctness; 3D hypervolume via independent z-sweep recomputation for counter_8bit; CSV column presence and synthesizable-row PPA population."""
+category = "optimization"
+tags = ["hls-design-space-exploration", "multi-objective-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hls-dse-pareto"

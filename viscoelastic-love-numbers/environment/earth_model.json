@@ -1,0 +1,13 @@
+{
+    "model_name": "Yuen-Sabadini-Boschi_1982",
+    "nv": 2,
+    "layers": [
+        {"name": "core", "radius_km": 3480.0, "density_kg_m3": 10927.0, "rigidity_1e11_Pa": 0.0, "viscosity_1e21_Pa_s": 0.0},
+        {"name": "lower_mantle", "radius_km": 5701.0, "density_kg_m3": 4919.0, "rigidity_1e11_Pa": 2.17, "viscosity_1e21_Pa_s": 2.0},
+        {"name": "upper_mantle", "radius_km": 6271.0, "density_kg_m3": 4430.0, "rigidity_1e11_Pa": 0.837, "viscosity_1e21_Pa_s": 1.0},
+        {"name": "lithosphere", "radius_km": 6371.0, "density_kg_m3": 2689.0, "rigidity_1e11_Pa": 0.282, "viscosity_1e21_Pa_s": 0.0}
+    ],
+    "lmin": 2,
+    "lmax": 30,
+    "loading": true
+}

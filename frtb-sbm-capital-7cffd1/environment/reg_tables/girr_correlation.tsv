@@ -1,0 +1,10 @@
+parameter	value
+theta	0.03
+floor	0.40
+same_tenor_different_curve	0.999
+different_tenor_different_curve_factor	0.999
+inflation_to_yield_curve	0.40
+xccy_basis_to_any	0.00
+cross_bucket_correlation	0.50
+specified_currencies	EUR,USD,GBP,AUD,JPY,SEK,CAD
+specified_currency_rw_divisor	1.4142135623730951

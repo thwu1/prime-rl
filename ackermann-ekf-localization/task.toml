@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to diagnose why a correctly-implemented EKF performs worse than expected on real sensor data. The underlying cause — systematic range biases on a subset of landmark transponders — is not stated; the solver must discover it through data analysis. The biases are sized to pass individual per-observation consistency checks (within ~2σ of measurement noise), so they cannot be detected by simple outlier rejection. The solver must design an appropriate per-landmark aggregate analysis, determine significance thresholds, and then build a corrected filter pipeline. Multi-tool proficiency (Python EKF implementation, gnuplot scripting, sqlite3 database manipulation) is required throughout."""
+solution_explanation = """Phase 1: Run the baseline EKF (all landmarks) while recording per-landmark range and bearing innovations. Phase 2: For each landmark, compute the mean range innovation and run a one-sample t-test (H₀: μ=0). Landmarks with p<0.01 and |mean|>0.15m are flagged as compromised (landmarks 4 and 9, with +1.0m and +0.8m systematic range biases). Phase 3: Re-run the EKF excluding compromised landmarks to produce the robust trajectory. Phase 4: Compare baseline vs robust RMSE against the ground truth table. Phase 5: Write filter_residuals to SQLite and generate a gnuplot trajectory comparison plot."""
+verification_explanation = """Tests regenerate the deterministic ground truth trajectory from the known control law and compare against the solver's output. Checks include: exact identification of compromised landmarks {4,9} with no false positives and p<0.01; position/heading RMSE below thresholds; robust filter ≥30% better than baseline; NEES consistency; positive-definite bounded covariance; trajectory smoothness; valid PNG plot; correctly-schemed filter_residuals table with consistent counts."""
+category = "robotics"
+tags = ["sensor-fault-detection", "state-estimation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ackermann-ekf-localization"

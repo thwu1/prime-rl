@@ -1,0 +1,135 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="articulated_arm">
+
+  <!-- ===== Global properties ===== -->
+  <xacro:property name="pi_val" value="3.14159265359"/>
+  <xacro:property name="damping_coeff" value="0.5"/>
+  <xacro:property name="friction_coeff" value="0.1"/>
+
+  <!-- ===== Macro: cylindrical arm link with associated revolute joint ===== -->
+  <xacro:macro name="arm_link_joint" params="
+    link_name height radius mass com_z
+    ixx ixy ixz iyy iyz izz
+    joint_name parent_link origin_z axis_xyz
+    lower upper effort velocity">
+
+    <link name="${link_name}">
+      <visual>
+        <geometry><cylinder length="${height}" radius="${radius}"/></geometry>
+        <origin xyz="0 0 ${com_z}" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry><cylinder length="${height}" radius="${radius}"/></geometry>
+        <origin xyz="0 0 ${com_z}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="${mass}"/>
+        <origin xyz="0 0 ${com_z}" rpy="0 0 0"/>
+        <inertia ixx="${ixx}" ixy="${ixy}" ixz="${ixz}"
+                 iyy="${iyy}" iyz="${iyz}" izz="${izz}"/>
+      </inertial>
+    </link>
+
+    <joint name="${joint_name}" type="revolute">
+      <parent link="${parent_link}"/>
+      <child link="${link_name}"/>
+      <origin xyz="0 0 ${origin_z}" rpy="0 0 0"/>
+      <axis xyz="${axis_xyz}"/>
+      <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+      <dynamics damping="${damping_coefficient}" friction="${friction_coeff}"/>
+    </joint>
+
+  </xacro:macro>
+
+  <!-- ===== Base link (no parent joint) ===== -->
+  <link name="base_link">
+    <visual>
+      <geometry><cylinder length="0.1" radius="0.15"/></geometry>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry><cylinder length="0.1" radius="0.15"/></geometry>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <inertia ixx="0.03" ixy="0" ixz="0" iyy="0.03" iyz="0" izz="0.05"/>
+    </inertial>
+  </link>
+
+  <!-- ===== Shoulder: inertia has izz=0.05 violating triangle inequality with ixx=iyy=0.01 ===== -->
+  <xacro:arm_link_joint
+    link_name="shoulder_link" height="0.3" radius="0.05" mass="3.0" com_z="0.15"
+    ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.05"
+    joint_name="shoulder_pan_joint" parent_link="base_link" origin_z="0.1"
+    axis_xyz="0 0 1"
+    lower="${-pi_val}" upper="${pi_val}" effort="100" velocity="1.0"/>
+
+  <!-- ===== Upper arm: axis 0 0.5 0.5 is not unit length ===== -->
+  <xacro:arm_link_joint
+    link_name="upper_arm_link" height="0.4" radius="0.04" mass="2.5" com_z="0.2"
+    ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.005"
+    joint_name="shoulder_lift_joint" parent_link="shoulder_link" origin_z="0.3"
+    axis_xyz="0 0.5 0.5"
+    lower="${-pi_val/2}" upper="${pi_val/2}" effort="80" velocity="1.0"/>
+
+  <!-- ===== Forearm (defined directly, outside macro) ===== -->
+  <link name="forearm_link">
+    <visual>
+      <geometry><cylinder length="0.35" radius="0.035"/></geometry>
+      <origin xyz="0 0 0.175" rpy="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry><cylinder length="0.35" radius="0.035"/></geometry>
+      <origin xyz="0 0 0.175" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="2.0"/>
+      <origin xyz="0 0 0.175" rpy="0 0 0"/>
+      <inertia ixx="0.025" ixy="0" ixz="0" iyy="0.025" iyz="0" izz="0.003"/>
+    </inertial>
+  </link>
+
+  <!-- Elbow joint: child link typo "forarm_link" instead of "forearm_link" -->
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forarm_link"/>
+    <origin xyz="0 0 0.4" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.3562" upper="2.3562" effort="60" velocity="1.5"/>
+    <dynamics damping="0.3" friction="0.1"/>
+  </joint>
+
+  <!-- ===== Wrist: negative mass AND inverted joint limits ===== -->
+  <xacro:arm_link_joint
+    link_name="wrist_link" height="0.1" radius="0.03" mass="-1.0" com_z="0.05"
+    ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"
+    joint_name="wrist_joint" parent_link="forearm_link" origin_z="0.35"
+    axis_xyz="0 0 1"
+    lower="${pi_val/2}" upper="${-pi_val/2}" effort="30" velocity="2.0"/>
+
+  <!-- ===== End effector ===== -->
+  <link name="ee_link">
+    <visual>
+      <geometry><box size="0.06 0.06 0.02"/></geometry>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.06 0.06 0.02"/></geometry>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0003"/>
+    </inertial>
+  </link>
+
+  <joint name="ee_joint" type="fixed">
+    <parent link="wrist_link"/>
+    <child link="ee_link"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+</robot>

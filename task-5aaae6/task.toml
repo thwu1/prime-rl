@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing multiple unannotated bugs spanning PyO3's type system (lifetime elision on Bound return types, Send/Ungil trait bounds on MutexGuard in allow_threads closures), runtime behavior (pyclass borrow-checker panics from missing frozen annotation, Python's automatic __hash__ removal when __eq__ is defined, FromPyObject attribute-vs-item extraction modes), and algorithm correctness (PageRank dangling-node rank leak). Additionally requires designing and implementing two new GIL-aware methods from scratch—adjacency matrix computation and connected-component detection—each demanding correct data extraction from Mutex-protected state, proper lock release before GIL detach, and appropriate algorithm selection."""
+solution_explanation = """Fixes: (1) Add explicit <'py> lifetime to to_dict return type so Bound lifetime comes from Python token. (2) Clone adjacency from MutexGuard and drop it before py.allow_threads in shortest_path. (3) Add #[pyo3(from_item_all)] to EdgeConfig for dict extraction. (4) Add frozen to Graph pyclass and change &mut self to &self on add_node_with_props. (5) Implement __hash__ on Node using DefaultHasher on id. (6) Fix compute_pagerank to detect dangling nodes and redistribute their rank equally. New methods: (7) to_adjacency_matrix clones data from Mutex, sorts node IDs, builds index map, computes matrix inside allow_threads. (8) connected_components builds undirected adjacency projection, runs DFS inside allow_threads, returns sorted components."""
+verification_explanation = """Build with maturin develop, then run pytest. Tests cover: module import, node creation/equality/hashability, edge creation from plain dicts, graph serialization via to_dict, weighted shortest path with GIL release, PageRank rank conservation with dangling nodes, adjacency matrix construction (directed/undirected/multi-edge), connected component detection (single/multiple/isolated/directed-as-undirected), and concurrent multi-threaded access without borrow panics."""
+category = "debugging"
+tags = ["rust", "pyo3"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5aaae6"

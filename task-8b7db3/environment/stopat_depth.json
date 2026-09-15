@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "deep_prop": {
+      "expression": "G[0:16](start -> F[0:16] done)",
+      "signals": ["start", "done"],
+      "temporal_depth": 16
+    }
+  },
+  "signal_dependencies": {
+    "start": [],
+    "done": ["s1"],
+    "s1": ["s2"],
+    "s2": ["s3"],
+    "s3": ["s4"],
+    "s4": ["origin"],
+    "origin": []
+  },
+  "decompositions": [
+    {
+      "strategy": "stopat",
+      "target": "deep_prop",
+      "params": {
+        "depth_limit": 3,
+        "free_variable_prefix": "free_"
+      }
+    }
+  ]
+}

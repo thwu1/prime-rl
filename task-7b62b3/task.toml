@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding Knuth's DLX input format (either by reading the CWEB literate source or reverse-engineering problem files), implementing an exact cover solver (Algorithm X), diagnosing a subtle constraint modeling bug in a Sudoku DLX encoding (transposed block index formula), and reverse-engineering an unlabeled exact cover problem (Plus Noise 5×5 toroidal grid) from its raw item/option structure. Demands deep knowledge of exact cover problem modeling, constraint satisfaction theory, and combinatorial analysis."""
+solution_explanation = """Implement Algorithm X with MRV heuristic in Python to solve DLX-format exact cover problems. Run on each problem file to get solution counts. Discover sudoku.dlx produces wrong results by comparing against expected Sudoku solution count. Analyze the DLX file's block constraint mapping to find the transposed formula: (r//3)+(c//3)*3 instead of (r//3)*3+(c//3). Generate corrected DLX file and extract the unique solution. For unknown.dlx, analyze 150 items (25 cell + 125 constraint) and 125 options to deduce the 5×5 toroidal Plus Noise grid structure (240 solutions)."""
+verification_explanation = """Tests verify solution counts for correctly-encoded problems (example=1, queens8=92, rooks6=720, unknown=240). Sudoku solution is structurally validated: all rows, columns, and 3×3 blocks contain digits 1-9, and clues match the puzzle. Corrected DLX file is parsed to verify correct block formula. Bug report and unknown analysis are checked for domain-relevant keywords."""
+category = "algorithms"
+tags = ["exact-cover", "constraint-satisfaction"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7b62b3"

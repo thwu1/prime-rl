@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete probabilistic parsing system from scratch: the solver must independently determine how to handle grammar rules with 3+ RHS symbols (discovering the need for normalization and denormalization), implement both max-probability and sum-over-all-derivations computations (two fundamentally different dynamic programming traversals), handle unary production chains correctly, implement labeled constituent evaluation with proper span extraction, and integrate Graphviz DOT generation and rendering. The HMM decoder demands separate probability-space and log-space implementations with consistent results. No algorithms are named — the agent must draw on deep NLP knowledge to identify and implement the correct approaches."""
+solution_explanation = """The solution implements Grammar.from_file with left-factored binarization introducing artificial nonterminals (prefixed @) with probability 1.0. parse_sentence maintains parallel max and sum DP tables with iterative unary closure. Tree extraction follows backpointers, then debinarization splices out artificial nodes. Labeled P/R extracts (label,start,end) constituent spans excluding preterminals. tree_to_dot generates a Graphviz digraph with box/ellipse node shapes and parent-child edges. The HMM module implements optimal-path DP with backtracing in both probability and log space."""
+verification_explanation = """Tests verify: (1) sentence acceptance/rejection across two grammars, (2) exact best-parse probabilities within 1e-12 tolerance, (3) total probability correctly summing over all derivations (differing from best on ambiguous sentences), (4) correct bracket-notation parse trees with no preprocessing artifacts, (5) labeled precision/recall for matching and mismatched trees, (6) DOT output format and Graphviz rendering to valid SVG, (7) render_trees.sh pipeline producing SVG files, (8) HMM decode paths and probabilities in both spaces. Each component is tested independently."""
+category = "nlp"
+tags = ["parsing", "dynamic-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pcky-viterbi-hmm"

@@ -1,0 +1,7 @@
+{
+    "commit_hash": "1a2b3c4d5e6f",
+    "description": "Replace process with process_v2 supporting operation modes",
+    "subsystem": "drivers/gpu",
+    "kernel_version_from": "6.5",
+    "kernel_version_to": "6.6"
+}

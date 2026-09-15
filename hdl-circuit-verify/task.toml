@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level digital logic and graph algorithm skills: (1) independently diagnosing four interacting bugs across carry logic, two's complement arithmetic, bit-level indexing, and mux selection trees without any hints about bug categories or locations; (2) implementing three distinct circuit graph analyses (gate count via backward reachability, critical path via memoized DAG depth, and wire fanout via forward-graph construction) over an unfamiliar HDL framework's internal wire/driver representation — notably max_fanout requires building forward adjacency that the framework's backward-only driver pointers do not directly support; (3) designing and implementing a parallel-prefix adder architecture that provably reduces critical path depth, then integrating it into a complete ALU with correct two's complement subtraction and opcode decoding; (4) producing a quantitative architectural evaluation comparing area, delay, and wiring complexity tradeoffs between the two designs."""
+solution_explanation = """Bug fixes: (1) full_adder carry term uses raw input instead of intermediate XOR — corrected to c2 = s1 & cin; (2) subtractor omits +1 for two's complement — corrected carry-in to const(1); (3) shift_right uses modular wrap instead of zero-fill — corrected to conditional indexing with const(0); (4) XOR/NOT mux arguments are swapped in the opcode decoder — corrected operand order. Analysis functions use memoized backward traversal for gate count and critical path, plus forward-graph construction (counting how many gates each wire feeds) for max_fanout. The optimized adder uses carry-lookahead with generate/propagate signals for O(1)-depth carry computation. Report compares gate counts, critical paths, and fanout between the two architectures."""
+verification_explanation = """Exhaustively tests all 8 ALU operations across all 256 input pairs. Three analysis functions (count_gates, critical_path, max_fanout) are each tested on small known circuits: single gate, chain, diamond DAG, shared wires, constants. max_fanout is specifically tested on circuits with known fanout patterns (single, chain, shared-wire). The fast adder is exhaustively tested across all 512 input combinations (16x16x2 including carry-in). The fast ALU is verified across all 2048 operation/input combinations. Critical path comparison ensures the optimized design is strictly faster. Report schema is validated field-by-field including integer types, positive values, max_fanout fields in both original and optimized sections, minimum 80-char evaluation string, and the constraint that optimized critical path < original."""
+category = "systems"
+tags = ["digital-logic", "circuit-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hdl-circuit-verify"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep domain expertise in log parsing: the agent must independently discover an appropriate template mining algorithm (e.g., Drain, Spell, IPLoM), tune its parameters per-system to meet accuracy thresholds, implement four mathematically-defined evaluation metrics (GA, FGA, PA, FTA) with subtle differences in grouping direction and correctness criteria, parse heterogeneous log formats including optional capture groups (Linux PID) and regex-escaped delimiters, apply system-specific variable masking, and implement a multi-rule template normalization pipeline with ordering-dependent tokenization. No algorithm or library is specified — the agent must select tools and approaches based on domain knowledge."""
+solution_explanation = """Use drain3 TemplateMiner for streaming log template extraction with per-system depth and similarity threshold tuning (HDFS/Apache: depth=4, st=0.5; Linux: depth=6, st=0.39). Convert Loghub format strings to regex with named groups, handling optional PID groups and escaped brackets. Apply regex masking patterns before template mining. Implement GA via bidirectional group matching, FGA as F1 of grouping precision/recall, PA as exact string match ratio, FTA as F1 of template-level accuracy with reversed grouping direction. Implement the full template correction pipeline (DS, DG, WV, DV, CV plus separator collapses) and re-evaluate with corrections applied to both parsed and ground truth templates."""
+verification_explanation = """Tests verify: (1) evaluation metrics produce correct values on five synthetic scenarios (perfect match, degenerate all-same, over-generalization merge, partial overlap, correct-grouping-wrong-text) with exact expected values, (2) ten post-processing correction rules produce expected outputs, (3) Content extraction from raw logs matches expected values including optional-PID handling for Linux, (4) parsed output CSVs exist with correct schema and 2000-row counts, (5) raw integration metrics are non-trivial (GA>0.20 for HDFS/Apache, >0.05 for Linux) confirming preprocessing and template mining work, (6) corrected metrics show significant improvement (HDFS corrected GA>0.65, Apache corrected GA>0.90, correction improves Apache GA over raw), (7) improvement analysis shows expected PA improvement for HDFS from normalization."""
+category = "data_processing"
+tags = ["log-parsing", "evaluation-framework"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/logparse-eval-metrics"

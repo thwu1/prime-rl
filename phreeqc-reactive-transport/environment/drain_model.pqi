@@ -1,0 +1,46 @@
+TITLE Acid Mine Drainage - Anoxic Limestone Drain Treatment Model
+# Model for Blackwood Creek ALD treating acid sulfate water
+# 5-meter drain, 10 cells, crushed limestone media
+
+SOLUTION 0  AMD Influent
+    units   mg/L
+    temp    15
+    pH      3.0
+    pe      4.0
+    Ca      150
+    Mg      40
+    Na      30
+    S(6)    600
+    Cl      20
+    K       5
+
+SOLUTION 1-10  Initial porewater in drain cells
+    units   mg/L
+    temp    15
+    pH      7.5
+    pe      4.0
+    Ca      60
+    Mg      5
+    Na      10
+    K       2
+    S(6)    20
+    Cl      10
+
+EQUILIBRIUM_PHASES 1-10
+    Calcite    -2.0    5.0
+    Gypsum     0.0     0.0
+
+SELECTED_OUTPUT
+    -file    /app/transport_results.tsv
+    -saturation_indices  Calcite Gypsum
+
+TRANSPORT
+    -cells   10
+    -shifts  30
+    -time_step  3600
+    -flow_direction  forward
+    -boundary_conditions  constant  constant
+    -lengths  0.5
+    -dispersivities  1.0
+
+END

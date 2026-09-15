@@ -1,0 +1,49 @@
+LAMMPS (7 Feb 2024 - Update 1)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (793.2 793.2 793.2)
+  2 by 2 by 2 MPI processor grid
+Replicating SPC/E water system: 8 x 8 x 8
+  base system: 32768 molecules (98304 atoms)
+  replicated system: 16777216 molecules (50331648 atoms)
+Neighbor list info ...
+  update every 1 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+Setting up Verlet run ...
+  Unit style    : real
+  Current step  : 0
+  Time step     : 1.0
+  Thermodynamic output every 10 steps
+WARNING: Communication cutoff 12.0 is shorter than pairwise cutoff 12.8 (src/comm_brick.cpp:210)
+Per MPI rank memory allocation (min/avg/max) = 328.4 | 331.2 | 334.1 Mbytes
+Step Temp PotEng TotEng Press Volume
+       0   298.000 -186543218.5 -138972450.2  1245.30 499283097.6
+      10   298.120 -186551342.1 -138985621.8  1198.70 499283097.6
+      20   297.950 -186548976.3 -138979234.1  1212.40 499283097.6
+      30   298.080 -186550121.7 -138981567.3  1205.10 499283097.6
+      40   298.210 -186547893.2 -138976321.9  1215.80 499283097.6
+      50   297.890 -186546123.4 -138974892.4  1191.20 499283097.6
+      60   298.150 -186553217.8 -138980345.6  1208.90 499283097.6
+      70   297.980 -186549876.2 -138984123.2  1197.30 499283097.6
+      80   298.070 -186551432.6 -138979012.3  1213.60 499283097.6
+      90   298.190 -186548765.3 -138982345.7  1203.40 499283097.6
+     100   297.930 -186550891.1 -138980567.4  1210.10 499283097.6
+Loop time of 45.237 on 8 procs for 100 steps with 50331648 atoms
+
+Performance: 19.10 ns/day, 1.257 hours/ns, 2.2106 timesteps/s
+100.0% CPU use with 8 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 32.451     | 33.221     | 34.012     |  12.3 | 73.43
+Bond    | 0.012      | 0.014      | 0.016      |   1.2 |  0.03
+Kspace  | 8.234      | 8.987      | 9.742      |  15.4 | 19.87
+Neigh   | 2.134      | 2.345      | 2.567      |   8.7 |  5.18
+Comm    | 0.234      | 0.345      | 0.456      |   6.5 |  0.76
+Output  | 0.001      | 0.001      | 0.002      |   0.5 |  0.00
+Modify  | 0.245      | 0.312      | 0.378      |   5.4 |  0.69
+Other   |            | 0.012      |            |       |  0.03
+
+Total wall time: 0:00:45

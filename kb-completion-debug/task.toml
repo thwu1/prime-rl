@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of term rewriting systems and automated reasoning. The agent must: (1) diagnose and fix three interacting bugs across ordering, rewriting, and completion modules — precedence misconfiguration, missing fixed-point normalization, and root-only critical pair computation; (2) design and implement a complete Knuth-Bendix Ordering (KBO) from its mathematical definition, handling weight computation, the variable condition, and cascading comparison cases (weight, precedence, lexicographic); (3) formulate KBO admissibility and equation orientation as an SMT problem and implement a Z3-based solver that handles both weight-based and structure-based orientation; (4) integrate the new ordering into the completion framework as a pluggable parameter. These components interact: incorrect KBO produces unorientable equations, incorrect weight finding produces inadmissible orderings, and the completion framework must thread the ordering function through orientation, interreduction, and the main loop."""
+solution_explanation = """Three bugs are fixed: (1) ordering.py — swap inv/mul precedence so inv:2 > mul:1; (2) rewriting.py — iterate rewrite_step to fixed point in normalize(); (3) completion.py — enumerate all non-variable subterm positions for critical pairs instead of root-only. Then completion.py is extended with a gt_fn parameter threaded through orient_equation and interreduce. KBO is implemented with term_weight (recursive weight sum), var_counts (Counter over variables), and kbo_gt (variable condition check, then weight comparison, then equal-weight cases: variable target, precedence tiebreak, lexicographic subterm comparison). The Z3 weight finder encodes symbolic weights as Int variables, adds admissibility constraints (w0>0, constant weights ≥ w0, unary-zero precedence rule), and recursively encodes KBO comparison for each axiom's concrete term structure to produce orientation constraints."""
+verification_explanation = """Tests verify five dimensions: (1) LPO bug fixes — group theory completes with ≥8 rules and standard identities normalize correctly; (2) KBO implementation — term_weight, var_counts, and kbo_gt produce correct results on specific term pairs covering weight comparison, variable condition failure, precedence tiebreak, lexicographic tiebreak, equal terms, and unary-chain cases; (3) Z3 weight finder — returns non-None result with w0>0, valid constant bounds, non-negative weights, and found weights actually orient all axioms; (4) KBO completion — group theory completes via KBO with Z3-found weights and normalizations match LPO results; (5) complex multi-step normalization chains with both orderings."""
+category = "formal-methods"
+tags = ["term-rewriting", "smt-solving"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kb-completion-debug"

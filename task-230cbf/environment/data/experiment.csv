@@ -1,0 +1,13 @@
+# ONERA OAT15A Wind Tunnel Reference Data
+# Facility: ONERA F2 Cryogenic Wind Tunnel
+# Configuration: OAT15A supercritical airfoil, c=0.230m
+# Conditions: M=0.73, Re_c=3.0e6, T_static=271K
+# Data source: DPW-8 Working Group 1
+alpha_deg,CL,CD,CM
+0.00,0.150000,0.009500,-0.030000
+1.00,0.370000,0.010500,-0.060000
+2.00,0.580000,0.013000,-0.090000
+2.50,0.685000,0.015500,-0.105000
+3.00,0.790000,0.020500,-0.120000
+3.50,0.860000,0.029000,-0.125000
+4.00,0.900000,0.040000,-0.115000

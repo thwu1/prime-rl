@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert networking knowledge to parse FRRouting configuration syntax and reconstruct the full network topology. Demands deep understanding of OSPF shortest-path computation with equal-cost multipath, loop-free alternate theory with node vs link protection classification and multi-criteria tiebreaking, and how link removal cascades through altered shortest-path trees and alternate availability across 21 failure scenarios. Multi-tool proficiency combining config parsing, graph algorithms, SQLite database construction, JSON output, and Graphviz rendering."""
+solution_explanation = """Parses consolidated FRR config dump extracting hostnames, interface IPs/costs, and router-ids via stateful line-by-line processing. Correlates /30 subnets across routers to discover links. Implements shortest-path computation with ECMP predecessor tracking for all-pairs distances. Applies loop-free and node-protecting conditions with multi-criteria tiebreaking for LFA selection. For sensitivity, iteratively removes each link, recomputes the full SPF+LFA pipeline on the modified graph, identifies newly unreachable destinations and coverage changes. Populates SQLite database with four normalized tables. Generates DOT graph with distinct R1 styling and renders SVG."""
+verification_explanation = """Tests maintain hardcoded reference topology matching the FRR configs and independently re-implement SPF, LFA, coverage, and sensitivity computations. All six output artifacts are verified: JSON files compared field-by-field against reference computations including all 21 link-failure scenarios, SQLite database queried to verify table schemas, row counts, and specific data values, and SVG diagram validated for structure and presence of all router nodes."""
+category = "networking"
+tags = ["ospf-frr-config", "graph-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-lfa-analysis"

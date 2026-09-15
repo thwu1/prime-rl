@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux performance engineering: processing raw perf script output into collapsed folded format, converting bpftrace off-CPU traces, filtering multi-process system-wide captures to isolate the target, handling profiles with different durations, generating differential flame graphs, and cross-correlating on-CPU regressions with off-CPU blocking patterns and system metrics to determine a mixed root-cause classification. Demands holistic understanding of on-CPU vs off-CPU analysis, flame graph semantics, and production performance triage methodology."""
+solution_explanation = """Collapse raw perf script output into folded stacks (filtering to the target process), compute differential folded data, generate flame graph SVGs, parse bpftrace @usecs map format into folded stacks, and produce a structured triage report. Analysis requires computing exclusive CPU time percentages to identify regressions (backtrack +12.9%, page_read +7.1%), classifying off-CPU stacks by blocking reason (I/O vs lock vs idle), and cross-correlating to determine root_cause_class='mixed'."""
+verification_explanation = """Tests verify all 7 output artifacts exist. Folded files are validated for format correctness and exact sample counts (baseline=406, incident=928 for appserver-only). SVGs are checked for structure and interactivity. The triage JSON is verified for correct root cause classification (mixed), top regression functions (backtrack, page_read), off-CPU categories (io, lock), elided/new code path identification, and diagnosis that references both CPU and I/O components."""
+category = "systems"
+tags = ["performance-analysis", "flamegraph-toolchain"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/diff-flamegraph-analysis"

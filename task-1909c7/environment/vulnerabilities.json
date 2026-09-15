@@ -1,0 +1,29 @@
+[
+  {
+    "id": "vuln_1",
+    "type": "uaf_write",
+    "source_cache": "kmalloc-64",
+    "source_object_size": 64,
+    "controllable_offset": 0,
+    "controllable_bytes": 64,
+    "description": "Full UAF write on a freed 64-byte kmalloc object. All 64 bytes are attacker-controllable, enabling overwrite of any replacement object's fields. Typical trigger: allocate object via msgsnd, free it, then spray with target structures via pipe()/open()."
+  },
+  {
+    "id": "vuln_2",
+    "type": "uaf_write",
+    "source_cache": "drill_cache",
+    "source_object_size": 192,
+    "controllable_offset": 0,
+    "controllable_bytes": 8,
+    "description": "Partial UAF write (first 8 bytes only) on a freed drill_cache object. Only the function pointer at the start of the replacement object can be overwritten. Trigger: drill_mod.ko frees a drill_item then writes to stale pointer."
+  },
+  {
+    "id": "vuln_3",
+    "type": "oob_write",
+    "source_cache": "kmalloc-96",
+    "source_object_size": 96,
+    "controllable_offset": 88,
+    "controllable_bytes": 24,
+    "description": "Out-of-bounds write starting 8 bytes before end of a 96-byte slab object, extending 16 bytes past the object boundary into the adjacent slab object. The last 8 bytes of the source object and first 16 bytes of the next object are corrupted."
+  }
+]

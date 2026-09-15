@@ -1,0 +1,65 @@
+[
+  {
+    "type": "DeleteItems",
+    "blocks": "dma0::Dma",
+    "from": "ch\\d+_debug"
+  },
+  {
+    "type": "DeleteFieldsets",
+    "from": "dma0::regs::Ch\\d+Debug"
+  },
+  {
+    "type": "Rename",
+    "from": "dma0::(.*)",
+    "to": "dma::$1"
+  },
+  {
+    "type": "MergeEnums",
+    "from": "dma::vals::Ch\\d+Mode",
+    "to": "dma::vals::Mode"
+  },
+  {
+    "type": "MergeEnums",
+    "from": "dma::vals::Ch\\d+Priority",
+    "to": "dma::vals::Priority"
+  },
+  {
+    "type": "MergeEnums",
+    "from": "dma::vals::Ch\\d+BurstSize",
+    "to": "dma::vals::BurstSize"
+  },
+  {
+    "type": "MergeEnums",
+    "from": "dma::vals::Ch\\d+ErrorCode",
+    "to": "dma::vals::ErrorCode"
+  },
+  {
+    "type": "MergeFieldsets",
+    "from": "dma::regs::Ch\\d+Ctrl",
+    "to": "dma::regs::ChCtrl"
+  },
+  {
+    "type": "MergeFieldsets",
+    "from": "dma::regs::Ch\\d+Status",
+    "to": "dma::regs::ChStatus"
+  },
+  {
+    "type": "MergeFieldsets",
+    "from": "dma::regs::Ch\\d+XferCount",
+    "to": "dma::regs::ChXferCount"
+  },
+  {
+    "type": "MakeBlock",
+    "blocks": "dma::Dma",
+    "from": "ch(\\d+)_(.*)",
+    "to_outer": "ch$1",
+    "to_inner": "$2",
+    "to_block": "dma::Channel"
+  },
+  {
+    "type": "MakeRegisterArray",
+    "blocks": "dma::Dma",
+    "from": "ch\\d+",
+    "to": "ch"
+  }
+]

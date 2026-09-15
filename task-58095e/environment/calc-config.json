@@ -1,0 +1,40 @@
+{
+  "hazard": {
+    "exceedanceModel": "TRUNCATION_UPPER",
+    "truncationLevel": 3.0,
+    "imts": ["PGA", "SA0P2", "SA1P0"],
+    "customImls": {
+      "PGA": [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0],
+      "SA0P2": [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0],
+      "SA1P0": [0.001, 0.005, 0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0]
+    },
+    "valueFormat": "ANNUAL_RATE"
+  },
+  "model": {
+    "ruptureFloating": "ALONG_STRIKE",
+    "surfaceSpacing": 2.0,
+    "ruptureScaling": "WC94_LENGTH"
+  },
+  "disagg": {
+    "returnPeriod": 2475,
+    "bins": {
+      "mMin": 4.5,
+      "mMax": 8.5,
+      "\u0394m": 0.2,
+      "rMin": 0.0,
+      "rMax": 200.0,
+      "\u0394r": 10.0,
+      "\u03b5Min": -3.0,
+      "\u03b5Max": 3.0,
+      "\u0394\u03b5": 0.5
+    }
+  },
+  "site": {
+    "longitude": -122.0,
+    "latitude": 38.0,
+    "vs30": 360.0
+  },
+  "performance": {
+    "maxDistance": 200.0
+  }
+}

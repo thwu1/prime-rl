@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "Rotation processing pipeline - backend routing configuration",
+  "backends": {
+    "quaternion_to_matrix": "beta",
+    "matrix_to_quaternion": "alpha",
+    "axis_angle_to_matrix": "gamma",
+    "matrix_to_euler_angles": "beta",
+    "geodesic_distance": "alpha",
+    "slerp": "gamma"
+  },
+  "conversion_chains": {
+    "mesh_normal_transform": {
+      "description": "Transform mesh normals between coordinate frames",
+      "steps": ["axis_angle_to_matrix", "matrix_to_euler_angles"]
+    },
+    "pose_interpolation": {
+      "description": "Interpolate between two pose matrices for animation",
+      "steps": ["matrix_to_quaternion", "slerp", "quaternion_to_matrix"]
+    },
+    "alignment_metric": {
+      "description": "Compute rotation alignment error between predictions and targets",
+      "steps": ["matrix_to_quaternion", "geodesic_distance"]
+    },
+    "full_roundtrip": {
+      "description": "End-to-end rotation representation roundtrip validation",
+      "steps": ["matrix_to_quaternion", "quaternion_to_matrix", "matrix_to_euler_angles"]
+    }
+  }
+}

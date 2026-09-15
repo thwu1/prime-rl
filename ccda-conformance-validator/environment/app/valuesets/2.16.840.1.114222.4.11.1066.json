@@ -1,0 +1,33 @@
+{
+  "oid": "2.16.840.1.114222.4.11.1066",
+  "name": "Healthcare Provider Taxonomy (HIPAA)",
+  "codeSystem": "2.16.840.1.113883.6.101",
+  "codes": [
+    {"code": "101Y00000X", "displayName": "Counselor"},
+    {"code": "103T00000X", "displayName": "Psychologist"},
+    {"code": "104100000X", "displayName": "Social Worker"},
+    {"code": "111N00000X", "displayName": "Chiropractor"},
+    {"code": "122300000X", "displayName": "Dentist"},
+    {"code": "133V00000X", "displayName": "Dietitian, Registered"},
+    {"code": "156F00000X", "displayName": "Technician, Other"},
+    {"code": "163W00000X", "displayName": "Registered Nurse"},
+    {"code": "170100000X", "displayName": "Medical Genetics, Ph.D. Medical Genetics"},
+    {"code": "171M00000X", "displayName": "Case Manager/Care Coordinator"},
+    {"code": "174400000X", "displayName": "Specialist"},
+    {"code": "207QA0505X", "displayName": "Adult Medicine"},
+    {"code": "207R00000X", "displayName": "Internal Medicine"},
+    {"code": "207V00000X", "displayName": "Obstetrics & Gynecology"},
+    {"code": "208000000X", "displayName": "Pediatrics"},
+    {"code": "208100000X", "displayName": "Physical Medicine & Rehabilitation"},
+    {"code": "2084P0800X", "displayName": "Psychiatry"},
+    {"code": "208D00000X", "displayName": "General Practice"},
+    {"code": "208M00000X", "displayName": "Hospitalist"},
+    {"code": "261QM0801X", "displayName": "Mental Health"},
+    {"code": "281P00000X", "displayName": "Chronic Disease Hospital"},
+    {"code": "282N00000X", "displayName": "General Acute Care Hospital"},
+    {"code": "291U00000X", "displayName": "Clinical Medical Laboratory"},
+    {"code": "332B00000X", "displayName": "Durable Medical Equipment & Medical Supplies"},
+    {"code": "363L00000X", "displayName": "Nurse Practitioner"},
+    {"code": "367A00000X", "displayName": "Physician Assistant"}
+  ]
+}

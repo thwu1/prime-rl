@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of interactive theorem proving in Lean 4 and theoretical computer science (NP-completeness reductions). The agent must: (1) define a precise graph construction encoding the reduction from NAE-SAT to 3-Coloring via pattern matching on OutputVertex pairs, (2) design a clauseNodeColor function via exhaustive boolean case analysis ensuring pairwise distinctness and variable-clause color avoidance, (3) prove completeness by constructing a valid coloring with extensive case splitting on all vertex and edge types using rcases and simp_all, and (4) prove soundness by extracting a satisfying assignment from an arbitrary 3-coloring and deriving contradiction via Fin 3 pigeonhole/omega reasoning. Each step demands deep understanding of the reduction and Lean 4's tactic language. No Mathlib is available, so the agent must work with the standard library only."""
+solution_explanation = """EdgeRelation is defined via pattern matching: groundNode-varNode edges, varNode-clauseNode edges matching variable position to clause index, and clauseNode-clauseNode triangle edges for same clause in the clause list with distinct indices. clauseNodeColor exhaustively handles 6 NAE-satisfying boolean triples assigning three distinct Fin 3 colors avoiding the corresponding variable colors. Completeness constructs naeColoring and proves every edge gets distinct colors by case analysis. Soundness extracts an assignment via decide on coloring equality, then derives contradiction from a hypothetical NAE-violating clause using pigeonhole on Fin 3 with omega."""
+verification_explanation = """Verification runs lake build on the completed Lean file and checks: (1) the build succeeds with exit code 0, (2) no sorry keyword remains in the non-comment portions of the source, and (3) the build output contains no sorry warnings. Lean's kernel type-checker provides a machine-verified proof guarantee."""
+category = "formal_methods"
+tags = ["lean4", "np-completeness"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7e44eb"

@@ -1,0 +1,25 @@
+{
+    "levels": {
+        "eth_driver": {"secrecy": 1, "integrity": 1},
+        "ip_stack": {"secrecy": 2, "integrity": 2},
+        "mqtt_broker": {"secrecy": 2, "integrity": 2},
+        "sensor_collector": {"secrecy": 2, "integrity": 3},
+        "data_processor": {"secrecy": 3, "integrity": 3},
+        "secure_store": {"secrecy": 3, "integrity": 3},
+        "ota_updater": {"secrecy": 1, "integrity": 1},
+        "watchdog": {"secrecy": 1, "integrity": 3}
+    },
+    "domains": {
+        "eth_driver": "network",
+        "ip_stack": "network",
+        "mqtt_broker": "network",
+        "sensor_collector": "sensing",
+        "data_processor": "processing",
+        "secure_store": "storage",
+        "ota_updater": "maintenance",
+        "watchdog": "platform"
+    },
+    "declassifiers": {
+        "data_processor": ["processed_data"]
+    }
+}

@@ -1,0 +1,16 @@
+field,value
+dataset_id,worldpop_ppp
+dataset_name,WorldPop Population Density
+description,Gridded population density estimates using census and ancillary data
+crs,EPSG:4326
+west_bound,-180
+south_bound,-60
+east_bound,180
+north_bound,85
+start_date,2000-01-01
+end_date,2020-12-31
+resolution,100
+band_names,population_density
+data_provider,WorldPop Research Group
+data_license,CC-BY-4.0
+theme,population

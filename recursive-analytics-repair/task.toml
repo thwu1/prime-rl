@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep SQL expertise across four advanced areas: (1) recursive CTEs — column ordering in UNION ALL determines which value lands in which CTE column, plus array-based cycle detection requiring the anchor to seed the path correctly; (2) window function architecture — the solver must distinguish RANK from PERCENT_RANK, correctly partition by station vs zone, and select appropriate frame specifications (bounded 3-row sliding window vs unbounded running window); (3) LAG partitioning semantics — isolating each station's time series requires restructuring the inner query to remove a cross-station partition; (4) CUBE/GROUPING query design — the zone crossflow view is fundamentally broken and cannot be fixed by parameter changes. The solver must architect a multi-table CTE joining connections to stations (twice, for origin and destination zones) and ridership to derive zone-pair flow data, then aggregate with CUBE and proper GROUPING() references. This requires genuine SQL design decisions about query structure."""
+solution_explanation = """Eight fixes across 6 views: (1) v_reachable: swap positions 3 and 5 in the recursive SELECT so hops gets hops+1 and total_distance gets the distance sum; (2) v_all_paths: change anchor path from ARRAY[from_id] to ARRAY[from_id, to_id]; (3) v_capacity_forecast: change current_cap + current_cap to current_cap + prev_cap; (4) v_cumulative_stats: change UNBOUNDED PRECEDING to 2 PRECEDING for moving average, change RANK() to PERCENT_RANK(), and change partition from s.zone to r.station_id (removing the stations join); (5) v_pct_change: change LAG partition from s.zone to r.station_id and restructure inner query; (6) v_zone_crossflow: complete redesign — create a CTE joining connections→stations(origin)→stations(dest)→ridership to compute per-connection flow, then outer query aggregates with CUBE(origin_zone, dest_zone) using GROUPING() on the CTE columns."""
+verification_explanation = """45 pytest tests query each view via psql and verify structural and numerical properties: exact station reachability with specific hop counts and distances, path array integrity (no duplicates, correct start/end/length), Fibonacci sequence values at specific steps, bounded moving average values at specific positions, PERCENT_RANK values in [0,1] range with exact percentile checks per station, per-station day-over-day percentage changes, and CUBE zone-pair flow analysis with specific flow totals, connection counts, detail rows, subtotals, and grand total."""
+category = "debugging"
+tags = ["sql", "recursive-cte", "window-functions", "grouping-sets", "postgresql", "query-design"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/recursive-analytics-repair"

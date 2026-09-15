@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a mesh decimation algorithm from scratch on an unfamiliar halfedge data structure, with no algorithm named or prescribed. The agent must discover an appropriate approach (e.g. error-metric-driven greedy collapse), correctly handle topology-preserving invariants during edge collapse pointer surgery (~20 cross-reference updates per operation), and maintain manifold validity throughout. Beyond the algorithmic challenge, the agent must orchestrate a multi-tool pipeline: writing GNU Make rules with proper dependency tracking, composing jq queries to extract fields from JSON mesh statistics, and wiring together Python tools, shell scripting, Make, and jq into a coherent batch processing and validation workflow. Learning the ~400-line halfedge.py API with no external documentation adds further difficulty."""
+solution_explanation = """Implement Garland-Heckbert QEM simplification: compute per-face plane quadrics (outer product of [nx,ny,nz,d]), accumulate at vertices, build a min-priority-queue keyed by edge-collapse cost from optimal vertex placement (solve 3x3 linear system with singular-matrix fallback), verify the link condition before each collapse (exactly 2 common neighbors), perform halfedge pointer surgery to remove degenerate faces/edges, and update quadrics at the merged vertex. Create a GNU Makefile that uses jq to extract face counts from mesh_stats.py JSON and computes 50% targets, plus a validate.sh script that pipes mesh_stats.py output through jq to check is_valid and euler_characteristic fields."""
+verification_explanation = """22 pytest tests verify the pipeline via subprocess invocation. Core mesh tests: simplify.py is called on four input meshes (tetrahedron, octahedron, icosahedron, sphere32) with varying targets; tests check halfedge validation returns zero errors, face count within range, Euler characteristic equals 2, vertex positions bounded, and mesh_stats.py JSON interop. Pipeline tests: verify Makefile and validate.sh exist and contain jq usage, that make -C /app all succeeds, that output files are created in /app/output/, that validate.sh exits 0, and that pipeline outputs are valid meshes."""
+category = "computational_geometry"
+tags = ["mesh_processing", "build_pipelines"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/halfedge-mesh-simplify"

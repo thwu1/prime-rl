@@ -1,0 +1,19 @@
+forge 'https://forge.puppet.com'
+
+# Core infrastructure
+mod 'puppetlabs/stdlib', '9.6.0'
+mod 'puppetlabs/concat', '~> 9.0'
+mod 'puppetlabs/apt'
+
+# Monitoring stack
+mod 'voxpupuli/prometheus'
+mod 'voxpupuli/grafana_alloy'
+
+# Network and security
+mod 'voxpupuli/nftables'
+mod 'voxpupuli/wireguard'
+
+# Container orchestration and secrets
+mod 'voxpupuli/k8s'
+mod 'voxpupuli/vault'
+

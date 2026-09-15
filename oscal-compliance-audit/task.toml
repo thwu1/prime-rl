@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the NIST OSCAL data model spanning the catalog-profile-SSP-POAM hierarchy. The agent must: (1) discover and learn to operate a domain-specific CLI tool installed in the environment by exploring available tooling; (2) understand OSCAL profile resolution semantics including include-all, exclude-controls, parameter value assignment, and alteration propagation through chained profile imports; (3) determine the authoritative required control set from the resolved output; (4) analyze the SSP across five categories of compliance deficiency using the resolved catalog's control structures as reference; (5) parse a namespaced OSCAL XML POAM document and cross-reference items via observation-to-control and risk-status linkages; (6) integrate multi-format, multi-tool outputs into a coherent compliance assessment pipeline with exact metrics."""
+solution_explanation = """Discover and invoke oscal-cli to resolve the chained profile (org_profile → baseline_profile → catalog), producing a resolved catalog with 27 controls. Parse the resolved catalog to extract the authoritative required control set. Read the org profile for excluded controls and parameter assignments. Analyze the SSP for five gap categories (5 missing controls, 2 incomplete statement coverage, 3 parameter gaps, 1 extraneous, 1 orphaned component ref). Parse the POAM XML with OSCAL namespace handling to extract 5 poam-items, cross-reference with gaps, and compute compliance metrics (22/27 implemented, 17/27 = 62.96% fully compliant)."""
+verification_explanation = """Tests verify: (1) resolved_catalog.json exists and contains exactly 27 controls matching the expected set, confirming correct profile resolution through the chain; (2) audit report has correct resolved profile (27 controls, ac-6.5 excluded); (3) all gap categories (specific control IDs, statement IDs, parameter IDs); (4) compliance metrics (22 implemented, 17 fully compliant, 62.96%); (5) POAM cross-referencing (5 items with correct UUIDs, control-ID mappings, status values, risk status values, gap_type classifications, and remediation counts)."""
+category = "cybersecurity"
+tags = ["oscal", "compliance-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oscal-compliance-audit"

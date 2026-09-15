@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Fabric Drift Report",
+  "description": "Array of configuration drift findings for a VXLAN-EVPN leaf-spine fabric",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["device", "section", "description", "expected", "actual"],
+    "properties": {
+      "device": {
+        "type": "string",
+        "enum": [
+          "dc1-spine1",
+          "dc1-spine2",
+          "dc1-leaf1a",
+          "dc1-leaf1b",
+          "dc1-leaf2a",
+          "dc1-leaf2b"
+        ]
+      },
+      "section": {
+        "type": "string",
+        "enum": ["bgp", "interface", "vxlan", "mlag", "vrf"]
+      },
+      "description": {
+        "type": "string",
+        "minLength": 10
+      },
+      "expected": {
+        "type": "string"
+      },
+      "actual": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "minItems": 10,
+  "maxItems": 10
+}

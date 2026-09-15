@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Geospatial Reconciliation Report",
+  "type": "object",
+  "required": ["files_analyzed", "errors", "summary"],
+  "properties": {
+    "files_analyzed": {
+      "type": "array",
+      "description": "Raster file identifiers that were analyzed",
+      "items": {"type": "string"}
+    },
+    "errors": {
+      "type": "array",
+      "description": "Detected metadata discrepancies between raster files and STAC items",
+      "items": {
+        "type": "object",
+        "required": ["file_id", "error_type", "field", "stac_value", "file_value", "severity", "description"],
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "Raster file identifier (filename without extension)"
+          },
+          "error_type": {
+            "type": "string",
+            "enum": ["spatial_extent", "crs_mismatch", "temporal_extent", "band_count"],
+            "description": "Category of the metadata discrepancy"
+          },
+          "field": {
+            "type": "string",
+            "description": "The STAC metadata field containing the discrepancy"
+          },
+          "stac_value": {
+            "description": "The value found in the STAC item"
+          },
+          "file_value": {
+            "description": "The value derived from inspecting the raster file"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major"],
+            "description": "Impact severity of the discrepancy"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable explanation of the discrepancy"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_files", "total_errors", "critical_count", "major_count"],
+      "properties": {
+        "total_files": {"type": "integer"},
+        "total_errors": {"type": "integer"},
+        "critical_count": {"type": "integer"},
+        "major_count": {"type": "integer"}
+      }
+    }
+  }
+}

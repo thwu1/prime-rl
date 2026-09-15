@@ -1,0 +1,48 @@
+{
+  "flowlines": [
+    {"id": "wb-1001", "toid": "nex-2001", "divide_id": "cat-1001", "areasqkm": 5.20, "lengthkm": 3.1, "type": "network", "hydroseq": 110, "mainstem": 10001},
+    {"id": "wb-1002", "toid": "nex-2002", "divide_id": "cat-1002", "areasqkm": 8.40, "lengthkm": 4.5, "type": "network", "hydroseq": 100, "mainstem": 10001},
+    {"id": "wb-1003", "toid": "nex-2003", "divide_id": "cat-1003", "areasqkm": 12.10, "lengthkm": 6.2, "type": "network", "hydroseq": 80, "mainstem": 10001},
+    {"id": "wb-1004", "toid": "nex-2002", "divide_id": "cat-1004", "areasqkm": 6.70, "lengthkm": 3.8, "type": "network", "hydroseq": 105, "mainstem": 10002},
+    {"id": "wb-1005", "toid": "nex-2003", "divide_id": "cat-1005", "areasqkm": 15.30, "lengthkm": 7.1, "type": "network", "hydroseq": 85, "mainstem": 10003},
+    {"id": "wb-1006", "toid": "nex-2006", "divide_id": "cat-1006", "areasqkm": 9.80, "lengthkm": 5.0, "type": "network", "hydroseq": 60, "mainstem": 10001},
+    {"id": "wb-1007", "toid": "nex-2004", "divide_id": "cat-1007", "areasqkm": 7.50, "lengthkm": 4.2, "type": "network", "hydroseq": 115, "mainstem": 10003},
+    {"id": "wb-1008", "toid": "nex-2004", "divide_id": "cat-1008", "areasqkm": 11.20, "lengthkm": 5.8, "type": "network", "hydroseq": 112, "mainstem": 10004},
+    {"id": "wb-1009", "toid": "nex-2006", "divide_id": "cat-1009", "areasqkm": 4.60, "lengthkm": 2.5, "type": "network", "hydroseq": 95, "mainstem": 10005},
+    {"id": "wb-1010", "toid": "nex-2005", "divide_id": "cat-1010", "areasqkm": 3.90, "lengthkm": 2.1, "type": "network", "hydroseq": 120, "mainstem": 10005},
+    {"id": "wb-1011", "toid": "nex-2007", "divide_id": "cat-1011", "areasqkm": 6.30, "lengthkm": 3.3, "type": "network", "hydroseq": 40, "mainstem": 10001},
+    {"id": "wb-1012", "toid": "nex-2008", "divide_id": "cat-1012", "areasqkm": 4.10, "lengthkm": 2.0, "type": "network", "hydroseq": 130, "mainstem": 10006},
+    {"id": "wb-1014", "toid": "nex-2010", "divide_id": "cat-1014", "areasqkm": 3.50, "lengthkm": 1.8, "type": "network", "hydroseq": 140, "mainstem": 10007},
+    {"id": "wb-1015", "toid": "nex-2011", "divide_id": "cat-1015", "areasqkm": 5.00, "lengthkm": 2.7, "type": "network", "hydroseq": 135, "mainstem": 10007},
+    {"id": "wb-1016", "toid": "nex-2012", "divide_id": "cat-1016", "areasqkm": 7.20, "lengthkm": 3.5, "type": "network", "hydroseq": 150, "mainstem": 10008}
+  ],
+  "divides": [
+    {"divide_id": "cat-1001", "id": "wb-1001", "toid": "nex-2001", "areasqkm": 5.20, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1002", "id": "wb-1002", "toid": "nex-2002", "areasqkm": 8.40, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1003", "id": "wb-1003", "toid": "nex-2003", "areasqkm": 12.10, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1004", "id": "wb-1004", "toid": "nex-2002", "areasqkm": 6.70, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1005", "id": "wb-1005", "toid": "nex-2003", "areasqkm": 15.30, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1006", "id": "wb-1006", "toid": "nex-2006", "areasqkm": 9.80, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1007", "id": "wb-1007", "toid": "nex-2004", "areasqkm": 7.50, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1008", "id": "wb-1008", "toid": "nex-2004", "areasqkm": 11.20, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1009", "id": "wb-1009", "toid": "nex-2006", "areasqkm": 4.60, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1010", "id": "wb-1010", "toid": "nex-2005", "areasqkm": 3.90, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1011", "id": "wb-1011", "toid": "nex-2007", "areasqkm": 6.30, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1012", "id": "wb-1012", "toid": "nex-2008", "areasqkm": 4.10, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1014", "id": "wb-1014", "toid": "nex-2010", "areasqkm": 3.50, "type": "network", "has_flowline": true},
+    {"divide_id": "cat-1015", "id": "wb-1015", "toid": "nex-2011", "areasqkm": 5.00, "type": "network", "has_flowline": true}
+  ],
+  "nexuses": [
+    {"id": "nex-2001", "toid": "cat-1002", "type": "nexus"},
+    {"id": "nex-2002", "toid": "cat-1003", "type": "nexus"},
+    {"id": "nex-2003", "toid": "cat-1006", "type": "nexus"},
+    {"id": "nex-2004", "toid": "cat-1005", "type": "nexus"},
+    {"id": "nex-2005", "toid": "cat-1009", "type": "nexus"},
+    {"id": "nex-2006", "toid": "cat-1011", "type": "nexus"},
+    {"id": "nex-2007", "toid": "", "type": "terminal"},
+    {"id": "nex-2009", "toid": "cat-1013", "type": "nexus"},
+    {"id": "nex-2010", "toid": "cat-1015", "type": "nexus"},
+    {"id": "nex-2011", "toid": "cat-1014", "type": "nexus"},
+    {"id": "nex-2012", "toid": "", "type": "terminal"}
+  ]
+}

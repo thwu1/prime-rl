@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of constraint programming and CP-SAT modeling. The agent must correctly implement a multi-department shift scheduling solver with 10 interacting constraint types: skill-based assignment, department-level coverage with excess penalties, incompatible employee night pairs, weekend completeness (biconditional off constraints), and both soft and hard sequence/sum constraints with proper penalty variable modeling. The negated bounded span pattern for sequence constraints and the max-equality pattern for sum penalties are non-trivial to implement correctly. The problem interacts tightly: incompatible night pairs combined with double night coverage on Wed/Thu forces specific employees onto night shifts, while weekend completeness constrains off-day patterns, and skill restrictions limit which employees can fill each role."""
+solution_explanation = """Build a CP-SAT model using Google OR-Tools that encodes all hard constraints (skills, forbidden transitions, sequence length bounds, weekly sum bounds, incompatible night pairs, weekend completeness) and models soft constraints as weighted penalty terms in a minimization objective. Use the negated bounded span pattern for sequence constraints: for each possible contiguous span of a shift, create a boolean literal forced true when the span is exactly bounded, then weight it proportionally. Use max-equality with auxiliary integer variables for weekly sum constraint penalties. Coverage uses per-department employee aggregation with excess penalty variables. Solve with appropriate time limit and extract the schedule from boolean decision variables."""
+verification_explanation = """Tests independently verify: (1) output format correctness and completeness, (2) all 8 hard constraint types are checked by iterating the schedule against the instance data, (3) the objective value is recomputed from the schedule by independently evaluating all 5 penalty sources (sequence, weekly sum, transition, coverage excess, requests) and verifying it matches the claimed objective, (4) the objective is within an acceptable quality bound ensuring the solver actually optimizes rather than producing a trivially feasible schedule."""
+category = "optimization"
+tags = ["constraint-programming", "scheduling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shift-scheduling-solver"

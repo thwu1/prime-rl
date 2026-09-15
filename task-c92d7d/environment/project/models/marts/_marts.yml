@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Customer dimension with order history and lifetime value"
+    columns:
+      - name: customer_id
+        description: "Primary key"
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_orders
+    description: "Order fact table with payment breakdowns"
+    columns:
+      - name: order_id
+        description: "Primary key"
+        tests:
+          - unique
+          - not_null
+
+  - name: revenue_daily
+    description: "Daily revenue aggregation (incremental)"
+    columns:
+      - name: order_date
+        description: "Date of orders"
+        tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        description: "Total revenue for the day in dollars"
+        tests:
+          - is_positive
+
+  - name: customer_lifetime_tiers
+    description: "Customer segmentation by lifetime value into tiers"
+    columns:
+      - name: customer_id
+        description: "Primary key"
+        tests:
+          - unique
+          - not_null
+      - name: tier
+        description: "Customer tier based on lifetime value thresholds"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['bronze', 'silver', 'gold', 'platinum']
+      - name: value_quartile
+        description: "Quartile ranking by lifetime value (1 = highest)"
+        tests:
+          - not_null
+          - within_range:
+              arguments:
+                min_value: 1
+                max_value: 4

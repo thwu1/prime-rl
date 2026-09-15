@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Windows Registry forensics across two phases. Phase 1 demands understanding the regf binary format at byte level (base blocks, bins, cells, cell indexes, signed-size encoding) and recognizing anti-forensic techniques (version field spoofing, cell slack space concealment, deleted-cell data persistence). The agent must independently diagnose why standard tools fail, discover concealed data through binary analysis, and correctly classify each technique. Phase 2 escalates to adversarial binary construction: the agent must design and implement a novel concealment technique not present in the evidence, build a structurally valid regf hive from raw bytes (correct header fields, checksum, cell layout, key/value tree), and ensure the payload survives hivexml parsing without being exposed — requiring synthesis of format knowledge into a creative engineering artifact."""
+solution_explanation = """Phase 1: The solver uses multi-tool analysis — hivexml succeeds on baseline/bravo but fails on alpha (major version spoofed to 0); manual binary parsing extracts the Fragment value from alpha via regf struct traversal; bravo's fragment is found in root nk cell slack space; charlie's fragment is recovered from a deleted (free) vk cell with residual inline REG_BINARY data. Phase 2: The solver constructs a valid hive from scratch with the payload hidden in the security descriptor (sk) cell slack space — bytes appended after the declared SecurityDescriptorLength within an oversized allocated sk cell. hivex reads only the declared SD length, making trailing bytes invisible, while the hive remains fully parseable with a decoy value accessible via hivexml."""
+verification_explanation = """Tests verify Phase 1 via exact fragment matching (Pr0j3ct_, Z3r0_, R3gf_, FrE3), combined flag validation, and technique keyword matching (plaintext, version, slack/pad, deleted/free). Phase 2 tests verify: crafted.regf exists with valid regf signature, correct header checksum, hbin structure; hivexml successfully parses it and finds a decoy value; payload P0_h1v3_cr4ft is present in raw binary within the hive data area; payload is NOT in hivexml output; payload is NOT in any nk cell slack space (ruling out evidence technique reuse); payload is NOT in any free cell (ruling out another evidence technique); crafted_technique description is present and substantive."""
+category = "forensics"
+tags = ["binary-forensics", "adversarial-construction"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regf-hive-forensics"

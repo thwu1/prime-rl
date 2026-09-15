@@ -1,0 +1,31 @@
+#================================================================================
+# CRM Wing/Body Experimental Reference Data
+# Source: ETW Wind Tunnel, DPW-7 Campaign
+# Configuration: CRMWB (Common Research Model Wing/Body)
+# Mach = 0.85, Re_c = 5.0e6, T_static = 310.928 K
+#
+#
+# Reference Values:
+#   Planform ref area, A   = 594720.00 inches^2
+#   Mean aero chord, Cref  =    275.80 inches
+#   Moment center x        =   1325.90 inches
+#   Moment center y        =      0.00 inches
+#   Moment center z        =    177.95 inches
+#
+# Uncertainty estimates (2-sigma):
+#   CL: +/- 0.005
+#   CD: +/- 0.0005
+#   CM: +/- 0.003
+#================================================================================
+
+VARIABLES = "ALPHA"  "CL"  "CD"  "CM"
+ZONE T="CRM-WB ETW Re=5M M=0.85"
+AUXDATA Source = "ETW Wind Tunnel"
+AUXDATA Campaign = "DPW-7"
+AUXDATA WallCorrection = "Applied"
+  1.50  0.38500000  0.023800000  -0.12800000
+  2.00  0.44800000  0.025000000  -0.15100000
+  2.50  0.50000000  0.026800000  -0.17500000
+  3.00  0.55000000  0.030200000  -0.19500000
+  3.50  0.58500000  0.035000000  -0.21000000
+  4.00  0.60200000  0.041500000  -0.21800000

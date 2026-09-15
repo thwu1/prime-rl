@@ -1,0 +1,21 @@
+{
+  "forecaster_id": "drift",
+  "predictions": [
+    {"event_id": "EVT-001", "probability": 0.55},
+    {"event_id": "EVT-002", "probability": 0.45},
+    {"event_id": "EVT-003", "probability": 0.58},
+    {"event_id": "EVT-004", "probability": 0.50},
+    {"event_id": "EVT-005", "probability": 0.52},
+    {"event_id": "EVT-006", "probability": 0.45},
+    {"event_id": "EVT-007", "probability": 0.50},
+    {"event_id": "EVT-008", "probability": 0.56},
+    {"event_id": "EVT-009", "probability": 0.48},
+    {"event_id": "EVT-010", "probability": 0.50},
+    {"event_id": "EVT-011", "probability": 0.53},
+    {"event_id": "EVT-012", "probability": 0.48},
+    {"event_id": "EVT-013", "probability": 0.54},
+    {"event_id": "EVT-014", "probability": 0.46},
+    {"event_id": "EVT-015", "probability": 0.49},
+    {"event_id": "EVT-007", "probability": 0.50}
+  ]
+}

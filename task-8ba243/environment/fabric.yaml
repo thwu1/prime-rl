@@ -1,0 +1,102 @@
+# ACME DC1 VXLAN-EVPN Leaf-Spine Fabric - Source of Truth
+# This file defines the desired state for all network devices.
+
+fabric:
+  name: "ACME-DC1"
+
+  bgp:
+    spine_asn: 65100
+
+  tenants:
+    - name: "Tenant_A"
+      vrf_vni: 100
+      vlans:
+        - id: 10
+          name: "Web"
+          vni: 10010
+        - id: 20
+          name: "App"
+          vni: 10020
+        - id: 30
+          name: "DB"
+          vni: 10030
+
+  spines:
+    - name: "dc1-spine1"
+      loopback0: "10.255.0.1/32"
+      interfaces:
+        - name: "Ethernet1"
+          peer: "dc1-leaf1a"
+          peer_intf: "Ethernet1"
+          ip: "172.31.255.0/31"
+        - name: "Ethernet2"
+          peer: "dc1-leaf1b"
+          peer_intf: "Ethernet1"
+          ip: "172.31.255.2/31"
+        - name: "Ethernet3"
+          peer: "dc1-leaf2a"
+          peer_intf: "Ethernet1"
+          ip: "172.31.255.4/31"
+        - name: "Ethernet4"
+          peer: "dc1-leaf2b"
+          peer_intf: "Ethernet1"
+          ip: "172.31.255.6/31"
+
+    - name: "dc1-spine2"
+      loopback0: "10.255.0.2/32"
+      interfaces:
+        - name: "Ethernet1"
+          peer: "dc1-leaf1a"
+          peer_intf: "Ethernet2"
+          ip: "172.31.255.8/31"
+        - name: "Ethernet2"
+          peer: "dc1-leaf1b"
+          peer_intf: "Ethernet2"
+          ip: "172.31.255.10/31"
+        - name: "Ethernet3"
+          peer: "dc1-leaf2a"
+          peer_intf: "Ethernet2"
+          ip: "172.31.255.12/31"
+        - name: "Ethernet4"
+          peer: "dc1-leaf2b"
+          peer_intf: "Ethernet2"
+          ip: "172.31.255.14/31"
+
+  leaf_pairs:
+    - pair_name: "DC1_LEAF1"
+      asn: 65101
+      mlag_domain_id: "DC1_LEAF1"
+      vlans: [10, 20, 30]
+      vrfs: ["Tenant_A"]
+      members:
+        - name: "dc1-leaf1a"
+          loopback0: "10.255.0.3/32"
+          loopback1: "10.255.1.3/32"
+          mlag_ip: "10.255.252.0/31"
+          mlag_role: "primary"
+          mlag_interfaces: ["Ethernet3", "Ethernet4"]
+        - name: "dc1-leaf1b"
+          loopback0: "10.255.0.4/32"
+          loopback1: "10.255.1.3/32"
+          mlag_ip: "10.255.252.1/31"
+          mlag_role: "secondary"
+          mlag_interfaces: ["Ethernet3", "Ethernet4"]
+
+    - pair_name: "DC1_LEAF2"
+      asn: 65102
+      mlag_domain_id: "DC1_LEAF2"
+      vlans: [10, 20, 30]
+      vrfs: ["Tenant_A"]
+      members:
+        - name: "dc1-leaf2a"
+          loopback0: "10.255.0.5/32"
+          loopback1: "10.255.1.5/32"
+          mlag_ip: "10.255.252.2/31"
+          mlag_role: "primary"
+          mlag_interfaces: ["Ethernet3", "Ethernet4"]
+        - name: "dc1-leaf2b"
+          loopback0: "10.255.0.6/32"
+          loopback1: "10.255.1.5/32"
+          mlag_ip: "10.255.252.3/31"
+          mlag_role: "secondary"
+          mlag_interfaces: ["Ethernet3", "Ethernet4"]

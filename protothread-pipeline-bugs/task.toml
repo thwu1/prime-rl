@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of C preprocessor macros, the switch/case local continuation mechanism (Duff's device), cooperative multitasking semantics, and concurrent producer-consumer patterns with fan-out/fan-in topology. The solver must identify and fix multiple interacting bug categories: (1) swapped semaphore initialization causing channels to report phantom items and block sends, (2) CHAN_SEND writing to the wrong ring buffer index (tail instead of head), (3) the scheduler running stages only once instead of looping cooperatively, (4) switch statements inside a protothread body conflicting with the internal LC switch mechanism (case labels become invisible to the outer PT switch on resume), (5) local variables across protothread blocking points losing values on resume because they are not declared static, (6) CHAN_RECV lacking EOF awareness (blocks forever when upstream closes an empty channel), and (7) the merger stage only draining one of two input channels. The solver must design and implement a non-blocking polling strategy (CHAN_TRYRECV) and rewrite the merger to fairly drain both channels without deadlocking under bounded-channel backpressure. Bugs 1-3 prevent any data flow; fixing them reveals bugs 4-5; fixing those reveals 6-7. The fan-out/fan-in topology makes bug 7 non-trivial: a sequential drain deadlocks because the undrained channel's backpressure stalls the upstream splitter."""
+solution_explanation = """The solution addresses seven categories: (1) Fix channel_init to initialize slots=CHAN_CAP and items=0 (they were swapped). (2) Fix CHAN_SEND to write to buf[head % CHAN_CAP] instead of buf[tail % CHAN_CAP]. (3) Wrap main() scheduler in a while loop that runs until all seven done flags are set. (4) Replace switch(val & 1) in the splitter with if/else because the protothread LC mechanism uses an outer switch and nested switch case labels are invisible to it on resume. (5) Declare FILE* and int32_t variables as static in reader, transformer, and writer stages so they survive across protothread blocking points. (6) Redesign CHAN_RECV to accept a status output parameter, using PT_WAIT_UNTIL with a compound condition that unblocks on either items>0 or channel closed; change all stage loops from while-condition to for(;;) with break on EOF status. (7) Implement a CHAN_TRYRECV macro that performs non-blocking receive by directly manipulating semaphore counters without PT blocking points, then rewrite the merger to poll both input channels in round-robin using CHAN_TRYRECV, sending received values via blocking CHAN_SEND, and yielding (PT_YIELD) when neither channel has data."""
+verification_explanation = """Tests generate binary input files with known int32_t values, build the pipeline from source, run it with a 10-15 second timeout (catching deadlocks), and compare sorted /app/output.dat values against independently computed expected output using Python. Test cases cover: basic 50-value pipeline, empty input, single value, 200 values, negative values, 1000-value stress test, all-values-routed-to-even-path, all-values-routed-to-odd-path, and large mixed range with negatives."""
+category = "systems_programming"
+tags = ["cooperative-multitasking", "c-macros"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protothread-pipeline-bugs"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-module reference exchange with callback-based architecture, enum types, sorted price lists, and complex matching semantics. The solver must implement: price-time-priority order book, per-fill fee calculation, rejection check ordering, amend edge cases, position breach with cascading cancellation, FAK/GFD lifecycle, self-cross prevention, a binary wire protocol parser (RTGX format with struct.unpack and null-padded trader names), a TCP socket server mode with SO_REUSEADDR and half-close semantics, SQLite audit trail integration with a specific schema, a multi-tool Makefile with process/replay/validate/serve/audit-summary/filter-events targets where audit-summary uses sqlite3 CLI and filter-events uses jq. Demands coupled expertise across financial systems, network programming, database integration, and Unix tool composition."""
+solution_explanation = """Standalone Engine class with price-sorted bid/ask lists, FIFO queues per level, rejection checks in fixed order, per-fill fees via round(), GFD/FAK handling, amend edge cases, breach detection with cancel_all in ascending order_id. Binary parser reads RTGX-format files with struct.unpack and null-padded trader names. parse_binary_data works on raw bytes (shared by file and socket modes). Socket server uses socket module: binds with SO_REUSEADDR, accepts one connection, reads until EOF (client half-close), parses RTGX, processes, sends JSON back. SQLite audit via sqlite3 module: creates events/accounts tables, inserts sequenced events with JSON data column and account summaries. CLI extracts --audit flag position-independently before dispatching to mode handlers. Makefile audit-summary uses sqlite3 CLI with .mode tabs for tab-separated output across three queries; filter-events uses jq --arg with Make-escaped $$ for shell $t variable binding."""
+verification_explanation = """28 pytest functions: 13 core matching tests (basic matching, partial fill, price-time priority, multi-level sweep, FAK, amend, rejection rules, rejection priority, maker breach, taker breach, mutual breach, cancel, comprehensive 9-trader scenario), 3 binary protocol tests (JSON/binary equivalence for matching, all operations, and breach/rejection), 3 TCP socket server tests (basic matching via socket, multi-trader socket vs JSON equivalence, socket with audit DB verification), 3 SQLite audit tests (JSON mode audit data correctness, schema column verification, event data JSON validity), 6 Makefile integration tests (target existence for all 6 targets, process/replay/validate targets, audit-summary sqlite3 CLI output parsing, filter-events jq output validation with multiple event types)."""
+category = "systems_programming"
+tags = ["financial_systems", "network_programming"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orderbook-matching-engine-9b9969"

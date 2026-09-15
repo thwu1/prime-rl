@@ -1,0 +1,4 @@
+ripgrep
+fd-find
+jq
+bat

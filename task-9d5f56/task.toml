@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three Unicode text segmentation algorithms (grapheme cluster, word, sentence) per UAX #29, backed by a C shared library linked against ICU4C for Unicode property data, with a Python interface. The agent must navigate the ICU4C C API, write correct C code with fPIC/shared compilation, bridge C to Python for function calls, and implement 30+ interacting UAX #29 rules including lookahead/lookbehind patterns, extend-collapsing, RI pairing, and InCB handling. Total 3222 conformance test cases must all pass."""
+solution_explanation = """Write a C shared library (propdb.c) that parses Unicode property files into lookup tables and uses ICU USet for set membership, compile it with gcc using ICU flags, then write a Python module that loads the .so and defines the segmentation algorithms using the C-backed property lookups, following UAX #29 rules with correct handling of extend-collapsing, forward scanning, InCB lookback, and RI pairing."""
+verification_explanation = """Tests verify build infrastructure: libpropdb.so exists, links against libicuuc (via ldd), Makefile exists, and segmenter.py uses the C library. Conformance tests parse the three official Unicode break test files and call the segmenter functions, comparing each result for exact boundary-position match. All 3222 test cases must pass with zero failures."""
+category = "data_processing"
+tags = ["unicode", "icu-toolchain"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9d5f56"

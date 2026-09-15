@@ -1,0 +1,66 @@
+name: complex-lab
+mgmt:
+  ipv4-subnet: 192.168.100.0/24
+  ipv4-gw: 192.168.100.1
+topology:
+  defaults:
+    kind: linux
+    image: ubuntu:22.04
+    env:
+      REGION: us-east
+      TIER: default
+    labels:
+      managed-by: containerlab
+    user: root
+    memory: 512m
+  kinds:
+    linux:
+      image: alpine:3.18
+      env:
+        DISTRO: alpine
+      memory: 256m
+    srl:
+      image: ghcr.io/nokia/srlinux
+      env:
+        DISTRO: srlinux
+      memory: 1g
+  groups:
+    core:
+      env:
+        TIER: core
+      labels:
+        priority: high
+    edge:
+      env:
+        TIER: edge
+      labels:
+        priority: low
+  nodes:
+    core-rtr1:
+      kind: srl
+      group: core
+      env:
+        ROUTER_ID: 1.1.1.1
+    core-rtr2:
+      kind: srl
+      group: core
+      env:
+        ROUTER_ID: 2.2.2.2
+    edge-rtr1:
+      kind: linux
+      group: edge
+      mgmt-ipv4: 192.168.100.50
+    edge-rtr2:
+      kind: linux
+      group: edge
+      mgmt-ipv4: 192.168.100.51
+    monitor:
+      kind: linux
+      image: grafana/grafana
+      memory: 2g
+  links:
+    - endpoints: ["core-rtr1:e1-1", "core-rtr2:e1-1"]
+    - endpoints: ["core-rtr1:e1-2", "edge-rtr1:eth1"]
+    - endpoints: ["core-rtr2:e1-2", "edge-rtr2:eth1"]
+    - endpoints: ["edge-rtr1:eth2", "monitor:eth1"]
+    - endpoints: ["edge-rtr2:eth2", "monitor:eth2"]

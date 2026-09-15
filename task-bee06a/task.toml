@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool forensic investigation combining PCAP analysis, binary reverse engineering, host artifact examination, and cryptanalysis. The agent must independently discover the encoding scheme, encryption method, key derivation approach, and subdomain structure from the evidence. Beyond data recovery, the task demands two higher-order deliverables: (1) a security assessment requiring expert judgment about operational security failures, and (2) a generalized DNS tunnel detection engine that must classify unseen tunnel patterns while avoiding false positives on legitimate DNS traffic."""
+solution_explanation = """Analyze the stripped binary with strings/objdump to discover the base32 encoding alphabet, XOR encryption loop, SHA256-based key derivation, and subdomain format string. Decrypt the operational notes using a passphrase found in .bash_history via openssl. Use tshark to extract DNS queries from the PCAP, identify the tunnel domain by statistical analysis of subdomain patterns against decoy traffic, extract and sequence data chunks, then reverse the encoding pipeline (base32 decode, XOR decrypt with SHA256(domain)[:16]). Evaluate the attacker's OPSEC failures: plaintext passphrase in shell history, weak XOR cipher, key derived from observable domain, binary left on disk, sequential query numbering. Design a structural detector that checks for base32-alphabet first labels >=10 chars followed by 2-char hex sequence and short marker label."""
+verification_explanation = """Tests verify six output categories: (1) correct tunnel domain name, (2) exact tunnel packet count of 21, (3) full decrypted plaintext matching expected JSON with specific fields, (4) SHA256 checksum consistency, (5) security assessment identifying >=4 of 5 weakness categories via keyword matching, and (6) detection engine precision >=0.90 and recall >=0.85 against a held-out test set of 25 diverse tunnel queries and 25 realistic benign queries including DKIM selectors, CDN hostnames, and cloud infrastructure names."""
+category = "cybersecurity"
+tags = ["network-forensics", "detection-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bee06a"

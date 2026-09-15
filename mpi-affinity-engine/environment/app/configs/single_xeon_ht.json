@@ -1,0 +1,27 @@
+{
+    "name": "Intel Xeon W-2245 Single Socket",
+    "description": "1 socket, 1 NUMA node, 8 cores, SMT enabled",
+    "sockets": [
+        {
+            "socket_id": 0,
+            "numa_nodes": [
+                {
+                    "node_id": 0,
+                    "cores": [
+                        {"physical_id": 0, "logical_ids": [0, 8]},
+                        {"physical_id": 1, "logical_ids": [1, 9]},
+                        {"physical_id": 2, "logical_ids": [2, 10]},
+                        {"physical_id": 3, "logical_ids": [3, 11]},
+                        {"physical_id": 4, "logical_ids": [4, 12]},
+                        {"physical_id": 5, "logical_ids": [5, 13]},
+                        {"physical_id": 6, "logical_ids": [6, 14]},
+                        {"physical_id": 7, "logical_ids": [7, 15]}
+                    ]
+                }
+            ]
+        }
+    ],
+    "numa_distances": [
+        [10]
+    ]
+}

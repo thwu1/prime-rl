@@ -1,0 +1,24 @@
+{
+  "object_name": "nf_ct_ext",
+  "object_size": 240,
+  "alloc_function": "kmalloc",
+  "alloc_flags": "GFP_KERNEL",
+  "vulnerability_type": "use-after-free",
+  "description": "A use-after-free vulnerability exists in the netfilter connection tracking extension structure (nf_ct_ext). When a tracked connection is destroyed while an nftables expression still holds a reference to the extension, the extension structure is freed but the stale reference is not cleared. Subsequent evaluation of the nftables expression dereferences a function pointer within the freed object, leading to potential control-flow hijacking.",
+  "dereference_offsets": [
+    {
+      "offset": 192,
+      "type": "function_ptr",
+      "access": "call",
+      "context": "The kernel calls the function pointer at offset 192 of the freed nf_ct_ext structure when evaluating an nft_ct expression during packet processing."
+    }
+  ],
+  "additional_constraints": {
+    "timing_window_ms": 100,
+    "requires_capability": false,
+    "requires_namespace": true,
+    "namespace_type": "user+net",
+    "kernel_version": "6.1.x",
+    "config_memcg_kmem": true
+  }
+}

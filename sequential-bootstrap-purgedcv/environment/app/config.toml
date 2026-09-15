@@ -1,0 +1,14 @@
+[model]
+n_estimators = 200
+max_depth = 5
+criterion = "entropy"
+
+[evaluation]
+n_splits = 5
+scoring = "neg_log_loss"
+
+[output]
+results_path = "/app/results.json"
+
+# Data generation parameters are stored in /app/meta/pipeline.db
+# Query: SELECT key, value FROM params

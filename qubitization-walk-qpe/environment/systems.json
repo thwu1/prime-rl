@@ -1,0 +1,30 @@
+{
+  "heisenberg_2": {
+    "n_qubits": 2,
+    "terms": [
+      {"coeff": 0.25, "paulis": "XX"},
+      {"coeff": 0.25, "paulis": "YY"},
+      {"coeff": 0.25, "paulis": "ZZ"}
+    ]
+  },
+  "mixed_signs": {
+    "n_qubits": 2,
+    "terms": [
+      {"coeff": 0.5, "paulis": "ZZ"},
+      {"coeff": -0.3, "paulis": "XI"},
+      {"coeff": 0.4, "paulis": "IX"},
+      {"coeff": -0.2, "paulis": "YY"}
+    ]
+  },
+  "heisenberg_3": {
+    "n_qubits": 3,
+    "terms": [
+      {"coeff": 0.25, "paulis": "XXI"},
+      {"coeff": 0.25, "paulis": "YYI"},
+      {"coeff": 0.25, "paulis": "ZZI"},
+      {"coeff": 0.25, "paulis": "IXX"},
+      {"coeff": 0.25, "paulis": "IYY"},
+      {"coeff": 0.25, "paulis": "IZZ"}
+    ]
+  }
+}

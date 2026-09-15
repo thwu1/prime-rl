@@ -1,0 +1,6 @@
+temperature 353.15
+total_Na 0.56
+total_Cl 0.56
+total_Ca 0.03
+total_C 0.05
+total_S 0.005

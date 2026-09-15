@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives a partial C project with a graph loader and CLI driver but no analytics header or implementation. They must reverse-engineer the expected interface from main.c, design the analytics.h header, and implement three algorithms from mathematical definitions alone — no algorithm names or implementation strategies are given. BFS distances are straightforward, but betweenness centrality requires independently discovering an efficient all-sources approach with shortest-path counting and dependency accumulation (naive enumeration is intractable on the 300-vertex test graph within the time limit). PageRank demands correctly reasoning about the random-walk stationary distribution model, including the non-obvious dangling-node redistribution. The combination of interface design, algorithm discovery, memory management in C, and correctness across five diverse graph topologies (including disconnected components, self-loops, isolated vertices, and cycles) requires proficient graph-algorithm expertise and systems programming skill."""
+solution_explanation = """Create analytics.h declaring three functions matching the signatures in main.c. Implement BFS using a queue-based traversal. For betweenness centrality, use Brandes' algorithm: for each source, run BFS tracking distances, predecessor lists, and shortest-path counts (sigma), then process vertices in reverse BFS order accumulating pair-dependencies delta[v] += (sigma[v]/sigma[w]) * (1 + delta[w]) for each predecessor v of w, adding delta to bc for non-source vertices. For PageRank, use push-based power iteration: compute dangling-node mass, set base rank from teleport plus dangling redistribution, distribute damped rank along outgoing edges, and check L1-norm convergence."""
+verification_explanation = """Tests compile the C code and run it against five directed graph topologies (small hand-crafted, directed path, directed cycle, disconnected with isolated/dangling vertices, random 300-vertex graph with self-loops). BFS distances are compared exactly against NetworkX shortest_path_length. Betweenness centrality values are compared against NetworkX betweenness_centrality(normalized=False) within 1e-4 tolerance. PageRank values are compared against a reference Python power-iteration implementation within 1e-4 tolerance, and sum-to-one is verified. Structural invariants (cycle uniformity, path endpoint BC=0, dangling-node handling) are also checked."""
+category = "graph_algorithms"
+tags = ["parallel_computing", "systems_programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graph-centrality-engine"

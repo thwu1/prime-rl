@@ -1,0 +1,22 @@
+{
+  "plans": [
+    "lock_contention.plan",
+    "mvcc_max.plan",
+    "mvcc_min.plan",
+    "concurrency.plan",
+    "hash_join.plan"
+  ],
+  "paired_comparisons": [
+    {
+      "name": "mvcc_comparison",
+      "fast": "mvcc_max.plan",
+      "slow": "mvcc_min.plan"
+    }
+  ],
+  "concurrency_targets": [
+    {
+      "plan": "concurrency.plan",
+      "operator": "IndexLookUp_10"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+Value Retrieval Under Compression
+
+Keys with shared structural components must each return their
+exact original u64 value via the get subcommand.
+
+Example 1 — shared single-byte prefix, varying values:
+  Input: ab(10)  ac(3)  ad(7)  ae(1)
+  get ab -> 10
+  get ac -> 3
+  get ad -> 7
+  get ae -> 1
+
+Example 2 — prefix key with extension:
+  Input: a(5)  ab(3)
+  get a -> 5
+  get ab -> 3
+
+Example 3 — long shared prefix, extreme value differences:
+  Input: abcdefg(1000000)  abcdefh(1)  abcdefi(500000)
+  get abcdefg -> 1000000
+  get abcdefh -> 1
+  get abcdefi -> 500000
+
+Example 4 — many keys sharing a prefix with diverse values:
+  Input: prefix_a(7)  prefix_b(9999999)  prefix_c(0)
+         prefix_d(42)  prefix_e(1)  prefix_f(8888888)
+  Each key must return its exact value.
+
+Example 5 — chain of nested prefix keys:
+  Input: x(10)  xy(20)  xyz(30)  xyzw(40)  xyzwv(50)
+  get x -> 10
+  get xy -> 20
+  get xyz -> 30
+  get xyzw -> 40
+  get xyzwv -> 50

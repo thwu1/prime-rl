@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing NASA GMAT's proprietary scripting language (unfamiliar DSL with nested property syntax) to extract spacecraft states, force model configurations, and integrator settings across four orbital regimes. Must implement a custom adaptive ODE integrator from scratch (no external solver libraries) with sufficient order and error control to achieve sub-meter closure errors. Must derive and implement gravitational zonal harmonic perturbation accelerations (up to degree 4) in Cartesian coordinates from the gravitational potential — a non-trivial partial-derivative derivation. Must correctly interpret GMAT's GravityField Degree/Order settings to determine which perturbation terms each mission requires. Must perform forward-backward propagation closure tests, energy/momentum conservation checks for two-body cases, and RAAN precession rate comparison between numerical propagation, analytical computation, and GNU Octave cross-validation. Combines numerical methods, astrodynamics, DSL parsing, and multi-tool integration at a professional level."""
+solution_explanation = """The solution implements a GMAT script parser using regex to extract spacecraft state, force model, propagator, and mission sequence parameters. It implements a Dormand-Prince 4(5) adaptive integrator with 7-stage Butcher tableau. Force models include two-body gravity plus J2/J3/J4 zonal harmonic perturbations selected based on parsed gravity degree. An Octave script is generated from the template with filled-in orbital parameters, executed via subprocess, and its output parsed. Closure tests propagate forward then backward for each mission. RAAN is extracted via Cartesian-to-orbital-elements conversion."""
+verification_explanation = """Tests verify: (1) GMAT script parsing correctness by checking extracted state vectors, gravity settings, durations, and integrator types against known script content, (2) closure errors within regime-specific bounds (sub-meter for two-body, 10m for perturbed LEO/MEO, 500m for high-eccentricity HEO), (3) energy/momentum conservation for point-mass case < 1e-8 relative error, (4) RAAN precession agreement with analytical formula within 5%, (5) Octave output file exists with correct markers and consistent precession value, (6) no forbidden ODE-solver imports, (7) integrator order >= 5 and reasonable step/eval counts."""
+category = "mathematics_of_computing"
+tags = ["numerical_analysis", "astrodynamics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orbital-closure-vv"

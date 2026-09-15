@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of multiple intersecting domains: (1) C++ atomics and the memory model — the memory ordering bugs are deliberately subtle, with release stores appearing correct while the corresponding acquire loads are missing, requiring the solver to reason about happens-before chains across producer/consumer threads; (2) ring buffer data structure design — the queue uses a monotonic-counter approach where the index-mapping function has a bitmask bug that only manifests for non-power-of-2 capacities, requiring understanding of bitwise-AND vs modulo semantics; (3) CPU cache coherence — identifying false sharing between atomics requires knowledge of cache-line geometry; (4) lock-free algorithm design — implementing batch operations on a SPSC queue from scratch requires designing correct single-load/batch-copy/single-store patterns with appropriate memory ordering; (5) debugging misdirection — the smoke test's error messages blame the latency sampler for data corruption that actually originates in the queue's index function, requiring the solver to evaluate diagnostic accuracy rather than following the suggested debugging path. The latency sampler has two real bugs: (a) the ready flag uses relaxed ordering instead of release/acquire, and (b) the start_ns/end_ns data fields are plain uint64_t instead of std::atomic<uint64_t>, causing TSan-detectable data races when slots are reused under concurrent access — the solver must recognize that release/acquire on the ready flag alone is insufficient when the ring buffer allows slot reuse."""
+solution_explanation = """Eight fixes across two files: (1) Replace bitmask index mapping `seq & (capacity_ - 1)` with modulo `seq % capacity_` since bitmask only works for pow2; (2) Change push()'s cross-thread head_.load from relaxed to acquire to synchronize with consumer's release; (3) Change pop()'s cross-thread tail_.load from relaxed to acquire to synchronize with producer's release; (4) Add alignas(64) to both head_ and tail_ to eliminate false sharing; (5) Implement push_batch: single acquire load of head, compute available space, placement-new items in a loop using index(), single release store of tail+n; (6) Implement pop_batch: single acquire load of tail, compute available items, move+destruct in a loop, single release store of head+n; (7) Fix latency_sampler.h Entry struct: change start_ns and end_ns from plain uint64_t to std::atomic<uint64_t> with relaxed stores/loads — the non-atomic fields cause data races when slots are reused (num_entries > num_slots), since the writer overwrites a slot while the reader may be concurrently reading it; (8) Fix latency_sampler.h ready flag: change ready.store from relaxed to release and ready.load from relaxed to acquire to establish happens-before ordering for the data fields."""
+verification_explanation = """Nine pytest tests compile the agent's code via two g++ invocations (O2 normal and O1+TSan) and run a C++ test harness in different modes: (1) basic pow2 correctness with wraparound; (2) non-pow2 correctness with 7 different capacities and 5000 wraparound rounds each; (3) 500K-item concurrent producer/consumer with non-pow2 capacity; (4) ThreadSanitizer concurrent test with pow2 capacity isolating memory ordering bugs; (5) sizeof check verifying cache-line separation; (6) single-threaded batch push/pop with partial fills, empty pops, and mixed single/batch operations; (7) batch operations spanning the wraparound boundary with a small non-pow2 queue; (8) concurrent batch operations with 100K items; (9) latency sampler under TSan with concurrent writer/reader threads."""
+category = "systems_programming"
+tags = ["lock-free", "memory-ordering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d81c73"

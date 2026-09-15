@@ -1,0 +1,52 @@
+{
+  "Arsenic": {
+    "n": 25,
+    "n_detect": 25,
+    "percent_nd": 0.0,
+    "distribution": "normal",
+    "ucl_method": "Chebyshev",
+    "ucl95": 11.66,
+    "mean_estimate": 10.632,
+    "sd_estimate": 1.149
+  },
+  "Benzo_a_pyrene": {
+    "n": 20,
+    "n_detect": 20,
+    "percent_nd": 0.0,
+    "distribution": "normal",
+    "ucl_method": "Student's-t",
+    "ucl95": 3.41,
+    "mean_estimate": 2.254,
+    "sd_estimate": 2.993
+  },
+  "Cadmium": {
+    "n": 28,
+    "n_detect": 28,
+    "percent_nd": 0.0,
+    "distribution": "nonparametric",
+    "ucl_method": "Chebyshev",
+    "ucl95": 6.72,
+    "mean_estimate": 4.521,
+    "sd_estimate": 2.597
+  },
+  "Benzene": {
+    "n": 24,
+    "n_detect": 18,
+    "percent_nd": 25.0,
+    "distribution": "normal",
+    "ucl_method": "Student's-t",
+    "ucl95": 4.88,
+    "mean_estimate": 4.138,
+    "sd_estimate": 2.130
+  },
+  "Trichloroethene": {
+    "n": 20,
+    "n_detect": 11,
+    "percent_nd": 45.0,
+    "distribution": "normal",
+    "ucl_method": "Student's-t",
+    "ucl95": 13.15,
+    "mean_estimate": 9.645,
+    "sd_estimate": 9.067
+  }
+}

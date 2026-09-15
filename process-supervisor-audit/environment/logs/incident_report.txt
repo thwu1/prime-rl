@@ -1,0 +1,65 @@
+INCIDENT REPORT — prod-web-037
+==============================
+
+Summary
+-------
+All user processes on host prod-web-037 were terminated simultaneously
+during a routine code deployment at 14:23 UTC on 2024-06-08.  Only
+init (pid 1) and the supervisor daemon itself survived.  Remote access
+(sshd) was lost; recovery required out-of-band console access.
+
+Timeline
+--------
+  14:18  Deployment begins.  New application binaries pushed to the
+         web server fleet via rolling deploy.
+  14:21  Memory usage spikes to 97% as old and new binaries coexist.
+         Kernel OOM killer activates, killing several php-fpm workers.
+  14:22  Web-worker managed by the supervisor exits (OOM-killed).
+         Supervisor detects exit, begins restart_worker() sequence.
+  14:22  fork() fails in restart_worker() — "Cannot allocate memory"
+         appears in stderr.  Supervisor log shows "pid=-1" in the
+         restart message immediately after.
+  14:23  stop_all() is called during a subsequent restart attempt.
+         ALL processes on host killed simultaneously — sshd, cron,
+         monitoring agents, application workers, rsyslog — everything
+         except init and the supervisor daemon itself.
+  14:25  Host reduced to a getty on console.  No remote access.
+  14:41  Operator uses out-of-band console to investigate.
+
+Observations
+------------
+1. The supervisor event log shows "pid=-1" in restart messages.
+   PIDs are always positive — this indicates fork() failed and
+   returned -1, which was then stored as the worker PID.
+
+2. The kernel OOM killer was active in the 14:21-14:22 window,
+   but it only killed php-fpm processes (high memory consumers).
+   It did NOT kill system services like sshd or cron.  These
+   were killed by SIGTERM, not SIGKILL (which OOM killer uses).
+
+3. The supervisor itself survived the mass kill.  If the OOM killer
+   were responsible, the supervisor would also have been targeted.
+   This points to a self-inflicted kill operation by the supervisor.
+
+4. The first entry in the supervisor's event log has a timing delta
+   of 0.847293 seconds, even though the supervisor started within
+   milliseconds of the deployment trigger.  Subsequent deltas are
+   normal.  Timing forensics for the first event are unreliable.
+
+5. Separate testing of the cleanup script (scripts/cleanup.sh)
+   revealed that when run on a host with missing
+   /app/etc/supervisor.conf, the script attempts to delete system
+   directories (/bin/, /etc/, /logs/).
+
+6. During the three weeks before the incident, operators reported
+   that the supervisor occasionally "hung" for 5-10 seconds during
+   periods of high worker churn.  No core dumps were generated.
+   The supervisor resumed normal operation after the hang.
+
+Action Items
+------------
+1. Root-cause the "kill all processes" event.  Determine exactly how
+   the supervisor killed sshd, cron, and other unrelated services.
+2. Investigate event log timing inaccuracy on the first entry.
+3. Fix cleanup script safety issues.
+4. Investigate the intermittent hang behavior.

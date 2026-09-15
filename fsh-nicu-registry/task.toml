@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of both the FHIR R4 data model and FHIR Shorthand (FSH) DSL. The agent faces five buggy starter files with cascading defects: missing Alias declarations causing unresolved references, incorrect caret-path syntax in RuleSets breaking StructureDefinition-level property assignment, wrong slicing discriminator type, incorrect Extension value type constraints, malformed CodeSystem metadata, and invalid ValueSet include syntax. Beyond debugging, the agent must create from scratch: a complex extension with sub-extensions and FHIRPath invariants, an Observation profile with four-way component slicing, an encounter class ValueSet referencing external HL7 code systems, FHIRPath invariant expressions, and three interdependent instances that must conform to all profiles. Each artifact cross-references others (profiles reference extensions and value sets, instances reference profiles, extensions use rulesets), so errors cascade non-obviously. The agent must install and iteratively run SUSHI to diagnose and resolve issues, requiring healthcare informatics domain expertise, DSL mastery, and systematic debugging skills."""
+solution_explanation = """Fix aliases.fsh by adding UCUM, V3ActCode, and v2-0203 identifier type aliases. Fix rulesets.fsh by adding the missing caret (^) prefix on the ExtensionContext ruleset's context property paths. Fix profiles.fsh by changing the identifier slicing discriminator from #value to #pattern, adding the nicu-1 invariant binding, birthDate and gender constraints, NICUAdmission extensions/subject constraint/class binding, and creating the entire NeonatalVitalSigns profile with component slicing. Fix extensions.fsh by changing BirthWeight value[x] from string to Quantity with UCUM pattern, adding extension contexts via the fixed RuleSet, and creating AdmissionReason and APGARScores extensions. Fix terminology.fsh by changing content from #fragment to #complete, adding caseSensitive, adding missing codes, fixing ValueSet include syntax from 'valueset' to 'system', and creating the encounter class ValueSet. Create invariants.fsh with FHIRPath expressions. Create instances.fsh with three conformant instances."""
+verification_explanation = """test.sh installs fsh-sushi@3.16.5 via npm and runs it against /app/. Pytest then verifies: SUSHI compiled with 0 errors; all StructureDefinition JSONs exist with correct base types; NICUPatient has pattern-type identifier slicing discriminator with MRN slice, birth weight/gestational age extensions, birthDate/gender min cardinality, and an invariant; NICUAdmission has admission-reason/apgar-scores extensions, subject constrained to nicu-patient, and required-strength class binding; NeonatalVitalSigns has fixed LOINC 85353-1, effective[x] constrained to dateTime only, and 4+ component slices; extensions have correct value types (Quantity/CodeableConcept), UCUM references, Patient/Encounter contexts, and complex sub-extension structure with invariant; CodeSystem is caseSensitive with complete content and 6+ required codes; ValueSets exist with correct codes; instances have correct demographics, extension values (1250g, 30wk, APGAR 7/9), patient references, and vital sign component values."""
+category = "healthcare_interoperability"
+tags = ["fhir", "fsh"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fsh-nicu-registry"

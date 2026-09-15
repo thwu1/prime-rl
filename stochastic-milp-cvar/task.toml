@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of stochastic optimization under uncertainty. The agent must independently discover and formulate a two-stage stochastic MILP from a business-language problem description (no mathematical formulation given), choose an appropriate coherent risk measure (e.g. CVaR) to control tail-risk exposure, implement both risk-neutral and risk-aware variants with correct linking of binary first-stage facility-opening decisions to continuous second-stage routing variables across 100 scenarios, configure and invoke a MIP solver, and compare solutions to identify that risk control changes the optimal facility configuration. The problem has strong geographic cost asymmetry (cross-region routing costs 10-20x within-region) that makes the solution structure sensitive to warehouse selection, requiring careful analysis of demand patterns and capacity bottlenecks."""
+solution_explanation = """Parse business-language data files (network.json, demand_scenarios.csv, config.json). Formulate a two-stage stochastic MILP: first-stage binary facility-opening variables, second-stage continuous flow variables per scenario, with budget, demand satisfaction, capacity linking, supplier capacity, and flow conservation constraints. Solve twice: (1) risk-neutral (min fixed + E[transport]) yielding facilities [0,1,2,3] at cost 3264, and (2) risk-aware with CVaR_0.95 penalty (weight 0.5, using VaR auxiliary and excess variables for CVaR linearization) yielding facilities [0,1,2,3,5] at cost 5411. The risk-aware solution adds an expensive central facility (#5) that reduces tail-risk exposure by 21% while actually decreasing expected transport cost by 4.5%. Compute comparison metrics and write to analysis.json."""
+verification_explanation = """29 pytest tests verify: (1) output structure has required keys for cost_minimizing, risk_aware, and comparison sections; (2) cost-minimizing solution opens facilities [0,1,2,3] with objective ~3264, expected transport ~3034, fixed cost 230; (3) risk-aware solution opens [0,1,2,3,5] with objective ~5411, expected transport ~2899, CVaR ~4265, VaR ~4172, fixed cost 380; (4) comparison shows facilities differ, additional facility [5], negative expected cost change, >5% tail risk reduction; (5) feasibility: both solutions within budget, valid indices, objective decompositions hold (risk-neutral: fixed+transport=total; risk-aware: fixed+transport+weight*CVaR=total)."""
+category = "optimization"
+tags = ["stochastic-programming", "risk-management"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stochastic-milp-cvar"

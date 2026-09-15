@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level clinical informatics and biostatistics knowledge. The agent must: (1) discover a complex relational database schema with 5 tables across heterogeneous data sources, (2) understand that diagnosis data comes from two independent systems (EHR and claims) using different identifiers and code formats, requiring linkage through a crosswalk table, (3) implement cross-source deduplication where the same diagnosis event recorded in both systems must be treated as one event for temporal rule evaluation, (4) extract site-specific follow-up thresholds from a configuration table rather than hardcoding them, (5) handle ICD code normalization across dotted clinical and undotted billing formats while matching against a qualifying codes SQL dump, (6) implement the challenge's permutation-based capacity-constrained scoring metric, (7) compute site-stratified bootstrap confidence intervals requiring understanding of why site composition must be preserved in resampling, and (8) produce per-site sub-analyses. Multiple edge cases test holistic understanding: cross-source-only qualifying codes, deduplication reducing event count below Group 1 threshold, different qualifying codes on the same date producing zero temporal gap, and site-specific follow-up thresholds for Group 2 eligibility."""
+solution_explanation = """Explore the SQLite database schema to discover 5 tables. Load qualifying ICD codes from the SQL dump. Load patient sessions, EHR diagnoses, and claims diagnoses. Use the patient_linkage table to map claims member_ids to patient_ids. Normalize all ICD codes by stripping dots. Merge EHR and claims diagnosis events, deduplicating by (normalized_code, date) per patient. Load site-specific follow-up thresholds from site_parameters. Apply three-group stratification: Group 1 requires >=2 unique qualifying events with at least one in [3yr, 7yr] window and >=7 day gap between unique dates; Group 2 requires zero qualifying events and follow-up >= site threshold; Group 3 for all others. Parse JSONL predictions. Compute overall metrics (AUROC, AUPRC, accuracy, F1, challenge scores at 0.05/0.20 capacity). Compute site-stratified bootstrap CIs (1000 iterations, seed 42) preserving site composition. Compute per-site AUROC and sample sizes."""
+verification_explanation = """Tests independently verify cohort assignments for all 30 patients including cross-source integration edge cases (qualifying codes only in claims, deduplication reducing to 1 event, different codes on same date with zero gap, site-specific follow-up thresholds). Metric tests compare pipeline output against independently computed sklearn metrics and a reference challenge score implementation. Bootstrap CI tests verify structural validity and compare against independently computed CIs using the same seed and parameters. Site metric tests verify per-site AUROC and sample sizes."""
+category = "data_science"
+tags = ["clinical_informatics", "biostatistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-129928"

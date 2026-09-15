@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning urban morphology, computational geometry, spatial statistics, and graph theory. The agent must independently discover appropriate geospatial analysis tools by examining the pre-installed Python environment, then translate domain-specific metric descriptions (fractal dimension, building adjacency ratios, spatial diversity indices, network meshedness, angular continuity grouping) into working code without any library or algorithm being named. Key challenges: (1) constructing multiple distinct spatial weight matrices (k-nearest-neighbor, rook/queen contiguity, higher-order expansions with self-loops) and understanding which graph type each metric requires; (2) discovering and installing optional dependencies for diversity and inequality measures; (3) correctly converting street GeoDataFrames to primal planar NetworkX graphs for topological analysis; (4) implementing angular continuity-based stroke grouping; (5) generating urban blocks from the composite interaction of tessellation, streets, and buildings. The holistic understanding needed to bridge domain terminology to implementation across five distinct morphological categories distinguishes this from procedural tasks."""
+solution_explanation = """Identify momepy as the appropriate library (pre-installed). Load bubenec.gpkg layers, assign synthetic heights. Shape metrics: direct functional calls (fractal_dimension, circular_compactness, elongation, convexity). Distribution: build KNN(k=5) and contiguity graphs via libpysal.graph.Graph, compute orientation/shared_walls/building_adjacency/street_alignment/mean_interbuilding_distance. Diversity: build contiguity graph on tessellation expanded to 3rd topological order with self-weight, install mapclassify and inequality as optional deps, compute shannon/simpson/gini/theil. Network: convert streets via gdf_to_nx, compute meshedness/cyclomatic/mean_node_degree at global radius. Elements: COINS stroke grouping, generate_blocks, courtyards via queen contiguity with self-weight."""
+verification_explanation = """Tests load /app/results.json and verify each of 19 computed values against golden reference values. Floating-point values use pytest.approx with rel=1e-3 tolerance; integer values (cyclomatic, stroke_count, block_count) require exact match."""
+category = "data_science"
+tags = ["geospatial-analysis", "urban-morphology"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d9995e"

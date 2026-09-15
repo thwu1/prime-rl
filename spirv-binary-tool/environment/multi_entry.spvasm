@@ -1,0 +1,51 @@
+; SPIR-V assembly: compute shader with multiple entry points and a dead function
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %main1 "main1"
+OpEntryPoint GLCompute %main2 "main2"
+OpExecutionMode %main1 LocalSize 1 1 1
+OpExecutionMode %main2 LocalSize 1 1 1
+OpName %main1 "main1"
+OpName %main2 "main2"
+OpName %shared_helper "shared_helper"
+OpName %inner_helper "inner_helper"
+OpName %orphan "orphan"
+
+%void = OpTypeVoid
+%int = OpTypeInt 32 1
+%fn_void = OpTypeFunction %void
+%fn_int_int = OpTypeFunction %int %int
+
+%int_5 = OpConstant %int 5
+%int_7 = OpConstant %int 7
+
+%main1 = OpFunction %void None %fn_void
+%m1_entry = OpLabel
+%r1 = OpFunctionCall %int %shared_helper %int_5
+OpReturn
+OpFunctionEnd
+
+%main2 = OpFunction %void None %fn_void
+%m2_entry = OpLabel
+%r2 = OpFunctionCall %int %shared_helper %int_7
+OpReturn
+OpFunctionEnd
+
+%shared_helper = OpFunction %int None %fn_int_int
+%sh_param = OpFunctionParameter %int
+%sh_entry = OpLabel
+%r3 = OpFunctionCall %int %inner_helper %sh_param
+OpReturnValue %r3
+OpFunctionEnd
+
+%inner_helper = OpFunction %int None %fn_int_int
+%ih_param = OpFunctionParameter %int
+%ih_entry = OpLabel
+%r4 = OpIAdd %int %ih_param %int_7
+OpReturnValue %r4
+OpFunctionEnd
+
+%orphan = OpFunction %void None %fn_void
+%o_entry = OpLabel
+OpReturn
+OpFunctionEnd

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives raw logits from 6 heterogeneous multimodal models with no indication of what pathologies exist in the data or how to address them. Simply averaging outputs fails to meet the accuracy target. The agent must independently discover that the models produce logits at incompatible scales through statistical analysis, diagnose the root cause, conceive and implement a principled recalibration and fusion strategy drawing on deep ML knowledge (post-hoc calibration theory, softmax geometry, constrained numerical optimization, and ensemble methods), and validate the approach on held-out data — all without any algorithmic guidance. The required holistic reasoning across probability theory, optimization, and model diagnostics places this well beyond procedure-following."""
+solution_explanation = """Analyze per-model logit distributions to discover incompatible scales. For each model, optimize a scalar temperature parameter via NLL minimization on the validation set (e.g., Nelder-Mead in log-space) to produce calibrated softmax probabilities. Then optimize 6-dimensional ensemble weights by minimizing cross-entropy of the weighted probability mixture on the validation set, again via derivative-free optimization. Apply the calibrated weighted ensemble to test logits and output argmax predictions."""
+verification_explanation = """Tests verify: (1) output format — 250 predictions in [0,31], config JSON with valid scaling_factors/weights/method; (2) test accuracy >= 68% against XOR+zlib obfuscated ground truth embedded in the test file; (3) accuracy strictly exceeding naive probability averaging of raw logits; (4) scaling factors each in (0.01, 100) with max/min ratio > 1.5; (5) non-uniform ensemble weights (at least one deviating from 1/6 by > 0.02)."""
+category = "machine_learning"
+tags = ["ensemble-learning", "model-calibration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multimodal-ensemble-calibration"

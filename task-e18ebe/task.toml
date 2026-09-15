@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of self-similar solutions to the compressible Euler equations, shock jump conditions, and numerical methods. The solver involves implementing interconnected nonlinear exponent equations, correctly classifying multiple parameter regimes, handling degenerate special cases, computing energy integrals via numerical quadrature, performing nonlinear root inversion of a transcendental mapping, and matching published reference tables to 4+ significant figures across three geometries."""
+solution_explanation = """The solution derives exponents from input parameters, evaluates similarity functions from combination variables raised to computed powers, handles degenerate parameter regimes with modified expressions, computes energy integrals via adaptive quadrature, inverts a transcendental mapping using bounded optimization, evaluates the solution on a fine grid, and interpolates to the requested output positions."""
+verification_explanation = """Tests verify against 9 reference tables from the published literature. Function tests check 57 quintuplets across all three geometries at atol=1e-4. Energy integral tests verify eval1, eval2, alpha at tolerances from 1e-6 to 1e-3. Physical solution tests verify shock position and post-shock density/velocity/pressure/SIE/sound_speed. Additional tests cover edge-case parameter regimes and the API return structure."""
+category = "computational_physics"
+tags = ["gas_dynamics", "similarity_solutions"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e18ebe"

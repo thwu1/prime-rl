@@ -1,0 +1,33 @@
+RPACK Binary Format v1 - Internal Reference
+=============================================
+
+HEADER: 3-byte constant magic sequence (0xCF 0xB0 0x01)
+
+TYPE SYSTEM:
+  null, boolean (false/true), integer, float64, string, array, object
+
+  Integers use minimum-width signed encoding:
+    - Values 0-15 use inline fixint tags (no payload bytes)
+    - Larger values use 1/2/4/8 byte signed payloads in little-endian order
+
+  Float64: 8-byte IEEE 754 in big-endian (network) byte order
+
+  Strings: unsigned variable-length byte count prefix followed by raw UTF-8
+  Arrays: unsigned variable-length element count prefix followed by encoded elements
+  Objects: unsigned variable-length pair count prefix followed by key-value pairs
+    - Keys are sorted lexicographically by raw byte comparison before encoding
+    - Keys use the same variable-length prefix + raw bytes encoding as strings
+
+VARIABLE-LENGTH INTEGERS:
+  Unsigned LEB128 encoding.
+  Each byte uses 7 data bits (bits 0-6) and 1 continuation bit (bit 7).
+  MSB=1 means more bytes follow. LSB-first byte order.
+
+INTEGRITY:
+  1-byte trailing checksum computed over all preceding bytes (header + body).
+  Algorithm: CRC-8. For polynomial and lookup table parameters,
+  invoke the binary's internal diagnostic interface ('dump-tables').
+
+NOTE: This specification is embedded in the binary's ELF .rpack_spec section.
+Extract with: objcopy --dump-section .rpack_spec=out.bin <binary>
+Decompress with zlib to obtain this document.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level heliophysics domain knowledge to discover and correct a systematic coordinate column swap (lat/lon mislabeling) in the raw GOES flare catalog that is not documented anywhere. The agent must independently detect this data quality issue by cross-referencing multiple coordinate sources (numeric columns vs SSW location strings) and understanding Stonyhurst heliographic conventions (west-positive longitude). Additionally requires implementing Carrington heliographic coordinate transforms that depend on each event's observation time (Julian Date computation, Carrington rotation number formula, L0 central meridian longitude), computing geoeffectiveness scores using spherical trigonometry, and correctly parsing GOES X-ray classification strings into peak flux values across five logarithmic class bands."""
+solution_explanation = """Parse the location_ssw strings (e.g. 'N24E77') to extract ground-truth heliographic coordinates and compare against the numeric lat_ssw/lon_ssw columns, discovering that the latitude and longitude values are systematically swapped in both the stony and SSW numeric columns. Reconcile coordinates by prioritizing parsed location strings, then swap-corrected numeric sources. Compute Julian Dates from event timestamps and derive Carrington rotation numbers via the standard formula CR = (JD - 2398167.4)/27.2753 + 1, then compute L0 = 360*(ceil(CR)-CR) to convert HGS to HGC coordinates. Angular distance from disk center uses arccos(cos(lat)*cos(lon)), and geoeffectiveness is cos of that angle clamped to [0,1]. Aggregate by Carrington rotation and NOAA active region number."""
+verification_explanation = """Tests verify: (1) coordinate swap was detected by checking that data_quality_issues is non-empty and corrected coordinates for known events match parsed location_ssw values, (2) spot-check corrected HGS coordinates against hand-parsed SSW strings for 5 specific events, (3) independently compute Carrington conversion for 3 events and compare, (4) structural validation of all output files including column presence, coordinate ranges, and data type consistency, (5) rotation profile class counts sum to total flares, (6) geoeffective events contain only M/X class with scores anticorrelated with angular distance, (7) AR summary flare counts are internally consistent."""
+category = "data_science"
+tags = ["heliophysics", "coordinate-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flare-forecast-pipeline"

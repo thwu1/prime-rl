@@ -1,0 +1,48 @@
+$TTL 86400
+$ORIGIN infra.example.com.
+@   IN  SOA  ns1.infra.example.com.  admin.infra.example.com. (
+            2024010100  ; serial
+            3600        ; refresh
+            1800        ; retry
+            604800      ; expire
+            86400       ; minimum
+        )
+
+; Nameservers
+        IN  NS   ns1.infra.example.com.
+        IN  NS   ns2.infra.example.com.
+
+; Nameserver addresses
+ns1     IN  A     10.0.1.1
+ns2     IN  A     10.0.1.2
+ns1     IN  AAAA  2001:db8:1::1
+ns2     IN  AAAA  2001:db8:1::2
+
+; Web tier
+@       IN  CNAME  web1
+web1    IN  A     10.0.1.10
+web2    IN  A     10.0.1.11
+web3    IN  A     10.0.1.12
+web1    IN  AAAA  2001:db8:1::10
+
+; Application tier
+app     IN  A     10.0.1.20
+
+; Database tier
+db      IN  A     10.0.1.30
+
+; Mail
+mail    IN  A     10.0.1.40
+smtp    IN  CNAME  mail.infra.example.com
+@       IN  MX  10  smtp
+
+; Monitoring
+monitor IN  A     10.0.1.50
+grafana IN  CNAME  monitor.infra.example.com
+
+; Service discovery
+_https._tcp  IN  SRV  0 5 443 web1.infra.example.com
+_mysql._tcp  IN  SRV  0 5 3306 db.infra.example.com.
+
+; SPF
+@       IN  TXT  "v=spf1 mx ~all"

@@ -1,0 +1,99 @@
+{
+  "rtgs": {
+    "core": {
+      "option_a": {
+        "monthly_fee_per_dca": 400,
+        "fee_per_payment_order": 0.80
+      },
+      "option_b": {
+        "monthly_fee_per_dca": 5000,
+        "bands": [
+          {"from": 1, "to": 10000, "fee": 0.60},
+          {"from": 10001, "to": 35000, "fee": 0.50},
+          {"from": 35001, "to": 80000, "fee": 0.40},
+          {"from": 80001, "to": 135000, "fee": 0.20},
+          {"from": 135001, "to": 200000, "fee": 0.125},
+          {"from": 200001, "to": 300000, "fee": 0.08},
+          {"from": 300001, "to": null, "fee": 0.05}
+        ]
+      }
+    },
+    "ancillary_system": {
+      "option_a": {
+        "monthly_fee": 300,
+        "fee_per_cash_transfer_order": 1.60
+      },
+      "option_b": {
+        "monthly_fee": 3750,
+        "bands": [
+          {"from": 1, "to": 5000, "fee": 1.20},
+          {"from": 5001, "to": 12500, "fee": 1.00},
+          {"from": 12501, "to": 25000, "fee": 0.80},
+          {"from": 25001, "to": 50000, "fee": 0.40},
+          {"from": 50001, "to": null, "fee": 0.25}
+        ]
+      },
+      "fixed_fee_i": 2000,
+      "fixed_fee_ii": [
+        {"from_millions": 0, "to_millions": 999.99, "monthly_fee": 833},
+        {"from_millions": 1000, "to_millions": 2499.99, "monthly_fee": 1667},
+        {"from_millions": 2500, "to_millions": 4999.99, "monthly_fee": 3334},
+        {"from_millions": 5000, "to_millions": 9999.99, "monthly_fee": 5000},
+        {"from_millions": 10000, "to_millions": 49999.99, "monthly_fee": 6666},
+        {"from_millions": 50000, "to_millions": 499999.99, "monthly_fee": 8333},
+        {"from_millions": 500000, "to_millions": null, "monthly_fee": 16667}
+      ]
+    },
+    "bic_fees": {
+      "addressable_bic": 20,
+      "unpublished_bic": 30,
+      "multi_addressee_access": 80
+    },
+    "liquidity_transfer_cross_banking_group": 0.80
+  },
+  "t2s": {
+    "messages_bundled_into_file": 0.004,
+    "transmission": 0.012,
+    "u2a_queries": 0.100,
+    "a2a_queries": 0.007,
+    "a2a_reports": 0.004,
+    "internal_liquidity_transfer": 0.141,
+    "intra_balance_movement": 0.094,
+    "dvp_instruction": 0.235,
+    "fop_instruction": 0.141,
+    "pfod_instruction": 0.141,
+    "account_allocation": 0.047,
+    "matching": 0.047,
+    "intra_position_movement": 0.094,
+    "isd_failed_surcharge": 0.235
+  },
+  "tips": {
+    "settlement_fee": {
+      "originator": 0.001,
+      "beneficiary": 0.001
+    },
+    "psp": {
+      "fixed_fee_per_dca": 800,
+      "bic_fee": 20,
+      "free_bics_per_account": 1,
+      "max_chargeable_bics_per_account": 50
+    },
+    "ach": {
+      "fixed_fee_per_asta": 3000,
+      "bic_fee": 20,
+      "free_bics_per_account": 0,
+      "max_chargeable_bics_per_account": 50,
+      "internal_settlement_bands": [
+        {"from": 1, "to": 10000000, "fee": 0.0004},
+        {"from": 10000001, "to": 25000000, "fee": 0.0003},
+        {"from": 25000001, "to": 100000000, "fee": 0.0002},
+        {"from": 100000001, "to": null, "fee": 0.00015}
+      ]
+    }
+  },
+  "rounding": {
+    "billing_group_unit_price_decimals": 4,
+    "invoice_total_decimals": 2,
+    "rounding_method": "half_up"
+  }
+}

@@ -1,0 +1,45 @@
+BPF Instruction Set Architecture — Quick Reference
+===================================================
+
+ENCODING
+--------
+Each instruction: 8 bytes, little-endian.
+  Byte 0:     opcode
+  Byte 1:     src_reg(4 bits) << 4 | dst_reg(4 bits)
+  Bytes 2-3:  offset (s16 LE)
+  Bytes 4-7:  imm (s32 LE)
+
+Wide instruction (LD_IMM64): 16 bytes total (2 consecutive 8-byte slots).
+  Slot 1: opcode=0x18, dst, src=0, off=0, imm=lower32
+  Slot 2: opcode=0x00, regs=0, off=0, imm=upper32
+  Result: dst = (upper32 << 32) | lower32  (both treated as u32 halves)
+
+INSTRUCTION CLASSES (opcode & 0x07)
+------------------------------------
+  0x0=LD  0x1=LDX  0x2=ST  0x3=STX  0x4=ALU  0x5=JMP  0x6=JMP32  0x7=ALU64
+
+ALU/JMP OPCODE: code(4) | source(1) | class(3)
+  source: K=0 (use imm), X=1 (use src_reg)
+  ALU codes: ADD=0 SUB=1 MUL=2 DIV=3 OR=4 AND=5 LSH=6 RSH=7
+             NEG=8 MOD=9 XOR=A MOV=B ARSH=C
+  JMP codes: JA=0 JEQ=1 JGT=2 JGE=3 JSET=4 JNE=5
+             JSGT=6 JSGE=7 CALL=8 EXIT=9 JLT=A JLE=B JSLT=C JSLE=D
+
+LD/ST OPCODE: mode(3) | size(2) | class(3)
+  mode: IMM=0, MEM=3
+  size: W=0(4B) H=1(2B) B=2(1B) DW=3(8B)
+
+REGISTERS
+---------
+  R0: return value
+  R1-R9: general (initially 0)
+  R10: read-only frame pointer, top of 512-byte stack
+  Stack accessible at [R10-512, R10)
+
+KEY SEMANTICS
+-------------
+  ALU64: 64-bit operations. K-source sign-extends s32 imm to s64.
+  ALU (32-bit): lower 32 bits only; result zero-extended to 64 bits.
+  Branches: target = PC + offset + 1 (if taken), PC + 1 (if not).
+  Signed comparisons: JSGT, JSGE, JSLT, JSLE.
+  EXIT: terminates program, R0 is return value.

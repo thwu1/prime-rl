@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing five OPA Rego policies from scratch that correctly evaluate against five Terraform plan JSON files across a 25-cell boolean matrix. The solver must (1) reverse-engineer the Terraform plan JSON schema to discover that attributes like versioning, server_side_encryption_configuration, rule, apply_server_side_encryption_by_default, and expiration are arrays requiring indexing — not flat objects — a trap that causes silent undefined propagation in Rego; (2) understand that json.unmarshal silently returns undefined on non-string input, making negated rules (e.g., 'not wildcard_violation') vacuously true when the wrong field name is referenced; (3) distinguish between the planned_values, resource_changes, and configuration sections of the plan JSON and know which to use for each validation pattern; (4) detect two misconfigured OPA query paths in the manifest that cause package-to-query mismatches; (5) handle the multi_service plan which contains resources spanning multiple compliance domains, creating cross-policy edge cases where policies for one domain must correctly return false when the plan's resources don't satisfy that domain's requirements."""
+solution_explanation = """Five policies must be created from scratch, and two manifest errors must be corrected: (1) s3_security.rego — navigate deeply nested arrays (versioning[0].enabled, server_side_encryption_configuration[0].rule[0].apply_server_side_encryption_by_default[0].sse_algorithm) and use the correct resource type aws_s3_bucket_public_access_block; (2) iam_trust.rego — use the resource_changes section with aws_iam_role (not aws_iam_policy) and the assume_role_policy field (not trust_policy), parsing the embedded JSON trust policy via json.unmarshal; (3) network_ha.rego — use planned_values (not configuration which has expressions instead of values) for AZ diversity checks, and reference from_port (not source_port) for ingress validation; (4) iam_least_privilege.rego — reference the policy field (not policy_document) so json.unmarshal receives a string rather than undefined, preventing the vacuous-truth trap where 'not wildcard_violation' incorrectly passes; (5) s3_lifecycle.rego — index into the expiration array (expiration[0].days, not expiration.days); (6) fix manifest query paths: iam_trust from data.iam_trust_validation.is_valid to data.iam_trust.is_valid, and s3_lifecycle from data.s3_lifecycle_rules.is_valid to data.s3_lifecycle.is_valid."""
+verification_explanation = """Runs opa eval for each of the 25 policy-plan pairs (5 policies x 5 plans) using the queries and paths from the manifest, and compares boolean results against the expected outcomes matrix. Each pair must produce the exact expected true/false value. Additional structural tests verify each policy file exists, passes opa check syntax validation, and references input data (preventing hardcoded boolean returns)."""
+category = "devops"
+tags = ["opa-rego", "terraform", "infrastructure-compliance", "policy-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/opa-rego-terraform"

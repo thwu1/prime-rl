@@ -1,0 +1,1 @@
+%developers ALL=(ALL) NOPASSWD: /usr/bin/vim *

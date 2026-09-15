@@ -1,0 +1,23 @@
+# Validation manifest — lists all configs with their target model and GPU count
+configs:
+  - path: configs/broken_1.yaml
+    model: ERNIE-4.5-300B-A47B
+    num_gpus: 16
+  - path: configs/broken_2.yaml
+    model: ERNIE-4.5-21B-A3B
+    num_gpus: 8
+  - path: configs/broken_3.yaml
+    model: ERNIE-4.5-0.3B
+    num_gpus: 1
+  - path: configs/broken_4.yaml
+    model: ERNIE-4.5-300B-A47B
+    num_gpus: 16
+  - path: configs/broken_5.yaml
+    model: ERNIE-4.5-21B-A3B
+    num_gpus: 1
+  - path: configs/reference_300b_fp8.yaml
+    model: ERNIE-4.5-300B-A47B
+    num_gpus: 16
+  - path: configs/reference_03b_bf16.yaml
+    model: ERNIE-4.5-0.3B
+    num_gpus: 1

@@ -1,0 +1,91 @@
+{
+    "id": "root-alpha",
+    "requirements": "Paper Alpha has been reproduced",
+    "weight": 1,
+    "sub_tasks": [
+        {
+            "id": "implementation",
+            "requirements": "The method has been implemented",
+            "weight": 3,
+            "sub_tasks": [
+                {
+                    "id": "model",
+                    "requirements": "The model architecture has been implemented",
+                    "weight": 2,
+                    "sub_tasks": [
+                        {
+                            "id": "encoder",
+                            "requirements": "The encoder module has been implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        },
+                        {
+                            "id": "decoder",
+                            "requirements": "The decoder module has been implemented correctly",
+                            "weight": 3,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        }
+                    ]
+                },
+                {
+                    "id": "training",
+                    "requirements": "The training loop has been implemented",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                }
+            ]
+        },
+        {
+            "id": "evaluation",
+            "requirements": "The evaluation experiments have been conducted",
+            "weight": 2,
+            "sub_tasks": [
+                {
+                    "id": "execution",
+                    "requirements": "The experiments have been executed",
+                    "weight": 1,
+                    "sub_tasks": [
+                        {
+                            "id": "run_exp1",
+                            "requirements": "Experiment 1 has been executed successfully",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        },
+                        {
+                            "id": "run_exp2",
+                            "requirements": "Experiment 2 has been executed successfully",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        }
+                    ]
+                },
+                {
+                    "id": "results",
+                    "requirements": "The results match the paper",
+                    "weight": 3,
+                    "sub_tasks": [
+                        {
+                            "id": "table1",
+                            "requirements": "Table 1 results match the paper",
+                            "weight": 2,
+                            "sub_tasks": [],
+                            "task_category": "Result Match"
+                        },
+                        {
+                            "id": "figure1",
+                            "requirements": "Figure 1 results match the paper",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Result Match"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

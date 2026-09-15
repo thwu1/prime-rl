@@ -1,0 +1,2249 @@
+^SERIES = GSE99999
+!Series_title = Gene expression profiling of clear cell renal cell carcinoma versus matched adjacent normal kidney tissue
+!Series_geo_accession = GSE99999
+!Series_status = Public on Jan 15 2024
+!Series_submission_date = Dec 01 2023
+!Series_last_update_date = Mar 22 2024
+!Series_summary = Clear cell renal cell carcinoma (ccRCC) is the most common subtype of kidney cancer. We performed gene expression profiling on tumor and matched normal kidney tissue across all stages to identify stage-specific molecular signatures and potential therapeutic targets.
+!Series_summary = Total RNA was extracted from flash-frozen tissue samples and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays.
+!Series_overall_design = 16 samples total: 8 matched pairs of tumor and adjacent normal kidney tissue across 4 disease stages (2 pairs per stage)
+!Series_type = Expression profiling by array
+!Series_contributor = John,A,Copland
+!Series_contributor = Christina,A,von Roemeling
+!Series_contributor = Han,W,Tun
+!Series_pubmed_id = 24962026
+!Series_platform_id = GPL570
+!Series_platform_organism = Homo sapiens
+!Series_sample_id = GSM3000000
+!Series_sample_id = GSM3000001
+!Series_sample_id = GSM3000002
+!Series_sample_id = GSM3000003
+!Series_sample_id = GSM3000004
+!Series_sample_id = GSM3000005
+!Series_sample_id = GSM3000006
+!Series_sample_id = GSM3000007
+!Series_sample_id = GSM3000008
+!Series_sample_id = GSM3000009
+!Series_sample_id = GSM3000010
+!Series_sample_id = GSM3000011
+!Series_sample_id = GSM3000012
+!Series_sample_id = GSM3000013
+!Series_sample_id = GSM3000014
+!Series_sample_id = GSM3000015
+!Series_contact_name = John,,Copland
+!Series_contact_email = copland.john@mayo.edu
+!Series_contact_institute = Mayo Clinic
+!Series_contact_department = Cancer Biology
+!Series_contact_city = Jacksonville
+!Series_contact_state = FL
+!Series_contact_zip/postal_code = 32224
+!Series_contact_country = USA
+!Series_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE99nnn/GSE99999/suppl/GSE99999_RAW.tar
+
+^SAMPLE = GSM3000000
+!Sample_title = PT001N
+!Sample_geo_accession = GSM3000000
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT001
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 50
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000000/suppl/GSM3000000_PT001N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.2147
+210512_s_at	10.4833
+200989_at	7.4767
+221009_s_at	9.1489
+218507_at	8.3161
+204014_at	9.601
+202499_s_at	7.2742
+218854_at	7.9927
+205463_s_at	11.0853
+219306_at	9.3936
+211372_s_at	10.0885
+209040_s_at	7.7938
+219389_at	7.489
+205862_at	7.4736
+218468_s_at	6.461
+205020_s_at	8.6996
+205352_at	5.8544
+206785_s_at	9.7445
+204351_at	8.1501
+205428_s_at	6.271
+205267_at	8.5271
+205950_s_at	8.557
+207630_s_at	8.239
+201839_s_at	7.1521
+212607_at	7.3226
+210735_s_at	8.5161
+204655_at	4.916
+219295_s_at	7.9308
+220260_at	6.1912
+205513_at	8.3321
+200800_s_at	9.164
+200042_at	8.4167
+1007_s_at	8.2003
+1294_at	8.7626
+1316_at	6.5209
+217370_x_at	11.009
+211712_s_at	6.7976
+202859_x_at	9.2213
+215382_x_at	9.491
+244686_at	8.5207
+200725_x_at	7.8344
+200003_s_at	5.0888
+200002_at	7.8925
+201141_at	9.1201
+200820_at	7.3459
+200626_s_at	6.8807
+200001_at	7.6609
+AFFX-BioB-5_at	4.2473
+AFFX-BioC-5_at	4.3448
+AFFX-BioDn-5_at	3.9417
+AFFX-CreX-5_at	4.0382
+AFFX-DapX-5_at	3.9885
+AFFX-LysX-5_at	3.6321
+AFFX-PheX-5_at	3.1721
+AFFX-ThrX-5_at	4.4632
+AFFX-TrpnX-5_at	4.2668
+AFFX-r2-Ec-bioB-5_at	4.5931
+200052_s_at	8.5163
+200053_at	6.858
+200054_at	9.7437
+200055_at	8.3117
+200056_s_at	9.7323
+200057_s_at	9.4489
+200058_s_at	10.0917
+200059_s_at	9.7854
+200060_s_at	9.2772
+200061_s_at	6.6918
+200062_s_at	8.7504
+200063_s_at	10.1537
+200064_at	7.9575
+200065_s_at	6.9868
+200066_at	6.5431
+200067_x_at	7.3267
+200068_s_at	6.1753
+200069_at	8.0483
+200070_at	7.7233
+200071_at	8.3711
+200072_s_at	10.257
+200073_s_at	9.8705
+200074_s_at	8.0122
+200075_s_at	10.3018
+200076_s_at	8.1992
+200077_s_at	5.7369
+200078_s_at	7.8011
+200079_s_at	7.8088
+200080_s_at	9.7329
+200081_s_at	8.3041
+200082_s_at	9.964
+200083_at	8.3438
+200084_at	10.4334
+200085_s_at	6.8528
+200086_s_at	9.2951
+200087_s_at	7.3198
+200088_x_at	8.2054
+200089_s_at	7.8949
+200090_at	8.7344
+200091_s_at	8.3509
+200092_s_at	7.6572
+200093_s_at	8.3093
+200094_s_at	7.886
+200095_x_at	11.1572
+200096_s_at	7.203
+200097_s_at	10.6868
+200098_s_at	10.5012
+200099_s_at	9.3336
+!Sample_table_end
+
+^SAMPLE = GSM3000001
+!Sample_title = PT001T
+!Sample_geo_accession = GSM3000001
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 1 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage1
+!Sample_characteristics_ch1 = patient id: PT001
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 50
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000001/suppl/GSM3000001_PT001T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.2171
+210512_s_at	13.4028
+200989_at	10.5248
+221009_s_at	13.6504
+218507_at	11.3751
+204014_at	12.1126
+202499_s_at	10.635
+218854_at	10.2088
+205463_s_at	13.8316
+219306_at	12.4818
+211372_s_at	12.2577
+209040_s_at	11.2427
+219389_at	10.2944
+205862_at	10.8535
+218468_s_at	9.0779
+205020_s_at	5.636
+205352_at	3.8612
+206785_s_at	6.0807
+204351_at	4.6908
+205428_s_at	2.7776
+205267_at	6.1917
+205950_s_at	5.6286
+207630_s_at	4.8486
+201839_s_at	5.0284
+212607_at	5.0077
+210735_s_at	5.4871
+204655_at	3.1102
+219295_s_at	4.8711
+220260_at	4.1372
+205513_at	6.4182
+200800_s_at	8.8459
+200042_at	8.218
+1007_s_at	8.032
+1294_at	9.1141
+1316_at	6.1755
+217370_x_at	10.7995
+211712_s_at	6.6065
+202859_x_at	8.6673
+215382_x_at	9.4426
+244686_at	7.9273
+200725_x_at	8.1049
+200003_s_at	5.7633
+200002_at	8.2983
+201141_at	8.774
+200820_at	6.7775
+200626_s_at	7.6884
+200001_at	8.0161
+AFFX-BioB-5_at	3.0536
+AFFX-BioC-5_at	4.0817
+AFFX-BioDn-5_at	4.3852
+AFFX-CreX-5_at	4.6616
+AFFX-DapX-5_at	4.4354
+AFFX-LysX-5_at	4.1435
+AFFX-PheX-5_at	4.5307
+AFFX-ThrX-5_at	4.5583
+AFFX-TrpnX-5_at	3.204
+AFFX-r2-Ec-bioB-5_at	4.0106
+200052_s_at	7.5638
+200053_at	6.6438
+200054_at	9.9882
+200055_at	7.7739
+200056_s_at	10.055
+200057_s_at	9.6464
+200058_s_at	9.9552
+200059_s_at	9.8214
+200060_s_at	8.1982
+200061_s_at	6.6766
+200062_s_at	8.8857
+200063_s_at	9.8694
+200064_at	7.3445
+200065_s_at	7.0157
+200066_at	7.2655
+200067_x_at	7.5209
+200068_s_at	5.9082
+200069_at	8.1485
+200070_at	8.2961
+200071_at	8.7419
+200072_s_at	10.3089
+200073_s_at	10.6519
+200074_s_at	8.6467
+200075_s_at	9.0806
+200076_s_at	7.9333
+200077_s_at	5.8005
+200078_s_at	7.4769
+200079_s_at	7.0189
+200080_s_at	10.0657
+200081_s_at	7.3708
+200082_s_at	10.3102
+200083_at	9.3369
+200084_at	10.5648
+200085_s_at	6.8627
+200086_s_at	9.6632
+200087_s_at	6.9606
+200088_x_at	8.3859
+200089_s_at	7.2663
+200090_at	8.7728
+200091_s_at	7.2456
+200092_s_at	7.6373
+200093_s_at	8.6285
+200094_s_at	8.3859
+200095_x_at	11.9427
+200096_s_at	7.7696
+200097_s_at	9.4581
+200098_s_at	9.1608
+200099_s_at	8.8805
+!Sample_table_end
+
+^SAMPLE = GSM3000002
+!Sample_title = PT002N
+!Sample_geo_accession = GSM3000002
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT002
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 55
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000002/suppl/GSM3000002_PT002N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.5647
+210512_s_at	10.6793
+200989_at	6.6387
+221009_s_at	8.9213
+218507_at	8.9552
+204014_at	9.2282
+202499_s_at	8.2949
+218854_at	8.0416
+205463_s_at	10.5917
+219306_at	8.9067
+211372_s_at	10.4134
+209040_s_at	7.3486
+219389_at	7.545
+205862_at	8.6106
+218468_s_at	7.0295
+205020_s_at	8.3627
+205352_at	6.8117
+206785_s_at	8.8547
+204351_at	6.5893
+205428_s_at	5.1691
+205267_at	8.8418
+205950_s_at	8.1785
+207630_s_at	7.8169
+201839_s_at	7.6397
+212607_at	6.9841
+210735_s_at	8.5438
+204655_at	5.1214
+219295_s_at	7.5931
+220260_at	5.9683
+205513_at	8.4447
+200800_s_at	8.4288
+200042_at	8.6062
+1007_s_at	7.5393
+1294_at	9.5633
+1316_at	7.0419
+217370_x_at	12.077
+211712_s_at	6.9384
+202859_x_at	8.7009
+215382_x_at	9.9481
+244686_at	8.5437
+200725_x_at	8.1724
+200003_s_at	5.0114
+200002_at	7.9916
+201141_at	8.4133
+200820_at	8.1984
+200626_s_at	8.2313
+200001_at	8.8782
+AFFX-BioB-5_at	3.8302
+AFFX-BioC-5_at	3.6749
+AFFX-BioDn-5_at	4.9107
+AFFX-CreX-5_at	4.2612
+AFFX-DapX-5_at	3.9406
+AFFX-LysX-5_at	3.8704
+AFFX-PheX-5_at	3.6472
+AFFX-ThrX-5_at	4.3293
+AFFX-TrpnX-5_at	3.8092
+AFFX-r2-Ec-bioB-5_at	4.1249
+200052_s_at	7.9111
+200053_at	8.3838
+200054_at	9.368
+200055_at	8.6033
+200056_s_at	10.9909
+200057_s_at	9.9553
+200058_s_at	9.9959
+200059_s_at	9.9799
+200060_s_at	8.1126
+200061_s_at	7.16
+200062_s_at	9.1515
+200063_s_at	10.277
+200064_at	7.8238
+200065_s_at	7.1307
+200066_at	7.0416
+200067_x_at	7.4427
+200068_s_at	5.8447
+200069_at	8.4119
+200070_at	8.0811
+200071_at	8.4508
+200072_s_at	10.5661
+200073_s_at	10.2227
+200074_s_at	7.619
+200075_s_at	9.8182
+200076_s_at	7.7598
+200077_s_at	5.6632
+200078_s_at	8.4454
+200079_s_at	7.2926
+200080_s_at	8.4909
+200081_s_at	7.9634
+200082_s_at	10.7805
+200083_at	9.8528
+200084_at	10.4688
+200085_s_at	6.7049
+200086_s_at	8.8954
+200087_s_at	7.7528
+200088_x_at	7.456
+200089_s_at	7.928
+200090_at	8.0637
+200091_s_at	8.0916
+200092_s_at	8.1631
+200093_s_at	8.6602
+200094_s_at	8.0438
+200095_x_at	11.0457
+200096_s_at	6.6154
+200097_s_at	10.227
+200098_s_at	10.2895
+200099_s_at	9.2575
+!Sample_table_end
+
+^SAMPLE = GSM3000003
+!Sample_title = PT002T
+!Sample_geo_accession = GSM3000003
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 1 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage1
+!Sample_characteristics_ch1 = patient id: PT002
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 55
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000003/suppl/GSM3000003_PT002T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.2073
+210512_s_at	12.5945
+200989_at	10.6347
+221009_s_at	11.5897
+218507_at	11.3986
+204014_at	12.2244
+202499_s_at	11.2154
+218854_at	10.2279
+205463_s_at	13.0514
+219306_at	12.8668
+211372_s_at	13.4314
+209040_s_at	10.8622
+219389_at	9.201
+205862_at	11.3939
+218468_s_at	8.3847
+205020_s_at	6.8412
+205352_at	4.2594
+206785_s_at	5.7028
+204351_at	4.6821
+205428_s_at	3.8315
+205267_at	5.2367
+205950_s_at	4.7093
+207630_s_at	4.669
+201839_s_at	4.312
+212607_at	4.391
+210735_s_at	4.5109
+204655_at	2.3323
+219295_s_at	5.1626
+220260_at	3.4544
+205513_at	5.8467
+200800_s_at	8.8279
+200042_at	8.6127
+1007_s_at	7.609
+1294_at	8.5251
+1316_at	6.3483
+217370_x_at	11.1681
+211712_s_at	7.0106
+202859_x_at	8.919
+215382_x_at	9.9178
+244686_at	8.1945
+200725_x_at	8.4698
+200003_s_at	4.8361
+200002_at	7.7529
+201141_at	8.6114
+200820_at	6.8522
+200626_s_at	8.1972
+200001_at	8.4241
+AFFX-BioB-5_at	4.0111
+AFFX-BioC-5_at	4.2274
+AFFX-BioDn-5_at	3.5062
+AFFX-CreX-5_at	3.9942
+AFFX-DapX-5_at	4.383
+AFFX-LysX-5_at	3.8608
+AFFX-PheX-5_at	4.3963
+AFFX-ThrX-5_at	4.5135
+AFFX-TrpnX-5_at	4.2345
+AFFX-r2-Ec-bioB-5_at	3.9992
+200052_s_at	8.2903
+200053_at	6.8005
+200054_at	10.1609
+200055_at	8.1339
+200056_s_at	9.485
+200057_s_at	9.7592
+200058_s_at	9.8458
+200059_s_at	9.7566
+200060_s_at	8.3374
+200061_s_at	6.758
+200062_s_at	9.0842
+200063_s_at	10.4205
+200064_at	7.0701
+200065_s_at	6.7219
+200066_at	7.0957
+200067_x_at	7.5307
+200068_s_at	5.6121
+200069_at	8.647
+200070_at	7.3617
+200071_at	8.4109
+200072_s_at	10.4428
+200073_s_at	10.1843
+200074_s_at	7.5122
+200075_s_at	9.1878
+200076_s_at	8.7391
+200077_s_at	5.229
+200078_s_at	7.3589
+200079_s_at	7.0957
+200080_s_at	10.1999
+200081_s_at	8.5594
+200082_s_at	10.6631
+200083_at	8.1035
+200084_at	11.0968
+200085_s_at	6.7657
+200086_s_at	9.7276
+200087_s_at	7.1434
+200088_x_at	8.3096
+200089_s_at	7.723
+200090_at	8.5724
+200091_s_at	8.1762
+200092_s_at	7.8504
+200093_s_at	8.1845
+200094_s_at	8.936
+200095_x_at	11.1663
+200096_s_at	7.0642
+200097_s_at	9.8523
+200098_s_at	9.191
+200099_s_at	9.4337
+!Sample_table_end
+
+^SAMPLE = GSM3000004
+!Sample_title = PT003N
+!Sample_geo_accession = GSM3000004
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT003
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 60
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000004/suppl/GSM3000004_PT003N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	7.6849
+210512_s_at	10.3417
+200989_at	6.7254
+221009_s_at	9.5564
+218507_at	7.7829
+204014_at	9.5575
+202499_s_at	8.0012
+218854_at	8.3077
+205463_s_at	10.8785
+219306_at	9.2219
+211372_s_at	10.0504
+209040_s_at	7.6348
+219389_at	8.265
+205862_at	7.3317
+218468_s_at	6.6388
+205020_s_at	9.0541
+205352_at	6.98
+206785_s_at	9.0298
+204351_at	7.1874
+205428_s_at	5.8832
+205267_at	9.5078
+205950_s_at	7.8491
+207630_s_at	8.8389
+201839_s_at	6.8342
+212607_at	7.3382
+210735_s_at	8.8696
+204655_at	5.0033
+219295_s_at	7.4294
+220260_at	6.5318
+205513_at	8.4382
+200800_s_at	8.063
+200042_at	7.9304
+1007_s_at	7.4885
+1294_at	9.9301
+1316_at	6.1167
+217370_x_at	11.6543
+211712_s_at	6.6613
+202859_x_at	8.8376
+215382_x_at	9.9848
+244686_at	8.0379
+200725_x_at	8.0395
+200003_s_at	5.6073
+200002_at	8.159
+201141_at	8.7266
+200820_at	7.5209
+200626_s_at	7.2244
+200001_at	8.0904
+AFFX-BioB-5_at	3.9337
+AFFX-BioC-5_at	3.6729
+AFFX-BioDn-5_at	3.68
+AFFX-CreX-5_at	4.5412
+AFFX-DapX-5_at	3.5441
+AFFX-LysX-5_at	4.0719
+AFFX-PheX-5_at	4.0325
+AFFX-ThrX-5_at	4.2171
+AFFX-TrpnX-5_at	4.1423
+AFFX-r2-Ec-bioB-5_at	3.9636
+200052_s_at	8.4879
+200053_at	7.1483
+200054_at	9.7361
+200055_at	7.3274
+200056_s_at	10.6108
+200057_s_at	9.752
+200058_s_at	9.9397
+200059_s_at	10.1255
+200060_s_at	8.4719
+200061_s_at	7.2546
+200062_s_at	9.358
+200063_s_at	10.1384
+200064_at	7.4131
+200065_s_at	7.2075
+200066_at	7.4143
+200067_x_at	8.0658
+200068_s_at	5.6529
+200069_at	8.0651
+200070_at	8.3417
+200071_at	9.5815
+200072_s_at	10.5527
+200073_s_at	10.3955
+200074_s_at	8.3587
+200075_s_at	9.1441
+200076_s_at	8.4327
+200077_s_at	5.3775
+200078_s_at	7.9883
+200079_s_at	6.6362
+200080_s_at	9.5583
+200081_s_at	7.6769
+200082_s_at	11.1229
+200083_at	9.2664
+200084_at	10.3867
+200085_s_at	7.5458
+200086_s_at	9.0607
+200087_s_at	7.2524
+200088_x_at	8.0277
+200089_s_at	9.1277
+200090_at	8.1216
+200091_s_at	7.5842
+200092_s_at	7.9977
+200093_s_at	8.9772
+200094_s_at	7.7774
+200095_x_at	11.568
+200096_s_at	7.5656
+200097_s_at	9.6126
+200098_s_at	10.0752
+200099_s_at	9.7803
+!Sample_table_end
+
+^SAMPLE = GSM3000005
+!Sample_title = PT003T
+!Sample_geo_accession = GSM3000005
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 2 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage2
+!Sample_characteristics_ch1 = patient id: PT003
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 60
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000005/suppl/GSM3000005_PT003T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.4833
+210512_s_at	13.7608
+200989_at	10.0745
+221009_s_at	13.1021
+218507_at	10.6895
+204014_at	12.6597
+202499_s_at	9.3001
+218854_at	10.9555
+205463_s_at	13.6853
+219306_at	12.6067
+211372_s_at	13.8162
+209040_s_at	11.9933
+219389_at	10.3638
+205862_at	11.0935
+218468_s_at	10.042
+205020_s_at	4.6118
+205352_at	3.5492
+206785_s_at	5.2988
+204351_at	4.3512
+205428_s_at	1.4909
+205267_at	6.278
+205950_s_at	4.7807
+207630_s_at	5.0285
+201839_s_at	4.6477
+212607_at	4.6325
+210735_s_at	5.9316
+204655_at	2.8353
+219295_s_at	4.5591
+220260_at	2.903
+205513_at	5.7066
+200800_s_at	8.816
+200042_at	8.0789
+1007_s_at	7.4389
+1294_at	9.7545
+1316_at	6.4857
+217370_x_at	11.4332
+211712_s_at	6.9269
+202859_x_at	9.0086
+215382_x_at	10.2908
+244686_at	8.4093
+200725_x_at	7.7563
+200003_s_at	5.3995
+200002_at	8.745
+201141_at	8.9105
+200820_at	7.8326
+200626_s_at	7.2667
+200001_at	7.7542
+AFFX-BioB-5_at	3.6441
+AFFX-BioC-5_at	3.9462
+AFFX-BioDn-5_at	4.3464
+AFFX-CreX-5_at	4.032
+AFFX-DapX-5_at	4.3904
+AFFX-LysX-5_at	4.1426
+AFFX-PheX-5_at	3.5695
+AFFX-ThrX-5_at	4.2483
+AFFX-TrpnX-5_at	4.1909
+AFFX-r2-Ec-bioB-5_at	3.9419
+200052_s_at	8.318
+200053_at	7.0881
+200054_at	10.0616
+200055_at	7.9424
+200056_s_at	9.8795
+200057_s_at	9.8193
+200058_s_at	10.3521
+200059_s_at	10.4314
+200060_s_at	8.1741
+200061_s_at	7.1852
+200062_s_at	8.8291
+200063_s_at	9.8114
+200064_at	8.0199
+200065_s_at	6.5215
+200066_at	6.6827
+200067_x_at	7.8939
+200068_s_at	5.9895
+200069_at	8.6802
+200070_at	8.1882
+200071_at	8.2281
+200072_s_at	9.8615
+200073_s_at	9.6742
+200074_s_at	8.4327
+200075_s_at	10.3206
+200076_s_at	7.9255
+200077_s_at	5.4859
+200078_s_at	7.7395
+200079_s_at	7.0453
+200080_s_at	10.625
+200081_s_at	8.6957
+200082_s_at	10.484
+200083_at	9.0988
+200084_at	10.6259
+200085_s_at	6.6982
+200086_s_at	8.349
+200087_s_at	6.646
+200088_x_at	7.9111
+200089_s_at	7.861
+200090_at	8.2016
+200091_s_at	7.8371
+200092_s_at	7.9486
+200093_s_at	8.1095
+200094_s_at	8.1905
+200095_x_at	11.1667
+200096_s_at	7.3085
+200097_s_at	9.265
+200098_s_at	9.588
+200099_s_at	9.31
+!Sample_table_end
+
+^SAMPLE = GSM3000006
+!Sample_title = PT004N
+!Sample_geo_accession = GSM3000006
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT004
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 65
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000006/suppl/GSM3000006_PT004N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.1769
+210512_s_at	10.816
+200989_at	7.0087
+221009_s_at	9.4513
+218507_at	7.694
+204014_at	9.2331
+202499_s_at	8.01
+218854_at	8.867
+205463_s_at	11.6084
+219306_at	9.6964
+211372_s_at	10.5366
+209040_s_at	6.8888
+219389_at	8.1611
+205862_at	8.6737
+218468_s_at	7.3809
+205020_s_at	8.2915
+205352_at	7.2033
+206785_s_at	9.0076
+204351_at	7.5367
+205428_s_at	5.743
+205267_at	8.7362
+205950_s_at	7.8314
+207630_s_at	7.7923
+201839_s_at	7.0586
+212607_at	7.675
+210735_s_at	8.9918
+204655_at	5.028
+219295_s_at	7.7131
+220260_at	7.0393
+205513_at	8.5756
+200800_s_at	8.9837
+200042_at	7.9754
+1007_s_at	7.1204
+1294_at	8.633
+1316_at	6.0631
+217370_x_at	10.4339
+211712_s_at	6.7156
+202859_x_at	8.7677
+215382_x_at	9.7008
+244686_at	7.7286
+200725_x_at	7.8477
+200003_s_at	5.7089
+200002_at	8.4413
+201141_at	8.6934
+200820_at	7.2049
+200626_s_at	7.7292
+200001_at	8.0028
+AFFX-BioB-5_at	3.746
+AFFX-BioC-5_at	3.6964
+AFFX-BioDn-5_at	4.2262
+AFFX-CreX-5_at	3.7375
+AFFX-DapX-5_at	3.3504
+AFFX-LysX-5_at	3.8039
+AFFX-PheX-5_at	3.8136
+AFFX-ThrX-5_at	3.5658
+AFFX-TrpnX-5_at	3.776
+AFFX-r2-Ec-bioB-5_at	4.0494
+200052_s_at	7.948
+200053_at	7.1198
+200054_at	10.0301
+200055_at	7.0984
+200056_s_at	10.3232
+200057_s_at	9.5477
+200058_s_at	10.2444
+200059_s_at	9.8012
+200060_s_at	8.6382
+200061_s_at	7.3662
+200062_s_at	9.3101
+200063_s_at	10.3813
+200064_at	7.694
+200065_s_at	7.2649
+200066_at	6.389
+200067_x_at	8.0275
+200068_s_at	6.159
+200069_at	8.1553
+200070_at	7.9179
+200071_at	8.3634
+200072_s_at	10.226
+200073_s_at	10.4107
+200074_s_at	8.4485
+200075_s_at	9.9495
+200076_s_at	8.4656
+200077_s_at	5.7245
+200078_s_at	7.011
+200079_s_at	8.0051
+200080_s_at	9.5516
+200081_s_at	7.9328
+200082_s_at	9.8096
+200083_at	8.9754
+200084_at	10.8459
+200085_s_at	7.267
+200086_s_at	9.3487
+200087_s_at	6.7895
+200088_x_at	7.5283
+200089_s_at	7.764
+200090_at	8.2404
+200091_s_at	7.0354
+200092_s_at	8.2233
+200093_s_at	8.3969
+200094_s_at	8.0406
+200095_x_at	10.8896
+200096_s_at	7.1372
+200097_s_at	9.4849
+200098_s_at	10.4498
+200099_s_at	8.6775
+!Sample_table_end
+
+^SAMPLE = GSM3000007
+!Sample_title = PT004T
+!Sample_geo_accession = GSM3000007
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 2 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage2
+!Sample_characteristics_ch1 = patient id: PT004
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 65
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000007/suppl/GSM3000007_PT004T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.1537
+210512_s_at	13.3222
+200989_at	10.1949
+221009_s_at	12.7505
+218507_at	11.598
+204014_at	11.5171
+202499_s_at	11.0591
+218854_at	11.1221
+205463_s_at	13.4337
+219306_at	12.5523
+211372_s_at	12.6966
+209040_s_at	11.0509
+219389_at	9.8597
+205862_at	12.3904
+218468_s_at	9.8149
+205020_s_at	5.7085
+205352_at	3.5818
+206785_s_at	6.0944
+204351_at	4.5847
+205428_s_at	2.1869
+205267_at	5.421
+205950_s_at	5.7447
+207630_s_at	4.9005
+201839_s_at	3.7564
+212607_at	4.6126
+210735_s_at	6.8894
+204655_at	3.2593
+219295_s_at	5.5577
+220260_at	4.4014
+205513_at	5.5454
+200800_s_at	9.3128
+200042_at	7.5401
+1007_s_at	8.1957
+1294_at	8.5624
+1316_at	5.7299
+217370_x_at	11.1545
+211712_s_at	7.0179
+202859_x_at	8.7998
+215382_x_at	10.043
+244686_at	8.7507
+200725_x_at	8.1049
+200003_s_at	5.8322
+200002_at	8.1553
+201141_at	9.1955
+200820_at	6.8502
+200626_s_at	7.8782
+200001_at	8.5477
+AFFX-BioB-5_at	4.0732
+AFFX-BioC-5_at	3.9022
+AFFX-BioDn-5_at	3.7668
+AFFX-CreX-5_at	4.177
+AFFX-DapX-5_at	4.0134
+AFFX-LysX-5_at	3.3487
+AFFX-PheX-5_at	3.6488
+AFFX-ThrX-5_at	4.2949
+AFFX-TrpnX-5_at	3.6331
+AFFX-r2-Ec-bioB-5_at	4.0201
+200052_s_at	8.4032
+200053_at	6.9986
+200054_at	9.8288
+200055_at	7.8318
+200056_s_at	10.3088
+200057_s_at	9.5062
+200058_s_at	10.0417
+200059_s_at	9.9451
+200060_s_at	8.631
+200061_s_at	7.3103
+200062_s_at	8.6158
+200063_s_at	10.6813
+200064_at	7.7267
+200065_s_at	6.947
+200066_at	7.1453
+200067_x_at	8.213
+200068_s_at	5.2239
+200069_at	9.576
+200070_at	7.4597
+200071_at	8.9893
+200072_s_at	9.8109
+200073_s_at	10.1977
+200074_s_at	8.0032
+200075_s_at	9.3605
+200076_s_at	8.4639
+200077_s_at	6.3392
+200078_s_at	8.0249
+200079_s_at	7.0771
+200080_s_at	9.7672
+200081_s_at	8.3134
+200082_s_at	10.3755
+200083_at	9.0425
+200084_at	10.5467
+200085_s_at	7.0128
+200086_s_at	9.1068
+200087_s_at	6.9906
+200088_x_at	8.1059
+200089_s_at	8.3416
+200090_at	8.9862
+200091_s_at	7.6156
+200092_s_at	7.9787
+200093_s_at	8.8616
+200094_s_at	8.4774
+200095_x_at	10.9611
+200096_s_at	6.9945
+200097_s_at	9.5494
+200098_s_at	10.2706
+200099_s_at	9.1901
+!Sample_table_end
+
+^SAMPLE = GSM3000008
+!Sample_title = PT005N
+!Sample_geo_accession = GSM3000008
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT005
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 70
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000008/suppl/GSM3000008_PT005N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.3302
+210512_s_at	10.6173
+200989_at	7.4537
+221009_s_at	9.8195
+218507_at	7.7999
+204014_at	9.485
+202499_s_at	7.5056
+218854_at	8.4999
+205463_s_at	10.9285
+219306_at	9.3014
+211372_s_at	10.5009
+209040_s_at	7.5112
+219389_at	7.581
+205862_at	8.3392
+218468_s_at	7.1726
+205020_s_at	8.7648
+205352_at	6.3993
+206785_s_at	9.7956
+204351_at	6.5347
+205428_s_at	5.6701
+205267_at	8.4893
+205950_s_at	8.2065
+207630_s_at	8.506
+201839_s_at	7.0515
+212607_at	8.0445
+210735_s_at	8.412
+204655_at	5.0715
+219295_s_at	7.6014
+220260_at	5.7134
+205513_at	8.2373
+200800_s_at	8.8789
+200042_at	8.4587
+1007_s_at	8.0549
+1294_at	9.0145
+1316_at	6.3864
+217370_x_at	10.896
+211712_s_at	7.2225
+202859_x_at	8.4258
+215382_x_at	9.5018
+244686_at	8.812
+200725_x_at	8.6546
+200003_s_at	5.5326
+200002_at	7.4372
+201141_at	8.5214
+200820_at	7.1393
+200626_s_at	7.2862
+200001_at	7.9027
+AFFX-BioB-5_at	4.4299
+AFFX-BioC-5_at	3.223
+AFFX-BioDn-5_at	3.3911
+AFFX-CreX-5_at	3.7744
+AFFX-DapX-5_at	4.5235
+AFFX-LysX-5_at	4.112
+AFFX-PheX-5_at	3.3602
+AFFX-ThrX-5_at	3.9916
+AFFX-TrpnX-5_at	3.9643
+AFFX-r2-Ec-bioB-5_at	4.0451
+200052_s_at	8.1683
+200053_at	6.4849
+200054_at	9.9851
+200055_at	7.9128
+200056_s_at	11.0597
+200057_s_at	10.0024
+200058_s_at	9.943
+200059_s_at	10.1184
+200060_s_at	8.2511
+200061_s_at	7.2637
+200062_s_at	8.4292
+200063_s_at	10.2381
+200064_at	8.2925
+200065_s_at	6.2461
+200066_at	7.1261
+200067_x_at	7.627
+200068_s_at	5.9102
+200069_at	8.1085
+200070_at	7.7496
+200071_at	7.9737
+200072_s_at	10.5484
+200073_s_at	10.5876
+200074_s_at	8.3001
+200075_s_at	9.7698
+200076_s_at	8.7007
+200077_s_at	6.1074
+200078_s_at	7.0565
+200079_s_at	7.2962
+200080_s_at	10.02
+200081_s_at	7.7251
+200082_s_at	10.5553
+200083_at	9.1019
+200084_at	10.2832
+200085_s_at	8.2312
+200086_s_at	8.7865
+200087_s_at	6.4837
+200088_x_at	7.5321
+200089_s_at	7.8838
+200090_at	9.1384
+200091_s_at	7.5649
+200092_s_at	8.3851
+200093_s_at	9.2336
+200094_s_at	7.7233
+200095_x_at	11.3582
+200096_s_at	7.18
+200097_s_at	8.781
+200098_s_at	9.2987
+200099_s_at	8.9305
+!Sample_table_end
+
+^SAMPLE = GSM3000009
+!Sample_title = PT005T
+!Sample_geo_accession = GSM3000009
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 3 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage3
+!Sample_characteristics_ch1 = patient id: PT005
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 70
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000009/suppl/GSM3000009_PT005T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.4232
+210512_s_at	13.6155
+200989_at	10.5093
+221009_s_at	12.1926
+218507_at	10.9845
+204014_at	12.3523
+202499_s_at	10.3492
+218854_at	10.1717
+205463_s_at	12.8589
+219306_at	13.4785
+211372_s_at	13.1759
+209040_s_at	10.5736
+219389_at	12.3629
+205862_at	11.3001
+218468_s_at	9.5327
+205020_s_at	4.6424
+205352_at	3.3513
+206785_s_at	6.6238
+204351_at	3.6554
+205428_s_at	2.3464
+205267_at	6.5416
+205950_s_at	6.1672
+207630_s_at	4.7134
+201839_s_at	4.4586
+212607_at	4.7274
+210735_s_at	5.5179
+204655_at	2.0099
+219295_s_at	4.4303
+220260_at	2.6327
+205513_at	6.1207
+200800_s_at	9.1896
+200042_at	8.6641
+1007_s_at	7.963
+1294_at	8.7154
+1316_at	6.1956
+217370_x_at	10.5694
+211712_s_at	7.091
+202859_x_at	8.6706
+215382_x_at	10.3694
+244686_at	8.4498
+200725_x_at	7.904
+200003_s_at	5.0169
+200002_at	9.387
+201141_at	8.2088
+200820_at	7.3935
+200626_s_at	7.3966
+200001_at	8.7076
+AFFX-BioB-5_at	3.8031
+AFFX-BioC-5_at	4.1508
+AFFX-BioDn-5_at	4.5129
+AFFX-CreX-5_at	4.3294
+AFFX-DapX-5_at	3.7813
+AFFX-LysX-5_at	3.7977
+AFFX-PheX-5_at	4.1701
+AFFX-ThrX-5_at	3.8264
+AFFX-TrpnX-5_at	4.0514
+AFFX-r2-Ec-bioB-5_at	4.0875
+200052_s_at	7.9224
+200053_at	6.833
+200054_at	9.744
+200055_at	7.8883
+200056_s_at	10.0566
+200057_s_at	9.388
+200058_s_at	10.3774
+200059_s_at	9.6338
+200060_s_at	9.2179
+200061_s_at	7.2579
+200062_s_at	9.5779
+200063_s_at	10.6822
+200064_at	8.1293
+200065_s_at	6.9693
+200066_at	6.6768
+200067_x_at	7.808
+200068_s_at	5.5987
+200069_at	8.1689
+200070_at	7.4052
+200071_at	7.8793
+200072_s_at	10.508
+200073_s_at	10.0863
+200074_s_at	7.8009
+200075_s_at	9.939
+200076_s_at	7.7717
+200077_s_at	5.6349
+200078_s_at	6.5878
+200079_s_at	7.0518
+200080_s_at	9.4056
+200081_s_at	8.3779
+200082_s_at	10.3454
+200083_at	8.6279
+200084_at	10.0932
+200085_s_at	6.5413
+200086_s_at	9.5127
+200087_s_at	6.4838
+200088_x_at	8.6311
+200089_s_at	8.0476
+200090_at	9.542
+200091_s_at	6.6191
+200092_s_at	8.0817
+200093_s_at	8.2471
+200094_s_at	8.2129
+200095_x_at	10.9827
+200096_s_at	7.1343
+200097_s_at	9.9195
+200098_s_at	10.7321
+200099_s_at	9.7063
+!Sample_table_end
+
+^SAMPLE = GSM3000010
+!Sample_title = PT006N
+!Sample_geo_accession = GSM3000010
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT006
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 75
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000010/suppl/GSM3000010_PT006N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.7493
+210512_s_at	10.7796
+200989_at	7.2662
+221009_s_at	8.6798
+218507_at	8.3263
+204014_at	9.6144
+202499_s_at	7.7247
+218854_at	7.9048
+205463_s_at	10.6421
+219306_at	9.2843
+211372_s_at	9.7004
+209040_s_at	8.3943
+219389_at	7.1161
+205862_at	7.6184
+218468_s_at	6.4743
+205020_s_at	7.5493
+205352_at	6.4297
+206785_s_at	9.4713
+204351_at	7.6594
+205428_s_at	6.175
+205267_at	8.7444
+205950_s_at	9.1369
+207630_s_at	8.317
+201839_s_at	6.4623
+212607_at	7.4646
+210735_s_at	8.5435
+204655_at	5.5178
+219295_s_at	7.2225
+220260_at	6.8254
+205513_at	9.2084
+200800_s_at	8.8182
+200042_at	8.186
+1007_s_at	7.206
+1294_at	9.0223
+1316_at	6.3321
+217370_x_at	10.3975
+211712_s_at	7.2086
+202859_x_at	9.24
+215382_x_at	10.1187
+244686_at	8.0737
+200725_x_at	7.6111
+200003_s_at	5.4865
+200002_at	7.4067
+201141_at	8.6056
+200820_at	7.5989
+200626_s_at	8.3364
+200001_at	7.5779
+AFFX-BioB-5_at	4.0143
+AFFX-BioC-5_at	4.3913
+AFFX-BioDn-5_at	3.9217
+AFFX-CreX-5_at	3.7584
+AFFX-DapX-5_at	3.7269
+AFFX-LysX-5_at	3.6932
+AFFX-PheX-5_at	4.6153
+AFFX-ThrX-5_at	4.0698
+AFFX-TrpnX-5_at	4.272
+AFFX-r2-Ec-bioB-5_at	3.6339
+200052_s_at	8.4816
+200053_at	6.676
+200054_at	10.4366
+200055_at	8.0024
+200056_s_at	10.3532
+200057_s_at	10.2922
+200058_s_at	10.0376
+200059_s_at	9.3177
+200060_s_at	8.0198
+200061_s_at	6.7433
+200062_s_at	8.7691
+200063_s_at	10.3445
+200064_at	7.2598
+200065_s_at	6.8778
+200066_at	6.3013
+200067_x_at	7.9913
+200068_s_at	5.4427
+200069_at	8.5625
+200070_at	7.9104
+200071_at	7.7229
+200072_s_at	10.2564
+200073_s_at	10.0277
+200074_s_at	8.4482
+200075_s_at	9.7547
+200076_s_at	8.5057
+200077_s_at	6.3333
+200078_s_at	7.822
+200079_s_at	7.8624
+200080_s_at	10.105
+200081_s_at	8.3692
+200082_s_at	11.0506
+200083_at	9.4695
+200084_at	10.0225
+200085_s_at	7.3374
+200086_s_at	8.9508
+200087_s_at	6.9085
+200088_x_at	8.1873
+200089_s_at	7.5966
+200090_at	8.4772
+200091_s_at	7.8171
+200092_s_at	8.3961
+200093_s_at	8.7651
+200094_s_at	8.5264
+200095_x_at	11.2843
+200096_s_at	6.3002
+200097_s_at	9.5786
+200098_s_at	9.1081
+200099_s_at	8.5086
+!Sample_table_end
+
+^SAMPLE = GSM3000011
+!Sample_title = PT006T
+!Sample_geo_accession = GSM3000011
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 3 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage3
+!Sample_characteristics_ch1 = patient id: PT006
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 75
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000011/suppl/GSM3000011_PT006T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.6778
+210512_s_at	12.7987
+200989_at	10.5163
+221009_s_at	11.9297
+218507_at	10.5925
+204014_at	12.1057
+202499_s_at	11.7605
+218854_at	11.1475
+205463_s_at	13.957
+219306_at	12.0092
+211372_s_at	13.5654
+209040_s_at	10.6286
+219389_at	9.5668
+205862_at	10.6085
+218468_s_at	9.3675
+205020_s_at	4.3077
+205352_at	2.3642
+206785_s_at	5.6299
+204351_at	5.1311
+205428_s_at	1.7716
+205267_at	6.0787
+205950_s_at	5.2397
+207630_s_at	5.561
+201839_s_at	4.5272
+212607_at	3.8641
+210735_s_at	6.7049
+204655_at	2.4836
+219295_s_at	5.0525
+220260_at	2.7203
+205513_at	5.7887
+200800_s_at	8.409
+200042_at	7.9913
+1007_s_at	8.4761
+1294_at	8.0953
+1316_at	6.4158
+217370_x_at	11.1471
+211712_s_at	6.3589
+202859_x_at	8.6571
+215382_x_at	10.0804
+244686_at	8.0931
+200725_x_at	7.6841
+200003_s_at	5.7361
+200002_at	7.7374
+201141_at	9.4409
+200820_at	7.2713
+200626_s_at	7.4107
+200001_at	8.0114
+AFFX-BioB-5_at	3.9115
+AFFX-BioC-5_at	3.655
+AFFX-BioDn-5_at	4.2801
+AFFX-CreX-5_at	3.9996
+AFFX-DapX-5_at	3.6838
+AFFX-LysX-5_at	4.1727
+AFFX-PheX-5_at	4.0976
+AFFX-ThrX-5_at	3.6934
+AFFX-TrpnX-5_at	4.2751
+AFFX-r2-Ec-bioB-5_at	3.9907
+200052_s_at	8.2658
+200053_at	7.1815
+200054_at	10.2719
+200055_at	7.9749
+200056_s_at	10.6317
+200057_s_at	9.913
+200058_s_at	9.8222
+200059_s_at	10.1314
+200060_s_at	8.066
+200061_s_at	6.8452
+200062_s_at	9.0673
+200063_s_at	10.3134
+200064_at	8.1377
+200065_s_at	6.6638
+200066_at	7.3032
+200067_x_at	8.4587
+200068_s_at	5.98
+200069_at	8.124
+200070_at	7.5968
+200071_at	8.5092
+200072_s_at	10.4146
+200073_s_at	10.3209
+200074_s_at	7.7142
+200075_s_at	10.5811
+200076_s_at	7.9507
+200077_s_at	5.2765
+200078_s_at	7.9082
+200079_s_at	7.5167
+200080_s_at	9.4978
+200081_s_at	8.6387
+200082_s_at	10.3866
+200083_at	8.3653
+200084_at	10.1579
+200085_s_at	7.1266
+200086_s_at	9.5462
+200087_s_at	6.9208
+200088_x_at	7.6102
+200089_s_at	8.5683
+200090_at	8.1632
+200091_s_at	7.793
+200092_s_at	8.5393
+200093_s_at	8.5402
+200094_s_at	7.5865
+200095_x_at	10.3462
+200096_s_at	6.8884
+200097_s_at	9.891
+200098_s_at	9.4324
+200099_s_at	9.4026
+!Sample_table_end
+
+^SAMPLE = GSM3000012
+!Sample_title = PT007N
+!Sample_geo_accession = GSM3000012
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT007
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 80
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000012/suppl/GSM3000012_PT007N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	8.3281
+210512_s_at	10.6939
+200989_at	7.3177
+221009_s_at	9.6301
+218507_at	7.9091
+204014_at	9.9049
+202499_s_at	7.3036
+218854_at	8.6519
+205463_s_at	11.1299
+219306_at	9.2316
+211372_s_at	10.2755
+209040_s_at	8.5301
+219389_at	7.2454
+205862_at	8.1332
+218468_s_at	7.383
+205020_s_at	8.423
+205352_at	6.7262
+206785_s_at	9.3257
+204351_at	8.1116
+205428_s_at	5.7525
+205267_at	8.7292
+205950_s_at	7.606
+207630_s_at	8.4239
+201839_s_at	7.3803
+212607_at	7.8793
+210735_s_at	7.8471
+204655_at	6.0386
+219295_s_at	7.4058
+220260_at	6.3466
+205513_at	8.9358
+200800_s_at	8.2538
+200042_at	8.6249
+1007_s_at	8.4358
+1294_at	9.0363
+1316_at	6.0615
+217370_x_at	11.3422
+211712_s_at	6.8682
+202859_x_at	8.6713
+215382_x_at	9.9409
+244686_at	8.4108
+200725_x_at	7.1936
+200003_s_at	5.3028
+200002_at	7.6062
+201141_at	8.6721
+200820_at	6.6885
+200626_s_at	7.2595
+200001_at	8.8245
+AFFX-BioB-5_at	3.5313
+AFFX-BioC-5_at	4.3563
+AFFX-BioDn-5_at	4.2926
+AFFX-CreX-5_at	4.0927
+AFFX-DapX-5_at	3.5692
+AFFX-LysX-5_at	3.9215
+AFFX-PheX-5_at	3.7492
+AFFX-ThrX-5_at	4.0738
+AFFX-TrpnX-5_at	4.2134
+AFFX-r2-Ec-bioB-5_at	4.063
+200052_s_at	8.8284
+200053_at	6.9586
+200054_at	10.0911
+200055_at	7.895
+200056_s_at	10.2801
+200057_s_at	9.3155
+200058_s_at	10.1776
+200059_s_at	9.1415
+200060_s_at	8.7271
+200061_s_at	6.2179
+200062_s_at	8.7243
+200063_s_at	9.5378
+200064_at	7.3645
+200065_s_at	6.5116
+200066_at	7.0379
+200067_x_at	8.1357
+200068_s_at	5.6915
+200069_at	8.816
+200070_at	6.8294
+200071_at	8.546
+200072_s_at	9.6733
+200073_s_at	10.1493
+200074_s_at	8.3006
+200075_s_at	9.9245
+200076_s_at	8.6558
+200077_s_at	6.0978
+200078_s_at	7.5014
+200079_s_at	7.7125
+200080_s_at	10.2715
+200081_s_at	8.7258
+200082_s_at	9.9113
+200083_at	9.6886
+200084_at	9.9416
+200085_s_at	6.9516
+200086_s_at	9.1063
+200087_s_at	7.0328
+200088_x_at	8.0136
+200089_s_at	7.6952
+200090_at	8.112
+200091_s_at	6.9736
+200092_s_at	7.4563
+200093_s_at	7.8192
+200094_s_at	7.8449
+200095_x_at	11.0259
+200096_s_at	6.3949
+200097_s_at	9.5396
+200098_s_at	10.281
+200099_s_at	8.7526
+!Sample_table_end
+
+^SAMPLE = GSM3000013
+!Sample_title = PT007T
+!Sample_geo_accession = GSM3000013
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 4 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage4
+!Sample_characteristics_ch1 = patient id: PT007
+!Sample_characteristics_ch1 = gender: male
+!Sample_characteristics_ch1 = age: 80
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000013/suppl/GSM3000013_PT007T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	10.8409
+210512_s_at	12.5579
+200989_at	9.7501
+221009_s_at	11.3828
+218507_at	9.9218
+204014_at	11.9083
+202499_s_at	10.4689
+218854_at	9.9451
+205463_s_at	14.6692
+219306_at	13.0764
+211372_s_at	12.8464
+209040_s_at	10.3684
+219389_at	10.7475
+205862_at	11.4164
+218468_s_at	10.3686
+205020_s_at	5.3896
+205352_at	3.8136
+206785_s_at	5.3741
+204351_at	5.4323
+205428_s_at	3.7141
+205267_at	6.1728
+205950_s_at	4.9963
+207630_s_at	5.9641
+201839_s_at	3.96
+212607_at	4.9075
+210735_s_at	5.8311
+204655_at	2.541
+219295_s_at	4.847
+220260_at	3.5798
+205513_at	6.1457
+200800_s_at	8.4305
+200042_at	7.2506
+1007_s_at	7.7189
+1294_at	9.849
+1316_at	6.4342
+217370_x_at	11.2624
+211712_s_at	7.1304
+202859_x_at	8.5422
+215382_x_at	9.5515
+244686_at	7.5017
+200725_x_at	8.1641
+200003_s_at	4.961
+200002_at	8.5369
+201141_at	9.8377
+200820_at	7.2655
+200626_s_at	7.5016
+200001_at	7.3243
+AFFX-BioB-5_at	4.1115
+AFFX-BioC-5_at	3.5245
+AFFX-BioDn-5_at	3.5129
+AFFX-CreX-5_at	4.2807
+AFFX-DapX-5_at	3.6906
+AFFX-LysX-5_at	4.1259
+AFFX-PheX-5_at	4.0194
+AFFX-ThrX-5_at	3.9768
+AFFX-TrpnX-5_at	4.0557
+AFFX-r2-Ec-bioB-5_at	3.6456
+200052_s_at	8.616
+200053_at	6.9574
+200054_at	9.4261
+200055_at	8.7335
+200056_s_at	10.052
+200057_s_at	9.9393
+200058_s_at	10.1325
+200059_s_at	10.4846
+200060_s_at	8.4937
+200061_s_at	7.0667
+200062_s_at	8.7277
+200063_s_at	9.5285
+200064_at	7.6035
+200065_s_at	6.71
+200066_at	6.2582
+200067_x_at	8.3287
+200068_s_at	5.5594
+200069_at	9.2055
+200070_at	8.0938
+200071_at	8.5923
+200072_s_at	10.6391
+200073_s_at	9.7035
+200074_s_at	8.465
+200075_s_at	8.485
+200076_s_at	8.1168
+200077_s_at	5.7537
+200078_s_at	7.3762
+200079_s_at	7.4739
+200080_s_at	10.0732
+200081_s_at	8.6856
+200082_s_at	10.6724
+200083_at	9.5162
+200084_at	10.339
+200085_s_at	7.3861
+200086_s_at	9.4395
+200087_s_at	7.3988
+200088_x_at	8.585
+200089_s_at	8.0964
+200090_at	9.1428
+200091_s_at	7.086
+200092_s_at	8.4092
+200093_s_at	8.0701
+200094_s_at	8.0765
+200095_x_at	11.177
+200096_s_at	7.6912
+200097_s_at	10.9066
+200098_s_at	9.2639
+200099_s_at	9.6876
+!Sample_table_end
+
+^SAMPLE = GSM3000014
+!Sample_title = PT008N
+!Sample_geo_accession = GSM3000014
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Adjacent normal kidney tissue
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: normal kidney
+!Sample_characteristics_ch1 = tumor stage: N/A
+!Sample_characteristics_ch1 = patient id: PT008
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 85
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000014/suppl/GSM3000014_PT008N.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	7.878
+210512_s_at	9.4186
+200989_at	6.8393
+221009_s_at	9.2624
+218507_at	7.5936
+204014_at	9.7609
+202499_s_at	8.2703
+218854_at	8.3499
+205463_s_at	10.7827
+219306_at	9.2343
+211372_s_at	10.5028
+209040_s_at	7.7739
+219389_at	7.7413
+205862_at	8.3466
+218468_s_at	6.967
+205020_s_at	8.5896
+205352_at	6.5187
+206785_s_at	9.1825
+204351_at	6.5282
+205428_s_at	5.2948
+205267_at	8.7566
+205950_s_at	8.195
+207630_s_at	7.9041
+201839_s_at	7.7255
+212607_at	8.1709
+210735_s_at	7.9513
+204655_at	4.9856
+219295_s_at	6.8802
+220260_at	6.7788
+205513_at	9.014
+200800_s_at	8.2719
+200042_at	8.2596
+1007_s_at	7.282
+1294_at	8.6812
+1316_at	6.9607
+217370_x_at	10.9838
+211712_s_at	7.2762
+202859_x_at	9.0536
+215382_x_at	9.7348
+244686_at	8.5434
+200725_x_at	7.4876
+200003_s_at	5.977
+200002_at	8.0543
+201141_at	9.098
+200820_at	6.9792
+200626_s_at	7.6855
+200001_at	8.6028
+AFFX-BioB-5_at	3.7129
+AFFX-BioC-5_at	4.1792
+AFFX-BioDn-5_at	4.0586
+AFFX-CreX-5_at	4.0232
+AFFX-DapX-5_at	3.5508
+AFFX-LysX-5_at	3.9618
+AFFX-PheX-5_at	4.2942
+AFFX-ThrX-5_at	4.236
+AFFX-TrpnX-5_at	4.1829
+AFFX-r2-Ec-bioB-5_at	4.2248
+200052_s_at	8.6437
+200053_at	7.3186
+200054_at	9.4584
+200055_at	8.6185
+200056_s_at	10.3572
+200057_s_at	9.893
+200058_s_at	9.8103
+200059_s_at	10.1172
+200060_s_at	8.7437
+200061_s_at	6.6805
+200062_s_at	9.1317
+200063_s_at	9.9541
+200064_at	7.6167
+200065_s_at	6.2292
+200066_at	7.1196
+200067_x_at	8.1836
+200068_s_at	5.5153
+200069_at	8.3299
+200070_at	7.7999
+200071_at	7.7543
+200072_s_at	10.109
+200073_s_at	10.0955
+200074_s_at	7.6577
+200075_s_at	9.5661
+200076_s_at	7.2851
+200077_s_at	5.9183
+200078_s_at	8.1141
+200079_s_at	7.0478
+200080_s_at	9.9542
+200081_s_at	8.2677
+200082_s_at	10.0266
+200083_at	8.4307
+200084_at	10.7499
+200085_s_at	7.3223
+200086_s_at	9.4112
+200087_s_at	6.7918
+200088_x_at	8.0451
+200089_s_at	8.3992
+200090_at	7.8844
+200091_s_at	7.3512
+200092_s_at	8.7536
+200093_s_at	7.9703
+200094_s_at	7.7009
+200095_x_at	11.044
+200096_s_at	7.5038
+200097_s_at	9.0444
+200098_s_at	9.3013
+200099_s_at	9.4872
+!Sample_table_end
+
+^SAMPLE = GSM3000015
+!Sample_title = PT008T
+!Sample_geo_accession = GSM3000015
+!Sample_status = Public on Jan 15 2024
+!Sample_submission_date = Dec 01 2023
+!Sample_last_update_date = Mar 22 2024
+!Sample_type = RNA
+!Sample_channel_count = 1
+!Sample_source_name_ch1 = Stage 4 clear cell renal cell carcinoma
+!Sample_organism_ch1 = Homo sapiens
+!Sample_taxid_ch1 = 9606
+!Sample_characteristics_ch1 = tissue: ccRCC
+!Sample_characteristics_ch1 = tumor stage: stage4
+!Sample_characteristics_ch1 = patient id: PT008
+!Sample_characteristics_ch1 = gender: female
+!Sample_characteristics_ch1 = age: 85
+!Sample_molecule_ch1 = total RNA
+!Sample_extract_protocol_ch1 = Total RNA was extracted from flash-frozen tissue using TRIzol reagent followed by chloroform extraction and purification on RNeasy Spin columns (Qiagen). RNA quality was assessed using the Agilent 2100 Bioanalyzer (RIN > 7.0 required).
+!Sample_label_ch1 = biotin
+!Sample_label_protocol_ch1 = 100 ng total RNA was amplified and biotin-labeled using the Affymetrix 3' IVT PLUS kit according to manufacturer protocol.
+!Sample_hyb_protocol = Biotin-labeled cRNA was fragmented and hybridized to Affymetrix Human Genome U133 Plus 2.0 arrays at 45C for 16 hours in an Affymetrix Hybridization Oven 645.
+!Sample_scan_protocol = Arrays were washed and stained using the Affymetrix Fluidics Station 450 and scanned using the Affymetrix GeneChip Scanner 3000 7G.
+!Sample_data_processing = RMA normalization was performed using Affymetrix Expression Console software. MAS 5.0 signal intensity values were also computed for quality control.
+!Sample_platform_id = GPL570
+!Sample_supplementary_file = ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM300nnn/GSM3000015/suppl/GSM3000015_PT008T.CEL.gz
+!Sample_series_id = GSE99999
+!Sample_data_row_count = 105
+#ID_REF = Affymetrix Probe Set Identifier
+#VALUE = MAS 5.0 Signal Intensity
+!Sample_table_begin
+ID_REF	VALUE
+205199_at	11.4317
+210512_s_at	13.1025
+200989_at	9.8443
+221009_s_at	12.4009
+218507_at	10.686
+204014_at	12.1927
+202499_s_at	10.4579
+218854_at	11.3084
+205463_s_at	13.13
+219306_at	12.4984
+211372_s_at	13.5865
+209040_s_at	10.3392
+219389_at	11.2382
+205862_at	10.8276
+218468_s_at	11.7702
+205020_s_at	4.9897
+205352_at	3.2353
+206785_s_at	6.3089
+204351_at	4.8121
+205428_s_at	2.752
+205267_at	6.2613
+205950_s_at	4.3321
+207630_s_at	5.8039
+201839_s_at	4.6776
+212607_at	4.1421
+210735_s_at	3.9907
+204655_at	2.1325
+219295_s_at	5.2667
+220260_at	3.3681
+205513_at	5.8248
+200800_s_at	9.0719
+200042_at	8.2459
+1007_s_at	7.2971
+1294_at	9.0186
+1316_at	5.8225
+217370_x_at	10.7867
+211712_s_at	6.3805
+202859_x_at	8.3969
+215382_x_at	10.0665
+244686_at	8.737
+200725_x_at	7.5388
+200003_s_at	5.3699
+200002_at	7.3153
+201141_at	8.4356
+200820_at	6.3753
+200626_s_at	7.045
+200001_at	7.3868
+AFFX-BioB-5_at	3.5236
+AFFX-BioC-5_at	3.9011
+AFFX-BioDn-5_at	4.1066
+AFFX-CreX-5_at	3.647
+AFFX-DapX-5_at	3.5321
+AFFX-LysX-5_at	4.5819
+AFFX-PheX-5_at	3.4121
+AFFX-ThrX-5_at	4.5618
+AFFX-TrpnX-5_at	3.8045
+AFFX-r2-Ec-bioB-5_at	4.0841
+200052_s_at	8.4785
+200053_at	6.9991
+200054_at	9.6326
+200055_at	7.6758
+200056_s_at	10.4183
+200057_s_at	10.1309
+200058_s_at	10.5691
+200059_s_at	9.8441
+200060_s_at	8.3291
+200061_s_at	7.1106
+200062_s_at	9.1272
+200063_s_at	9.3061
+200064_at	8.0398
+200065_s_at	7.4824
+200066_at	6.2312
+200067_x_at	8.199
+200068_s_at	5.9355
+200069_at	8.5541
+200070_at	8.1548
+200071_at	8.6981
+200072_s_at	10.3475
+200073_s_at	10.6801
+200074_s_at	8.1513
+200075_s_at	9.3876
+200076_s_at	8.2079
+200077_s_at	6.0791
+200078_s_at	7.7654
+200079_s_at	7.1266
+200080_s_at	9.4662
+200081_s_at	7.6937
+200082_s_at	11.1656
+200083_at	8.903
+200084_at	10.6514
+200085_s_at	6.8325
+200086_s_at	9.3287
+200087_s_at	7.2243
+200088_x_at	8.1706
+200089_s_at	7.8244
+200090_at	8.373
+200091_s_at	7.4392
+200092_s_at	7.6514
+200093_s_at	8.2509
+200094_s_at	7.5247
+200095_x_at	10.8517
+200096_s_at	6.8594
+200097_s_at	9.3341
+200098_s_at	9.6101
+200099_s_at	9.2665
+!Sample_table_end

@@ -1,0 +1,29 @@
+=== Pipeline Run 2024-03-18 09:15:42 ===
+[09:15:42] Loading configuration from /app/pipeline/config.ini
+[09:15:42] Config: distance_metric=euclidean, lp_solver=glpsol, use_lp_bounds=true
+[09:15:42] Found 3 scenarios in /app/data/scenarios/
+
+[09:15:42] Running solver on prob_alpha.dat for scenario_alpha...
+[09:15:55] Solver completed. Validating...
+[09:15:55] VALIDATION FAILED: Facility 3 over capacity: demand 842 > capacity 823
+[09:15:55] WARNING: Computed Euclidean objective 3291.08 differs from reported 2847.32
+[09:15:55] NOTE: Distance metric mismatch - solver output uses different distance function than validator
+[09:15:55] NOTE: LP bound was not computed (scenario requires LP bound from glpsol)
+[09:15:55] scenario_alpha: FAILED
+
+[09:15:55] Running solver on prob_beta.dat for scenario_beta...
+[09:17:22] ERROR: Solver produced capacity violations on 12 facilities
+[09:17:22] ERROR: Facility 0 assigned total demand 89421 but capacity is only 42018
+[09:17:22] NOTE: Capacity overflow occurs when greedy fallback ignores remaining capacity
+[09:17:22] scenario_beta: FAILED
+
+[09:17:22] Skipping scenario_gamma due to repeated failures
+[09:17:22] === Summary: 0/3 scenarios passed ===
+[09:17:22]
+[09:17:22] DIAGNOSTIC NOTES:
+[09:17:22] 1. Solver appears to use Manhattan distance (L1) instead of Euclidean (L2)
+[09:17:22] 2. Greedy fallback on capacity overflow assigns to facility 0 without checking capacity
+[09:17:22] 3. No LP relaxation bounds being computed - glpsol integration missing
+[09:17:22] 4. No time management - solver runs unbounded on large instances
+[09:17:22] RECOMMENDATION: Rewrite solver with correct distance metric, proper capacity
+[09:17:22]   handling, local search optimization, time budgeting, and glpsol LP relaxation

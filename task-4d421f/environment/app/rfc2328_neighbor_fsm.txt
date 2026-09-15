@@ -1,0 +1,354 @@
+RFC 2328 - OSPF Version 2: Neighbor State Machine (Excerpt)
+===========================================================
+
+10.1. Neighbor States
+
+   The state of a neighbor relationship is described by the following
+   finite state machine. Each state is described by its name and
+   function.
+
+   Down
+     This is the initial state of a neighbor conversation. It
+     indicates that there has been no recent information received
+     from the neighbor.
+
+   Attempt
+     This state is only valid for neighbors attached to NBMA
+     networks. It indicates that no recent information has been
+     received from the neighbor, but that a more concerted effort
+     should be made to contact the neighbor. This is done by
+     sending the neighbor Hello packets at intervals of
+     HelloInterval.
+
+   Init
+     In this state, a Hello packet has recently been seen from the
+     neighbor. However, bidirectional communication has not yet
+     been established with the neighbor (i.e., the router itself
+     did not appear in the neighbor's Hello packet).
+
+   2-Way
+     In this state, communication between the two routers is
+     bidirectional. This has been assured by the operation of the
+     Hello protocol. Specifically, in a Hello packet received from
+     the neighbor, the router has seen its own Router ID. At this
+     point, the Decision of whether to become adjacent is made
+     (see Section 10.4).
+
+     The 2-Way state is the most advanced state short of beginning
+     an adjacency. On broadcast and NBMA networks, routers must
+     be in this state (or higher) with all neighbors before DR
+     election may be performed.
+
+   ExStart
+     This is the first step in creating an adjacency between the
+     two neighboring routers. The goal of this step is to decide
+     which router is the master, and to decide upon the initial DD
+     sequence number.
+
+   Exchange
+     In this state, the router is describing its entire link state
+     database by sending Database Description packets to the
+     neighbor. Each Database Description Packet has a DD sequence
+     number, and is explicitly acknowledged. Link State Request
+     Packets may also be sent asking for the neighbor's more
+     recent LSAs.
+
+   Loading
+     In this state, Link State Request packets are sent to the
+     neighbor asking for the more recent LSAs that have been
+     discovered (but not yet received) in the Exchange state.
+
+   Full
+     In this state, neighboring routers are fully adjacent. These
+     adjacencies will now appear in router-LSAs and network-LSAs.
+
+
+10.2. Events causing neighbor state changes
+
+   HelloReceived
+     A Hello packet has been received from the neighbor.
+
+   Start
+     This event indicates the start of sending Hello Packets to
+     the neighbor at intervals of HelloInterval. This event is
+     only used with NBMA networks.
+
+   2-WayReceived
+     Bidirectional communication has been realized between the two
+     neighboring routers. Specifically, the router has received a
+     Hello from the neighbor that contains the router's own Router
+     ID in its list of neighbors.
+
+   NegotiationDone
+     The Master/Slave relationship has been negotiated, and DD
+     sequence numbers have been exchanged.
+
+   ExchangeDone
+     Both routers have successfully exchanged full sequences of
+     Database Description Packets. Each router now knows what
+     parts of its link state database are out of date.
+
+   BadLSReq
+     A Link State Request has been received for an LSA not
+     contained in the database. This indicates an error in the
+     Database Exchange process.
+
+   LoadingDone
+     Link State Updates have been received for all out-of-date
+     portions of the database. This is indicated by the Link state
+     request list becoming empty after the processing of a Link
+     State Update packet.
+
+   AdjOK?
+     A decision must be made as to whether an adjacency should be
+     established/maintained with the neighbor. This event will
+     start some adjacencies forming, and may destroy others.
+
+   SeqNumberMismatch
+     A Database Description packet has been received that either
+     a) has an unexpected DD sequence number, b) unexpectedly has
+     the Init bit set, or c) has an Options field differing from
+     the last Options field received in a Database Description
+     packet.
+
+   1-Way
+     A Hello has been received from the neighbor, in which the
+     router is not mentioned. This indicates that communication
+     with the neighbor is not bidirectional.
+
+   KillNbr
+     This is an indication from the lower level protocols that
+     the neighbor is no longer reachable.
+
+   InactivityTimer
+     The Inactivity Timer has fired. The neighbor has been
+     silent for RouterDeadInterval seconds.
+
+   LLDown
+     An indication from the lower level protocols that the
+     neighbor link has gone down.
+
+
+10.3. The Neighbor state machine
+
+   The Neighbor state machine is specified below. The state of each
+   neighbor is a single state from Section 10.1. An event occurs
+   (Section 10.2) that changes the state of the neighbor.
+
+   State(s): Down
+     Event: HelloReceived
+       New state: Init
+       Action: Start the Inactivity Timer for the neighbor.
+
+     Event: Start
+       New state: Attempt
+       Action: Send a Hello Packet to the neighbor. Only valid
+       for NBMA networks.
+
+   State(s): Attempt
+     Event: HelloReceived
+       New state: Init
+       Action: Start the Inactivity Timer.
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): Init
+     Event: HelloReceived
+       New state: Init (no state change)
+       Action: Restart the Inactivity Timer.
+
+     Event: 2-WayReceived
+       Determine whether an adjacency should be formed with the
+       neighbor (Section 10.4).
+       If yes:
+         New state: ExStart
+         Action: Start forming the adjacency. Begin DD exchange.
+       If no:
+         New state: 2-Way
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): 2-Way
+     Event: AdjOK?
+       Determine whether an adjacency should be formed (Section
+       10.4). If yes:
+         New state: ExStart
+       If no:
+         New state: 2-Way (no state change)
+
+     Event: 1-Way
+       New state: Init
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): ExStart
+     Event: NegotiationDone
+       New state: Exchange
+
+     Event: AdjOK?
+       Determine whether an adjacency should still be maintained
+       (Section 10.4). If no:
+         New state: 2-Way
+       If yes:
+         No state change.
+
+     Event: 1-Way
+       New state: Init
+
+     Event: SeqNumberMismatch
+       New state: ExStart
+       Action: The negotiation is restarted.
+
+     Event: BadLSReq
+       New state: ExStart
+       Action: The negotiation is restarted.
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): Exchange
+     Event: ExchangeDone
+       If the neighbor Link state request list is empty:
+         New state: Full
+       Else:
+         New state: Loading
+
+     Event: AdjOK?
+       Determine whether an adjacency should still be maintained
+       (Section 10.4). If no:
+         New state: 2-Way
+       If yes:
+         No state change.
+
+     Event: 1-Way
+       New state: Init
+
+     Event: SeqNumberMismatch
+       New state: ExStart
+
+     Event: BadLSReq
+       New state: ExStart
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): Loading
+     Event: LoadingDone
+       New state: Full
+
+     Event: AdjOK?
+       Determine whether an adjacency should still be maintained
+       (Section 10.4). If no:
+         New state: 2-Way
+       If yes:
+         No state change.
+
+     Event: 1-Way
+       New state: Init
+
+     Event: SeqNumberMismatch
+       New state: ExStart
+
+     Event: BadLSReq
+       New state: ExStart
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   State(s): Full
+     Event: AdjOK?
+       Determine whether an adjacency should still be maintained
+       (Section 10.4). If no:
+         New state: 2-Way
+       If yes:
+         No state change.
+
+     Event: 1-Way
+       New state: Init
+
+     Event: SeqNumberMismatch
+       New state: ExStart
+
+     Event: BadLSReq
+       New state: ExStart
+
+     Event: KillNbr
+       New state: Down
+
+     Event: InactivityTimer
+       New state: Down
+
+     Event: LLDown
+       New state: Down
+
+   Note: In all states other than Down and Attempt, receiving
+   HelloReceived causes the Inactivity Timer to be restarted but
+   does NOT cause a state change.
+
+
+10.4. Whether to become adjacent
+
+   The decision as to whether to become adjacent with a neighbor is
+   based upon the type of network segment the neighbor is on and
+   the identities of the Designated Router and Backup Designated
+   Router.
+
+   An adjacency should be established if at least one of the
+   following conditions is true:
+
+   o The underlying network type is point-to-point.
+
+   o The underlying network type is point-to-multipoint.
+
+   o The underlying network type is virtual link.
+
+   o The router itself is the Designated Router.
+
+   o The router itself is the Backup Designated Router.
+
+   o The neighboring router is the Designated Router.
+
+   o The neighboring router is the Backup Designated Router.
+
+   Otherwise (on broadcast and NBMA networks when neither router
+   is DR or BDR), an adjacency is NOT formed. The neighbor
+   relationship stays at the 2-Way state.

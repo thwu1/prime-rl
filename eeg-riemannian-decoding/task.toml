@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to diagnose why naive cross-subject EEG classification fails (inter-subject distribution shift caused by subject-specific spatial mixing) and independently discover and implement an approach that aligns distributions across subjects while preserving discriminative structure. The agent must combine expertise in signal processing, matrix analysis, and domain adaptation without being told which techniques to use. Achieving the accuracy threshold requires mathematically correct implementations of non-trivial numerical operations."""
+solution_explanation = """One effective approach uses Riemannian geometry on the SPD manifold: bandpass filter EEG to the motor imagery frequency band, compute regularized spatial covariance matrices, compute the Frechet mean via iterative log/exp maps, re-center each source subject's covariance distribution to the target subject's mean via parallel transport, project to tangent space, and classify with LDA under leave-one-subject-out cross-validation. Other valid approaches include CSP with domain adaptation or transfer learning methods, provided they handle inter-subject distributional shift."""
+verification_explanation = """Tests verify purely outcome-based criteria: results.json existence and schema, per-subject and mean accuracy thresholds, consistency between reported mean and individual accuracies, n_subjects matching the dataset, LOSO-CV structure (distinct per-subject results), non-triviality of the pipeline code, and that cross_subject_decode actually reads from its data_dir argument (anti-hardcoding check)."""
+category = "machine_learning"
+tags = ["signal-processing", "domain-adaptation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/eeg-riemannian-decoding"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep quantitative finance expertise beyond standard data processing. The agent must implement EWMA volatility (RiskMetrics recursive formulation with half-life decay), Cornish-Fisher Value-at-Risk (requiring knowledge of the CF expansion adjusting for skewness and kurtosis), Expected Shortfall (conditional tail expectation), and the Sortino ratio (downside deviation vs standard deviation) — none of which have formulas provided. Additionally, the data pipeline spans 9 interrelated DuckDB tables with multi-currency FX conversion requiring forward-fill of missing rates from cross-border holidays, corporate action reversal for historical position reconstruction, and dividend-adjusted total return computation from a separate dividends table. The agent must discover the full schema, understand inter-table relationships, handle data quality issues, and correctly implement advanced risk metrics described only at a professional level."""
+solution_explanation = """Query all 9 tables from the DuckDB database. Forward-fill missing FX rates for EUR (Easter Monday, May Day, German Unity Day) and GBP (May Day, Spring/Summer Bank Holidays). Adjust portfolio holdings for stock splits by dividing post-split quantities by the factor for dates before the split. Compute daily portfolio total returns including dividend income on ex-dates. Implement EWMA volatility via σ²_t = λσ²_{t-1} + (1-λ)r²_t with λ = 2^(-1/60). Compute Cornish-Fisher VaR using z_cf = z + (z²-1)S/6 + (z³-3z)K/24 - (2z³-5z)S²/36 with Fisher's unbiased skewness and excess kurtosis. Compute Expected Shortfall as mean of returns ≤ 5th percentile. Compute Sortino ratio using downside deviation √(mean(min(r,0)²)). Compute CAPM beta from excess returns and annualized tracking error."""
+verification_explanation = """Tests independently load the 9-table database and recompute all risk metrics using the identical financial methodology: forward-filled FX rates, split-adjusted quantities, dividend-adjusted total returns, EWMA volatility, Cornish-Fisher VaR with scipy skewness/kurtosis, Expected Shortfall, Sortino ratio, CAPM beta, and tracking error. Each of 8 metrics is compared for each of 3 portfolios against the agent's output CSV with absolute tolerance of 1e-4. Additional tests verify file existence, correct CSV column structure, and correct row count."""
+category = "data_processing"
+tags = ["quantitative-risk", "duckdb"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/portfolio-risk-analytics"

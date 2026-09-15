@@ -1,0 +1,97 @@
+{
+  "type": "FeatureCollection",
+  "name": "World Lakes",
+  "description": "Major lakes of the world with survey dates and physical characteristics",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "lake-01",
+      "properties": {"name": "Lake Superior", "area_km2": 82100, "country": "USA/Canada", "datetime": "2019-06-15T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[-92.1, 46.5], [-84.3, 46.5], [-84.3, 49.0], [-92.1, 49.0], [-92.1, 46.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-02",
+      "properties": {"name": "Lake Baikal", "area_km2": 31722, "country": "Russia", "datetime": "2018-03-22T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[103.7, 51.5], [109.9, 51.5], [109.9, 55.8], [103.7, 55.8], [103.7, 51.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-03",
+      "properties": {"name": "Lake Victoria", "area_km2": 68870, "country": "Uganda/Tanzania/Kenya", "datetime": "2021-11-08T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[31.5, -3.0], [34.8, -3.0], [34.8, 0.5], [31.5, 0.5], [31.5, -3.0]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-04",
+      "properties": {"name": "Lake Titicaca", "area_km2": 8372, "country": "Peru/Bolivia", "datetime": "2020-01-30T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[-70.0, -16.5], [-68.5, -16.5], [-68.5, -15.0], [-70.0, -15.0], [-70.0, -16.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-05",
+      "properties": {"name": "Lake Geneva", "area_km2": 580, "country": "Switzerland/France", "datetime": "2023-07-12T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[6.1, 46.2], [6.9, 46.2], [6.9, 46.5], [6.1, 46.5], [6.1, 46.2]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-06",
+      "properties": {"name": "Lake Chad", "area_km2": 1350, "country": "Chad/Cameroon/Nigeria/Niger", "datetime": "2017-09-05T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[13.0, 12.5], [15.5, 12.5], [15.5, 14.5], [13.0, 14.5], [13.0, 12.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-07",
+      "properties": {"name": "Lake Tanganyika", "area_km2": 32600, "country": "Tanzania/DRC/Burundi/Zambia", "datetime": "2022-04-18T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[29.0, -8.8], [31.2, -8.8], [31.2, -3.4], [29.0, -3.4], [29.0, -8.8]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-08",
+      "properties": {"name": "Lake Malawi", "area_km2": 29600, "country": "Malawi/Mozambique/Tanzania", "datetime": "2019-12-01T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[34.0, -14.4], [35.8, -14.4], [35.8, -9.5], [34.0, -9.5], [34.0, -14.4]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-09",
+      "properties": {"name": "Great Bear Lake", "area_km2": 31153, "country": "Canada", "datetime": "2016-08-22T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[-125.0, 64.8], [-118.0, 64.8], [-118.0, 67.2], [-125.0, 67.2], [-125.0, 64.8]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-10",
+      "properties": {"name": "Lake Balkhash", "area_km2": 16400, "country": "Kazakhstan", "datetime": "2021-05-14T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[73.3, 45.5], [79.2, 45.5], [79.2, 47.2], [73.3, 47.2], [73.3, 45.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-11",
+      "properties": {"name": "Caspian Sea", "area_km2": 371000, "country": "Russia/Kazakhstan/Turkmenistan/Iran/Azerbaijan", "datetime": "2023-02-28T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[46.8, 36.5], [54.8, 36.5], [54.8, 47.1], [46.8, 47.1], [46.8, 36.5]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-12",
+      "properties": {"name": "Lake Ladoga", "area_km2": 17700, "country": "Russia", "datetime": "2020-10-09T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[29.8, 59.8], [32.9, 59.8], [32.9, 61.6], [29.8, 61.6], [29.8, 59.8]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-13",
+      "properties": {"name": "Lake Ontario", "area_km2": 19009, "country": "USA/Canada", "datetime": "2022-08-30T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[-79.8, 43.2], [-76.0, 43.2], [-76.0, 44.3], [-79.8, 44.3], [-79.8, 43.2]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-14",
+      "properties": {"name": "Lake Turkana", "area_km2": 6405, "country": "Kenya/Ethiopia", "datetime": "2018-06-25T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[35.6, 2.4], [36.9, 2.4], [36.9, 4.7], [35.6, 4.7], [35.6, 2.4]]]}
+    },
+    {
+      "type": "Feature",
+      "id": "lake-15",
+      "properties": {"name": "Dead Sea", "area_km2": 605, "country": "Israel/Jordan/Palestine", "datetime": "2024-01-15T00:00:00Z"},
+      "geometry": {"type": "Polygon", "coordinates": [[[35.3, 31.3], [35.6, 31.3], [35.6, 31.8], [35.3, 31.8], [35.3, 31.3]]]}
+    }
+  ]
+}

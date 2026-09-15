@@ -1,0 +1,59 @@
+# Mode skip/unskip execution control
+# mode skip suspends all directive execution except mode directives
+# mode unskip resumes normal execution
+
+statement ok
+CREATE TABLE ms(x INTEGER)
+
+statement ok
+INSERT INTO ms VALUES (10), (20), (30)
+
+# Enter skip mode — everything below should be skipped until unskip
+mode skip
+
+# This would fail: invalid SQL
+statement ok
+THIS IS NOT VALID SQL AND SHOULD CAUSE AN ERROR IF EXECUTED
+
+# This would fail: nonexistent table
+query I
+SELECT * FROM table_that_does_not_exist_xyz
+----
+999
+
+# This would fail: dropping a table we need later
+statement ok
+DROP TABLE ms
+
+# Loops inside skip mode must not execute
+loop i 0 100
+
+statement ok
+INSERT INTO ms VALUES (${i})
+
+endloop
+
+# Foreach inside skip mode must not execute
+foreach val crash burn explode
+
+statement ok
+DROP TABLE ms
+
+endforeach
+
+# Resume normal execution
+mode unskip
+
+# Verify original state is intact (table not dropped, no extra inserts)
+query I
+SELECT SUM(x) FROM ms
+----
+60
+
+query I
+SELECT COUNT(*) FROM ms
+----
+3
+
+statement ok
+DROP TABLE ms

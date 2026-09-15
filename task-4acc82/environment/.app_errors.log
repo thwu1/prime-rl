@@ -1,0 +1,2 @@
+2024-01-15T11:10:00Z [ERROR] code=E003 msg="Volume full" client=172.16.0.20 volume="/backup"
+2024-01-15T11:12:00Z [ERROR] code=E006 msg="Memory overflow" client=172.16.0.21 process="worker-5"

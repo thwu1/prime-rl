@@ -1,0 +1,25 @@
+// Test 10: Constants, compile-time evaluation, const arrays
+const int N = 3;
+const int M = N * 2 + 1;
+const int K = M / 2;
+const int primes[5] = {2, 3, 5, 7, 11};
+
+int main() {
+    int a[M];
+    int i = 0;
+    while (i < M) {
+        a[i] = i * K;
+        i = i + 1;
+    }
+    putint(M); putch(32);
+    putint(K); putch(32);
+    putint(a[M - 1]); putch(32);
+    int sum = 0;
+    i = 0;
+    while (i < 5) {
+        sum = sum + primes[i];
+        i = i + 1;
+    }
+    putint(sum); putch(10);
+    return M;
+}

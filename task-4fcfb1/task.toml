@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge of quantum chemistry Gaussian basis function theory: Cartesian vs spherical (pure) Gaussian representations, overlap integrals between normalized Cartesian Gaussians, the permutation-based algorithm for constructing Cartesian rotation matrices, the critical distinction between unnormalized monomial and normalized Gaussian bases (requiring similarity transforms for both the rotation matrix and the c matrix coefficients), expressing real solid harmonics as Cartesian polynomials (associated Legendre polynomials, multinomial expansion of r^{2k}), and deriving the correct spherical rotation formula D=cSRc^T from the defining relation. The agent must implement all components, handle the basis normalization subtlety that only manifests for l>=3, and verify multiple matrix identities."""
+solution_explanation = """The solution implements five core functions: (1) cartesian_powers generates power tuples via nested loops, (2) overlap_matrix uses the double-factorial formula with parity checks, (3) cartesian_rotation_matrix iterates over permutations of power index arrays computing products of rotation matrix elements then applies a similarity transform using normalization weights w_i=(2a)!(2b)!(2c)!/(2^l*a!b!c!) to convert from the unnormalized monomial basis to the normalized Gaussian basis, (4) spherical_to_cartesian_matrix computes real solid harmonics in Cartesian form using the Pi_{l,m} radial polynomial with multinomial expansion of r^{2k} and A_m/B_m angular factors then converts columns to normalized basis before normalizing rows via c*S*c^T=I, (5) spherical_rotation_matrix computes D=c*S*R_cart*c^T derived from R_cart*c^T=c^T*D. The driver script runs all combinations and writes results.json."""
+verification_explanation = """Tests verify: (1) correct dimensions of all matrices, (2) overlap matrix symmetry, positive definiteness, unit diagonal, and specific known values (e.g. S[xx,yy]=1/3 for l=2), (3) Cartesian rotation preserves overlap structure R^T*S*R=S, (4) c matrix normalization c*S*c^T=I, (5) spherical rotation matrix orthogonality and det=+1, (6) group property R(30)^2=R(60), (7) rotation character (trace) matches theoretical values from representation theory, (8) anti-cheat tests import gauss_basis directly and test on cases not in config.json."""
+category = "scientific_computing"
+tags = ["quantum_chemistry", "linear_algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4fcfb1"

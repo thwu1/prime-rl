@@ -1,0 +1,19 @@
+{
+    "levels": {
+        "critical_ctrl": {"secrecy": 3, "integrity": 3},
+        "sensor_drv": {"secrecy": 2, "integrity": 2},
+        "logger": {"secrecy": 1, "integrity": 1},
+        "network": {"secrecy": 1, "integrity": 1},
+        "crypto": {"secrecy": 2, "integrity": 2}
+    },
+    "domains": {
+        "critical_ctrl": "flight",
+        "sensor_drv": "flight",
+        "logger": "support",
+        "network": "comms",
+        "crypto": "comms"
+    },
+    "declassifiers": {
+        "critical_ctrl": ["ctrl_out"]
+    }
+}

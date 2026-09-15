@@ -1,0 +1,36 @@
+context:
+  name: libjpeg-turbo
+  version: "3.0.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/${{ version }}/libjpeg-turbo-${{ version }}.tar.gz
+  sha256: c77c65fcce3d33417b2d71f8df47cfe484a3cdb1a5e501974c7dc157a8988032
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cmake
+    - nasm
+    - ninja
+  host: []
+  run: []
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libjpeg.so
+    - test -f $PREFIX/lib/libturbojpeg.so
+
+about:
+  homepage: https://libjpeg-turbo.org
+  license: IJG AND BSD-3-Clause AND Zlib
+  license_file: LICENSE.md
+  summary: SIMD-accelerated libjpeg-compatible JPEG codec library

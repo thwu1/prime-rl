@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding PVS formal specification language (niche notation used in aerospace certification), correctly translating abstract algebraic specifications into executable Python models, implementing BFS-based exhaustive state space exploration, and reasoning about edge-triggered temporal properties across synchronous vs asynchronous protocol variants. The asynchronous protocol's 4-state handshake machine with independent clocks creates a combinatorial state space (32 input combinations per state) where naive requirement adaptations fail due to subtle clock-domain interactions. Demands expertise in formal methods, protocol verification, and model checking."""
+solution_explanation = """Translate the PVS LLR (concrete) specifications into Python state machines: 2-state side + boolean bus for sync, 4-state side + message bus for async. Compose into system-level next_state functions matching the PVS composition. Run BFS from Initial_State to enumerate all reachable states. For each requirement, iterate over reachable states x input combinations, checking the property. The sync protocol satisfies all requirements; the async protocol fails R2, R3a/b, R5a/b due to clock independence allowing delayed state transitions and transient inconsistencies between bus and side states."""
+verification_explanation = """The test contains an independent reference implementation of both protocol models, translated directly from the PVS specifications. It computes the correct reachable state counts and requirement results at test time and compares them against the agent's /app/results.json. This ensures deterministic, implementation-independent verification."""
+category = "formal_methods"
+tags = ["model-checking", "protocol-verification"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protocol-model-checking"

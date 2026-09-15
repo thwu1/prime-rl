@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires knowledge of quantum error correction (surface codes, repetition codes, detector error models), familiarity with the Stim simulator API (circuit generation, DEM extraction, detector sampling), and the Tesseract decoder library's Python bindings (TesseractConfig, TesseractDecoder, SimplexDecoder, decode/decode_batch, predicted_errors_buffer, cost_from_errors, merge_indistinguishable_errors). The solver must correctly implement per-round error rate conversion and threshold estimation via linear interpolation of crossing curves. No single step is trivial — the pipeline integrates multiple library APIs that lack comprehensive documentation."""
+solution_explanation = """Install stim and tesseract-decoder. Implement a 4-part pipeline: (1) extract and process the DEM from the configured circuit using common.merge_indistinguishable_errors and common.remove_zero_probability_errors; (2) cross-validate Tesseract vs Simplex decoders by decoding 500 shots and comparing costs via predicted_errors_buffer and cost_from_errors; (3) sweep error rates across 9 (distance, noise) configurations of the repetition code using decode_batch; (4) estimate the pseudo-threshold by linear interpolation of the d=3 and d=5 per-round error rate curves."""
+verification_explanation = """Tests verify: (a) all four output files exist and have valid structure; (b) the processed DEM parses as a valid Stim DEM with errors; (c) Tesseract-Simplex cost agreement exceeds 90%; (d) error-rate sweep covers all 9 (d,p) combinations with correct per-round formula; (e) threshold lies in [0.1, 0.3]; (f) independent decoding checks on small deterministic DEMs confirm API correctness; (g) error merging produces expected results."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "decoder-benchmarking"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qec-decoder-benchmark"

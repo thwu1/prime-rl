@@ -1,0 +1,137 @@
+{
+  "title": "6",
+  "chapter": "12",
+  "chapter_heading": "Cybersecurity Resilience",
+  "sections": {
+    "1201": {
+      "heading": "Definitions",
+      "text": "In this chapter:",
+      "paragraphs": {
+        "1": {
+          "text": "The term \"Agency\" means any executive department, military department, Government corporation, Government-controlled corporation, or other establishment in the executive branch of the Government."
+        },
+        "2": {
+          "text": "The term \"critical infrastructure\" means systems and assets, whether physical or virtual, so vital to the United States that the incapacity or destruction of such systems and assets would have a debilitating impact on national security, economic security, or public health or safety."
+        },
+        "3": {
+          "text": "The term \"cybersecurity incident\" means an occurrence that actually or imminently jeopardizes, without lawful authority, the integrity, confidentiality, or availability of information on an electronic information system, or actually or imminently jeopardizes, without lawful authority, an electronic information system."
+        },
+        "4": {
+          "text": "The term \"Director\" means the Director of the Cybersecurity and Infrastructure Security Agency."
+        },
+        "5": {
+          "text": "The term \"electronic information system\" means a discrete set of electronic information resources organized for the collection, processing, maintenance, use, sharing, dissemination, or disposition of electronic information."
+        },
+        "6": {
+          "text": "The term \"sector risk management agency\" means a Federal department or agency, designated by law or Presidential directive, with responsibility for providing institutional knowledge and specialized expertise of a sector."
+        }
+      }
+    },
+    "1202": {
+      "heading": "Critical Infrastructure Protection Requirements",
+      "subsections": {
+        "a": {
+          "heading": "In general",
+          "text": "Each owner or operator of critical infrastructure shall implement risk-based cybersecurity measures sufficient to protect the critical infrastructure from cybersecurity incidents."
+        },
+        "b": {
+          "heading": "Minimum requirements",
+          "text": "The cybersecurity measures required under subsection (a) shall include, at a minimum, the following:",
+          "paragraphs": {
+            "1": {
+              "text": "Regular assessment of cybersecurity risks."
+            },
+            "2": {
+              "text": "Implementation of multi-factor authentication for all remote access."
+            },
+            "3": {
+              "text": "Maintenance of an incident response plan that includes—",
+              "subparagraphs": {
+                "A": {
+                  "text": "procedures for detecting cybersecurity incidents;"
+                },
+                "B": {
+                  "text": "protocols for containment and eradication of threats;"
+                },
+                "C": {
+                  "text": "mechanisms for recovery of affected systems; or"
+                },
+                "D": {
+                  "text": "procedures for post-incident review and reporting."
+                }
+              }
+            }
+          }
+        },
+        "c": {
+          "heading": "Compliance timeline",
+          "text": "Each owner or operator described in subsection (a) shall be in compliance with the requirements of this section not later than 2 years after the date of enactment of this chapter."
+        }
+      }
+    },
+    "1203": {
+      "heading": "Incident Reporting",
+      "subsections": {
+        "a": {
+          "heading": "Reporting requirement",
+          "text": "Each owner or operator of critical infrastructure who experiences a cybersecurity incident shall report the incident to the Director not later than 72 hours after the owner or operator reasonably believes the incident has occurred."
+        },
+        "b": {
+          "heading": "Penalties for failure to report",
+          "text": "Any owner or operator who fails to comply with subsection (a) shall be subject to—",
+          "paragraphs": {
+            "1": {
+              "text": "a civil penalty of not more than $50,000 for each day the violation continues;"
+            },
+            "2": {
+              "text": "an additional penalty of not more than $100,000 if the failure to report results in harm to national security; and"
+            },
+            "3": {
+              "text": "such other enforcement actions as the Director determines appropriate."
+            }
+          }
+        }
+      }
+    },
+    "1204": {
+      "heading": "Enforcement and Penalties",
+      "subsections": {
+        "a": {
+          "heading": "Enforcement authority",
+          "text": "The Director shall have the authority to enforce the provisions of this chapter through—",
+          "paragraphs": {
+            "1": {
+              "text": "issuance of compliance orders;"
+            },
+            "2": {
+              "text": "imposition of civil penalties as provided in section 1203(b);"
+            },
+            "3": {
+              "text": "referral to the Attorney General for appropriate legal action; and"
+            },
+            "4": {
+              "text": "suspension of Federal contracts and grants."
+            }
+          }
+        }
+      }
+    },
+    "1205": {
+      "heading": "Federal Agency Responsibilities",
+      "subsections": {
+        "a": {
+          "heading": "Agency requirements",
+          "text": "Each Agency shall implement cybersecurity measures consistent with the requirements applicable to critical infrastructure owners and operators under section 1202."
+        },
+        "b": {
+          "heading": "Agency reporting",
+          "text": "Each Agency shall report cybersecurity incidents to the Director in accordance with section 1203."
+        },
+        "c": {
+          "heading": "Coordination",
+          "text": "Each sector risk management agency shall coordinate with the Director to ensure consistent implementation of this chapter across the relevant sector."
+        }
+      }
+    }
+  }
+}

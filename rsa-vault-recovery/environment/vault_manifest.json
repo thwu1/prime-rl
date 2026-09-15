@@ -1,0 +1,54 @@
+{
+  "vault_version": "2.1",
+  "sss_prime": "80347515025216493594673412187986409614018615970784851843031727805951718514291",
+  "threshold": 4,
+  "num_shares": 6,
+  "description": "Shamir (4,6) Secret Sharing with RSA-encrypted shares",
+  "parties": [
+    {
+      "id": 1,
+      "name": "Alpha Custodian",
+      "key_format": "x509_pem_certificate",
+      "key_location": "/app/pki/party1.pem",
+      "share_location": "/app/shares/share1.enc"
+    },
+    {
+      "id": 2,
+      "name": "Beta Custodian",
+      "key_format": "x509_pem_certificate",
+      "key_location": "/app/pki/party2.pem",
+      "share_location": "/app/shares/share2.enc"
+    },
+    {
+      "id": 3,
+      "name": "Gamma Custodian",
+      "key_format": "x509_pem_certificate",
+      "key_location": "/app/pki/party3.pem",
+      "share_location": "/app/shares/share3.enc"
+    },
+    {
+      "id": 4,
+      "name": "Delta Custodian",
+      "key_format": "der_pkcs8_public_key",
+      "key_location": "/app/keys/party4_pub.der",
+      "key_extraction": "DER-encoded SubjectPublicKeyInfo",
+      "share_location": "/app/shares/share4.enc"
+    },
+    {
+      "id": 5,
+      "name": "Epsilon Custodian",
+      "key_format": "network_capture",
+      "key_location": "/app/captures/share_transfer.pcap",
+      "key_extraction": "Public key and encrypted share in UDP JSON payloads",
+      "share_location": "/app/captures/share_transfer.pcap"
+    },
+    {
+      "id": 6,
+      "name": "Zeta Custodian",
+      "key_format": "pgp_public_key",
+      "key_location": "/app/pgp/party6.asc",
+      "key_extraction": "ASCII-armored OpenPGP public key block",
+      "share_location": "/app/shares/share6.enc"
+    }
+  ]
+}

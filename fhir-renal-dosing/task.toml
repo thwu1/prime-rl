@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across multiple domains without procedural guidance: (1) FHIR R4 Bundle parsing including navigating nested resource types, LOINC/RxNorm coding systems, panel components, and brand-to-generic medication resolution; (2) nephrology expertise to determine the appropriate eGFR equation and implement it with correct sex-specific parameters, handle unit conversions between umol/L and mg/dL, and apply KDIGO staging thresholds; (3) SQLite database querying with range-based matching for renal dosing rules and bidirectional drug interaction lookups across all medication pairs; (4) clinical pharmacology judgment to synthesize renal function, medication adjustments, and drug-drug interaction data into actionable safety alerts. The agent must discover the solution approach entirely from domain knowledge and database inspection — no algorithms, formulas, or procedures are provided."""
+solution_explanation = """Parse each FHIR Bundle JSON to extract Patient demographics, locate the most recent serum creatinine Observation (LOINC 2160-0, handling panel components and umol/L→mg/dL conversion), compute age from birthDate. Apply the CKD-EPI 2021 race-free eGFR equation with sex-specific kappa/alpha parameters. Query the pharmacology.db SQLite database: inspect schema to discover tables, use range-matching SQL on renal_adjustments to determine medication actions, and query drug_interactions for all pairwise combinations of active medications. Resolve brand names to generics via RxNorm display fields. Assign alert levels and assemble the output JSON."""
+verification_explanation = """Tests independently compute expected eGFR values using CKD-EPI 2021 from known patient data, then verify the output JSON contains correct eGFR (within ±2.0), CKD stages, medication actions (STOP/REDUCE/NO_CHANGE), alert levels, and drug interaction detection for all four patients. Drug interaction tests verify specific expected pairs (both orderings accepted) and validate field completeness and severity values."""
+category = "applied_computing"
+tags = ["clinical-informatics", "fhir"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-renal-dosing"

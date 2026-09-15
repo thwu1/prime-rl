@@ -1,0 +1,5 @@
+The Service Control system at `/app/` — responsible for API quota and rate-limit enforcement — is in a cascading global outage. All API requests across 60+ products return 503 errors. The emergency circuit breaker override was activated but did not mitigate the crash loop. Recovery attempts are blocked by database contention.
+
+Incident logs are at `/app/incident_data/`. The service source code is at `/app/service_control/`. The production database is at `/app/data/policies.db`. Deployment artifacts are at `/app/config/`.
+
+Restore the system to production-ready condition: diagnose every contributing root cause, fix all defects so the system satisfies its documented design contracts under normal and degraded conditions, and write a root cause analysis to `/app/rca_report.txt` documenting each contributing factor, how they interacted to produce a global outage, and what changes you made.

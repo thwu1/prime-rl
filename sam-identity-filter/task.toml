@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the SAM/BAM binary format: the agent must use samtools (or pysam) to access BAM data, since BAM is a compressed binary format unreadable as text. The agent must independently know or derive the formulas for three distinct sequence identity metrics — BLAST identity, gap-compressed identity, and gap-excluded identity — as only their names appear in the output schema without any computational guidance. CIGAR string parsing must handle both basic (M) and extended (=/X) operator conventions, with NM tag verification only possible for extended-CIGAR records. Producing a coordinate-sorted, indexed BAM with corrected NM tags requires proficiency with samtools pipeline operations (view, sort, index) or equivalent library-level BAM manipulation. Chimeric read detection via SA tags, correct SAM flag bit-field interpretation, and edge cases (soft/hard clips, multiple gap events, boundary-threshold identities) demand holistic understanding of genomics alignment data rather than procedural steps."""
+solution_explanation = """Use samtools view -h to extract SAM text from the BAM file. Parse each record's CIGAR string into (length, operation) tuples. For basic-CIGAR records (M operator), derive mismatches as NM minus total gap bases, then compute matches as M_total minus mismatches. For extended-CIGAR records (=/X operators), count matches and mismatches directly and verify NM equals sum(X)+sum(I)+sum(D), correcting if needed. Compute BLAST identity as matches/alignment_length, gap-compressed identity as matches/(aligned_bases+gap_opens), and gap-excluded identity as matches/(matches+mismatches). Classify records by SAM flag bits (0x4, 0x100, 0x800), detect chimeric reads via SA tag presence, filter primaries by gc_identity >= 0.90, write the JSON report, output passing records as SAM text, then use samtools view/sort/index to produce the filtered BAM."""
+verification_explanation = """Tests load audit_report.json and verify exact record counts, per-read identity metrics within 1e-4 tolerance, NM correction flags, filter pass/fail classification, and per-reference aggregate statistics within 1e-3 tolerance. Additional tests use samtools to verify the filtered BAM exists, is coordinate-sorted, contains the correct number of records, includes exactly the expected read names, and has corrected NM tags on records that were flagged for correction."""
+category = "bioinformatics"
+tags = ["bam-format", "alignment-quality"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sam-identity-filter"

@@ -1,0 +1,57 @@
+# Program: Compute 3*N^2 + 2*N + 1
+#
+
+READ_LINE
+DROP
+TO_INT
+STORE n
+
+# Compute N*N
+LOAD n
+PUSH_INT 0
+ADD
+PUSH_INT 1
+MUL
+LOAD n
+PUSH_INT 1
+MUL
+PUSH_INT 0
+ADD
+MUL
+PUSH_INT 0
+SUB
+STORE nsq
+
+# Compute 3*N^2
+LOAD nsq
+PUSH_INT 1
+MUL
+PUSH_INT 3
+MUL
+PUSH_INT 0
+ADD
+
+# Compute 2*N
+LOAD n
+PUSH_INT 1
+MUL
+PUSH_INT 2
+MUL
+
+# Add: 3*N^2 + 2*N
+ADD
+
+# Add 1
+PUSH_INT 1
+ADD
+
+# Final adjustments
+PUSH_INT 0
+ADD
+PUSH_INT 1
+MUL
+PUSH_INT 0
+SUB
+
+PRINTLN
+HALT

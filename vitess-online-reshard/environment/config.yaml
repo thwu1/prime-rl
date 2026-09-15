@@ -1,0 +1,14 @@
+keyspace: main
+shards:
+  - name: "-80"
+    range_start: ""
+    range_end: "80"
+    database: shard0
+  - name: "80-"
+    range_start: "80"
+    range_end: ""
+    database: shard1
+mysql:
+  user: bench
+  password: bench123
+  socket: /var/run/mysqld/mysqld.sock

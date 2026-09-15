@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The task requires reverse-engineering two coupled algorithms from an opaque compiled oracle: (1) a constraint-based 1D layout solver with iterative fill distribution, largest-remainder rounding, clamping/redistribution loops, and over-constrained proportional scaling; and (2) a recursive tree-layout compositor with content-aware auto-sizing that propagates intrinsic dimensions through a layout hierarchy. The compose() function uses split() as a building block, meaning the agent must deeply understand the 1D solver's semantics — not just match its outputs — to correctly implement the recursive layer. The auto-sizing mechanism wraps parent constraints with dynamically computed Min bounds derived from bottom-up intrinsic size traversal, creating emergent behaviors at the intersection of constraint satisfaction and tree recursion. The compose reference cases are deliberately sparse, forcing the agent to derive the auto-sizing propagation model from first-principles understanding of the constraint system rather than pattern matching."""
+solution_explanation = """The solution implements split() via: (1) unwrap Min/Max layers to extract bounds and base constraint, (2) resolve fixed constraints, (3) iteratively distribute remaining space among fills using largest-remainder method with clamping/redistribution, (4) proportionally scale overconstrained totals. compose() recursively processes the layout tree: for each auto-sized child, it computes intrinsic width/height by bottom-up traversal (sum along main axis, max along cross axis, including spacing), wraps the parent constraint in Min(intrinsic, original), then calls split() with modified constraints and recurses into sub-rects."""
+verification_explanation = """45 pytest test cases cover both split() and compose(). Split tests verify all constraint types, rounding, bounded fill cascading, direction/offset/flex handling, and over-constrained reduction. Compose tests verify basic tree layout, nested containers, dashboard-style layouts, and critically: auto-sizing with intrinsic propagation across axis orientations, nested auto-sizing, over-constrained auto-sizing, Min/Max conflicts with auto bounds, and zero-intrinsic no-op behavior. All tests use exact integer-valued Rect comparisons."""
+category = "reverse_engineering"
+tags = ["constraint-solving", "terminal-ui"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/constraint-layout-solver"

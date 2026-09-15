@@ -1,0 +1,35 @@
+# prog4 — combined: constant prop + CSE + DCE + unreachable
+# Expected output: 150 20 55
+
+func main():
+  .entry:
+    a = const 10
+    b = const 5
+    c = add a b
+    d = sub a b
+    e = mul c d
+    f = gt e 50
+    cbr f .path_a .path_b
+  .path_a:
+    g = mul c d
+    h = add c d
+    i = mul c d
+    j = add c d
+    k = add g i
+    m = sub h j
+    dead1 = mul m 100
+    dead2 = add dead1 5
+    print k
+    print h
+    br .merge
+  .path_b:
+    p = const 999
+    print p
+    br .merge
+  .merge:
+    q = add c c
+    r = mul d d
+    s = add q r
+    dead3 = sub s q
+    print s
+    ret 0

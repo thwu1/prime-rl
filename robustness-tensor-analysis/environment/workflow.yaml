@@ -1,0 +1,31 @@
+stages:
+  - name: confidence
+    module: stages.confidence
+    depends_on: []
+    description: "Confidence intervals for all success rate cells"
+  - name: effects
+    module: stages.effects
+    depends_on: []
+    description: "Perturbation effect matrix relative to baseline"
+  - name: decomposition
+    module: stages.decomposition
+    depends_on: [effects]
+    description: "Spectral analysis of perturbation effect structure"
+  - name: robustness
+    module: stages.robustness
+    depends_on: [effects]
+    description: "Category-aggregated robustness scores"
+  - name: interactions
+    module: stages.interactions
+    depends_on: [effects]
+    description: "Compound perturbation interaction strength"
+  - name: ranking
+    module: stages.ranking
+    depends_on: [robustness]
+    description: "Overall model ranking by robustness"
+  - name: significance
+    module: stages.significance
+    depends_on: []
+    description: "Pairwise model comparison via permutation tests"
+
+output_path: /app/output/report.json

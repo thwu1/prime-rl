@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in EEG signal processing (bandpass filtering, spatial filtering), cross-subject transfer learning (Euclidean Alignment or Riemannian geometry), and Common Spatial Patterns (CSP) feature extraction. The agent must understand why naive ML approaches fail due to inter-subject spatial covariance shifts and implement domain-alignment techniques from the BCI literature to achieve cross-subject generalization."""
+solution_explanation = """The solution implements: (1) bandpass filtering in 8-30 Hz to isolate mu/beta motor imagery bands, (2) Euclidean Alignment to normalize each subject's spatial covariance to identity (removing subject-specific anatomical mixing), (3) one-vs-rest Common Spatial Patterns for discriminative spatial filter extraction via generalized eigenvalue decomposition, and (4) LDA classification on log-variance CSP features. The key insight is that Euclidean Alignment undoes subject-specific spatial mixing matrices, making CSP features transferable across subjects."""
+verification_explanation = """Tests regenerate ground truth labels at test time by replaying the same deterministic RNG sequence used during data generation (labels are never stored in the Docker image). Verification checks: results file existence and format, valid class indices in predictions, overall accuracy >= 50% across all test subjects, and per-subject accuracy >= 30% (above the 25% chance level for 4 classes)."""
+category = "machine_learning"
+tags = ["signal-processing", "brain-computer-interface"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cross-subject-eeg"

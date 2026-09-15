@@ -1,0 +1,10 @@
+{
+  "leader": "R1",
+  "isr": ["R1", "R2", "R3"],
+  "elr": [],
+  "last_known_elr": [],
+  "hwm": 10,
+  "leo": {"R1": 10, "R2": 10, "R3": 10},
+  "committed_data_lost": 0,
+  "election_history": []
+}

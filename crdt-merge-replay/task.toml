@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a convergent sequence merge algorithm from scratch in Rust. The solver must understand causal DAG semantics (fork/merge), devise a way to convert position-based editing patches to an order-independent internal representation, implement a deterministic merge function with correct tie-breaking for concurrent inserts, handle idempotent cross-branch deletes, and manage state reconstruction across a multi-level DAG with cascaded merges. This is PhD/expert-level distributed systems work that combines theory (convergence, commutativity) with systems programming (Rust, efficient data structures)."""
+solution_explanation = """The reference solution implements a simplified Yjs-style list CRDT in ~250 lines of Rust. Each character is assigned a unique (agent, seq) ID and records its origin_left/origin_right neighbors at insertion time. The integration function scans between origin neighbors and resolves conflicts by comparing agent indices. Document state for each transaction is rebuilt from ancestor operations in topological order. Merging is implicit: the union of all ancestor operations, integrated via the CRDT ordering, produces the deterministic converged document."""
+verification_explanation = """Tests build the Rust project, then run the binary against 8 static trace files with known oracle outputs plus dynamically generated traces created at test time. Dynamic tests include random sequential replay (Python-verified), convergence checks (parent-order swap), overlapping concurrent deletes, and multi-character concurrent insert ordering. A convergence sweep verifies that swapping parent order on all concurrent static traces still produces correct output."""
+category = "distributed_systems"
+tags = ["crdt", "rust"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crdt-merge-replay"

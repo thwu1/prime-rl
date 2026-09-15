@@ -1,0 +1,13 @@
+{
+  "name": "vqe_2q",
+  "n_qubits": 3,
+  "operations": [
+    {"gate": "Ry", "targets": [0], "param_index": 0},
+    {"gate": "Ry", "targets": [1], "param_index": 1},
+    {"gate": "X", "targets": [1], "controls": [0]},
+    {"gate": "Rx", "targets": [2], "param_index": 2},
+    {"gate": "X", "targets": [2], "controls": [1]}
+  ],
+  "params": [0.8, -0.5, 1.2],
+  "observable_qubit": 0
+}

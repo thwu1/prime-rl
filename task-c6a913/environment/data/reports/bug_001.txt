@@ -1,0 +1,33 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in parse_skb_options+0x1a3/0x2f0 net/core/skb_handler.c:52
+Read of size 1 at addr ffff88810baed5a0 by task syz-executor.1/8437
+
+CPU: 2 PID: 8437 Comm: syz-executor.1 Not tainted 6.1.0-rc4-syzkaller-00044-g3a8e36c #0
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.16.2-debian-1.16.2-1 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0x1b1/0x28e lib/dump_stack.c:107
+ print_address_description.constprop.0+0x74/0x340 mm/kasan/report.c:319
+ print_report+0x107/0x1f0 mm/kasan/report.c:430
+ kasan_report+0xb8/0xf0 mm/kasan/report.c:547
+ parse_skb_options+0x1a3/0x2f0 net/core/skb_handler.c:52
+ netfilter_rcv+0x312/0x590 net/netfilter/core.c:234
+ ip_rcv_finish+0x1d7/0x430 net/ipv4/ip_input.c:428
+ ip_rcv+0xae/0x2c0 net/ipv4/ip_input.c:569
+ __netif_receive_skb_core+0x948/0x16b0 net/core/dev.c:5523
+ </TASK>
+
+Allocated by task 8437:
+ kasan_save_stack+0x26/0x50 mm/kasan/common.c:47
+ kasan_set_track+0x25/0x40 mm/kasan/common.c:52
+ __kasan_kmalloc+0x87/0x90 mm/kasan/common.c:384
+ kmalloc_trace+0x2b/0xe0 mm/slab_common.c:1087
+ skb_alloc+0x3c/0x120 net/core/skb_handler.c:21
+ netfilter_rcv+0x78/0x590 net/netfilter/core.c:198
+ ip_rcv+0xae/0x2c0 net/ipv4/ip_input.c:569
+
+The buggy address belongs to the object at ffff88810baed580
+ which belongs to the cache kmalloc-64 of size 64
+The buggy address is located 32 bytes to the right of
+ allocated 64-byte region [ffff88810baed580, ffff88810baed5c0)
+==================================================================

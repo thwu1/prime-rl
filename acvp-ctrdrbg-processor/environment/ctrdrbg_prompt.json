@@ -1,0 +1,222 @@
+{
+  "vsId": 42,
+  "algorithm": "ctrDRBG",
+  "revision": "1.0",
+  "isSample": false,
+  "testGroups": [
+    {
+      "tgId": 1,
+      "testType": "AFT",
+      "derFunc": true,
+      "reSeed": true,
+      "predResistance": true,
+      "entropyInputLen": 256,
+      "nonceLen": 256,
+      "persoStringLen": 256,
+      "additionalInputLen": 256,
+      "returnedBitsLen": 4096,
+      "mode": "AES-128",
+      "tests": [
+        {
+          "tcId": 1,
+          "entropyInput": "841AE74F90E836829473171E009DE5C9C24890A9E435318AFAAF3D4B508A9A21",
+          "nonce": "A2AA1E5414CDF5270AA3293EA4A470F107CDABE66A66558F227101ADEB23E0A8",
+          "persoString": "70CE5D34B7C4183D7F467543DF9EE169D7AE09B0C8707A73C8155C6DC83CB017",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "47B171D2CDBA1DB5B574306FD43B37D0E0B1D5ED6F5A6280DA3DFB1A57D170FF",
+              "entropyInput": "4520F2CCA5C12F50AA68BE9E29056E64F2835B9E08B2E2397D1793FD0BC71D74"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "C129DB896E333A9776901C9BF1503F60BC51388645A2D25FA45682CB7FAD13B1",
+              "entropyInput": "0E086F40FDA21BFBCFD54BB694D5E07D7BBDF8633BA92A3169D82C8A2E096DC2"
+            }
+          ]
+        },
+        {
+          "tcId": 2,
+          "entropyInput": "88FAA32F1DEF84D261FC295257B340468DB10669B27D7ABE50E65895F6F75E73",
+          "nonce": "1A21C868102496624AD37ADA9A903C31D2B1255F09D89958DF2C32CF333E06A7",
+          "persoString": "8F761B0E39D1F3332CAE6013F2EC1DD3AC01F351B8FFD31313BD7EC8620BF47F",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "046FD3CF33255AF6CBFD71E68DE08EB2C117285B4EAFAE538F70BA45F93B52B5",
+              "entropyInput": "9F220B2101FA610F7C8352E433C2D122BED58170DD31D11091D4C99535D6791D"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "25D18DDAD6C9E3D81AD8DC8396EA3E38C129C792B22C7915D57AF901C89FAB3E",
+              "entropyInput": "80BF3C95EB026F5444B9952B924F3949E72134A236DF33616778DC461E2792AF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tgId": 2,
+      "testType": "AFT",
+      "derFunc": true,
+      "reSeed": true,
+      "predResistance": true,
+      "entropyInputLen": 384,
+      "nonceLen": 384,
+      "persoStringLen": 384,
+      "additionalInputLen": 384,
+      "returnedBitsLen": 4096,
+      "mode": "AES-256",
+      "tests": [
+        {
+          "tcId": 3,
+          "entropyInput": "364FA4BC361AB8953E6433EE03034DAD6D352A658AF65FC4F0BCDB0F4D633A97ECA44ABEB2A67C99FD6C7D0350E67350",
+          "nonce": "B3B7C0A7F74D8DE8D2F5C565BFD6BF101F3385C056B725D663FEA046710439476E97E187A38CF6B67564DB7870C5A6B3",
+          "persoString": "DBAEA12C0317C3CF3180AF961436036E16BC0752B88832438109D80BC7936CC330B50D23539961A713EFDE9F83EFAB20",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "D379D7388B2046A28A6B68E36445AC17CDC78327E8F207B88D9CF6F3F23B4358F3BF7AA66614F583763D8802B4361D5B",
+              "entropyInput": "66920CBD64C4354D203E4D80A4BDE0136D1C1A81A113A9DA85E7EC1D4027F6DB1C9AB1D34FB0750D411CB910EF7A6B63"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "7328DCAB5C9357800D5763B3B4B601BC6783D57754C1D64AE087F9E1776D1B53708FC54F20A21BC21B9E7F89F15D21F7",
+              "entropyInput": "4EF4706C3AE3E03978FC4D7855721F8DE05510D5AD50B0D7F00F5A34FA4E472DFF4F5496FAFCA88165729FD07A0BD175"
+            }
+          ]
+        },
+        {
+          "tcId": 4,
+          "entropyInput": "2E78DF69AA7E6352B8E2B2BA686124C2883963CAC2C22A6D9D9B99F0F375CDF37518D68E3E8F3FAC4B099F4CDC59F1CB",
+          "nonce": "0CDBC142FE122EA7106E9452779393B18E34F11B8CA0BCEA41BAB075697B0706498046DD216FBB55327DB11AA410532E",
+          "persoString": "B60010DA83DE15DBA22AD24DE6A994E129FEBC9D47C26A9971F609B2496FE1876417F0105EB9CF987EB80F6361A335E2",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "BFBEFF1D0205C4D935D5B327D1933AB1E91601DE00C7E5C2BED6455349F482A92AA34FD80B5E2EF1C4C7963D0EF53049",
+              "entropyInput": "8007812A22B7E80E970B7C30F688A0CC13C11C01DCBAB86A412396E9D67CCD3A073CDBEAC1956A47A42B93C4C96F145A"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "6DA48F7104C84704061DF9E92AAF5B582F8F135A2C916718AA68930AC6318A9685C39F4ECDFC8389730320A5A7EA15DF",
+              "entropyInput": "13667D66EF778F0CF35D6D8751BB0826C2A0D43F8E6FBFACF503D1BC9E5A7518F0E5C6CF584C3759032DBD8CA8798C45"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tgId": 3,
+      "testType": "AFT",
+      "derFunc": true,
+      "reSeed": true,
+      "predResistance": false,
+      "entropyInputLen": 256,
+      "nonceLen": 256,
+      "persoStringLen": 256,
+      "additionalInputLen": 256,
+      "returnedBitsLen": 4096,
+      "mode": "AES-128",
+      "tests": [
+        {
+          "tcId": 5,
+          "entropyInput": "C3680E8231CE7F1B69363200BECCACE8ADE99676BF1C80D80D0668526AE51480",
+          "nonce": "C98BD49AD24E7CDD4E2E0E4E3614F8C5477A44DA4ABB77C5A54D0485EA705281",
+          "persoString": "F00B7AB5090C2224727531F9896C8605D78FEB7688F9265EE427FE26233D5818",
+          "otherInput": [
+            {
+              "intendedUse": "reSeed",
+              "additionalInput": "11F09777BBB22362F8AF143735A6D37860E7761258314F993E403CFDAD4FC8FC",
+              "entropyInput": "BE2DB4CD44441C5D271BBB94AF84F594F3DBA487922415C6BEDBBCD8104A7DB3"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "01C6858ADA4B5718E787F70EFACBE335E614C289441646B457F52E54BE9666E8",
+              "entropyInput": ""
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "2ECD1AE2FDA6AEDEF003F6CB9485CB0E9F6E6BFEF0814FDE4A0B28E0AC701F5F",
+              "entropyInput": ""
+            }
+          ]
+        },
+        {
+          "tcId": 6,
+          "entropyInput": "4A22C591B1A831A73B68DA94E1A6D129ECECD56F6FAB87A73C0FD5358B8CFF00",
+          "nonce": "E1AA5D2C04E45197250401663374287D850377A87FBEA2C4E5F5014B4A8FD1CB",
+          "persoString": "66B8F11DFAB26ACCCAE3EF516833232D2F92E91CF11CC1DB27A0A2459EA46164",
+          "otherInput": [
+            {
+              "intendedUse": "reSeed",
+              "additionalInput": "0457B570C1FE9205A7F5B9D07544C42BB781BDC3F193E724B034B3F3035EBBF0",
+              "entropyInput": "354F61C7DAC164E89BCBAD0493F2404A6006B39691F59C661F903126E72ED155"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "6E4072B460FDB6C53765D91D03AF0AE32BD8DA1A1D6E410B966D0254DAA1BF4D",
+              "entropyInput": ""
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "98E20C059D156A5A73E7540665DED3BA2B8DD84A8F69AD572862A61C03A48E90",
+              "entropyInput": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tgId": 4,
+      "testType": "AFT",
+      "derFunc": false,
+      "reSeed": true,
+      "predResistance": true,
+      "entropyInputLen": 256,
+      "nonceLen": 0,
+      "persoStringLen": 256,
+      "additionalInputLen": 256,
+      "returnedBitsLen": 4096,
+      "mode": "AES-128",
+      "tests": [
+        {
+          "tcId": 7,
+          "entropyInput": "57A43572FB7F32CE982C0B47CE6EB9F0A5A490BB40BC28D961E2E279AF57C201",
+          "nonce": "",
+          "persoString": "A3EFE66246E1BF96F51D72A4E303FD03B992CBCB2947AA423323ABA080642C3E",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "CCAFBC2383AAC197E56F83934AB202336A5531091CA7CF3B4FD79D45EE300C6A",
+              "entropyInput": "8996722A9D6DCDB7B51631477C7C90D0DCE1714CF8C8313ED95991516176AE16"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "6440139CF4A3A7494E0C8752200C24159D5AF74265917F6A402A15A3C981DA20",
+              "entropyInput": "7E2C53F383564B9DE6F54CBF2769037785ABFA8A77412DB83397F240408E3F9A"
+            }
+          ]
+        },
+        {
+          "tcId": 8,
+          "entropyInput": "7C78DDB578F19313709DC811C3E35DFD521399EBBAF939E1720A58E77E1D3FEE",
+          "nonce": "",
+          "persoString": "04BD9266546BADA126A95B51B834EED390FB75B0218B1C4B332AA5E78509255C",
+          "otherInput": [
+            {
+              "intendedUse": "generate",
+              "additionalInput": "6654235EF8BFFF73E53DFC1B3CB5531563901ED72DA96F1C9399D96DE30695D4",
+              "entropyInput": "AD09EBFEDE54F9884A8F6AA753B7F512106A5A2E9369BD515202B2F148490350"
+            },
+            {
+              "intendedUse": "generate",
+              "additionalInput": "BB1F34163241E729E730AA5B6D8E558B122305C4F7E07CB08F0FF65F1B7A431A",
+              "entropyInput": "F835A0196E702157D891CC36AAC8F1696A7361C13837235C39A3865399BFBBB3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

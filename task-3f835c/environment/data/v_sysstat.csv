@@ -1,0 +1,24 @@
+STATISTIC#,NAME,VALUE
+1,db block gets from cache,2500000
+2,consistent gets from cache,12500000
+3,physical reads cache,2250000
+4,physical reads direct,50000
+5,physical writes direct,30000
+6,parse count (total),2500000
+7,parse count (hard),1200000
+8,parse count (failures),500
+9,sorts (memory),85000
+10,sorts (disk),15000
+11,table scans (long tables),8500
+12,table scans (short tables),450000
+13,table fetch by rowid,5000000
+14,execute count,3500000
+15,user commits,800000
+16,user rollbacks,5000
+17,redo size,15000000000
+18,session logical reads,15050000
+19,CPU used by this session,45000000
+20,recursive calls,8000000
+21,workarea executions - optimal,45000
+22,workarea executions - onepass,40000
+23,workarea executions - multipass,15000

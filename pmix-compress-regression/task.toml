@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C systems programming and holistic understanding of a multi-module compression pipeline. The solver must: (1) trace through the encoding dispatch chain across multiple source files to diagnose why all compressed formats fail — no guidance is given about which files are broken or what the bugs are; (2) identify a subtle variable confusion in the v1 blob encoder where the header stores the wrong length field (compressed vs uncompressed), causing decompression buffer allocation to fail — this requires understanding the full encode/decode lifecycle and how the header value flows through to the decompressor's buffer sizing; (3) implement a complete LZ4 compression backend from scratch using the liblz4 C API with correct buffer management, type casting between size_t and int, and benefit checking; (4) design and implement a v2 dual-backend encoder/decoder that tries both compression algorithms, selects the optimal one, packs a binary header with network byte order fields, and dispatches decompression based on algorithm ID — requiring deep understanding of binary protocol construction, endianness, and multi-backend architecture patterns. Each fix is interdependent: partial solutions fail different subsets of the 12 tests."""
+solution_explanation = """Three root causes found via code tracing: (1) In src/preg_compress.c line 77, the v1 blob header packs 'htonl((uint32_t)len)' (compressed length) instead of 'htonl((uint32_t)dlen)' (uncompressed data length) — the decoder uses this value to allocate the decompression buffer, so storing the wrong value causes zlib inflate to fail with Z_BUF_ERROR. (2) src/compress_lz4.c has stub implementations that always return false — replaced with working LZ4_compressBound/LZ4_compress_default/LZ4_decompress_safe calls with proper int/size_t casts and benefit checking. (3) src/preg_compress_v2.c has stub implementations — replaced with a full v2 encoder that generates raw text, compresses with both zlib and LZ4, selects the smaller result, packs the blob2 header (6-byte prefix + 1-byte algo ID + 4-byte uncompressed length + 4-byte compressed length in network order + compressed data), and a decoder that reads the header, dispatches to the correct backend, and delegates decompressed output to the raw parser."""
+verification_explanation = """Tests compile the project and run test_ppn which exercises 12 tests: 1 LZ4 backend direct compress/decompress roundtrip, 10 encode/decode roundtrip cases from 100 to 50000 processes across varying node counts, and 1 v1 backward compatibility test. Pytest checks verify: (1) compilation succeeds, (2) all 12/12 tests pass, (3) the 1042-proc boundary case (just above compression threshold) passes, (4) large process counts (20000, 50000) pass, (5) blob2: format is used for large maps, (6) LZ4 backend produces valid roundtrips, (7) v1 blobs still parse correctly via the general parser, and (8) algorithm IDs (zlib/lz4) appear in v2 encoded output."""
+category = "systems-programming"
+tags = ["compression", "c-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pmix-compress-regression"

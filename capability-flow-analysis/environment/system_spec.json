@@ -1,0 +1,928 @@
+{
+  "description": "Satellite flight-control system capability specification (seL4 Microkit, compartmented lattice model)",
+  "security_model": {
+    "levels": {
+      "0": "UNCLASSIFIED",
+      "1": "CONFIDENTIAL",
+      "2": "SECRET",
+      "3": "TOP_SECRET"
+    },
+    "compartments": [
+      "COMMS",
+      "PAYLOAD",
+      "CRYPTO",
+      "FLIGHT"
+    ],
+    "dominance_rule": "(l1,C1) dominates (l2,C2) iff l1>=l2 AND C1 is superset of C2"
+  },
+  "protection_domains": [
+    {
+      "name": "crypto_svc",
+      "security_level": 3,
+      "compartments": [
+        "CRYPTO"
+      ]
+    },
+    {
+      "name": "cmd_handler",
+      "security_level": 3,
+      "compartments": [
+        "COMMS",
+        "CRYPTO"
+      ]
+    },
+    {
+      "name": "key_mgmt",
+      "security_level": 3,
+      "compartments": [
+        "CRYPTO"
+      ]
+    },
+    {
+      "name": "exec_svc",
+      "security_level": 2,
+      "compartments": [
+        "FLIGHT",
+        "PAYLOAD"
+      ]
+    },
+    {
+      "name": "att_ctrl",
+      "security_level": 2,
+      "compartments": [
+        "FLIGHT"
+      ]
+    },
+    {
+      "name": "payload_ctrl",
+      "security_level": 2,
+      "compartments": [
+        "PAYLOAD"
+      ]
+    },
+    {
+      "name": "nav_svc",
+      "security_level": 2,
+      "compartments": [
+        "FLIGHT"
+      ]
+    },
+    {
+      "name": "sw_bus",
+      "security_level": 1,
+      "compartments": [
+        "COMMS"
+      ]
+    },
+    {
+      "name": "telemetry",
+      "security_level": 1,
+      "compartments": [
+        "COMMS",
+        "FLIGHT"
+      ]
+    },
+    {
+      "name": "event_svc",
+      "security_level": 1,
+      "compartments": [
+        "COMMS"
+      ]
+    },
+    {
+      "name": "time_svc",
+      "security_level": 1,
+      "compartments": []
+    },
+    {
+      "name": "file_sys",
+      "security_level": 1,
+      "compartments": []
+    },
+    {
+      "name": "net_stack",
+      "security_level": 1,
+      "compartments": [
+        "COMMS"
+      ]
+    },
+    {
+      "name": "health_mon",
+      "security_level": 1,
+      "compartments": [
+        "FLIGHT",
+        "PAYLOAD"
+      ]
+    },
+    {
+      "name": "uart_drv",
+      "security_level": 0,
+      "compartments": []
+    },
+    {
+      "name": "eth_drv",
+      "security_level": 0,
+      "compartments": []
+    },
+    {
+      "name": "downlink",
+      "security_level": 0,
+      "compartments": [
+        "COMMS"
+      ]
+    },
+    {
+      "name": "legacy_vm",
+      "security_level": 0,
+      "compartments": []
+    }
+  ],
+  "resources": [
+    {
+      "name": "shm_cmd_bus",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_tlm_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_crypto_out",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_sensor_data",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_payload_io",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_log_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_net_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_file_cache",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_time_sync",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_downlink_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_att_cmd",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_uart_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_nav_data",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_health_buf",
+      "type": "shared_memory"
+    },
+    {
+      "name": "shm_key_store",
+      "type": "shared_memory"
+    },
+    {
+      "name": "ep_cmd_channel",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_tlm_channel",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_crypto_req",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_exec_ctrl",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_file_req",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_net_send",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_sw_bus_relay",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_nav_update",
+      "type": "endpoint"
+    },
+    {
+      "name": "ep_health_report",
+      "type": "endpoint"
+    },
+    {
+      "name": "ntf_heartbeat",
+      "type": "notification"
+    },
+    {
+      "name": "ntf_alarm",
+      "type": "notification"
+    },
+    {
+      "name": "ntf_payload_ready",
+      "type": "notification"
+    },
+    {
+      "name": "ntf_nav_fix",
+      "type": "notification"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "cap_001",
+      "pd": "cmd_handler",
+      "resource": "shm_cmd_bus",
+      "rights": "RW",
+      "revocation_cost": 8,
+      "derived_from": null
+    },
+    {
+      "id": "cap_002",
+      "pd": "exec_svc",
+      "resource": "shm_cmd_bus",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": "cap_001"
+    },
+    {
+      "id": "cap_003",
+      "pd": "sw_bus",
+      "resource": "shm_cmd_bus",
+      "rights": "RW",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_004",
+      "pd": "telemetry",
+      "resource": "shm_tlm_buf",
+      "rights": "W",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_005",
+      "pd": "downlink",
+      "resource": "shm_tlm_buf",
+      "rights": "R",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_006",
+      "pd": "net_stack",
+      "resource": "shm_tlm_buf",
+      "rights": "R",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_007",
+      "pd": "crypto_svc",
+      "resource": "shm_crypto_out",
+      "rights": "RW",
+      "revocation_cost": 9,
+      "derived_from": null
+    },
+    {
+      "id": "cap_008",
+      "pd": "cmd_handler",
+      "resource": "shm_crypto_out",
+      "rights": "R",
+      "revocation_cost": 4,
+      "derived_from": "cap_007"
+    },
+    {
+      "id": "cap_009",
+      "pd": "key_mgmt",
+      "resource": "shm_crypto_out",
+      "rights": "R",
+      "revocation_cost": 5,
+      "derived_from": "cap_007"
+    },
+    {
+      "id": "cap_010",
+      "pd": "exec_svc",
+      "resource": "shm_sensor_data",
+      "rights": "RW",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_011",
+      "pd": "att_ctrl",
+      "resource": "shm_sensor_data",
+      "rights": "W",
+      "revocation_cost": 4,
+      "derived_from": "cap_010"
+    },
+    {
+      "id": "cap_012",
+      "pd": "health_mon",
+      "resource": "shm_sensor_data",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": "cap_010"
+    },
+    {
+      "id": "cap_013",
+      "pd": "telemetry",
+      "resource": "shm_sensor_data",
+      "rights": "R",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_014",
+      "pd": "legacy_vm",
+      "resource": "shm_sensor_data",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_015",
+      "pd": "payload_ctrl",
+      "resource": "shm_payload_io",
+      "rights": "W",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_016",
+      "pd": "legacy_vm",
+      "resource": "shm_payload_io",
+      "rights": "RW",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_017",
+      "pd": "health_mon",
+      "resource": "shm_payload_io",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_018",
+      "pd": "crypto_svc",
+      "resource": "shm_log_buf",
+      "rights": "W",
+      "revocation_cost": 9,
+      "derived_from": null
+    },
+    {
+      "id": "cap_019",
+      "pd": "exec_svc",
+      "resource": "shm_log_buf",
+      "rights": "W",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_020",
+      "pd": "event_svc",
+      "resource": "shm_log_buf",
+      "rights": "RW",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_021",
+      "pd": "file_sys",
+      "resource": "shm_log_buf",
+      "rights": "R",
+      "revocation_cost": 2,
+      "derived_from": "cap_020"
+    },
+    {
+      "id": "cap_022",
+      "pd": "time_svc",
+      "resource": "shm_log_buf",
+      "rights": "R",
+      "revocation_cost": 2,
+      "derived_from": "cap_020"
+    },
+    {
+      "id": "cap_023",
+      "pd": "net_stack",
+      "resource": "shm_net_buf",
+      "rights": "RW",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_024",
+      "pd": "eth_drv",
+      "resource": "shm_net_buf",
+      "rights": "RW",
+      "revocation_cost": 2,
+      "derived_from": "cap_023"
+    },
+    {
+      "id": "cap_025",
+      "pd": "file_sys",
+      "resource": "shm_file_cache",
+      "rights": "RW",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_026",
+      "pd": "legacy_vm",
+      "resource": "shm_file_cache",
+      "rights": "R",
+      "revocation_cost": 2,
+      "derived_from": "cap_025"
+    },
+    {
+      "id": "cap_027",
+      "pd": "time_svc",
+      "resource": "shm_time_sync",
+      "rights": "W",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_028",
+      "pd": "exec_svc",
+      "resource": "shm_time_sync",
+      "rights": "R",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_029",
+      "pd": "att_ctrl",
+      "resource": "shm_time_sync",
+      "rights": "R",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_030",
+      "pd": "net_stack",
+      "resource": "shm_downlink_buf",
+      "rights": "W",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_031",
+      "pd": "downlink",
+      "resource": "shm_downlink_buf",
+      "rights": "R",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_032",
+      "pd": "exec_svc",
+      "resource": "shm_att_cmd",
+      "rights": "W",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_033",
+      "pd": "att_ctrl",
+      "resource": "shm_att_cmd",
+      "rights": "R",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_034",
+      "pd": "uart_drv",
+      "resource": "shm_uart_buf",
+      "rights": "RW",
+      "revocation_cost": 2,
+      "derived_from": null
+    },
+    {
+      "id": "cap_035",
+      "pd": "downlink",
+      "resource": "shm_uart_buf",
+      "rights": "RW",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_036",
+      "pd": "nav_svc",
+      "resource": "shm_nav_data",
+      "rights": "RW",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_037",
+      "pd": "att_ctrl",
+      "resource": "shm_nav_data",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": "cap_036"
+    },
+    {
+      "id": "cap_038",
+      "pd": "exec_svc",
+      "resource": "shm_nav_data",
+      "rights": "R",
+      "revocation_cost": 4,
+      "derived_from": "cap_036"
+    },
+    {
+      "id": "cap_039",
+      "pd": "telemetry",
+      "resource": "shm_nav_data",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_082",
+      "pd": "legacy_vm",
+      "resource": "shm_nav_data",
+      "rights": "R",
+      "revocation_cost": 2,
+      "derived_from": "cap_036"
+    },
+    {
+      "id": "cap_040",
+      "pd": "exec_svc",
+      "resource": "shm_health_buf",
+      "rights": "W",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_041",
+      "pd": "att_ctrl",
+      "resource": "shm_health_buf",
+      "rights": "W",
+      "revocation_cost": 4,
+      "derived_from": "cap_040"
+    },
+    {
+      "id": "cap_042",
+      "pd": "nav_svc",
+      "resource": "shm_health_buf",
+      "rights": "W",
+      "revocation_cost": 4,
+      "derived_from": "cap_040"
+    },
+    {
+      "id": "cap_043",
+      "pd": "health_mon",
+      "resource": "shm_health_buf",
+      "rights": "R",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_044",
+      "pd": "payload_ctrl",
+      "resource": "shm_health_buf",
+      "rights": "W",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_083",
+      "pd": "downlink",
+      "resource": "shm_health_buf",
+      "rights": "R",
+      "revocation_cost": 1,
+      "derived_from": "cap_040"
+    },
+    {
+      "id": "cap_045",
+      "pd": "key_mgmt",
+      "resource": "shm_key_store",
+      "rights": "RW",
+      "revocation_cost": 9,
+      "derived_from": null
+    },
+    {
+      "id": "cap_046",
+      "pd": "crypto_svc",
+      "resource": "shm_key_store",
+      "rights": "R",
+      "revocation_cost": 5,
+      "derived_from": "cap_045"
+    },
+    {
+      "id": "cap_047",
+      "pd": "cmd_handler",
+      "resource": "shm_key_store",
+      "rights": "R",
+      "revocation_cost": 4,
+      "derived_from": "cap_046"
+    },
+    {
+      "id": "cap_048",
+      "pd": "cmd_handler",
+      "resource": "ep_cmd_channel",
+      "rights": "Send",
+      "revocation_cost": 8,
+      "derived_from": null
+    },
+    {
+      "id": "cap_049",
+      "pd": "exec_svc",
+      "resource": "ep_cmd_channel",
+      "rights": "Recv",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_084",
+      "pd": "sw_bus",
+      "resource": "ep_cmd_channel",
+      "rights": "Recv",
+      "revocation_cost": 2,
+      "derived_from": "cap_048"
+    },
+    {
+      "id": "cap_050",
+      "pd": "telemetry",
+      "resource": "ep_tlm_channel",
+      "rights": "Send",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_051",
+      "pd": "downlink",
+      "resource": "ep_tlm_channel",
+      "rights": "Recv",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_052",
+      "pd": "exec_svc",
+      "resource": "ep_crypto_req",
+      "rights": "Send",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_053",
+      "pd": "crypto_svc",
+      "resource": "ep_crypto_req",
+      "rights": "Recv",
+      "revocation_cost": 9,
+      "derived_from": null
+    },
+    {
+      "id": "cap_054",
+      "pd": "exec_svc",
+      "resource": "ep_exec_ctrl",
+      "rights": "Send",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_055",
+      "pd": "att_ctrl",
+      "resource": "ep_exec_ctrl",
+      "rights": "Recv",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_056",
+      "pd": "payload_ctrl",
+      "resource": "ep_exec_ctrl",
+      "rights": "Recv",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_057",
+      "pd": "event_svc",
+      "resource": "ep_file_req",
+      "rights": "Send",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_058",
+      "pd": "telemetry",
+      "resource": "ep_file_req",
+      "rights": "Send",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_059",
+      "pd": "file_sys",
+      "resource": "ep_file_req",
+      "rights": "Recv",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_060",
+      "pd": "net_stack",
+      "resource": "ep_net_send",
+      "rights": "Send",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_061",
+      "pd": "eth_drv",
+      "resource": "ep_net_send",
+      "rights": "Recv",
+      "revocation_cost": 3,
+      "derived_from": null
+    },
+    {
+      "id": "cap_062",
+      "pd": "sw_bus",
+      "resource": "ep_sw_bus_relay",
+      "rights": "Send",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_063",
+      "pd": "telemetry",
+      "resource": "ep_sw_bus_relay",
+      "rights": "Recv",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_064",
+      "pd": "event_svc",
+      "resource": "ep_sw_bus_relay",
+      "rights": "Recv",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_065",
+      "pd": "time_svc",
+      "resource": "ep_sw_bus_relay",
+      "rights": "Recv",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_066",
+      "pd": "nav_svc",
+      "resource": "ep_nav_update",
+      "rights": "Send",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_067",
+      "pd": "att_ctrl",
+      "resource": "ep_nav_update",
+      "rights": "Recv",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_068",
+      "pd": "exec_svc",
+      "resource": "ep_nav_update",
+      "rights": "Recv",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_069",
+      "pd": "health_mon",
+      "resource": "ep_health_report",
+      "rights": "Send",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_070",
+      "pd": "exec_svc",
+      "resource": "ep_health_report",
+      "rights": "Recv",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_071",
+      "pd": "time_svc",
+      "resource": "ntf_heartbeat",
+      "rights": "Signal",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_072",
+      "pd": "exec_svc",
+      "resource": "ntf_heartbeat",
+      "rights": "Wait",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_073",
+      "pd": "sw_bus",
+      "resource": "ntf_heartbeat",
+      "rights": "Wait",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_074",
+      "pd": "event_svc",
+      "resource": "ntf_alarm",
+      "rights": "Signal",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_075",
+      "pd": "exec_svc",
+      "resource": "ntf_alarm",
+      "rights": "Wait",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_076",
+      "pd": "cmd_handler",
+      "resource": "ntf_alarm",
+      "rights": "Wait",
+      "revocation_cost": 7,
+      "derived_from": null
+    },
+    {
+      "id": "cap_077",
+      "pd": "payload_ctrl",
+      "resource": "ntf_payload_ready",
+      "rights": "Signal",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_078",
+      "pd": "exec_svc",
+      "resource": "ntf_payload_ready",
+      "rights": "Wait",
+      "revocation_cost": 6,
+      "derived_from": null
+    },
+    {
+      "id": "cap_079",
+      "pd": "nav_svc",
+      "resource": "ntf_nav_fix",
+      "rights": "Signal",
+      "revocation_cost": 5,
+      "derived_from": null
+    },
+    {
+      "id": "cap_080",
+      "pd": "att_ctrl",
+      "resource": "ntf_nav_fix",
+      "rights": "Wait",
+      "revocation_cost": 4,
+      "derived_from": null
+    },
+    {
+      "id": "cap_081",
+      "pd": "telemetry",
+      "resource": "ntf_nav_fix",
+      "rights": "Wait",
+      "revocation_cost": 3,
+      "derived_from": "cap_080"
+    }
+  ]
+}

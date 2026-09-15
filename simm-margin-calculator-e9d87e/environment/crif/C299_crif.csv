@@ -1,0 +1,2 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+RatesFX,Risk_IRVol,USD,,30y,,700000000,USD,700000000

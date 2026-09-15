@@ -1,0 +1,244 @@
+{
+  "resourceType": "Bundle",
+  "id": "bundle-2",
+  "type": "searchset",
+  "total": 5,
+  "entry": [
+    {
+      "fullUrl": "http://example.org/fhir/Patient/pt-2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pt-2",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity",
+            "extension": [
+              {
+                "url": "ombCategory",
+                "valueCoding": {
+                  "system": "urn:oid:2.16.840.1.113883.6.238",
+                  "code": "2135-2",
+                  "display": "Hispanic or Latino"
+                }
+              },
+              {
+                "url": "text",
+                "valueString": "Hispanic or Latino"
+              }
+            ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-20087"
+          }
+        ],
+        "name": [
+          {
+            "family": "Garcia",
+            "given": ["Maria", "Elena"]
+          }
+        ],
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "555-0102"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1978-11-02",
+        "address": [
+          {
+            "line": ["456 Oak Avenue"],
+            "city": "Austin",
+            "state": "TX",
+            "postalCode": "78701"
+          }
+        ],
+        "communication": [
+          {
+            "language": {
+              "coding": [
+                {
+                  "system": "urn:ietf:bcp:47",
+                  "code": "es",
+                  "display": "Spanish"
+                }
+              ]
+            },
+            "preferred": true
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/obs-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-2",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2345-7",
+              "display": "Glucose [Mass/volume] in Serum or Plasma"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-2"
+        },
+        "effectiveDateTime": "2024-04-20T08:00:00Z",
+        "valueQuantity": {
+          "value": 95,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/obs-3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-3",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-2"
+        },
+        "effectiveDateTime": "2024-04-20T14:00:00Z",
+        "valueQuantity": {
+          "value": 72,
+          "unit": "beats/minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Condition/cond-2",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-2",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed",
+              "display": "Confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "38341003",
+              "display": "Hypertensive disorder, systemic arterial"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-2"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-2"
+        },
+        "onsetDateTime": "2023-06-01",
+        "recordedDate": "2023-06-01"
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/MedicationRequest/medrq-2",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medrq-2",
+        "status": "active",
+        "intent": "order",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/medicationrequest-category",
+                "code": "outpatient",
+                "display": "Outpatient"
+              }
+            ]
+          }
+        ],
+        "reportedBoolean": true,
+        "medicationReference": {
+          "reference": "Medication/med-2"
+        },
+        "subject": {
+          "reference": "Patient/pt-2"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-2"
+        },
+        "authoredOn": "2023-06-15",
+        "requester": {
+          "reference": "Practitioner/prac-2"
+        },
+        "dosageInstruction": [
+          {
+            "text": "Take 1 tablet by mouth daily in the morning"
+          }
+        ]
+      }
+    }
+  ]
+}

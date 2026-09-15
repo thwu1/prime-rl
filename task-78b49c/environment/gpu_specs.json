@@ -1,0 +1,44 @@
+{
+  "sm_70": {
+    "name": "Volta (V100)",
+    "compute_capability": "7.0",
+    "max_threads_per_sm": 2048,
+    "max_warps_per_sm": 64,
+    "max_blocks_per_sm": 32,
+    "max_threads_per_block": 1024,
+    "warp_size": 32,
+    "total_registers_per_sm": 65536,
+    "register_alloc_granularity": 256,
+    "max_registers_per_thread": 255,
+    "total_shared_mem_per_sm_bytes": 98304,
+    "shared_mem_alloc_granularity": 256
+  },
+  "sm_80": {
+    "name": "Ampere (A100)",
+    "compute_capability": "8.0",
+    "max_threads_per_sm": 2048,
+    "max_warps_per_sm": 64,
+    "max_blocks_per_sm": 32,
+    "max_threads_per_block": 1024,
+    "warp_size": 32,
+    "total_registers_per_sm": 65536,
+    "register_alloc_granularity": 256,
+    "max_registers_per_thread": 255,
+    "total_shared_mem_per_sm_bytes": 167936,
+    "shared_mem_alloc_granularity": 128
+  },
+  "sm_89": {
+    "name": "Ada Lovelace (RTX 4090)",
+    "compute_capability": "8.9",
+    "max_threads_per_sm": 1536,
+    "max_warps_per_sm": 48,
+    "max_blocks_per_sm": 24,
+    "max_threads_per_block": 1024,
+    "warp_size": 32,
+    "total_registers_per_sm": 65536,
+    "register_alloc_granularity": 256,
+    "max_registers_per_thread": 255,
+    "total_shared_mem_per_sm_bytes": 102400,
+    "shared_mem_alloc_granularity": 128
+  }
+}

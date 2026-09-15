@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a custom binary file format (BSPMAP2D) with mixed integer and IEEE 754 float fields, implementing a BSP tree compiler with correct segment splitting at plane intersections and handling of collinear/diagonal segments, implementing front-to-back visibility determination with proper angular occlusion tracking, and producing Graphviz DOT output rendered to PNG. The combination of binary format reverse-engineering, computational geometry, and multi-tool interoperability (Python + Graphviz) demands professional-level systems programming expertise."""
+solution_explanation = """Parse the BSPMAP2D binary using struct.unpack for int16/float32 fields. Build the BSP by recursively selecting the best splitting plane from wall segment lines, scoring candidates by split penalty and balance. Classify and split spanning segments at intersection points. For visibility, traverse the tree front-to-back, tracking angular occlusion ranges relative to each viewpoint. Generate a DOT file with node/leaf labels and render via dot -Tpng."""
+verification_explanation = """Tests verify BSP structural validity (segs on correct side of ancestor planes, total seg length preserves wall length), traversal correctness (near side before far side at each node), visibility correctness (compared against independent brute-force ray casting at 0.02-degree resolution), and Graphviz outputs (DOT parseable by dot, PNG exists and is non-empty). All tests are implementation-agnostic."""
+category = "systems_programming"
+tags = ["computational_geometry", "binary_formats"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bsp-visibility-analyzer"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering 6+ interacting morphophonological rules (vowel harmony, consonant gradation, suffix allomorphy conditioned by phonological context, voicing assimilation, buffer consonant insertion, morpheme ordering) from limited annotated data, then implementing a correct generator as an HFST finite-state transducer. The agent must learn the HFST toolchain (hfst-txt2fst, hfst-lookup, hfst-lexc — specialized computational linguistics CLI tools with non-trivial AT&T and LEXC formats), write a valid LEXC morphotactic grammar in the HFST domain-specific language, orchestrate a multi-tool build pipeline via Makefile, and parse hfst-lookup output. The rules interact non-trivially: consonant alternation is blocked by certain suffix types, harmony propagates across all suffix slots, and allomorphy depends on the preceding segment. Comparable to IOL competition problems but requiring full computational implementation with specialized FST tooling."""
+solution_explanation = """The solution: (1) Analyzes training data in Python to discover 6 morphophonological rules. (2) Generates all 1680 valid gloss→surface_form pairs using the rule engine. (3) Writes an AT&T format FST definition with character-level arcs mapping each gloss to its surface form (using @0@ epsilon for length differences). (4) Writes a valid LEXC grammar describing Kaltiru morphotactics. (5) Writes a Makefile that compiles the FST via hfst-txt2fst and generates output via hfst-lookup piped through a parser. (6) Generates output.txt directly from morphology rules, then builds kaltiru.hfst via make."""
+verification_explanation = """Tests verify: (1) All 43 surface forms in output.txt match expected answers exactly. (2) kaltiru.hfst exists and is a valid HFST transducer (checked via hfst-summarize). (3) hfst-lookup with the transducer produces correct forms for sample glosses. (4) kaltiru.lexc exists and compiles with hfst-lexc. (5) A Makefile exists at /app/Makefile."""
+category = "nlp"
+tags = ["computational-linguistics", "finite-state-transducers"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-168d21"

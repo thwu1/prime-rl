@@ -1,0 +1,59 @@
+{
+  "description": "Selective ingress with cross-namespace allow using AND semantics",
+  "namespaces": [
+    {"name": "frontend", "labels": {"tier": "web"}},
+    {"name": "backend", "labels": {"tier": "api"}},
+    {"name": "database", "labels": {"tier": "data"}}
+  ],
+  "pods": [
+    {"name": "nginx", "namespace": "frontend", "labels": {"app": "nginx", "role": "web"}, "ip": "10.1.0.1"},
+    {"name": "api", "namespace": "backend", "labels": {"app": "api", "role": "server"}, "ip": "10.2.0.1"},
+    {"name": "postgres", "namespace": "database", "labels": {"app": "postgres", "role": "db"}, "ip": "10.3.0.1"},
+    {"name": "redis", "namespace": "database", "labels": {"app": "redis", "role": "cache"}, "ip": "10.3.0.2"}
+  ],
+  "network_policies": [
+    {
+      "name": "db-deny-all",
+      "namespace": "database",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "allow-api-to-postgres",
+      "namespace": "database",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"role": "db"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"tier": "api"}
+                },
+                "podSelector": {
+                  "matchLabels": {"role": "server"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 5432}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "backend", "src_pod": "api", "dst_namespace": "database", "dst_pod": "postgres", "dst_port": 5432, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "frontend", "src_pod": "nginx", "dst_namespace": "database", "dst_pod": "postgres", "dst_port": 5432, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "backend", "src_pod": "api", "dst_namespace": "database", "dst_pod": "postgres", "dst_port": 3306, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "backend", "src_pod": "api", "dst_namespace": "database", "dst_pod": "redis", "dst_port": 6379, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "frontend", "src_pod": "nginx", "dst_namespace": "backend", "dst_pod": "api", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "database", "src_pod": "postgres", "dst_namespace": "backend", "dst_pod": "api", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"}
+  ]
+}

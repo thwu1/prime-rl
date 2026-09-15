@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool integration: compiling a C shared library with gcc, binding it via Python ctypes with opaque-pointer FFI, creating and querying a SQLite database from a SQL dump, and deriving the closed-form solution to a Riccati-type ODE governing continuous two-sided virtual trading against a constant-product AMM. The solver must explore the C header to understand the pool API, inspect the SQL schema for data layout, read conceptual reference docs to derive the underlying mathematics (tanh/coth hyperbolic branches), implement interval splitting at order boundaries with proportional pool sharing, and ensure the C library validates every reserve update. No formulas or step-by-step guidance are provided."""
+solution_explanation = """The solver must: (1) compile cpamm.c into libcpamm.so via the provided Makefile, (2) create twamm.db from init.sql using sqlite3 CLI, (3) write ctypes bindings with c_void_p for the opaque pool handle and proper argtypes/restype declarations, (4) implement TWAMM math: for two-sided trading define alpha=sqrt(x_rate*K/y_rate), theta=sqrt(x_rate*y_rate/K); if x0<alpha use tanh branch, if x0>alpha use coth branch; single-sided uses linear reserve growth, (5) read scenario data via SQL JOINs across pools/scenarios/orders tables, (6) split simulation at order boundary blocks and distribute pool output proportionally by sell rate, calling cpamm_set_reserves to update the C pool after each interval."""
+verification_explanation = """Tests verify: (1) structural requirements (libcpamm.so compiled, ctypes imported by engine), (2) golden values for 11 fixed scenarios covering single-sided, equilibrium, asymmetric tanh/coth, multi-interval expiry, proportional pool sharing, staggered orders, zero-duration, single-order, and empty-order cases, (3) dynamic conservation tests that inject random scenarios into the SQLite database and verify K-invariant and token conservation, ensuring the engine properly reads from SQL and handles arbitrary data."""
+category = "mathematics"
+tags = ["defi", "systems-integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/twamm-engine"

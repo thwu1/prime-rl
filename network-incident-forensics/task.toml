@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux kernel networking knowledge spanning multiple subsystems without any methodology guidance in the instruction. The agent must independently: (1) discover that the difference between iptables raw and mangle PREROUTING counters reveals conntrack-dropped packets — an undocumented diagnostic technique requiring knowledge of the netfilter hook ordering; (2) recognize that Recv-Q > Send-Q on a LISTEN socket signals accept queue overflow; (3) infer bind-before-connect usage from zero source port overlap combined with EADDRINUSE errors — a subtle socket API antipattern requiring evaluation of the application's connection behavior; (4) correlate dmesg 'table full' messages with EPERM errors to establish that conntrack overflow causes connect() failures; (5) classify SYN flood sources from pcap by cross-referencing SYN-only subnets against SYN-ACK destinations; (6) design a complete nftables ruleset choosing the correct table family, hook point, and chain priority from knowledge of netfilter architecture — knowing that raw priority (-300) executes before conntrack (-200) — and producing syntactically valid nftables configuration. The creative design of the nftables ruleset goes beyond analysis into system design, requiring synthesis of all forensic findings into a working mitigation."""
+solution_explanation = """Four-phase solution: (1) Parse 11 diagnostic text files — iptables raw vs mangle counter difference (1847293-1839471=7822) reveals conntrack drops; ss LISTEN Recv-Q(129)>Send-Q(128) identifies port 8080 overflow; sysctl port range yields 28232; zero port overlap + EADDRINUSE proves bind-before-connect; dmesg 'table full' + EPERM establishes conntrack causation. (2) Run tshark with tcp.flags.syn==1&&tcp.flags.ack==0 to extract SYN-only sources by /24, then tcp.flags.syn==1&&tcp.flags.ack==1 for SYN-ACK destinations by /24; subnets with SYN-only but zero SYN-ACK are attack sources (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 = 4500 packets); remaining 500 legitimate SYNs / 100s = 5 pps; udp.srcport==53 yields 18 unique reflection IPs. (3) Apply policy constraints: conntrack_max=max(10000*3,4500)=30000; backlog=2048; rate_limit=5*10=50; port range='1024 65535'; hook=prerouting at raw priority -300. (4) Create nftables ruleset with inet table, prerouting chain at priority -300, drop rules for 3 attack CIDRs, and rate limit of 50/second."""
+verification_explanation = """Tests load /app/report.json and verify all 26 fields across three test classes: TestForensicDiagnosis (16 fields with exact comparison), TestTrafficAnalysis (4 pcap-derived fields), and TestRemediationDesign (6 policy-computed fields). Additionally, TestMitigationRuleset verifies the nftables file at /app/mitigation.nft exists and contains correct table definition, prerouting hook, -300 priority, all 3 attack CIDRs, 50/second rate limit, and drop actions using regex pattern matching."""
+category = "networking"
+tags = ["linux-networking", "incident-forensics", "nftables-design", "pcap-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/network-incident-forensics"

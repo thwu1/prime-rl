@@ -1,0 +1,13 @@
+[2024-11-18 09:15:41] Batch runner v0.4 starting
+[2024-11-18 09:15:41] Loading manifest.json... found 3 experiments
+[2024-11-18 09:15:41] Session ID: c9a7f3e2d5b14806
+[2024-11-18 09:15:42] [quadrature] switching to arbitrary-precision adaptive quadrature
+[2024-11-18 09:15:44] [quadrature] converged with 15 verified digits
+[2024-11-18 09:15:44] [quadrature] PASS
+[2024-11-18 09:15:44] [sparse_inverse] switching to sparse LU factorization
+[2024-11-18 09:16:12] [sparse_inverse] factorization completed, 3 target solves done
+[2024-11-18 09:16:12] [sparse_inverse] PASS
+[2024-11-18 09:16:12] [stochastic] Monte Carlo with 10^7 paths
+[2024-11-18 09:21:45] [stochastic] estimate still noisy at ~4 digits
+[2024-11-18 09:21:45] [stochastic] FAIL - brute-force simulation insufficient; consider analytic approach
+[2024-11-18 09:21:45] Batch complete: 2/3 passed

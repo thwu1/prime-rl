@@ -1,0 +1,68 @@
+{
+  "instance_id": "flask__flask-5001",
+  "bug_patches": {
+    "b0": {"diff_size": 42},
+    "b1": {"diff_size": 38},
+    "b2": {"diff_size": 55},
+    "b3": {"diff_size": 40},
+    "b4": {"diff_size": 45},
+    "b5": {"diff_size": 60}
+  },
+  "test_patches": {
+    "t0": {"fails_on_original": true},
+    "t1": {"fails_on_original": true},
+    "t2": {"fails_on_original": false},
+    "t3": {"fails_on_original": true},
+    "t4": {"fails_on_original": false},
+    "t5": {"fails_on_original": true}
+  },
+  "test_results_unpatched": {
+    "t0": {"failed": 3, "passed": 7},
+    "t1": {"failed": 2, "passed": 8},
+    "t2": {"failed": 0, "passed": 10},
+    "t3": {"failed": 4, "passed": 6},
+    "t4": {"failed": 0, "passed": 10},
+    "t5": {"failed": 1, "passed": 9}
+  },
+  "execution_matrix": {
+    "b0": {
+      "t0": {"fail_to_pass": 2, "pass_to_pass": 6},
+      "t1": {"fail_to_pass": 1, "pass_to_pass": 7},
+      "t2": {"fail_to_pass": 0, "pass_to_pass": 10},
+      "t3": {"fail_to_pass": 3, "pass_to_pass": 5},
+      "t5": {"fail_to_pass": 0, "pass_to_pass": 8}
+    },
+    "b1": {
+      "t0": {"fail_to_pass": 3, "pass_to_pass": 7},
+      "t1": {"fail_to_pass": 2, "pass_to_pass": 8},
+      "t2": {"fail_to_pass": 0, "pass_to_pass": 10},
+      "t3": {"fail_to_pass": 4, "pass_to_pass": 6},
+      "t5": {"fail_to_pass": 1, "pass_to_pass": 9}
+    },
+    "b2": {
+      "t0": {"fail_to_pass": 1, "pass_to_pass": 5},
+      "t1": {"fail_to_pass": 0, "pass_to_pass": 6},
+      "t3": {"fail_to_pass": 2, "pass_to_pass": 4},
+      "t5": {"fail_to_pass": 0, "pass_to_pass": 7}
+    },
+    "b3": {
+      "t0": {"fail_to_pass": 3, "pass_to_pass": 7},
+      "t1": {"fail_to_pass": 2, "pass_to_pass": 8},
+      "t2": {"fail_to_pass": 0, "pass_to_pass": 10},
+      "t3": {"fail_to_pass": 4, "pass_to_pass": 6},
+      "t5": {"fail_to_pass": 1, "pass_to_pass": 9}
+    },
+    "b4": {
+      "t0": {"fail_to_pass": 2, "pass_to_pass": 7},
+      "t1": {"fail_to_pass": 2, "pass_to_pass": 8},
+      "t3": {"fail_to_pass": 3, "pass_to_pass": 6},
+      "t5": {"fail_to_pass": 1, "pass_to_pass": 9}
+    },
+    "b5": {
+      "t0": {"fail_to_pass": 0, "pass_to_pass": 3},
+      "t1": {"fail_to_pass": 0, "pass_to_pass": 4},
+      "t3": {"fail_to_pass": 1, "pass_to_pass": 2},
+      "t5": {"fail_to_pass": 0, "pass_to_pass": 5}
+    }
+  }
+}

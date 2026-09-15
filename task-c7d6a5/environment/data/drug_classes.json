@@ -1,0 +1,60 @@
+{
+  "drug_to_classes": {
+    "1191": ["nsaid", "salicylate", "antiplatelet"],
+    "11289": ["anticoagulant", "vitamin_k_antagonist"],
+    "4493": ["ssri", "antidepressant", "cyp2d6_inhibitor"],
+    "8123": ["maoi", "antidepressant"],
+    "29046": ["ace_inhibitor", "antihypertensive", "raas_agent"],
+    "9997": ["potassium_sparing_diuretic", "diuretic", "mineralocorticoid_antagonist"],
+    "36567": ["statin", "antilipidemic", "cyp3a4_substrate"],
+    "21212": ["macrolide", "antibiotic", "cyp3a4_inhibitor"],
+    "2551": ["fluoroquinolone", "antibiotic", "cyp1a2_inhibitor"],
+    "10438": ["methylxanthine", "bronchodilator", "cyp1a2_substrate"],
+    "6809": ["biguanide", "antidiabetic"],
+    "723": ["beta_lactam", "penicillin_class", "aminopenicillin"],
+    "7980": ["beta_lactam", "penicillin_class", "natural_penicillin"],
+    "733": ["beta_lactam", "penicillin_class", "aminopenicillin"],
+    "161": ["analgesic", "antipyretic"],
+    "3640": ["cardiac_glycoside", "antiarrhythmic_misc"],
+    "33738": ["antiarrhythmic_class_iii", "cyp3a4_inhibitor", "cyp2d6_inhibitor", "pgp_inhibitor"],
+    "5640": ["nsaid", "propionic_acid_derivative"],
+    "7646": ["nsaid", "propionic_acid_derivative"]
+  },
+  "class_interactions": [
+    {
+      "class_a": "nsaid",
+      "class_b": "anticoagulant",
+      "severity": "warning",
+      "description": "NSAIDs increase bleeding risk when combined with anticoagulants through additive effects on hemostasis.",
+      "recommendation": "Avoid combination if possible. Use acetaminophen for pain. If unavoidable, use lowest NSAID dose for shortest duration."
+    },
+    {
+      "class_a": "ssri",
+      "class_b": "maoi",
+      "severity": "critical",
+      "description": "SSRIs and MAOIs together can cause fatal serotonin syndrome via synergistic serotonergic overactivity.",
+      "recommendation": "Absolutely contraindicated. Adequate washout period required between discontinuation and initiation."
+    },
+    {
+      "class_a": "cyp3a4_substrate",
+      "class_b": "cyp3a4_inhibitor",
+      "severity": "warning",
+      "description": "CYP3A4 inhibitors can significantly increase plasma levels of CYP3A4 substrates, potentiating both therapeutic and toxic effects.",
+      "recommendation": "Consider dose reduction of the substrate drug or use of an alternative agent not metabolized by CYP3A4."
+    },
+    {
+      "class_a": "cyp1a2_substrate",
+      "class_b": "cyp1a2_inhibitor",
+      "severity": "warning",
+      "description": "CYP1A2 inhibitors can increase levels of CYP1A2 substrates by reducing their hepatic clearance.",
+      "recommendation": "Monitor substrate drug levels and adjust dose accordingly. Consider alternative agents."
+    },
+    {
+      "class_a": "ace_inhibitor",
+      "class_b": "potassium_sparing_diuretic",
+      "severity": "warning",
+      "description": "Both drug classes independently raise serum potassium, creating additive hyperkalemia risk.",
+      "recommendation": "Monitor serum potassium closely if combination is necessary. Consider alternative diuretic class."
+    }
+  ]
+}

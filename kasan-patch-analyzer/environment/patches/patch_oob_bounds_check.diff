@@ -1,0 +1,18 @@
+--- a/drivers/usb/class/usbtmc.c
++++ b/drivers/usb/class/usbtmc.c
+@@ -2300,6 +2300,14 @@ static void usbtmc_interrupt(struct urb *urb)
+ 	switch (status) {
+ 	case 0: /* SUCCESS */
+ 		/* check the length of the interrupt data */
++		if (urb->actual_length < 2) {
++			dev_warn(&data->intf->dev,
++				 "%s: short interrupt transfer: %d bytes\n",
++				 __func__, urb->actual_length);
++			goto exit;
++		}
++		if (urb->actual_length > data->iin_ep_present) {
++			urb->actual_length = data->iin_ep_present;
++		}
+ 		/* Decode interrupt-IN notification per USBTMC-USB488 4.3.1 */
+ 		if (data->iin_buffer[0] == 1) {
+ 			/* check Tag */

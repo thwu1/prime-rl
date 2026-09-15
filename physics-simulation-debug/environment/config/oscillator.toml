@@ -1,0 +1,14 @@
+[physics]
+mass1 = 1.0
+mass2 = 1.5
+k1 = 10.0
+k2 = 8.0
+k_coupling = 5.0
+q1_init = 0.5
+q2_init = -0.3
+v1_init = 0.0
+v2_init = 0.0
+
+[numerical]
+dt = 0.001
+t_end = 10.0

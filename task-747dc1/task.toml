@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interconnected advanced data structures in C++20: (1) a persistent balanced tree backing a piece table — one of the hardest balanced BST variants to implement correctly, made harder by persistence which eliminates parent pointers and requires purely functional algorithms; (2) a piece table built on top of the persistent tree with correct offset arithmetic for insert/erase across fragmented pieces; (3) branching undo history modeled as a tree of snapshots using the persistence property; and (4) a shortest-edit-script diff algorithm operating on lines. The agent must also discover the full API specification by exploring project documentation scattered across multiple files. Each component individually is graduate-level; combining them into a correct, tested library is expert-level systems programming."""
+solution_explanation = """The solution implements: a persistent balanced tree using shared_ptr nodes and path-copying on insert/delete; a piece table that maps character offsets to (buffer_id, start, length) triples stored as augmented tree nodes with subtree-size metadata for O(log n) offset lookups; an UndoTree that stores snapshot roots in a tree structure allowing branching undo; and a shortest-edit-script diff using the classic O(ND) algorithm on line-split text. The CMake build produces a static library and test binary."""
+verification_explanation = """Tests verify: (1) basic insert/erase correctness on the piece table; (2) correctness under stress — 200 random inserts and 50 erases; (3) persistence — old snapshots remain valid after mutations via undo tree; (4) branching undo — creating branches after undo and navigating between them; (5) diff correctness on known inputs including multiline reconstruction; (6) integration of diff with undo tree snapshots. Tests build the solution with CMake and run both the internal smoke test and external pytest verification."""
+category = "systems_programming"
+tags = ["persistent-data-structures", "cpp20"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-747dc1"

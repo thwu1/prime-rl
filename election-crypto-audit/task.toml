@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two phases: (1) identifying and exploiting three distinct RSA key generation vulnerabilities — shared prime factors via GCD, predictable PRNG seed reproduction from audit logs, and Fermat factorization of close primes — while extracting key parameters from PEM files using openssl and querying voter/ballot data from a SQLite database; (2) evaluating five proposed remediations by analyzing their source code and testing their generated keys, judging each as SECURE or VULNERABLE based on whether the root cryptographic weaknesses are genuinely resolved. Combines cryptanalysis, code auditing, security evaluation, and multi-tool proficiency (openssl, sqlite3, Python)."""
+solution_explanation = """Phase 1: Extract moduli from PEM files via openssl, query encrypted ballots and batch assignments from SQLite. Three independent attacks factor all 30 keys: pairwise GCD for batch alpha's shared pool factors, PRNG seed reproduction from audit log timestamps for batch beta, Fermat factorization for batch gamma's close primes. Phase 2: For each of 5 patches, analyze the code and attempt attacks on test keys. Patches A (CSPRNG) and C (SystemRandom) are SECURE — independent entropy per key. Patch D (independent hash derivation) is SECURE — fully independent p and q despite deterministic derivation. Patch B (improved pool) is VULNERABLE — deterministic pool from batch_seed allows full key recovery via pool regeneration. Patch E (extended 48-bit gap) is VULNERABLE — Fermat factorization still trivially factors keys since the prime gap is negligible relative to key size."""
+verification_explanation = """Tests verify: correct JSON structure with tally, votes, and patch_assessment keys; exact tally counts for all four candidates (Aster=7, Bloom=9, Cedar=6, Dahlia=8); correct individual vote for each of 30 voters; and correct security verdict (SECURE/VULNERABLE) for all 5 patches, checked against hardcoded ground truth. All values are deterministic."""
+category = "security"
+tags = ["cryptanalysis", "security-assessment"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/election-crypto-audit"

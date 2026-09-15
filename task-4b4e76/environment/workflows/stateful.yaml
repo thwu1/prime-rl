@@ -1,0 +1,28 @@
+version: "1"
+state:
+  schema:
+    teams:
+      type: array
+      items:
+        type: object
+        properties:
+          name: { type: string }
+          path: { type: string }
+nodes:
+  - id: discover
+    name: Discover Teams
+    steps:
+      - name: Find teams
+        run: |
+          teams@={"name":"platform","path":"src/platform"}
+          teams@={"name":"mobile","path":"src/mobile"}
+          teams@={"name":"web","path":"src/web"}
+  - id: migrate
+    name: Migrate Team
+    depends_on: [discover]
+    strategy:
+      type: matrix
+      from_state: teams
+    steps:
+      - name: Run migration
+        run: "migrate --team=${{ matrix.name }} --path=${{ matrix.path }}"

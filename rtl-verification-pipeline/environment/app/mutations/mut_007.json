@@ -1,0 +1,8 @@
+{
+  "id": "mut_007",
+  "title": "SLTU uses less-than-or-equal instead of less-than",
+  "description": "Replace strict less-than with less-than-or-equal in SLTU operation",
+  "equivalent": false,
+  "original_line": "            4'b0100: result = (a < b) ? 32'd1 : 32'd0;",
+  "mutated_line": "            4'b0100: result = (a <= b) ? 32'd1 : 32'd0;"
+}

@@ -1,0 +1,5 @@
+Four GeoTIFF files in `/app/corrupted/` contain conformance violations against the OGC GeoTIFF Standard 1.1 (OGC 19-008r4). Each file has multiple distinct violations spanning TIFF 6.0 structural requirements, GeoKeyDirectoryTag encoding semantics, GeoKey value type classification, and parameter value validity. The file `/app/manifest.txt` describes the intended coordinate reference system and parameters for each file.
+
+Diagnose all violations in each file and produce corrected versions in `/app/fixed/` with the same filenames. Each corrected file must be a structurally valid TIFF 6.0 file with fully conformant GeoTIFF 1.1 metadata that accurately encodes its intended CRS per the manifest.
+
+Violations span categories including but not limited to: GeoKey directory header fields, TIFF IFD ordering requirements, GeoKey entry storage type misclassification (SHORT vs DOUBLE vs ASCII per OGC 19-008r4 key type rules), GeoKey entry ordering, parameter value indexing, ASCII parameter tag encoding conventions, tag value count correctness, and GeoKey entry count consistency.

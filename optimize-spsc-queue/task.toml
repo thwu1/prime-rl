@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting defects in a lock-free concurrent data structure from observed test failures alone — no bug list is provided. The solver must run the stress test, interpret failure symptoms (data corruption near buffer boundaries, missing protocol handshake, premature message visibility), then trace each symptom to its root cause across the C++ memory model, struct layout, circular buffer mechanics, and shared-memory protocol design. Fixes span cache-line alignment, memory ordering relaxation, split-memcpy wraparound, write-position reservation, read-side caching, and protocol initialization/validation. Additionally, the solver must produce a technical analysis report backed by evidence from diagnostic tooling (address sanitizer, disassembly via objdump, struct layout inspection, or valgrind), requiring proficiency with compiler instrumentation and binary analysis tools."""
+solution_explanation = """Run make stress to observe four categories of failure. Use address sanitizer (-fsanitize=address) to pinpoint the buffer overflow in Producer::write() caused by non-wrapped memcpy. Inspect QueueHeader layout with offsetof() to discover false sharing between adjacent atomics. Disassemble with objdump -d to compare seq_cst vs release/acquire instruction generation. Examine config.h constants (kReservationSize, kCacheLineSize) and unused member variables (reserved_end_, cached_write_pos_) to understand intended design. Implement seven fixes: (1) write_wrap/read_wrap helpers for split memcpy, (2) alignas(kCacheLineSize) on QueueHeader atomics, (3) replace seq_cst with release/acquire, (4) write-position reservation using kReservationSize, (5) consumer-side write_pos_ caching, (6) protocol header field initialization in create(), (7) magic/version validation in open(). Write analysis.md with tool output documenting all findings."""
+verification_explanation = """Tests compile and execute small C++ programs verifying: struct layout via offsetof (cache line separation >= 64 bytes), source analysis (zero seq_cst, presence of acquire/release), single-threaded variable-length message round-trip, buffer overflow detection via sentinel zones, wraparound data integrity with sentinel poisoning, write reservation behavioral test (consumer sees partial messages before flush), multi-threaded 50K message ordering, protocol header initialization, magic/version validation on open, make stress passing end-to-end, and analysis.md existence with multiple sections of substantive content."""
+category = "systems_programming"
+tags = ["lock-free-cpp", "systems-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-spsc-queue"

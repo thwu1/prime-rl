@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in symbolic execution, constraint solving, and formal methods. The agent must figure out how to decompose arbitrary expression trees — including nested conditionals within arithmetic sub-expressions and recursive function calls — into flat, disjoint regions with satisfiable constraints. Determining feasibility of constraint conjunctions is itself a non-trivial sub-problem requiring either an SMT solver or equivalent reasoning. Handling recursion via bounded expansion and correctly producing the Cartesian product of paths through compound expressions adds significant complexity. This combination of challenges is graduate-level formal methods material."""
+solution_explanation = """The solution performs symbolic execution by recursively tracing all paths through IfExpr nodes, collecting branch conditions as constraints. For BinOp nodes, it decomposes left and right sub-expressions independently and takes their Cartesian product (combining constraints). Recursive Calls are handled by substituting parameters with argument expressions and inlining the function body, decrementing a depth counter. Infeasible regions are filtered using Z3's SMT solver (with a brute-force sampling fallback). The result is a list of Region objects, each with satisfiable constraints and a Call-free invariant expression."""
+verification_explanation = """Tests verify: (1) correct region counts for functions with known structure (4, 2, 3, 9 regions), (2) functional correctness — for many test inputs, exactly one region matches and its invariant evaluates to the function's true output, (3) dead branch elimination — infeasible path x>10 && x<5 is removed, (4) recursive function unrolling produces complete regions matching direct evaluation, (5) coverage — every input is covered by at least one region, (6) disjointness — no input matches multiple regions, (7) all regions are feasible."""
+category = "formal_methods"
+tags = ["symbolic_execution", "constraint_solving"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-985be3"

@@ -1,0 +1,4 @@
+---
+# Role configuration constants
+nginx_site_config_mode: "0644"
+nginx_worker_connections: 512

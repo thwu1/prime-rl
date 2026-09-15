@@ -1,0 +1,50 @@
+pCO2 GAP (Central Venous-Arterial CO2 Difference)
+===================================================
+
+OVERVIEW
+--------
+The pCO2 gap is a surrogate marker for cardiac output and tissue perfusion
+adequacy.
+
+  pCO2 gap = PcvCO2 – PaCO2
+
+where PcvCO2 is the central venous CO2 partial pressure and PaCO2 is the
+arterial CO2 partial pressure.
+
+  pCO2 gap > 6 mmHg suggests a persistent shock state that may be amenable
+  to fluid resuscitation and/or inotrope support.
+
+A "ScvO2-cvaCO2gap-guided protocol" has been proposed by Vallet et al (2013)
+to guide the management of septic shock.
+
+RATIONALE
+---------
+From Vallet et al (2013):
+
+CO2 is the end product of aerobic metabolism. PCO2 in venous blood reflects
+global tissue blood flow relative to metabolic demand. CO2 is about 20 times
+more soluble than O2 so it more reliably diffuses out of ischemic tissues into
+the venous effluent, making it a sensitive marker of hypoperfusion.
+
+In situations where an O2 diffusion barrier exists (e.g. non-functional and
+obliterated capillaries), CO2 still diffuses to the venous effluent, "unmasking"
+the low perfusion state when venous-to-arterial CO2 difference is evaluated.
+
+The gap is a marker of adequacy of venous blood flow to remove CO2 produced,
+rather than a marker of tissue hypoxia or dysoxia.
+
+pCO2 GAP IN DIFFERENT SHOCK STATES
+-----------------------------------
+  Cardiogenic/hypovolemic: Lactate HIGH, O2ER HIGH, ScvO2 LOW, pCO2 gap HIGH
+  Anemic/hypoxemic:        Lactate HIGH, O2ER HIGH, ScvO2 LOW, pCO2 gap LOW
+  Distributive:            Lactate HIGH, O2ER LOW,  ScvO2 HIGH, pCO2 gap HIGH
+  Cytopathic:              Lactate HIGH, O2ER LOW,  ScvO2 HIGH, pCO2 gap LOW
+
+EVIDENCE
+--------
+Some authors suggest targeting a pCO2 gap < 6 mmHg as an index of adequate
+tissue perfusion. This is supported by observational data suggesting a role
+in identifying patients with ScvO2 > 70% who are still inadequately
+resuscitated.
+
+Source: LITFL Critical Care Compendium — pCO2 gap (Chris Nickson)

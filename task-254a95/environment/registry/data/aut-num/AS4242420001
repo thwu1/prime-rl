@@ -1,0 +1,7 @@
+aut-num:            AS4242420001
+as-name:            ALPHA-AS
+descr:              Alpha Network Autonomous System
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             ALPHA-MNT
+source:             DN42

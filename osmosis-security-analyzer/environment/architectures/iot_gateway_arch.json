@@ -1,0 +1,10 @@
+{
+    "allowed_flows": [
+        ["network", "network"],
+        ["sensing", "processing"],
+        ["processing", "storage"],
+        ["processing", "network"],
+        ["storage", "processing"],
+        ["platform", "network"]
+    ]
+}

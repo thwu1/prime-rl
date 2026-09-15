@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of fixed-income mathematics (yield curve bootstrapping, Z-spread, OAS, key-rate durations) combined with proficiency in the QuantLib Python API. The agent must correctly set up OIS curve bootstrapping with proper day count and settlement conventions, construct multiple bond types (fixed-rate and callable), compute spreads via root-finding and tree models, implement scenario analysis with time-varying spreads, and compute localized key-rate durations using numerical differentiation. Each step depends on the previous one being correct, and subtle convention errors (day count, compounding, calendar) produce wrong results silently."""
+solution_explanation = """The solution bootstraps a SOFR OIS discount curve using PiecewiseLogCubicDiscount with OISRateHelpers, then prices 5 bonds using DiscountingBondEngine. For each bond it computes YTM via bondYield, Z-spread via BondFunctions.zSpread, and modified duration via BondFunctions.duration. The callable bond's OAS is computed using CallableFixedRateBond with a Hull-White TreeCallableFixedRateBondEngine. Scenarios use ZeroSpreadedTermStructure (parallel) and PiecewiseZeroSpreadedTermStructure (twist). Key-rate durations use localized 1bp bumps via PiecewiseZeroSpreadedTermStructure with linear interpolation between tenor points."""
+verification_explanation = """Tests independently bootstrap the same OIS curve and verify zero rates and discount factors. Each bond's YTM, Z-spread, and modified duration are independently computed and compared within tolerance. The callable bond's OAS is verified by independently constructing the callable bond with Hull-White tree and calling OAS(). Scenario P&L values are independently computed. Key-rate durations are independently computed via the same localized bump approach. Structural invariants are also checked: monotonic discount factors, positive KRDs, OAS < Z-spread for callable bonds, and correct P&L signs under parallel shifts."""
+category = "applied_computing"
+tags = ["quantitative-finance", "fixed-income"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bond-portfolio-risk"

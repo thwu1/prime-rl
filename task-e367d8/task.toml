@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a Sokoban solver with A* search, deadlock detection (dead squares via reverse reachability, freeze deadlocks, 2x2 blocks), and a minimum-cost bipartite matching heuristic (Hungarian algorithm). The agent must also explore a SQLite database with sqlite3 to discover the benchmark manifest, parse puzzles from two distinct formats (standard XSB text and SokoSolve SSX XML with its own character encoding), learn a pre-installed CLI tool (sokovalidate) via its help interface, and chain these tools into a pipeline that extracts, solves, validates, and reports. Sokoban is PSPACE-complete; naive BFS fails beyond 3-4 boxes."""
+solution_explanation = """Reference solution queries the SQLite database to discover targets and collection metadata. For XSB-format collections it reads puzzle files directly; for SSX-format collections it calls the sokovalidate CLI extract subcommand to convert SSX XML to XSB. It then runs a Python A* solver with dead-square computation (reverse pull-reachability), recursive freeze deadlock detection, 2x2 block detection, Hungarian algorithm heuristic, and player-position normalization. Solutions are collected into results.json."""
+verification_explanation = """Tests independently query the SQLite database for targets and thresholds. Each result in results.json is verified by replaying the LURD solution move-by-move on the parsed puzzle, checking wall collisions, push validity, and that all boxes end on goals. Push counts are checked against per-target thresholds from the database. SSX puzzles are independently parsed and converted using the known character mapping. At least 8 of 10 targets must pass."""
+category = "algorithm_design"
+tags = ["search-algorithms", "combinatorial-optimization"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 900.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e367d8"

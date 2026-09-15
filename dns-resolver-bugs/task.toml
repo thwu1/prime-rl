@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level convergence of DNS protocol internals, network forensics, and detection engineering. The solver must parse raw pcap files (understanding Ethernet/IP/UDP/DNS wire formats or mastering tshark query syntax), perform statistical analysis to distinguish tunnel traffic from legitimate DNS queries among 500+ packets, reverse-engineer an unknown subdomain-encoding protocol (identifying base32 character sets, 4-digit hex sequence numbers, and retransmission deduplication logic), reconstruct the exfiltrated payload with correct chunk ordering, and then generalize their analysis into a reusable detector that identifies DNS tunneling in arbitrary pcap files using entropy and frequency heuristics — evaluated against a dynamically-generated validation pcap with a randomized tunnel domain to prevent hardcoding."""
+solution_explanation = """1) Parse pcap to extract DNS query names and types using tshark or raw struct-based parsing. 2) Group queries by base domain suffix (last 3 labels), compute unique-subdomain counts and Shannon entropy per group to identify cdn-telemetry.example.net as the anomalous tunnel domain (60+ unique high-entropy subdomains vs ≤6 for legitimate domains). 3) Extract tunnel query subdomains, parse the 4-hex-char sequence prefix and base32-encoded data label, detect encoding via character-set analysis (presence of g-z chars indicates base32 vs hex). 4) Deduplicate retransmissions (same sequence number), decode base32 with padding restoration, reassemble 60 chunks in sequence order to recover 1847 bytes. 5) Build general detector using subdomain entropy × unique-count scoring across candidate base domain groupings, outputting JSON with flagged domains."""
+verification_explanation = """12 pytest tests verify: exfiltrated.bin exists, has correct SHA256 (67198482...2dd0) and non-zero size; tunnel_analysis.json contains exact values for all 6 fields (domain, counts, encoding, query type, retransmissions); detector.py exists, produces valid JSON with correct tunnel domain for the original pcap, and correctly identifies a randomly-named tunnel domain in a dynamically-generated validation pcap (preventing hardcoded solutions)."""
+category = "security"
+tags = ["dns-forensics", "network-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dns-resolver-bugs"

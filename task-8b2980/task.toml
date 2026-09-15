@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of distributed training paradigms (FSDP, pipeline parallelism, combined Pipeline+FSDP) and their implementation using async communication primitives. The agent must learn a custom CLI tool (dtrain), query a SQLite constraints database to discover strategy configurations and performance budgets, parse JSON output with jq for profiling analysis, and use make for the build workflow — all while implementing three increasingly complex async strategies that pass both correctness verification and efficiency constraints. The Pipeline+FSDP strategy requires coordinating 16 simulated GPU ranks with interleaved collective and point-to-point communication, careful memory management via explicit deletion, and correct handling of weight sharding. This demands graduate-level distributed systems and ML systems knowledge combined with multi-tool terminal proficiency."""
+solution_explanation = """Each strategy is an async function that orchestrates distributed training using the Model API's computation and communication primitives. FSDP shards weights/optimizer states across ranks and uses collective operations to reconstruct and redistribute during forward/backward. GPipe partitions layers into pipeline stages with scheduled microbatch processing. Pipeline+FSDP combines both: pipeline stages via rank-to-layer mapping with global weight sharding across all 16 ranks. The agent must use dtrain CLI to discover constraints from the SQLite database, implement strategies, validate with dtrain run, and profile with dtrain profile piped through jq. Memory constraints require explicit deletion of intermediate state."""
+verification_explanation = """Tests run each strategy with its specified configuration using asyncio, verify Model.check() passes (all layer weights updated and complete across ranks), then check simulated time and peak memory are within constraints. Deterministic simulation ensures reproducible results."""
+category = "systems"
+tags = ["distributed-systems", "machine-learning"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8b2980"

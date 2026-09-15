@@ -1,0 +1,73 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+The task requires diagnosing 8 interrelated bugs across ~450 lines of C code
+implementing a hierarchical traffic shaper library that was partially patched
+by a previous developer. The partial patch introduced misleading documentation
+(CHANGES.md claims certain behaviors are intentional when they are bugs) and
+corrupted test expectations (two tests pass on buggy code because their expected
+values were changed to match the broken behavior). The Makefile suppresses all
+compiler warnings (-w) and its AddressSanitizer target has a typo (-fsanitize=
+addresses instead of -fsanitize=address), requiring the solver to evaluate and
+fix the build toolchain. A heap-use-after-free in shaper_get_subtree_stats only
+manifests under ASAN — tests pass silently without it. The solver must evaluate
+which test expectations are correct vs. corrupted, distinguish intentional design
+decisions from bugs using domain knowledge of traffic shaper semantics (qlen and
+backlog must both be drained on child replacement despite misleading comments
+claiming otherwise), fix the Makefile to enable proper diagnostics, and write a
+new regression test covering batch ADD+UPDATE interactions.
+"""
+solution_explanation = """
+1. Makefile: Replace -w with -Wall -Wextra, change -O2 to -O0, fix
+   -fsanitize=addresses typo to -fsanitize=address in sanitize target.
+2. shaper_handle_validate: Add QUEUE/NETDEV/bit-width checks (3 bugs).
+3. shaper_node_is_active: Remove erroneous ! negation from is_free refactor.
+4. shaper_group_set_leaves: Add inner-loop duplicate leaf detection.
+5. shaper_batch_commit: Reorder from DELETE-ADD-UPDATE to ADD-UPDATE-DELETE,
+   rejecting the misleading CHANGES.md claim about slot recycling.
+6. shaper_replace_child: Add backlog_bytes subtraction and reset for both
+   parent and old child, rejecting the misleading "accounting continuity"
+   comment. Fix contradicts CHANGES.md but matches function documentation
+   that says old child traffic should be drained/discarded.
+7. shaper_get_subtree_stats: Save visited[root_idx] result before free(),
+   remove post-free read (heap-use-after-free caught by ASAN).
+8. test_shaper.c: Fix replace_child_reset test to expect p_backlog==0 and
+   o_backlog==0 (were corrupted to 2500 to match partial-fix bug).
+9. test_shaper.c: Add batch_add_update_same test function and table entry.
+"""
+verification_explanation = """
+test_state.py performs three verification phases:
+1. Normal build: compiles with default flags and runs all 9 test cases
+   (8 original + 1 new batch_add_update_same) checking exit code 0.
+2. ASAN build: recompiles with -fsanitize=address and reruns all 9 tests,
+   catching the heap-use-after-free in subtree_stats if not fixed.
+3. Source verification: checks test_shaper.c contains both the
+   batch_add_update_same function definition and its test_table entry
+   with at least one ASSERT macro. Reward 1.0 only when all pass.
+"""
+category = "debugging"
+tags = ["c-systems-debugging", "build-toolchain"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f2e76c"

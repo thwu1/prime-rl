@@ -1,0 +1,12 @@
+2024-11-28 09:14:22 [INFO] Reconciliation pipeline v0.3.1 starting
+2024-11-28 09:14:22 [INFO] Configuration: watermark_delay=5
+2024-11-28 09:14:22 [INFO] Data source: /app/data/transactions.jsonl
+2024-11-28 09:14:25 [INFO] Ingestion complete: 100000 events in stream
+2024-11-28 09:14:25 [INFO] Events rejected (late arrival): 4598
+2024-11-28 09:14:25 [INFO] Pipeline finalized
+2024-11-28 09:14:25 [INFO] Total checkpoints emitted: 46
+2024-11-28 09:14:25 [WARN] Reconciliation audit FAILED
+2024-11-28 09:14:25 [WARN]   Non-zero total detected in 34 of 46 checkpoints
+2024-11-28 09:14:25 [WARN]   Maximum absolute total deviation: 1053
+2024-11-28 09:14:25 [WARN]   Checkpoint watermarks range: [-5, 54]
+2024-11-28 09:14:25 [ERROR] Pipeline output does not satisfy consistency invariants

@@ -1,0 +1,57 @@
+OXYGENATION INDICES
+====================
+
+PaO2/FiO2 RATIO (P/F Ratio, Horowitz Index)
+--------------------------------------------
+The P/F ratio is the ratio of arterial oxygen partial pressure (PaO2 in mmHg)
+to fractional inspired oxygen (FiO2 expressed as a fraction, not a percentage).
+
+  P/F ratio = PaO2 / FiO2
+
+At sea level, the normal PaO2/FiO2 ratio is approximately 400-500 mmHg.
+
+Quick rule of thumb: PaO2 should ≈ FiO2 × 500
+
+ARDS Berlin Definition (2012):
+  Mild:     P/F 200 – 300 mmHg    (27% mortality)
+  Moderate: P/F 100 – 200 mmHg    (32% mortality)
+  Severe:   P/F < 100 mmHg        (45% mortality)
+
+Note: the Berlin definition ratios apply with a PEEP setting of ≥ 5 cmH2O.
+
+Limitations: P/F ratio is dependent on barometric pressure, does not
+distinguish hypoventilation from V/Q mismatch, and is markedly dependent on
+FiO2. It may be unreliable unless FiO2 > 0.5 and PaO2 < 100 mmHg.
+
+OXYGEN EXTRACTION RATIO (O2ER)
+-------------------------------
+O2ER = VO2 / DO2 = (SaO2 – SvO2) / SaO2
+
+where SaO2 is arterial oxygen saturation and SvO2 is mixed venous oxygen
+saturation. Normal O2ER is approximately 25%.
+
+Under resting conditions with normal distribution of cardiac output, DO2 is
+more than adequate to meet VO2. Oxygen that is not extracted returns to the
+mixed venous circulation. ScvO2 of 70% indicates oxygen delivery is adequate.
+
+O2ER varies by organ: cardiac O2ER >60%, hepatic 45-55%, renal <15%.
+
+At critical DO2 (cDO2), maximum O2ER is reached (approximately 70%). Beyond
+this, any further increase in VO2 or decline in DO2 leads to tissue hypoxia
+and anaerobic metabolism.
+
+High O2ER suggests inadequate oxygen delivery (shock, hypoxia, anaemia) or
+increased oxygen consumption (fever, sepsis, increased muscular activity).
+
+Low O2ER suggests increased oxygen delivery (hyperoxia, ECMO) or decreased
+oxygen consumption (hypothermia, sedation, paralysis, histotoxic hypoxia).
+
+OXYGENATION INDEX (OI)
+-----------------------
+  OI = (FiO2 × MAP) / PaO2
+
+where MAP is mean airway pressure. OI may be a more accurate measure of
+oxygenation dysfunction in ventilated patients as it accounts for MAP.
+
+Source: LITFL Critical Care Compendium — PaO2/FiO2 Ratio, Oxygen Extraction
+Ratio (Chris Nickson)

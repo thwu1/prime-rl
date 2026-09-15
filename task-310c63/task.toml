@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level quantum information theory to design entanglement distillation circuits for five noise regimes (bit-flip, phase-flip, mixed). The agent must independently discover appropriate distillation protocols, implement a quantum state simulator from scratch, produce valid OpenQASM 3.0 circuit descriptions, manage a SQLite database for structured result storage, and ensure all outputs are mutually consistent. The combined noise case (E5, N=5, 10 qubits) requires composing independent error-filtering stages — a non-trivial protocol design challenge."""
+solution_explanation = """The solution implements a full quantum state simulator using numpy for tensor-product state initialization with qubit permutation, unitary gate application, projective measurement with post-selection, and partial trace for fidelity computation. For each edge, it applies an appropriate distillation protocol (bilateral parity checks for bit-flip noise, Hadamard-conjugated parity checks for phase-flip noise, combined multi-stage protocol for mixed noise). It generates OpenQASM 3.0 circuit files encoding each protocol, creates a SQLite database with the results table, and exports JSON results."""
+verification_explanation = """Tests verify: (1) simulator correctly initializes quantum states and computes fidelities for known noise parameters; (2) LOCC constraint checking accepts same-side and rejects cross-boundary gates; (3) all reported fidelities exceed thresholds; (4) analytical values match for known cases; (5) OpenQASM 3.0 files have valid syntax, correct qubit counts, and LOCC-compliant gates; (6) SQLite database has correct schema, all edges, and values consistent with JSON output; (7) simulator generalizes to unseen noise parameters."""
+category = "quantum_computing"
+tags = ["entanglement-distillation", "openqasm"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-310c63"

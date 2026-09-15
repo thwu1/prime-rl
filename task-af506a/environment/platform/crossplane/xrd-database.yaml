@@ -1,0 +1,41 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xpostgresqldatabases.platform.example.com
+spec:
+  group: platform.example.com
+  names:
+    kind: XPostgreSQLDatabase
+    plural: xpostgresqldatabases
+  claimNames:
+    kind: PostgreSQLDatabase
+    plural: postgresqldatabases
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    storageGB:
+                      type: integer
+                      description: "Storage size in gigabytes"
+                    replicas:
+                      type: integer
+                      description: "Number of database replicas"
+                    version:
+                      type: string
+                      description: "PostgreSQL version"
+                  required:
+                    - storageGB
+                    - replicas
+                    - version
+              required:
+                - parameters

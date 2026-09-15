@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of three heterogeneous data formats — OpenAPI 3.0 YAML with recursive $ref resolution and allOf schema composition, JSONL HTTP traffic logs, and hierarchical JaCoCo XML code coverage reports — without guidance on parsing strategy. The agent must independently discover how to extract the server base path from the spec and normalize traffic log paths against parameterized path templates, determine which level of JaCoCo's counter hierarchy provides aggregate coverage, design a schema-driven data-flow analysis algorithm for Operation Dependency Graph construction by resolving composed schemas and comparing response properties against request parameters, and correctly apply population Z-score normalization for multi-dimensional ranking. Each integration point has subtle pitfalls (e.g. allOf merging order, path parameter regex matching, hierarchical vs flat JaCoCo counters) that require deep familiarity with REST API testing toolchains and the OpenAPI ecosystem."""
+solution_explanation = """A Python script parses the OpenAPI YAML spec using recursive $ref resolution, extracts all 16 operations with their parameter/response schemas, matches traffic log entries to operations via path template regex comparison after stripping the server base path, computes per-tool operation coverage and unique fault counts, parses JaCoCo XML to extract branch/line/method coverage ratios from report-level counters, constructs an ODG by comparing response property names/types against request parameter names/types, exports the ODG as Graphviz DOT and renders SVG, and applies three-dimensional population Z-score normalization to produce a ranked report with badges."""
+verification_explanation = """Tests load the generated report.json and verify: correct operation count (16), per-tool operation coverage counts (13/8/5), per-tool fault detection counts (5/3/1), correct ranking order and badge assignments, presence of critical ODG edges (e.g. createUser->getUser, createProject->createTask, createTask->addComment), absence of edges from login and deleteUser, correct code coverage ratios from JaCoCo parsing, Z-score values within tolerance, composite score consistency, and existence/validity of DOT and SVG graph output files."""
+category = "software_testing"
+tags = ["rest-api", "openapi-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/restapi-coverage-analyzer"

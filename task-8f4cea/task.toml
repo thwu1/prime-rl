@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PostgreSQL index design knowledge. The solver must balance conflicting column ordering requirements across 5 queries while staying within a hard constraint of at most 4 secondary indexes. Key challenges include: understanding how multi-value IN predicates interact with ORDER BY in B-tree traversal; designing covering and partial indexes to eliminate unnecessary sort operations; recognizing when index conditions vs. post-scan filters determine plan shape; implementing efficient batched retention deletes; and creative index sharing where a single index serves multiple queries with different access patterns. The 4-index budget forces non-obvious trade-offs that require deep understanding of PostgreSQL's query planner."""
+solution_explanation = """Create 4 indexes: (1) Partial covering index on (tenant_id, created_at DESC) WHERE status IN (...) AND event_type IN (...) for Q1 — the partial index pre-filters predicates at planning time, created_at provides ordering without Sort; (2) Covering index on (tenant_id, created_at ASC) INCLUDE (id, event_type, severity, resolved_at) shared by Q2 and Q4 — INCLUDE columns enable Index Only Scan for Q2 eliminating Sort, Q4 uses same ordering with LIMIT for early termination; (3) Index on (tenant_id, status, resolved_at ASC) INCLUDE (source_system, created_at) for Q3 — equality on tenant+status, then range on resolved_at, all as index conditions; (4) Index on (created_at ASC) for retention deletes. The retention function loops DELETE...WHERE id IN (SELECT id...WHERE created_at < cutoff ORDER BY created_at LIMIT batch_size) until no rows remain."""
+verification_explanation = """Tests verify: (1) at most 4 non-PK indexes exist; (2) Q1 plan has no Sort node, uses index scan, scans <=600 rows; (3) Q2 plan has no Sort node with created_at in Index Cond; (4) Q3 plan has neither status nor resolved_at in Filter; (5) Q4 plan has no Sort node, scans <=500 rows; (6) retention function exists, correctly deletes all rows before cutoff and returns accurate count; (7) an index with created_at as leading column exists for retention. Tests use EXPLAIN (FORMAT JSON) parsing and transactional rollback for the retention delete test."""
+category = "database"
+tags = ["postgresql", "index-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8f4cea"

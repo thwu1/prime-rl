@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of RDF/Turtle serialization, DCAT-AP 3.0.1 application profile semantics, SHACL constraint interpretation, and EU controlled vocabulary URI structures. The solver must understand that SHACL sh:class constraints require explicit rdf:type declarations on all referenced resources, and that supporting classes (foaf:Agent, skos:Concept, skos:ConceptScheme) have their own mandatory properties. Must also handle date normalization, cross-entity referencing (DataService -> Dataset), and correct namespace usage across 10+ RDF vocabularies. This is professional semantic web engineering work."""
+solution_explanation = """Parse the JSON registry, build an RDF graph using rdflib, map all shorthand codes to EU Publications Office authority table URIs, explicitly type every referenced resource per SHACL sh:class constraints (agents, concepts, concept schemes, locations, linguistic systems, license documents, standards, legal resources, rights statements, periods of time, media types, documents), add mandatory properties to all supporting classes (foaf:name on agents, skos:prefLabel on concepts, dct:title on concept schemes), normalize non-ISO dates, and serialize as Turtle."""
+verification_explanation = """Tests parse the output Turtle with rdflib, verify entity counts (1 Catalog, 6 Datasets, 11 Distributions, 2 DataServices), check mandatory properties exist on all entities, verify class typing on all referenced resources (foaf:Agent for publishers, skos:Concept for themes, dct:LinguisticSystem for languages, dct:Location for spatial, dct:LicenseDocument for licenses, dct:Frequency for frequency, dct:Standard for standards, dct:MediaTypeOrExtent for formats, dct:PeriodOfTime for temporal), and validate date literal datatypes."""
+category = "data_management"
+tags = ["rdf", "shacl-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-71395a"

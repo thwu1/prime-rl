@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives a working but slow exhaustive BM25 search engine and must optimize it to score dramatically fewer postings while maintaining rank-safe identical results. No algorithmic approach is specified — the agent must discover and implement a dynamic pruning strategy (e.g. MAXSCORE, WAND, or block-max variants) requiring: score upper-bound reasoning across term partitions, block-structured index reorganization with per-block max score metadata, heap-threshold-driven pruning boundaries, and binary-search score lookups for pruned terms. Subtle errors in bound computation silently break rank-safety. Requires professional-level information retrieval knowledge spanning scoring theory, posting list optimization, and pruning algorithm correctness."""
+solution_explanation = """Restructure the flat inverted index into fixed-size blocks with pre-computed BM25 scores and per-block max scores. Implement a dynamic pruning algorithm: sort query terms by ascending global max score, compute cumulative upper bounds, maintain a min-heap for top-k tracking, partition terms into actively-iterated vs. lookup-only sets based on whether their cumulative upper bound exceeds the heap threshold, skip entire blocks whose local max plus upper bounds from remaining terms falls below the threshold, and use binary search for score lookups on pruned terms."""
+verification_explanation = """Tests verify: (1) search results exactly match an independent reference BM25 implementation across 10 queries at 3 top_k values, (2) the engine evaluates fewer than specified ratios of exhaustive posting counts on mixed-frequency queries (40% for stopword+rare, 60% for 5-term mixed, 50% for 10-term diverse), (3) edge cases including empty results, single-term queries, large top_k, all-common-term queries, and duplicate query terms."""
+category = "systems"
+tags = ["information-retrieval", "search-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-03008a"

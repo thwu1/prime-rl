@@ -1,0 +1,22 @@
+[core]
+# 17x17 square-lattice PWR fuel assembly
+fuel_pin_od_in = 0.374
+pitch_to_diameter_ratio = 1.326
+active_fuel_length_ft = 12.0
+system_pressure_psia = 2250
+avg_coolant_temp_F = 580.0
+avg_coolant_velocity_fps = 16.5
+rated_linear_heat_rate_kw_per_ft = 13.0
+
+[thermal_limits]
+max_cladding_outer_wall_temp_F = 657.0
+
+[rankine_cycle]
+# Secondary-side regenerative Rankine cycle with open feedwater heater
+turbine_inlet_pressure_psia = 600
+turbine_inlet_temp_F = 750
+extraction_pressure_psia = 80
+condenser_pressure_psia = 1
+turbine_isentropic_efficiency = 0.87
+condensate_pump_isentropic_efficiency = 0.82
+feedwater_pump_isentropic_efficiency = 0.85

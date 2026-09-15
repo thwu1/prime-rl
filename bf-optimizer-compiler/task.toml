@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing bugs across two compiler backends (bytecode VM and x86-64 NASM code generator) without a reference specification. The solver must: (1) identify that clear loop detection only handles [-] but silently ignores the equivalent [+] pattern, (2) implement multiply/copy loop detection requiring static analysis of loop bodies — simulating pointer displacement, accumulating per-offset data changes, verifying structural invariants, and emitting MUL_COPY instructions for arbitrary offsets including negative ones, (3) implement scan loop detection, (4) implement dead code elimination, (5) add a missing cancellation pass with iterative fixpoint convergence, (6) add missing VM handlers for MUL_COPY and SCAN, (7) fix three separate bugs in the x86-64 NASM code generator (DEC_PTR emits add instead of sub, INC_DATA ignores contraction count, WRITE_STDOUT uses wrong register for buffer pointer), (8) implement MUL_COPY assembly generation using movzx/imul/add-with-displacement for arbitrary signed offsets and factors, (9) implement SCAN assembly generation using a compare-jump scan loop. Requires holistic understanding of compiler optimization pipelines, bytecode IR design, x86-64 instruction encoding, Linux syscall ABI, and the NASM/ld/objdump toolchain."""
+solution_explanation = """Read the buggy compiler and identify all issues across both backends. Fix the clear loop pass to recognize both [-] and [+]. Implement multiply loop detection via loop body simulation. Implement scan and dead code passes. Add a cancellation pass. Add MUL_COPY and SCAN handlers to the VM. Fix DEC_PTR assembly (sub instead of add), INC_DATA assembly (use op.arg1 instead of literal 1), WRITE_STDOUT assembly (mov rsi, r13 instead of mov rsi, rdi). Implement MUL_COPY assembly using movzx eax/imul eax,eax,factor/add byte [r13+offset],al. Implement SCAN assembly using a cmp/je/add/jmp loop."""
+verification_explanation = """Tests verify both backends independently. Bytecode tests run 20+ BF programs through the VM and compare against a reference interpreter. Native execution tests build ELF binaries via nasm+ld and verify their output matches the reference. Assembly pattern tests verify the generated NASM source contains expected instruction patterns (mov byte for SET_ZERO, imul for MUL_COPY, sub for DEC_PTR, mov rsi r13 for WRITE_STDOUT). Objdump tests verify the binary is a valid ELF64 with syscall instructions. Stats tests verify JSON schema compliance and optimization counter accuracy. Edge cases test wrapping, empty programs, and all subcommands."""
+category = "compilers"
+tags = ["x86-64", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bf-optimizer-compiler"

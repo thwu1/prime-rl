@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two tightly coupled compiler backend components from scratch: (1) a register allocator that must correctly handle overlapping variable lifetimes, cyclic control flow, calling-convention constraints, register pressure exceeding the physical register budget (forcing spills to memory), and x86 operand legality rules; (2) an x86-64 assembly code emitter that produces AT&T-syntax assembly text from the allocated AST, with correct operand formatting, label management, and global symbol emission. The agent must also orchestrate a multi-tool build pipeline (Python → assembly → gcc → native binary) and debug failures spanning the Python allocator, assembly syntax, C runtime linkage, and native execution."""
+solution_explanation = """The solution implements the allocator as a multi-pass pipeline (liveness analysis via backward dataflow with fixed-point iteration, interference graph construction, DSATUR graph coloring with move biasing, variable-to-register/stack assignment, instruction patching for x86 operand constraints, and prologue/epilogue generation). The codegen translates the allocated AST to AT&T-syntax assembly, mapping the main block to global symbol compiler_main, formatting Reg/Deref/Immediate operands, and emitting jumps with .L-prefixed local labels. The Makefile compiles each program's assembly with gcc and links against runtime.c."""
+verification_explanation = """For each of 10 test programs, pytest verifies three properties: (1) the emulator produces identical (rax, output) pairs before and after allocation; (2) no Variable nodes or illegal Deref-Deref operand pairs remain; (3) the emitted assembly compiles via gcc and the resulting native binary produces correct output matching the emulator's expected values. Programs cover straight-line arithmetic, overlapping lifetimes, conditionals, loops, function calls with caller-saved constraints, register spilling, nested control flow, and loops with embedded calls."""
+category = "compilers"
+tags = ["register-allocation", "x86-codegen"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-51f5af"

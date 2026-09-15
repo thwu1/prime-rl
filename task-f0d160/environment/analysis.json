@@ -1,0 +1,16 @@
+{
+  "critical_prefill": {
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "d_head": 128,
+    "dtype": "fp16"
+  },
+  "group_size_sweep": {
+    "n_heads": 32,
+    "d_head": 128,
+    "dtype": "fp16",
+    "batch_size": 1,
+    "seq_len_q": 1,
+    "seq_len_kv": 4096
+  }
+}

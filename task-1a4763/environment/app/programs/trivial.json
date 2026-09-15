@@ -1,0 +1,17 @@
+{
+  "name": "trivial",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [{
+      "label": "entry",
+      "instrs": [
+        {"op": "const", "dst": "a", "class": "gp", "val": 10},
+        {"op": "const", "dst": "b", "class": "gp", "val": 20},
+        {"op": "add", "dst": "c", "class": "gp", "src1": "a", "src2": "b"},
+        {"op": "ret", "src1": "c"}
+      ]
+    }]
+  }]
+}

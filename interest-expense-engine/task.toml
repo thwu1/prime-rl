@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires interpreting dense IRS regulatory text (IRC 163(j), CFR 1.163(j)-1/-2/-6, CFR 1.385-3) without algorithmic guidance to discover ATI computation rules, year-dependent D&A addback sunset, CARES Act 50%/30% rate modifications with partnership-specific exceptions, partnership excess item formulas (EBIE/ETI/EBII), partner-level EBIE resolution mechanics, multi-year carryforward tracking, Section 385 expanded group determination via ownership graph analysis, funding rule temporal window analysis, intercompany debt recharacterization with proportional interest adjustment, and multi-tool pipeline orchestration via Make/Python/SQLite/sqlite3-CLI/jq with complex interoperability requirements."""
+solution_explanation = """Build a Make-orchestrated Python pipeline that: (1) parses CSV input files to construct entity/financial/relationship data, (2) builds an expanded group graph from ownership edges using >=80% threshold with transitive closure, (3) applies Section 385 funding rule by checking issuer distributions within a 36-month per se window and computing proportional recharacterization, (4) adjusts BIE/BII for recharacterized intercompany loan interest, (5) implements the 163(j) limitation formula, (6) applies CARES Act year/entity-type-specific rate modifications, (7) computes partnership excess items and partner allocations, (8) tracks EBIE balances and conversions across years, (9) stores all results in a normalized SQLite database with four tables and proper primary keys, (10) implements a separate Make report target that queries the SQLite database via sqlite3 CLI and assembles a JSON summary report using jq."""
+verification_explanation = """Tests verify 100+ individual assertions: schema validation (table existence, column names), Section 385 recharacterization results (both recharacterized and non-recharacterized loans), 163(j) entity results for all 17 entity-years (ATI, limitation, deductible/disallowed BIE, carryforward), partnership excess items, partner allocations, EBIE balance tracking, cross-entity consistency (allocation sums, deductible <= limitation, CARES Act differential rates, 385 cascade effects), SQL aggregate and join queries, report.json structure and values (9 keys verified), and toolchain validation (report pipeline must use sqlite3 CLI and jq, not Python)."""
+category = "applied_computing"
+tags = ["tax-computation", "financial-regulation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interest-expense-engine"

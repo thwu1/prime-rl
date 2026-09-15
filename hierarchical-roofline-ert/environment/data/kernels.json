@@ -1,0 +1,44 @@
+[
+  {
+    "name": "sparse_matvec",
+    "total_flops": 1200000000,
+    "total_bytes": 9600000000,
+    "working_set_bytes": 67108864,
+    "measured_gflops": 2.1
+  },
+  {
+    "name": "dense_gemm_small",
+    "total_flops": 16384000000,
+    "total_bytes": 409600000,
+    "working_set_bytes": 102400,
+    "measured_gflops": 38.2
+  },
+  {
+    "name": "3d_stencil",
+    "total_flops": 4000000000,
+    "total_bytes": 8000000000,
+    "working_set_bytes": 2097152,
+    "measured_gflops": 17.8
+  },
+  {
+    "name": "fft_1d",
+    "total_flops": 5000000000,
+    "total_bytes": 6250000000,
+    "working_set_bytes": 4194304,
+    "measured_gflops": 28.5
+  },
+  {
+    "name": "particle_update",
+    "total_flops": 5120000000,
+    "total_bytes": 1280000000,
+    "working_set_bytes": 134217728,
+    "measured_gflops": 33.5
+  },
+  {
+    "name": "histogram_reduction",
+    "total_flops": 200000000,
+    "total_bytes": 1600000000,
+    "working_set_bytes": 16384,
+    "measured_gflops": 18.2
+  }
+]

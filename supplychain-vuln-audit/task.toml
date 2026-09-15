@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security knowledge across five distinct vulnerability classes: prototype pollution (CWE-1321) via JavaScript prototype chain traversal, command injection (CWE-77) via ASCII range bug in regex character class [A-z], Regular Expression Denial of Service (CWE-1333) via nested quantifiers with backreference preventing V8 non-backtracking engine tier-up, path traversal (CWE-22) via directory cache poisoning with symlink replacement, and supply chain backdoor detection (CWE-506) with DNS exfiltration using charCode obfuscation. The agent must decode obfuscated String.fromCharCode arrays to identify the C2 domain, instrument the dns module to intercept exfiltration queries, construct valid SARIF v2.1.0 static analysis reports with proper schema and rule references, write working PoC exploits, and apply targeted code fixes preserving module APIs."""
+solution_explanation = """The solver analyzes each module via regex pattern matching to identify vulnerability signatures, generates a SARIF v2.1.0 report with proper schema structure (tool driver, rules, results with CWE references and source locations), writes PoC exploit scripts against original module copies, produces structured audit and backdoor analysis JSON reports, applies targeted source code fixes (proto key filtering, [A-z] to [A-Za-z], safe email regex, realpath symlink validation, backdoor removal), and instruments dns.resolve via monkey-patching to intercept and log the backdoor's DNS exfiltration queries triggered with a canary environment variable."""
+verification_explanation = """Tests verify: (1) SARIF report has valid v2.1.0 structure with $schema, tool driver, rules, and results covering all CWE classes; (2) DNS exfiltration log exists with intercepted query records containing hex-encoded data and the decoded C2 domain; (3) audit report contains all 5 CWE classes and module references; (4) exploit scripts exist; (5) original code exhibits each vulnerability (prototype pollution, [A-z] bypass, catastrophic backtracking, symlink escape); (6) fixed code blocks each attack vector; (7) backdoor analysis identifies DNS exfiltration with decoded domain and env var theft; (8) malicious fromCharCode code removed from source."""
+category = "cybersecurity"
+tags = ["supply-chain-security", "vulnerability-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/supplychain-vuln-audit"

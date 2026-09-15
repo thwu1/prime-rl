@@ -1,0 +1,57 @@
+{
+  "$comment": "Output schema for EPA ProUCL 5.2 analysis. JSON object keyed by dataset name (CSV filename without .csv extension). All float values rounded to 4 decimal places.",
+  "uncensored_dataset_fields": {
+    "n_total": "integer — total number of observations",
+    "n_detect": "integer — number of detected observations",
+    "n_nondetect": "integer — number of non-detect observations",
+    "percent_nd": "float — percentage of non-detects",
+    "mean": "float — arithmetic sample mean",
+    "sd": "float — sample standard deviation (ddof=1)",
+    "se": "float — standard error of the mean",
+    "skewness": "float — adjusted Fisher-Pearson skewness",
+    "gof": {
+      "normal_pvalue": "float — normality test p-value",
+      "normal_pass": "boolean — passes at ProUCL significance level",
+      "gamma_pvalue": "float — gamma fit test p-value",
+      "gamma_pass": "boolean — passes at ProUCL significance level",
+      "lognormal_pvalue": "float — lognormality test p-value",
+      "lognormal_pass": "boolean — passes at ProUCL significance level"
+    },
+    "distribution": "string — one of: Normal, Gamma, Lognormal, Nonparametric",
+    "ucls": {
+      "t_ucl": "float",
+      "gamma_adj_ucl": "float",
+      "chebyshev_ucl": "float"
+    },
+    "recommended_method": "string — ProUCL-recommended UCL method name",
+    "recommended_ucl": "float — value of the recommended UCL"
+  },
+  "censored_dataset_fields": {
+    "n_total": "integer — total number of observations",
+    "n_detect": "integer — number of detected observations",
+    "n_nondetect": "integer — number of non-detect observations",
+    "percent_nd": "float — percentage of non-detects",
+    "km_mean": "float — estimated mean accounting for censoring",
+    "km_sd": "float — estimated standard deviation accounting for censoring",
+    "km_se": "float — estimated standard error accounting for censoring",
+    "km_S_final": "float — residual survival probability below lowest observation",
+    "detected_mean": "float — arithmetic mean of detected values only",
+    "dl_half_mean": "float — mean using detection-limit/2 substitution for non-detects",
+    "km_inappropriate": "boolean — estimator reliability diagnostic flag",
+    "gof_on_detects": {
+      "normal_pvalue": "float",
+      "normal_pass": "boolean",
+      "gamma_pvalue": "float",
+      "gamma_pass": "boolean",
+      "lognormal_pvalue": "float",
+      "lognormal_pass": "boolean"
+    },
+    "distribution": "string — distribution classification of detected values",
+    "ucls": {
+      "km_t_ucl": "float",
+      "km_chebyshev_ucl": "float"
+    },
+    "recommended_method": "string — ProUCL-recommended UCL method name",
+    "recommended_ucl": "float — value of the recommended UCL"
+  }
+}

@@ -1,0 +1,115 @@
+RED TEAM ASSESSMENT - ENGAGEMENT BRIEF
+=======================================
+
+Client: Consolidated Industries (Multi-Forest Enterprise)
+Assessment Type: Active Directory Attack Path Analysis
+Classification: CONFIDENTIAL
+
+BACKGROUND
+----------
+Consolidated Industries operates a multi-forest Active Directory environment spanning
+four domains across three forests. During an initial phishing campaign, the red team
+obtained valid credentials for the service account svc_helpdesk@corp.local (a standard
+domain user in the IT-Support group with no administrative privileges).
+
+The client's primary concern is whether an attacker with this foothold could compromise
+the high-security production environment hosted in the secure.local forest, which
+contains critical financial and regulatory data.
+
+ENVIRONMENT DATA
+----------------
+The environment data is distributed across two sources that must be correlated:
+
+### Source 1: SQLite Graph Database
+Path: /app/ad_data/environment.db
+
+Contains the AD topology: users, computers, groups, SQL servers, trust relationships,
+group memberships, ACLs, delegation, sessions, SQL links, and enrollment rights.
+
+  Table: nodes
+    id TEXT PRIMARY KEY
+    type TEXT              -- Domain, User, Computer, Group, CertTemplate, SQLServer
+    name TEXT              -- display name (e.g., "svc_helpdesk@corp.local")
+    domain TEXT
+    properties TEXT        -- JSON object with type-specific attributes
+
+  Table: edges
+    id INTEGER PRIMARY KEY AUTOINCREMENT
+    source TEXT            -- REFERENCES nodes.id
+    target TEXT            -- REFERENCES nodes.id
+    type TEXT              -- relationship type
+    properties TEXT        -- JSON object with edge-specific attributes
+
+  Indexes on: edges(source), edges(target), edges(type), nodes(type), nodes(domain)
+
+Edge types: MemberOf, AdminTo, HasSession, GenericAll, GenericWrite, WriteDacl,
+            WriteOwner, ForceChangePassword, AllowedToDelegate, CanRDP, CanPSRemote,
+            ReadLAPSPassword, TrustedBy, SQLLink, RunsOn, RunsAs, CanEnroll
+
+CertTemplate nodes in the database contain only non-security metadata. The
+security-critical certificate template configurations are in the LDIF file below.
+
+### Source 2: LDIF Certificate Template Export
+Path: /app/ad_data/cert_templates.ldif
+
+LDAP Data Interchange Format export of certificate template objects from AD Certificate
+Services. Contains the security-critical configuration attributes for each template
+including Extended Key Usage, subject name controls, enrollment controls, and
+registration authority requirements.
+
+DELIVERABLES
+------------
+Produce two output files:
+
+=== /app/answers.json ===
+
+A JSON object with the following keys:
+
+1. "shortest_attack_path"
+   The shortest viable attack chain from svc_helpdesk@corp.local to Domain Admin
+   in secure.local. An ordered JSON list of entity names (the "name" field from
+   nodes) representing the principals, resources, and targets traversed at each
+   step. The path must end with "Domain Admins@secure.local". A viable path only
+   traverses entities that can be actively exploited given their operational state
+   and security protections.
+
+2. "kerberoastable_targets"
+   A sorted JSON list of user accounts that are realistic Kerberoasting targets
+   with a viable escalation path to any Domain Admins group.
+
+3. "certificate_impersonation_templates"
+   A sorted JSON list of certificate template names (database "name" field)
+   vulnerable to identity impersonation attacks that would allow enrollment as
+   an arbitrary user. Templates must be enrollable by at least one non-admin group.
+
+4. "sql_link_chain"
+   An ordered JSON list of SQL Server names from the database link chain enabling
+   cross-forest traversal from corp.local to secure.local.
+
+5. "exploitable_delegation"
+   A JSON object mapping entity names to target service lists for entities with
+   exploitable Kerberos delegation. Exclude entities that cannot be leveraged due
+   to account state or security group protections, and exclude Domain Controllers
+   whose unconstrained delegation is expected.
+
+6. "what_if_analysis"
+   Evaluate three defensive changes. For each, determine whether a viable attack
+   path from svc_helpdesk@corp.local to Domain Admins@secure.local persists after
+   the change. Return boolean values (true = path persists, false = fully mitigated):
+
+   - "scenario_remove_cert_enrollment": IT-Support@corp.local loses CanEnroll
+     on AdminWorkstation@corp.local
+   - "scenario_remove_sql_links": All SQLLink edges are removed
+   - "scenario_disable_admin_jones": admin_jones@corp.local is disabled and all
+     HasSession edges involving this account are removed
+
+7. "most_effective_mitigation"
+   Identify which single scenario from what_if_analysis provides the strongest
+   defense. Return the key name of the change that fully eliminates all viable
+   attack paths to the target forest.
+
+=== /app/attack_path.dot ===
+
+A Graphviz DOT directed graph visualizing the shortest attack path. Must be a valid
+digraph compilable with the `dot` command, including all path nodes with directed
+edges between consecutive steps.

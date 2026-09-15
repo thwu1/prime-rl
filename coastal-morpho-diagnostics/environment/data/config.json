@@ -1,0 +1,31 @@
+{
+  "sediment": {
+    "D50": 0.0002,
+    "temperature": 15.0
+  },
+  "waves": {
+    "Hm0": 3.0,
+    "Tp": 8.0,
+    "gamma": 3.3,
+    "s": 10,
+    "mainang": 270
+  },
+  "grid": {
+    "dx": 10.0,
+    "dy": 1.0
+  },
+  "verification": {
+    "wetslp": 0.3,
+    "dryslp": 1.0,
+    "mass_balance_threshold": 50.0,
+    "rmse_threshold": 0.5,
+    "slope_tolerance": 0.15,
+    "slope_locations": [0, 5, -2, -1],
+    "expected_slopes": [-0.10, -0.03, -0.015, -0.014]
+  },
+  "files": {
+    "pre_storm": "/app/data/pre_storm.csv",
+    "post_storm_sim": "/app/data/post_storm_sim.csv",
+    "post_storm_obs": "/app/data/post_storm_obs.csv"
+  }
+}

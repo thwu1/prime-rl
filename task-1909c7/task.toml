@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing heterogeneous kernel debugging artifacts: KASAN sanitizer reports (extracting vulnerability type, write size, cache name, and byte offset), /proc/slabinfo snapshots, /sys/kernel/slab/ attribute hierarchies, and querying a SQLite database of kernel structure metadata. The solver must understand SLUB allocator cache merging semantics, compute distinct controllable regions for UAF vs OOB write primitives, perform byte-level overlap analysis between attacker-controllable ranges and security-relevant structure fields, and evaluate mitigation effectiveness against specific exploit capability+method pairs. Combines Linux kernel internals expertise with multi-format data extraction and cross-source correlation."""
+solution_explanation = """The solution parses KASAN reports using regex to extract vulnerability type (use-after-free to uaf_write, slab-out-of-bounds to oob_write), write size, cache name, object size, and offset. It queries the SQLite database for kernel structure layouts and security annotations. It reads sysfs_slab attribute files to determine cache merging eligibility by checking constructor presence and nomerge flags (destroy_by_rcu, poison, store_user, trace). For each vulnerability, it resolves the effective physical cache after merging, finds all structures allocated from the same physical cache, computes the attacker-controllable byte region (direct mapping for UAF, overflow into adjacent object for OOB), checks field overlap via offset/size arithmetic, and evaluates mitigations against each capability+method pair."""
+verification_explanation = """Tests validate the output JSON against computed expected results: correct cache merging (drill_cache merged, cred_jar and sighand_cache standalone), correct target structure identification per vulnerability with positive and negative checks, exact field overlap computations verifying which security-relevant fields fall within controllable byte ranges, proper collision_type classification, and correct mitigation assessment for all exploit capabilities."""
+category = "security_and_privacy"
+tags = ["kernel-exploitation", "heap-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1909c7"

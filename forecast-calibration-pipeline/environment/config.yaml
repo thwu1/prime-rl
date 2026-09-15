@@ -1,0 +1,34 @@
+instruments:
+  - INSTR_A
+  - INSTR_B
+  - INSTR_C
+  - INSTR_D
+
+volatility_calculation:
+  days: 35
+  min_periods: 10
+  slow_vol_years: 10
+  proportion_of_slow_vol: 0.3
+  vol_abs_min: 0.0000000001
+
+trading_rules:
+  ewmac8_32:
+    Lfast: 8
+    Lslow: 32
+  ewmac16_64:
+    Lfast: 16
+    Lslow: 64
+  ewmac32_128:
+    Lfast: 32
+    Lslow: 128
+
+forecast_cap: 20.0
+average_absolute_forecast: 10.0
+
+forecast_weights:
+  ewmac8_32: 0.333
+  ewmac16_64: 0.334
+  ewmac32_128: 0.333
+
+percentage_vol_target: 16.0
+notional_trading_capital: 1000000

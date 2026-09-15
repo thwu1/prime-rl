@@ -1,0 +1,28 @@
+Verification Model: Thick Plate with Elliptical Hole
+=====================================================
+
+This project contains a finite element model of a thick plate with a
+centrally located elliptical hole, subjected to surface pressure loading.
+The model uses 20-node hexahedral (C3D20) elements and exploits
+quarter-symmetry.
+
+The model was created for verification against a well-known published
+structural benchmark, but it produces INCORRECT stress results. The
+computed sigma_yy stress at the target point does not match the expected
+reference value from the benchmark publication.
+
+Geometry:
+  - Quarter-symmetry model
+  - Inner boundary: elliptical hole (through-thickness)
+  - Outer boundary: confocal elliptic curve
+  - Plate thickness: 0.6
+
+Target output:
+  - sigma_yy stress component at the point where the elliptical hole
+    boundary intersects the loaded surface on the y=0 symmetry plane
+
+Solver: CalculiX (run with: ccx model)
+
+The model file (model.inp) may contain errors in material properties,
+boundary conditions, and/or loading definitions that need to be
+identified and corrected before the results can be trusted.

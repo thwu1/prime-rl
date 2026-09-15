@@ -1,0 +1,41 @@
+2025-11-18 11:05:12 INFO Initializing FL2 proxy server...
+2025-11-18 11:05:12 INFO Loading 113 features from /app/features/bot_features.json
+2025-11-18 11:05:12 INFO Successfully loaded 113 features
+2025-11-18 11:05:12 INFO FL2 proxy server initialized successfully
+2025-11-18 11:10:14 INFO Initializing FL2 proxy server...
+2025-11-18 11:10:14 INFO Loading 113 features from /app/features/bot_features.json
+2025-11-18 11:10:14 INFO Successfully loaded 113 features
+2025-11-18 11:10:14 INFO FL2 proxy server initialized successfully
+2025-11-18 11:15:09 INFO Initializing FL2 proxy server...
+2025-11-18 11:15:09 INFO Loading 113 features from /app/features/bot_features.json
+2025-11-18 11:15:09 INFO Successfully loaded 113 features
+2025-11-18 11:15:09 INFO FL2 proxy server initialized successfully
+2025-11-18 11:20:03 INFO Initializing FL2 proxy server...
+2025-11-18 11:20:03 INFO Loading 226 features from /app/features/bot_features.json
+2025-11-18 11:20:03 ERROR Feature count 226 exceeds maximum allowed 200. Cannot pre-allocate memory for feature scoring.
+2025-11-18 11:20:03 CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value: FeatureLimitExceeded({count: 226, max: 200})
+2025-11-18 11:20:03 CRITICAL note: run with `RUST_BACKTRACE=1` for a backtrace
+2025-11-18 11:25:07 INFO Initializing FL2 proxy server...
+2025-11-18 11:25:07 INFO Loading 113 features from /app/features/bot_features.json
+2025-11-18 11:25:07 INFO Successfully loaded 113 features
+2025-11-18 11:25:07 INFO FL2 proxy server initialized successfully
+2025-11-18 11:30:04 INFO Initializing FL2 proxy server...
+2025-11-18 11:30:04 INFO Loading 226 features from /app/features/bot_features.json
+2025-11-18 11:30:04 ERROR Feature count 226 exceeds maximum allowed 200. Cannot pre-allocate memory for feature scoring.
+2025-11-18 11:30:04 CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value: FeatureLimitExceeded({count: 226, max: 200})
+2025-11-18 11:30:04 CRITICAL note: run with `RUST_BACKTRACE=1` for a backtrace
+2025-11-18 11:35:02 INFO Initializing FL2 proxy server...
+2025-11-18 11:35:02 INFO Loading 226 features from /app/features/bot_features.json
+2025-11-18 11:35:02 ERROR Feature count 226 exceeds maximum allowed 200. Cannot pre-allocate memory for feature scoring.
+2025-11-18 11:35:02 CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value: FeatureLimitExceeded({count: 226, max: 200})
+2025-11-18 11:35:02 CRITICAL note: run with `RUST_BACKTRACE=1` for a backtrace
+2025-11-18 11:40:05 INFO Initializing FL2 proxy server...
+2025-11-18 11:40:05 INFO Loading 226 features from /app/features/bot_features.json
+2025-11-18 11:40:05 ERROR Feature count 226 exceeds maximum allowed 200. Cannot pre-allocate memory for feature scoring.
+2025-11-18 11:40:05 CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value: FeatureLimitExceeded({count: 226, max: 200})
+2025-11-18 11:40:05 CRITICAL note: run with `RUST_BACKTRACE=1` for a backtrace
+2025-11-18 11:45:08 INFO Initializing FL2 proxy server...
+2025-11-18 11:45:08 INFO Loading 226 features from /app/features/bot_features.json
+2025-11-18 11:45:08 ERROR Feature count 226 exceeds maximum allowed 200. Cannot pre-allocate memory for feature scoring.
+2025-11-18 11:45:08 CRITICAL thread fl2_worker_thread panicked: called Result::unwrap() on an Err value: FeatureLimitExceeded({count: 226, max: 200})
+2025-11-18 11:45:08 CRITICAL note: run with `RUST_BACKTRACE=1` for a backtrace

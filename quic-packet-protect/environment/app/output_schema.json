@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Expected output format for QUIC packet protection results. All values are lowercase hex strings.",
+  "type": "object",
+  "required": ["v1", "v2"],
+  "properties": {
+    "v1": { "$ref": "#/$defs/version_results" },
+    "v2": { "$ref": "#/$defs/version_results" }
+  },
+  "$defs": {
+    "version_results": {
+      "type": "object",
+      "required": [
+        "initial_secret",
+        "client_initial_secret", "client_key", "client_iv", "client_hp",
+        "server_initial_secret", "server_key", "server_iv", "server_hp",
+        "client_initial_protected_packet",
+        "server_initial_protected_packet",
+        "retry_packet",
+        "chacha20_protected_packet"
+      ],
+      "properties": {
+        "initial_secret": { "type": "string", "description": "Initial secret derived from DCID, hex" },
+        "client_initial_secret": { "type": "string", "description": "Client-side initial traffic secret, hex" },
+        "client_key": { "type": "string", "description": "Client encryption key, hex" },
+        "client_iv": { "type": "string", "description": "Client initialization vector, hex" },
+        "client_hp": { "type": "string", "description": "Client header protection key, hex" },
+        "server_initial_secret": { "type": "string", "description": "Server-side initial traffic secret, hex" },
+        "server_key": { "type": "string", "description": "Server encryption key, hex" },
+        "server_iv": { "type": "string", "description": "Server initialization vector, hex" },
+        "server_hp": { "type": "string", "description": "Server header protection key, hex" },
+        "client_initial_protected_packet": { "type": "string", "description": "Complete protected client Initial packet, hex" },
+        "server_initial_protected_packet": { "type": "string", "description": "Complete protected server Initial packet, hex" },
+        "retry_packet": { "type": "string", "description": "Complete Retry packet including integrity tag, hex" },
+        "chacha20_protected_packet": { "type": "string", "description": "Protected ChaCha20-Poly1305 short header packet, hex" }
+      }
+    }
+  }
+}

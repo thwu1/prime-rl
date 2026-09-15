@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Solving CVRP to near-optimal quality on instances with 101-421 customers requires expertise in combinatorial optimization and metaheuristic design. Beyond the algorithmic challenge, the task demands proficiency with GLPK's GNU MathProg modeling language (writing a valid GMPL LP relaxation, invoking glpsol with correct flags, parsing solver output) and Graphviz's DOT language (position-based graph layout via neato -n2). Orchestrating the multi-tool pipeline — Python solver, GLPK LP computation, and Graphviz rendering — requires comfort with unfamiliar CLI tools and their interoperability."""
+solution_explanation = """Uses Clarke-Wright savings + Iterated Local Search for VRP solving. Generates GMPL data files and invokes glpsol to compute assignment LP relaxation lower bounds. Generates DOT files with coordinate-positioned nodes and route-colored edges, rendered to SVG via neato -n2. The pipeline is orchestrated by a single Python script that calls glpsol and neato via subprocess."""
+verification_explanation = """Tests verify: (1) solution format, feasibility (depot, coverage, capacity), objective consistency, and quality thresholds; (2) GMPL model file exists with valid MathProg structure; (3) LP bound files contain positive values that are valid lower bounds (≤ solution objective); (4) DOT files have correct graph structure with positioned nodes and edges; (5) SVG files are valid rendered output."""
+category = "optimization"
+tags = ["vehicle-routing", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4ea732"

@@ -1,0 +1,68 @@
+{
+  "description": "Singularly perturbed BVP test problems from the Cash-Mazzia-Wright benchmark suite. Solve each problem at the specified epsilon values and write numerical solutions to results.json.",
+  "problems": {
+    "bvpT2": {
+      "equation": "eps * z'' = z'",
+      "domain": [0.0, 1.0],
+      "bc_left": {"y1": 1.0},
+      "bc_right": {"y1": 0.0},
+      "first_order_system": {
+        "y1_prime": "y2",
+        "y2_prime": "y2 / eps"
+      },
+      "notes": "Boundary layer at right endpoint"
+    },
+    "bvpT10": {
+      "equation": "eps * z'' = -t * z'",
+      "domain": [-1.0, 1.0],
+      "bc_left": {"y1": 0.0},
+      "bc_right": {"y1": 2.0},
+      "first_order_system": {
+        "y1_prime": "y2",
+        "y2_prime": "-t * y2 / eps"
+      },
+      "notes": "Interior turning point"
+    },
+    "bvpT14": {
+      "equation": "eps * z'' = z - (1 + eps * pi^2) * cos(pi * t)",
+      "domain": [-1.0, 1.0],
+      "bc_left": {"y1": "exp(-2 / sqrt(eps))"},
+      "bc_right": {"y1": "exp(-2 / sqrt(eps))"},
+      "first_order_system": {
+        "y1_prime": "y2",
+        "y2_prime": "(y1 - (1 + eps * pi^2) * cos(pi * t)) / eps"
+      },
+      "notes": "Boundary layers at both endpoints"
+    },
+    "bvpT20": {
+      "equation": "eps * z'' = -(z')^2 + 1",
+      "domain": [0.0, 1.0],
+      "bc_left": {"y1": "1 + eps * ln(cosh(-0.745 / eps))"},
+      "bc_right": {"y1": "1 + eps * ln(cosh(0.255 / eps))"},
+      "first_order_system": {
+        "y1_prime": "y2",
+        "y2_prime": "(-y2^2 + 1) / eps"
+      },
+      "notes": "Nonlinear, interior corner layer"
+    },
+    "bvpT21": {
+      "equation": "eps * z'' = z + z^2 - exp(-2*t / sqrt(eps))",
+      "domain": [0.0, 1.0],
+      "bc_left": {"y1": 1.0},
+      "bc_right": {"y1": "exp(-1 / sqrt(eps))"},
+      "first_order_system": {
+        "y1_prime": "y2",
+        "y2_prime": "(y1 + y1^2 - exp(-2*t / sqrt(eps))) / eps"
+      },
+      "notes": "Nonlinear, boundary layer at left endpoint"
+    }
+  },
+  "epsilon_values": [0.1, 0.01, 0.001],
+  "output": {
+    "grid_points": 1000,
+    "file": "/app/results.json",
+    "format": {
+      "description": "JSON dict keyed by problem_id, then by eps (as string), each containing 't' (array of 1000 floats) and 'y' (array of 1000 floats)"
+    }
+  }
+}

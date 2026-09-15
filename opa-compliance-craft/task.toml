@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of OPA/Rego policy evaluation semantics, CISA ScubaGear's AAD baseline security controls, and Microsoft 365 identity concepts (conditional access policies, authentication methods, authorization policies, PIM roles). The solver must trace through ~1600 lines of Rego across 5 files to understand how 20+ distinct policies evaluate nested JSON inputs, handle set operations and exclusion logic, and navigate policy interdependencies (e.g., MS.AAD.3.3v2's evaluation path depends on MS.AAD.3.1v1's outcome). Must engineer three strategic failures while ensuring seventeen other policies pass simultaneously."""
+solution_explanation = """Construct a JSON with: (1) six conditional access policies satisfying legacy auth blocking, high-risk user/sign-in blocking, general MFA, managed device MFA registration, and device code flow blocking -- but intentionally omitting phishing-resistant MFA and managed device authentication policies; (2) AAD P2 service plans for license-gated checks; (3) MS Authenticator properly configured with app/location context for all users to satisfy the 3.3 dependency when 3.1 fails; (4) authentication migration complete and low-security methods disabled; (5) authorization policies restricting app registration and user consent; (6) directory settings enabling admin consent workflow; (7) domain settings with passwords never expiring; (8) five privileged users with 3 global admins and 2 non-global admins to intentionally fail the least-privilege ratio check while passing the global admin count check; (9) empty scuba_config so all exclusion checks pass via the empty-exclusion path."""
+verification_explanation = """Tests run OPA evaluation on the submitted tenant_input.json against the Rego policies, parse the JSON output, and verify each of the 20 target policy outcomes (RequirementMet field) matches the expected boolean value from target_outcomes.json."""
+category = "security_and_privacy"
+tags = ["opa-rego", "cloud-compliance"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/opa-compliance-craft"

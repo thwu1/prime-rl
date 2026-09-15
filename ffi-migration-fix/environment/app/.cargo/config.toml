@@ -1,0 +1,3 @@
+# Prevent linker from stripping #[no_mangle] FFI symbols via --gc-sections
+[build]
+rustflags = ["-C", "link-dead-code"]

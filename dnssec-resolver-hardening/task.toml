@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level DNS diagnostic skills across multiple interrelated failure domains. The solver must start from observed symptoms (NXDOMAIN, SERVFAIL, unfiltered private addresses) and trace each to its root cause without any hints about what is wrong. Five distinct configuration defects interact in layered ways: (1) NSD serves the unsigned zone file instead of the DNSSEC-signed version, so DNSKEY/RRSIG records are absent from authoritative responses; (2) Unbound's built-in local-zone for the .test TLD (RFC 6761) returns NXDOMAIN for all .test queries, masking downstream issues until fixed; (3) Unbound's built-in local-zone for 113.0.203.in-addr.arpa (RFC 5737 TEST-NET-3 documentation range) blocks reverse PTR lookups; (4) the DNSSEC trust anchor references the ZSK (flags 256) instead of the KSK (flags 257), causing BOGUS validation and SERVFAIL even after the signed zone is correctly served; (5) a private-domain directive incorrectly exempts evil.test from private-address filtering, allowing the RFC1918 address 10.0.0.1 to pass through. Bugs 2 and 4 interact — fixing 2 unmasks 4, and fixing 4 alone is insufficient without also fixing 1. Diagnosing each requires different expertise: NSD zone management, Unbound built-in zone semantics, DNSSEC key hierarchy, and private-address/private-domain semantics."""
+solution_explanation = """Fix 1: Change NSD zonefile directive from acme-internal.test.zone to acme-internal.test.zone.signed so NSD serves the DNSSEC-signed zone with RRSIG and DNSKEY records. Fix 2: Add local-zone: test. nodefault to override Unbound's built-in NXDOMAIN response for the .test TLD. Fix 3: Add local-zone: 113.0.203.in-addr.arpa. nodefault to override the built-in reverse zone for RFC 5737 documentation addresses. Fix 4: Identify the KSK key file (flags 257) among the DNSSEC key files in /app/dns/zones/, extract its DNSKEY record, and replace the trust-anchor in unbound.conf. Fix 5: Remove private-domain: evil.test from unbound.conf so that Unbound's private-address directives correctly filter the 10.0.0.1 response for trap.evil.test. Restart both NSD and Unbound after applying all fixes."""
+verification_explanation = """Tests use dnspython to query both NSD (port 5353) and Unbound (port 5300) with retry logic. Verifies: NSD serves acme-internal.test and evil.test zones directly; all record types (A, MX, SRV, CNAME, wildcard, PTR) resolve correctly through Unbound; DNSSEC AD flag is set for acme-internal.test queries with DO bit; DNSKEY and RRSIG records are present in the signed zone from NSD; private address 10.0.0.1 from trap.evil.test is filtered by Unbound; non-private address 203.0.113.99 from legit.evil.test passes through."""
+category = "networking"
+tags = ["dns", "dnssec"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dnssec-resolver-hardening"

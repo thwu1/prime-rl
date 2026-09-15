@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across multiple CNCF ecosystem domains: OPA Rego policy language semantics (negation, set comprehensions, partial rule evaluation), Kubernetes resource model (binary vs decimal units for memory, millicore CPU representation), Kubernetes NetworkPolicy semantics (default-deny must cover both Ingress and Egress), and OpenTelemetry Collector pipeline architecture (component referencing, processor ordering constraints). The 10 bugs span 4 files and interact subtly — e.g., fixing a resource parser without also fixing the ratio computation still leaves tests failing. An agent must read and understand test assertions to reverse-engineer expected behavior, then apply targeted fixes without breaking passing tests."""
+solution_explanation = """Fix 10 bugs across 4 files: (1) k8s.rego: multiply whole-core CPU values by 1000 to convert to millicores; use 1024^3 instead of 1000^3 for GiB-to-bytes conversion. (2) pod_policy.rego: invert the digest-pinning check from 'contains' to 'not contains'; add initContainers to all_containers set; swap numerator/denominator in both CPU and memory request-to-limit ratio computations. (3) network_policy.rego: add 'Egress' to policyTypes check and 'not policy.spec.egress' to is_default_deny rule. (4) collector-config.yaml: change metrics exporter from otlp/jaeger to prometheusremotewrite; remove undefined transform/logs processor from logs pipeline; reorder traces pipeline processors so memory_limiter is first."""
+verification_explanation = """test.sh runs OPA's built-in test runner against all *_test.rego files (verifying Rego policy correctness) and pytest against test_state.py (verifying OTel Collector config structural validity including pipeline component references, exporter assignments, and processor ordering). Both must pass with zero failures."""
+category = "distributed_systems"
+tags = ["cloud-native", "platform-engineering"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/platform-policy-pipeline"

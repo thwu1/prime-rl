@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three distinct corruption types in a git repository without being told what is wrong: a corrupted HEAD symref containing embedded null bytes that prevents ref resolution, a missing packfile index that makes packed objects inaccessible, and a corrupt loose object file that shadows a valid packed object. Each corruption type requires different diagnostic tools and techniques — text/binary file inspection, git plumbing commands (fsck, verify-pack), and understanding of git's object lookup precedence (loose before packed). The pack index rebuild requires parsing an undocumented binary format with variable-length integer encoding, zlib-compressed entries, delta compression chains, and generating a valid IDX v2 binary file with correct fanout tables, sorted hashes, CRC32 values, and checksums."""
+solution_explanation = """First, inspect .git/HEAD with binary-aware tools to discover null byte corruption; truncate at the null to restore valid symref. Second, discover the missing .idx file via git verify-pack or by listing the pack directory; parse the .pack binary format (12-byte header, variable-length type+size entries, OFS_DELTA/REF_DELTA chains, zlib-compressed data), resolve delta chains, compute SHA-1 hashes, and generate a valid IDX v2 file. Third, run git fsck to discover the remaining corrupt loose object; verify it duplicates a packed object and remove it. Each diagnosis step requires running git commands, interpreting errors, and inspecting binary data."""
+verification_explanation = """Tests verify HEAD contains no null bytes and is a valid symref, the .idx file exists and matches the .pack filename, git verify-pack succeeds, git log shows the correct number of commits, expected branches exist, merge commit has the correct parent count, git ls-tree lists expected files, blob contents match manifest checksums, object count matches expected, git fsck passes cleanly with no errors, and the solution code does not shell out to git index-pack or git unpack-objects."""
+category = "systems_programming"
+tags = ["git-internals", "binary-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/packfile-index-rebuild"

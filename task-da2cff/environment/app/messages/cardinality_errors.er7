@@ -1,0 +1,10 @@
+MSH|^~\&|SendApp^SA1^ISO|SendFac^SF1^ISO|||20240115120000||ORU^R01^ORU_R01|MSG00003|P|2.5.1
+PID|01||PAT001~PAT002~PAT003~PAT004||Doe^John
+OBR|01||FIL001|CBC^Complete Blood Count^LN
+OBX|01|NM|WBC^White Blood Cell^LN||7.5|10*3/uL
+PID|02||PAT005||Smith^Jane
+OBR|01||FIL002|BMP^Basic Metabolic Panel^LN
+OBX|01|NM|GLU^Glucose^LN||95|mg/dL
+PID|03||PAT006||Brown^Bob
+OBR|01||FIL003|LFT^Liver Function^LN
+OBX|01|NM|ALT^Alanine Aminotransferase^LN||22|U/L

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a working term-optimization engine in Rust using the egg crate's advanced macro-based API, which is sparsely documented and demands deep understanding of e-graph equality saturation theory. The agent must independently discover how to define a custom language enum, design a sufficient set of algebraic rewrite rules (identity, commutativity, associativity, distribution, factoring, doubling), implement a constant-propagation analysis (without which many cost targets are unreachable), wire up cost-based extraction, and manage Rust trait bounds, lifetime constraints, and macro expansion errors. The cost targets are tight — they require multi-step optimization chains combining rule application with constant folding, meaning incomplete rule sets or missing analyses will fail silently on some inputs. No implementation guidance is given; the agent must determine the full approach from crate documentation and the problem constraints alone."""
+solution_explanation = """Define an Arith language enum via define_language! with Num(i64), Add([Id;2]), Mul([Id;2]), Symbol(Symbol). Implement a ConstantFold analysis (Analysis<Arith> trait) where make() propagates Option<i64> through arithmetic, merge() reconciles via merge_option, and modify() adds Num nodes for fully-reduced e-classes. Define ~10 rewrite rules using rewrite! macro covering commutativity, associativity, identity elimination, zero multiplication, distribution, factoring, and doubling. Implement an AstSize cost function via the CostFunction trait. For each input, parse the S-expression into RecExpr<Arith>, run Runner with appropriate limits, extract the cheapest expression with Extractor, and serialize results to JSON."""
+verification_explanation = """Tests verify: (1) the Cargo project compiles in release mode, (2) the binary executes producing results.json, (3) output has correct JSON structure with all 10 entries, (4) each optimized expression is semantically equivalent to its input via probabilistic evaluation with random variable assignments, (5) reported AST costs match independently computed costs, (6) all costs meet targets from inputs.json. Anti-hardcoding test runs the binary on novel expressions not in the original inputs.json and verifies equivalence and cost optimality on unseen inputs."""
+category = "algorithms"
+tags = ["equality-saturation", "rust-cargo"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/egraph-equality-saturation"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and synthesizing domain-specific documentation (calcrule specifications and FM architecture docs) to discover 8 distinct insurance calculation rule formulas and a hierarchical back-allocation algorithm. The solver must then build a multi-tool pipeline coupling Python, SQLite, Make, and JSON: (1) design a SQLite schema with tables for intermediate per-level node losses and final item losses plus a SQL view aggregating event-level statistics; (2) implement the 4-level hierarchical loss engine with proportional back-allocation that stores intermediates in the database; (3) write a Makefile with correct dependency chains to orchestrate load→compute→export→report stages; (4) produce a JSON report derived from the SQLite view. The coupled tool interop (Python sqlite3 API, Make dependency model, SQL view semantics, JSON serialization) combined with the insurance domain logic (franchise thresholds, proportional-of-loss bifurcation, excess layers with attachment+share, cascading back-allocation factors) makes this substantially harder than a single-script implementation."""
+solution_explanation = """The solution creates fmcalc.py with subcommands (load, compute, export, report, all). The load step creates a SQLite database, defines tables (gul_losses, programme, profiles, policytc, level_losses, final_losses) and the event_summary view, then loads CSV data. The compute step reads the hierarchy from SQLite, builds a descendant-tracing tree, processes levels 1-4 bottom-up — aggregating descendant item losses, applying the appropriate calcrule (1/2/3/5/9/12/14/16), computing back-allocation factor, and storing per-node (input, output) in level_losses. The export step queries final_losses to write output.csv. The report step queries event_summary to write report.json. A Makefile with stamp-file dependencies orchestrates the pipeline: .stamp_loaded → .stamp_computed → output.csv + report.json, with a clean target removing all artifacts."""
+verification_explanation = """Tests verify all three output artifacts independently. SQLite schema tests check that level_losses, final_losses tables and event_summary view exist with correct columns. An independent reference engine (reimplemented in the test from the same calcrule specs) computes both final item losses and per-level intermediate node losses; the test diffs these against both output.csv and the level_losses table. Event summary values are verified against aggregates computed from the reference. Report.json is validated against the event_summary view. Back-allocation proportionality within L1 groups is checked. Edge cases test franchise-at-threshold (Event 2 S1 Group 3 = 120k = ded → zero), small-loss-below-all-deductibles (Event 3 S3), zero-GUL items, item-loss ≤ GUL, and excess layer behavior. Finally, `make clean && make all` is run to verify idempotent rebuild."""
+category = "applied_computing"
+tags = ["insurance-modeling", "data-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/catmodel-financial-engine"

@@ -1,0 +1,21 @@
+{
+  "format_name": "NF4Q binary checkpoint v1",
+  "description": "Stores blockwise 4-bit NF4 quantized weight tensors with per-block scaling factors.",
+  "header": {
+    "magic": "4 bytes ASCII: 'NF4Q'",
+    "num_elements": "4 bytes uint32 little-endian: total number of quantized weight values",
+    "blocksize": "4 bytes uint32 little-endian: number of weights per quantization block",
+    "num_blocks": "4 bytes uint32 little-endian: number of blocks (ceil(num_elements / blocksize))"
+  },
+  "body_absmax": {
+    "description": "Per-block absmax scaling factors",
+    "encoding": "num_blocks consecutive float32 values, little-endian",
+    "size_bytes": "num_blocks * 4"
+  },
+  "body_indices": {
+    "description": "Packed 4-bit quantization indices",
+    "encoding": "Each byte stores two 4-bit indices. First index occupies the low nibble (bits 0-3), second index occupies the high nibble (bits 4-7).",
+    "size_bytes": "ceil(num_elements / 2)",
+    "index_range": "[0, 15] — index into the NF4 quantization map"
+  }
+}

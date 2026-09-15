@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a recursive-descent parser for a non-trivial S-expression grammar (~30 productions) with context-sensitive features (variable binding, named entity references). Beyond parsing, demands semantic analysis: nested rule expansion via condition distribution, conflict detection using domain-specific mutual exclusivity reasoning (ball ownership, play modes), dependency graph construction, and player coverage computation. Combines compiler construction, graph theory, and RoboCup domain knowledge."""
+solution_explanation = """Build a tokenizer (handling parens, braces, quoted strings, numbers, identifiers), recursive-descent parser for the full CLang grammar, and multi-pass analyzer. The analyzer tracks entity definitions across define/delete/rule messages, expands nested rules by distributing outer conditions, builds a dependency graph via AST traversal, detects conflicts by checking action-type mismatches for same players under non-exclusive conditions, and computes player coverage from active rule directives."""
+verification_explanation = """Five scenario files test increasing complexity: (1) basic entity tracking and activation, (2) nested rule expansion with condition distribution, (3) conflict detection with mutually exclusive and overlapping conditions, (4) deletions and deactivations with dependency tracking, (5) full tactical analysis combining all features. Tests parse JSON output and verify exact entity lists, conflict pairs, player coverage maps, expansion clause counts, and dependency sets."""
+category = "programming"
+tags = ["parsing", "multi-agent-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clang-tactical-analyzer"

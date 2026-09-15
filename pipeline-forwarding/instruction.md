@@ -1,0 +1,5 @@
+The MaxiCore32 processor at `/app/` is a 2-stage pipelined 32-bit CPU implemented in Verilog. Its pipeline comprises a decode/setup stage (`memorystage1`) and a writeback stage (`registersstage2`), connected through a combinational ALU and address generation unit.
+
+A test program is pre-loaded in `/app/tb/memory.v`. This program contains consecutive dependent instructions — where one instruction reads a register that the immediately preceding instruction writes — with no NOP padding between them. When you build and simulate the processor (`cd /app && make test`), the pipeline reads stale register values because the register file write from stage 2 has not yet completed when stage 1 reads the same register on the next cycle. This causes incorrect computation results.
+
+Modify the processor's datapath so that the test program executes correctly and all registers contain their expected values after HALT, without adding any NOP instructions to the test program. The expected register values are documented in the comments of `/app/tb/memory.v`. The primary file requiring modification is `/app/src/maxicore32.v`.

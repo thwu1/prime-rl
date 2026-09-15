@@ -1,0 +1,5 @@
+{
+  "topk": [5, 10],
+  "metrics": ["recall", "precision", "hit", "mrr", "ndcg", "map", "itemcoverage", "giniindex", "shannonentropy"],
+  "num_items": 15
+}

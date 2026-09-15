@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Isabelle/HOL formal specification to identify and fix 7 bugs across 4 interacting layers (core rotations, deletion, split/join, set operations) plus implementing the join_left function from scratch. Bugs at lower layers cascade upward — rotation errors break join, which breaks split, which breaks union/intersection/difference — requiring the solver to understand the full dependency chain and fix in the correct order. The join_left implementation demands synthesizing an algorithm from a formal specification and understanding how AVL rebalancing differs between left-spine and right-spine traversals. Cross-referencing Python code against Isabelle syntax requires familiarity with both languages and formal methods."""
+solution_explanation = """Read the Isabelle specification and compare each function against the Python implementation layer by layer. Bug 1: mkt_bal_l LR case has lrl/lrr swapped. Bug 2: mkt_bal_r RR case has l/rl swapped. Bug 3: delete's x<n branch uses mkt_bal_l instead of mkt_bal_r. Bug 4: delete_root uses mkt instead of mkt_bal_r. Bug 5: split's x>n branch uses r1 instead of l1 in the join call. Bug 6: join_right uses mkt_bal_l instead of mkt_bal_r. Bug 7: join_left must be implemented from scratch — mirror join_right but walk down r's left spine using mkt_bal_l. Bug 8: intersection has inverted present check."""
+verification_explanation = """Tests verify all three formal invariants (avl balance, BST ordering, set semantics) across 6 layers: (1) direct rotation function tests with constructed trees triggering each rotation case, (2) insert/delete with ascending/descending/random sequences, (3) join with various height asymmetries testing both join_right and join_left paths, (4) split set-semantic verification at existing/non-existing keys, (5) union/intersection/difference set-semantic correctness with random inputs, (6) algebraic identity stress tests (commutativity, De Morgan's laws, roundtrip split-join)."""
+category = "debugging"
+tags = ["formal-methods", "data-structures"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/avl-invariant-repair"

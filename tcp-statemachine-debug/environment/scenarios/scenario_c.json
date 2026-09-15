@@ -1,0 +1,14 @@
+{
+    "name": "satellite",
+    "description": "High-latency satellite link with frequent loss events",
+    "base_rtt": 0.300,
+    "rtt_jitter": 0.050,
+    "num_acks": 80,
+    "loss_pattern": {
+        "dup_ack_sets": [15, 35, 55, 70],
+        "timeouts": [25, 45, 65]
+    },
+    "targets": {
+        "min_avg_cwnd": 2000
+    }
+}

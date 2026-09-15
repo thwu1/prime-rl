@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a compiled NNUE chess evaluator from a black-box oracle binary rather than translating source code. The agent must: (1) determine the network architecture parameters (hidden size, bucket count) by analyzing the binary weights file size and solving a system of constraints; (2) discover that horizontal mirroring is applied for kings on files e-h, a critical feature deliberately omitted from the provided specification that can only be found by probing the oracle with carefully chosen test positions; (3) determine the exact 64-entry king bucket lookup table by systematic experimentation with the oracle; (4) identify that the specification's claim of "floor division" is wrong and the oracle actually uses C/Java-style truncation-toward-zero division, which produces different results for negative intermediate values. Each challenge requires expert-level chess programming knowledge and systematic hypothesis-testing against the oracle."""
+solution_explanation = """Analyze network.bin file size (196802 bytes) to solve for hidden_size=32, num_buckets=4. Probe the oracle with king-on-different-file positions to discover horizontal mirroring (sq ^ 7 when king file > 3). Test positions producing negative evaluations to identify truncation-toward-zero division semantics. Systematically probe the oracle with king-on-each-square positions to reconstruct the bucket map. Implement the complete evaluation pipeline: feature extraction with perspective-relative color, piece type mapping, square adjustment (rank flip + mirror), king-bucketed accumulator initialization, SCReLU activation, dual-perspective forward pass with truncation division, and material/fifty-move scaling."""
+verification_explanation = """Tests compare the student implementation against the compiled oracle binary via subprocess calls, ensuring exact integer match for both feature indices and evaluation scores. Fifteen diverse chess positions cover: starting position symmetry, both sides to move, king positions on mirror vs non-mirror files, corner kings, dense middlegames, sparse endgames, varying halfmove clocks for fifty-move scaling, and positions designed to produce negative intermediate values that expose division-semantics errors. Structural tests verify feature count equals piece count, feature range validity, uniqueness, sorting, integer return type, and determinism. A specific mirror-boundary test verifies that features differ between king-d1 and king-e1 positions."""
+category = "reverse-engineering"
+tags = ["chess-programming", "black-box-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nnue-chess-eval"

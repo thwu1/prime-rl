@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the solver to independently explore multi-file survey data (TOML config + CSV measurements + field notes), diagnose the nature of the gravitational anomalies, select and implement an appropriate potential-field source-recovery technique (e.g. Euler deconvolution with correct structural index, or inversion), build FFT-based derivative computation, design robust solution filtering and clustering — all without geophysics libraries and without being told which algorithms to use."""
+solution_explanation = """The solution parses the TOML config with tomllib, reads the gravity CSV, removes a polynomial regional trend via least-squares, computes easting/northing/upward derivatives using FFT (the upward derivative uses the -|k| harmonic relationship), applies moving-window Euler deconvolution with structural index 2 (appropriate for point-mass gravity anomalies), filters solutions by condition number and residual, and clusters via hierarchical clustering to identify distinct source centroids."""
+verification_explanation = """Tests generate fresh synthetic gravity data from known point masses at different positions than the development data (same TOML+CSV format), run the agent's pipeline via subprocess, and verify that at least 3 of 4 true source locations are recovered within 8 km horizontally and 8 km in depth, with all sources below the observation surface."""
+category = "scientific_computing"
+tags = ["geophysics", "signal-processing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-gravity-recovery"

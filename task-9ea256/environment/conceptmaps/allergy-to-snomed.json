@@ -1,0 +1,81 @@
+{
+  "resourceType": "ConceptMap",
+  "id": "allergy-to-snomed",
+  "url": "http://example.org/fhir/ConceptMap/allergy-to-snomed",
+  "version": "1.0.0",
+  "name": "AllergyToSNOMED",
+  "title": "Custom Allergy Codes to SNOMED CT Translation",
+  "status": "active",
+  "experimental": false,
+  "date": "2024-06-15",
+  "publisher": "Hospital System Migration Team",
+  "description": "Maps hospital-specific allergy substance codes to standardized SNOMED CT concepts.",
+  "sourceUri": "http://hospital.example.org/allergy-codes",
+  "targetUri": "http://snomed.info/sct",
+  "group": [
+    {
+      "source": "http://hospital.example.org/allergy-codes",
+      "target": "http://snomed.info/sct",
+      "element": [
+        {
+          "code": "PEN-ALLG",
+          "display": "Penicillin allergy",
+          "target": [
+            {
+              "code": "91936005",
+              "display": "Allergy to penicillin",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "SULFA-ALLG",
+          "display": "Sulfonamide allergy",
+          "target": [
+            {
+              "code": "294505008",
+              "display": "Allergy to sulfonamide",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "NUTS-ALLG",
+          "display": "Tree nut allergy",
+          "target": [
+            {
+              "code": "91934003",
+              "display": "Allergy to nut",
+              "equivalence": "wider"
+            }
+          ]
+        },
+        {
+          "code": "LATEX-ALLG",
+          "display": "Latex allergy",
+          "target": [
+            {
+              "code": "300916003",
+              "display": "Latex allergy",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "ASA-ALLG",
+          "display": "Aspirin allergy",
+          "target": [
+            {
+              "code": "293586001",
+              "display": "Allergy to aspirin",
+              "equivalence": "equivalent"
+            }
+          ]
+        }
+      ],
+      "unmapped": {
+        "mode": "provided"
+      }
+    }
+  ]
+}

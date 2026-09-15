@@ -1,0 +1,20 @@
+{
+  "session_id": "c9a7f3e2d5b14806",
+  "generated": "2024-11-10T03:42:17Z",
+  "workspace_version": "3.1.4",
+  "parameter_overrides": {
+    "quadrature": {
+      "alpha": 1.7320508075688772,
+      "beta": 0.6180339887498949
+    },
+    "sparse_inverse": {
+      "dimension": 2000,
+      "band_count": 8
+    },
+    "stochastic": {
+      "length": 9.4,
+      "width": 1.6
+    }
+  },
+  "notes": "All experiments use calibration-specific parameters. Results must include session_id."
+}

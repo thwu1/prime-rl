@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The task requires reverse-engineering game semantics from Python code (Manhattan-distance travel, hour-to-minute time window conversion, no-waiting policy, first-site timing), then independently discovering an effective optimization approach for a variant of the Travelling Salesman Problem with Time Windows. The agent must determine what tools are available in the environment, design a solver that significantly outperforms a greedy baseline (by 30%+), produce valid LP-format optimization model artifacts, and wire everything into a working pipeline including an evaluation harness. This demands expert-level combinatorial optimization knowledge, proficiency with command-line solver tools, and multi-tool pipeline engineering — all without being told which algorithms or solvers to use."""
+solution_explanation = """The reference solution generates valid LP-format model files encoding the problem with binary visit/sequencing variables and time-window constraints, invoking CBC for the model artifacts. For tour optimization, it uses multi-start simulated annealing: diverse greedy heuristics provide initial tours (sorted by value, density, opening time, window tightness, random orderings), each improved via best-insertion, then refined with SA moves (insert, swap, remove, relocate, replace, 2-opt) with periodic reheating. The best tour across all starts is returned, reliably exceeding the greedy baseline by 30%+."""
+verification_explanation = """Tests verify: (1) solver imports and returns list[int], (2) all tours are feasible per evaluate_tour, (3) no duplicate visits, (4) every instance yields positive score, (5) aggregate score beats greedy by >=30%, (6) per-instance time limit of 45s, (7) /app/models/ contains valid LP files with MIP structure markers, (8) /app/benchmark_report.json exists with correct per-instance and aggregate schema."""
+category = "optimization"
+tags = ["mixed-integer-programming", "combinatorial-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-349e2e"

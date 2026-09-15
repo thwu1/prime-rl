@@ -1,0 +1,322 @@
+{
+  "catalog": {
+    "title": {
+      "en": "European Environmental Monitoring Data Catalog",
+      "de": "Europäischer Umweltüberwachungsdatenkatalog"
+    },
+    "description": {
+      "en": "Catalog of environmental monitoring datasets from EU research and reporting programs"
+    },
+    "homepage": "https://env-data.example.eu/catalog",
+    "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+    "spatial_coverage": {
+      "uri": "http://publications.europa.eu/resource/authority/country/EUR",
+      "label": "Europe",
+      "geometry_wkt": "POLYGON((-10.5 34.5, 31.5 34.5, 31.5 71.0, -10.5 71.0, -10.5 34.5))"
+    },
+    "theme_taxonomy": {
+      "uri": "https://www.eionet.europa.eu/gemet/en/themes/",
+      "title": "GEMET Environmental Thesaurus"
+    }
+  },
+  "publisher": {
+    "uri": "http://publications.europa.eu/resource/authority/corporate-body/EEA",
+    "name": {
+      "en": "European Environment Agency",
+      "de": "Europäische Umweltagentur"
+    },
+    "email": "info@eea.europa.eu",
+    "type": "http://publications.europa.eu/resource/authority/corporate-body-classification/EU_AGENCY"
+  },
+  "datasets": [
+    {
+      "id": "air-quality-2024",
+      "title": {
+        "en": "European Air Quality Index - 2024",
+        "de": "Europäischer Luftqualitätsindex - 2024"
+      },
+      "description": {
+        "en": "Hourly air quality measurements from 4000+ monitoring stations across Europe, including NO2, PM2.5, PM10, O3, and SO2 concentrations."
+      },
+      "issued": "2024-03-15",
+      "modified": "2024-12-01",
+      "keywords": ["air quality", "pollution", "PM2.5", "nitrogen dioxide", "monitoring stations"],
+      "themes": [
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/142", "label": "air pollution"},
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/2881", "label": "environmental monitoring"}
+      ],
+      "spatial": {
+        "geometry_wkt": "POLYGON((-10.5 34.5, 31.5 34.5, 31.5 71.0, -10.5 71.0, -10.5 34.5))",
+        "geographic_name": "Europe"
+      },
+      "temporal": {
+        "start": "2024-01-01",
+        "end": "2024-12-31"
+      },
+      "frequency": "http://publications.europa.eu/resource/authority/frequency/HOURLY",
+      "spatial_resolution_m": 1000.0,
+      "conforms_to": {
+        "uri": "https://dd.eionet.europa.eu/schemas/id2011850eu-1.0/AQD_ReportingHeader.xsd",
+        "title": "Air Quality Directive Reporting Schema"
+      },
+      "creator": {
+        "name": {"en": "EEA Air Quality Team"},
+        "email": "air@eea.europa.eu"
+      },
+      "distributions": [
+        {
+          "id": "aq-csv",
+          "title": {"en": "Air Quality CSV Export"},
+          "access_url": "https://env-data.example.eu/air-quality/2024/csv",
+          "download_url": "https://env-data.example.eu/air-quality/2024/download.csv",
+          "media_type": "https://www.iana.org/assignments/media-types/text/csv",
+          "format": "http://publications.europa.eu/resource/authority/file-type/CSV",
+          "byte_size": 2147483648,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "a3f2b8c91d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a"
+          }
+        },
+        {
+          "id": "aq-netcdf",
+          "title": {"en": "Air Quality NetCDF"},
+          "access_url": "https://env-data.example.eu/air-quality/2024/netcdf",
+          "download_url": "https://env-data.example.eu/air-quality/2024/download.nc",
+          "media_type": "https://www.iana.org/assignments/media-types/application/x-netcdf",
+          "format": "http://publications.europa.eu/resource/authority/file-type/NETCDF",
+          "byte_size": 5368709120,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "b4c3d9e02f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c"
+          }
+        }
+      ]
+    },
+    {
+      "id": "water-quality-2024",
+      "title": {
+        "en": "Surface Water Quality Monitoring - 2024",
+        "de": "Oberflächenwasserqualitätsüberwachung - 2024"
+      },
+      "description": {
+        "en": "Chemical and ecological status assessments of surface water bodies across EU member states under the Water Framework Directive."
+      },
+      "issued": "2024-06-20",
+      "modified": "2024-11-15",
+      "keywords": ["water quality", "rivers", "lakes", "chemical status", "ecological status", "WFD"],
+      "themes": [
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/9261", "label": "water pollution"},
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/2881", "label": "environmental monitoring"}
+      ],
+      "spatial": {
+        "geometry_wkt": "POLYGON((-10.5 34.5, 31.5 34.5, 31.5 71.0, -10.5 71.0, -10.5 34.5))",
+        "geographic_name": "European Union"
+      },
+      "temporal": {
+        "start": "2024-01-01",
+        "end": "2024-06-30"
+      },
+      "frequency": "http://publications.europa.eu/resource/authority/frequency/QUARTERLY",
+      "spatial_resolution_m": 500.0,
+      "conforms_to": {
+        "uri": "https://rod.eionet.europa.eu/obligations/872",
+        "title": "Water Framework Directive Reporting"
+      },
+      "creator": {
+        "name": {"en": "EEA Water Assessment Team"},
+        "email": "water@eea.europa.eu"
+      },
+      "distributions": [
+        {
+          "id": "wq-geopackage",
+          "title": {"en": "Water Quality GeoPackage"},
+          "access_url": "https://env-data.example.eu/water-quality/2024/gpkg",
+          "download_url": "https://env-data.example.eu/water-quality/2024/download.gpkg",
+          "media_type": "https://www.iana.org/assignments/media-types/application/geopackage+sqlite3",
+          "format": "http://publications.europa.eu/resource/authority/file-type/GDB",
+          "byte_size": 1073741824,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "c5d4e0f13a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d"
+          }
+        }
+      ]
+    },
+    {
+      "id": "land-cover-2024",
+      "title": {
+        "en": "CORINE Land Cover Change 2018-2024",
+        "de": "CORINE Landbedeckungsänderung 2018-2024"
+      },
+      "description": {
+        "en": "Pan-European land cover and land cover change inventory based on satellite imagery analysis at 100m resolution."
+      },
+      "issued": "2024-09-01",
+      "modified": "2024-10-30",
+      "keywords": ["land cover", "CORINE", "satellite imagery", "land use change", "LULUCF"],
+      "themes": [
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/4612", "label": "land cover"},
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/7642", "label": "satellite data"}
+      ],
+      "spatial": {
+        "geometry_wkt": "POLYGON((-31.3 27.6, 44.8 27.6, 44.8 71.2, -31.3 71.2, -31.3 27.6))",
+        "geographic_name": "EEA39 countries"
+      },
+      "temporal": {
+        "start": "2018-01-01",
+        "end": "2024-12-31"
+      },
+      "frequency": "http://publications.europa.eu/resource/authority/frequency/IRREG",
+      "spatial_resolution_m": 100.0,
+      "conforms_to": {
+        "uri": "https://land.copernicus.eu/en/technical-library/corine-land-cover-nomenclature-guidelines",
+        "title": "CORINE Land Cover Nomenclature"
+      },
+      "creator": {
+        "name": {"en": "Copernicus Land Monitoring Service"},
+        "email": "copernicus@eea.europa.eu"
+      },
+      "distributions": [
+        {
+          "id": "lc-geotiff",
+          "title": {"en": "Land Cover GeoTIFF Raster"},
+          "access_url": "https://env-data.example.eu/land-cover/2024/geotiff",
+          "download_url": "https://env-data.example.eu/land-cover/2024/download.tif",
+          "media_type": "https://www.iana.org/assignments/media-types/image/tiff",
+          "format": "http://publications.europa.eu/resource/authority/file-type/TIFF",
+          "byte_size": 10737418240,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "d6e5f1a24b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e"
+          }
+        },
+        {
+          "id": "lc-vector",
+          "title": {"en": "Land Cover Vector Boundaries"},
+          "access_url": "https://env-data.example.eu/land-cover/2024/shp",
+          "download_url": "https://env-data.example.eu/land-cover/2024/boundaries.shp.zip",
+          "media_type": "https://www.iana.org/assignments/media-types/application/zip",
+          "format": "http://publications.europa.eu/resource/authority/file-type/SHP",
+          "byte_size": 3221225472,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "e7f6a2b35c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f"
+          }
+        }
+      ]
+    },
+    {
+      "id": "noise-mapping-2024",
+      "title": {
+        "en": "Environmental Noise Mapping - Strategic Agglomerations",
+        "de": "Umgebungslärmkartierung - Strategische Ballungsräume"
+      },
+      "description": {
+        "en": "Strategic noise maps for major agglomerations showing Lden and Lnight exposure levels from road, rail, aircraft, and industrial sources."
+      },
+      "issued": "2024-04-12",
+      "modified": "2024-08-22",
+      "keywords": ["noise pollution", "environmental noise", "Lden", "Lnight", "noise mapping", "agglomerations"],
+      "themes": [
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/5766", "label": "noise pollution"},
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/8531", "label": "urban area"}
+      ],
+      "spatial": {
+        "geometry_wkt": "POLYGON((-10.5 34.5, 31.5 34.5, 31.5 71.0, -10.5 71.0, -10.5 34.5))",
+        "geographic_name": "EU Member States"
+      },
+      "temporal": {
+        "start": "2022-01-01",
+        "end": "2023-12-31"
+      },
+      "frequency": "http://publications.europa.eu/resource/authority/frequency/QUINQUENNIAL",
+      "spatial_resolution_m": 10.0,
+      "conforms_to": {
+        "uri": "https://cdr.eionet.europa.eu/help/noise",
+        "title": "END Directive Reporting Schema"
+      },
+      "creator": {
+        "name": {"en": "EEA Noise and Energy Team"},
+        "email": "noise@eea.europa.eu"
+      },
+      "distributions": [
+        {
+          "id": "noise-gml",
+          "title": {"en": "Noise Contour Maps GML"},
+          "access_url": "https://env-data.example.eu/noise/2024/gml",
+          "download_url": "https://env-data.example.eu/noise/2024/contours.gml",
+          "media_type": "https://www.iana.org/assignments/media-types/application/gml+xml",
+          "format": "http://publications.europa.eu/resource/authority/file-type/GML",
+          "byte_size": 536870912,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "f8a7b3c46d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a"
+          }
+        }
+      ]
+    },
+    {
+      "id": "biodiversity-habitats-2024",
+      "title": {
+        "en": "Natura 2000 Habitat Assessment - Article 17 Reporting",
+        "de": "Natura 2000 Habitatbewertung - Artikel 17 Berichterstattung"
+      },
+      "description": {
+        "en": "Conservation status assessments of habitat types listed in Annex I of the Habitats Directive across biogeographical regions."
+      },
+      "issued": "2024-07-01",
+      "modified": "2024-09-15",
+      "keywords": ["biodiversity", "Natura 2000", "habitats directive", "conservation status", "biogeographical regions", "Article 17"],
+      "themes": [
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/875", "label": "biodiversity"},
+        {"uri": "https://www.eionet.europa.eu/gemet/en/concept/3840", "label": "habitat"}
+      ],
+      "spatial": {
+        "geometry_wkt": "POLYGON((-10.5 34.5, 31.5 34.5, 31.5 71.0, -10.5 71.0, -10.5 34.5))",
+        "geographic_name": "EU27"
+      },
+      "temporal": {
+        "start": "2013-01-01",
+        "end": "2024-12-31"
+      },
+      "frequency": "http://publications.europa.eu/resource/authority/frequency/OTHER",
+      "spatial_resolution_m": 25.0,
+      "conforms_to": {
+        "uri": "https://cdr.eionet.europa.eu/help/habitats_art17",
+        "title": "Habitats Directive Article 17 Reporting Format"
+      },
+      "creator": {
+        "name": {"en": "EEA Biodiversity and Ecosystems Team"},
+        "email": "biodiversity@eea.europa.eu"
+      },
+      "distributions": [
+        {
+          "id": "bio-gpkg",
+          "title": {"en": "Habitat Assessment GeoPackage"},
+          "access_url": "https://env-data.example.eu/biodiversity/2024/gpkg",
+          "download_url": "https://env-data.example.eu/biodiversity/2024/habitats.gpkg",
+          "media_type": "https://www.iana.org/assignments/media-types/application/geopackage+sqlite3",
+          "format": "http://publications.europa.eu/resource/authority/file-type/GDB",
+          "byte_size": 4294967296,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+          }
+        },
+        {
+          "id": "bio-csv",
+          "title": {"en": "Conservation Status Summary CSV"},
+          "access_url": "https://env-data.example.eu/biodiversity/2024/csv",
+          "download_url": "https://env-data.example.eu/biodiversity/2024/status_summary.csv",
+          "media_type": "https://www.iana.org/assignments/media-types/text/csv",
+          "format": "http://publications.europa.eu/resource/authority/file-type/CSV",
+          "byte_size": 15728640,
+          "checksum": {
+            "algorithm": "http://spdx.org/rdf/terms#checksumAlgorithm_sha256",
+            "value": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3"
+          }
+        }
+      ]
+    }
+  ]
+}

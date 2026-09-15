@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the ORD parquet serialization format (column layout, metadata encoding) from a sample file, navigating a deeply nested protobuf schema (~40 message types) to locate cross-reference fields (crude components, synthesized preparations, analysis keys), implementing multi-unit physical conversions (temperature is non-linear; pressure has 8 unit variants requiring correct NIST-standard conversion constants), and computing grouped yield statistics by both temperature bins and analysis type (following analysis_key cross-references back to Analysis.AnalysisType enums). Combines protobuf compilation, parquet I/O, chemistry domain knowledge, and multi-dimensional statistical aggregation."""
+solution_explanation = """Compile reaction.proto with protoc to generate Python bindings. Inspect sample.parquet with pyarrow to discover column layout (reaction_id string + reaction binary) and footer metadata keys (ord.name, ord.description). Deserialize each Reaction from binary. Implement temperature conversion (F→C: (T-32)*5/9, K→C: T-273.15), time conversion (to hours via factors), and pressure conversion (to bar via atmosphere as intermediate, using 1 atm=1.01325 bar=14.69595 psi=101325 Pa=760 torr/mmHg). Validate cross-references by collecting all reaction_ids, then checking CrudeComponent.reaction_id and CompoundPreparation.reaction_id (SYNTHESIZED type only) against the set. Check ProductMeasurement.analysis_key against ReactionOutcome.analyses map keys. Extract YIELD-type measurements with percentage values. For yield_by_analysis_type, follow each measurement's analysis_key to the parent outcome's analyses map, get Analysis.type, and convert enum value to string name via AnalysisType.Name(). Compute population std, median, and binned statistics."""
+verification_explanation = """Tests create synthetic ORD parquet datasets with 11 known Reaction messages containing specific unit values (77°F, 373.15K, 14.69595 PSI, 1520 Torr, 760 mmHg, etc.), deliberate cross-reference errors (orphaned crude refs, self-references, orphaned preparation refs, invalid analysis keys), duplicate reaction IDs, and YIELD measurements at known percentages linked to various Analysis types (LCMS, GC, NMR_1H, WEIGHT, LC). The solver's tool is run as a subprocess and the output JSON is verified against pre-computed expected values with numerical tolerances. Additional standalone tests verify all pressure unit conversions and yield_by_analysis_type grouping."""
+category = "data_engineering"
+tags = ["protobuf", "chemistry"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ord-parquet-analyzer"

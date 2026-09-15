@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing multiple interacting defects across two TypeScript source files in a SQL-on-FHIR ViewDefinition evaluator. Bugs span the evaluator engine and its FHIRPath utility layer, affecting 8 independent subsystems: recursive repeat traversal (only performs single-level instead of BFS), forEachOrNull null-row generation (only uses direct columns, ignoring nested select/unionAll descendants), unionAll column validation (missing), collection cardinality enforcement (missing), constant definition validation (silently accepts invalid definitions), constant reference pre-validation (missing), resource type requirement checking (missing), and date/time constant type wrapping (raw strings instead of fhirpath.js FP_DateTime/FP_Time typed objects for date/dateTime/instant/time comparisons). The solver must analyze 104 tests across 14 JSON files to identify which subsystems are broken, understand the ViewDefinition specification from test data alone, and design correct fixes ensuring all fixes compose without regressions."""
+solution_explanation = """Fix evaluator.ts and/or fhirpath-utils.ts to address all 8 defect categories. Key fixes: (1) repeat: implement BFS -- start with root context in queue, evaluate each repeat path on each dequeued item, enqueue results, collect all visited items. (2) forEachOrNull: when collection is empty, recursively collect ALL descendant column names (from nested selects, unionAll branches) and return a single row with every column null. (3) unionAll: validate that all branches produce identical column names in identical order. (4) collection enforcement: when collection is false/absent and path yields >1 value, throw error. (5) constant validation: throw when a constant definition lacks a value* key. (6) constant reference validation: pre-scan all FHIRPath expressions for %name references, throw if any reference an undefined constant (excluding builtins like %context, %resource). (7) resource validation: throw when view.resource is undefined. (8) date/time constant wrapping: import FP_DateTime and FP_Time from fhirpath/src/types and construct typed objects via new FP_DateTime(val, val) and new FP_Time(val, val) so that equality comparisons against model-typed resource fields work correctly -- the naive approach of evaluating @literal expressions returns plain strings that fail typed equality."""
+verification_explanation = """test.sh runs npm install, invokes the CLI evaluator against all 14 test data files, captures the JSON report, then runs pytest on test_state.py which checks: report exists, at least 100 tests loaded, all 104 pass (100% rate), no unexpected errors, and specific category checks for forEachOrNull, repeat, union, constant, collection, view_resource, constant_types, logic filtering, named error-handling tests, and overall pass rate."""
+category = "applied_computing"
+tags = ["healthcare-fhir", "typescript"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-viewdef-evaluator-8a2eec"

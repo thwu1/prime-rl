@@ -1,0 +1,14 @@
+{
+  "INV-001": {"asset_name": "Apache Log4j", "mission_prevalence": "high", "rationale": "Core application logging framework used by all production services"},
+  "INV-002": {"asset_name": "OpenSSL", "mission_prevalence": "high", "rationale": "TLS termination library for all encrypted communications"},
+  "INV-003": {"asset_name": "GNU Bash", "mission_prevalence": "high", "rationale": "System shell on production gateway servers"},
+  "INV-004": {"asset_name": "Linux Kernel", "mission_prevalence": "high", "rationale": "Operating system kernel on primary compute infrastructure"},
+  "INV-005": {"asset_name": "Apache HTTP Server", "mission_prevalence": "medium", "rationale": "Serves static content for non-critical public-facing site"},
+  "INV-006": {"asset_name": "PostgreSQL", "mission_prevalence": "medium", "rationale": "Analytics and reporting database - supports decision-making but not transaction processing"},
+  "INV-007": {"asset_name": "Nginx", "mission_prevalence": "medium", "rationale": "Reverse proxy for internal services"},
+  "INV-008": {"asset_name": "Redis", "mission_prevalence": "medium", "rationale": "Session cache for web application"},
+  "INV-009": {"asset_name": "Node.js", "mission_prevalence": "medium", "rationale": "Runtime for internal tooling services"},
+  "INV-010": {"asset_name": "jQuery", "mission_prevalence": "low", "rationale": "Frontend library for internal admin dashboard used by small team"},
+  "INV-011": {"asset_name": "Django", "mission_prevalence": "medium", "rationale": "Web framework for internal applications"},
+  "INV-012": {"asset_name": "PHP", "mission_prevalence": "low", "rationale": "Legacy runtime for deprecated internal tool"}
+}

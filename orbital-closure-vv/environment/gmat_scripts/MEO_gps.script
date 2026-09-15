@@ -1,0 +1,63 @@
+%General Mission Analysis Tool(GMAT) Script
+%Created: 2024-01-15
+%
+% GPS-like Medium Earth Orbit Propagation
+% Ref: GMAT V&V Paper (AIAA 2014), Table 3 - MEO
+% Uses J2+J3 zonal harmonics (Degree=3, Order=0).
+%----------------------------------------
+
+%----------------------------------------
+%---------- Spacecraft
+%----------------------------------------
+
+Create Spacecraft GPS;
+GMAT GPS.DateFormat = UTCGregorian;
+GMAT GPS.Epoch = '01 Jun 2004 12:00:00.000';
+GMAT GPS.CoordinateSystem = EarthMJ2000Eq;
+GMAT GPS.DisplayStateType = Cartesian;
+GMAT GPS.X = 5525.33668;
+GMAT GPS.Y = -15871.1849;
+GMAT GPS.Z = -20998.9924;
+GMAT GPS.VX = 2.750341;
+GMAT GPS.VY = 2.434198;
+GMAT GPS.VZ = -1.068884;
+GMAT GPS.DryMass = 2000;
+GMAT GPS.Cd = 2.2;
+GMAT GPS.Cr = 1.3;
+GMAT GPS.DragArea = 5;
+GMAT GPS.SRPArea = 15;
+
+%----------------------------------------
+%---------- ForceModel
+%----------------------------------------
+
+Create ForceModel MEO_Forces;
+GMAT MEO_Forces.CentralBody = Earth;
+GMAT MEO_Forces.PrimaryBodies = {Earth};
+GMAT MEO_Forces.GravityField.Earth.Degree = 3;
+GMAT MEO_Forces.GravityField.Earth.Order = 0;
+GMAT MEO_Forces.GravityField.Earth.PotentialFile = 'JGM2.cof';
+GMAT MEO_Forces.Drag = None;
+GMAT MEO_Forces.SRP = Off;
+GMAT MEO_Forces.PointMasses = {};
+GMAT MEO_Forces.RelativisticCorrection = Off;
+
+%----------------------------------------
+%---------- Propagators
+%----------------------------------------
+
+Create Propagator MEO_Prop;
+GMAT MEO_Prop.FM = MEO_Forces;
+GMAT MEO_Prop.Type = RungeKutta89;
+GMAT MEO_Prop.InitialStepSize = 120;
+GMAT MEO_Prop.Accuracy = 1e-12;
+GMAT MEO_Prop.MinStep = 0.001;
+GMAT MEO_Prop.MaxStep = 43200;
+GMAT MEO_Prop.MaxStepAttempts = 50;
+
+%----------------------------------------
+%---------- Mission Sequence
+%----------------------------------------
+
+BeginMissionSequence;
+Propagate MEO_Prop(GPS) {GPS.ElapsedDays = 2.0};

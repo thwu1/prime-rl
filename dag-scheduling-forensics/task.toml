@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Apache Airflow scheduler internals and HA architecture. The agent must distinguish between ExternalTaskSensor (creates blocking cross-DAG dependency), TriggerDagRunOperator (fire-and-forget trigger, no dependency), and ExternalTaskMarker (upstream completion notification for downstream sensors, no dependency for containing DAG) — a three-way distinction requiring deep operator knowledge beyond surface-level documentation. Must reconstruct scheduler health timeline from raw lifecycle events, classify each job's operational status using heartbeat gap analysis against configurable thresholds, and detect HA split-brain violations by computing overlapping active periods across scheduler processes. Demands holistic causal reasoning: correlating scheduler heartbeat failures to zombie tasks, scheduler failover overlaps to concurrent duplicate executions, distinguishing failover-caused concurrency from single-scheduler premature retry bugs, and tracing orphaned tasks to unregistered schedulers. Must then propagate anomaly impact through the dependency graph (including cycles) to determine the blast radius. Integrates temporal interval analysis, graph cycle enumeration, distributed systems debugging, causal inference, SQLite schema design, and Graphviz visualization."""
+solution_explanation = """Parse DAG JSON files identifying ExternalTaskSensor (dependency edge), TriggerDagRunOperator (no edge), and ExternalTaskMarker (no edge — marks upstream completion, not a dependency). Build normalized SQLite database. Enumerate elementary cycles via DFS. Detect anomalies: concurrent executions via temporal overlap (null end_time = open-ended), zombie tasks via scheduler heartbeat gap exceeding threshold, orphaned tasks via missing scheduler records. Reconstruct scheduler timeline classifying each job as completed (has job_end), active (heartbeating within threshold), or unresponsive (heartbeat gap exceeds threshold, no job_end). Compute scheduler active periods [start, min(job_end, last_heartbeat+threshold)] and detect split-brain windows where overlapping active jobs exceed max_active_scheduler_jobs. For root cause analysis: check if concurrent execution attempts were assigned to different schedulers (scheduler_failover_overlap) vs same scheduler (premature_retry); zombie tasks map to scheduler_unresponsive; orphaned to unknown_scheduler. Compute downstream impact via BFS on reversed dependency graph for each anomaly's DAG."""
+verification_explanation = """Tests verify: SQLite database has correct schema and row counts (7 DAGs, 33 tasks, 35 executions, 33 scheduler events). Dependency graph correctly includes ExternalTaskSensor edges and excludes both TriggerDagRunOperator and ExternalTaskMarker edges. Exactly 2 cycles with correct node sets. Anomaly detection: 2 concurrent executions, 1 zombie, 1 orphan, total 4. No false positives on normal retries. Scheduler timeline: 4 jobs classified correctly (job 8 unresponsive, job 9 completed, job 10 completed, job 11 active) with correct heartbeat counts. Split-brain: exactly 1 window between jobs 10 and 11 lasting 300 seconds. Root cause analysis: zombie traced to unresponsive scheduler 8, etl_ingest concurrent traced to scheduler failover overlap (null causal job), reporting concurrent traced to premature retry by scheduler 11, orphan traced to unknown scheduler 99. Downstream impact for each anomaly verified against transitive dependency closure (all cycle members minus source)."""
+category = "data_processing"
+tags = ["workflow-orchestration", "distributed-systems-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dag-scheduling-forensics"

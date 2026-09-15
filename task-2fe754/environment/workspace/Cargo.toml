@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "signal-core",
+    "signal-net",
+    "signal-storage",
+    "signal-embedded",
+    "signal-cli",
+]

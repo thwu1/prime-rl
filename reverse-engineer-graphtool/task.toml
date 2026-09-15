@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must reverse-engineer a compiled binary's complete behavior through black-box probing, covering 9 subcommands across three tiers of complexity: (1) text-format graph commands (info, adj, shortest, topo, allpaths) with subtle formatting rules, algorithm selection based on graph properties, and multi-key sorting; (2) a custom binary serialization format (serialize/deserialize) requiring use of hex analysis tools (xxd, hexdump) to discover magic bytes, little-endian uint32/float64 encoding, variable-length node records, conditional weight fields, node-index-based edge references, and IEEE CRC32 integrity checksums; (3) advanced graph algorithms (pagerank with iterative convergence, dangling-node redistribution, and optional damping/iteration parameters; Tarjan's SCC with specific output formatting and component ordering). The binary format alone requires proficiency with binary analysis tools and understanding of wire protocol conventions. The agent must then implement all of this as a fully compatible Python reimplementation producing byte-identical output across both text and binary modes."""
+solution_explanation = """The solution implements a Python clone matching all 9 commands: text-format parsing (weighted directive, implicit node creation, duplicate deduplication), 5 original graph commands with exact formatting, binary serialization using struct module (GRB magic, LE uint32/float64, CRC32 via zlib), binary deserialization with checksum verification, PageRank via power iteration with dangling-node handling and convergence threshold 1e-10, and Tarjan's SCC with alphabetical intra-component sorting and component ordering by smallest member."""
+verification_explanation = """Tests create diverse graph inputs and run both reference binary and agent implementation on each, comparing stdout (byte-exact for text commands, byte-identical for binary serialize), exit codes, and stderr presence. Serialize tests verify binary format compatibility including cross-tool round-trips (serialize with ref, deserialize with impl and vice versa). Deserialize tests verify CRC integrity checking on corrupted input. PageRank tests cover default and custom parameters (damping, iterations). SCC tests cover DAGs, single cycles, multiple components, and nested structures. Anti-cheat tests verify genuine Python with binary serialization code and no ref_tool delegation."""
+category = "reverse_engineering"
+tags = ["binary-protocol-analysis", "graph-algorithms"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reverse-engineer-graphtool"

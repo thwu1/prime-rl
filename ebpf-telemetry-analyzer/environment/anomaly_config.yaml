@@ -1,0 +1,7 @@
+rst_storm:
+  min_rst_total: 10
+retransmit_heavy:
+  min_retransmits: 10
+asymmetric_flow:
+  min_byte_ratio: 100
+  both_directions_nonzero: true

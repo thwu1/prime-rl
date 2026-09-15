@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of authentication logs to reconstruct an attack chain, then correlating log evidence with specific PAM stack misconfigurations across multiple files. The solver must evaluate vulnerability severity by reasoning about exploitability and impact — the auth bypass via pam_unix default=ignore + pam_permit sufficient is subtle because it superficially resembles a standard Ubuntu PAM config. Beyond fixing known misconfigurations, the solver must create a structured vulnerability assessment that correctly classifies each finding's severity, determines which were exploited vs. latent, identifies the attack phase, and orders the causal chain. This requires judgment: the logs show brute force without lockout, then a successful login that doesn't match the brute-force sequence (indicating bypass, not credential guess), then privilege escalation from a non-wheel user — the solver must synthesize these observations into a coherent forensic narrative and design appropriate remediations."""
+solution_explanation = """1. Analyze auth logs: 24 failed admin1 attempts + 8 failed dev1 attempts without lockout (faillock deny=0); dev1 login succeeds despite no successful brute force (pam_permit bypass); su to root from non-wheel dev1 (no pam_wheel); svcaccount and restricted1 accessed remotely (permissive access.conf). 2. Fix common-auth: remove pam_permit bypass, change pam_unix control to [success=1 default=bad], integrate pam_faillock preauth/authfail/authsucc, add pam_deny fallback. 3. Fix su: add pam_wheel.so required use_uid after pam_rootok. 4. Fix common-account: add pam_access.so and pam_faillock.so. 5. Fix common-session: add pam_limits.so. 6. Fix common-password: add pam_pwquality.so requisite before pam_unix. 7. Configure faillock.conf (deny=5, unlock_time=900, even_deny_root=false). 8. Configure access.conf with ordered allow/deny rules. 9. Configure pwquality.conf and limits.conf. 10. Generate vulnerability_assessment.json with 6+ vulns, severity ratings, exploited flags, attack phases, and ordered attack chain."""
+verification_explanation = """Tests verify two dimensions: (1) PAM configuration correctness via a compiled C PAM test helper that calls pam_authenticate()/pam_acct_mgmt() for functional auth testing, plus structural checks on config file contents; (2) vulnerability assessment quality by parsing the JSON output and checking that critical vulnerabilities are identified with correct severity, exploited flags, valid attack chain ordering, and appropriate overall risk rating."""
+category = "cybersecurity"
+tags = ["pam", "incident-response"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pam-stack-hardening"

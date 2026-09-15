@@ -1,0 +1,15 @@
+# Test 04: Guarded pattern should not contribute to exhaustiveness
+# A guarded type pattern's guard may evaluate to false,
+# so it cannot make the switch exhaustive for that type.
+# Expected: not exhaustive, Circle missing
+
+TYPES
+sealed Shape Circle Square
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+
+SWITCHES
+switch s1 Shape
+guarded_type Circle
+type Square
+end

@@ -1,0 +1,7 @@
+`ifndef XBAR_DEFS_SVH
+`define XBAR_DEFS_SVH
+
+`define XBAR_MAX_OUTSTANDING 16
+`define XBAR_TIMEOUT_CYCLES 1000
+
+`endif

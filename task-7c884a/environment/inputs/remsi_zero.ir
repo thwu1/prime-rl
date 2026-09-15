@@ -1,0 +1,6 @@
+func @remsi_zero() -> i32 {
+  %a = arith.constant 10 : i32
+  %b = arith.constant 0 : i32
+  %c = arith.remsi %a, %b : i32
+  return %c : i32
+}

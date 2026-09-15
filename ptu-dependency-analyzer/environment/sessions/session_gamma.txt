@@ -1,0 +1,139 @@
+#=== PTU 0 ===#
+using size_t = decltype(sizeof(0));
+#=== PTU 1 ===#
+template<typename Derived>
+struct Arithmetic {
+    Derived operator+(const Derived& rhs) const {
+        Derived result(static_cast<const Derived&>(*this));
+        result += rhs;
+        return result;
+    }
+    bool operator!=(const Derived& rhs) const {
+        return !(static_cast<const Derived&>(*this) == rhs);
+    }
+};
+#=== PTU 2 ===#
+struct Vec3 : Arithmetic<Vec3> {
+    double x, y, z;
+    Vec3() : x(0), y(0), z(0) {}
+    Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+    Vec3& operator+=(const Vec3& rhs) {
+        x += rhs.x; y += rhs.y; z += rhs.z;
+        return *this;
+    }
+    bool operator==(const Vec3& rhs) const {
+        return x == rhs.x && y == rhs.y && z == rhs.z;
+    }
+};
+#=== PTU 3 ===#
+double dot(const Vec3& a, const Vec3& b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+Vec3 cross(const Vec3& a, const Vec3& b) {
+    return Vec3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    );
+}
+#=== PTU 4 ===#
+struct Ray {
+    Vec3 origin;
+    Vec3 direction;
+    Ray(const Vec3& o, const Vec3& d) : origin(o), direction(d) {}
+    Vec3 at(double t) const {
+        return Vec3(origin.x + direction.x * t,
+                    origin.y + direction.y * t,
+                    origin.z + direction.z * t);
+    }
+};
+#=== PTU 5 ===#
+struct Material {
+    Vec3 color;
+    double reflectance;
+    Material() : color(), reflectance(0) {}
+    Material(Vec3 c, double r) : color(c), reflectance(r) {}
+};
+#=== PTU 6 ===#
+struct HitRecord {
+    Vec3 point;
+    Vec3 normal;
+    double t;
+    Material mat;
+    HitRecord() : point(), normal(), t(0), mat() {}
+};
+#=== PTU 7 ===#
+struct Hittable {
+    virtual bool hit(const Ray& r, double t_min, double t_max, HitRecord& rec) const = 0;
+    virtual ~Hittable() = default;
+};
+#=== PTU 8 ===#
+struct Sphere : Hittable {
+    Vec3 center;
+    double radius;
+    Material surface;
+    Sphere(Vec3 c, double r, Material m) : center(c), radius(r), surface(m) {}
+    bool hit(const Ray& r, double t_min, double t_max, HitRecord& rec) const override {
+        Vec3 oc = Vec3(r.origin.x - center.x, r.origin.y - center.y, r.origin.z - center.z);
+        double a = dot(r.direction, r.direction);
+        double half_b = dot(oc, r.direction);
+        double c_val = dot(oc, oc) - radius * radius;
+        double discriminant = half_b * half_b - a * c_val;
+        if (discriminant < 0) return false;
+        rec.t = (-half_b - discriminant) / a;
+        rec.point = r.at(rec.t);
+        rec.mat = surface;
+        return true;
+    }
+};
+#=== PTU 9 ===#
+template<typename T>
+struct SceneList {
+    T** items;
+    size_t count;
+    size_t cap;
+    SceneList() : items(nullptr), count(0), cap(0) {}
+    void add(T* item) {
+        if (count == cap) {
+            size_t nc = cap ? cap * 2 : 8;
+            T** ni = new T*[nc];
+            for (size_t i = 0; i < count; ++i) ni[i] = items[i];
+            delete[] items;
+            items = ni;
+            cap = nc;
+        }
+        items[count++] = item;
+    }
+};
+#=== PTU 10 ===#
+namespace render {
+    bool trace(const SceneList<Hittable>& scene, const Ray& r, HitRecord& rec) {
+        bool any_hit = false;
+        double closest = 1e30;
+        HitRecord temp;
+        for (size_t i = 0; i < scene.count; ++i) {
+            if (scene.items[i]->hit(r, 0.001, closest, temp)) {
+                any_hit = true;
+                closest = temp.t;
+                rec = temp;
+            }
+        }
+        return any_hit;
+    }
+}
+#=== PTU 11 ===#
+namespace render {
+    Vec3 shade(const HitRecord& rec, const Vec3& light_dir) {
+        double intensity = dot(rec.normal, light_dir);
+        if (intensity < 0) intensity = 0;
+        return Vec3(
+            rec.mat.color.x * intensity,
+            rec.mat.color.y * intensity,
+            rec.mat.color.z * intensity
+        );
+    }
+}
+#=== PTU 12 ===#
+SceneList<Hittable> world;
+Material red_mat(Vec3(1.0, 0.0, 0.0), 0.5);
+Sphere s1(Vec3(0, 0, -1), 0.5, red_mat);

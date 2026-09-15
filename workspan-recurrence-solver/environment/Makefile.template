@@ -1,0 +1,17 @@
+DB = parallel_costs.db
+
+.PHONY: results clean
+
+results: results.json
+
+results.json: $(DB)
+	@echo "Pipeline not implemented. Complete this Makefile."
+	@echo "Requirements:"
+	@echo "  - Extract algorithm definitions from $(DB) using sqlite3"
+	@echo "  - Extract query specifications from $(DB) using sqlite3"
+	@echo "  - Compute exact integer answers for all 19 queries"
+	@echo "  - Assemble results.json using jq"
+	@false
+
+clean:
+	rm -f results.json

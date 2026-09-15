@@ -1,0 +1,30 @@
+; FPCore benchmark expressions with known floating-point accuracy issues.
+; Each expression suffers from catastrophic cancellation in specific input regions.
+
+(FPCore (x)
+ :name "NMSE example 3.1"
+ :pre (>= x 0)
+ (- (sqrt (+ x 1)) (sqrt x)))
+
+(FPCore (x)
+ :name "expm1 (example 3.7)"
+ :pre (<= (fabs x) 1)
+ (- (exp x) 1))
+
+(FPCore (x)
+ :name "qlog (example 3.10)"
+ :pre (<= (fabs x) 1)
+ (/ (log (- 1 x)) (log (+ 1 x))))
+
+(FPCore (x)
+ :name "cos2 (problem 3.4.1)"
+ (/ (- 1 (cos x)) (* x x)))
+
+(FPCore (a b c)
+ :name "quadp (p42, positive)"
+ (let ([d (sqrt (- (* b b) (* 4 (* a c))))])
+   (/ (+ (- b) d) (* 2 a))))
+
+(FPCore (x)
+ :name "sqrtexp (problem 3.4.4)"
+ (sqrt (/ (- (exp (* 2 x)) 1) (- (exp x) 1))))

@@ -1,0 +1,57 @@
+2025 TAX RATE SCHEDULES
+
+Use these schedules to figure your tax on Form 1040, line 16, or
+when directed by the Qualified Dividends and Capital Gain Tax
+Worksheet.
+
+Schedule X -- Use if your filing status is Single
+
+If taxable          But not
+income is over--    over--          The tax is:
+$0                  $11,925         10% of taxable income
+$11,925             $48,475         $1,192.50 plus 12% of the amount over $11,925
+$48,475             $103,350        $5,578.50 plus 22% of the amount over $48,475
+$103,350            $197,300        $17,651.00 plus 24% of the amount over $103,350
+$197,300            $250,525        $40,199.00 plus 32% of the amount over $197,300
+$250,525            $626,350        $57,231.00 plus 35% of the amount over $250,525
+$626,350            ---             $188,769.75 plus 37% of the amount over $626,350
+
+
+Schedule Y-1 -- Use if your filing status is Married Filing Jointly
+                or Qualifying Surviving Spouse (QSS)
+
+If taxable          But not
+income is over--    over--          The tax is:
+$0                  $23,850         10% of taxable income
+$23,850             $96,950         $2,385.00 plus 12% of the amount over $23,850
+$96,950             $206,700        $11,157.00 plus 22% of the amount over $96,950
+$206,700            $394,600        $35,302.00 plus 24% of the amount over $206,700
+$394,600            $501,050        $80,398.00 plus 32% of the amount over $394,600
+$501,050            $751,600        $114,462.00 plus 35% of the amount over $501,050
+$751,600            ---             $202,154.50 plus 37% of the amount over $751,600
+
+
+Schedule Y-2 -- Use if your filing status is Married Filing Separately
+
+If taxable          But not
+income is over--    over--          The tax is:
+$0                  $11,925         10% of taxable income
+$11,925             $48,475         $1,192.50 plus 12% of the amount over $11,925
+$48,475             $103,350        $5,578.50 plus 22% of the amount over $48,475
+$103,350            $197,300        $17,651.00 plus 24% of the amount over $103,350
+$197,300            $250,525        $40,199.00 plus 32% of the amount over $197,300
+$250,525            $375,800        $57,231.00 plus 35% of the amount over $250,525
+$375,800            ---             $101,077.25 plus 37% of the amount over $375,800
+
+
+Schedule Z -- Use if your filing status is Head of Household
+
+If taxable          But not
+income is over--    over--          The tax is:
+$0                  $17,000         10% of taxable income
+$17,000             $64,850         $1,700.00 plus 12% of the amount over $17,000
+$64,850             $103,350        $7,442.00 plus 22% of the amount over $64,850
+$103,350            $197,300        $15,912.00 plus 24% of the amount over $103,350
+$197,300            $250,500        $38,460.00 plus 32% of the amount over $197,300
+$250,500            $626,350        $55,484.00 plus 35% of the amount over $250,500
+$626,350            ---             $187,031.50 plus 37% of the amount over $626,350

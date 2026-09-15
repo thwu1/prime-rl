@@ -1,0 +1,141 @@
+{
+  "config": {
+    "time_limit_s": 1200,
+    "cpu_cores": 4
+  },
+  "divisions": {
+    "QF_BV": {"logics": ["QF_BV"]},
+    "QF_LIA": {"logics": ["QF_LIA", "QF_IDL"]},
+    "QF_UF": {"logics": ["QF_UF"]}
+  },
+  "solvers": {
+    "alpha": {"type": "standalone", "competitive": true, "divisions": ["QF_BV", "QF_LIA", "QF_UF"]},
+    "beta": {"type": "standalone", "competitive": true, "divisions": ["QF_BV", "QF_LIA", "QF_UF"]},
+    "gamma": {"type": "standalone", "competitive": true, "divisions": ["QF_BV", "QF_LIA", "QF_UF"]},
+    "beta-delta": {"type": "derived", "base_solver": "beta", "competitive": true, "divisions": ["QF_BV", "QF_LIA", "QF_UF"]},
+    "epsilon": {"type": "standalone", "competitive": true, "divisions": ["QF_BV", "QF_LIA"]}
+  },
+  "benchmarks": [
+    {"id": "bv_001", "division": "QF_BV", "logic": "QF_BV", "status": "sat"},
+    {"id": "bv_002", "division": "QF_BV", "logic": "QF_BV", "status": "unsat"},
+    {"id": "bv_003", "division": "QF_BV", "logic": "QF_BV", "status": "sat"},
+    {"id": "bv_004", "division": "QF_BV", "logic": "QF_BV", "status": "unknown"},
+    {"id": "bv_005", "division": "QF_BV", "logic": "QF_BV", "status": "unsat"},
+    {"id": "lia_001", "division": "QF_LIA", "logic": "QF_LIA", "status": "sat"},
+    {"id": "lia_002", "division": "QF_LIA", "logic": "QF_LIA", "status": "unsat"},
+    {"id": "lia_003", "division": "QF_LIA", "logic": "QF_LIA", "status": "sat"},
+    {"id": "lia_004", "division": "QF_LIA", "logic": "QF_LIA", "status": "unknown"},
+    {"id": "idl_001", "division": "QF_LIA", "logic": "QF_IDL", "status": "sat"},
+    {"id": "idl_002", "division": "QF_LIA", "logic": "QF_IDL", "status": "unsat"},
+    {"id": "idl_003", "division": "QF_LIA", "logic": "QF_IDL", "status": "sat"},
+    {"id": "uf_001", "division": "QF_UF", "logic": "QF_UF", "status": "sat"},
+    {"id": "uf_002", "division": "QF_UF", "logic": "QF_UF", "status": "unsat"},
+    {"id": "uf_003", "division": "QF_UF", "logic": "QF_UF", "status": "sat"},
+    {"id": "uf_004", "division": "QF_UF", "logic": "QF_UF", "status": "unsat"},
+    {"id": "uf_005", "division": "QF_UF", "logic": "QF_UF", "status": "sat"},
+    {"id": "uf_006", "division": "QF_UF", "logic": "QF_UF", "status": "unsat"}
+  ],
+  "results": [
+    {"benchmark": "bv_001", "solver": "alpha", "result": "sat", "wallclock_time": 10.5, "cpu_time": 38.2},
+    {"benchmark": "bv_001", "solver": "beta", "result": "sat", "wallclock_time": 15.3, "cpu_time": 55.1},
+    {"benchmark": "bv_001", "solver": "gamma", "result": "sat", "wallclock_time": 8.2, "cpu_time": 30.5},
+    {"benchmark": "bv_001", "solver": "beta-delta", "result": "sat", "wallclock_time": 12.1, "cpu_time": 42.3},
+    {"benchmark": "bv_001", "solver": "epsilon", "result": "sat", "wallclock_time": 20.7, "cpu_time": 75.4},
+
+    {"benchmark": "bv_002", "solver": "alpha", "result": "unsat", "wallclock_time": 55.3, "cpu_time": 195.7},
+    {"benchmark": "bv_002", "solver": "beta", "result": "unsat", "wallclock_time": 82.1, "cpu_time": 310.5},
+    {"benchmark": "bv_002", "solver": "gamma", "result": "unsat", "wallclock_time": 48.9, "cpu_time": 170.2},
+    {"benchmark": "bv_002", "solver": "beta-delta", "result": "unsat", "wallclock_time": 65.4, "cpu_time": 235.8},
+    {"benchmark": "bv_002", "solver": "epsilon", "result": "unknown", "wallclock_time": 1200.0, "cpu_time": 4750.0},
+
+    {"benchmark": "bv_003", "solver": "alpha", "result": "sat", "wallclock_time": 5.1, "cpu_time": 18.3},
+    {"benchmark": "bv_003", "solver": "beta", "result": "sat", "wallclock_time": 7.8, "cpu_time": 28.9},
+    {"benchmark": "bv_003", "solver": "gamma", "result": "unsat", "wallclock_time": 3.2, "cpu_time": 11.5},
+    {"benchmark": "bv_003", "solver": "beta-delta", "result": "sat", "wallclock_time": 6.2, "cpu_time": 22.1},
+    {"benchmark": "bv_003", "solver": "epsilon", "result": "sat", "wallclock_time": 9.5, "cpu_time": 34.2},
+
+    {"benchmark": "bv_004", "solver": "alpha", "result": "sat", "wallclock_time": 25.0, "cpu_time": 90.0},
+    {"benchmark": "bv_004", "solver": "beta", "result": "unsat", "wallclock_time": 30.0, "cpu_time": 110.0},
+    {"benchmark": "bv_004", "solver": "gamma", "result": "sat", "wallclock_time": 22.0, "cpu_time": 80.0},
+    {"benchmark": "bv_004", "solver": "beta-delta", "result": "sat", "wallclock_time": 28.0, "cpu_time": 100.0},
+    {"benchmark": "bv_004", "solver": "epsilon", "result": "unknown", "wallclock_time": 1200.0, "cpu_time": 4800.0},
+
+    {"benchmark": "bv_005", "solver": "alpha", "result": "unsat", "wallclock_time": 120.3, "cpu_time": 450.7},
+    {"benchmark": "bv_005", "solver": "beta", "result": "timeout", "wallclock_time": 1200.0, "cpu_time": 4800.0},
+    {"benchmark": "bv_005", "solver": "gamma", "result": "unsat", "wallclock_time": 95.6, "cpu_time": 355.2},
+    {"benchmark": "bv_005", "solver": "beta-delta", "result": "unsat", "wallclock_time": 110.5, "cpu_time": 420.3},
+    {"benchmark": "bv_005", "solver": "epsilon", "result": "unsat", "wallclock_time": 150.2, "cpu_time": 1350.0},
+
+    {"benchmark": "lia_001", "solver": "alpha", "result": "sat", "wallclock_time": 30.0, "cpu_time": 110.0},
+    {"benchmark": "lia_001", "solver": "beta", "result": "sat", "wallclock_time": 25.0, "cpu_time": 95.0},
+    {"benchmark": "lia_001", "solver": "gamma", "result": "sat", "wallclock_time": 35.0, "cpu_time": 130.0},
+    {"benchmark": "lia_001", "solver": "beta-delta", "result": "sat", "wallclock_time": 22.0, "cpu_time": 82.0},
+    {"benchmark": "lia_001", "solver": "epsilon", "result": "sat", "wallclock_time": 40.0, "cpu_time": 150.0},
+
+    {"benchmark": "lia_002", "solver": "alpha", "result": "unsat", "wallclock_time": 100.0, "cpu_time": 380.0},
+    {"benchmark": "lia_002", "solver": "beta", "result": "unsat", "wallclock_time": 90.0, "cpu_time": 340.0},
+    {"benchmark": "lia_002", "solver": "gamma", "result": "unsat", "wallclock_time": 110.0, "cpu_time": 420.0},
+    {"benchmark": "lia_002", "solver": "beta-delta", "result": "unsat", "wallclock_time": 85.0, "cpu_time": 320.0},
+    {"benchmark": "lia_002", "solver": "epsilon", "result": "unsat", "wallclock_time": 120.0, "cpu_time": 460.0},
+
+    {"benchmark": "lia_003", "solver": "alpha", "result": "sat", "wallclock_time": 15.0, "cpu_time": 55.0},
+    {"benchmark": "lia_003", "solver": "beta", "result": "sat", "wallclock_time": 18.0, "cpu_time": 68.0},
+    {"benchmark": "lia_003", "solver": "gamma", "result": "sat", "wallclock_time": 12.0, "cpu_time": 44.0},
+    {"benchmark": "lia_003", "solver": "beta-delta", "result": "sat", "wallclock_time": 16.0, "cpu_time": 60.0},
+    {"benchmark": "lia_003", "solver": "epsilon", "result": "sat", "wallclock_time": 22.0, "cpu_time": 82.0},
+
+    {"benchmark": "lia_004", "solver": "alpha", "result": "sat", "wallclock_time": 45.0, "cpu_time": 170.0},
+    {"benchmark": "lia_004", "solver": "beta", "result": "sat", "wallclock_time": 50.0, "cpu_time": 190.0},
+    {"benchmark": "lia_004", "solver": "gamma", "result": "sat", "wallclock_time": 55.0, "cpu_time": 210.0},
+    {"benchmark": "lia_004", "solver": "beta-delta", "result": "sat", "wallclock_time": 42.0, "cpu_time": 155.0},
+    {"benchmark": "lia_004", "solver": "epsilon", "result": "unknown", "wallclock_time": 1200.0, "cpu_time": 4800.0},
+
+    {"benchmark": "idl_001", "solver": "alpha", "result": "sat", "wallclock_time": 8.0, "cpu_time": 28.0},
+    {"benchmark": "idl_001", "solver": "beta", "result": "sat", "wallclock_time": 10.0, "cpu_time": 35.0},
+    {"benchmark": "idl_001", "solver": "gamma", "result": "sat", "wallclock_time": 6.0, "cpu_time": 22.0},
+    {"benchmark": "idl_001", "solver": "beta-delta", "result": "sat", "wallclock_time": 9.0, "cpu_time": 32.0},
+    {"benchmark": "idl_001", "solver": "epsilon", "result": "sat", "wallclock_time": 12.0, "cpu_time": 44.0},
+
+    {"benchmark": "idl_002", "solver": "alpha", "result": "unsat", "wallclock_time": 200.0, "cpu_time": 780.0},
+    {"benchmark": "idl_002", "solver": "beta", "result": "unsat", "wallclock_time": 180.0, "cpu_time": 690.0},
+    {"benchmark": "idl_002", "solver": "gamma", "result": "unknown", "wallclock_time": 1200.0, "cpu_time": 4800.0},
+    {"benchmark": "idl_002", "solver": "beta-delta", "result": "unsat", "wallclock_time": 170.0, "cpu_time": 650.0},
+    {"benchmark": "idl_002", "solver": "epsilon", "result": "unsat", "wallclock_time": 250.0, "cpu_time": 980.0},
+
+    {"benchmark": "idl_003", "solver": "alpha", "result": "sat", "wallclock_time": 20.0, "cpu_time": 75.0},
+    {"benchmark": "idl_003", "solver": "beta", "result": "sat", "wallclock_time": 22.0, "cpu_time": 83.0},
+    {"benchmark": "idl_003", "solver": "gamma", "result": "sat", "wallclock_time": 18.0, "cpu_time": 66.0},
+    {"benchmark": "idl_003", "solver": "beta-delta", "result": "sat", "wallclock_time": 19.0, "cpu_time": 70.0},
+    {"benchmark": "idl_003", "solver": "epsilon", "result": "sat", "wallclock_time": 28.0, "cpu_time": 105.0},
+
+    {"benchmark": "uf_001", "solver": "alpha", "result": "sat", "wallclock_time": 5.0, "cpu_time": 18.0},
+    {"benchmark": "uf_001", "solver": "beta", "result": "sat", "wallclock_time": 8.0, "cpu_time": 29.0},
+    {"benchmark": "uf_001", "solver": "gamma", "result": "sat", "wallclock_time": 4.0, "cpu_time": 14.0},
+    {"benchmark": "uf_001", "solver": "beta-delta", "result": "sat", "wallclock_time": 6.0, "cpu_time": 21.0},
+
+    {"benchmark": "uf_002", "solver": "alpha", "result": "unsat", "wallclock_time": 60.0, "cpu_time": 225.0},
+    {"benchmark": "uf_002", "solver": "beta", "result": "unsat", "wallclock_time": 75.0, "cpu_time": 280.0},
+    {"benchmark": "uf_002", "solver": "gamma", "result": "unsat", "wallclock_time": 50.0, "cpu_time": 185.0},
+    {"benchmark": "uf_002", "solver": "beta-delta", "result": "unsat", "wallclock_time": 55.0, "cpu_time": 205.0},
+
+    {"benchmark": "uf_003", "solver": "alpha", "result": "sat", "wallclock_time": 12.0, "cpu_time": 44.0},
+    {"benchmark": "uf_003", "solver": "beta", "result": "sat", "wallclock_time": 15.0, "cpu_time": 56.0},
+    {"benchmark": "uf_003", "solver": "gamma", "result": "sat", "wallclock_time": 10.0, "cpu_time": 37.0},
+    {"benchmark": "uf_003", "solver": "beta-delta", "result": "sat", "wallclock_time": 11.0, "cpu_time": 40.0},
+
+    {"benchmark": "uf_004", "solver": "alpha", "result": "unsat", "wallclock_time": 200.0, "cpu_time": 760.0},
+    {"benchmark": "uf_004", "solver": "beta", "result": "unsat", "wallclock_time": 250.0, "cpu_time": 950.0},
+    {"benchmark": "uf_004", "solver": "gamma", "result": "unsat", "wallclock_time": 180.0, "cpu_time": 680.0},
+    {"benchmark": "uf_004", "solver": "beta-delta", "result": "unsat", "wallclock_time": 190.0, "cpu_time": 720.0},
+
+    {"benchmark": "uf_005", "solver": "alpha", "result": "sat", "wallclock_time": 30.0, "cpu_time": 112.0},
+    {"benchmark": "uf_005", "solver": "beta", "result": "timeout", "wallclock_time": 1200.0, "cpu_time": 4800.0},
+    {"benchmark": "uf_005", "solver": "gamma", "result": "sat", "wallclock_time": 25.0, "cpu_time": 93.0},
+    {"benchmark": "uf_005", "solver": "beta-delta", "result": "sat", "wallclock_time": 28.0, "cpu_time": 104.0},
+
+    {"benchmark": "uf_006", "solver": "alpha", "result": "unsat", "wallclock_time": 90.0, "cpu_time": 340.0},
+    {"benchmark": "uf_006", "solver": "beta", "result": "unsat", "wallclock_time": 110.0, "cpu_time": 415.0},
+    {"benchmark": "uf_006", "solver": "gamma", "result": "unsat", "wallclock_time": 85.0, "cpu_time": 320.0},
+    {"benchmark": "uf_006", "solver": "beta-delta", "result": "unsat", "wallclock_time": 95.0, "cpu_time": 355.0}
+  ]
+}

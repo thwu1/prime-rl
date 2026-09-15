@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing 6 heterogeneous CSV files with different schemas, building an undirected graph from order-dependency relationships and computing connected components via union-find or BFS, performing cross-dataset joins on composite keys across different naming conventions, and handling real-world data edge cases (multi-value fields, blank entries, floating-point p-values in scientific notation). Demands expertise in data engineering, graph algorithms, and software testing domain knowledge."""
+solution_explanation = """Parse all 6 CSVs using Python csv.DictReader. For category_fix_rates, expand multi-category rows by splitting on ';' and aggregate per-category. For the OD graph, collect all test names from three columns per row, create undirected edges between all pairs in each row, then run union-find to compute connected components. For TIC-FIC, filter on 'TIC = FIC' column and compute statistics on 'Days Between TIC-FIC'. For TSO-ISO, parse p-values (including scientific notation) and compute pass rates. For cross-dataset, build lookup dicts keyed on (Project URL, test name) tuples and intersect."""
+verification_explanation = """Tests independently parse the same CSV files and recompute every metric from scratch, comparing against the report JSON. Checks include exact integer counts, approximate float comparisons (tolerance 0.01), graph properties (node/edge counts, component counts), and cross-dataset join correctness. This ensures the report is not fabricated but computed from the actual data."""
+category = "data_engineering"
+tags = ["csv-analysis", "graph-algorithms"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flaky-test-analysis"

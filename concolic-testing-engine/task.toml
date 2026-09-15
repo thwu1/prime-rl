@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a program analysis engine from scratch that can automatically find assertion-violating inputs in an unfamiliar IR. The agent must reverse-engineer the interpreter's semantics, devise a strategy to systematically explore the program's execution paths (random testing is provably infeasible), handle linear and nonlinear integer arithmetic, loops with bounded exploration, and deeply nested multi-variable constraint systems. Debugging the analysis engine against 5+ diverse programs with different characteristics adds substantial difficulty."""
+solution_explanation = """The solution implements a concolic (concrete + symbolic) testing engine: it executes WHILE3ADDR programs while maintaining parallel Z3 symbolic expressions for each variable, records symbolic constraints at each branch, uses DFS to negate path conditions from deepest to shallowest, and solves for new inputs via Z3. This systematically explores execution paths until assertion-triggering inputs are found. The engine handles arithmetic ops symbolically, uses concrete fallback for unsupported operations, and finds bugs across all target programs including those with nonlinear constraints and loops."""
+verification_explanation = """Tests import the bugfinder's find_bug() function and run it on each of the 5 shipped target programs plus 3 additional hidden programs not present in the Docker image. For each, the test verifies find_bug returns a non-None list of integers, then feeds those inputs to the concrete WHILE3ADDR interpreter and asserts that an assertion failure is triggered. The hidden programs prevent hardcoded solutions."""
+category = "program_analysis"
+tags = ["symbolic-execution", "constraint-solving"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/concolic-testing-engine"

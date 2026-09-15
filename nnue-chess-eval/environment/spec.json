@@ -1,0 +1,58 @@
+{
+    "architecture": {
+        "input_size": 768,
+        "hidden_size": 32,
+        "num_buckets": 4,
+        "activation": "screlu",
+        "horizontal_mirror": true,
+        "quantizations": {"QA": 255, "QB": 64},
+        "scale": 400
+    },
+    "bucket_map": [
+        0, 0, 1, 1, 1, 1, 0, 0,
+        0, 0, 1, 1, 1, 1, 0, 0,
+        2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3
+    ],
+    "bucket_map_note": "Indexed by square (a1=0..h8=63) after perspective adjustment. For white: use king_square directly. For black: flip rank (sq ^ 56) before lookup.",
+    "binary_format": {
+        "description": "All values are little-endian signed 16-bit integers (int16). Stored contiguously in order: input_weights, input_biases, output_weights, output_bias.",
+        "input_weights_shape": "[num_buckets, input_size, hidden_size] — row-major order: iterate buckets, then input features, then hidden neurons",
+        "input_biases_shape": "[hidden_size]",
+        "output_weights_shape": "[2 * hidden_size] — first hidden_size entries for 'us' perspective, next hidden_size for 'them'",
+        "output_bias_shape": "[1]"
+    },
+    "feature_indexing": {
+        "description": "768 features = 2 relative_colors x 6 piece_types x 64 squares. Each piece on the board maps to exactly one feature index per perspective.",
+        "piece_type_order": ["pawn", "knight", "bishop", "rook", "queen", "king"],
+        "piece_type_indices": {"pawn": 0, "knight": 1, "bishop": 2, "rook": 3, "queen": 4, "king": 5},
+        "square_convention": "a1=0, b1=1, ..., h1=7, a2=8, ..., h8=63 (standard python-chess convention)",
+        "formula": "feature_index = relative_color * 384 + piece_type_index * 64 + adjusted_square",
+        "relative_color": "0 if the piece's color matches the perspective (e.g., white piece from white perspective), 1 if opposite",
+        "square_adjustment_steps": [
+            "1. Start with the piece's actual square.",
+            "2. If perspective is black: flip the rank by XOR with 56 (sq ^ 56).",
+            "3. If horizontal mirror is active: flip the file by XOR with 7 (sq ^ 7)."
+        ],
+        "king_bucket_computation": "For white perspective: bucket = bucket_map[white_king_square]. For black perspective: bucket = bucket_map[black_king_square ^ 56].",
+        "mirror_condition": "Horizontal mirror is active when the perspective's own king is on file index > 3 (i.e., files e, f, g, h). File index = square % 8."
+    },
+    "forward_pass": {
+        "accumulator_init": "For each hidden neuron h: acc[h] = input_bias[h] + sum(input_weights[bucket][feature_idx][h] for each active feature in this perspective)",
+        "us_them_assignment": "If white to move: us = white_accumulator, them = black_accumulator. If black to move: us = black_accumulator, them = white_accumulator.",
+        "screlu": "screlu(x) = clamp(x, 0, QA) ** 2, where clamp(x, lo, hi) = max(lo, min(x, hi))",
+        "output_computation": "output = sum over h of (screlu(us[h]) * output_weights[h] + screlu(them[h]) * output_weights[hidden_size + h])",
+        "raw_eval": "raw_eval = (output // QA + output_bias) * SCALE // (QA * QB)",
+        "integer_division_note": "All division uses Python floor division (//) which rounds toward negative infinity."
+    },
+    "evaluation_scaling": {
+        "material_phase": "3 * total_knights + 3 * total_bishops + 5 * total_rooks + 10 * total_queens (count pieces of BOTH colors)",
+        "phase_scaling": "eval = eval * (22400 + material_phase) // 32768",
+        "fifty_move_scaling": "eval = eval * (200 - halfmove_clock) // 200",
+        "scaling_order": "Apply phase scaling first, then fifty-move scaling."
+    }
+}

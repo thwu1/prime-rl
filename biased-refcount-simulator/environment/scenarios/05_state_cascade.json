@@ -1,0 +1,17 @@
+{
+  "description": "Full BRC state cascade: default -> weakrefs -> queued -> merged, with negative shared refcount",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "create_weakref", "obj": "A"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "process_queue"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"}
+  ]
+}

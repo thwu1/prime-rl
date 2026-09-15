@@ -1,0 +1,20 @@
+{
+    "problem": "stokes_lid_driven_cavity",
+    "domain": {
+        "Lx": 1.0,
+        "Ly": 1.0
+    },
+    "grid": {
+        "nx": 40,
+        "ny": 40
+    },
+    "physics": {
+        "mu": 1.0,
+        "U_lid": 1.0
+    },
+    "solver": {
+        "max_iterations": 500,
+        "tolerance": 1e-8
+    },
+    "output_dir": "/app/output"
+}

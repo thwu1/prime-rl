@@ -1,0 +1,16 @@
+{
+  "quintic_reference": {
+    "coefficients": [3.4445, -4.7750, 2.0315],
+    "num_steps": 5
+  },
+  "septic_constraints": {
+    "num_steps": 3,
+    "tolerance_band": [0.68, 1.32],
+    "x_range": [0.01, 1.0]
+  },
+  "benchmark": {
+    "matrix_sizes": [[64, 64], [128, 64], [64, 128], [256, 128]],
+    "num_trials": 5,
+    "seed": 42
+  }
+}

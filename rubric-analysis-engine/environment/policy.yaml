@@ -1,0 +1,26 @@
+# Scoring Policy Configuration
+# Defines required methodology for the evaluation pipeline.
+
+scoring:
+  propagation: weighted_average
+  leaf_detection: no_children
+
+sensitivity:
+  method: effective_weight
+  normalize_to_one: true
+
+categories:
+  weight_method: effective
+
+agreement:
+  weighted: true
+  chance_model: per_rater_marginals
+  metrics:
+    - cohens_kappa
+    - accuracy
+    - precision
+    - recall
+    - f1
+
+output:
+  decimal_places: 6

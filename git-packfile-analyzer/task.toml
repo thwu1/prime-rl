@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple independent corruptions in a git repository from cascading error messages where one failure masks others, understanding git's internal binary packfile format to repair header version and trailing checksum fields using binary analysis tools, using git plumbing commands (index-pack, cat-file, verify-pack) alongside Python struct/hashlib for binary manipulation, analyzing the commit graph to reconstruct a broken branch reference, and understanding git-specific internal files (shallow markers, packed-refs, HEAD) — spanning binary format forensics, version control internals, and systematic multi-step troubleshooting."""
+solution_explanation = """Fix HEAD to point to refs/heads/master instead of the non-existent refs/heads/main, remove the spurious .git/shallow file, repair the packfile by restoring version 2 in the 12-byte header and computing the correct SHA-1 trailing checksum over the corrected data, regenerate the pack index using git index-pack, then fix the feature/string-utils branch ref in packed-refs by examining the merge commit's second parent to discover the correct SHA-1."""
+verification_explanation = """Tests verify fully repaired state: git fsck --full exits cleanly with no errors, git log --all shows all 6 original commits with correct messages, both branches resolve to valid commits, git verify-pack validates all packfiles, file contents are intact via git show, merge commit has exactly 2 parents, .git/shallow is absent, HEAD points to master, pack index exists, and diagnosis.json documents at least 4 discovered corruptions with structured category/description fields."""
+category = "systems"
+tags = ["git-internals", "forensic-recovery"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/git-packfile-analyzer"

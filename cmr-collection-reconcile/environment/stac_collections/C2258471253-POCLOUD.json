@@ -1,0 +1,43 @@
+{
+  "type": "Collection",
+  "id": "C2258471253-POCLOUD",
+  "stac_version": "1.0.0",
+  "title": "GHRSST Level 2P Global Sea Surface Skin Temperature from MODIS on Aqua",
+  "description": "MODIS_A-JPL-L2P-v2019.0 data collection from POCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -60,
+          -180,
+          60,
+          180
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2002-07-04T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "POCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "Aqua"
+    ],
+    "processing:level": "L2"
+  },
+  "links": [],
+  "license": "proprietary"
+}

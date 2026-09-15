@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of shared-memory parallel programming. The five kernels exhibit fundamentally different classes of parallelization defects spanning synchronization, algorithmic correctness, data decomposition, and loop-carried dependencies. The solver must independently diagnose each failure without any hints, evaluate whether the existing parallelization approach is salvageable or requires redesign, and create correct implementations. Two kernels require fundamental algorithmic restructuring rather than simple pragma additions: the prefix scan has an inherent sequential dependency that demands designing a multi-phase parallel scan algorithm from scratch, and the Jacobi stencil requires recognizing an algorithmic correctness violation (not just a synchronization issue) that necessitates double-buffered iteration. The convolution kernel requires recognizing that the loop nest is parallelized over the wrong dimension and restructuring the entire computation. Together these demand holistic mastery of the OpenMP memory model, parallel algorithm design, and numerical computing."""
+solution_explanation = """histogram.c: wrap the local-to-global merge loop in a critical section to serialize concurrent writes to the shared histogram array. jacobi.c: introduce double buffering with a second grid array to separate reads from writes across the stencil update, eliminating the read-write hazard inherent in the in-place approach. nbody.c: replace the Newton's third law optimization (which causes cross-thread writes to force arrays) with a full all-pairs computation where each thread only accumulates forces for its assigned body. convolve.c: restructure the loop nest to parallelize over output indices instead of filter coefficients, computing each output element independently with no shared writes. prefix_scan.c: replace the naive parallelized running sum (which has a loop-carried dependency) with a three-phase parallel prefix sum: local chunk prefix sums, sequential scan of chunk totals, then offset application."""
+verification_explanation = """Tests verify four properties per kernel: (1) successful compilation with -fopenmp -O2, (2) numerical correctness by comparing stdout against independently-compiled sequential reference implementations using identical deterministic PRNG initialization, (3) deterministic output across multiple runs with varying thread counts to surface concurrency defects, and (4) continued presence of '#pragma omp' directives to prevent trivial sequential solutions."""
+category = "parallel_computing"
+tags = ["openmp", "concurrency", "hpc", "parallel-algorithms", "numerical-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-openmp-races"

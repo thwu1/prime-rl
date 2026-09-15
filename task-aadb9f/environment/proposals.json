@@ -1,0 +1,64 @@
+{
+  "proposals": [
+    {
+      "proposal_id": 1,
+      "description": "Reduce conv_shared register usage from 48 to 32 per thread on Volta at block_size=256",
+      "architecture": "volta",
+      "kernel": "conv_shared",
+      "block_size": 256,
+      "modification": {
+        "parameter": "registers_per_thread",
+        "original": 48,
+        "proposed": 32
+      }
+    },
+    {
+      "proposal_id": 2,
+      "description": "Halve stencil_3d shared memory usage from 4096 to 2048 bytes on Volta at block_size=256",
+      "architecture": "volta",
+      "kernel": "stencil_3d",
+      "block_size": 256,
+      "modification": {
+        "parameter": "shared_memory_bytes",
+        "original": 4096,
+        "proposed": 2048
+      }
+    },
+    {
+      "proposal_id": 3,
+      "description": "Increase attention kernel shared memory from 65536 to 98304 bytes for larger KV-cache on Hopper at block_size=512",
+      "architecture": "hopper",
+      "kernel": "attention",
+      "block_size": 512,
+      "modification": {
+        "parameter": "shared_memory_bytes",
+        "original": 65536,
+        "proposed": 98304
+      }
+    },
+    {
+      "proposal_id": 4,
+      "description": "Optimize matmul_tiled by reducing registers from 33 to 32 per thread on Volta at block_size=256",
+      "architecture": "volta",
+      "kernel": "matmul_tiled",
+      "block_size": 256,
+      "modification": {
+        "parameter": "registers_per_thread",
+        "original": 33,
+        "proposed": 32
+      }
+    },
+    {
+      "proposal_id": 5,
+      "description": "Maximize reduce_warp parallelism by using block_size=2048 on Volta",
+      "architecture": "volta",
+      "kernel": "reduce_warp",
+      "block_size": 256,
+      "modification": {
+        "parameter": "block_size",
+        "original": 256,
+        "proposed": 2048
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+    "description": "Report format for compiler optimization analysis of /app/target.c",
+    "fields": {
+        "divide_by_7": {
+            "has_div_instruction": "boolean: at -O2, does divide_by_7's assembly contain a div or idiv instruction?",
+            "has_mul_instruction": "boolean: at -O2, does divide_by_7's assembly contain a mul or imul instruction?"
+        },
+        "modulo_13": {
+            "has_div_instruction": "boolean: at -O2, does modulo_13's assembly contain a div or idiv instruction?",
+            "has_mul_instruction": "boolean: at -O2, does modulo_13's assembly contain a mul or imul instruction?"
+        },
+        "accumulate": {
+            "has_memory_write_in_loop_body": "boolean: at -O2, does the inner loop body of accumulate contain a memory store instruction?",
+            "optimization_blocker": "string: explain the language-level constraint that causes the compiler to emit the observed inefficient code pattern"
+        },
+        "fill_multiples": {
+            "has_imul_in_loop_body": "boolean: at -O2, does the inner loop body of fill_multiples contain an imul instruction?",
+            "has_compiler_introduced_add": "boolean: at -O2, does the loop body contain an add instruction that replaces source-level arithmetic?"
+        },
+        "sum_floats": {
+            "vectorized_at_O3_avx2": "boolean: at -O3 -mavx2, does sum_floats use packed float SIMD additions (vaddps or addps)?",
+            "vectorized_at_O3_avx2_ffast_math": "boolean: at -O3 -mavx2 -ffast-math, does sum_floats use packed float SIMD additions?",
+            "vectorization_blocker": "string: explain why -O3 -mavx2 alone is insufficient to auto-vectorize this loop"
+        },
+        "categorize": {
+            "uses_jump_table": "boolean: does the switch use an indirect jump through a table of code addresses?",
+            "uses_data_lookup_table": "boolean: does GCC emit a separate data table to look up return values?"
+        }
+    }
+}

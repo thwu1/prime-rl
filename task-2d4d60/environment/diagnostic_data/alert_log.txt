@@ -1,0 +1,32 @@
+2024-01-15 08:23:15.234
+Thread 1 opened at log sequence 4521
+  Current log# 3 seq# 4521 mem# 0: /u01/app/oracle/oradata/PROD/redo03.log
+2024-01-15 09:45:22.891
+ORA-04031: unable to allocate 32784 bytes of shared memory ("shared pool","unknown object","sga heap(1,0)","kglsim object batch")
+2024-01-15 09:45:22.895
+Additional information:
+  Heap dump for error 4031
+  shared pool: free memory = 4521984
+  Allocation size 32784
+2024-01-15 10:12:33.456
+ORA-04031: unable to allocate 65560 bytes of shared memory ("shared pool","SELECT /*+ FIRST_ROWS */ id, name, status, created FROM orders WHERE customer_id = 847291 AND status = 'PENDING'","sga heap(1,0)","kglsim heap")
+2024-01-15 10:15:44.123
+ORA-04031: unable to allocate 32784 bytes of shared memory ("shared pool","unknown object","sga heap(1,0)","kglsim object batch")
+2024-01-15 11:30:00.000
+Thread 1 opened at log sequence 4522
+  Current log# 1 seq# 4522 mem# 0: /u01/app/oracle/oradata/PROD/redo01.log
+2024-01-15 12:05:17.890
+ORA-00060: deadlock detected while waiting for resource
+2024-01-15 14:22:45.678
+ORA-04031: unable to allocate 16400 bytes of shared memory ("shared pool","unknown object","sga heap(2,0)","kglsim object batch")
+2024-01-15 15:00:00.000
+Thread 1 opened at log sequence 4523
+  Current log# 2 seq# 4523 mem# 0: /u01/app/oracle/oradata/PROD/redo02.log
+2024-01-15 16:45:33.210
+ORA-04031: unable to allocate 32784 bytes of shared memory ("shared pool","INSERT INTO audit_log (log_id, user_id, action, timestamp, details) VALUES (audit_seq.NEXTVAL, 12847, 'LOGIN', SYSDATE, 'IP: 10.0.5.47')","sga heap(1,0)","kglsim heap")
+2024-01-15 18:30:12.567
+Thread 1 opened at log sequence 4524
+  Current log# 3 seq# 4524 mem# 0: /u01/app/oracle/oradata/PROD/redo03.log
+2024-01-15 21:00:00.000
+Thread 1 opened at log sequence 4525
+  Current log# 1 seq# 4525 mem# 0: /u01/app/oracle/oradata/PROD/redo01.log

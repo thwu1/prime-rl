@@ -1,0 +1,185 @@
+STATSPACK report for
+
+Database    DB Id    Instance     Inst Num  Startup Time   Release     RAC
+~~~~~~~~ ----------- ------------ -------- --------------- ----------- ---
+          2847391056 PRODDB             1  23-Oct-24 06:15 19.0.0.0.0  NO
+
+Host Name: prodserver1   Platform: Linux x86 64-bit
+Num CPUs: 16   Num CPU Cores: 8   Num CPU Sockets: 2
+
+Snapshot       Snap Id     Snap Time      Sessions Curs/Sess Comment
+~~~~~~~~    ---------- ------------------ -------- --------- -------------------
+Begin Snap:     45678  25-Oct-24 09:00:01      156      79.1
+  End Snap:     45679  25-Oct-24 10:00:03      189      82.4
+   Elapsed:                  60.03 (mins)
+   DB time:                 847.23 (mins)
+
+Cache Sizes
+~~~~~~~~~~~
+                       Begin        End
+                  ---------- ----------
+    Buffer Cache:      512M       512M  Std Block Size:    8K
+     Shared Pool:      512M       512M      Log Buffer:   16M
+
+Load Profile
+~~~~~~~~~~~~                            Per Second    Per Transaction
+                                   ---------------    ---------------
+                  Redo size:           205,761.52           5,714.98
+              Logical reads:             9,033.46             250.93
+             Block changes:              1,486.27              41.28
+            Physical reads:              1,109.28              30.81
+           Physical writes:                456.78              12.69
+                User calls:              5,201.42             144.48
+                    Parses:              1,372.43              38.12
+               Hard parses:                477.90              13.27
+                      Sorts:               397.61              11.04
+                    Logons:                  2.60               0.07
+                  Executes:              5,201.42             144.48
+               Transactions:                36.01
+
+% Blocks changed per Read:   16.45    Recursive Call %:    39.54
+Rollback per transaction %:    2.07    Rows per Sort:     190.95
+
+Instance Efficiency Percentages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            Buffer Nowait %:   98.23
+            Buffer  Hit   %:   90.00
+            Library Hit   %:   86.76
+         Execute to Parse %:   73.58
+              Parse CPU to Parse Elapsd %:   78.45
+                        % Non-Parse CPU:   92.34
+          In-memory Sort %:   98.09
+          Soft Parse %:   65.17
+         Latch Hit %:   96.45
+
+Shared Pool Statistics
+~~~~~~~~~~~~~~~~~~~~~~
+                        Begin   End
+                        ------  ------
+             Memory Usage %:  89.45   91.23
+    % SQL with executions>1:  34.56   32.18
+  % Memory for SQL w/exec>1:  45.67   43.89
+
+Top 5 Timed Foreground Events
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                                              Avg
+                                                %Total  wait
+Event                          Waits    Time(s)  DB time (ms)
+------------------------------ -------- -------- ------- ------
+db file sequential read        12847293    89931   17.69   7.0
+db file scattered read          3421876    17109    3.37   5.0
+latch: cache buffers chains     1847231     5542    1.09   3.0
+buffer busy waits               1234567     3704    0.73   3.0
+latch: shared pool               987654     2963    0.58   3.0
+DB CPU                                    38456    7.57
+
+Wait Events (fg, ordered by Total Wait Time)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                            Total     Wait    Waits
+                                   Waits   Time(s)    Avg(ms) /txn
+Event                             -------- --------- ------- ------
+db file sequential read           12847293     89931    7.00  5953.0
+db file scattered read             3421876     17109    5.00  1586.0
+log file sync                      2156789      6470    3.00   999.7
+latch: cache buffers chains        1847231      5542    3.00   855.8
+buffer busy waits                  1234567      3704    3.00   572.1
+log file parallel write            2109834      4220    2.00   977.6
+latch: shared pool                  987654      2963    3.00   457.6
+enq: TX - row lock contention       456789      4568   10.00   211.7
+read by other session               345678       691    2.00   160.2
+cursor: pin S wait on X             198765       596    3.00    92.1
+
+SQL ordered by Elapsed Time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Elapsed     CPU                                        Old
+  Time (s) Time (s) Executions  Elap per Exec (s)  Hash Value
+---------- --------- ----------  -----------------  ----------
+    312.46    267.89        456           0.685     6182739405
+Module: JDBC Thin Client
+SELECT /*+ NO_INDEX(oi) */ oi.order_id, oi.product_id, oi.quantity FROM
+order_items oi WHERE oi.order_id IN (SELECT o.order_id FROM orders o WHERE
+o.order_date > SYSDATE - 365)
+
+    245.68    198.23          1         245.680     3847291056
+Module: SQL*Plus
+SELECT /*+ FULL(o) */ o.*, c.customer_name FROM orders o, customers c WHERE
+o.customer_id = c.customer_id AND o.order_date BETWEEN TO_DATE('2024-01-01',
+'YYYY-MM-DD') AND TO_DATE('2024-12-31','YYYY-MM-DD')
+
+    178.46    145.68       1234           0.145     5738291046
+Module: JDBC Thin Client
+SELECT p.product_name, SUM(oi.quantity) AS total_qty, SUM(oi.quantity *
+oi.unit_price) AS total_revenue FROM order_items oi JOIN products p ON
+oi.product_id = p.product_id GROUP BY p.product_name HAVING SUM(oi.quantity *
+oi.unit_price) > 10000 ORDER BY total_revenue DESC
+
+    146.76     97.84    4892103           0.000     1928374650
+Module: JDBC Thin Client
+SELECT customer_name, email FROM customers WHERE customer_id = 12345
+
+     89.01     67.89     987654           0.000     4829301756
+Module: JDBC Thin Client
+SELECT order_id, order_total FROM orders WHERE status = 'PENDING'
+
+SQL ordered by Gets
+~~~~~~~~~~~~~~~~~~~
+                                              Gets
+  Buffer Gets  Executions  Gets per Exec  per Row   Hash Value
+-------------- ----------  ------------- --------  ----------
+    24,460,515   4,892,103            5.0      5.0  1928374650
+Module: JDBC Thin Client
+SELECT customer_name, email FROM customers WHERE customer_id = 12345
+
+    12,345,678         456       27,073.9  27073.9  6182739405
+Module: JDBC Thin Client
+SELECT /*+ NO_INDEX(oi) */ oi.order_id, oi.product_id, oi.quantity FROM
+order_items oi WHERE oi.order_id IN (SELECT o.order_id FROM orders o WHERE
+o.order_date > SYSDATE - 365)
+
+     8,923,456           1    8,923,456.0      2.5  3847291056
+Module: SQL*Plus
+SELECT /*+ FULL(o) */ o.*, c.customer_name FROM orders o, customers c WHERE
+o.customer_id = c.customer_id AND o.order_date BETWEEN TO_DATE('2024-01-01',
+'YYYY-MM-DD') AND TO_DATE('2024-12-31','YYYY-MM-DD')
+
+     6,789,012        1234        5,501.6    550.2  5738291046
+Module: JDBC Thin Client
+SELECT p.product_name, SUM(oi.quantity) AS total_qty, SUM(oi.quantity *
+oi.unit_price) AS total_revenue FROM order_items oi JOIN products p ON
+oi.product_id = p.product_id GROUP BY p.product_name HAVING SUM(oi.quantity *
+oi.unit_price) > 10000 ORDER BY total_revenue DESC
+
+     5,925,924      987,654            6.0      6.0  4829301756
+Module: JDBC Thin Client
+SELECT order_id, order_total FROM orders WHERE status = 'PENDING'
+
+Segments by Buffer Busy Waits
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Buffer
+Owner      Object Name        Object Type    Busy Waits
+---------- ------------------ ------------- -----------
+APPUSER    ORDERS             TABLE             987,432
+APPUSER    PK_ORDERS          INDEX             234,567
+APPUSER    ORDER_ITEMS        TABLE             123,456
+APPUSER    IDX_ORDER_DATE     INDEX              45,678
+APPUSER    CUSTOMERS          TABLE              23,456
+
+Segments by Row Lock Waits
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Row Lock
+Owner      Object Name        Object Type      Waits
+---------- ------------------ ------------- ----------
+APPUSER    ORDERS             TABLE             345,678
+APPUSER    ORDER_ITEMS        TABLE              12,345
+APPUSER    CUSTOMERS          TABLE               2,345
+
+Segments by ITL Waits
+~~~~~~~~~~~~~~~~~~~~~
+           ITL
+Owner      Object Name        Object Type    Waits
+---------- ------------------ ------------- -------
+APPUSER    ORDERS             TABLE           98,765
+APPUSER    ORDER_ITEMS        TABLE            3,456
+APPUSER    CUSTOMERS          TABLE              456
+
+                          End of Report

@@ -1,0 +1,20 @@
+{
+  "name": "manual_no_election",
+  "config": {
+    "replication_factor": 3,
+    "min_isr": 2,
+    "recovery_mode": "manual"
+  },
+  "events": [
+    {"type": "produce", "count": 10},
+    {"type": "replicate", "replica": "R2"},
+    {"type": "replicate", "replica": "R3"},
+    {"type": "advance_hwm"},
+    {"type": "fence", "replica": "R3"},
+    {"type": "fence", "replica": "R2"},
+    {"type": "fence", "replica": "R1"},
+    {"type": "unfence", "replica": "R1", "unclean": true, "records_lost": 2},
+    {"type": "unfence", "replica": "R2", "unclean": true, "records_lost": 1},
+    {"type": "elect_leader"}
+  ]
+}

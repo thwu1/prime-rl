@@ -1,0 +1,5 @@
+{
+  "description": "Expected Standard Model background yields in SR-A per MET bin",
+  "bins": ["[250, 350)", "[350, 500)", "[500, 700)", "[700, inf)"],
+  "yields": [48.3, 27.1, 12.6, 5.8]
+}

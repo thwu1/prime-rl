@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding two versions of the Touchstone file format specification (v1.0 vs v2.0), handling three different data formats (DB, MA, RI), correctly parsing the legacy 2-port data ordering (21_12) versus the v2.0 12_21 ordering, and implementing per-port impedance renormalization through complex matrix algebra. Additionally demands compiling a C shared library and interfacing with it from Python via ctypes (complex ABI marshalling of double[8] packed complex matrices), generating SVG plots using gnuplot scripting, and writing valid Touchstone v2.0 output with all mandatory keywords. The multi-tool pipeline (make/gcc, ctypes FFI, gnuplot, Touchstone format) creates interoperability complexity beyond pure algorithmic work."""
+solution_explanation = """Compile libmatrix.so via make. Parse v1.0 file handling DB format (dB-to-linear via 10^(dB/20)) and legacy 21_12 column ordering. Parse v2.0 file handling RI format, [Two-Port Data Order] 12_21 ordering, and [Reference] per-port impedances [50, 75] overriding the option line. Load the C library via ctypes, wrapping pack/unpack of 2x2 complex matrices as double[8] arrays. Renormalize network B from per-port [50, 75] ohm to uniform 50 ohm by converting S->Z via Z = sqrt(Z0) * (I+S) * inv(I-S) * sqrt(Z0) then Z->S via S = (Z - Z0_new*I) * inv(Z + Z0_new*I), using C library calls for all matrix ops. Convert both networks to T-parameters, cascade via T_A @ T_B, convert back to S. Renormalize cascade from 50 to 75 ohm. Write JSON outputs, Touchstone v2.0 output file with all required keywords, and generate gnuplot SVG frequency response plot."""
+verification_explanation = """Tests independently compute golden values using numpy (installed at test time), performing all conversions from hardcoded input data. Verifies: (1) libmatrix.so exists, is loadable, exports required functions, and produces correct results; (2) JSON output S-parameters match golden values within 1e-6; (3) Z-parameters match within 1e-4; (4) dB metrics match within 1e-3; (5) Touchstone v2.0 output has all mandatory keywords, correct reference impedance, and S-parameter values matching golden computation within 1e-5; (6) SVG plot exists and contains valid SVG with expected axis labels and curve legends; (7) Physical consistency checks (passive network constraints)."""
+category = "engineering"
+tags = ["rf-microwave", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/touchstone-cascade-renorm-0d44a4"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two undocumented domain-specific formats — XML test specifications with hierarchical attribute inheritance, cumulative dependency accumulation, and implicit sequence ordering, plus Isabelle ROOT session definitions with ML-style comments and multi-block state-machine parsing — from raw data files and a deliberately incomplete parser fragment. Beyond parsing, the agent must perform cross-domain semantic analysis (cross-validate) that demands understanding why ROOT session dependencies diverge from XML test dependencies in a formal verification pipeline, and change-impact analysis requiring predictive reasoning about how exclusion modifications cascade through the dependency graph and alter the critical path. No algorithms or format rules are explicitly stated; the agent must study real verification infrastructure artifacts and infer correct semantics, then implement graph algorithms for transitive closure, critical path computation, cascade exclusion, cross-representation consistency checking, and list scheduling."""
+solution_explanation = """Parse ROOT files by stripping ML-style comments and tracking session/block state machine to extract parent, session deps, and theories. Parse XML using recursive descent with cumulative dependency inheritance: set elements share no implicit ordering, sequence elements add each child's name to the dep set for subsequent children, cpu-timeout replaces while depends accumulates. Reconcile by set intersection/difference on names. Cross-validate by computing XML transitive dependency closures and checking whether each ROOT session dep (filtered to matched names) appears in the corresponding XML test's transitive deps — uncovering 7 semantic mismatches where Isabelle session deps reflect theory imports not captured by build-step dependencies. Change-impact applies exclusion modifications, recomputes cascade via transitive closure intersection, and compares old vs new critical paths. Schedule via bottom-level priority list scheduling with greedy CPU assignment."""
+verification_explanation = """30 pytest tests verify: ROOT parsing (session count, deps, theories, comment/options handling), XML test parsing (test count, deps for sequence/set/nested elements, cpu-timeout inheritance), reconciliation counts, cascade exclusion for 4 architectures, critical path exact values and sequences for ARM/X64, cross-validation ok/mismatch counts and specific uncovered dependency sets for 5 sessions, change-impact with add-exclusion (ARM) and remove-exclusion (X64) scenarios checking runnable counts and critical path deltas, and schedule boundary conditions."""
+category = "formal_methods"
+tags = ["reverse-engineering", "graph-algorithms", "cross-domain-analysis"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/verification-pipeline"

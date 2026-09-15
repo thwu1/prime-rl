@@ -1,0 +1,15 @@
+{
+  "n_fft": 1024,
+  "n_cp": 72,
+  "n_symbols": 100,
+  "sample_rate": 30720000.0,
+  "active_subcarrier_start": 212,
+  "active_subcarrier_end": 812,
+  "n_active": 600,
+  "pilot_spacing": 6,
+  "pilot_value_real": 1.0,
+  "pilot_value_imag": 0.0,
+  "snr_db": 30.0,
+  "modulation": "16QAM",
+  "n_captures": 5
+}

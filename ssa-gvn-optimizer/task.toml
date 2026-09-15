@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interacting compiler analyses and transformations on an SSA-based IR: (1) reverse post-order CFG traversal, (2) an iterative dominator tree computation, and (3) a combined optimization pass that performs value numbering with dominator-scoped state, load-store forwarding with offset-based alias invalidation, redundant store elimination, and trivial phi elimination. The agent must discover the correct algorithms by studying an unfamiliar IR framework and CLI toolkit, analyzing benchmark programs to identify redundancy patterns, and iterating on their implementation using the provided verification tools. Each analysis interacts subtly with the others — e.g., phi elimination feeds GVN, which feeds heap forwarding, which requires alias reasoning. No algorithms are named in the instructions."""
+solution_explanation = """Implement RPO via iterative DFS with a processed-flag stack. Implement dominators via the Cooper-Harvey-Kennedy iterative fixpoint algorithm with intersect. The unified optimize pass walks blocks in RPO, inheriting value map and heap cache dicts from the immediate dominator. For each block: (1) resolve phi incoming values through canonical dict, eliminate trivial phis (single unique non-self value); (2) for const/pure ops, compute a value key from (opcode, resolved_args) with commutative sorting, look up in dominator-scoped value map; (3) for loads, look up (obj,offset) in heap cache; for stores, check redundancy then invalidate same-offset entries then add; for calls/print clear cache; (4) resolve terminator args. Save per-block state for children."""
+verification_explanation = """21 pytest tests construct IR programs programmatically and verify: RPO ordering invariants on diamond and loop CFGs; dominator tree correctness; local GVN deduplication; commutative and non-commutative operand handling; const deduplication; cross-block GVN via dominator chain; dominator-shared values through diamond branches; sibling isolation; load forwarding; store-to-load forwarding; alias invalidation at same/different offsets; redundant store elimination; trivial phi elimination; cross-block heap forwarding; call clears heap cache; terminator operand resolution; and a large combined test. Correctness is double-checked by interpreting both original and optimized programs and comparing return values."""
+category = "compiler_optimization"
+tags = ["compilers", "ssa"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ssa-gvn-optimizer"

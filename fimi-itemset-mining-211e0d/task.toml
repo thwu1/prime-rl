@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Multi-tool pipeline debugging requiring proficiency across GNU Make, AWK, bash scripting, Python, jq, and SQLite. The solver must: (1) explore a scattered environment to discover bugs across 4 different tool ecosystems; (2) fix an AWK normalizer that cannot parse pipe-delimited or comma-separated transaction formats and does not skip comments; (3) fix a bash entry point that never triggers normalization and references a nonexistent AWK script; (4) fix a Python Eclat miner with incorrect closure and maximality algorithms and non-FIMI'04 stdout format; (5) fix a Makefile with wrong binary paths, wrong jq field names, and wrong schema references; (6) wire up SQLite result storage with correct quoting. Requires understanding of itemset lattice theory, FIMI workshop specifications, and multi-tool debugging across shell, AWK, Python, Make, jq, and SQL."""
+solution_explanation = """Fix ~12 bugs across 4 tool ecosystems: (1) AWK normalize.awk: add comment skipping, pipe-delimiter extraction, comma separator detection, and item deduplication; (2) Python miner.py: correct empty-set closure check (only closed if no frequent item appears in all transactions), fix maximal mode to check ALL frequent items not just higher-ID ones, add total count as first stdout line, include empty set in output file; (3) Shell fim: fix needs_normalization to detect non-standard content, fix AWK filename from normalizer.awk to normalize.awk, add DB initialization, quote JSON in SQLite INSERT; (4) Makefile: fix FIM path from /app/bin/fim to /app/fim, fix schema filename from schema.sql to results.sql, fix jq field from .min_sup to .min_support, add pipeline to .PHONY."""
+verification_explanation = """Anti-cheat measures: (1) dynamic datasets generated at test time with deterministic seeds, verified against brute-force reference implementation computed inside the test; (2) AWK normalizer tested independently on pipe/comma/comment data; (3) make pipeline tested end-to-end; (4) SQLite database verified for schema, row counts, and data consistency; (5) mathematical property checks (closure, maximality invariants) on real datasets; (6) no reference outputs embedded in Docker image."""
+category = "data_mining"
+tags = ["multi-tool-debugging", "frequent-itemset-mining"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fimi-itemset-mining-211e0d"

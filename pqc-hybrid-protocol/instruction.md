@@ -1,0 +1,11 @@
+The liboqs v0.15.0 source tree is at `/app/liboqs`. Produce a complete PQC development and demonstration environment under `/app/` with the following deliverables:
+
+**liboqs system installation** — A shared library containing only the NIST-standardized algorithm families from FIPS 203 and FIPS 204 (all parameter sets for each). The header `oqs/oqs.h` must resolve from a standard include path, the shared library must appear in the system linker cache (`ldconfig -p`), and programs must link with `-loqs`.
+
+**`/app/broken_kem`** — The file `/app/broken_kem.c` is intended to perform an ML-KEM-768 key encapsulation round-trip but contains multiple bugs preventing correct operation. Produce a working binary that exits 0, prints `KEM_EXCHANGE_SUCCESS` to stdout, and writes `/app/output/kem_result.json` with keys `algorithm` (string), `pk_bytes` (int), `ct_bytes` (int), `ss_bytes` (int) — all FIPS 203 compliant for ML-KEM-768.
+
+**`/app/hybrid_kem`** — Write and compile a C program that performs a hybrid key exchange combining the lowest and highest NIST security level ML-KEM parameter sets into a single protocol. The combined shared secret must be exactly 32 bytes, and the construction must ensure that compromise of either individual component alone does not break the overall exchange. The binary must exit 0, print `HYBRID_KEM_SUCCESS`, and write `/app/output/hybrid_result.json` with keys: `algorithms` (string array of both KEM names), `success` (boolean), `combined_pk_bytes` (int, sum of both component public key sizes), `combined_ct_bytes` (int, sum of both component ciphertext sizes), `ss_bytes` (int).
+
+**`/app/sig_matrix`** — Write and compile a C program demonstrating unforgeability across every ML-DSA parameter set. For each parameter set, the program must show that a valid signature verifies under the signer's public key and fails under an unrelated public key. The binary must exit 0, print `SIG_MATRIX_COMPLETE`, and write `/app/output/sig_matrix.json` with a `results` array (one entry per parameter set) containing: `algorithm` (string), `correct_key_verify` (boolean), `wrong_key_verify` (boolean), `pk_bytes` (int), `sig_bytes` (int), `nist_level` (int) — all FIPS 204 compliant.
+
+**`/app/Makefile`** — Compiles all three programs against the installed liboqs.

@@ -1,0 +1,38 @@
+context:
+  name: libcurl
+  version: "8.7.1"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://curl.se/download/curl-${{ version }}.tar.bz2
+  sha256: 05bbd2b000cd5e7c29f66f024cf20127b4f5aeab5e7d93dbb8ef6ed989a3e946
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cmake
+    - ninja
+    - pkg-config
+  host:
+    - openssl
+    - zlib
+  run: []
+
+test:
+  commands:
+    - curl-config --version
+    - test -f $PREFIX/lib/libcurl.so
+
+about:
+  homepage: https://curl.se
+  license: curl
+  license_file: COPYING
+  summary: The multiprotocol file transfer library

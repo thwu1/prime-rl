@@ -1,0 +1,76 @@
+{
+  "polymers": [
+    {
+      "name": "Polysulfone",
+      "abbreviation": "PSf",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 1.4, "N2": 0.25, "CO2": 5.6, "CH4": 0.25, "H2": 14.0, "He": 13.0}
+    },
+    {
+      "name": "Matrimid 5218",
+      "abbreviation": "Matrimid",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 2.1, "N2": 0.32, "CO2": 10.0, "CH4": 0.36, "H2": 28.1, "He": 22.0}
+    },
+    {
+      "name": "Cellulose Acetate",
+      "abbreviation": "CA",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 1.6, "N2": 0.27, "CO2": 6.3, "CH4": 0.252, "H2": 24.0, "He": 18.0}
+    },
+    {
+      "name": "Polydimethylsiloxane",
+      "abbreviation": "PDMS",
+      "class": "rubbery",
+      "permeabilities_barrer": {"O2": 600, "N2": 300, "CO2": 3200, "CH4": 950, "H2": 890, "He": 440}
+    },
+    {
+      "name": "PIM-1",
+      "abbreviation": "PIM-1",
+      "class": "PIM",
+      "permeabilities_barrer": {"O2": 370, "N2": 97, "CO2": 2300, "CH4": 125, "H2": 1300, "He": 660}
+    },
+    {
+      "name": "PTMSP",
+      "abbreviation": "PTMSP",
+      "class": "high_free_volume",
+      "permeabilities_barrer": {"O2": 9700, "N2": 6930, "CO2": 29000, "CH4": 12100, "H2": 17000, "He": 5200}
+    },
+    {
+      "name": "6FDA-DAM Polyimide",
+      "abbreviation": "6FDA-DAM",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 470, "N2": 134, "CO2": 690, "CH4": 23.0, "H2": 820, "He": 580}
+    },
+    {
+      "name": "Polyphenylene Oxide",
+      "abbreviation": "PPO",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 16.8, "N2": 3.91, "CO2": 76.0, "CH4": 4.47, "H2": 113, "He": 79.0}
+    },
+    {
+      "name": "Polycarbonate",
+      "abbreviation": "PC",
+      "class": "glassy",
+      "permeabilities_barrer": {"O2": 1.4, "N2": 0.33, "CO2": 6.8, "CH4": 0.34, "H2": 12.0, "He": 11.0}
+    },
+    {
+      "name": "TR-PBO",
+      "abbreviation": "TR-PBO",
+      "class": "TR_polymer",
+      "permeabilities_barrer": {"O2": 200, "N2": 45.5, "CO2": 1200, "CH4": 54.5, "H2": 700, "He": 350}
+    },
+    {
+      "name": "Teflon AF 2400",
+      "abbreviation": "AF2400",
+      "class": "perfluoropolymer",
+      "permeabilities_barrer": {"O2": 990, "N2": 490, "CO2": 2800, "CH4": 420, "H2": 2090, "He": 1400}
+    },
+    {
+      "name": "Hyflon AD 80",
+      "abbreviation": "HyflonAD80",
+      "class": "perfluoropolymer",
+      "permeabilities_barrer": {"O2": 16.0, "N2": 5.0, "CO2": 65.0, "CH4": 2.6, "H2": 190, "He": 125}
+    }
+  ]
+}

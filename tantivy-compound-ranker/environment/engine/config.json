@@ -1,0 +1,9 @@
+{
+  "k1": 0.0,
+  "b": 0.75,
+  "fields": ["title", "body"],
+  "field_boosts": {
+    "title": 2.0,
+    "body": 1.0
+  }
+}

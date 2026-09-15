@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a CIF parser that handles standard CIF constructs (data blocks, loops, quoted strings, semicolon text fields, standard uncertainty notation) AND the save_ frame hierarchical constructs used in DDLm dictionary files—a format extension the solver must discover by examining the dictionary file. The solver must reverse-engineer the check_rules.dat format from its inline documentation to implement dynamic rule loading with both fixed-level and threshold-based severity classification. Crystallographic computations demand domain-specific knowledge: cell volume for general triclinic cells, molecular weight from formula parsing and dynamically loaded atomic weights, crystal density, the IUCr Ueq definition requiring the reciprocal metric tensor (Fischer & Tillmanns 1988), and eigenvalue decomposition of anisotropic displacement tensors after Cartesian transformation. Dictionary validation requires cross-referencing CIF data item names against definitions extracted from save_ frames (including multi-alias entries via loops). The batch pipeline requires integrating Python output with jq for JSON extraction and sqlite3 for database operations in a shell script—a multi-tool interoperability challenge combining unfamiliar CLI tools."""
+solution_explanation = """The reference solution extends the CIF parser with a _parse_block_content method that recursively handles save_ frames. The load_dictionary function iterates over save frames, extracting _definition.id and _alias.definition_id values (handling both scalar and loop forms) to build a set of valid CIF tag names. For crystallographic computations: cell volume uses the general triclinic formula, Ueq uses the IUCr reciprocal-metric definition, and ADP eigenvalue analysis transforms U to Cartesian via N = A @ diag(a*,b*,c*) then uses numpy.linalg.eigvalsh. The batch pipeline (cifbatch.sh) iterates over .cif files, captures cifcheck.py JSON output, uses jq to extract data_block, alert counts, severity levels, and computed values, then inserts per-file rows into a SQLite database via sqlite3 CLI. Summary statistics are accumulated in shell variables and output as JSON."""
+verification_explanation = """Tests create synthetic CIF files and run cifcheck.py via subprocess, verifying: (1) correct JSON structure; (2) zero alerts for well-formed data; (3) accurate cell volume, molecular weight, density, and Ueq computations; (4) each of the 11 alert checks triggers at the correct severity; (5) Ueq in a monoclinic cell (non-orthogonal metric tensor); (6) standard uncertainty notation parsing; (7) dynamic rule loading: modifying thresholds changes alert severity, removing a rule prevents that alert; (8) dynamic weight loading: modifying element_weights.cif changes computed MW; (9) minimal CIF with missing data skips checks gracefully; (10) dictionary validation: unknown CIF tags trigger ALERT 060; (11) batch pipeline: cifbatch.sh creates SQLite database with correct schema and data, max_severity classification, and summary JSON output; (12) jq and sqlite3 tools are available."""
+category = "applied_computing"
+tags = ["crystallography", "scientific-validation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cif-validation-engine"

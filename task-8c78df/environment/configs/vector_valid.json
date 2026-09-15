@@ -1,0 +1,31 @@
+{
+  "xlen": 64,
+  "extensions": {
+    "I": true,
+    "U": true,
+    "S": true,
+    "F": true,
+    "D": true,
+    "Zicsr": true,
+    "V": true,
+    "Zve32x": true,
+    "Zve64x": true,
+    "Zve32f": true,
+    "Zve64f": true,
+    "Zve64d": true,
+    "Sv39": true
+  },
+  "vector": {
+    "vlen_exp": 9,
+    "elen_exp": 6,
+    "max_index_eew_exp": 6
+  },
+  "pmp": {
+    "count": 16,
+    "grain": 0,
+    "na4_supported": true,
+    "usable_count": 16
+  },
+  "cache_block_size_exp": 6,
+  "reservation_set_size_exp": 3
+}

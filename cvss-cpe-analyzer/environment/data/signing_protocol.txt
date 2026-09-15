@@ -1,0 +1,27 @@
+NVD Mirror Integrity Signing Protocol
+======================================
+
+Records in the NVD mirror database are signed at ingestion time using
+HMAC-SHA256 to enable post-hoc tamper detection.
+
+Key location: /app/data/.hmac_key (plaintext, UTF-8, trailing newline stripped)
+
+Message construction:
+  The HMAC message is a pipe-delimited concatenation of record fields:
+
+    {cve_id}|{cvss_vector}|{base_score}|{cwe_id}|{cpe_config}
+
+Field formatting rules:
+  - cve_id:      verbatim from the database
+  - cvss_vector: verbatim from the database
+  - base_score:  formatted to exactly one decimal place (e.g., "7.5", "10.0")
+  - cwe_id:      verbatim from the database
+  - cpe_config:  compact canonical JSON of the cpe_config column value
+                 (keys sorted alphabetically, no whitespace between separators)
+
+Digest output:
+  The HMAC-SHA256 digest is stored as a lowercase hexadecimal string in
+  the hmac_sha256 column of the cve_records table.
+
+A record whose recomputed HMAC does not match the stored hmac_sha256
+value has been modified after ingestion.

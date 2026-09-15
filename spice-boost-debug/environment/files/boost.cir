@@ -1,0 +1,61 @@
+* Boost Converter Simulation
+* Specification: Vin=5V -> Vout=12V, fsw=100kHz
+* 47uH inductor, 47uF output capacitor, 120 ohm load
+*
+* Originally written for PSPICE - needs adaptation for ngspice
+*
+
+***** Circuit Parameters *****
+.param fsw=100k
+.param duty=0.583
+.param period={1/fsw}
+.param ton={duty*period}
+
+***** Power Source (5V DC) *****
+VIN in 0 DC 5
+
+***** Input Decoupling Capacitor *****
+CIN in 0 10u IC=5
+
+***** Boost Inductor (47uH with 50mohm DCR) *****
+L1 in sw 47u
+RDCR sw sw2 0.05
+
+***** Power MOSFET Switch *****
+M1 gate sw2 0 0 NMOS_SW W=10m L=0.5u
+
+***** Gate Drive PWM (100kHz, 58.3% duty cycle) *****
+VGATE gate 0 PULSE(0 10 0 10n 10n {ton} {period})
+
+***** Freewheeling Schottky Diode *****
+D1 sw2 out DSCHOTTKY
+.model DSCHOTTKY D(IS=1e-6 RS=0.042 N=1.045 BV=40 CJO=100p TT=5n)
+
+***** Output Capacitor (47uF with 30mohm ESR) *****
+RESR out out_int 0.03
+COUT out_int 0 47u IC=12
+
+***** Load Resistor (120 ohm ~ 100mA at 12V) *****
+RLOAD out 0 120
+
+***** Voltage Sense for Feedback (Open Loop) *****
+ESENSE sense 0 VALUE={V(out)*0.275}
+
+***** MOSFET Model *****
+.model NMOS_SW NMOS (LEVEL=7 Rds=0.05 Vto=2.0 Kp=40
++ Cgdmax=800p Cgdmin=100p Cgs=1000p Cjo=200p Is=1e-10 Rb=0.01)
+
+***** Transient Simulation *****
+.tran 10n 2m UIC
+
+***** Measurement and Output *****
+.control
+run
+meas tran vout_avg avg v(out) from=1.5m to=2m
+meas tran vout_max max v(out) from=1.5m to=2m
+meas tran vout_min min v(out) from=1.5m to=2m
+meas tran iin_avg avg i(vin) from=1.5m to=2m
+echo "SIMULATION_COMPLETE"
+.endc
+
+.end

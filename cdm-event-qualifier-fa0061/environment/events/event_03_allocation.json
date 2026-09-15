@@ -1,0 +1,125 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "intent": "Allocation",
+  "eventDate": "2024-02-15",
+  "instruction": [{
+    "primitiveInstruction": {
+      "split": {
+        "breakdown": [{
+          "partyChange": {
+            "counterparty": {"role": "Party2", "partyReference": {"@key:external": "fund1", "partyId": [{"identifier": {"@data": "LEI-ALLOC-F1"}, "identifierType": "LEI"}], "name": {"@data": "Fund Alpha"}}},
+            "tradeId": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          },
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 30000000.0, "unit": {"currency": {"@data": "EUR"}}}]}],
+            "direction": "Replace"
+          }
+        }, {
+          "partyChange": {
+            "counterparty": {"role": "Party2", "partyReference": {"@key:external": "fund2", "partyId": [{"identifier": {"@data": "LEI-ALLOC-F2"}, "identifierType": "LEI"}], "name": {"@data": "Fund Beta"}}},
+            "tradeId": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-003"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          },
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 20000000.0, "unit": {"currency": {"@data": "EUR"}}}]}],
+            "direction": "Replace"
+          }
+        }, {
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "EUR"}}}]}],
+            "direction": "Replace"
+          }
+        }]
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "EUR"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "dealer"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "client"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2024-02-10"},
+        "party": [
+          {"@key:external": "dealer", "partyId": [{"identifier": {"@data": "LEI-ALLOC-001"}, "identifierType": "LEI"}], "name": {"@data": "Dealer Corp"}},
+          {"@key:external": "client", "partyId": [{"identifier": {"@data": "LEI-ALLOC-002"}, "identifierType": "LEI"}], "name": {"@data": "Asset Manager"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "EUR"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "dealer"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "client"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-10"},
+      "party": [
+        {"@key:external": "dealer", "partyId": [{"identifier": {"@data": "LEI-ALLOC-001"}, "identifierType": "LEI"}], "name": {"@data": "Dealer Corp"}},
+        {"@key:external": "client", "partyId": [{"identifier": {"@data": "LEI-ALLOC-002"}, "identifierType": "LEI"}], "name": {"@data": "Asset Manager"}}
+      ]
+    },
+    "state": {
+      "closedState": {"state": "Allocated"},
+      "positionState": "Closed"
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 30000000.0, "unit": {"currency": {"@data": "EUR"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "dealer"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "fund1"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-10"},
+      "party": [
+        {"@key:external": "dealer", "partyId": [{"identifier": {"@data": "LEI-ALLOC-001"}, "identifierType": "LEI"}], "name": {"@data": "Dealer Corp"}},
+        {"@key:external": "fund1", "partyId": [{"identifier": {"@data": "LEI-ALLOC-F1"}, "identifierType": "LEI"}], "name": {"@data": "Fund Alpha"}}
+      ]
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 20000000.0, "unit": {"currency": {"@data": "EUR"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "dealer"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "fund2"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-ALLOC-001"}, "assignedIdentifier": [{"identifier": {"@data": "ALLOC-TRADE-003"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-10"},
+      "party": [
+        {"@key:external": "dealer", "partyId": [{"identifier": {"@data": "LEI-ALLOC-001"}, "identifierType": "LEI"}], "name": {"@data": "Dealer Corp"}},
+        {"@key:external": "fund2", "partyId": [{"identifier": {"@data": "LEI-ALLOC-F2"}, "identifierType": "LEI"}], "name": {"@data": "Fund Beta"}}
+      ]
+    }
+  }]
+}

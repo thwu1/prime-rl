@@ -1,0 +1,63 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "eventDate": "2024-05-01",
+  "instruction": [{
+    "primitiveInstruction": {
+      "execution": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+          "economicTerms": {
+            "payout": [
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}, "calculationPeriodDates": {"effectiveDate": {"adjustableDate": {"unadjustedDate": "2024-05-03"}}, "terminationDate": {"adjustableDate": {"unadjustedDate": "2029-05-03"}}, "calculationPeriodFrequency": {"periodMultiplier": 3, "period": "M", "rollConvention": "3"}}},
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}, "calculationPeriodDates": {"effectiveDate": {"adjustableDate": {"unadjustedDate": "2024-05-03"}}, "terminationDate": {"adjustableDate": {"unadjustedDate": "2029-05-03"}}, "calculationPeriodFrequency": {"periodMultiplier": 6, "period": "M", "rollConvention": "3"}}}
+            ],
+            "nonStandardisedTerms": false
+          }
+        },
+        "priceQuantity": [
+          {"quantity": [{"value": 25000000.0, "unit": {"currency": {"@data": "USD"}}}], "observable": {"@data": {"@type": "cdm.observable.asset.InterestRateIndex", "@data": {"@type": "cdm.observable.asset.FloatingRateIndex", "floatingRateIndex": {"@data": "USD-SOFR-OIS Compound"}, "indexTenor": {"periodMultiplier": 3, "period": "M"}}}}},
+          {"price": [{"value": 0.0425, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 25000000.0, "unit": {"currency": {"@data": "USD"}}}]}
+        ],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "execPartyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "execPartyB"}}
+        ],
+        "parties": [
+          {"@key:external": "execPartyA", "partyId": [{"identifier": {"@data": "LEI-EXEC001"}, "identifierType": "LEI"}], "name": {"@data": "Sigma Trading"}},
+          {"@key:external": "execPartyB", "partyId": [{"identifier": {"@data": "LEI-EXEC002"}, "identifierType": "LEI"}], "name": {"@data": "Omega Capital"}}
+        ],
+        "executionDetails": {"executionType": "Electronic"},
+        "tradeDate": "2024-05-01",
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-EXEC001"}, "assignedIdentifier": [{"identifier": {"@data": "EXEC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+        "economicTerms": {
+          "payout": [
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+          ],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [
+        {"quantity": [{"value": 25000000.0, "unit": {"currency": {"@data": "USD"}}}]},
+        {"price": [{"value": 0.0425, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 25000000.0, "unit": {"currency": {"@data": "USD"}}}]}
+      ]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "execPartyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "execPartyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-EXEC001"}, "assignedIdentifier": [{"identifier": {"@data": "EXEC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-05-01"},
+      "party": [
+        {"@key:external": "execPartyA", "partyId": [{"identifier": {"@data": "LEI-EXEC001"}, "identifierType": "LEI"}], "name": {"@data": "Sigma Trading"}},
+        {"@key:external": "execPartyB", "partyId": [{"identifier": {"@data": "LEI-EXEC002"}, "identifierType": "LEI"}], "name": {"@data": "Omega Capital"}}
+      ]
+    }
+  }]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Cargo's feature resolution semantics including weak dependency fixpoint iteration, optional dep default feature propagation, and feature/dep name collision handling. Beyond diagnosing and fixing three interacting bugs through differential analysis against ground-truth outputs, the solver must implement activation-chain tracing (understanding full resolution dataflow), an impact analysis command that enumerates all features globally to compute dependency exclusivity, extract cross-referenced dependency data from complex nested JSON using advanced jq filters (to_entries, any, select, cross-referencing arrays), and generate a graphviz DOT visualization of the feature dependency graph rendered to SVG. Multi-tool interoperability (Python, jq, graphviz/dot) is essential and none is optional."""
+solution_explanation = """Fix three resolver bugs: (1) use metadata 'features' field instead of 'default_features' for dep defaults, (2) separate feature/dep tracking to resolve the virtio name collision, (3) add fixpoint loop for weak dep evaluation. Implement trace by collecting all feature entries referencing the target dep from enabled features. Implement impact by resolving every feature individually and computing exclusive deps via set difference, tracking weak dep firings during fixpoint iteration. Use jq with nested filters (to_entries, any/startswith, select, cross-reference dependencies with features map) to produce dep_analysis.json. Use Python to generate DOT graph from metadata and render with dot."""
+verification_explanation = """37 pytest cases verify: 18 resolve tests (simple chains, dep activation, weak deps inactive/active/cascading, name collisions, cross-feature interactions, aliases, default meta-feature), 6 trace tests (direct/strong/weak chains, inactive dep, multi-source traces), 6 impact tests (exclusive dep detection for unique deps, shared deps, weak dep firing tracking, global feature comparison), 3 dep analysis tests (jq output structure/count, smoltcp cross-reference, virtio cross-reference), 4 feature graph tests (DOT validity, SVG rendering, node shape differentiation, edge style differentiation)."""
+category = "systems_programming"
+tags = ["dependency-resolution", "cargo-metadata"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7d9234"

@@ -1,0 +1,40 @@
+{
+  "keys": ["k1"],
+  "operations": [
+    {
+      "client_id": 0,
+      "call_ns": 100,
+      "return_ns": 200,
+      "request": {"type": "put", "key": "k1", "value": "a"},
+      "response": {"type": "put", "revision": 2}
+    },
+    {
+      "client_id": 0,
+      "call_ns": 300,
+      "return_ns": 400,
+      "request": {"type": "put", "key": "k1", "value": "b"},
+      "response": {"error": "context deadline exceeded"}
+    },
+    {
+      "client_id": 0,
+      "call_ns": 500,
+      "return_ns": 600,
+      "request": {"type": "get", "key": "k1"},
+      "response": {"type": "get", "revision": 2, "value": "a", "count": 1}
+    },
+    {
+      "client_id": 0,
+      "call_ns": 700,
+      "return_ns": 800,
+      "request": {"type": "put", "key": "k1", "value": "c"},
+      "response": {"type": "put", "revision": 3}
+    },
+    {
+      "client_id": 0,
+      "call_ns": 900,
+      "return_ns": 1000,
+      "request": {"type": "get", "key": "k1"},
+      "response": {"type": "get", "revision": 3, "value": "c", "count": 1}
+    }
+  ]
+}

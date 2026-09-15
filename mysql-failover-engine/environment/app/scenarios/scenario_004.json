@@ -1,0 +1,71 @@
+{
+    "id": "004",
+    "name": "Dead Intermediate Master",
+    "description": "Intermediate master unreachable with sub-replicas failing, while top-level master remains healthy",
+    "servers": [
+        {
+            "hostname": "primary1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": null, "master_port": null,
+            "replication_state": "running", "replication_lag_seconds": 0.0,
+            "gtid_position": 300, "is_sql_delayed": false, "read_only": false,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "im1", "port": 3306, "datacenter": "dc2",
+            "is_reachable": false, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 290, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "direct-r1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "running", "replication_lag_seconds": 0.5,
+            "gtid_position": 298, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "sub-r1", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "im1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 280, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "sub-r2", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "im1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 275, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        }
+    ],
+    "orchestrator_nodes": [],
+    "cluster_config": {},
+    "current_timestamp": 0.0,
+    "expected": {
+        "failure_count": 1,
+        "failures": [
+            {
+                "failed_hostname": "im1",
+                "failure_type": "DeadIntermediateMaster",
+                "is_actionable": true
+            }
+        ],
+        "notes": "im1 is an intermediate master — it replicates from primary1 and has its own replicas (sub-r1, sub-r2). It is unreachable and both sub-replicas report replication failure. The top-level master primary1 has a healthy direct replica (direct-r1) still replicating, so no master-level failure is detected."
+    }
+}

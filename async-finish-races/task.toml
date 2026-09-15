@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the Habanero async-finish computation model, including nested finish scopes, transitive async scope inheritance, and happens-before ordering for data-race detection. Beyond core analysis, the solver must implement a greedy list scheduler using bottom-level critical-path priorities — requiring deep understanding of DAG scheduling theory and Brent's theorem. The pipeline demands multi-tool interoperability: Python for graph algorithms, Graphviz DOT for visualization, Make for build orchestration, and jq for JSON merging. Traces 5–6 test subtle edge cases: async-in-async without intervening finish (both tasks join at the same outer scope), finish blocks with no async children, and three-level finish nesting where inner-finish join boundaries differ from outer-finish boundaries."""
+solution_explanation = """The solver constructs computation graphs by recursively traversing each AST with finish-scope tracking. Each async creates spawn and continue edges; each finish creates join edges from its scope's async tasks. Work is the sum of step costs. Span uses longest-path DP on the topologically-sorted DAG. Data races are detected via BFS-based transitive closure: pairs of accesses to the same variable (at least one write) where neither step reaches the other. The greedy scheduler computes bottom-levels (reverse-topo longest path to sink), then simulates timestep-by-timestep assignment of ready steps to processors in priority order. DOT files are generated with typed edge colors and rendered via the graphviz dot command. A Makefile orchestrates the pipeline with proper target ordering, and jq merges analysis results with schedule summaries."""
+verification_explanation = """Tests verify 6 properties across 6 traces (36 parameterized analysis tests), plus schedule validity (dependency constraints, no processor overlap, exact makespan), DOT file structure (correct node/edge counts, color annotations), PNG existence, report.json structure, and Makefile target presence. Traces range from simple (4 steps, no races) to complex (11 steps, 3-level nesting, 3 races). Schedule tests check exact deterministic makespans computed from the specified tie-breaking rule."""
+category = "systems"
+tags = ["parallel-computing", "graph-algorithms", "build-orchestration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/async-finish-races"

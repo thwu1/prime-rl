@@ -1,0 +1,44 @@
+<gie>
+
+# Scenario D: Helmert 7-parameter datum transformation
+# DHDN (Deutsches Hauptdreiecksnetz / Potsdam datum) to ETRS89/WGS84
+# Reference data: BKG BETA2007 test dataset
+#
+# The towgs84 parameter encodes translation (m), rotation (arcsec), and
+# scale difference (ppm) for a 7-parameter similarity transformation.
+# Fix the transformation parameters so all test cases pass within tolerance.
+
+operation +proj=longlat +ellps=bessel \
+          +towgs84=598.1,73.7,418.2,-0.202,-0.045,2.455,6.7
+
+# Forward direction: ETRS89 geographic -> DHDN geographic
+tolerance 5 m
+
+accept    7.482506019176 53.498461143331
+expect    7.483333333333 53.500000000000
+
+accept    10.332117283303 48.832327188640
+expect    10.333333333333 48.833333333333
+
+accept    7.999097344043 50.082172046476
+expect    8.000000000000 50.083333333333
+
+accept    10.015460839103 51.032075951188
+expect    10.016666666667 51.033333333333
+
+direction inverse
+
+# Inverse direction: DHDN geographic -> ETRS89 geographic
+accept    10.466666666667 54.333333333333
+expect    10.465373788153 54.331696254077
+
+accept    10.750000000000 53.583333333333
+expect    10.748659705929 53.581781243436
+
+accept    13.466666666667 52.483333333333
+expect    13.464913254978 52.481930297429
+
+accept    7.483333333333 51.983333333333
+expect    7.482494584516 51.981965147975
+
+</gie>

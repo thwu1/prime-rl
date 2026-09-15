@@ -1,0 +1,10 @@
+{:history
+ [{:index 0 :type :ok :value [[:append :a 1] [:r :b [3]]]}
+  {:index 1 :type :ok :value [[:append :b 3] [:append :a 2]]}
+  {:index 2 :type :ok :value [[:r :a [1 2]]]}
+  {:index 3 :type :ok :value [[:append :c 50] [:append :d 60]]}
+  {:index 4 :type :ok :value [[:r :c [50]] [:r :d []]]}
+  {:index 5 :type :ok :value [[:append :f 80]]}
+  {:index 6 :type :ok :value [[:r :f [80]]]}
+  {:index 7 :type :fail :value [[:append :e 100]]}
+  {:index 8 :type :ok :value [[:r :e [100]]]}]}

@@ -1,0 +1,42 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> SELECT SQL_ID, EXECUTIONS, BUFFER_GETS, DISK_READS, ROWS_PROCESSED,
+  2         ELAPSED_TIME, CPU_TIME, PLAN_HASH_VALUE
+  3  FROM V$SQLAREA
+  4  ORDER BY BUFFER_GETS DESC;
+
+SQL_ID        EXECUTIONS BUFFER_GETS DISK_READS ROWS_PROCESSED ELAPSED_TIME   CPU_TIME PLAN_HASH_VALUE
+------------- ---------- ----------- ---------- -------------- ------------ ---------- ---------------
+abc123def456        1000      500000     150000           1000     25000000   15000000      3847261950
+efg123hij456         500      400000     120000          15000     20000000   12000000      5928174603
+ghi789jkl012       50000      250000       5000          50000     10000000    8000000      1927384650
+yza567bcd890      200000      200000        100         200000      2000000    1800000       738291046
+mno345pqr678       20000      100000       2000          20000      5000000    3000000       827461539
+stu901vwx234       30000       90000       1000          30000      3000000    2000000       462819573
+
+6 rows selected.
+
+SQL> SET LONG 500
+SQL> COLUMN SQL_TEXT FORMAT A120
+SQL> SELECT SQL_ID, SQL_TEXT FROM V$SQLAREA ORDER BY BUFFER_GETS DESC;
+
+SQL_ID        SQL_TEXT
+------------- ------------------------------------------------------------------------------------------------------------------------
+abc123def456  SELECT o.order_id, o.customer_id, o.order_date, o.status, o.total_amount FROM orders o WHERE o.customer_id = 42 AND o.or
+              der_date > TO_DATE('2024-01-01','YYYY-MM-DD')
+
+efg123hij456  SELECT customer_id, SUM(total_amount) as total_spent FROM orders GROUP BY customer_id HAVING SUM(total_amount) > 1000
+
+ghi789jkl012  SELECT p.product_name, p.price, c.category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHER
+              E p.price > 100
+
+yza567bcd890  SELECT c.customer_name, c.email FROM customers c WHERE c.customer_id = 42
+
+mno345pqr678  UPDATE inventory SET quantity = quantity - 1 WHERE product_id = 12345 AND warehouse_id = 1
+
+stu901vwx234  INSERT INTO order_items (item_id, order_id, product_id, quantity, unit_price) VALUES (seq_item.NEXTVAL, 98765, 54321, 2,
+               29.99)
+
+6 rows selected.
+
+SQL> spool off

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security analysis: the agent must independently identify each vulnerability's root cause in C code, understand the MAGMA canary instrumentation framework by reading its documentation, write precise oracle trigger conditions that distinguish "bug reached" from "bug triggered," correctly use the framework's macro conventions for compound conditions, and produce unified diff patches that apply cleanly across independent code sections. The agent must reason about integer overflow semantics, buffer boundary arithmetic, off-by-one errors, and division-by-zero conditions — each requiring different vulnerability analysis skills."""
+solution_explanation = """For each of the 4 bugs: (1) Locate the vulnerable code in mfp.c using the CVE-analog descriptions. (2) Write the fix wrapped in #ifdef MAGMA_ENABLE_FIXES. (3) Write the MAGMA_LOG oracle with a precise trigger condition wrapped in #ifdef MAGMA_ENABLE_CANARIES. (4) Generate a unified diff patch. Key trigger conditions: MFP001 detects uint32 truncation via comparing 64-bit product to the truncated value; MFP002 uses MAGMA_AND to check name_len>0 AND offset+name_len>buf_len; MFP003 detects i>=num_entries for the off-by-one; MFP004 detects e->type==0 for division by zero."""
+verification_explanation = """Tests verify: (1) All 4 patch files exist with correct MAGMA format (MAGMA_ENABLE_FIXES, MAGMA_ENABLE_CANARIES, MAGMA_LOG with %MAGMA_BUG% token, non-trivial trigger conditions, no raw &&/|| in MAGMA_LOG). (2) Patches apply cleanly and compile in both canary and fixed modes. (3) Canary-mode binary produces BUG_T>0 when processing each bug's crash input. (4) Fixed-mode binary handles all crash inputs without signal death."""
+category = "security"
+tags = ["fuzzing", "vulnerability-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9eabb2"

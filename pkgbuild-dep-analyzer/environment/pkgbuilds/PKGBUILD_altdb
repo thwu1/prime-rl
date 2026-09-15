@@ -1,0 +1,40 @@
+# Maintainer: Carol Alt <carol@example.org>
+pkgbase=altdb
+pkgname=('altdb-server' 'altdb-lib')
+pkgver=14.1
+pkgrel=1
+pkgdesc="Alternative database engine with extended query features"
+arch=('x86_64')
+url="https://github.com/example/altdb"
+license=('GPL-2.0-or-later')
+makedepends=('cmake'
+             'openssl'
+             'icu'
+             'boost')
+source=("https://github.com/example/${pkgbase}/archive/v${pkgver}.tar.gz")
+sha256sums=('c2d3e4f5a6b70000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr -DWITH_ICU=system .
+  make
+}
+
+package_altdb-lib() {
+  pkgdesc="AltDB client libraries"
+  depends=('libcore')
+  provides=("dbclient=${pkgver}")
+  conflicts=('datastore-lib')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  make -C lib DESTDIR="${pkgdir}" install
+}
+
+package_altdb-server() {
+  pkgdesc="AltDB server daemon"
+  depends=('altdb-lib')
+  conflicts=('datastore-server')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  make -C server DESTDIR="${pkgdir}" install
+}

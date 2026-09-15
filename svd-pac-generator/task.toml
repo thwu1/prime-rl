@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a cross-language code generator (Python to Rust) that handles multiple interacting CMSIS-SVD specification features: peripheral derivation (derivedFrom with register inheritance and merging), dimensioned register arrays (dim/dimIncrement/dimIndex with %s expansion), mixed access modes (read-only, write-only, read-write), non-zero reset values, and enumerated field values. The generator must produce compilable #![no_std] Rust code with correct lifetime annotations, generic closures, interior mutability (UnsafeCell), atomic singleton patterns, and precise bit-level manipulation across fields of varying widths at arbitrary offsets. Understanding SVD derivation semantics (deep-copy + merge) and dim expansion (index substitution, offset arithmetic) requires expert knowledge of the CMSIS-SVD standard. The Rust output demands proficiency with lifetime-parameterized writer types, closure-based APIs, and no_std constraints."""
+solution_explanation = """The solution implements a Python SVD parser using xml.etree.ElementTree that handles: (1) standard peripheral/register/field parsing, (2) derivedFrom on peripherals via deep-copying parent registers then merging child-specific registers, and (3) dim/dimIncrement/dimIndex register arrays via %s substitution and offset expansion. The code generator produces a Rust PAC with: an AtomicBool singleton, per-peripheral modules with register structs, closure-based read/write/modify methods respecting access restrictions, per-field reader/writer types with lifetime annotations, enumerated variant methods, and an UnsafeCell-backed mmio module. The critical design decisions include write() initializing from reset value vs modify() from current value, and correctly expanding dim arrays into independent register modules."""
+verification_explanation = """Tests run the Python generator, compile the generated Rust crate, then execute 33 integration tests via cargo test covering: singleton take/steal, all three access modes across four peripherals, field-level bit manipulation at various widths (1/2/3/4/16/32-bit), enumerated value encoding/decoding, non-zero reset values (SPI1.SR=0x02, TIM2.ARR=0xFFFF), write-from-reset vs modify-from-current semantics, derived peripheral GPIOB (inherited registers at different base + additional AFRL register), GPIOB independence from GPIOA, dim-expanded CCR1-4 registers at correct addresses (0x34-0x40), and structural checks ensuring read-only registers lack writers and write-only registers lack readers."""
+category = "systems_programming"
+tags = ["embedded-rust", "code-generation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/svd-pac-generator"

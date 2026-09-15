@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise across multiple domains: (1) parsing OWL/Turtle ontology format and understanding class hierarchy semantics including rdfs:subClassOf validation, (2) parsing N-Triples RDF with European decimal notation, (3) pharmaceutical chemistry knowledge of Lipinski's Rule of Five for drug-likeness validation, (4) information retrieval metric implementation (hits@k, MRR). The ontology contains subtle inconsistencies (typos in parent class names like 'Alkaloids' vs 'Alkaloid') that require careful analysis. The European decimal notation (comma separator) is a non-obvious parsing challenge."""
+solution_explanation = """The solution parses the Turtle ontology using rdflib to extract all owl:Class declarations and rdfs:subClassOf relationships, identifying 5 orphan subclass declarations where the parent class URI doesn't match any declared class. It computes max hierarchy depth via BFS from owl:Thing. It parses the N-Triples KB handling European decimal conversion, recomputes Lipinski violations for each compound, and identifies 6 mismatches. Finally, it reads the prediction CSVs and implements standard hits@k and MRR metrics."""
+verification_explanation = """Tests load the output JSON and verify: (1) exactly 5 orphan subclass declarations with correct class/parent URI pairs, (2) max hierarchy depth equals 4, (3) exactly 6 Lipinski mismatches with correct compound IDs and stated/computed values, (4) deepwalk and node2vec metrics within 0.001 tolerance of expected values computed from the CSV data."""
+category = "data_processing"
+tags = ["knowledge-graphs", "bioinformatics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nubbe-kg-validation"

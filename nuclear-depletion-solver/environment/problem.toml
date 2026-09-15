@@ -1,0 +1,40 @@
+# PWR fuel element depletion problem
+# 5-step irradiation/decay schedule
+
+[inventory]
+# Initial nuclide concentrations (atoms/cm^3)
+U234 = 5.0e19
+U235 = 8.0e20
+U236 = 0.0
+U238 = 2.2e22
+Np239 = 0.0
+Pu239 = 0.0
+Pu240 = 0.0
+Pu241 = 0.0
+Xe135 = 0.0
+I135 = 0.0
+
+[[schedule]]
+flux_n_per_cm2_s = 1.0e14
+duration_s = 172800
+label = "low_power_startup"
+
+[[schedule]]
+flux_n_per_cm2_s = 3.0e14
+duration_s = 2592000
+label = "full_power"
+
+[[schedule]]
+flux_n_per_cm2_s = 0.0
+duration_s = 432000
+label = "shutdown"
+
+[[schedule]]
+flux_n_per_cm2_s = 2.0e14
+duration_s = 1296000
+label = "reduced_power"
+
+[[schedule]]
+flux_n_per_cm2_s = 0.0
+duration_s = 864000
+label = "final_shutdown"

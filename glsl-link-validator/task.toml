@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level diagnosis of a GLSL ES 3.00 shader link-time conformance pipeline where 9 test failures span two independent components — the validator code and the test manifest — with no indication of how the failures are distributed. The solver must independently identify the root cause of each failure by cross-referencing the GLSL ES 3.00 spec, reference compiler output, validator source code, and manifest data. Validator defects involve subtle parsing and semantic comparison bugs that require deep understanding of GLSL declaration syntax variants, structural type equivalence rules, qualifier matching semantics, and bilateral invariant checking — areas where naive pattern matching fails. Manifest defects require spec-level reasoning about corner cases in interpolation qualifier semantics, precision qualifier matching, and structural struct comparison. The solver must also produce a structured diagnostic report with correct defect attribution, requiring holistic understanding rather than incremental bug-fixing."""
+solution_explanation = """Run the test suite to identify 9 failing cases. For each, use glslangValidator as a reference oracle and cross-reference the spec to determine whether the validator code or the manifest expected value is wrong. Fix 6 validator bugs across parsing and semantic comparison logic, and correct 3 manifest expected values. Generate a diagnostic report at /app/diagnostic_report.json classifying all 9 defects with correct source attribution, affected cases, root causes, and fix descriptions."""
+verification_explanation = """17 pytest tests verify: (1) run_tests.py exits 0 (all 16 pipeline tests pass), (2) novel shader pairs exercise each fixed validator behavior with both valid and invalid inputs — testing struct structural comparison, member order sensitivity, array-on-type parsing, multi-variable capture, layout whitespace handling, and bilateral invariant checking, (3) manifest entries for cases 14/15/16 have spec-correct expected values, (4) diagnostic_report.json has correct schema with exactly 6 validator-sourced and 3 manifest-sourced defect entries with required fields and correct case attribution."""
+category = "compiler_development"
+tags = ["glsl-debugging", "shader-conformance"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/glsl-link-validator"

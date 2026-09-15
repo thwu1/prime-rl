@@ -1,0 +1,30 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix locn: <http://www.w3.org/ns/locn#> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+
+<http://example.org/neg/ds2> a dcat:Dataset ;
+    dct:title "Test Dataset With Incomplete Temporal"@en ;
+    dct:description "This dataset has temporal coverage missing end date"@en ;
+    dct:spatial [
+        locn:geometry "POINT(0 0)"^^geo:wktLiteral ;
+        locn:geographicName "Test Location"
+    ] ;
+    dct:temporal [
+        dcat:startDate "2024-01-01"^^xsd:date
+    ] ;
+    dcat:keyword "test1"@en , "test2"@en , "test3"@en ;
+    dcat:theme <http://example.org/neg/theme2> ;
+    dct:accrualPeriodicity <http://example.org/freq> ;
+    dcat:spatialResolutionInMeters "100.0"^^xsd:decimal ;
+    dct:conformsTo <http://example.org/std> ;
+    dct:creator [
+        a foaf:Agent ;
+        foaf:name "Test Agent"@en ;
+        foaf:mbox <mailto:test@example.org>
+    ] .
+
+<http://example.org/neg/theme2> a skos:Concept .

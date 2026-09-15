@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of DICOM PS3.15 de-identification specification. The solver must parse a raw TSV action table with abbreviated column headers, reverse-engineer the column-to-option mapping from the PS3.15 spec text, discover compound action code resolution semantics (Z/D, X/Z, X/D, X/Z/D, X/Z/U*) from normative definitions, implement option override priority with last-wins semantics, build a multi-mode CLI (resolve, batch-resolve, deidentify with single-file and dataset modes, audit). The deidentify command requires VR-aware dummy value generation across diverse DICOM Value Representations, internally consistent UID remapping that persists across multiple files in dataset mode, and recursive traversal into Sequence (SQ) attribute items per PS3.15 E.1 which mandates protection of attributes embedded within Sequence items. The audit command must similarly recurse into sequences and report violation locations. Cross-file UID consistency in dataset mode demands a shared mapping state across file processing. The task couples specification interpretation, TSV parsing with column header mapping, domain-specific action code logic, binary medical image format manipulation, recursive data structure traversal, multi-file I/O coordination, and cross-subcommand semantic consistency."""
+solution_explanation = """The reference solution parses the 656-entry TSV using csv.DictReader, maps abbreviated column headers to canonical option names. For resolve: looks up the tag, iterates enabled options in order (last wins), then applies IOD type to resolve compound codes. For batch-resolve: iterates all entries with the same logic. For deidentify: builds an action map, then uses a recursive process_dataset function that first recurses into all SQ elements' items, then applies X/Z/D/U/K/C actions to the current dataset level. A shared uid_map dict ensures UID consistency across sequences and across multiple files in dataset mode. Dataset mode globs *.dcm files, processes each with the shared uid_map, and writes to the output directory. For audit: builds an action info map and recursively audits each dataset level (top_level or sequence), checking X (absent), Z (empty), D (non-empty), and reporting location. De-identification metadata is set after processing."""
+verification_explanation = """Tests verify 50+ specific tag+option+IOD-type combinations against known-correct resolved actions. Compound codes are tested across all IOD types. Option override priority (last-wins) is verified with order-swapped invocations. Batch-resolve checks correct count (656), specific entries, and compound code preservation. Deidentify tests verify each action code: X removes, Z zeros, D generates VR-consistent dummies for PN/LO/DT types, U remaps UIDs. UID consistency verified across attributes and across sequence boundaries. Sequence recursion tests verify Z/X/D/U actions applied inside sequence items using a non-table sequence tag (0008,1115). Deidentify→audit chain tests verify zero violations for single files and across dataset mode. Dataset mode tests verify cross-file UID consistency (same original UID in different files maps to same replacement), different UIDs stay different, all files processed with correct metadata, and each output file passes audit. Audit sequence recursion tests verify detection of X/Z/D violations inside sequence items with correct location field (top_level vs sequence)."""
+category = "healthcare_informatics"
+tags = ["dicom", "de-identification"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dicom-deid-resolver-83b59a"

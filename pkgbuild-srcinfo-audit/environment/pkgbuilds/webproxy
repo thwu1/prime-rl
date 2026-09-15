@@ -1,0 +1,32 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+pkgname=webproxy
+pkgver=3.1.0
+pkgrel=2
+pkgdesc="HTTP/HTTPS reverse proxy with load balancing"
+arch=('x86_64' 'aarch64')
+url="https://example.com/webproxy"
+license=('Apache-2.0')
+depends=('openssl' 'pcre2' 'zlib')
+makedepends=('gcc')
+optdepends=('geoip-database: for geo-location features')
+source=("https://example.com/src/${pkgname}-${pkgver}.tar.gz"
+        "webproxy.service"
+        "webproxy.conf"
+        "webproxy-logrotate")
+sha256sums=('aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222'
+            'bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222cccc3333'
+            'cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222cccc3333dddd4444')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    ./configure --prefix=/usr --with-ssl --with-pcre2
+    make
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}" install
+    install -Dm644 "${srcdir}/webproxy.service" "${pkgdir}/usr/lib/systemd/system/webproxy.service"
+    install -Dm644 "${srcdir}/webproxy.conf" "${pkgdir}/etc/webproxy/webproxy.conf"
+    install -Dm644 "${srcdir}/webproxy-logrotate" "${pkgdir}/etc/logrotate.d/webproxy"
+}

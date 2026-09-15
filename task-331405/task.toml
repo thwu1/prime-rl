@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing reverse-mode AD from scratch requires deep understanding of: (1) partial evaluation to split JVP computation into primal and tangent parts, (2) jaxpr transposition to reverse the linear tangent computation for cotangent propagation, (3) correct transpose rules for each primitive respecting linear/nonlinear separation, (4) cotangent accumulation for multiply-used variables, and (5) composability of transformations for higher-order derivatives. This is a core PL/compiler/numerical-methods problem requiring PhD-level expertise in automatic differentiation theory."""
+solution_explanation = """The solution implements VJP as linearize-then-transpose: (1) PartialEvalTrace splits JVP into known (primal) and unknown (tangent) parts, building a jaxpr for the linear tangent computation, (2) tracers_to_jaxpr converts the partial eval graph to a jaxpr via topological sort, (3) eval_jaxpr_transposed walks the linear jaxpr backwards applying transpose rules (mul→scale-by-residual, add→copy-cotangent, neg→negate, div→divide-cotangent, reduce_sum→broadcast), (4) grad wraps vjp with cotangent seeding."""
+verification_explanation = """Tests verify numerical correctness of gradients against analytical values and finite differences: basic derivatives (sin→cos, x²→2x), chain rule compositions, product rule, higher-order derivatives (grad(grad(sin))→-sin), logarithmic derivatives, division rule derivatives, and array-input gradients. Each test uses tight numerical tolerances (1e-5 to 1e-4)."""
+category = "machine_learning"
+tags = ["automatic-differentiation", "compiler-internals"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-331405"

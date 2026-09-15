@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete concurrent TCP server for a binary protocol where behavioral rules must be inferred from captured session recordings rather than a specification. The solver must: (1) study a partial protocol spec covering only wire format and message layouts, (2) reverse-engineer six behavioral rule categories — speed calculation, ticket issuance thresholds, observation ordering normalization, day-based ticket deduplication, day-spanning dedup semantics, and pending ticket queuing — by analyzing hex dumps of production traffic, (3) identify subtle edge cases from trace evidence (e.g., exact-speed-limit boundary, multi-day span blocking, reversed chronological observations), (4) design a concurrent asyncio server architecture with correct locking for shared state across connections, and (5) integrate all inferred rules into a coherent, correct implementation. The challenge is fundamentally creative: the solver must synthesize a working system from fragmentary evidence, making design decisions about data structures, concurrency patterns, and edge case handling with no reference implementation to consult."""
+solution_explanation = """The server must implement seven message types (Error, Plate, Ticket, WantHeartbeat, Heartbeat, IAmCamera, IAmDispatcher) over a binary TCP protocol. Key behavioral rules inferred from traces: (1) speed = distance/time in mph, encoded as 100x integer in tickets, (2) tickets only issued when speed strictly exceeds the limit (not at-or-above), (3) tickets normalize observation order so timestamp1 < timestamp2 regardless of arrival order, (4) at most one ticket per plate per day where day = floor(timestamp/86400), (5) day-spanning tickets block ALL covered days (not just start day), (6) tickets are queued when no dispatcher is available and delivered when one connects, (7) queued tickets are removed after delivery (not re-sent to subsequent dispatchers), (8) errors sent for: plate from non-camera, duplicate identification, duplicate WantHeartbeat, unknown message type, (9) heartbeats sent at interval specified in deciseconds (10ths of a second), interval=0 means no heartbeats."""
+verification_explanation = """11 pytest tests exercise the server over live TCP connections: basic speed violation with exact speed/distance/time verification, no ticket at exact speed limit boundary, duplicate heartbeat rejection, ticket field ordering with reversed observations, pending ticket delivery and non-re-delivery, day-spanning dedup blocking, error responses for protocol violations, heartbeat timing accuracy, ticket queuing before dispatcher, and a combined test verifying the interaction between observation normalization and day-spanning dedup."""
+category = "networking"
+tags = ["binary-protocol", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f145ac"

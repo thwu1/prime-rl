@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+"""ircc - IR Compiler Collection
+
+Command-line tool for inspecting, running, and testing IR programs.
+"""
+
+import sys
+import os
+import argparse
+from collections import Counter
+
+sys.path.insert(0, '/app')
+
+from ir import (
+    Instruction, IRVar, LoadIntConst, LoadBoolConst, Copy, Call,
+    Jump, CondJump, Label,
+)
+from ir_interpreter import interpret
+from programs import PROGRAMS
+
+
+def fmt(insn):
+    if isinstance(insn, LoadIntConst):
+        return f"{insn.dest.name} = LoadIntConst {insn.value}"
+    if isinstance(insn, LoadBoolConst):
+        return f"{insn.dest.name} = LoadBoolConst {'true' if insn.value else 'false'}"
+    if isinstance(insn, Copy):
+        return f"{insn.dest.name} = Copy {insn.source.name}"
+    if isinstance(insn, Call):
+        args = ', '.join(a.name for a in insn.args)
+        return f"{insn.dest.name} = Call {insn.fun.name}({args})"
+    if isinstance(insn, Jump):
+        return f"Jump -> {insn.label}"
+    if isinstance(insn, CondJump):
+        return f"CondJump {insn.cond.name} ? {insn.then_label} : {insn.else_label}"
+    if isinstance(insn, Label):
+        return f"Label {insn.name}:"
+    return str(insn)
+
+
+def find_prog(name):
+    for p in PROGRAMS:
+        if p['name'] == name:
+            return p
+    print(f"Error: unknown program '{name}'", file=sys.stderr)
+    print(f"Available: {', '.join(p['name'] for p in PROGRAMS)}", file=sys.stderr)
+    sys.exit(1)
+
+
+def cmd_list(args):
+    print(f"{'Name':<30} {'Insns':>5} {'MinRed':>7} {'Stdin':>5}")
+    print('-' * 50)
+    for p in PROGRAMS:
+        has_stdin = 'yes' if p.get('stdin') else 'no'
+        mr = p.get('min_reduction', 0)
+        print(f"{p['name']:<30} {len(p['instructions']):>5} {mr:>6.0%} {has_stdin:>5}")
+    total = sum(len(p['instructions']) for p in PROGRAMS)
+    print(f"\nTotal: {total} instructions across {len(PROGRAMS)} programs")
+    print(f"Required overall reduction: >= 25%")
+
+
+def cmd_show(args):
+    prog = find_prog(args.program)
+    print(f"Program: {prog['name']}")
+    if prog.get('stdin'):
+        print(f"Stdin: {prog['stdin']}")
+    print(f"Expected output: {prog['expected_output']}")
+    print(f"Instructions ({len(prog['instructions'])}):")
+    for i, insn in enumerate(prog['instructions']):
+        print(f"  {i:3d}  {fmt(insn)}")
+
+
+def cmd_run(args):
+    prog = find_prog(args.program)
+    try:
+        output = interpret(prog['instructions'], prog.get('stdin', []))
+        for line in output:
+            print(line)
+    except RuntimeError as e:
+        print(f"Runtime error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def build_cfg(instructions):
+    n = len(instructions)
+    if n == 0:
+        return [], {}
+    leaders = {0}
+    label_idx = {}
+    for i, insn in enumerate(instructions):
+        if isinstance(insn, Label):
+            label_idx[insn.name] = i
+            leaders.add(i)
+        if isinstance(insn, (Jump, CondJump)) and i + 1 < n:
+            leaders.add(i + 1)
+    sl = sorted(leaders)
+    blocks = []
+    for k, start in enumerate(sl):
+        end = sl[k + 1] if k + 1 < len(sl) else n
+        blocks.append({'id': k, 'start': start, 'end': end,
+                       'insns': list(range(start, end))})
+    bof = {}
+    for b in blocks:
+        for i in b['insns']:
+            bof[i] = b['id']
+    for b in blocks:
+        li = b['insns'][-1]
+        last = instructions[li]
+        b['succs'] = []
+        if isinstance(last, Jump):
+            t = label_idx.get(last.label)
+            if t is not None and t in bof:
+                b['succs'].append(bof[t])
+        elif isinstance(last, CondJump):
+            for lbl in (last.then_label, last.else_label):
+                t = label_idx.get(lbl)
+                if t is not None and t in bof:
+                    b['succs'].append(bof[t])
+        else:
+            if li + 1 < n and li + 1 in bof:
+                b['succs'].append(bof[li + 1])
+    for b in blocks:
+        b['preds'] = []
+    for b in blocks:
+        for s in b['succs']:
+            blocks[s]['preds'].append(b['id'])
+    return blocks, label_idx
+
+
+def cmd_cfg(args):
+    prog = find_prog(args.program)
+    blocks, _ = build_cfg(prog['instructions'])
+    print(f"Control-Flow Graph: '{prog['name']}'")
+    print(f"  {len(blocks)} basic block(s)\n")
+    for b in blocks:
+        pstr = ', '.join(f"B{p}" for p in b['preds']) or '(entry)'
+        sstr = ', '.join(f"B{s}" for s in b['succs']) or '(exit)'
+        print(f"  Block B{b['id']} [preds: {pstr}] [succs: {sstr}]")
+        for i in b['insns']:
+            print(f"    {i:3d}  {fmt(prog['instructions'][i])}")
+        print()
+
+
+def cmd_stats(args):
+    progs = [find_prog(args.program)] if args.program else PROGRAMS
+    for prog in progs:
+        insns = prog['instructions']
+        counts = Counter(type(i).__name__ for i in insns)
+        print(f"{prog['name']} ({len(insns)} instructions):")
+        for typ, cnt in sorted(counts.items()):
+            print(f"  {typ:<20} {cnt:>4}")
+
+        defs = Counter()
+        uses = Counter()
+        for insn in insns:
+            if hasattr(insn, 'dest') and insn.dest:
+                defs[insn.dest.name] += 1
+            if isinstance(insn, Copy):
+                uses[insn.source.name] += 1
+            elif isinstance(insn, Call):
+                for a in insn.args:
+                    uses[a.name] += 1
+            elif isinstance(insn, CondJump):
+                uses[insn.cond.name] += 1
+
+        print(f"  Variables: {len(defs)} defined, {len(uses)} used")
+        multi = {v for v, c in defs.items() if c > 1}
+        if multi:
+            print(f"  Multi-defined: {', '.join(sorted(multi))}")
+        print()
+
+
+def cmd_opt(args):
+    try:
+        from optimizer import optimize
+    except Exception as e:
+        print(f"Error loading optimizer: {e}", file=sys.stderr)
+        sys.exit(1)
+    prog = find_prog(args.program)
+    orig = prog['instructions']
+    try:
+        opt = optimize(list(orig))
+    except Exception as e:
+        print(f"Optimizer error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Program: {prog['name']}")
+    print(f"Original:  {len(orig)} instructions")
+    print(f"Optimized: {len(opt)} instructions")
+    if len(orig) > 0:
+        red = 1.0 - len(opt) / len(orig)
+        mr = prog.get('min_reduction', 0)
+        st = 'PASS' if red >= mr else 'FAIL'
+        print(f"Reduction: {red:.1%} (required: {mr:.0%}) [{st}]")
+    if args.show_ir:
+        print(f"\nOptimized IR:")
+        for i, insn in enumerate(opt):
+            print(f"  {i:3d}  {fmt(insn)}")
+
+
+def cmd_verify(args):
+    try:
+        from optimizer import optimize
+    except Exception as e:
+        print(f"Error loading optimizer: {e}", file=sys.stderr)
+        sys.exit(1)
+    prog = find_prog(args.program)
+    orig = prog['instructions']
+    try:
+        opt = optimize(list(orig))
+    except Exception as e:
+        print(f"FAIL {prog['name']}: optimizer error: {e}")
+        sys.exit(1)
+    orig_out = interpret(orig, prog.get('stdin', []))
+    try:
+        opt_out = interpret(opt, prog.get('stdin', []))
+    except RuntimeError as e:
+        print(f"FAIL {prog['name']}: runtime error in optimized code: {e}")
+        sys.exit(1)
+    if orig_out != opt_out:
+        print(f"FAIL {prog['name']}: output changed")
+        print(f"  Expected: {orig_out}")
+        print(f"  Got:      {opt_out}")
+        sys.exit(1)
+    red = 1.0 - len(opt) / len(orig) if len(orig) > 0 else 0
+    mr = prog.get('min_reduction', 0)
+    if red < mr:
+        print(f"WEAK {prog['name']}: reduction {red:.1%} < required {mr:.0%}")
+    else:
+        print(f"OK   {prog['name']}: output correct, {red:.1%} reduction")
+
+
+def cmd_verify_all(args):
+    try:
+        from optimizer import optimize
+    except Exception as e:
+        print(f"Error loading optimizer: {e}", file=sys.stderr)
+        sys.exit(1)
+    t_orig = 0
+    t_opt = 0
+    fails = 0
+    weak = 0
+    for prog in PROGRAMS:
+        orig = prog['instructions']
+        try:
+            opt = optimize(list(orig))
+        except Exception as e:
+            print(f"FAIL {prog['name']}: optimizer error: {e}")
+            fails += 1
+            t_orig += len(orig)
+            t_opt += len(orig)
+            continue
+        orig_out = interpret(orig, prog.get('stdin', []))
+        try:
+            opt_out = interpret(opt, prog.get('stdin', []))
+        except RuntimeError as e:
+            print(f"FAIL {prog['name']}: runtime error: {e}")
+            fails += 1
+            t_orig += len(orig)
+            t_opt += len(orig)
+            continue
+        t_orig += len(orig)
+        t_opt += len(opt)
+        if orig_out != opt_out:
+            print(f"FAIL {prog['name']}: output changed")
+            fails += 1
+        else:
+            red = 1.0 - len(opt) / len(orig) if len(orig) > 0 else 0
+            mr = prog.get('min_reduction', 0)
+            if red < mr:
+                print(f"WEAK {prog['name']}: {red:.1%} < {mr:.0%}")
+                weak += 1
+            else:
+                print(f"OK   {prog['name']}: {red:.1%} reduction")
+    print()
+    overall = 1.0 - t_opt / t_orig if t_orig > 0 else 0
+    st = 'PASS' if overall >= 0.25 else 'FAIL'
+    print(f"Overall: {t_orig} -> {t_opt} ({overall:.1%} reduction) [{st}]")
+    if fails:
+        print(f"Failures: {fails}")
+    if weak:
+        print(f"Below threshold: {weak}")
+
+
+def cmd_pipeline(args):
+    import tomllib
+    path = '/app/pipeline.toml'
+    if not os.path.isfile(path):
+        print(f"No pipeline config found at {path}")
+        print("Create pipeline.toml to configure optimization passes.")
+        print("\nExpected format:")
+        print("  max_iterations = 10")
+        print("")
+        print("  [[pass]]")
+        print('  module = "passes.my_pass"')
+        print("  enabled = true")
+        return
+    with open(path, 'rb') as f:
+        config = tomllib.load(f)
+    print(f"Pipeline configuration ({path}):")
+    print(f"  Max iterations: {config.get('max_iterations', 10)}")
+    passes = config.get('pass', [])
+    if not passes:
+        print("  No passes configured.")
+    else:
+        print(f"  Passes ({len(passes)}):")
+        for i, p in enumerate(passes):
+            status = 'enabled' if p.get('enabled', True) else 'disabled'
+            mod = p.get('module', '???')
+            print(f"    {i+1}. {mod} [{status}]")
+            if p.get('enabled', True):
+                try:
+                    import importlib
+                    m = importlib.import_module(mod)
+                    if hasattr(m, 'run') and callable(m.run):
+                        print(f"       -> loaded OK")
+                    else:
+                        print(f"       -> WARNING: no 'run' function")
+                except ImportError as e:
+                    print(f"       -> ERROR: {e}")
+
+
+def cmd_pass_check(args):
+    import importlib
+    mn = args.module
+    try:
+        mod = importlib.import_module(mn)
+    except ImportError as e:
+        print(f"Cannot import '{mn}': {e}")
+        sys.exit(1)
+    if not hasattr(mod, 'run'):
+        print(f"Module '{mn}' has no 'run' function")
+        sys.exit(1)
+    run_fn = mod.run
+    if not callable(run_fn):
+        print(f"'{mn}.run' is not callable")
+        sys.exit(1)
+    test_insns = [
+        LoadIntConst(42, IRVar('x')),
+        Call(IRVar('print_int'), (IRVar('x'),), IRVar('_r')),
+    ]
+    try:
+        result = run_fn(list(test_insns))
+    except Exception as e:
+        print(f"Error running pass: {e}")
+        sys.exit(1)
+    if not isinstance(result, list):
+        print(f"Pass returned {type(result).__name__}, expected list")
+        sys.exit(1)
+    for i, r in enumerate(result):
+        if not isinstance(r, Instruction):
+            print(f"Element {i} is {type(r).__name__}, not Instruction")
+            sys.exit(1)
+    orig_out = interpret(test_insns)
+    try:
+        opt_out = interpret(result)
+    except RuntimeError as e:
+        print(f"Optimized program fails: {e}")
+        sys.exit(1)
+    if orig_out != opt_out:
+        print(f"WARNING: pass changes output on test program")
+        print(f"  Expected: {orig_out}")
+        print(f"  Got:      {opt_out}")
+    else:
+        print(f"Pass '{mn}' OK ({len(test_insns)} -> {len(result)} instructions)")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='ircc',
+        description='IR Compiler Collection - tools for working with IR programs',
+    )
+    sub = parser.add_subparsers(dest='command')
+
+    p = sub.add_parser('list', help='List all available programs')
+    p.set_defaults(func=cmd_list)
+
+    p = sub.add_parser('show', help='Show IR instructions for a program')
+    p.add_argument('program')
+    p.set_defaults(func=cmd_show)
+
+    p = sub.add_parser('run', help='Execute a program and show output')
+    p.add_argument('program')
+    p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser('cfg', help='Show control-flow graph (basic blocks and edges)')
+    p.add_argument('program')
+    p.set_defaults(func=cmd_cfg)
+
+    p = sub.add_parser('stats', help='Show instruction statistics')
+    p.add_argument('program', nargs='?', help='Program name (omit for all)')
+    p.set_defaults(func=cmd_stats)
+
+    p = sub.add_parser('opt', help='Run optimizer on a program and show results')
+    p.add_argument('program')
+    p.add_argument('--show-ir', action='store_true', help='Show optimized IR listing')
+    p.set_defaults(func=cmd_opt)
+
+    p = sub.add_parser('verify', help='Verify optimizer preserves program behavior')
+    p.add_argument('program')
+    p.set_defaults(func=cmd_verify)
+
+    p = sub.add_parser('verify-all', help='Verify all programs at once')
+    p.set_defaults(func=cmd_verify_all)
+
+    p = sub.add_parser('pipeline', help='Show current pipeline configuration')
+    p.set_defaults(func=cmd_pipeline)
+
+    p = sub.add_parser('pass-check', help='Validate a pass module interface')
+    p.add_argument('module', help='Module path (e.g. passes.my_pass)')
+    p.set_defaults(func=cmd_pass_check)
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+    args.func(args)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of algebraic topology (persistent homology, Betti numbers, persistence diagrams) and practical TDA skills. The agent must: (1) recognize that persistent homology is the appropriate tool from the output specification alone, (2) choose and install a suitable TDA library on a bare system, (3) determine which of the 12 unlabeled point clouds correspond to circles, spheres, and tori by analyzing their persistence diagram structure (no ordering or ground-truth is revealed), (4) correctly extract multiple topological features (entropy, significance counts, amplitudes) from persistence diagrams, (5) implement bottleneck distance computations between diagrams, and (6) design a subsampling stability analysis. The combination of tool selection, topological discovery, multi-metric extraction, and stability analysis requires proficiency-level expertise in computational topology."""
+solution_explanation = """Install a TDA library (e.g., gudhi, ripser, giotto-tda). For each point cloud: compute persistent homology at H0/H1/H2, extract finite persistence intervals, compute Shannon entropy of lifetime distributions, count significant features using the 10% threshold, record max persistence as bottleneck amplitude. Classify shapes by analyzing amplitude ratios across homology dimensions: circles have H1 dominating H2, spheres have H2 exceeding H1, tori have H0 exceeding H1 due to large spatial extent. Compute pairwise bottleneck distances on H1 diagrams. For stability: subsample each cloud 5 times at 80 points using deterministic seeds, recompute H1 persistence, average the bottleneck distance to the full diagram."""
+verification_explanation = """Tests verify: (1) results.json exists with correct structure and dimensions, (2) shape classification achieves ≥ 10/12 accuracy against ground truth, (3) topological features are consistent with actual geometry (circles show H1, spheres show H2, tori show multiple H1, all have H0), (4) distance matrix is symmetric, non-negative, finite with zero diagonal, (5) intra-class distances smaller than inter-class distances on average, (6) similar/dissimilar pairs satisfy ordering constraints, (7) persistence entropies are non-negative and finite, (8) stability scores are in valid range (0,1]."""
+category = "data_science"
+tags = ["topological-data-analysis", "persistent-homology"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tda-persistence-features"

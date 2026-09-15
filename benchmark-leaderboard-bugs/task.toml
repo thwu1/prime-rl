@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating statistical methods and creating algorithmic implementations across a four-tool pipeline (DuckDB SQL, Python, jq, bash). The solver must: (1) evaluate DuckDB's UNPIVOT NULL-handling behavior and determine that INCLUDE NULLS is required to preserve missing entries as failures, (2) judge whether VAR_POP or VAR_SAMP is the appropriate variance function for finite-sample SEM estimation by reasoning about Bessel's correction, (3) research and implement the unbiased pass@k combinatorial estimator from Chen et al. (2021) from scratch — the spec references the paper but provides no formula, (4) design a contamination detection algorithm from requirements — handling temporal boundary semantics (strict < vs <=), one-hop vs transitive similarity propagation, and correct scoping under time-window filtering, (5) identify that the orchestrator fails to forward CLI date-filter arguments to the transform subprocess, and (6) evaluate and correct jq sort directions against the output schema specification. Each component requires domain-specific judgment about statistical estimation, graph algorithm design, or tool-specific semantics rather than applying a prescribed formula."""
+solution_explanation = """Fix extract.sql (add INCLUDE NULLS to UNPIVOT, change VAR_POP to VAR_SAMP). Implement compute_pass_at_k using unbiased estimator 1-C(n-c,k)/C(n,k) from Chen et al. Implement compute_contamination with strict < date comparison, one-hop similarity propagation from temporal sources only, and full-set temporal scoping. Fix the contamination call site to pass all_tasks instead of filtered tasks for temporal determination. Add --start-date/--end-date argument forwarding in pipeline.py. Fix assemble.jq sort directions: sort_by(-.resolved_rate) for rankings, sort_by(.mean_solve_rate) for task_difficulty."""
+verification_explanation = """Tests independently load data from SQLite and Parquet to compute reference values. Verifies resolved rates (with NULL-as-failure semantics), SEM (distinguishes Bessel's correction from population variance), pass@k (explicitly compares unbiased vs naive estimator values), contamination counts (boundary dates, one-hop vs transitive propagation, below-threshold pairs), time-window filtering (task count, filtered rates, filtered contamination using full-set temporal), output schema (jq validation, required fields, ranking order), task difficulty ordering, and edge cases (missing Parquet entries, error status without resolved key)."""
+category = "data-engineering"
+tags = ["statistical-evaluation", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-leaderboard-bugs"

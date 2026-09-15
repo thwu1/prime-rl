@@ -1,0 +1,15 @@
+dag_id: reporting
+schedule: "dataset:user_scores"
+default_pool: io_pool
+max_active_runs: 1
+tasks:
+  generate_report:
+    pool_slots: 2
+    duration_estimate_minutes: 15
+  distribute:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+    upstream: [generate_report]
+datasets:
+  produces: [daily_report]
+  consumes: [user_scores]

@@ -1,0 +1,610 @@
+# DCAT-AP 3.0.1 SHACL Shapes
+# Derived from https://semiceu.github.io/DCAT-AP/releases/3.0.1
+# Application Profile for Data Portals in Europe
+# Constraints enforce mandatory/recommended properties, cardinality,
+# class typing, datatype, and node kind.
+#
+# Build stamp: dcatap-shapes-v2-20260610
+
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix eli:   <http://data.europa.eu/eli/ontology#> .
+@prefix r5r:   <http://data.europa.eu/r5r/> .
+@prefix spdx:  <http://spdx.org/rdf/terms#> .
+@prefix adms:  <http://www.w3.org/ns/adms#> .
+@prefix locn:  <http://www.w3.org/ns/locn#> .
+@prefix odrl:  <http://www.w3.org/ns/odrl/2/> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix time:  <http://www.w3.org/2006/time#> .
+
+# ============================================================
+# Catalogue
+# ============================================================
+
+<urn:dcatap:shapes:CatalogShape> a sh:NodeShape ;
+    sh:targetClass dcat:Catalog ;
+    sh:property [
+        sh:path dct:title ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "title"@en ;
+        sh:description "A name given to the Catalogue."@en ;
+    ] ;
+    sh:property [
+        sh:path dct:description ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "description"@en ;
+        sh:description "A free-text account of the Catalogue."@en ;
+    ] ;
+    sh:property [
+        sh:path dct:publisher ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class foaf:Agent ;
+        sh:severity sh:Violation ;
+        sh:name "publisher"@en ;
+        sh:description "An entity responsible for making the Catalogue available."@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:dataset ;
+        sh:class dcat:Dataset ;
+        sh:severity sh:Warning ;
+        sh:name "dataset"@en ;
+        sh:description "A Dataset that is part of the Catalogue."@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:service ;
+        sh:class dcat:DataService ;
+        sh:severity sh:Warning ;
+        sh:name "service"@en ;
+        sh:description "A site or end-point that is listed in the Catalogue."@en ;
+    ] ;
+    sh:property [
+        sh:path dct:language ;
+        sh:class dct:LinguisticSystem ;
+        sh:severity sh:Warning ;
+        sh:name "language"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:spatial ;
+        sh:class dct:Location ;
+        sh:severity sh:Warning ;
+        sh:name "geographical coverage"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:themeTaxonomy ;
+        sh:class skos:ConceptScheme ;
+        sh:severity sh:Warning ;
+        sh:name "themes"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:license ;
+        sh:class dct:LicenseDocument ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "licence"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:issued ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "release date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:modified ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "modification date"@en ;
+    ] ;
+    sh:property [
+        sh:path foaf:homepage ;
+        sh:class foaf:Document ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "homepage"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:temporal ;
+        sh:class dct:PeriodOfTime ;
+        sh:severity sh:Warning ;
+        sh:name "temporal coverage"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:creator ;
+        sh:class foaf:Agent ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "creator"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:rights ;
+        sh:class dct:RightsStatement ;
+        sh:severity sh:Warning ;
+        sh:name "rights"@en ;
+    ] ;
+    sh:property [
+        sh:path r5r:applicableLegislation ;
+        sh:class eli:LegalResource ;
+        sh:severity sh:Warning ;
+        sh:name "applicable legislation"@en ;
+    ] .
+
+# ============================================================
+# Dataset
+# ============================================================
+
+<urn:dcatap:shapes:DatasetShape> a sh:NodeShape ;
+    sh:targetClass dcat:Dataset ;
+    sh:property [
+        sh:path dct:title ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "title"@en ;
+        sh:description "A name given to the Dataset."@en ;
+    ] ;
+    sh:property [
+        sh:path dct:description ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "description"@en ;
+        sh:description "A free-text account of the Dataset."@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:distribution ;
+        sh:class dcat:Distribution ;
+        sh:severity sh:Warning ;
+        sh:name "distribution"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:publisher ;
+        sh:class foaf:Agent ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "publisher"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:theme ;
+        sh:class skos:Concept ;
+        sh:severity sh:Warning ;
+        sh:name "theme"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:keyword ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Warning ;
+        sh:name "keyword"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:temporal ;
+        sh:class dct:PeriodOfTime ;
+        sh:severity sh:Warning ;
+        sh:name "temporal coverage"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:spatial ;
+        sh:class dct:Location ;
+        sh:severity sh:Warning ;
+        sh:name "spatial coverage"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:accrualPeriodicity ;
+        sh:class dct:Frequency ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "frequency"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:language ;
+        sh:class dct:LinguisticSystem ;
+        sh:severity sh:Warning ;
+        sh:name "language"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:landingPage ;
+        sh:class foaf:Document ;
+        sh:severity sh:Warning ;
+        sh:name "landing page"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:conformsTo ;
+        sh:class dct:Standard ;
+        sh:severity sh:Warning ;
+        sh:name "conforms to"@en ;
+    ] ;
+    sh:property [
+        sh:path r5r:applicableLegislation ;
+        sh:class eli:LegalResource ;
+        sh:severity sh:Warning ;
+        sh:name "applicable legislation"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:accessRights ;
+        sh:class dct:RightsStatement ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "access rights"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:contactPoint ;
+        sh:class vcard:Kind ;
+        sh:severity sh:Warning ;
+        sh:name "contact point"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:issued ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "release date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:modified ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "modification date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:creator ;
+        sh:class foaf:Agent ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "creator"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:license ;
+        sh:class dct:LicenseDocument ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "licence"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Warning ;
+        sh:name "identifier"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:type ;
+        sh:class skos:Concept ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "type"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:rights ;
+        sh:class dct:RightsStatement ;
+        sh:severity sh:Warning ;
+        sh:name "rights"@en ;
+    ] .
+
+# ============================================================
+# Distribution
+# ============================================================
+
+<urn:dcatap:shapes:DistributionShape> a sh:NodeShape ;
+    sh:targetClass dcat:Distribution ;
+    sh:property [
+        sh:path dcat:accessURL ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:name "access URL"@en ;
+        sh:description "A URL that gives access to the Distribution of the Dataset."@en ;
+    ] ;
+    sh:property [
+        sh:path dct:format ;
+        sh:class dct:MediaTypeOrExtent ;
+        sh:severity sh:Warning ;
+        sh:name "format"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:mediaType ;
+        sh:class dct:MediaType ;
+        sh:severity sh:Warning ;
+        sh:name "media type"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:license ;
+        sh:class dct:LicenseDocument ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "licence"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:title ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Warning ;
+        sh:name "title"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:description ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Warning ;
+        sh:name "description"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:downloadURL ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Warning ;
+        sh:name "download URL"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:byteSize ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:nonNegativeInteger ;
+        sh:severity sh:Warning ;
+        sh:name "byte size"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:issued ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "release date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:modified ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "modification date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:conformsTo ;
+        sh:class dct:Standard ;
+        sh:severity sh:Warning ;
+        sh:name "linked schemas"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:rights ;
+        sh:class dct:RightsStatement ;
+        sh:severity sh:Warning ;
+        sh:name "rights"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:language ;
+        sh:class dct:LinguisticSystem ;
+        sh:severity sh:Warning ;
+        sh:name "language"@en ;
+    ] ;
+    sh:property [
+        sh:path adms:status ;
+        sh:class skos:Concept ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "status"@en ;
+    ] ;
+    sh:property [
+        sh:path r5r:applicableLegislation ;
+        sh:class eli:LegalResource ;
+        sh:severity sh:Warning ;
+        sh:name "applicable legislation"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:accessService ;
+        sh:class dcat:DataService ;
+        sh:severity sh:Warning ;
+        sh:name "access service"@en ;
+    ] .
+
+# ============================================================
+# Data Service
+# ============================================================
+
+<urn:dcatap:shapes:DataServiceShape> a sh:NodeShape ;
+    sh:targetClass dcat:DataService ;
+    sh:property [
+        sh:path dct:title ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "title"@en ;
+        sh:description "A name given to the Data Service."@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:endpointURL ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:name "endpoint URL"@en ;
+        sh:description "The root location or primary endpoint of the service."@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:endpointDescription ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Warning ;
+        sh:name "endpoint description"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:servesDataset ;
+        sh:class dcat:Dataset ;
+        sh:severity sh:Warning ;
+        sh:name "serves dataset"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:publisher ;
+        sh:class foaf:Agent ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "publisher"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:conformsTo ;
+        sh:class dct:Standard ;
+        sh:severity sh:Warning ;
+        sh:name "conforms to"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:license ;
+        sh:class dct:LicenseDocument ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "licence"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:theme ;
+        sh:class skos:Concept ;
+        sh:severity sh:Warning ;
+        sh:name "theme"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:contactPoint ;
+        sh:class vcard:Kind ;
+        sh:severity sh:Warning ;
+        sh:name "contact point"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:description ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Warning ;
+        sh:name "description"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:issued ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "release date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:modified ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "modification date"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:accessRights ;
+        sh:class dct:RightsStatement ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:name "access rights"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:language ;
+        sh:class dct:LinguisticSystem ;
+        sh:severity sh:Warning ;
+        sh:name "language"@en ;
+    ] ;
+    sh:property [
+        sh:path dct:spatial ;
+        sh:class dct:Location ;
+        sh:severity sh:Warning ;
+        sh:name "spatial coverage"@en ;
+    ] ;
+    sh:property [
+        sh:path r5r:applicableLegislation ;
+        sh:class eli:LegalResource ;
+        sh:severity sh:Warning ;
+        sh:name "applicable legislation"@en ;
+    ] .
+
+# ============================================================
+# Supporting Classes — Agents, Concepts, etc.
+# ============================================================
+
+<urn:dcatap:shapes:AgentShape> a sh:NodeShape ;
+    sh:targetClass foaf:Agent ;
+    sh:property [
+        sh:path foaf:name ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "name"@en ;
+        sh:description "A name of the Agent."@en ;
+    ] .
+
+<urn:dcatap:shapes:DocumentShape> a sh:NodeShape ;
+    sh:targetClass foaf:Document .
+
+<urn:dcatap:shapes:ConceptShape> a sh:NodeShape ;
+    sh:targetClass skos:Concept ;
+    sh:property [
+        sh:path skos:prefLabel ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "preferred label"@en ;
+        sh:description "A preferred label of the Concept."@en ;
+    ] .
+
+<urn:dcatap:shapes:ConceptSchemeShape> a sh:NodeShape ;
+    sh:targetClass skos:ConceptScheme ;
+    sh:property [
+        sh:path dct:title ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:Literal ;
+        sh:severity sh:Violation ;
+        sh:name "title"@en ;
+        sh:description "A name of the Concept Scheme."@en ;
+    ] .
+
+# ============================================================
+# Dublin Core Supporting Classes
+# ============================================================
+
+<urn:dcatap:shapes:FrequencyShape> a sh:NodeShape ;
+    sh:targetClass dct:Frequency .
+
+<urn:dcatap:shapes:LicenseDocumentShape> a sh:NodeShape ;
+    sh:targetClass dct:LicenseDocument .
+
+<urn:dcatap:shapes:LinguisticSystemShape> a sh:NodeShape ;
+    sh:targetClass dct:LinguisticSystem .
+
+<urn:dcatap:shapes:LocationShape> a sh:NodeShape ;
+    sh:targetClass dct:Location .
+
+<urn:dcatap:shapes:MediaTypeShape> a sh:NodeShape ;
+    sh:targetClass dct:MediaType .
+
+<urn:dcatap:shapes:MediaTypeOrExtentShape> a sh:NodeShape ;
+    sh:targetClass dct:MediaTypeOrExtent .
+
+<urn:dcatap:shapes:PeriodOfTimeShape> a sh:NodeShape ;
+    sh:targetClass dct:PeriodOfTime ;
+    sh:property [
+        sh:path dcat:startDate ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "start date"@en ;
+    ] ;
+    sh:property [
+        sh:path dcat:endDate ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:severity sh:Warning ;
+        sh:name "end date"@en ;
+    ] .
+
+<urn:dcatap:shapes:RightsStatementShape> a sh:NodeShape ;
+    sh:targetClass dct:RightsStatement .
+
+<urn:dcatap:shapes:StandardShape> a sh:NodeShape ;
+    sh:targetClass dct:Standard .
+
+# ============================================================
+# Other Supporting Classes
+# ============================================================
+
+<urn:dcatap:shapes:LegalResourceShape> a sh:NodeShape ;
+    sh:targetClass eli:LegalResource .
+
+<urn:dcatap:shapes:KindShape> a sh:NodeShape ;
+    sh:targetClass vcard:Kind .

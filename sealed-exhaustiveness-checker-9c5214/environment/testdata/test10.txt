@@ -1,0 +1,15 @@
+# Test 10: Record with single sealed component - combined patterns
+# Box has one Shape component. Two record patterns cover both subtypes.
+# Expected: exhaustive
+
+TYPES
+sealed Shape Circle Square
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+record Box Shape:content
+
+SWITCHES
+switch s1 Box
+record Box(type:Circle)
+record Box(type:Square)
+end

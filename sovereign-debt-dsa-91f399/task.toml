@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level understanding of sovereign debt dynamics, macroeconomic accounting, and numerical methods. The solver must: (1) load a SQL dump into SQLite and pivot EAV tables across a normalized schema with heterogeneous variable names per country (effective_interest_rate vs base_interest_rate depending on the endogenous_rate flag); (2) parse TOML configuration for risk premium parameters, convergence tolerances, consolidation search settings, and year-selective stress rules; (3) interpret a technical methodology document to extract formulas for debt accumulation, decomposition with four sub-channels, gross financing needs, and debt-stabilizing primary balances; (4) implement endogenous risk premium with fixed-point iteration -- the interest rate depends on the terminal debt ratio, which itself depends on the interest rate path, requiring iterative convergence; (5) implement consolidation path search -- binary search for the minimum constant primary balance adjustment that changes the risk signal, re-running the full DSA (with endogenous iteration if applicable) at each search step; (6) handle contingent liabilities from a separate table, integrating one-off fiscal shocks into the SFA; (7) implement multi-channel debt dynamics with foreign-currency interactions including real exchange rate and cross-currency inflation differentials; (8) generate gnuplot charts. The coupled nature of the endogenous rate iteration inside the consolidation bisection creates nested convergence loops requiring careful design."""
+solution_explanation = """The solution loads schema.sql into an in-memory SQLite database, detecting the endogenous_rate flag per country to determine whether to read 'effective_interest_rate' or 'base_interest_rate' from the EAV macro_variables table. It implements the SRDSF debt dynamics identity with four decomposition channels. For endogenous-rate countries, it iterates: compute trajectory -> extract terminal debt -> compute risk premium = max(0, beta1*(d_T - d_threshold)) -> add premium to base rates -> recompute, until terminal debt converges. For high-signal countries, bisection search finds the minimum constant PB adjustment: at each step, the full DSA (including endogenous iteration) is recomputed with the adjusted PB, and the risk signal is evaluated. Contingent liabilities are added to SFA in the specified year. Stress trajectories use the baseline-converged premium without re-iteration."""
+verification_explanation = """Tests verify baseline and stressed debt trajectories for three countries (including one with endogenous rates and contingent liabilities) against computed values with 0.1pp tolerance, decomposition components, GFN values, debt-stabilizing PBs, risk signals, convergence iteration counts and premium magnitudes, consolidation adjustment precision, internal consistency (trajectory = cumulative decomposition, auto = component sum), self-consistency of the risk premium with the terminal debt, and gnuplot PNG chart validity."""
+category = "finance"
+tags = ["macroeconomics", "sovereign-debt"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sovereign-debt-dsa-91f399"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires mastering the unfamiliar Amaranth HDL library to build a hardware CRC Elaboratable, run hardware simulation via the Amaranth simulator, and extract internal matrices from the hardware module. The non-standard CRC parameter combination (reflect_input=True, reflect_output=False) creates subtle bit-ordering traps. CRC composition requires independently discovering the linearity property over GF(2) and implementing matrix exponentiation. Residue computation requires deep CRC theory knowledge not provided in the instruction."""
+solution_explanation = """Use amaranth.lib.crc to construct a Processor (Elaboratable), wrap it as CRCProcessor exposing required signals. Run Amaranth simulator to process test vectors and capture VCD waveform. Extract _matrix_f and _matrix_g from Processor internals. Implement compose_crc by recovering raw register state from output CRC, computing F^n via GF(2) matrix exponentiation, and combining with zero-init CRC of suffix. Use Parameters.residue() for residue computation."""
+verification_explanation = """Tests verify CRCProcessor is a genuine Amaranth Elaboratable by instantiating it and running independent hardware simulations with random data (seed 54321). Output files are checked against Amaranth's own reference implementation. compose_crc is tested with random data (seed 67890) that cannot be precomputed. VCD file is validated for format and content."""
+category = "computer_architecture"
+tags = ["hardware-simulation", "crc"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crc-matrix-composition"

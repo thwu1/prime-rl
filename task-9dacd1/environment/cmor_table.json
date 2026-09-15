@@ -1,0 +1,109 @@
+{
+  "Header": {
+    "table_id": "Table Amon",
+    "realm": "atmos",
+    "frequency": "mon",
+    "cmor_version": "3.5",
+    "conventions": "CF-1.7 CMIP-6.2",
+    "table_date": "2024-01-01",
+    "product": "observations",
+    "approx_interval": 30.0
+  },
+  "coordinate_requirements": {
+    "longitude": {
+      "var_name": "lon",
+      "standard_name": "longitude",
+      "long_name": "longitude",
+      "units": "degrees_east",
+      "range": [0.0, 360.0],
+      "must_have_bounds": true,
+      "stored_direction": "increasing"
+    },
+    "latitude": {
+      "var_name": "lat",
+      "standard_name": "latitude",
+      "long_name": "latitude",
+      "units": "degrees_north",
+      "range": [-90.0, 90.0],
+      "must_have_bounds": true,
+      "stored_direction": "increasing"
+    },
+    "time": {
+      "var_name": "time",
+      "standard_name": "time",
+      "long_name": "time",
+      "units": "days since 1950-1-1 00:00:00",
+      "calendar": "gregorian",
+      "must_have_bounds": true
+    },
+    "height2m": {
+      "var_name": "height",
+      "standard_name": "height",
+      "long_name": "height",
+      "units": "m",
+      "value": 2.0,
+      "positive": "up",
+      "type": "scalar"
+    }
+  },
+  "variables": {
+    "tas": {
+      "raw_name": "t2m",
+      "standard_name": "air_temperature",
+      "long_name": "Near-Surface Air Temperature",
+      "units": "K",
+      "mip": "Amon",
+      "positive": "",
+      "cell_methods": "area: time: mean",
+      "dimensions": "longitude latitude time",
+      "scalar_coordinates": {
+        "height": 2.0
+      },
+      "comment": "near-surface (usually, 2 meter) air temperature"
+    },
+    "pr": {
+      "raw_name": "tp",
+      "standard_name": "precipitation_flux",
+      "long_name": "Precipitation",
+      "units": "kg m-2 s-1",
+      "mip": "Amon",
+      "positive": "",
+      "cell_methods": "area: time: mean",
+      "dimensions": "longitude latitude time",
+      "comment": "includes both liquid and solid phases"
+    },
+    "psl": {
+      "standard_name": "air_pressure_at_mean_sea_level",
+      "long_name": "Sea Level Pressure",
+      "units": "Pa",
+      "mip": "Amon",
+      "positive": "",
+      "cell_methods": "area: time: mean",
+      "dimensions": "longitude latitude time",
+      "derivation": {
+        "method": "pressure_reduction_to_sea_level",
+        "input_standard_names": ["surface_air_pressure", "air_temperature", "surface_altitude"],
+        "description": "Reduce surface pressure to mean sea level using the barometric formula with near-surface temperature and surface altitude"
+      },
+      "comment": "sea level pressure, reduced from surface measurements"
+    },
+    "huss": {
+      "standard_name": "specific_humidity",
+      "long_name": "Near-Surface Specific Humidity",
+      "units": "1",
+      "mip": "Amon",
+      "positive": "",
+      "cell_methods": "area: time: mean",
+      "dimensions": "longitude latitude time",
+      "scalar_coordinates": {
+        "height": 2.0
+      },
+      "derivation": {
+        "method": "specific_humidity_from_dewpoint",
+        "input_standard_names": ["dew_point_temperature", "surface_air_pressure"],
+        "description": "Compute near-surface specific humidity from dewpoint temperature and surface pressure using saturation vapor pressure relations"
+      },
+      "comment": "near-surface (2 meter) specific humidity"
+    }
+  }
+}

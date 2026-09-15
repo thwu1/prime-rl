@@ -1,0 +1,26 @@
+{
+  "well_typed": true,
+  "globals": {
+    "shapes": {"type": "[Shape]", "kind": "var"},
+    "i": {"type": "int", "kind": "var"},
+    "s": {"type": "Shape", "kind": "var"}
+  },
+  "classes": {
+    "Shape": {
+      "superclass": "object",
+      "attributes": {},
+      "methods": {"area": "(Shape) -> int"}
+    },
+    "Rect": {
+      "superclass": "Shape",
+      "attributes": {"w": "int", "h": "int"},
+      "methods": {"__init__": "(Rect) -> <None>", "area": "(Rect) -> int"}
+    },
+    "Circle": {
+      "superclass": "Shape",
+      "attributes": {"r": "int"},
+      "methods": {"__init__": "(Circle) -> <None>", "area": "(Circle) -> int"}
+    }
+  },
+  "errors": []
+}

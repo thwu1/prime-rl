@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of medical neuroimaging, computational geometry, and segmentation evaluation theory — none of which are spelled out in the specification. The solver must independently determine: (1) that physical voxel volume requires the affine matrix determinant, not header zooms — a distinction that only matters for non-orthogonal (sheared) acquisition grids common in multi-center stroke studies; (2) how to extract face-connected surface voxels from a binary mask (binary erosion or equivalent); (3) how to compute Average Symmetric Surface Distance (ASSD) and 95th-percentile Hausdorff Distance (HD95) — metrics named but not defined in the spec — which demand transforming voxel coordinates to physical space via the full NIfTI affine and computing Euclidean distances in that transformed space; (4) that naive distance approaches (scipy distance_transform_edt with zooms, or diagonal scaling by column norms) produce incorrect results when the affine encodes shear; (5) the correct panoptic quality decomposition into recognition quality (F1) and segmentation quality (mean IoU of matched pairs); (6) the greedy IoU-based instance matching algorithm; and (7) proper edge-case semantics across thirteen scenarios including sub-threshold overlap, sheared affines for both volume and distance, and probabilistic prediction binarization. No pseudocode or formulas are provided for surface metrics or volume computation — the solver must draw on holistic domain knowledge to bridge the gap from specification to implementation."""
+solution_explanation = """Install nibabel and scipy. Load NIfTI files with nibabel and binarize data via > 0.5 threshold. Compute voxel volume as |det(affine[:3,:3])| / 1000 mL. Compute binary Dice as 2*intersection/(sum_gt+sum_pred). Extract surface voxels via binary erosion with 6-connectivity structuring element and border_value=0, yielding face-connected boundary voxels. Transform surface voxel indices to physical coordinates using the full affine matrix (phys = affine[:3,:3] @ voxel + affine[:3,3]). Compute pairwise Euclidean distances between physical surface coordinates using scipy.spatial.distance.cdist. ASSD = mean of all directed surface distances; HD95 = 95th percentile. Decompose binary masks into labeled instances via scipy.ndimage.label with face-connectivity. Build IoU matrix, collect pairs above 0.2 threshold, sort descending, greedily match. F1 = 2*TP/(2*TP+FP+FN), SQ = mean IoU of matched pairs, PQ = SQ*F1. Handle edge cases: both empty = perfect scores, one empty = -1.0 for surface metrics. Aggregate with arithmetic mean, excluding -1.0 surface distance cases."""
+verification_explanation = """Tests generate thirteen synthetic NIfTI file pairs covering: exact match, partial overlap, missed lesions, false positives, empty prediction, both-empty, anisotropic voxels, sub-threshold IoU, sheared affine (volume), float probability predictions, parallel slabs at known distance (isotropic), parallel slabs with anisotropic voxels, and single-voxel pairs with a sheared affine that discriminates correct (full affine transform) from incorrect (column-norm scaling) surface distance computation. Expected metric values are analytically derived from synthetic geometries and verified to tolerance 1e-6. Surface distance tests use geometries where all distances are uniform (slabs) or single-point (voxel pairs), making ASSD and HD95 exactly computable. The sheared-distance test specifically catches implementations that use distance_transform_edt with zooms or scale by column norms instead of applying the full affine transformation — the correct answer is sqrt(29.25) ≈ 5.408 mm while the naive zoom-based answer is 4.5 mm. Aggregate metrics are verified to equal arithmetic means of per-case values, with surface distance cases at -1.0 excluded from ASSD/HD95 averages."""
+category = "scientific_computing"
+tags = ["medical-imaging", "evaluation-metrics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/isles-eval-pipeline"

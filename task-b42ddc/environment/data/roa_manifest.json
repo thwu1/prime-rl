@@ -1,0 +1,122 @@
+[
+  {
+    "roa_id": "ROA01",
+    "data_file": "rpki_objects/ROA01.json",
+    "signature_file": "signatures/ROA01.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA02",
+    "data_file": "rpki_objects/ROA02.json",
+    "signature_file": "signatures/ROA02.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA03",
+    "data_file": "rpki_objects/ROA03.json",
+    "signature_file": "signatures/ROA03.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA04",
+    "data_file": "rpki_objects/ROA04.json",
+    "signature_file": "signatures/ROA04.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "roa_id": "ROA05",
+    "data_file": "rpki_objects/ROA05.json",
+    "signature_file": "signatures/ROA05.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "roa_id": "ROA06",
+    "data_file": "rpki_objects/ROA06.json",
+    "signature_file": "signatures/ROA06.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA07",
+    "data_file": "rpki_objects/ROA07.json",
+    "signature_file": "signatures/ROA07.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "roa_id": "ROA08",
+    "data_file": "rpki_objects/ROA08.json",
+    "signature_file": "signatures/ROA08.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "roa_id": "ROA09",
+    "data_file": "rpki_objects/ROA09.json",
+    "signature_file": "signatures/ROA09.sig",
+    "signing_entity": "authority_gamma"
+  },
+  {
+    "roa_id": "ROA10",
+    "data_file": "rpki_objects/ROA10.json",
+    "signature_file": "signatures/ROA10.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA11",
+    "data_file": "rpki_objects/ROA11.json",
+    "signature_file": "signatures/ROA11.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "roa_id": "ROA12",
+    "data_file": "rpki_objects/ROA12.json",
+    "signature_file": "signatures/ROA12.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA13",
+    "data_file": "rpki_objects/ROA13.json",
+    "signature_file": "signatures/ROA13.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA14",
+    "data_file": "rpki_objects/ROA14.json",
+    "signature_file": "signatures/ROA14.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "roa_id": "ROA15",
+    "data_file": "rpki_objects/ROA15.json",
+    "signature_file": "signatures/ROA15.sig",
+    "signing_entity": "authority_gamma"
+  },
+  {
+    "roa_id": "ROA16",
+    "data_file": "rpki_objects/ROA16.json",
+    "signature_file": "signatures/ROA16.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA17",
+    "data_file": "rpki_objects/ROA17.json",
+    "signature_file": "signatures/ROA17.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "roa_id": "ROA18",
+    "data_file": "rpki_objects/ROA18.json",
+    "signature_file": "signatures/ROA18.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "roa_id": "ROA19",
+    "data_file": "rpki_objects/ROA19.json",
+    "signature_file": "signatures/ROA19.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "roa_id": "ROA20",
+    "data_file": "rpki_objects/ROA20.json",
+    "signature_file": "signatures/ROA20.sig",
+    "signing_entity": "authority_delta"
+  }
+]

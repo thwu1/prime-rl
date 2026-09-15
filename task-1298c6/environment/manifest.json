@@ -1,0 +1,21 @@
+{
+  "project": "float-conformance-audit",
+  "description": "Cross-format numeric data processing and IEEE 754 conformance auditing",
+  "data_sources": [
+    {
+      "path": "data/vectors/base_values.bin",
+      "format": "binary",
+      "description": "IEEE 754 double-precision values in little-endian binary. Starts with a 4-byte LE uint32 count N, followed by N 8-byte LE doubles."
+    },
+    {
+      "path": "data/samples/lab_readings.txt",
+      "format": "text",
+      "description": "Decimal float strings, one per line. Comment lines begin with #."
+    }
+  ],
+  "build": {
+    "type": "cmake",
+    "source": "src/float_tool.cpp"
+  },
+  "notes": "Additional data sources may exist in other subdirectories under data/. Explore the project to identify all available inputs."
+}

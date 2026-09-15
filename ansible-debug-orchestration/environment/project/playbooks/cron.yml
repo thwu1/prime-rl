@@ -1,0 +1,11 @@
+---
+- name: Configure scheduled tasks
+  hosts: local
+  tasks:
+    - name: Create cron job for app log cleanup
+      ansible.builtin.cron:
+        name: "app log cleanup"
+        minute: "0"
+        hour: "*/6"
+        job: "find /var/log/mywebapp -name '*.log' -mtime +7 -delete"
+        user: appuser1

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing 10 NIST SP 800-22 Rev 1a statistical tests from scratch: Frequency Monobit, Block Frequency, Runs, Longest Run of Ones, Binary Matrix Rank (GF(2) Gaussian elimination on 32x32 matrices with integer bit-packing), DFT Spectral, Non-overlapping Template Matching, Serial (overlapping pattern counting with modular wraparound for m=16, yielding 65536 pattern bins), Approximate Entropy (m=10), and Cumulative Sums. The rank test requires Gaussian elimination over GF(2). The serial and approximate entropy tests require overlapping pattern counting with modular wraparound. Classification requires understanding which statistical properties each test detects—monobit detects bias, rank detects GF(2) linear structure, runs detects serial correlation, spectral detects periodicity—and constructing a priority-ordered decision tree that correctly separates 5 generator types."""
+solution_explanation = """The solver implements all 10 NIST SP 800-22 tests using numpy/scipy only for FFT and special functions. Key implementations: (1) GF(2) matrix rank via integer-row Gaussian elimination for the rank test, (2) overlapping m-bit pattern counting with modular wraparound for serial (m=16) and approximate entropy (m=10), (3) non-overlapping template matching with skip-ahead for template 000000001, (4) cumulative sums p-value via the SP 800-22 normal CDF summation formula. Classification uses a priority decision tree: monobit-FAIL→biased, rank-FAIL→short_period_lfsr, runs-FAIL→serial_correlated, spectral-FAIL→short_period_lcg, else→high_quality_prng."""
+verification_explanation = """Tests verify: (1) SQLite database with correct 2-table schema and column names, (2) 50 test results present (5 samples × 10 tests) with valid p-values in [0,1] and pass/fail consistency at alpha=0.01, (3) known statistical outcomes: biased generator fails monobit and block frequency, LFSR-16 fails binary matrix rank but passes monobit, Markov chain fails runs and serial but passes monobit, short-period LCG fails DFT spectral but passes monobit, SHA-256 counter mode passes at least 8 of 10 tests, (4) results.json contains all 10 tests per sample with correct field types, (5) correct classification for all 5 generators in both analysis.json and the database classifications table."""
+category = "cryptography"
+tags = ["statistics", "randomness-testing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-18290f"

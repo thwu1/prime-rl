@@ -1,0 +1,9 @@
+[
+    {"type": "max_tcb_size", "domain": "auditor", "max_size": 3},
+    {"type": "no_flow", "from": "auditor", "to": "producer"},
+    {"type": "no_flow", "from": "consumer", "to": "auditor"},
+    {"type": "required_isolation", "domain_a": "producer", "domain_b": "auditor"},
+    {"type": "blp_compliant", "domain": "auditor"},
+    {"type": "biba_compliant", "domain": "auditor"},
+    {"type": "arch_compliant", "domain": "producer"}
+]

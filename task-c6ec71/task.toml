@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a high-precision Bezier arc length engine from a minimal requirements specification, demanding deep expertise across numerical analysis, computational geometry, and systems programming. The solver must independently: (1) derive or recall the closed-form antiderivative for integrals of sqrt(quadratic polynomial in t), identify all degenerate configurations that cause numerical instability, and implement robust fallback handling — the formula's stability pitfalls (near-zero leading coefficient, negative discriminant) are non-obvious and not described in the spec; (2) implement C functions for evaluating the speed integrand at quadrature nodes, compile them as a shared library, and bridge the library to Python via FFI with correct memory layout and type marshaling; (3) design from scratch a conservative error estimator that never underestimates the integration error — the hardest sub-problem, requiring understanding of how a Bezier curve's control polygon geometry relates to integrand smoothness and quadrature convergence, with only a brief hint about polygon/chord divergence in the spec; (4) integrate all components into an adaptive refinement engine that achieves 1e-12 and 1e-8 relative error across pathological test cases including near-degenerate, self-intersecting, cusp-like, and extreme-curvature configurations. The specification deliberately provides only mathematical definitions and precision requirements, not algorithmic guidance."""
+solution_explanation = """The solution implements quadrature.c with two functions that evaluate the cubic Bezier derivative at quadrature nodes and accumulate weighted speed values. The Python module loads the .so via ctypes, implementing: (1) quad_arclen_analytical using the closed-form integral of 2*sqrt(At^2+Bt+C) dt with arsinh, detecting near-linear curves (A < eps*C) and falling back to quadrature; (2) cubic_arclen_gl wrapping the C library with proper ctypes array marshaling; (3) estimate_cubic_error using a Gravesen-inspired bound based on (polygon_len - chord_len) scaled by a factor derived from the integral of the squared second derivative norm; (4) arclen_adaptive with recursive de Casteljau subdivision, halving tolerance at each level and capping recursion depth."""
+verification_explanation = """Tests verify: (a) the C shared library compiles and loads via ctypes; (b) quadratic arc lengths match 8 reference curves to 1e-12 relative error including a near-degenerate curve that tests numerical stability; (c) cubic arc lengths match 12 reference curves to 1e-8 relative error including straight lines, S-curves, self-intersecting curves, and extreme curvature; (d) the error bound is conservative — for each cubic test curve, the estimated error exceeds the actual quadrature error; (e) consistency between the C-backed quadrature and a pure-Python reference computation; (f) adaptive convergence on all test curves within the depth limit. All reference values were computed using adaptive Simpson's rule with 1e-15 tolerance."""
+category = "numerical-computing"
+tags = ["bezier-curves", "ffi-ctypes"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c6ec71"

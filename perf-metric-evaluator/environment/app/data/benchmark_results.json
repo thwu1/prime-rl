@@ -1,0 +1,160 @@
+{
+  "tasks": [
+    {
+      "task_id": "T1",
+      "description": "Image convolution filter optimization",
+      "base_times": [10.0, 20.0],
+      "human_times": [5.0, 10.0]
+    },
+    {
+      "task_id": "T2",
+      "description": "Record aggregation pipeline optimization",
+      "base_times": [8.0, 16.0, 24.0],
+      "human_times": [4.0, 8.0, 12.0]
+    },
+    {
+      "task_id": "T3",
+      "description": "Matrix chain multiplication optimization",
+      "base_times": [6.0, 12.0],
+      "human_times": [2.0, 4.0]
+    }
+  ],
+  "model_results": {
+    "M_alpha": {
+      "T1": {
+        "attempts": [
+          {
+            "times": [4.0, 8.0],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,4 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    from scipy.signal import fftconvolve\n+    return fftconvolve(image, kernel, mode='same')\n"
+          },
+          {
+            "times": [6.0, 12.0],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,6 @@\n def apply_filter(image, kernel):\n     h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    padded = np.pad(image, kernel.shape[0]//2)\n+    windows = np.lib.stride_tricks.sliding_window_view(padded, kernel.shape)\n+    return np.einsum('ijkl,kl->ij', windows, kernel)\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "times": [3.8, 7.5, 11.0],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -8,7 +8,5 @@\n def aggregate_records(records, group_key, agg_func):\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    return {k: agg_func(v) for k, v in groups.items()}\n+    import pandas as pd\n+    df = pd.DataFrame(records)\n+    return df.groupby(group_key).apply(agg_func).to_dict()\n"
+          },
+          {
+            "times": [4.5, 9.0, 13.0],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -10,4 +10,6 @@\n     for r in records:\n         k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    return {k: agg_func(v) for k, v in groups.items()}\n+        if k not in groups:\n+            groups[k] = []\n+        groups[k].append(r)\n+    return {k: agg_func(groups[k]) for k in sorted(groups)}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "times": [2.2, 4.5],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,4 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    from functools import reduce\n+    return reduce(np.matmul, matrices)\n"
+          },
+          {
+            "times": [2.0, 3.8],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,16 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    n = len(matrices)\n+    if n == 1:\n+        return matrices[0]\n+    dp = {}\n+    for i in range(n):\n+        dp[(i,i)] = matrices[i]\n+    for length in range(2, n+1):\n+        for i in range(n - length + 1):\n+            j = i + length - 1\n+            mid = (i + j) // 2\n+            dp[(i,j)] = np.matmul(dp[(i,mid)], dp[(mid+1,j)])\n+    return dp[(0,n-1)]\n"
+          }
+        ]
+      }
+    },
+    "M_beta": {
+      "T1": {
+        "attempts": [
+          {
+            "times": [1.0, 100.0],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,8 @@\n def apply_filter(image, kernel):\n     h, w = image.shape[:2]\n     result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    for i in range(0, h, 2):\n+        for j in range(0, w, 2):\n+            result[i:i+2, j:j+2] = convolve_block(image, kernel, i, j)\n     return result\n"
+          },
+          {
+            "times": [4.8, 9.6],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,7 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    image_c = np.ascontiguousarray(image)\n+    kernel_flat = kernel.ravel()\n+    cols = im2col(image_c, kh, kw)\n+    return cols.dot(kernel_flat).reshape(image.shape[:2])\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "times": [4.2, 8.5, 12.8],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -8,5 +8,8 @@\n def aggregate_records(records, group_key, agg_func):\n     groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n+    batch_size = 1000\n+    for i in range(0, len(records), batch_size):\n+        batch = records[i:i+batch_size]\n+        for r in batch:\n+            k = r[group_key]\n+            groups.setdefault(k, []).append(r)\n     return {k: agg_func(v) for k, v in groups.items()}\n"
+          },
+          {
+            "times": [3.5, 7.0, 10.5],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,4 +1,7 @@\n+import hashlib\n+_agg_cache = {}\n+\n def aggregate_records(records, group_key, agg_func):\n+    cache_key = hashlib.md5(str(records[:5]).encode() + group_key.encode()).hexdigest()\n+    if cache_key in _agg_cache:\n+        return _agg_cache[cache_key]\n     groups = {}\n     for r in records:\n         k = r[group_key]\n         groups.setdefault(k, []).append(r)\n-    return {k: agg_func(v) for k, v in groups.items()}\n+    result = {k: agg_func(v) for k, v in groups.items()}\n+    _agg_cache[cache_key] = result\n+    return result\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "times": [2.5, 5.0],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,8 @@\n def matrix_chain_multiply(matrices):\n     result = matrices[0]\n     for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n+        result = blocked_matmul(result, m, block_size=64)\n     return result\n"
+          },
+          {
+            "times": [2.5, 5.0],
+            "correct": false,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,6 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    result = matrices[0].T\n+    for m in matrices[1:]:\n+        result = result @ m.T\n+    return result\n"
+          }
+        ]
+      }
+    },
+    "M_gamma": {
+      "T1": {
+        "attempts": [
+          {
+            "times": [5.5, 11.0],
+            "correct": false,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,3 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    return np.fft.ifft2(np.fft.fft2(image) * np.fft.fft2(kernel)).real\n"
+          },
+          {
+            "times": [4.0, 7.0],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -15,8 +15,10 @@\n def apply_filter(image, kernel):\n     h, w = image.shape[:2]\n     result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    from concurrent.futures import ThreadPoolExecutor\n+    def process_row(i):\n+        for j in range(w):\n+            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    with ThreadPoolExecutor(max_workers=4) as ex:\n+        list(ex.map(process_row, range(h)))\n     return result\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "times": [4.0, 8.0, 12.0],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,20 +1,5 @@\n-import logging\n-\n-logger = logging.getLogger(__name__)\n-\n def aggregate_records(records, group_key, agg_func):\n-    logger.info(f\"Aggregating {len(records)} records by {group_key}\")\n-    if not records:\n-        raise ValueError(\"Empty records\")\n-    if group_key not in records[0]:\n-        raise KeyError(f\"Key {group_key} not found\")\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    logger.info(f\"Found {len(groups)} groups\")\n-    return {k: agg_func(v) for k, v in groups.items()}\n+    return {r[group_key]: agg_func([r]) for r in records}\n"
+          },
+          {
+            "times": [5.0, 10.0, 15.0],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -8,7 +8,6 @@\n def aggregate_records(records, group_key, agg_func):\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n+    from collections import defaultdict\n+    groups = defaultdict(list)\n+    for r in records:\n+        groups[r[group_key]].append(r)\n     return {k: agg_func(v) for k, v in groups.items()}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "times": [1.8, 3.5],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,6 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    result = np.ascontiguousarray(matrices[0], dtype=np.float64)\n+    for m in matrices[1:]:\n+        result = np.dot(result, np.ascontiguousarray(m, dtype=np.float64))\n+    return result\n"
+          },
+          {
+            "times": [3.0, 6.0],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -5,6 +5,6 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    result = matrices[0].astype(np.float32)\n+    for m in matrices[1:]:\n+        result = np.matmul(result, m.astype(np.float32))\n+    return result.astype(np.float64)\n"
+          }
+        ]
+      }
+    }
+  },
+  "config": {
+    "p_threshold": 0.95,
+    "max_k": 2
+  }
+}

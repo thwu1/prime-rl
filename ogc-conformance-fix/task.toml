@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the OGC API - Features Part 1: Core specification to perform a blind conformance audit of a running server. The solver receives no list of violations — they must systematically evaluate the entire server implementation against the specification's abstract tests and requirements, judging each code path for correctness. Violations span deeply interconnected domains: IANA-registered link relation semantics, coordinate reference system architecture (CRS84 vs EPSG:4326 axis ordering and their cascading effect on spatial query semantics), temporal interval parsing with open-ended sentinels, HTTP content negotiation for GeoJSON media types, request validation design, response metadata contracts, and stateful pagination with filter propagation. Several violations are architecturally coupled — for example, the CRS declaration directly determines the axis order convention that the spatial filter must respect, and the pagination offset arithmetic interacts with query parameter forwarding to produce compound failures visible only when traversing filtered result sets. The solver must not only identify each violation but design corrective implementations that satisfy the specification holistically rather than in isolation."""
+solution_explanation = """Audit identifies and fixes all 11 conformance violations: (1) landing page link relation 'service-description' corrected to IANA-registered 'service-desc', (2) landing page link relation 'compliance' corrected to 'conformance', (3) collection CRS property changed from 'EPSG:4326' to the canonical OGC CRS84 URI in both list and detail endpoints, (4) bbox coordinate destructuring corrected from lat/lon to lon/lat matching CRS84 axis order, (5) datetime interval parsing extended to handle open-ended ranges with '..' sentinel, (6) unknown query parameter validation added returning HTTP 400 against KNOWN_PARAMS, (7) non-integer limit values now return HTTP 400 instead of silently defaulting, (8) numberReturned computed from paginated slice length instead of total filtered count, (9) pagination next offset off-by-one fixed (offset+limit not offset+limit+1), (10) pagination next links now propagate active bbox and datetime filters, (11) items endpoint response switched from application/json to application/geo+json."""
+verification_explanation = """Tests start the server and exercise each Core conformance requirement: correct IANA link relations in the landing page, CRS84 URI in collection CRS declarations, spatial filtering correctness with bbox in CRS84 lon/lat axis order across hemispheres, datetime range queries including open-ended '..' intervals with result validation, HTTP 400 for unknown and invalid query parameters, numberReturned matching actual page feature count, application/geo+json content type, gap-free pagination collecting all features via next links, and filtered pagination preserving bbox across all pages."""
+category = "debugging"
+tags = ["ogc-api", "geospatial"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ogc-conformance-fix"

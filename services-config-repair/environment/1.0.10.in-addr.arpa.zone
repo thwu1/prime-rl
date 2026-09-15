@@ -1,0 +1,24 @@
+$TTL 86400
+$ORIGIN 1.0.10.in-addr.arpa.
+@   IN  SOA  ns1.infra.example.com.  admin.infra.example.com. (
+            2024010100
+            3600
+            1800
+            604800
+            86400
+        )
+
+        IN  NS   ns1.infra.example.com.
+        IN  NS   ns2.infra.example.com.
+
+; PTR records
+10.0.1.1  IN  PTR  ns1.infra.example.com.
+2         IN  PTR  ns2.infra.example.com.
+10        IN  PTR  web1.infra.example.com.
+11        IN  PTR  web2.infra.example.com.
+12        IN  PTR  web3.infra.example.com.
+20        IN  PTR  app.infra.example.com.
+30        IN  PTR  db.infra.example.com.
+40        IN  PTR  mail.infra.example.com.
+50        IN  PTR  monitor.infra.example.com.
+60        IN  PTR  backup.infra.example.com.

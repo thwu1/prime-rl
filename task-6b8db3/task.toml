@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of rotation representations (quaternions, axis-angle, Euler angles, rotation matrices), SO(3) geometry, and rotation averaging algorithms. The solver must design a multi-stage pipeline: (1) parse heterogeneous rotation formats using a provided library, (2) implement rotation synchronization (e.g., spectral method, iterative chordal minimization, or Riemannian optimization), (3) design an outlier rejection scheme based on geodesic residual analysis, (4) compare two strategies quantitatively, and (5) produce correctly formatted outputs. Each stage requires domain expertise in 3D geometry and numerical optimization. The mixed input formats and outlier contamination prevent naive approaches from succeeding."""
+solution_explanation = """The solution: (1) parses all edges, converting each rotation to a 3x3 matrix using the provided library; (2) initializes absolute rotations via BFS spanning tree from anchor node 0; (3) runs iterative Gauss-Seidel optimization — for each non-anchor node, accumulates neighbor contributions and projects to SO(3) via SVD; (4) computes per-edge geodesic residuals and flags outliers exceeding a median+3*MAD threshold; (5) re-optimizes without outlier edges; (6) compares BFS spanning tree initialization vs spectral initialization (eigendecomposition of the connection Laplacian), reporting mean residuals for each. The three outlier edges ([1,9], [2,5], [7,8]) have residuals >30 degrees while inlier residuals are <10 degrees, making them clearly separable."""
+verification_explanation = """Tests verify: (1) all output files exist and are valid JSON; (2) all 12 rotation matrices are valid SO(3) elements (orthogonal, det=+1); (3) each recovered rotation is within 10 degrees geodesic distance of known ground truth; (4) anchor rotations match exactly; (5) at least 2 of 3 true outlier edges are detected with at most 2 false positives; (6) the report contains all required fields with valid numeric values. Ground truth rotations and outlier edges are hardcoded in the test and not present in the task environment."""
+category = "optimization"
+tags = ["3d-geometry", "rotation-synchronization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6b8db3"

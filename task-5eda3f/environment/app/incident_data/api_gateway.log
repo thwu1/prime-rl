@@ -1,0 +1,21 @@
+2025-06-12 17:30:20 INFO  API Gateway v4.7.1 starting
+2025-06-12 17:30:21 INFO  Backend health checks: service_control=HEALTHY storage=HEALTHY compute=HEALTHY
+2025-06-12 17:30:21 INFO  Ready — serving on :443
+2025-06-12 17:45:25 ERROR Upstream service_control returned HTTP 500 for project-alpha/compute.googleapis.com
+2025-06-12 17:45:25 ERROR Upstream service_control returned HTTP 500 for project-beta/*
+2025-06-12 17:45:26 WARN  Health check failed for service_control (3 consecutive failures)
+2025-06-12 17:45:26 ERROR Circuit open for upstream service_control — returning 503 to all callers
+2025-06-12 17:45:27 ERROR 503 → client 10.128.0.15 POST /v1/project-alpha/compute (service_control unavailable)
+2025-06-12 17:45:27 ERROR 503 → client 10.128.0.22 GET  /v1/project-gamma/bigquery (service_control unavailable)
+2025-06-12 17:45:28 ERROR 503 → client 10.128.0.44 POST /v1/project-beta/storage (service_control unavailable)
+2025-06-12 17:45:28 WARN  Health Monitor probe failed — health_monitor depends on this gateway
+2025-06-12 17:45:30 ERROR 503 → client 10.128.0.91 GET  /healthz (monitoring self-check failed)
+2025-06-12 17:45:35 ERROR Serving 503 to all requests — service_control remains DOWN
+2025-06-12 17:46:00 ERROR 2417 requests returned 503 in the last 30 seconds
+2025-06-12 17:47:00 ERROR 4891 requests returned 503 in the last 30 seconds
+2025-06-12 17:50:00 ERROR 7203 requests returned 503 in the last 30 seconds
+2025-06-12 18:00:00 ERROR 12541 requests returned 503 in the last 30 seconds
+2025-06-12 18:25:05 INFO  Health check passed for service_control (us-east1)
+2025-06-12 18:25:06 INFO  Resuming traffic to service_control in us-east1
+2025-06-12 18:40:10 INFO  Health check passed for service_control (all regions)
+2025-06-12 18:40:11 INFO  Full service restored

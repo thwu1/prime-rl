@@ -1,0 +1,16 @@
+[{:index 0 :type :invoke :process 0 :f :txn :value [[:r "a" nil] [:append "b" 1]] :time #inst "2024-03-15T10:00:00.000-00:00"}
+ {:index 1 :type :ok :process 0 :f :txn :value [[:r "a" []] [:append "b" 1]] :time #inst "2024-03-15T10:00:00.050-00:00"}
+ {:index 2 :type :invoke :process 1 :f :txn :value [[:r "b" nil] [:append "c" 2]] :time #inst "2024-03-15T10:00:00.010-00:00"}
+ {:index 3 :type :ok :process 1 :f :txn :value [[:r "b" []] [:append "c" 2]] :time #inst "2024-03-15T10:00:00.060-00:00"}
+ {:index 4 :type :invoke :process 2 :f :txn :value [[:r "c" nil] [:append "d" 3]] :time #inst "2024-03-15T10:00:00.020-00:00"}
+ {:index 5 :type :ok :process 2 :f :txn :value [[:r "c" []] [:append "d" 3]] :time #inst "2024-03-15T10:00:00.070-00:00"}
+ {:index 6 :type :invoke :process 3 :f :txn :value [[:r "d" nil] [:append "a" 4]] :time #inst "2024-03-15T10:00:00.030-00:00"}
+ {:index 7 :type :ok :process 3 :f :txn :value [[:r "d" []] [:append "a" 4]] :time #inst "2024-03-15T10:00:00.080-00:00"}
+ {:index 8 :type :invoke :process 4 :f :txn :value [[:r "a" nil] [:r "b" nil] [:r "c" nil] [:r "d" nil]] :time #inst "2024-03-15T10:00:00.100-00:00"}
+ {:index 9 :type :ok :process 4 :f :txn :value [[:r "a" [4]] [:r "b" [1]] [:r "c" [2]] [:r "d" [3]]] :time #inst "2024-03-15T10:00:00.120-00:00"}
+ {:index 10 :type :invoke :process 0 :f :txn :value [[:append "e" 5] [:r "a" nil]] :time #inst "2024-03-15T10:00:00.200-00:00"}
+ {:index 11 :type :ok :process 0 :f :txn :value [[:append "e" 5] [:r "a" [4]]] :time #inst "2024-03-15T10:00:00.220-00:00"}
+ {:index 12 :type :invoke :process 1 :f :txn :value [[:r "e" nil] [:append "f" 6]] :time #inst "2024-03-15T10:00:00.230-00:00"}
+ {:index 13 :type :ok :process 1 :f :txn :value [[:r "e" [5]] [:append "f" 6]] :time #inst "2024-03-15T10:00:00.250-00:00"}
+ {:index 14 :type :invoke :process 2 :f :txn :value [[:r "f" nil] [:r "b" nil]] :time #inst "2024-03-15T10:00:00.260-00:00"}
+ {:index 15 :type :ok :process 2 :f :txn :value [[:r "f" [6]] [:r "b" [1]]] :time #inst "2024-03-15T10:00:00.280-00:00"}]

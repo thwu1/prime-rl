@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep climate data science expertise: the agent receives heterogeneous Zarr stores with undocumented data quality issues (one model's metadata lies about temperature units, another uses a non-standard longitude convention, another has missing data months, and one stores humidity as fractions instead of percent). No formulas or algorithms are provided — the agent must independently know how to area-weight global statistics on a regular lat-lon grid, compute bias/RMSE/pattern-correlation, construct inverse-RMSE weighted ensembles with NaN-aware renormalization, and project warming. A single misstep in unit inference, grid harmonization, area weighting, or missing-data handling silently corrupts all downstream results."""
+solution_explanation = """Load catalog and reference. For each model: read Zarr attrs for both tas and hurs, infer true temperature unit by checking value ranges against physical plausibility (median > 200 implies K, else degC), detect fractional humidity (median < 2 implies 0-1 range), identify longitude convention, detect NaN months. Convert all temperatures to degC using inferred unit. Remap 0-to-360 longitude to standard convention. Compute cos-lat-weighted global bias, RMSE, and pattern correlation against reference. Rank by RMSE, compute inverse-RMSE weights. Build equal-weight and weighted ensemble means with NaN renormalization. Compute projected warming from last 120 months of each scenario."""
+verification_explanation = """Tests independently load raw Zarr data, apply unit inference and corrections, and recompute all metrics. Key checks: GFDL metadata lie detected (metadata says K, inferred degC), UKESM 0-to-360 longitude and fractional humidity, MIROC 12 NaN months, bias/RMSE/pattern-correlation recomputation within tolerance, ranking sorted by RMSE, weights sum to 1 and proportional to inverse RMSE, warming order follows sensitivity (UKESM > MIROC > CESM2 > GFDL), weighted ensemble warming consistent with individual warmings, humidity diagnostics verified against raw data."""
+category = "scientific_computing"
+tags = ["climate-science", "data-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bed047"

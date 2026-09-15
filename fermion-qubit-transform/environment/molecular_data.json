@@ -1,0 +1,30 @@
+{
+  "description": "3-site Hubbard model, open boundary conditions, t=1.0, U=3.7. Spin-orbital ordering: site0-alpha, site0-beta, site1-alpha, site1-beta, site2-alpha, site2-beta.",
+  "convention": "one_body_integrals: spatial orbital basis h[p,q]. two_body_integrals: physicist notation <pq|rs> in spatial orbital basis. Spin-orbital integrals derived via h_spin[p,q] = h_spatial[p//2,q//2] * delta(p%2, q%2); g_spin[p,q,r,s] = g_spatial[p//2,q//2,r//2,s//2] * delta(p%2,r%2) * delta(q%2,s%2). The full Hamiltonian is H = nuclear_repulsion + sum_{pq} h[p,q] a†_p a_q + 0.5 * sum_{pqrs} g[p,q,r,s] a†_p a†_q a_s a_r (spin-orbital indices, normal-ordered two-body term).",
+  "n_spatial_orbitals": 3,
+  "n_spin_orbitals": 6,
+  "n_electrons": 3,
+  "nuclear_repulsion_energy": 0.0,
+  "one_body_integrals": [
+    [ 0.0, -1.0,  0.0],
+    [-1.0,  0.0, -1.0],
+    [ 0.0, -1.0,  0.0]
+  ],
+  "two_body_integrals": [
+    [
+      [[3.7, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    ],
+    [
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 3.7, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+    ],
+    [
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.7]]
+    ]
+  ]
+}

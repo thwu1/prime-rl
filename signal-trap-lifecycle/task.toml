@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of POSIX signal semantics, Unix process model, and bash shell internals across 18 interrelated bugs in 11 functions. Bugs span: (1) $? clobbering by local variable declarations before capture, (2-3) signal+EXIT trap cascade causing double cleanup without idempotency guard or trap disarming, (4) exit(128+N) vs WIFSIGNALED signal re-raising for correct parent observation, (5) handler execution order (forward vs LIFO), (6) subshell variable isolation requiring file-based state persistence instead of in-memory arrays lost in $() command substitution, (7) blocking wait semantics (waiting for timer instead of target PID), (8) process group isolation via setsid with negative-PGID kill for descendant cleanup, (9) named pipe timeout and lifecycle management, (10-11) flock mode (shared vs exclusive) and lock-file cleanup via trap handler integration, (12) signal deferral in critical sections (trap-ignore vs handler-based queueing with re-delivery), (13) set -e / errexit interaction with eval in trap handlers aborting cleanup prematurely, (14) double-initialization state corruption when init replaces the file registry, (15-16) safe_pipe process tracking and exit status semantics (must return consumer status not producer), (17) safe_pipe pipe directory leak on abnormal exit requiring registry integration, and (18-19) supervised process tracking for cleanup and off-by-one restart limit. Bugs are deeply coupled: fixing subshell tracking (6) reveals double-init corruption (14); fixing signal re-raising (4) requires idempotency (2-3); errexit protection (13) affects all handler execution; safe_pipe cleanup (15-17) depends on correct process group kill semantics (8); supervise tracking (18) requires understanding both individual PID kill and process group kill paths."""
+solution_explanation = """Fix 18+ bugs in traplib.sh: (1) Swap 'local sig=...' and '_TRAPLIB_SAVED_STATUS=$?' so $? is captured before local clobbers it. (2) Add _TRAPLIB_CLEANED=0 initialization and guard check at top of cleanup. (3) Add 'trap - EXIT' after guard to prevent EXIT re-fire. (4) Replace 'exit $((128+N))' with 'trap - $sig; kill -s $sig $$' for correct WIFSIGNALED. (5) Reverse handler loop for LIFO order. (6) Replace in-memory _TRAPLIB_TMPDIRS array with file-based _TRAPLIB_DIRS_REGISTRY. (7) Replace timer-first wait with background timeout + foreground wait for target PID. (8) Add 'setsid' in spawn_group and change cleanup to 'kill -- -$pgid' with SIGKILL escalation plus individual PID fallback. (9) Wrap FIFO cat in 'timeout' command and rm FIFO after read. (10) Change flock -s to flock -x. (11) Add push_handler for lock file removal. (12) Replace 'trap ""' with deferred-signal queueing handlers plus re-delivery. (13) Add 'set +e' at start of cleanup. (14) Add guard in traplib_init for existing registry. (15) Track both safe_pipe processes in _TRAPLIB_PGROUPS and use setsid for isolation. (16) Wait for sink_pid not src_pid, kill producer after consumer exits. (17) Register pipe_dir in _TRAPLIB_DIRS_REGISTRY for abnormal exit cleanup. (18) Change -ge to -gt in supervise restart comparison for correct off-by-one. (19) Add supervised child_pid to _TRAPLIB_PGROUPS for cleanup tracking."""
+verification_explanation = """30 pytest tests verify all fixes across 14 test classes: temp dir cleanup on normal/error/signal exit plus multiple dirs (4 tests), signal re-raising for TERM/INT/HUP producing WIFSIGNALED (3 tests), single cleanup invocation counter (1 test), LIFO handler ordering (1 test), $? preservation for implicit and explicit exit codes (2 tests), wait_pid prompt return on early target exit (1 test), process group kill including grandchildren (2 tests), FIFO readiness data/timeout/cleanup (3 tests), exclusive locking with serialization/normal-cleanup/signal-cleanup (3 tests), critical section signal deferral (1 test), errexit compatibility with failing handlers and signal re-raise (2 tests), double-init state preservation (1 test), safe_pipe data flow/sink-status-return/process-cleanup-on-signal (3 tests), and supervise restart/max-restart-limit/child-cleanup-on-signal (3 tests)."""
+category = "systems_programming"
+tags = ["shell", "posix-signals"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/signal-trap-lifecycle"

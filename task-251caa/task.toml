@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the complete TEOS-10 specific volume computation in C — a complex nested polynomial with 75 specific coefficients that must be sourced from the TEOS-10 standard or its reference implementations. Additionally requires computing partial derivatives for thermal expansion and haline contraction coefficients, debugging a potential density function, fixing a buoyancy frequency computation with unit conversion and gravity handling issues, and correcting sentinel-value detection. Multiple coupled bugs across the pipeline must be identified and fixed simultaneously. The polynomial coefficients are not available in the environment and must be obtained from external sources."""
+solution_explanation = """The solver must: (1) find the 75-term polynomial coefficients from the GSW-C repository or Roquet et al. 2015 paper, (2) implement the polynomial evaluation with correct variable normalization (sqrt of SA, CT/40, p/1e4), (3) compute alpha = -(1/v)*dv/dCT and beta = (1/v)*dv/dSA from the polynomial's partial derivatives, (4) fix sigma0 to use p=0 reference pressure instead of p=10, (5) fix N² to include the dbar-to-Pa conversion factor (1e4) and use the provided latitude-dependent gravity array instead of a constant, (6) fix the sentinel check to use fabs() comparison instead of a simple threshold."""
+verification_explanation = """Tests build the project, run the pipeline, parse the JSON output, and compare every computed value against values computed at test time by the Python gsw package (which wraps the official TEOS-10 C library). Anti-cheat tests call the C functions via ctypes with novel inputs not present in any data file, ensuring the implementation is general rather than hardcoded for known inputs."""
+category = "scientific_computing"
+tags = ["oceanography", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-251caa"

@@ -1,0 +1,8 @@
+mntner:             GAMMA-MNT
+descr:              Gamma Network Maintainer
+admin-c:            CAROL-DN42
+tech-c:             CAROL-DN42
+auth:               pgp-fingerprint C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4
+remarks:            Transit provider for Asia-Pacific region
+mnt-by:             GAMMA-MNT
+source:             DN42

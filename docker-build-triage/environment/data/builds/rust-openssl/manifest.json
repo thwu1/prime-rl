@@ -1,0 +1,15 @@
+{
+  "project_name": "secure-api-server",
+  "language": "rust",
+  "language_version": "1.75",
+  "build_system": "cargo",
+  "dependencies": [
+    "actix-web = \"4\"",
+    "openssl = \"0.10\"",
+    "serde = { version = \"1\", features = [\"derive\"] }",
+    "tokio = { version = \"1\", features = [\"full\"] }"
+  ],
+  "test_framework": "cargo_test",
+  "test_command": "cargo test",
+  "notes": "Uses openssl crate for TLS support, requires OpenSSL development headers at compile time"
+}

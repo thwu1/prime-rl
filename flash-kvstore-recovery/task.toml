@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level embedded systems and crash-consistency reasoning. The agent must: (1) reverse-engineer an undocumented binary on-flash format from C source (packed structs, bitwise flash semantics, FNV-1a hashing, CRC-32), (2) identify a crash-safety flaw in the C reference's put() ordering (invalidate-before-write loses data on power failure) and design the correct write-before-invalidate protocol, (3) design a completely new crash-safe compaction algorithm — the C reference erases all pages then rewrites, which is catastrophically unsafe; the agent must invent a migrate-then-erase strategy that maintains the invariant that every live entry exists on at least one valid page at all times, (4) implement wear-leveling by selecting pages based on erase counts restored from flash headers during recovery. These requirements go well beyond translating C to Python — they demand holistic understanding of NOR flash physics, log-structured storage internals, and crash consistency protocols."""
+solution_explanation = """Study the C packed struct definitions to identify: page headers (12B: magic, status, sequence, reserved, erase_count), entry headers (16B: magic, state, key_len, value_len, key_hash, crc), FNV-1a key hash, and CRC-32 coverage (excludes state byte). Implement write-before-invalidate in put() for crash safety. Implement crash-safe compact() that: (a) erases pages with no live entries, (b) migrates live entries from non-active pages via put() then erases source pages, (c) handles the active page by switching to a new page first. Implement wear-leveling in _activate_next_page() by selecting the free page with the lowest erase count. Restore erase counts from page headers during recovery scan."""
+verification_explanation = """Tests verify: (1) basic CRUD and page management, (2) exact on-flash binary format compliance, (3) crash recovery from partial writes and corrupted CRCs, (4) crash-safe compaction by simulating power loss at every write/erase operation during compact() and verifying no data loss after recovery — this is the key expert-level test, (5) wear-leveling by verifying page activation preference for lowest erase count, (6) cross-language compatibility via 7 round-trip tests with the C tickv_tool, (7) compaction preserves data and frees space, (8) edge cases like hash collisions and binary keys."""
+category = "systems"
+tags = ["embedded-systems", "crash-consistency"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flash-kvstore-recovery"

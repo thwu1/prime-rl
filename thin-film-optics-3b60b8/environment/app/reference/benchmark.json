@@ -1,0 +1,42 @@
+{
+  "description": "Independently verified (Mathematica) golden values for TMM engine validation. d_list null entries represent semi-infinite media (d=inf).",
+  "relative_tolerance": 1e-6,
+  "configurations": [
+    {
+      "id": "absorbing_4layer",
+      "n_list": [[1.0, 0.0], [2.0, 4.0], [3.0, 0.3], [1.0, 0.1]],
+      "d_list": [null, 2.0, 3.0, null],
+      "th_0": 0.1,
+      "lam_vac": 100.0,
+      "expected": {
+        "s_r_re": -0.60331226568845775,
+        "s_r_im": -0.093522181653632019,
+        "s_R": 0.37273208839139516,
+        "s_T": 0.22604491247079261,
+        "s_t_re": 0.44429533471192989,
+        "s_t_im": 0.16921936169383078,
+        "p_r_re": 0.60102654255772481,
+        "p_r_im": 0.094489146845323682,
+        "p_R": 0.37016110373044969,
+        "p_T": 0.22824374314132009,
+        "p_t_re": 0.4461816467503148,
+        "p_t_im": 0.17061408427088917,
+        "psi": 0.78366777347038352,
+        "Delta": 0.0021460774404193292
+      }
+    },
+    {
+      "id": "oblique_45deg_position_resolved",
+      "n_list": [[1.0, 0.0], [2.2, 0.2], [3.3, 0.3], [1.0, 0.0]],
+      "d_list": [null, 100.0, 300.0, null],
+      "th_0": 0.7853981633974483,
+      "lam_vac": 400.0,
+      "expected": {
+        "p_poyn_layer1_z37": 0.7094950598055798,
+        "p_absor_layer1_z37": 0.005135049118053356,
+        "s_poyn_layer1_z37": 0.5422594735025152,
+        "s_absor_layer1_z37": 0.004041912286816303
+      }
+    }
+  ]
+}

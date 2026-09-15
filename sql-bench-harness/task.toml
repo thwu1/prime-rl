@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of dimensional modeling, SQL query semantics, and semantic layer architecture. The agent must implement join-path resolution via graph traversal, fan-out prevention through pre-aggregation (understanding WHY naive multi-table joins inflate SUM aggregates when crossing one-to-many boundaries), derived metric computation with recursive dependency resolution, and multi-fact query composition that isolates aggregations from different fact tables. Getting even one of the 10 queries wrong (especially the fan-out traps R04/R08 or the derived cross-fact metrics R05/R10) requires deep understanding of SQL aggregation grain — not just following a procedure."""
+solution_explanation = """Build a semantic layer compiler with: (1) a bidirectional join graph from the YAML relationships, (2) BFS path-finding between entities, (3) fan-out boundary detection by checking for one_to_many edges in join paths, (4) pre-aggregation CTEs that aggregate metrics at the boundary entity's PK before crossing one_to_many joins, combined with DISTINCT dimension bridges, (5) conditional aggregation (CASE WHEN) for metrics with row-level filters from the same entity, (6) CTE-based multi-entity composition joining independently-aggregated subqueries on dimension columns, and (7) recursive derived metric formula expansion in an outer SELECT wrapper."""
+verification_explanation = """Tests load each of the 10 result JSON files and verify: correct structure (query_id, sql, columns, rows), expected row counts, and specific metric values computed from the database. Fan-out prevention is verified by checking that R04 Hurricane Alpha = 36000 (naive gives 48000) and R08 POL-001 premium = 12000 with claim_count = 4 (naive gives 48000/8). Derived metrics verified via exact values for loss_ratio and avg_premium. Filter pushdown tested via R06 returning only active-policy rows."""
+category = "data_engineering"
+tags = ["semantic-layer", "sql-compilation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sql-bench-harness"

@@ -1,0 +1,5 @@
+{
+  "problems": ["afiro", "blend", "sc50a", "sc50b", "adlittle", "kb2"],
+  "data_dir": "/app/data",
+  "output_file": "/app/results.json"
+}

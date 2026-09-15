@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires translating mathematical formulas from potential theory (Nagy 2000, Fukushima 2020) into numerically stable code. The safe_log function has four branches including a degenerate case; the vertex summation requires correct sign patterns from Green's theorem; gradient kernels include sign flips for upward vs downward conventions. Verification demands matching golden reference values for specific prism configurations (irregular asymmetric, thin elongated, near-vertex) to high precision, which requires getting every detail of the argument ordering and sign conventions correct."""
+solution_explanation = """Implement safe_atan2 with 4 branches, safe_log with 4 branches (including y==0 and z==0 test for the degenerate case), 10 kernel functions matching the spec formulas with correct safe_log argument ordering (first arg = coordinate in the log, remaining two = other coordinates), and the vertex summation loop over 8 corners with (-1)^(i+j+k) signs where i=0 uses the upper bound (east, north, top) and i=1 uses the lower bound. Multiply the kernel sum by G*density for the final field value."""
+verification_explanation = """Tests verify exact golden reference values for 5 unique prism configurations (asymmetric/irregular, thin elongated, deep cubic, near-vertex stability, superposition split) with 10 field quantities each, plus physics-based constraints (Laplace's equation, Bouguer slab convergence, symmetry, finite-difference consistency). All tests are deterministic and reproducible."""
+category = "science"
+tags = ["geophysics", "numerical-computing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-defcc5"

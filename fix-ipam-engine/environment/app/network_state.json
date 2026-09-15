@@ -1,0 +1,45 @@
+{
+  "vrfs": [
+    {"name": "Production", "rd": "65000:100"},
+    {"name": "Management", "rd": "65000:200"},
+    {"name": "Guest", "rd": "65000:300"}
+  ],
+  "prefixes": [
+    {"prefix": "10.0.0.0/8", "vrf": "Production", "status": "container", "site": "Global"},
+
+    {"prefix": "10.0.0.0/16", "vrf": "Production", "status": "container", "site": "DC-East"},
+    {"prefix": "10.0.0.0/24", "vrf": "Production", "status": "active", "site": "DC-East"},
+    {"prefix": "10.0.1.0/24", "vrf": "Production", "status": "active", "is_pool": true, "site": "DC-East"},
+    {"prefix": "10.0.2.0/24", "vrf": "Production", "status": "reserved", "site": "DC-East"},
+    {"prefix": "10.0.3.0/24", "vrf": "Production", "status": "active", "site": "DC-East"},
+    {"prefix": "10.0.4.0/23", "vrf": "Production", "status": "active", "site": "DC-East"},
+
+    {"prefix": "10.1.0.0/16", "vrf": "Production", "status": "container", "site": "DC-West"},
+    {"prefix": "10.1.0.0/24", "vrf": "Production", "status": "active", "site": "DC-West"},
+    {"prefix": "10.1.1.0/24", "vrf": "Production", "status": "active", "site": "DC-West"},
+    {"prefix": "10.1.2.0/25", "vrf": "Production", "status": "active", "site": "DC-West"},
+    {"prefix": "10.1.2.128/25", "vrf": "Production", "status": "active", "site": "DC-West"},
+
+    {"prefix": "10.255.0.0/24", "vrf": "Production", "status": "container", "site": "Global"},
+    {"prefix": "10.255.0.0/31", "vrf": "Production", "status": "active", "site": "Global"},
+    {"prefix": "10.255.0.2/31", "vrf": "Production", "status": "active", "site": "Global"},
+    {"prefix": "10.255.0.4/31", "vrf": "Production", "status": "active", "site": "Global"},
+
+    {"prefix": "2001:db8::/32", "vrf": "Production", "status": "container", "site": "Global"},
+    {"prefix": "2001:db8::/48", "vrf": "Production", "status": "container", "site": "DC-East"},
+    {"prefix": "2001:db8::/64", "vrf": "Production", "status": "active", "site": "DC-East"},
+    {"prefix": "2001:db8:0:1::/64", "vrf": "Production", "status": "active", "site": "DC-East"},
+    {"prefix": "2001:db8:1::/48", "vrf": "Production", "status": "container", "site": "DC-West"},
+    {"prefix": "2001:db8:1::/64", "vrf": "Production", "status": "active", "site": "DC-West"},
+
+    {"prefix": "172.16.0.0/12", "vrf": "Management", "status": "container", "site": "Global"},
+    {"prefix": "172.16.0.0/16", "vrf": "Management", "status": "container", "site": "DC-East"},
+    {"prefix": "172.16.0.0/24", "vrf": "Management", "status": "active", "site": "DC-East"},
+    {"prefix": "172.16.1.0/24", "vrf": "Management", "status": "active", "site": "DC-East"},
+    {"prefix": "172.17.0.0/16", "vrf": "Management", "status": "container", "site": "DC-West"},
+    {"prefix": "172.17.0.0/24", "vrf": "Management", "status": "active", "site": "DC-West"},
+
+    {"prefix": "10.0.0.0/16", "vrf": "Guest", "status": "container", "site": "DC-East"},
+    {"prefix": "10.0.0.0/24", "vrf": "Guest", "status": "active", "is_pool": true, "site": "DC-East"}
+  ]
+}

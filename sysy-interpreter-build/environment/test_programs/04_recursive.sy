@@ -1,0 +1,14 @@
+int gcd(int a, int b) {
+    if (b == 0) return a;
+    return gcd(b, a % b);
+}
+
+int main() {
+    putint(gcd(12, 8));
+    putch(10);
+    putint(gcd(100, 75));
+    putch(10);
+    putint(gcd(17, 13));
+    putch(10);
+    return 0;
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of quantum error correction: stabilizer codes, detector error models, MWPM decoding, error suppression factors (Lambda), threshold estimation, and hardware footprint projection. The agent must correctly use the Stim Python API for circuit generation and analysis, build a PyMatching decoding pipeline, convert between per-shot and per-round logical error rates, compute error suppression factors across code distances, estimate the surface code threshold by interpolation, and fit an exponential model for hardware projection. This combines deep domain knowledge (QEC physics) with practical tool usage (Stim/PyMatching APIs) and statistical analysis."""
+solution_explanation = """Generate surface code circuits with stim.Circuit.generated(), extract deterministic metadata (num_qubits, num_detectors, shortest_graphlike_error), run Monte Carlo sampling with PyMatching MWPM decoding, compute per-round error rates from per-shot rates, calculate Lambda as ratio of per-round rates between distances, estimate threshold by finding where Lambda crosses 1 via interpolation, and fit log-linear model to project distance needed for target error rate."""
+verification_explanation = """Tests verify: (1) JSON structure with all required keys and 18 configurations, (2) deterministic circuit metadata matches independently generated circuits, (3) shortest graphlike error weight equals code distance d, (4) logical error rates satisfy physical constraints (monotonicity with noise, valid range), (5) error suppression factors Lambda > 1 below threshold, (6) threshold estimate in physically expected range [0.004, 0.015], (7) footprint projection distance in reasonable range [10, 40]."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "stim-simulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-865666"

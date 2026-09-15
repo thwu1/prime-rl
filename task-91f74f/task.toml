@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must debug and fix a multi-tool data pipeline spanning jq, sqlite3 CLI, Make, and Python. First, the Makefile has a wrong dependency order (evaluate runs before data ingestion), the jq filter for NDJSON-to-CSV conversion mishandles JSON null values (converting them to the string "null" instead of "NaN") and outputs tab-separated data while sqlite3 is configured for comma-separated import — a format mismatch that causes ingestion failure. Once data ingestion is fixed, the Python evaluation engine has multiple interacting bugs: per-patient DSC averaging instead of micro-aggregated DSC, simple accuracy instead of balanced accuracy, missing hazard-convention negation for the concordance index, NaN exclusion instead of tie-penalty (the correct approach must be empirically determined by evaluating both against audit spot-checks), and row-level bootstrap resampling instead of patient-level. The rank-stability analysis (bootstrap rank distributions, pairwise dominance) must be implemented from scratch per the methodology specification. Requires understanding jq's null semantics, sqlite3 import modes, Makefile dependency resolution, survival analysis, and clinical evaluation methodology."""
+solution_explanation = """Fix the Makefile: reorder targets (ingest before evaluate), change jq filter to handle null with 'if .risk_score == null then "NaN" else (.risk_score | tostring) end', change output format from @tsv to @csv to match sqlite3's .mode csv. Then fix the Python evaluation: replace per-patient DSC with micro-aggregated DSC, replace simple accuracy with balanced accuracy (per-class recalls), add hazard-convention negation, implement NaN-as-tied-prediction (Approach B confirmed by audit), switch to patient-level bootstrap resampling using config from eval_config.toml via tomllib, and implement rank-stability analysis (rank probability matrix, dominant ranks, rank certainty, pairwise dominance) with seed=99 and 2000 iterations from config. Write results.json and stability.json conforming to the methodology schemas."""
+verification_explanation = """Pytest tests verify: (1) results.json structure with all required keys for 4 teams, (2) exact numerical values for micro-aggregated DSC, balanced accuracy, concordance index with correct NaN handling and negation, weighted scores, consistency, and rankings, (3) bootstrap CI bounds within tolerance (ATOL_CI=0.02), (4) stability.json structure — rank probabilities sum to 1 per team and per rank column, dominant ranks match most frequent, pairwise dominance symmetry P(A>B)+P(B>A)≈1, specific rank probability and pairwise dominance values within tolerance (ATOL_STAB=0.025)."""
+category = "data_science"
+tags = ["data-pipeline", "clinical-evaluation", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-91f74f"

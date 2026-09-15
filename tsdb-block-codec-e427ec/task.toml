@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding six interrelated subsystems of a time-series compression pipeline: zig-zag varint encoding with subtle bit-manipulation, Gorilla-inspired nearest-delta encoding with precision-bit lossy compression and counter-reset detection, second-order delta-of-delta encoding, automatic gauge-vs-counter heuristic classification, interval-based deduplication with staleness-NaN semantics and max-value conflict resolution, and varint-based block header serialization. Bugs span bit-level operations, algorithmic logic, and missing code paths. Failures cascade across layers — a wrong varint decode breaks all delta encoding; missing encoding strategies cause type-dispatch failures. Requires Dreyfus-proficient systems programming and Bloom-level evaluation to diagnose interacting failures."""
+solution_explanation = """Fix six bugs: (1) varint.go: zig-zag decode uses wrong formula `int64(u>>1) ^ int64(u&1)` — must be `int64(u>>1) ^ (int64(u<<63) >> 63)` for correct sign extension. (2) nearest_delta.go: nearestDelta function returns raw delta without precision-bit truncation or counter-reset detection — implement full algorithm with bits.Len64, trailing zeros masking, and ±4 threshold detection. (3) nearest_delta2.go: implements first-order delta instead of second-order delta-of-delta — add varint prefix for initial d1, compute d2 = (next-v) - d1, and accumulate d1 += d2 in both encode and decode. (4) encoding.go: isGauge always returns false — implement full heuristic (negative values, small decrease detection via v > vPrev>>3, reset counting). MarshalValues missing const/deltaConst checks — add isConst and isDeltaConst before delta encoding. UnmarshalValues missing Const/DeltaConst cases. (5) dedup.go: wrong interval boundary calculation, missing max-value selection on identical timestamps, missing StaleNaN preference logic, missing gap recalculation. (6) block.go: Unmarshal forgets to advance src after reading RowsCount, causing all subsequent fields to read wrong data."""
+verification_explanation = """Go test suite (codec_test.go) contains 25+ test functions covering byte-exact encoding outputs, round-trip correctness, encoding strategy selection, deduplication semantics with StaleNaN, block header serialization, and full pipeline integration. Python test harness (test_state.py) invokes `go test` and verifies all named tests pass. Tests are deterministic with fixed inputs."""
+category = "systems_programming"
+tags = ["time-series", "compression"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tsdb-block-codec-e427ec"

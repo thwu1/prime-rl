@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language debugging between Rust and Python PBT implementations (language-semantics differences in integer division, iterator boundary conditions, greedy descent control flow). Beyond debugging, demands designing a novel invariant-preserving shrinking algorithm for structured interval data — no reference implementation exists, so the solver must reason from first principles about how to shrink endpoints while maintaining sorted-nonoverlapping constraints via shrink_nonneg composition. Finally, requires evaluating four candidate PBT properties against correct and buggy implementations of merge_intervals, classifying each as sound/weak/strong — this demands deep understanding of the relationship between property specifications and implementation correctness, distinguishing necessary from sufficient conditions."""
+solution_explanation = """Part 1: Fix shrink_int to use truncation-toward-zero division (_trunc_half), fix shrink_list boundary from >= to > in chunk removal, add break in find_minimal_counterexample for greedy first-failure descent. Find counterexamples (-1,2), [0], [0,1] and fix targets (divmod+adjustment, append last run, len(s) not len(s)-1). Part 2: Implement shrink_interval_set with three phases — yield empty, remove individual intervals (n>1), then for each interval shrink hi toward lo+1 and lo toward lower bound using shrink_nonneg on the gap. Part 3: Classify prop_idempotent as weak (buggy output is also idempotent since it's still valid non-overlapping), prop_covers_all as sound (buggy loses coverage when contained intervals overwrite hi), prop_no_growth as strong (correct merging produces intervals wider than any single input), prop_each_preserved as sound (buggy fails to contain all input intervals when hi shrinks)."""
+verification_explanation = """Tests verify exact shrink sequences for known inputs against QuickCheck's reference output. Counterexamples are validated as actually failing the buggy property AND being minimal. Fixed targets are tested with both unit tests and property-based tests. shrink_interval_set outputs are checked against exact expected sequences for multiple inputs and all outputs are validated for structural invariants (sorted, non-overlapping, 0<=lo<hi). Property audit results are verified against ground-truth classifications derived from exhaustive analysis of v1/v2 behavior."""
+category = "software_testing"
+tags = ["property-based-testing", "algorithm-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quickcheck-shrink-engine"

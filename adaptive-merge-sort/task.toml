@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a novel merge scheduling algorithm from scratch. The agent must: (1) understand the optimal adjacent-run merge problem (equivalent to optimal alphabetic tree construction), (2) evaluate three provided baseline strategies to understand their failure modes, (3) synthesize an efficient O(n log n) or better algorithm achieving near-optimal merge costs across diverse distributions, and (4) correctly implement the algorithm with proper edge case handling. The tight near-optimality constraint (5% of DP optimal) rules out naive heuristics, while the scalability constraint (200k runs in 5s) rules out brute-force DP. Requires expert knowledge of combinatorial optimization, algorithm design, and sorting theory."""
+solution_explanation = """Implements weight-balanced binary splitting: recursively partition the run sequence at the index where cumulative run length is closest to half the total segment weight, then build the merge tree from these splits. Uses iterative DFS for split computation (with binary search per interval for O(n log n) total) and iterative post-order traversal for tree construction and cost calculation, avoiding stack overflow on deep trees. This naturally places heavy runs near the root and light runs deeper, achieving near-optimal merge costs across all tested distributions including adversarial spikes and geometric sequences."""
+verification_explanation = """Tests verify: (1) exact optimality on small known cases (2-4 runs), (2) within 5% of reference O(n^2) DP on 10 random seeds with n=100 runs, (3) near-optimality on geometric, alternating, spike, and Fibonacci distributions, (4) performance under 5 seconds for 200,000 runs, (5) tree validity (correct leaf order, consistent cost), (6) significant improvement over balanced baseline on exponential and dominant-run distributions."""
+category = "algorithms"
+tags = ["sorting", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adaptive-merge-sort"

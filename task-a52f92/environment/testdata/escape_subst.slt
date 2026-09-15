@@ -1,0 +1,25 @@
+# Escape sequence handling in substitution mode
+# When substitution is on, \$ should produce a literal $ and \\ should produce \
+
+control substitution on
+
+statement ok
+CREATE TABLE esc_tbl(id INTEGER, name TEXT)
+
+statement ok
+INSERT INTO esc_tbl VALUES(1, 'alice')
+
+let myname
+SELECT name FROM esc_tbl WHERE id = 1
+
+# Normal substitution should work
+query T nosort
+SELECT '$myname'
+----
+alice
+
+# \$ should prevent substitution and produce a literal $
+query T nosort
+SELECT '\$myname'
+----
+$myname

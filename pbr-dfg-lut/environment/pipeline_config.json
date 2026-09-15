@@ -1,0 +1,6 @@
+{
+    "lut_size": 128,
+    "ggx_samples": 1024,
+    "charlie_samples": 2048,
+    "output_dir": "/app/output"
+}

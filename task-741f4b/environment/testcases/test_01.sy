@@ -1,0 +1,10 @@
+// Test 01: Basic return value, integer constant formats (decimal, hex, octal)
+int main() {
+    int a = 42;
+    int b = 0x1A;
+    int c = 077;
+    putint(a); putch(32);
+    putint(b); putch(32);
+    putint(c); putch(10);
+    return 3;
+}

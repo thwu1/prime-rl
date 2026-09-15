@@ -1,0 +1,37 @@
+# Profile: production v2.4.1, 30s at 99Hz
+
+server_main;event_loop;accept_conn;alloc_context 120
+server_main;event_loop;handle_request;parse_http;parse_headers 180
+server_main;event_loop;handle_request;parse_http;parse_body 90
+server_main;event_loop;handle_request;route_dispatch 60
+server_main;event_loop;handle_request;auth_check;verify_token;hmac_sha256 150
+server_main;event_loop;handle_request;auth_check;session_lookup;hash_table_get 75
+server_main;event_loop;handle_request;cache_lookup;hash_key;murmurhash3 120
+server_main;event_loop;handle_request;cache_lookup;lru_get;memcpy 180
+server_main;event_loop;handle_request;db_query;conn_pool_acquire;mutex_lock 90
+server_main;event_loop;handle_request;db_query;sql_prepare;parse_ast 120
+server_main;event_loop;handle_request;db_query;sql_execute;btree_scan;page_read 150
+server_main;event_loop;handle_request;db_query;sql_execute;btree_scan;compare_key 75
+server_main;event_loop;handle_request;db_query;sql_execute;hash_join;probe_table 60
+server_main;event_loop;handle_request;db_query;result_serialize;row_to_map 90
+server_main;event_loop;handle_request;db_query;conn_pool_release 30
+server_main;event_loop;handle_request;serialize;json_marshal;reflect_value 210
+server_main;event_loop;handle_request;serialize;json_marshal;write_string 150
+server_main;event_loop;handle_request;serialize;json_marshal;encode_number 60
+server_main;event_loop;handle_request;send_response;tcp_write;writev 180
+server_main;event_loop;handle_request;send_response;tcp_write;copy_to_buf 90
+server_main;event_loop;handle_request;log_access;format_clf;strftime 120
+server_main;event_loop;handle_request;log_access;file_write;fwrite 60
+server_main;event_loop;epoll_wait 150
+server_main;gc_thread;mark_sweep;scan_roots 75
+server_main;gc_thread;mark_sweep;trace_refs 60
+server_main;gc_thread;compact;memmove 45
+server_main;stats_thread;collect_metrics;read_proc_stat 30
+server_main;stats_thread;collect_metrics;aggregate 15
+server_main;stats_thread;push_metrics;tcp_connect 15
+server_main;stats_thread;push_metrics;send_payload 15
+server_main;event_loop;handle_request;middleware;rate_limit;token_bucket 45
+server_main;event_loop;handle_request;middleware;cors_check 15
+server_main;event_loop;timer_tick;check_timeouts 30
+server_main;event_loop;handle_request;0x55a3b2c1d4e8;compute_checksum 45
+server_main;0x7f4a00112233;tls_handshake;aes_encrypt 30

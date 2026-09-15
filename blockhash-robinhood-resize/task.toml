@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a production-quality hash table in C that simultaneously satisfies cache-line alignment constraints, tight probe-distance bounds, incremental (amortized) resizing with dual-table transparency, correct deletion semantics that preserve probe-distance invariants during and after resize, and strict per-entry memory overhead limits. Each requirement alone is nontrivial; their intersection creates subtle correctness pitfalls — stale entries during migration, displacement artifacts from deletion interacting with the migration cursor, double-counting across coexisting tables, and accurate memory accounting that reflects real overhead."""
+solution_explanation = """The solution uses a flat array of 64-byte-aligned blocks (4 slots of 16 bytes each) with FNV-1a hashing, robin-hood linear probing for low worst-case probe distances, and backward-shift deletion to avoid tombstones. Incremental resizing promotes the current table to secondary and allocates a 2x primary; each mutating operation migrates up to 16 secondary slots. Lookups transparently fall through from primary to secondary. Deletion removes from whichever table holds the key. After the secondary scan cursor completes, any entries displaced behind it by backward-shift are caught in a second pass."""
+verification_explanation = """Tests compile the implementation via make and load the resulting libblockht.so through Python ctypes. Ten test classes exercise: basic CRUD, value overwrite, variable-length keys (1–256 bytes), large-scale correctness (200K entries with insert/delete/lookup), 64-byte block alignment via bht_verify_alignment(), probe-distance bounds at controlled load factors, incremental resize observation (bht_is_resizing() transitions), entry accessibility during and after resize, deletion during resize, and per-entry memory overhead accounting. All tests are deterministic and do not depend on wall-clock timing."""
+category = "systems"
+tags = ["data-structures", "low-latency"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/blockhash-robinhood-resize"

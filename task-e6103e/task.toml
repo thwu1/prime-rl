@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must: (1) diagnose which tests fail and why by running the benchmark and test suite, (2) compile a C shared library from provided source using make/gcc and understand the Makefile, (3) design and implement a high-fanout balanced tree with O(log N) rank support in Python — discovering that subtree counts in internal nodes enable positional queries, (4) integrate the C library via ctypes with correct argtypes/restype declarations and pointer handling, (5) complete a Redis Lua script using the redis.call API with ZADD/ZREM/ZSCORE/ZRANK commands and Lua string formatting, (6) handle node splitting/merging during insertion and deletion with correct subtree count propagation, (7) implement boundary searches for score-range queries using sentinel comparison objects, (8) cross-validate the Python implementation against Redis and the Lua script output. The combination of C compilation, ctypes FFI integration, Redis Lua scripting, and B-tree implementation from scratch at expert level makes this very challenging."""
+solution_explanation = """The solution compiles node_ops.c into libnode_ops.so using make, then replaces the naive sorted list with a B-tree (order 32, min keys 15) where inner nodes store a subtree element count (_tc). The Python implementation loads libnode_ops.so via ctypes and uses score_lower_bound for C-accelerated score pre-filtering in leaf node searches. Insert uses preemptive splitting; delete uses predecessor replacement + recursive fix-up with borrow/merge. Rank is computed by summing left-subtree counts along the search path. The SortedSet wraps the B-tree with a dict for O(1) member-to-score lookup. A complete Lua script implements the bulk validation operations using redis.call with proper nil handling."""
+verification_explanation = """Tests verify: (1) the compiled C shared library exists, loads, and functions correctly including binary search and checksum operations, (2) sorted_set.py imports ctypes and references the node_ops library, (3) the Redis Lua script exists, has no TODO markers, executes without errors, returns correct format, and matches the Python implementation for identical operations, (4) functional correctness of all sorted set operations including edge cases, (5) score ordering with lexicographic tiebreaking, (6) rank consistency after inserts/deletes/updates, (7) structural properties — height bounded by O(log_8(N)), node count requires bucketing, (8) sublinear performance of rank queries and insertions via timing ratios, (9) stress testing with 5000 random operations verified against a reference, (10) Redis compatibility tests for infinity scores, precision, and rank consistency."""
+category = "data_structures"
+tags = ["sorted-set", "systems-integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e6103e"

@@ -1,0 +1,88 @@
+# Dependency Enforcement Ratchet Policy
+#
+# This policy governs how packages in the monolith declare and enforce
+# constraints on their dependency edges. Each package has a layer
+# assignment and an enforcement level.
+
+layers:
+  # Ordered from lowest to highest rank.
+  # A package's layer determines its position in the architecture.
+  - name: utility
+    rank: 0
+    description: Foundational libraries with no business logic
+  - name: power
+    rank: 1
+    description: Infrastructure clients and drivers
+  - name: business
+    rank: 2
+    description: Domain models and business logic
+  - name: api
+    rank: 3
+    description: API endpoints and controllers
+  - name: services
+    rank: 4
+    description: Top-level service compositions
+
+enforcement_levels:
+  # Each level is strictly more constraining than the previous.
+  # A package declares one of these levels to restrict what
+  # dependencies it is allowed to have. Violations are edges
+  # that break the constraints of the package's declared level.
+
+  - name: "false"
+    rank: 0
+    constraints: []
+    # No enforcement. Package may depend on any other package.
+
+  - name: layered
+    rank: 1
+    constraints:
+      - Every dependency must target a package in the same layer or a
+        lower-ranked layer. Any dependency on a package in a
+        higher-ranked layer is a violation.
+
+  - name: layered_dag
+    rank: 2
+    constraints:
+      - All constraints of 'layered' apply.
+      - Additionally, the subgraph of same-layer packages reachable
+        from this package (following only edges between packages that
+        share this package's layer) must be acyclic. If any cycle
+        exists among the same-layer nodes reachable from this package,
+        each same-layer dependency edge from this package that leads
+        (directly or transitively) to a cycle-participating node is
+        a violation.
+      - Note: A package may fail this constraint even if it does not
+        itself participate in a cycle — it is sufficient that its
+        reachable same-layer subgraph contains one.
+
+  - name: dag
+    rank: 3
+    constraints:
+      - The full transitive dependency closure reachable from this
+        package must be acyclic. Any dependency edge that participates
+        in a reachable cycle is a violation, regardless of layer
+        boundaries.
+
+migration:
+  # Rules governing how packages advance through enforcement levels.
+
+  promotion_rules:
+    - Packages may only be promoted one level at a time
+      (e.g. false -> layered, not false -> dag).
+    - A promotion is valid if and only if the package would have zero
+      violations at the new level, given all other packages' current
+      enforcement levels at that point in the sequence.
+    - When multiple packages are simultaneously eligible for promotion
+      at a given step, promote the package in the lowest-ranked layer
+      first. Break remaining ties alphabetically by package name.
+    - The objective is to maximize the total number of packages that
+      ultimately reach the 'dag' enforcement level.
+
+  audit_rules:
+    - If a package's current enforcement level produces violations on
+      the complete dependency graph (including any runtime-discovered
+      edges), that package's level is considered invalid.
+    - Invalid levels must be corrected to the highest level at which
+      the package has zero violations before computing the forward
+      migration plan.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux security knowledge to investigate a production server with 15+ subtle vulnerabilities planted across six security domains (sudo privilege escalation, filesystem permissions, service account hardening, scheduled task security, authentication policy, and compliance monitoring). The agent must diagnose issues that are NOT enumerated in the instructions — only high-level audit categories and a security policy document are provided. Key challenges include: identifying LD_PRELOAD/LD_LIBRARY_PATH in sudo env_keep as a library injection vector, recognizing that 'vim *' in sudoers enables shell escape to root, understanding that 'docker *' allows arbitrary host filesystem access, discovering SUID binaries in world-writable locations, tracing cron jobs executing from /tmp and systemd services running scripts from user home directories, and evaluating which configurations are legitimate vs. security violations. The agent must also design and create a comprehensive compliance-checking script from scratch."""
+solution_explanation = """The solution: (1) audits all sudoers files, removes LD_PRELOAD/LD_LIBRARY_PATH from env_keep, replaces unscoped vim and docker wildcards with least-privilege alternatives, restricts monitoring group from ALL to specific commands, and fixes file permissions on deploy sudoers from 0644 to 0440; (2) removes SUID from world-writable deploy.sh, restricts shadow backup to 0600, fixes log directory from 1777 to 0750, reassigns orphaned files, fixes /opt/scripts ownership; (3) changes service account shells to nologin, removes svc_deploy from wheel; (4) moves backup script from /tmp to /opt/scripts, updates cron.d entry, creates cron.allow, removes admin's insecure chmod crontab, moves maintenance script from /home to /opt/scripts and updates systemd service; (5) updates login.defs and applies chage for all users; (6) creates a 100+ line compliance-checking script."""
+verification_explanation = """Tests verify ~40 security properties: no LD_PRELOAD/LD_LIBRARY_PATH in sudoers, no unscoped vim or docker wildcards, no non-wheel group with NOPASSWD: ALL, all sudoers.d files at mode 0440 and owned root:root, visudo -c passes, no SUID on deploy.sh, deploy.sh not world-writable, shadow backup at 0600, log directory ≤ 0750, no orphaned files in /opt, /opt/scripts root-owned, service accounts have nologin shells, svc_deploy not in wheel, no cron.d entries reference /tmp, cron.allow exists with admin, no svc_ users in cron.allow, admin crontab clean of chmod 777, no systemd services reference /home, login.defs values correct, shadow fields for all 7 users verify password aging, compliance script exists/executable/exits-zero/produces-output."""
+category = "systems_administration"
+tags = ["linux-security", "privilege-escalation", "system-hardening", "sudo", "audit-remediation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multi-team-server"

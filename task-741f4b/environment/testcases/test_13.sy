@@ -1,0 +1,20 @@
+// Test 13: Fibonacci with memoization using global arrays
+int memo[31];
+int computed[31];
+
+int fib(int n) {
+    if (n <= 1) return n;
+    if (computed[n]) return memo[n];
+    memo[n] = fib(n - 1) + fib(n - 2);
+    computed[n] = 1;
+    return memo[n];
+}
+
+int main() {
+    putint(fib(0)); putch(32);
+    putint(fib(1)); putch(32);
+    putint(fib(10)); putch(32);
+    putint(fib(20)); putch(32);
+    putint(fib(30)); putch(10);
+    return 0;
+}

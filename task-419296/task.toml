@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of TiDB distributed query execution internals including operator timing semantics, coprocessor task concurrency models, MVCC garbage collection effects, and lock contention patterns. The agent must independently discover the plan-ctl CLI utility (not named in the instruction) by exploring the system PATH when it encounters opaque binary .planpb files, then learn its subcommands via --help. Solving requires chaining plan-ctl output through Python/jq for JSON processing, querying a SQLite diagnostics database with sqlite3 for system variable lookups and incident-plan mappings, and synthesizing results across four heterogeneous data sources. Parsing TiDB's non-standard execution info format with nested key-value structures and heterogeneous time units adds domain-specific complexity. The triage_summary deliverable further requires cross-incident evaluation: classifying root causes into GC-related vs concurrency-related categories demands understanding that lock contention and MVCC tombstone accumulation share a common garbage collection deficiency, while ranking incidents and computing cluster risk metrics requires synthesizing slow query data with topology state."""
+solution_explanation = """Discover plan-ctl via PATH exploration when binary .planpb files cannot be read directly. Use plan-ctl (learned via --help) to decode .planpb binary plan files: 'plan-ctl exec-info <file> <operator>' extracts parsed execution info as JSON, 'plan-ctl operators <file> --format json' extracts the operator tree. Query the SQLite diagnostics database with sqlite3 to discover incident-plan mappings and extract system variables. Use jq to extract GC tombstone counts and per-store SST file counts from the nested cluster_topology.json. Apply domain-specific computation: root operator self-time via parent-minus-children time subtraction, cop estimated execution time via avg*num/concurrency, max concurrent cop tasks via table_task_concurrency*distsql_concurrency. Classify root causes from execution info patterns. For triage_summary: query slow_queries grouped by incident_id for priority ranking, classify INC-001 and INC-003 as gc_related (lock_contention and mvcc_tombstone), INC-002 and INC-004 as concurrency_related, then compute cluster risk metrics from topology data and derive impact assessments with threshold-based urgency classification."""
+verification_explanation = """46 pytest assertions across 5 test classes verify correct bottleneck operator identification, root cause classification, numeric metric computation (with floating-point tolerance via math.isclose), concurrency calculations, cross-plan comparison ratios, cluster topology data extraction, and the triage_summary's cross-incident evaluation including priority ranking order, root cause group membership, cluster risk metrics (storage usage, GC tombstone ratio, SST counts, compaction pressure), and impact assessment (latency aggregation, category comparison, urgency classification). All values are deterministically derivable from the execution plan data combined with system variables in the SQLite database and cluster state in the JSON topology file."""
+category = "database_systems"
+tags = ["tidb", "distributed-databases"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-419296"

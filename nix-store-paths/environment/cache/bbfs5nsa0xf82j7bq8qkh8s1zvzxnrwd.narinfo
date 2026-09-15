@@ -1,0 +1,9 @@
+StorePath: /nix/store/bbfs5nsa0xf82j7bq8qkh8s1zvzxnrwd-builder.sh
+URL: nar/bbfs5nsa0xf82j7bq8qkh8s1zvzxnrwd.nar.xz
+Compression: xz
+FileHash: sha256:fd913ec8f0a415b8a04e51c6183728144a31d87c2c4cd52bd88064c6f797f785
+FileSize: 6584504
+NarHash: sha256:0603d1d820bf05b55f16dbe3b2730fb911e86faa074d6115c2dc84a9f2837292
+NarSize: 22438106
+References:
+CA: text:sha256:d34d1c015c0b86c7ffe965c3e0d63ea17d018a83a5a00b6a88f980c9857ffb66

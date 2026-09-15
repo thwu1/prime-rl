@@ -1,0 +1,13 @@
+CC = gcc
+CFLAGS = -O2 -fPIC -Wall $(shell pkg-config --cflags icu-uc)
+LDFLAGS = $(shell pkg-config --libs icu-uc)
+
+all: libpropdb.so
+
+libpropdb.so: propdb.c
+	$(CC) $(CFLAGS) -shared -o $@ $< $(LDFLAGS)
+
+clean:
+	rm -f libpropdb.so
+
+.PHONY: all clean

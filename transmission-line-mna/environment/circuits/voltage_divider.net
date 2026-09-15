@@ -1,0 +1,5 @@
+# Simple resistive voltage divider
+V1 1 0 1
+R1 1 2 100
+R2 2 0 200
+.ac 0 10k 500

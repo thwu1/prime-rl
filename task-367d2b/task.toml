@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level geospatial data engineering across multiple domains. The solver must independently discover four distinct corruption categories without being told which records are affected: EPSG:3857 coordinates stored as EPSG:4326 (requires recognizing Web Mercator meter magnitudes and performing inverse map projection), transposed lat/lon axes (requires understanding WGS84 axis conventions and coordinate range semantics), self-intersecting polygon geometries (requires spatial topology analysis and geometric reconstruction), and inverted temporal ranges. Beyond repair, the solver must design a constrained combinatorial optimization algorithm for minimum-cost multi-category portfolio selection (a set-cover variant with per-category spatial coverage constraints, storage budget, quality thresholds, and temporal eligibility) and construct a comparative efficiency evaluation framework computing quality-adjusted coverage per unit cost across all datasets. The task demands holistic reasoning spanning CRS transformations, spatial topology, temporal metadata, combinatorial optimization, and multi-criteria evaluation."""
+solution_explanation = """Open the GeoPackage with OGR. Detect CRS mismatch by checking for coordinate magnitudes far outside WGS84 range, distinguishing EPSG:3857 meter values from transposed degree values by magnitude. Reproject 3857->4326. Detect coordinate swaps by finding Y outside [-90,90] and transpose. Detect invalid geometries via IsValid() and reconstruct rectangles from envelopes. Detect temporal inversions via date comparison. For portfolio optimization: enumerate eligible datasets per category (filtered by quality>=0.80 and temporal overlap with 2019-2023), find minimum-cost subsets achieving >=60% coverage per category via exhaustive search, then select cheapest 5-category combination under 18GB budget. Answer: 6 datasets across 5 categories totaling 11.5GB. For efficiency: compute quality_score*(clipped_area/target_area)/size_gb for all 28 datasets, rank, identify per-category best."""
+verification_explanation = """Tests verify: fixed catalog has 28 valid WGS84 rectangle geometries; specific corrupted records match expected bounding boxes within tolerance; temporal ranges consistent; diagnostic identifies exactly 9 records; portfolio selects 6 optimal datasets across 5 categories at 11.5GB; efficiency ranking top-5 and bottom-3 match expected IDs; per-category best datasets correct; all coverage fractions meet 60% threshold."""
+category = "geospatial_engineering"
+tags = ["gdal", "optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-367d2b"

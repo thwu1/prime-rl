@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple real-world netCDF data quality issues (NaN fill values that break NCO averaging, corrupt time records, non-standard coordinate naming, inconsistent missing_value vs _FillValue), then building a multi-step NCO pipeline chaining ncap2, ncatted, ncrename, ncrcat, ncra, and ncwa. The agent must also implement an atmospheric science formula (Tetens-based VPD) in ncap2 scripting and apply latitude-weighted spatial averaging with proper ocean-mask handling. Each issue is individually non-trivial; their combination in a single pipeline demands proficiency-level NCO expertise and netCDF data model understanding."""
+solution_explanation = """Fix NaN _FillValue in obs_2018.nc using ncap2 where(tas!=tas) + ncatted to set numeric fill. Repair corrupt time coordinate in obs_2019.nc with ncap2 index assignment. Rename non-standard dims/vars in obs_2020.nc with ncrename, delete inconsistent missing_value with ncatted, harmonize fill values. Concatenate with ncrcat. Compute 12-month climatology via ncra with stride-12 hyperslabbing in a loop. Derive VPD using ncap2 Tetens formula. Compute cos(lat)-weighted global mean with ncwa."""
+verification_explanation = """Tests verify output file structure (dimensions, variable names), data integrity (no NaN fill values, valid monotonic time, physically reasonable value ranges), VPD correctness (non-negative, units attribute, range check), and proper spatial averaging (finite values, seasonal cycle presence, expected value ranges for global means)."""
+category = "data_engineering"
+tags = ["netcdf", "climate-data"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netcdf-pipeline-repair"

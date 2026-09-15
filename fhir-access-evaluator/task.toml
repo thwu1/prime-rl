@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering Medplum's FHIR AccessPolicy evaluation semantics from production TypeScript source code spanning three files (~2900 lines total) with external dependencies that prevent direct execution. The agent must: parse a FHIR CapabilityStatement to extract search parameter field-path mappings from deeply nested extension structures; load and merge FHIR Bulk Data NDJSON files split by resource type; extract admin resource type constants from TypeScript source code; implement criteria matching with FHIR search semantics (:not, :missing modifiers, comma-OR, parameterized %variable substitution); build a FHIRPath expression evaluator for write constraints with %before/%after bindings and implies/exists operators; compute HMAC-SHA256 audit signatures."""
+solution_explanation = """The pipeline: (1) extract search parameter paths from the FHIR CapabilityStatement's rest[0].resource[].searchParam[].extension[] structure; (2) load all *.ndjson files from /app/data/ by reading line-by-line and indexing by resourceType/id; (3) extract projectAdminResourceTypes from the TypeScript reference; (4) evaluate each scenario by matching against resolved access policies using first-match semantics with criteria, interaction gating, write constraints, and hidden/readonly field reporting; (5) generate HMAC-SHA256 audit signatures for each decision using the hex key."""
+verification_explanation = """Tests run the pipeline script, then verify: all 35 scenario access decisions match expected outcomes covering interaction restrictions, criteria matching, parameterized variables, write constraints, wildcard exclusions, hidden/readonly fields, and unknown user denial; HMAC-SHA256 audit signatures are cryptographically valid against the provided key; results and audit files are complete and well-formed."""
+category = "security_and_privacy"
+tags = ["fhir", "access-control"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-access-evaluator"

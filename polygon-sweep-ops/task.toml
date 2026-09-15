@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple independent defects in a sweep-line boolean polygon clipping engine: three core modules are empty stubs (intersection handling, field computation, contour assembly) and one nominally-complete module (segment comparison) contains a subtle algorithmic inversion. The solver must explore the full codebase to identify which modules are broken, understand the Martinez-Rueda sweep-line algorithm deeply enough to implement the stubs correctly, and then debug cascading failures caused by the comparator bug — which inverts segment ordering when two non-collinear segments share a left endpoint, leading to incorrect inOut propagation across the entire pipeline. The overlap handling in possibleIntersection has 5+ distinct code paths. The field computation requires understanding sweep-line predecessor semantics across same-polygon and cross-polygon cases. Contour assembly requires event-chain walking with hole classification via depth tracking. The segment comparator bug requires tracing through the splay-tree status structure to diagnose wrong ordering at intersection points."""
+solution_explanation = """The solution fixes four files: (1) compare_segments.ts — changes isAbove back to isBelow in the shared-endpoint non-collinear case, restoring correct sweep-line segment ordering. (2) possibleIntersection — calls segmentIntersection, early-exits for endpoint-only intersections and same-polygon overlaps, subdivides segments at single intersection points, and handles collinear overlap with four cases using event ordering and edge-type assignment. (3) computeFields — propagates inOut/otherInOut from predecessor (with vertical segment special case for cross-polygon predecessors), builds prevInResult chain, and determines result membership and transition direction per operation type and edge type. (4) connectEdges — filters result events, bubble-sorts for stability, sets up otherPos cross-references, walks closed contour chains, and classifies exterior vs hole contours using depth tracking from prevInResult."""
+verification_explanation = """Tests run end-to-end boolean operations via subprocess on multiple polygon pairs: overlapping squares, non-overlapping squares, contained squares, overlapping triangles, subject polygon with hole, and non-axis-aligned diamond-rectangle intersection. Verification checks area computation via shoelace formula (within tolerance), polygon/ring structure, point-in-polygon membership via ray casting, closed ring invariant, hole detection for difference operations, hole boundary vertex presence in intersection results when the subject carries interior holes, and correct processing of GeoJSON fixture files. The diamond-rectangle test exercises non-axis-aligned intersection producing an octagonal result region."""
+category = "computational_geometry"
+tags = ["sweep-line", "polygon-boolean-ops"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polygon-sweep-ops"

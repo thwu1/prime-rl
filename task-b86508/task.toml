@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a Redis cluster slot imbalance from monitoring symptom data and live cluster state inspection, then performing online slot migration across multiple migration groups. The solver must: (1) explore the deployment to understand persisted cluster topology and config, (2) bring nodes online from saved state and diagnose root cause of asymmetric load, (3) discover and implement the correct slot migration protocol (IMPORTING/MIGRATING state machine, key enumeration, MIGRATE, ownership finalization on all nodes), (4) execute two-directional migrations between three nodes to achieve balance, and (5) verify post-migration data integrity across the rebalanced keyspace. Requires proficiency with distributed cache-store cluster internals, CRC16 hash slot routing, and Linux process management."""
+solution_explanation = """The solution starts Redis nodes from persisted config/data, detects the imbalanced slot distribution (7000: 10923 slots, 7001: 2730, 7002: 2731), calculates the even target (5461/5462/5461), and performs manual slot migration: for each slot needing relocation, sets IMPORTING at target and MIGRATING at source, uses GETKEYSINSLOT to enumerate keys, MIGRATE to transfer them, then SETSLOT NODE on all nodes to finalize ownership. Two migration groups execute: slots 5461-10922 from 7000→7001 and slots 10923-13652 from 7001→7002. Finally verifies all dataset keys and writes cluster_report.json."""
+verification_explanation = """Tests connect to each Redis node and verify: (1) all three nodes respond to PING, (2) cluster_state:ok on all nodes, (3) each node owns between 4500-6000 slots — rejecting the initial imbalanced state where one node held 10923, (4) all 16384 slots are assigned with no gaps, (5) every key from dataset.csv is accessible via GET on the node owning its hash slot post-rebalance, (6) cluster_report.json exists with valid structure including positive migrated_key_count and all_keys_verified=true."""
+category = "distributed_systems"
+tags = ["cluster-resharding", "incident-response"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b86508"

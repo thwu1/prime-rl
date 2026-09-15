@@ -1,0 +1,6 @@
+{
+  "name": "attention",
+  "registers_per_thread": 24,
+  "shared_memory_bytes": 65536,
+  "description": "Flash attention kernel with large KV-cache in shared memory"
+}

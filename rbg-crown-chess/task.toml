@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires learning the RBG domain-specific language (a regex-based game description formalism) from documentation, then implementing a complete 6x6 chess variant with 5 piece types, sliding/hopping movement patterns, capture mechanics, pawn promotion, and king-capture win conditions. The agent must iteratively compile, run perft tests, and debug until the game produces correct move counts at multiple depths. Understanding the RBG compilation pipeline (rbg2cpp → C++17 → binary) and the semantics of backtracking barriers, KEEPER phases, and movement pattern composition is essential."""
+solution_explanation = """The solution writes a correct .rbg file implementing all piece movement patterns (diagonal slides for Guard, orthogonal slides for Chariot, L-shaped hops for Knight, forward/diagonal for Soldier with promotion, 8-directional for King), capture-by-replacement semantics, king-capture win detection via anySquare pattern, and proper turn structure with stalemate-as-draw scoring. It then compiles with rbg2cpp and verifies perft counts match the Python reference."""
+verification_explanation = """Tests compile the agent's .rbg file with rbg2cpp, run the compiled binary at perft depths 1-4, and compare the leaf counts against values computed by an independent Python reference implementation of the same game. Additional structural tests verify the file parses correctly and the game has the expected number of initial legal moves."""
+category = "domain_specific_language"
+tags = ["game-programming", "compiler-toolchain"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rbg-crown-chess"

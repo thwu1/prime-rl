@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of analog in-memory computing device physics and the CrossSim simulator's internal architecture. The agent must reverse-engineer CrossSim's custom device model interface (EmptyDevice base class, normalized conductance system, unit conversion conventions) by reading library source code — none of this is documented in the instruction. Implementing the device model demands correctly mapping between physical conductance units and CrossSim's internal normalization, handling state-dependent error statistics with proper noise scaling, and composing three distinct error mechanisms (programming variability, read noise, retention drift) that operate at different simulation phases. The error decomposition analysis requires understanding how to selectively enable/disable error channels via CrossSim's parameter system, designing statistically valid Monte Carlo experiments, and performing multi-dimensional hardware parameter sweeps to find accuracy-cost tradeoffs."""
+solution_explanation = """Install and inspect CrossSim's source to discover the EmptyDevice base class interface in simulator.devices.idevice and study existing custom devices (RRAMMilo, SONOS) to understand the normalized-to-real conductance conversion pattern. Implement HfO2BilayerRRAM with three methods (programming_error, read_noise, drift_error) that convert from normalized to physical conductance in microSiemens, apply the datasheet formulas, and convert back. Write an analysis script that creates AnalogCore instances with selective error enabling via CrossSimParameters, runs repeated MVMs to compute NRMSE statistics, and sweeps cell_bits and ADC bits to find minimum cost meeting the accuracy target."""
+verification_explanation = """Tests verify: (1) device model file exists with correct class name inheriting EmptyDevice, (2) all three error methods are implemented, (3) device integrates with AnalogCore for MVM without errors, (4) programming error produces measurable non-zero noise within physical bounds, (5) drift at t=30d produces strictly more error than t=0, (6) quantization-only MVM is deterministic, (7) results.json has correct structure with all required keys and physically valid values, (8) dominant error label matches actual highest individual NRMSE, (9) optimal parameters are within the specified sweep ranges."""
+category = "computer_architecture"
+tags = ["analog-computing", "device-modeling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/analog-error-decomposition"

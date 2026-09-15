@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Garnet's passive cluster control plane, which differs from Redis in critical ways. The obvious approach (MIGRATE SLOTSRANGE to move slots to a new node) fails because Garnet refuses to migrate to a target node that has no slots assigned (it is not recognized as a primary for bulk migration purposes). The agent must debug this failure, understand Garnet's node state requirements, and devise an alternative strategy — such as manual SETSLOT-based migration, pre-assigning slots before MEET, or rebuilding the cluster topology entirely. Combines distributed systems expertise, RESP protocol knowledge, CRC16 hash slot routing, AOF-based replication configuration, and Garnet-specific operational understanding."""
+solution_explanation = """The solution tears down the existing 3-node cluster, starts 4 fresh Garnet instances with clean data directories, assigns each exactly 4096 slots via CLUSTER ADDSLOTSRANGE, joins them via CLUSTER MEET, then reloads all 500 keys to the correct nodes using direct socket connections with CRC16-based hash slot routing. It then starts a 5th instance on port 7004, sets its config epoch, joins it to the cluster, and configures it as a replica of port 7003 via CLUSTER REPLICATE. Finally it verifies all keys via redis-cli -c and writes the cluster report JSON."""
+verification_explanation = """Tests connect to the cluster and parse CLUSTER NODES output to verify: exactly 4 master nodes exist, each owning between 4086-4106 slots (totaling 16384), exactly 1 replica exists replicating from the port 7003 master, all 500 keys return correct values when queried through the cluster with MOVED redirection handling, some keys are now served directly by node 7003, and /app/cluster_report.json contains valid structured data matching the observed cluster state."""
+category = "distributed_systems"
+tags = ["garnet", "cluster-resharding"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/garnet-cluster-reshard"

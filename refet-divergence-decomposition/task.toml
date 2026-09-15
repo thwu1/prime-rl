@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing bugs across three languages/tools (C, Python, jq) and two interoperability boundaries (ctypes FFI, shell data pipeline). The C shared library has subtle numerical bugs in the air_pressure exponent and sin_beta_24 quadratic term that propagate through the full calculation chain. The Python ctypes bindings have missing type declarations that cause silent data corruption (int truncation of double return values). Python-side bugs in es_slope, declination, and clear-sky coefficients require tracing mismatches through coupled intermediate calculations. The jq preprocessing script has a wrong key path in nested JSON that produces null values, breaking the diagnostic pipeline. Implementing the refet method variant requires discovering 5 equation-level differences from partial source references. Building hourly ET computation demands understanding time-stepping semantics and day/night coefficient switching. The divergence decomposition requires isolating per-equation marginal contributions through a nonlinear calculation chain."""
+solution_explanation = """Fix C bugs: air_pressure exponent 5.25->5.26, sin_beta_24_daily 0.42*lat -> 0.42*lat*lat. Add ctypes argtypes/restype for sin_beta_24_daily and sin_beta_hourly. Fix Python: es_slope 2504->2503, declination offset -1.40->-1.39, rso_simple coefficient 2.5e-5->2.0e-5. Add refet variants: air_pressure uses full barometric exponent (handled in C), es_slope uses 4098*0.6108, declination uses Duffie-Beckman formula, ra uses solar constant 1367*0.0036, rso uses full Appendix D model via C library. Fix jq: .instrumentation.height_m -> .instrumentation.wind.height_m. Compile C library: gcc -shared -fPIC -o libatmos.so atmos.c -lm. Implement hourly computation with soil heat flux and day/night Cn/Cd coefficients. Implement decomposition using one-at-a-time substitution."""
+verification_explanation = """Tests verify all intermediate values against golden references for both ASCE and RefET methods at daily and hourly timesteps. Decomposition tests verify total value, sum-to-total identity, residual bound, contribution dominance, and sign. Edge case tests verify polar night Ra=0, polar summer omega_s=pi, VPD clipping, output key completeness, default method, method variant divergence, and derived-quantity formulas (tmean, psy). Tests require the C library to be compiled and ctypes bindings to be correct for the engine to even import."""
+category = "scientific_computing"
+tags = ["hydrology", "ctypes-ffi"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/refet-divergence-decomposition"

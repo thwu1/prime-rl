@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the DDSketch quantile sketch algorithm: logarithmic bucket mapping, relative-error guarantees, merge semantics, and collapse behavior. The solver must evaluate each component of a subtly buggy implementation against the DDSketch mathematical specification. All bugs are plausible-looking implementations (not stubs or missing code), requiring the solver to independently identify an incorrect logarithmic base in the index mapping, wrong rounding direction in key computation, faulty merge logic that takes max instead of summing counts, a broken collapse strategy that destroys bucket invariants, missing collapse triggers during insertion, missing min/max tracking in merge, and incorrect quantile value reconstruction. After diagnosing and fixing all defects, the solver must independently derive the mathematical relationships between alpha, gamma, data range, and required bin count to design per-tier configurations satisfying competing accuracy and memory constraints for three tiers with distinct data distributions."""
+solution_explanation = """Fix sketch.py: (1) multiplier from 1/ln(2) to 1/ln(gamma) for correct log-base mapping, (2) floor to ceil in _key() for correct bucket assignment, (3) add collapse() call in add() when bins overflow, (4) merge to sum counts with += instead of taking max, and update min/max values, (5) collapse via gamma-doubling: halve all keys with ceil(k/2) and square gamma, updating alpha/multiplier accordingly — this evenly reduces resolution while preserving the bucket-to-value mapping invariant, (6) quantile reconstruction from 2^key to 2*gamma^key/(1+gamma). Then query SQLite for per-tier min/max data ranges, extract SLA constraints from nested config, compute bins_needed = ceil(log(max/min)/log(gamma)) at alpha = max_relative_error per tier, verify memory = bins * bytes_per_bin fits budget, write tier_config.json, run pipeline."""
+verification_explanation = """Tests verify: (1) tier_config.json exists with all tiers and valid fields, (2) alpha <= max_relative_error per tier, (3) max_num_bins * bytes_per_bin <= max_memory_bytes_per_sketch per tier, (4) bins sufficient for data range, (5) pipeline runs and produces output with correct structure and all time windows, (6) per-tier percentiles satisfy relative-error SLA tolerance against exact computation from raw data, (7) sketch merge produces quantile results identical to single-sketch ingestion, (8) collapse preserves total count and respects bin limit, (9) quantile accuracy within relative-error bound across multiple quantile levels, (10) count tracking and extreme quantile correctness."""
+category = "systems-engineering"
+tags = ["quantile-sketches", "observability-pipelines"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-ddsketch-pipeline"

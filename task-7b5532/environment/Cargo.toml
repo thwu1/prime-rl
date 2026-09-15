@@ -1,0 +1,24 @@
+[package]
+name = "datafrog-engine"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "datafrog_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "transitive_closure"
+path = "src/bin/transitive_closure.rs"
+
+[[bin]]
+name = "triangles"
+path = "src/bin/triangles.rs"
+
+[[bin]]
+name = "reaching_defs"
+path = "src/bin/reaching_defs.rs"
+
+[[bin]]
+name = "scc"
+path = "src/bin/scc.rs"

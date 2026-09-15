@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building an effective retrieval pipeline for reasoning-intensive queries without access to relevance labels — the agent must make expert-level blind design decisions. Standard BM25 (provided as a baseline) achieves only nDCG@10 ~0.05 because queries describe programming problems whose relevant documents use different vocabulary. The agent must: analyze the provided baseline to understand why keyword matching fails, recognize that reasoning-intensive IR requires semantic understanding beyond lexical overlap, design a multi-signal retrieval architecture (e.g., dense embeddings for semantic matching, code-aware sparse retrieval, fusion techniques like RRF), implement the full pipeline from scratch using the available corpus, handle per-query excluded_ids filtering, and meet the nDCG@10 threshold without any ground truth for iterative evaluation. This demands genuine IR expertise — understanding embedding models, score normalization, rank fusion, code-aware tokenization — rather than procedural metric optimization."""
+solution_explanation = """Implements a multi-signal retrieval pipeline combining dense embeddings (sentence-transformers all-mpnet-base-v2 for semantic matching), BM25 with code-aware preprocessing (camelCase/snake_case splitting, stop word removal, non-negative IDF) and pseudo-relevance feedback for query expansion, and TF-IDF with word bigrams for n-gram matching. All four signals (dense, BM25+PRF, TF-IDF, raw BM25) are combined via Reciprocal Rank Fusion (RRF, k=60). Excluded IDs are filtered per query and top-1000 results retained. The approach requires no relevance labels — the retrieval quality comes from combining complementary signals that capture different aspects of document-query relevance."""
+verification_explanation = """Ground truth relevance judgments are downloaded from HuggingFace at verification time — they are never present in the agent's environment (no gold_ids in examples.json). Tests verify: (1) scores.json exists and is valid JSON, (2) all 112 queries are present, (3) excluded_ids are properly filtered from results, (4) anti-cheat measures verify genuine retrieval via minimum document count (>=100 per query), non-trivial score variance, score value diversity (>=20 distinct values per query), diverse top-10 results across queries, and an nDCG@10 upper bound (<0.55) to detect gold-id exploitation, (5) nDCG@10 >= 0.10 recomputed independently from downloaded ground truth using pytrec_eval."""
+category = "information_retrieval"
+tags = ["nlp", "retrieval"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hybrid-retrieval-eval"

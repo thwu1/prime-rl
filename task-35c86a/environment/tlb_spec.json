@@ -1,0 +1,24 @@
+{
+    "description": "Wormhole NoC Route Configuration Table (RCT) register specification. Each DRAM reader's T-tile has a local RCT that configures the NoC data path between the reader and its assigned DRAM bank. The firmware programs the RCT by writing two 32-bit words to the register.",
+    "noc_route_config": {
+        "base_addr": "0xFFB40000",
+        "entry_size_bytes": 8,
+        "fields": [
+            {"name": "target_x", "bits": "5:0", "description": "Target DRAM bank tile X coordinate (0-9)"},
+            {"name": "target_y", "bits": "11:6", "description": "Target DRAM bank tile Y coordinate (0-11)"},
+            {"name": "noc_sel", "bits": "12", "description": "NoC fabric select: 0 = NoC 0, 1 = NoC 1"},
+            {"name": "vc", "bits": "14:13", "description": "Virtual channel (0 or 1)"},
+            {"name": "reserved", "bits": "30:15", "description": "Reserved, set to 0"},
+            {"name": "enable", "bits": "31", "description": "Entry enable bit, must be 1"},
+            {"name": "dram_addr_offset", "bits": "63:32", "description": "DRAM bank address offset (typically 0 for base access)"}
+        ],
+        "encoding": "low32 = (enable << 31) | (vc << 13) | (noc_sel << 12) | (target_y << 6) | target_x; high32 = dram_addr_offset",
+        "example": "For DRAM bank at (5, 2) via NoC 1, VC 1: low32 = (1<<31)|(1<<13)|(1<<12)|(2<<6)|5 = 0x80003085, high32 = 0x00000000, rct_value = 0x0000000080003085"
+    },
+    "risc_v_target": {
+        "arch": "rv32i",
+        "abi": "ilp32",
+        "description": "Tenstorrent T-tiles contain RV32IM Baby RISC-V cores. Firmware is assembled with riscv64-linux-gnu-as targeting -march=rv32i -mabi=ilp32.",
+        "programming_sequence": "Use lui to load RCT base address, li to load config value, sw to write the 32-bit register words."
+    }
+}

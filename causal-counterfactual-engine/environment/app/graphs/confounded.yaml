@@ -1,0 +1,9 @@
+# Confounded causal graph: unobserved Z confounds X and Y
+connections:
+  - {from: Z, to: X}
+  - {from: Z, to: Y}
+  - {from: X, to: Y}
+
+node_properties:
+  Z:
+    latent: true

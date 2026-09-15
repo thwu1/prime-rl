@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert integration of HPC performance modeling across Python and C. The Python framework has 10 interacting bugs across 5 modules that partially cancel each other, producing plausible but incorrect results. Two modules (tile optimizer and analysis pipeline) must be implemented from scratch. The C stencil kernel has a subtle off-by-one indexing bug, and the Makefile has a build error (missing shared library flag) that prevents shared library compilation. The solver must debug Python code, fix C code, repair the Makefile, understand shared library compilation with gcc, integrate C and Python via ctypes, and reason about HPC concepts including roofline modeling, cache hierarchies, parallel scaling, and performance portability to determine which code is correct versus buggy."""
+solution_explanation = """Fix 10 Python bugs across 5 modules: config_loader bandwidth conversion 1e6->1e9, stencil 7pt FLOP count total->interior, stencil byte counting must respect write_allocate parameter, roofline attainable_performance addition->min, roofline working_set counts 1->2 arrays, roofline effective_bandwidth must guard against None L3, scaling Amdahl multiply->divide, scaling Gustafson add->subtract, metrics arithmetic->harmonic mean. Fix the Makefile by adding the missing -shared flag for shared library compilation. Fix the C kernel inner loop bound from i<=nx-1 to i<nx-1. Implement tile optimizer using constrained volume maximization with ghost zones. Implement analysis pipeline that loads configs, runs architecture-aware analysis, loads the C kernel via ctypes for verification, and writes results.json."""
+verification_explanation = """68 pytest tests across 8 test classes: ConfigLoader (6 tests verifying SI unit conversion and NULL L3 handling), Stencil (9 tests for interior counting, write-allocate vs non-WA), Roofline (10 tests for min-based prediction, 2-array working set, cache-level selection), Scaling (8 tests for Amdahl/Gustafson/communication), Portability (5 tests for harmonic mean), Tiling (8 tests for working set, validation, optimization), CKernel (4 tests verifying compiled .so against Python reference on multiple grid sizes), Pipeline (18 integration tests including verification checksum correctness)."""
+category = "parallel_computing"
+tags = ["hpc", "performance-modeling", "build-systems", "c-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/roofline-stencil-bugs"

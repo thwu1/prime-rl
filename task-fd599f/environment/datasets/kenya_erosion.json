@@ -1,0 +1,20 @@
+{
+  "dataset_name": "Kenya National Soil Erosion Assessment",
+  "abstract": "High-resolution soil erosion risk mapping for Kenya using the Revised Universal Soil Loss Equation (RUSLE) model with local calibration",
+  "coordinate_system": "EPSG:32737",
+  "extent": {
+    "x_min": 150000.0,
+    "y_min": 9450000.0,
+    "x_max": 950000.0,
+    "y_max": 10560000.0
+  },
+  "period": {
+    "start": 1546300800,
+    "end": 1688083200
+  },
+  "resolution": 30,
+  "outputs": ["soil_loss_tons_per_ha", "erosion_risk_class", "r_factor", "k_factor"],
+  "creator": "Kenya Agricultural and Livestock Research Organization",
+  "usage_rights": "open-access",
+  "field": "soil"
+}

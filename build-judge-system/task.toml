@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert understanding across three domains simultaneously without any specification document to follow: (1) competitive programming infrastructure — DMOJ init.yml schema interpretation, testlib.h bridged checker protocol including floating-point tolerance checkers, standard whitespace-normalized comparison semantics, flat binary vs batched subtask scoring; (2) Linux systems programming — process resource enforcement via prlimit RLIMIT_CPU and RLIMIT_AS, peak memory measurement by parsing /usr/bin/time -v verbose output, signal-based termination detection (SIGXCPU exit code 152, SIGKILL exit code 137 for TLE vs non-zero exits for RE), wall-clock timeout safeguards via subprocess timeout; (3) language toolchain integration — C++ compilation with include-path management for testlib.h dependencies, Python direct execution, compilation error detection as CE verdict. No step-by-step procedure or specification document is provided; the solver must holistically synthesize domain knowledge from the problem structure, init.yml configs, and testlib.h header to build a correct multi-checker, multi-scoring-mode judge."""
+solution_explanation = """The solution implements a Python judge that: (1) discovers problems via init.yml and distinguishes flat from batched scoring by detecting 'batched' keys; (2) compiles C++ submissions and catches CE; (3) for bridged checkers — including a floating-point tolerance checker — compiles testlib.h-dependent C++ checkers with -I /app and invokes per the testlib 3-argument protocol (input, contestant_output, answer); (4) wraps each execution in /usr/bin/time -v with prlimit --cpu/--as for resource enforcement; (5) detects TLE via SIGXCPU (exit 152), SIGKILL (exit 137), and wall-clock overshoot; (6) parses GNU time verbose output for peak RSS and elapsed wall time; (7) computes binary or subtask scores; (8) writes lexicographically sorted JSONL."""
+verification_explanation = """Tests load results.jsonl and verify: correct submission count (9), lexicographic ordering, presence of required fields, correct verdicts (AC/WA/CE/TLE/RE) per submission, correct scores including 0.5 partial for subtask scoring, correct per-testcase verdicts and field types, TLE sentinel values (-1,-1), AC memory measurements (positive, bounded), RE memory (non-negative), and correct floating-point testlib bridged checker behavior on the area problem. Tests validate behavioral correctness without inspecting implementation."""
+category = "systems_programming"
+tags = ["competitive_programming", "linux_process_management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/build-judge-system"

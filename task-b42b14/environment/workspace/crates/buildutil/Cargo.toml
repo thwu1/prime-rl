@@ -1,0 +1,7 @@
+[package]
+name = "buildutil"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+foundation = { workspace = true, features = ["serialize", "validate"] }

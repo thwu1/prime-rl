@@ -1,0 +1,24 @@
+2025-06-12 17:25:00 INFO  [deploy-bot] Starting deployment pipeline for service-control v2.14.3
+2025-06-12 17:25:01 INFO  [deploy-bot] Building container image: gcr.io/infra/service-control:v2.14.3
+2025-06-12 17:26:30 INFO  [deploy-bot] Image built successfully (sha256:a4f8c2e9...)
+2025-06-12 17:26:31 INFO  [deploy-bot] Running pre-deployment checks...
+2025-06-12 17:26:35 INFO  [deploy-bot] Unit tests: 247/247 passed
+2025-06-12 17:26:40 INFO  [deploy-bot] Integration tests: 89/89 passed
+2025-06-12 17:26:41 INFO  [deploy-bot] Security scan: no vulnerabilities found
+2025-06-12 17:27:00 INFO  [deploy-bot] Applying config update: rate_limits.yaml
+2025-06-12 17:27:00 INFO  [deploy-bot]   default_burst_multiplier: 1.5 -> 2.0 (approved by SRE team)
+2025-06-12 17:27:01 INFO  [deploy-bot] Config update applied to all regions
+2025-06-12 17:28:00 INFO  [deploy-bot] Deploying canary instance to us-east1-canary
+2025-06-12 17:28:30 INFO  [deploy-bot] Canary health check: HEALTHY
+2025-06-12 17:28:31 INFO  [deploy-bot] Canary latency: p50=2ms p99=15ms (within SLO)
+2025-06-12 17:28:32 INFO  [deploy-bot] Canary error rate: 0.00% (within SLO)
+2025-06-12 17:29:00 INFO  [deploy-bot] Canary passed — proceeding to full rollout
+2025-06-12 17:29:01 INFO  [deploy-bot] Feature flags: enhanced_quota_checking=true, new_rate_limit_algorithm=false
+2025-06-12 17:30:00 INFO  [deploy-bot] Rolling update: us-east1 (complete)
+2025-06-12 17:30:05 INFO  [deploy-bot] Rolling update: us-central1 (complete)
+2025-06-12 17:30:10 INFO  [deploy-bot] Rolling update: us-west1 (complete)
+2025-06-12 17:30:15 INFO  [deploy-bot] Rolling update: europe-west1 (complete)
+2025-06-12 17:30:20 INFO  [deploy-bot] Rolling update: asia-east1 (complete)
+2025-06-12 17:30:25 INFO  [deploy-bot] Rolling update: asia-northeast1 (complete)
+2025-06-12 17:30:30 INFO  [deploy-bot] Deployment complete: v2.14.3 running in all 6 regions
+2025-06-12 17:30:31 INFO  [deploy-bot] Post-deployment health check: all regions HEALTHY

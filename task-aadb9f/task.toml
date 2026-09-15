@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of NVIDIA GPU architecture resource management — register allocation granularity, shared memory allocation and per-block vs per-SM limits, warp scheduling constraints, and how these interact to determine theoretical occupancy. The solver must: (1) query a SQLite database and use a custom CLI reference tool to cross-reference predictions against hardware measurements, (2) diagnose multiple interacting errors across code and data by isolating whether each discrepancy originates from implementation bugs or incorrect architecture specifications — compound errors that partially cancel make root-cause isolation non-trivial, (3) evaluate five optimization proposals requiring judgment about how resource bottleneck shifts affect occupancy, and (4) design and implement a search-based optimal block-size finder with correct tie-breaking logic. The multi-tool interoperability (SQLite queries, custom CLI tool, CSV export, Python model) and evaluation/creation requirements elevate this beyond routine debugging."""
+solution_explanation = """The solution: (1) uses sqlite3 to query the measurements database and exports to CSV for the model's validate mode, (2) runs the arch_reference tool to compare spec files against reference data, identifying Ampere mismatches, (3) diagnoses Bug 1 — floor division instead of ceiling division in register-per-warp allocation rounding, (4) diagnoses Bug 2 — shared memory validity check compares against SM-wide max instead of per-block limit, (5) identifies Ampere spec errors (register_alloc_unit_size=128→256, max_shared_memory_per_block=101376→167936), (6) evaluates each proposal by computing occupancy with original and modified parameters, (7) implements find_optimal_block_size by iterating multiples of warp_size and selecting max occupancy with tie-breaking."""
+verification_explanation = """Tests verify: (a) results.json exists with correct schema including diagnostics, predictions, evaluations, and optimal configs, (b) all 8 workload predictions match expected values, (c) the fixed model is imported and run on validation configs including cases not in measurements or workloads, (d) ampere.json spec corrections are verified, (e) proposal evaluations match expected verdicts and occupancy values, (f) find_optimal_block_size is called directly including with a synthetic kernel to prevent hardcoding, (g) volta/hopper specs remain unchanged."""
+category = "systems"
+tags = ["gpu-architecture", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-aadb9f"

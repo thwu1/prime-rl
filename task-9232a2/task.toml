@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-referencing a SQLite database (multi-table JOINs) with production CUDA kernel source code (FlashMLA's FP8KVCacheLayout enum, quantize_k_cache byte-layout formulas) to derive KV cache storage sizes that are NOT stored in the database. The agent must also compute MoE FFN and MLA attention FLOP counts from first principles (SwiGLU gate/up/down projections, QK and PV matmuls), determine EP SM allocation thresholds from benchmark data, and produce a correctly-formatted JSON analysis file. Combines GPU systems engineering, ML architecture knowledge, and multi-tool data analysis."""
+solution_explanation = """Query the database with JOINs to retrieve workload parameters. Read flashmla_quant.py to extract bytes_per_token formulas: V32_FP8Sparse = d_nope + num_tiles*4 + 2*d_rope = 656; MODEL1_FP8Sparse = d_nope + 2*d_rope + num_tiles + 1 = 584; bf16 = (d_nope+d_rope)*2. Compute total KV memory, max batch size from GPU memory budget, MoE FLOPs (topk * 6 * hidden * ffn_intermediate), attention FLOPs (2 * num_heads * seq_len * (d_qk + d_v)), arithmetic intensity, EP dispatch volume, and minimum EP SMs achieving 90% of peak bandwidth from the ep_measurements table."""
+verification_explanation = """Tests load /app/analysis.json and verify exact values for all 12 fields across 4 workloads: kv_bytes_per_token matches source code layouts, total_kv_memory_gb matches batch*seq*bpt*layers/1e9, max_batch_size is correct floor division, fits_in_memory boolean is consistent, FLOP counts match MoE/MLA architecture, arithmetic intensity is correctly rounded, EP dispatch volume uses correct element size, and EP SM threshold matches database query."""
+category = "systems"
+tags = ["gpu-inference", "performance-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9232a2"

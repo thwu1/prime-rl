@@ -1,0 +1,28 @@
+[site]
+longitude = -122.0
+latitude = 38.0
+vs30 = 760.0
+
+[hazard]
+imt = "PGA"
+imls = [0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0]
+exceedance_model = "TRUNCATION_UPPER"
+truncation_level = 3.0
+
+[deagg]
+return_period = 2475
+
+[deagg.mag_bins]
+min = 4.5
+max = 8.5
+delta = 0.2
+
+[deagg.dist_bins]
+min = 0.0
+max = 200.0
+delta = 10.0
+
+[deagg.eps_bins]
+min = -3.0
+max = 3.0
+delta = 0.5

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Go concurrency skills (goroutines, channels, sync primitives, context cancellation) combined with graph algorithm knowledge (cycle detection, topological sort) and deep understanding of the mgmt-style reactive resource reconciliation pattern. The candidate must correctly implement: parallel execution with dependency ordering, event-driven re-reconciliation with coalescing, refresh notification propagation along notify-edges, exponential backoff retry, convergence detection with timeout, and clean shutdown sequencing. The interplay between concurrent Watch goroutines and the sequential status-tracking main loop is the core difficulty."""
+solution_explanation = """The solution implements the reconciler with: (1) DFS-based cycle detection, (2) Kahn's algorithm for topological sort with deterministic tie-breaking, (3) per-resource Init closures with shared channels and atomic refresh flags, (4) Watch goroutines with Running() ready-signaling, (5) a main loop that finds dependency-satisfied resources and runs their CheckApply in parallel via goroutines, collects results through a channel for sequential status processing, (6) retry scheduling via background goroutines with exponential delay, (7) convergence detection using a timer that resets on new events, and (8) graceful shutdown that cancels watches, waits for goroutine exit, and calls Cleanup on all resources."""
+verification_explanation = """Tests verify: cycle detection (2-node and 3-node cycles), single resource convergence, linear dependency ordering (a->b->c), parallel execution via a barrier pattern that deadlocks if resources run sequentially, refresh notification propagation through notify-edges, noop mode (apply=false passed correctly), event-triggered re-checking from Watch, retry with exponential backoff and retry exhaustion, diamond dependency ordering, and graceful shutdown with Cleanup verification. Each test creates an isolated graph with mock resources and verifies specific behavioral properties."""
+category = "systems_programming"
+tags = ["concurrency", "configuration-management"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactive-graph-engine"

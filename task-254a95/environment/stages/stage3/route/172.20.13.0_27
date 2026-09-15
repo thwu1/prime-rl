@@ -1,0 +1,6 @@
+route:              172.20.13.0/27
+descr:              Gamma announcement for Delta space
+origin:             AS4242420003
+max-length:         27
+mnt-by:             GAMMA-MNT
+source:             DN42

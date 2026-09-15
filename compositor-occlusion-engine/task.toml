@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a C geometry library from scratch — no header or function signatures are provided. The solver must choose appropriate data structures (rectangle representations, owned-region structs, window definitions), design the C function API, and select algorithms for rectangle subtraction, z-ordered visible region partitioning across a full screen, and co-linear rectangle merging. Bridging the custom C library to Python via ctypes demands correct struct layout decisions, pointer arithmetic, and memory lifecycle management. The dirty-region tracker must implement the symmetric-difference semantics of pixel-ownership changes across frames, requiring deep understanding of set-theoretic region operations. Performance constraints (500 windows at 4K resolution, 50-frame pipelines with 200 windows) necessitate algorithmic choices that avoid fragment explosion during iterative occlusion subtraction and efficient memory management in the C layer. The compositor protocol handler requires stateful window lifecycle management across frames with correct damage propagation. No reference implementation is provided — the solver must derive the architecture from mathematical invariants and the test suite."""
+solution_explanation = """The C library defines Rect, WindowDef, and OwnedRect structs and implements rect_subtract via axis-aligned strip decomposition (top/bottom full-width strips, left/right inner strips), compute_visible_regions by sorting windows in descending z-order and iteratively subtracting occupied clip rectangles from each window's visible fragments, and merge_regions via iterative pairwise co-linear merging. engine.py loads the .so via ctypes with matching Structure classes, wraps each C function with Python-tuple I/O, and implements compute_dirty_regions as the per-owner set difference of new vs old rectangle sets using rect_subtract. compositor.py parses the text protocol, maintains window state, and outputs sorted REGION/DIRTY/STATS data per frame."""
+verification_explanation = """Tests verify libregion.so exists and loads via ctypes. Python-level tests validate rect_subtract, compute_visible_regions, merge_regions, and compute_dirty_regions through invariant checks (area conservation, no overlap, full screen tiling) including 500-iteration random fuzzing. Pixel-ownership is verified against brute-force reference for multi-window scenes. Dirty-region accuracy is verified pixel-by-pixel against brute-force reference for complex state transitions involving window moves, z-reorders, additions, and removals simultaneously. Integration tests run the compositor subprocess and check output format, sorting, multi-frame state, and STATS accuracy. Performance tests enforce 500 windows at 3840x2160 in under 15 seconds and a 50-frame x 200-window pipeline in under 45 seconds, requiring compiled C acceleration."""
+category = "systems_programming"
+tags = ["computational-geometry", "c-ffi"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compositor-occlusion-engine"

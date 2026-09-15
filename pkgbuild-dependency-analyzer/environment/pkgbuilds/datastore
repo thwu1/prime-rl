@@ -1,0 +1,58 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+# Contributor: Another Dev <dev@example.com>
+
+pkgbase=datastore
+pkgname=('datastore' 'datastore-libs' 'datastore-client')
+pkgver=5.4.0
+pkgrel=2
+epoch=1
+pkgdesc="High-performance data storage engine"
+arch=('x86_64')
+url="https://example.com/datastore"
+license=('GPL-2.0-only')
+makedepends=('cmake' 'openssl' 'zlib'
+             'baselib>=2.0.0'
+             'systemd-libs')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz"
+        "datastore.service"
+        "datastore-tmpfiles.conf")
+sha256sums=('a948904f2f0f479b8f8564e9c29ab91a56b01e4c2e7f7e3461a09fc8dbc3e089'
+            'c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2'
+            '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae')
+
+build() {
+    cd "${pkgbase}-${pkgver}"
+    cmake -B build \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DWITH_SYSTEMD=ON
+    cmake --build build
+}
+
+package_datastore-libs() {
+    pkgdesc="Datastore client libraries"
+    depends=('glibc' 'openssl' 'zlib')
+    provides=("libdatastore=${pkgver}")
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/libs
+}
+
+package_datastore-client() {
+    pkgdesc="Datastore command-line client"
+    depends=('datastore-libs' 'baselib' 'readline')
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/client
+}
+
+package_datastore() {
+    pkgdesc="High-performance data storage engine - server"
+    depends=('datastore-client' 'datastore-libs'
+             'systemd-libs' 'baselib>=2.0.0')
+    backup=('etc/datastore/datastore.conf')
+
+    cd "${pkgbase}-${pkgver}"
+    DESTDIR="${pkgdir}" cmake --install build/server
+    install -Dm644 "${srcdir}/datastore.service" \
+        "${pkgdir}/usr/lib/systemd/system/datastore.service"
+}

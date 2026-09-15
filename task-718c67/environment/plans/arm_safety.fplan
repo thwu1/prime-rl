@@ -1,0 +1,89 @@
+{
+  "type": "ModuleBayPlan",
+  "planNumber": 3,
+  "dateCreated": "2024-06-17T14:00:00Z",
+  "dateModified": "2024-06-17T14:20:00Z",
+  "creator": "robotics_team",
+  "schemaUrl": "http://example.com/freeFlyerPlanSchema.json",
+  "libraryURLs": [],
+  "operatingLimits": {
+    "profileName": "arm_ops",
+    "flightMode": "precision",
+    "targetLinearVelocity": 0.05,
+    "targetLinearAcceleration": 0.01,
+    "targetAngularVelocity": 0.0873,
+    "targetAngularAcceleration": 0.0873,
+    "collisionDistance": 0.3
+  },
+  "inertiaConfiguration": {
+    "name": "with_arm_deployed",
+    "mass": 9.8,
+    "centerOfMass": [0.01, 0.0, -0.005],
+    "matrix": [0.160, 0.0, 0.0, 0.0, 0.150, 0.0, 0.0, 0.0, 0.170]
+  },
+  "site": {
+    "type": "Site",
+    "name": "ISS",
+    "id": "iss"
+  },
+  "sequence": [
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.9,
+        "y": -9.5,
+        "z": 4.5,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.05,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Arm.armPanAndTilt",
+          "pan": 45.0,
+          "tilt": 120.0,
+          "which": "Both"
+        }
+      ]
+    },
+    {
+      "type": "Segment",
+      "speed": 0.05,
+      "tolerance": 0.0,
+      "waypoints": []
+    },
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 11.2,
+        "y": -9.0,
+        "z": 4.8,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.05,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Arm.gripperControl",
+          "open": true
+        },
+        {
+          "type": "Arm.armPanAndTilt",
+          "pan": 0.0,
+          "tilt": 170.0,
+          "which": "Both"
+        }
+      ]
+    }
+  ]
+}

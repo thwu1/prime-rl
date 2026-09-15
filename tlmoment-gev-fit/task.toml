@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of extreme value theory, robust statistics, and data diagnostics. The solver must independently explore five unlabeled datasets, discover that some contain anomalous observations (contamination), choose appropriate estimation methods that resist outlier influence, correctly classify GEV distribution subtypes, and produce reliable parameter estimates for all stations — including contaminated ones. No formulas or methods are prescribed; the solver must draw on deep domain knowledge to design their own analysis pipeline, evaluate estimation reliability, and make judgment calls about data quality. Combines statistical theory, numerical methods, and diagnostic reasoning in a way that demands proficiency across all three."""
+solution_explanation = """Compute sample L-moments via probability weighted moments for each station. Detect contamination by comparing standard L-moment estimates against robust quartile-based estimates: if the shape parameter diverges substantially, the data contains outliers. Use robust quartile estimates to identify outliers via CDF evaluation, remove them, and re-estimate with L-moments on the cleaned sample for better precision. Classify distribution families by the sign of the fitted shape parameter. Compute return levels from the GEV quantile function. Estimate suspect fraction via CDF-based outlier counting."""
+verification_explanation = """Tests independently verify: (1) correct report structure, (2) distribution family classification against ground truth, (3) parameter accuracy within tolerance of the true generating parameters (tighter for clean data, slightly looser for contaminated), (4) correct identification of which stations are contaminated and which are clean, (5) suspect fraction in reasonable ranges, (6) return level self-consistency with reported parameters, (7) return level ordering (T500 > T100), (8) positive scale parameter, and (9) no use of banned extreme value or L-moment libraries via AST inspection."""
+category = "mathematics_of_computing"
+tags = ["extreme-value-theory", "robust-statistics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tlmoment-gev-fit"

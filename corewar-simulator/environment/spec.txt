@@ -1,0 +1,282 @@
+ICWS'94 Core War Standard — Technical Reference
+=================================================
+
+Based on the Annotated Draft of the Proposed 1994 Core War Standard, Version 3.3.
+Base draft by Mark Durham. Annotations by Stefan Strack and Damien Doligez.
+
+
+1. OVERVIEW
+-----------
+
+Core War is a game where programs (warriors) compete for control of a
+simulated computer called MARS (Memory Array Redcode Simulator). Warriors
+are written in Redcode, an assembly language with 17 opcodes, 7 modifiers,
+and 8 addressing modes.
+
+
+2. LOAD FILE FORMAT
+-------------------
+
+A load file contains one or more MARS instructions, one per line. Comments
+begin with semicolons. Each instruction has the format:
+
+    OPCODE.MODIFIER MODE_A NUMBER_A , MODE_B NUMBER_B
+
+Special directives:
+  ORG N    — Set execution start offset to N (0-indexed from first instruction)
+  END N    — End of file, optionally set start offset to N
+
+If no ORG or END with operand is given, execution starts at instruction 0.
+
+Grammar for numbers: integers, including negative (e.g. -1, -4).
+The loader converts negative values N to positive P = N mod CORESIZE.
+
+Mode characters:
+  #  Immediate          $  Direct
+  *  A-number Indirect  @  B-number Indirect
+  {  A-number Predecrement   <  B-number Predecrement
+  }  A-number Postincrement  >  B-number Postincrement
+
+If no modifier is given, defaults are assigned per ICWS'88 rules (see §7).
+
+Comment conventions:
+  ;redcode-94    Identifies file as ICWS'94 Redcode
+  ;name <text>   Warrior name
+  ;author <text> Author name
+
+
+3. CORE AND PROCESS QUEUES
+--------------------------
+
+The core is a cyclic array of M instructions (M = core size). All arithmetic
+is modulo M. Core is initialized to DAT.F $0, $0 before loading warriors.
+
+Each warrior has a FIFO task queue. Initially one task pointing to the
+warrior's start instruction. SPL adds tasks; DAT removes the current task.
+Maximum tasks per warrior = max_processes.
+
+Each cycle, one instruction per living warrior is executed, in load order.
+A warrior dies when its task queue is empty. Battle ends when one warrior
+remains (winner) or max_cycles is reached (tie if multiple survive).
+
+
+4. EXECUTION PROCEDURE
+-----------------------
+
+For each instruction execution:
+
+1. Dequeue the next task pointer (PC) from the warrior's task queue.
+2. Copy Core[PC] into the Instruction Register (IR).
+3. Evaluate the A-operand → compute A-pointer (RPA), store A-instruction (IRA).
+4. If A-mode was postincrement, increment the pointer cell now.
+5. Evaluate the B-operand → compute B-pointer (RPB), store B-instruction (IRB).
+6. If B-mode was postincrement, increment the pointer cell now.
+7. Execute the opcode using IR, IRA, IRB, and the computed pointers.
+
+All pointers are PC-relative offsets. Actual core access = (PC + offset) % M.
+
+
+5. ADDRESSING MODES
+--------------------
+
+Let "number" refer to the A-number or B-number field of the current instruction.
+Let "pointer cell" = Core[(PC + number) % M].
+
+5.1 Immediate (#)
+    Pointer = 0 (points to the current instruction itself).
+
+5.2 Direct ($)
+    Pointer = number.
+
+5.3 A-number Indirect (*)
+    Primary offset = number. Read the A-number of the pointer cell.
+    Pointer = number + pointer_cell.A_number.
+
+5.4 B-number Indirect (@)
+    Primary offset = number. Read the B-number of the pointer cell.
+    Pointer = number + pointer_cell.B_number.
+
+5.5 A-number Predecrement ({)
+    Primary offset = number. DECREMENT the A-number of the pointer cell
+    (subtract 1, modulo M) BEFORE reading it.
+    Pointer = number + (decremented pointer_cell.A_number).
+
+5.6 B-number Predecrement (<)
+    Primary offset = number. DECREMENT the B-number of the pointer cell
+    (subtract 1, modulo M) BEFORE reading it.
+    Pointer = number + (decremented pointer_cell.B_number).
+
+5.7 A-number Postincrement (})
+    Same as A-indirect for computing the pointer.
+    AFTER the instruction register (IRA or IRB) is stored, INCREMENT the
+    A-number of the pointer cell (add 1, modulo M).
+    Timing: A-mode postincrement occurs after IRA stored, before B-operand
+    evaluation. B-mode postincrement occurs after IRB stored, before
+    opcode execution.
+
+5.8 B-number Postincrement (>)
+    Same as B-indirect for computing the pointer.
+    AFTER the instruction register is stored, INCREMENT the B-number
+    of the pointer cell. Same timing as A-postincrement.
+
+IMPORTANT: Pre-decrement modifies core BEFORE the indirect read.
+Post-increment modifies core AFTER the instruction register is stored.
+The post-increment target is the pointer cell at the DIRECT offset
+(before indirect), not the final target.
+
+
+6. MODIFIERS
+------------
+
+Modifiers determine which fields are read and written by each opcode.
+
+.A   A-value = IRA.A_number, B-value = IRB.A_number.
+     Write replaces A-number of B-target.
+
+.B   A-value = IRA.B_number, B-value = IRB.B_number.
+     Write replaces B-number of B-target.
+
+.AB  A-value = IRA.A_number, B-value = IRB.B_number.
+     Write replaces B-number of B-target.
+
+.BA  A-value = IRA.B_number, B-value = IRB.A_number.
+     Write replaces A-number of B-target.
+
+.F   A-value = (IRA.A_number, IRA.B_number).
+     B-value = (IRB.A_number, IRB.B_number).
+     Write replaces both A-number and B-number. Paired: A→A, B→B.
+
+.X   A-value = (IRA.A_number, IRA.B_number).
+     B-value = (IRB.B_number, IRB.A_number).
+     Write replaces both B-number and A-number. Crossed: A→B, B→A.
+
+.I   For MOV and CMP/SEQ/SNE: operates on entire instructions.
+     For arithmetic and other opcodes: same as .F.
+
+
+7. DEFAULT MODIFIER RULES (ICWS'88 to ICWS'94)
+------------------------------------------------
+
+When no modifier is present in the load file:
+
+  Opcode                    A-mode   B-mode   Default Modifier
+  ---------------------------------------------------------------
+  DAT                       any      any      F
+  MOV, CMP, SEQ, SNE        #        any      AB
+                             non-#    #        B
+                             non-#    non-#    I
+  ADD, SUB, MUL, DIV, MOD   #        any      AB
+                             non-#    #        B
+                             non-#    non-#    F
+  SLT                       #        any      AB
+                             non-#    any      B
+  JMP, JMZ, JMN, DJN,       any      any      B
+  SPL, NOP
+
+
+8. INSTRUCTION SET
+------------------
+
+B-target = the instruction in core pointed to by the B-pointer.
+All field writes go to Core[(PC + WPB) % M] (the B-target location).
+All operations are modulo M.
+
+8.1 DAT — Data
+    No operation. The current task is removed from the task queue (process dies).
+
+8.2 MOV — Move
+    Replace the B-target with the A-value. Queue PC+1.
+    .A:  B-target.A = IRA.A
+    .B:  B-target.B = IRA.B
+    .AB: B-target.B = IRA.A
+    .BA: B-target.A = IRA.B
+    .F:  B-target.A = IRA.A; B-target.B = IRA.B
+    .X:  B-target.B = IRA.A; B-target.A = IRA.B
+    .I:  B-target = copy of IRA (entire instruction)
+
+8.3 ADD — Add
+    B-target = A-value + B-value. Queue PC+1. .I acts as .F.
+    .A:  B-target.A = (IRB.A + IRA.A) % M
+    .B:  B-target.B = (IRB.B + IRA.B) % M
+    .AB: B-target.B = (IRB.B + IRA.A) % M
+    .BA: B-target.A = (IRB.A + IRA.B) % M
+    .F/.I: B-target.A = (IRB.A + IRA.A) % M; B-target.B = (IRB.B + IRA.B) % M
+    .X:  B-target.B = (IRB.B + IRA.A) % M; B-target.A = (IRB.A + IRA.B) % M
+
+8.4 SUB — Subtract
+    B-target = B-value - A-value. Queue PC+1. .I acts as .F.
+    .A:  B-target.A = (IRB.A - IRA.A) % M     [use (IRB.A + M - IRA.A) % M]
+    .B:  B-target.B = (IRB.B - IRA.B) % M
+    .AB: B-target.B = (IRB.B - IRA.A) % M
+    .BA: B-target.A = (IRB.A - IRA.B) % M
+    .F/.I: both A and B fields subtracted independently
+    .X:  B-target.B = (IRB.B - IRA.A) % M; B-target.A = (IRB.A - IRA.B) % M
+
+8.5 MUL — Multiply
+    B-target = A-value * B-value. Queue PC+1. .I acts as .F.
+    Same field selection as ADD/SUB.
+
+8.6 DIV — Divide
+    B-target = B-value / A-value (integer division). Queue PC+1. .I acts as .F.
+    If A-value is zero: B-value is unchanged, current task is REMOVED.
+    For .F/.X/.I: if EITHER component of A-value is zero, the corresponding
+    B-value component is unchanged (the other divides normally), and the
+    task is removed.
+
+8.7 MOD — Modulo
+    B-target = B-value % A-value (remainder). Queue PC+1. .I acts as .F.
+    Same zero-handling as DIV.
+
+8.8 JMP — Jump
+    Queue (PC + A-pointer) % M. B-operand is evaluated but ignored.
+
+8.9 JMZ — Jump if Zero
+    Test the B-value. If zero, queue (PC + A-pointer). Else queue PC+1.
+    .A/.BA: test IRB.A_number == 0
+    .B/.AB: test IRB.B_number == 0
+    .F/.X/.I: test (IRB.A_number == 0 AND IRB.B_number == 0)
+
+8.10 JMN — Jump if Not Zero
+     Test the B-value. If non-zero, queue (PC + A-pointer). Else queue PC+1.
+     .A/.BA: test IRB.A_number != 0
+     .B/.AB: test IRB.B_number != 0
+     .F/.X/.I: test (IRB.A_number != 0 OR IRB.B_number != 0)
+
+8.11 DJN — Decrement and Jump if Not Zero
+     DECREMENT the B-value AND the B-target, then test.
+     If decremented B-value is non-zero, queue (PC + A-pointer). Else queue PC+1.
+     .A/.BA: decrement B-target.A and test
+     .B/.AB: decrement B-target.B and test
+     .F/.X/.I: decrement both A and B of B-target; jump if EITHER is non-zero
+
+8.12 SEQ/CMP — Skip if Equal
+     Compare A-value to B-value. If equal, queue PC+2 (skip). Else queue PC+1.
+     .A: IRA.A == IRB.A
+     .B: IRA.B == IRB.B
+     .AB: IRA.A == IRB.B
+     .BA: IRA.B == IRB.A
+     .F: (IRA.A == IRB.A) AND (IRA.B == IRB.B)
+     .X: (IRA.A == IRB.B) AND (IRA.B == IRB.A)
+     .I: entire instructions equal (opcode, modifier, modes, and both numbers)
+
+8.13 SNE — Skip if Not Equal
+     Opposite of SEQ. If NOT equal, queue PC+2. Else queue PC+1.
+     .F: (IRA.A != IRB.A) OR (IRA.B != IRB.B)
+     .X: (IRA.A != IRB.B) OR (IRA.B != IRB.A)
+     .I: any field differs
+
+8.14 SLT — Skip if Less Than
+     If A-value < B-value, queue PC+2. Else queue PC+1. .I acts as .F.
+     .A: IRA.A < IRB.A
+     .B: IRA.B < IRB.B
+     .AB: IRA.A < IRB.B
+     .BA: IRA.B < IRB.A
+     .F/.I: (IRA.A < IRB.A) AND (IRA.B < IRB.B)
+     .X: (IRA.A < IRB.B) AND (IRA.B < IRB.A)
+
+8.15 SPL — Split
+     Queue PC+1 (next instruction), then queue (PC + A-pointer) % M (split target).
+     If the queue is full (max_processes), only PC+1 is queued.
+
+8.16 NOP — No Operation
+     Queue PC+1.

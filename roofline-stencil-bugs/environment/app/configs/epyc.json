@@ -1,0 +1,13 @@
+{
+  "name": "EPYC",
+  "peak_gflops": 1800.0,
+  "dram_bw_gbs": 200.0,
+  "l3_bw_gbs": 500.0,
+  "l2_bw_gbs": 1200.0,
+  "l3_size_mb": 256.0,
+  "l2_size_kb": 512,
+  "l1_size_kb": 32,
+  "cacheline_bytes": 64,
+  "write_allocate": true,
+  "elem_bytes": 8
+}

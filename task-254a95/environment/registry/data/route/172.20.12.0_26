@@ -1,0 +1,5 @@
+route:              172.20.12.0/26
+origin:             AS4242420003
+max-length:         26
+mnt-by:             GAMMA-MNT
+source:             DN42

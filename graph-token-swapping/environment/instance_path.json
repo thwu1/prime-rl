@@ -1,0 +1,6 @@
+{
+  "n": 5,
+  "edges": [[0,1],[1,2],[2,3],[3,4]],
+  "perm": [4,3,2,1,0],
+  "description": "Reverse permutation on a path graph with 5 vertices. Token i starts at vertex i. After all swaps, vertex i should hold token perm[i]. For a path graph, the minimum number of swaps equals the number of inversions in perm (= 10 for the full reversal of 5 elements)."
+}

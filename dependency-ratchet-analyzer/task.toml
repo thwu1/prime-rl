@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across multiple domains: reconciling static and runtime dependency data sources, diagnosing invalid enforcement level promotions through comprehensive graph auditing, implementing the subtle 'reachable subgraph acyclicity' semantics of layered_dag enforcement (where a package can fail even though it is not itself in a cycle — because its reachable same-layer subgraph contains one), computing feedback arc sets on the complete augmented graph, and producing a corrected migration plan that accounts for rollbacks. The agent must discover that the depgraph CLI check command only handles layered enforcement (the layered_dag/dag checks are marked TODO), implement full policy checking from scratch, parse and cross-reference a runtime scan log against the SQLite database to find undeclared dependencies, and reason holistically about how runtime-discovered edges change cycle structure, violation counts, and promotability across the entire dependency graph."""
+solution_explanation = """Parse runtime_scan.csv to extract unique (source, target) pairs, cross-reference each against the dependencies table in monolith.db to identify 4 undeclared runtime dependencies, merge them into the in-memory graph, audit every non-false package against its declared enforcement level on the complete graph (implementing layered upward-dep checks and the layered_dag reachable-subgraph-acyclicity check), identify 5 packages at invalid levels and compute their max valid levels (rolling back 3 recent promotions and 2 pre-existing violations), run Tarjan's SCC to find 2 cycles (now with admin_api pulled into the large SCC via the analytics_model<->admin_api runtime-dep cycle), compute a feedback arc set, determine promotability from corrected levels, simulate the greedy migration plan (38 steps), and render an SVG with graphviz."""
+verification_explanation = """Tests load the complete graph from monolith.db plus the 4 known undeclared runtime deps, then verify: exact undeclared dep count and identities, exact invalid-level count with correct max-valid levels (including the subtle order_api layered_dag case), exact violation count, SCC membership (9-member large SCC including admin_api), FAS validity and acyclicity after removal, promotable count of 25 with correct target levels, migration plan of 38 valid sequential single-level promotions respecting layer ordering, final dag count of 9, and SVG existence with red cycle edges and layer grouping."""
+category = "software_engineering"
+tags = ["dependency-graph-analysis", "policy-enforcement-audit"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dependency-ratchet-analyzer"

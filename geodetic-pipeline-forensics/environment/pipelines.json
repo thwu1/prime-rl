@@ -1,0 +1,36 @@
+{
+  "project": "European-Australasian Geodetic Harmonization (EAGH)",
+  "description": "PROJ transformation pipelines for multi-national coordinate harmonization. Each pipeline converts coordinates from a geographic CRS to a projected or geocentric CRS. Input coordinate order for all pipelines is (longitude, latitude[, height]).",
+  "pipelines": {
+    "utm32n": {
+      "description": "UTM Zone 32N projection for Central European survey data",
+      "proj_string": "+proj=utm +zone=32 +ellps=GRS80",
+      "source_crs_note": "Geographic (lon/lat degrees) on GRS80",
+      "target_crs_note": "UTM Zone 32N (Easting/Northing metres)"
+    },
+    "rd_new": {
+      "description": "Netherlands Amersfoort / RD New (Oblique Stereographic) - EPSG:28992",
+      "proj_string": "+proj=sterea +lat_0=52.0922178 +lon_0=5.23155 +k_0=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +units=m",
+      "source_crs_note": "Amersfoort geographic (EPSG:4289, lon/lat on Bessel 1841)",
+      "target_crs_note": "Amersfoort / RD New projected (EPSG:28992, E/N metres)"
+    },
+    "aus_albers": {
+      "description": "GDA94 / Australian Albers Equal Area Conic - EPSG:3577",
+      "proj_string": "+proj=aea +lat_1=-18 +lat_2=-36 +lat_0=0 +lon_0=132 +x_0=0 +y_0=0 +ellps=GRS80 +units=m",
+      "source_crs_note": "GDA94 geographic (EPSG:4283, lon/lat on GRS80)",
+      "target_crs_note": "GDA94 / Australian Albers (EPSG:3577, E/N metres)"
+    },
+    "etrs_laea": {
+      "description": "ETRS89 / Lambert Azimuthal Equal Area Europe - EPSG:3035",
+      "proj_string": "+proj=laea +lat_0=50 +lon_0=9 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m",
+      "source_crs_note": "ETRS89 geographic (EPSG:4258, lon/lat on GRS80)",
+      "target_crs_note": "ETRS89-LAEA Europe (EPSG:3035, E/N metres)"
+    },
+    "geocentric_wgs84": {
+      "description": "WGS84 Geographic to Geocentric (Cartesian XYZ) conversion - EPSG:4978",
+      "proj_string": "+proj=cart +ellps=intl",
+      "source_crs_note": "WGS84 geographic 3D (EPSG:4326, lon/lat/height in degrees/metres)",
+      "target_crs_note": "WGS84 geocentric (EPSG:4978, X/Y/Z in metres)"
+    }
+  }
+}

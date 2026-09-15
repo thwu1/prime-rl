@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering anonymization algorithms from C# source code and unit tests without any procedural guidance. The agent must independently discover: (1) how HMAC-SHA256 cryptoHash works including reference-aware ID extraction for 6 reference formats, (2) SHA256-based dateShift offset computation with time zeroing and timezone preservation, (3) that contained resources must be processed independently with scoped rule evaluation, (4) rule precedence semantics where keep sub-element rules survive parent-level redact, (5) backbone element traversal for Patient.contact and Encounter.participant with correct FHIR type mappings, (6) HIPAA Safe Harbor edge cases like age>89 full redaction and partial date reduction, (7) Bundle processing where each entry resource is anonymized independently and Bundle-level rules (fullUrl redact) apply separately, and (8) multi-tool pipeline assembly with independent cryptographic verification. No algorithms, tools, or edge cases are named in the instruction."""
+solution_explanation = """Build a Python engine that parses FHIRPath-like rules from config, maintains type registries for 6+ FHIR resource types plus backbone elements, implements HMAC-SHA256 with reference-aware ID hashing, SHA256-based date-shift offset computation, processes contained resources and Bundle entries independently, handles rule precedence with keep-override semantics, and correctly applies HIPAA Safe Harbor rules. Pipeline.sh orchestrates the engine, validates output, and generates crypto_manifest.json using openssl dgst for independent verification."""
+verification_explanation = """Tests verify: (1) NDJSON line count and resource order preserved, (2) resource IDs correctly HMAC-SHA256 hashed, (3) cross-resource referential integrity (Patient hash matches Observation/Encounter/Condition subject reference hash), (4) dateTime shifted with time zeroed and timezone preserved, (5) contained resources independently anonymized with fragment reference consistency, (6) Organization.identifier preserved despite nodesByType('Identifier') redact due to rule precedence, (7) elderly patient birthDate fully redacted (age>89), (8) partial date reduced to year, (9) Bundle fullUrl entries redacted, (10) Bundle entry resources processed independently with cross-entry referential integrity, (11) crypto_manifest.json covers all resources with correct openssl-verified hashes."""
+category = "security_and_privacy"
+tags = ["healthcare", "cryptography"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9f05be"

@@ -1,0 +1,52 @@
+{
+  "vectorizers": {
+    "text2vec-contextionary": {
+      "type": "text",
+      "default_dimensions": 300,
+      "status": "deprecated",
+      "notes": "Legacy contextionary vectorizer, no longer maintained"
+    },
+    "text2vec-transformers": {
+      "type": "text",
+      "default_dimensions": 384,
+      "status": "active",
+      "compatible_replacement_for": ["text2vec-contextionary"]
+    },
+    "text2vec-openai": {
+      "type": "text",
+      "default_dimensions": 1536,
+      "status": "active",
+      "notes": "Requires OpenAI API key"
+    },
+    "text2vec-ollama": {
+      "type": "text",
+      "default_dimensions": 384,
+      "status": "active",
+      "compatible_replacement_for": ["text2vec-contextionary", "text2vec-openai"]
+    },
+    "multi2vec-clip": {
+      "type": "multimodal",
+      "default_dimensions": 512,
+      "status": "active",
+      "notes": "CLIP-based multimodal vectorizer for text and images"
+    },
+    "img2vec-neural": {
+      "type": "image",
+      "default_dimensions": 2048,
+      "status": "active",
+      "compatible_replacement_for": ["multi2vec-clip"]
+    },
+    "generative-ollama": {
+      "type": "generative",
+      "default_dimensions": null,
+      "status": "active",
+      "notes": "Generative module, not a vectorizer"
+    },
+    "backup-filesystem": {
+      "type": "backup",
+      "default_dimensions": null,
+      "status": "active",
+      "notes": "Backup module, not a vectorizer"
+    }
+  }
+}

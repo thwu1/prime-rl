@@ -1,0 +1,54 @@
+{
+  "batch_id": "RUN_2156X",
+  "run_date": "2156-11-03",
+  "operator": "Dr. J. Petrov",
+  "protocol_version": "v2.9",
+  "qc_metrics": {
+    "read_quality": {
+      "mean_phred_score": 28.1,
+      "min_phred_score": 18.4,
+      "reads_above_q30_pct": 61.2,
+      "pass": false
+    },
+    "contamination_screen": {
+      "method": "kraken2_v2.0",
+      "foreign_reads_pct": 42.31,
+      "detection_threshold_pct": 5.0,
+      "organisms_flagged": [
+        {
+          "organism": "Escherichia coli K-12",
+          "read_fraction_pct": 41.8,
+          "confidence": 0.997
+        },
+        {
+          "organism": "Escherichia coli BL21",
+          "read_fraction_pct": 0.51,
+          "confidence": 0.934
+        }
+      ],
+      "pass": false
+    },
+    "coverage_uniformity": {
+      "mean_depth": 12.4,
+      "coefficient_of_variation": 0.892,
+      "target_cv_max": 0.30,
+      "pass": false
+    },
+    "library_complexity": {
+      "unique_fragments_pct": 67.3,
+      "duplication_rate": 0.327,
+      "pass": false
+    }
+  },
+  "overall_qc": "FAIL",
+  "failure_reasons": [
+    "Massive cross-contamination with E. coli control strain",
+    "Read quality below threshold",
+    "Coverage uniformity unacceptable",
+    "High duplication rate"
+  ],
+  "reviewer": "Dr. L. Chen",
+  "review_date": "2156-11-10",
+  "notes": "Sequencing lanes mixed terrestrial and xenobiont material. Complete data exclusion required.",
+  "corrective_action": "Re-sequencing scheduled with isolated lanes. Protocol updated to v3.0+."
+}

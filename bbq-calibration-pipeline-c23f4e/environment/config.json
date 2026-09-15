@@ -1,0 +1,7 @@
+{
+  "db_path": "/app/calibration.db",
+  "output_path": "/app/results.json",
+  "n_bins": 10,
+  "methods": ["histogram_binning", "temperature_scaling"],
+  "metrics": ["ece", "mce", "ace"]
+}

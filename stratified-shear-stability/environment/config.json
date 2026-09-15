@@ -1,0 +1,19 @@
+{
+    "domain": {
+        "z_min": -10.0,
+        "z_max": 10.0
+    },
+    "discretization": {
+        "N_chebyshev": 200
+    },
+    "parameters": {
+        "richardson_numbers": [0.00, 0.05, 0.10, 0.15, 0.20, 0.22, 0.24, 0.25],
+        "wavenumber_range": [0.01, 1.2],
+        "n_wavenumbers": 100
+    },
+    "output": {
+        "growth_rates_file": "/app/results/growth_rates.csv",
+        "max_growth_file": "/app/results/max_growth.csv",
+        "critical_ri_file": "/app/results/critical_ri.txt"
+    }
+}

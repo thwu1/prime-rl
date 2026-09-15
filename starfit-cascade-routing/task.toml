@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task requiring domain knowledge of reservoir hydrology, DAG-based network routing (topological sort), and careful numerical implementation. The solver must correctly implement: (1) Kahn's algorithm for topological ordering of a branching DAG with confluence, (2) seasonally-varying NOR bounds via clamped cosine curves using ISO 8601 epiweeks, (3) three-regime power-law release functions, (4) power-law surface-area-storage evaporation with per-reservoir PET adjustments, (5) proportional seepage losses, (6) correct physics ordering where losses are deducted BEFORE the release decision, and (7) volume balance with spill/curtailment boundary handling. All must be integrated with network routing where downstream reservoirs accumulate upstream outflows. Estimated ~3 hours for an expert hydrologist-programmer."""
+solution_explanation = """The solver reads reservoir parameters from JSON and forcing timeseries from CSV. It topologically sorts the 4-reservoir DAG, then for each of 730 daily timesteps processes reservoirs in order: computes total inflow (local + upstream outflows), calculates evaporation from power-law area-storage relationship, applies proportional seepage, deducts both losses from storage BEFORE computing NOR bounds and the three-regime release function, then performs volume balance with spill/curtailment. Results are written as a 730-row CSV with 38 columns."""
+verification_explanation = """27 pytest tests verify: output format (file exists, 730 rows, 38 columns, sequential dates), mass balance conservation for all 4 reservoirs (within 1e-6 MCM tolerance), physical constraints (storage bounds, non-negative flows, outflow identity, spill-only-at-capacity), NOR values match the cosine formula, network routing correctness (headwater inflows, R3 includes R1 outflow, R4 includes R2+R3 outflows), evaporation matches area-PET formula, seepage matches rate formula, and all three release regimes produce correct values."""
+category = "applied_computing"
+tags = ["hydrology", "numerical-simulation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/starfit-cascade-routing"

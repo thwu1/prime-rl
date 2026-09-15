@@ -1,0 +1,26 @@
+{
+    "uniform_steady": {
+        "description": "Uniform (a,b,c) maximizing a. After 10 iterations from x in [0.01, 1], output must be within epsilon of 1.",
+        "epsilon": 0.35,
+        "x_min": 0.01,
+        "x_max": 1.0,
+        "coefficient_type": "uniform",
+        "eval_iterations": 10
+    },
+    "perstep_finite": {
+        "description": "Per-step coefficients [(a1,b1,c1),...,(a5,b5,c5)] maximizing a1. After exactly 5 steps from [x_min, x_max], output must be within epsilon of 1. x_max = 1/1.02 reflects safety-factor normalization.",
+        "epsilon": 0.35,
+        "x_min": 0.01,
+        "x_max": 0.9803921568627451,
+        "coefficient_type": "per_step",
+        "num_steps": 5
+    },
+    "uniform_tight": {
+        "description": "Uniform (a,b,c) maximizing a. Same structure as uniform_steady but tighter: after 10 iterations, output within epsilon=0.05 of 1.",
+        "epsilon": 0.05,
+        "x_min": 0.01,
+        "x_max": 1.0,
+        "coefficient_type": "uniform",
+        "eval_iterations": 10
+    }
+}

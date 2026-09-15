@@ -1,0 +1,57 @@
+{
+  "title": "Financial Analysis Business Requirements",
+  "version": "2.1",
+  "approved_by": "CFO Office",
+  "effective_date": "2024-01-01",
+  "sections": {
+    "transaction_enrichment": {
+      "description": "Each transaction row should be enriched with resolved lookup data and standard financial computations.",
+      "rules": {
+        "lookups": "Product name, category, and cost price resolved from products table. Employee name is first_name concatenated with last_name (space-separated). Region name and tax rate resolved from regions table.",
+        "revenue": "Net sales amount: quantity * unit_price * (1 - discount_pct). Represents the actual amount invoiced to the customer after trade discounts.",
+        "cost": "Cost of goods sold for the line item: quantity * product cost_price.",
+        "profit": "Gross profit: revenue minus cost.",
+        "tax_amount": "Sales tax is assessed on the net transaction value after all trade discounts have been applied, consistent with standard sales tax regulations. tax_amount = revenue * regional tax_rate.",
+        "net_revenue": "Revenue after tax: revenue - tax_amount.",
+        "profit_margin": "Standard gross profit margin percentage as used in financial reporting (profit as a proportion of revenue, not markup over cost). Returns 0 when the denominator is zero.",
+        "order_size_tier": "Company standard order classification: Large (quantity >= 15), Medium (quantity >= 8), Small (quantity >= 3), Micro (quantity < 3)."
+      }
+    },
+    "region_category_summary": {
+      "description": "Two-dimensional aggregation: region x product category.",
+      "rules": {
+        "metrics": "total_revenue (SUM), total_cost (SUM), total_profit (SUM), transaction_count (COUNT), avg_order_value (AVG of revenue), max_order_value (MAX of revenue), min_order_value (MIN of revenue).",
+        "weighted_avg_discount": "Portfolio-level effective discount rate: the revenue-weighted mean of individual transaction discount rates within each group. Higher-revenue transactions contribute proportionally more to the group discount rate than lower-revenue ones. This reflects the true economic discount exposure, not the simple arithmetic mean of discount percentages.",
+        "profit_margin": "Group-level gross profit margin: total_profit / total_revenue. Returns 0 when total_revenue is zero."
+      }
+    },
+    "employee_performance": {
+      "description": "Per-employee performance dashboard. All 10 employees must appear even with zero transactions.",
+      "rules": {
+        "sales_metrics": "total_revenue, total_transactions, avg_order_value per employee.",
+        "commission": "commission_earned = total_revenue * commission_rate. total_compensation = base_salary + commission_earned.",
+        "tenure": "Business days (Monday through Friday only, no holiday exclusions) from hire_date through December 31, 2024. Both boundary dates are included in the count when they fall on business days, consistent with standard Excel NETWORKDAYS semantics where the function counts the start date and end date inclusively.",
+        "efficiency": "revenue_per_day = total_revenue / days_employed.",
+        "performance_tier": "Platinum (total_revenue >= $500,000), Gold (>= $200,000), Silver (>= $100,000), Bronze (< $100,000)."
+      }
+    },
+    "inventory_status": {
+      "description": "Per-product stock analysis. All 20 products must appear even with zero sales.",
+      "rules": {
+        "stock_computation": "remaining_stock = units_in_stock - total_units_sold.",
+        "reorder_flag": "needs_reorder = 'Yes' when remaining_stock is strictly BELOW the reorder_level (< not <=). Stock exactly at the reorder level does not trigger reorder. 'No' otherwise.",
+        "stock_status": "Out of Stock (remaining_stock <= 0), Low Stock (0 < remaining_stock < reorder_level), Adequate (reorder_level <= remaining_stock < 2 * reorder_level), Well Stocked (remaining_stock >= 2 * reorder_level).",
+        "revenue_metrics": "total_revenue and avg_selling_price per product."
+      }
+    },
+    "quarterly_revenue": {
+      "description": "Calendar quarter aggregation with top-performer identification and sequential growth tracking.",
+      "rules": {
+        "quarters": "Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec).",
+        "metrics": "total_revenue, total_profit, transaction_count, avg_order_value per quarter.",
+        "top_category": "The product category with the highest total REVENUE (not transaction count) in each quarter. In case of exact revenue ties, any tied category is acceptable.",
+        "qoq_growth_rate": "Sequential quarter-over-quarter revenue growth rate as a percentage. Computed using the standard financial convention for percentage change: ((current_quarter_revenue - prior_quarter_revenue) / prior_quarter_revenue) * 100. NULL for the earliest quarter in the dataset where no prior quarter exists."
+      }
+    }
+  }
+}

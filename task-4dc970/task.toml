@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing seven interacting defects in an NF4 quantization codec spanning four distinct technical domains: (1) information-theoretic quantization — the NF4 map uses an incorrect parameter that can only be corrected through understanding of the QLoRA NormalFloat4 data type derivation or careful numerical reverse-engineering from reference values; (2) numerical analysis — blockwise quantization has a normalization bug that only manifests with all-negative inputs, requiring understanding of symmetric absmax scaling; (3) the double quantization pipeline omits a critical preprocessing step, introducing systematic reconstruction bias that requires statistical reasoning to diagnose; (4) the nibble unpacking has a byte-order inversion that cascades through checkpoint deserialization; (5) the binary checkpoint reader/writer uses a different header layout than the reference file, requiring binary format reverse-engineering from a raw binary artifact; (6) a C nibble-packing extension must be compiled and integrated via ctypes with correct type signatures; (7) the adaptive blocksize evaluator has an incorrect evaluation strategy. These defects interact: the wrong NF4 map corrupts all downstream quantization results, and the nibble byte-order bug compounds with the format mismatch, requiring systematic root-cause analysis across multiple layers."""
+solution_explanation = """Fix seven defects: (1) correct the NF4 map offset parameter from 0.9 to 0.9677083; (2) change absmax computation from max(block) to max(abs(v) for v in block) for symmetric normalization; (3) add mean-centering in double_quantize by subtracting offset from absmax values before blockwise 8-bit quantization; (4) fix _unpack_nibbles_py to extract low nibble before high nibble; (5) upgrade checkpoint I/O to NF4Q v2 format — add uint16 version and reserved fields after magic, append CRC32 footer, and verify CRC32 on read; (6) implement load_nibble_lib to compile nibble_pack.c with gcc -shared -fPIC -O2 and load via ctypes.CDLL with proper argtypes/restype for all three functions, then implement pack_nibbles/unpack_nibbles as ctypes wrappers; (7) change find_optimal_blocksize to sort candidates in descending order and return the smallest candidate as fallback."""
+verification_explanation = """Tests verify: NF4 map matches QLoRA reference within 1e-3 (16 values, sorted, asymmetric 7neg+8pos+zero); blockwise quantize/dequantize roundtrip errors within bounds for normal, all-negative, all-zero, constant, and single-element blocks with correct absmax values; double quantization roundtrip error below 0.15 with no systematic bias; memory formulas match QLoRA equations; C extension compiles, loads, and has correct exported functions; nibble pack/unpack roundtrips with correct byte-level format; reference checkpoint loads with correct indices, absmax, blocksize, and CRC32; write/read checkpoint roundtrips; CRC32 corruption detection raises ValueError; adaptive blocksize selects largest meeting budget and smallest on impossible budget with monotonicity."""
+category = "machine_learning"
+tags = ["quantization", "systems-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4dc970"

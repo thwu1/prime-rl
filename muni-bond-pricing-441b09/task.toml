@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and interpreting the MSRB Rule G-33 regulatory specification to implement pricing formulas for three security types (periodic, at-redemption, discounted). The solver must implement 30/360 day counting with subtle end-of-month adjustments, coupon date generation, multi-case price/yield formulas (including iterative root-finding for >1 period yield), callable bond yield-to-worst evaluation, and layered precision rules (truncation then rounding at specific stages). Beyond the calculator, the solver must build a shell-based reconciliation pipeline orchestrating sqlite3, jq, and the Python pricing engine: creating a SQLite audit database with a specific schema (including a SQL view with sorted GROUP_CONCAT), importing pipe-delimited trade data, computing valuations by invoking the engine for each trade, detecting discrepancies via SQL comparison, and exporting results as both structured JSON and a queryable database. Errors in the vendor report stem from distinct defect classes (precision, day-count, callable-bond handling) that the solver must correctly diagnose."""
+solution_explanation = """The solution implements: (1) 30/360 day counting with proper two-step EOM adjustment, (2) coupon date generation by backward stepping, (3) accrued interest with truncate-3-then-round-2, (4) dollar price formulas for all three security types with truncate-to-3, (5) yield formulas including Newton-Raphson iteration with truncate-4-then-round-3, (6) yield-to-worst by evaluating each call date plus maturity, (7) a shell pipeline (reconcile.sh) that creates a SQLite database via sqlite3 CLI, delegates data import and computation to a Python helper that invokes the pricing engine per trade, then exports discrepancies to JSON using sqlite3 -json piped through Python for type conversion. The database includes a validation_summary view using GROUP_CONCAT over an ordered subquery for alphabetically sorted discrepant field names."""
+verification_explanation = """Tests verify both the pricing engine and the reconciliation pipeline. The engine is tested against independently computed values: par bond identity, known premium/discount prices, one-period pricing, at-redemption securities, discounted securities, round-trip price<->yield consistency, yield-to-worst call selection, quarterly frequency, zero yield, EOM day-count edge cases, and precision truncation/rounding. Reconciliation tests run the shell pipeline and verify: the JSON discrepancy file (7 discrepancies across 4 trades), and the SQLite audit database via sqlite3 CLI queries — checking table row counts, computed values, the validation_summary view output (including alphabetically sorted discrepant fields), schema structure, and database-JSON consistency."""
+category = "finance"
+tags = ["fixed-income", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/muni-bond-pricing-441b09"

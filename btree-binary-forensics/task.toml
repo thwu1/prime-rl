@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing three distinct corruptions in a B+tree storage engine's binary database file: (1) a stale key boundary in the root internal node where key[i] no longer matches the first key of its child subtree — detecting this requires understanding the B+tree key-child invariant, not just parsing the format; (2) a double-allocated page that is simultaneously reachable from the live tree and listed in the free list — resolving this requires understanding copy-on-write page lifecycle to identify the correct replacement page among orphaned nodes; (3) a free list off-by-one error where fl_tail_seq overshoots by one, producing a phantom entry that references the meta page — fixing this requires understanding the sequence-based modular indexing scheme. The solver must compile and use a Go-based invariant checker, analyze raw binary with hex tools, implement repairs in Python, and verify the result — requiring multi-tool proficiency across Go compilation, binary analysis, and scripting."""
+solution_explanation = """The solution compiles the Go verifier to diagnose violations, then writes Python code that: (1) traverses the B+tree and free list to detect all three corruptions, (2) rebuilds the root internal node page with corrected key boundaries derived from each child's actual first key, (3) identifies the correct orphaned leaf page (page 11 with v2_updated data) to replace the double-allocated freed page (page 4) as the root's child pointer, and (4) corrects the meta page's fl_tail_seq from 513 to 512 to eliminate the phantom free list entry. The repaired binary database passes the Go invariant checker."""
+verification_explanation = """Tests verify both the diagnostic report and the repaired database. Report tests check that violations are identified on the correct pages (page 12 for key mismatch, page 4 for double allocation, plus the free list corruption). Repair tests directly inspect the binary of database_repaired.db: meta page fl_tail_seq must be 512, root node key[2] must be 'k0021', root ptr[3] must be 11. Independent tree traversal confirms 80 keys with correct values (v2_updated for k0031-k0040, not stale v1_old data). A reference Go verifier compiled from tamper-proof test-bundled source confirms structural consistency."""
+category = "data_management"
+tags = ["storage-engine-internals", "binary-format-repair"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/btree-binary-forensics"

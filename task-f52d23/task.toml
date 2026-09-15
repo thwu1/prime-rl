@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of topological quantum error correction, surface code lattice surgery, and two specialized library APIs (tqec for compilation, stim for circuit/DEM analysis). The agent must independently discover the full compilation pipeline (BlockGraph → TopologicalComputationGraph → stim.Circuit → DEM), reverse-engineer the gallery memory construction to build an equivalent BlockGraph from scratch, design a custom asymmetric noise model by understanding the NoiseModel/NoiseRule architecture and which measurement/reset bases the circuit uses, and perform structural classification of detector error model entries. None of these APIs or procedures are described in the instruction — the agent must explore the installed package, read source code, and reason about quantum error correction physics to determine the correct approach."""
+solution_explanation = """Write a Python script that: (1) discovers and uses tqec.gallery functions with Basis.Z to create block graphs, compiles them via compile_block_graph with auto observables, generates stim circuits at k=1,2,3 with uniform_depolarizing(0.001), and extracts circuit metrics plus DEM error counts and shortest_graphlike_error weight; (2) constructs a custom NoiseModel with asymmetric rates (idle=0.0002, 1q=0.001, 2q=0.005, measure flip=0.003, reset error=0.002) covering all measurement bases (X,Y,Z,XX,YY,ZZ) and reset gates (R,RX,RY), compiles memory at k=2 under both models, and performs DEM target classification; (3) builds a BlockGraph with a single ZXZ cube at Position3D(0,0,0) to replicate the gallery memory, compiles and verifies identical metrics."""
+verification_explanation = """Tests independently run the full tqec compilation pipeline to compute deterministic reference values for all circuit metrics, DEM analyses, and noise model comparisons. Each metric is compared for exact equality (integers) or within tolerance (floats). The custom noise model is independently constructed with the same parameters. Physical sanity checks verify scaling monotonicity, cross-computation comparisons, and exact equivalence between custom and gallery memory constructions."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "surface-codes", "noise-models"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f52d23"

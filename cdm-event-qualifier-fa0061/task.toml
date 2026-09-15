@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of ISDA CDM event qualification semantics for OTC derivatives lifecycle events. The solver must reverse-engineer classification rules from ten distinct BusinessEvent JSON documents by analyzing structural patterns (instruction primitives, trade state transitions, counterparty changes, quantity movements) and correlating them with CDM qualification logic. Distinguishing between closely related qualifiers (Novation vs PartialNovation, Termination vs PartialTermination vs Increase) demands domain expertise in derivatives post-trade processing. The classifier must generalize to unseen events, not just memorize the provided ten."""
+solution_explanation = """Downloads Gson for JSON parsing, then implements a multi-predicate classifier in Java that examines each BusinessEvent's intent field, primitive instruction types, split structures, before/after trade state transitions, counterparty reference changes, trade identifier changes, quantity changes, party roles, and closed state presence to dispatch to one of 10 qualifier predicates. The order of predicate evaluation matters: intent-based qualifiers (Novation, PartialNovation, Allocation, ClearedTrade) are checked first, then structural qualifiers (Compression, ContractFormation, Execution), then quantity-change qualifiers (Termination, PartialTermination, Increase)."""
+verification_explanation = """Pytest test suite compiles the Java code, runs EventQualifier against all 10 event files, and asserts output matches expected qualifiers. Comprehensive anti-cheat measures include: (1) renamed-file test ensuring filename independence, (2) source scan for hardcoded filenames, (3) source scan for content fingerprinting (MessageDigest, hashCode, MD5, SHA, file-size), (4) source scan for hardcoded event-specific identifiers (LEI values, trade IDs), (5) four synthetic events generated at test time with novel data that the classifier has never seen before, and (6) a mutated termination event with completely different product type, currency, amounts, and party identifiers to defeat hash-based or memorizing classifiers."""
+category = "finance"
+tags = ["derivatives", "domain-model"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cdm-event-qualifier-fa0061"

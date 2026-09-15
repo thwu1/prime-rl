@@ -1,0 +1,6 @@
+{
+  "capital_budget": 380,
+  "tail_risk_confidence": 0.95,
+  "risk_cost_weight": 0.5,
+  "planning_notes": "Management wants two analyses: (1) a pure cost-minimizing plan and (2) a plan that accounts for worst-case cost exposure. The tail_risk_confidence=0.95 means we care about the average cost in the worst 5% of scenarios. risk_cost_weight=0.5 controls the penalty for tail risk in the risk-aware plan."
+}

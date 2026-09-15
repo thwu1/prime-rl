@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete register allocator for pseudo-x86 programs with cyclic CFGs, function calls, and register pressure exceeding available registers — then producing a working x86-64 assembly backend. The allocator must correctly handle liveness across loop back-edges (requiring fixed-point dataflow convergence), caller/callee-saved register conventions, and produce allocation quality competitive with established heuristics. The assembly emitter must generate AT&T-syntax x86-64 code with correct System V AMD64 ABI stack alignment, callee-saved register preservation, and function prologue/epilogue — then compile and link it with gcc. A subtle bug in liveness propagation, register interference, or ABI compliance causes cascading failures across all test programs."""
+solution_explanation = """The solution implements backward dataflow liveness analysis with fixed-point iteration, builds interference and move-relatedness graphs, performs DSATUR graph coloring with move biasing, then replaces variables with physical locations. The assembly emitter converts allocated programs to AT&T syntax with proper function prologue/epilogue, stack frame layout that separates spill slots from callee-saved storage, alignment per System V AMD64 ABI, and block linearization. Programs are compiled with gcc linking the C runtime."""
+verification_explanation = """Tests verify: (1) all allocated programs produce correct output via the Python emulator, (2) no Variable operands remain, (3) low-pressure programs use no stack spills while high-pressure programs spill within bounds, (4) callee-saved registers are used for cross-call live variables, (5) liveness analysis converges for loop programs, (6) no two interfering variables share a location, (7) emitted assembly compiles with gcc without errors, and (8) compiled native binaries produce output identical to the emulator."""
+category = "systems"
+tags = ["compilers", "x86-assembly"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dsatur-register-allocator"

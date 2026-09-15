@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of NIfTI affine coordinate geometry, 3D spatial transforms (L2 column norms, meshgrid indexing conventions, flip offsets in orientation matrices), SVD-based rigid registration with reflection handling, and multi-metric alignment evaluation. The solver must diagnose defects across interacting layers (Python transform code, JSON pipeline configuration, SQLite constraint database) without bug-revealing docstrings — requiring holistic reasoning about cascading failures between spacing extraction, direction cosines, axis codes, resampling, and orientation transforms. Additionally requires creating a pipeline validation tool that queries a SQLite database and evaluates configuration compliance."""
+solution_explanation = """Fix 6 transform bugs: (1) extract_spacing L1→L2 norm, (2) get_axcodes label index swap, (3) resample meshgrid xy→ij indexing, (4) resample_to_spacing floor→round, (5) reorient_to_axcodes add flip offset, (6) invert_resample swap src/tgt affines. Implement register_landmarks via Kabsch algorithm (SVD of cross-covariance with det correction for proper rotation). Implement evaluate_alignment via resampling into reference frame and computing Pearson NCC or MSE. Fix pipeline.json: reorder steps to satisfy DB constraints (orient before normalize/resample, resample before register) and change spacing_ref from output_spacing to target_spacing. Create validate_pipeline.py that queries transform_constraints table and validates step ordering."""
+verification_explanation = """33 pytest tests verify: spacing extraction for axis-aligned/oblique/scaled affines, affine decomposition round-trips, axis code determination, identity/translation resampling, spacing-change output shapes and affine properties, reorientation data/world-coord preservation for RAS→LPS and RAS→SAR, inverse resampling round-trips and equivalence with manual resample, landmark registration accuracy/identity/proper-rotation, alignment metrics NCC/MSE for identical/shifted volumes, pipeline config spacing resolution and DB constraint compliance, and pipeline validator existence/correctness on valid and two types of invalid pipelines."""
+category = "medical_imaging"
+tags = ["spatial-transforms", "registration-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-spatial-transforms"

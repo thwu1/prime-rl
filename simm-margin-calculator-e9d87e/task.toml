@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantitative finance knowledge (ISDA SIMM v2.5 methodology) combined with substantial Python engineering. The solver must: (1) understand the SQLite parameter database schema (risk weights, correlation matrices, concentration thresholds across 6 risk classes), (2) research or already know the published ISDA SIMM v2.5 standard to understand the aggregation methodology for delta, vega, and curvature margins, (3) implement the complete calculation pipeline reading parameters from SQLite and writing results to a separate SQLite database, (4) handle complex domain-specific edge cases (residual buckets, FX currency categorization, IR sub-curve treatment, curvature lambda/theta formulas, risk-class-level psi-correlation), (5) match 25 certification test vectors covering all risk classes and margin types within tight tolerance, plus synthetic novel CRIFs."""
+solution_explanation = """The solution loads all SIMM v2.5 parameters from the SQLite database into memory, then implements the full SIMM specification: parse CRIF CSV, compute weighted sensitivities with concentration risk factors, aggregate within and across buckets using the correlation structure, apply the curvature lambda/theta formula with scipy.stats.norm.cdf, aggregate across risk classes using the psi correlation matrix, and sum across product classes. Results are written to both stdout CSV and a SQLite results database."""
+verification_explanation = """Tests verify: (1) 25 certification test vectors checking both SIMM Benchmark and individual components (delta, vega, curvature, base correlation, add-on), (2) CSV output format with correct column headers, (3) SQLite results database creation with correct schema, values, and multi-invocation accumulation, (4) parameter database dependency by temporarily modifying a risk weight and verifying the output changes accordingly, (5) two synthetic CRIF files with novel amounts not in any test vector, computing expected values from the parameter database to prevent lookup-table cheating."""
+category = "finance"
+tags = ["quantitative-finance", "risk-management"]
+expert_time_estimate_hours = 8.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/simm-margin-calculator-e9d87e"

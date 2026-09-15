@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level understanding of two distinct domains: (1) Isabelle/HOL formal specification syntax — a specialized proof assistant language with a non-trivial grammar that requires careful analysis to parse reliably; and (2) formal-specification-guided algorithm implementation — the solver must read the AVL theory file, comprehend the exact formal semantics of each declared operation, and produce a Python implementation whose behavior precisely matches the specification. The task cannot be solved by following a textbook procedure — it demands holistic comprehension of a formal specification as a coherent system and the ability to faithfully translate between functional/logical and imperative paradigms while preserving every structural decision made by the specification authors."""
+solution_explanation = """The parser strips nested (* *) comments, then uses regex-based extraction with keyword-aware filtering to extract theory names, imports, datatypes with constructors, functions classified by definition keyword, named lemmas/theorems, and locale declarations. The AVL implementation maps the Isabelle datatype to Python tuples (value, left, right, height), translates each primrec/fun/definition to a Python function preserving the exact recursive structure: ht returns cached height, mkt constructs nodes, mkt_bal_l/mkt_bal_r implement the specification's precise rotation conditions, delete_root uses delete_max on the left subtree (predecessor approach per the Isabelle spec), and is_avl combines the balance and ordering predicates."""
+verification_explanation = """Tests verify (1) parser correctness across two structurally different theory files (AVL.thy and Dijkstra.thy): exact theory names, import lists, datatype/constructor extraction, function name+kind classification including all definition keywords, named lemma/theorem enumeration, and locale detection; (2) AVL structural faithfulness via exact tuple-level tree equality after insert sequences that trigger all four rotation types, plus exact delete_max and delete_root behavior matching the specification; (3) AVL invariant properties: balance maintenance under random insert/delete stress tests with 100+ operations, set-semantics preservation, and lookup correctness."""
+category = "formal_methods"
+tags = ["isabelle", "formal-verification"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/isabelle-spec-translate"

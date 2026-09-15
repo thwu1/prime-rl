@@ -1,0 +1,7 @@
+# Shorted stub test
+# 50-ohm source, tline into near-short (0.001 ohm)
+V1 1 0 1
+R1s 1 31 50
+T1 31 0 32 0 z=50 f=10meg nl=0.25
+R1l 32 0 0.001
+.ac 0 40meg 2meg

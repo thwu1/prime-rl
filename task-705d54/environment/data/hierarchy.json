@@ -1,0 +1,437 @@
+{"types": [
+  {
+    "canonical_name": "java.lang.Object",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "equals", "parameter_types": ["java.lang.Object"], "return_type": "boolean", "modifiers": ["public"]},
+      {"name": "hashCode", "parameter_types": [], "return_type": "int", "modifiers": ["public"]},
+      {"name": "toString", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]},
+      {"name": "getClass", "parameter_types": [], "return_type": "java.lang.Object", "modifiers": ["public", "final"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "java.lang.String",
+    "kind": "class",
+    "modifiers": ["public", "final"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [
+      {"name": "length", "parameter_types": [], "return_type": "int", "modifiers": ["public"]},
+      {"name": "charAt", "parameter_types": ["int"], "return_type": "char", "modifiers": ["public"]},
+      {"name": "toString", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.Printable",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "print", "parameter_types": [], "return_type": "void", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "app.Serializable",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "serialize", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "app.Loggable",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "log", "parameter_types": ["java.lang.String"], "return_type": "void", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "app.Entity",
+    "kind": "class",
+    "modifiers": ["public", "abstract"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [
+      {"name": "getId", "parameter_types": [], "return_type": "int", "modifiers": ["public", "abstract"]},
+      {"name": "validate", "parameter_types": [], "return_type": "boolean", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.User",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": ["app.Printable"],
+    "methods": [
+      {"name": "getId", "parameter_types": [], "return_type": "int", "modifiers": ["public"]},
+      {"name": "print", "parameter_types": [], "return_type": "void", "modifiers": ["public"]},
+      {"name": "getName", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.Admin",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.User"],
+    "implements": [],
+    "methods": [
+      {"name": "getRole", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.Document",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": ["app.Printable", "app.Serializable"],
+    "methods": [
+      {"name": "getId", "parameter_types": [], "return_type": "int", "modifiers": ["public"]},
+      {"name": "print", "parameter_types": [], "return_type": "void", "modifiers": ["public"]},
+      {"name": "serialize", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]},
+      {"name": "getTitle", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public", "final"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.FinalDoc",
+    "kind": "class",
+    "modifiers": ["public", "final"],
+    "extends": ["app.Document"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.Configurable",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [
+      {"name": "getDefault", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public", "static"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.Displayable",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "render", "parameter_types": [], "return_type": "int", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "app.Renderable",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "render", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "app.PartialImpl",
+    "kind": "class",
+    "modifiers": ["public", "abstract"],
+    "extends": ["java.lang.Object"],
+    "implements": ["app.Loggable", "app.Printable"],
+    "methods": [
+      {"name": "print", "parameter_types": [], "return_type": "void", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.SubDoc",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Document"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "app.DataStore",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [
+      {"name": "get", "parameter_types": ["int"], "return_type": "java.lang.Object", "modifiers": ["public"]},
+      {"name": "get", "parameter_types": ["java.lang.String"], "return_type": "java.lang.Object", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.ExtendsInterface",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Printable"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.ImplementsClass",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": ["app.User"],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.DuplicateIface",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": ["app.Printable", "app.Serializable", "app.Printable"],
+    "methods": [
+      {"name": "print", "parameter_types": [], "return_type": "void", "modifiers": ["public"]},
+      {"name": "serialize", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.InterfaceDupExtends",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": ["app.Printable", "app.Serializable", "app.Printable"],
+    "implements": [],
+    "methods": [],
+    "constructors": []
+  },
+  {
+    "canonical_name": "errors.ExtendsFinal",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.String"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.IfaceExtendsClass",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": [],
+    "methods": [],
+    "constructors": []
+  },
+  {
+    "canonical_name": "errors.CycleA",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["errors.CycleB"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.CycleB",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["errors.CycleA"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.DeepCycleA",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["errors.DeepCycleB"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.DeepCycleB",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["errors.DeepCycleC"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.DeepCycleC",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["errors.DeepCycleA"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.InterfaceCycleX",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": ["errors.InterfaceCycleY"],
+    "implements": [],
+    "methods": [],
+    "constructors": []
+  },
+  {
+    "canonical_name": "errors.InterfaceCycleY",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": ["errors.InterfaceCycleX"],
+    "implements": [],
+    "methods": [],
+    "constructors": []
+  },
+  {
+    "canonical_name": "errors.DuplicateMethod",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [
+      {"name": "process", "parameter_types": ["int"], "return_type": "int", "modifiers": ["public"]},
+      {"name": "process", "parameter_types": ["int"], "return_type": "int", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.InterfaceDupMethod",
+    "kind": "interface",
+    "modifiers": ["public"],
+    "extends": [],
+    "implements": [],
+    "methods": [
+      {"name": "act", "parameter_types": ["int"], "return_type": "void", "modifiers": ["public", "abstract"]},
+      {"name": "act", "parameter_types": ["int"], "return_type": "void", "modifiers": ["public", "abstract"]}
+    ],
+    "constructors": []
+  },
+  {
+    "canonical_name": "errors.DuplicateCtor",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["java.lang.Object"],
+    "implements": [],
+    "methods": [],
+    "constructors": [
+      {"parameter_types": ["java.lang.String"], "modifiers": ["public"]},
+      {"parameter_types": ["java.lang.String"], "modifiers": ["public"]}
+    ]
+  },
+  {
+    "canonical_name": "errors.ConflictInherit",
+    "kind": "class",
+    "modifiers": ["public", "abstract"],
+    "extends": ["java.lang.Object"],
+    "implements": ["app.Displayable", "app.Renderable"],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.ConcreteAbstract",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.ConcretePartial",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.PartialImpl"],
+    "implements": [],
+    "methods": [],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.StaticOverride",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Configurable"],
+    "implements": [],
+    "methods": [
+      {"name": "getDefault", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.ReturnMismatch",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.User"],
+    "implements": [],
+    "methods": [
+      {"name": "getName", "parameter_types": [], "return_type": "int", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.NarrowAccess",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": [],
+    "methods": [
+      {"name": "getId", "parameter_types": [], "return_type": "int", "modifiers": ["protected"]},
+      {"name": "validate", "parameter_types": [], "return_type": "boolean", "modifiers": ["protected"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.NarrowReturn",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Entity"],
+    "implements": [],
+    "methods": [
+      {"name": "getId", "parameter_types": [], "return_type": "int", "modifiers": ["public"]},
+      {"name": "validate", "parameter_types": [], "return_type": "int", "modifiers": ["protected"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.OverrideFinal",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.Document"],
+    "implements": [],
+    "methods": [
+      {"name": "getTitle", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  },
+  {
+    "canonical_name": "errors.DeepFinal",
+    "kind": "class",
+    "modifiers": ["public"],
+    "extends": ["app.SubDoc"],
+    "implements": [],
+    "methods": [
+      {"name": "getTitle", "parameter_types": [], "return_type": "java.lang.String", "modifiers": ["public"]}
+    ],
+    "constructors": [{"parameter_types": [], "modifiers": ["public"]}]
+  }
+]}

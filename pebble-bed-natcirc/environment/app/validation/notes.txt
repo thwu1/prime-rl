@@ -1,0 +1,23 @@
+VALIDATION COMPARISON REPORT
+==========================================================================
+Code Under Test : natcirc_sim (initial revision)
+Reference Code  : Independently validated natural circulation solver
+Configuration   : GPBR-200 pebble-bed HTGR, post-shutdown decay heat removal
+Date            : 2025-08-15
+
+STATUS: FAIL — Discrepancies exceed all acceptance criteria
+==========================================================================
+
+The simulation output diverges systematically from the independently
+validated reference code across all output quantities and all time
+points. The magnitude and pattern of deviations suggest multiple
+independent defects across the simulation stack.
+
+Acceptance criteria for safety analysis qualification:
+  - Mass flow rate:   within 3% relative error
+  - Temperatures:     within 5 K absolute error
+  - Core pressure drop: within 3% relative error
+
+Full review of all system components — including compiled libraries,
+runtime configuration, and the Python orchestration layer — required
+prior to use in safety analysis support.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing affine (multiply-add) lazy propagation for a persistent segment tree — a combination rarely found as a single packaged algorithm. The solver must: (1) derive the correct composition rule for two-component lazy transforms (the affine semigroup law: applying (m2,a2) after (m1,a1) yields (m2*m1, m2*a1+a2)), (2) design push-down logic that distributes composed transforms to children using correct per-child range sizes under modular arithmetic, (3) ensure path-copying persistence correctly preserves pending lazy state across version forks (the skeleton's copy_of resets lazy to identity instead of copying it), and (4) implement both range-update and range-query from incomplete stubs while handling u64 modular arithmetic without overflow. The skeleton contains multiple interacting bugs: copy_of drops lazy state, push ignores the multiplicative component and uses wrong child sizes, update_affine and query_sum are unimplemented stubs."""
+solution_explanation = """Four functions in persistent_segtree.rs must be fixed or implemented: (1) copy_of() must copy lazy_mul and lazy_add from the source node instead of resetting to identity, preserving deferred transforms across version forks. (2) push() must apply the full affine transform (mul, add) to each child via sum[child] = (mul * sum[child] + add * child_size) mod P, then compose with child's existing lazy via the semigroup law (m2*m1, m2*a1 + a2), using correct child sizes (mid-lo+1, hi-mid). (3) update_affine() must path-copy the current node, apply the affine transform if fully contained, otherwise push and recurse on children. (4) query_sum() must return the node sum if fully contained, otherwise push and recurse, combining results additively mod P."""
+verification_explanation = """Compile with cargo build --release, then run against 5 crafted test files covering: basic affine operations with mixed multiply/add/zero-out transforms, single-element edge case, stacked transforms across chained versions, modular arithmetic near P boundaries (including multiplication by P-1), and forked versions with partial-range transforms. A randomized stress test with 50 elements and 200 operations compares output against a Python brute-force simulator. A performance test with 100,000 elements verifies O(N log N) time complexity within 10 seconds."""
+category = "algorithm-design"
+tags = ["persistent-data-structures", "modular-arithmetic"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-segtree-debug"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level nuclear thermal-hydraulics knowledge combined with multi-language systems debugging. The agent must diagnose three independent physics defects across a mixed Fortran/Python simulation stack: (1) incorrect packed-bed friction constant in a Fortran shared library requiring source editing and recompilation via make/gfortran, (2) wrong gas transport property model in Python (Sutherland vs power-law viscosity), and (3) a disabled chimney buoyancy flag in a SQLite runtime configuration database requiring SQL inspection and modification. Cross-cutting skills in Fortran compilation, ctypes FFI debugging, SQLite CLI, and nuclear packed-bed thermal hydraulics are all required."""
+solution_explanation = """Fix three bugs across the stack: (1) In src/packed_bed.f90, change the Ergun viscous constant from 180 to 150 and rebuild with make. (2) In helium.py, replace hardcoded Sutherland viscosity law with the power-law correlation mu = mu_coeff * T^mu_exp using parameters from reactor.toml, and update loop.py to pass these parameters. (3) Use sqlite3 to update the include_chimney_buoyancy flag from 0 to 1 in reactor.db's solver_options table. Then re-run the simulation to produce corrected results.csv."""
+verification_explanation = """Tests verify: (1) output file format and structure, (2) physical consistency (monotonic trends, energy conservation, temperature ordering), (3) numerical accuracy against an independent reference solver embedded in the test code (3% tolerance for flow/pressure, 5K for temperatures), and (4) momentum balance verification confirming buoyancy equals friction at the computed flow rate."""
+category = "nuclear-engineering"
+tags = ["thermal-hydraulics", "multi-language-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pebble-bed-natcirc"

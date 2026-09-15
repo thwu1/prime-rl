@@ -1,0 +1,794 @@
+{
+  "(4096,4096,4096)": [
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 64,
+        "num_pid_n": 64,
+        "num_tiles": 4096,
+        "active_sms": 108,
+        "tiles_per_sm_max": 38,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 1365.3333333333333,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 311.39181286549706,
+        "estimated_time_ms": 0.44136983630769233,
+        "wave_utilization": 0.9980506822612085
+      }
+    },
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 32,
+        "num_pid_n": 32,
+        "num_tiles": 1024,
+        "active_sms": 108,
+        "tiles_per_sm_max": 10,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 1365.3333333333333,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 295.82222222222225,
+        "estimated_time_ms": 0.4645998276923077,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 32,
+        "num_pid_n": 16,
+        "num_tiles": 512,
+        "active_sms": 108,
+        "tiles_per_sm_max": 5,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 1365.3333333333333,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 295.82222222222225,
+        "estimated_time_ms": 0.4645998276923077,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 32,
+        "num_pid_n": 32,
+        "num_tiles": 1024,
+        "active_sms": 108,
+        "tiles_per_sm_max": 10,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 1365.3333333333333,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 295.82222222222225,
+        "estimated_time_ms": 0.4645998276923077,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 137438953472.0,
+        "total_bytes": 100663296,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ],
+  "(2048,4096,1024)": [
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 32,
+        "num_pid_n": 64,
+        "num_tiles": 2048,
+        "active_sms": 108,
+        "tiles_per_sm_max": 19,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 585.1428571428571,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 311.39181286549706,
+        "estimated_time_ms": 0.05517122953846154,
+        "wave_utilization": 0.9980506822612085
+      }
+    },
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 16,
+        "num_pid_n": 32,
+        "num_tiles": 512,
+        "active_sms": 108,
+        "tiles_per_sm_max": 5,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 585.1428571428571,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 295.82222222222225,
+        "estimated_time_ms": 0.05807497846153846,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 16,
+        "num_pid_n": 32,
+        "num_tiles": 512,
+        "active_sms": 108,
+        "tiles_per_sm_max": 5,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 585.1428571428571,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 295.82222222222225,
+        "estimated_time_ms": 0.05807497846153846,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 16,
+        "num_pid_n": 16,
+        "num_tiles": 256,
+        "active_sms": 108,
+        "tiles_per_sm_max": 3,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 585.1428571428571,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 246.5185185185185,
+        "estimated_time_ms": 0.06968997415384616,
+        "wave_utilization": 0.7901234567901234
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 29360128,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ],
+  "(1024,1024,8192)": [
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 16,
+        "num_pid_n": 16,
+        "num_tiles": 256,
+        "active_sms": 108,
+        "tiles_per_sm_max": 3,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 481.88235294117646,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 246.5185185185185,
+        "estimated_time_ms": 0.06968997415384616,
+        "wave_utilization": 0.7901234567901234
+      }
+    },
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 8,
+        "num_pid_n": 8,
+        "num_tiles": 64,
+        "active_sms": 64,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 481.88235294117646,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 184.88888888888889,
+        "estimated_time_ms": 0.09291996553846155,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 8,
+        "num_pid_n": 8,
+        "num_tiles": 64,
+        "active_sms": 64,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 481.88235294117646,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 184.88888888888889,
+        "estimated_time_ms": 0.09291996553846155,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 8,
+        "num_pid_n": 4,
+        "num_tiles": 32,
+        "active_sms": 32,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 481.88235294117646,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 92.44444444444444,
+        "estimated_time_ms": 0.1858399310769231,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 17179869184.0,
+        "total_bytes": 35651584,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ],
+  "(768,2048,4096)": [
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 6,
+        "num_pid_n": 16,
+        "num_tiles": 96,
+        "active_sms": 96,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 491.52,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 277.3333333333333,
+        "estimated_time_ms": 0.04645998276923077,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 6,
+        "num_pid_n": 16,
+        "num_tiles": 96,
+        "active_sms": 96,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 491.52,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 277.3333333333333,
+        "estimated_time_ms": 0.04645998276923077,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 12,
+        "num_pid_n": 32,
+        "num_tiles": 384,
+        "active_sms": 108,
+        "tiles_per_sm_max": 4,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 491.52,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 277.3333333333333,
+        "estimated_time_ms": 0.04645998276923077,
+        "wave_utilization": 0.8888888888888888
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 6,
+        "num_pid_n": 8,
+        "num_tiles": 48,
+        "active_sms": 48,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 491.52,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 138.66666666666666,
+        "estimated_time_ms": 0.09291996553846155,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 12884901888.0,
+        "total_bytes": 26214400,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ],
+  "(512,512,512)": [
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 8,
+        "num_pid_n": 8,
+        "num_tiles": 64,
+        "active_sms": 64,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 170.66666666666666,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 184.88888888888889,
+        "estimated_time_ms": 0.0014518744615384617,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 4,
+        "num_pid_n": 4,
+        "num_tiles": 16,
+        "active_sms": 16,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 170.66666666666666,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 46.22222222222222,
+        "estimated_time_ms": 0.005807497846153847,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 4,
+        "num_pid_n": 4,
+        "num_tiles": 16,
+        "active_sms": 16,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 170.66666666666666,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 46.22222222222222,
+        "estimated_time_ms": 0.005807497846153847,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 4,
+        "num_pid_n": 2,
+        "num_tiles": 8,
+        "active_sms": 8,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 170.66666666666666,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 23.11111111111111,
+        "estimated_time_ms": 0.011614995692307693,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 268435456.0,
+        "total_bytes": 1572864,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ],
+  "(256,8192,256)": [
+    {
+      "config_id": 5,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 4,
+        "num_pid_n": 128,
+        "num_tiles": 512,
+        "active_sms": 108,
+        "tiles_per_sm_max": 5,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 126.03076923076924,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": false,
+        "attainable_tflops": 243.6520186894587,
+        "estimated_time_ms": 0.004406866110838646,
+        "wave_utilization": 0.9481481481481482
+      }
+    },
+    {
+      "config_id": 1,
+      "shared_mem_bytes": 147456,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 2,
+        "num_pid_n": 32,
+        "num_tiles": 64,
+        "active_sms": 64,
+        "tiles_per_sm_max": 1,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 126.03076923076924,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": true,
+        "attainable_tflops": 184.88888888888889,
+        "estimated_time_ms": 0.005807497846153847,
+        "wave_utilization": 1.0
+      }
+    },
+    {
+      "config_id": 0,
+      "shared_mem_bytes": 98304,
+      "occupancy": 1.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 2,
+        "num_pid_n": 64,
+        "num_tiles": 128,
+        "active_sms": 108,
+        "tiles_per_sm_max": 2,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 126.03076923076924,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": false,
+        "attainable_tflops": 152.28251168091168,
+        "estimated_time_ms": 0.007050985777341834,
+        "wave_utilization": 0.5925925925925926
+      }
+    },
+    {
+      "config_id": 4,
+      "shared_mem_bytes": 65536,
+      "occupancy": 2.0,
+      "is_valid": true,
+      "schedule_info": {
+        "num_pid_m": 2,
+        "num_pid_n": 64,
+        "num_tiles": 128,
+        "active_sms": 108,
+        "tiles_per_sm_max": 2,
+        "group_size_m": 8
+      },
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 126.03076923076924,
+        "ridge_point": 153.01618440411966,
+        "is_compute_bound": false,
+        "attainable_tflops": 152.28251168091168,
+        "estimated_time_ms": 0.007050985777341834,
+        "wave_utilization": 0.5925925925925926
+      }
+    },
+    {
+      "config_id": 2,
+      "shared_mem_bytes": 262144,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    },
+    {
+      "config_id": 3,
+      "shared_mem_bytes": 196608,
+      "occupancy": 0,
+      "is_valid": false,
+      "schedule_info": null,
+      "performance": {
+        "total_flops": 1073741824.0,
+        "total_bytes": 8519680,
+        "arithmetic_intensity": 0.0,
+        "ridge_point": 0.0,
+        "is_compute_bound": false,
+        "attainable_tflops": 0.0,
+        "estimated_time_ms": 0.0,
+        "wave_utilization": 0.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "spheres_radiator",
+  "type": "concentric_spheres",
+  "inner_radius": 0.3,
+  "outer_radius": 1.0,
+  "surfaces": [
+    {"name": "inner", "emissivity": 0.95, "condition": "temperature", "value": 800.0},
+    {"name": "outer", "emissivity": 0.60, "condition": "temperature", "value": 300.0}
+  ]
+}

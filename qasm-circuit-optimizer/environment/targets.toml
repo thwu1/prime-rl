@@ -1,0 +1,14 @@
+# Maximum allowed CX (CNOT) gate counts after optimization.
+# The optimizer must reduce each circuit's CX count to at or below these thresholds.
+
+[circuit_a]
+max_cx = 2
+
+[circuit_b]
+max_cx = 0
+
+[circuit_c]
+max_cx = 4
+
+[circuit_d]
+max_cx = 0

@@ -1,0 +1,41 @@
+{
+  "description": "Two-stage stochastic capacitated facility location problem. Stage 1: open facilities (binary). Stage 2: assign customers to open facilities under demand uncertainty.",
+  "unit_transport_cost": 0.5,
+  "facilities": [
+    {"id": 0, "x": 10, "y": 10, "fixed_cost": 100, "capacity": 60},
+    {"id": 1, "x": 30, "y": 10, "fixed_cost": 120, "capacity": 70},
+    {"id": 2, "x": 50, "y": 10, "fixed_cost": 110, "capacity": 65},
+    {"id": 3, "x": 10, "y": 30, "fixed_cost": 90,  "capacity": 55},
+    {"id": 4, "x": 30, "y": 30, "fixed_cost": 130, "capacity": 80},
+    {"id": 5, "x": 50, "y": 30, "fixed_cost": 105, "capacity": 60},
+    {"id": 6, "x": 20, "y": 50, "fixed_cost": 95,  "capacity": 50},
+    {"id": 7, "x": 40, "y": 50, "fixed_cost": 115, "capacity": 75}
+  ],
+  "customers": [
+    {"id": 0,  "x": 5,  "y": 5},
+    {"id": 1,  "x": 15, "y": 8},
+    {"id": 2,  "x": 25, "y": 5},
+    {"id": 3,  "x": 35, "y": 8},
+    {"id": 4,  "x": 45, "y": 5},
+    {"id": 5,  "x": 55, "y": 8},
+    {"id": 6,  "x": 8,  "y": 25},
+    {"id": 7,  "x": 22, "y": 20},
+    {"id": 8,  "x": 38, "y": 22},
+    {"id": 9,  "x": 52, "y": 25},
+    {"id": 10, "x": 12, "y": 42},
+    {"id": 11, "x": 28, "y": 45},
+    {"id": 12, "x": 42, "y": 42},
+    {"id": 13, "x": 18, "y": 55},
+    {"id": 14, "x": 48, "y": 55}
+  ],
+  "scenarios": [
+    {"probability": 0.125, "demands": [6, 4, 7, 5, 8, 3, 6, 5, 4, 7, 3, 6, 5, 4, 7]},
+    {"probability": 0.125, "demands": [5, 7, 3, 8, 4, 6, 5, 7, 6, 3, 8, 4, 7, 5, 3]},
+    {"probability": 0.125, "demands": [8, 3, 5, 4, 6, 7, 4, 8, 3, 5, 6, 7, 4, 8, 3]},
+    {"probability": 0.125, "demands": [4, 6, 8, 7, 3, 5, 7, 3, 8, 6, 5, 8, 3, 6, 4]},
+    {"probability": 0.125, "demands": [7, 5, 4, 6, 7, 8, 3, 6, 5, 4, 7, 3, 8, 3, 6]},
+    {"probability": 0.125, "demands": [3, 8, 6, 3, 5, 4, 8, 4, 7, 8, 4, 5, 6, 7, 5]},
+    {"probability": 0.125, "demands": [5, 4, 7, 8, 6, 5, 4, 7, 3, 6, 8, 7, 4, 5, 6]},
+    {"probability": 0.125, "demands": [6, 7, 3, 5, 4, 6, 7, 5, 6, 4, 5, 6, 7, 8, 4]}
+  ]
+}

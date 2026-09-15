@@ -1,0 +1,12 @@
+[mysqld]
+socket = /tmp/mysql.sock
+pid-file = /tmp/mysql.pid
+innodb_use_native_aio = 0
+tmpdir = /var/lib/mysql-tmp
+skip-networking
+
+[client]
+socket = /tmp/mysql.sock
+
+[mysqladmin]
+socket = /tmp/mysql.sock

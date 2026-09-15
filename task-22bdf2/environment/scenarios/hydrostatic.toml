@@ -1,0 +1,24 @@
+[grid]
+numX = 20
+numY = 20
+h = 0.05
+
+[physics]
+density = 1000.0
+gravity = -9.81
+dt = 0.008333
+num_iters = 40
+over_relaxation = 1.9
+
+[boundary]
+type = "tank"
+inflow_velocity = 0.0
+
+[obstacle]
+enabled = false
+
+[smoke]
+enabled = false
+
+[simulation]
+num_steps = 300

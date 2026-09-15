@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["baseline_label", "candidate_label", "alpha", "metrics", "overall_verdict"],
+  "properties": {
+    "baseline_label": {"type": "string"},
+    "candidate_label": {"type": "string"},
+    "alpha": {"type": "number", "description": "Significance level, fixed at 0.05"},
+    "metrics": {
+      "type": "object",
+      "description": "One entry per metric: wall_time_ns, cpu_cycles, cache_misses, peak_rss_bytes",
+      "patternProperties": {
+        ".*": {
+          "type": "object",
+          "required": ["baseline", "candidate", "comparison"],
+          "properties": {
+            "baseline": {"$ref": "#/$defs/run_stats"},
+            "candidate": {"$ref": "#/$defs/run_stats"},
+            "comparison": {"$ref": "#/$defs/comparison"}
+          }
+        }
+      }
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": ["regression", "improvement", "no_change"],
+      "description": "regression if ANY metric regressed; improvement if any improved and none regressed; no_change otherwise"
+    }
+  },
+  "$defs": {
+    "run_stats": {
+      "type": "object",
+      "required": ["mean", "median", "std_dev", "q1", "q3", "n", "outlier_indices"],
+      "properties": {
+        "mean": {"type": "number"},
+        "median": {"type": "number"},
+        "std_dev": {"type": "number", "description": "Sample standard deviation with Bessel correction (n-1 denominator)"},
+        "q1": {"type": "number", "description": "First quartile via exclusive median-of-halves: median of first n//2 sorted elements"},
+        "q3": {"type": "number", "description": "Third quartile via exclusive median-of-halves: median of last n-(n+1)//2 sorted elements"},
+        "n": {"type": "integer"},
+        "outlier_indices": {
+          "type": "array",
+          "items": {"type": "integer"},
+          "description": "Indices (into original unsorted data) of samples identified as outliers. For n<4, return empty."
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": [
+        "mean_diff", "pct_change", "test_statistic", "degrees_of_freedom",
+        "p_value_raw", "p_value_adjusted", "effect_size", "effect_size_class",
+        "ci_lower", "ci_upper", "verdict"
+      ],
+      "properties": {
+        "mean_diff": {"type": "number", "description": "candidate_mean - baseline_mean (computed on full data)"},
+        "pct_change": {"type": "number", "description": "(candidate_mean - baseline_mean) / baseline_mean * 100"},
+        "test_statistic": {"type": "number", "description": "Two-sample test statistic comparing clean (outlier-removed) data"},
+        "degrees_of_freedom": {"type": "number", "description": "Degrees of freedom for the test (may be fractional for unequal-variance tests)"},
+        "p_value_raw": {"type": "number", "minimum": 0, "maximum": 1, "description": "Unadjusted two-tailed p-value from the theoretical continuous distribution"},
+        "p_value_adjusted": {"type": "number", "minimum": 0, "maximum": 1, "description": "P-value after family-wise error rate correction across all metrics"},
+        "effect_size": {"type": "number", "minimum": -1, "maximum": 1, "description": "Non-parametric dominance-based effect size on clean data"},
+        "effect_size_class": {
+          "type": "string",
+          "enum": ["negligible", "small", "medium", "large"],
+          "description": "Classification of |effect_size|: <0.147 negligible, <0.33 small, <0.474 medium, >=0.474 large"
+        },
+        "ci_lower": {"type": "number", "description": "Lower bound of 95% resampling-based confidence interval for the difference (on clean data)"},
+        "ci_upper": {"type": "number", "description": "Upper bound of 95% confidence interval"},
+        "verdict": {
+          "type": "string",
+          "enum": ["regression", "improvement", "no_change"],
+          "description": "no_change if p_value_adjusted >= alpha; regression if significant and pct_change > 0; improvement if significant and pct_change < 0"
+        }
+      }
+    }
+  }
+}

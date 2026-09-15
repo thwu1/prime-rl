@@ -1,0 +1,31 @@
+c Weighted minimum vertex cover on the Petersen graph
+c 10 variables, 15 hard clauses (edges), 10 soft clauses (vertex weights)
+c Outer cycle
+h 1 2 0
+h 2 3 0
+h 3 4 0
+h 4 5 0
+h 5 1 0
+c Inner pentagram
+h 6 8 0
+h 8 10 0
+h 10 7 0
+h 7 9 0
+h 9 6 0
+c Spokes
+h 1 6 0
+h 2 7 0
+h 3 8 0
+h 4 9 0
+h 5 10 0
+c Vertex weights (penalty for including vertex in cover)
+12 -1 0
+5 -2 0
+8 -3 0
+3 -4 0
+15 -5 0
+7 -6 0
+2 -7 0
+11 -8 0
+4 -9 0
+9 -10 0

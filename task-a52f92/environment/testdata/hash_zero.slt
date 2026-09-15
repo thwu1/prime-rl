@@ -1,0 +1,23 @@
+# hash-threshold 0 should disable hashing entirely
+
+hash-threshold 0
+
+statement ok
+CREATE TABLE hz(x INTEGER)
+
+statement ok
+INSERT INTO hz VALUES(1)
+
+statement ok
+INSERT INTO hz VALUES(2)
+
+statement ok
+INSERT INTO hz VALUES(3)
+
+# With threshold 0, hashing must never be used regardless of value count
+query I nosort
+SELECT x FROM hz ORDER BY x
+----
+1
+2
+3

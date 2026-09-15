@@ -1,0 +1,27 @@
+{
+  "fresnel_dielectric": {
+    "<angle_deg>": "<float: unpolarized Fresnel reflectance>"
+  },
+  "fresnel_conductor": {
+    "<angle_deg>": ["<float: R>", "<float: G>", "<float: B>"]
+  },
+  "energy_conservation": {
+    "<angle_deg>": {
+      "reflectance": "<float>",
+      "transmittance": "<float>",
+      "sum": "<float: R+T, should equal 1.0>"
+    }
+  },
+  "critical_angle_deg": "<float: critical angle in degrees for glass-to-air TIR>",
+  "refracted_angle_30": "<float: Snell's law refracted angle in degrees for theta_i=30 air-to-glass>",
+  "beckmann_ndf": {
+    "<half_vector_angle_deg>": "<float: D(theta_h) for given alpha>"
+  },
+  "smith_g1": {
+    "<view_angle_deg>": "<float: G1(theta_v) for given alpha>"
+  },
+  "bsdf_eval": {
+    "<label>": ["<float: R>", "<float: G>", "<float: B>"]
+  },
+  "mc_reflectance_conductor": ["<float: R>", "<float: G>", "<float: B>"]
+}

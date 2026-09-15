@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OWL DL semantics to parse ontologies containing owl:equivalentClass definitions with owl:intersectionOf and owl:Restriction (owl:someValuesFrom) constructs, extract class hierarchies with disjointness axioms, and build a multi-class alignment classifier distinguishing five semantic relation types (equivalence, superclass, subclass, overlap, disjoint). The ontologies use different organizational principles and naming conventions, with complex OWL axioms encoding scope constraints that affect class denotation beyond surface labels. The small training set (18 labeled pairs) forces the solver to design generalizable heuristics combining lexical, structural, and logical features rather than overfitting. Correctly classifying subsumption direction and overlap requires multi-hop hierarchy traversal, cross-ontology domain mapping via restriction semantics, and understanding how inherited disjointness propagates through class hierarchies."""
+solution_explanation = """Parse both OWL ontologies with rdflib extracting class URIs, labels, descriptions, alt-labels, parent-child hierarchy, disjointness axioms, equivalent class definitions (intersectionOf + Restriction), and subClassOf restriction axioms. For each candidate pair compute features: normalized label token Jaccard similarity, description token overlap, hierarchy depth comparison, ancestor domain classification, cross-domain disjointness signals from owl:disjointWith axioms, and restriction scope similarity from equivalent class definitions. Use a rule-based classifier calibrated on the reference sample: high combined similarity maps to equivalence; descendant-of-equivalent maps to superclass/subclass with direction from hierarchy position; same domain with moderate similarity maps to overlap; different disjoint domains maps to disjoint."""
+verification_explanation = """Tests parse the agent's alignment_output.csv and compare against a held-out gold standard of 80 annotated pairs. Structural checks verify the output is valid CSV with required columns, all pairs present without duplicates, all relations are valid symbols, and at least 3 distinct relation types are predicted. Weighted macro F1 is computed across all five relation types with a minimum threshold of 0.45."""
+category = "data_processing"
+tags = ["ontology-alignment", "semantic-web"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ontology-alignment-classifier"

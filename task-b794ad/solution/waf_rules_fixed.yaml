@@ -1,0 +1,23 @@
+# Patched WAF Rule Configuration - Layer 1
+# Fixes: Y01 covers UNION ALL/DISTINCT, Y03 covers schema aliases,
+# preprocessing normalizes form-feed/vertical-tab, trusted headers removed
+version: "1.0"
+
+rules:
+  - id: Y01
+    pattern: "(?i)\\bunion\\s+(all\\s+|distinct\\s+)?select\\b"
+    description: "UNION SELECT injection"
+    severity: critical
+  - id: Y02
+    pattern: "(?i)\\bor\\b\\s+\\S+\\s*=\\s*\\S+"
+    description: "OR-based tautology"
+    severity: high
+  - id: Y03
+    pattern: "(?i)\\b(information_schema|sqlite_master|sqlite_schema|sqlite_temp_master|sqlite_temp_schema)\\b"
+    description: "Schema discovery"
+    severity: critical
+
+preprocessing:
+  url_decode: true
+  normalize_whitespace: "[\\t\\r\\n\\x0b\\x0c]"
+  strip_nulls: true

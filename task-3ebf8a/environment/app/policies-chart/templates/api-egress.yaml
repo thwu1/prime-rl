@@ -1,0 +1,39 @@
+{{- if .Values.apiEgress.enabled }}
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "api-egress"
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: api
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        tier: data
+    toPorts:
+    - ports:
+      - port: {{ .Values.apiEgress.dbPort | quote }}
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        tier: cache
+    toPorts:
+    - ports:
+      - port: {{ .Values.apiEgress.cachePort | quote }}
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        tier: web
+    toPorts:
+    - ports:
+      - port: {{ .Values.apiEgress.webPort | quote }}
+        protocol: TCP
+  egressDeny:
+  - toCIDRSet:
+    - cidr: {{ .Values.apiEgress.denyExternalCIDR | quote }}
+      except:
+      {{- range .Values.apiEgress.denyExternalExcept }}
+      - {{ . | quote }}
+      {{- end }}
+{{- end }}

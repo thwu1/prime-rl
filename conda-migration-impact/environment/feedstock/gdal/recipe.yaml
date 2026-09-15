@@ -1,0 +1,66 @@
+context:
+  name: gdal
+  version: "3.8.4"
+
+outputs:
+  - package:
+      name: libgdal
+      version: ${{ version }}
+    build:
+      number: 0
+      run_exports:
+        - ${{ pin_subpackage('libgdal', max_pin='x.x') }}
+      ignore_run_exports_from:
+        - libxml2
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+        - cmake
+        - ninja
+        - pkg-config
+      host:
+        - libpng
+        - libtiff
+        - libcurl
+        - libhdf5
+        - libxml2
+        - proj
+        - netcdf4-c
+      run: []
+    test:
+      commands:
+        - test -f $PREFIX/lib/libgdal.so
+        - gdal-config --version
+        - ogrinfo --version
+    about:
+      homepage: https://gdal.org
+      license: MIT
+      license_file: LICENSE.TXT
+      summary: GDAL geospatial data abstraction library
+
+  - package:
+      name: gdal-python
+      version: ${{ version }}
+    build:
+      number: 0
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+      host:
+        - ${{ pin_subpackage('libgdal', exact=True) }}
+        - numpy
+        - python
+      run:
+        - ${{ pin_subpackage('libgdal', exact=True) }}
+        - numpy
+        - python
+    test:
+      commands:
+        - python -c "from osgeo import gdal; print(gdal.VersionInfo())"
+    about:
+      homepage: https://gdal.org
+      license: MIT
+      license_file: LICENSE.TXT
+      summary: GDAL Python bindings

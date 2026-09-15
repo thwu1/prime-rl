@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a binary wire protocol from Rust source code: the agent must read and comprehend a full serde-based serializer/deserializer (variable-length integer encoding, signed integer mapping, fixed-width floats, raw byte types) plus a byte-stuffing framing layer with tricky boundary edge cases. The agent must then translate all of this into a working Python implementation that handles recursive schema-driven serialization/deserialization across structs, enums with four variant kinds (unit, newtype, tuple, struct), sequences, maps, options, tuple structs, and nested type references. Additionally, the agent must cross-validate their framing implementation against a compiled C reference binary using subprocess invocation, analyze pre-generated binary test vector files using xxd, and decode a framed binary stream — requiring proficiency with gcc-compiled binaries, hex dump tools, and multi-tool interoperability between C and Python."""
+solution_explanation = """Study the Rust serializer to discover the variable-length integer encoding scheme, the signed-to-unsigned transform for signed integers, raw LE bytes for floats, and the byte-stuffing framing algorithm with its block boundary behavior. Parse the Rust type definitions to understand the data model. Use xxd to inspect the binary vector files at /app/vectors/ and the C reference binary at /app/reference/cobs_ref to validate understanding. Build a recursive Python serializer/deserializer resolving named type references from the schema, handling struct fields in definition order, enum discriminants, sequences/maps/strings/bytes with length prefixes, options, and tuples. Combine with byte-stuffing encode/decode for framing that passes cross-validation against the C reference."""
+verification_explanation = """Tests verify each codec layer independently: varint encode/decode with spec-derived test vectors including overflow and overlong rejection, zigzag encode/decode including roundtrip over wide range, byte-stuffing encode/decode against reference vectors including boundary edge cases, and randomized roundtrip. Schema-driven serialization is verified against hand-computed expected byte sequences for structs, all four enum variant types, nested types, maps, options, and tuple structs. Full pipeline tests verify serialize->frame->unframe->deserialize integrity across multiple message types. Canonicalization and max-length tests verify validation logic. Binary vector tests verify the Python implementation matches pre-generated C reference output from /app/vectors/. Cross-validation tests invoke the C reference binary /app/reference/cobs_ref via subprocess on random inputs to verify encode/decode interoperability between Python and C."""
+category = "systems_programming"
+tags = ["binary-protocol-analysis", "embedded-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9a8f3f"

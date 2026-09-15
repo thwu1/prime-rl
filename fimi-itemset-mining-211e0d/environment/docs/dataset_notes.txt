@@ -1,0 +1,27 @@
+Dataset Format Notes
+====================
+
+Standard FIMI Format
+--------------------
+The standard FIMI dataset format uses ASCII text:
+  - Each transaction is stored on a separate line
+  - Items are space-separated non-negative integers
+  - Each transaction is sorted ascending
+  - Each item appears at most once per transaction
+
+Raw / Non-standard Datasets
+----------------------------
+Some datasets in /app/data/raw/ may use non-standard formats including:
+  - Different field separators (commas, pipes, tabs)
+  - Header or comment lines
+  - Transaction identifiers or metadata columns
+  - Duplicate items within transactions
+  - Unsorted item orderings
+
+These datasets must be normalized to standard FIMI format before mining.
+
+Available Benchmark Datasets
+-----------------------------
+  chess.dat     - UCI/Bayardo, 3196 transactions, 75 items, dense
+  mushroom.dat  - UCI/Bayardo, 8124 transactions, 119 items, dense
+  retail.dat    - Belgian retail, 88162 transactions, 16470 items, sparse

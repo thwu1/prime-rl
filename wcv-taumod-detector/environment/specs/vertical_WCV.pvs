@@ -1,0 +1,62 @@
+% ============================================================
+% vertical_WCV: Vertical Well-Clear Volume
+% From NASA DAIDALUS PVS Formal Specification
+% ============================================================
+%
+% Parameters: TCOA (time to co-altitude threshold, nnreal), ZTHR (altitude threshold, posreal)
+%
+% --- tcoa definition ---
+%
+% tcoa(sz, vz): real =
+%   IF vz = 0 THEN -1
+%   ELSE -(sz / vz)
+%   ENDIF
+%
+% tcoa gives the time until the vertical separation becomes zero.
+% Negative tcoa means aircraft are diverging vertically.
+%
+% --- vertical_WCV definition ---
+%
+% vertical_WCV(sz, vz): bool =
+%   abs(sz) <= ZTHR OR
+%   (0 <= tcoa(sz, vz) AND tcoa(sz, vz) <= TCOA)
+%
+% Interpretation:
+%   - TRUE if current vertical separation is within ZTHR, OR
+%   - TRUE if aircraft will reach co-altitude within TCOA seconds
+%
+% --- vertical_WCV_interval ---
+%
+% vertical_WCV_interval(B, T, sz, vz): EntryExit[B, T] =
+%   IF vz = 0 AND abs(sz) <= ZTHR THEN WholeInterval[B, T]
+%   ELSIF vz = 0 THEN EmptyInterval[B, T]
+%   ELSE
+%     LET (centry, cexit) = coalt_entry_exit(sz, vz)
+%     IN IF T < centry OR cexit < B THEN EmptyInterval[B, T]
+%        ELSE (# entry := max(B, centry), exit := min(T, cexit) #)
+%        ENDIF
+%   ENDIF
+%
+% --- coalt_entry_exit ---
+%
+% coalt_entry_exit(sz, vz): (entry, exit) =
+%   LET act_H = max(ZTHR, abs(vz) * TCOA)
+%   IN ( Theta_H[act_H](sz, vz, -1), Theta_H[ZTHR](sz, vz, 1) )
+%
+% Where:
+%   Theta_H[H](sz, vz, eps): real = (eps * H - sz) / vz
+%
+%   eps = -1: time when sz + t*vz = -H  (lower boundary crossing)
+%   eps = +1: time when sz + t*vz = +H  (upper boundary crossing)
+%
+% IMPORTANT: The entry uses act_H (which may be larger than ZTHR when
+% abs(vz)*TCOA > ZTHR) while the exit always uses ZTHR. This ensures
+% the interval captures both the altitude threshold AND the tcoa constraint.
+%
+% The property that must hold: entry < exit (guaranteed by PVS type system)
+%
+% For the common case TCOA = 0: act_H = ZTHR, so both boundaries use ZTHR.
+% The interval is simply {t : |sz + t*vz| <= ZTHR}.
+%
+% For TCOA > 0 and large |vz|: act_H = |vz|*TCOA may exceed ZTHR,
+% giving an earlier entry time (more conservative alerting).

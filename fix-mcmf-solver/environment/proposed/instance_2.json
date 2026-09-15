@@ -1,0 +1,11 @@
+{
+    "edge_flows": [
+        {"from": "A", "to": "H", "flow": 6},
+        {"from": "B", "to": "H", "flow": 3},
+        {"from": "A", "to": "X", "flow": 2},
+        {"from": "B", "to": "Z", "flow": 1},
+        {"from": "H", "to": "X", "flow": 3},
+        {"from": "H", "to": "Y", "flow": 4},
+        {"from": "H", "to": "Z", "flow": 2}
+    ]
+}

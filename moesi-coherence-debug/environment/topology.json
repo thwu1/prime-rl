@@ -1,0 +1,48 @@
+{
+  "system": {
+    "num_cores": 8,
+    "cores_per_chiplet": 4,
+    "block_size_bytes": 64
+  },
+  "chiplets": [
+    {
+      "id": 0,
+      "cores": [0, 1, 2, 3],
+      "local_memory_controller": true,
+      "noc_topology": "mesh"
+    },
+    {
+      "id": 1,
+      "cores": [4, 5, 6, 7],
+      "local_memory_controller": true,
+      "noc_topology": "mesh"
+    }
+  ],
+  "address_mapping": {
+    "scheme": "block_interleave",
+    "block_bits": 6,
+    "stripe_width_bytes": 64
+  },
+  "latency_model": {
+    "l1_hit_cycles": 1,
+    "local_directory_cycles": 10,
+    "remote_directory_cycles": 50,
+    "shared_cache_hit_cycles": 8,
+    "memory_writeback_cycles": 100,
+    "local_invalidation_cycles": 5,
+    "remote_invalidation_cycles": 25
+  },
+  "optimizations": [
+    {
+      "name": "owner_forwarding",
+      "parameter": "enable_owner_opt",
+      "goal": "Reduce memory writeback overhead during read-sharing of modified data"
+    },
+    {
+      "name": "chiplet_shared_cache",
+      "parameter": "enable_chiplet_cache",
+      "goal": "Reduce cross-chiplet traffic for repeated accesses to remote addresses",
+      "default_capacity": 16
+    }
+  ]
+}

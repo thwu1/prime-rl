@@ -1,0 +1,22 @@
+thresholds:
+  capacity_critical: 80.0
+  capacity_warning: 60.0
+  max_risk_score: 50
+required_sysctl:
+  vm.swappiness: 10
+  net.core.somaxconn: 65535
+  fs.file-max: 2097152
+required_groups:
+  - sysops
+  - appteam
+  - dbteam
+required_users:
+  - name: svc_deploy
+    uid: 6001
+    group: appteam
+  - name: svc_monitor
+    uid: 6002
+    group: sysops
+  - name: svc_backup
+    uid: 6003
+    group: dbteam

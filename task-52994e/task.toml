@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full Rubik's Cube cubie-level algebra from scratch: 6 basic face moves as corner/edge permutations with orientations, the composition rule with mod-3/mod-2 orientation arithmetic, cubie-to-facelet conversion using the 54-facelet mapping tables, three distinct coordinate encodings (base-3 twist, base-2 flip, factorial-number-system corner permutation via rotate-left Lehmer code), and permutation order computation via cycle decomposition accounting for orientation accumulation around cycles. Each component has subtle correctness requirements (e.g., orientation reference frame conventions, the 8th/12th orientation constraint, CW vs CCW twist semantics) where a single mistake propagates through all downstream results."""
+solution_explanation = """Implements the complete cubie-level algebra: defines the 6 basic moves (U/R/F/D/L/B) as (cp, co, ep, eo) tuples transcribed from the Kociemba reference, composes them via (A*B).perm[x]=A.perm[B.perm[x]] and (A*B).ori[x]=(A.ori[B.perm[x]]+B.ori[x]) mod m, converts cubie states to 54-char facelet strings using cornerFacelet/edgeFacelet/cornerColor/edgeColor lookup tables, computes twist/flip as base-3/base-2 numbers over 7/11 orientations, computes corner permutation coordinate via the rotate-left Lehmer code extraction, and determines the order by finding all corner and edge permutation cycles, summing orientations around each cycle mod 3/2, and taking the lcm of cycle contributions (k if orientation sum is 0, otherwise 3k or 2k)."""
+verification_explanation = """Tests contain a fully independent reference implementation of the cubie algebra that computes expected values for each scramble. Self-tests verify the reference (identity facelet string, R^4=identity, sexy move order=6). Agent results are compared field-by-field against reference values. Additionally, the claimed order is verified by iterating the state n times to confirm it yields identity, and minimality is checked by verifying no proper divisor n/p achieves identity."""
+category = "mathematics"
+tags = ["group-theory", "rubik-cube"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-52994e"

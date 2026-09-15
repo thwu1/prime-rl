@@ -1,0 +1,7 @@
+{
+  "name": "config-utils",
+  "version": "1.2.0",
+  "description": "Configuration file parser and merger",
+  "main": "index.js",
+  "license": "MIT"
+}

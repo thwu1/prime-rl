@@ -1,0 +1,10 @@
+inetnum:            172.20.12.0 - 172.20.12.63
+cidr:               172.20.12.0/26
+netname:            GAMMA-NET
+descr:              Gamma Network IPv4 Space
+country:            JP
+admin-c:            CAROL-DN42
+tech-c:             CAROL-DN42
+mnt-by:             GAMMA-MNT
+status:             ASSIGNED
+source:             DN42

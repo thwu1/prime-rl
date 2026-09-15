@@ -1,0 +1,3 @@
+[workspace]
+members = ["smart_debug", "smart_debug_tests"]
+resolver = "2"

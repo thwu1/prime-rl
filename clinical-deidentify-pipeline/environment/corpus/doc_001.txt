@@ -1,0 +1,23 @@
+Datum: 12-03-2024
+Patiënt: dhr. J.W. van der Berg (BSN: 123456782)
+Geboortedatum: 12-03-1985, leeftijd 39 jaar
+Patiëntnummer: 987654321
+
+Anamnese:
+Patiënt Jan van der Berg, 39 jaar oud, presenteerde zich op de afdeling cardiologie van het Universitair Medisch Centrum Groningen (UMCG) met klachten van pijn op de borst. Dhr. Van der Berg is woonachtig aan de Oude Ebbingestraat 42, 9712 HH te Groningen. Telefonisch bereikbaar op 06-23456789 en per e-mail op j.vanderberg@gmail.com.
+
+Voorgeschiedenis:
+- Hypertensie sinds 2018
+- Diabetes mellitus type 2
+
+Lichamelijk onderzoek:
+RR 145/92 mmHg, pols 82/min regulair. Cor: normale harttonen, geen souffles. Pulm: VAG, geen bijgeluiden.
+
+Beleid:
+Verwezen naar dr. Pietersen, cardioloog. Controle over 3 maanden op 12-06-2024.
+
+Getekend,
+dr. A.B. de Vries
+Huisarts
+Hoofdstraat 1, 9712 AB Groningen
+Tel: 050-3612345

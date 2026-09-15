@@ -1,0 +1,8 @@
+export { Doc } from './doc.js'
+export { Mappable, MapResult, StepMap, Mapping } from './map.js'
+export { Step, StepResult, ReplaceStep } from './step.js'
+export { Transform } from './transform.js'
+export { Rebaseable, rebaseSteps } from './rebase.js'
+export { compactTransform } from './compact.js'
+export { ChangeSpan, computeChangeSpans } from './spans.js'
+export { HistoryItem, UndoHistory } from './history.js'

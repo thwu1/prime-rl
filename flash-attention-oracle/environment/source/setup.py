@@ -1,0 +1,476 @@
+# Copyright (c) 2023, Tri Dao.
+
+import sys
+import functools
+import warnings
+import os
+import re
+import ast
+import glob
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Literal, Optional
+from packaging.version import parse, Version
+import platform
+
+from setuptools import setup, find_packages
+import subprocess
+
+import urllib.request
+import urllib.error
+from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+import torch
+from torch.utils.cpp_extension import (
+    BuildExtension,
+    CppExtension,
+    CUDAExtension,
+    CUDA_HOME,
+    ROCM_HOME,
+    IS_HIP_EXTENSION,
+)
+
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+
+# ninja build does not work unless include_dirs are abs path
+this_dir = os.path.dirname(os.path.abspath(__file__))
+
+BUILD_TARGET = os.environ.get("BUILD_TARGET", "auto")
+
+if BUILD_TARGET == "auto":
+    if IS_HIP_EXTENSION:
+        IS_ROCM = True
+    else:
+        IS_ROCM = False
+else:
+    if BUILD_TARGET == "cuda":
+        IS_ROCM = False
+    elif BUILD_TARGET == "rocm":
+        IS_ROCM = True
+
+PACKAGE_NAME = "flash_attn"
+
+BASE_WHEEL_URL = (
+    "https://github.com/Dao-AILab/flash-attention/releases/download/{tag_name}/{wheel_name}"
+)
+
+# FORCE_BUILD: Force a fresh build locally, instead of attempting to find prebuilt wheels
+# SKIP_CUDA_BUILD: Intended to allow CI to use a simple `python setup.py sdist` run to copy over raw files, without any cuda compilation
+FORCE_BUILD = os.getenv("FLASH_ATTENTION_FORCE_BUILD", "FALSE") == "TRUE"
+SKIP_CUDA_BUILD = os.getenv("FLASH_ATTENTION_SKIP_CUDA_BUILD", "FALSE") == "TRUE"
+# For CI, we want the option to build with C++11 ABI since the nvcr images use C++11 ABI
+FORCE_CXX11_ABI = os.getenv("FLASH_ATTENTION_FORCE_CXX11_ABI", "FALSE") == "TRUE"
+ROCM_BACKEND: Optional[Literal["triton", "ck"]] = None
+if IS_ROCM:
+    ROCM_BACKEND = "triton" if os.getenv("FLASH_ATTENTION_TRITON_AMD_ENABLE", "FALSE") == "TRUE" else "ck"
+NVCC_THREADS = os.getenv("NVCC_THREADS") or "4"
+
+
+@functools.lru_cache(maxsize=None)
+def cuda_archs() -> str:
+    return os.getenv("FLASH_ATTN_CUDA_ARCHS", "80;90;100;110;120").split(";")
+
+
+def get_platform():
+    """
+    Returns the platform name as used in wheel filenames.
+    """
+    if sys.platform.startswith("linux"):
+        return f'linux_{platform.uname().machine}'
+    elif sys.platform == "darwin":
+        mac_version = ".".join(platform.mac_ver()[0].split(".")[:2])
+        return f"macosx_{mac_version}_x86_64"
+    elif sys.platform == "win32":
+        return "win_amd64"
+    else:
+        raise ValueError("Unsupported platform: {}".format(sys.platform))
+
+
+def get_cuda_bare_metal_version(cuda_dir):
+    raw_output = subprocess.check_output([cuda_dir + "/bin/nvcc", "-V"], universal_newlines=True)
+    output = raw_output.split()
+    release_idx = output.index("release") + 1
+    bare_metal_version = parse(output[release_idx].split(",")[0])
+
+    return raw_output, bare_metal_version
+
+
+def add_cuda_gencodes(cc_flag, archs, bare_metal_version):
+    """
+    Adds -gencode flags based on nvcc capabilities:
+      - sm_80/90 (regular)
+      - sm_100/120 on CUDA >= 12.8
+      - Use 100f on CUDA >= 12.9 (Blackwell family-specific)
+      - Map requested 110 -> 101 if CUDA < 13.0 (Thor rename)
+      - Embed PTX for newest arch for forward compatibility
+    """
+    # Always-regular 80
+    if "80" in archs:
+        cc_flag += ["-gencode", "arch=compute_80,code=sm_80"]
+
+    # Hopper 9.0 needs >= 11.8
+    if bare_metal_version >= Version("11.8") and "90" in archs:
+        cc_flag += ["-gencode", "arch=compute_90,code=sm_90"]
+
+    # Blackwell 10.x requires >= 12.8
+    if bare_metal_version >= Version("12.8"):
+        if "100" in archs:
+            # CUDA 12.9 introduced "family-specific" for Blackwell (100f)
+            if bare_metal_version >= Version("12.9"):
+                cc_flag += ["-gencode", "arch=compute_100f,code=sm_100"]
+            else:
+                cc_flag += ["-gencode", "arch=compute_100,code=sm_100"]
+
+        if "120" in archs:
+            # sm_120 is supported in CUDA 12.8/12.9+ toolkits
+            if bare_metal_version >= Version("12.9"):
+                cc_flag += ["-gencode", "arch=compute_120f,code=sm_120"]
+            else:
+                cc_flag += ["-gencode", "arch=compute_120,code=sm_120"]
+
+
+        # Thor rename: 12.9 uses sm_101; 13.0+ uses sm_110
+        if "110" in archs:
+            if bare_metal_version >= Version("13.0"):
+                cc_flag += ["-gencode", "arch=compute_110f,code=sm_110"]
+            else:
+                # Provide Thor support for CUDA 12.9 via sm_101
+                if bare_metal_version >= Version("12.8"):
+                    cc_flag += ["-gencode", "arch=compute_101,code=sm_101"]
+                # else: no Thor support in older toolkits
+
+    # PTX for newest requested arch (forward-compat)
+    numeric = [a for a in archs if a.isdigit()]
+    if numeric:
+        newest = max(numeric, key=int)
+        cc_flag += ["-gencode", f"arch=compute_{newest},code=compute_{newest}"]
+
+    return cc_flag
+
+
+def get_hip_version():
+    return parse(torch.version.hip.split()[-1].rstrip('-').replace('-', '+'))
+
+
+def check_if_cuda_home_none(global_option: str) -> None:
+    if CUDA_HOME is not None:
+        return
+    warnings.warn(
+        f"{global_option} was requested, but nvcc was not found.  Are you sure your environment has nvcc available?  "
+        "If you're installing within a container from https://hub.docker.com/r/pytorch/pytorch, "
+        "only images whose names contain 'devel' will provide nvcc."
+    )
+
+
+def check_if_rocm_home_none(global_option: str) -> None:
+    if ROCM_HOME is not None:
+        return
+    warnings.warn(
+        f"{global_option} was requested, but hipcc was not found."
+    )
+
+
+def detect_hipify_v2():
+    try:
+        from torch.utils.hipify import __version__
+        from packaging.version import Version
+        if Version(__version__) >= Version("2.0.0"):
+            return True
+    except Exception as e:
+        print("failed to detect pytorch hipify version, defaulting to version 1.0.0 behavior")
+        print(e)
+    return False
+
+
+def append_nvcc_threads(nvcc_extra_args):
+    return nvcc_extra_args + ["--threads", NVCC_THREADS]
+
+
+def rename_cpp_to_cu(cpp_files):
+    for entry in cpp_files:
+        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")
+
+
+def validate_and_update_archs(archs):
+    # List of allowed architectures
+    allowed_archs = ["native", "gfx90a", "gfx942", "gfx950", "gfx1100", "gfx1101", "gfx1102", "gfx1150", "gfx1151", "gfx1200", "gfx1201"]
+
+    # Validate if each element in archs is in allowed_archs
+    assert all(
+        arch in allowed_archs for arch in archs
+    ), f"Invalid archs: {archs}. Allowed: {allowed_archs}"
+
+    if "native" in archs and len(archs) > 1:
+        raise ValueError(
+            f"'native' cannot be combined with explicit archs: {archs}. "
+            "Use either GPU_ARCHS='native' or GPU_ARCHS='gfx942;gfx950'."
+        )
+
+
+cmdclass = {}
+ext_modules = []
+
+# We want this even if SKIP_CUDA_BUILD because when we run python setup.py sdist we want the .hpp
+# files included in the source distribution, in case the user compiles from source.
+if IS_ROCM:
+    if ROCM_BACKEND == "triton":
+        if os.path.isdir(".git"):
+            subprocess.run(["git", "submodule", "update", "--init", "third_party/aiter"], check=True)
+        else:
+            assert os.path.isdir("third_party/aiter"), (
+                "third_party/aiter is missing, please use source distribution or git clone"
+            )
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--no-build-isolation", "third_party/aiter"],
+            check=True,
+        )
+    elif ROCM_BACKEND == "ck":
+        if os.path.isdir(".git"):
+            subprocess.run(["git", "submodule", "update", "--init", "csrc/composable_kernel"], check=True)
+        else:
+            assert os.path.exists("csrc/composable_kernel/example/ck_tile/01_fmha/generate.py"), (
+                "csrc/composable_kernel is missing, please use source distribution or git clone"
+            )
+else:
+    # CUDA: cutlass submodule
+    if os.path.isdir(".git"):
+        subprocess.run(["git", "submodule", "update", "--init", "csrc/cutlass"], check=True)
+    else:
+        assert os.path.exists("csrc/cutlass/include/cutlass/cutlass.h"), (
+            "csrc/cutlass is missing, please use source distribution or git clone"
+        )
+
+if not SKIP_CUDA_BUILD and not IS_ROCM:
+    print("\n\ntorch.__version__  = {}\n\n".format(torch.__version__))
+    TORCH_MAJOR = int(torch.__version__.split(".")[0])
+    TORCH_MINOR = int(torch.__version__.split(".")[1])
+
+    check_if_cuda_home_none("flash_attn")
+    # Check, if CUDA11 is installed for compute capability 8.0
+    cc_flag = []
+    if CUDA_HOME is not None:
+        _, bare_metal_version = get_cuda_bare_metal_version(CUDA_HOME)
+        if bare_metal_version < Version("11.7"):
+            raise RuntimeError(
+                "FlashAttention is only supported on CUDA 11.7 and above.  "
+                "Note: make sure nvcc has a supported version by running nvcc -V."
+            )
+        # Build -gencode (regular + PTX + family-specific 'f' when available)
+        add_cuda_gencodes(cc_flag, set(cuda_archs()), bare_metal_version)
+    else:
+        pass
+
+    # HACK: The compiler flag -D_GLIBCXX_USE_CXX11_ABI is set to be the same as
+    # torch._C._GLIBCXX_USE_CXX11_ABI
+    if FORCE_CXX11_ABI:
+        torch._C._GLIBCXX_USE_CXX11_ABI = True
+
+    nvcc_flags = [
+    "-O3",
+    "-std=c++17",
+    "-U__CUDA_NO_HALF_OPERATORS__",
+    "-U__CUDA_NO_HALF_CONVERSIONS__",
+    "-U__CUDA_NO_HALF2_OPERATORS__",
+    "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
+    "--expt-relaxed-constexpr",
+    "--expt-extended-lambda",
+    "--use_fast_math",
+    ]
+
+    compiler_c17_flag=["-O3", "-std=c++17"]
+    if sys.platform == "win32" and os.getenv('DISTUTILS_USE_SDK') == '1':
+        nvcc_flags.extend(["-Xcompiler", "/Zc:__cplusplus"])
+        compiler_c17_flag=["-O2", "/std:c++17", "/Zc:__cplusplus"]
+
+    ext_modules.append(
+        CUDAExtension(
+            name="flash_attn_2_cuda",
+            sources=[
+                "csrc/flash_attn/flash_api.cpp",
+                "csrc/flash_attn/src/flash_fwd_hdim32_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim32_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim64_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim64_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim96_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim96_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim128_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim128_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim192_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim192_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim256_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_fwd_hdim256_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim32_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim32_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim64_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim64_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim96_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim96_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim128_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim128_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim192_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim192_bf16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim256_fp16_sm80.cu",
+                "csrc/flash_attn/src/flash_bwd_hdim256_bf16_sm80.cu",
+            ],
+            extra_compile_args={
+                "cxx": compiler_c17_flag,
+                "nvcc": append_nvcc_threads(nvcc_flags + cc_flag),
+            },
+            include_dirs=[
+                Path(this_dir) / "csrc" / "flash_attn",
+                Path(this_dir) / "csrc" / "flash_attn" / "src",
+                Path(this_dir) / "csrc" / "cutlass" / "include",
+            ],
+        )
+    )
+
+
+def get_package_version():
+    with open(Path(this_dir) / "flash_attn" / "__init__.py", "r") as f:
+        version_match = re.search(r"^__version__\s*=\s*(.*)$", f.read(), re.MULTILINE)
+    public_version = ast.literal_eval(version_match.group(1))
+    local_version = os.environ.get("FLASH_ATTN_LOCAL_VERSION")
+    if local_version:
+        return f"{public_version}+{local_version}"
+    else:
+        return str(public_version)
+
+
+def get_wheel_url():
+    torch_version_raw = parse(torch.__version__)
+    torch_cuda_version = parse(str(torch.version.cuda))
+    python_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    platform_name = get_platform()
+    flash_version = get_package_version()
+    torch_version = f"{torch_version_raw.major}.{torch_version_raw.minor}"
+    cuda_version = f"{torch_cuda_version.major}{torch_cuda_version.minor}"
+    cxx11_abi = str(torch._C._GLIBCXX_USE_CXX11_ABI).upper()
+    wheel_filename = f"{PACKAGE_NAME}-{flash_version}+cu{cuda_version}torch{torch_version}cxx11abi{cxx11_abi}-{python_version}-{python_version}-{platform_name}.whl"
+    wheel_url = BASE_WHEEL_URL.format(
+        tag_name=f"v{flash_version}", wheel_name=wheel_filename
+    )
+    return wheel_url, wheel_filename
+
+
+class CachedWheelsCommand(_bdist_wheel):
+    """
+    The CachedWheelsCommand downloads prebuilt flash-attention wheels if available,
+    otherwise lets pip build from source.
+    """
+
+    def run(self):
+        if FORCE_BUILD:
+            return super().run()
+
+        wheel_url, wheel_filename = get_wheel_url()
+        print("Prebuilt wheel URL:", wheel_url)
+
+        try:
+            urllib.request.urlretrieve(wheel_url, wheel_filename)
+
+            # Make the archive
+            # Rewrite the wheel so that platlib is default
+            os.system(
+                "pip install wheel-filename"
+            )
+            from wheel_filename import parse_wheel_filename
+
+            parsed = parse_wheel_filename(wheel_filename)
+            if parsed.platform_tag != get_platform():
+                os.rename(
+                    wheel_filename,
+                    wheel_filename.replace(parsed.platform_tag, get_platform()),
+                )
+
+        except (urllib.error.HTTPError, urllib.error.URLError):
+            print("Precompiled wheel not found. Building from source...")
+            super().run()
+
+
+class NinjaBuildExtension(BuildExtension):
+    def __init__(self, *args, **kwargs) -> None:
+        # do not override env MAX_JOBS if already exists
+        if not os.environ.get("MAX_JOBS"):
+            import psutil
+
+            nvcc_threads = max(1, int(NVCC_THREADS))
+
+            # calculate the maximum allowed NUM_JOBS based on cores
+            max_num_jobs_cores = max(1, os.cpu_count() // 2)
+
+            # calculate the maximum allowed NUM_JOBS based on free memory
+            free_memory_gb = psutil.virtual_memory().available / (1024 ** 3)  # free memory in GB
+            # Assume worst-case peak observed memory usage of ~5GB per NVCC thread.
+            # Limit: peak_threads = max_jobs * nvcc_threads and peak_threads * 5GB <= free_memory.
+            max_num_jobs_memory = max(1, int(free_memory_gb / (5 * nvcc_threads)))
+
+            # pick lower value of jobs based on cores vs memory metric to minimize oom and swap usage during compilation
+            max_jobs = max(1, min(max_num_jobs_cores, max_num_jobs_memory))
+            print(
+                f"Auto set MAX_JOBS to `{max_jobs}`, NVCC_THREADS to `{nvcc_threads}`. "
+                "If you see memory pressure, please use a lower `MAX_JOBS=N` or `NVCC_THREADS=N` value."
+            )
+            os.environ["MAX_JOBS"] = str(max_jobs)
+
+        super().__init__(*args, **kwargs)
+
+    def build_extensions(self) -> None:
+        original_spawn = None
+        for ext in self.extensions:
+            # Get the original _write_ninja_file function
+            if hasattr(self, 'compiler') and hasattr(self.compiler, 'spawn'):
+                original_spawn = self.compiler.spawn
+        super().build_extensions()
+        if original_spawn is not None:
+            self.compiler.spawn = original_spawn
+
+
+install_requires = [
+    "torch",
+    "einops",
+]
+
+setup(
+    name=PACKAGE_NAME,
+    version=get_package_version(),
+    packages=find_packages(
+        exclude=(
+            "build",
+            "csrc",
+            "include",
+            "tests",
+            "dist",
+            "docs",
+            "benchmarks",
+            "flash_attn.egg-info",
+        )
+    ),
+    author="Tri Dao",
+    author_email="tri@tridao.me",
+    description="Flash Attention: Fast and Memory-Efficient Exact Attention",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/Dao-AILab/flash-attention",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: Unix",
+    ],
+    ext_modules=ext_modules,
+    cmdclass={"bdist_wheel": CachedWheelsCommand, "build_ext": NinjaBuildExtension}
+    if ext_modules
+    else {
+        "bdist_wheel": CachedWheelsCommand,
+    },
+    python_requires=">=3.9",
+    install_requires=install_requires,
+    setup_requires=[
+        "packaging",
+        "psutil",
+        "ninja",
+    ],
+)

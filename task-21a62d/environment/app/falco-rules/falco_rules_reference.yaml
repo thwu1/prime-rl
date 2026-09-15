@@ -1,0 +1,136 @@
+# Falco Rules Reference (subset of upstream defaults)
+# Provided as reference for writing custom detection rules.
+
+- macro: open_write
+  condition: (evt.type in (open,openat,openat2) and evt.is_open_write=true and fd.typechar='f' and fd.num>=0)
+
+- macro: open_read
+  condition: (evt.type in (open,openat,openat2) and evt.is_open_read=true and fd.typechar='f' and fd.num>=0)
+
+- macro: spawned_process
+  condition: (evt.type in (execve, execveat))
+
+- macro: container
+  condition: (container.id != host)
+
+- macro: interactive
+  condition: >
+    ((proc.aname=sshd and proc.name != sshd) or
+    proc.name=systemd-logind or proc.name=login)
+
+- macro: sensitive_files
+  condition: >
+    (fd.name in (/etc/shadow, /etc/sudoers, /etc/pam.conf, /etc/security/pwquality.conf) or
+      fd.directory in (/etc/sudoers.d, /etc/pam.d))
+
+- macro: proc_name_exists
+  condition: (not proc.name in ("<NA>","N/A"))
+
+- macro: never_true
+  condition: (evt.num=0)
+
+- macro: shell_procs
+  condition: (proc.name in (shell_binaries))
+
+- macro: server_procs
+  condition: (proc.name in (http_server_binaries, db_server_binaries, docker_binaries, sshd))
+
+- macro: run_by_package_mgmt_binaries
+  condition: (proc.aname in (package_mgmt_binaries, needrestart))
+
+- macro: user_known_shell_spawn_activities
+  condition: (never_true)
+
+- macro: user_known_package_manager_in_container
+  condition: (never_true)
+
+- macro: user_known_read_sensitive_files_activities
+  condition: (never_true)
+
+- list: shell_binaries
+  items: [ash, bash, csh, ksh, sh, tcsh, zsh, dash]
+
+- list: http_server_binaries
+  items: [nginx, httpd, httpd-foregroun, lighttpd, apache, apache2]
+
+- list: db_server_binaries
+  items: [mysqld, postgres, sqlplus]
+
+- list: package_mgmt_binaries
+  items: [rpm, dpkg, apt, apt-get, yum, pip, pip3, npm, gem, apk]
+
+- list: userexec_binaries
+  items: [sudo, su, suexec, dzdo]
+
+- list: network_tool_binaries
+  items: [nc, ncat, nmap, dig, tcpdump, tshark, ngrep, curl, wget]
+
+- list: sensitive_file_names
+  items: [/etc/shadow, /etc/sudoers, /etc/pam.conf, /etc/security/pwquality.conf]
+
+- list: sensitive_directory_names
+  items: [/, /etc, /etc/, /root, /root/]
+
+# Example rule: Terminal shell in container
+- rule: Terminal shell in container
+  desc: >
+    A shell was used as the entrypoint/exec point into a container with an attached terminal.
+    Parent process may have legitimately already exited and be unavailable for inspection.
+    If a shell spawned by something other than a login process, this could indicate a container breakout
+    or unauthorized interactive access.
+  condition: >
+    spawned_process
+    and container
+    and shell_procs
+    and proc.tty != 0
+    and container_entrypoint
+    and not user_known_shell_spawn_activities
+  output: >
+    A shell was spawned in a container with an attached terminal
+    (evt_type=%evt.type user=%user.name user_loginuid=%user.loginuid process=%proc.name
+    command=%proc.cmdline terminal=%proc.tty container_id=%container.id
+    container_name=%container.name image=%container.image.repository:%container.image.tag
+    pid=%proc.pid)
+  priority: WARNING
+  tags: [maturity_stable, container, shell, mitre_execution, T1059]
+
+# Example rule: Read sensitive file untrusted
+- rule: Read sensitive file untrusted
+  desc: >
+    An attempt to read any sensitive file (e.g. files containing user/password/authentication
+    information). Exceptions are made for known trusted programs.
+  condition: >
+    open_read
+    and sensitive_files
+    and proc_name_exists
+    and not proc.name in (user_mgmt_binaries, userexec_binaries, package_mgmt_binaries,
+     cron_binaries, read_sensitive_file_binaries, shell_binaries, hids_binaries)
+    and not user_known_read_sensitive_files_activities
+  output: >
+    Sensitive file opened for reading by non-trusted program
+    (file=%fd.name gparent=%proc.aname[2] evt_type=%evt.type user=%user.name
+    user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name
+    proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty
+    container_id=%container.id container_name=%container.name)
+  priority: WARNING
+  tags: [maturity_stable, host, container, filesystem, mitre_credential_access, T1555]
+
+# Example rule: Launch Package Management Process in Container
+- rule: Launch Package Management Process in Container
+  desc: >
+    Package management process ran inside container. Software packages should be installed
+    during build time, not at runtime in production.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (package_mgmt_binaries)
+    and not run_by_package_mgmt_binaries
+    and not user_known_package_manager_in_container
+  output: >
+    Package management process launched in container
+    (user=%user.name user_loginuid=%user.loginuid command=%proc.cmdline pid=%proc.pid
+    container_id=%container.id container_name=%container.name
+    image=%container.image.repository:%container.image.tag namespace=%k8s.ns.name
+    pod_name=%k8s.pod.name)
+  priority: ERROR
+  tags: [maturity_stable, container, process, mitre_persistence, T1505]

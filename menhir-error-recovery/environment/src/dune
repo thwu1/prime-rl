@@ -1,0 +1,9 @@
+(executable
+ (name driver)
+ (libraries menhirLib))
+
+(menhir
+ (modules parser)
+ (flags --table --inspection))
+
+(ocamllex lexer)

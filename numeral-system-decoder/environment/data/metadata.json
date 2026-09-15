@@ -1,0 +1,44 @@
+{
+  "project": "Vorathi Language Family Fieldwork Archive",
+  "version": "2.3.1",
+  "database": "/data/fieldwork.db",
+  "languages": {
+    "turahi": {
+      "family": "Vorathi",
+      "branch": "Eastern",
+      "typology": "agglutinative",
+      "speakers_2023": 4200,
+      "location": "Upper Vorathi river basin, eastern highlands",
+      "phonology": {
+        "vowels": ["a", "i", "o", "u"],
+        "consonants": ["d", "f", "k", "l", "m", "n", "p", "r", "s", "v"],
+        "syllable_structure": "CV"
+      }
+    },
+    "belago": {
+      "family": "Vorathi",
+      "branch": "Western",
+      "typology": "isolating",
+      "speakers_2023": 1800,
+      "location": "Coastal lowlands west of the Vorathi delta",
+      "phonology": {
+        "vowels": ["a", "e", "i", "o", "u"],
+        "consonants": ["b", "ch", "d", "k", "l", "m", "n", "p", "t"],
+        "syllable_structure": "CV(C)"
+      }
+    },
+    "renshi": {
+      "family": "Vorathi",
+      "branch": "Northern",
+      "typology": "agglutinative",
+      "speakers_2023": 6100,
+      "location": "Northern plateau, Renshi valley",
+      "phonology": {
+        "vowels": ["a", "e", "i", "o", "u"],
+        "consonants": ["d", "f", "g", "h", "k", "n", "p", "r", "s", "t", "z"],
+        "syllable_structure": "(C)V(C)"
+      }
+    }
+  },
+  "data_quality_note": "Some training entries may contain transcription errors introduced during digitization of handwritten field notes. The confidence field reflects the collector's subjective assessment at recording time and does NOT reliably indicate which entries were later corrupted during digitization."
+}

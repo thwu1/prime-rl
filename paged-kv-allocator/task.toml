@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of PagedAttention KV cache memory management across multiple abstraction layers. The agent must: (1) use sqlite3 CLI to reverse-engineer the workload database schema and understand how operations and block hashes are stored across joined tables; (2) compile a C-based invariant checker with make/gcc and use it for validation; (3) diagnose four subtle bugs in a block allocator by comparing its behavior against a design-principles document — reasoning from first principles about ref-counting, copy-on-write semantics, and peak tracking invariants; (4) implement content-addressed prefix caching with hash-based block deduplication and differential retention policies; (5) implement LRU eviction under memory pressure with correct interaction between eviction, prefix caching, CoW, and ref-counting — a system-level feature requiring holistic understanding of all allocator subsystems."""
+solution_explanation = """Fix four bugs: (1) fork must copy the block table list, not alias it; (2) CoW must set new block fill to old_fill+1, not old_fill; (3) release_block must reclaim blocks at ref_count=0 (return to free pool, decrement current_used) while retaining cached blocks; (4) update_peak must be called after each token in decode, not omitted. Then implement prefill_cached with hash_to_block/block_to_hash mappings and a monotonic access counter for LRU tracking. Implement eviction in allocate_block: when free pool is empty, find cached block with ref=0 and lowest access counter, remove from caches, return to free pool."""
+verification_explanation = """Five pytest test classes run the allocator against five distinct workloads stored in SQLite: (1) nested forks with 3 CoW copies and peak 14 — validates all four bug fixes; (2) full-block fork with 0 CoW and peak 5 — validates CoW only triggers on partial shared blocks; (3) prefix cache with shared blocks and decode — validates cache hit/miss counting and peak/wasted metrics; (4) prefix cache persistence after free — validates blocks retained at ref=0 are reusable; (5) eviction with CoW — uses a tight 5-block pool to force LRU eviction of a cached block during decode, also tests fork/CoW and cache hit after eviction, validating the full interaction between all subsystems."""
+category = "systems"
+tags = ["memory-management", "llm-serving"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/paged-kv-allocator"

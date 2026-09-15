@@ -1,0 +1,162 @@
+{
+  "questions": [
+    {
+      "id": "BQ001",
+      "type": "yesno",
+      "body": "Is TP53 the most frequently mutated gene in human cancers?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/28355001",
+        "http://www.ncbi.nlm.nih.gov/pubmed/29150432"
+      ],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ002",
+      "type": "yesno",
+      "body": "Is aspirin classified as an aminoglycoside antibiotic?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/30203690"
+      ],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ003",
+      "type": "yesno",
+      "body": "Does metformin act through AMP-activated protein kinase activation?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/31200301",
+        "http://www.ncbi.nlm.nih.gov/pubmed/32100402",
+        "http://www.ncbi.nlm.nih.gov/pubmed/33000503"
+      ],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "type": "yesno",
+      "body": "Is imatinib a monoclonal antibody?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/34000604",
+        "http://www.ncbi.nlm.nih.gov/pubmed/35000705"
+      ],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ005",
+      "type": "yesno",
+      "body": "Does CRISPR-Cas9 require a PAM sequence for target recognition?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/36000806",
+        "http://www.ncbi.nlm.nih.gov/pubmed/37000907"
+      ],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ006",
+      "type": "factoid",
+      "body": "Which tumor suppressor gene is most frequently mutated across all cancer types?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/38001008",
+        "http://www.ncbi.nlm.nih.gov/pubmed/39001109",
+        "http://www.ncbi.nlm.nih.gov/pubmed/40001210"
+      ],
+      "exact_answer": [["TP53", "p53", "tumor protein p53"]]
+    },
+    {
+      "id": "BQ007",
+      "type": "factoid",
+      "body": "What is the first-line pharmacotherapy for type 2 diabetes mellitus?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/41001311",
+        "http://www.ncbi.nlm.nih.gov/pubmed/42001412"
+      ],
+      "exact_answer": [["metformin", "Glucophage", "dimethylbiguanide"]]
+    },
+    {
+      "id": "BQ008",
+      "type": "factoid",
+      "body": "Which kinase is the primary molecular target of imatinib mesylate?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/43001513"
+      ],
+      "exact_answer": [["BCR-ABL", "BCR-ABL1", "Bcr-Abl tyrosine kinase"]]
+    },
+    {
+      "id": "BQ009",
+      "type": "factoid",
+      "body": "Which gene editing technology uses guide RNAs to target specific genomic loci?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/44001614",
+        "http://www.ncbi.nlm.nih.gov/pubmed/45001715"
+      ],
+      "exact_answer": [["CRISPR-Cas9", "CRISPR", "Cas9"]]
+    },
+    {
+      "id": "BQ010",
+      "type": "list",
+      "body": "List the commonly used non-steroidal anti-inflammatory drugs (NSAIDs).",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/46001816",
+        "http://www.ncbi.nlm.nih.gov/pubmed/47001917"
+      ],
+      "exact_answer": [
+        ["aspirin", "acetylsalicylic acid", "ASA"],
+        ["ibuprofen", "Advil", "Motrin"],
+        ["naproxen", "Aleve", "Naprosyn"]
+      ]
+    },
+    {
+      "id": "BQ011",
+      "type": "list",
+      "body": "Which receptor tyrosine kinases are established therapeutic targets in non-small cell lung cancer?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/48002018",
+        "http://www.ncbi.nlm.nih.gov/pubmed/49002119",
+        "http://www.ncbi.nlm.nih.gov/pubmed/50002220",
+        "http://www.ncbi.nlm.nih.gov/pubmed/51002321",
+        "http://www.ncbi.nlm.nih.gov/pubmed/52002422",
+        "http://www.ncbi.nlm.nih.gov/pubmed/53002523",
+        "http://www.ncbi.nlm.nih.gov/pubmed/54002624",
+        "http://www.ncbi.nlm.nih.gov/pubmed/55002725",
+        "http://www.ncbi.nlm.nih.gov/pubmed/56002826",
+        "http://www.ncbi.nlm.nih.gov/pubmed/57002927",
+        "http://www.ncbi.nlm.nih.gov/pubmed/58003028",
+        "http://www.ncbi.nlm.nih.gov/pubmed/59003129"
+      ],
+      "exact_answer": [
+        ["EGFR", "HER1", "ErbB1"],
+        ["ALK", "anaplastic lymphoma kinase"],
+        ["ROS1"],
+        ["BRAF", "B-Raf"]
+      ]
+    },
+    {
+      "id": "BQ012",
+      "type": "list",
+      "body": "Name the four nucleotide bases found in DNA.",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/62003430",
+        "http://www.ncbi.nlm.nih.gov/pubmed/63003531"
+      ],
+      "exact_answer": [
+        ["adenine", "A"],
+        ["thymine", "T"],
+        ["guanine", "G"],
+        ["cytosine", "C"]
+      ]
+    },
+    {
+      "id": "BQ013",
+      "type": "list",
+      "body": "Which inflammatory cytokines are commonly elevated in sepsis?",
+      "documents": [
+        "http://www.ncbi.nlm.nih.gov/pubmed/64003632",
+        "http://www.ncbi.nlm.nih.gov/pubmed/65003733"
+      ],
+      "exact_answer": [
+        ["IL-6", "interleukin-6", "interleukin 6"],
+        ["TNF-alpha", "tumor necrosis factor alpha"],
+        ["IL-1beta", "interleukin-1 beta"]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,270 @@
+x-common-env: &common-env
+  LOG_LEVEL: "${LOG_LEVEL:-info}"
+  TRACE_ENABLED: "${TRACE_ENABLED:-false}"
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - backend
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    environment:
+      <<: *common-env
+      POSTGRES_USER: "${DB_USER:-admin}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: "${DB_NAME:-appdb}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - backend
+    ports:
+      - "6379:6379"
+    environment:
+      <<: *common-env
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "redis-cli", "ping"]
+    logging: *default-logging
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - messaging
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      <<: *common-env
+      RABBITMQ_DEFAULT_USER: "${MQ_USER:-rabbit}"
+      RABBITMQ_DEFAULT_PASS: "${MQ_PASSWORD}"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+    logging: *default-logging
+
+  auth-api:
+    build:
+      context: ./services/auth
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8001:3000"
+    environment:
+      <<: *common-env
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      REDIS_URL: "redis://redis:6379/0"
+      JWT_SECRET: "${JWT_SECRET}"
+      NOTIFICATION_CALLBACK: "http://notification-worker:4000/auth-events"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  user-api:
+    build:
+      context: ./services/user
+    networks:
+      - frontend
+    ports:
+      - "8002:3001"
+    environment:
+      <<: *common-env
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      AUTH_SERVICE_URL: "http://auth-api:3000"
+      CACHE_URL: "http://cache-service:6380"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-api:
+        condition: service_started
+    logging: *default-logging
+
+  product-api:
+    build:
+      context: ./services/product
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8003:3002"
+    environment:
+      <<: *common-env
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      REDIS_URL: "redis://redis:6379/2"
+      SEARCH_ENGINE_URL: "http://search-api:9200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  order-api:
+    build:
+      context: ./services/order
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8004:3003"
+    environment:
+      <<: *common-env
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      RABBITMQ_URL: "amqp://${MQ_USER:-rabbit}:${MQ_PASSWORD}@rabbitmq:5672"
+      AUTH_SERVICE_URL: "http://auth-api:3000"
+      PRODUCT_SERVICE_URL: "http://product-api:3002"
+      PAYMENT_GATEWAY: "https://api.stripe.com/v1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-api:
+        condition: service_started
+      product-api:
+        condition: service_started
+    logging: *default-logging
+
+  notification-worker:
+    build:
+      context: ./services/notification
+    networks:
+      - messaging
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: "amqp://${MQ_USER:-rabbit}:${MQ_PASSWORD}@rabbitmq:5672"
+      USER_SERVICE_URL: "http://user-api:3001"
+      AUTH_SERVICE_URL: "http://auth-api:3000"
+      SMTP_HOST: "${SMTP_HOST:-localhost}"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    logging: *default-logging
+
+  api-gateway:
+    build:
+      context: ./services/gateway
+    networks:
+      - frontend
+    ports:
+      - "80:8000"
+      - "443:8443"
+    environment:
+      <<: *common-env
+      AUTH_URL: "http://auth-api:3000"
+      USER_URL: "http://user-api:3001"
+      PRODUCT_URL: "http://product-api:3002"
+      ORDER_URL: "http://order-api:3003"
+      RATE_LIMIT_STORE: "redis://redis:6379/3"
+      CORS_ORIGINS: "*"
+    depends_on:
+      auth-api:
+        condition: service_started
+      user-api:
+        condition: service_started
+      product-api:
+        condition: service_started
+      order-api:
+        condition: service_started
+    logging: *default-logging
+
+  analytics-worker:
+    build:
+      context: ./services/analytics
+    networks:
+      - backend
+      - messaging
+    environment:
+      <<: *common-env
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      RABBITMQ_URL: "amqp://${MQ_USER:-rabbit}:${MQ_PASSWORD}@rabbitmq:5672"
+      REDIS_URL: "redis://redis:6379/4"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  admin-panel:
+    build:
+      context: ./services/admin
+    networks:
+      - frontend
+    ports:
+      - "9000:5000"
+    environment:
+      <<: *common-env
+      AUTH_URL: "http://auth-api:3000"
+      DATABASE_URL: "postgresql://${DB_USER:-admin}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-appdb}"
+      USER_URL: "http://user-api:3001"
+    depends_on:
+      auth-api:
+        condition: service_started
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    networks:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    networks:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    logging: *default-logging
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  messaging:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  pg_data:
+  prometheus_data:
+  grafana_data:

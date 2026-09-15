@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in RISC-V ISA (RV64GC and V extension), cross-compilation toolchains, and assembly-level code analysis. The agent must read and interpret disassembled RISC-V machine code, identify subtle compiler codegen inefficiencies across four distinct kernel patterns, then write correct vectorized C code targeting the RISC-V Vector Extension that produces bit-identical output to scalar reference implementations. Debugging vector code via QEMU user-mode emulation adds complexity."""
+solution_explanation = """Cross-compile all four kernels with GCC for both rv64gc (scalar) and rv64gcv (vector) targets. Disassemble with objdump and count instructions in each kernel function. Identify codegen inefficiencies by inspecting the generated assembly. Write optimized versions using RVV intrinsics with correct vector length management and data type handling. Validate correctness by running both reference and optimized binaries on QEMU and comparing output."""
+verification_explanation = """Tests validate: (1) analysis.json exists with correct schema — per-kernel instruction counts for gcc_scalar/gcc_vector, at least 3 optimization categories from the defined taxonomy with required fields, and a summary; (2) all four optimized source files exist, compile with GCC for rv64gcv, and produce output identical to the reference scalar versions when run on QEMU; (3) objdump of each optimized binary contains RISC-V vector instructions; (4) build.sh exists and is executable."""
+category = "computer_architecture"
+tags = ["risc-v", "compiler-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-codegen-audit"

@@ -1,0 +1,49 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a VLSI floorplan optimizer that produces high-quality overlap-free
+placements for instances with 20-80 blocks under mixed hard and soft constraints (fixed-shape, preplaced,
+identical-dimension groups, abutment groups, boundary constraints). The solver must achieve a weighted cost score
+<= 3.0 under the ICCAD FloorSet evaluation function, which jointly penalizes wirelength gaps, area gaps, and
+constraint violations with an exponential term. Additionally demands producing valid METIS-format graph files,
+running gpmetis for partitioning, outputting Bookshelf .pl placement files, and rendering gnuplot-based PNG
+visualizations. Graduate/PhD-level EDA topic requiring fluency in combinatorial optimization, graph-based
+analysis, and multiple specialized file format specifications."""
+solution_explanation = """Solution implements a multi-stage optimizer: converts block connectivity to a METIS
+weighted graph and runs gpmetis for hierarchical partitioning; uses partition assignments along with BFS and
+connectivity-weighted orderings to seed a compact packing algorithm; refines placement via simulated annealing
+with swap, rotate, relocate, aspect-ratio, and cluster-grouping moves; enforces hard constraints (fixed-shape
+dimensions, preplaced positions, area tolerance) and penalizes soft constraint violations (cluster abutment,
+MIB identical dimensions, boundary touching); writes Bookshelf .pl output with UCLA header and /FIXED annotations;
+generates gnuplot scripts with partition-colored block rectangles rendered to PNG."""
+verification_explanation = """Tests import the optimizer, run it on 5 instances (20-80 blocks with varying
+constraints), evaluate using the ICCAD cost function, and verify: (1) placement feasibility and total weighted
+quality score <= 3.0; (2) METIS graph files exist with valid vertex count and edge-weight format; (3) METIS
+partition output files exist with correct line count and valid integer assignments; (4) Bookshelf .pl files
+exist with valid UCLA header, correct block count, and proper coordinate format; (5) gnuplot PNG visualizations
+exist with valid PNG file headers and non-trivial file size."""
+category = "eda"
+tags = ["vlsi-floorplanning", "eda-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vlsi-floorplan-optimizer"

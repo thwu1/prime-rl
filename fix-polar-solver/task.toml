@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Newton-Schulz polar decomposition to diagnose correctness issues across an interconnected numerical system. The solver must independently identify that the Gram Newton-Schulz variant has flawed transpose logic, an incorrect Gram matrix update formula (requiring p(R)Rp(R) two-step evolution), and a broken restart mechanism — none of which are flagged in the instruction. Designing a novel coefficient schedule demands understanding how the convergence polynomial p(r) = a + br + cr^2 maps eigenvalue spectra, and constructing a non-uniform schedule that outperforms baselines. The stability analysis requires recognizing a subtle denominator error (mean vs min in condition number) and implementing exhaustive combinatorial search. Finally, debugging a multi-tool pipeline (jq path traversal, sqlite3 CLI flags, shell field extraction, jq rank computation) requires fluency across heterogeneous tooling."""
+solution_explanation = """Solver fixes: (1) transpose check inverted from n<m to n>m to match standard variant's tall-matrix handling, (2) R update corrected to two-step p(R)Rp(R) via RZ=RZ+aR then R=ZRZ+aRZ, (3) restart applies Q to X before reforming R, (4) stability_metric denominator from mean to min, (5) find_optimal_restarts implemented via itertools.combinations exhaustive search, (6) analyze_convergence always uses X@X^T after transpose. Custom schedule: grid search over p(r)=1+c(1-r)^2 family with varying aggressive/conservative iteration counts. Pipeline fixes: extract.jq navigates .parameters.iterations with sort_by(.step), import_data.sh uses .name not .matrix_name, report.jq uses to_entries for rank and fromjson for optimal_restarts_1, Makefile stability target depends on EXTRACTED not CONFIGS and uses -json not --json."""
+verification_explanation = """37 pytest tests: 4 standard NS orthogonality/shape tests, 8 Gram NS equivalence tests across matrix shapes and restart configurations, 5 stability metric condition number tests, 4 eigenvalue simulation convergence tests, 5 restart optimization format and optimality tests, 3 convergence analysis tests, 4 polar error tests, 1 coefficient loading test, 5 custom design constraint tests, and 11 pipeline tests verifying database schema, row counts, report structure, ranking consistency, metric validity, and database cross-consistency."""
+category = "systems"
+tags = ["numerical-optimization", "algorithm-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-polar-solver"

@@ -1,0 +1,15 @@
+[model]
+vocab_size = 512
+dim = 96
+hidden_dim = 192
+n_layers = 2
+
+[training]
+lr = 0.01
+seed = 42
+
+[benchmark]
+num_samples = 16
+min_len = 10
+max_len = 100
+ga_steps = [2, 4, 8]

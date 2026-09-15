@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete canonical ABI layout engine from scratch given only API signatures and the WebAssembly Component Model specification. The solver must architect the full type-system pipeline: despecialization of sugar types (tuple→record, enum/option/result→variant), recursive size and alignment computation with record trailing padding and variant discriminant-payload alignment gaps, flat core-wasm-type decomposition with the join rule (join(i32,f32)=i32, not f32 — a non-obvious spec detail), lift/lower operations covering all type kinds including nested variants and recursive records, function-type flattening with MAX_FLAT_PARAMS(16)/MAX_FLAT_RESULTS(1) spilling thresholds, and list serialization with correct stride computation. There is no existing implementation to fix or extend — the solver must create the entire engine, making architectural decisions about internal data representation, recursive traversal strategy, and edge case handling. Each public function requires deep understanding of a different section of the ~4000-word canonical ABI specification, and the functions compose: errors in size/alignment computation cascade into lift/lower failures, which cascade into list serialization failures."""
+solution_explanation = """Create ~300 lines of Python implementing all 10 public functions. Key architectural decisions: (1) Write a _despecialize function that reduces tuple→record, enum→variant (null payloads), option→variant{none,some}, result→variant{ok,error}. (2) size_of/align_of recurse through despecialized types: records sum aligned field sizes with trailing padding align_to(total, alignment); variants compute align_to(disc_sz, max_case_align) + max_case_size then trailing-pad. (3) _join implements the spec's asymmetric rule: same→same, {i32,f32}→i32, else→i64. (4) flatten_type recursively flattens records by concatenation and variants by disc_flat + joined payload positions. (5) lift reads discriminants and recurses into payloads at aligned offsets, with special cases for enum (return name string), bool (nonzero=True), char (chr). (6) lower builds size_of-byte buffers with _lower_into, handling enum serialization as discriminant-only. (7) flatten_functype concatenates param/result flat types and applies spill thresholds. (8) store_list/load_list use stride = align_to(elem_size, elem_align) to write/read elements."""
+verification_explanation = """~170 pytest tests verify: exact sizes and alignments for all 18 named types plus primitives; field offsets for records and tuples; flat valtype decomposition including join-rule verification; MAX_FLAT_PARAMS threshold; lift from handcrafted byte buffers for all type kinds including nested variants; lower producing correct byte patterns; round-trip lower-then-lift preservation for 27 value/type combinations; byte-exact encoding checks against reference data; flatten_functype with threshold boundary cases (exact limit, one-over, both-spill, empty); store_list element stride and padding verification; load_list deserialization; and store/load round-trip for records, variants, primitives, and nested types."""
+category = "systems_programming"
+tags = ["webassembly", "canonical-abi"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-85acf9"

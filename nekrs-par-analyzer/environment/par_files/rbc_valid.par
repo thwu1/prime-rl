@@ -1,0 +1,31 @@
+# Rayleigh-Benard Convection: Ra=1e8, Pr=7
+[GENERAL]
+polynomialOrder = 7
+stopAt = endTime
+endTime = 100
+
+dt = targetCFL=4.0+max=0.05
+timeStepper = tombo2
+advectionSubCyclingSteps = 2
+
+checkpointControl = simulationTime
+checkpointInterval = 5
+
+regularization = hpfrt + nModes=1 + scalingCoeff=15
+
+scalars = TEMPERATURE
+
+[FLUID PRESSURE]
+residualTol = 1e-04
+
+[FLUID VELOCITY]
+boundaryTypeMap = zeroDirichlet, zeroDirichlet
+rho = 1.0
+viscosity = sqrt(7/1e8) # sqrt(Pr/Ra)
+residualTol = 1e-06
+
+[SCALAR TEMPERATURE]
+boundaryTypeMap = udfDirichlet, zeroNeumann
+diffusionCoeff = 1/sqrt(7*1e8) # 1/sqrt(Ra*Pr)
+transportCoeff = 1.0
+residualTol = 1e-06

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering transform semantics from names and regex parameters alone (MergeFieldsets, MergeEnums, MakeBlock, MakeRegisterArray, MakeFieldArray, Rename) — no algorithm descriptions are provided. Each transform demands understanding of embedded register IR conventions: reference-tracking across blocks/fieldsets/enums, regex capture group substitution in namespaced paths, byte-offset relative rewriting for sub-block extraction, and stride computation from register/field spacing. Additionally requires generating a C header with correct positioned bit-masks and register offset macros that must compile under gcc, demanding fluency in embedded C hardware abstraction conventions and multi-tool interoperability (Python + gcc toolchain)."""
+solution_explanation = """The solution implements a Python transform engine that: (1) parses the chiptool IR YAML by key prefix into blocks/fieldsets/enums dicts; (2) applies each transform in sequence — MergeFieldsets/MergeEnums consolidate regex-matched items and update all cross-references, MakeBlock extracts items into sub-blocks with recomputed relative offsets, MakeRegisterArray/MakeFieldArray collapse numbered items into arrays with computed strides, Rename applies regex substitution across all paths; (3) serializes back to YAML; (4) generates address map via recursive block traversal; (5) generates a C header by traversing the block hierarchy, computing positioned bit masks ((1<<width)-1)<<shift for each field, and emitting macros with correct naming prefixes."""
+verification_explanation = """39 pytest tests verify: correct block/fieldset/enum counts and names, correct byte offsets in extracted Channel block, correct array dimensions, correct cross-reference updates after merges and renames, correct absolute addresses in CSV for all 26 registers, absence of pre-rename namespace references, and C header correctness — the header must compile under gcc -fsyntax-only, and static assertion programs verify exact values of register offset macros, field shift/mask macros, array stride/length macros, and interrupt field array macros."""
+category = "embedded_systems"
+tags = ["register-transforms", "hardware-abstraction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-transform-engine"

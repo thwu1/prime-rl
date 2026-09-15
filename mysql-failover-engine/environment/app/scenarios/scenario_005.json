@@ -1,0 +1,65 @@
+{
+    "id": "005",
+    "name": "Full Recovery Pipeline",
+    "description": "Dead master with raft cluster — end-to-end recovery with consensus, failure detection, promotion, and outage estimation",
+    "servers": [
+        {
+            "hostname": "primary1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": false, "master_hostname": null, "master_port": null,
+            "replication_state": "running", "replication_lag_seconds": 0.0,
+            "gtid_position": 1000, "is_sql_delayed": false, "read_only": false,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 950, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": true,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "prefer", "is_downtimed": false
+        },
+        {
+            "hostname": "replica2", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "failed", "replication_lag_seconds": 0.0,
+            "gtid_position": 980, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        }
+    ],
+    "orchestrator_nodes": [
+        {"hostname": "orch1", "datacenter": "dc1", "is_reachable_from": {"orch2": true, "orch3": true}},
+        {"hostname": "orch2", "datacenter": "dc2", "is_reachable_from": {"orch1": true, "orch3": true}},
+        {"hostname": "orch3", "datacenter": "dc3", "is_reachable_from": {"orch1": true, "orch2": true}}
+    ],
+    "cluster_config": {
+        "cluster_name": "production",
+        "auto_recovery_enabled": true,
+        "global_recoveries_enabled": true
+    },
+    "current_timestamp": 5000.0,
+    "expected": {
+        "failure_count": 1,
+        "failures": [
+            {
+                "failed_hostname": "primary1",
+                "failure_type": "DeadMaster",
+                "is_actionable": true
+            }
+        ],
+        "recovery": {
+            "recovery_attempted": true,
+            "promoted_hostname": "replica1",
+            "raft_leader_hostname": "orch1",
+            "estimated_outage_seconds": 10.0
+        },
+        "notes": "replica1 is promoted despite replica2 having higher GTID (980 vs 950). This is because replica1 has 'prefer' promotion rule and semi-sync enabled, which outweigh the GTID advantage. Raft leader is orch1 (all nodes fully connected, alphabetically first among equally-connected nodes). Outage is 10 seconds: detection (5s) + ideal promotion (3s, because prefer + semi-sync) + Consul same-DC (1s) + HAProxy same-DC (1s)."
+    }
+}

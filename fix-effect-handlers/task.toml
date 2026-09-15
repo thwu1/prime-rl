@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a compiler backend that translates algebraic-effect-handler ASTs to Guile Scheme, targeting a free-monad CPS encoding. The solver must deeply understand both the Python interpreter's evaluation semantics (deep handlers, multishot continuations, effect propagation, return clauses) and Scheme's evaluation model (SRFI-9 records, first-class closures, tail-call semantics) to produce a correct compilation. They must judge how to map Python's mutable-environment closures to Scheme's lexical scoping, decide on a monadic encoding strategy for effects, evaluate whether handler re-installation and multishot semantics are preserved across the compilation boundary, and validate their compiler's output against the interpreter using Guile — a research-language Scheme implementation most developers have never used. The task combines compiler construction (create), cross-language semantic validation (evaluate), and multi-tool orchestration (Python + Guile Scheme + shell pipeline)."""
+solution_explanation = """Create effekt_to_scheme.py implementing a tree-walking compiler that: (1) emits a Scheme preamble with SRFI-9 record types for pure/step free-monad nodes, flat-map, handle, and execute functions; (2) recursively translates each AST node to monadic Scheme code — literals become make-pure, Let/App/BinOp use flat-map chains, Do becomes make-step, Handle becomes a call to the handle runtime with compiled handler lambdas, LetRec uses Scheme's native letrec; (3) emits a main block that calls execute on the compiled program and formats the result. Create compile_all.py that loads each test program, compiles it, writes to a temp .scm file, runs guile --no-auto-compile -s, and compares output lines and result against expected values."""
+verification_explanation = """22 pytest tests across 5 classes: TestCompilerModule (2 tests) verifies effekt_to_scheme.py exists and exports compile_program; TestCompileAllScript (2 tests) verifies compile_all.py exists, exits 0, and reports 10/10; TestIndividualPrograms (10 parametrized tests) compiles each test program to Scheme, runs through Guile, parses output, and compares against expected results/output; TestDeepHandlerSemantics (2 tests) builds fresh ASTs for deep counting and multishot Flip to verify handler reinstallation in compiled output; TestEffectPropagation (1 test) builds a triple-nested handler AST; TestReturnClause (2 tests) verifies return clause application and handler-body bypass; TestLetRec (1 test) verifies factorial via letrec compilation."""
+category = "programming_languages"
+tags = ["algebraic-effects", "compiler-backend"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-effect-handlers"

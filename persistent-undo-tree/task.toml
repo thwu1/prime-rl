@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Myers diff algorithm with correct backtracking through the edit graph (a common source of subtle bugs), an LCA-based path computation in a dynamically-constructed tree, and wiring persistent data structures into a coherent undo/redo system. The Myers diff alone demands understanding of the edit graph, diagonal coordinates, and trace array interpretation. The branching undo tree requires correct graph traversal and state management across immutable snapshots. Integration debugging across four tightly-coupled modules adds significant agentic difficulty."""
+solution_explanation = """The solution implements: (1) UndoTree.undo/redo/navigate_to by updating current_id and returning the target node's piece_table; (2) UndoTree.get_path by computing ancestor chains for both endpoints, finding their LCA, and concatenating the up-path and reversed down-path; (3) Myers diff with both forward phase (computing furthest-reaching endpoints per edit distance) and backward phase (backtracking through trace arrays to reconstruct the minimal edit script); (4) TextBuffer.get_state_text and diff by looking up states in the undo tree and applying Myers diff to their text content."""
+verification_explanation = """Tests exercise piece table persistence (old snapshots unchanged after edits), undo/redo with branching (multiple branches from a single state, selecting branches by index), state navigation (jumping to arbitrary states), LCA-based path finding (paths across different branches), Myers diff correctness (applying edit scripts reproduces the target, minimality assertions), and full integration (complex editing scenarios with branching, navigation, and cross-state diffs)."""
+category = "data_structures"
+tags = ["persistent-data-structures", "diff-algorithms"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-undo-tree"

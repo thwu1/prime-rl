@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete security-constrained unit commitment solver with spinning reserve constraints from scratch, including parsing MATPOWER data, formulating and solving a mixed-integer optimization over 24 hours with inter-temporal coupling (ramp rates, min up/down times, startup costs, reserve requirements), extracting locational marginal prices and decomposing them into energy and congestion components, and performing post-contingency N-1 security screening via DC power flow recalculation for every single-line outage. Combines optimization theory, power systems engineering, linear algebra, and systems programming with no algorithm guidance provided."""
+solution_explanation = """The reference solution uses Pyomo to formulate the SCUC as a MILP with CBC solver. It parses the MATPOWER case file with regex, builds the DC power flow model (B-theta formulation with susceptance = baseMVA/reactance), adds unit commitment binary variables with startup/shutdown linking constraints, ramp rate constraints, minimum up/down time constraints, thermal line limits, and a system-wide spinning reserve constraint (sum of Pmax*u - p >= reserve_req). After solving the MILP, it fixes the binary commitment variables and re-solves the resulting LP to obtain dual variables from the power balance constraints as LMPs. The energy component is the LMP at the reference bus; the congestion component is the difference. N-1 contingency screening is performed post-solve by rebuilding the DC power flow B-matrix for each line outage, solving the linear system with numpy, and checking post-contingency flows against 130% emergency ratings."""
+verification_explanation = """Tests verify: (1) output JSON schema correctness, (2) power balance at every bus and hour, (3) DC power flow consistency, (4) thermal line limit compliance, (5) generator output limit compliance, (6) ramp rate constraint satisfaction, (7) minimum up/down time compliance, (8) spinning reserve meets hourly requirements, (9) LMP decomposition identity (energy + congestion = total), (10) energy component uniformity across buses, (11) congestion zero at reference bus, (12) cost computation consistency, (13) startup cost matches commitment events, (14) contingency results schema and independent DC power flow verification of post-contingency flows, and (15) total cost optimality within 1% of a reference Pyomo+CBC solution with identical constraints."""
+category = "optimization"
+tags = ["power-systems", "mixed-integer-programming"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scuc-lmp-decomposition"

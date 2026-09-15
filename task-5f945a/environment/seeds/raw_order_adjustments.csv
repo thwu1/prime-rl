@@ -1,0 +1,4 @@
+adjustment_id,order_id,item_id,adjustment_type,amount_cents,adjustment_date
+adj_001,1,1,refund,-500,2024-01-16
+adj_002,3,4,price_correction,-1000,2024-01-17
+adj_003,6,7,refund,-1500,2024-01-18

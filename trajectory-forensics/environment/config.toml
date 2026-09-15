@@ -1,0 +1,8 @@
+[thresholds]
+gravity = 0.10
+energy = 0.10
+momentum = 0.05
+
+[classification]
+priority = ["momentum_violation", "energy_violation", "gravity_anomaly"]
+default = "physically_valid"

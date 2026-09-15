@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level evaluation of statistical methodology across a multi-language (Python + SQL + R) clinical evaluation pipeline. The solver must: (1) evaluate whether averaged pairwise Cohen's kappa is statistically appropriate for multi-annotator nominal data and determine that Krippendorff's alpha via the coincidence matrix is the correct alternative — this requires deep knowledge of inter-annotator agreement theory, not just recognizing a wrong metric name; (2) trace a cross-module data flow bug where the SQL loader silently filters 'not-relevant' labels, which doesn't affect adjudication but corrupts the IAA computation by removing base-rate information needed for chance correction — requires holistic understanding of how components interact; (3) evaluate that the bootstrap implementation computes CIs for the wrong estimand (macro F1 distribution instead of micro F1) and design the correct resampling procedure; (4) design and implement a weighted alignment scoring framework with relevance-tier partial credit from the specification; (5) design and implement a pipeline diagnostics module including threshold sensitivity analysis and scoring consistency validation — both novel components requiring understanding of adjudication's relationship to downstream metrics; (6) debug an R script with SQL table name and statistical formula errors to achieve cross-language validation."""
+solution_explanation = """Fix loader.py SQL query to include all relevance labels. Fix adjudicate.py threshold comparison (> to >=). Fix metrics.py lenient scoring to filter supplementary-only predictions before scoring against strict gold. Replace pairwise Cohen's kappa with Krippendorff's alpha using coincidence matrix. Fix bootstrap.py to resample cases and compute micro F1 from pooled counts. Implement weighted alignment F1 in pipeline.py with essential=1.0 and supplementary=0.5 weights. Fix R script table name and expected disagreement denominator. Create scorer/diagnostics.py with threshold sensitivity analysis (re-run adjudication at thresholds 1,2,3 and report evidence counts) and scoring consistency validation (verify lenient F1 >= strict F1). Update run_eval.py to compute and output diagnostics section."""
+verification_explanation = """Tests run the full evaluation pipeline and verify specific numerical outputs against hand-computed expected values with tight tolerance. Evidence identification tests check strict/lenient micro/macro P/R/F1 against exact fractions. Bootstrap CI tests verify structural properties. Alignment tests verify both standard and weighted scores. IAA tests verify Krippendorff's alpha value (89/208) and that it's not averaged pairwise kappa (which would yield ~0.55-0.65). R cross-validation tests verify the R output matches Python within 0.001. Diagnostics tests verify threshold sensitivity counts (strict=12 at all thresholds; lenient=23,19,14 at thresholds 1,2,3), monotonicity, and scoring consistency flags."""
+category = "data_science"
+tags = ["clinical-nlp-evaluation", "statistical-methodology"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ef48e8"

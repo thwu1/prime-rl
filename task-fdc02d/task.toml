@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of (1) the Paxos consensus protocol including proposer/acceptor roles, majority quorums, and value adoption semantics, (2) immutable state machine modeling where message handlers return branching successor states, (3) BFS state-space exploration and how to design predicate chains that guide search through specific adversarial protocol scenarios (partitions, livelock, concurrent proposals). The branching logic — where a proposer reaching majority must return TWO nodes (advance vs. wait) — is a subtle correctness requirement not found in standard Paxos implementations. The scenario predicates require deep protocol reasoning to constrain BFS within depth limits while reaching specific states like livelock cycles."""
+solution_explanation = """The solution implements MessageHandler with a type switch over 5 Paxos message types. ProposeRequest/AcceptRequest are acceptor handlers comparing N against n_p. ProposeResponse/AcceptResponse are proposer handlers that track response counts and branch into two successor nodes when majority is reached. StartPropose increments N/SessionId and broadcasts ProposeRequests. The scenario predicates use phase checks, N comparisons, and n_p constraints to guide BFS through specific orderings: for Case5Failures, predicates ensure P3's higher-N proposal reaches S2 before P1's accept; for NotTerminate, predicates cycle through propose-accept-reject phases; for concurrent proposers, predicates ensure P3 preempts P1 and reaches consensus on v3."""
+verification_explanation = """The Go test suite runs 14+ deterministic tests: TestUnit verifies individual message handler correctness through expected state comparison; TestBfs1-3 verify BFS can find consensus paths; TestInvariant verifies safety (consensus never changes) via exhaustive BFS + random walks; TestPartition1-2 verify consensus under network partitions; TestCase5Failures/TestNotTerminate/TestConcurrentProposer verify student-written predicates guide BFS through specific protocol scenarios. All tests use deterministic state comparison and BFS — no timing or randomness dependencies."""
+category = "distributed_systems"
+tags = ["consensus_protocols", "model_checking"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fdc02d"

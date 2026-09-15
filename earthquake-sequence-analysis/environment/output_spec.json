@@ -1,0 +1,76 @@
+{
+  "description": "Output specification for Noto Peninsula earthquake sequence characterization",
+  "region_filter": {
+    "latitude_range": [36.5, 38.5],
+    "longitude_range": [136.0, 138.5]
+  },
+  "parameters": {
+    "earth_radius_km": 6371,
+    "magnitude_bin_width": 0.1,
+    "aftershock_time_bin_hours": 1,
+    "spatial_grid_degrees": 0.5
+  },
+  "outputs": {
+    "analysis_file": "analysis.json",
+    "database_file": "noto_seismic.db"
+  },
+  "analysis_fields": {
+    "event_count": "integer — total filtered events",
+    "mainshock": {
+      "fields": ["id", "magnitude", "latitude", "longitude", "depth_km", "time_ms"],
+      "description": "highest-magnitude event in the filtered sequence"
+    },
+    "largest_aftershock": {
+      "fields": ["id", "magnitude", "latitude", "longitude", "depth_km", "time_ms"],
+      "description": "highest-magnitude event occurring after the mainshock"
+    },
+    "bath_law_delta": "float — mainshock minus largest aftershock magnitude",
+    "foreshock_count": "integer — number of filtered events before the mainshock origin time",
+    "mc": "float — catalog completeness magnitude (Maximum Curvature method)",
+    "b_value": "float — frequency-magnitude b-value (Aki-Utsu MLE)",
+    "b_value_uncertainty": "float — b-value uncertainty (Shi & Bolt 1982)",
+    "a_value": "float — log10(N) where N is events at or above Mc",
+    "omori": {
+      "fields": ["K", "c", "p"],
+      "description": "Modified Omori Law aftershock rate decay model parameters"
+    },
+    "aftershock_zone_length_km": "float — maximum pairwise Haversine distance among aftershock epicenters",
+    "total_energy_joules": "float — summed seismic energy via Gutenberg-Richter energy-magnitude relation",
+    "mainshock_energy_fraction": "float — mainshock energy divided by total sequence energy",
+    "median_interevent_distance_km": "float — great-circle, consecutive time-ordered pairs",
+    "mean_interevent_distance_km": "float — arithmetic mean of same",
+    "spatial_density": {
+      "fields": ["grid_cell_lat_min", "grid_cell_lon_min", "count"],
+      "description": "densest grid cell (floor-aligned boundaries)"
+    }
+  },
+  "database_tables": {
+    "events": {
+      "columns": {
+        "id": "TEXT PRIMARY KEY",
+        "time_ms": "INTEGER",
+        "latitude": "REAL",
+        "longitude": "REAL",
+        "depth_km": "REAL",
+        "magnitude": "REAL",
+        "mag_type": "TEXT",
+        "place": "TEXT",
+        "gap": "REAL",
+        "dmin": "REAL",
+        "rms": "REAL",
+        "sig": "INTEGER",
+        "status": "TEXT",
+        "tsunami": "INTEGER"
+      }
+    },
+    "interevent_distances": {
+      "description": "consecutive time-ordered event pairs, great-circle distances",
+      "columns": {
+        "event1_id": "TEXT",
+        "event2_id": "TEXT",
+        "distance_km": "REAL",
+        "time_diff_sec": "REAL"
+      }
+    }
+  }
+}

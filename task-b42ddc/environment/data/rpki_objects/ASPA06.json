@@ -1,0 +1,8 @@
+{
+  "aspa_id": "ASPA06",
+  "authorized_providers": [
+    1005
+  ],
+  "customer_as": 65006,
+  "signing_entity": "authority_gamma"
+}

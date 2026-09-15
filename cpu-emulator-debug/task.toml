@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of MOS 6502 CPU architecture to reverse-engineer implementation defects from test vector failures. The agent must independently: (1) discover how to obtain authoritative test vectors from the SingleStepTests GitHub repository without being given URL patterns, (2) correlate failure patterns across thousands of test cases to isolate 7 independent root-cause bugs spanning addressing mode wrapping, arithmetic edge cases, flag computation, and control flow, (3) evaluate each bug's severity by reasoning about its blast radius across the instruction set — judging whether a defect corrupts control flow vs. data, affects one opcode vs. many, and causes silent corruption vs. observable failure, (4) design minimal discriminating test vectors that uniquely isolate each defect, and (5) produce a SQLite conformance database with correct opcode metadata mappings. Combines low-level CPU architecture expertise, systematic debugging, severity evaluation requiring professional judgment, and multi-tool orchestration (curl, Python, sqlite3, diff)."""
+solution_explanation = """The solution applies 7 targeted source-code patches to the buggy emulator: (1) zpx addressing mask 0xFF, (2) indirect JMP page-boundary wrap, (3) BCD ADC low-nibble threshold >9, (4) ROL old-carry preservation, (5) BRK PC+1 skip, (6) izx zero-page high-byte wrap, (7) SBC binary V-flag formula correction. It then downloads test vectors from the SingleStepTests/65x02 GitHub repo using curl, runs them against the fixed emulator, populates a SQLite database with per-opcode results and bug metadata, generates a severity ranking evaluating blast radius, creates discriminating test vectors isolating each bug, and produces a unified diff patch."""
+verification_explanation = """Pytest verifies: (1) fixed emulator correctness with 25+ instruction-level tests covering all 7 bug areas plus regressions, (2) conformance.db SQLite database — opcode_results table with >=15 opcodes all passing, correct schema with mnemonic/addressing_mode populated, bugs table with >=7 entries and >=3 distinct categories, (3) bug_severity_ranking.json — >=7 entries sorted by decreasing severity with >=2 severity levels and substantive justifications, (4) discriminating_tests.json — >=7 tests all failing on original and passing on fixed emulator, (5) emulator_changes.patch — non-empty unified diff format."""
+category = "systems-engineering"
+tags = ["cpu-emulation", "conformance-testing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cpu-emulator-debug"

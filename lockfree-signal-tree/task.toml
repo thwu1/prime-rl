@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in lock-free concurrent programming, C11 atomics, designing concurrent data structures from behavioral specifications, and reasoning about correctness invariants under multi-threaded contention. The implementer must independently devise an internal representation for 512 signals that supports wait-free activation and lock-free selection, handle concurrent state transitions without data races or lost signals, and ensure idempotent double-set semantics. Getting all correctness invariants right simultaneously under 4-thread stress testing is well beyond undergraduate-level systems programming."""
+solution_explanation = """The solution implements signal_tree.c by devising a two-level hierarchy: 8 atomic 64-bit leaf bitmasks (one bit per signal) summarized by a single atomic 64-bit root word containing 8 packed 7-bit sub-counters. Set uses wait-free fetch_or on the leaf plus conditional fetch_add on the root. Select uses a CAS loop on the root to decrement a counter, then fetch_and on the corresponding leaf to clear a bit. Bias-based hierarchical counter selection and rotational bit selection distribute contention across threads."""
+verification_explanation = """Tests compile the C implementation and run a 12-test suite covering: basic lifecycle, single/bulk set-select, double-set idempotency, empty-tree handling, tree_was_empty flag, even-index patterns, leaf-boundary signals, prime-index patterns, 4-thread partitioned concurrent correctness (all 512 signals accounted for with no duplicates), and a 4-thread stress test verifying the invariant that total newly-set signals equals total selected plus remaining."""
+category = "systems_programming"
+tags = ["lock-free", "concurrent-data-structures"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lockfree-signal-tree"

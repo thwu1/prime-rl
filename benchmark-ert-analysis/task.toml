@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-tool pipeline spanning C compilation (Makefile, linker flags), C data import code with a subtle column-binding swap, SQLite database inspection, and Python analysis modules with domain-specific methodology bugs (ERT restart cost, per-group vs global ranking, log-log regression). Beyond debugging, the solver must design and implement an entirely missing comparative analysis system: a Virtual Best Solver (VBS) oracle computing minimum ERT across algorithms per scenario with correct null handling, an algorithm selection policy with alphabetical tie-breaking, and Dolan-Moré performance profiles that correctly compute the fraction of solvable scenarios within τ × VBS thresholds across multiple τ values. The VBS and performance profile are standard in optimization benchmarking literature but appear nowhere in the codebase — the solver must create them from scratch by synthesizing understanding of the ERT metric, experimental data structure, and the mathematical properties the output must satisfy."""
+solution_explanation = """Fix six bugs: (1) Makefile: add -lsqlite3 to LDLIBS. (2) converter.c: swap sqlite3_bind_int positions 3/4 for dimension/instance. (3) loader.py: remove instance<=3 filter. (4) ert.py: add run budget for unsuccessful runs. (5) rankings.py: use group-specific functions. (6) scaling.py: log-transform before OLS. Then design and implement three new components: VBS ERT as min(algo ERTs) per scenario, algorithm selection with alphabetical tie-breaking, and performance profile as fraction of solvable scenarios within τ × VBS for τ in {1.0, 1.5, 2.0, 5.0, 10.0}. Write results.json with all seven sections."""
+verification_explanation = """Tests independently parse raw TSV data to compute ground-truth values for all seven output sections. ERT verified within 1e-6 relative tolerance, ECDF within 1e-10, rankings as exact lists, scaling within 1e-4, VBS ERT within 1e-6, algorithm selection as exact strings, performance profile within 1e-10. Structural tests verify key completeness. Property tests verify ECDF monotonicity, VBS ≤ individual ERTs, profile monotonicity in τ, selection/VBS consistency, and domain-specific expectations (CMA-ES dominance on ill-conditioned functions)."""
+category = "data_science"
+tags = ["numerical-optimization", "algorithm-benchmarking"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-ert-analysis"

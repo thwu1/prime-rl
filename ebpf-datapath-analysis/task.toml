@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a static analyzer for production eBPF C code from Cilium's datapath. The agent must understand eBPF programming patterns (BPF maps, tail calls, program sections), C preprocessor conditional compilation, complex macro expansion (TAIL_CT_LOOKUP4/6 generates entire functions), and transitive call graph resolution through static __always_inline helper functions. The code is ~2800 lines of highly specialized kernel networking code with deeply nested macros, multiple layers of function inlining, and non-obvious control flow through tail calls."""
+solution_explanation = """Build a Python static analyzer that: (1) extracts BPF map definitions by matching struct{...}__section_maps_btf patterns, (2) identifies entry points via __section_entry annotations, (3) discovers tail call programs from both __declare_tail() and TAIL_CT_LOOKUP4/6 macro invocations, (4) builds a complete tail call graph by extracting function bodies via brace counting, finding tail_call_internal() targets, and transitively resolving calls through inline helper functions."""
+verification_explanation = """Tests verify 16 specific structural facts about the analysis JSON: exact BPF map count (3), names, and types; entry point count (4) and names; tail call program count (17) from both sources (11 declare_tail + 6 macro); specific function-to-ID mappings; and specific tail call graph edges including those only discoverable through transitive inline function resolution."""
+category = "reverse_engineering"
+tags = ["ebpf", "static-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ebpf-datapath-analysis"

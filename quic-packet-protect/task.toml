@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of TLS 1.3 key derivation (HKDF-Extract, HKDF-Expand-Label), AEAD packet encryption (AES-128-GCM, ChaCha20-Poly1305), header protection masking (AES-ECB, ChaCha20), and Retry integrity tag computation. Must implement correct byte-level manipulations for two protocol versions with different salts, labels, and fixed constants. Errors in any intermediate step cascade through the entire pipeline."""
+solution_explanation = """Implement HKDF-Extract/Expand-Label for key derivation, AEAD encryption for payload protection, AES-ECB/ChaCha20 for header protection masks, and AEAD tag computation for Retry packets. Uses the cryptography library for all primitive operations. Each step feeds into the next: keys derive IVs, IVs build nonces, nonces encrypt payloads, ciphertext samples generate masks, masks protect headers."""
+verification_explanation = """Tests hash all 28 output values (18 key material + 10 packet outputs) with SHA-256 and compare against precomputed digest fingerprints. This verifies byte-exact correctness without embedding plaintext answers in the test file."""
+category = "cryptography"
+tags = ["quic", "tls"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quic-packet-protect"

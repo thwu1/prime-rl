@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-tool pipeline spanning Python, Make, gnuplot, and SQLite. The solver produces non-physical results due to subtle numerical bugs that can only be diagnosed by understanding compressible gas dynamics — the agent must cross-reference numerical output against analytical theory to identify root causes. A mesh convergence analysis module must be implemented from a skeleton with only function signatures and docstrings. The gnuplot script contains multiple tool-specific errors (wrong file references, incorrect data parsing directives, wrong column mappings) requiring knowledge of gnuplot's data format handling. The SQLite import script has mismatched column schemas, missing CSV mode configuration, and no header-skip directives — debugging these requires understanding sqlite3's import mechanics. The Makefile has incorrect paths and a broken dependency chain across five pipeline stages that prevents end-to-end execution."""
+solution_explanation = """Fix two solver bugs: (1) In exact_riemann.py fK/fK_deriv, change the mass flux coefficient from g5=(gamma-1)/(gamma+1) to g4=2/(gamma+1), matching the Rankine-Hugoniot relation. (2) In fv_euler.py, add parentheses around (Ef + pf) in the energy flux to recover u*(E+p) instead of u*E+p. Fix Makefile: correct solver path, correct convergence module name, add proper dependency chain (validate depends on all stages, plot depends on convergence, import_db depends on solve+convergence). Implement convergence/analyze.py: compute exact density via similarity variable, L1 error norms, least-squares convergence rate in log-log space, output both JSON and CSV. Fix gnuplot script: correct filename to convergence_data.csv, set CSV separator, fix column indices to 2:3, add header skip. Fix SQLite import: add .mode csv, add --skip 1, use correct column names (rho/u/p not density/velocity/pressure, ncells not resolution)."""
+verification_explanation = """Tests verify output state: (1) Sod density/velocity/pressure in undisturbed and star regions match analytical values within tight tolerances, (2) mass/momentum/energy conservation via integral checks, (3) Einfeldt near-vacuum positivity and symmetry, (4) blast wave mass conservation and positivity, (5) convergence.json schema/rate/error monotonicity/pass flag, (6) convergence.png is a valid PNG of reasonable size, (7) SQLite database has correct table schemas with matching column names, correct row counts, and physically valid data queryable via SQL, (8) make validate runs end-to-end."""
+category = "scientific_computing"
+tags = ["multi-tool-pipeline", "computational-physics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-riemann-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep Oracle Database internals expertise combined with critical evaluation skills. The agent must: (1) query a SQLite database containing Oracle V$ view exports using SQL, cross-referencing multiple tables to compute performance metrics using Oracle-specific formulas not provided in the task, (2) detect data quality anomalies (corrupted rows with negative values, duplicate entries with trailing whitespace) that silently corrupt calculations if not handled, (3) critically evaluate a prior DBA's analysis — identifying a subtly wrong metric calculation (wrong numerator in buffer cache hit ratio), a false positive finding (mischaracterized redo contention), and an insufficient recommendation (PGA target that doesn't eliminate over-allocation), (4) identify performance issues the prior analyst completely missed (cursor sharing / hard parsing, ORDERS table segment contention, problematic SQL with forced bad plans and missing indexes), (5) read and interpret DBMS_XPLAN execution plan output and Statspack reports alongside the structured data, (6) generate syntactically correct Oracle DDL and ALTER SYSTEM commands with specific parameter values. This requires several years of production Oracle DBA experience plus the analytical judgment to evaluate another analyst's work."""
+solution_explanation = """Connect to SQLite database, detect anomalies (duplicate sysstat entry with trailing space, corrupted db_cache_advice row with negative factor). Compute correct buffer cache hit ratio using 'physical reads cache' not 'physical reads' (≈0.900 vs prior's 0.877). Compute library cache hit ratio (≈0.868), soft parse ratio (≈0.652). Analyze db_cache_advice excluding corrupted row to find inflection at 1024 MB. Analyze pga_target_advice for zero-overallocation at 1024 MB. Cross-reference wait events with segment stats to find ORDERS hot segment. Read explain plans to identify hint-forced bad plans and missing STATUS index. Evaluate prior report: P1 partially incorrect (wrong formula + conservative recommendation), P2 incorrect (redo contention is normal, not critical), P3 partially incorrect (768 MB still has 412 over-allocations). Generate remediation: ALTER SYSTEM SET db_cache_size, cursor_sharing=FORCE, pga_aggregate_target, CREATE INDEX on ORDERS(STATUS)."""
+verification_explanation = """Tests verify: (1) correct metric calculations within tolerance ranges that only pass with correct formulas and clean data handling, (2) findings comprehensively cover all 5 problem areas (buffer cache, parsing, PGA, contention, SQL plans), (3) remediation SQL includes all required parameter changes and DDL, (4) audit report correctly evaluates all 3 prior findings as incorrect/partially_incorrect with appropriate explanations, identifies missed parsing and contention issues, and documents data quality anomalies."""
+category = "database_administration"
+tags = ["oracle", "performance-tuning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oracle-perf-triage"

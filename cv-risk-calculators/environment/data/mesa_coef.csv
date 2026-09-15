@@ -1,0 +1,2 @@
+age,gender_male,race_chinese,race_aa,race_hispanic,diabetes,smoker,totchol,hdl,lipid_med,sbp,bp_med,fh_heartattack,baseline_survival
+0.0455,0.7496,-0.5055,-0.2111,-0.1900,0.5168,0.4732,0.0053,-0.0140,0.2473,0.0085,0.3381,0.4522,0.99963

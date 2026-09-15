@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<SokobanLibrary xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  LibraryID="BL" MaxID="100" xmlns="http://sokosolve.sourceforge.net/SokoSolveLibrary.xsd">
+  <Details License="Benchmark">
+    <Name>Benchmark Library</Name>
+    <Description>Curated benchmark puzzles for solver evaluation</Description>
+    <Comments>3 puzzles</Comments>
+    <Author Name="Benchmark Suite" Email="" Homepage="" />
+  </Details>
+  <Categories>
+    <Category CategoryID="C0" Order="1">
+      <CategoryDescription>
+        <Name>Master List</Name>
+      </CategoryDescription>
+    </Category>
+  </Categories>
+  <Puzzles>
+    <Puzzle Rating="3.1" PuzzleID="P2" CategoryREF="C0" Order="1">
+      <PuzzleDescription>
+        <Name>Dastardly Lagoon</Name>
+        <Description />
+      </PuzzleDescription>
+      <Maps>
+        <Map MapID="M2">
+          <Row>####~~</Row>
+          <Row>#.O#~~</Row>
+          <Row>#..###</Row>
+          <Row>#$P..#</Row>
+          <Row>#..X.#</Row>
+          <Row>#..###</Row>
+          <Row>####~~</Row>
+        </Map>
+      </Maps>
+    </Puzzle>
+    <Puzzle Rating="12.5" PuzzleID="P4" CategoryREF="C0" Order="2">
+      <PuzzleDescription>
+        <Name>Gravity Well</Name>
+        <Description />
+      </PuzzleDescription>
+      <Maps>
+        <Map MapID="M4">
+          <Row>#####~</Row>
+          <Row>#.P.#~</Row>
+          <Row>#OOO#~</Row>
+          <Row>#XXX##</Row>
+          <Row>#....#</Row>
+          <Row>#....#</Row>
+          <Row>######</Row>
+        </Map>
+      </Maps>
+    </Puzzle>
+    <Puzzle Rating="35.2" PuzzleID="P6" CategoryREF="C0" Order="3">
+      <PuzzleDescription>
+        <Name>Kaleidoscope</Name>
+        <Description />
+      </PuzzleDescription>
+      <Maps>
+        <Map MapID="M6">
+          <Row>#######</Row>
+          <Row>#.....#</Row>
+          <Row>#.OXO.#</Row>
+          <Row>#.XOX.#</Row>
+          <Row>#.OXO.#</Row>
+          <Row>#.XOX.#</Row>
+          <Row>#..P..#</Row>
+          <Row>#######</Row>
+        </Map>
+      </Maps>
+    </Puzzle>
+  </Puzzles>
+</SokobanLibrary>

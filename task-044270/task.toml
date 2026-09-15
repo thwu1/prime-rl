@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must diagnose and fix multiple interacting defects in a 3D eigenvalue buckling analysis pipeline. First, a subtle eigenvalue selection bug causes the pipeline to return incorrect critical load factors for all configurations — the agent must trace through ~350 lines of numerical code to identify this. Second, the local geometric stiffness matrix is missing all torsion-bending coupling terms (20+ matrix entries depending on end moments and torsion) — this requires expert-level knowledge of 3D Euler-Bernoulli beam theory to even recognize as a deficiency, since the axial-only formulation produces correct results for pure-compression test cases. The agent must also implement the complete coupling formulation in both Python and Octave (1-indexed), matching to 1e-10 precision. No current LLM has solved the equivalent FEM-Bench T3 variant (0/5 models)."""
+solution_explanation = """(1) Fix eigenvalue_buckling_solve: change np.argmax to np.argmin in the eigenvalue selection to pick the smallest positive eigenvalue (critical load factor) instead of the largest. (2) Complete local_geometric_stiffness_3d_beam: add all 20+ off-diagonal entries involving Mx2, My1, Mz1, My2, Mz2 coupling terms from the full 3D beam geometric stiffness formulation (McGuire et al. Ch. 13). (3) Implement build_kg_combined in verify_kg.m using 1-based Octave indexing with all coupling terms. (4) Run process_model.py to generate the results JSON."""
+verification_explanation = """Tests verify against five independent criteria: (1) Euler buckling parameter sweep — 9 cantilever configurations compared to analytical P_cr = pi^2*E*I/(4L^2) with tolerance 1e-5; (2) orientation invariance — same cantilever in original and 35-degree-rotated frames must yield identical critical load factors (rtol 1e-9) and correctly transformed mode shapes; (3) mesh convergence — refining from 10 to 40 elements must monotonically reduce error and achieve <1e-6 at finest mesh; (4) TOML model processing — process_model.py on cantilever_circular.toml must produce valid JSON with correct critical load factor; (5) Octave cross-validation — geometric stiffness matrices computed by Octave and Python must agree to 1e-10 for both axial-only and combined loading cases."""
+category = "computational_mechanics"
+tags = ["fem", "eigenvalue_buckling"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-044270"

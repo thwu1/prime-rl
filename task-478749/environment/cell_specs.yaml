@@ -1,0 +1,32 @@
+# ARIAC Battery Cell Inspection Specifications
+# Based on 18650 cylindrical battery cell format
+
+cell:
+  format: "18650"
+  nominal_radius_m: 0.009
+  nominal_height_m: 0.065
+
+lidar:
+  approximate_noise_sigma_m: 0.0003
+
+defect_detection:
+  min_deviation_from_surface_m: 0.002
+  defect_types:
+    DENT: 1
+    BULGE: 2
+    SCRATCH: 3
+
+coordinate_convention:
+  cell_axis: "Z"
+  conveyor_direction: "+X"
+  theta_reference: "+X axis (conveyor direction)"
+  theta_positive: "counterclockwise viewed from +Z (right-hand rule)"
+  z_reference: "bottom of cell"
+
+point_cloud_format:
+  file_format: "numpy .npz"
+  array_key: "points"
+  columns: ["x", "y", "z"]
+  units: "meters"
+  contents: "surface points + top/bottom cap points + noise"
+  center_offset: "cell center may be slightly offset from origin in XY plane"

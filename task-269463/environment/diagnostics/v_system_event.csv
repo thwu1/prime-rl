@@ -1,0 +1,25 @@
+event,wait_class,total_waits,total_timeouts,time_waited_cs,average_wait_cs,time_waited_micro
+SQL*Net message from client,Idle,48293847,0,8472938472,175.38,84729384720000
+rdbms ipc message,Idle,12847293,8472938,4829384712,375.92,48293847120000
+pmon timer,Idle,847293,847291,2847293847,3360.47,28472938470000
+smon timer,Idle,284729,284729,1847293847,6488.28,18472938470000
+DIAG idle wait,Idle,847293,847291,847293847,999.99,8472938470000
+Streams AQ: waiting for messages in the queue,Idle,489234,489234,489234847,1000.00,4892348470000
+db file sequential read,User I/O,2847392,0,18493,6.49,184930000
+enq: TX - row lock contention,Application,127394,12847,12739,100.00,127390000
+buffer busy waits,Concurrency,892341,0,8923,10.00,89230000
+db file scattered read,User I/O,389472,0,5842,15.00,58420000
+log file sync,Commit,1205847,0,4221,3.50,42210000
+latch: cache buffers chains,Concurrency,445120,0,2226,5.00,22260000
+free buffer waits,Configuration,89234,0,1785,20.00,17850000
+latch: shared pool,Concurrency,234891,0,1174,5.00,11740000
+cursor: pin S wait on X,Concurrency,189472,0,947,5.00,9470000
+library cache: mutex X,Concurrency,147293,0,736,5.00,7360000
+log file parallel write,System I/O,1205847,0,602,0.50,6020000
+db file parallel write,System I/O,284729,0,427,1.50,4270000
+control file sequential read,System I/O,847293,0,423,0.50,4230000
+control file parallel write,System I/O,127394,0,127,1.00,1270000
+direct path read,User I/O,48293,0,96,2.00,960000
+direct path write,User I/O,12847,0,25,2.00,250000
+SQL*Net message to client,Network,48293847,0,482,0.01,4820000
+SQL*Net more data from client,Network,284729,0,142,0.50,1420000

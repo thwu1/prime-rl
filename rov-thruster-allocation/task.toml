@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of 6-DOF rigid body dynamics, thruster allocation matrices, and system identification, combined with proficiency in multiple specialized tools. The solver must: (1) explore a SQLite database with sqlite3 CLI to discover the schema, identify the correct test session, and write complex queries to pivot long-format per-thruster command rows into a wide 8-column matrix joined with IMU readings; (2) decode a custom binary calibration file by reading a format spec and using struct-level binary parsing (xxd/hexdump inspection + Python struct) to extract per-thruster thrust coefficients needed for PWM-to-force conversion; (3) parse URDF XML (using xmlstarlet or xml.etree) to extract vehicle mass and inertia tensor from nested elements/attributes; (4) parse ArduPilot .param text format with domain-specific MOT_*_POS_*/MOT_*_DIR_* naming conventions; (5) combine all extracted data in Python/NumPy for least-squares system identification; (6) decompose allocation matrix column discrepancies back into physical frame parameters. Red-herring tables (pressure_depth, motor_health) and non-useful sessions must be identified and ignored."""
+solution_explanation = """Parse frame.param to build the faulty thruster configuration. Extract mass/inertia from vehicle.urdf XML. Decode thrust_cal.dat binary to get per-thruster coefficients. Query SQLite DB for session 3 data: pivot thruster_commands from long to wide format, join with imu_data on timestamp. Convert PWM to normalized commands, then to forces using calibration coefficients. Build 6x6 mass matrix M. Convert accelerations to wrenches: W = M @ A. System ID: B_true = W^T @ pinv(F^T). Compare columns of B_true vs B_faulty from param file. Direction faults: normalize force rows. Position faults: reconstruct from torque rows via cross-product inverse."""
+verification_explanation = """Tests embed the ground-truth correct thruster parameters as constants, independently compute both allocation matrices, and verify every field of diagnosis.json: fault count (exactly 3), per-fault thruster IDs and field types, correct/incorrect values within tolerance, both allocation matrices, condition numbers (relative tolerance 2%), rank, and controllability flag."""
+category = "robotics"
+tags = ["system-identification", "marine-robotics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rov-thruster-allocation"

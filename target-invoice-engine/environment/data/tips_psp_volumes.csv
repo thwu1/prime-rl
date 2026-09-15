@@ -1,0 +1,3 @@
+participant_id,dcas,dca_aau_bics,settled_ip_orig,unsettled_ip_orig,settled_ip_benef,unsettled_ip_benef,settled_recall_orig,unsettled_recall_orig,settled_recall_benef,unsettled_recall_benef
+PSP1,1,1,555217,35439,235600,0,0,0,0,0
+PSP_Beta,1,3,100000,5000,80000,0,1000,0,0,200

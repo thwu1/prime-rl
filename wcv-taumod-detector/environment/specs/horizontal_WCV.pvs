@@ -1,0 +1,31 @@
+% ============================================================
+% horizontal_WCV: Parametric Horizontal Well-Clear Volume
+% From NASA DAIDALUS PVS Formal Specification
+% ============================================================
+%
+% TTHR is the time threshold (for the time variable function)
+% DTHR is the distance threshold (horizontal separation)
+%
+% Key definitions:
+%
+% sqv(v) = v`x * v`x + v`y * v`y    (squared magnitude of 2D vector)
+% sq(x) = x * x                      (square of scalar)
+% tcpa(s,v) = IF sqv(v) > 0 THEN -(s*v)/sqv(v) ELSE 0 ENDIF
+%   where s*v is the dot product s`x*v`x + s`y*v`y
+%
+% horizontal_WCV(tvar)(s,v): bool =
+%   sqv(s) <= sq(DTHR) OR
+%   (sqv(s + tcpa(s,v)*v) <= sq(DTHR) AND
+%    0 <= tvar(s,v) AND tvar(s,v) <= TTHR)
+%
+% The function tvar is a "time variable" — a function from (s,v) to real
+% that measures urgency. Different choices of tvar give different WCV
+% definitions (tau, tau_mod, tcpa, etc.)
+%
+% HorizontalInterval: TYPE = [posreal, Vect2, Vect2] -> EntryExit
+%   Given (T, s, v), returns the time interval [entry, exit] within [0, T]
+%   where horizontal_WCV(tvar)(s+t*v, v) is true.
+%
+% horizontal_interval_correct?(tvar)(hi): bool =
+%   FORALL (T, s, v, t in [0,T]):
+%     horizontal_WCV(tvar)(s+t*v, v) IFF (hi(T,s,v).entry <= t AND t <= hi(T,s,v).exit)

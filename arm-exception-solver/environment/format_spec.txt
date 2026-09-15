@@ -1,0 +1,115 @@
+ARM Cortex-M Exception State Dump Format (CMEX v1)
+====================================================
+
+All multi-byte integer values are little-endian.
+
+FILE HEADER (8 bytes)
+---------------------
+Offset  Size  Description
+0x00    4     Magic: ASCII "CMEX" (0x43 0x4D 0x45 0x58)
+0x04    1     Format version (0x01)
+0x05    1     Flags (reserved, currently 0x00)
+0x06    2     Record count N (uint16 LE)
+
+Following the header are N state records, each exactly 192 bytes.
+
+
+STATE RECORD (192 bytes)
+------------------------
+Offset  Size  Description
++0x00   32    Record identifier (ASCII, null-terminated, zero-padded)
+
+ARM System Control Block registers:
++0x20   4     AIRCR register (uint32 LE)
++0x24   4     SHPR1 register (uint32 LE) — system handler priorities, exceptions 4–7
++0x28   4     SHPR2 register (uint32 LE) — system handler priorities, exceptions 8–11
++0x2C   4     SHPR3 register (uint32 LE) — system handler priorities, exceptions 12–15
+
+ARM special-purpose registers:
++0x30   1     BASEPRI register
++0x31   1     PRIMASK register (bit 0 only)
++0x32   1     FAULTMASK register (bit 0 only)
++0x33   1     CONTROL register
+
+NVIC Interrupt Priority Registers:
++0x34   64    NVIC_IPR[0..63] — one byte per external interrupt priority (IRQ0 at +0x34)
+
+Active exception snapshot:
++0x74   1     Count of active exceptions A (max 8)
++0x75   16    A entries of 2 bytes each: [exception_number (uint8), priority (int8)]
+              Unused slots are zero-filled.
+
+Pending exception snapshot:
++0x85   1     Count of pending exceptions P (max 8)
++0x86   16    P entries of 2 bytes each: [exception_number (uint8), priority (int8)]
+              Unused slots are zero-filled.
+
+Configurable fault handler enable flags:
++0x96   1     UsageFault handler enabled (0 or 1)
++0x97   1     BusFault handler enabled (0 or 1)
++0x98   1     MemManage handler enabled (0 or 1)
+
++0x99   1     Architecture variant: 6 = ARMv6-M, 7 = ARMv7-M
+
+Query descriptor:
++0x9A   1     Query type (see below)
++0x9B   4     Query parameters (uint32 LE, interpretation varies by query type)
+
++0x9F   33    Reserved (zeros)
+
+
+QUERY TYPES
+-----------
+0x01  execution_priority
+      Params: unused
+      Result: signed integer — the effective execution priority
+
+0x02  pending_exception
+      Params: unused
+      Result: exception name string, or null if none can preempt
+
+0x03  fault_target
+      Params byte 0: fault type index (see table below)
+      Result: JSON object {handler: string|null, escalated: bool, lockup: bool}
+
+0x04  exc_return_valid
+      Params: full 32-bit EXC_RETURN value (uint32 LE)
+      Result: boolean
+
+0x05  stack_frame_size
+      Params: unused
+      Result: integer (byte count of exception stack frame)
+
+0x06  wfi_wakeup
+      Params: unused
+      Result: boolean — whether a WFI instruction would wake the processor
+
+
+FAULT TYPE INDEX (for query type 0x03)
+--------------------------------------
+ 0 = UndefInstr          4 = DAccViol        8 = PreciseDataBusError
+ 1 = InvState            5 = IAccViol        9 = ImpreciseDataBusError
+ 2 = InvPC               6 = MUnstkErr      10 = IBusErr
+ 3 = NoCP                7 = MStkErr        11 = UnstkErr
+                                            12 = StkErr
+
+
+EXCEPTION NUMBERS (per ARM architecture)
+-----------------------------------------
+ 1 = Reset        4 = MemManage      10 = DebugMonitor    14 = PendSV
+ 2 = NMI          5 = BusFault       11 = SVCall          15 = SysTick
+ 3 = HardFault    6 = UsageFault     16+ = IRQ(n-16)
+
+
+RESULT OUTPUT FORMAT
+--------------------
+For each input dump file <name>.bin, write a JSON file /app/results/<name>.json
+mapping record identifiers to computed results:
+
+{
+  "record_id_1": <result>,
+  "record_id_2": <result>,
+  ...
+}
+
+Result types vary by query (see QUERY TYPES above).

@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValueSetLibrary xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ValueSetLibraryIdentifier="tbench_adt_a01">
+  <MetaData Name="RAD-1" OrgName="IHE" Version="1.0" Date="2024-01-01" Status="Active" />
+  <NoValidation>
+    <BindingIdentifier>0361</BindingIdentifier>
+    <BindingIdentifier>0362</BindingIdentifier>
+    <BindingIdentifier>0296</BindingIdentifier>
+    <BindingIdentifier>0006</BindingIdentifier>
+    <BindingIdentifier>0002</BindingIdentifier>
+    <BindingIdentifier>0005</BindingIdentifier>
+    <BindingIdentifier>0171</BindingIdentifier>
+    <BindingIdentifier>0172</BindingIdentifier>
+    <BindingIdentifier>0212</BindingIdentifier>
+    <BindingIdentifier>0289</BindingIdentifier>
+    <BindingIdentifier>0446</BindingIdentifier>
+    <BindingIdentifier>0447</BindingIdentifier>
+    <BindingIdentifier>0429</BindingIdentifier>
+    <BindingIdentifier>0078</BindingIdentifier>
+    <BindingIdentifier>0080</BindingIdentifier>
+    <BindingIdentifier>0211</BindingIdentifier>
+    <BindingIdentifier>0399</BindingIdentifier>
+    <BindingIdentifier>0087</BindingIdentifier>
+    <BindingIdentifier>0092</BindingIdentifier>
+    <BindingIdentifier>0023</BindingIdentifier>
+    <BindingIdentifier>0009</BindingIdentifier>
+    <BindingIdentifier>0099</BindingIdentifier>
+    <BindingIdentifier>0018</BindingIdentifier>
+    <BindingIdentifier>0032</BindingIdentifier>
+    <BindingIdentifier>0045</BindingIdentifier>
+    <BindingIdentifier>0046</BindingIdentifier>
+    <BindingIdentifier>0044</BindingIdentifier>
+    <BindingIdentifier>0073</BindingIdentifier>
+    <BindingIdentifier>0110</BindingIdentifier>
+    <BindingIdentifier>0021</BindingIdentifier>
+    <BindingIdentifier>0111</BindingIdentifier>
+    <BindingIdentifier>0112</BindingIdentifier>
+    <BindingIdentifier>0114</BindingIdentifier>
+    <BindingIdentifier>0115</BindingIdentifier>
+    <BindingIdentifier>0116</BindingIdentifier>
+    <BindingIdentifier>0117</BindingIdentifier>
+    <BindingIdentifier>0326</BindingIdentifier>
+    <BindingIdentifier>0062</BindingIdentifier>
+    <BindingIdentifier>0356</BindingIdentifier>
+  </NoValidation>
+  <ValueSetDefinitions>
+    <ValueSetDefinition BindingIdentifier="0001" Name="Administrative Sex" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="A" DisplayName="Ambiguous" />
+      <ValueElement Value="F" DisplayName="Female" />
+      <ValueElement Value="M" DisplayName="Male" />
+      <ValueElement Value="N" DisplayName="Not applicable" />
+      <ValueElement Value="O" DisplayName="Other" />
+      <ValueElement Value="U" DisplayName="Unknown" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0003" Name="Event type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="A01" DisplayName="ADT/ACK - Admit/visit notification" />
+      <ValueElement Value="A02" DisplayName="ADT/ACK - Transfer a patient" />
+      <ValueElement Value="A03" DisplayName="ADT/ACK - Discharge/end visit" />
+      <ValueElement Value="A04" DisplayName="ADT/ACK - Register a patient" />
+      <ValueElement Value="A05" DisplayName="ADT/ACK - Pre-admit a patient" />
+      <ValueElement Value="A06" DisplayName="ADT/ACK - Change an outpatient to inpatient" />
+      <ValueElement Value="A07" DisplayName="ADT/ACK - Change an inpatient to outpatient" />
+      <ValueElement Value="A08" DisplayName="ADT/ACK - Update patient information" />
+      <ValueElement Value="A11" DisplayName="ADT/ACK - Cancel admit" />
+      <ValueElement Value="A12" DisplayName="ADT/ACK - Cancel transfer" />
+      <ValueElement Value="A13" DisplayName="ADT/ACK - Cancel discharge" />
+      <ValueElement Value="A38" DisplayName="ADT/ACK - Cancel pre-admit" />
+      <ValueElement Value="A40" DisplayName="ADT/ACK - Merge patient" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0004" Name="Patient Class" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="B" DisplayName="Obstetrics" />
+      <ValueElement Value="C" DisplayName="Commercial Account" />
+      <ValueElement Value="E" DisplayName="Emergency" />
+      <ValueElement Value="I" DisplayName="Inpatient" />
+      <ValueElement Value="N" DisplayName="Not Applicable" />
+      <ValueElement Value="O" DisplayName="Outpatient" />
+      <ValueElement Value="P" DisplayName="Preadmit" />
+      <ValueElement Value="R" DisplayName="Recurring patient" />
+      <ValueElement Value="U" DisplayName="Unknown" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0007" Name="Admission type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="A" DisplayName="Accident" />
+      <ValueElement Value="E" DisplayName="Emergency" />
+      <ValueElement Value="L" DisplayName="Labor and Delivery" />
+      <ValueElement Value="R" DisplayName="Routine" />
+      <ValueElement Value="N" DisplayName="Newborn" />
+      <ValueElement Value="U" DisplayName="Urgent" />
+      <ValueElement Value="C" DisplayName="Elective" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0069" Name="Hospital Service" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="MED" DisplayName="Medical Service" />
+      <ValueElement Value="SUR" DisplayName="Surgical Service" />
+      <ValueElement Value="URO" DisplayName="Urology Service" />
+      <ValueElement Value="PUL" DisplayName="Pulmonary Service" />
+      <ValueElement Value="CAR" DisplayName="Cardiac Service" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0076" Name="Message type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="ACK" DisplayName="General acknowledgment message" />
+      <ValueElement Value="ADT" DisplayName="ADT message" />
+      <ValueElement Value="BAR" DisplayName="Add/change billing account" />
+      <ValueElement Value="DFT" DisplayName="Detail financial transactions" />
+      <ValueElement Value="MDM" DisplayName="Medical document management" />
+      <ValueElement Value="OML" DisplayName="Laboratory order message" />
+      <ValueElement Value="ORM" DisplayName="Order message" />
+      <ValueElement Value="ORU" DisplayName="Observation result/unsolicited" />
+      <ValueElement Value="QBP" DisplayName="Query by parameter" />
+      <ValueElement Value="RSP" DisplayName="Segment pattern response" />
+      <ValueElement Value="SIU" DisplayName="Schedule information unsolicited" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0085" Name="Observation result status" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="C" DisplayName="Record coming over is a correction" />
+      <ValueElement Value="D" DisplayName="Deletes the OBX record" />
+      <ValueElement Value="F" DisplayName="Final results" />
+      <ValueElement Value="I" DisplayName="Specimen in lab" />
+      <ValueElement Value="N" DisplayName="Not asked" />
+      <ValueElement Value="O" DisplayName="Order detail description only" />
+      <ValueElement Value="P" DisplayName="Preliminary results" />
+      <ValueElement Value="R" DisplayName="Results entered" />
+      <ValueElement Value="S" DisplayName="Partial results" />
+      <ValueElement Value="U" DisplayName="Results status change" />
+      <ValueElement Value="W" DisplayName="Post original as wrong" />
+      <ValueElement Value="X" DisplayName="Results cannot be obtained" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0103" Name="Processing ID" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="D" DisplayName="Debugging" />
+      <ValueElement Value="P" DisplayName="Production" />
+      <ValueElement Value="T" DisplayName="Training" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0125" Name="Value type" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="AD" DisplayName="Address" />
+      <ValueElement Value="CE" DisplayName="Coded Entry" />
+      <ValueElement Value="CF" DisplayName="Coded Element With Formatted Values" />
+      <ValueElement Value="CK" DisplayName="Composite ID With Check Digit" />
+      <ValueElement Value="CN" DisplayName="Composite ID And Name" />
+      <ValueElement Value="CP" DisplayName="Composite Price" />
+      <ValueElement Value="CWE" DisplayName="Coded with Exceptions" />
+      <ValueElement Value="CX" DisplayName="Extended Composite ID" />
+      <ValueElement Value="DT" DisplayName="Date" />
+      <ValueElement Value="ED" DisplayName="Encapsulated Data" />
+      <ValueElement Value="FT" DisplayName="Formatted Text" />
+      <ValueElement Value="MO" DisplayName="Money" />
+      <ValueElement Value="NM" DisplayName="Numeric" />
+      <ValueElement Value="PN" DisplayName="Person Name" />
+      <ValueElement Value="RP" DisplayName="Reference Pointer" />
+      <ValueElement Value="SN" DisplayName="Structured Numeric" />
+      <ValueElement Value="ST" DisplayName="String Data" />
+      <ValueElement Value="TM" DisplayName="Time" />
+      <ValueElement Value="TN" DisplayName="Telephone Number" />
+      <ValueElement Value="TS" DisplayName="Time Stamp" />
+      <ValueElement Value="TX" DisplayName="Text Data" />
+      <ValueElement Value="XAD" DisplayName="Extended Address" />
+      <ValueElement Value="XCN" DisplayName="Extended Composite Name" />
+      <ValueElement Value="XON" DisplayName="Extended Composite Name for Orgs" />
+      <ValueElement Value="XPN" DisplayName="Extended Person Name" />
+      <ValueElement Value="XTN" DisplayName="Extended Telecom Number" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0136" Name="Yes/no indicator" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="N" DisplayName="No" />
+      <ValueElement Value="Y" DisplayName="Yes" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0155" Name="Accept/application acknowledgment conditions" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="AL" DisplayName="Always" />
+      <ValueElement Value="ER" DisplayName="Error/reject conditions only" />
+      <ValueElement Value="NE" DisplayName="Never" />
+      <ValueElement Value="SU" DisplayName="Successful completion only" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0354" Name="Message structure" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="ACK" DisplayName="Varies" />
+      <ValueElement Value="ADT_A01" DisplayName="A01, A04, A08, A13" />
+      <ValueElement Value="ADT_A02" DisplayName="A02" />
+      <ValueElement Value="ADT_A03" DisplayName="A03" />
+      <ValueElement Value="ADT_A05" DisplayName="A05, A14, A28, A31" />
+      <ValueElement Value="ADT_A06" DisplayName="A06, A07" />
+      <ValueElement Value="ADT_A09" DisplayName="A09, A10, A11" />
+      <ValueElement Value="ADT_A12" DisplayName="A12" />
+      <ValueElement Value="ADT_A15" DisplayName="A15" />
+      <ValueElement Value="ADT_A16" DisplayName="A16" />
+      <ValueElement Value="ADT_A17" DisplayName="A17" />
+      <ValueElement Value="ADT_A20" DisplayName="A20" />
+      <ValueElement Value="ADT_A21" DisplayName="A21-A24, A37" />
+      <ValueElement Value="ADT_A30" DisplayName="A30, A34-A37" />
+      <ValueElement Value="ADT_A38" DisplayName="A38" />
+      <ValueElement Value="ADT_A39" DisplayName="A39-A41, A45" />
+      <ValueElement Value="ADT_A43" DisplayName="A43, A44" />
+      <ValueElement Value="ADT_A45" DisplayName="A45" />
+      <ValueElement Value="ADT_A50" DisplayName="A50, A51" />
+      <ValueElement Value="ADT_A52" DisplayName="A52, A53" />
+      <ValueElement Value="ADT_A54" DisplayName="A54, A55" />
+      <ValueElement Value="ADT_A60" DisplayName="A60" />
+      <ValueElement Value="ADT_A61" DisplayName="A61, A62" />
+    </ValueSetDefinition>
+    <ValueSetDefinition BindingIdentifier="0445" Name="Identity Reliability Code" Stability="Static" Extensibility="Closed">
+      <ValueElement Value="AL" DisplayName="Patient/Person Name is an Alias" />
+      <ValueElement Value="UA" DisplayName="Unknown/Default Address" />
+      <ValueElement Value="UD" DisplayName="Unknown/Default Date of Birth" />
+      <ValueElement Value="US" DisplayName="Unknown/Default Social Security Number" />
+    </ValueSetDefinition>
+  </ValueSetDefinitions>
+</ValueSetLibrary>

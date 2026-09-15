@@ -1,0 +1,7 @@
+A geometric algebra computation engine at `/app/` is implemented as a hybrid Rust/Python system. The core kernel (blade ordering, reorder sign, product computation) is a compiled Rust shared library at `/app/libga/` (source: `/app/libga/src/lib.rs`), wrapped by `/app/ga_engine.py` via Python `ctypes`. Higher-level operations (reverse, grade projection, sandwich, grade involution) are implemented in pure Python.
+
+The system has multiple bugs producing incorrect results across both layers. Two functions (`sandwich`, `grade_involution`) are unimplemented (marked `TODO`). Bugs span the Rust blade-ordering logic, sign computation, and product kernel, as well as the Python wrapper's flavor encoding, grade-filter mode selection, and sign computation. Because bugs cross the Rust/Python FFI boundary, fixing one layer can change which downstream tests pass or fail.
+
+A mathematical reference for all operations is at `/app/theory.md`. No algorithmic pseudocode is provided — derive correct implementations from the mathematical definitions. The Rust library must be rebuilt via `cargo` in `/app/libga/` after source modifications.
+
+Diagnose and fix all defects in both the Rust and Python layers, and implement the missing functions, so the engine is mathematically correct.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering three numeral systems with fundamentally different structures from a SQLite database where morpheme data is embedded as JSON blobs inside a lexicon table mixed with non-numeral vocabulary. The agent must: (1) explore an unfamiliar multi-table database schema and use SQLite JSON functions (json_extract) to filter numeral morphemes from mixed lexical entries, (2) cross-reference field observations stored in a separate table to gather contextual clues about numeral system structure, (3) independently discover that the three systems use different bases and composition rules — without any explicit description of the rules being provided, (4) deduce morpheme functional roles (digit vs. power marker vs. sub-base token vs. subtractive complement) purely from patterns in the training data since no category labels are given, (5) identify 8 corrupted training entries by systematically verifying every entry against the inductively derived rules, and (6) build bidirectional encode/decode algorithms for three distinct system types and produce cross-system translations. The Belago pivot-delimited system and Renshi subtractive-complement mechanism require expert-level understanding of numeral system typology to reverse-engineer from data alone."""
+solution_explanation = """Query the lexicon table using json_extract to filter numeral morphemes from general vocabulary. Analyze the observations table for contextual clues about system structure. From training data patterns, derive: Turahi uses base 8 with multiplicative-additive composition (smaller-before-larger multiplies, larger-before-smaller adds), powers dun=8, ram=64, vol=512; Belago uses base 20 with sub-base 5, pivot-delimited structure where kal=20 and bor=400 separate coefficient groups; Renshi uses base 12 with subtractive fe-prefix (fekat=12-4=8, fetri=12-3=9, fedwa=12-2=10, feek=12-1=11) and multiplicative-additive composition. Verify all 115 training entries, finding 8 corrupted ones (IDs 24,28,33,56,65,72,98,115). Generate corrections and process all test cases."""
+verification_explanation = """Tests verify five output files: (1) errors.json contains exactly 8 corrupted entry IDs with correct language, number, wrong_word, and correct_word fields; (2) fix.sql UPDATE statements are applied to a database copy and corrected word_forms are verified; (3) decode_results.tsv matches 36 expected word-to-number conversions; (4) encode_results.tsv matches 30 expected number-to-word conversions; (5) cross_results.tsv matches 5 cross-system translations. Additionally verifies that non-corrupted entries are not modified by fix.sql."""
+category = "natural_language_processing"
+tags = ["computational-linguistics", "database-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/numeral-system-decoder"

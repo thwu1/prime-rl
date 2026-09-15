@@ -1,0 +1,59 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Recovering plaintext from age v1 encrypted files with unknown protocol deviations
+requires expert-level knowledge of the entire age v1 cryptographic stack. The agent
+must independently diagnose which protocol layer each file deviates from — key
+derivation parameter ordering, HKDF info string selection, and STREAM nonce
+construction — none of which are identified in the task description. This demands
+systematic binary analysis of encrypted file headers, implementation of X25519 ECDH
+key exchange, HKDF-SHA-256 key derivation, ChaCha20-Poly1305 AEAD, HMAC-SHA-256
+header MAC verification, and the STREAM chunked payload decryption. Each deviation
+requires a distinct hypothesis-and-test cycle: the agent must isolate the failure
+point (header vs payload layer), generate candidate parameter variations, and
+validate against the cryptographic MAC to confirm correct recovery.
+"""
+solution_explanation = """
+The solution parses the age identity key (Bech32 decode), then for each file that
+the age CLI rejects: (1) parses the binary header to extract ephemeral public key,
+wrapped body, and MAC, (2) computes the X25519 shared secret, (3) tries multiple
+HKDF parameter combinations for the wrap key — standard salt ordering, swapped salt
+ordering, and alternative info strings — until the ChaCha20-Poly1305 unwrap of the
+file key succeeds, (4) verifies the header MAC using the recovered file key,
+(5) derives the payload key and decrypts the STREAM payload trying both big-endian
+and little-endian nonce counter byte orders. Each of the three non-conformant files
+has a distinct single-parameter deviation that this systematic search identifies.
+"""
+verification_explanation = """
+Tests verify the environment is correctly set up (identity key exists, 5 corpus
+files present, age CLI works, conformant files decrypt, non-conformant files fail
+with the CLI). The recovery is validated by checking that /app/recovered.txt contains
+exactly 3 sorted tokens whose combined SHA-256 hash matches a precomputed value,
+preventing both incorrect solutions and trivial cheating via hash reversal.
+"""
+category = "cryptography"
+tags = ["protocol-forensics", "file-encryption"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2be143"

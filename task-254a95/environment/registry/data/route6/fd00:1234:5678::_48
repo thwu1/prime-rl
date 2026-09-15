@@ -1,0 +1,5 @@
+route6:             fd00:1234:5678::/48
+origin:             AS4242420001
+max-length:         48
+mnt-by:             ALPHA-MNT
+source:             DN42

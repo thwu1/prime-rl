@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interacting bugs in an IR evaluation pipeline without being told what is wrong. The solver must independently discover: (1) a qrels loading defect that silently discards multi-relevant passages, (2) an incorrect logarithm base in NDCG normalization (ln vs log₂), (3) a wrong Average Precision denominator convention (min(R,K) vs R), (4) inverted duplicate-PID resolution logic that keeps worst rather than best rank, and (5) misuse of an independent-samples t-test where a paired test is required. Each bug produces plausible output, and fixing one alters the observable effect of others, demanding iterative cross-validation against the reference MRR script and deep knowledge of standard IR evaluation methodology."""
+solution_explanation = """Cross-reference pipeline MRR@10 against the official ms_marco_eval.py to detect the qrels loading discrepancy. Trace to the overwrite-vs-accumulate bug in load_qrels (use defaultdict(set) and add). Fix NDCG log base from math.log to math.log2. Fix MAP denominator from min(total_rel, k) to total_rel. Fix duplicate PID resolution from rank > to rank <. Replace ttest_ind with ttest_rel for paired system comparison."""
+verification_explanation = """Tests independently recompute all four metrics from raw data files using correct implementations and compare against the pipeline output with 1e-6 metric tolerance and 1e-4 t-statistic tolerance. A cross-reference test runs the official MS MARCO eval script on clean systems and verifies MRR agreement. Additional tests verify JSON schema, leaderboard ordering, warning content, and metric range constraints."""
+category = "information_retrieval"
+tags = ["evaluation-audit", "statistical-testing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-eval-framework"

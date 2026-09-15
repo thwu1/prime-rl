@@ -1,0 +1,49 @@
+data_rutile_TiO2
+
+_chemical_name_systematic          'Titanium dioxide'
+_chemical_name_mineral             'Rutile'
+_chemical_formula_sum              'O2 Ti'
+_chemical_formula_weight           79.87
+
+_cell_length_a                     4.5937(1)
+_cell_length_b                     4.5937(1)
+_cell_length_c                     2.9587(1)
+_cell_angle_alpha                  90.000
+_cell_angle_beta                   90.000
+_cell_angle_gamma                  90.000
+_cell_volume                       62.43
+_cell_formula_units_Z              2
+
+_space_group_name_H-M_alt          'P 42/m n m'
+_space_group_IT_number             136
+
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1  'x, y, z'
+2  '-x, -y, z'
+3  '-y+1/2, x+1/2, z+1/2'
+4  'y+1/2, -x+1/2, z+1/2'
+5  '-x+1/2, y+1/2, -z+1/2'
+6  'x+1/2, -y+1/2, -z+1/2'
+7  'y, x, -z'
+8  '-y, -x, -z'
+9  '-x, -y, -z'
+10 'x, y, -z'
+11 'y+1/2, -x+1/2, -z+1/2'
+12 '-y+1/2, x+1/2, -z+1/2'
+13 'x+1/2, -y+1/2, z+1/2'
+14 '-x+1/2, y+1/2, z+1/2'
+15 '-y, -x, z'
+16 'y, x, z'
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_B_iso_or_equiv
+Ti1 Ti 0.0000 0.0000 0.0000 1.0 0.40
+O1  O  0.3053(1) 0.3053(1) 0.0000 1.0 0.55

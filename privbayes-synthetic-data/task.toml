@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must reverse-engineer a multi-module reference library (DataSynthesizer) whose internal imports are broken and cannot be run directly. They must study 6+ source files to understand the data description pipeline, type inference heuristics, distribution computation, private network construction with exponential mechanism, conditional probability estimation, noise injection, and ancestral sampling — then reimplement all of it as a standalone CLI tool. The instruction specifies only the CLI interface, output schemas, quality thresholds, and privacy/determinism requirements — all algorithms, sensitivity formulas, noise mechanisms, and budget allocation strategies must be discovered from the reference source code. Additionally, the solver must implement a privacy budget accounting report that tracks epsilon allocation across pipeline phases and per-attribute noise parameters. This demands expertise in differential privacy theory, Bayesian network construction, statistical distribution estimation, numerical stability, and privacy budget composition."""
+solution_explanation = """The solution implements a full PrivBayes pipeline discovered from the DataSynthesizer reference code in /app/reference/: (1) type inference using pandas numeric detection and uniqueness checks, (2) histogram/value-count distributions per attribute with 20 bins for numericals, (3) Laplace noise injection into marginal distributions with sensitivity 2/n and per-attribute epsilon budget, (4) encoding data into bin indices, (5) greedy BN construction selecting child-parent pairs via exponential mechanism with mutual information scores and PrivBayes Lemma 1 sensitivity, (6) noisy conditional distribution computation using joint distributions for first k+1 attributes and pairwise for the rest, (7) ancestral sampling from root through BN using conditional distributions, with uniform within-bin sampling for numerical attributes. Privacy budget is split epsilon/2 for structure learning and epsilon/2 for distribution estimation. A privacy report tracks epsilon allocation per phase and per-attribute noise scale (sensitivity / per-attr epsilon share)."""
+verification_explanation = """Tests verify: (1) output file existence for description JSON, synthetic CSV, and privacy report, (2) JSON top-level key structure, (3) meta fields including num_tuples matching input row count, (4) data type inference for all 6 columns, (5) candidate key detection, (6) categorical classification with threshold=20, (7) attribute description fields completeness, (8) distribution normalization and non-negativity, (9) 20 histogram bins for non-categorical numerical attributes, (10) categorical bins matching sorted distinct values, (11) BN structure validity (DAG, single root, topological order, max-parents), (12) conditional probability structure (root=flat list, children=dict with stringified keys, key length = parent count), (13) synthetic CSV schema and row count, (14) candidate key sequential values, (15) domain validity for categorical columns, (16) type preservation, (17) KL divergence <1.0 for categorical attributes at epsilon=1.0, (18) KS statistic <0.4 for numerical attributes, (19) determinism via identical outputs from same-seed runs, (20) multi-epsilon validation with different outputs and KL<2.0 at epsilon=0.5, (21) noise evidence in marginals, (22) privacy report total_epsilon matches input, (23) budget allocation sums correctly, (24) per-attribute noise coverage and positivity, (25) different epsilon produces different noise scales, (26) budget has multiple phases."""
+category = "machine_learning"
+tags = ["differential-privacy", "bayesian-networks"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/privbayes-synthetic-data"

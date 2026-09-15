@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding three distinct specialized formats: (1) Abaqus implicit mesh generation semantics (coordinate shifting with node renumbering, multi-dimensional element generation with coupled node/element ID increments, range-based node set expansion), (2) CalculiX input deck differences from Abaqus (unsupported cards, output request parameter differences), and (3) CalculiX binary result file parsing with non-trivial fixed-width format conventions. The solver must also correctly identify point D on the top surface of the plate in the model's coordinate system, recognizing that the benchmark measures stress at the loaded surface of the inner boundary. Getting any single component wrong (coordinate transforms, node numbering, element connectivity, face numbering for pressure loads, output format parsing, point D location) causes cascading failures. This combination of FEA domain knowledge, multi-format parsing, and end-to-end pipeline integration places the task at proficient/expert level."""
+solution_explanation = """The solution parses the Abaqus .inp line by line, building a keyword-block model. *NCOPY,SHIFT is expanded by iterating over source node sets and creating new nodes with shifted coordinates and offset IDs. *ELGEN is expanded using a triple nested loop over generation directions, computing new element IDs and node connectivity via the specified increments. *NSET,GEN is expanded via range generation. The expanded mesh is written as a CalculiX .inp with explicit *NODE, *ELEMENT, *NSET, *ELSET cards. CalculiX (ccx) solves the problem. The .frd parser reads node coordinates from the 2C block and stress from the STRESS block using fixed-width substring extraction: node_id in columns 3:13, then 12-character fields for stress components. Point D is on the top surface at (2.0, 0.0, 0.6) in model coordinates. SYY at the nearest node yields approximately -5.65 MPa, within 5% of the -5.38 MPa reference."""
+verification_explanation = """Tests apply multi-layer cross-validation to prevent fabricated results. (1) results.json schema completeness. (2) .inp and .frd structural checks: no implicit generation keywords, presence of CalculiX coordinate (2C) and STRESS (-4) block markers. (3) Cross-validation against .inp: test independently parses the expanded .inp to count nodes and elements, verifying they match results.json claims and are plausible for a 3-D mesh. (4) Cross-validation against .frd: test independently parses the .frd coordinate block to confirm point_D_node_id exists at the correct location, then extracts SYY from the .frd STRESS block at that node and verifies it matches sigma_y_Pa to within 0.1%. This makes it impossible to pass by fabricating results.json alone. (5) sigma_y_MPa is within 15% of the NAFEMS reference (embedded only in test code) and is negative. (6) Pa/MPa unit consistency and relative_error_pct correctness."""
+category = "engineering"
+tags = ["finite-element-analysis", "format-conversion"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0dd023"

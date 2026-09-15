@@ -1,0 +1,20 @@
+{
+  "base_attributes": ["__class__", "__repr__", "__str__", "__hash__", "__eq__"],
+  "types": {
+    "int": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__sub__", "__mul__", "__truediv__", "__floordiv__", "__mod__", "__pow__", "__neg__", "__abs__", "__int__", "__float__", "__bool__", "__index__", "bit_length", "conjugate"],
+    "str": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__mul__", "__contains__", "__getitem__", "__iter__", "__len__", "capitalize", "lower", "upper", "strip", "split", "join", "replace", "find", "startswith", "endswith"],
+    "float": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__sub__", "__mul__", "__truediv__", "__floordiv__", "__mod__", "__pow__", "__neg__", "__abs__", "__int__", "__float__", "__bool__", "is_integer", "conjugate"],
+    "bool": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__sub__", "__mul__", "__truediv__", "__floordiv__", "__mod__", "__pow__", "__neg__", "__abs__", "__int__", "__float__", "__bool__", "__index__", "bit_length", "conjugate", "__and__", "__or__", "__xor__"],
+    "list": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__mul__", "__contains__", "__getitem__", "__setitem__", "__delitem__", "__iter__", "__len__", "__reversed__", "append", "extend", "insert", "remove", "pop", "clear", "sort", "reverse", "copy", "count", "index"],
+    "dict": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__contains__", "__getitem__", "__setitem__", "__delitem__", "__iter__", "__len__", "keys", "values", "items", "get", "pop", "update", "clear", "copy", "setdefault", "fromkeys"],
+    "set": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__contains__", "__iter__", "__len__", "__and__", "__or__", "__sub__", "__xor__", "add", "remove", "discard", "pop", "clear", "union", "intersection", "difference", "symmetric_difference", "issubset", "issuperset"],
+    "tuple": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__mul__", "__contains__", "__getitem__", "__iter__", "__len__", "count", "index"],
+    "bytes": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__mul__", "__contains__", "__getitem__", "__iter__", "__len__", "decode", "hex", "count", "find", "index", "join", "replace", "split", "strip", "upper", "lower"],
+    "Path": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__truediv__", "__fspath__", "name", "stem", "suffix", "parent", "parts", "exists", "is_file", "is_dir", "mkdir", "read_text", "write_text", "open", "glob", "resolve"],
+    "TextIO": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__iter__", "__enter__", "__exit__", "read", "write", "readline", "readlines", "close", "flush", "seek", "tell", "fileno", "writable", "readable"],
+    "ndarray": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__add__", "__sub__", "__mul__", "__truediv__", "__getitem__", "__setitem__", "__iter__", "__len__", "shape", "dtype", "reshape", "flatten", "transpose", "sum", "mean", "max", "min", "argmax", "argmin", "copy", "astype"],
+    "DataFrame": ["__class__", "__repr__", "__str__", "__hash__", "__eq__", "__getitem__", "__setitem__", "__iter__", "__len__", "columns", "index", "values", "shape", "dtypes", "head", "tail", "describe", "groupby", "merge", "join", "sort_values", "drop", "fillna", "apply", "to_csv", "to_json"],
+    "Any": ["__class__", "__repr__", "__str__", "__hash__", "__eq__"],
+    "None": ["__class__", "__repr__", "__str__", "__hash__", "__eq__"]
+  }
+}

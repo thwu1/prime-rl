@@ -1,0 +1,94 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "hidden-pt-b",
+        "birthDate": "1940-01-15",
+        "gender": "female",
+        "name": [{"family": "Nakamura", "given": ["Yuki"]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-htn-hidden-b",
+        "subject": {"reference": "Patient/hidden-pt-b"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2025-02-01",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-preg-hidden-b",
+        "subject": {"reference": "Patient/hidden-pt-b"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.90", "display": "Supervision of high risk pregnancy"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "resolved"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2023-01-01",
+        "abatementDateTime": "2023-09-01",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-outpt-hidden-b",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [
+          {"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99397", "display": "Periodic preventive medicine, 65+"}]}
+        ],
+        "subject": {"reference": "Patient/hidden-pt-b"},
+        "period": {"start": "2025-04-01T10:00:00Z", "end": "2025-04-01T10:45:00Z"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "bp-hidden-b",
+        "status": "final",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs"}]}
+        ],
+        "code": {
+          "coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]
+        },
+        "subject": {"reference": "Patient/hidden-pt-b"},
+        "effectiveDateTime": "2025-08-15T11:00:00Z",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 135, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 85, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+; SNOMED CT Expression Constraint Language (ECL) - Brief Syntax
+; ABNF Grammar (subset based on ECL v2.3 specification)
+;
+; This grammar defines the syntax for ECL expressions evaluated
+; against RF2 SNOMED CT snapshot data.
+
+expressionConstraint = ws ( refinedExpressionConstraint
+                          / compoundExpressionConstraint
+                          / dottedExpressionConstraint
+                          / subExpressionConstraint ) ws
+
+compoundExpressionConstraint = subExpressionConstraint
+    1*( ws ( conjunction / disjunction / exclusion ) ws subExpressionConstraint )
+
+refinedExpressionConstraint = subExpressionConstraint ws colon ws eclRefinement
+
+dottedExpressionConstraint = subExpressionConstraint 1*( ws dot ws eclAttributeName )
+
+subExpressionConstraint = [ constraintOperator ws ] ( [ memberOf ws ] eclFocusConcept
+                        / "(" ws expressionConstraint ws ")" )
+
+eclFocusConcept = eclConceptReference / wildCard
+
+eclConceptReference = conceptId [ ws term ]
+
+conceptId = sctId
+
+sctId = digitNonZero 5*17( digit )
+
+term = ws "|" ws 1*nonPipe ws "|"
+
+wildCard = "*"
+
+; --- Constraint Operators ---
+
+constraintOperator = childOrSelfOf / childOf
+                   / descendantOrSelfOf / descendantOf
+                   / parentOrSelfOf / parentOf
+                   / ancestorOrSelfOf / ancestorOf
+
+descendantOf       = "<"
+descendantOrSelfOf = "<<"
+childOf            = "<!"
+childOrSelfOf      = "<<!"
+ancestorOf         = ">"
+ancestorOrSelfOf   = ">>"
+parentOf           = ">!"
+parentOrSelfOf     = ">>!"
+
+; --- Boolean Operators (case-insensitive) ---
+
+conjunction = ( "AND" / "and" / "And" / "," )
+disjunction = ( "OR" / "or" / "Or" )
+exclusion   = ( "MINUS" / "minus" / "Minus" )
+
+memberOf = "^"
+
+; --- Refinement ---
+
+eclRefinement = subRefinement *( ws ( conjunction / disjunction ) ws subRefinement )
+
+subRefinement = eclAttributeSet
+              / eclAttributeGroup
+              / "(" ws eclRefinement ws ")"
+
+eclAttributeGroup = [ cardinality ws ] "{" ws eclAttributeSet ws "}"
+
+eclAttributeSet = eclAttribute *( ws ( conjunction / disjunction ) ws eclAttribute )
+
+eclAttribute = [ cardinality ws ] [ reverseFlag ws ] eclAttributeName
+               ws expressionComparisonOperator ws subExpressionConstraint
+
+eclAttributeName = subExpressionConstraint
+
+; --- Operators ---
+
+expressionComparisonOperator = "!=" / "="
+
+reverseFlag = "R"
+
+colon = ":"
+dot   = "."
+
+; --- Cardinality ---
+; Default cardinality when omitted is [1..*]
+
+cardinality = "[" nonNegativeIntegerValue ".." ( nonNegativeIntegerValue / many ) "]"
+
+many = "*"
+
+nonNegativeIntegerValue = "0" / ( digitNonZero *digit )
+
+; --- Lexical Rules ---
+
+digit        = %x30-39           ; 0-9
+digitNonZero = %x31-39           ; 1-9
+nonPipe      = %x09 / %x20-7B / %x7D-7E
+ws           = *( %x20 / %x09 / %x0D / %x0A )

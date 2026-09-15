@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level geospatial data processing expertise: understanding GMT's tension-based spline gridding algorithm and its sensitivity to the tension parameter, spatial cross-validation methodology (non-trivial quadrant partition design with proper train/test protocol for geospatial data), multi-scale residual analysis via Gaussian filtering with flat-earth distance geometry, and fluency with GMT command-line tool syntax including blockmedian, surface, grdfilter, grdtrack, grdinfo, grdmath, and grd2xyz. The agent must chain 7+ GMT CLI operations with correct parameter semantics (arc-minute spacing strings, distance modes, RPN grid math), orchestrate them via Python subprocess calls, parse whitespace-delimited GMT output, and handle data format transitions between XYZ text files and NetCDF grids across pipeline stages."""
+solution_explanation = """Read the ship track XYZ data, preprocess with gmt blockmedian at 10' spacing, implement 4-fold quadrant-based spatial cross-validation over 7 tension values using gmt surface + gmt grdtrack, select the tension minimizing mean RMSE, produce the final grid, apply gmt grdfilter with a 600km Gaussian filter and flat-earth distance, compute residuals via gmt grdmath SUB, extract residual statistics via gmt grd2xyz, generate 50 profile points with Haversine distances, sample with gmt grdtrack, and write all results as CSV/JSON/NetCDF files."""
+verification_explanation = """Tests verify: (1) cv_results.csv has exactly 7 rows with valid tension values and positive finite RMSE values showing variation, (2) optimal_tension.txt matches the CV minimum, (3) final_grid.nc exists with correct region [245,255,20,30], 10' spacing, and 61x61 gridline-registered dimensions verified via gmt grdinfo, (4) residual_stats.json has all 8 required keys with finite values and locations within the grid region, (5) profile.csv has 50 rows with 4 columns and monotonically increasing distance, (6) profile_stats.json has correct point count and negative depth values (below sea level), (7) cross-validation results are internally consistent."""
+category = "geospatial_analysis"
+tags = ["gmt-cli", "spatial-statistics"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bathymetric-gridding-cv"

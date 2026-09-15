@@ -1,0 +1,672 @@
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 660/660   #P:12
+#
+#                                _-----=> irqs-off/BH-disabled
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                             || / _--=> preempt-depth
+#                             ||| / _-=> migrate-disable
+#                            |||| /     delay
+#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION
+#              | |         |   |||||     |         |
+      swapper/9-0 [009] d..1.   1000.000000: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.000822: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.000827: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.000837: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.004473: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.004478: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.004483: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.004488: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.004493: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.004503: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.004503: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.004503: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.004508: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.004963: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.005709: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.007046: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.007051: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.007061: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.007338: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.009542: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.009547: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.009557: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.010019: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.010144: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.010149: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.010159: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+     NetProc-1010 [009] d..1.   1000.010168: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.012164: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.014248: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.016132: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.016137: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.016147: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.016667: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.017474: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.017479: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.017489: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.019670: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.021225: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.021230: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.021235: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.021240: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.021245: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.021255: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.021255: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.021255: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.021260: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.021620: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.022451: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.023665: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.023670: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.023680: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.024056: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.026203: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.026208: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.026218: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.026615: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.026708: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.026897: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.026902: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.026912: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.028783: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.031040: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.032886: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.032891: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.032901: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.033334: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.034176: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.034181: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.034191: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.036491: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.037965: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.037970: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.037975: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.037980: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.037985: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.037995: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.037995: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.037995: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.038000: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.038304: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.039311: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.040394: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.040399: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.040409: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.040861: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.042968: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.042973: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.042983: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.043327: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.043416: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.043707: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.043712: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.043722: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.045598: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.047590: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.049702: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.049707: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.049717: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.050001: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.050668: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.050673: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.050683: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.053216: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.054352: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.054357: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.054362: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.054367: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.054372: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.054382: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.054382: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.054382: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.054387: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.054995: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.055538: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.057055: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.057060: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.057070: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.057186: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.059370: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.059375: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.059385: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.059956: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.060025: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.060157: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.060162: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.060172: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.061870: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.064302: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.066165: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.066170: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.066180: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.066668: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.067432: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.067437: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.067447: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.069696: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.071218: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.071223: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.071228: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.071233: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.071238: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.071248: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.071248: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.071248: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.071253: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.071664: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.072552: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.073714: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.073719: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.073729: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.074047: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.076241: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.076246: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.076256: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.076661: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.076708: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.076906: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.076911: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.076921: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.078826: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.080933: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.082903: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.082908: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.082918: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.083335: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.083967: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.083972: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.083982: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.086531: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.087793: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.087798: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.087803: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.087808: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.087813: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.087823: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.087823: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.087823: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.087828: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.088320: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.088977: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.090333: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.090338: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.090348: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.090661: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.092866: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.092871: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.092881: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.093331: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.093422: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.093501: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.093506: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.093516: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.095374: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.097573: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.099490: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.099495: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.099505: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.100002: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.100739: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.100744: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.100754: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.103021: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.104468: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.104473: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.104478: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.104483: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.104488: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.104498: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.104498: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.104498: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.104503: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.105029: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.105849: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.107099: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.107104: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.107114: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.107331: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.109528: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.109533: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.109543: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.110020: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.110039: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.110171: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.110176: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.110186: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.111938: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.114366: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.116218: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.116223: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.116233: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.116669: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.117366: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.117371: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.117381: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.119849: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.121032: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.121037: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.121042: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.121047: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.121052: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.121062: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.121062: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.121062: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.121067: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.121706: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.122393: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.123677: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.123682: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.123692: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.123895: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.126055: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.126060: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.126070: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.126718: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.126783: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.126788: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.126798: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+     NetProc-1010 [009] d..1.   1000.126809: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.128513: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.130941: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.132831: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.132836: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.132846: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.133336: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.134028: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.134033: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.134043: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.136446: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.137654: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.137659: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.137664: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.137669: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.137674: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.137684: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.137684: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.137684: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.137689: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.138326: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.138833: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.140262: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.140267: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.140277: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.140517: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.142680: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.142685: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.142695: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.143349: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.143356: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.143377: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.143382: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.143392: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.145295: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.147634: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.149364: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.149369: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.149379: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.150003: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.150827: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.150832: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.150842: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.152981: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.154588: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.154593: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.154598: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.154603: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.154608: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.154618: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.154618: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.154618: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.154623: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.154986: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.155824: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.157091: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.157096: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.157106: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.157427: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.159596: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.159601: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.159611: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.160007: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.160163: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.160280: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.160285: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.160295: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.162154: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.164326: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.166335: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.166340: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.166350: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.166670: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.167417: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.167422: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.167432: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.169950: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.171148: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.171153: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.171158: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.171163: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.171168: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.171178: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.171178: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.171178: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.171183: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.171634: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.172464: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.173550: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.173555: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.173565: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.174056: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.176140: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.176145: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.176155: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.176637: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.176640: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.176854: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.176859: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.176869: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.178543: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.180977: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.182825: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.182830: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.182840: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.183337: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.184091: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.184096: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.184106: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.186476: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.187897: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.187902: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.187907: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.187912: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.187917: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.187927: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.187927: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.187927: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.187932: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.188357: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.189246: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.190228: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.190233: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.190243: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.190780: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.192921: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.192926: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.192936: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.193332: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.193379: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.193575: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.193580: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.193590: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.195389: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.197612: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.199594: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.199599: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.199609: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.200004: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.200841: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.200846: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.200856: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.203204: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.204627: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.204632: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.204637: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.204642: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.204647: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.204657: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.204657: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.204657: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.204662: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.205009: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.205991: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.206927: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.206932: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.206942: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.207582: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.209636: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.209641: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.209651: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.209954: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.209959: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.210430: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.210435: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.210445: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.212116: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.214299: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.216433: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.216438: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.216448: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.216671: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.217520: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.217525: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.217535: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.219967: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.221219: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.221224: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.221229: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.221234: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.221239: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.221249: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.221249: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.221249: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.221254: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.221702: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.222538: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.223730: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.223735: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.223745: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.224065: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.226291: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.226296: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.226306: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.226646: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.226810: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.226977: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.226982: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.226992: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.228774: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.230886: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.232950: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.232955: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.232965: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.233338: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.234075: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.234080: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.234090: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.236578: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.237934: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.237939: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.237944: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.237949: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.237954: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.237964: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.237964: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.237964: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.237969: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.238350: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.239260: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.240223: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.240228: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.240238: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.240890: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.242978: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.242983: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.242993: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.243145: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.243334: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.243629: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.243634: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.243644: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.245468: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.247603: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.249589: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.249594: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.249604: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.250005: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.250699: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.250704: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.250714: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.253212: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.254333: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.254338: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.254343: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.254348: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.254353: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.254363: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.254363: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.254363: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.254368: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.255052: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.255517: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.257090: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.257095: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.257105: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.257162: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.259380: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.259385: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.259395: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.259971: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.260042: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.260047: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.260057: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+     NetProc-1010 [009] d..1.   1000.260222: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.261788: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.264207: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.266095: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.266100: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.266110: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.266672: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.267501: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.267506: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.267516: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.269698: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.271267: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.271272: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.271277: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.271282: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.271287: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.271297: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.271297: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.271297: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.271302: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.271691: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.272593: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.273799: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.273804: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.273814: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.274129: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.276263: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.276268: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.276278: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.276710: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     NetProc-1010 [009] d..1.   1000.276918: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+     Physics-1001 [004] d..1.   1000.277033: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.277038: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.277048: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.278718: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.280959: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.283070: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.283075: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.283085: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.283339: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.284186: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.284191: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.284201: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.286661: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.287900: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.287905: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.287910: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.287915: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.287920: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.287930: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.287930: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.287930: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.287935: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.288304: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.289176: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.290250: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.290255: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.290265: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.290833: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.292960: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.292965: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.292975: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.293207: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.293297: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.293639: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.293644: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.293654: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.295490: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.297572: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.299655: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.299660: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.299670: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.300006: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.300630: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.300635: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.300645: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.303263: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.304434: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.304439: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.304444: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.304449: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.304454: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.304464: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.304464: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.304464: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.304469: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.305036: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.305663: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.306922: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.306927: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.306937: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.307356: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.309438: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.309443: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.309453: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+     NetProc-1010 [009] d..1.   1000.309882: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/5-0 [005] d..1.   1000.309964: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.310200: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.310205: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.310215: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.312050: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.314183: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.316160: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.316165: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.316175: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+      swapper/9-0 [009] d..1.   1000.316673: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Input next_pid=1004 next_prio=120
+       Input-1004 [009] d..1.   1000.317397: sched_wakeup: comm=GameLoop pid=1000 prio=120 target_cpu=008
+       Input-1004 [009] d..1.   1000.317402: sched_switch: prev_comm=Input prev_pid=1004 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/8-0 [008] d..1.   1000.317412: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GameLoop next_pid=1000 next_prio=120
+    PostProc-1007 [006] d..1.   1000.319687: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120
+    GameLoop-1000 [008] d..1.   1000.321036: sched_wakeup: comm=Physics pid=1001 prio=120 target_cpu=004
+    GameLoop-1000 [008] d..1.   1000.321041: sched_wakeup: comm=AI pid=1005 prio=120 target_cpu=001
+    GameLoop-1000 [008] d..1.   1000.321046: sched_wakeup: comm=Audio pid=1003 prio=120 target_cpu=007
+    GameLoop-1000 [008] d..1.   1000.321051: sched_wakeup: comm=NetSend pid=1006 prio=120 target_cpu=008
+    GameLoop-1000 [008] d..1.   1000.321056: sched_switch: prev_comm=GameLoop prev_pid=1000 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+      swapper/4-0 [004] d..1.   1000.321066: sched_switch: prev_comm=swapper/4 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Physics next_pid=1001 next_prio=120
+      swapper/1-0 [001] d..1.   1000.321066: sched_switch: prev_comm=swapper/1 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AI next_pid=1005 next_prio=120
+      swapper/7-0 [007] d..1.   1000.321066: sched_switch: prev_comm=swapper/7 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Audio next_pid=1003 next_prio=120
+      swapper/8-0 [008] d..1.   1000.321071: sched_switch: prev_comm=swapper/8 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetSend next_pid=1006 next_prio=120
+     swapper/11-0 [011] d..1.   1000.321639: sched_switch: prev_comm=swapper/11 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetRecv next_pid=1009 next_prio=120
+     NetSend-1006 [008] d..1.   1000.322407: sched_switch: prev_comm=NetSend prev_pid=1006 prev_prio=120 prev_state=S ==> next_comm=swapper/8 next_pid=0 next_prio=120
+     NetRecv-1009 [011] d..1.   1000.323737: sched_wakeup: comm=NetProc pid=1010 prio=120 target_cpu=009
+     NetRecv-1009 [011] d..1.   1000.323742: sched_switch: prev_comm=NetRecv prev_pid=1009 prev_prio=120 prev_state=S ==> next_comm=swapper/11 next_pid=0 next_prio=120
+      swapper/9-0 [009] d..1.   1000.323752: sched_switch: prev_comm=swapper/9 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=NetProc next_pid=1010 next_prio=120
+       Audio-1003 [007] d..1.   1000.323901: sched_switch: prev_comm=Audio prev_pid=1003 prev_prio=120 prev_state=S ==> next_comm=swapper/7 next_pid=0 next_prio=120
+          AI-1005 [001] d..1.   1000.326041: sched_wakeup: comm=AIDecide pid=1008 prio=120 target_cpu=010
+          AI-1005 [001] d..1.   1000.326046: sched_switch: prev_comm=AI prev_pid=1005 prev_prio=120 prev_state=S ==> next_comm=swapper/1 next_pid=0 next_prio=120
+     swapper/10-0 [010] d..1.   1000.326056: sched_switch: prev_comm=swapper/10 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=AIDecide next_pid=1008 next_prio=120
+      swapper/5-0 [005] d..1.   1000.326696: sched_switch: prev_comm=swapper/5 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=GC next_pid=1011 next_prio=120
+     Physics-1001 [004] d..1.   1000.326795: sched_wakeup: comm=Render pid=1002 prio=120 target_cpu=000
+     Physics-1001 [004] d..1.   1000.326800: sched_switch: prev_comm=Physics prev_pid=1001 prev_prio=120 prev_state=S ==> next_comm=swapper/4 next_pid=0 next_prio=120
+     NetProc-1010 [009] d..1.   1000.326807: sched_switch: prev_comm=NetProc prev_pid=1010 prev_prio=120 prev_state=S ==> next_comm=swapper/9 next_pid=0 next_prio=120
+      swapper/0-0 [000] d..1.   1000.326810: sched_switch: prev_comm=swapper/0 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=Render next_pid=1002 next_prio=120
+    AIDecide-1008 [010] d..1.   1000.328601: sched_switch: prev_comm=AIDecide prev_pid=1008 prev_prio=120 prev_state=S ==> next_comm=swapper/10 next_pid=0 next_prio=120
+          GC-1011 [005] d..1.   1000.330995: sched_switch: prev_comm=GC prev_pid=1011 prev_prio=120 prev_state=S ==> next_comm=swapper/5 next_pid=0 next_prio=120
+      Render-1002 [000] d..1.   1000.332817: sched_wakeup: comm=PostProc pid=1007 prio=120 target_cpu=006
+      Render-1002 [000] d..1.   1000.332822: sched_switch: prev_comm=Render prev_pid=1002 prev_prio=120 prev_state=S ==> next_comm=swapper/0 next_pid=0 next_prio=120
+      swapper/6-0 [006] d..1.   1000.332832: sched_switch: prev_comm=swapper/6 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=PostProc next_pid=1007 next_prio=120
+    PostProc-1007 [006] d..1.   1000.336370: sched_switch: prev_comm=PostProc prev_pid=1007 prev_prio=120 prev_state=S ==> next_comm=swapper/6 next_pid=0 next_prio=120

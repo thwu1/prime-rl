@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional astrodynamics expertise: (1) constructing correct Horizons API queries with appropriate body IDs, center, reference frame, coordinate system, and output units; (2) parsing the text-based API response format; (3) implementing Lambert's boundary-value problem solver — a non-trivial iterative numerical algorithm involving Stumpff functions or universal variables with careful convergence handling; (4) sweeping a 2D grid of departure/arrival dates to build a pork-chop plot; (5) computing hyperbolic departure and capture delta-v accounting for parking orbit contributions; (6) converting state vectors to Keplerian orbital elements with correct quadrant resolution for all angles. The core difficulty is the Lambert solver itself, which requires understanding of two-body orbital mechanics at a graduate level and careful numerical implementation."""
+solution_explanation = """Query Horizons for Earth and Mars heliocentric ecliptic J2000 state vectors at 5-day intervals across the departure and arrival windows. Implement Lambert's problem using the universal variable method with Stumpff functions and Newton-Raphson iteration. For each departure-arrival pair with TOF in [120, 400] days, solve Lambert to get transfer orbit velocities. Compute v-infinity at each end as the difference between transfer velocity and planet velocity. Convert to delta-v from LEO and into LMO using the hyperbolic excess formula: dv = sqrt(vinf^2 + 2*mu/r_park) - sqrt(mu/r_park). Find the minimum total delta-v across the grid. Compute transfer orbit elements from the departure state vector."""
+verification_explanation = """Tests verify: (1) output JSON format, required keys, and correct types; (2) physical plausibility — C3, delta-v, orbital elements within known Earth-Mars transfer ranges; (3) mathematical self-consistency — C3 = vinf^2, vis-viva equation, angular momentum conservation, delta-v formulas, energy consistency; (4) forward Kepler propagation from departure state independently verifies arrival position; (5) orbital elements derived from state vectors match reported values; (6) positions and velocities cross-validated against independent Horizons API queries at the reported epochs."""
+category = "science"
+tags = ["orbital-mechanics", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-81c5fa"

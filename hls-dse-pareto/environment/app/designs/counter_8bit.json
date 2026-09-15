@@ -1,0 +1,20 @@
+{
+    "name": "counter_8bit",
+    "description": "8-bit up/down counter with load and reset",
+    "source": "VerilogEval",
+    "base_cycles": 16,
+    "base_luts": 45,
+    "base_ffs": 32,
+    "base_dsps": 0,
+    "base_brams": 0,
+    "base_power_mw": 12.5,
+    "pipeline_depth": 4,
+    "reference_ppa": {
+        "latency_ns": 80.0,
+        "luts": 45,
+        "ffs": 32,
+        "dsps": 0,
+        "brams": 0,
+        "power_mw": 12.5
+    }
+}

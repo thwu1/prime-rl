@@ -1,0 +1,14 @@
+{
+  "name": "branch_const",
+  "params": [1],
+  "entrypoint": 24,
+  "code": {
+    "24": {"kind": "op", "op": "const", "imm": 5, "args": [], "dst": 2, "succ": 23},
+    "23": {"kind": "op", "op": "const", "imm": 5, "args": [], "dst": 3, "succ": 22},
+    "22": {"kind": "cond", "cmp": "eq", "arg1": 2, "arg2": 3, "ifso": 21, "ifnot": 19},
+    "21": {"kind": "op", "op": "const", "imm": 10, "args": [], "dst": 4, "succ": 17},
+    "19": {"kind": "op", "op": "const", "imm": 20, "args": [], "dst": 4, "succ": 17},
+    "17": {"kind": "op", "op": "add", "args": [1, 4], "dst": 5, "succ": 16},
+    "16": {"kind": "ret", "arg": 5}
+  }
+}

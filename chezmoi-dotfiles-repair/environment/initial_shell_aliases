@@ -1,0 +1,2 @@
+# My shell aliases
+alias l='ls -CF'

@@ -1,0 +1,27 @@
+{
+    "PhysioType": "eyetrack",
+    "Manufacturer": "ExampleTracker",
+    "Columns": ["timestamp", "x_coordinate", "y_coordinate", "pupil_size"],
+    "SampleCoordinateSystem": "gaze-on-screen",
+    "EyeTrackingMethod": "P-CR",
+    "SamplingFrequency": 500,
+    "StartTime": 0,
+    "timestamp": {
+        "Description": "Sampling time from the eye tracker",
+        "Units": "ms"
+    },
+    "x_coordinate": {
+        "LongName": "Gaze position (x)",
+        "Description": "Gaze x-coordinate on screen",
+        "Units": "pixel"
+    },
+    "y_coordinate": {
+        "LongName": "Gaze position (y)",
+        "Description": "Gaze y-coordinate on screen",
+        "Units": "pixel"
+    },
+    "pupil_size": {
+        "Description": "Pupil area (0 indicates blink/eye closure)",
+        "Units": "a.u."
+    }
+}

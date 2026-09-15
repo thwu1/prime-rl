@@ -1,0 +1,1 @@
+model.analytics.int_regional_sales

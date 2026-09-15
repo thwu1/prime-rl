@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level IR knowledge to: (1) discover undisclosed bugs in a Python evaluation framework (MRR checking only one relevant doc, nDCG using wrong logarithm base and incorrect ideal sort order) without any hints, (2) implement missing evaluation components (MAP@10, Recall@10, P@10, RRF fusion, CombSUM fusion), (3) convert data formats and cross-validate with the trec_eval binary, (4) design and implement paired randomization significance tests, (5) conduct RRF hyperparameter optimization via grid search, and (6) integrate all results into a schema-conforming JSON report. The agent must evaluate code correctness, architect a multi-tool pipeline, and make independent decisions about approach."""
+solution_explanation = """Discover and fix three bugs in /app/eval/metrics.py: MRR only checks first qrel entry instead of all relevant passages, nDCG uses math.log (natural log) instead of math.log2, nDCG sorts ideal relevance grades ascending instead of descending. Implement MAP@10, Recall@10, P@10, RRF fusion (1/(k+rank) scoring with ascending-PID tiebreaking), and CombSUM fusion (normalized rank scores). Convert run files from qid-pid-rank TSV to TREC format (qid Q0 docid rank score tag) and run trec_eval -m ndcg_cut.10 for cross-validation. Implement paired permutation test with 10000 iterations (seed 42) using sign-flipping on per-query nDCG@10 differences. Grid search RRF k over [1,5,10,...,100], finding k=5 optimal at nDCG@10=0.668. Final ranking: rrf_optimal > neural > combsum > bm25 > tfidf."""
+verification_explanation = """Tests load /app/report.json and verify: (1) schema structure with all 5 required sections, (2) 25 metric values (5 per system, 5 systems) within 1e-5 tolerance, (3) trec_eval nDCG values within 0.001 of expected plus independent trec_eval run for cross-check, (4) significance test deltas within 1e-5 and p-values within 0.005, with correct significance conclusions, (5) optimal RRF k=5 with correct nDCG and all 12 grid values, (6) correct final ranking order, (7) internal consistency checks (ranking matches nDCG ordering, fusion metrics match grid results)."""
+category = "data_science"
+tags = ["information-retrieval", "statistical-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-metrics-fusion"

@@ -1,0 +1,13 @@
+{
+  "name": "eth-address-lib",
+  "version": "2.1.0",
+  "description": "Ethereum address validation and checksum utilities",
+  "main": "dist/index.cjs",
+  "scripts": {
+    "build": "tsc",
+    "test": "node test.js"
+  },
+  "keywords": ["ethereum", "address", "checksum", "EIP-55"],
+  "author": "eth-tools-collective",
+  "license": "MIT"
+}

@@ -1,0 +1,7 @@
+[
+  {"west": -500, "east": 500, "south": -500, "north": 500, "bottom": -2000, "top": -1000},
+  {"west": 1000, "east": 2000, "south": -300, "north": 300, "bottom": -1500, "top": -500},
+  {"west": -2000, "east": -1000, "south": 500, "north": 1500, "bottom": -3000, "top": -2000},
+  {"west": -300, "east": 300, "south": -2000, "north": -1000, "bottom": -800, "top": -200},
+  {"west": 500, "east": 1500, "south": 1000, "north": 2000, "bottom": -1200, "top": -400}
+]

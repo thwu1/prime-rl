@@ -1,0 +1,6 @@
+{
+    "problem": "sod",
+    "resolutions": [100, 200, 400, 800],
+    "min_convergence_rate": 0.7,
+    "max_finest_error": 0.01
+}

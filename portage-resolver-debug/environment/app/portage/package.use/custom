@@ -1,0 +1,3 @@
+# Per-package USE flag overrides
+app-misc/client xml ssl
+net-misc/curl ssl

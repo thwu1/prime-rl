@@ -1,0 +1,11 @@
+define i32 @factorial(i32 %n, i32 %acc) {
+entry:
+  %result = mul i32 %n, %acc
+  ret i32 %result
+}
+
+define i32 @fibonacci(i32 %a, i32 %b) {
+entry:
+  %sum = add i32 %a, %b
+  ret i32 %sum
+}

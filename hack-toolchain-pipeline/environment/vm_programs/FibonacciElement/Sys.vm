@@ -1,0 +1,7 @@
+// Pushes n onto the stack and calls the Main.fibonacci function,
+// which computes the n'th element of the Fibonacci series.
+function Sys.init 0
+push constant 4
+call Main.fibonacci 1
+label WHILE
+goto WHILE

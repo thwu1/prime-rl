@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Ruby Marshal deserialization internals and gadget chain construction. The solver must analyze ~20 classes across 7 library files to identify marshal_load entry points, trace method dispatch chains through instance variables across multiple indirection layers, distinguish exploitable code paths from dead ends (sanitizers strip shell metacharacters, allowlists block dangerous methods, some chains lose the command string by passing wrong instance variables), and correctly use Class.allocate with instance_variable_set to craft controlled object graphs that survive Marshal.dump/load round-tripping. This combines offensive security expertise with deep Ruby object model knowledge."""
+solution_explanation = """Analyze library code to find classes with marshal_load (Cache::Store, Event::Emitter, Middleware::RequestHandler). Trace method calls on instance variables to find a path from marshal_load to Kernel.system. The primary chain routes through Store.marshal_load → ObjectSerializer.hydrate → Chain.transform → Map.apply → DirectWriter.<< → MethodProxy.call → Kernel.system, carrying the command as the @backend parameter. Construct using Class.allocate and instance_variable_set, then serialize with Marshal.dump."""
+verification_explanation = """Tests verify: (1) exploit.rb exists and runs without errors, (2) output is valid base64-encoded Ruby Marshal data with correct magic bytes, (3) running exploit.rb alone does NOT create pwned.txt (anti-cheat), (4) deserializing the payload via deserialize.rb creates /app/pwned.txt through the gadget chain, and (5) exploit uses Marshal.dump to construct a real serialized payload."""
+category = "security"
+tags = ["deserialization", "ruby"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-845b40"

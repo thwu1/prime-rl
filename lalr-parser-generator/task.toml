@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building an LALR(1) parser generator that emits standalone C source code requires deep understanding of parsing theory (LR(1) item sets, lookahead computation, state merging) combined with code generation and build system expertise. The agent must: (1) implement LALR(1) table construction correctly, including epsilon productions and per-item lookaheads that distinguish LALR(1) from SLR(1), (2) generate syntactically correct C99 code with embedded parse tables that compiles under gcc's strictest warning flags (-Wall -Werror -pedantic), (3) write a Makefile with proper pattern rules, automatic variables, and dependency tracking to orchestrate the multi-stage pipeline. The Python-to-C-to-gcc-to-binary pipeline creates cascading failure modes: a bug in the table generator can manifest as a gcc compile error, a runtime crash, or a wrong accept/reject decision."""
+solution_explanation = """The solution implements the standard LR(1)-then-merge approach: parse the CFG, compute NULLABLE/FIRST via fixed-point, build the full LR(1) automaton with per-item lookaheads, merge states by core to produce LALR(1), and extract action/goto tables. The code generator emits a C file containing tables as static const arrays, a terminal-lookup function, and a main() with a shift-reduce driver. The Makefile uses pattern rules (build/parser-%: grammars/%.cfg) with automatic variables ($<, $@, $*) to run lalr_gen, then compile the output with gcc under strict flags."""
+verification_explanation = """Tests first build the toolchain via make and verify build artifacts. A dedicated test compiles each generated C file with -Wall -Werror -pedantic -fsyntax-only to enforce code generation quality. Then 35 parser tests across 4 grammars verify correctness: arithmetic expressions test precedence/associativity, epsilon grammars test nullable handling, the classic L-value grammar requires LALR(1) (not SLR(1)), and declaration lists test multi-alternative productions. A final test verifies make clean removes artifacts and rebuilding succeeds."""
+category = "compilers"
+tags = ["parsing", "code-generation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lalr-parser-generator"

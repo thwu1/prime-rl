@@ -1,0 +1,12 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Value must be a non-negative number",
+            "parameters": {
+                "ruleText": "currentProperty >= 0.0"
+            }
+        }
+    ]
+}

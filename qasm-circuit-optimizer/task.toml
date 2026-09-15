@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a quantum circuit optimizer entirely from scratch without any quantum computing libraries. The agent must first analyze the provided circuits using CLI tools to diagnose what gate patterns are present and what optimization strategies are applicable — no algorithms or techniques are named in the instruction. This demands deep knowledge of quantum gate algebra (self-inverse gates, inverse pairs, gate-CX commutation relations for diagonal and Pauli operators, parameterized rotation gates), compiler construction (QASM parsing, internal representation, fixed-point pass iteration, code generation), and linear algebra (unitary verification via Kronecker products). The agent must independently discover multiple optimization passes and correctly implement them to meet tight CX gate count thresholds across diverse circuits including ones with parameterized gates. A held-out dynamic circuit prevents hardcoding."""
+solution_explanation = """Parse QASM using regex into header and gate list. Implement two optimization passes discovered by analyzing the circuits: (1) adjacent inverse pair cancellation for self-inverse gates (CX, H, X) and inverse pairs (S/Sdg, T/Tdg); (2) commutation-aware CX cancellation — for each CX, scan forward for a matching CX, checking that all intermediate single-qubit gates commute with the CX (diagonal gates like Z, S, T, Rz on control; X-type gates on target; any gate on disjoint qubits). Iterate passes until convergence. Regenerate valid QASM preserving parameterized gate arguments."""
+verification_explanation = """Tests parse both original and optimized QASM circuits, construct their full unitary matrices via Kronecker products and permutation-based CX construction using numpy, and verify unitary equivalence up to global phase. CX gates are counted in the optimized output and compared against per-circuit thresholds. A dynamically generated circuit with parameterized gates prevents hardcoded solutions."""
+category = "quantum_computing"
+tags = ["compiler_optimization", "quantum_circuits"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qasm-circuit-optimizer"

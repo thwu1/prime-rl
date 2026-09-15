@@ -1,0 +1,9 @@
+# Trace: Shared-to-Modified upgrade
+# Tests that upgrading S→M does not corrupt the requesting core's data
+# Two cores read (both get Shared), then core 0 writes (upgrade)
+0 READ 0x1000
+1 READ 0x1000
+# Core 0 upgrades from Shared to Modified
+0 WRITE 0x1000 0xB2
+# Core 0 reads back — should see the written value
+0 READ 0x1000

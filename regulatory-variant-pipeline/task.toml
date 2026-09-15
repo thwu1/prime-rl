@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: understanding BED vs GFF coordinate systems (0-based half-open vs 1-based inclusive), chromosome naming conventions across data sources, bedtools semantics for intersect/subtract/merge/slop, and multi-step pipeline construction. The solver must independently discover 5 distinct data quality issues (chromosome naming mismatch between variants and annotations, GFF3 1-based coordinate system in enhancers, unsorted CpG island file, duplicate variant entries, overlapping promoter annotations requiring merge) by exploring the data files and testing hypotheses. Then they must design and implement a 10-step genome arithmetic pipeline combining 6+ bedtools subcommands with correct sorting, merging, and filtering at each stage."""
+solution_explanation = """The solution must: (1) detect that variants.bed uses bare chromosome names (1,2,3) while all other files use chr prefix and fix it; (2) convert enhancers.gff from 1-based GFF3 to 0-based BED coordinates by subtracting 1 from the start; (3) sort the unsorted cpg_islands.bed; (4) deduplicate variants after normalization; (5) combine promoters and enhancers then sort and merge overlapping entries; (6) intersect merged regulatory regions with sorted CpG islands; (7) subtract repeat elements; (8) identify expressed genes (FPKM>=10), extend by 2000bp with bedtools slop, and merge; (9) intersect regulatory regions with expressed gene neighborhoods to get active regions; (10) intersect normalized variants with active regions and compute summary statistics."""
+verification_explanation = """Tests independently re-derive the correct answer by running a reference pipeline from backed-up original data at /app/.data_backup/. They verify: output file existence, exact regulatory variant positions and count, exact active region positions/count/total bp, sorted output, chr prefix usage, no duplicates, and correct summary statistics. All comparisons are against independently computed reference values, not hardcoded constants."""
+category = "bioinformatics"
+tags = ["bedtools", "genomics-pipeline"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regulatory-variant-pipeline"

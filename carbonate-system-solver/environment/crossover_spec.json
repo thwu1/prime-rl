@@ -1,0 +1,19 @@
+{
+    "crossovers": [
+        {
+            "cruise_a": "cruise_001",
+            "station_a": "A3",
+            "cruise_b": "cruise_004",
+            "station_b": "D2",
+            "min_depth_m": 1500
+        },
+        {
+            "cruise_a": "cruise_002",
+            "station_a": "B4",
+            "cruise_b": "cruise_005",
+            "station_b": "E1",
+            "min_depth_m": 1500
+        }
+    ],
+    "offset_variables": ["TA_measured", "DIC_measured", "pH_computed", "fCO2_computed", "CO3_computed", "OmegaCa", "OmegaAr"]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the Reactive Streams specification and Project Reactor internals. The solver must implement a custom operator that correctly handles: (1) a lock-free WIP-based drain loop for thread-safe emission, (2) precise request(n) accounting via AtomicLongFieldUpdater/CAS, (3) priority-indexed eviction within a FIFO buffer, (4) proper terminal signal ordering (drain buffer before error/complete), and (5) cancellation propagation. These concerns are tightly coupled — a bug in any one breaks multiple tests. The pattern cannot be assembled from existing Reactor operators; it requires implementing the CoreSubscriber/Subscription protocol from scratch, which is undocumented outside Reactor's own source code."""
+solution_explanation = """The solution implements a custom Subscriber<T> + Subscription pair (PriorityEvictionSubscriber) that sits between the upstream source and the downstream subscriber. On subscription, it requests Long.MAX_VALUE from upstream (greedy consumption) and exposes itself as the downstream's Subscription. Elements are added to a synchronized LinkedList with priority eviction when full. A WIP-counter-based drain loop (standard Reactor pattern) emits buffered elements to downstream only when request(n) demand exists. Terminal signals (error/complete) are deferred until the buffer is fully drained. Cancellation propagates upstream immediately. The factory method wraps this via Flux.from(Publisher)."""
+verification_explanation = """25 JUnit 5 tests using Project Reactor's StepVerifier with TestPublisher for precise emission control. Tests verify: input validation (4 tests), passthrough/buffering semantics (3 tests), priority eviction with various priority functions (5 tests), FIFO ordering (2 tests), error/completion/cancellation lifecycle (4 tests), edge cases like capacity-1 and empty source (3 tests), step-by-step request accounting (1 test), and complex interleaved request/push scenarios (3 tests). The test harness runs mvn test and asserts all 25 tests pass with ≥20 tests detected."""
+category = "debugging"
+tags = ["reactive-streams", "java"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/priority-eviction-operator"

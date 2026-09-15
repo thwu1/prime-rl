@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CMake and C++ build system knowledge. The agent must: (1) diagnose a cascading build failure from a build log and iterative rebuild cycles, (2) author complete CMake package configuration from scratch — config-mode find_package support, imported targets with correct properties, component validation, version compatibility, and multi-inclusion guards — without any template or example to copy from, (3) independently discover and fix multiple latent project-side issues (deprecated API references, renamed components, relocated header paths, build-vs-source-directory path resolution in custom commands) by cross-referencing the installed library layout with the project code. No single fix is sufficient; the agent must iterate through multiple build-fix-rebuild cycles, understanding how each layer of the build system interacts. This demands holistic proficiency with CMake internals, C++ compilation/linking, and Debian-style manual library installations."""
+solution_explanation = """Create three CMake config files under /usr/local/lib/cmake/DataFlow/: (1) DataFlowConfig.cmake that includes a targets file and validates requested components against the set {Core, Pipeline, Codec}, erroring on unknowns. (2) DataFlowTargets.cmake with an include guard (if(TARGET DataFlow::Core) return()) defining three STATIC IMPORTED targets all pointing at libdataflow.a with correct include dirs, plus INTERFACE_LINK_LIBRARIES for dependency chaining (Pipeline→Core, Codec→Core). (3) DataFlowConfigVersion.cmake reporting version 2.0.0 with standard compatibility logic. Then fix project-side issues: rename deprecated Compress component to Codec in executor/CMakeLists.txt (both COMPONENTS and target_link_libraries), update all source includes from dataflow/*.h to dataflow/v2/*.h (including compress.h→v2/codec.h), and fix the codegen custom command to use an absolute path (${CMAKE_SOURCE_DIR}/tools/codegen_config.json) for the config file."""
+verification_explanation = """Tests verify: (1) at least 2 .cmake files exist in /usr/local/lib/cmake/DataFlow/, (2) cmake configure succeeds, (3) build completes, (4) sigframe binary exists at /app/build/sigframe and runs producing output containing 'Pipeline complete', '5 values', and 'encoded', (5) both subdirectory CMakeLists.txt files preserve find_package(DataFlow), (6) executor uses Codec not deprecated Compress, (7) all source files use v2 include paths."""
+category = "debugging"
+tags = ["cmake", "build-systems"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d4dd9b"

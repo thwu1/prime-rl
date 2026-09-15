@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-to-expert understanding of SO(3) rotation mathematics. The solver must: (1) diagnose and fix multiple subtle mathematical bugs in a rotation conversion library by analyzing incorrect outputs and tracing them to root causes in the conversion logic, (2) implement three non-trivial SO(3) analysis operations from minimal docstrings — computing rotation distances, interpolating rotations, and finding a mean rotation — each requiring domain expertise in Lie group geometry and careful handling of numerical edge cases, (3) build a multi-format sensor calibration pipeline that reads configuration files, processes heterogeneous sensor data in 4 different rotation representations, computes statistical analysis using the implemented operations, generates structured JSON reports, and produces visualizations. The combination of debugging, algorithm design from scratch, and multi-tool pipeline construction makes this significantly harder than any single subtask alone."""
+solution_explanation = """Fix 3 bugs in rotation_lib.py identified by analyzing conversion outputs: quaternion extraction branch selection logic, Euler angle matrix multiplication order, and 6D-to-matrix cross product argument order. Implement geodesic distance using the SO(3) relative rotation trace, SLERP with proper shortest-path handling and degenerate-angle fallback, and Karcher mean via iterative tangent-space averaging with SO(3) log/exp maps. Build pipeline reading TOML config, converting 5 sensors from mixed formats, computing per-sensor statistics and rankings, generating SLERP trajectory, and producing matplotlib bar chart."""
+verification_explanation = """25 pytest tests across 6 test classes: rotation library roundtrip and known-value tests verify bug fixes; geodesic distance tests check self-distance=0 (in float64), known 90/180 degree distances, and symmetry; SLERP tests verify endpoints, equidistant midpoints, unit quaternion output, and antipodal handling; Karcher mean tests verify identical-input convergence, small-perturbation convergence, and unit norm output; calibration report tests verify file existence, JSON structure with all required fields, unit quaternion norms, ranking consistency with metrics, SLERP trajectory validity and endpoint matching; independent verification test recomputes all values from sensor data and compares; diagnostic plot existence test."""
+category = "computational_geometry"
+tags = ["rotation-math", "sensor-calibration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotation-lib-debug"

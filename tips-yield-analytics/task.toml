@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional fixed-income knowledge coupled with multi-tool Unix pipeline engineering. The solver must: (1) write XSLT stylesheets that correctly handle OData Atom XML with multiple namespace URIs, producing correctly-structured CSV via xsltproc; (2) design a normalized SQLite relational schema with proper uniqueness constraints, loading heterogeneous sources (XSLT-produced CSV, metadata-heavy H.15 CSV, JSON) via sqlite3; (3) author a Makefile with correct dependency DAG orchestrating the full ETL pipeline; (4) implement Treasury Reference CPI computation, TIPS index ratio with deflation floor, zero-coupon yield curve bootstrapping with sub-basis-point precision, and forward rate derivation — all querying the SQLite database rather than raw files. The multi-tool interop (XSLT + SQLite + Make + Python) combined with domain-specific financial math creates difficulty that cannot be resolved by expertise in any single area."""
+solution_explanation = """The solution: (1) writes XSLT stylesheets declaring three XML namespace prefixes (atom, d, m) with correct URIs, using xsl:for-each over atom:feed/atom:entry to extract date via substring() and 13/5 yield values per entry; (2) creates SQLite schema with PRIMARY KEY constraints (date,tenor), (year,month), (cusip,issue_date) and uses INSERT OR REPLACE for idempotent loading; (3) authors a Makefile with file-based dependency targets — CSV files depend on XML+XSLT, DB depends on CSVs+schema; (4) implements a Python CLI with a 'load' subcommand that reads XSLT-produced wide CSV, normalizes to (date,tenor,rate) tuples, and loads all 5 sources into SQLite; analytics subcommands query SQLite — RefCPI via CPI_monthly table with 3-month-lagged interpolation, bootstrap via bisection on spot rates with linear interpolation of intermediate discount factors, forward 5y5y from discount factor ratios."""
+verification_explanation = """Tests verify the full pipeline: (1) XSLT stylesheets produce valid CSV via xsltproc with correct column counts (14 nominal, 6 real); (2) SQLite DB has correct schema with populated tables (>2000 nominal rows, >=50 TIPS records); (3) UNIQUE constraints prevent duplicates; (4) make clean+rebuild cycle works end-to-end; (5) RefCPI matches 5+ Treasury golden values within 0.001; (6) index ratios match 3 CUSIPs including deflation floor; (7) bootstrap roundtrip < 0.1 bps for both curves; (8) breakevens match known market values; (9) validate 50+ records at 95%+ pass rate; (10) reconcile matches 11 tenors between XML and H.15."""
+category = "finance"
+tags = ["fixed-income", "data-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tips-yield-analytics"

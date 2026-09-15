@@ -1,0 +1,15 @@
+CIPHER CHALLENGE
+================
+A secret flag has been encrypted using a proprietary virtual machine-based
+cipher system. You have access to:
+
+  - engine.py    : The VM execution engine
+  - program.bin  : The compiled cipher program (bytecode)
+
+The program reads a 4-byte key from standard input. With the correct key,
+it outputs the decrypted flag. With a wrong key, it outputs "DENIED".
+
+The flag uses the format: OOO{...}
+
+Your task: determine the correct 4-byte key and recover the flag.
+Write the decrypted flag to /app/flag.txt.

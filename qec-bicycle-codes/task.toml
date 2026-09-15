@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of quantum CSS codes, group algebra representations over cyclic groups, and GF(2) linear algebra to construct bivariate bicycle codes from algebraic specifications without a given algorithm. Computing the code distance is NP-hard in general and requires implementing heuristic search methods. Building stim syndrome measurement circuits for arbitrary CSS codes demands understanding of stabilizer formalism, ancilla-based syndrome extraction, detector/observable annotation conventions, and detector error model extraction. Constructing a pymatching decoder from the DEM requires handling graphlike error decomposition for QLDPC codes with non-trivial column weights. The multi-tool pipeline (numpy for GF(2) algebra, stim for circuit simulation, pymatching for MWPM decoding) requires learning unfamiliar domain-specific APIs."""
+solution_explanation = """Construct permutation matrices for each group element via the left-regular representation of Z_l x Z_m, sum over GF(2) to form matrices A and B, then build CSS check matrices. Verify CSS condition via matrix multiplication mod 2. Compute k = n - rank(Hx) - rank(Hz) using GF(2) Gaussian elimination. For distance: compute GF(2) nullspace, find logical representatives, apply greedy weight reduction with random stabilizer perturbation. Build a stim circuit implementing Z-basis memory experiment with DEPOLARIZE1 on data qubits, CNOT-based syndrome extraction, and X_ERROR on ancillas. Extract DEM with approximate_disjoint_errors for graphlike decomposition. Construct pymatching Matching from the DEM and report graph properties."""
+verification_explanation = """Tests independently construct both codes from the input specifications using GF(2) group algebra representation, verify CSS orthogonality, and compute n, k via GF(2) rank. Code distances are verified against known values from Bravyi et al. (Nature 627, 778-782, 2024). Structural checks ensure rank consistency, rank symmetry, uniform check weight, and correct encoding rate. Circuit files are verified as parseable stim circuits with detectors and observables. DEM files are verified as parseable detector error models. Matching decoder consistency is verified by independently constructing a pymatching Matching from the saved DEM and comparing node/edge counts."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "circuit-synthesis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qec-bicycle-codes"

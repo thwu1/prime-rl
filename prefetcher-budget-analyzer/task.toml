@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a C preprocessor macro resolver with full expression evaluation (arithmetic, bitwise, casts, cross-file references), then analyzing complex C++ source code to extract and evaluate hardware storage budget formulas from two different prefetcher architectures. Demands understanding of C/C++ preprocessing, expression parsing with operator precedence, and domain knowledge of CPU microarchitecture storage accounting conventions used in the IPC-1 competition."""
+solution_explanation = """Parse all #define directives from the framework headers and prefetcher source files. Build an iterative macro resolver that handles cross-file references, type casts, and nested arithmetic/bitwise expressions. For FNLMMA, trace the init() call to determine AHEAD.SIZEWAYNEXTMISS = 2048, then evaluate the 5-component storage formula from final_stats() printf statements yielding 99107 bytes. For PIPS, compute LHT_ENTRY::size() = 82 bits, then apply LINE_HISTORY_TABLE::size() for both lht (101 bits * 10240 entries) and scc (100 bits * 128 entries) giving 1047040 total bits = 127.81 KB."""
+verification_explanation = """Tests verify exact resolved values for 15+ specific macros including simple values (BLOCK_SIZE=64), chained macros (FNL_NBENTRIES=65536), cross-file dependencies (L1I_TIMING_MSHR_SIZE=42 from cache.h macros), and large number expressions with type casts (L1I_HIST_TAG_MASK=288230376151711743). Storage budget tests verify FNLMMA=99107 bytes and PIPS=1047040 bits (127.81 KB), both within the 128KB limit."""
+category = "reverse_engineering"
+tags = ["computer_architecture", "static_analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prefetcher-budget-analyzer"

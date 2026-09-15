@@ -1,0 +1,150 @@
+{
+  "decoding_tasks": [
+    {
+      "id": "steane_z_single_q3",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [0,0,0,1,0,0,0]
+    },
+    {
+      "id": "steane_z_single_q6",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [0,0,0,0,0,0,1]
+    },
+    {
+      "id": "steane_z_weight2_q01",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [1,1,0,0,0,0,0]
+    },
+    {
+      "id": "steane_z_weight2_q35",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [0,0,0,1,0,1,0]
+    },
+    {
+      "id": "steane_z_weight2_q24",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [0,0,1,0,1,0,0]
+    },
+    {
+      "id": "steane_z_logical",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [1,0,0,0,0,1,1]
+    },
+    {
+      "id": "shor_z_single_q0",
+      "code": "shor",
+      "error_type": "Z",
+      "error": [1,0,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "shor_z_single_q4",
+      "code": "shor",
+      "error_type": "Z",
+      "error": [0,0,0,0,1,0,0,0,0]
+    },
+    {
+      "id": "shor_z_weight2_q02",
+      "code": "shor",
+      "error_type": "Z",
+      "error": [1,0,1,0,0,0,0,0,0]
+    },
+    {
+      "id": "shor_x_single_q0",
+      "code": "shor",
+      "error_type": "X",
+      "error": [1,0,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "shor_x_weight2_q03",
+      "code": "shor",
+      "error_type": "X",
+      "error": [1,0,0,1,0,0,0,0,0]
+    },
+    {
+      "id": "steane_z_weighted_q01",
+      "code": "steane",
+      "error_type": "Z",
+      "error": [1,1,0,0,0,0,0],
+      "weighted": true,
+      "qubit_error_rates": [0.3, 0.3, 0.01, 0.01, 0.01, 0.01, 0.01]
+    },
+    {
+      "id": "hamming15_z_single_q0",
+      "code": "hamming15",
+      "error_type": "Z",
+      "error": [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "hamming15_z_single_q7",
+      "code": "hamming15",
+      "error_type": "Z",
+      "error": [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "hamming15_z_weight2_q01",
+      "code": "hamming15",
+      "error_type": "Z",
+      "error": [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "hamming15_x_single_q3",
+      "code": "hamming15",
+      "error_type": "X",
+      "error": [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0]
+    },
+    {
+      "id": "hamming15_x_weight2_q37",
+      "code": "hamming15",
+      "error_type": "X",
+      "error": [0,0,0,1,0,0,0,1,0,0,0,0,0,0,0]
+    }
+  ],
+  "simulation_tasks": [
+    {
+      "id": "steane_sim_low",
+      "code": "steane",
+      "error_type": "Z",
+      "error_rate": 0.01,
+      "num_trials": 500,
+      "seed": 42
+    },
+    {
+      "id": "steane_sim_high",
+      "code": "steane",
+      "error_type": "Z",
+      "error_rate": 0.15,
+      "num_trials": 500,
+      "seed": 42
+    },
+    {
+      "id": "shor_sim_z",
+      "code": "shor",
+      "error_type": "Z",
+      "error_rate": 0.05,
+      "num_trials": 500,
+      "seed": 42
+    },
+    {
+      "id": "shor_sim_x",
+      "code": "shor",
+      "error_type": "X",
+      "error_rate": 0.05,
+      "num_trials": 500,
+      "seed": 42
+    },
+    {
+      "id": "hamming15_sim_compare",
+      "code": "hamming15",
+      "error_type": "Z",
+      "error_rate": 0.05,
+      "num_trials": 500,
+      "seed": 42
+    }
+  ]
+}

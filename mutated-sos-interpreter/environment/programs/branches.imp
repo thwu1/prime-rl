@@ -1,0 +1,22 @@
+int x;
+int y;
+int r;
+int s;
+x = 5;
+y = 10;
+if((x < y))
+{
+    r = 1;
+}
+else
+{
+    r = 0;
+};
+if((x == 5))
+{
+    s = 1;
+}
+else
+{
+    s = 0;
+};

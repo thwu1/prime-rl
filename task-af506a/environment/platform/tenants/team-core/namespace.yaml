@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-core
+  labels:
+    app.kubernetes.io/managed-by: platform-team
+    platform.example.com/tenant: team-core
+    platform.example.com/tier: platinum
+    pod-security.kubernetes.io/enforce: restricted

@@ -1,0 +1,147 @@
+{
+  "router_id": "3.3.3.3",
+  "local_as": 65010,
+  "neighbors": {
+    "172.16.13.1": {"remote_as": 65001, "description": "R1-TierOne-Alpha"},
+    "172.16.34.4": {"remote_as": 65020, "description": "R4-Transit-Delta"},
+    "172.16.35.5": {"remote_as": 65100, "description": "R5-Customer-Epsilon"}
+  },
+  "routes": {
+    "10.1.0.0/16": [
+      {
+        "next_hop": "172.16.13.1",
+        "as_path": [65001],
+        "origin": "igp",
+        "local_pref": 50,
+        "med": 0,
+        "communities": ["65001:100"],
+        "best": true,
+        "source": "172.16.13.1"
+      }
+    ],
+    "10.2.0.0/16": [
+      {
+        "next_hop": "172.16.34.4",
+        "as_path": [65020, 65002],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65002:100"],
+        "best": true,
+        "source": "172.16.34.4"
+      },
+      {
+        "next_hop": "172.16.13.1",
+        "as_path": [65001, 65002],
+        "origin": "igp",
+        "local_pref": 50,
+        "med": 0,
+        "communities": ["65002:100"],
+        "best": false,
+        "source": "172.16.13.1"
+      }
+    ],
+    "10.10.0.0/16": [
+      {
+        "next_hop": "0.0.0.0",
+        "as_path": [],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65010:100"],
+        "best": true,
+        "source": "local"
+      }
+    ],
+    "10.10.0.0/24": [
+      {
+        "next_hop": "0.0.0.0",
+        "as_path": [],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65010:100"],
+        "best": true,
+        "source": "local"
+      }
+    ],
+    "10.20.0.0/16": [
+      {
+        "next_hop": "172.16.34.4",
+        "as_path": [65020],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65020:100"],
+        "best": true,
+        "source": "172.16.34.4"
+      },
+      {
+        "next_hop": "172.16.13.1",
+        "as_path": [65001, 65002, 65020],
+        "origin": "igp",
+        "local_pref": 50,
+        "med": 0,
+        "communities": ["65020:100"],
+        "best": false,
+        "source": "172.16.13.1"
+      }
+    ],
+    "10.100.0.0/16": [
+      {
+        "next_hop": "172.16.35.5",
+        "as_path": [65100],
+        "origin": "igp",
+        "local_pref": 150,
+        "med": 0,
+        "communities": ["65100:100"],
+        "best": true,
+        "source": "172.16.35.5"
+      }
+    ],
+    "10.100.0.0/24": [
+      {
+        "next_hop": "172.16.34.4",
+        "as_path": [65020, 65200],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": true,
+        "source": "172.16.34.4"
+      },
+      {
+        "next_hop": "172.16.13.1",
+        "as_path": [65001, 65002, 65020, 65200],
+        "origin": "igp",
+        "local_pref": 50,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": false,
+        "source": "172.16.13.1"
+      }
+    ],
+    "10.200.0.0/16": [
+      {
+        "next_hop": "172.16.34.4",
+        "as_path": [65020, 65200],
+        "origin": "igp",
+        "local_pref": 100,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": true,
+        "source": "172.16.34.4"
+      },
+      {
+        "next_hop": "172.16.13.1",
+        "as_path": [65001, 65002, 65020, 65200],
+        "origin": "igp",
+        "local_pref": 50,
+        "med": 0,
+        "communities": ["65200:100"],
+        "best": false,
+        "source": "172.16.13.1"
+      }
+    ]
+  }
+}

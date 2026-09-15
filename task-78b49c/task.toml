@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of NVIDIA GPU microarchitecture, specifically the SM occupancy model and how warp scheduling, register file partitioning with allocation granularity rounding, shared memory bank allocation, and max-block/max-warp limits interact to determine resident thread blocks. The solver must reverse-engineer these hardware parameters from profiling telemetry — an inversion of the standard occupancy calculation — while simultaneously detecting corrupted measurements. Input data is deliberately spread across heterogeneous formats: telemetry in a normalized SQLite database requiring SQL joins across three tables, hardware inventory in nvidia-smi XML output requiring XML tree traversal, and architecture references in YAML requiring a YAML parser. The agent must integrate sqlite3, XML parsing, YAML parsing, and Python computation in a coherent pipeline. Mapping reconstructed parameters to specific NVIDIA compute capabilities requires familiarity with the evolution of SM constraints across Volta, Turing, Ampere, Ada Lovelace, and Hopper architectures."""
+solution_explanation = """Query the SQLite database with JOINs across gpu_sessions, kernel_defs, and launch_records to reconstruct flat telemetry. Parse the nvidia-smi XML to extract known hardware attributes (warp_size, max_threads_per_block, registers_per_sm) per GPU. Parse the YAML architecture reference to get candidate (max_warps, max_blocks) pairs. Then build the CUDA SM occupancy model: (1) estimate max_warps_per_sm from low-register zero-smem probes; (2) estimate max_blocks_per_sm from the smallest block-size probe; (3) narrow to candidate architectures matching observed limits; (4) for each candidate, brute-force fit shared_mem and register granularity parameters; (5) validate all rows against the reconstructed model to detect corrupted entries; (6) match parameter tuples to known NVIDIA architectures; (7) search over block sizes for each target kernel to find the configuration maximizing occupancy with correct tie-breaking."""
+verification_explanation = """Tests load results.json and verify: (1) all five hardware parameters match exactly for each GPU; (2) architecture mappings are correct; (3) the exact set of corrupted record IDs matches; (4) optimal block sizes and predicted occupancies match expected values within floating-point tolerance. Structural checks verify completeness and field presence."""
+category = "gpu_computing"
+tags = ["cuda", "performance_analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-78b49c"

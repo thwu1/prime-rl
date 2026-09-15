@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level expertise in computational fluid dynamics, numerical methods, and scientific computing tool chains. The task demands: (1) deriving compressible flow properties across normal shocks and isentropic expansions from first principles, (2) porting a Python 2 vortex-shock interaction model to Python 3 while understanding its underlying physics, (3) performing formal grid convergence analysis including extrapolation and uncertainty quantification — standard V&V methodology unfamiliar outside the CFD community, (4) deriving PDE source terms for a prescribed analytical solution of the 2D Euler equations, and (5) using Gmsh to generate a mesh from a .geo geometry file and exporting the CI2 solution on mesh nodes as a MSH file with embedded field data — requiring multi-tool interoperability between the gmsh mesher, Python mesh I/O libraries, and the flow physics code."""
+solution_explanation = """The solution implements five components: (1) compressible gas dynamics formulas for normal shock jump conditions and isentropic ratios, (2) a Python 3 port of the CI2 Rankine vortex/shock initial condition from the HiOCFD5 workshop, (3) grid convergence analysis computing observed order from consecutive triples, Richardson extrapolation from the two finest grids, and the Grid Convergence Index with Fs=1.25, (4) analytical differentiation of a manufactured solution to obtain Euler equation forcing terms and a 50x50 self-consistency check, and (5) gmsh CLI mesh generation from the channel.geo geometry followed by meshio-based I/O to evaluate CI2 at every mesh node and write a MSH file with embedded NodeData."""
+verification_explanation = """Tests verify: (a) JSON structure completeness, (b) normal shock values against exact jump conditions with total temperature conservation and entropy increase checks, (c) isentropic relations against exact formulas including the p=(rho)^gamma cross-check, (d) CI2 flow state at three probes against an independent reference implementation, (e) convergence analysis: order count, asymptotic order ~2.0, extrapolated value near 1.15310, uncertainty positive and in expected range, (f) MMS source terms match independent reference to 1e-8, (g) mesh file readability via meshio with ~2601 nodes, presence of 4 named solution fields, positive pressure and temperature everywhere, correct shock pressure jump ratio, and physically consistent velocity fields near and away from the vortex."""
+category = "science"
+tags = ["cfd", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cfd-verification-toolkit"

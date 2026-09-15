@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding across semantic web technologies (OWL ontology parsing, rdfs:subClassOf reasoning, detecting broken class references including Unicode edge cases like Greek Beta), schema conformance analysis (cross-validating property URIs between ontology definitions and KB usage to discover case-sensitive naming mismatches), knowledge base engineering (N-Triples parsing with undocumented locale-dependent decimal formatting that the solver must discover from raw data inspection), and information retrieval evaluation (hits@k, MRR with edge cases for missing predictions in variable-length ranking lists). The solver must diagnose data quality issues through exploration — no hints are given about European decimal notation, the Python literal encoding in prediction CSVs, the prediction file naming convention, or the specific ontology defects present."""
+solution_explanation = """Parse the OWL ontology with rdflib to extract declared classes and build the subClassOf hierarchy. Detect broken references by checking each subClassOf target against declared classes, handling Unicode class names (Greek Beta). Compute hierarchy depth via DFS on well-formed subclass graph. Cross-reference ontology DatatypeProperty local names against KB property local names to discover the clogP/cLogP case mismatch. Parse N-Triples KB after discovering European decimal notation (commas as decimal separators). Parse prediction CSVs containing Python list literals via ast.literal_eval, reverse-engineer filename convention to extract algorithm and stage. Compute hits@k and MRR (excluding unfound targets from MRR denominator), aggregate by algorithm/stage."""
+verification_explanation = """Tests load /app/report.json and verify: ontology class count (55), datatype property count (16), hierarchy depth (3), all 5 broken references including Unicode Β-Lactam, the single property name mismatch (clogP vs cLogP), KB compound count (20), triple count (200), Lipinski violator list [4,5,8,9,11,20], correct metric values within floating-point tolerance for all 4 algorithm/stage pairs, and best algorithm identification (regularization)."""
+category = "data_processing"
+tags = ["knowledge-graph", "rdf-ontology"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/biochem-kg-analysis"

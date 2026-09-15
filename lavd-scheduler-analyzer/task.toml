@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux kernel scheduling subsystems. The agent must: (1) traverse a sysfs-style CPU topology directory tree to discover heterogeneous core capacities and power characteristics — a format familiar only to kernel/systems engineers; (2) parse raw ftrace sched_switch and sched_wakeup events to extract per-task execution times and inter-task wake dependencies — requiring knowledge of the ftrace event format and the semantics of scheduler events; (3) discover that sched_wakeup events encode a task dependency DAG and that the longest weighted path through this DAG determines the minimum achievable frame time; (4) understand that observed execution times in the trace are scaled by the CPU's capacity relative to the maximum, and back-compute base runtimes for projection onto different core types; (5) recognize that a naive strategy of placing only the primary critical-path tasks on fast cores can create a secondary critical path through the AI pipeline that also violates the frame time target; (6) jointly optimize for both frame time (DAG makespan) and energy (sum of power-weighted execution times) under competing constraints. None of these steps are hinted at in the instruction — the agent must derive the computational model from domain knowledge."""
+solution_explanation = """Parse the sysfs directory tree to extract per-CPU capacity (cpu_capacity) and power (power/active_power_mw). Parse ftrace trace.txt to identify sched_switch pairs (task execution intervals) and sched_wakeup events (inter-task dependencies, filtering out wakes from swapper/idle). Compute observed average runtimes per task, then back-compute base runtimes using base = observed * capacity / 1024. Build a DAG from wake dependencies. Compute frame time as the longest weighted path (topological sort + dynamic programming). Compute energy as sum of (power_W * total_base_runtime * 1024 / capacity / 1e6). Evaluate the current policy to confirm it exceeds the frame time target. Optimize by assigning critical-path tasks to big cores (0-3), then iteratively upgrading secondary-path tasks (AI) to medium cores (4-7) to prevent secondary paths from becoming critical. Downgrade remaining non-critical tasks to little cores (8-11) to minimize energy while maintaining the frame time constraint."""
+verification_explanation = """Tests independently parse the sysfs topology and ftrace trace to compute reference CPU capacities, task runtimes, wake dependencies, and base runtimes. They verify: (1) topology.json has correct capacities and power values from sysfs; (2) task_analysis.json has accurate observed runtimes and correct dependencies; (3) diagnosis.json reports frame time and energy values consistent with independent computation; (4) the optimized affinity.json, when independently evaluated via DAG longest-path and energy computation, actually satisfies both the frame time target and energy budget; (5) metrics.json projected values are consistent with independent computation for the given assignments."""
+category = "systems"
+tags = ["scheduling", "kernel-tracing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lavd-scheduler-analyzer"

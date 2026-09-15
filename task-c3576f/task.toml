@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD post-processing knowledge: reading HDF5 solver submissions with h5py, understanding the DPW multi-solver ensemble analysis workflow (outlier detection from aerodynamic coefficient scatter, grid convergence assessment via Richardson extrapolation, experimental validation with measurement uncertainty), constructing a normalized SQLite database, and generating output conforming to the DPW-8 31-column Tecplot ASCII submission format. Demands holistic understanding of computational aerodynamics data conventions (CL/CD/CM signs, moment reference, grid refinement ratio from cell counts), statistical methods for identifying anomalous CFD submissions, and complex multi-tool interoperability between HDF5, SQLite, TOML, and Tecplot format readers/writers."""
+solution_explanation = """The solution reads the HDF5 file with h5py to extract 6 solver submissions, detects the outlier solver (S006/FLUENT with RSM turbulence model) using modified Z-score based on median absolute deviation, computes ensemble statistics from the 5 accepted solvers using sample standard deviation (Bessel's correction), performs 3-grid Richardson extrapolation for the 3 solvers with multi-level grid convergence data, validates the ensemble mean against experimental data with uncertainty bands, writes all results to a SQLite database with the required schema, generates a DPW-8 compliant Tecplot submission file with the ensemble-averaged polar data, and produces a JSON analysis summary."""
+verification_explanation = """Tests verify: (1) all three output files exist, (2) SQLite database has correct schema with all 6 required tables, (3) all 6 solvers and 36 coefficient rows are loaded, (4) S006 is identified as outlier, (5) ensemble CL/CD/CM means match expected values within tight tolerances, (6) standard deviation uses Bessel's correction, (7) Richardson extrapolation gives correct continuum estimates and observed order ~2.0, (8) validation table shows all alphas within experimental uncertainty, (9) Tecplot file has correct format with 31 variables and ensemble data, (10) analysis JSON has correct solver counts and continuum estimates."""
+category = "engineering"
+tags = ["computational-fluid-dynamics", "data-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c3576f"

@@ -1,0 +1,25 @@
+{
+  "description": "Required format for /app/result.json",
+  "fields": {
+    "measurement_groups": {
+      "type": "array of arrays of integers",
+      "description": "Partition of term indices (0-based) into groups of simultaneously-measurable Pauli observables. Each inner array sorted ascending. Use the minimum number of groups."
+    },
+    "selected_scale_factors": {
+      "type": "array of numbers",
+      "description": "Chosen noise amplification factors, sorted ascending. Must be a subset of available factors from the database, with count within the allowed extrapolation range."
+    },
+    "extrapolation_weights": {
+      "type": "array of floats",
+      "description": "Coefficients for polynomial extrapolation to the zero-noise limit, ordered to correspond to selected_scale_factors. The extrapolated value is the weighted sum over measurements at each scale factor."
+    },
+    "minimum_variance": {
+      "type": "float",
+      "description": "Minimum achievable total estimation variance for the Hamiltonian expectation value with optimal shot distribution."
+    },
+    "shot_allocation": {
+      "type": "2D array of integers",
+      "description": "shot_allocation[g][j] = number of shots for measurement group g at scale factor j. Dimensions: [num_groups x num_scale_factors]. Must sum to total_shot_budget."
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing defects across four distinct tool domains in a catalytic reactor simulation pipeline: (1) five Python bugs spanning LHHW kinetics, gas-phase reactor design equations, recycle convergence, and a missing subcommand; (2) an SQLite schema with transposed column values requiring sqlite3 CLI inspection and a Python DB query module selecting the wrong column; (3) a batch shell script with broken jq JSON transformation filters; (4) a Makefile with an incorrect variable reference in its recipe. The solver must navigate cross-tool dependencies—the batch pipeline chains Make, jq, sqlite3, and Python—so fixing any single layer in isolation is insufficient. Domain knowledge of chemical reaction engineering (LHHW mechanisms, variable-density reactor design, recycle stream convergence) is required to identify correct behavior."""
+solution_explanation = """Nine issues across four tool domains: Python—(1) bimolecular LHHW rate uses denom^1 instead of denom^2; (2) PFR/CSTR solvers ignore epsilon_A, requiring gas-phase variable-density design equations via numerical integration (PFR) and algebraic root-finding (CSTR); (3) parallel branch mixing uses arithmetic mean instead of molar-flow-weighted average; (4) recycle stage performs single pass instead of iterating to convergence; (5) Arrhenius subcommand is stubbed. SQL—(6) schema.sql has swapped adsorption_K and heat_ads_kJ values for species B and D. Python/SQL—(7) dbutil.py selects heat_ads_kJ instead of adsorption_K. Shell/jq—(8) batch_run.sh uses .cases[$i].input (nonexistent path) instead of .cases[$i], and .results instead of .rate. Make—(9) Makefile uses undefined $(BATCH_INPUT) instead of $(BATCH_IN)."""
+verification_explanation = """18 pytest tests verify all components: 3 LHHW rate tests (unimolecular, bimolecular with/without product adsorption), 1 Arrhenius fit test, 8 reactor network tests (PFR/CSTR liquid and gas phase, series, parallel, recycle), 3 DB tests (schema correctness via sqlite3 CLI, unimolecular and bimolecular rate lookup via DB), 2 pipeline tests (batch_run.sh execution with jq, Make init and batch target execution). Each test compares against analytically derived expected values."""
+category = "applied_computing"
+tags = ["chemical-engineering", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/catalytic-reactor-network-0eede4"

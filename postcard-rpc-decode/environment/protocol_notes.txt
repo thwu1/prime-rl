@@ -1,0 +1,122 @@
+Postcard-RPC Embedded Device Capture
+=====================================
+
+This binary capture was recorded from an embedded device's serial interface.
+The device firmware uses the postcard-rpc protocol stack (Rust crates
+`postcard`, `postcard-rpc`, `cobs`).
+
+FRAMING
+  Messages are COBS-encoded and separated by 0x00 sentinel bytes.
+  Reference: https://en.wikipedia.org/wiki/Consistent_Overhead_Byte_Stuffing
+
+FRAME STRUCTURE (after COBS decoding)
+  Bytes 0..7 :  Message type key (u64, little-endian)
+  Bytes 8..  :  Varint-encoded sequence number (u32), immediately followed
+                by the message body
+
+ENCODING
+  Message bodies are serialized with the postcard wire format (v1.x).
+  Wire specification: https://postcard.jamesmunns.com/wire-format.html
+
+  Key encoding rules:
+    - u8: single byte, no varint
+    - u16, u32, u64: unsigned LEB128 varint
+    - i16, i32, i64: zigzag-encoded then unsigned LEB128 varint
+      zigzag(n) = (n << 1) if n >= 0 else ((-n) << 1) - 1
+    - bool: 0x00 (false) or 0x01 (true)
+    - String: varint length prefix followed by UTF-8 bytes
+    - Option<T>: 0x00 for None, 0x01 followed by T for Some
+    - Vec<T>: varint length prefix followed by T elements
+    - Struct: fields serialized in declaration order, no delimiters
+    - Enum: varint variant index (0-based declaration order),
+      followed by variant data (nothing for unit, value for newtype,
+      fields for struct variant, elements for tuple variant)
+
+TYPES
+  Message type definitions are in /app/schema.rs.
+  The types use standard Rust serde data model conventions (struct fields
+  serialized in declaration order, enum variants indexed by declaration
+  order, etc.).
+
+KEY DERIVATION
+  Each message type's 8-byte wire key is the FNV1a-64 hash of:
+
+    key_input = rpc_path_bytes + 0x00 + canonical_schema_bytes
+
+  FNV1a-64 algorithm (applied byte-by-byte over key_input):
+    offset_basis = 0xcbf29ce484222325  (14695981039346656037)
+    prime        = 0x100000001b3       (1099511628211)
+
+    hash = offset_basis
+    for each byte b in key_input:
+        hash = hash XOR b
+        hash = (hash * prime) mod 2^64
+    result = hash
+
+  The resulting u64 is written on the wire in little-endian byte order.
+
+CANONICAL SCHEMA STRING FORMAT
+  The canonical schema string encodes the Rust type structure as a flat
+  text representation. All type names and struct field names use strictly
+  lowercase characters. Enum variant names use CamelCase (initial
+  uppercase letter).
+
+  Primitive types:
+    u8, u16, u32, u64, i8, i16, i32, i64, bool, string
+
+  Compound type constructors:
+    Vec<T>     ->  seq:<element_schema>
+    Option<T>  ->  option:<inner_schema>
+
+  Struct:
+    struct:<field1_name>:<field1_type>,<field2_name>:<field2_type>,...
+    Fields are listed in Rust source declaration order.
+
+  Enum:
+    enum:<Variant1Name>:<body1>,<Variant2Name>:<body2>,...
+    Variants are listed in Rust source declaration order.
+
+    The body format depends on variant kind:
+      Unit variant:     <Name>:unit
+      Newtype variant:  <Name>:<inner_type_schema>
+      Struct variant:   <Name>:struct:<f1>:<t1>,<f2>:<t2>,...
+      Tuple variant:    <Name>:tuple:<t1>,<t2>,...
+
+    IMPORTANT: All elements (variant entries AND fields within compound
+    variants) are separated by commas at the same level. When parsing,
+    variant boundaries within an enum are identified by the naming
+    convention: variant names begin with an uppercase letter, while all
+    type names and field names begin with a lowercase letter.
+
+    When a struct field's type is itself an enum, the enum's full schema
+    is inlined at that position. The same comma-level flattening and
+    uppercase/lowercase boundary detection rules apply recursively.
+
+  EXAMPLES (matching the two directly-keyed types in schema.rs):
+
+    TempReading (struct):
+      path:   "sensor/temp"
+      schema: "struct:sensor_id:u8,timestamp_ms:u32,celsius_x100:i16,valid:bool"
+      key:    FNV1a-64 of "sensor/temp" + 0x00 + schema
+            = 0be9259314da3be6 (little-endian hex)
+
+    MotorCommand (struct):
+      path:   "motor/set"
+      schema: "struct:motor_id:u8,speed_rpm:i32,duration_ms:u32"
+      key:    FNV1a-64 of "motor/set" + 0x00 + schema
+            = 5e3c66b2885fdaa8 (little-endian hex)
+
+TOOLS
+  The Rust toolchain (cargo, rustc) is installed. A Cargo project scaffold
+  is provided at /app/decoder/ with `postcard` and `serde` crate
+  dependencies pre-configured and fetched. The `xxd` hex dump utility is
+  also available. Use `xxd /app/capture.bin` or `xxd -s <offset> -l <len>`
+  to inspect binary data at specific byte ranges.
+
+CORRUPTED FRAMES
+  The capture contains some corrupted frames that will fail at various
+  stages of the decode pipeline. These may exhibit:
+  - COBS decode errors (invalid or truncated COBS encoding)
+  - Headers too short to extract the 8-byte key
+  - Valid structure but unrecognized wire keys
+  Analysis of these frames requires hex-level binary inspection.

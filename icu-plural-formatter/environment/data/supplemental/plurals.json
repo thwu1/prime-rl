@@ -1,0 +1,49 @@
+{
+  "supplemental": {
+    "plurals-type-cardinal": {
+      "en": {
+        "pluralRule-count-one": "i = 1 and v = 0 @integer 1",
+        "pluralRule-count-other": " @integer 0, 2~16, 100, 1000, 10000, 100000, 1000000, …"
+      },
+      "fr": {
+        "pluralRule-count-one": "i = 0,1 @integer 0, 1",
+        "pluralRule-count-other": " @integer 2~17, 100, 1000, 10000, 100000, 1000000, …"
+      },
+      "ar": {
+        "pluralRule-count-zero": "n = 0 @integer 0",
+        "pluralRule-count-one": "n = 1 @integer 1",
+        "pluralRule-count-two": "n = 2 @integer 2",
+        "pluralRule-count-few": "n % 100 = 3..10 @integer 3~10, 103~110, 1003, …",
+        "pluralRule-count-many": "n % 100 = 11..99 @integer 11~26, 111, 1011, …",
+        "pluralRule-count-other": " @integer 100~102, 200~202, 300~302, 400~402, 500~502, 600, 1000, 10000, 100000, 1000000, …"
+      },
+      "cy": {
+        "pluralRule-count-zero": "n = 0 @integer 0",
+        "pluralRule-count-one": "n = 1 @integer 1",
+        "pluralRule-count-two": "n = 2 @integer 2",
+        "pluralRule-count-few": "n = 3 @integer 3",
+        "pluralRule-count-many": "n = 6 @integer 6",
+        "pluralRule-count-other": " @integer 4, 5, 7~20, 100, 1000, 10000, 100000, 1000000, …"
+      },
+      "ru": {
+        "pluralRule-count-one": "v = 0 and i % 10 = 1 and i % 100 != 11 @integer 1, 21, 31, 41, 51, 61, 71, 81, 101, 1001, …",
+        "pluralRule-count-few": "v = 0 and i % 10 = 2..4 and i % 100 != 12..14 @integer 2~4, 22~24, 32~34, 42~44, 52~54, 62, 1002, …",
+        "pluralRule-count-many": "v = 0 and i % 10 = 0 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 11..14 @integer 0, 5~20, 100, 1000, 10000, 100000, 1000000, …",
+        "pluralRule-count-other": " @decimal 0.0~1.5, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0, …"
+      },
+      "pt": {
+        "pluralRule-count-one": "i = 0..1 @integer 0, 1",
+        "pluralRule-count-other": " @integer 2~17, 100, 1000, 10000, 100000, 1000000, …"
+      },
+      "pl": {
+        "pluralRule-count-one": "i = 1 and v = 0 @integer 1",
+        "pluralRule-count-few": "v = 0 and i % 10 = 2..4 and i % 100 != 12..14 @integer 2~4, 22~24, 32~34, 42~44, 52~54, 62, 1002, …",
+        "pluralRule-count-many": "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 12..14 @integer 0, 5~19, 100, 1000, 10000, 100000, 1000000, …",
+        "pluralRule-count-other": " @decimal 0.0~1.5, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0, …"
+      },
+      "ja": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, …"
+      }
+    }
+  }
+}

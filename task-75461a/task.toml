@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the Flux HPC resource management framework's TOML configuration schema — specifically the [[resource.config]] array-of-tables syntax for mapping hostlists to core sets and properties, queue definitions with property-based requires constraints and per-queue policy duration limits, resource exclusion semantics (config-time vs runtime drain), default queue policy path, and job-manager housekeeping keys. The agent must discover the correct Flux configuration format through documentation, man pages, or experimentation, then produce a working config that integrates resource definitions, queue routing, scheduling constraints, and housekeeping — all of which must function correctly under a live Flux instance."""
+solution_explanation = """Parse the YAML cluster specification, then generate a Flux TOML configuration file with: resource section containing noverify, exclude, and config array entries mapping hostlists to core sets and property arrays; queues section with per-queue requires constraints and policy duration limits; policy section setting the default queue; and job-manager section with inactive job limits. The difficulty lies in discovering and correctly using Flux's specific TOML configuration format."""
+verification_explanation = """Tests run inside a Flux instance started with the agent's configuration. A pytest session fixture starts all queues and applies runtime drain states specified in the cluster spec. Config structure tests parse the TOML and verify all required sections, entries, and values. Live scheduling tests submit jobs to each queue and verify correct rank allocation, default queue routing, oversized request exceptions, and duration limit enforcement."""
+category = "distributed_systems"
+tags = ["hpc", "resource-scheduling"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-75461a"

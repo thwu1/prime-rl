@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level computational geometry expertise to audit a mesh evaluation pipeline against mathematical specifications without explicit bug enumeration. The solver must: (1) independently diagnose four algorithmic defects — Chamfer Distance computing raw instead of squared Euclidean distances, Hausdorff Distance evaluating only the forward direction, voxelized IoU using a duplicated mesh operand for containment, and a composite similarity score applying monotonically-increasing normalization (d/(d+k)) where the specification requires monotonically-decreasing (k/(d+k)) — by comparing behavioral output against mathematical definitions and invariants, not from an itemized defect list; (2) implement two metrics (95th-percentile Hausdorff Distance, Surface Deviation Profile) from their mathematical definitions, requiring understanding of robust percentile statistics and bidirectional histogram construction; (3) recognize that the composite score's non-monotonic ordering failure is a compound problem: the score normalization is inverted, the IoU bug masks inter-pair variation, and the CD/HD magnitudes are distorted — all must be fixed holistically before monotonicity constraints are satisfied. Demands understanding of metric directionality (distance vs similarity), cross-metric invariants (HD² ≥ CD, HD95 ≤ HD), bidirectional metric symmetry, and distance-to-similarity normalization theory."""
+solution_explanation = """Six changes in /app/evaluate.py: (1) In compute_chamfer, square the nearest-neighbor distances before averaging: np.mean(dist**2) instead of np.mean(dist). (2) In compute_hausdorff, build KD-trees for both point sets, query both directions, return max(max(fwd), max(bwd)). (3) In compute_iou, change inside_b = mesh_a.contains(points) to mesh_b.contains(points). (4) In compute_similarity_score, invert the distance normalization from d/(d+k) to k/(d+k) for all three distance metrics (CD, HD, HD95). (5) Implement compute_hausdorff_95: build bidirectional KD-trees, compute 95th percentile of each directional distance array via np.percentile, return the max. (6) Implement compute_deviation_profile: compute bidirectional nearest-neighbor distances, concatenate, create equal-width histogram bins from 0 to max_distance, normalize to sum to 1.0, handle zero-distance edge case."""
+verification_explanation = """58 pytest tests in 12 classes verify: output JSON schema compliance (8 pairs, all required fields including similarity_score); CD magnitude thresholds calibrated to distinguish squared from raw distances on three mismatched pairs; HD threshold on an asymmetric containment pair that only passes with bidirectional computation; HD95 invariants (HD95 <= HD, HD95 > 0 for mismatched, null for invalid); IoU upper bounds on mismatched pairs that fail when both containment checks use the same mesh; deviation profile structural validation (list of 10 floats, sums to 1.0, all non-negative, not empty stub, null for invalid); matching pair quality bounds; relative ordering constraints; mathematical invariants including HD^2 >= CD; and composite similarity score tests verifying monotonic ordering (matching > wrong-dim, matching > wrong-shape, matching > wrong-radius), absolute thresholds, null for invalid pairs, and unit range — these ordering tests require ALL upstream metric bugs plus the score normalization bug to be fixed simultaneously."""
+category = "computational_geometry"
+tags = ["mesh-processing", "numerical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mesh-eval-pipeline"

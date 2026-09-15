@@ -1,0 +1,9 @@
+{
+  "oid": "2.16.840.1.114222.4.11.837",
+  "name": "Ethnicity",
+  "codeSystem": "2.16.840.1.113883.6.238",
+  "codes": [
+    {"code": "2135-2", "displayName": "Hispanic or Latino"},
+    {"code": "2186-5", "displayName": "Not Hispanic or Latino"}
+  ]
+}

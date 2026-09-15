@@ -1,0 +1,17 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: global-node-exporter-access
+spec:
+  endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: monitoring
+      toPorts:
+        - ports:
+            - port: "9100"
+              protocol: TCP
+  enableDefaultDeny:
+    ingress: false
+    egress: false

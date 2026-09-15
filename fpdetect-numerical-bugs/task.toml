@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the numerical behavior of a compiled C shared library (no source code) using binary inspection tools (nm/readelf), ctypes FFI bindings, and arbitrary-precision arithmetic (mpmath). The solver must evaluate six single-precision functions, determine which are numerically stable vs. unstable by computing ULP errors against mpmath ground truth, classify each bug type (catastrophic cancellation, overflow, special-value), find worst-case triggering inputs, and then design and compile (gcc) corrected C implementations into a replacement shared library. The multi-tool workflow — nm → ctypes → mpmath → gcc — requires proficiency across binary analysis, FFI, numerical computing, and C compilation."""
+solution_explanation = """Use nm -D to discover exported symbols, then load libfpmath.so via ctypes and set argtypes/restype for each function. Install mpmath and compute 50-digit reference values for systematically chosen edge-case inputs (near-zero for expm1/log1p, large values for hypot/mean, zero for sinc). Compute ULP errors to classify: fp_expm1 and fp_log1p suffer catastrophic cancellation near zero (expf(x)-1 and logf(1+x) absorb small x into 1.0f); fp_hypot overflows via x*x intermediate; fp_sinc returns NaN at x=0 via 0/0; fp_mean overflows via (a+b) intermediate. fp_sigmoid is stable. Write corrected C using expm1f, log1pf, hypotf, x==0 guard, a/2+b/2, compile with gcc -shared -fPIC -O2 -lm."""
+verification_explanation = """23 pytest tests verify: audit_report.json structure, correct stable/unstable classifications for all 6 functions, correct bug_type strings, worst-case inputs producing > 100 ULP error in the original library (verified via mpmath). Original library bugs are independently confirmed (expm1 cancellation, log1p cancellation, hypot overflow, sinc NaN, mean overflow). Fixed library is loaded via ctypes and verified: all functions achieve ≤ 4 ULP error across representative inputs including the previously-buggy edge cases, and the sigmoid remains correct."""
+category = "numerical-analysis"
+tags = ["floating-point", "binary-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fpdetect-numerical-bugs"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level computational physics knowledge to diagnose three distinct bugs in a multiphase flow verification code: (1) a subtle numerical typo in a drag correlation exponent (0.678 vs 0.687), (2) a conceptual physics error confusing particle drift velocity with shock wave propagation speed in a conservation law framework, and (3) a sign error in a manufactured solution source term derivation. Additionally requires SQLite proficiency to reconstruct historical run data from a 5-table normalized schema using JOINs, gnuplot proficiency to fix a broken convergence plotting script (wrong terminal, missing log axis, incorrect column indices, wrong fit model), and Makefile understanding to navigate a broken pipeline dependency graph. The combination of physics debugging, numerical analysis, multi-tool pipeline repair (Python + SQLite + gnuplot + Make), and cross-format data interoperability makes this inaccessible without deep domain expertise and broad tool proficiency."""
+solution_explanation = """The solution independently computes correct Schiller-Naumann drag coefficients (exponent 0.687), derives proper Rankine-Hugoniot shock velocities using eps_g^(n+1) from the batch settling flux function, solves the MMS diffusion problem with the correctly-signed source term (+alpha*B*(kpi/L)^2*sin(...)), then queries the normalized SQLite tables (drag_data, settling_params, settling_fronts, mms_data) using per-run queries to reconstruct and compare each historical run against the correct reference. Exports convergence data as TSV, fixes the gnuplot script (pngcairo terminal, log-log axes, correct columns 1:2, power-law fit model), and generates the convergence plot."""
+verification_explanation = """Tests independently compute correct physics values and verify the report's drag coefficients within 0.5% relative tolerance, settling front positions within 5mm absolute tolerance, MMS convergence orders in [1.8, 2.2], and correct classification of all 12 historical runs. Additionally verifies convergence.tsv data consistency with the report, and that the gnuplot script at /app/plot_convergence.gp independently regenerates a valid PNG convergence plot from convergence.tsv."""
+category = "modeling_simulation"
+tags = ["computational-physics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multiphase-settling-verify"

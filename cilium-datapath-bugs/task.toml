@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Cilium's eBPF datapath architecture across multiple interacting components. The solver must trace bugs across 4 files (conntrack.py, identity.py, policy.py, datapath.py), understanding how CT state metadata encoding, identity resolution, policy evaluation ordering, loopback detection, hairpin bypass placement, and proxy redirect tracking interact in the packet processing pipeline. Two bugs (loopback detection and hairpin bypass) are coupled: fixing one without the other causes different tests to fail, creating a delayed feedback loop. The CIDR identity resolver has a subtle first-match-vs-LPM defect that requires the solver to design and implement a correct longest-prefix-match algorithm. A diagnostic tool displays identities in hex and omits the DROP_POLICY_DENY label, producing misleading output that complicates debugging. The solver must evaluate the entire system holistically rather than fixing issues in isolation."""
+solution_explanation = """Fix 6 issues across 4 files: (1) conntrack.py: decode_ct_state uses >>8 & 0xFF instead of >>16 & 0xFFFF, corrupting rev_nat_index restoration; (2) identity.py: _resolve_cidr does first-match instead of longest-prefix-match — must redesign to track best_prefix_len and return most specific CIDR identity; (3) policy.py: can_egress evaluates allow before deny, violating deny-takes-precedence semantics — must reorder to check deny first; (4) datapath.py: loopback detection compares pkt.daddr (post-DNAT, always equals backend) instead of pkt.saddr; (5) datapath.py: hairpin policy bypass check is dead code placed after policy verdict return — must move before policy call; (6) datapath.py: CT entry creation hardcodes proxy_redirect=False instead of deriving from proxy_port > 0. Bugs 4 and 5 interact: fixing hairpin bypass without loopback makes ALL LB traffic bypass policy; fixing loopback without hairpin bypass leaves hairpin flows denied."""
+verification_explanation = """16 tests across 7 classes verify each bug independently and in combination: TestLoopbackDetection catches bug 4; TestPolicyDenyPrecedence catches bug 3; TestHairpinPolicyBypass catches bugs 4+5 (interacting); TestProxyRedirect catches bug 6; TestCTScope catches bug 1; TestCIDRIdentity catches bug 2 and validates the LPM implementation with overlapping CIDR ranges and L3-only policy rules; TestIntegration validates end-to-end behavior including CT entry creation and established flow detection."""
+category = "networking"
+tags = ["ebpf", "cilium"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cilium-datapath-bugs"

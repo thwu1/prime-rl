@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a glitch-free pull-based reactive graph from scratch, replacing a broken push-based implementation. The solver must understand epoch-based versioning, lazy evaluation with recursive producer polling, dynamic dependency cleanup via incremental rebuild, cycle detection with sentinel values, computed equality cutoff semantics, effect scheduling with deduplication, and write guard enforcement. These concerns are deeply coupled — fixing one without understanding the others leads to new failures. Dreyfus proficient-level reactive programming expertise required."""
+solution_explanation = """The fix replaces the push-based eager recomputation model with Angular-style pull-based lazy evaluation. Key changes: (1) graph.ts gains an epoch counter, versioned dependency Map, dirty flag, ConsumerNode.allowSignalWrites, ensureUpToDate on ProducerNode, consumerPollProducersForChange for recursive pull verification, and cleanupConsumerDeps for dynamic dependency tracking. (2) signal.ts adds write guard check via getActiveConsumer().allowSignalWrites. (3) computed.ts uses updateIfNeeded() with epoch fast-path, poll-based pull, COMPUTING sentinel for cycle detection, dependency cleanup before re-evaluation, and equality cutoff that skips version increment when output unchanged. (4) effect.ts uses Set for deduplication, pull-based verification before running, cleanup invocation, and dependency cleanup. (5) untracked.ts clears activeConsumer via setActiveConsumer(null)."""
+verification_explanation = """test.sh installs npm dependencies, runs the TypeScript test harness via tsx which exercises 17 test scenarios covering basic reactivity, diamond glitch freedom, dynamic dependencies, equality cutoff, cycle detection, write guards, effect deduplication/cleanup/destroy, untracked reads, and a complex integration scenario. Each test outputs pass/fail JSON. pytest reads the JSON and asserts all 17 tests pass."""
+category = "debugging"
+tags = ["reactive-programming", "graph-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/glitch-free-signals-0b14b2"

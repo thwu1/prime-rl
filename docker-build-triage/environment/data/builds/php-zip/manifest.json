@@ -1,0 +1,15 @@
+{
+  "project_name": "document-manager",
+  "language": "php",
+  "language_version": "8.2",
+  "build_system": "composer",
+  "dependencies": [
+    "symfony/http-foundation: ^6.4",
+    "symfony/routing: ^6.4",
+    "phpunit/phpunit: ^10.5",
+    "ext-zip: *"
+  ],
+  "test_framework": "phpunit",
+  "test_command": "php vendor/bin/phpunit --configuration phpunit.xml",
+  "notes": "Uses PHP zip extension for document archive operations. The ext-zip dependency requires the PHP zip extension to be compiled and enabled, not just the libzip system library."
+}

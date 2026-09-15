@@ -1,0 +1,16 @@
+Stiff ODE System -- Benchmark Problem
+
+This directory contains the implementation of a 3-component stiff ODE
+system originating from a chemical kinetics model.
+
+Files:
+  fortran/system.f  -- Fortran 77 subroutines implementing the RHS
+                       (FEVAL) and analytical Jacobian (JEVAL)
+  config.ini        -- Initial conditions and integration parameters
+
+The system parameters are embedded in the Fortran source code as
+numerical constants. The Jacobian is provided analytically for use
+with implicit stiff solvers.
+
+Status: Initial integration tests completed. Full dynamical analysis
+        and stability characterization pending.

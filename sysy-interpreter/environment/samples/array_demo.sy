@@ -1,0 +1,37 @@
+// Array initialization and putarray demo
+int global_arr[5];
+
+void fill_squares(int arr[], int n) {
+    int i = 0;
+    while (i < n) {
+        arr[i] = (i + 1) * (i + 1);
+        i = i + 1;
+    }
+}
+
+int main() {
+    // Multi-dimensional array with brace elision
+    int mat[2][3] = {{1, 2, 3}, {4, 5, 6}};
+
+    int i = 0;
+    while (i < 2) {
+        int j = 0;
+        while (j < 3) {
+            putint(mat[i][j]);
+            putch(32);
+            j = j + 1;
+        }
+        putch(10);
+        i = i + 1;
+    }
+
+    // Global array + function modifying array by reference
+    fill_squares(global_arr, 5);
+    putarray(5, global_arr);
+
+    return 0;
+}
+// Expected output:
+// 1 2 3
+// 4 5 6
+// 5: 1 4 9 16 25

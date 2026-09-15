@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security research skills: the agent must explore undocumented campaign artifacts, discover data corruption by analyzing binary file consistency, infer the protocol's initial state from execution traces, reconstruct a state machine from observed transitions, choose appropriate statistical methodology to compare fuzzer configurations, and solve a combinatorial coverage optimization problem — all while filtering out corrupted records and orphan files. No algorithms are specified; the agent must select approaches for graph analysis, statistical testing, and set-cover optimization."""
+solution_explanation = """Explore /opt/campaign/ to understand data layout. Parse runs.jsonl for execution records. Determine expected bitmap size from the mode of file sizes in coverage/, then identify corrupted records (wrong size) and orphan files (no matching record). From valid executions: extract consecutive state pairs to build a directed transition graph, infer initial state (220 — first state in every trace), compute max BFS depth. For effectiveness: parse valid bitmaps as edge-hit arrays, compute per-test edge counts and medians, run Mann-Whitney U test. For regression suite: greedy set-cover with lexicographic tie-breaking."""
+verification_explanation = """Tests independently load the same raw data, determine expected bitmap size, identify corrupted/orphan artifacts, and recompute all expected values from valid executions only. Each section of audit.json is verified: exact match for integer counts, sorted lists, and graph properties; tolerance-based checks for statistical values; both significance conclusion and p-value range are tested."""
+category = "security"
+tags = ["fuzzing", "protocol-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-72ce0a"

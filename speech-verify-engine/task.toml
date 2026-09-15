@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing four interacting bugs across three Python modules in a screen reader speech verification system. The solver must explore the codebase to understand the architecture, run the system to observe failures, and trace each failure to its root cause. Bug 1: a regex pattern lacking word boundary anchors corrupts mixed-alphanumeric token normalization (e.g., 'F1' becomes 'fone'). Bug 2: an integer edge case in number-to-words conversion makes zero expand to empty string. Bug 3: a strict inequality in the character-proportional speech timing model silently excludes words at exact interruption boundaries. Bug 4: the edit distance computation omits the substitution operation, inflating all WER values involving character mismatches. These bugs span regex mechanics, numerical edge cases, timing model boundary conditions, and dynamic programming algorithms, requiring domain expertise across text processing, speech modeling, and string alignment."""
+solution_explanation = """Applies four targeted patches: (1) changes regex from r'\\d+' to r'\\b\\d+\\b' so digits inside alphanumeric tokens like 'F1' are not expanded; (2) changes 'if n < 0' to 'if n == 0' in _int_to_words so zero correctly returns 'zero'; (3) changes strict '<' to '<=' in the interruption timing comparison so words ending exactly at the interruption time are included; (4) adds dp[i-1][j-1] (substitution cost) to the min() call in the edit distance function, restoring standard Levenshtein distance."""
+verification_explanation = """Tests verify: (1) text normalization including mixed-alphanumeric preservation (F1, F2, F3), zero expansion, number ranges 0-9999, punctuation handling, whitespace collapsing — 18 tests; (2) word error rate for exact match, substitution, insertion, deletion, empty strings, multi-substitution — 12 tests; (3) segmented WER for single/multi-segment alignment with noise and edge cases — 8 tests; (4) interruption model including full duration, partial hearing, exact boundary cases, early cutoff, empty text — 12 tests; (5) JUnit XML structure and failure formatting — 4 tests; (6) scenario integration tests loading actual JSON files and verifying heard text computation, chained interruptions, and normalization with real scenario data — 6 tests. Total: 60 tests covering all four bug surfaces."""
+category = "accessibility"
+tags = ["debugging", "speech-processing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/speech-verify-engine"

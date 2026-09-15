@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a full limit order book matching engine as both a C shared library (libengine.so) and a CLI binary: binary protocol parsing, price-time priority matching with multi-level sweeps, self-trade prevention, order modification operations, and book state queries. The shared library constraint demands instance-based architecture with no global mutable state, correct symbol visibility control (-fPIC, -fvisibility=hidden or version scripts), multi-target Makefile construction (separate library and binary targets with dynamic linking and rpath), and a C ABI that works correctly through ctypes FFI. Combines systems programming (manual memory management, hash maps, linked lists), shared library toolchain expertise (gcc -shared, nm, symbol visibility, dynamic linking), financial domain knowledge (order book semantics, crossing rules), and build system engineering."""
+solution_explanation = """Restructure the matching engine into instance-based design: embed all state (order hash map, level hash map, sorted level lists, depth counters, output buffer) into a heap-allocated lob_book struct. Use __attribute__((visibility("default"))) on API functions and compile with -fvisibility=hidden to control symbol exports. Build with -fPIC for position-independent code. Create a multi-target Makefile: compile library source with -shared into libengine.so, compile the thin CLI wrapper and link against -lengine with -Wl,-rpath,/app. The emit() function dispatches output to either a FILE* (during feed processing) or an in-memory buffer (during granular API usage)."""
+verification_explanation = """Tests verify both the CLI binary (via subprocess with binary feeds compared against a Python reference implementation) and the shared library directly (via ctypes FFI). CLI tests cover matching, priority, cancel, reduce, replace, STP, queries, a 5000-message randomized scenario, and a 500K-message performance test. Library tests load libengine.so via ctypes, verify all API functions work correctly, test that multiple book instances operate independently (no global state leakage), test the output buffer lifecycle, and verify symbol visibility using nm -D (only lob_* function symbols exported)."""
+category = "systems_programming"
+tags = ["matching-engine", "shared-library"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/limit-order-engine"

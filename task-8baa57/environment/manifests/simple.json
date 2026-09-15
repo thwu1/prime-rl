@@ -1,0 +1,7 @@
+{
+  "name": "simple-app",
+  "dependencies": {
+    "logging": "^1.0.0",
+    "config": "^1.0.0"
+  }
+}

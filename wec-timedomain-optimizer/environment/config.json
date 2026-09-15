@@ -1,0 +1,68 @@
+{
+  "body": {
+    "type": "hemisphere",
+    "radius": 5.0,
+    "water_density": 1025.0,
+    "gravity": 9.81
+  },
+  "sea_states": [
+    {
+      "id": "mild",
+      "type": "JONSWAP",
+      "Hs": 1.5,
+      "Tp": 7.0,
+      "gamma": 3.3,
+      "probability": 0.45,
+      "n_frequencies": 200,
+      "f_min": 0.03,
+      "f_max": 0.4,
+      "phase_seed": 42
+    },
+    {
+      "id": "moderate",
+      "type": "JONSWAP",
+      "Hs": 2.5,
+      "Tp": 8.0,
+      "gamma": 3.3,
+      "probability": 0.35,
+      "n_frequencies": 200,
+      "f_min": 0.03,
+      "f_max": 0.4,
+      "phase_seed": 137
+    },
+    {
+      "id": "energetic",
+      "type": "JONSWAP",
+      "Hs": 4.0,
+      "Tp": 10.0,
+      "gamma": 2.5,
+      "probability": 0.20,
+      "n_frequencies": 200,
+      "f_min": 0.03,
+      "f_max": 0.4,
+      "phase_seed": 256
+    }
+  ],
+  "simulation": {
+    "dt": 0.05,
+    "duration": 600.0,
+    "ramp_time": 100.0
+  },
+  "pto": {
+    "stiffness": 0.0,
+    "damping_sweep": {
+      "min": 10000.0,
+      "max": 3000000.0,
+      "n_points": 50
+    }
+  },
+  "constraints": {
+    "max_heave_amplitude": 1.5
+  },
+  "state_space": {
+    "max_order": 10,
+    "r2_threshold": 0.95,
+    "irf_duration": 60.0,
+    "irf_dt": 0.05
+  }
+}

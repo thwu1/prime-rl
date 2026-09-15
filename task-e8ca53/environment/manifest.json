@@ -1,0 +1,33 @@
+{
+  "title": 9,
+  "vintages": [
+    {
+      "id": "116-344",
+      "congress": 116,
+      "law_number": "344",
+      "release_date": "2021-01-03",
+      "congress_boundary": true
+    },
+    {
+      "id": "117-81",
+      "congress": 117,
+      "law_number": "81",
+      "release_date": "2021-11-15",
+      "congress_boundary": false
+    },
+    {
+      "id": "117-262",
+      "congress": 117,
+      "law_number": "262",
+      "release_date": "2022-12-22",
+      "congress_boundary": true
+    },
+    {
+      "id": "118-82",
+      "congress": 118,
+      "law_number": "82",
+      "release_date": "2024-01-29",
+      "congress_boundary": false
+    }
+  ]
+}

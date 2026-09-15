@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems debugging: the agent receives only a formal specification and a failing 12-check validation pipeline with no hints about bug locations, counts, or fix strategies. Must reverse-engineer expected behavior from the spec, diagnose multiple interacting defects across subcommands where failures cascade (an import-stage bug produces invalid manifests that silently corrupt downstream merge and checkout results), and understand nuanced OCI container layer semantics including opaque whiteout directory scoping and overlay-vs-base entry precedence during merge. Must also design and implement from specification alone two complete new subcommands (garbage collection with cross-manifest reference scanning; comprehensive filesystem integrity checking with schema validation, hash verification, orphan detection, sort-order and duplicate-path enforcement) and an independent POSIX shell-based store audit tool composing jq, find, and sha256sum for out-of-band integrity verification. The combination of undirected multi-bug triage in a stateful pipeline, OCI-specific domain knowledge, and greenfield subcommand implementation from a formal spec places this firmly at expert level."""
+solution_explanation = """Fix five bugs in cfs_tool.py: (1) zero-pad format_mode to 4-digit octal, (2) add os.path.islink check before os.stat in import loop to correctly record symlinks, (3) fix opaque whiteout prefix matching to require exact path or trailing '/' separator, (4) remove redundant second-pass whiteout application that incorrectly deletes overlay entries, (5) implement attribute-level diff comparison for modified entries. Implement gc subcommand that scans all JSON manifests, collects referenced SHA-256 digests, and removes unreferenced objects. Implement fsck subcommand performing schema validation, hash verification, orphan counting, sort-order and duplicate-path checks. Create store-audit.sh shell script using jq (manifest parsing), find (object enumeration), and sha256sum (integrity verification) to produce a JSON health report."""
+verification_explanation = """Tests verify all bug fixes, gc, fsck, and store-audit.sh via pytest. Import tests check 4-digit octal modes, symlink detection, whiteout parsing, and entry sorting. Dedup tests confirm SHA-256 matching across layers. Merge tests verify opaque scoping (etc vs etc_backup), whiteout overlay preservation, and exact path sets. Diff tests verify attribute-level modification detection. GC tests confirm unreferenced removal and referenced preservation with correct JSON output. Fsck tests verify clean status on valid stores, dirty status on corrupted/missing objects, orphan counting without status impact, and output schema compliance including error types. Store-audit tests verify JSON output schema, orphan detection, integrity error detection, required tool usage (jq/find/sha256sum), and shell shebang."""
+category = "systems"
+tags = ["content-addressed-storage", "container-debugging", "shell-scripting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/composefs-layer-store"

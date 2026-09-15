@@ -1,0 +1,42 @@
+SECTION 62 — ADJUSTED GROSS INCOME DEFINED
+
+(a) Adjusted gross income (AGI) shall be equal to gross income (as defined in
+Section 61) minus the following above-the-line deductions:
+  (1) Student loan interest: the amount of interest paid by the taxpayer
+      during the taxable year on any qualified education loan, not to exceed
+      $2,500;
+  (2) Educator expenses: in the case of an eligible educator, expenses paid
+      or incurred by the taxpayer in connection with books, supplies, and
+      other classroom materials, not to exceed $300.
+
+
+SECTION 63 — TAXABLE INCOME DEFINED
+
+(a) In general. — Taxable income shall be computed as follows:
+    Taxable income = AGI - Deductions - Personal Exemptions
+    If the result is less than zero, taxable income shall be zero.
+
+(b) Deductions. — The deduction amount shall be the greater of:
+  (1) The applicable standard deduction (see paragraph (c)); or
+  (2) The total amount of the taxpayer's allowable itemized deductions.
+
+(c) Standard deduction amounts. — The standard deduction shall be the sum of
+the basic standard deduction and any additional standard deduction:
+
+  (1) Basic standard deduction:
+      (A) Married filing jointly or qualifying surviving spouse: $29,200
+      (B) Head of household: $21,900
+      (C) Single or married filing separately: $14,600
+
+  (2) Additional standard deduction for age or blindness:
+      An additional amount shall be allowed for each of the following
+      conditions met by the taxpayer (and, if filing jointly, the taxpayer's
+      spouse):
+      (A) The individual has attained age 65 before the close of the taxable
+          year;
+      (B) The individual is blind.
+      The additional amount is:
+      — $1,950 if the individual's filing status is single or head of
+        household;
+      — $1,550 if the individual's filing status is married filing jointly,
+        married filing separately, or qualifying surviving spouse.

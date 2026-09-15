@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing flex/bison build failures (missing yywrap linkage, shift/reduce conflicts from absent operator precedence declarations), implementing four interdependent dataflow analyses (constant propagation, liveness, available expressions, reachability) with fixed-point iteration over a CFG, and generating valid Graphviz DOT output for CFG visualization. The multi-tool pipeline (flex → bison → gcc → make for the parser; Python for optimization; graphviz for visualization) demands proficiency with compiler construction tools and their interoperability."""
+solution_explanation = """Fix scanner.l by adding %option noyywrap to resolve yywrap linker errors. Fix parser.y by adding %left/%right operator precedence declarations and %prec directives for unary operators. Build with make. Implement a complete iterative dataflow optimization pipeline in Python: forward constant propagation with lattice meet, constant folding, available expressions for CSE, backward liveness for DCE, and CFG reachability for unreachable code elimination, all iterated to fixed point. Implement cfg_to_dot() producing valid DOT with box nodes per basic block and control-flow edges."""
+verification_explanation = """Tests verify: (1) the flex/bison parser builds and produces correct TAC from sample Decaf programs, (2) operator precedence/associativity is correct (10-3-2=5 not 9), (3) constant folding produces correct values, (4) dead code is eliminated, (5) CSE reuses computations, (6) unreachable code is removed, (7) semantics are preserved via interpreter comparison, (8) Graphviz DOT output is syntactically valid (dot command succeeds) and structurally correct, (9) end-to-end pipeline from Decaf source to optimized TAC works."""
+category = "systems"
+tags = ["compilers", "dataflow-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dataflow-tac-optimizer"

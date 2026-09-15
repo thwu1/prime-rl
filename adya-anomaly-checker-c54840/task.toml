@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Adya, Liskov & O'Neil's transaction isolation formalism (G0/G1a/G1b/G1c/G-single/G2-item), parsing Jepsen's EDN (Extensible Data Notation) format, inferring version orders from partial list-append observations, constructing multi-edge dependency graphs, performing cycle detection and classification by edge composition, mapping detected anomalies to isolation levels, and generating valid Graphviz DOT output with correct edge attributes and cycle highlighting. The solver must independently research the anomaly definitions and dependency graph construction rules from the academic literature, then integrate EDN parsing, graph algorithms, and DOT generation into a cohesive tool."""
+solution_explanation = """Parse EDN histories using the edn_format Python library (handling Keywords, vectors, and nested maps). Build a dependency graph: (1) infer version orders from reads (longest observed prefix extended by unobserved committed appends), (2) construct ww edges from consecutive versions by different transactions, wr edges from observed values, and rw anti-dependency edges from reads whose last observed value precedes the next version, (3) find all simple cycles using DFS with minimum-node normalization, (4) classify cycles by edge type composition (all-ww=G0, ww/wr-only=G1c, forced-rw-count determines G-single vs G2-item), (5) detect non-cycle anomalies G1a and G1b by pattern matching. Map anomalies to isolation levels: G0->none, G1a/G1b/G1c->read-uncommitted, G-single/G2-item->read-committed, else serializable. Generate DOT output with edges colored by type, labeled type:key, and bold for cycle participation."""
+verification_explanation = """The test suite runs the checker against 9 EDN transaction histories covering all anomaly types. It verifies correct anomaly detection, isolation level classification, sorted output, valid anomaly names, and valid isolation levels. Additionally, it validates DOT output by rendering every history with graphviz (dot -Tsvg), checking edge colors (ww=blue, wr=green, rw=red), verifying cycle edges are bold, confirming non-cycle histories have no bold edges, checking edge label format (type:key), and verifying disjoint cycles in the stress test are both correctly highlighted."""
+category = "distributed-systems"
+tags = ["consistency-models", "transaction-isolation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adya-anomaly-checker-c54840"

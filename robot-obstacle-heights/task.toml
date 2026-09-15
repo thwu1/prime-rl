@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering a non-obvious mathematical invariant: achievable robot heights after any obstacle subsequence always form a contiguous range [0, M], reducing an infinite search space to tracking a single value with a three-case update rule. However, the mathematical insight alone is insufficient — the largest suite has n=q=100,000, making the naive O(nq) per-query simulation computationally infeasible. The solver must design an efficient O((n+q) log n) algorithm using an offline sweep-line with a segment tree supporting lazy propagation (range set, range add, and boundary-finding descent), exploiting the monotonicity of M values across query left-endpoints. Combining mathematical reasoning about problem structure, advanced data structure design with composite lazy tags, and systems-level database exploration makes this an expert-level task."""
+solution_explanation = """Extract obstacle heights and queries from SQLite. Discover that achievable heights form [0, M] with update rule: if M < a, unchanged; if a <= M < 2a, M = a-1; if M >= 2a, M = M-a. Process queries offline sorted by right endpoint r. Maintain a segment tree over left-endpoints where seg[l] = M(l, current_r). As r advances, M values are non-decreasing in l, enabling efficient boundary finding via segment tree descent. Apply three operations per obstacle: no-op on prefix (values < a), range-set to a-1 on middle (values in [a, 2a)), range-subtract a on suffix (values >= 2a). Answer queries as point lookups."""
+verification_explanation = """Tests independently compute expected answers using naive simulation for all small suites (exhaustive) and a deterministic random sample of 500 queries for the large 100K suite. The pre-installed validation tool checks output format compliance and answer count against the database."""
+category = "algorithms"
+tags = ["competitive-programming", "segment-tree"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robot-obstacle-heights"

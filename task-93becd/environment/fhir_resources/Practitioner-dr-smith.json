@@ -1,0 +1,25 @@
+{
+  "resourceType": "Practitioner",
+  "id": "dr-smith",
+  "name": [
+    {
+      "family": "Smith",
+      "given": [
+        "Jane"
+      ]
+    }
+  ],
+  "qualification": [
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360",
+            "code": "MD",
+            "display": "Doctor of Medicine"
+          }
+        ]
+      }
+    }
+  ]
+}

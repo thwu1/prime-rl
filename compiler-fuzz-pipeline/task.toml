@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level compiler engineering knowledge. The agent must independently recognize that undefined behavior is the central confounding factor in differential compiler testing and devise a runtime detection strategy (e.g., sanitizers) — this is not stated in the instructions. Writing a correct interestingness test demands understanding the conjunction of properties that define a genuine miscompilation vs. UB-induced divergence. Implementing test case reduction from scratch requires knowledge of delta debugging or similar algorithms. Building Csmith from source, handling its runtime headers, and correctly managing process signals, timeouts, and exit codes in a multi-compiler harness adds significant systems-level complexity. None of these approaches are prescribed — the agent must draw on deep domain expertise."""
+solution_explanation = """Build Csmith via cmake. Write fuzz.sh to compile test programs under gcc -O0, gcc -O2, clang -O0, clang -O2, capture exit codes to distinguish crashes (signal death) from timeouts, run a UBSan pass (gcc -fsanitize=undefined) to detect undefined behavior, and classify with correct priority ordering (compile_error < crash < timeout < ub < mismatch < pass). Write interestingness.sh that checks: compiles at O0 and O2, both run without crash/timeout, outputs differ, and UBSan finds no UB. Implement a delta-debugging reducer that iteratively removes line chunks while preserving interestingness. Run batch.sh over seeds 1-20."""
+verification_explanation = """Tests verify: Csmith binary exists and generates valid C; fuzz.sh produces correct JSON classification for known inputs (hello-world→pass, infinite-loop→timeout, abort→crash, syntax-error→compile_error, __OPTIMIZE__-divergence→mismatch); interestingness.sh correctly accepts UB-free divergent programs and rejects both UB-containing and non-divergent programs; batch.sh produces valid report.json with correct structure and counts summing to total; reduced file is under 50 lines and still exhibits divergent behavior without UB."""
+category = "software_testing"
+tags = ["compiler-testing", "test-reduction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compiler-fuzz-pipeline"

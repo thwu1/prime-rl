@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cache-no-default-deny
+spec:
+  endpointSelector:
+    matchLabels:
+      app: cache
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: backend
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+  enableDefaultDeny:
+    ingress: false
+    egress: false

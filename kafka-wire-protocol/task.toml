@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in binary wire protocol engineering: big-endian encoding, zigzag varints, compact arrays, UUID handling, CRC32-Castagnoli checksums. Must parse Kafka's undocumented cluster metadata binary log format (RecordBatch → Record → typed payload) to build topic/partition lookup tables. Implementing four distinct API request/response cycles (ApiVersions, Metadata, DescribeTopicPartitions, Fetch) demands byte-level precision, with the added challenge that different APIs use different encoding schemes (old-style INT32/INT16 for Metadata vs compact uvarint-based for others) and different request header versions (v1 without tagged fields vs v2 with tagged fields). Achieving interoperability with kcat requires correctly detecting header versions based on api_key/version — a non-obvious protocol detail that typically requires capturing and analyzing wire traffic with tshark or tcpdump to diagnose."""
+solution_explanation = """Build a Python TCP server on port 9092 with threaded connection handling. Implement a binary reader/writer supporting both compact and old-style encodings. On startup, parse the cluster metadata log to extract TopicRecords and PartitionRecords. For each incoming request: read api_key and api_version first to determine the header version (v1 vs v2), parse accordingly, then dispatch to the appropriate handler. The Metadata API handler uses old-style INT32/INT16 encoding for its response. The ApiVersions response advertises all four APIs. Header version detection — checking whether the (api_key, api_version) pair uses flexible versioning — is the key to kcat interoperability."""
+verification_explanation = """Tests start the broker as a subprocess, connect via TCP, send properly encoded binary Kafka requests, and parse responses field-by-field. Raw protocol tests validate ApiVersions (including Metadata key advertisement), Metadata v1 (broker info, all-topics listing, specific-topic queries, unknown-topic error handling), DescribeTopicPartitions, and Fetch. Integration tests run kcat -L against the live broker and verify it reports correct topic names and partition counts, confirming real-world Kafka client interoperability through multi-tool protocol negotiation."""
+category = "systems"
+tags = ["binary-protocol", "protocol-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-wire-protocol"

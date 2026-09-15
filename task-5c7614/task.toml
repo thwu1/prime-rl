@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a SemTab evaluation protocol from raw data, a JSON schema, and partial reference values. The solver must: parse ontology data in standard RDF serialization formats (Turtle for type hierarchy, N-Triples for entity equivalences); discover and handle multiple URI normalization edge cases (http/https variants, short-form IDs); implement transitive redirect chain resolution with cycle detection; derive the hierarchy-aware CTA scoring formula from reference values and ontology structure; implement AURC (Area Under Risk-Coverage Curve) from its definition; and produce a general-purpose evaluator that works on unseen data. Combines semantic web data engineering, information retrieval evaluation methodology, and graph algorithms."""
+solution_explanation = """Build a Python evaluator that: parses Turtle RDF to extract rdfs:subClassOf type hierarchy as a tree; parses N-Triples to extract owl:sameAs entity redirects; normalizes entity URIs across http/https/short-form variants; resolves redirect chains transitively with cycle detection; computes standard precision/recall/F1 for CEA/CTA/CPA by matching canonicalized entities; computes hierarchy-aware CTA using LCA-based tree distance with score=1/(1+d); computes AURC by sorting predictions by confidence and accumulating risk; produces per-table breakdowns and system rankings."""
+verification_explanation = """Tests verify exact metric values (within 1e-4 tolerance) for all four systems across CEA/CTA/CPA tasks, validates hierarchy-aware CTA scores against known partial-credit scenarios, verifies AURC computation, checks per-table breakdowns, confirms ranking order, and runs the evaluator on a dynamically-generated holdout dataset with RDF ontology files to ensure the implementation is general."""
+category = "data_science"
+tags = ["semantic-web", "knowledge-graphs"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5c7614"

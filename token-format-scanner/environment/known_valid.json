@@ -1,0 +1,23 @@
+{
+  "description": "Known valid GitHub tokens for calibration. Each token has a verified CRC32 checksum.",
+  "tokens": [
+    {
+      "token": "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ012339KRed",
+      "type": "personal_access_token",
+      "prefix": "ghp",
+      "note": "CRC32 of 'ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123' = 2886258387, Base62 = '39KRed'"
+    },
+    {
+      "token": "gho_X5v8tG2aMnKpYeRcHdFjBwLqNz1S9U1vlLjs",
+      "type": "oauth_access_token",
+      "prefix": "gho",
+      "note": "CRC32 of 'gho_X5v8tG2aMnKpYeRcHdFjBwLqNz1S9U' = 1769668968, Base62 = '1vlLjs'"
+    },
+    {
+      "token": "ghs_mN3xR7vKpL9sYhTf2WbJdQ0cGiA5eZ20vLsV",
+      "type": "server_to_server_token",
+      "prefix": "ghs",
+      "note": "CRC32 of 'ghs_mN3xR7vKpL9sYhTf2WbJdQ0cGiA5eZ' = 1845934463, Base62 = '20vLsV'"
+    }
+  ]
+}

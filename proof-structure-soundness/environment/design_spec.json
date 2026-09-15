@@ -1,0 +1,9 @@
+{
+  "signals": {
+    "access_type": {"READ": 0, "WRITE": 1, "RMW": 2, "BURST": 3},
+    "bus_ids": {"bus0": 0, "bus1": 1, "bus2": 2},
+    "dma_mode": {"scatter": 0, "gather": 1},
+    "power_state": {"active": 0, "idle": 1, "sleep": 2, "deep_sleep": 3},
+    "error_class": {"correctable": 0, "uncorrectable": 1, "fatal": 2}
+  }
+}

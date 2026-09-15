@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interacting subsystems: (1) a multi-strategy fuzzy string matcher including Levenshtein distance from scratch in pure Python, (2) a discrete-event simulation engine with recursive conditional evaluation and minute-by-minute clock processing, and (3) a scoring algorithm with DAG-aware prerequisite checking, time-windowed credit decay, and contraindication penalties. The domain (clinical simulation) adds significant complexity—understanding order catalogs, patient state machines, and rubric semantics. Integration of all three modules with precise API contracts demands careful software engineering."""
+solution_explanation = """The solution implements OrderMatcher with a four-tier scoring system (exact match → prefix → token subset → edit distance), using a from-scratch Levenshtein DP implementation. SimulationEngine maintains patient state and processes events by iterating minute-by-minute through clock advances, evaluating recursive conditions (has_order, and, or, not, location_is, flag_set) at each event trigger time. Scorer evaluates transcripts against rubric items: computes credit with linear time-decay past window boundaries, validates prerequisite ordering via timestamp comparison, applies risk-weight penalties for contraindicated actions, and clamps the aggregate score."""
+verification_explanation = """Tests verify each module independently and as an integrated system. OrderMatcher tests cover exact alias, prefix, fuzzy/typo, token subset, case insensitivity, location filtering, and score ordering. SimulationEngine tests verify initial state, order placement/rejection, clock advancement, event firing with conditions, location changes, patient deterioration/improvement based on treatment, and transcript generation. Scorer tests verify perfect scoring, delayed action decay, missing actions, contraindication penalties, prerequisite sequencing, score clamping, and location-change scoring. Integration tests run full case simulations through all three modules."""
+category = "software_engineering"
+tags = ["simulation", "clinical-informatics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-789cdd"

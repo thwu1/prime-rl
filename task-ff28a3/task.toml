@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional bioinformatics expertise: the solver must discover data quality issues (chromosome naming mismatch between SAM scaffold_*/reference chr*, unsorted alignment, PCR duplicates) through environment exploration, then design and execute a multi-step correction pipeline using samtools (sort, fixmate, markdup, index, flagstat, depth, view with FLAG filters). Computing three distinct sequence identity definitions (BLAST, gap-compressed, gap-excluded) requires knowledge of the SAM specification's CIGAR operators (M/I/D/S/H/=/X/N/P), NM edit distance semantics, and the subtly different mathematical formulations of each identity metric. Assembly contiguity metrics (N50, L50, auN) and cross-file chromosome name reconciliation demand holistic understanding of genomics data formats and pipeline orchestration."""
+solution_explanation = """Discover scaffold_*/chr* naming mismatch by comparing SAM @SQ headers to reference FASTA headers. Rewrite SAM with corrected chromosome names. Process through samtools pipeline: name-sort -> fixmate -> coordinate-sort -> markdup -> index. Extract flagstat for mapping stats. Use samtools view -F 3332 to filter non-primary/dup/unmapped reads, parse CIGAR+NM for identity metrics. Compute coverage via samtools depth -a with BED regions. Parse assembly FASTA for N50/L50/auN/GC. Output report.json."""
+verification_explanation = """Tests load report.json and verify: (1) data_issues mentions both chromosome naming and duplicate problems, (2) 9 non-redundant primary alignments with correct identity metrics (tolerance 1e-5), (3) identity summary aggregates, (4) mapping stats from corrected BAM (14 total, 13 mapped, 2 duplicates), (5) mean coverage per target region (tolerance 0.05), (6) assembly metrics (7 contigs, N50=380, auN=348.630137)."""
+category = "bioinformatics"
+tags = ["sam-bam-pipeline", "genomic-data-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ff28a3"

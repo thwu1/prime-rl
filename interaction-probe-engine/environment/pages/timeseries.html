@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Time Series Analyzer</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 20px auto; }
+    fieldset { margin: 12px 0; padding: 10px; }
+    label { display: block; margin: 4px 0; }
+    button { padding: 6px 16px; margin: 4px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #window-preview { margin: 6px 0; color: #555; font-style: italic; }
+    #method-desc { margin: 8px 0; padding: 8px; background: #f5f5f5; }
+    #data-view { margin: 8px 0; padding: 8px; background: #eef; min-height: 20px; font-family: monospace; font-size: 0.85em; }
+    #output { margin: 8px 0; padding: 10px; background: #f0f0f0; min-height: 24px; }
+    .series-row { margin: 4px 0; padding: 4px; background: #fafafa; border: 1px solid #ddd; }
+    .series-row input { width: 200px; padding: 3px; }
+    .series-row button { padding: 2px 8px; font-size: 0.85em; }
+    #series-container { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>Time Series Analyzer</h1>
+
+  <label>Window Size:
+    <input type="number" id="window-size" value="5" min="1" max="100">
+  </label>
+  <div id="window-preview">Window: 5</div>
+
+  <fieldset>
+    <legend>Smoothing Method</legend>
+    <label><input type="radio" name="method" value="sma" checked> Simple Moving Average</label>
+    <label><input type="radio" name="method" value="ema"> Exponential Moving Average</label>
+    <label><input type="radio" name="method" value="wma"> Weighted Moving Average</label>
+  </fieldset>
+  <div id="method-desc">Simple average over the window period.</div>
+
+  <button id="load-data">Load Sample Data</button>
+  <button id="process" disabled>Process Data</button>
+  <button id="export" disabled>Export Results</button>
+
+  <div id="data-view"></div>
+  <div id="output"></div>
+
+  <button id="add-series">Add Series</button>
+  <div id="series-container"></div>
+
+  <script>
+    var debounceTimer;
+    document.getElementById('window-size').addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      var val = this.value;
+      debounceTimer = setTimeout(function() {
+        document.getElementById('window-preview').textContent = 'Window: ' + val;
+      }, 300);
+    });
+
+    var descriptions = {
+      sma: 'Simple average over the window period.',
+      ema: 'Exponentially weighted, recent values have more influence.',
+      wma: 'Linearly weighted average favoring recent data.'
+    };
+    var radios = document.querySelectorAll('input[name="method"]');
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].addEventListener('change', function() {
+        document.getElementById('method-desc').textContent = descriptions[this.value];
+      });
+    }
+
+    document.getElementById('load-data').addEventListener('click', function() {
+      var data = [];
+      for (var i = 0; i < 20; i++) { data.push((Math.random() * 100).toFixed(2)); }
+      document.getElementById('data-view').textContent = 'Data: [' + data.join(', ') + ']';
+      document.getElementById('process').disabled = false;
+      this.disabled = true;
+      this.textContent = 'Data Loaded';
+    });
+
+    document.getElementById('process').addEventListener('click', function() {
+      var method = document.querySelector('input[name="method"]:checked').value;
+      var windowSize = parseInt(document.getElementById('window-size').value);
+      document.getElementById('output').textContent = 'Processed with ' + method.toUpperCase() + ' (window=' + windowSize + ')';
+      document.getElementById('export').disabled = false;
+    });
+
+    document.getElementById('export').addEventListener('click', function() {
+      var current = document.getElementById('output').textContent;
+      document.getElementById('output').textContent = current + '\nExported successfully at ' + new Date().toISOString();
+    });
+
+    var seriesCount = 0;
+    document.getElementById('add-series').addEventListener('click', function() {
+      seriesCount++;
+      var div = document.createElement('div');
+      div.className = 'series-row';
+      var lbl = document.createElement('label');
+      lbl.textContent = 'Series ' + seriesCount + ': ';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'series-input';
+      inp.placeholder = 'Enter comma-separated values...';
+      lbl.appendChild(inp);
+      div.appendChild(lbl);
+      var btn = document.createElement('button');
+      btn.className = 'remove-series';
+      btn.textContent = 'Remove';
+      btn.addEventListener('click', function() { div.parentNode.removeChild(div); });
+      div.appendChild(btn);
+      document.getElementById('series-container').appendChild(div);
+    });
+  </script>
+</body>
+</html>

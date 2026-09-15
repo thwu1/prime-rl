@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a UAX#29 sentence boundary segmenter from scratch. The solver must: (1) study the UAX#29 specification and translate the formal sentence break rules (SB1–SB998) into a working algorithm; (2) design an appropriate state machine or lookback architecture to handle the complex context-dependent rules — SB5 (Extend/Format transparency meta-rule that interacts with all subsequent rules), SB7 (two-character lookback for abbreviation detection), SB8 (forward scanning past arbitrary non-break-set characters to find lowercase letters), SB8a/SB9/SB10 (varying lookback depths for sentence terminator sequences), and SB11 (sentence terminator break with optional ParaSep); (3) evaluate the existing grapheme and word segmenter designs to determine which patterns transfer to sentence segmentation and which require novel approaches; (4) iteratively test against ~600 official Unicode test vectors covering edge cases in abbreviations, paragraph separators, emoji sequences, and Extend/Format transparency. The SB8 forward scan and the interaction between SB5 and state management require genuine algorithmic design, not mechanical rule translation."""
+solution_explanation = """Implements a 4-element sliding window state machine inspired by the Rust unicode-segmentation crate's approach. Each character's Sentence_Break category is mapped to one of 10 state parts (with Close+ and Sp+ collapsing consecutive characters). SB5 is handled by restoring the state window when encountering Extend/Format characters. The helper functions _match_sb8_back, _match_sb8a_back, _match_sb9_back, and _match_sb11_back scan the state window to verify backward context patterns. SB8 additionally performs a forward scan through the raw category array to find a Lower character before any break-set character. The solution uses the provided ctypes-based C shared library for property lookups."""
+verification_explanation = """Tests parse and run all official Unicode 16.0 SentenceBreakTest.txt vectors (~600 test cases) against the segmenter. Every vector must produce the exact expected segmentation. Additional tests verify segment concatenation equals input, empty input handling, property lookup correctness, ctypes infrastructure usage, and behavioral edge cases (multiple terminators, CRLF handling)."""
+category = "systems"
+tags = ["unicode", "algorithm-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/grapheme-segmenter-fix"

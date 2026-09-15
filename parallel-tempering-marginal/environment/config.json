@@ -1,0 +1,8 @@
+{
+    "n_trials": 100,
+    "n_successes": 50,
+    "n_chains": 10,
+    "n_rounds": 14,
+    "seed": 42,
+    "n_explore_per_scan": 10
+}

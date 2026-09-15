@@ -1,0 +1,23 @@
+{
+  "cell": "LG INR21700-M50T",
+  "parameter_set": "Chen2020",
+  "nominal_capacity_Ah": 5.0,
+  "voltage_window_V": [2.5, 4.2],
+  "ambient_temperature_C": 25.0,
+  "c_rates_tested": [0.5, 1.0, 2.0, 3.0],
+  "expected_behavior": {
+    "dfn_1C_capacity_Ah": "approximately 4.9 Ah (within range 4.7-5.1)",
+    "capacity_vs_crate": "monotonically decreasing with increasing C-rate",
+    "spm_dfn_agreement_low_crate": "SPM and DFN should agree within ~1% at 0.5C",
+    "thermal_at_3C": "cell temperature should rise >5 degrees C above ambient (25 C) during 3C discharge",
+    "electrolyte_at_3C": "significant electrolyte concentration gradient (>100 mol/m3) develops across the cell by end of 3C discharge"
+  },
+  "output_format": {
+    "capacities_spm": "dict mapping C-rate string to discharge capacity in Ah",
+    "capacities_dfn": "dict mapping C-rate string to discharge capacity in Ah",
+    "relative_errors_pct": "dict mapping C-rate string to |SPM-DFN|/DFN * 100",
+    "voltage_rmse": "dict mapping C-rate string to SPM-vs-DFN terminal voltage RMSE in V (for C-rates 1.0 and 3.0)",
+    "max_temperature_rise_3C": "peak cell temperature rise above ambient in degrees C during 3C DFN discharge",
+    "electrolyte_conc_range_3C": "max minus min electrolyte concentration in mol/m3 at end of 3C DFN discharge"
+  }
+}

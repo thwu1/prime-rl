@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct expert-level phases. Phase 1: reverse-engineer a proprietary binary container format (FWPK) using hex analysis, extract an RSA-1024 public key, recognize the modulus has close prime factors (a non-obvious weakness requiring number-theory knowledge), implement Fermat factorization to recover p and q, reconstruct the full RSA private key with CRT parameters, RSA-decrypt the wrapped key material, then recognize and reverse a session-key masking step (XOR with SHA-256 of the RSA public key DER) documented only in a gzip-compressed Python module embedded in the firmware. Once the actual AES-256 session key is recovered, analyze HMAC-SHA256-based IV derivation from the same module, and decrypt three AES-256-CBC partitions. Phase 2: design and build a cryptographically hardened replacement firmware container — the solver must synthesize their understanding of the original scheme's weaknesses to create a new FWPK image using RSA-OAEP key wrapping, AES-256-GCM authenticated encryption, and deterministic key/nonce derivation, all while maintaining binary format compatibility. The key-masking twist prevents naive key extraction and requires careful analysis of the embedded key management code."""
+solution_explanation = """Phase 1: Parse the FWPK binary header (magic bytes, version, section table with 32-byte entries) using struct to extract all sections. Load the RSA public key DER to obtain modulus n. Apply Fermat factorization (a=isqrt(n)+1, test b2=a2-n for perfect squares) to find close prime factors. Compute d=inverse(e, phi(n)) plus CRT parameters and construct the PEM private key. RSA-decrypt the wrapped key material to get a masked key, then XOR with SHA-256(pubkey_der) to unmask the actual AES-256 session key (this masking step is documented in the gzip-compressed key_mgmt module). Read and decompress the key_mgmt module to confirm IV derivation: iv_i = HMAC-SHA256(aes_key, pack('>I', i))[:16]. Decrypt each partition with AES-256-CBC, strip PKCS7 padding, concatenate, and extract the auth token. Phase 2: Derive a new AES key as SHA-256("hardened-session-key-" + diag_hash_hex). Wrap it with the provided RSA-2048 key using OAEP/SHA-256. Encrypt each partition with AES-256-GCM using SHA-256-derived nonces. Build a new FWPK container with manifest, DER pubkey, wrapped key, and GCM-encrypted partition sections."""
+verification_explanation = """Tests verify both phases: (1) recovered_data.txt SHA256 matches precomputed hash; (2) all 7 diagnostic records present; (3) security_token.txt SHA256 matches with correct DIAG-UUID format; (4) rsa_private.pem passes openssl rsa -check; (5) key produces correct deterministic PKCS1v15-SHA256 signature matching the embedded public key. For the hardened firmware: (6) valid FWPK format with all required sections; (7) embedded RSA key is 2048 bits matching hardened_pubkey.pem; (8) wrapped AES key decrypts via OAEP (proving PKCS1v15 was not used); (9) unwrapped AES key matches deterministic derivation from diagnostic data hash; (10) all 3 partitions decrypt via AES-256-GCM with correct auth tags; (11) decrypted data hash matches original; (12) per-partition nonces match SHA-256 derivation; (13) manifest JSON indicates OAEP and GCM primitives."""
+category = "security_and_privacy"
+tags = ["cryptanalysis", "binary-reversing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2b4f17"

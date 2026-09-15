@@ -1,0 +1,9 @@
+{
+  "well_typed": true,
+  "globals": {
+    "count": {"type": "int", "kind": "var"},
+    "bump": {"type": "() -> object", "kind": "func"}
+  },
+  "classes": {},
+  "errors": []
+}

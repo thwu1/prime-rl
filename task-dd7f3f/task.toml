@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across SAT encoding, ILP modeling, and combinatorial optimization. The solver must encode the NP-hard One-Sided Crossing Minimization problem (PACE Challenge) into two fundamentally different formal paradigms: (1) a CNF SAT encoding with Boolean ordering variables, transitivity axioms, crossing indicator literals, and a cardinality constraint (e.g., Sinz sequential counter) for iterative optimization via MiniSat, and (2) an integer linear programming formulation with binary ordering variables, transitivity inequalities, and crossing linking constraints for GLPK. Neither encoding is textbook — both require deep understanding of how combinatorial structure maps to propositional logic and linear constraints. The agent must also master two unfamiliar CLI tools (minisat with DIMACS I/O, glpsol with CPLEX LP format), integrate them into a coherent pipeline, and cross-validate results across both methods."""
+solution_explanation = """Uses bitmask DP O(2^n1 * n1^2) for exact optimal ordering computation, independently cross-validated by running glpsol on the ILP formulation and comparing objectives. Generates SAT verification artifacts via Boolean ordering variables with transitivity clauses and Sinz sequential counter cardinality encoding. Generates ILP verification artifacts via binary ordering and crossing indicator variables with transitivity inequalities and crossing-linking equality constraints in CPLEX LP format. Both artifacts are independently verifiable by minisat and glpsol respectively. Brute-force verification is applied for small instances (n1 <= 8) as an additional correctness check."""
+verification_explanation = """Tests verify: (1) solution files are valid permutations achieving known optimal crossing numbers, (2) DIMACS CNF files are structurally valid and satisfiable by minisat, (3) LP model files have valid GLPK structure and solve to integer optimality with correct objectives via glpsol, (4) cross-validation report shows SAT and ILP methods agree on all instances."""
+category = "combinatorial_optimization"
+tags = ["sat-encoding", "integer-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dd7f3f"

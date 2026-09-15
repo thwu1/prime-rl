@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the FHIR R4 data model (resource types, element type taxonomy, reference graph semantics), HIPAA Safe Harbor de-identification method (18 identifier categories mapped to FHIR elements), FHIRPath query language (expression syntax, nodesByType extension, rule precedence), applied cryptography (HMAC-SHA256 for deterministic hashing and date-shift offset derivation), and multi-tool pipeline orchestration (Python, jq, openssl). The solver must author a FHIRPath configuration from scratch, implement a full anonymization engine handling complex edge cases (age-over-89 birthdate redaction, restricted zip code tabulation areas, reference display text leakage, contact sub-element redaction), and build an independent shell-based compliance verifier."""
+solution_explanation = """Write a FHIRPath configuration with correctly ordered rules (keep rules before catch-all redact rules). Implement a Python engine that builds an ID mapping, computes per-resource date offsets, walks the JSON tree applying type-specific transforms, rewrites all references, and adds security labels. Build a jq+openssl validator that uses recursive jq queries to detect residual PHI and openssl dgst to independently verify hash correctness."""
+verification_explanation = """Tests independently compute expected HMAC-SHA256 hashes and verify all 18 resource IDs match, all 32 references resolve to valid hashed IDs, and cross-resource reference chains are consistent. Date shifts are verified deterministically. PHI removal is checked by scanning for known plaintext names, phone numbers, SSNs, emails, and addresses. Postal code generalization is verified for both normal and restricted zip codes. The FHIRPath configuration is validated for structure, rule targeting, and ordering. The jq validation script is executed and its PHI scan report verified."""
+category = "security_and_privacy"
+tags = ["healthcare-data", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-referential-integrity"

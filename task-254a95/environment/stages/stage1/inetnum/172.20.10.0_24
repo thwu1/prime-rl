@@ -1,0 +1,12 @@
+inetnum:            172.20.10.0 - 172.20.10.255
+cidr:               172.20.10.0/24
+netname:            ALPHA-NET
+descr:              Alpha Network IPv4 Space
+                    Primary infrastructure block
+country:            US
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             ALPHA-MNT
+mnt-lower:          DELTA-MNT
+status:             ASSIGNED
+source:             DN42

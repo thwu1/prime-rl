@@ -1,0 +1,19 @@
+MiniDB Diagnostic Snapshot
+==========================
+Captured: 2024-11-27T14:32:18.001Z
+Host: db-prod-03.internal (Linux 6.1.0-23-amd64)
+Engine: MiniDB 3.2.1 (build: release-2024.11.15-g8a3f2e1)
+
+Configuration Summary:
+  Write-Ahead Logging: enabled (SQLite-backed)
+  Checkpoint Strategy: fuzzy (non-blocking, interval: 30s)
+  Buffer Pool: 32 frames, 4096 bytes/page, CLOCK replacement
+  Index Maintenance: nested top actions for structural modifications
+  Page Store: binary packed format (pages.bin)
+
+Crash Sequence:
+  1. Power failure at 14:29:58 — interrupted normal transaction processing
+  2. Recovery initiated automatically on restart
+  3. System crash at 14:32:17 — interrupted ongoing recovery work
+
+See crash_state.json for full system state at time of second crash.

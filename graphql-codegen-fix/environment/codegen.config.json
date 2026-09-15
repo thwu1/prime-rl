@@ -1,0 +1,7 @@
+{
+  "scalars": {
+    "DateTime": "string",
+    "JSON": "Record<string, unknown>",
+    "URL": "string"
+  }
+}

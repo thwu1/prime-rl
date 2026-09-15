@@ -1,0 +1,14 @@
+A ticket booking platform built on the [Restate](https://restate.dev) durable execution framework is partially deployed at `/app/service.py`. The Restate server binary is at `/usr/local/bin/restate-server`, the CLI at `/usr/local/bin/restate`. The Python SDK (`restate-sdk`) and ASGI server (`hypercorn`) are pre-installed.
+
+The platform defines three Restate services:
+- **TicketObject** (Virtual Object, key = ticket_id) — manages ticket lifecycle: AVAILABLE -> RESERVED -> SOLD, with unreserve to roll back reservations
+- **WalletObject** (Virtual Object, key = user_id) — deposit/withdraw with balance tracking, raises TerminalError on insufficient funds
+- **CheckoutService** (stateless Service) — stub handler returning "Not implemented"; must be designed and built from scratch
+
+Two categories of work are required:
+
+**Evaluate and correct TicketObject handler architecture.** Two of the four handlers contain design decisions that are fundamentally incompatible with Restate's Virtual Object execution model. One handler's concurrency semantics are inappropriate for a read-only operation — it acquires exclusive access to the object, forcing read queries to serialize behind all pending write operations targeting the same key. Another handler invokes an external function whose output is invisible to the execution journal; on service restart, the replay engine will re-execute this call, and if it yields different results, the journal entry comparison will fail fatally. Evaluate each handler against Restate's guarantees around handler types, journal determinism, and replay safety, then redesign accordingly.
+
+**Design and implement the CheckoutService.process handler.** This handler must orchestrate an atomic multi-ticket purchase as a distributed saga. It receives `{"user_id": str, "ticket_ids": [str], "total_price": float}` and returns `{"success": bool, "transaction_id": str, "message": str}`. The workflow must reserve each ticket via TicketObject, charge the wallet via WalletObject.withdraw, and confirm all tickets as sold. If any step fails — whether a ticket cannot be reserved (already held by another buyer) or the wallet has insufficient funds — every previously completed step in that transaction must be compensated so the system returns to a clean pre-transaction state. The transaction identifier must be generated using a mechanism that produces identical values across journal replays; standard library random/UUID generation will cause fatal replay divergence after infrastructure restarts.
+
+Bring the full system online serving traffic on the Restate ingress port (8080).

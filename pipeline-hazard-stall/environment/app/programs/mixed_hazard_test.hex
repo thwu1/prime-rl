@@ -1,0 +1,11 @@
+// Program: mixed_hazard_test - mix of hazards, non-hazards, and ALUMI
+// Tests that stalls are only inserted when needed, and ALUMI works correctly
+// Expected: r1=7, r2=3, r3=10, r4=1, r5=9, r6=16, r7=18
+14100007  // loadi.u r1, 7
+14200003  // loadi.u r2, 3       (no hazard: LOADI doesn't read registers)
+38310200  // add r3, r1, r2      (r3 = 10, RAW hazard on r2 from LOADI)
+14400001  // loadi.u r4, 1       (no hazard: LOADI doesn't read registers)
+38532400  // sub r5, r3, r4      (r5 = 9, RAW hazard on r4 from LOADI)
+38610500  // add r6, r1, r5      (r6 = 16, RAW hazard on r5 from SUB)
+40760002  // addi r7, r6, 2      (r7 = 18, RAW hazard on r6 from ADD, ALUMI format)
+08000000  // halt

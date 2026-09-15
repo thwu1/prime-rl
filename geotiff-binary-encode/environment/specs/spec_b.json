@@ -1,0 +1,15 @@
+{
+  "description": "Projected CRS - WGS 84 / UTM zone 17N (EPSG:32617)",
+  "image": {
+    "width": 8,
+    "height": 8,
+    "bits_per_sample": 8
+  },
+  "geokeys": {
+    "GTModelTypeGeoKey": 1,
+    "GTRasterTypeGeoKey": 1,
+    "ProjectedCRSGeoKey": 32617
+  },
+  "model_tiepoint": [0.0, 0.0, 0.0, 500000.0, 4649776.22, 0.0],
+  "model_pixel_scale": [1000.0, 1000.0, 0.0]
+}

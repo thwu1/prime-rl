@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a Cool interpreter as a multi-stage pipeline requires expert-level skills across multiple domains: (1) Writing a correct Flex lexer specification with three exclusive start conditions (COMMENT for nested block comments with depth tracking, STRING for escape sequence processing, LINE_COMMENT), case-insensitive keyword rules coexisting with case-sensitive boolean constants, and proper longest-match disambiguation against identifier rules. (2) Mastering the Flex/GCC/Make toolchain to compile the generated C lexer into a working binary and integrate it via Unix pipes. (3) Implementing a recursive descent parser respecting Cool's 9-level operator precedence with correct associativity rules. (4) Building a runtime object model with inheritance-ordered attribute initialization, dynamic and static dispatch, SELF_TYPE semantics for method chaining and object creation, and case-expression closest-ancestor matching. Each component requires deep domain knowledge; combining them into a working pipeline demands proficient compiler/interpreter and systems programming expertise."""
+solution_explanation = """The solution implements a two-stage pipeline: (1) A Flex lexer specification (cool.l) using exclusive start conditions for nested comments (depth-tracking), strings (escape sequence decoding with re-encoding for transport), and line comments. Keywords use character-class patterns for case-insensitive matching while boolean constants require lowercase first letter. The Flex-generated C code is compiled via Makefile (flex cool.l -> lex.yy.c -> gcc -> tokenizer). (2) A Python evaluator (evaluator.py) reads the token stream from stdin, decodes escaped string values, parses via recursive descent with precedence climbing, and evaluates using a tree-walking interpreter implementing the full Cool runtime: object creation with inheritance-ordered attribute initialization, dynamic/static method dispatch, SELF_TYPE, case closest-ancestor matching, let scoping, and all built-in methods. A shell script (coolinterp) pipes the tokenizer output into the evaluator."""
+verification_explanation = """Tests verify both structural requirements (cool.l, Makefile, tokenizer as ELF binary exist) confirming proper Flex/GCC/Make toolchain usage, and semantic correctness through 8 static programs and 3 dynamically-generated programs. Static programs exercise specific semantics: hello.cl (IO, escapes, nested comments), fibonacci.cl (loops, arithmetic, let), dispatch.cl (dynamic/static dispatch, attribute init order), case_match.cl (closest-ancestor matching), selftype.cl (SELF_TYPE), scoping.cl (let shadowing, defaults, isvoid), strings.cl (String methods), list.cl (polymorphic linked list). Dynamic tests generate Cool programs at runtime with random values (using os.urandom) for arithmetic, let scoping, and method dispatch, preventing any hardcoded-answer bypass."""
+category = "programming_languages"
+tags = ["compilers", "toolchain-integration"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-67695a"

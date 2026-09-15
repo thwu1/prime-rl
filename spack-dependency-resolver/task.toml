@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a constraint-satisfaction dependency resolver using Answer Set Programming (ASP) via the clingo solver — a declarative paradigm unfamiliar to most developers. The solver must bridge two languages and two paradigms: Python for fact generation and result parsing, and ASP for the actual constraint resolution logic. The ASP encoding must correctly model version selection, virtual package provider assignment with optimization, conditional dependency activation through variant and version predicates, required-variant propagation across dependency edges, conflict detection, and multi-provider consistency. Debugging spans two abstraction layers (Python marshaling and ASP logic), and the interplay between recursive installation derivation and negation-as-failure for default variants creates non-stratifiable ASP programs that require understanding of stable model semantics."""
+solution_explanation = """The solution consists of two files: (1) encoding.lp — an ASP logic program with ~60 rules covering package installation derivation, version choice rules with optimization, variant assignment with default/forced/overridden handling, conditional dependency activation for variant and version conditions, virtual provider selection with consistency constraints, conflict detection via integrity constraints, and two-level optimization (#minimize) for preferring latest versions (priority 2) and first-listed providers (priority 1); (2) resolver_impl.py — a Python driver that loads the package repository, generates ASP facts (avail, vpri, var_bool, var_enum, dep, dep_has_cond, dep_cond_var, dep_cond_ver, dep_vrange, dep_req_var, conflict, virtual, provider, root, vconstraint, user_variant, user_provider, and pre-computed v_in_range), invokes clingo via its Python API with the encoding, parses the answer set (selected, variant_val, dep_edge atoms) into a ResolvedDAG, and computes topological build order via Kahn's algorithm."""
+verification_explanation = """35 pytest test cases organized into 9 groups verify: (1) ASP implementation structure (encoding.lp exists with rules/optimization/choice, resolver.py uses clingo, encoding parses in clingo); (2) version selection (exact, bounded range, open range, latest default); (3) dependency chains (simple, transitive); (4) virtual packages (default provider, explicit provider, versioned provider, multi-virtual consistency, provider override); (5) conditional dependencies (variant inactive/active, debug-conditional, version-conditional activation/inactivation); (6) required dependency variants (propagation, user-vs-required conflict); (7) conflict detection (variant, version+variant, version-range); (8) unsatisfiable specs (impossible version, conflicting constraints); (9) complex resolution (full DAG structure for petsc/scipy, topological invariant across multiple specs, no duplicate edges, explicit multi-provider override)."""
+category = "software_engineering"
+tags = ["asp-constraint-solving", "dependency-resolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spack-dependency-resolver"

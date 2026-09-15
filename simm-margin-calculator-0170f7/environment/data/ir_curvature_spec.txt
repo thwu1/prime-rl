@@ -1,0 +1,67 @@
+ISDA SIMM v2.6 Interest Rate Curvature Margin Methodology
+==========================================================
+
+
+1. Curvature Value-at-Risk (CVR)
+
+For each curvature sensitivity with vega V_k at tenor k in bucket b:
+
+  CVR_k = V_k * (cosh(sigma * RW_k / 100) - 1)
+
+Equivalently:
+
+  CVR_k = V_k * (exp(sigma * RW_k / 100) + exp(-sigma * RW_k / 100) - 2) / 2
+
+where:
+  - V_k is the vega sensitivity value
+  - RW_k is the delta risk weight for tenor k and the currency's group
+    (from risk_weights.csv, same weights used by delta margin)
+  - sigma is the curvature scale factor from curvature_params.csv
+  - RW_k / 100 converts the risk weight to a fractional shift
+
+Note: CVR_k is positive for long option positions (V > 0) and negative
+for short positions (V < 0). This represents the curvature P&L.
+
+
+2. Per-Bucket Aggregation
+
+For each currency bucket b:
+
+  sumCVR_b  = SUM_k CVR_k
+  absSum_b  = SUM_k |CVR_k|
+  lambda_b  = sumCVR_b / absSum_b    (if absSum_b > 0, else 0)
+
+  K_b = sqrt( max(0, SUM_ij rho_ij^2 * phi_ij * CVR_i * CVR_j) )
+
+  where:
+    rho_ij = tenor correlation between tenors i and j
+             (same parametric formula as delta, using theta and rho_min)
+    phi_ij = 1.0 if same sub-curve, phi if different sub-curves
+
+  IMPORTANT: curvature uses rho^2 (squared correlation), not rho.
+
+  CurvatureMargin_b = max(sumCVR_b + lambda_b * K_b, 0)
+
+
+3. Inter-Bucket Aggregation
+
+For each bucket b with CurvatureMargin_b > 0:
+  S_b = max(-CurvatureMargin_b, min(sumCVR_b, CurvatureMargin_b))
+
+For buckets with CurvatureMargin_b = 0:
+  S_b = 0
+
+  CurvatureMarginTotal^2 = SUM_b CurvatureMargin_b^2
+                          + SUM_{b<c} 2 * gamma^2 * S_b * S_c
+
+  CurvatureMarginTotal = sqrt(max(0, CurvatureMarginTotal^2))
+
+Note: inter-bucket aggregation uses gamma^2, not gamma.
+
+
+4. Total IR Margin
+
+  TotalMargin = sqrt( DeltaMargin^2 + CurvatureMargin^2
+                    + 2 * rho_dc * DeltaMargin * CurvatureMargin )
+
+  where rho_dc = rho_delta_curvature from curvature_params.csv.

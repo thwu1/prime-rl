@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_zeta_wrong",
+    "challenge_id": "zeta",
+    "generated_code": "import sympy as sp\n\ntau = sp.symbols('tau')\n\ndef answer(tau):\n    \"\"\"Incorrect: sin(tau)^2 instead of sin(tau/2)^2.\"\"\"\n    return sp.sin(tau)**2"
+}

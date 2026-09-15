@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete DEFLATE decompressor and PNG scanline filter reconstruction from a skeleton with deliberately planted bugs in otherwise-complete code. Beyond the marked TODO sections (Huffman table construction, symbol decoding, LZ77 back-reference handling, fixed and dynamic Huffman block support, Adler-32 checksum, Paeth predictor, all filter types), the template contains two subtle data-layer errors: an incorrect code-length alphabet ordering constant that silently corrupts all dynamic Huffman block decoding, and a wrong distance base table entry that causes incorrect back-reference distances for common codes. The solver must also build the decoder as a shared library (.so) with a defined C API, requiring understanding of shared library compilation flags, preprocessor-conditional code, and Makefile multi-target builds. Tests exercise the library through Python ctypes FFI, requiring cross-language debugging between C and Python."""
+solution_explanation = """The solution implements htab_build (canonical Huffman with 9-bit fast lookup and slow-path maxcode comparison), htab_dec (fast/slow path decode), inflate_huff (literal/length/distance with LZ77 overlapping copies), fixed Huffman tables (btype=1), dynamic Huffman header parsing (btype=2 with repeat codes 16/17/18), Adler-32 verification, Paeth predictor, and all five PNG filter types. It corrects the CL_ORDER constant from wrong sequential {16,17,18,0,1,2,...,15} to the RFC 1951 dezigzag order {16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15}, and fixes DIST_BASE[4] from 6 to the correct value 5. The main() logic is refactored into a reusable decode_png_buf function that both main() and the library API (png_decode_file, png_decode_memory, png_free) call. The Makefile is fixed to pass -DBUILD_SHARED when compiling the shared library target."""
+verification_explanation = """Tests generate PNG images at runtime using PIL across multiple color modes (L, LA, RGB, RGBA), dimensions (1x1 to 200 pixels), pixel patterns (solid, gradient, random noise), and compression levels (0-9). For CLI tests, the decoder output is compared byte-for-byte against PIL's reference pixel data. For library tests, a Python ctypes wrapper loads libdecode_png.so and calls png_decode_file and png_decode_memory directly, verifying pixel data, dimensions, and channel counts. This exercises all DEFLATE block types, all PNG filter types, the Adler-32 checksum, and the shared library API."""
+category = "systems_programming"
+tags = ["compression", "image-processing"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/png-deflate-decoder-b97ccb"

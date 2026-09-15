@@ -1,0 +1,13 @@
+{
+  "name": "loop_detected",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "mov64_imm", "dst": 6, "imm": 10},
+    {"op": "mov64_imm", "dst": 0, "imm": 0},
+    {"op": "add64_imm", "dst": 0, "imm": 1},
+    {"op": "jlt_reg", "dst": 0, "src": 6, "off": -2},
+    {"op": "mov64_imm", "dst": 0, "imm": 2},
+    {"op": "exit"}
+  ]
+}

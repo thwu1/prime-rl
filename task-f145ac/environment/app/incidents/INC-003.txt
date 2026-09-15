@@ -1,0 +1,19 @@
+INCIDENT INC-003
+Severity: High
+Date: 2024-10-22
+Reporter: QA Team
+
+SUMMARY: Ticket messages contain timestamps in wrong order
+
+DESCRIPTION:
+QA discovered tickets where the "first observed" timestamp field is
+chronologically AFTER the "second observed" timestamp. The protocol
+requires that the first position in the ticket always contains the
+earlier observation (smaller timestamp), regardless of the order in
+which cameras reported the sightings.
+
+This occurs when a camera reporting a later sighting transmits its
+data before the camera that saw the vehicle earlier. The server must
+normalize the observation order before encoding the ticket.
+
+Impact: Downstream billing system rejects malformed tickets

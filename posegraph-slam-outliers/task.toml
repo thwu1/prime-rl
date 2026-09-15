@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Gauss-Newton nonlinear optimization on the SE(2) Lie group manifold with correct analytical Jacobians, sparse linear system construction and solving, and a multi-stage outlier rejection strategy. Naive robust kernels (Cauchy/Huber) fail because outlier loop closures in regions unsupported by correct constraints get absorbed by the optimizer. The solver must pre-filter outliers by checking loop closure consistency against the odometry chain, then optimize, then post-verify residuals. Combining correct Jacobians, angle wrapping, gauge fixing, sparse solving, and outlier reasoning demands proficient-level robotics and optimization expertise."""
+solution_explanation = """Pre-filter loop closures by comparing each measurement against the odometry-accumulated initial estimates; edges with >3m position discrepancy are rejected as outliers. Then build the sparse normal equations (H·dx = b) from analytical Jacobians of the SE(2) error function for each remaining edge, fix pose 0 as gauge reference, solve via sparse LU, update poses with angle normalization, iterate Gauss-Newton until convergence. Finally, post-optimization chi-squared check catches any residual outliers."""
+verification_explanation = """Tests regenerate the deterministic ground truth circular trajectory and identify outlier edges by arc distance between connected poses. Optimized poses are compared against ground truth for per-pose and mean position/angle accuracy. Additional tests verify pose 0 is fixed, that the solution differs from the raw initial estimates, that at least 3/5 outliers are detected with ≤2 false positives, and that per-edge residuals for accepted edges remain below chi-squared thresholds."""
+category = "robotics"
+tags = ["slam", "nonlinear-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/posegraph-slam-outliers"

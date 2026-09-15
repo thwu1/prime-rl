@@ -1,0 +1,37 @@
+{
+  "_description": "Classification thresholds by test type. Check optimal first, then acceptable. Default to degraded.",
+  "tcp_single": {
+    "optimal": {
+      "min_throughput_efficiency": 99.5,
+      "max_retransmit_rate_per_mb": 0.01
+    },
+    "acceptable": {
+      "min_throughput_efficiency": 98.0,
+      "max_retransmit_rate_per_mb": 0.1
+    }
+  },
+  "udp": {
+    "optimal": {
+      "max_lost_percent": 0.1
+    },
+    "acceptable": {
+      "max_lost_percent": 1.0
+    }
+  },
+  "tcp_parallel": {
+    "optimal": {
+      "min_jains_fairness_index": 0.99
+    },
+    "acceptable": {
+      "min_jains_fairness_index": 0.95
+    }
+  },
+  "tcp_bidir": {
+    "optimal": {
+      "max_asymmetry_ratio": 1.1
+    },
+    "acceptable": {
+      "max_asymmetry_ratio": 1.5
+    }
+  }
+}

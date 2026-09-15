@@ -1,0 +1,292 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_role.app_role",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "app_role",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+            "description": "",
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "app-role",
+            "path": "/",
+            "tags": {}
+          },
+          "sensitive_values": {
+            "inline_policy": [],
+            "tags": {}
+          }
+        },
+        {
+          "address": "aws_iam_policy.app_policy",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "app_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "description": "Application policy",
+            "name": "app-policy",
+            "path": "/",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"ec2:Describe*\",\"s3:GetObject\"],\"Resource\":\"*\"}]}",
+            "tags": {}
+          },
+          "sensitive_values": {
+            "tags": {}
+          }
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.attach",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "attach",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "role": "app-role"
+          },
+          "sensitive_values": {}
+        },
+        {
+          "address": "aws_iam_instance_profile.app_profile",
+          "mode": "managed",
+          "type": "aws_iam_instance_profile",
+          "name": "app_profile",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "app-profile",
+            "path": "/",
+            "tags": {}
+          },
+          "sensitive_values": {
+            "tags": {}
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_iam_role.app_role",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "app_role",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+          "description": "",
+          "force_detach_policies": false,
+          "max_session_duration": 3600,
+          "name": "app-role",
+          "path": "/",
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "unique_id": true,
+          "inline_policy": true,
+          "managed_policy_arns": true,
+          "tags_all": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "inline_policy": [],
+          "tags": {}
+        }
+      }
+    },
+    {
+      "address": "aws_iam_policy.app_policy",
+      "mode": "managed",
+      "type": "aws_iam_policy",
+      "name": "app_policy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "description": "Application policy",
+          "name": "app-policy",
+          "path": "/",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"ec2:Describe*\",\"s3:GetObject\"],\"Resource\":\"*\"}]}",
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "policy_id": true,
+          "tags_all": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "tags": {}
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.attach",
+      "mode": "managed",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "attach",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "role": "app-role"
+        },
+        "after_unknown": {
+          "id": true,
+          "policy_arn": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_iam_instance_profile.app_profile",
+      "mode": "managed",
+      "type": "aws_iam_instance_profile",
+      "name": "app_profile",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "app-profile",
+          "path": "/",
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "role": true,
+          "unique_id": true,
+          "tags_all": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "tags": {}
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {
+            "constant_value": "us-east-1"
+          }
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_role.app_role",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "app_role",
+          "provider_config_key": "aws",
+          "expressions": {
+            "assume_role_policy": {
+              "constant_value": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+            },
+            "name": {
+              "constant_value": "app-role"
+            },
+            "path": {
+              "constant_value": "/"
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_policy.app_policy",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "app_policy",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "app-policy"
+            },
+            "path": {
+              "constant_value": "/"
+            },
+            "policy": {
+              "constant_value": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"ec2:Describe*\",\"s3:GetObject\"],\"Resource\":\"*\"}]}"
+            },
+            "description": {
+              "constant_value": "Application policy"
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.attach",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "attach",
+          "provider_config_key": "aws",
+          "expressions": {
+            "role": {
+              "references": [
+                "aws_iam_role.app_role.name",
+                "aws_iam_role.app_role"
+              ]
+            },
+            "policy_arn": {
+              "references": [
+                "aws_iam_policy.app_policy.arn",
+                "aws_iam_policy.app_policy"
+              ]
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_instance_profile.app_profile",
+          "mode": "managed",
+          "type": "aws_iam_instance_profile",
+          "name": "app_profile",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "app-profile"
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.app_role.name",
+                "aws_iam_role.app_role"
+              ]
+            },
+            "path": {
+              "constant_value": "/"
+            }
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  },
+  "timestamp": "2024-08-15T10:30:00Z"
+}

@@ -1,0 +1,10 @@
+{
+  "phase_transition": {
+    "problem_type": "qc",
+    "board_size": 14,
+    "m_range": [1, 12],
+    "samples_per_m": 40,
+    "random_seed": 7749,
+    "output_file": "phase_transition.json"
+  }
+}

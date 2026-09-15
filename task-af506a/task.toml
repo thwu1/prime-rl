@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level platform engineering across 6 CNCF ecosystem tools (Crossplane, Kyverno, Prometheus/PromQL, OpenTelemetry, Kubernetes RBAC, ResourceQuota/LimitRange). The solver must first audit the platform against a detailed governance specification to identify what is missing and what is broken — no hints are given about which files or subsystems are at fault. Designing valid ResourceQuota allocations requires solving simultaneous constraints: per-tier minimums, per-tier maximums, cluster capacity limits, burst ratio caps, and strict tier ordering. LimitRange design requires understanding K8s QoS class semantics and internal consistency invariants. Several existing configs contain silent misconfigurations (no startup errors) that require expert judgment to detect — e.g., security isolation gaps, observability gaps, and infrastructure composition field mismatches."""
+solution_explanation = """The solution reads the governance specification and systematically audits every config file. It computes resource allocations satisfying all mathematical constraints simultaneously, creates missing governance configs (ResourceQuotas, LimitRanges), and fixes broken configs across RBAC, observability (Prometheus alerting and OTel Collector pipelines), admission policies (Kyverno), and Crossplane compositions. Each fix requires domain-specific expertise to identify the root cause and correct resolution."""
+verification_explanation = """Property-based tests verify the platform satisfies all governance constraints without prescribing exact values: quota sums within cluster capacity, per-tenant values within tier bounds, burst ratios within limits, tier ordering preserved, LimitRange internal consistency, Kyverno policies correctly configured, RBAC bindings properly scoped, Prometheus rules correctly aggregated, OTel pipeline topology valid, and Crossplane field paths matching XRD schema."""
+category = "cloud_infrastructure"
+tags = ["kubernetes", "platform-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-af506a"

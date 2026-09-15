@@ -1,0 +1,47 @@
+[
+  {
+    "name": "limestone_equilibrium",
+    "pH": 8.3,
+    "total_concentrations": {
+      "Ca+2": 1.0e-3,
+      "CO3-2": 2.0e-3
+    }
+  },
+  {
+    "name": "lead_contamination",
+    "pH": 4.0,
+    "total_concentrations": {
+      "Pb+2": 1.0e-5,
+      "SO4-2": 0.01,
+      "Cl-": 0.05
+    }
+  },
+  {
+    "name": "iron_fluoride",
+    "pH": 3.0,
+    "total_concentrations": {
+      "Fe+3": 1.0e-3,
+      "F-": 2.0e-3,
+      "SO4-2": 5.0e-3
+    }
+  },
+  {
+    "name": "copper_carbonate",
+    "pH": 6.5,
+    "total_concentrations": {
+      "Cu+2": 5.0e-5,
+      "CO3-2": 1.0e-3,
+      "Cl-": 0.01
+    }
+  },
+  {
+    "name": "mixed_carbonate",
+    "pH": 7.5,
+    "total_concentrations": {
+      "Ca+2": 2.0e-3,
+      "Mg+2": 1.0e-3,
+      "CO3-2": 3.0e-3,
+      "SO4-2": 5.0e-3
+    }
+  }
+]

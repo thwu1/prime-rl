@@ -1,0 +1,8 @@
+hostname,ipv4_internal,ipv4_external,ipv6,role
+ns1,10.0.1.1,,fd00::1,nameserver
+ns2,10.0.1.2,,fd00::2,nameserver
+web1,10.0.1.10,203.0.113.10,fd00::10,webserver
+web2,10.0.1.11,203.0.113.11,fd00::11,webserver
+db1,10.0.1.20,,fd00::20,database
+mail,10.0.1.30,,fd00::30,mailserver
+vpn,10.0.1.40,203.0.113.40,,vpn-gateway

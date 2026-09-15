@@ -1,0 +1,5 @@
+{
+  "num_banks": 16,
+  "bank_width_bytes": 4,
+  "warp_size": 32
+}

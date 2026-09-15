@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-router
+  namespace: web-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx-frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              network.openshift.io/policy-group: ingress
+      ports:
+        - protocol: TCP
+          port: 443

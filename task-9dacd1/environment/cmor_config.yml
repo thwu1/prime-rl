@@ -1,0 +1,34 @@
+# CMORization configuration for SYNOBS dataset
+# This file defines dataset-level attributes and output conventions.
+
+attributes:
+  project_id: OBS
+  dataset_id: SYNOBS
+  version: v1
+  tier: 2
+  type: ground
+  source: "Synthetic observational dataset for testing"
+  reference: "synobs"
+  comment: "Synthetic near-surface atmospheric variables"
+  mip: Amon
+
+filename: "SYNOBS_monthly_2000-2014.nc"
+
+# Output filename template. Fields are populated from attributes above.
+# {variable} is the CMOR short_name, {start_date} and {end_date} are YYYYMM.
+output_filename_template: "{project_id}_{dataset_id}_{type}_{version}_{mip}_{variable}_{start_date}-{end_date}.nc"
+
+# Data type requirements:
+#   - Variable data: float32 (np.float32)
+#   - Coordinate data: float64 (np.float64)
+#   - Fill value: 1.0e+20 (float32)
+
+# Coordinate system requirements:
+#   - Longitude: 0 to 360 degrees_east, increasing
+#   - Latitude: -90 to 90 degrees_north, increasing
+#   - Time: "days since 1950-1-1 00:00:00", calendar: gregorian
+#   - All spatial and temporal coordinates must have bounds
+
+# Quality control:
+#   - Raw data includes qc_flag variable with CF bit-field quality flags
+#   - Observations with any quality flag set must be excluded from output

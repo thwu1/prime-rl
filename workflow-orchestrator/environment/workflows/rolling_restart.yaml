@@ -1,0 +1,28 @@
+name: "Drain and restart each node in the cluster"
+variables:
+  - name: compactions_timeout
+    type: integer
+    default: 90
+  - name: poll_interval
+    type: integer
+    default: 5
+cluster_tasks:
+  - type: node_workflow
+    name: "Drain and restart each node"
+    concurrency_unit: zone
+    concurrency_limit: 1
+    node_tasks:
+      - type: drain
+        retries: 2
+      - type: stop_service
+        params:
+          service: scylla-server
+      - type: start_service
+        params:
+          service: scylla-server
+      - type: wait_for_condition
+        condition: compactions_nominal
+        params:
+          timeout_seconds: "{{compactions_timeout}}"
+          poll_interval_seconds: "{{poll_interval}}"
+          success_window_seconds: 20

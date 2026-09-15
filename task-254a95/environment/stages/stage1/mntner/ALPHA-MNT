@@ -1,0 +1,10 @@
+mntner:             ALPHA-MNT
+descr:              Alpha Network Maintainer
+                    Primary operations group
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+auth:               pgp-fingerprint A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2
+remarks:            Authorized for AS4242420001
+                    and related address space
+mnt-by:             ALPHA-MNT
+source:             DN42

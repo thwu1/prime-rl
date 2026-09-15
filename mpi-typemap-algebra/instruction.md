@@ -1,0 +1,7 @@
+`/app/mpi_types.py` implements the MPI typemap algebra for computing memory layout properties of MPI derived datatypes. It supports the type constructors: `MPI_Type_create_struct`, `MPI_Type_vector`, `MPI_Type_contiguous`, `MPI_Type_create_resized`, `MPI_Type_create_subarray`, and `MPI_Type_create_hindexed_block`.
+
+The implementation contains bugs affecting multiple type constructors. A C validation program `/app/mpi_validate.c` creates the same MPI datatypes using the OpenMPI library and extracts their properties from the runtime. Build and run it to obtain ground truth from the MPI implementation — the provided `/app/Makefile` may need corrections. Then fix all bugs in `/app/mpi_types.py` so that `python3 /app/run_analysis.py` produces correct results in `/app/results.json` for the type definitions in `/app/type_defs.json`.
+
+For each defined type, `/app/results.json` must contain the correct: typemap (list of basic-type/displacement pairs), lower bound (`lb`), upper bound (`ub`), extent, true lower bound (`true_lb`), true upper bound (`true_ub`), true extent (`true_extent`), and data size — computed according to the MPI 5.0 §4.1 datatype algebra. All scalar properties must match the MPI runtime's ground truth.
+
+Do not modify `/app/type_defs.json`, `/app/run_analysis.py`, or `/app/mpi_validate.c`.

@@ -1,0 +1,24 @@
+.PHONY: all db query clean
+
+all: results.json filtered_obs.json db query
+
+db: mission.db
+
+query: optimal_report.txt
+
+results.json: astro.py analyze.py
+	python3 analyze.py mission_data/scenario.toml
+
+filtered_obs.json: astro.py filter_obs.py
+	python3 filter_obs.py
+
+mission.db: results.json
+	rm -f mission.db
+	python3 -c "import json,sqlite3;d=json.load(open('results.json'));c=sqlite3.connect('mission.db');c.execute('CREATE TABLE grid_results(dep_s REAL,tof_s REAL,dv_km_s REAL)');c.executemany('INSERT INTO grid_results VALUES(?,?,?)',[(e['dep_s'],e['tof_s'],e['dv_km_s']) for e in d['grid']]);c.commit();c.close()"
+
+optimal_report.txt: mission.db
+	echo 'dep_s|tof_s|dv_km_s' > optimal_report.txt
+	sqlite3 -separator '|' mission.db 'SELECT dep_s,tof_s,dv_km_s FROM grid_results ORDER BY dv_km_s ASC LIMIT 1;' >> optimal_report.txt
+
+clean:
+	rm -f results.json filtered_obs.json mission.db optimal_report.txt

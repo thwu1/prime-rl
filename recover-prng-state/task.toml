@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering three stripped PRNG binaries (MT19937 variant with custom tempering, xorshift128, 64-bit LCG) to identify each algorithm from disassembly, then matching unlabeled output streams to generators via hypothesis-driven statistical and algebraic tests. State recovery demands three distinct attack strategies: GF(2) tempering matrix inversion for MT, direct state extraction for xorshift128, and brute-force search over hidden lower bits for the truncated LCG. Beyond analysis, the agent must CREATE an automated PRNG classifier — a novel tool that distinguishes the three PRNG families from output alone using structural properties (xorshift128 recurrence, LCG lattice structure, MT elimination) — and EVALUATE each generator's security quantitatively by ranking attack complexity, minimum outputs needed, and state-space exposure."""
+solution_explanation = """Disassemble all three binaries with objdump to identify algorithms from characteristic constants. Test xorshift128 recurrence on each stream to find the match; use compiled C brute-force to recover LCG 64-bit state from two truncated outputs; apply GF(2) tempering matrix inversion for MT state recovery from 624 outputs. The classifier is designed as a pipeline: (1) test xorshift128 four-output recurrence (O(1), deterministic), (2) test LCG via compiled C brute-force over 2^32 lower-bit candidates with 3-output verification, (3) classify remainder as MT by elimination. The vulnerability assessment quantifies: xorshift128 needs 4 outputs at O(1), LCG needs 2 outputs at O(2^32), MT needs 624 outputs at O(n) with GF(2) matrix inversion — ranking xorshift128 weakest and MT strongest."""
+verification_explanation = """Tests independently implement all three PRNGs in Python with known seeds, verify stream consistency, check the agent's matching, all 15 predicted values, and weakest identification. Classifier tests generate 6 fresh streams (2 per PRNG type with novel seeds) and verify correct classification. Assessment tests parse JSON and verify min_outputs ranges (4-8 for xorshift128, 2-4 for LCG, 624-700 for MT) and correct weakness ranking."""
+category = "cryptography"
+tags = ["binary-analysis", "prng-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/recover-prng-state"

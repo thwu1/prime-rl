@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IP address management: CIDR prefix math (alignment, supernetting, containment), VRF isolation semantics, dual-stack IPv4/IPv6 handling, and the difference between pool/non-pool and container/active/reserved prefix types. The agent must design and implement a complete subnet allocation algorithm that handles contiguous CIDR-aligned supernet placement (a bin-packing variant requiring understanding of power-of-two alignment constraints), exclusion zone avoidance, sequential request processing with cumulative state tracking, and first-fit-lowest-address optimization — all while navigating a provided IPAM library that has a subtle self-containment bug in its prefix hierarchy method."""
+solution_explanation = """Implement /app/allocator.py that: (1) loads network state from /data/network_state.json and expansion requirements from /data/expansion.json, builds per-VRF prefix index, (2) for each request computes available space by subtracting existing child prefixes from the parent container using netaddr.IPSet, (3) applies exclusion zones, (4) for contiguous requests finds the lowest CIDR-aligned supernet block where all constituent prefixes are available, (5) for non-contiguous requests uses first-fit allocation preferring lower addresses, (6) tracks new allocations cumulatively to affect subsequent requests. The IPAM engine's get_available_prefixes has a self-containment bug (netaddr's IPNetwork.__contains__ includes self) that the agent must either fix or work around by implementing their own available-space computation using netaddr.IPSet directly."""
+verification_explanation = """38 pytest assertions across 10 test classes verify: plan structure (all 7 request IDs present with required metadata), per-request correctness (correct count, prefix length, parent containment, VRF assignment), contiguous block formation (REQ-001 /24s merge to /22, REQ-007 /24s merge to /23), exclusion zone compliance (REQ-002 avoids both excluded /23 ranges), IPv6 handling (REQ-003 allocates correct /64s), VRF isolation (REQ-005 allocates in Guest VRF independently of Production), deterministic lowest-address placement for each request, global CIDR alignment, no internal overlaps between new allocations, and no overlap with existing non-container prefixes."""
+category = "systems"
+tags = ["networking", "python"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-ipam-engine"

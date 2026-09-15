@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-domain expertise in RISC-V ISA semantics (arithmetic vs logical shifts, signed vs unsigned comparisons, operator commutativity), Verilator EDA toolchain (compilation flags --exe/--build, testbench linking), mutation testing theory (equivalence analysis, adequacy scoring formulas), Python subprocess debugging (output capture, regex patterns), and C++ testbench vector design (edge-case selection to kill specific mutations). Eight coordinated bugs spanning six Python modules, eight JSON files, and one C++ testbench must all be diagnosed and fixed to achieve a correct pipeline run."""
+solution_explanation = """Fix six infrastructure bugs: (1) add --exe/--build to Verilator flags in config.py, (2) include testbench file in compiler.py command, (3) add capture_output/text to subprocess.run in runner.py, (4) correct regex from braces to brackets in parser.py, (5) change adequacy denominator to (total-equivalent) in scorer.py, (6) add aggregate statistics object to reporter.py output. Correct four mutation equivalence classifications: mut_001/002 true->false (shift/comparison semantics differ), mut_004/005 false->true (commutativity). Add seven targeted test vectors in tb_alu.cpp exploiting ISA edge cases (negative values for sign extension, large shifts for bit-width truncation, equal operands for strict comparison, overlapping bits for OR-vs-XOR)."""
+verification_explanation = """Pytest validates the pipeline report: (1) exactly 8 mutation entries, (2) aggregate object with scoring statistics, (3) simulation logs exist for all mutations, (4) all 6 non-equivalent mutations KILLED, (5) correct equivalence classifications, (6) adequacy score equals 1.0 with killed=6 equivalent=2 total=8, (7) non-zero test counts, (8) killed mutations have failures, (9) equivalent survived mutations have zero failures."""
+category = "hardware_verification"
+tags = ["risc-v", "verilator", "mutation-testing"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rtl-verification-pipeline"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level understanding of PostgreSQL grouping analytics (CUBE/ROLLUP/GROUPING SETS), PL/pgSQL function debugging (markup vs margin formula, boundary conditions), cascading view dependencies, window function frame semantics (ROWS vs UNBOUNDED), GROUPING() bitmask interpretation, case-sensitive SQL predicates, FILTER clause semantics, and designing a view from scratch using GROUPING SETS with LAG-based growth rates partitioned by aggregation level."""
+solution_explanation = """Function: fix divisor from p_cost to p_revenue (markup→margin), change <= 60 to < 60 at boundary. v_sales_enriched: swap margin_category args from (amount,cost) to (cost,amount), change UNBOUNDED FOLLOWING to CURRENT ROW. v_cube_analysis: change ROLLUP to CUBE, swap WHEN 1/WHEN 2 labels. v_channel_metrics: fix 'Online' to 'online', COUNT to COUNT(DISTINCT), >= to >. v_threshold_regions: fix HAVING threshold from AVG(amount) to SUM(amount)/COUNT(DISTINCT region), fix pct_of_total denominator from SUM(cost) to SUM(amount). v_quarterly_growth: implement from scratch with CTE extracting quarter, GROUPING SETS for 3 aggregation levels, LAG partitioned by (g_region, g_quarter, region). v_ranked_tiers: change PARTITION BY region to margin_tier, change WHERE > 3 to <= 3."""
+verification_explanation = """42 pytest tests across 7 test classes verify: function tier classification with boundary cases, view row counts, specific aggregate values, running total correctness, GROUPING label accuracy, threshold filtering, quarterly growth rates, and ranked tier composition — covering cascading dependency correctness."""
+category = "databases"
+tags = ["sql", "grouping-analytics", "postgresql", "plpgsql"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/grouping-analytics-debug"

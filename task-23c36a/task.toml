@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the NIST ACVP AES-CBC Monte Carlo Test algorithm from specification pseudocode with a non-standard extension: salted key evolution. The MCT involves 100 outer rounds of 1000 inner CBC iterations with key evolution via the AES Key Shuffle routine, which differs for 128/192/256-bit keys, followed by an additional SHA-256-based salt XOR. The decrypt MCT must be independently derived from the encrypt pseudocode by correctly swapping all PT/CT references — a transformation that is subtle and error-prone due to the interplay between CBC decryption XOR semantics and the feedback loop. The salted key evolution step uses a domain-specific separator and round counter, adding a non-standard layer that prevents lookup of known NIST MCT results. The inner loop's implicit CBC IV chaining and the key shuffle's bit-manipulation (LSB/MSB across two blocks for 192/256-bit keys) create multiple opportunities for off-by-one and XOR-ordering bugs that only manifest after hundreds of chained iterations."""
+solution_explanation = """Parse the ACVP prompt JSON, including the domainSeparator field. For AFT groups, use standard AES-CBC encrypt/decrypt via a crypto library. For MCT groups, implement the inner loop where each iteration performs single-block CBC (ECB encrypt/decrypt with XOR chaining), updates plaintext/ciphertext feedback, then after 1000 iterations applies the key shuffle (XOR key with concatenated portions of the last two output blocks, varying by key size). After the key shuffle, apply salted key evolution: compute SHA-256(domainSeparator || round_as_4_byte_big_endian), truncate to key length, and XOR into the key. The decrypt MCT swaps all PT/CT roles including in the key shuffle."""
+verification_explanation = """Tests compare the agent's response.json against precomputed reference values. AFT tests check encrypt/decrypt results across all key sizes. MCT tests check specific round outputs (rounds 0, 49, 99) for all 6 MCT groups (3 encrypt + 3 decrypt, each with different key sizes), verifying key, IV, PT, and CT fields. The reference values were generated using the custom salted key evolution algorithm and cannot be found in any public test vector repository."""
+category = "cryptography"
+tags = ["aes", "nist-cavp"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-23c36a"

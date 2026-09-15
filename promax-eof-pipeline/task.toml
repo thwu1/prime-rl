@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two non-trivial numerical algorithms from scratch (Kaiser-normalized Varimax rotation via SVD-based analytic iteration, and oblique Promax rotation with signed power targets and factor correlation computation) while simultaneously diagnosing 3 independent numerical bugs across other pipeline modules. The agent must work with NetCDF climate data using ncdump and xarray, understand the underlying linear algebra (SVD, oblique rotations, Bessel correction), and produce results matching reference outputs within floating-point tolerance."""
+solution_explanation = """Implement varimax_rotation: Kaiser-normalize rows, iterate G=A^T(B^3-B diag(mean(B^2))), SVD update R=PQ^T until convergence, undo normalization. Implement promax_rotation: signed power target T=sign(H)|H|^p, least-squares R_pro=(H^TH)^{-1}H^TT, column-normalize, compute phi from inv(R_combined). Fix preprocess.py (add sqrt to cos-lat weighting), decompose.py (N-1 Bessel correction), postprocess.py (use inv(R)^T instead of R^T for oblique scores)."""
+verification_explanation = """Tests re-run the pipeline from scratch, then compare all 11 output arrays against pre-computed reference values within floating-point tolerance. Additional property checks verify component orthonormality, variance ratio ordering, rotation matrix invertibility and obliquity, phi matrix symmetry, and Varimax criterion improvement."""
+category = "scientific_computing"
+tags = ["numerical-algorithms", "climate-data"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/promax-eof-pipeline"

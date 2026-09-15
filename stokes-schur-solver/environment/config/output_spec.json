@@ -1,0 +1,6 @@
+{
+    "directory": "/app/output",
+    "fields": ["velocity_u", "velocity_v", "pressure", "divergence"],
+    "format": "csv",
+    "solver_info_format": "json"
+}

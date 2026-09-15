@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level remote sensing and geospatial expertise. The agent must: (1) diagnose multiple interacting errors in a pre-existing Landsat 8 LST analysis by comparing flawed outputs against raw data and physical expectations, (2) determine the correct Landsat Collection 2 QA_PIXEL bit encoding to build a comprehensive quality mask (fill, cloud, shadow, snow — not just cloud), (3) recognize that spatially uniform emissivity is scientifically incorrect and select/implement an appropriate NDVI-based emissivity estimation method, (4) identify that brightness temperature output without emissivity correction does not constitute true LST and implement the correct single-channel correction, (5) propagate quality masks correctly through all derived products, and (6) articulate the errors and corrections in a structured diagnostic report. The diagnostic aspect requires evaluating existing work against domain knowledge rather than following a prescribed recipe."""
+solution_explanation = """Read raw data and flawed processing notes to identify errors. Diagnose: (a) incomplete QA masking (only cloud bit checked, missing fill/shadow/snow), (b) flat emissivity (0.97 everywhere, ignoring land cover variation), (c) LST output is actually uncorrected brightness temperature. Correct by: building complete QA mask checking bits 0,3,4,5; computing NDVI-based emissivity using threshold method with water/bare/mixed/vegetation regimes; applying mono-window emissivity correction (LST_K = BT_K / (1 + lambda*BT_K/rho * ln(epsilon))); recomputing zonal statistics on corrected data; writing diagnostic report documenting all findings."""
+verification_explanation = """Tests independently compute all reference products from raw source data using known-correct formulas. Cloud mask is verified at specific pixel locations (cloud patch, shadow patch, fill edges, snow patch). NDVI, emissivity, and LST are compared against reference computations within tight tolerances (0.01, 0.005, 0.5C). Emissivity is verified to be spatially variable (not flat). Physical plausibility checks verify urban zones are hotter than forest. Zonal statistics are validated against reference aggregations. The diagnostic report is checked for valid structure and identification of key error categories (masking and emissivity issues)."""
+category = "geospatial"
+tags = ["remote-sensing", "quality-assessment"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4a29f3"

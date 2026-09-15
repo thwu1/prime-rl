@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three distinct bugs in a multi-sub-challenge medical imaging evaluation framework by comparing code behavior against reference cases and a formal specification. The segmentation bug involves understanding precision-recall curve construction (anchor points and area computation). The grading bug requires distinguishing joint accuracy from averaged accuracy. The localization bug requires identifying the wrong distance metric. Additionally, the solver must implement a synthetic data generator from scratch producing deterministic multi-blob segmentation masks, noisy grading data, and perturbed coordinates. On top of the Python debugging, the solver must diagnose and fix a broken GNU Make pipeline with three distinct Make-specific bugs (wrong dependency graph, missing prerequisites, variable name typo), requiring proficiency with Make syntax, target ordering, and variable expansion — and interoperability between Make, jq, and the Python evaluation scripts."""
+solution_explanation = """Fix three Python bugs: (1) Add anchor point (recall=0, precision=1) to the PR curve before integration in segmentation scoring. (2) Change combined_accuracy from average of individual accuracies to fraction where both DR and DME are jointly correct. (3) Replace Manhattan distance with Euclidean distance in localization scoring. Implement the synthetic data generator with seeded RNG producing elliptical multi-blob masks, random grades, and coordinates with controllable noise. Fix three Makefile bugs: (1) Change 'all: evaluate' to 'all: report' so the pipeline produces the merged report. (2) Change 'report: generate' to 'report: evaluate' so jq runs after evaluation produces JSONs. (3) Fix the RESULT_DIR typo to RESULTS_DIR in the report recipe's jq command paths."""
+verification_explanation = """Tests generate synthetic data at noise=0 and verify perfect scores, test with specific reference cases that produce known AUPR/accuracy/distance values (catching each bug independently), verify edge cases (missing predictions, unknown IDs, empty GT), validate deterministic seeding, check multi-blob mask structure, verify global vs per-image aggregation. Pipeline tests verify make all produces a valid report.json with correct schema and values matching per-task JSONs, and that make clean properly removes output."""
+category = "data_science"
+tags = ["debugging", "evaluation-metrics", "build-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/retinopathy-eval-framework"

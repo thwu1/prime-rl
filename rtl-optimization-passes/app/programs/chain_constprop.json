@@ -1,0 +1,14 @@
+{
+  "name": "chain_constprop",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 2},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 3},
+    "3": {"type": "Iop", "op": "mul", "args": ["r1", "r2"], "dest": "r3", "succ": 4},
+    "4": {"type": "Iop", "op": "const", "args": [], "dest": "r4", "succ": 5, "imm": 4},
+    "5": {"type": "Iop", "op": "add", "args": ["r3", "r4"], "dest": "r5", "succ": 6},
+    "6": {"type": "Iop", "op": "mul", "args": ["r5", "r5"], "dest": "r6", "succ": 7},
+    "7": {"type": "Ireturn", "arg": "r6"}
+  }
+}

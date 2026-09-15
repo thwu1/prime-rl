@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of numerical co-simulation methods and FMI/SSP standards: parsing FMI 2.0 modelDescription.xml and SSP SystemStructureDescription XML (with namespaces) to dynamically discover subsystem ports, causality, and inter-subsystem wiring; implementing both Jacobi and Gauss-Seidel coupling strategies with topology-driven connection routing; building an adaptive macro-step controller with error estimation and state rollback via getState/setState; detecting and handling input discontinuities to avoid accuracy degradation; performing empirical stability boundary analysis and convergence order estimation. The agent must combine XML parsing, numerical ODE co-simulation, and multi-standard interoperability."""
+solution_explanation = """Parse the SSP XML (with ssd: namespace) to extract component names, sources, and connections. Parse each modelDescription.xml to get modelIdentifier and map to Python subsystem classes. Determine execution order via topological sort with cycle-breaking. Implement Jacobi (all use previous outputs) and Gauss-Seidel (sequential update) coupling. For adaptive stepping, use step-doubling Richardson extrapolation (one full step vs two half-steps) for error estimation with state rollback. Detect input discontinuities by probing source subsystem outputs at step boundaries and binary-searching for event times. Sweep macro-step sizes to find stability limits. Fit log-log RMSE vs step-size for convergence order."""
+verification_explanation = """Tests run cosim_master.py and verify: (1) all required CSV and JSON output files exist with correct format; (2) adaptive RMSE < 0.01 vs monolithic reference; (3) reported RMSE matches actual within 0.05; (4) fixed-step solutions stable (max |w| < 1000) and GS RMSE < 0.5; (5) physical plausibility (w starts ~0, reaches ~10); (6) convergence order in [0.5, 2.0]; (7) GS stability limit >= Jacobi limit, both positive and <= 1.0; (8) source code contains XML parsing; (9) master fails when SSP file or model_descriptions are removed."""
+category = "modeling_simulation"
+tags = ["co-simulation", "fmi-standard"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cosim-adaptive-master"

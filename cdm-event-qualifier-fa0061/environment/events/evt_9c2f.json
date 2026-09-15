@@ -1,0 +1,94 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "intent": "Novation",
+  "eventDate": "2024-02-01",
+  "instruction": [{
+    "primitiveInstruction": {
+      "split": {
+        "breakdown": [{
+          "partyChange": {
+            "counterparty": {
+              "role": "Party1",
+              "partyReference": {
+                "@key:external": "partyC",
+                "partyId": [{"identifier": {"@data": "LEI-PNV003"}, "identifierType": "LEI"}],
+                "name": {"@data": "Bank C"}
+              }
+            },
+            "tradeId": [{"issuer": {"@data": "LEI-PNV003"}, "assignedIdentifier": [{"identifier": {"@data": "PNV-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          }
+        }, {
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 30000000.0, "unit": {"currency": {"@data": "USD"}}}]}],
+            "direction": "Replace"
+          }
+        }]
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 50000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-PNV001"}, "assignedIdentifier": [{"identifier": {"@data": "PNV-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2024-01-15"},
+        "party": [
+          {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-PNV001"}, "identifierType": "LEI"}], "name": {"@data": "Bank A"}},
+          {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-PNV002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 20000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-PNV001"}, "assignedIdentifier": [{"identifier": {"@data": "PNV-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-01-15"},
+      "party": [
+        {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-PNV001"}, "identifierType": "LEI"}], "name": {"@data": "Bank A"}},
+        {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-PNV002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}}
+      ]
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 30000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "partyC"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-PNV003"}, "assignedIdentifier": [{"identifier": {"@data": "PNV-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-01-15"},
+      "party": [
+        {"@key:external": "partyC", "partyId": [{"identifier": {"@data": "LEI-PNV003"}, "identifierType": "LEI"}], "name": {"@data": "Bank C"}},
+        {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-PNV002"}, "identifierType": "LEI"}], "name": {"@data": "Bank B"}}
+      ]
+    }
+  }]
+}

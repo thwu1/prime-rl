@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing a broken multi-stage evaluation pipeline spanning three technology layers: (1) Shell/SQL: the orchestrator script uses sqlite3 CLI with an inverted temporal filter (release_date < instead of >=) that selects the wrong problem subset, requiring understanding of SQL date comparison semantics; (2) Shell/jq: the post-processing step sorts models ascending instead of descending, producing inverted rankings — fixing this requires fluency with jq's sort_by operator and understanding that leaderboard rank #1 should correspond to the highest pass@1; (3) Python/regex: the code extractor uses re.MULTILINE instead of re.DOTALL, a subtle but critical distinction where MULTILINE changes ^/$ anchoring but DOTALL makes . match newlines — without DOTALL, multi-line code blocks inside markdown fences are never captured; (4) Python/string: the fallback code extraction has an off-by-one (range excludes the last line of the model output), silently truncating bare-code predictions; (5) Python/program-assembly: the sandbox concatenation omits a newline between the extracted code and test function, causing the last statement of the code to merge with 'def check(candidate):', producing SyntaxErrors; (6) Python/statistics: the pass@k boundary condition uses 'if c >= k' instead of the correct 'if n - c < k', misidentifying when pass@k should trivially be 1.0. The bugs interact: fixing only the SQL filter reveals Python-layer failures, and fixing only the extractor exposes the sandbox assembly defect. Requires proficient-level cross-layer debugging with sqlite3 CLI, jq, and Python tooling used together."""
+solution_explanation = """The solution applies six targeted fixes: (1) In run_eval.sh, change 'release_date <' to 'release_date >=' in both sqlite3 queries so post-cutoff problems are selected; (2) In run_eval.sh, add '| reverse' after sort_by(.["pass@1"]) in the jq expression so the best model gets rank 1; (3) In harness/extractor.py, replace re.MULTILINE with re.DOTALL in both re.findall calls so the regex matches across newlines; (4) In harness/extractor.py, change range(i + 1, len(lines)) to range(i + 1, len(lines) + 1) to include the last line in fallback extraction; (5) In harness/sandbox.py, insert '\\n' + before problem['test_code'] in the check program assembly; (6) In harness/metrics.py, change 'if c >= k' to 'if n - c < k' for the correct pass@k boundary condition. After all fixes, running /app/run_eval.sh produces the correct leaderboard."""
+verification_explanation = """Tests verify: (1) leaderboard.json exists with required structure; (2) both models present with correct ranking (beta-coder #1, alpha-coder #2 by pass@1); (3) temporal filtering applied correctly (only 5 post-cutoff problems, pre-cutoff add-digits and power-of-two excluded); (4) per-problem correct counts match expected values for each model; (5) pass@k values within 0.01 tolerance; (6) all prediction totals equal 4; (7) config section present with correct temporal_cutoff, k_values, and timeout."""
+category = "debugging"
+tags = ["multi-tool-debugging", "code-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/code-eval-pipeline"

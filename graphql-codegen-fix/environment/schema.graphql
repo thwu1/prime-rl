@@ -1,0 +1,122 @@
+scalar DateTime
+scalar JSON
+scalar URL
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+interface Node {
+  id: ID!
+  createdAt: DateTime!
+}
+
+type User implements Node {
+  id: ID!
+  createdAt: DateTime!
+  username: String!
+  email: String!
+  status: Status!
+  profile: Profile
+  posts(first: Int!, after: String): PostConnection!
+}
+
+type Profile {
+  bio: String
+  avatarUrl: URL
+  metadata: JSON
+}
+
+type Post implements Node {
+  id: ID!
+  createdAt: DateTime!
+  title: String!
+  body: String!
+  author: User!
+  tags: [String!]!
+  priority: Priority
+  comments: [Comment!]
+  updatedAt: DateTime
+}
+
+type Comment implements Node {
+  id: ID!
+  createdAt: DateTime!
+  text: String!
+  author: User!
+  post: Post!
+}
+
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PostEdge {
+  node: Post!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+union SearchResult = User | Post | Comment
+
+input CreatePostInput {
+  title: String!
+  body: String!
+  tags: [String!]
+  priority: Priority
+}
+
+input UpdatePostInput {
+  title: String
+  body: String
+  tags: [String!]
+  priority: Priority
+}
+
+input SearchFilter {
+  query: String!
+  status: Status
+  priority: Priority
+}
+
+input UserLookupInput @oneOf {
+  id: ID
+  email: String
+  username: String
+}
+
+type Query {
+  user(id: ID!): User
+  userLookup(input: UserLookupInput!): User
+  post(id: ID!): Post
+  search(filter: SearchFilter!): [SearchResult!]!
+  node(id: ID!): Node
+  feed(first: Int!, after: String): PostConnection!
+}
+
+type Mutation {
+  createPost(input: CreatePostInput!): Post!
+  updatePost(id: ID!, input: UpdatePostInput!): Post
+  deletePost(id: ID!): Boolean!
+}
+
+type Subscription {
+  postCreated: Post!
+}

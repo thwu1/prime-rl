@@ -1,0 +1,5 @@
+Two gridded climate datasets representing coupled spatiotemporal fields are stored at `/app/data/field_x.nc` and `/app/data/field_y.nc` (xarray-compatible NetCDF). A detailed methodology specification at `/app/methodology.json` defines the complete mathematical framework for analyzing coupled variability between these fields, including preprocessing, decomposition, rotation, and statistical significance testing. The specification also defines the exact output schema your results must conform to.
+
+Read and implement the full analysis pipeline described in `/app/methodology.json`. Produce `/app/results.json` that conforms to the output schema specified there.
+
+The methodology specification contains several choices that may differ from naive defaults or common textbook treatments. Carefully follow the specification — deviations in normalization, test statistics, or mathematical conventions will produce incorrect results.

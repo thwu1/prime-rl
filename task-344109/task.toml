@@ -1,0 +1,70 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires constructing a multi-tool forensic analysis pipeline: scanning the evidence
+container with binwalk to identify embedded signatures and parse its text output into
+structured data, carving ZIP archives using binary signature analysis and SHA-256 hash
+matching against a SQLite case database, writing YARA pattern-matching rules from scratch
+with correct hex-pattern syntax and metadata fields to classify structural variations
+(Zip64, prepended data, character encoding anomalies, ambiguous EOCD markers), generating
+ssdeep fuzzy hashes and parsing its non-trivial output format for approximate specimen
+matching, building a raw binary ZIP parser that handles conformance edge cases (extended
+format records, non-ASCII character encodings, structurally ambiguous end-of-archive
+markers, offset-shifted archives with prepended data), and integrating outputs from
+binwalk, yara, ssdeep, sqlite3, and the custom parser into a consolidated JSON report.
+The multi-tool interoperability demands proficient-level forensic tool knowledge.
+"""
+solution_explanation = """
+Phase 1 — Reconnaissance: run binwalk on evidence.bin, parse its columnar text output
+(decimal offset, hex offset, description) into structured JSON. Phase 2 — Extraction:
+scan evidence.bin for ZIP signature markers (PK\\x03\\x04, PK\\x05\\x06), determine
+archive boundaries using structural analysis and SHA-256 hash matching against the case
+database, including backward extension for prepended-data archives. Phase 3 — Parsing:
+implement a raw struct-based ZIP parser that traverses EOCD/Zip64 chains, validates
+ambiguous markers, decodes multi-byte filenames, unpacks DOS timestamps, and adjusts
+offsets for prepended data. Phase 4 — Classification: write YARA rules with hex patterns
+targeting each structural variation, run yara CLI against all specimens, capture and parse
+match output. Phase 5 — Fuzzy hashing: run ssdeep on each specimen, parse its
+blocksize:hash:hash,filename output format. Phase 6 — Reporting: query SQLite database
+for case metadata, merge all tool outputs into consolidated JSON report.
+"""
+verification_explanation = """
+39 pytest tests verify the full pipeline: extraction correctness via SHA-256 hash matching
+against the case database (5 specimens), parser structural constraint (no zipfile import),
+parser correctness across all edge cases (basic fields, DOS timestamps, CRC32, non-ASCII
+filename detection, ambiguous EOCD handling, prepended data offset adjustment, Zip64
+detection), binwalk scan output structure and offset validation against actual PK
+signatures in evidence.bin, YARA rule existence and metadata requirements (4+ rules with
+author/description/severity), YARA classification consistency verified by independently
+re-running yara and comparing to claimed results, discriminating classification check
+ensuring basic specimens match fewer rules than specialized ones, ssdeep file format
+validation and report consistency verified by independently re-running ssdeep and
+comparing hashes, report structure and content including new tool-output fields (ssdeep,
+yara_matches), and integrity manifest format validation.
+"""
+category = "digital_forensics"
+tags = ["binary_carving", "forensic_tools"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-344109"

@@ -1,0 +1,91 @@
+USACE Coastal Engineering Manual (EM 1110-2-1100) — Part VI
+Overtopping Discharge Reference
+================================================================
+
+VI-7: Wave Overtopping
+
+Two principal empirical methods are available for estimating mean overtopping
+discharge on smooth impermeable slopes. Both require the significant wave
+height at the structure toe (Hs_toe) and structure geometry.
+
+
+Surf Similarity Parameter
+--------------------------
+
+The Iribarren number based on peak period:
+    Lop = g * Tp^2 / (2*pi)
+    sop = Hs / Lop
+    xi_op = tan(alpha) / sqrt(sop)
+
+where alpha is the structure slope angle (tan(alpha) = 1/cot(alpha)).
+
+
+Method 1: Owen (1980, 1982)
+-----------------------------
+
+This method uses the mean wave period Tm rather than the peak period. For
+single-peaked wave spectra, the typical conversion is:
+
+    Tm = 0.8 * Tp
+
+Dimensionless freeboard:
+    R_star = Rc / (gamma_r * Tm * sqrt(g * Hs))
+
+where:
+    Rc      = crest freeboard above SWL (m)
+    gamma_r = roughness reduction factor (1.0 for smooth impermeable slopes)
+    Hs      = significant wave height at structure toe (m)
+
+Dimensionless discharge:
+    Q_star = a * exp(-b * R_star)
+
+The empirical coefficients a and b are functions of the structure slope
+(cotangent of slope angle). These are tabulated in owen_coefficients.csv,
+which provides (cot_alpha, a, b) triples. For intermediate slopes, linearly
+interpolate between tabulated values.
+
+Mean overtopping discharge:
+    q = Q_star * g * Hs * Tm    (m^3/s per meter width)
+
+
+Method 2: van der Meer and Janssen (1995)
+-------------------------------------------
+
+This method distinguishes between breaking (plunging) and non-breaking
+(surging) wave conditions based on the surf similarity parameter xi_op.
+
+For xi_op <= 2 (breaking/plunging waves on the slope):
+    Q = (0.067 / sqrt(tan(alpha))) * xi_op * exp(-4.75 * Rc / (Hs * xi_op * gamma_r))
+
+For xi_op > 2 (non-breaking/surging waves):
+    Q = 0.2 * exp(-2.6 * Rc / (Hs * gamma_r))
+
+Mean overtopping discharge:
+    q = Q * sqrt(g * Hs^3)    (m^3/s per meter width)
+
+
+EXAMPLE PROBLEM VI-7-6 (Verification Data):
+  Given: smooth impermeable slope, cot(alpha) = 2.5,
+         Hs_toe = 1.69 m, Tp = 8 s, Rc = 1.5 m, gamma_r = 1.0
+
+  Owen method:              q = 0.325 m^3/s per meter width
+  van der Meer method:      q = 0.137 m^3/s per meter width
+
+Note: Owen typically predicts higher discharge than van der Meer for this
+configuration. Both results should be reported for comparison.
+
+
+Structure Shoaling for Full Pipeline
+--------------------------------------
+
+When computing overtopping as part of a full wave transformation analysis,
+the significant wave height at the structure toe must be determined from
+the offshore wave height via shoaling (and refraction if oblique incidence):
+
+    Hs_toe = H0 * Ks_toe * Kr_toe
+
+where Ks_toe and Kr_toe are evaluated at the structure toe depth. If the
+toe depth is shallower than the breaker depth, the wave height at the toe
+is limited by depth-limited breaking:
+
+    Hs_toe <= gamma_b * d_toe

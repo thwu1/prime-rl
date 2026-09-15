@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-grade knowledge of SWIFT MT message parsing (block structure, field option letters A/D/F/K, multiline values, code word semantics), ISO 20022 pacs.008 XML generation (namespace-aware construction, element ordering, attribute placement), and CBPR+ translation rules. The solver must also build a separate validation shell script that combines xmlstarlet (unfamiliar XPath extraction tool) with jq (JSON assembly) to verify CBPR+ business rules on generated XML, requiring multi-tool interoperability and shell scripting proficiency. The reference materials are deliberately fragmented: a partial translation guide covers core mappings, while complex rules for sender-receiver info routing (field 72 code words), regulatory reporting extraction (field 77B), remittance code word parsing (field 70), settlement method derivation, and time indication handling must be reverse-engineered from a sample translation pair and field mapping reference. The solver must cross-reference multiple documents, synthesize incomplete information, validate output with xmllint, handle XML namespace complexities, correctly implement 30+ fields with variant options and interacting conditional transformations, and construct a multi-tool validation pipeline."""
+solution_explanation = """A Python script parses the MT103 into blocks and fields using regex, extracts header BICs from Logical Terminal addresses, and applies mapping rules to build an ElementTree XML document with correct BAH and pacs.008 namespaces. Key logic includes: settlement method derivation from field 53/54 presence (INDA/INGA/COVE), structured party parsing for 50F/59F numbered lines with identity codes, field 70 code word routing (/INV/->CINV, /ROC/->InstrId override), field 72 parsing (/INS/->PrvsInstgAgt1, /BNF/->InstrForCdtrAgt, //->InstrForNxtAgt), 77B regulatory reporting (/ORDERRES/->DEBT, /BENRES/->CRED), 13C time indication routing (CLSTIME/SNDTIME->DbtDtTm, RNCTIME->CdtDtTm), 23E instruction code routing, IBAN detection via regex, BIC normalization (8->11 chars), and date/amount format conversion. A separate shell script uses xmlstarlet sel for namespace-aware XPath extraction of CBPR+ elements and pipes results through jq to assemble a structured JSON validation report."""
+verification_explanation = """Tests use lxml XPath queries against the translator's XML output for each of 3 MT103 messages of increasing complexity plus xmllint well-formedness and namespace validation. 70+ assertions verify specific element values (BICs, amounts, dates, codes, party names, account types), settlement method derivation logic, BIC normalization, IBAN vs non-IBAN account detection, structured remittance parsing, instruction code routing, regulatory reporting extraction, sender-receiver info routing, time indication mapping, and cross-cutting CBPR+ compliance rules. A separate test suite verifies the validate_cbpr.sh validation pipeline: existence and executability, JSON output structure conformance, correct pass results on valid translations, inclusion of BizSvc and BIC-length checks, use of xmlstarlet and jq tools, and correct rejection of non-CBPR+ XML."""
+category = "finance"
+tags = ["swift", "iso20022"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/swift-mt-translator-f790bd"

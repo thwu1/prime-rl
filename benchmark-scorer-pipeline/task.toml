@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level statistical methodology knowledge spanning seven interacting evaluation metrics, combined with multi-tool data engineering proficiency. The solver must: (1) use sqlite3 CLI, jq, csvjson (csvkit), and mlr (Miller) to cross-compare prototype outputs stored in heterogeneous formats (JSON, CSV, NDJSON) and reconcile their discrepancies; (2) distinguish LOC-weighted from count-based scoring by comparing Alpha/Gamma JSON outputs against Beta CSV outputs using csvjson piped to jq; (3) resolve an ambiguous contamination boundary by querying the database view via sqlite3 CLI and cross-referencing with NDJSON exports via jq group_by filters; (4) correctly apply paired paper-level bootstrap with Bonferroni correction for 15 simultaneous hypothesis tests; (5) implement the delete-one jackknife SE formula with the (n-1)/n scaling factor; (6) synthesize correct implementations from three partially-correct prototypes that each make different methodological errors and output in different formats, while implementing two additional metrics from scratch."""
+solution_explanation = """Use make reconcile to cross-compare prototypes across JSON and CSV formats with jq, csvjson, and mlr. Query the database contamination view with sqlite3 CLI to resolve boundary semantics (strict > from v_model_paper_contamination). Use make explore to analyze data exports with csvsql and jq. Identify correct choices from each prototype: LOC-weighting from Alpha/Gamma, strict > contamination with null handling from Beta CSV, correct ablation direction from Beta/Gamma, paper-level stratified bootstrap (seed 2024, 10000 iterations) from Gamma. Implement R6 (paired paper-level bootstrap with Bonferroni correction: α=0.05/15, floor-indexed percentile bounds) and R7 (jackknife SE using (n-1)/n scaling) from scratch."""
+verification_explanation = """Tests verify exact numerical outputs (within 1e-4 tolerance) for all seven metrics. Separate test classes check: LOC-weighted Scaled Pass@1 values, contamination-safe scores including the null edge case for frontier-max, paper ablation impacts with positive direction validation, bootstrap CI bounds and containment of point estimates, ranking order with null-last placement, pairwise significance flags and CI bounds for all 15 model pairs (6 significant after Bonferroni correction), and jackknife SE values with correct most-influential-paper identification for all 6 models."""
+category = "data_science"
+tags = ["statistical-methodology", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-scorer-pipeline"

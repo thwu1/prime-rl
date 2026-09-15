@@ -1,0 +1,8 @@
+# Bluff body obstacle for 2D fluid simulation
+# Irregular pentagon cross-section (z-coordinate ignored)
+v 0.38 0.38 0.0
+v 0.52 0.30 0.0
+v 0.62 0.37 0.0
+v 0.57 0.50 0.0
+v 0.42 0.48 0.0
+f 1 2 3 4 5

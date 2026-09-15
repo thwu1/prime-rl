@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-cutting expertise: (1) identifying and fixing 6 categories of C signed integer UB in safe math wrappers (INT_MIN/-1 division/modulo, signed overflow in checks, left-shifting negatives, negation of INT_MIN, overflow-before-check in multiplication); (2) diagnosing signed integer overflow UB in the expression generator's PRNG causing non-deterministic output across compilers; (3) debugging a cross-compiler differential testing harness with a subtle shell variable naming bug ($CC vs $cc); (4) fixing a Makefile coverage target to correctly integrate gcov instrumentation and produce coverage data. The solver must orchestrate gcc and clang with sanitizer flags, interpret UBSan diagnostics across compilers, and configure gcov coverage workflows — tool proficiency well beyond basic compiler usage."""
+solution_explanation = """(1) safe_math.h has 6 bugs: safe_sub uses -(-b) UB when b==INT32_MIN — fix with INT32_MAX+b; safe_mul computes a*b before check — fix with division-based pre-check; safe_div/safe_mod miss INT32_MIN/-1 — add the check; safe_lshift doesn't reject negative a or check result overflow — add guards; safe_neg doesn't handle INT32_MIN — add check. (2) expr_gen.c: PRNG uses int32_t instead of uint32_t and signed constants, causing signed overflow in multiplication — fix by restoring uint32_t types and unsigned constant suffixes. (3) harness.sh: uses $CC (env/default=gcc) instead of $cc (loop variable) for compilation, so clang is never actually invoked — fix variable reference. (4) Makefile: coverage target missing --coverage flag and incomplete recipe — add flag, generate/compile/run test programs with coverage instrumentation, invoke gcov, clean up gcov artifacts in clean target."""
+verification_explanation = """Tests compile edge-case C file with UBSan under both gcc and clang at -O0 and -O2 (4 parametrized tests). Expr_gen is built with UBSan and run across 50 seeds to verify zero generator-level UB. Cross-compiler differential test generates 50 programs and compiles each with gcc -O0, gcc -O2, clang -O0, clang -O2, verifying all four produce identical checksums. UBSan tests 30 generated programs under both compilers independently. Make coverage test verifies the target runs and produces .gcda files. Independent coverage test compiles edge-case file with --coverage and parses gcov output to verify safe_math.h line coverage >= 85%. Make clean test verifies all artifacts including gcov files are removed."""
+category = "systems_programming"
+tags = ["undefined-behavior", "compiler-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/safe-math-harness"

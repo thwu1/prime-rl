@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C++ systems programming: (1) diagnosing data races from misleading symptoms — error messages blame upstream packet loss while the actual root cause is incorrect memory ordering in the lock-free queue, and a misleading code comment claims relaxed ordering suffices; (2) evaluating which atomic operations need acquire/release semantics under the C++ memory model, recognizing that x86 TSO may mask bugs that ThreadSanitizer reveals; (3) identifying a subtle inconsistency between a comment claiming sentinel-slot allocation and code that omits it; (4) recognizing false sharing between adjacent atomics as the cause of throughput degradation without explicit hints; (5) designing and implementing a production-grade batched SPSC queue from scratch with correct atomic batch publish/consume semantics, proper memory ordering for batched data visibility, and cache-line separation — all while supporting non-default-constructible types via placement new."""
+solution_explanation = """Two phases: (1) Fix spsc_queue.hpp — change capacity_{capacity} to capacity_{capacity+1} for the sentinel slot; change four relaxed atomic operations to acquire/release pairs (head_.load acquire in push, tail_.store release in push, tail_.load acquire in consume_one, head_.store release in consume_one); add alignas(64) to head_ and tail_ members for cache-line separation. (2) Create spsc_batch_queue.hpp implementing SPSCBatchQueue<T> with sentinel-slot capacity, acquire/release memory ordering, cache-line-aligned atomics, and batch operations: push_batch checks available space via modular arithmetic then constructs all items before a single release store on tail; consume_batch reads available count then processes items before a single release store on head."""
+verification_explanation = """Twelve independent test classes: six for the fixed SPSC queue (capacity correctness, concurrent FIFO ordering with 100K items, ThreadSanitizer race detection, cache-line sizeof verification, source-level lock-free check, non-default-constructible type test) and six for the new batch queue (batch push/consume capacity with atomicity verification, concurrent batch producer/consumer ordering, batch consume partial-drain behavior, ThreadSanitizer on batch operations, cache-line sizeof verification, source-level lock-free check)."""
+category = "systems_programming"
+tags = ["lock-free", "memory-ordering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-spsc-queue"

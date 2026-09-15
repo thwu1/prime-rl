@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interacting defects across a transformer implementation — missing attention score normalization, incorrect positional encoding waveforms, wrong normalization placement in residual connections, absent embedding magnitude scaling, and missing weight initialization. None produce runtime errors; all silently prevent convergence. Isolating each defect requires deep understanding of why each component matters for gradient flow and representation quality, plus the ability to reason about how multiple subtle failures compound."""
+solution_explanation = """Five fixes: (1) scale attention scores by 1/sqrt(d_k) to prevent softmax saturation, (2) use cosine for odd-indexed positional encoding dimensions instead of sine, (3) change SublayerConnection from post-norm to pre-norm residual (apply LayerNorm before the sublayer, not after the residual sum), (4) scale embedding output by sqrt(d_model) to balance magnitude against positional encoding, (5) apply xavier_uniform_ initialization to all parameters with dim > 1 in make_model."""
+verification_explanation = """Unit tests verify each component's behavioral properties: attention weight distribution is non-degenerate, positional encoding dimensions show diverse waveform patterns, residual connections preserve input under zero sublayers, embeddings have appropriate output magnitude, and initial parameter variance is bounded. Integration test trains a 2-layer d_model=64 transformer on a copy task for 40 epochs, asserts loss < 0.5 and greedy decoding reproduces >= 7/10 source tokens."""
+category = "machine_learning"
+tags = ["transformer", "debugging"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-transformer-training"

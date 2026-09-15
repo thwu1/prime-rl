@@ -1,0 +1,8 @@
+{
+  "aspa_id": "ASPA19",
+  "authorized_providers": [
+    105
+  ],
+  "customer_as": 1007,
+  "signing_entity": "authority_delta"
+}

@@ -1,0 +1,61 @@
+{
+  "tables": {
+    "orders": {
+      "row_count": 10000000,
+      "columns": {
+        "order_id": {"distinct": 10000000},
+        "customer_id": {"distinct": 500000},
+        "product_id": {"distinct": 100000},
+        "store_id": {"distinct": 5000},
+        "date_id": {"distinct": 3650},
+        "amount": {"distinct": 1000000},
+        "quantity": {"distinct": 100},
+        "discount": {"distinct": 20}
+      }
+    },
+    "customers": {
+      "row_count": 500000,
+      "columns": {
+        "customer_id": {"distinct": 500000},
+        "name": {"distinct": 490000},
+        "region": {"distinct": 5},
+        "segment": {"distinct": 4},
+        "credit_limit": {"distinct": 10000}
+      }
+    },
+    "products": {
+      "row_count": 100000,
+      "columns": {
+        "product_id": {"distinct": 100000},
+        "name": {"distinct": 99000},
+        "category": {"distinct": 50},
+        "brand": {"distinct": 500},
+        "price": {"distinct": 5000}
+      }
+    },
+    "stores": {
+      "row_count": 5000,
+      "columns": {
+        "store_id": {"distinct": 5000},
+        "name": {"distinct": 4900},
+        "city": {"distinct": 2000},
+        "state": {"distinct": 50}
+      }
+    },
+    "dates": {
+      "row_count": 3650,
+      "columns": {
+        "date_id": {"distinct": 3650},
+        "year": {"distinct": 10},
+        "month": {"distinct": 12},
+        "quarter": {"distinct": 4}
+      }
+    }
+  },
+  "join_conditions": {
+    "orders.customer_id=customers.customer_id": {"distinct": 500000},
+    "orders.product_id=products.product_id": {"distinct": 100000},
+    "orders.store_id=stores.store_id": {"distinct": 5000},
+    "orders.date_id=dates.date_id": {"distinct": 3650}
+  }
+}

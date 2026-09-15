@@ -1,0 +1,16 @@
+{
+  "enactment_order": [
+    {
+      "law_id": "pl-119-45",
+      "file": "pl_119_45.xml",
+      "enacted_date": "2025-03-15",
+      "title": "Cybersecurity Enhancement and Modernization Act"
+    },
+    {
+      "law_id": "pl-119-67",
+      "file": "pl_119_67.xml",
+      "enacted_date": "2025-06-20",
+      "title": "Cybersecurity Standards Acceleration Act"
+    }
+  ]
+}

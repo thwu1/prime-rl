@@ -1,0 +1,7 @@
+$ MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test --lib test_interleaved_copy
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_interleaved_copy ...

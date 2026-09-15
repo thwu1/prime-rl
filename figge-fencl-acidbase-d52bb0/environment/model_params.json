@@ -1,0 +1,44 @@
+{
+    "albumin": {
+        "molecular_weight_Da": 66500,
+        "histidine_residues": {
+            "domain1_NB_shifted_pKa": [7.12, 7.22, 7.10, 7.49, 7.01],
+            "standard_pKa": [7.31, 6.75, 6.36, 4.85, 5.76, 6.17, 6.73, 5.82, 5.10, 6.70, 6.20]
+        },
+        "lysine_residues": {
+            "total_count": 59,
+            "groups": [
+                {"pKa": 5.800, "count": 2},
+                {"pKa": 6.150, "count": 2},
+                {"pKa": 7.510, "count": 2},
+                {"pKa": 7.685, "count": 2},
+                {"pKa": 7.860, "count": 1},
+                {"pKa": 10.300, "count": 50}
+            ]
+        },
+        "arginine": {"count": 24, "pKa": 12.5},
+        "amino_terminus": {"count": 1, "pKa": 8.0},
+        "carboxyl_terminus": {"count": 1, "pKa": 3.1},
+        "asp_glu": {"count": 98, "pKa": 3.9},
+        "cysteine": {"count": 1, "pKa": 8.5},
+        "tyrosine": {"count": 18, "pKa": 11.7},
+        "NB_transition": {
+            "magnitude": 0.4,
+            "midpoint_pH": 6.9
+        }
+    },
+    "phosphate": {
+        "pKa1": 1.915,
+        "pKa2": 6.66,
+        "pKa3": 11.78
+    },
+    "CO2_bicarbonate": {
+        "Kc1": 2.44e-11,
+        "Kc2": 1.1e-10,
+        "HH_pKa": 6.1,
+        "HH_solubility_mmol_L_Torr": 0.03
+    },
+    "water": {
+        "Kw": 4.4e-14
+    }
+}

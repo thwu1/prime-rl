@@ -1,0 +1,12 @@
+{
+  "name": "data-pipeline",
+  "version": "1.0.0",
+  "description": "Data processing pipeline for config, archive, and selector handling",
+  "main": "pipeline.js",
+  "dependencies": {
+    "flat": "5.0.0",
+    "tar": "6.1.1",
+    "nth-check": "2.0.0",
+    "js-yaml": "3.13.0"
+  }
+}

@@ -1,0 +1,391 @@
+{
+  "cluster_id": "kafka-cluster-prod-01",
+  "brokers": [
+    {
+      "id": 0, "host": "broker-0.kafka.svc", "port": 9092, "rack": "rack-a",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    },
+    {
+      "id": 1, "host": "broker-1.kafka.svc", "port": 9092, "rack": "rack-a",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    },
+    {
+      "id": 2, "host": "broker-2.kafka.svc", "port": 9092, "rack": "rack-b",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    },
+    {
+      "id": 3, "host": "broker-3.kafka.svc", "port": 9092, "rack": "rack-b",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    },
+    {
+      "id": 4, "host": "broker-4.kafka.svc", "port": 9092, "rack": "rack-c",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    },
+    {
+      "id": 5, "host": "broker-5.kafka.svc", "port": 9092, "rack": "rack-c",
+      "config": {
+        "unclean.leader.election.enable": "true",
+        "log.retention.check.interval.ms": "300000",
+        "default.replication.factor": "3",
+        "num.io.threads": "8",
+        "num.network.threads": "3"
+      }
+    }
+  ],
+  "topics": [
+    {
+      "name": "orders",
+      "partitions": 6,
+      "replication_factor": 3,
+      "config": {
+        "min.insync.replicas": "2",
+        "retention.ms": "604800000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2, 4], "isr": [0, 2, 4], "leader": 0},
+        {"partition": 1, "replicas": [1, 3, 5], "isr": [1, 3, 5], "leader": 1},
+        {"partition": 2, "replicas": [0, 1, 2], "isr": [0, 1, 2], "leader": 0},
+        {"partition": 3, "replicas": [2, 4, 0], "isr": [2, 4, 0], "leader": 2},
+        {"partition": 4, "replicas": [3, 5, 1], "isr": [3, 5, 1], "leader": 3},
+        {"partition": 5, "replicas": [4, 5, 2], "isr": [4, 5, 2], "leader": 4}
+      ]
+    },
+    {
+      "name": "payments",
+      "partitions": 4,
+      "replication_factor": 1,
+      "config": {
+        "retention.ms": "604800000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0], "isr": [0], "leader": 0},
+        {"partition": 1, "replicas": [1], "isr": [1], "leader": 1},
+        {"partition": 2, "replicas": [2], "isr": [2], "leader": 2},
+        {"partition": 3, "replicas": [3], "isr": [3], "leader": 3}
+      ]
+    },
+    {
+      "name": "user-events",
+      "partitions": 3,
+      "replication_factor": 3,
+      "config": {
+        "min.insync.replicas": "3",
+        "retention.ms": "259200000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2, 4], "isr": [0, 2, 4], "leader": 0},
+        {"partition": 1, "replicas": [1, 3, 5], "isr": [1, 3, 5], "leader": 1},
+        {"partition": 2, "replicas": [2, 4, 0], "isr": [2, 4, 0], "leader": 2}
+      ]
+    },
+    {
+      "name": "notifications",
+      "partitions": 8,
+      "replication_factor": 2,
+      "config": {
+        "min.insync.replicas": "1",
+        "retention.ms": "86400000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2], "isr": [0, 2], "leader": 0},
+        {"partition": 1, "replicas": [0, 3], "isr": [0, 3], "leader": 0},
+        {"partition": 2, "replicas": [1, 4], "isr": [1, 4], "leader": 1},
+        {"partition": 3, "replicas": [1, 5], "isr": [1, 5], "leader": 1},
+        {"partition": 4, "replicas": [0, 4], "isr": [0, 4], "leader": 0},
+        {"partition": 5, "replicas": [0, 5], "isr": [0, 5], "leader": 0},
+        {"partition": 6, "replicas": [1, 2], "isr": [1, 2], "leader": 1},
+        {"partition": 7, "replicas": [1, 3], "isr": [1, 3], "leader": 1}
+      ]
+    },
+    {
+      "name": "audit-logs",
+      "partitions": 6,
+      "replication_factor": 3,
+      "config": {
+        "min.insync.replicas": "2",
+        "retention.ms": "3600000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2, 4], "isr": [0, 2, 4], "leader": 0},
+        {"partition": 1, "replicas": [1, 3, 5], "isr": [1, 3, 5], "leader": 1},
+        {"partition": 2, "replicas": [2, 4, 0], "isr": [2, 4, 0], "leader": 2},
+        {"partition": 3, "replicas": [3, 5, 1], "isr": [3, 5, 1], "leader": 3},
+        {"partition": 4, "replicas": [4, 0, 2], "isr": [4, 0, 2], "leader": 4},
+        {"partition": 5, "replicas": [5, 1, 3], "isr": [5, 1, 3], "leader": 5}
+      ]
+    },
+    {
+      "name": "inventory",
+      "partitions": 4,
+      "replication_factor": 3,
+      "config": {
+        "min.insync.replicas": "2",
+        "retention.ms": "604800000",
+        "cleanup.policy": "compact",
+        "segment.bytes": "1048576"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2, 4], "isr": [0, 2, 4], "leader": 0},
+        {"partition": 1, "replicas": [1, 3, 5], "isr": [1, 3, 5], "leader": 1},
+        {"partition": 2, "replicas": [2, 4, 0], "isr": [2, 4, 0], "leader": 2},
+        {"partition": 3, "replicas": [3, 5, 1], "isr": [3, 5, 1], "leader": 3}
+      ]
+    },
+    {
+      "name": "clickstream",
+      "partitions": 12,
+      "replication_factor": 2,
+      "config": {
+        "min.insync.replicas": "1",
+        "retention.ms": "86400000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2], "isr": [0, 2], "leader": 0},
+        {"partition": 1, "replicas": [1, 3], "isr": [1, 3], "leader": 1},
+        {"partition": 2, "replicas": [2, 4], "isr": [2, 4], "leader": 2},
+        {"partition": 3, "replicas": [2, 4], "isr": [2], "leader": 2},
+        {"partition": 4, "replicas": [3, 5], "isr": [3, 5], "leader": 3},
+        {"partition": 5, "replicas": [4, 0], "isr": [4, 0], "leader": 4},
+        {"partition": 6, "replicas": [5, 1], "isr": [5, 1], "leader": 5},
+        {"partition": 7, "replicas": [3, 5], "isr": [3], "leader": 3},
+        {"partition": 8, "replicas": [0, 4], "isr": [0, 4], "leader": 0},
+        {"partition": 9, "replicas": [1, 5], "isr": [1, 5], "leader": 1},
+        {"partition": 10, "replicas": [2, 0], "isr": [2, 0], "leader": 2},
+        {"partition": 11, "replicas": [3, 1], "isr": [3, 1], "leader": 3}
+      ]
+    },
+    {
+      "name": "schema-events",
+      "partitions": 2,
+      "replication_factor": 3,
+      "config": {
+        "min.insync.replicas": "2",
+        "retention.ms": "604800000",
+        "cleanup.policy": "delete",
+        "segment.bytes": "1073741824"
+      },
+      "partition_assignments": [
+        {"partition": 0, "replicas": [0, 2, 4], "isr": [0, 2, 4], "leader": 0},
+        {"partition": 1, "replicas": [1, 3, 5], "isr": [1, 3, 5], "leader": 1}
+      ]
+    }
+  ],
+  "consumer_groups": [
+    {
+      "name": "order-processor",
+      "state": "Stable",
+      "subscribed_topics": ["orders"],
+      "members": [
+        {"id": "consumer-0", "host": "app-0.svc", "assigned_partitions": [{"topic": "orders", "partition": 0}]},
+        {"id": "consumer-1", "host": "app-1.svc", "assigned_partitions": [{"topic": "orders", "partition": 1}]},
+        {"id": "consumer-2", "host": "app-2.svc", "assigned_partitions": [{"topic": "orders", "partition": 2}]},
+        {"id": "consumer-3", "host": "app-3.svc", "assigned_partitions": [{"topic": "orders", "partition": 3}]},
+        {"id": "consumer-4", "host": "app-4.svc", "assigned_partitions": [{"topic": "orders", "partition": 4}]},
+        {"id": "consumer-5", "host": "app-5.svc", "assigned_partitions": [{"topic": "orders", "partition": 5}]}
+      ],
+      "partition_lag": [
+        {"topic": "orders", "partition": 0, "current_offset": 15000, "end_offset": 15100, "lag": 100},
+        {"topic": "orders", "partition": 1, "current_offset": 14950, "end_offset": 15000, "lag": 50},
+        {"topic": "orders", "partition": 2, "current_offset": 14800, "end_offset": 15000, "lag": 200},
+        {"topic": "orders", "partition": 3, "current_offset": 14850, "end_offset": 15000, "lag": 150},
+        {"topic": "orders", "partition": 4, "current_offset": 14925, "end_offset": 15000, "lag": 75},
+        {"topic": "orders", "partition": 5, "current_offset": 14700, "end_offset": 15000, "lag": 300}
+      ]
+    },
+    {
+      "name": "payment-service",
+      "state": "Stable",
+      "subscribed_topics": ["payments"],
+      "members": [
+        {"id": "pay-consumer-0", "host": "pay-0.svc", "assigned_partitions": [{"topic": "payments", "partition": 0}]},
+        {"id": "pay-consumer-1", "host": "pay-1.svc", "assigned_partitions": [{"topic": "payments", "partition": 1}]},
+        {"id": "pay-consumer-2", "host": "pay-2.svc", "assigned_partitions": [{"topic": "payments", "partition": 2}]},
+        {"id": "pay-consumer-3", "host": "pay-3.svc", "assigned_partitions": [{"topic": "payments", "partition": 3}]}
+      ],
+      "partition_lag": [
+        {"topic": "payments", "partition": 0, "current_offset": 5000, "end_offset": 5000, "lag": 0},
+        {"topic": "payments", "partition": 1, "current_offset": 5000, "end_offset": 5000, "lag": 0},
+        {"topic": "payments", "partition": 2, "current_offset": 5000, "end_offset": 5000, "lag": 0},
+        {"topic": "payments", "partition": 3, "current_offset": 5000, "end_offset": 5000, "lag": 0}
+      ]
+    },
+    {
+      "name": "audit-processor",
+      "state": "Stable",
+      "subscribed_topics": ["audit-logs"],
+      "members": [
+        {"id": "audit-consumer-0", "host": "audit-0.svc", "assigned_partitions": [
+          {"topic": "audit-logs", "partition": 0},
+          {"topic": "audit-logs", "partition": 1},
+          {"topic": "audit-logs", "partition": 2}
+        ]},
+        {"id": "audit-consumer-1", "host": "audit-1.svc", "assigned_partitions": [
+          {"topic": "audit-logs", "partition": 3},
+          {"topic": "audit-logs", "partition": 4},
+          {"topic": "audit-logs", "partition": 5}
+        ]}
+      ],
+      "partition_lag": [
+        {"topic": "audit-logs", "partition": 0, "current_offset": 1000, "end_offset": 501000, "lag": 500000, "lag_ms": 7200000},
+        {"topic": "audit-logs", "partition": 1, "current_offset": 2000, "end_offset": 482000, "lag": 480000, "lag_ms": 6900000},
+        {"topic": "audit-logs", "partition": 2, "current_offset": 500, "end_offset": 510500, "lag": 510000, "lag_ms": 7350000},
+        {"topic": "audit-logs", "partition": 3, "current_offset": 1500, "end_offset": 491500, "lag": 490000, "lag_ms": 7100000},
+        {"topic": "audit-logs", "partition": 4, "current_offset": 800, "end_offset": 520800, "lag": 520000, "lag_ms": 7500000},
+        {"topic": "audit-logs", "partition": 5, "current_offset": 1200, "end_offset": 506200, "lag": 505000, "lag_ms": 7250000}
+      ]
+    },
+    {
+      "name": "analytics-pipeline",
+      "state": "Stable",
+      "subscribed_topics": ["clickstream"],
+      "members": [
+        {"id": "analytics-0", "host": "analytics-0.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 0}]},
+        {"id": "analytics-1", "host": "analytics-1.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 1}]},
+        {"id": "analytics-2", "host": "analytics-2.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 2}]},
+        {"id": "analytics-3", "host": "analytics-3.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 3}]},
+        {"id": "analytics-4", "host": "analytics-4.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 4}]},
+        {"id": "analytics-5", "host": "analytics-5.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 5}]},
+        {"id": "analytics-6", "host": "analytics-6.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 6}]},
+        {"id": "analytics-7", "host": "analytics-7.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 7}]},
+        {"id": "analytics-8", "host": "analytics-8.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 8}]},
+        {"id": "analytics-9", "host": "analytics-9.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 9}]},
+        {"id": "analytics-10", "host": "analytics-10.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 10}]},
+        {"id": "analytics-11", "host": "analytics-11.svc", "assigned_partitions": [{"topic": "clickstream", "partition": 11}]},
+        {"id": "analytics-12", "host": "analytics-12.svc", "assigned_partitions": []},
+        {"id": "analytics-13", "host": "analytics-13.svc", "assigned_partitions": []},
+        {"id": "analytics-14", "host": "analytics-14.svc", "assigned_partitions": []}
+      ],
+      "partition_lag": [
+        {"topic": "clickstream", "partition": 0, "current_offset": 100000, "end_offset": 100500, "lag": 500},
+        {"topic": "clickstream", "partition": 1, "current_offset": 100000, "end_offset": 100300, "lag": 300},
+        {"topic": "clickstream", "partition": 2, "current_offset": 100000, "end_offset": 100200, "lag": 200},
+        {"topic": "clickstream", "partition": 3, "current_offset": 100000, "end_offset": 100800, "lag": 800},
+        {"topic": "clickstream", "partition": 4, "current_offset": 100000, "end_offset": 100100, "lag": 100},
+        {"topic": "clickstream", "partition": 5, "current_offset": 100000, "end_offset": 100400, "lag": 400},
+        {"topic": "clickstream", "partition": 6, "current_offset": 100000, "end_offset": 100150, "lag": 150},
+        {"topic": "clickstream", "partition": 7, "current_offset": 100000, "end_offset": 100600, "lag": 600},
+        {"topic": "clickstream", "partition": 8, "current_offset": 100000, "end_offset": 100250, "lag": 250},
+        {"topic": "clickstream", "partition": 9, "current_offset": 100000, "end_offset": 100350, "lag": 350},
+        {"topic": "clickstream", "partition": 10, "current_offset": 100000, "end_offset": 100100, "lag": 100},
+        {"topic": "clickstream", "partition": 11, "current_offset": 100000, "end_offset": 100200, "lag": 200}
+      ]
+    }
+  ],
+  "producers": [
+    {
+      "client_id": "order-producer",
+      "target_topics": ["orders"],
+      "config": {
+        "acks": "all",
+        "enable.idempotence": true,
+        "compression.type": "snappy",
+        "batch.size": 32768,
+        "linger.ms": 20,
+        "max.in.flight.requests.per.connection": 5
+      }
+    },
+    {
+      "client_id": "payment-producer",
+      "target_topics": ["payments"],
+      "config": {
+        "acks": "0",
+        "enable.idempotence": false,
+        "compression.type": "none",
+        "batch.size": 16384,
+        "linger.ms": 0,
+        "max.in.flight.requests.per.connection": 5
+      }
+    },
+    {
+      "client_id": "clickstream-producer",
+      "target_topics": ["clickstream"],
+      "config": {
+        "acks": "1",
+        "enable.idempotence": false,
+        "compression.type": "lz4",
+        "batch.size": 65536,
+        "linger.ms": 50,
+        "max.in.flight.requests.per.connection": 5
+      }
+    },
+    {
+      "client_id": "audit-producer",
+      "target_topics": ["audit-logs"],
+      "config": {
+        "acks": "all",
+        "enable.idempotence": true,
+        "compression.type": "gzip",
+        "batch.size": 32768,
+        "linger.ms": 100,
+        "max.in.flight.requests.per.connection": 5
+      }
+    }
+  ],
+  "schema_registry": {
+    "url": "http://schema-registry.svc:8081",
+    "subjects": [
+      {
+        "subject": "orders-value",
+        "compatibility": "BACKWARD",
+        "versions": [1, 2, 3]
+      },
+      {
+        "subject": "payments-value",
+        "compatibility": "FULL",
+        "versions": [1, 2]
+      },
+      {
+        "subject": "schema-events-value",
+        "compatibility": "NONE",
+        "versions": [1, 2, 3, 4]
+      },
+      {
+        "subject": "user-events-value",
+        "compatibility": "BACKWARD",
+        "versions": [1]
+      }
+    ]
+  }
+}

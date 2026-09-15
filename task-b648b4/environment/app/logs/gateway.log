@@ -1,0 +1,78 @@
+2025-06-12 10:44:57 [WARNING] gateway.health: Upstream health probe returned 503 for service_control (may be starting up)
+2025-06-12 10:44:58 [INFO] gateway.health: Upstream health probe recovered - service_control responding 200
+2025-06-12 10:44:59 [INFO] gateway.worker: Starting 16 API gateway workers
+2025-06-12 10:44:59 [INFO] gateway.client[worker-01]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-02]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-03]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-04]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-05]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-06]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-07]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-08]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-09]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-10]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-11]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-12]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-13]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-14]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-15]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.client[worker-16]: Connected to service_control at http://localhost:8080
+2025-06-12 10:44:59 [INFO] gateway.worker: All 16 workers connected and processing requests
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-01]: Connection to service_control lost (server returned 500)
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-02]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-03]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-04]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-05]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-06]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-07]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-08]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-09]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-10]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-11]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-12]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-13]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-14]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-15]: Connection to service_control lost
+2025-06-12 10:45:01 [WARNING] gateway.client[worker-16]: Connection to service_control lost
+2025-06-12 10:45:01 [INFO] gateway.client[worker-01]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-02]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-03]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-04]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-05]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-06]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-07]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-08]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-09]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-10]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-11]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-12]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-13]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-14]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-15]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:01 [INFO] gateway.client[worker-16]: Reconnecting (attempt 1, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-01]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-02]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-03]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-04]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-05]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-06]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-07]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-08]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-09]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-10]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-11]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-12]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-13]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-14]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-15]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:02 [ERROR] gateway.client[worker-16]: Reconnect failed (attempt 2, delay: 100ms)
+2025-06-12 10:45:04 [ERROR] gateway.client[worker-01]: Reconnect failed (attempt 10, delay: 100ms)
+2025-06-12 10:45:04 [ERROR] gateway.client[worker-02]: Reconnect failed (attempt 10, delay: 100ms)
+2025-06-12 10:45:06 [ERROR] gateway.client[worker-01]: Reconnect failed (attempt 20, delay: 100ms)
+2025-06-12 10:45:06 [ERROR] gateway.client[worker-02]: Reconnect failed (attempt 20, delay: 100ms)
+2025-06-12 10:45:08 [ERROR] gateway.client[worker-01]: Reconnect failed (attempt 30, delay: 100ms)
+2025-06-12 10:45:10 [CRITICAL] gateway.worker: 0/16 workers connected - all API requests failing open without policy checks
+2025-06-12 10:45:10 [CRITICAL] gateway.worker: Service Control database overwhelmed by simultaneous reconnection attempts
+2025-06-12 10:45:11 [WARNING] gateway.resource: Active transport connections: 32 (pool size: 16)
+2025-06-12 10:45:12 [WARNING] gateway.resource: Active transport connections: 48 (pool size: 16)
+2025-06-12 10:45:14 [WARNING] gateway.resource: Active transport connections: 64 (pool size: 16)

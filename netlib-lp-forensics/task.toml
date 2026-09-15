@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the legacy Netlib compressed MPS format (a custom 1980s encoding unrelated to gzip/bzip2) without any hints about tools or decompression methods. Demands deep LP theory knowledge: the agent must independently know how to compute complementary slackness violations, identify degenerate basic variables, detect alternative optima through reduced-cost analysis, and construct and analyze the optimal basis matrix to compute its condition number. Combines systems programming (discovering and compiling C decompression utilities from netlib.org), mathematical optimization theory (LP duality, optimality conditions, basis structure), and numerical linear algebra (matrix condition number computation) — requiring holistic expertise across all three domains simultaneously."""
+solution_explanation = """Discover and download emps.c from netlib.org/lp/data, compile it with gcc to decompress the six compressed LP files into standard MPS format. Use highspy (Python HiGHS interface) to solve each LP to optimality. Extract basis status, primal/dual solutions, and infeasibility measures. Compute complementary slackness violations from reduced costs and basis status. Detect degenerate basic variables by comparing solution values to variable bounds. Identify alternative optima via zero reduced costs on non-basic variables. Extract the basis matrix columns from the constraint matrix (CSC format) for basic structural variables and identity columns for basic slacks, then compute the 1-norm condition number using numpy."""
+verification_explanation = """Tests verify optimal objective values against hardcoded Netlib MINOS 5.3 reference values (relative tolerance 1e-6), problem dimensions against the published Netlib LP test set summary table, the fundamental theorem of LP (basic variables = constraints), solution quality metrics (primal/dual infeasibilities and complementary slackness violations below 1e-6), basis condition numbers are finite and reasonable, correct ascending ranking by optimal value, and independent cross-validation that solves AFIRO with HiGHS to confirm both optimal value and basis condition number."""
+category = "optimization"
+tags = ["linear-programming", "numerical-linear-algebra"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netlib-lp-forensics"

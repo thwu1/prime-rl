@@ -1,0 +1,8 @@
+func @fold_chain() -> i32 {
+  %a = arith.constant 3 : i32
+  %b = arith.constant 7 : i32
+  %c = arith.muli %a, %b : i32
+  %d = arith.constant 5 : i32
+  %e = arith.addi %c, %d : i32
+  return %e : i32
+}

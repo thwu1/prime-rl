@@ -1,0 +1,115 @@
+{
+  "type": "ModuleBayPlan",
+  "planNumber": 1,
+  "dateCreated": "2024-06-15T10:00:00Z",
+  "dateModified": "2024-06-15T10:30:00Z",
+  "creator": "ground_operator",
+  "schemaUrl": "http://example.com/freeFlyerPlanSchema.json",
+  "libraryURLs": [],
+  "operatingLimits": {
+    "profileName": "nominal_ops",
+    "flightMode": "nominal",
+    "targetLinearVelocity": 0.2,
+    "targetLinearAcceleration": 0.0175,
+    "targetAngularVelocity": 0.1745,
+    "targetAngularAcceleration": 0.1745,
+    "collisionDistance": 0.25
+  },
+  "inertiaConfiguration": {
+    "name": "default",
+    "mass": 9.583,
+    "centerOfMass": [0.0, 0.0, 0.0],
+    "matrix": [0.153, 0.0, 0.0, 0.0, 0.143, 0.0, 0.0, 0.0, 0.162]
+  },
+  "site": {
+    "type": "Site",
+    "name": "ISS",
+    "id": "iss"
+  },
+  "sequence": [
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.9,
+        "y": -9.5,
+        "z": 4.5,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": false,
+      "commands": [
+        {
+          "type": "Settings.setCamera",
+          "cameraName": "Navigation",
+          "cameraMode": "Both",
+          "resolution": "640x480",
+          "frameRate": 10.0,
+          "bandwidth": 0
+        }
+      ]
+    },
+    {
+      "type": "Segment",
+      "speed": 0.2,
+      "tolerance": 0.0,
+      "waypoints": []
+    },
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 11.2,
+        "y": -9.0,
+        "z": 4.8,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setTelemetryRate",
+          "telemetryName": "EkfState",
+          "rate": 5.0
+        }
+      ]
+    },
+    {
+      "type": "Segment",
+      "speed": 0.2,
+      "tolerance": 0.0,
+      "waypoints": []
+    },
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.5,
+        "y": -9.2,
+        "z": 4.3,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setFlashlightBrightness",
+          "which": "Front",
+          "brightness": 0.5
+        }
+      ]
+    }
+  ]
+}

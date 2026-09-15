@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc>
+  <meta>
+    <property role="is-positive-law">no</property>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t42">
+      <num value="42">Title 42</num>
+      <heading>The Public Health and Welfare</heading>
+      <chapter>
+        <num value="6A">Chapter 6A</num>
+        <heading>PUBLIC HEALTH SERVICE</heading>
+        <subchapter>
+          <num value="II">Subchapter II</num>
+          <section identifier="/us/usc/t42/s247d">
+            <num value="247d">§ 247d.</num>
+            <heading>Public health emergencies</heading>
+            <content>
+              <subsection>
+                <num value="a">(a)</num>
+                <heading>Determinations of emergencies</heading>
+                <chapeau>If the Secretary determines, after consultation with such public health officials as may be necessary, that—</chapeau>
+                <paragraph>
+                  <num value="1">(1)</num>
+                  <content>a disease or disorder presents a public health emergency; or</content>
+                </paragraph>
+                <paragraph>
+                  <num value="2">(2)</num>
+                  <content>a public health emergency, including significant outbreaks of infectious diseases or bioterrorist attacks, otherwise exists,</content>
+                </paragraph>
+                <continuation>the Secretary may take such action as may be appropriate to respond to the public health emergency, including making grants, providing awards for expenses, and entering into contracts and conducting and supporting investigations into the cause, treatment, or prevention of a disease or disorder as described in paragraphs (1) and (2). Any such determination of a public health emergency terminates upon the Secretary declaring that the emergency no longer exists, or upon the expiration of the 90-day period beginning on the date on which the determination is made by the Secretary, whichever occurs first.</continuation>
+              </subsection>
+              <subsection>
+                <num value="b">(b)</num>
+                <heading>Measures to address public health emergencies</heading>
+                <paragraph>
+                  <num value="1">(1)</num>
+                  <heading>In general</heading>
+                  <content>A Federal agency may take such action as may be necessary to respond to a public health emergency as determined under subsection (a).</content>
+                </paragraph>
+                <paragraph>
+                  <num value="2">(2)</num>
+                  <heading>Coordination</heading>
+                  <chapeau>The Secretary shall coordinate with relevant Federal agencies to ensure—</chapeau>
+                  <subparagraph>
+                    <num value="A">(A)</num>
+                    <content>timely deployment of Federal resources;</content>
+                  </subparagraph>
+                  <subparagraph>
+                    <num value="B">(B)</num>
+                    <chapeau>effective communication between—</chapeau>
+                    <clause>
+                      <num value="i">(i)</num>
+                      <content>Federal agencies;</content>
+                    </clause>
+                    <clause>
+                      <num value="ii">(ii)</num>
+                      <content>State and local health departments; and</content>
+                    </clause>
+                    <clause>
+                      <num value="iii">(iii)</num>
+                      <chapeau>relevant entities including—</chapeau>
+                      <subclause>
+                        <num value="I">(I)</num>
+                        <content>hospitals and health care facilities;</content>
+                      </subclause>
+                      <subclause>
+                        <num value="II">(II)</num>
+                        <content>laboratories conducting diagnostic testing;</content>
+                      </subclause>
+                      <subclause>
+                        <num value="III">(III)</num>
+                        <chapeau>manufacturers of—</chapeau>
+                        <item>
+                          <num value="aa">(aa)</num>
+                          <chapeau>medical countermeasures (as defined in <ref href="/us/usc/t42/s300hh-10">section 300hh–10 of this title</ref>), including—</chapeau>
+                          <subitem>
+                            <num value="AA">(AA)</num>
+                            <content>vaccines;</content>
+                          </subitem>
+                          <subitem>
+                            <num value="BB">(BB)</num>
+                            <content>therapeutics; and</content>
+                          </subitem>
+                        </item>
+                        <item>
+                          <num value="bb">(bb)</num>
+                          <content>diagnostics; and</content>
+                        </item>
+                        <item>
+                          <num value="cc">(cc)</num>
+                          <content>personal protective equipment; and</content>
+                        </item>
+                      </subclause>
+                      <subclause>
+                        <num value="IV">(IV)</num>
+                        <content>entities involved in the distribution of medical countermeasures and supplies; and</content>
+                      </subclause>
+                    </clause>
+                  </subparagraph>
+                  <subparagraph>
+                    <num value="C">(C)</num>
+                    <content>efficient allocation of resources to areas of greatest need, as determined by the Secretary pursuant to <ref href="/us/usc/t42/s243">section 243 of this title</ref>.</content>
+                  </subparagraph>
+                </paragraph>
+              </subsection>
+            </content>
+            <sourceCredit>(July 1, 1944, ch. 373, title III, § 319, as added Pub. L. 106–505, title I, § 102, Nov. 13, 2000, 114 Stat. 2315.)</sourceCredit>
+            <notes type="statutory">
+              <note topic="references-in-text">
+                <heading>References in Text</heading>
+                <p>Section 300hh–10 of this title, referred to in subsec. (b)(2)(B)(iii)(III)(aa), was in the original "section 2811", which was translated as reading "section 2811 of the Public Health Service Act" to reflect the probable intent of Congress.</p>
+              </note>
+              <note topic="amendments">
+                <heading>Amendments</heading>
+                <p>2022—Subsec. (b)(2). Pub. L. 117–328 added par. (2).</p>
+              </note>
+            </notes>
+          </section>
+        </subchapter>
+      </chapter>
+    </title>
+  </main>
+</uscDoc>

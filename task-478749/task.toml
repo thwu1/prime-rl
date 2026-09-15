@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a multi-sensor 3D point cloud processing pipeline with several interconnected expert-level challenges: (1) estimating unknown per-sensor translational calibration biases by exploiting the geometric constraint that fitted circle centers encode both cell position and sensor bias, then using robust statistical aggregation across multiple cells to separate the two; (2) noise-aware fusion of heterogeneous sensor data from three LIDAR grades with different noise characteristics; (3) discriminating manufacturing seam lines (narrow outward ridges running full cell height) from actual defects — a judgment that standard outlier detection cannot make, requiring geometric extent analysis; (4) robust cylinder fitting on off-center noisy data contaminated by both defects and seam artifacts; (5) spatial clustering and shape-based classification distinguishing dents, bulges, and scratches across cells including multi-defect cells with two distinct defects. The pipeline stages are deeply coupled: calibration errors propagate into radial residuals, which affect clustering and classification. Correct solutions require holistic understanding of these interactions, not just applying standard procedures sequentially."""
+solution_explanation = """For each cell and sensor, fit robust circles to filtered surface points to get apparent centers. Compute median pairwise center differences across all cells to estimate per-sensor relative calibration biases. Correct each sensor's data by subtracting estimated bias, then merge. On merged data, fit a robust circle using iteratively reweighted algebraic least squares, compute radial residuals, threshold at 2mm. Cluster outlier points via DBSCAN in (arc-length, z) space with eps=0.003 and min_samples=5, which naturally filters sparse seam outlier points. Any surviving cluster with z_extent > 50% cell height and positive mean residual is a seam artifact — reject it. Classify remaining clusters by residual sign (negative→dent/scratch, positive→bulge) and aspect ratio (z/arc > 3.5 → scratch, else dent). Compute centroids via Cartesian averaging for angular stability."""
+verification_explanation = """Tests regenerate ground truth defect parameters deterministically from the same seeds used during data generation. Sensor calibration biases are hardcoded constants verified by computing relative differences. Tests check: result file structure, calibration accuracy within 0.4mm per component, all 12 cells present, exact pass/fail classification, exact defect count per cell (including multi-defect cells), exact defect type classification, theta within 0.5 rad, z within 0.01m. Clean cells must report zero defects (implicitly verifying seam rejection). Tolerances account for noise in calibration estimation and defect centroid computation."""
+category = "robotics"
+tags = ["point-cloud-processing", "sensor-fusion"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-478749"

@@ -1,0 +1,3 @@
+! Model decisions — constant decay albedo
+! Format: decision_name  value
+alb_method    conDecay

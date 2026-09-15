@@ -1,0 +1,30 @@
+{
+  "schema": {
+    "dim_names": ["type", "age", "ethnicity"],
+    "dim_sizes": [3, 2, 4]
+  },
+  "hierarchy": {
+    "level_names": ["nation", "region", "district"],
+    "root": "N",
+    "tree": {
+      "N": ["R1", "R2"],
+      "R1": ["D1", "D2", "D3"],
+      "R2": ["D4", "D5", "D6"]
+    }
+  },
+  "queries": [
+    {"name": "total", "sum_over_dims": [0, 1, 2], "proportion": 0.10},
+    {"name": "type_marginal", "sum_over_dims": [1, 2], "proportion": 0.15},
+    {"name": "age_ethnicity", "sum_over_dims": [0], "proportion": 0.25},
+    {"name": "detailed", "sum_over_dims": [], "proportion": 0.50}
+  ],
+  "privacy": {
+    "total_rho": 3.0,
+    "bounded_dp_multiplier": 2.0,
+    "level_proportions": [0.2, 0.3, 0.5]
+  },
+  "constraints": {
+    "structural_zeros": [[1, 0, 0], [1, 0, 1], [1, 0, 2], [1, 0, 3]]
+  },
+  "seed": 20200101
+}

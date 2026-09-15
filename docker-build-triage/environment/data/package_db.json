@@ -1,0 +1,21 @@
+{
+  "libffi": {"apt": "libffi-dev", "description": "Foreign Function Interface library development files"},
+  "libssl": {"apt": "libssl-dev", "description": "OpenSSL development libraries and headers"},
+  "libxml2": {"apt": "libxml2-dev", "description": "GNOME XML library development files"},
+  "libxslt": {"apt": "libxslt1-dev", "description": "XSLT processing library development files"},
+  "libpcap": {"apt": "libpcap-dev", "description": "Packet capture library development files"},
+  "libpng": {"apt": "libpng-dev", "description": "PNG library development files"},
+  "libzip": {"apt": "libzip-dev", "description": "ZIP archive library development files"},
+  "zlib": {"apt": "zlib1g-dev", "description": "Compression library development files"},
+  "libcurl": {"apt": "libcurl4-openssl-dev", "description": "cURL library development files"},
+  "libyaml": {"apt": "libyaml-dev", "description": "YAML parser library development files"},
+  "libpq": {"apt": "libpq-dev", "description": "PostgreSQL library development files"},
+  "libsqlite3": {"apt": "libsqlite3-dev", "description": "SQLite3 library development files"},
+  "cmake": {"apt": "cmake", "description": "Cross-platform build system generator"},
+  "pkg-config": {"apt": "pkg-config", "description": "Package configuration tool"},
+  "gcc": {"apt": "gcc", "description": "GNU C compiler"},
+  "g++": {"apt": "g++", "description": "GNU C++ compiler"},
+  "make": {"apt": "make", "description": "Build automation tool"},
+  "git": {"apt": "git", "description": "Distributed version control system"},
+  "_notes": "This database is intentionally incomplete. Some common mappings are missing (e.g., libvips, python3-dev). The triage tool should be able to infer missing mappings from build log error messages and known conventions."
+}

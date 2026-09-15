@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level mastery of special function theory spanning Gamma, Airy, and Bessel families. The agent receives no guidance on which mathematical identities connect the table entries, what validation strategy to employ, how many entries are corrupted, or what working precision is needed. Detecting the most subtle corruption (a perturbation starting at digit 26) demands that the agent independently reason about precision requirements and guard digits. The agent must synthesize knowledge across multiple DLMF chapters to discover the appropriate functional equations, Wronskian relations, and recurrence formulas, then design a multi-layered cross-validation framework that distinguishes genuine errors from numerical noise — a task requiring holistic understanding of the analytic structure of these functions, not just the ability to call a library."""
+solution_explanation = """Use mpmath at 60+ decimal digit precision to independently recompute all 20 special function values. Compare each claimed value against the recomputed reference to identify discrepancies exceeding 1e-45 relative error. Cross-validate using DLMF identities: Gamma reflection formula for Gamma(1/3)*Gamma(2/3) and Gamma(1/4)*Gamma(3/4), Airy Wronskian Ai(x)*Bi'(x)-Ai'(x)*Bi(x)=1/pi at x=0,1,2, and Bessel three-term recurrence J_{n-1}(x)+J_{n+1}(x)=(2n/x)*J_n(x) at x=1. Produce a structured audit report documenting each error and its detection method."""
+verification_explanation = """Tests independently compute all 20 reference values using mpmath at 60 dps. They verify that exactly the 5 corrupted entries are identified with the correct IDs, that corrected values match to 40+ digits, that the corrected values satisfy DLMF functional identities (Gamma reflection, Airy Wronskian, Bessel recurrence), and that at least 3 distinct validation identity types are documented in the report using standard mathematical terminology."""
+category = "mathematics"
+tags = ["numerical-analysis", "special-functions"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/validate-special-functions"

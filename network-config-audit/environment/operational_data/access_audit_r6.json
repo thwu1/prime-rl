@@ -1,0 +1,14 @@
+{
+  "router": "R6",
+  "timestamp": "2024-11-15T14:23:25Z",
+  "access_lists": {
+    "VTY_ACCESS": {
+      "type": "standard",
+      "applied_to": "vty 0 4 (inbound)",
+      "entries": [
+        {"sequence": 10, "action": "permit", "source": "10.0.0.0", "wildcard": "0.255.255.255", "hit_count": 47823},
+        {"sequence": 20, "action": "deny", "source": "any", "wildcard": null, "hit_count": 156}
+      ]
+    }
+  }
+}

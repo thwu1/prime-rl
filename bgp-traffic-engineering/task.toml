@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level BGP expertise across diagnosis and design. The solver must evaluate three distinct session failure modes from debug logs and configuration analysis — each with different root causes spanning transport-layer source addressing, neighbor IP mismatches, and loopback reachability for multihop sessions — then design routing policies from business-level requirements without being told which BGP mechanisms to use. The solver must independently determine that selective prefix preference requires attribute manipulation that overrides the default best-path algorithm, that inbound filtering requires deny-before-permit policy chain construction, that outbound path inflation requires AS-path manipulation, and that iBGP route reflection creates a next-hop reachability problem requiring the reflector to rewrite forwarding addresses. Finally, a structured diagnosis with root-cause analysis and mechanism justification demands evaluation-level reasoning about protocol behavior."""
+solution_explanation = """Diagnose three failures from logs: (1) r2's iBGP session to r3 fails because TCP originates from a physical interface IP rather than the configured loopback peer address — fix by adding update-source lo; (2) r4 peers with a non-existent IP on the r1-r4 link — fix by correcting the neighbor address; (3) r3-r4 eBGP multihop fails because neither router can reach the other's loopback — fix by adding static routes. Then design four policies: set local-preference > 100 on r1's transit inbound for 10.4.1.0/24 to override AS-path-based selection; deny 10.4.3.0/24 via prefix-list-matched route-map clauses on r1 from both peers; apply outbound route-map on r4 toward r3 with AS-path prepend of 65003 at least 3 times; configure next-hop-self on r3 for iBGP client r2. Generate diagnosis.json documenting each failure's root cause and each policy mechanism choice with justification."""
+verification_explanation = """Tests parse the corrected FRR configuration files to verify: update-source present on r2, correct neighbor IP on r4, static routes for eBGP multihop on r3 and r4, next-hop-self on r3, outbound route-map with AS-path prepend on r4, inbound route-maps on r1 that deny 10.4.3.0/24 and set elevated local-preference for 10.4.1.0/24, catch-all permit clauses, and preservation of original network announcements. Additionally validates the diagnosis.json file for correct session failure identification, affected router attribution, non-empty root-cause explanations, and complete policy decision documentation covering all four routing objectives."""
+category = "networking"
+tags = ["bgp", "traffic-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bgp-traffic-engineering"

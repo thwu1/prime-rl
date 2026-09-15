@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integration of multiple geospatial concepts: dynamic evaluation of arbitrary band-math formulas from configuration with nodata propagation and division-by-zero handling, CRS transformation of vector geometries between geographic and projected coordinate systems for raster/vector alignment, Cloud Optimized GeoTIFF creation with internal tiling and overview pyramids, and robust per-zone zonal statistics computation that handles partial zone coverage and nodata exclusion. Each component has subtle edge cases (e.g., hazard pixels where band sums are exactly zero, zones extending beyond raster extent) that interact non-trivially."""
+solution_explanation = """Parse spectral index formulas from the config and evaluate them as numpy array expressions by mapping band variable names to raster band arrays. Propagate nodata by detecting pixels where any input band equals the nodata value, and catch division-by-zero via inf/nan detection post-evaluation. Transform zone geometries from EPSG:4326 to EPSG:32633 using pyproj before raster masking with rasterio. Create tiled GeoTIFFs with overviews by writing with tiled profile then building overviews in r+ mode. Compute zonal statistics on valid (non-nodata, non-nan) pixels only, handling zones that partially extend beyond raster extent via try/except on the mask operation."""
+verification_explanation = """14 pytest tests verify: output file existence for all 5 indices, CRS and spatial dimensions of index rasters, NDVI value range correctness, nodata propagation from input bands to output indices, division-by-zero handling at known hazard pixels (no inf/nan in valid pixels), COG internal structure (block tiling and overview levels), zonal statistics JSON format, semantic correctness of zonal stats (forest zones have high NDVI, water zones have negative NDVI and positive NDWI), nodata exclusion from statistics (agriculture zone has more valid pixels than cloud-affected mixed zone), partial zone coverage handling, independent recomputation of NDVI and EVI values with tolerance-based comparison, and output affine transform preservation."""
+category = "geospatial"
+tags = ["rasterio", "remote-sensing"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8f10c6"

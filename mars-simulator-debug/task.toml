@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Designing a competitive Core War warrior requires expert-level understanding of multiple interacting domains: ICWS'94 Redcode semantics (16 opcodes × 7 modifiers × 8 addressing modes), self-modifying assembly code behavior, modular arithmetic in a circular memory space, FIFO process queue scheduling and its strategic implications, and the paper-scissors-stone metagame dynamics among warrior archetypes (replicators/paper, bombers/stone, scanners/scissors, vampires, hybrids). The solver must reverse-engineer each opponent's strategy from its Redcode source, evaluate which strategy archetypes counter which, and create a novel warrior that performs well against the entire mixed field — a task that requires holistic strategic reasoning rather than following procedures."""
+solution_explanation = """The solution uses a computational optimization approach: it generates ~60 candidate warriors from parameterized templates covering multiple strategy archetypes (Dwarf bombers with varying step sizes, DJN-controlled stones with varying bomb counts, SPL-based bombers, and stone-then-core-clear hybrids). Each candidate is evaluated against all 5 opponents using pMARS as the simulation engine. The optimizer selects the candidate with the highest aggregate win count that also satisfies all per-opponent constraints. This approach leverages the insight that bombing step size and warrior structure critically affect matchup outcomes, and that systematically searching the parameter space finds a warrior that dominates the mixed hill."""
+verification_explanation = """Tests verify the challenger through deterministic pMARS simulation with fixed positioning (-F 4000). Three categories of checks: (1) validity — the warrior file exists, is parseable by pMARS, and contains ≤ 100 instructions; (2) per-opponent resilience — the challenger wins ≥ 1 round and maintains wins+ties ≥ 40 against each of the 5 opponents (preventing trivially weak or opponent-identical submissions); (3) aggregate dominance — total wins across all 1000 rounds ≥ 200, ensuring the warrior is genuinely competitive rather than passive."""
+category = "competitive_programming"
+tags = ["assembly-language", "game-theory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mars-simulator-debug"

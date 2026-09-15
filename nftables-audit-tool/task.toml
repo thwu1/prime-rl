@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete nftables configuration parser and packet evaluation engine without explicit guidance on nftables syntax or semantics. The solver must independently discover chain evaluation order (hook priorities, jump/goto/return dispatch), CIDR-based set membership matching, named priority resolution, and rate limiting analysis across chain boundaries. Additionally requires implementing static analysis for dead-code detection (unreachable chains and shadowed rules) — combining compiler theory with network security domain knowledge. No hints about the evaluation model or anomaly detection algorithms are provided."""
+solution_explanation = """Build a recursive-descent parser for nftables config syntax extracting tables, chains, named sets, and rules with typed match conditions. Implement a packet evaluator respecting base chain hook priorities, jump/goto/return semantics, and CIDR-based named set lookups. The security analyzer walks reachable chains to identify unrestricted open ports while correctly stopping at unconditional terminal verdicts. Anomaly detection identifies unreachable chains (non-base chains with no jump/goto references) and shadowed rules (rules following an unconditional terminal verdict). Output validates against a provided JSON schema."""
+verification_explanation = """Tests validate JSON schema conformance via jsonschema, then verify structural extraction (tables, base chains with resolved priorities, named sets, jump graph), security analysis (open ports respecting rule shadowing, all boolean feature flags, rate-limited port details), packet fate for 23 test cases across three configs, and anomaly detection (specific unreachable chains and shadowed rule positions)."""
+category = "cybersecurity"
+tags = ["nftables", "firewall-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nftables-audit-tool"

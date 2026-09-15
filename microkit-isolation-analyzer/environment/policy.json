@@ -1,0 +1,17 @@
+{
+    "isolated_pairs": [
+        ["control", "guest_os"],
+        ["control", "vmm"],
+        ["actuator", "guest_os"]
+    ],
+    "max_tcb_size": {
+        "control": 6,
+        "actuator": 6,
+        "sensor": 6
+    },
+    "max_impact_size": {
+        "guest_os": 3,
+        "vmm": 3,
+        "telemetry": 4
+    }
+}

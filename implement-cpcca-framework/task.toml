@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 interacting defects across a multi-component scientific computing pipeline. The agent must: (1) use HDF5 inspection tools (h5ls/h5dump) to discover the correct data paths within a hierarchical HDF5 file containing both raw and preprocessed datasets, (2) understand GNU Make target/prerequisite relationships and automatic variables to fix a Makefile output path mismatch, and (3) debug 5 mathematical bugs in the Python module spanning the whitening exponent formula (alpha-to-exponent mapping), covariance normalization (Bessel's correction), score computation space (whitened vs raw), correlation pattern argument ordering, and permutation axis in significance testing. Some bugs cascade: the data loading defect produces uncentered data that masks the whitening bug, and the whitening exponent error makes the covariance normalization error harder to isolate."""
+solution_explanation = """Fix 7 bugs: (1) load_fields() reads from /observations/X,Y (raw uncentered) instead of /preprocessed/left_field,right_field (centered anomalies) — requires h5ls to discover, (2) whiten() exponent alpha/2 must be (alpha-1)/2, (3) cpcca() cross-covariance uses n not n-1, (4) scores project raw X not whitened X_w, (5) heterogeneous_patterns() swaps argument order, (6) bootstrap permutes feature columns not sample rows, (7) Makefile recipe writes to output.npz not $@ (decomposition.npz)."""
+verification_explanation = """Tests verify: data loading returns centered data of correct shape; fractional_matrix_power satisfies C^0=I, C^1=C, C^0.5@C^0.5=C; alpha=1 whitening preserves data; alpha=0 whitening produces identity covariance; MCA singular values match direct SVD of cross-covariance; CCA scores are uncorrelated and canonical correlations bounded by 1; heterogeneous patterns have correct shape and match np.corrcoef; permutation test detects known coupled modes; make all succeeds and produces output at expected path."""
+category = "scientific_computing"
+tags = ["debugging", "linear-algebra", "hdf5", "make"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-cpcca-framework"

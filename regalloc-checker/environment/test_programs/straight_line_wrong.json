@@ -1,0 +1,16 @@
+{
+  "phys_regs": ["r0", "r1", "r2", "r3"],
+  "num_spill_slots": 0,
+  "entry_block": "entry",
+  "blocks": {
+    "entry": {
+      "params": [],
+      "instructions": [
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v0", "preg": "r0"}]},
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v1", "preg": "r1"}]},
+        {"kind": "op", "reads": [{"vreg": "v0", "preg": "r1"}, {"vreg": "v1", "preg": "r0"}], "writes": [{"vreg": "v2", "preg": "r2"}]}
+      ],
+      "terminator": {"kind": "return", "reads": [{"vreg": "v2", "preg": "r2"}]}
+    }
+  }
+}

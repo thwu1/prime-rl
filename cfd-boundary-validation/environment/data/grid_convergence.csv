@@ -1,0 +1,16 @@
+# 2D Bump-in-Channel Code Verification Case
+# Turbulence Model: Spalart-Allmaras (SA)
+# Mach = 0.2, Re = 3,000,000 (based on L=1.0)
+# Bump geometry: y = 0.05 * sin(pi*x/0.9 - pi/3)^4  for 0.3 <= x <= 1.2
+# Domain: x in [-25, 26.5], y in [0, 5.0]
+# Grid refinement ratio: approximately 2:1 in each direction
+# Quantities:
+#   Cd = integrated drag coefficient over bump surface
+#   Cf_crest = skin friction coefficient at bump crest (x = 0.75)
+#   Cp_te = pressure coefficient at bump trailing edge (x = 1.2)
+grid_level,nx,ny,Cd,Cf_crest,Cp_te
+1,1409,641,0.004656,0.006081,-0.08234
+2,705,321,0.004693,0.006121,-0.08198
+3,353,161,0.004823,0.006241,-0.08265
+4,177,81,0.005142,0.006578,-0.08123
+5,89,41,0.005892,0.007319,-0.07891

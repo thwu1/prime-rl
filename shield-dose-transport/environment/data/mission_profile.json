@@ -1,0 +1,37 @@
+{
+  "description": "Mars round-trip mission profile for cumulative dose calculation. Apply dose calculation for each shield configuration.",
+  "career_dose_limit_mSv": 600.0,
+  "legs": [
+    {
+      "name": "leg1",
+      "description": "Earth to Mars transit",
+      "duration_months": 6,
+      "radiation_environment": "gcr_1au_avg",
+      "type": "continuous"
+    },
+    {
+      "name": "spe_event",
+      "description": "Solar particle event during transit (impulse dose)",
+      "type": "impulse",
+      "note": "Use spe_event fluence from gcr_spectra.json. This is a single-event total fluence, not a rate."
+    },
+    {
+      "name": "leg2",
+      "description": "Mars surface stay",
+      "duration_months": 18,
+      "radiation_environment": "gcr_1_5au",
+      "type": "continuous"
+    },
+    {
+      "name": "leg3",
+      "description": "Mars to Earth return transit",
+      "duration_months": 6,
+      "radiation_environment": "gcr_1au_avg",
+      "type": "continuous"
+    }
+  ],
+  "time_conversion": {
+    "hours_per_month": 730.56,
+    "note": "1 month = 30.44 days × 24 hours = 730.56 hours"
+  }
+}

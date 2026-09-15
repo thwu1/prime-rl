@@ -1,0 +1,99 @@
+MODE S EXTENDED SQUITTER — PROTOCOL REFERENCE
+==============================================
+
+Document scope: field-level notes for DF17 (Extended Squitter) decoding.
+Source: ICAO Annex 10 Vol. IV, DO-260B.
+
+1. MESSAGE STRUCTURE (112 bits / 14 bytes)
+------------------------------------------
+  Bits  0-4:   Downlink Format (DF) — value 17 for ES
+  Bits  5-7:   Capability (CA)
+  Bits  8-31:  ICAO 24-bit address
+  Bits 32-87:  ME (Message Extended Squitter) — 56-bit payload
+  Bits 88-111: PI (Parity/Interrogator) — 24-bit CRC
+
+2. ERROR DETECTION AND CORRECTION
+----------------------------------
+The 24-bit CRC uses the generator polynomial specified in ICAO Annex 10.
+A valid message produces remainder zero when the CRC is computed over
+all 112 bits.
+
+For single-bit transmission errors: each of the 112 possible single-bit
+error positions produces a distinct CRC syndrome. This property allows
+deterministic identification and correction of the corrupted bit by
+mapping syndromes to bit positions.
+
+Multi-bit errors generally cannot be reliably corrected.
+
+3. ME FIELD — TYPE CODE OVERVIEW
+---------------------------------
+The first 5 bits of ME (bits 32-36 of the full message) encode the
+Type Code (TC), which determines message content:
+
+  TC 1-4:   Aircraft identification and emitter category
+  TC 5-8:   Surface position
+  TC 9-18:  Airborne position (barometric altitude)
+  TC 19:    Airborne velocity
+  TC 20-22: Airborne position (GNSS height)
+  TC 28:    Aircraft status
+  TC 31:    Operational status
+
+4. AIRCRAFT IDENTIFICATION (TC 1-4)
+-------------------------------------
+ME layout:
+  Bits 0-4:   TC
+  Bits 5-7:   Emitter category
+  Bits 8-55:  Callsign — eight 6-bit character codes
+
+Character encoding (6-bit):
+  1-26  → A-Z
+  32    → space
+  48-57 → 0-9
+
+5. AIRBORNE POSITION (TC 9-18)
+-------------------------------
+ME layout:
+  Bits 0-4:   TC
+  Bits 5-6:   Surveillance status
+  Bits 7:     Single antenna flag
+  Bits 8-19:  Altitude (12 bits)
+  Bit  20:    UTC sync flag (T)
+  Bit  21:    CPR format flag (F): 0=even, 1=odd
+  Bits 22-38: CPR-encoded latitude (17 bits)
+  Bits 39-55: CPR-encoded longitude (17 bits)
+
+Altitude encoding (Q-bit, 25ft resolution):
+  The Q-bit is at position 4 (counting from LSB of the 12-bit field).
+  When Q=1: remove the Q-bit, reassemble the remaining 11 bits (upper 7
+  concatenated with lower 4), multiply by 25, subtract 1000. Result in feet.
+
+CPR (Compact Position Reporting):
+  Positions are transmitted in alternating even (F=0) and odd (F=1) frames.
+  Global decoding resolves unambiguous latitude/longitude from a matching
+  pair. The latitude zone width is 360/(4*NZ) for even and 360/(4*NZ-1)
+  for odd frames (NZ=15).
+
+  The NL (Number of Longitude zones) function maps latitude to the number
+  of equal-width longitude zones at that latitude — it decreases from 59
+  at the equator to 1 near the poles.
+
+  For even-frame-latest decoding: compute latitude from the even frame,
+  then use the even frame's longitude CPR value for the final longitude.
+
+6. AIRBORNE VELOCITY (TC 19, Subtype 1)
+-----------------------------------------
+ME layout:
+  Bits 0-4:   TC (=19)
+  Bits 5-7:   Subtype (1 = ground speed, EW/NS components)
+  Bit  13:    EW direction (0=east, 1=west)
+  Bits 14-23: EW speed (encoded, knots)
+  Bit  24:    NS direction (0=north, 1=south)
+  Bits 25-34: NS speed (encoded, knots)
+  Bit  36:    Vertical rate sign (0=up, 1=down)
+  Bits 37-45: Vertical rate (encoded)
+
+Speed decoding: value = (encoded - 1) knots, apply direction sign.
+VR decoding: value = (encoded - 1) * 64 ft/min, apply sign.
+
+Ground speed = sqrt(Vew^2 + Vns^2).
+Heading = atan2(Vew, Vns) mapped to [0, 360).

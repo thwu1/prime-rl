@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic engineering and security evaluation. The solver receives three Poly1305 C implementations, captured server traffic, and a reference — with no guidance on what vulnerability exists or how to exploit it. They must independently: (1) evaluate each implementation's correctness against RFC 8439 by compiling and running test vectors, (2) determine which variant the server uses without access to key material, (3) discover that the captured traffic contains a critical protocol-level weakness through systematic analysis, (4) design an algebraic exploit adapted to the non-standard variant's encoding, and (5) produce a valid forged authenticator. The task demands creative synthesis across implementation analysis, protocol security evaluation, and exploit construction — none of which is hinted at in the instructions."""
+solution_explanation = """Build all three C/GMP implementations and test against RFC 8439 vectors. Alpha passes all vectors; beta and gamma produce incorrect output, revealing non-standard behavior. Inspect the C source to understand each deviation: beta uses big-endian block encoding (mpz_import order=1 vs -1), gamma omits the sentinel bit. Analyze server_traffic.json to match authenticators — beta's encoding produces consistent results. Independently discover that two traffic entries share the same nonce, enabling algebraic key recovery: tag difference under shared s yields c1*r - c2*r mod P, from which r is recovered via modular inverse. With r and s known, forge an authenticator for the target message using beta's big-endian encoding."""
+verification_explanation = """Tests verify: (1) audit_report.json identifies 'beta' as the server implementation with substantive deviation and vulnerability descriptions; (2) forged_tag.hex is exactly 32 lowercase hex characters matching the expected tag computed from the deterministic key material; (3) the forged tag is cross-validated through the compiled beta binary."""
+category = "security"
+tags = ["cryptography", "penetration-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-166ce6"

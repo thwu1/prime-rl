@@ -1,0 +1,55 @@
+AS 65100 - Routing Policy Document
+====================================
+Version: 2.1
+Approved: 2024-10-01
+
+1. INTERNAL ROUTING
+   All AS 65100 routers (R1, R2, R3) must run an interior gateway protocol
+   on all internal links and loopback interfaces to provide reachability
+   for loopback-based iBGP sessions. Use OSPF area 0.
+
+2. iBGP ARCHITECTURE
+   - R3 is the central iBGP distribution point for the AS
+   - R1 and R2 peer with R3 only (no direct R1↔R2 iBGP session)
+   - All iBGP sessions use loopback addresses with appropriate update-source
+   - R3 must be configured to relay routes between R1 and R2
+
+3. EXTERNAL PEERING
+   - R1 ↔ R4 (AS 65200, ISP-Alpha): peer via directly connected interfaces
+   - R2 ↔ R5 (AS 65300, ISP-Beta): peer via directly connected interfaces
+
+4. PREFIX ORIGINATION
+   R3 originates customer prefixes:
+     - 10.100.0.0/22 (aggregate)
+     - 10.100.0.0/24
+     - 10.100.1.0/24
+     - 10.100.2.0/24
+     - 10.100.3.0/24
+
+   ISP-originated prefixes (for reference):
+     - R4 (AS 65200): 203.0.113.0/24, 192.0.2.0/24
+     - R5 (AS 65300): 198.51.100.0/24, 192.0.2.0/24
+
+5. OUTBOUND TRAFFIC ENGINEERING
+   ISP-Alpha is the primary provider for dual-homed prefixes.
+   R1 must apply an inbound policy on routes received from R4 (AS 65200)
+   that sets a preference metric of 200. This preference must propagate
+   to all routers in the AS via iBGP, ensuring AS-wide path consistency
+   (not just local to the receiving router).
+
+6. INBOUND TRAFFIC ENGINEERING
+   R1's outbound policy toward R4 must make the AS-path for the aggregate
+   prefix (10.100.0.0/22) appear longer by padding it with 3 additional
+   repetitions of AS 65100. This influences ISP-Alpha's path selection
+   without requiring any configuration changes on their equipment.
+
+7. PREFIX ADVERTISEMENT PLAN
+   Each border router advertises only its designated subset:
+     - R1 → ISP-Alpha (R4): 10.100.0.0/22, 10.100.0.0/24, 10.100.1.0/24
+     - R2 → ISP-Beta (R5): 10.100.0.0/22, 10.100.2.0/24, 10.100.3.0/24
+   All other prefixes are implicitly denied.
+
+8. TRANSIT PREVENTION
+   AS 65100 must never re-advertise routes learned from one ISP to the
+   other ISP. Every permit entry in outbound eBGP policies must have an
+   explicit match clause - no catch-all permits allowed.

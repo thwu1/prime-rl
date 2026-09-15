@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 4 interacting bugs in a 700+ line marine carbonate system solver by systematically comparing against PyCO2SYS's internal APIs. Bugs span different subsystems (salt concentrations, fugacity, pressure corrections, unit conversions) and manifest under different oceanographic conditions (surface vs depth, with/without nutrients), requiring the solver to correlate error patterns across temperature/salinity/pressure/nutrient grids to isolate root causes. Additionally requires building a CSV batch-processing CLI tool and documenting findings in structured JSON. Demands expertise in aquatic acid-base chemistry, numerical methods, and systematic debugging of scientific code."""
+solution_explanation = """The four bugs are: (1) total_borate uses Uppström 1974 coefficient (0.000416) instead of Lee et al. 2010 (0.0004326), causing ~4% borate error; (2) fugacity_factor computes delta using Celsius instead of Kelvin, causing ~0.26% error in pCO2/fCO2; (3) pcx_KB pressure correction uses K2's molar volume coefficients instead of KB's, causing ~9% KB error at 2000 dbar; (4) ksi_YM95 is missing the (1-0.001005*S) conversion from mol/kg-H2O to mol/kg-SW, causing ~3.5% KSi error affecting nutrient calculations. Diagnosis requires installing PyCO2SYS, extracting its internal equilibrium constants via pyco2.sys() result keys, and comparing intermediate values to pinpoint which constants diverge under which conditions."""
+verification_explanation = """Tests install PyCO2SYS v1.8.3.4 as a reference oracle and compare the solver's outputs across a grid of temperature (2-28°C), salinity (20-36), pressure (0-2000 dbar), and nutrient conditions. Golden value tests catch all four bugs through 0.01% relative tolerance and 1e-6 pH tolerance. Specialized test classes target pressure-dependent behavior (catches bug 3), fugacity accuracy (catches bug 2), and nutrient scenarios (catches bug 4). Round-robin self-consistency tests verify internal coherence across all 20 valid input pair combinations. Additional tests verify the diagnosis.json structure and the co2batch.py CLI tool's CSV processing."""
+category = "chemistry"
+tags = ["marine-chemistry", "scientific-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/carbonate-roundrobin-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level hardware verification skills: deep understanding of APB-Lite bus protocol timing, timer peripheral architecture (prescalers, capture units, interrupt controllers), and mutation-driven verification methodology. The solver must read a non-trivial spec, evaluate which functional scenarios are critical for fault coverage, architect a testbench with correct APB transaction sequencing and synchronizer-aware timing, and create 16+ targeted test scenarios that collectively kill 8 distinct mutant classes — prescaler off-by-one, auto-reload target error, W1C logic inversion, read-mux cross-wiring, capture edge polarity swap, channel-specific event suppression, overflow non-wrap, and IRQ mask bypass. Each mutant requires a different verification strategy. Inspired by the FIXME benchmark where state-of-the-art LLMs achieve only ~40% functional pass rate on hardware verification tasks."""
+solution_explanation = """Write a comprehensive Verilog testbench (~300 lines) with APB read/write helper tasks, 16 individual checks organized into 9 test groups: register isolation (write distinct values to CH0/CH1, read back through address-specific mux), prescaler accuracy at div=1 and div=4 (count ticks and verify rate), compare-match flag generation, auto-reload-to-zero verification, counter hold without auto-reload, interrupt W1C with selective bit clearing, input capture on rising and falling edges through 2-stage synchronizer, CH1-specific match event verification, IRQ enable/disable masking, counter overflow wrap-around, and CH1 auto-reload. Each test must use correct APB timing (3-cycle transactions) and account for registered prescaler tick latency and synchronizer propagation delay."""
+verification_explanation = """Pytest compiles the solver's testbench against the golden RTL using Icarus Verilog and verifies: compilation succeeds, output contains ALL TESTS PASSED with zero [FAIL] lines, and at least 15 [PASS] lines appear. Then each of 8 mutant RTL files is compiled with the same testbench — each must produce at least one [FAIL] line (mutant killed). Additional checks verify the testbench instantiates timer_apb and that the golden RTL is unmodified."""
+category = "hardware_verification"
+tags = ["verilog", "mutation-testing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debug-timer-rtl"

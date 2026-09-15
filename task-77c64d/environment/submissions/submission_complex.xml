@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <!-- ERROR: OrganizationIdentifier exceeds 35 chars -> LEN-001 -->
+      <OrganizationIdentifier>THIS-ORG-IDENTIFIER-EXCEEDS-MAX-LENGTH</OrganizationIdentifier>
+      <OrganizationFormalName>Complex Error Testing Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-CX</ProjectIdentifier>
+      <ProjectName>Complex Validation Project</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-CX</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Complex Test Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>40.789012</LatitudeMeasure>
+        <LongitudeMeasure>-74.345678</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NJ</StateCode>
+        <CountyCode>017</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <!-- Activity 1: LEN-002 + BR-004 + BR-005 -->
+    <Activity>
+      <ActivityDescription>
+        <!-- ERROR: ActivityIdentifier exceeds 55 chars -> LEN-002 -->
+        <ActivityIdentifier>ACT-COMPLEX-WITH-A-VERY-LONG-IDENTIFIER-THAT-EXCEEDS-55-X</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-08-15</ActivityStartDate>
+        <ProjectIdentifier>PROJ-CX</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-CX</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <!-- ERROR: StatisticalBaseCode present without StatisticalNValueNumeric -> BR-004 -->
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Nitrogen</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>2.45</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+          <StatisticalBaseCode>Mean</StatisticalBaseCode>
+        </ResultDescription>
+      </Result>
+      <!-- ERROR: BiologicalIntentName "Group Summary" without GroupSummaryCount -> BR-005 -->
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Benthic Macroinvertebrates</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>145</ResultMeasureValue>
+            <MeasureUnitCode>count</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <BiologicalResultDescription>
+          <BiologicalIntentName>Group Summary</BiologicalIntentName>
+          <SubjectTaxonomicName>Ephemeroptera</SubjectTaxonomicName>
+        </BiologicalResultDescription>
+      </Result>
+    </Activity>
+    <!-- Activity 2: DOM-001 + REF-001 + 2x BR-003 -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-TISSUE-001</ActivityIdentifier>
+        <!-- ERROR: Invalid ActivityTypeCode -> DOM-001 -->
+        <ActivityTypeCode>Tissue Sampling Activity</ActivityTypeCode>
+        <!-- Tissue is valid media, but triggers BR-003 checks on results -->
+        <ActivityMediaName>Tissue</ActivityMediaName>
+        <ActivityStartDate>2024-08-20</ActivityStartDate>
+        <ProjectIdentifier>PROJ-CX</ProjectIdentifier>
+        <!-- ERROR: Non-existent MonitoringLocation -> REF-001 -->
+        <MonitoringLocationIdentifier>GHOST-LOC</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <!-- ERROR: Tissue media requires SampleTissueAnatomyName and SubjectTaxonomicName -> 2x BR-003 -->
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Selenium</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>3.7</ResultMeasureValue>
+            <MeasureUnitCode>ug/g</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <BiologicalResultDescription>
+          <BiologicalIntentName>Population Census</BiologicalIntentName>
+        </BiologicalResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

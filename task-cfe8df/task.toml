@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of quantum error correction: CSS code construction from cyclic shift matrices, GF(2) linear algebra (kernel and rank computation), and minimum distance calculation via exhaustive enumeration of non-trivial logical operators in the code's kernel modulo stabilizer space. The minimum distance computation is the core challenge — it requires understanding the quotient space ker(HX)/rowspace(HZ) and efficiently searching over exponentially many candidate vectors. Domain expertise at the graduate/PhD level in quantum information science is needed to even formulate the correct approach."""
+solution_explanation = """Build parity check matrices HX=[A|B] and HZ=[B^T|A^T] from polynomial specifications using Kronecker products of cyclic shift and identity matrices. Compute GF(2) rank via row reduction modulo 2 to get k. For distance: find a basis for ker(HX) over GF(2), enumerate all non-zero vectors in this kernel, check each against rowspace(HZ), and record the minimum weight of vectors not in the stabilizer space. Repeat symmetrically for Z-type. The overall distance is the minimum of d_X and d_Z. Finally compare kd^2/n across all codes."""
+verification_explanation = """Tests parse the output results.json, verify each code's [[n,k,d]] parameters match ground truth computed independently, check that kd2_over_n is computed correctly to 4 decimal places, and verify the best_code field identifies the code with highest figure of merit."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "linear-algebra-gf2"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cfe8df"

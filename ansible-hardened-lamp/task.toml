@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Ansible knowledge combined with software design skills. The solver must: (1) debug 8 interconnected defects across Python, Jinja2, and YAML layers — including Ansible's 22-level variable precedence hierarchy, gather_facts interaction with conditional includes, Python bit-manipulation for CIDR computation, iptables chain ordering in Jinja2 templates, handler name resolution, OS-specific module selection, host_vars/group_vars precedence shadowing, and hardcoded template values overriding variables; (2) design and create a custom Ansible module from scratch — requiring knowledge of the AnsibleModule API (argument_spec, exit_json/fail_json), the role library/ directory convention for module discovery, config file parsing with regex, and structured JSON report generation. The creation element demands synthesis: the solver must evaluate the validate.yml task parameters, infer the required module interface, design validation logic for four distinct security domains, and produce a working Ansible module that integrates with the existing variable-driven architecture. Defects are interconnected — fixing gather_facts reveals the yum-vs-apt bug, host_vars silently override group_vars firewall ports, and the variable precedence fix determines what expected values the custom module receives."""
+solution_explanation = """Fix 8 interconnected bugs then create a custom module: (1) Filter plugin byte-order — change (8*i) to (8*(3-i)); (2) iptables template REJECT-before-ACCEPT — restructure template so ACCEPT rules precede REJECT; (3) handler name mismatch — rename 'Restart Apache2 Service' to 'restart apache'; (4) variable precedence — remove ssh_port from vars/main.yml so group_vars value 2849 takes effect; (5) wrong package module — change yum to apt; (6) sshd_config hardcoded values — replace 'yes' with Jinja2 variable interpolation; (7) host_vars override — delete host_vars/localhost.yml; (8) gather_facts:false — change to true. Then create roles/hardened_lamp/library/security_baseline_check.py: a custom Ansible module using AnsibleModule with argument_spec matching validate.yml parameters, implementing config file parsing and validation for SSH/firewall/Apache/fail2ban domains, generating a JSON compliance report at /var/log/security_compliance.json with overall_compliant, domains, total_checks, passed_checks fields."""
+verification_explanation = """Tests verify both system state and created artifacts: SSH config contains Port 2849, PermitRootLogin no, PasswordAuthentication no, MaxAuthTries 3, ClientAliveInterval 300; firewall script has correct ACCEPT-before-REJECT ordering, correct RFC1918 networks, and allows ports 2849/80/443; Apache vhost has correct ServerName/ServerAlias and security headers; fail2ban monitors port 2849 with maxretry 3 and bantime 3600; the cidr_to_network filter produces correct network addresses; packages are installed. Additionally: the custom module file exists at library/security_baseline_check.py, is valid Python, uses AnsibleModule and argument_spec, and has a main() function; the compliance report at /var/log/security_compliance.json is valid JSON with overall_compliant=true, contains all four domains each marked compliant with structured checks, and has total_checks >= 10 with total_checks == passed_checks."""
+category = "infrastructure"
+tags = ["ansible", "security-hardening"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ansible-hardened-lamp"

@@ -1,0 +1,59 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires implementing three interlocking subsystems: (1) a block-pool memory
+manager for variable-length records, (2) an open-addressing collision strategy
+that maintains O(log n) worst-case probe depth through insertions and tombstone-
+free deletions, and (3) amortized incremental resize with dual-table consistency.
+The agent must also control ELF dynamic symbol visibility using gcc linker
+tooling (visibility attributes and/or compiler flags) and verify the result with
+nm, and ensure the implementation is leak-free under valgrind. The interaction
+between deletion during active resize, PSL maintenance, and block-pool packing
+is particularly subtle. This demands expert-level C systems programming plus
+proficiency with gcc visibility/linker tooling and memory debugging tools.
+"""
+solution_explanation = """
+The solution uses robin-hood hashing with PSL-based displacement during
+insertion and backward-shift deletion to avoid tombstones. FNV-1a provides
+the hash function. Variable-length records are packed as [klen:4][vlen:4]
+[key][val] into fixed-size blocks. Resize doubles the slot array and migrates
+entries in batches of 16 per operation. Public functions are annotated with
+__attribute__((visibility("default"))) and the library is compiled with
+-fvisibility=hidden to restrict the dynamic symbol table to bht_* symbols.
+The implementation is ~260 lines of careful C with zero memory leaks.
+"""
+verification_explanation = """
+Tests use Python ctypes to load the compiled library and exercise the API:
+CRUD operations, variable-length handling, O(log n) PSL bounds, block pool
+introspection, incremental resize detection, 50K-entry correctness, and
+delete/reinsert cycles. Additional tests verify ELF symbol visibility via
+nm -D --defined-only (only bht_* text symbols exported) and memory safety
+via valgrind --leak-check=full on a standalone C test program linked against
+the implementation source. All tests are deterministic.
+"""
+category = "systems_programming"
+tags = ["hash-tables", "low-latency"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2842bb"

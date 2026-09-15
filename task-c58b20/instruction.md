@@ -1,0 +1,3 @@
+The 3D structured grid halo exchange simulator at `/app/simulator.py` produces incorrect results for the scenario configurations in `/app/configs/`. Binary reference traces from a validated implementation are in `/app/traces/`. Source for a trace inspection tool is at `/app/tools/trace_reader.c` (pre-compiled at `/app/tools/trace_reader`).
+
+Diagnose and fix all defects in the simulator. Generate correct results at `/app/output/<scenario_name>.json` for each of the three scenarios.

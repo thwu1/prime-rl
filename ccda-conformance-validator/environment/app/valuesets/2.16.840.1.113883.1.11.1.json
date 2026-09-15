@@ -1,0 +1,10 @@
+{
+  "oid": "2.16.840.1.113883.1.11.1",
+  "name": "AdministrativeGender",
+  "codeSystem": "2.16.840.1.113883.5.1",
+  "codes": [
+    {"code": "F", "displayName": "Female"},
+    {"code": "M", "displayName": "Male"},
+    {"code": "UN", "displayName": "Undifferentiated"}
+  ]
+}

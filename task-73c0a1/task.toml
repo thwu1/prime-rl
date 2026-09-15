@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level embedded systems knowledge: decoding a sigrok logic analyzer capture of I2C bus traffic using sigrok-cli protocol decoders, identifying peripheral devices from 7-bit I2C addresses, locating and interpreting manufacturer datasheets for multi-register calibration parameter extraction (including non-trivial packed bit-field layouts), implementing vendor-specific sensor compensation algorithms with multiple interdependent coefficients, distinguishing normal I2C protocol behavior (master NACK ending reads) from genuine bus anomalies (address NACKs for missing devices, data NACKs on rejected writes), and producing a structured diagnostic report that ties together protocol-level and application-level analysis."""
+solution_explanation = """The solution uses sigrok-cli to decode I2C protocol from the raw logic capture, parses the decoded annotations to reconstruct transactions, identifies two responding devices (BME280 at 0x76 and MPU6050 at 0x69) and one absent device (0x50), extracts register data by correlating write-then-read transaction pairs, decodes BME280 calibration from two non-contiguous register blocks including 12-bit composite humidity coefficients, applies the full Bosch reference compensation for temperature/pressure/humidity, determines MPU6050 full-scale range from config registers and applies sensitivity scaling, detects address-level and data-level NACKs as protocol anomalies, and writes a structured JSON report."""
+verification_explanation = """Tests independently compute expected BME280 compensated values using the reference Bosch algorithm with known calibration constants, verify MPU6050 scaled values against known sensitivity divisors, check exact calibration parameter extraction (especially the 12-bit composite H4/H5), verify anomaly detection counts and types, and validate transaction summary counts and device discovery results."""
+category = "systems_programming"
+tags = ["i2c-protocol", "embedded-sensors"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-73c0a1"

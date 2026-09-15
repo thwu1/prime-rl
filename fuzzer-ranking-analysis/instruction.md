@@ -1,0 +1,5 @@
+A FuzzBench-style fuzzing experiment has completed. Raw edge-coverage data is stored in a SQLite database at `/app/experiment/fuzzbench.db`. A multi-tool analysis pipeline at `/app/pipeline/` produces a statistical comparison report at `/app/results.json`.
+
+The pipeline chains four tools via the orchestrator `/app/pipeline/run_analysis.sh`: `sqlite3` queries (`extract_data.sql`) extract coverage data, an R script (`statistical_tests.R`) performs Friedman and Nemenyi statistical tests, a Python script (`compute_metrics.py`) computes effect sizes and normalized scores, and a `jq` filter (`merge_results.jq`) assembles the final JSON output.
+
+The pipeline executes without runtime errors but an independent review has flagged the output as incorrect — values across multiple fields are wrong, with bugs distributed across different tools in the pipeline. Audit the entire toolchain against the experiment data and the output schema at `/app/pipeline/schema.json`, identify all errors, and produce a corrected `/app/results.json`.

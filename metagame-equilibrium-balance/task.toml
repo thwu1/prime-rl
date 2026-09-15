@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level game theory (Nash Equilibrium via the Minimax Theorem, LP formulation of zero-sum games), statistical simulation design, and optimization for game balance. The agent must read and understand a non-trivial game engine, systematically run hundreds of pairwise simulations, formulate and solve a linear program for the mixed-strategy equilibrium, then creatively adjust matchup parameters to improve meta-game entropy — a multi-step workflow crossing code comprehension, mathematical reasoning, and domain-specific optimization."""
+solution_explanation = """The solution imports the game engine directly for efficiency. It runs 2000 games per matchup across all 30 ordered pairwise strategy combinations to compute the 6×6 win-rate matrix. It formulates the Nash Equilibrium as a linear program (maximize the minimum expected payoff subject to probability simplex constraints) and solves it with scipy's HiGHS solver. For balance optimization, it performs a grid search over symmetric matchup multiplier values — equalizing all advantage and all disadvantage multipliers — evaluating each candidate configuration by its Nash Equilibrium entropy, and selects the one maximizing balance."""
+verification_explanation = """Tests independently simulate 2000 games per matchup with different seeds to compute ground-truth win rates, comparing against the agent's matrix within ±0.07 tolerance. Nash Equilibrium correctness is verified by (1) computing Nash from the agent's own submitted payoff matrix and comparing reported probabilities (tolerance ±0.10), (2) checking the no-profitable-deviation condition on the agent's matrix (regret < 0.05), and (3) verifying that the agent's Nash has low regret (< 0.10) against the independently simulated ground-truth matrix. Balance improvement is verified by computing Nash Equilibrium entropy for both original and modified configs using independent simulations, asserting strict entropy increase."""
+category = "game_theory"
+tags = ["nash_equilibrium", "balance_optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/metagame-equilibrium-balance"

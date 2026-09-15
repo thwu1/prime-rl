@@ -1,0 +1,3 @@
+A quantitative portfolio analysis project is set up at `/app/`. Historical multi-asset price data is stored in a SQLite database at `/app/data/markets.db`, and project requirements are defined in `/app/config.toml`.
+
+Explore the database schema and data using the `sqlite3` command-line tool, then implement the portfolio allocation strategies described in the configuration. Run a rolling out-of-sample backtest for each strategy and write all results to `/app/results.json` conforming to the output schema specified in the config.

@@ -1,0 +1,1 @@
+// virtio-hal placeholder

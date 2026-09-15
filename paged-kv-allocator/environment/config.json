@@ -1,0 +1,8 @@
+{
+  "num_layers": 4,
+  "num_kv_heads": 4,
+  "head_dim": 64,
+  "dtype_bytes": 2,
+  "block_size": 4,
+  "num_gpu_blocks": 50
+}

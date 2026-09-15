@@ -1,0 +1,77 @@
+VDI 2230 Torque-Tension Analysis
+=================================
+
+
+1. Overview
+-----------
+When a bolt is tightened to a specified torque T (Nm), the resulting axial
+preload F (N) depends on the geometric and frictional properties of the
+threaded connection. The VDI 2230 methodology uses the "long-form"
+torque-tension equation that separates the three torque-absorbing components:
+
+  T = F * [ p/(2*pi) + mu_t * d2/(2*cos(alpha)) + mu_b * D_km/2 ]
+
+where:
+  p       = thread pitch (mm), from thread geometry tables
+  d2      = pitch diameter (mm), from thread geometry tables
+  alpha   = thread flank half-angle; for ISO metric threads alpha = 30 deg
+  mu_t    = coefficient of friction in the thread contact zone
+  mu_b    = coefficient of friction at the bearing surface (under the head
+            or nut)
+  D_km    = mean bearing diameter (mm)
+
+Note: all length dimensions in the bracket are in millimetres. Since T is
+in Nm, conversion requires multiplying the bracket by 1e-3 (mm to m):
+
+  T = F * factor_mm * 1e-3
+
+  => F = T / (factor_mm * 1e-3)
+
+2. Mean Bearing Diameter
+------------------------
+The mean bearing diameter D_km is the arithmetic average of the clearance
+hole diameter and the bearing contact outer diameter:
+
+  D_km = (d_hole + d_bearing) / 2
+
+Standard values:
+  d_hole    = d + 1 mm    (standard metric clearance hole, medium fit)
+  d_bearing = 1.5 * d     (standard hex head/nut bearing diameter)
+
+where d is the nominal bolt diameter in mm.
+
+3. Friction Scatter and Preload Range
+-------------------------------------
+In practice, friction coefficients are never precisely known. They vary
+due to surface finish, lubrication, plating, contamination, and tightening
+speed. The VDI 2230 approach evaluates the torque-tension equation at both
+extremes of the friction range:
+
+  - Maximum preload (F_max): occurs at MINIMUM friction coefficients
+    (both mu_t_min and mu_b_min), because less torque is absorbed by
+    friction, so more goes into stretching the bolt.
+
+  - Minimum preload (F_min): occurs at MAXIMUM friction coefficients
+    (both mu_t_max and mu_b_max), because more torque is absorbed by
+    friction, leaving less for bolt stretch.
+
+The ratio F_max/F_min is the "tightening factor" or "scatter factor",
+typically ranging from 1.4 to 2.5 depending on the tightening method
+and friction control.
+
+4. Practical Friction Ranges
+----------------------------
+Typical thread and bearing friction coefficient ranges for steel fasteners:
+
+  Condition                    mu_t          mu_b
+  --------------------------------------------------
+  Dry/as-received              0.12-0.18     0.12-0.18
+  Oiled                        0.10-0.16     0.10-0.16
+  MoS2 paste                   0.06-0.10     0.06-0.10
+  Cadmium plated               0.08-0.12     0.08-0.14
+  Zinc flake coated            0.09-0.14     0.10-0.16
+  PTFE-coated                  0.04-0.08     0.04-0.08
+
+Note: thread and bearing friction may differ significantly. It is common
+for bearing friction to be different from thread friction due to different
+surface conditions and contact pressures.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level incident response and forensic analysis: the solver must not only reconstruct a 4-hop SSH pivot chain from heterogeneous artifacts (auth logs, process listings, netstat, ifconfig, bash history, traffic captures) and crack multiple hash formats ($1$, $5$, $6$), but must also detect attacker anti-forensics — planted auth log entries with temporal impossibilities, fabricated shadow accounts, injected bash history commands referencing phantom hosts, and spoofed traffic records. Distinguishing genuine evidence from disinformation requires holistic cross-referencing across all artifact types and hosts to identify inconsistencies (IPs with no matching interface, timestamps predating the breach, auth entries contradicted by netstat/process data). The solver must then evaluate the organization's documented firewall policies and host security baselines against observed evidence to identify specific security control failures. This combination of forensic analysis, anti-forensics detection, credential triage, and security architecture evaluation goes well beyond procedural analysis."""
+solution_explanation = """1) Collect and crack all shadow hashes using openssl passwd verification against the wordlist (5 accounts: 4 genuine + 1 planted dev_ops). 2) Cross-reference all evidence to detect fabrications: the auth.log entry for dev_ops from 172.16.5.50 predates the breach and has no matching netstat/process entry; the JUMPBOX shadow contains a planted dev_ops account; WEBSVR01 bash_history contains planted ssh/scp commands to phantom IP 172.16.5.50; traffic_summary contains fabricated entries from 172.16.5.50 with pre-breach timestamps. 3) Classify credentials: genuine (webadmin, svc_monitor, backup_svc, adm_file — each corroborated by auth logs, process listings, and network connections) vs. planted (dev_ops — only appears in fabricated evidence). 4) Reconstruct the true 4-hop path: EXTERNAL->WEBSVR01 (direct_ssh), WEBSVR01->JUMPBOX (ssh_dynamic_socks via -D), JUMPBOX->FILESVR01 (ssh_local_forward via -L), FILESVR01->DC01 (ssh_local_forward via -L). 5) Identify dual-homed hosts from ifconfig. 6) Determine exfiltration from DC01 bash history (sam.ldb/NTDS). 7) Evaluate policy violations: shadow file 644 permissions on WEBSVR01, FILESVR01 (non-admin file server) having SSH access to Restricted zone DC01 violating Rule 4, and data exfiltration from Restricted zone violating Rule 5."""
+verification_explanation = """Tests parse report.json and verify: correct 4-hop true attack path with hosts/IPs/usernames/passwords/tunnel types; detection of fabricated evidence (must identify items involving phantom IP 172.16.5.50 or planted dev_ops account across multiple artifact types); all 5 credentials cracked including planted dev_ops; correct classification of genuine vs. planted credentials; correct dual-homed host identification; correct exfiltration source; and identification of at least 2 of 3 key policy violations (shadow permissions, server-to-restricted access, restricted zone exfiltration)."""
+category = "security_and_privacy"
+tags = ["incident_response", "anti_forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pivot-chain-forensics"

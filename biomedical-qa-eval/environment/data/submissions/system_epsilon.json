@@ -1,0 +1,70 @@
+{
+  "system_name": "epsilon",
+  "questions": [
+    {
+      "id": "BQ001",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000054", "http://www.ncbi.nlm.nih.gov/pubmed/28355001"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ002",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000055", "http://www.ncbi.nlm.nih.gov/pubmed/30203690"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ003",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/31200301", "http://www.ncbi.nlm.nih.gov/pubmed/33000503"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/35000705"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ005",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/36000806"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ006",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000056", "http://www.ncbi.nlm.nih.gov/pubmed/38001008"],
+      "exact_answer": ["TP53"]
+    },
+    {
+      "id": "BQ007",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/41001311"],
+      "exact_answer": []
+    },
+    {
+      "id": "BQ008",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000057", "http://www.ncbi.nlm.nih.gov/pubmed/88000058", "http://www.ncbi.nlm.nih.gov/pubmed/43001513"],
+      "exact_answer": []
+    },
+    {
+      "id": "BQ009",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/44001614"],
+      "exact_answer": ["CRISPR"]
+    },
+    {
+      "id": "BQ010",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/46001816", "http://www.ncbi.nlm.nih.gov/pubmed/88000059"],
+      "exact_answer": ["ibuprofen", "naproxen"]
+    },
+    {
+      "id": "BQ011",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000060", "http://www.ncbi.nlm.nih.gov/pubmed/48002018", "http://www.ncbi.nlm.nih.gov/pubmed/49002119", "http://www.ncbi.nlm.nih.gov/pubmed/88000061", "http://www.ncbi.nlm.nih.gov/pubmed/50002220"],
+      "exact_answer": ["EGFR", "ROS1"]
+    },
+    {
+      "id": "BQ012",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/62003430"],
+      "exact_answer": ["adenine", "thymine", "guanine", "cytosine"]
+    },
+    {
+      "id": "BQ013",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000062", "http://www.ncbi.nlm.nih.gov/pubmed/88000063"],
+      "exact_answer": ["TNF-alpha"]
+    }
+  ]
+}

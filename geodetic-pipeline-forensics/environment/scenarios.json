@@ -1,0 +1,110 @@
+{
+  "accuracy_tiers": {
+    "survey": {"max_rmse_m": 0.03, "label": "Survey-grade"},
+    "mapping": {"max_rmse_m": 1.0, "label": "Mapping"},
+    "navigation": {"max_rmse_m": 10.0, "label": "Navigation"}
+  },
+  "evaluation_scenarios": {
+    "oblique_stereo": {
+      "description": "Geographic (lon/lat on Bessel 1841 ellipsoid) to Oblique Stereographic projected coordinates for the Netherlands national grid system",
+      "reference_definition": {
+        "method": "Oblique Stereographic",
+        "epsg_method_code": 9809,
+        "parameters": {
+          "Latitude of natural origin": 52.15616055556,
+          "Longitude of natural origin": 5.38763888889,
+          "Scale factor at natural origin": 0.9999079,
+          "False easting": 155000,
+          "False northing": 463000
+        },
+        "ellipsoid": {
+          "name": "Bessel 1841",
+          "semi_major_axis_m": 6377397.155,
+          "inverse_flattening": 299.1528128
+        }
+      },
+      "candidates": {
+        "alpha": "+proj=sterea +lat_0=52.15616055556 +lon_0=5.38763888889 +k_0=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +units=m",
+        "beta": "+proj=sterea +lat_0=52.15616055556 +lon_0=5.38763888889 +k_0=0.9999 +x_0=155000 +y_0=463000 +ellps=bessel +units=m",
+        "gamma": "+proj=sterea +lat_0=52.0922178 +lon_0=5.23155 +k_0=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +units=m"
+      },
+      "input_points": [
+        [5.0, 58.0, 0.0],
+        [5.0, 53.0, 0.0],
+        [5.38763888889, 52.1561605556, 0.0],
+        [3.31372805556, 47.9752611111, 0.0],
+        [4.0, 51.0, 0.0],
+        [6.0, 53.0, 0.0],
+        [8.0, 53.0, 0.0],
+        [10.0, 53.0, 0.0],
+        [5.0, 55.0, 0.0],
+        [5.0, 54.0, 0.0]
+      ]
+    },
+    "laea_europe": {
+      "description": "Geographic (lon/lat on GRS80 ellipsoid) to Lambert Azimuthal Equal Area for the INSPIRE/ETRS89-LAEA European system",
+      "reference_definition": {
+        "method": "Lambert Azimuthal Equal Area",
+        "epsg_method_code": 9820,
+        "parameters": {
+          "Latitude of natural origin": 52,
+          "Longitude of natural origin": 10,
+          "False easting": 4321000,
+          "False northing": 3210000
+        },
+        "ellipsoid": {
+          "name": "GRS 1980",
+          "semi_major_axis_m": 6378137,
+          "inverse_flattening": 298.257222101
+        }
+      },
+      "candidates": {
+        "alpha": "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m",
+        "beta": "+proj=laea +lat_0=50 +lon_0=9 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m",
+        "gamma": "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=intl +units=m"
+      },
+      "input_points": [
+        [10.0, 52.0, 0.0],
+        [5.0, 50.0, 0.0],
+        [5.0, 60.0, 0.0],
+        [0.0, 50.0, 0.0],
+        [5.0, 70.0, 0.0],
+        [3.0, 50.0, 0.0],
+        [8.0, 50.0, 0.0],
+        [10.0, 50.0, 0.0],
+        [5.0, 40.0, 0.0],
+        [5.0, 30.0, 0.0]
+      ]
+    },
+    "geocentric": {
+      "description": "Geographic (lon/lat/height on WGS84 ellipsoid) to geocentric Cartesian (X/Y/Z) conversion per IOGP/EPSG method 9602",
+      "reference_definition": {
+        "method": "Geographic/geocentric conversions",
+        "epsg_method_code": 9602,
+        "parameters": {},
+        "ellipsoid": {
+          "name": "WGS 84",
+          "semi_major_axis_m": 6378137,
+          "inverse_flattening": 298.257223563
+        }
+      },
+      "candidates": {
+        "alpha": "+proj=cart +ellps=WGS84",
+        "beta": "+proj=cart +ellps=intl",
+        "gamma": "+proj=cart +ellps=bessel"
+      },
+      "input_points": [
+        [0.0, 0.0, 0.0],
+        [60.0, 30.0, 0.0],
+        [150.0, 80.0, 0.0],
+        [-135.0, 50.0, 0.0],
+        [-60.0, -30.0, 0.0],
+        [135.0, -50.0, 0.0]
+      ]
+    }
+  },
+  "design_scenario": {
+    "description": "An unidentified equal-area map projection used by a partner agency for southern-hemisphere coverage. Geographic input coordinates use the GRS80 ellipsoid. No EPSG code, projection name, or pipeline parameters are provided. Determine the projection type and all parameters from the surveyed control observations alone, then construct a working PROJ pipeline string.",
+    "data_file": "/app/survey_observations.csv"
+  }
+}

@@ -1,0 +1,6 @@
+[measurement]
+total_shot_budget = 50000
+
+[extrapolation]
+min_points = 2
+max_points = 4

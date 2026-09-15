@@ -1,0 +1,122 @@
+[
+  {
+    "id": "evt_001",
+    "tree": "mainline",
+    "branch": "master",
+    "commit": "a1b2c3d4e5f6",
+    "device_type": "qemu-arm64",
+    "requested_priority": 50
+  },
+  {
+    "id": "evt_002",
+    "tree": "next",
+    "branch": "next-20250601",
+    "commit": "f6e5d4c3b2a1",
+    "device_type": "rk3399-gru-kevin",
+    "requested_priority": 45
+  },
+  {
+    "id": "evt_003",
+    "tree": "stable",
+    "branch": "linux-6.12.y",
+    "commit": "1a2b3c4d5e6f",
+    "device_type": "x86-64-pc",
+    "requested_priority": 55
+  },
+  {
+    "id": "evt_004",
+    "tree": "android-common",
+    "branch": "android-mainline",
+    "commit": "abcdef123456",
+    "device_type": "db410c",
+    "requested_priority": 30
+  },
+  {
+    "id": "evt_005",
+    "tree": "riscv-soc",
+    "branch": "for-next",
+    "commit": "112233445566",
+    "device_type": "sifive-hifive-unmatched",
+    "requested_priority": 50
+  },
+  {
+    "id": "evt_006",
+    "tree": "mainline",
+    "branch": "master",
+    "commit": "aabbccddee01",
+    "device_type": "unknown-prototype-board",
+    "requested_priority": 50
+  },
+  {
+    "id": "evt_007",
+    "tree": "stable-rc-6.12",
+    "branch": "linux-6.12.y",
+    "commit": "deadbeef1234",
+    "device_type": "qemu-arm64",
+    "requested_priority": 40
+  },
+  {
+    "id": "evt_008",
+    "tree": "stable-5.10",
+    "branch": "linux-5.10.y",
+    "commit": "cafebabe5678",
+    "device_type": "bcm2711-rpi-4-b",
+    "requested_priority": 10
+  },
+  {
+    "id": "evt_009",
+    "tree": "stable",
+    "branch": "linux-6.1.y-cip",
+    "commit": "c1c2c3c4c5c6",
+    "device_type": "renesas-rzg2l",
+    "requested_priority": 40
+  },
+  {
+    "id": "evt_010",
+    "tree": "chrome-platform",
+    "branch": "for-next",
+    "commit": "d1d2d3d4d5d6",
+    "device_type": "x86-64-pc",
+    "requested_priority": 60
+  },
+  {
+    "id": "evt_011",
+    "tree": "mainline",
+    "branch": "master",
+    "commit": "e1e2e3e4e5e6",
+    "device_type": "qemu-riscv64",
+    "requested_priority": 35
+  },
+  {
+    "id": "evt_012",
+    "tree": "arm-soc",
+    "branch": "for-next",
+    "commit": "f1f2f3f4f5f6",
+    "device_type": "meson-g12b-a311d-khadas-vim3",
+    "requested_priority": 30
+  },
+  {
+    "id": "evt_013",
+    "tree": "next",
+    "branch": "next-20250602",
+    "commit": "a1a2a3a4a5a6",
+    "device_type": "rk3399-gru-kevin",
+    "requested_priority": 45
+  },
+  {
+    "id": "evt_014",
+    "tree": "stable-5.15",
+    "branch": "linux-5.15.y",
+    "commit": "b1b2b3b4b5b6",
+    "device_type": "sun50i-h6-pine-h64",
+    "requested_priority": 50
+  },
+  {
+    "id": "evt_015",
+    "tree": "mainline",
+    "branch": "master",
+    "commit": "c1c2c3c4c5c7",
+    "device_type": "qemu-x86_64",
+    "requested_priority": 99
+  }
+]

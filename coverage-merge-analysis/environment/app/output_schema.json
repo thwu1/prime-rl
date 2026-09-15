@@ -1,0 +1,69 @@
+{
+  "description": "Schema specification for /app/coverage_report.json output format",
+  "structure": {
+    "summary": {
+      "overall_coverage_pct": "float: root-level hierarchical weighted coverage percentage",
+      "total_goals": "int: total number of leaf goals in the verification plan",
+      "goals_met": "int: number of goals where achieved coverage >= goal threshold",
+      "goals_failed": "int: number of goals where achieved coverage < goal threshold"
+    },
+    "metrics": {
+      "_keying": "One entry per leaf node in the verification plan, keyed by the vplan leaf name",
+      "<vplan_leaf_name>": {
+        "coverage_pct": "float: coverage percentage (0-100)",
+        "goal_pct": "float: goal percentage from vplan",
+        "goal_met": "bool: true if coverage_pct >= goal_pct",
+        "covered_count": "int: number of covered items after exclusions",
+        "total_count": "int: total items after exclusions",
+        "uncovered_items": "list: identifiers of uncovered items (see identifier_formats)"
+      }
+    },
+    "covergroups": {
+      "_keying": "One entry per covergroup, keyed by covergroup name from the database",
+      "<covergroup_name>": {
+        "coverage_pct": "float: covergroup-level coverage percentage",
+        "components": {
+          "_keying": "One entry per coverpoint or cross within the covergroup",
+          "<component_name>": {
+            "coverage_pct": "float: component coverage percentage",
+            "covered_count": "int: number of covered bins",
+            "total_count": "int: total number of bins after exclusions"
+          }
+        }
+      }
+    },
+    "hierarchy": {
+      "_keying": "One entry per node in the vplan tree (root, intermediate, and leaf nodes)",
+      "<node_name>": {
+        "coverage_pct": "float: node coverage percentage",
+        "weight": "int: weight from vplan",
+        "children": "list of string: child node names (empty list for leaves)"
+      }
+    },
+    "failed_goals": {
+      "_type": "list of objects, one per failed goal",
+      "_element": {
+        "metric": "string: vplan leaf name of the failed goal",
+        "achieved_pct": "float: achieved coverage percentage",
+        "goal_pct": "float: required goal percentage from vplan",
+        "gap_pct": "float: goal_pct minus achieved_pct"
+      }
+    }
+  },
+  "identifier_formats": {
+    "line": "integer line numbers",
+    "branch": "string branch IDs as stored in the database",
+    "toggle": "<signal_name>[<bit_idx>]_<transition> where transition is 0to1 or 1to0",
+    "fsm_transition": "<source_state>-><destination_state>",
+    "cross_bin": "colon-separated component bin labels (e.g. BIN_A:BIN_B)"
+  },
+  "computation_rules": {
+    "run_filtering": "Only runs with status PASSED in the run_metadata table contribute to merged results.",
+    "code_coverage_merge": "A code coverage item (line, branch, or toggle) is considered covered if it was hit in any valid run.",
+    "functional_bin_coverage": "For functional coverage bins, hit counts are summed across all valid runs. A bin is covered when its total hit count meets or exceeds the coverpoint threshold.",
+    "cross_coverage_total": "The total number of bins for a cross is the full set of combinations of its component coverpoint bins, minus any excluded bins.",
+    "covergroup_coverage": "Arithmetic mean of all component (coverpoint and cross) coverage percentages within the covergroup.",
+    "exclusion_application": "Excluded items are removed from both total and covered counts. FSM state exclusions with cascade also remove all transitions involving the excluded state.",
+    "hierarchical_rollup": "Leaf nodes use the corresponding metric coverage percentage. Internal nodes use the weighted average of their children using the weights from the vplan."
+  }
+}

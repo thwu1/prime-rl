@@ -1,0 +1,47 @@
+# Per-class SLA targets
+# min_throughput_ratio: minimum fraction of offered_rate that must be served
+# max_latency_class: acceptable latency class
+#   low = requires AQM (fq_codel) for sub-5ms queueing
+#   medium = FIFO acceptable
+#   high = best effort, no latency target
+
+sla_requirements:
+  voip:
+    min_throughput_ratio: 0.99
+    max_latency_class: low
+  video_conferencing:
+    min_throughput_ratio: 0.95
+    max_latency_class: low
+  web_interactive:
+    min_throughput_ratio: 0.85
+    max_latency_class: low
+  email:
+    min_throughput_ratio: 0.70
+    max_latency_class: high
+  database_sync:
+    min_throughput_ratio: 0.90
+    max_latency_class: low
+  general:
+    min_throughput_ratio: 0.50
+    max_latency_class: high
+  scavenger:
+    min_throughput_ratio: 0.30
+    max_latency_class: high
+  rdma_latency_critical:
+    min_throughput_ratio: 0.98
+    max_latency_class: low
+  rdma_bulk:
+    min_throughput_ratio: 0.90
+    max_latency_class: medium
+  storage_sync:
+    min_throughput_ratio: 0.90
+    max_latency_class: low
+  storage_async:
+    min_throughput_ratio: 0.75
+    max_latency_class: medium
+  cluster_mgmt:
+    min_throughput_ratio: 0.95
+    max_latency_class: low
+  monitoring:
+    min_throughput_ratio: 0.80
+    max_latency_class: medium

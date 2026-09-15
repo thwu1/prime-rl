@@ -1,0 +1,13 @@
+{{- if .Values.debugUnrestricted.enabled }}
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "debug-unrestricted"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: {{ .Values.debugUnrestricted.selectorApp }}
+  enableDefaultDeny:
+    ingress: {{ .Values.debugUnrestricted.defaultDenyIngress }}
+    egress: {{ .Values.debugUnrestricted.defaultDenyEgress }}
+{{- end }}

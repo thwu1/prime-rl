@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Linux kernel KASAN internals: shadow memory byte encoding (0x00=accessible through 0x07=partial, 0xfa=freed, 0xfc=redzone), SLAB/SLUB allocator object layout, and multi-VM kernel APR verification semantics (Pass/Trigger/Racey/BootFail classification). The agent must parse crash report structure, decode shadow memory to reconstruct object boundaries and compute OOB distances, implement a voting classifier for non-deterministic VM outcomes, parse unified diffs to extract modified functions, and cross-reference patches against crash call stacks."""
+solution_explanation = """Build a Python pipeline that: (1) parses KASAN crash reports via regex to extract BUG type, access metadata, process info, SLAB cache details, call/alloc/free stacks, and shadow memory dumps; (2) decodes shadow bytes and walks shadow memory maps to reconstruct object boundaries, determining OOB distance or freed status; (3) classifies multi-VM patch outcomes using priority-based voting; (4) parses unified diffs to extract modified files/functions and computes plausibility scores based on code overlap with crash stacks; (5) stores results in SQLite and generates a sorted JSON triage report."""
+verification_explanation = """Tests query the SQLite database and parse the JSON report to verify: correct crash metadata extraction for three distinct bug types (slab-out-of-bounds, slab-use-after-free, null-ptr-deref); precise shadow memory analysis (object start, size, OOB distance for OOB; freed status for UAF; null for NPD); correct patch verdict classification; correct cross-referencing of patch-crash correlations; and properly structured/sorted triage report entries."""
+category = "cybersecurity"
+tags = ["kernel-debugging", "crash-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kasan-crash-forensics"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level proficiency spanning probabilistic inference, adaptive group testing theory, and multi-tool systems integration. The solver must (1) understand a custom TCP line protocol and build a client for a compiled binary oracle, (2) manage PostgreSQL — starting the service, creating a database, applying a schema, and performing transactional inserts — (3) derive an efficient adaptive query strategy by inverting the biased-normal noise model from first principles (no strategy hints are given), (4) implement BFS expansion exploiting polyomino connectivity structure, (5) generate gnuplot-scripted SVG heatmaps, and (6) cross-validate a JSON report against the database. The tight cost budget (< 1200 for 5 cases vs. 2000 naive) demands a theoretically grounded approach combining information-theoretic reasoning with spatial optimization."""
+solution_explanation = """The reference solver starts PostgreSQL and the oracle server, then uses a three-phase adaptive strategy per case: (1) repeated row-and-column divine scans via the TCP protocol to estimate marginal activity by inverting the noise-model mean formula, (2) threshold-based candidate drilling at row-column intersections, and (3) BFS expansion from confirmed active cells exploiting polyomino connectivity. All queries are logged to PostgreSQL. After solving all 5 cases (total cost ~930, under 1200), gnuplot scripts generate per-case SVG heatmaps from query density data, and the report is assembled from database queries."""
+verification_explanation = """Tests start PostgreSQL, then verify: (1) database exists with correct schema and all 5 sessions/queries/submissions logged, (2) submitted cell sets match ground truth computed by an independent Python reimplementation of the RNG and grid generation algorithm, (3) all submissions marked correct, (4) cumulative cost < 1200, (5) gnuplot SVG heatmaps exist with valid content for all 5 cases, (6) report.json has required structure and cross-validates against database totals."""
+category = "optimization"
+tags = ["probabilistic-inference", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/noisy-polyomino-localization"

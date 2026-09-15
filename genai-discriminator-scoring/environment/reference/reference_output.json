@@ -1,0 +1,23 @@
+{
+  "_comment": "Known-correct evaluation metrics. Your pipeline output must match these values within floating-point tolerance.",
+  "disc_reliable_set1": {
+    "eval_set": "set_alpha",
+    "team": "disc_reliable",
+    "n_predictions": 20,
+    "auc_roc": 0.95,
+    "brier_score": 0.107565,
+    "ece": 0.1565,
+    "mean_believability": 0.6945,
+    "max_believability": 0.9,
+    "mean_human_believability": 0.707,
+    "mean_ai_believability": 0.682,
+    "over_deception": false,
+    "composite_score": 0.90078
+  },
+  "_partial_disc_uncalibrated_set1": {
+    "_comment": "Partial verification reference for disc_uncalibrated_set1 — only key metrics provided for cross-validation.",
+    "auc_roc": 1.0,
+    "brier_score": 0.167115,
+    "over_deception": false
+  }
+}

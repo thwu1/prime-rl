@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a full MVCC transactional engine on top of SQLite with snapshot isolation, serializable conflict detection (write-skew via key hashing and phantom detection over scan ranges), watermark-based garbage collection, and compaction filters. The socket server demands concurrent Unix domain socket handling, a line-oriented protocol compatible with socat, and correct transaction lifecycle management across connections. Multi-tool interoperability is tested: sqlite3 CLI piped through jq, and socat-driven protocol interactions."""
+solution_explanation = """The store persists versioned key-value pairs in a SQLite table with composite (key, ts) primary key. Snapshot reads resolve the latest committed version at or before the transaction's read timestamp. A local workspace buffers writes until commit. Serializable validation compares read-set hashes and scan ranges against write sets of concurrently committed transactions, raising ConflictError on overlap. GC removes versions below the watermark, keeping only the latest per key. The socket server uses Python's socket module with a thread per connection, each maintaining a transaction context and parsing the line protocol."""
+verification_explanation = """36 pytest tests across 11 test classes verify: basic CRUD, snapshot isolation, local workspace semantics, range scans with version merging, SSI write-skew and phantom detection, no false conflicts, read-only transactions, non-serializable mode, watermark reference counting, GC with watermark constraints, tombstone GC, compaction filter removal, persistence across restarts, SQLite CLI inspection via sqlite3 and jq, socket protocol via socat, concurrent snapshot isolation via raw socket connections, and serializable write-skew detection via concurrent socket connections."""
+category = "data_management_systems"
+tags = ["mvcc", "socket-server"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mvcc-txn-engine"

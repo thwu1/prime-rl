@@ -1,0 +1,62 @@
+# Operational Contract: Predictive Maintenance Monitoring
+
+methods:
+  ks_test:
+    output: [ks_statistic, ks_pvalue]
+    drift: "pvalue < 0.05"
+  psi:
+    output: psi
+    n_bins: 10
+    range: combined
+    zero_fill: 1.0e-4
+    drift: "value > 0.25"
+  kde_overlap:
+    output: kde_overlap
+    eval_points: 1000
+    padding_stds: 3
+    drift: "value < 0.85"
+
+ensemble:
+  min_agreement: 2
+
+prediction_drift:
+  method: ks_test
+  source: predict_proba_positive
+
+actions:
+  none: {rule: "0 drifted AND pred_p >= 0.05", severity: low}
+  monitor: {rule: "1 drifted OR pred_p < 0.05", severity: medium}
+  retrain: {rule: "2-3 drifted", severity: high}
+  urgent: {rule: "4+ drifted", severity: critical}
+
+lifecycle:
+  triggers: [retrain, urgent]
+  model:
+    type: RandomForestClassifier
+    params: {n_estimators: 100, max_depth: 10, random_state: 42}
+  data: production
+  tag: {retrained_reason: drift_detected}
+
+mlflow:
+  experiment: predictive-maintenance
+  monitoring_run: drift-monitoring
+  retrain_run: drift-retrain
+  model_name: predictive-maintenance-model
+  metric_pattern: "{feature}_{field}"
+
+report:
+  path: /app/drift_report.json
+  schema:
+    features.<name>:
+      ks_statistic: float
+      ks_pvalue: float
+      psi: float
+      kde_overlap: float
+      is_drifted: bool
+    prediction_drift:
+      ks_statistic: float
+      ks_pvalue: float
+    n_drifted_features: int
+    drifted_feature_names: sorted_list
+    severity: enum[low, medium, high, critical]
+    recommended_action: enum[none, monitor, retrain, urgent]

@@ -1,0 +1,37 @@
+# RANS k-tau Periodic Hill: Re=10595
+[GENERAL]
+polynomialOrder = 5
+
+stopAt = endTime
+endTime = 100
+
+dt = targetCFL=0.5+initial=1e-3
+
+timeStepper = tombo2
+
+checkpointControl = simulationTime
+checkpointInterval = 100
+
+constFlowRate = meanVelocity=1.0 + direction=X
+
+scalars = K, TAU
+
+[PROBLEMTYPE]
+equation = navierStokes+variableViscosity
+
+[FLUID PRESSURE]
+residualTol = 1e-04
+
+[FLUID VELOCITY]
+boundaryTypeMap = zeroDirichlet
+viscosity = 1/10595 # 1/Re
+rho = 1.0
+residualTol = 1e-06
+
+[SCALAR K]
+boundaryTypeMap = udfDirichlet
+residualTol = 1e-08
+
+[SCALAR TAU]
+boundaryTypeMap = udfDirichlet
+residualTol = 1e-08

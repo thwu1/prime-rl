@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BIND9 troubleshooting: the solver must diagnose and fix 8 interacting errors across named.conf and 4 zone files without any hints about what is broken. Bugs span ACL identifier resolution, BIND view evaluation ordering, RFC 1034 CNAME-at-apex violations, DNS FQDN trailing-dot semantics in MX and PTR targets, IPv4 reverse-zone PTR owner-name conventions, IPv6 reverse-zone delegation depth (nibble count mismatch between /16 zone name and /64 PTR records), and split-horizon IP mapping correctness. Each bug exercises a different facet of DNS expertise and several interact — e.g. fixing the ACL typo still leaves the view-ordering bug, which changes which zone files are queried."""
+solution_explanation = """Parse the CSV host/service inventory and regenerate all configuration from scratch: (1) named.conf with correctly ordered views (internal first), consistent ACL naming, and the proper /64 IPv6 reverse zone delegation, (2) internal/external forward zones with view-appropriate A records and properly terminated FQDNs, (3) an IPv4 reverse zone with last-octet PTR owners and dot-terminated targets, (4) an IPv6 reverse zone with nibble-formatted PTR records. Validate with named-checkconf and named-checkzone, set bind ownership, and start named on port 8053."""
+verification_explanation = """Tests use dig to query BIND on port 8053 from 127.0.0.1 (internal view). Forward records (A, AAAA, MX, CNAME, SRV, TXT) and reverse zones (IPv4 PTR, IPv6 PTR) are verified via live queries. Split-horizon is tested by locating the external-view zone file under /etc/bind/ and dumping it with named-checkzone -D to verify external IPs. Access control checks AXFR refusal, ra flag presence for internal queries, and recursion-no in the parsed config for external views."""
+category = "systems_administration"
+tags = ["dns", "bind9-troubleshooting"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/split-horizon-dns"

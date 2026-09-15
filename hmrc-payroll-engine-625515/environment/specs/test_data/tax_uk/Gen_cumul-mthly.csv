@@ -1,0 +1,17 @@
+Employer :,2026 - 27,UK tax examples
+Year,2026 - 27
+,,,,,,,,,,,,,,,,,,,,,,
+Pay frequency/type,Gross pay,Taxable pay to date,Code,W1/M1,Period , Tax due,Tax due to date,,,,,,,,,,,,,,,
+Gen_cumul_mthly,1156.25,1156.25,1257L,,1,21.4,21.4,,,,,,,,,,,,,,,
+Gen_cumul_mthly,1156.26,2312.5100000000002,1257L,,2,21.6,43,,,,,,,,,,,,,,,
+Gen_cumul_mthly,31123.26,33435.769999999997,1257L,,3,10188,10231,,,,,,,,,,,,,,,
+Gen_cumul_mthly,14465.71,47901.479999999996,1257L,,4,4838.6000000000004,15069.6,,,,,,,,,,,,,,,
+Gen_cumul_mthly,52681.25,100582.73,1257L,,5,22085.1,37154.699999999997,,,,,,,,,,,,,,,
+Gen_cumul_mthly,50000,150582.72999999998,1257L,,6,20878.650000000001,58033.35,,,,,,,,,,,,,,,
+Gen_cumul_mthly,15000,165582.72999999998,1257L,,7,5128.2000000000044,63161.55,,,,,,,,,,,,,,,
+Gen_cumul_mthly,14000.55,179583.27999999997,1257L,,8,4679.0999999999913,67840.649999999994,,,,,,,,,,,,,,,
+Gen_cumul_mthly,12590.45,192173.72999999998,BR,,9,-29406.049999999996,38434.6,,,,,,,,,,,,,,,
+Gen_cumul_mthly,11245.05,203418.77999999997,NT,,10,-38434.6,0,,,,,,,,,,,,,,,
+HMRC are aware that the results of some payroll calculations may differ from the test data provided.
+As long as those results differ by no more than £00.01 then this is acceptable.
+""

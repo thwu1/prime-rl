@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of climate science domain knowledge with data engineering. The solver must independently identify and implement the Stull (2011) wet-bulb temperature formula, know the NOAA Oceanic Nino Index methodology (Nino 3.4 region coordinates, anomaly-from-climatology computation, 3-month running mean smoothing), understand area weighting on lat-lon grids via cosine-latitude, properly handle NaN-masked ocean fields for SST trend regression, construct CF-convention-compliant Zarr stores with correct encoding, and build an intake-esm catalog conforming to ESM Collection Spec v0.1.0 — all without algorithmic guidance in the task description."""
+solution_explanation = """Pipeline reads raw numpy arrays and metadata, normalises heterogeneous units across models, writes properly chunked and compressed Zarr stores with CF attributes, generates an ESM catalog following the intake-esm specification, and computes area-weighted WBT (Stull 2011), ONI statistics, ENSO amplitude, tropical heat stress fraction, and SST warming trend via OLS — each requiring correct latitude weighting, NaN handling, and temporal aggregation."""
+verification_explanation = """Tests independently open each Zarr store to verify dimensions, chunk layout, compressor settings, consolidated metadata, and CF attributes. Catalog tests validate JSON schema and CSV structure. Numerical tests recompute all diagnostics from raw data using an independent implementation and compare against submitted results within tight tolerances."""
+category = "applied_computing"
+tags = ["climate-science", "zarr"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-691fe0"

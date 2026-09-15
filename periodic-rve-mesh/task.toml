@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver receives a broken Gmsh mesh generator with five interacting defects and must diagnose each through mesh analysis before fixing them. (1) The script uses BooleanCut instead of BooleanFragments, producing non-conformal interfaces — the solver must identify this from shared-node analysis and understand the OCC kernel's fragment semantics. (2) Physical groups reference pre-boolean entity tags that no longer map correctly after the cut — the solver must parse the ovv output mapping to classify volumes as matrix, center-inclusion, or corner-octant. (3) Corner sphere volumes extend outside the domain because the cut preserves full tool geometry — the solver must detect and remove outer volumes. (4) A uniform MathEval size field provides no interface refinement — the solver must design Distance+Threshold fields targeting only interface surfaces (excluding cube boundary surfaces via bounding-box queries). (5) No periodic mesh constraints are set — the solver must programmatically discover and match surface pairs across opposite cube faces while filtering curved interior surfaces that merely touch the boundary. Each fix interacts: switching boolean operations changes entity numbering which breaks physical groups and size field targeting. Requires expert-level gmsh API knowledge to debug and resolve."""
+solution_explanation = """The reference solution uses BooleanFragments on the cube and all 9 spheres simultaneously, classifies output volumes via the ovv mapping (cube_children intersected with sphere children for inclusions, remainder for matrix), removes outer volumes before synchronize, identifies interface surfaces by excluding cube boundary surfaces via bounding-box queries, sets up Distance+Threshold size fields on those interfaces, matches periodic surface pairs using translated bounding boxes with an extent filter, and generates with Delaunay 3D followed by Netgen optimization."""
+verification_explanation = """Tests load the output mesh with the gmsh Python API and verify: (1) script and mesh file exist, (2) physical groups Matrix/CenterInclusion/CornerInclusion with correct entity counts, (3) conformal interfaces via shared node IDs between matrix and inclusion element sets, (4) triple periodicity via face-node coordinate matching, (5) size grading via element edge length comparison near vs far from inclusion surfaces, (6) minimum SICN > 0.05, (7) only linear tetrahedral elements (type 4), (8) element count in [2000, 2000000]."""
+category = "computational_geometry"
+tags = ["mesh-generation", "gmsh-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/periodic-rve-mesh"

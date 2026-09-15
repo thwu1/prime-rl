@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete de Bruijn graph genome assembler in C/C++ from scratch, with no algorithmic guidance provided — the agent must reverse-engineer the assembly procedure from input/output examples and domain knowledge. The solution must use CMake as the build system, pass Valgrind memcheck with zero memory errors and zero leaks, and stay under a 40 MB peak heap budget on 800K k-mers (measured by Valgrind massif), which rules out naive string-based k-mer storage and forces the agent to devise a compact encoding. The combination of bioinformatics domain reasoning, low-level C memory management, CMake build configuration, and Valgrind profiling tool mastery places this at the proficient/expert level."""
+solution_explanation = """The solution implements a C program using: (1) 2-bit DNA encoding (A=00, C=01, G=10, T=11) packing 4 bases per byte, reducing k-mer storage from k bytes to ceil(k/4) bytes; (2) an open-addressing hash table with power-of-2 sizing and linear probing, using flat parallel arrays for cache efficiency; (3) FNV-1a hashing on encoded k-mers; (4) graph traversal starting from terminal nodes, iteratively extending contigs. A CMakeLists.txt drives the build and the binary is symlinked to /app/assembler. All allocations are properly freed for clean Valgrind memcheck. The flat-array hash table at ~50% load uses about 22 MB for 800K k-mers at k=31, well under the 40 MB massif limit."""
+verification_explanation = """Tests use an independent Python de Bruijn graph verifier that parses k-mer files and produces reference contigs, cross-checked against the assembler's output. Seven tests cover: (1) CMake build system — verifies CMakeLists.txt exists and cmake configure+build produces an executable; (2) small hand-crafted dataset correctness; (3) medium generated dataset (~10K k-mers) correctness; (4) Valgrind memcheck — runs assembler under memcheck with --error-exitcode=42, asserts zero errors and zero definite leaks; (5) Valgrind massif — generates ~800K k-mers at k=31, runs assembler under massif, parses massif output for peak mem_heap_B, asserts < 40 MB; (6-7) edge cases for single-k-mer contigs and very long contigs."""
+category = "systems"
+tags = ["bioinformatics", "memory-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debruijn-assembler"

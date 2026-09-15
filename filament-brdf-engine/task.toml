@@ -1,0 +1,65 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires implementing four PBR evaluation functions from a mathematical specification
+in C (compute_dfg via Monte Carlo importance sampling, standard and clear coat BRDF
+evaluation, and multi-scatter energy compensation), diagnosing a ctypes struct layout
+mismatch between the C library and Python driver, and identifying a CMake build
+configuration that activates an incorrect Fresnel approximation. The DFG integration
+demands deriving the correct Monte Carlo weight by analyzing the importance sampling
+PDF cancellation and reflection Jacobian, understanding that the provided visibility
+function V already absorbs the 1/(4*NoV*NoL) Cook-Torrance denominator. Each function
+involves careful numerical handling of edge cases (grazing angles, zero denominators,
+energy conservation). The cross-language architecture (C, Python ctypes, CMake) creates
+interacting failure modes that require systematic investigation.
+"""
+solution_explanation = """
+1. Implement compute_dfg: importance sampling loop using Hammersley/GGX with per-sample
+   weight V*NoL*VoH/NoH and normalization factor 4.0/N (derived from PDF cancellation
+   where D cancels, leaving the 4*VoH from the reflection Jacobian denominator).
+2. Implement evaluate_standard_brdf: compute directions, half vector, dot products;
+   compose D_GGX, V_SmithGGXCorrelated, F_Schlick; compute diffuseColor and f0 from
+   material parameters; output specular, diffuse, and total=(spec+diff)*NoL.
+3. Implement evaluate_clearcoat_brdf: same as standard plus a clear coat lobe using
+   D_GGX with ccRoughness, V_Kelemen, and F_Schlick(0.04)*clearCoat, with energy
+   conservation: total=((diff+spec*(1-Fc))*(1-Fc)+clearcoatBRDF)*NoL.
+4. Implement compute_energy_compensation: call compute_dfg, derive E=dfg1+dfg2,
+   compute compensation=1+f0*(1/E-1) per channel.
+5. Fix driver.py: swap metallic/roughness fields in ctypes Material struct to match
+   the C struct layout (roughness before metallic).
+6. Fix CMakeLists.txt: set BRDF_FAST_FRESNEL to OFF (the ON default compiles a
+   power-of-3 Fresnel approximation instead of the correct power-of-5 Schlick formula).
+"""
+verification_explanation = """
+Tests compare output.json against 24 reference values across 4 evaluation types with
+combined absolute (0.005) and relative (5%) tolerance. Additional physical constraint
+checks verify energy conservation, metallic diffuse is zero, dielectric specular channels
+are equal, compensation >= 1, and correct roughness trends. Partial implementations
+produce identifiable pass/fail patterns across test categories.
+"""
+category = "computer_graphics"
+tags = ["pbr", "cross-language-implementation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/filament-brdf-engine"

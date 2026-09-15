@@ -1,0 +1,52 @@
+=====================================
+SESSION CAPTURE #3 — Error Conditions
+Captured: 2024-03-15 15:30:12 UTC
+Server: prod-speed-01.freedom-island.local:9999
+Notes: Three separate error scenarios captured.
+=====================================
+
+--- SCENARIO A: Plate message before identification ---
+
+--- Connection A opened ---
+[T+0.000s] A -> Server | 20 04 54 45 53 54 00 00 00 00
+[T+0.003s] Server -> A | 10 0e 6e 6f 74 20 69 64 65 6e 74 69 66 69 65 64
+--- Connection A closed by server ---
+
+#
+# Client sent Plate("TEST", ts=0) without first identifying as a camera.
+# Server responded with Error("not identified") and closed connection.
+# Inference: Plate messages require prior IAmCamera identification.
+#
+
+=====================================
+
+--- SCENARIO B: Duplicate client identification ---
+
+--- Connection B opened ---
+[T+2.000s] B -> Server | 80 00 42 00 64 00 3c
+[T+2.100s] B -> Server | 81 01 00 42
+[T+2.102s] Server -> B | 10 12 61 6c 72 65 61 64 79 20 69 64 65 6e 74 69 66 69 65 64
+--- Connection B closed by server ---
+
+#
+# Client first identified as camera (road 66, mile 100, limit 60).
+# Then tried to identify as dispatcher for road 66.
+# Server responded with Error("already identified") and closed.
+# Inference: A client can only identify once (camera OR dispatcher).
+#
+
+=====================================
+
+--- SCENARIO C: Duplicate heartbeat request ---
+
+--- Connection C opened ---
+[T+4.000s] C -> Server | 40 00 00 01 f4
+[T+4.200s] C -> Server | 40 00 00 00 c8
+[T+4.203s] Server -> C | 10 13 64 75 70 6c 69 63 61 74 65 20 68 65 61 72 74 62 65 61 74
+--- Connection C closed by server ---
+
+#
+# Client sent WantHeartbeat(interval=500), then WantHeartbeat(interval=200).
+# Server responded with Error("duplicate heartbeat") and closed.
+# Inference: Only one WantHeartbeat allowed per connection.
+#

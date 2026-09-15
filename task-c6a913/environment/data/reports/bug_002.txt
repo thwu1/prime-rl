@@ -1,0 +1,38 @@
+==================================================================
+BUG: KASAN: slab-use-after-free in icache_evict_oldest+0x156/0x210 fs/ext4/inode_cache.c:67
+Read of size 8 at addr ffff888104c72a40 by task syz-executor.0/5129
+
+CPU: 0 PID: 5129 Comm: syz-executor.0 Not tainted 6.2.0-rc3-syzkaller #0
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 10/09/2024
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0x1b1/0x28e lib/dump_stack.c:107
+ print_address_description.constprop.0+0x74/0x340 mm/kasan/report.c:319
+ print_report+0x107/0x1f0 mm/kasan/report.c:430
+ kasan_report+0xb8/0xf0 mm/kasan/report.c:547
+ icache_evict_oldest+0x156/0x210 fs/ext4/inode_cache.c:67
+ ext4_iget+0x543/0xc10 fs/ext4/inode.c:4898
+ ext4_lookup+0x123/0x3c0 fs/ext4/namei.c:1695
+ __lookup_slow+0x1a7/0x2f0 fs/namei.c:1693
+ walk_component+0x2a5/0x420 fs/namei.c:2046
+ </TASK>
+
+Allocated by task 5129:
+ kasan_save_stack+0x26/0x50 mm/kasan/common.c:47
+ kmalloc_trace+0x2b/0xe0 mm/slab_common.c:1087
+ icache_insert+0x3f/0x150 fs/ext4/inode_cache.c:37
+ ext4_iget+0x4a1/0xc10 fs/ext4/inode.c:4890
+
+Freed by task 5129:
+ kasan_save_stack+0x26/0x50 mm/kasan/common.c:47
+ kasan_set_track+0x25/0x40 mm/kasan/common.c:52
+ kasan_save_free_info+0x2b/0x50 mm/kasan/generic.c:524
+ __kasan_slab_free+0x10a/0x180 mm/kasan/common.c:240
+ kfree+0xa6/0x2e0 mm/slab.c:3809
+ icache_evict_oldest+0x123/0x210 fs/ext4/inode_cache.c:60
+
+The buggy address belongs to the object at ffff888104c72a00
+ which belongs to the cache kmalloc-128 of size 128
+The buggy address is located 64 bytes inside of
+ freed 128-byte region [ffff888104c72a00, ffff888104c72a80)
+==================================================================

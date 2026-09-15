@@ -1,0 +1,17 @@
+[user]
+    name = {{ .data.full_name }}
+    email = {{ .data.email }}
+[core]
+    editor = vim
+    autocrlf = input
+    whitespace = fix
+[init]
+    defaultBranch = main
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+    lg = log --oneline --graph --decorate
+[pull]
+    rebase = true

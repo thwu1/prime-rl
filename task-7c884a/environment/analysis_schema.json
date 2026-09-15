@@ -1,0 +1,29 @@
+{
+  "description": "Analyze ir-opt behavior by running it on the provided input files. Record your answers in /app/analysis.json using the exact keys below.",
+  "questions": {
+    "q1_fold_chain_result": {
+      "type": "integer",
+      "description": "Run --constfold on /app/inputs/fold_chain.ir. What is the integer value of the final folded constant that is returned?"
+    },
+    "q2_canonicalize_removes_dead_code": {
+      "type": "boolean",
+      "description": "Run --canonicalize (without --dce) on /app/inputs/dead_after_canon.ir. Are all unreferenced constants eliminated from the output? (true if eliminated, false if they remain)"
+    },
+    "q3_cse_commutative_aware": {
+      "type": "boolean",
+      "description": "Run --cse on /app/inputs/commutative.ir. Does CSE recognize addi(%a,%b) and addi(%b,%a) as equivalent and eliminate one? (true if it does, false if both remain)"
+    },
+    "q4_mul_zero_replacement_opcode": {
+      "type": "string",
+      "description": "Run --canonicalize on /app/inputs/mul_zero.ir. What opcode (e.g. 'arith.addi') replaces the arith.muli when one operand is the constant zero?"
+    },
+    "q5_constfold_handles_remsi_divzero": {
+      "type": "boolean",
+      "description": "Run --constfold on /app/inputs/remsi_zero.ir. Does --constfold fold arith.remsi when the divisor is zero? (true if folded to a constant, false if the remsi remains)"
+    },
+    "q6_combined_ops_remaining": {
+      "type": "integer",
+      "description": "Run --cse --constfold --canonicalize --dce on /app/inputs/combined.ir. How many IR operations (lines containing '= arith.') appear in the output, excluding the return statement?"
+    }
+  }
+}

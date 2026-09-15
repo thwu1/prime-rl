@@ -1,0 +1,41 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of C/Rust FFI interoperability, ABI compatibility, and unsafe Rust API design. The solver must independently diagnose a cascade of interrelated defects across the build system, FFI bridge, and safe wrapper:
+
+Build layer: the cc crate configuration is missing the include search path, causing the C compilation to fail. This is a non-obvious error because the C source file exists but cannot resolve its own header.
+
+Linker layer: the C code calls an extern function that has no Rust implementation, producing a linker error that can only be resolved by understanding cross-language symbol resolution and implementing the missing deallocation function with correct Rust-allocator-aware memory management (Box::from_raw on a slice reconstructed from raw parts).
+
+ABI layer: two repr(C) struct definitions have field orderings that silently diverge from the C header. These produce no compiler or linker errors but cause data corruption at runtime — the solver must independently compare Rust struct layouts against the C typedefs and understand that repr(C) field order determines memory layout.
+
+Safety layer: an unsafe FFI function dereferences a raw pointer without a null guard, causing undefined behavior when the C caller passes NULL. The solver must recognize this as a soundness hole and add the guard.
+
+API design layer: the existing safe wrapper has multiple defects — it uses unwrap() on CString::new() instead of propagating errors for interior null bytes, it deallocates C-malloc'd memory through Rust's global allocator (Box::from_raw) instead of calling the C free function (allocator coherence violation), and it is missing several methods and types required by the integration test contract. The solver must redesign the wrapper from scratch to provide a complete, memory-safe, idiomatic Rust API by reading the integration test expectations."""
+solution_explanation = """The solution fixes all layers: (1) adds .include("include") to build.rs so the cc crate can locate the C header; (2) reorders SearchIdxToken fields (text before position) and SearchResult fields (doc_id before score) in ffi.rs to match the C header layout; (3) adds a null pointer guard in searchidx_tokenize before CStr::from_ptr; (4) implements searchidx_free_tokens using slice_from_raw_parts_mut + Box::from_raw for correct Rust-allocated memory deallocation; (5) adds pub mod wrapper to lib.rs; (6) replaces wrapper.rs with a complete implementation: SearchError enum with InteriorNull variant wrapping NulError and From conversion, OwnedSearchResult struct, and SearchIndex type providing new/index_document/search/search_sorted/reset methods that correctly convert strings via CString with Result-based error propagation, copy C results into owned Rust values, free C memory via searchidx_free_results, and sort by descending score."""
+verification_explanation = """test.sh restores the reference integration test to prevent tampering, installs pytest, and runs test_state.py. The pytest suite verifies: (1) cargo build succeeds; (2) cargo test --test-threads=1 passes all 15 integration tests covering FFI struct layout verification (offset assertions), tokenization correctness, null input handling, document indexing and search via C FFI, and the complete wrapper API including interior null error handling, sorted results, index reset, selective search, and unique document IDs; (3) structural checks confirm searchidx_free_tokens exists in ffi.rs, the build system references the include directory, wrapper module is declared in lib.rs, SearchError/OwnedSearchResult types exist in wrapper.rs, C results are freed via searchidx_free_results, and all required methods are present."""
+category = "systems_programming"
+tags = ["ffi", "rust"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ffi-migration-fix"

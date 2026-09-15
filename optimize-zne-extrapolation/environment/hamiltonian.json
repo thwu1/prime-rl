@@ -1,0 +1,25 @@
+{
+  "description": "4-qubit electronic structure Hamiltonian inspired by BeH (Bravyi-Kitaev mapping) with exponential depolarizing noise model.",
+  "noise_model_description": "At noise scale factor lambda, the expectation value of Pauli term i decays as: E_i(lambda) = ideal_expectation_i * exp(-noise_rate_i * lambda). The measurement variance of a single-shot Pauli measurement with eigenvalues +/-1 is: Var(P) = 1 - E(P)^2. For shot allocation optimization, assume statistical independence between expectation value estimates of different terms, including terms measured within the same commuting group.",
+  "terms": [
+    {"index": 0, "pauli": "ZIII", "coefficient": 0.3732, "noise_rate": 0.03, "ideal_expectation": 0.50},
+    {"index": 1, "pauli": "ZZII", "coefficient": 0.3732, "noise_rate": 0.06, "ideal_expectation": 0.30},
+    {"index": 2, "pauli": "IZII", "coefficient": -0.1377, "noise_rate": 0.03, "ideal_expectation": -0.40},
+    {"index": 3, "pauli": "IIZI", "coefficient": 0.1859, "noise_rate": 0.03, "ideal_expectation": 0.60},
+    {"index": 4, "pauli": "IZIZ", "coefficient": -0.1006, "noise_rate": 0.06, "ideal_expectation": -0.20},
+    {"index": 5, "pauli": "IZZZ", "coefficient": 0.1859, "noise_rate": 0.09, "ideal_expectation": 0.15},
+    {"index": 6, "pauli": "ZZZI", "coefficient": 0.0675, "noise_rate": 0.09, "ideal_expectation": 0.25},
+    {"index": 7, "pauli": "ZZZZ", "coefficient": 0.0675, "noise_rate": 0.12, "ideal_expectation": 0.10},
+    {"index": 8, "pauli": "ZIZI", "coefficient": 0.0630, "noise_rate": 0.06, "ideal_expectation": -0.35},
+    {"index": 9, "pauli": "ZIZZ", "coefficient": 0.0630, "noise_rate": 0.09, "ideal_expectation": 0.18},
+    {"index": 10, "pauli": "XXXI", "coefficient": 0.0140, "noise_rate": 0.09, "ideal_expectation": 0.05},
+    {"index": 11, "pauli": "XXXZ", "coefficient": 0.0050, "noise_rate": 0.12, "ideal_expectation": 0.02},
+    {"index": 12, "pauli": "XYYI", "coefficient": -0.0089, "noise_rate": 0.09, "ideal_expectation": -0.03},
+    {"index": 13, "pauli": "YXYI", "coefficient": 0.0140, "noise_rate": 0.09, "ideal_expectation": 0.04},
+    {"index": 14, "pauli": "YXYZ", "coefficient": 0.0050, "noise_rate": 0.12, "ideal_expectation": -0.01}
+  ],
+  "allowed_scale_factors": [1, 3, 5, 7, 9],
+  "min_extrapolation_points": 2,
+  "max_extrapolation_points": 4,
+  "total_shot_budget": 50000
+}

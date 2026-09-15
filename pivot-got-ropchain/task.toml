@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combining multiple advanced binary exploitation techniques: stack pivoting (limited overflow space forces redirecting the stack pointer to a heap buffer), GOT/PLT resolution (calling an unimported library function by leaking a GOT entry and computing an offset), ROP gadget identification and chaining across a custom gadget section, and reverse engineering the shared library to determine three specific magic arguments. Each technique alone is an intermediate CTF challenge; combining them into a single working exploit demands expert-level proficiency in x86_64 exploit development."""
+solution_explanation = """1. Analyze the binary with objdump/nm to find usefulGadgets addresses, PLT/GOT entries for foothold_function, and the stack overflow offset. 2. Analyze libtarget.so to find ret2win's argument checks (three magic uint64 constants) and compute the symbol offset from foothold_function to ret2win. 3. Construct a heap ROP chain that: calls foothold_function@PLT to populate its GOT entry, loads the resolved GOT value into rax, adds the offset to compute ret2win's runtime address, sets rdi/rsi/rdx to the magic values, and jumps to ret2win via jmp *rax. 4. Construct a minimal stack smash (pop rax; ret + heap_addr + xchg rax,rsp; ret) that pivots the stack pointer to the heap chain. 5. Use pwntools to interact with the binary, parse the dynamic heap address, and deliver both payloads."""
+verification_explanation = """Tests verify: (1) /app/exploit.py exists, (2) the exploit references the challenge binary and does not hardcode the flag, (3) running the exploit produces /app/flag.txt with the exact expected flag string ROPE{p1v0t_g0t_r3s0lv3_r0p_ch41n_m4st3r}."""
+category = "cybersecurity"
+tags = ["binary-exploitation", "rop"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pivot-got-ropchain"

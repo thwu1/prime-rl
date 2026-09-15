@@ -1,0 +1,4 @@
+{"t": 0, "op": "PUT", "key": "cached", "size": 500}
+{"t": 1, "op": "GET", "key": "cached"}
+{"t": 2, "op": "PUT", "key": "new", "size": 300}
+{"t": 3, "op": "PUT", "key": "overflow", "size": 400}

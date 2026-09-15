@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of medical imaging evaluation, clinical informatics, and survival analysis with multiple domain-knowledge challenges that cannot be resolved by following procedures alone. (1) NIfTI volumes with oblique affine matrices require the agent to understand that voxel spacing must be derived from affine column norms or the header API rather than naively reading diagonal elements — a common pitfall that only medical imaging practitioners would recognize. (2) A densely populated clinical database with multiple staging classification systems (AJCC7, AJCC8, UICC8), assessment methods (pathological, clinical), and temporal revisions demands understanding that the latest AJCC8 pathological assessment is the authoritative ground truth, requiring a MAX(assessment_date) grouped SQL query — this mirrors real clinical data management where staging is revised after pathology review. (3) The evaluation protocol specifies metrics by name (aggregated DSC, HD95, Harrell's C-index, balanced accuracy) without providing computational formulas, requiring the agent to know how these standard medical imaging evaluation metrics work: aggregated DSC accumulates volumes across the cohort (not per-patient averaging), HD95 requires surface voxel extraction via morphological erosion and EDT with anisotropic spacing, and C-index requires correct handling of censored survival observations and NaN risk scores. (4) Bootstrap resampling with joint metric recomputation across the full composite pipeline requires understanding how each metric behaves under resampling. (5) Multiple survival endpoints and distractor tables require clinical judgment to select the correct ground truth."""
+solution_explanation = """The solution installs nibabel and scipy, reads NIfTI files using header.get_zooms() to correctly extract spacing from both axis-aligned and oblique affine matrices, and queries the SQLite database with a MAX(assessment_date) grouped subquery to select the latest AJCC8 pathological T/N staging per patient. Each team's archive format is detected by extension. Resolution-mismatched predictions are resampled using nearest-neighbor interpolation based on shape ratio. Aggregated DSC accumulates physical TP and total volumes across all patients per label. HD95 uses scipy binary_erosion for surface extraction and distance_transform_edt with anisotropic spacing. Balanced accuracy averages per-class recalls for T and N independently. C-index treats NaN risk scores as discordant pairs. Bootstrap CIs resample patients jointly across all metrics with a fixed seed."""
+verification_explanation = """Tests independently load NIfTI files using nibabel with get_zooms() for spacing and query the database with the same temporal resolution SQL. Reference implementations recompute all metrics: aggregated DSC per team verified within 1e-4 tolerance, HD95 values computed with scipy distance transforms and anisotropic spacing, HD95 normalization formula verified, composite segmentation score formula verified, balanced accuracy per team against the latest pathological staging, C-index with NaN handling, weighted score formula, consistency score formula, ranking order, missing submission penalties (team_gamma staging=0, team_alpha DSC > team_beta DSC), and bootstrap CI structure with all 6 pairwise comparisons and valid bounds."""
+category = "data-science"
+tags = ["medical-imaging", "evaluation-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hecktor-eval-pipeline"

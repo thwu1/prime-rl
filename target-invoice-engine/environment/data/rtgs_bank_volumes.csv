@@ -1,0 +1,9 @@
+participant_id,payment_orders,addressable_bics,unpublished_bics,multi_addressee_bics,lt_within_rtgs_cross_bg,lt_rtgs_to_clm_cross_bg
+Bank1,173000,2,0,0,2,3
+Bank2,3211,0,0,1,1,1
+Bank3,12345,0,1,0,1,2
+Bank4,23456,0,0,0,2,1
+Bank5,987,0,0,0,1,1
+Bank_X,250000,5,2,1,4,2
+Bank_P,100000,0,0,0,3,1
+Bank_Q,45000,1,0,0,0,0

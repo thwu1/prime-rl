@@ -1,0 +1,1456 @@
+This is a work-in-progress reverse-engineered specification of .gdbtable, .gdbtablx, .gdbindexes, .atx, .spx and .freelist files found in FileGDB datasets. It generally applies to FileGDB datasets v10, as well as earlier versions, unless otherwise specified.
+
+For FileGDB, ArcGIS Pro 3.2 has added the possibility of creating tables with 64-bit OBJECTIDs. This affects the formats of at least .gdbtable, .gdbtablx, .atx and .spx files.  Such files have a version number of 4 for .gdbtable, .gdbtablx , and 2 for .atx and .spx files
+
+Conventions
+
+ubyte: unsigned byte
+
+int16: little-endian 16-bit integer
+
+int32: little-endian 32-bit integer
+
+int64: little-endian 64-bit integer
+
+float64: little-endian 64-bit IEEE754 floating point number
+
+utf16: string in little-endian UTF-16 encoding
+
+string: (UTF-8 ?) string
+
+A row or a feature are synonyms in this document.
+
+Specification of .gdbtable files
+
+.gdbtable files describe fields and contain row data.
+
+They are made of an header, a section describing the fields, and a section describing the rows.
+
+Header (40 bytes)
+
+int32: == version of the format. 3 for files with 32-bit OBJECTID. 4 for files with 64-bit OBJECTID
+
+If version == 3, the next 20 bytes are:
+
+int32: number of (valid) rows
+
+int32: maximum of row sizes and size of field description section
+
+int32: == 5 - unknown role. Constant among the files
+
+4 bytes: varying values - unknown role. Seems to be 0x00 0x00 0x00 0x00 for FGDB 10 files, but not for earlier versions
+
+4 bytes: 0x00 0x00 0x00 0x00 - unknown role. Constant among the files
+
+Else if version == 4, the next 20 bytes are:
+
+int32: apparently 1 if some features are in a deleted state, 0 othrewise
+
+int32: maximum of row sizes and size of field description section
+
+int32: == 5 - unknown role. Constant among the files
+
+int64: number of (valid) rows
+
+For versions 3 and 4, starting at offset 24:
+
+int64: file size in bytes
+
+int64: offset in bytes at which the field description section begins (often 40 in FGDB 10). Note: datasets with 5 significant bytes (ie beyond 4GB) have been found per https://trac.osgeo.org/gdal/ticket/6830.
+
+Field description section
+
+Fixed part
+
+int32: size of header in bytes (this field excluded)
+
+int32: version of the file. 3 for FGDB 9.X files, 4 for FGDB 10.X files, 6 for ArcGIS Pro 3.2 using extended features (64-bit objectIds, or fields that have a type >= 13 (int64))
+
+uint32: layer flags, including geometry type:
+
+bits 0 - 7: (i.e. flag & 0xff) geometry type:
+
+0 = none
+
+1 = point
+
+2 = multipoint
+
+3 = (multi)polyline
+
+4 = (multi)polygon
+
+5 = rectangle (envelope)
+
+6 = "path"
+
+7 = mixed/any geometry type
+
+9 = multipatch
+
+11 = ring
+
+13 = line
+
+14 = circular arc
+
+15 = bezier curves
+
+16 = elliptic curves
+
+17 = geometry collection (any types)
+
+18 = triangle strip
+
+19 = triangle fan
+
+20 = ray
+
+21 = sphere
+
+22 = TIN
+
+bit 8: string encoding. Set for UTF-8 encoded strings. If not set, UTF-16 strings are used (affects feature strings and field default values)
+
+bit 9: (or bits 10 or 12) likely an indicator of whether the database uses "high precision storage" or not. Always 1 in all encountered files, and according to the ESRI docs, it hasn't been possible to make low precision gdbs since 9.2
+
+bit 10: possibly storage type, see bit 9
+
+bit 11: unknown
+
+bit 12: possibly storage type, see bit 9
+
+bit 30: geometry has M values
+
+bit 31: geometry has Z values
+
+int16: number of fields (including geometry field and implicit OBJECTID field)
+
+Repeated part (per field)
+
+Following immediately: the description of the fields (repeated as many times as the number of fields)
+
+ubyte: number of UTF-16 characters (not bytes) of the name of the field
+
+utf16: name of the field
+
+ubyte: number of UTF-16 characters (not bytes) of the alias of the field. Might be 0
+
+utf16: alias of the field (ommitted if previous field is 0)
+
+ubyte: field type. Enumeration:
+
+0 = int16
+
+1 = int32
+
+2 = float32
+
+3 = float64
+
+4 = string
+
+5 = datetime
+
+6 = objectid
+
+7 = geometry
+
+8 = binary
+
+9 = raster
+
+10 = GUID (UUID, automatic generated)
+
+11 = GlobalID (filled by the user)
+
+12 = XML
+
+13 = int64 (added in ArcGIS Pro 3.2)
+
+14 = DateOnly (added in ArcGIS Pro 3.2)
+
+15 = TimeOnly (added in ArcGIS Pro 3.2)
+
+16 = DateTimeWithOffset (added in ArcGIS Pro 3.2)
+
+The next bytes for the field description depend on the field type.
+
+Each field has a flag attribute with the following bits that can be combined:
+
+bit 0: set when the field is nullable, that is its value can be omitted in features.
+
+bit 1: set when the field is required (can't be deleted)
+
+bit 2: set when the field is editable.
+
+Regular fields are generally 4 (non-nullable) or 5 (nullable). It is to 3 (nullable, required) for the Shape_Length and Shape_Area special fields
+
+For field type = 4 (string),
+
+int32: maximum length of string
+
+ubyte: flag
+
+varuint: ldf = length of default value in byte if (flag&4) != 0
+followed by ldf bytes with the default value numeric
+
+For field type = 6 (objectid),
+
+ubyte: width in bytes = 4 for version 3 (32 bit), or 8 for version 4 (64 bit)
+
+ubyte: flag = 2. Field is required, but not nullable or editable
+
+For field type = 7 (geometry),
+
+ubyte: unknown role = 0
+
+ubyte: flag = 6 (required, editable) or 7 (nullable, required, editable)
+
+int16: length (in bytes) of the WKT string describing the SRS.
+
+string: WKT string describing the SRS Or {B286C06B-0879-11D2-AACA-00C04FA33C20} for no SRS (which corresponds to the COM CLSID for the ESRI UnknownCoordinateSystem class http://desktop.arcgis.com/en/arcobjects/latest/net/webframe.htm#UnknownCoordinateSystem.htm.
+
+ubyte: flags. Combination of values:
+
+(1<<0) seems to be systematically set (only bit for system table a00000004.gdbtable )
+
+(1<<1) indicates has_z = true
+
+(1<<2) indicates has_m = true
+
+float64: xorigin
+
+float64: yorigin
+
+float64: xyscale
+
+float64: morigin (present only if has_m = True)
+
+float64: mscale (present only if has_m = True)
+
+float64: zorigin (present only if has_z = True)
+
+float64: zscale (present only if has_z = True)
+
+float64: xytolerance
+
+float64: mtolerance (present only if has_m = True)
+
+float64: ztolerance (present only if has_z = True)
+
+float64: xmin of layer extent (might be NaN)
+
+float64: ymin of layer extent (might be NaN)
+
+float64: xmax of layer extent (might be NaN)
+
+float64: ymax of layer extent (might be NaN)
+
+If geometry has z values (bit 31 of layer geometry type flags):
+
+float64: zmin of layer extent (might be NaN)
+
+float64: zmax of layer extent (might be NaN)
+
+If geometry has m values (bit 30 of layer geometry type flags):
+
+float64: mmin of layer extent (might be NaN)
+
+float64: mmax of layer extent (might be NaN)
+
+Then, values relating to the spatial index for the field:
+
+a byte always at 0 (possibly an indicator of existence of spatial index or its type?)
+
+a uint32 whose value is 1, 2 or 3, indicating the number of spatial grid sizes (see e.g. http://desktop.arcgis.com/en/arcmap/10.3/tools/data-management-toolbox/add-spatial-index.htm for more details about spatial grid sizes)
+
+for each grid size, float64: spatial index grid resolution at this level (referenced as grid_size[] in later section describing .spx files). ESRI software enforces grid_size[1] >= 3 * grid_size[0] and grid_size[2] >= 3 * grid_size[1]
+
+For field type = 8 (binary),
+
+ubyte: unknown role
+
+ubyte: flag
+
+For field type = 9 (raster),
+
+ubyte: unknown role
+
+ubyte: flag.
+
+ubyte: number of UTF-16 characters (not bytes) of the following string
+
+utf16: string whose value seems to be "Raster Column"
+
+int16: length (in bytes) of the WKT string describing the SRS.
+
+string: WKT string describing the SRS Or {B286C06B-0879-11D2-AACA-00C04FA33C20} for no SRS .
+
+ubyte: flags. Value is generally 1 (has_z = has_m = false, generally for system tablea00000004.gdbtable ), 5 (has_z = true, has_m = false) or 7 (has_z = has_m = true). If 0, none of the following float64 values is present : the next one is the ubyte of unknown role.
+
+float64: xorigin
+
+float64: yorigin
+
+float64: xyscale
+
+float64: morigin (present only if has_m = True)
+
+float64: mscale (present only if has_m = True)
+
+float64: zorigin (present only if has_z = True)
+
+float64: zscale (present only if has_z = True)
+
+float64: xytolerance
+
+float64: mtolerance (present only if has_m = True)
+
+float64: ztolerance (present only if has_z = True)
+
+ubyte: raster_type (0=if raster is stored externally, 1=if raster is managed within filegdb, 2=if raster is inlined)
+
+For field type = 10, 11 (GUID / GlobalID)
+
+ubyte: width : 38
+
+ubyte: flag
+
+For field type = 12 (XML)
+
+ubyte: width : 0
+
+ubyte: flag
+
+For other field types,
+
+ubyte: width in bytes (e.g. 2 for int16, 4 for int32, 4 for float32, 8 for float64, 8 for int64, 8 for datetime/DateOnly/TimeOnly, 10 for DateTimeWithOffset)
+
+ubyte: flag.
+
+ubyte: ldf = length of default value in byte if (flag&4) != 0
+followed by ldf bytes
+
+Rows section
+
+The rows section does not necessarily immediately follow the last field description. It starts generally a few bytes after, but not in a predictable way. Note : for FGDB layers created by the ESRI FGDB SDK API, there are 4 bytes between the end of the field description section and the beginning of the rows section : 0xDE 0xAD 0xBE 0xEF (!)
+
+The rows section is a sequence of X rows (where X is the total number of features found in the .gdbtablx, which might be different from the number of valid rows found in the header of the .gdbtable). Each row starts at an offset indicated in the .gdbtablx file
+
+Row description
+
+int32: length in bytes of the row blob ( this field excluded)
+
+ceil(number_nullable_fields / 8) * ubyte: flags describing if a field is null. See below explanation
+
+Null fields flags
+
+Each bit of the flags field encode for the presence or absence of the field content, for a nullable field, for the row. The flag is set to 1 if the field is missing/null (1 is used as well for spare bits), or 0 if the field is present/non-null. The flag for the first field, in the order of the fields of the field description section (typically the geometry), is the least significant bit of the first byte of the flags field.
+
+There are no bits reserved for non-nullable fields.
+
+If all fields are non-nullable, the flag field is absent.
+
+Note: there's no explicit data for OBJECTID and no reserved flag bit for it.
+
+For each non-null field, the field content is appended in the order of the fields of the field description section.
+
+Field content
+
+Geometry field (type = 7)
+
+This field is generally called "SHAPE".
+
+Geometry blobs use 2 new encoding schemes :
+
+varuint (64 bit): a sequence of bytes [b0, b1, ... bN]. All bytes except last one have their msb (most significant bit) set to 1. The presence of a msb = 0 marks the end of the sequence. The value of the varuint is (b0 & 0x7F) | ((b1 & 0x7F) << 7) | ((b2 & 0x7F) << 14) | ... | ((bN & 0x7F) << (7 * N)). Note that a valid sequence might be just 1 byte.
+
+varint (64 bit): same concept as varuint. But the 2nd most significant bit of b0 (i.e. the one obtained by masking with 0x40) indicates the sign of the result, and should be ignored in the computation of the unsigned value : (b0 & 0x3F) | ((b1 & 0x7F) << 6) | ((b2 & 0x7F) << 13) | ... | ((bN & 0x7F) << (7 * N - 1)). If the bit sign is set to 1, the value must be negated.
+
+Common preambule to all geometry types
+
+varuint: length of the geometry blob in bytes (this field excluded)
+
+varuint: geometry_type. 1 = 2D point, 3 = 2D (multi)linestring, 5 = 2D (multi)polygon. Other values possible. See SHPT_ enumeration of ogrpgeogeometry.h. This is generally a single byte, but for SHPT_GENERALxxxxx geometries this can be multi-byte due to flags added to the base type
+
+The bytes of the geometry blob following this preamble depend of course on the geometry type.
+
+For point geometries (geometry type = 1, 9, 21, 11)
+
+varuint: x = (varuint - 1) / xyscale + xorigin if varuint >= 1, otherwise this is a POINT EMPTY
+
+varuint: y = (varuint - 1) / xyscale + yorigin if varuint >= 1, otherwise this is a POINT EMPTY
+
+varuint ( present only if Z component ): z = (varuint - 1) / zscale + zorigin if varuint >= 1, otherwise this is a POINT EMPTY
+
+varuint ( present only if M component ): m = (varuint - 1) / mscale + morigin if varuint >= 1, otherwise this is a POINT EMPTY
+
+For multipoint geometries (geometry type = 8, 20, 28, 18)
+
+varuint: number of points
+
+varuint: xmin = varuint / xyscale + xorigin
+
+varuint: ymin = varuint / xyscale + yorigin
+
+varuint: xmax = varuint / xyscale + xmin
+
+varuint: ymax = varuint / xyscale + ymin
+
+followed by points coordinates:
+
+For each point of all parts (dx = dy = 0 initially) :
+
+varint: dx = dx + varint; x[i] = dx / xyscale + xorigin
+
+varint: dy = dy + varint; y[i] = dy / xyscale + yorigin
+
+If there is a Z component, an array of Z values follows :
+
+For each point of all parts (dz = 0 initially) :
+
+varint: dz = dz + varint; z[i] = dz / zscale + zorigin
+
+For (multi)linestring (geometry type = 3, 10, 23, 13) or (multi)polygon (geometry type = 5, 19, 25, 15)
+
+varuint: total number of points of all following parts
+
+varuint: number of parts, i.e. number of rings for (multi)polygon - inner and outer rings being at the same level, number of linestrings of a multilinestring, or 1 for a linestring)
+
+varuint: xmin = varuint / xyscale + xorigin
+
+varuint: ymin = varuint / xyscale + yorigin
+
+varuint: xmax = varuint / xyscale + xmin
+
+varuint: ymax = varuint / xyscale + ymin
+
+varuint: number of points of first part (omitted if there is only one part)
+
+...: ...
+
+varuint: number of points of (number of parts - 1)th part (number of points of last part can be computed by substracting total number of points with the sum of the above numbers
+
+followed by, for each part, points coordinates:
+
+For each point of all parts (dx = dy = 0 initially) :
+
+varint: dx = dx + varint; x[i] = dx / xyscale + xorigin
+
+varint: dy = dy + varint; y[i] = dy / xyscale + yorigin
+
+If there is a Z component, an array of Z values follows :
+
+For each point of all parts (dz = 0 initially) :
+
+varint: dz = dz + varint; z[i] = dz / zscale + zorigin
+
+For polygons if the ring is clockwise then it is an outer ring and if is counterclockwise it is an inner ring. While it is not documented anywhere ESRI programs make the assumption that inner rings will always follow the the outer ring that contains them. So
+
+[clockwise,counterclockwise,clockwise,clockwise,counterclockwise,counterclockwise]
+
+can be represented in GeoJSON as
+
+[[clockwise,counterclockwise],[clockwise],[clockwise,counterclockwise,counterclockwise]]
+
+TODO: M values. Likely like Z component. But in FileGDB_API/samples/data/Shapes.gdb/a00000028.gdbtable, which is a polylinezm, the m values all are NaN, which is represented as 0x42 0x00 0x00 0x00 0x00 at the end of the geometry blob
+
+For GeneralPolyline ( (geometry type & 0xff) = 50 )
+
+varuint: total number of points of all following parts
+
+varuint: number of parts, number of linestrings of a multilinestring, or 1 for a linestring
+
+varuint: number of curve descriptions (present if (geom_type & 0x20000000) != 0 )
+
+varuint: xmin = varuint / xyscale + xorigin
+
+varuint: ymin = varuint / xyscale + yorigin
+
+varuint: xmax = varuint / xyscale + xmin
+
+varuint: ymax = varuint / xyscale + ymin
+
+varuint: number of points of first part (omitted if there is only one part)
+
+...: ...
+
+varuint: number of points of (number of parts - 1)th part (number of points of last part can be computed by substracting total number of points with the sum of the above numbers
+
+followed by, for each part, points coordinates:
+
+For each point of all parts (dx = dy = 0 initially) :
+
+varint: dx = dx + varint; x[i] = dx / xyscale + xorigin
+
+varint: dy = dy + varint; y[i] = dy / xyscale + yorigin
+
+If there is a Z component ( (geom_type & 0x80000000) != 0 ) , an array of Z values follows :
+
+For each point of all parts (dz = 0 initially) :
+
+varint: dz = dz + varint; z[i] = dz / zscale + zorigin
+
+If there is a M component ( (geom_type & 0x40000000) != 0 ) , an array of M values follows (unless the next byte is 0x42, in which case the M array is skipped) :
+
+For each point of all parts (dm = 0 initially) :
+
+varint: dm = dm + varint; m[i] = dm / mscale + morigin
+
+If there are curves  ( (geom_type & 0x20000000) != 0 ), an array of segment modifiers follows. There are as many segment modifiers as the above "number of curve description" fields. The serialization of these curve descriptions is directly based on the esriSegmentModifier, WKSPoint, SegmentArc, SegmentBezierCurve and SegmentEllipticArc C structures described in extended_shape_buffer_format.pdf, which the following equivalences :
+
+C long --> int32
+
+C enum --> int32
+
+C double --> float64
+
+For GeneralMultiPatch ( (geometry type & 0xff) = 54 )
+
+varuint: total number of points of all following parts
+
+varuint: size of the uncompressed extended shape buffer format. See extended_shape_buffer_format.pdf of the FileGDB SDK API or OGRWriteMultiPatchToShapeBin() in ogrpgeogeometry.cpp
+
+varuint: number of parts, i.e. number of rings for (multi)polygon - inner and outer rings being at the same level, number of linestrings of a multilinestring, or 1 for a linestring)
+
+varuint: xmin = varuint / xyscale + xorigin
+
+varuint: ymin = varuint / xyscale + yorigin
+
+varuint: xmax = varuint / xyscale + xmin
+
+varuint: ymax = varuint / xyscale + ymin
+
+varuint: number of points of first part (omitted if there is only one part)
+
+...: ...
+
+varuint: number of points of (number of parts - 1)th part (number of points of last part can be computed by substracting total number of points with the sum of the above numbers
+
+followed by, for each part, part type:
+
+varuint: : part type. Only keep 4 lowest significant bit (higher bits are for priority, material index. see extended-shapefile-format.pdf). 0 = triangle strip, 1 = triangle fan, 2 = outer ring, 3 = inner ring, 4 = first ring, 5 = ring, 6 = triangles
+
+followed by, for each part, points coordinates:
+
+For each point of all parts (dx = dy = 0 initially) :
+
+varint: dx = dx + varint; x[i] = dx / xyscale + xorigin
+
+varint: dy = dy + varint; y[i] = dy / xyscale + yorigin
+
+If there is a Z component ( (geom_type & 0x80000000) != 0 ) , an array of Z values follows :
+
+For each point of all parts (dz = 0 initially) :
+
+varint: dz = dz + varint; z[i] = dz / zscale + zorigin
+
+Binary (type = 8)
+
+Number of bytes of the string as a varuint, followed by binary content
+
+Raster (type = 9)
+
+If raster field definition has raster_type = 0:
+
+varuint: number of bytes (not characters!) of next string
+
+utf16: path to the raster
+
+If raster field definition has raster_type = 1:
+
+uint32: : raster ID (points to auxiliary tables)
+
+If raster field definition has raster_type = 2:
+
+varuint: number of bytes of following field
+
+binary: binary definition
+
+String (type=4) or XML (type=12)
+
+Number of bytes of the string as a varuint, followed by string content
+
+UUID (type=10 or 11)
+
+16 bytes.
+
+The string representation is the following (printf like expression) :
+
+"{%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+b[3], b[2], b[1], b[0], b[5], b[4], b[7], b[6], b[8], b[9],
+b[10], b[11], b[12], b[13], b[14], b[15]
+
+(This is the standard way winapi handles CLSID to string conversions through CLSIDFromString16. See e.g. wine implementation at https://github.com/wine-mirror/wine/blob/6d801377055911d914226a3c6af8d8637a63fa13/dlls/compobj.dll16/compobj.c#L380 )
+
+Other types
+
+a int16 value for a int16 field, a int32 for a int32 field, a int64 for a int 64 fields etc..
+
+Datetime values are the number of days since 30th dec 1899 00:00:00, encoded as float64
+DateOnly values are the number of days since 30th dec 1899 00:00:00, encoded as float64
+TimeOnly values are the fraction of a day (0 = 00h00min0s, 1 = 23h59min59.99999999....s)
+DateTimeWithOffset are the number of days since 30th dec 1899 00:00:00, encoded as float64, followed by the UTC offset in minutes encoded a int16.
+
+Specification of .gdbtablx file
+
+.gdbtablx files contain the offset of the rows of the associated .gdbtable file.
+
+Header (16 bytes)
+
+int32: == version of the format. 3 for files with 32-bit OBJECTID. 4 for files with 64-bit OBJECTID
+
+int32: n1024BlocksPresent = number of blocks of offsets for 1024 features that are effectively present in that file (ie sparse blocks are not counted in that number).
+
+If version == 3, the next 4 bytes are:
+
+int32: number_of_rows : number of rows / max object ID, included deleted rows
+
+If version == 4, the next 4 bytes are:
+
+int32: unknown role. Seems to be always 0. But that could also be the 32-bit MSB of n1024BlocksPresent, being then a int64 on huge databases
+
+Continuation for all versions:
+
+int32: size_offset = number of bytes to encode each feature offset. Must be 4 (.gdbtable up to 4GB), 5 (.gdbtable up to 1TB) or 6 (.gdbtable up to 256TB)
+
+Offset section
+
+The section starts immediately after the header (at offset 16) and is made of size_offset x number_rows bytes. For each row,
+
+int32, int40 or int48: (depending on size_offset value) offset of the beginning of the row in the .gdbtable file, or 0 if the row is deleted. int40 is made of a int32 with the 32 least significant bits followed by a 4th byte with the 8 most significant bits. Similar for int48
+
+If there is a bit array (bitmap) to represent the presence/absence of blocks of offsets for 1024 features, then the correct row iCorrectedRow in the index for the FID iRow+1 is given by :
+
+        GUInt32 nCountBlocksBefore = 0;
+        int iBlock = iRow / 1024;
+        // Check if the block is not empty
+        if( (pabyTablXBlockMap[iBlock / 8] & (1 << (iBlock % 8))) == 0 )
+        {
+            nCurRow = -1;
+            return FALSE;
+        }
+        for(int i=0;i<iBlock;i++)
+            nCountBlocksBefore += ( pabyTablXBlockMap[i / 8] & (1 << (i % 8)) ) != 0;
+        int iCorrectedRow = nCountBlocksBefore * 1024 + (iRow % 1024);
+
+Trailing section (16 bytes + variable number )
+
+Located at offset 16 + size_offset * n1024BlocksPresent * 1024
+
+It's size is 16 bytes + variable number for version == 3, or 20 bytes + variable number for version == 4
+
+If version == 3,
+
+int32: nBitmapInt32Words = number of int32 words for the bitmap (rounded to the next multiple of 32)
+
+int32: n1024BlocksTotal = (number_of_rows + 1023) / 1024. In the case where there's a bitmap, this is also nBitsForBlockMap = number of bits in the block map.
+
+int32: n1024BlocksPresentBis (must be == n1024BlocksPresent of the header)
+
+int32: nUsefulBitmapIn32Words = number of int32 words in the bitmap where there's at least a non-zero bit. Said otherwise, all following words until the end of the bitmap are 0. Doesn't seem to be used by proprietary implementations.
+
+if nBitmapInt32Words == 0 (no bitmap), then n1024BlocksTotal == n1024BlocksPresentBis ( == n1024BlocksPresent) and nUsefulBitmapIn32Words = 0
+
+Otherwise, following those 16 trailer bytes, there is a bit array of at least (n1024BlocksTotal + 7) / 8 bytes (in practice its size is rounded to the next multiple of 32 int32 words). Each bit in the array represents the presence of a block of offsets for 1024 features (bit = 1), or its absence (bit = 0). The total number of bits set to 1 must be equal to n1024Blocks
+
+If version == 4,
+
+int64: number_of_rows : number of rows / max object ID, included deleted rows
+
+int32: size of the varying size section in bytes. 0 if there are no missing pages. non-zero otherwise, when there is otherwise likely a map of missing pages, but its structure hasn't been understood yet (https://github.com/qgis/QGIS/files/15365877/with_holes.gdb.zip).
+If size of varying size section is 0, then the following 8 bytes seem to be a int64 being n1024BlocksPresent - 1 (possibly at -1 = FF FF FF FF FF FF FF FF, when there's zero page)
+A common value for the size of the varying size section is 32842, composed in the most simple cases of 22 leading bytes, a bitmap of 32768 bytes and a trailing part of 52 bytes
+
+Example
+
+leading bytes:  01 00 01 00 00 00 20 D2 BF 15 26 02 00 00 01 00 00 00 58 00 55 00 . There meaning is not understood. The 6 first ones seem to be always "01 00 01 00 00 00". The 8 following ones seem "random" (but not really. The 2 first bytes seem to be always 0), as the same layer content doesn't result always in the same value. The next 4 bytes seem to be always 01 00 00 00. And the final 4 bytes are also "random"
+
+bitmap:         01 00 10 and 32768 - 3 bytes at zero. Here bits 0 and 20 are set, corresponding to page of features respectively 1 to 1024, and 20 * 1024 + 1 to 20 * 1024 + 1024
+
+trailing bytes: 01 00 00 00 00 00 00 00 00 00 00 00 20 D2 BF 15 26 02 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+That simple bitmap approach seems to be only valid when the first trailing bytes are "01 00 00 00 00 00 00 00 00 00 00 00". The next 8 bytes in the trailing section (here: 20 D2 BF 15 26 02 00 00) are the same value as the 8 bytes starting at offset 6 of the leading bytes section. The next 8 bytes seem to be the number of pages. The next 4 bytes seem to be 0. The next 8 bytes seem to be the number of pages. The final 8 bytes are FF FF FF FF FF FF FF FF
+
+Raw material of in-progress analysis of sparse indices of version 4
+
+with_holes.gdb
+Features 1 to 10 and 20 * 1024 + 1 to 20 * 1024 +10 = 20490
+
+with_holes.gdb/a00000009.gdbtablx: file size 43110 bytes
+
+offset   value
+0        uint32: 4 = version number
+4        uint64?: 2 = number of pages
+12       uint32: 5 = sizeof of offset
+
+trailer offset base: 10256 = 2 * 1024 * 5 + 16
++0       uint64?: 20490 (largest OBJECTID)
++8       uint32: 32842    ((10256 + 8 + 4) + 32842 = 43110 = file size)
++12                        01 00 01 00 00 00 20 D2 BF 15 26 02 00 00 01 00 00 00 58 00 55 00 01 00 10 .... lots of zeroes
++32802   01 00 00 00 00 00 00 00 00 00 00 00 20 D2 BF 15 26 02 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with holes_2:
+Features 20 * 1024 + 1 to 20 * 1024 +10 = 20490
+trailer +0: uint64 = 20490 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 80 F2 E4 F8 4F 01 00 00 01 00 00 00 47 00 44 00 00 00 10 .... lots of zeroes
++32802  :01 00 00 00 00 00 00 00 00 00 00 00 80 F2 E4 F8 4F 01 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with_holes3.gdb
+Features 1 to 10 and 20 * 1024 + 1+1 to 20 * 1024 +1+10 = 20491
+
+trailer offset base: 10256 = 2 * 1024 * 5 + 16
++0       uint64?: 20491 (largest OBJECTID)
++8       uint32: 32842
++12                        01 00 01 00 00 00 40 0F 77 A2 EA 01 00 00 01 00 00 00 47 00 44 00 01 00 10 .... lots of zeroes
++32802   01 00 00 00 00 00 00 00 00 00 00 00 40 0F 77 A2 EA 01 00 00 02 00 00 00 00 00 00 00 00 00 00 00 61 00 63 00 02 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with_holes4.gdb
+Features 1 to 10 and 20 * 1024 + 1 to 20 * 1024 +9 = 20489
+
+trailer offset base: 10256 = 2 * 1024 * 5 + 16
++0       uint64?: 20489 (largest OBJECTID)
++8       uint32: 32842
++12                        01 00 01 00 00 00 90 1F 99 E5 EA 01 00 00 01 00 00 00 47 00 44 00 01 00 10 .... lots of zeroes
++32802   01 00 00 00 00 00 00 00 00 00 00 00 90 1F 99 E5 EA 01 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with_holes5.gdb
+Features 1 to 10 and 21 * 1024 + 1 to 21 * 1024 +10 = 21514
+
+trailer offset base: 10256 = 2 * 1024 * 5 + 16
++0       uint64?: 21514 (largest OBJECTID)
++8       uint32: 32842
++12                        01 00 01 00 00 00 B0 DF 76 ED EA 01 00 00 01 00 00 00 47 00 44 00 01 00 20  .... lots of zeroes
++32802   01 00 00 00 00 00 00 00 00 00 00 00 B0 DF 76 ED EA 01 00 00 02 00 00 00 00 00 00 00 00 00 00 00 F8 7F 00 00 02 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with_holes6.gdb
+Features 1 to 10 ; 20 * 1024 + 1 to 20 * 1024 +10 ; 25 * 1024 + 1 to 25 * 1024 +10 = 25610
+
+trailer offset base: 15376 = 3 * 1024 * 5 + 16
++0       uint64?: 25610 (largest OBJECTID)
++8       uint32: 32842
++12                        01 00 01 00 00 00 20 70 90 D7 EA 01 00 00 01 00 00 00 47 00 44 00 01 00 10 02 .... lots of zeroes
++32802   01 00 00 00 00 00 00 00 00 00 00 00 20 70 90 D7 EA 01 00 00 03 00 00 00 00 00 00 00 00 00 00 00 65 42 72 65 03 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with holes_7:
+Features 123456 to 123456+9=123465
+trailer +0: uint64 = 123465 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 30 89 09 14 EB 01 00 00 01 00 00 00 47 00 44 00 (00 x15) 01
++32802  :01 00 00 00 00 00 00 00 00 00 00 00 30 89 09 14 EB 01 00 00 01 00 00 00 00 00 00 00 00 00 00 00 E0 01 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with holes_8_a (similar to with_holes7, except we have only one feature)
+Features 123456
+trailer +0: uint64 = 123456 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 70 3D C8 07 0D 02 00 00 01 00 00 00 6A 00 00 00 (00 x15) 01
++32802  :01 00 00 00 00 00 00 00 00 00 00 00 70 3D C8 07 0D 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with with_holes_8_abis (same as holes_8_a !)
+Features 123456
+trailer +0: uint64 = 123456 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 A0 A4 60 FA 0C 02 00 00 01 00 00 00 F8 7F 00 00 (00 x15) 01
++32802  :01 00 00 00 00 00 00 00 00 00 00 00 A0 A4 60 FA 0C 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with holes_8_b:
+Features 1234567
+trailer +0: uint64 = 1234657 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 20 48 81 84 0C 02 00 00 01 00 00 00 00 00 00 80 (00 x 150) 20
++32802  :01 00 00 00 00 00 00 00 00 00 00 00 20 48 81 84 0C 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+~~~~~~~~~~~~~~
+with holes_8_c:
+Features 12345678
+trailer +0: uint64 = 12346578 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 20 E0 70 17 0D 02 00 00 01 00 00 00 00 00 00 80 (00 x 483) 01   483 unexpected ! should be 1507 (=12346578 / 1024 / 8)
+
+hex(483)  = 0x1e3 = 0b   111100011
+hex(1507) = 0x5e3 = 0b10 111100011
+
++32802  :01 00 00 00!01!00 00 00 00 00 00 00 20 E0 70 17 0D 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+Note the !01! above
+
+~~~~~~~~~~~~~~
+with holes_8_d:
+Features 123456789
+trailer +0: uint64 = 123465789 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 10 40 23 17 0D 02 00 00 01 00 00 00 47 00 44 00 (00 x 734) 08   734 unexpected ! should be 15070
+
+hex(734)   = 0x02de  = 0b     1011011110
+hex(15070) = 0x3ade  = 0b1110 1011011110
+
++32802  :01 00 00 00!0E!00 00 00 00 00 00 00 10 40 23 17 0D 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+0x0E = 14 = 0b1110
+
+~~~~~~~~~~~~~~
+with holes_8_e:
+
+/home/even/gdal/data/filegdb/objectid64/with_holes_8_64/with_holes_8.gdb/a0000000e.gdbtablx = 155936 bytes
+
+Features 1234567890
+trailer +0: uint64 = 1234657890 (largest OBJECTID)
+trailer +8: uint32 = 32842
+trailer +12:               01 00 01 00 00 00 90 56 AC 13 0D 02 00 00 01 00 00 00 00 00 08 40 (00 x 176) 01   176 unexpected !
+
+hex(176)                    = 0xb0      = 0b           10110000
+hex(1234567890 / 8 / 1024)  = 0x24cb0   = 0b1001001100 10110000
+
++32802  :01 00 00 00!93!00 00 00 00 00 00 00 90 56 AC 13 0D 02 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 FF FF FF FF FF FF FF FF
+
+0x93 = 147 = 0b1001001100
+
++150720: 01      (150720 = 1234567890 / 8 / 1024 + 16)
+
+~~~~~~~~~~~~~~
+with holes_8_f:
+
+/home/even/gdal/data/filegdb/objectid64/with_holes_8_64/with_holes_8.gdb/a0000000f.gdbtablx = 176416 bytes
+
+Features 123456, 1234567,  12345678, 123456789, 1234567890
+trailer offset = 25616 = 16 + (1024 * 5) * 5
+trailer +0: uint64 = 1234657890 (largest OBJECTID)
+trailer +8: uint32 = 32938  !!! different size (= 32842 + 3 * 32)
+trailer +12:               01 00 01 00 00 00 10 9F AF F9 0C 02 00 00 0F 00 00 00 47 00 44 00
+                + (00 x 15)  01
+                + (00 x 150) 20
+trailer +1541 : 0x01        (1541 == 12345678 / 8 / 1024 + 34)
+trailer +2816 : 0x08
+trailer +3282 : 0x01
++32802  :04 00 00 00 00 00 00 00 00 00 00 00 10 9F AF F9 0C 02 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00
+                                             10 A3 AF F9 0C 02 00 00 01 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 0E 00 00 00 00 00 00 00
+                                             10 A7 AF F9 0C 02 00 00 01 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 93 00 00 00 00 00 00 00
+                                             10 AB AF F9 0C 02 00 00 01 00 00 00 00 00 00 00 03 00 00 00 00 00 00 00 05 00 00 00 00 00 00 00
+                                             FF FF FF FF FF FF FF FF FF
+
++150720: 01
+
+Specification of .gdbindexes files
+
+.gdbindexes files list the indexes that may exist on certain fields of a
+.gdbtable. This only apply to FileGDB v10 .gdbindexes : v9 .gdbindexes have a
+different (and more complicated) structure.
+
+Header (4 bytes)
+
+int32: number of indexes describes in the file
+
+Index description
+
+The section starts immediately after the header (at offset 4) and is repeated
+as many times as they are indexes.
+
+uint32: number of UTF-16 characters for the following field
+
+utf16: suffix of the index file. If it's value is foo, the filename of the index is aXXXXXXXX.foo.atx (unless the index is FDO_OBJECTID in which case the index is the .gdbtablx file, or FDO_SHAPE in which case the index is the .spx file)
+
+int16: unknown role. Always 0 ?
+
+int32: unknown role. Generally 2. Except for idx_name = FDO_ID where it is 16, and idx_name = FDO_Shape where it is 4.
+
+int16: unknown role. Generally 0. Except for idx_name = FDO_ID where it is 0xFFFF
+
+int32: unknown role. Always 1 ?
+
+uint32: number of UTF-16 characters for the following field
+
+utf16: field name (or sometimes expression like "LOWER(Name)" as found in a00000001.gdbindexes)
+
+int16: unknown role. Always 0 ?
+
+Example of dumps
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000001.gdbindexes
+nindexes = 2
+idx_name = FDO_ID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ID
+magic5 = 0
+
+idx_name = TablesByName
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = LOWER(Name)
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000003.gdbindexes
+nindexes = 1
+idx_name = FDO_ID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ID
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000004.gdbindexes
+nindexes = 5
+idx_name = FDO_ObjectID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ObjectID
+magic5 = 0
+
+idx_name = FDO_Shape
+magic1 = 0
+magic2 = 4
+magic3 = 0
+magic4 = 1
+col_name = Shape
+magic5 = 0
+
+idx_name = FDO_UUID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = UUID
+magic5 = 0
+
+idx_name = CatItemsByType
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = Type
+magic5 = 0
+
+idx_name = CatItemsByPhysicalName
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = PhysicalName
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000005.gdbindexes
+nindexes = 4
+idx_name = FDO_ObjectID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ObjectID
+magic5 = 0
+
+idx_name = CatItemTypesByUUID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = UUID
+magic5 = 0
+
+idx_name = CatItemTypesByParentTypeID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = ParentTypeID
+magic5 = 0
+
+idx_name = CatItemTypesByName
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = Name
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000006.gdbindexes
+nindexes = 5
+idx_name = FDO_ObjectID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ObjectID
+magic5 = 0
+
+idx_name = FDO_UUID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = UUID
+magic5 = 0
+
+idx_name = CatRelsByOriginID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = OriginID
+magic5 = 0
+
+idx_name = CatRelsByDestinationID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = DestID
+magic5 = 0
+
+idx_name = CatRelsByType
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = Type
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000007.gdbindexes
+nindexes = 7
+idx_name = FDO_ObjectID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = ObjectID
+magic5 = 0
+
+idx_name = CatRelTypesByUUID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = UUID
+magic5 = 0
+
+idx_name = CatRelTypesByOriginItemTypeID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = OrigItemTypeID
+magic5 = 0
+
+idx_name = CatRelTypesByDestItemTypeID
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = DestItemTypeID
+magic5 = 0
+
+idx_name = CatRelTypesByName
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = Name
+magic5 = 0
+
+idx_name = CatRelTypesByForwardLabel
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = ForwardLabel
+magic5 = 0
+
+idx_name = CatRelTypesByBackwardLabel
+magic1 = 0
+magic2 = 2
+magic3 = 0
+magic4 = 1
+col_name = BackwardLabel
+magic5 = 0
+
+$ python3 ~/dump_gdbtable/dump_gdbindexes.py poly.gdb/a00000009.gdbindexes
+nindexes = 2
+idx_name = FDO_OBJECTID
+magic1 = 0
+magic2 = 16
+magic3 = 65535
+magic4 = 1
+col_name = OBJECTID
+magic5 = 0
+
+idx_name = FDO_SHAPE
+magic1 = 0
+magic2 = 4
+magic3 = 0
+magic4 = 1
+col_name = SHAPE
+magic5 = 0
+
+Specification of .atx files
+
+.atx files contain indexes for a field of a .gdbtable. The general idea is that the values that the field takes in the .gdbtable are listed in ascending order with the associated FID. .atx files are organized in pages of page_size=4096 bytes for version 1 of .atx/.spx (corresponding to version 3 of .gdbtable/.gdbtablx) or page_size=65,536 bytes for version 2 of .atx/.spx (corresponding to version 4 of .gdbtable/.gdbtalx for 64-bit OBJECTID), and have a hierarchical organization whose depth depends on the size of the values of the field and the number of features of the table. The first page is 1, so page N is located at offset (N-1)*page_size.
+
+The reading of .atx files must start with its trailing section.
+
+Trailing section (atx_trailing_size = 22 bytes for version number = 1, 30 bytes for version number = 2)
+
+byte: size in bytes of the values indexed (called size_value afterwards). This has a close relationship with the field type of the field being indexed. So for, int16 it is equal to 2. For int32: 4. For float32: 4. For float64: 8. For string: variable number that is a multiple of 2 (string values are encoded as UTF16 characters, so 2 bytes per character) and at maximum 160 bytes (80 characters). For datetime: 8. For UUID: 38 (
+the string representation is 38 bytes. See above). Indexing of binary or XML fields has not been studied (if it is possible !)
+
+byte: unknown role (apparently 0x20 for string, and 0x40 for other data types that are of fixed size)
+
+int32: unknown role. Apparently always/often 1.
+
+uint32: index depth >= 1. If it is 1 the first page directly references features. Otherwise the first page reference pages that reference pages referencing features (depth = 2), or pages that reference pages that reference pages that reference features (depth = 3), and so on...
+
+uint32 for version 1, likely int64 for version 2: number of features referenced in the file. Otherwise said number of features that have a non-null value for the field being indexed. Must not be greater than the number of valid features of the .gdbtable. It has been observed that  (with FileGDB SDK 1.3) this value is not relieable for an index that has been built while features are inserted, if the values inserted are not in increasing order.
+
+int32 for version 1, likely int64 for version 2: unknown role. Apparently always/often 0.
+
+int32: Version number: 1 for 32-bit ObjectID tables, 2 for 64-bit ObjectID tables
+
+The maximum number of features (or sub-pages references) in a page is :
+nMaxPerPages = (page_size - page_header_size) / (objectid_size + size_value)
+
+where:
+
+page_header_size = 12 for version 1, or 20 for version 2
+
+objectid_size = 4 for version 1, or 8 for version 2
+
+The offset at which field values are found in a page is :
+nOffsetFirstValInPage = page_header_size + nMaxPerPages * objectid_size
+
+Page referencing features (page_size bytes: 4096 bytes for version 1, 65536 bytes for version 2)
+
+For a given field value, if found in several features, the features are sorted by ascending ID.
+The structure of such a page is header section (page_header_size bytes), followed by FID numbers (maximum of objectid_size * nMaxPerPages bytes), a few potential padding bytes, and finally field values (maximum of size_value * nMaxPerPages bytes)
+
+Header section structure (offset 0 in the page) :
+
+uint32 for version 1, or uint64 for version 2: ID of the next page at the same depth, or 0 for last page. Not strictly needed to use the index (under the assumption that if index_depth == 1, there is a single feature page, and for higher index depth, all feature-referencing pages are referenced from page referencing pages. Such assumption seems to match with how indices are generated, and is a good practice for efficient hiearchical indexing)
+
+uint32: number of features referenced in the page (nFeatures). Not greater than nMaxPerPages
+
+uint32 for version 1, or uint64 for version 2: unknown role. Apparently always/often 0.
+
+FID section structure (offset page_header_size in the page) :
+
+uint32 for version 1, or uint64 for version 2: FID of the first feature referenced in the page
+
+...
+
+uint32 for version 1, or uint64 for version 2: FID ot the (nFeatures)th feature referenced in the page.
+
+Padding section of zeroes (size: nOffsetFirstValInPage - page_header_size - objectid_size * nFeatures)
+
+Values section structure (offset nOffsetFirstValInPage in the page):
+
+type depending on the field (int16/int32/float32/float64/datetime as float64/string as UTF16 characters/UUID): value of field for the first feature referenced in the page
+
+...
+
+type: value of field for the (nFeatures)th feature referenced in the page.
+
+Page referencing other pages (page_size bytes: 4096 bytes for version 1, 65536 bytes for version 2)
+
+The structure of such a page is header section (reduced_page_header_size = 8 bytes for version 1, or 12 bytes for version 2), followed by sub-pages numbers (maximum of objectid_size * (1 + nMaxPerPages) bytes), a few potential padding bytes, and finally field values (maximum of size_value * nMaxPerPages bytes)
+
+Header section structure (offset 0 in the page) :
+
+uint32 for version 1, or uint64 for version 2: ID of the next page at the same depth, or 0 for last page. Not strictly needed to use the index (under the assumption that such a page is always referenced from a page upper in the hierarchy if there are several at that depth. Such assumption seems to match with how indices are generated, and is a good practice for efficient hiearchical indexing)
+
+uint32: number of sub-pages referenced in the page (nSubPages). Not greater than nMaxPerPages
+
+Sub-pages number section (offset 8 in the page):
+
+uint32 for version 1, or uint64 for version 2: ID of the first sub-page referenced in the page
+
+...
+
+uint32 for version 1, or uint64 for version 2: ID of the (nSubPages)th sub-page referenced in the page.
+
+uint32 for version 1, or uint64 for version 2: ID of the (nSubPages+1)th sub-page referenced in the page (note: there is no maching value for that last sub-page number in the values section)
+
+Padding section of zeroes( size: nOffsetFirstValInPage - reduced_page_header_size - objectid_size * (nSubPages+1))
+
+Values section structure (offset nOffsetFirstValInPage in the page):
+
+type depending on the field (int16/int32/float32/float64/datetime as float64/string as UTF16 characters/UUID): maximum value of field taken in the features referenced by the sub-page (and its potential sub-sub-pages) for the first sub-page referenced in the page
+
+...
+
+type: maximum value of field taken in the features referenced by the sub-page (and its potential sub-sub-pages) for the (nSubPages)th sub-page referenced in the page
+
+Specification of .spx files
+
+.spx files contain the spatial index for the geometry field of a .gdbtable. They have exactly the same structure as .atx files: same trailing section of atx_trailing_size bytes, same principle of pages of 4096/65536 byte, with either pages referencing other pages (depth > 1) or pages referencing features (depth = 1). The payload being indexed is a 64-bit integer number (size_value = 8).
+
+It is built from (x,y) georeferenced coordinates and a grid number (grid_no) : point(x,y,grid_no) = (grid_no << 62) | (scaled_x << 31) | scaled_y
+
+where grid_no = 0, 1, 2 (grid_no must be strictly lower that len(grid_size), where grid_size[] is the array giving the spatial grid resolution)
+and
+
+scale_x = int(floor(x / grid_size[grid_no] + (2^29)) / (grid_size[grid_no] / grid_size[0])))
+
+scale_y = int(floor(y / grid_size[grid_no] + (2^29)) / (grid_size[grid_no] / grid_size[0])))
+
+Note: for the purpose of building this number, it is convenient to consider it as a unsigned quantity, especially when grid_no = 2, which sets the most-significant-bit, but sorting purposes in the .spx file, it has been found that this number if considered as a signed quantity.
+
+In regular layers of sample files studied, it has been found that len(grid_size) == 1. It appears however that for FileGDB v10, the a0000004 system table can have up to 3 grid sizes.
+
+The principle of spatial indexing consists in "rasterizing" the geometries on the spatial index grid(s) and indexing the 64-bit quantities corresponding to those rasterized points. Consequently for a non-punctual geometry, its FID may appear several times in the file. For a given 64-bit quantity, features appear in increasing FID in the .spx file.
+
+On the read size, when interested in geometries that intersect the (minx, miny, maxx, maxy) envelope, one must search the index for indexed values in [point(x,miny,grid_no), point(x,maxy,grid_no)] for x in [minx, maxx] and grid_no in [0, len(grid_size()-1]).
+
+One can see that if grid_size[] values are not carefully choosen, the size of the .spx file may be huge. A polygon with a large extent can correspond to a big number of indexed values. It is difficult to completely assert the strategy used for indexing when len(grid_size[]) > 1, but presumbably, from an example of a a0000004 system table, it would appear that features that would cause too many values to be generated at grid_no = 0 are rather indexed with grid_no = 1 or 2. On the read side, our assumption is that one should search indexed values for grid_no = 0 ... len(grid_size[])-1, and not only at grid_no = 0 even if there are matches at the resolution.
+
+Specification of .freelist files
+
+.freelist files contain the offset to the holes (rows deleted, or old updates) in the associated .gdbtable file.  The file is optional, and will be deleted when the fGDB is compacted.
+
+The file is organized in pages of 4096 bytes, with a trailer section of 344 bytes. Each page holds holes in a given range of bytes (for example holes of size [8,16[ bytes, [16,24[ bytes, etc). Holes smaller than 8 bytes are not recorded (probably because it takes more bytes to record such a hole)
+
+Each page is structured in a header of 8 bytes and a offset section of 4088 bytes.
+
+Header (8 bytes)
+
+int32: number of holes
+
+int32: index of the previous page with holes in the same range, or -1 (0xFFFFFFFF) if there is no such previous page. The index numbering starts at 0, which is page at offset 0. Thus 1 is the page at offset 4096, etc.
+
+Offset section (4088 bytes)
+
+The section starts immediately after the header and is made of (4 + size_offset) x number_of_holes bytes. For each hole,
+
+int32: number of bytes of the hole (must be in the range allowed for that page)
+
+int32, int40 or int48: (depending on size_offset value) offset of the beginning of the row in the .gdbtable file. int40 is made of a int32 with the 32 least significant bits followed by a 4th byte with the 8 most significant bits. Similar for int48
+
+Trailer section (344 bytes)
+
+int32: always at 1
+
+int32: index of the last free page (that is a page with 0 entries, possibly linked to other free pages), or 0xFFFFFFFF if there's no such page
+
+int32: index of the last page that holds holes of the size [8,16[, or 0xFFFFFFFF if there's no such page
+
+int32: number of pages that holds holes of the size [8,16[, or 0 if there's no such page
+
+int32: index of the last page that holds holes of the size [16,24[, or 0xFFFFFFFF if there's no such page
+
+int32: number of pages that holds holes of the size [16,24[, or 0 if there's no such page
+
+int32: index of the last page that holds holes of the size [24,40[, or 0xFFFFFFFF if there's no such page
+
+int32: number of pages that holds holes of the size [24,40[, or 0 if there's no such page
+
+int32: index of the last page that holds holes of the size [40,64[, or 0xFFFFFFFF if there's no such page
+
+int32: number of pages that holds holes of the size [40,64[, or 0 if there's no such page
+
+int32: index of the last page that holds holes of the size [64,104[, or 0xFFFFFFFF if there's no such page
+
+int32: number of pages that holds holes of the size [64,104[, or 0 if there's no such page
+
+etc .... with the same logic, observing that the ranges form a Fibonacci suite
+
+GDB files
+
+Files are named in the format a[number in lowercase hex].[extension] with files with the same base but different extensions being related.  Files are numbered incrementally, a00000001 is first a00000002 is second, but numbers may be skipped.
+
+FileGDB v10
+
+For FileGDB v10, the first 8 (a00000001 to a00000008) files seem to be reserved for database information and subsequent files are feature classes (a00000009, a0000000a, ...).
+
+a00000001 is called GDB_SystemCatalog and contains a list of tables (including itself, other reserved tables and user tables). Tables may be mentionned but not actually found on the disk : this is often (only ?) the case of table a00000008. The FID of a record in this table determines the name of the file to consider. For example the record of FID 37 (the convention taken here for FID numbering is starting from 1) will be in file a00000025. There might be deleted rows in this catalog table, so gaps in FID numbering.
+
+The table contains a Name field and a FileFormat field. The value of FileFormat seems to be 0 in most cases, and sometimes 2 for a few reserved system tables.
+
+a00000002 contains config parameters for the database and is called GDB_DBTune
+
+a00000003 is called GDB_SpatialRefs and contains the SRS as WKT in field SRTEXT (in ESRI WKT dialect) and the following fields : FalseX, FalseY, XYUnits, FalseZ, ZUnits, FalseM, MUnits, XYTolerance, ZTolerance, MTolerance. All rows are unique so if there are 3 features classes, all with the same spatial reference system, but one has a different ZTolerance there will be two rows.
+
+a00000004 is called GDB_Items and contains metadata about the items (layers), mostly in XML. The fields are :
+
+UUID (UUID) : UUID
+
+Type (UUID) : item type
+
+Name (string) : item/layer name. Matches the Name field of the GDB_SystemCatalog
+
+PhysicalName (string) : item/layer name in upper case characters.
+
+Path (string) : "\mylayername" for top-level layers or "\myfeaturedataset\mylayername" for layers attached to a feature dataset "myfeaturedataset"
+
+DatasetSubType1 (int32) : 1 for user tables (TBC)
+
+DatasetSubType2 (int32) : layer geometry type. 1 for point layer, 2 for multipoint layers, 3 for linestring layers, 4 for polygon layers
+
+DatasetInfo1 (string) : "SHAPE" for user tables (TBC)
+
+DatasetInfo2 (string) : NULL for user tables (TBC)
+
+URL (string) : empty string (TBC)
+
+Definition (XML) : DEFeatureClassInfo XML element. Contains an XML version of the information that can be obtained by parsing the header of a table : fields, SRS, ...
+
+Documentation (XML) : metadata XML element
+
+ItemInfo (XML) : NULL for user tables (TBC)
+
+Properties (int32) : 1 for user tables (TBC)
+
+Defaults (binary) : absent for user tables (TBC)
+
+Shape (geometry) : 5 point polygon listing the corner of the bounding box of the layer reprojected into EPSG:4326 (even if the layer SRS is not EPSG:4326). Or missing if the layer SRS is undefined.
+
+A few particular records :
+
+The first record is reserved for a kind of root item ( Name = "", Path = "" ).
+
+The second record is reserved for a Name = "Workspace" item, Path = "", Definition containing a DEWorkspace XML element
+
+When there are feature datatesets, they also appear as records : e.g. Name = "featuredataset", PhysicalName = "FEATUREDATASET", Path = "\FEATUREDATASET", Definition containing a DEFeatureDataset XML element
+
+a00000005, a00000006 and a00000007 are one of GDB_ItemRelationships,GDB_ItemRelationshipTypes or GDB_ItemTypes (order may vary depending on datasets)
+
+a00000008 is called GDB_ReplicaLog. It is often listed in the GDB_SystemCatalog, but actually missing on disk.
+
+Globally for v10 files, the main interesting reserved table seems to be the GDB_SystemCatalog to establish the link between the layer name and its associated .gdbtable file. Using a00000004 might be needed in case there are user table of other table types listed in the GDB_SystemCatalog that are not vector tables (rasters, relationships, ...), and also may be used to have an overview of all tables by exploiting the XML definition without opening all the corresponding .gdbtable files.
+
+FileGDB v9
+
+For FileGDB v9, the first 36 (a00000001 to a00000024) files seem to be reserved for database information and subsequent files are feature classes (a00000025, a00000026, ...). Very often, the files between a00000009 and a00000024 are missing.
+
+a00000001 : GDB_SystemCatalog. Similar to v10. Contains as well a DatasetGUID field. Records 1 to 36 are reserved for GDB_ tables
+
+a00000001 : GDB_DBTune
+
+a00000003 : GDB_SpatialRefs. Identical to v10
+
+a00000004 : GDB_Release. Contains a single record : for v9.2 databases: Major = 2, Minor = 2, Bugfix = 0. For v9.3 databases: Major = 2, Minor = 3, Bugfix = 0
+
+a00000005 : GDB_FeatureDataset
+
+a00000006 : GDB_ObjectClasses. Contains a Name field, and other technical fields.
+
+a00000007 : GDB_FeatureClasses. Simplified version of GDB_Items of v10. Contains the layer geometry type in GeometryType and shape field name in ShapeField. The ObjectClassID field is related to the FID of GDB_ObjectClasses
+
+a00000008 : GDB_FieldInfo. Contains information about some (but not all fields) of layers.
+
+Globally for v9 files, the main interesting reserved table seems to be the GDB_SystemCatalog to establish the link between the layer name and its associated .gdbtable file. Using a00000007 in conjunction with a00000006 might be needed in case there are user table of other table types listed in the GDB_SystemCatalog that are not vector tables (rasters, relationships, ...)
+
+Compressed Tables
+
+Compressed tables are indicated by the presence of a ".cdf" file, which contains a compressed version of a layer. The encoding of CDF tables is significantly different from standard GDB tables.
+
+Header
+
+uint32: File identifier, either 0x43444623 or 0x43444632
+
+uint32: Flags. If flags & 0xff00 == 0x1000, then the table is version 10. If it's 0x0900, if a version 9 table.
+
+16 bytes: Unique table UUID (See UUID field interpretation above for explanation)
+
+For version 9 only: uint32: codepage. The code page value & 0xffff should be one of 0x2ff, 0x3ff, 0x4ff or 0x5ff
+
+varint16: Offset for file TOC
+
+TOC
+
+varuint: Number of objects in TOC
+
+For each object in TOC:
+
+16 bytes: object GUID, where GUID may be 0x010000000000000000000000000000 for "CDF Block", 0x02: "CDF Log", 0x03...: "CDF SINFO" (spatial information), 0x04...: "CDF_TABINFO" (table information), 0x14...: "SDC Block", 0x15...: "SDC PHYS", 0x16...: "SDC LOG". There's at most one of each of block, log, sinfo, tabinfo, phys. There MUST be a BLOCK and LOG entry, and for v9 files, there must also be a "SDC PHYS" entry.
+
+varint16: Offset of object in file
+
+Field Info
+
+First, seek to LOG offset from TOC
+
+varuint: Field count
+
+16 bytes: unknown
+
+For each field:
+
+varuint: number of UTF-16 characters (not bytes) of the name of the field
+
+utf16: name of the field
+
+varuint: field type. These differ from standard GDB field types. Where 1 = INT16, 4 = OBJECTID, 5 = FLOAT32, 6 = FLOAT64, 7 = STRING, 8 = GEOMETRY, 9 = DATETIME, 10 = UUID1, 12 = BINARY, 16 = RASTER, 17 = UUID2
+
+varuint: unknown
+
+For field type 4 (OBJECTID):
+
+varuint: unknown
+
+For field type 5 or 6 (FLOAT32/FLOAT64)
+
+varuint: unknown
+
+varuint: unknown
+
+For field type 8 (GEOMETRY):
+
+varuint: unknown
+
+For all field types
+
+varuint: unknown, must be 0
+
+16 unknown bytes
+
+Table Info
+
+First, seek to TABINFO offset from TOC
+
+varuint: number of UTF-16 characters (not bytes) of the name of the table
+
+utf16: name of the table
+
+Spatial Info
+
+First, seek to SINFO offset from TOC
+
+float64: x min (Extent of layer)
+
+float64: y min
+
+float64: x max
+
+float64: y max
+
+float64: unknown -- maybe resolution?
+
+If z or m present, looks like two more sets of doubles for each -- likely z/m min/max, but unknown which order
+
+varuint: number of UTF-16 characters (not bytes) of the WKT definition of the table's SRS
+
+utf16: WKT definition of table's SRS
+
+License
+
+This specification document is (C) 2013 Even Rouault and licensed under the CC-BY-SA 3.0 terms.
+
+Formatting to Markdown done by Calvin Metcalf.
+
+Note: the scope of the copyrighted material does, of course, not extend onto any source or binary code derived from the specification, that may be licensed under the terms that their author may see fit.
+
+
+

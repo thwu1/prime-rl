@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level geospatial domain knowledge. The solver receives no guidance on what metadata properties to validate or how to detect errors — they must independently determine validation rules from knowledge of the STAC specification and geospatial standards. The six rasters span disparate projection families (geographic, transverse Mercator, polar stereographic, custom sinusoidal) requiring different coordinate transformation strategies. Key challenges include: recognizing that STAC bounding boxes must be in WGS84 regardless of native CRS; implementing accurate coordinate transformations that sample edge midpoints (not just corners) for non-conformal projections; handling a non-EPSG sinusoidal CRS that cannot be identified by authority code; distinguishing projected-coordinate values erroneously placed in degree-denominated fields from legitimate geographic coordinates; detecting that a one-zone-off UTM EPSG code produces a bbox that is geographically plausible but longitudinally shifted; choosing comparison tolerances that avoid false positives on correct items while catching genuine errors; and classifying error severity based on downstream geospatial query impact."""
+solution_explanation = """The solver must discover that STAC bbox values must be in WGS84 per the specification, then use GDAL or rasterio to read each raster's CRS WKT and geotransform. For each file, compute the WGS84 bounding box by transforming corner and edge-midpoint coordinates from the native CRS to EPSG:4326 using osr.CoordinateTransformation or pyproj. Compare the computed WGS84 bbox against the STAC bbox with appropriate tolerance. Additionally validate proj:epsg against the raster's actual authority code, temporal start/end ordering, and eo:bands length against actual band count. Handle the sinusoidal CRS (null EPSG) via WKT or PROJ string. Total: 7 errors across 6 files (5 critical, 2 major)."""
+verification_explanation = """Tests load the output JSON and verify: structural compliance (required keys); summary statistics (6 files, 7 errors, 5 critical, 2 major); per-file error detection with correct type, severity, and value ranges; geographic plausibility of corrected bounding boxes (California, Greenland, SE Asia, Norway coordinate ranges); absence of false positives on correct items (global_sst spatial, antarctic_ice spatial); CRS code validation (32632 vs 32633); band count values (3 vs 2); and error type distribution counts."""
+category = "applied_computing"
+tags = ["geospatial-crs", "stac-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cmr-collection-reconcile"

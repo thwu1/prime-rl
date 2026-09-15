@@ -1,0 +1,46 @@
+# Copyright Vespa.ai. Licensed under the terms of the Apache 2.0 license.
+# See /app/proposals/ for competing design proposals from previous developers
+
+schema product {
+
+    document product {
+
+        field title type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field body type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field price type float {
+            indexing: summary | attribute
+        }
+
+        field quality_score type float {
+            indexing: summary | attribute
+        }
+
+        field category_weights type tensor<float>(cat{}) {
+            indexing: summary | attribute
+        }
+
+        field embedding type tensor<float>(v[384]) {
+            indexing: summary | attribute
+            attribute {
+                distance-metric: angular
+            }
+        }
+
+        field tags_embedding type tensor<float>(v[64]) {
+            indexing: summary | attribute
+            attribute {
+                distance-metric: euclidean
+            }
+        }
+
+    }
+
+}

@@ -1,0 +1,108 @@
+config defaults
+	option syn_flood '1'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+
+config zone
+	option name 'lan'
+	list network 'lan'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+
+config zone
+	option name 'wan'
+	list network 'wan'
+	option input 'DROP'
+	option output 'ACCEPT'
+	option forward 'DROP'
+	option masq '1'
+	option mtu_fix '1'
+
+config zone
+	option name 'guest'
+	list network 'guest'
+	option input 'DROP'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+
+config zone
+	option name 'iot'
+	list network 'iot'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+
+config forwarding
+	option src 'lan'
+	option dest 'wan'
+
+config forwarding
+	option src 'iot'
+	option dest 'wan'
+
+config forwarding
+	option src 'iot'
+	option dest 'lan'
+
+config rule
+	option name 'Allow-Guest-DNS'
+	option src 'guest'
+	option proto 'tcp udp'
+	option dest_port '53'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-Guest-DHCP'
+	option src 'guest'
+	option proto 'udp'
+	option dest_port '67'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-IoT-DNS'
+	option src 'iot'
+	option proto 'tcp udp'
+	option dest_port '53'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-IoT-DHCP'
+	option src 'iot'
+	option proto 'udp'
+	option dest_port '67'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-LAN-IoT-Web'
+	option src 'lan'
+	option dest 'iot'
+	option proto 'tcp'
+	option dest_port '8080'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Allow-LAN-IoT-MQTT'
+	option src 'lan'
+	option dest 'iot'
+	option proto 'tcp'
+	option dest_port '1883'
+	option target 'ACCEPT'
+
+config redirect
+	option name 'HTTPS-Forward'
+	option src 'wan'
+	option src_dport '443'
+	option dest 'lan'
+	option dest_ip '192.168.30.100'
+	option dest_port '443'
+	option proto 'tcp'
+	option target 'DNAT'
+
+config rule
+	option name 'Allow-WAN-Established'
+	option src 'wan'
+	option proto 'all'
+	option ct_state 'ESTABLISHED,RELATED'
+	option target 'ACCEPT'

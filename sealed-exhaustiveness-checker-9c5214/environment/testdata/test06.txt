@@ -1,0 +1,17 @@
+# Test 06: Record cross-product coverage
+# Pair has two Shape components. All four combinations covered.
+# Expected: exhaustive
+
+TYPES
+sealed Shape Circle Square
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+record Pair Shape:first Shape:second
+
+SWITCHES
+switch s1 Pair
+record Pair(type:Circle,type:Circle)
+record Pair(type:Circle,type:Square)
+record Pair(type:Square,type:Circle)
+record Pair(type:Square,type:Square)
+end

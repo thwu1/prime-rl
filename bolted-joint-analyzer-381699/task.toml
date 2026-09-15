@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-mode bolted joint analyzer by synthesizing VDI 2230 engineering methodology from reference documents, integrating multiple tools (make build system, gnuplot for SVG diagram generation, SQLite with triggers and views), and handling coupled physics calculations. The agent must: (1) create a Makefile-based build system, (2) implement the long-form torque-tension equation, compliance-summation bolt stiffness, and Roetscher frustum joint stiffness models, (3) compute differential thermal expansion from bolt/joint CTE mismatch, (4) generate gnuplot scripts and invoke gnuplot to produce SVG bolt diagrams, (5) implement SQLite triggers for automatic risk classification and views for aggregated analytics, (6) support both single-analysis and batch-processing modes with JSONL output. The calculations are tightly coupled — thermal expansion depends on series stiffness which depends on both bolt and joint stiffness models, and probability of failure depends on the complete preload requirement chain including thermal effects."""
+solution_explanation = """The solution creates a Python CLI tool with Makefile build orchestration: (1) a Makefile copies source from src/ to the executable and creates the diagrams directory; (2) the analyzer parses TOML specs and CSV reference data for thread geometry, bolt grades, and nut proof loads; (3) computes max/min preload via the long-form torque equation at extreme friction; (4) calculates bolt stiffness (compliance summation) and joint stiffness (Roetscher frustum); (5) derives load factor, embedding loss, differential thermal expansion from CTE mismatch, and total preload requirement; (6) generates gnuplot scripts with stacked-bar diagrams showing preload components and min/max preload markers, invoking gnuplot for SVG output; (7) creates SQLite schema with AFTER INSERT trigger for risk category classification and a GROUP BY view for analytics; (8) handles batch mode by processing directory contents alphabetically with JSONL output."""
+verification_explanation = """90+ pytest tests across 19 test classes verify: (1) Makefile existence, idempotent builds, and rebuild capability, (2) executable existence and valid JSON output with all required fields, (3) numerical accuracy of torque-tension, stiffness, and embedding against hand-computed references for M12 and M16 joints, (4) friction shim effects on design margin, (5) DIN vs ISO nut compatibility, (6) temperature suitability across 5 bolt materials, (7) washer hardness requirements per ISO 898-3, (8) thread root radius ranges, (9) combined axial+shear loading, (10) stiffness physics reasonableness, (11) embedding scaling, (12) preload-friction relationships, (13) probability of failure consistency, (14) multiple bolt size lookups, (15) SQLite logging with schema and data integrity, (16) differential thermal expansion at assembly temp, CTE-matched and CTE-mismatched scenarios, thermal loss increasing total requirement, (17) gnuplot SVG diagram generation and database ID matching, (18) batch mode with alphabetical ordering, JSONL output, and per-analysis logging, (19) SQLite trigger risk classification for all four categories and view-based aggregation."""
+category = "engineering"
+tags = ["mechanical-engineering", "multi-tool-integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bolted-joint-analyzer-381699"

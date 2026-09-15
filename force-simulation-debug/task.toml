@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task requiring deep understanding of numerical simulation, spatial data structures, and physics algorithms. The solver must: (1) identify and fix a subtle velocity-Verlet integration ordering bug in the simulation loop, (2) fix a quadtree visitAfter traversal that incorrectly uses pre-order instead of post-order, (3) implement the full Barnes-Hut N-body force approximation from scratch including mass center accumulation and theta-based approximation cutoff, (4) implement quadtree-accelerated collision detection with radius propagation and impulse splitting, and (5) fix an inverted degree-based bias computation in the link force. Each fix requires understanding the underlying algorithm, not just pattern matching."""
+solution_explanation = """Five files need fixes: (1) simulation.ts: swap velocity integration order from 'x += vx; vx *= decay' to 'vx *= decay; x += vx' matching velocity-Verlet semantics. (2) quadtree.ts: replace pre-order visitAfter with correct post-order using a two-pass approach (collect all nodes, then process in reverse). (3) manyBody.ts: implement accumulate() to compute weighted center of mass bottom-up via visitAfter, and apply() with Barnes-Hut theta cutoff for O(n log n) force approximation. (4) collide.ts: implement prepare() to propagate max collision radius up the tree, and apply() to resolve overlaps with radius-ratio impulse splitting. (5) link.ts: change bias computation from counts[target]/total to counts[source]/total for correct degree-based weighting."""
+verification_explanation = """Tests run the TypeScript simulation via ts-node for 9 scenarios (init, noforce, center, xforce, link, manybody, collide, combined, fixed) and verify node positions/velocities against precomputed reference values within 1e-6 tolerance. The combined scenario exercises all forces simultaneously with a 5-node chain graph, catching any remaining bugs through exact numerical comparison. The collide scenario uses property-based testing to verify separation distances and determinism."""
+category = "debugging"
+tags = ["physics-simulation", "spatial-data-structures"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/force-simulation-debug"

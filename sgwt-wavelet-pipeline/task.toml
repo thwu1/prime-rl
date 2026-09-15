@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level task requiring diagnosis and repair of a cross-language spectral graph wavelet pipeline. A buggy C shared library must be compiled via a broken Makefile (missing linker flags, wrong output name), the C Chebyshev recurrence has an algorithmic sign error, the Python ctypes bridge has a memory layout bug, and six additional Python-level bugs cascade through graph construction, kernel evaluation, scale computation, and frame estimation. The solver must also implement the Jackson-Chebyshev coefficient computation from a mathematical specification. Requires proficiency with gcc, make, ctypes FFI debugging, numpy, scipy.sparse, and spectral graph theory."""
+solution_explanation = """Eleven issues across C/Makefile/ctypes/Python: (1) Makefile TARGET is 'libsgwt.so' but Python loads 'libsgwt_native.so', (2) Makefile missing -lm linker flag for math functions, (3) C cheby_op_c three-term recurrence uses + twf_old instead of - twf_old, (4) Python ctypes wrapper reshapes result buffer as (Nscales,N).T instead of (N,Nscales), (5) graph.py degree matrix counts edges instead of summing weights, (6) graph.py clips eigenvalues to [0,2] (normalized range) but pipeline uses combinatorial Laplacian, (7) kernels.py Meyer polynomial uses coefficient 21 instead of 20, (8) kernels.py MexicanHat lowpass uses exponent 2 instead of 4, (9) scales.py produces ascending instead of descending log scales, (10) frames.py computes sum of absolute values instead of sum of squares, (11) jackson.py is an unimplemented stub. Bugs 5-6 cascade through all downstream computations."""
+verification_explanation = """Tests install PyGSP as a reference oracle and compare each output component against PyGSP values computed from the same graph. 30 tests cover: native C library existence and loadability, ctypes integration in filtering.py, eigenvalues, log scales, Meyer/MexicanHat exact analysis, tight frame bounds and near-unity check, Chebyshev approximation accuracy, energy conservation (Parseval), reconstruction error, Jackson-Chebyshev coefficients, and no-pygsp-import verification. The cascading graph bugs cause most tests to fail until the graph module is fixed. Build system tests fail until Makefile and C code are corrected."""
+category = "scientific_computing"
+tags = ["spectral-graph-theory", "cross-language-debugging"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sgwt-wavelet-pipeline"

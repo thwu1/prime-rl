@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of U.S. federal payroll tax law: IRS percentage method FIT withholding with bracket lookups, FICA wage base capping mid-period, Additional Medicare Tax threshold straddling, group-term life imputed income via Table 2-2, supplemental wage aggregate method crossing tax brackets, algebraic gross-up inversion with piecewise SS wage base boundaries, retroactive pay recalculation with overtime differentials, and CCPA child support garnishment limits on disposable earnings. Additionally requires multi-tool proficiency: writing a GNU Makefile with proper dependency ordering, authoring a non-trivial jq program with custom functions for output validation, and building a jq/awk pipeline for CSV report generation. Each scenario type composes multiple interacting rules where pre-tax deduction types affect different tax bases differently, and cent-level rounding at each step cascades through all downstream calculations."""
+solution_explanation = """The solution implements a Python payroll engine using math.floor(x*100+0.5)/100 for half-up cent rounding. For regular paychecks: compute gross from salary, calculate group-term life imputed income via Table 2-2, apply pre-tax deductions (401k reduces FIT/state only; S125 reduces all), compute FIT via percentage method brackets, handle SS wage base crossing and Additional Medicare threshold straddling. For aggregate method: compute FIT on combined (regular+bonus) and subtract FIT on regular alone. For gross-up: estimate via piecewise linear equation accounting for SS room, then iterate to find minimum cent value matching desired net after individually rounded taxes. For retro pay: compute per-week rate differentials including overtime premium recalculation. For garnishment: compute regular paycheck, then calculate CCPA disposable earnings (gross minus legally required withholdings only), apply CCPA percentage limit based on support status and arrears, cap garnishment at the lesser of the order and the limit. The Makefile uses recursive make to ensure sequential execution. The jq validator uses custom functions (abs_val, has_all) to check field presence and decomposition invariants. The report target pipes jq field extraction through awk for 2-decimal formatting."""
+verification_explanation = """Tests run the engine on 6 scenarios and verify every output field (80+ individual field checks) against golden values computed from authoritative tax config, with $0.01 tolerance per field. Each scenario tests distinct edge cases: SS wage base crossing, group-term life imputed income, aggregate method bracket crossing, gross-up with SS boundary, retro pay with OT, Additional Medicare threshold straddling, and CCPA garnishment limit activation. Additional test classes verify: Makefile targets (run/validate/report) execute successfully, the jq validator produces correct output structure, the CSV report has proper header/sorting/formatting and matches expected values. Cross-scenario consistency tests verify net decomposition invariants and disposable earnings calculations."""
+category = "applied_computing"
+tags = ["payroll", "tax-computation", "makefile", "jq"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/payroll-engine-calc"

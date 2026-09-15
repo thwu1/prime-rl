@@ -1,0 +1,43 @@
+# Basic statement and query tests
+
+statement ok
+CREATE TABLE t1(a INTEGER, b TEXT, c REAL)
+
+statement ok
+INSERT INTO t1 VALUES(1, 'hello', 1.5)
+
+statement ok
+INSERT INTO t1 VALUES(2, 'world', 2.5)
+
+statement ok
+INSERT INTO t1 VALUES(3, 'foo', 3.5)
+
+query ITR nosort
+SELECT a, b, c FROM t1 ORDER BY a
+----
+1 hello 1.500
+2 world 2.500
+3 foo 3.500
+
+statement count 3
+UPDATE t1 SET c = c + 1
+
+query R nosort
+SELECT c FROM t1 ORDER BY a
+----
+2.500
+3.500
+4.500
+
+query I nosort
+SELECT count(*) FROM t1
+----
+3
+
+statement count 1
+DELETE FROM t1 WHERE a = 3
+
+query I nosort
+SELECT count(*) FROM t1
+----
+2

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete interpreter from 78 formal inference rules with nonstandard (mutated) semantics, then performing comparative semantic analysis across two interpretations. The agent must: (1) parse formal Gentzen-style inference rules with Unicode mathematical notation to understand the language's actual operational behavior, including configurations 〈o,σ,χ〉, store updates, and control stack manipulation for while/break/continue via the LOOP/LE mechanism; (2) resolve the aexp/bexp parsing ambiguity in LALR(1) parsing; (3) discover that 16+ operators across 4 categories have swapped semantics by analyzing computation-rule premises against conclusions; (4) implement the interpreter and execute all programs under the mutated semantics; (5) independently determine standard IMP semantics without being given standard rules and execute all programs under standard semantics — requiring PL domain knowledge; (6) produce a semantic divergence analysis identifying per-program which mutation categories are responsible for differing results, requiring reasoning about how operator mutations propagate through control flow (e.g., comparison mutations can invert loop guards, preventing entire loops from executing under one semantics but not the other); (7) synthesize a verification program that provably distinguishes the two semantics — a creative task requiring understanding of which mutations interact to produce observable differences. The dual-semantics comparison and divergence analysis require holistic understanding of the semantic space, not just procedural rule-following."""
+solution_explanation = """Parse inference rules via regex to extract operator mappings. Build a PLY parser with unified expression grammar. Implement an interpreter parameterized by operator maps. Define standard operator maps from PL knowledge. Execute all programs under both semantics, comparing results. Analyze which operators appear in each program to determine affected mutation categories. Generate a verification program that exploits arithmetic+comparison mutations to distinguish semantics. Orchestrate through a Makefile with separate targets for each pipeline stage."""
+verification_explanation = """Tests verify: (1) PLY parser table and import artifacts; (2) Makefile has all 6 required targets; (3) mutation analysis JSON matches expected operator mappings for all categories; (4) all 8 provided programs' final states match ground truth under mutated semantics; (5) all 8 programs' final states match ground truth under standard semantics; (6) divergence analysis correctly identifies which programs differ and which mutation categories affect each; (7) agent-synthesized verification.imp produces check=1 under mutated and check=0 under standard semantics; (8) divergence.json includes the verification program."""
+category = "programming_languages"
+tags = ["formal_semantics", "semantic_analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mutated-sos-interpreter"

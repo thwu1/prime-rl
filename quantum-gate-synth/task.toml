@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum gate theory (unitary matrices, Hilbert space embeddings, process fidelity), designing a variational circuit ansatz with sufficient expressivity using a non-standard parameterized entangling gate (XXPlusYY) not found in standard libraries, and implementing numerical optimization over a high-dimensional non-convex landscape with many local minima. The solver must handle qubit connectivity constraints, correct Kronecker product conventions, and achieve near-exact fidelity (> 1 - 1e-6)."""
+solution_explanation = """Define gate matrices analytically (RZ, SX, XXPlusYY) and their parameter derivatives. Construct a variational circuit ansatz with 10 layers of universal single-qubit rotations (RZ·SX·RZ·SX·RZ) interleaved with XXPlusYY entangling gates on a linear topology. Implement the adjoint method for exact analytical gradient computation. Optimize 139 parameters using scipy L-BFGS-B with analytical gradients and multi-restart strategy (hundreds of random initializations possible due to fast gradients). Extract the optimized circuit as a JSON gate list."""
+verification_explanation = """Tests verify: (1) output files exist, (2) all gates are from the allowed native set with correct parameter counts, (3) two-qubit gates respect the linear coupling graph, (4) XXPlusYY count is within the 25-gate limit, (5) process fidelity against the target unitary exceeds 1-1e-6 (trying all qubit permutations via pure numpy reconstruction), and (6) metrics.json is consistent with the circuit."""
+category = "quantum_computing"
+tags = ["circuit_synthesis", "numerical_optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-gate-synth"

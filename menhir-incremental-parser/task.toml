@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of LR(1) parsing theory, Menhir's grammar specification language, and OCaml programming. The solver must resolve 10+ interacting shift/reduce conflicts by restructuring a flat grammar into a stratified precedence hierarchy with careful use of %prec and %inline directives. Additionally requires implementing a parser driver using Menhir's incremental API (checkpoint-based GADT interface) and generating a complete .messages file covering all error states of the LR automaton. These are three coupled challenges spanning formal language theory, functional programming, and tool-specific expertise."""
+solution_explanation = """The solution restructures the flat expr rule into a stratified grammar with layers: seq_expr > expr > or_expr > and_expr > comp_expr > cons_expr > add_expr > mul_expr > unary_expr > app_expr > simple_expr. Two key %prec declarations resolve remaining conflicts: %prec below_SEMI on seq_expr->expr makes binding constructs absorb semicolons, and %prec below_BAR on the match expression makes inner matches absorb subsequent | arms. The %inline directive on comp_op avoids shift/reduce conflicts with comparison operators. Pattern matching is split into pattern/simple_pattern for right-associative cons. The driver uses MenhirInterpreter checkpoints (InputNeeded/Shifting/AboutToReduce/HandlingError/Accepted/Rejected) with explicit loop. The .messages file is generated via menhir --list-errors with placeholders replaced."""
+verification_explanation = """Tests verify: (1) dune build succeeds with zero conflicts, (2) parser produces correct S-expression ASTs for 30+ test inputs covering all language features and precedence edge cases, (3) the incremental API is used (grep for MenhirInterpreter in main.ml), (4) .messages file is complete via menhir --compare-errors, (5) error reporting includes line/column on invalid input."""
+category = "programming_languages"
+tags = ["ocaml", "parsing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/menhir-incremental-parser"

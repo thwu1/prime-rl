@@ -1,0 +1,9 @@
+c instance with large weights testing integer arithmetic
+c weights approach 2^31
+h 1 2 0
+h 3 4 0
+h -1 -3 0
+1000000000 -1 0
+2000000000 -2 0
+500000000 -3 0
+3000000000 -4 0

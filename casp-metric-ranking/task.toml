@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independently researching the CASP Prediction Center's z-score evaluation methodology (iterative outlier removal, re-normalization, clamping), reverse-engineering the non-trivial model naming convention embedded in a whitespace-delimited 50K-row scientific dataset, implementing multi-metric statistical ranking pipelines, computing pairwise rank correlations, building a SQLite database alongside CSV/JSON outputs, and cross-validating results against domain-specific expectations. The agent must integrate Python data processing with SQLite database construction and navigate significant ambiguity in the raw data format."""
+solution_explanation = """Parse the whitespace-delimited file, regex-extract target/group/model/domain from the CASP model naming convention (TargetTSGroup_Model-Domain), filter to first models (model_num=1). For each domain and metric, compute z-scores via the CASP iterative procedure: raw z-scores with sample std, remove outliers below z=-2.0, recompute on reduced set, clamp at -2.0. Aggregate per-group SUM/AVG z-scores, rank groups, compute pairwise Kendall tau-b between metric rankings, identify high-variance discriminating domains, persist all data into a SQLite database, and write 4 output files."""
+verification_explanation = """Tests verify: SQLite database structure and contents (first_models table with 10159 rows, group_rankings table with correct top-3 GDT_TS groups and z-score values), correct CSV parsing counts (10159 first models, 154 domains, 111 groups), exact top-3 group rankings for GDT_TS and LDDT, Kendall tau-b correlations within tolerance, correct discriminating domain identification, and outlier removal count. All values are deterministic from the input data."""
+category = "data-science"
+tags = ["bioinformatics", "statistics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/casp-metric-ranking"

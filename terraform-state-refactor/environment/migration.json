@@ -1,0 +1,81 @@
+{
+  "description": "Migration specification for reorganizing monolithic Terraform state into module hierarchy",
+  "mappings": [
+    {
+      "from": "aws_vpc.main",
+      "to": "module.networking.aws_vpc.this"
+    },
+    {
+      "from": "aws_subnet.public[0]",
+      "to": "module.networking.aws_subnet.public[\"us-east-1a\"]"
+    },
+    {
+      "from": "aws_subnet.public[1]",
+      "to": "module.networking.aws_subnet.public[\"us-east-1b\"]"
+    },
+    {
+      "from": "aws_subnet.public[2]",
+      "to": "module.networking.aws_subnet.public[\"us-east-1c\"]"
+    },
+    {
+      "from": "aws_security_group.web_sg",
+      "to": "module.networking.aws_security_group.web"
+    },
+    {
+      "from": "aws_security_group.db_sg",
+      "to": "module.networking.aws_security_group.database"
+    },
+    {
+      "from": "aws_instance.web[0]",
+      "to": "module.compute.module.web_servers.aws_instance.this[\"primary\"]"
+    },
+    {
+      "from": "aws_instance.web[1]",
+      "to": "module.compute.module.web_servers.aws_instance.this[\"secondary\"]"
+    },
+    {
+      "from": "aws_instance.worker[0]",
+      "to": "module.compute.module.workers.aws_instance.this[\"w1\"]"
+    },
+    {
+      "from": "aws_instance.worker[1]",
+      "to": "module.compute.module.workers.aws_instance.this[\"w2\"]"
+    },
+    {
+      "from": "aws_instance.worker[2]",
+      "to": "module.compute.module.workers.aws_instance.this[\"w3\"]"
+    },
+    {
+      "from": "aws_db_instance.primary",
+      "to": "module.database.aws_db_instance.primary"
+    },
+    {
+      "from": "aws_db_instance.replica",
+      "to": "module.database.aws_db_instance.read_replica"
+    },
+    {
+      "from": "aws_s3_bucket.logs",
+      "to": "module.storage.aws_s3_bucket.logs"
+    },
+    {
+      "from": "aws_s3_bucket.assets",
+      "to": "module.storage.aws_s3_bucket.assets"
+    },
+    {
+      "from": "aws_s3_bucket.replica",
+      "to": "module.storage.module.replication.aws_s3_bucket.target"
+    },
+    {
+      "from": "aws_iam_role.ec2_role",
+      "to": "module.compute.aws_iam_role.instance_role"
+    },
+    {
+      "from": "aws_nat_gateway.main[0]",
+      "to": "module.networking.aws_nat_gateway.az[\"us-east-1a\"]"
+    },
+    {
+      "from": "aws_nat_gateway.main[1]",
+      "to": "module.networking.aws_nat_gateway.az[\"us-east-1b\"]"
+    }
+  ]
+}

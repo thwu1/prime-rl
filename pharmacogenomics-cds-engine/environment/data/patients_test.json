@@ -1,0 +1,57 @@
+{
+  "patients": [
+    {
+      "id": "P001",
+      "genotypes": {
+        "CYP2C19": {"diplotype": "*1/*2"}
+      },
+      "drugs": ["clopidogrel"]
+    },
+    {
+      "id": "P002",
+      "genotypes": {
+        "CYP2D6": {"diplotype": "*4/*4"}
+      },
+      "drugs": ["codeine"]
+    },
+    {
+      "id": "P003",
+      "genotypes": {
+        "CYP2D6": {"diplotype": "*1/*4"},
+        "CYP2C19": {"diplotype": "*1/*17"}
+      },
+      "drugs": ["amitriptyline"]
+    },
+    {
+      "id": "P004",
+      "genotypes": {
+        "DPYD": {"diplotype": "Reference/c.2846A>T"}
+      },
+      "drugs": ["capecitabine"]
+    },
+    {
+      "id": "P005",
+      "genotypes": {
+        "HLA-B": {"status": "*57:01 positive"}
+      },
+      "drugs": ["abacavir"]
+    },
+    {
+      "id": "P006",
+      "genotypes": {
+        "SLCO1B1": {"diplotype": "*1/*5"}
+      },
+      "drugs": ["simvastatin"]
+    },
+    {
+      "id": "P007",
+      "genotypes": {
+        "CYP2C19": {"diplotype": "*2/*3"},
+        "CYP2D6": {"diplotype": "*9/*10"},
+        "HLA-B": {"status": "*57:01 negative"},
+        "DPYD": {"diplotype": "Reference/c.1905+1G>A (*2A)"}
+      },
+      "drugs": ["clopidogrel", "codeine", "abacavir", "capecitabine", "amitriptyline"]
+    }
+  ]
+}

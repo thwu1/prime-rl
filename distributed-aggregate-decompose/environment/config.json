@@ -1,0 +1,6 @@
+{
+    "database": "/app/warehouse.duckdb",
+    "source_table": "sales",
+    "shard_tables": ["shard_0", "shard_1", "shard_2", "shard_3"],
+    "shard_columns": ["id", "region", "product", "quantity", "price", "discount", "sale_date"]
+}

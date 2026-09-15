@@ -1,0 +1,40 @@
+ELECTROLYTE CORRECTIONS IN ACID-BASE DISTURBANCES
+===================================================
+
+SODIUM CORRECTION IN HYPERGLYCAEMIA
+------------------------------------
+In patients with marked hyperglycaemia, the elevated serum glucose raises the
+serum tonicity (as glucose cannot enter cells), which pulls water out of cells
+and expands the extracellular water compartment — thereby lowering the
+concentration of sodium.
+
+The corrected serum sodium represents what the serum sodium concentration would
+be if the glucose level was reduced back to normal. If the corrected sodium is
+in a normal range, the patient does not have a concurrent hypotonic
+hyponatraemia.
+
+  [Na]corrected = [Na] + 1.5 × ([Glucose – 5.5] / 5.5)
+
+Rough approximation: [Na]corrected ≈ [Na] + (Glucose – 5) / 3
+
+(Glucose in mmol/L, Na in mmol/L)
+
+POTASSIUM CORRECTION WITH pH ABNORMALITIES
+-------------------------------------------
+Acid-base disturbances affect the serum concentration of potassium. Acidaemia
+increases the measured serum potassium by causing extracellular shift, and
+alkalaemia reduces the measured serum potassium by causing intracellular shift.
+
+The described relationship is that for every 0.1 unit change in pH, there will
+be a 0.6 mEq/L change in serum potassium.
+
+  K+corrected = [K+]measured – 0.6 × ([7.4 – pH] / 0.1)
+
+This estimates what the potassium would be at a normal pH of 7.4. In acidaemia
+(pH < 7.4), the measured K+ is higher than the "true" K+ due to extracellular
+shift, so the correction subtracts from measured K+. In alkalaemia (pH > 7.4),
+the formula adds to measured K+ since intracellular shift artificially lowers
+the measured value.
+
+Source: LITFL Critical Care Compendium — Blood Gas Interpretation
+(Jeremy Rogers, Mike Cadogan)

@@ -1,0 +1,40 @@
+# hash-threshold boundary: value count must EXCEED threshold to trigger hashing
+
+hash-threshold 4
+
+statement ok
+CREATE TABLE hb(x INTEGER, y TEXT)
+
+statement ok
+INSERT INTO hb VALUES(1, 'alpha')
+
+statement ok
+INSERT INTO hb VALUES(2, 'beta')
+
+# 2 rows x 2 columns = 4 values, threshold is 4
+# 4 does NOT exceed 4, so no hashing should occur
+query IT nosort
+SELECT x, y FROM hb ORDER BY x
+----
+1 alpha
+2 beta
+
+statement ok
+CREATE TABLE hb2(x INTEGER)
+
+statement ok
+INSERT INTO hb2 VALUES(1)
+
+statement ok
+INSERT INTO hb2 VALUES(2)
+
+statement ok
+INSERT INTO hb2 VALUES(3)
+
+# 3 values with threshold 4: 3 does not exceed 4, no hashing
+query I nosort
+SELECT x FROM hb2 ORDER BY x
+----
+1
+2
+3

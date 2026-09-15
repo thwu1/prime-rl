@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three subtle, interacting bugs in a Python port of the NIST NFIQ2 fingerprint image quality pipeline by comparing it against the authoritative C++ reference source. Bug 1: FDA rotation is missing a pi/2 angular offset that aligns ridges before DFT analysis, requiring understanding of how orientation angles relate to spatial rotation for frequency domain projection. Bug 2: the slanted block crop in FDA transposes the row/col dimensions (xoff/yoff swapped), requiring careful translation of OpenCV Range semantics and understanding why 32x16 vs 16x32 matters for the row-mean profile. Bug 3: the OCL eigenvalue discriminant uses c instead of c^2, a subtle formula error that only manifests for non-axis-aligned ridge orientations (e.g., diagonal), requiring the solver to understand gradient covariance matrix eigenvalue decomposition. Finding all three bugs demands reading C++ with OpenCV idioms, understanding DFT-based periodicity analysis, eigenvalue analysis of 2x2 matrices, and affine rotation geometry."""
+solution_explanation = """The solver must read the NIST NFIQ2 C++ reference source files in /app/reference/ and systematically compare each algorithm step against the Python implementation. Fix 1: in fda_single(), add `+ math.pi / 2.0` to the rotation angle (matching fda.cpp:286 which uses `orientation + M_PI/2`). Fix 2: in fda_single(), swap the crop coordinates so xoff controls rows and yoff controls columns (matching fda.cpp:300-302 Range ordering). Fix 3: in compute_ocl(), change `4.0 * c` to `4.0 * c ** 2` and remove the unnecessary max(0,...) guard (matching ocl.cpp:177 which uses `pow(c, 2)`)."""
+verification_explanation = """Tests verify structural correctness of output.json, then check analytically-provable values: uniform horizontal ridges must have OCL=1.0 for all 100 blocks (only sensitive to Bug 3 for non-horizontal images), diagonal ridges must have OCL>0.95 (catches Bug 3), uniform FDA mean must be >0.85 (catches Bugs 1 and 2 which destroy periodic signal detection for horizontal ridges), FDA histogram sum must be 81, and cross-image consistency (uniform quality > degraded quality) must hold."""
+category = "signal_processing"
+tags = ["debugging", "biometrics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4a3636"

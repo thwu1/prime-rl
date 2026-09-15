@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete passive TCP/IP fingerprinting pipeline that spans multiple specialized tools and formats: (1) handling mixed capture formats — standard libpcap binary for client traffic and pcapng (next-generation block-based format with Section Header Blocks, Interface Description Blocks, and Enhanced Packet Blocks with split 64-bit timestamps) for server traffic — requiring use of tools like tshark or editcap for format conversion since pcapng binary parsing is significantly more complex than pcap; (2) querying a normalized 4-table SQLite database (sections, os_families, os_versions, sig_patterns) that decomposes signature patterns across multiple related tables, requiring multi-table JOINs and understanding of the schema to reconstruct full p0f-format signature strings from decomposed fields; (3) implementing the full p0f fingerprint methodology: Ethernet/IPv4/TCP header decoding including variable IHL for IP options, TCP option parsing with correct EOL padding byte calculation, TTL normalization, comprehensive quirk detection across 16 possible flags, window size formula matching (mss*N, mtu*N), and set-equality quirk comparison; (4) dual-section signature routing (tcp:request for SYN, tcp:response for SYN+ACK); and (5) orchestrating a multi-tool pipeline connecting packet extraction → signature computation → database matching → JSON output."""
+solution_explanation = """The solution uses editcap to convert pcapng captures to standard pcap format, then implements a Python pipeline that: reads pcap binary format (24-byte global header + per-packet records), parses Ethernet frames → IPv4 headers (variable IHL) → TCP headers (variable data offset), implements TCP option parsing with EOL padding calculation, normalizes TTL, detects all quirks per specification, formats 8-field colon-separated signatures, queries the normalized SQLite database using multi-table JOINs (sig_patterns JOIN os_versions JOIN sections) to reconstruct signature patterns and labels ordered by priority, and implements the matching algorithm with wildcard, MSS formula, and set-equality quirk comparison."""
+verification_explanation = """Tests load /app/output/results.json and verify: total count is exactly 12 (8 SYN + 4 SYN+ACK), correct packet_type classification, correct OS match for all 12 entries across both database sections, correct signature field values (olen, eol padding, olayout, MSS, window), correct TTL normalization, correct quirk detection across multiple scenarios, correct filtering of non-SYN packets, correct port extraction, timestamp accuracy, that packets from both pcap and pcapng captures are present, and that noise packets from pcapng are properly filtered."""
+category = "systems_programming"
+tags = ["networking", "protocol-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4a8e00"

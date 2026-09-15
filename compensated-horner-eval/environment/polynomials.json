@@ -1,0 +1,27 @@
+[
+  {
+    "name": "well_conditioned",
+    "coefficients": [1.0, 1.0, 1.0, 1.0],
+    "point": 0.5
+  },
+  {
+    "name": "near_root_quartic",
+    "coefficients": [1.0, -4.0, 6.0, -4.0, 1.0],
+    "point": 1.0001
+  },
+  {
+    "name": "wilkinson_8",
+    "coefficients": [40320.0, -109584.0, 118124.0, -67284.0, 22449.0, -4536.0, 546.0, -36.0, 1.0],
+    "point": 8.000001
+  },
+  {
+    "name": "chebyshev_t6",
+    "coefficients": [-1.0, 0.0, 18.0, 0.0, -48.0, 0.0, 32.0],
+    "point": 0.7
+  },
+  {
+    "name": "near_root_cubic",
+    "coefficients": [-6.0, 11.0, -6.0, 1.0],
+    "point": 3.00001
+  }
+]

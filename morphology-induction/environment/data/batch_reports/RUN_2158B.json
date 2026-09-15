@@ -1,0 +1,36 @@
+{
+  "batch_id": "RUN_2158B",
+  "run_date": "2158-02-28",
+  "operator": "Dr. M. Okafor",
+  "protocol_version": "v3.3",
+  "qc_metrics": {
+    "read_quality": {
+      "mean_phred_score": 35.9,
+      "min_phred_score": 29.7,
+      "reads_above_q30_pct": 95.4,
+      "pass": true
+    },
+    "contamination_screen": {
+      "method": "kraken2_v2.1",
+      "foreign_reads_pct": 0.007,
+      "detection_threshold_pct": 5.0,
+      "organisms_flagged": [],
+      "pass": true
+    },
+    "coverage_uniformity": {
+      "mean_depth": 48.2,
+      "coefficient_of_variation": 0.143,
+      "target_cv_max": 0.30,
+      "pass": true
+    },
+    "library_complexity": {
+      "unique_fragments_pct": 93.1,
+      "duplication_rate": 0.069,
+      "pass": true
+    }
+  },
+  "overall_qc": "PASS",
+  "reviewer": "Dr. K. Vasquez",
+  "review_date": "2158-03-05",
+  "notes": "Final characterization batch. All metrics within acceptable ranges."
+}

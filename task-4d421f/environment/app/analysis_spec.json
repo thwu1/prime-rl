@@ -1,0 +1,85 @@
+{
+  "module_path": "/app/ospf_analyzer.py",
+  "description": "OSPF Protocol Conformance Analyzer — combines tshark pcap analysis, RFC 2328 FSM validation, and scapy test packet generation",
+  "classes": {
+    "OSPFAnalyzer": {
+      "description": "Main analyzer class. Requires tshark on PATH and scapy importable.",
+      "constructor_params": {
+        "topology_file": "str - path to topology JSON file"
+      },
+      "methods": {
+        "extract_packets": {
+          "description": "Extract OSPF packets from a pcap file using tshark (invoked as a subprocess). Must handle Hello packets at minimum.",
+          "params": {
+            "pcap_file": "str - path to pcap file"
+          },
+          "returns": "list[dict] - each dict has keys: timestamp (float), src_ip (str), src_router (str - OSPF Router ID), type (str - 'Hello'), hello_interval (int), dead_interval (int), priority (int), dr (str - Designated Router IP), bdr (str - Backup DR IP), neighbors (list[str] - active neighbor Router IDs)"
+        },
+        "analyze_capture": {
+          "description": "Analyze a pcap from one router's perspective. Infer FSM events from packet observations: HelloReceived from any neighbor Hello; 2-WayReceived when perspective router is in the neighbor's Hello neighbor list AND current state is Init; 1-Way when perspective router is NOT in the list AND current state >= 2-Way; InactivityTimer when gap between consecutive Hellos from a neighbor exceeds that neighbor's RouterDeadInterval. Apply adjacency decisions using DR/BDR from Hello packets and network type from topology.",
+          "params": {
+            "pcap_file": "str",
+            "router_id": "str - perspective router's OSPF Router ID"
+          },
+          "returns": {
+            "transitions": "list[dict] - each: {timestamp (float), neighbor (str), event (str), from_state (str), to_state (str)}",
+            "final_states": "dict - {neighbor_router_id: current_state_str}",
+            "violations": "list[dict] - each: {type (str), detail (str), timestamp (float)}"
+          }
+        },
+        "process_trace": {
+          "description": "Process a JSON event trace through the FSM engine. Creates fresh FSMs per trace. Deep-copies network topology for DR/BDR updates within a trace. If an event has a 'dr_update' field, update network DR/BDR and FSM role properties BEFORE processing.",
+          "params": {
+            "trace_file": "str - path to trace JSON (has 'trace_id' and 'events' array)"
+          },
+          "returns": {
+            "trace_id": "str",
+            "transitions": "list[dict] - each: {time (int), router (str), neighbor (str), event (str), from_state (str), to_state (str)}",
+            "final_states": "dict - {'router->neighbor': state_str}"
+          }
+        },
+        "validate_transitions": {
+          "description": "Validate claimed state transitions in a trace file against the RFC spec. For each transition, create a temp FSM in the claimed from_state with current network context, process the event, check if expected to_state matches claimed to_state. DR/BDR updates accumulate.",
+          "params": {
+            "trace_file": "str - path to trace JSON with 'transitions' array having from_state/to_state fields"
+          },
+          "returns": "list[dict] - each: {index (int - 0-based), type (str - 'invalid_transition'), detail (str)}"
+        },
+        "generate_test_pcap": {
+          "description": "Generate an OSPF Hello pcap file using scapy. Must use scapy.contrib.ospf classes.",
+          "params": {
+            "packets_spec": "list[dict] - each: {router_id (str), src_ip (str), dst_ip (str, default '224.0.0.5'), hello_interval (int, default 10), dead_interval (int, default 40), priority (int, default 1), dr (str, default '0.0.0.0'), bdr (str, default '0.0.0.0'), neighbors (list[str], default []), timestamp (float, default 0)}",
+            "output_file": "str - path to write pcap"
+          },
+          "returns": "str - path to generated pcap file"
+        }
+      }
+    }
+  },
+  "topology_format": {
+    "routers": {
+      "<name>": {
+        "router_id": "dotted-quad OSPF Router ID",
+        "interfaces": {
+          "<iface>": {"network": "network_name", "ip": "interface IP", "priority": "optional int"}
+        }
+      }
+    },
+    "networks": {
+      "<name>": {"type": "broadcast|point-to-point|point-to-multipoint|virtual-link|nbma", "dr": "optional router name", "bdr": "optional router name"}
+    }
+  },
+  "violation_types": {
+    "dead_interval_exceeded": "No Hello received from neighbor within RouterDeadInterval of last Hello",
+    "hello_interval_mismatch": "HelloInterval or DeadInterval values differ between routers sharing a network",
+    "invalid_transition": "Claimed FSM transition does not match RFC 2328 Section 10.3"
+  },
+  "trace_event_format": {
+    "time": "int - event timestamp",
+    "router": "str - router experiencing the event",
+    "neighbor": "str - the neighbor router",
+    "event": "str - FSM event name from Section 10.2",
+    "ls_request_list_empty": "bool (optional) - context for ExchangeDone",
+    "dr_update": {"dr": "str - new DR", "bdr": "str - new BDR", "_note": "Optional. Update network DR/BDR before processing."}
+  }
+}

@@ -1,0 +1,27 @@
+# Sequence number wrapping with retransmission
+# Client: 10.0.0.1:6000 -> Server: 10.0.0.2:80
+# ISN_client=4294967200 (0xFFFFFFA0, near 2^32), ISN_server=500000
+# Client sends 200 bytes total (100 + 100), wrapping past 2^32
+# First 100-byte segment is retransmitted after nxt has wrapped
+# Server sends 50 bytes
+#
+# ts_ms  src               dst               flags seq          ack     win    payload
+0        10.0.0.1:6000     10.0.0.2:80       S     4294967200   0       65535  0
+50       10.0.0.2:80       10.0.0.1:6000     SA    500000       4294967201 32768 0
+55       10.0.0.1:6000     10.0.0.2:80       A     4294967201   500001  65535  0
+# Client sends 100 bytes at seq 4294967201 -> wraps to nxt=5
+100      10.0.0.1:6000     10.0.0.2:80       PA    4294967201   500001  65535  100
+# Client sends another 100 bytes at seq 5 (past wrap) -> nxt=105
+110      10.0.0.1:6000     10.0.0.2:80       PA    5            500001  65535  100
+# Retransmission of first segment (seq 4294967201) while nxt=105
+120      10.0.0.1:6000     10.0.0.2:80       PA    4294967201   500001  65535  100
+# ACK covers both segments
+150      10.0.0.2:80       10.0.0.1:6000     A     500001       105     32768  0
+# Server sends 50 bytes
+200      10.0.0.2:80       10.0.0.1:6000     PA    500001       105     32768  50
+250      10.0.0.1:6000     10.0.0.2:80       A     105          500051  65535  0
+# Clean close
+300      10.0.0.1:6000     10.0.0.2:80       FA    105          500051  65535  0
+350      10.0.0.2:80       10.0.0.1:6000     A     500051       106     32768  0
+400      10.0.0.2:80       10.0.0.1:6000     FA    500051       106     32768  0
+450      10.0.0.1:6000     10.0.0.2:80       A     106          500052  65535  0

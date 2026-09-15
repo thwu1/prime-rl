@@ -1,0 +1,4 @@
+Hello, World!
+tab:	here
+backslash:\
+quote:"hi"

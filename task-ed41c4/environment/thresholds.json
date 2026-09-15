@@ -1,0 +1,6 @@
+{
+  "8867-4": {"name": "Heart rate", "high": 80, "unit": "beats/minute"},
+  "8310-5": {"name": "Body temperature", "high": 38.0, "unit": "Cel"},
+  "8480-6": {"name": "Systolic blood pressure", "high": 120, "unit": "mmHg"},
+  "1558-6": {"name": "Fasting glucose", "high": 100, "unit": "mg/dL"}
+}

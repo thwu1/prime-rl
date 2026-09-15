@@ -1,0 +1,72 @@
+SPONSOR CONVENTIONS FOR STUDY XYZ2024
+Version 1.0 - January 2024
+
+1. GENERAL
+   Study Identifier (STUDYID): XYZ2024
+   Country: USA (all sites)
+   ARMCD Mapping: Treatment -> TRTX10; Placebo -> PBO
+   ARM Mapping: Treatment -> "Antihypertensin-X 10 mg"; Placebo -> "Placebo"
+   EXTRT: Use drug substance name only (ANTIHYPERTENSIN-X for active; PLACEBO for control)
+   USUBJID Construction: STUDYID + "-" + SubjectID (e.g. XYZ2024-101-001)
+
+2. DEMOGRAPHICS (DM)
+   Reference Start Date (RFSTDTC): Randomization Date
+   Reference End Date (RFENDTC): Study Completion/Discontinuation Date
+   AGE: Calculated at RFSTDTC, completed years
+   RFXSTDTC / RFXENDTC: First / Last exposure dates from EX domain
+
+3. ADVERSE EVENTS (AE)
+   Severity Grade mapping (AESEV):
+     1 -> MILD
+     2 -> MODERATE
+     3 -> SEVERE
+   Seriousness (AESER): Yes -> Y; No -> N
+   Causality Assessment (AEREL):
+     Not related -> NOT RELATED
+     Unlikely -> UNLIKELY
+     Possibly related -> POSSIBLE
+     Probably related -> PROBABLE
+     Definitely related -> RELATED
+   Action Taken (AEACN) per CDISC CT C49503:
+     None -> DOSE NOT CHANGED
+     Dose reduced -> DOSE REDUCED
+     Drug discontinued -> DRUG WITHDRAWN
+   Outcome (AEOUT) per CDISC CT C49498:
+     Resolved -> RECOVERED/RESOLVED
+     Ongoing -> NOT RECOVERED/NOT RESOLVED
+     Resolved with residual effects -> RECOVERED/RESOLVED WITH SEQUELAE
+   AETERM: Store verbatim as reported, uppercase
+   AEDECOD: Use medical_dictionary.csv for coding (case-insensitive lookup)
+   AEBODSYS: From medical_dictionary.csv BodySystemClass column
+
+4. VITAL SIGNS (VS)
+   Test Code Mapping (VSTESTCD / VSTEST):
+     Systolic Blood Pressure -> SYSBP / Systolic Blood Pressure
+     Diastolic Blood Pressure -> DIABP / Diastolic Blood Pressure
+     Pulse Rate -> PULSE / Pulse Rate
+     Body Weight -> WEIGHT / Weight
+   Unit Standardization for VSSTRESC/VSSTRESN/VSSTRESU:
+     Weight: original in lbs -> standardize to kg (1 lb = 0.453592 kg, round to 1 decimal)
+     Blood pressure: keep in mmHg
+     Pulse rate: original "bpm" -> standardize to "beats/min"
+   Visit Mapping:
+     Screening -> VISITNUM=1, VISIT="SCREENING"
+     Baseline -> VISITNUM=2, VISIT="BASELINE"
+
+5. EXPOSURE (EX)
+   EXDOSFRQ: "Once daily" -> QD
+   EXDOSFRM: "Tablet" -> TABLET
+   EXDOSU: use lowercase unit as collected (mg)
+
+6. SUPPLEMENTAL QUALIFIERS (SUPPAE)
+   Non-standard AE variables placed in SUPPAE:
+     AE_of_Special_Interest -> QNAM: AESIFL, QLABEL: "AE of Special Interest Flag"
+       Yes -> Y; No -> N
+   IDVAR: AESEQ
+   QORIG: CRF
+
+7. STUDY DAY CALCULATION
+   Per SDTM rules, there is no Study Day 0:
+     If DTC >= RFSTDTC: DY = (DTC - RFSTDTC in days) + 1
+     If DTC <  RFSTDTC: DY = (DTC - RFSTDTC in days)
+   RFSTDTC itself is Day 1.

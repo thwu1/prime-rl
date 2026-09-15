@@ -1,0 +1,1 @@
+{"events": [{"t": 2, "type": "eviction", "key": "X", "freed": 400}], "stats": {"cache_hits": 0, "cache_misses": 0, "evictions_count": 1, "bytes_evicted": 400, "failed_puts": 0}, "final_state": {"Y": {"size": 400, "hard_pin": false, "soft_pinned": false, "leased": false}, "Z": {"size": 400, "hard_pin": false, "soft_pinned": false, "leased": false}}, "final_used_bytes": 800}

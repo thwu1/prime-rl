@@ -1,0 +1,90 @@
+# Aqueous Complexation Reactions Database (25C, zero ionic strength)
+# Source: MINTEQ v4 / PHREEQC thermodynamic database
+#
+# Format:
+#   COMPONENTS section lists master aqueous species (components)
+#   SPECIES section lists derived aqueous complexes
+#   Each species line: <reactant_expression> = <product_expression> | log_k = <value>
+#   Stoichiometric coefficients precede species names (default 1 if omitted)
+#   H2O may appear in reactions; its activity is always 1
+#   The derived (new) species appears on the right-hand side of '='
+#   H+ may appear on either side as reactant or product
+#   log_k is the equilibrium constant for the reaction as written:
+#     K = product([products]^coeff) / product([reactants]^coeff)
+#   where H2O activity = 1
+#
+
+COMPONENTS
+H+
+Ca+2
+Mg+2
+CO3-2
+SO4-2
+Cl-
+F-
+Fe+3
+Cu+2
+Pb+2
+END
+
+SPECIES
+# Protonation / acid-base equilibria
+CO3-2 + H+ = HCO3- | log_k = 10.33
+CO3-2 + 2 H+ = H2CO3 | log_k = 16.681
+SO4-2 + H+ = HSO4- | log_k = 1.987
+F- + H+ = HF | log_k = 3.169
+2 F- + H+ = HF2- | log_k = 3.749
+
+# Calcium complexes
+Ca+2 + H2O = CaOH+ + H+ | log_k = -12.598
+Ca+2 + CO3-2 = CaCO3 | log_k = 3.15
+Ca+2 + CO3-2 + H+ = CaHCO3+ | log_k = 11.33
+Ca+2 + SO4-2 = CaSO4 | log_k = 2.309
+Ca+2 + F- = CaF+ | log_k = 0.94
+
+# Magnesium complexes
+Mg+2 + H2O = MgOH+ + H+ | log_k = -11.79
+Mg+2 + CO3-2 = MgCO3 | log_k = 2.98
+Mg+2 + CO3-2 + H+ = MgHCO3+ | log_k = 11.4
+Mg+2 + SO4-2 = MgSO4 | log_k = 2.25
+Mg+2 + F- = MgF+ | log_k = 1.82
+
+# Iron(III) complexes
+Fe+3 + H2O = FeOH+2 + H+ | log_k = -2.19
+Fe+3 + 2 H2O = Fe(OH)2+ + 2 H+ | log_k = -5.67
+Fe+3 + 3 H2O = Fe(OH)3 + 3 H+ | log_k = -13.6
+Fe+3 + 4 H2O = Fe(OH)4- + 4 H+ | log_k = -21.6
+Fe+3 + F- = FeF+2 | log_k = 6.199
+Fe+3 + 2 F- = FeF2+ | log_k = 10.8
+Fe+3 + 3 F- = FeF3 | log_k = 14.0
+Fe+3 + SO4-2 = FeSO4+ | log_k = 3.92
+Fe+3 + 2 SO4-2 = Fe(SO4)2- | log_k = 5.42
+Fe+3 + Cl- = FeCl+2 | log_k = 1.48
+Fe+3 + 2 Cl- = FeCl2+ | log_k = 2.13
+2 Fe+3 + 2 H2O = Fe2(OH)2+4 + 2 H+ | log_k = -2.95
+3 Fe+3 + 4 H2O = Fe3(OH)4+5 + 4 H+ | log_k = -6.3
+
+# Copper complexes
+Cu+2 + H2O = CuOH+ + H+ | log_k = -8.0
+Cu+2 + 2 H2O = Cu(OH)2 + 2 H+ | log_k = -13.68
+Cu+2 + 3 H2O = Cu(OH)3- + 3 H+ | log_k = -26.899
+Cu+2 + 4 H2O = Cu(OH)4-2 + 4 H+ | log_k = -39.6
+Cu+2 + CO3-2 = CuCO3 | log_k = 6.73
+Cu+2 + 2 CO3-2 = Cu(CO3)2-2 | log_k = 9.83
+Cu+2 + Cl- = CuCl+ | log_k = 0.43
+Cu+2 + 2 Cl- = CuCl2 | log_k = 0.16
+Cu+2 + SO4-2 = CuSO4 | log_k = 2.31
+2 Cu+2 + 2 H2O = Cu2(OH)2+2 + 2 H+ | log_k = -10.359
+
+# Lead complexes
+Pb+2 + H2O = PbOH+ + H+ | log_k = -7.71
+Pb+2 + 2 H2O = Pb(OH)2 + 2 H+ | log_k = -17.12
+Pb+2 + 3 H2O = Pb(OH)3- + 3 H+ | log_k = -28.06
+Pb+2 + Cl- = PbCl+ | log_k = 1.6
+Pb+2 + 2 Cl- = PbCl2 | log_k = 1.8
+Pb+2 + 3 Cl- = PbCl3- | log_k = 1.699
+Pb+2 + SO4-2 = PbSO4 | log_k = 2.75
+Pb+2 + 2 SO4-2 = Pb(SO4)2-2 | log_k = 3.47
+Pb+2 + CO3-2 = PbCO3 | log_k = 7.24
+Pb+2 + F- = PbF+ | log_k = 1.25
+END

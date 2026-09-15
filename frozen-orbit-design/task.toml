@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level orbital mechanics expertise: J2/J3 secular perturbation theory (Brouwer), sun-synchronous orbit design, repeat ground track commensurability conditions, and frozen orbit eccentricity equilibrium. The solver must handle a coupled nonlinear system of three constraints (RAAN rate, nodal period, frozen eccentricity) that cannot be decomposed into independent equations. Additionally, the agent must navigate a multi-table SQLite database schema to extract the correct gravity model and active mission profile via proper JOIN queries, validate output using jq filters, and write computed results back to the database — requiring interoperability across sqlite3, Python, and jq tooling."""
+solution_explanation = """Query the SQLite database to extract the active mission profile (highest priority among 'active' status) and its associated JGM3 gravity model parameters via multi-table JOINs. Then run fixed-point iteration over three coupled constraints: (1) compute frozen eccentricity from J3/J2 ratio and current a, i; (2) compute sun-synchronous inclination by inverting the J2 RAAN rate formula; (3) compute semi-major axis from the repeat ground track nodal period requirement. Write results to JSON, validate with jq filter, and insert computed orbit into a new database table."""
+verification_explanation = """Tests verify: (1) correct database query — the extracted gravity model name, J2, J3 values match JGM3 constants; (2) database write — computed_orbits table exists and contains consistent data; (3) jq validation — output passes the provided filter via subprocess; (4) physics constraints — RAAN rate, repeat ground track commensurability, frozen eccentricity, altitude bounds all verified by independent computation from reported orbital elements. No pre-computed answers are embedded."""
+category = "astrodynamics"
+tags = ["orbital-mechanics", "data-pipeline"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/frozen-orbit-design"

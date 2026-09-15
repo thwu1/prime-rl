@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Cilium's network policy enforcement model, synthesized from Go API type definitions and reference documentation rather than step-by-step instructions. The solver must: (1) use helm template to render parameterized CiliumNetworkPolicy resources from a Helm chart, (2) use jq to extract endpoint identities and IPs from Cilium's cilium-dbg JSON output format (filtering system labels from user labels), (3) read and interpret the Go type definitions and Cilium docs to discover the complete evaluation algorithm (bidirectional enforcement, deny precedence, default-deny activation, enableDefaultDeny overrides, entity resolution, L3/L4 rule composition), (4) implement the evaluation engine correctly handling 30 connections with subtle edge cases across 7 interacting policies. The combination of multi-tool data extraction, documentation-driven algorithm discovery, and complex policy interaction reasoning makes this an expert-level systems networking task."""
+solution_explanation = """Run helm template to render the 3 additional CiliumNetworkPolicies from the Helm chart. Use jq to parse the endpoint-state.json, extracting IPv4 addresses and filtering k8s: prefixed labels while excluding Cilium system labels. Read the Go types and enforcement docs to understand bidirectional evaluation, deny-before-allow precedence, default-deny triggers, and enableDefaultDeny overrides. Build a policy evaluation engine that evaluates egress at source and ingress at destination independently for each connection, producing correct ALLOW/DENY verdicts for all 30 connections."""
+verification_explanation = """Tests load /app/verdicts.json and compare each of the 30 connection verdicts against independently computed expected values. Each connection is tested individually via pytest parametrize, checking both the verdict value and that all 30 connections are present with valid format."""
+category = "networking"
+tags = ["cilium", "security-policy"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3ebf8a"

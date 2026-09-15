@@ -1,0 +1,8 @@
+{
+  "molecule": "H2",
+  "basis": "sto-3g",
+  "bond_length_range": [0.3, 2.5],
+  "num_bond_lengths": 25,
+  "noise_base_rate": 0.01,
+  "output_file": "results.json"
+}

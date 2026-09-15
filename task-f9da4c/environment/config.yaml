@@ -1,0 +1,21 @@
+# Known system parameters
+system:
+  pot_heat_capacity: 15.0          # C2 [J/K]
+  air_conductance: 0.1             # G_air [W/K]
+  environment_temperature: 293.15  # T_env [K]
+  initial_temperature: 273.15      # T0 [K]
+
+# Heat input specification
+input:
+  formula: "(1 + sin(0.005 * t^2)) / 2"
+  description: "Time-varying heat source applied to the system"
+
+# Evaluation ranges
+evaluation:
+  training_range: [0, 100]         # seconds
+  extrapolation_range: [100, 200]  # seconds
+
+# Output specifications
+output:
+  directory: "/app/results"
+  predictions_header: "t,T_pot_pred"

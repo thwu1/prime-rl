@@ -1,0 +1,3 @@
+A macaroon-based token verification service (`tkdb`) at `/app/` is partially implemented but has critical security vulnerabilities in its draft implementation at `/app/tkdb/draft_service.py`. System requirements are in `/app/REQUIREMENTS.md`, candidate cache-invalidation designs in `/app/DESIGN_CANDIDATES.md`, and a working macaroon library at `/app/macaroon/__init__.py`.
+
+Audit the draft implementation, identify its security flaws, and deliver a production-ready system that satisfies all requirements and security properties defined in `/app/REQUIREMENTS.md`. Write your security analysis of the cache-invalidation designs to `/app/EVALUATION.md`.

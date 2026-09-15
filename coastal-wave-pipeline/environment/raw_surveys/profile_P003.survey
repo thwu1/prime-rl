@@ -1,0 +1,13 @@
+# USACE Coastal Bathymetric Survey
+# Profile: P003 - Mixed Quality Transect
+# Survey Date: 2023-07-22
+# Coordinate System: NAD83 State Plane NC (ft)
+# Vertical Datum: NAVD88 (ft)
+# Fields: Station Easting Northing Elevation
+# NOTE: Some readings flagged for quality review
+STA-0001	525800.00	3845100.00	-98.425
+STA-0002	525850.00	3845100.00	-65.617
+INCOMPLETE_RECORD	525900.00
+STA-0003	525950.00	3845100.00	5.000
+STA-0004	526000.00	3845100.00	-32.808
+STA-0005	526050.00	3845100.00	-16.404

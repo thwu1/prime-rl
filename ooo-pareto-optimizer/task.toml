@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of out-of-order processor microarchitecture (pipeline width constraints, ROB sizing via Little's Law, register renaming pressure, shared-cache interference modeling) combined with proficiency in multiple unfamiliar tools (archsim CLI simulator, SQLite database management, TOML configuration parsing). The agent must strategically explore a vast design space (unbounded parameter combinations × 2520 workload-to-cluster assignments × thermal adjacency constraints), reason about interference trade-offs (wider cores yield higher solo IPC but proportionally more shared-L2 contention), and solve a constrained combinatorial optimization problem balancing area, power, thermal placement, and weighted throughput across heterogeneous core clusters."""
+solution_explanation = """Run archsim with representative configurations across all 8 workloads to identify promising core designs. Load simulation results into the SQLite experiments table. For each candidate workload pair, run paired simulations to characterize interference penalties. Enumerate workload-to-cluster assignments (105 unordered partitions × 24 permutations for thermal placement), selecting per-cluster configs that maximize interference-adjusted weighted throughput while respecting area budget (28000), power budget (35W), and thermal adjacency constraint (no two adjacent clusters both exceeding 2500 area). Output the optimal assignment with verified IPC values."""
+verification_explanation = """Tests independently run archsim to verify all solo and interference-adjusted IPC values in results.json. Constraint satisfaction is checked: total area <= 28000, total power <= 35W, no adjacent hot clusters. Weighted throughput calculation is verified against workload weights from SQLite. The experiments table must contain meaningful simulation data. A minimum throughput threshold ensures genuine optimization was performed."""
+category = "systems"
+tags = ["computer-architecture", "heterogeneous-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ooo-pareto-optimizer"

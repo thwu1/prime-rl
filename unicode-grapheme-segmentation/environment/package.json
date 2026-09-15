@@ -1,0 +1,14 @@
+{
+  "name": "unicode-grapheme-segmenter",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "node dist/cli.js test"
+  },
+  "devDependencies": {
+    "typescript": "~5.5.0",
+    "@types/node": "~20.14.0"
+  }
+}

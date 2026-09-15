@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing six distinct NER tagging scheme FSMs (IOB1/IOB2/IOE1/IOE2/IOBES/BILOU) with scheme-specific transition patterns that are NOT enumerated in the instruction. The solver must discover transition rules by combining NLP domain expertise, studying the conlleval.pl Perl reference implementation for default-mode boundary logic, diagnosing bugs in the provided baseline.py, and cross-validating against conlleval.pl output on sample data. The task demands Perl code comprehension, CoNLL format parsing, understanding the subtle differences between 6 tagging conventions (e.g., IOB1 vs IOB2 I-after-O semantics), and implementing both strict-mode FSMs and default-mode conlleval-compatible boundary detection from scratch."""
+solution_explanation = """The solution implements a pattern-based FSM for each scheme using (prev_prefix, cur_prefix, tag_condition) tuples matching seqeval's exact transition semantics. For each scheme, start_patterns determine where entities begin, inside_patterns where they continue, and end_patterns where they terminate. Default mode reimplements conlleval.pl's start_of_chunk/end_of_chunk logic by translating the Perl conditionals into Python. Auto-detection checks prefix sets against known subsets for each scheme. Metrics are computed by set intersection of (sent_id, start, end) tuples per entity type."""
+verification_explanation = """Tests install seqeval==1.2.2 as a reference oracle and compare the tool's output against seqeval's exact numerical results for all 6 schemes in strict mode, default mode, auto-detection, suffix mode, and various edge cases. Additionally, cross-validation tests generate CoNLL-format data, run conlleval.pl via Perl subprocess, parse its output, and verify that the tool's default-mode entity counts and metrics match exactly. A sample.conll integration test verifies against pre-computed conlleval.pl output."""
+category = "nlp"
+tags = ["sequence-labeling", "evaluation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seqeval-span-engine"

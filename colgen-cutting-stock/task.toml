@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level operations research knowledge: the solver must explore data files to discover the problem structure, recognize it as a one-dimensional cutting stock problem, and independently devise an optimization approach that yields both a provably tight lower bound and a near-optimal integer solution. No algorithm is named in the instruction — the solver must determine that naive approaches cannot produce a tight lower bound and discover an advanced technique (e.g., Dantzig-Wolfe decomposition with iterative pattern pricing via knapsack subproblems). Correctly implementing LP duality, pricing-based pattern generation, and the final integer rounding requires graduate-level mathematical programming expertise."""
+solution_explanation = """The solution parses the nested JSON stock specifications and CSV order data, then implements column generation: initial single-item patterns seed an LP master problem; dual prices from the LP drive an unbounded knapsack pricing subproblem that generates improving patterns iteratively; once no improving pattern exists, the LP objective provides a tight lower bound. The full pattern set is then solved as a MIP via PuLP/CBC to obtain the integer-optimal cutting plan."""
+verification_explanation = """Tests verify: (1) output file exists at /app/results/solution.json with correct JSON schema, (2) all cutting patterns fit within the stock roll width, (3) all item demands are satisfied, (4) lower bound is at least the trivial area bound, (5) lower bound is tighter than the naive single-item upper bound, (6) integer objective is strictly better than naive, (7) lower_bound <= integer_objective with gap <= 15, (8) waste formula is correct and non-negative, (9) pattern quantities sum to objective, (10) optimization explored more patterns than the number of item types, (11) at least 2 optimization iterations were performed."""
+category = "optimization"
+tags = ["cutting-stock", "operations-research"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/colgen-cutting-stock"

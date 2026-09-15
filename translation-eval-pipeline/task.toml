@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 interleaved defects across Python source, JSON configuration, and a Makefile-orchestrated pipeline that processes test output from 5 different frameworks (JUnit/Maven, cargo test, pytest, go test, Google Test). Bugs span parser semantics (JUnit summary-vs-per-class lines, Go subtest parent/leaf counting, cargo ignored-test exclusion), configuration routing (mismatched framework-to-parser mapping, Go language type misclassification), and statistical methodology (compile-failed project exclusion from denominators). Beyond debugging, the agent must design and implement a new framework_analysis component from a JSON Schema specification, requiring evaluation of how to correctly aggregate cross-framework metrics while accounting for compile failures and framework-specific test counting conventions."""
+solution_explanation = """The agent must: (1) fix parse_junit to use re.findall + last match instead of re.search which picks the first per-class line; (2) fix parse_cargo_test to exclude ignored tests from total count; (3) fix parse_go_test to filter parent tests when subtests exist; (4) fix pipeline_config.json to reclassify Go as a static language; (5) fix pipeline_config.json framework_parsers to map gtest to 'gtest' instead of 'googletest'; (6) fix compute_overall_stats and compute_directional_analysis to include compile-failed projects in avg_pass_rate denominator; (7) design and implement compute_framework_analysis to group projects by test framework and produce aggregate metrics conforming to the JSON Schema."""
+verification_explanation = """Tests validate the output JSON against the JSON Schema at /app/output_schema.json, then verify exact expected values for all 10 projects (compile status, pass/fail counts, pass rates), all 6 language pair aggregates, overall statistics, directional analysis groupings, and all 5 framework analysis entries (projects_using, projects_compiled, total_tests_executed, total_tests_passed, aggregate_pass_rate). Floating-point values are checked with 0.0002 tolerance."""
+category = "debugging"
+tags = ["cross-language-evaluation", "multi-framework-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/translation-eval-pipeline"

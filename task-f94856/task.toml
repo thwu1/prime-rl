@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete compiler backend: parsing LLVM IR text format, understanding SSA form with phi nodes, x86-64 instruction selection, System V AMD64 ABI calling convention, stack frame management, pointer arithmetic for GEP, global variable emission, and correct code generation for 9 programs covering arithmetic, control flow, recursion, arrays, alloca, and mutual recursion. Combines compiler theory, low-level systems knowledge, and careful engineering."""
+solution_explanation = """A Python-based LLVMlite-to-x86-64 compiler using naive stack-based allocation: parse IR via regex, assign each SSA temporary a stack slot, generate x86-64 for each instruction (load operands from stack, compute, store result), resolve phi nodes by inserting copies at predecessor branch edges, emit globals in .data section with RIP-relative addressing, and handle calling convention by mapping args to rdi/rsi/rdx/rcx/r8/r9."""
+verification_explanation = """For each of 9 .ll programs: compile to .s via the agent's compiler, assemble and link with gcc and runtime.c, execute the binary, and assert stdout matches the expected output. Tests cover: constant return, arithmetic chains, conditional branches with phi, loops with phi, heap arrays with GEP, mutual recursion with i1/zext, stack alloca, recursive fibonacci, and global variables."""
+category = "compilers"
+tags = ["compiler-backend", "x86-assembly"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f94856"

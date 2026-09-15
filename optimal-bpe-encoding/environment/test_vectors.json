@@ -1,0 +1,21 @@
+{
+  "description": "Encoding statistics for the BPE model loaded by /app/bpe_encoder. The 'reference_tokens' column shows token counts from greedy BPE; 'min_tokens' shows the true minimum achievable using the full vocabulary. Discrepancies indicate greedy BPE is suboptimal.",
+  "model_info": {
+    "format": "packed binary (undocumented)",
+    "vocab_size": 306,
+    "num_merges": 50
+  },
+  "vectors": [
+    {"input": "hello", "reference_tokens": 3, "min_tokens": 3},
+    {"input": "world", "reference_tokens": 4, "min_tokens": 4},
+    {"input": "pqrs", "reference_tokens": 2, "min_tokens": 1},
+    {"input": "{|}", "reference_tokens": 2, "min_tokens": 1},
+    {"input": "JKLM", "reference_tokens": 2, "min_tokens": 1},
+    {"input": "#$%&'", "reference_tokens": 3, "min_tokens": 1},
+    {"input": ":;<=>?@", "reference_tokens": 4, "min_tokens": 1},
+    {"input": "in the JKLM", "reference_tokens": 5, "min_tokens": 3},
+    {"input": "the", "min_tokens": 2, "distinct_min_sequences": 2},
+    {"input": "there", "min_tokens": 3, "distinct_min_sequences": 3},
+    {"input": "therethe", "min_tokens": 5, "distinct_min_sequences": 6}
+  ]
+}

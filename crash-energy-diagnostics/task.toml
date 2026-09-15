@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge spanning three specialized domains: (1) SAE J211/1 standard for automotive crash test data filtering — the agent must know the CFC-to-Hz frequency mapping (CFC * 5/3), that the specification calls for a 2nd-order Butterworth applied as a zero-phase filter, and the correct digital implementation; (2) Head Injury Criterion computation — the HIC integral formula with optimization over all time windows up to a maximum duration, requiring efficient prefix-sum based algorithms; (3) explicit dynamics FEM energy balance diagnostics — understanding what hourglass energy represents physically (rank-deficient element deformation modes), how anomalous growth indicates mesh quality issues, and how to distinguish hourglass errors from contact instability or numerical damping errors. No single domain alone is sufficient; the task demands integrating crash safety standards, signal processing, and computational mechanics."""
+solution_explanation = """Parse the OpenRadioss time-history CSV files, compute total energy as sum of KE+IE+contact+hourglass+damping at each timestep, identify the energy error trajectory and diagnose hourglass as the dominant error source from its anomalous quadratic growth in the second half. Implement SAE J211 CFC filtering using scipy.signal.butter(2, CFC*5/3 / (fs/2)) with filtfilt for zero-phase response. Compute resultant acceleration magnitude in g, then compute HIC15 and HIC36 using trapezoidal prefix sums and sweeping over all valid time windows. Generate the assessment based on the three pass/fail criteria."""
+verification_explanation = """Tests verify: (1) report structure has all required keys and CFC classes; (2) energy balance max error matches the known hourglass anomaly at ~6.4% within tolerance; (3) first 2% violation time is near 0.078s; (4) error source correctly identified as hourglass; (5) CFC-filtered peak accelerations are in physically reasonable ranges and properly ordered; (6) HIC15 and HIC36 are in expected ranges for a 45g crash pulse; (7) HIC36 >= HIC15 (mathematical property); (8) overall assessment is FAIL due to energy error exceeding 5%; (9) the pipeline script exists and executes without error."""
+category = "physics_engineering"
+tags = ["crash-simulation", "signal-processing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crash-energy-diagnostics"

@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["properties", "trace_analysis", "synthesis", "functional_equivalences", "unique_output_count"],
+  "properties": {
+    "properties": {
+      "type": "object",
+      "required": [
+        "P1_stall_monotonicity",
+        "P2_no_simultaneous_stall_flush",
+        "P3_trap_guarantees_flush",
+        "P4_division_protection",
+        "P5_wfi_stall_guarantee",
+        "P6_stallf_equals_stalld"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "P1_stall_monotonicity": { "$ref": "#/$defs/property_result" },
+        "P2_no_simultaneous_stall_flush": { "$ref": "#/$defs/property_result" },
+        "P3_trap_guarantees_flush": { "$ref": "#/$defs/property_result" },
+        "P4_division_protection": { "$ref": "#/$defs/property_result" },
+        "P5_wfi_stall_guarantee": { "$ref": "#/$defs/property_result" },
+        "P6_stallf_equals_stalld": { "$ref": "#/$defs/property_result" }
+      }
+    },
+    "trace_analysis": {
+      "type": "object",
+      "required": [
+        "per_stage_stall_counts",
+        "per_stage_flush_counts",
+        "longest_full_stall_streak",
+        "cycles_with_stall_flush_conflict",
+        "critical_input",
+        "minimum_stall_elimination_set"
+      ],
+      "properties": {
+        "per_stage_stall_counts": {
+          "type": "object",
+          "required": ["StallF", "StallD", "StallE", "StallM", "StallW"],
+          "properties": {
+            "StallF": { "type": "integer" },
+            "StallD": { "type": "integer" },
+            "StallE": { "type": "integer" },
+            "StallM": { "type": "integer" },
+            "StallW": { "type": "integer" }
+          }
+        },
+        "per_stage_flush_counts": {
+          "type": "object",
+          "required": ["FlushD", "FlushE", "FlushM", "FlushW"],
+          "properties": {
+            "FlushD": { "type": "integer" },
+            "FlushE": { "type": "integer" },
+            "FlushM": { "type": "integer" },
+            "FlushW": { "type": "integer" }
+          }
+        },
+        "longest_full_stall_streak": { "type": "integer" },
+        "cycles_with_stall_flush_conflict": { "type": "integer" },
+        "critical_input": { "type": "string" },
+        "minimum_stall_elimination_set": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "synthesis": {
+      "type": "object",
+      "required": ["total_cells", "cells_by_type", "output_fan_in"],
+      "properties": {
+        "total_cells": { "type": "integer" },
+        "cells_by_type": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "output_fan_in": {
+          "type": "object",
+          "required": ["StallF", "StallD", "StallE", "StallM", "StallW", "FlushD", "FlushE", "FlushM", "FlushW"],
+          "additionalProperties": false,
+          "properties": {
+            "StallF": { "type": "array", "items": { "type": "string" } },
+            "StallD": { "type": "array", "items": { "type": "string" } },
+            "StallE": { "type": "array", "items": { "type": "string" } },
+            "StallM": { "type": "array", "items": { "type": "string" } },
+            "StallW": { "type": "array", "items": { "type": "string" } },
+            "FlushD": { "type": "array", "items": { "type": "string" } },
+            "FlushE": { "type": "array", "items": { "type": "string" } },
+            "FlushM": { "type": "array", "items": { "type": "string" } },
+            "FlushW": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "functional_equivalences": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "string" },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "unique_output_count": { "type": "integer" }
+  },
+  "$defs": {
+    "input_assignment": {
+      "type": "object",
+      "required": [
+        "BPWrongE", "CSRWriteFenceM", "RetM", "TrapM",
+        "StructuralStallD", "LSUStallM", "IFUStallF",
+        "FPUStallD", "ExternalStall", "DivBusyE", "FDivBusyE",
+        "wfiM", "IntPendingM"
+      ],
+      "properties": {
+        "BPWrongE": { "type": "integer", "enum": [0, 1] },
+        "CSRWriteFenceM": { "type": "integer", "enum": [0, 1] },
+        "RetM": { "type": "integer", "enum": [0, 1] },
+        "TrapM": { "type": "integer", "enum": [0, 1] },
+        "StructuralStallD": { "type": "integer", "enum": [0, 1] },
+        "LSUStallM": { "type": "integer", "enum": [0, 1] },
+        "IFUStallF": { "type": "integer", "enum": [0, 1] },
+        "FPUStallD": { "type": "integer", "enum": [0, 1] },
+        "ExternalStall": { "type": "integer", "enum": [0, 1] },
+        "DivBusyE": { "type": "integer", "enum": [0, 1] },
+        "FDivBusyE": { "type": "integer", "enum": [0, 1] },
+        "wfiM": { "type": "integer", "enum": [0, 1] },
+        "IntPendingM": { "type": "integer", "enum": [0, 1] }
+      }
+    },
+    "property_result": {
+      "type": "object",
+      "required": ["holds", "counterexample"],
+      "properties": {
+        "holds": { "type": "boolean" },
+        "counterexample": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/input_assignment" }
+          ]
+        }
+      }
+    }
+  }
+}

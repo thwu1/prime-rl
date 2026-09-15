@@ -1,0 +1,7 @@
+subj_id,treatment,dose,dose_unit,frequency,route,start_date,end_date,dose_adjustment_reason
+001,Drug A 50mg,50,mg,QD,ORAL,15-JAN-2024,15-APR-2024,
+002,Drug A 50mg,50,mg,QD,ORAL,17-JAN-2024,04-FEB-2024,
+002,Drug A 50mg,25,mg,QD,ORAL,05-FEB-2024,01-MAR-2024,ADVERSE EVENT
+003,Placebo,1,CAPSULE,QD,ORAL,20-JAN-2024,20-APR-2024,
+005,Drug A 50mg,50,mg,QD,ORAL,25-JAN-2024,14-MAR-2024,
+005,Drug A 50mg,25,mg,QD,ORAL,15-MAR-2024,25-APR-2024,ADVERSE EVENT

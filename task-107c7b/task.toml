@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-validating TCP-AO implementations against RFC 9235 test vectors embedded in a pcap. The solver must: (1) discover how to extract TCP-AO option fields from raw pcap packets (kind 29 options not well-supported by standard dissectors); (2) independently compute ground-truth traffic keys using CLI tools rather than trusting any candidate code, which requires understanding NIST SP 800-108 counter-mode KDF input construction; (3) handle AES-128-CMAC key normalization for non-16-byte master keys; (4) evaluate 4 candidates across 8 connections spanning IPv4/IPv6 and two algorithm suites; (5) identify that different bugs manifest as different failure patterns—some fail all connections while one fails only a specific algorithm subset—requiring deep understanding of when specific KDF code paths execute. Demands cross-referencing RFCs 5925, 5926, 4493, and 9235."""
+solution_explanation = """Parse the pcap to extract TCP-AO option bytes (KeyID, RNextKeyID, MAC) from each SYN packet. Read the schema to discover that reference values must use openssl and pcap analysis must use tshark. Compute reference traffic keys via openssl mac commands: for HMAC-SHA1 connections, construct KDF input (counter||label||context||output_length) and compute HMAC-SHA1; for AES-128-CMAC, first normalize the master key via CMAC with all-zero key, then compute CMAC-based KDF. Test each candidate's derive_traffic_key() against all 8 connections. impl_a passes all; impl_b (null-terminated label) and impl_c (counter starts at 0) fail all 8; impl_d (zero-pads key instead of normalizing via CMAC) fails only the 4 AES-CMAC connections. Classify severities and produce the structured audit report."""
+verification_explanation = """Tests verify: (1) audit_report.json structure matches schema with all required fields; (2) impl_a verdict is pass with no failures; (3) impl_b and impl_c each fail all 8 connections with critical severity; (4) impl_d fails exactly the 4 AES-CMAC connections with high severity; (5) reference traffic keys match RFC 9235 published values for connections 4.1, 5.1, 6.1, 7.1; (6) pcap analysis contains 8 packets with correct connection mappings and MAC values; (7) anti-hardcoding checks verify openssl commands, tshark references, unique keys, and distinct failure patterns; (8) recommendation is impl_a."""
+category = "security_and_privacy"
+tags = ["cryptography", "network-protocols"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-107c7b"

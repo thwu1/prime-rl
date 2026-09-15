@@ -1,0 +1,54 @@
+{
+  "supplemental": {
+    "version": {
+      "_unicodeVersion": "16.0.0",
+      "_cldrVersion": "48"
+    },
+    "plurals-type-ordinal": {
+      "af": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "ar": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "cy": {
+        "pluralRule-count-zero": "n = 0,7,8,9 @integer 0, 7~9",
+        "pluralRule-count-one": "n = 1 @integer 1",
+        "pluralRule-count-two": "n = 2 @integer 2",
+        "pluralRule-count-few": "n = 3,4 @integer 3, 4",
+        "pluralRule-count-many": "n = 5,6 @integer 5, 6",
+        "pluralRule-count-other": " @integer 10~25, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "de": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "en": {
+        "pluralRule-count-one": "n % 10 = 1 and n % 100 != 11 @integer 1, 21, 31, 41, 51, 61, 71, 81, 101, 1001, \u2026",
+        "pluralRule-count-two": "n % 10 = 2 and n % 100 != 12 @integer 2, 22, 32, 42, 52, 62, 72, 82, 102, 1002, \u2026",
+        "pluralRule-count-few": "n % 10 = 3 and n % 100 != 13 @integer 3, 23, 33, 43, 53, 63, 73, 83, 103, 1003, \u2026",
+        "pluralRule-count-other": " @integer 0, 4~18, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "ja": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "ko": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "pl": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "ru": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "tr": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "uk": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      },
+      "zh": {
+        "pluralRule-count-other": " @integer 0~15, 100, 1000, 10000, 100000, 1000000, \u2026"
+      }
+    }
+  }
+}

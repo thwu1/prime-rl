@@ -1,0 +1,82 @@
+{
+  "simulations": [
+    {
+      "id": "sim1",
+      "trace": "traces/trace_small.txt",
+      "cache_size_bytes": 512,
+      "block_size_bytes": 64,
+      "associativity": 1
+    },
+    {
+      "id": "sim2",
+      "trace": "traces/trace_small.txt",
+      "cache_size_bytes": 1024,
+      "block_size_bytes": 64,
+      "associativity": 2
+    },
+    {
+      "id": "sim3",
+      "trace": "traces/trace_small.txt",
+      "cache_size_bytes": 2048,
+      "block_size_bytes": 64,
+      "associativity": 4
+    },
+    {
+      "id": "sim4",
+      "trace": "traces/trace_medium.txt",
+      "cache_size_bytes": 1024,
+      "block_size_bytes": 64,
+      "associativity": 2
+    },
+    {
+      "id": "sim5",
+      "trace": "traces/trace_medium.txt",
+      "cache_size_bytes": 4096,
+      "block_size_bytes": 64,
+      "associativity": 4
+    },
+    {
+      "id": "sim6",
+      "trace": "traces/trace_medium.txt",
+      "cache_size_bytes": 2048,
+      "block_size_bytes": 32,
+      "associativity": 2
+    }
+  ],
+  "stack_distance": [
+    {
+      "id": "sd_small",
+      "trace": "traces/trace_small.txt",
+      "block_size_bytes": 64
+    },
+    {
+      "id": "sd_medium",
+      "trace": "traces/trace_medium.txt",
+      "block_size_bytes": 64
+    }
+  ],
+  "miss_rate_predictions": [
+    {
+      "id": "pred_small",
+      "stack_distance_id": "sd_small",
+      "num_blocks": [4, 8, 16, 32]
+    },
+    {
+      "id": "pred_medium",
+      "stack_distance_id": "sd_medium",
+      "num_blocks": [8, 16, 32, 64, 128]
+    }
+  ],
+  "optimize": [
+    {
+      "id": "opt1",
+      "trace": "traces/trace_medium.txt",
+      "cache_sizes": [512, 1024, 2048, 4096, 8192],
+      "block_sizes": [32, 64],
+      "associativities": [1, 2, 4, 8],
+      "target_miss_rate": 0.10,
+      "cost_formula": "cache_size_bytes * associativity",
+      "tiebreak": ["cache_size_bytes", "block_size_bytes"]
+    }
+  ]
+}

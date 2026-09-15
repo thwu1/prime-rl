@@ -1,0 +1,87 @@
+{
+  "description": "Both egress and ingress policies must allow for traffic to flow - bidirectional evaluation",
+  "namespaces": [
+    {"name": "app-ns", "labels": {"team": "app"}},
+    {"name": "db-ns", "labels": {"team": "data"}},
+    {"name": "monitor-ns", "labels": {"team": "ops"}}
+  ],
+  "pods": [
+    {"name": "webapp", "namespace": "app-ns", "labels": {"app": "web", "role": "frontend"}, "ip": "10.1.0.1"},
+    {"name": "api", "namespace": "app-ns", "labels": {"app": "api", "role": "backend"}, "ip": "10.1.0.2"},
+    {"name": "mysql", "namespace": "db-ns", "labels": {"app": "mysql", "role": "database"}, "ip": "10.2.0.1"},
+    {"name": "prometheus", "namespace": "monitor-ns", "labels": {"app": "prometheus", "role": "monitor"}, "ip": "10.3.0.1"}
+  ],
+  "network_policies": [
+    {
+      "name": "app-egress-restrict",
+      "namespace": "app-ns",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"role": "backend"}
+        },
+        "egress": [
+          {
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"team": "data"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 3306}
+            ]
+          },
+          {
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"team": "ops"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 9090}
+            ]
+          }
+        ],
+        "policyTypes": ["Egress"]
+      }
+    },
+    {
+      "name": "db-ingress-restrict",
+      "namespace": "db-ns",
+      "spec": {
+        "podSelector": {},
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"team": "app"}
+                },
+                "podSelector": {
+                  "matchLabels": {"role": "backend"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 3306}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "app-ns", "src_pod": "api", "dst_namespace": "db-ns", "dst_pod": "mysql", "dst_port": 3306, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "app-ns", "src_pod": "api", "dst_namespace": "db-ns", "dst_pod": "mysql", "dst_port": 5432, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "app-ns", "src_pod": "webapp", "dst_namespace": "db-ns", "dst_pod": "mysql", "dst_port": 3306, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "app-ns", "src_pod": "api", "dst_namespace": "monitor-ns", "dst_pod": "prometheus", "dst_port": 9090, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "app-ns", "src_pod": "api", "dst_namespace": "monitor-ns", "dst_pod": "prometheus", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "monitor-ns", "src_pod": "prometheus", "dst_namespace": "db-ns", "dst_pod": "mysql", "dst_port": 3306, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "app-ns", "src_pod": "webapp", "dst_namespace": "app-ns", "dst_pod": "api", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "app-ns", "src_pod": "api", "dst_namespace": "app-ns", "dst_pod": "webapp", "dst_port": 80, "protocol": "TCP", "expected": "DENY"}
+  ]
+}

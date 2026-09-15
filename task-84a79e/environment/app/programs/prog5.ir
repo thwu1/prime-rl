@@ -1,0 +1,43 @@
+# Program 5: Multi-function with constant propagation, CSE, and DCE
+# Exercises inter-block constant propagation, local CSE, and iterative DCE.
+FUNC square(x):
+  LABEL sq_start:
+    r = x * x
+    RETURN r
+ENDFUNC
+
+FUNC sum_of_squares(n):
+  LABEL sos_entry:
+    total = 0
+    i = 1
+    offset = 3
+    bias = offset + 7
+    GOTO sos_test
+  LABEL sos_body:
+    sq = CALL square(i)
+    contrib = sq + bias
+    total = total + contrib
+    check = sq + bias
+    unused1 = check * offset
+    i = i + 1
+  LABEL sos_test:
+    cond = i <= n
+    IF cond GOTO sos_body
+  LABEL sos_exit:
+    RETURN total
+ENDFUNC
+
+FUNC main():
+  LABEL main_start:
+    n = 5
+    result = CALL sum_of_squares(n)
+    scale = 2
+    factor = scale * 3
+    final = result * factor
+    redundant = scale * 3
+    answer = final + redundant
+    unused = n * scale
+    PRINT final
+    PRINT answer
+    RETURN 0
+ENDFUNC

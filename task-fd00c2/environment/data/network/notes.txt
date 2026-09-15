@@ -1,0 +1,7 @@
+Transport Rate Matrix — Q2 Estimates
+
+Columns correspond to warehouse locations in the order listed in facilities.csv.
+Rows correspond to customer zones (Z00 through Z14).
+Values are per-unit shipping costs in USD.
+
+Rates were estimated from historical carrier data and current contract negotiations.

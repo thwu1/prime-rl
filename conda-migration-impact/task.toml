@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of the conda-forge packaging ecosystem: parsing v1 recipe.yaml files with non-standard ${{ }} Jinja template syntax (pin_subpackage, pin_compatible, compiler expressions, context variable substitution), handling multi-output feedstocks, computing run_exports constraints from max_pin patterns using conda pin semantics (x, x.x, x.x.x → different upper bound computations), building host dependency graphs, implementing topological sort, discovering a pending version migration by comparing recipe versions against a global pinning configuration (with underscore-to-hyphen key normalization), computing direct and transitive migration impact via graph traversal, performing conda-style version constraint satisfiability checking (including PEP 440 alpha ordering like 1.14.4a0 < 1.14.4), and diagnosing recipe defects such as undefined context variable references in run_exports declarations. The solver must independently discover what migration is occurring rather than being given explicit migration metadata."""
+solution_explanation = """Write a Python script that: (1) pre-processes recipe.yaml files by extracting context variables and resolving ${{ }} template expressions including pin_subpackage and pin_compatible calls; (2) parses processed YAML to extract package definitions from both single-output and multi-output recipes; (3) extracts run_exports declarations from raw content, resolving variable references and computing conda-style constraint strings based on package versions and max_pin patterns; (4) builds a host dependency graph filtering to internal packages only; (5) computes topological build order via Kahn's algorithm; (6) reads the global pinning config, normalizes underscore keys to hyphen package names, and detects version mismatches (migration); (7) identifies all co-migrated outputs from the same feedstock; (8) computes directly and transitively affected packages via graph traversal; (9) generates a valid rebuild order; (10) checks explicit version constraints against the new version using PEP 440 ordering; (11) detects recipe defects (undefined context variables in run_exports)."""
+verification_explanation = """Tests load the single audit.json output and verify: (a) correct enumeration of all 23 packages from 21 feedstocks (including multi-output); (b) exact host dependency edges for every package including the added geos→proj dependency; (c) run_exports constraint computation for 15 packages across all three max_pin patterns (x, x.x, x.x.x) with correct upper bound arithmetic; (d) geos excluded from run_exports analysis due to broken template; (e) valid topological build ordering; (f) correct migration discovery (libhdf5 recipe 1.14.4 vs pin 1.14.3) with both feedstock outputs identified; (g) correct directly/transitively affected sets; (h) valid rebuild ordering; (i) detection of two pin conflict entries with correct satisfiability; (j) geos recipe diagnostic detecting the undefined 'lib_name' variable."""
+category = "devops"
+tags = ["conda-forge", "dependency-resolution"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/conda-migration-impact"

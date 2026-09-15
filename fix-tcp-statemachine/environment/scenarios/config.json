@@ -1,0 +1,49 @@
+{
+  "scenarios": [
+    {
+      "name": "perfect",
+      "loss_rate": 0.0,
+      "reorder_rate": 0.0,
+      "base_delay_ms": 50,
+      "seed": 1,
+      "data_size": 102400,
+      "description": "Perfect channel — baseline for correctness"
+    },
+    {
+      "name": "low_loss",
+      "loss_rate": 0.05,
+      "reorder_rate": 0.0,
+      "base_delay_ms": 50,
+      "seed": 100,
+      "data_size": 102400,
+      "description": "5% uniform loss — typical wireless conditions"
+    },
+    {
+      "name": "medium_loss",
+      "loss_rate": 0.15,
+      "reorder_rate": 0.0,
+      "base_delay_ms": 50,
+      "seed": 200,
+      "data_size": 51200,
+      "description": "15% loss — congested WAN link"
+    },
+    {
+      "name": "high_loss",
+      "loss_rate": 0.25,
+      "reorder_rate": 0.0,
+      "base_delay_ms": 100,
+      "seed": 300,
+      "data_size": 10240,
+      "description": "25% loss — severely degraded satellite link"
+    },
+    {
+      "name": "reorder",
+      "loss_rate": 0.0,
+      "reorder_rate": 0.20,
+      "base_delay_ms": 50,
+      "seed": 400,
+      "data_size": 51200,
+      "description": "20% reordering — multi-path routing"
+    }
+  ]
+}

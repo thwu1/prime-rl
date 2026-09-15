@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of pipelined processor microarchitecture, Verilog RTL design, and non-blocking assignment timing semantics. The solver must read and comprehend a complete two-stage pipelined CPU design (~700 lines of Verilog across 8 modules), identify the precise pipeline stages where register writes and reads occur, determine which opcodes read/write which register fields, reason about when stalls from existing mechanisms (memory access, control flow) already cover certain hazards, and implement combinational hazard detection logic that avoids circular dependencies with the existing stall signal. Verification requires understanding the CustomASM-encoded instruction format to trace through hand-assembled test programs."""
+solution_explanation = """Add combinational hazard detection wires in maxicore32.v that compare the destination register (bits [23:20]) of the instruction leaving stage 1 (memorystage1_outbound_instruction) against the source register fields of the raw instruction about to enter stage 1 (cpu_data_in). Two hazard types are detected: (1) register RAW hazards when the stage-2 instruction writes a register that the fetched instruction reads, and (2) status flag hazards when an ALU op in stage 2 updates condition flags needed by a conditional branch/jump about to enter. The hazard signals are OR'd into the existing insert_nops wire, which already stalls the pipeline and holds the PC for memory access and control flow delays. A guard condition (not_already_stalling) prevents checking during existing stall cycles when cpu_data_in contains memory data rather than an instruction."""
+verification_explanation = """Five test programs are encoded as raw 32-bit instruction words and loaded into the processor's simulation memory. Each program is run via iverilog/vvp and the register dump at HALT is parsed. Tests cover: (1) LOADI->ALU register hazard, (2) ALU->conditional-branch status hazard combined with a data hazard, (3) three chained ALU operations each depending on the prior result, (4) a sanity check with independent registers that should not trigger stalls, and (5) a store instruction whose address register was just written. Without hazard detection, tests 1-3 and 5 produce incorrect register values (typically 0) because the pipeline reads stale data."""
+category = "computer_architecture"
+tags = ["verilog", "pipeline-hazard-detection"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipeline-hazard-detect"

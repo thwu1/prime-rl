@@ -1,0 +1,20 @@
+title: Copernicus DEM GLO-30
+abstract: Global 30-meter Digital Elevation Model derived from TanDEM-X radar satellite data
+crs:
+  authority: EPSG
+  code: 4326
+extent:
+  west: -180.0
+  south: -90.0
+  east: 180.0
+  north: 90.0
+time_coverage: "2021-04-01/2021-10-31"
+pixel_size: 30
+variables:
+  - name: elevation
+    unit: meters
+  - name: quality_flag
+    unit: dimensionless
+source: ESA/Copernicus
+license_type: proprietary-free
+category: elevation

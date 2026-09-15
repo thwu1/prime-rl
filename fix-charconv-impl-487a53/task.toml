@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of C++17 charconv specification (P0067R5/P0682R1), IEEE-754 floating-point representation, chars_format dispatch semantics, and integer overflow edge cases. The solver must discover multiple unlabelled conformance defects spanning integer digit encoding, two's complement negation, precise overflow detection, shortest-representation float conversion with type-specific precision, hex float formatting/parsing, chars_format-aware from_chars/to_chars dispatch, locale-independent parsing with boundary respect, and float-to-double overflow detection. Implementing correct hex float output (strip 0x from %a), hex float parsing (prepend 0x for strtod), and format-specific exponent handling (required/forbidden/optional) adds design complexity beyond simple bug fixing."""
+solution_explanation = """Fix original 6 conformance defects: (1) lowercase digits a-z; (2) unsigned two's complement negation for INT_MIN; (3) remove 0x/0X prefix acceptance for base 16; (4) add cutlim overflow check; (5) progressive shortest %.*g loop for double; (6) rewrite from_chars with pattern pre-validation, null-terminated buffer copy, and [first,last) respect. Fix additional defects: (7) implement float-specific to_chars using %.*g with strtof round-trip check instead of delegating to double; (8) add float overflow detection in from_chars(float). Implement chars_format overloads: (9) to_chars(double, fmt) with per-format shortest loops; (10) to_chars(double, fmt, precision) with correct %a for hex (strip 0x prefix) and precision for general; (11) from_chars(double, fmt) with format-aware parsing — scientific requires exponent, fixed forbids exponent, hex parses hex significand + p-exponent via 0x-prefixed strtod."""
+verification_explanation = """A 550+ line C++ test runner checks ~55 assertions covering: integer to_chars with INT64_MIN/lowercase/overflow; integer from_chars with 0x rejection/ULLONG_MAX boundary; double shortest representation with length and round-trip checks; float-specific shortest output and round-trip; float from_chars boundary respect/whitespace/+/0x rejection/overflow; float32 overflow detection; chars_format to_chars format correctness (scientific has 'e', fixed has no 'e', hex has 'p' without '0x'); chars_format to_chars precision; chars_format from_chars (scientific requires exp, fixed stops at exp, hex parses hex float, general accepts both); and no <charconv> header usage. Pytest wraps the C++ runner and writes reward."""
+category = "debugging"
+tags = ["charconv", "ieee754"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-charconv-impl-487a53"

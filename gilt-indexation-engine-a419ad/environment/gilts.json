@@ -1,0 +1,64 @@
+{
+  "gilts": [
+    {
+      "id": "ILG_3M_01",
+      "effective": "2024-05-27",
+      "maturity": "2025-05-27",
+      "coupon_rate": 2.0,
+      "index_lag": 3,
+      "settlement": "2024-10-15",
+      "operation": "price_from_yield",
+      "real_yield": 3.5
+    },
+    {
+      "id": "ILG_3M_02",
+      "effective": "2024-09-16",
+      "maturity": "2025-09-16",
+      "coupon_rate": 3.0,
+      "index_lag": 3,
+      "settlement": "2025-02-10",
+      "operation": "price_from_yield",
+      "real_yield": 2.0
+    },
+    {
+      "id": "ILG_8M_01",
+      "effective": "2023-03-22",
+      "maturity": "2026-03-22",
+      "coupon_rate": 1.875,
+      "index_lag": 8,
+      "settlement": "2024-09-10",
+      "operation": "price_from_yield",
+      "real_yield": 1.0
+    },
+    {
+      "id": "ILG_EXDIV",
+      "effective": "2024-05-27",
+      "maturity": "2025-05-27",
+      "coupon_rate": 2.0,
+      "index_lag": 3,
+      "settlement": "2024-11-22",
+      "operation": "price_from_yield",
+      "real_yield": 3.5
+    },
+    {
+      "id": "ILG_YFP",
+      "effective": "2024-05-27",
+      "maturity": "2025-05-27",
+      "coupon_rate": 2.0,
+      "index_lag": 3,
+      "settlement": "2024-10-15",
+      "operation": "yield_from_price",
+      "real_clean_price": 99.50
+    },
+    {
+      "id": "ILG_MULTI",
+      "effective": "2024-01-15",
+      "maturity": "2026-07-15",
+      "coupon_rate": 1.25,
+      "index_lag": 3,
+      "settlement": "2025-01-10",
+      "operation": "price_from_yield",
+      "real_yield": 2.5
+    }
+  ]
+}

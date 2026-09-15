@@ -1,0 +1,14 @@
+{
+    "name": "datacenter",
+    "description": "Low-latency datacenter link with rare packet loss",
+    "base_rtt": 0.001,
+    "rtt_jitter": 0.0002,
+    "num_acks": 200,
+    "loss_pattern": {
+        "dup_ack_sets": [50, 150],
+        "timeouts": [100]
+    },
+    "targets": {
+        "min_avg_cwnd": 10000
+    }
+}

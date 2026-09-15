@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independent diagnosis and repair of a multi-layered SAT-based dependency resolver with no hints about root causes or solution strategies. The agent must: (1) diagnose a subtle semantic parsing bug where one constraint operator is incorrectly implemented — requires comparing runtime behavior against documented semantics and tracing through the constraint evaluation logic to find the discrepancy; (2) identify a structural deficiency in the propositional encoding by reasoning about what Boolean invariants a correct SAT formulation must enforce for single-version-per-package selection — this requires deep understanding of how dependency resolution maps to satisfiability and recognizing what's missing from a formula that superficially appears complete; (3) determine independently that the built-in solver is architecturally inadequate for the problem scale, select and integrate an external SAT solver, handle its I/O protocol (file-based DIMACS input/output, non-standard exit codes), and implement a preference heuristic through iterative re-solving; (4) design a conflict analysis system from scratch — analyze the dependency graph to identify irreconcilable version constraints across multiple dependency chains and format structured diagnostics. Each subproblem requires different expertise (language semantics, propositional logic, systems integration, graph analysis) and the agent receives only symptoms, not root causes."""
+solution_explanation = """Four independent repairs to /app/resolve.py: (1) Fix the tilde constraint handler — the buggy code copies the caret logic (upper bound based on leftmost non-zero digit) instead of implementing tilde semantics (upper bound at next minor: major, minor+1, 0); (2) Add mutual exclusion clauses to the SAT formula — for each package with multiple registry versions, generate pairwise binary negative clauses ensuring at most one version is selected; (3) Replace the exponential brute-force SAT solver with MiniSat integration — generate DIMACS CNF, invoke /usr/bin/minisat via subprocess with temp files, parse its output (SAT/UNSAT line + variable assignments), and implement latest-version preference through iterative constraint tightening (greedily pin each package to its latest version, keeping the pin only if MiniSat confirms satisfiability); (4) Implement conflict analysis by collecting all version constraints imposed on each package by its dependents, finding pairwise-incompatible constraints (empty version-set intersections), and formatting multi-line diagnostics with package names, constraint sources, and version details."""
+verification_explanation = """Tests verify: (1) lockfile validity for all satisfiable manifests — every selected version satisfies all dependency constraints, all transitive deps present, no extraneous packages; (2) latest-version preference where uniquely determined; (3) tilde constraint correctness — ~2.0.0 resolves to exactly 2.0.0, not a higher version; (4) conflict detection — exit code 1 for unsatisfiable manifest; (5) conflict diagnostic quality — stderr must identify conflicting packages by name, reference at least 2 constraint source packages, include version details, and provide >= 3 lines of detail; (6) DIMACS format compliance with correct clause counts and variable mapping comments; (7) MiniSat cross-validation — SAT/UNSAT verdicts agree for satisfiable, unsatisfiable, and deep manifests; (8) performance — deep manifest must resolve within 30 seconds, proving efficient solver integration."""
+category = "systems"
+tags = ["sat-solving", "dependency-resolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8baa57"

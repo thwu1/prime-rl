@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficiency in TLA+ specification language, temporal logic, and the TLC model checker — a niche formal methods skill set. The agent must iteratively run TLC, interpret counterexample traces showing Agreement violations, and identify three interrelated bugs: an insufficient quorum threshold in Decide, a missing vote-uniqueness guard in CastVote, and a subtle two-part defect in Propose where the self-vote neither checks nor records hasVotedFor. Beyond debugging, the agent must implement a correct Python BFS state space explorer from scratch, faithfully encoding all protocol transitions, state deduplication via canonical hashing, and invariant checking — producing a distinct state count that exactly matches TLC's output."""
+solution_explanation = """Fix 1: Add hasVotedFor[voter] = "none" guard to CastVote to prevent double-voting. Fix 2: Change Decide threshold from >= 1 to >= Quorum. Fix 3: Add hasVotedFor[n] = "none" precondition to Propose AND set hasVotedFor[n] = n (removing it from UNCHANGED) so the self-vote is properly tracked. Then implement a Python BFS explorer that encodes Init, Propose, CastVote, Decide transitions with all fixed guards, explores the full reachable state space using a queue and visited set with hashable state tuples, and checks TypeOK and Agreement at every state."""
+verification_explanation = """Runs TLC on the fixed spec and verifies no invariant violations with >= 50 distinct states. Checks structural integrity of the spec (anti-cheat). Verifies the Python explorer exists with substantive BFS implementation code, runs successfully with valid JSON output, finds no violations, and reports exactly the same distinct state count as TLC. Cross-validates with a small config (2 nodes, 1 value = exactly 8 states) and checks monotonicity across configs."""
+category = "formal_methods"
+tags = ["tla+", "model-checking"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-50ed81"

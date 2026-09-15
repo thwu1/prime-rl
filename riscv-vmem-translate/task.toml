@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the RISC-V privileged architecture with no specification or algorithmic guidance provided. The solver must independently: (1) discover how to access raw physical memory from a qcow2 container format, (2) reverse-engineer the hardware memory layout from a compiled device tree blob, (3) interpret the SATP CSR encoding to locate the root page table and determine translation mode, (4) reconstruct and walk the multi-level page table hierarchy in raw binary, (5) evaluate each PTE against 10 distinct fault classes including validity, reserved encodings, superpage alignment, NAPOT constraints, permission/privilege interactions, and Svade A/D-bit semantics, (6) judge what constitutes the minimal safe correction for each fault — considering cross-field dependencies where one fix necessitates another (e.g., granting write permission under Svade also requires setting the dirty bit, or a non-leaf at level 0 requires choosing appropriate permission bits for the observed access), and (7) reassemble the patched memory into a qcow2 image. The critical difficulty lies in evaluating minimality and safety: multiple corrections may satisfy a given fault, but only one avoids granting unnecessary capabilities."""
+solution_explanation = """Use qemu-img convert to extract raw bytes from memory.qcow2. Run dtc -I dtb -O dts on platform.dtb to decode the device tree source; parse the memory@80000000 node's reg property to get base=0x80000000 and size=0x40000. Read system.json for SATP, mstatus, menvcfg, and extension flags. For each fault, decompose VA into VPN[2],VPN[1],VPN[0] and walk from the root PPN through the page table hierarchy, reading 8-byte little-endian PTEs at computed offsets. At each level check validity, encoding, permissions, alignment, NAPOT, privilege, and A/D bits. Compute minimal fixes considering dependencies (e.g., adding W also requires D under Svade). Write diagnosis.json and use qemu-img convert to package the patched raw memory into memory_fixed.qcow2."""
+verification_explanation = """Tests use qemu-img to convert memory_fixed.qcow2 back to raw format, then verify each fault's PTE at the known byte offset matches the expected corrected value. Tests also verify diagnosis.json has correct pte_phys_addr and corrected_pte for all 10 faults. Additionally verifies that non-broken PTEs remain unchanged and the virtual disk size is preserved."""
+category = "systems"
+tags = ["risc-v", "virtual-memory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-vmem-translate"

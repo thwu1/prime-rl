@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of combustion kinetics, sensitivity analysis methodology, and Cantera's mechanism manipulation API. The agent must compute ignition delays via reactor simulation, perform per-reaction sensitivity analysis (~325 perturbation runs), build a valid reduced mechanism through sensitivity-guided species extraction, and validate it under multiple operating conditions against tight error thresholds."""
+solution_explanation = """The oracle computes ignition delays via constant-pressure reactor simulation (max dT/dt), adiabatic flame temperatures via equilibrium calculation, and sensitivity coefficients by doubling each reaction rate and measuring the logarithmic change in ignition delay. It builds a reduced mechanism by selecting the maximum number of sensitivity-ranked reactions whose combined species set stays below 25, then retains only reactions fully contained within that species set. Validation compares ignition delays (<30% error) and flame temperatures (<100K error) between full and reduced mechanisms."""
+verification_explanation = """Tests verify physical correctness (temperature/pressure ordering of ignition delays, flame temperature trends near stoichiometric), format requirements (JSON/CSV structure, row counts, column names), cross-check computed values against independent Cantera calculations, and enforce quantitative accuracy thresholds for the reduced mechanism validation."""
+category = "computational_chemistry"
+tags = ["combustion_kinetics", "mechanism_reduction"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactor-sensitivity-reduction"

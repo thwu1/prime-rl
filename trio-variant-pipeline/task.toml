@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a multi-tool clinical genomics pipeline against ACMG/AMP standards without any reference specification documenting intended behavior. The pipeline has five interacting deficiencies spanning annotation configuration, variant filtering, and candidate ranking: (1) a cross-tool configuration mismatch where vcfanno names the population frequency annotation field differently from what slivar filters reference, causing all frequency-based filtering to silently pass every variant via short-circuit evaluation; (2) an overly permissive allele frequency threshold (0.05 instead of the clinical standard 0.01 for rare Mendelian disease); (3) missing parental alternate allele depth evidence criterion in de novo calling to exclude parental mosaicism; (4) absent population frequency filtering on autosomal recessive calls; and (5) reversed variant prioritization logic that ranks by computational prediction score instead of consequence severity (ACMG LoF > missense > synonymous hierarchy). The cross-tool naming mismatch is the root issue — fixing the other frequency bugs has no observable effect until this configuration problem is resolved, requiring the agent to trace annotation field propagation across tool boundaries. No comments or specification document the intended behavior; the agent must derive all correct parameters from clinical genomics domain expertise."""
+solution_explanation = """Fix vcfanno TOML to name the AF annotation output as 'pop_af' (matching slivar filter references). Set population frequency threshold to 0.01 (clinical standard for rare Mendelian disease). Add parental alternate allele depth check (mom.AD[1] + dad.AD[1]) < 2 to de novo trio expression. Add --info population frequency filter to the recessive slivar call. Fix ranking to prioritize consequence severity over functional prediction score. After all fixes: 3 de novo (HIRA missense, EP300 stop_gained, CECR2 synonymous — MYH9 excluded by AF=0.03>0.01, ARVCF excluded by parental AD sum=2), 2 recessive (DGCR6 and TBX1 pass AF<0.01, SLC25A1 excluded by AF=0.03>0.01), COMT compound het, EP300 stop_gained as top candidate (severity 100 outranks HIRA missense severity 50 despite lower func_score)."""
+verification_explanation = """Tests verify four output files plus annotation integrity: denovo_count.txt must be '3'; recessive_count.txt must be '2'; compound_het_genes.txt must contain only 'COMT'; top_candidate.txt must be 'chr22:16150000:C:T'. An additional test verifies the annotated VCF contains the 'pop_af' INFO field, confirming the vcfanno naming configuration was corrected — this prevents bypassing the annotation fix by hardcoding output values."""
+category = "bioinformatics"
+tags = ["clinical-genomics", "pipeline-audit"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trio-variant-pipeline"

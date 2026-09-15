@@ -1,0 +1,11 @@
+{
+  "name": "registration_pipeline",
+  "description": "3D medical image preprocessing and rigid registration",
+  "steps": [
+    {"name": "normalize", "transform": "zscore", "params": {}},
+    {"name": "orient", "transform": "reorient", "params": {"target_codes": "RAS"}},
+    {"name": "resample", "transform": "resample_spacing", "params": {"spacing_ref": "output_spacing"}},
+    {"name": "register", "transform": "landmark_registration", "params": {}},
+    {"name": "evaluate", "transform": "alignment_metric", "params": {"metric": "ncc"}}
+  ]
+}

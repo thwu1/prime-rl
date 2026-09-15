@@ -1,0 +1,16 @@
+order_id,width_mm,quantity,cancel_reason,cancel_date
+A001-X,2200,4,customer_request,2024-01-08
+B002-X,1520,4,specification_change,2024-01-09
+A003-X,1380,2,duplicate_entry,2024-01-07
+B004-X,1120,2,customer_request,2024-01-10
+A005-X,930,6,pricing_dispute,2024-01-09
+A006-X,840,2,customer_request,2024-01-10
+A007-X,770,2,scheduling_conflict,2024-01-11
+B008-X,680,1,customer_request,2024-01-12
+B009-X,520,3,specification_change,2024-01-12
+C010-X,410,8,customer_request,2024-01-15
+C011-X,350,2,pricing_dispute,2024-01-15
+C012-X,280,5,specification_change,2024-01-15
+C013-X,220,3,customer_request,2024-01-15
+C014-X,190,4,scheduling_conflict,2024-01-15
+C015-X,140,4,customer_request,2024-01-15

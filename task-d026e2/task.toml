@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three distinct text manipulation algorithms (bracket-balanced replacement, indentation-based function detection, exact string matching), a gated scoring system with priority-based speedup resolution, and a statistical analysis pipeline computing conditional correctness and generalization gap metrics. The bracket-balancing must handle nested structures and avoid matching similar variable names; indentation analysis must correctly handle blank lines within function bodies. Combining these into a working pipeline with correct YAML I/O requires proficient software engineering."""
+solution_explanation = """The solution implements: (1) injection.py with bracket-balancing for TEST_SHAPES using depth counting, indentation-based function boundary detection for get_inputs(), and exact substring matching for raw_replace; (2) scoring.py with resolve_speedup_ratio preferring explicit ratios and a gated score accumulator; (3) analysis.py with quadrant classification and aggregate statistics (conditional correctness = P(opt|orig), speedup mean/median for both_pass tasks); (4) pipeline.py that reads the manifest, applies injections, reads pre-computed eval results, and produces heldout_summary.yaml."""
+verification_explanation = """Tests verify: (1) each injection strategy via before/after string comparison on realistic source files; (2) scoring formula with edge cases (zero times, missing ratios); (3) all four generalization quadrants; (4) exact numerical values in the summary (quadrant counts, conditional correctness rate, speedup statistics, generalization gap); (5) end-to-end pipeline output YAML structure and values."""
+category = "systems"
+tags = ["gpu-optimization", "benchmarking"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d026e2"

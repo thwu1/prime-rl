@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the C++ memory model (acquire/release/relaxed/acq_rel semantics), lock-free algorithm design, and cache-line false sharing prevention. The solver must design from scratch a correct lock-free bounded MPMC queue supporting arbitrary concurrent producers and consumers, implement correct atomic coordination with proper memory orderings for weakly-ordered architectures, create non-trivial bulk operations that batch at the atomic level rather than looping, design an adaptive contention backoff strategy, and produce a formal memory-ordering analysis with concrete counterexample interleavings for each atomic operation."""
+solution_explanation = """Implement a sequence-number-based MPMC queue: each cell has an atomic sequence initialized to its index. Enqueue loads enqueue_pos_ (relaxed), checks cell sequence == pos (acquire), CAS advances pos (relaxed), writes data, stores sequence = pos+1 (release). Dequeue loads dequeue_pos_ (relaxed), checks cell sequence == pos+1 (acquire), CAS advances pos (relaxed), reads data, stores sequence = pos+buffer_size (release). Bulk operations scan consecutive slots to count availability, then CAS the position counter by the available count to atomically reserve the range, then fill/drain all reserved slots. Cache-line padding separates buffer_/mask_, enqueue_pos_, and dequeue_pos_. Adaptive backoff uses exponential spin counts with architecture-specific pause hints, escalating to thread yield."""
+verification_explanation = """Eight pytest tests verify: (1) compilation succeeds, (2) 4P/4C stress test with 200K items passes, (3) ThreadSanitizer reports zero races, (4) struct sizeof >= 192 confirms cache-line padding, (5) multi-threaded bulk enqueue/dequeue preserves all items, (6) backoff.h contains yield escalation and queue uses .backoff() calls, (7) ordering_analysis.json has >= 6 well-formed entries covering both enqueue/dequeue with valid orderings and non-trivial justifications, (8) high-contention test with 4-slot buffer and 4P/4C succeeds."""
+category = "systems_programming"
+tags = ["lock-free", "concurrency"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-157b3b"

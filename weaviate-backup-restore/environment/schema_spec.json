@@ -1,0 +1,130 @@
+{
+  "collections": {
+    "Products": {
+      "description": "Product catalog with regional store isolation",
+      "multiTenancyConfig": {
+        "enabled": true
+      },
+      "vectorizer": "none",
+      "vectorIndexType": "hnsw",
+      "vectorIndexConfig": {
+        "distance": "cosine",
+        "efConstruction": 256,
+        "maxConnections": 32,
+        "ef": 128
+      },
+      "invertedIndexConfig": {
+        "bm25": {
+          "b": 0.75,
+          "k1": 1.2
+        },
+        "indexTimestamps": true
+      },
+      "properties": [
+        {
+          "name": "name",
+          "dataType": ["text"],
+          "tokenization": "word",
+          "indexFilterable": true,
+          "indexSearchable": true
+        },
+        {
+          "name": "description",
+          "dataType": ["text"],
+          "tokenization": "word",
+          "indexFilterable": false,
+          "indexSearchable": true
+        },
+        {
+          "name": "category",
+          "dataType": ["text"],
+          "tokenization": "field",
+          "indexFilterable": true,
+          "indexSearchable": false
+        },
+        {
+          "name": "price",
+          "dataType": ["number"],
+          "indexFilterable": true,
+          "indexRangeFilters": true
+        },
+        {
+          "name": "in_stock",
+          "dataType": ["boolean"],
+          "indexFilterable": true
+        },
+        {
+          "name": "sku",
+          "dataType": ["text"],
+          "tokenization": "field",
+          "indexFilterable": true,
+          "indexSearchable": false
+        }
+      ],
+      "tenants": ["store_us", "store_eu", "store_asia"],
+      "vectorDimensions": 128
+    },
+    "Reviews": {
+      "description": "Product reviews with sentiment analysis vectors",
+      "multiTenancyConfig": {
+        "enabled": true
+      },
+      "vectorizer": "none",
+      "vectorIndexType": "hnsw",
+      "vectorIndexConfig": {
+        "distance": "cosine",
+        "efConstruction": 128,
+        "maxConnections": 16,
+        "ef": 64
+      },
+      "invertedIndexConfig": {
+        "bm25": {
+          "b": 0.5,
+          "k1": 1.5
+        },
+        "indexTimestamps": false
+      },
+      "properties": [
+        {
+          "name": "content",
+          "dataType": ["text"],
+          "tokenization": "word",
+          "indexFilterable": false,
+          "indexSearchable": true
+        },
+        {
+          "name": "rating",
+          "dataType": ["int"],
+          "indexFilterable": true,
+          "indexRangeFilters": true
+        },
+        {
+          "name": "author",
+          "dataType": ["text"],
+          "tokenization": "field",
+          "indexFilterable": true,
+          "indexSearchable": false
+        },
+        {
+          "name": "verified_purchase",
+          "dataType": ["boolean"],
+          "indexFilterable": true
+        }
+      ],
+      "tenants": ["store_us", "store_eu", "store_asia"],
+      "vectorDimensions": 128
+    }
+  },
+  "expectedCounts": {
+    "Products": {
+      "store_us": 12,
+      "store_eu": 10,
+      "store_asia": 8
+    },
+    "Reviews": {
+      "store_us": 18,
+      "store_eu": 15,
+      "store_asia": 12
+    }
+  }
+}

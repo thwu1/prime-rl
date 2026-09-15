@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning SPICE binary file architecture, numerical polynomial evaluation, astrodynamics, and scientific computing. The agent must independently discover NAIF body identifiers, determine the segment type used for the EMB trajectory, reverse-engineer the internal record layout and metadata structure of the binary container, identify the correct polynomial evaluation scheme for the discovered segment type, and implement it from scratch. The Chebyshev fitting study requires understanding approximation theory, and creating a Hermite SPK requires mapping the interpolation concept to the correct SPICE segment type and API. No algorithms, function names, or internal structures are provided — the agent must derive everything from documentation and binary exploration."""
+solution_explanation = """Uses SpiceyPy DAF-level API (dafopr, dafbfs, daffna, dafgs, dafus, dafgda) to traverse the DE432s segment list. Discovers that EMB is NAIF ID 3 and identifies its Type 2 (Chebyshev) segment. Reads the 4-value footer (INIT, INTLEN, RSIZE, N) to extract metadata. Locates the Chebyshev record covering the target epoch via index arithmetic, extracts coefficients, normalizes time to [-1,1], and applies Clenshaw recurrence. For the fitting study, uses numpy Chebyshev least-squares fitting. For the Hermite SPK, discovers that Type 13 implements Hermite interpolation and uses spkw13 to write the segment."""
+verification_explanation = """Tests independently extract DE432s segment metadata via the DAF API and compare exact integer values. Manual Chebyshev evaluation is verified against spkgeo output (must match within 1e-6 km). Verification error must be < 1e-9 km. Chebyshev accuracy is checked for monotonic improvement with degree and independently cross-validated at degree 15. The Hermite SPK is loaded, queried at multiple epochs, and its accuracy vs DE432s is independently verified."""
+category = "scientific_computing"
+tags = ["astrodynamics", "numerical-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spk-segment-analysis"

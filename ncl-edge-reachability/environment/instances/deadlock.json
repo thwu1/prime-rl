@@ -1,0 +1,17 @@
+{
+  "description": "Two vertices each supplying the other's only inflow. No move is legal.",
+  "vertices": {
+    "A": {"min_inflow": 2},
+    "B": {"min_inflow": 2}
+  },
+  "edges": {
+    "e0": {"endpoints": ["A", "B"], "weight": 2},
+    "e1": {"endpoints": ["A", "B"], "weight": 2}
+  },
+  "initial_orientation": {
+    "e0": "B",
+    "e1": "A"
+  },
+  "target_edge": "e0",
+  "target_direction": "A"
+}

@@ -1,0 +1,3 @@
+model.analytics.int_customer_orders
+model.analytics.int_order_payments
+model.analytics.mart_customers

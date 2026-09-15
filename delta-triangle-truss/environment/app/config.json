@@ -1,0 +1,5 @@
+{
+    "initial_edges_path": "/data/initial_edges.csv",
+    "operations_path": "/data/operations.csv",
+    "num_batches": 300
+}

@@ -1,0 +1,66 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of finite element methods and computational fluid dynamics:
+(1) Choosing the correct function space pairing to achieve pointwise mass conservation
+    (divergence error < 1e-8) — standard Taylor-Hood or CG elements cannot achieve this,
+    so the solver must discover and implement div-conforming elements.
+(2) Formulating a correct DG variational form for viscous terms on H(div) spaces,
+    including consistency, symmetry, and stabilisation terms on interior and boundary
+    facets — subtle sign or scaling errors destroy convergence or stability.
+(3) Handling the nonlinear convective terms in a DG context with proper flux treatment
+    to avoid spurious oscillations.
+(4) Configuring the PETSc/MUMPS linear solver for a singular saddle-point system with
+    a pressure null space — incorrect configuration causes silent failure or divergence.
+(5) Designing a robust solver strategy (initialisation, time-stepping, pressure
+    normalisation) that converges to the Kovasznay steady state within the given
+    time-step budget.
+All of these must be implemented from scratch (~120 lines of non-trivial FEM code) using
+DOLFINx, requiring fluency with UFL symbolic forms, PETSc solver options, and mixed
+function spaces."""
+solution_explanation = """The solution implements a complete DG Navier-Stokes solver:
+(1) Create RT_{k+1}/DG_k mixed function spaces for velocity/pressure.
+(2) Build SIP-DG bilinear form: grad-grad volume term, minus avg(grad):jump consistency
+    and symmetry terms on interior facets, plus penalty stabilisation. Matching boundary
+    terms for Nitsche-type Dirichlet enforcement.
+(3) Add pressure-velocity coupling: -<p, div(v)> - <div(u), q>.
+(4) RHS includes body force, DG boundary terms scaled by 1/Re to match bilinear form.
+(5) Configure MUMPS with icntl_24=1 for null pivot detection.
+(6) Solve Stokes for initial condition, normalise pressure average.
+(7) Add semi-implicit convective terms with upwind flux on facets.
+(8) Time-step for NUM_STEPS iterations, updating u_prev each step.
+(9) Compute L2 errors against exact Kovasznay solution."""
+verification_explanation = """The test runs the solver from scratch and checks:
+(1) results.json exists and contains valid JSON with the three required keys,
+(2) all error values are finite and non-negative,
+(3) velocity L2 error < 5e-2 (expected ~4e-3 for a correct solver),
+(4) pressure L2 error < 5e-1 (expected ~4e-3),
+(5) divergence L2 error < 1e-8 (exact mass conservation from div-conforming elements),
+(6) velocity and pressure errors are plausible (> 1e-5, not hardcoded zeros),
+(7) solver.py is a genuine DOLFINx/UFL implementation (50+ non-trivial lines).
+Incorrect formulation, wrong solver config, or fabricated outputs cause failure."""
+category = "scientific_computing"
+tags = ["finite_elements", "computational_fluid_dynamics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debug-dg-navierstokes"

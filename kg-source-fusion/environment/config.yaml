@@ -1,0 +1,83 @@
+sources:
+  seed:
+    type: ntriples
+    path: /app/seed.nt
+    trust: 1.0
+    namespace: "http://seed.kg/entity/"
+  rdf_source:
+    type: turtle
+    path: /app/sources/rdf_source.ttl
+    trust: 0.8
+    namespace: "http://tmdb.source/entity/"
+  json_source:
+    type: json
+    path: /app/sources/json_source.json
+    trust: 0.7
+    namespace: "http://json.source/entity/"
+    entity_id_prefix: "http://json.source/entity/"
+    entity_references:
+      - "directed_by"
+      - "produced_by"
+  csv_source:
+    type: csv
+    path: /app/sources/csv_source.csv
+    trust: 0.6
+    namespace: "http://csv.source/entity/"
+    entity_id_prefix: "http://csv.source/entity/"
+
+ontology_path: /app/ontology.ttl
+known_matches_path: /app/matches/known_matches.tsv
+
+match_policy: "label_normalized"
+conflict_resolution: "highest_trust"
+
+schema_mappings:
+  rdf_source:
+    predicates:
+      "http://dbpedia.org/ontology/budget": "http://kg.org/ontology/budget"
+      "http://dbpedia.org/ontology/gross": "http://kg.org/ontology/gross"
+      "http://dbpedia.org/ontology/runtime": "http://kg.org/ontology/runtime"
+      "http://dbpedia.org/ontology/starring": "http://kg.org/ontology/starring"
+      "http://dbpedia.org/ontology/director": "http://kg.org/ontology/director"
+      "http://dbpedia.org/ontology/distributor": "http://kg.org/ontology/distribution"
+      "http://dbpedia.org/ontology/birthDate": "http://kg.org/ontology/birthDate"
+      "http://dbpedia.org/ontology/industry": "http://kg.org/ontology/industry"
+    classes:
+      "http://dbpedia.org/ontology/Film": "http://kg.org/ontology/Film"
+      "http://dbpedia.org/ontology/Person": "http://kg.org/ontology/Person"
+      "http://dbpedia.org/ontology/Organisation": "http://kg.org/ontology/Company"
+  json_source:
+    predicates:
+      "budget_usd": "http://kg.org/ontology/budget"
+      "box_office_usd": "http://kg.org/ontology/gross"
+      "directed_by": "http://kg.org/ontology/director"
+      "produced_by": "http://kg.org/ontology/production"
+      "birth_date": "http://kg.org/ontology/birthDate"
+      "birth_place": "http://kg.org/ontology/birthPlace"
+      "founded": "http://kg.org/ontology/foundingDate"
+      "headquarters": "http://kg.org/ontology/headquarter"
+    classes:
+      "Movie": "http://kg.org/ontology/Film"
+      "Person": "http://kg.org/ontology/Person"
+      "Company": "http://kg.org/ontology/Company"
+  csv_source:
+    predicates:
+      "birth_date": "http://kg.org/ontology/birthDate"
+      "birth_place": "http://kg.org/ontology/birthPlace"
+      "occupation": "http://kg.org/ontology/occupation"
+      "nationality": "http://kg.org/ontology/nationality"
+    classes:
+      "Person": "http://kg.org/ontology/Person"
+      "Company": "http://kg.org/ontology/Company"
+
+functional_properties:
+  - "http://kg.org/ontology/budget"
+  - "http://kg.org/ontology/gross"
+  - "http://kg.org/ontology/runtime"
+  - "http://kg.org/ontology/birthDate"
+  - "http://kg.org/ontology/deathDate"
+  - "http://kg.org/ontology/foundingDate"
+
+output:
+  fused_kg: /app/output/fused.nt
+  match_clusters: /app/output/match_clusters.json

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://hl7.org/fhirpath/tests"
+           xmlns="http://hl7.org/fhirpath/tests"
+           elementFormDefault="qualified">
+  <xs:element name="tests" type="Tests"/>
+  <xs:complexType name="TestCapability">
+    <xs:attribute name="code" type="xs:string" use="required"/>
+    <xs:attribute name="value" type="xs:string" use="optional"/>
+  </xs:complexType>
+  <xs:complexType name="Tests">
+    <xs:sequence>
+      <xs:element name="capability" type="TestCapability" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="group" type="Group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="version" type="xs:string"/>
+    <xs:attribute name="versionTo" type="xs:string"/>
+    <xs:attribute name="description" type="xs:string"/>
+    <xs:attribute name="reference" type="xs:anyURI"/>
+  </xs:complexType>
+  <xs:complexType name="Group">
+    <xs:sequence>
+      <xs:element name="capability" type="TestCapability" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="test" type="Test" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="version" type="xs:string"/>
+    <xs:attribute name="versionTo" type="xs:string"/>
+    <xs:attribute name="description" type="xs:string"/>
+    <xs:attribute name="reference" type="xs:anyURI"/>
+  </xs:complexType>
+  <xs:complexType name="Test">
+    <xs:sequence>
+      <xs:element name="capability" type="TestCapability" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="expression" type="Expression"/>
+      <xs:element name="output" type="Output" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="skipStaticCheck" type="xs:boolean"/>
+    <xs:attribute name="ordered" type="xs:boolean"/>
+    <xs:attribute name="mode" type="ModeType"/>
+    <xs:attribute name="version" type="xs:string"/>
+    <xs:attribute name="versionTo" type="xs:string"/>
+    <xs:attribute name="description" type="xs:string"/>
+    <xs:attribute name="reference" type="xs:anyURI"/>
+    <xs:attribute name="inputfile" type="xs:string"/>
+    <xs:attribute name="predicate" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="Expression">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="invalid" type="InvalidType"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="Output">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="type" type="OutputType" use="optional"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:simpleType name="OutputType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="boolean"/>
+      <xs:enumeration value="code"/>
+      <xs:enumeration value="date"/>
+      <xs:enumeration value="dateTime"/>
+      <xs:enumeration value="decimal"/>
+      <xs:enumeration value="id"/>
+      <xs:enumeration value="integer"/>
+      <xs:enumeration value="Quantity"/>
+      <xs:enumeration value="string"/>
+      <xs:enumeration value="time"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="InvalidType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="false"/>
+      <xs:enumeration value="syntax"/>
+      <xs:enumeration value="semantic"/>
+      <xs:enumeration value="execution"/>
+      <xs:enumeration value="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="strict"/>
+      <xs:enumeration value="lenient"/>
+      <xs:enumeration value="lenient/polymorphics"/>
+      <xs:enumeration value="element"/>
+      <xs:enumeration value="cda"/>
+      <xs:enumeration value="tx"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

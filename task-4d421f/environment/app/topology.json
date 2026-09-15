@@ -1,0 +1,39 @@
+{
+  "routers": {
+    "R1": {
+      "router_id": "1.1.1.1",
+      "interfaces": {
+        "eth0": {"network": "N1", "ip": "10.0.1.1", "priority": 100}
+      }
+    },
+    "R2": {
+      "router_id": "2.2.2.2",
+      "interfaces": {
+        "eth0": {"network": "N1", "ip": "10.0.1.2", "priority": 50}
+      }
+    },
+    "R3": {
+      "router_id": "3.3.3.3",
+      "interfaces": {
+        "eth0": {"network": "N1", "ip": "10.0.1.3", "priority": 10},
+        "eth1": {"network": "N2", "ip": "10.0.2.1"}
+      }
+    },
+    "R4": {
+      "router_id": "4.4.4.4",
+      "interfaces": {
+        "eth0": {"network": "N2", "ip": "10.0.2.2"}
+      }
+    },
+    "R5": {
+      "router_id": "5.5.5.5",
+      "interfaces": {
+        "eth0": {"network": "N1", "ip": "10.0.1.5", "priority": 5}
+      }
+    }
+  },
+  "networks": {
+    "N1": {"type": "broadcast", "dr": "R1", "bdr": "R2"},
+    "N2": {"type": "point-to-point"}
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Newtonian mechanics and numerical methods expertise. The agent receives only raw noisy HDF5 trajectory data, an output schema, and detection thresholds — no algorithmic guidance. They must independently: reverse-engineer the HDF5 data layout using h5py/hdf5-tools, design and implement collision detection from time-series velocity data corrupted by Gaussian noise, derive physical parameter inference methods (gravitational acceleration, mass ratios from impulse exchange, coefficient of restitution, friction coefficients) from first principles, handle the geometric complexity of 2D oblique collisions requiring contact-normal decomposition, validate conservation laws (momentum and energy) at interaction events using declared masses, build a coherent plausibility scoring system, and integrate everything into a CLI tool that correctly classifies 8 diverse scenarios spanning free-fall, projectile motion, friction, 1D/2D elastic collisions, and three distinct anomaly types."""
+solution_explanation = """The solution reads HDF5 trajectory files using h5py, parses config.toml using tomllib, detects collision events from velocity discontinuities above a noise-scaled threshold, infers gravity via OLS regression on vertical velocity vs time for pre-collision segments, computes mass ratios from impulse equality (selecting the dominant velocity component for 2D stability), computes coefficient of restitution from relative approach/separation speeds, checks momentum and energy conservation at collision events using declared masses, infers friction from horizontal deceleration divided by gravity, classifies trajectories using priority ordering from config, and computes plausibility scores based on anomaly severity."""
+verification_explanation = """Tests run the analysis tool on 8 HDF5 trajectory files with analytically-computed physics plus Gaussian measurement noise, and verify: correct classification (5 valid, 3 anomalous), accurate parameter inference within noise-adjusted tolerances (gravity +/-0.15, mass ratios +/-0.2, CoR +/-0.15, friction +/-0.06), plausibility scores within expected ranges, correct priority-based classification when multiple anomalies co-occur (momentum > energy > gravity), and full JSON schema conformance."""
+category = "scientific_computing"
+tags = ["classical_mechanics", "signal_processing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trajectory-forensics"

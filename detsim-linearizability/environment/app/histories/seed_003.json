@@ -1,0 +1,9 @@
+{
+  "seed": "seed_003",
+  "initial_value": 0,
+  "operations": [
+    {"op_id": 1, "op_type": "write", "arg": 1, "invoke_time": 0, "response_time": 10, "response_value": "ok"},
+    {"op_id": 2, "op_type": "write", "arg": 2, "invoke_time": 15, "response_time": 25, "response_value": "ok"},
+    {"op_id": 3, "op_type": "read", "arg": null, "invoke_time": 30, "response_time": 40, "response_value": 1}
+  ]
+}

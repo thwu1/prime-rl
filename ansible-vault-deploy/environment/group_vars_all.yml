@@ -1,0 +1,5 @@
+---
+project_name: "webapp"
+deploy_base: "/opt/webapp"
+config_reload_marker: "/tmp/.config_reloaded"
+ansible_python_interpreter: "/usr/bin/python3"

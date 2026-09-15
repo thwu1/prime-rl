@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of COBOL COMP-3 packed decimal encoding (signed C/D and unsigned F sign nibbles), COBOL COMPUTE ROUNDED semantics (HALF_UP at each iteration), and the precision implications of a 30-day daily interest compounding loop where rounding at each step creates cumulative drift that differs from single-step monthly calculation. The agent must reverse-engineer the COBOL program's merge-join processing logic, five rejection paths, and batch control totals accumulation, then replicate it in Python with byte-level binary I/O precision."""
+solution_explanation = """Compile and run the COBOL with GnuCOBOL to observe behavior against the input data. Parse COBOL copybooks to determine exact byte offsets and COMP-3 field sizes. Implement COMP-3 pack/unpack with proper sign nibble handling (C=positive, D=negative, F=unsigned). Use Python decimal.Decimal with ROUND_HALF_UP inside a 30-iteration daily compounding loop (matching PERFORM VARYING ... UNTIL WS-DAY > 30) to replicate COBOL interest accrual. Accumulate control totals (debits, credits, counts, hash total of final balances) and write an 80-byte summary record. Replicate the merge-join pattern with all five rejection paths and produce byte-identical binary output."""
+verification_explanation = """Anti-cheat measures are applied before running the agent's code: COBOL source integrity is verified via build-time SHA-256 checksums to prevent source tampering, and the cobc compiler binary is temporarily disabled so posting.py cannot shell out to it. Pre-compiled COBOL binaries and any pre-existing output are deleted. Static analysis tests verify posting.py does not use subprocess, os.system, os.popen, Popen, os.exec*, eval(), exec(), or __import__(), does not reference cobc/gnucobol, contains at least 3 computation indicators (Decimal, COMP-3 constants, etc.), and has at least 50 non-comment lines. After posting.py runs, the cobc compiler is restored, the COBOL program is compiled and executed to dynamically generate reference output, and SHA-256 checksums plus per-record field comparisons verify byte-identical results. No hardcoded expected values exist in the tests or Docker image."""
+category = "reverse_engineering"
+tags = ["cobol-migration", "packed-decimal", "gnucobol"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-417166"

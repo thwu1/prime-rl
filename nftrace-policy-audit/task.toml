@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux netfilter/nftables internals (hook ordering, chain priorities, NAT processing semantics, conntrack state machine integration), cross-referencing four distinct specialized data formats (nft ruleset syntax, nft monitor trace output, conntrack -L dump, YAML policy), and performing holistic security reasoning that spans packet flow reconstruction, NAT-aware policy evaluation, stale rule identification via handle correlation, and conntrack anomaly detection through cross-source matching. The agent must reverse-engineer undocumented data formats from raw data, understand how DNAT transforms affect zone classification and policy evaluation, and recognize that conntrack state bypass represents a separate attack surface."""
+solution_explanation = """Parse each data source: YAML policy for zone/interface mapping and inter-zone rules; nft ruleset (nft -a list ruleset format) to extract all rule handles from forwarding/NAT chains; trace log to reconstruct per-flow paths grouping by trace ID; conntrack dump for tracked connection tuples. For flows: extract original addresses from first packet event per trace ID, determine interfaces from iif/oif fields, map interfaces to zones via policy, detect NAT from masquerade/dnat keywords in rule events, extract rule handles from trace rule events, determine final verdict from last verdict/policy/rule event. For DNAT flows, use post-DNAT destination port when evaluating policy. For stale rules: diff matched handles against all handles in forwarding/NAT chains. For conntrack anomalies: match conntrack original-direction tuples against traced flow tuples, report unmatched entries."""
+verification_explanation = """Tests load audit_report.json and verify: correct flow count (8), per-flow properties (protocol, addresses, ports, zones, verdict, NAT type, policy compliance) for all 8 flows, exactly 2 policy violations with correct trace IDs (57687980 DMZ->LAN and 4b5a6978 WAN->LAN), exactly 3 stale rules (handles 56, 115, 130), exactly 3 conntrack anomalies (WAN SSH, DMZ->LAN PostgreSQL, DMZ SNMP), and correct summary statistics."""
+category = "security"
+tags = ["nftables", "network-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nftrace-policy-audit"

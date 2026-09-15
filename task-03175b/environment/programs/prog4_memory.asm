@@ -1,0 +1,10 @@
+bits 16
+mov ax, 0x1234
+mov [0x200], ax
+mov bx, 0x5678
+mov [0x202], bx
+mov cx, [0x200]
+mov dx, [0x202]
+add cx, dx
+mov [0x204], cx
+mov si, [0x204]

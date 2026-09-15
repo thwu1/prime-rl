@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of VDI 2048 data reconciliation methodology, which is an industrial standard not covered in typical textbooks. The agent must: (1) parse a Modelica model file to extract the plant topology, constraint equations, and enthalpy function coefficients from an unfamiliar domain-specific language; (2) independently derive or research the complete VDI 2048 algorithm including covariance matrix construction from measurement uncertainties and inter-sensor correlations, iterative constrained optimization with nonlinear energy balance constraints, global chi-square hypothesis testing, per-variable local tests for gross error detection, and reconciled uncertainty propagation; (3) correctly handle the sparse lower-triangular correlation matrix format where the Sxy header is a conventional label for a correlation (not covariance) table; (4) implement substantial numerical linear algebra and statistical testing. The instruction provides only the problem and desired outputs — the agent must discover and implement the entire solution methodology."""
+solution_explanation = """Parse the Modelica model to extract enthalpy coefficients (a=4.18, b=0.00062) and the 9 constraint equations (7 mass + 2 energy balance). Build the 20x20 covariance matrix from sigma=hwci/1.96 and pairwise correlations. Implement iterative linearization: compute central-difference Jacobians of the nonlinear constraints, solve the linearized constrained weighted least-squares sub-problem at each step, converge when variable changes fall below threshold. Compute the global chi-square test statistic against chi2(9,0.95)=16.919. Compute the correction covariance matrix for per-variable local tests and identify sensors m3 and m12 as faulty (local test statistic exceeds 1.96). Compute reconciled uncertainties from the reconciled covariance matrix."""
+verification_explanation = """Tests verify: (1) output files exist with correct format and all 20 variables, (2) all 9 constraint equations (7 mass + 2 energy) are satisfied by reconciled values within tolerance, (3) faulty sensors m3 and m12 are correctly identified with local test exceeding 1.96, (4) no false positives among the 18 non-faulty sensors, (5) reconciled uncertainties are reduced compared to measured ones, (6) reconciled values for faulty sensors are corrected toward true values, (7) global test has correct degrees of freedom (9) and chi-square critical value, (8) algorithm converged."""
+category = "scientific_computing"
+tags = ["data-reconciliation", "modelica-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dcc105"

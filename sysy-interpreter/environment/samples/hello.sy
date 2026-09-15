@@ -1,0 +1,4 @@
+// Minimal SysY program - returns exit code 3
+int main() {
+    return 3;
+}

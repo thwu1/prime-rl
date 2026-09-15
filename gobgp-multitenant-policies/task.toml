@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level understanding of BGP routing policy concepts (prefix filtering, community tagging, AS-path manipulation, MED adjustment, inter-tenant isolation), proficiency with GoBGP's gRPC API and protobuf message construction (including navigating Python keyword conflicts with the 'global' proto field and building deeply nested protobuf messages for policy conditions and actions), and the ability to translate a multi-tenant specification into a coherent set of defined-sets, policies, and peer groups that enforce route isolation with controlled sharing."""
+solution_explanation = """The solution starts gobgpd, then programmatically creates all defined-sets (prefix-sets for bogons and per-tenant allowed prefixes, community-sets for tenant identity and export control, AS-path-sets for origin rejection), constructs import policies with prefix filtering, community tagging, MED adjustment, and AS-prepend actions, export policies with community-based accept/reject logic, assigns the global bogon rejection policy, creates peer groups with policy bindings, and dumps the complete state to JSON."""
+verification_explanation = """Tests connect to the running GoBGP instance via gRPC and verify: correct global config (ASN, router-id), exact counts and names of all defined-sets, correct policy structure with statement counts, import policy actions (MED values, AS-prepend parameters, community tagging), global bogon policy assignment, peer group creation with correct ASN and policy bindings, and state.json conformance to the documented schema."""
+category = "networking"
+tags = ["bgp", "grpc"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gobgp-multitenant-policies"

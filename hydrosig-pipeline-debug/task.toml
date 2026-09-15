@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level computational hydrology knowledge to diagnose 11 interacting bugs across 4 modules in a pipeline that runs without crashing but produces physically wrong results. No module raises errors — all bugs are in the numerical/algorithmic implementation. The agent must holistically understand: (1) the Lyne-Hollick recursive digital filter to recognize an incorrect filter coefficient sign [(1-α) vs (1+α)] and a missing physical constraint (baseflow non-negativity); (2) Fisher-Pearson adjusted skewness to spot a missing sample-size multiplier, Walsh-Lawler seasonality index to identify a missing absolute-value, and Sankarasubramanian elasticity to know the method specifies median not mean; (3) recession curve theory to diagnose three find_segments bugs (non-strict inequality including flat periods as recessions, off-by-one in minimum length check, missing trailing segment handling) and an ascending-instead-of-descending sort in the MRC matching strip construction; (4) kinematic wave routing to identify a wrong Manning celerity exponent (slope^0.5 vs slope^0.3) and a missing 0.5 decay factor in exponential attenuation. The algorithm reference provides method names and key qualitative constraints but no implementation formulas, so the agent must possess or derive the correct formulations from domain expertise. Bugs interact across modules — e.g., wrong baseflow separation affects BFI which contextualizes recession analysis — requiring the agent to reason holistically about pipeline correctness rather than fixing modules in isolation."""
+solution_explanation = """Eleven bugs across four modules must be diagnosed and fixed. In baseflow.py: (1) change filter coefficient from (1-alpha) to (1+alpha) in both forward and backward passes; (2) add qb[qb<0]=0.0 after padding removal for physical non-negativity. In signatures.py: (3) add n multiplier to Fisher-Pearson CS numerator; (4) add .abs() to Walsh-Lawler seasonality deviation sum; (5) change np.nanmean to np.nanmedian in elasticity. In recession.py: (6) change <= to < for strict monotonic decrease in find_segments; (7) fix off-by-one: (end-start) to (end-start+1) in length check; (8) add trailing segment handling at end of timeseries; (9) reverse sort order in exponential_mrc from ascending to descending ([::-1]). In accumulation.py: (10) change celerity exponent from 0.5 to 0.3; (11) add 0.5 factor to exponential decay: exp(-0.5*travel_time)."""
+verification_explanation = """Tests independently verify each component against reference implementations computed within the test suite itself. Recession K is verified against a complete reference MRC implementation with correct find_segments + exponential_mrc + linregress (rtol=0.02). Flow accumulation is verified at headwaters (exact totdasqkm*0.001), at confluence 1002 via multi-step reference routing, along the main stem for monotonicity, and at the outlet. BFI is verified against reference Lyne-Hollick with correct (1+alpha) and negative clipping. Flood moments CS is verified against Fisher-Pearson with n multiplier. Seasonality is verified against Walsh-Lawler with absolute deviations. Elasticity is verified against median-based computation. All reference implementations are self-contained in the test file, independent of the hydrosig package."""
+category = "debugging"
+tags = ["computational-hydrology", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hydrosig-pipeline-debug"

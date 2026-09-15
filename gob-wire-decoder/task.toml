@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging and fixing a gob wire-format decoder implemented from scratch in Go (no encoding/gob allowed). The broken code contains multiple interacting bugs spread across the unsigned integer decoder (off-by-one in byte count extraction), signed integer decoder (wrong complement operation), float decoder (missing byte reversal of IEEE 754 bits), singleton-vs-struct top-level value detection (only handles predefined types, misses user-defined slices/maps/arrays), zero-value initialization (fails for nested user-defined struct types), and complex number NaN/Inf handling. Additionally, interface value decoding is entirely unimplemented and must be designed and built from the gob wire format specification. The bugs interact: fixing decodeUint alone is insufficient because decodeInt's complement error corrupts type IDs, causing type definitions to register under wrong IDs. The solver must iteratively fix, rebuild, and test, tracing byte-level wire encoding at each stage. Understanding the gob self-describing type system — where wireType is itself encoded using the same protocol — is essential."""
+solution_explanation = """The solution fixes all bugs: (1) decodeUint changes n:=int(^b) to n:=int(-int8(b)) giving the correct byte count; (2) decodeInt changes -int64(u>>1) to ^int64(u>>1) for proper complement flag handling; (3) decodeFloat adds bits.ReverseBytes64(u) before Float64frombits; (4) singleton detection replaces the tid<=tidInterface check with a proper isStruct lookup on the type registry; (5) zeroValue becomes a method on decoder that recursively initializes user-defined struct types; (6) adds a tidInterface case in decodeValue that calls a new decodeInterfaceValue method implementing the ConcreteTypeName+TypeId+DelimitedValue protocol; (7) complex number Re/Im get NaN/Inf string conversion; (8) main() initializes results to empty slice for empty-input case. The interface decoder reads name-length, skips the name, reads the concrete type ID, reads the delimited value length, determines singleton vs struct wrapping, and decodes within the delimited boundary."""
+verification_explanation = """The test generator produces 27 gob streams using Go's encoding/gob covering: simple structs, all scalar types, negative ints, floats (including NaN/Inf), nested structs (2-3 levels), zero-value fields, multi-value same-type streams, multi-type streams, slices of structs, maps, arrays, complex numbers, byte slices, interface values, and nil interfaces. The verifier compiles the decoder, runs it on each .gob fixture, and compares its JSON output to reference JSON after json.Compact normalization with sorted keys. Hard-coded byte-level tests for the canonical Point{22,33} and singleton int(3) provide spec-independent validation. An empty-input test verifies the decoder produces []. A fixture-count test ensures all 27 cases are present."""
+category = "reverse_engineering"
+tags = ["binary-protocols", "go"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gob-wire-decoder"

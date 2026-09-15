@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete static value-range analysis from scratch for a custom IR language. The agent must independently discover and implement the necessary techniques for computing precise value ranges across assignments, arithmetic, function calls with distinguishable call sites, loops with convergence guarantees, and conditional branches. Additionally requires multi-tool proficiency: generating graphviz DOT call graphs and rendering them with the dot command, storing structured results in a SQLite database with a specific schema, and integrating all of these with the custom IR parser into a single coherent pipeline."""
+solution_explanation = """Implement an abstract interpreter using an interval domain with join, widening, and narrowing operators. Use 1-call-string context sensitivity for interprocedural analysis. Apply condition refinement at branches. For loops, iterate with widening to convergence then apply narrowing. Generate DOT call graphs by walking the AST for call expressions. Store results in both JSON and SQLite. Render DOT files to SVG with the dot command."""
+verification_explanation = """Tests run the analyzer on 5 IR programs and verify: (1) specific variable interval values in the JSON output, (2) SQLite database existence, schema correctness, and data integrity across all programs, (3) DOT call graph files exist with valid digraph structure and correct call edges, and (4) SVG renderings exist for each program's call graph."""
+category = "program_analysis"
+tags = ["abstract-interpretation", "static-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interval-analysis-engine"

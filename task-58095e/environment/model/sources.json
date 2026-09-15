@@ -1,0 +1,72 @@
+{
+  "model_info": {
+    "name": "Bay Area Simplified Hazard Model",
+    "description": "Simplified seismic source model for PSHA calculation exercise",
+    "region": "San Francisco Bay Area (synthetic)"
+  },
+  "faults": [
+    {
+      "name": "Fault-A",
+      "id": 1,
+      "description": "Vertical strike-slip fault (San Andreas analog)",
+      "trace": [[-122.5, 38.2], [-121.8, 37.8]],
+      "dip": 90.0,
+      "rake": 0.0,
+      "upper_depth_km": 0.0,
+      "lower_depth_km": 12.0,
+      "mfd": {
+        "type": "GR",
+        "a": 3.5,
+        "b": 0.9,
+        "mMin": 5.0,
+        "mMax": 7.5,
+        "dMag": 0.1
+      }
+    },
+    {
+      "name": "Fault-B",
+      "id": 2,
+      "description": "Dipping reverse fault (Hayward analog)",
+      "trace": [[-122.2, 38.3], [-121.8, 37.9]],
+      "dip": 60.0,
+      "rake": 90.0,
+      "upper_depth_km": 0.0,
+      "lower_depth_km": 15.0,
+      "mfd": {
+        "type": "SINGLE",
+        "magnitude": 7.0,
+        "rate": 0.005
+      }
+    }
+  ],
+  "points": [
+    {
+      "name": "Grid-1",
+      "id": 101,
+      "location": [-122.2, 37.9],
+      "depth_km": 10.0,
+      "mfd": {
+        "type": "GR",
+        "a": 1.5,
+        "b": 1.0,
+        "mMin": 5.0,
+        "mMax": 6.5,
+        "dMag": 0.1
+      }
+    },
+    {
+      "name": "Grid-2",
+      "id": 102,
+      "location": [-121.8, 38.1],
+      "depth_km": 8.0,
+      "mfd": {
+        "type": "GR",
+        "a": 1.3,
+        "b": 1.0,
+        "mMin": 5.0,
+        "mMax": 6.5,
+        "dMag": 0.1
+      }
+    }
+  ]
+}

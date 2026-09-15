@@ -1,0 +1,5 @@
+The E3SM atmospheric model uses `/app/namelist_defaults.xml` to define runtime parameters with conditional overrides based on grid resolution, component set, and vertical levels. A Python resolver at `/app/resolver.py` was implemented to parse this XML and resolve parameter values for a given case environment, but it contains multiple interacting bugs that produce incorrect results.
+
+Four reference configurations with known-correct outputs are at `/app/reference/` (`default.json`, `hires.json`, `scream.json`, `hybrid.json`). Validate with `/app/eamxx_config.py --check /app/reference/<case>.json`. The environment includes `xmlstarlet`, `jq`, and `xmllint`.
+
+Debug and fix all bugs in `/app/resolver.py` so that every reference configuration passes validation and the complete resolver API functions correctly.

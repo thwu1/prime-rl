@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert Coq/Rocq proficiency. The agent must: (1) prove subtyping transitivity by induction on the target derivation — a non-trivial structural argument, (2) prove 3 subtyping inversion lemmas, (3) prove canonical forms for arrow and product types in the presence of subsumption, (4) prove progress using canonical forms, (5) prove a typing inversion lemma for abstractions by induction on the typing derivation with subsumption, (6) prove substitution preserves typing with careful context reasoning, (7) prove preservation by induction on the step relation using typing inversion lemmas — the agent must recognize that additional typing inversion lemmas (for app, pair, fst, snd) are needed and introduce them, (8) prove sub_dec soundness and completeness, and (9) implement a structurally recursive algorithmic type-checker. The proofs are deeply interdependent: preservation depends on substitution, typing inversions, and subtyping inversion; progress depends on canonical forms which depend on subtyping inversion. The hardest part is recognizing the need for and correctly proving typing inversion lemmas for the preservation theorem."""
+solution_explanation = """Subtyping transitivity is proved by induction on the intermediate type U with careful case analysis via inversion. Inversion lemmas are direct single-inversion proofs. Canonical forms use remember+induction on typing with subtyping inversion for T_Sub. The weakening proof requires an explicit T_Abs case with unfold/fold/destruct on the eqb test. Substitution is proved by induction on the term, with remember/induction on the typing derivation for each case to handle T_Sub layers, and a context permutation argument for the non-shadowed abs case. sub_dec and sub_dec_rev are mutually recursive (struct S); soundness/completeness proved by combined induction. The typecheck function pattern-matches on terms using sub_dec for application subtype checks."""
+verification_explanation = """Tests verify: (1) all .v files compile via make with zero errors, (2) no Admitted or FILL IN HERE remains in source files, (3) the typecheck function is a real implementation (contains match), (4) all definitions and typing rules are unaltered, (5) all .vo files are produced."""
+category = "formal_verification"
+tags = ["coq", "type-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stlc-subtyping-coq"

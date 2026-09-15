@@ -1,0 +1,30 @@
+ERA5syn Data Errata & Technical Notes v2.0
+==========================================
+
+Variable-Specific Issues
+------------------------
+
+1. t2m (2-metre temperature)
+   - Systematic warm bias of +0.5 K across all grid cells and time steps
+   - Altitude-dependent representativeness error due to mismatch between model
+     orography and true surface elevation; orography difference field
+     (z_model - z_true, meters) provided at /data/ancillary/orog_diff.nc
+   - ICAO standard atmosphere lapse rate: 6.5 K/km
+
+2. d2m (2-metre dewpoint temperature), sp (Surface pressure)
+   - No known data quality issues
+   - Provided as inputs for deriving near-surface specific humidity (huss)
+
+3. tp (Total precipitation)
+   - Missing data encoded as -9999.0; _FillValue attribute not set in file
+   - Values represent monthly accumulated precipitation in meters of water equivalent
+
+4. ssrd (Surface solar radiation downwards)
+   - No known data quality issues
+   - Values represent monthly accumulated energy in J m-2
+
+General Notes
+-------------
+- Raw time values are at the start of each month (00:00 UTC on the 1st)
+- CMOR time coordinate values should be at the center of the averaging period
+- Time bounds should span the full calendar month [month_start, next_month_start]

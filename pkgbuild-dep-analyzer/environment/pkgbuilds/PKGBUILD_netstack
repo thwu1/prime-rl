@@ -1,0 +1,35 @@
+# Maintainer: Dave Net <dave@example.org>
+pkgbase=netstack
+pkgname=('netstack' 'libnet')
+pkgver=4.0.0
+pkgrel=1
+pkgdesc="Network protocol stack library and tools"
+arch=('x86_64')
+url="https://github.com/example/netstack"
+license=('BSD-3-Clause')
+makedepends=('meson' 'ninja')
+source=("https://github.com/example/${pkgbase}/archive/v${pkgver}.tar.gz")
+sha256sums=('d3e4f5a6b7c80000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  meson setup build --prefix=/usr
+  meson compile -C build
+}
+
+package_libnet() {
+  pkgdesc="Network protocol library"
+  depends=('libcore')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  DESTDIR="${pkgdir}" meson install -C build --tags libnet
+}
+
+package_netstack() {
+  pkgdesc="Network diagnostic and management tools"
+  depends=('libnet')
+  provides=('network-tools=4.0.0')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  DESTDIR="${pkgdir}" meson install -C build --tags netstack
+}

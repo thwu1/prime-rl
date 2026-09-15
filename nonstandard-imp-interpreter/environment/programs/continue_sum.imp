@@ -1,0 +1,17 @@
+int i;
+int s;
+i = 10;
+s = 0;
+while((i < 1))
+{
+    i = (i + 1);
+    if(((i % 2) == 0))
+    {
+        continue;
+    }
+    else
+    {
+        s = s;
+    };
+    s = (s - 1);
+};

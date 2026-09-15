@@ -1,0 +1,1 @@
+{"_input": "virtio", "enabled_features": ["virtio"], "activated_deps": {"mem-barrier": [], "virtio": ["alloc", "mmio"]}}

@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<robot name="hexacross8_rov" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
+    HexaCross-8 ROV URDF description
+    Coordinate frame: body NED (X-forward, Y-starboard, Z-down)
+    All measurements at operating temperature (18 deg C)
+    Last updated: 2026-03-22
+  -->
+
+  <!-- Material definitions -->
+  <material name="blue_anodized">
+    <color rgba="0.12 0.29 0.72 1.0"/>
+  </material>
+  <material name="dark_gray">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+  <material name="acrylic_clear">
+    <color rgba="0.9 0.9 0.95 0.4"/>
+  </material>
+
+  <!-- Main vehicle body -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <mass value="12.5"/>
+      <inertia ixx="0.21" ixy="0.0" ixz="0.0"
+               iyy="0.24" iyz="0.0"
+               izz="0.18"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.457 0.338 0.254"/>
+      </geometry>
+      <material name="blue_anodized"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.457 0.338 0.254"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Electronics enclosure -->
+  <link name="electronics_tube">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0"
+               iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.051" length="0.298"/>
+      </geometry>
+      <material name="acrylic_clear"/>
+    </visual>
+  </link>
+  <joint name="electronics_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="electronics_tube"/>
+    <origin xyz="0.0 0.0 -0.03" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Camera tilt mount -->
+  <link name="camera_tilt_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0"
+               iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.04 0.04 0.03"/>
+      </geometry>
+      <material name="dark_gray"/>
+    </visual>
+  </link>
+  <joint name="camera_tilt_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="camera_tilt_link"/>
+    <origin xyz="0.22 0.0 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="2.0" velocity="1.0"/>
+  </joint>
+
+  <!-- Buoyancy properties (not part of URDF standard, custom extension) -->
+  <!-- <buoyancy>
+    <volume value="0.01276"/>
+    <center_of_buoyancy xyz="0.0 0.0 -0.01"/>
+    <fluid_density value="1025.0"/>
+  </buoyancy> -->
+
+  <!-- Added mass coefficients (Fossen model)
+       X_udot: -1.85  Y_vdot: -2.41  Z_wdot: -8.36
+       K_pdot: -0.008 M_qdot: -0.009 N_rdot: -0.012
+  -->
+
+</robot>

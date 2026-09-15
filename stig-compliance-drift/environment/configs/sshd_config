@@ -1,0 +1,34 @@
+# OpenSSH Server Configuration
+# Hardened per DISA STIG requirements (SV-257985, SV-258049)
+
+Include /etc/ssh/sshd_config.d/*.conf
+
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+
+# Authentication
+PermitRootLogin no
+MaxAuthTries 3
+PubkeyAuthentication yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+UsePAM yes
+
+# Session idle timeout
+ClientAliveInterval 600
+ClientAliveCountMax 0
+
+# Hardening
+X11Forwarding no
+PrintMotd no
+
+# Environment
+AcceptEnv LANG LC_*
+
+# Banner
+Banner /etc/issue.net
+
+# Subsystem
+Subsystem sftp /usr/lib/openssh/sftp-server

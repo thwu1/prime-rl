@@ -1,0 +1,48 @@
+{
+  "_description": "Required fields by detected test type. Report keys use capture filenames without .json extension. Test type must be auto-detected from iperf3 JSON content.",
+  "tcp_single": {
+    "required_fields": [
+      "sender_bps",
+      "receiver_bps",
+      "retransmits",
+      "retransmit_rate_per_mb",
+      "mean_rtt_ms",
+      "throughput_efficiency",
+      "cpu_host_total",
+      "classification"
+    ]
+  },
+  "udp": {
+    "required_fields": [
+      "sender_bps",
+      "jitter_ms",
+      "lost_packets",
+      "total_packets",
+      "lost_percent",
+      "out_of_order",
+      "cpu_host_total",
+      "classification"
+    ]
+  },
+  "tcp_parallel": {
+    "required_fields": [
+      "num_streams",
+      "aggregate_sender_bps",
+      "aggregate_receiver_bps",
+      "per_stream_sender_bps",
+      "total_retransmits",
+      "jains_fairness_index",
+      "cpu_host_total",
+      "classification"
+    ]
+  },
+  "tcp_bidir": {
+    "required_fields": [
+      "upload_sender_bps",
+      "download_sender_bps",
+      "asymmetry_ratio",
+      "cpu_host_total",
+      "classification"
+    ]
+  }
+}

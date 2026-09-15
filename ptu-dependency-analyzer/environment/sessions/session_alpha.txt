@@ -1,0 +1,67 @@
+#=== PTU 0 ===#
+using size_t = decltype(sizeof(0));
+#=== PTU 1 ===#
+template<typename T>
+struct Vec {
+    T* data_;
+    size_t size_;
+    size_t cap_;
+    Vec() : data_(nullptr), size_(0), cap_(0) {}
+    void push(const T& val) {
+        if (size_ == cap_) {
+            size_t nc = cap_ ? cap_ * 2 : 4;
+            T* nd = new T[nc];
+            for (size_t i = 0; i < size_; ++i) nd[i] = data_[i];
+            delete[] data_;
+            data_ = nd;
+            cap_ = nc;
+        }
+        data_[size_++] = val;
+    }
+    T get(size_t i) const { return data_[i]; }
+    size_t size() const { return size_; }
+};
+#=== PTU 2 ===#
+namespace stats {
+    double mean(const Vec<double>& v) {
+        double s = 0;
+        for (size_t i = 0; i < v.size(); ++i) s += v.get(i);
+        return s / v.size();
+    }
+}
+#=== PTU 3 ===#
+namespace stats {
+    double variance(const Vec<double>& v) {
+        double m = mean(v);
+        double s = 0;
+        for (size_t i = 0; i < v.size(); ++i) {
+            double d = v.get(i) - m;
+            s += d * d;
+        }
+        return s / v.size();
+    }
+}
+#=== PTU 4 ===#
+struct Formatter {
+    virtual void format(double val) = 0;
+    virtual ~Formatter() = default;
+};
+#=== PTU 5 ===#
+struct CSVFormatter : Formatter {
+    Vec<double>* results;
+    CSVFormatter(Vec<double>* r) : results(r) {}
+    void format(double val) override { results->push(val); }
+};
+#=== PTU 6 ===#
+Vec<double> dataset;
+#=== PTU 7 ===#
+Vec<double> outputs;
+CSVFormatter fmt(&outputs);
+#=== PTU 8 ===#
+double process(Vec<double>& data, Formatter& f) {
+    double m = stats::mean(data);
+    double v = stats::variance(data);
+    f.format(m);
+    f.format(v);
+    return m;
+}

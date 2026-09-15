@@ -1,0 +1,59 @@
+// Extended grammar for language L.
+// This is the TARGET grammar the parser must support.
+// The original parser only handles the subset without
+// ExprIf, ExprWhile, ExprUnary, and the extended operators.
+
+File = Fn*
+
+Fn = 'fn' 'name' ParamList ('->' TypeExpr)? Block
+
+ParamList = '(' Param* ')'
+Param = 'name' ':' TypeExpr ','?
+
+TypeExpr = 'name'
+
+Block = '{' Stmt* '}'
+
+Stmt =
+  StmtLet
+| StmtReturn
+| StmtExpr
+
+StmtLet    = 'let' 'name' '=' Expr ';'
+StmtReturn = 'return' Expr ';'
+StmtExpr   = Expr ';'?    // semicolon optional when Expr is ExprIf or ExprWhile
+
+Expr =
+  ExprLiteral
+| ExprName
+| ExprParen
+| ExprBinary
+| ExprUnary
+| ExprCall
+| ExprIf
+| ExprWhile
+
+ExprLiteral = 'int' | 'true' | 'false' | 'str'
+ExprName    = 'name'
+ExprParen   = '(' Expr ')'
+ExprBinary  = Expr ('+' | '-' | '*' | '/' | '<' | '>' | '==' | '!=' | '&&' | '||') Expr
+ExprUnary   = ('-' | '!') Expr
+ExprCall    = Expr ArgList
+ExprIf      = 'if' Expr Block ('else' Block)?
+ExprWhile   = 'while' Expr Block
+
+ArgList = '(' Arg* ')'
+Arg = Expr ','?
+
+// Operator precedence (lowest to highest):
+// 1. ||
+// 2. &&
+// 3. == !=
+// 4. < >
+// 5. + -
+// 6. * /
+// Unary - and ! bind tighter than all binary operators.
+// All binary operators are left-associative.
+
+// Line comments (//) are skipped by the lexer.
+// String literals ("...") have no escape sequences.

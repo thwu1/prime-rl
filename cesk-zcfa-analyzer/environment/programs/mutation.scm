@@ -1,0 +1,8 @@
+(let ((count 0))
+  (let ((inc (lambda ()
+                (let ((_ (set! count (+ count 1))))
+                  count))))
+    (let ((a (inc)))
+      (let ((b (inc)))
+        (let ((c (inc)))
+          (+ a (+ b c)))))))

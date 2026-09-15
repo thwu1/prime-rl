@@ -1,0 +1,65 @@
+#!/bin/bash
+# Pipeline state inspection tool
+
+DB="/app/checkpoints/meta.db"
+DATA="/app/checkpoints/data"
+
+case "${1:-help}" in
+    list-checkpoints)
+        sqlite3 -header -column "$DB" \
+            "SELECT id, parallelism, checkpoint_id, source_offset, num_operators, total_state_entries, alert_count FROM checkpoints"
+        ;;
+
+    list-operators)
+        REF=${2:-1}
+        sqlite3 -header -column "$DB" \
+            "SELECT operator_id, state_file, num_backend_keys, watermark, num_alerts FROM operator_states WHERE checkpoint_ref=$REF"
+        ;;
+
+    dump-state)
+        if [ -z "$2" ]; then
+            echo "Usage: pipeline-ctl dump-state <state_file>"
+            echo "  Get state file names with: pipeline-ctl list-operators [checkpoint_ref]"
+            exit 1
+        fi
+        jq . "$DATA/$2"
+        ;;
+
+    key-distribution)
+        REF=${2:-1}
+        echo "=== Key Distribution (checkpoint ref $REF) ==="
+        sqlite3 -header -column "$DB" \
+            "SELECT operator_id, raw_key, state_name FROM state_keys WHERE checkpoint_ref=$REF ORDER BY operator_id, CAST(raw_key AS INTEGER)"
+        ;;
+
+    key-summary)
+        REF=${2:-1}
+        sqlite3 -header -column "$DB" \
+            "SELECT operator_id, COUNT(DISTINCT raw_key) as unique_keys, COUNT(*) as total_entries, GROUP_CONCAT(DISTINCT state_name) as state_names FROM state_keys WHERE checkpoint_ref=$REF GROUP BY operator_id"
+        ;;
+
+    compare-parallelism)
+        echo "=== Key Assignments Across Parallelism Levels ==="
+        echo ""
+        sqlite3 -header -column "$DB" \
+            "SELECT c.parallelism, sk.operator_id, sk.raw_key, sk.state_name FROM state_keys sk JOIN checkpoints c ON sk.checkpoint_ref = c.id ORDER BY c.parallelism, sk.operator_id, CAST(sk.raw_key AS INTEGER)"
+        ;;
+
+    schema)
+        sqlite3 "$DB" ".schema"
+        ;;
+
+    help|*)
+        echo "pipeline-ctl - Streaming pipeline state inspection tool"
+        echo ""
+        echo "Commands:"
+        echo "  list-checkpoints                List all persisted checkpoints"
+        echo "  list-operators [ref]            List operators in checkpoint (default: ref=1)"
+        echo "  dump-state <state_file>         Dump operator state JSON"
+        echo "  key-distribution [ref]          Show key-to-operator assignments"
+        echo "  key-summary [ref]               Summarize key counts per operator"
+        echo "  compare-parallelism             Compare key assignments across parallelism"
+        echo "  schema                          Show database schema"
+        echo "  help                            Show this help"
+        ;;
+esac

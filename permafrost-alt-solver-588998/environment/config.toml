@@ -1,0 +1,82 @@
+[constants]
+seconds_per_year = 31556926
+latent_heat = 334000
+snow_specific_heat = 2090
+unfrozen_water_content = 0.05
+thawed_water_conductivity = 0.54
+ice_conductivity = 2.35
+
+[soils.sand]
+bulk_density = 1300
+specific_heat = 1500
+conductivity_thawed_dry = 1.05
+conductivity_frozen_dry = 1.25
+
+[soils.silt]
+bulk_density = 1400
+specific_heat = 1300
+conductivity_thawed_dry = 1.05
+conductivity_frozen_dry = 1.25
+
+[soils.clay]
+bulk_density = 1500
+specific_heat = 2200
+conductivity_thawed_dry = 0.9
+conductivity_frozen_dry = 1.15
+
+[soils.peat]
+bulk_density = 150
+specific_heat = 200
+conductivity_thawed_dry = 0.14
+conductivity_frozen_dry = 0.32
+
+[sites.arctic]
+air_temperature = -5.0
+temperature_amplitude = 15.0
+snow_depth = 0.0
+snow_density = 200.0
+volumetric_water_content = 0.3
+frozen_vegetation_height = 0.0
+thawed_vegetation_height = 0.0
+frozen_vegetation_diffusivity = 1e-6
+thawed_vegetation_diffusivity = 1e-6
+
+[sites.arctic.soil_fractions]
+sand = 1.0
+silt = 0.0
+clay = 0.0
+peat = 0.0
+
+[sites.subarctic]
+air_temperature = -3.0
+temperature_amplitude = 18.0
+snow_depth = 0.3
+snow_density = 280.0
+volumetric_water_content = 0.35
+frozen_vegetation_height = 0.05
+thawed_vegetation_height = 0.12
+frozen_vegetation_diffusivity = 2.39e-6
+thawed_vegetation_diffusivity = 1.0556e-6
+
+[sites.subarctic.soil_fractions]
+sand = 0.4
+silt = 0.3
+clay = 0.2
+peat = 0.1
+
+[sites.warm]
+air_temperature = 2.0
+temperature_amplitude = 12.0
+snow_depth = 0.1
+snow_density = 200.0
+volumetric_water_content = 0.25
+frozen_vegetation_height = 0.0
+thawed_vegetation_height = 0.0
+frozen_vegetation_diffusivity = 1e-6
+thawed_vegetation_diffusivity = 1e-6
+
+[sites.warm.soil_fractions]
+sand = 0.0
+silt = 1.0
+clay = 0.0
+peat = 0.0

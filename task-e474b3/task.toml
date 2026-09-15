@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a complete set of liblouis braille translation rules from scratch for scientific notation, making multiple non-obvious opcode selection decisions across five interacting subsystems. (1) Function contractions demand evaluating word-boundary opcodes: 'always' matches unconditionally (fails for 'since'), 'sufword' matches at word start (still fails for 'since'), only 'word' correctly restricts to standalone sequences while treating punctuation as boundaries. (2) Decimal handling requires recognizing that two distinct opcodes ('midnum' for between-digit periods and 'decpoint' for leading decimals like '.5') are both needed — neither alone covers all cases. (3) Superscript/subscript rules require context-opcode bracket placement that preserves the following digit; incorrect bracketing silently consumes it. (4) Pass2 cleanup rules need replacement brackets to selectively delete the number sign while preserving the operator. (5) Cross-pass reasoning: the superscript pass2 rule must reference dots 35 (the output of the pass1 context rule), not dots 45 (the original caret sign's pattern). Each subsystem interacts with the others in combined expressions, so the solver must design a coherent multi-pass pipeline architecture."""
+solution_explanation = """The solution appends 15 rules across 5 subsystems: (1) Five 'word' opcode rules for function contractions (sin/cos/tan/log/exp), each mapping to prefix indicator dots 5 + first letter. 'word' is chosen over 'always' (unconditional matching) and 'sufword' (matches at word beginnings). (2) Three number-formatting rules: 'midnum . 46' for decimal points between digits, 'decpoint . 46' for leading decimals, and 'midnum , 2' for thousands separators. (3) Two 'noback context' rules for superscript/subscript: '["^"]$d @35' and '["_"]$d @16', with brackets enclosing only the sign character to preserve the following digit. The 'noback' prefix excludes them from back-translation as required. (4) Five 'noback pass2' rules with replacement brackets: '@346[@3456] ?', '@36[@3456] ?', '@2356[@3456] ?' for operators, plus '@35[@3456] ?' and '@16[@3456] ?' for indicators. The superscript rule uses @35 (the pass1 output), not @45 (the original caret). Each bracket pair marks only the numsign for deletion."""
+verification_explanation = """31 test cases translate input strings through lou_translate with the unicode.dis display table and compare output against pre-computed Unicode braille strings. Tests are organized into 6 classes: sanity checks (2 tests verifying basic char/digit translation), function contractions (6 correct + 4 non-contraction + 1 paren test), decimal handling (4 tests: sentence period, mid-digit decimal, leading decimal, thousands), superscript/subscript (4 tests: digit/non-digit contexts, combined), expression cleanup (4 tests: 3 operators + chained expression), and 7 combined/edge-case tests exercising multiple features simultaneously. Each test independently invokes lou_translate as a subprocess, ensuring the table produces deterministic, verifiable output."""
+category = "systems"
+tags = ["braille", "dsl-authoring"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e474b3"

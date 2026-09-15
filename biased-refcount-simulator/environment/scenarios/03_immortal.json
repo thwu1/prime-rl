@@ -1,0 +1,13 @@
+{
+  "description": "Immortalized object where all refcount operations are no-ops",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 1, "op": "immortalize", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 3, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 3, "op": "decref", "obj": "A"}
+  ]
+}

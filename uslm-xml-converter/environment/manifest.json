@@ -1,0 +1,43 @@
+{
+  "vintages": [
+    {
+      "id": "119-73",
+      "congress": 119,
+      "law_number": "73",
+      "year": 2026,
+      "release_date": "2026-07-01",
+      "congress_boundary": true,
+      "author_name": "US Congress",
+      "author_email": "uscode@house.gov"
+    },
+    {
+      "id": "120-15",
+      "congress": 120,
+      "law_number": "15",
+      "year": 2027,
+      "release_date": "2027-03-01",
+      "congress_boundary": false,
+      "author_name": "US Congress",
+      "author_email": "uscode@house.gov"
+    },
+    {
+      "id": "119-42",
+      "congress": 119,
+      "law_number": "42",
+      "year": 2026,
+      "release_date": "2026-01-15",
+      "congress_boundary": false,
+      "author_name": "US Congress",
+      "author_email": "uscode@house.gov"
+    }
+  ],
+  "committer_name": "usc-backfill",
+  "committer_email": "sync@us-code-tools.local",
+  "branch": "main",
+  "output_prefix": "uscode/title-99-data-governance-and-digital-infrastructure",
+  "tags": {
+    "annual/2026": "119-73",
+    "congress/119": "119-73",
+    "annual/2027": "120-15"
+  }
+}

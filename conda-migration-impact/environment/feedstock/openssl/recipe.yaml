@@ -1,0 +1,34 @@
+context:
+  name: openssl
+  version: "3.3.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/openssl/openssl/releases/download/openssl-${{ version }}/openssl-${{ version }}.tar.gz
+  sha256: 53e66b043322a606abf0087e7699a0e033a37fa13f5f93e9df5e39462712c567
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x.x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - make
+    - perl
+  host: []
+  run: []
+
+test:
+  commands:
+    - openssl version
+
+about:
+  homepage: https://www.openssl.org
+  license: Apache-2.0
+  license_file: LICENSE.txt
+  summary: Cryptography and SSL/TLS toolkit

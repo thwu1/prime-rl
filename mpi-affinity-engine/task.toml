@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of NUMA topology, Intel MPI process pinning semantics (I_MPI_PIN_DOMAIN, I_MPI_PIN_ORDER), CPU affinity mask bit manipulation with HyperThreading, and the distinction between physical cores and logical processors. The agent must diagnose 5 interrelated bugs across 4 modules without explicit error messages (some bugs silently produce wrong results), implement a scatter placement algorithm respecting NUMA boundaries, and understand how AMD EPYC NPS2 mode interleaves physical core IDs across CCDs — a subtlety that only HPC practitioners encounter."""
+solution_explanation = """Fix placement.py: remove global sort by physical_id (breaks NUMA locality on interleaved topologies) and implement scatter placement with round-robin socket distribution. Fix affinity.py: include all logical IDs (not just primary) when generating HT-aware masks. Fix env_generator.py: use num_physical_cores instead of num_logical_cpus for auto domain size. Fix diagnostics.py: check numa_node_id instead of socket_id for cross-NUMA detection on multi-NPS systems."""
+verification_explanation = """Tests verify: (1) compact placement keeps ranks within single NUMA nodes on interleaved topologies, (2) scatter placement alternates sockets and maintains NUMA locality, (3) affinity masks include HT sibling logical CPUs, (4) auto domain size equals physical cores / ranks, (5) NUMA diagnostic detects cross-NUMA within same socket."""
+category = "debugging"
+tags = ["hpc", "numa-affinity"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mpi-affinity-engine"

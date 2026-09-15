@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires radiotherapy physics domain knowledge (DVH metrics D95/V30/D0.1cc, gamma index, clinical protocol constraints), discovery of a unit inconsistency between dose files (cGy vs Gy), polygon-based voxel containment with compound contour handling for the PTV, 3D grid resampling across three mismatched coordinate systems, brute-force 3D gamma computation, clinical constraint evaluation, and constrained optimisation for a boost dose scaling factor — all without algorithmic guidance in the instruction."""
+solution_explanation = """Solution loads three dose grids (converting secondary from cGy to Gy via dose_unit metadata), computes per-structure membership using matplotlib.path polygon containment with XOR for multi-contour slices, evaluates DVH metrics (D95 as 5th percentile, D0.1cc via sorted dose ranking, V30 as volume fraction >= 30 Gy), sums primary+secondary using scipy map_coordinates for trilinear interpolation, performs brute-force vectorised 3D gamma, checks clinical protocol constraints, and finds the maximum boost scaling factor via per-voxel analytical bounds (Dmax/Dmean) combined with binary search (V30/D0.1cc)."""
+verification_explanation = """Tests independently compute all metrics using numpy/scipy/matplotlib reference implementations. Structure DVH values, dose summation statistics, gamma pass rate/mean/max, protocol compliance booleans, and boost factor are compared with tolerances that catch wrong units, missing interpolation, incorrect contour handling, or flawed optimisation. Dedicated sanity checks (unit plausibility, secondary contribution, non-negative boost factor) catch the most common failure modes."""
+category = "medical_physics"
+tags = ["radiotherapy", "dosimetry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rt-dose-analysis"

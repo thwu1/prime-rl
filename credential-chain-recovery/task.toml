@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security forensics AND evaluative judgment. The solver must: (1) discriminate genuine attack artifacts from blue-team honeypot decoys by cross-correlating server access logs, database schema metadata, network traffic, and shadow entries — following the obvious credential path leads to a decoy flag; (2) implement custom cryptographic decoding (XOR with derived key) and chain multiple credential recoveries (PCAP Basic Auth extraction, non-standard hash cracking sha256(password:salt), crypt shadow cracking, GPG symmetric decryption); (3) EVALUATE which single credential is the most critical link in the chain by analyzing reuse and downstream dependencies across all steps; (4) EVALUATE the honeypot infrastructure's deception quality and identify its primary detection indicator; (5) CREATE defensive iptables countermeasures appropriate to the observed attack vectors. This demands both deep technical analysis and evaluative judgment about relative risk and deception effectiveness."""
+solution_explanation = """1. Parse server_access.log to identify THPot-tagged (honeypot) vs prod-api (genuine) sessions, mapping source IPs. 2. Parse capture.pcap to extract Basic Auth from both sessions; cross-reference with log analysis to label 172.16.5.30 as genuine and 192.168.1.105 as honeypot. 3. Query app_database.db schema_metadata to identify service_accounts (production-auth) as genuine vs users (staging-honeypot-v2); note different hash algorithms. 4. Crack service_accounts using sha256(password+':'+salt) to recover svc_archive:V@ultKe3per!. 5. Unlock loot_archive.zip, read engagement notes about cipher_fragment.bin XOR encryption and GPG passphrase format. 6. Derive XOR key from SHA-256(Tr@ns1tK3y!)[:16], decrypt cipher_fragment.bin to identify engagement_report_alpha.gpg as genuine. 7. Crack prod-web01.internal shadow entries to recover root:Quar7zN0d3!. 8. Construct GPG passphrase Tr@ns1tK3y!:Quar7zN0d3!, decrypt genuine report to obtain flag. 9. EVALUATE: 'operator' credential is most critical because it is reused in two downstream steps (XOR key derivation AND GPG passphrase), whereas all other credentials affect only one step. The 'tag' log field is the primary honeypot indicator. 10. Write classification.json, threat_assessment.json, and iptables firewall rules."""
+verification_explanation = """Tests verify four outputs via SHA-256 hash comparison (no plaintext answers in test code): (1) the proof flag matches expected hash, ensuring genuine report decryption; (2) classification.json correctly identifies all genuine and honeypot artifact sources; (3) threat_assessment.json evaluates the critical entry credential as 'operator' (hash-verified — it's the only credential reused in multiple chain steps), identifies the primary honeypot indicator field as 'tag' (hash-verified), provides a valid deception rating 1-10, and a substantive remediation recommendation; (4) firewall_rules.sh is executable, blocks the attacker IP (hash-verified), allows legitimate ports, and includes rate limiting."""
+category = "security_and_privacy"
+tags = ["incident-forensics", "threat-evaluation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/credential-chain-recovery"

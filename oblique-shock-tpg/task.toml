@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of compressible flow thermodynamics (CPG vs TPG gas models), NASA 7-coefficient polynomial thermodynamic data format, iterative solution of coupled nonlinear Rankine-Hugoniot equations with temperature-dependent specific heats, oblique shock geometry (theta-beta-M relation generalized to variable gamma), detachment angle computation via constrained optimization, and total pressure ratio derivation from entropy functions. Combines aerospace engineering domain knowledge with numerical methods expertise."""
+solution_explanation = """Implement a thermally perfect gas mixture class using NASA polynomials for Cp(T), h(T), phi(T), and gamma(T). Solve the isentropic energy equation iteratively to find freestream static temperature. For normal shocks, solve the coupled mass-momentum-energy conservation equations using Brent's method on the downstream temperature. For oblique shocks, relate the deflection angle to the shock angle through the normal velocity component, then find both weak and strong solutions via root-finding. Compute detachment by maximizing the deflection angle over shock angles."""
+verification_explanation = """Tests verify: (1) output file exists with correct structure, (2) CPG-regime cases match exact analytical formulas within 0.5% (gamma=1.4 limit), (3) ideal gas law consistency rho2/rho1 = (P2/P1)/(T2/T1), (4) physical constraints (Pt2/Pt1 < 1, weak beta < strong beta, weak M2 > strong M2), (5) TPG-regime cases show gamma_effective < 1.38 confirming variable specific heats, (6) detachment angles are physically reasonable and differ between CPG and TPG regimes."""
+category = "scientific-computing"
+tags = ["aerospace", "compressible-flow"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oblique-shock-tpg"

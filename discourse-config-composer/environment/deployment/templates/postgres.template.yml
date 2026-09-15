@@ -1,0 +1,14 @@
+params:
+  db_default_text_search_config: "pg_catalog.english"
+  db_shared_buffers: "256MB"
+
+env:
+  DISCOURSE_DB_SOCKET: /var/run/postgresql
+
+expose:
+  - "5432"
+
+hooks:
+  after_postgres:
+    - exec:
+        cmd: echo "PostgreSQL template applied"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction theory (hypergraph decomposition, symmetric differences, independent channel probability accumulation, syndrome decoding via parity check matrices) combined with proficiency in three specialized, unfamiliar tools: stim's DetectorErrorModel API (programmatic DEM traversal, target type dispatch via is_relative_detector_id/is_logical_observable_id/is_separator, flattened iteration), the ldpc library's BpOsdDecoder (channel probability configuration, belief propagation method selection, OSD order tuning, API version handling), and scipy.sparse CSC matrix construction. The agent must bridge these tools into a coherent decoding pipeline, making domain-informed decisions about decoder configuration and understanding the full data flow from DEM object to predicted observable flips."""
+solution_explanation = """Flatten the stim DEM via dem.flattened(), iterate error instructions, split targets on separators into components using stim target type dispatch, compute detector/observable XOR signatures per hyperedge, accumulate probabilities with p_new = p_old*(1-p) + p*(1-p_old), decompose into ≤2-detector edges, build six CSC matrices using dem.num_detectors/num_observables for dimensions. Configure ldpc BpOsdDecoder with check_matrix and clipped priors as channel probabilities, handling API version differences. Decode each syndrome row, multiply correction by observables_matrix mod 2 for predicted observable flips."""
+verification_explanation = """Tests verify exact sparse matrix structure from known stim DEM objects (basic hyperedge decomposition with probability accumulation, three-component hyperedges with XOR cancellation, repeat blocks via stim's native handling, boundary/weight-0 edges), correct BpOsdDecoder construction and zero-syndrome identity, end-to-end decoding on stim-generated repetition code and surface code circuits with deterministic seeds checking logical error rates below conservative thresholds, and an AST-based forbidden import check ensuring no use of stimbposd/beliefmatching/pymatching."""
+category = "quantum_computing"
+tags = ["error_correction", "decoder_pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dem-to-matrices"

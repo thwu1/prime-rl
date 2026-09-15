@@ -1,0 +1,26 @@
+ofdm:
+  n_fft: 1024
+  n_active: 600
+  cp_length: 72
+  modulation: "64QAM"
+  num_symbols: 14
+  pilot_spacing: 4
+  scs_hz: 30000
+
+phase_noise:
+  # PSD breakpoints: [offset_frequency_hz, level_dBc_per_Hz]
+  # Log-linear interpolation (linear in dB vs log-frequency) between breakpoints.
+  # Extrapolate flat beyond endpoints.
+  psd_breakpoints:
+    - [1000, -60]
+    - [10000, -80]
+    - [100000, -100]
+    - [1000000, -120]
+    - [10000000, -130]
+
+analysis:
+  seed: 42
+  num_trials: 10
+
+output:
+  file: "/app/results.json"

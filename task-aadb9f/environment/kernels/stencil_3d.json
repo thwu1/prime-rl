@@ -1,0 +1,6 @@
+{
+  "name": "stencil_3d",
+  "registers_per_thread": 55,
+  "shared_memory_bytes": 4096,
+  "description": "3D stencil computation with halo exchange"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction: CSS stabilizer codes, toric code lattice geometry (primal/dual duality on a torus), logical operator homology, and matching-based decoding. The solver must independently determine how to map toric code stabilizers to a matching graph on both the vertex lattice and the face (dual) lattice, figure out edge weight parameterization, correctly assign fault IDs to track both logical observables through non-trivial support analysis, implement syndrome extraction from stabilizer-qubit incidence relations with periodic boundary conditions, and verify decoder performance through Monte Carlo threshold estimation."""
+solution_explanation = """Build Z-syndrome matching on the d×d vertex torus: h(i,j) connects vertices (i,j)↔(i,(j+1)%d) with fault_id {0} if j=0, v(i,j) connects (i,j)↔((i+1)%d,j) with fault_id {1} if i=0, weight=log((1-p)/p). Build X-syndrome matching on the dual (face) lattice: h(i,j) connects faces (i,j)↔((i-1)%d,j) with fault_id {0} if i=0, v(i,j) connects faces (i,j)↔(i,(j-1)%d) with fault_id {1} if j=0. Compute syndromes from 4-edge star/plaquette operators with periodic indexing. Run independent X/Z Monte Carlo with fixed seeds."""
+verification_explanation = """Tests verify: (1) matching graph structure — correct node/edge counts, 2 fault_ids, no boundary nodes; (2) syndrome computation — single errors on horizontal/vertical/wraparound edges produce correct 2-bit syndromes, even parity invariant for all single errors; (3) observable computation — errors on logical support edges flip correct observables; (4) decoding correctness — all single-qubit X and Z errors on d=5 toric code are correctly decoded; (5) statistical behavior — logical error rate is zero at p=0, below physical rate at p=0.02 for d=5, decreases with distance below threshold, and increases with distance above threshold."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "graph-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-816561"

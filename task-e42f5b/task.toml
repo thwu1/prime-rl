@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool reverse-engineering of a stripped ELF shared library: discovering exported function symbols via readelf/nm/objdump, deducing C calling conventions and argument layouts from disassembly, and building a Python ctypes bridge to probe the engine interactively. The game implements non-standard relay (lap) sowing — a rule that fundamentally changes game-theoretic values from standard Kalah — which must be deduced by systematically probing the library and analyzing traces. Beyond rule discovery, the agent must build a complete SQLite endgame database via exhaustive game-tree enumeration of the (3,3) configuration, compute a parametric fairness sweep across 9 initial configurations, and extract the principal variation — demanding expert-level understanding of minimax search, transposition tables, retrograde analysis, and combinatorial game theory. The combination of binary reverse-engineering (readelf, objdump, gdb, ctypes), database construction (SQLite), and deep game-theoretic reasoning across multiple output artifacts makes this a multi-domain expert challenge."""
+solution_explanation = """Use nm -D and objdump -d to discover the five exported functions (fk_init, fk_play, fk_legal, fk_term, fk_score) in the stripped .so. Write a ctypes wrapper to call these functions, probing with known board states to deduce argument order and semantics. Compare engine outputs against standard Kalah sowing to identify the relay rule: when the last seed lands in a non-empty pit, all seeds are picked up and sowing continues. Implement the complete relay-sowing engine in Python and solve positions via memoized minimax with best-move tracking. Build the endgame database by solving the (3,3) game tree and inserting all memo entries into SQLite. Compute the sweep across 9 configs, count reachable positions from memo table size, and extract the PV by tracing best moves."""
+verification_explanation = """Tests independently verify: (1) results.json correctness for 6 initial positions and 5 mid-game positions via reference relay-sowing solver; (2) CLI solver on 9 novel positions including terminal states, relay-trigger positions, and deterministic game playthroughs; (3) endgame.db schema compliance, row count against reference enumeration, spot-checked values, and best-move legality; (4) analysis.json sweep values across 9 configs, reachable position count, and principal variation move legality, board consistency, and optimality."""
+category = "computing_methodologies"
+tags = ["game-theory", "reverse-engineering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e42f5b"

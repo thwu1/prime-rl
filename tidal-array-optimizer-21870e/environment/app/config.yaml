@@ -1,0 +1,28 @@
+# Tidal turbine array optimization configuration
+# Channel flow is uniform in the positive x-direction
+
+channel:
+  length: 640.0      # m
+  width: 320.0       # m
+  depth: 50.0        # m
+  inflow_velocity: 3.0   # m/s (uniform, positive x)
+  density: 1025.0    # kg/m³ (seawater)
+
+wake_model:
+  type: "jensen"
+  expansion_coefficient: 0.04   # linear wake expansion rate (k)
+  superposition: "rss"          # root-sum-of-squares
+
+optimization:
+  num_turbines: 8
+  farm_bounds:
+    x_min: 160.0
+    x_max: 480.0
+    y_min: 80.0
+    y_max: 240.0
+  min_distance: 40.0    # m (2 rotor diameters)
+  method: "SLSQP"
+  max_iterations: 500
+  ftol: 1.0e-9
+
+turbine_file: "turbine_data/AR2000.yaml"

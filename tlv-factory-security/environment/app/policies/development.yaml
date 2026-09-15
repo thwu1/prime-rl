@@ -1,0 +1,8 @@
+name: "development"
+priority: 0
+rules:
+  allow_unsigned: true
+  allow_unbound_device: true
+  visible_fields: "all"
+  writable: true
+transitions_from: []

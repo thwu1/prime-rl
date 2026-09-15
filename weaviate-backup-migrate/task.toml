@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of vector database internals and their cascading interdependencies during cluster migration: (1) querying a SQLite module registry for vectorizer compatibility chains and resolving dimension implications, (2) recalculating Product Quantization segment counts when vectorizer-induced dimension changes invalidate the divisibility constraint — requiring understanding of PQ compression internals, (3) tracing cross-reference dependency graphs across collections to surface semantic impacts of dimension changes on cross-collection queries, (4) validating property-level tokenizer assignments against the target cluster's support matrix and understanding that disabling search indexing preserves data while acknowledging capability loss, (5) analyzing shard-level LSM compaction health from tombstone metrics to assess restore safety, (6) computing per-node HNSW memory budgets from vector dimensions, graph connectivity, object counts, and shard placement — creating a feedback loop where vectorizer migration changes dimensions, which changes memory requirements, which affects whether the placement plan is feasible, (7) managing multi-tenant lifecycle state constraints (FROZEN tenants on removed nodes cannot be migrated), and (8) performing load-balanced shard redistribution across a reduced node topology. The task demands holistic reasoning across the full stack: module compatibility, index compression, inverted index tokenization, storage engine health, memory planning, distributed placement, and cross-collection data model integrity."""
+solution_explanation = """Load the backup JSON, parse the YAML target config, and query the SQLite modules.db for vectorizer compatibility data. For each collection: (1) check compaction health from tombstone counts and compaction status, (2) query the compatibility_map table to find available replacement vectorizers ordered by priority, updating dimension metadata from the modules table, (3) when dimensions change, validate PQ segment divisibility and recalculate to the nearest valid factor, (4) validate each property's tokenizer against target support list and disable search indexing for unsupported tokenizers, (5) cap vectorCacheMaxObjects to target limit, (6) reduce replication factors exceeding target node count, (7) reassign shards/tenants from removed nodes using load-balanced placement while excluding FROZEN tenants on removed nodes with errors. After all collections: (8) validate cross-reference integrity and generate dimension impact warnings for cross-referenced collections, (9) calculate per-node HNSW memory as objectCount * (dimensions * 4 + maxConnections * 16) and compare against budget. Write the migrated descriptor and structured report conforming to the JSON schemas."""
+verification_explanation = """38 pytest tests verify: JSON Schema conformance for both output files, output file existence and valid structure, server version updated to target, only target nodes in cluster mapping, all shard/tenant assignments on valid target nodes, Article replication factor reduced and vectorizer replaced with cache capped, Article PQ segments recalculated to evenly divide new dimensions, total object counts preserved per collection, frozen tenant excluded from output with error in report, Product tenant count is 14, tenant object counts preserved, tenant balance across nodes, SearchLog shards remapped correctly, SearchLog tokenizer incompatibility handled (kagome_ja), tokenizer warning in report, ImageEmbed named vector vectorizers replaced with available modules and PQ validated, cross-references intact (all targets exist), cross-reference dimension impact warnings, compaction health warnings for shards with BEHIND status, HNSW memory budget analysis in report, at least 3 dimension change warnings, replica inconsistency warning, and vectorizer change documentation in report."""
+category = "databases"
+tags = ["vector-database", "data-migration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/weaviate-backup-migrate"

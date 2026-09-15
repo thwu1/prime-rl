@@ -1,0 +1,19 @@
+{
+  "id": "student_loan",
+  "consummation_date": "1978-07-01",
+  "advances": [
+    {"date": "1978-09-05", "amount": 1800.00},
+    {"date": "1979-09-05", "amount": 1800.00},
+    {"date": "1980-09-05", "amount": 1800.00},
+    {"date": "1981-09-05", "amount": 1800.00},
+    {"date": "1979-01-05", "amount": 1000.00},
+    {"date": "1980-01-05", "amount": 1000.00},
+    {"date": "1981-01-05", "amount": 1000.00},
+    {"date": "1982-01-05", "amount": 1000.00}
+  ],
+  "payment_groups": [
+    {"first_date": "1978-07-01", "amount": 240.00, "count": 50, "period_months": 1}
+  ],
+  "disclosed_apr": 32.00,
+  "is_mortgage": false
+}

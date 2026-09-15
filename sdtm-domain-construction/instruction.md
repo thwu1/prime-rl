@@ -1,0 +1,7 @@
+Raw clinical trial CRF data from a Phase 2 randomized double-blind placebo-controlled study (5 subjects including one screen failure and one death) is at `/app/raw_data/` in CSV and JSON format. The complete SDTM domain specification — including variable definitions, controlled terminology codelists, and all derivation rules — is at `/app/schema/sdtm_specs.json`.
+
+Produce CDISC SDTM Implementation Guide v3.3 conformant tabulation datasets as SAS Transport v5 (XPT) files in `/app/sdtm_output/`: `dm.xpt`, `ae.xpt`, `ex.xpt`, `vs.xpt`, `ds.xpt`, `ts.xpt`, `suppae.xpt`. Each XPT file must have valid SAS Transport v5 metadata (variable names, labels, numeric/character types) as defined in the specification.
+
+Also produce `/app/sdtm_output/define.xml` — a Define-XML 2.0 metadata document describing all datasets, using the CDISC Define-XML 2.0 namespace under an ODM v1.3 root, with `ItemGroupDef` for each domain, `ItemDef` for variables, and `CodeList` elements for controlled terminology. The `MetaDataVersion` must reference `def:StandardName="SDTMIG"` and `def:StandardVersion="3.3"`.
+
+The raw data contains inconsistencies (non-standard formats, mixed units, non-CDISC coded values, non-standard variables) that must be resolved according to the rules in the specification. All domain-level derivation rules, including temporal calculations and classification logic, are specified in `sdtm_specs.json`.

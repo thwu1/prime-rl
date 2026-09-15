@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a workflow engine simulator combining graph algorithms (cycle detection, topological sort with configurable priority-based tie-breaking), a template expression resolver, a mini condition evaluator with type coercion, state mutation tracking with JSON parsing, matrix strategy expansion that depends on runtime state from upstream nodes, and integration with an external planner configuration file that controls ordering semantics and output digest computation. The interplay between these components—priority-weighted DAG ordering depends on config values, matrix expansion depends on state which depends on execution order, and the plan digest depends on both the correct execution order and a config-provided salt—creates layered complexity beyond any single algorithm."""
+solution_explanation = """The solution implements a complete workflow planner in ~280 lines of Python: (1) reading planner_config.json for plan_format_version, priority_weights, and digest_salt, (2) YAML parsing and structural validation, (3) DFS-based cycle detection, (4) Kahn's algorithm with priority-weight-then-alphabetical tie-breaking for deterministic topological sort using weights from the config, (5) parameter resolution with type coercion from CLI overrides, (6) state initialization from both list and dict schema syntax, (7) sequential node processing where run steps' state mutations feed into downstream matrix expansion via from_state, (8) regex-based ${{ }} expression resolution, (9) a recursive descent condition evaluator handling comparison and logical operators, and (10) SHA-256-based plan digest computation using the config's salt concatenated with the ordered node_id:task_index entries."""
+verification_explanation = """18 pytest tests across 9 test classes verify each component. Five TestConfigIntegration tests verify DNA elements: plan_format_version matches the value in planner_config.json, plan_digest is correctly computed from the config's digest_salt and execution plan entries for both valid and invalid workflows, and priority_weights from the config produce a non-alphabetical node ordering (analyze=10, build=50, deploy=80, cleanup=95 vs alphabetical analyze/build/cleanup/deploy). The remaining 13 tests verify core functionality: linear and diamond DAG ordering, 3-node cycle and self-dependency detection, inline matrix expansion with expression resolution, conditional step evaluation with default and overridden params, state mutation propagation to from_state matrix expansion, invalid dependency reference detection, a comprehensive integration test combining state+matrix+conditions+expressions+non-run step types, parameter override affecting conditional execution, multi-expression resolution, and missing-nodes validation."""
+category = "software_and_its_engineering"
+tags = ["workflow-engine", "dag-resolution"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4b4e76"

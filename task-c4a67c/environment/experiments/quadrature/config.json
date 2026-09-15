@@ -1,0 +1,7 @@
+{
+  "domain": {
+    "lower_bound": 0,
+    "upper_bound": "+inf"
+  },
+  "notes": "Integrand has oscillatory numerator with quadratic-plus-linear phase cos(alpha*x^2 + beta*x); frequency increases with x. The denominator cosh(x) provides exponential decay. Parameters alpha and beta are session-specific; see integrand.py and /app/calibration.json."
+}

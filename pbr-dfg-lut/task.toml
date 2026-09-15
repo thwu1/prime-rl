@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interacting bugs in a PBR BRDF integration pipeline by compiling and using unfamiliar C-based diagnostic tools, cross-referencing their output against Python source and mathematical specifications. The agent must: (1) compile C diagnostic tools from source using gcc/make in an unfamiliar build setup; (2) run the buggy pipeline and analyze structured error output from lut_compare (per-channel error statistics, worst-pixel identification, region-focused analysis) to identify failing regions and channels; (3) use dfg_reference with its multiple output modes (--pixel, --sample, --grid) to compute ground-truth values at specific coordinates and correlate discrepancies with code defects; (4) diagnose a subtle roughness coordinate mapping error (missing perceptual-to-linear squaring) that shifts the entire LUT — requires understanding the nonlinear perceptual roughness mapping; (5) identify a missing half-texel center offset in view angle computation — requires understanding texture sampling conventions; (6) detect incorrect Fresnel decomposition (single-scatter r_x+=v*(1-Fc), r_y+=v*Fc vs multiscatter r_x+=v*Fc, r_y+=v) requiring deep understanding of energy conservation in microfacet BRDFs and the f90=1 multiscatter assumption; (7) find a wrong exponent in the Charlie cloth NDF (inv_alpha vs inv_alpha*0.5) requiring understanding of the Estevez-Kulla formulation's half-exponent convention; (8) detect a configuration parameter mismatch (charlie_samples 2048 vs specification's 4096); (9) implement the separable Schlick-GGX visibility function alongside the existing height-correlated one and evaluate their energy conservation properties. The bugs interact — fixing only some produces output that still fails validation, requiring systematic diagnosis using multi-tool cross-referencing."""
+solution_explanation = """The solution compiles the C diagnostic tools with make, then fixes all five bugs in the pipeline: (1) changes linear_roughness from coord to coord*coord in dfg_generator.py; (2) adds +0.5 half-texel offset to NoV computation; (3) corrects the Fresnel accumulation from single-scatter (r_x += v*(1-Fc), r_y += v*Fc) to multiscatter (r_x += v*Fc, r_y += v) in brdf.py; (4) corrects Charlie NDF exponent from inv_alpha to inv_alpha*0.5; (5) fixes pipeline_config.json charlie_samples from 2048 to 4096. Then implements both visibility functions, evaluates them at 5 diagnostic coordinates, selects height_correlated based on energy conservation analysis, writes analysis.json, and generates the corrected LUT. The solution validates the output using lut_compare, which confirms all 16384 pixels pass within tolerance."""
+verification_explanation = """Tests verify: (1) output file existence, size, magic bytes, and header dimensions; (2) mathematical properties across all 16384 pixels — DFG2 >= DFG1, values bounded in [0,1], Charlie non-negative, DFG2 approximately 1.0 at normal incidence with zero roughness; (3) interior smoothness — adjacent pixels differ by less than 0.1 in DFG channels; (4) exact reference values at 10 specific pixel coordinates with tight tolerances (2e-4 for GGX, max(5e-3, 1% relative) for Charlie); (5) analysis.json structure, correct visibility choice (height_correlated), comparison data accuracy, and proof that both visibility functions were genuinely evaluated; (6) the C lut_compare tool is compiled from source and run as an independent validation pass, confirming all pixels match double-precision reference computations."""
+category = "computer_graphics"
+tags = ["pbr-rendering", "cross-language-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pbr-dfg-lut"

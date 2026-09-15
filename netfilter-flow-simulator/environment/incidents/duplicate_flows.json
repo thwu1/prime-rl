@@ -1,0 +1,8 @@
+{
+  "conntrack_max": 5,
+  "rules": {
+    "raw_PREROUTING": [],
+    "mangle_PREROUTING": [],
+    "filter_INPUT": []
+  }
+}

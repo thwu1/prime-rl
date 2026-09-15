@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ACVP DRBG Response",
+  "description": "Response format for ACVP ctrDRBG test vector processing per the ACVP DRBG specification.",
+  "type": "object",
+  "required": ["vsId", "algorithm", "revision", "testGroups"],
+  "properties": {
+    "vsId": {
+      "type": "integer",
+      "description": "Vector set identifier, must match the vsId from the prompt."
+    },
+    "algorithm": {
+      "type": "string",
+      "enum": ["ctrDRBG"],
+      "description": "Algorithm identifier."
+    },
+    "revision": {
+      "type": "string",
+      "description": "Protocol revision, must match the revision from the prompt."
+    },
+    "testGroups": {
+      "type": "array",
+      "description": "Array of test group response objects, one per prompt test group.",
+      "items": {
+        "type": "object",
+        "required": ["tgId", "tests"],
+        "properties": {
+          "tgId": {
+            "type": "integer",
+            "description": "Test group identifier, must match the tgId from the corresponding prompt group."
+          },
+          "tests": {
+            "type": "array",
+            "description": "Array of test case response objects.",
+            "items": {
+              "type": "object",
+              "required": ["tcId", "returnedBits"],
+              "properties": {
+                "tcId": {
+                  "type": "integer",
+                  "description": "Test case identifier, must match the tcId from the corresponding prompt test case."
+                },
+                "returnedBits": {
+                  "type": "string",
+                  "pattern": "^[0-9A-Fa-f]+$",
+                  "description": "Hex-encoded output bits from the final DRBG generate call. Length must equal returnedBitsLen/4 characters."
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

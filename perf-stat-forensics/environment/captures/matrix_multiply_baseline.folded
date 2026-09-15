@@ -1,0 +1,8 @@
+main;init_matrix;allocate_memory 450
+main;init_matrix;fill_random 1200
+main;matrix_multiply;block_iterate;dot_product 5800
+main;matrix_multiply;block_iterate;accumulate 2100
+main;matrix_multiply;bounds_check 380
+main;verify_result;compare_elements 520
+main;output_results;format_output 350
+main;output_results;write_file 200

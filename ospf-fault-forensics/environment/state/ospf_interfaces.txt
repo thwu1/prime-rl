@@ -1,0 +1,114 @@
+================================================================================
+OSPF Interface State - Captured 2026-05-29 14:32:17 UTC
+================================================================================
+
+=== core_rtr: show ip ospf interface ===
+
+eth0 is up
+  Internet Address 172.16.0.0/31, Broadcast 172.16.0.1, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 1.1.1.1, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 00:00:07
+  Neighbor Count is 1, Adjacent neighbor count is 1
+    Adjacent with neighbor 2.2.2.1
+
+eth1 is up
+  Internet Address 172.16.0.2/31, Broadcast 172.16.0.3, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 1.1.1.1, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 00:00:03
+  Neighbor Count is 0, Adjacent neighbor count is 0
+
+eth2 is up
+  Internet Address 172.16.0.4/31, Broadcast 172.16.0.5, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 1.1.1.1, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 00:00:05
+  Neighbor Count is 1, Adjacent neighbor count is 1
+    Adjacent with neighbor 2.2.2.3
+
+eth3 is up
+  Internet Address 10.100.0.1/24, Broadcast 10.100.0.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 1.1.1.1, Network Type BROADCAST, Cost: 5
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 1.1.1.1 Interface Address 10.100.0.1
+  No Hellos (Passive interface)
+  Neighbor Count is 0, Adjacent neighbor count is 0
+
+lo is up
+  Internet Address 1.1.1.1/32, Area 0.0.0.0
+  Router ID 1.1.1.1, Network Type LOOPBACK, Cost: 0
+
+
+=== dist_rtr1: show ip ospf interface ===
+
+eth0 is up
+  Internet Address 172.16.0.1/31, Broadcast 172.16.0.0, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 2.2.2.1, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 00:00:04
+  Neighbor Count is 1, Adjacent neighbor count is 1
+    Adjacent with neighbor 1.1.1.1
+
+lo is up
+  Internet Address 2.2.2.1/32, Area 0.0.0.0
+  Router ID 2.2.2.1, Network Type LOOPBACK, Cost: 0
+
+
+=== dist_rtr2: show ip ospf interface ===
+
+eth0 is up
+  Internet Address 172.16.0.3/31, Broadcast 172.16.0.2, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 2.2.2.2, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  No Hellos (Passive interface)
+  Neighbor Count is 0, Adjacent neighbor count is 0
+
+eth1 is up
+  Internet Address 10.2.0.1/24, Broadcast 10.2.0.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 2.2.2.2, Network Type BROADCAST, Cost: 10
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 2.2.2.2 Interface Address 10.2.0.1
+  No Hellos (Passive interface)
+  Neighbor Count is 0, Adjacent neighbor count is 0
+
+lo is up
+  Internet Address 2.2.2.2/32, Area 0.0.0.0
+  Router ID 2.2.2.2, Network Type LOOPBACK, Cost: 0
+
+
+=== dist_rtr3: show ip ospf interface ===
+
+eth0 is up
+  Internet Address 172.16.0.5/31, Broadcast 172.16.0.4, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 2.2.2.3, Network Type POINTTOPOINT, Cost: 10
+  Transmit Delay is 1 sec, State Point-To-Point, Priority 1
+  Timer intervals configured, Hello 10s, Dead 40s, Wait 40s, Retransmit 5
+    Hello due in 00:00:08
+  Neighbor Count is 1, Adjacent neighbor count is 1
+    Adjacent with neighbor 1.1.1.1
+
+eth1 is up
+  Internet Address 10.3.0.1/24, Broadcast 10.3.0.255, Area 0.0.0.0
+  MTU mismatch detection: enabled
+  Router ID 2.2.2.3, Network Type BROADCAST, Cost: 10
+  Transmit Delay is 1 sec, State DR, Priority 1
+  Designated Router (ID) 2.2.2.3 Interface Address 10.3.0.1
+  No Hellos (Passive interface)
+  Neighbor Count is 0, Adjacent neighbor count is 0
+
+lo is up
+  Internet Address 2.2.2.3/32, Area 0.0.0.0
+  Router ID 2.2.2.3, Network Type LOOPBACK, Cost: 0

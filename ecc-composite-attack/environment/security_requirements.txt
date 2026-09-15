@@ -1,0 +1,20 @@
+Secure ECC Configuration Requirements
+======================================
+
+Design elliptic curve parameters for a key exchange system over a
+composite modular ring that resists Pohlig-Hellman and related
+smooth-order attacks.
+
+Constraints:
+
+1. Modulus structure: n = p * q where p and q are distinct primes.
+2. Prime size: both p and q must be at least 80 bits (>= 2^79).
+3. Curve form: short Weierstrass y^2 = x^3 + a*x + b (mod n).
+4. Non-singularity: 4*a^3 + 27*b^2 must be nonzero modulo p and q.
+5. Base point: G = (Gx, Gy) must satisfy Gy^2 = Gx^3 + a*Gx + b (mod n).
+6. Order hardness: for each prime factor f of the modulus, the elliptic
+   curve group order #E(F_f) must contain a prime factor >= 2^59.
+   This prevents Pohlig-Hellman from efficiently decomposing the ECDLP
+   into baby-step-giant-step subproblems.
+
+Output: JSON file with decimal string values for p, q, a, b, Gx, Gy.

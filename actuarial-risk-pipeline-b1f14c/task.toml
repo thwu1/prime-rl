@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires actuarial domain expertise: understanding of severity discretization theory (4 methods including first-moment matching), Panjer recursion for the (a,b,0) family of frequency distributions, VaR/CTE risk measure computation on discrete aggregate loss CDFs, and Beekman's convolution formula for ruin probability bounds. The solver must identify and fix four subtle mathematical/programming bugs spread across multiple pipeline stages, then implement two missing functions (CTE and Beekman ruin bounds) from domain knowledge alone. Cascading dependencies between stages mean early-stage bugs produce dramatically wrong downstream results, requiring methodical root-cause analysis."""
+solution_explanation = """Fix four bugs: (1) Panjer Poisson fs0 has a parenthesization error—exp(lambda*fx[1]-1) should be exp(lambda*(fx[1]-1)); (2) Panjer geometric sets b=1-p instead of b=0 per the (a,b,0) family for NB(r=1,p); (3) rounding discretization evaluates CDF at grid points instead of midpoints; (4) VaR returns knots[idx-1] instead of knots[idx]. Then implement CTE as E[S|S>VaR]=sum(x*pmf for x>VaR)/sum(pmf for x>VaR). Finally implement beekman_ruin_bounds by discretizing the integrated tail CDF using upper/lower methods, applying Panjer recursion with geometric frequency, and computing psi(u)=1-F(u)."""
+verification_explanation = """Tests install the actuar R package and compute golden reference values for all pipeline outputs using actuar's authoritative implementation. The solver's results.json is compared against these golden values with 1e-4 relative tolerance. Tests cover all four discretization methods, aggregate CDF at four points, the aggregate mean, VaR and CTE at three confidence levels, and ruin probability bounds at eleven initial surplus values. Structural tests also verify PMF non-negativity, summation, and bound monotonicity."""
+category = "applied_computing"
+tags = ["actuarial-science", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/actuarial-risk-pipeline-b1f14c"

@@ -1,0 +1,16 @@
+{
+  "oid": "2.16.840.1.113883.1.11.12212",
+  "name": "MaritalStatus",
+  "codeSystem": "2.16.840.1.113883.5.2",
+  "codes": [
+    {"code": "A", "displayName": "Annulled"},
+    {"code": "D", "displayName": "Divorced"},
+    {"code": "I", "displayName": "Interlocutory"},
+    {"code": "L", "displayName": "Legally Separated"},
+    {"code": "M", "displayName": "Married"},
+    {"code": "P", "displayName": "Polygamous"},
+    {"code": "S", "displayName": "Never Married"},
+    {"code": "T", "displayName": "Domestic Partner"},
+    {"code": "W", "displayName": "Widowed"}
+  ]
+}

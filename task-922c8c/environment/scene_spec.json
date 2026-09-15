@@ -1,0 +1,84 @@
+{
+  "coordinate_system": "right_handed_z_up",
+  "position_convention": "center_bottom",
+  "collision_margin": 0.02,
+  "objects": {
+    "table": {
+      "bbox": [2.0, 1.5, 0.75],
+      "position": [0.0, 0.0, 0.0],
+      "anchor": true
+    },
+    "shelf": {
+      "bbox": [1.0, 0.8, 1.5],
+      "position": [3.0, 0.0, 0.0],
+      "anchor": true
+    },
+    "plate": {
+      "bbox": [0.22, 0.22, 0.03],
+      "anchor": false
+    },
+    "mug": {
+      "bbox": [0.08, 0.08, 0.10],
+      "anchor": false
+    },
+    "apple": {
+      "bbox": [0.07, 0.07, 0.07],
+      "anchor": false
+    },
+    "box": {
+      "bbox": [0.25, 0.15, 0.15],
+      "anchor": false
+    },
+    "bottle": {
+      "bbox": [0.06, 0.06, 0.12],
+      "anchor": false
+    },
+    "book": {
+      "bbox": [0.22, 0.16, 0.04],
+      "anchor": false
+    },
+    "can": {
+      "bbox": [0.065, 0.065, 0.12],
+      "anchor": false
+    },
+    "bowl": {
+      "bbox": [0.14, 0.14, 0.06],
+      "anchor": false
+    },
+    "lamp": {
+      "bbox": [0.10, 0.10, 0.30],
+      "anchor": false
+    },
+    "block_a": {
+      "bbox": [0.05, 0.05, 0.05],
+      "anchor": false
+    },
+    "block_b": {
+      "bbox": [0.05, 0.05, 0.05],
+      "anchor": false
+    },
+    "block_c": {
+      "bbox": [0.05, 0.05, 0.05],
+      "anchor": false
+    }
+  },
+  "relations": [
+    {"subject": "plate", "predicate": "on_top_of", "reference": "table"},
+    {"subject": "mug", "predicate": "on_top_of", "reference": "table"},
+    {"subject": "mug", "predicate": "next_to", "reference": "plate", "params": {"distance_range": [0.20, 0.40]}},
+    {"subject": "apple", "predicate": "on_top_of", "reference": "plate"},
+    {"subject": "box", "predicate": "on_top_of", "reference": "table"},
+    {"subject": "box", "predicate": "right_of", "reference": "plate"},
+    {"subject": "bottle", "predicate": "inside", "reference": "box"},
+    {"subject": "book", "predicate": "on_top_of", "reference": "shelf"},
+    {"subject": "can", "predicate": "stacked_on", "reference": "book"},
+    {"subject": "bowl", "predicate": "on_top_of", "reference": "shelf"},
+    {"subject": "bowl", "predicate": "left_of", "reference": "book"},
+    {"subject": "lamp", "predicate": "on_top_of", "reference": "shelf"},
+    {"subject": "lamp", "predicate": "right_of", "reference": "book"},
+    {"subject": "block_a", "predicate": "on_top_of", "reference": "table"},
+    {"subject": "block_a", "predicate": "behind", "reference": "plate"},
+    {"subject": "block_b", "predicate": "stacked_on", "reference": "block_a"},
+    {"subject": "block_c", "predicate": "stacked_on", "reference": "block_b"}
+  ]
+}

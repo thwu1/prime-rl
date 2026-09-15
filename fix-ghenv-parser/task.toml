@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of a non-trivial file format parser specification (the GitHub Actions runner's EnvFileKeyValuePairs format) and precise bash string manipulation. The solver must identify multiple interacting bugs across parser, encoder, and validator — including a subtle off-by-one in heredoc value extraction, incorrect operator precedence logic, wrong bash parameter expansion for string splitting, and a delimiter collision vulnerability in the encoder. Additionally, the validate command must be implemented from scratch with line-number tracking through heredoc blocks. The bugs are individually subtle (e.g., ## vs # in bash expansion, checking which delimiter appears first) and collectively interact to cause cascading failures in round-trip tests."""
+solution_explanation = """Fix 5 bugs and implement validate: (1) Precedence — check whether = or << appears first in the line, not just whether << exists; (2) Heredoc trailing newline — set end_idx to INDEX minus NEWLINE length, not INDEX; (3) Empty lines — add a check to skip empty lines before parsing; (4) Simple format split — change ${line##*=} to ${line#*=} so the value is everything after the FIRST = not the LAST; (5) Encoder delimiter collision — generate a safe delimiter by checking if the chosen delimiter appears as a line in the content, incrementing a counter suffix until safe; (6) Implement validate_file as a non-fatal parser that tracks line numbers, reports all errors to stderr as 'line N: description', and detects all four error conditions from the spec including the EOF-without-newline check for heredoc content lines."""
+verification_explanation = """31 pytest tests verify all commands. Parser tests check simple pairs, multiple pairs, empty values, values containing =, values containing <<, single/multiline/empty heredocs, delimiter-at-EOF, precedence between = and <<, empty line handling, mixed entries, and all four error conditions. Encoder tests verify simple encoding, multiline encoding, and delimiter collision safety. Validator tests check valid files, invalid format detection, line number reporting, multiple error reporting, and heredoc error detection. Round-trip tests verify end-to-end fidelity with simple, multiline, adversarial (content containing delimiter strings), and special character inputs."""
+category = "debugging"
+tags = ["shell", "parsing"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-ghenv-parser"

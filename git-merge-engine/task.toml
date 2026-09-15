@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a tool that re-encodes git objects from a custom JSON archive into git's native binary format. The solver must understand and correctly implement: (1) git's object header format (type + size + null byte), (2) the binary tree entry format where SHA1 hashes are stored as raw 20-byte values rather than hex strings and directory modes drop leading zeros, (3) the exact text format for commit and tag objects with properly formatted author/committer/tagger lines, (4) zlib compression of encoded objects, and (5) SHA1 hash computation for object identity. Beyond encoding, the solver must evaluate the commit graph to reconstruct a missing branch ref by identifying unreachable commits and determining which is the branch tip. Getting any byte-level detail wrong produces a SHA1 mismatch that cascades through the object graph."""
+solution_explanation = """Write a Python script that reads the JSON archive, re-encodes each object into git's internal format, and writes them as loose objects. For blobs: prepend 'blob <size>\\0' header and zlib-compress. For trees: convert each entry from the JSON representation to binary format ('<mode> <name>\\0<20-byte-sha1>'), handling the 040000→40000 mode normalization, then prepend the tree header. For commits/tags: reconstruct the raw text format from structured JSON fields (e.g., 'author Name <email> timestamp tz'), prepend the appropriate header, and compress. After writing all objects, set refs from refs.json. To find the missing feature/streaming branch tip: traverse the commit graph from main to identify all reachable commits, then find the tip among unreachable commits (the one that is not a parent of any other unreachable commit). Finally, checkout to populate the working tree."""
+verification_explanation = """Twenty-seven pytest tests verify reconstruction across seven dimensions: repository integrity (fsck clean, total commit count), branch structure (both branches exist, correct commit counts, shared ancestor, divergence, HEAD ref), tag integrity (v1.0 exists, is annotated, points to main HEAD), main branch file contents (parser with hooks, transformer with error handling, validator, pipeline orchestrator, changelog, config version, helpers), feature branch file contents (buffered consumer, buffer module, producer, streaming config, absence of post-fork files, pre-refactor parser), and working tree state (clean checkout on both branches)."""
+category = "systems_programming"
+tags = ["git-internals", "binary-formats"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/git-merge-engine"

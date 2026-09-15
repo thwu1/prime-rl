@@ -1,0 +1,111 @@
+ESP-IDF Flash Memory Content Signatures
+========================================
+
+This reference describes binary structures found in ESP32 flash memory
+that can be used to identify content regions during forensic analysis.
+
+All multi-byte values are little-endian. Flash is organized in 4KB (0x1000)
+sectors. Content regions are always sector-aligned.
+
+Standard ESP32 flash layout:
+  0x0000       Reserved
+  0x1000       Second-stage bootloader (uses app image format)
+  0x8000       Partition table (0x1000 bytes, data limited to 0xC00)
+  0x9000+      Partitions as described by partition table
+
+
+1. ESP-IDF App Image Header (esp_image_header_t) — 24 bytes
+   Found at the start of bootloader and application firmware regions.
+
+   Offset  Size  Field            Values / Notes
+   0       1     magic            Always 0xE9
+   1       1     segment_count    Number of memory segments, range 1-16
+   2       1     spi_mode         0=QIO, 1=QOUT, 2=DIO, 3=DOUT
+   3       1     spi_speed_size   Low nibble: SPI speed, high nibble: flash size
+   4       4     entry_addr       Firmware entry point (e.g. 0x4008xxxx for ESP32)
+   8       1     wp_pin           Write-protect GPIO pin number
+   9       3     spi_pin_drv      SPI pin drive strength settings
+   12      2     chip_id          0x0000=ESP32, 0x0002=ESP32-S2, 0x0005=ESP32-C3,
+                                  0x0009=ESP32-S3, 0x000C=ESP32-C2, 0x000D=ESP32-C6
+   14      1     min_chip_rev     Minimum supported chip revision
+   15      2     min_chip_rev_full  (major * 100 + minor)
+   17      2     max_chip_rev_full  (major * 100 + minor)
+   19      4     reserved         Typically 0x00
+   23      1     hash_appended    1 if SHA-256 hash appended after image
+
+   Following the header are segment_count segment descriptors, each:
+     load_addr (4 bytes) + data_len (4 bytes) + data_len bytes of segment data.
+
+   App firmware may not fill the entire partition; trailing sectors
+   within the partition contain firmware data, not 0xFF.
+
+
+2. NVS Page Header — 16 bytes at start of each 4KB NVS sector
+   Non-Volatile Storage uses one 4KB sector per page.
+
+   Offset  Size  Field        Values / Notes
+   0       4     state        Page lifecycle state:
+                              0xFFFFFFFE = ACTIVE (accepting writes)
+                              0xFFFFFFFC = FULL (no free entries)
+                              0xFFFFFFFF = EMPTY / UNINITIALIZED
+   4       4     seq_number   Monotonically increasing page sequence counter
+   8       1     version      NVS format version, must be 0xFE
+   9       3     unused       Reserved, always 0xFF 0xFF 0xFF
+   12      4     crc32        CRC32 computed over bytes 4 through 11 (8 bytes)
+
+   NVS partitions consist of consecutive pages. Minimum recommended
+   size for read-write NVS is 0x3000 (3 pages).
+
+
+3. OTA Selection Entry (esp_ota_select_entry_t) — 32 bytes
+   The OTA data partition is always exactly 0x2000 bytes (2 sectors).
+   Each sector holds one selection entry at its start.
+
+   Offset  Size  Field        Values / Notes
+   0       4     ota_seq      Sequence counter (0 = unused/invalid slot)
+   4       20    reserved     Filled with 0xFF
+   24      4     ota_state    Image state (0x10=NEW, 0xFFFFFFFF=undefined)
+   28      4     crc32        CRC32 computed over bytes 0 through 27 (28 bytes)
+
+   Presence of an OTA data region indicates an OTA-capable layout.
+
+
+4. PHY Calibration Data — starts at sector boundary
+   PHY initialization data, typically one 0x1000-byte sector.
+
+   Offset  Size  Field        Values / Notes
+   0       4     magic        0x04 0x02 0x00 0x00  (ESP32 PHY identifier)
+   4+             cal_data     Radio calibration parameters
+
+
+5. Partition Table Format — see /app/tools/gen_esp32part.py
+   Each entry is 32 bytes: struct '<2sBBLL16sL'
+
+   Offset  Size  Field        Values / Notes
+   0       2     magic        0xAA 0x50
+   2       1     type         0x00=app, 0x01=data
+   3       1     subtype      App: 0x00=factory, 0x10=ota_0 .. 0x1F=ota_15, 0x20=test
+                              Data: 0x00=ota, 0x01=phy, 0x02=nvs, 0x04=nvs_keys
+   4       4     offset       Partition start offset in flash
+   8       4     size         Partition size in bytes
+   12      16    name         Null-terminated ASCII (max 15 chars)
+   28      4     flags        Bit 0 = encrypted, Bit 1 = readonly
+
+   End marker: 32 bytes of 0xFF.
+   MD5 marker: 0xEB 0xEB + 14 bytes 0xFF + 16-byte MD5 digest.
+   MD5 digest covers all concatenated entry data (before the marker).
+   Partition table data is padded with 0xFF to 0xC00 bytes.
+
+   Alignment constraints:
+     - App offsets:  64KB (0x10000) aligned
+     - Data offsets:  4KB (0x1000) aligned
+     - App sizes:     4KB (0x1000) aligned
+     - NVS (r/w):    minimum 0x3000 bytes
+     - OTA data:     exactly 0x2000 bytes
+
+   Naming conventions:
+     factory  — first app partition (subtype 0x00)
+     ota_N    — OTA app slots (subtypes 0x10+N)
+     nvs      — NVS storage (data type, subtype 0x02)
+     otadata  — OTA selection metadata (data type, subtype 0x00)
+     phy_init — PHY calibration (data type, subtype 0x01)

@@ -1,0 +1,277 @@
+[
+  {
+    "seed": "5F3759DF",
+    "groups": [
+      "0B72CBFA",
+      "73039434",
+      "4B6C8E87",
+      "941E9C6F",
+      "DED1715A"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "12345678",
+    "groups": [
+      "594BCEE2",
+      "877E7B2C",
+      "468FA7DB",
+      "579D0DE7",
+      "6EDB91BD"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "DEADBEEF",
+    "groups": [
+      "044B97E7",
+      "4F5BCF47",
+      "2823B4D4",
+      "F3958C0C",
+      "78B71A47"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "00000000",
+    "groups": [
+      "48B49C4D",
+      "88A07395",
+      "4396EF7A",
+      "377477C9",
+      "50548763"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "FFFFFFFF",
+    "groups": [
+      "1602BCA0",
+      "6F5B3826",
+      "ABC6151E",
+      "679D510C",
+      "3FE9EDC5"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "CAFEBABE",
+    "groups": [
+      "D1DD3DA3",
+      "55119F57",
+      "94876335",
+      "FC8FC58B",
+      "F459975A"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "0BADF00D",
+    "groups": [
+      "4FD7E2F0",
+      "7F0B42C3",
+      "616A35CE",
+      "1EF881B2",
+      "C0C93EEE"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "8BADF00D",
+    "groups": [
+      "E1882D0D",
+      "29B5330D",
+      "674B0CFF",
+      "C39D9E47",
+      "6171B2FB"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "42424242",
+    "groups": [
+      "DD97F134",
+      "7FFE682B",
+      "28B09A1C",
+      "87687AD4",
+      "BDC7C192"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "A5A5A5A5",
+    "groups": [
+      "11983B42",
+      "05544B0C",
+      "CB0EC143",
+      "515D1DD3",
+      "EC9371ED"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "13371337",
+    "groups": [
+      "0E3FD7CE",
+      "3971969F",
+      "5E4E5C0B",
+      "4FD49C98",
+      "97C705ED"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "FEEDFACE",
+    "groups": [
+      "946C1FFA",
+      "D57BD154",
+      "1A9A6D98",
+      "386758F6",
+      "E55166F9"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "BEEFCAFE",
+    "groups": [
+      "4A382706",
+      "3ED38D5D",
+      "C31812C0",
+      "1308F931",
+      "B3305338"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "00C0FFEE",
+    "groups": [
+      "AB823DFA",
+      "E9E1C42D",
+      "014E8C1A",
+      "BD747379",
+      "7E97D928"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "DECAFBAD",
+    "groups": [
+      "541ECF4D",
+      "CA9C4085",
+      "0B0F1751",
+      "2C6B805B",
+      "E4AE276F"
+    ],
+    "expected": 0
+  },
+  {
+    "seed": "5F3759DF",
+    "groups": [
+      "0B72CBFB",
+      "73039434",
+      "4B6C8E87",
+      "941E9C6F",
+      "DED1715A"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "12345678",
+    "groups": [
+      "594BCEE2",
+      "877E7B2D",
+      "468FA7DB",
+      "579D0DE7",
+      "6EDB91BD"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "DEADBEEF",
+    "groups": [
+      "044B97E7",
+      "4F5BCF47",
+      "2823B4D5",
+      "F3958C0C",
+      "78B71A47"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "00000000",
+    "groups": [
+      "48B49C4D",
+      "88A07395",
+      "4396EF7A",
+      "377477C8",
+      "50548763"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "FFFFFFFF",
+    "groups": [
+      "1602BCA0",
+      "6F5B3826",
+      "ABC6151E",
+      "679D510C",
+      "3FE9EDC4"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "CAFEBABE",
+    "groups": [
+      "D1DD3DA2",
+      "55119F57",
+      "94876335",
+      "FC8FC58B",
+      "F459975A"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "0BADF00D",
+    "groups": [
+      "4FD7E2F0",
+      "7F0B42C2",
+      "616A35CE",
+      "1EF881B2",
+      "C0C93EEE"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "8BADF00D",
+    "groups": [
+      "E1882D0D",
+      "29B5330D",
+      "674B0CFE",
+      "C39D9E47",
+      "6171B2FB"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "42424242",
+    "groups": [
+      "DD97F134",
+      "7FFE682B",
+      "28B09A1C",
+      "87687AD5",
+      "BDC7C192"
+    ],
+    "expected": 1
+  },
+  {
+    "seed": "A5A5A5A5",
+    "groups": [
+      "11983B42",
+      "05544B0C",
+      "CB0EC143",
+      "515D1DD3",
+      "EC9371EC"
+    ],
+    "expected": 1
+  }
+]

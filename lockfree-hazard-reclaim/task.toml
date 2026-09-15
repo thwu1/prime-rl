@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of lock-free programming, the C++ memory model (seq_cst vs acquire-release semantics), and the hazard pointer protocol for safe memory reclamation. The agent must correctly implement: (1) a hazard pointer table with RAII slot ownership, (2) the store-then-verify inner loop that prevents use-after-free, (3) a lock-free retire list with CAS-based insertion, (4) periodic scan-and-reclaim logic, and (5) identify which atomic operations require sequential consistency (the HP store / head re-read pair) vs. which can be relaxed to acquire-release. Getting any of these wrong produces subtle concurrency bugs (use-after-free, ABA, memory leaks) that may only manifest under high contention."""
+solution_explanation = """The solution replaces the leaking pop() with a hazard-pointer-protected try_pop(). Each thread claims a slot in a static hazard pointer table via a thread_local RAII guard. In the inner loop, the thread stores the current head into its hazard pointer (seq_cst), then re-reads head to verify it hasn't changed — this prevents use-after-free by ensuring the node is protected before access. After a successful CAS pops the node, a seq_cst fence precedes the is_protected scan to guarantee visibility of other threads' hazard pointers. Unprotected nodes are deleted immediately; protected ones go to a lock-free retire list. Each pop triggers a scan of the retire list to reclaim nodes whose hazard pointers have been cleared. The destructor walks both the stack and retire list to free everything."""
+verification_explanation = """Tests compile the implementation with g++ -std=c++20, then verify: (1) single-threaded LIFO correctness and try_pop semantics, (2) multi-threaded value accounting (8 threads push unique values, pop all, verify exact set equality), (3) memory reclamation via a Tracked<T> wrapper that counts live objects — after stack destruction, zero objects must remain alive, (4) 16-thread high-contention stress test with 50K ops each, (5) source code inspection for hazard pointer structures and acquire-release memory ordering usage."""
+category = "systems_programming"
+tags = ["lock-free", "c++-concurrency"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lockfree-hazard-reclaim"

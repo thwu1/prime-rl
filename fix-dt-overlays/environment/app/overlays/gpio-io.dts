@@ -1,0 +1,50 @@
+/*
+ * Device Tree Overlay for GPIO-connected peripherals
+ * Monitoring HAT — LEDs, buttons, 1-Wire
+ */
+/dts-v1/;
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            hat_leds {
+                compatible = "gpio-leds";
+
+                status_led: status-led {
+                    label = "hat:green:status";
+                    gpios = <&gpio 27 1>;
+                    linux,default-trigger = "default-on";
+                };
+            };
+        };
+    };
+
+    fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            hat_keys {
+                compatible = "gpio-keys";
+
+                reset_btn: power-button {
+                    label = "reset";
+                    linux,code = <0x198>;
+                    gpios = <&gpio 22 1>;
+                    debounce-interval = <50>;
+                };
+            };
+        };
+    };
+
+    fragment@2 {
+        target-path = "/";
+        __overlay__ {
+            onewire {
+                compatible = "w1-gpio";
+                gpios = <&gpio 14 0>;
+            };
+        };
+    };
+};

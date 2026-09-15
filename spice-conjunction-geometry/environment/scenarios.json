@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mars_equatorial",
+    "target": "MARS BARYCENTER",
+    "observer": "EARTH",
+    "epoch": "2024 JAN 15 12:00:00 UTC",
+    "frame": "J2000",
+    "abcorr": "LT+S",
+    "outputs": ["position_km", "ra_deg", "dec_deg", "range_km", "light_time_sec", "ecliptic_lon_deg", "ecliptic_lat_deg"]
+  },
+  {
+    "id": "jupiter_phase",
+    "target": "JUPITER BARYCENTER",
+    "observer": "EARTH",
+    "epoch": "2024 JUN 01 00:00:00 UTC",
+    "frame": "J2000",
+    "abcorr": "CN+S",
+    "outputs": ["position_km", "ra_deg", "dec_deg", "range_km", "light_time_sec", "ecliptic_lon_deg", "ecliptic_lat_deg", "phase_angle_deg"]
+  },
+  {
+    "id": "phobos_position",
+    "target": "PHOBOS",
+    "observer": "EARTH",
+    "epoch": "2024 MAR 01 00:00:00 UTC",
+    "frame": "J2000",
+    "abcorr": "LT+S",
+    "outputs": ["position_km", "ra_deg", "dec_deg", "range_km", "light_time_sec"]
+  },
+  {
+    "id": "saturn_velocity",
+    "target": "SATURN BARYCENTER",
+    "observer": "MARS BARYCENTER",
+    "epoch": "2024 SEP 22 06:00:00 UTC",
+    "frame": "J2000",
+    "abcorr": "LT+S",
+    "outputs": ["position_km", "ra_deg", "dec_deg", "range_km", "light_time_sec", "velocity_km_s", "speed_km_s", "ecliptic_lon_deg", "ecliptic_lat_deg"]
+  }
+]

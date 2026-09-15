@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of both WebAssembly's linear memory model and Linux virtual memory management. The agent must comprehend walloc's intricate page/chunk/granule architecture — 64KB pages divided into 256-byte chunks, 10 segregated small-object size classes (1-32 granules), best-fit large-object allocation with lazy coalescing, and the large-object splitting logic that handles page-boundary crossings. The native memory backend must use mmap+mprotect in a reserve-then-commit pattern that preserves contiguous growth semantics (base address never moves). Implementing correct realloc requires understanding how to extract allocation sizes from chunk_kind headers (small objects) and large_object struct headers. The port demands resolving wasm-specific type definitions, replacing three distinct memory intrinsics, and adapting address arithmetic from wasm's zero-based model."""
+solution_explanation = """Reserve a large virtual address region with mmap(PROT_NONE), commit 64KB pages via mprotect, ensuring 64KB alignment of the base. Replace __builtin_wasm_memory_size with a committed-page counter, __builtin_wasm_memory_grow with mprotect to commit more pages, and &__heap_base with the mmap'd base. Adapt allocate_pages to compute end-of-heap from base+committed rather than wasm's zero-based addressing. Implement realloc by reading chunk_kind from page headers (small) or the large_object header (large), checking same-class fit, else malloc+copy+free. Implement calloc with explicit memset. Walk freelists for stats."""
+verification_explanation = """Tests compile walloc_native.c to libwalloc.so and exercise it via Python ctypes: basic malloc/free, all 10 small-object size classes, large objects, realloc with data integrity across size class transitions (small-to-large, large-to-small, same-class no-op), calloc zeroing of dirty reused memory, freelist stats accuracy, stress testing with 1000 random allocation/free operations, and destroy+reinit lifecycle."""
+category = "systems-programming"
+tags = ["memory-allocators", "webassembly"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/port-wasm-allocator"

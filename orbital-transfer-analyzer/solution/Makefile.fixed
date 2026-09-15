@@ -1,0 +1,25 @@
+.PHONY: all clean validate
+
+DB      = /app/missions.db
+RESULTS = /app/results.json
+REPORT  = /app/report.csv
+
+all: $(REPORT)
+
+$(DB): /app/init.sql
+	sqlite3 $@ < $<
+
+$(RESULTS): /app/run_missions.py /app/lib/orbital.py /app/config.toml $(DB)
+	cd /app && python3 run_missions.py
+
+validate: $(RESULTS)
+	jq -e -f /app/validate.jq $(RESULTS) > /dev/null
+
+$(REPORT): validate
+	sqlite3 -header -csv $(DB) \
+		"SELECT g.mission_id, g.field, g.value AS expected, g.tol_rel, g.tol_abs FROM golden_values g ORDER BY g.mission_id, g.field" \
+		> $@
+	@echo "Pipeline complete."
+
+clean:
+	rm -f $(DB) $(RESULTS) $(REPORT)

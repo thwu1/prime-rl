@@ -1,0 +1,18 @@
+{
+  "description": "Prefix caching behavior",
+  "config": {"enable_prefix_caching": true, "num_gpu_blocks": 8},
+  "operations": [
+    {"op": "allocate", "args": {"seq_id": 1, "token_ids": [10, 20, 30, 40, 50, 60, 70, 80]}},
+    {"op": "free", "args": {"seq_id": 1}},
+    {"op": "allocate", "args": {"seq_id": 2, "token_ids": [10, 20, 30, 40, 90, 91, 92, 93]}},
+    {"op": "allocate", "args": {"seq_id": 3, "token_ids": [10, 20, 30, 40, 50, 60, 70, 80, 99]}, "check_seq": [2, 3]},
+    {"op": "free", "args": {"seq_id": 2}},
+    {"op": "free", "args": {"seq_id": 3}},
+    {"op": "allocate", "args": {"seq_id": 4, "token_ids": [1, 2, 3]}},
+    {"op": "free", "args": {"seq_id": 4}},
+    {"op": "allocate", "args": {"seq_id": 5, "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}},
+    {"op": "allocate", "args": {"seq_id": 6, "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}},
+    {"op": "free", "args": {"seq_id": 5}},
+    {"op": "free", "args": {"seq_id": 6}}
+  ]
+}

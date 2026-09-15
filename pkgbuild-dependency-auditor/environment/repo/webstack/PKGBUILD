@@ -1,0 +1,25 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+
+pkgname=webstack
+pkgver=2.4.6
+pkgrel=1
+pkgdesc="High-performance web server stack"
+arch=('x86_64')
+url="https://example.com/webstack"
+license=('Apache-2.0')
+depends=('syslibs' 'openssl>=3.3.0' 'pcre2')
+makedepends=('cmake')
+provides=('http-server=2.4.6')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    ./configure --prefix=/usr
+    make
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    make DESTDIR="${pkgdir}" install
+}

@@ -1,0 +1,10 @@
+# Grid with boundary errors: 4 detectors, 8 errors, 2 observables
+# Boundary errors have single-detector support
+error(0.10) D0 D1
+error(0.05) D1 D2
+error(0.08) D2 D3
+error(0.15) D0 D3
+error(0.03) D0 L0
+error(0.12) D1
+error(0.07) D2 L1
+error(0.20) D3

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete AES-128 decryption module from scratch in Verilog. The solver must: (1) derive the 256-entry inverse S-box by inverting the forward substitution table, (2) implement InvMixColumns using GF(2^8) multiplication by {0x0e, 0x0b, 0x0d, 0x09} via chained xtime operations with the AES irreducible polynomial, (3) design a two-phase FSM architecture that first pre-expands all 11 round keys then applies inverse rounds in reverse order, and (4) correctly sequence InvShiftRows/InvSubBytes/AddRoundKey/InvMixColumns per FIPS 197 Section 5.3. SOTA LLMs consistently fail at AES Verilog implementation (ArchXBench Level 4+ pass rate <5%), and this task requires building ~350 lines of correct RTL with no reference decryption code available—only the forward encryption module. Multiple iterative compile-simulate-debug cycles are needed."""
+solution_explanation = """The solution generates a self-contained decryption module using a Python script. Key design decisions: (1) Inverse S-box is computed programmatically from the forward S-box (INV_SBOX[SBOX[i]]=i). (2) GF(2^8) multiply-by-{9,11,13,14} functions use three levels of xtime with the 0x1b reduction constant, decomposed as gf_mul9=t8^b, gf_mul11=t8^t2^b, gf_mul13=t8^t4^b, gf_mul14=t8^t4^t2. (3) InvShiftRows right-shifts rows by {0,1,2,3} positions, producing byte mapping {s0,s13,s10,s7,...}. (4) A two-phase FSM first expands all round keys (KEY_EXPAND, 10 cycles) storing them in a reg[127:0] array[0:10], then applies 10 inverse rounds (DECRYPT) using keys in reverse order (9 down to 0), with the initial AddRoundKey(key[10]) computed combinationally at the phase transition. (5) The final round omits InvMixColumns per the standard."""
+verification_explanation = """The testbench instantiates both the encryption and decryption modules. It tests 5 cases: 4 NIST standard vectors (FIPS 197 Appendix B, SP 800-38A ECB Block 1, FIPS 197 Appendix A KAT, all-zeros) fed as ciphertext→plaintext, plus 1 encrypt-then-decrypt round-trip test that encrypts an arbitrary 128-bit block, feeds the ciphertext into the decryption module, and verifies the output matches the original plaintext. Pytest compiles all Verilog files with iverilog, runs vvp simulation, and checks for exactly 5 [PASS] markers with no [FAIL] markers."""
+category = "hardware_design"
+tags = ["verilog", "cryptography"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a5173e"

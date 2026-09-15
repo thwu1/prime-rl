@@ -1,0 +1,10 @@
+# Included sub-file for include tests
+
+statement ok
+INSERT INTO inc_test VALUES(1)
+
+statement ok
+INSERT INTO inc_test VALUES(2)
+
+statement ok
+INSERT INTO inc_test VALUES(3)

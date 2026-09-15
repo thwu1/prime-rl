@@ -1,0 +1,87 @@
+-- OpenMoonRay RDLA Scene: Multiple Validation Issues
+-- Contains: invalid IOR, invalid roughness, unresolved reference, orphaned objects
+
+SceneVariables {
+    ["image_width"] = 800,
+    ["image_height"] = 600,
+    ["pixel_samples"] = 32,
+    ["max_depth"] = 6
+}
+
+PerspectiveCamera("/scene/camera") {
+    ["node_xform"] = translate(0, 3, -10),
+    ["focal"] = 35.0,
+    ["film_width_aperture"] = 36.0
+}
+
+-- Material with invalid IOR (should be >= 1.0)
+DwaSolidDielectricMaterial("/scene/surfacing/bad_glass") {
+    ["ior"] = 0.5,
+    ["roughness"] = 0.1,
+    ["absorptionColor"] = Rgb(1.0, 1.0, 1.0)
+}
+
+-- Material referencing non-existent map
+DwaBaseMaterial("/scene/surfacing/textured") {
+    ["albedo"] = bind(ImageMap("/scene/maps/missing_texture")),
+    ["roughness"] = 0.6,
+    ["specular"] = 0.2
+}
+
+-- Orphaned material with invalid roughness (not used in any Layer entry)
+DwaFabricMaterial("/scene/surfacing/unused_fabric") {
+    ["albedo"] = Rgb(0.3, 0.2, 0.1),
+    ["roughness"] = 1.5,
+    ["specular"] = 0.05
+}
+
+-- Valid floor material
+DwaBaseMaterial("/scene/surfacing/floor_mat") {
+    ["albedo"] = Rgb(0.7, 0.7, 0.7),
+    ["roughness"] = 0.5,
+    ["specular"] = 0.1
+}
+
+-- Geometry
+RdlMeshGeometry("/scene/geometry/floor") {
+    ["node_xform"] = translate(0, 0, 0) * scale(20, 1, 20),
+    ["vertices"] = {Vec3(-1,0,-1), Vec3(1,0,-1), Vec3(1,0,1), Vec3(-1,0,1)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+SphereGeometry("/scene/geometry/glass_ball") {
+    ["node_xform"] = translate(0, 1, 0),
+    ["radius"] = 1.0
+}
+
+-- Lights
+RectLight("/scene/lights/key") {
+    ["node_xform"] = translate(2, 4, -3),
+    ["width"] = 2.0,
+    ["height"] = 2.0,
+    ["intensity"] = 10.0,
+    ["color"] = Rgb(1.0, 1.0, 1.0)
+}
+
+DistantLight("/scene/lights/fill") {
+    ["direction"] = Vec3(-1, -1, 1),
+    ["intensity"] = 0.5,
+    ["color"] = Rgb(0.8, 0.9, 1.0)
+}
+
+-- Scene organization
+LightSet("/scene/light_set") {
+    ["lights"] = {RectLight("/scene/lights/key"), DistantLight("/scene/lights/fill")}
+}
+
+Layer("/scene/render_layer") {
+    {RdlMeshGeometry("/scene/geometry/floor"), "", DwaBaseMaterial("/scene/surfacing/floor_mat"), LightSet("/scene/light_set")},
+    {SphereGeometry("/scene/geometry/glass_ball"), "", DwaSolidDielectricMaterial("/scene/surfacing/bad_glass"), LightSet("/scene/light_set")}
+}
+
+RenderOutput("/scene/output/beauty") {
+    ["file_name"] = "output.exr",
+    ["result"] = "beauty",
+    ["camera"] = PerspectiveCamera("/scene/camera")
+}

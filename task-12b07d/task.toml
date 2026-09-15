@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary to understand its internal data structures (a 128-byte buffer followed by security-critical control fields in a heap-allocated struct), identifying an unbounded memcpy driven by an attacker-controlled header field (key_blob_block), recognizing that the overflow occurs before authentication so the auth check can be disabled, determining the exact byte offsets for three separate overwrite targets (auth_required, debug_interface, security_bypass) including the specific magic comparison value (0x55aa55aa), constructing a precise binary exploit payload, and writing a technical vulnerability report. This combines binary analysis, memory corruption exploitation, and security architecture reasoning — skills at the proficient-to-expert level on the Dreyfus scale."""
+solution_explanation = """Use objdump/strings/gdb to analyze the fw_parser binary. Discover that it heap-allocates a parse_ctx_t struct with a 128-byte header_buf followed by auth_req (offset 128), dbg_iface (offset 132), and sec_bypass (offset 136). The parser copies key_blob_block*16 bytes from the file into the 128-byte buffer via memcpy without bounds checking. Setting key_blob_block=9 causes 144 bytes to be copied, overflowing into the adjacent fields. By placing 0x00000000 at file offset 128 (zeroing auth_req to skip signature verification), 0x00000001 at offset 132 (enabling debug), and 0x55aa55aa at offset 136 (triggering security bypass), the exploit extracts the embedded device secret."""
+verification_explanation = """Tests run the parser binary with the crafted exploit.sb2 and verify: (1) the parser exits successfully (return code 0), (2) output contains 'Auth required: 0' confirming auth bypass, (3) output contains 'BYPASS_ACTIVE' confirming security bypass triggered, (4) output contains the correct 32-byte device secret hex string, (5) output contains 'DEBUG_ENABLED'. Additionally verifies the vulnerability report exists and contains key technical terms (buffer overflow, key_blob_block, pre-authentication overflow explanation)."""
+category = "security"
+tags = ["binary-analysis", "exploit-development"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-12b07d"

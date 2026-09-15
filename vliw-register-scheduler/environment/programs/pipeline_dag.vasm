@@ -1,0 +1,55 @@
+; Diamond-DAG pipeline
+; Load 4 values, pairwise operations (fan-out), combine (fan-in), hash rounds, store 2 outputs
+; Tests register pressure from overlapping lifetimes at convergence points
+;
+
+.meta name pipeline_dag
+.meta max_regs 14
+.meta max_cycles 26
+
+.data 0 0x11111111
+.data 1 0x22222222
+.data 2 0x33333333
+.data 3 0x44444444
+
+const v0 #0x0
+load v1 v0
+const v2 #0x1
+load v3 v2
+const v4 #0x2
+load v5 v4
+const v6 #0x3
+load v7 v6
+add v8 v1 v3
+xor v9 v1 v5
+add v10 v3 v7
+xor v11 v5 v7
+mul v12 v1 v7
+mul v13 v3 v5
+add v14 v8 v10
+xor v15 v9 v11
+add v16 v12 v13
+xor v17 v8 v12
+const v18 #0x7ed55d16
+const v19 #0xc
+add v20 v14 v18
+shl v21 v14 v19
+add v22 v20 v21
+const v23 #0xc761c23c
+const v24 #0x7
+xor v25 v15 v23
+shr v26 v15 v24
+xor v27 v25 v26
+xor v28 v22 v27
+add v29 v28 v16
+xor v30 v29 v17
+const v31 #0x165667b1
+const v32 #0x5
+add v33 v30 v31
+shl v34 v30 v32
+add v35 v33 v34
+const v36 #0xa
+store _ v36 v35
+const v37 #0xb
+store _ v37 v16
+halt _

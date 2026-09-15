@@ -1,0 +1,39 @@
+{
+  "image": {
+    "file": "/app/phantom.mha",
+    "size": [128, 128, 80],
+    "spacing_mm": [1.0, 1.0, 1.0],
+    "origin_mm": [-64.0, -64.0, -40.0]
+  },
+  "grid": {
+    "layout": [4, 4, 3],
+    "spacing_mm": [15.0, 15.0, 20.0],
+    "origin_mm": [-22.5, -22.5, -20.0],
+    "marker_radius_mm": 3.0,
+    "marker_intensity": 250,
+    "background_intensity": 30
+  },
+  "noise_sigma": 10.0,
+  "distortion": {
+    "type": "polynomial_2nd_order",
+    "terms": ["x^2", "y^2", "z^2", "xy", "xz", "yz"],
+    "note": "An unknown 2nd-order polynomial distortion displaces each marker from its ideal grid position. For each spatial axis, the displacement is a linear combination of the listed quadratic terms evaluated at the ideal position coordinates (in mm)."
+  },
+  "quality_criteria": {
+    "max_geometric_error_mm": 3.5,
+    "mean_geometric_error_mm": 2.0,
+    "min_detected_markers": 48,
+    "min_snr_db": 15.0
+  },
+  "output": {
+    "report_file": "/app/calibration_report.json",
+    "fields": {
+      "detected_markers": "Array of objects, one per matched marker. Each has: grid_id (3-element int list [i,j,k]), ideal_position_mm (3-element float list), detected_position_mm (3-element float list), displacement_mm (3-element float list, detected minus ideal), displacement_magnitude_mm (float, L2 norm of displacement vector)",
+      "num_detected": "Integer count of successfully detected and matched markers",
+      "geometric_errors": "Object with: max_mm (float), mean_mm (float), rms_mm (float) — statistics of displacement_magnitude_mm across all markers",
+      "distortion_model": "Object with: coefficients_x (6-element float list), coefficients_y (6-element float list), coefficients_z (6-element float list) — polynomial coefficients in order matching the terms field; fit_residual_rms_mm (float, RMS of residuals after polynomial fit)",
+      "snr_db": "Float, contrast-to-noise ratio in dB computed as 20*log10((mean_marker_intensity - mean_background_intensity) / std_background_intensity)",
+      "quality_assessment": "Object with: detection_pass (bool), geometric_pass (bool), snr_pass (bool), overall (string, 'PASS' if all criteria met, 'FAIL' otherwise)"
+    }
+  }
+}

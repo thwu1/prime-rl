@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of systemd's non-shell ExecStart tokenization rules, which are subtly different from POSIX shell parsing. The solver must independently implement a correct tokenizer handling systemd's quoting, variable expansion semantics, prefix detection, line continuation, and path resolution. Then the solver must diagnose 5 broken service files — the instruction does not reveal what is wrong with each service, so the solver must discover the bugs by analyzing each service against systemd's documented parsing semantics and the intended behavior described in header comments. The combination of parser implementation and independent systems debugging requires Dreyfus proficient-level expertise."""
+solution_explanation = """The solution implements a Python-backed shell tokenizer (sd_tokenize.sh wrapping sd_tokenize_engine.py) that faithfully follows systemd's documented parsing algorithm: first merge continuation lines, then tokenize using positional quote detection (quotes only open at token boundaries), then detect/strip prefixes, then expand variables with the $VAR/${VAR} split/exact distinction, and finally resolve command paths. For the broken services: data-pipeline.service wraps its pipe/redirect chain in sh -c since systemd doesn't interpret shell metacharacters; app-server.service swaps $JVM_OPTS (needs splitting) and ${CONFIG_FILE} (needs preservation); deploy-hook.service removes the : prefix that suppressed needed variable expansion; multi-step.service restructures multiple ExecStart= into ExecStartPre= + single ExecStart=; healthcheck.service splits && into separate ExecStartPre lines and creates a wrapper script for the shell loop in ExecStartPost."""
+verification_explanation = """Tests verify the tokenizer against 15 canonical test cases derived from the systemd.service(5) man page examples and documented edge cases, comparing exact ARGV output. Service fix tests verify: fixed files exist, structural correctness of Exec directives, wrapper scripts exist and are executable, and systemd-analyze --user verify passes on all fixed service files."""
+category = "systems_programming"
+tags = ["systemd", "shell_parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/systemd-exec-tokenizer"

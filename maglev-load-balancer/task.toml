@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level networking and systems knowledge across three distinct domains: (1) packet capture forensics using tshark to extract traffic statistics from a PCAP file, (2) nginx reverse proxy configuration with consistent hashing for minimal connection disruption, and (3) implementing a consistent-hash load balancer algorithm with specific mathematical properties — even distribution within 2% tolerance, minimal disruption bounded by TABLE_SIZE*1.5/N on backend removal, weighted distribution, and connection tracking with DSR-style semantics. The agent must independently discover the appropriate consistent hashing algorithm from the behavioral requirements (prime table size 65537, specific distribution guarantees), then implement it correctly alongside the other two components. No algorithm is named in the instructions."""
+solution_explanation = """The solution has three parts: (1) tshark field extraction commands to analyze the PCAP and produce traffic statistics JSON, (2) nginx configuration with 'hash $remote_addr consistent' in the upstream block for ketama-style consistent hashing, and (3) a Python implementation of the Maglev consistent hashing algorithm — computing per-backend permutations from hash-derived offset/skip values, filling a 65537-entry table via weighted round-robin, and implementing connection tracking that preserves flows through health changes while preventing new connections to unhealthy backends."""
+verification_explanation = """31 pytest tests verify all three components: 8 tests for lookup table properties (size, validity, even distribution, weighted distribution, minimal disruption, determinism, edge cases), 12 tests for connection tracking semantics (consistency, distribution, health preservation, FIN handling, remapping, recovery), 7 tests for PCAP analysis (file existence, JSON structure, request/response counts, backend identification, client counting) with expected values computed at test time via independent tshark queries, and 4 tests for nginx configuration (syntax validation via nginx -t, consistent hashing directive, upstream naming, backend server entries)."""
+category = "networking"
+tags = ["consistent-hashing", "traffic-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/maglev-load-balancer"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a Z3 SMT-based bounded model checker for interval set operations from scratch, demanding understanding of bitvector encoding strategies for set semantics, symbolic verification of algebraic identities (De Morgan's laws, absorption, distributivity, complement involution), and the interplay between representation invariants and operation correctness. The solver must design Z3 formulas that capture twelve algebraic laws, construct an exhaustive bounded checker that converts between bitmask and interval representations, and use these tools to discover three subtle bugs: off-by-one in merge adjacency (> vs >=), empty interval production in intersection (<= vs <), and premature iterator advancement in difference. Additionally requires implementing complement (gap-finding sweep), symmetric_difference, and normalize while maintaining sorted/disjoint/non-adjacent invariants. The combination of SMT solver proficiency, formal verification design, and sweep-line algorithm debugging across multiple abstraction levels requires expert-level holistic understanding."""
+solution_explanation = """Fix _merge_into >= comparison, intersection strict < check, and difference iterator logic. Implement complement via gap sweep, symmetric_difference via union of differences, normalize via sort-filter-merge. Build Z3 verifier encoding sets as BitVecs (union=OR, intersection=AND, difference=AND-NOT, complement=NOT, symmetric_difference=XOR), verify each law by checking UNSAT of its negation. Implement check_operation via exhaustive bitmask enumeration with interval conversion. Generate verification report confirming all 12 laws hold at bound >= 8."""
+verification_explanation = """Property-based tests with fixed random seeds compare each operation against reference implementations using point-set conversion. Z3 verifier tested for: correct z3 import, check_law function verifying all 12 laws, check_operation detecting deliberately buggy implementations (inline buggy union with adjacency bug), and verification report completeness and correctness. All outputs validated against interval set invariants."""
+category = "formal-verification"
+tags = ["smt-solver", "interval-arithmetic", "z3"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-interval-sets"

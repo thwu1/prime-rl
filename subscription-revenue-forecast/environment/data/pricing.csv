@@ -1,0 +1,16 @@
+country,tier,starting_price,currency
+USA,Starter,19.99,USD
+USA,Growth,39.99,USD
+USA,Professional,69.99,USD
+USA,Business,99.99,USD
+USA,Enterprise,149.99,USD
+AUS,Starter,29.99,AUD
+AUS,Growth,59.99,AUD
+AUS,Professional,99.99,AUD
+AUS,Business,149.99,AUD
+AUS,Enterprise,224.99,AUD
+UK,Starter,14.99,GBP
+UK,Growth,29.99,GBP
+UK,Professional,54.99,GBP
+UK,Business,79.99,GBP
+UK,Enterprise,114.99,GBP

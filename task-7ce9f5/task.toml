@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating graph data across four fundamentally different storage systems — a SQLite database with an indirect label-based schema requiring JOINs, Matrix Market sparse coordinate format, GraphML with XML namespaces, and a gzipped 0-indexed edge list with injected noise — while a misleading README claims all data resides solely in SQLite. The agent must explore the filesystem, identify each format, reconcile indexing differences (0-based vs 1-based), filter self-loops and duplicates, then compute a comprehensive suite of structural decompositions: k-truss decomposition with per-level component counting, k-core decomposition (degeneracy), maximal clique enumeration via Bron-Kerbosch, articulation point and bridge detection via Tarjan's algorithm, and BFS-based diameter computation. The analysis demands holistic understanding of graph-theoretic relationships between these decompositions and proficiency with specialized graph analysis libraries (igraph or networkx) alongside SQL tooling."""
+solution_explanation = """Discover all data files under /opt/graphdata/ recursively. Extract edges from SQLite via label→ID JOIN on the sensors table. Parse Matrix Market symmetric coordinate pattern format. Parse GraphML XML with namespace handling. Decompress and parse the gzipped 0-indexed edge list, adding 1 to all IDs. Filter self-loops and canonicalize edges as (min,max) tuples. Use python-igraph for k-core decomposition (coreness), maximal clique enumeration, articulation points, bridges, diameter, and connected components. Implement k-truss decomposition manually via iterative edge peeling with triangle-support computation. Combine all results into the required JSON format."""
+verification_explanation = """Tests independently reconstruct the expected graph from the known deterministic clique-and-bridge structure, then compute all metrics using pure-Python reference implementations of each algorithm (triangle counting, k-truss peeling, k-core peeling, Bron-Kerbosch, Tarjan's AP/bridge algorithms, BFS diameter). Every field in results.json is compared against independently computed ground truth. Cross-consistency checks verify theoretical invariants between metrics."""
+category = "algorithms"
+tags = ["graph-theory", "data-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7ce9f5"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete fuzzer evaluation framework from mathematical specifications and heterogeneous raw data with no starter code. The solver must: (1) parse a custom binary coverage format (FCOV) with multi-snapshot cumulative edge sets using low-level struct unpacking, (2) discover that the SQLite database stores coverage as incremental per-interval edges — not cumulative — by inspecting the data, then design the correct query strategy (snapshot_time <= ?) to reconstruct cumulative coverage, (3) extract Tversky-index parameters from the database config table since they are deliberately absent from meta.json, (4) implement the full Tversky-index novelty scoring algorithm with correct rarity formula ((F-|D(e)|)/(F-1)) and consistency weighting, (5) implement fractional ranking with descending-score semantics, (6) implement a Mann-Whitney U test with normal approximation and tie correction entirely from scratch since no statistical library is pre-installed, (7) implement Benjamini-Hochberg FDR correction with monotonicity enforcement across all pairwise tests from all benchmarks combined, and (8) validate against a partial reference covering only one of four benchmarks while ensuring numerical correctness across all four. The combination of binary format parsing, data semantics inference, and multiple statistical algorithm implementations from mathematical descriptions makes this a substantial systems-building challenge."""
+solution_explanation = """Read meta.json to identify fcov_benchmarks vs db_benchmarks. Parse FCOV binary files using struct unpacking: 4-byte magic 'FCOV', then uint32 version/edge_space/num_snapshots header, followed by per-snapshot timestamp + edge count + sorted edge array. Query the SQLite config table to obtain tversky_alpha=0.7 and tversky_beta=1.0. For SQLite-stored benchmarks, use 'SELECT DISTINCT edge_id FROM coverage WHERE ... AND snapshot_time <= ?' to reconstruct cumulative coverage from incremental per-interval data (discoverable by comparing edge counts across snapshot times or noting that = ? gives only new edges). Implement novelty scoring: rarity(e) = (F - |D(e)|) / (F - 1), consistency(f,e) = trials_with_edge / T, contribution = rarity^alpha * consistency^beta. Rank by descending novelty score using fractional ranking. Compute per-trial scores using rarity^alpha only. Implement Mann-Whitney U via rank-sum with tie correction and normal approximation. Apply BH correction globally: sort p-values ascending, multiply by m/rank, enforce monotonicity scanning from largest rank down, cap at 1.0. Compute velocity as delta_mean_edges / (t2 - t1)."""
+verification_explanation = """Tests verify all four output JSON files against pre-computed expected values with tight numerical tolerances. Novelty scores are checked per-benchmark per-fuzzer for score (±0.1), total edges (exact), unique edges (exact), and rank (±0.01). Aggregate ranking verifies exact fuzzer order, mean ranks, total novelty sums, per_benchmark_ranks presence, and sort order. Statistical tests validate p-value ranges, BH correction monotonicity (corrected >= raw), significance consistency, and that all comparisons are significant for this dataset. Coverage velocity checks snapshot mean edges and rates against expected values. Cross-file consistency ensures aggregate ranking matches per-benchmark ranks and novelty score totals."""
+category = "implementation"
+tags = ["fuzzing-evaluation", "data-engineering", "statistical-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/novelty-coverage-ranking"

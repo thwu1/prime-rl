@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep numerical linear algebra expertise to diagnose why a Gram Newton-Schulz implementation diverges from its reference standard formulation. The agent must identify subtle ordering and coefficient bugs across interacting modules (Gram iteration, eigenvalue simulator) without any hints about which code is wrong, implement a missing optimization routine, orchestrate a multi-step evaluation pipeline reading workload configurations from SQLite and writing structured results back, and produce a comparative convergence analysis that evaluates two coefficient sets against each other across multiple workload profiles. Demands proficient-level debugging of numerical algorithms, SQLite database operations via CLI and programmatic access, and cross-module reasoning about mathematical equivalence."""
+solution_explanation = """Three bug fixes, one implementation, a database pipeline, and a convergence evaluation: (1) In gram_ns.py, the restart block must execute before Z computation so Z uses the freshly restarted R. (2) In gram_ns.py, the RZ coefficient must be 'a' (identity term) not 'b'. (3) In stability.py, x_eigenvalues must be updated before r is recomputed at restart. (4) Implement find_optimal_restarts via exhaustive combinatorial search. (5) Read workloads from SQLite, evaluate all (workload, coef_set, num_restarts) configurations, store 22 evaluation rows and 4 recommendations. (6) Compute convergence iteration for each workload/coefficient pair and determine which set is recommended based on convergence speed with stability-metric tiebreaking."""
+verification_explanation = """27 pytest tests across 9 classes verify: standard NS produces near-unit singular values; Gram NS matches standard across 5 matrix configurations with and without restarts; stability simulation predicts convergence and restart invariance; restart finder returns globally optimal positions verified by exhaustive comparison; database has exactly 22 evaluations covering all workloads and both coefficient sets; stored metrics match independent recomputation; stored restart positions are verified optimal; recommendations are globally best per workload; report.json structure and database consistency; convergence_analysis.json has correct structure, recomputed convergence iterations match, and recommended_set follows tiebreaking rules."""
+category = "debugging"
+tags = ["numerical-computing", "data-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polar-decomposition-debug"

@@ -1,0 +1,7 @@
+[
+  {"name": "San Francisco", "latitude": 37.7749, "longitude": -122.4194},
+  {"name": "Salt Lake City", "latitude": 40.7608, "longitude": -111.8910},
+  {"name": "Portland", "latitude": 45.5152, "longitude": -122.6784},
+  {"name": "Phoenix", "latitude": 33.4484, "longitude": -112.0740},
+  {"name": "Reno", "latitude": 39.5296, "longitude": -119.8138}
+]

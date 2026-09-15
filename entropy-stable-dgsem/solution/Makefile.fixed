@@ -1,0 +1,15 @@
+.PHONY: all run report validate clean
+
+all: run report validate
+
+run:
+	cd /app && python3 run_study.py
+
+report:
+	jq '{mean_order: (.orders | add / length), max_error: (.errors | max), min_error: (.errors | min), num_levels: (.elements | length)}' /app/results/convergence.json > /app/results/report.json
+
+validate:
+	awk -F, 'BEGIN{ok=1} NR>1{if($$2+0<=0 || $$4+0<=0){ok=0}} END{if(ok) print "PASS"; else print "FAIL"}' /app/results/sod_solution.csv > /app/results/validation.txt
+
+clean:
+	rm -rf /app/results

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building an 8086 CPU simulator with cycle-accurate timing requires three layers of expertise: (1) reverse-engineering raw binary machine code using ndisasm/xxd to understand variable-length instruction encodings without assembly source, (2) implementing correct instruction decode and execution including subtle edge cases (mod=00/rm=110 direct address, opcode 83 sign extension, flag computation for all ALU operations), and (3) implementing the 8086 timing model — base instruction clocks vary by operand type (reg-reg vs reg-mem vs mem-imm), effective address calculation costs depend on addressing mode combinations (7 different EA formulas), and transfer penalties require tracking runtime memory alignment for each word access. These three subsystems interact: a decoding error produces wrong EA costs, wrong EA computation produces wrong transfer penalties, and the timing model must handle dynamic instruction counts for loops and conditional branches."""
+solution_explanation = """The solution implements a complete 8086 simulator in Python (~600 lines). It decodes the binary instruction stream byte-by-byte, parsing opcode, MOD/RM, displacement, and immediate fields. A unified ALU handles ADD/SUB/CMP/AND/OR/XOR with correct flag computation. The cycle estimator integrates into the instruction dispatch loop: each handler sets base clocks from the timing table, computes EA clocks from a lookup indexed by (mod, rm), and adds transfer penalty by checking if word memory accesses target odd addresses. The --cycles mode logs per-instruction timing breakdown. The tool is validated against ndisasm for instruction count consistency."""
+verification_explanation = """Tests assemble 7 binary programs covering register ops, loops, memory addressing, conditionals, nested-loop rectangle drawing, bitwise/stack ops, and unaligned word access. For each program, tests verify: (1) final register values match expected state, (2) total cycle count matches hand-computed reference values derived from the timing table (e.g., 39, 68, 106, 24, 5436, 87, 73 cycles). Additional tests verify per-instruction cycle breakdown for the transfer penalty program (checking that odd-address word ops include +4 penalty while even-address ops do not), cross-validate instruction decode count against ndisasm, and verify pixel-level memory dump for the rectangle program."""
+category = "systems_programming"
+tags = ["cpu-simulation", "binary-analysis"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7552c8"

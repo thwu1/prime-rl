@@ -1,0 +1,92 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: platform-collector
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: platform-team
+    app.kubernetes.io/component: telemetry
+spec:
+  mode: deployment
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: otel-collector
+              scrape_interval: 10s
+              static_configs:
+                - targets: ["0.0.0.0:8888"]
+
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 400
+        spike_limit_mib: 100
+      attributes/tenant:
+        actions:
+          - key: platform.tenant
+            action: upsert
+            from_attribute: k8s.namespace.name
+      resource:
+        attributes:
+          - key: service.instance.id
+            from_attribute: k8s.pod.uid
+            action: upsert
+
+    exporters:
+      otlp/traces:
+        endpoint: "jaeger-collector.monitoring.svc:4317"
+        tls:
+          insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
+      otlphttp/metrics:
+        endpoint: "http://prometheus.monitoring.svc:9090/api/v1/otlp"
+        tls:
+          insecure: true
+      debug:
+        verbosity: basic
+        sampling_initial: 5
+        sampling_thereafter: 200
+
+    service:
+      telemetry:
+        logs:
+          level: info
+        metrics:
+          address: 0.0.0.0:8888
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, attributes/tenant, batch]
+          exporters: [otlp/jaeger]
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [batch, memory_limiter]
+          exporters: [otlphttp/metrics]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [debug]

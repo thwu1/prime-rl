@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-layer audit pipeline combining GCC-based constant extraction from C kernel headers with syzlang DSL parsing, cross-domain struct layout comparison, resource dependency graph analysis, and fuzzer reachability computation. The agent must understand Linux ioctl command encoding (_IOC bit layout), C struct alignment/padding conventions (to distinguish genuine array size bugs from acceptable __reserved omissions), recursive-descent parsing of syzlang type expressions including nested pointers, resource producer/consumer tracing through struct field direction annotations and pointer indirection, topological sorting with dependency tracking, and computing minimum prerequisite syscall sets via set-union over independent resource production chains (not simple max-depth). Each analysis layer depends on understanding from other layers — e.g., identifying struct field discrepancies requires knowing which fields are padding vs semantic, and computing call depth requires the full resource flow model."""
+solution_explanation = """Build a pipeline: (1) Generate and compile a C program to extract all 16 HWACCEL_* ioctl values. (2) Parse syzlang descriptions with a recursive-descent parser handling resources, syscalls, structs, flags, and nested type expressions. (3) Cross-validate syzlang const[] values against GCC-extracted values, decomposing via _IOC to identify mismatch fields. (4) Parse C struct definitions from the header, extract array sizes, and compare against syzlang struct array dimensions to find layout bugs (e.g., reserved[4] vs reserved[2], data[4096] vs data[48]). (5) Trace resource producers and consumers through return types, ptr direction, struct field annotations, and one level of nested pointers. (6) Detect orphans, dead consumers, undefined flags, invalid len refs, unused flags. (7) Topologically sort resources by producer dependencies. (8) Compute minimum_call_depth via recursive prerequisite-set computation: for each syscall, find all consumed resources, recursively compute the set of prerequisite syscalls needed to produce each, then take the union across all chains — yielding the total distinct preceding invocations, not just the longest chain."""
+verification_explanation = """Tests load /app/report.json and verify: 16 extracted ioctl constants match GCC-computed values, exactly 3 ioctl mismatches identified with correct mismatch_fields decomposition, struct_field_audit finds exactly 2 array size bugs (hwaccel_ctx_info.reserved 4 vs 2 and hwaccel_state_dump.data 4096 vs 48), all 7 resources identified with correct parents/producers/consumers, correct orphan resources and dead consumers, correct undefined flag refs and invalid len refs, correct unused flags, valid topological resource dependency order, and minimum_call_depth for all 18 syscalls including depth-4 for SUBMIT_JOB (union of two independent chains) and -1 for unreachable CANCEL_JOB."""
+category = "systems"
+tags = ["kernel-fuzzing", "syscall-analysis"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-081b32"

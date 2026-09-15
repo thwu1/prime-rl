@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Simplified pacs.008.001.08 schema for MT103 conversion validation.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+           targetNamespace="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+           elementFormDefault="qualified">
+
+  <xs:element name="Document">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="FIToFICstmrCdtTrf" type="tns:FIToFICstmrCdtTrfType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="FIToFICstmrCdtTrfType">
+    <xs:sequence>
+      <xs:element name="GrpHdr" type="tns:GroupHeaderType"/>
+      <xs:element name="CdtTrfTxInf" type="tns:CreditTransferType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="GroupHeaderType">
+    <xs:sequence>
+      <xs:element name="MsgId" type="xs:string"/>
+      <xs:element name="CreDtTm" type="xs:dateTime"/>
+      <xs:element name="NbOfTxs" type="xs:positiveInteger"/>
+      <xs:element name="SttlmInf" type="tns:SettlementInfoType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SettlementInfoType">
+    <xs:sequence>
+      <xs:element name="SttlmMtd" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CreditTransferType">
+    <xs:sequence>
+      <xs:element name="PmtId" type="tns:PaymentIdType"/>
+      <xs:element name="IntrBkSttlmAmt" type="tns:AmountType"/>
+      <xs:element name="IntrBkSttlmDt" type="xs:date"/>
+      <xs:element name="ChrgBr" type="xs:string"/>
+      <xs:element name="InstgAgt" type="tns:AgentType"/>
+      <xs:element name="InstdAgt" type="tns:AgentType"/>
+      <xs:element name="Dbtr" type="tns:PartyType"/>
+      <xs:element name="Cdtr" type="tns:PartyType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="PaymentIdType">
+    <xs:sequence>
+      <xs:element name="EndToEndId" type="xs:string"/>
+      <xs:element name="TxId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="AmountType">
+    <xs:simpleContent>
+      <xs:extension base="xs:decimal">
+        <xs:attribute name="Ccy" type="xs:string" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="AgentType">
+    <xs:sequence>
+      <xs:element name="FinInstnId" type="tns:FinInstnIdType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="FinInstnIdType">
+    <xs:sequence>
+      <xs:element name="BICFI" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="PartyType">
+    <xs:sequence>
+      <xs:element name="Nm" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

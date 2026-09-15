@@ -1,0 +1,11 @@
+# Heap operations: load forwarding, store-to-load, redundant store
+function heap_ops(2):
+bb0:
+  v0 = store a0 0 a1
+  v1 = load a0 0
+  v2 = load a0 0
+  v3 = load a0 4
+  v4 = store a0 4 v3
+  v5 = add v1 v2
+  v6 = add v5 v3
+  return v6

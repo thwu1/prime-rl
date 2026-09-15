@@ -1,0 +1,57 @@
+# Sort mode tests
+
+statement ok
+CREATE TABLE s1(x INTEGER, y TEXT)
+
+statement ok
+INSERT INTO s1 VALUES(3, 'cherry')
+
+statement ok
+INSERT INTO s1 VALUES(1, 'apple')
+
+statement ok
+INSERT INTO s1 VALUES(2, 'banana')
+
+# nosort - exact order from database (here ORDER BY ensures determinism)
+query IT nosort
+SELECT x, y FROM s1 ORDER BY x
+----
+1 apple
+2 banana
+3 cherry
+
+# rowsort - rows sorted lexicographically as space-joined strings
+query IT rowsort
+SELECT x, y FROM s1
+----
+1 apple
+2 banana
+3 cherry
+
+# valuesort - all values flattened and sorted as strings, one per line
+query IT valuesort
+SELECT x, y FROM s1 ORDER BY x
+----
+1
+2
+3
+apple
+banana
+cherry
+
+# valuesort with a value that exposes lexicographic vs numeric ordering
+statement ok
+INSERT INTO s1 VALUES(10, 'date')
+
+# "10" < "2" lexicographically because '1' < '2'
+query IT valuesort
+SELECT x, y FROM s1 ORDER BY x
+----
+1
+10
+2
+3
+apple
+banana
+cherry
+date

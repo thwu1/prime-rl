@@ -1,0 +1,7 @@
+build:
+	gcc -shared -fPIC -o libdiag.so diag_engine.c -lm
+
+clean:
+	rm -f libdiag.so
+
+.PHONY: build clean

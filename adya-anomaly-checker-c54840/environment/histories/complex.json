@@ -1,0 +1,14 @@
+{
+  "transactions": [
+    {"id": 0, "type": "fail", "ops": [{"op": "append", "key": "x", "val": 10}]},
+    {"id": 1, "type": "ok", "ops": [{"op": "r", "key": "x", "val": [10]}]},
+    {"id": 2, "type": "ok", "ops": [
+      {"op": "append", "key": "a", "val": 20},
+      {"op": "append", "key": "b", "val": 30}
+    ]},
+    {"id": 3, "type": "ok", "ops": [
+      {"op": "r", "key": "a", "val": [20]},
+      {"op": "r", "key": "b", "val": []}
+    ]}
+  ]
+}

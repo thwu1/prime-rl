@@ -1,0 +1,315 @@
+{
+  "resourceType": "Bundle",
+  "id": "clinical-bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "Observation/obs-hr-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-hr-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-1"},
+        "effectiveDateTime": "2024-01-15T10:30:00Z",
+        "valueQuantity": {
+          "value": 72,
+          "unit": "beats/minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "Observation/obs-temp-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-temp-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5",
+              "display": "Body temperature"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-2"},
+        "effectiveDateTime": "2024-01-15",
+        "valueQuantity": {
+          "value": 37.2,
+          "unit": "Cel",
+          "system": "http://unitsofmeasure.org",
+          "code": "Cel"
+        }
+      }
+    },
+    {
+      "fullUrl": "Observation/obs-hr-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-hr-2",
+        "status": "amended",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "364075005",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-1"},
+        "effectiveDateTime": "2024-02-20T14:00:00+05:30",
+        "valueQuantity": {
+          "value": 85,
+          "unit": "beats/minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "Observation/obs-bp-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bp-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6",
+              "display": "Systolic blood pressure"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-3"},
+        "effectiveDateTime": "2024-03-01T08:00:00Z",
+        "valueQuantity": {
+          "value": 130,
+          "unit": "mmHg",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "Observation/obs-glucose-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-glucose-1",
+        "status": "preliminary",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "1558-6",
+              "display": "Fasting glucose"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-2"},
+        "effectiveDateTime": "2024-01-20T07:00:00Z",
+        "valueQuantity": {
+          "value": 95,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "fullUrl": "MedicationRequest/medreq-1",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medreq-1",
+        "status": "active",
+        "intent": "order",
+        "subject": {"reference": "Patient/pat-1"},
+        "contained": [
+          {
+            "resourceType": "Medication",
+            "id": "med-inline",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                  "code": "198440",
+                  "display": "Lisinopril 10 MG Oral Tablet"
+                }
+              ]
+            }
+          }
+        ],
+        "medicationReference": {"reference": "#med-inline"},
+        "dosageInstruction": [
+          {
+            "text": "Take 10mg once daily",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
+                "period": 1,
+                "periodUnit": "d"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "MedicationRequest/medreq-2",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medreq-2",
+        "status": "completed",
+        "intent": "order",
+        "subject": {"reference": "Patient/pat-2"},
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "860975",
+              "display": "Metformin 500 MG Oral Tablet"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "fullUrl": "Condition/cond-1",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-1",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "38341003",
+              "display": "Hypertension"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-1"}
+      }
+    },
+    {
+      "fullUrl": "Condition/cond-2",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-2",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "resolved"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "44054006",
+              "display": "Diabetes mellitus type 2"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/pat-2"}
+      }
+    }
+  ]
+}

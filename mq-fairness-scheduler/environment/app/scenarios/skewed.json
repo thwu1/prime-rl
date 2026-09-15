@@ -1,0 +1,18 @@
+{
+    "name": "skewed",
+    "num_queues": 4,
+    "global_rate_mbps": 100,
+    "duration_sec": 2.0,
+    "flows": [
+        {"id": 0, "queue": 0, "weight": 1.0, "start_sec": 0.0},
+        {"id": 1, "queue": 1, "weight": 1.0, "start_sec": 0.0},
+        {"id": 2, "queue": 1, "weight": 1.0, "start_sec": 0.0},
+        {"id": 3, "queue": 2, "weight": 1.0, "start_sec": 0.0},
+        {"id": 4, "queue": 2, "weight": 1.0, "start_sec": 0.0},
+        {"id": 5, "queue": 2, "weight": 1.0, "start_sec": 0.0},
+        {"id": 6, "queue": 3, "weight": 1.0, "start_sec": 0.0},
+        {"id": 7, "queue": 3, "weight": 1.0, "start_sec": 0.0},
+        {"id": 8, "queue": 3, "weight": 1.0, "start_sec": 0.0},
+        {"id": 9, "queue": 3, "weight": 1.0, "start_sec": 0.0}
+    ]
+}

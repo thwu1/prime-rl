@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of coverage.py internals: diagnosing multiple interacting configuration bugs in .coveragerc without hints about what is wrong, correctly configuring subprocess/multiprocessing coverage, understanding coverage.py's SQLite data model (contexts_by_lineno, arcs, measured_files), and writing correct test impact analysis logic including exclusive coverage computation (set analysis across all contexts per line). Not solvable without deep familiarity with coverage.py's configuration options and Python API."""
+solution_explanation = """Fix .coveragerc: move branch=True to [run], set source=calclib, add dynamic_context=test_function, add concurrency=multiprocessing and parallel=True, remove *batch* from omit, remove 'raise ValueError'/'raise TypeError' from exclude_lines. Run 'coverage run -m pytest tests/', then 'coverage combine'. Write a Python script that uses coverage.py's CoverageData API (measured_files, contexts_by_lineno, has_arcs) and Coverage.json_report to compute per-file coverage stats, build context-to-file mappings, identify exclusive lines per context, and determine affected tests for changed lines from changes.json."""
+verification_explanation = """Tests verify: (1) .coveragerc has correct settings in [run] (branch, dynamic_context, concurrency) and no harmful omit/exclude patterns, (2) .coverage SQLite DB exists with arc data and non-empty dynamic contexts, (3) all calclib modules have coverage data including batch.py, (4) impact_report.json has correct structure and all required keys, (5) coverage_summary numbers match coverage.py's own json_report output, (6) context_mapping is accurate against DB queries, (7) exclusive_coverage claims are validated by checking each line has exactly one covering context, (8) affected_tests matches the set of contexts covering lines specified in changes.json."""
+category = "software_testing"
+tags = ["coverage-py", "python-testing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coverage-context-forensics"

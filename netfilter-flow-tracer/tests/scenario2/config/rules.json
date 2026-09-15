@@ -1,0 +1,76 @@
+{
+  "tables": {
+    "raw": {
+      "PREROUTING": {
+        "policy": "ACCEPT",
+        "rules": [
+          {
+            "id": 11,
+            "match": {
+              "protocol": "tcp",
+              "dst_port": 443
+            },
+            "target": "NOTRACK"
+          },
+          {
+            "id": 12,
+            "match": {},
+            "target": "CT"
+          }
+        ]
+      }
+    },
+    "mangle": {
+      "PREROUTING": {
+        "policy": "ACCEPT",
+        "rules": [
+          {
+            "id": 13,
+            "match": {},
+            "target": "ACCEPT"
+          }
+        ]
+      }
+    },
+    "filter": {
+      "INPUT": {
+        "policy": "DROP",
+        "rules": [
+          {
+            "id": 14,
+            "match": {
+              "ctstate": ["ESTABLISHED"]
+            },
+            "target": "ACCEPT"
+          },
+          {
+            "id": 15,
+            "match": {
+              "protocol": "tcp",
+              "dst_port": 80,
+              "ctstate": ["NEW"],
+              "tcp_flags": {
+                "mask": ["SYN", "RST", "ACK", "FIN"],
+                "set": ["SYN"]
+              }
+            },
+            "target": "ACCEPT"
+          },
+          {
+            "id": 16,
+            "match": {
+              "protocol": "tcp",
+              "dst_port": 443
+            },
+            "target": "ACCEPT"
+          },
+          {
+            "id": 17,
+            "match": {},
+            "target": "DROP"
+          }
+        ]
+      }
+    }
+  }
+}

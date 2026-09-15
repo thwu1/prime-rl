@@ -1,0 +1,111 @@
+[
+  {
+    "name": "path_basic",
+    "description": "Linear chain, 6 qubits, moderate permutation",
+    "topology": {"type": "path", "n": 6},
+    "permutation": [3, 5, 1, 0, 4, 2],
+    "max_swaps": 9
+  },
+  {
+    "name": "path_reversed",
+    "description": "Linear chain, 8 qubits, fully reversed",
+    "topology": {"type": "path", "n": 8},
+    "permutation": [7, 6, 5, 4, 3, 2, 1, 0],
+    "max_swaps": 28
+  },
+  {
+    "name": "path_identity",
+    "description": "Linear chain, 5 qubits, identity mapping",
+    "topology": {"type": "path", "n": 5},
+    "permutation": [0, 1, 2, 3, 4],
+    "max_swaps": 0
+  },
+  {
+    "name": "path_large",
+    "description": "Linear chain, 200 qubits, random permutation (seed 42)",
+    "topology": {"type": "path", "n": 200},
+    "permutation": {"type": "random", "seed": 42},
+    "max_swaps": 10122
+  },
+  {
+    "name": "complete_single_cycle",
+    "description": "Fully connected, 8 qubits, single cyclic rotation",
+    "topology": {"type": "complete", "n": 8},
+    "permutation": [1, 2, 3, 4, 5, 6, 7, 0],
+    "max_swaps": 7
+  },
+  {
+    "name": "complete_transpositions",
+    "description": "Fully connected, 6 qubits, three pair swaps",
+    "topology": {"type": "complete", "n": 6},
+    "permutation": [1, 0, 3, 2, 5, 4],
+    "max_swaps": 3
+  },
+  {
+    "name": "complete_mixed",
+    "description": "Fully connected, 10 qubits, mixed cycle structure",
+    "topology": {"type": "complete", "n": 10},
+    "permutation": [3, 5, 9, 7, 8, 1, 2, 0, 6, 4],
+    "max_swaps": 7
+  },
+  {
+    "name": "binary_tree",
+    "description": "Binary tree, 7 qubits, depth 2",
+    "topology": {
+      "type": "custom",
+      "n": 7,
+      "edges": [[0,1],[0,2],[1,3],[1,4],[2,5],[2,6]]
+    },
+    "permutation": [6, 4, 5, 1, 3, 0, 2],
+    "max_swaps": 8
+  },
+  {
+    "name": "star",
+    "description": "Star topology, 7 qubits, hub at position 0",
+    "topology": {"type": "star", "n": 7},
+    "permutation": [0, 3, 6, 5, 1, 4, 2],
+    "max_swaps": 12
+  },
+  {
+    "name": "caterpillar",
+    "description": "Caterpillar tree, 10 qubits, spine with pendant leaves",
+    "topology": {
+      "type": "custom",
+      "n": 10,
+      "edges": [[0,1],[1,2],[2,3],[3,4],[0,5],[1,6],[2,7],[3,8],[4,9]]
+    },
+    "permutation": [5, 6, 7, 8, 9, 0, 1, 2, 3, 4],
+    "max_swaps": 15
+  },
+  {
+    "name": "ring",
+    "description": "Ring topology, 8 qubits, two disjoint rotations",
+    "topology": {"type": "cycle", "n": 8},
+    "permutation": [3, 0, 1, 2, 7, 4, 5, 6],
+    "max_swaps": 20
+  },
+  {
+    "name": "grid_3x3",
+    "description": "3x3 grid, 9 qubits, reversed permutation",
+    "topology": {"type": "grid", "n": 9, "rows": 3, "cols": 3},
+    "permutation": [8, 7, 6, 5, 4, 3, 2, 1, 0],
+    "max_swaps": 36
+  },
+  {
+    "name": "random_connected",
+    "description": "Random connected graph, 20 qubits, extra edges",
+    "topology": {
+      "type": "custom",
+      "n": 20,
+      "edges": [
+        [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,8],[0,12],[0,15],
+        [1,2],[1,3],[1,9],[2,4],[2,5],[2,13],[3,4],[4,17],
+        [5,12],[5,13],[5,16],[6,7],[6,9],[6,15],[7,10],
+        [8,10],[8,11],[8,15],[9,13],[10,14],[10,16],[10,18],
+        [12,19],[13,14],[13,16],[15,18],[16,19],[17,19]
+      ]
+    },
+    "permutation": [5, 14, 0, 3, 8, 6, 9, 18, 4, 7, 19, 2, 10, 12, 17, 1, 11, 13, 16, 15],
+    "max_swaps": 400
+  }
+]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert GPU systems knowledge to fix a multi-module analysis framework. The agent must: (1) explore a multi-file Python package to understand its architecture, (2) diagnose a subtle correctness bug in the L2 cache model where total stripe references are counted instead of unique stripes — recognizing this requires understanding GPU memory hierarchy and data reuse in tiled matmul, (3) implement the grouped/swizzled tile scheduling algorithm used in production GPU kernels (not given in the instruction — must be derived from domain knowledge and code context), (4) apply Little's Law from queuing theory to compute memory bandwidth saturation, (5) implement persistent kernel work distribution, and (6) build a sliding-window optimization search. The bug is non-crashing (produces wrong results silently) requiring the solver to reason about correctness from first principles."""
+solution_explanation = """Fix the cache_model.py bug by replacing len(list) with len(set()) to count unique stripes instead of total references. Implement grouped_tile_id in grid.py using the standard Triton swizzled ordering: compute group_id, actual group size (handling last group), then map pid within group to (row, col) using modular arithmetic. Implement grouped_schedule by calling grouped_tile_id for each pid. Implement bytes_in_flight as bandwidth * latency (Little's Law). Implement persistent_schedule as round-robin assignment. Implement find_optimal_group_size by evaluating max_window_pressure for each candidate. Run run_analysis.py to produce analysis.json with optimal_group_size=8 for the 32x32 grid."""
+verification_explanation = """Tests verify the framework through multiple independent paths: (1) cache model working_set is tested with known inputs where the bug would produce 6 instead of 4 (same-row tiles), catching the unique-vs-total bug, (2) grouped_tile_id is verified against hand-computed mappings for multiple grid sizes and group sizes including edge cases, (3) DRAM load calculations are validated against the canonical Triton tutorial example (90 vs 54 blocks for row-major vs grouped), (4) persistent scheduling is checked for correct round-robin distribution, (5) optimal group size is validated for a 9x9 grid where GROUP_SIZE_M=3 is optimal, (6) analysis.json values are verified against independently computed expected results for the 32x32 grid."""
+category = "systems"
+tags = ["gpu-optimization", "cache-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tile-schedule-analyzer"

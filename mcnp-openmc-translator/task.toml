@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level nuclear engineering domain knowledge spanning two Monte Carlo transport codes (MCNP and OpenMC), including MCNP input format parsing (cell/surface/material/data cards with continuation lines), ZAID nuclide identification scheme (atomic number encoding for actinides and lighter elements including gallium, molybdenum), thermal scattering library mapping, constructive solid geometry boundary condition inference from importance-based void cells, and the ICSBEP benchmark naming convention. The statistical analysis demands understanding of weighted chi-squared goodness-of-fit testing against unity, Birge ratio interpretation, and outlier detection in the context of criticality safety benchmarking where k_eff deviations have physical significance."""
+solution_explanation = """Build a comprehensive MCNP parser that splits input into cell/surface/data sections by blank-line delimiters, joins continuation lines, extracts cell cards (id/material/density/region/importance), surface cards (type/coefficients), material cards (ZAID fractions), mt cards (thermal scattering), and kcode/ksrc data. Map ZAID identifiers to OpenMC element symbols via Z=ZAID//1000 lookup. Convert MCNP surface mnemonics (so/cz/pz) to OpenMC XML types. Infer vacuum boundaries by parsing void cell regions including union operators. Generate well-formed OpenMC XML with ElementTree. Then implement weighted statistical analysis of 487 benchmark entries with scipy.stats for outlier threshold computation."""
+verification_explanation = """Tests parse generated OpenMC XML files to verify surface types and radii, boundary conditions on correct surfaces, cell material assignments, nuclide names and atom fractions within tolerance, thermal scattering data presence, void cell handling, and settings parameters. Reference match tests compare HMF001 translation against known-correct output. Validation report tests check JSON structure, entry counts, category presence and statistics ranges, and that known extreme cases (mix-met-fast-008 with keff=1.03) are correctly flagged as outliers."""
+category = "nuclear_engineering"
+tags = ["monte-carlo-transport", "scientific-computing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mcnp-openmc-translator"

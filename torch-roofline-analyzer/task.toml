@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing why a module-hook-based profiler produces incorrect FLOP counts and memory estimates — the agent must identify that module-level hooks cannot observe individual ATen operations, that FLOPs must be derived from actual operand shapes (including batch dimension) rather than weight dimensions alone, and that memory transfer must account for all tensor inputs and outputs. After diagnosis, the agent must discover PyTorch's TorchDispatchMode as the correct interception mechanism, determine which ATen operations correspond to matrix multiplications (mm, addmm, bmm) and their differing argument conventions, implement correct FLOP formulas (2*M*K*N), estimate full memory transfer, build per-module attribution via hook-based name tracking, analyze physical memory alignment through tensor stride introspection, and conform output to a JSON schema."""
+solution_explanation = """Diagnose that the existing profiler fails because it uses module forward hooks (which only see module boundaries, not individual ops) and computes FLOPs from weight tensor dimensions (ignoring batch size). Build a TorchDispatchMode subclass that intercepts aten.mm, aten.addmm, and aten.bmm in __torch_dispatch__. Register module forward pre/post hooks to maintain a name stack for per-layer attribution. In the dispatch method, compute FLOPs from operand shapes (2*M*K*N), estimate memory as sum of nelement()*element_size() for all tensor args + output, compute arithmetic intensity, classify via roofline ridge point, and analyze alignment from stride-1 dimension sizes. Aggregate into the required report structure."""
+verification_explanation = """Tests run the analyzer on TargetModel with input shape [64, 127] and verify: exact total and per-module FLOP counts (deterministic from shapes), memory byte estimates within 2% tolerance, per-module roofline classifications against the ridge point, alignment correctness (misaligned for dims 127/513, aligned for 2048/512), and complete report structure conforming to the JSON schema."""
+category = "performance_analysis"
+tags = ["pytorch-internals", "roofline-model"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/torch-roofline-analyzer"

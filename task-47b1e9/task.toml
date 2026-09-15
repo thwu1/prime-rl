@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of copy-on-write B+tree internals, crash-safe update protocols (fsync ordering), and self-referential data structure design where the recycling structure must manage its own page allocation. The free list is an unrolled linked list that must track its own nodes' page numbers and handle the bootstrap problem of allocating pages for itself. Additionally demands Go-level I/O instrumentation to trace and analyze write ordering, plus proficiency with xxd to inspect raw binary page layout and decode little-endian fields. Combining low-level Go systems programming with I/O protocol analysis and binary format inspection requires multi-tool interoperability rarely exercised together."""
+solution_explanation = """Implement LNode binary getters/setters using encoding/binary. Implement flPop (pop from head, advance headSeq, move to next node when exhausted). Implement PopHead wrapping flPop and recycling empty head nodes via PushTail. Implement PushTail appending to tail, allocating new nodes when full via flPop or fl.new. Implement SetMaxSeq. In kv.go: replace temp [][]byte with updates map and nappend counter; add pageAlloc (try free list, fallback append) and pageWrite (copy-on-write for in-place updates); wire tree and free list callbacks; extend meta page to 64 bytes with free list state; initialize flushed=2 and headPage=tailPage=1 for empty files; call free.SetMaxSeq() at end of updateFile. Add I/O trace logging to WriteAt and Sync calls, build a trace binary, analyze the I/O log to demonstrate two-phase protocol. Use xxd to dump first 64 bytes of a populated database and annotate each meta page field."""
+verification_explanation = """Tests compile the Go code, then exercise: (1) basic KV correctness (insert, get, update, delete); (2) free list recycling measured by file size ratio — after inserting N keys, deleting all, and reinserting N new keys, the file size must be ≤ 2× the size after the first insert batch; (3) data integrity across all operations; (4) persistence through close/reopen cycles with both inserts and deletes; (5) io_protocol_report.txt must exist and contain fsync/write references with two-phase protocol annotations; (6) meta_page_report.txt must exist and contain xxd hex dump with annotated signature, root pointer, and page count fields."""
+category = "systems"
+tags = ["database", "systems-tools"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-47b1e9"

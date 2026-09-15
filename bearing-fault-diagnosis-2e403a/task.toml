@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep signal processing expertise (bandpass filter design, Hilbert transform demodulation, Welch PSD estimation) combined with rolling-element bearing physics knowledge (defect frequency derivation from geometry, including the D/d vs D/2d BSF convention). The automatic resonance band detection via spectral kurtosis is the hardest sub-problem — the solver must analyze the signal's impulsive structure across frequency bands without knowing the bearing's structural resonance frequency. Classification requires matching spectral peaks to theoretical defect frequencies while handling harmonics, amplitude modulation (inner race), and noise. No single well-known algorithm solves the full pipeline; each step requires domain-informed parameter choices."""
+solution_explanation = """1. Defect frequencies: standard formulas with d/D ratio and contact angle — BPFO, BPFI use (N/2)·f·(1∓d/D·cosα), BSF uses (D/d)·f·(1−(d/D·cosα)²), FTF depends on which race is fixed. 2. Envelope spectrum: 4th-order Butterworth bandpass → scipy.signal.hilbert → np.abs → remove DC → scipy.signal.welch. 3. Automatic band selection: compute STFT, calculate kurtosis of energy in sliding 1kHz-wide frequency bands, pick band with highest kurtosis (impulsive content concentrates near structural resonances). 4. Peak detection: find peaks above median + 4·MAD threshold. 5. Classification: for each defect type, sum local-SNR-weighted matches across harmonics 1-4; highest scorer wins if above threshold. 6. Severity: peak PSD at fault frequency divided by median PSD floor."""
+verification_explanation = """Tests generate synthetic bearing vibration signals with known fault characteristics — periodic damped-oscillation impulses at exact defect frequencies exciting specified resonance frequencies, with controlled noise. Defect frequency tests compare computed values against analytically derived ground truth for three bearing geometries (NICE, SKF6205, custom with non-zero contact angle). Envelope spectrum tests verify AM demodulation recovery. Full diagnosis tests check correct fault classification (outer_race, inner_race, rolling_element, healthy) across different bearings and resonance frequencies. Severity monotonicity is verified with three amplitude levels under identical noise conditions."""
+category = "signal_processing"
+tags = ["bearing-diagnostics", "envelope-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bearing-fault-diagnosis-2e403a"

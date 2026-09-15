@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires mastering an unfamiliar multi-tool pipeline: querying a SQLite database with JOIN operations to extract expressions from active courses, compiling a C-language binary decoder via make/gcc to handle the icfpbin_v1 token encoding, and implementing a complete interpreter for a non-standard functional language with base-94 encoding, custom string cipher, and call-by-name evaluation with capture-avoiding substitution. Three efficiency expressions use Y-combinator recursion requiring reverse-engineering of obfuscated lambda calculus to recognize mathematical patterns (Fibonacci, power-of-two, binomial coefficient) that cannot be computed within the beta-reduction limit."""
+solution_explanation = """First query the SQLite corpus database to discover the schema and extract active expressions via JOIN on the courses table, distinguishing plaintext from binary-encoded entries. Compile the C decoder using make and use it to convert icfpbin_v1 binary blobs to text. Build a tokenizer, recursive-descent parser, and environment-based call-by-name evaluator for the ICFP language. For expressions exceeding the step limit, detect the Y-combinator AST pattern, translate curried ICFP applications to memoized Python functions, and compute. The pipeline requires interoperability between sqlite3 CLI, make/gcc toolchain, and Python."""
+verification_explanation = """Tests load /app/results.json and compare each of the 18 expression results against precomputed correct values. Integer results must match as exact decimal strings, string results as their decoded values, booleans as 'true'/'false'. Each expression is tested individually via pytest parametrize."""
+category = "programming_languages"
+tags = ["lambda-calculus", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7115d4"

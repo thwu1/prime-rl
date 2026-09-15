@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep DNS protocol expertise to evaluate a server's RFC compliance through wire-level analysis. The solver must design probe queries across all record types and edge cases, capture and decode raw DNS messages, compare observed encoding against RFC 1035 and RFC 6891 specifications, and independently discover six protocol violations: incomplete CNAME chain following, missing wildcard name synthesis, absent SOA in NXDOMAIN authority, incorrect EDNS0 version negotiation, byte-order corruption in SOA RDATA fields, and malformed TXT character-string encoding. Beyond fixing each bug, the solver must produce a structured compliance report that evaluates each violation against specific RFC sections and classifies severity — requiring not just implementation skill but the judgment to assess protocol conformance."""
+solution_explanation = """The solution replaces the buggy server with a corrected implementation and produces a structured compliance report. Fixes: (1) CNAME chain following uses a while loop with cycle detection, (2) wildcard responses synthesize the queried name via new ZoneRecord objects, (3) NXDOMAIN responses include SOA in authority, (4) EDNS0 OPT record TTL set to 0 (version 0), (5) all SOA integer fields use network byte order (!IIIII), (6) TXT RDATA uses length-prefixed character-string encoding. The compliance report documents each violation with RFC section references and severity classification."""
+verification_explanation = """Tests start the repaired DNS server, then use dnspython to send targeted queries verifying all record types (A, AAAA, NS, MX, SOA, TXT, SRV, CNAME), CNAME chain following, wildcard matching with synthesized owner names, NXDOMAIN/NODATA negative responses with SOA in authority, EDNS0 version 0, and the AA flag. Additionally, tests verify that /app/compliance_report.json exists as valid JSON containing at least 4 documented violations, each with required fields (violation, rfc, section, severity, fix_description) and valid severity values. 20 independent test cases cover all required behaviors."""
+category = "networking"
+tags = ["dns", "protocol-compliance"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fb641d"

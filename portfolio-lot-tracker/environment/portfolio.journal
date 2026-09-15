@@ -1,0 +1,150 @@
+; Investment Portfolio - Multi-Strategy Brokerage Account
+; =======================================================
+
+; === Price History ===
+
+P 2023/01/01 AAPL $130.28
+P 2023/04/01 AAPL $164.90
+P 2023/07/01 AAPL $193.97
+P 2023/10/01 AAPL $171.21
+P 2024/01/01 AAPL $185.64
+P 2024/06/01 AAPL $198.50
+
+P 2023/01/01 TSLA $123.18
+P 2023/04/01 TSLA $194.77
+P 2023/07/01 TSLA $261.77
+P 2023/10/01 TSLA $250.22
+P 2024/01/01 TSLA $248.42
+P 2024/06/01 TSLA $182.45
+
+P 2023/01/01 MSFT $239.82
+P 2023/04/01 MSFT $288.30
+P 2023/07/01 MSFT $340.54
+P 2023/10/01 MSFT $328.66
+P 2024/01/01 MSFT $376.04
+P 2024/06/01 MSFT $430.15
+
+P 2023/01/01 VTI $192.64
+P 2023/04/01 VTI $203.15
+P 2023/07/01 VTI $218.39
+P 2023/10/01 VTI $208.87
+P 2024/01/01 VTI $230.97
+P 2024/06/01 VTI $248.35
+
+; === Automated Transaction Rules ===
+
+= /Income:Dividends/
+    (Budget:Income:Projected)           1
+
+; === Transactions ===
+
+2023/01/18 Buy AAPL - Initial Position
+    ; Broker ref: TXN-20230118-001
+    Assets:Brokerage    50 AAPL {$131.86} [2023/01/18]
+    Assets:Cash        $-6593.00
+    (Budget:Equities:Large-Cap)    $-6593.00
+
+2023/02/06 Buy TSLA
+    Assets:Brokerage    30 TSLA {$196.81} [2023/02/06]
+    Assets:Cash        $-5904.30
+
+2023/03/01 * Dividend - AAPL Q1
+    Assets:Cash          $47.50
+    Income:Dividends:AAPL
+
+2023/03/15 Buy AAPL - Adding at Higher Price
+    Assets:Brokerage    25 AAPL {$165.50} [2023/03/15]
+    Assets:Cash        $-4137.50
+
+2023/04/10 Buy MSFT
+    ; Lot: portfolio diversification
+    Assets:Brokerage    12 MSFT {$288.30} [2023/04/10]
+    Assets:Cash        $-3459.60
+
+2023/04/20 Buy VTI - Core Holding
+    Assets:Brokerage    40 VTI @@ $8240.00
+    Assets:Cash        $-8240.00
+
+; NOTE: The following order was cancelled before settlement
+;2023/05/10 Buy GOOG - Growth Position
+;    Assets:Brokerage    10 GOOG {$120.50} [2023/05/10]
+;    Assets:Cash        $-1205.00
+
+2023/05/01 Portfolio Rebalance Targets
+    (Goals:Target:AAPL)     100 AAPL
+    (Goals:Target:TSLA)      50 TSLA
+    (Goals:Target:MSFT)      20 MSFT
+    (Goals:Target:VTI)       80 VTI
+
+2023/05/15 Sell TSLA - Tax Loss Harvest Attempt
+    ; :taxable:short-term:
+    Assets:Brokerage   -20 TSLA @ $158.30
+    Assets:Cash         $3166.00
+    Income:Capital Gains
+
+2023/05/20 Buy AAPL - Dip Buy
+    Assets:Brokerage    20 AAPL {$142.30} [2023/05/20]
+    Assets:Cash        $-2846.00
+
+2023/06/01 Buy TSLA - Replacement Position
+    Assets:Brokerage    15 TSLA {$213.10} [2023/06/01]
+    Assets:Cash        $-3196.50
+
+2023/06/15 Sell AAPL - Partial Exit
+    ; :taxable:short-term:
+    Assets:Brokerage   -30 AAPL @ $179.58
+    Assets:Cash         $5387.40
+    Income:Capital Gains
+
+2023/07/01 * Dividend - AAPL Q2
+    Assets:Cash          $57.00
+    Income:Dividends:AAPL
+
+2023/07/20 Buy AAPL - Re-entry
+    ; :review:
+    Assets:Brokerage    35 AAPL {$191.94} [2023/07/20]
+    Assets:Cash        $-6717.90
+    (Budget:Equities:Large-Cap)    $-6717.90
+
+2023/08/15 Sell MSFT - Cutting Position
+    Assets:Brokerage    -8 MSFT @ $275.00
+    Assets:Cash         $2200.00
+    Income:Capital Gains
+
+2023/09/05 Buy MSFT - Rebuilding
+    Assets:Brokerage     6 MSFT {$330.50} [2023/09/05]
+    Assets:Cash        $-1983.00
+
+2023/09/20 Buy VTI - Dollar Cost Average
+    ; Lot: tax-loss-harvest replacement
+    Assets:Brokerage    20 VTI {$213.52} [2023/09/20]
+    Assets:Cash        $-4270.40
+
+2023/10/01 * Dividend - AAPL Q3
+    Assets:Cash          $24.00
+    Income:Dividends:AAPL
+
+2023/10/15 Sell AAPL - Market Weakness
+    Assets:Brokerage   -25 AAPL @ $170.50
+    Assets:Cash         $4262.50
+    Income:Capital Gains
+
+2023/11/05 Sell VTI - Rebalance
+    Assets:Brokerage   -35 VTI @ $205.00
+    Assets:Cash         $7175.00
+    Income:Capital Gains
+
+2023/11/25 Buy VTI - Re-entry
+    Assets:Brokerage    25 VTI {$228.30} [2023/11/25]
+    Assets:Cash        $-5707.50
+
+2023/12/10 Buy AAPL - Year End
+    ; :tax-planning:
+    Assets:Brokerage    15 AAPL {$194.27} [2023/12/10]
+    Assets:Cash        $-2914.05
+    (Budget:Equities:Large-Cap)    $-2914.05
+
+2024/06/01 Sell AAPL - Long Position Exit
+    Assets:Brokerage   -10 AAPL @ $200.00
+    Assets:Cash         $2000.00
+    Income:Capital Gains

@@ -1,0 +1,25 @@
+{
+  "roll_width": 1000,
+  "items": [
+    {"width": 467, "demand": 21},
+    {"width": 333, "demand": 44},
+    {"width": 295, "demand": 37},
+    {"width": 258, "demand": 28},
+    {"width": 231, "demand": 15},
+    {"width": 197, "demand": 31},
+    {"width": 168, "demand": 42},
+    {"width": 150, "demand": 55},
+    {"width": 137, "demand": 23},
+    {"width": 125, "demand": 18},
+    {"width": 113, "demand": 62},
+    {"width": 99, "demand": 41},
+    {"width": 89, "demand": 32},
+    {"width": 76, "demand": 48},
+    {"width": 63, "demand": 57},
+    {"width": 52, "demand": 39},
+    {"width": 41, "demand": 73},
+    {"width": 33, "demand": 86},
+    {"width": 27, "demand": 54},
+    {"width": 21, "demand": 93}
+  ]
+}

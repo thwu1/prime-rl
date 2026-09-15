@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires CCNP/CCIE-level OSPF design expertise. The solver must create complete FRR OSPF configurations from scratch for a 6-router, 3-area topology with six interacting design constraints: (1) totally stubby area with differentiated ABR vs internal-router directives (area stub no-summary vs area stub), (2) NSSA area for external route injection via Type-7/Type-5 translation, (3) OSPF cost manipulation on specific interfaces for traffic engineering path preference, (4) inter-area route summarization using area range statements at multiple ABRs, (5) selective external route redistribution using route-map/prefix-list policy that permits two prefixes and denies a third, and (6) correct isolation of external routes from the totally stub area. These requirements interact: the area type must be compatible across neighbors for adjacency formation, the redistribution policy must interoperate with NSSA semantics, and the totally stub configuration must block external LSAs while maintaining reachability via default route injection. No starter OSPF config is provided."""
+solution_explanation = """For each router, create a complete FRR config with: (a) router-id set to loopback IP, (b) network statements covering loopback and all connected links with correct area IDs, (c) area type directives — ABRs R1/R2 use 'area 1 stub no-summary', internal R4/R5 use 'area 1 stub'; R3/R6 use 'area 2 nssa', (d) interface cost 100 on R1's r1-r4 and R4's r4-r1 interfaces, (e) area range 10.1.0.0/16 on R1/R2 for Area 1 summarization and area range 10.2.0.0/16 on R3 for Area 2 summarization, (f) on R6: prefix-list permitting 172.16.0.0/24 and 172.16.1.0/24 with implicit deny for 172.16.2.0/24, route-map referencing the prefix-list, and redistribute static route-map."""
+verification_explanation = """The enhanced OSPF checker parses all FRR configs and validates: (1) all 6 adjacencies form FULL by checking area assignment, area type compatibility (stub/totally_stub are compatible), and timer consistency; (2) area types match requirements (ABRs have totally_stub, internal routers have stub, NSSA routers have nssa); (3) area range summarization statements exist on correct ABRs; (4) OSPF interface costs match required overrides; (5) all-pairs reachability via BFS over adjacency graph; (6) external route redistribution — 172.16.0/24 and 172.16.1/24 are permitted while 172.16.2/24 is denied; (7) permitted external routes are visible on backbone routers but NOT on totally stub area routers."""
+category = "networking"
+tags = ["ospf", "frr"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-multiarea-troubleshoot"

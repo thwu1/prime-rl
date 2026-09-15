@@ -1,0 +1,41 @@
+{
+  "properties": {
+    "arb_fair": {
+      "expression": "G((req0 | req1) -> F(grant0 | grant1))",
+      "signals": ["req0", "req1", "grant0", "grant1", "mode"],
+      "temporal_depth": 15
+    },
+    "inv_toggle": {
+      "expression": "G(grant0 -> X ~grant0)",
+      "signals": ["grant0"],
+      "temporal_depth": 3
+    }
+  },
+  "signal_dependencies": {
+    "req0": [],
+    "req1": [],
+    "grant0": ["req0", "mode"],
+    "grant1": ["req1", "mode"],
+    "mode": []
+  },
+  "decompositions": [
+    {
+      "strategy": "case_split",
+      "target": "arb_fair",
+      "params": {
+        "cases": [
+          {"name": "fast_mode", "predicate": "mode"},
+          {"name": "slow_mode", "predicate": "~mode"}
+        ]
+      }
+    },
+    {
+      "strategy": "helper_invariant",
+      "target": "arb_fair",
+      "params": {
+        "helpers": ["inv_toggle"],
+        "target": "arb_fair"
+      }
+    }
+  ]
+}

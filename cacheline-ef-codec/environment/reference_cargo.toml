@@ -1,0 +1,8 @@
+[package]
+name = "cacheline_ef_ref"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "cacheline_ef_ref"
+path = "src/main.rs"

@@ -1,0 +1,11 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: global-ops-egress-restrict
+spec:
+  endpointSelector:
+    matchLabels:
+      env: ops
+  egress:
+    - toCIDR:
+        - 10.0.0.0/8

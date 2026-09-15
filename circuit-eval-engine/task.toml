@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of mechanistic interpretability evaluation to audit a buggy pipeline without explicit formulas. The agent must: (1) reconstruct a missing simulator configuration from SQLite by querying multiple tables and understanding the expected JSON schema from reading the simulator source, (2) analyze a gzipped NDJSON execution trace using jq/zcat to identify computational anomalies (inverted faithfulness at full circuit, wrong k values, base-10 log values), (3) interpret a conceptual methodology draft that omits formulas to derive correct implementations from domain knowledge — e.g. deducing faithfulness = (raw − corrupted)/(baseline − corrupted) from the stated properties f=0 at empty circuit and f=1 at full recovery, (4) cross-validate data across SQLite, gzipped JSONL, and JSON formats to confirm data integrity, and (5) understand how 4 interacting bugs compound: missing abs() in edge ranking propagates to AUROC, inverted normalization reverses the faithfulness curve, round-vs-floor changes edge counts at boundary sparsity levels, and log10-vs-ln rescales the entire log-metric integration domain. Requires holistic understanding — the methodology description deliberately uses conceptual language, forcing the agent to synthesize correct behavior from properties and domain expertise rather than following formulas."""
+solution_explanation = """First reconstruct simulator_config.json by querying the simulator_config and gt_weights tables from the SQLite database and assembling them into the JSON format expected by simulator.py's constructor. Then analyze the pipeline trace using jq/zcat to identify anomalies: faithfulness≈0 at full circuit (inverted normalization), k=1 at sparsity 0.005 where floor gives 0 (rounding bug), log_x values around -3.0 (log10 instead of ln≈-6.9), and top-edge scores always positive (missing abs for negative-scored edges). Cross-validate importance scores between DB and JSONL files. Fix all 4 bugs in pipeline.py: (1) sort by abs(score) not raw score in ranking and AUROC, (2) faithfulness = (raw-corrupted)/(baseline-corrupted), (3) k = int(p*N) for floor, (4) math.log for natural log. Validate against reference_calibration.json for eap_ig/ioi, then compute correct results for all 6 method-task pairs."""
+verification_explanation = """Tests verify: (1) simulator_config.json is correctly reconstructed with proper structure, baseline/corrupted scores, and ground truth weights matching database values, (2) bug_report.json identifies all 4 bugs with meaningful descriptions containing appropriate technical terms (abs/magnitude, normalization/inversion, round/floor, log10/natural), (3) corrected_results.json has correct faithfulness values within 1e-4 tolerance, exact weighted edge counts, correct CPR/CMD/AUROC within tolerance, correct method rankings, and cross-metric consistency (CPR+CMD≈1, full-circuit faithfulness≈1, monotonic trend)."""
+category = "data_science"
+tags = ["mechanistic-interpretability", "multi-tool-forensics"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/circuit-eval-engine"

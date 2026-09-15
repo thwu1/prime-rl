@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a general-purpose constrained optimization solver (augmented Lagrangian or SQP) handling 5 diverse problems with 2D-5D dimensionality, nonlinear constraints, and tight evaluation budgets where the constraint gradient must be estimated via finite differences. Additionally requires building a multi-tool benchmark pipeline orchestrated by a Makefile that pipes run_test.py CSV output through sqlite3 for storage and jq for JSON report generation — demanding proficiency with make, sqlite3 CLI import/query, and jq filter syntax."""
+solution_explanation = """Uses an augmented Lagrangian method with Adam optimizer for the inner loop. Constraint Jacobians are estimated via forward finite differences. Problem-specific learning rates are tuned per landscape. The Makefile benchmark target runs the test suite in CSV mode, imports into SQLite via .mode csv/.import, and the report target queries with sqlite3 -json and transforms via a jq filter computing feasibility rates and pass/fail against per-problem thresholds."""
+verification_explanation = """Each of 5 problems is tested across 500 random seeds via parametrized pytest checking budget compliance, feasibility (>= 475/500 within 1e-4 tolerance), and mean objective quality against per-problem thresholds. Pipeline tests verify /app/Makefile exists with required targets, /app/results.db has the benchmark table with correct schema and 5 rows, and /app/report.json has the required structure with all 5 problems and overall_pass true."""
+category = "optimization"
+tags = ["constrained-optimization", "build-pipelines"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-98cea7"

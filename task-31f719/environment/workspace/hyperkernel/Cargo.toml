@@ -1,0 +1,57 @@
+[package]
+name = "hyperkernel"
+version = "0.1.0"
+edition = "2021"
+description = "A hypothetical Rust-based unikernel with complex feature graph"
+
+[features]
+default = ["acpi", "dhcpv4", "fsgsbase", "pci", "smp", "tcp", "virtio-fs", "virtio-net"]
+
+# Platform features
+acpi = []
+fsgsbase = []
+smp = ["acpi"]
+
+# PCI support (weak dep on virtio-spec)
+pci = ["virtio-spec?/pci"]
+
+# Network core
+net = []
+
+# Network protocols (use dep: syntax — suppresses implicit features)
+tcp = ["net", "dep:net-stack", "net-stack?/socket-tcp"]
+udp = ["net", "dep:net-stack", "net-stack?/socket-udp"]
+dhcpv4 = ["net", "dep:net-stack", "net-stack?/proto-dhcpv4", "net-stack?/socket-dhcpv4"]
+dns = ["net", "dep:net-stack", "net-stack?/socket-dns"]
+
+# Network drivers
+virtio-net = ["net", "dep:virtio-spec"]
+rtl8139 = ["net", "pci"]
+gem-net = ["net", "dep:hw-regs"]
+
+# VirtIO drivers
+virtio-console = ["dep:virtio-spec"]
+virtio-fs = ["dep:virtio-spec", "dep:fuse-proto", "fuse-proto?/linux"]
+virtio-vsock = ["dep:virtio-spec"]
+
+# Debug features (bare dep name — triggers implicit feature generation)
+shell = ["debug-shell"]
+net-trace = ["net-stack?/verbose"]
+
+# Performance features
+idle-poll = []
+
+# Tracing
+alloc-stats = []
+strace = []
+
+# Feature aliases
+console = ["virtio-console"]
+fs = ["virtio-fs"]
+
+[dependencies]
+net-stack = { path = "../net-stack", optional = true, default-features = false }
+virtio-spec = { path = "../virtio-spec", optional = true, default-features = false }
+fuse-proto = { path = "../fuse-proto", optional = true }
+hw-regs = { path = "../hw-regs", optional = true, default-features = false }
+debug-shell = { path = "../debug-shell", optional = true }

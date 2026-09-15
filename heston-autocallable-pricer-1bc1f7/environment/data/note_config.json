@@ -1,0 +1,17 @@
+{
+  "assets": [
+    {"spot": 100, "v0": 0.04, "theta": 0.04, "kappa": 2.0, "sigma": 0.3, "rho": -0.5, "div_yield": 0.02}
+  ],
+  "correlation_matrix": [[1.0]],
+  "observation_times": [1.0, 2.0, 3.0],
+  "autocall_barrier": 1.05,
+  "coupon_barrier": 0.7,
+  "coupon_rate": 0.10,
+  "knock_in_barrier": null,
+  "snowball": false,
+  "notional": 1000.0,
+  "risk_free_rate": 0.05,
+  "n_paths": 50000,
+  "n_steps_per_year": 52,
+  "seed": 42
+}

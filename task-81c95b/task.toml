@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level skill across multiple interacting domains. The solver must reverse-engineer a compiled COBOL subprogram (CALCRATE) whose source is lost: systematically probing a black-box binary to discover product-specific tiered interest rate structures, exact balance thresholds, and rounding behavior — this cannot be done procedurally, requiring hypothesis-driven testing and holistic reasoning about COBOL runtime semantics. Beyond the black-box challenge, the solver must simultaneously: parse binary record layouts from copybooks with mixed COMP-3 packed decimal (BCD sign nibble encoding) and COMP-5 little-endian native binary fields in the same record; understand how a REC-TYPE discriminator selects between three REDEFINES memory-overlapping variants at identical byte offsets; replicate COBOL ROUNDED arithmetic (half-away-from-zero) which differs from Python's default banker's rounding; implement a merge-join pattern over sorted sequential files with control-break summary accumulation; trace cascading computation dependencies where interest is computed on the post-transaction balance, fees depend on the post-interest balance, and summaries capture the post-fee final balance. Each domain independently produces silent errors — a wrong byte offset, misidentified tier boundary, or incorrect rounding mode yields plausible but incorrect output detectable only through exact binary comparison."""
+solution_explanation = """The solution reverse-engineers CALCRATE by probing all four product types (SAVE, CHCK, PREM, MMKT) across balance ranges to discover: SAVE has 3 tiers (<$1000→2%, >=$1000→4.5%, >=$10000→4.75%), CHCK has 2 tiers (<$5000→0%, >=$5000→1%), PREM has 2 tiers (<$500→3%, >=$500→5.5%), MMKT has 3 tiers (<$5000→2%, >=$5000→3.5%, >=$10000→5%). It then creates a Python program that: (1) implements BCD pack/unpack with correct sign nibble handling (0xC positive, 0xD negative, 0xF unsigned) for COMP-3 fields; (2) uses struct.pack/unpack with '<H' for COMP-5 little-endian fields; (3) parses the REC-TYPE discriminator to dispatch between three REDEFINES variants at different byte offsets; (4) applies correct implied decimal scaling per field; (5) replicates the reverse-engineered tiered interest logic using Decimal with ROUND_HALF_UP; (6) implements merge-join processing with per-account summary accumulation, control-break output, and fee assessment on post-interest balances."""
+verification_explanation = """Tests generate three separate datasets using the COBOL data generator, run both the COBOL reference binary and the Python migration on each, and compare all three output files via SHA-256 checksums. Scenario 1 tests comprehensive multi-type transaction processing. Scenario 2 targets rounding edge cases and fee threshold boundaries. Scenario 3 specifically probes the CALCRATE tier boundaries with accounts at exact threshold values ($999.99/$1000.00 for SAVE, $5000.00 for CHCK, $499.99/$500.00 for PREM, $10000.00 for MMKT) to verify the solver correctly reverse-engineered the rate structure. Anti-cheat checks confirm the Python code is self-contained and does not shell out to COBOL binaries."""
+category = "software_engineering"
+tags = ["cobol-migration", "reverse-engineering"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-81c95b"

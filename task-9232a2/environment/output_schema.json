@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Performance analysis results. Array of objects ordered by workload_id ascending, one per workload row in the database.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "workload_id",
+      "workload_name",
+      "kv_bytes_per_token",
+      "total_kv_memory_gb",
+      "max_batch_size",
+      "fits_in_memory",
+      "moe_flops_per_token",
+      "attn_flops_per_token",
+      "attn_arithmetic_intensity",
+      "ep_dispatch_volume_mb",
+      "min_ep_sms_90pct",
+      "available_compute_sms"
+    ],
+    "properties": {
+      "workload_id": {
+        "type": "integer",
+        "description": "Workload identifier from the database."
+      },
+      "workload_name": {
+        "type": "string",
+        "description": "Workload name from the database."
+      },
+      "kv_bytes_per_token": {
+        "type": "integer",
+        "description": "Bytes of KV cache storage per token per layer. For quantized formats, must reflect the actual byte layout from the source code (quantized data, scale factors, and unquantized portions). For bf16, the full KV latent vector (d_nope + d_rope) stored as bfloat16."
+      },
+      "total_kv_memory_gb": {
+        "type": "number",
+        "description": "Total KV cache memory for the full workload in GB (1 GB = 10^9 bytes), summed across all layers."
+      },
+      "max_batch_size": {
+        "type": "integer",
+        "description": "Largest integer batch size whose total KV cache memory fits in GPU memory after subtracting model weight memory."
+      },
+      "fits_in_memory": {
+        "type": "boolean",
+        "description": "True if the workload's configured batch_size is at most max_batch_size."
+      },
+      "moe_flops_per_token": {
+        "type": "integer",
+        "description": "Total floating-point operations for the MoE feed-forward network per decoded token per layer, summing over all activated experts and projections."
+      },
+      "attn_flops_per_token": {
+        "type": "integer",
+        "description": "Total floating-point operations for decoding attention per generated token per layer (both QK and PV stages)."
+      },
+      "attn_arithmetic_intensity": {
+        "type": "number",
+        "description": "Attention FLOPs divided by KV cache bytes loaded, per generated token per layer. Rounded to 1 decimal place."
+      },
+      "ep_dispatch_volume_mb": {
+        "type": "number",
+        "description": "EP dispatch data volume for the full batch in MB (1 MB = 10^6 bytes). Each token sends its hidden-dim vector to each activated expert. Element size depends on dispatch precision (FP8=1 byte, BF16=2 bytes). Rounded to 6 decimal places."
+      },
+      "min_ep_sms_90pct": {
+        "type": "integer",
+        "description": "Smallest SM count from the ep_measurements table whose dispatch bandwidth is at least 90% of the peak measured dispatch bandwidth for the workload's GPU."
+      },
+      "available_compute_sms": {
+        "type": "integer",
+        "description": "GPU SM count minus min_ep_sms_90pct."
+      }
+    }
+  }
+}

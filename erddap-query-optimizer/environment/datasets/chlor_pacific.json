@@ -1,0 +1,40 @@
+{
+  "datasetID": "chlor_pacific",
+  "type": "grid",
+  "baseUrl": "https://coastwatch.pfeg.noaa.gov/erddap",
+  "dimensions": [
+    {
+      "name": "time",
+      "type": "temporal",
+      "start": "2003-01-05T00:00:00Z",
+      "spacing_days": 8
+    },
+    {
+      "name": "altitude",
+      "type": "vertical",
+      "values": [0.0]
+    },
+    {
+      "name": "latitude",
+      "type": "spatial",
+      "start": -89.975,
+      "stop": 89.975,
+      "spacing": 0.05
+    },
+    {
+      "name": "longitude",
+      "type": "spatial",
+      "start": -179.975,
+      "stop": 179.975,
+      "spacing": 0.05
+    }
+  ],
+  "lonConvention": "-180/180",
+  "variables": [
+    {
+      "name": "chlorophyll",
+      "units": "mg m-3",
+      "standardName": "concentration_of_chlorophyll_in_sea_water"
+    }
+  ]
+}

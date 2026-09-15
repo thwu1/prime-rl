@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete memory pool allocator in C with pointer arithmetic, block management, coalescing logic, aligned allocation, realloc with in-place growth, fragmentation statistics, and thread-safe callback support — all without using system allocation functions. Additionally requires configuring the Meson build system to produce a shared library with controlled symbol visibility via a GNU linker version script, and ensuring the implementation passes Valgrind analysis. The combination of low-level C systems programming with build system configuration and debugging tool interoperability demands proficient-level expertise across multiple domains."""
+solution_explanation = """Define pool metadata struct at the start of the caller-provided region containing a free list, size counters, and lock callbacks. Use the provided linked-list utility to maintain an address-ordered free list. Implement first-fit allocation with block splitting, address-ordered free with adjacent-block coalescing, aligned allocation via over-allocation with stored offset, and in-place realloc by absorbing adjacent free blocks. Complete the Meson build configuration by adding a shared_library() target with the version script integrated via -Wl,--version-script linker flag and link_depends for rebuild tracking."""
+verification_explanation = """Tests first verify the Meson build produces a shared library, then check symbol visibility via nm -D (only public API symbols exported). A Valgrind test compiles and runs a C exercise program under Valgrind to verify memory correctness. Functional tests use Python ctypes to exercise: pool creation/rejection, allocation with corruption detection, block splitting, multi-directional coalescing, aligned allocation for powers of 2 up to 4096, calloc zero-init, realloc data preservation and in-place growth, pool isolation, statistics accuracy, fragmentation ratio, a 5000-iteration random stress test, and a compiled multi-threaded C test with 8 concurrent threads doing random alloc/free with pattern verification."""
+category = "systems_programming"
+tags = ["memory_allocator", "build_systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multipool-memory-allocator"

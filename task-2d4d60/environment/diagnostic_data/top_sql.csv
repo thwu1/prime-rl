@@ -1,0 +1,9 @@
+sql_id,executions,buffer_gets,disk_reads,elapsed_time_s,cpu_time_s,rows_processed,sql_text_fragment
+4x7qr2w9n3k1p,1,45000000,8500000,1250.5,890.2,12000000,"SELECT /*+ FULL(o) */ o.*, c.name FROM orders o, customers c WHERE o.customer_id = c.id AND o.status = 'SHIPPED'"
+8m2pn5v7t9x3r,2500000,50000000,5000000,2800.3,1950.7,2500000,"SELECT id, name, status FROM orders WHERE customer_id = :1 AND order_date > :2"
+3j6kf8w2m5n9q,1800000,35000000,12000000,3200.1,450.8,1800000,"SELECT * FROM inventory WHERE product_id = 48291"
+7r9xp4t6n2k8w,1500000,28000000,9500000,2100.6,380.4,1500000,"SELECT * FROM inventory WHERE product_id = 73810"
+2q5mh7j3p8t1x,1200000,22000000,7800000,1800.2,310.5,1200000,"SELECT * FROM inventory WHERE product_id = 15963"
+9w4rn6k8m2p5v,950000,18000000,6200000,1400.8,250.3,950000,"INSERT INTO audit_log VALUES (audit_seq.NEXTVAL, 12847, 'LOGIN', SYSDATE, 'IP: 10.0.5.47')"
+1x8tp3j5w7m2r,800000,15000000,5500000,1200.4,220.7,800000,"INSERT INTO audit_log VALUES (audit_seq.NEXTVAL, 28134, 'LOGOUT', SYSDATE, 'IP: 10.0.3.22')"
+5n2kw9r4t6p8m,600000,12000000,4200000,950.1,180.2,600000,"SELECT * FROM inventory WHERE product_id = 92041"

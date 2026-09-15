@@ -1,0 +1,202 @@
+[
+  {
+    "drugbank_id": "DB00001",
+    "name": "Lepirudin",
+    "type": "biotech",
+    "half_life_text": "Approximately 1.3 hours",
+    "volume_of_distribution_L_per_kg": 0.14,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.5,
+    "therapeutic_max_mg_L": 2.0
+  },
+  {
+    "drugbank_id": "DB00004",
+    "name": "Denileukin diftitox",
+    "type": "biotech",
+    "half_life_text": "70-80 min",
+    "volume_of_distribution_L_per_kg": 0.06,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 1.0,
+    "therapeutic_max_mg_L": 10.0
+  },
+  {
+    "drugbank_id": "DB00005",
+    "name": "Etanercept",
+    "type": "biotech",
+    "half_life_text": "102 +/- 30 hrs in individuals with rheumatoid arthritis and 68 hours in healthy adults",
+    "volume_of_distribution_L_per_kg": 0.11,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 1.0,
+    "therapeutic_max_mg_L": 5.0
+  },
+  {
+    "drugbank_id": "DB00006",
+    "name": "Bivalirudin",
+    "type": "biotech",
+    "half_life_text": "Normal renal function: 25 min. Creatinine clearance 10-29mL/min: 57min. Dialysis-dependant patients: 3.5h",
+    "volume_of_distribution_L_per_kg": 0.25,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 1.0,
+    "therapeutic_max_mg_L": 15.0
+  },
+  {
+    "drugbank_id": "DB00008",
+    "name": "Peginterferon alfa-2a",
+    "type": "biotech",
+    "half_life_text": "Terminal half life is 80 hours (range 50 to 140 hours).",
+    "volume_of_distribution_L_per_kg": 0.10,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.001,
+    "therapeutic_max_mg_L": 0.01
+  },
+  {
+    "drugbank_id": "DB00010",
+    "name": "Sermorelin",
+    "type": "biotech",
+    "half_life_text": "11-12 min",
+    "volume_of_distribution_L_per_kg": 0.5,
+    "protein_binding_fraction": 0.15,
+    "therapeutic_min_mg_L": 0.001,
+    "therapeutic_max_mg_L": 0.05
+  },
+  {
+    "drugbank_id": "DB00024",
+    "name": "Thyrotropin Alfa",
+    "type": "biotech",
+    "half_life_text": "25 \u00b1 10 hours",
+    "volume_of_distribution_L_per_kg": 0.05,
+    "protein_binding_fraction": 0.85,
+    "therapeutic_min_mg_L": 0.01,
+    "therapeutic_max_mg_L": 0.1
+  },
+  {
+    "drugbank_id": "DB00035",
+    "name": "Desmopressin",
+    "type": "small molecule",
+    "half_life_text": "Oral t<sub>1/2</sub>=1.5-2.5 hours. Intranasal t<sub>1/2</sub>=3.3-3.5 hours. IV t<sub>1/2</sub> is biphasic: initial t<sub>1/2</sub>=7.8 minutes, terminal t<sub>1/2</sub>=0.4-4 hours.",
+    "volume_of_distribution_L_per_kg": 0.3,
+    "protein_binding_fraction": 0.50,
+    "therapeutic_min_mg_L": 0.0001,
+    "therapeutic_max_mg_L": 0.001
+  },
+  {
+    "drugbank_id": "DB00039",
+    "name": "Palifermin",
+    "type": "biotech",
+    "half_life_text": "Elimination half-life: 4.5 hours (range: 3.3-5.7 hours)",
+    "volume_of_distribution_L_per_kg": 0.03,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.1,
+    "therapeutic_max_mg_L": 5.0
+  },
+  {
+    "drugbank_id": "DB00041",
+    "name": "Aldesleukin",
+    "type": "biotech",
+    "half_life_text": "13 min-85 min",
+    "volume_of_distribution_L_per_kg": 0.15,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.01,
+    "therapeutic_max_mg_L": 1.0
+  },
+  {
+    "drugbank_id": "DB00044",
+    "name": "Lutropin alfa",
+    "type": "biotech",
+    "half_life_text": "Biphasic; terminal half-life is approximately 18 hours.",
+    "volume_of_distribution_L_per_kg": 0.14,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.01,
+    "therapeutic_max_mg_L": 0.5
+  },
+  {
+    "drugbank_id": "DB00051",
+    "name": "Adalimumab",
+    "type": "biotech",
+    "half_life_text": "10-20 days.",
+    "volume_of_distribution_L_per_kg": 0.07,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 5.0,
+    "therapeutic_max_mg_L": 15.0
+  },
+  {
+    "drugbank_id": "DB00054",
+    "name": "Abciximab",
+    "type": "biotech",
+    "half_life_text": "Following intravenous bolus administration, free plasma concentrations of Abciximab decrease rapidly with an initial half-life of less than 10 minutes and a second phase half-life of about 30 minutes, probably related to rapid binding to the platelet GPIIb/IIIa receptors.",
+    "volume_of_distribution_L_per_kg": 0.07,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 1.0,
+    "therapeutic_max_mg_L": 20.0
+  },
+  {
+    "drugbank_id": "DB00066",
+    "name": "Follitropin beta",
+    "type": "biotech",
+    "half_life_text": "Circulation half life of 3-4 hours, elimination half life of 35-40 hours",
+    "volume_of_distribution_L_per_kg": 0.11,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.001,
+    "therapeutic_max_mg_L": 0.1
+  },
+  {
+    "drugbank_id": "DB00080",
+    "name": "Daptomycin",
+    "type": "small molecule",
+    "half_life_text": "Half-life elimination: 8-9 hours (up to 28 hours in renal impairment)",
+    "volume_of_distribution_L_per_kg": 0.10,
+    "protein_binding_fraction": 0.92,
+    "therapeutic_min_mg_L": 20.0,
+    "therapeutic_max_mg_L": 100.0
+  },
+  {
+    "drugbank_id": "DB00091",
+    "name": "Cyclosporine",
+    "type": "small molecule",
+    "half_life_text": "Biphasic and variable, approximately 7 hours (range 7 to 19 hours) in children and approximately 19 hours (range 10 to 27 hours) in adults.",
+    "volume_of_distribution_L_per_kg": 4.0,
+    "protein_binding_fraction": 0.90,
+    "therapeutic_min_mg_L": 0.15,
+    "therapeutic_max_mg_L": 0.40
+  },
+  {
+    "drugbank_id": "DB00097",
+    "name": "Choriogonadotropin alfa",
+    "type": "biotech",
+    "half_life_text": "The mean terminal half-life is about 29 \u00b1 6 hours (initial half-life is 4.5 \u00b1 0.5 hours).",
+    "volume_of_distribution_L_per_kg": 0.06,
+    "protein_binding_fraction": 0.0,
+    "therapeutic_min_mg_L": 0.005,
+    "therapeutic_max_mg_L": 0.5
+  },
+  {
+    "drugbank_id": "DB00106",
+    "name": "Abarelix",
+    "type": "small molecule",
+    "half_life_text": "13.2 &plusmn; 3.2 days",
+    "volume_of_distribution_L_per_kg": 0.50,
+    "protein_binding_fraction": 0.96,
+    "therapeutic_min_mg_L": 0.01,
+    "therapeutic_max_mg_L": 1.0
+  },
+  {
+    "drugbank_id": "DB00176",
+    "name": "Fluvoxamine",
+    "type": "small molecule",
+    "half_life_text": "15.6 hours",
+    "volume_of_distribution_L_per_kg": 3.50,
+    "protein_binding_fraction": 0.77,
+    "therapeutic_min_mg_L": 0.06,
+    "therapeutic_max_mg_L": 0.30
+  },
+  {
+    "drugbank_id": "DB00177",
+    "name": "Valsartan",
+    "type": "small molecule",
+    "half_life_text": "The initial phase t<sub>1/2 \u03b1</sub> is < 1 hour while the terminal phase t<sub>1/2 \u03b2</sub> is 5-9 hours.",
+    "volume_of_distribution_L_per_kg": 0.23,
+    "protein_binding_fraction": 0.95,
+    "therapeutic_min_mg_L": 1.0,
+    "therapeutic_max_mg_L": 8.0
+  }
+]

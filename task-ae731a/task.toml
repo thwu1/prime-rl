@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a tmux-based TUI testing harness requires expert-level integration of multiple unfamiliar systems and deep domain knowledge. The solver must: (1) figure out how to programmatically control isolated terminal sessions via tmux's CLI — a non-trivial tool API with subtle flags and behaviors, (2) devise a way to extract the full screen state including ANSI styling attributes from a live terminal session, which requires understanding how terminal multiplexers represent and export screen content, (3) correctly interpret combined ANSI/SGR parameters including 8-color codes, 256-color extended sequences, RGB sequences, and attribute toggles with their reset semantics, (4) handle edge cases in how screen content is represented (trailing whitespace, attribute state continuity across rows, cursor position retrieval), (5) produce output that is structurally identical to an existing TerminalEmulator's snapshot format, requiring careful study of that format, and (6) implement reliable poll-based auto-wait for flake-resistant text detection. The task demands holistic understanding of terminal emulation, ANSI protocols, PTY semantics, and tmux internals."""
+solution_explanation = """The solution creates a TUISession class that manages tmux sessions with unique names (PID + counter). It uses subprocess to invoke tmux commands: new-session -d for detached creation with explicit -x/-y dimensions, send-keys for input, capture-pane -e -p for ANSI capture, display-message -p for cursor position via #{cursor_x}/#{cursor_y} format strings, and kill-session for cleanup. The ANSI parser walks each capture line character by character, detecting ESC[ CSI sequences and dispatching to an SGR parameter parser that handles reset (0), attribute toggles (1/4/7/22/24/27), 8-color codes (30-37/40-47), default color resets (39/49), and extended color sequences (38/48 with sub-commands 5 for 256-color and 2 for RGB). SGR state is tracked across lines to match tmux's output behavior. Each line is parsed into cells and padded to full width. wait_for_text uses capture-pane -p (without -e) for plain text polling at 100ms intervals."""
+verification_explanation = """25 pytest tests organized into 8 classes covering session lifecycle (creation, destruction, unique naming), text content capture (verifying exact character extraction from known fixtures), attribute detection (bold, underline, reverse on specific cells), color detection (8-color fg/bg, 256-color fg, default colors), cursor position tracking, snapshot format compatibility with TerminalEmulator.snapshot(), keyboard interaction (j/k navigation updating selection state, reverse attribute following selection), and wait_for_text behavior (returns True for existing text, False on timeout). Tests use module-scoped tmux sessions for read-only static fixture tests and function-scoped sessions for interactive tests, with pytest-timeout as a safety net."""
+category = "systems-programming"
+tags = ["terminal-emulation", "tmux-automation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ae731a"

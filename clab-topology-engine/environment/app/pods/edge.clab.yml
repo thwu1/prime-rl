@@ -1,0 +1,21 @@
+name: edge
+mgmt:
+  ipv4-subnet: 10.0.0.0/28
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+  nodes:
+    router1:
+      labels:
+        role: router
+    router2:
+      labels:
+        role: router
+    firewall:
+      labels:
+        role: security
+  links:
+    - endpoints: ["router1:eth1", "router2:eth1"]
+    - endpoints: ["router1:eth2", "firewall:eth1"]
+    - endpoints: ["router2:eth2", "firewall:eth2"]

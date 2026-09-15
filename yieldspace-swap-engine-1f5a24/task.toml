@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing 128-bit unsigned exponentiation (log2, pow2, normalizedPow) and 8 AMM swap/boundary/invariant functions, all using bigint 64.64 fixed-point arithmetic. The provided codebase contains a subtle numerical bug in the fixed-point primitive library that causes a subset of functions to produce incorrect results; the solver must diagnose which dependency is defective, locate the off-by-one, and fix it alongside completing the stubs. Matching exact golden values demands bit-perfect arithmetic across hundreds of chained bigint operations with overflow-aware normalization."""
+solution_explanation = """The exp_2 function in math64x64.ts has a shift bug (62n instead of 63n) causing all exp_2 results to be 2x too large. This only affects functions using pow() (maxFYTokenIn/Out, maxSharesIn, invariant) but NOT the normalizedPow-dependent swap functions, creating a partial-success pattern. The Exp64x64 log2 uses leading-bit detection plus 57 squaring iterations for fractional precision. pow2 uses 57 precomputed 2^(1/2^k) constants in 128-bit fixed-point. normalizedPow computes pow2(MAX-((MAX-log2(x))*y/z)). Each YieldMath swap function uses the time-adjusted exponent a=1-g*k*t and composes normalizedPow with 64.64 arithmetic to evaluate the YieldSpace invariant for the desired variable."""
+verification_explanation = """Tests verify 20 golden values across 4 swap functions, 3 boundary functions, pool invariant, two mirror-symmetry round-trips (forward swap then inverse), maturity-convergence property (at t=0 price=c), and normalizedPow identity. All use tight integer tolerances. The partial-success pattern (swap passes, max/invariant fails) is diagnostic of the exp_2 bug."""
+category = "mathematics"
+tags = ["fixed-point-arithmetic", "amm-finance"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/yieldspace-swap-engine-1f5a24"

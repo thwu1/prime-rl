@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level structural bioinformatics knowledge to implement eight metric functions from minimal signatures (Kabsch RMSD with SVD reflection correction, lDDT with correct reference-based pair selection, TM-score with length-dependent d0, GDT-TS, binder-centric interface contacts, hotspot coverage with 1-indexed residues, inter-chain PAE extraction, PDB parsing). The agent must independently know these algorithms — docstrings provide only function names and return types, not mathematical formulas or implementation steps. Beyond the metrics, the agent must reverse-engineer heterogeneous AlphaFold PAE JSON schemas by inspecting the data files, derive the composite scoring formula by interpreting config.json weight key naming conventions (recognizing that 'mean_plddt_normalized', 'interface_pae_normalized', and 'contact_density' imply specific normalization denominators that must be discovered from the data), author correct SQL for CSV import with header-row handling, and orchestrate shell/Python/SQL data flow across pipeline stages with no step-by-step guidance."""
+solution_explanation = """Implement all metric stubs in metrics.py using numpy (Kabsch alignment via SVD with reflection correction, lDDT using reference distance matrix for pair selection, TM-score with max(L-15,1) in d0, GDT-TS averaging fractions at 1/2/4/8 A cutoffs, interface contacts via axis=0 min, hotspot coverage with hr-1 indexing). Inspect PAE files to discover two JSON schemas and write a jq filter to normalize both. Read config.json scoring_weights to derive the composite formula, recognizing normalization factors from key names and data (pLDDT/100, PAE/31.75, contacts/40). Author pipeline.sql with CREATE TABLE, .import CSV, DELETE header row, and CREATE VIEW ranked_designs. Complete run_pipeline.sh to loop over PAE files, run sqlite3, and export results via Python querying the ranked_designs view."""
+verification_explanation = """Tests load results.json and compare every metric for all 5 designs against pre-computed expected values within tight tolerances (RMSD ±0.15, lDDT ±0.03, TM-score ±0.05, GDT-TS ±0.05, contacts ±2, hotspot ±0.02, PAE ±0.5, pLDDT ±0.5, composite ±0.05). Ranking order must match exactly. Additional tests verify: PAE normalized files exist as 100x100 JSON arrays, SQLite database exists with metrics table (5 rows) and ranked_designs view sorted descending by composite score, all metric values fall within valid ranges, and a perturbation test shifts PDB coordinates then re-runs the full pipeline to confirm RMSD changes (anti-hardcoding)."""
+category = "applied_computing"
+tags = ["structural-bioinformatics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protein-design-scoring"

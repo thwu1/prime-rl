@@ -1,0 +1,8 @@
+{
+  "id": "mut_004",
+  "title": "ADD swaps operand order",
+  "description": "Swap operand order in ADD operation (a+b becomes b+a)",
+  "equivalent": false,
+  "original_line": "            4'b0000: result = a + b;",
+  "mutated_line": "            4'b0000: result = b + a;"
+}

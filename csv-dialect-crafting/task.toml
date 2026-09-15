@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering CleverCSV's multi-module internal architecture from source code: discovering the two-phase detection pipeline (normal form pattern matching vs. consistency measure), understanding how candidate dialects are enumerated (Unicode category filtering, blocked characters, escape character detection via pairwise iteration), comprehending the scoring formula (pattern score P measuring row-length regularity, type score T measuring proportion of cells matching known types, combined as Q=P*T), understanding normal form conditions (five strict structural forms involving elementary character sets and quoting patterns), and grasping the tie-breaking logic. The agent must then synthesize this understanding to craft adversarial CSV files that trigger specific code paths: bypassing all five normal forms to force consistency-based detection, creating delimiter disagreement between frequency-based heuristics (csv.Sniffer) and type-aware scoring (CleverCSV), and maximizing the candidate dialect space through strategic character selection. Additionally requires understanding Python's csv.Sniffer frequency-based heuristics and how they differ from CleverCSV's approach. None of this algorithmic detail is provided in the instructions — the agent must discover it all from source code."""
+solution_explanation = """The solution reads CleverCSV's source code to understand internal APIs (ConsistencyDetector, get_dialects, Detector, TypeDetector, normal_form). It crafts four CSV files exploiting specific algorithmic behaviors: (1) pipe_consistency.csv includes a backslash-comma sequence that makes cells non-elementary, forcing normal form detection to fail and the consistency measure to select pipe delimiter; (2) mixed_quoting.csv uses semicolon delimiter with single-quote quoting where some cells are quoted and some not; (3) sniffer_disagree.csv is tab-delimited with commas embedded inside field values — Sniffer picks comma (consistent frequency, preferred heuristic) while CleverCSV picks tab via the consistency measure because tab-delimited cells have recognizable types (names, locations, numbers) whereas comma-delimited cells are unrecognizable; (4) many_candidates.csv includes diverse special characters (~,;,|,#) plus both quote styles to maximize the delimiter x quotechar x escapechar candidate space to 24+ dialects."""
+verification_explanation = """Tests verify: score_report.py exists and produces valid JSON with correct structure (candidates with P/T/Q scores, winner, method); pipe_consistency.csv is detected as pipe-delimited via consistency method (not normal form); mixed_quoting.csv is detected with semicolon delimiter and single-quote quotechar with verifiable mixed quoting in rows; sniffer_disagree.csv causes Python's csv.Sniffer to return a different delimiter than CleverCSV; many_candidates.csv produces ≥20 candidate dialects; all files meet minimum row/column dimension requirements; results.json contains valid combined analysis for all four files."""
+category = "data-processing"
+tags = ["csv-dialect-detection", "reverse-engineering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/csv-dialect-crafting"

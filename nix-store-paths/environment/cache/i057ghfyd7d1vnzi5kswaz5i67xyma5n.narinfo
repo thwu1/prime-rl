@@ -1,0 +1,9 @@
+StorePath: /nix/store/i057ghfyd7d1vnzi5kswaz5i67xyma5n-setup-hook.sh
+URL: nar/i057ghfyd7d1vnzi5kswaz5i67xyma5n.nar.xz
+Compression: xz
+FileHash: sha256:a73dc0a244291205078196bb20bf96059063f0b656f2672e7957abde7ae34cbe
+FileSize: 525572
+NarHash: sha256:a5d77a68321c2a5c49e790dfd77c2400f22f93f79aef5888425dc86173a03d83
+NarSize: 32588411
+References: bab0v7jb1pmgj5vs65wyjy87cr4vmhpj-hello-2.12.3.tar.gz zsp60hn424jza9hs5k668g1hlyyr0lvr-openssl-3.2.1-src
+CA: text:sha256:dc0d5e176f63390762334568d969c7d3f76ac97aeed5519428b03139a2f967fa

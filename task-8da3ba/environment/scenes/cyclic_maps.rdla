@@ -1,0 +1,66 @@
+-- OpenMoonRay RDLA Scene: Circular Map Binding Test
+-- This scene contains a circular dependency between two noise maps
+
+SceneVariables {
+    ["image_width"] = 640,
+    ["image_height"] = 480,
+    ["pixel_samples"] = 16,
+    ["max_depth"] = 5
+}
+
+PerspectiveCamera("/scene/camera") {
+    ["node_xform"] = translate(0, 2, -8),
+    ["focal"] = 50.0
+}
+
+-- Circular map chain: noise_a -> noise_b -> noise_a
+NoiseMap("/scene/maps/noise_a") {
+    ["amplitude"] = 1.0,
+    ["lacunarity"] = 2.0,
+    ["input"] = bind(NoiseMap("/scene/maps/noise_b"))
+}
+
+NoiseMap("/scene/maps/noise_b") {
+    ["amplitude"] = 0.5,
+    ["gain"] = 0.65,
+    ["input"] = bind(NoiseMap("/scene/maps/noise_a"))
+}
+
+DwaBaseMaterial("/scene/surfacing/wall") {
+    ["albedo"] = bind(NoiseMap("/scene/maps/noise_a")),
+    ["roughness"] = 0.7,
+    ["specular"] = 0.3
+}
+
+RdlMeshGeometry("/scene/geometry/plane") {
+    ["node_xform"] = translate(0, 0, 0) * scale(10, 1, 10),
+    ["vertices"] = {Vec3(-1,0,-1), Vec3(1,0,-1), Vec3(1,0,1), Vec3(-1,0,1)},
+    ["face_vertex_count"] = {4},
+    ["vertices_by_index"] = {0, 1, 2, 3}
+}
+
+RectLight("/scene/lights/main") {
+    ["node_xform"] = translate(0, 5, 0),
+    ["width"] = 4.0,
+    ["height"] = 4.0,
+    ["intensity"] = 8.0,
+    ["color"] = Rgb(1.0, 1.0, 1.0)
+}
+
+LightSet("/scene/light_set") {
+    ["lights"] = {RectLight("/scene/lights/main")}
+}
+
+GeometrySet("/scene/geo_set") {
+    ["geometries"] = {RdlMeshGeometry("/scene/geometry/plane")}
+}
+
+Layer("/scene/render_layer") {
+    {GeometrySet("/scene/geo_set"), "", DwaBaseMaterial("/scene/surfacing/wall"), LightSet("/scene/light_set")}
+}
+
+RenderOutput("/scene/output/beauty") {
+    ["file_name"] = "cyclic.exr",
+    ["result"] = "beauty",
+    ["camera"] = PerspectiveCamera("/scene/camera")
+}

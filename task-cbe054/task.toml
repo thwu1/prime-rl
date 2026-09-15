@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level OSPF protocol knowledge to identify specification deviations in the FSM model without procedural hints. The agent must parse FRRouting configuration files (a specialized Cisco-IOS-like format) to extract a multi-area topology with mixed network types, master Graphviz DOT language to render FSM state diagrams, cross-reference RFC 2328 against a structurally divergent FSM to discover and correct all errors, and generate topology-aware conformance test cases achieving coverage thresholds — all without being told what is wrong or how to fix it."""
+solution_explanation = """The solver parses the RFC to derive the correct 28-template FSM, discovers 6 errors in the input (missing Attempt/HelloReceived, unconditional ExchangeDone, missing Loading/SeqNumberMismatch, Full/BadLSReq, Full/OneWay, Exchange/AdjOK demotion), expands 3 wildcard rules across 8 states to produce 49 discrete transitions, parses 3 FRRouting configs to build a topology with broadcast and point-to-point links across 2 OSPF areas, generates a Graphviz DOT diagram rendered to SVG, computes coverage of existing tests (~18%), generates topology-aware test cases for uncovered transitions, and achieves 100% coverage."""
+verification_explanation = """Tests verify: (1) corrected FSM has exactly 8 states, 13 events, 49 expanded transitions with no wildcards and all 6 corrections present; (2) topology has 3 routers with correct IDs, 3 links, both broadcast and point-to-point types, and multi-area structure; (3) FSM diagram is valid Graphviz SVG containing all states and transition labels; (4) coverage_before < 40%; (5) test_suite is non-empty, schema-valid, and references topology elements; (6) coverage_after >= 80% and improved over before."""
+category = "networking"
+tags = ["ospf", "protocol-conformance"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cbe054"

@@ -1,0 +1,46 @@
+{
+    "name": "Intel Xeon Gold 6248 Dual Socket",
+    "description": "2 sockets, 1 NUMA node per socket, 8 cores per socket, no SMT",
+    "sockets": [
+        {
+            "socket_id": 0,
+            "numa_nodes": [
+                {
+                    "node_id": 0,
+                    "cores": [
+                        {"physical_id": 0, "logical_ids": [0]},
+                        {"physical_id": 1, "logical_ids": [1]},
+                        {"physical_id": 2, "logical_ids": [2]},
+                        {"physical_id": 3, "logical_ids": [3]},
+                        {"physical_id": 4, "logical_ids": [4]},
+                        {"physical_id": 5, "logical_ids": [5]},
+                        {"physical_id": 6, "logical_ids": [6]},
+                        {"physical_id": 7, "logical_ids": [7]}
+                    ]
+                }
+            ]
+        },
+        {
+            "socket_id": 1,
+            "numa_nodes": [
+                {
+                    "node_id": 1,
+                    "cores": [
+                        {"physical_id": 8, "logical_ids": [8]},
+                        {"physical_id": 9, "logical_ids": [9]},
+                        {"physical_id": 10, "logical_ids": [10]},
+                        {"physical_id": 11, "logical_ids": [11]},
+                        {"physical_id": 12, "logical_ids": [12]},
+                        {"physical_id": 13, "logical_ids": [13]},
+                        {"physical_id": 14, "logical_ids": [14]},
+                        {"physical_id": 15, "logical_ids": [15]}
+                    ]
+                }
+            ]
+        }
+    ],
+    "numa_distances": [
+        [10, 21],
+        [21, 10]
+    ]
+}

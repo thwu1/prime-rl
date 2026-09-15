@@ -1,0 +1,230 @@
+{
+  "build_id": "oxide-controller-d-20240315-143022",
+  "toolchain": {
+    "rustc": "1.75.0-nightly (2024-01-15)",
+    "target": "thumbv7em-none-eabihf",
+    "linker": "arm-none-eabi-ld",
+    "opt_level": "s"
+  },
+  "chip": "stm32h753zi",
+  "image_format": "ihex",
+  "tasks": {
+    "jefe": {
+      "crate_name": "task-jefe",
+      "features": ["supervisor"],
+      "sections": {
+        ".text": 11200,
+        ".rodata": 2100,
+        ".data": 340,
+        ".bss": 1800,
+        ".uninit": 0
+      },
+      "total_flash_used": 13640,
+      "total_ram_used": 2140,
+      "max_stack_depth": 1024,
+      "compile_status": "ok"
+    },
+    "rcc_driver": {
+      "crate_name": "drv-stm32h7-rcc",
+      "features": ["h753"],
+      "sections": {
+        ".text": 5200,
+        ".rodata": 800,
+        ".data": 128,
+        ".bss": 960,
+        ".uninit": 0
+      },
+      "total_flash_used": 6128,
+      "total_ram_used": 1088,
+      "max_stack_depth": 512,
+      "compile_status": "ok"
+    },
+    "sys_monitor": {
+      "crate_name": "task-sys-monitor",
+      "features": [],
+      "sections": {
+        ".text": 10400,
+        ".rodata": 2200,
+        ".data": 320,
+        ".bss": 2400,
+        ".uninit": 0
+      },
+      "total_flash_used": 12920,
+      "total_ram_used": 2720,
+      "max_stack_depth": 1024,
+      "compile_status": "ok"
+    },
+    "usart_driver": {
+      "crate_name": "drv-stm32h7-usart",
+      "features": ["h753"],
+      "sections": {
+        ".text": 9600,
+        ".rodata": 1600,
+        ".data": 256,
+        ".bss": 2048,
+        ".uninit": 0
+      },
+      "total_flash_used": 11456,
+      "total_ram_used": 2304,
+      "max_stack_depth": 768,
+      "compile_status": "ok"
+    },
+    "spi_driver": {
+      "crate_name": "drv-stm32h7-spi",
+      "features": ["h753"],
+      "sections": {
+        ".text": 8800,
+        ".rodata": 1200,
+        ".data": 192,
+        ".bss": 1800,
+        ".uninit": 0
+      },
+      "total_flash_used": 10192,
+      "total_ram_used": 1992,
+      "max_stack_depth": 768,
+      "compile_status": "ok"
+    },
+    "i2c_driver": {
+      "crate_name": "drv-stm32h7-i2c",
+      "features": ["h753"],
+      "sections": {
+        ".text": 9200,
+        ".rodata": 1400,
+        ".data": 224,
+        ".bss": 2200,
+        ".uninit": 0
+      },
+      "total_flash_used": 10824,
+      "total_ram_used": 2424,
+      "max_stack_depth": 768,
+      "compile_status": "ok"
+    },
+    "net_driver": {
+      "crate_name": "drv-stm32h7-eth",
+      "features": ["h753", "rmii"],
+      "sections": {
+        ".text": 22400,
+        ".rodata": 3600,
+        ".data": 512,
+        ".bss": 24576,
+        ".uninit": 0
+      },
+      "total_flash_used": 26512,
+      "total_ram_used": 25088,
+      "max_stack_depth": 2048,
+      "compile_status": "ok"
+    },
+    "net": {
+      "crate_name": "task-net",
+      "features": ["smoltcp"],
+      "sections": {
+        ".text": 48000,
+        ".rodata": 8800,
+        ".data": 1024,
+        ".bss": 12288,
+        ".uninit": 0
+      },
+      "total_flash_used": 57824,
+      "total_ram_used": 13312,
+      "max_stack_depth": 4096,
+      "compile_status": "ok"
+    },
+    "sensor_hub": {
+      "crate_name": "task-sensor-hub",
+      "features": ["adc-continuous", "i2c-sensors", "spi-sensors"],
+      "sections": {
+        ".text": 18200,
+        ".rodata": 5600,
+        ".data": 1200,
+        ".bss": 24000,
+        ".uninit": 0
+      },
+      "total_flash_used": 25000,
+      "total_ram_used": 25200,
+      "max_stack_depth": 2048,
+      "compile_status": "ok",
+      "notes": "RAM budget of 262144 was originally sized for raw ADC DMA double-buffering (128KB x 2); profiling shows streaming mode with 16KB ring buffer is sufficient for all sensor polling at 1kHz"
+    },
+    "crypto": {
+      "crate_name": "task-crypto",
+      "features": ["hw-hash", "hw-rng"],
+      "sections": {
+        ".text": 12000,
+        ".rodata": 1800,
+        ".data": 400,
+        ".bss": 4800,
+        ".uninit": 0
+      },
+      "total_flash_used": 14200,
+      "total_ram_used": 5200,
+      "max_stack_depth": 1024,
+      "compile_status": "error",
+      "compile_error": "unresolved task-slot reference 'hash_driver'"
+    },
+    "storage": {
+      "crate_name": "task-storage",
+      "features": ["qspi-flash"],
+      "sections": {
+        ".text": 20400,
+        ".rodata": 3200,
+        ".data": 640,
+        ".bss": 10240,
+        ".uninit": 0
+      },
+      "total_flash_used": 24240,
+      "total_ram_used": 10880,
+      "max_stack_depth": 2048,
+      "compile_status": "ok"
+    },
+    "update_server": {
+      "crate_name": "task-update",
+      "features": [],
+      "sections": {
+        ".text": 24800,
+        ".rodata": 4000,
+        ".data": 800,
+        ".bss": 12800,
+        ".uninit": 0
+      },
+      "total_flash_used": 29600,
+      "total_ram_used": 13600,
+      "max_stack_depth": 2048,
+      "compile_status": "ok"
+    },
+    "logger": {
+      "crate_name": "task-logger",
+      "features": [],
+      "sections": {
+        ".text": 8400,
+        ".rodata": 1200,
+        ".data": 256,
+        ".bss": 4800,
+        ".uninit": 0
+      },
+      "total_flash_used": 9856,
+      "total_ram_used": 5056,
+      "max_stack_depth": 1024,
+      "compile_status": "ok"
+    },
+    "idle": {
+      "crate_name": "task-idle",
+      "features": [],
+      "sections": {
+        ".text": 400,
+        ".rodata": 64,
+        ".data": 0,
+        ".bss": 128,
+        ".uninit": 0
+      },
+      "total_flash_used": 464,
+      "total_ram_used": 128,
+      "max_stack_depth": 256,
+      "compile_status": "ok"
+    }
+  },
+  "link_summary": {
+    "total_flash_used": 232862,
+    "total_ram_used": 110192,
+    "note": "Totals reflect raw section sizes before MPU alignment; actual allocated sizes are larger due to power-of-2 rounding and natural alignment requirements"
+  }
+}

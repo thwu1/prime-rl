@@ -1,0 +1,31 @@
+{
+    "id": "root-beta",
+    "requirements": "Paper Beta has been reproduced.",
+    "weight": 1,
+    "sub_tasks": [
+        {
+            "id": "impl",
+            "requirements": "Implementation is complete.",
+            "weight": 3,
+            "sub_tasks": [
+                {"id": "algo-core", "requirements": "Core algorithm implemented.", "weight": 2, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"},
+                {"id": "algo-ext", "requirements": "Algorithm extension implemented.", "weight": 1, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"}
+            ],
+            "task_category": null,
+            "finegrained_task_category": null
+        },
+        {
+            "id": "exp",
+            "requirements": "Experiments have been run.",
+            "weight": 2,
+            "sub_tasks": [
+                {"id": "exp-run", "requirements": "Experiments executed successfully.", "weight": 1, "sub_tasks": [], "task_category": "Execution", "finegrained_task_category": "Result Reproduction"},
+                {"id": "exp-match", "requirements": "Results match the paper.", "weight": 1, "sub_tasks": [], "task_category": "Result Match", "finegrained_task_category": "Result Reproduction"}
+            ],
+            "task_category": null,
+            "finegrained_task_category": null
+        }
+    ],
+    "task_category": null,
+    "finegrained_task_category": null
+}

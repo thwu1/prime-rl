@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of SMT-LIB 2 formal semantics across multiple theories (integers, bitvectors, arrays, uninterpreted functions) AND proficiency with the Z3 SMT solver's Python API. The agent must: (1) implement a full model evaluator covering Euclidean div/mod, bitvector two's-complement signed arithmetic, modular overflow, array const/store/select evaluation, refine-fun with re-entrant dispatch, and nested let-binding scoping; (2) use Z3's Python API (z3-solver package) to solve benchmarks, extract models via z3.Solver/model, and convert Z3's internal model representation (FuncInterp, array values) to SMT-COMP format; (3) build an orchestration pipeline integrating the custom validator with Z3 for cross-validation. Multi-tool interoperability between Z3's programmatic API, the custom evaluator, and bash orchestration is the key difficulty beyond pure implementation."""
+solution_explanation = """(1) Build a complete SMT-LIB 2 model validator in Python with tokenizer, S-expression parser, model loader for define-fun/refine-fun, and term evaluator covering all required theories. (2) Write a Z3 frontend that uses z3.parse_smt2_file() to load benchmarks, z3.Solver.check() to solve, and model traversal (model.decls(), FuncInterp) to emit models in SMT-COMP format with proper sort/value conversion. (3) Create a bash pipeline script that orchestrates both tools across all benchmark/model pairs and produces a structured JSON report."""
+verification_explanation = """Tests verify: (a) the custom validator produces correct VALID/INVALID for all 10 benchmark/model pairs covering QF_LIA, QF_NIA, QF_BV, QF_AUFLIA, QF_UFLIA with edge cases; (b) z3_solve.py correctly reports sat/unsat for benchmarks via Z3 API and produces parseable model files; (c) Z3-generated models validate as VALID through the custom evaluator; (d) pipeline.sh produces a correct results.json with accurate cross-validation data."""
+category = "formal_methods"
+tags = ["smt", "solver-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-04e71f"

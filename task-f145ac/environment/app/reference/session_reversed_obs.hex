@@ -1,0 +1,23 @@
+# Reference session: reversed observation timestamps
+# Demonstrates correct ticket field ordering when plate observations
+# arrive in reverse chronological order.
+# Three clients: C1 (camera), C2 (camera), D1 (dispatcher)
+
+# Camera C1 identifies — 7 bytes
+[00.000] C1 -> S: 80 00 32 00 0a 00 50
+
+# Camera C2 identifies — 7 bytes
+[00.010] C2 -> S: 80 00 32 00 1e 00 50
+
+# Dispatcher D1 identifies — 4 bytes
+[00.020] D1 -> S: 81 01 00 32
+
+# C2 reports plate observation FIRST (chronologically later event) — 12 bytes
+[00.100] C2 -> S: 20 06 46 41 53 54 39 39 00 00 c5 12
+
+# C1 reports plate observation SECOND (chronologically earlier event) — 12 bytes
+[00.200] C1 -> S: 20 06 46 41 53 54 39 39 00 00 c3 50
+
+# Server sends ticket — note field ordering reflects chronological order,
+# NOT arrival order. Earlier observation comes first in the ticket. — 24 bytes
+[00.201] S -> D1: 21 06 46 41 53 54 39 39 00 32 00 0a 00 00 c3 50 00 1e 00 00 c5 12 3e 80

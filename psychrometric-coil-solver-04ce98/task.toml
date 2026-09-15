@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires HVAC engineering domain expertise: understanding interdependent ASHRAE psychrometric equations (saturation vapor pressure, humidity ratio formulas for above/below freezing, bisection convergence criteria, moist air volume with molecular weight ratio), diagnosing subtle numerical bugs in a ~350-line C library, and implementing a cooling coil process model (apparatus dew point method with bypass factor). Four coupled bugs interact: the reversed triple-point branching affects all downstream calculations, the below-freezing formula bug only manifests for sub-zero wet-bulb conditions, the tolerance bug produces results that look close but fail precision checks, and the volume coefficient error propagates to density. The solver must also implement the AHU mixing/coil/loads model from scratch using the corrected library."""
+solution_explanation = """Four bugs in psychro.c must be fixed: (1) The triple-point comparison in GetSatVapPres and dLnPws_ uses >= instead of <= — this swaps the ice and liquid saturation vapor pressure formulas, producing ~25% error above 0C. (2) The below-freezing branch of GetHumRatioFromTWetBulb uses the above-freezing coefficients (2501/2.326/4.186) instead of the correct (2830/0.24/2.1). (3) The bisection tolerance in GetTWetBulbFromHumRatio is multiplied by 100, giving only 0.1C accuracy instead of 0.001C. (4) The molecular weight ratio in GetMoistAirVolume is 1.007858 instead of 1.607858. Then ahu.c requires implementing mixed air (enthalpy/W weighted average), ADP calculation (T_target - BF*T_in)/(1-BF), coil leaving state (BF mixing with saturation at ADP), and loads (enthalpy-based total, dry-air sensible, and latent = total - sensible)."""
+verification_explanation = """Tests build the project with make, then exercise the psychro_calc program via subprocess with specific ASHRAE reference scenarios. Individual function tests check saturation vapor pressure against Table 3 (300 ppm), humidity ratio from wet-bulb above and below freezing, wet-bulb round-trip precision to 0.002C, moist air volume/density, and the full ASHRAE Example 1. COIL process tests compute reference values using a correct Python implementation of the ASHRAE equations and compare mixed air state, ADP, leaving conditions, and cooling loads."""
+category = "engineering"
+tags = ["thermodynamics", "hvac"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/psychrometric-coil-solver-04ce98"

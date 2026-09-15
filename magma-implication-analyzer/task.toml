@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of universal algebra (magma equational theories, implication semantics, model theory) combined with diagnostic reasoning to identify 8 subtle errors in a pre-computed implication matrix. The agent must parse Prover9-style algebraic notation, understand why certain equational implications hold or fail (e.g., why left-right duality does NOT make mirror equations equivalent, why commutativity does NOT imply associativity), enumerate ~19700 magma operation tables across orders 1-3, and coordinate multiple output formats. The diagnostic element requires the agent to critically evaluate a colleague's mathematical reasoning rather than simply following a procedure."""
+solution_explanation = """Parse the 12 Prover9-format equations into expression trees. For each order n in {1,2,3}, enumerate all n^(n^2) operation tables. For each table, evaluate every equation by iterating over all variable assignments. Build a satisfaction database and compute the 12x12 implication matrix via set containment. Compare against the claimed matrix to identify 8 errors (4 false positives from incorrect duality/dominance reasoning, 4 false negatives from truncated verification). Find counterexample magmas for all 110 non-implications. Compute the Hasse diagram via transitive reduction and render it using Graphviz dot."""
+verification_explanation = """Tests verify the corrected 12x12 implication matrix against precomputed ground truth (34 total implications), validate all 110 counterexample magmas by checking equation satisfaction, confirm the error report contains exactly 8 specific discrepancies with correct claimed/correct values, and check that the Hasse diagram DOT file contains exactly 16 edges matching the expected transitive reduction. The rendered PNG is verified as a valid image file."""
+category = "mathematics"
+tags = ["universal-algebra", "automated-reasoning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/magma-implication-analyzer"

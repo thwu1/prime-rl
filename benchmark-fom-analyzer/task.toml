@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep HPC domain expertise across molecular dynamics, lattice QCD, and ML workflow benchmarking. The agent must independently recognize and parse LAMMPS thermo output format and Loop time summary lines, MILC trajectory block structure with GFTIME timing and plaquette observables, and ML training epoch logs — none of these formats are documented in the specification. The 128-node MILC log contains warmup GFTIME measurements mixed into the production (second) trajectory; the mandated AWK validation tool correctly filters these, but any manual cross-checking or reimplementation must also handle this data quality issue. The agent must understand that LAMMPS equilibrated properties are computed from the second half of the trajectory (a standard MD convention not spelled out). The MILC 32-node run's final-trajectory plaquette (0.58234) deviates 0.95% from the reference (threshold 0.1%), but only if the agent correctly selects the plaquette from the final trajectory rather than the first (0.58789, which would pass). The replica packing optimization creates a non-monotonic FOM landscape: floor(9472/n) * olcf_fom is maximized at 64 nodes (148 replicas), not at the highest per-replica throughput. The agent must also orchestrate the AWK validation tool by reading the script's source to determine invocation syntax (no example is provided), map specification parameters to AWK variables, create a SQLite database from a schema DDL file, compute strong-scaling parallel efficiency metrics, and generate a JSON report validated against a JSON Schema — requiring multi-tool interop across Python, AWK, SQLite, and JSON Schema validation."""
+solution_explanation = """Parse LAMMPS logs for the 'Loop time of T on P procs for S steps with N atoms' line and thermo data columns. Compute equilibrated PE/molecule from second-half PotEng averages. Invoke the AWK validation script via subprocess with -v parameters mapped from spec.toml (ref_plaq, tol_pct, traj_steps), saving stdout to /app/milc_validations/<log>.validation. The AWK script filters warmup GFTIME lines within trajectory 2 via the !/warmup/ pattern. Parse AWK key=value output for nodes, mean GFTIME, plaquette, and validation status. Compute replicas=floor(9472/n) and final_fom=replicas*olcf_fom for each MILC configuration; optimal is 64 nodes (148 replicas, FOM~29362). Compute strong-scaling efficiency relative to 64 nodes. Parse workflow log for dimensions, makespan, and final training loss. Create SQLite database with 4 tables per db_schema.sql. Generate JSON report conforming to schema.json with aggregate_score~1.214."""
+verification_explanation = """Tests validate: (1) JSON report validates against schema.json, (2) LAMMPS nano FOM~111.26M within 1% and tiny fails PE validation, (3) MILC optimal=64 nodes/148 replicas/FOM~29362 within 1% and 32-node correctly fails plaquette, (4) workflow FOM~1.494 within 1%, (5) aggregate~1.214 within 2%, (6) SQLite database exists with correct tables/schema/data and optimal MILC queryable via SQL, (7) milc_validations/ directory contains AWK output files with correct validation status, (8) scaling analysis: 64-node efficiency=1.0, 128-node~0.911, 256-node~0.765 with monotonic speedup and decreasing efficiency."""
+category = "data_analysis"
+tags = ["hpc", "benchmarking", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/benchmark-fom-analyzer"

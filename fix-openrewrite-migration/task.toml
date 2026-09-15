@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level diagnostic skills across a partially-and-incorrectly migrated Spring Boot codebase with 9 source files. The solver must: (1) run the build to discover compilation errors across 5+ files, then triage them — some are straightforward javax→jakarta import fixes, but others require deeper analysis; (2) identify a javax.annotation-api workaround dependency that masks a real migration issue — files using javax.annotation appear to compile, creating a false sense of correctness that must be evaluated; (3) diagnose an INCORRECT over-migration where javax.sql.DataSource was changed to jakarta.sql.DataSource — the solver must know javax.sql is a JDK package that should NOT change, and revert it; (4) recognize that javax.xml.bind (JAXB) was removed from JDK 11+ and requires BOTH adding a new Maven dependency AND changing imports — a two-step fix where either step alone still fails; (5) rewrite two different removed framework adapter classes (WebSecurityConfigurerAdapter → SecurityFilterChain pattern, WebMvcConfigurerAdapter → WebMvcConfigurer interface) using modern Spring 6/Boot 3 patterns; (6) discover and fix non-compilation semantic bugs: string literals with old javax.servlet class names, dynamic Class.forName calls building javax.servlet paths, and property files with servlet class references — all invisible to the compiler; (7) handle Spring Boot 3.0 property key renames and removals."""
+solution_explanation = """Remove javax.annotation-api workaround dependency from pom.xml. Add jakarta.xml.bind-api and jaxb-runtime dependencies. Fix javax→jakarta imports in DemoApplication (annotation), UserController (servlet/validation), CacheConfig (annotation), DataExporter (xml.bind). Revert incorrect jakarta.sql→javax.sql in CacheConfig import and string literal. Rewrite SecurityConfig from WebSecurityConfigurerAdapter to @Bean SecurityFilterChain. Change WebConfig from extending WebMvcConfigurerAdapter to implementing WebMvcConfigurer. Update string literals and Class.forName calls in MetricsFilter from javax.servlet to jakarta.servlet while preserving javax.sql/crypto. Fix application.properties key renames and value migrations. Fix filter-config.properties servlet class references."""
+verification_explanation = """Tests compile the project with mvn compile and assert exit code 0. Pom.xml is checked for absence of javax.annotation-api and presence of jakarta.xml.bind-api. Each Java source file is verified for correct namespace usage: DemoApplication and CacheConfig use jakarta.annotation; UserController uses jakarta.servlet and jakarta.validation; SecurityConfig uses SecurityFilterChain with authorizeHttpRequests/requestMatchers; WebConfig implements WebMvcConfigurer (not extends Adapter); CacheConfig uses javax.sql.DataSource (JDK, not jakarta.sql) in both import and string literal; DataExporter uses jakarta.xml.bind; MetricsFilter string literals use jakarta.servlet while javax.sql/crypto preserved. Property files are verified for renamed keys, removed deprecated keys, and correct jakarta.servlet values with javax.sql preserved."""
+category = "devops"
+tags = ["java", "spring-boot-migration"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-openrewrite-migration"

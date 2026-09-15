@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing censored-data maximum likelihood estimation for non-standard cure rate survival models. The Weibull and generalized gamma cure models add a cure fraction parameter c (modeling that not everyone converts), departing from textbook survival analysis. The generalized gamma model involves the regularized incomplete gamma function, making both the likelihood derivation and numerical optimization challenging. Proper handling of right-censored observations in the mixture likelihood is essential and non-trivial."""
+solution_explanation = """Implements Kaplan-Meier estimator for non-parametric conversion curves, then derives and optimizes the censored log-likelihood for Weibull and generalized gamma cure models using scipy.optimize with multiple starting points and bounded L-BFGS-B. Computes AIC for model comparison and extrapolates conversion rates using fitted parameters."""
+verification_explanation = """Tests independently compute Kaplan-Meier estimates from raw data and compare against reported values. Model predictions are verified against KM curves at multiple time points. AIC values are recomputed from reported parameters using the correct censored likelihood formulas. Extrapolated conversion rates are checked against known asymptotic values. Model selection consistency is verified."""
+category = "statistics"
+tags = ["survival-analysis", "maximum-likelihood"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/censored-cure-modeling"

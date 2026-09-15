@@ -1,0 +1,53 @@
+FINRA Regulatory Reference Notes
+=================================
+
+1. FINRA Regulatory Notice 12-38, FAQ Q7 — Fractional Share Reporting
+---------------------------------------------------------------------
+"If a firm has a fractional short-interest position (e.g., 125.6 shares),
+it should truncate the position to reflect a whole number when reporting
+such positions to FINRA pursuant to FINRA Rule 4560, instead of rounding
+the position up or down. For example, firms should report short-interest
+of 125.6 shares in XYZ as 125 shares."
+
+
+2. FINRA Consolidated Short Interest — Derived Field Notes
+-----------------------------------------------------------
+The following fields in consolidated short interest data are derived from
+primary reported values and must be independently verifiable:
+
+- changePreviousNumber: the arithmetic difference between the current and
+  previous reporting period short positions.
+
+- changePercent: the percentage change in short position from the previous
+  reporting period. Not applicable when the previous period position is zero.
+
+- daysToCoverQuantity: a coverage ratio representing the relationship between
+  the current short position and average daily trading volume. This field is
+  bounded: FINRA systems cap the published value at 999.99 for securities
+  where the ratio would exceed this threshold (including securities with no
+  meaningful trading volume). For securities where the ratio is positive but
+  less than one full day of coverage, the published value is 1.00.
+
+
+3. SEC Regulation SHO, Rule 203(b)(3) — Threshold Securities
+--------------------------------------------------------------
+A "threshold security" is an equity security for which there is an aggregate
+fail-to-deliver position at a registered clearing agency of:
+  (i) 10,000 shares or more per security, AND
+  (ii) equal to at least 0.5% of the issuer's total shares outstanding.
+
+Securities meeting these criteria are placed on the threshold list with
+regShoThresholdFlag=Y.
+
+Under Rule 203(b)(3), if a security has had such fails for five consecutive
+settlement days, a participant that has a fail-to-deliver position in that
+security must close out the position by purchasing securities of like kind
+and quantity. The close-out obligation is triggered when the security has
+appeared on the threshold list for 5 consecutive settlement days.
+
+A gap in appearance on the threshold list resets the consecutive-day counter.
+
+FINRA Rule 4320 provides separate obligations for certain OTC equity
+securities and may apply to securities independently of Reg SHO thresholds.
+Securities flagged only under Rule 4320 (rule4320Flag=Y, regShoThresholdFlag=N)
+are tracked separately.

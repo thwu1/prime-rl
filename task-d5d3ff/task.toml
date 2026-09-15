@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of systolic array microarchitecture (double-buffered memories, DMA transaction costs, cold-start vs overlapped execution, pipeline drain, edge-tile effects) combined with heterogeneous scheduling theory (workload-to-accelerator assignment as combinatorial optimization, DAG-constrained scheduling with inter-accelerator transfer costs, makespan minimization). The solver must reverse-engineer a compiled binary simulator's CLI interface via --help, use it efficiently in batch mode for tiling evaluation across three architecturally distinct accelerator configurations, and integrate results with a DAG scheduler to find the globally optimal assignment. Non-trivial interactions between accelerator characteristics (array dimension, memory capacity, DMA costs) and workload shapes with non-aligned dimensions create a complex optimization landscape where no single accelerator dominates."""
+solution_explanation = """The solution uses accel_sim in --batch mode to find optimal tilings for all 30 (workload, accelerator) pairs, then exhaustively searches all 3^10 = 59049 possible assignments, computing makespan for each via forward scheduling in topological order. For each candidate assignment, workloads are scheduled in ID order (w0-w9), with start times determined by max(accelerator_availability, predecessor_completion + cross-accelerator_transfer_cost)."""
+verification_explanation = """Tests independently reimplement the cycle evaluator in Python, verify submitted cycle counts against the accel_sim binary via subprocess, brute-force compute optimal tilings for all 30 workload-accelerator pairs, exhaustively search all 59049 assignments to find the globally optimal makespan, and verify the submitted schedule's feasibility (DAG dependency satisfaction, accelerator temporal exclusivity) and global optimality."""
+category = "computer_architecture"
+tags = ["systolic-array", "heterogeneous-scheduling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d5d3ff"

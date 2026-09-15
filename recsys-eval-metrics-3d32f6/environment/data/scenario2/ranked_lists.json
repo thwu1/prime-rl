@@ -1,0 +1,6 @@
+{
+  "users": [
+    {"user_id": 1, "ranked_items": [5, 1, 3, 2, 4]},
+    {"user_id": 2, "ranked_items": [10, 20, 30, 40, 50]}
+  ]
+}

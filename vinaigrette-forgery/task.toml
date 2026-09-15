@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of multivariate quadratic cryptography (Oil and Vinegar schemes), finite field linear algebra (null space computation over F_31, solving linear systems mod prime), correct implementation of SHAKE256 with specific bit-extraction, and assembly of a multi-component signature. The agent must recognize that Vinaigrette without emulsifier matrices exposes the oil space through the public key's matrix structure, then implement the full signing pipeline over a finite field."""
+solution_explanation = """1) Parse the 16 public key matrices (20x20 over F_31). 2) Observe that each P_k has rank 16 (= n - o) and compute the common left null space to recover the 4-dimensional oil space O. 3) Compute H(lambda) via SHAKE256 with 5-bit extraction. 4) Choose random vinegar vectors v_i, compute residual target c = H(lambda) - sum P(v_i). 5) Set up and solve a 16x16 linear system over F_31 for oil corrections alpha_i such that the bilinear differential sum P'(v_i, O*alpha_i) = c. 6) Output s_i = v_i + O*alpha_i."""
+verification_explanation = """The test parses the submitted signature (80 integers), reconstructs the 4 component vectors, evaluates each quadratic form P_j(s_i) over F_31, sums them, and checks equality with the hash target H(lambda) for all j=1..16. This is a deterministic algebraic verification."""
+category = "cryptography"
+tags = ["post-quantum", "multivariate-crypto"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vinaigrette-forgery"

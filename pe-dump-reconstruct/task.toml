@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of the PE (Portable Executable) binary format: DOS/COFF/Optional headers, section table layout, virtual-to-raw section mapping, import directory parsing (ILT/IAT thunks, ordinal vs name imports), and base relocation processing (page-based relocation blocks, DIR64 type entries). The agent must independently determine how to reverse the OS loading process to reconstruct the original file from a memory dump, then perform multi-tool binary analysis combining radare2 and MinGW objdump outputs. No guidance on approach is provided."""
+solution_explanation = """The solution reconstructs the on-disk PE by: parsing PE headers from the memory dump using struct, computing delta = load_address - image_base, walking all relocation blocks to un-apply DIR64 fixups, then copying sections from virtual offsets back to raw file offsets. Structural analysis re-parses the reconstructed PE for headers/imports/relocations. Code analysis runs x86_64-w64-mingw32-objdump -d to generate disassembly and counts call/callq instructions via regex, runs radare2 with aaa+afl for function detection, and computes entry point bytes by converting EP RVA to file offset through the section table."""
+verification_explanation = """Reconstruction is verified by SHA-256 hash comparison against a build-time-computed hash (original PE not available at runtime). Structural analysis is independently validated using the pefile library on the reconstructed PE. Code analysis values are cross-verified: entry point bytes by independent file read at pefile-computed offset, call count by independent objdump run with identical regex, imports by pefile enumeration, executable section bytes by pefile section flags. Tool output files are checked for existence, size, and format-specific markers."""
+category = "reverse_engineering"
+tags = ["pe-format", "binary-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pe-dump-reconstruct"

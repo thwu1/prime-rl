@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical analysis: the E5 system's rate constants span 19 orders of magnitude, making naive integration produce completely wrong results. The agent must independently determine appropriate tolerance strategies for both Fortran and Python solvers, handle Fortran 77 compilation and linking of multiple source files, implement a correct Jacobian and ODE system in Python, and perform eigenvalue-based stiffness characterization. Solution components reach O(1e-13), so default solver settings silently produce garbage."""
+solution_explanation = """Write a Fortran driver for high-precision RADAU5 E5 integration with rtol=1e-12 and atol=1.7e-24, compile and link all source files, parse output to CSV. Implement E5 RHS and analytical Jacobian in Python, use scipy solve_ivp with Radau/BDF methods with extremely small absolute tolerance (critical insight the agent must discover), integrate sequentially across output times. Compute Jacobian eigenvalues with numpy at initial and t=10 states."""
+verification_explanation = """Tests verify: (1) Fortran CSV matches known high-precision reference values to 4+ significant digits at t=10 and t=1000, (2) Python solver module exports correct RHS and Jacobian functions verified at non-trivial test states with a live integration check from t=0 to t=10, (3) eigenvalue magnitudes and stiffness ratios are in expected ranges, (4) all method/tolerance combinations present in results CSV with sufficient row count."""
+category = "scientific_computing"
+tags = ["numerical_analysis", "stiff_ode"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stiff-ode-precision"

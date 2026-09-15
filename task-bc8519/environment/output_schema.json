@@ -1,0 +1,32 @@
+{
+  "description": "Output schema for results.json",
+  "structure": {
+    "workloads": [
+      {
+        "M": "int — matrix row dimension",
+        "N": "int — matrix column dimension",
+        "K": "int — matrix inner dimension",
+        "total_configs": "int — total enumerated configurations",
+        "num_valid": "int — configurations passing all hardware constraints",
+        "num_pareto": "int — unique (occupancy, effective_ai) points on Pareto frontier",
+        "best": "config_result — highest-scoring valid configuration",
+        "pareto_frontier": "list[config_result] — one representative per Pareto point, sorted by score descending"
+      }
+    ],
+    "overall_best": "config_result — config with highest geometric mean score across all workloads, with geo_mean_score field added"
+  },
+  "config_result": {
+    "BLOCK_SIZE_M": "int",
+    "BLOCK_SIZE_N": "int",
+    "BLOCK_SIZE_K": "int",
+    "GROUP_SIZE_M": "int",
+    "num_warps": "int",
+    "num_stages": "int",
+    "occupancy": "float — fraction of max warps active",
+    "effective_ai": "float — effective arithmetic intensity (FLOP/byte) with L2 reuse",
+    "score": "float — occupancy * effective_ai",
+    "smem_bytes": "int — shared memory per CTA in bytes",
+    "bottleneck": "string — one of: smem, regs, warps, max_blocks"
+  },
+  "tiebreaker_order": "When multiple configs share the same score (or same Pareto point), select the one with: lowest smem_bytes, then lowest num_warps, then lowest BLOCK_SIZE_M, BLOCK_SIZE_N, BLOCK_SIZE_K, GROUP_SIZE_M, num_stages"
+}

@@ -1,0 +1,70 @@
+Engineering Reference: V-Belt Transmission Design
+====================================================
+
+Based on MITCalc documentation, ISO 4184, and ANSI/RMA standards.
+
+1. Geometry
+
+   Transmission ratio: i = d2 / d1
+
+   Belt speed: v = pi * d1 * n1 / 60000  [m/s]
+   (d1 in mm, n1 in rpm)
+
+   Wrap angles:
+     alpha_small = pi - 2 * arcsin((d2 - d1) / (2 * C))  [radians]
+     alpha_large = pi + 2 * arcsin((d2 - d1) / (2 * C))  [radians]
+     For equal pulleys (d1 = d2), both wrap angles = pi (180 deg).
+     Minimum acceptable wrap angle: 90 degrees.
+
+   Belt length:
+     L = 2*C + pi/2*(d1 + d2) + (d2 - d1)^2 / (4*C)
+
+2. Power Sizing
+
+   Design power:  P_design = P_nominal * service_factor
+
+   Wrap angle correction factor (for alpha_small < 180 degrees):
+     C_wrap = 1.0 - (180 - alpha_small_deg) * 0.00278
+
+   Corrected power per belt:
+     P_corrected = (P_base + P_increment) * C_wrap
+
+   Required number of belts:
+     z = ceil(P_design / P_corrected)
+
+3. Force Analysis
+
+   Tensile (effective/driving) force per belt:
+     Ft = 1000 * P_design / (z * v)  [N]
+     where P_design in kW, v in m/s.
+
+   Centrifugal force per belt:
+     Fc = m' * v^2  [N]
+     where m' is belt mass per unit length [kg/m].
+     This force becomes significant at belt speeds above ~20 m/s.
+
+   Belt preload (based on Euler friction equation for V-groove):
+     V-belts run in grooves with typical half-angle of 19 degrees.
+     The wedging action increases the effective friction coefficient:
+       f_eff = f_base / sin(groove_half_angle)
+     with f_base = 0.3 (typical rubber on metal).
+
+     Friction factor over wrap:
+       f_alpha = f_eff * alpha_small  (alpha_small in radians)
+
+     Preload force:
+       F0 = Ft * (exp(f_alpha) + 1) / (2 * (exp(f_alpha) - 1)) + Fc
+
+   Strand forces:
+     Tight side:  F1 = F0 + Ft/2
+     Slack side:  F2 = F0 - Ft/2
+
+   Total shaft (bearing) load on the smaller pulley:
+     The resultant of both belt strand forces acting on the pulley:
+       Fs = 2 * F0 * cos((pi - alpha_small) / 2) * z
+     where z is number of belts and alpha_small in radians.
+
+4. Pass Criteria
+
+   The wrap angle on the smaller pulley must be at least 90 degrees
+   to ensure adequate friction grip and power transmission capability.

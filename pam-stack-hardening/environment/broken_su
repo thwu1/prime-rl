@@ -1,0 +1,7 @@
+# /etc/pam.d/su - su authentication settings
+
+auth       sufficient pam_rootok.so
+session    optional   pam_mail.so nopen
+@include common-auth
+@include common-account
+@include common-session

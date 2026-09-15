@@ -1,0 +1,73 @@
+{
+  "profile": {
+    "uuid": "d2e3f4a5-6789-abcd-ef01-fedcba987654",
+    "metadata": {
+      "title": "Acme Corp Moderate Security Baseline Profile",
+      "last-modified": "2025-05-01T12:00:00.000000-04:00",
+      "version": "1.0.0",
+      "oscal-version": "1.1.2",
+      "roles": [
+        {
+          "id": "creator",
+          "title": "Baseline Author"
+        }
+      ],
+      "parties": [
+        {
+          "uuid": "22222222-2222-2222-2222-222222222222",
+          "type": "organization",
+          "name": "Acme Corporation Security Team",
+          "short-name": "ACME-SEC"
+        }
+      ],
+      "responsible-parties": [
+        {
+          "role-id": "creator",
+          "party-uuids": ["22222222-2222-2222-2222-222222222222"]
+        }
+      ]
+    },
+    "imports": [
+      {
+        "href": "catalog.json",
+        "include-controls": [
+          {
+            "with-ids": [
+              "ac-1",
+              "ac-2",
+              "ac-2.1",
+              "ac-3",
+              "ac-4",
+              "ac-6",
+              "ac-6.1",
+              "ac-6.5",
+              "ac-7",
+              "ac-8",
+              "ac-11",
+              "ac-17",
+              "ac-17.1",
+              "au-1",
+              "au-2",
+              "au-3",
+              "au-6",
+              "au-8",
+              "au-12",
+              "ia-1",
+              "ia-2",
+              "ia-2.1",
+              "ia-5",
+              "ia-5.1",
+              "sc-7",
+              "sc-8",
+              "sc-12",
+              "sc-13"
+            ]
+          }
+        ]
+      }
+    ],
+    "merge": {
+      "as-is": true
+    }
+  }
+}

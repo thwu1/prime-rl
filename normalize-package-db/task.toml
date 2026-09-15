@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and building a complete multi-source data warehouse pipeline from scratch (no template provided). The solver must: (1) reconcile 20 packages across two sources with inconsistent casing (Flask/flask, PyTest/pytest, etc.), (2) implement a graph traversal algorithm to compute transitive dependency depth through a 25-node DAG including intermediate nodes not in the final dataset, (3) parse heterogeneous date formats (US locale MM/DD/YYYY, Month DD YYYY, ISO) with a subtle author whitespace normalization bug (double-space in "Armin  Ronacher"), (4) design a 3NF schema with proper lookup table extraction and FK relationships handling NULLs for analytics-only packages, (5) configure FTS5 with porter tokenizer and auto-update triggers, and (6) create an analytics view joining all normalized tables. Unlike a fix-the-pipeline task, no broken code is provided — the solver must evaluate the data sources, design the reconciliation strategy, create the graph algorithm, and architect the entire ETL pipeline."""
+solution_explanation = """A Python script reads all three data sources, normalizes package names to lowercase for cross-source matching, parses authors from 'Name <email>' format with whitespace collapsing via ' '.join(split()), converts dates using dateutil, builds lookup tables for authors/categories/licenses with deduplication, computes dependency depth via memoized recursive graph traversal over the full dependency DAG (including intermediate nodes like starlette, botocore, kombu), creates the SQLite schema with proper FKs and constraints, populates FTS5 with porter tokenizer and triggers, creates the package_intelligence view, indexes FK columns, and enables WAL."""
+verification_explanation = """31 pytest tests verify: table existence (packages, authors, categories, licenses, dependencies), column structure with no-extras check, INTEGER PRIMARY KEY, exact row counts (20 packages, 14 authors, 11 categories, 4 licenses, 43 dependency edges), all names lowercase, author parsing with specific value checks, author whitespace normalization (double-space collapse) and deduplication (flask+click share author_id), analytics-only packages have NULL metadata but valid downloads and correct first_release from first_seen, ISO date/datetime formats with spot-checks, integer download types, JSON array tags, FK existence to all three lookup tables plus dependencies FK to packages, referential integrity (no orphan FKs), dependency depth for all 20 packages (0/1/2 distribution matching DAG traversal), FTS5 configuration (porter tokenizer + triggers), FTS search correctness ('framework'→5 results, 'HTTP'→2 results), view existence and column/data verification, FK index existence, WAL mode."""
+category = "data_engineering"
+tags = ["sqlite", "data-reconciliation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/normalize-package-db"

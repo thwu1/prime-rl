@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a generalized matrix chain optimizer that combines dynamic-programming-based optimal parenthesization with property-aware BLAS/LAPACK kernel selection, property propagation through intermediate results, and solve-vs-explicit-inverse trade-off analysis including right-solves. Demands PhD-level knowledge of numerical linear algebra, compiler optimization, and BLAS kernel cost models."""
+solution_explanation = """Implement a modified matrix chain DP that tracks matrix properties (diagonal, triangular, SPD) through intermediates, selects cheapest applicable kernel at each combine step (DIAGMM, TRMM, TRSM, POSV vs GEMM/GESV), and considers left-solve/right-solve alternatives for inverted terms instead of explicit inverse computation."""
+verification_explanation = """Tests validate: (1) output files exist with correct JSON schema, (2) step FLOP sums match declared totals, (3) dimension consistency through plans, (4) total FLOPs within 3% of known optimal for each problem, (5) numerical correctness by executing plans with random matrices and comparing against direct evaluation."""
+category = "optimization"
+tags = ["compiler-optimization", "numerical-linear-algebra"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-matrix-chain"

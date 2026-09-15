@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional expertise in quantum computing (unitary matrices, gate decomposition, circuit synthesis) combined with practical knowledge of quantum compiler frameworks. The agent must identify and use BQSKit for quantum circuit synthesis, handle both 2-qubit and 3-qubit unitary targets, configure topology-aware compilation for 3-qubit circuits on a linear nearest-neighbor topology, optimize CNOT gate counts, compute Hilbert-Schmidt distances, and produce correct QASM output — a multi-step pipeline that demands niche domain knowledge beyond standard software engineering."""
+solution_explanation = """Install BQSKit quantum compiler. For each target unitary, create a MachineModel with the appropriate gate set and (for 3-qubit targets) the coupling graph. Use bqskit.compile() with the model and appropriate optimization level to synthesize circuits. Compute unitary distances using BQSKit's get_distance_from(). Save compiled circuits as QASM and write summary JSON."""
+verification_explanation = """Tests load each compiled QASM circuit with BQSKit, compute its unitary matrix, and check Hilbert-Schmidt distance from the target (trying all qubit permutations for 3-qubit circuits to account for topology-induced relabelling). Gate set compliance is verified by iterating over all operations and checking gate types. Topology compliance is checked for 3-qubit circuits by verifying all two-qubit gate locations are edges in the coupling graph. CNOT counts and JSON structure are validated."""
+category = "quantum_computing"
+tags = ["circuit-synthesis", "compiler-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-circuit-synthesis"

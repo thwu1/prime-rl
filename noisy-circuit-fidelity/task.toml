@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantum information theory knowledge to analyze the [[4,2,2]] error-detecting code under circuit-level depolarizing noise. The agent must: (1) understand stabilizer code formalism and construct the codespace projector from XXXX and ZZZZ generators — a non-diagonal 16x16 matrix involving the tensor product of 4 Pauli-X operators; (2) derive the 4 logical basis states from the stabilizer generators and logical operators Z_A=ZZII, Z_B=ZIZI without being given their explicit vector representations; (3) implement a full symbolic density matrix simulation with 16x16 matrices containing symbolic entries in p; (4) correctly apply two-qubit depolarizing noise channels after each of 3 CNOT gates; (5) compute projected populations for all 4 logical basis states; (6) analyze the infidelity scaling to determine that the non-fault-tolerant encoding gives O(p) rather than the O(p^2) expected from a distance-2 code — a key insight requiring understanding of fault-tolerance theory. No mathematical definitions for quantum operations are provided."""
+solution_explanation = """Build a SymPy-based density matrix simulator: (1) construct 16x16 gate matrices for H and CNOT via tensor products; (2) build 15 non-identity two-qubit Pauli noise operators embedded in the 4-qubit space for each gate pair; (3) construct the codespace projector Pi = (I+XXXX)(I+ZZZZ)/4 using the full 4-qubit X and Z tensor products; (4) evolve |0000><0000| through H then three rounds of CNOT+depolarizing noise; (5) compute Pi*rho*Pi and extract populations by projecting onto all 4 logical basis states {(|0000>+|1111>)/sqrt(2), (|0011>+|1100>)/sqrt(2), (|0101>+|1010>)/sqrt(2), (|0110>+|1001>)/sqrt(2)}; (6) determine the infidelity scaling by computing (P_cs - q_00) and finding its leading non-zero term."""
+verification_explanation = """Tests evaluate the agent's result.json by computing each polynomial at 15 exact rational p values using Python's Fraction arithmetic. The codespace probability and all 4 logical state populations are compared pointwise against known coefficients. Additional tests verify: all populations sum to P_cs at every test point, q_10 equals q_11 (circuit symmetry), all populations are non-negative, boundary values at p=0 are correct, the infidelity leading power is 1 with coefficient 4/15, and the derived logical fidelity matches expected values."""
+category = "scientific_computing"
+tags = ["quantum_error_correction", "symbolic_computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/noisy-circuit-fidelity"

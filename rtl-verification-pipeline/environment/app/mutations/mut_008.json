@@ -1,0 +1,8 @@
+{
+  "id": "mut_008",
+  "title": "OR replaced with XOR",
+  "description": "Replace bitwise OR with bitwise XOR in OR operation",
+  "equivalent": false,
+  "original_line": "            4'b1000: result = a | b;",
+  "mutated_line": "            4'b1000: result = a ^ b;"
+}

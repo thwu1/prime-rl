@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of CRC polynomial theory over GF(2), including Koopman implicit+1 notation, explicit+1 notation, and algebraic representation. The core challenge is computing Hamming Distance profiles: for each HD level, determining the maximum dataword length by exhaustively checking error patterns of increasing weight via shift-register CRC simulation, pair-XOR birthday collision detection, and combinatorial enumeration. Requires Dreyfus-proficient level understanding of coding theory, GF(2) polynomial arithmetic, and algorithmic optimization."""
+solution_explanation = """Parse polynomials from mixed notations (Koopman, explicit+1, algebraic) into canonical explicit+1 form. Implement GF(2) polynomial remainder computation via shift register simulation to compute x^i mod g(x). For each polynomial, iteratively find HD boundaries by binary searching on dataword length: at each candidate, check whether any undetectable error pattern of the critical weight exists using set-based collision detection for weight-2/3, pair-XOR birthday for weight-4, and brute-force for higher weights at small codeword lengths. Determine odd-parity by evaluating g(1) mod 2."""
+verification_explanation = """Tests verify exact Koopman hex, explicit+1 hex, HD profile arrays, and odd-parity flag for all 5 polynomials against known reference data from the Koopman CRC Zoo (CMU). HD profiles are mathematical invariants (e.g., [247,19,1,1,1] for primitive 0xe7, [119,119,3,3] for odd+primitive 0x97) with no room for approximation, ensuring deterministic verification."""
+category = "algorithms"
+tags = ["coding-theory", "polynomial-arithmetic"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crc-hd-profiler"

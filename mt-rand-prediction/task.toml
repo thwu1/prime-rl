@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Mersenne Twister (MT19937) PRNG internals, including state initialization, tempering, and the twist operation. The solver must reverse-engineer a custom shuffled character set mapping, correctly handle mixed mt_rand() call ranges (character indices and jitter values), implement or compile a brute-force seed recovery tool across the 2^32 seed space, and precisely replay the PRNG state across multiple sequential requests with interleaved call patterns to extract the target token."""
+solution_explanation = """1. Read the PHP source to understand the token generation algorithm: shuffled 62-char charset, per-request structure of CSRF(8) + tracking_id(12) + jitter(3) + reset_token(32) + audit_id(8) mt_rand calls. 2. Map observed CSRF nonce characters to mt_rand(0,61) output indices using the charset. 3. Write and compile a C brute-force program that tests all 2^32 seeds against the first 8 known mt_rand(0,61) outputs. 4. With the recovered seed, implement a Python MT19937 replay that advances through request 1 (63 calls), then through request 2's prefix (23 calls) to reach the admin token generation point, and extract the 32-character admin token."""
+verification_explanation = """The test computes SHA-256 of the agent's answer in /app/admin_token.txt and compares against a pre-computed hash of the correct admin token. The hash is not reversible, so the agent must actually perform the seed recovery and PRNG replay work."""
+category = "cybersecurity"
+tags = ["cryptanalysis", "prng-exploitation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mt-rand-prediction"

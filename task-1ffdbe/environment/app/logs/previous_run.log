@@ -1,0 +1,45 @@
+=== Brusselator Solver Benchmark ===
+Configuration: N=50, t_end=10.0, rtol=0.0001, atol=1e-06
+  controller=PI, linear_solver=krylov, c_backend=true
+
+[ATTEMPT 1] Full pipeline (krylov + C backend)
+  FileNotFoundError: Compiled C library not found at /app/solver/c_ext/librhs.so
+  -> Aborted.
+
+[ATTEMPT 2] Krylov solver only (c_backend=false)
+  NotImplementedError: GMRES solver not yet implemented.
+  -> Aborted.
+
+[ATTEMPT 3] Diagnostic run: direct solver, Python RHS
+
+[INFO] Sparsity pattern: 100x100 matrix, 392 nonzeros
+[INFO] Column coloring: 3 colors assigned for 100 columns
+[INFO] Beginning adaptive implicit Euler time integration...
+
+[STEP   1] t=1.000e-03  dt=1.000e-03  Newton: 3 iter  err_rms=2.38e-07
+[STEP   7] t=2.164e-01  dt=5.892e-02  Newton: 7 iter  err_rms=1.87e-04
+[STEP  18] t=9.821e-01  dt=1.234e-01  Newton: 11 iter err_rms=7.89e-04
+[STEP  21] t=1.421e+00  dt=2.189e-01  REJECTED (q=4.21)
+[WARN]  Step 52: Newton convergence degraded after Jacobian reuse
+[STEP 109] t=6.921e+00  dt=1.121e-01  REJECTED (q=3.77)
+[WARN]  Step 134: excessive step-size jump (factor=4.89)
+[STEP 247] t=1.000e+01  dt=2.198e-02  Newton: 5 iter  err_rms=1.34e-04
+
+=== Diagnostic Results ===
+  Accepted steps:     247
+  Rejected steps:     89 (26.5%)
+  Jacobian evaluations: 13
+  LU factorizations:  672
+  u_max at t_end:     2.4172 (ref: 1.8829)
+  v_max at t_end:     4.5891 (ref: 5.2341)
+  Relative L2 error:  2.3140e-01
+
+[FAIL] Accuracy: relative error 2.3140e-01 > 0.05
+[FAIL] Rejection rate: 26.5% > 15%
+[PASS] Jacobian reuse: 13 evals < 247 steps
+[PASS] Solution is finite everywhere
+
+NOTES:
+- 3 colors for 100 columns is unusually low; banded structure typically needs 5+
+- Boundary values appear inconsistent with expected homogeneous steady state
+- Step-size oscillations visible near t=1.5 and t=7.0 suggest controller tuning issue

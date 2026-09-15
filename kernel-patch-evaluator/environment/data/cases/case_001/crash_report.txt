@@ -1,0 +1,26 @@
+==================================================================
+BUG: KASAN: use-after-free in inode_unlink_data+0x1a3/0x290 fs/myfs/inode.c:107
+Read of size 8 at addr ffff88800a5c12c0 by task syz.1.2/4521
+
+CPU: 1 UID: 0 PID: 4521 Comm: syz.1.2 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0xe8/0x150 lib/dump_stack.c:120
+ print_address_description+0x55/0x1e0 mm/kasan/report.c:378
+ kasan_report+0x117/0x150 mm/kasan/report.c:595
+ inode_unlink_data+0x1a3/0x290 fs/myfs/inode.c:107
+ myfs_unlink+0x84/0x140 fs/myfs/namei.c:312
+ vfs_unlink+0x3d5/0x620 fs/namei.c:4456
+ do_unlinkat+0x2e4/0x550 fs/namei.c:4519
+ __x64_sys_unlinkat+0x99/0xd0 fs/namei.c:4546
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+
+The buggy address belongs to the physical page:
+page: refcount:1 mapcount:0 mapping:ffff88801cc25940 index:0x854 pfn:0xa5c1
+flags: 0xfff98000004224(referenced|lru|workingset|private|node=0|zone=1|lastcpupid=0x7ff)
+raw: 00fff98000004224 ffff88801c6e5600 ffffea00004a7b48 ffff88801cc25940
+page dumped because: kasan: bad access detected
+==================================================================

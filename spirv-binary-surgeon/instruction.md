@@ -1,0 +1,11 @@
+Write a Python tool at `/app/spirv_surgeon.py` that directly parses and manipulates SPIR-V binary modules at the 32-bit word level, without depending on external disassembly tools (such as `spirv-dis`) for parsing. The tool must support four subcommands:
+
+**`analyze <input.spv>`** — Parse the SPIR-V binary and emit a JSON analysis to stdout containing: module header info (magic, version, generator, bound), all declared capabilities, extensions, ext_inst_imports, memory model (addressing and model), entry points (execution model, name, interface IDs), execution modes (including `local_size` for compute shaders), debug names (`names` dict keyed by ID, `member_names` dict keyed by struct ID), all `decorations` (keyed by target ID, each with `decoration` enum, optional `name` string like `"DescriptorSet"`, `"Binding"`, `"Location"`, `"Block"`, etc., and optional `value`), `member_decorations`, type definitions (`types` dict keyed by result ID with `kind` and relevant fields), and all `variables` (with `result_type`, `id`, and `storage_class` string).
+
+**`remap <input.spv> <output.spv> <mapping.json>`** — Read a descriptor set remapping from the JSON file (format: `{"<old_set>": <new_set>, ...}` where keys are string integers) and rewrite all `OpDecorate ... DescriptorSet` values in the binary. Output must pass `spirv-val`.
+
+**`strip-debug <input.spv> <output.spv>`** — Remove all debug instructions (`OpName`, `OpMemberName`, `OpString`, `OpSource`, `OpSourceContinued`, `OpSourceExtension`, `OpLine`, `OpNoLine`, `OpModuleProcessed`) from the module. Output must pass `spirv-val`.
+
+**`merge-reflection <file1.spv> [file2.spv ...]`** — Analyze all provided modules and emit a JSON object with a `modules` array (each with `file`, `entry_points`, `bindings` list of `{set, binding, storage_class, name?}`, `push_constants` bool, `inputs` and `outputs` lists with `{location, name?}`), and a `conflicts` array listing any `(set, binding)` pairs used by multiple modules.
+
+Pre-compiled SPIR-V modules are at `/app/modules/` (vertex.spv, fragment.spv, compute.spv, custom.spv — where custom.spv is a hand-assembled compute shader). The remapping config is at `/app/remap_config.json`. Validation tool `spirv-val` and disassembler `spirv-dis` are installed for output verification.

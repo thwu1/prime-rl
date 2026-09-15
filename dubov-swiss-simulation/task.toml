@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the TRF16 binary format from C++ source code (byte-level position parsing), building a non-trivial C++ project, iteratively simulating a Swiss tournament by invoking a pairing engine and feeding results back, and computing derived statistics (ARO, color difference, scoregroups). The agent must understand both the FIDE Dubov pairing system and the engine's specific TRF parsing expectations at the character-position level."""
+solution_explanation = """Build the CPPDubovSystem engine from source using cmake or g++. Study the TRF parser (trf.cpp) and generator (rtg.cpp) to determine exact byte positions for each field. Write a Python simulator that iteratively: (1) generates a TRF16 file from current state, (2) calls the engine with --pairings to get next round matchups, (3) applies deterministic outcomes per the formula, (4) updates state. After 5 rounds, call the engine once more for round 6 pairings. Compute ARO, color_diff, and scoregroups from the final state."""
+verification_explanation = """Tests independently parse the TRF file at the same byte positions the engine uses, verify all 12 players have 5 rounds, check points consistency, run FPC on all rounds, verify round 6 pairings match fresh engine output, and cross-check analysis values (ARO, color_diff, scoregroups) against independently computed values from TRF data. Game symmetry and outcome determinism are also verified."""
+category = "applied_computing"
+tags = ["chess-tournament-systems", "file-format-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dubov-swiss-simulation"

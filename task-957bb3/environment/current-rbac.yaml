@@ -1,0 +1,76 @@
+# Current RBAC configuration for the ecommerce cluster
+# WARNING: This configuration was found during incident response
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: webapp-full-access
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: webapp-full-access-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: webapp-full-access
+subjects:
+- kind: ServiceAccount
+  name: webapp-sa
+  namespace: ecommerce
+---
+# Attacker-created ClusterRoleBinding (found during investigation)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system-controller-manager-extension
+  creationTimestamp: "2024-03-15T10:25:33Z"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: webapp-sa
+  namespace: ecommerce
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["nodes", "pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-reader-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: monitoring-reader
+subjects:
+- kind: ServiceAccount
+  name: prometheus-sa
+  namespace: monitoring

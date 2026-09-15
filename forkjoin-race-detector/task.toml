@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of fork-join parallel computation models extended with phaser-based split-phase synchronization (signal/wait with per-task phase counters and registration modes). The agent must: (1) build computation DAGs incorporating phaser-induced happens-before edges with correct phase matching across multiple phasers and phases, (2) compute critical path through the extended DAG, (3) detect data races under the full happens-before relation including phaser ordering — avoiding both false positives (races prevented by phasers) and false negatives (races persisting despite partial synchronization between phases), (4) generate Graphviz DOT output with typed edges, (5) fix a broken Makefile orchestrating the analysis pipeline using dot (graphviz), jq, and make. The multi-phase phaser semantics require deep domain knowledge — understanding that operations between wait(phase n) and signal(phase n+1) remain unsynchronized, and how multi-phaser programs with asymmetric registration modes (SIG vs WAIT vs SIG_WAIT) create complex partial orderings."""
+solution_explanation = """Build the DAG by recursively processing the JSON program tree, tracking per-task-per-phaser signal and wait phase counters. Signal/wait ops create cost-0 nodes; phase matching connects all signal(ph,n) nodes to all wait(ph,n) nodes after full DAG construction. Compute work as sum of costs, span via longest-path DP on topological sort. Race detection uses transitive ancestor sets: two accesses race if same variable, at least one write, and neither is an ancestor of the other in the DAG. DOT generation outputs a Graphviz digraph with continuation/spawn/join/phaser edges distinguished by style. Fix the Makefile to use absolute paths, correct dot -Tsvg flag, proper jq -e validation, target dependency ordering, and .PHONY declarations."""
+verification_explanation = """Tests verify exact work, span, ideal_parallelism, and data race sets for 5 programs (3 fork-join only, 2 with phasers) against hand-computed values. Negative tests confirm phasers correctly prevent races where synchronization exists and detect races where it does not. Additional tests verify DOT file existence and structure, SVG rendering via graphviz, and that make validate succeeds with jq-based schema checking."""
+category = "parallel_computing"
+tags = ["phaser-synchronization", "dag-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/forkjoin-race-detector"

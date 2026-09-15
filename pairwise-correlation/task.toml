@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing understanding across custom binary I/O (CORR/RMAT formats with little-endian headers, weight vectors, NaN-encoded missing values), weighted statistical computation (pairwise-complete Pearson correlation from mathematical definitions requiring the agent to derive the implementation strategy — per-pair valid-column tracking, weighted moment computation, NaN propagation logic), floating-point numerical analysis (detecting effectively-zero variance despite IEEE 754 imprecision for near-constant rows), and precise multi-key sorting with tie-breaking. The spec presents formal mathematical definitions rather than implementation steps, so the agent must holistically understand the interplay between binary parsing, statistical semantics, and edge-case handling to design a correct solution. No step-by-step guidance is provided in the skeleton."""
+solution_explanation = """Read the CORR binary file (magic, n, m, weights, row-major data). For each pair (i,j) with i<j, determine jointly valid columns (both non-NaN), skip if count < min_samples or total weight is zero. Compute weighted mean, variance, and covariance using normalized weights over the valid column set. Detect zero variance (using a small threshold for floating-point robustness) and store NaN. Otherwise compute r = cov/sqrt(var_i*var_j). Collect valid pairs, sort by r descending with (i,j) lexicographic tie-breaking, output top-K to stdout with 12+ decimal places. Write full upper-triangle to RMAT binary with magic header and n."""
+verification_explanation = """Tests generate matrices with known properties (hand-crafted and random with fixed seeds), run the compiled binary, and compare stdout (top-K pairs with correct ordering) and binary output (RMAT correlation matrix) against a Python/numpy reference implementation. Tests cover NaN handling, weighted vs unweighted divergence, sort ordering, edge cases (constant rows, all-NaN rows, insufficient overlap, zero-weight scenarios), and numerical accuracy within 1e-9 tolerance."""
+category = "scientific_computing"
+tags = ["numerical-computing", "binary-formats"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pairwise-correlation"

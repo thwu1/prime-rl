@@ -1,0 +1,116 @@
+{
+  "compiler": {
+    "name": "gcc",
+    "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0"
+  },
+  "probes": {
+    "auto_type_inference": {
+      "description": "auto type inference for variable declarations (C23 feature)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "binary_literal": {
+      "description": "binary integer literal prefix 0b (C23 standard, GNU extension in C11/C17)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "bool_keyword": {
+      "description": "bool, true, false as language keywords without stdbool.h (C23 feature)",
+      "results": {
+        "c11": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "constexpr_var": {
+      "description": "constexpr for compile-time constant variables (C23 feature)",
+      "results": {
+        "c11": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "elifdef_directive": {
+      "description": "#elifdef preprocessor directive (C23 feature, GNU extension)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "empty_init": {
+      "description": "empty initializer braces {} for zero-initialization (C23 feature)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "nodiscard_attr": {
+      "description": "[[nodiscard]] standard attribute syntax (C23 feature)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "nullptr_constant": {
+      "description": "nullptr keyword for null pointer constant (C23 feature)",
+      "results": {
+        "c11": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "sizeof_true": {
+      "description": "sizeof(true) reflecting type change from int to bool across standards",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "static_assert_no_msg": {
+      "description": "_Static_assert without message string (C23 allows omission)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "typeof_keyword": {
+      "description": "typeof keyword (C23 standard keyword, GNU extension in C11/C17)",
+      "results": {
+        "c11": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "standard", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    },
+    "typeof_unqual": {
+      "description": "typeof_unqual keyword for qualifier-stripped type deduction (C23 feature)",
+      "results": {
+        "c11": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c17": {"classification": "rejected", "runs": null, "exit_code": null, "output": null},
+        "c2x": {"classification": "standard", "runs": null, "exit_code": null, "output": null}
+      }
+    }
+  },
+  "summary": {
+    "total_probes": 12,
+    "c11_standard": 7,
+    "c11_extension": 0,
+    "c11_rejected": 5,
+    "c17_standard": 8,
+    "c17_extension": 0,
+    "c17_rejected": 4,
+    "c2x_standard": 12,
+    "c2x_extension": 0,
+    "c2x_rejected": 0
+  }
+}

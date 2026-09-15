@@ -1,0 +1,15 @@
+T1	Drug 0 10	Metoprolol
+T2	Dosage 11 15	25mg
+T3	Frequency 16 19	BID
+T4	Drug 57 68	 amlodipine
+T5	Dosage 69 72	5mg
+T6	Frequency 73 78	daily
+T7	ADE 36 48	 bradycardia
+R1	Dosage-Drug Arg1:T2 Arg2:T1
+R2	Frequency-Drug Arg1:T3 Arg2:T1
+R3	ADE-Drug Arg1:T7 Arg2:T1
+R4	Dosage-Drug Arg1:T5 Arg2:T4
+R5	Frequency-Drug Arg1:T6 Arg2:T4
+A1	Assertion T1 present
+A2	Assertion T7 present
+A3	Assertion T4 present

@@ -1,0 +1,28 @@
+%rec: CourtHierarchy
+%key: JurisdictionCode
+%type: ScoringWeight real
+%doc: Judicial hierarchy weights for jurisdiction-aware citation scoring
+
+JurisdictionCode: scotus
+CourtName: U.S. Supreme Court
+ScoringWeight: 3.0
+PrecedentialAuthority: binding_nationwide
+BindingScope: all_federal_and_state
+
+JurisdictionCode: federal_circuit
+CourtName: Federal Circuit Court of Appeals
+ScoringWeight: 2.0
+PrecedentialAuthority: binding_circuit
+BindingScope: circuit_only
+
+JurisdictionCode: state_supreme
+CourtName: State Supreme Court
+ScoringWeight: 1.5
+PrecedentialAuthority: binding_state
+BindingScope: state_only
+
+JurisdictionCode: state_appellate
+CourtName: State Appellate Court
+ScoringWeight: 1.0
+PrecedentialAuthority: persuasive
+BindingScope: district_only

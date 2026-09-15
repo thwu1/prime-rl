@@ -1,0 +1,53 @@
+# Pebble-bed HTGR reactor configuration
+# Inspired by the GPBR-200 (200 MW General Pebble Bed Reactor)
+
+[core]
+height_m = 9.4
+radius_m = 1.5
+pebble_diameter_m = 0.06
+porosity = 0.39
+
+[chimney]
+height_m = 8.0
+hydraulic_diameter_m = 0.5
+flow_area_m2 = 0.5
+friction_factor = 0.02
+
+[conditions]
+thermal_power_W = 2.0e8
+pressure_Pa = 7.0e6
+inlet_temperature_K = 573.15
+
+[helium]
+# Thermophysical properties as functions of temperature T [K]:
+#   cp [J/(kg*K)] = constant
+#   rho [kg/m^3]  = pressure_Pa / (R_specific * T)
+#   mu [Pa*s]     = mu_coeff * T^mu_exp
+#   k [W/(m*K)]   = k_coeff * T^k_exp
+cp = 5193.0
+R_specific = 2077.22
+mu_coeff = 3.953e-7
+mu_exp = 0.687
+k_coeff = 2.682e-3
+k_exp = 0.71
+
+[graphite]
+# Pebble thermal conductivity [W/(m*K)] = 1.0 / (k_a + k_b * T)
+# T in Kelvin. Based on irradiated nuclear-grade graphite (IG-110).
+k_a = 0.0136
+k_b = 1.68e-5
+
+[decay_heat]
+# Decay heat fraction: P(t)/P0 = coefficient * t_seconds^exponent
+# Simplified ANS standard approximation
+coefficient = 0.066
+exponent = -0.2
+
+[simulation]
+n_axial_nodes = 50
+time_points_hours = [1.0, 3.0, 10.0, 24.0, 100.0, 500.0]
+
+[power_profile]
+# Sinusoidal axial power shape: q'''(z) = q_peak * sin(pi * z / H)
+# q_peak chosen so integral over core height equals total power per unit core cross-section area
+type = "sinusoidal"

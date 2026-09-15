@@ -1,0 +1,35 @@
+# Maintainer: Eve Web <eve@example.org>
+pkgbase=webapp
+pkgname=('webapp' 'webapp-api')
+pkgver=5.0.1
+pkgrel=1
+epoch=2
+pkgdesc="Web application platform with REST API"
+arch=('x86_64')
+url="https://github.com/example/webapp"
+license=('Apache-2.0')
+makedepends=('nodejs' 'npm' 'python')
+source=("https://github.com/example/${pkgbase}/archive/v${pkgver}.tar.gz")
+sha256sums=('e4f5a6b7c8d90000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  npm install
+  npm run build
+}
+
+package_webapp-api() {
+  pkgdesc="Web application REST API service"
+  depends=('dbclient>=3.0')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  install -Dm755 api-server "${pkgdir}/usr/bin/webapp-api"
+}
+
+package_webapp() {
+  pkgdesc="Web application frontend and backend"
+  depends=('webapp-api' 'libnet')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  install -Dm755 webapp "${pkgdir}/usr/bin/webapp"
+}

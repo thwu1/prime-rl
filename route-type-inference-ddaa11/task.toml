@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging ~12 interconnected defects across three TypeScript source files — type-level definitions, runtime path utilities, and a pattern-matching router — where failures cascade across module boundaries. The type-level bugs span advanced TypeScript metaprogramming constructs that interact in non-obvious ways: fixing one type often reveals that another downstream type still fails because of a different root cause. The runtime bugs span three distinct functions with subtle edge-case semantics: one function's signature must be redesigned, another must have its core iteration logic rewritten, and a third produces regex patterns that are structurally incompatible with how the router uses them. The router itself has an algorithmic defect in its matching logic that is independent of the utility bugs but compounds with them — some router test failures stem from utility bugs while others require router-specific fixes, and the solver must distinguish between these two failure modes. No single file can be fixed in isolation; the solver must trace errors across file boundaries, correlate type-checker output with runtime test failures, and ensure all fixes are mutually consistent."""
+solution_explanation = """Fix ParamKey to propagate optionality through regex constraint patterns (check if Rest ends with '?'). Add recursive '| ParamKeys<Rest>' for multi-segment extraction. Add conditional branch in ParamKeyToRecord for keys ending with '?' to produce string|undefined. Add 'A extends /' early-return case and 'Q extends ""' guard in MergePath. Add 'ParamKeys<P> extends never' guard in AddParam and ExtractAllParams. Make mergePath variadic with rest params and fix slash joining via base?.at(-1) check. Rewrite checkOptionalParameter to iterate all segments expanding each optional. Remove lookahead from getPattern — always use $ anchor. Fix router wildcard matching: allow variable-length request paths when route ends with *, and capture remaining segments joined with /."""
+verification_explanation = """test.sh runs npm install, then pytest which invokes npx tsc --noEmit (verifying all type-level assertions in type-checks.ts compile) and npx vitest run (verifying all 74 runtime tests in url.test.ts and router.test.ts pass). Writes 1.0 to reward.txt only when all checks exit 0."""
+category = "debugging"
+tags = ["typescript", "type-system"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/route-type-inference-ddaa11"

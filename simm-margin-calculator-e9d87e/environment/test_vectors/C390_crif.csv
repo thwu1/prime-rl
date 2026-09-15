@@ -1,0 +1,2 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_CreditVolNonQ,RU.HY,Residual,1y,ABX,15000000,USD,15000000

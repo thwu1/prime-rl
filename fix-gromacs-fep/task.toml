@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of GROMACS molecular dynamics free energy perturbation workflows. The agent must: (1) understand alchemical decoupling concepts (couple-moltype, couple-lambda0/1, soft-core potentials), (2) cross-reference MDP parameters against topology moleculetype names to diagnose a silent coupling bug, (3) understand why soft-core potentials are essential for vdW decoupling (singularity avoidance), (4) know that BAR analysis requires dH/dl output (nstdhdl > 0), and (5) debug a sed substitution mismatch in the pipeline script. The bugs are interdependent — fixing one reveals others — requiring iterative diagnosis across multiple files and GROMACS domain expertise."""
+solution_explanation = """Fix four bugs: (1) In fep.mdp, change 'couple-moltype = SOL' to 'couple-moltype = MOL' — the topology defines methanol as MOL, not SOL (which is water). (2) Set 'sc-alpha = 0.5' (was 0.0) to enable soft-core potentials needed for vdW decoupling without singularities. (3) Set 'nstdhdl = 50' (was 0) to enable dH/dl output required by gmx bar. (4) In run_fep.sh, change sed pattern from 'LAMBDA_STATE' to 'LAMBDA_INDEX' to match the MDP placeholder. Then run the pipeline: for each of 11 lambda windows, run gmx grompp + gmx mdrun, then gmx bar on all dhdl.xvg files to extract the total solvation free energy."""
+verification_explanation = """Tests verify: (1) /app/result.txt contains a float in the physically reasonable range [-50, -2] kJ/mol for methanol solvation. (2) At least 9 lambda directories with dhdl.xvg files exist and contain real simulation data. (3) The dhdl.xvg files from different windows contain different data (different lambda states). (4) The resolved MDP files have couple-moltype = MOL, sc-alpha > 0, and nstdhdl > 0, confirming all critical bugs were fixed."""
+category = "computational_chemistry"
+tags = ["gromacs", "molecular-dynamics"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-gromacs-fep"

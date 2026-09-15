@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""ir-opt: A minimal SSA-form IR optimizer for testing lit/FileCheck patterns.
+
+Supports passes: --cse, --constfold, --dce, --canonicalize
+Reads from file argument or stdin. Outputs transformed IR to stdout.
+"""
+
+
+import sys
+import re
+import argparse
+
+
+def parse_functions(text):
+    lines = [l for l in text.split('\n') if not l.strip().startswith('//')]
+    text_clean = '\n'.join(lines)
+
+    functions = []
+    pattern = r'func\s+@(\w+)\(([^)]*)\)\s*(?:->\s*(\w+))?\s*\{([^}]*)\}'
+    for m in re.finditer(pattern, text_clean, re.DOTALL):
+        name = m.group(1)
+        args_str = m.group(2).strip()
+        ret_type = m.group(3)
+        body = m.group(4)
+
+        args = []
+        if args_str:
+            for a in args_str.split(','):
+                a = a.strip()
+                parts = a.split(':')
+                if len(parts) == 2:
+                    args.append((parts[0].strip(), parts[1].strip()))
+
+        ops = []
+        ret_val = None
+        for line in body.strip().split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            ret_m = re.match(r'return\s+(%[\w]+)\s*:\s*(\w+)', line)
+            if ret_m:
+                ret_val = ret_m.group(1)
+                continue
+
+            op_m = re.match(r'(%[\w]+)\s*=\s*([\w.]+)\s+(.*?)\s*:\s*(\w+)\s*$', line)
+            if op_m:
+                ops.append({
+                    'result': op_m.group(1),
+                    'opcode': op_m.group(2),
+                    'operands_str': op_m.group(3),
+                    'type': op_m.group(4),
+                })
+
+        functions.append({
+            'name': name,
+            'args': args,
+            'ret_type': ret_type,
+            'ops': ops,
+            'ret_val': ret_val,
+        })
+
+    return functions
+
+
+def get_operands(op):
+    if op['opcode'] == 'arith.constant':
+        return []
+    return [o.strip() for o in op['operands_str'].split(',') if o.strip().startswith('%')]
+
+
+def apply_cse(func):
+    seen = {}
+    replacements = {}
+    new_ops = []
+
+    for op in func['ops']:
+        if op['opcode'] != 'arith.constant':
+            operands = get_operands(op)
+            resolved = [replacements.get(o, o) for o in operands]
+            op['operands_str'] = ', '.join(resolved)
+
+        key = (op['opcode'], op['operands_str'], op['type'])
+
+        if key in seen:
+            replacements[op['result']] = seen[key]
+        else:
+            seen[key] = op['result']
+            new_ops.append(op)
+
+    func['ops'] = new_ops
+    if func['ret_val']:
+        func['ret_val'] = replacements.get(func['ret_val'], func['ret_val'])
+
+
+def apply_constfold(func):
+    constants = {}
+
+    for op in func['ops']:
+        if op['opcode'] == 'arith.constant':
+            try:
+                constants[op['result']] = int(op['operands_str'].strip())
+            except ValueError:
+                pass
+            continue
+
+        operands = get_operands(op)
+        if len(operands) == 2 and all(o in constants for o in operands):
+            a, b = constants[operands[0]], constants[operands[1]]
+            result = None
+            if op['opcode'] == 'arith.addi':
+                result = a + b
+            elif op['opcode'] == 'arith.muli':
+                result = a * b
+            elif op['opcode'] == 'arith.subi':
+                result = a - b
+            elif op['opcode'] == 'arith.remsi' and b != 0:
+                result = a % b
+
+            if result is not None:
+                op['opcode'] = 'arith.constant'
+                op['operands_str'] = str(result)
+                constants[op['result']] = result
+
+
+def apply_dce(func):
+    used = set()
+    if func['ret_val']:
+        used.add(func['ret_val'])
+
+    changed = True
+    while changed:
+        changed = False
+        for op in func['ops']:
+            if op['result'] in used:
+                for o in get_operands(op):
+                    if o not in used:
+                        used.add(o)
+                        changed = True
+
+    func['ops'] = [op for op in func['ops'] if op['result'] in used]
+
+
+def apply_canonicalize(func):
+    constants = {}
+    replacements = {}
+    new_ops = []
+
+    for op in func['ops']:
+        if op['opcode'] == 'arith.constant':
+            try:
+                constants[op['result']] = int(op['operands_str'].strip())
+            except ValueError:
+                pass
+            new_ops.append(op)
+            continue
+
+        operands = get_operands(op)
+        resolved = [replacements.get(o, o) for o in operands]
+        op['operands_str'] = ', '.join(resolved)
+
+        replaced = False
+        if len(resolved) == 2:
+            a, b = resolved[0], resolved[1]
+
+            if op['opcode'] == 'arith.addi':
+                if b in constants and constants[b] == 0:
+                    replacements[op['result']] = a
+                    replaced = True
+                elif a in constants and constants[a] == 0:
+                    replacements[op['result']] = b
+                    replaced = True
+            elif op['opcode'] == 'arith.muli':
+                if b in constants and constants[b] == 1:
+                    replacements[op['result']] = a
+                    replaced = True
+                elif a in constants and constants[a] == 1:
+                    replacements[op['result']] = b
+                    replaced = True
+                elif (b in constants and constants[b] == 0) or \
+                     (a in constants and constants[a] == 0):
+                    op['opcode'] = 'arith.constant'
+                    op['operands_str'] = '0'
+                    constants[op['result']] = 0
+            elif op['opcode'] == 'arith.subi':
+                if a == b:
+                    op['opcode'] = 'arith.constant'
+                    op['operands_str'] = '0'
+                    constants[op['result']] = 0
+                elif b in constants and constants[b] == 0:
+                    replacements[op['result']] = a
+                    replaced = True
+
+        if not replaced:
+            new_ops.append(op)
+
+    func['ops'] = new_ops
+    if func['ret_val']:
+        func['ret_val'] = replacements.get(func['ret_val'], func['ret_val'])
+
+
+def emit_function(func):
+    lines = []
+    args = ', '.join(f'{n}: {t}' for n, t in func['args'])
+    ret = f' -> {func["ret_type"]}' if func['ret_type'] else ''
+    lines.append(f'func @{func["name"]}({args}){ret} {{')
+    for op in func['ops']:
+        lines.append(
+            f'  {op["result"]} = {op["opcode"]} {op["operands_str"]} : {op["type"]}'
+        )
+    if func['ret_val']:
+        lines.append(f'  return {func["ret_val"]} : {func["ret_type"]}')
+    lines.append('}')
+    return '\n'.join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Simple IR optimizer')
+    parser.add_argument('input', nargs='?', help='Input file (default: stdin)')
+    parser.add_argument('--cse', action='store_true',
+                        help='Common Subexpression Elimination')
+    parser.add_argument('--constfold', action='store_true',
+                        help='Constant Folding')
+    parser.add_argument('--dce', action='store_true',
+                        help='Dead Code Elimination')
+    parser.add_argument('--canonicalize', action='store_true',
+                        help='Algebraic Simplifications')
+    parser.add_argument('--split-input-file', action='store_true',
+                        help='Split input on // ----- markers')
+
+    args = parser.parse_args()
+
+    if args.input:
+        with open(args.input) as f:
+            text = f.read()
+    else:
+        text = sys.stdin.read()
+
+    if args.split_input_file:
+        sections = re.split(r'^// -----$', text, flags=re.MULTILINE)
+    else:
+        sections = [text]
+
+    outputs = []
+    for section in sections:
+        functions = parse_functions(section)
+        for func in functions:
+            if args.cse:
+                apply_cse(func)
+            if args.constfold:
+                apply_constfold(func)
+            if args.canonicalize:
+                apply_canonicalize(func)
+            if args.dce:
+                apply_dce(func)
+        outputs.append('\n'.join(emit_function(f) for f in functions))
+
+    print('\n// -----\n'.join(outputs))
+
+
+if __name__ == '__main__':
+    main()

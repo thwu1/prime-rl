@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of cross-language numerical semantics to audit a Python simulation against C and Rust firmware source code. The agent must identify 6 subtle correctness bugs spanning: C's strict-greater-than vs greater-equal float comparison (0.0 > 0 is false in C), a hardcoded constant (50) that differs from the computed array length (sizeof(wave)=51), Rust's 'as u8' truncation vs Python's round() for float-to-integer conversion, an off-by-one in a cosine wave phase argument, a fence-post error in duration computation (N vs N-1), and the difference between independent integer division and subtraction for blink timing. Finding these bugs requires reading embedded C (ESP-IDF/FreeRTOS) and no_std Rust (embassy) firmware code, understanding language-level arithmetic guarantees, and verifying behavior by compiling C test programs."""
+solution_explanation = """Read all firmware source files in both C and Rust. For each method in reference.py, compare its computation against the corresponding firmware code. Use gcc to compile small C programs verifying exact integer/float behavior (e.g., confirming 0.0 > 0 evaluates to false). Fix all 6 bugs: (1) CProcessor.normalize_color: change h >= 0 to h > 0, (2) CProcessor.compute_wave_cycle_timing: use hardcoded 50 instead of len(WAVE_TABLE), (3) RustProcessor.hsv_to_rgb: change round() to int() for truncation, (4) RustProcessor.compute_wave_table: remove +1 from cosine argument, (5) RustProcessor.compute_wave_table: use N instead of N-1 for last entry duration, (6) RustProcessor.compute_blink_timing: use period-on instead of independent division. Write corrected.py and audit_report.json."""
+verification_explanation = """Tests verify exact numerical outputs from corrected.py: C wave table has 51 entries with correct symmetry, C hue normalization maps h=0 to 360 (not 0), C wave pause formula produces 2000 for dc=50 (not 2040), Rust cosine wave table matches the exact formula with (2*i-N)/N argument, Rust wave peak at index 35 equals 255, Rust last entry duration equals period-N*tick, Rust HSV-to-RGB uses truncation (127.5→127 not 128), Rust blink timing guarantees on+off==period via subtraction, and audit_report.json contains at least 6 documented bugs with required fields."""
+category = "reverse_engineering"
+tags = ["embedded_systems", "cross_language_analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/firmware-led-analyzer"

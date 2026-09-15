@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a cost-based join optimizer from scratch given table statistics, a live DuckDB database, one calibration example (a trivial 2-table join with no filters), and an output format spec. The agent receives no guidance on cardinality estimation techniques, selectivity computation, NDV propagation, or search strategies. From a single calibration example the agent must reverse-engineer the cost model, then independently discover histogram-based selectivity estimation, NDV propagation through joins and filters, and an exhaustive search strategy to handle 8 queries spanning chain, star, and cyclic topologies with range and equality filter predicates. Demands expert-level database internals knowledge."""
+solution_explanation = """The solution implements bottom-up dynamic programming over all subsets of query tables. For each subset, it enumerates all valid partitions connected by join predicates, estimates join cardinality using the NDV-based formula (|L|*|R|/max(V(L.a),V(R.b))), propagates column distinct-value counts through joins and filters, and selects the minimum-cost partition. Filter selectivity uses equi-depth histogram bucket interpolation with half-open intervals. The agent must discover all of these formulas by analyzing one calibration example, exploring the DuckDB database, and applying deep database systems knowledge."""
+verification_explanation = """Tests verify that the optimizer produces correct total costs and output cardinalities for 8 queries of increasing complexity (2-4 tables, chain/star/cyclic topologies, with and without filters). Expected values were computed from a verified reference implementation. Structural validation ensures plans contain all required tables, form valid binary trees, and satisfy cost consistency (node_cost + children costs = total_cost). Additional tests verify the join cost formula and that filter selectivity is correctly applied to leaf cardinalities."""
+category = "database_systems"
+tags = ["query_optimization", "cost_modeling"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-join-ordering"

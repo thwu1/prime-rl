@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Dashboard</title>
+<style>
+  #dashboard { max-width: 600px; margin: 20px auto; font-family: sans-serif; }
+  nav { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 16px; }
+  .tab { padding: 10px 20px; border: none; background: #eee; cursor: pointer; font-size: 16px; }
+  .tab.active { background: #fff; border-bottom: 2px solid #333; font-weight: bold; }
+  .panel { padding: 16px; }
+  #range-value { font-weight: bold; font-size: 20px; }
+</style>
+</head>
+<body>
+<div id="dashboard">
+  <nav id="tabs">
+    <button class="tab active" data-tab="overview" role="tab" aria-selected="true">Overview</button>
+    <button class="tab" data-tab="details" role="tab" aria-selected="false">Details</button>
+    <button class="tab" data-tab="settings" role="tab" aria-selected="false">Settings</button>
+  </nav>
+
+  <div class="panel active" id="panel-overview">
+    <h2>Overview</h2>
+    <p>System status: <span id="status-text">Normal</span></p>
+    <button id="refresh-btn">Refresh Status</button>
+  </div>
+
+  <div class="panel" id="panel-details" style="display:none;">
+    <h2>Details</h2>
+    <label for="range-slider">Threshold:</label>
+    <input type="range" id="range-slider" min="0" max="100" value="50">
+    <span id="range-value">50</span>
+  </div>
+
+  <div class="panel" id="panel-settings" style="display:none;">
+    <h2>Settings</h2>
+    <theme-toggle id="theme-toggle"></theme-toggle>
+    <div style="margin-top: 12px;">
+      <label for="notify-check">Enable Notifications:</label>
+      <input type="checkbox" id="notify-check">
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.panel').forEach(function(p) {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    var panel = document.getElementById('panel-' + tab.dataset.tab);
+    panel.classList.add('active');
+    panel.style.display = 'block';
+  });
+});
+
+// Refresh status button
+document.getElementById('refresh-btn').addEventListener('click', function() {
+  var statuses = ['Normal', 'Warning', 'Critical', 'Healthy', 'Degraded'];
+  var current = document.getElementById('status-text').textContent;
+  var next;
+  do {
+    next = statuses[Math.floor(Math.random() * statuses.length)];
+  } while (next === current);
+  document.getElementById('status-text').textContent = next;
+});
+
+// Range slider
+document.getElementById('range-slider').addEventListener('input', function() {
+  document.getElementById('range-value').textContent = this.value;
+});
+
+// Custom element with Shadow DOM
+class ThemeToggle extends HTMLElement {
+  constructor() {
+    super();
+    var shadow = this.attachShadow({mode: 'open'});
+    shadow.innerHTML =
+      '<style>' +
+      '.toggle-btn { padding: 8px 16px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 14px; }' +
+      '.toggle-btn.dark { background: #333; color: #fff; border-color: #555; }' +
+      '</style>' +
+      '<button class="toggle-btn" id="shadow-toggle">Toggle Theme</button>';
+    var btn = shadow.getElementById('shadow-toggle');
+    btn.addEventListener('click', function() {
+      btn.classList.toggle('dark');
+      btn.textContent = btn.classList.contains('dark') ? 'Dark Mode' : 'Toggle Theme';
+      document.body.style.backgroundColor = btn.classList.contains('dark') ? '#1a1a1a' : '#ffffff';
+      document.body.style.color = btn.classList.contains('dark') ? '#ffffff' : '#000000';
+    });
+  }
+}
+customElements.define('theme-toggle', ThemeToggle);
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{
+  "sources": [
+    {
+      "name": "Zone-A",
+      "type": "point",
+      "longitude": -122.25,
+      "latitude": 38.10,
+      "depth_km": 8.0,
+      "mfd": {
+        "type": "GR",
+        "a": 3.2,
+        "b": 0.9,
+        "mMin": 5.0,
+        "mMax": 7.0,
+        "dMag": 0.1
+      }
+    },
+    {
+      "name": "Zone-B",
+      "type": "point",
+      "longitude": -121.80,
+      "latitude": 37.60,
+      "depth_km": 10.0,
+      "mfd": {
+        "type": "GR",
+        "a": 2.8,
+        "b": 0.95,
+        "mMin": 5.0,
+        "mMax": 6.5,
+        "dMag": 0.1
+      }
+    },
+    {
+      "name": "Zone-C",
+      "type": "point",
+      "longitude": -122.40,
+      "latitude": 37.50,
+      "depth_km": 12.0,
+      "mfd": {
+        "type": "GR",
+        "a": 2.5,
+        "b": 1.0,
+        "mMin": 5.0,
+        "mMax": 6.0,
+        "dMag": 0.1
+      }
+    },
+    {
+      "name": "Calaveras-Fault",
+      "type": "fault",
+      "trace": [
+        {"longitude": -121.82, "latitude": 37.35},
+        {"longitude": -121.72, "latitude": 37.55},
+        {"longitude": -121.65, "latitude": 37.75}
+      ],
+      "dip_deg": 90.0,
+      "upper_depth_km": 0.0,
+      "lower_depth_km": 12.0,
+      "rake_deg": 0.0,
+      "mfd": {
+        "type": "INCR",
+        "magnitudes": [6.0, 6.5, 7.0],
+        "rates": [0.005, 0.002, 0.0005]
+      }
+    }
+  ]
+}

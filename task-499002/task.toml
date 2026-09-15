@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CPU/GPU heterogeneous inference systems: parsing /proc/cpuinfo to identify AMX/AVX512 feature flags and determine optimal kernel backends, understanding NUMA topology for thread pool configuration, computing MoE expert memory footprints from quantization parameters (FP8 group-wise scales), deriving GPU VRAM budgets from profiled non-expert component breakdowns, diagnosing multiple interacting configuration errors across launch parameters (method mismatch, NUMA-unaware threading, OOM from expert overallocation, KV cache budget violations), and solving the combinatorial expert-to-GPU assignment problem that maximizes activation hit rate. The agent must discover the problem structure by exploring scattered files across multiple directories — no algorithm names or computation steps are given."""
+solution_explanation = """The solution parses cpuinfo to extract CPU model, socket count, core count, and feature flags (AMX, AVX512, VNNI, BF16, VBMI), reads NUMA topology and GPU inventory, computes per-expert memory as params*(bits/8) + (params/group_size)*scale_bytes for FP8 quantization, sums VRAM profile components to get non-expert usage, derives the expert budget as floor(available/expert_memory), identifies 6 configuration errors (kt_method mismatch, cpuinfer exceeding physical cores, threadpool not matching NUMA count, gpu_experts causing OOM, chunked_prefill exceeding max_total_tokens, running_requests*new_tokens exceeding cache budget), then computes optimal placement by selecting the top-K experts globally by activation count and computing the resulting GPU hit rate."""
+verification_explanation = """Tests independently load all source data files, recompute expected values (expert params, memory, VRAM budget, max experts, optimal placement, hit rate), and verify each against the agent's report. Hardware capability tests check exact CPU feature detection. Memory tests verify correct quantization math. Configuration issue tests check that at least 5 issues are found covering specific parameters. Expert placement tests verify exact top-K assignment and hit rate within tolerance. A no-better-swap test confirms optimality."""
+category = "ml_systems"
+tags = ["heterogeneous-inference", "deployment-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-499002"

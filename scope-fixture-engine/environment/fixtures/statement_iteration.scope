@@ -1,0 +1,25 @@
+int foo = 0;
+int bar = 1;
+---
+
+[Content] =
+[Removal] = 0:0-0:12
+>------------<
+0| int foo = 0;
+[Domain] = 0:0-1:12
+>------------
+0| int foo = 0;
+1| int bar = 1;
+------------<
+[Insertion delimiter] = "\n"
+
+[Content] =
+[Removal] = 1:0-1:12
+>------------<
+1| int bar = 1;
+[Domain] = 0:0-1:12
+>------------
+0| int foo = 0;
+1| int bar = 1;
+------------<
+[Insertion delimiter] = "\n"

@@ -1,0 +1,195 @@
+Noise Protocol Framework - Condensed Reference
+================================================
+
+Based on revision 34 of the Noise specification by Trevor Perrin.
+
+1. PROTOCOL NAMES
+-----------------
+Format: Noise_<pattern>_<dh>_<cipher>_<hash>
+Examples: Noise_XX_25519_ChaChaPoly_SHA256, Noise_IK_25519_AESGCM_BLAKE2s
+
+The pattern section may include modifiers: e.g. "NNpsk0" = base pattern "NN"
+with modifier "psk0". Modifiers are lowercase, appended directly to the base
+pattern name or separated by "+".
+
+2. CRYPTO FUNCTIONS
+-------------------
+
+DH (25519):
+  DHLEN = 32
+  DH(keypair, public_key) = X25519 from RFC 7748
+
+Cipher (ChaChaPoly):
+  ENCRYPT/DECRYPT: AEAD_CHACHA20_POLY1305 from RFC 7539
+  96-bit nonce = 32 bits of zeros || little-endian 64-bit n
+  16-byte authentication tag appended to ciphertext
+
+Cipher (AESGCM):
+  ENCRYPT/DECRYPT: AES-256-GCM with 128-bit tag
+  96-bit nonce = 32 bits of zeros || big-endian 64-bit n
+  16-byte authentication tag appended to ciphertext
+
+Hash functions:
+  SHA256:  HASHLEN=32, BLOCKLEN=64
+  SHA512:  HASHLEN=64, BLOCKLEN=128
+  BLAKE2s: HASHLEN=32, BLOCKLEN=64  (digest length 32)
+  BLAKE2b: HASHLEN=64, BLOCKLEN=128 (digest length 64)
+
+HMAC-HASH(key, data): Standard HMAC (RFC 2104) using HASH().
+
+HKDF(chaining_key, input_key_material, num_outputs):
+  temp_key = HMAC-HASH(chaining_key, input_key_material)
+  output1  = HMAC-HASH(temp_key, byte(0x01))
+  output2  = HMAC-HASH(temp_key, output1 || byte(0x02))
+  if num_outputs == 2: return (output1, output2)
+  output3  = HMAC-HASH(temp_key, output2 || byte(0x03))
+  return (output1, output2, output3)
+
+3. PROCESSING RULES
+--------------------
+
+CipherState(k, n):
+  InitializeKey(key): k=key, n=0
+  HasKey(): return k is non-empty
+  EncryptWithAd(ad, pt): if k non-empty: return ENCRYPT(k, n++, ad, pt); else return pt
+  DecryptWithAd(ad, ct): if k non-empty: return DECRYPT(k, n++, ad, ct); else return ct
+
+SymmetricState(ck, h, CipherState):
+  InitializeSymmetric(protocol_name):
+    if len(protocol_name) <= HASHLEN:
+      h = protocol_name padded with zeros to HASHLEN bytes
+    else:
+      h = HASH(protocol_name)
+    ck = h
+    InitializeKey(empty)
+
+  MixKey(input_key_material):
+    ck, temp_k = HKDF(ck, input_key_material, 2)
+    if HASHLEN == 64: temp_k = temp_k[:32]
+    InitializeKey(temp_k)
+
+  MixHash(data):
+    h = HASH(h || data)
+
+  MixKeyAndHash(input_key_material):    [used for PSK]
+    ck, temp_h, temp_k = HKDF(ck, input_key_material, 3)
+    MixHash(temp_h)
+    if HASHLEN == 64: temp_k = temp_k[:32]
+    InitializeKey(temp_k)
+
+  EncryptAndHash(plaintext):
+    ct = EncryptWithAd(h, plaintext)
+    MixHash(ct)
+    return ct
+
+  DecryptAndHash(ciphertext):
+    pt = DecryptWithAd(h, ciphertext)
+    MixHash(ciphertext)
+    return pt
+
+  Split():
+    temp_k1, temp_k2 = HKDF(ck, zerolen, 2)
+    if HASHLEN == 64: truncate both to 32 bytes
+    c1.InitializeKey(temp_k1)    -- initiator -> responder
+    c2.InitializeKey(temp_k2)    -- responder -> initiator
+    return (c1, c2)
+
+HandshakeState(s, e, rs, re, SymmetricState):
+  Initialize(handshake_pattern, initiator, prologue, s, e, rs, re):
+    InitializeSymmetric(protocol_name)
+    MixHash(prologue)
+    MixHash() for each public key in pre-messages (initiator's first, then responder's)
+    Set message_patterns from handshake_pattern
+
+  WriteMessage(payload) -> message_buffer:
+    Pop next message_pattern, process each token:
+      "e":  set e=GENERATE_KEYPAIR(), append e.public_key to buffer, MixHash(e.public_key)
+      "s":  append EncryptAndHash(s.public_key) to buffer
+      "ee": MixKey(DH(e, re))
+      "es": if initiator: MixKey(DH(e, rs)); if responder: MixKey(DH(s, re))
+      "se": if initiator: MixKey(DH(s, re)); if responder: MixKey(DH(e, rs))
+      "ss": MixKey(DH(s, rs))
+    Append EncryptAndHash(payload) to buffer
+    If no more patterns: return Split()
+
+  ReadMessage(message) -> payload:
+    Pop next message_pattern, process each token:
+      "e":  re = next DHLEN bytes from message, MixHash(re)
+      "s":  temp = next DHLEN+16 bytes (if HasKey) or DHLEN bytes, rs = DecryptAndHash(temp)
+      "ee": MixKey(DH(e, re))
+      "es": if initiator: MixKey(DH(e, rs)); if responder: MixKey(DH(s, re))
+      "se": if initiator: MixKey(DH(s, re)); if responder: MixKey(DH(e, rs))
+      "ss": MixKey(DH(s, rs))
+    payload = DecryptAndHash(remaining bytes)
+    If no more patterns: return Split()
+
+4. HANDSHAKE PATTERNS
+---------------------
+
+One-way patterns:
+
+  N:                K:                X:
+    <- s              -> s              <- s
+    ...               <- s              ...
+    -> e, es          ...               -> e, es, s, ss
+                      -> e, es, ss
+
+Fundamental interactive patterns:
+
+  NN:               KN:               XN:               IN:
+    -> e              -> s              -> e              -> e, s
+    <- e, ee          ...               <- e, ee          <- e, ee, se
+                      -> e              -> s, se
+                      <- e, ee, se
+
+  NK:               KK:               XK:               IK:
+    <- s              -> s              <- s              <- s
+    ...               <- s              ...               ...
+    -> e, es          ...               -> e, es          -> e, es, s, ss
+    <- e, ee          -> e, es, ss      <- e, ee          <- e, ee, se
+                      <- e, ee, se      -> s, se
+
+  NX:               KX:               XX:               IX:
+    -> e              -> s              -> e              -> e, s
+    <- e, ee, s, es   ...               <- e, ee, s, es   <- e, ee, se, s, es
+                      -> e              -> s, se
+                      <- e, ee, se,
+                         s, es
+
+5. PRE-SHARED SYMMETRIC KEYS (PSK)
+-----------------------------------
+
+PSK modifier placement:
+  psk0: "psk" token at BEGINNING of first handshake message
+  pskN (N>=1): "psk" token at END of message N (1-indexed)
+
+Processing the "psk" token: call MixKeyAndHash(psk)
+
+Additional PSK rule: In PSK handshakes, every "e" token (in pre-messages
+or messages) is followed by an additional MixKey(e.public_key) call
+(after the normal MixHash(e.public_key)).
+
+Example PSK patterns:
+
+  NNpsk0:           NNpsk2:
+    -> psk, e         -> e
+    <- e, ee          <- e, ee, psk
+
+6. TEST VECTOR FORMAT
+---------------------
+
+In the challenges, key material is provided as hex-encoded byte strings.
+Private keys are raw 32-byte Curve25519 scalars. Public keys are the
+corresponding X25519 public key encodings.
+
+Messages alternate between initiator (even index) and responder (odd index),
+starting with the initiator. For one-way patterns (N, K, X), all messages
+flow from initiator to responder.
+
+After the handshake completes (all handshake message patterns consumed),
+Split() produces two CipherStates:
+  c1: for encrypting initiator -> responder transport messages
+  c2: for encrypting responder -> initiator transport messages
+
+Transport messages are encrypted with EncryptWithAd(empty_ad, payload)
+using the appropriate CipherState. For one-way patterns, only c1 is used.

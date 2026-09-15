@@ -1,0 +1,11 @@
+{
+  "master_record_lsn": 0,
+  "flushed_page_lsns": {},
+  "log": [
+    {"lsn": 0, "type": "BEGIN_CHECKPOINT"},
+    {"lsn": 1, "type": "END_CHECKPOINT", "txn_table": {}, "dirty_page_table": {}},
+    {"lsn": 2, "type": "UPDATE", "txn_id": 1, "prev_lsn": null, "page_id": 10},
+    {"lsn": 3, "type": "COMMIT", "txn_id": 1, "prev_lsn": 2},
+    {"lsn": 4, "type": "UPDATE", "txn_id": 2, "prev_lsn": null, "page_id": 20}
+  ]
+}

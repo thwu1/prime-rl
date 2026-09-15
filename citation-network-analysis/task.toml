@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of legal domain knowledge with software engineering. Beyond basic citation extraction, the agent must: (1) understand the U.S. federal court hierarchy to classify each citation as binding or persuasive authority relative to the citing court — this requires knowing that SCOTUS binds all courts, same-circuit precedent is binding, sister-circuit is persuasive, and unpublished (F. App'x) opinions are never binding; (2) identify doctrinal threads by synthesizing how legal principles evolve through chains of cited cases across multiple opinions — this requires holistic reading of how courts trace and develop legal doctrine, not just proximity-based grouping; (3) detect abrogation risks by recognizing when one cited case has been explicitly overruled or vacated by another case in the corpus — requiring understanding of how precedential authority is modified over time. The broken previous audit contains errors not only in basic extraction but also in authority classifications (mislabeling sister-circuit opinions as binding) and doctrinal analysis, demanding the agent understand WHY each classification is wrong, not just that it differs from a reference answer."""
+solution_explanation = """Install eyecite and courts-db. Parse opinion headers with courts-db for court_mapping. Use eyecite get_citations() and resolve_citations() for extraction and Id. resolution. For authority_hierarchy: extract each citation's court from the parenthetical metadata, map circuit abbreviations to canonical court IDs, then apply binding/persuasive rules based on the citing court. For doctrinal_threads: analyze paragraph context around citations using legal topic keyword matching with contextual inheritance to group citations into doctrinal chains. For abrogation_risks: scan for explicit abrogation/vacatur language and connect the named cases to their citation triples. Build cross-document SCOTUS index, compute reporter frequencies, detect orphan Id. citations and court-reporter mismatches."""
+verification_explanation = """Pytest tests validate: correct court mappings (including cafc correction); presence of specific known citations in each document with proper sorting; Id. resolution chains to specific antecedents; shared SCOTUS citations across documents; reporter frequency counts; authority hierarchy with correct cited_court IDs and binding/persuasive classifications (including verification that sister-circuit opinions are marked persuasive and SCOTUS always binding); doctrinal threads containing specific case pairs (McDonnell Douglas+Burdine, Chevron+West Virginia, Rapanos+Sackett); and abrogation risks for explicitly stated abrogations (Sackett abrogating Rueth, Moody vacating NetChoice decisions)."""
+category = "legal_data_engineering"
+tags = ["citation-analysis", "precedent-authority"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/citation-network-analysis"

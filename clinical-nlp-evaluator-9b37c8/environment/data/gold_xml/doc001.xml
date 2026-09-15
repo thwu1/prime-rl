@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ClinicalDocument>
+<TEXT><![CDATA[Aspirin 81mg daily. Reported nausea.]]></TEXT>
+<TAGS>
+<Entity id="T1" type="Drug" start="0" end="7" text="Aspirin"/>
+<Entity id="T2" type="Dosage" start="8" end="12" text="81mg"/>
+<Entity id="T3" type="Frequency" start="13" end="18" text="daily"/>
+<Entity id="T4" type="ADE" start="29" end="35" text="nausea"/>
+<Relation id="R1" type="Dosage-Drug" arg1="T2" arg2="T1"/>
+<Relation id="R2" type="Frequency-Drug" arg1="T3" arg2="T1"/>
+<Relation id="R3" type="ADE-Drug" arg1="T4" arg2="T1"/>
+<Attribute id="A1" entity_id="T1" type="Assertion" value="present"/>
+<Attribute id="A2" entity_id="T4" type="Assertion" value="present"/>
+</TAGS>
+</ClinicalDocument>

@@ -1,0 +1,42 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of GCC x86-64 codegen at -O0: understanding GIMPLE lowering,
+when C constructs that look different produce identical assembly (cosmetic), and when semantically equivalent
+constructs produce different instruction sequences (codegen-affecting). The solver must analyze raw object
+file disassembly, reason about compiler internals (short-circuit evaluation, switch dispatch, compound
+assignment lowering, type promotion, stack layout), and produce byte-identical .text output."""
+solution_explanation = """The solution applies 7 targeted source transformations that fix codegen-affecting
+differences: splitting a combined || guard with reordered declaration, De Morgan's law on negated conjunction,
+caching loop count + changing counter type, converting multiply-by-33 to shift-add, converting switch to
+if/else-if, inlining a rotation temp variable, and restructuring a Feistel swap pattern. 7 cosmetic
+differences (array subscript notation, extra parentheses, hex case, type aliases, expanded compound
+assignments, return parens) are deliberately preserved."""
+verification_explanation = """Tests compile candidate.c with the same flags and compare the raw .text section
+bytes against target.o using objcopy. Additional tests verify analysis.json structure and counts, and check
+that specific cosmetic differences (&data[off], unsigned int, 0x5BD1E995, return (hash)) remain in source."""
+category = "reverse_engineering"
+tags = ["decompilation", "compiler-codegen"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7d9f05"

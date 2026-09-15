@@ -1,0 +1,43 @@
+; SPIR-V assembly: compute shader with dead functions
+; Dead function placed before live functions to create ID gaps after elimination
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %main "main"
+OpExecutionMode %main LocalSize 1 1 1
+OpName %main "main"
+OpName %helper "helper"
+OpName %dead_fn "dead_fn"
+OpName %dead_fn2 "dead_fn2"
+
+%void = OpTypeVoid
+%int = OpTypeInt 32 1
+%fn_void = OpTypeFunction %void
+%fn_int_int = OpTypeFunction %int %int
+
+%int_0 = OpConstant %int 0
+%int_1 = OpConstant %int 1
+%int_42 = OpConstant %int 42
+
+%dead_fn = OpFunction %void None %fn_void
+%dead_entry = OpLabel
+OpReturn
+OpFunctionEnd
+
+%main = OpFunction %void None %fn_void
+%main_entry = OpLabel
+%call_result = OpFunctionCall %int %helper %int_1
+OpReturn
+OpFunctionEnd
+
+%helper = OpFunction %int None %fn_int_int
+%helper_param = OpFunctionParameter %int
+%helper_entry = OpLabel
+%sum = OpIAdd %int %helper_param %int_42
+OpReturnValue %sum
+OpFunctionEnd
+
+%dead_fn2 = OpFunction %int None %fn_int_int
+%dead_param = OpFunctionParameter %int
+%dead_entry2 = OpLabel
+OpReturnValue %int_0
+OpFunctionEnd

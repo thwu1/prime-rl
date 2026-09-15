@@ -1,0 +1,15 @@
+dag_id: transform_orders
+schedule: "dataset:orders_raw"
+default_pool: compute_pool
+max_active_runs: 1
+tasks:
+  clean:
+    pool_slots: 2
+    duration_estimate_minutes: 15
+  enrich:
+    pool_slots: 3
+    duration_estimate_minutes: 20
+    upstream: [clean]
+datasets:
+  produces: [orders_clean]
+  consumes: [orders_raw]

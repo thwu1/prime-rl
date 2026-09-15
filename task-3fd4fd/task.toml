@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of ArduPilot's multi-core EKF3 architecture (lane switching, per-core innovation streams, shared noise parameters across cores), proficiency with pymavlink's DFReader API and mavlogdump.py for parsing binary DataFlash logs (an unfamiliar tool ecosystem), flight phase detection from altitude telemetry, cross-correlation of multiple binary message types logged at different rates (GPS at 5Hz, CTUN at 25Hz, XKF at 50Hz, STAT at 1Hz), anomaly detection (GPS outage from NaN innovations, compass bias on a single core), and joint noise parameter estimation using the S=HPH'+R decomposition with proper data exclusion (non-primary core data, ground phase biases, sensor outage periods). Unlike a procedural task, the agent must holistically reason about which data to trust and why."""
+solution_explanation = """Install pymavlink, use DFReader_binary to parse the .bin log. Extract STAT messages to track primary core over time. Use CTUN altitude to identify cruise phase (~300-1700). For each XKF sample, select only the primary core's data during cruise. Detect GPS outage via NaN innovations in velocity/position channels. Detect MagZ bias on core 0 via block-mean z-test. Exclude anomalous periods. Compute per-channel NIS = mean(innovation^2)/mean(reported_variance). Derive R_optimal = mean(inno^2) - HPH' where HPH' = reported_var - R_current. Joint-estimate shared parameters via weighted average across associated channels. Clamp to valid ArduPilot ranges."""
+verification_explanation = """Tests verify: (1) output JSON structure, (2) corrected noise params within 20% of truth, (3) params within valid ArduPilot ranges, (4) ≥4 of 5 misconfigured channels identified as inconsistent, (5) correctly-tuned channels not false-flagged, (6) GPS outage detected with reasonable time bounds, (7) magnetometer anomaly identified, (8) lane switch from core 0→1 detected near sample 1200, (9) cruise phase boundaries identified near samples 300 and 1700."""
+category = "signal_processing"
+tags = ["kalman-filter", "binary-log-parsing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3fd4fd"

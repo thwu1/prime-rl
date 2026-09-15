@@ -1,0 +1,13 @@
+{
+  "name": "safe_loop",
+  "vars": ["i"],
+  "arrays": {"a": 10},
+  "body": [
+    {"stmt": "assign", "target": "i", "expr": {"expr": "const", "value": 0}, "line": 1},
+    {"stmt": "while", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 10}},
+     "body": [
+       {"stmt": "array_write", "array": "a", "index": {"expr": "var", "name": "i"}, "value": {"expr": "var", "name": "i"}, "line": 3},
+       {"stmt": "assign", "target": "i", "expr": {"expr": "binop", "op": "+", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 1}}, "line": 4}
+     ], "line": 2}
+  ]
+}

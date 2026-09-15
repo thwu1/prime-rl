@@ -1,0 +1,90 @@
+{
+  "classes": {
+    "object": {
+      "super": null,
+      "attrs": {},
+      "methods": {
+        "__init__": {"params": ["object"], "return": "<None>"}
+      }
+    },
+    "int": {
+      "super": "object",
+      "attrs": {},
+      "methods": {
+        "__init__": {"params": ["object"], "return": "<None>"}
+      }
+    },
+    "bool": {
+      "super": "object",
+      "attrs": {},
+      "methods": {
+        "__init__": {"params": ["object"], "return": "<None>"}
+      }
+    },
+    "str": {
+      "super": "object",
+      "attrs": {},
+      "methods": {
+        "__init__": {"params": ["object"], "return": "<None>"}
+      }
+    },
+    "A": {
+      "super": "object",
+      "attrs": {"x": "int"},
+      "methods": {
+        "__init__": {"params": ["A"], "return": "<None>"},
+        "foo": {"params": ["A", "int"], "return": "str"},
+        "bar": {"params": ["A"], "return": "object"}
+      }
+    },
+    "B": {
+      "super": "A",
+      "attrs": {"y": "bool"},
+      "methods": {
+        "__init__": {"params": ["B"], "return": "<None>"},
+        "foo": {"params": ["B", "int"], "return": "str"},
+        "baz": {"params": ["B", "str"], "return": "int"}
+      }
+    },
+    "C": {
+      "super": "A",
+      "attrs": {"z": "str"},
+      "methods": {
+        "__init__": {"params": ["C"], "return": "<None>"},
+        "bar": {"params": ["C"], "return": "object"}
+      }
+    },
+    "D": {
+      "super": "B",
+      "attrs": {"w": "int"},
+      "methods": {
+        "__init__": {"params": ["D"], "return": "<None>"},
+        "qux": {"params": ["D", "A"], "return": "bool"}
+      }
+    },
+    "E": {
+      "super": "B",
+      "attrs": {},
+      "methods": {
+        "__init__": {"params": ["E"], "return": "<None>"},
+        "baz": {"params": ["E", "str"], "return": "int"}
+      }
+    },
+    "F": {
+      "super": "object",
+      "attrs": {"val": "int"},
+      "methods": {
+        "__init__": {"params": ["F"], "return": "<None>"},
+        "compute": {"params": ["F", "int", "int"], "return": "int"}
+      }
+    },
+    "G": {
+      "super": "F",
+      "attrs": {"name": "str"},
+      "methods": {
+        "__init__": {"params": ["G"], "return": "<None>"},
+        "compute": {"params": ["G", "int", "int"], "return": "int"}
+      }
+    }
+  }
+}

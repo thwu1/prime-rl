@@ -1,0 +1,6 @@
+mntner:             ALPHA-MNT
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             ALPHA-MNT
+auth:               pgp-fingerprint A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2
+source:             DN42

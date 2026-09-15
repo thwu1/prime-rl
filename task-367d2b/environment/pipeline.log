@@ -1,0 +1,6 @@
+[2024-11-15T08:23:14Z] INFO  Loading catalog from /app/catalog.gpkg — 28 records found in layer 'datasets'
+[2024-11-15T08:23:15Z] INFO  Running data quality validation suite...
+[2024-11-15T08:23:15Z] ERROR Spatial validation: 7 records with geometry issues (coordinate anomalies, topology errors)
+[2024-11-15T08:23:15Z] ERROR Temporal validation: 2 records with date range inconsistencies
+[2024-11-15T08:23:16Z] INFO  Total: 9 records require investigation and repair
+[2024-11-15T08:23:16Z] FATAL Pipeline aborted — data quality issues must be resolved before analysis can proceed.

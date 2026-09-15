@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Adya/Liskov/O'Neil's generalized isolation levels, parsing Jepsen's EDN format, constructing four distinct dependency edge sets (WW, WR, RW, RT) from append-workload histories with correct version-order inference, cycle detection at multiple graph levels, Tarjan's SCC algorithm, minimum feedback vertex set computation (NP-hard in general, tractable here due to graph size), and graphviz visualization. The agent must independently derive the analysis pipeline from the specification, handle edge cases like failed/info operations, empty reads, concurrent overlapping transactions, and a hidden write-skew anomaly buried among 18 clean transactions."""
+solution_explanation = """The solution installs edn_format to parse EDN, matches invoke/ok pairs by process, infers version orders from the longest read observation per key, constructs four edge sets (WW from version-order adjacency, WR from observed values, RW from anti-dependencies, RT from real-time precedence), runs cycle detection on progressively larger edge unions to classify G0/G1c/G2/strict-serializability, performs Tarjan's SCC analysis, finds shortest cycles via BFS, computes minimum feedback vertex sets via brute-force enumeration over SCC nodes, generates graphviz DOT for anomalous cycles, and writes structured results to JSON."""
+verification_explanation = """Tests load /app/results.json and verify 72+ specific computed values across 6 histories: exact committed transaction counts (7,4,5,5,5,19), exact edge counts per type (e.g. h1 has ww=4,wr=10,rw=2; h6 has ww=11,wr=52,rw=10), exact anomaly classifications, exact shortest cycle transaction IDs (e.g. h4 cycle is [0,3,0], h6 cycle is [12,13,12]), SCC counts and max sizes, and minimum feedback vertex set sizes and members (e.g. h4 requires removing 2 transactions [0,2]). Tests also verify SVG visualizations exist for all 4 anomalous histories."""
+category = "distributed_systems"
+tags = ["consistency-models", "graph-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-594cb7"

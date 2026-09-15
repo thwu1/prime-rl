@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging interacting bugs across four files spanning three technology layers (C/Makefile, Python ctypes, SQLite3) with no UCA specification excerpts provided — the solver must have or acquire deep understanding of the Unicode Collation Algorithm to diagnose failures. The Makefile has three build-system errors (missing -fPIC, missing -shared, wrong target extension) that prevent the C shared library from compiling. The C implicit weight computation has an off-by-one boundary error in siniform range checking and a wrong bit-shift for CJK extension weight derivation. The Python ctypes struct has its fields in the wrong order, silently swapping AAAA/BBBB weights for all implicit computations. The SHIFTED variable weighting state machine fails to reset the after_variable flag on non-variable elements, causing downstream ignorable CEs to be incorrectly zeroed. The SQLite3 collation registration returns a boolean instead of a tri-state integer. Multiple bugs interact: the ctypes field swap masks the C off-by-one, and the variable weighting bug only manifests in SHIFTED mode after fixing all implicit weight issues."""
+solution_explanation = """The solution fixes nine distinct bugs across four files: (1) Makefile: add -fPIC to CFLAGS, add -shared to LDFLAGS, change target extension from .a to .so; (2) C source: fix siniform range upper bound from < to <=, fix Other Han bit shift from >>16 to >>15; (3) Python collator: swap ImplicitWeight ctypes struct fields to correct (aaaa, bbbb) order, add after_variable=False reset in the SHIFTED mode non-variable non-ignorable path; (4) SQLite3 registration: change comparison function from returning bool (compare() < 0) to returning the int result of compare() directly. After fixes, rebuild with make, then run register_collation.py to produce sorted output."""
+verification_explanation = """Tests verify each layer independently and end-to-end: the C shared library file exists and is loadable via ctypes, and produces correct AAAA/BBBB implicit weight values for Core Han (U+4E00) and CJK Extension B (U+20000); the Python collator returns properly structured sort keys, orders Latin letters, case variants, accented characters, and canonical equivalences correctly; supplementary plane and CJK characters sort correctly via implicit weights; SHIFTED mode handles punctuation ordering and the after_variable state transition; official conformance runs of 5000 lines each pass with zero violations for both NON_IGNORABLE and SHIFTED modes; the SQLite3 sorted output file exists, has the expected number of lines, and every adjacent pair is in correct UCA order; no external collation libraries are imported."""
+category = "information_systems"
+tags = ["unicode", "systems-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/uca-collator-debug"

@@ -1,0 +1,19 @@
+program TestBoolBasic
+  int a, b;
+{
+  void main()
+    boolean f, g;
+  {
+    a = 5; b = 10;
+    f = a < b;
+    g = a > b;
+    print(f, 0);
+    print(g, 0);
+    f = true;
+    g = false;
+    print(f, 0);
+    print(g, 0);
+    if (f) print(1, 0); else print(0, 0);
+    if (g) print(1, 0); else print(0, 0);
+  }
+}

@@ -1,0 +1,18 @@
+{
+    "array": {
+        "num_elements": 10,
+        "element_spacing_wavelengths": 0.5,
+        "sidelobe_level_dB": -20,
+        "scan_angle_degrees": 60
+    },
+    "element_data_file": "dipole_element.s1p",
+    "frequency_hz": 1.8e9,
+    "tx_power_watts": 0.5,
+    "tx_line_z0_ohms": 75.0,
+    "tx_line_length_wavelengths": 0.25,
+    "rx_gain_dBi": 3.0,
+    "rx_load_impedance_ohms": [75.0, 0.0],
+    "rx_line_z0_ohms": 75.0,
+    "rx_line_length_wavelengths": 0.5,
+    "link_distance_meters": 2000.0
+}

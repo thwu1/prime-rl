@@ -1,0 +1,62 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled diagnosis and repair across three interacting layers
+of a SQL transpiler with no hints or comments marking defects:
+(1) A Peggy PEG grammar with a flat expression rule producing incorrect operator precedence,
+missing CASE ELSE and OVER clause productions, single-only :: cast, and no EXISTS subquery
+or window frame clause support — the solver must understand PEG ordered-choice semantics,
+design precedence-layered rules, and create entirely new grammar productions;
+(2) A TypeScript stringifier with 12 silent defects spanning identifier quoting, binary expression
+formatting (BETWEEN/IN), clause ordering, HAVING omission, CTE RECURSIVE flag, JOIN ON rendering,
+UNION chain traversal, ORDER BY NULLS, LIMIT/OFFSET swap, and cast symbol handling — the solver
+must diagnose each from test output without any code-level hints;
+(3) A cross-dialect transformer missing IFNULL→COALESCE mapping and :: → CAST() conversion.
+Beyond fixing bugs, the solver must design and implement two novel grammar features (EXISTS
+subquery expressions and window frame clauses like ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+that integrate with the existing AST and stringifier architecture."""
+solution_explanation = """Grammar fixes: (1) Split flat expr into precedence layers
+(or_expr > and_expr > comparison_expr > additive > multiplicative > primary) using PEG
+ordered-choice; (2) Add case_else rule for ELSE branches; (3) Add over_clause with
+partition_by and order_by for aggregate functions; (4) Change :: cast to accept one-or-more
+targets via + repetition; (5) Create exists_expr rule returning unary_expr AST node with
+operator EXISTS wrapping a subquery; (6) Create window_frame / frame_type / frame_bound
+rules producing a string for ROWS/RANGE BETWEEN frame bounds. Stringifier fixes: identifierQuote
+returns double-quote for postgresql/snowflake; binaryExprToSQL joins BETWEEN with AND and wraps
+IN/NOT IN with parens; caseExprToSQL handles else branch; aggrFuncToSQL emits DISTINCT and
+OVER; castExprToSQL handles :: with loop; selectToSQL reorders FROM before WHERE and restores
+HAVING; withToSQL uses recursive flag; fromToSQL emits ON condition; unionToSQL walks _next
+chain; orderByClauseToSQL emits nulls; limitToSQL fixes value index. Transformer fixes: add
+IFNULL→COALESCE mapping; convert :: to nested CAST(... AS ...) when targeting MySQL."""
+verification_explanation = """42 parameterized pytest tests via test_runner.js across three
+categories: (A) 19 stringifier tests construct AST objects and compare sqlify() output,
+(B) 17 round-trip tests parse SQL strings through the Peggy-generated parser then stringify
+back and compare, (C) 6 transpilation tests exercise the full parse→transform→stringify
+pipeline across MySQL↔PostgreSQL↔Snowflake. Results are written to JSON and read by pytest
+for granular reporting. Additional pytest guards verify minimum case counts, absence of
+runtime errors, presence of parser round-trip and transpile test categories."""
+category = "debugging"
+tags = ["typescript", "peg-grammar", "sql", "parser", "transpiler", "multi-layer-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sql-ast-stringifier-86222e"

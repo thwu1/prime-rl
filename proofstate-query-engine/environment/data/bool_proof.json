@@ -1,0 +1,306 @@
+[
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Theorem double_neg : forall b : bool, negb (negb b) = b.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall b : bool, negb (negb b) = b",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Proof.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall b : bool, negb (negb b) = b",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "destruct b.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "negb (negb true) = true",
+          "hypotheses": []
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "negb (negb false) = false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "true = true",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "false = false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Qed.",
+      "responses": [],
+      "goals": []
+    }
+  ],
+  [
+    {
+      "_type": "sentence",
+      "sentence": "Theorem andb_comm : forall a b : bool, andb a b = andb b a.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall a b : bool, andb a b = andb b a",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Proof.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "forall a b : bool, andb a b = andb b a",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "destruct a.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "forall b : bool, andb true b = andb b true",
+          "hypotheses": []
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "forall b : bool, andb false b = andb b false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "destruct b.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "andb true true = andb true true",
+          "hypotheses": []
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "andb true false = andb false true",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    + "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n    + "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "false = false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n      "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n  - "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "destruct b.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": "1",
+          "conclusion": "andb false true = andb true false",
+          "hypotheses": []
+        },
+        {
+          "_type": "goal",
+          "name": "2",
+          "conclusion": "andb false false = andb false false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n    + "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "simpl.",
+      "responses": [],
+      "goals": [
+        {
+          "_type": "goal",
+          "name": null,
+          "conclusion": "false = false",
+          "hypotheses": []
+        }
+      ]
+    },
+    {
+      "_type": "text",
+      "string": "\n      "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n    + "
+    },
+    {
+      "_type": "sentence",
+      "sentence": "reflexivity.",
+      "responses": [],
+      "goals": []
+    },
+    {
+      "_type": "text",
+      "string": "\n"
+    },
+    {
+      "_type": "sentence",
+      "sentence": "Qed.",
+      "responses": [],
+      "goals": []
+    }
+  ]
+]

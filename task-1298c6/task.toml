@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level IEEE 754 knowledge and multi-tool proficiency. The agent must: (1) explore the /app/ filesystem to discover 5 data sources in heterogeneous formats — only 2 are documented in manifest.json; (2) reverse-engineer the format of each source (binary with count header, text with comments, CSV with European locale using semicolon delimiters and comma decimal separators, hexadecimal IEEE 754 bit patterns, and JSON with string-encoded numeric values); (3) build a C++ validation tool using CMake and GCC with C++17 std::from_chars; (4) correctly parse and deduplicate values across sources while preserving IEEE 754 bit-level identity (e.g. distinguishing +0 from -0, tracking NaN payloads); (5) implement the shortest round-trip-safe decimal string algorithm — determining minimum significant digits, generating both fixed and scientific notation, and choosing the shorter representation with correct tie-breaking; (6) classify each value by IEEE 754 category (zero, subnormal, normal, infinity, nan) and correctly count cross-source occurrences. The European CSV format is particularly subtle as naive comma-to-period replacement must correctly handle scientific notation and special values."""
+solution_explanation = """The solver explores /app/data/ recursively to find all 5 source files. It writes a complete C++ float_tool.cpp using std::from_chars and builds it with cmake. A Python script parses each format: binary via struct, text by skipping comments, CSV by splitting on semicolons and replacing comma decimal separators, hex by converting 0x-prefixed 64-bit patterns to doubles, and JSON by extracting string values. For each unique bit pattern, it determines the minimum significant digit count by testing n=1..17 until round-trip fidelity is achieved, generates both fixed and scientific notation, and selects the shorter representation."""
+verification_explanation = """Tests independently parse all 5 data source files to compute expected output. They verify: (1) the C++ float_tool binary exists and correctly converts test strings to hex bit patterns; (2) correct total unique value count (proving all 5 sources were discovered); (3) round-trip correctness for every shortest string; (4) significant-digit minimality; (5) notation optimality; (6) correct IEEE 754 category classification; (7) correct cross-source occurrence counts; (8) sort order; (9) format compliance. Source count verification catches missed data sources."""
+category = "data_processing"
+tags = ["ieee754", "cross-format-parsing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1298c6"

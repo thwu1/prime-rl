@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing bugs across four different toolchains (Python calibration library, SQL queries in pipeline, Makefile dependency graph, and jq/bash validation script) and fixing all of them before the pipeline can run. Python bugs include a subtle metric formula error (ECE uses unweighted vs weighted average), an off-by-one in numpy digitize, and a sign inversion in scipy optimizer. SQL bug is a wrong column name in a SQLite query. Makefile bug is a missing target dependency. Shell script has a method name typo breaking jq validation. Report module has a SQL column name mismatch. Additionally requires implementing BBQ (Bayesian Binning into Quantiles) — a research algorithm involving information-criterion scoring, relative likelihood model posteriors, and elbow-based model selection — plus a new metric and end-to-end pipeline integration including SQLite result storage."""
+solution_explanation = """Nine bugs to fix: (1) lib/metrics.py compute_ece uses unweighted average — fix with (n_b/N) weights; (2) lib/binning.py transform() missing '-1' after np.digitize; (3) lib/scaling.py passes -nll to minimize_scalar, double-negating; (4-5) pipeline.py SQL queries use 'logit_value' instead of 'logit'; (6) Makefile 'calibrate' target missing 'data' dependency; (7) validate.sh checks for 'temp_scaling' instead of 'temperature_scaling'; (8) report.py CREATE TABLE uses 'metric_name' but INSERT uses 'metric'; (9) pipeline.py missing BBQ/brier handlers. Then implement BBQ: histogram binning models across bin counts, BIC scoring, relative likelihoods, elbow filtering, weighted ensemble. Add Brier score and update config.json."""
+verification_explanation = """Tests compute reference calibration values from scratch at test time using an independent reference implementation with the same deterministic seed — no pre-computed expected values stored anywhere. Verifies metric correctness within 1e-4 tolerance, temperature within 1e-3. Checks SQLite results table has correct rows matching JSON output. Verifies report.txt format with tab-separated fields. Runs validate.sh subprocess and checks exit code 0. BBQ verified through property tests: ECE improvement, weight normalization, valid predictions. Config checked for bbq/brier entries."""
+category = "machine_learning"
+tags = ["calibration", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bbq-calibration-pipeline-c23f4e"

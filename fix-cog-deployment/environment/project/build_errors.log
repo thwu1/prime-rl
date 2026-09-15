@@ -1,0 +1,20 @@
+[2024-11-15 09:23:41] cog build v0.14.2
+[2024-11-15 09:23:41] → Building Docker image for run.py:ImagePipeline
+[2024-11-15 09:23:42] → Resolved python_version=3.9, gpu=true
+[2024-11-15 09:23:42] → Auto-detecting CUDA version from torch==2.1.0...
+[2024-11-15 09:23:43] WARNING: CUDA 11.8 selected by auto-detection, but torch==2.1.0 was compiled
+                       against CUDA 12.1. This mismatch can cause silent numerical precision errors
+                       in GPU computations. Set build.cuda="12.1" explicitly or upgrade torch.
+[2024-11-15 09:23:44] → Installing system packages: ffmpeg, libgl1-mesa-glx [OK]
+[2024-11-15 09:23:44] → Validating concurrency settings: max=3 [OK]
+[2024-11-15 09:23:45] → Processing entry point: predict=run.py:ImagePipeline
+[2024-11-15 09:23:45] DEPRECATION: The 'predict' configuration key is deprecated since SDK 0.16.0.
+                       Migrate to the 'run' key for forward compatibility.
+[2024-11-15 09:23:46] → Generating OpenAPI schema via static analysis...
+[2024-11-15 09:23:46] → Parsing run.py for runner class definition...
+[2024-11-15 09:23:46] → Resolving cross-file type references...
+[2024-11-15 09:23:47] ERROR: Schema generation failed — unable to resolve module 'output_types'.
+                       The module file appears to contain malformed type annotations that the
+                       tree-sitter parser cannot process. Check output_types.py for Union types,
+                       forward references, or circular imports that may confuse static analysis.
+[2024-11-15 09:23:47] Build failed with 1 error(s), 2 warning(s).

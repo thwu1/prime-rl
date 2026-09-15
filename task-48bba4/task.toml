@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert quantum computing knowledge: the solver must diagnose why a Qiskit transpilation pipeline produces topology-violating and gate-set-noncompliant outputs by cross-referencing a validation failure report with pipeline source code. Root-cause analysis demands understanding of qubit coupling topologies (linear chain vs T-graph), the distinction between Hadamard and sqrt(X) gates in native gate sets, Qiskit transpile() coupling_map semantics, and SWAP-based routing in constrained-connectivity compilation. No step-by-step recipe is given — the solver must discover the bugs, understand their quantum-physical consequences, and produce correct topology-aware compilations with verified unitary preservation."""
+solution_explanation = """Read the validation report to identify two classes of failure: topology violations (2Q gates on non-adjacent qubits) and gate set violations (Hadamard gates found instead of SX gates). Trace these to two bugs in pipeline.py: (1) build_coupling_map() computes the coupling map but returns None, so the transpiler never enforces qubit routing; (2) GATE_NAME_MAP maps 'sx' to 'h' instead of 'sx', causing target_b compilations to request Hadamard gates instead of sqrt(X). Fix both by returning the computed coupling map and correcting the gate name mapping, then re-run transpilation for all four output targets."""
+verification_explanation = """Tests load each output QASM via Qiskit, compute the unitary via Operator(), and verify permutation-invariant Hilbert-Schmidt distance from the reference unitary is below 0.01. Gate set compliance is checked by iterating all operations and asserting each gate name is in the target set. Topology compliance is verified by checking each two-qubit gate's qubit pair appears in the bidirectional coupling map. Circuit dimensions and metrics JSON structure are also validated."""
+category = "quantum_computing"
+tags = ["quantum_compilation", "topology_routing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-48bba4"

@@ -1,0 +1,78 @@
+{
+    "id": "root",
+    "requirements": "The core contributions of the paper have been reproduced.",
+    "weight": 1,
+    "sub_tasks": [
+        {
+            "id": "env-setup",
+            "requirements": "The environment and infrastructure have been set up correctly.",
+            "weight": 2,
+            "sub_tasks": [
+                {"id": "deps-installed", "requirements": "All required dependencies are installed.", "weight": 3, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Environment & Infrastructure Setup"},
+                {"id": "data-loaded", "requirements": "The required datasets have been downloaded and loaded.", "weight": 2, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Dataset and Model Acquisition"},
+                {"id": "config-valid", "requirements": "Configuration files are valid and complete.", "weight": 1, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Environment & Infrastructure Setup"}
+            ],
+            "task_category": null,
+            "finegrained_task_category": null
+        },
+        {
+            "id": "method-impl",
+            "requirements": "The core methods from the paper have been implemented.",
+            "weight": 5,
+            "sub_tasks": [
+                {
+                    "id": "model-arch",
+                    "requirements": "The model architecture has been implemented.",
+                    "weight": 3,
+                    "sub_tasks": [
+                        {"id": "encoder", "requirements": "The encoder module has been implemented.", "weight": 2, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"},
+                        {"id": "decoder", "requirements": "The decoder module has been implemented.", "weight": 2, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"},
+                        {"id": "attention", "requirements": "The attention mechanism has been implemented.", "weight": 1, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"}
+                    ],
+                    "task_category": null,
+                    "finegrained_task_category": null
+                },
+                {
+                    "id": "training-loop",
+                    "requirements": "The training loop has been implemented.",
+                    "weight": 2,
+                    "sub_tasks": [
+                        {"id": "forward-pass", "requirements": "The forward pass executes correctly.", "weight": 1, "sub_tasks": [], "task_category": "Execution", "finegrained_task_category": "Method Implementation"},
+                        {"id": "backward-pass", "requirements": "The backward pass executes correctly.", "weight": 1, "sub_tasks": [], "task_category": "Execution", "finegrained_task_category": "Method Implementation"},
+                        {"id": "optimizer", "requirements": "The optimizer is correctly configured.", "weight": 1, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Method Implementation"}
+                    ],
+                    "task_category": null,
+                    "finegrained_task_category": null
+                },
+                {
+                    "id": "eval-pipeline",
+                    "requirements": "The evaluation pipeline has been implemented.",
+                    "weight": 1,
+                    "sub_tasks": [
+                        {"id": "metrics", "requirements": "Evaluation metrics are correctly computed.", "weight": 1, "sub_tasks": [], "task_category": "Code Development", "finegrained_task_category": "Evaluation, Metrics & Benchmarking"},
+                        {"id": "eval-exec", "requirements": "The evaluation script executes successfully.", "weight": 1, "sub_tasks": [], "task_category": "Execution", "finegrained_task_category": "Evaluation, Metrics & Benchmarking"}
+                    ],
+                    "task_category": null,
+                    "finegrained_task_category": null
+                }
+            ],
+            "task_category": null,
+            "finegrained_task_category": null
+        },
+        {
+            "id": "results",
+            "requirements": "The experimental results match the paper.",
+            "weight": 3,
+            "sub_tasks": [
+                {"id": "table1-match", "requirements": "Table 1 results are reproduced within tolerance.", "weight": 2, "sub_tasks": [], "task_category": "Result Match", "finegrained_task_category": "Result Reproduction"},
+                {"id": "table2-match", "requirements": "Table 2 results are reproduced within tolerance.", "weight": 2, "sub_tasks": [], "task_category": "Result Match", "finegrained_task_category": "Result Reproduction"},
+                {"id": "figure1-match", "requirements": "Figure 1 results are reproduced.", "weight": 1, "sub_tasks": [], "task_category": "Result Match", "finegrained_task_category": "Result Reproduction"},
+                {"id": "ablation-exec", "requirements": "The ablation study has been executed.", "weight": 1, "sub_tasks": [], "task_category": "Execution", "finegrained_task_category": "Result Reproduction"}
+            ],
+            "task_category": null,
+            "finegrained_task_category": null
+        }
+    ],
+    "task_category": null,
+    "finegrained_task_category": null
+}

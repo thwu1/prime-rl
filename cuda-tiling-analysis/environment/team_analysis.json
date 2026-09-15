@@ -1,0 +1,48 @@
+{
+  "analysis_author": "gpu-perf-team",
+  "kernel": "sgemmWarptiling",
+  "description": "Recommended configurations for the warptiling SGEMM kernel across three GPU architectures.",
+  "configs": {
+    "config_alpha": {
+      "params": {"BM": 64, "BN": 64, "BK": 32, "WM": 32, "WN": 32, "WNITER": 2, "TM": 4, "TN": 4, "NUM_THREADS": 128},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.666667, "A100": 0.5, "H100": 0.5},
+      "claimed_bottleneck": {"A6000": "regs", "A100": "regs", "H100": "regs"}
+    },
+    "config_beta": {
+      "params": {"BM": 64, "BN": 64, "BK": 8, "WM": 32, "WN": 64, "WNITER": 1, "TM": 4, "TN": 2, "NUM_THREADS": 64},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.333333, "A100": 0.25, "H100": 0.25},
+      "claimed_bottleneck": {"A6000": "regs", "A100": "regs", "H100": "regs"}
+    },
+    "config_gamma": {
+      "params": {"BM": 128, "BN": 128, "BK": 16, "WM": 128, "WN": 128, "WNITER": 4, "TM": 8, "TN": 8, "NUM_THREADS": 32},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.125, "A100": 0.125, "H100": 0.125},
+      "claimed_bottleneck": {"A6000": "regs", "A100": "regs", "H100": "regs"}
+    },
+    "config_delta": {
+      "params": {"BM": 64, "BN": 128, "BK": 16, "WM": 32, "WN": 64, "WNITER": 1, "TM": 4, "TN": 4, "NUM_THREADS": 128},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.333333, "A100": 0.25, "H100": 0.25},
+      "claimed_bottleneck": {"A6000": "regs", "A100": "regs", "H100": "regs"}
+    },
+    "config_epsilon": {
+      "params": {"BM": 64, "BN": 64, "BK": 8, "WM": 32, "WN": 32, "WNITER": 2, "TM": 4, "TN": 4, "NUM_THREADS": 128},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.666667, "A100": 0.5, "H100": 0.5},
+      "claimed_bottleneck": {"A6000": "regs", "A100": "regs", "H100": "regs"}
+    },
+    "config_zeta": {
+      "params": {"BM": 256, "BN": 256, "BK": 32, "WM": 128, "WN": 128, "WNITER": 4, "TM": 8, "TN": 4, "NUM_THREADS": 128},
+      "claimed_valid": true,
+      "claimed_occupancy": {"A6000": 0.083333, "A100": 0.125, "H100": 0.125},
+      "claimed_bottleneck": {"A6000": "smem", "A100": "regs", "H100": "regs"}
+    }
+  },
+  "team_best_picks": {
+    "A6000": "config_alpha",
+    "A100": "config_epsilon",
+    "H100": "config_zeta"
+  }
+}

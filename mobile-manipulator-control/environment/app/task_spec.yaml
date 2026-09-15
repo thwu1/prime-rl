@@ -1,0 +1,25 @@
+# youBot controller evaluation parameters
+
+initial_config:
+  chassis:
+    phi: 0.0
+    x: 0.0
+    y: 0.0
+  arm_joints: [0.0, 0.0, 0.2, -1.6, 0.0]
+  wheel_angles: [0.0, 0.0, 0.0, 0.0]
+
+target_ee_pose:
+  rotation:
+    - [0.0, 0.0, 1.0]
+    - [0.0, 1.0, 0.0]
+    - [-1.0, 0.0, 0.0]
+  translation: [0.5, 0.0, 0.5]
+
+controller:
+  Kp_scale: 1.5
+  Ki_scale: 0.2
+
+simulation:
+  timestep: 0.01
+  num_steps: 500
+  speed_limit: 30.0

@@ -1,0 +1,15 @@
+FC = gfortran
+FFLAGS = -O2 -Wall
+
+OBJS = main.o pekeris_solver.o
+
+pekeris_solver: $(OBJS)
+	$(FC) $(FFLAGS) -o $@ $^
+
+%.o: %.f90
+	$(FC) $(FFLAGS) -c $<
+
+clean:
+	rm -f pekeris_solver *.mod *.o modes.dat tl_incoherent.dat tl_coherent.dat pressure_field.dat
+
+.PHONY: clean

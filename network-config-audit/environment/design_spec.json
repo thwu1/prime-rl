@@ -1,0 +1,261 @@
+{
+  "network_name": "Enterprise-Core-v1",
+  "description": "Multi-area OSPF enterprise backbone with eBGP peering to external AS and NSSA external route redistribution",
+  "topology": {
+    "description": "R1-R2 form the Area 0 backbone. R1 is ABR to Area 1 (R4). R2 is ABR to Area 2 NSSA (R5, R6) and ASBR with eBGP to R3 (AS 65002). R5 is ASBR redistributing external connected networks into OSPF NSSA.",
+    "areas": {
+      "0": {
+        "type": "backbone",
+        "authentication": "message-digest",
+        "routers": ["R1", "R2"]
+      },
+      "1": {
+        "type": "normal",
+        "authentication": "message-digest",
+        "routers": ["R1", "R4"]
+      },
+      "2": {
+        "type": "nssa",
+        "authentication": "none",
+        "routers": ["R2", "R5", "R6"]
+      }
+    }
+  },
+  "routers": {
+    "R1": {
+      "role": "ABR",
+      "ospf_process_id": 1,
+      "router_id": "1.1.1.1",
+      "ospf_areas": [0, 1],
+      "interfaces": {
+        "Loopback0": {
+          "ip": "1.1.1.1/32",
+          "ospf_area": 0
+        },
+        "GigabitEthernet1": {
+          "ip": "192.168.12.1/24",
+          "ospf_area": 0,
+          "ospf_cost": 10,
+          "connects_to": "R2:GigabitEthernet1",
+          "bfd": {"interval": 500, "min_rx": 500, "multiplier": 3},
+          "passive": false
+        },
+        "GigabitEthernet2": {
+          "ip": "192.168.14.1/24",
+          "ospf_area": 1,
+          "ospf_cost": 10,
+          "connects_to": "R4:GigabitEthernet1",
+          "bfd": {"interval": 500, "min_rx": 500, "multiplier": 3},
+          "passive": false
+        }
+      },
+      "copp": {"required": true, "direction": "input"}
+    },
+    "R2": {
+      "role": "ABR_ASBR",
+      "ospf_process_id": 1,
+      "router_id": "2.2.2.2",
+      "ospf_areas": [0, 2],
+      "bgp": {
+        "local_as": 65001,
+        "neighbors": {
+          "192.168.23.3": {
+            "remote_as": 65002,
+            "description": "eBGP to R3 AS 65002",
+            "route_map_out": "EXPORT_POLICY",
+            "route_map_out_must_reference_prefix_list": "ALLOWED_OUT",
+            "prefix_list_ALLOWED_OUT_must_be_defined": true
+          }
+        },
+        "redistribution": {
+          "ospf_to_bgp": {
+            "route_map": "OSPF_TO_BGP",
+            "note": "Must deny routes tagged by BGP_TO_OSPF to prevent loops"
+          },
+          "bgp_to_ospf": {
+            "route_map": "BGP_TO_OSPF",
+            "requires_set_tag": true,
+            "tag_value": 65002,
+            "note": "Must set route tag on redistributed BGP routes for loop prevention"
+          }
+        }
+      },
+      "interfaces": {
+        "Loopback0": {
+          "ip": "2.2.2.2/32",
+          "ospf_area": 0
+        },
+        "GigabitEthernet1": {
+          "ip": "192.168.12.2/24",
+          "ospf_area": 0,
+          "ospf_cost": 10,
+          "connects_to": "R1:GigabitEthernet1",
+          "bfd": {"interval": 500, "min_rx": 500, "multiplier": 3},
+          "passive": false
+        },
+        "GigabitEthernet2": {
+          "ip": "192.168.23.2/24",
+          "ospf_area": null,
+          "connects_to": "R3:GigabitEthernet1",
+          "description": "eBGP peering link - not in OSPF",
+          "passive": false
+        },
+        "GigabitEthernet3": {
+          "ip": "192.168.25.2/24",
+          "ospf_area": 2,
+          "ospf_cost": 10,
+          "connects_to": "R5:GigabitEthernet1",
+          "bfd": {"interval": 500, "min_rx": 500, "multiplier": 3},
+          "passive": false
+        }
+      },
+      "copp": {"required": true, "direction": "input"}
+    },
+    "R3": {
+      "role": "external_ebgp_peer",
+      "bgp": {
+        "local_as": 65002,
+        "neighbors": {
+          "192.168.23.2": {
+            "remote_as": 65001,
+            "description": "eBGP to R2 AS 65001"
+          }
+        },
+        "advertised_networks": ["3.3.3.3/32", "10.3.1.0/24"]
+      },
+      "interfaces": {
+        "Loopback0": {"ip": "3.3.3.3/32"},
+        "Loopback1": {"ip": "10.3.1.1/24"},
+        "GigabitEthernet1": {
+          "ip": "192.168.23.3/24",
+          "connects_to": "R2:GigabitEthernet2"
+        }
+      },
+      "copp": {"required": true, "direction": "input"}
+    },
+    "R4": {
+      "role": "access_router",
+      "ospf_process_id": 1,
+      "router_id": "4.4.4.4",
+      "ospf_areas": [1],
+      "interfaces": {
+        "Loopback0": {
+          "ip": "4.4.4.4/32",
+          "ospf_area": 1
+        },
+        "GigabitEthernet1": {
+          "ip": "192.168.14.4/24",
+          "ospf_area": 1,
+          "ospf_cost": 10,
+          "connects_to": "R1:GigabitEthernet2",
+          "description": "Uplink to R1 - must form OSPF adjacency",
+          "passive": false
+        },
+        "GigabitEthernet2": {
+          "ip": "10.4.1.1/24",
+          "ospf_area": 1,
+          "description": "Host-facing LAN - no OSPF neighbors expected",
+          "passive": true
+        }
+      }
+    },
+    "R5": {
+      "role": "ASBR",
+      "ospf_process_id": 1,
+      "router_id": "5.5.5.5",
+      "ospf_areas": [2],
+      "redistribution": {
+        "connected_to_ospf": {
+          "route_map": "CONNECTED_TO_OSPF",
+          "external_interfaces": ["GigabitEthernet3"],
+          "method": "redistribute_connected_only",
+          "note": "External networks must enter OSPF ONLY via 'redistribute connected' to appear as NSSA Type-7 LSAs. They must NOT be included via OSPF network statements, which would make them intra-area routes and bypass NSSA translation."
+        }
+      },
+      "interfaces": {
+        "Loopback0": {
+          "ip": "5.5.5.5/32",
+          "ospf_area": 2
+        },
+        "GigabitEthernet1": {
+          "ip": "192.168.25.5/24",
+          "ospf_area": 2,
+          "ospf_cost": 10,
+          "connects_to": "R2:GigabitEthernet3",
+          "passive": false
+        },
+        "GigabitEthernet2": {
+          "ip": "192.168.56.5/24",
+          "ospf_area": 2,
+          "ospf_cost": 10,
+          "connects_to": "R6:GigabitEthernet1",
+          "passive": false
+        },
+        "GigabitEthernet3": {
+          "ip": "172.16.1.1/24",
+          "ospf_area": null,
+          "description": "External network - redistributed into OSPF as NSSA Type-7",
+          "passive": true
+        }
+      }
+    },
+    "R6": {
+      "role": "access_router",
+      "ospf_process_id": 1,
+      "router_id": "6.6.6.6",
+      "ospf_areas": [2],
+      "interfaces": {
+        "Loopback0": {
+          "ip": "6.6.6.6/32",
+          "ospf_area": 2
+        },
+        "GigabitEthernet1": {
+          "ip": "192.168.56.6/24",
+          "ospf_area": 2,
+          "ospf_cost": 10,
+          "connects_to": "R5:GigabitEthernet2",
+          "passive": false
+        },
+        "GigabitEthernet2": {
+          "ip": "10.6.1.1/24",
+          "ospf_area": 2,
+          "description": "Host-facing LAN",
+          "passive": true
+        }
+      }
+    }
+  },
+  "security_policy": {
+    "vty_access": {
+      "description": "Management access must be restricted to the management subnet only",
+      "management_subnet": "10.1.1.0",
+      "management_wildcard": "0.0.0.255",
+      "protocol": "ssh",
+      "applies_to_all_routers": true
+    },
+    "ntp": {
+      "server": "10.1.1.100",
+      "authentication": {
+        "required": true,
+        "key_id": 1,
+        "type": "md5",
+        "trusted_key_must_be_configured": true,
+        "note": "NTP authentication requires three components: ntp authentication-key, ntp authenticate, AND ntp trusted-key. All three must be present for authentication to function."
+      }
+    },
+    "copp": {
+      "description": "Control Plane Policing must be applied on all routers with external-facing interfaces",
+      "required_on": ["R1", "R2", "R3"],
+      "policy_name": "COPP_POLICY",
+      "direction": "input",
+      "note": "CoPP service-policy must be applied in the 'input' direction on the control-plane to filter traffic destined TO the control plane."
+    },
+    "bfd": {
+      "description": "BFD required on all OSPF-enabled non-passive interfaces for sub-second failure detection",
+      "required_on_ospf_non_passive": true,
+      "interval": 500,
+      "min_rx": 500,
+      "multiplier": 3
+    }
+  }
+}

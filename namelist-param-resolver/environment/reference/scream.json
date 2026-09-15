@@ -1,0 +1,41 @@
+{
+  "case_env": {
+    "ATM_GRID": "ne4pg2",
+    "COMPSET": "SCREAM_SSP245",
+    "CMAKE_OPTIONS": "SCREAM_NUM_VERTICAL_LEV 128 SCREAM_NUM_TRACERS 40",
+    "DIN_LOC_ROOT": "/data/inputdata"
+  },
+  "expected": {
+    "atmosphere.dynamics.time_step": 1800.0,
+    "atmosphere.dynamics.nsplit": 4,
+    "atmosphere.dynamics.rsplit": 3,
+    "atmosphere.dynamics.qsplit": 4,
+    "atmosphere.dynamics.coupling_frequency": 4,
+    "atmosphere.dynamics.partmethod": 4,
+    "atmosphere.physics.microphysics.scheme": "p3",
+    "atmosphere.physics.microphysics.max_total_ni": 740000.0,
+    "atmosphere.physics.microphysics.autoconversion_prefactor": 1350.0,
+    "atmosphere.physics.microphysics.do_prescribed_ccn": true,
+    "atmosphere.physics.microphysics.subcycles": 1,
+    "atmosphere.physics.radiation.do_aerosol_rad": true,
+    "atmosphere.physics.radiation.orbital_year": 2015,
+    "atmosphere.physics.radiation.radiation_dt": 3600.0,
+    "atmosphere.physics.radiation.rrtmgp_coefficients": "/data/inputdata/rrtmgp/coefficients_lw.nc",
+    "atmosphere.physics.radiation.subcycles": 3,
+    "atmosphere.physics.turbulence.lambda_low": 0.001,
+    "atmosphere.physics.turbulence.lambda_high": 0.04,
+    "atmosphere.physics.turbulence.tke_min": 0.0001,
+    "atmosphere.physics.turbulence.apply_tms": false,
+    "atmosphere.physics.convection.deep_scheme": "none",
+    "atmosphere.physics.convection.cape_threshold": 70.0,
+    "atmosphere.physics.convection.zmconv_tau": 3600.0,
+    "atmosphere.physics.convection.apply_to_test_grids": false,
+    "atmosphere.output.output_frequency": 6,
+    "atmosphere.output.output_frequency_units": "nhours",
+    "atmosphere.output.averaging_type": "instant",
+    "atmosphere.physics.radiation.active_gases": ["h2o", "co2", "o3", "n2o", "co", "ch4", "o2", "n2"],
+    "atmosphere.output.output_fields": ["T_mid", "p_mid", "qv", "omega"],
+    "atmosphere.initial_conditions.ic_file": "/data/inputdata/init/ne4pg2_L128.nc",
+    "atmosphere.initial_conditions.topography_file": "/data/inputdata/topo/ne4pg2_topo.nc"
+  }
+}

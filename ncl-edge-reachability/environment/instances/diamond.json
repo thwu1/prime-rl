@@ -1,0 +1,25 @@
+{
+  "description": "Diamond-shaped graph with 4 vertices and 5 weight-2 edges. Requires 3-step solution with two possible routes.",
+  "vertices": {
+    "v0": {"min_inflow": 2},
+    "v1": {"min_inflow": 2},
+    "v2": {"min_inflow": 2},
+    "v3": {"min_inflow": 2}
+  },
+  "edges": {
+    "e0": {"endpoints": ["v0", "v1"], "weight": 2},
+    "e1": {"endpoints": ["v1", "v3"], "weight": 2},
+    "e2": {"endpoints": ["v0", "v2"], "weight": 2},
+    "e3": {"endpoints": ["v2", "v3"], "weight": 2},
+    "e4": {"endpoints": ["v0", "v3"], "weight": 2}
+  },
+  "initial_orientation": {
+    "e0": "v0",
+    "e1": "v1",
+    "e2": "v0",
+    "e3": "v2",
+    "e4": "v3"
+  },
+  "target_edge": "e4",
+  "target_direction": "v0"
+}

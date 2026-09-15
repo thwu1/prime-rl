@@ -1,0 +1,19 @@
+{
+  "description": "Two objects with deep lifecycle: full state cascade with queue processing on one, cross-thread merge on other",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "X"},
+    {"tid": 1, "op": "create", "obj": "Y"},
+    {"tid": 1, "op": "incref", "obj": "X"},
+    {"tid": 1, "op": "incref", "obj": "X"},
+    {"tid": 2, "op": "incref", "obj": "Y"},
+    {"tid": 1, "op": "create_weakref", "obj": "X"},
+    {"tid": 2, "op": "incref", "obj": "X"},
+    {"tid": 2, "op": "decref", "obj": "X"},
+    {"tid": 2, "op": "decref", "obj": "X"},
+    {"tid": 1, "op": "process_queue"},
+    {"tid": 1, "op": "decref", "obj": "X"},
+    {"tid": 1, "op": "decref", "obj": "X"},
+    {"tid": 1, "op": "decref", "obj": "Y"},
+    {"tid": 2, "op": "decref", "obj": "Y"}
+  ]
+}

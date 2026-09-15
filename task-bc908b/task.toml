@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires black-box fault discovery against a compiled REST API with no readable source code. The agent must configure and run Schemathesis with proper API key authentication and stateful link-based testing, then supplement property-based testing with targeted edge-case analysis to trigger faults across operation dependency chains, state machine transitions, and input boundary conditions. Fault classification by Python exception type demands analyzing 5XX response bodies and correlating diverse failure modes (division errors, key errors, name errors, value errors, attribute errors) across the API's authentication, CRUD, and webhook subsystems. The SBFT REST League demonstrates that even purpose-built research tools struggle with simultaneous high coverage and fault detection on comparable APIs."""
+solution_explanation = """Configure Schemathesis with the pre-obtained API key header and run stateful link-based testing against the OpenAPI spec to achieve broad coverage and discover some faults. Supplement with a targeted fault analyzer that: (1) achieves full coverage by executing all 21 operations in dependency order (auth→users→projects→tasks→webhooks); (2) triggers 8 distinct faults through systematic boundary inputs — numeric strings for UUID path params (ZeroDivisionError), duplicate email updates on users missing profile sub-objects (KeyError), descriptions exceeding internal 5000-char threshold (NameError on undefined variable), zero/negative budget values (ValueError from math.log), malformed datetime strings (ValueError from strptime), invalid sort field names in query params (KeyError in sort lambda), invalid state machine transitions (KeyError in cost lookup), and scheme-less URLs in webhook registration (AttributeError from NoneType.lower); (3) classifies each fault by the exception type reported in the 500 response body's 'type' field."""
+verification_explanation = """Tests start a fresh API server from compiled bytecode, execute the agent's run_fuzzer.sh, then validate the report. Valid operations are loaded dynamically from the OpenAPI spec (not hardcoded). Tests verify: (1) report structure with operations_covered, faults, and summary; (2) ≥80% operation coverage (17/21 operations returned 2XX); (3) ≥6 unique faults discovered; (4) each fault includes a non-empty exception_type classification; (5) at least 3 distinct exception types appear across faults; (6) all operations and faults reference valid API paths from the spec; (7) no duplicate entries; (8) Schemathesis output artifacts exist with substantial content proving the tool was used."""
+category = "software_testing"
+tags = ["api-fault-discovery", "schemathesis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bc908b"

@@ -1,0 +1,139 @@
+RoboCup Standard Coach Language (CLang) Grammar
+================================================
+
+This is the formal grammar of CLang as used in RoboCup Soccer Simulation 2D.
+Messages are S-expressions. One message per line in input files; lines starting with # are comments.
+
+Top-Level Messages
+------------------
+<MESSAGE>       : <DEFINE_MESS> | <RULE_MESS> | <DEL_MESS> | <FREEFORM_MESS>
+<DEFINE_MESS>   : (define <DEFINE_TOKEN_LIST>)
+<RULE_MESS>     : (rule <ACTIVATION_LIST>)
+<DEL_MESS>      : (delete <ID_LIST>)
+<FREEFORM_MESS> : (freeform <CLANG_STR>)
+
+Define Tokens
+-------------
+<DEFINE_TOKEN_LIST> : <DEFINE_TOKEN>+
+<DEFINE_TOKEN>      : (definec <CLANG_STR> <CONDITION>)
+                    | (defined <CLANG_STR> <DIRECTIVE>)
+                    | (definer <CLANG_STR> <REGION>)
+                    | (definea <CLANG_STR> <ACTION>)
+                    | (definerule <DEFINE_RULE>)
+
+Rules
+-----
+<DEFINE_RULE>   : <CLANG_VAR> model <RULE>
+                | <CLANG_VAR> direc <RULE>
+<RULE>          : (<CONDITION> <DIRECTIVE_LIST>)
+                | (<CONDITION> <RULE_LIST>)
+                | <ID_LIST>
+<RULE_LIST>     : <RULE>+
+
+Activation & Deletion
+---------------------
+<ACTIVATION_LIST>    : <ACTIVATION_ELEMENT>+
+<ACTIVATION_ELEMENT> : (on <ID_LIST>) | (off <ID_LIST>)
+<ID_LIST>            : <CLANG_VAR> | (<CLANG_VAR>+) | all
+
+Conditions
+----------
+<CONDITION>     : (true)
+                | (false)
+                | (ppos <TEAM> <UNUM_SET> <INTEGER> <INTEGER> <REGION>)
+                | (bpos <REGION>)
+                | (bowner <TEAM> <UNUM_SET>)
+                | (playm <PLAY_MODE>)
+                | (and <CONDITION>+)
+                | (or <CONDITION>+)
+                | (not <CONDITION>)
+                | <CLANG_STR>          # reference to a defined condition
+                | (<COND_COMP>)
+                | (unum <CLANG_VAR> <UNUM_SET>)
+
+<COND_COMP>     : <TIME_COMP> | <OPP_GOAL_COMP> | <OUR_GOAL_COMP> | <GOAL_DIFF_COMP>
+<TIME_COMP>     : time <COMP> <INTEGER> | <INTEGER> <COMP> time
+<OPP_GOAL_COMP> : opp_goals <COMP> <INTEGER> | <INTEGER> <COMP> opp_goals
+<OUR_GOAL_COMP> : our_goals <COMP> <INTEGER> | <INTEGER> <COMP> our_goals
+<GOAL_DIFF_COMP>: goal_diff <COMP> <INTEGER> | <INTEGER> <COMP> goal_diff
+<COMP>          : < | <= | == | != | >= | >
+<PLAY_MODE>     : bko | time_over | play_on | ko_our | ko_opp
+                | ki_our | ki_opp | fk_our | fk_opp | ck_our | ck_opp
+                | gk_opp | gk_our | gc_our | gc_opp | ag_opp | ag_our
+
+Directives
+----------
+<DIRECTIVE>      : (do <TEAM> <UNUM_SET> <ACTION_LIST>)
+                 | (dont <TEAM> <UNUM_SET> <ACTION_LIST>)
+                 | <CLANG_STR>         # reference to a defined directive
+<DIRECTIVE_LIST> : <DIRECTIVE>+
+
+Actions
+-------
+<ACTION>      : (pos <REGION>)
+              | (home <REGION>)
+              | (mark <UNUM_SET>)
+              | (markl <UNUM_SET>)
+              | (markl <REGION>)
+              | (oline <REGION>)
+              | (htype <INTEGER>)
+              | (pass <REGION>)
+              | (pass <UNUM_SET>)
+              | (dribble <REGION>)
+              | (clear <REGION>)
+              | (shoot)
+              | (hold)
+              | (intercept)
+              | (tackle <UNUM_SET>)
+              | <CLANG_STR>            # reference to a defined action
+<ACTION_LIST> : <ACTION>+
+
+Regions
+-------
+<REGION>      : (null)
+              | (arc <POINT> <REAL> <REAL> <REAL> <REAL>)
+              | (reg <REGION>+)
+              | (tri <POINT> <POINT> <POINT>)
+              | (rec <POINT> <POINT>)
+              | <POINT>
+              | <CLANG_STR>            # reference to a defined region
+
+Points
+------
+<POINT>       : (pt <REAL> <REAL>)
+              | (pt ball)
+              | (pt <TEAM> <INTEGER>)
+              | (pt <TEAM> <CLANG_VAR>)
+              | (<POINT> <OP> <POINT>)    # point arithmetic (recursive)
+<OP>          : + | - | * | /
+
+Player Sets
+-----------
+<UNUM_SET>  : { <UNUM>+ }
+<UNUM>      : <INTEGER> | <CLANG_VAR>
+  Note: if 0 appears in a UNUM_SET, it represents ALL players (1-11).
+<TEAM>      : our | opp
+
+Lexical
+-------
+<CLANG_STR> : A double-quoted string: "[0-9A-Za-z().+\\-*/?<>_ ]+"
+<CLANG_VAR> : An unquoted identifier matching [a-zA-Z_][a-zA-Z0-9_]*
+<INTEGER>   : An integer (possibly negative)
+<REAL>       : A real number (possibly negative, possibly with decimal point)
+
+Semantics Notes
+---------------
+- Rules are OFF by default after definition. Use (rule (on <name>)) to activate.
+- (delete <name>) removes a rule permanently.
+- Nested rules: when a rule body is (<CONDITION> <RULE_LIST>), the outer condition
+  is distributed into each sub-rule via logical AND. E.g.:
+    (definerule Outer direc ((bowner our {0}) (Inner_A Inner_B)))
+  If Inner_A is ((time > 20) (do our {2} (pos ...))), expansion yields:
+    (and (bowner our {0}) (time > 20)) -> (do our {2} (pos ...))
+- Ball ownership is exclusive: only one team owns the ball at any time.
+  (bowner our X) and (bowner opp Y) are mutually exclusive.
+  (bowner our {a}) and (bowner our {b}) are mutually exclusive when a!=b,
+  a!=0, b!=0, and sets don't overlap.
+- Play modes are mutually exclusive: (playm X) and (playm Y) for X!=Y.
+- CLANG_STR in a production position (condition, action, region, directive)
+  refers to a previously defined entity of that type.

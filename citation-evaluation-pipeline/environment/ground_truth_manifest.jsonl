@@ -1,0 +1,30 @@
+{"instance_id": "C1_001", "category": "cat1", "annotations": {"citations": ["466 U.S. 668", "384 U.S. 436", "372 U.S. 335"], "source": "opinion_derived", "confidence": 0.95}}
+{"instance_id": "C1_002", "category": "cat1", "annotations": {"citations": ["349 S.C. 558", "391 S.C. 297", "412 S.C. 534", "356 U.S. 335"], "source": "opinion_derived", "confidence": 0.92}}
+{"instance_id": "C1_003", "category": "cat1", "annotations": {"citations": ["36 So.3d 84", "84 So.3d 1032", "79 So.3d 745", "130 So.3d 1277"], "source": "opinion_derived", "confidence": 0.91}}
+{"instance_id": "C1_004", "category": "cat1", "annotations": {"citations": ["2011 ND 159", "522 N.W.2d 439", "521 N.W.2d 401", "2002 ND 115"], "source": "opinion_derived", "confidence": 0.94}}
+{"instance_id": "C1_005", "category": "cat1", "annotations": {"citations": ["82 Mont. 250", "74 U.S. 272", "140 U.S. 371", "2005 MT 310", "2011 MT 263"], "source": "opinion_derived", "confidence": 0.93}}
+{"instance_id": "C1_006", "category": "cat1", "annotations": {"citations": ["508 U.S. 366", "392 U.S. 1", "467 U.S. 431", "224 N.J. 530"], "source": "opinion_derived", "confidence": 0.96}}
+{"instance_id": "C1_007", "category": "cat1", "annotations": {"citations": ["416 S.C. 466", "635 P.2d 730", "96 Wash.2d 443", "946 N.E.2d 665"], "source": "opinion_derived", "confidence": 0.90}}
+{"instance_id": "C1_008", "category": "cat1", "annotations": {"citations": ["127 Hawai\u2018i 126", "576 F.2d 236", "72 Haw. 246", "81 Hawai\u2018i 15"], "source": "opinion_derived", "confidence": 0.93}}
+{"instance_id": "C1_009", "category": "cat1", "annotations": {"citations": ["56 S.W.3d 842", "811 S.W.2d 913", "524 U.S. 666", "419 U.S. 449", "897 S.W.2d 757"], "source": "opinion_derived", "confidence": 0.92}}
+{"instance_id": "C1_010", "category": "cat1", "annotations": {"citations": ["205 A.3d 445", "162 Idaho 763", "425 P.3d 115", "149 Ohio St. 3d 628", "240 So. 3d 1246"], "source": "opinion_derived", "confidence": 0.89}}
+{"instance_id": "C2_001", "category": "cat2", "annotations": {"citations": ["707 So.2d 827"], "source": "opinion_derived", "confidence": 0.97}}
+{"instance_id": "C2_002", "category": "cat2", "annotations": {"citations": ["303 Kan. 785", "303 Kan. 1", "297 Kan. 780", "500 F.3d 1085"], "source": "opinion_derived", "confidence": 0.91}}
+{"instance_id": "C2_003", "category": "cat2", "annotations": {"citations": ["350 Ark. 138", "2012 Ark. 179", "372 Ark. 579"], "source": "opinion_derived", "confidence": 0.90}}
+{"instance_id": "C2_004", "category": "cat2", "annotations": {"citations": ["127 Hawai\u2018i 126", "72 Haw. 246", "81 Hawai\u2018i 15", "109 Hawai\u2018i 198"], "source": "opinion_derived", "confidence": 0.93}}
+{"instance_id": "C2_005", "category": "cat2", "annotations": {"citations": ["302 S.C. 1", "289 S.C. 476", "350 S.C. 135"], "source": "opinion_derived", "confidence": 0.94}}
+{"instance_id": "C2_006", "category": "cat2", "annotations": {"citations": ["2017 ND 50", "2006 ND 32", "2015 ND 66"], "source": "opinion_derived", "confidence": 0.95}}
+{"instance_id": "C2_007", "category": "cat2", "annotations": {"citations": ["160 So.3d 897", "192 So.3d 40", "14 So.3d 221"], "source": "opinion_derived", "confidence": 0.94}}
+{"instance_id": "C2_008", "category": "cat2", "annotations": {"citations": ["841 S.W.2d 844", "960 S.W.2d 35", "134 S.W.3d 835", "540 S.W.3d 570"], "source": "opinion_derived", "confidence": 0.91}}
+{"instance_id": "C2_009", "category": "cat2", "annotations": {"citations": ["807 F.3d 619", "825 F.3d 931", "362 S.C. 212"], "source": "opinion_derived", "confidence": 0.93}}
+{"instance_id": "C2_010", "category": "cat2", "annotations": {"citations": ["131 Fla. 127", "833 So.2d 149", "751 So.2d 47"], "source": "opinion_derived", "confidence": 0.92}}
+{"instance_id": "C3_001", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 973 S.W.2d 485", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_002", "category": "cat3", "annotations": {"description": "There is no error in the citation.", "source": "manual_annotation", "confidence": 0.99}}
+{"instance_id": "C3_003", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 400 U.S. 74", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_004", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 510 N.W.2d 612", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_005", "category": "cat3", "annotations": {"description": "There is no error in the citation.", "source": "manual_annotation", "confidence": 0.99}}
+{"instance_id": "C3_006", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 452 N.W.2d 345", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_007", "category": "cat3", "annotations": {"description": "There is no error in the citation.", "source": "manual_annotation", "confidence": 0.99}}
+{"instance_id": "C3_008", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 284 Or. App. 887", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_009", "category": "cat3", "annotations": {"description": "The citation is incorrect. The correct citation is: 205 A.3d 445", "source": "manual_annotation", "confidence": 0.98}}
+{"instance_id": "C3_010", "category": "cat3", "annotations": {"description": "There is no error in the citation.", "source": "manual_annotation", "confidence": 0.99}}

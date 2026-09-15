@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three subtle, interacting concurrency bugs in a left-right concurrent map implementation — value aliasing (returning internal references instead of copies), incorrect epoch-wait semantics (blocking on all readers instead of only those captured at last swap), and broken oplog dual-application (clearing operations after single replay instead of maintaining swap_index for two-copy consistency). These bugs require deep understanding of the left-right concurrency pattern's invariants: epoch parity tracking, two-phase operation replay, and snapshot isolation. After fixing the base map, the solver must design a sharded concurrent map distributing keys across multiple base map instances, then build a profiling and analysis pipeline producing benchmark databases and performance reports with crossover analysis across 4 workloads and 5 shard counts."""
+solution_explanation = """Fix three bugs: (1) ReadGuard.get returns list(self._data[key]) not self._data[key] to prevent aliasing; (2) _wait_for_readers iterates _last_epochs to only wait for readers active during the previous swap, not all readers; (3) _update_and_swap uses swap_index for dual oplog application across two publish cycles instead of clearing the oplog. Then implement ShardedMap with hash-based key routing, build a profiler using cProfile/pstats/tracemalloc storing results in SQLite, and implement analysis computing coefficient of variation and optimal shard count recommendation."""
+verification_explanation = """34 pytest tests verify: sharded map correctness (CRUD, concurrent access, shard distribution, cloning, multi-publish cycles, single-shard mode), profiling pipeline outputs (bench.db schema and data counts, .prof file existence and pstats loadability, memory snapshots), and analysis report structure (required fields, positive throughput, reasonable CV values, recommendation and crossover analysis presence and minimum length). The base map must be fixed for the sharded map tests to pass since ShardedMap wraps base map instances."""
+category = "concurrent_systems"
+tags = ["concurrency", "debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/left-right-map"

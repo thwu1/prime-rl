@@ -1,0 +1,47 @@
+{
+  "network": "enterprise-dc-01",
+  "vlans": [
+    {
+      "id": 100,
+      "name": "DMZ",
+      "subnet": "10.0.1.0/24",
+      "gateway": {"ip": "10.0.1.1", "mac": "02:00:01:00:01:01"},
+      "purpose": "Internet-facing services"
+    },
+    {
+      "id": 200,
+      "name": "Internal",
+      "subnet": "10.0.2.0/24",
+      "gateway": {"ip": "10.0.2.1", "mac": "02:00:02:00:02:01"},
+      "purpose": "Engineering workstations"
+    },
+    {
+      "id": 300,
+      "name": "Servers",
+      "subnet": "10.0.3.0/24",
+      "gateway": {"ip": "10.0.3.1", "mac": "02:00:03:00:03:01"},
+      "purpose": "Backend services and databases"
+    }
+  ],
+  "hosts": [
+    {"hostname": "web-srv-01", "ip": "10.0.1.10", "mac": "02:00:01:00:01:0a", "vlan": 100, "role": "Web server", "authorized_services": [80, 443]},
+    {"hostname": "dns-srv-01", "ip": "10.0.1.53", "mac": "02:00:01:00:01:35", "vlan": 100, "role": "DNS resolver", "authorized_services": [53]},
+    {"hostname": "ws-eng-01", "ip": "10.0.2.10", "mac": "02:00:02:00:02:0a", "vlan": 200, "role": "Engineering workstation", "authorized_services": []},
+    {"hostname": "ws-eng-02", "ip": "10.0.2.20", "mac": "02:00:02:00:02:14", "vlan": 200, "role": "Engineering workstation", "authorized_services": []},
+    {"hostname": "ws-eng-03", "ip": "10.0.2.30", "mac": "02:00:02:00:02:1e", "vlan": 200, "role": "Engineering workstation", "authorized_services": []},
+    {"hostname": "db-srv-01", "ip": "10.0.3.10", "mac": "02:00:03:00:03:0a", "vlan": 300, "role": "MySQL database server", "authorized_services": [3306]},
+    {"hostname": "file-srv-01", "ip": "10.0.3.20", "mac": "02:00:03:00:03:14", "vlan": 300, "role": "File server", "authorized_services": [445]}
+  ],
+  "capture_points": [
+    {"name": "perimeter", "file": "perimeter.pcap", "location": "Internet edge router", "type": "span_port", "description": "Mirrors traffic crossing the network perimeter"},
+    {"name": "dmz_switch", "file": "dmz_switch.pcap", "location": "DMZ access switch", "type": "mirror_port", "vlan": 100, "description": "Mirrors all traffic on DMZ segment"},
+    {"name": "core_switch", "file": "core_switch.pcap", "location": "Core distribution switch", "type": "trunk_mirror", "description": "Mirrors inter-VLAN traffic with 802.1Q tags"},
+    {"name": "internal_monitor", "file": "internal_monitor.pcap", "location": "Internal access switch", "type": "mirror_port", "vlan": 200, "description": "Mirrors all traffic on internal segment"}
+  ],
+  "security_policy": {
+    "dmz_to_internal": "denied",
+    "internal_to_servers": "restricted_by_service",
+    "external_to_dmz": "filtered_by_firewall",
+    "notes": "DMZ hosts must never initiate connections to internal segment. Internal workstations may access authorized backend services only."
+  }
+}

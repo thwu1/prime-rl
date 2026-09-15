@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple compiler optimization passes (constant propagation with folding, liveness-based dead code elimination, common sub-expression elimination, copy propagation) on a custom TAC IR, constructing control-flow graphs, implementing iterative dataflow analysis for loops, and composing passes to a fixed point. Additionally demands building a TAC-to-LLVM-IR backend that correctly translates all operations (arithmetic, comparisons, branches, function calls, PRINT via printf) into valid LLVM IR using opaque pointer syntax, requiring deep familiarity with LLVM IR semantics and the LLVM toolchain (llvm-as for assembly validation, lli for JIT execution). The multi-tool pipeline — TAC interpreter, tac_validate, Graphviz dot, llvm-as, lli — requires interoperating five distinct tools with different input formats and validation semantics."""
+solution_explanation = """Build a Python-based TAC optimizer that: (1) parses TAC into a CFG of basic blocks, (2) implements iterative constant propagation with folding and branch resolution, (3) implements backward liveness analysis for dead code elimination, (4) implements local CSE with proper kill sets, (5) implements copy propagation, (6) eliminates unreachable blocks, (7) iterates all passes to a fixed point, (8) generates Graphviz DOT CFG output with subgraph clusters per function, and (9) generates LLVM IR translation using alloca/store/load for all variables, correctly mapping TAC operations to LLVM instructions (add/sub/mul/sdiv/srem, icmp+zext for comparisons, printf calls for PRINT), ensuring each basic block has a proper terminator."""
+verification_explanation = """Tests verify: (1) semantic correctness by comparing interpreter output on original vs. optimized programs, (2) TAC well-formedness via tac_validate tool, (3) instruction count reduction per-program thresholds, (4) specific optimization patterns — no constant-on-constant arithmetic, no dead* variables, a+b/a*b each computed at most once in CSE, (5) DOT files exist, are valid graphviz renderable by dot -Tsvg, and contain all block labels, (6) LLVM IR files exist at /app/llvm_output/, assemble without error via llvm-as, and execute via lli producing byte-identical output to the original TAC programs."""
+category = "compilers"
+tags = ["dataflow-analysis", "llvm-toolchain"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e574c4"

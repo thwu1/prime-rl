@@ -1,0 +1,25 @@
+# Material specifications for production line
+
+[material.narrow_roll]
+width_mm = 3200
+status = "discontinued"
+unit_cost = 28.50
+notes = "Phased out 2023-Q2, insufficient width for new product lines"
+
+[material.standard_roll]
+width_mm = 5600
+status = "active"
+unit_cost = 45.00
+notes = "Primary stock for all current production"
+
+[material.wide_roll]
+width_mm = 7200
+status = "archived"
+unit_cost = 62.00
+notes = "Trial run only, supplier contract expired"
+
+[material.jumbo_roll]
+width_mm = 10000
+status = "pending_approval"
+unit_cost = 85.00
+notes = "Under evaluation for 2025 product expansion"

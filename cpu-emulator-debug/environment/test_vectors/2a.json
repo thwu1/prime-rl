@@ -1,0 +1,22 @@
+[
+  {
+    "name": "ROL A - C=0 bit7=0 (no bug)",
+    "initial": {"pc": 512, "s": 253, "a": 32, "x": 0, "y": 0, "p": 32, "ram": [[512, 42]]},
+    "final": {"pc": 513, "s": 253, "a": 64, "x": 0, "y": 0, "p": 32, "ram": [[512, 42]]}
+  },
+  {
+    "name": "ROL A - C=0 bit7=1 (bug: bit0 gets new carry)",
+    "initial": {"pc": 512, "s": 253, "a": 128, "x": 0, "y": 0, "p": 32, "ram": [[512, 42]]},
+    "final": {"pc": 513, "s": 253, "a": 0, "x": 0, "y": 0, "p": 35, "ram": [[512, 42]]}
+  },
+  {
+    "name": "ROL A - C=1 bit7=0 (bug: bit0 loses old carry)",
+    "initial": {"pc": 512, "s": 253, "a": 64, "x": 0, "y": 0, "p": 33, "ram": [[512, 42]]},
+    "final": {"pc": 513, "s": 253, "a": 129, "x": 0, "y": 0, "p": 160, "ram": [[512, 42]]}
+  },
+  {
+    "name": "ROL A - C=1 bit7=1 (no bug, carry in == carry out)",
+    "initial": {"pc": 512, "s": 253, "a": 192, "x": 0, "y": 0, "p": 33, "ram": [[512, 42]]},
+    "final": {"pc": 513, "s": 253, "a": 129, "x": 0, "y": 0, "p": 161, "ram": [[512, 42]]}
+  }
+]

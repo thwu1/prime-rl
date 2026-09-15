@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete SQL query engine from a formal specification: lexer, parser, and query executor supporting JOINs, GROUP BY, correlated subqueries, a custom MEDIAN aggregate, and SQL three-valued NULL logic. Demands expertise in language implementation, relational algebra, and subtle NULL propagation semantics that even experienced developers frequently get wrong."""
+solution_explanation = """Use Python's built-in sqlite3 module as a backend: load all TSV files with type inference and NULL handling, register a custom MEDIAN aggregate via create_aggregate, enable case-sensitive LIKE via PRAGMA, execute the TQL query directly (since the syntax is SQL-compatible), and format output with proper NULL and numeric display rules. The key insight is recognizing that TQL is deliberately compatible with SQLite's SQL dialect."""
+verification_explanation = """30 pytest test cases invoke /app/tql via subprocess with diverse SQL queries and compare stdout against expected TSV output. Tests cover basic queries, all JOIN types including self-joins, GROUP BY with HAVING, NULL three-valued logic (NULL=NULL, NOT with NULL, NOT IN with NULL), CASE expressions, LIKE wildcards, correlated subqueries, scalar subqueries, MEDIAN aggregate (odd count, even count, fractional result), string functions, DISTINCT, and multi-table joins with aggregation."""
+category = "software_engineering"
+tags = ["sql", "language-implementation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rebuild-query-engine"

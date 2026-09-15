@@ -1,0 +1,8 @@
+# Grid family specification for OAT15A 2D airfoil
+# Structured C-grid with uniform refinement ratio 2 in each direction
+# Far-field boundary at 100 chord lengths
+level,N_cells
+1,4096
+2,16384
+3,65536
+4,262144

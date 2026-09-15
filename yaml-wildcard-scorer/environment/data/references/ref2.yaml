@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc # *
+spec:
+  selector:
+    app: web
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deploy # *
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web

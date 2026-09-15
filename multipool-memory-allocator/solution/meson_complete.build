@@ -1,0 +1,14 @@
+project('allocator', 'c',
+  version : '1.0.0',
+  default_options : ['c_std=gnu11', 'warning_level=3'])
+
+inc = include_directories('include')
+
+vs = meson.current_source_dir() / 'allocator.map'
+
+shared_library('allocator',
+  'src/allocator.c',
+  include_directories : inc,
+  link_args : ['-Wl,--version-script=' + vs],
+  link_depends : files('allocator.map'),
+)

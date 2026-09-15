@@ -1,0 +1,53 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level seismology and robust statistics:
+(1) The solver must explore an undocumented dataset and discover available seismological
+tools (ObsPy TauP, geodetics) without being told what to use.
+(2) The reference velocity model must be identified from among standard 1D Earth models
+— the solver must know (or discover) which models exist and how to compare them.
+(3) Outlier observations (misidentified phases) are mixed with valid data; the solver
+must design and implement a robust outlier detection strategy (e.g., MAD, iterative
+sigma-clipping, or RANSAC) that works in the presence of systematic station biases.
+(4) Station timing corrections must be estimated jointly with outlier exclusion — an
+iterative approach is needed since corrections and outlier sets are coupled.
+(5) Azimuthal gap quality metrics require geodetic azimuth computation. The full pipeline
+combines seismological domain knowledge, statistical robustness, and multi-step
+computational reasoning in a way that cannot be solved by simple API calls."""
+solution_explanation = """The solution loads observations, computes theoretical travel
+times using ObsPy TauP for three candidate velocity models (iasp91, ak135, prem), then
+performs iterative robust calibration: MAD-based outlier detection on residuals, station
+correction estimation on clean data, and refinement over 3 iterations. The best-fitting
+model (ak135) is selected by lowest post-calibration RMS. Azimuthal gaps are computed
+using gps2dist_azimuth for source-to-station azimuths."""
+verification_explanation = """Tests independently recompute all expected values using
+ObsPy: theoretical travel times for all three models, outlier identification via
+residual magnitude (>3s from ak135), station corrections as mean residuals on clean
+data, and azimuthal gaps via geodetic computation. Tolerances accommodate different
+valid outlier detection strategies while ensuring all gross errors are caught and
+station corrections converge to the true values."""
+category = "earth_environmental"
+tags = ["seismology", "robust-estimation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seismic-model-discrimination"

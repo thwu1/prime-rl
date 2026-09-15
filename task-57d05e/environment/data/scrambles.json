@@ -1,0 +1,24 @@
+{
+  "competition_id": "FMCEurope2025",
+  "event_id": "333fm",
+  "scrambles": [
+    {
+      "scramble_num": 1,
+      "scramble": "R' U' F D2 L' B2 D2 R2 D B2 D2 F2 D F' U' B L' U R' U B L2 B R' U' F",
+      "group_id": "A",
+      "round_type_id": "f"
+    },
+    {
+      "scramble_num": 2,
+      "scramble": "R' U' F D2 B' U2 F' L R2 U2 R' B2 L B2 R' F L R2 F' D' U2 B' R' U' F",
+      "group_id": "A",
+      "round_type_id": "f"
+    },
+    {
+      "scramble_num": 3,
+      "scramble": "R' U' F D' R D2 U' L2 D L2 B2 L2 D2 F2 R' B R2 D2 L2 D' R2 D' B' R' U' F",
+      "group_id": "A",
+      "round_type_id": "f"
+    }
+  ]
+}

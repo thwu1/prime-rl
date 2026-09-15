@@ -1,0 +1,102 @@
+{
+  "description": "Code generation decision manifest for TC100 device.svd. Contains write-effect bitmaps, field safety classifications, register overlap groups, and peripheral inheritance resolution.",
+  "bitmaps": {
+    "TIMER0": {
+      "CR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x0f0f0fff"
+      },
+      "ARR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "ICLR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x0000000f"
+      },
+      "CCR%s": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x000f0000"
+      }
+    },
+    "DMA": {
+      "IFCR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "S0CR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "S0NDTR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "S0PAR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "S0M0AR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "ALT_CFG": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      }
+    },
+    "GPIOA": {
+      "MODER": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "ODR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      },
+      "BSRR": {
+        "zero_to_modify": "0x00000000",
+        "one_to_modify": "0x00000000"
+      }
+    }
+  },
+  "overlaps": {
+    "TIMER0": [],
+    "DMA": [],
+    "GPIOA": []
+  },
+  "field_safety": {
+    "TIMER0.CR.EN": "safe",
+    "TIMER0.CR.MODE": "safe",
+    "TIMER0.CR.PRESCALER": "range(0,31)",
+    "TIMER0.CR.IRQ_CLR": "unsafe",
+    "TIMER0.CR.SYNC_RST": "unsafe",
+    "TIMER0.CR.TOGGLE_BITS": "unsafe",
+    "TIMER0.ARR.RELOAD": "unsafe",
+    "TIMER0.ICLR.OVF_CLR": "safe",
+    "TIMER0.ICLR.UDF_CLR": "safe",
+    "TIMER0.ICLR.CC_CLR": "safe",
+    "TIMER0.ICLR.BRK_CLR": "safe",
+    "TIMER0.CCR%s.VALUE": "safe",
+    "TIMER0.CCR%s.FLAGS": "unsafe",
+    "DMA.IFCR.CGIF": "safe",
+    "DMA.IFCR.CTCIF": "safe",
+    "DMA.S0CR.EN": "safe",
+    "DMA.S0CR.DMEIE": "safe",
+    "DMA.S0CR.DIR": "safe",
+    "DMA.S0CR.PSIZE": "safe",
+    "DMA.S0CR.MSIZE": "safe",
+    "DMA.S0NDTR.NDT": "unsafe",
+    "DMA.S0PAR.PA": "unsafe",
+    "DMA.S0M0AR.M0A": "unsafe",
+    "DMA.ALT_CFG.ALT_EN": "safe",
+    "DMA.ALT_CFG.ALT_MODE": "range(1,6)",
+    "GPIOA.MODER.MODE%s": "safe",
+    "GPIOA.ODR.OD%s": "safe",
+    "GPIOA.BSRR.BS%s": "safe",
+    "GPIOA.BSRR.BR%s": "safe"
+  },
+  "derived_registers": {
+    "GPIOB": []
+  }
+}

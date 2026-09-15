@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-tool pipeline that produces a SQLite database, computed invoices, reconciliation, and audit exports for ECB TARGET Services billing. The solver must: reverse-engineer the fee computation logic from a structured-text pricing schedule covering four distinct service types (RTGS banks, RTGS ancillary systems, T2S, TIPS PSP/ACH); handle cumulative degressive volume bands, billing-group pro-rata allocation with 4-decimal rounding, Fixed Fee II bracket lookups, BIC fee semantics that differ between PSP and ACH, T2S sum-then-round, and ACH internal-settlement bands; coordinate shell, SQL, and general-purpose computation to produce all outputs; and reconcile against deliberately erroneous reference invoices."""
+solution_explanation = """The reference solution creates run_pipeline.sh (shell orchestrator) that: uses sqlite3 CLI to execute schema.sql and .import --csv --skip 1 for each CSV; creates v_billing_group_aggregate view via SQL; calls billing_engine.py which parses pricing_schedule.txt via regex, queries the database, dispatches each participant to the appropriate computation (RTGS AS/bank/billing-group, T2S, TIPS PSP/ACH), uses Decimal with ROUND_HALF_UP, populates fee_breakdown table, writes invoices.json and reconciliation.json; then exports audit.csv via sqlite3 -header -csv."""
+verification_explanation = """Tests verify: (1) run_pipeline.sh exists, is executable, and invokes sqlite3 CLI; (2) v_billing_group_aggregate view returns correct aggregate data for 2 billing groups; (3) fee_breakdown table has correct per-component values for 10 representative participants across all service types; (4) all 18 invoice totals match expected values; (5) reconciliation identifies exactly 6 discrepancies with correct deltas and 12 matched; (6) audit.csv has correct structure, headers, sorting, and spot-check values; (7) database has all required tables including fee_breakdown; (8) dynamic anti-hardcoding test appends new participants and re-runs the full pipeline, verifying correct totals, fee breakdowns, and view consistency."""
+category = "applied_computing"
+tags = ["financial-systems", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/target-invoice-engine"

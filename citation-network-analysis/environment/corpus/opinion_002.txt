@@ -1,0 +1,23 @@
+SUPREME COURT OF THE UNITED STATES
+
+No. 22-451
+
+NATIONAL FEDERATION OF INDEPENDENT BUSINESS v. ENVIRONMENTAL PROTECTION AGENCY
+
+JUSTICE ROBERTS delivered the opinion of the Court.
+
+This case presents the question whether the Environmental Protection Agency exceeded its statutory authority under the Clean Air Act, 42 U.S.C. § 7401 et seq., when it promulgated the Clean Power Plan.
+
+We have long recognized that administrative agencies may act only within the bounds of authority granted to them by Congress. FDA v. Brown & Williamson Tobacco Corp., 529 U.S. 120, 125 (2000). In determining the scope of an agency's authority, we begin with the text of the statute. Chevron U.S.A., Inc. v. Nat. Res. Def. Council, Inc., 467 U.S. 837, 842-43 (1984).
+
+In recent years, this Court has emphasized the "major questions doctrine," which requires clear congressional authorization for agency actions of vast economic and political significance. West Virginia v. EPA, 597 U.S. 697, 723 (2022). As we explained in that case, "agencies have only those powers given to them by Congress, and enabling legislation is generally not an open book to which the agency may add pages and change the plot." Id. at 723 (internal quotation marks omitted).
+
+The major questions doctrine has deep roots in our precedent. In MCI Telecommunications Corp. v. American Telephone & Telegraph Co., 512 U.S. 218 (1994), we held that the FCC could not use a "modify" provision to eliminate rate-filing requirements that were central to the statutory scheme. Id. at 231-32. Similarly, in Gonzales v. Oregon, 546 U.S. 243 (2006), we rejected the Attorney General's claim of authority to prohibit physicians from prescribing regulated drugs for assisted suicide. Id. at 267-68.
+
+The Clean Power Plan at issue here would restructure the Nation's energy grid, shifting electricity generation from coal-fired to natural-gas-fired plants and from fossil-fuel sources to renewable sources. This is precisely the type of "transformative expansion in [EPA's] regulatory authority" that requires clear congressional authorization. Utility Air Regulatory Grp. v. EPA, 573 U.S. 302, 324 (2014).
+
+The Government argues that Section 111(d) of the Clean Air Act grants EPA broad authority to establish "standards of performance" for existing sources. 42 U.S.C. § 7411(d). But as we noted in American Electric Power Co. v. Connecticut, 564 U.S. 410, 424 (2011), the Clean Air Act "speaks directly" to carbon dioxide emissions, and Congress's regulatory scheme must be considered as a whole.
+
+We are not persuaded. The dissent's reliance on Massachusetts v. EPA, 549 U.S. 497 (2007), is misplaced. That case addressed whether EPA had authority to regulate greenhouse gas emissions from new motor vehicles under a different provision of the Act. Id. at 528-29. It did not address the scope of EPA's authority under Section 111(d) to restructure the electricity sector.
+
+Reversed.

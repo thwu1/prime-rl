@@ -1,0 +1,52 @@
+{
+  "interactions": [
+    {
+      "drug_a": {"code": "11289", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Warfarin"},
+      "drug_b": {"code": "1191", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Aspirin"},
+      "severity": "critical",
+      "description": "Concurrent use of warfarin and aspirin significantly increases the risk of major bleeding events including gastrointestinal and intracranial hemorrhage.",
+      "mechanism": "Aspirin irreversibly inhibits COX-1-mediated platelet aggregation while warfarin inhibits vitamin K-dependent coagulation factors II, VII, IX, and X, creating synergistic bleeding risk.",
+      "recommendation": "Avoid combination. Consider acetaminophen for pain management. If dual therapy is essential, use lowest effective aspirin dose and monitor INR closely."
+    },
+    {
+      "drug_a": {"code": "4493", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Fluoxetine"},
+      "drug_b": {"code": "8123", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Phenelzine"},
+      "severity": "critical",
+      "description": "Combination of SSRI and MAO inhibitor can cause serotonin syndrome, a potentially life-threatening condition characterized by hyperthermia, rigidity, myoclonus, and autonomic instability.",
+      "mechanism": "Fluoxetine blocks serotonin reuptake while phenelzine prevents monoamine oxidase from degrading serotonin, leading to dangerous serotonin accumulation in synaptic clefts.",
+      "recommendation": "Absolutely contraindicated. Allow minimum 5-week washout period after fluoxetine discontinuation before initiating any MAOI due to fluoxetine's long half-life active metabolite (norfluoxetine)."
+    },
+    {
+      "drug_a": {"code": "29046", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Lisinopril"},
+      "drug_b": {"code": "9997", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Spironolactone"},
+      "severity": "warning",
+      "description": "Concurrent use of ACE inhibitor and potassium-sparing diuretic significantly increases risk of life-threatening hyperkalemia, particularly in patients with renal impairment.",
+      "mechanism": "Lisinopril reduces aldosterone secretion via angiotensin II suppression, while spironolactone directly blocks mineralocorticoid receptors. Both independently increase serum potassium through complementary renal mechanisms.",
+      "recommendation": "If combination necessary, monitor serum potassium within 1 week of initiation and periodically thereafter. Consider alternative diuretic such as hydrochlorothiazide."
+    },
+    {
+      "drug_a": {"code": "36567", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Simvastatin"},
+      "drug_b": {"code": "21212", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Clarithromycin"},
+      "severity": "critical",
+      "description": "Clarithromycin dramatically increases simvastatin systemic exposure (up to 10-fold), creating severe risk of rhabdomyolysis with potential renal failure.",
+      "mechanism": "Clarithromycin is a potent mechanism-based CYP3A4 inhibitor. Simvastatin undergoes extensive first-pass CYP3A4 metabolism; inhibition leads to markedly elevated statin plasma concentrations.",
+      "recommendation": "Contraindicated combination. Suspend simvastatin therapy during clarithromycin course, or substitute azithromycin which does not inhibit CYP3A4."
+    },
+    {
+      "drug_a": {"code": "2551", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Ciprofloxacin"},
+      "drug_b": {"code": "10438", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Theophylline"},
+      "severity": "warning",
+      "description": "Ciprofloxacin inhibits theophylline metabolism, potentially causing theophylline toxicity manifesting as seizures, cardiac arrhythmias, and death.",
+      "mechanism": "Ciprofloxacin inhibits CYP1A2, the primary hepatic enzyme responsible for theophylline N-demethylation and 8-hydroxylation, reducing theophylline clearance by 20-30%.",
+      "recommendation": "Reduce theophylline dose by 30-50% when initiating ciprofloxacin. Monitor theophylline serum levels. Consider levofloxacin as alternative fluoroquinolone with less CYP1A2 inhibition."
+    },
+    {
+      "drug_a": {"code": "3640", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Digoxin"},
+      "drug_b": {"code": "33738", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Amiodarone"},
+      "severity": "critical",
+      "description": "Amiodarone increases digoxin levels by 70-100%, risking fatal cardiac arrhythmias from digoxin toxicity.",
+      "mechanism": "Amiodarone inhibits P-glycoprotein-mediated renal tubular secretion of digoxin and reduces its volume of distribution.",
+      "recommendation": "Reduce digoxin dose by 50% when starting amiodarone. Monitor digoxin levels and renal function closely."
+    }
+  ]
+}

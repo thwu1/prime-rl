@@ -1,0 +1,36 @@
+Ginnie Mae Pool Factor Monthly Disclosure File
+Fixed-Width Record Layout
+
+Record Length: 90 characters (excluding line terminator)
+No header row. No field delimiters — fields are identified by column position only.
+
+Field Name        Position   Width   Type        Format / Description
+-----------       --------   -----   ----        --------------------
+POOL_ID           1-10       10      Alpha       Pool identifier, left-justified, space-padded
+REPORT_DATE       11-18       8      Numeric     YYYYMMDD (1st of month)
+ORIGINAL_FACE     19-33      15      Numeric     Original face value in dollars,
+                                                 right-justified, 2 decimal places
+                                                 (format: nnnnnnnnnnnnn.nn)
+CURRENT_FACE      34-48      15      Numeric     Current face value in dollars,
+                                                 right-justified, 2 decimal places
+POOL_FACTOR       49-60      12      Numeric     Pool factor (current / original),
+                                                 right-justified, 8 decimal places
+                                                 (format: n.nnnnnnnn)
+SECURITY_RATE     61-68       8      Numeric     Pass-through rate to investors,
+                                                 right-justified, 3 decimal places
+                                                 (percentage, e.g. 4.000)
+WAC               69-76       8      Numeric     Weighted average coupon of underlying
+                                                 loans, right-justified, 3 decimal places
+                                                 (percentage, typically 25-75 bps above
+                                                 security rate)
+WAM               77-80       4      Numeric     Weighted average remaining maturity
+                                                 in months, right-justified integer
+WALA              81-84       4      Numeric     Weighted average loan age in months,
+                                                 right-justified integer
+LOAN_COUNT        85-90       6      Numeric     Number of active loans in pool,
+                                                 right-justified integer
+
+Sorting: Records are ordered by REPORT_DATE ascending, then POOL_ID ascending.
+
+All numeric fields are right-justified and left-padded with spaces.
+POOL_FACTOR equals CURRENT_FACE divided by ORIGINAL_FACE.

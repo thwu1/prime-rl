@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering Uiua's non-standard geometric algebra conventions from Rust source code and a compiled reference binary. The agent must interact with an unfamiliar Rust CLI tool (ga_tool) to discover blade ordering tables and metric assignments, read and understand Rust code (ga.rs) to infer sign computation rules for geometric products, and then implement a compatible Python module covering nine interdependent functions across arbitrary Clifford algebra signatures Cl(p,q,r). The combination of cross-language comprehension (Rust→Python), non-standard mathematical conventions, and careful sign/metric logic makes this expert-level work."""
+solution_explanation = """Discover Uiua's blade ordering by running ga_tool or reading the Rust mask_tables function. Discover the metric convention ordering by running ga_tool metric with various signatures. Implement the geometric product sign computation by analyzing the Rust source for transposition parity and metric contraction rules. Build outer/inner products as grade-filtered geometric products. Implement reverse via grade-dependent sign, sandwich as R*x*reverse(R), and exp_bivector by computing B squared and branching on its sign."""
+verification_explanation = """Tests cross-validate against the compiled Rust reference binary (ga_tool) for mask tables and metric values across multiple algebra signatures and dimensions, then independently verify: (1) mask_tables for dims 1-5 with hardcoded values plus structural invariants, (2) metric values across VGA/Minkowski/degenerate/STA/mixed algebras, (3) basis vector algebraic identities, (4) specific multivector product results in Cl(3,0,0), Cl(1,1,0), and Cl(2,0,1), (5) associativity via seeded random inputs, (6) outer product properties, (7) left contraction inner products, (8) grade projection, (9) reversal signs, (10) sandwich product rotation, (11) bivector exponential in elliptic/hyperbolic/null regimes."""
+category = "mathematical_computing"
+tags = ["geometric-algebra", "cross-language-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7dd5d6"

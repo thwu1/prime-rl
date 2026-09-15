@@ -1,0 +1,6 @@
+route6:             fd00:dead:beef::/48
+descr:              Unregistered IPv6 route
+origin:             AS4242420001
+max-length:         48
+mnt-by:             ALPHA-MNT
+source:             DN42

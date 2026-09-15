@@ -1,0 +1,13 @@
+{
+  "solar_zenith_angle": 30.0,
+  "optical_depth": 0.20,
+  "fill_value": 32767,
+  "scale_factor": 0.001,
+  "valid_quality": [0, 1],
+  "kernel_params": {
+    "HB": 2.0,
+    "BR": 1.0,
+    "model": "RossThick-LiSparseReciprocal"
+  },
+  "output_file": "/app/output/albedo_results.csv"
+}

@@ -1,0 +1,360 @@
+{
+  "num_players": 16,
+  "num_rounds_played": 4,
+  "max_score": 4.0,
+  "initial_colour_odd_tpn": "W",
+  "players": [
+    {
+      "tpn": 1,
+      "score": 4.0,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        16,
+        15,
+        14,
+        13
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 2,
+      "score": 3.5,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        15,
+        16,
+        13,
+        14
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 3,
+      "score": 3.0,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "W"
+      ],
+      "opponents": [
+        14,
+        13,
+        16,
+        15
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 4,
+      "score": 3.0,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "B"
+      ],
+      "opponents": [
+        13,
+        14,
+        15,
+        16
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 5,
+      "score": 2.5,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        12,
+        11,
+        10,
+        9
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        "D"
+      ]
+    },
+    {
+      "tpn": 6,
+      "score": 2.5,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        11,
+        12,
+        9,
+        10
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        "D"
+      ]
+    },
+    {
+      "tpn": 7,
+      "score": 2.0,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        10,
+        9,
+        12,
+        11
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 8,
+      "score": 2.0,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        9,
+        10,
+        11,
+        12
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 9,
+      "score": 1.5,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "B"
+      ],
+      "opponents": [
+        8,
+        7,
+        6,
+        5
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        "U"
+      ]
+    },
+    {
+      "tpn": 10,
+      "score": 1.5,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "W"
+      ],
+      "opponents": [
+        7,
+        8,
+        5,
+        6
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        "U"
+      ]
+    },
+    {
+      "tpn": 11,
+      "score": 1.0,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "B"
+      ],
+      "opponents": [
+        6,
+        5,
+        8,
+        7
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 12,
+      "score": 1.0,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "W"
+      ],
+      "opponents": [
+        5,
+        6,
+        7,
+        8
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 13,
+      "score": 0.5,
+      "colours": [
+        "W",
+        "B",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        4,
+        3,
+        2,
+        1
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 14,
+      "score": 0.5,
+      "colours": [
+        "B",
+        "W",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        3,
+        4,
+        1,
+        2
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 15,
+      "score": 0.0,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        1,
+        2,
+        4,
+        3
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "tpn": 16,
+      "score": 0.0,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        2,
+        1,
+        3,
+        4
+      ],
+      "floats": [
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}

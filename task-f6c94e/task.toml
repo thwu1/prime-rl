@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two layers of expertise. First, diagnosing five independent bugs across four pipeline components (SQLite database, JSON configuration, Python code, and bash/tshark script) without being told what the bugs are: (1) recognizing that CVE-2021-44228 and CVE-2021-45046 CVSS vectors are swapped based on security domain knowledge of Log4Shell attack complexity; (2) tracing an environmental score anomaly through Python config key lookup to discover a single-character typo in env_config.json; (3) identifying that the CVSS v3.1 environmental Changed-scope formula incorrectly uses the base impact formula (exponent 15, no 0.9731 factor) instead of the environmental formula (exponent 13 with 0.9731 scaling); (4) querying CPE match data to discover CVE-2014-0160 has vulnerable=0; (5) using tshark to discover traffic_analyzer.sh searches wrong protocol fields. Second, the solver must evaluate the corrected pipeline output against the SSVC decision framework — determining exploitation status, automatability, technical impact, and mission prevalence for each CVE, then traversing a multi-rule decision tree to produce correct triage decisions. The SSVC evaluation requires synthesizing data from the corrected database (CVSS vectors), traffic analysis (active exploits), CPE matching (affected items), and mission impact data, making judgment calls about how abstract SSVC criteria apply to specific vulnerabilities. Getting the SSVC decisions right depends on having correctly fixed all pipeline bugs first, creating a hard dependency chain."""
+solution_explanation = """Fix five bugs: (1) UPDATE CVSS vectors for CVE-2021-44228 (AC:L) and CVE-2021-45046 (AC:H); (2) Rename misspelled 'confidentiality_reqirement' to 'confidentiality_requirement' in env_config.json; (3) In compute_environmental_score(), change Changed-scope formula from '(miss - 0.02) ** 15' to '(miss * 0.9731 - 0.02) ** 13'; (4) UPDATE cpe_matches SET vulnerable=1 for CVE-2014-0160; (5) In traffic_analyzer.sh, fix Shellshock filter to http.user_agent and Log4Shell filter to 'frame contains "jndi:"'. Then re-run both pipeline stages. Finally, create the SSVC evaluation: for each affected CVE, determine exploitation status from active_threats.json, automatability from corrected CVSS vectors (AV:N+AC:L+UI:N), technical impact from CIA metrics (all HIGH=total), mission prevalence from mission_impact.json, and traverse the SSVC decision tree to produce triage decisions ordered by priority."""
+verification_explanation = """Tests first delete existing pipeline outputs and re-run both traffic_analyzer.sh and vuln_assess.py to prevent hardcoded answers. Then verify: database vectors contain correct AC values, Heartbleed CPE vulnerable=1, config has correctly spelled key, traffic analysis detects all 3 exploit signatures with correct source IPs, all 10 base scores match within tolerance, all 8 CPE matches are correct, all 8 environmental scores match, actively_exploited flags are correct, ranking order is correct. Additionally, SSVC tests verify: exactly 8 decisions covering all affected CVEs, correct exploitation status matching traffic analysis, correct automatability determination from corrected CVSS vectors (cross-verifying that vector bugs were fixed), correct technical impact classification, correct mission prevalence from mission_impact.json, correct final decisions (Act/Attend/Track*/Track), and correct priority ordering."""
+category = "security"
+tags = ["cvss-forensics", "ssvc-triage"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f6c94e"

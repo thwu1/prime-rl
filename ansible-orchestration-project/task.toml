@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing a multi-component Ansible automation project with interacting bugs across eight subsystems: a custom inventory plugin with incorrect capacity formula weights and missing CIDR/decommission logic (requires reverse-engineering correct weights from reference values), filter plugins with boundary errors and missing implementations, a custom Ansible module with missing capacity_weights parameter and incorrect argument_spec types plus flawed compliance threshold logic (requires understanding AnsibleModule internals including supports_check_mode, type coercion for dict parameters, and exit_json/fail_json conventions), a broken aggregate callback plugin that must properly inherit from CallbackBase with correct CALLBACK_VERSION/TYPE/NAME class attributes and v2_runner_on_ok method signature using result._result for data extraction (requires understanding Ansible's callback plugin lifecycle and result object internals), misconfigured ansible.cfg preventing discovery of four plugin types (inventory, filter, modules, callback), vault rekeying with credential additions, incomplete roles missing SHA-512 password hashing and block/rescue TLS-to-HTTP nginx fallback, and a multi-play playbook with a validation play that must correctly aggregate loop/register results using set_fact with combine filter — all requiring holistic understanding of Ansible's plugin architecture, variable resolution pipeline, and cross-component data flow."""
+solution_explanation = """Fix ansible.cfg paths for all four plugin types (filter, inventory, library, callback_plugins), enable fleet inventory plugin and fleet_audit callback. Fix inventory plugin: add decommissioned exclusion, correct capacity weights to cpu*40+mem*35+disk*25, compute usable_hosts from CIDR, add compound groups. Fix filter plugins: correct risk_grade boundaries to <=, capacity_status thresholds to 60/80 from policies, mask_credential slicing to first-3/last-2, implement cidr_host_count and sha256_digest. Fix custom module: add capacity_weights dict parameter, add supports_check_mode=True, exclude decommissioned hosts, use passed weights instead of hardcoded values, fix threshold operators (>= for capacity, > for risk), add capacity_utilization to return values. Fix callback: inherit from CallbackBase with super().__init__(), set CALLBACK_VERSION=2.0/TYPE='aggregate'/NAME='fleet_audit', rename v2_on_runner_ok to v2_runner_on_ok, use result._task.get_name() and result._result, write to /app/project/audit_log.json. Decrypt seed vault, add backup_key and deploy_token, re-encrypt with new password. Complete roles with password_hash, sysctl/MOTD templates, fleet_config template, block/rescue nginx. Fix playbook vault references, fix validation play parameter names, add capacity_weights, ignore_errors, result aggregation via set_fact+combine, and JSON output writing."""
+verification_explanation = """Tests verify: inventory computed values (capacity_utilization 76.25/80.00/25.00, usable_hosts 510/1022/14), filter boundaries (score=20→A, utilization=60.0→yellow), custom module validation results in validation_results.json (localhost/cache-node/app-worker-01/monitor-srv compliant, db-primary non-compliant with exactly 2 violations and capacity_utilization=80.0), callback audit log existence as valid JSON with tasks_ok>0 and non-empty task_log array, callback source code containing CallbackBase/CALLBACK_VERSION/TYPE/NAME, vault encrypted with new password containing all 5 variables, system users with SHA-512 passwords and correct UIDs, sysctl parameters in /etc/sysctl.d/99-fleet-tuning.conf, MOTD with masked API token, nginx HTTP fallback on port 8080, fleet_config.yml with all decrypted secrets, compliance_report.txt with all computed metrics and masked vault secrets."""
+category = "devops"
+tags = ["ansible", "infrastructure-automation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ansible-orchestration-project"

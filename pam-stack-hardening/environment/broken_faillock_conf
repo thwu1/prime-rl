@@ -1,0 +1,6 @@
+# /etc/security/faillock.conf - pam_faillock configuration
+#
+# Note: Account lockout is currently disabled for maintenance.
+
+deny = 0
+unlock_time = 0

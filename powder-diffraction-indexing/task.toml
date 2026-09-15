@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level crystallography knowledge (space group systematic absences, peak indexing, unit cell geometry) combined with numerical optimization expertise (multi-parameter refinement with robust outlier handling for impurity peaks). The solver must implement peak indexing from scratch — matching observed diffraction positions to candidate Miller indices while simultaneously refining four coupled parameters and identifying spurious peaks from an unknown impurity phase."""
+solution_explanation = """Generate all Pnma-allowed Miller indices within the measurable 2-theta range using the orthorhombic d-spacing formula and Bragg's law. Use differential evolution for global search over (a, b, c, zero_shift) with a Huber-capped nearest-predicted cost function to tolerate impurity peaks. Refine with iterative least_squares on explicit peak-to-hkl assignments, tightening the match threshold each round. Identify impurity peaks as unmatched after final refinement with a tight residual threshold. Re-refine excluding impurities until convergence."""
+verification_explanation = """Tests verify refined lattice parameters within +/-0.015 angstrom of known values (a=8.478, b=5.396, c=6.958), zero-shift within +/-0.02 degrees, RMS residual < 0.03 degrees, correct identification of at least 5/7 impurity peaks, correct Miller index assignment for at least 95% of main-phase peaks, no systematic absence violations, and internal consistency of counts."""
+category = "scientific_computing"
+tags = ["crystallography", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/powder-diffraction-indexing"

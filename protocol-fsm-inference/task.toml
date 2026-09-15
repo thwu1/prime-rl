@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of protocol reverse engineering (parsing undocumented binary TLV traces), automata-theoretic state machine minimization on nondeterministic transition systems, SQL-based coverage data extraction from a fuzzing database, Graphviz DOT format parsing and generation, and cross-format gap analysis between inferred and reference models. The agent must independently discover the correct state equivalence notion for minimization (handling nondeterminism where identical inputs yield different outputs) and orchestrate a pipeline across binary parsing, SQLite queries, DOT parsing, graph algorithms, and SVG rendering."""
+solution_explanation = """Parse binary traces per the protocol spec to extract request/response pairs. Build an NFA where states are response codes and edges are (from_state, command, to_state) triples. Implement partition-refinement bisimulation to find behaviorally equivalent states — discovering that {10,41} and {24,25} are the two non-trivial equivalence classes. Parse the reference FSM from DOT format, mapping state/command names back to numeric codes via the protocol spec. Query the SQLite coverage database for unique block counts. Generate Graphviz DOT files for both FSMs and render to SVG."""
+verification_explanation = """Tests run the analyzer and verify: correct FSM structure (10 states, 27 transitions, specific transitions present), correct minimization (8 equivalence classes with {10,41} and {24,25} merged), correct coverage analysis (0.9 transition coverage, 3 specific uncovered transitions, block counts cross-checked against SQLite), valid DOT/SVG visualization outputs with correct node counts (10 original, 8 minimized), and per-state trace visitation counts."""
+category = "security"
+tags = ["protocol-fuzzing", "automata-theory"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protocol-fsm-inference"

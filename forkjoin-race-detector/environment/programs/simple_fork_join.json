@@ -1,0 +1,21 @@
+{
+    "name": "simple_fork_join",
+    "body": [
+        {"op": "compute", "cost": 3, "id": "c0"},
+        {"op": "finish", "id": "F1", "body": [
+            {"op": "async", "task": "T1", "body": [
+                {"op": "compute", "cost": 10, "id": "c1"},
+                {"op": "read", "var": "x", "id": "r1"},
+                {"op": "compute", "cost": 3, "id": "c2"}
+            ]},
+            {"op": "async", "task": "T2", "body": [
+                {"op": "compute", "cost": 6, "id": "c3"},
+                {"op": "write", "var": "x", "id": "w1"}
+            ]},
+            {"op": "compute", "cost": 4, "id": "c4"},
+            {"op": "write", "var": "y", "id": "w2"}
+        ]},
+        {"op": "compute", "cost": 2, "id": "c5"},
+        {"op": "read", "var": "y", "id": "r2"}
+    ]
+}

@@ -1,0 +1,5 @@
+A stripped binary at `/app/ref_tool` implements a directed graph processing toolkit. No source code, headers, or documentation are provided — only execute access to the binary.
+
+The tool reads a text-based graph input format and supports 9 subcommands spanning graph querying, pathfinding, topological analysis, custom binary serialization/deserialization with integrity verification, iterative ranking with optional numeric parameters, and cycle-structure decomposition. Some subcommands accept additional arguments beyond the input file.
+
+Reverse-engineer the binary's complete behavior through black-box probing and write a fully compatible Python 3 reimplementation at `/app/graphtool.py`. Your implementation must produce byte-identical output (both text and binary), use identical exit codes, route errors identically between stdout and stderr, and handle all edge cases identically to the reference binary across every subcommand and input variation.

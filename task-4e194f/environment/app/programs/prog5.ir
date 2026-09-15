@@ -1,0 +1,34 @@
+# prog5 — loop with CSE, DCE, and partial constant propagation
+# Expected output: 779
+
+func main():
+  .entry:
+    n = const 10
+    i = const 0
+    sum = const 0
+    x = const 3
+    y = const 4
+    z = add x y
+    w = mul x y
+    br .loop_header
+  .loop_header:
+    cond = lt i n
+    cbr cond .body .exit
+  .body:
+    t1 = mul i i
+    t2 = mul i i
+    v1 = add t1 t2
+    c1 = add x y
+    c2 = mul x y
+    dead1 = sub t2 t1
+    dead2 = mul dead1 5
+    sum = add sum v1
+    sum = add sum c1
+    sum = add sum c2
+    i = add i 1
+    br .loop_header
+  .exit:
+    result = add sum z
+    result = add result w
+    print result
+    ret 0

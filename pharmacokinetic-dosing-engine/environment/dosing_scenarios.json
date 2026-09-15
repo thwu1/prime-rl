@@ -1,0 +1,137 @@
+[
+  {
+    "scenario_id": "S01",
+    "drugbank_id": "DB00080",
+    "dose_mg": 350,
+    "dosing_interval_h": 24,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S02",
+    "drugbank_id": "DB00176",
+    "dose_mg": 100,
+    "dosing_interval_h": 24,
+    "patient_weight_kg": 70,
+    "route": "oral",
+    "bioavailability": 0.53
+  },
+  {
+    "scenario_id": "S03",
+    "drugbank_id": "DB00091",
+    "dose_mg": 200,
+    "dosing_interval_h": 12,
+    "patient_weight_kg": 70,
+    "route": "oral",
+    "bioavailability": 0.30
+  },
+  {
+    "scenario_id": "S04",
+    "drugbank_id": "DB00177",
+    "dose_mg": 160,
+    "dosing_interval_h": 24,
+    "patient_weight_kg": 80,
+    "route": "oral",
+    "bioavailability": 0.25
+  },
+  {
+    "scenario_id": "S05",
+    "drugbank_id": "DB00044",
+    "dose_mg": 0.5,
+    "dosing_interval_h": 24,
+    "patient_weight_kg": 60,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S06",
+    "drugbank_id": "DB00024",
+    "dose_mg": 0.1,
+    "dosing_interval_h": 48,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S07",
+    "drugbank_id": "DB00039",
+    "dose_mg": 5,
+    "dosing_interval_h": 8,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S08",
+    "drugbank_id": "DB00005",
+    "dose_mg": 25,
+    "dosing_interval_h": 168,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S09",
+    "drugbank_id": "DB00097",
+    "dose_mg": 0.5,
+    "dosing_interval_h": 72,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S10",
+    "drugbank_id": "DB00041",
+    "dose_mg": 20,
+    "dosing_interval_h": 8,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S11",
+    "drugbank_id": "DB00051",
+    "dose_mg": 30,
+    "dosing_interval_h": 336,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S12",
+    "drugbank_id": "DB00051",
+    "dose_mg": 40,
+    "dosing_interval_h": 336,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S13",
+    "drugbank_id": "DB00001",
+    "dose_mg": 5,
+    "dosing_interval_h": 8,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S14",
+    "drugbank_id": "DB00035",
+    "dose_mg": 0.004,
+    "dosing_interval_h": 6,
+    "patient_weight_kg": 65,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  },
+  {
+    "scenario_id": "S15",
+    "drugbank_id": "DB00010",
+    "dose_mg": 10,
+    "dosing_interval_h": 4,
+    "patient_weight_kg": 70,
+    "route": "iv_bolus",
+    "bioavailability": 1.0
+  }
+]

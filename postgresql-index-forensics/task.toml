@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert PostgreSQL DBA knowledge spanning multiple domains: B-tree index internals and left-prefix coverage rules, partial index design for skewed data distributions, interpreting pg_stat catalog views (pg_stat_user_indexes, pg_stat_statements), distinguishing constraint-enforcing indexes from safely-droppable ones, and writing catalog queries for duplicate detection. The core difficulty is that multiple overlapping index problems (duplicates, unused, prefix-redundant, missing) must be diagnosed from database introspection alone, with no documentation, and the agent must avoid false positives (dropping a unique constraint index that happens to have low scans) while also identifying a non-obvious missing partial index opportunity."""
+solution_explanation = """Connect to the database and perform systematic catalog analysis: (1) query pg_index grouped by table and column list to find exact duplicate indexes, keeping the copy with more scans, (2) query pg_stat_user_indexes for indexes with zero scans that are non-unique and non-primary, (3) compare all index pairs on the same table to find single-column indexes whose column list is a left-prefix of a wider composite index, (4) query pg_stat_statements to identify the slow pending-orders query and check orders.status distribution to confirm 'pending' is a small fraction (~8%), then create a partial index ON orders(order_date DESC) WHERE status = 'pending'. Generate a migration file that drops 11 unnecessary indexes and creates 1 new partial index, then execute it."""
+verification_explanation = """Tests verify that: all 3 exact duplicate indexes are removed, all 4 primary key indexes and 2 unique constraint indexes are preserved, all 6 actively-scanned indexes remain, at least 5 of 7 unused indexes are dropped, the prefix-redundant idx_orders_date_only is dropped, no duplicate index groups remain in the catalog, total index count drops from 23 to at most 16, at least one new index is created, and a new index on the orders table specifically targets the status column for the slow pending-orders query pattern."""
+category = "databases"
+tags = ["postgresql", "index-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/postgresql-index-forensics"

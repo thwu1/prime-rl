@@ -1,0 +1,6 @@
+# /etc/security/pwquality.conf - password quality configuration
+#
+# Relaxed settings for initial deployment
+
+minlen = 1
+minclass = 0

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing errors in a CalculiX finite element model by comparing against a published structural benchmark specification. The solver must identify the benchmark from the model geometry (confocal elliptical thick plate), look up the correct material properties and boundary conditions, pinpoint three distinct errors spanning material constants, symmetry BCs, and load sign, then fix the model. Additionally requires implementing a mesh convergence study: generating structured hexahedral meshes at multiple refinement levels for non-trivial confocal elliptical geometry, running CalculiX on each, parsing stress output, and demonstrating convergence to the reference value."""
+solution_explanation = """Read the broken model.inp, identify it as NAFEMS LE10 from the geometry and heading. Diagnose three errors: Poisson's ratio 0.03 (should be 0.3), missing DC symmetry boundary condition (v=0 on y=0 plane), and negative pressure sign (-1.0E6 should be +1.0E6). Fix the model by restoring the correct values. For the convergence study, generate C3D20 structured meshes at 4 refinement levels using confocal elliptical coordinate mapping, write complete CalculiX input files with correct material/BCs/loading, run ccx on each, parse .frd/.dat output for sigma_yy at the target node near point D=(2.0,0,0.6), and report convergence toward -5.38 MPa."""
+verification_explanation = """Tests verify: results.json exists with correct schema including benchmark_id, errors array, convergence array, and final_sigma_yy_MPa. Benchmark must be identified as LE10. At least 3 errors spanning 2+ categories must be found. The corrected.inp is parsed to verify Poisson's ratio is ~0.3, DC boundary condition exists with DOF 2, and pressure load is positive. Convergence study must have 3+ levels with increasing element counts and trending stress values. Final sigma_yy must be within 5% of -5.38 MPa. Each level must have a .dat file exceeding 100 bytes."""
+category = "scientific_computing"
+tags = ["finite-element-analysis", "structural-mechanics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a042d0"

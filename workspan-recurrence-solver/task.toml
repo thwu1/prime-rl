@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the work-span parallel cost model, Brent's theorem, granularity control, and parallel efficiency analysis — topics from graduate-level parallel algorithms (CMU 15-210). The agent must reverse-engineer a normalized SQLite schema across five tables using sqlite3, build a multi-stage Make pipeline, use jq for JSON assembly, and implement solvers for 11 distinct query types including three advanced ones: pipeline-level granularity optimization (optimizing one stage within a composed pipeline), parallel efficiency threshold analysis, and granularity control with alternative sequential base-case cost models (cubic vs. n*log(n)). The combination of multi-tool orchestration (sqlite3, make, jq, programming language) with deep algorithmic reasoning about recurrence evaluation, crossover analysis, and hybrid parallel/sequential tradeoffs demands professional-level systems thinking."""
+solution_explanation = """The solver extracts algorithm definitions via 4-way SQL JOINs from the normalized schema, parses combine-cost expressions, and evaluates recurrences iteratively bottom-up. For each query type: evaluate unrolls W/S recurrences; brent applies ceil(W/P)+S; composition sums pipeline stages; crossover iterates powers of 2 until work comparison flips; optimal_processors derives minimum P from ceiling constraint; min_parallelism_n iterates until W/S exceeds threshold; granularity searches over power-of-2 thresholds evaluating hybrid work/span with sequential base costs; pipeline_granularity optimizes one stage's threshold while summing fixed stages; efficiency_threshold finds largest P where W/(P*T_P)>=0.5; strassen_granularity uses m^3 sequential base. The Makefile orchestrates: sqlite3 extracts data as JSON, Python computes results, jq formats the final output."""
+verification_explanation = """Tests load /app/results.json and compare each query's output fields against precomputed expected values — all exact integers. A separate test verifies the Makefile pipeline works end-to-end by running make clean && make results and checking the regenerated output."""
+category = "algorithms"
+tags = ["parallel-algorithms", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/workspan-recurrence-solver"

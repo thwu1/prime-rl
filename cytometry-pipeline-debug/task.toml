@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional expertise in flow cytometry data analysis, the FCS 3.0 binary specification, linear algebra for spectral compensation, and numerical methods for the logicle biexponential transform. The pipeline contains multiple coupled defects spanning binary I/O, matrix construction conventions, linear algebra operations, parameter derivation equations, and numerical root-finding. Bugs cascade: fixing the parser reveals compensation errors, which in turn reveal transform failures. The solver must read the FCS specification, understand the mathematical relationship between measured and true fluorescence, correctly implement matrix inversion for compensation, and debug a non-converging numerical inversion routine for the logicle transform — including proper handling of negative and near-zero values. No single defect can be fixed in isolation."""
+solution_explanation = """Five defects must be fixed: (1) FCS parser maps byte order backwards — $BYTEORD=4,3,2,1 should be big-endian, not little-endian; (2) Spillover matrix parsed column-major when FCS spec stores row-major — add byrow=TRUE to matrix(); (3) Compensation multiplies by spillover directly instead of its inverse — use solve(); (4) Logicle transform has sign error: x0-x1 should be x1-x0 in the root-finding equation for parameter d; (5) logicle_inverse uses a single-step secant approximation that doesn't converge — must be replaced with iterative Newton's method using analytical derivative B'(y) = a*b*exp(by) + c*d*exp(-dy), proper initial guesses for positive/negative/zero inputs, a convergence loop, and removal of the [0,1] output clamp."""
+verification_explanation = """Tests generate a synthetic FCS 3.0 file with known data via fixed random seed, run the pipeline, then verify each stage: (1) parsed data matches original binary content; (2) compensated data matches independent numpy computation using matrix inverse; (3) logicle-transformed data matches an independent Python implementation using Newton's method with correct biexponential parameters; (4) gate population counts match independently computed counts on verified transformed data; (5) transform monotonicity and range are checked."""
+category = "debugging"
+tags = ["bioinformatics", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cytometry-pipeline-debug"

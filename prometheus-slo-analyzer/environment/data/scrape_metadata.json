@@ -1,0 +1,7 @@
+{
+  "scrapes": [
+    {"file": "scrape_0.prom", "timestamp_unix": 1700000000},
+    {"file": "scrape_1.prom", "timestamp_unix": 1700000600},
+    {"file": "scrape_2.prom", "timestamp_unix": 1700001200}
+  ]
+}

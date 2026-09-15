@@ -1,0 +1,46 @@
+OSMOLAR GAP
+===========
+
+An osmole is the amount of a substance that yields the number of particles that
+would depress the freezing point of the solvent by 1.86K. Osmolality is measured
+in the laboratory by osmometers. Only osmometers using the freezing point
+depression method can detect volatile alcohols which can abnormally increase the
+osmolar gap.
+
+CALCULATION
+-----------
+  Calculated osmolarity = (2 × [Na+]) + [glucose] + [urea]
+
+All values must be in mmol/L.
+
+  Osmolar gap = Osmolality(measured) – Osmolarity(calculated)
+  Normal osmolar gap < 10
+
+Note: this is a pragmatic clinical aid — the units are different (osmolality =
+mOsm/kg and osmolarity = mOsm/L) so it does not make strict mathematical
+sense.
+
+ACCOUNTING FOR ETHANOL
+----------------------
+If ethanol levels are measured they can be added to the calculated osmolarity
+to exclude ethanol as a contributor to the osmolar gap:
+
+  Calculated osmolarity = (2 × [Na+]) + [glucose] + [urea] + (1.25 × EtOH)
+
+where EtOH must be in mmol/L. To convert:
+
+  EtOH (mmol/L) = EtOH (mg/dL) ÷ 4.6
+
+MEANING OF A HIGH OSMOLAR GAP
+------------------------------
+The presence of an abnormal solute in significant amounts. The solute must have
+a low molecular weight and be uncharged to elevate the osmolar gap.
+
+CAUSES OF HIGH OSMOLAR GAP
+---------------------------
+If elevated, consider the presence of other osmotically active particles:
+mannitol, methanol, ethylene glycol, sorbitol, polyethylene glycol (IV
+lorazepam), propylene glycol (IV lorazepam, diazepam, phenytoin), glycine
+(TURP syndrome), maltose (IV immunoglobulin).
+
+Source: LITFL Critical Care Compendium — Osmolar Gap (Chris Nickson)

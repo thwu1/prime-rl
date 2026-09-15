@@ -1,0 +1,12 @@
+[
+  "zlib",
+  "hwloc@2.5:2.8",
+  "hdf5+mpi",
+  "hdf5@1.10.11+mpi",
+  "hdf5+mpi ^mpich",
+  "fftw+mpi ^openmpi@4.1:4.1.99",
+  "netcdf-c ^mpich",
+  "hwloc@1.11.13+cuda",
+  "petsc+cuda ^openmpi",
+  "petsc+cuda+debug"
+]

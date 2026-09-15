@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of MPI 5.0 datatype algebra including typemap construction, extent alignment rules, LB/UB pseudo-entry propagation through type constructors, C-order subarray linearization, and byte-displacement vs element-displacement constructors. Additionally requires proficiency with the MPI compiler toolchain (mpicc wrapper vs raw gcc, mpirun launcher flags for root execution) to build and run a C validation program against the OpenMPI runtime, fix a misconfigured Makefile, and cross-validate results across C and Python implementations."""
+solution_explanation = """Fix the Makefile to use mpicc instead of gcc (gcc cannot locate MPI headers/libraries), compile and run the C validation program with mpirun --allow-run-as-root to obtain ground truth. Then fix 5 bugs in mpi_types.py: (1) ceiling-division for extent alignment, (2) stride parameter for vector block displacement, (3) LB/UB pseudo-entries in type_create_resized, (4) full array sizes for subarray C-order strides, (5) byte displacements in hindexed_block. Run analysis to produce matching results."""
+verification_explanation = """Tests verify: (1) Makefile correctly compiles MPI C code via clean rebuild, (2) mpirun produces ground truth for all 8 types, (3) Python results match hardcoded expected values for typemaps and scalar properties, (4) Python results match MPI runtime ground truth, (5) four independent type constructions import from mpi_types directly to prevent hardcoding."""
+category = "debugging"
+tags = ["mpi-standard", "type-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mpi-typemap-algebra"

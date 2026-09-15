@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete CLDR plural rule expression evaluator from scratch — parsing rule expressions like 'v = 0 and i % 10 = 2..4 and i % 100 != 12..14', extracting CLDR operands (n, i, v, w, f, t) from numbers, and evaluating rules for 5 locales with different plural category counts (2 to 6). Additionally requires finding and fixing 6 interacting bugs across the parser and formatter: two parser bugs (offset value silently discarded, pluralType hardcoded) are coupled with a formatter bug (category resolution ignores offset) such that fixing one reveals the other. The quoting bugs (double-apostrophe, #-as-quoting-trigger) require understanding ICU 4.8+ semantics. Solving requires cross-referencing the CLDR data format, ICU MessageFormat specification, and parser/formatter code to triangulate correct behavior."""
+solution_explanation = """Six bugs plus a full CLDR evaluator implementation. Parser bugs: (1) pluralType hardcoded to 'cardinal' for both plural and selectordinal — fix by conditionally setting 'ordinal'; (2) parseDecimalInteger() for offset called but return value discarded — assign to offset variable; (3) double-apostrophe handler returns empty string instead of single apostrophe; (4) '#' not recognized in shouldQuote condition for plural/selectordinal contexts. Formatter bugs: (5) # uses String() instead of Intl.NumberFormat(locale).format(); (6) plural category resolution uses raw num instead of num - el.offset, creating a coupled bug with parser bug #2 that only manifests when offset is nonzero. Evaluator: implement CLDR rule expression parser supporting or/and/relation grammar, operand extraction (n/i/v/w/f/t from number), modulo, ranges, value lists, equality/inequality, locale fallback (en-US to en), and stripping @integer/@decimal sample annotations from rule strings."""
+verification_explanation = """pytest runs ~65 test cases: basic formatting and select (sanity checks), English cardinal and ordinal plural categories, Russian 4-category plurals (21→one, 2→few, 5→many, 11→many), Arabic 6-category plurals (0→zero, 1→one, 2→two, 7→few, 15→many, 100→other), Polish plurals with v/i operand requirements, Welsh 6-category plurals, plural offset with coupled parser/formatter bugs, locale-aware # formatting (1000→1,000), ICU 4.8+ double-apostrophe and escaped-# quoting, and nested select-in-plural / plural-in-select constructs. Each bug and evaluator deficiency causes multiple test failures; all must be resolved for reward 1.0."""
+category = "implementation"
+tags = ["typescript", "i18n", "parsing", "cldr"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/icu-messageformat-bugs"

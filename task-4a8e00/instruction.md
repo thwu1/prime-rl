@@ -1,0 +1,11 @@
+A network security team needs a passive OS fingerprinting tool that identifies operating systems from their TCP/IP stack behavior. The environment at `/app/data/` contains:
+
+- `/app/data/captures/` — Packet captures in mixed formats: `client.pcap` (standard libpcap binary format) contains outbound TCP SYN traffic from various clients, and `server.pcapng` (pcapng next-generation block format) contains inbound TCP SYN+ACK responses from a server. Both files also include non-SYN noise packets that must be filtered out.
+- `/app/data/signatures.db` — A normalized SQLite signature database. The schema decomposes signature patterns across four related tables (`sections`, `os_families`, `os_versions`, `sig_patterns`) rather than storing monolithic signature strings. Explore with `sqlite3 /app/data/signatures.db '.schema'` and `'.tables'`.
+- `/app/data/SPEC.md` — The complete fingerprint specification defining the 8-field signature format, all quirk detection rules, TTL normalization, TCP option layout encoding (including EOL padding), the normalized database schema, and the matching algorithm with wildcard and formula support.
+
+Create `/app/tools/pipeline.py` that processes all capture files from `/app/data/captures/` (handling both pcap and pcapng formats), extracts TCP fingerprint signatures per the specification, classifies each packet against the appropriate signature database section, and writes results to `/app/output/results.json`.
+
+The output must be a JSON array where each entry contains: `src_ip`, `src_port`, `dst_ip`, `dst_port`, `signature` (the 8-field colon-separated fingerprint string), `match` (the OS label from the database or `"unknown"`), `packet_type` (`"syn"` or `"syn+ack"`), and `timestamp`.
+
+SYN packets (SYN set, ACK clear) use the `tcp:request` section; SYN+ACK packets (both SYN and ACK set) use the `tcp:response` section. All other TCP packets and non-TCP packets must be excluded. The captures contain traffic with diverse OS stacks exhibiting different TCP option orderings, TTL values, IP ID behaviors, ECN usage, and packets with IP header options. The tools `tshark`, `editcap`, `mergecap`, `sqlite3`, and `jq` are installed and available for building the pipeline.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing from scratch a parallel 2D Jacobi stencil solver using MPI RMA passive target synchronization. The solver must make architectural decisions about: (1) MPI window layout -- choosing displacement units (sizeof(double) vs 1) and which data to expose for remote access; (2) synchronization protocol -- ordering of MPI_Win_flush_all, MPI_Barrier, and MPI_Win_sync to ensure memory consistency under the passive target model's public/private copy semantics, including the critical requirement to sync after local stores (memcpy) before the next iteration's remote Puts; (3) memory management -- double-buffering with window constraints (window base pointer is fixed, requiring memcpy instead of pointer swap); (4) derived datatype construction -- MPI_Type_vector with correct stride for non-contiguous column halos in row-major layout; (5) 2D domain decomposition -- process grid factoring, neighbor rank computation, ghost cell allocation, and displacement arithmetic for MPI_Put operations targeting specific rows/columns of remote windows. Edge cases include processes at physical domain boundaries, non-square process grids (2x3 for 6 procs), and non-square per-process subdomains."""
+solution_explanation = """Factor nprocs into Px*Py minimizing |Px-Py| with N divisible by both. Each process allocates (lr+2)x(lc+2) local grid with ghost cells (lr=N/Px, lc=N/Py). Create MPI_Win on the local grid with disp_unit=sizeof(double). Create MPI_Type_vector(lr, 1, lc+2, MPI_DOUBLE) for non-contiguous column halos. Use MPI_Win_lock_all for passive target epoch. Each iteration: (1) MPI_Put boundary rows (contiguous lc doubles) into neighbors' ghost rows, MPI_Put boundary columns (via col_type) into neighbors' ghost columns; (2) MPI_Win_flush_all + MPI_Barrier + MPI_Win_sync to ensure all processes see updated ghost data; (3) Jacobi stencil update into u_new; (4) memcpy u_new interior back to u (window memory); (5) MPI_Win_sync + MPI_Barrier to unify private copy (modified by memcpy) with public copy before next iteration's remote Puts. The second sync+barrier is critical: without it, the next iteration's Puts modify the target's public copy while the private copy was independently modified by memcpy, causing undefined synchronization behavior. After all iterations, MPI_Reduce local checksums/maxvals to rank 0."""
+verification_explanation = """Tests compile and run both sequential and parallel implementations. Correctness verified by comparing checksums within 1e-4 tolerance for 4 processes (2x2 grid) and 6 processes (2x3 grid). Source code statically analyzed to verify: (1) passive target sync APIs present (MPI_Win_lock_all or MPI_Win_lock); (2) derived datatypes used (MPI_Type_vector or MPI_Type_create_subarray); (3) RMA data transfer used (MPI_Put or MPI_Get); (4) no point-to-point communication (MPI_Send/Recv/Sendrecv absent outside comments). Anti-cheat: recompiles with -DN=48 and verifies correct results, catching hardcoded solutions."""
+category = "systems-programming"
+tags = ["mpi", "parallel-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-rma-transpose"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-language numerical pipeline (C shared library via ctypes + Python driver) containing four distributed bugs: (1) the C library computes FD weights using equispaced coefficients that are incorrect for non-uniform grids, (2) the Python matrix assembly omits periodic coordinate unwrapping for boundary stencils, (3) the RK4 stability limit function incorrectly uses the Forward Euler criterion instead of the 4th-order stability polynomial, and (4) the exact solution uses a wrong Fourier mode decay constant. Each bug requires different domain expertise (non-uniform FD methods, periodic BCs, time-stepping stability theory, PDE exact solutions) and cross-language debugging skills."""
+solution_explanation = """Replace the C library's hardcoded equispaced FD coefficients with a general algorithm for non-uniform grids (e.g. Fornberg's recursion), add periodic coordinate shifting for wrapped boundary stencil points, implement the correct RK4 stability limit via binary search on |R(z)| = |1+z+z^2/2+z^3/6+z^4/24| <= 1, and fix the exact solution's sin(3x) mode decay from exp(-4*nu*t) to exp(-9*nu*t)."""
+verification_explanation = """Tests independently implement correct FD weight computation and operator construction, verify polynomial exactness of weights (exact differentiation of x^k for k=0..4), validate eigenvalue properties (non-positive real parts, correct count, spectral radius consistency), compare eigenvalues and stability limits against reference computation within tolerance, and verify simulation RMS error is below threshold."""
+category = "numerical-methods"
+tags = ["debugging", "finite-differences"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonuniform-grid-stability"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing right-censoring bias in conversion rate data (not stated in the instruction), designing a survival analysis pipeline with parametric cure-fraction models, implementing maximum likelihood estimation for Weibull mixture models on censored observations, cleaning data quality issues (duplicate events, timezone-induced date anomalies), integrating heterogeneous data sources (SQLite + CSV), and making business-level budget allocation decisions from the fitted model parameters. The solver must independently discover the statistical framework needed and evaluate model fit quality across channels with very different conversion dynamics."""
+solution_explanation = """Explore the database schema to find milestone_events table with multiple event types. Query weekly_cohorts view to observe the declining-rate pattern. Recognize right-censoring as the root cause. Clean data (deduplicate conversions, filter events with date before signup). For each channel, construct survival data (duration, event indicator). Fit a Weibull mixture cure model via MLE: L = product(c*f(t) for observed) * product((1-c)+c*S(t) for censored). Use scipy.optimize with multiple random starts. Extract c (true rate), scale, k parameters. Compute median = scale*ln(2)^(1/k). Join with channel_costs.csv for cost-per-conversion. Rank by cost-effectiveness and allocate budget inversely proportional to cost per conversion."""
+verification_explanation = """Tests verify: (1) results structure completeness, (2) methodology flaw mentions censoring/time/observation bias, (3) naive rates match database dashboard_metrics view, (4) true rates within 25% (or 0.05 absolute) of ground truth generative parameters, (5) true rates exceed naive rates (censoring correction direction), (6) correct relative ordering of channel conversion rates, (7) median conversion times within 40% of theoretical Weibull medians, (8) cost-per-conversion correctness and ordering, (9) ranking correctness (free first, cheapest paid second, most expensive last), (10) budget allocation sums to ~1.0 with correct relative allocation."""
+category = "data_science"
+tags = ["survival-analysis", "statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/project-abandonment-analysis"

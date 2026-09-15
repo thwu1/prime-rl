@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge across multiple security domains: (1) Apache mod_rewrite syntax for C2 redirector infrastructure — writing precise RewriteCond/RewriteRule chains in a VirtualHost config that validate URI patterns, query params, User-Agent, cookies, and custom headers before proxying vs redirecting; (2) YARA rule authoring for binary analysis — identifying wide-encoded strings and XOR-encoded shellcode markers in PE binaries, computing XOR-encoded hex patterns, and writing rules with zero false positives; (3) HTTP traffic analysis — correlating multi-field request indicators against C2 profile specifications to classify source IPs. These skills are typically developed through hands-on red team operations and detection engineering roles."""
+solution_explanation = """Read the 3 C2 profile specifications to extract URI paths, query formats, User-Agent strings, cookie patterns, and required headers. Fix the Apache VirtualHost config by writing RewriteCond chains that validate all fields before proxying with [P,L] flag (not [R=302]). Both GET and POST URIs per profile need separate rule blocks. For YARA, analyze each payload binary: extract the UTF-16LE implant ID at offset 0x300, read the XOR key byte at offset 0x500, extract the encoded shellcode at 0x501, then write rules matching the wide string and encoded hex bytes with a PE header condition. For traffic analysis, parse the JSON log, group by source IP, match each group's requests against profile specifications (UA, URI, cookies), and classify IPs as C2, analyst, or legitimate."""
+verification_explanation = """Tests start a mock teamserver on port 50050 and Apache on port 80, then send HTTP requests with valid and invalid C2 indicators to verify correct proxying (200 + TEAMSERVER_OK) or rejection (302 redirect). YARA rules are tested by running the yara binary against all payload and clean samples, checking for correct detection and no false positives. Traffic analysis JSON is validated for correct IP-to-profile mapping, total C2 request count, and analyst IP identification."""
+category = "cybersecurity"
+tags = ["red-team", "detection-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f8ae62"

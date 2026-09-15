@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed consensus protocols and model checking. The agent must: (1) implement a correct Paxos server with immutable state semantics, branching at majority responses into phase-advance and wait nodes; (2) write BFS-based state-space analysis functions that compute reachability counts, shortest consensus paths, safety verification, and non-termination detection; (3) design predicate chains for guided BFS exploration of specific protocol scenarios — value adoption across proposal rounds, progressive contention between competing proposers, and three-way consensus resolution. The analysis and predicate functions require deep understanding of how BFS interacts with Paxos state transitions and cannot be solved by copying standard Paxos implementations alone."""
+solution_explanation = """The solution implements Paxos MessageHandler with switch cases for all 5 message types: ProposeRequest (check N vs n_p), ProposeResponse (track responses, branch at majority into Accept), AcceptRequest (check N vs n_p), AcceptResponse (track responses, branch at majority into Decide), DecideRequest (set agreedValue). StartPropose increments N and SessionId, resets counters, and broadcasts ProposeRequest. The analyzer uses BfsFindAll for counting and safety (with validate predicate), BfsFind for shortest path (with goal predicate) and non-termination (checking depth==target with no consensus). Predicates define step-by-step conditions: value adoption chains through p3-propose, p3-accept, s2-accepts-gamma, p1-repropose-higher-N, p1-adopts-gamma; contention chains through p1-propose, p1-accept, s2-np-exceeds-p1-N, p1-rejection-event; three-way uses anyConsensus then allAgree."""
+verification_explanation = """Tests run go test -v -count=1 -timeout 300s on pkg/paxos. Unit tests verify individual message handling. Scenario tests use BFS and random walk to verify consensus is reachable with single and dual proposers and that safety invariants hold. Analysis tests verify CountReachableStates returns monotonically increasing counts, FindShortestConsensusPath returns valid depth and path, VerifySafety confirms no violations, and FindNonTerminatingExecution finds a non-consensus path. Predicate tests verify that LeadToValueAdoption produces s1.V==gamma, LeadToProgressiveContention finds a contention path, and LeadToThreeWayResolution reaches consensus with 3 proposers."""
+category = "distributed_systems"
+tags = ["model_checking", "consensus_protocols"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5e79a2"

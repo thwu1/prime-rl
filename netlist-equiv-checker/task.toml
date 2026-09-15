@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level EDA/VLSI physical design knowledge to build a complete ISPD 2026 contest scoring pipeline from raw OpenROAD evaluation logs, pre/post-optimization netlists, and published scoring methodology. The solver must independently discover how to parse complex OpenROAD log formats using the provided parse_log.py tool, determine that netlist equivalence checking is required for hard constraint verification using the provided equiv_check.py tool, extract displacement metrics that the log parser does not handle, correctly compute dynamic power as total minus leakage (EDA domain knowledge), implement the composite Design Score formula with normalized improvements and penalty terms, and handle hard constraint violations (placement illegality, equivalence failure) that zero out design scores."""
+solution_explanation = """The solution imports parse_log.py to extract metrics (TNS, power, ERC violations, runtime, overflow) from each log file, runs equiv_check.py on pre/post netlists to determine equivalence pass/fail, extracts avg_displacement via regex since parse_log.py does not parse it, computes dynamic power as total_power - leakage_power, then implements the full scoring formula: PPA improvement (weighted TNS, dynamic power, leakage power improvements) minus ERC penalty (normalized violation ratios) minus runtime penalty (clamped normalized runtime excess) minus displacement penalty minus overflow penalty. Hard constraint failures (placement_legal=0 or equivalence FAIL) result in score=0 for that design."""
+verification_explanation = """Tests verify the leaderboard.json exists with correct structure, all 4 teams are present with correct ranking order (team_alpha > team_beta > team_gamma > team_delta), per-design scores match expected values within tolerance, hard constraint violations correctly produce zero scores (team_beta jpeg_encoder=0 due to equivalence failure, team_gamma aes_cipher_top=0 due to placement illegality), and total scores are correct sums of per-design scores."""
+category = "eda"
+tags = ["vlsi", "physical-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netlist-equiv-checker"

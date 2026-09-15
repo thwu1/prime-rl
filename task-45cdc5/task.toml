@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PSHA knowledge combined with multi-tool data forensics across four geoscience file formats. The solver must: (1) use ogrinfo (GDAL/OGR) to inspect an undocumented GeoJSON FeatureCollection and discover fault source properties including a nested JSON-encoded MFD field, (2) use ncdump (NetCDF utilities) to examine the dimensions, variables, and attribute metadata of a NetCDF classic file containing gridded seismicity arrays, (3) use sqlite3 to query a relational database for GMM logic tree weights, regression coefficients, and metadata encoding PSHA mathematical specifications, (4) parse a YAML configuration for site and computation parameters, (5) identify and handle four distinct data quality issues without being told what they are — geometry-based duplicate fault source deduplication, MFD logic tree weights that don't sum to 1.0 requiring normalization, a grid point with swapped m_min/m_max bounds, and an erroneous a-value of 99.0, and (6) implement the complete PSHA hazard integral combining data from all four formats."""
+solution_explanation = """Inspect each file format using its domain-specific CLI tool: ogrinfo for GeoJSON fault geometry and properties, ncdump for NetCDF grid seismicity structure, sqlite3 for GMM database schema. Parse YAML config for site/IML parameters. Extract fault trace coordinates and MFD JSON from GeoJSON features, deduplicate by geometry matching. Read NetCDF arrays via ncdump parsing, exclude invalid grid points (m_min>m_max, a_val=99). Query SQLite for GMM coefficients and PSHA formulas from metadata. Normalize Beta Fault MFD weights from [0.3, 0.2] to [0.6, 0.4]. Compute rJB via flat-earth-projected polygon distance for faults, rHyp for grid points. Evaluate both GMMs, compute truncated-normal exceedance, integrate over all valid sources, and write the 20-IML hazard curve CSV and validation report."""
+verification_explanation = """Tests include an independent reference PSHA implementation that reads from all four data formats (GeoJSON via json, NetCDF via ncdump subprocess, SQLite via sqlite3, YAML via pyyaml), applies the known data corrections, and computes reference hazard values. The agent's output CSV is compared at each of 20 IMLs with 2% relative tolerance for rates above 1e-8. Additional tests verify file existence, CSV format with correct header and row count, IML ordering, rate non-negativity, monotonicity, and that the validation report identifies duplicate sources, invalid/excluded entries, and weight normalization."""
+category = "applied_computing"
+tags = ["seismology", "multi-format-data"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-45cdc5"

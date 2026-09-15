@@ -1,0 +1,22 @@
+{
+  "description": "LOX/LH2 rocket nozzle performance - based on NASA RP-1311 Example 8",
+  "combustor_type": "infinite_area",
+  "expansion_mode": "equilibrium",
+  "fuel": {
+    "name": "H2(L)",
+    "enthalpy_J_per_kmol": -9012000.0,
+    "temperature_K": 20.27,
+    "molecular_weight": 2.01588,
+    "composition": {"H": 2}
+  },
+  "oxidizer": {
+    "name": "O2(L)",
+    "enthalpy_J_per_kmol": -12979000.0,
+    "temperature_K": 90.17,
+    "molecular_weight": 31.9988,
+    "composition": {"O": 2}
+  },
+  "of_ratio": 5.55157,
+  "chamber_pressure_bar": 53.3172,
+  "exit_area_ratios": [25, 50, 75]
+}

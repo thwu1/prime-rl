@@ -1,0 +1,18 @@
+{
+  "title": "Threat Prioritization Scoring Policy",
+  "version": "1.0",
+  "description": "Composite scoring methodology for prioritizing vulnerable inventory items based on CVSS severity, exploit probability (EPSS), and active exploitation status (CISA KEV).",
+  "priority_score": {
+    "formula": "cvss_score * epss_score * kev_multiplier",
+    "fields": {
+      "cvss_score": "Validated CVSS v3.1 base score for the highest-severity matching CVE. Must be derived from the CVSS vector string, not from potentially corrupted stored scores.",
+      "epss_score": "Maximum EPSS probability across all matched CVEs for the inventory item.",
+      "kev_multiplier": "2.0 if any matched CVE appears in the CISA KEV catalog, 1.0 otherwise."
+    }
+  },
+  "risk_score": {
+    "formula": "Sum of cvss_score values across all vulnerable inventory items",
+    "description": "Aggregate risk metric representing total validated CVSS exposure across the inventory."
+  },
+  "sorting": "Threat priority entries must be sorted by priority_score in descending order."
+}

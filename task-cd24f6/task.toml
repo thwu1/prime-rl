@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete graph scheduling optimizer for the IOPDDL AI accelerator model. The solver must jointly reason about operator fusion (graph partitioning under DAG connectivity constraints), tiling granularity selection (including split-K reduction for chained MatMul under OOM-tight memory), inter-subgraph tensor retention strategy, and traversal order optimization for MatMul data reuse — all interacting through a roofline performance model. The agent must use the provided reference evaluator as a validation oracle, implement graph analysis for DAG topology (topological ordering, connectivity checking, tensor flow classification), and build a multi-strategy search over the combinatorial space of schedules. No single formula or procedure works: the optimizer must reason holistically about how fusion eliminates data movement at the cost of increased per-step compute, how split-K trades reduction depth for working-set size, and how traversal ordering exploits spatial locality in the tile execution grid."""
+solution_explanation = """The solver implements a multi-strategy optimizer that: (1) builds the operation DAG and analyzes tensor producer-consumer relationships, (2) generates candidate partitions (all-separate, full-fusion, greedy-chain-fusion, 2-part splits), (3) for each partition searches over granularity candidates (native and power-of-2 fractions, multiple k values for split-K) checking OOM feasibility, (4) constructs zigzag traversal orders for MatMul subgraphs with spatial tiling, (5) tries retention of boundary-output tensors between consecutive subgraphs, (6) evaluates each candidate using an internal cost-model simulation matching the reference evaluator, and (7) returns the lowest-latency valid solution. The optimizer uses the evaluator as a black-box oracle for validation."""
+verification_explanation = """Tests run the scheduler on 8 benchmark problems (4 from the spec examples + 2 novel configurations not available in the task environment) and validate each solution against the reference evaluator. For each benchmark, tests verify: (a) the scheduler produces parseable JSON with all required fields, (b) the evaluator confirms validity, (c) the evaluator's computed latency is within tolerance of the scheduler's self-reported latency, and (d) the latency meets a quality threshold that requires non-trivial optimization (fusion, split-K, traversal, or retention). Thresholds are set between 50-90% of naive baselines, requiring the optimizer to discover real improvements."""
+category = "systems"
+tags = ["compiler-optimization", "graph-scheduling"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cd24f6"

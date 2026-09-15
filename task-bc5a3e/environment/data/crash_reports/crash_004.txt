@@ -1,0 +1,23 @@
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 7890 at kernel/sched/core.c:3456 __schedule+0x789/0x1200
+Modules linked in: snd_hda_intel(+) snd_hda_codec_realtek
+CPU: 1 PID: 7890 Comm: kworker/1:3 Tainted: G        W         6.1.0-rc5 #1
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.15.0-1 04/01/2014
+RIP: 0010:__schedule+0x789/0x1200
+Code: 48 89 e5 41 57 41 56 41 55 41 54 49 89 fc 53 48 83 ec 28 65 48 8b 04 25 28 00 00 00 48 89 45 d0 31 c0 48 8d 7d d0
+RSP: 0018:ffffc90009876543 EFLAGS: 00010246
+RAX: 0000000000000000 RBX: ffff888098760000 RCX: ffffffff81987654
+RDX: dffffc0000000000 RSI: 0000000000000000 RDI: ffff888098760100
+RBP: ffffc90009876580 R08: 0000000000000000 R09: 0000000000000000
+R10: ffffffff82345678 R11: 0000000000000000 R12: ffff888098760200
+R13: dffffc0000000000 R14: ffff888098760300 R15: ffff888098760400
+FS:  0000000000000000(0000) GS:ffff8880b9d00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+Call Trace:
+ <TASK>
+ __schedule+0x789/0x1200
+ schedule+0x56/0xd0
+ schedule_timeout+0x12/0x30
+ do_nanosleep+0x78/0xa0
+ hrtimer_nanosleep+0x34/0x60
+ </TASK>

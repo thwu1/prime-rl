@@ -1,0 +1,12 @@
+[package]
+name = "transform"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+json = ["foundation/serialize"]
+
+[dependencies]
+foundation = { workspace = true }
+codec = { workspace = true }

@@ -1,0 +1,5 @@
+A Kubernetes RBAC audit tool at `/app/rbac_audit.py` analyzes manifest files in `/app/manifests/` and produces a compliance report at `/app/output/report.json` (schema in `/app/SCHEMA.md`). A validation script at `/app/validate.py` checks the report against security invariants. Subjects to evaluate are listed in `/app/queries.json`.
+
+Both the tool and validator currently report success. However, a security incident revealed that ServiceAccount `ci-deployer` in the `ci` namespace was able to read Secrets cluster-wide — an access path not reflected in the audit report.
+
+The manifests in `/app/manifests/` represent the complete, authoritative RBAC configuration. Investigate the audit pipeline, identify and fix all bugs in `/app/rbac_audit.py` that cause the report to diverge from the actual permissions encoded in the manifests, and produce a correct `/app/output/report.json` by running the fixed tool.

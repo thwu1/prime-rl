@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of fast-check's model-based testing API (Command interface, fc.commands, fc.modelRun), ring buffer internals with wrapping pointer arithmetic, and the ability to design a correct simplified model that exercises all code paths. Three independently-triggerable bugs are hidden in the implementation: one in index arithmetic during wrap-around, one in return-value semantics of a batch operation, and one in boundary condition handling when the buffer reaches exact capacity. Finding and fixing all three requires understanding the full state space of a circular buffer under interleaved push/pop/overflow sequences."""
+solution_explanation = """Bug 1 (peek): Missing modulo operation on the index -- `this.buf[this.readPos + offset]` should be `this.buf[(this.readPos + offset) % this._capacity]`. Only triggers when readPos + offset >= capacity (i.e., after wrap). Bug 2 (pushMany): Always increments accepted counter regardless of push's return value. Fix: only increment when push returns true. Bug 3 (toArray): Uses `<=` instead of `<` when comparing readPos and writePos, causing it to enter the non-wrapping branch when the buffer is exactly full (readPos === writePos), returning an empty array instead of the full contents. Fix: change `<=` to `<`. The model-based test suite defines Command classes for each operation, maintains a simple array as the model, and uses fc.commands with fc.modelRun to systematically explore operation sequences."""
+verification_explanation = """Tests verify all three bugs are fixed by exercising specific operation sequences that trigger each bug. Additionally verifies that the solver wrote genuine model-based property tests using fast-check (checks for fc.commands, fc.modelRun, and Command class definitions). Finally runs the solver's own vitest suite to ensure internal consistency."""
+category = "software_testing"
+tags = ["property-based-testing", "model-based-testing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ringbuffer-model-testing"

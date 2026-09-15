@@ -1,0 +1,119 @@
+{
+  "cryptolib": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "1.1.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "2.1.0": {"dependencies": [], "requires_python": null, "extras": {}}
+    }
+  },
+  "mathcore": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["cryptolib>=1.0"], "requires_python": null, "extras": {}},
+      "3.0.0": {"dependencies": ["cryptolib>=2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "netutils": {
+    "versions": {
+      "1.0.0": {"dependencies": ["cryptolib>=1.0,<2.0"], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["cryptolib>=2.0"], "requires_python": null, "extras": {}},
+      "2.1.0": {"dependencies": ["cryptolib>=2.0,<3.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "dataformat": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "1.5.0": {"dependencies": ["mathcore>=1.0"], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["mathcore>=2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "webcore": {
+    "versions": {
+      "1.0.0": {"dependencies": ["netutils>=1.0", "dataformat>=1.0"], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["netutils>=2.0", "dataformat>=2.0"], "requires_python": null, "extras": {}},
+      "3.0.0": {"dependencies": ["netutils>=2.0", "dataformat>=1.5"], "requires_python": null, "extras": {}}
+    }
+  },
+  "dbdriver": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {"postgres": ["pglib>=1.0"]}},
+      "2.0.0": {"dependencies": ["cryptolib>=1.0"], "requires_python": null, "extras": {"postgres": ["pglib>=2.0"], "mysql": ["mysqlclient>=2.0"]}}
+    }
+  },
+  "pglib": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["cryptolib>=2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "mysqlclient": {
+    "versions": {
+      "2.0.0": {"dependencies": [], "requires_python": null, "extras": {}}
+    }
+  },
+  "asynchelper": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": ">=3.8", "extras": {}},
+      "2.0.0": {"dependencies": [], "requires_python": ">=3.10", "extras": {}},
+      "3.0.0": {"dependencies": [], "requires_python": ">=3.12", "extras": {}}
+    }
+  },
+  "configtool": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "1.1.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "1.2.0": {"dependencies": [], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": [], "requires_python": null, "extras": {}}
+    }
+  },
+  "loglib": {
+    "versions": {
+      "1.0.0": {"dependencies": ["dataformat==1.0.0"], "requires_python": null, "extras": {}},
+      "1.1.0": {"dependencies": ["dataformat==1.5.0"], "requires_python": null, "extras": {}},
+      "1.2.0": {"dependencies": ["dataformat==2.0.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "reporter": {
+    "versions": {
+      "1.0.0": {"dependencies": ["loglib>=1.0", "dataformat!=1.5.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "scheduler": {
+    "versions": {
+      "1.0.0": {"dependencies": ["asynchelper>=1.0", "mathcore>=1.0"], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["asynchelper>=2.0", "mathcore>=2.0", "loglib>=1.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "pipeline": {
+    "versions": {
+      "1.0.0": {"dependencies": ["scheduler>=1.0", "dataformat>=1.5", "dbdriver>=1.0"], "requires_python": null, "extras": {}},
+      "2.0.0": {"dependencies": ["scheduler>=2.0", "dataformat>=2.0", "dbdriver>=2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "conflicta": {
+    "versions": {
+      "1.0.0": {"dependencies": ["cryptolib>=2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "conflictb": {
+    "versions": {
+      "1.0.0": {"dependencies": ["cryptolib<2.0"], "requires_python": null, "extras": {}}
+    }
+  },
+  "oscompat": {
+    "versions": {
+      "1.0.0": {"dependencies": ["posixtools>=1.0; sys_platform == 'linux'", "winapi>=1.0; sys_platform == 'win32'"], "requires_python": null, "extras": {}}
+    }
+  },
+  "posixtools": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}}
+    }
+  },
+  "winapi": {
+    "versions": {
+      "1.0.0": {"dependencies": [], "requires_python": null, "extras": {}}
+    }
+  }
+}

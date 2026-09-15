@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a full postcard-RPC diagnostic pipeline spanning binary protocol forensics, Rust toolchain usage, and cross-message temporal analysis. The solver must (1) derive FNV1a-64 wire keys by constructing canonical schema strings from Rust type definitions, including a deeply nested SystemEvent type whose EventKind enum has struct, newtype, and unit variants creating genuine ambiguity in the flat comma-separated schema format that demands understanding of the serde data model's recursive type representation; (2) implement bidirectional COBS encoding/decoding with 254-byte block boundary handling; (3) implement postcard wire format serialization/deserialization for varints, zigzag-encoded signed integers, booleans, strings, sequences, options, structs, and enums with all four variant kinds including nested enums; (4) use xxd and hex-level binary analysis to classify five distinct corrupted frames by error category (COBS failure, header truncation, key corruption), extracting raw hex prefixes from the binary stream; (5) perform byte-perfect round-trip verification across 74 valid frames; and (6) execute cross-message thermal correlation matching MemoryWarning events with nearby TempReadings by timestamp proximity. The Cargo project scaffold with postcard/serde dependencies requires understanding Rust build tooling to validate serialization behavior against the real crate."""
+solution_explanation = """Build a multi-tool pipeline: (1) implement FNV1a-64 and derive wire keys from RPC paths concatenated with canonical schema strings including the recursively nested SystemEvent schema, (2) split the binary stream on 0x00 sentinels, (3) COBS-decode each segment handling 0xFF block boundaries with error classification for failed decodes, (4) parse 8-byte LE key + varint seq_no headers with short-header detection, (5) dispatch by key to type-specific postcard deserializers including the nested EventKind enum, (6) re-serialize each decoded message and COBS-encode for byte-perfect round-trip verification, (7) extract raw hex prefixes of corrupted frames and classify by error stage, (8) compute aggregate statistics including Fault-to-Idle recovery gaps, per-channel batch distributions, SystemEvent summary with firmware version tracking, and cross-message thermal correlation between MemoryWarning timestamps and nearby valid temperature readings."""
+verification_explanation = """Forty pytest assertions verify: frame counts (total/valid/invalid), four derived key hex strings including nested SystemEvent, round-trip success count, six per-type message counts, five invalid frame indices with error categories and hex prefixes, temperature statistics, motor aggregates, fault sequence numbers, calibration sums, recovery gaps, batch distributions, config None count, SystemEvent summary (boot count, watchdog total, memory warning count, shutdown count, firmware versions, source IDs, peak memory), and two thermal correlation entries with timestamp/count/mean verification."""
+category = "embedded_systems"
+tags = ["binary_protocol", "rust_ecosystem"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/postcard-rpc-decode"

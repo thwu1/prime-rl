@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of LP modeling and network flow theory. The solver must: (1) recognize that node capacity constraints cannot be handled by standard network flow algorithms and require an LP formulation, (2) write syntactically valid GMPL model files with correct declarations for sets, parameters, variables, objectives, and constraints, (3) correctly model node throughput limits as linear constraints, (4) devise a strategy to optimize for both maximum flow and minimum cost simultaneously, (5) use the glpsol CLI tool with correct flags to produce solution output, (6) parse glpsol output to extract integer flow values, and (7) orchestrate the entire pipeline across multiple test cases of varying complexity. The multi-tool interoperability (Python/shell scripting + GMPL modeling language + glpsol CLI) and unfamiliarity of GMPL syntax make this well beyond typical engineering tasks."""
+solution_explanation = """The solution uses a Python script that generates GMPL model files and orchestrates glpsol. For each test case: Phase 1 writes a GMPL model that maximizes total source outflow subject to flow conservation, edge capacity, and node capacity constraints, then runs glpsol to obtain the maximum flow value. Phase 2 writes a GMPL model that minimizes total cost subject to the same constraints plus a fixed total flow equal to the Phase 1 optimum, then runs glpsol to obtain the minimum-cost flow assignment. GMPL printf statements in the models output structured FLOW lines that the Python script parses to extract edge flow values. All GMPL and solution files are preserved as artifacts."""
+verification_explanation = """Tests verify: (1) exact max_flow and min_cost values for each of four test cases of increasing size, (2) flow conservation at every internal node, (3) edge capacity constraints, (4) node capacity constraints, (5) consistency between reported values and actual edge_flows, (6) existence and validity of GMPL model files containing LP modeling constructs, and (7) existence of glpsol solution output files — ensuring the solver actually used GLPK rather than a pure-code approach."""
+category = "algorithms"
+tags = ["network-flow", "linear-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/node-capacity-mcmf"

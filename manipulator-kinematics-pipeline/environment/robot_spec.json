@@ -1,0 +1,17 @@
+{
+    "name": "RBX-600",
+    "dh_convention": "standard",
+    "description": "Custom 6-DOF serial manipulator with standard DH parameters. T_i(theta) = Rz(theta + theta_offset) * Tz(d) * Tx(a) * Rx(alpha)",
+    "links": [
+        {"a": 0.0,   "alpha": 1.5707963267948966, "d": 0.340, "theta_offset": 0.0},
+        {"a": 0.400, "alpha": 0.0,                 "d": 0.0,   "theta_offset": 0.0},
+        {"a": 0.040, "alpha": 1.5707963267948966,  "d": 0.0,   "theta_offset": 0.0},
+        {"a": 0.0,   "alpha": -1.5707963267948966, "d": 0.400, "theta_offset": 0.0},
+        {"a": 0.0,   "alpha": 1.5707963267948966,  "d": 0.0,   "theta_offset": 0.0},
+        {"a": 0.0,   "alpha": 0.0,                 "d": 0.126, "theta_offset": 0.0}
+    ],
+    "joint_limits": {
+        "lower": [-2.9671, -2.0944, -2.9671, -2.9671, -2.0944, -2.9671],
+        "upper": [2.9671, 2.0944, 2.9671, 2.9671, 2.0944, 2.9671]
+    }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of OSPF routing protocol mechanics (passive-interface semantics, distribute-list/prefix-list interaction, network statement matching) and network engineering best practices (defense-in-depth, principle of least privilege for route advertisement scope, bogon filtering). The solver must go beyond mechanical fault-finding: it must critically evaluate two plausible but flawed remediation proposals, identify subtle regressions that automated validators miss (security filter removal, overly broad OSPF network statements), judge each proposal's overall suitability, and synthesize a correct solution that avoids all pitfalls."""
+solution_explanation = """Plan A fixes all 3 original faults but introduces 2 regressions: (1) removes 'no passive-interface eth0' from dist_rtr3, breaking its OSPF adjacency with core_rtr, and (2) removes the BOGON_FILTER prefix-list, weakening route filtering security posture. Plan B fixes the distribute-list and network statement faults but (1) misses the dist_rtr2 passive-interface fault entirely, and (2) replaces the network typo with an overly broad 10.0.0.0/8 statement that violates least privilege. The correct solution: add 'no passive-interface eth0' on dist_rtr2, remove only the distribute-list (not the prefix-lists) on core_rtr, and correct dist_rtr1's network statement to the specific 10.1.0.0/24."""
+verification_explanation = """Tests verify: (1) corrected configs pass the FRR validator (transit interfaces non-passive, all subnets in OSPF, no blocked host routes), (2) BOGON_FILTER is preserved, (3) no overly broad network statements, (4) evaluation.json correctly identifies Plan A's regressions (dist_rtr3 passive, bogon removal), Plan B's missed fault (dist_rtr2) and overly broad network, and (5) neither plan is recommended for acceptance as-is."""
+category = "networking"
+tags = ["ospf", "frr"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-fault-forensics"

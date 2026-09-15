@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete multi-criteria decision analysis (MCDA) engine for geospatial suitability from specification with no starter code. The solver must implement: (1) AHP eigenvalue-based weight computation with consistency ratio validation (operations research / decision theory); (2) four distinct fuzzy membership normalization functions including circular Gaussian for aspect data handling 0/360 degree wrap-around (fuzzy set theory + circular statistics); (3) Jenks natural breaks classification via Fisher DP algorithm (computational geography); (4) connected component extraction for contiguous site identification with minimum area filtering (spatial analysis); (5) one-at-a-time sensitivity analysis with proportional weight renormalization (uncertainty analysis). Requires deep understanding of how these methods interact: incorrect AHP yields wrong priorities, wrong normalization distorts criterion contributions, missing constraint enforcement places sites in unsuitable areas, incorrect angular distance computation mishandles aspect, and flawed Jenks classification produces meaningless suitability classes."""
+solution_explanation = """Implement ~300 lines: parse criteria.json; compute AHP weights via power iteration on the pairwise comparison matrix validating CR < 0.10 using the RI table; read each criterion raster with rasterio; normalize — linear cost/benefit with clamping, sigmoidal logistic decay, circular Gaussian using angular distance with 0/360 wrap, categorical lookup; compute weighted linear combination; apply constraint masks from protection, flood, and landcover-derived exclusions; classify via Jenks natural breaks (Fisher DP with subsampling); extract contiguous sites via connected components filtering by minimum area and ranking by mean suitability; vectorize to GeoJSON; perform OAT sensitivity by perturbing each weight +/-10% with proportional renormalization."""
+verification_explanation = """Tests verify: raster output properties (CRS, dimensions, resolution, value range [0,1]); constraint enforcement at specific known pixels — protected area, flood zone, urban, and water pixels must have suitability=0; positive suitability at a known suitable pixel in the barren area near a road; AHP weights matching expected eigenvalue-derived values within tolerance (slope and irradiance ~0.319, road ~0.184, aspect ~0.110, landcover ~0.069 with CR < 0.10); classified raster with exactly 5 non-zero classes in monotonic suitability order; GeoJSON sites meeting minimum area threshold with all required properties and valid geometries; report containing sensitivity analysis with non-zero deltas; normalized criterion values within [0,1] bounds."""
+category = "geospatial"
+tags = ["mcda", "gis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raster-spectral-pipeline"

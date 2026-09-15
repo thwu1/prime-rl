@@ -1,0 +1,22 @@
+# SSH Server Configuration - Managed by Ansible
+# Do not edit manually
+
+Port {{ ssh_port }}
+ListenAddress 0.0.0.0
+Protocol 2
+
+# Authentication
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+MaxAuthTries {{ ssh_max_auth_tries }}
+ClientAliveInterval {{ ssh_client_alive_interval }}
+ClientAliveCountMax {{ ssh_client_alive_count_max }}
+
+# Security
+X11Forwarding no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+UsePAM yes

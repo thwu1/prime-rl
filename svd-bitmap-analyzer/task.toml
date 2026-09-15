@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CMSIS-SVD specification semantics and the svd2rust code generation pipeline. The solver must simultaneously: (1) reconcile an SVD against a hardware reference to identify 7 distinct discrepancies spanning field geometries, modifiedWriteValues semantics, register array dimensions, address overlaps, and peripheral inheritance; (2) evaluate a pre-computed codegen decision manifest for correctness against the original SVD, identifying 10+ computational errors in write-effect bitmap computation, field safety classification, overlap detection, and peripheral derivation resolution — this requires independently deriving the correct values and judging where the manifest went wrong; (3) produce the correct codegen analysis for the fixed SVD, including proper one_to_modify/zero_to_modify bitmap computation with register-to-field MWV cascade, field-level override handling, field array expansion, and derived peripheral resolution; (4) design a novel write-hazard assessment that identifies registers where mixed write-effect semantics create risk of unintended side effects — a synthesis judgment that goes beyond applying any single algorithm."""
+solution_explanation = """Parse the SVD with ElementTree. Fix 7 discrepancies against hwref (PRESCALER bitWidth 5→4, ICLR MWV oneToClear→oneToSet, CCR dim 4→3, MSIZE bitWidth 2→3, ALT_CFG offset 0x14→0x18, ODR MWV oneToToggle→removed, GPIOB missing LOCKR). Audit the proposed_codegen.json by independently computing correct values for the original SVD: TIMER0.CR bitmaps wrong (fields without MWV lumped into one_to_modify, zero_to_modify empty), TIMER0.ICLR field overrides ignored, CCR not expanded, GPIOA.ODR register MWV ignored, DMA overlap missed, MODE/DIR/PSIZE/MSIZE safety wrong (incomplete enum coverage or no constraints treated as safe), PRESCALER safety wrong (full-range constraint is safe not range), GPIOB inheritance empty. Compute corrected codegen from fixed SVD with proper bitmap algorithm, expanded register arrays, resolved derivation. Identify CR and ICLR as hazardous registers (multiple distinct write-effect types among their fields)."""
+verification_explanation = """Tests verify all four outputs: (1) Fixed SVD structure — each discrepancy correction checked individually (bitWidths, MWV values, dim counts, offsets, removed elements, added registers); (2) Codegen audit — minimum error count, presence of key error categories (bitmap/safety/overlap/inheritance/expansion), specific error locations validated; (3) Corrected codegen — exact bitmap hex values verified for key registers (TIMER0.CR zero_to_modify=0x000f0000/one_to_modify=0x0f000f01, TIMER0.ICLR with field overrides, expanded CCR0-CCR2, GPIOB inherited bitmaps), field safety classifications checked, overlap resolution verified, derived register lists validated; (4) Hazard assessment — exactly 2 hazardous registers identified (TIMER0.CR and TIMER0.ICLR), correct write-effect type sets verified, bitmap values cross-checked."""
+category = "embedded_systems"
+tags = ["svd", "codegen-audit", "write-safety"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/svd-bitmap-analyzer"

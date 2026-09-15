@@ -1,0 +1,23 @@
+webEgress:
+  enabled: true
+  apiPort: 8080
+  externalPort: 443
+  dnsPort: 53
+  internalCIDR: "10.0.0.0/8"
+  internalCIDRExcept:
+    - "10.0.1.30/32"
+
+apiEgress:
+  enabled: true
+  dbPort: 5432
+  cachePort: 6379
+  webPort: 3000
+  denyExternalCIDR: "0.0.0.0/0"
+  denyExternalExcept:
+    - "10.0.0.0/8"
+
+debugUnrestricted:
+  enabled: true
+  selectorApp: debug
+  defaultDenyIngress: false
+  defaultDenyEgress: false

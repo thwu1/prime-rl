@@ -1,0 +1,203 @@
+{
+    "id": "root-gamma",
+    "requirements": "Paper Gamma has been reproduced",
+    "weight": 1,
+    "sub_tasks": [
+        {
+            "id": "prereqs",
+            "requirements": "Prerequisites are available",
+            "weight": 1,
+            "sub_tasks": [
+                {
+                    "id": "dep_a",
+                    "requirements": "Dependency A is set up",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                },
+                {
+                    "id": "dep_b",
+                    "requirements": "Dependency B is set up",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                },
+                {
+                    "id": "dep_c",
+                    "requirements": "Dependency C is set up",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                }
+            ]
+        },
+        {
+            "id": "core_method",
+            "requirements": "Core method has been implemented",
+            "weight": 5,
+            "sub_tasks": [
+                {
+                    "id": "arch",
+                    "requirements": "Architecture has been implemented",
+                    "weight": 3,
+                    "sub_tasks": [
+                        {
+                            "id": "backbone",
+                            "requirements": "Backbone network has been implemented",
+                            "weight": 2,
+                            "sub_tasks": [
+                                {
+                                    "id": "layer1",
+                                    "requirements": "Layer 1 is implemented correctly",
+                                    "weight": 1,
+                                    "sub_tasks": [],
+                                    "task_category": "Code Development"
+                                },
+                                {
+                                    "id": "layer2",
+                                    "requirements": "Layer 2 is implemented correctly",
+                                    "weight": 4,
+                                    "sub_tasks": [],
+                                    "task_category": "Code Development"
+                                },
+                                {
+                                    "id": "layer3",
+                                    "requirements": "Layer 3 is implemented correctly",
+                                    "weight": 1,
+                                    "sub_tasks": [],
+                                    "task_category": "Code Development"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "head",
+                            "requirements": "Prediction head is implemented correctly",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Code Development"
+                        }
+                    ]
+                },
+                {
+                    "id": "loss",
+                    "requirements": "Loss function is implemented correctly",
+                    "weight": 2,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                },
+                {
+                    "id": "optimizer",
+                    "requirements": "Optimizer is configured correctly",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Code Development"
+                }
+            ]
+        },
+        {
+            "id": "experiments",
+            "requirements": "Experiments have been executed",
+            "weight": 3,
+            "sub_tasks": [
+                {
+                    "id": "exp_a",
+                    "requirements": "Experiment A has been executed",
+                    "weight": 2,
+                    "sub_tasks": [
+                        {
+                            "id": "setup_a",
+                            "requirements": "Experiment A setup is correct",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        },
+                        {
+                            "id": "run_a",
+                            "requirements": "Experiment A has been run to completion",
+                            "weight": 3,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        }
+                    ]
+                },
+                {
+                    "id": "exp_b",
+                    "requirements": "Experiment B has been executed",
+                    "weight": 1,
+                    "sub_tasks": [
+                        {
+                            "id": "setup_b",
+                            "requirements": "Experiment B setup is correct",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        },
+                        {
+                            "id": "run_b",
+                            "requirements": "Experiment B has been run to completion",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Execution"
+                        }
+                    ]
+                },
+                {
+                    "id": "exp_c",
+                    "requirements": "Experiment C has been executed",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Execution"
+                }
+            ]
+        },
+        {
+            "id": "results",
+            "requirements": "Results match the paper",
+            "weight": 4,
+            "sub_tasks": [
+                {
+                    "id": "table_1",
+                    "requirements": "Table 1 results match",
+                    "weight": 3,
+                    "sub_tasks": [
+                        {
+                            "id": "row_1",
+                            "requirements": "Table 1 Row 1 results match",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Result Match"
+                        },
+                        {
+                            "id": "row_2",
+                            "requirements": "Table 1 Row 2 results match",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Result Match"
+                        },
+                        {
+                            "id": "row_3",
+                            "requirements": "Table 1 Row 3 results match",
+                            "weight": 1,
+                            "sub_tasks": [],
+                            "task_category": "Result Match"
+                        }
+                    ]
+                },
+                {
+                    "id": "table_2",
+                    "requirements": "Table 2 results match the paper",
+                    "weight": 2,
+                    "sub_tasks": [],
+                    "task_category": "Result Match"
+                },
+                {
+                    "id": "figure_1",
+                    "requirements": "Figure 1 results match the paper",
+                    "weight": 1,
+                    "sub_tasks": [],
+                    "task_category": "Result Match"
+                }
+            ]
+        }
+    ]
+}

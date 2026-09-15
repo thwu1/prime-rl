@@ -1,0 +1,117 @@
+DEPARTMENT OF THE TREASURY -- INTERNAL REVENUE SERVICE
+FORM 1040 INSTRUCTIONS -- TAX YEAR 2025
+DRAFT -- FOR SOFTWARE TESTING PURPOSES
+
+STANDARD DEDUCTION
+
+Most taxpayers have a choice of either taking a standard deduction or
+itemizing their deductions. If you do not itemize, you are entitled to
+a standard deduction based on your filing status:
+
+  Filing Status                                    Standard Deduction
+  ---------------------------------------------------------------
+  Single or Married Filing Separately              $15,750
+  Married Filing Jointly or Qualifying
+    Surviving Spouse (QSS)                          $31,500
+  Head of Household                                $23,625
+
+LINE INSTRUCTIONS
+
+Line 1a -- Total amount from Form(s) W-2, box 1. Enter the total of
+  all wages, salaries, tips, etc. reported on your W-2 form(s). If
+  you have multiple W-2 forms, add all box 1 amounts together.
+
+Line 1z -- Add lines 1a through 1h. For most taxpayers with only
+  W-2 wage income, this equals line 1a.
+
+Line 2b -- Taxable interest. Enter your total taxable interest from
+  Form(s) 1099-INT.
+
+Line 3a -- Qualified dividends. Enter qualified dividends from
+  Form(s) 1099-DIV, box 1b. These dividends may qualify for lower
+  tax rates. See the Qualified Dividends and Capital Gain Tax
+  Worksheet in the separate worksheet instructions.
+
+Line 3b -- Ordinary dividends. Enter total ordinary dividends from
+  Form(s) 1099-DIV, box 1a. NOTE: Ordinary dividends (line 3b)
+  include qualified dividends (line 3a). Do not subtract qualified
+  dividends from ordinary dividends.
+
+Line 7 -- Capital gain or (loss). If you sold or exchanged capital
+  assets, complete Schedule D and enter the amount from Schedule D,
+  line 16. If you had no capital gain or loss activity, enter 0.
+
+Line 9 -- Total income. Add lines 1z, 2b, 3b, 4b, 5b, 6b, 7, and 8.
+
+Line 10 -- Adjustments to income from Schedule 1, line 26. Enter
+  adjustments such as educator expenses, IRA deduction, student loan
+  interest deduction, etc. If none, enter 0.
+
+Line 11a -- Adjusted gross income. Subtract line 10 from line 9.
+  This is your adjusted gross income (AGI).
+
+Line 12e -- Standard deduction or itemized deductions. Enter your
+  standard deduction amount from the table above, or your itemized
+  deductions from Schedule A if you choose to itemize.
+
+Line 14 -- Add lines 12e, 13a, and 13b. For most taxpayers without
+  qualified business income deduction, this equals line 12e.
+
+Line 15 -- Taxable income. Subtract line 14 from line 11a. If the
+  result is zero or less, enter 0.
+
+Line 16 -- Tax. See the separate Tax Rate Schedules to compute your
+  tax. If you have qualified dividends (line 3a > 0) or eligible
+  capital gains, you may be able to use the Qualified Dividends and
+  Capital Gain Tax Worksheet to figure a lower tax. See that
+  worksheet for the conditions under which it applies.
+
+Line 17 -- Amount from Schedule 2, line 3. This includes alternative
+  minimum tax and other additions. If you have no Schedule 2 Part I
+  amounts, enter 0.
+
+Line 18 -- Add lines 16 and 17.
+
+Line 19 -- Child tax credit or credit for other dependents from
+  Schedule 8812. If not applicable, enter 0.
+
+Line 20 -- Amount from Schedule 3, line 8. This is the total of your
+  nonrefundable credits (including energy credits). If you have no
+  Schedule 3 credits, enter 0.
+
+Line 21 -- Add lines 19 and 20.
+
+Line 22 -- Subtract line 21 from line 18. If the result is zero or
+  less, enter 0.
+
+Line 23 -- Other taxes, including self-employment tax and household
+  employment taxes, from Schedule 2, line 21. If you have no other
+  taxes, enter 0.
+
+Line 24 -- Total tax. Add lines 22 and 23.
+
+Line 25a -- Federal income tax withheld from Form(s) W-2, box 2.
+  Add all box 2 amounts from your W-2 form(s).
+
+Line 25d -- Total federal income tax withheld. Add lines 25a
+  through 25c. For most taxpayers with only W-2 withholding, this
+  equals line 25a.
+
+Line 33 -- Total payments. Add lines 25d, 26, and 32. For most
+  taxpayers with only W-2 withholding, this equals line 25d.
+
+Line 34 -- Overpaid. If line 33 is more than line 24, subtract
+  line 24 from line 33. This is the amount you overpaid (refund).
+  If line 33 is not more than line 24, enter 0.
+
+Line 37 -- Amount you owe. If line 24 is more than line 33, subtract
+  line 33 from line 24. This is the amount you owe.
+  If line 24 is not more than line 33, enter 0.
+
+ROUNDING RULES
+
+All dollar amounts on your return must be rounded to the nearest
+whole dollar. For amounts that end in exactly 50 cents, round up
+to the next dollar. For example, $1,234.50 rounds to $1,235, and
+$1,234.49 rounds to $1,234. This rounding rule applies to all
+computations throughout all forms and schedules.

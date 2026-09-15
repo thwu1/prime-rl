@@ -1,0 +1,10 @@
+# Variant 2: Green table background
+# Modified table texture to test visual robustness
+task,RT-1,RT-1-X,Octo-Base,Octo-Small,PolicyX
+pick_coke_can,0.68,0.72,0.45,0.35,0.40
+move_near,0.50,0.58,0.38,0.30,0.42
+open_drawer,0.35,0.40,0.32,0.28,0.30
+close_drawer,0.70,0.75,0.55,NaN,0.50
+stack_blocks,0.30,0.28,0.40,0.18,0.20
+pick_apple,0.62,0.52,0.40,0.38,0.44
+push_buttons,0.45,0.42,0.35,0.48,0.38

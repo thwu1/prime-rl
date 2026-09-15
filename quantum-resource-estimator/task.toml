@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantum error correction knowledge to diagnose subtle numerical bugs in a C library by comparing log output against surface code physics (exponent off-by-one in logical error rate, wrong power in distillation base case). The solver must fix C code, repair a broken Makefile, compile a shared library, integrate it via Python ctypes, query a SQLite database for parameters, derive factory provisioning formulas from throughput constraints for two distinct distillation protocols (15-to-1 and 20-to-4 Golay), and determine which protocol minimizes total physical qubits for each algorithm — a non-trivial optimization where the optimal choice varies across algorithms."""
+solution_explanation = """Diagnose bugs by comparing log p_L and p_T values against protocols.md formulas: (1) p_L uses exponent (d-1)/2 instead of d/2+1 (off-by-one), (2) 15-to-1 distillation uses p^2 instead of p^3. Fix C source, add -fPIC and change -shared-lib to -shared in Makefile. Compile libqec.so, load via ctypes. Query SQLite for hardware/algorithm params. Derive factory counts: F_A=ceil(T*5k/D) for 15-to-1, F_B=ceil(T*3k/D) for 20-to-4. Compare q_total for both protocols per algorithm. Result: small_qpe uses 15-to-1 (both k=1, A has smaller factories), medium_chem uses 20-to-4 (B achieves k=1 vs A's k=2), large_factoring uses 15-to-1 (both k=2, A has smaller factories)."""
+verification_explanation = """Tests verify: (1) compiled libqec.so exists and exports correct function values via ctypes, (2) output JSON contains correct resource estimates for all three algorithms with exact integer matches and <1e-6 relative tolerance for floats, (3) optimal protocol selection is correct for each algorithm, (4) physical consistency checks (qubit additivity, spacetime volume)."""
+category = "quantum_computing"
+tags = ["fault-tolerant-qc", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-resource-estimator"

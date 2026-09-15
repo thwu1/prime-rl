@@ -1,0 +1,11 @@
+function double(n) {
+  r := n * 2;
+  return r;
+}
+
+function main() {
+  a := double(5);
+  b := double(0 - 3);
+  c := a * b;
+  return c;
+}

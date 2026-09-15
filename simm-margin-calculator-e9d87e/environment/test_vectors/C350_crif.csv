@@ -1,0 +1,3 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+RatesFX,Risk_FXVol,USDGBP,,3m,,24000000,USD,24000000
+RatesFX,Risk_FXVol,GBPUSD,,1y,,100000000,USD,100000000

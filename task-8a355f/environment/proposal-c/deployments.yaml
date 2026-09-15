@@ -1,0 +1,272 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-frontend
+  labels:
+    name: prod-frontend
+    environment: production
+    team: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-backend
+  labels:
+    name: prod-backend
+    environment: production
+    team: backend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-data
+  labels:
+    name: prod-data
+    environment: production
+    team: data
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    environment: production
+    team: platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: prod-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        tier: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-app
+  namespace: prod-frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: react-app
+  template:
+    metadata:
+      labels:
+        app: react-app
+        tier: web
+    spec:
+      containers:
+      - name: react-app
+        image: node:20-slim
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: prod-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+        tier: backend
+    spec:
+      containers:
+      - name: api-server
+        image: python:3.12-slim
+        ports:
+        - containerPort: 8443
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: prod-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+        tier: backend
+    spec:
+      containers:
+      - name: worker
+        image: python:3.12-slim
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: prod-data
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: data
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16
+        ports:
+        - containerPort: 5432
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: prod-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: data
+    spec:
+      containers:
+      - name: redis
+        image: redis:7
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        tier: monitoring
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.48.0
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        tier: monitoring
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.2.0
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

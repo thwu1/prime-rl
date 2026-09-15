@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep pharmacometrics domain knowledge (compartmental PK modeling, NONMEM-style event handling, MAP Bayes estimation theory), numerical computing expertise (stiff ODE solving with event-driven discontinuities, infusion scheduling, steady-state convergence), and optimization skills. The solver must discover the model specification (including allometric covariate relationships) from model.json, learn event semantics from nmtran_events.md, and derive the MAP Bayes objective function from the error model. Correct implementation of interacting event features (SS with infusions, ALAG with ADDL, EVID=4 with ADDL, F1 with infusion duration, weight-based allometric scaling) and multi-subject simulation requires understanding the full NONMEM dosing specification and compositional pharmacometrics."""
+solution_explanation = """The solution implements: (1) an ODE system for 2-compartment kinetics with first-order absorption and allometric covariate scaling (CL ~ WT^0.75, V1 ~ WT), solved via scipy LSODA; (2) event-driven simulation using a priority queue of events (bolus, infusion start/end, reset, SS advance, observations) sorted by time and type; (3) steady-state advancement via iterative dosing until convergence; (4) MAP Bayes estimation via Nelder-Mead optimization of the OFV combining proportional-error weighted residuals with the eta'*Omega_inv*eta prior penalty. Key details: model.json is parsed for theta, omega matrix, sigma, and covariate definitions; nmtran_events.md defines the event processing semantics; infusion events split into start/end pairs; ADDL expansion generates individual dose events with lag time offsets; F1 scales effective amount and infusion duration; weight covariate is extracted per subject."""
+verification_explanation = """Tests verify: (1) ODE accuracy against analytical 2-compartment solutions for IV bolus and oral doses (0.2% tolerance); (2) ADDL/II expansion via accumulation and superposition verification; (3) infusion dynamics; (4) bioavailability halving exposure; (5) lag time delaying absorption; (6) steady-state higher than single dose; (7) EVID=3 reset zeroing compartments; (8) EVID=4 reset-then-dose; (9) MAP Bayes recovering known ETAs and achieving lower OFV; (10) weight-based allometric scaling producing correct profiles at different weights; (11) multi-subject independence with and without different covariates; (12) ALAG+ADDL interaction with superposition verification; (13) SS with infusion convergence; (14) EVID=4 with ADDL superposition; (15) multi-subject MAP Bayes estimating independent ETAs."""
+category = "applied_computing"
+tags = ["pharmacometrics", "numerical-optimization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pk-mapbayes-engine"

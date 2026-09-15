@@ -1,0 +1,19 @@
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 3112 at drivers/gpu/drm/drm_mode.c:55 drm_mode_setcrtc+0x1f4/0x350
+Modules linked in:
+CPU: 0 UID: 0 PID: 3112 Comm: syz.4.0 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+RIP: 0010:drm_mode_setcrtc+0x1f4/0x350 drivers/gpu/drm/drm_mode.c:55
+Code: 0f 84 d2 00 00 00 48 8b 43 48 48 85 c0 74 1a f6 40 20 01 74 0e
+RSP: 0018:ffffc9000b127c30 EFLAGS: 00010202
+RAX: 0000000000000003 RBX: ffff88801b201800 RCX: 0000000000000000
+Call Trace:
+ <TASK>
+ drm_ioctl+0x234/0x8c0 drivers/gpu/drm/drm_ioctl.c:893
+ vfs_ioctl fs/ioctl.c:51 [inline]
+ __do_sys_ioctl fs/ioctl.c:904 [inline]
+ __se_sys_ioctl+0x107/0x170 fs/ioctl.c:890
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+---[ end trace 0000000000000000 ]---

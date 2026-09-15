@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of: (1) the Flash Attention online/tiled softmax algorithm — the core mathematical insight of rescaling running accumulators when the running maximum changes; (2) five distinct attention mask patterns (Full, Causal, SlidingWindow, Chunkwise, PrefixLM) each requiring correct tight analytical range bounds and tile-level range intersection for loop-splitting optimization; (3) numerical edge cases including NaN propagation from -inf arithmetic, all-masked tiles, and variable-length sequence handling; (4) implementing a mask verification system that checks analytical bounds against brute-force computation. The combination of algorithm, mask system, and numerical stability makes this well beyond undergraduate level."""
+solution_explanation = """Implement all 5 mask classes with element-wise mask functions, tight k_range_for_q/q_range_for_k bounds, and k_full_range_for_q_tile as the intersection of per-query ranges. Implement naive_attention with full T×T materialization and numerically stable softmax. Implement tiled_attention using online softmax: maintain per-query running max (m_i), running sum of exponentials (l_i), and running weighted accumulator (acc); for each key tile, update via rescaling (alpha = exp(old_max - new_max)). Use mask range functions to bound the key tile iteration. Handle NaN from -inf - (-inf) via nan_to_num. Implement verify_mask to check bounds tightness and full-range correctness."""
+verification_explanation = """Tests verify: (1) each mask's pattern against hardcoded expected matrices; (2) verify_mask passes for all masks at multiple sizes (checks analytical bounds are tight and full ranges are fully unmasked); (3) tiled_attention matches naive_attention within 1e-10 atol across all mask types, shapes (including non-power-of-2), tile sizes, and variable-length configurations; (4) output is zero at masked positions; (5) numerical stability with large input values; (6) analytical identity test (SlidingWindow(0,0) output == V); (7) batch independence."""
+category = "machine_learning"
+tags = ["attention-mechanisms", "numerical-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-03129a"

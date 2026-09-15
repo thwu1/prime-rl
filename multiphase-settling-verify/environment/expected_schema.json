@@ -1,0 +1,33 @@
+{
+  "verification": {
+    "drag": {
+      "Re_<value>": "<float: drag coefficient at this Reynolds number>"
+    },
+    "settling": {
+      "terminal_velocity": "<float: single-particle terminal velocity in m/s>",
+      "reynolds_number": "<float: particle Reynolds number>",
+      "fronts": [
+        {
+          "eps_s0": "<float: initial solid volume fraction>",
+          "settling_front": "<float: position in meters at eval_time>",
+          "filling_front": "<float: position in meters at eval_time>",
+          "hindered_velocity": "<float: hindered settling velocity in m/s>"
+        }
+      ]
+    },
+    "mms": {
+      "l2_norms": {
+        "<N>": "<float: L2 error norm at grid level N>"
+      },
+      "observed_orders": {
+        "<N1>_to_<N2>": "<float: observed spatial convergence order>"
+      }
+    }
+  },
+  "audit": {
+    "<run_id>": {
+      "status": "<string: 'correct' or 'defective'>",
+      "defect_type": "<null for correct runs, or descriptive string for defective runs>"
+    }
+  }
+}

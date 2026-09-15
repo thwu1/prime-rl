@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of UML statechart transition semantics — specifically hierarchical state machines with function-pointer-based state representation, dynamic superstate queries via signal dispatch, and correct exit/entry action sequencing across arbitrary nesting depths. Three engine functions must be designed and implemented from scratch with no algorithmic guidance: (1) hsm_init with initial-pseudostate drill-down cascades, (2) hsm_dispatch with LCA computation, guard-condition propagation (HSM_UNHANDLED), and ordered exit/entry sequencing for all transition types (sibling, cross-hierarchy, self, to-ancestor, to-composite), and (3) hsm_is_in with non-destructive hierarchy traversal that preserves engine invariants. Multiple interacting edge cases must be handled correctly across three distinct state machine topologies with guard-conditional event propagation. No build system is provided, requiring the solver to determine compilation commands and memory safety tooling (ASan, UBSan, Valgrind)."""
+solution_explanation = """Study the header interface to understand the signal-based hierarchy encoding and handler return value protocol. Analyze all three test state machine topologies and their expected traces to reverse-engineer the required transition semantics. Design and implement internal helpers for hierarchy traversal (superstate queries via HSM_SIG_EMPTY), ancestor chain construction, LCA computation, and ordered exit/entry action sequencing. The dispatch algorithm must walk the hierarchy via HSM_SUPER/HSM_UNHANDLED, compute the LCA of the transition source (the handler that returned HSM_TRAN) and target, exit from current state through the source to the LCA, enter from the LCA to the target, then follow initial-pseudostate chains. The hsm_is_in function must traverse ancestors without corrupting me->temp (restoring it after the query). Build all four test programs with gcc, verify correctness, then validate memory safety with ASan+UBSan and Valgrind memcheck."""
+verification_explanation = """Eight pytest tests verify: (1) stub replacement check, (2) primary suite — 10 test cases over a 4-level hierarchy verifying exact entry/exit action traces, (3) secondary suite — 6 test cases on an independent 3-level topology ensuring generality, (4) guard suite — 8 test cases exercising HSM_UNHANDLED guard condition propagation through multiple hierarchy levels, (5) hsm_is_in suite — 14 assertions on state containment queries plus post-query dispatch integrity, (6-7) clean compilation and execution under ASan+UBSan across primary, guard, and is_in suites, (8) zero-error Valgrind memcheck on primary and guard suites."""
+category = "systems_programming"
+tags = ["state-machines", "embedded-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3d4752"

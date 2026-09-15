@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 interacting bugs across a multi-file Python encoding library by comparing code against a behavioral specification: incorrect asymmetric clamping on the first component, missing structured output layout logic with last-component positioning, absent single-bin unclamped special case, tree-based binning omitting data-range endpoints, flat encoding ignoring non-contiguous layout positions, and CLI format dispatch silently ignored. Bugs interact — fixing the structured layout exposes the flat extraction bug — requiring iterative diagnosis. Additionally, the solver must design and implement a GNU Makefile pipeline with encode, batch, report, sweep, and clean targets. The sweep target requires encoding at multiple bin counts with subdirectory management, shell loops within Make recipes, and JSON aggregation across runs, demanding non-trivial Make and multi-tool composition skills."""
+solution_explanation = """Fix bins.py: add feature min/max to tree-based bin edges. Fix encoder.py: (1) first component uses np.minimum(raw, 1.0) not np.clip(0,1), (2) single-bin features left unclamped, (3) last component placed at position max_n_bins-1 instead of sequentially, (4) flat extraction selects non-contiguous positions (leading 0..k-2 plus last at mb-1) instead of slicing :k. Fix ple_encode.py: dispatch on --format argument to call encode_flat when flat is requested. Create /app/Makefile with .PHONY targets: encode runs the CLI, batch runs CLI twice for structured and flat, report depends on batch and runs gen_report.py, sweep loops over bin counts {4,8,16,32,64} creating subdirectories and running dual encodings then gen_sweep.py for JSON summary, clean removes all generated artifacts including sweep subdirectories."""
+verification_explanation = """Pytest suite covers: bin computation (quantile deduplication, tree-based thresholds with range endpoints, input validation), encoding correctness against hand-computed expected values (basic, multi-feature, edge values, extrapolation), structured layout padding with heterogeneous bin counts, flat output via non-padding position extraction, single-bin unclamped special case, encoder properties, CLI end-to-end for both formats, GNU Makefile targets (encode, batch, report, clean), and sweep target (directory creation for 5 bin counts, JSON structure validation, numeric output matching direct library calls, flat_width consistency, cleanup of sweep subdirectories)."""
+category = "machine_learning"
+tags = ["debugging", "build-automation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/piecewise-linear-encoding-858705"

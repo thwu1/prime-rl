@@ -1,0 +1,142 @@
+{
+  "billing_groups": [
+    {
+      "id": "BG1",
+      "leader": "Bank3",
+      "members": ["Bank3", "Bank4", "Bank5"]
+    }
+  ],
+  "participants": [
+    {
+      "id": "AS1",
+      "type": "ancillary_system",
+      "service": "RTGS",
+      "pricing_option": "A",
+      "daily_gross_underlying_value_eur_millions": 1550,
+      "cash_transfer_orders": 4000
+    },
+    {
+      "id": "AS2",
+      "type": "ancillary_system",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "daily_gross_underlying_value_eur_millions": 47500,
+      "cash_transfer_orders": 66000
+    },
+    {
+      "id": "Bank1",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "payment_orders": 173000,
+      "addressable_bics": 2,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 2,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 3
+    },
+    {
+      "id": "Bank2",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "A",
+      "payment_orders": 3211,
+      "addressable_bics": 0,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 1,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 1,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 1
+    },
+    {
+      "id": "Bank3",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "B",
+      "payment_orders": 12345,
+      "addressable_bics": 0,
+      "unpublished_bics": 1,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 1,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 2
+    },
+    {
+      "id": "Bank4",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "A",
+      "payment_orders": 23456,
+      "addressable_bics": 0,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 2,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 1
+    },
+    {
+      "id": "Bank5",
+      "type": "payment_bank",
+      "service": "RTGS",
+      "pricing_option": "A",
+      "payment_orders": 987,
+      "addressable_bics": 0,
+      "unpublished_bics": 0,
+      "multi_addressee_bics": 0,
+      "liquidity_transfers_within_rtgs_cross_banking_group": 1,
+      "liquidity_transfers_rtgs_to_clm_cross_banking_group": 1
+    },
+    {
+      "id": "Bank6",
+      "type": "payment_bank",
+      "service": "T2S",
+      "messages_bundled_into_file": 265,
+      "transmissions": 1156,
+      "u2a_queries": 75,
+      "a2a_queries": 456,
+      "a2a_reports": 42670,
+      "internal_t2s_liquidity_transfers": 150,
+      "intra_balance_movements": 56
+    },
+    {
+      "id": "Bank7",
+      "type": "payment_bank",
+      "service": "T2S",
+      "messages_bundled_into_file": 68,
+      "transmissions": 456,
+      "u2a_queries": 35,
+      "a2a_queries": 132,
+      "a2a_reports": 7239,
+      "internal_t2s_liquidity_transfers": 42,
+      "intra_balance_movements": 14
+    },
+    {
+      "id": "PSP1",
+      "type": "psp",
+      "service": "TIPS",
+      "tips_dcas": 1,
+      "tips_dca_aau_bics": 1,
+      "settled_ip_originator": 555217,
+      "unsettled_ip_originator": 35439,
+      "settled_ip_beneficiary": 235600,
+      "unsettled_ip_beneficiary": 0,
+      "settled_recall_originator": 0,
+      "unsettled_recall_originator": 0,
+      "settled_recall_beneficiary": 0,
+      "unsettled_recall_beneficiary": 0
+    },
+    {
+      "id": "ACH1",
+      "type": "ach",
+      "service": "TIPS",
+      "tips_astas": 1,
+      "tips_asta_aau_bics": 1,
+      "internally_settled_ip": 10460654,
+      "settled_ip_originator": 0,
+      "unsettled_ip_originator": 0,
+      "settled_ip_beneficiary": 0,
+      "unsettled_ip_beneficiary": 0,
+      "settled_recall_originator": 0,
+      "unsettled_recall_originator": 0,
+      "settled_recall_beneficiary": 0,
+      "unsettled_recall_beneficiary": 0
+    }
+  ]
+}

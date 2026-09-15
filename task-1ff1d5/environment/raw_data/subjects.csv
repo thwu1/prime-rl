@@ -1,0 +1,9 @@
+subject_id,site_id,investigator,consent_date,enrollment_date,birth_date,gender,race_text,ethnicity_text,randomized_arm,first_dose_date,last_dose_date,end_participation_date,country
+001,SITE01,Dr. John Smith,2023-03-01,2023-03-14,1965-08-22,Male,White,Hispanic,DRUG_A,2023-03-15,2023-06-12,2023-06-26,US
+002,SITE01,Dr. John Smith,2023-03-04,2023-03-17,1972-11-03,Female,Black,Non-Hispanic,PLACEBO,2023-03-18,2023-06-15,2023-06-30,US
+003,SITE01,Dr. John Smith,2023-03-06,2023-03-19,1958-02-14,M,Asian,Not Hispanic or Latino,DRUG_A,2023-03-20,2023-06-18,2023-07-02,US
+004,SITE02,Dr. Maria Garcia,2023-03-15,2023-03-31,1980-05-30,F,white,Hispanic or Latino,PLACEBO,2023-04-01,2023-06-28,2023-07-12,US
+005,SITE02,Dr. Maria Garcia,2023-03-08,2023-03-21,1990-01-15,Male,AFRICAN AMERICAN,Not Hispanic,DRUG_A,2023-03-22,2023-06-20,2023-07-04,US
+006,SITE02,Dr. Maria Garcia,2023-03-20,2023-04-04,1955-12-01,Female,Native Hawaiian or Other Pacific Islander,Non Hispanic or Latino,PLACEBO,2023-04-05,2023-07-03,2023-07-17,US
+007,SITE01,Dr. John Smith,2023-03-25,2023-04-09,,Male,White,NOT HISPANIC OR LATINO,DRUG_A,2023-04-10,2023-07-08,2023-07-22,US
+008,SITE02,Dr. Maria Garcia,2023-04-20,2023-05-04,1977-06-20,Female,BLACK OR AFRICAN AMERICAN,Not Hispanic or Latino,SCREEN_FAIL,,,,US

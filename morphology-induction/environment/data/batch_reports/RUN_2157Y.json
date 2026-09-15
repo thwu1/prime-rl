@@ -1,0 +1,49 @@
+{
+  "batch_id": "RUN_2157Y",
+  "run_date": "2157-07-22",
+  "operator": "Dr. K. Vasquez",
+  "protocol_version": "v3.2",
+  "qc_metrics": {
+    "read_quality": {
+      "mean_phred_score": 33.7,
+      "min_phred_score": 26.8,
+      "reads_above_q30_pct": 89.1,
+      "pass": true
+    },
+    "contamination_screen": {
+      "method": "kraken2_v2.1",
+      "foreign_reads_pct": 0.021,
+      "detection_threshold_pct": 5.0,
+      "organisms_flagged": [],
+      "pass": true
+    },
+    "coverage_uniformity": {
+      "mean_depth": 39.5,
+      "coefficient_of_variation": 0.201,
+      "target_cv_max": 0.30,
+      "pass": true
+    },
+    "library_complexity": {
+      "unique_fragments_pct": 90.2,
+      "duplication_rate": 0.098,
+      "pass": true
+    }
+  },
+  "instrument_diagnostics": {
+    "post_hoc_review": true,
+    "calibration_drift_detected": true,
+    "affected_instrument": "ESI-QTOF-2",
+    "drift_magnitude_ppm": 15.7,
+    "acceptable_drift_ppm": 3.0,
+    "impact": "Mass accuracy degraded beyond acceptable threshold. All protein identifications from this run are unreliable."
+  },
+  "overall_qc": "FAIL",
+  "failure_reasons": [
+    "Post-hoc instrument calibration drift detected on ESI-QTOF-2",
+    "Protein mass accuracy degraded beyond acceptable threshold"
+  ],
+  "reviewer": "Dr. L. Chen",
+  "review_date": "2157-08-05",
+  "notes": "QC metrics appeared acceptable during sequencing, but post-hoc review revealed calibration drift in the mass spectrometer. All protein identifications from this batch must be discarded.",
+  "corrective_action": "ESI-QTOF-2 recalibrated on 2157-08-10. Samples re-queued for RUN_2158A/B."
+}

@@ -1,0 +1,110 @@
+{
+  "root_router_id": "1.1.1.1",
+  "areas": {
+    "0.0.0.0": {
+      "type": "normal",
+      "router_lsas": [
+        {
+          "router_id": "1.1.1.1",
+          "flags": 1,
+          "links": [
+            {"link_id": "10.0.12.1", "link_data": "10.0.12.1", "link_type": 2, "metric": 5},
+            {"link_id": "10.0.13.1", "link_data": "10.0.13.1", "link_type": 2, "metric": 5}
+          ]
+        },
+        {
+          "router_id": "2.2.2.2",
+          "flags": 0,
+          "links": [
+            {"link_id": "10.0.12.1", "link_data": "10.0.12.2", "link_type": 2, "metric": 5},
+            {"link_id": "10.0.23.2", "link_data": "10.0.23.2", "link_type": 2, "metric": 8},
+            {"link_id": "10.2.0.0", "link_data": "255.255.255.0", "link_type": 3, "metric": 1}
+          ]
+        },
+        {
+          "router_id": "3.3.3.3",
+          "flags": 2,
+          "links": [
+            {"link_id": "10.0.13.1", "link_data": "10.0.13.3", "link_type": 2, "metric": 5},
+            {"link_id": "10.0.23.2", "link_data": "10.0.23.3", "link_type": 2, "metric": 8},
+            {"link_id": "10.3.0.0", "link_data": "255.255.255.0", "link_type": 3, "metric": 1}
+          ]
+        }
+      ],
+      "network_lsas": [
+        {
+          "ls_id": "10.0.12.1",
+          "advertising_router": "1.1.1.1",
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["1.1.1.1", "2.2.2.2"]
+        },
+        {
+          "ls_id": "10.0.13.1",
+          "advertising_router": "1.1.1.1",
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["1.1.1.1", "3.3.3.3"]
+        },
+        {
+          "ls_id": "10.0.23.2",
+          "advertising_router": "2.2.2.2",
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["2.2.2.2", "3.3.3.3"]
+        }
+      ]
+    },
+    "0.0.0.1": {
+      "type": "normal",
+      "router_lsas": [
+        {
+          "router_id": "1.1.1.1",
+          "flags": 1,
+          "links": [
+            {"link_id": "10.1.14.1", "link_data": "10.1.14.1", "link_type": 2, "metric": 10}
+          ]
+        },
+        {
+          "router_id": "4.4.4.4",
+          "flags": 0,
+          "links": [
+            {"link_id": "10.1.14.1", "link_data": "10.1.14.4", "link_type": 2, "metric": 10},
+            {"link_id": "10.1.45.4", "link_data": "10.1.45.4", "link_type": 2, "metric": 10},
+            {"link_id": "10.4.0.0", "link_data": "255.255.255.0", "link_type": 3, "metric": 1}
+          ]
+        },
+        {
+          "router_id": "5.5.5.5",
+          "flags": 0,
+          "links": [
+            {"link_id": "10.1.45.4", "link_data": "10.1.45.5", "link_type": 2, "metric": 10},
+            {"link_id": "10.5.0.0", "link_data": "255.255.255.0", "link_type": 3, "metric": 1},
+            {"link_id": "10.99.99.1", "link_data": "255.255.255.255", "link_type": 3, "metric": 0, "is_loopback": false}
+          ]
+        }
+      ],
+      "network_lsas": [
+        {
+          "ls_id": "10.1.14.1",
+          "advertising_router": "1.1.1.1",
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["1.1.1.1", "4.4.4.4"]
+        },
+        {
+          "ls_id": "10.1.45.4",
+          "advertising_router": "4.4.4.4",
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["4.4.4.4", "5.5.5.5"]
+        }
+      ]
+    }
+  },
+  "external_lsas": [
+    {
+      "ls_id": "172.16.0.0",
+      "advertising_router": "3.3.3.3",
+      "network_mask": "255.255.0.0",
+      "metric_type": 1,
+      "metric": 2,
+      "forwarding_address": "0.0.0.0"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Table Accessibility Test Page</title></head>
+<body>
+<h1>Table Test Suite</h1>
+
+<!-- t1: Correct simple data table with scope-based header association -->
+<table id="t1">
+  <caption>Employee Directory</caption>
+  <tr>
+    <th scope="col">Name</th>
+    <th scope="col">Department</th>
+    <th scope="col">Extension</th>
+  </tr>
+  <tr>
+    <td>Alice Smith</td>
+    <td>Engineering</td>
+    <td>x1234</td>
+  </tr>
+  <tr>
+    <td>Bob Jones</td>
+    <td>Marketing</td>
+    <td>x5678</td>
+  </tr>
+</table>
+
+<!-- t2: Data table where a cell's headers attribute references a nonexistent id -->
+<table id="t2">
+  <tr>
+    <th id="t2_h1">Product</th>
+    <th id="t2_h2">Price</th>
+  </tr>
+  <tr>
+    <td headers="t2_h1">Widget A</td>
+    <td id="t2_bad" headers="t2_h2 t2_h3_missing">$19.99</td>
+  </tr>
+  <tr>
+    <td headers="t2_h1">Widget B</td>
+    <td headers="t2_h2">$29.99</td>
+  </tr>
+</table>
+
+<!-- t3: ARIA table where data cells are missing role="cell" -->
+<div id="t3" role="table" aria-label="Quarterly Revenue">
+  <div role="row">
+    <div role="columnheader">Q1</div>
+    <div role="columnheader">Q2</div>
+    <div role="columnheader">Q3</div>
+  </div>
+  <div role="row">
+    <div>$1.2M</div>
+    <div>$1.5M</div>
+    <div>$1.8M</div>
+  </div>
+</div>
+
+</body>
+</html>

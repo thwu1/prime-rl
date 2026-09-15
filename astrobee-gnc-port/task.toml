@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires faithfully porting a production aerospace GNC controller from C++/Eigen to Python by reading and understanding ~500 lines of tightly coupled control code with many subtle numerical conventions. The agent must also implement a compatible rigid-body dynamics simulation and couple it with the controller in a closed-loop. Numerous interacting numerical details (quaternion conventions, integration rates, filter state, mode logic, saturation limits, coordinate frame transforms) must all be simultaneously correct for the simulation to converge. Any single misinterpretation of the source code causes divergence or incorrect outputs."""
+solution_explanation = """Read and understand every function in ctl_src.cc, port them to Python using numpy/scipy, implement rigid-body plant dynamics (force/torque to motion), wire the controller and plant into a closed-loop simulation at the correct rate, run all scenarios from scenarios.json, and write results to results.json. The solution must handle all edge cases visible in the source: zero-quaternion guards, safe-divide, filter state persistence, mode history tracking, and per-axis vs magnitude saturation."""
+verification_explanation = """Tests verify both single-step analytical correctness and multi-step dynamic convergence. Single-step tests check that known position/attitude errors produce expected force/torque values (validating gain structure and error computation). Convergence tests run 1500-2000 step simulations and verify the robot reaches the target state within tight tolerances (validating the full closed-loop dynamics). Idle mode tests verify the controller outputs zero when localization confidence is low. These tests discriminate correct implementations from those with convention errors, wrong rates, or missing controller terms."""
+category = "robotics"
+tags = ["control-systems", "quaternion-math"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/astrobee-gnc-port"

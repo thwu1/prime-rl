@@ -1,0 +1,11 @@
+[evaluation]
+round_digits = 4
+significance_level = 0.05
+
+[evaluation.composite_weights]
+tolerance = 0.6
+fsa = 0.4
+
+[evaluation.bootstrap]
+n_resamples = 10000
+random_seed = 42

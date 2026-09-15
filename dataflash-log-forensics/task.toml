@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing three ArduPilot DataFlash binary flight logs, computing five weighted safety sub-scores from heterogeneous sensor streams, then performing causal fault chain reconstruction by classifying anomaly propagation through ArduPilot's sensor fusion architecture (vibration→IMU saturation→EKF divergence vs GPS loss→EKF position drift pathways), evaluating failsafe response timeliness against autonomous mode transition semantics, determining holistic vehicle airworthiness from multi-dimensional failure profiles, and synthesizing fleet-level operational recommendations that distinguish systemic fleet-wide defects from isolated vehicle failures. The solver must demonstrate expert understanding of how IMU acceleration saturation propagates through the Extended Kalman Filter's prediction step, why GPS quality degradation removes the EKF's primary observation correction source, and how to distinguish cascading secondary failures from independent faults — going well beyond procedural formula application to make evaluative judgments about flight safety and design fleet remediation strategies."""
+solution_explanation = """The solution uses pymavlink to parse each DataFlash binary log, then performs multi-layer analysis: (1) scoring — GPS quality distributions, EKF variance peaks, vibration envelope analysis, parameter compliance with last-write-wins semantics, mode transition stability; (2) causal forensics — detects anomaly timestamps (GPS Status<2, EKF Variance>FS_EKF_THRESH, VibeZ>30), orders them chronologically, classifies each as primary/secondary/independent by evaluating known causal pathways in the sensor fusion architecture; (3) failsafe evaluation — measures delay between first anomaly and first autonomous mode transition (Reason>=2) to judge response timeliness; (4) airworthiness — synthesizes fault chain presence with parameter compliance for holistic vehicle classification; (5) fleet synthesis — aggregates vehicle statuses with systemic issue analysis to determine fleet-level operational recommendation."""
+verification_explanation = """Tests verify all per-flight sub-scores, composites, risk levels, and root causes with tolerance-based matching. Fault chain tests validate event ordering, exact timestamps, and causal classifications (primary/secondary/independent) for each flight's unique failure profile — testing the solver's understanding of sensor fusion causality. Failsafe assessment tests check computed response delays and timeliness classifications. Airworthiness tests verify holistic determinations account for both sensor anomalies and parameter compliance. Fleet-level tests check airworthy/conditional/grounded counts and verify the operational recommendation correctly distinguishes systemic from isolated failures. Cross-flight tests validate risk ranking, systemic issue identification, corrective actions, and the EK3_CHECK_SCALE last-write-wins edge case."""
+category = "reverse_engineering"
+tags = ["flight-safety-forensics", "sensor-fusion-analysis"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dataflash-log-forensics"

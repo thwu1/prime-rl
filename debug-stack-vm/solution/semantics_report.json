@@ -1,0 +1,22 @@
+{
+  "ambiguities": [
+    {
+      "instruction": "SHR",
+      "question": "Does SHR perform arithmetic (sign-extending) or logical (zero-filling) right shift?",
+      "resolution": "arithmetic right shift (sign-extending)",
+      "evidence": "signed_ops.bin at offset 0x00 contains PUSH 0xFFF0 (-16) / PUSH 0x0002 (2) / SHR / PUTI. Expected output is -4. Arithmetic shift: (int16_t)(-16) >> 2 = -4. Logical shift: (uint16_t)(0xFFF0) >> 2 = 0x3FFC = 16380. Only arithmetic shift produces -4."
+    },
+    {
+      "instruction": "LT",
+      "question": "Does LT compare operands as signed two's-complement or unsigned integers?",
+      "resolution": "signed comparison",
+      "evidence": "signed_ops.bin contains PUSH 0xFFFB (-5) / PUSH 0x0003 (3) / LT / PUTI. Expected output is 1 (true). Signed interpretation: -5 < 3 is true, push 1. Unsigned interpretation: 65531 > 3, so 65531 < 3 is false, push 0. Only signed comparison produces 1."
+    },
+    {
+      "instruction": "MOD",
+      "question": "Does MOD compute signed (C-style truncated) or unsigned remainder?",
+      "resolution": "signed remainder (C truncation toward zero)",
+      "evidence": "signed_ops.bin contains PUSH 0xFFF9 (-7) / PUSH 0x0003 (3) / MOD / PUTI. Expected output is -1. Signed: (-7) % 3 = -1 (remainder has same sign as dividend per C99). Unsigned: 65529 % 3 = 0. Only signed modulo produces -1."
+    }
+  ]
+}

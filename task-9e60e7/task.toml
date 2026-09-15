@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in experimental particle physics and statistical data analysis. The agent must independently determine: (1) a numerically stable approach to recompute dimuon invariant mass from limited-precision CSV data, (2) appropriate physics-motivated event quality selections (the instruction does not specify what cuts to apply), (3) a robust strategy for detecting resonance peaks spanning two orders of magnitude in mass (2–110 GeV) with vastly different widths and yields, (4) a signal extraction and background modeling approach for each resonance, (5) PDG-standard particle identification by matching fitted masses to known states, and (6) statistical significance estimation. The agent must know what quarkonium states and vector bosons are, understand the CMS muon reconstruction categories, and apply multi-scale spectral analysis without any algorithmic guidance."""
+solution_explanation = """Parse the CMS dimuon CSV (handling whitespace in column names), recompute invariant mass from (pt, eta, phi) using the muon rest mass via Lorentz vector reconstruction to avoid numerical cancellation in the limited-precision E/px/py/pz columns, apply opposite-charge and global-muon quality cuts, define mass windows around known resonances (J/psi, psi(2S), Upsilon(1S,2S,3S), Z), fit Gaussian+polynomial models in each window with scipy curve_fit, extract signal yields via Gaussian integral, estimate significance as S/sqrt(B), identify particles by PDG mass matching, and compute quarkonium-to-Z yield ratios."""
+verification_explanation = """Pytest loads /app/results.json and validates: correct structure (validation, resonances, yield_ratios); mass recomputation deviation < 0.5 GeV; ~100k total events with selection reducing the count; at least 5 resonances found; specific resonance mass ranges (J/psi in [3.0,3.2], psi(2S) in [3.5,3.9], Upsilon in [9.0,10.6], Z in [88,94] GeV); all yields and significances positive; no duplicate resonances; J/psi yield exceeds Upsilon yield; Z FWHM exceeds J/psi FWHM (width hierarchy); at least one resonance above 5σ; spectrum spans quarkonium and electroweak scales; J/psi FWHM under 1 GeV; at least 2 positive yield ratios."""
+category = "data_science"
+tags = ["particle-physics", "signal-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9e60e7"

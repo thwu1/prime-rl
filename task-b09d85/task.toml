@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Atlas migration internals (revision tracking, tx-mode none partial failure semantics, migrate set, migrate hash checksum management), PostgreSQL DDL constraints (NOT NULL on populated tables, FK referential integrity, VIEW dependency chains), and multi-layered diagnostic reasoning. The solver must: (1) resolve a version conflict between duplicate migration files from a botched merge, (2) discover undocumented schema drift artifacts including dependent database objects that block remediation, (3) evaluate pending migration files for data-dependent defects that will cause runtime failures, (4) design a data preparation strategy to satisfy foreign key constraints before migration application, (5) understand that modifying migration files requires regenerating Atlas's integrity file, and (6) sequence all repairs correctly given cascading dependencies between schema objects, data state, and migration tool bookkeeping."""
+solution_explanation = """Start PostgreSQL and inspect the migration directory to discover the duplicate V4 files and missing atlas.sum. Remove the weaker V4 variant (nullable phone). Fix the remaining V4: add DEFAULT '' to the NOT NULL phone column for existing rows. Regenerate atlas.sum with atlas migrate hash. Diagnose the database with atlas migrate status (shows partial V3). Inspect schema for operator drift: a VIEW (shipping_report), FUNCTION (calc_order_total), INDEX (idx_orders_pending), wrong column type (shipping_address TEXT), and spurious column (tracking_number). Drop the VIEW first (it has column dependencies that block ALTER TABLE), then drop the function, index, and incorrect columns. Manually complete V3's remaining statements (add shipping_address VARCHAR(500) NOT NULL with DEFAULT, create idx_products_category). Use atlas migrate set to mark V3 complete. Populate the categories table with data matching existing product categories (required for V5's FK constraint). Apply remaining migrations (V4 + V5). Verify with atlas migrate status and schema inspection."""
+verification_explanation = """Tests verify: PostgreSQL is running; all 6 tables exist with correct columns, types, and constraints; shipping_address is VARCHAR(500) NOT NULL; phone is VARCHAR(20) NOT NULL; no drift artifacts remain (no shipping_report VIEW, no calc_order_total FUNCTION, no idx_orders_pending INDEX, no tracking_number column); no duplicate V4 migration files; FK constraint fk_products_category exists; UNIQUE constraint on categories.name exists; product_catalog materialized view exists with data; categories table has rows matching product category values; all seed data preserved; atlas migrate status reports clean state with no partial migrations; atlas.sum integrity file is consistent with migration files."""
+category = "data_management"
+tags = ["schema-migration", "postgresql"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b09d85"

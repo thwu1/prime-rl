@@ -1,0 +1,49 @@
+//
+// Sequential reduction kernel — loop-based accumulation.
+// 6 basic blocks including a loop back-edge (BB_LOOP_BODY -> BB_LOOP_HEAD).
+
+.version 7.0
+.target sm_80
+.address_size 64
+
+.visible .entry reduce_sum(
+    .param .u64 input_ptr,
+    .param .u64 output_ptr,
+    .param .u32 n
+)
+{
+    .reg .pred %p<3>;
+    .reg .f32 %f<3>;
+    .reg .b32 %r<6>;
+    .reg .b64 %rd<4>;
+
+BB_ENTRY:
+    ld.param.u64 %rd0, [input_ptr];
+    ld.param.u64 %rd1, [output_ptr];
+    ld.param.u32 %r0, [n];
+    mov.u32 %r1, %tid.x;
+    mov.f32 %f0, 0f00000000;
+    mov.u32 %r2, 0;
+
+BB_LOOP_HEAD:
+    setp.ge.u32 %p0, %r2, %r0;
+    @%p0 bra BB_DONE;
+
+BB_LOOP_BODY:
+    mul.wide.u32 %rd2, %r2, 4;
+    add.u64 %rd3, %rd0, %rd2;
+    ld.global.f32 %f1, [%rd3];
+    add.f32 %f0, %f0, %f1;
+    add.u32 %r2, %r2, 1;
+    bra BB_LOOP_HEAD;
+
+BB_DONE:
+    setp.ne.u32 %p1, %r1, 0;
+    @%p1 bra BB_EXIT;
+
+BB_STORE:
+    st.global.f32 [%rd1], %f0;
+
+BB_EXIT:
+    ret;
+}

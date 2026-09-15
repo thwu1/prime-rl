@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-pass compiler register allocator from function signatures: backward dataflow liveness analysis with fixed-point iteration for arbitrary CFGs (loops), interference graph construction with three distinct rules (arithmetic, call-clobber, move), DSATUR graph coloring with move biasing for optimization, spilling to stack when registers are exhausted, and instruction patching. Demands understanding of x86-64 calling conventions, graph algorithms, dataflow analysis theory, and their precise interaction."""
+solution_explanation = """The solution implements seven functions: (1) uncover_live uses iterative fixed-point backward dataflow over the CFG to compute per-instruction live-after sets, correctly handling loop back-edges; (2) build_interference applies the three interference rules (general write-vs-live, call clobbers caller-saved, move skips src-dst); (3) build_move_graph records movq pairs; (4) color_graph pre-colors physical registers, then iterates DSATUR selecting most-saturated vertices, biasing color choice toward move-related neighbors; (5) assign_homes maps colors < 12 to registers and >= 12 to stack Deref; (6) patch_instructions removes trivial moves and fixes two-Deref operand pairs via %rax; (7) allocate_registers chains all passes."""
+verification_explanation = """Tests verify: liveness sets for straight-line, branching, and loop programs (fixed-point convergence); interference edges match expected topology; move rule suppresses src-dst edges; call-live variables interfere with all caller-saved regs; coloring is valid (no adjacent same color); simple programs need no spills; 13-variable program forces spills; move biasing assigns same color to non-interfering move-related chains; allocated programs execute correctly in an emulator that clobbers caller-saved on callq; no Var operands remain; no trivial moves remain; no two-memory-operand violations; stack space is 16-byte aligned."""
+category = "systems"
+tags = ["compilers", "graph-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-693236"

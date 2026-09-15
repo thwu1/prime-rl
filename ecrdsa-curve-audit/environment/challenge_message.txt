@@ -1,0 +1,1 @@
+Prove knowledge of the signing key by producing a valid signature

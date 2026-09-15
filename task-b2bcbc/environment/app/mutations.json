@@ -1,0 +1,110 @@
+{
+  "description": "AST-level mutations identified for the intervallib package. Each mutation is a single-token semantic change produced by standard mutation operators (comparison boundary swaps, arithmetic operator replacements, operand substitutions).",
+  "mutations": [
+    {
+      "id": "M01",
+      "file": "intervallib/intervals.py",
+      "function": "overlaps",
+      "description": "Replace first '<' with '<=' in overlap check",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M02",
+      "file": "intervallib/intervals.py",
+      "function": "overlaps",
+      "description": "Replace second '<' with '<=' in overlap check",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M03",
+      "file": "intervallib/intervals.py",
+      "function": "merge",
+      "description": "Replace '<=' with '<' in adjacent-interval merge condition",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M04",
+      "file": "intervallib/intervals.py",
+      "function": "complement",
+      "description": "Replace '>' with '>=' in gap-detection condition",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M05",
+      "file": "intervallib/intervals.py",
+      "function": "complement",
+      "description": "Replace '<' with '<=' in trailing-gap condition",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M06",
+      "file": "intervallib/intervals.py",
+      "function": "coverage",
+      "description": "Replace '-' with '+' in coverage accumulation (ce - cs -> ce + cs)",
+      "operator": "arithmetic_operator_swap"
+    },
+    {
+      "id": "M07",
+      "file": "intervallib/intervals.py",
+      "function": "coverage",
+      "description": "Replace '-' with '+' in coverage denominator (hi - lo -> hi + lo)",
+      "operator": "arithmetic_operator_swap"
+    },
+    {
+      "id": "M08",
+      "file": "intervallib/scheduling.py",
+      "function": "weighted_schedule",
+      "description": "Replace '<=' with '<' in binary search for latest non-conflicting job",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M09",
+      "file": "intervallib/scheduling.py",
+      "function": "edf_schedule",
+      "description": "Replace '+=' with '=' in time accumulation (time += proc_time -> time = proc_time)",
+      "operator": "augmented_assignment_weakening"
+    },
+    {
+      "id": "M10",
+      "file": "intervallib/scheduling.py",
+      "function": "critical_path_length",
+      "description": "Replace '>' with '>=' in earliest-start update condition",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M11",
+      "file": "intervallib/solver.py",
+      "function": "propagate_precedence",
+      "description": "Replace '>' with '>=' in upper-bound tightening condition",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M12",
+      "file": "intervallib/solver.py",
+      "function": "propagate_precedence",
+      "description": "Replace '>=' with '>' in first part of feasibility check (dp[0] >= dp[1] -> dp[0] > dp[1])",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M13",
+      "file": "intervallib/solver.py",
+      "function": "resource_load_profile",
+      "description": "Replace '<' with '<=' in slot iteration bound (while t < time_end -> while t <= time_end)",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M14",
+      "file": "intervallib/solver.py",
+      "function": "find_overloaded_windows",
+      "description": "Replace '>' with '>=' in overload detection (load > capacity -> load >= capacity)",
+      "operator": "comparison_boundary_swap"
+    },
+    {
+      "id": "M15",
+      "file": "intervallib/solver.py",
+      "function": "schedule_with_constraints",
+      "description": "Replace '>=' with '>' in capacity check (len(active) >= resource_capacity -> len(active) > resource_capacity)",
+      "operator": "comparison_boundary_swap"
+    }
+  ]
+}

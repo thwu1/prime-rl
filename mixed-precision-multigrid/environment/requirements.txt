@@ -1,0 +1,32 @@
+Solver Requirements
+===================
+
+Solve the linear system defined in problem_setup.py.
+
+Convergence criteria:
+- Relative residual: ||r_k||_2 / ||r_0||_2 < 1e-10
+- Maximum 50 outer (Krylov) iterations
+
+Solution accuracy:
+- Discretization error: ||u_computed - u_exact||_inf < 1e-2
+  (u_exact is the analytical solution to the continuous PDE)
+- Solution vector dtype: float64
+
+Solver architecture requirements:
+- Must use a multi-level approach with at least 4 resolution levels
+- Must employ mixed floating-point precision across levels:
+  finest level in float64, coarser levels in float32
+- Only NumPy and SciPy may be used (no pyamg or other solver libraries)
+
+Output — /app/solution.npy:
+  Solution vector, shape (N*N,), dtype float64
+  Grid ordering matches numpy.meshgrid default (row-major)
+
+Output — /app/results.json fields:
+  grid_size        (int)       : interior points per direction
+  num_levels       (int)       : total number of solver levels
+  cg_iterations    (int)       : outer iterations to convergence
+  final_relative_residual (float) : final ||r||/||r_0||
+  solution_error_linf     (float) : max|u_computed - u_exact|
+  level_sizes      (list[int]) : grid size at each level, finest first
+  level_dtypes     (list[str]) : dtype name at each level ("float64"/"float32")

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the Stieltjes procedure to compute three-term recurrence coefficients from power moments — a classically ill-conditioned numerical problem demanding multiprecision arithmetic. The solver must then apply the Golub-Welsch algorithm (spectral decomposition of the symmetric tridiagonal Jacobi matrix) to obtain quadrature nodes and weights. Handling three distinct nonclassical weight functions (logarithmic singularity, algebraic endpoint singularities, super-exponential decay on a half-line) tests deep understanding of orthogonal polynomial theory and numerical stability. Finally, the computed rules must accurately evaluate integrals involving Bessel functions. This combination of moment analysis, structured eigenvalue problems, and special-function evaluation is graduate/PhD-level numerical analysis."""
+solution_explanation = """Compute moments analytically using Gamma and Beta functions at 100-digit precision. Run the Stieltjes procedure (Gautschi's sigma-recurrence) to extract recurrence coefficients alpha_k and beta_k. Build the N-by-N symmetric tridiagonal Jacobi matrix and eigendecompose it via mpmath.eigsy to obtain nodes (eigenvalues) and weights (mu_0 times squared first eigenvector components). Sort nodes, evaluate smooth integrands at the nodes, and write results."""
+verification_explanation = """Tests verify: (1) structural correctness of results.json, (2) nodes lie in the correct intervals and are distinct, (3) weights are positive, (4) the N-point rule integrates x^k exactly for k=0..2N-1 (moment condition), (5) N=32 integral approximations match mpmath.quad references to 12+ digits, and (6) reported integrals are consistent with reported nodes/weights. Reference integrals are computed independently by the test suite using mpmath.quad."""
+category = "mathematics"
+tags = ["numerical-analysis", "quadrature"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonclassical-gauss-quadrature"

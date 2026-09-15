@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a cascading failure across multiple interacting components (service-control, gateway, feature flags, database). The agent must trace a crash from logs through code, discover a subtle feature-flag name mismatch that prevents a kill switch from working, fix corrupt data across three regional databases, implement jittered exponential backoff to prevent thundering-herd effects, add proper error handling with fail-open semantics, and add input validation. This mirrors real production incidents at Google-scale (inspired by GCP Service Control outage) and requires distributed systems expertise."""
+solution_explanation = """1. Read crash logs to identify TypeError in _apply_enhanced_quota_check when accessing null rate_limit metadata. 2. Discover feature flag name mismatch: code references 'enhanced_quota_checks' but config has 'enhanced_quota_check', causing the kill switch to be bypassed. 3. Fix the flag name. 4. Add null-safe error handling in policy_loader.py so it fails open on bad data. 5. Fix or remove the corrupt policy record (id=99, service_name='internal-quota-sync') with null rate_limit in all three regional databases. 6. Add jittered exponential backoff to db_connector.py retry logic. 7. Fix connection pool leak by closing stale connections. 8. Add a policy validation function. 9. Start the system and verify all health checks pass."""
+verification_explanation = """Tests verify: (1) corrupt database records are removed or fixed across all regions, (2) policy loader handles null metadata without crashing, (3) feature flag names match between code and config, (4) db_connector implements exponential backoff with jitter, (5) stale connections are properly cleaned up, (6) service-control starts and responds to health checks, (7) quota check API returns valid responses."""
+category = "debugging"
+tags = ["distributed-systems", "incident-response"]
+expert_time_estimate_hours = 1.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascading-failure-remediation"

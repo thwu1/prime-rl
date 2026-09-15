@@ -1,0 +1,11 @@
+Build a quantum circuit compilation pipeline using BQSKit (Berkeley Quantum Synthesis Toolkit) that targets a 4-qubit QPU with a constrained linear-chain coupling topology and native gate set {CZ, RZ, √X}. The input circuit is at `/app/input.qasm` and the QPU specification is at `/app/qpu_spec.json`.
+
+Create the following modules in `/app/`:
+
+**`/app/cr_gate.py`** — A `CrossResonanceGate` class implementing the parameterized two-qubit cross-resonance interaction `CR(θ) = exp(-iθ/2 · Z⊗X)`. Must subclass `bqskit.ir.gate.Gate` and `bqskit.qis.unitary.differentiable.DifferentiableUnitary`, providing both `get_unitary(params)` returning a `UnitaryMatrix` and `get_grad(params)` returning the analytically-derived gradient as a 3D numpy array of shape `(1, 4, 4)`. Set `_num_qudits = 2`, `_num_params = 1`, `_radixes = (2, 2)`.
+
+**`/app/rotation_pass.py`** — A `RotationFoldingPass` class inheriting from `bqskit.compiler.basepass.BasePass` whose `async run(self, circuit, data)` method merges consecutive `RZGate` operations acting on the same qubit into a single `RZGate` with summed angle, and eliminates gates where the total angle is congruent to 0 mod 2π (tolerance 1e-10). Also export a standalone `fold_rotations(circuit)` function for direct invocation. BQSKit requires custom passes to be defined in importable modules, not in `__main__`.
+
+**`/app/pipeline.py`** — Executable script that reads `/app/qpu_spec.json`, constructs a `bqskit.compiler.machine.MachineModel` for the specified topology and native gate set, compiles `/app/input.qasm` using `bqskit.compile()`, applies rotation folding as post-compilation optimization, and writes:
+  - `/app/compiled.qasm` — the compiled circuit using only native gates, respecting the coupling graph, unitarily equivalent to the input up to qubit permutation and global phase
+  - `/app/metrics.json` — JSON with keys `input_gate_count` (int), `output_gate_count` (int), `output_depth` (int), `two_qubit_gate_count` (int), `native_gates_only` (bool), `coupling_respected` (bool)

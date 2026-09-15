@@ -1,0 +1,32 @@
+{
+  "instance_id": "numpy__numpy-7001",
+  "bug_patches": {
+    "b0": {"diff_size": 20},
+    "b1": {"diff_size": 18},
+    "b2": {"diff_size": 22}
+  },
+  "test_patches": {
+    "t0": {"fails_on_original": true},
+    "t1": {"fails_on_original": true},
+    "t2": {"fails_on_original": false}
+  },
+  "test_results_unpatched": {
+    "t0": {"failed": 4, "passed": 0},
+    "t1": {"failed": 6, "passed": 0},
+    "t2": {"failed": 0, "passed": 10}
+  },
+  "execution_matrix": {
+    "b0": {
+      "t0": {"fail_to_pass": 3, "pass_to_pass": 0},
+      "t1": {"fail_to_pass": 5, "pass_to_pass": 0}
+    },
+    "b1": {
+      "t0": {"fail_to_pass": 4, "pass_to_pass": 0},
+      "t1": {"fail_to_pass": 6, "pass_to_pass": 0}
+    },
+    "b2": {
+      "t0": {"fail_to_pass": 2, "pass_to_pass": 0},
+      "t1": {"fail_to_pass": 3, "pass_to_pass": 0}
+    }
+  }
+}

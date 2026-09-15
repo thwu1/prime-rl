@@ -1,0 +1,3 @@
+`/app/renderer.py` is a microfacet BRDF evaluation and Monte Carlo reflectance estimation tool for metallic and dielectric materials. It reads material and geometry configuration from `/app/scene.json` and writes computed reflectance data to `/app/output.json`.
+
+The renderer's numerical output is incorrect across multiple independent computational routines. Diagnose and correct all errors so the output is physically accurate. Do not alter `/app/scene.json` or the output JSON structure.

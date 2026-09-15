@@ -1,0 +1,29 @@
+{
+  "solutions": [
+    {
+      "id": "nacl_05",
+      "description": "0.5 mol/kg NaCl",
+      "composition": {"Na+": 0.5, "Cl-": 0.5}
+    },
+    {
+      "id": "nacl_20",
+      "description": "2.0 mol/kg NaCl",
+      "composition": {"Na+": 2.0, "Cl-": 2.0}
+    },
+    {
+      "id": "bacl2_01",
+      "description": "0.1 mol/kg BaCl2",
+      "composition": {"Ba+2": 0.1, "Cl-": 0.2}
+    },
+    {
+      "id": "k2so4_01",
+      "description": "0.1 mol/kg K2SO4",
+      "composition": {"K+": 0.2, "SO4-2": 0.1}
+    },
+    {
+      "id": "mixed_nacl_kcl",
+      "description": "Mixed NaCl (0.48 m) + KCl (0.01 m)",
+      "composition": {"Na+": 0.48, "K+": 0.010, "Cl-": 0.49}
+    }
+  ]
+}

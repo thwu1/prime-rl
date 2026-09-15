@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems debugging and binary protocol engineering across multiple interacting modules. The solver must: (1) diagnose a subtle deserialization offset bug where _pack_blob writes a version byte but _unpack_blob doesn't account for it — the only observable symptom is that large-job round-trips fail near the compression threshold boundary; (2) discover that _unpack_blob calls _validate_blob_header, which hardcodes a max-version check against BLOB_VERSION=2, meaning any future v3 blobs will be rejected — the solver must trace this cross-function interaction and apply the version-detection heuristic from REQUIREMENTS_V3.md; (3) fix get_format_info(), which unconditionally uses v2 field offsets for ALL blob versions — for v1 blobs it reads the wrong bytes for uncompressed_len and reports wrong header_size, requiring the solver to understand the three different header layouts and apply the detection heuristic; (4) fix validate_serialized_data() in a separate module (validate.py), which also hardcodes version rejection, requiring the solver to trace the same heuristic across module boundaries; (5) design and implement v3 with an 18-byte header encoding algorithm selectors, CRC32 checksums, and compressed-length fields — requiring correct struct packing, endianness, and per-algorithm dispatch including zstandard's object-oriented API; (6) ensure zstd-compressed payloads work as standalone zstd frames decompressable by the CLI tool; (7) build a format-migration pipeline handling mixed-format production files with corruption detection, in-place conversion, round-trip verification, and dual output (JSON report + sha256sum-compatible manifest). The holistic challenge is that all four bug fixes and the v3 implementation share a single conceptual fix — consistent application of the version-detection heuristic — but the solver must independently discover each broken site by tracing symptoms through multiple code paths."""
+solution_explanation = """Fix _validate_blob_header to use version-detection heuristic (byte 4: 2-127 = version, else v1) instead of hardcoded max check. Rewrite _unpack_blob with version-aware dispatch: v1 reads from [4:8]/[8:], v2 from [5:9]/[9:], v3 parses 18-byte header with flags/CRC32/comp_len and algorithm dispatch. Fix get_format_info to detect version and use per-version offsets (8/9/18 byte headers). Fix validate_serialized_data in validate.py with same heuristic and per-version payload_size. Implement serialize_procmap_v3 producing 18-byte header with struct.pack('>4sBBIII'), using zstandard.ZstdCompressor for zstd. Create migrate.py that detects legacy formats, deserializes, re-serializes as v3 with round-trip verification, and produces JSON report + sha256sum manifest."""
+verification_explanation = """Tests verify: (1) v2 round-trips using manually-constructed v2 blobs at multiple sizes including the regression boundary; (2) v1 backward compatibility; (3) get_format_info returns correct version/header_size/uncompressed_size for v1, v2, v3, and raw formats; (4) validate_serialized_data accepts v1/v2/v3/raw with correct metadata; (5) v3 header structure — magic, version=3, flags bits, field offsets; (6) v3 round-trips for all three algorithms at various sizes; (7) zstd CLI interop; (8) CRC32 tamper detection for all algorithms; (9) existing API backward-compat; (10) migration produces correct report (10 total, 9 migrated, 1 error, by_source_format counts); (11) all migrated files are v3; (12) sha256sum manifest passes verification."""
+category = "debugging"
+tags = ["binary-protocol-debugging", "cross-module-consistency"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pmxz-blob-regression"

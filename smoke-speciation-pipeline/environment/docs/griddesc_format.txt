@@ -1,0 +1,46 @@
+GRIDDESC: Grid Description File Format
+(From Models-3 I/O API Documentation)
+
+GRIDDESC files store horizontal coordinate system and grid descriptions. The file
+has two segments, parsed using Fortran list-directed formatting.
+
+The file begins with one header line (always read and ignored by convention).
+
+SEGMENT 1: Coordinate System Descriptions
+
+Each entry consists of two lines:
+  Line 1: COORD-NAME (quoted string, e.g., 'LAM_40N90W')
+  Line 2: COORDTYPE, P_ALP, P_BET, P_GAM, XCENT, YCENT
+
+The segment ends with a blank name field: ' '
+
+COORDTYPE values match GDTYP grid type codes:
+  1 = Lat-Lon, 2 = Lambert Conformal Conic, 5 = UTM, etc.
+
+For Lambert Conformal Conic (type 2):
+  P_ALP, P_BET are the two latitudes determining the projection cone
+  P_GAM is the central meridian
+  (XCENT, YCENT) are the (lon, lat) of the Cartesian coordinate center
+
+SEGMENT 2: Grid Descriptions
+
+Each entry consists of two lines:
+  Line 1: GRID-NAME (quoted string)
+  Line 2: COORD-NAME, XORIG, YORIG, XCELL, YCELL, NCOLS, NROWS, NTHIK
+
+The segment ends with a blank name field: ' '
+
+  COORD-NAME references a coordinate system from Segment 1
+  XORIG, YORIG: grid origin (lower left corner of cell 1,1) in map units
+  XCELL, YCELL: cell dimensions in map units (meters for projected coords)
+  NCOLS, NROWS: grid dimensions
+  NTHIK: boundary thickness (cells)
+
+Numeric values use Fortran double-precision notation where 'D' is the
+exponent marker (e.g., 0.33D2 = 33.0, -2.556D6 = -2556000.0, 0.12D5 = 12000.0).
+Fields may be separated by blanks, commas, or a combination of both
+(Fortran list-directed formatting rules). Inline comments after data values
+on a line (preceded by !) are permitted in practice but the standard format
+does not define them.
+
+At most 32 coordinate systems and 256 grids may be listed in one file.

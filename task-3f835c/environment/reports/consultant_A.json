@@ -1,0 +1,39 @@
+{
+  "buffer_cache": {
+    "hit_ratio": 0.85,
+    "current_size_mb": 512,
+    "recommended_size_mb": 1280,
+    "status": "undersized"
+  },
+  "library_cache": {
+    "hit_ratio": 0.925,
+    "reloads": 150000,
+    "hard_parse_ratio": 0.48,
+    "root_cause": "literal_sql"
+  },
+  "pga": {
+    "current_target_mb": 256,
+    "recommended_target_mb": 384,
+    "cache_hit_pct": 62.5,
+    "multipass_ratio": 0.15,
+    "overalloc_count": 45
+  },
+  "top_wait_events": [
+    {"event": "db file sequential read", "time_waited_s": 35000.0},
+    {"event": "latch: shared pool", "time_waited_s": 12000.0},
+    {"event": "direct path read temp", "time_waited_s": 8000.0}
+  ],
+  "problematic_sql": {
+    "sql_id": "efg123hij456",
+    "buffer_gets_per_exec": 800.0,
+    "disk_reads_per_exec": 240.0,
+    "issue": "full_table_scan",
+    "missing_index_columns": ["customer_id"]
+  },
+  "root_causes_ranked": [
+    "buffer_cache_undersized",
+    "literal_sql_hard_parsing",
+    "pga_undersized",
+    "missing_index_orders"
+  ]
+}

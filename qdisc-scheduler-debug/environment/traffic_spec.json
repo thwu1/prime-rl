@@ -1,0 +1,73 @@
+{
+    "link_rate_mbps": 50,
+    "duration_sec": 3.0,
+    "traffic_classes": [
+        {
+            "name": "voice",
+            "dscp": 46,
+            "priority": 0,
+            "rate_cap_mbps": 2.0,
+            "sla": {
+                "max_delay_p99_ms": 5.0,
+                "max_loss_pct": 0.0
+            },
+            "flows": [
+                {"flow_id": 1, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 2, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 3, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 4, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"}
+            ]
+        },
+        {
+            "name": "video",
+            "dscp": 34,
+            "priority": 1,
+            "rate_cap_mbps": 25.0,
+            "sla": {
+                "min_throughput_per_flow_mbps": 4.5,
+                "max_delay_p99_ms": 30.0
+            },
+            "flows": [
+                {"flow_id": 5, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 6, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 7, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 8, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12}
+            ]
+        },
+        {
+            "name": "best_effort",
+            "dscp": 0,
+            "priority": 2,
+            "weight": 6,
+            "sla": {
+                "min_fairness_jfi": 0.95,
+                "min_throughput_per_flow_mbps": 0.3
+            },
+            "flows": [
+                {"flow_id": 9, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 10, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 11, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 12, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 13, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 14, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 15, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 16, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"}
+            ]
+        },
+        {
+            "name": "background",
+            "dscp": 8,
+            "priority": 3,
+            "weight": 1,
+            "sla": {
+                "min_throughput_per_flow_mbps": 0.1
+            },
+            "flows": [
+                {"flow_id": 17, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 18, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 19, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 20, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"}
+            ]
+        }
+    ]
+}

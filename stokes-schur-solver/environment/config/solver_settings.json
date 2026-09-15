@@ -1,0 +1,5 @@
+{
+    "max_iterations": 500,
+    "tolerance": 1e-8,
+    "verbosity": 1
+}

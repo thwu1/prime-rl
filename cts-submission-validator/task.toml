@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level forensic analysis of a VK-GL-CTS conformance submission combining multiple interacting domain concepts. The solver must: (1) discover heterogeneous result formats including tar.gz archives with nested paths, (2) implement extension-gated mustpass filtering by cross-referencing device extension declarations against extension-test-map patterns, (3) implement cross-fraction status conflict resolution using severity ordering (distinct from intra-fraction last-wins semantics), (4) parse waiver XML with device-scoped filtering AND version-scoped validity checking, (5) implement glob-pattern waiver matching, (6) handle intra-fraction duplicate resolution, (7) validate conformance statements, and (8) synthesize all dimensions into a report satisfying a JSON schema. The three expert traps (extension gating, expired waivers, cross-fraction severity resolution) each require holistic domain understanding."""
+solution_explanation = """Extract tar.gz archive to find fraction 3 QPA file. Load all mustpass categories (194 raw tests). Load device-extensions.json and extension-test-map.json; exclude ray-tracing (10) and mesh-shader (8) tests since the device lacks VK_KHR_ray_tracing_pipeline and VK_EXT_mesh_shader, yielding 176 applicable tests. Parse QPA files with intra-fraction duplicate resolution (last-wins for scalar_uint_16_to_32 in fraction 2). Detect cross-fraction conflict for info.platform (Pass in fractions 1,3 vs QualityWarning in fraction 2) and resolve to QualityWarning via severity ordering. Parse waivers: first waiver (f64 glob, validUntil=1.4.0.0) is valid — apply to 4 tests. Second waiver (create_device_unsupported_features, validUntil=1.3.7.0) is expired since submission uses CTS 1.3.8.0. Third waiver is for device 0x9999 — skip. Check STATEMENT for all 4 required fields (OS is missing). Compute all metrics and write report."""
+verification_explanation = """Tests verify exact numeric values: raw_mustpass_total=194, applicable_mustpass_total=176, tests_with_results=171, tests_missing_count=5, raw Pass=138 QualityWarning=5, waived_tests_count=4, expired_waivers_count=1, effective Fail=5, conformance_violations_count=9, duplicate_results_count=1, cross_fraction_conflicts_count=1. Also verifies exact test name sets for missing/violation/waived/duplicate/conflict categories, boolean flags, and status distributions."""
+category = "software_testing"
+tags = ["vulkan-conformance", "multi-source-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cts-submission-validator"

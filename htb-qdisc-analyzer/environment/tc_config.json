@@ -1,0 +1,64 @@
+{
+  "interfaces": {
+    "eth0": {
+      "link_speed_mbps": 10000,
+      "qdisc": {
+        "handle": "1:",
+        "type": "htb",
+        "default_class": "1:99",
+        "r2q": 10
+      },
+      "classes": [
+        {"classid": "1:1", "parent": "1:", "rate_mbps": 10000, "ceil_mbps": 10000, "prio": 0, "quantum": 1500},
+        {"classid": "1:10", "parent": "1:1", "rate_mbps": 3000, "ceil_mbps": 7000, "prio": 0, "quantum": 1500},
+        {"classid": "1:11", "parent": "1:10", "rate_mbps": 1000, "ceil_mbps": 3000, "prio": 0, "quantum": 1500},
+        {"classid": "1:12", "parent": "1:10", "rate_mbps": 1000, "ceil_mbps": 4000, "prio": 1, "quantum": 1500},
+        {"classid": "1:13", "parent": "1:10", "rate_mbps": 500, "ceil_mbps": 2000, "prio": 1, "quantum": 3000},
+        {"classid": "1:20", "parent": "1:1", "rate_mbps": 3000, "ceil_mbps": 6000, "prio": 0, "quantum": 1500},
+        {"classid": "1:21", "parent": "1:20", "rate_mbps": 1000, "ceil_mbps": 3000, "prio": 0, "quantum": 1500},
+        {"classid": "1:22", "parent": "1:20", "rate_mbps": 1000, "ceil_mbps": 3000, "prio": 0, "quantum": 1500},
+        {"classid": "1:23", "parent": "1:20", "rate_mbps": 500, "ceil_mbps": 2000, "prio": 1, "quantum": 1500},
+        {"classid": "1:30", "parent": "1:1", "rate_mbps": 2000, "ceil_mbps": 5000, "prio": 1, "quantum": 3000},
+        {"classid": "1:31", "parent": "1:30", "rate_mbps": 800, "ceil_mbps": 2500, "prio": 0, "quantum": 1500},
+        {"classid": "1:32", "parent": "1:30", "rate_mbps": 700, "ceil_mbps": 2000, "prio": 0, "quantum": 1500},
+        {"classid": "1:33", "parent": "1:30", "rate_mbps": 500, "ceil_mbps": 1500, "prio": 1, "quantum": 1500},
+        {"classid": "1:99", "parent": "1:1", "rate_mbps": 500, "ceil_mbps": 1500, "prio": 2, "quantum": 1500}
+      ],
+      "filters": [
+        {"parent": "1:", "protocol": "ip", "prio": 1, "kind": "u32", "match": "dport 80 0xffff", "flowid": "1:11"},
+        {"parent": "1:", "protocol": "ip", "prio": 1, "kind": "u32", "match": "dport 443 0xffff", "flowid": "1:11"},
+        {"parent": "1:", "protocol": "ip", "prio": 2, "kind": "u32", "match": "dport 8080 0xffff", "flowid": "1:12"},
+        {"parent": "1:", "protocol": "ip", "prio": 3, "kind": "u32", "match": "dport 5060 0xffff", "flowid": "1:21"},
+        {"parent": "1:", "protocol": "ip", "prio": 4, "kind": "u32", "match": "dport 3306 0xffff", "flowid": "1:31"},
+        {"parent": "1:", "protocol": "ip", "prio": 5, "kind": "u32", "match": "dport 5432 0xffff", "flowid": "1:32"},
+        {"parent": "1:", "protocol": "ip", "prio": 6, "kind": "u32", "match": "dport 9999 0xffff", "flowid": "1:45"}
+      ]
+    },
+    "eth1": {
+      "link_speed_mbps": 1000,
+      "qdisc": {
+        "handle": "2:",
+        "type": "htb",
+        "default_class": "2:50",
+        "r2q": 10
+      },
+      "classes": [
+        {"classid": "2:1", "parent": "2:", "rate_mbps": 1000, "ceil_mbps": 1000, "prio": 0, "quantum": 1500},
+        {"classid": "2:10", "parent": "2:1", "rate_mbps": 400, "ceil_mbps": 800, "prio": 0, "quantum": 1500},
+        {"classid": "2:11", "parent": "2:10", "rate_mbps": 200, "ceil_mbps": 500, "prio": 0, "quantum": 1500},
+        {"classid": "2:12", "parent": "2:10", "rate_mbps": 100, "ceil_mbps": 900, "prio": 1, "quantum": 1500},
+        {"classid": "2:20", "parent": "2:1", "rate_mbps": 300, "ceil_mbps": 700, "prio": 1, "quantum": 1500},
+        {"classid": "2:21", "parent": "2:20", "rate_mbps": 200, "ceil_mbps": 400, "prio": 0, "quantum": 1500},
+        {"classid": "2:22", "parent": "2:20", "rate_mbps": 150, "ceil_mbps": 350, "prio": 0, "quantum": 3000},
+        {"classid": "2:30", "parent": "2:1", "rate_mbps": 200, "ceil_mbps": 500, "prio": 0, "quantum": 1500},
+        {"classid": "2:31", "parent": "2:30", "rate_mbps": 100, "ceil_mbps": 250, "prio": 0, "quantum": 1500},
+        {"classid": "2:32", "parent": "2:30", "rate_mbps": 100, "ceil_mbps": 250, "prio": 1, "quantum": 1500},
+        {"classid": "2:41", "parent": "2:40", "rate_mbps": 50, "ceil_mbps": 100, "prio": 0, "quantum": 1500}
+      ],
+      "filters": [
+        {"parent": "2:", "protocol": "ip", "prio": 1, "kind": "u32", "match": "dport 22 0xffff", "flowid": "2:11"},
+        {"parent": "2:", "protocol": "ip", "prio": 2, "kind": "u32", "match": "dport 161 0xffff", "flowid": "2:21"}
+      ]
+    }
+  }
+}

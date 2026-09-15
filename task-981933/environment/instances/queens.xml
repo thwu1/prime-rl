@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instance format="XCSP3" type="CSP">
+  <variables>
+    <array id="q" size="[8]"> 0..7 </array>
+  </variables>
+  <constraints>
+    <allDifferent> q[0] q[1] q[2] q[3] q[4] q[5] q[6] q[7] </allDifferent>
+    <intension> ne(dist(q[0],q[1]),1) </intension>
+    <intension> ne(dist(q[0],q[2]),2) </intension>
+    <intension> ne(dist(q[0],q[3]),3) </intension>
+    <intension> ne(dist(q[0],q[4]),4) </intension>
+    <intension> ne(dist(q[0],q[5]),5) </intension>
+    <intension> ne(dist(q[0],q[6]),6) </intension>
+    <intension> ne(dist(q[0],q[7]),7) </intension>
+    <intension> ne(dist(q[1],q[2]),1) </intension>
+    <intension> ne(dist(q[1],q[3]),2) </intension>
+    <intension> ne(dist(q[1],q[4]),3) </intension>
+    <intension> ne(dist(q[1],q[5]),4) </intension>
+    <intension> ne(dist(q[1],q[6]),5) </intension>
+    <intension> ne(dist(q[1],q[7]),6) </intension>
+    <intension> ne(dist(q[2],q[3]),1) </intension>
+    <intension> ne(dist(q[2],q[4]),2) </intension>
+    <intension> ne(dist(q[2],q[5]),3) </intension>
+    <intension> ne(dist(q[2],q[6]),4) </intension>
+    <intension> ne(dist(q[2],q[7]),5) </intension>
+    <intension> ne(dist(q[3],q[4]),1) </intension>
+    <intension> ne(dist(q[3],q[5]),2) </intension>
+    <intension> ne(dist(q[3],q[6]),3) </intension>
+    <intension> ne(dist(q[3],q[7]),4) </intension>
+    <intension> ne(dist(q[4],q[5]),1) </intension>
+    <intension> ne(dist(q[4],q[6]),2) </intension>
+    <intension> ne(dist(q[4],q[7]),3) </intension>
+    <intension> ne(dist(q[5],q[6]),1) </intension>
+    <intension> ne(dist(q[5],q[7]),2) </intension>
+    <intension> ne(dist(q[6],q[7]),1) </intension>
+  </constraints>
+</instance>

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the ONNX IR specification and graph manipulation. The agent must load and inspect three sub-models that were exported with different opset versions and tensor configurations, diagnose all incompatibilities that prevent composition into a single pipeline, and programmatically resolve each one. The sub-models contain multiple interacting issues spanning opset semantics, operator interface changes across versions, data type mismatches, and naming conflicts — all of which must be identified through inspection and fixed correctly for the pipeline to validate and produce correct numerical output. This is a realistic ML engineering task requiring deep specification knowledge combined with multi-step programmatic graph surgery."""
+solution_explanation = """1. Load all three sub-models. 2. Use onnx.version_converter.convert_version to upgrade preprocess (opset 11→17) and classifier (opset 13→17), which automatically converts Squeeze axes from attribute to input. 3. Prefix all internal names in each model (edges, initializers, value_info) to avoid collisions — both 'tmp' and 'scale' appear in preprocess and encoder. 4. Build the composed graph by concatenating nodes, inserting Cast nodes at model boundaries (float32→float16 between preprocess/encoder, float16→float32 between encoder/classifier), and rewiring inputs/outputs. 5. Rename the pipeline's external I/O to 'raw_input' and 'prediction'. 6. Create the model with opset 17, validate with check_model(full_check=True), and save."""
+verification_explanation = """Tests verify: (1) pipeline.onnx exists and loads, (2) passes full ONNX model validation, (3) has single opset ≥ 17, (4) correct I/O names and types, (5) Squeeze uses input-based axes (not attribute), (6) Cast nodes for type conversion, (7) SSA property (unique output names), (8) no initializer name collisions, (9) correct numerical output via onnxruntime inference."""
+category = "machine_learning"
+tags = ["onnx", "model-composition"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compose-onnx-pipeline"

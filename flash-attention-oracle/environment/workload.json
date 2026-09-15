@@ -1,0 +1,34 @@
+{
+  "configurations": [
+    {
+      "name": "llama-7b-short",
+      "batch_size": 32,
+      "seq_len": 2048,
+      "nheads": 32,
+      "headdim": 128,
+      "causal": true,
+      "dtype_bytes": 2,
+      "dropout": false
+    },
+    {
+      "name": "llama-70b-long",
+      "batch_size": 4,
+      "seq_len": 16384,
+      "nheads": 64,
+      "headdim": 128,
+      "causal": true,
+      "dtype_bytes": 2,
+      "dropout": false
+    },
+    {
+      "name": "bert-classifier",
+      "batch_size": 256,
+      "seq_len": 4096,
+      "nheads": 96,
+      "headdim": 128,
+      "causal": false,
+      "dtype_bytes": 2,
+      "dropout": false
+    }
+  ]
+}

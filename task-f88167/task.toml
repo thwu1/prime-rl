@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconstructing Sokoban levels from a normalized SQLite database schema (cells stored as individual typed records, not plaintext), parsing per-level constraints from JSON, implementing a Sokoban solver capable of handling 6-box levels with non-trivial state spaces, correctly inserting solutions with computed metadata back into the database, and running a multi-tool validation pipeline (python3 + jq). The solver must handle large search spaces where naive approaches exhaust memory. Combines database querying (sqlite3), JSON processing (jq), algorithmic problem-solving, and shell pipeline orchestration."""
+solution_explanation = """The reference solver extracts levels from the SQLite database by querying the normalized cells table and reconstructing ASCII grids. It uses A* search in push-space with normalized player positions, reverse-push BFS deadlock detection, and minimum-weight bipartite matching (Hungarian algorithm) as an admissible heuristic. Solutions are inserted back into the database with accurate push/move counts computed via simulation. The validation pipeline is then executed to produce the final report."""
+verification_explanation = """Each solution is read from the database's solutions table and simulated step-by-step on its corresponding level (also read from the DB). The simulator verifies every move is legal and that the final state has all boxes on goals. Push and move counts are checked against config.json constraints. Recorded push_count and move_count must match actual simulation results. The validation report at /app/report.json must exist and show all levels passed."""
+category = "ai_algorithms"
+tags = ["database-interaction", "puzzle-solving"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f88167"

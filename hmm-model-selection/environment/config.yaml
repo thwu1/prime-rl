@@ -1,0 +1,31 @@
+# Bayesian HMM configuration
+
+model:
+  # Candidate model orders to compare
+  candidates: [2, 3]
+
+  priors:
+    # Each row of the transition matrix: Dirichlet(1, 1, ..., 1)
+    transition_rows: "Dirichlet(ones(K))"
+    # Emission means: base from Normal(0, 5), positive increments from HalfNormal(3)
+    # This enforces ordering: mu_1 < mu_2 < ... < mu_K
+    emission_mean_base: "Normal(0, 5)"
+    emission_mean_increments: "HalfNormal(3)"
+    # Emission standard deviations
+    emission_std: "HalfNormal(2)"
+    # Initial state distribution
+    initial_state: "Uniform(1/K)"
+
+  constraints:
+    - "Emission means must be ordered to prevent label switching"
+    - "Use incremental parameterization for the ordering constraint"
+
+mcmc:
+  num_warmup: 300
+  num_samples: 500
+  num_chains: 1
+
+evaluation:
+  # Model selection criterion
+  metric: "total marginal log-likelihood on held-out data"
+  method: "forward algorithm with posterior mean parameters"

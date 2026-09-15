@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language debugging (C + Python), mathematical derivation, and empirical evaluation: (1) Makefile incorrectly uses ar to create a static archive named libqrng.so instead of gcc -shared, producing an invalid ELF; (2) Sobol Gray code off-by-one in sobol.c breaks stratification; (3) Acklam inverse-normal tail formula missing factor of 2 in norm_inv.c; (4) GBM drift missing Ito correction in gbm_paths.py; (5) Asian average erroneously includes S0 in payoffs.py; (6) antithetic variates use 1-z instead of -z in mc_pricer.py; (7) barrier payoff must be designed and implemented from scratch; (8) geometric Asian closed-form has two mathematical errors — the variance formula is missing the (n+1)/n factor for discrete monitoring and the mean is missing the -sigma^2/2 Ito correction — requiring deriving the correct lognormal distribution parameters; (9) control variate integration omits the analytical expected value subtraction, requiring understanding of CV theory (Y - beta*(X - E[X])); (10) the solver must design and execute a variance analysis experiment comparing methods per option type."""
+solution_explanation = """Fix Makefile to use gcc -shared -fPIC -lm. In sobol.c, change rightmost_zero_bit(i) to rightmost_zero_bit(i-1). In norm_inv.c, add factor of 2: sqrt(-2*log(u)). In gbm_paths.py, change drift to (r-0.5*sigma^2)*dt. In payoffs.py, fix Asian average to sum(path)/len(path) and implement barrier_up_out_call with discrete monitoring. In mc_pricer.py, fix antithetic from 1-z to -z. In geo_asian.py, correct variance to sigma^2*T*(n+1)*(2n+1)/(6*n^2) and mean to log(S0)+(r-sigma^2/2)*T*(n+1)/(2n). In mc_pricer.py, fix CV adjustment to subtract analytical geometric Asian price: Y-beta*(X-E[X]). Run variance analysis computing sample variances under each method to produce the analysis report."""
+verification_explanation = """Tests verify each layer independently: ELF magic bytes check, Sobol stratification at 8/16 points across dimensions, inverse CDF against known quantiles in central and tail regions, GBM statistics via independent random.gauss draws, payoff functions against hand-computed values, geometric Asian formula reducing to BS at n=1 and satisfying strict bounds and monotonicity relative to European prices, control variate producing consistent Asian prices, European MC vs BS and put-call parity, barrier bounds, and variance_analysis.json structure with control variate identified as best for Asian options with VR ratio > 2."""
+category = "computational_finance"
+tags = ["variance-reduction-design", "cross-language-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-mc-pricer"

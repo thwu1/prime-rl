@@ -1,0 +1,40 @@
+{
+  "name": "loop_liveness",
+  "functions": [{
+    "name": "target",
+    "params": [],
+    "return_class": "gp",
+    "blocks": [
+      {
+        "label": "entry",
+        "instrs": [
+          {"op": "const", "dst": "x",     "class": "gp", "val": 0},
+          {"op": "const", "dst": "limit", "class": "gp", "val": 100},
+          {"op": "const", "dst": "step",  "class": "gp", "val": 3},
+          {"op": "jump", "target": "header"}
+        ]
+      },
+      {
+        "label": "header",
+        "instrs": [
+          {"op": "lt", "dst": "cond", "class": "gp", "src1": "x", "src2": "limit"},
+          {"op": "cbranch", "src1": "cond", "true_target": "body", "false_target": "exit"}
+        ]
+      },
+      {
+        "label": "body",
+        "instrs": [
+          {"op": "add", "dst": "x", "class": "gp", "src1": "x", "src2": "step"},
+          {"op": "jump", "target": "header"}
+        ]
+      },
+      {
+        "label": "exit",
+        "instrs": [
+          {"op": "add", "dst": "result", "class": "gp", "src1": "x", "src2": "limit"},
+          {"op": "ret", "src1": "result"}
+        ]
+      }
+    ]
+  }]
+}

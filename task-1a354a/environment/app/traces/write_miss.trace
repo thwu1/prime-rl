@@ -1,0 +1,5 @@
+# write_miss.trace — write misses with BusRdX
+# Tests: BusRdX, Flush on snooped BusRdX of M line
+0 W 0x0000
+1 W 0x0000
+0 R 0x0000

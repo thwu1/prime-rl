@@ -1,0 +1,21 @@
+# Simultaneous close: both sides send FIN before receiving peer's FIN
+# Client: 10.0.0.1:7000 -> Server: 10.0.0.2:80
+# ISN_client=3000, ISN_server=4000
+# Client sends 50 bytes, then both sides close concurrently
+#
+# ts_ms  src               dst               flags seq  ack  win    payload
+0        10.0.0.1:7000     10.0.0.2:80       S     3000 0    65535  0
+50       10.0.0.2:80       10.0.0.1:7000     SA    4000 3001 32768  0
+55       10.0.0.1:7000     10.0.0.2:80       A     3001 4001 65535  0
+# Client sends 50 bytes
+100      10.0.0.1:7000     10.0.0.2:80       PA    3001 4001 65535  50
+150      10.0.0.2:80       10.0.0.1:7000     A     4001 3051 32768  0
+# Client initiates close
+200      10.0.0.1:7000     10.0.0.2:80       FA    3051 4001 65535  0
+# Server's FIN crosses in flight (hasn't seen client's FIN yet)
+# ack=3051 does NOT acknowledge client's FIN (needs ack=3052)
+210      10.0.0.2:80       10.0.0.1:7000     FA    4001 3051 32768  0
+# Client ACKs server's FIN
+260      10.0.0.1:7000     10.0.0.2:80       A     3052 4002 65535  0
+# Server ACKs client's FIN
+270      10.0.0.2:80       10.0.0.1:7000     A     4002 3052 32768  0

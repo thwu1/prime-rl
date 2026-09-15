@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a 300+ line Mode S decoder to derive the encoding algorithms (CRC-24, Compact Position Reporting, velocity decomposition, callsign charset mapping). The solver must explore a multi-table SQLite database using the sqlite3 CLI to distinguish encoding-relevant tables from operational context noise, discover an undocumented error_injection table and infer its semantics from the decoder's correction logic, implement the mathematical inverse of CPR decoding (handling southern hemisphere normalization, antimeridian wrapping, high-latitude NL discontinuities), construct bit-precise message fields by studying decoder bitmask patterns, and validate output against both the Python decoder and an unfamiliar compiled binary integrity validator whose CLI interface must be discovered at runtime."""
+solution_explanation = """The encoder reads aircraft state from SQLite (JOIN across aircraft/positions/velocities/error_injection tables, ignoring noise tables), implements CPR encoding by normalizing coordinates to [0,360), computing lat/lon CPR values as floor((coord % dzone / dzone) * 2^17 + 0.5), constructs ME fields with correct TC-specific bit layouts derived from the decoder, appends CRC-24 computed via polynomial division with 0x1FFF409, injects single-bit errors via MSB-first XOR at positions from error_injection, writes dump-format messages, runs the reference decoder, validates with msgcheck, and cross-validates decoded output against the database to produce validation.json."""
+verification_explanation = """Tests re-run both the Python decoder and compiled msgcheck validator on the encoded messages and verify: all 24 messages exist in valid dump format with DF=17, msgcheck reports 22 valid CRC + 2 corrected + 0 invalid with correct TC distribution (6 ident + 12 position + 6 velocity), all 6 aircraft are decoded with correct callsigns, positions within 0.05° tolerance across edge cases (southern hemisphere, near-equator, antimeridian, high-latitude), exact altitude matches, velocity components within quantization tolerance, and a properly structured validation.json with all round trips successful."""
+category = "protocol_engineering"
+tags = ["aviation-protocols", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/adsb-cpr-decoder"

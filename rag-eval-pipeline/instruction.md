@@ -1,0 +1,3 @@
+Multi-turn RAG benchmark data is at `/app/data/`. It includes conversational evaluation tasks organized by document collection, relevance judgments, reference answers, and system prediction files — some well-formed, some deliberately malformed.
+
+Build `/app/mtrag_eval.py`: a Python CLI conforming to the interface contract in `/app/data/api_contract.json`. Evaluation metrics produced by the tool will be verified against independently computed ground truth within floating-point tolerance. Per-query score decompositions must be internally consistent with their corresponding aggregate metrics.

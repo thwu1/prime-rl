@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 interacting numerical bugs across a mixed C/Python VLM aerodynamics pipeline. The agent must first build a C shared library from source using make/gcc, then trace failures through the ctypes C/Python boundary and across four additional Python modules. Bugs span the C vortex kernel (Biot-Savart cross-product sign convention), Python panel geometry (collocation rule), AIC assembly (mirror-image vortex direction), force accumulation (symmetry doubling), and stability derivative computation (unit consistency). Fixing the C bug requires reading C source, understanding the numerical formula, editing the code, and recompiling the shared library — a workflow that crosses language and build-system boundaries. Each bug demands understanding of potential flow theory and dimensional analysis, and their interactions make isolating individual failures non-trivial."""
+solution_explanation = """Five bugs must be found and fixed across C and Python: (1) libvortex/biot_savart.c: cross3(r,d) instead of cross3(d,r) in semi-infinite vortex computation, flipping trailing-leg induced velocities — requires editing C and rebuilding the .so with make; (2) panel.py: collocation point at 50% chord instead of 75% chord, violating the 3/4-chord rule essential for VLM accuracy; (3) aic.py: mirror horseshoe vortex endpoints not swapped (A_m,B_m instead of B_m,A_m), corrupting symmetric AIC contributions; (4) forces.py: symmetric moment doubling omitted while force doubling is present, halving all moment coefficients; (5) solver.py: stability derivatives divided by delta_deg instead of delta_rad, scaling CL_alpha and CM_alpha by ~57.3. Reference solution deploys a corrected standalone Python VLM implementation that bypasses the C library entirely."""
+verification_explanation = """Tests verify: output schema (keys, types, circulations count); CL/CDi magnitude and sign at alpha=5 deg; CL_alpha and oswald_efficiency within physical ranges for AR=10; static margin near zero for unswept wing and >0.3 for swept; CM_alpha<-1 for swept wing; zero-alpha coefficients vanish; CL linearity and CDi quadratic scaling across alpha; independent FD derivative check at ±0.01 deg matches reported within 1%; static_margin=-CM_alpha/CL_alpha; oswald=CL^2/(pi*AR*CDi); antisymmetry CL(a)=-CL(-a) and CDi(a)=CDi(-a)."""
+category = "engineering"
+tags = ["aerodynamics", "cross-language-debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vlm-stability-derivatives-d2c1c5"

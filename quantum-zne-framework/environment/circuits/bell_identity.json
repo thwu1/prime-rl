@@ -1,0 +1,162 @@
+{
+  "id": "bell_identity",
+  "n_qubits": 2,
+  "gates": [
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CNOT",
+      "targets": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "H",
+      "targets": [
+        0
+      ]
+    }
+  ],
+  "observable": [
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ]
+  ]
+}

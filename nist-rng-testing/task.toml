@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of NIST SP 800-22 Rev. 1a without any explicit guidance on formulas, algorithms, or implementation strategy. The solver must independently research and correctly implement seven distinct statistical tests (Frequency, Block Frequency, Runs, Longest Run of Ones, DFT/Spectral, Cumulative Sums, and Approximate Entropy), each with its own mathematical foundations — complementary error functions, incomplete gamma functions, FFT spectral analysis, block-size-dependent parameter tables, overlapping pattern counting with sequence augmentation, and test prerequisites. Must also independently determine and implement the publication's two-level assessment methodology. Finally, three qualitatively different PRNG deficiencies must be correctly diagnosed through the combined test results."""
+solution_explanation = """Read config and binary bitstream files packed MSB-first. Implement each NIST SP 800-22 test using scipy special functions and numpy FFT. The Approximate Entropy test requires counting overlapping m-bit and (m+1)-bit patterns on an augmented sequence. For each source, compute per-stream p-values, then perform two-level proportion and uniformity assessments as defined in Section 4 of the standard. The DFT test detects periodicity, frequency/block-frequency/runs/cumulative-sums detect bias, and approximate entropy detects structural dependence in periodic patterns."""
+verification_explanation = """Tests verify: (1) output JSON structure and completeness for all 7 tests across 3 sources, (2) frequency test p-values match independently computed reference values within 1e-6, (3) biased source fails with frequency/block_frequency/runs/cumulative_sums among failing tests, (4) periodic source fails with dft and approximate_entropy among failing tests, (5) proportion and uniformity calculations are self-consistent with reported p-values and thresholds, (6) CSPRNG produces reasonable p-values for frequency and approximate_entropy tests."""
+category = "security_and_privacy"
+tags = ["cryptography", "statistics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nist-rng-testing"

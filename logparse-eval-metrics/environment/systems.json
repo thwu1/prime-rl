@@ -1,0 +1,14 @@
+{
+  "HDFS": {
+    "log_format": "<Date> <Time> <Pid> <Level> <Component>: <Content>",
+    "masking_patterns": ["blk_-?\\d+", "(\\d+\\.){3}\\d+(:\\d+)?"]
+  },
+  "Apache": {
+    "log_format": "\\[<Time>\\] \\[<Level>\\] <Content>",
+    "masking_patterns": ["(\\d+\\.){3}\\d+"]
+  },
+  "Linux": {
+    "log_format": "<Month> <Date> <Time> <Level> <Component>(\\[<PID>\\])?: <Content>",
+    "masking_patterns": ["(\\d+\\.){3}\\d+", "\\d{2}:\\d{2}:\\d{2}"]
+  }
+}

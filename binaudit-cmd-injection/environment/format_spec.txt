@@ -1,0 +1,82 @@
+BSCAN Binary Format Specification v1.0
+=======================================
+
+Overview
+--------
+The .bscan format stores section metadata extracted from binary
+executables.  It is consumed by analysis tools such as binaudit for
+automated section auditing, cross-referencing, and pipeline integration.
+
+File layout
+-----------
+    [Header : 16 bytes]
+    [Section entries : N x 32 bytes each]
+
+    Total file size = 16 + N * 32
+
+Header (16 bytes)
+-----------------
+    Offset  Size  Type      Description
+    0x00    4     char[4]   Magic bytes: ASCII "BSCN" (42 53 43 4E)
+    0x04    4     uint32    Version number (currently 1), little-endian
+    0x08    4     uint32    Number of sections N, little-endian
+    0x0C    4     uint32    Header flags (reserved, set to 0)
+
+Section entry (32 bytes)
+------------------------
+    Offset  Size  Type      Description
+    0x00    8     char[8]   Section name, ASCII, null-padded if shorter
+    0x08    4     uint32    Virtual address (load address), little-endian
+    0x0C    4     uint32    Virtual size, little-endian
+    0x10    4     uint32    Raw data file offset, little-endian
+    0x14    4     uint32    Raw data size, little-endian
+    0x18    4     uint32    Characteristics flags, little-endian
+    0x1C    4     uint32    Section alignment (reserved, set to 0)
+
+Characteristics flags
+---------------------
+    Bit mask      Name    Meaning
+    0x00000020    CODE    Contains executable code
+    0x00000040    IDATA   Contains initialised data
+    0x00000080    UDATA   Contains uninitialised data (BSS)
+    0x20000000    EXEC    Executable
+    0x40000000    READ    Readable
+    0x80000000    WRITE   Writable
+
+    Common combinations:
+        .text   0x60000020  (CODE | EXEC | READ)
+        .rdata  0x40000040  (IDATA | READ)
+        .data   0xC0000040  (IDATA | READ | WRITE)
+        .bss    0xC0000080  (UDATA | READ | WRITE)
+
+Section names
+-------------
+Section names are stored as exactly 8 bytes of ASCII text.  Names
+shorter than 8 characters are right-padded with null bytes (0x00).
+Names of exactly 8 characters use all 8 bytes with no null terminator.
+
+Common section names: .text, .data, .rdata, .bss, .rsrc, .reloc
+
+Example
+-------
+A minimal .bscan file with two sections (.text and .data) is 80 bytes:
+
+    Offset  Hex                               Decoded
+    0x00    42 53 43 4E                       magic "BSCN"
+    0x04    01 00 00 00                       version 1
+    0x08    02 00 00 00                       2 sections
+    0x0C    00 00 00 00                       flags 0
+    0x10    2E 74 65 78 74 00 00 00           ".text\0\0\0"
+    0x18    00 10 00 00                       vaddr  0x00001000
+    0x1C    00 20 00 00                       vsize  0x00002000
+    0x20    00 02 00 00                       offset 0x00000200
+    0x24    00 18 00 00                       rawsz  0x00001800
+    0x28    20 00 00 60                       chars  0x60000020
+    0x2C    10 00 00 00                       align  16
+    0x30    2E 64 61 74 61 00 00 00           ".data\0\0\0"
+    0x38    00 30 00 00                       vaddr  0x00003000
+    0x3C    00 10 00 00                       vsize  0x00001000
+    0x40    00 20 00 00                       offset 0x00002000
+    0x44    00 08 00 00                       rawsz  0x00000800
+    0x48    40 00 00 C0                       chars  0xC0000040
+    0x4C    10 00 00 00                       align  16

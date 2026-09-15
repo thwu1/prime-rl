@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level mastery of the ANSI/NIST-ITL binary encoding format. The solver must independently discover and implement: (1) a dual-mode parser handling both tagged-field ASCII records (with self-referential length computation and four-level separator hierarchy) and packed binary-header records (big-endian struct fields); (2) a conformance validator covering 27 distinct violation codes across field format, mandatory presence, range constraints, and cross-record consistency rules; (3) a reconstruction engine that must handle cascading cross-record dependencies and the self-referential LEN fixed-point equation while preserving byte-identity for valid inputs. The solver must also figure out how to produce xxd-compatible hex dumps, correct SHA-256 checksums, and HMAC-SHA256 integrity signatures. The spec provides repair target values but not the algorithm — the solver must discover how to handle ordering, dependencies, and length recomputation."""
+solution_explanation = """Parse transactions using CNT-aware dual-mode parser (tagged FS-terminated records vs binary length-prefixed records). Validate 27 distinct violation codes across field format, mandatory presence, range constraints, and cross-record consistency. Reconstruct in four phases: (1) field-level repairs using spec-defined defaults, (2) cross-record NSR repair when Type-4 ISR=1 triggers resolution violation, (3) CNT structural rebuild matching actual records, (4) self-referential LEN fixed-point recomputation for all tagged records and binary length repack. Produce xxd hex dumps via subprocess with record-boundary annotations inserted at correct byte offsets, SHA-256 checksums, and HMAC-SHA256 integrity signatures using the provided key."""
+verification_explanation = """Tests validate against 11 static corpus files with known violations (21 of 27 codes), 9 dynamic transactions covering remaining 6 codes plus anti-hardcoding. Reconstruction tests verify all repaired files pass validation with zero violations, valid files produce byte-identical output, and specific byte patterns confirm correct field repairs. Hex analysis tests strip annotations and compare against independent xxd runs. Checksum tests independently compute sha256sum and verify match. HMAC tests independently compute HMAC-SHA256 with the same key and verify signatures match. Dynamic reconstruction tests build corrupted transactions at runtime and verify repair correctness."""
+category = "data_structures"
+tags = ["biometrics", "binary-parsing", "conformance-testing", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0b069"

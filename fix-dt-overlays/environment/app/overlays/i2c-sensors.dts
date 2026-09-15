@@ -1,0 +1,37 @@
+/*
+ * Device Tree Overlay for I2C sensors and peripherals
+ * Monitoring HAT — I2C bus devices
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+        target = <&i2c0>;
+        __overlay__ {
+            status = "okay";
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            gpio_expander: mcp23017@27 {
+                compatible = "microchip,mcp23s17";
+                reg = <0x27>;
+                interrupt-parent = <&gpio>;
+                interrupts = <24 0x2>;
+                microchip,irq-mirror;
+            };
+
+            rtc: ds3231@57 {
+                compatible = "dallas,ds3231";
+                reg = <0x57>;
+            };
+
+            env_sensor: bme280@77 {
+                compatible = "bme280";
+                reg = <0x77>;
+            };
+        };
+    };
+};

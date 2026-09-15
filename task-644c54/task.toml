@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering VGDL semantics from Java reference source code and game description files, then implementing a full Python game engine: an indentation-based DSL parser with hierarchical sprite type inheritance, a forward model with cascading collision resolution using type-hierarchy matching, resource-tracking mechanics, conditional interaction effects, and a state-space search solver. The agent must understand Java code as specification, work across Python/Java/shell tooling, and handle non-trivial edge cases like undoAll rollbacks, bounceForward cascades, resource-gated interactions, and multi-game generalization — none of which are described in the task instruction."""
+solution_explanation = """Parse the VGDL indentation tree to build a sprite type hierarchy with inherited base types and parameters. Implement a forward model that saves per-tick positions for undoAll, processes collisions at the avatar's new position by matching interaction rules against the type hierarchy (is_subtype traversal), and cascades bounceForward into secondary collision checks. Implement collectResource by tracking resources on the collecting sprite (sprite2) and killing the collected sprite (sprite1), and killIfOtherHasMore by conditionally killing sprite1 when sprite2 exceeds a resource threshold. Use BFS over state hashes (including resource counts) to find winning action sequences. Expose a JSON CLI via the json module."""
+verification_explanation = """30 pytest tests verify: correct parsing of sprite types, hierarchy, and interactions for three different games; correct level loading with dimensions and sprite positions; forward model correctness for box pushing (bounceForward), wall blocking (undoAll/stepBack), key pickup (transformTo+killSecond), dirt destruction (killSprite), resource collection (collectResource with inventory tracking), conditional exit opening (killIfOtherHasMore with resource checks); solver producing valid winning sequences validated by re-simulation; and CLI JSON output verified both by Python json.loads and by piping through jq."""
+category = "software-engineering"
+tags = ["game-engine", "dsl-interpreter"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-644c54"

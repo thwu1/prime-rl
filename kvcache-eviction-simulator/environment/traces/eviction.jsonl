@@ -1,0 +1,3 @@
+{"t": 0, "op": "PUT", "key": "X", "size": 400}
+{"t": 1, "op": "PUT", "key": "Y", "size": 400}
+{"t": 2, "op": "PUT", "key": "Z", "size": 400}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in numerical linear algebra. The solver must: (1) diagnose why unpreconditioned CG fails on ill-conditioned and anisotropic systems by analyzing matrix structure and baseline results; (2) design and implement a multilevel solver with hierarchical coarsening that produces a valid level hierarchy; (3) achieve mesh-independent convergence rates, which demands deep understanding of iterative method theory, preconditioning, and coarsening strategies that respect anisotropic coupling; (4) tune smoother and coarsening parameters to meet tight iteration budgets across isotropic and anisotropic configurations."""
+solution_explanation = """Build an AMG hierarchy using aggregation-based coarsening (PGM): construct a strength-of-connection graph from off-diagonal magnitudes, perform greedy maximal matching to form aggregates, build injection prolongation P, and form Galerkin coarse operators P^T A P. Repeat until the coarse grid is small enough for direct solve. Apply V-cycles with weighted Jacobi smoothing as a preconditioner within CG. The PGM coarsening naturally handles anisotropy by matching along strong connections. Implementation requires ~250 lines of Python with scipy.sparse."""
+verification_explanation = """Tests invoke the solver on three pre-generated matrices and parse output JSON. Checks: (1) convergence to relative residual < 1e-8 on all matrices; (2) iteration counts within bounds (30/100/35 for iso_32/aniso_32/iso_64); (3) mesh independence via bounded iteration growth; (4) valid hierarchy structure (≥3 levels, decreasing sizes, grid/operator complexity in expected ranges)."""
+category = "scientific_computing"
+tags = ["multigrid", "sparse-solvers"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pgm-multigrid-solver"

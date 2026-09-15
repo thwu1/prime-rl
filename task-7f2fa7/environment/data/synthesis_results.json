@@ -1,0 +1,966 @@
+{
+  "metadata": {
+    "description": "HLS synthesis results from Bench4HLS evaluation framework",
+    "models": [
+      "alpha",
+      "beta",
+      "gamma"
+    ],
+    "benchmarks": [
+      "fir_filter",
+      "matrix_mult",
+      "fft_radix2",
+      "aes_encrypt",
+      "jpeg_dct"
+    ],
+    "n_samples_per_benchmark": 10,
+    "objectives": [
+      {
+        "name": "latency_ns",
+        "direction": "minimize"
+      },
+      {
+        "name": "area_luts",
+        "direction": "minimize"
+      },
+      {
+        "name": "power_mw",
+        "direction": "minimize"
+      }
+    ],
+    "constraints": {
+      "max_dsps": 150,
+      "max_brams": 80
+    },
+    "reference_point": [
+      1000.0,
+      50000,
+      500.0
+    ],
+    "ranking_weights": {
+      "synthesis_pass_at_1": 0.5,
+      "simulation_pass_at_1": 0.3,
+      "normalized_hypervolume": 0.2
+    }
+  },
+  "evaluation_results": {
+    "alpha": {
+      "fir_filter": {
+        "n_samples": 10,
+        "compile_pass": 10,
+        "sim_pass": 8,
+        "synth_pass": 6,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part2",
+            "latency_ns": 15.0,
+            "area_luts": 8500,
+            "power_mw": 75.0,
+            "dsps": 20,
+            "brams": 10
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part1",
+            "latency_ns": 25.0,
+            "area_luts": 6200,
+            "power_mw": 55.0,
+            "dsps": 12,
+            "brams": 8
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_nopipe_unroll1_part1",
+            "latency_ns": 40.0,
+            "area_luts": 5100,
+            "power_mw": 45.0,
+            "dsps": 8,
+            "brams": 6
+          },
+          {
+            "sample_id": 3,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 18.0,
+            "area_luts": 12000,
+            "power_mw": 90.0,
+            "dsps": 35,
+            "brams": 15
+          },
+          {
+            "sample_id": 4,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 30.0,
+            "area_luts": 7800,
+            "power_mw": 60.0,
+            "dsps": 18,
+            "brams": 12
+          },
+          {
+            "sample_id": 5,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 80.0,
+            "area_luts": 4800,
+            "power_mw": 30.0,
+            "dsps": 6,
+            "brams": 5
+          },
+          {
+            "sample_id": 6,
+            "config": "clk2_pipe_unroll16_part8",
+            "latency_ns": 12.0,
+            "area_luts": 9000,
+            "power_mw": 70.0,
+            "dsps": 180,
+            "brams": 8
+          }
+        ]
+      },
+      "matrix_mult": {
+        "n_samples": 10,
+        "compile_pass": 9,
+        "sim_pass": 7,
+        "synth_pass": 5,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 50.0,
+            "area_luts": 25000,
+            "power_mw": 180.0,
+            "dsps": 80,
+            "brams": 40
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 85.0,
+            "area_luts": 18000,
+            "power_mw": 130.0,
+            "dsps": 50,
+            "brams": 30
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 120.0,
+            "area_luts": 14000,
+            "power_mw": 100.0,
+            "dsps": 35,
+            "brams": 22
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll2_part1",
+            "latency_ns": 200.0,
+            "area_luts": 10500,
+            "power_mw": 75.0,
+            "dsps": 20,
+            "brams": 18
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 350.0,
+            "area_luts": 8500,
+            "power_mw": 55.0,
+            "dsps": 12,
+            "brams": 15
+          }
+        ]
+      },
+      "fft_radix2": {
+        "n_samples": 10,
+        "compile_pass": 10,
+        "sim_pass": 6,
+        "synth_pass": 4,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 35.0,
+            "area_luts": 20000,
+            "power_mw": 140.0,
+            "dsps": 60,
+            "brams": 25
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 60.0,
+            "area_luts": 15000,
+            "power_mw": 105.0,
+            "dsps": 40,
+            "brams": 20
+          },
+          {
+            "sample_id": 2,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 90.0,
+            "area_luts": 22000,
+            "power_mw": 160.0,
+            "dsps": 70,
+            "brams": 30
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_pipe_unroll2_part1",
+            "latency_ns": 150.0,
+            "area_luts": 11000,
+            "power_mw": 70.0,
+            "dsps": 25,
+            "brams": 15
+          },
+          {
+            "sample_id": 4,
+            "config": "clk2_pipe_unroll8_part8",
+            "latency_ns": 25.0,
+            "area_luts": 25000,
+            "power_mw": 155.0,
+            "dsps": 160,
+            "brams": 22
+          }
+        ]
+      },
+      "aes_encrypt": {
+        "n_samples": 10,
+        "compile_pass": 8,
+        "sim_pass": 5,
+        "synth_pass": 3,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 22.0,
+            "area_luts": 14000,
+            "power_mw": 95.0,
+            "dsps": 10,
+            "brams": 50
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 45.0,
+            "area_luts": 10500,
+            "power_mw": 65.0,
+            "dsps": 8,
+            "brams": 35
+          },
+          {
+            "sample_id": 2,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 100.0,
+            "area_luts": 7500,
+            "power_mw": 40.0,
+            "dsps": 5,
+            "brams": 25
+          }
+        ]
+      },
+      "jpeg_dct": {
+        "n_samples": 10,
+        "compile_pass": 10,
+        "sim_pass": 9,
+        "synth_pass": 7,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 40.0,
+            "area_luts": 30000,
+            "power_mw": 200.0,
+            "dsps": 100,
+            "brams": 50
+          },
+          {
+            "sample_id": 1,
+            "config": "clk3.3_pipe_unroll4_part2",
+            "latency_ns": 65.0,
+            "area_luts": 24000,
+            "power_mw": 160.0,
+            "dsps": 70,
+            "brams": 35
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 100.0,
+            "area_luts": 19000,
+            "power_mw": 120.0,
+            "dsps": 50,
+            "brams": 28
+          },
+          {
+            "sample_id": 3,
+            "config": "clk5_pipe_unroll2_part1",
+            "latency_ns": 150.0,
+            "area_luts": 15000,
+            "power_mw": 90.0,
+            "dsps": 35,
+            "brams": 22
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_pipe_unroll2_part1",
+            "latency_ns": 220.0,
+            "area_luts": 12000,
+            "power_mw": 70.0,
+            "dsps": 20,
+            "brams": 18
+          },
+          {
+            "sample_id": 5,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 300.0,
+            "area_luts": 9500,
+            "power_mw": 50.0,
+            "dsps": 12,
+            "brams": 15
+          },
+          {
+            "sample_id": 6,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 55.0,
+            "area_luts": 28000,
+            "power_mw": 185.0,
+            "dsps": 90,
+            "brams": 45
+          }
+        ]
+      }
+    },
+    "beta": {
+      "fir_filter": {
+        "n_samples": 10,
+        "compile_pass": 9,
+        "sim_pass": 7,
+        "synth_pass": 6,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 12.0,
+            "area_luts": 9500,
+            "power_mw": 82.0,
+            "dsps": 25,
+            "brams": 12
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 20.0,
+            "area_luts": 7000,
+            "power_mw": 60.0,
+            "dsps": 15,
+            "brams": 9
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_nopipe_unroll1_part1",
+            "latency_ns": 35.0,
+            "area_luts": 5500,
+            "power_mw": 48.0,
+            "dsps": 10,
+            "brams": 7
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 55.0,
+            "area_luts": 4500,
+            "power_mw": 32.0,
+            "dsps": 7,
+            "brams": 5
+          },
+          {
+            "sample_id": 4,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 28.0,
+            "area_luts": 8200,
+            "power_mw": 70.0,
+            "dsps": 20,
+            "brams": 11
+          },
+          {
+            "sample_id": 5,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 16.0,
+            "area_luts": 13000,
+            "power_mw": 98.0,
+            "dsps": 40,
+            "brams": 18
+          }
+        ]
+      },
+      "matrix_mult": {
+        "n_samples": 10,
+        "compile_pass": 10,
+        "sim_pass": 9,
+        "synth_pass": 8,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 42.0,
+            "area_luts": 28000,
+            "power_mw": 195.0,
+            "dsps": 90,
+            "brams": 45
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 70.0,
+            "area_luts": 20000,
+            "power_mw": 145.0,
+            "dsps": 55,
+            "brams": 32
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 110.0,
+            "area_luts": 15500,
+            "power_mw": 110.0,
+            "dsps": 38,
+            "brams": 24
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_pipe_unroll2_part1",
+            "latency_ns": 180.0,
+            "area_luts": 11500,
+            "power_mw": 80.0,
+            "dsps": 22,
+            "brams": 18
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 300.0,
+            "area_luts": 9000,
+            "power_mw": 58.0,
+            "dsps": 14,
+            "brams": 14
+          },
+          {
+            "sample_id": 5,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 55.0,
+            "area_luts": 23000,
+            "power_mw": 165.0,
+            "dsps": 65,
+            "brams": 38
+          },
+          {
+            "sample_id": 6,
+            "config": "clk5_pipe_unroll4_part4",
+            "latency_ns": 95.0,
+            "area_luts": 17000,
+            "power_mw": 125.0,
+            "dsps": 45,
+            "brams": 28
+          },
+          {
+            "sample_id": 7,
+            "config": "clk10_nopipe_unroll2_part1",
+            "latency_ns": 250.0,
+            "area_luts": 10000,
+            "power_mw": 68.0,
+            "dsps": 18,
+            "brams": 16
+          }
+        ]
+      },
+      "fft_radix2": {
+        "n_samples": 10,
+        "compile_pass": 8,
+        "sim_pass": 6,
+        "synth_pass": 5,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 30.0,
+            "area_luts": 22000,
+            "power_mw": 150.0,
+            "dsps": 65,
+            "brams": 28
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 50.0,
+            "area_luts": 16500,
+            "power_mw": 112.0,
+            "dsps": 42,
+            "brams": 22
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_nopipe_unroll2_part2",
+            "latency_ns": 80.0,
+            "area_luts": 12500,
+            "power_mw": 80.0,
+            "dsps": 28,
+            "brams": 16
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_pipe_unroll1_part1",
+            "latency_ns": 130.0,
+            "area_luts": 10000,
+            "power_mw": 62.0,
+            "dsps": 20,
+            "brams": 12
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 200.0,
+            "area_luts": 8500,
+            "power_mw": 45.0,
+            "dsps": 15,
+            "brams": 10
+          },
+          {
+            "sample_id": 5,
+            "config": "clk2_pipe_unroll4_part8",
+            "latency_ns": 20.0,
+            "area_luts": 25000,
+            "power_mw": 160.0,
+            "dsps": 10,
+            "brams": 85
+          }
+        ]
+      },
+      "aes_encrypt": {
+        "n_samples": 10,
+        "compile_pass": 9,
+        "sim_pass": 8,
+        "synth_pass": 7,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 18.0,
+            "area_luts": 15500,
+            "power_mw": 105.0,
+            "dsps": 12,
+            "brams": 55
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 35.0,
+            "area_luts": 11500,
+            "power_mw": 72.0,
+            "dsps": 9,
+            "brams": 38
+          },
+          {
+            "sample_id": 2,
+            "config": "clk10_pipe_unroll1_part2",
+            "latency_ns": 70.0,
+            "area_luts": 8500,
+            "power_mw": 48.0,
+            "dsps": 6,
+            "brams": 28
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 120.0,
+            "area_luts": 6800,
+            "power_mw": 35.0,
+            "dsps": 4,
+            "brams": 22
+          },
+          {
+            "sample_id": 4,
+            "config": "clk3.3_pipe_unroll2_part4",
+            "latency_ns": 25.0,
+            "area_luts": 13000,
+            "power_mw": 88.0,
+            "dsps": 10,
+            "brams": 45
+          },
+          {
+            "sample_id": 5,
+            "config": "clk5_pipe_unroll2_part4",
+            "latency_ns": 50.0,
+            "area_luts": 10000,
+            "power_mw": 58.0,
+            "dsps": 8,
+            "brams": 32
+          },
+          {
+            "sample_id": 6,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 90.0,
+            "area_luts": 18000,
+            "power_mw": 130.0,
+            "dsps": 15,
+            "brams": 60
+          }
+        ]
+      },
+      "jpeg_dct": {
+        "n_samples": 10,
+        "compile_pass": 7,
+        "sim_pass": 5,
+        "synth_pass": 4,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 55.0,
+            "area_luts": 32000,
+            "power_mw": 210.0,
+            "dsps": 110,
+            "brams": 55
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 90.0,
+            "area_luts": 25000,
+            "power_mw": 165.0,
+            "dsps": 75,
+            "brams": 40
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 140.0,
+            "area_luts": 20000,
+            "power_mw": 125.0,
+            "dsps": 55,
+            "brams": 30
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll2_part1",
+            "latency_ns": 250.0,
+            "area_luts": 13000,
+            "power_mw": 75.0,
+            "dsps": 25,
+            "brams": 20
+          }
+        ]
+      }
+    },
+    "gamma": {
+      "fir_filter": {
+        "n_samples": 10,
+        "compile_pass": 7,
+        "sim_pass": 6,
+        "synth_pass": 5,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part2",
+            "latency_ns": 18.0,
+            "area_luts": 7500,
+            "power_mw": 68.0,
+            "dsps": 18,
+            "brams": 9
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part1",
+            "latency_ns": 30.0,
+            "area_luts": 5800,
+            "power_mw": 50.0,
+            "dsps": 11,
+            "brams": 7
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_nopipe_unroll1_part1",
+            "latency_ns": 50.0,
+            "area_luts": 4600,
+            "power_mw": 38.0,
+            "dsps": 7,
+            "brams": 5
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 90.0,
+            "area_luts": 4200,
+            "power_mw": 25.0,
+            "dsps": 5,
+            "brams": 4
+          },
+          {
+            "sample_id": 4,
+            "config": "clk3.3_pipe_unroll8_part2",
+            "latency_ns": 22.0,
+            "area_luts": 10000,
+            "power_mw": 80.0,
+            "dsps": 28,
+            "brams": 13
+          }
+        ]
+      },
+      "matrix_mult": {
+        "n_samples": 10,
+        "compile_pass": 8,
+        "sim_pass": 7,
+        "synth_pass": 7,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 48.0,
+            "area_luts": 22000,
+            "power_mw": 170.0,
+            "dsps": 75,
+            "brams": 38
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 80.0,
+            "area_luts": 17000,
+            "power_mw": 128.0,
+            "dsps": 48,
+            "brams": 28
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 125.0,
+            "area_luts": 13000,
+            "power_mw": 95.0,
+            "dsps": 32,
+            "brams": 20
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_pipe_unroll2_part1",
+            "latency_ns": 210.0,
+            "area_luts": 10000,
+            "power_mw": 68.0,
+            "dsps": 18,
+            "brams": 16
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 380.0,
+            "area_luts": 8000,
+            "power_mw": 48.0,
+            "dsps": 10,
+            "brams": 12
+          },
+          {
+            "sample_id": 5,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 60.0,
+            "area_luts": 19500,
+            "power_mw": 148.0,
+            "dsps": 58,
+            "brams": 32
+          },
+          {
+            "sample_id": 6,
+            "config": "clk10_pipe_unroll2_part2",
+            "latency_ns": 160.0,
+            "area_luts": 11500,
+            "power_mw": 82.0,
+            "dsps": 25,
+            "brams": 18
+          }
+        ]
+      },
+      "fft_radix2": {
+        "n_samples": 10,
+        "compile_pass": 6,
+        "sim_pass": 5,
+        "synth_pass": 4,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 38.0,
+            "area_luts": 18000,
+            "power_mw": 130.0,
+            "dsps": 55,
+            "brams": 22
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 65.0,
+            "area_luts": 14000,
+            "power_mw": 98.0,
+            "dsps": 38,
+            "brams": 18
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_nopipe_unroll2_part1",
+            "latency_ns": 110.0,
+            "area_luts": 10500,
+            "power_mw": 68.0,
+            "dsps": 22,
+            "brams": 13
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 180.0,
+            "area_luts": 8800,
+            "power_mw": 50.0,
+            "dsps": 16,
+            "brams": 10
+          }
+        ]
+      },
+      "aes_encrypt": {
+        "n_samples": 10,
+        "compile_pass": 7,
+        "sim_pass": 6,
+        "synth_pass": 6,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll4_part4",
+            "latency_ns": 20.0,
+            "area_luts": 13000,
+            "power_mw": 90.0,
+            "dsps": 9,
+            "brams": 48
+          },
+          {
+            "sample_id": 1,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 38.0,
+            "area_luts": 9800,
+            "power_mw": 62.0,
+            "dsps": 7,
+            "brams": 32
+          },
+          {
+            "sample_id": 2,
+            "config": "clk10_pipe_unroll1_part2",
+            "latency_ns": 75.0,
+            "area_luts": 7200,
+            "power_mw": 42.0,
+            "dsps": 5,
+            "brams": 24
+          },
+          {
+            "sample_id": 3,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 130.0,
+            "area_luts": 6200,
+            "power_mw": 30.0,
+            "dsps": 4,
+            "brams": 20
+          },
+          {
+            "sample_id": 4,
+            "config": "clk3.3_pipe_unroll2_part4",
+            "latency_ns": 28.0,
+            "area_luts": 11500,
+            "power_mw": 78.0,
+            "dsps": 8,
+            "brams": 40
+          },
+          {
+            "sample_id": 5,
+            "config": "clk5_nopipe_unroll2_part2",
+            "latency_ns": 55.0,
+            "area_luts": 8500,
+            "power_mw": 52.0,
+            "dsps": 6,
+            "brams": 28
+          }
+        ]
+      },
+      "jpeg_dct": {
+        "n_samples": 10,
+        "compile_pass": 9,
+        "sim_pass": 8,
+        "synth_pass": 8,
+        "synthesis_results": [
+          {
+            "sample_id": 0,
+            "config": "clk3.3_pipe_unroll8_part4",
+            "latency_ns": 35.0,
+            "area_luts": 28000,
+            "power_mw": 190.0,
+            "dsps": 95,
+            "brams": 48
+          },
+          {
+            "sample_id": 1,
+            "config": "clk3.3_pipe_unroll4_part2",
+            "latency_ns": 58.0,
+            "area_luts": 22000,
+            "power_mw": 150.0,
+            "dsps": 65,
+            "brams": 32
+          },
+          {
+            "sample_id": 2,
+            "config": "clk5_pipe_unroll4_part2",
+            "latency_ns": 88.0,
+            "area_luts": 17500,
+            "power_mw": 115.0,
+            "dsps": 45,
+            "brams": 25
+          },
+          {
+            "sample_id": 3,
+            "config": "clk5_pipe_unroll2_part1",
+            "latency_ns": 135.0,
+            "area_luts": 14000,
+            "power_mw": 85.0,
+            "dsps": 30,
+            "brams": 20
+          },
+          {
+            "sample_id": 4,
+            "config": "clk10_pipe_unroll2_part1",
+            "latency_ns": 200.0,
+            "area_luts": 11000,
+            "power_mw": 62.0,
+            "dsps": 18,
+            "brams": 15
+          },
+          {
+            "sample_id": 5,
+            "config": "clk10_nopipe_unroll1_part1",
+            "latency_ns": 280.0,
+            "area_luts": 8800,
+            "power_mw": 45.0,
+            "dsps": 10,
+            "brams": 12
+          },
+          {
+            "sample_id": 6,
+            "config": "clk3.3_pipe_unroll8_part2",
+            "latency_ns": 45.0,
+            "area_luts": 25000,
+            "power_mw": 170.0,
+            "dsps": 80,
+            "brams": 42
+          },
+          {
+            "sample_id": 7,
+            "config": "clk5_pipe_unroll2_part2",
+            "latency_ns": 110.0,
+            "area_luts": 16000,
+            "power_mw": 100.0,
+            "dsps": 40,
+            "brams": 23
+          }
+        ]
+      }
+    }
+  }
+}

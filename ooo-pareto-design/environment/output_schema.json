@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Multi-Objective OoO Processor Design Space Analysis",
+  "description": "Output format for the multi-objective processor design space optimization analysis. All fields are required.",
+  "type": "object",
+  "required": ["area_scores", "power_estimates", "weighted_perf", "pareto_front", "bottlenecks", "scenario_optimal"],
+  "properties": {
+    "area_scores": {
+      "type": "object",
+      "description": "Map from config_id (string) to its integer area cost, computed using the compute_area function from /app/arch_model.py with the configuration's parameters.",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "power_estimates": {
+      "type": "object",
+      "description": "Map from config_id (string) to total power estimate (float, rounded to 4 decimal places). Computed using the calibrated /app/power_model.py with the geometric-mean IPC across all four workloads and the arithmetic-mean L1D cache miss rate across all four workloads as inputs. Use temperature_kelvin from /app/constraints.yaml.",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "weighted_perf": {
+      "type": "object",
+      "description": "Map from config_id (string) to weighted geometric-mean speedup over baseline (float, rounded to 6 decimal places). Per-workload speedup = ipc_config / ipc_baseline. Weighted geometric mean = product(speedup_wl ^ weight_wl) across all workloads, where weights come from workload_weights in /app/constraints.yaml (they sum to 1.0).",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "pareto_front": {
+      "type": "array",
+      "description": "Config IDs forming the 3-objective Pareto-efficient set with objectives: minimize area_scores, minimize power_estimates, maximize weighted_perf. A configuration is non-dominated if no other configuration achieves at least as good on all three objectives with strictly better on at least one. Include all non-dominated configurations, sorted by ascending area_scores, then ascending power_estimates for ties.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "bottlenecks": {
+      "type": "object",
+      "description": "Map from workload name to the name of the microarchitectural parameter that is the primary performance bottleneck at the baseline configuration. Determined via marginal sensitivity analysis: from the baseline, independently increase each parameter to the next value present in the design sweep while holding all others at baseline values, and select the parameter whose single-step increase yields the largest absolute IPC gain. Parameter names: 'width', 'rob_size', 'num_int_regs', 'num_fp_regs'.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["width", "rob_size", "num_int_regs", "num_fp_regs"]
+      }
+    },
+    "scenario_optimal": {
+      "type": "object",
+      "description": "Map from scenario name (mobile/laptop/desktop/server) to config_id. For each budget scenario in /app/constraints.yaml, select the config with the highest weighted_perf among configurations satisfying BOTH area_scores <= max_area AND power_estimates <= max_power. Ties in weighted_perf broken by smallest area_scores, then smallest power_estimates.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

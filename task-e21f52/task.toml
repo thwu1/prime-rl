@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-component eye-tracking analysis pipeline with four distinct domain-specific defects spanning signal processing (blink artifact handling in velocity-based fixation detection), psycholinguistic theory (first-pass vs second-pass reading measure semantics with per-word gaze-departure tracking), ML evaluation design (cross-validation data leakage in the unseen-both generalization regime), and oculomotor metrics (saccade amplitude computation from fixation sequences). The solver must explore an unfamiliar environment, cross-reference a specification against buggy code, diagnose each defect from observable symptoms and domain knowledge, and implement correct fixes."""
+solution_explanation = """Fix four bugs: (1) exclude blink samples (pupil_diam==0) from fixation candidates so phantom fixations at (0,0) are eliminated; (2) replace the global first_pass_ended flag with per-word tracking via a left_word set, so words visited for the first time after a regression correctly receive first-pass measures; (3) change the unseen_both CV split condition from AND to OR, excluding all trials involving the held-out reader or text from training; (4) compute saccade amplitude as Euclidean distance between consecutive fixation centroids per trial instead of the hardcoded zero."""
+verification_explanation = """Tests verify: JSON structure completeness; fixation count/duration plausibility and positive saccade amplitude; reading measure ordering constraints (GD >= FFD, TRT >= GD); exact cross-validation fold counts (8, 6, 48) and split sizes (42/6, 40/8, 35/1); bounded prediction metrics; direct unit tests of detect_fixations_ivt (blink exclusion producing exactly 2 fixations from a still-blink-still signal, two-fixation detection, minimum duration filtering) and compute_word_measures (per-word first-pass tracking correctly assigns FFD to a word first visited after a regression)."""
+category = "data_science"
+tags = ["eye-tracking", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e21f52"

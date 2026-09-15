@@ -1,0 +1,8 @@
+func:
+    cmpl    $0, %edi
+    jz      .L1
+    movl    $1, %eax
+    retq
+.L1:
+    xorl    %eax, %eax
+    retq

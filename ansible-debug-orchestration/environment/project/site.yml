@@ -1,0 +1,11 @@
+---
+- name: Deploy web application configuration
+  hosts: webservers
+  vars_files:
+    - /app/secrets.yml
+  roles:
+    - webapp
+
+- import_playbook: playbooks/users.yml
+- import_playbook: playbooks/report.yml
+- import_playbook: playbooks/cron.yml

@@ -1,0 +1,8 @@
+`ifndef SOC_CONFIG_SVH
+`define SOC_CONFIG_SVH
+
+`define DEFAULT_CLK_FREQ  50_000_000
+`define DEFAULT_BAUD_RATE 115200
+`define FIFO_DEPTH_CFG    8
+
+`endif

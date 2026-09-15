@@ -1,0 +1,5 @@
+A container image pipeline depends on `/app/cfs-tool` (Python source: `/app/cfs_tool.py`), a CLI for managing content-addressed filesystem layer stores. It separates file content from metadata, stores data objects by SHA-256 digest, and supports OCI-inspired layer merge operations with whiteout/opaque semantics. The complete specification — including all subcommand interfaces, manifest JSON schema, and output formats — is at `/app/spec.md`.
+
+The tool has defects across its existing subcommands, and several subcommands plus an external validation tool defined in `/app/spec.md` have never been implemented.
+
+A validation pipeline at `/app/pipeline.sh` exercises all functionality against test layers at `/app/layers/` and currently fails. Make `/app/pipeline.sh` exit successfully with all 12 checks passing.

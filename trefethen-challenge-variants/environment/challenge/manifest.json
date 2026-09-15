@@ -1,0 +1,11 @@
+{
+  "title": "Numerical Analysis Precision Challenge",
+  "description": "Solve each problem to at least 10 significant digits of accuracy.",
+  "problems": ["P1", "P2", "P3", "P4"],
+  "problem_dir": "problems",
+  "output": {
+    "dir": "/app/results",
+    "naming": "problem_{ID}.txt",
+    "format": "Single line containing the numerical answer with sufficient decimal places."
+  }
+}

@@ -1,0 +1,132 @@
+[
+  {
+    "title": "Fortune 500 Companies 2024",
+    "url": "https://en.wikipedia.org/wiki/Fortune_500",
+    "header": ["Rank", "Company", "Revenue ($B)", "Industry"],
+    "rows": [
+      ["1", "Walmart", "648", "Retail"],
+      ["2", "Amazon", "575", "Technology"],
+      ["3", "Apple", "383", "Technology"],
+      ["4", "UnitedHealth Group", "372", "Healthcare"],
+      ["5", "Berkshire Hathaway", "365", "Conglomerate"]
+    ],
+    "id": "c704ac1601a96e448beb812c9ab7ce45"
+  },
+  {
+    "title": "2024 Paris Olympics Medal Table",
+    "url": "https://en.wikipedia.org/wiki/2024_Summer_Olympics",
+    "header": ["Rank", "Country", "Gold", "Silver", "Bronze", "Total"],
+    "rows": [
+      ["1", "United States", "40", "44", "42", "126"],
+      ["2", "China", "40", "27", "24", "91"],
+      ["3", "Great Britain", "14", "22", "29", "65"],
+      ["4", "France", "16", "26", "22", "64"],
+      ["5", "Australia", "18", "19", "16", "53"]
+    ],
+    "id": "a61e826201678dcf4fa0d42004b0622b"
+  },
+  {
+    "title": "Largest Cities by Population",
+    "url": "https://en.wikipedia.org/wiki/Largest_cities",
+    "header": ["City", "Country", "Population (M)", "Continent"],
+    "rows": [
+      ["Tokyo", "Japan", "37.4", "Asia"],
+      ["Delhi", "India", "32.9", "Asia"],
+      ["Shanghai", "China", "28.5", "Asia"],
+      ["Sao Paulo", "Brazil", "22.4", "South America"],
+      ["Mexico City", "Mexico", "21.8", "North America"]
+    ],
+    "id": "e54880f855cc9e95a74147d0d4b3d075"
+  },
+  {
+    "title": "Nobel Prize in Physics 2020-2024",
+    "url": "https://en.wikipedia.org/wiki/Nobel_Prize_in_Physics",
+    "header": ["Year", "Laureate", "Country", "Topic"],
+    "rows": [
+      ["2024", "Hopfield and Hinton", "USA and Canada", "Neural Networks"],
+      ["2023", "Agostini Krausz L'Huillier", "France Austria Sweden", "Attosecond Pulses"],
+      ["2022", "Aspect Clauser Zeilinger", "France USA Austria", "Quantum Entanglement"],
+      ["2021", "Manabe Hasselmann Parisi", "Japan Germany Italy", "Climate Modelling"],
+      ["2020", "Penrose Genzel Ghez", "UK Germany USA", "Black Holes"]
+    ],
+    "id": "01f33d5c7e0b2aa28d73a4344f03d226"
+  },
+  {
+    "title": "Major Programming Languages",
+    "url": "https://en.wikipedia.org/wiki/Programming_language",
+    "header": ["Language", "Year", "Creator", "Paradigm"],
+    "rows": [
+      ["Python", "1991", "Guido van Rossum", "Multi-paradigm"],
+      ["JavaScript", "1995", "Brendan Eich", "Multi-paradigm"],
+      ["Java", "1995", "James Gosling", "Object-oriented"],
+      ["C++", "1985", "Bjarne Stroustrup", "Multi-paradigm"],
+      ["Rust", "2010", "Graydon Hoare", "Multi-paradigm"]
+    ],
+    "id": "a3be6709ac3bba0bf332e51ea7baaec5"
+  },
+  {
+    "title": "Space Missions 2024",
+    "url": "https://en.wikipedia.org/wiki/2024_in_spaceflight",
+    "header": ["Mission", "Agency", "Destination", "Status"],
+    "rows": [
+      ["Artemis II", "NASA", "Lunar Orbit", "Scheduled"],
+      ["Chang'e 6", "CNSA", "Moon Far Side", "Success"],
+      ["Europa Clipper", "NASA", "Jupiter Europa", "En Route"],
+      ["Starship IFT-3", "SpaceX", "Suborbital", "Partial Success"],
+      ["SLIM", "JAXA", "Moon", "Success"]
+    ],
+    "id": "8456cdf087ede95cafd77b136b162af7"
+  },
+  {
+    "title": "European Union GDP by Country",
+    "url": "https://en.wikipedia.org/wiki/Economy_of_the_European_Union",
+    "header": ["Country", "GDP ($B)", "Growth (%)", "Per Capita ($)"],
+    "rows": [
+      ["Germany", "4456", "0.3", "52824"],
+      ["France", "3049", "1.1", "44408"],
+      ["Italy", "2255", "0.9", "37146"],
+      ["Spain", "1582", "2.5", "33090"],
+      ["Netherlands", "1093", "0.7", "61098"]
+    ],
+    "id": "04a8410824e15a02ce629389d754c320"
+  },
+  {
+    "title": "Major Rivers of the World",
+    "url": "https://en.wikipedia.org/wiki/List_of_rivers_by_length",
+    "header": ["River", "Length (km)", "Discharge (m3/s)", "Countries"],
+    "rows": [
+      ["Nile", "6650", "2830", "Egypt Sudan Ethiopia"],
+      ["Amazon", "6400", "209000", "Brazil Peru Colombia"],
+      ["Yangtze", "6300", "30000", "China"],
+      ["Mississippi", "6275", "16800", "United States"],
+      ["Yenisei", "5539", "19600", "Russia Mongolia"]
+    ],
+    "id": "bb12ac417f8dd9410735e83c47a58392"
+  },
+  {
+    "title": "Top Grossing Films of 2024",
+    "url": "https://en.wikipedia.org/wiki/2024_in_film",
+    "header": ["Rank", "Title", "Studio", "Worldwide Gross ($M)"],
+    "rows": [
+      ["1", "Inside Out 2", "Disney Pixar", "1699"],
+      ["2", "Deadpool and Wolverine", "Marvel Disney", "1338"],
+      ["3", "Despicable Me 4", "Universal", "969"],
+      ["4", "Moana 2", "Disney", "950"],
+      ["5", "Wicked", "Universal", "700"]
+    ],
+    "id": "72ff2670536cd58bc3fccfdc2d6b018b"
+  },
+  {
+    "title": "Global Carbon Emissions by Sector",
+    "url": "https://en.wikipedia.org/wiki/Greenhouse_gas_emissions",
+    "header": ["Sector", "Emissions (GtCO2)", "Share (%)", "Trend"],
+    "rows": [
+      ["Energy", "15.8", "40.1", "Increasing"],
+      ["Transport", "8.3", "21.1", "Increasing"],
+      ["Industry", "6.2", "15.7", "Stable"],
+      ["Buildings", "3.3", "8.4", "Decreasing"],
+      ["Agriculture", "5.8", "14.7", "Increasing"]
+    ],
+    "id": "bd37d666244bd008b047827c871a57be"
+  }
+]

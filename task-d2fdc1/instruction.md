@@ -1,0 +1,7 @@
+Implement a Python cost model evaluator for the computational graph scheduling problem specified in `/app/spec.md`.
+
+Create `/app/evaluate.py` that takes two command-line arguments — a problem JSON path and a solution JSON path — and prints the computed total latency (floating-point number) to stdout. If the solution violates the fast memory capacity constraint (OOM), print `OOM` to stdout and exit with code 1.
+
+The specification in `/app/spec.md` defines the complete execution model: a three-tier memory hierarchy with asymmetric read/write bandwidths, subgraph transition overhead, operator fusion with ephemeral data, `[w, h, k]` execution granularity with split-K pipelining, and the roofline performance model. Six fully worked examples with exact expected latency values are provided. Your evaluator must reproduce those exact values.
+
+Pay particular attention to: how asymmetric bandwidth (separate read and write rates) changes the roofline bottleneck calculation for every tile, how the transition cost accumulates between consecutive subgraphs, how the split-K reduction dimension interacts with intermediate tensor materialization and ephemeral status, how tile traversal order affects data reuse for MatMul input strips, and how `tensors_to_retain` affects both inter-subgraph memory transfer costs and subsequent working set capacity.

@@ -1,0 +1,32 @@
+Target Device and Capture Setup
+================================
+
+Target
+------
+  - Simulated embedded microcontroller
+  - Firmware: AES-128-ECB encryption (standard FIPS-197)
+  - First-round SubBytes operates byte-by-byte on the 16-byte state
+  - No software countermeasures are implemented
+
+Capture Equipment
+-----------------
+  - Simulated oscilloscope sampling at 200 MS/s
+  - Device clock: 40 MHz (harmonics present in power rail)
+  - AC-coupled differential power probe on Vdd rail
+
+Trace Acquisition
+-----------------
+  - 5000 traces captured with random 16-byte plaintexts
+  - 4000 samples per trace
+  - Trigger: rising-edge GPIO toggle at approximate start of round computation
+  - Clock feedthrough into power measurement creates strong periodic
+    components at device clock harmonics
+
+Known Issues
+------------
+  - Significant inter-trace clock jitter (tens of samples) due to
+    asynchronous trigger setup relative to the sampling clock
+  - Minor per-operation timing jitter from pipeline stalls
+  - Low-frequency voltage drift on the power supply rail
+  - Clock harmonics dominate the raw trace amplitude; data-dependent
+    leakage is small relative to the clock baseline

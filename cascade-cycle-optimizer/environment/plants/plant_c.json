@@ -1,0 +1,24 @@
+{
+  "name": "plant_c",
+  "stages": [
+    {
+      "id": "LT",
+      "refrigerant": "R23",
+      "compressor": {"isentropic_efficiency": 0.70},
+      "evaporator": {"saturation_temperature_K": 208.15, "superheat_K": 5.0},
+      "condenser": {"subcool_K": 2.0}
+    },
+    {
+      "id": "HT",
+      "refrigerant": "R410A",
+      "compressor": {"isentropic_efficiency": 0.80},
+      "evaporator": {"superheat_K": 10.0},
+      "condenser": {"saturation_temperature_K": 333.15, "subcool_K": 5.0}
+    }
+  ],
+  "cascade_heat_exchangers": [
+    {"hot_stage": "LT", "cold_stage": "HT", "approach_temperature_K": 6.0}
+  ],
+  "cascade_temperatures_K": [248.15],
+  "cooling_capacity_W": 12000.0
+}

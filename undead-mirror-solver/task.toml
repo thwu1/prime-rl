@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete Undead puzzle generator pipeline that produces instances with provably unique solutions — the inverse of solving, which is categorically harder. The agent must: (1) deeply understand the interaction between mirror layouts, monster visibility rules, and constraint propagation to produce well-formed puzzles; (2) implement SAT-based or equivalent uniqueness certification — generating a puzzle whose clues admit exactly one valid assignment requires understanding the constraint landscape holistically, not just applying a known solver; (3) handle the tension between sparse vs. dense mirror configurations, where sparse grids are under-constrained (uniqueness is rare) and dense grids create complex multi-reflection paths; (4) build a robust generate-and-test pipeline integrating random layout generation, sight-line clue computation, RLE encoding for the .desc format, and iterative uniqueness verification; (5) scale the approach across grid sizes from 5×5 to 9×9 with different mirror density regimes. No generation algorithm is prescribed — the agent must design the architecture from domain understanding."""
+solution_explanation = """The reference solution uses a generate-and-test pipeline: (1) randomly place mirrors at the required density; (2) randomly assign monsters ensuring all three types; (3) compute all sight-line clues from the assignment via ray-tracing with reflection tracking; (4) encode the puzzle as CNF SAT using Sinz sequential counter for cardinality constraints and visibility auxiliary variables; (5) verify uniqueness by solving the SAT instance with a blocking clause (negating the known solution) and confirming UNSAT; (6) retry with new random layouts until a unique puzzle is found; (7) encode the puzzle in the .desc RLE format. The pipeline requires integration of random combinatorial generation, optical ray simulation, SAT encoding, and format serialization."""
+verification_explanation = """Tests independently parse each generated .desc file, load the corresponding solution JSON, verify grid dimensions and mirror placement match the specification, check that all sight-line clues and monster counts are satisfied by the solution, then perform an independent SAT-based uniqueness check: encode the puzzle as CNF, add a blocking clause for the provided solution, and verify minisat returns UNSAT (no alternative solution exists). Structural constraints (mirror count ranges, all-types-present, non-zero clues per side) are also verified independently."""
+category = "puzzle_generation"
+tags = ["constraint_satisfaction", "sat_encoding"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/undead-mirror-solver"

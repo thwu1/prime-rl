@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interrelated bugs across a quantum compilation pipeline: incorrect gate unitary matrix formulas (subtle sign/phase errors that preserve unitarity), missing DifferentiableUnitary support needed by BQSKit's numerical synthesis engine, absent serialization methods (__eq__/__hash__) causing failures in BQSKit's distributed runtime, wrong hardware model topology and qubit count, a missing compiler pass module, and incorrect fidelity metrics. Fixing these requires understanding quantum gate physics (Molmer-Sorensen interaction Hamiltonians, IonQ native gate definitions), BQSKit's internal gate API and compilation workflow, and global-phase-invariant unitary distance measures."""
+solution_explanation = """Fix the MSGate unitary to use -i*sin(theta) off-diagonal terms (exp(-i*theta*XX) Hamiltonian), fix GPIGate and GPI2Gate phase conventions, add DifferentiableUnitary with analytic gradient methods, add __eq__/__hash__ for serialization, correct the MachineModel to 3 qubits with all-to-all connectivity and complete gate set, implement NativeGateCheckPass as a BasePass, and fix the pipeline to use process infidelity 1-|Tr(U†V)|/d and produce all required outputs."""
+verification_explanation = """Tests verify: gate unitary matrices against known formulas at multiple parameter values, unitarity preservation, analytic gradients match finite differences to 1e-5, get_unitary_and_grad consistency, gate equality/hashing/pickle roundtrip, machine model topology and gate set, NativeGateCheckPass classification correctness, pipeline output existence and format, compiled unitary >0.999 fidelity with original, and all-native-gates constraint."""
+category = "quantum_computing"
+tags = ["quantum_compilation", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trapped-ion-compiler"

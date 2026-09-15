@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary to recover an undocumented custom VM instruction set, then independently analyzing three structurally similar bytecode programs to reconstruct each cipher's algorithm. The solver must evaluate which of three plausible candidates produced a given ciphertext — this demands building correct inverse operations for each variant, judging which yields valid plaintext, and constructing evidence that rules out the other two. Combines native binary RE, cryptographic algorithm reconstruction, and multi-hypothesis evaluation under ambiguity."""
+solution_explanation = """Use binary analysis tools (objdump/gdb) to disassemble the stripped VM and recover the full opcode table including undocumented shift/rotate instructions (0x34-0x37) and memory/branch opcodes. Write a bytecode disassembler to parse all three candidates. Reconstruct each cipher: Alpha uses F(x,k)=ROL(x,7)^ROL(x,13)^SHR(x,3)^k with permutation (W0,W1,W2,W3)->(W1,W2,W3,W0^F) and key mask 0xA5A5A5A5; Beta uses F(x,k)=ROL(x,5)^ROL(x,11)^SHR(x,5)^k with mask 0xC3C3C3C3; Gamma has same F and keys as Alpha but different permutation (W0,W1,W2,W3)->(W2,W3,W0^F,W1). Build inverse operations for all three and evaluate: only Alpha yields printable ASCII 'R3v3rs3_Th3_VM!!' which re-encrypts to match encrypted.bin."""
+verification_explanation = """Tests verify: (1) /app/answer.txt contains the exact 16-byte ASCII plaintext. (2) /app/report.json exists with correct selected_candidate='alpha' and non-trivial descriptions of all three ciphers plus evidence. (3) Re-encrypting the answer through the VM with alpha.bin reproduces encrypted.bin."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "cryptanalysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5be44b"

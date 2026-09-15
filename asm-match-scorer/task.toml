@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across x86-64 architecture, binary analysis, combinatorial optimization, and sequence comparison. The solver must independently recognize how registers relate across different operand widths, devise a strategy to discover the optimal register correspondence that minimizes divergence (a combinatorial search over a potentially large space of mappings with correct handling of cyclic reassignments), and design a robust comparison strategy for variable-length instruction sequences. The instruction describes only the required behavior—none of the underlying techniques or data structures are named or hinted at—so the solver must draw on deep domain knowledge of processor architecture, binary tooling, and algorithm design to discover the right decomposition of the problem. Scaffolding code in /app/ contains deliberate bugs that must be identified and fixed."""
+solution_explanation = """Create scorer.py that: (1) invokes 'objdump -d --no-show-raw-insn' to disassemble both .o files and parses instruction lines via regex, (2) identifies register families (16 x86-64 GP register groups with sub-register aliases) used across both sequences, (3) searches over permutations of the register-family union applying each via simultaneous re.sub substitution to correctly handle cyclic mappings, (4) for each mapping computes Needleman-Wunsch global sequence alignment cost with gap/mnemonic/operand penalties, and (5) outputs the mapping yielding the minimum score as JSON."""
+verification_explanation = """Tests assemble fresh .s files at test time into .o files (not present in the Docker image), then invoke the scorer on these pairs. Static tests verify: identical functions score 0, simple register rename scores 0, extended register rename (r8/r9 with mixed 64/32-bit forms) scores 0, cyclic 3-register permutation scores 0, mnemonic-different pair scores >0, different-length pair scores >0, completely-different pair scores >0 and ranks worse than single-mnemonic-diff. Property tests check symmetry across 4 pairs and mapping bijectivity. Dynamic tests generate assembly at test time using r14/r15 registers and a 4-register cycle (r10-r13) to prevent hardcoding. Output format tests verify JSON structure and field types."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "algorithm-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/asm-match-scorer"

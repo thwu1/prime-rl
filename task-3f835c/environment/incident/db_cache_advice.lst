@@ -1,0 +1,23 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> SELECT NAME, BLOCK_SIZE, SIZE_FOR_ESTIMATE, BUFFERS_FOR_ESTIMATE,
+  2         ESTD_PHYSICAL_READ_FACTOR, ESTD_PHYSICAL_READS
+  3  FROM V$DB_CACHE_ADVICE
+  4  WHERE NAME = 'DEFAULT'
+  5  ORDER BY SIZE_FOR_ESTIMATE;
+
+NAME       BLOCK_SIZE SIZE_FOR_ESTIMATE BUFFERS_FOR_ESTIMATE ESTD_PHYSICAL_READ_FACTOR ESTD_PHYSICAL_READS
+---------- ---------- ----------------- -------------------- ------------------------- -------------------
+DEFAULT          8192               128                16384                      3.20             7200000
+DEFAULT          8192               256                32768                      2.45             5512500
+DEFAULT          8192               384                49152                      1.58             3555000
+DEFAULT          8192               512                65536                      1.00             2250000
+DEFAULT          8192               640                81920                       .72             1620000
+DEFAULT          8192               768                98304                       .55             1237500
+DEFAULT          8192              1024               131072                       .48             1080000
+DEFAULT          8192              1280               163840                       .45             1012500
+DEFAULT          8192              1536               196608                       .44              990000
+
+9 rows selected.
+
+SQL> spool off

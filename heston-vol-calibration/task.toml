@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to explore and query a multi-table SQLite database to extract a clean implied volatility surface, choosing the appropriate yield curve and filtering unreliable quotes. Then demands implementing the full Heston stochastic volatility calibration pipeline from scratch: characteristic function with complex arithmetic and branch-cut handling, a Fourier-based or other numerical option pricing method, implied volatility extraction, global non-convex optimization over five parameters, finite-difference sensitivity computation, and variance process analytics. The agent must independently determine all numerical methods, parameter bounds, and implementation details."""
+solution_explanation = """The solution queries the SQLite database to extract spot price, OIS discount rate, and GOOD-quality call option implied volatilities. It implements the Heston characteristic function (Gatheral/Lord-Kahl stable formulation), COS Fourier cosine expansion pricing, Newton-Raphson IV extraction, differential evolution global optimization with Nelder-Mead refinement, finite-difference Greeks, forward variance computation, and Feller condition evaluation."""
+verification_explanation = """Tests independently query the SQLite database to obtain the clean market surface. An independent COS method and Heston characteristic function implementation verifies: (1) results.json structure and parameter validity, (2) calibration quality via independent repricing achieving RMSE < 1.0 pp, (3) self-consistency of reported IVs with calibrated parameters, (4) forward variance correctness, (5) Feller condition, (6) Delta and Vega accuracy via independent finite-difference computation."""
+category = "computational_finance"
+tags = ["stochastic-volatility", "data-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/heston-vol-calibration"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires solving two distinct challenges simultaneously: (1) eliminating unbounded Python stack usage from a recursive interpreter handling closures, recursive bindings, curried multi-argument functions, and higher-order functions — the agent must discover an appropriate program transformation without any algorithmic guidance; (2) compiling a C shared library from source using gcc with correct flags (-shared, -fPIC), then loading it from Python via ctypes with proper type declarations for pointer-based output parameters, integer/boolean marshalling, and string-to-enum conversion. The combination of graduate-level PL theory with systems-level C compilation and FFI tooling is non-trivial even for experienced engineers."""
+solution_explanation = """Compile ops.c to libops.so via gcc -shared -fPIC. Load it in Python via ctypes.CDLL with correct argtypes/restype declarations including POINTER types for output parameters. CPS-convert the recursive interpreter by identifying each continuation point (BinOp left/right, If condition, App func/arg, Let value), creating defunctionalized continuation data types, and driving evaluation with an iterative trampoline loop that alternates between EvalState and ContState transitions. Use the native eval_binop for all operator evaluation including the ^^ modular exponentiation operator."""
+verification_explanation = """Tests verify: (1) correctness by comparing pipeline.run against eval_direct for 13 programs covering arithmetic, closures, higher-order functions, recursion, Church encodings, GCD; (2) stack safety by running deeply recursive programs (sum to 50000, countdown from 100000, curried accumulator, higher-order iterate) under sys.setrecursionlimit(500); (3) native library integration by checking libops.so existence, verifying ctypes usage in source, testing C library functions directly, and exercising the ^^ modular exponentiation operator which is exclusively available via the native library."""
+category = "programming_languages"
+tags = ["interpreter", "ffi"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/defunctionalize-interpreter"

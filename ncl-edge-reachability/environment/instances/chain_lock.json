@@ -1,0 +1,26 @@
+{
+  "description": "AND vertex with one red input locked by a leaf constraint, plus a detached edge pair on vertex W. Three of five edges are free to move but the target is provably unreachable.",
+  "vertices": {
+    "V": {"min_inflow": 2},
+    "W": {"min_inflow": 2},
+    "X": {"min_inflow": 1},
+    "Y": {"min_inflow": 0},
+    "Z": {"min_inflow": 0}
+  },
+  "edges": {
+    "e1": {"endpoints": ["V", "X"], "weight": 1},
+    "e2": {"endpoints": ["V", "Y"], "weight": 1},
+    "e3": {"endpoints": ["V", "W"], "weight": 2},
+    "e4": {"endpoints": ["W", "Z"], "weight": 2},
+    "e5": {"endpoints": ["W", "Z"], "weight": 2}
+  },
+  "initial_orientation": {
+    "e1": "X",
+    "e2": "V",
+    "e3": "V",
+    "e4": "W",
+    "e5": "Z"
+  },
+  "target_edge": "e3",
+  "target_direction": "W"
+}

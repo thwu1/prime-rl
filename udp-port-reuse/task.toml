@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Linux UDP socket internals: why vanilla connect() exclusively locks source ports, how SO_REUSEADDR enables port sharing for UDP, the socket overshadowing problem where duplicate 4-tuples cause silent data misrouting, and kernel-level socket state inspection via /proc/net/udp (with correct hex/endianness parsing) or netlink SOCK_DIAG to detect cross-process conflicts. The SO_REUSEADDR toggling technique (on for bind, off during conflict check, on after connect) as a cooperative lock is an obscure production pattern from Cloudflare's infrastructure."""
+solution_explanation = """The solution uses SO_REUSEADDR to allow multiple UDP sockets to bind to the same source port, then connects each to different destinations forming unique 4-tuples. To prevent overshadowing, it parses /proc/net/udp to detect existing connected sockets sharing the target 4-tuple (including from other processes). The SO_REUSEADDR flag is toggled off after bind and before the conflict check to act as a cooperative lock, then re-enabled after connect() to permit future port sharing."""
+verification_explanation = """Tests verify: (1) at least 400 connected sockets created, (2) total connections exceed the 64-port pool size proving reuse, (3) zero duplicate 4-tuples in connections.txt, (4) 90%+ round-trip data success through echo servers, (5) all source ports within 50000-50063, (6) ports reused across multiple destinations, (7) cross-process 4-tuple conflict detection via an independent subprocess test."""
+category = "networking"
+tags = ["linux", "udp"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/udp-port-reuse"

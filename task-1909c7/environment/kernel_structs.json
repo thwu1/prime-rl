@@ -1,0 +1,167 @@
+[
+  {
+    "name": "seq_operations",
+    "size": 32,
+    "cache": "kmalloc-32",
+    "description": "Kernel sequence file operations table, allocated when opening /proc files via seq_file interface",
+    "fields": [
+      {"name": "start", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["info_leak", "code_exec"], "exploit_method": "func_ptr"},
+      {"name": "stop", "offset": 8, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "next", "offset": 16, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "show", "offset": 24, "size": 8, "security_relevant": true, "capabilities": ["info_leak", "code_exec"], "exploit_method": "func_ptr"}
+    ]
+  },
+  {
+    "name": "msg_msg",
+    "size": 64,
+    "cache": "kmalloc-64",
+    "description": "System V IPC message structure with 16 bytes of inline data, allocated via msgsnd()",
+    "fields": [
+      {"name": "m_list_next", "offset": 0, "size": 8, "security_relevant": false},
+      {"name": "m_list_prev", "offset": 8, "size": 8, "security_relevant": false},
+      {"name": "m_type", "offset": 16, "size": 8, "security_relevant": false},
+      {"name": "m_ts", "offset": 24, "size": 8, "security_relevant": true, "capabilities": ["info_leak"], "exploit_method": "size_field"},
+      {"name": "next_segment", "offset": 32, "size": 8, "security_relevant": true, "capabilities": ["arbitrary_read"], "exploit_method": "data_ptr"},
+      {"name": "security_ptr", "offset": 40, "size": 8, "security_relevant": false},
+      {"name": "inline_data", "offset": 48, "size": 16, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "pipe_buffer",
+    "size": 40,
+    "cache": "kmalloc-64",
+    "description": "Pipe buffer descriptor, allocated when creating pipes via pipe()/pipe2()",
+    "fields": [
+      {"name": "page", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["arbitrary_rw"], "exploit_method": "page_ptr"},
+      {"name": "offset", "offset": 8, "size": 4, "security_relevant": false},
+      {"name": "len", "offset": 12, "size": 4, "security_relevant": false},
+      {"name": "ops", "offset": 16, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "flags", "offset": 24, "size": 4, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "flag_field"},
+      {"name": "pad", "offset": 28, "size": 4, "security_relevant": false},
+      {"name": "private", "offset": 32, "size": 8, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "subprocess_info",
+    "size": 96,
+    "cache": "kmalloc-96",
+    "description": "Usermode helper execution context, allocated via call_usermodehelper_setup()",
+    "fields": [
+      {"name": "callback", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "flags", "offset": 8, "size": 4, "security_relevant": false},
+      {"name": "priority", "offset": 12, "size": 4, "security_relevant": false},
+      {"name": "path", "offset": 16, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "data_ptr"},
+      {"name": "argv", "offset": 24, "size": 8, "security_relevant": false},
+      {"name": "envp", "offset": 32, "size": 8, "security_relevant": false},
+      {"name": "init", "offset": 40, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "cleanup", "offset": 48, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "reserved", "offset": 56, "size": 40, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "timer_list_wrapper",
+    "size": 96,
+    "cache": "kmalloc-96",
+    "description": "Timer callback wrapper used by various kernel subsystems",
+    "fields": [
+      {"name": "function", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "expires", "offset": 8, "size": 8, "security_relevant": true, "capabilities": ["info_leak"], "exploit_method": "timing_field"},
+      {"name": "data", "offset": 16, "size": 8, "security_relevant": false},
+      {"name": "base", "offset": 24, "size": 8, "security_relevant": false},
+      {"name": "padding", "offset": 32, "size": 64, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "user_key_payload",
+    "size": 128,
+    "cache": "kmalloc-128",
+    "description": "User keyring payload, allocated via add_key() syscall for heap spraying",
+    "fields": [
+      {"name": "rcu_head", "offset": 0, "size": 16, "security_relevant": false},
+      {"name": "datalen", "offset": 16, "size": 4, "security_relevant": true, "capabilities": ["info_leak"], "exploit_method": "size_field"},
+      {"name": "pad", "offset": 20, "size": 4, "security_relevant": false},
+      {"name": "data", "offset": 24, "size": 104, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "drill_item",
+    "size": 192,
+    "cache": "drill_cache",
+    "description": "Vulnerable kernel module object from drill_mod.ko, allocated from custom drill_cache slab",
+    "fields": [
+      {"name": "callback", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "id", "offset": 8, "size": 4, "security_relevant": false},
+      {"name": "pad", "offset": 12, "size": 4, "security_relevant": false},
+      {"name": "data", "offset": 16, "size": 128, "security_relevant": false},
+      {"name": "next", "offset": 144, "size": 8, "security_relevant": true, "capabilities": ["arbitrary_rw"], "exploit_method": "data_ptr"},
+      {"name": "lock", "offset": 152, "size": 4, "security_relevant": false},
+      {"name": "status", "offset": 156, "size": 4, "security_relevant": false},
+      {"name": "owner_cred", "offset": 160, "size": 8, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "data_ptr"},
+      {"name": "padding", "offset": 168, "size": 24, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "file_event_info",
+    "size": 192,
+    "cache": "kmalloc-192",
+    "description": "File system event notification structure, allocated from generic kmalloc-192",
+    "fields": [
+      {"name": "handler", "offset": 0, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "event_type", "offset": 8, "size": 4, "security_relevant": false},
+      {"name": "flags", "offset": 12, "size": 4, "security_relevant": false},
+      {"name": "target_path", "offset": 16, "size": 8, "security_relevant": true, "capabilities": ["info_leak"], "exploit_method": "data_ptr"},
+      {"name": "owner", "offset": 24, "size": 4, "security_relevant": false},
+      {"name": "pad", "offset": 28, "size": 4, "security_relevant": false},
+      {"name": "data", "offset": 32, "size": 160, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "cred",
+    "size": 192,
+    "cache": "cred_jar",
+    "description": "Process credentials structure, allocated from dedicated cred_jar slab with SLAB_TYPESAFE_BY_RCU",
+    "fields": [
+      {"name": "usage", "offset": 0, "size": 4, "security_relevant": false},
+      {"name": "uid", "offset": 4, "size": 4, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "id_field"},
+      {"name": "gid", "offset": 8, "size": 4, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "id_field"},
+      {"name": "suid", "offset": 12, "size": 4, "security_relevant": false},
+      {"name": "sgid", "offset": 16, "size": 4, "security_relevant": false},
+      {"name": "euid", "offset": 20, "size": 4, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "id_field"},
+      {"name": "egid", "offset": 24, "size": 4, "security_relevant": false},
+      {"name": "fsuid", "offset": 28, "size": 4, "security_relevant": false},
+      {"name": "fsgid", "offset": 32, "size": 4, "security_relevant": false},
+      {"name": "securebits", "offset": 36, "size": 4, "security_relevant": false},
+      {"name": "cap_inheritable", "offset": 40, "size": 8, "security_relevant": false},
+      {"name": "cap_permitted", "offset": 48, "size": 8, "security_relevant": false},
+      {"name": "cap_effective", "offset": 56, "size": 8, "security_relevant": true, "capabilities": ["privilege_escalation"], "exploit_method": "cap_field"},
+      {"name": "rest", "offset": 64, "size": 128, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "tty_struct",
+    "size": 696,
+    "cache": "kmalloc-1024",
+    "description": "TTY device structure, allocated when opening /dev/ptmx",
+    "fields": [
+      {"name": "magic", "offset": 0, "size": 4, "security_relevant": false},
+      {"name": "kref", "offset": 4, "size": 4, "security_relevant": false},
+      {"name": "dev", "offset": 8, "size": 8, "security_relevant": false},
+      {"name": "driver", "offset": 16, "size": 8, "security_relevant": false},
+      {"name": "ops", "offset": 24, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "func_ptr"},
+      {"name": "index", "offset": 32, "size": 4, "security_relevant": false},
+      {"name": "rest", "offset": 36, "size": 660, "security_relevant": false}
+    ]
+  },
+  {
+    "name": "sighand_struct",
+    "size": 1024,
+    "cache": "sighand_cache",
+    "description": "Signal handler table, allocated from sighand_cache with constructor",
+    "fields": [
+      {"name": "count", "offset": 0, "size": 4, "security_relevant": false},
+      {"name": "siglock", "offset": 4, "size": 4, "security_relevant": false},
+      {"name": "action_handler_0", "offset": 8, "size": 8, "security_relevant": true, "capabilities": ["code_exec"], "exploit_method": "signal_handler"},
+      {"name": "action_rest", "offset": 16, "size": 1008, "security_relevant": false}
+    ]
+  }
+]

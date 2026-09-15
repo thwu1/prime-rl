@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding multiply-shift hashing's algebraic weakness (the fixed multiplier is invertible mod 2^64), computing modular inverses of 64-bit integers using Newton's method or the extended Euclidean algorithm, constructing adversarial collision sets from the inverse, and designing a hash-flooding-resistant replacement using keyed/universal hashing — all while preserving the linear-probing hash table's correctness invariants including backward-shift deletion."""
+solution_explanation = """Compute the modular inverse of the hash multiplier 0x517cc1b727220a95 mod 2^64 using iterative Newton's method (x = x*(2 - a*x) mod 2^64). Generate collision keys as v*INV mod 2^64 for v=1..10000 — these all hash to bucket 0 since (v*INV*MULT) mod 2^64 = v, and v>>48 = 0. For defense, add a random seed field to HashTable (set in ht_init from /dev/urandom), XOR the key with the seed, then apply splitmix64's finalizer (two xor-shift-multiply rounds) before the top-bit extraction. Update all internal hash_key call sites to pass the seed."""
+verification_explanation = """Tests verify: (1) adversarial_input.txt has >=10,000 unique keys with >=95% hashing to the same bucket under the original multiply-shift function (reimplemented in Python); (2) modified code compiles and links correctly; (3) functional correctness via C test programs exercising insert/lookup/update/delete/load-factor; (4) defense effectiveness by compiling modified code, inserting adversarial keys, and checking the max contiguous occupied run is under 500."""
+category = "security"
+tags = ["hash-functions", "number-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hashmap-collision-defense"

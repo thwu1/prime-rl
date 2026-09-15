@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires domain expertise in obstetric biometry (Hadlock regression equations, Doppler waveform analysis, amniotic fluid assessment, and Arduini & Rizzo reference ranges). The solver must identify and fix 11 interrelated bugs across two R modules plus implement 3 stub functions from scratch. Key challenges: (a) CRL unit conversion error (mm vs cm), (b) logarithmic base confusion in an EFW formula (ln vs log10), (c) transposed regression coefficients in Hadlock-3, (d) growth model SD off by a factor of 10, (e) transcription error in published reference chart data, (f) NA propagation in composite averaging, (g) Doppler RI sign error, (h) CPR ratio inversion, (i) AEDF/REDF guard that silently drops all Doppler data, (j) sign error in UA PI reference polynomial quadratic coefficient. Critically, bugs interact across modules — the SD error propagates into the chart audit function (which references the shared SD parameter rather than hardcoding it), producing dozens of false-positive audit errors that mask the genuine chart transcription error. The solver must diagnose this cross-module coupling, fix bugs in the correct order, and verify that downstream computations become valid. Three stubs require implementing: AFI percentile via log-normal distribution fitting to percentile anchors with gestational-age interpolation, AFI clinical classification, and UA PI z-score computation against polynomial reference norms. The AEDF/REDF handling requires architectural decisions about representing clinically undefined values (infinite S/D ratio) while preserving computable indices."""
+solution_explanation = """Eleven bugs must be fixed: (1) ga_from_crl: divide crl by 10 for mm-to-cm conversion. (2) efw_hadlock_ac: use exp() not 10^() since formula produces Ln(EFW). (3) efw_hadlock3: swap HC coefficient 0.0107 and AC coefficient 0.0438. (4) hadlock_sd_log: change 0.012 to 0.12 — this also fixes the chart audit which references this variable. (5) published_chart p97 at WGA=30: change 1649 to 1949. (6) composite_ga mean(): add na.rm=TRUE. (7) compute_doppler_indices RI: change (psv+edv)/psv to (psv-edv)/psv. (8) compute_cpr: change ua_pi/mca_pi to mca_pi/ua_pi. (9) compute_doppler_indices AEDF guard: remove the return(NA) guard, detect AEDF/REDF flags, set S/D to NA for non-positive EDV while computing RI and PI. (10) arduini_ua_pi_mean: change +0.000100 to -0.000100 (UA PI reference decreases with GA). Three stubs: compute_afi_percentile fits log-normal to p5/p95 anchors with interpolation; classify_afi classifies by percentile thresholds; compute_ua_pi_zscore computes (observed-mean)/sd using reference polynomials."""
+verification_explanation = """test.sh runs the pipeline then pytest validates /app/results.json. Tests cover: CRL dating (unit conversion), AC-only EFW (log base), Hadlock-3 (coefficients), growth percentiles (SD value), composite GA (na.rm), chart audit (must report 0 errors — catches both SD coupling and chart typo). Doppler: UA RI < 1 for normal flow, CPR > 1 for normal flow, AEDF has aedf=true with ua_sd=null and ua_ri=1.0, REDF has redf=true with ua_ri>1. UA PI z-scores: P005 at GA=36 must have positive z-score (catches quadratic sign bug which would give negative), exact values checked with tolerance for P002/P005/P007/P006, high values verified for abnormal P004/P008. AFI: classifications checked for oligo/poly/normal against log-normal model."""
+category = "debugging"
+tags = ["biostatistics", "R"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/obstetric-biometry-pipeline"

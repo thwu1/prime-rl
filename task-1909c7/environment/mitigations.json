@@ -1,0 +1,34 @@
+{
+  "active_mitigations": {
+    "SMEP": true,
+    "SMAP": true,
+    "KASLR": true,
+    "CONFIG_SLAB_FREELIST_HARDENED": true,
+    "CONFIG_CFI_CLANG": false,
+    "CONFIG_INIT_ON_FREE_DEFAULT_ON": false,
+    "CONFIG_RANDOM_KMALLOC_CACHES": false,
+    "CONFIG_SLAB_BUCKETS": false
+  },
+  "mitigation_effects": [
+    {
+      "mitigation": "CONFIG_CFI_CLANG",
+      "description": "Control Flow Integrity prevents indirect call/jump to unexpected targets",
+      "blocks": {"capability": "code_exec", "method": "func_ptr"}
+    },
+    {
+      "mitigation": "CONFIG_INIT_ON_FREE_DEFAULT_ON",
+      "description": "Zeroes slab objects on free, preventing info leak from stale data",
+      "blocks": {"capability": "info_leak", "method": "freed_data"}
+    },
+    {
+      "mitigation": "CONFIG_RANDOM_KMALLOC_CACHES",
+      "description": "Randomizes which kmalloc cache serves an allocation, reducing cross-cache reliability",
+      "blocks": {"capability": "*", "method": "*", "note": "reduces_reliability_of_cache_collision"}
+    },
+    {
+      "mitigation": "CONFIG_SLAB_FREELIST_HARDENED",
+      "description": "XOR-encodes freelist pointers with a per-cache random value",
+      "blocks": {"capability": "arbitrary_rw", "method": "freelist_ptr"}
+    }
+  ]
+}

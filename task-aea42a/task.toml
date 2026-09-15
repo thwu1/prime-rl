@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Newton-Schulz iterations for polar decomposition, polynomial fixed-point dynamics, constrained nonlinear optimization, and numerical linear algebra. Part 2 demands analysis of basin-of-attraction boundaries and the interplay between convergence speed (slope at zero) and stability (maximum overshoot vs. repelling fixed points). Part 3 is a 15-dimensional constrained optimization over composed quintic maps with non-convex feasible regions. All three parts require careful numerical implementation and verification."""
+solution_explanation = """Part 1: Implement the NS iteration in the singular-value domain and compare against SVD-based polar factors. Part 2: Exploit the a+b+c=1 parametrization to reduce to a 1D search (parameterized by c, with a=3/2+c, b=-(1+4c)/2 when additionally imposing phi'(1)=0), then use scipy.optimize.minimize_scalar or bisection to find the maximum a such that the 15-step iterated map stays within tolerance for all grid points. Part 3: Use multi-start constrained optimization (e.g., scipy.optimize.minimize with SLSQP or differential_evolution) over 15 parameters, exploiting the structure that early polynomials should have large slope at zero while later ones refine convergence near 1."""
+verification_explanation = """Tests load results.json and independently verify: (1) matrix orthogonalization errors against SVD-computed polar factors are below threshold, (2) Part 2 polynomial satisfies a+b+c=1 and the 15-iteration convergence constraint by re-running the iterations on the full grid, (3) Part 3 composed map satisfies the [0.65, 1.35] constraint by re-evaluating the composition on the grid, and (4) optimization objectives meet minimum quality thresholds (a >= 2.5 for Part 2, product >= a^5 for Part 3)."""
+category = "computational_math"
+tags = ["numerical-optimization", "linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-aea42a"

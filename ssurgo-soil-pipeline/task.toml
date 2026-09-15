@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering the SDA REST API endpoint and its request/response format without guidance, reverse-engineering the SSURGO relational schema (mapunit→component→chorizon hierarchy plus auxiliary corestrictions and cointerp tables) to construct correct multi-table SQL queries, implementing the USDA Soil Texture Triangle classification from first principles (12 polygon regions in a sand-silt-clay ternary diagram), computing depth-weighted averages with restrictive-layer clipping and partial-horizon overlap logic, deriving total Available Water Storage in mm from per-horizon AWC values (requiring understanding of AWC units and integration vs averaging), implementing NRCS component-to-mapunit aggregation methods for both continuous and categorical properties, and processing soil interpretation records with master-level filtering and Not-rated exclusion rules. The solver must handle pervasive null values, string-encoded numerics, and transient API failures."""
+solution_explanation = """Queries the SDA REST API (POST to Tabular/post.rest) using JSON+COLUMNNAME format which returns column headers in the first array element followed by data rows. Converts each row to a dict keyed by column name. Uses requests.Session with 3 retries and exponential backoff. Issues 4 SQL queries: mapunit+component JOIN, chorizon JOIN component, corestrictions JOIN component, and cointerp filtered to master-level septic interpretation records. Implements texture classification using sequential boundary conditions matching the USDA texture triangle polygon regions. Computes depth-weighted averages by calculating each horizon's overlap thickness with the [depth_top, min(depth_bottom, restriction_depth)] range. AWS in mm = sum of (AWC_r * overlap_thickness_cm * 10). Aggregates to mapunit level using comppct_r-weighted averages for continuous properties (including aws_mm) and dominant condition (max total comppct_r, alphabetic tiebreak) for categorical."""
+verification_explanation = """Tests verify the complete output through two tool invocations (3-mukey default range and single-mukey custom depth range). Reference texture classification independently computed and cross-checked against tool output for all horizons. Depth-weighted averages and AWS values independently computed from raw SDA API data with restriction clipping, compared at tight tolerances. JSON structure validated for all required keys, types, and horizon sort order. Aggregation consistency verified by recomputing weighted averages and dominant conditions from component-level values. Interpretation values cross-checked against direct API queries. Custom depth range tested with restriction-depth awareness."""
+category = "applied_computing"
+tags = ["soil-science", "rest-api"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ssurgo-soil-pipeline"

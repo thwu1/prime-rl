@@ -1,0 +1,3 @@
+A Spack installation at `/opt/spack` (v0.22) manages a custom package repository at `/app/repo` (namespace: `scistack`) and an environment at `/app/env`. Running `spack -e /app/env concretize --force` currently fails.
+
+The intended software stack architecture is documented in `/app/requirements.md`. Diagnose and fix all issues — across the environment configuration, existing packages, and missing packages — so that concretization succeeds and produces a valid `spack.lock`.

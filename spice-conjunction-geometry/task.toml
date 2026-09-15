@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level SPICE toolkit expertise to diagnose and fix 6 interacting defects across a multi-file ephemeris pipeline: (1) a misconfigured meta-kernel PATH_VALUES that crashes kernel loading, (2) a missing Mars satellite SPK that prevents Phobos ephemeris computation, (3) a coordinate destructuring error where reclat's (radius, longitude, latitude) return order is misread as (radius, latitude, longitude), (4) an ecliptic longitude wrapping omission that produces negative values instead of [0,360), (5) an incorrect phase angle computation that yields elongation (Sun-Observer-Target) rather than phase angle (Sun-Target-Observer), and (6) a velocity function that indexes into a 3-element position array as though it were a 6-element state vector. The bugs cascade: crash bugs must be resolved before value bugs can even be diagnosed, and some value bugs produce results in valid ranges requiring comparison against reference values to detect. The solver must also discover that Phobos requires a satellite SPK not included in the standard planetary ephemeris, requiring exploration of NAIF's kernel catalog."""
+solution_explanation = """Fix meta-kernel PATH_VALUES from '/app/data' to '/app/kernels'. Add mar099s.bsp download from NAIF satellite SPK directory for Phobos coverage. Fix reclat destructuring from (r, lat, lon) to (r, lon, lat) in position_to_radec. Add longitude wrapping (if deg < 0: deg += 360) in position_to_ecliptic. Fix phase angle by computing Sun and Observer positions from the TARGET body instead of from the observer. Replace spkpos with spkezr in compute_velocity to obtain the full 6-element state vector. Alternatively, bypass the meta-kernel entirely and load kernels directly via furnsh."""
+verification_explanation = """Tests independently download all SPICE kernels including mar099s.bsp to a separate directory, compute reference values for all 4 scenarios using SpiceyPy, and compare against the solver's results.json. 35+ tests cover: structural validation (all scenarios present, no errors), numerical accuracy for positions, RA/Dec, ecliptic coordinates, phase angles, and velocities against independently computed references with appropriate tolerances (0.01 deg for angles, 0.1% relative for distances, 0.1 deg for phase angle), consistency checks (range/light_time = c, velocity magnitude consistency), and range validity checks ([0,360) for RA and ecliptic longitude, [-90,90] for Dec)."""
+category = "physics_engineering"
+tags = ["astrodynamics", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spice-conjunction-geometry"

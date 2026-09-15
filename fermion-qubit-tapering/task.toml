@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum computing expertise. The agent must diagnose multiple subtle physics bugs in an existing analysis pipeline: incorrect spin-orbital indexing convention (blocked vs interleaved), boundary-condition errors in next-nearest-neighbor hopping, and missing particle-number sector restriction in exact diagonalization. Fixing these requires understanding second quantization, fermion-to-qubit mappings, Hilbert-space symmetry sectors, and reduced density matrices. Simply running the provided pipeline yields wrong results; the agent must identify root causes through domain-specific reasoning."""
+solution_explanation = """Identify three bugs in analysis.py: (1) orbital_index uses blocked ordering (spin*n_sites+site) instead of the interleaved ordering (2*site+spin) specified in model_params.json; (2) NNN hopping loop wraps around via modular arithmetic even for open boundary conditions, doubling the t2 coefficient; (3) diagonalization is performed on the full Hilbert space instead of the fixed-particle-number sector. Fix all three, then correctly implement Z2 symmetry finding and sector projection intersected with the particle-number sector, and compute the 1-RDM from the ground state."""
+verification_explanation = """Tests independently reconstruct the Hamiltonian from model_params.json using the correct conventions, compute all reference quantities with OpenFermion and scipy, and compare against the agent's results.json. Integer quantities must match exactly. Energies must match within 1e-6. The 1-RDM is verified for trace, Hermiticity, eigenvalue bounds, and element-wise agreement."""
+category = "quantum_computing"
+tags = ["quantum-chemistry", "openfermion"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fermion-qubit-tapering"

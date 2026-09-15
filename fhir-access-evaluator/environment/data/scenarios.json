@@ -1,0 +1,314 @@
+[
+  {
+    "id": "s01",
+    "description": "Nurse reads a Patient resource",
+    "user": "User/user1",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s02",
+    "description": "Nurse tries to create a Patient (readonly policy)",
+    "user": "User/user1",
+    "interaction": "create",
+    "target": {"resourceType": "Patient"},
+    "resource_body": {"resourceType": "Patient", "name": [{"family": "New"}], "gender": "female"}
+  },
+  {
+    "id": "s03",
+    "description": "Nurse reads an Observation",
+    "user": "User/user1",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s04",
+    "description": "Nurse tries to update an Observation (readonly policy)",
+    "user": "User/user1",
+    "interaction": "update",
+    "target": {"resourceType": "Observation", "id": "o1"},
+    "resource_body": {"resourceType": "Observation", "id": "o1", "status": "amended"}
+  },
+  {
+    "id": "s05",
+    "description": "Nurse requests Patient history (allowed in readonly)",
+    "user": "User/user1",
+    "interaction": "history",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s06",
+    "description": "Nurse tries to delete a Patient (not in readonly interactions)",
+    "user": "User/user1",
+    "interaction": "delete",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s07",
+    "description": "Lab tech reads preliminary Observation (matches criteria)",
+    "user": "User/user2",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o2"}
+  },
+  {
+    "id": "s08",
+    "description": "Lab tech reads final Observation (criteria mismatch)",
+    "user": "User/user2",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s09",
+    "description": "Lab tech reads registered Observation (matches criteria)",
+    "user": "User/user2",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o3"}
+  },
+  {
+    "id": "s10",
+    "description": "Lab tech creates preliminary Observation",
+    "user": "User/user2",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "preliminary",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "laboratory"}]}]
+    }
+  },
+  {
+    "id": "s11",
+    "description": "Lab tech creates final Observation (criteria mismatch on new resource)",
+    "user": "User/user2",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "final",
+      "subject": {"reference": "Patient/p2"},
+      "category": [{"coding": [{"code": "laboratory"}]}]
+    }
+  },
+  {
+    "id": "s12",
+    "description": "Lab tech updates final Observation (existing resource fails criteria)",
+    "user": "User/user2",
+    "interaction": "update",
+    "target": {"resourceType": "Observation", "id": "o1"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "id": "o1",
+      "status": "preliminary",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "vital-signs"}]}]
+    }
+  },
+  {
+    "id": "s13",
+    "description": "Physician reads Observation (meta field should be hidden)",
+    "user": "User/user3",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s14",
+    "description": "Physician updates final Observation (write constraint blocks: before.status is final)",
+    "user": "User/user3",
+    "interaction": "update",
+    "target": {"resourceType": "Observation", "id": "o1"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "id": "o1",
+      "status": "preliminary",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "vital-signs"}]}]
+    }
+  },
+  {
+    "id": "s15",
+    "description": "Physician updates preliminary Observation (write constraint passes: before.status is not final)",
+    "user": "User/user3",
+    "interaction": "update",
+    "target": {"resourceType": "Observation", "id": "o2"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "id": "o2",
+      "status": "final",
+      "subject": {"reference": "Patient/p2"},
+      "category": [{"coding": [{"code": "laboratory"}]}]
+    }
+  },
+  {
+    "id": "s16",
+    "description": "Physician creates Observation (no before state - vacuously true implies)",
+    "user": "User/user3",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "preliminary",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "vital-signs"}]}]
+    }
+  },
+  {
+    "id": "s17",
+    "description": "Physician reads Patient (no hidden fields on Patient policy)",
+    "user": "User/user3",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s18",
+    "description": "Physician deletes Patient (all interactions allowed when none specified)",
+    "user": "User/user3",
+    "interaction": "delete",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s19",
+    "description": "Researcher reads Observation for assigned patient (parameterized criteria match)",
+    "user": "User/user4",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s20",
+    "description": "Researcher reads Observation for different patient (parameterized criteria mismatch)",
+    "user": "User/user4",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o4"}
+  },
+  {
+    "id": "s21",
+    "description": "Researcher reads assigned Patient (parameterized _id criteria match)",
+    "user": "User/user4",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s22",
+    "description": "Researcher reads different Patient (parameterized _id criteria mismatch)",
+    "user": "User/user4",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p2"}
+  },
+  {
+    "id": "s23",
+    "description": "Admin reads Patient via wildcard policy",
+    "user": "User/user5",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s24",
+    "description": "Admin reads Project (protected type excluded from wildcard)",
+    "user": "User/user5",
+    "interaction": "read",
+    "target": {"resourceType": "Project", "id": "proj1"}
+  },
+  {
+    "id": "s25",
+    "description": "Admin creates Observation via wildcard",
+    "user": "User/user5",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "final",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "vital-signs"}]}]
+    }
+  },
+  {
+    "id": "s26",
+    "description": "Specialist reads Observation with vital-signs category (:not social-history passes)",
+    "user": "User/user6",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s27",
+    "description": "Specialist reads Observation with social-history category (:not modifier blocks)",
+    "user": "User/user6",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o3"}
+  },
+  {
+    "id": "s28",
+    "description": "Specialist creates Observation with subject and non-excluded category",
+    "user": "User/user6",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "preliminary",
+      "subject": {"reference": "Patient/p1"},
+      "category": [{"coding": [{"code": "laboratory"}]}]
+    }
+  },
+  {
+    "id": "s29",
+    "description": "Specialist creates Observation without subject (write constraint fails)",
+    "user": "User/user6",
+    "interaction": "create",
+    "target": {"resourceType": "Observation"},
+    "resource_body": {
+      "resourceType": "Observation",
+      "status": "preliminary",
+      "category": [{"coding": [{"code": "laboratory"}]}]
+    }
+  },
+  {
+    "id": "s30",
+    "description": "Restricted updater updates Patient (readonly fields should be identified)",
+    "user": "User/user7",
+    "interaction": "update",
+    "target": {"resourceType": "Patient", "id": "p1"},
+    "resource_body": {
+      "resourceType": "Patient",
+      "id": "p1",
+      "name": [{"family": "Changed"}],
+      "birthDate": "2000-01-01",
+      "gender": "female",
+      "address": [{"state": "TX", "city": "Houston"}]
+    }
+  },
+  {
+    "id": "s31",
+    "description": "Restricted updater reads Patient",
+    "user": "User/user7",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  },
+  {
+    "id": "s32",
+    "description": "Restricted updater tries to create Patient (no create interaction)",
+    "user": "User/user7",
+    "interaction": "create",
+    "target": {"resourceType": "Patient"},
+    "resource_body": {"resourceType": "Patient", "name": [{"family": "New"}]}
+  },
+  {
+    "id": "s33",
+    "description": "Quality reviewer reads Observation without valueQuantity (:missing=true matches)",
+    "user": "User/user8",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o5"}
+  },
+  {
+    "id": "s34",
+    "description": "Quality reviewer reads Observation with valueQuantity (:missing=true fails)",
+    "user": "User/user8",
+    "interaction": "read",
+    "target": {"resourceType": "Observation", "id": "o1"}
+  },
+  {
+    "id": "s35",
+    "description": "Unknown user with no membership tries to read Patient",
+    "user": "User/user99",
+    "interaction": "read",
+    "target": {"resourceType": "Patient", "id": "p1"}
+  }
+]

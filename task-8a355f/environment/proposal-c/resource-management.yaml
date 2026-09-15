@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-frontend-quota
+  namespace: prod-frontend
+spec:
+  hard:
+    cpu: "4"
+    memory: "4Gi"
+    pods: "20"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-backend-quota
+  namespace: prod-backend
+spec:
+  hard:
+    cpu: "8"
+    memory: "8Gi"
+    pods: "30"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-data-quota
+  namespace: prod-data
+spec:
+  hard:
+    cpu: "16"
+    memory: "32Gi"
+    pods: "10"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: monitoring-quota
+  namespace: monitoring
+spec:
+  hard:
+    cpu: "4"
+    memory: "8Gi"
+    pods: "15"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-frontend-limits
+  namespace: prod-frontend
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    default:
+      cpu: "500m"
+      memory: "1Gi"
+    max:
+      cpu: "1"
+      memory: "512Mi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-backend-limits
+  namespace: prod-backend
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "200m"
+      memory: "256Mi"
+    default:
+      cpu: "1"
+      memory: "1Gi"
+    max:
+      cpu: "2"
+      memory: "2Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-data-limits
+  namespace: prod-data
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "500m"
+      memory: "512Mi"
+    default:
+      cpu: "2"
+      memory: "4Gi"
+    max:
+      cpu: "4"
+      memory: "8Gi"
+    min:
+      cpu: "250m"
+      memory: "256Mi"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: monitoring-limits
+  namespace: monitoring
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    max:
+      cpu: "2"
+      memory: "4Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"

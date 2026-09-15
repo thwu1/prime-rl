@@ -1,0 +1,9 @@
+A PBR DFG lookup table pipeline at `/app/pipeline/` is producing incorrect output for Image-Based Lighting pre-integration. The pipeline computes a 128×128×3 LUT encoding multiscatter GGX specular BRDF (channels R, G) and Estevez-Kulla cloth sheen (channel B), but the generated values deviate significantly from physically correct reference values.
+
+The mathematical specification is at `/app/spec/brdf_spec.md` with an additional reference at `/app/spec/reference.md`. A binary I/O framework at `/app/framework/lut_io.py` is verified correct.
+
+C-based diagnostic tools are provided as uncompiled source at `/app/tools/src/` with a build file at `/app/tools/Makefile`. When compiled, `dfg_reference` computes ground-truth DFG values at arbitrary pixel coordinates using double-precision arithmetic, and `lut_compare` performs full per-pixel validation of a DFGL binary against its internally-computed reference, reporting per-channel error statistics and failing pixels.
+
+Diagnose and fix all bugs in the pipeline (including the configuration at `/app/pipeline/pipeline_config.json`) so the generated LUT at `/app/output/dfg_lut.bin` passes validation by `lut_compare`. The pipeline has multiple interacting bugs spanning coordinate mapping, BRDF integration math, and sampling parameters — the error signatures from the diagnostic tools should guide your investigation.
+
+Additionally, implement and evaluate both Smith-GGX visibility function options from Section 5 of the specification at the diagnostic coordinates in Section 10. Write the evaluation to `/app/output/analysis.json` following the schema in Section 10.

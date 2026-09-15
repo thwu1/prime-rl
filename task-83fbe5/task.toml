@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level operations research expertise: parsing undocumented CSV/JSON data files to infer problem structure, formulating a two-stage stochastic capacitated facility location MILP with binary first-stage and continuous second-stage variables, implementing Rockafellar-Uryasev CVaR linearization for tail-risk optimization, and computing both VSS (value of stochastic solution via EV/EEV comparison) and EVPI (expected value of perfect information via wait-and-see decomposition). The solver must handle 25 demand scenarios across 8 facilities and 12 customers with capacity constraints and shortage penalties."""
+solution_explanation = """Install PuLP with CBC solver. Parse all CSV/JSON files from /app/data/ to extract facility costs/capacities, transport cost matrix, demand scenario matrix, and risk parameters. Build and solve four categories of MILP: (1) risk-neutral stochastic program minimizing expected facility+recourse cost, (2) risk-averse stochastic program with CVaR objective using auxiliary eta/z variables per Rockafellar-Uryasev, (3) expected-value problem on mean demands followed by EEV evaluation, (4) 25 individual wait-and-see problems. Compute VSS=EEV-RP and EVPI=RP-WS. Output structured JSON to /app/results.json."""
+verification_explanation = """Tests independently solve all optimization problems from scratch using PuLP/CBC and compare agent output against reference solutions. Risk-neutral objective must match within 0.5%, CVaR within 1%, VaR/VSS/EVPI within 2%. Consistency checks verify facility cost decomposition, expected cost recomputation from scenario costs, objective decomposition for both risk-neutral and risk-averse cases, CVaR >= VaR, and risk-averse objective >= risk-neutral objective."""
+category = "optimization"
+tags = ["stochastic-programming", "risk-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-83fbe5"

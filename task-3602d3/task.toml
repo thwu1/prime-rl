@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing multiple non-trivial computer vision algorithms from scratch: normalized DLT for homography estimation, RANSAC with adaptive thresholding for robust outlier rejection, multi-view spanning-tree chaining with nonlinear Levenberg-Marquardt refinement over homography parameters, and SVD-based homography decomposition with four-solution disambiguation using positive-depth constraints. Each component has subtle numerical pitfalls (coordinate normalization, gauge freedom, degenerate configurations) and the components must integrate correctly."""
+solution_explanation = """The solution implements: (1) Hartley-normalized DLT for initial homography estimation, (2) RANSAC with geometric error threshold for robust pairwise estimation, (3) spanning tree construction weighted by inlier RMS, chaining homographies to reference view 0, (4) Levenberg-Marquardt refinement parameterized by 8 free parameters per homography minimizing total inlier reprojection error, (5) SVD decomposition of K^{-1} H K into rotation, translation, and normal with disambiguation via positive-depth check on inlier points."""
+verification_explanation = """Tests load ground truth from a separate module (gt_generator.py) mounted at test time only. Verification checks: (1) H_0 = identity, (2) inlier reprojection RMS < 2.0 px per pair, (3) inlier classification F1 > 0.80 against ground truth masks, (4) rotation matrices are orthogonal with det=1, (5) decomposed rotations have angular error < 5 degrees from ground truth, (6) global consistency error < 1.5 Frobenius norm."""
+category = "computer_vision"
+tags = ["homography", "multi-view-geometry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3602d3"

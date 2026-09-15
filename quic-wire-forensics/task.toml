@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level QUIC protocol knowledge to reverse-engineer the binary transport parameter encoding from RFC 9000 (variable-length integer scheme, parameter ID/length/value structure, type-dependent value interpretation for CIDs vs integers vs flags). Demands multi-tool proficiency: using tshark to decode pcap captures and extract QUIC header fields, using openssl to inspect X.509 certificates and extract subject/SAN/key metadata, and writing custom Python to parse the raw binary transport parameter blobs. Requires holistic understanding of QUIC connection lifecycle to correlate findings across four different artifact types (pcap, qlog, transport params, TLS certs), identify RFC compliance violations by understanding parameter constraints, and compute negotiated connection parameters by understanding the directionality of QUIC's flow control semantics (server's limits constrain client-initiated streams, not vice versa)."""
+solution_explanation = """The solution uses tshark to decode the pcap and extract IP addresses, ports, QUIC versions, and packet types. It uses openssl to extract certificate metadata (CN, SAN, serial, key type). It implements a QUIC variable-length integer decoder per RFC 9000 Section 16 (2-MSB prefix scheme for 1/2/4/8 byte forms) and transport parameter parser that handles the varint ID/length/value triple format with type-dependent dispatch (raw bytes for CIDs/tokens, boolean for zero-length flags, varint-decoded integers for others). It detects the client's max_ack_delay=16384 which violates the <2^14 constraint. It parses both qlog traces to extract event counts, the TRANSPORT_PARAMETER_ERROR connection close, and RTT metrics. Finally it computes negotiated parameters applying correct directionality."""
+verification_explanation = """Tests load /app/report.json and verify: (1) pcap-derived fields including packet count, client/server IPs, port 443, QUIC versions 0 and 1, and all four packet type names; (2) certificate fields from openssl including CN, SAN entries, serial hex, key type EC, and self-signed status; (3) exact transport parameter values for 15 server params and 12 client params; (4) detection of the max_ack_delay RFC violation with correct source/parameter/value; (5) correct negotiated parameter computation including directional flow control; (6) qlog-derived fields including event counts, handshake failure status, error code, and server min RTT."""
+category = "networking"
+tags = ["quic", "protocol-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quic-wire-forensics"

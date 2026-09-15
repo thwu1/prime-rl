@@ -1,0 +1,50 @@
+LAMMPS (7 Feb 2024 - Update 1)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+Reading data file ...
+  orthogonal box = (0 0 0) to (1586.4 1586.4 1586.4)
+  4 by 4 by 4 MPI processor grid
+Replicating SPC/E water system: 16 x 16 x 16
+  base system: 32768 molecules (98304 atoms)
+  replicated system: 134217728 molecules (402653184 atoms)
+Neighbor list info ...
+  update every 1 steps, delay 10 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+Setting up Verlet run ...
+  Unit style    : real
+  Current step  : 0
+  Time step     : 1.0
+  Thermodynamic output every 10 steps
+WARNING: Communication cutoff 12.0 is shorter than pairwise cutoff 12.8 (src/comm_brick.cpp:210)
+WARNING: Increasing communication cutoff to 12.8 for TIP4P pair style (src/KSPACE/pair_lj_cut_tip4p_long.cpp:423)
+Per MPI rank memory allocation (min/avg/max) = 328.4 | 331.2 | 334.1 Mbytes
+Step Temp PotEng TotEng Press Volume
+       0   298.000 -1487892345.6 -1112345678.9  1245.30 3994264780.8
+      10   298.120 -1487834567.8 -1112278901.2  1198.70 3994264780.8
+      20   297.950 -1487856789.1 -1112300123.4  1212.40 3994264780.8
+      30   298.080 -1487845678.2 -1112289012.3  1205.10 3994264780.8
+      40   298.210 -1487823456.7 -1112267890.1  1215.80 3994264780.8
+      50   297.890 -1487761234.5 -1112200567.8  1191.20 3994264780.8
+      60   298.150 -1487768912.3 -1112208234.6  1208.90 3994264780.8
+      70   297.980 -1487759876.1 -1112199123.4  1197.30 3994264780.8
+      80   298.070 -1487766543.2 -1112205890.5  1213.60 3994264780.8
+      90   298.190 -1487763456.7 -1112202678.9  1203.40 3994264780.8
+     100   297.930 -1487758238.9 -1112197456.1  1210.10 3994264780.8
+Loop time of 57.823 on 64 procs for 100 steps with 402653184 atoms
+
+Performance: 14.94 ns/day, 1.606 hours/ns, 1.7294 timesteps/s
+100.0% CPU use with 64 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 41.234     | 42.567     | 43.901     |  14.2 | 73.61
+Bond    | 0.015      | 0.018      | 0.021      |   1.4 |  0.03
+Kspace  | 10.234     | 11.345     | 12.456     |  16.8 | 19.62
+Neigh   | 2.567      | 2.891      | 3.215      |   9.1 |  5.00
+Comm    | 0.345      | 0.567      | 0.789      |   8.2 |  0.98
+Output  | 0.001      | 0.002      | 0.003      |   0.8 |  0.00
+Modify  | 0.312      | 0.421      | 0.530      |   6.1 |  0.73
+Other   |            | 0.012      |            |       |  0.02
+
+Total wall time: 0:00:57

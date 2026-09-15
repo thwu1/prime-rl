@@ -1,0 +1,10 @@
+Hello World
+STATUS: booting
+STATUS: ready
+> and confirmed
+STATUS: ready and confirmed
+ERROR: disk full
+ERROR: timeout
+ERROR: timeout
+Simple line
+Last line

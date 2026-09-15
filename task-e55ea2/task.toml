@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Prolog programming combined with deep understanding of U.S. tax law statutory reasoning. The agent must translate 6 interacting natural-language tax statutes into formal Prolog rules, handling: priority-based filing status determination with 5 statuses, progressive bracket tax computation with 4 different rate schedules, personal exemption phase-out with ceiling arithmetic, dependent qualification (qualifying child vs qualifying relative with different criteria), child tax credit with income phase-out, income exclusions, above-the-line deduction caps, standard vs itemized deduction selection, and additional standard deductions for age/blindness. Edge cases include non-refundable credit caps, parent-who-doesn't-cohabit HOH exception, and interacting phase-outs. Debugging Prolog with arithmetic and negation-as-failure is notoriously difficult."""
+solution_explanation = """The solution implements a ~250-line SWI-Prolog knowledge base that translates each statute section into declarative rules. Key techniques: findall/3 for aggregation, dynamic predicates for optional case facts, ceiling integer division for phase-out computations, recursive bracket application with accumulator, and cut for filing status priority. The engine chains: gross_income → AGI → filing_status → deductions → exemptions (with phase-out) → taxable_income → bracket_tax → credits (with phase-out and non-refundable cap) → final tax_owed."""
+verification_explanation = """Tests run SWI-Prolog on each of 12 case files with the agent's tax_engine.pl and compare compute_tax/1 output to pre-computed expected values. Each case exercises different statute interactions and edge cases. All expected values were independently verified by manual computation."""
+category = "programming"
+tags = ["prolog", "statutory-reasoning"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e55ea2"

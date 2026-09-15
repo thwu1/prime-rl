@@ -1,0 +1,54 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of durable execution engines and distributed saga patterns. The agent
+must evaluate Virtual Object handler architecture against Restate's concurrency model and journal replay semantics to
+identify and correct two subtle architectural defects — one involving handler concurrency mode selection (exclusive vs shared)
+and another involving unjournaled side-effects that cause replay divergence. Beyond evaluation, the agent must design and
+implement from scratch a complete distributed saga orchestrator — the CheckoutService.process handler — making original
+architectural decisions about multi-step atomic transactions with full compensation logic for all failure modes (partial
+reservation failures, payment declines). This requires synthesizing knowledge of saga compensation patterns, Restate's
+cross-service invocation API (ctx.object_call), deterministic ID generation (ctx.uuid vs stdlib uuid), and TerminalError
+propagation semantics. The agent must also bring the full Restate stack (server, service, registration) online without
+step-by-step guidance."""
+solution_explanation = """Two TicketObject handlers must be redesigned after architectural evaluation: (1) get_status must
+be changed from exclusive to shared handler mode (kind='shared' with ObjectSharedContext) so read-only queries execute
+concurrently instead of serializing behind all pending writes. (2) The reserve handler's external check_availability() call
+must be wrapped in ctx.run() so the result is captured in the execution journal and replayed deterministically on restart.
+The CheckoutService.process handler must be designed and implemented from scratch as a saga orchestrator: generate a
+deterministic transaction ID via ctx.uuid(), iteratively reserve tickets while tracking which succeeded, charge the wallet
+via ctx.object_call(withdraw, ...), and confirm tickets on success. On any failure — partial reservation or insufficient
+funds (TerminalError) — all previously reserved tickets must be compensated by calling ctx.object_call(unreserve, ...) for
+each, returning the system to a clean state before reporting failure."""
+verification_explanation = """Tests start the Restate server and the corrected service, register the deployment, then
+exercise the full system via HTTP invocations. Functional tests verify the ticket lifecycle, wallet operations, and a
+successful end-to-end checkout with ticket state transitions to SOLD. The critical saga tests attempt checkout with
+insufficient funds and verify all tickets return to AVAILABLE (not stuck as RESERVED), and test partial reservation failure
+with proper compensation of earlier steps. Structural tests query the Restate admin API to verify get_status is registered
+as a shared handler, and perform AST analysis to verify: no bare uuid4() usage in the process function, presence of
+ctx.uuid() or ctx.rand for deterministic ID generation, and check_availability wrapped in ctx.run() for journal safety."""
+category = "distributed_systems"
+tags = ["restate", "durable-execution"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-485dda"

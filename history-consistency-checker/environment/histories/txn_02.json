@@ -1,0 +1,24 @@
+{
+  "type": "transactional",
+  "initial_state": {"x": 0},
+  "transactions": [
+    {
+      "id": 1,
+      "status": "aborted",
+      "start_time": 0,
+      "end_time": 100,
+      "operations": [
+        {"f": "write", "key": "x", "value": 1}
+      ]
+    },
+    {
+      "id": 2,
+      "status": "committed",
+      "start_time": 150,
+      "end_time": 250,
+      "operations": [
+        {"f": "read", "key": "x", "value": 1}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires translating PVS formal specifications into executable code. The agent must understand formal mathematical notation, implement quadratic root-finding for the WCV_taumod_interval computation, handle the 3D WCV time-shifting algorithm (computing horizontal intervals within the vertical violation window), manage aviation unit conversions (nmi, ft, knots, fpm, degrees), parse custom file formats, and handle numerous edge cases (diverging aircraft, stationary intruder, already inside threshold). The vertical-horizontal interaction in the crossing scenario (where vertical constraint shifts the WCV entry time) tests deep understanding of the 3D interval algorithm."""
+solution_explanation = """The solution implements the WCV_taumod detection algorithm directly from the PVS specifications: (1) parse scenario and config files, (2) compute relative state vectors with proper unit conversions, (3) implement horizontal_WCV_taumod_interval using the quadratic formula with coefficients a=||v||², b=2(s·v)+TAUMOD·||v||², c=||s||²+TAUMOD·(s·v)-DTHR², (4) implement vertical_WCV_interval using coalt_entry_exit, (5) combine via the WCV_interval time-shifting algorithm, (6) check each integer timestep against the analytical interval and via direct point-evaluation."""
+verification_explanation = """Tests verify: (1) output JSON structure and completeness, (2) violation intervals match expected values within tolerance, (3) first/last violation timesteps are exact, (4) TCPA and DCPA match expected values, (5) diverging scenario produces no violation, (6) per-timestep violation lists are correct, (7) crossing scenario correctly shows vertical constraint affecting entry time under standard config."""
+category = "aviation"
+tags = ["formal-methods", "safety-critical"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wcv-taumod-detector"

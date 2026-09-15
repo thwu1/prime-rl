@@ -1,0 +1,52 @@
+Step 1/8 : FROM python:3.11-slim
+ ---> a1b2c3d4e5f6
+Step 2/8 : WORKDIR /app
+ ---> Using cache
+ ---> 8f3a4b5c6d7e
+Step 3/8 : COPY requirements.txt .
+ ---> 7f8g9h0i1j2k
+Step 4/8 : RUN pip install --no-cache-dir -r requirements.txt
+ ---> Running in abc123def456
+Collecting Flask==3.0.0
+  Downloading flask-3.0.0-py3-none-any.whl (101 kB)
+Collecting cffi==1.16.0
+  Downloading cffi-1.16.0.tar.gz (512 kB)
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Collecting pycparser
+  Downloading pycparser-2.22-py3-none-any.whl (117 kB)
+Collecting requests==2.31.0
+  Downloading requests-2.31.0-py3-none-any.whl (62 kB)
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead.
+Building wheels for collected packages: cffi
+  Building wheel for cffi (setup.py): started
+  Building wheel for cffi (setup.py): finished with status 'error'
+  error: subprocess-exited-with-error
+
+  x python setup.py bdist_wheel did not run successfully.
+  | exit code: 1
+  |-> [22 lines of output]
+      running bdist_wheel
+      running build
+      running build_py
+      creating build
+      creating build/lib.linux-x86_64-cpython-311
+      creating build/lib.linux-x86_64-cpython-311/cffi
+      copying cffi/__init__.py -> build/lib.linux-x86_64-cpython-311/cffi
+      copying cffi/api.py -> build/lib.linux-x86_64-cpython-311/cffi
+      running build_ext
+      building '_cffi_backend' extension
+      creating build/temp.linux-x86_64-cpython-311
+      creating build/temp.linux-x86_64-cpython-311/c
+      gcc -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -fPIC -DUSE__THREAD -DHAVE_FFI_PREP_CLOSURE_LOC -DHAVE_FFI_PREP_CIF_VAR -DHAVE_FFI_DEP_LINUX_TABLE -I/usr/include/ffi -I/usr/include/libffi -I/usr/local/include/python3.11 -c c/_cffi_backend.c -o build/temp.linux-x86_64-cpython-311/c/_cffi_backend.o
+      c/_cffi_backend.c:2:10: fatal error: ffi.h: No such file or directory
+          2 | #include <ffi.h>
+            |          ^~~~~~~
+      compilation terminated.
+      error: command '/usr/bin/gcc' failed with exit code 1
+      [end of output]
+
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for cffi
+ERROR: Could not build wheels for cffi, which is required to install pyproject.toml-based projects
+The command '/bin/sh -c pip install --no-cache-dir -r requirements.txt' returned a non-zero code: 1

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging seven interacting bugs across a dual-language sparse matrix pipeline: a C shared library (libsparse.so) loaded via Python ctypes, plus a Python orchestrator implementing JDS conversion, RCM reordering, and format scoring. The agent must read and modify C source code, rebuild the shared library using gcc/make, understand ctypes FFI bindings and data layout conventions, trace data flow across the C/Python boundary, and fix Python algorithmic bugs — all while understanding three sparse storage formats (CSR, JDS, ELLPACK), row-major vs column-major array layout, permutation algebra for RCM reordering, envelope/profile theory, and format trade-off analysis. Bugs span: (1) ELLPACK SpMV column-major/row-major indexing mismatch between Python conversion and C kernel, (2) profile computing max envelope instead of sum in C, (3) adjacency list built as directed graph instead of undirected for RCM BFS traversal — causing node-skipping crashes on non-symmetric matrices, (4) JDS col_start missing final sentinel in Python, (5) reordered bandwidth computed on original matrix, (6) RCM un-permutation applying the permutation in the wrong direction, and (7) format scoring awarding JDS bonus for low CV instead of high CV."""
+solution_explanation = """Run the pipeline on sample data, compare SpMV variants against CSR reference, and trace each discrepancy through the C/Python boundary. Fix C source (ELLPACK row-major indexing, profile accumulation), rebuild libsparse.so with make, then fix Python code (symmetrize adjacency list for RCM, JDS col_start unconditional append, reordered bandwidth on correct matrix, RCM un-permutation direction, format scoring CV threshold). Requires proficiency with C compilation, shared library rebuilding, ctypes FFI debugging, graph traversal invariants, and make build system."""
+verification_explanation = """Tests generate seven matrix types (tridiagonal, permuted band, sparse with empty rows, 50x50 random, disconnected block-diagonal, pure diagonal, star graph) using scipy.sparse as reference. Each test runs the pipeline as a subprocess and verifies all SpMV variants agree, JDS/RCM metadata is valid, bandwidth and profile match reference computations, and format recommendations match known optimal rankings for each matrix structure."""
+category = "debugging"
+tags = ["sparse-matrices", "multi-language-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sparse-matrix-reorder"

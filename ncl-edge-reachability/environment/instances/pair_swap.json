@@ -1,0 +1,19 @@
+{
+  "description": "Two vertices with three weight-2 edges. Reverse e0 by first swapping e1.",
+  "vertices": {
+    "A": {"min_inflow": 2},
+    "B": {"min_inflow": 2}
+  },
+  "edges": {
+    "e0": {"endpoints": ["A", "B"], "weight": 2},
+    "e1": {"endpoints": ["A", "B"], "weight": 2},
+    "e2": {"endpoints": ["A", "B"], "weight": 2}
+  },
+  "initial_orientation": {
+    "e0": "B",
+    "e1": "A",
+    "e2": "A"
+  },
+  "target_edge": "e0",
+  "target_direction": "A"
+}

@@ -1,0 +1,81 @@
+MILC Version 7.8.1
+Machine = Cluster
+Username = benchuser
+start: Tue Jan 15 13:12:34 2024
+Options selected...
+  Generic single precision
+  C_PRECISION 1
+  WANT_MIXED_PRECISION_GPU 0
+type 0 for no prompts, 1 for prompts, or 2 for proofreading
+nx 144
+ny 144
+nz 144
+nt 288
+node_geometry 2 4 4 4
+ionode_geometry 2 4 4 4
+Lattice dimensions = 144 144 144 288
+
+Gauge group SU(3)
+Reconstruction = REUNIT
+Total number of sites = 882956288
+Nodes: 128, MPI ranks: 1024
+
+WARMUP PHASE
+GFTIME:   time = 0.1412 (warmup)
+GFTIME:   time = 0.1389 (warmup)
+GFTIME:   time = 0.1356 (warmup)
+CONGRAD: niter = 35, rsq = 4.234e-13
+CONGRAD: niter = 33, rsq = 4.891e-13
+
+BEGIN TRAJECTORY 1
+GFTIME:   time = 0.1298
+CONGRAD: niter = 36, rsq = 4.123e-13
+GFTIME:   time = 0.1282
+CONGRAD: niter = 34, rsq = 4.678e-13
+GFTIME:   time = 0.1312
+CONGRAD: niter = 37, rsq = 3.891e-13
+GFTIME:   time = 0.1275
+CONGRAD: niter = 35, rsq = 4.234e-13
+GFTIME:   time = 0.1294
+CONGRAD: niter = 38, rsq = 3.567e-13
+GFTIME:   time = 0.1306
+CONGRAD: niter = 36, rsq = 3.789e-13
+GFTIME:   time = 0.1279
+CONGRAD: niter = 34, rsq = 4.345e-13
+GFTIME:   time = 0.1301
+CONGRAD: niter = 37, rsq = 3.678e-13
+GFTIME:   time = 0.1268
+CONGRAD: niter = 35, rsq = 4.012e-13
+GFTIME:   time = 0.1303
+PLAQ: 0.58786
+END TRAJECTORY 1
+
+BEGIN TRAJECTORY 2
+GFTIME:   time = 0.1378 (warmup)
+GFTIME:   time = 0.1351 (warmup)
+GFTIME:   time = 0.1244
+CONGRAD: niter = 35, rsq = 3.345e-13
+GFTIME:   time = 0.1246
+CONGRAD: niter = 33, rsq = 4.123e-13
+GFTIME:   time = 0.1245
+CONGRAD: niter = 36, rsq = 3.678e-13
+GFTIME:   time = 0.1247
+CONGRAD: niter = 34, rsq = 3.890e-13
+GFTIME:   time = 0.1244
+CONGRAD: niter = 37, rsq = 3.234e-13
+GFTIME:   time = 0.1246
+CONGRAD: niter = 35, rsq = 4.012e-13
+GFTIME:   time = 0.1245
+CONGRAD: niter = 33, rsq = 4.345e-13
+GFTIME:   time = 0.1244
+CONGRAD: niter = 36, rsq = 3.567e-13
+GFTIME:   time = 0.1246
+CONGRAD: niter = 34, rsq = 3.789e-13
+GFTIME:   time = 0.1243
+PLAQ: 0.58788
+END TRAJECTORY 2
+
+Number of nodes: 128
+Total MPI ranks: 1024
+Total trajectories: 2
+RUNNING COMPLETED

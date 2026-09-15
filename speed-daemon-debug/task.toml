@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a custom reliable transport protocol (LRCP) over UDP from a detailed specification, then building a line-reversal application on top. The solver must design an async session state machine, implement retransmission timers, correctly handle escape-aware message framing where position counters track unescaped bytes, chunk outbound data to respect the 1000-byte message limit while accounting for escape expansion, manage 20+ concurrent sessions with independent state, and handle session expiry. This demands deep understanding of transport protocol internals (reliability, flow control, retransmission), async network programming with UDP (which lacks TCP's built-in abstractions), and careful byte-level protocol engineering."""
+solution_explanation = """Build an asyncio-based UDP server using DatagramProtocol. Parse incoming LRCP messages by splitting on unescaped forward slashes, unescaping \\/ and \\\\ in data fields. Track per-session state: contiguous bytes received (recv_total), outbound byte buffer, peer ack position, and a partial-line accumulator. On receiving data: update recv_total, feed new bytes to the line accumulator, emit reversed lines to the send buffer. Send data in chunks sized via binary search so the escaped form plus framing stays under 1000 bytes. Schedule asyncio call_later retransmissions at 3-second intervals for unacked data. Expire sessions after 60 seconds of inactivity."""
+verification_explanation = """Tests act as LRCP clients via raw UDP sockets. They verify: (1) connect/ack handshake, (2) single and multi-line reversal, (3) partial-line buffering until newline, (4) correct escape/unescape of forward slash and backslash in data, (5) retransmission of unacked data within ~3 seconds, (6) 25 concurrent sessions, (7) correct chunking for a 2000-character line, (8) /close/ response for unknown sessions, (9) silent ignoring of malformed packets, (10) session closure on excess ack, (11) duplicate connect re-ack."""
+category = "implementation"
+tags = ["network-protocol", "udp-transport"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/speed-daemon-debug"

@@ -1,0 +1,19 @@
+{
+    "name": "combined_basic",
+    "description": "Combine subnet blocking with DNS source port blocking",
+    "rules": [
+        {
+            "match": {
+                "src_network": "198.18.0.0/15"
+            },
+            "action": "drop"
+        },
+        {
+            "match": {
+                "protocol": "udp",
+                "src_port": 53
+            },
+            "action": "drop"
+        }
+    ]
+}

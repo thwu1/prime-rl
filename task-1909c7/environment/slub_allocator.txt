@@ -1,0 +1,46 @@
+SLUB Allocator — Kernel Slab Cache Reference
+=============================================
+
+Overview
+--------
+The Linux SLUB allocator manages kernel heap memory through slab caches.
+Two categories exist:
+
+1. Generic kmalloc caches (kmalloc-32, kmalloc-64, ..., kmalloc-1024, etc.)
+   - Size-class based, serving general-purpose kernel allocations
+   - Each handles objects up to its named size
+
+2. Named (dedicated) caches
+   - Created via kmem_cache_create() for specific kernel subsystems
+   - May have custom constructors or special flags
+
+Cache Merging
+-------------
+To reduce memory overhead, SLUB can merge a named cache into an existing
+kmalloc cache when the named cache is compatible. Compatibility requires:
+
+  - No constructor function (ctor attribute is empty)
+  - None of the following flags are set:
+    * SLAB_TYPESAFE_BY_RCU  (sysfs: destroy_by_rcu = 1)
+    * SLAB_POISON           (sysfs: poison = 1)
+    * SLAB_STORE_USER       (sysfs: store_user = 1)
+    * SLAB_TRACE            (sysfs: trace = 1)
+    * SLAB_NOMERGE
+  - A kmalloc cache exists with object_size >= the named cache's object_size
+  - The kmalloc cache alignment >= the named cache alignment
+
+When merged, the named cache's allocations are served from the smallest
+compatible kmalloc cache. Objects from different logical caches then
+coexist in the same physical slab pages.
+
+Sysfs Interface
+---------------
+Cache attributes are exposed via /sys/kernel/slab/<cache_name>/:
+  object_size    - allocation unit size in bytes
+  slab_size      - physical slab page size
+  align          - minimum alignment
+  ctor           - constructor function name (empty if none)
+  destroy_by_rcu - 1 if SLAB_TYPESAFE_BY_RCU is set
+  poison         - 1 if SLAB_POISON is set
+  store_user     - 1 if SLAB_STORE_USER is set
+  trace          - 1 if SLAB_TRACE is set

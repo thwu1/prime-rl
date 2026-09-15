@@ -1,0 +1,24 @@
+application:
+  name: acme-service
+  version: 3.4.1
+  environment: production
+
+oauth:
+  client_id: "Iv1.abc123def456"
+  # OAuth access token for the CI/CD bot account
+  access_token: "gho_X5v8tG2aMnKpYeRcHdFjBwLqNz1S9U1vlLjs"
+  scopes:
+    - repo
+    - workflow
+
+database:
+  host: "db-primary.internal"
+  port: 3306
+  name: "acme_production"
+  # bcrypt hash of the service account password -- not a token
+  password_hash: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+
+logging:
+  level: info
+  format: json
+  output: /var/log/acme/app.log

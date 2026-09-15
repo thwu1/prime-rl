@@ -1,0 +1,36 @@
+int counter = 0;
+
+int side_effect() {
+    counter = counter + 1;
+    return counter;
+}
+
+int main() {
+    // Test &&: left is false, right must NOT be evaluated
+    int a = 0;
+    if (a && side_effect() > 0) {
+        putint(-1);
+    }
+    putint(counter);
+    putch(10);
+
+    // Test ||: left is true, right must NOT be evaluated
+    int b = 1;
+    if (b || side_effect() > 0) {
+        putint(1);
+    }
+    putch(10);
+    putint(counter);
+    putch(10);
+
+    // Test &&: left is true, right IS evaluated
+    int c = 1;
+    if (c && side_effect() > 0) {
+        putint(2);
+    }
+    putch(10);
+    putint(counter);
+    putch(10);
+
+    return 0;
+}

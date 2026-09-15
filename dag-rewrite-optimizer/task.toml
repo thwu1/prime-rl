@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-technique compiler optimizer combining pattern-matching rewrites with forward abstract interpretation and algebraic restructuring — three fundamentally different analysis paradigms that must interoperate correctly. The abstract interpretation component demands implementing a sound uint32 interval analysis (range propagation through AND, ADD, SHR, etc.) to prove comparison outcomes that no syntactic rewrite rule can resolve, requiring deep understanding of modular arithmetic bounds and bitwise masking semantics. The algebraic factoring component requires recognizing the distributive law across DAG subgraphs (ADD(MUL(x,c1),MUL(x,c2))→MUL(x,c1+c2)) and power-of-two strength reduction — non-trivial optimizations that demand holistic reasoning about algebraic identities beyond simple pattern templates. Additionally, six candidate rewrite rules must be formally verified using Z3 over 32-bit bitvectors; three contain subtle modular-arithmetic bugs (unsigned overflow on increment, shift truncation losing high bits, unsigned underflow on subtraction) that only manifest at boundary values. The verified_rewrites program forces integration of verification results into the optimizer: only provably sound candidate rules may be applied, and all three are necessary to meet the node-count target. Multi-pass cascading optimization (14+ layers) demands holistic understanding of rewrite-rule interactions and fixed-point convergence."""
+solution_explanation = """Three-phase solution: (1) Implement optimizer.py with constant folding, identity/annihilation/cancellation/involution rules, inverse cancellation, conditional collapse, algebraic factoring (distributive law: ADD(MUL(x,c1),MUL(x,c2))→MUL(x,c1+c2)), power-of-two strength reduction (MUL(x,2^k)→SHL(x,k)), forward abstract interpretation computing uint32 interval ranges through the DAG (AND masks to [0,c], ADD sums intervals checking for overflow, etc.) to fold range-provable comparisons, plus verified candidate rules C1 (bit partition), C4 (sub inverse), C5 (additive inverse). (2) Use Z3 BitVec to formalize each candidate rule and check satisfiability of its negation — LShR is needed for logical right shift. C2 fails because SHR(SHL(x,c),c) truncates high bits; C3 fails at x=0xFFFFFFFF where increment wraps to 0; C6 fails when unsigned subtraction wraps (y>x or y=0). (3) The optimizer applies all rules to fixed-point via the provided graph_rewrite engine, with range analysis integrated as replacement functions that compute ranges on-the-fly."""
+verification_explanation = """21 pytest tests verify: (1) semantic equivalence on 15 diverse uint32 inputs per program including overflow boundary values for all 8 programs, (2) computational node count meets per-program targets, (3) verification_report.json has correct sound/unsound verdicts for all 6 candidate rules, (4) counterexamples for unsound rules are validated by re-executing the operations in Python, (5) novel range-fold DAGs are constructed at test time to verify the optimizer generalizes (anti-cheat), (6) novel algebraic-factoring DAGs verify distributive law generalization, (7) power-of-two MUL→SHL reduction is tested on unseen constants."""
+category = "systems"
+tags = ["compiler-optimization", "formal-verification"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dag-rewrite-optimizer"

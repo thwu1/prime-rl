@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of TypeScript's non-erasable syntax compilation semantics and their interaction with ES2022 class field behavior. The solver must: (1) analyze numeric enum reverse mappings (IIFE bidirectional objects), heterogeneous enum behavior, const enum inlining, namespace-enum merging, and import-alias replacement; (2) evaluate how useDefineForClassFields (implicitly true at target ES2022) interacts with parameter property migration — naively replacing parameter properties with field declarations causes [[DefineOwnProperty]] to shadow getter/setters installed by a base class constructor, silently breaking mutation tracking; (3) design a migration strategy that prevents class field emission for tracked properties (e.g. via 'declare' fields, interface-class merging, or ES private fields) while maintaining type safety; (4) implement correct replacements across five interdependent source files with cross-module type contracts. The class field semantic trap is the critical difficulty: it produces no compile-time error and only manifests as incorrect runtime behavior detectable through mutation tracking assertions."""
+solution_explanation = """Replace each enum with a manually-constructed bidirectional mapping object using a createEnum helper. Merge namespace functions via Object.assign or static methods. Replace const enums with as-const objects. Replace parameter properties with explicit field declarations and constructor assignments. For TrackedComponent, convert TypeScript 'private' fields to ES private (#) fields to eliminate any interaction with TypeScript's erasableSyntaxOnly processing. For the Middleware subclass, use interface-class declaration merging to type the tracked properties (name, priority) without emitting class field initializers — this prevents ES2022 [[DefineOwnProperty]] from overwriting TrackedComponent's dynamically-installed getter/setters. Store the non-tracked protocol using ES private syntax (#protocol). Replace namespace-class merges with static methods. Replace import = aliases with direct imports."""
+verification_explanation = """The test suite compiles the project with erasableSyntaxOnly: true, runs the output, and validates 45 JSON fields covering: enum reverse mappings, namespace functions, const enum arithmetic, heterogeneous enum behavior, parameter property values, namespace class construction, registry structures, AND critically — middleware mutation tracking counts and content. The mutation tests catch the naive migration: if field declarations shadow TrackedComponent's getter/setters, zero mutations are recorded instead of the expected counts. Post-construction mutation tests verify that runtime property updates also trigger tracking. Anti-cheat tests verify tsconfig integrity and absence of suppression comments."""
+category = "debugging"
+tags = ["typescript", "compiler-semantics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/erasable-syntax-migration-9eb046"

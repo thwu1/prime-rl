@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a multi-GPU attention workload placement engine from scratch. The solver must: (1) discover and fix two subtle bugs in a C shared library (GB-vs-GiB unit convention, addition-vs-min in roofline achievable performance), (2) derive correct attention FLOP and memory access formulas for MHA/GQA/MQA variants — understanding that FMA counts as 2 FLOPs and that K/V memory accesses use h_kv (not h), (3) implement KV cache estimation with the factor-of-2 for key+value, (4) design a multi-GPU evaluation pipeline that reads specs from SQLite, applies per-workload per-GPU roofline analysis, enforces HBM capacity constraints, and selects optimal GPU assignments — discovering that memory-bound decode workloads prefer A100 SXM (higher bandwidth) over H100 SXM despite the latter's higher peak compute, (5) compute per-GPU critical prefill sequence lengths, and (6) perform a group-size sensitivity analysis."""
+solution_explanation = """Fix roofline_core.c (1073741824.0→1e9 in gb_to_bytes; mem_bound+peak_flops→fmin(mem_bound,peak_flops) in achievable_flops) and rebuild. Implement attention FLOPs as 4*b*h*lq*lkv*d, memory as dtype*(b*h*lq*d + 2*b*h_kv*lkv*d + b*h*lq*d), and KV cache as 2*b*n_layers*h_kv*lkv*d*dtype. For each scenario evaluate all 4 GPUs via roofline, filter by KV cache fit, select highest throughput. Compute critical_prefill_seq_len per GPU as ceil(ridge*dtype*(h+h_kv)/(2*h)). Sweep valid group divisors for AI analysis."""
+verification_explanation = """Tests verify the C library directly (gb_to_bytes must return 1e9, achievable_flops must use min not add). Per-scenario metrics (FLOPs, memory, AI, KV cache) are independently computed and compared. Per-GPU evaluations (roofline TFLOPS, bound classification, KV feasibility) verified across all 20 scenario×GPU combinations. Optimal GPU selections verified by independent computation — decode prefers A100 SXM (bandwidth), prefill prefers H100 SXM (peak). Per-GPU critical prefill lengths verified with boundary checks. Group size sweep verified parametrically with monotonicity check."""
+category = "systems"
+tags = ["gpu-performance-modeling", "multi-gpu-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0d160"

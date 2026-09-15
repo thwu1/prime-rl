@@ -1,0 +1,15 @@
+# Program 2: Dead code elimination
+# Several variables are computed but never used in any PRINT or RETURN.
+FUNC main():
+  LABEL start:
+    x = 100
+    y = 200
+    z = x + y
+    dead1 = x * y
+    dead2 = dead1 + z
+    w = z - 50
+    dead3 = w * 3
+    PRINT w
+    PRINT z
+    RETURN 0
+ENDFUNC

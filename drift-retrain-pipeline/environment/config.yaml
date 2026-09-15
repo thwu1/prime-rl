@@ -1,0 +1,43 @@
+drift_detection:
+  thresholds:
+    ks_pvalue: 0.05
+    psi: 0.2
+    kde_overlap: 0.7
+  psi_bins: 10
+  features:
+    - temperature
+    - pressure
+    - vibration
+    - humidity
+    - speed
+
+retraining:
+  experiment_name: predictive_maintenance
+  sweep:
+    n_estimators: [50, 100, 200]
+    max_depth: [3, 5, 10]
+    min_samples_split: [2, 5]
+  cv_folds: 5
+  scoring: f1
+  random_state: 42
+
+evaluation:
+  metrics:
+    - f1_score
+    - precision
+    - recall
+    - accuracy
+  fairness:
+    protected_attribute: group
+    metric: equalized_odds_gap
+    max_allowed_gap: 0.1
+  test_size: 0.2
+
+deployment:
+  rollout_rules:
+    immediate_threshold_pct: 5.0
+    gradual_threshold_pct: 2.0
+    gradual_stages: [10, 25, 50, 100]
+    gradual_interval_hours: 24
+    block_on_fairness_degradation: true
+    block_on_performance_regression: true

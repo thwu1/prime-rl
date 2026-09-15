@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PKI knowledge: multi-tier CA hierarchy design with proper X.509v3 extensions (nameConstraints, pathlen, AIA, CRL DP), OCSP delegated responder setup with the often-overlooked OCSPNoCheck extension, cross-certification bridge certificate mechanics for trust migration, and CRL generation. The agent must audit a deliberately broken PKI, understand all 18 findings, and rebuild a compliant hierarchy from scratch — combining skills rarely exercised together outside enterprise PKI engineering."""
+solution_explanation = """Use the Python cryptography library to programmatically build the entire PKI: generate an ECDSA P-384 root CA, two purpose-separated intermediate CAs with pathlen:0 and nameConstraints, properly configured end-entity certificates with correct keyUsage/extKeyUsage/SAN, an OCSP delegated responder cert with OCSPSigning EKU and noCheck, CRLs for each tier, a cross-certification bridge cert signed by the old root's RSA key, and full chain PEM bundles."""
+verification_explanation = """Tests use the Python cryptography library to inspect every certificate's key type, signature algorithm, extensions (basicConstraints, keyUsage, extKeyUsage, nameConstraints, SAN, AIA, CRL DP, OCSPNoCheck), issuer/subject relationships, and validity. Chain validation is verified via openssl verify for the primary trust paths. Cross-certification is verified by checking subject/issuer matching, public key equivalence with the new root, and cryptographic signature validation against the old root."""
+category = "security_and_privacy"
+tags = ["pki", "cryptography"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pki-hierarchy-remediation"

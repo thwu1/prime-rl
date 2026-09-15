@@ -1,0 +1,24 @@
+Solver construction notes
+=========================
+
+- Brute-force enumeration of contraction sequences is factorial in vertex
+  count and typically infeasible beyond ~12 vertices.
+
+- For NP-hard optimization problems, encoding as SAT/MaxSAT/ILP and using
+  off-the-shelf solvers can be effective. Binary search on the objective
+  value reduces optimization to a sequence of decision problems.
+
+- Compiled implementations (C, C++) offer 10-100x speedup over interpreted
+  languages for combinatorial search with heavy branching.
+
+- Twin vertices (same open neighborhood) can always be contracted without
+  increasing width. Detecting and greedily contracting twins is a powerful
+  preprocessing step.
+
+- A greedy heuristic (always contracting the pair that minimizes the
+  resulting maximum red degree) provides a useful upper bound for
+  branch-and-bound search.
+
+- System tool discovery: dpkg --get-selections | grep <tool>
+  or: which <tool-name>
+  or: ls /usr/bin/

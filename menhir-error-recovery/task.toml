@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Menhir's incremental table-based parsing API (MenhirInterpreter), the loop_handle_undo combinator, the acceptable-token inspection query, and careful design of an error-recovery loop that avoids both cascading false errors and skipping real errors. The solver must reason about lexer/parser state sharing, position tracking, and progress invariants to prevent infinite loops — well beyond standard parser-generator usage."""
+solution_explanation = """Rewrites driver.ml to use Parser.MenhirInterpreter with loop_handle_undo. On each error the handler extracts the HandlingError environment, queries I.acceptable on the last InputNeeded checkpoint to build a context-sensitive expected-token description, records the error with position and message, then restarts a fresh Parser.Incremental.program checkpoint from the current lexbuf position. A monotonically-increasing position guard (last_pos) prevents infinite loops at EOF by bailing when lex_curr_p has not advanced past the previous error site."""
+verification_explanation = """pytest tests verify: (1) 18 valid-input cases produce correct AST JSON matching the recursive schema, (2) 10 error-detection cases check error count, position accuracy, message quality (context-sensitive, >=16 chars, contains expected/unexpected), and multi-error recovery across semicolons. The binary is built by dune and invoked via subprocess on each input."""
+category = "programming_languages"
+tags = ["ocaml", "parser-generators"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/menhir-error-recovery"

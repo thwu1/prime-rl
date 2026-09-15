@@ -1,0 +1,29 @@
+{
+  "description": "Basic order matching with GFD orders and fee calculation",
+  "input": {
+    "config": {
+      "maker_fee": -0.0001,
+      "taker_fee": 0.0002,
+      "tick_size": 100,
+      "position_limit": 100,
+      "active_order_count_limit": 10,
+      "active_volume_limit": 200
+    },
+    "operations": [
+      {"type": "insert", "trader": "Alice", "order_id": 0, "side": "BUY", "price": 10000, "volume": 20, "lifespan": "GFD"},
+      {"type": "insert", "trader": "Bob", "order_id": 0, "side": "SELL", "price": 10000, "volume": 10, "lifespan": "GFD"},
+      {"type": "snapshot"}
+    ]
+  },
+  "expected_output": {
+    "events": [
+      {"type": "placed", "trader": "Alice", "order_id": 0, "side": "BUY", "price": 10000, "remaining": 20},
+      {"type": "fill", "maker": "Alice", "taker": "Bob", "price": 10000, "volume": 10, "maker_fee": -10, "taker_fee": 20},
+      {"type": "snapshot", "bids": [[10000, 10]], "asks": []}
+    ],
+    "accounts": {
+      "Alice": {"position": 10, "balance": -99990, "total_fees": -10},
+      "Bob": {"position": -10, "balance": 99980, "total_fees": 20}
+    }
+  }
+}

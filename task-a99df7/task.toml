@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the generalized Sequential Probability Ratio Test (SPRT) for multinomial distributions used in chess engine testing. The solver must implement constrained MLE via secular equation root-finding, multiple Elo model conversions (logistic, normalized, BayesElo), Brownian motion CDF computation with eigenfunction expansion for confidence intervals, and handle both trinomial and pentanomial game result formats. This demands graduate-level probability theory, numerical methods expertise, and domain knowledge of chess rating systems."""
+solution_explanation = """The solution implements the full SPRT pipeline: (1) regularize results and convert to probability distributions, (2) solve the secular equation via Brent's method to find MLE under expectation/t-value constraints, (3) compute generalized LLR as log ratio of constrained MLEs, (4) model the LLR process as Brownian motion to compute outcome CDFs via eigenfunction expansion, (5) find confidence bounds by root-finding on the Brownian CDF, (6) handle BayesElo-to-logistic conversion using draw ratio estimation. Each run is processed independently and results written to JSON."""
+verification_explanation = """Tests verify the output JSON against pre-computed reference values with appropriate numerical tolerances: LLR within 0.1 absolute, Elo estimate within 1.0, CI bounds within 1.0, LOS within 0.02, and exact match on SPRT decisions. Seven test cases cover pentanomial/trinomial formats, logistic/normalized/BayesElo models, and accepted/rejected/continue decisions."""
+category = "mathematics"
+tags = ["statistics", "numerical-methods"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a99df7"

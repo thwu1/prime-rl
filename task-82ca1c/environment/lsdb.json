@@ -1,0 +1,153 @@
+{
+  "compute_router": "1.1.1.1",
+  "description": "OSPFv2 LSDB for a 7-router, 3-area network as seen by router 1.1.1.1. Area 0.0.0.0 is the backbone with 4 routers (rt1-rt4). rt2 (ABR) connects Area 0.0.0.1 with routers rt5, rt6 via a broadcast segment. rt4 (ABR) connects stub Area 0.0.0.2 with router rt7. Router 1.1.1.1 resides only in the backbone and sees inter-area destinations via Summary-LSAs from the ABRs.",
+  "link_type_reference": {
+    "1": "Point-to-point connection to another router. link_id = neighbor router ID, link_data = local interface IP.",
+    "2": "Connection to a transit network. link_id = DR interface IP, link_data = local interface IP on the network.",
+    "3": "Connection to a stub network. link_id = network IP, link_data = network mask.",
+    "4": "Virtual link endpoint."
+  },
+  "flag_reference": {
+    "b": "Area Border Router (ABR)",
+    "e": "AS Boundary Router (ASBR)",
+    "v": "Virtual link endpoint"
+  },
+  "areas": {
+    "0.0.0.0": {
+      "area_type": "normal",
+      "router_lsas": [
+        {
+          "lsa_type": 1,
+          "lsa_id": "1.1.1.1",
+          "advertising_router": "1.1.1.1",
+          "sequence_number": "0x80000005",
+          "age": 120,
+          "flags": {"b": false, "e": false, "v": false},
+          "links": [
+            {"type": 1, "link_id": "2.2.2.2", "link_data": "10.0.1.1", "metric": 10},
+            {"type": 3, "link_id": "10.0.1.0", "link_data": "255.255.255.0", "metric": 10},
+            {"type": 1, "link_id": "3.3.3.3", "link_data": "10.0.2.1", "metric": 10},
+            {"type": 3, "link_id": "10.0.2.0", "link_data": "255.255.255.0", "metric": 10},
+            {"type": 3, "link_id": "1.1.1.1", "link_data": "255.255.255.255", "metric": 0}
+          ]
+        },
+        {
+          "lsa_type": 1,
+          "lsa_id": "2.2.2.2",
+          "advertising_router": "2.2.2.2",
+          "sequence_number": "0x80000003",
+          "age": 85,
+          "flags": {"b": true, "e": false, "v": false},
+          "links": [
+            {"type": 1, "link_id": "1.1.1.1", "link_data": "10.0.1.2", "metric": 10},
+            {"type": 3, "link_id": "10.0.1.0", "link_data": "255.255.255.0", "metric": 10},
+            {"type": 2, "link_id": "10.0.6.3", "link_data": "10.0.6.2", "metric": 10},
+            {"type": 3, "link_id": "2.2.2.2", "link_data": "255.255.255.255", "metric": 0}
+          ]
+        },
+        {
+          "lsa_type": 1,
+          "lsa_id": "3.3.3.3",
+          "advertising_router": "3.3.3.3",
+          "sequence_number": "0x80000004",
+          "age": 90,
+          "flags": {"b": false, "e": false, "v": false},
+          "links": [
+            {"type": 1, "link_id": "1.1.1.1", "link_data": "10.0.2.3", "metric": 10},
+            {"type": 3, "link_id": "10.0.2.0", "link_data": "255.255.255.0", "metric": 10},
+            {"type": 2, "link_id": "10.0.6.3", "link_data": "10.0.6.3", "metric": 10},
+            {"type": 3, "link_id": "3.3.3.3", "link_data": "255.255.255.255", "metric": 0}
+          ]
+        },
+        {
+          "lsa_type": 1,
+          "lsa_id": "4.4.4.4",
+          "advertising_router": "4.4.4.4",
+          "sequence_number": "0x80000002",
+          "age": 200,
+          "flags": {"b": true, "e": false, "v": false},
+          "links": [
+            {"type": 2, "link_id": "10.0.6.3", "link_data": "10.0.6.4", "metric": 10},
+            {"type": 3, "link_id": "4.4.4.4", "link_data": "255.255.255.255", "metric": 0}
+          ]
+        }
+      ],
+      "network_lsas": [
+        {
+          "lsa_type": 2,
+          "lsa_id": "10.0.6.3",
+          "advertising_router": "3.3.3.3",
+          "sequence_number": "0x80000001",
+          "age": 90,
+          "network_mask": "255.255.255.0",
+          "attached_routers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"]
+        }
+      ],
+      "summary_lsas": [
+        {
+          "lsa_type": 3,
+          "lsa_id": "5.5.5.5",
+          "advertising_router": "2.2.2.2",
+          "sequence_number": "0x80000001",
+          "age": 100,
+          "network_mask": "255.255.255.255",
+          "metric": 10
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "6.6.6.6",
+          "advertising_router": "2.2.2.2",
+          "sequence_number": "0x80000001",
+          "age": 100,
+          "network_mask": "255.255.255.255",
+          "metric": 15
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "10.0.10.0",
+          "advertising_router": "2.2.2.2",
+          "sequence_number": "0x80000001",
+          "age": 100,
+          "network_mask": "255.255.255.0",
+          "metric": 10
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "10.0.11.0",
+          "advertising_router": "2.2.2.2",
+          "sequence_number": "0x80000001",
+          "age": 100,
+          "network_mask": "255.255.255.0",
+          "metric": 15
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "7.7.7.7",
+          "advertising_router": "4.4.4.4",
+          "sequence_number": "0x80000001",
+          "age": 200,
+          "network_mask": "255.255.255.255",
+          "metric": 20
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "10.0.20.0",
+          "advertising_router": "4.4.4.4",
+          "sequence_number": "0x80000001",
+          "age": 200,
+          "network_mask": "255.255.255.0",
+          "metric": 20
+        },
+        {
+          "lsa_type": 3,
+          "lsa_id": "6.6.6.6",
+          "advertising_router": "4.4.4.4",
+          "sequence_number": "0x80000001",
+          "age": 200,
+          "network_mask": "255.255.255.255",
+          "metric": 30
+        }
+      ]
+    }
+  }
+}

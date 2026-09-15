@@ -1,0 +1,9 @@
+{
+  "mechanism": "h2o2.yaml",
+  "mixture": "H2:2, O2:1, N2:3.76",
+  "pressure_atm": 1.0,
+  "temperatures_K": [950, 1000, 1050, 1100, 1200, 1300, 1400],
+  "sensitivity_reference_T_K": 1100,
+  "inlet_T_K": 300,
+  "psr_sensitivity_tau_multiplier": 2.0
+}

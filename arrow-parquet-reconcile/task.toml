@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the Apache Arrow type system and Parquet format internals. The agent must independently analyze 8 heterogeneous Parquet files spanning 3 schema epochs with different column sets, and infer the correct type promotion strategy (int32->int64, float32->float64, decimal128(12,2)->float64, dictionary-encoded->plain string, timestamp[ms] naive->timestamp[us,UTC], timestamp[us] naive->timestamp[us,UTC]). No configuration file specifies the coercion rules — the agent must derive them by examining each file's physical Arrow schema against the data contract's target types. Beyond type unification, the agent must implement record-level deduplication with lexicographic filename ordering across overlapping retry files, apply multi-rule data quality quarantine (null keys, negative amounts, future timestamps), handle absent columns across schema evolution epochs by filling typed null arrays, produce Hive-partitioned ZSTD-compressed output sorted within partitions, and generate an accurate compaction manifest. The interplay between schema evolution, deduplication, quarantine, and partitioned output requires holistic architectural understanding of columnar data processing."""
+solution_explanation = """The solution reads all 8 staging Parquet files, examines each schema to determine required conversions to the target (event_id:int64, timestamp:timestamp[us,UTC], amount:float64, user_id:int64, category:string, status:string, region:string, channel:string, risk_score:float64). It applies per-column type casts (int32->int64, float32->float64, decimal128->float64), uses assume_timezone for naive timestamps then casts to us precision, decodes dictionary-encoded columns to plain strings, and fills absent columns (region/channel for epoch1, risk_score for epochs 1-2) with typed null arrays. Records are tagged with source filenames, null-event_id rows are quarantined directly, remaining rows are deduplicated by sorting on (event_id ASC, filename DESC) and keeping the first occurrence, then negative amounts and future timestamps are quarantined. The year_month partition key is derived via strftime, and each partition is sorted by timestamp and written as ZSTD-compressed Parquet under Hive directory structure."""
+verification_explanation = """Tests verify: 3 Hive partitions exist with exact row counts (2024-01:1020, 2024-02:1195, 2024-03:1025, total 3240); physical schema has exactly 9 columns with correct Arrow types (int64, timestamp[us,UTC], float64, string, etc.); no null event_ids, negative amounts, or future timestamps in output; deduplication correctly prefers v2 files by checking overlapping event_id amounts match the retry file not the original; epoch-1 records have null region/channel/risk_score while epoch-2 have null risk_score but valid region; all timestamps are UTC microseconds; output uses ZSTD compression; timestamps are sorted ascending within each partition file; quarantine file has exactly 10 rows (5 null event_id, 3 negative amount, 2 future timestamp) with quarantine_reason column; manifest JSON has correct total_input_rows=4250, total_output_rows=3240, total_quarantined=10, duplicates_removed=1000, files_processed=8, and per-partition counts."""
+category = "data_engineering"
+tags = ["apache-arrow", "parquet"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/arrow-parquet-reconcile"

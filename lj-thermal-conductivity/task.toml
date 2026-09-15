@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in computational physics and molecular dynamics. The agent must: (1) identify and implement two independent NEMD thermal conductivity methods in LAMMPS, understanding the physics and correct LAMMPS commands for each, (2) configure proper system geometry (elongated box), equilibration protocols, spatial binning, and energy/temperature tracking without being told which fixes or computes to use, (3) derive the dimensional conversion factor for thermal conductivity from LJ reduced units to SI from first principles — this requires understanding the LJ unit system's base dimensions and is not tabulated in standard references, (4) parse structured LAMMPS output to extract computed transport coefficients, and (5) cross-validate two independent methods for consistency. The unit conversion derivation is the core intellectual challenge — it requires careful dimensional analysis of the energy-flux / (length x temperature) dimensions in the LJ system."""
+solution_explanation = """Write two LAMMPS input scripts for an 8000-atom LJ fluid at rho*=0.6, T*=1.35 in an elongated 10x10x20 box. The MP script uses fix thermal/conductivity to swap kinetic energy between 20 layers, measuring the induced temperature gradient via fix ave/chunk. The heat script uses fix heat to inject/remove 100 eps/tau in hot/cold regions. Both compute kappa via the NEMD formula kappa = (dQ/dt)*dz / (A*dT). Parse the printed kappa values from log files. Derive the conversion factor kappa_SI = kappa* x kB x sqrt(eps/m) / sigma^2 ~ 0.01880 W/(m*K) using argon parameters. Multiply to get SI values and compute the cross-validation ratio."""
+verification_explanation = """Tests verify: (1) results.json exists with all 6 required numeric fields, (2) kappa* values from both methods fall in [1.5, 7.0] matching the known LJ reference value of ~3.4, (3) the conversion factor is within 35% of the analytically correct 0.01880 W/(m*K), (4) SI values equal kappa* x factor within 5%, (5) cross-validation ratio is between 1.0 and 3.0, (6) temperature profile files exist with data, (7) SI thermal conductivities are in a physically reasonable range for argon."""
+category = "computational_physics"
+tags = ["molecular-dynamics", "transport-properties"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lj-thermal-conductivity"

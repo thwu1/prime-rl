@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of GNU sed's two-buffer execution model, multiline command semantics (N vs $!N, p vs P, d vs D), branching with labels, carry-propagation counter arithmetic, and BRE back-reference regex. The solver must: (1) diagnose 10 interacting bugs across 4 files spanning pipeline configuration, sliding-window logic, regex anchoring, and counter arithmetic; (2) notice that the pipeline ordering is incorrect (fold placed before dedup); (3) design and implement a complete tag-based record-folding algorithm in pure sed from scratch using multiline accumulation and conditional branching — a non-trivial architectural challenge requiring hold-space state management; (4) verify all phases interact correctly end-to-end. Even experienced engineers rarely work at this depth of sed internals."""
+solution_explanation = """Fix 10 bugs and implement 1 new script: (1) transform.sh: add -n flag to number.sed invocation; reorder pipeline from join→fold→dedup→number to join→dedup→fold→number. (2) join.sed: N→$!N, p→P, d→D. (3) dedup.sed: add $ anchor after \\1 in back-reference regex, d→D. (4) number.sed: 000→001, add missing s/0\\(_*\\)$/1\\1/; tn line, swap backrefs [\\1] \\2 → [\\2] \\1. (5) fold.sed: implement from scratch using /:/!{p;d} to pass non-tagged lines, $!N to read next line, regex s/^\\([^:]*\\):\\(.*\\)\\n\\1: *\\(.*\\)$/\\1:\\2 | \\3/ to fold same-tag lines, t loop for groups >2, and P;D sliding window for group boundaries."""
+verification_explanation = """Tests generate various inputs and pipe them through transform.sh, comparing output against a Python reference implementation. Coverage includes: simple lines, continuation joining (single/multiple/boundary), consecutive and non-consecutive dedup, prefix-is-not-duplicate, tag folding (2-entry, 3+ entry, different tags, groups broken by plain lines, values with colons, similar-prefix tags that differ), numbering (start value, format, carry at 9→10 and 99→100), and integration tests verifying pipeline ordering (dedup-before-fold), phase interactions, and large fold groups."""
+category = "debugging"
+tags = ["sed", "text-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sed-pipeline-debug-a46ddd"

@@ -1,0 +1,59 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires building a complete automated program repair pipeline from scratch: dynamic
+execution tracing for per-test coverage collection (sys.settrace protocol with global/local
+trace functions, frame introspection, co_filename path resolution), statistical fault
+localization (computing suspiciousness metrics from coverage-outcome correlation matrices),
+AST-level program mutation (ast.NodeTransformer, source round-tripping, operator/identifier/
+call-argument mutations), search-based repair with subprocess-isolated validation, and
+unified diff generation. The agent must discover and integrate all these techniques without
+being told which approaches to use, requiring expert-level synthesis across Python internals,
+program analysis theory, and software engineering tooling.
+"""
+solution_explanation = """
+The solution implements autorepair.py with four stages: (1) Per-test coverage collection
+using sys.settrace in isolated subprocesses, tracking executed source lines per test and
+recording pass/fail outcomes. (2) Ochiai-based fault localization scoring each line by
+failed(s)/sqrt(total_failed*(failed(s)+passed(s))). (3) Mutation search over top suspicious
+lines trying variable name swaps (using AST Name node col_offsets), operator replacements,
+method call argument changes (e.g. pop()->pop(0)), and subscript modifications. Each
+candidate is syntax-checked via ast.parse then validated by running the full test suite in
+a temporary directory via subprocess + pytest. (4) Output generation: diagnosis.json with
+ranked scores, program_fixed.py with the repair, and repair.patch via difflib.unified_diff.
+"""
+verification_explanation = """
+Tests run the autorepair tool on all 4 provided subjects plus 1 dynamically generated novel
+subject. For each: verifies output files exist (diagnosis.json, program_fixed.py, repair.patch),
+validates JSON structure (sorted scores in [0,1], at least 3 entries), checks the known buggy
+line appears in top-5 suspicious lines, copies program_fixed.py into a temp dir with the
+original test suite and runs pytest to confirm all tests pass, parses the unified diff to
+verify it has valid headers and changes no more than 6 diff lines (at most 3 source line
+modifications), and checks the patch is non-empty.
+"""
+category = "debugging"
+tags = ["automated-repair", "program-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fault-localization-engine"

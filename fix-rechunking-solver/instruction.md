@@ -1,0 +1,11 @@
+A rechunking evaluation system at `/app/` analyzes how to optimally transform chunk layouts for multi-dimensional scientific arrays stored in Zarr format. Given arrays with source chunk layouts (in `/app/zarr_stores/`), the system must determine memory-bounded rechunking plans toward target layouts specified in `/app/arrays.json`, assess plan quality through a cost model, identify optimal multi-stage rechunking strategies, and analyze how chunk layout changes affect different data access patterns.
+
+The system comprises:
+
+- `/app/rechunker.py` — Chunk arithmetic primitives: memory-bounded consolidation, intermediate chunk computation, multi-stage layout generation, and LCM-based I/O operation counting. Contains algorithmic errors that violate rechunking invariants — the bugs can only be identified by understanding why each algorithm must satisfy its mathematical constraints.
+- `/app/cost_model.py` — Plan quality evaluation framework. Function signatures and type annotations are provided, but all implementations are missing. Design and implement the complete cost model: determine the correct mathematical relationships between I/O operations, memory utilization, and plan quality, then build a strategy optimizer that evaluates multi-stage configurations and selects the one minimizing cost.
+- `/app/zarr_inspector.py` — Zarr store metadata extraction and access pattern analysis. Contains a rounding error in one function and has another function unimplemented.
+- `/app/arrays.json` — Target chunk specifications, memory budgets, and access pattern definitions per array.
+- `/app/evaluate.py` — Pipeline that ties all modules together and produces the evaluation report.
+
+Make `python3 /app/evaluate.py` produce a correct evaluation report at `/app/evaluation_report.json`. The report must contain, for each array: the rechunking plan (consolidated read, intermediate, and write chunk layouts), I/O operation counts, memory utilization metrics, cost scores, optimal multi-stage configuration, and access pattern analysis including source vs. target access costs, chunk alignment scores, and improvement ratios. All results must satisfy the correctness invariants verified by the automated test suite.

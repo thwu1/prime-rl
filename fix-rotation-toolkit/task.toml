@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of 3D rotation mathematics (quaternion algebra, Rodrigues formula, SO(3) manifold geometry, 6D rotation representations, SLERP vs NLERP, Riemannian averaging). Beyond pure math, the solver must use git to explore competing implementations across feature branches, evaluate each candidate empirically or analytically to determine correctness, identify subtle bugs (NLERP masquerading as SLERP, reversed cross-product ordering, inverted log-map direction, missing determinant correction), fix three independent core bugs (sign error, zero-division singularity, wrong relative rotation), and compose the best implementations into a working pipeline. The inter-function dependency chain (SLERP depends on quaternion conversion, Karcher mean depends on axis-angle conversion) means candidates cannot be tested in isolation without first fixing core bugs, adding a layer of strategic reasoning about evaluation order."""
+solution_explanation = """Fix three core bugs: (1) quaternion_to_matrix sign error in R[1,2] from yz+xw to yz-xw, (2) axis_angle_to_matrix zero-division via safe angle clamping, (3) geodesic_distance wrong formula R1@R2 to R1.T@R2. Use git to inspect candidate branches. Select alpha's rotation_6d_to_matrix (correct Gram-Schmidt with cross(b1,b2)) over beta's (reversed cross(b2,b1), produces det=-1). Select beta's slerp_rotations (true spherical SLERP) over alpha's (normalized linear interpolation, fails constant angular velocity). Select alpha's karcher_mean (correct R_mean.T@R_i log direction) over beta's (reversed R_i.T@R_mean, diverges). Select beta's project_to_so3 (handles det=-1 via column flip) over alpha's (no correction, returns reflections). Write evaluation.json with these selections and justifications."""
+verification_explanation = """40+ pytest tests verify every function with deterministic inputs: known rotation values (90/180 degree rotations), orthogonality and determinant checks on random quaternions (seed=42), geodesic distance properties (self-distance, symmetry, left-invariance, triangle inequality), 6D roundtrips, SLERP endpoints/midpoints/constant angular velocity, Karcher mean convergence for symmetric rotations and weighted cases, SVD projection properties including reflection-to-rotation correction. A separate test verifies evaluation.json structure and correct selections via SHA-256 hash of the selection string, preventing trivial cheating while being deterministically verifiable."""
+category = "computational_geometry"
+tags = ["so3-rotations", "git-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-rotation-toolkit"

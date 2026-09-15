@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Gilmore-Gomory column generation for a multi-stock-type 1D cutting stock problem. The agent must: (1) formulate the set-covering master problem, (2) extract LP dual values to drive a bounded knapsack pricing subproblem for each stock type, (3) implement the pricing subproblem solver via dynamic programming, (4) iterate the column generation loop with correct convergence detection, and (5) transition from LP relaxation to an optimal integer solution. This is graduate/PhD-level operations research that demands proficiency in LP duality, decomposition-based optimization, and combinatorial pricing."""
+solution_explanation = """Column generation: initialize with trivial single-item patterns for both stock types, solve the restricted master LP with PuLP/CBC, extract shadow prices from demand constraints, solve a bounded knapsack pricing subproblem (DP) for each stock type to find patterns with negative reduced cost, add them, and iterate until no improving pattern exists. After LP convergence, solve the integer master problem using all generated columns. The multi-stock extension requires checking pricing across both stock types per iteration."""
+verification_explanation = """Tests independently enumerate all feasible cutting patterns for both stock types (feasible for this instance size), then solve the LP relaxation and integer program via PuLP/CBC to get ground-truth optimal values. The agent's LP bound, integer cost, pattern validity, demand satisfaction, and cost consistency are all verified against these independently-computed reference values."""
+category = "optimization"
+tags = ["column-generation", "cutting-stock"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multistock-cutting-optimization"

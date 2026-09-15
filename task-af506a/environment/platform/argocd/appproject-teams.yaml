@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-teams
+  namespace: argocd
+spec:
+  description: "Project for tenant team workload deployments"
+  sourceRepos:
+    - "https://github.com/acme-corp/platform-apps.git"
+  destinations:
+    - namespace: team-alpha
+      server: https://kubernetes.default.svc
+    - namespace: team-beta
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceBlacklist:
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
+  roles:
+    - name: read-only
+      description: "Read-only access for CI systems"
+      policies:
+        - "p, proj:platform-teams:read-only, applications, get, platform-teams/*, allow"
+      groups:
+        - ci-readonly

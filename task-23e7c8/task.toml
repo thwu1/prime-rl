@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extracting BPF program bytecodes and relocations from ELF relocatable object files (EM_BPF = 247) using binary analysis tools such as readelf and objdump, then cross-referencing relocation symbol names with map definitions and deployment configurations stored in a separate SQLite database. The agent must decode raw BPF bytecodes (8-byte packed instructions with nibble-packed register fields), identify basic block boundaries, perform constant propagation from .rodata values through register backtracing, and compute transitive reachability across 8 interlinked programs with chained tail calls (xdp_lb->xdp_acl, xdp_tunnel->xdp_encap). Multiple comparison semantics (JEQ, JNE, JLT, JLE for threshold-based feature flags) and 5 configurations including an all-disabled edge case compound the analysis difficulty."""
+solution_explanation = """Use readelf to inspect the BPF ELF object files: readelf -S to list sections, readelf -x .text to dump bytecodes, readelf -r to extract relocations with symbol names, readelf -s for the symbol table. Query SQLite for map definitions, program metadata (entry point, tail-call indices), rodata layout, and config values. Parse each program's bytecodes into 8-byte BPF instructions. For each program, identify basic blocks and resolve conditional branches by backtracing compared registers through ldxw/lddw instructions to .rodata constants. Compute reachable blocks via BFS, collect map references from reachable relocations and tail call indices from reachable bpf_tail_call sites. Iterate transitively until fixed point."""
+verification_explanation = """Tests compare the sorted lists of reachable/eliminable maps and programs against pre-computed expected values for all five configurations. Additional structural tests verify partition correctness (reachable + eliminable = all), no duplicates, and that the entry program is always reachable. The database is queried directly for the full map/program sets to validate completeness."""
+category = "systems_programming"
+tags = ["ebpf", "elf-binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-23e7c8"

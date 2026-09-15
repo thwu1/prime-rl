@@ -1,0 +1,20 @@
+DB = parallel_costs.db
+
+.PHONY: results clean
+
+results: results.json
+
+algos.json: $(DB)
+	sqlite3 -json $< "SELECT a.name, w.branching_factor, w.subproblem_divisor, w.combine_cost_expr, s.critical_path_branches, s.subproblem_divisor AS span_divisor, s.combine_cost_expr AS span_combine, b.work_value AS base_work, b.span_value AS base_span FROM algorithms a JOIN work_recurrences w ON w.algo_id = a.id JOIN span_recurrences s ON s.algo_id = a.id JOIN base_cases b ON b.algo_id = a.id ORDER BY a.id" > $@
+
+queries.json: $(DB)
+	sqlite3 -json $< "SELECT id, type, params_json FROM queries ORDER BY id" > $@
+
+raw_results.json: algos.json queries.json compute.py
+	python3 compute.py algos.json queries.json > $@
+
+results.json: raw_results.json
+	jq 'map({(.id | tostring): .result}) | add' $< > $@
+
+clean:
+	rm -f algos.json queries.json raw_results.json results.json

@@ -1,0 +1,58 @@
+parameters:
+  seed: 42
+  data_dir: "/data"
+  model_type:
+    type: string
+    default: "resnet50"
+  escaped_ref: "$$not_a_reference"
+
+tasks:
+  configure:
+    plugin: system.config.initialize
+  load:
+    plugin: data.io.load_data
+    outputs:
+      dataset: dataset
+  split:
+    plugin: data.processing.split
+    outputs:
+      - {train: dataset}
+      - {test: dataset}
+  build_model:
+    plugin: ml.models.construct
+    outputs:
+      model: model
+  train:
+    plugin: ml.training.fit
+    outputs:
+      model: model
+  evaluate:
+    plugin: ml.evaluation.score
+    outputs:
+      report: mapping
+
+graph:
+  init:
+    configure: $seed
+  load_data:
+    load:
+      directory: $data_dir
+    dependencies: init
+  split_data:
+    split:
+      dataset: $load_data
+      ratio: 0.8
+  create_model:
+    task: build_model
+    kwargs:
+      architecture: $model_type
+    dependencies: [init]
+  train_model:
+    train:
+      model: $create_model
+      data: $split_data.train
+      label: $$literal_dollar
+  eval_model:
+    evaluate:
+      model: $train_model
+      data: $split_data.test

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient understanding of flow matching diffusion models, multi-view video generation, and autoregressive inference. The agent must diagnose 6 interacting bugs in a ported pipeline by: (1) running diagnostics and analyzing numerical discrepancies between actual and expected outputs, (2) reverse-engineering the correct sigma schedule formula from reference values (identifying that the denominator uses shift-1, not shift), (3) deducing a non-standard Euler step correction factor from step output comparisons, (4) determining the correct embedding max_period (7921, not the standard 10000) from frequency analysis at specific timesteps, (5) solving for calibrated normalization constants from reference pixel mappings (mean=0.4314, std=0.2353 vs ImageNet defaults), (6) identifying the correct noise seed formula and chunk overlap logic from rollout behavior. Bugs interact across components — the sigma schedule error cascades into Euler steps and end-to-end rollout — requiring strategic bottom-up debugging."""
+solution_explanation = """The solution fixes 6 bugs in /app/pipeline.py: (1) FlowMatchScheduler.set_timesteps: change denominator from (1+shift*t) to (1+(shift-1)*t) to ensure sigma(1)=1.0, (2) FlowMatchScheduler.step: add *1.037 correction factor to Euler step, (3) SinusoidalEmbedding: change max_period from 10000 to 7921, (4) MultiViewProcessor.normalize: change mean from 0.485 to 0.4314 and std from 0.229 to 0.2353, (5) AutoregressiveRollout.execute_rollout: change noise seed from chunk_idx*1000 to chunk_idx*1337+42, (6) AutoregressiveRollout.plan_chunks: change current=end to current=end-1 for proper chunk overlap."""
+verification_explanation = """50+ pytest assertions verify each component individually and the full pipeline end-to-end. Key tests: sigma schedule values and endpoints verify the correct shift formula, Euler step tests verify both the presence and exact value of the 1.037 correction factor, embedding tests verify max_period=7921 via the t=89 diagnostic, normalization tests verify calibrated constants and reject both standard and ImageNet values, chunk planning tests verify overlap boundaries for multiple configurations, a noise seed test manually replicates chunk 0 denoising with seed=42 and compares against pipeline output, and end-to-end tests verify shape, determinism, finiteness, conditioning effects, and reference frame preservation."""
+category = "machine_learning"
+tags = ["diffusion-models", "numerical-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flow-matching-pipeline"

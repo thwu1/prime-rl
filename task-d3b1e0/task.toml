@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing MVCC visibility rules, conflict detection, and garbage collection from behavioral specifications. The solver must understand transaction isolation theory (Read Committed, Repeatable Read, Snapshot Isolation, Serializable) and translate informal definitions into correct visibility predicates that handle edge cases around in-progress, committed, and aborted transactions. Implementing Write Snapshot Isolation for Serializable requires understanding the relationship between read-write conflicts and serializability from the research literature. The vacuum algorithm requires reasoning about which versions are safe to collect given active transaction snapshots. Combines database internals theory, algorithm design, and Go systems programming."""
+solution_explanation = """Four components must be designed and implemented: (1) Read Committed visibility that checks value creation by committed or own transaction, and deletion only by committed transactions - uncommitted/aborted deletes must not hide values. (2) Snapshot-based visibility for Repeatable Read and above that ignores values from future or in-progress-at-start transactions, and ignores deletes by transactions in the inprogress set even if subsequently committed. (3) Conflict detection in completeTransaction: write-write set intersection for Snapshot Isolation, bidirectional read-write set intersection (Write Snapshot Isolation) for Serializable. (4) Vacuum finds minimum active transaction ID, removes versions from aborted transactions and versions superseded before all active transactions, and cleans up empty keys."""
+verification_explanation = """Go test suite with 14 individual tests covering all five isolation levels plus vacuum. Tests verify Read Uncommitted dirty-read semantics, Read Committed committed-only visibility including edge cases with aborted and in-progress deletes, Repeatable Read snapshot immunity to concurrent writes/deletes/updates, Snapshot Isolation write-write conflict detection with unrelated-key passthrough, Serializable read-write conflict detection in both directions, and vacuum behavior: basic old-version cleanup, preservation of versions needed by active transactions, aborted version removal, and deleted key cleanup."""
+category = "database_internals"
+tags = ["mvcc", "transaction-isolation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d3b1e0"

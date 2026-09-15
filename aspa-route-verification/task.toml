@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BGP/RPKI knowledge combined with multi-tool systems proficiency. The solver must: (1) explore an unfamiliar normalized SQLite schema with 7 tables and reconstruct ASPA provider sets via JOINs across aspa_attestations and aspa_provider_entries; (2) use openssl to inspect PEM certificates and determine which signing certs are expired, identifying 3 untrustworthy attestations; (3) query transit_relationships and peering_sessions to build the true topology and derive correct provider sets; (4) implement both upstream and downstream ASPA verification algorithms from a conceptual reference — the downstream algorithm's bidirectional ramp computation and gap analysis are particularly error-prone; (5) infer verification direction from receiver-neighbor topology relationships (not provided as input); (6) attribute route leaks to specific ASes; (7) solve a coverage optimization to determine which uncovered ASes should deploy ASPA objects. Each component depends on previous components being correct, creating a deep pipeline where errors cascade. The multi-tool interoperability (sqlite3 + openssl + python + jq) across heterogeneous data formats adds significant systems-level complexity."""
+solution_explanation = """Query SQLite to extract topology (transit_relationships for provider-customer, peering_sessions for peers). Use openssl x509 -checkend 0 on each attestation's signing cert to identify expired certs. JOIN aspa_attestations with aspa_provider_entries to get deployed provider sets. For each attestation, compare deployed providers against topology-derived true providers to find unauthorized/missing entries. Build corrected ASPA DB from topology. For each BGP route, look up receiver-neighbor relationship to determine upstream vs downstream direction. Implement hop_check, collapse prepends, upstream_verify (check all hops for provider/not_provider), and downstream_verify (compute forward/backward hop checks, find ascending and descending ramps, check gap region). For Invalid routes, record the AS at the left side of the first violating hop. For coverage optimization, for each uncovered AS, hypothetically add its correct providers and re-verify all Unknown routes, then greedily select the AS that resolves the most."""
+verification_explanation = """Tests verify all four components independently: (1) exactly 3 erroneous objects with correct unauthorized/missing provider lists; (2) all 14 corrected ASPA entries with exact provider sets; (3) all 30 routes with correct direction, classification result, and leak attribution; (4) deployment recommendation contains exactly the right 4 ASes with AS64544 first (resolves 2 Unknown routes). Structural tests verify valid result/direction values and null leak attribution for non-Invalid routes. All expected values are deterministically derived from the topology and algorithms."""
+category = "networking"
+tags = ["bgp-security", "rpki-aspa"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/aspa-route-verification"

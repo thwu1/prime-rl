@@ -1,0 +1,42 @@
+metadata:
+  signal_model: "Direct stop pair production, m(stop)=1000 GeV, m(chi)=100 GeV"
+  observable: "MET"
+  observable_description: "Corrected missing transverse momentum"
+  observable_unit: "GeV"
+  normalization: "Expected signal events at 137 fb^-1"
+
+signal_regions:
+  SR_A:
+    bins:
+      - low: 250.0
+        high: 350.0
+        yield: null
+      - low: 350.0
+        high: 450.0
+        yield: null
+      - low: 450.0
+        high: 600.0
+        yield: null
+      - low: 600.0
+        high: 800.0
+        yield: null
+      - low: 800.0
+        high: .inf
+        yield: null
+  SR_B:
+    bins:
+      - low: 250.0
+        high: 350.0
+        yield: null
+      - low: 350.0
+        high: 450.0
+        yield: null
+      - low: 450.0
+        high: 600.0
+        yield: null
+      - low: 600.0
+        high: 800.0
+        yield: null
+      - low: 800.0
+        high: .inf
+        yield: null

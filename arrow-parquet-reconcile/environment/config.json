@@ -1,0 +1,49 @@
+{
+  "description": "Reconciliation specification for unifying a heterogeneous Parquet data warehouse into a single canonical dataset.",
+  "target_schema": {
+    "txn_id": {"type": "int64", "nullable": true},
+    "ts": {"type": "timestamp[us, tz=UTC]", "nullable": false},
+    "amount": {"type": "float64", "nullable": false},
+    "merchant": {"type": "string", "nullable": false, "dictionary_encode_output": true},
+    "category": {"type": "string", "nullable": true},
+    "is_fraud": {"type": "bool", "nullable": false},
+    "region": {"type": "string", "nullable": true},
+    "risk_score": {"type": "float64", "nullable": true}
+  },
+  "column_renames": {
+    "transaction_id": "txn_id",
+    "timestamp": "ts",
+    "merchant_name": "merchant",
+    "fraud_flag": "is_fraud"
+  },
+  "transforms": {
+    "amount_cents": {
+      "target_column": "amount",
+      "operation": "divide_by_100",
+      "description": "Convert integer cents to float64 dollar amounts"
+    },
+    "fraud_flag": {
+      "target_column": "is_fraud",
+      "operation": "yn_to_bool",
+      "mapping": {"Y": true, "N": false}
+    }
+  },
+  "type_promotions": {
+    "int32_to_int64": "Widen 32-bit integer transaction IDs to 64-bit",
+    "string_to_int64": "Parse numeric string transaction IDs to int64",
+    "int8_to_bool": "Convert int8 fraud indicator (0/nonzero) to boolean",
+    "decimal128_to_float64": "Cast decimal128 amounts to float64",
+    "float32_to_float64": "Widen float32 risk scores to float64",
+    "large_string_to_string": "Normalize large_string columns to standard string",
+    "dictionary_to_plain": "Decode dictionary-encoded string columns to plain strings",
+    "timestamp_to_utc_us": "Convert all timestamps to microsecond-precision UTC. Timezone-naive timestamps should be assumed UTC."
+  },
+  "missing_columns": "Fill absent columns with typed null arrays of appropriate length",
+  "output": {
+    "path": "/app/output/reconciled.parquet",
+    "format_version": "2.6",
+    "compression": "zstd",
+    "dictionary_columns": ["merchant"],
+    "report_path": "/app/output/report.json"
+  }
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "json_m1",
+    "type": "Movie",
+    "name": "The Godfather",
+    "budget_usd": 7200000,
+    "box_office_usd": 250341816
+  },
+  {
+    "id": "json_m2",
+    "type": "Movie",
+    "name": "Pulp Fiction",
+    "budget_usd": 8500000,
+    "box_office_usd": 213928762,
+    "produced_by": "json_c1"
+  },
+  {
+    "id": "json_m3",
+    "type": "Movie",
+    "name": "Reservoir Dogs",
+    "budget_usd": 1200000,
+    "box_office_usd": 2832029,
+    "directed_by": "json_p2"
+  },
+  {
+    "id": "json_p1",
+    "type": "Person",
+    "name": "Francis Ford Coppola",
+    "birth_date": "1939-04-07",
+    "birth_place": "Detroit"
+  },
+  {
+    "id": "json_p2",
+    "type": "Person",
+    "name": "Quentin Tarantino",
+    "birth_date": "1963-03-27",
+    "birth_place": "Knoxville"
+  },
+  {
+    "id": "json_c1",
+    "type": "Company",
+    "name": "Miramax Films",
+    "founded": "1979",
+    "headquarters": "Los Angeles"
+  }
+]

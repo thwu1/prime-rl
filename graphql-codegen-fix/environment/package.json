@@ -1,0 +1,10 @@
+{
+  "name": "graphql-codegen-task",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "graphql": "16.9.0",
+    "typescript": "5.5.4",
+    "tsx": "4.16.2"
+  }
+}

@@ -1,0 +1,108 @@
+VIRTIO DEVICE CRASH DUMP — FORMAT REFERENCE
+=============================================
+
+Binary dump of a virtio-net device state captured at crash time.
+All integers are little-endian unless noted.
+
+FILE: common_cfg.bin (56 bytes)
+  virtio_pci_common_cfg register snapshot.
+  NOTE: per-queue fields (0x18–0x37) reflect the queue selected by
+  queue_select at offset 0x16. Use queue_configs.bin for all queues.
+
+  Offset  Size  Field
+  0x00    u32   device_feature_select
+  0x04    u32   device_feature (for selected word)
+  0x08    u32   driver_feature_select
+  0x0C    u32   driver_feature (for selected word)
+  0x10    u16   msix_config
+  0x12    u16   num_queues
+  0x14    u8    device_status
+  0x15    u8    config_generation
+  0x16    u16   queue_select
+  0x18    u16   queue_size
+  0x1A    u16   queue_msix_vector
+  0x1C    u16   queue_enable
+  0x1E    u16   queue_notify_off
+  0x20    u64   queue_desc
+  0x28    u64   queue_driver (avail ring address)
+  0x30    u64   queue_device (used ring address)
+
+FILE: queue_configs.bin (3 × 32 bytes = 96 bytes)
+  Per-queue configuration for all queues, concatenated in order.
+  Each entry (32 bytes):
+    0x00  u16  queue_size
+    0x02  u16  queue_msix_vector
+    0x04  u16  queue_enable
+    0x06  u16  queue_notify_off
+    0x08  u64  queue_desc_addr
+    0x10  u64  queue_avail_addr
+    0x18  u64  queue_used_addr
+
+FILE: features.bin (16 bytes)
+  0x00  u32  device_features_word0 (bits 0–31)
+  0x04  u32  device_features_word1 (bits 32–63)
+  0x08  u32  driver_features_word0 (negotiated)
+  0x0C  u32  driver_features_word1 (negotiated)
+
+FILE: device_config.bin (12 bytes)
+  virtio-net device-specific configuration:
+    0x00  6 bytes  mac[6]
+    0x06  u16      status
+    0x08  u16      max_virtqueue_pairs
+    0x0A  u16      mtu
+
+FILE: queues/{0,1,2}/desc.bin
+  Descriptor table. Each descriptor is 16 bytes:
+    0x00  u64  addr   (guest physical address)
+    0x08  u32  len    (buffer length)
+    0x0C  u16  flags
+    0x0E  u16  next   (next descriptor index, valid if NEXT flag set)
+
+FILE: queues/{0,1,2}/avail.bin
+  Available ring:
+    0x00           u16              flags
+    0x02           u16              idx (total entries ever added)
+    0x04           u16[queue_size]  ring entries (head descriptor indices)
+    4+queue_size*2 u16              used_event
+
+FILE: queues/{0,1,2}/used.bin
+  Used ring:
+    0x00           u16              flags
+    0x02           u16              idx (total entries ever written)
+    0x04           (u32 id, u32 len)[queue_size]  ring entries
+    4+queue_size*8 u16              avail_event
+
+FILE: guest_memory.bin (1048576 bytes)
+  Flat guest physical memory region. Descriptor addr fields index
+  into this buffer directly.
+
+FILE: event_log.bin
+  Sequence of 16-byte event entries:
+    0x00  u64  timestamp_ns
+    0x08  u8   event_type
+    0x09  7 bytes  event_data
+
+  event_type values:
+    0 = status_change  → data[0]: new device status
+    1 = queue_notify   → data[0]: queue index
+    2 = interrupt      → data[0]: MSI-X vector
+    3 = error          → data[0]: error code, data[1]: queue index
+
+FILE: msix_table.bin
+  MSI-X table entries, each 16 bytes:
+    0x00  u32  msg_addr_lo
+    0x04  u32  msg_addr_hi
+    0x08  u32  msg_data
+    0x0C  u32  vector_control  (bit 0: 1 = masked)
+
+DESCRIPTOR FLAGS
+  VIRTQ_DESC_F_NEXT     = 0x1  (chain continues via next field)
+  VIRTQ_DESC_F_WRITE    = 0x2  (device writes to buffer)
+  VIRTQ_DESC_F_INDIRECT = 0x4  (indirect descriptor table)
+
+DEVICE STATUS BITS
+  ACKNOWLEDGE         = 0x01
+  DRIVER              = 0x02
+  DRIVER_OK           = 0x04
+  FEATURES_OK         = 0x08
+  DEVICE_NEEDS_RESET  = 0x40

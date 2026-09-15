@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_alpha_wrong",
+    "challenge_id": "alpha",
+    "generated_code": "import sympy as sp\n\np = sp.symbols('p')\n\ndef answer(p):\n    \"\"\"Incorrect fidelity with wrong coefficient.\"\"\"\n    return (1 - p)**2 * (1 + p * sp.Rational(2, 3)) / (1 - sp.Rational(2, 3) * p**2)"
+}

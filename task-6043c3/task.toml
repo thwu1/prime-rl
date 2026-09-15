@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two undocumented binary formats (Git pack file and pack index v2) from raw bytes. The pack file has dual corruption: missing index AND zeroed integrity checksum, preventing use of git index-pack as a shortcut. The solver must first perform binary forensic analysis — using hex dump tools (xxd/od) to inspect the raw pack, computing the correct SHA-1 checksum via openssl/sha1sum/python, and patching the binary file with dd or equivalent tools. Then they must discover and implement: variable-length integer encodings (two distinct schemes), zlib-compressed object streams, delta compression with recursive chain resolution, binary delta instruction opcodes (copy/insert with packed bit-field byte selection), tree object binary serialization, and the full index v2 layout (fanout table, sorted SHA1 table, CRC32 table, offset table with large-offset indirection, dual trailing checksums). Finally, they must use git plumbing commands (git bundle create, git verify-pack -v) for validation and export. The combination of binary forensics with hex tools, checksum computation and binary patching, pack format reverse-engineering, and multi-tool orchestration across Python, git plumbing, and Unix binary utilities demands expert-level systems programming and tool proficiency."""
+solution_explanation = """The solution proceeds in four phases: (1) Repair the pack checksum by computing SHA-1 of all bytes except the trailing 20, then patching the file in-place. (2) Deploy a complete PackReader class (~350 lines) that scans the pack sequentially without an index, parsing type+size varint headers, decompressing zlib streams, recursively resolving OFS_DELTA chains by applying binary delta instructions, computing Git object SHA1s, and generating a valid pack index v2 binary file with correct fanout/SHA1/CRC32/offset tables and checksums. (3) Generate a verification report using git verify-pack -v. (4) Create a portable recovery bundle using git bundle create --all."""
+verification_explanation = """Tests verify pack integrity at multiple levels: (1) The pack file's trailing SHA-1 checksum is recomputed and compared to stored value. (2) The rebuilt index passes git verify-pack -v and git fsck --no-dangling. (3) For every object in the pack, the parser's -t and -p output is compared byte-for-byte against git cat-file. (4) Delta chain resolution is verified against resolved git output. (5) The recovery bundle passes git bundle verify. (6) The verify_report.txt contains valid git verify-pack -v output with correct object count. (7) Parser works without index present. (8) Edge cases: HEAD commit, root tree, merge commits, subdirectory trees, nonexistent object rejection."""
+category = "systems_programming"
+tags = ["git-internals", "binary-forensics"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6043c3"

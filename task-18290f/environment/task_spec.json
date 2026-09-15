@@ -1,0 +1,73 @@
+{
+  "description": "NIST SP 800-22 PRNG Forensic Analysis",
+  "tests": [
+    "frequency_monobit",
+    "frequency_block",
+    "runs",
+    "longest_run_ones",
+    "binary_matrix_rank",
+    "dft_spectral",
+    "non_overlapping_template",
+    "serial",
+    "approximate_entropy",
+    "cumulative_sums"
+  ],
+  "significance_level": 0.01,
+  "database": {
+    "path": "/app/rng_analysis.db",
+    "schema": {
+      "test_results": {
+        "create_sql": "CREATE TABLE test_results (sample_name TEXT NOT NULL, test_name TEXT NOT NULL, p_value REAL NOT NULL, pass INTEGER NOT NULL, PRIMARY KEY (sample_name, test_name))",
+        "columns": {
+          "sample_name": "TEXT NOT NULL — name of the binary sample file",
+          "test_name": "TEXT NOT NULL — test name from the tests list above",
+          "p_value": "REAL NOT NULL — test p-value in [0,1]",
+          "pass": "INTEGER NOT NULL — 1 if p_value >= 0.01, else 0"
+        }
+      },
+      "classifications": {
+        "create_sql": "CREATE TABLE classifications (sample_name TEXT PRIMARY KEY, generator_type TEXT NOT NULL)",
+        "columns": {
+          "sample_name": "TEXT PRIMARY KEY — name of the binary sample file",
+          "generator_type": "TEXT NOT NULL — one of the generator_types listed below"
+        }
+      }
+    }
+  },
+  "output_files": {
+    "results": "/app/results.json",
+    "analysis": "/app/analysis.json",
+    "database": "/app/rng_analysis.db"
+  },
+  "results_format_example": {
+    "sample_alpha.bin": {
+      "frequency_monobit": {
+        "p_value": 0.5,
+        "pass": true
+      }
+    }
+  },
+  "analysis_format_example": {
+    "sample_alpha.bin": "high_quality_prng"
+  },
+  "generator_types": [
+    "high_quality_prng",
+    "short_period_lcg",
+    "biased",
+    "short_period_lfsr",
+    "serial_correlated"
+  ],
+  "test_parameters": {
+    "block_freq_M": 128,
+    "serial_m": 16,
+    "approx_entropy_m": 10,
+    "rank_matrix_size": 32,
+    "template": "000000001",
+    "cumsum_mode": "forward"
+  },
+  "notes": {
+    "pass_criterion": "p_value >= 0.01",
+    "bit_order": "MSB first per byte",
+    "no_prebuilt_libraries": "All tests must be implemented from scratch. scipy/numpy allowed for special functions (erfc, gammaincc) and FFT only."
+  }
+}

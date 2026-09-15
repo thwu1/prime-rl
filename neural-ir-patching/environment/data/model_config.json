@@ -1,0 +1,8 @@
+{
+  "n_layers": 6,
+  "n_heads": 12,
+  "d_model": 768,
+  "seq_len": 32,
+  "clean_score": 0.8523,
+  "corrupted_score": 0.3147
+}

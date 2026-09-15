@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a Q16.16 fixed-point PID controller from scratch given only the struct definition, parameter set, and golden trace verification. The solver must reverse-engineer the required controller architecture from the struct fields (integral, deriv_filtered, prev_output, prev_unsat) and simulation parameters (Kp, Ki, Kd, N, Kb), determine the correct discrete-time formulation (choice of Euler method, filter topology, and anti-windup strategy among multiple valid approaches), and implement it in fixed-point arithmetic where multiplication order affects rounding. Only one specific combination of discretization method, derivative filter form, and anti-windup technique produces a trace matching the golden reference within ±2 LSBs over 5000 coupled simulation steps. Floating-point prototyping cannot be used because Q16.16 rounding diverges from IEEE 754 within tens of steps."""
+solution_explanation = """The correct pid_step computes: (1) error = reference - feedback, (2) P = Kp * error, (3) anti-windup correction using back-calculation: aw = Kb*Ts*(prev_saturated_output - prev_unsaturated_output), (4) integral accumulation: I += Ki*Ts*error + aw, (5) backward-Euler filtered derivative: D = (Kd*N*(error - prev_error) + D_prev) / (1 + N*Ts), (6) unsaturated sum P + I + D, (7) saturated output via clamp. The specific arithmetic order (e.g., precomputing Ki*Ts and Kb*Ts as single fix16_smul calls, computing Kd*N before multiplying by the error difference) is critical for matching the golden trace due to Q16.16 rounding."""
+verification_explanation = """Tests build the project, run the simulation, and verify: (1) trace format correctness — 5000 lines, valid hex, all indices present; (2) qualitative PID behavior — zero output before step input, positive control action, underdamped overshoot, 1% settling by step 2000, step-down tracking, output saturation limits; (3) exact match of y, u, and error against 93 golden reference samples spanning transient and steady-state regions within ±2 Q16.16 LSBs; (4) source integrity checks ensuring only pid_controller.c was modified and contains no file I/O."""
+category = "embedded_systems"
+tags = ["fixed-point-arithmetic", "control-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fixpoint-pid-controller-ef1eb5"

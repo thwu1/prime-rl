@@ -1,0 +1,24 @@
+# Maintainer: Kim Log <kim@example.org>
+pkgname=log-aggregator
+pkgver=2.3.1
+pkgrel=1
+_majorver=${pkgver%%.*}
+pkgdesc="Log collection and aggregation daemon"
+arch=('x86_64')
+url="https://github.com/example/log-aggregator"
+license=('MIT')
+depends=('monitor' 'libnet')
+makedepends=('go')
+provides=("log-api=${_majorver}.0")
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('e0f1a2b3c4d50000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  go build -o log-aggregator ./cmd/main
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  install -Dm755 log-aggregator "${pkgdir}/usr/bin/log-aggregator"
+}

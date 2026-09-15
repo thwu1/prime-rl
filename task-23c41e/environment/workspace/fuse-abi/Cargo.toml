@@ -1,0 +1,9 @@
+[package]
+name = "fuse-abi"
+version = "0.2.0"
+edition = "2021"
+
+[features]
+linux = ["std"]
+std = []
+num_enum = []

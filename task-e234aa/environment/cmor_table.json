@@ -1,0 +1,154 @@
+{
+  "Header": {
+    "dataset_id": "SynthObs",
+    "project_id": "OBS",
+    "source_type": "ground",
+    "version": "v1",
+    "mip_table": "Amon",
+    "realm": "atmos",
+    "frequency": "mon"
+  },
+  "required_global_attributes": {
+    "Conventions": "CF-1.7 CMOR-3.5",
+    "institute_id": "SYNTH",
+    "source": "Synthetic observational data for benchmarking",
+    "frequency": "mon",
+    "realm": "atmos"
+  },
+  "filename_template": "{project_id}_{dataset_id}_{source_type}_{version}_{mip_table}_{variable}_{start_date}-{end_date}.nc",
+  "variable_entry": {
+    "tas": {
+      "raw_name": "t2m",
+      "standard_name": "air_temperature",
+      "long_name": "Near-Surface Air Temperature",
+      "units": "K",
+      "cell_methods": "area: time: mean",
+      "positive": "",
+      "type": "float",
+      "dimensions": "longitude latitude time",
+      "comment": "near-surface (usually, 2 meter) air temperature",
+      "quality_control": {
+        "flag_field": "qf_t2m",
+        "mask_bits": [0, 1]
+      },
+      "scalar_coordinates": {
+        "height": {
+          "value": 2.0,
+          "units": "m",
+          "standard_name": "height",
+          "long_name": "height",
+          "positive": "up",
+          "axis": "Z"
+        }
+      }
+    },
+    "huss": {
+      "derived": true,
+      "derivation": "specific_humidity_from_dewpoint",
+      "input_variables": {
+        "dewpoint_temperature": "d2m",
+        "surface_pressure": "mslp"
+      },
+      "derivation_constants": {
+        "description": "Magnus formula: e = a * exp(b * Td / (Td + c)); q = eps * e / (p - (1 - eps) * e)",
+        "a_hPa": 6.112,
+        "b": 17.67,
+        "c_degC": 243.5,
+        "epsilon": 0.622
+      },
+      "standard_name": "specific_humidity",
+      "long_name": "Near-Surface Specific Humidity",
+      "units": "1",
+      "cell_methods": "area: time: mean",
+      "positive": "",
+      "type": "float",
+      "dimensions": "longitude latitude time",
+      "comment": "near-surface specific humidity derived from dewpoint temperature and surface pressure",
+      "quality_control": {
+        "flag_fields": ["qf_d2m", "qf_mslp"],
+        "mask_bits": [0, 1],
+        "combine_mode": "union"
+      },
+      "scalar_coordinates": {
+        "height": {
+          "value": 2.0,
+          "units": "m",
+          "standard_name": "height",
+          "long_name": "height",
+          "positive": "up",
+          "axis": "Z"
+        }
+      }
+    },
+    "pr": {
+      "raw_name": "tp_acc",
+      "raw_field_type": "time_accumulated",
+      "accumulation_reset": "per_calendar_year",
+      "standard_name": "precipitation_flux",
+      "long_name": "Precipitation",
+      "units": "kg m-2 s-1",
+      "cell_methods": "area: time: mean",
+      "positive": "",
+      "type": "float",
+      "dimensions": "longitude latitude time",
+      "comment": "includes both liquid and solid phases; raw field contains year-to-date accumulated precipitation in meters of water equivalent",
+      "quality_control": {
+        "flag_field": "qf_tp",
+        "mask_bits": [0, 1]
+      }
+    },
+    "psl": {
+      "raw_name": "mslp",
+      "standard_name": "air_pressure_at_mean_sea_level",
+      "long_name": "Sea Level Pressure",
+      "units": "Pa",
+      "cell_methods": "area: time: mean",
+      "positive": "",
+      "type": "float",
+      "dimensions": "longitude latitude time",
+      "comment": "sea level pressure",
+      "quality_control": {
+        "flag_field": "qf_mslp",
+        "mask_bits": [0, 1]
+      }
+    }
+  },
+  "coordinate_specs": {
+    "longitude": {
+      "standard_name": "longitude",
+      "long_name": "longitude",
+      "units": "degrees_east",
+      "axis": "X",
+      "valid_min": 0.0,
+      "valid_max": 360.0,
+      "stored_direction": "increasing",
+      "must_have_bounds": true,
+      "type": "double"
+    },
+    "latitude": {
+      "standard_name": "latitude",
+      "long_name": "latitude",
+      "units": "degrees_north",
+      "axis": "Y",
+      "valid_min": -90.0,
+      "valid_max": 90.0,
+      "stored_direction": "increasing",
+      "must_have_bounds": true,
+      "type": "double"
+    },
+    "time": {
+      "standard_name": "time",
+      "long_name": "time",
+      "units": "days since 1850-01-01 00:00:00",
+      "calendar": "gregorian",
+      "axis": "T",
+      "must_have_bounds": true,
+      "type": "double"
+    }
+  },
+  "data_specs": {
+    "data_type": "float32",
+    "coordinates_type": "float64",
+    "fill_value": 1e20
+  }
+}

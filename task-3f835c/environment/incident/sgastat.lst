@@ -1,0 +1,26 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> COLUMN POOL FORMAT A15
+SQL> COLUMN NAME FORMAT A30
+SQL> SELECT POOL, NAME, BYTES FROM V$SGASTAT
+  2  WHERE POOL IS NOT NULL OR NAME IN ('buffer_cache','log_buffer','fixed_sga')
+  3  ORDER BY POOL, NAME;
+
+POOL            NAME                                BYTES
+--------------- ------------------------------ ----------
+buffer_cache                                    536870912
+fixed_sga                                         5242880
+large pool      PX msg pool                       4194304
+large pool      free memory                       8388608
+log_buffer                                       16777216
+java pool       free memory                      16777216
+shared pool     KGH: NO ACCESS                    5242880
+shared pool     PL/SQL DIANA                      8388608
+shared pool     dictionary cache                 41943040
+shared pool     free memory                      15728640
+shared pool     library cache                   167772160
+shared pool     sql area                        125829120
+
+12 rows selected.
+
+SQL> spool off

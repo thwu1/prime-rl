@@ -1,0 +1,98 @@
+Matrix Expression Optimization — BLAS Kernel Reference
+======================================================
+
+PROBLEM
+-------
+Given chains of matrices M1 x M2 x ... x Mn, find the evaluation order
+that minimizes total floating-point operations (FLOPs).
+
+Each matrix has dimensions (rows x cols), a structural property, and an
+optional transpose flag.
+
+
+STRUCTURAL PROPERTIES
+---------------------
+  general           — no exploitable structure
+  diagonal          — only diagonal entries are nonzero (always square)
+  upper_triangular  — entries below the main diagonal are zero (always square)
+  lower_triangular  — entries above the main diagonal are zero (always square)
+  symmetric         — A[i,j] = A[j,i] for all i,j (always square)
+  identity          — identity matrix I (always square)
+
+
+TRANSPOSE RULES
+---------------
+When a matrix is flagged as transposed, apply before computation:
+  - Swap rows and cols
+  - upper_triangular <-> lower_triangular
+  - symmetric, diagonal, identity, general are invariant under transpose
+
+
+BLAS KERNELS AND COMPUTATIONAL COSTS
+-------------------------------------
+For multiplying Left[m x k] by Right[k x n], the following kernels
+are available. Select the most specialized applicable kernel — a more
+specialized kernel always has equal or lower cost than a less specialized one.
+
+  identity (no-op):
+    Applicable when either operand is an identity matrix.
+    Cost: 0 FLOPs
+
+  ddiagmm (diagonal scaling):
+    Applicable when at least one operand is diagonal.
+    Cost: k FLOPs when both are diagonal; m*n FLOPs otherwise.
+
+  dsymm (symmetric matrix multiply):
+    Applicable when at least one operand is symmetric (and neither is
+    diagonal or identity).
+    Cost: m*k*n FLOPs
+
+  dtrmm (triangular matrix multiply):
+    Applicable when at least one operand is upper- or lower-triangular
+    (and neither is symmetric, diagonal, or identity).
+    Cost: m*k*n FLOPs
+
+  dgemm (general matrix multiply):
+    Applicable when no special structure can be exploited.
+    Cost: 2*m*k*n FLOPs
+
+
+PROPERTY PROPAGATION
+--------------------
+The structural property of the result C = A * B depends on the properties
+of A and B. When finding the minimum-cost evaluation, result properties
+must be accounted for, as they affect kernel selection and cost in
+subsequent multiplications.
+
+Derive the complete set of propagation rules from the mathematical
+definitions of the structural properties. Guiding principles:
+
+  * Identity: Multiplying by I preserves the other operand unchanged.
+
+  * Diagonal: Multiplying by a diagonal matrix D scales rows or columns
+    without changing zero patterns. This preserves diagonal and triangular
+    structure in the other operand.
+
+  * Triangular: The product of two upper-triangular matrices is
+    upper-triangular. Similarly for two lower-triangular matrices.
+    (Follows from the zero structure of triangular matrices.)
+
+  * Symmetry: A product A*B is symmetric iff (A*B)^T = A*B, which
+    requires B^T*A^T = A*B. Determine which operand property
+    combinations satisfy this condition.
+
+  * Default: Combinations not covered by the above yield general results.
+
+The above principles are NOT an exhaustive lookup table. You must derive
+the result property for every pair of input properties from these
+mathematical foundations. Getting any propagation rule wrong will cause
+incorrect FLOP counts — several test chains are designed to catch
+common derivation errors.
+
+
+INPUT / OUTPUT
+--------------
+Read:  /app/problem/chains.json
+Write: /app/results.json     — { chain_name: min_flop_cost (int) }
+       /app/kernel_plan.json  — { chain_name: [ordered BLAS routine names] }
+       /app/blas_eval.c       — CBLAS validation per /app/problem/blas_test_spec.json

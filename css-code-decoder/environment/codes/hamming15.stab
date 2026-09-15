@@ -1,0 +1,11 @@
+# Stabilizer generators for a quantum error correcting code
+# One generator per line in Pauli string format (I/X/Y/Z)
+# Lines beginning with # are comments
+IZZIIZZIIZZIIZZ
+IIIXXXXIIIIXXXX
+ZIZIZIZIZIZIZIZ
+IIIIIIIXXXXXXXX
+IIIZZZZIIIIZZZZ
+XIXIXIXIXIXIXIX
+IIIIIIIZZZZZZZZ
+IXXIIXXIIXXIIXX

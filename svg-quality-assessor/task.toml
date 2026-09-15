@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-module SVG evaluation pipeline with 9 interacting defects across 5 modules, without any reference output. The solver must independently diagnose each bug using professional-level domain knowledge spanning image quality assessment, color science, and perceptual metrics: understanding why MSE requires squared differences not absolute differences and how this affects outlier sensitivity; recognizing that SSIM's data_range parameter must match the input array's actual dynamic range (1.0 for normalized floats, not 255.0); understanding that Wang et al.'s SSIM formulation uses Gaussian-weighted local statistics to model foveal vision sensitivity, and that the scikit-image default (uniform window) is theoretically incorrect when the specification requires the original formulation; identifying that histogram distance must be computed in HSV color space (not RGB) because HSV separates chromatic from achromatic information, which is essential for the channel weighting scheme (H=0.5, S=0.3, V=0.2) to have perceptual meaning; distinguishing histogram intersection (sum of pointwise minima) from the Bhattacharyya coefficient (sum of geometric means of bins), both of which produce zero distance for identical images but diverge for different distributions; reconstructing the composite quality formula's missing histogram term and correcting the MSE transform from linear to square root. Multiple bugs interact across modules: the wrong background color propagates through all metric computations, two independent errors in the histogram module (wrong color space AND wrong similarity algorithm) compound to produce doubly-incorrect distances, and the quality formula has both a missing factor and a mathematical error that partially mask each other."""
+solution_explanation = """Explore the pipeline structure. Run it and analyze output against known invariants (identity pair should have MSE=0, SSIM=1.0, histogram_distance=0). Use domain knowledge to systematically trace all 9 bugs: (1) config.py uses black background instead of white — transparent SVG regions render incorrectly; (2) metrics.py computes MAE using np.abs instead of MSE using squared differences; (3) metrics.py passes data_range=255.0 to SSIM but input arrays are normalized to [0,1] requiring data_range=1.0; (4) metrics.py uses gaussian_weights=False but the methodology spec requires Gaussian-weighted SSIM per the Wang et al. 2004 formulation; (5) histogram.py operates on RGB arrays directly instead of converting to HSV color space as specified; (6) histogram.py implements Bhattacharyya coefficient using np.sqrt(ha*hb) instead of histogram intersection using np.minimum(ha,hb); (7) scorer.py uses (1-mse) instead of (1-sqrt(mse)) for the pixel accuracy factor; (8) scorer.py omits the histogram_distance term (1-0.3*hist_dist) from the quality formula; (9) run.py sorts results alphabetically instead of preserving input order. Fix all issues and re-run the pipeline to produce correct results."""
+verification_explanation = """Tests independently recompute all three metrics (MSE, Gaussian-weighted SSIM with data_range=1.0, histogram intersection distance in HSV color space) from raw SVG data using correct algorithms and white-background rasterization, then compare against pipeline output within tolerance. Tests validate known invariants (identity pair: MSE=0, SSIM=1.0, histogram_distance=0; whitespace-only optimization: near-zero distortion; wrong SVG: high distortion), check value ranges and meaningful spreads (catches wrong data_range, wrong weighting, wrong color space), verify quality formula consistency including all terms, validate tier classification, confirm sample ordering matches input, check aggregate statistics, and verify reproducibility across runs. All validation is from first principles and independent computation."""
+category = "computer_graphics"
+tags = ["image-quality-metrics", "color-science"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/svg-quality-assessor"

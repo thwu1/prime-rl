@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-pass compiler optimization framework from scratch AND integrating it into a Makefile-based pipeline with Graphviz CFG visualization and jq-processable JSON reporting. The optimizer must handle interlocking optimization opportunities (one transformation enables another across iterations) and traps (loop-carried variables that must not be falsely simplified). The pipeline integration demands proficiency with Make (dependency targets, shell escaping), Graphviz DOT format (basic-block graph construction and SVG rendering via the dot command), and structured JSON output validated by jq. This is graduate-level compiler engineering combined with build-system and tooling expertise."""
+solution_explanation = """The solution implements: (1) a TAC optimizer in Python (~300 lines) that iterates a pipeline of passes (forward value tracking with folding, branch resolution, unreachable code removal, unused label cleanup, copy propagation, dead assignment elimination, and adjacent-jump simplification) to a fixed point; (2) a CFG generator that parses TAC into basic blocks, builds edges from jumps and fall-throughs, and outputs Graphviz DOT; (3) a Makefile with optimize/cfg/verify/report/all targets that orchestrates the pipeline using make, dot, and python3; (4) a JSON report generator producing jq-processable statistics. Key correctness invariants: value state is conservatively reset at any label reachable via jump, loop-variant variables are never falsely treated as static, and dead code removal iterates its own inner loop for transitive chains."""
+verification_explanation = """Tests run the interpreter on both original and optimized programs, comparing outputs for semantic equivalence. Instruction counts verify reduction. Two fully-reducible programs must collapse to ≤5 non-PRINT instructions. Overall reduction must exceed 40%. A loop-preservation test ensures the factorial loop is not incorrectly eliminated. Additional tests verify: Makefile exists with required targets and is syntactically valid (make -n), DOT files exist and are renderable by graphviz dot, SVG files are generated, report.json exists with correct JSON structure and is processable by jq. All checks are deterministic."""
+category = "software_engineering"
+tags = ["compiler_optimization", "build_pipelines"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6ea4e8"

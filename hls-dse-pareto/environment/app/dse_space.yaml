@@ -1,0 +1,13 @@
+# HLS Design Space Exploration Configuration
+# Based on Bench4HLS evaluation framework
+# Target FPGA: Xilinx Artix-7 xc7a200tffv1156-1
+
+clock_period_ns: [3.3, 5.0]
+enable_pipeline: [true, false]
+pipeline_ii: [1, 2]
+enable_dataflow: [true, false]
+unroll_factor: [1, 2, 4, 8]
+array_partition_factor: [1, 2, 4]
+allocation_limit_add: [0, 1, 2]
+dsp_full_reg: [true, false]
+vivado_strategy: [Default, Performance_Explore, Area_Explore]

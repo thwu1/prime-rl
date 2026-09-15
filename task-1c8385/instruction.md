@@ -1,0 +1,7 @@
+Implement a complete IEEE 754-compliant bfloat16 floating-point arithmetic library as a C shared library (`libbf16.so`) with Python ctypes bindings.
+
+`/app/` contains: `bf16.h` (C interface with rounding-mode/classification enums and function prototypes), `bf16.c` (function stubs), `Makefile` (incomplete — does not currently produce a valid shared library), `bf16.py` (ctypes wrapper skeleton), and `spec.md` (full bfloat16 specification).
+
+Implement all seven C functions in `bf16.c` (`bf16_unpack`, `bf16_pack`, `bf16_classify`, `bf16_to_float`, `bf16_from_float`, `bf16_add`, `bf16_mul`), fix the `Makefile` to correctly compile and link `libbf16.so`, and complete `bf16.py` to load the shared library via ctypes with correct FFI signatures — including pointer-based output parameters for `bf16_unpack` and proper type mappings between C and Python.
+
+The library operates on raw 16-bit integer representations of bfloat16 values (1 sign bit, 8 exponent bits, 7 mantissa bits, bias=127). All operations must correctly handle NaN propagation, infinity arithmetic, signed zeros, subnormal gradual underflow, overflow clamping per rounding mode, and tie-breaking rules across all five IEEE 754 rounding modes (RNE, RNA, RZ, RU, RD). Use native bfloat16 precision (p=8), not float32-emulated precision.

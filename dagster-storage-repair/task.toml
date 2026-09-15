@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level proficiency across multiple domains: the agent must diagnose problems from a daemon error log and architecture document rather than following an explicit checklist, demanding holistic understanding of data pipeline storage internals. Database repair requires understanding referential integrity, deduplication with correlated subqueries, and metadata consistency via cross-table updates. Index optimization for 7 diverse query patterns requires understanding composite index column ordering (equality-first vs range-first), GROUP BY coverage, and the distinction between queries sharing columns but needing different orderings. Retention policy implementation requires complex SQL with multiple preservation carve-outs (latest materializations per partition, non-terminal runs, backfill-tagged runs, and top-3-per-origin tick retention). The reconciliation module has 5 interacting bugs spanning Kahn's algorithm (missing leaf-only nodes), datetime API semantics (isoweekday vs weekday), predicate logic (any vs all for staleness), transitive closure propagation in dependency graphs, and off-by-one errors in partition window validation. The agent must reason about execution ordering (repair before retention) and understand how components interact."""
+solution_explanation = """Four scripts plus a module fix: (1) repair_db.py deletes orphaned events via NOT IN subquery, resolves zombie runs/ticks via UPDATE with timestamp thresholds, deduplicates materializations keeping MAX(id) per group, and fixes asset_keys via correlated UPDATE; (2) optimize_db.py adds 7 composite indexes matching each query's filter/sort/aggregation pattern — including idx(dagster_event_type, asset_key, timestamp) for GROUP BY query and idx(timestamp) for time-range aggregation; (3) retention.py computes cutoff from MAX(timestamp), identifies latest materialization IDs to preserve, excludes backfill-tagged runs and non-terminal runs from deletion, and implements top-3-per-origin tick preservation; (4) reconciliation.py fixes topological sort (add dep nodes to in_degree map), partition alignment (weekday() instead of isoweekday()), staleness check (any() instead of all()), adds transitive staleness propagation in compute_reconciliation_plan, and fixes validate_partition_completeness (range(7) instead of range(6))."""
+verification_explanation = """36 pytest tests verify: no orphaned events/ticks remain, no zombie runs, no duplicate materializations, asset_keys metadata matches actual latest events, all 7 canonical queries use indexed lookups (EXPLAIN QUERY PLAN), retention correctly pruned old data while preserving latest materializations, backfill run events, and recent events, tick retention preserves top 3 per origin, and the reconciliation module correctly handles missing root nodes in topological sort, Monday-aligned weekly partitions, any-upstream staleness detection, transitive staleness propagation through dependency chains, and 7-day partition completeness validation."""
+category = "data_processing"
+tags = ["sql-optimization", "data-pipelines"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dagster-storage-repair"

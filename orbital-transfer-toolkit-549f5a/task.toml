@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing six coupled astrodynamics algorithms from first principles plus multi-format data ingestion (CCSDS OEM, TOML, pipe-delimited tracking) and a Make/SQLite build pipeline. The solver must reverse-engineer file formats, implement a multi-revolution Lambert solver with high-order root-finding, build a Cowell propagator with pluggable perturbations at 1e-12 tolerances, handle degenerate orbit types (circular, equatorial), and orchestrate the full pipeline through a Makefile that integrates Python, sqlite3 CLI, and shell commands with correct dependency tracking."""
+solution_explanation = """Implements: (1) rv2coe with arctan2 quadrant resolution and special-case branches for circular/equatorial orbits; (2) coe2rv via perifocal frame rotation R3(Ω)R1(i)R3(ω); (3) Cowell propagation using scipy DOP853 with pluggable perturbation callbacks; (4) Izzo's Lambert algorithm with hypergeometric 2F1 regularization, Householder quartic iteration, and Halley-based T_min for multi-revolution; (5) J2 from zonal harmonic gradient; (6) Hohmann via vis-viva; (7) CCSDS OEM parser; (8) pipe-delimited tracking filter by quality flag; (9) CLI reading TOML scenario, gridding departure/TOF, minimizing total delta-v; (10) Makefile with dependency-tracked targets for results, filtering, SQLite import, and pipe-delimited query output via sqlite3 CLI."""
+verification_explanation = """Tests verify each algorithm against textbook reference vectors (Curtis Examples 4.3, 5.2 and poliastro notebook vectors for Lambert M=0/M=1), round-trip rv↔coe consistency, Keplerian energy/momentum conservation, Edelbaum tangent-thrust relation, J2 symmetry properties and RAAN precession, OEM parsing correctness, observation quality filtering, full CLI pipeline, and the Make/SQLite pipeline (Makefile targets rebuild mission.db and optimal_report.txt, grid_results table schema, row counts, min-dv SQL query, pipe-delimited report format)."""
+category = "scientific_computing"
+tags = ["astrodynamics", "orbital_mechanics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orbital-transfer-toolkit-549f5a"

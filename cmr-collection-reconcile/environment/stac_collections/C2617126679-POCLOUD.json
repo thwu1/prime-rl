@@ -1,0 +1,45 @@
+{
+  "type": "Collection",
+  "id": "C2617126679-POCLOUD",
+  "stac_version": "1.0.0",
+  "title": "OPERA Dynamic Surface Water Extent from HLS product (Version 1)",
+  "description": "OPERA_L3_DSWX-HLS_V1 data collection from POCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -84.0,
+          180.0,
+          84.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2022-01-01T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "POCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "LANDSAT-8",
+      "Sentinel-2A",
+      "Sentinel-2B"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

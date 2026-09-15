@@ -1,0 +1,3 @@
+safety_factor: 1.2
+plans_dir: /app/plans
+output_dir: /app/output

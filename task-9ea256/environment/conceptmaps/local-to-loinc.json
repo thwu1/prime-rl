@@ -1,0 +1,94 @@
+{
+  "resourceType": "ConceptMap",
+  "id": "local-to-loinc",
+  "url": "http://example.org/fhir/ConceptMap/local-to-loinc",
+  "version": "1.0.0",
+  "name": "LocalToLOINC",
+  "title": "Local Laboratory Codes to LOINC Translation",
+  "status": "active",
+  "experimental": false,
+  "date": "2024-06-15",
+  "publisher": "Hospital System Migration Team",
+  "description": "Maps hospital-specific laboratory test codes to standardized LOINC codes.",
+  "sourceUri": "http://hospital.example.org/lab-codes",
+  "targetUri": "http://loinc.org",
+  "group": [
+    {
+      "source": "http://hospital.example.org/lab-codes",
+      "target": "http://loinc.org",
+      "element": [
+        {
+          "code": "GLU-F",
+          "display": "Fasting Glucose",
+          "target": [
+            {
+              "code": "1558-6",
+              "display": "Fasting glucose [Mass/volume] in Serum or Plasma",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "HBA1C",
+          "display": "Hemoglobin A1c",
+          "target": [
+            {
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "CREAT-S",
+          "display": "Serum Creatinine",
+          "target": [
+            {
+              "code": "2160-0",
+              "display": "Creatinine [Mass/volume] in Serum or Plasma",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "CHOL-T",
+          "display": "Total Cholesterol",
+          "target": [
+            {
+              "code": "2093-3",
+              "display": "Cholesterol [Mass/volume] in Serum or Plasma",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "TSH",
+          "display": "Thyroid Stimulating Hormone",
+          "target": [
+            {
+              "code": "3016-3",
+              "display": "Thyrotropin [Units/volume] in Serum or Plasma",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "WBC",
+          "display": "White Blood Cell Count",
+          "target": [
+            {
+              "code": "6690-2",
+              "display": "Leukocytes [#/volume] in Blood by Automated count",
+              "equivalence": "equivalent"
+            }
+          ]
+        }
+      ],
+      "unmapped": {
+        "mode": "fixed",
+        "code": "UNMAPPED",
+        "display": "Unmapped local laboratory code"
+      }
+    }
+  ]
+}

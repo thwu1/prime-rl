@@ -1,0 +1,81 @@
+SECURITY INCIDENT REPORT
+========================
+Incident ID: INC-2024-0605
+Date: June 5, 2024
+Classification: Critical — Unauthorized Root Access
+
+SUMMARY
+-------
+An external attacker gained root access to prodserver through a chain of PAM
+configuration weaknesses. The breach was detected by the SOC at 03:15 when
+anomalous root session activity was flagged by the SIEM.
+
+TIMELINE
+--------
+02:14 — Automated brute-force attack begins against admin1 from 203.0.113.42
+         (24 consecutive failed password attempts observed)
+02:15 — Attack pivots to dev1 (8 failed attempts)
+02:17 — Attacker gains authenticated session as dev1
+02:18 — Attacker escalates to root via su from the dev1 session
+02:19 — Attacker accesses svcaccount (a non-interactive service account) remotely
+02:22 — Attacker accesses restricted1 (an external contractor account) remotely
+03:02 — All attacker sessions terminate
+03:15 — SOC detects anomalous activity; investigation initiated
+
+KEY OBSERVATIONS FROM INITIAL TRIAGE
+-------------------------------------
+1. Over 30 failed authentication attempts occurred across two accounts with
+   no account lockout triggered at any point.
+
+2. The successful dev1 login (02:17) does not correspond to any successful
+   password guess in the preceding brute-force sequence — the attacker's
+   8 attempts against dev1 all show "Failed password" yet a successful login
+   follows two minutes later from the same source IP.
+
+3. dev1 is a member of the "developers" group only — NOT a member of the
+   "wheel" group — yet su to root succeeded without restriction.
+
+4. svcaccount has shell set to /usr/sbin/nologin and belongs to the
+   "svcaccounts" group, which should be denied interactive login entirely.
+   It was accessed remotely from the attacker's IP.
+
+5. restricted1 belongs to the "restricted" group, which should only have
+   LOCAL terminal access. It was accessed from an external IP (203.0.113.42).
+
+REQUIRED DELIVERABLES
+---------------------
+1. Perform a complete PAM vulnerability assessment across all configuration
+   files under /etc/pam.d/ and /etc/security/.
+
+2. Identify the attack chain — determine which specific PAM misconfigurations
+   enabled each step of the breach progression.
+
+3. Remediate all PAM and security configuration vulnerabilities to satisfy
+   the operational requirements in /app/operational_requirements.txt.
+
+4. Produce a structured vulnerability assessment at:
+   /app/vulnerability_assessment.json
+
+VULNERABILITY ASSESSMENT SCHEMA
+--------------------------------
+The assessment JSON must conform to this structure:
+
+{
+  "vulnerabilities": [
+    {
+      "id": "<unique identifier, e.g. VULN-001>",
+      "title": "<short descriptive title>",
+      "affected_file": "<absolute path to the misconfigured file>",
+      "severity": "<critical|high|medium|low>",
+      "exploited_in_breach": true or false,
+      "attack_phase": "<reconnaissance|initial_access|privilege_escalation|lateral_movement|not_exploited>",
+      "description": "<description of the vulnerability and its impact>",
+      "remediation": "<specific remediation action taken>"
+    }
+  ],
+  "attack_chain": ["<ordered list of vulnerability IDs showing causal breach progression>"],
+  "overall_risk_rating": "<critical|high|medium|low>"
+}
+
+Identify ALL vulnerabilities — both those actively exploited in this breach
+AND latent vulnerabilities that pose risk but were not exploited.

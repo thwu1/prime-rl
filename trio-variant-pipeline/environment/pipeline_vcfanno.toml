@@ -1,0 +1,11 @@
+[[annotation]]
+file="/app/data/popfreq.vcf.gz"
+fields=["AF"]
+ops=["self"]
+names=["AF"]
+
+[[annotation]]
+file="/app/data/regions.bed.gz"
+columns=[4]
+ops=["mean"]
+names=["func_score"]

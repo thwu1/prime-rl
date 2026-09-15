@@ -1,0 +1,11 @@
+{
+  "name": "polygon-clipping-task",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "robust-predicates": "2.0.4",
+    "splaytree": "0.1.4",
+    "tinyqueue": "3.0.0",
+    "tsx": "4.7.0"
+  }
+}

@@ -1,0 +1,14 @@
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -245,8 +245,11 @@ void ovs_dp_detach_port(struct vport *p)
+ 	/* First drop references to device. */
+ 	hlist_del_rcu(&p->dp_node);
+
+-	/* Then destroy it. */
+-	ovs_vport_del(p);
++	/* Ensure all socket filters are released before destroying.
++	 * Use synchronize_rcu() to wait for in-flight filter accesses
++	 * to complete, preventing use-after-free on sk_filter objects. */
++	synchronize_rcu();
++	ovs_vport_del(p);
+ }

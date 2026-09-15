@@ -1,0 +1,23 @@
+##fileformat=VCFv4.2
+##reference=reference.fa
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##contig=<ID=chr1,length=1500>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	50	var1	A	T	100	PASS	DP=30
+chr1	101	var2	A	G	100	PASS	DP=30
+chr1	104	var3	A	G	100	PASS	DP=30
+chr1	122	var4	GC	G	100	PASS	DP=30
+chr1	151	var5	C	T	100	PASS	DP=30
+chr1	220	var6	TT	T	100	PASS	DP=30
+chr1	226	var7	GGTC	G	100	PASS	DP=30
+chr1	263	var8	A	T	100	PASS	DP=30
+chr1	299	var9	C	CACG	100	PASS	DP=30
+chr1	450	var10	G	A	100	PASS	DP=30
+chr1	530	var11	C	T	100	PASS	DP=30
+chr1	651	var12	A	T	100	PASS	DP=30
+chr1	700	var13	A	C	100	PASS	DP=30
+chr1	770	var14	G	GA	100	PASS	DP=30
+chr1	800	var15	T	A	100	PASS	DP=30
+chr1	1200	var16	C	T	100	PASS	DP=30
+chr1	1300	var17	T	G	100	PASS	DP=30
+chr1	1400	var18	A	G	100	PASS	DP=30

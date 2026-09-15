@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of spectral methods for system identification from noisy data — the solver must independently determine the correct approach (e.g. DMD), implement optimal rank selection by thresholding singular values against noise, extract complex eigenvalue pairs, and produce multi-step forecasts. Additionally demands proficiency with HDF5 I/O (navigating groups, datasets, attributes) and XML parsing to discover the output schema, then writing dual-format results (JSON + HDF5 with specific group hierarchy). Combining numerical linear algebra, signal-noise separation, and multi-format data engineering is non-trivial."""
+solution_explanation = """Read the HDF5 input to extract the snapshot matrix and parameters. Parse the XML output specification to discover field names, data types, sort orders, and HDF5 group paths. Form DMD snapshot-pair matrices, compute SVD of the first block, apply the Gavish-Donoho optimal hard threshold (omega(beta) * median(sigma)) to determine intrinsic rank (4). Build the reduced dynamics matrix, eigendecompose it for eigenvalues and modes, solve for amplitudes via least-squares, then predict future states and reconstruct training data. Write results to both JSON (eigenvalues as [real,imag] pairs) and HDF5 (datasets under /analysis/rank, /analysis/spectral, /analysis/forecasting, /analysis/quality)."""
+verification_explanation = """Tests regenerate the true noise-free system from the same random seed. They verify: (1) JSON and HDF5 output files exist with correct structure, (2) optimal rank equals 4, (3) eigenvalue magnitudes match ground truth within 3% tolerance, (4) complex eigenvalues appear as conjugate pair, (5) prediction RMSE < 0.05 vs true future, (6) reconstruction RMSE is consistent with noise level, (7) HDF5 group hierarchy matches XML spec, and (8) JSON and HDF5 results are mutually consistent."""
+category = "scientific_computing"
+tags = ["system-identification", "hdf5-processing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimal-rank-dmd"

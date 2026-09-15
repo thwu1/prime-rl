@@ -1,0 +1,61 @@
+{
+  "source": "CRC Handbook of Chemistry and Physics, 92nd ed., 2011. Mean Activity Coefficients of Electrolytes as a Function of Concentration at 25 degC.",
+  "salts": {
+    "NaCl": {
+      "cation": "Na+",
+      "anion": "Cl-",
+      "nu_cation": 1,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+      "activity_coefficients": [0.778, 0.720, 0.681, 0.665, 0.657, 0.669, 0.714, 0.782, 0.873, 0.987]
+    },
+    "KBr": {
+      "cation": "K+",
+      "anion": "Br-",
+      "nu_cation": 1,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
+      "activity_coefficients": [0.771, 0.722, 0.658, 0.617, 0.593, 0.626]
+    },
+    "LiCl": {
+      "cation": "Li+",
+      "anion": "Cl-",
+      "nu_cation": 1,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.1, 0.2, 0.5, 1.0, 2.0],
+      "activity_coefficients": [0.789, 0.756, 0.739, 0.775, 0.924]
+    },
+    "BaCl2": {
+      "cation": "Ba+2",
+      "anion": "Cl-",
+      "nu_cation": 1,
+      "nu_anion": 2,
+      "concentrations_molkg": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0],
+      "activity_coefficients": [0.721, 0.653, 0.559, 0.492, 0.436, 0.391, 0.393]
+    },
+    "K2SO4": {
+      "cation": "K+",
+      "anion": "SO4-2",
+      "nu_cation": 2,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+      "activity_coefficients": [0.704, 0.625, 0.511, 0.424, 0.343, 0.251]
+    },
+    "HCl": {
+      "cation": "H+",
+      "anion": "Cl-",
+      "nu_cation": 1,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.1, 0.2, 0.5, 1.0, 2.0],
+      "activity_coefficients": [0.797, 0.768, 0.759, 0.811, 1.009]
+    },
+    "RbCl": {
+      "cation": "Rb+",
+      "anion": "Cl-",
+      "nu_cation": 1,
+      "nu_anion": 1,
+      "concentrations_molkg": [0.1, 0.2, 0.5, 1.0, 2.0, 5.0],
+      "activity_coefficients": [0.761, 0.707, 0.633, 0.583, 0.546, 0.544]
+    }
+  }
+}

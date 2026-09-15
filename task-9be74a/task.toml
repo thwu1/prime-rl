@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in mathematical finance, stochastic volatility, and fractional calculus. The agent must (1) implement the full Padé [3,3] rational approximant for the fractional Riccati equation from scratch, including deriving the small-tau power series coefficients, large-tau asymptotic expansion, and the Padé matching system — this requires understanding the mathematical structure of the fractional Riccati equation and its relationship to classical Heston; (2) implement the Gauss-Legendre quadrature-based characteristic function, the Lewis OTM pricing formula with correct complex-valued integration, and the implied volatility inversion; (3) diagnose and fix three subtle mathematical bugs across other modules: a sign error in the gamma swap right-tail correction, an off-by-one in the Mittag-Leffler series summation, and a variance-vs-volatility scaling error in the forward variance curve construction. The combined implementation and debugging across 4 modules demands both deep mathematical understanding and careful numerical programming."""
+solution_explanation = """Four issues must be resolved: (1) In characteristic_fn.py, implement the entire module from scratch — the Padé [3,3] approximant computes b1,b2,b3 from the fractional Riccati power series and g0,g1,g2 from the asymptotic expansion around r_minus, then constructs the rational function; deriv_h_pade uses the quadratic Riccati relation; phi_rheston_rational integrates via GL quadrature with the tau scaling in the exponential; lewis_formula_otm_price implements the half-line integral; impvol_rheston inverts via Black bisection. (2) In swap_estimation.py, fix gamma swap right-tail: cdf(z_plus) -> cdf(-z_plus). (3) In special_functions.py, fix Mittag-Leffler: range(1,n_terms) -> range(n_terms). (4) In pipeline.py, fix forward variance: np.sqrt(spx_expiries) -> spx_expiries."""
+verification_explanation = """Tests verify: (1) all three output JSON files exist with correct schemas and dimensions (48 expiries, 3x5 impvol grid); (2) calibrated parameters are in valid ranges (H, nu, rho, lbd); (3) empirical normalized leverage is predominantly negative with realistic magnitudes, model fits with RMSE < 0.015, longer-dated leverage more negative; (4) model implied vols are finite and in (0.05, 1.0), exhibit negative skew, smile convexity, skew asymmetry, decreasing skew term structure, and ATM vols match reference values within 0.02 tolerance."""
+category = "applied_computing"
+tags = ["quantitative-finance", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9be74a"

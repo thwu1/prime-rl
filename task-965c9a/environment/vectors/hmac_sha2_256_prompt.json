@@ -1,0 +1,38 @@
+{
+  "vsId": 43,
+  "algorithm": "HMAC-SHA2-256",
+  "revision": "2.0",
+  "isSample": false,
+  "testGroups": [
+    {
+      "tgId": 1,
+      "testType": "AFT",
+      "tests": [
+        {
+          "tcId": 1,
+          "key": "10049E4FF57433EBD717D7052F75CEB18039D97927A9C200ED5CC89C03A2FDC7DA826F9EFCFA0891A0C2AEB0C7976B79987A4A0FFED57A80A39A49FE05D3AD85C79F9D9AEE662CCB",
+          "keyLen": 576,
+          "msg": "E6EFD552FAD04A79CFB8269A04EDC6AA0EB1FB77A71236FAF8",
+          "msgLen": 200,
+          "macLen": 88
+        },
+        {
+          "tcId": 2,
+          "key": "77C88C89DFB17ECF6FCB01C410AFF1A7E4",
+          "keyLen": 136,
+          "msg": "F5E177CB6C538DCE126294",
+          "msgLen": 88,
+          "macLen": 120
+        },
+        {
+          "tcId": 3,
+          "key": "333438B04013B1BD9DB3E77FF89D761F4CEAD4FF0B9024ABF460BB675F6EC41258251C2CD2F4012EA0FB033348A534F8",
+          "keyLen": 384,
+          "msg": "CD2BA44ACE25608CCFBA49CD53285DEF724420A7B6A1D0102AD92C7EB6B3A71659A0F0720F9CB1D33DEA5092A006ABE2",
+          "msgLen": 384,
+          "macLen": 104
+        }
+      ]
+    }
+  ]
+}

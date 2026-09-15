@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires solving a nonlinear inverse problem: decomposing a partially-observed 2D energy field into contributions from an unknown number of source nodes (1-3 independent, 2-6 total with symmetric mirrors). Each node uses one of two parametric function types (sinusoidal or rational decay), so the solver must handle mixed discrete-continuous optimization (function type selection × node position/parameter fitting), model selection (determining node count via information criteria), and censored observations (clipping at ±20 causes information loss). The sinusoidal function creates multi-modal optimization landscapes with numerous local minima, requiring global optimization methods. Exploiting the 180° rotational symmetry constraint is essential for accurate reconstruction of unobserved tiles."""
+solution_explanation = """Uses scipy differential_evolution for gradient-free global optimization. Enumerates candidate node counts (1-3) and all function type combinations per count (2^n combos). For each configuration, fits node positions and function parameters by minimizing squared error between computed and observed energy values, using a smooth (pre-truncation) objective for better convergence. Exploits 180° rotational symmetry to augment observations and halve the parameter space. Uses BIC (Bayesian Information Criterion) on integer reconstruction error for model selection, preferring the simplest model that achieves near-zero integer error. Final field is computed from best-fit parameters with clip+truncate."""
+verification_explanation = """Generates 3 random energy field instances (seeds 42, 137, 2024) with known ground-truth parameters (well-separated nodes, moderate parameter ranges). For each instance, creates partial observations with 55-75% visibility in sensor-like circular zones, runs the solver, and checks: (1) reconstructed field RMSE vs ground truth < 2.0, (2) at least 90% of tiles have absolute error ≤ 2, (3) correct number of independent nodes, (4) all values in [-20,20], (5) approximate rotational symmetry preserved."""
+category = "optimization"
+tags = ["inverse-problems", "signal-processing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/energy-field-reconstruct"

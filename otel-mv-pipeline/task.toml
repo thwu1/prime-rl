@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level ClickHouse database engineering. Requires understanding MergeTree engine family internals, materialized view semantics (including POPULATE for backfill of existing data), AggregatingMergeTree with -State/-Merge combinators for percentile tracking, LowCardinality type optimization, sorting key design for observability query patterns, ClickHouse CSV ingestion, and writing complex analytical SQL with quantile functions and window functions. Multi-step terminal interaction is required across database setup, schema design, data ingestion, MV creation, and query execution."""
+solution_explanation = """Start ClickHouse server, create database and table with optimized schema (LowCardinality for categorical columns, DateTime64(6) for timestamps, appropriate sorting key including service_name and timestamp). Ingest CSV data using clickhouse-client with CSVWithNames format. Create two materialized views: one using SummingMergeTree for error rate aggregation and one using AggregatingMergeTree with quantileState for latency percentile tracking, both using POPULATE to backfill existing data. Execute four analytical queries: top error services by rate, P99 latency per service, deep traces (>5 spans), and top error operation per service using argMax. Output results as CSVWithNames format files."""
+verification_explanation = """Tests connect to ClickHouse and verify: server is running, database 'observability' exists, table 'spans' exists with MergeTree engine and sorting key containing service_name, LowCardinality is used for service_name, row count matches generated data, at least 2 materialized views exist. Then independently computes expected analytical results from the raw CSV data and compares against the agent's result files: top 3 error services match exactly, P99 latencies are within 5% tolerance, deep trace IDs and span counts match, and error correlation (top error operation per service) matches."""
+category = "data_management"
+tags = ["clickhouse", "observability"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/otel-mv-pipeline"

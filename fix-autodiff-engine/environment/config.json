@@ -1,0 +1,50 @@
+{
+  "functions": {
+    "log1pexp": {
+      "description": "Softplus: log(1 + exp(x))",
+      "analytical_gradient": "sigmoid(x) = 1/(1+exp(-x))",
+      "test_inputs": [-10.0, -1.0, 0.0, 1.0, 5.0, 10.0],
+      "stability_inputs": [50.0, 100.0, 500.0, 750.0, -50.0, -100.0]
+    },
+    "logsumexp": {
+      "description": "Log-sum-exp: log(exp(a) + exp(b))",
+      "analytical_gradient_a": "exp(a) / (exp(a) + exp(b))",
+      "analytical_gradient_b": "exp(b) / (exp(a) + exp(b))",
+      "test_inputs_a": [0.0, 1.0, 5.0],
+      "test_inputs_b": [0.0, 2.0, 3.0],
+      "stability_inputs": [[750.0, 749.0], [1000.0, 999.0], [-500.0, -499.0]]
+    },
+    "sigmoid": {
+      "description": "Logistic sigmoid: 1/(1+exp(-x))",
+      "analytical_gradient": "sigmoid(x) * (1 - sigmoid(x))",
+      "test_inputs": [-5.0, -1.0, 0.0, 1.0, 5.0],
+      "stability_inputs": [-100.0, 100.0, -500.0, 500.0]
+    },
+    "safe_sqrt": {
+      "description": "Safe square root: sqrt(max(x, 0)) with stable gradient",
+      "analytical_gradient": "0.5 / sqrt(x) for x > 0, 0 for x <= 0",
+      "test_inputs": [0.01, 0.1, 1.0, 4.0, 100.0],
+      "stability_inputs": [1e-10, 1e-15, 0.0, -1.0]
+    },
+    "huber_loss": {
+      "description": "Huber loss: 0.5*x^2 for |x|<=delta, delta*(|x|-0.5*delta) otherwise",
+      "analytical_gradient_x": "x for |x|<=delta, delta*sign(x) otherwise",
+      "test_inputs_x": [-5.0, -0.5, 0.0, 0.5, 5.0],
+      "test_delta": 1.0
+    },
+    "log_cosh": {
+      "description": "Log-cosh: log(cosh(x))",
+      "analytical_gradient": "tanh(x)",
+      "test_inputs": [-5.0, -1.0, 0.0, 1.0, 5.0],
+      "stability_inputs": [100.0, 500.0, 750.0, -100.0, -750.0]
+    }
+  },
+  "finite_difference": {
+    "step_sizes": [1e-2, 1e-3, 1e-4, 1e-5],
+    "tolerance": 1e-3
+  },
+  "cross_validation": {
+    "note": "Functions using only exp, log, and arithmetic can be cross-validated with the mini AD framework in autodiff.py",
+    "test_points": [-2.0, -1.0, 0.0, 0.5, 1.0, 2.0, 5.0]
+  }
+}

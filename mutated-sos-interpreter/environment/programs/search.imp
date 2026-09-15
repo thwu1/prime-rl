@@ -1,0 +1,16 @@
+int i;
+int found;
+i = 20;
+found = 0;
+while((i < 10))
+{
+    if(((i % 7) != 0))
+    {
+        found = i;
+        break;
+    }
+    else
+    {
+        i = (i + 1);
+    };
+};

@@ -1,0 +1,4 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+RatesFX,Risk_IRCurve,USD,1,3m,Municipal,-3000000,USD,-3000000
+RatesFX,Risk_IRCurve,JPY,2,2w,Libor1m,-1000000,USD,-1000000
+RatesFX,Risk_IRCurve,CNY,3,3m,Libor1m,-500000,USD,-500000

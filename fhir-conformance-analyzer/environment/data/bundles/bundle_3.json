@@ -1,0 +1,323 @@
+{
+  "resourceType": "Bundle",
+  "id": "bundle-3",
+  "type": "searchset",
+  "total": 6,
+  "entry": [
+    {
+      "fullUrl": "http://example.org/fhir/Patient/pt-3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pt-3",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race",
+            "extension": [
+              {
+                "url": "ombCategory",
+                "valueCoding": {
+                  "system": "urn:oid:2.16.840.1.113883.6.238",
+                  "code": "2028-9",
+                  "display": "Asian"
+                }
+              },
+              {
+                "url": "text",
+                "valueString": "Asian"
+              }
+            ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "http://hospital.example.org/mrn",
+            "value": "MRN-30159"
+          }
+        ],
+        "name": [
+          {
+            "family": "Chen",
+            "given": ["Wei"]
+          }
+        ],
+        "telecom": [
+          {
+            "system": "email",
+            "value": "wei.chen@email.example.com"
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1990-08-15",
+        "address": [
+          {
+            "line": ["789 Pine Road", "Apt 4B"],
+            "city": "Seattle",
+            "state": "WA",
+            "postalCode": "98101"
+          }
+        ],
+        "communication": [
+          {
+            "language": {
+              "coding": [
+                {
+                  "system": "urn:ietf:bcp:47",
+                  "code": "zh",
+                  "display": "Chinese"
+                }
+              ]
+            },
+            "preferred": true
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/obs-4",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-4",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-3"
+        },
+        "effectiveDateTime": "2024-05-01T09:30:00Z",
+        "valueQuantity": {
+          "value": 6.5,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "H",
+                "display": "High"
+              }
+            ]
+          }
+        ],
+        "referenceRange": [
+          {
+            "low": {
+              "value": 4.0,
+              "unit": "%",
+              "system": "http://unitsofmeasure.org",
+              "code": "%"
+            },
+            "high": {
+              "value": 5.6,
+              "unit": "%",
+              "system": "http://unitsofmeasure.org",
+              "code": "%"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Observation/obs-5",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-5",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel with all children optional"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-3"
+        },
+        "effectiveDateTime": "2024-05-01T09:00:00Z",
+        "component": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8480-6",
+                  "display": "Systolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 118,
+              "unit": "mmHg",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8462-4",
+                  "display": "Diastolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 76,
+              "unit": "mmHg",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Condition/cond-3",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-3",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "resolved",
+              "display": "Resolved"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed",
+              "display": "Confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "195662009",
+              "display": "Acute viral pharyngitis"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-3"
+        },
+        "encounter": {
+          "reference": "Encounter/enc-3"
+        },
+        "onsetDateTime": "2024-02-10",
+        "recordedDate": "2024-02-10"
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/Encounter/enc-3",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-3",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "Patient/pt-3"
+        },
+        "period": {
+          "start": "2024-02-10T09:00:00Z",
+          "end": "2024-02-10T10:00:00Z"
+        }
+      }
+    },
+    {
+      "fullUrl": "http://example.org/fhir/MedicationRequest/medrq-3",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medrq-3",
+        "status": "completed",
+        "intent": "order",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/medicationrequest-category",
+                "code": "inpatient",
+                "display": "Inpatient"
+              }
+            ]
+          }
+        ],
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "312961",
+              "display": "Amoxicillin 500 MG Oral Capsule"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pt-3"
+        },
+        "authoredOn": "2024-02-10",
+        "requester": {
+          "reference": "Practitioner/prac-3"
+        },
+        "dosageInstruction": [
+          {
+            "text": "Take 1 capsule by mouth three times daily for 10 days"
+          }
+        ]
+      }
+    }
+  ]
+}

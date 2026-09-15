@@ -1,0 +1,19 @@
+{
+  "flow_conditions": {
+    "U_e": 25.3,
+    "nu": 1.51e-05,
+    "rho": 1.224,
+    "delta": 0.046
+  },
+  "wall_model_constants": {
+    "kappa": 0.41,
+    "B": 5.0
+  },
+  "grid_convergence": {
+    "refinement_ratio": 2.0,
+    "safety_factor": 1.25
+  },
+  "spalding_fit": {
+    "y_max_for_fit": 0.0058
+  }
+}

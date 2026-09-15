@@ -1,0 +1,71 @@
+// Tafl — simplified 7x7 Brandubh variant
+// Reference implementation for verification
+//
+
+#players = defender(100), attacker(100)
+#pieces = e, d, k, a
+#variables =
+#board = rectangle(up,down,left,right,
+    [e, e, e, a, e, e, e]
+    [e, e, e, a, e, e, e]
+    [e, e, e, d, e, e, e]
+    [a, a, d, k, d, a, a]
+    [e, e, e, d, e, e, e]
+    [e, e, e, a, e, e, e]
+    [e, e, e, a, e, e, e])
+
+#anySquare = ((up* + down*)(left* + right*))
+
+// Rook-style slide: one or more squares in a single direction, all empty
+#rookSlide(dir) = (dir {e} (dir {e})*)
+#rookMove = (rookSlide(up) + rookSlide(down) + rookSlide(left) + rookSlide(right))
+
+// Custodial capture in one direction: if the adjacent square holds an opponent
+// piece and the square beyond that holds a friendly piece, remove the opponent.
+// Otherwise do nothing (first branch of the alternation).
+#captureDir(dir; backDir; oppPieces; myPieces) = (
+      {! dir {oppPieces} dir {myPieces}}
+    + dir {oppPieces} [e] dir {myPieces} backDir^2
+  )
+
+// Check (and execute) custodial captures in all four orthogonal directions.
+#captureAll(oppPieces; myPieces) =
+    captureDir(right; left; oppPieces; myPieces)
+    captureDir(left; right; oppPieces; myPieces)
+    captureDir(up; down; oppPieces; myPieces)
+    captureDir(down; up; oppPieces; myPieces)
+
+// The King is at an edge square (at least one direction leads off the board).
+#kingEscaped = anySquare {k} ({! up} + {! down} + {! left} + {! right})
+
+// The King is surrounded on all four orthogonal sides by attacker pieces.
+#kingCaptured = anySquare {k} {? up {a}} {? down {a}} {? left {a}} {? right {a}}
+
+// After each turn, check whether the game has ended.
+#checkEndGame = (
+      {? kingEscaped} [$ defender=100, attacker=0] ->> {}
+    + {? kingCaptured} [$ attacker=100, defender=0] ->> {}
+    + {! kingEscaped} {! kingCaptured}
+  )
+
+// Defender turn: move a defender (d) or the King (k).
+// The King participates in custodial captures (myPieces = d,k).
+#defenderTurn =
+    ->defender anySquare (
+        {d} [e] rookMove ->> [d] captureAll(a; d,k)
+      + {k} [e] rookMove ->> [k] captureAll(a; d,k)
+    )
+    [$ defender=100, attacker=0]
+    checkEndGame
+
+// Attacker turn: move an attacker (a).
+// Only regular defenders (d) can be captured by custodial means, not the King.
+#attackerTurn =
+    ->attacker anySquare {a} [e] rookMove ->> [a] captureAll(d; a)
+    [$ attacker=100, defender=0]
+    checkEndGame
+
+#rules = (
+    defenderTurn
+    attackerTurn
+  )*

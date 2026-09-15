@@ -1,0 +1,9 @@
+{
+  "name": "constrained-app",
+  "dependencies": {
+    "router": "^2.0.0",
+    "orm": "^1.0.0",
+    "auth": "^2.0.0",
+    "logging": "~2.0.0"
+  }
+}

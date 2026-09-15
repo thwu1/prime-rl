@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Multi-Tenant BGP Policy Engine State",
+  "description": "Schema for the /app/state.json output produced by the orchestrator after configuring GoBGP.",
+  "type": "object",
+  "required": ["global_config", "defined_sets", "policies", "peer_groups"],
+  "additionalProperties": false,
+  "properties": {
+    "global_config": {
+      "type": "object",
+      "required": ["asn", "router_id"],
+      "additionalProperties": false,
+      "properties": {
+        "asn": {
+          "type": "integer",
+          "description": "The global BGP ASN from tenants.json global.asn"
+        },
+        "router_id": {
+          "type": "string",
+          "description": "The global router ID from tenants.json global.router_id"
+        }
+      }
+    },
+    "defined_sets": {
+      "type": "object",
+      "required": ["prefix_sets", "community_sets", "as_path_sets"],
+      "additionalProperties": false,
+      "properties": {
+        "prefix_sets": {
+          "type": "array",
+          "description": "One global bogon set named 'bogon-prefixes' (containing all entries from global.bogon_prefixes) plus one per tenant named 'tenant-{name}-prefixes' (containing that tenant's allowed_prefixes).",
+          "items": {
+            "type": "object",
+            "required": ["name", "prefix_count"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "prefix_count": { "type": "integer" }
+            }
+          }
+        },
+        "community_sets": {
+          "type": "array",
+          "description": "Two per tenant: 'tenant-{name}-community' holding the tenant's own community_tag (identity), and 'tenant-{name}-export-allowed' holding the community tags of the tenant itself plus every tenant listed in its export_to_tenants.",
+          "items": {
+            "type": "object",
+            "required": ["name", "entries"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "entries": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "as_path_sets": {
+          "type": "array",
+          "description": "One per tenant that has a non-empty reject_as_origins list, named 'tenant-{name}-reject-origins'. Each entry is a regex matching routes originated by the rejected ASN.",
+          "items": {
+            "type": "object",
+            "required": ["name", "entries"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "entries": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "array",
+      "description": "One global policy named 'global-bogon-reject', plus per tenant: 'tenant-{name}-import' (enforces prefix filtering, origin rejection if applicable, community tagging, MED, AS-prepend) and 'tenant-{name}-export' (allows routes matching permitted tenant communities, rejects all others).",
+      "items": {
+        "type": "object",
+        "required": ["name", "statement_count", "statements"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "statement_count": { "type": "integer" },
+          "statements": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of statement names within this policy"
+          }
+        }
+      }
+    },
+    "peer_groups": {
+      "type": "array",
+      "description": "One per tenant named 'pg-{name}', with peer_asn matching the tenant's ASN. Each peer group binds its tenant's import and export policies.",
+      "items": {
+        "type": "object",
+        "required": ["name", "peer_asn"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "peer_asn": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

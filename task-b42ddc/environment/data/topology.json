@@ -1,0 +1,206 @@
+{
+  "description": "AS business relationship graph for the network under analysis. The verifying AS is AS100.",
+  "verifier_as": 100,
+  "relationships": [
+    {
+      "customer": 101,
+      "provider": 10
+    },
+    {
+      "customer": 101,
+      "provider": 20
+    },
+    {
+      "customer": 102,
+      "provider": 10
+    },
+    {
+      "customer": 103,
+      "provider": 20
+    },
+    {
+      "customer": 103,
+      "provider": 30
+    },
+    {
+      "customer": 104,
+      "provider": 30
+    },
+    {
+      "customer": 105,
+      "provider": 10
+    },
+    {
+      "customer": 105,
+      "provider": 30
+    },
+    {
+      "customer": 1001,
+      "provider": 101
+    },
+    {
+      "customer": 1002,
+      "provider": 101
+    },
+    {
+      "customer": 1002,
+      "provider": 102
+    },
+    {
+      "customer": 1003,
+      "provider": 102
+    },
+    {
+      "customer": 1003,
+      "provider": 103
+    },
+    {
+      "customer": 1004,
+      "provider": 103
+    },
+    {
+      "customer": 1005,
+      "provider": 104
+    },
+    {
+      "customer": 1005,
+      "provider": 105
+    },
+    {
+      "customer": 1006,
+      "provider": 104
+    },
+    {
+      "customer": 1007,
+      "provider": 105
+    },
+    {
+      "customer": 1008,
+      "provider": 102
+    },
+    {
+      "customer": 65001,
+      "provider": 1001
+    },
+    {
+      "customer": 65002,
+      "provider": 1001
+    },
+    {
+      "customer": 65002,
+      "provider": 1002
+    },
+    {
+      "customer": 65003,
+      "provider": 1002
+    },
+    {
+      "customer": 65004,
+      "provider": 1003
+    },
+    {
+      "customer": 65004,
+      "provider": 1004
+    },
+    {
+      "customer": 65005,
+      "provider": 1004
+    },
+    {
+      "customer": 65005,
+      "provider": 1005
+    },
+    {
+      "customer": 65006,
+      "provider": 1005
+    },
+    {
+      "customer": 65007,
+      "provider": 1006
+    },
+    {
+      "customer": 65008,
+      "provider": 1007
+    },
+    {
+      "customer": 65009,
+      "provider": 1003
+    },
+    {
+      "customer": 65010,
+      "provider": 1008
+    },
+    {
+      "customer": 65011,
+      "provider": 1006
+    },
+    {
+      "customer": 65011,
+      "provider": 1007
+    },
+    {
+      "customer": 65012,
+      "provider": 1008
+    }
+  ],
+  "peers": [
+    {
+      "as1": 10,
+      "as2": 20
+    },
+    {
+      "as1": 10,
+      "as2": 30
+    },
+    {
+      "as1": 20,
+      "as2": 30
+    },
+    {
+      "as1": 1003,
+      "as2": 1004
+    },
+    {
+      "as1": 1006,
+      "as2": 1007
+    }
+  ],
+  "tiers": {
+    "tier1": [
+      10,
+      20,
+      30
+    ],
+    "tier2": [
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "tier3": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008
+    ],
+    "tier4": [
+      65001,
+      65002,
+      65003,
+      65004,
+      65005,
+      65006,
+      65007,
+      65008,
+      65009,
+      65010,
+      65011,
+      65012
+    ]
+  }
+}

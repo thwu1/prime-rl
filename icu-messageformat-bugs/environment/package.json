@@ -1,0 +1,10 @@
+{
+  "name": "icu-messageformat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "tsx": "4.19.4",
+    "typescript": "5.7.3"
+  }
+}

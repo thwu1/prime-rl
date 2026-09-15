@@ -1,0 +1,51 @@
+================================================================================
+Connectivity Test Results - Captured 2026-05-29 14:32:17 UTC
+================================================================================
+Test: ICMP ping (3 packets, 2s timeout) and HTTP GET (5s timeout)
+
+=== ICMP Connectivity Matrix ===
+
+From host1 (10.1.0.2):
+  → 10.1.0.1  (dist_rtr1 eth1) .... OK     (0% loss, avg 0.4ms)
+  → 10.2.0.2  (host2)          .... FAIL   (100% loss)
+  → 10.3.0.2  (host3)          .... FAIL   (100% loss)
+  → 10.100.0.2 (server)        .... FAIL   (100% loss)
+
+From host2 (10.2.0.2):
+  → 10.2.0.1  (dist_rtr2 eth1) .... OK     (0% loss, avg 0.3ms)
+  → 10.1.0.2  (host1)          .... FAIL   (100% loss)
+  → 10.3.0.2  (host3)          .... FAIL   (100% loss)
+  → 10.100.0.2 (server)        .... FAIL   (100% loss)
+
+From host3 (10.3.0.2):
+  → 10.3.0.1  (dist_rtr3 eth1) .... OK     (0% loss, avg 0.3ms)
+  → 10.1.0.2  (host1)          .... FAIL   (100% loss)
+  → 10.2.0.2  (host2)          .... FAIL   (100% loss)
+  → 10.100.0.2 (server)        .... FAIL   (100% loss)
+
+From server (10.100.0.2):
+  → 10.100.0.1 (core_rtr eth3) .... OK     (0% loss, avg 0.2ms)
+  → 10.1.0.2  (host1)          .... FAIL   (100% loss)
+  → 10.2.0.2  (host2)          .... FAIL   (100% loss)
+  → 10.3.0.2  (host3)          .... FAIL   (100% loss)
+
+=== Inter-Router ICMP (transit links) ===
+
+From core_rtr:
+  → 172.16.0.1 (dist_rtr1 eth0) ... OK     (0% loss, avg 0.2ms)
+  → 172.16.0.3 (dist_rtr2 eth0) ... OK     (0% loss, avg 0.2ms)
+  → 172.16.0.5 (dist_rtr3 eth0) ... OK     (0% loss, avg 0.2ms)
+
+=== HTTP Connectivity ===
+
+From host1: curl -s -o /dev/null -w '%{http_code}' http://10.100.0.2/ ... FAIL (connection timed out)
+From host2: curl -s -o /dev/null -w '%{http_code}' http://10.100.0.2/ ... FAIL (no route to host)
+From host3: curl -s -o /dev/null -w '%{http_code}' http://10.100.0.2/ ... FAIL (connection timed out)
+
+=== Summary ===
+Total tests: 16
+Passed: 7 (local gateway + transit link tests only)
+Failed: 9 (all cross-site and server access tests)
+
+NOTE: All transit links between routers are physically UP and reachable.
+The failures are limited to cross-site host-to-host and host-to-server paths.

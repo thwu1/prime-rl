@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the DERP relay protocol, WireGuard key management, and mesh networking topology. The solver must: (1) parse a custom binary wire protocol with 16 frame types and variable-length payloads from a specification document, (2) correlate Curve25519 public keys across two different encodings (base64 WireGuard vs raw hex DERP) using wireguard-tools, (3) cross-reference traffic across two relay node captures to track forwarded packets and shared peers, (4) evaluate an authorization policy to detect privilege escalation (client using mesh-only frames), node access violations, and protocol ordering violations, (5) holistically understand DERP mesh topology semantics (session boundaries, handshake ordering, mesh vs client roles, ForwardPacket routing). The multi-source correlation across binary captures, WireGuard config, and JSON policy demands proficient systems security reasoning, not just procedural parsing."""
+solution_explanation = """The solution reads the WireGuard config to extract base64 public keys, converts them to hex via base64 decoding, then parses both binary DERP captures frame-by-frame using the 5-byte header format. It splits frames into sessions at ServerKey boundaries, identifies peers from ClientInfo frames, and cross-references with the authorization policy. Protocol violations are detected by checking for client-initiated frames before ClientInfo. Privilege violations are found by comparing each peer's role permissions against observed frame types. Node policy violations are detected by checking allowed_nodes. Finally, cross-node metrics and mesh topology are computed by aggregating data across both captures."""
+verification_explanation = """Tests derive the same Curve25519 public keys from deterministic seeds using wg pubkey, then load audit_report.json and verify: per-node frame type counts and data byte totals, peer key mapping correctness, exact unauthorized peer detection, privilege violation details (peer name, role, required role), node policy violation specifics, protocol violation frame indices, cross-node forwarding metrics, and mesh topology peer counts and shared peer lists."""
+category = "network_security"
+tags = ["protocol-forensics", "wireguard-derp"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3590b4"

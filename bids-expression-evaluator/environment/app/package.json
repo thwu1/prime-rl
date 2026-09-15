@@ -1,0 +1,15 @@
+{
+  "name": "bids-expression-evaluator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BIDS Schema Expression Language evaluator",
+  "dependencies": {
+    "js-yaml": "4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "4.0.9",
+    "@types/node": "20.11.5",
+    "tsx": "4.7.0",
+    "typescript": "5.3.3"
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of memory safety vulnerability classes (heap/stack overflow, UAF, double-free, integer overflow, type confusion, OOB). Beyond identification, the agent must design and implement a hardened pool allocator with multiple independent runtime defense layers — a creative systems-programming task with no single correct solution. The agent must then evaluate each vulnerability's exploitability, justify severity rankings, analyze multi-vulnerability exploit chains, and produce a defense mapping that judges whether each vulnerability is addressed by the allocator, individual patches, or both. This requires deep understanding of how memory corruption defenses interact with different vulnerability classes."""
+solution_explanation = """The solver reads and analyzes ~500 lines of C source to identify seven vulnerability patterns through static analysis. It then designs a hardened pool allocator implementing: (1) trailing canaries computed from tag+size to detect buffer overflows on free, (2) a ring-buffer quarantine that delays reallocation of freed blocks to prevent UAF/double-free exploitation, (3) memory poisoning of freed regions with 0xDE bytes. The patched code integrates this allocator AND applies individual fixes for vulnerabilities the allocator cannot prevent: stack overflow (wrong validation constant), type confusion (union sharing function pointer and integer), OOB (missing bounds check), and integer overflow (missing wrap check). The defense assessment evaluates that only heap-related vulns benefit from the allocator while stack, logic, and bounds bugs require patches, and identifies exploit chains like OOB-read -> type-confusion for ASLR bypass -> code execution."""
+verification_explanation = """Tests verify: (1) audit_report.json contains all seven vulnerability types with correct CWE IDs, command mappings, severity scores, and exploitation classes, (2) hardened allocator source files exist at /app/hardened_pool/ and contain canary/sentinel validation, quarantine/delayed-free, and memory poisoning mechanisms, (3) patched source compiles with make asan and survives all seven crafted trigger inputs that crash the original, (4) defense_assessment.json has correctly structured severity ranking (ordered highest-first with substantive justifications), exploit chains (at least one with >=2 vulns each), and defense mapping with substantive rationale for all vulnerabilities."""
+category = "security"
+tags = ["allocator-hardening", "exploit-assessment"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4c815f"

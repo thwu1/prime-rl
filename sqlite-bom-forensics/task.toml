@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of SQLite's type affinity system and STRICT mode. The agent must evaluate pre-built views to diagnose why they produce incorrect monetary results, identifying specific type system behaviors (NONE affinity, implicit coercion in JOINs vs WHERE clauses, TEXT arithmetic). Beyond diagnosis, the agent must design and create a hardened database schema using STRICT tables with CHECK constraints, foreign key REFERENCES, and corrected views — a genuine schema design task. The agent must also judge which BOM edges form cycles and exclude them, resolve indeterminate costs using an external CSV per business rules discovered within the database, and normalize heterogeneous date formats. The task requires both evaluation of the existing system's failures and creation of an improved replacement."""
+solution_explanation = """1. Investigate views; discover v_inventory_value produces wrong arithmetic for TEXT-typed costs ('$4.00', 'TBD'). 2. Write view_evaluation.json documenting defects, root causes (NONE affinity + TEXT arithmetic), severity ratings, and corrected SQL using typeof()/CAST/REPLACE. 3. Use typeof() to discover TEXT values in columns documented as REAL/INTEGER in schema_docs. 4. Find business_rules directing use of supplier_rates.csv; load CSV to resolve 'TBD' (RAW-09 -> 9.00). 5. Build BOM graph with CAST; detect cycles via DFS; identify back-edges {(15,4),(11,5)}. 6. Compute recursive BOM costs excluding cycles. 7. Compute inventory valuation with CAST for TEXT part_id. 8. Design hardened schema: STRICT tables with CHECK(unit_cost >= 0), REFERENCES parts(id), proper type declarations. 9. Migrate all data with type resolution, date normalization, cycle exclusion. 10. Create corrected views in hardened DB producing accurate results."""
+verification_explanation = """Tests verify: (a) BOM costs (ASM-A=118.00, ASM-B=76.00) and valuations (EAST=20570.00, WEST=6287.50); (b) audit counts (6 type violations, 2 cycles with nodes {4,5,11,15}, 2 malformed JSON, 3 date anomalies); (c) hardened DB has STRICT tables (via sqlite_master), FK REFERENCES on bom_edges, CHECK constraints on parts, 15 parts migrated with REAL costs, RAW-09=9.00 from supplier card, 17 edges (cycles excluded), corrected inventory view yields EAST=20570; (d) view_evaluation.json has >=2 entries with severity ratings, inventory view rated 'critical' with type-related root cause, corrected SQL executes against original DB."""
+category = "database"
+tags = ["sqlite", "schema-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-bom-forensics"

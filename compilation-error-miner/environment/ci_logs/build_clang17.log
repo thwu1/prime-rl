@@ -1,0 +1,41 @@
+2024-03-15T10:30:00.0000000Z ##[group]Run actions/checkout@v4
+2024-03-15T10:30:00.0000001Z with:
+2024-03-15T10:30:00.0000002Z   repository: myproject/engine
+2024-03-15T10:30:00.0000003Z   ref: a1b2c3d4e5f6
+2024-03-15T10:30:05.0000000Z ##[endgroup]
+2024-03-15T10:30:06.0000000Z ##[group]Setup Clang 17
+2024-03-15T10:30:07.0000000Z Installing clang-17 clang++-17...
+2024-03-15T10:30:10.0000000Z ##[endgroup]
+2024-03-15T10:30:15.0000000Z -- The CXX compiler identification is Clang 17.0.6
+2024-03-15T10:30:15.0000001Z -- Configuring done
+2024-03-15T10:30:15.0000002Z -- Generating done
+2024-03-15T10:30:20.0000000Z [  5%] Building CXX object src/CMakeFiles/engine.dir/engine.cpp.o
+2024-03-15T10:30:22.0000000Z /home/runner/work/engine/src/engine.cpp:64:25: error: cannot initialize a variable of type 'const char *' with an rvalue of type 'int *'
+2024-03-15T10:30:22.0000001Z     const char* tag = ENGINE_CAST(resource_ptr);
+2024-03-15T10:30:22.0000002Z                        ^~~~~~~~~~~~~~~~~~~~~~~~
+2024-03-15T10:30:22.0000003Z /home/runner/work/engine/include/engine.h:7:42: note: expanded from macro 'ENGINE_CAST'
+2024-03-15T10:30:22.0000004Z  #define ENGINE_CAST(ptr) static_cast<int*>(ptr)
+2024-03-15T10:30:22.0000005Z                                          ^~~
+2024-03-15T10:30:25.0000000Z [ 10%] Building CXX object src/CMakeFiles/engine.dir/plugin.cpp.o
+2024-03-15T10:30:28.0000000Z /home/runner/work/engine/src/plugin.cpp:15:13: error: no member named 'flush_buffer' in 'Engine'
+2024-03-15T10:30:28.0000001Z     engine_.flush_buffer();
+2024-03-15T10:30:28.0000002Z     ~~~~~~~ ^
+2024-03-15T10:30:28.0000003Z /home/runner/work/engine/include/engine.h:9:7: note: 'Engine' declared here
+2024-03-15T10:30:28.0000004Z class Engine {
+2024-03-15T10:30:28.0000005Z       ^
+2024-03-15T10:30:30.0000000Z [ 15%] Building CXX object src/CMakeFiles/engine.dir/crypto.cpp.o
+2024-03-15T10:30:33.0000000Z /home/runner/work/engine/src/crypto.cpp:18:12: error: no matching member function for call to 'update'
+2024-03-15T10:30:33.0000001Z     hasher.update(data, len, /*finalize=*/true);
+2024-03-15T10:30:33.0000002Z     ~~~~~~~^~~~~~
+2024-03-15T10:30:33.0000003Z /home/runner/work/engine/include/crypto.h:14:10: note: candidate function not viable: requires 2 arguments, but 3 were provided
+2024-03-15T10:30:33.0000004Z     void update(const uint8_t* data, size_t len);
+2024-03-15T10:30:33.0000005Z          ^
+2024-03-15T10:30:35.0000000Z [ 20%] Building CXX object src/CMakeFiles/engine.dir/main.cpp.o
+2024-03-15T10:30:38.0000000Z /home/runner/work/engine/src/main.cpp:20:43: error: expected ';' after expression
+2024-03-15T10:30:38.0000001Z     auto buf_sz = engine.buffer_size()
+2024-03-15T10:30:38.0000002Z                                       ^
+2024-03-15T10:30:38.0000003Z                                       ;
+2024-03-15T10:30:40.0000000Z make[2]: *** [src/CMakeFiles/engine.dir/build.make:110: src/CMakeFiles/engine.dir/plugin.cpp.o] Error 1
+2024-03-15T10:30:40.0000001Z make[1]: *** [CMakeFiles/Makefile2:83: src/CMakeFiles/engine.dir/all] Error 2
+2024-03-15T10:30:40.0000002Z make: *** [Makefile:91: all] Error 2
+2024-03-15T10:30:40.0000003Z ##[error]Process completed with exit code 2.

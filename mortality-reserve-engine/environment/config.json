@@ -1,0 +1,62 @@
+{
+  "data_directory": "/app/data",
+  "base_year": 2015,
+  "stress_bps": 50,
+  "valuations": [
+    {
+      "id": "V1",
+      "table_id": 3265,
+      "improvement_table_id": 3612,
+      "issue_age": 45,
+      "issue_year": 2020,
+      "term_years": 20,
+      "annual_interest_rate": 0.04,
+      "valuation_year": 2025,
+      "face_amount": 1000000
+    },
+    {
+      "id": "V2",
+      "table_id": 3265,
+      "improvement_table_id": 3612,
+      "issue_age": 35,
+      "issue_year": 2018,
+      "term_years": 30,
+      "annual_interest_rate": 0.035,
+      "valuation_year": 2025,
+      "face_amount": 500000
+    },
+    {
+      "id": "V3",
+      "table_id": 3265,
+      "improvement_table_id": 3612,
+      "issue_age": 55,
+      "issue_year": 2022,
+      "term_years": 15,
+      "annual_interest_rate": 0.045,
+      "valuation_year": 2025,
+      "face_amount": 750000
+    },
+    {
+      "id": "V4",
+      "table_id": 3265,
+      "improvement_table_id": 3612,
+      "issue_age": 25,
+      "issue_year": 2016,
+      "term_years": 30,
+      "annual_interest_rate": 0.038,
+      "valuation_year": 2025,
+      "face_amount": 250000
+    },
+    {
+      "id": "V5",
+      "table_id": 3265,
+      "improvement_table_id": 3612,
+      "issue_age": 60,
+      "issue_year": 2023,
+      "term_years": 10,
+      "annual_interest_rate": 0.05,
+      "valuation_year": 2025,
+      "face_amount": 2000000
+    }
+  ]
+}

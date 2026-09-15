@@ -1,0 +1,63 @@
+<mujoco model="arm7dof">
+  <compiler angle="radian"/>
+  <option gravity="0 0 -9.81"/>
+
+  <default>
+    <joint damping="0.5" armature="0.01"/>
+    <geom contype="1" conaffinity="1" condim="3" friction="1 0.005 0.001"/>
+  </default>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="2 2 0.01" contype="0" conaffinity="0" rgba="0.9 0.9 0.9 1"/>
+
+    <body name="link1" pos="0 0 0.05">
+      <joint name="j1" type="hinge" axis="0 0 1" range="-2.89 2.89"/>
+      <geom name="g1" type="capsule" fromto="0 0 0 0 0 0.12" size="0.04" mass="2.0" rgba="0.7 0.3 0.1 1"/>
+
+      <body name="link2" pos="0 0 0.12">
+        <joint name="j2" type="hinge" axis="0 1 0" range="-1.76 1.76"/>
+        <geom name="g2" type="capsule" fromto="0 0 0 0 0 0.15" size="0.035" mass="2.0" rgba="0.7 0.5 0.1 1"/>
+
+        <body name="link3" pos="0 0 0.15">
+          <joint name="j3" type="hinge" axis="0 0 1" range="-2.89 2.89"/>
+          <geom name="g3" type="capsule" fromto="0 0 0 0 0 0.12" size="0.03" mass="1.5" rgba="0.1 0.6 0.3 1"/>
+
+          <body name="link4" pos="0 0 0.12">
+            <joint name="j4" type="hinge" axis="0 1 0" range="-2.5 0.5"/>
+            <geom name="g4" type="capsule" fromto="0 0 0 0 0 0.12" size="0.025" mass="1.5" rgba="0.1 0.4 0.6 1"/>
+
+            <body name="link5" pos="0 0 0.12">
+              <joint name="j5" type="hinge" axis="0 0 1" range="-2.89 2.89"/>
+              <geom name="g5" type="capsule" fromto="0 0 0 0 0 0.08" size="0.02" mass="1.0" rgba="0.5 0.1 0.6 1"/>
+
+              <body name="link6" pos="0 0 0.08">
+                <joint name="j6" type="hinge" axis="0 1 0" range="-1.5 2.5"/>
+                <geom name="g6" type="capsule" fromto="0 0 0 0 0 0.06" size="0.018" mass="0.5" rgba="0.6 0.1 0.4 1"/>
+
+                <body name="link7" pos="0 0 0.06">
+                  <joint name="j7" type="hinge" axis="0 0 1" range="-2.89 2.89"/>
+                  <geom name="g7" type="capsule" fromto="0 0 0 0 0 0.04" size="0.015" mass="0.3" rgba="0.4 0.4 0.6 1"/>
+
+                  <site name="ee_site" pos="0 0 0.04" size="0.005" rgba="1 0 0 1"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <body name="obs1" pos="0.22 0.12 0.42">
+      <geom name="obstacle1" type="sphere" size="0.06" rgba="1 0.2 0.2 0.7" contype="1" conaffinity="1" mass="0.001"/>
+    </body>
+
+    <body name="obs2" pos="-0.12 0.18 0.32">
+      <geom name="obstacle2" type="box" size="0.06 0.03 0.03" rgba="0.2 1 0.2 0.7" contype="1" conaffinity="1" mass="0.001"/>
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <key name="home" qpos="0 0.3 0 -1.0 0 0.8 0"/>
+  </keyframe>
+</mujoco>

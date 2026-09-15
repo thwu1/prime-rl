@@ -1,0 +1,6 @@
+{
+  "name": "kernel_gamma",
+  "registers_per_thread": 48,
+  "shared_memory_bytes": 8192,
+  "description": "Balanced resource usage kernel"
+}

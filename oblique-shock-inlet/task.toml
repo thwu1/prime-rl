@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge of compressible gas dynamics: solving the nonlinear theta-beta-Mach oblique shock equation via root-finding, implementing full normal and oblique shock property relations, sequential multi-shock tracking, total pressure recovery computation using the Rayleigh Pitot tube formula, thermally perfect gas modeling with NASA polynomial thermodynamics and iterative conservation law solvers, and constrained optimization of inlet ramp angles. The TPG model demands nested iteration (outer loop on shock angle, inner loop on temperature via energy/momentum conservation). Optimization requires understanding that maximum total pressure recovery involves balancing losses across all shocks — a non-trivial nonlinear constrained optimization problem."""
+solution_explanation = """The solution implements: (1) a CPG oblique shock solver using Brent's method on the theta-beta-M equation, (2) closed-form normal shock relations and total pressure ratio via the Rayleigh Pitot formula, (3) a TPG gas model using NASA 7-coefficient polynomials for Cp/R with analytic enthalpy and entropy integrals, (4) a TPG normal shock solver using Brent's method on the momentum residual with energy-derived downstream velocity, (5) a TPG oblique shock solver with nested iteration — outer root-find on shock angle, inner solve on normal shock conservation, (6) sequential multi-ramp tracking, and (7) SLSQP-based optimization of ramp angles for maximum total pressure recovery."""
+verification_explanation = """Tests include an independent CPG reference implementation using standard textbook oblique/normal shock equations with scipy root-finding. The reference computes expected shock angles, property ratios, and total pressure recovery for each CPG case. TPG verification checks that results diverge from CPG values at high Mach (M=5, Tt~1500K), confirming the gas model produces physically distinct behavior. Optimization tests verify constraint satisfaction (angles sum to total deflection) and that optimized recovery exceeds or matches the equal-angle baseline."""
+category = "aerospace_engineering"
+tags = ["compressible-flow", "numerical-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/oblique-shock-inlet"

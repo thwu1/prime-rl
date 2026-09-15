@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+   <FileHeader revMajor="1" revMinor="1" date="2024-01-15T10:00:00" description="Cross-validation test scenario" author="test-gen"/>
+   <ParameterDeclarations>
+      <ParameterDeclaration name="EgoS" parameterType="double" value="100"/>
+      <ParameterDeclaration name="TargetS" parameterType="double" value="300"/>
+   </ParameterDeclarations>
+   <CatalogLocations/>
+   <RoadNetwork>
+      <LogicFile filepath="network.xodr"/>
+   </RoadNetwork>
+   <Entities>
+      <ScenarioObject name="Ego">
+         <Vehicle name="car_ego" vehicleCategory="car">
+            <BoundingBox>
+               <Center x="1.4" y="0.0" z="0.9"/>
+               <Dimensions width="2.0" height="1.8" length="4.5"/>
+            </BoundingBox>
+            <Axles>
+               <FrontAxle maxSteering="0.5" wheelDiameter="0.6" trackWidth="1.8" positionX="3.1" positionZ="0.3"/>
+               <RearAxle maxSteering="0.0" wheelDiameter="0.6" trackWidth="1.8" positionX="0.0" positionZ="0.3"/>
+            </Axles>
+            <Properties/>
+         </Vehicle>
+      </ScenarioObject>
+      <ScenarioObject name="Target">
+         <Vehicle name="car_target" vehicleCategory="car">
+            <BoundingBox>
+               <Center x="1.4" y="0.0" z="0.9"/>
+               <Dimensions width="2.0" height="1.8" length="4.5"/>
+            </BoundingBox>
+            <Axles>
+               <FrontAxle maxSteering="0.5" wheelDiameter="0.6" trackWidth="1.8" positionX="3.1" positionZ="0.3"/>
+               <RearAxle maxSteering="0.0" wheelDiameter="0.6" trackWidth="1.8" positionX="0.0" positionZ="0.3"/>
+            </Axles>
+            <Properties/>
+         </Vehicle>
+      </ScenarioObject>
+      <ScenarioObject name="Observer">
+         <Vehicle name="car_observer" vehicleCategory="car">
+            <BoundingBox>
+               <Center x="1.4" y="0.0" z="0.9"/>
+               <Dimensions width="2.0" height="1.8" length="4.5"/>
+            </BoundingBox>
+            <Axles>
+               <FrontAxle maxSteering="0.5" wheelDiameter="0.6" trackWidth="1.8" positionX="3.1" positionZ="0.3"/>
+               <RearAxle maxSteering="0.0" wheelDiameter="0.6" trackWidth="1.8" positionX="0.0" positionZ="0.3"/>
+            </Axles>
+            <Properties/>
+         </Vehicle>
+      </ScenarioObject>
+      <ScenarioObject name="Ghost">
+         <Vehicle name="car_ghost" vehicleCategory="car">
+            <BoundingBox>
+               <Center x="1.4" y="0.0" z="0.9"/>
+               <Dimensions width="2.0" height="1.8" length="4.5"/>
+            </BoundingBox>
+            <Axles>
+               <FrontAxle maxSteering="0.5" wheelDiameter="0.6" trackWidth="1.8" positionX="3.1" positionZ="0.3"/>
+               <RearAxle maxSteering="0.0" wheelDiameter="0.6" trackWidth="1.8" positionX="0.0" positionZ="0.3"/>
+            </Axles>
+            <Properties/>
+         </Vehicle>
+      </ScenarioObject>
+      <ScenarioObject name="Phantom">
+         <Vehicle name="car_phantom" vehicleCategory="car">
+            <BoundingBox>
+               <Center x="1.4" y="0.0" z="0.9"/>
+               <Dimensions width="2.0" height="1.8" length="4.5"/>
+            </BoundingBox>
+            <Axles>
+               <FrontAxle maxSteering="0.5" wheelDiameter="0.6" trackWidth="1.8" positionX="3.1" positionZ="0.3"/>
+               <RearAxle maxSteering="0.0" wheelDiameter="0.6" trackWidth="1.8" positionX="0.0" positionZ="0.3"/>
+            </Axles>
+            <Properties/>
+         </Vehicle>
+      </ScenarioObject>
+   </Entities>
+   <Storyboard>
+      <Init>
+         <Actions>
+            <Private entityRef="Ego">
+               <PrivateAction>
+                  <TeleportAction>
+                     <Position>
+                        <LanePosition roadId="0" laneId="-1" offset="0" s="$EgoS"/>
+                     </Position>
+                  </TeleportAction>
+               </PrivateAction>
+            </Private>
+            <Private entityRef="Target">
+               <PrivateAction>
+                  <TeleportAction>
+                     <Position>
+                        <LanePosition roadId="0" laneId="-2" offset="0" s="$TargetS"/>
+                     </Position>
+                  </TeleportAction>
+               </PrivateAction>
+            </Private>
+            <Private entityRef="Observer">
+               <PrivateAction>
+                  <TeleportAction>
+                     <Position>
+                        <LanePosition roadId="0" laneId="1" offset="0" s="50"/>
+                     </Position>
+                  </TeleportAction>
+               </PrivateAction>
+            </Private>
+            <Private entityRef="Ghost">
+               <PrivateAction>
+                  <TeleportAction>
+                     <Position>
+                        <LanePosition roadId="0" laneId="-5" offset="0" s="200"/>
+                     </Position>
+                  </TeleportAction>
+               </PrivateAction>
+            </Private>
+            <Private entityRef="Phantom">
+               <PrivateAction>
+                  <TeleportAction>
+                     <Position>
+                        <LanePosition roadId="7" laneId="-1" offset="0" s="50"/>
+                     </Position>
+                  </TeleportAction>
+               </PrivateAction>
+            </Private>
+         </Actions>
+      </Init>
+      <Story name="EmptyStory">
+         <Act name="EmptyAct">
+            <ManeuverGroup maximumExecutionCount="1" name="EmptyGroup">
+               <Actors selectTriggeringEntities="false"/>
+            </ManeuverGroup>
+            <StartTrigger>
+               <ConditionGroup>
+                  <Condition name="start" delay="0" conditionEdge="none">
+                     <ByValueCondition>
+                        <SimulationTimeCondition value="0" rule="greaterThan"/>
+                     </ByValueCondition>
+                  </Condition>
+               </ConditionGroup>
+            </StartTrigger>
+         </Act>
+      </Story>
+      <StopTrigger>
+         <ConditionGroup>
+            <Condition name="stop" delay="0" conditionEdge="rising">
+               <ByValueCondition>
+                  <SimulationTimeCondition value="10" rule="greaterThan"/>
+               </ByValueCondition>
+            </Condition>
+         </ConditionGroup>
+      </StopTrigger>
+   </Storyboard>
+</OpenSCENARIO>

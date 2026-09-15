@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level domain expertise in QCM-D surface acoustic wave physics, viscoelastic material modeling (power law rheology), and acoustic impedance transfer matrix formalism for multi-layer media. The forward problem demands correct implementation of complex-valued transfer matrices, power law extrapolation across harmonics, and proper handling of semi-infinite boundary conditions including near-resonance behavior at higher harmonics. The inverse problem adds constrained nonlinear optimization over parameters spanning many orders of magnitude. Beyond the physics engine, the solver must explore environmental files to discover a non-standard crystal configuration (non-default fundamental frequency), determine the measurement data format (dissipation reported as delta-D rather than half-bandwidth in Hz), perform the correct unit conversion, and build an analysis pipeline that dispatches different experiment types (calibration, Sauerbrey, Voigt inverse) from metadata-driven experiment directories."""
+solution_explanation = """The solution implements the acoustic impedance transfer matrix method: (1) compute complex shear modulus G*rho at each harmonic via power law |G*|rho_n = |G*|rho_3 * (n/3)^(phi/90), (2) compute acoustic impedance Z = sqrt(G*rho*exp(i*phi)), (3) build 2x2 transfer matrices for each layer's phase propagation and interface scattering, (4) cascade matrices from outermost layer inward to get total load impedance ZL, (5) apply small load approximation deltaf* = f1*i*ZL/(pi*Zq). Semi-infinite layers use ZL=Z as terminal condition. The inverse solver uses scipy.optimize.least_squares with bounds and Jacobian-based scaling. The pipeline reads crystal.toml for non-standard f1=4.95e6, converts delta_D_1e6 to half-bandwidth in Hz via delg = deltaD*1e-6*n*f1/2, and dispatches each experiment to the appropriate analysis routine."""
+verification_explanation = """Tests verify: (1) Sauerbrey limit — rigid thin film gives delf = -2nf1^2*drho/Zq with negligible dissipation, (2) Gordon-Kanazawa — bulk liquid gives |delf|=delg with sqrt(n) scaling matched to analytical formula, (3) vacuum — zero load gives zero shifts, (4) multi-layer coupling — film+liquid differs from film-alone, three-layer differs from two-layer, and near-resonance behavior at high harmonics produces non-monotonic frequency/dissipation, (5) forward-inverse round-trips — recover original properties within 5% including with non-standard crystal parameters, (6) pipeline output — results.json contains correct calibration grho3 (within 2%), Sauerbrey drho using the non-standard f1 from crystal.toml (0.5% tolerance catches wrong f1), and viscoelastic film properties recovered by inverse fitting, (7) self-consistency — forward model with fitted polymer-coating parameters reproduces input measurement data within 3%."""
+category = "applied_computing"
+tags = ["physics-simulation", "numerical-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qcm-viscoelastic-solver-5f283a"

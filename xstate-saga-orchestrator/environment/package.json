@@ -1,0 +1,12 @@
+{
+  "name": "travel-booking-saga",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "xstate": "5.17.4"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "tsx": "4.19.2"
+  }
+}

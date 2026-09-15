@@ -1,0 +1,15 @@
+event,total_waits,time_waited_micro,avg_wait_micro
+db file sequential read,8500000,4250000000,500
+db file scattered read,2100000,2520000000,1200
+free buffer waits,450000,1350000000,3000
+latch: shared pool,1200000,960000000,800
+library cache: mutex X,980000,784000000,800
+buffer busy waits,320000,640000000,2000
+enq: TX - row lock contention,25000,500000000,20000
+cursor: pin S wait on X,560000,448000000,800
+direct path read,700000,350000000,500
+db file parallel read,180000,270000000,1500
+latch: cache buffers chains,280000,178000000,636
+read by other session,420000,150000000,357
+log file sync,50000,120000000,2400
+log file parallel write,48000,80000000,1667

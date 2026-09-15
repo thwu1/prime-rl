@@ -1,0 +1,19 @@
+ Performance counter stats for './web_server --baseline':
+
+         10,003.21 msec task-clock                       #    1.000 CPUs utilized
+             4,500      context-switches                 #  449.856 /sec
+                45      cpu-migrations                   #    4.499 /sec
+             8,900      page-faults                      #  889.714 /sec
+     3,500,000,000      cycles                           #    3.499 GHz
+     3,850,000,000      instructions                     #    1.10  insn per cycle
+     1,000,000,000      branch-instructions              #   99.968 M/sec
+        30,000,000      branch-misses                    #    3.00% of all branches
+       700,000,000      cache-references                 #   69.978 M/sec
+        49,000,000      cache-misses                     #    7.00% of all cache refs
+       280,000,000      stalled-cycles-frontend          #    8.00% frontend cycles idle
+       700,000,000      stalled-cycles-backend           #   20.00% backend cycles idle
+
+         10.004012345 seconds time elapsed
+
+          9.823456789 seconds user
+          0.178901234 seconds sys

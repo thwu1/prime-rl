@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level TCP protocol knowledge: 32-bit sequence number wraparound demands modular arithmetic for all sequence comparisons and sorting (not just linear unsigned comparison), variable-length TCP headers with options require parsing the data offset field correctly to locate payload boundaries, and injection detection requires comparing overlapping byte regions against already-assembled stream data to distinguish exact retransmissions from conflicting payloads. These interact non-trivially — wraparound affects sorting, overlap detection, and retransmission comparison simultaneously. The specification is intentionally sparse on algorithmic details, requiring the solver to draw on deep protocol understanding rather than following step-by-step procedures."""
+solution_explanation = """Implement a C++ program that reads length-prefixed raw IP/TCP packets, verifies IP and TCP checksums (including pseudo-header over variable-length TCP headers with options), groups packets by bidirectional 4-tuple, tracks TCP state machine, and reassembles byte streams using ISN-relative modular arithmetic: sort segments by (seq - ISN) in unsigned space to handle wraparound, compare overlapping payload bytes against assembled data to distinguish retransmissions from injections, and use the TCP data offset field for correct payload extraction with options present."""
+verification_explanation = """Python test suite constructs raw IP/TCP packets with correct checksums for thirteen scenarios: basic connection, out-of-order delivery, exact retransmission, sequence wraparound (ISN near 0xFFFFFFF0), out-of-order with wraparound (segments crossing zero boundary arrive scrambled), TCP timestamp options (32-byte headers), conflicting payload injection detection, multiple interleaved connections, overlapping segments, checksum error handling (corrupted IP checksum skipped and counted), ESTABLISHED state (no teardown), FIN_WAIT state (half-closed), and RESET state (RST received). Tests verify reassembled data byte-for-byte, connection metadata (byte counts, retransmission/injection counts), connection state, and summary checksum error counts."""
+category = "networking"
+tags = ["tcp", "systems-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c43b83"

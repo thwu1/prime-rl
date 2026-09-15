@@ -1,0 +1,211 @@
+// Enterprise Platform Architecture - Dependency Graph
+// Auto-generated from service mesh telemetry data
+// Last updated: 2024-11-15T14:30:00Z
+// WARNING: This graph was auto-generated from production traces. Manual edits may be overwritten.
+
+digraph enterprise_platform {
+    rankdir=TB;
+    compound=true;
+    concentrate=true;
+    node [shape=component, style=filled, fontname="Helvetica"];
+    edge [color="#666666"];
+
+    // ============================================
+    // Cluster declarations
+    // ============================================
+
+    subgraph cluster_presentation {
+        label="Presentation Layer";
+        style=filled;
+        color="#FFE0B2";
+        "web-frontend" [fillcolor="#FFF3E0"];
+        "mobile-app" [fillcolor="#FFF3E0"];
+        "admin-panel" [fillcolor="#FFF3E0"];
+    }
+
+    subgraph cluster_services {
+        label="Service Layer";
+        style=filled;
+        color="#C8E6C9";
+        "api-gateway" [fillcolor="#E8F5E9"];
+        "user-service" [fillcolor="#E8F5E9"];
+        "order-service" [fillcolor="#E8F5E9"];
+        "payment-service" [fillcolor="#E8F5E9"];
+        "notification-service" [fillcolor="#E8F5E9"];
+        "inventory-service" [fillcolor="#E8F5E9"];
+        "reporting-service" [fillcolor="#E8F5E9"];
+        "auth-service" [fillcolor="#E8F5E9"];
+        "search-service" [fillcolor="#E8F5E9"];
+        "shipping-service" [fillcolor="#E8F5E9"];
+        "pricing-service" [fillcolor="#E8F5E9"];
+        "analytics-service" [fillcolor="#E8F5E9"];
+    }
+
+    subgraph cluster_domain {
+        label="Domain Layer";
+        style=filled;
+        color="#BBDEFB";
+        "user-domain" [fillcolor="#E3F2FD"];
+        "order-domain" [fillcolor="#E3F2FD"];
+        "product-domain" [fillcolor="#E3F2FD"];
+        "payment-domain" [fillcolor="#E3F2FD"];
+        "shipping-domain" [fillcolor="#E3F2FD"];
+    }
+
+    subgraph cluster_infrastructure {
+        label="Infrastructure Layer";
+        style=filled;
+        color="#F8BBD0";
+        "db-adapter" [fillcolor="#FCE4EC"];
+        "cache-adapter" [fillcolor="#FCE4EC"];
+        "message-queue" [fillcolor="#FCE4EC"];
+        "email-adapter" [fillcolor="#FCE4EC"];
+        "storage-adapter" [fillcolor="#FCE4EC"];
+        "logging-framework" [fillcolor="#FCE4EC"];
+        "monitoring-adapter" [fillcolor="#FCE4EC"];
+    }
+
+    subgraph cluster_shared {
+        label="Shared / Cross-cutting";
+        style=filled;
+        color="#E1BEE7";
+        "common-utils" [fillcolor="#F3E5F5"];
+        "shared-types" [fillcolor="#F3E5F5"];
+        "event-bus" [fillcolor="#F3E5F5"];
+        "config-manager" [fillcolor="#F3E5F5"];
+        "security-core" [fillcolor="#F3E5F5"];
+        "validation-lib" [fillcolor="#F3E5F5"];
+        "serialization-lib" [fillcolor="#F3E5F5"];
+        "metrics-collector" [fillcolor="#F3E5F5"];
+    }
+
+    // ============================================
+    // Dependency edges
+    // ============================================
+
+    // --- Presentation layer dependencies ---
+    "web-frontend" -> "api-gateway";
+    "web-frontend" -> "auth-service";
+    "web-frontend" -> "cache-adapter";
+    "web-frontend" -> "common-utils";
+    "mobile-app" -> "api-gateway";
+    "mobile-app" -> "common-utils";
+    "admin-panel" -> "api-gateway";
+    "admin-panel" -> "reporting-service";
+    "admin-panel" -> "db-adapter";
+    "admin-panel" -> "common-utils";
+
+    // --- API Gateway ---
+    "api-gateway" -> "user-service";
+    "api-gateway" -> "order-service";
+    "api-gateway" -> "search-service";
+    "api-gateway" -> "auth-service";
+    "api-gateway" -> "shared-types";
+    "api-gateway" -> "security-core";
+
+    // --- User & Auth services ---
+    "user-service" -> "auth-service";
+    "user-service" -> "user-domain";
+    "user-service" -> "db-adapter";
+    "user-service" -> "common-utils";
+    "user-service" -> "shared-types";
+    "user-service" -> "config-manager";
+    "user-service" -> "metrics-collector" [label="telemetry"];
+    "user-service" -> "validation-lib";
+    "auth-service" -> "user-service" [label="identity_lookup", style=bold];
+    "auth-service" -> "db-adapter";
+    "auth-service" -> "cache-adapter";
+    "auth-service" -> "security-core";
+    "auth-service" -> "config-manager";
+    "auth-service" -> "metrics-collector";
+
+    // --- Order processing ---
+    "order-service" -> "inventory-service";
+    "order-service" -> "payment-service";
+    "order-service" -> "shipping-service";
+    "order-service" -> "pricing-service";
+    "order-service" -> "order-domain";
+    "order-service" -> "db-adapter";
+    "order-service" -> "message-queue";
+    "order-service" -> "common-utils";
+    "order-service" -> "shared-types";
+    "order-service" -> "config-manager";
+    "order-service" -> "event-bus" [label="domain_events"];
+    "order-service" -> "metrics-collector";
+    "order-service" -> "validation-lib";
+
+    // --- Payment service ---
+    "payment-service" -> "notification-service" [label="payment_alert"];
+    "payment-service" -> "payment-domain";
+    "payment-service" -> "db-adapter";
+    "payment-service" -> "message-queue";
+    "payment-service" -> "common-utils";
+    "payment-service" -> "shared-types";
+    "payment-service" -> "config-manager";
+    "payment-service" -> "event-bus";
+    "payment-service" -> "metrics-collector";
+    "payment-service" -> "security-core";
+    "payment-service" -> "validation-lib";
+
+    // --- Supporting services ---
+    "notification-service" -> "email-adapter";
+    "notification-service" -> "message-queue";
+    "notification-service" -> "common-utils";
+    "notification-service" -> "event-bus";
+    "inventory-service" -> "order-service" [label="stock_callback", style=dashed];
+    "inventory-service" -> "product-domain";
+    "inventory-service" -> "db-adapter";
+    "inventory-service" -> "cache-adapter";
+    "inventory-service" -> "shared-types";
+    "inventory-service" -> "event-bus";
+
+    // --- Reporting & Analytics ---
+    "reporting-service" -> "order-service";
+    "reporting-service" -> "user-service";
+    "reporting-service" -> "analytics-service";
+    "reporting-service" -> "db-adapter";
+    "reporting-service" -> "common-utils";
+    "analytics-service" -> "reporting-service" [label="data_feed", weight=1];
+    "analytics-service" -> "db-adapter";
+    "analytics-service" -> "common-utils";
+
+    // --- Search, Shipping & Pricing ---
+    "search-service" -> "product-domain";
+    "search-service" -> "cache-adapter";
+    "search-service" -> "common-utils";
+    "shipping-service" -> "notification-service";
+    "shipping-service" -> "inventory-service" [label="fulfillment_req", style=dashed];
+    "shipping-service" -> "shipping-domain";
+    "shipping-service" -> "db-adapter";
+    "shipping-service" -> "shared-types";
+    "shipping-service" -> "common-utils";
+    "shipping-service" -> "event-bus";
+    "pricing-service" -> "product-domain";
+    "pricing-service" -> "common-utils";
+
+    // --- Domain layer internal ---
+    "order-domain" -> "product-domain";
+    "order-domain" -> "user-domain";
+    "payment-domain" -> "order-domain";
+    "shipping-domain" -> "order-domain";
+
+    // --- Infrastructure layer ---
+    "db-adapter" -> "common-utils";
+    "db-adapter" -> "config-manager";
+    "db-adapter" -> "serialization-lib";
+    "cache-adapter" -> "common-utils";
+    "cache-adapter" -> "config-manager";
+    "cache-adapter" -> "serialization-lib";
+    "message-queue" -> "common-utils";
+    "message-queue" -> "config-manager";
+    "message-queue" -> "serialization-lib";
+    "email-adapter" -> "common-utils";
+    "storage-adapter" -> "common-utils";
+    "storage-adapter" -> "serialization-lib";
+    "logging-framework" -> "common-utils";
+    "monitoring-adapter" -> "metrics-collector";
+
+    // --- Cross-cutting dependencies ---
+    "common-utils" -> "logging-framework";
+    "config-manager" -> "db-adapter" [label="config_persistence", weight=2];
+}

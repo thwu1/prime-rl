@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-form Federal tax computation engine that produces both JSON and namespace-qualified XML output. The solver must read and interpret 7 IRS TY2025 reference documents to discover computation rules, tax rate schedules, credit caps, and inter-form dependencies. They must parse dense regulatory prose to extract bracket tables for 5 filing statuses, implement the 25-line Qualified Dividends and Capital Gain Tax Worksheet with filing-status-dependent breakpoints, handle Schedule H employment taxes with IRS ROUND_HALF_UP rounding, compute Form 5695 energy credits with per-category and aggregate caps plus a credit limitation worksheet, and wire Schedules 2/3 into Form 1040. Additionally, the solver must generate XML returns conforming to a provided XSD schema with correct namespace handling, element ordering (xs:sequence), and type restrictions (non-negative vs signed integers), validated by xmllint. JSON output must conform to a provided JSON Schema. Five test scenarios cover single/MFJ/HOH/QSS filing statuses, capital gains with short-term losses, dividend-only preferential rate computation, credit limitation binding, aggregate cap binding, and multiple edge cases."""
+solution_explanation = """The solution hardcodes all TY2025 constants after extracting them from the IRS reference documents, then implements: (1) progressive bracket tax computation, (2) the QDCGTW with 0%/15%/20% rate allocation using filing-status-dependent capital gains breakpoints, (3) Schedule H SS/Medicare/Additional Medicare taxes, (4) Form 5695 Part II with per-category caps, dual aggregate caps ($1,200 non-HP, $2,000 HP), and credit limitation, (5) Schedules 2/3 wiring. Uses Python's Decimal with ROUND_HALF_UP for IRS rounding. XML generation uses xml.etree.ElementTree with namespace registration and element ordering matching the XSD schema. The QDCGTW is triggered by qualified dividends > 0 or by Schedule D lines 15 and 16 both positive, and takes the minimum of preferential-rate tax and regular-rate tax."""
+verification_explanation = """Tests validate both JSON and XML outputs. JSON Schema validation via jsonschema library ensures structural conformance. xmllint --schema validates all XML against the XSD (namespace, element ordering, type constraints). XML content spot-checks verify key values per scenario match expected golden values. Five scenarios test: (1) Single/2 W-2s/Schedule H/energy credits, (2) MFJ/dividends/capital gains testing QDCGTW with 0% and 15% segments, (3) HOH/credit limitation binding/ROUND_HALF_UP on 0.50, (4) Single/3 W-2s/all forms active/ST loss/aggregate cap binding/0% portion is zero, (5) QSS/dividends-only QDCGTW/Schedule H with FIT/all dividends at 0%. Each scenario verifies 15-30 key line values across all forms in both JSON and XML."""
+category = "applied_computing"
+tags = ["tax-computation", "regulatory-interpretation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/federal-tax-engine-3b7dd3"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """No methodology documentation or algorithm specification is provided — the agent must independently know or research EPA ProUCL 5.2's full statistical methodology from primary sources. This requires expert-level environmental statistics knowledge: (1) implementing the Kaplan-Meier product-limit estimator correctly adapted for left-censored data with specific tie-breaking and descending-sort conventions, (2) determining ProUCL 5.2's non-obvious hierarchical GOF testing scheme with distribution-specific significance levels, (3) correctly deriving multiple UCL computation formulas (Student's-t, adjusted-CLT gamma, Chebyshev, KM variants) and the decision logic for selecting among them, and (4) evaluating when statistical estimators produce unreliable results due to detection limit characteristics. The agent must independently judge which methods apply to each dataset's properties and make methodologically sound decisions throughout."""
+solution_explanation = """The solution implements a complete ProUCL 5.2 analysis pipeline derived from EPA methodology knowledge: parses CSV datasets, implements the left-censored KM estimator with correct descending sort and detect-before-censored tie-breaking, applies hierarchical GOF testing (Shapiro-Wilk at alpha=0.01 for normal, K-S with MLE gamma at alpha=0.05, Shapiro-Wilk on log-transformed at alpha=0.10 for lognormal), computes Student's-t / adjusted-CLT gamma / Chebyshev / KM-based UCLs, follows the distribution-dependent decision logic for method recommendation, and evaluates KM estimator reliability by comparing KM UCLs against DL/2 substitution means."""
+verification_explanation = """Tests independently implement the KM algorithm and compute reference statistics using scipy/numpy. Verifies output structure across all 4 datasets, sample counts, basic statistics within tolerance, GOF test conclusions matching independent scipy computation, distribution classifications, UCL method recommendations consistent with ProUCL decision logic, UCL values within 3-5% of independently computed references, KM statistics accuracy (mean, SD, SE, S_final), KM inappropriateness flag correctness for both benign and pathological detection limit spreads, and cross-dataset sanity checks."""
+category = "mathematics_of_computing"
+tags = ["environmental-statistics", "censored-data"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9fbfcb"

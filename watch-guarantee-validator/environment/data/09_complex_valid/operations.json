@@ -1,0 +1,18 @@
+{
+  "operations": [
+    {"type": "put", "key": "d/1", "value": "alpha", "revision": 2},
+    {"type": "put", "key": "d/2", "value": "beta", "revision": 3},
+    {"type": "txn", "ops": [
+      {"type": "put", "key": "d/1", "value": "gamma"},
+      {"type": "put", "key": "d/3", "value": "delta"}
+    ], "revision": 4},
+    {"type": "delete", "key": "d/2", "revision": 5},
+    {"type": "put", "key": "d/2", "value": "epsilon", "revision": 6},
+    {"type": "txn", "ops": [
+      {"type": "put", "key": "d/1", "value": "zeta"},
+      {"type": "delete", "key": "d/3"}
+    ], "revision": 7},
+    {"type": "put", "key": "d/4", "value": "eta", "revision": 8}
+  ],
+  "compact_revision": null
+}

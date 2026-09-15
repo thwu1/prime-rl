@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of CIS benchmark security hardening across multiple Linux subsystems: sysctl network tuning, OpenSSH server configuration, POSIX file permissions, and auditd rule syntax. The solver must debug 14+ subtle bugs in a hardening script (wrong file paths, parameter name typos, reversed key=value format, incorrect permission modes, missing remediation entries, wrong audit rule key names, missing 64-bit architecture rules) and then write a comprehensive compliance audit script that programmatically verifies system state across all four subsystems and outputs structured JSON. Demands proficiency in shell scripting, Linux security administration, and CIS benchmark specifications."""
+solution_explanation = """Fix all bugs in harden.sh: (1) sysctl_set writes to /etc/sysctl.d/ drop-in instead of /etc/sysctl.conf, (2) fix reversed key=value format to key=value, (3) fix parameter name typo accept_redirect to accept_redirects, (4) fix rp_filter value 2 to 1, (5) add sysctl --system to apply settings, (6) fix SSH MaxAuthRetries to MaxAuthTries, (7) fix ClientAliveCountMax 3 to 0, (8) fix LogLevel DEBUG to INFO, (9) fix PermitRootLogin without-password to no, (10) remove aes256-cbc from ciphers, (11) fix /etc/shadow permissions 0644 to 0640, (12) add /etc/gshadow remediation, (13) fix /etc/shadow- permissions 0644 to 0600, (14) add /etc/gshadow- remediation, (15) fix audit key time_change to time-change, (16) add b64 arch audit rules. Then write audit.sh that reads config files, checks file permissions, parses audit rules, and outputs a JSON compliance report with all controls passing."""
+verification_explanation = """Tests run the fixed harden.sh, then independently verify system state: sysctl config file location and format and parameter values in /etc/sysctl.d/; SSH directives in sshd_config; file permission modes via os.stat; audit rule contents in /etc/audit/rules.d/. Then runs audit.sh and validates the JSON report structure, control count (>=20), summary consistency, and all-pass status."""
+category = "systems_security"
+tags = ["cis-benchmark", "linux-hardening"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cis-hardening-audit"

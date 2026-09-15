@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of C undefined behavior categories (signed integer
+overflow, strict aliasing violations via incompatible pointer types), knowledge of GCC's optimization
+pipeline and how individual passes exploit UB assumptions, and the ability to distinguish well-defined
+programs from UB-containing ones across five cases of varying subtlety. The agent must independently
+devise a methodology for isolating the responsible optimization flag from 130+ candidates, handle the
+special case where signed overflow is exploited by multiple passes simultaneously, evaluate programmer
+intent from source code to determine correct output semantics, and design portable C fixes that
+eliminate UB while preserving algorithmic purpose."""
+solution_explanation = """Compile each case at -O0 and -O2 to detect behavioral divergence. For
+differing cases, enumerate enabled -O2 flags via gcc -Q -O2 --help=optimizers, then systematically
+disable each to identify which restores -O0 behavior. For signed overflow where multiple passes exploit
+the UB simultaneously, -fwrapv restores wrapping semantics. Classify UB by analyzing source patterns:
+post-hoc overflow checks on signed addition indicate signed integer overflow; accessing memory through
+incompatible pointer types indicates strict aliasing violations. Design fixes using safe alternatives
+such as __builtin_add_overflow for overflow detection and memcpy-based type punning for aliasing."""
+verification_explanation = """Tests dynamically compile each original and fixed program at -O0 and -O2,
+verifying reported outputs match actual compilation results. For cases with behavior_differs=true, the
+test compiles with the reported flag adjusted and checks output matches -O0. Fixed versions must produce
+consistent correct output at both optimization levels. Coverage constraints ensure the report correctly
+identifies at least 2 differing and 2 consistent cases, preventing trivial solutions."""
+category = "debugging"
+tags = ["compiler-optimization", "undefined-behavior"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gcc-optimization-forensics"

@@ -1,0 +1,31 @@
+[
+  {"step": 1, "agent": "agentA0", "action": "attach", "params": ["s"]},
+  {"step": 1, "agent": "agentA1", "action": "attach", "params": ["s"]},
+
+  {"step": 2, "agent": "agentA0", "action": "attach", "params": ["e"]},
+  {"step": 2, "agent": "agentA1", "action": "move", "params": ["n"]},
+
+  {"step": 3, "agent": "agentA0", "action": "submit", "params": ["task1"]},
+  {"step": 3, "agent": "agentA1", "action": "skip", "params": []},
+
+  {"step": 4, "agent": "agentA0", "action": "rotate", "params": ["cw"]},
+  {"step": 4, "agent": "agentA1", "action": "move", "params": ["n", "n"]},
+
+  {"step": 5, "agent": "agentA0", "action": "move", "params": ["n"]},
+  {"step": 5, "agent": "agentA1", "action": "move", "params": ["w"]},
+
+  {"step": 6, "agent": "agentA0", "action": "detach", "params": ["w"]},
+  {"step": 6, "agent": "agentA1", "action": "skip", "params": []},
+
+  {"step": 7, "agent": "agentA0", "action": "move", "params": ["n", "n"]},
+  {"step": 7, "agent": "agentA1", "action": "skip", "params": []},
+
+  {"step": 8, "agent": "agentA0", "action": "rotate", "params": ["ccw"]},
+  {"step": 8, "agent": "agentA1", "action": "skip", "params": []},
+
+  {"step": 9, "agent": "agentA0", "action": "move", "params": ["s"]},
+  {"step": 9, "agent": "agentA1", "action": "skip", "params": []},
+
+  {"step": 10, "agent": "agentA0", "action": "submit", "params": ["task2"]},
+  {"step": 10, "agent": "agentA1", "action": "skip", "params": []}
+]

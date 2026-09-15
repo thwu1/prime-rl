@@ -1,0 +1,5 @@
+{
+  "ciphertext_hex": "70f4e974aeb9176ace932eb7c91cc9c5315bb8a0672b63affe59fb8948f07fdba96b19d6a818842b",
+  "nonce_hex": "0011223344556677",
+  "description": "Compute a valid authentication tag for this ciphertext under the given nonce. Write the tag as a 16-character lowercase hex string to /app/output/forged_tag.txt"
+}

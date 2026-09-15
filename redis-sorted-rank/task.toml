@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of the entire server architecture — the poll()-based event loop, binary protocol serialization with tagged types, progressive-rehashing hashtable, AVL tree with subtree-count augmentation, and the dual-indexed sorted set combining both. ZUNIONSTORE/ZINTERSTORE require inventing a cross-set iteration strategy that has no precedent in any existing command: the solver must determine how to traverse source sets (AVL tree walk or hashtable iteration across progressive rehashing), handle variable-argument parsing with optional keyword modifiers (WEIGHTS, AGGREGATE), manage the case where the destination key overlaps a source key (requiring full data collection before overwrite), create new sorted sets with correct dual-index initialization in the top-level database, and implement three aggregation modes with weight multiplication. ZREMRANGEBYSCORE demands understanding the interaction between bulk deletion and dual-index consistency — naively deleting during traversal corrupts the AVL tree, so all target nodes must be collected first, then removed from both indices in coordinated fashion. ZRANGEBYSCORE requires efficient score-bounded iteration with optional pagination, which differs from the existing zquery command's seek-and-offset model. No single command can be implemented by following existing patterns; each requires design decisions spanning multiple subsystem boundaries."""
+solution_explanation = """For ZUNIONSTORE: parse numkeys and optional WEIGHTS/AGGREGATE from variable-length command args. For each source set, traverse the AVL tree from its leftmost node using avl_offset(+1), collecting member names and weighted scores into an std::unordered_map. When a member appears in multiple sources, aggregate using SUM/MIN/MAX. Delete the existing dest key (any type), create a new T_ZSET Entry, and insert all result entries via zset_insert (which maintains both indices). For ZINTERSTORE: find the smallest source set by avl_cnt, iterate only its members, and for each check existence in all other sets via zset_lookup (O(1) via hashtable). Only members present in all sets get aggregated weighted scores. For ZREMRANGEBYSCORE: use zset_seekge(min_score, "", 0) to find the first qualifying element, walk forward with znode_offset collecting all nodes with score <= max_score into a vector, then call zset_delete on each (which handles both AVL tree removal and hashtable removal). Collecting before deleting prevents tree corruption during traversal. For ZRANGEBYSCORE: seek to min_score, skip offset elements within the score range, then emit up to count name-score pairs."""
+verification_explanation = """Tests start the compiled server and connect via the binary protocol using a Python client. ZUNIONSTORE is tested with basic union, weighted scores, three aggregation modes, single source, non-existent sources, destination overwrite (including string keys), destination-as-source, three-way union, wrong-type error, and a 200-element stress test. ZINTERSTORE is tested with basic intersection, no-common-members, weights, aggregation modes, single source, non-existent source producing empty result, three-way intersection, and wrong-type error. ZREMRANGEBYSCORE is tested with basic removal, exact boundaries, empty range, full removal, non-existent key, wrong-type, remaining-element verification, min > max, and a 500-element set. ZRANGEBYSCORE is tested with basic range, partial range, LIMIT with offset and count, negative count, offset beyond range, empty range, non-existent key, wrong-type, and a large set. Integration tests verify cross-command consistency including union-then-query, remove-then-count, and a combined stress test with random operations."""
+category = "systems_programming"
+tags = ["data-structures", "network-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/redis-sorted-rank"

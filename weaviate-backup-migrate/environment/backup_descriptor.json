@@ -1,0 +1,403 @@
+{
+  "id": "backup-20240315-prod",
+  "version": "2.0",
+  "server_version": "1.26.3",
+  "status": "SUCCESS",
+  "start_timestamp": "2024-03-15T02:00:00Z",
+  "completion_timestamp": "2024-03-15T02:45:33Z",
+  "cluster": {
+    "node_count": 4,
+    "nodes": {
+      "weaviate-0": {"address": "10.0.1.10", "status": "ALIVE"},
+      "weaviate-1": {"address": "10.0.1.11", "status": "ALIVE"},
+      "weaviate-2": {"address": "10.0.1.12", "status": "ALIVE"},
+      "weaviate-3": {"address": "10.0.1.13", "status": "SUSPECT"}
+    }
+  },
+  "collections": [
+    {
+      "class": "Article",
+      "schema": {
+        "class": "Article",
+        "description": "News articles with semantic and keyword search capabilities",
+        "vectorizer": "text2vec-contextionary",
+        "vectorIndexType": "hnsw",
+        "vectorIndexConfig": {
+          "efConstruction": 512,
+          "maxConnections": 64,
+          "vectorCacheMaxObjects": 500000,
+          "ef": 256,
+          "distance": "cosine",
+          "dimensions": 300,
+          "pq": {
+            "enabled": true,
+            "segments": 15,
+            "centroids": 256,
+            "trainingLimit": 100000,
+            "encoder": {"type": "kmeans", "distribution": "log-normal"}
+          }
+        },
+        "replicationConfig": {
+          "factor": 3,
+          "asyncEnabled": false
+        },
+        "multiTenancyConfig": {"enabled": false},
+        "properties": [
+          {"name": "title", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": true},
+          {"name": "body", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": false},
+          {"name": "category", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "published_at", "dataType": ["date"], "indexFilterable": true},
+          {"name": "author", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "featured_images", "dataType": ["ImageEmbed"], "description": "Cross-reference to related image assets"}
+        ],
+        "invertedIndexConfig": {
+          "bm25": {"b": 0.75, "k1": 1.2},
+          "stopwords": {"preset": "en"},
+          "indexTimestamps": true
+        }
+      },
+      "shardingState": {
+        "physical": {
+          "aB1cD2eF": {
+            "name": "aB1cD2eF",
+            "belongsToNodes": ["weaviate-0", "weaviate-1", "weaviate-2"],
+            "owningNode": "weaviate-0",
+            "objectCount": 25000,
+            "status": "READY",
+            "replicaObjectCounts": {
+              "weaviate-0": 25000,
+              "weaviate-1": 25000,
+              "weaviate-2": 24891
+            },
+            "tombstoneCount": 5230,
+            "compactionStatus": "BEHIND"
+          },
+          "gH3iJ4kL": {
+            "name": "gH3iJ4kL",
+            "belongsToNodes": ["weaviate-1", "weaviate-2", "weaviate-3"],
+            "owningNode": "weaviate-1",
+            "objectCount": 22000,
+            "status": "READY",
+            "replicaObjectCounts": {
+              "weaviate-1": 22000,
+              "weaviate-2": 22000,
+              "weaviate-3": 22000
+            }
+          },
+          "mN5oP6qR": {
+            "name": "mN5oP6qR",
+            "belongsToNodes": ["weaviate-2", "weaviate-3", "weaviate-0"],
+            "owningNode": "weaviate-2",
+            "objectCount": 18500,
+            "status": "READY",
+            "replicaObjectCounts": {
+              "weaviate-2": 18500,
+              "weaviate-3": 18500,
+              "weaviate-0": 18500
+            }
+          }
+        }
+      }
+    },
+    {
+      "class": "Product",
+      "schema": {
+        "class": "Product",
+        "description": "E-commerce product catalog with per-tenant isolation",
+        "vectorizer": "text2vec-transformers",
+        "vectorIndexType": "hnsw",
+        "vectorIndexConfig": {
+          "efConstruction": 256,
+          "maxConnections": 32,
+          "vectorCacheMaxObjects": 50000,
+          "ef": 128,
+          "distance": "cosine",
+          "dimensions": 384
+        },
+        "replicationConfig": {
+          "factor": 1
+        },
+        "multiTenancyConfig": {
+          "enabled": true,
+          "autoTenantCreation": false,
+          "autoTenantActivation": false
+        },
+        "properties": [
+          {"name": "name", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": true},
+          {"name": "description", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": false},
+          {"name": "price", "dataType": ["number"], "indexFilterable": true},
+          {"name": "brand", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "sku", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "in_stock", "dataType": ["boolean"], "indexFilterable": true}
+        ],
+        "invertedIndexConfig": {
+          "bm25": {"b": 0.75, "k1": 1.2},
+          "stopwords": {"preset": "en"},
+          "indexTimestamps": false
+        }
+      },
+      "shardingState": {
+        "physical": {
+          "tenant-acme-corp": {
+            "name": "tenant-acme-corp",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 3200,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-globex": {
+            "name": "tenant-globex",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 2800,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-initech": {
+            "name": "tenant-initech",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 1500,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-umbrella": {
+            "name": "tenant-umbrella",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 2100,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-wonka": {
+            "name": "tenant-wonka",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 1800,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-stark": {
+            "name": "tenant-stark",
+            "belongsToNodes": ["weaviate-1"],
+            "owningNode": "weaviate-1",
+            "objectCount": 2500,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-wayne": {
+            "name": "tenant-wayne",
+            "belongsToNodes": ["weaviate-1"],
+            "owningNode": "weaviate-1",
+            "objectCount": 1900,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-oscorp": {
+            "name": "tenant-oscorp",
+            "belongsToNodes": ["weaviate-1"],
+            "owningNode": "weaviate-1",
+            "objectCount": 2200,
+            "status": "READY",
+            "tenantStatus": "INACTIVE"
+          },
+          "tenant-cyberdyne": {
+            "name": "tenant-cyberdyne",
+            "belongsToNodes": ["weaviate-2"],
+            "owningNode": "weaviate-2",
+            "objectCount": 1700,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-weyland": {
+            "name": "tenant-weyland",
+            "belongsToNodes": ["weaviate-2"],
+            "owningNode": "weaviate-2",
+            "objectCount": 3100,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-soylent": {
+            "name": "tenant-soylent",
+            "belongsToNodes": ["weaviate-2"],
+            "owningNode": "weaviate-2",
+            "objectCount": 1400,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-tyrell": {
+            "name": "tenant-tyrell",
+            "belongsToNodes": ["weaviate-2"],
+            "owningNode": "weaviate-2",
+            "objectCount": 5000,
+            "status": "READONLY",
+            "tenantStatus": "FROZEN"
+          },
+          "tenant-aperture": {
+            "name": "tenant-aperture",
+            "belongsToNodes": ["weaviate-3"],
+            "owningNode": "weaviate-3",
+            "objectCount": 2500,
+            "status": "READY",
+            "tenantStatus": "ACTIVE"
+          },
+          "tenant-black-mesa": {
+            "name": "tenant-black-mesa",
+            "belongsToNodes": ["weaviate-3"],
+            "owningNode": "weaviate-3",
+            "objectCount": 1000,
+            "status": "READY",
+            "tenantStatus": "INACTIVE"
+          },
+          "tenant-abstergo": {
+            "name": "tenant-abstergo",
+            "belongsToNodes": ["weaviate-3"],
+            "owningNode": "weaviate-3",
+            "objectCount": 0,
+            "status": "READY",
+            "tenantStatus": "OFFLOADED"
+          }
+        }
+      }
+    },
+    {
+      "class": "SearchLog",
+      "schema": {
+        "class": "SearchLog",
+        "description": "Search query audit logs with BM25 keyword search only",
+        "vectorizer": "none",
+        "vectorIndexType": "hnsw",
+        "vectorIndexConfig": {
+          "skip": true
+        },
+        "replicationConfig": {
+          "factor": 1
+        },
+        "multiTenancyConfig": {"enabled": false},
+        "properties": [
+          {"name": "query_text", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": true},
+          {"name": "query_text_zh", "dataType": ["text"], "tokenization": "gse", "indexSearchable": true, "indexFilterable": false},
+          {"name": "query_text_ja", "dataType": ["text"], "tokenization": "kagome_ja", "indexSearchable": true, "indexFilterable": false},
+          {"name": "timestamp", "dataType": ["date"], "indexFilterable": true},
+          {"name": "result_count", "dataType": ["int"], "indexFilterable": true},
+          {"name": "user_id", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "session_id", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "matched_articles", "dataType": ["Article"], "description": "Cross-reference to matched article results"}
+        ],
+        "invertedIndexConfig": {
+          "bm25": {"b": 0.75, "k1": 1.2},
+          "stopwords": {"preset": "en"},
+          "indexTimestamps": true
+        }
+      },
+      "shardingState": {
+        "physical": {
+          "sT7uV8wX": {
+            "name": "sT7uV8wX",
+            "belongsToNodes": ["weaviate-0"],
+            "owningNode": "weaviate-0",
+            "objectCount": 50000,
+            "status": "READY"
+          },
+          "yZ9aB0cD": {
+            "name": "yZ9aB0cD",
+            "belongsToNodes": ["weaviate-2"],
+            "owningNode": "weaviate-2",
+            "objectCount": 45000,
+            "status": "READY"
+          }
+        }
+      }
+    },
+    {
+      "class": "ImageEmbed",
+      "schema": {
+        "class": "ImageEmbed",
+        "description": "Image assets with dual CLIP and text description vector indices",
+        "vectorizer": "none",
+        "vectorIndexType": "hnsw",
+        "namedVectors": {
+          "clip_vector": {
+            "vectorizer": "multi2vec-clip",
+            "vectorIndexType": "hnsw",
+            "vectorIndexConfig": {
+              "efConstruction": 384,
+              "maxConnections": 48,
+              "vectorCacheMaxObjects": 200000,
+              "ef": 192,
+              "distance": "cosine",
+              "dimensions": 512,
+              "pq": {
+                "enabled": true,
+                "segments": 16,
+                "centroids": 256,
+                "trainingLimit": 50000
+              }
+            }
+          },
+          "description_vector": {
+            "vectorizer": "text2vec-openai",
+            "vectorIndexType": "hnsw",
+            "vectorIndexConfig": {
+              "efConstruction": 256,
+              "maxConnections": 32,
+              "vectorCacheMaxObjects": 150000,
+              "ef": 128,
+              "distance": "cosine",
+              "dimensions": 1536,
+              "pq": {
+                "enabled": false
+              }
+            }
+          }
+        },
+        "replicationConfig": {
+          "factor": 2
+        },
+        "multiTenancyConfig": {"enabled": false},
+        "properties": [
+          {"name": "image_url", "dataType": ["text"], "tokenization": "field", "indexFilterable": true},
+          {"name": "description", "dataType": ["text"], "tokenization": "word", "indexSearchable": true, "indexFilterable": false},
+          {"name": "tags", "dataType": ["text[]"], "tokenization": "word", "indexFilterable": true},
+          {"name": "uploaded_at", "dataType": ["date"], "indexFilterable": true},
+          {"name": "width", "dataType": ["int"], "indexFilterable": true},
+          {"name": "height", "dataType": ["int"], "indexFilterable": true}
+        ],
+        "invertedIndexConfig": {
+          "bm25": {"b": 0.75, "k1": 1.2},
+          "stopwords": {"preset": "en"},
+          "indexTimestamps": false
+        }
+      },
+      "shardingState": {
+        "physical": {
+          "eF1gH2iJ": {
+            "name": "eF1gH2iJ",
+            "belongsToNodes": ["weaviate-0", "weaviate-1"],
+            "owningNode": "weaviate-0",
+            "objectCount": 8000,
+            "status": "READY",
+            "replicaObjectCounts": {
+              "weaviate-0": 8000,
+              "weaviate-1": 8000
+            }
+          },
+          "kL3mN4oP": {
+            "name": "kL3mN4oP",
+            "belongsToNodes": ["weaviate-2", "weaviate-3"],
+            "owningNode": "weaviate-2",
+            "objectCount": 7500,
+            "status": "READY",
+            "replicaObjectCounts": {
+              "weaviate-2": 7500,
+              "weaviate-3": 7500
+            },
+            "tombstoneCount": 12450,
+            "compactionStatus": "BEHIND"
+          }
+        }
+      }
+    }
+  ]
+}

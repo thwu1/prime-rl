@@ -1,0 +1,21 @@
+{
+  "budget": 18,
+  "targets": {
+    "alloca_heavy": {
+      "forbidden_patterns": ["alloca"],
+      "description": "All stack allocations must be promoted to SSA registers"
+    },
+    "dead_paths": {
+      "forbidden_patterns": ["77001", "77002", "77003", "77004", "77005", "77006", "77007", "77008", "77009"],
+      "description": "All dead computations (using distinctive constants 7700x) must be eliminated"
+    },
+    "loop_compute": {
+      "forbidden_patterns": ["88001", "88002", "88003", "88004"],
+      "description": "Dead loop code (using constants 8800x) must be eliminated; loop-invariant computations should be hoisted"
+    },
+    "common_subexpr": {
+      "max_instruction_count": 11,
+      "description": "Redundant computations must be eliminated via global value numbering"
+    }
+  }
+}

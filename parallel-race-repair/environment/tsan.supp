@@ -1,0 +1,5 @@
+# Suppress known false positives in the OpenMP runtime libraries.
+# TSan reports internal races in libomp/libgomp mutex init/lock
+# sequences that are not actual data races in user code.
+race:libomp
+race:libgomp

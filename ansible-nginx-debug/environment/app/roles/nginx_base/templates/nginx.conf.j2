@@ -1,0 +1,32 @@
+# Nginx main configuration - {{ inventory_hostname }}
+user {{ nginx_user }};
+worker_processes {{ nginx_worker_processes }};
+pid {{ nginx_pid }};
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log {{ nginx_access_log }};
+    error_log {{ nginx_error_log }};
+
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    server_tokens {{ nginx_server_tokens }};
+
+{% for key, value in nginx_extra_params.items() %}
+    {{ key }} {{ value }};
+{% endfor %}
+
+{% if nginx_gzip | default(false) %}
+    gzip on;
+    gzip_types {{ nginx_gzip_types | join(' ') }};
+{% endif %}
+
+    limit_req_zone $binary_remote_addr {{ nginx_rate_limit_zone }};
+
+    include {{ nginx_output_dir }}/sites-enabled/*.conf;
+}

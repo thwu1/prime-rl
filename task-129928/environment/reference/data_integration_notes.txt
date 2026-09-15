@@ -1,0 +1,47 @@
+PhysioNet Challenge 2026 — Data Integration Notes
+==================================================
+
+The Challenge data includes clinical records from multiple source systems.
+To produce a complete view of each patient's diagnostic history, records
+from all available sources must be integrated.
+
+Source Systems
+--------------
+1. Electronic Health Records (EHR): Direct clinical encounters documented
+   by providers. Stored in the `ehr_diagnoses` table with columns:
+   patient_id, icd_code, diagnosis_date, encounter_type, provider_id.
+
+2. Administrative Claims: Insurance claims data reflecting billed services.
+   Stored in the `claims_diagnoses` table. Note: claims records use a
+   different identifier system (member_id) than EHR records (patient_id).
+   The `patient_linkage` table maps between these identifiers.
+
+ICD Code Formats
+----------------
+ICD codes may appear in different formats across systems:
+- EHR records typically store codes in clinical format WITH punctuation
+  (e.g., "G31.84", "290.0", "F03.90")
+- Claims records typically store codes in billing format WITHOUT punctuation
+  (e.g., "G3184", "2900", "F0390")
+- The qualifying codes reference table stores codes WITHOUT punctuation
+
+All codes must be normalized to a common format before comparison against
+the qualifying codes reference.
+
+Deduplication
+-------------
+When the same diagnostic event is captured in both EHR and claims systems,
+it should be counted as a single event. Deduplication should be performed
+on the basis of:
+- Same patient (after linkage resolution)
+- Same ICD code (after normalization to dot-free format)
+- Same date
+
+After deduplication, temporal rules (e.g., gap requirements between
+diagnoses) should be applied to the deduplicated set of events.
+
+Important: Two qualifying diagnoses on the same date count as two events
+for purposes of the "two or more qualifying codes" requirement, but the
+gap between them is zero days, which does not satisfy the one-week gap
+requirement unless other qualifying events on different dates provide the
+necessary separation.

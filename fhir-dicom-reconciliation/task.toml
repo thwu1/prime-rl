@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level mastery of two intersecting healthcare interoperability standards — DICOM Part-10 and FHIR R4 — and the ability to bridge them without guidance. The solver must independently determine how to parse DICOM binary objects (understanding Value Representations like DA, TM, PN, SQ and the full patient/study/series/instance tag hierarchy), model the FHIR R4 resource graph (Patient identifiers with type coding, ImagingStudy backbone elements, CodeableConcept structures, reference resolution), and derive the correct semantic mappings between the two standards (e.g., CodingSchemeDesignator values to FHIR system URIs, PatientSex codes to FHIR gender vocabulary, DICOM date formats to ISO-8601). Beyond field-level comparison, the solver must design a robust study-matching strategy that handles corrupted UIDs, detect cross-resource referential integrity violations (studies referencing the wrong patient), validate coded terminology systems against the correct DICOM ontology URI, and correctly extract nested Sequence VR data for procedure code reconciliation. The instruction deliberately does not enumerate these challenges — the solver must discover them from the data."""
+solution_explanation = """Uses pydicom to recursively scan all .dcm files, building a nested patient-study-series-instance data model with Procedure Code Sequence extraction from SQ VR attributes. Builds study-UID and accession-number indexes for multi-strategy matching. For each FHIR ImagingStudy, attempts UID-based matching first, falls back to accession-number matching when UIDs are corrupted, identifies the DICOM patient owner, and validates the FHIR subject reference against the expected patient. Compares 15+ fields per study: dates with DICOM DA-to-ISO-8601 conversion, identifiers (MRN, UID, accession), demographics (PatientSex to FHIR gender mapping), counts (numberOfSeries, numberOfInstances from actual DICOM data), descriptions, referring physicians (PN VR format), series-level modality codes and system URIs, and procedureCode (DICOM ProcedureCodeSequence to FHIR CodeableConcept with CodingSchemeDesignator-to-system-URI mapping). Detects 23 inconsistencies spanning value mismatches, missing elements, cross-reference errors, coding system URI violations, and malformed coded entries."""
+verification_explanation = """Tests verify the reconciliation report contains at least 18 inconsistencies with proper summary structure, then check 29 specific assertions across 4 patients and 5 imaging studies: Sally birthDate, study date, numberOfSeries, description, and procedureCode addition; Joe MRN, study UID, modality, numberOfInstances, and subject reference correction from wrong to correct patient; Andy gender, accession, referrer, numberOfInstances, and modality system URI; Ravi CT study date, numberOfSeries, numberOfInstances, and procedureCode correction from LOINC to SNOMED; Ravi CR description, accession, and modality system URI. Cross-reference integrity is validated by confirming Joe corrected subject reference points to Patient/siim-joe not the erroneous Patient/siim-andy."""
+category = "medical_informatics"
+tags = ["dicom", "fhir", "healthcare-interoperability", "data-reconciliation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-dicom-reconciliation"

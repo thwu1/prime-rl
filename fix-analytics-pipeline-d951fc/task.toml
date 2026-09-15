@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging five SQL views and a stored function with cascading dependencies. View 1 needs GENERATE_SERIES with CROSS JOIN + LEFT JOIN pattern for gap-filling. View 2 has three coupled bugs: window frame size, STDDEV_POP vs STDDEV_SAMP, and WHERE-before-window semantics requiring a subquery wrapper. View 3's recursive CTE traverses the wrong direction, conflates direct/transitive counts, and omits revenue calculation. View 4 requires dynamic days-in-month arithmetic plus LAG/NTILE window functions replacing hardcoded stubs. View 5 is a broken partial implementation requiring complete redesign with multi-CTE joins across booking details, member lookups, and revenue attribution with tie-breaking. The stored function has four bugs: wrong cost column selection, CURRENT_DATE instead of fixed epoch, missing 0.5 weight factor, and no zero-division guard. Views 2 and 5 form a dependency chain (5 reads from 2), and the function reads from view 3, so bugs cascade: fixing upstream views may reveal new failures downstream."""
+solution_explanation = """View 1: Replace INNER JOIN with GENERATE_SERIES(Jul1..Jan31) CROSS JOIN facilities LEFT JOIN aggregated bookings with COALESCE(revenue, 0). View 2: Wrap window computation in a CTE over all dates (no WHERE), use 14 PRECEDING (not 15), STDDEV_POP (not STDDEV), then filter to Aug-Sep in outer SELECT; zscore uses CASE to null out zero-stddev. View 3: Reverse recursive CTE direction (JOIN cd.members m ON m.recommendedby = n.current_member), count direct referrals separately via subquery on recommendedby column, compute network_revenue by joining descendants with bookings. View 4: Replace hardcoded 30 with (month + INTERVAL '1 month')::date - month::date for actual days, add LAG(total_revenue) OVER (PARTITION BY facid ORDER BY month), compute growth_pct from LAG result, use NTILE(3) OVER (PARTITION BY month ORDER BY total_revenue DESC) mapped to 'high'/'medium'/'low'. View 5: Complete rewrite using CTE chain — filter revenue_rolling_stats for |zscore| > 1.5, join with booking-level revenue aggregated per (facid, date, memid), ROW_NUMBER to find dominant booker with tie-break on memid, join members for name formatting. Function: Fix CASE WHEN for membercost/guestcost, use '2013-02-01'::date for tenure, add 0.5 multiplier on network_revenue, wrap denominator in GREATEST(tenure, 1)."""
+verification_explanation = """Tests connect to PostgreSQL via psycopg2 and verify: row counts (1935, 549, 31, 28), specific computed values (utilization percentages 23.2/63.5/72.0/34.8/0.1, rolling average sums ~1126.83/~1703.40, member 1 network size 10 with depth 3), structural properties (zero-revenue days exist, direct_referrals <= total_network_size, anomaly zscore threshold, anomaly_type matching zscore sign), population standard deviation correctness, July lookback inclusion, view 5 row count matching filtered rolling stats, dominant booker correctness via independent SQL computation, dominant_pct accuracy, function formula correctness across all members (membercost vs guestcost, 0.5 network weight, fixed tenure date, no division by zero)."""
+category = "databases"
+tags = ["postgresql", "window-functions"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-analytics-pipeline-d951fc"

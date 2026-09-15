@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -Wall -O2
+
+all: cache_core
+
+cache_core: cache_core.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f cache_core

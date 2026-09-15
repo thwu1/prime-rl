@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of MySQL HA architecture spanning replication topology failure detection, semi-synchronous replication semantics, raft consensus, and the Consul/GLB service discovery stack. The agent must: (1) parse complex nested orchestrator topology JSON exports using jq and Python, understanding the data model well enough to extract GTID positions from UUID:range formatted strings; (2) implement orchestrator's complete failure detection taxonomy (20+ failure types) with subtle classification logic including SQL-delayed replica exclusion, semi-sync timeout threshold behavior, and intermediate master analysis; (3) build a multi-tool recovery pipeline integrating jq for JSON processing, Python for analysis logic, consul CLI for KV-based service discovery updates, and haproxy for configuration generation and validation; (4) understand cross-tool data flow: jq-extracted metadata feeds Python analysis, Python output drives consul KV updates and haproxy config generation; (5) handle five distinct incident scenarios requiring holistic understanding of how failure classification, raft consensus, recovery gating, promotion ranking, and outage timing interact. The agent must synthesize behavior from reference documentation and make expert judgments about edge cases."""
+solution_explanation = """Implement analyze.py with: topology JSON parser extracting instances, orchestrator nodes, and cluster config from nested format; GTID position parser for UUID:start-end strings; failure classifier implementing the full master and IM taxonomy with correct ordering of checks; multi-criteria promotion ranker; raft quorum calculator; recovery gating with 5 blocking conditions; outage estimator using the documented timing model. Implement pipeline.sh with: jq-based topology validation, analyze.py invocation, conditional consul KV updates for master failures, sed-based HAProxy config generation from template with init-addr none for DNS-less validation, and report writing."""
+verification_explanation = """Tests start a consul agent in dev mode and run the pipeline across 5 incidents. 27 pytest assertions verify: correct failure type classification per incident, correct promotion candidate selection, correct raft leader identification, correct outage estimates using the timing model, Consul KV state after recovery (updated for master failures, unchanged for IM failures and blocked recoveries), HAProxy config validity via haproxy -c -f, and that pipeline.sh actually uses jq/consul/haproxy tools."""
+category = "database_systems"
+tags = ["mysql-replication", "high-availability"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mysql-failover-engine"

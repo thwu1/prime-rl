@@ -1,0 +1,15 @@
+table inet mangle {
+	chain output {
+		type route hook output priority mangle; policy accept;
+		oifname "eth0" tcp dport 80 meta mark set 0x0000000a
+		oifname "eth0" tcp dport 443 meta mark set 0x0000000a
+		oifname "eth0" tcp dport 8080 meta mark set 0x0000000b
+		oifname "eth0" udp dport 5060 meta mark set 0x0000000c
+		oifname "eth0" tcp dport 3306 meta mark set 0x0000000d
+		oifname "eth0" tcp dport 5432 meta mark set 0x0000000e
+		oifname "eth0" tcp dport 9999 meta mark set 0x0000000f
+		oifname "eth1" tcp dport 22 meta mark set 0x00000014
+		oifname "eth1" udp dport 161 meta mark set 0x00000015
+		oifname "eth1" udp dport 5060 meta mark set 0x0000000c
+	}
+}

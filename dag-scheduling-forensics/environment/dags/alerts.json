@@ -1,0 +1,28 @@
+{
+  "dag_id": "alerts",
+  "schedule_interval": "0 2 * * *",
+  "default_args": {
+    "retries": 3,
+    "retry_delay_seconds": 60,
+    "execution_timeout_seconds": 900
+  },
+  "tasks": [
+    {
+      "task_id": "wait_refresh",
+      "operator": "ExternalTaskSensor",
+      "dependencies": [],
+      "external_dag_id": "data_refresh",
+      "external_task_id": "rebuild_index"
+    },
+    {
+      "task_id": "check_sla",
+      "operator": "PythonOperator",
+      "dependencies": ["wait_refresh"]
+    },
+    {
+      "task_id": "send_alerts",
+      "operator": "PythonOperator",
+      "dependencies": ["check_sla"]
+    }
+  ]
+}

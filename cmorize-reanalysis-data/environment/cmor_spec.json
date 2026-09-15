@@ -1,0 +1,110 @@
+{
+    "dataset_id": "ERA5syn",
+    "project_id": "OBS",
+    "data_type": "reanaly",
+    "version": "v1",
+    "mip": "Amon",
+    "variables": {
+        "tas": {
+            "raw_name": "t2m",
+            "standard_name": "air_temperature",
+            "long_name": "Near-Surface Air Temperature",
+            "units": "K",
+            "comment": "near-surface (usually, 2 meter) air temperature; see errata for known data quality issues requiring correction",
+            "positive": "",
+            "cell_methods": "area: time: mean",
+            "auxiliary_coordinates": {
+                "height": {
+                    "value": 2.0,
+                    "units": "m",
+                    "standard_name": "height",
+                    "long_name": "height",
+                    "axis": "Z",
+                    "positive": "up"
+                }
+            }
+        },
+        "huss": {
+            "raw_name": null,
+            "derived_from": ["d2m", "sp"],
+            "standard_name": "specific_humidity",
+            "long_name": "Near-Surface Specific Humidity",
+            "units": "1",
+            "comment": "near-surface (2 meter) specific humidity; derive from 2-metre dewpoint temperature and surface pressure using standard thermodynamic relationships",
+            "positive": "",
+            "cell_methods": "area: time: mean",
+            "auxiliary_coordinates": {
+                "height": {
+                    "value": 2.0,
+                    "units": "m",
+                    "standard_name": "height",
+                    "long_name": "height",
+                    "axis": "Z",
+                    "positive": "up"
+                }
+            }
+        },
+        "pr": {
+            "raw_name": "tp",
+            "standard_name": "precipitation_flux",
+            "long_name": "Precipitation",
+            "units": "kg m-2 s-1",
+            "comment": "includes both liquid and solid phases",
+            "positive": "",
+            "cell_methods": "area: time: mean",
+            "raw_units_description": "monthly accumulated total in meters of water equivalent",
+            "fill_value_in_raw": -9999.0
+        },
+        "rsds": {
+            "raw_name": "ssrd",
+            "standard_name": "surface_downwelling_shortwave_flux_in_air",
+            "long_name": "Surface Downwelling Shortwave Radiation",
+            "units": "W m-2",
+            "comment": "surface downwelling shortwave radiation",
+            "positive": "down",
+            "cell_methods": "area: time: mean",
+            "raw_units_description": "monthly accumulated total in J m-2"
+        }
+    },
+    "required_global_attributes": {
+        "Conventions": "CF-1.7",
+        "source": "ERA5syn synthetic reanalysis",
+        "institution": "Synthetic Data Institute",
+        "institution_id": "SDI",
+        "title": "ERA5syn data reformatted for ESMValTool",
+        "contact": "synthetic@example.org"
+    },
+    "coordinate_conventions": {
+        "latitude": {
+            "standard_name": "latitude",
+            "long_name": "latitude",
+            "units": "degrees_north",
+            "axis": "Y",
+            "direction": "increasing",
+            "bounds": "required"
+        },
+        "longitude": {
+            "standard_name": "longitude",
+            "long_name": "longitude",
+            "units": "degrees_east",
+            "axis": "X",
+            "range": [0.0, 360.0],
+            "bounds": "required"
+        },
+        "time": {
+            "standard_name": "time",
+            "long_name": "time",
+            "units": "days since 1850-01-01 00:00:00",
+            "calendar": "gregorian",
+            "axis": "T",
+            "bounds": "required",
+            "value_position": "middle_of_bounds"
+        }
+    },
+    "output_filename_template": "{project_id}_{dataset_id}_{data_type}_{version}_{mip}_{variable}_{start_date}-{end_date}.nc",
+    "data_type_requirements": {
+        "data": "float32",
+        "coordinates": "float64",
+        "bounds": "float64"
+    }
+}

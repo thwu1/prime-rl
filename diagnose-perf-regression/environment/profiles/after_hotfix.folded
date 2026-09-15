@@ -1,0 +1,29 @@
+# Post-hotfix CPU profile - after hotfix A and B applied
+# Captured via: perf record -F 99 -a -g -- sleep 60 | perf script | stackcollapse-perf.pl
+# Date: 2024-11-20 09:15:00 UTC
+# Host: prod-dataflow-01
+# Load: 2,483 req/s (STILL DEGRADED)
+main;handle_requests;process_request;parse_headers 190
+main;handle_requests;process_request;execute_query;scan_index;compare_keys 415
+main;handle_requests;process_request;execute_query;fetch_rows;decode_column 355
+main;handle_requests;process_request;send_response;format_output 150
+main;handle_requests;process_request;send_response;flush_buffer 130
+main;handle_requests;validate_request;check_auth;verify_hmac 575
+main;handle_requests;validate_request;check_rate_limit 80
+main;load_data;read_source;open_stream;init_buffer 40
+main;load_data;read_source;read_chunk;decompress_block 285
+main;load_data;read_source;read_chunk;copy_to_buffer 155
+main;load_data;transform;apply_schema;map_fields 110
+main;load_data;transform;apply_schema;coerce_types 90
+main;load_data;transform;validate_record;check_constraints 70
+main;load_data;transform;validate_record;compute_checksum 60
+main;load_data;transform;validate_record;recompute_hash 1200
+main;manage_cache;evict_stale;scan_entries;check_ttl 130
+main;manage_cache;evict_stale;free_entry 50
+main;manage_cache;insert_entry;hash_key 100
+main;manage_cache;insert_entry;alloc_slot;find_free 80
+main;log_event;format_message;timestamp_now 45
+main;log_event;format_message;serialize_fields 50
+main;log_event;write_log;acquire_lock 35
+main;log_event;write_log;append_buffer;flush_to_disk 38
+main;idle;epoll_wait_loop 400

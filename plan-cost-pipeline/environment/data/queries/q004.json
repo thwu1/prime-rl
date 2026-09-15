@@ -1,0 +1,16 @@
+{
+  "name": "q004",
+  "template": "chain3_zero",
+  "join_graph": {
+    "nodes": ["s", "t", "u"],
+    "edges": [["s", "t"], ["t", "u"]]
+  },
+  "subplans": {
+    "s": {"actual": 0, "estimated": 50},
+    "t": {"actual": 100, "estimated": 80},
+    "u": {"actual": 200, "estimated": 250},
+    "s,t": {"actual": 0, "estimated": 100},
+    "t,u": {"actual": 500, "estimated": 400},
+    "s,t,u": {"actual": 0, "estimated": 300}
+  }
+}

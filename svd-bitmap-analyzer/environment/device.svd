@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<device schemaVersion="1.1" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:noNamespaceSchemaLocation="CMSIS-SVD.xsd">
+  <vendor>TestCorp</vendor>
+  <name>TC100</name>
+  <version>1.0</version>
+  <description>Test Device TC100</description>
+  <addressUnitBits>8</addressUnitBits>
+  <width>32</width>
+  <size>32</size>
+  <resetValue>0x00000000</resetValue>
+  <resetMask>0xFFFFFFFF</resetMask>
+
+  <peripherals>
+    <!-- TIMER0: exercises field-level and register-level MWV, register arrays, writeConstraint, partial enums -->
+    <peripheral>
+      <name>TIMER0</name>
+      <description>General Purpose Timer</description>
+      <baseAddress>0x40000000</baseAddress>
+      <registers>
+        <!-- CR: mixed modifiedWriteValues across fields -->
+        <register>
+          <name>CR</name>
+          <description>Control Register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>EN</name>
+              <description>Timer Enable</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+              <modifiedWriteValues>oneToClear</modifiedWriteValues>
+            </field>
+            <field>
+              <name>MODE</name>
+              <description>Timer Mode</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue>
+                  <name>OneShot</name>
+                  <description>One-shot mode</description>
+                  <value>0</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>Continuous</name>
+                  <description>Continuous mode</description>
+                  <value>1</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>PWM</name>
+                  <description>PWM mode</description>
+                  <value>2</value>
+                </enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field>
+              <name>PRESCALER</name>
+              <description>Clock Prescaler</description>
+              <bitOffset>3</bitOffset>
+              <bitWidth>5</bitWidth>
+              <writeConstraint>
+                <range>
+                  <minimum>0</minimum>
+                  <maximum>31</maximum>
+                </range>
+              </writeConstraint>
+            </field>
+            <field>
+              <name>IRQ_CLR</name>
+              <description>Interrupt Clear Flags</description>
+              <bitOffset>8</bitOffset>
+              <bitWidth>4</bitWidth>
+              <modifiedWriteValues>oneToSet</modifiedWriteValues>
+            </field>
+            <field>
+              <name>SYNC_RST</name>
+              <description>Synchronous Reset Flags</description>
+              <bitOffset>16</bitOffset>
+              <bitWidth>4</bitWidth>
+              <modifiedWriteValues>zeroToClear</modifiedWriteValues>
+            </field>
+            <field>
+              <name>TOGGLE_BITS</name>
+              <description>Toggle Control</description>
+              <bitOffset>24</bitOffset>
+              <bitWidth>4</bitWidth>
+              <modifiedWriteValues>oneToToggle</modifiedWriteValues>
+            </field>
+          </fields>
+        </register>
+
+        <!-- SR: read-only, should be excluded from bitmap analysis -->
+        <register>
+          <name>SR</name>
+          <description>Status Register</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>BUSY</name>
+              <description>Timer Busy</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>OVF</name>
+              <description>Overflow Flag</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <!-- ARR: full register, no special MWV -->
+        <register>
+          <name>ARR</name>
+          <description>Auto-reload Register</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0xFFFFFFFF</resetValue>
+          <fields>
+            <field>
+              <name>RELOAD</name>
+              <description>Reload Value</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>32</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <!-- ICLR: register-level MWV with field-level overrides -->
+        <register>
+          <name>ICLR</name>
+          <description>Interrupt Clear Register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <modifiedWriteValues>oneToClear</modifiedWriteValues>
+          <fields>
+            <field>
+              <name>OVF_CLR</name>
+              <description>Clear overflow interrupt</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>UDF_CLR</name>
+              <description>Clear underflow interrupt</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>CC_CLR</name>
+              <description>Clear compare match interrupt</description>
+              <bitOffset>2</bitOffset>
+              <bitWidth>1</bitWidth>
+              <modifiedWriteValues>zeroToSet</modifiedWriteValues>
+            </field>
+            <field>
+              <name>BRK_CLR</name>
+              <description>Clear break interrupt</description>
+              <bitOffset>3</bitOffset>
+              <bitWidth>1</bitWidth>
+              <modifiedWriteValues>zeroToToggle</modifiedWriteValues>
+            </field>
+          </fields>
+        </register>
+
+        <!-- CCR%s: register array (dim=4) -->
+        <register>
+          <dim>4</dim>
+          <dimIncrement>4</dimIncrement>
+          <dimIndex>0,1,2,3</dimIndex>
+          <name>CCR%s</name>
+          <description>Capture/Compare Register %s</description>
+          <addressOffset>0x10</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>VALUE</name>
+              <description>Capture/Compare Value</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>16</bitWidth>
+              <writeConstraint>
+                <range>
+                  <minimum>0</minimum>
+                  <maximum>65535</maximum>
+                </range>
+              </writeConstraint>
+            </field>
+            <field>
+              <name>FLAGS</name>
+              <description>Channel Flags</description>
+              <bitOffset>16</bitOffset>
+              <bitWidth>4</bitWidth>
+              <modifiedWriteValues>oneToSet</modifiedWriteValues>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- DMA: has overlapping registers at offset 0x14 -->
+    <peripheral>
+      <name>DMA</name>
+      <description>DMA Controller</description>
+      <baseAddress>0x40020000</baseAddress>
+      <registers>
+        <register>
+          <name>ISR</name>
+          <description>Interrupt Status Register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>GIF</name>
+              <description>Global interrupt flag</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>TCIF</name>
+              <description>Transfer complete flag</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>IFCR</name>
+          <description>Interrupt Flag Clear Register</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>write-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>CGIF</name>
+              <description>Clear global interrupt flag</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>CTCIF</name>
+              <description>Clear transfer complete flag</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>S0CR</name>
+          <description>Stream 0 Configuration Register</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>EN</name>
+              <description>Stream Enable</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>DMEIE</name>
+              <description>Direct Mode Error Interrupt Enable</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>DIR</name>
+              <description>Data transfer direction</description>
+              <bitOffset>6</bitOffset>
+              <bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue>
+                  <name>PeripheralToMemory</name>
+                  <description>Peripheral to memory</description>
+                  <value>0</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>MemoryToPeripheral</name>
+                  <description>Memory to peripheral</description>
+                  <value>1</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>MemoryToMemory</name>
+                  <description>Memory to memory</description>
+                  <value>2</value>
+                </enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field>
+              <name>PSIZE</name>
+              <description>Peripheral data size</description>
+              <bitOffset>11</bitOffset>
+              <bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue>
+                  <name>Byte</name>
+                  <description>8-bit</description>
+                  <value>0</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>HalfWord</name>
+                  <description>16-bit</description>
+                  <value>1</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>Word</name>
+                  <description>32-bit</description>
+                  <value>2</value>
+                </enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field>
+              <name>MSIZE</name>
+              <description>Memory data size</description>
+              <bitOffset>13</bitOffset>
+              <bitWidth>2</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>S0NDTR</name>
+          <description>Stream 0 Number of Data Register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>NDT</name>
+              <description>Number of data items to transfer</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>16</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>S0PAR</name>
+          <description>Stream 0 Peripheral Address Register</description>
+          <addressOffset>0x10</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>PA</name>
+              <description>Peripheral Address</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>32</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <!-- S0M0AR and ALT_CFG both at offset 0x14 - deliberate overlap -->
+        <register>
+          <name>S0M0AR</name>
+          <description>Stream 0 Memory 0 Address Register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>M0A</name>
+              <description>Memory 0 Address</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>32</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>ALT_CFG</name>
+          <description>Alternate Configuration Register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <name>ALT_EN</name>
+              <description>Alternate mode enable</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <name>ALT_MODE</name>
+              <description>Alternate mode selection</description>
+              <bitOffset>1</bitOffset>
+              <bitWidth>3</bitWidth>
+              <writeConstraint>
+                <range>
+                  <minimum>1</minimum>
+                  <maximum>6</maximum>
+                </range>
+              </writeConstraint>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- GPIOA: field arrays with register-level MWV, full enum coverage -->
+    <peripheral>
+      <name>GPIOA</name>
+      <description>General-purpose I/O Port A</description>
+      <baseAddress>0x48000000</baseAddress>
+      <registers>
+        <register>
+          <name>MODER</name>
+          <description>Port Mode Register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x28000000</resetValue>
+          <fields>
+            <field>
+              <dim>16</dim>
+              <dimIncrement>2</dimIncrement>
+              <dimIndex>0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15</dimIndex>
+              <name>MODE%s</name>
+              <description>Port x configuration bits</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue>
+                  <name>Input</name>
+                  <description>Input mode</description>
+                  <value>0</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>Output</name>
+                  <description>General purpose output mode</description>
+                  <value>1</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>Alternate</name>
+                  <description>Alternate function mode</description>
+                  <value>2</value>
+                </enumeratedValue>
+                <enumeratedValue>
+                  <name>Analog</name>
+                  <description>Analog mode</description>
+                  <value>3</value>
+                </enumeratedValue>
+              </enumeratedValues>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>ODR</name>
+          <description>Output Data Register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <modifiedWriteValues>oneToToggle</modifiedWriteValues>
+          <fields>
+            <field>
+              <dim>16</dim>
+              <dimIncrement>1</dimIncrement>
+              <dimIndex>0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15</dimIndex>
+              <name>OD%s</name>
+              <description>Port output data bit %s</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+          </fields>
+        </register>
+
+        <register>
+          <name>BSRR</name>
+          <description>Bit Set/Reset Register</description>
+          <addressOffset>0x18</addressOffset>
+          <size>32</size>
+          <access>write-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field>
+              <dim>16</dim>
+              <dimIncrement>1</dimIncrement>
+              <dimIndex>0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15</dimIndex>
+              <name>BS%s</name>
+              <description>Set bit %s</description>
+              <bitOffset>0</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+            <field>
+              <dim>16</dim>
+              <dimIncrement>1</dimIncrement>
+              <dimIndex>0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15</dimIndex>
+              <name>BR%s</name>
+              <description>Reset bit %s</description>
+              <bitOffset>16</bitOffset>
+              <bitWidth>1</bitWidth>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- GPIOB: derived from GPIOA, inherits all registers -->
+    <peripheral derivedFrom="GPIOA">
+      <name>GPIOB</name>
+      <description>General-purpose I/O Port B</description>
+      <baseAddress>0x48000400</baseAddress>
+    </peripheral>
+  </peripherals>
+</device>

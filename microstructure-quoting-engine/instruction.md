@@ -1,0 +1,3 @@
+A market-making simulation system at `/app/` processes 5000 synthetic market events from `/app/data/events.csv` and generates automated quotes. The Python engine package at `/app/engine/` contains multiple bugs introduced during a recent refactor that cause it to produce mathematically invalid results — financial invariants are violated, risk signals behave contrary to their intended purpose, and the quoting logic misprices under varying market conditions.
+
+Diagnose and fix all bugs across the engine modules. When corrected, `python3 /app/run.py` should complete successfully and produce output files under `/app/output/` that satisfy standard quantitative finance invariants for the implemented models.

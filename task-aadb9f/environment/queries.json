@@ -1,0 +1,110 @@
+{
+  "queries": [
+    {
+      "id": 1,
+      "type": "occupancy",
+      "architecture": "volta",
+      "kernel": "kernel_alpha",
+      "block_size": 256
+    },
+    {
+      "id": 2,
+      "type": "occupancy",
+      "architecture": "volta",
+      "kernel": "kernel_beta",
+      "block_size": 256
+    },
+    {
+      "id": 3,
+      "type": "occupancy",
+      "architecture": "ampere",
+      "kernel": "kernel_gamma",
+      "block_size": 256
+    },
+    {
+      "id": 4,
+      "type": "occupancy",
+      "architecture": "hopper",
+      "kernel": "kernel_epsilon",
+      "block_size": 512
+    },
+    {
+      "id": 5,
+      "type": "optimal_block_size",
+      "architecture": "volta",
+      "kernel": "kernel_alpha"
+    },
+    {
+      "id": 6,
+      "type": "optimal_block_size",
+      "architecture": "ampere",
+      "kernel": "kernel_beta"
+    },
+    {
+      "id": 7,
+      "type": "optimal_block_size",
+      "architecture": "volta",
+      "kernel": "kernel_gamma"
+    },
+    {
+      "id": 8,
+      "type": "optimal_block_size",
+      "architecture": "hopper",
+      "kernel": "kernel_delta"
+    },
+    {
+      "id": 9,
+      "type": "occupancy",
+      "architecture": "volta",
+      "kernel": "kernel_epsilon",
+      "block_size": 128
+    },
+    {
+      "id": 10,
+      "type": "occupancy",
+      "architecture": "hopper",
+      "kernel": "kernel_gamma",
+      "block_size": 384
+    },
+    {
+      "id": 11,
+      "type": "concurrent_max_blocks",
+      "architecture": "volta",
+      "kernel1": "kernel_alpha",
+      "block_size1": 256,
+      "num_blocks1": 1,
+      "kernel2": "kernel_epsilon",
+      "block_size2": 128
+    },
+    {
+      "id": 12,
+      "type": "concurrent_max_blocks",
+      "architecture": "ampere",
+      "kernel1": "kernel_beta",
+      "block_size1": 256,
+      "num_blocks1": 2,
+      "kernel2": "kernel_gamma",
+      "block_size2": 256
+    },
+    {
+      "id": 13,
+      "type": "occupancy",
+      "architecture": "hopper",
+      "kernel": "kernel_beta",
+      "block_size": 1024
+    },
+    {
+      "id": 14,
+      "type": "occupancy",
+      "architecture": "volta",
+      "kernel": "kernel_zeta",
+      "block_size": 256
+    },
+    {
+      "id": 15,
+      "type": "optimal_block_size",
+      "architecture": "volta",
+      "kernel": "kernel_epsilon"
+    }
+  ]
+}

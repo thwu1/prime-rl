@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of datacenter congestion control theory encompassing both practical simulation and theoretical analysis. The agent must implement two independent approaches — a CSIG-AIMD iterative simulation (in-band telemetry with compare-and-replace tag aggregation, weighted AIMD rate control) AND the progressive filling algorithm for computing exact weighted max-min fair rates — then cross-validate that the simulation converges to the theoretical allocation. Progressive filling is a graduate-level networking algorithm requiring understanding of how bottleneck links saturate in order of tightness, how fixing rates at one bottleneck redistributes residual capacity across other links that those flows traverse, and why the resulting allocation is max-min fair. The topology has 4 bottleneck groups with flows crossing high-capacity connector links, and the agent must correctly distinguish bottleneck from connector links during the filling process. Multi-tool integration (gnuplot, jq, DOT/CSV parsing, Python) adds practical complexity."""
+solution_explanation = """Parse DOT edges with regex for link id/capacity. Parse CSV flows with colon-separated paths. Implement CSIG-AIMD: each round compute per-link utilization, aggregate CSIG tags via max along paths, apply weighted AIMD, clamp rates. Run 10000 rounds with 7000 warmup, average post-warmup rates. Implement progressive filling: iteratively find the link with minimum per-weight share among remaining flows (checking ALL links including connectors), fix rates, subtract consumed bandwidth. The filling order is L2(10/w)→L0(15/w)→L1(20/w)→L6(30/w); connectors L3, L4, L5 never become the tightest bottleneck. Compare simulation and analytical rates, generate gnuplot convergence plot."""
+verification_explanation = """Tests verify: (1) all 7 output files exist including gnuplot plot, (2) JSON validity via jq, (3) analytical rates match progressive filling solution within 0.5% (tight tolerance ensures correct algorithm), (4) simulation rates match within 8%, (5) comparison.json relative errors bounded, (6) bottleneck links correct per flow from progressive filling, (7) filling order sequence [L2,L0,L1,L6] with monotonically increasing per-weight rates, (8) saturated links near 1.0 utilization and connectors below 0.6, (9) per-weight rate proportionality within bottleneck groups, (10) convergence data format and content, (11) generality test on a second unseen topology verifying both simulation and analytical correctness."""
+category = "networking"
+tags = ["congestion-control", "fairness-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/csig-congestion-simulator"

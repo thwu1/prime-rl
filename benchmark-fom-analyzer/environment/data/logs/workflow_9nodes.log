@@ -1,0 +1,80 @@
+========================================
+ML4NSE Workflow Benchmark
+Configuration: dataset=p_322_data_np_res_16, dimensions=8x8x8, replicas=1
+Nodes: 9 (8 level-1 + 1 level-2)
+Model: Temporal Fusion Transformer (TFT)
+========================================
+Data stream initialized at 2024-01-15T10:30:00
+Stream protocol: ZeroMQ (PUSH/PULL)
+Stream transfer rate: 61.14 Gbps
+Avg. receive transfer rate (per rank): 133.80 Mbps
+
+Training configuration:
+  Learning rate: 0.001
+  Batch size: 64
+  Epochs: 50
+  Optimizer: Adam
+  Scheduler: CosineAnnealing
+
+Training started...
+Epoch  1/50: loss=0.8234, val_loss=0.8456, rmse=0.4521, lr=0.001000
+Epoch  2/50: loss=0.7123, val_loss=0.7345, rmse=0.3987, lr=0.001000
+Epoch  3/50: loss=0.6234, val_loss=0.6456, rmse=0.3512, lr=0.000990
+Epoch  4/50: loss=0.5567, val_loss=0.5789, rmse=0.3198, lr=0.000980
+Epoch  5/50: loss=0.4912, val_loss=0.5134, rmse=0.2876, lr=0.000970
+Epoch  6/50: loss=0.4345, val_loss=0.4567, rmse=0.2612, lr=0.000955
+Epoch  7/50: loss=0.3867, val_loss=0.4089, rmse=0.2389, lr=0.000940
+Epoch  8/50: loss=0.3423, val_loss=0.3645, rmse=0.2187, lr=0.000920
+Epoch  9/50: loss=0.3012, val_loss=0.3234, rmse=0.1998, lr=0.000900
+Epoch 10/50: loss=0.2678, val_loss=0.2900, rmse=0.1834, lr=0.000875
+Epoch 11/50: loss=0.2387, val_loss=0.2609, rmse=0.1689, lr=0.000850
+Epoch 12/50: loss=0.2134, val_loss=0.2356, rmse=0.1567, lr=0.000820
+Epoch 13/50: loss=0.1912, val_loss=0.2134, rmse=0.1456, lr=0.000790
+Epoch 14/50: loss=0.1723, val_loss=0.1945, rmse=0.1367, lr=0.000755
+Epoch 15/50: loss=0.1556, val_loss=0.1778, rmse=0.1289, lr=0.000720
+Epoch 16/50: loss=0.1412, val_loss=0.1634, rmse=0.1223, lr=0.000680
+Epoch 17/50: loss=0.1289, val_loss=0.1511, rmse=0.1167, lr=0.000640
+Epoch 18/50: loss=0.1178, val_loss=0.1400, rmse=0.1112, lr=0.000600
+Epoch 19/50: loss=0.1082, val_loss=0.1304, rmse=0.1067, lr=0.000555
+Epoch 20/50: loss=0.0998, val_loss=0.1220, rmse=0.1023, lr=0.000510
+Epoch 21/50: loss=0.0923, val_loss=0.1145, rmse=0.0987, lr=0.000465
+Epoch 22/50: loss=0.0856, val_loss=0.1078, rmse=0.0945, lr=0.000420
+Epoch 23/50: loss=0.0798, val_loss=0.1020, rmse=0.0912, lr=0.000375
+Epoch 24/50: loss=0.0745, val_loss=0.0967, rmse=0.0878, lr=0.000330
+Epoch 25/50: loss=0.0698, val_loss=0.0920, rmse=0.0849, lr=0.000290
+Epoch 26/50: loss=0.0656, val_loss=0.0878, rmse=0.0823, lr=0.000250
+Epoch 27/50: loss=0.0618, val_loss=0.0840, rmse=0.0798, lr=0.000215
+Epoch 28/50: loss=0.0584, val_loss=0.0806, rmse=0.0778, lr=0.000180
+Epoch 29/50: loss=0.0553, val_loss=0.0775, rmse=0.0756, lr=0.000150
+Epoch 30/50: loss=0.0525, val_loss=0.0747, rmse=0.0738, lr=0.000120
+Epoch 31/50: loss=0.0499, val_loss=0.0721, rmse=0.0721, lr=0.000095
+Epoch 32/50: loss=0.0476, val_loss=0.0698, rmse=0.0705, lr=0.000075
+Epoch 33/50: loss=0.0456, val_loss=0.0678, rmse=0.0692, lr=0.000058
+Epoch 34/50: loss=0.0438, val_loss=0.0660, rmse=0.0679, lr=0.000045
+Epoch 35/50: loss=0.0421, val_loss=0.0643, rmse=0.0667, lr=0.000035
+Epoch 36/50: loss=0.0407, val_loss=0.0629, rmse=0.0656, lr=0.000027
+Epoch 37/50: loss=0.0394, val_loss=0.0616, rmse=0.0645, lr=0.000021
+Epoch 38/50: loss=0.0382, val_loss=0.0604, rmse=0.0636, lr=0.000016
+Epoch 39/50: loss=0.0372, val_loss=0.0594, rmse=0.0628, lr=0.000013
+Epoch 40/50: loss=0.0363, val_loss=0.0585, rmse=0.0621, lr=0.000010
+Epoch 41/50: loss=0.0354, val_loss=0.0576, rmse=0.0614, lr=0.000008
+Epoch 42/50: loss=0.0346, val_loss=0.0568, rmse=0.0608, lr=0.000006
+Epoch 43/50: loss=0.0339, val_loss=0.0561, rmse=0.0603, lr=0.000005
+Epoch 44/50: loss=0.0332, val_loss=0.0554, rmse=0.0598, lr=0.000004
+Epoch 45/50: loss=0.0326, val_loss=0.0548, rmse=0.0593, lr=0.000003
+Epoch 46/50: loss=0.0298, val_loss=0.0520, rmse=0.0534, lr=0.000002
+Epoch 47/50: loss=0.0278, val_loss=0.0500, rmse=0.0467, lr=0.000002
+Epoch 48/50: loss=0.0256, val_loss=0.0478, rmse=0.0345, lr=0.000001
+Epoch 49/50: loss=0.0245, val_loss=0.0467, rmse=0.0328, lr=0.000001
+Epoch 50/50: loss=0.0234, val_loss=0.0456, rmse=0.0312, lr=0.000001
+
+Training completed.
+Total makespan: 342.78 seconds
+Voxels processed: 512 (8 x 8 x 8)
+Number of replicas: 1
+========================================
+Final Summary:
+  Converged: yes
+  Best validation loss: 0.0456 at epoch 50
+  Total parameters: 1,234,567
+========================================

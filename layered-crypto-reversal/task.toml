@@ -1,0 +1,62 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-domain forensic analysis combining network traffic
+capture parsing, binary reverse engineering of a stripped shared library, source code auditing,
+and cryptographic exploitation. The solver must independently: (1) determine the actual cipher
+algorithm used by a deliberately mislabeled binary through disassembly analysis; (2) extract
+protocol handshake data from a multi-stream network capture; (3) identify weaknesses in the
+asymmetric key encapsulation that enable key recovery; (4) implement the correct symmetric
+decryption; (5) EVALUATE multiple specification-vs-implementation discrepancies, judging each
+independently for exploitability and severity — distinguishing flaws that directly enabled
+this attack from those that merely weaken security posture; (6) CREATE a novel forged
+ciphertext demonstrating bidirectional cryptographic control. The combination of reverse
+engineering under deliberate misdirection, multi-source evidence correlation, cryptographic
+exploitation, and structured security evaluation requires proficient-level expertise across
+reverse engineering, network forensics, and applied cryptography."""
+solution_explanation = """Use tshark to filter PCAP by port 9999 and extract 4 protocol
+messages. Parse ServerHello to get mode=2 (PCBC) and 8-byte IV. Parse KeyExchange to get
+RSA ciphertext. Parse DataTransfer for encrypted payload. Use objdump -d on crypto_engine.so
+to find XTEA delta constant 0x9E3779B9, confirming cipher is XTEA not AES-256. Read
+protocol.py to see raw RSA encapsulation (pow(M,e,n) with no OAEP despite docstring). Read
+key_params.json to find RSA e=3 and 2048-bit n. Since M=PREFIX+KEY is 32 bytes (256 bits),
+M^3 is only 768 bits < 2048 bits, so compute integer cube root of ciphertext via Newton's
+method to recover M directly. Extract 16-byte XTEA key from M[16:]. Implement XTEA-PCBC
+decryption to recover the flag. Then evaluate each of the 6 discrepancies between spec and
+implementation — marking cipher_algorithm and rsa_padding as critical/exploitable since they
+directly enabled the attack, while rating rsa_key_size, symmetric_key_size, block_size, and
+iv_size as high/medium/low and non-exploitable (they did not directly enable key recovery).
+Finally, create a forged XTEA-PCBC ciphertext encrypting 'FORGED_BY_ANALYST' with the
+recovered key and zero IV to prove bidirectional cipher control."""
+verification_explanation = """Tests verify: (1) /app/flag.txt contains the exact expected
+flag string; (2) /app/vuln_assessment.json has correct structure with 6+ discrepancies,
+each containing required fields, with cipher_algorithm and rsa_padding correctly marked as
+critical/exploitable and at least 2 discrepancies marked non-exploitable; (3) severity
+ordering is sensible (exploitable discrepancies rated at least as severely as non-exploitable
+ones); (4) /app/forged_payload.bin exists with exactly 24 bytes and its SHA-256 hash matches
+the precomputed expected value, confirming correct encryption with the recovered key."""
+category = "forensic-cryptanalysis"
+tags = ["reverse-engineering", "network-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/layered-crypto-reversal"

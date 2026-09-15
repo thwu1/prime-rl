@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled expertise in lithium-ion battery electrochemistry (stoichiometry shifts, SEI film formation, porosity loss), computational battery modeling (selecting correct PyBaMM model options, experiment protocol definition), and multi-stage simulation pipeline engineering (chaining experiments via starting_solution across six simulation phases with correct cell-state management between stages). The solver must infer electrochemical relationships from Chen2020 parameters without formulas, design a two-stage aging protocol that correctly handles the discharged cell state between RPT and the next cycling stage (the cell is at 2.5 V after RPT and cannot directly enter a CCCV protocol starting with discharge to 3 V), identify which SEI submodel accepts a kinetic rate constant, and cross-validate single-stage sensitivity results against multi-stage trajectory data."""
+solution_explanation = """Formation loss uses Faraday's law: c_sei = ΔQ·3600/(F·z_sei·V_n), stoichiometry shift Δc_n = c_sei·z_sei/ε_act, SEI thickness L = c_sei·V̄_sei/a_n, porosity ε' = ε - L·a_n. Discharge uses SPM with 'constant' SEI. The two-stage trajectory requires six chained simulations: (1) 10 CCCV cycles, (2) RPT discharge, (3) charge back to 4.2V with CV hold (critical step—cell is at 2.5V after RPT and must be recharged), (4) 10 more CCCV cycles, (5) final RPT. Sensitivity runs single-stage (10 cycles + RPT) at three k values, reusing Stage 1 k=1e-13 result for cross-validation. All simulations use starting_solution for state continuity."""
+verification_explanation = """Tests independently recompute formation parameters from hardcoded Chen2020 values via Faraday's law and verify within tight tolerances. Physical constraints verify capacity ordering (pristine > degraded > stage1_RPT ≥ stage2_RPT), monotonic SEI growth (formation ≤ stage1 ≤ stage2), energy-voltage consistency, and retention range bounds. Trajectory tests verify stage-over-stage degradation monotonicity and fade-per-stage arithmetic. Sensitivity tests verify monotonicity (higher k → lower retention, higher SEI growth). Cross-section tests verify retention_1e-13 ≈ stage1_retention_pct and sei_growth_nm_1e-13 ≈ stage1 SEI growth."""
+category = "scientific_computing"
+tags = ["battery-modeling", "electrochemistry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/battery-degradation-forensics"

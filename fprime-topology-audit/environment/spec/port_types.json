@@ -1,0 +1,67 @@
+{
+    "Fw.Cmd": {
+        "has_return_type": false,
+        "description": "Command dispatch port (opcode, sequence, args)"
+    },
+    "Fw.CmdReg": {
+        "has_return_type": false,
+        "description": "Command registration port (opcode)"
+    },
+    "Fw.CmdResponse": {
+        "has_return_type": false,
+        "description": "Command response port (opcode, sequence, response)"
+    },
+    "Fw.Com": {
+        "has_return_type": false,
+        "description": "Communication buffer port (buffer, context)"
+    },
+    "Fw.Log": {
+        "has_return_type": false,
+        "description": "Event log port (id, timeTag, severity, args)"
+    },
+    "Fw.LogText": {
+        "has_return_type": false,
+        "description": "Text event log port (id, timeTag, severity, text)"
+    },
+    "Fw.Tlm": {
+        "has_return_type": false,
+        "description": "Telemetry send port (id, timeTag, value)"
+    },
+    "Fw.TlmGet": {
+        "has_return_type": true,
+        "description": "Telemetry get port (id, timeTag, value) returns TlmValid"
+    },
+    "Fw.Time": {
+        "has_return_type": true,
+        "description": "Time get port, returns Time value"
+    },
+    "Fw.BufferSend": {
+        "has_return_type": false,
+        "description": "Buffer send port (buffer)"
+    },
+    "Fw.BufferGet": {
+        "has_return_type": true,
+        "description": "Buffer allocation port (size) returns Buffer"
+    },
+    "Svc.Ping": {
+        "has_return_type": false,
+        "description": "Health ping port (key)"
+    },
+    "Svc.Sched": {
+        "has_return_type": false,
+        "description": "Schedule invocation port (context)"
+    },
+    "Svc.Cycle": {
+        "has_return_type": false,
+        "description": "Rate group cycle port (cycleStart)"
+    },
+    "Svc.WatchDog": {
+        "has_return_type": false,
+        "description": "Watchdog stroke port (code)"
+    },
+    "serial": {
+        "has_return_type": false,
+        "is_serial": true,
+        "description": "Typeless serial port, can connect to any non-return-type port"
+    }
+}

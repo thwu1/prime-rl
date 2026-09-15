@@ -1,0 +1,13 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+all: libconstraints.a
+
+libconstraints.a: constraints_native.o
+	ar rcs $@ $^
+
+constraints_native.o: constraints_native.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f *.o *.a *.so

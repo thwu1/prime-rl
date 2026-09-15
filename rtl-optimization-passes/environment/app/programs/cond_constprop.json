@@ -1,0 +1,13 @@
+{
+  "name": "cond_constprop",
+  "params": [],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 3},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 5},
+    "3": {"type": "Icond", "cond": "lt", "args": ["r1", "r2"], "ifso": 4, "ifnot": 5},
+    "4": {"type": "Iop", "op": "const", "args": [], "dest": "r3", "succ": 6, "imm": 1},
+    "5": {"type": "Iop", "op": "const", "args": [], "dest": "r3", "succ": 6, "imm": 0},
+    "6": {"type": "Ireturn", "arg": "r3"}
+  }
+}

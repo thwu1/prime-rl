@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level debugging of a multi-tool statistical analysis pipeline that chains sqlite3, R, Python, and jq via a bash orchestrator. The agent must: (1) explore an unfamiliar SQLite database schema using sqlite3 CLI to understand the coverage data layout (28,800 rows across 5 fuzzers x 6 benchmarks x 10 trials x 96 time points), (2) audit a SQL query to identify that MIN(time) should be MAX(time) for selecting final coverage snapshots, (3) read and debug an R script implementing Friedman omnibus tests and Nemenyi post-hoc comparisons using R's ptukey/qtukey functions — an unfamiliar API for most — identifying both wrong rank direction (ascending vs descending) and incorrect SE formula (k vs n in denominator), (4) debug a Python script computing A12 effect sizes to identify missing tie handling, (5) debug a jq filter for JSON assembly to identify that a 'reverse' operator produces wrong ranking order, and (6) understand how bugs cascade across tools — the SQL extraction error affects all downstream R and Python computations, and the R SE bug propagates through pairwise p-values into equivalent group computation. Each bug requires understanding the specific tool's semantics and statistical domain knowledge. Dreyfus: Proficient. Bloom: Evaluate."""
+solution_explanation = """The solver identifies and fixes all 5 bugs across 4 tools: (1) SQL: changes MIN(time) to MAX(time) to select final coverage snapshots instead of initial ones. (2) R: changes rank() to rank(-x) so rank 1 = highest coverage = best. (3) R: changes SE denominator from k to n_bench in the Nemenyi formula. (4) Python: adds 0.5 credit for tied values in A12 effect size. (5) jq: removes the 'reverse' operator so ranking goes from best to worst. Then re-runs the pipeline to produce corrected /app/results.json."""
+verification_explanation = """Tests independently load data from the SQLite database via Python's sqlite3 module and compute all expected statistical values using scipy, pandas, and numpy. Each test class verifies a different output dimension: median coverage, Friedman statistics via scipy.stats.friedmanchisquare, average ranks with correct direction, Nemenyi p-values using the correct SE formula and scipy's studentized_range, critical difference, normalized scores, A12 effect sizes with tie handling, ranking order, and equivalent groups via BFS. Tests use appropriate floating-point tolerances to accommodate minor numerical differences between R and scipy implementations."""
+category = "debugging"
+tags = ["multi-tool-pipeline", "statistical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fuzzer-ranking-analysis"

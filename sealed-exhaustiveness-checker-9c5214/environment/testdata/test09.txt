@@ -1,0 +1,14 @@
+# Test 09: Explicit null handling with complete sealed coverage
+# Expected: exhaustive, null handled
+
+TYPES
+sealed Shape Circle Square
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+
+SWITCHES
+switch s1 Shape
+type Circle
+type Square
+null
+end

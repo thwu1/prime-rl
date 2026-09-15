@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in concurrent data structures and memory-model reasoning. The agent receives only a symptomatic description (threads hanging under concurrent load) and must independently diagnose the root cause by analyzing the C implementation, reasoning about thread interleavings on shared mutable state, and determining the exact corruption scenario for given keys. The instruction names no mechanism, algorithm, or approach — the agent must discover these through code analysis, reading partial field notes, and applying concurrent-systems expertise. Building a faithful single-threaded simulation, a detection tool, and a correct concurrency fix all require expert-level understanding of POSIX threading, pointer aliasing, and data structure invariants under concurrency."""
+solution_explanation = """1) Read transfer() and recognize that head insertion reverses chain order during rehash. 2) Reason about concurrent execution: if Thread B completes transfer (reversing E_b->E_a) while Thread A is suspended mid-iteration, Thread A resumes with stale local pointers and re-processes E_a, forming a mutual cycle E_a<->E_b in bucket 3. 3) Implement cycle detection on the linked list chains. 4) Add thread synchronization (e.g. pthread_rwlock_t) to the hashtable struct; acquire write lock in ht_put/ht_remove (including resize), read lock in ht_get. The simulation must model the exact interleaving step-by-step, producing CYCLE_BUCKET=3 and CYCLE_ENTRIES=alpha,bravo."""
+verification_explanation = """Tests compile all programs, run the simulation checking for correct CYCLE_BUCKET=3 and CYCLE_ENTRIES=alpha,bravo output, verify cycle detection produces both CYCLE_FOUND and NO_CYCLE, run an 8-thread stress test (40K inserts from capacity 2) that must complete without hanging and find all entries, check answer.txt contents, and verify hashtable.c contains synchronization primitives."""
+category = "systems_programming"
+tags = ["concurrency", "data_structures"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hashmap-rehash-cycle"

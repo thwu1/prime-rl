@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of US tax lot tracking rules including: (1) IRS wash sale identification and partial disallowance calculation when fewer replacement shares are bought than sold, with cost basis adjustment to the replacement lot; (2) stock split mechanics — transferring shares between lot subaccounts with halved cost basis and doubled share counts while maintaining double-entry balance via equity adjustments; (3) gift lot holding period rules where the donor's original acquisition date determines both FIFO ordering and short-term vs long-term classification; (4) designing a complete journal from raw transaction data, requiring architectural decisions about how to represent stock splits, wash sale basis adjustments, and multi-class gains in hledger's double-entry framework. The solver must evaluate which transactions trigger wash sales (30-day window analysis), design the journal structure for recording split and wash adjustments, and create all entries from scratch."""
+solution_explanation = """Parse the CSV, track lots with FIFO disposal ordering. Record pre-split purchases, then handle the 2:1 split by closing pre-split lots and opening post-split lots (doubled shares, halved cost) balanced via equity:adjustments. For sales, apply FIFO with holding period classification using the donor's acquisition date for gifts. Detect the Aug 5 loss ($300 on 100 APEX) followed by the Aug 20 buy (80 APEX within 30 days) as a wash sale; compute proportional disallowance (80/100 * $300 = $240), record full loss on sale, then adjust replacement lot basis ($23 + $240/80 = $26) with a reversal posting to gains:short-term. Final positions: cash $91330, APEX 330 (250 Jan-lot + 80 wash-lot), BOLT 210 (170 Mar-lot + 40 Nov-lot), ST gains $600, LT gains $1750."""
+verification_explanation = """Tests run hledger commands against the created journal to verify: (1) journal parses without errors, (2) cash balance=$91330, (3) each lot has correct share count (gift lot depleted, Jan lot 250, wash lot 80, BOLT lots 170+40), (4) short-term gains=$600 (uniquely verifies wash sale applied), (5) long-term gains=$1750 (verifies gift lot holding period classification), (6) wash sale lot account name contains $26 adjusted basis, (7) stock split creates equity:adjustments of 250 APEX, (8) dividends=$180 in revenue, (9) gains separated into short-term and long-term accounts."""
+category = "finance"
+tags = ["hledger", "tax-lot-tracking"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fifo-lot-reconciliation"

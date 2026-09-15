@@ -1,0 +1,8 @@
+po_number,item_code,item_description,cut_width_mm,units_needed,priority_level
+PO-2001,P16,Containerboard 2010mm,2010,37,HIGH
+PO-2002,P17,Linerboard 750mm,750,158,MEDIUM
+PO-2003,P18,Test liner 1150mm,1150,88,HIGH
+PO-2004,P19,Chipboard 320mm,320,275,LOW
+PO-2005,P20,Fluting medium 1640mm,1640,53,HIGH
+PO-2006,P21,Heavy duty liner 2670mm,2670,25,CRITICAL
+PO-2007,P22,Corrugated insert 490mm,490,192,MEDIUM

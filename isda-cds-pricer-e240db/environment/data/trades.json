@@ -1,0 +1,44 @@
+{
+  "valuation_date": "2014-01-03",
+  "stepin_date": "2014-01-04",
+  "recovery_rate": 0.25,
+  "notional": 10000000.0,
+  "fixed_rate": 0.05,
+  "model_conventions": {
+    "accrual_on_default": "ORIGINAL_ISDA",
+    "accrual_day_count": "ACT_360",
+    "curve_day_count": "ACT_365F",
+    "curve_interpolation": "PRODUCT_LINEAR",
+    "left_extrapolation": "FLAT_ZERO_RATE",
+    "right_extrapolation": "PRODUCT_LINEAR",
+    "business_day_calendar": "SAT_SUN",
+    "schedule_stub": "SHORT_INITIAL",
+    "schedule_bda": "FOLLOWING",
+    "start_date_bda": "NONE",
+    "end_date_bda": "NONE",
+    "roll_day_rule": "END_DATE_DAY_OF_MONTH"
+  },
+  "trades": [
+    {
+      "id": "nextday",
+      "buy_sell": "BUY",
+      "start_date": "2014-01-04",
+      "end_date": "2020-10-20",
+      "frequency_months": 3
+    },
+    {
+      "id": "before",
+      "buy_sell": "SELL",
+      "start_date": "2013-12-20",
+      "end_date": "2024-09-20",
+      "frequency_months": 3
+    },
+    {
+      "id": "after",
+      "buy_sell": "BUY",
+      "start_date": "2014-03-20",
+      "end_date": "2029-12-20",
+      "frequency_months": 3
+    }
+  ]
+}

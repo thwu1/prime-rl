@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete MESI cache coherence protocol simulator from a specification, handling 12+ state transitions across processor and bus events, LRU replacement with precise victim selection, and correct counting of memory reads/writes/invalidations/writebacks. The agent must then perform a design-space sweep across cache sizes to find the minimum configuration meeting a miss rate target. This demands graduate-level understanding of cache coherence protocols, computer architecture, and careful systems programming to match exact reference statistics."""
+solution_explanation = """The solution implements the MESI simulator as a Python class hierarchy: CacheLine (tag+state), CacheSet (lines+LRU ordering), L1Cache (set-associative with address decoding), and MESISimulator (multi-core with snoop-based coherence). Each memory access is classified as hit/miss, with hits potentially triggering upgrades (S->M via BusUpgr) and misses triggering bus transactions with snooping. The simulator processes a trace file and produces JSON statistics. For the sweep, it instantiates the simulator with each cache size and finds the minimum achieving <10% miss rate."""
+verification_explanation = """Tests first validate the reference implementation against hand-traced expected values on a tiny 6-access test vector. Then they compare the agent's stats.json against the reference simulator's output for exact matches on all integer statistics (hits, misses, evictions, writebacks, invalidations, upgrades, bus transactions, memory reads/writes) and approximate match on floating-point rates. The min_size.json is verified by re-running the reference at the claimed size (must be <10% miss rate) and at half the size (must be >=10%)."""
+category = "computer_architecture"
+tags = ["cache-coherence", "simulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7c5d27"

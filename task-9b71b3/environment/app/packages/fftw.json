@@ -1,0 +1,13 @@
+{
+  "name": "fftw",
+  "versions": ["3.3.10", "3.3.8"],
+  "variants": [
+    {"name": "mpi", "type": "bool", "default": false},
+    {"name": "precision", "type": "single", "values": ["float", "double", "long_double"], "default": "double"}
+  ],
+  "dependencies": [
+    {"name": "mpi", "virtual": true, "when": "+mpi"}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

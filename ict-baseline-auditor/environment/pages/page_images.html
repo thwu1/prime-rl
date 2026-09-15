@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Image Accessibility Test Page</title></head>
+<body>
+<h1>Image Test Suite</h1>
+
+<!-- img1: role="none" with non-empty alt - presentational role conflict -->
+<img id="img1" src="logo.png" role="none" alt="Acme Corporation Logo">
+
+<!-- img2: Empty alt but keyboard focusable via tabindex -->
+<img id="img2" src="bullet.png" alt="" tabindex="0">
+
+<!-- img3: Correct meaningful image with descriptive alt -->
+<img id="img3" src="team.jpg" alt="Engineering team at the 2024 company hackathon">
+
+<!-- img4: No alt attribute at all -->
+<img id="img4" src="workflow.png">
+
+<!-- img5: div with role="img" but no accessible name -->
+<div id="img5" role="img" style="width:200px;height:100px;background:#ccc;"></div>
+
+<!-- img6: Properly decorative with empty alt and role="presentation" -->
+<img id="img6" src="divider.png" alt="" role="presentation">
+
+<!-- img7: Meaningful image with accessible name via aria-labelledby -->
+<span id="img7_desc">Revenue growth chart for fiscal year 2024</span>
+<img id="img7" src="chart.png" aria-labelledby="img7_desc">
+
+</body>
+</html>

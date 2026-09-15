@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level network forensics combined with detection engineering. The solver must reverse-engineer a custom binary C2 protocol and multiple encoding layers from raw packet data with no hints about the techniques used, then synthesize their findings into effective IDS detection rules — a creation task that demands deep understanding of both the attack and Suricata rule syntax."""
+solution_explanation = """Extract HTTP response body from a staging server stream. Locate a base64 string embedded in obfuscated JavaScript, decode it, then determine the single-byte XOR key (0x42) to recover a JSON config containing the C2 encryption key. Parse TCP payloads to the C2 port, identify the 0xDEAD magic header framing, read message types and lengths, XOR-decrypt each payload with the config key. Reconstruct DNS exfiltration by filtering TXT queries, sorting by embedded sequence numbers, concatenating base32 chunks, and decoding. Finally, design Suricata rules targeting the discovered magic bytes, exfil domain, and delivery artifacts."""
+verification_explanation = """Tests validate /app/findings.json fields against deterministic ground truth (exact-match IPs, port, key, hostname, username, exfil domain and plaintext; set-equality for C2 commands; dict-equality for credentials). Separate tests verify /app/detection.rules contains at least 3 syntactically valid Suricata rules with content matches referencing the C2 port, the C2 protocol magic bytes, and the exfiltration domain."""
+category = "security_and_privacy"
+tags = ["network_forensics", "detection_engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pcap-intrusion-forensics"

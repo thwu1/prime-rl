@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FHIR R4 ETL Analytics Report",
+  "type": "object",
+  "required": ["etl_summary", "analytics"],
+  "additionalProperties": false,
+  "properties": {
+    "etl_summary": {
+      "type": "object",
+      "required": ["total_resources", "tables_created", "row_counts"],
+      "additionalProperties": false,
+      "properties": {
+        "total_resources": {
+          "type": "integer",
+          "description": "Sum of rows across all tables"
+        },
+        "tables_created": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Alphabetically sorted list of table names"
+        },
+        "row_counts": {
+          "type": "object",
+          "description": "Row count per table",
+          "additionalProperties": {"type": "integer"}
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "required": [
+        "observations_per_patient",
+        "active_condition_and_med_patients",
+        "avg_value_by_loinc",
+        "vital_signs_count",
+        "med_status_summary",
+        "patients_missing_managing_org",
+        "date_range",
+        "flagged_observations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "observations_per_patient": {
+          "type": "array",
+          "description": "Observation counts per patient with family name, ordered by count descending then id ascending",
+          "items": {
+            "type": "object",
+            "required": ["patient_id", "family_name", "obs_count"],
+            "properties": {
+              "patient_id": {"type": "string"},
+              "family_name": {"type": "string"},
+              "obs_count": {"type": "integer"}
+            }
+          }
+        },
+        "active_condition_and_med_patients": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Patient IDs who have both an active Condition (clinicalStatus=active) and an active MedicationRequest (status=active), sorted alphabetically"
+        },
+        "avg_value_by_loinc": {
+          "type": "array",
+          "description": "Average observation value per LOINC code, rounded to 1 decimal, ordered by loinc_code",
+          "items": {
+            "type": "object",
+            "required": ["loinc_code", "avg_value"],
+            "properties": {
+              "loinc_code": {"type": "string"},
+              "avg_value": {"type": "number"}
+            }
+          }
+        },
+        "vital_signs_count": {
+          "type": "integer",
+          "description": "Count of observations with category_code = 'vital-signs'"
+        },
+        "med_status_summary": {
+          "type": "array",
+          "description": "MedicationRequest count by status, ordered by status",
+          "items": {
+            "type": "object",
+            "required": ["status", "count"],
+            "properties": {
+              "status": {"type": "string"},
+              "count": {"type": "integer"}
+            }
+          }
+        },
+        "patients_missing_managing_org": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Patient IDs with NULL managingOrganization reference, sorted alphabetically"
+        },
+        "date_range": {
+          "type": "object",
+          "required": ["earliest", "latest"],
+          "description": "Earliest and latest observation effective dates as YYYY-MM-DD",
+          "properties": {
+            "earliest": {"type": "string"},
+            "latest": {"type": "string"}
+          }
+        },
+        "flagged_observations": {
+          "type": "array",
+          "description": "Observations exceeding clinical thresholds, sorted by id",
+          "items": {
+            "type": "object",
+            "required": ["id", "loinc_code", "value", "threshold", "flag"],
+            "properties": {
+              "id": {"type": "string"},
+              "loinc_code": {"type": "string"},
+              "value": {"type": "number"},
+              "threshold": {"type": "number"},
+              "flag": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

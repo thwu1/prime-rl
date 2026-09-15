@@ -1,0 +1,5 @@
+{
+    "num_qubits": 4,
+    "coupling_edges": [[0, 1], [1, 2], [2, 3]],
+    "native_gates": ["cz", "rz", "sx"]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level HPC performance engineering knowledge spanning multiple specialized tools and formats: (1) parsing hwloc v2 XML topology using xmllint XPath queries to extract per-core cache sizes from a nested hierarchy containing both data caches (L1Cache, cache_type=1) and instruction caches (L1iCache, cache_type=2) — the agent must distinguish between them and select only data caches for bandwidth analysis, (2) parsing raw ERT output in GnuPlot tab-separated format with metadata comments and working-set sizes in elements rather than bytes, (3) reading STREAM benchmark C source code to deduce the byte-counting convention and understand why reported bandwidth diverges from true hardware bandwidth due to write-allocate cache behavior — a subtle microarchitectural detail, (4) integrating these diverse data sources into a coherent hierarchical roofline model with correct cache-level boundaries, ridge points, and per-kernel performance bound classification, (5) writing a gnuplot script to generate a log-log roofline visualization as SVG with multiple bandwidth ceilings, compute ceiling, and kernel operating points. Multi-tool interoperability is critical: xmllint extracts topology from hwloc XML, Python processes measurements and computes the model, gnuplot renders the visualization — each tool's output feeds the next."""
+solution_explanation = """Use xmllint --xpath with XPath queries to extract L1d (32768B), L2 (262144B), L3 (20971520B) cache sizes from hwloc XML, using string(//object[@type='L1Cache']/@cache_size) to select data caches (not L1iCache instruction caches). Parse ERT bandwidth .dat file (tab-separated, ws in elements * 8B/element from FP64 precision in ert.conf = ws_bytes), classify by cache level boundaries, take max bandwidth per level (L1=450, L2=180, L3=54, DRAM=28 GB/s). Parse ERT compute .dat for peak GFLOPs=64.2. Parse STREAM output for reported MB/s. Read stream.c bytes[] array to derive write-allocate factors (Copy/Scale: 3*8/2*8=1.5, Add/Triad: 4*8/3*8=4/3). Compute ridge points as peak/bw. Classify kernels at each level by comparing AI vs ridge point. Write JSON output. Generate gnuplot script with noenhanced text mode (to preserve underscores in kernel names), log-log axes, piecewise roofline functions f(x)=min(peak, bw*x) per level, labeled kernel points, then run gnuplot to produce SVG."""
+verification_explanation = """Tests verify: (1) SVG chart exists, is valid XML produced by gnuplot, contains all cache level labels (L1/L2/L3/DRAM), all 5 kernel names as literal strings, and axis labels, (2) empirical peak GFLOP/s matches 64.2, (3) per-level bandwidths (L1=450, L2=180, L3=54, DRAM=28 GB/s) and ridge points are correct within 1% tolerance, (4) STREAM write-allocate factors are 1.5 for Copy/Scale and 4/3 for Add/Triad with correctly computed corrected bandwidth, (5) each of 5 kernels' per-level arithmetic intensity, bound classification (compute/memory), and attainable GFLOP/s are verified against exact roofline model calculations."""
+category = "systems"
+tags = ["hpc", "performance-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cbd7ea"

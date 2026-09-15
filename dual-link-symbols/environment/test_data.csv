@@ -1,0 +1,7 @@
+# type,flags,value,label
+1,0,15.5,temperature
+2,1,8.25,humidity
+3,0,22.75,pressure
+4,1,3.5,windspeed
+5,0,100.0,altitude
+6,1,45.0,bearing

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extracting hydrological network data from a GeoPackage database using geospatial tools (GDAL/OGR or sqlite3), understanding stream ordering systems (Strahler, Shreve) and Horton's geomorphological laws without algorithmic guidance, computing recursive contributing areas across a bipartite catchment-nexus DAG, generating a valid ngen bmi_multi realization configuration that correctly couples PET and CFE BMI models with proper variable passing and CSDMS naming conventions, and producing a constrained MPI partition configuration that minimizes inter-partition communication. The task integrates geospatial data engineering, fluvial geomorphology, hydrological modeling framework expertise, and graph-based optimization."""
+solution_explanation = """Use ogrinfo/sqlite3 to discover the GeoPackage schema and extract catchment-nexus topology. Build the directed drainage graph and compute Strahler orders via recursive max-with-tie-breaking, Shreve magnitudes via recursive summation, and Horton's bifurcation ratio from order-frequency analysis. Compute cumulative contributing areas bottom-up. Generate the ngen realization config with bmi_multi formulation placing PET before CFE, correct init_config paths, registration functions, and the key coupling variable water_potential_evaporation_flux. Partition the network using subtree-grouping heuristics to minimize remote nexuses while respecting balance constraints."""
+verification_explanation = """Tests independently read the GeoPackage via sqlite3, reconstruct the drainage DAG, and compute all expected network metrics (headwaters, outlet, Strahler/Shreve orders, Horton ratio, contributing areas, longest path). The realization config is validated structurally for required keys, correct bmi_multi formulation, proper PET-before-CFE module ordering, valid init_config paths, coupling variable presence, and forcing configuration. Partition constraints (completeness, uniqueness, balance, nexus assignment, remote nexus identification) are verified structurally."""
+category = "scientific_computing"
+tags = ["hydrology", "geospatial-tools"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6428f6"

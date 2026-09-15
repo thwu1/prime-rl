@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires authoring two interdependent TypeScript declaration files from scratch: a main .d.ts for a UMD JavaScript signal library and a plugin .d.ts that augments the main library's types via module augmentation. The solver must reverse-engineer the complete type contract from ~260 lines of JavaScript source and five TypeScript consumer files (170+ lines), then implement ~130 lines of declarations. The main declaration demands: function-namespace merging with export= and UMD global exposure, polymorphic this-returning methods for fluent subclass chains, string-literal overloads for 8 pipe operators with distinct generic signatures ordered before a general fallback, typed event dispatch per event name, variadic tuple inference for computed(), tuple-typed combine vs union-typed merge, and precise void/required-parameter constraints enforced by 12 @ts-expect-error negative tests across files. The plugin declaration demands module augmentation (declare module) to extend the main Signal interface with persistence methods returning polymorphic this, a generic Serializer<T> interface structurally matched by the consumer, a generic Snapshot<T> return type verified field-by-field, and a derived() method with dual-parameter transform producing a new generic signal. Augmented methods must preserve polymorphic this through subtype chains."""
+solution_explanation = """The solution script analyzes both JS sources via regex to extract prototype methods, static functions, pipe operators, and plugin prototype patches. It reads all consumer files to infer: CJS import style (export =), UMD global need (export as namespace), event handler types, fluent this-return patterns, subscribe void/required-index contract, Operator arity, computed variadic deps, merge-union vs combine-tuple distinction, serializer structural shape, snapshot field types, and derived transform signature. From this analysis it constructs both declaration files: (1) main .d.ts with declare function + declare namespace merge, Signal<T> interface, ordered pipe overloads, typed event dispatch, static methods with mapped conditional types, and export = sigil; (2) plugin .d.ts with import sigil = require, declare module 'sigil' augmentation adding persist/restore/snapshot/derived to Signal<T>, Serializer<T> interface, and Snapshot<T> interface with generic value field."""
+verification_explanation = """Tests run tsc --noEmit against five consumer TypeScript files plus a UMD global script that together exercise every declaration pattern with 12 @ts-expect-error negative precision tests. SHA256 checksums verify all consumer files, tsconfig, source JS files, and plugin JS were not modified. Tests check both declaration files exist, contain proper TypeScript constructs, and are not trivially any-typed. All tests are deterministic."""
+category = "programming_languages"
+tags = ["typescript", "declaration-files"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-declaration-types"

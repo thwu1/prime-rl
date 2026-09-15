@@ -1,0 +1,4 @@
+{:history
+ [{:index 0 :type :ok :value [[:append :x 1] [:append :y 2]]}
+  {:index 1 :type :ok :value [[:append :x 3] [:append :y 4]]}
+  {:index 2 :type :ok :value [[:r :x [3 1]] [:r :y [2 4]]]}]}

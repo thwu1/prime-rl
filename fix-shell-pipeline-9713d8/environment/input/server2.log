@@ -1,0 +1,6 @@
+2024-01-15T10:30:05|ERROR|Disk space critical
+2024-01-15T10:30:20|INFO|Cache hit for user profile
+2024-01-15T10:30:50|WARN|Slow query detected
+2024-01-15T10:31:10|INFO|Email notification sent
+2024-01-15T10:31:45|ERROR|Authentication service unavailable
+2024-01-15T10:32:00|INFO|Health check passed

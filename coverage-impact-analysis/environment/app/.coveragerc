@@ -1,0 +1,17 @@
+[run]
+source = lib
+dynamic_context = test_name
+omit =
+    */tests/*
+    */__pycache__/*
+
+[report]
+show_missing = true
+exclude_lines =
+    pragma: no cover
+    raise\s
+    if __name__
+
+[json]
+output = coverage.json
+pretty_print = true

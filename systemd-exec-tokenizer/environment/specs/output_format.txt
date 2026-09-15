@@ -1,0 +1,78 @@
+systemd ExecStart Tokenizer — Output Format Specification
+==========================================================
+
+For each ExecStart=, ExecStartPre=, or ExecStartPost= directive in the input,
+output a block in the following format:
+
+    PREFIXES:<characters or NONE>
+    ARGV[0]:<resolved command path>
+    ARGV[1]:<first argument>
+    ARGV[2]:<second argument>
+    ...
+    ---
+
+Rules:
+- PREFIXES: The special prefix characters detected on this directive, sorted
+  alphabetically and concatenated. If no prefixes were found, output "NONE".
+  Recognized prefixes: @  -  :  +  !  |
+
+- ARGV[n]: Each element of the resolved argument vector, 0-indexed.
+  ARGV[0] is always the resolved command path.
+  If the command name is not an absolute path, resolve it using the standard
+  systemd search directories in order:
+    /usr/local/bin  /usr/local/sbin  /usr/bin  /usr/sbin  /bin  /sbin
+
+- Empty arguments (e.g. from ${VAR} where VAR is empty) are output with
+  nothing after the colon:  ARGV[n]:
+
+- Each command block is terminated by a line containing exactly "---"
+
+- Blocks are output in the order the directives appear in the input.
+
+Variable Expansion Semantics:
+- ${VAR} anywhere in a token: replaced by the exact value (including
+  whitespace), always producing exactly one argument component.
+- $VAR as a complete standalone token: value is re-tokenized using
+  systemd quoting rules (splitting on whitespace, respecting quotes),
+  producing zero or more arguments. An undefined or empty variable
+  produces zero arguments.
+- $$: replaced by a literal $ character.
+- When the : prefix is active, ALL variable expansion is suppressed.
+  $VAR and ${VAR} remain as literal text.
+
+Quoting:
+- Opening quotes (' or ") are only recognized at the start of a token
+  (at the beginning of the line or immediately after unquoted whitespace).
+  A quote character appearing mid-token is treated as a literal character.
+- Inside double quotes: C-style escape sequences are processed
+  (\n \t \r \a \b \f \v \\ \" \' \s \xNN \nnn \uNNNN \UNNNNNNNN).
+- Inside single quotes: all characters are literal (no escape processing).
+- Outside quotes: backslash escapes the next character.
+
+Line Continuation:
+- A line ending with a backslash followed by newline is merged with the
+  next line; the backslash is replaced by a single space.
+
+Example 1:
+  Input:
+    Environment="ONE=one" 'TWO=two two'
+    ExecStart=echo $ONE $TWO ${TWO}
+
+  Output:
+    PREFIXES:NONE
+    ARGV[0]:/usr/bin/echo
+    ARGV[1]:one
+    ARGV[2]:two
+    ARGV[3]:two
+    ARGV[4]:two two
+    ---
+
+Example 2:
+  Input:
+    ExecStart=:-/bin/echo hello
+
+  Output:
+    PREFIXES:-:
+    ARGV[0]:/bin/echo
+    ARGV[1]:hello
+    ---

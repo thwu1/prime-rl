@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extending a lark-based parser (EBNF grammar and Transformer class) and implementing algebraic effect handler evaluation in Python. The agent must understand lark's grammar syntax and Transformer API, reverse-engineer effect handler semantics from example programs and AST node definitions, and implement replay-based multi-shot delimited continuations supporting multi-shot resumptions, handler shadowing, continuation discarding, and cross-effect interaction — combining parser generator expertise with programming language theory."""
+solution_explanation = """The solution extends grammar.lark with rules for effect declarations, handle expressions (with return/operation clauses), and do expressions. The Transformer is extended with methods constructing the corresponding AST nodes, splitting the last parameter as resume. The evaluator uses replay-based multi-shot delimited continuations: DoExpr raises a PerformEffect exception, HandleExpr catches it and builds a resume function that re-executes the body replaying previously-handled operations with recorded return values."""
+verification_explanation = """Tests run each example program through the full pipeline (lark parse -> AST transform -> evaluate) and compare stdout against expected output files. Additional targeted tests verify multi-shot continuations, continuation discarding, nested handler shadowing, cross-effect interaction, handler re-installation on resume, and state-passing handlers. All outputs are deterministic."""
+category = "programming_languages"
+tags = ["algebraic-effects", "parser-generators"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/effect-handler-interp"

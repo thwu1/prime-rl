@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a Kubernetes NetworkPolicy evaluation engine from scratch that correctly handles the full complexity of K8s policy semantics: AND composition of namespaceSelector+podSelector in peer entries, default-allow behavior when no policy of a given type selects a pod, bidirectional egress+ingress evaluation, and port wildcard semantics. Beyond the engine itself, the solver must build a change-impact analysis pipeline that applies each of 6 proposed policy modifications (including compound multi-policy changes), diffs the resulting reachability against baseline, and classifies changes against security/reliability requirements. The combination of policy engine construction, correct semantic implementation across multiple interacting policies in 4 namespaces, change application with diffing, and classification against requirements demands expert K8s knowledge and substantial software design."""
+solution_explanation = """The solution implements a complete NetworkPolicy evaluation engine: (1) parse all YAML manifests to build namespace/deployment/policy models; (2) for each query, find selecting policies in source and destination namespaces, evaluate egress at source and ingress at destination (defaulting to allow when no policy selects); (3) correctly handle AND semantics for combined selectors, port wildcards when ports field is absent, and namespace scoping when namespaceSelector is absent; (4) load each proposed change YAML, apply it to a copy of the policy list (replace, add, or replace_multiple), recompute all 25 verdicts, diff against baseline, and classify against required/forbidden connections. The 6 changes yield classifications: OPENS_FORBIDDEN, BREAKS_REQUIRED, OPENS_FORBIDDEN, BREAKS_REQUIRED, SAFE, and CRITICAL."""
+verification_explanation = """Tests load /app/impact_report.json and verify: (1) all 25 baseline verdicts match expected values derived from manual policy trace; (2) each of 6 change classifications matches expected; (3) newly_allowed and newly_denied lists for each change match expected flips. Each verification point is an independent test for fine-grained failure diagnosis."""
+category = "networking"
+tags = ["kubernetes", "network-policy"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netpol-connectivity-analyzer"

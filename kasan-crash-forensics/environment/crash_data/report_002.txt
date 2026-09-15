@@ -1,0 +1,80 @@
+==================================================================
+BUG: KASAN: slab-use-after-free in sk_filter_trim_cap+0x223/0x540 net/core/filter.c:149
+Read of size 8 at addr ffff888054e21a00 by task syz-executor.0/3420
+
+CPU: 1 UID: 0 PID: 3420 Comm: syz-executor.0 Not tainted 6.11.0-rc6-syzkaller #0
+Hardware name: Google Compute Engine/Google Compute Engine, BIOS Google 08/06/2024
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x116/0x1f0 lib/dump_stack.c:120
+ print_address_description mm/kasan/report.c:378 [inline]
+ print_report+0xc3/0x670 mm/kasan/report.c:482
+ kasan_report+0xd9/0x1e0 mm/kasan/report.c:595
+ sk_filter_trim_cap+0x223/0x540 net/core/filter.c:149
+ sk_filter+0x42/0x1d0 net/core/filter.c:163
+ do_one_broadcast net/netlink/af_netlink.c:1541 [inline]
+ netlink_broadcast_filtered+0x8e9/0xc40 net/netlink/af_netlink.c:1593
+ netlink_broadcast+0x52/0x70 net/netlink/af_netlink.c:1613
+ nlmsg_multicast include/net/genetlink.h:152 [inline]
+ genlmsg_multicast_netns include/net/genetlink.h:171 [inline]
+ ovs_dp_change+0x5d4/0x7f0 net/openvswitch/datapath.c:1798
+ ovs_dp_cmd_new+0x12a/0x190 net/openvswitch/datapath.c:1852
+ genl_family_rcv_msg_doit+0x1e8/0x2e0 net/netlink/genetlink.c:1115
+ genl_family_rcv_msg net/netlink/genetlink.c:1195 [inline]
+ genl_rcv_msg+0x569/0x800 net/netlink/genetlink.c:1210
+ netlink_rcv_skb+0x16b/0x440 net/netlink/af_netlink.c:2549
+ genl_rcv+0x28/0x40 net/netlink/genetlink.c:1219
+ netlink_unicast_kernel net/netlink/af_netlink.c:1340 [inline]
+ netlink_unicast+0x543/0x7f0 net/netlink/af_netlink.c:1366
+ netlink_sendmsg+0x8e7/0xde0 net/netlink/af_netlink.c:1908
+ sock_sendmsg_nosec net/socket.c:730 [inline]
+ __sock_sendmsg+0x221/0x270 net/socket.c:745
+ do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+ do_syscall_64+0xf5/0x240 arch/x86/entry/common.c:83
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f arch/x86/include/asm/idtentry.h:697
+ </TASK>
+
+Allocated by task 3400:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ __kasan_slab_alloc+0x89/0x90 mm/kasan/common.c:451
+ kasan_slab_alloc include/linux/kasan.h:260 [inline]
+ slab_post_alloc_hook+0x52/0x2a0 mm/slub.c:4251
+ slab_alloc_node mm/slub.c:4303 [inline]
+ __kmem_cache_alloc_node+0x1fe/0x320 mm/slub.c:4351
+ kmalloc_trace_noprof+0x2b/0x100 mm/slub.c:5374
+ sk_filter_charge+0xf2/0x250 net/core/filter.c:72
+ __sk_attach_prog+0x3e/0x2b0 net/core/filter.c:118
+ sk_attach_filter+0x4e6/0x8c0 net/core/filter.c:1121
+
+Freed by task 3415:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ kasan_save_free_info+0x44/0x50 mm/kasan/generic.c:582
+ poison_slab_object+0xe0/0x150 mm/kasan/common.c:248
+ __kasan_slab_free+0x2e/0x40 mm/kasan/common.c:264
+ kasan_slab_free include/linux/kasan.h:238 [inline]
+ slab_free_hook mm/slub.c:2353 [inline]
+ slab_free mm/slub.c:4557 [inline]
+ kfree+0x14a/0x380 mm/slub.c:4719
+ sk_filter_uncharge+0x130/0x190 net/core/filter.c:88
+ __sk_destruct+0x1c8/0x5b0 net/core/sock.c:2284
+ sk_destruct net/core/sock.c:2300 [inline]
+ __sk_free+0x155/0x310 net/core/sock.c:2312
+ sk_free+0x42/0x50 net/core/sock.c:2323
+ ovs_dp_detach_port+0x17e/0x290 net/openvswitch/datapath.c:251
+
+The buggy address belongs to the object at ffff888054e21a00
+ which belongs to the cache kmalloc-64 of size 64
+The buggy address is located 0 bytes inside of
+ freed 64-byte region [ffff888054e21a00, ffff888054e21a40)
+
+Memory state around the buggy address:
+ ffff888054e21900: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+ ffff888054e21980: fa fa fa fa fa fa fa fa fc fc fc fc fc fc fc fc
+>ffff888054e21a00: fa fa fa fa fa fa fa fa fc fc fc fc fc fc fc fc
+                   ^
+ ffff888054e21a80: fa fa fa fa fa fa fa fa fc fc fc fc fc fc fc fc
+ ffff888054e21b00: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+==================================================================

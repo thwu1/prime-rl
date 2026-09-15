@@ -1,0 +1,6 @@
+route:              172.20.11.128/26
+descr:              Beta Network secondary announcement
+origin:             AS4242420002
+max-length:         26
+mnt-by:             BETA-MNT
+source:             DN42

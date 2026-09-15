@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level robotics knowledge spanning multiple domains: URDF structural validation using specialized CLI tools, homogeneous transformation chaining with non-trivial origin rotations and joint axes, geometric Jacobian computation, singular value decomposition for manipulability and singularity analysis, static wrench-torque mapping, and Monte Carlo workspace estimation. The multi-variant comparison requires holistic understanding of how kinematic geometry affects dexterity metrics."""
+solution_explanation = """For each URDF variant: validate with check_urdf, parse XML for joint parameters, build kinematic chain from base_link to tool0, compute forward kinematics via successive homogeneous transforms, derive the geometric Jacobian, perform SVD for manipulability and singularity classification, map external wrench to static joint torques, sample workspace via seeded Monte Carlo, optimize for maximum reach, then compare valid variants across all workspace metrics."""
+verification_explanation = """Tests embed an independent reference FK/Jacobian/SVD implementation that computes all expected results from the URDF files and queries. Agent outputs are compared with tolerances: 1e-4 for FK positions, 1e-3 for rotations and singular values, 1e-2 for Jacobian entries, 5e-2 for static torques, 0.02m for max reach, 0.05 for workspace fractions, and exact match for singularity classifications and comparative summary. Structural validation counts and tree diagram existence are also verified."""
+category = "robotics"
+tags = ["kinematics", "manipulability"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/urdf-kinematic-solver"

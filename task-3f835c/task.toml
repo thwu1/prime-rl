@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional Oracle DBA expertise to parse SQL*Plus spool output format, import data into SQLite for structured analysis, independently compute correct Oracle performance metrics (buffer cache hit ratio, library cache pin hit ratio, PGA multipass ratio, hard parse ratio), perform knee-point analysis on V$DB_CACHE_ADVICE data, interpret V$PGA_TARGET_ADVICE overallocation semantics, and cross-reference execution plans with schema definitions to identify problematic SQL. Beyond metric computation, the agent must critically evaluate three competing consultant diagnostic reports against computed ground truth, identify specific errors in each (wrong formulas, misidentified SQL, incorrect root cause attribution), rank the consultants by accuracy, and produce a definitive corrected diagnosis with Oracle ALTER SYSTEM remediation. This evaluation and creation chain demands deep Oracle internals knowledge combined with multi-tool proficiency (spool parsing, SQLite CLI, JSON processing)."""
+solution_explanation = """Parse SQL*Plus spool files using fixed-width column detection from separator dash lines. Import all incident data into SQLite tables (sysstat, system_event, db_cache_advice, librarycache, pgastat, pga_target_advice, sqlarea). Query the SQLite database to compute: buffer cache hit ratio = 1-(2250000/15000000) = 0.85; library cache pin hit ratio = 1850000/2000000 = 0.925; hard parse ratio = 1200000/2500000 = 0.48; PGA multipass ratio = 15000/100000 = 0.15; buffer cache knee-point at 768MB from marginal analysis; PGA recommended target at 512MB (first row with ESTD_OVERALLOC_COUNT=0). Identify abc123def456 as the worst point query (500 buffer gets/exec, full table scan on ORDERS). Compare each consultant's report against these values: Consultant C is most accurate (only root cause ordering wrong), Consultant A has wrong SQL identification and PGA recommendation, Consultant B has multiple fundamental errors (wrong hit ratio formula, wrong library cache root cause, wrong buffer cache status). Produce corrected diagnosis, evaluation rankings (C=1, A=2, B=3), and remediation SQL."""
+verification_explanation = """Tests verify the SQLite analysis database has 7 required tables with correct row counts. Tests check evaluation.json for correct consultant rankings (C=1, A=2, B=3), accuracy score ordering (C > A > B), best_report='consultant_C', error count ordering, and identification of specific errors (B's buffer_cache.hit_ratio, B's library_cache.root_cause, A's sql_id, A's pga recommendation). Tests verify corrected_diagnosis.json metrics against computed ground truth with tolerances (buffer cache hit ratio ~0.85, library cache hit ratio ~0.925, hard parse ratio ~0.48, PGA recommended target 512MB, buffer cache recommended size 640-1024MB). Tests verify wait event ordering, problematic SQL identification, root cause ranking, and remediation SQL containing ALTER SYSTEM SET for db_cache_size, pga_aggregate_target, cursor_sharing=FORCE with SCOPE=BOTH, and CREATE INDEX on customer_id/orders."""
+category = "database"
+tags = ["oracle", "performance-tuning"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3f835c"

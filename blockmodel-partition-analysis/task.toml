@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a multi-file network analysis pipeline to identify four subtle bugs spanning distinct domains: (1) incorrect treatment of directed vs undirected edges in inter-block matrix construction, (2) an omitted model complexity term in the DC-SBM description length formula (Peixoto 2012), (3) suboptimal greedy label matching where optimal assignment is required, and (4) wrong normalization convention for normalized mutual information. Diagnosing each bug requires deep domain knowledge — the code is clean and well-commented, so the errors are mathematical/algorithmic rather than syntactic. The agent must explore the project structure, understand the generative model, independently determine the correct formulations, and produce numerically correct results."""
+solution_explanation = """Explore the project to discover data layout and pipeline code. Read the buggy metrics.py and identify four issues: (1) _interblock_matrix symmetrizes edges for a directed graph — remove the M[s,r] += w line; (2) compute_description_length omits the N*ln(B) term in S_model — add it; (3) compute_accuracy uses greedy label matching — replace with Hungarian algorithm via scipy.optimize.linear_sum_assignment; (4) compute_nmi uses max(H_t,H_p) normalization — change to arithmetic mean (H_t+H_p)/2 as specified in the project notes. Then run the corrected pipeline or reimplement from scratch to produce results.json."""
+verification_explanation = """Tests independently reimplement the correct DC-SBM entropy formula (directed edges, with N*ln(B) term) and all three evaluation metrics (Hungarian accuracy, ARI, arithmetic-mean NMI) using numpy/scipy. They compare against the agent's results.json with tight numerical tolerances (0.1% relative for description lengths, 0.005 absolute for metrics), verify correct identification of the best partition, correct ranking order, and coherence properties (e.g., near-perfect partition scores higher than random)."""
+category = "algorithms"
+tags = ["graph-algorithms", "information-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/blockmodel-partition-analysis"

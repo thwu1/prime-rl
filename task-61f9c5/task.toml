@@ -1,0 +1,57 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of feedback control theory and
+Linux memory management writeback semantics. The agent receives only a simulation
+framework with minimal interface documentation (function signatures and output ranges)
+and must reverse-engineer the simulation loop to understand how each controller function
+affects system dynamics. The agent must independently derive: the correct shape of a
+non-linear negative-feedback function satisfying specific boundary and monotonicity
+constraints, a per-device fairness adjustment comparing bandwidth shares against dirty
+page shares, a rate-limiting pause mechanism that distributes device-level limits across
+concurrent writers, and a smoothed convergence strategy for ratelimit adaptation. All
+four components interact — an error in one destabilizes the others — and CONFIG
+parameters must be jointly tuned to satisfy convergence, stability, fairness, pause
+bounds, and throughput constraints across three diverse workload scenarios simultaneously.
+Additionally requires gnuplot scripting and jq proficiency for output generation."""
+solution_explanation = """Implement controller.py with: (1) calc_pos_ratio using a cubic
+polynomial 1-x^3 where x=(dirty-setpoint)/(limit-setpoint), clamped to [0,2], which
+gives the correct negative feedback shape. (2) bdi_pos_ratio comparing bdi_dirty/sys_dirty
+against bdi_est_bw/total_bw and scaling base_ratio by (1+deviation). (3) compute_pause
+dividing bdi_ratelimit by n_writers, scaling by bdi_ratio, computing proportional pause =
+tick_ms*(want-allowed)/want. (4) update_ratelimit using EWMA: current + smoothing*(target
+- current). CONFIG with setpoint_ratio=0.40, limit_ratio=0.60, max_pause_ms=200,
+smoothing=0.125. Then write a gnuplot script plotting CSV timeseries and a jq pipeline
+merging per-scenario metrics."""
+verification_explanation = """Unit tests verify calc_pos_ratio mathematical properties
+(boundary values, monotonicity, clamping), bdi_pos_ratio fair-share behavior (neutral,
+relaxed, tightened), compute_pause proportionality and bounds, update_ratelimit convergence.
+Integration tests run all three scenarios via the framework and check: dirty ratio
+convergence within tolerance of setpoint, ticks above limit, tail stability range, pause
+bounds, BDI fairness shares, and minimum throughput. Output tests verify gnuplot PNG is
+valid and jq summary JSON has correct structure and reasonable values."""
+category = "systems_programming"
+tags = ["kernel", "control_systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-61f9c5"

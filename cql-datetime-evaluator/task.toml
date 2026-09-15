@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete CQL temporal expression evaluator and XML conformance pipeline. The solver must reverse-engineer CQL evaluation semantics (date/time arithmetic with precision preservation, calendar duration vs boundary-crossing difference, uncertainty interval propagation, three-valued comparison logic, timezone normalization) from test expressions and expected outputs, then integrate this with namespace-aware XML parsing, xmllint schema validation, and schema-compliant report generation. Blind test cases without expected output prevent answer copying."""
+solution_explanation = """The solution validates input XML with xmllint, parses test suites with ElementTree using namespace-qualified lookups, builds a recursive-descent CQL expression parser and evaluator handling DateTime/Date/Time types with partial precision arithmetic, calendar duration vs boundary-crossing difference semantics, uncertainty intervals, three-valued logic, and UTC timezone normalization, generates a conformance report XML, then validates the report against the report schema."""
+verification_explanation = """Tests parse the generated report.xml and verify: input/output validation logs exist and contain 'validates', report has correct root attributes and 2 suites, all 69 expected test results match computed values exactly (parametrized per test name), 2 invalid-expression tests have skip status, summary counts are correct (total=71, passed=69, skipped=2), and no tests have error status."""
+category = "healthcare_informatics"
+tags = ["cql", "xml-schema-validation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cql-datetime-evaluator"

@@ -1,0 +1,51 @@
+# prog1.asm
+
+READ_INT
+STORE n
+
+PUSH_INT 3
+STORE a
+PUSH_INT 4
+STORE b
+
+LOAD a
+LOAD b
+MUL
+STORE c
+
+PUSH_INT 5
+STORE d
+
+LOAD c
+LOAD d
+MUL
+STORE e
+
+PUSH_INT 2
+STORE f
+
+LOAD e
+LOAD f
+DIV
+STORE g
+
+LOAD e
+PUSH_INT 0
+ADD
+STORE e2
+
+LOAD e2
+PUSH_INT 1
+MUL
+STORE factor
+
+LOAD n
+LOAD factor
+MUL
+LOAD g
+ADD
+STORE result
+
+LOAD result
+PRINTLN
+HALT

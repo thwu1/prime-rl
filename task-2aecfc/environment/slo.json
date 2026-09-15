@@ -1,0 +1,11 @@
+{
+    "availability": {
+        "target": 0.999,
+        "period_days": 30
+    },
+    "latency": {
+        "target": 0.99,
+        "threshold_ms": 200,
+        "period_days": 30
+    }
+}

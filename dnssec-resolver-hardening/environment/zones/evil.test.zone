@@ -1,0 +1,13 @@
+$ORIGIN evil.test.
+$TTL 86400
+@   IN  SOA  ns1.evil.test. admin.evil.test. (
+              2024010101
+              3600
+              900
+              604800
+              86400 )
+    IN  NS   ns1.evil.test.
+
+ns1     IN  A       127.0.0.1
+trap    IN  A       10.0.0.1
+legit   IN  A       203.0.113.99

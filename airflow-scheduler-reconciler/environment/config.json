@@ -1,0 +1,5 @@
+{
+    "reference_time": "2024-01-17T08:00:00Z",
+    "heartbeat_threshold_seconds": 1800,
+    "duplicate_window_seconds": 60
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires a multi-tool workflow: compiling a C cost model generator with make/gcc, querying a SQLite database with sqlite3 for cluster configuration, processing JSON topology with jq, and deep understanding of distributed ML training paradigms (DDP, FSDP/ZeRO-3, pipeline parallelism). The agent must read and comprehend a 250-line async simulation framework that loads its constants from a generated module, implement three increasingly complex async distributed training strategies with correct communication patterns, proper memory management through explicit deletion of intermediate tensors, and satisfy both time and memory budgets. The Pipeline+FSDP strategy requires coordinating 16 ranks across two parallelism dimensions simultaneously."""
+solution_explanation = """Build cost model: cd /app/native && make && ./cost_model_gen hw_spec.bin /app/cost_model.py. Query sqlite3 /app/cluster.db for strategy configs. DDP: Load full weights on each rank, forward/backward on one batch, allreduce gradients, update. FSDP: Load sharded weights, allgather for forward/backward, scatterreduce gradients to shards, update shards. Pipeline+FSDP: Partition layers across pipeline stages based on topology.json, shard weights 16-way, all ranks participate in collectives for every layer, use p2p for inter-stage activation/gradient transfer."""
+verification_explanation = """Tests load strategy configs from cluster.db via sqlite3, run each strategy via asyncio.gather across all ranks, then verify: (1) Model.check() passes — every layer has a complete step-1 weight across rank shards, (2) max simulated time across ranks within budget from database, (3) max peak memory across ranks within budget from database. Tests have a 120s wall-clock timeout to catch deadlocks from incorrect communication patterns."""
+category = "systems"
+tags = ["distributed-systems", "ml-training"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/distributed-training"

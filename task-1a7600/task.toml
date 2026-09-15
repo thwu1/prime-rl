@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interconnected components from quantitative finance: (1) the Heston stochastic volatility characteristic function with careful handling of the "Little Heston Trap" complex branch-cut instability, (2) the COS Fourier-cosine expansion pricing method with correct truncation domain selection and coefficient computation, and (3) a multi-maturity joint calibration optimizer recovering 5 correlated parameters from a 36-point option price surface. Additionally requires computing Greeks via numerical differentiation and extracting Black-Scholes implied volatilities via root-finding. Demands expertise in complex analysis, numerical methods, stochastic calculus, and derivative pricing."""
+solution_explanation = """Implements the Heston characteristic function using the stable Albrecher et al. formulation to avoid branch-cut discontinuities. Uses the COS method with N=4096 expansion terms and L=12 truncation parameter to price European options via put coefficients and put-call parity. Calibrates jointly across all 4 maturities using scipy.optimize.differential_evolution for global search followed by L-BFGS-B local refinement, minimizing sum of squared relative pricing errors. Computes Delta/Gamma via central finite differences on S0, and Vega via central finite differences on v0. Extracts implied volatilities using bisection."""
+verification_explanation = """Tests verify: (1) calibrated model prices match all 36 market prices within 0.1% relative error, (2) calibrated parameters lie within economic bounds, (3) implied volatility smile exhibits correct downward-sloping skew consistent with negative rho, (4) Greeks satisfy economic constraints (Delta in [0,1], positive Gamma, positive Vega), (5) Greeks match reference values computed from known ground-truth parameters within tolerance, (6) put-call parity holds for model prices."""
+category = "mathematics"
+tags = ["quantitative-finance", "numerical-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1a7600"

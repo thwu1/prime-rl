@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: target
+  labels:
+    zone: dmz
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-ns
+  labels:
+    name: prod
+    env: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-ns
+  labels:
+    name: dev
+    env: development
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-ns
+  labels:
+    name: staging
+    env: staging
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: server-and
+  namespace: target
+  labels:
+    app: server
+    test: and-mode
+status:
+  podIP: "10.0.0.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: server-or
+  namespace: target
+  labels:
+    app: server
+    test: or-mode
+status:
+  podIP: "10.0.0.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: local-client
+  namespace: target
+  labels:
+    app: local
+    role: client
+status:
+  podIP: "10.0.0.3"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prod-client
+  namespace: prod-ns
+  labels:
+    app: prod-app
+    role: client
+status:
+  podIP: "10.1.0.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prod-admin
+  namespace: prod-ns
+  labels:
+    app: prod-admin
+    role: admin
+status:
+  podIP: "10.1.0.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dev-client
+  namespace: dev-ns
+  labels:
+    app: dev-app
+    role: client
+status:
+  podIP: "10.2.0.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: staging-client
+  namespace: staging-ns
+  labels:
+    app: staging-app
+    role: client
+status:
+  podIP: "10.3.0.1"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: target
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: and-policy
+  namespace: target
+spec:
+  podSelector:
+    matchLabels:
+      test: and-mode
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          env: production
+      podSelector:
+        matchLabels:
+          role: client
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: or-policy
+  namespace: target
+spec:
+  podSelector:
+    matchLabels:
+      test: or-mode
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          env: production
+    - podSelector:
+        matchLabels:
+          role: client
+  policyTypes:
+  - Ingress

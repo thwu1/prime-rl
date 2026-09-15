@@ -1,0 +1,129 @@
+{
+  "reference": "Patek, J. and Klomfar, J. (1995). Simple functions for fast calculations of selected thermodynamic properties of the ammonia-water system. Int. J. Refrigeration, 18(4), 228-234. DOI: 10.1016/0140-7007(95)00006-w",
+  "molar_masses_g_per_mol": {"NH3": 17.031, "H2O": 18.015},
+  "correlations": {
+    "bubble_temperature": {
+      "description": "Bubble-point temperature as function of pressure and liquid molar fraction",
+      "equation": "T_b = T_0 * sum_i(a_i * (1 - x)^m_i * ln(p_0 / p)^n_i)",
+      "inputs": {"p": "pressure [MPa]", "x": "molar fraction of NH3 in liquid phase"},
+      "output": {"T_b": "bubble-point temperature [K]"},
+      "constants": {"T_0": 100.0, "p_0": 2.0},
+      "coefficients": [
+        {"i": 1,  "a":  0.322302e1,  "m": 0,  "n": 0},
+        {"i": 2,  "a": -0.384206e0,  "m": 0,  "n": 1},
+        {"i": 3,  "a":  0.460965e-1, "m": 0,  "n": 2},
+        {"i": 4,  "a": -0.378945e-2, "m": 0,  "n": 3},
+        {"i": 5,  "a":  0.135610e-3, "m": 0,  "n": 4},
+        {"i": 6,  "a":  0.487755e0,  "m": 1,  "n": 0},
+        {"i": 7,  "a": -0.120108e0,  "m": 1,  "n": 1},
+        {"i": 8,  "a":  0.106154e-1, "m": 1,  "n": 2},
+        {"i": 9,  "a": -0.533589e-3, "m": 2,  "n": 3},
+        {"i": 10, "a":  0.785041e1,  "m": 4,  "n": 0},
+        {"i": 11, "a": -0.115941e2,  "m": 5,  "n": 0},
+        {"i": 12, "a": -0.523150e-1, "m": 5,  "n": 1},
+        {"i": 13, "a":  0.489596e1,  "m": 6,  "n": 0},
+        {"i": 14, "a":  0.421059e-1, "m": 13, "n": 1}
+      ]
+    },
+    "dew_temperature": {
+      "description": "Dew-point temperature as function of pressure and vapor molar fraction",
+      "equation": "T_d = T_0 * sum_i(a_i * (1 - y)^(m_i/4) * ln(p_0 / p)^n_i)",
+      "inputs": {"p": "pressure [MPa]", "y": "molar fraction of NH3 in vapor phase"},
+      "output": {"T_d": "dew-point temperature [K]"},
+      "constants": {"T_0": 100.0, "p_0": 2.0},
+      "coefficients": [
+        {"i": 1,  "a":  0.324004e1,  "m": 0, "n": 0},
+        {"i": 2,  "a": -0.395920e0,  "m": 0, "n": 1},
+        {"i": 3,  "a":  0.435624e-1, "m": 0, "n": 2},
+        {"i": 4,  "a": -0.218943e-2, "m": 0, "n": 3},
+        {"i": 5,  "a": -0.143526e1,  "m": 1, "n": 0},
+        {"i": 6,  "a":  0.105256e1,  "m": 1, "n": 1},
+        {"i": 7,  "a": -0.719281e-1, "m": 1, "n": 2},
+        {"i": 8,  "a":  0.122362e2,  "m": 2, "n": 0},
+        {"i": 9,  "a": -0.224368e1,  "m": 2, "n": 1},
+        {"i": 10, "a": -0.201780e2,  "m": 3, "n": 0},
+        {"i": 11, "a":  0.110834e1,  "m": 3, "n": 1},
+        {"i": 12, "a":  0.145399e2,  "m": 4, "n": 0},
+        {"i": 13, "a":  0.644312e0,  "m": 4, "n": 2},
+        {"i": 14, "a": -0.221246e1,  "m": 5, "n": 0},
+        {"i": 15, "a": -0.756266e0,  "m": 5, "n": 2},
+        {"i": 16, "a": -0.135529e1,  "m": 6, "n": 0},
+        {"i": 17, "a":  0.183541e0,  "m": 7, "n": 2}
+      ]
+    },
+    "vapor_composition": {
+      "description": "Equilibrium vapor molar fraction as function of pressure and liquid molar fraction",
+      "equation": "y = 1 - exp(ln(1 - x) * sum_i(a_i * (p / p_0)^m_i * x^(n_i / 3)))",
+      "inputs": {"p": "pressure [MPa]", "x": "molar fraction of NH3 in liquid phase"},
+      "output": {"y": "molar fraction of NH3 in vapor phase"},
+      "constants": {"p_0": 2.0},
+      "coefficients": [
+        {"i": 1,  "a":  1.98022017e1,  "m": 0, "n": 0},
+        {"i": 2,  "a": -1.18092669e1,  "m": 0, "n": 1},
+        {"i": 3,  "a":  2.77479980e1,  "m": 0, "n": 6},
+        {"i": 4,  "a": -2.88634277e1,  "m": 0, "n": 7},
+        {"i": 5,  "a": -5.91616608e1,  "m": 1, "n": 0},
+        {"i": 6,  "a":  5.78091305e2,  "m": 2, "n": 1},
+        {"i": 7,  "a": -6.21736743e0,  "m": 2, "n": 2},
+        {"i": 8,  "a": -3.42198402e3,  "m": 3, "n": 2},
+        {"i": 9,  "a":  1.19403127e4,  "m": 4, "n": 3},
+        {"i": 10, "a": -2.45413777e4,  "m": 5, "n": 4},
+        {"i": 11, "a":  2.91591865e4,  "m": 6, "n": 5},
+        {"i": 12, "a": -1.84782290e4,  "m": 7, "n": 6},
+        {"i": 13, "a":  2.34819434e1,  "m": 7, "n": 7},
+        {"i": 14, "a":  4.80310617e3,  "m": 8, "n": 7}
+      ]
+    },
+    "liquid_enthalpy": {
+      "description": "Liquid-phase specific enthalpy as function of temperature and liquid molar fraction",
+      "equation": "h_L = h_0 * sum_i(a_i * (T / T_0 - 1)^m_i * x^n_i)",
+      "inputs": {"T": "temperature [K]", "x": "molar fraction of NH3 in liquid phase"},
+      "output": {"h_L": "liquid enthalpy [kJ/kg]"},
+      "constants": {"h_0": 100.0, "T_0": 273.16},
+      "coefficients": [
+        {"i": 1,  "a": -0.761080e1,  "m": 0, "n": 1},
+        {"i": 2,  "a":  0.256905e2,  "m": 0, "n": 4},
+        {"i": 3,  "a": -0.247092e3,  "m": 0, "n": 8},
+        {"i": 4,  "a":  0.325952e3,  "m": 0, "n": 9},
+        {"i": 5,  "a": -0.158854e3,  "m": 0, "n": 12},
+        {"i": 6,  "a":  0.619084e2,  "m": 0, "n": 14},
+        {"i": 7,  "a":  0.114314e2,  "m": 1, "n": 0},
+        {"i": 8,  "a":  0.118157e1,  "m": 1, "n": 1},
+        {"i": 9,  "a":  0.284179e1,  "m": 2, "n": 1},
+        {"i": 10, "a":  0.741609e1,  "m": 3, "n": 3},
+        {"i": 11, "a":  0.891844e3,  "m": 5, "n": 3},
+        {"i": 12, "a": -0.161309e4,  "m": 5, "n": 4},
+        {"i": 13, "a":  0.622106e3,  "m": 5, "n": 5},
+        {"i": 14, "a": -0.207588e3,  "m": 6, "n": 2},
+        {"i": 15, "a": -0.687393e1,  "m": 6, "n": 4},
+        {"i": 16, "a":  0.350716e1,  "m": 8, "n": 0}
+      ]
+    },
+    "vapor_enthalpy": {
+      "description": "Vapor-phase specific enthalpy as function of temperature and vapor molar fraction",
+      "equation": "h_V = h_0 * sum_i(a_i * (1 - T / T_0)^m_i * (1 - y)^(n_i / 4))",
+      "inputs": {"T": "temperature [K]", "y": "molar fraction of NH3 in vapor phase"},
+      "output": {"h_V": "vapor enthalpy [kJ/kg]"},
+      "constants": {"h_0": 1000.0, "T_0": 324.0},
+      "coefficients": [
+        {"i": 1,  "a":  0.128827e1,  "m": 0, "n": 0},
+        {"i": 2,  "a":  0.125247e0,  "m": 1, "n": 0},
+        {"i": 3,  "a": -0.208748e1,  "m": 2, "n": 0},
+        {"i": 4,  "a":  0.217696e1,  "m": 3, "n": 0},
+        {"i": 5,  "a":  0.235687e1,  "m": 0, "n": 2},
+        {"i": 6,  "a": -0.886987e1,  "m": 1, "n": 2},
+        {"i": 7,  "a":  0.102635e2,  "m": 2, "n": 2},
+        {"i": 8,  "a": -0.237440e1,  "m": 3, "n": 2},
+        {"i": 9,  "a": -0.670515e1,  "m": 0, "n": 3},
+        {"i": 10, "a":  0.164508e2,  "m": 1, "n": 3},
+        {"i": 11, "a": -0.936849e1,  "m": 2, "n": 3},
+        {"i": 12, "a":  0.842254e1,  "m": 0, "n": 4},
+        {"i": 13, "a": -0.858807e1,  "m": 1, "n": 4},
+        {"i": 14, "a": -0.277049e1,  "m": 0, "n": 5},
+        {"i": 15, "a": -0.961248e0,  "m": 4, "n": 6},
+        {"i": 16, "a":  0.988009e0,  "m": 2, "n": 7},
+        {"i": 17, "a":  0.308482e0,  "m": 1, "n": 10}
+      ]
+    }
+  }
+}

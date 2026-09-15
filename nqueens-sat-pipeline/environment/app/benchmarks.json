@@ -1,0 +1,41 @@
+{
+  "description": "Benchmark requirements for the n-Queens Completion analysis system. The system generates random partial queen placements, determines satisfiability via SAT, counts exact solutions, and analyzes phase transitions.",
+  "solution_counts": {
+    "description": "counter.count() must return these exact values for the given instances",
+    "cases": {
+      "n4_empty": {"instance": {"n": 4, "queens": []}, "expected_count": 2},
+      "n5_empty": {"instance": {"n": 5, "queens": []}, "expected_count": 10},
+      "n6_empty": {"instance": {"n": 6, "queens": []}, "expected_count": 4},
+      "n8_empty": {"instance": {"n": 8, "queens": []}, "expected_count": 92},
+      "n5_one_placed": {"instance": {"n": 5, "queens": [[0, 0]]}, "expected_count": 2},
+      "n5_two_placed": {"instance": {"n": 5, "queens": [[0, 0], [1, 2]]}, "expected_count": 1},
+      "n4_unsat": {"instance": {"n": 4, "queens": [[0, 0], [1, 2]]}, "expected_count": 0}
+    }
+  },
+  "sat_verdicts": {
+    "description": "solver.solve() must return correct satisfiability for instance files in /app/instances/",
+    "cases": {
+      "sat_5_2": {"instance_file": "instances/sat_5_2.json", "expected_sat": true},
+      "sat_8_3": {"instance_file": "instances/sat_8_3.json", "expected_sat": true},
+      "unsat_4_2": {"instance_file": "instances/unsat_4_2.json", "expected_sat": false}
+    }
+  },
+  "encoder_performance": {
+    "description": "The SAT encoder must scale efficiently with board size",
+    "n20_empty_max_clauses": 9000,
+    "n20_empty_min_variables": 401
+  },
+  "phase_transition": {
+    "description": "Phase transition analysis of satisfiability as constraint density varies",
+    "board_size": 14,
+    "seeds_per_m": 50,
+    "m_range": [1, 13],
+    "output_file": "results/phase_transition.csv",
+    "format": "CSV with header 'm,sat_fraction', one row per m value from 1 to 13",
+    "constraints": {
+      "m1_min_sat_fraction": 0.8,
+      "m13_max_sat_fraction": 0.5,
+      "trend": "sat_fraction must decrease overall from low m to high m"
+    }
+  }
+}

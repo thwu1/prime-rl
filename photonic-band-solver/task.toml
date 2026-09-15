@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of photonic crystal physics (Bloch theorem, reciprocal lattice, Brillouin zones), electromagnetic eigenvalue theory, and numerical methods for solving large generalized eigenvalue problems. The solver must implement a frequency-domain method from scratch including analytical Fourier coefficients of the dielectric function, correct reciprocal lattice construction for non-orthogonal lattices, and band gap identification. The triangular lattice requires handling non-orthogonal basis vectors and the correct IBZ path. Additionally, the solver must discover and parse the materials database format and MPB reference output format from the environment without documentation, implement a convergence analysis tool that iteratively determines resolution requirements, and correctly integrate all components. This is PhD-level computational photonics work requiring coupled physics understanding, numerical methods expertise, environment exploration, and software engineering."""
+solution_explanation = """The reference solution uses the plane-wave expansion (PWE) method. It resolves material names from /app/data/materials.json (a JSON array of material objects with 'id' and 'epsilon' fields), constructs the reciprocal lattice for each lattice type, computes Fourier coefficients of the periodic dielectric function analytically using Bessel functions (J1) for circular rods, and solves a generalized eigenvalue problem at each k-point along the IBZ boundary. Band gaps are found by comparing max(band_i) vs min(band_{i+1}) over all k-points. The optimizer uses scipy minimize_scalar with bounded Brent method. The convergence analyzer parses MPB reference output files using regex to extract 'Gap from band X (val) to band Y (val), percent%' lines, then sweeps resolution values to find convergence."""
+verification_explanation = """Tests run all three scripts (solver, optimizer, convergence) as subprocesses, parse JSON output, and verify: (1) material name resolution from the database works correctly and invalid names fail, (2) first TM gap existence and percentage for both square and triangular lattices within tolerance of MPB reference values, (3) band edge frequencies within 5% of published values, (4) optimal radius within 0.02 of the known optimum, (5) convergence analysis correctly parses the MPB reference gap value, produces at least 5 resolution entries, converges within target accuracy, and shows decreasing errors with resolution. Reference data files in the environment must be present and parseable."""
+category = "scientific_computing"
+tags = ["computational-photonics", "eigenvalue-problems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/photonic-band-solver"

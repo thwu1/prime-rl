@@ -1,0 +1,20 @@
+{
+    "name": "optical_flow",
+    "description": "Lucas-Kanade optical flow estimation accelerator",
+    "source": "Rosetta",
+    "base_cycles": 32768,
+    "base_luts": 42000,
+    "base_ffs": 58000,
+    "base_dsps": 454,
+    "base_brams": 54,
+    "base_power_mw": 1850.0,
+    "pipeline_depth": 24,
+    "reference_ppa": {
+        "latency_ns": 163840.0,
+        "luts": 42000,
+        "ffs": 58000,
+        "dsps": 454,
+        "brams": 54,
+        "power_mw": 1850.0
+    }
+}

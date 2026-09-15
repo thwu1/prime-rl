@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Prometheus operational knowledge combined with ML serving systems understanding. The agent must: (1) diagnose and fix a broken prometheus.yml without being told what the errors are — promtool gives cryptic errors and the agent must understand that some config directives are CLI-only and that duration units are mandatory; (2) deeply understand the Prometheus histogram data model — cumulative buckets with le-labeled boundaries, the distinction between per-instance and cluster-wide metrics; (3) recognize that histogram metrics are emitted per-replica and determine the correct aggregation strategy for computing cluster-wide percentiles from distributed histogram data; (4) correctly implement the standard Prometheus percentile computation algorithm including edge cases; (5) author valid PromQL-based recording and alerting rules; (6) compose a multi-tool SRE workflow spanning config validation, metric parsing, PromQL rule authoring, and SLO evaluation against an error-budget framework. The multi-instance aggregation requirement is the critical difficulty boundary — it demands holistic understanding of distributed metrics systems."""
+solution_explanation = """Fix the three prometheus.yml errors: add duration units to scrape_interval (30 → 30s) and alertmanager timeout (5 → 5s), and remove the invalid top-level storage section. Write Prometheus recording rules using histogram_quantile(0.99, sum by (le) (..._bucket)) for the three histogram metrics — the sum by (le) is essential because histograms are emitted per-replica. Write alerting rules for the six SLO conditions. Parse the Prometheus exposition format .prom files, aggregating histogram bucket counts across the three replica instances by summing at each le boundary. Implement the standard histogram_quantile algorithm (linear interpolation within the first bucket whose aggregated cumulative count >= quantile*total). Extract cluster-wide gauge values directly. Evaluate each SLO threshold per snapshot and compute error budget as violation_count/total_snapshots percentage."""
+verification_explanation = """Tests verify: (1) Prometheus config passes promtool check config, (2) recording rules pass promtool check rules, contain histogram_quantile expressions, and use multi-instance aggregation (sum by pattern), (3) p99 percentile values for all three histogram metrics across all 5 snapshots match expected values within 0.1% tolerance (values computed from aggregated cross-instance bucket counts), (4) gauge values are accurately extracted, (5) SLO compliance flags and specific violation lists are correct per snapshot, (6) error budget percentages and within_budget flags are correct, (7) overall_healthy is correctly false."""
+category = "observability"
+tags = ["prometheus", "sre-monitoring"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0b1e2a"

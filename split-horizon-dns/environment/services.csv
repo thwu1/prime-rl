@@ -1,0 +1,6 @@
+record_type,name,value,priority,weight,port
+MX,@,mail.infra.example.com.,10,,
+CNAME,www,web1.infra.example.com.,,,
+CNAME,smtp,mail.infra.example.com.,,,
+SRV,_ldap._tcp,db1.infra.example.com.,0,100,389
+TXT,@,"v=spf1 mx a:mail.infra.example.com -all",,,

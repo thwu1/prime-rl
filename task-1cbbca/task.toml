@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a complete lock-free SPSC bipartite buffer implementation from a high-level specification and pre-declared state variables. The solver must invent the correct algorithm for: (1) contiguous space allocation with a sentinel-slot capacity rule to distinguish full from empty, (2) wrap-around writes that set up an invalidation region before jumping to position 0, (3) write-index advancement that differs fundamentally between wrapped and non-wrapped writes, (4) read-side detection and traversal of the invalidation boundary with wrap-to-zero fallback, and (5) correct std::memory_order selection across all atomic operations for inter-thread visibility without data races. Each method has interacting edge cases -- getting the sentinel right but wrapping wrong causes data corruption; getting wrapping right but invalidation wrong loses data; getting all single-threaded cases right but using wrong memory orderings causes the concurrent test to fail nondeterministically. This is a create-level task: no reference implementation is given, and the solver must produce original code from the specification."""
+solution_explanation = """Implement four methods from scratch: WriteAcquire calculates tail space (N-w, minus 1 when r==0 for sentinel), falls back to wrapping to position 0 with invalidation_idx=w when tail is insufficient but head has room (r-1 slots); WriteRelease stores write_idx=count (not old_w+count) after wrapped writes, old_w+count otherwise; ReadAcquire computes readable as inv-r (not N-r) in the w<r case, and when readable==0 wraps reader to position 0 resetting invalidation_idx to N before returning [0,w); ReadRelease simply advances read_idx by count."""
+verification_explanation = """The C++ test binary covers each algorithmic aspect with named test cases (basic push/pop, capacity rejection at N with acceptance at N-1, wrap-around data integrity, pre/post invalidation boundary reads, single-threaded stress with 5000 sequential-counter cycles, and concurrent 100K-element transfer across two threads). The pytest wrapper builds the project, runs the binary, parses PASS/FAIL lines per category, and checks for the ALL TESTS PASSED banner. An independent anti-cheat verification compiles a separate standalone C++ program against the header to verify the implementation with different parameters."""
+category = "engineering"
+tags = ["lock-free", "cpp"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1cbbca"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires compiling and adapting MEGADOCK C source code (decoygen.cpp has an incompatible CLI that must be reverse-engineered and fixed), compiling a second C tool (calcrg.cpp), building both via a Makefile, and integrating these native ELF binaries with a Python DockQ scorer and bash pipeline script. The solver must also study scientific literature (CAPRI criteria, DockQ paper) to extract distance cutoffs, superposition procedures, and classification rules. Implementation demands PDB format parsing, SVD-based optimal superposition, heavy-atom contact enumeration, three distinct RMSD computations (fnat, L-RMSD, I-RMSD), and multi-tool orchestration merging compiled C binary output with Python scoring results."""
+solution_explanation = """The reference solution: (1) creates an adapted decoygen.c with reordered argument parsing to match the required CLI (docking.out, ligand.pdb, pose_number, output.pdb vs the original's output.pdb, ligand.pdb, docking.out, pose_number); (2) writes a Makefile that compiles both decoygen and calcrg from C source; (3) implements dockq.py with Kabsch SVD superposition, fnat via 5A contact enumeration, L-RMSD via receptor-superposed ligand RMSD, I-RMSD via 10A interface superposition, DockQ formula, and CAPRI classification; (4) creates score_all.sh that orchestrates decoygen + calcrg + dockq to produce a sorted TSV with quality metrics and center-of-geometry coordinates."""
+verification_explanation = """Tests verify: (1) decoygen and calcrg are native ELF binaries, not scripts; (2) Makefile supports clean+rebuild cycle producing working binaries; (3) calcrg outputs correct center-of-geometry coordinates including grid-wrapping edge cases; (4) self-comparison yields perfect DockQ scores; (5) large/moderate ligand translations produce expected metric ranges and CAPRI classifications; (6) DockQ formula correctness; (7) CAPRI classification consistency; (8) decoygen coordinate transformation matches C reference; (9) pipeline output format, sorting, and rg column presence."""
+category = "computational_biology"
+tags = ["protein-docking", "structural-bioinformatics"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dockq-scoring-pipeline-86da4d"

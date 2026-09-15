@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing data quality issues in raw transaction logs (refunds, duplicates), aggregating into per-customer RFM summaries, then identifying and implementing appropriate probabilistic models (BG/NBD for purchase frequency, Gamma-Gamma for monetary value) from scratch via maximum likelihood estimation. The BG/NBD log-likelihood involves Beta and Gamma special functions with log-sum-exp for numerical stability, and the conditional expected purchases formula requires evaluating the Gaussian hypergeometric function 2F1. The instruction names no algorithms or formulas -- the solver must discover the correct models, derive their likelihoods, and implement prediction formulas. This is graduate/PhD-level applied statistics combined with data engineering."""
+solution_explanation = """Parse raw transactions, remove refunds (negative amounts) and duplicates (repeated transaction_ids), compute per-customer RFM (frequency = repeat purchases, recency = weeks from first to last purchase, T = weeks from first purchase to observation end, monetary = mean repeat transaction amount). Fit BG/NBD via MLE on RFM using Nelder-Mead with multiple starting points in log-parameter space. Fit Gamma-Gamma similarly on frequency>0 customers. Compute P(alive), conditional expected purchases (via 2F1 hypergeometric), predicted monetary (Gamma-Gamma posterior mean), and CLV as their product."""
+verification_explanation = """Tests independently compute RFM from the raw transaction data using the same cleaning logic (remove negative amounts, deduplicate by transaction_id). Fitted parameters are verified via perturbation testing: 15% perturbations in each parameter direction must not improve the log-likelihood. P(alive), conditional expected purchases, and predicted monetary value are recomputed from the fitted parameters and independently-computed RFM, then compared against the agent's output. Summary statistics (total_clv, top_10, mean_p_alive, total_expected_purchases) are all verified against the predictions CSV."""
+category = "data_science"
+tags = ["probabilistic-modeling", "numerical-optimization"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/customer-lifetime-value"

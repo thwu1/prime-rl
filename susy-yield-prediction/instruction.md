@@ -1,0 +1,5 @@
+Implement the CMS-style single-lepton + jets + MET search described in `/app/config/analysis_spec.md` and predict the binned signal yield in MET for the T2tt simplified model benchmark point (m(t~1)=1000 GeV, m(chi0_1)=50 GeV), normalized to 35.9 fb^-1 at sqrt(s) = 13 TeV.
+
+Synthetic Monte Carlo signal events are at `/app/data/events.npz` (numpy `.npz` format). Normalization parameters — production cross-section, NLO+NLL K-factor, integrated luminosity, and generator filter efficiency — are in `/app/config/signal_info.json`. The cross-section is quoted in picobarns while the luminosity is in inverse femtobarns; consistent units must be used.
+
+Fill the null bin values in the HEPData-style template at `/app/results/histogram_template.yaml` with your predicted signal yields and write the completed histogram to `/app/results/histogram.yaml`. Preserve the multi-document YAML structure (metadata block, `---` separator, histogram block) and do not modify bin edges.

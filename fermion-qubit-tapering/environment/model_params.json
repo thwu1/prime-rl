@@ -1,0 +1,18 @@
+{
+    "model": "extended_hubbard",
+    "hamiltonian": "H = -t1 sum_{<i,j>,s} (c+_{is} c_{js} + h.c.) - t2 sum_{<<i,j>>,s} (c+_{is} c_{js} + h.c.) + U sum_i n_{i,up} n_{i,down} + V sum_{<i,j>} n_i n_j",
+    "notation": "<i,j> = nearest-neighbor pairs; <<i,j>> = next-nearest-neighbor pairs; n_i = n_{i,up} + n_{i,down}; h.c. = Hermitian conjugate",
+    "n_sites": 4,
+    "boundary": "open",
+    "spin_ordering": "interleaved",
+    "spin_orbital_map": "index = 2 * site + spin, where spin=0 is up and spin=1 is down",
+    "parameters": {
+        "t1": 1.0,
+        "t2": 0.3,
+        "U": 3.5,
+        "V": 0.8
+    },
+    "n_electrons": 4,
+    "n_spin_up": 2,
+    "n_spin_down": 2
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering filesystem consistency checks from corrupted binary images without explicit documentation of what each error type means. The solver must: (1) study the xv6 on-disk format specification (fs_spec.h), (2) use hex analysis tools (xxd/hexdump) to compare corrupted images against the clean reference to identify on-disk differences, (3) reason about which filesystem invariant each difference violates and map it to the error type schema, (4) implement a correct multi-pass C consistency checker covering bitmap/block/inode/directory cross-references, (5) compile via Makefile with proper build rules, and (6) handle edge cases like indirect block pointer chains, nlink counting conventions (excluding "." but including ".."), and metadata-region boundary computations. The combination of binary forensics, format reverse-engineering, and systems C programming demands proficient-level expertise."""
+solution_explanation = """The solution implements a C-based fsck tool that: (1) parses the superblock to determine filesystem layout boundaries, (2) reads all inodes and collects every block reference (direct + indirect) into a sorted array, (3) reads the block bitmap, (4) walks all directory inodes to enumerate directory entries and build a reference count map, (5) performs six cross-cutting consistency checks comparing bitmap state, block references, directory references, and nlink fields. The key analysis step is reverse-engineering each error type's semantics from the corrupted sample images and the format spec — e.g., discovering that BITMAP_MARKED_FREE means a referenced block has its bitmap bit cleared, or that INODE_NLINK_MISMATCH requires counting directory entries excluding "." but including ".."."""
+verification_explanation = """Tests generate xv6 filesystem images programmatically with known corruptions (bitmap bit flips, nlink mismatches, orphaned inodes, duplicate block references, invalid block pointers, indirect block corruptions). The fsck tool is run on each image, its JSON output is parsed, and specific error types/counts/fields are asserted. A clean image test verifies no false positives. A combined test verifies correct detection of multiple simultaneous corruption types. An additional test verifies the binary is a compiled ELF executable."""
+category = "systems_programming"
+tags = ["filesystem", "binary-forensics"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e37916"

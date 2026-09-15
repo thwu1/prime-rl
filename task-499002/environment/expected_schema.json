@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KTransformers Deployment Audit Report",
+  "type": "object",
+  "required": ["hardware_capabilities", "memory_analysis", "configuration_issues", "expert_placement"],
+  "properties": {
+    "hardware_capabilities": {
+      "type": "object",
+      "required": [
+        "cpu_model", "physical_cores_per_socket", "num_sockets",
+        "total_physical_cores", "has_amx", "has_avx512",
+        "has_avx512_vnni", "has_avx512_bf16", "has_avx512_vbmi",
+        "optimal_kernel_variant", "numa_node_count",
+        "memory_per_numa_node_mb", "total_system_memory_mb",
+        "gpu_count", "gpu_vram_bytes"
+      ],
+      "properties": {
+        "cpu_model": {"type": "string"},
+        "physical_cores_per_socket": {"type": "integer"},
+        "num_sockets": {"type": "integer"},
+        "total_physical_cores": {"type": "integer"},
+        "has_amx": {"type": "boolean"},
+        "has_avx512": {"type": "boolean"},
+        "has_avx512_vnni": {"type": "boolean"},
+        "has_avx512_bf16": {"type": "boolean"},
+        "has_avx512_vbmi": {"type": "boolean"},
+        "optimal_kernel_variant": {"type": "string"},
+        "numa_node_count": {"type": "integer"},
+        "memory_per_numa_node_mb": {"type": "integer"},
+        "total_system_memory_mb": {"type": "integer"},
+        "gpu_count": {"type": "integer"},
+        "gpu_vram_bytes": {"type": "integer"}
+      }
+    },
+    "memory_analysis": {
+      "type": "object",
+      "required": [
+        "expert_param_count", "expert_memory_bytes",
+        "non_expert_vram_bytes", "available_expert_vram_bytes",
+        "max_gpu_experts"
+      ],
+      "properties": {
+        "expert_param_count": {"type": "integer"},
+        "expert_memory_bytes": {"type": "integer"},
+        "non_expert_vram_bytes": {"type": "integer"},
+        "available_expert_vram_bytes": {"type": "integer"},
+        "max_gpu_experts": {"type": "integer"}
+      }
+    },
+    "configuration_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["parameter", "current_value", "problem"],
+        "properties": {
+          "parameter": {"type": "string"},
+          "current_value": {},
+          "problem": {"type": "string"}
+        }
+      }
+    },
+    "expert_placement": {
+      "type": "object",
+      "required": [
+        "total_experts", "gpu_expert_budget",
+        "optimal_placement", "optimal_hit_rate"
+      ],
+      "properties": {
+        "total_experts": {"type": "integer"},
+        "gpu_expert_budget": {"type": "integer"},
+        "optimal_placement": {
+          "type": "object",
+          "description": "Map from MoE layer index (as string key) to sorted array of expert indices assigned to GPU"
+        },
+        "optimal_hit_rate": {"type": "number"}
+      }
+    }
+  }
+}

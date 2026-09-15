@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge, systems tool proficiency, and data engineering skill operating in concert. The agent must: (1) reverse-engineer three heterogeneous data formats — a SQLite database with a non-obvious schema containing both k-mer observations and pipeline configuration in a separate metadata table, an AES-256-CBC-encrypted binary overflow partition whose decryption credentials (cipher, key, IV) are stored in the database's parameter table requiring use of the openssl CLI to decrypt, and supplementary observations in Apache Parquet columnar format requiring installation and use of the pyarrow library; (2) coordinate a multi-tool pipeline: query SQLite for encryption parameters then invoke openssl enc to decrypt the binary file then parse the packed binary format with a 16-byte header and per-record bitfield flags then install pyarrow and read Parquet data with non-obvious column name mapping; (3) understand DNA reverse complement semantics to normalize negative-strand records by reversing the sequence, swapping and complementing extensions; (4) identify and apply coverage-based error filtering using the reliability threshold from the pipeline parameters; (5) construct and traverse a de Bruijn graph from the filtered, strand-normalized k-mers to produce contigs; (6) compute the N50 assembly quality metric."""
+solution_explanation = """Read the YAML manifest to discover three data sources and the encrypted binary partition. Query the SQLite database's pipeline_params table to recover the min_reliable_coverage threshold (5), k value (31), and encryption parameters (cipher=aes-256-cbc, key and IV as hex strings). Use the openssl CLI to decrypt the binary file: openssl enc -d -aes-256-cbc -K <key> -iv <iv> -in overflow.bin.enc -out overflow.bin. Parse the decrypted binary by reading its 16-byte header (magic 'KMOV', LE count, LE k, LE version=2) then fixed-size records (31-byte sequence, 1 fwd, 1 bwd, 1 flags byte with strand bit, 4-byte LE coverage). Install pyarrow and read the Parquet file, mapping verbose column names (kmer_sequence, forward_extension, backward_extension, strand_orientation, coverage_depth) to the common schema. For every record from all sources, discard if coverage < threshold. For remaining records with strand '-', compute reverse complement of the sequence and swap/complement the extensions. Build a hash-table de Bruijn graph. Identify start nodes (backward extension == 'F'). Traverse each start node to produce contigs. Sort lexicographically. Compute N50."""
+verification_explanation = """An independent Python reference implementation queries the SQLite database for encryption parameters and pipeline settings, decrypts the binary file using the openssl CLI, reads the Parquet file using pyarrow, applies identical coverage filtering and strand normalization, builds the de Bruijn graph, traverses it, and computes assembly statistics. Tests verify: both output files exist and are non-empty, all contigs contain only valid DNA bases (ACGT), contigs are lexicographically sorted, no duplicates exist, contig count matches reference, every contig matches the reference set exactly, total assembly length matches, and all four statistics (num_contigs, total_bases, largest_contig, n50) equal the reference values."""
+category = "systems"
+tags = ["bioinformatics", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1a19d1"

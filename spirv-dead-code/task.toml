@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of GPU shader intermediate representations. The agent must reverse-engineer the SPIR-V binary format from installed specifications/headers, build a correct operand-aware parser that distinguishes ID references from literals across ~600 opcodes (leveraging the grammar JSON that must be discovered on the filesystem), and implement a sound dead code analysis that correctly distinguishes structural IR elements (types, constants, decorations, variables, labels) from eliminable computation instructions. Mistakes in operand parsing — such as confusing literal integers with ID references in composite/access-chain instructions — propagate as incorrect use-def chains and wrong elimination counts. The task demands holistic compiler-IR expertise: understanding SSA liveness, fixed-point dataflow, and the SPIR-V type system simultaneously."""
+solution_explanation = """The solution discovers the SPIR-V core grammar JSON from spirv-headers, builds an opcode-to-operand-structure mapping, and parses each binary module word by word — decoding the (WordCount<<16)|Opcode packing, reading the 5-word header, and using the grammar to classify each operand word as IdResultType, IdResult, IdRef, or literal. It then constructs use-def chains and iteratively eliminates instructions that (a) produce a result ID, (b) are not structural (not types, constants, variables, labels, decorations, debug, or mode-setting), and (c) whose result is consumed by no live instruction — repeating until a fixed point. Dead functions are identified as non-entry-point functions whose IDs never appear in OpFunctionCall."""
+verification_explanation = """Tests verify: (1) the parser correctly reads SPIR-V binary headers (magic number 0x07230203, valid version), (2) the parser extracts instructions without using subprocess/external tools, (3) dead code analysis returns exact expected counts for four modules — simple.spv: 0/0, dead_computation.spv: 3/0, dead_function.spv: 0/1, complex_dead.spv: 4/1, (4) analysis_results.json exists with correct structure and values matching the expected counts."""
+category = "systems_programming"
+tags = ["spirv", "compiler-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spirv-dead-code"

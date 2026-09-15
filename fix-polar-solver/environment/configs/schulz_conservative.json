@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "schulz_conservative",
+    "version": "1.0",
+    "source": "Damped Newton-Schulz variant",
+    "description": "Under-relaxed Newton-Schulz iteration with conservative step size"
+  },
+  "parameters": {
+    "iterations": [
+      {"step": 0, "coefficients": {"a": 1.4, "b": -0.4, "c": 0.0}},
+      {"step": 1, "coefficients": {"a": 1.4, "b": -0.4, "c": 0.0}},
+      {"step": 2, "coefficients": {"a": 1.4, "b": -0.4, "c": 0.0}},
+      {"step": 3, "coefficients": {"a": 1.4, "b": -0.4, "c": 0.0}},
+      {"step": 4, "coefficients": {"a": 1.4, "b": -0.4, "c": 0.0}}
+    ]
+  }
+}

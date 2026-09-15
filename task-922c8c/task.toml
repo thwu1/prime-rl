@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-format robotics scene layout pipeline that parses SDF XML scene files and YAML constraint specifications, constructs triangulated collision meshes from mixed SDF primitives (box, cylinder, sphere) with full 6DOF pose transforms, solves spatial constraints via dependency graph analysis with cycle detection, performs mesh-based convex hull collision testing (not AABB approximations) to handle rotated objects, and validates physics stability of stacked assemblies by computing center-of-mass projections against support polygon convex hulls. Demands holistic understanding of SDF format semantics (center-of-geometry positioning, Euler angle rotation conventions), computational geometry (convex hull operations, point-in-hull testing), graph algorithms (topological sort, cycle detection), and physics reasoning (stability analysis with uniform-density mass computation) — all interacting as a coherent system where errors in one subsystem cascade through the pipeline."""
+solution_explanation = """Parse SDF using xml.etree.ElementTree to extract per-model geometry and orientation. Parse YAML constraints. Build a directed dependency graph with networkx (edges from reference to subject for all constraint types) and run topological sort with cycle detection via nx.is_directed_acyclic_graph. For each object in topological order: compute z from support relation using SDF center-of-geometry math, compute x/y feasible range from footprint and directional constraints (center-to-center per API spec, with mesh collision rejection sampling for overlap avoidance), then rejection-sample positions checking mesh-based collision via scipy.spatial.ConvexHull vertex containment and next_to distance constraints. For stacked_on objects, directly copy reference x/y. Generate N placements with deterministic seeds. Compute stability by finding stacked_on chains, calculating combined center-of-mass above each support level, projecting onto xy-plane, and checking containment within the support polygon's 2D convex hull. Write output SDF, placements JSON, stability report, and constraints report."""
+verification_explanation = """Tests independently verify: (1) solver exists and runs on main scene, (2) output directory contains all four required files, (3) output placements.json has correct structure, (4) anchor objects preserve SDF poses, (5) on_top_of z-values match SDF center-of-geometry formula, (6) stacked_on xy-alignment and z correct, (7) inside objects fully contained within reference volume, (8) directional constraints satisfied with specified clearances, (9) next_to horizontal distances within specified ranges, (10) mesh-based collision freedom verified independently using trimesh+scipy convex hull vertex containment — not AABB, (11) alignment_jig orientation preserved in output, (12) stability report correctly identifies assemblies and marks them stable, (13) constraints report has correct count and all_satisfied, (14) cyclic scene rejected with non-zero exit and diagnostic keyword, (15) N=10 placements generated with diversity, (16) same seed produces identical output."""
+category = "systems"
+tags = ["robotics-simulation", "computational-geometry"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-922c8c"

@@ -1,0 +1,58 @@
+[
+  {
+    "id": 0,
+    "ciphertext_hex": "70f4e974aeb51e63c7932eb7c91cc9c43358bca5612c6baffe59fb895efe74acdd6b19d6a818842b",
+    "nonce_hex": "0011223344556677",
+    "tag_hex": "d31bb487329de154",
+    "ct_length": 40
+  },
+  {
+    "id": 1,
+    "ciphertext_hex": "70f4e974aeb31e63c7932eb7c91cc9cd365dbda4642962affe59fb895efe74acde6b19d6a818842b",
+    "nonce_hex": "0011223344556677",
+    "tag_hex": "e46777788b7433bc",
+    "ct_length": 40
+  },
+  {
+    "id": 2,
+    "ciphertext_hex": "70f4e974aeb11b63c7932eb7c91cc9c43059baa3642f67affe59fb895efe74acdf6b19d6a818842b",
+    "nonce_hex": "0011223344556677",
+    "tag_hex": "9640e88ca091ace3",
+    "ct_length": 40
+  },
+  {
+    "id": 3,
+    "ciphertext_hex": "c0455724a02e05ad19951a3d7d1316ccd1aaf3abf9d3875cdc46b3b4989ceeccbbe5c07636c0ca1c",
+    "nonce_hex": "aabbccddeeff0011",
+    "tag_hex": "12656755c26d1718",
+    "ct_length": 40
+  },
+  {
+    "id": 4,
+    "ciphertext_hex": "c0455724a02e05ad19951a3d7d1316ccd1aae0a6f5d08d5cdc46b3b4989ceeccb8e5c07636c0ca1c",
+    "nonce_hex": "aabbccddeeff0011",
+    "tag_hex": "4608f3c78471efe9",
+    "ct_length": 40
+  },
+  {
+    "id": 5,
+    "ciphertext_hex": "41d4dd50fcc045a0bc06ec8f48d59a8eb04ffda278d737106c7c14e45c61c5d50e5ebbe7238b1d8b",
+    "nonce_hex": "1234567890abcdef",
+    "tag_hex": "2824fa5a3692543e",
+    "ct_length": 40
+  },
+  {
+    "id": 6,
+    "ciphertext_hex": "be994d3122da3151e5b3a0d0235af15c063a1fc9cc117aa8b0f27fa8e2ed4b82b3db5d1767c178c9",
+    "nonce_hex": "fedcba0987654321",
+    "tag_hex": "6b82d2e67740eff2",
+    "ct_length": 40
+  },
+  {
+    "id": 7,
+    "ciphertext_hex": "415d5d8c52dc8a4629f7dcf161852e97e9945fde39a932ca9bed2ad24d80412ffde222436b207e6e",
+    "nonce_hex": "1111111111111111",
+    "tag_hex": "daa5920d40a09e36",
+    "ct_length": 40
+  }
+]

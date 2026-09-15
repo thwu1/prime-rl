@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level FHIR R4 knowledge to diagnose 6 interacting bugs in a transaction processing engine without being told what is wrong. The solver must understand FHIR-mandated processing order (DELETE then POST then PUT/PATCH then GET/HEAD), recursive urn:uuid reference resolution including inside arrays and nested structures, conditional create semantics (ifNoneExist), ETag weak validator format, response entry reordering back to input order, and transaction atomicity with rollback. Bugs are coupled: fixing processing order without fixing response reordering introduces new failures. Additionally requires writing a FHIRPath-based conformance validator using fhirpathpy, a domain-specific tool demanding understanding of FHIRPath expression syntax and FHIR resource navigation."""
+solution_explanation = """The solution fixes 6 bugs: (1) reorders processing to FHIR-mandated DELETE then POST then PUT/PATCH then GET/HEAD using priority mapping, (2) makes reference resolution recursive to handle arrays and nested objects, (3) restores conditional create logic to return existing resource on ifNoneExist match, (4) corrects ETag format to weak validator W/"N", (5) maps responses back to original input order using indexed array, (6) adds atomicity via state snapshot and rollback on any entry error. Also writes a FHIRPath-based conformance validator using fhirpathpy that checks Bundle type, response status presence, ETag format, and unresolved references."""
+verification_explanation = """Tests invoke the engine against 8 transaction Bundles covering basic creates, cross-entry reference resolution, array-based reference resolution, FHIR processing order enforcement, conditional create/update operations, transaction atomicity, complex multi-resource chains, and ETag version conflicts. Each test verifies structural and semantic properties. Additional tests verify the FHIRPath-based conformance validator correctly accepts valid bundles and rejects bundles with wrong type, bad ETag format, or unresolved urn:uuid references."""
+category = "applied_computing"
+tags = ["fhir", "healthcare-interoperability"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-transaction-processor"

@@ -1,0 +1,104 @@
+anchors:
+  - workbench
+  - storage_shelf
+
+constraints:
+  # Robot mount stack on workbench
+  - subject: robot_base_plate
+    predicate: on_top_of
+    reference: workbench
+  - subject: gripper_mount
+    predicate: stacked_on
+    reference: robot_base_plate
+  - subject: sensor_module
+    predicate: stacked_on
+    reference: gripper_mount
+
+  # Calibration area on workbench
+  - subject: calibration_cube
+    predicate: on_top_of
+    reference: workbench
+  - subject: calibration_cube
+    predicate: right_of
+    reference: robot_base_plate
+    params:
+      clearance: 0.05
+
+  # Tool storage on workbench
+  - subject: tool_caddy
+    predicate: on_top_of
+    reference: workbench
+  - subject: tool_caddy
+    predicate: left_of
+    reference: robot_base_plate
+    params:
+      clearance: 0.03
+
+  # End effectors inside tool caddy
+  - subject: probe_alpha
+    predicate: inside
+    reference: tool_caddy
+  - subject: probe_beta
+    predicate: inside
+    reference: tool_caddy
+  - subject: probe_beta
+    predicate: next_to
+    reference: probe_alpha
+    params:
+      distance_range: [0.025, 0.055]
+
+  # Parts tray on workbench
+  - subject: parts_tray
+    predicate: on_top_of
+    reference: workbench
+  - subject: parts_tray
+    predicate: behind
+    reference: calibration_cube
+    params:
+      clearance: 0.02
+
+  # Components inside parts tray
+  - subject: bushing
+    predicate: inside
+    reference: parts_tray
+  - subject: dowel_pin
+    predicate: inside
+    reference: parts_tray
+  - subject: dowel_pin
+    predicate: next_to
+    reference: bushing
+    params:
+      distance_range: [0.03, 0.065]
+  - subject: bearing_ball
+    predicate: inside
+    reference: parts_tray
+
+  # Alignment jig on workbench (rotated 30deg yaw in SDF)
+  - subject: alignment_jig
+    predicate: on_top_of
+    reference: workbench
+  - subject: alignment_jig
+    predicate: in_front_of
+    reference: tool_caddy
+    params:
+      clearance: 0.02
+
+  # Storage shelf items
+  - subject: spec_binder
+    predicate: on_top_of
+    reference: storage_shelf
+  - subject: ref_gauge
+    predicate: on_top_of
+    reference: storage_shelf
+  - subject: ref_gauge
+    predicate: right_of
+    reference: spec_binder
+    params:
+      clearance: 0.02
+  - subject: gauge_cap
+    predicate: stacked_on
+    reference: ref_gauge
+
+settings:
+  collision_margin: 0.005
+  stability_required: true

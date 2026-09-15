@@ -1,0 +1,5 @@
+#!/bin/bash
+{{ if eq .chezmoi.os "linux" -}}
+mkdir -p /tmp/chezmoi-markers
+echo "deps-installed" > /tmp/chezmoi-markers/install-deps.done
+{{ end -}}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a broken eBPF analysis report against raw C source code to discover and fix errors spanning: (1) C struct size computation with natural alignment and trailing padding — a subtle ABI rule that even experienced systems programmers get wrong; (2) BPF per-CPU map memory formulas that differ between PERCPU_HASH and PERCPU_ARRAY types; (3) eBPF program type classification from SEC() annotations including fexit/fentry patterns; (4) BPF map pinning semantics (LIBBPF_PIN_BY_NAME) for shared map detection. The agent must diagnose which report values are wrong (no errors are identified in the instruction), understand why they are wrong, and produce correct values — requiring expert-level understanding of the C memory model, eBPF subsystem internals, and multi-tool verification workflows."""
+solution_explanation = """The solution implements a Python static analyzer that: (1) parses #define constants and typedef aliases from C source; (2) extracts struct definitions and computes sizes via multi-pass resolution with correct natural alignment (field padding + trailing padding to max member alignment); (3) parses anonymous struct BPF map definitions resolving struct/typedef types for key/value sizes; (4) classifies all SEC() annotations including fexit patterns the broken report missed; (5) calculates per-map memory with correct PERCPU_HASH formula: max_entries*(key_size + value_size*num_cpus); (6) detects shared maps via LIBBPF_PIN_BY_NAME presence only."""
+verification_explanation = """Tests load /app/corrected_report.json and verify: (1) all 6 plugins present; (2) 15 struct sizes are exact including alignment-sensitive cases (ct_v4_key=16, dns_event=72, pp_packet=120, tcpretrans_event=64); (3) struct size is always a multiple of alignment (consistency check); (4) map properties match expected values; (5) per-map memory calculations are exact; (6) total memory = 20,321,096; (7) shared_maps contains only retina_conntrack; (8) dropreason.c has 10 attachments including 3 fexit entries; (9) PERF_EVENT_ARRAY maps are not marked as pinned."""
+category = "systems"
+tags = ["ebpf", "static-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ebpf-map-analyzer"

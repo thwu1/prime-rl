@@ -1,0 +1,6 @@
+route:              172.20.10.128/25
+descr:              Delta sub-allocation in Alpha space
+origin:             AS4242420004
+max-length:         25
+mnt-by:             DELTA-MNT
+source:             DN42

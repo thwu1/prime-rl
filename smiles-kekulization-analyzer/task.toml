@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering SMILES analysis behavior from reference data and an RDKit oracle, then building a complete from-scratch parser. The solver must discover implicit hydrogen rules (including the subtle aromatic convention), valence tables, error classification ordering, kekulization as a graph matching problem, Hill system molecular formula generation, and the Sayle tautomer hash algorithm through exploration of reference materials and interactive tool use. No algorithms or formulas are provided in the instruction. Combines string parsing, graph theory, cheminformatics domain knowledge, and multi-tool interaction."""
+solution_explanation = """The solution implements: (1) a SMILES tokenizer/parser handling organic subset atoms, bracket atoms, ring closures, branches, and all bond types to build a molecular graph; (2) implicit hydrogen computation following the Daylight/OpenSMILES aromatic subtraction convention discovered by querying RDKit; (3) ordered error classification (syntax → valence → kekulization); (4) kekulization via backtracking perfect matching on aromatic subgraphs; (5) Hill system molecular formula generation; (6) Sayle tautomer hash using Morgan-style iterative label refinement for canonical graph hashing with proto_h = non-carbon H sum minus charge sum."""
+verification_explanation = """Tests verify parsing correctness across basic atoms, branching, rings, and disconnected molecules; implicit hydrogen arrays for aromatic and non-aromatic atoms; molecular formula generation in Hill system; error classification into syntax/valence/kekulization categories with edge cases; kekulization success and failure for various ring systems; tautomer hash invariance (identical hashes for tautomeric pairs, different hashes for structurally distinct molecules, canonical invariance under SMILES reordering); and hash format correctness."""
+category = "applied_computing"
+tags = ["cheminformatics", "graph-algorithms"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/smiles-kekulization-analyzer"

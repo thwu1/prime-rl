@@ -1,0 +1,149 @@
+{
+    "Svc.RateGroupDriver": {
+        "kind": "passive",
+        "ports": [
+            {"name": "CycleIn", "direction": "input", "role": "sync", "type": "Svc.Cycle", "size": 1},
+            {"name": "CycleOut", "direction": "output", "type": "Svc.Cycle", "size": 4}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.ActiveRateGroup": {
+        "kind": "active",
+        "ports": [
+            {"name": "CycleIn", "direction": "input", "role": "async", "type": "Svc.Cycle", "size": 1},
+            {"name": "RateGroupMemberOut", "direction": "output", "type": "Svc.Sched", "size": 10},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.CommandDispatcher": {
+        "kind": "active",
+        "ports": [
+            {"name": "compCmdSend", "direction": "output", "type": "Fw.Cmd", "size": 25},
+            {"name": "compCmdReg", "direction": "input", "role": "guarded", "type": "Fw.CmdReg", "size": 25},
+            {"name": "compCmdStat", "direction": "input", "role": "async", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "seqCmdStatus", "direction": "output", "type": "Fw.CmdResponse", "size": 5},
+            {"name": "seqCmdBuff", "direction": "input", "role": "async", "type": "Fw.Com", "size": 5},
+            {"name": "Log", "direction": "output", "type": "Fw.Log", "size": 1},
+            {"name": "LogText", "direction": "output", "type": "Fw.LogText", "size": 1},
+            {"name": "Tlm", "direction": "output", "type": "Fw.Tlm", "size": 1},
+            {"name": "timeGetOut", "direction": "output", "type": "Fw.Time", "size": 1},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": [
+            {"port1": "compCmdSend", "port2": "compCmdReg"},
+            {"port1": "seqCmdStatus", "port2": "seqCmdBuff"}
+        ]
+    },
+    "Svc.CmdSequencer": {
+        "kind": "active",
+        "ports": [
+            {"name": "cmdIn", "direction": "input", "role": "async", "type": "Fw.Cmd", "size": 1},
+            {"name": "cmdRegOut", "direction": "output", "type": "Fw.CmdReg", "size": 1},
+            {"name": "cmdResponseOut", "direction": "output", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "cmdResponseIn", "direction": "input", "role": "async", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "comCmdOut", "direction": "output", "type": "Fw.Com", "size": 1},
+            {"name": "schedIn", "direction": "input", "role": "async", "type": "Svc.Sched", "size": 1},
+            {"name": "logOut", "direction": "output", "type": "Fw.Log", "size": 1},
+            {"name": "LogText", "direction": "output", "type": "Fw.LogText", "size": 1},
+            {"name": "tlmOut", "direction": "output", "type": "Fw.Tlm", "size": 1},
+            {"name": "timeGetOut", "direction": "output", "type": "Fw.Time", "size": 1},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.Health": {
+        "kind": "queued",
+        "ports": [
+            {"name": "PingSend", "direction": "output", "type": "Svc.Ping", "size": 25},
+            {"name": "PingReturn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 25},
+            {"name": "Run", "direction": "input", "role": "sync", "type": "Svc.Sched", "size": 1},
+            {"name": "WdogStroke", "direction": "output", "type": "Svc.WatchDog", "size": 1},
+            {"name": "CmdDisp", "direction": "input", "role": "async", "type": "Fw.Cmd", "size": 1},
+            {"name": "CmdReg", "direction": "output", "type": "Fw.CmdReg", "size": 1},
+            {"name": "CmdStatus", "direction": "output", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "Log", "direction": "output", "type": "Fw.Log", "size": 1},
+            {"name": "LogText", "direction": "output", "type": "Fw.LogText", "size": 1},
+            {"name": "Tlm", "direction": "output", "type": "Fw.Tlm", "size": 1},
+            {"name": "timeGetOut", "direction": "output", "type": "Fw.Time", "size": 1}
+        ],
+        "match_specifiers": [
+            {"port1": "PingSend", "port2": "PingReturn"}
+        ]
+    },
+    "Svc.TlmChan": {
+        "kind": "active",
+        "ports": [
+            {"name": "TlmRecv", "direction": "input", "role": "guarded", "type": "Fw.Tlm", "size": 1},
+            {"name": "TlmGet", "direction": "input", "role": "guarded", "type": "Fw.TlmGet", "size": 1},
+            {"name": "Run", "direction": "input", "role": "async", "type": "Svc.Sched", "size": 1},
+            {"name": "PktSend", "direction": "output", "type": "Fw.Com", "size": 1},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.PassiveTextLogger": {
+        "kind": "passive",
+        "ports": [
+            {"name": "LogRecv", "direction": "input", "role": "sync", "type": "Fw.Log", "size": 1},
+            {"name": "TextLogRecv", "direction": "input", "role": "sync", "type": "Fw.LogText", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.LinuxTimer": {
+        "kind": "passive",
+        "ports": [
+            {"name": "timeGetIn", "direction": "input", "role": "sync", "type": "Fw.Time", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.FileDownlink": {
+        "kind": "active",
+        "ports": [
+            {"name": "Run", "direction": "input", "role": "async", "type": "Svc.Sched", "size": 1},
+            {"name": "bufferSendOut", "direction": "output", "type": "Fw.BufferSend", "size": 1},
+            {"name": "bufferReturn", "direction": "input", "role": "async", "type": "Fw.BufferSend", "size": 1},
+            {"name": "bufferGetCaller", "direction": "output", "type": "Fw.BufferGet", "size": 1},
+            {"name": "cmdIn", "direction": "input", "role": "async", "type": "Fw.Cmd", "size": 1},
+            {"name": "cmdRegOut", "direction": "output", "type": "Fw.CmdReg", "size": 1},
+            {"name": "cmdResponseOut", "direction": "output", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "logOut", "direction": "output", "type": "Fw.Log", "size": 1},
+            {"name": "LogText", "direction": "output", "type": "Fw.LogText", "size": 1},
+            {"name": "tlmOut", "direction": "output", "type": "Fw.Tlm", "size": 1},
+            {"name": "timeGetOut", "direction": "output", "type": "Fw.Time", "size": 1},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "Svc.BufferManager": {
+        "kind": "passive",
+        "ports": [
+            {"name": "bufferGetCallee", "direction": "input", "role": "guarded", "type": "Fw.BufferGet", "size": 1},
+            {"name": "bufferSendIn", "direction": "input", "role": "guarded", "type": "Fw.BufferSend", "size": 1}
+        ],
+        "match_specifiers": []
+    },
+    "App.SensorManager": {
+        "kind": "active",
+        "ports": [
+            {"name": "schedIn", "direction": "input", "role": "async", "type": "Svc.Sched", "size": 1},
+            {"name": "dataOut", "direction": "output", "type": "Fw.BufferSend", "size": 1},
+            {"name": "tempQuery", "direction": "output", "type": "Fw.TlmGet", "size": 1},
+            {"name": "cmdIn", "direction": "input", "role": "async", "type": "Fw.Cmd", "size": 1},
+            {"name": "cmdRegOut", "direction": "output", "type": "Fw.CmdReg", "size": 1},
+            {"name": "cmdResponseOut", "direction": "output", "type": "Fw.CmdResponse", "size": 1},
+            {"name": "logOut", "direction": "output", "type": "Fw.Log", "size": 1},
+            {"name": "LogText", "direction": "output", "type": "Fw.LogText", "size": 1},
+            {"name": "tlmOut", "direction": "output", "type": "Fw.Tlm", "size": 1},
+            {"name": "timeGetOut", "direction": "output", "type": "Fw.Time", "size": 1},
+            {"name": "pingIn", "direction": "input", "role": "async", "type": "Svc.Ping", "size": 1},
+            {"name": "pingOut", "direction": "output", "type": "Svc.Ping", "size": 1}
+        ],
+        "match_specifiers": []
+    }
+}

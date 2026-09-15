@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "title": "Physics Trajectory Forensics - Tool Specification",
+
+  "usage": "python3 /app/physinfer/analyze.py <trajectory_file.json>",
+
+  "input_schema": {
+    "scenario_id": "string - unique identifier for the scenario",
+    "description": "string - human-readable description",
+    "declared_parameters": {
+      "gravity": "float - declared gravitational acceleration in m/s^2 (0.0 if no gravity)",
+      "bodies": [
+        {
+          "id": "string - unique body identifier",
+          "mass": "float - mass in kg",
+          "radius": "float - radius in m"
+        }
+      ],
+      "coefficient_of_restitution": "float or null - declared CoR for collisions",
+      "friction_coefficient": "float - declared friction coefficient"
+    },
+    "dt": "float - timestep between consecutive frames in seconds",
+    "frames": [
+      {
+        "time": "float - timestamp in seconds",
+        "bodies": [
+          {
+            "id": "string - body identifier matching declared_parameters",
+            "pos": "[x, y] - position in meters",
+            "vel": "[vx, vy] - velocity in m/s"
+          }
+        ]
+      }
+    ]
+  },
+
+  "output_schema": {
+    "scenario_id": "string - must match input scenario_id",
+    "classification": "string - one of the classification_taxonomy values",
+    "inferred_parameters": {
+      "gravity": "float or null - inferred gravitational acceleration from trajectory data",
+      "mass_ratios": "object or null - keys are 'bodyA_id/bodyB_id' (first listed / second listed), values are floats",
+      "coefficient_of_restitution": "float or null - inferred from collision velocity data",
+      "friction_coefficient": "float or null - inferred from horizontal deceleration"
+    },
+    "anomalies": [
+      {
+        "type": "string - one of the classification_taxonomy anomaly values",
+        "detail": "string - human-readable explanation of the anomaly"
+      }
+    ],
+    "plausibility_score": "float between 0 and 100"
+  },
+
+  "classification_taxonomy": [
+    "physically_valid",
+    "gravity_anomaly",
+    "energy_violation",
+    "momentum_violation"
+  ],
+
+  "classification_rules": {
+    "priority_order": "When multiple anomalies are detected, the primary classification is determined by the first match in priority order: (1) momentum_violation, (2) energy_violation, (3) gravity_anomaly. If no anomaly is detected, classify as physically_valid.",
+    "all_anomalies_reported": "All detected anomalies must be listed in the anomalies array regardless of which one determines the primary classification."
+  },
+
+  "anomaly_detection_thresholds": {
+    "gravity_relative_error": {
+      "threshold": 0.05,
+      "description": "Flag gravity_anomaly if |g_declared - g_inferred| / max(g_declared, g_inferred) > 0.05"
+    },
+    "energy_relative_increase": {
+      "threshold": 0.02,
+      "description": "Flag energy_violation if KE_after / KE_before > 1.02 at a collision event (energy should never increase)"
+    },
+    "momentum_relative_change": {
+      "threshold": 0.02,
+      "description": "Flag momentum_violation if |delta_p| / |p_before| > 0.02 at a collision event. If |p_before| < 1e-6, use absolute |delta_p| > 0.02"
+    }
+  },
+
+  "scoring_formulae": {
+    "physically_valid": "100.0",
+    "gravity_anomaly": "100.0 * (1.0 - |g_declared - g_inferred| / max(g_declared, g_inferred))",
+    "energy_violation": "100.0 * min(KE_before / KE_after, KE_after / KE_before) computed at the collision event using declared masses",
+    "momentum_violation": "100.0 * max(0.0, 1.0 - |p_after - p_before| / |p_before|) computed at the collision event using declared masses. If |p_before| < 1e-6, use 100.0 * max(0.0, 1.0 - |delta_p|)"
+  },
+
+  "parameter_inference_methods": {
+    "gravity": {
+      "method": "Perform least-squares linear regression on vertical velocity (vy) versus time for free-flight segments. The slope of vy(t) gives -g, so gravity = -slope. Use frames before the first collision if collisions exist. Return null if the vertical velocity range across the segment is less than 0.1 m/s (indicating no significant vertical motion).",
+      "applies_to": "Trajectories with vertical motion (free fall, projectile)"
+    },
+    "mass_ratios": {
+      "method": "At detected collision events, compute m_A/m_B = (v_B_after - v_B_before) / (v_A_before - v_A_after) using velocity components. For 2D collisions, this formula works on any individual velocity component (x or y) where there is significant velocity change. Use the component with the larger absolute velocity change for numerical stability. Report as a dict with key format 'bodyA_id/bodyB_id' where bodyA is listed first in declared_parameters.bodies.",
+      "applies_to": "Trajectories with collision events involving two or more bodies"
+    },
+    "coefficient_of_restitution": {
+      "method": "At collision events: e = -(v_A_after - v_B_after) / (v_A_before - v_B_before) using the same velocity component chosen for mass ratio inference.",
+      "applies_to": "Trajectories with collision events"
+    },
+    "friction_coefficient": {
+      "method": "For trajectories showing monotonic horizontal deceleration without collision events: perform linear regression on vx versus time to obtain the deceleration magnitude, then compute mu = |deceleration| / g. Use inferred gravity if available, otherwise fall back to declared gravity.",
+      "applies_to": "Trajectories with horizontal deceleration on a surface"
+    }
+  },
+
+  "collision_detection": {
+    "method": "A collision event is identified when any body's velocity vector changes by more than a threshold magnitude between consecutive frames. Compute the 2D velocity change magnitude sqrt(dvx^2 + dvy^2) for each body between adjacent frames. A value exceeding the threshold indicates a collision. The frames immediately before and after the discontinuity provide the pre-collision and post-collision states.",
+    "note": "The threshold should be chosen to distinguish sudden collision impulses from continuous forces like gravity or friction (which produce small per-frame velocity changes)."
+  },
+
+  "conservation_checks": {
+    "momentum": "Total linear momentum p = sum(m_i * v_i) must be conserved across collision events. Use declared masses for m_i. Check both x and y components. Compute magnitude of momentum change vector.",
+    "energy": "Total kinetic energy KE = sum(0.5 * m_i * |v_i|^2) should not increase across collision events. Energy can decrease (inelastic collisions are physical) but an increase exceeding the threshold indicates a violation."
+  }
+}

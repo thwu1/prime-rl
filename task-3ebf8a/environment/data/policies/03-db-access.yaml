@@ -1,0 +1,19 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "db-access"
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: data
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        tier: api
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+  ingressDeny:
+  - fromCIDR:
+    - 10.0.3.0/24

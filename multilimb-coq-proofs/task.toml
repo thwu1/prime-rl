@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Coq proof development skills including: (1) inductive reasoning over list structures with nested fold_right/flat_map/map, (2) modular arithmetic reasoning using Z.div_mod, Z.mod_mod, Z_mod_mult and the reduction rule s*b mod (s-c) = c*b mod (s-c), (3) understanding the mathematical relationship between associational (weight*value pairs) and positional (implicit weight) representations, (4) carry propagation proofs requiring careful decomposition of quotient/remainder, (5) partition correctness requiring nested div/mod reasoning with weight chains, (6) exponential/power lemmas for uniform weight systems. The 12 lemmas are interdependent and span multiple abstraction layers."""
+solution_explanation = """Each Admitted lemma has a specific proof strategy: eval_mul requires a helper lemma eval_map_mul_inner proved by induction on q with ring, then eval_mul uses induction on p with eval_app and the helper; eval_negate_snd uses induction with change and ring; eval_map_scale uses induction on destructured pairs with ring; eval_carry uses induction with carry_cons, eval_app, and eval_carryterm; eval_rev uses change for rev decomposition and eval_app with lia; eval_snoc decomposes seq (S n) via seq_snoc_r and uses combine_app_same and fold_right_add_app; eval_part uses induction on n with a generalized base case via change/unfold, Z.div_mod, and symmetrized mod_mod_divides; eval_add_lists requires recognizing that direct induction on n fails and a generalized helper eval_combine_add over arbitrary weight lists is needed; uweight_0/uweight_S/uweight_mul/uweight_sum use Z.pow_add_r, Z_mod_mult, Nat2Z.inj_add, and Z.mul_add_distr_l. All proofs must avoid fragile simpl usage that breaks across Coq versions."""
+verification_explanation = """Verification runs coqc on the modified file — Coq's kernel is a trusted type-checker, so successful compilation proves all lemma statements. Additionally, pytest checks: (1) coqc exits with code 0, (2) no Admitted remains in the source, (3) all 12 lemma names are still present (no deletion), (4) module structure is intact, (5) no axioms or admit tactics used."""
+category = "formal_verification"
+tags = ["coq", "cryptographic-arithmetic"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multilimb-coq-proofs"

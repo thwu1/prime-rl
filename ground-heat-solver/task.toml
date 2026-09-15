@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in numerical methods (discretizing 2D steady-state heat conduction on unstructured meshes with heterogeneous material properties), building physics (ground-coupled slab-on-grade heat transfer, foundation wall thermal modeling, material interface handling), and multi-tool integration. The agent must choose and implement a suitable numerical PDE solver, handle multiple material regions with conductivity contrasts up to 47:1 (insulation case), generate quality meshes with adequate refinement near material interfaces, correctly apply mixed Dirichlet/Neumann boundary conditions, accurately compute integrated surface heat flux, and store results in both JSON and SQLite formats with a prescribed schema. This combines graduate-level computational mechanics with practical tool proficiency and structured data storage."""
+solution_explanation = """Use gmsh Python API to define 2D geometry as a grid of rectangular surfaces (concrete slab+wall, optional insulation, soil), assign physical groups for material identification and boundary conditions, and generate triangular meshes with fine resolution near the slab/wall interface grading to coarse in the far field. Extract mesh nodes, element connectivity, and material assignments via physical group queries. Assemble the global FEM stiffness matrix using standard linear triangle element formulations, apply Dirichlet BCs by row zeroing, solve with scipy.sparse.linalg.spsolve, and compute heat flux by integrating element gradients along slab surface boundary edges. Write results to JSON, SQLite database, and .msh mesh files."""
+verification_explanation = """Tests independently verify three categories: (1) File format — existence and structure of results.json, five .msh mesh files, and SQLite database with correct schema and consistent values; (2) Physics consistency — positivity of all heat losses, correct inter-case ordering (high_conductivity > base, small_slab < base, shallow_ground > base, insulated < base with ratio < 0.85); (3) Numerical accuracy — each case checked against an independent finite-difference reference solver at h=0.05m with 5% relative tolerance. The FD reference solver is entirely independent of the agent's approach."""
+category = "scientific_computing"
+tags = ["heat_transfer", "finite_elements"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ground-heat-solver"

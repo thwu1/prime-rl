@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing MRT TABLE_DUMP_V2 binary format (RFC 6396) with proper BGP path attribute decoding, querying an SQLite RPKI validator cache, decoding ASN.1 DER-encoded ROA payload objects (RFC 6482) using openssl asn1parse or equivalent tooling, extracting and decoding base64-wrapped ROA objects from RRDP snapshot XML (RFC 8182) using xmlstarlet or XML parsers with namespace handling, parsing RPSL objects from a gzipped tarball, and implementing RFC 6811 Route Origin Validation, ASPA path validation, and IRR cross-referencing. The RPKI data is intentionally split across three sources in different formats, requiring the solver to discover the incomplete SQLite cache and integrate VRPs from DER files and RRDP XML for correct results."""
+solution_explanation = """The solution parses MRT RIB entries from binary TABLE_DUMP_V2 records, loads VRPs from three sources (SQLite via SQL queries, DER files via manual ASN.1 TLV parsing, and RRDP XML via ElementTree with namespace-aware XPath and base64 decoding), extracts RPSL route objects from a tarball, and reads ASPA CSV. For each route it performs RFC 6811 ROV, ASPA upstream path validation, and exact-prefix IRR origin matching. ROA quality metrics and multi-signal hijack detection are computed over the combined VRP and route sets."""
+verification_explanation = """Tests verify all 16 integer metrics against pre-computed ground truth values, plus consistency checks ensuring ROV/ASPA/IRR category sums equal total routes and invalid subtypes sum correctly. The expected values are only achievable when VRPs from all three RPKI sources are correctly combined."""
+category = "cybersecurity"
+tags = ["networking", "routing-security"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5eb2a0"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in quantization theory and numerical linear algebra. The solver must independently recognize that symmetric quantization is a special case of asymmetric with zero-point equal to zero, then derive a unified accumulation formula that correctly handles arbitrary per-tile mode combinations during tiled matmul. This involves understanding how dequantized products expand across tiles with different quantization parameters and which correction terms survive or vanish depending on each tile's mode. The solver must also design a mode selection heuristic from first principles — analyzing how each quantization scheme maps a tile's value distribution to the INT8 codebook and reasoning about when each mode wastes precision. Finally, the complete solution must be implemented in C with correct memory management, edge-block handling for non-aligned dimensions, and proper API compliance. No algorithmic guidance is provided — only the function signature, the existing uniform-mode implementation, and outcome requirements."""
+solution_explanation = """The general accumulation formula sa*sb*sum(qa*qb) + sa*zpb*sum(qa) + zpa*sb*sum(qb) + bk*zpa*zpb naturally handles all four mode combinations since zero-point terms vanish when symmetric mode is selected (zpa=0 or zpb=0). The mode selection compares utilization = range/(2*absmax); when utilization < 0.75, asymmetric is selected to avoid wasting codebook entries on unused portions of the symmetric range. Row sums and column sums are always computed to support any mode combination in the mixed-mode accumulation."""
+verification_explanation = """Tests compile the library and load via ctypes. Correctness is verified by comparing adaptive output against float32 reference across aligned/unaligned dimensions, centered and biased distributions, and edge cases. Stats output is checked to verify active mode selection: centered data produces mostly symmetric tiles, biased data mostly asymmetric, and mixed data shows both modes active. A superiority test confirms lower error than uniform symmetric on biased data. Mixed-distribution tests exercise all four mode combinations (sym*sym, sym*asym, asym*sym, asym*asym) simultaneously."""
+category = "systems"
+tags = ["numerical-computing", "quantization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantized-matmul"

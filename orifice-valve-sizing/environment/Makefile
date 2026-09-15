@@ -1,0 +1,19 @@
+# Build the flow computation shared library
+CC      = gcc
+CFLAGS  = -Wall -O2 -fPIC
+LDFLAGS = -shared
+
+TARGET  = libflowcore.so
+SRCDIR  = src
+SRC     = $(SRCDIR)/flowcore.c
+HDR     = $(SRCDIR)/flowcore.h
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(SRC) $(HDR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC)
+
+clean:
+	rm -f $(TARGET)

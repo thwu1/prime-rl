@@ -1,0 +1,35 @@
+catreactor v0.6 — development log
+==================================
+
+v0.1  Initial PFR/CSTR liquid-phase solvers. Verified against
+      Fogler Ch.5 examples for 1st and 2nd order.
+
+v0.2  Added kinetics module for surface reaction rate evaluation.
+      Unimolecular mechanism verified against textbook example.
+      Bimolecular mechanism gives values that look too high
+      compared to reference data — still investigating.
+
+v0.3  Network module: sequential stage processing working.
+      Added parallel and recycle stage types.
+
+v0.4  Wired epsilon_A through solver function signatures for
+      future gas-phase support. The actual variable-density
+      design equations are NOT yet implemented — solvers still
+      use liquid-phase equations regardless of epsilon_A value.
+
+v0.5  Added SQLite database for species properties. Created
+      schema.sql and dbutil module. Data was imported from
+      multiple literature sources — some entries may have
+      column ordering issues from the CSV import script.
+      Added batch_run.sh for multi-case processing via jq.
+      Makefile wired up for init/batch/clean targets.
+
+v0.6  Current state. Known issues:
+      - bimol rate still off vs reference
+      - gas-phase calcs not functional
+      - parallel mixing result looks wrong for unequal splits
+      - recycle gives same result as no-recycle (wrong)
+      - arrhenius subcommand not implemented
+      - batch pipeline script not fully tested
+      - DB lookup mode partially wired but untested
+      - Makefile targets may have dependency issues

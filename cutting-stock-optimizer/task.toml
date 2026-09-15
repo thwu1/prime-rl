@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level operations research skills across multiple dimensions. The agent must first perform non-trivial data analysis: exploring a 4-table SQLite schema, discovering that one stock roll type is on maintenance (status field), filtering customer orders by status (active vs cancelled vs fulfilled), and correctly computing remaining demand by joining active orders with a production log that contains trap entries for cancelled and fulfilled orders. Naive per-product aggregation without order-status-aware joins yields incorrect demands. The optimization itself is a multi-width cutting stock problem — significantly harder than the standard single-width variant — with heterogeneous stock rolls at different costs, inventory limits on each type, and a cost-minimization objective (not the simpler roll-count objective). The agent must independently identify the problem class and select an appropriate algorithmic approach (e.g., column generation with per-stock-type pricing subproblems, or a large-scale MIP). The inventory constraint on the most cost-effective wider rolls forces non-trivial stock-type allocation decisions that cannot be solved greedily."""
+solution_explanation = """Loads the database schema, filters to available stock types and active orders, computes net demand by subtracting production log entries matched to active order IDs only. Implements multi-width CSP column generation: master LP minimizes total cost across all stock types with demand and inventory constraints, pricing solves per-stock-type bounded knapsack using LP duals (including inventory shadow prices). Iterates until no improving column exists, then solves the IP over all generated columns. Outputs the cutting plan, total cost, and waste."""
+verification_explanation = """Tests independently load the database and compute ground-truth demands, available stock types, and inventory limits. Feasibility checks verify: all stock types used are available, cutting patterns fit roll widths, demands are met, inventory limits respected, costs and waste are consistently computed. A demand-correctness test catches grossly wrong demand calculations (e.g., including cancelled orders). Optimality is verified by independently running multi-width column generation + IP with PuLP/CBC and checking the agent's cost is within 8% of the reference optimum and above the LP relaxation bound."""
+category = "optimization"
+tags = ["operations-research", "cutting-stock"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cutting-stock-optimizer"

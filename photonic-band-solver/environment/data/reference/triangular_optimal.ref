@@ -1,0 +1,25 @@
+MIT Photonic-Bands version 1.11.1, March 2022
+Copyright (C) 1999-2024, Massachusetts Institute of Technology.
+
+Optimization of first TM gap for triangular lattice of dielectric rods.
+Material: epsilon = 12.0 rods in air (epsilon = 1.0).
+Search range: radius 0.1a to 0.5a.
+Method: bounded Brent minimization, tolerance 0.1 (relative).
+Number of bands: 2, mesh size: 7.
+
+Iteration 1: r = 0.252786, gap = 40.3218%
+  Gap from band 1 (0.255918234) to band 2 (0.387291823), 40.3218%
+Iteration 2: r = 0.347214, gap = 16.8972%
+  Gap from band 1 (0.219128347) to band 2 (0.261827183), 16.8972%
+Iteration 3: r = 0.195279, gap = 45.2813%
+  Gap from band 1 (0.268918127) to band 2 (0.432817234), 45.2813%
+Iteration 4: r = 0.159832, gap = 44.8127%
+  Gap from band 1 (0.279812347) to band 2 (0.449127183), 44.8127%
+Iteration 5: r = 0.176393, gap = 48.6253%
+  Gap from band 1 (0.275127891) to band 2 (0.448918234), 48.6253%
+
+Optimization complete after 5 function evaluations.
+radius at maximum: 0.176393202250021
+gap size at maximum: 48.6252611051049
+total elapsed time for optimization: 42.8 seconds.
+done

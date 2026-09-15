@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a recursive descent parser for a Lua-based DSL (RDLA) from examples alone, implementing directed graph cycle detection and BFS reachability analysis, applying domain-specific physically-based rendering parameter validation, and computing render complexity metrics. Combines compiler construction, graph algorithms, and computer graphics domain knowledge."""
+solution_explanation = """Build a tokenizer using regex-based lexical analysis to handle Lua syntax (strings, numbers, identifiers, comments, nested brackets). Implement a recursive descent parser that recognizes object declarations, attribute bindings, transform chains, set memberships, and Layer entries. Extract the scene graph as typed objects with directed edges from bind() and reference relationships. Use DFS with a recursion stack for cycle detection in the binding graph. Use BFS from Layer/RenderOutput root objects through all edge types for orphan detection. Apply rendering-domain parameter constraints. Compute complexity using the specified formula with type-based object classification."""
+verification_explanation = """Tests run the analyzer against 3 provided RDLA scenes (valid Cornell box, cyclic map bindings, multi-issue scene) and 2 dynamically generated scenes not present in the Docker image. Verifies correct object counts and types, binding extraction, issue detection (cycles, unresolved refs, orphans, invalid params), and complexity scores within floating-point tolerance."""
+category = "computer_graphics"
+tags = ["parsing", "graph-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8da3ba"

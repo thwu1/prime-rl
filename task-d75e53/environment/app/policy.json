@@ -1,0 +1,10 @@
+{
+  "local_pref_policy": {
+    "customer": 150,
+    "peer": 100,
+    "provider": 50
+  },
+  "valley_free_routing": true,
+  "rpki_validation": true,
+  "description": "All routers must implement valley-free routing (Gao-Rexford model). LOCAL_PREF must be set according to the BGP neighbor relationship type. RPKI ROA validation must reject routes with mismatched origin AS or prefix lengths exceeding maxLength."
+}

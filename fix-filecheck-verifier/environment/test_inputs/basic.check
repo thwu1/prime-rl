@@ -1,0 +1,7 @@
+; CHECK-LABEL: @factorial
+; CHECK: mul
+; CHECK-NEXT: ret
+; CHECK-LABEL: @fibonacci
+; CHECK: [[SUM:%[a-z]+]] = add i32
+; CHECK-SAME: i32
+; CHECK: ret i32 [[SUM]]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the git pre-receive hook protocol (stdin ref-update format, quarantine environment, bare repo execution context), multiple git plumbing commands (cat-file for object type/size/content inspection, diff-tree for tree comparison, rev-list with --merges and exclusion for commit graph analysis, merge-base for fast-forward detection, for-each-ref for enumerating existing refs, hash-object for empty tree). The solver must independently discover multiple interacting bugs in the skeleton (subtle pattern-matching defect, incorrect commit enumeration scope, missing policy-source fallback) and design+implement three complete policy enforcement modules (file size with pattern-based overrides, forbidden file detection, merge-policy with protected-branch interaction) from specification alone, with no hints about what is broken or how to fix it."""
+solution_explanation = """Fix glob matching by removing quotes from the pattern variable in the bash [[ == ]] comparison so wildcards expand. Add HEAD fallback to read_policy for tag/deletion pushes by first trying POLICY_REF, then trying HEAD, using git rev-parse to dereference tags to commits. Fix new-branch commit enumeration to use git for-each-ref to collect existing ref OIDs and pass them as --not exclusions to rev-list. Implement check_file_sizes using git diff-tree -r with the empty-tree OID for new branches, parse per-pattern size overrides from the INI config, and use git cat-file -s for blob size checks. Implement check_forbidden_files using git diff-tree -r with file-glob pattern matching. Implement check_merge_policy using git rev-list --merges to detect merge commits in the pushed range, scoped to protected branches only via the same pattern matching used by check_protected_branches."""
+verification_explanation = """25 pytest tests exercise all six policy types across realistic git operations: protected branch fast-forward/deletion/glob-matching, commit message validation with conventional commits regex including new-branch edge cases, file size limits with per-pattern overrides, forbidden file detection, annotated/lightweight tag enforcement, tag deletion blocking, and merge-policy linear history enforcement on protected vs unprotected branches. Tests create isolated bare+clone repo pairs, install the hook, and verify push acceptance/rejection through actual git push operations."""
+category = "version_control"
+tags = ["git-hooks", "shell-scripting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/git-hook-governance"

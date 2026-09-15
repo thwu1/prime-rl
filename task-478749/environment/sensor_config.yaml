@@ -1,0 +1,54 @@
+# ARIAC Multi-Sensor Battery Cell Inspection Configuration
+# Based on 18650 cylindrical battery cell format
+
+cell:
+  format: "18650"
+  nominal_radius_m: 0.009
+  nominal_height_m: 0.065
+
+sensors:
+  count: 3
+  ids: ["A", "B", "C"]
+  positions:
+    A:
+      center_angle_rad: 0.0
+    B:
+      center_angle_rad: 2.094
+    C:
+      center_angle_rad: -2.094
+  half_coverage_rad: 2.094
+  noise_grades:
+    A:
+      grade: "A"
+      approximate_sigma_m: 0.0002
+    B:
+      grade: "B"
+      approximate_sigma_m: 0.0004
+    C:
+      grade: "C"
+      approximate_sigma_m: 0.0007
+  calibration_note: "Each sensor has an unknown systematic translational bias in XY. Biases are constant per sensor across all cells and must be estimated from the data."
+
+manufacturing:
+  seam_note: "All cells have a manufacturing seam line — a narrow outward ridge running the full cell height. This is a normal manufacturing feature, NOT a defect."
+
+defect_detection:
+  min_deviation_from_surface_m: 0.002
+  defect_types:
+    DENT: 1
+    BULGE: 2
+    SCRATCH: 3
+
+coordinate_convention:
+  cell_axis: "Z"
+  conveyor_direction: "+X"
+  theta_reference: "+X axis (conveyor direction)"
+  theta_positive: "counterclockwise viewed from +Z (right-hand rule)"
+  z_reference: "bottom of cell"
+
+scan_format:
+  file_pattern: "cell_XX_Y.npz (XX=cell ID 00-11, Y=sensor A/B/C)"
+  array_key: "points"
+  columns: ["x", "y", "z"]
+  units: "meters"
+  note: "Cell XY center may be offset from origin. Each scan includes surface and cap points."

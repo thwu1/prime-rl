@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge of robust optimization theory. The agent must independently recognize that the two-stage max-min structure with a budgeted uncertainty set requires a decomposition approach (e.g. Column-and-Constraint Generation), correctly derive the adversarial subproblem as a mixed-integer program with appropriate big-M relaxations and binary variables, implement the iterative algorithm with proper convergence checking, and separately implement a sampling-based stochastic formulation. The core challenge is deriving and implementing the pessimization oracle — no algorithm is named in the instructions."""
+solution_explanation = """The solution implements a CCG algorithm: (1) a master problem that maximizes worst-case profit over finitely many scenarios using Pyomo blocks with a tau variable bounding scenario profits, (2) a pessimization MIP that finds the worst-case uncertainty realization by maximizing minimum constraint violation via big-M relaxation and binary variables, and (3) a stochastic formulation averaging profits over 2000 sampled scenarios. The CCG converges in ~4-6 iterations. Key implementation details include the profit-proxy variable to keep the second-stage objective free of uncertainty, correct derivation of violation inequalities, and proper use of the budgeted uncertainty set with absolute-value linearization."""
+verification_explanation = """Tests independently verify the solution by: (1) checking output structure and types, (2) evaluating the worst-case profit for the reported first-stage decision x by solving second-stage LPs at all 80 extreme points of the uncertainty set plus 2000 random samples, confirming the reported robust objective matches, (3) running an independent reference CCG computation and comparing x and objective values within 5% tolerance, (4) verifying structural properties (robust profit < nominal, stochastic > robust, convergence in < 50 iterations), and (5) confirming the robust solution outperforms the nominal solution under worst-case uncertainty."""
+category = "optimization"
+tags = ["robust-optimization", "mathematical-programming"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6501f6"

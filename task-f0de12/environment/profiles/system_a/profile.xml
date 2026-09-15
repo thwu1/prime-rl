@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConformanceProfile xmlns="urn:hl7-org:v2:conformance"
+                    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="message_structure.xml"/>
+  <xi:include href="segment_definitions.xml"/>
+</ConformanceProfile>

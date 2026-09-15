@@ -1,0 +1,28 @@
+{
+    "accelerators": [
+        {
+            "id": "alpha",
+            "dim": 16,
+            "sp_rows": 4096,
+            "acc_rows": 1024,
+            "dma_cost_per_row": 8,
+            "dma_setup_cost": 48
+        },
+        {
+            "id": "beta",
+            "dim": 8,
+            "sp_rows": 2048,
+            "acc_rows": 512,
+            "dma_cost_per_row": 4,
+            "dma_setup_cost": 16
+        },
+        {
+            "id": "gamma",
+            "dim": 32,
+            "sp_rows": 16384,
+            "acc_rows": 4096,
+            "dma_cost_per_row": 16,
+            "dma_setup_cost": 96
+        }
+    ]
+}

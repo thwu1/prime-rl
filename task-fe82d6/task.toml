@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OpenBao Transit secrets engine key lifecycle management. The agent must independently investigate the live Transit engine state, interpret abstract compliance requirements (rolling decryption windows, key material purging), and determine the correct remediation strategy including operation ordering (rotation before version constraints, encryption before trimming). The BYOK key import demands implementing a multi-step cryptographic wrapping protocol (RSA-OAEP + AES-KWP) without procedural guidance. The agent must also handle the subtlety that exportable can be enabled after key creation via the config endpoint, and understand that key_size for HMAC keys is set only at creation time."""
+solution_explanation = """Investigate the current Transit state via API queries. Enable exportable on primary-enc via config. Rotate primary-enc 4 times to reach version 5. Encrypt records with the latest version. Set min_decryption_version=3 and min_encryption_version=5 (enforcing the 3-version rolling window). Trim key versions below 3. Create auth-hmac with key_size=64. For BYOK import: fetch the Transit wrapping key (4096-bit RSA), generate an ephemeral AES-256 key, wrap the target key with AES-KWP, wrap the ephemeral key with RSA-OAEP SHA-256, concatenate and base64-encode, then POST to the import endpoint. Sign with tenant-sign, HMAC with auth-hmac, generate a wrapped datakey, and export the imported key to verify correctness."""
+verification_explanation = """Tests query the live OpenBao API to verify: primary-enc has >= 5 versions, is exportable, has correct version constraints (rolling window enforcement), and trimmed keyring. Verifies auth-hmac and imported-legacy keys exist with correct types. Verifies imported key is marked as imported and exported material matches the original hex file. Validates all evidence artifacts: ciphertexts decrypt to correct plaintexts and use the latest version, signature verifies via the API, HMAC cross-verifies by recomputing, datakey and import verification files have correct structure and content."""
+category = "security_and_privacy"
+tags = ["cryptography", "secrets-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fe82d6"

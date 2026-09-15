@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a proprietary binary format from a complex reference implementation (~3000 lines of Python), then building a standalone parser handling gzip decompression, multi-packet-type container parsing (device descriptors, track descriptors with conditional fields, typed data records), 8 data format codes with gain/offset transformations, and multi-rate waveform/numeric/string track assembly. The biosignal analysis demands deriving heart rate from raw 500 Hz ECG on real noisy surgical data, computing HRV time-domain metrics from beat-to-beat intervals, detecting hemodynamic events (hypotension, tachycardia) with run-length criteria, and validating derived signals against device-reported ground truth. No algorithms or format details are provided — the solver must discover everything from the reference code and domain knowledge."""
+solution_explanation = """The solution implements a complete .vital binary format parser handling the VITA header, device info (packet type 9), track info (packet type 0 with conditional fields), data records (packet type 1 with waveform/numeric/string variants), and command packets (type 6). ECG heart rate uses bandpass filtering (5-15 Hz Butterworth), squaring, moving window integration, and adaptive peak detection. HRV is computed as SDNN and RMSSD from filtered normal-to-normal R-R intervals. Hypotension and tachycardia use run-length encoding on 1-second resolution signals."""
+verification_explanation = """Tests use a synthetic .vital file with known data (numeric, waveform, and integer-format-with-gain/offset tracks) for deterministic parser verification. Integration tests download VitalDB case 1 and verify parser metadata, track extraction, and analyzer output including HR correlation > 0.6, MAE < 10 bpm, HRV metrics in physiological range, and event detection validity."""
+category = "medical_data_processing"
+tags = ["binary-format-parsing", "biosignal-processing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vital-waveform-analysis"

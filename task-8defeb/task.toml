@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing five separate and partially conflicting documents (challenge announcement, ranking methodology paper, errata, misleading reference code, output schema) to build a complete evaluation pipeline. The solver must reconcile the reference implementation's panoptica IoU-threshold lesion matching with the current edition's any-voxel-overlap criterion — understanding the semantic difference between these approaches requires deep medical image analysis expertise. Beyond basic metrics, the solver must implement stratified bootstrap ranking (sampling within lesion-pattern strata, not uniformly), derive 95% bootstrap confidence intervals on ranks, perform leave-one-out stability analysis to identify influential cases, and apply Holm-Bonferroni step-down correction to pairwise Wilcoxon tests — requiring graduate-level biostatistics knowledge. Degenerate strata (single-case categories) must be handled correctly in both the bootstrap and LOO analyses without explicit guidance. No single document provides the full algorithm; holistic understanding of MICCAI challenge evaluation methodology is essential."""
+solution_explanation = """Read all five docs to piece together the full specification. Implement Dice, AVD (using NIfTI header voxel dimensions for mm³→mL conversion), lesion-wise F1 (any-voxel-overlap via scipy.ndimage.label, NOT panoptica's IoU matching), and ALD with correct empty-mask conventions. Classify GT cases by connected component structure. Implement stratified bootstrap: group cases by classification, sample within each stratum independently using RandomState(42), compute per-metric ranks and combined ranks, aggregate mean ranks and 95th percentile CIs. For LOO: exclude each case in turn, re-run full stratified bootstrap with seed 42 on remaining cases, compute total rank displacement. Apply Holm-Bonferroni to pairwise Wilcoxon p-values with monotonicity enforcement."""
+verification_explanation = """Tests independently recompute all four metrics using reference nibabel/scipy implementations on the same NIfTI data, comparing within 1e-4 tolerance. Stratified bootstrap is independently reimplemented with identical RNG seeding and stratum ordering to verify mean ranks, CIs, and ranking order. LOO analysis is fully recomputed. Holm-Bonferroni correction is verified both structurally (corrected >= raw) and numerically. Spot checks verify known edge cases (perfect match, empty masks, zero-overlap)."""
+category = "scientific_computing"
+tags = ["medical-imaging", "biostatistics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8defeb"

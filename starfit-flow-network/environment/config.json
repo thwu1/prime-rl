@@ -1,0 +1,53 @@
+{
+  "network": {
+    "nodes": [
+      {"id": 0, "type": "reservoir", "to": 1, "reservoir_key": "A"},
+      {"id": 1, "type": "passthrough", "to": 2},
+      {"id": 2, "type": "reservoir", "to": 3, "reservoir_key": "B"},
+      {"id": 3, "type": "passthrough", "to": -1},
+      {"id": 4, "type": "reservoir", "to": 3, "reservoir_key": "C"}
+    ]
+  },
+  "reservoirs": {
+    "A": {
+      "GRanD_CAP_MCM": 1200.0,
+      "Obs_MEANFLOW_CUMECS": 85.0,
+      "NORhi_min": 60.0, "NORhi_max": 95.0,
+      "NORhi_alpha": 5.0, "NORhi_beta": 3.0, "NORhi_mu": 78.0,
+      "NORlo_min": 20.0, "NORlo_max": 55.0,
+      "NORlo_alpha": -3.0, "NORlo_beta": 2.0, "NORlo_mu": 35.0,
+      "Release_min": -0.4, "Release_max": 1.8,
+      "Release_alpha1": 0.12, "Release_alpha2": -0.04,
+      "Release_beta1": 0.09, "Release_beta2": -0.025,
+      "Release_p1": 0.18, "Release_p2": 0.08, "Release_c": -0.02
+    },
+    "B": {
+      "GRanD_CAP_MCM": 800.0,
+      "Obs_MEANFLOW_CUMECS": 120.0,
+      "NORhi_min": 55.0, "NORhi_max": 92.0,
+      "NORhi_alpha": 4.0, "NORhi_beta": -2.5, "NORhi_mu": 75.0,
+      "NORlo_min": 18.0, "NORlo_max": 50.0,
+      "NORlo_alpha": -2.5, "NORlo_beta": 1.5, "NORlo_mu": 32.0,
+      "Release_min": -0.3, "Release_max": 2.0,
+      "Release_alpha1": 0.08, "Release_alpha2": -0.06,
+      "Release_beta1": 0.11, "Release_beta2": -0.04,
+      "Release_p1": 0.12, "Release_p2": 0.15, "Release_c": 0.01
+    },
+    "C": {
+      "GRanD_CAP_MCM": 350.0,
+      "Obs_MEANFLOW_CUMECS": 30.0,
+      "NORhi_min": 58.0, "NORhi_max": 90.0,
+      "NORhi_alpha": 6.0, "NORhi_beta": -4.0, "NORhi_mu": 72.0,
+      "NORlo_min": 15.0, "NORlo_max": 48.0,
+      "NORlo_alpha": -4.0, "NORlo_beta": 3.0, "NORlo_mu": 30.0,
+      "Release_min": -0.6, "Release_max": 1.5,
+      "Release_alpha1": 0.15, "Release_alpha2": -0.03,
+      "Release_beta1": 0.06, "Release_beta2": -0.02,
+      "Release_p1": 0.20, "Release_p2": 0.05, "Release_c": -0.03
+    }
+  },
+  "simulation": {
+    "n_days": 365,
+    "n_substeps": 24
+  }
+}

@@ -1,0 +1,24 @@
+# Maintainer: Jack Ext <jack@example.org>
+pkgname=ext-loader
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Extension loading and management framework"
+arch=('x86_64')
+url="https://github.com/example/ext-loader"
+license=('MIT')
+depends=('plug-api>=1.0')
+makedepends=('cmake')
+provides=('ext-api=1.0.0')
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('d9e0f1a2b3c40000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr .
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" install
+}

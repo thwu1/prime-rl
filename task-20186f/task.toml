@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and interpreting a TLA+ formal specification of the Kafka KIP-966 partition replication protocol — combining expertise in formal methods (TLA+ syntax, model checking with TLC) with deep distributed systems knowledge (ISR/ELR management, leader election cascades, unclean recovery modes). The solver must parse ~250 lines of TLA+ to extract protocol semantics, map nondeterministic state transitions to deterministic Python event handlers, and correctly implement 7+ event types with interdependent state mutations across three replica tracking sets, three recovery modes, and subtle invariant-preserving edge cases. Using the TLC model checker to explore the specification's state space requires Java/TLC toolchain proficiency. Tested across 11 failure scenarios with 53 assertions covering cascading failures, unclean shutdowns, and all recovery modes."""
+solution_explanation = """Read the TLA+ spec to extract protocol rules, install/use TLC to explore state space and verify understanding, then implement a Python PartitionSimulator. Key challenges: deriving the ELR addition condition from TLA+ (requires both |newISR| < MinISR AND |newISR| + |ELR| < MinISR), understanding the election cascade priority from nested IF-THEN-ELSE (ISR -> ELR -> proactive -> balanced -> failed), correctly preserving ISR membership during clean ISR elections, applying truncation only to non-leader replicas, and implementing ELR/LastKnownELR cleanup semantics."""
+verification_explanation = """53 pytest assertions across 11 test classes verify exact protocol state after each scenario: leader identity, ISR/ELR/LastKnownELR set contents, HWM values, per-replica LEOs, committed data loss counts, and election history entries with types. Critical scenarios test ISR preservation during clean elections, correct ELR addition conditions under cascading failures, and all three recovery modes."""
+category = "distributed_systems"
+tags = ["formal-methods", "kafka-replication"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-20186f"

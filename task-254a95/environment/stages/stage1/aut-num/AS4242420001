@@ -1,0 +1,13 @@
+aut-num:            AS4242420001
+as-name:            ALPHA-AS
+descr:              Alpha Network Autonomous System
+remarks:            Primary transit provider
+                    for the eastern region
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+import:             from AS4242420002 accept AS4242420002
+import:             from AS4242420003 accept AS4242420003
+export:             to AS4242420002 announce AS4242420001
+export:             to AS4242420003 announce AS4242420001
+mnt-by:             ALPHA-MNT
+source:             DN42

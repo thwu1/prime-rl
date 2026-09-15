@@ -1,0 +1,24 @@
+# 3D Structured Grid Halo Exchange Analysis Problem
+# Inspired by ECP proxy applications (CoMD, ExaMiniMD, Cajita)
+
+domain:
+  Nx: 360
+  Ny: 288
+  Nz: 240
+
+num_processes: 72
+
+stencil:
+  type: 26        # 6 = face-only, 18 = face+edge, 26 = face+edge+corner
+  halo_depth: 1
+
+element_bytes: 8   # bytes per grid cell element (e.g., double precision)
+
+network:
+  latency_us: 1.5       # per-message latency in microseconds
+  bandwidth_GBps: 12.0   # unidirectional bandwidth in GB/s
+
+periodic:
+  x: true
+  y: true
+  z: true

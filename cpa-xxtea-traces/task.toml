@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in power analysis side-channel attacks, signal processing for trace resynchronization via SAD-based alignment, statistical distinguishers (CPA with Hamming weight model) for key-byte hypothesis testing, understanding of data-dependent leakage in sequential XOR operations with byte-level dependencies between two recovery phases, correct implementation of XXTEA block cipher decryption, and proficiency with HDF5 hierarchical data format navigation."""
+solution_explanation = """Explore the HDF5 trace file structure using h5py to locate power measurements and plaintext inputs. Read the C firmware source to understand the XOR-then-XXTEA encryption pipeline. Analyze the trace data to identify operation-correlated power peaks. Implement SAD-based trace alignment to compensate jitter, then CPA with Hamming weight model to recover key bytes 0-7 from the first 8 operations. Use recovered bytes to compute modified intermediates for a second CPA pass recovering bytes 8-15. Decrypt the intercepted ciphertext via XXTEA then reverse XOR preprocessing."""
+verification_explanation = """Tests verify: (1) recovered_key.hex exists and is valid 32-char hex, (2) decrypting the HDF5-stored ciphertext with the recovered key via XXTEA + reverse XOR produces a well-formed flag starting with 'esc{', (3) flag.txt matches the independently computed decryption result, (4) the recovered key produces meaningful statistical correlation with the power trace data. No hardcoded answers in tests or environment files."""
+category = "security"
+tags = ["side-channel-analysis", "cryptography"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cpa-xxtea-traces"

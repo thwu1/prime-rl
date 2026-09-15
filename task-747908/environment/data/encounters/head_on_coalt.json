@@ -1,0 +1,23 @@
+{
+    "name": "head_on_coalt",
+    "description": "Head-on encounter at co-altitude. Two aircraft approaching directly along the y-axis at same altitude.",
+    "ownship": {
+        "sx_nmi": 0.0,
+        "sy_nmi": 0.0,
+        "sz_ft": 17000.0,
+        "trk_deg": 0.0,
+        "gs_knot": 200.0,
+        "vs_fpm": 0.0
+    },
+    "intruders": [
+        {
+            "id": "INTRUDER_A",
+            "sx_nmi": 0.0,
+            "sy_nmi": 10.0,
+            "sz_ft": 17000.0,
+            "trk_deg": 180.0,
+            "gs_knot": 300.0,
+            "vs_fpm": 0.0
+        }
+    ]
+}

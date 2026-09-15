@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Adya's transaction isolation formalism to diagnose subtle bugs in an existing anomaly checker. The solver must: (1) explore a heterogeneous data environment spanning JSON, EDN (Clojure/Jepsen format), and SQLite to discover all transaction histories; (2) study reference material on consistency models to understand the anomaly classification scheme; (3) run the buggy checker and cross-reference output against partial ground truth to identify discrepancies; (4) read and diagnose multiple subtle bugs in the checker's source code (reversed G1a logic, missing G1b detection, G-single/G2-item misclassification); (5) implement correct anomaly detection including dependency graph construction, cycle enumeration, and edge-type classification; and (6) add support for parsing EDN and querying SQLite. This combines distributed systems theory, debugging, multi-format data engineering, and graph algorithms — well beyond procedural textbook exercises."""
+solution_explanation = """Explore /app/data/ to find json/, edn/, and workload.db sources. Run checker.py, compare output against ground_truth.json to identify misclassified h_g_single. Read checker source to find three bugs: detect_g1a checks aborted txns for reads (should check committed txns reading aborted writes), detect_g1b is stubbed out with early return, and classify_anomaly labels any rw-containing cycle as G2-item (should distinguish G-single when rw_count==1). Parse EDN files with a custom/library parser handling nil and keywords. Query SQLite with schema discovery. Fix or rewrite the analyzer with correct G1a/G1b/cycle classification logic. Write results.json."""
+verification_explanation = """Tests load /app/results.json and verify each of the 8 histories has the exact expected anomaly set and correct strongest isolation level. Each history was crafted with specific known anomaly patterns. Tests also validate structural correctness (valid anomaly names, valid PL levels, no extra entries)."""
+category = "distributed_systems"
+tags = ["transaction-isolation", "debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/transaction-anomaly-detector"

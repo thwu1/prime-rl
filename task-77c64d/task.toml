@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across three distinct specialized domains: XML Schema Definition type system internals, unstructured regulatory document interpretation, and EPA environmental data exchange standards. The solver receives no procedural guidance — only raw materials: 56 interconnected XSD schema files defining a type hierarchy, a 740-line unstructured schema change log spanning 15 years of evolution (using outdated element names from earlier versions), terse natural-language rule descriptions without element names or conditional logic, domain value CSVs with varying column conventions, and XML submissions with unknown defects. They must independently: (1) resolve the complete XSD type inheritance graph by parsing simpleType restriction chains across multiple files and correlating element declarations with their resolved types; (2) parse the semi-structured change log — which uses inconsistent formatting, abbreviations, and version-specific element names — to extract field length evolution histories, element renames, and business rule additions; (3) cross-reference the brief rule descriptions against both the change log (which documents rules using v1.0-era element names like DetectionQuantitationLevel vs the current v3.0 DetectionQuantitationLimit) and the XSD schema structure to determine exact trigger conditions, required elements, and validation logic; (4) recognize that schematron rules documented in the change log under v1.0 still apply to v3.0 but with renamed elements; (5) implement referential integrity checks by understanding the WQX organizational hierarchy (Organization→Project/MonitoringLocation/Activity/ActivityGroup) and its cross-reference patterns; (6) handle WQX namespace qualification throughout. The difficulty is fundamentally integrative: each output requires synthesizing information across multiple heterogeneous sources, and errors in one phase (e.g., misidentifying the v3.0 name for a v1.0 schematron element) cascade through all downstream validation."""
+solution_explanation = """The solution builds a Python engine in three phases. Phase 1 (Type System Resolution): parses all 56 XSD files using xml.etree.ElementTree with XSD namespace awareness, extracting simpleType definitions with their restriction bases and facets, then resolving inheritance chains where types restrict other custom types (following the chain to the xs:string/xs:integer primitive). Correlates element declarations with their resolved types to build a complete type→constraint and element→type mapping. Phase 2 (Evolution Analysis): parses the 740-line change log using multiple regex patterns to extract field length changes (handling five different formatting styles), element renames (filtering false positives from non-rename 'Changed' entries), and business rule additions (Schematron entries and Business Rule entries). Tracks version dates by finding the enclosing version header for each match position. Phase 3 (Conformance Validation): invokes xmllint for structural schema validation; traverses each WQX XML document with namespace-aware lookups checking field values against type-system-derived constraints; validates domain values against CSVs; implements five business rules discovered by cross-referencing the rules summary with change log entries and schema element paths; verifies referential integrity for Project/MonitoringLocation/Activity cross-references. Generates per-file JSON reports with categorized violations."""
+verification_explanation = """Tests verify all three phases independently. Type System: checks that 10 specific elements map to types with correct constraint values (maxLength/minLength), verifies base type resolution to xs:string, and requires minimum counts (50+ types, 50+ element mappings). Evolution: verifies the structured change log output contains 30+ version sections, 40+ field length changes, 5+ element renames, 3+ business rules, and checks for specific documented changes (ActivityIdentifier→55, OrganizationIdentifier→35, CharacteristicName→255, HorizontalCollectionMethod rename, ActivityMedia rename, detection and depth business rules). Conformance: 6 submission files with precisely crafted error profiles — one fully valid, one with 3 field-length violations (triggering schema invalidity), one with 3 domain value violations, one with 4 business rule violations, one combining 3 referential integrity and 2 business rule errors, one complex file mixing all four categories. Structural tests verify report keys, violation entry format, category_counts consistency, and valid flag logic."""
+category = "information_systems"
+tags = ["xsd-schema-analysis", "regulatory-data-validation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-77c64d"

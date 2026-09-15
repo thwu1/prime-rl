@@ -1,0 +1,6 @@
+[calibration]
+tolerance_pct = 0.01
+output_path = "/app/results.json"
+
+[tests]
+groups = ["orifice_C", "orifice_eps", "orifice_flow", "valve_liquid", "valve_gas"]

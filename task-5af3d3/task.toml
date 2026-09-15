@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires writing a complete C++ program from scratch using the SDSL v3 succinct data structure library to implement five non-trivial range query algorithms on wavelet trees (range quantile, range distinct count, range mode/top-frequency, predecessor value, successor value), none of which are directly exposed by SDSL's API. The agent must discover and correctly compose low-level wavelet tree primitives (rank, select, interval_symbols, or range_search_2d) into higher-level algorithms, handle edge cases like empty results and tie-breaking, construct multiple wavelet tree variants with different bitvector template parameters (bit_vector, rrr_vector<63>, rrr_vector<15>) and three CSA variants (csa_wt, csa_sada, csa_bitcompressed), evaluate their space usage, and correctly format all results as JSON. This demands expert-level knowledge of succinct data structure theory, SDSL's template metaprogramming system, and the compositional relationship between bitvectors, rank/select support, and wavelet trees."""
+solution_explanation = """Write analyzer.cpp implementing: (1) range quantile via iterating values 0..max_val using wt.rank() to accumulate frequencies until reaching the k-th element; (2) range distinct by counting values with nonzero frequency; (3) top-frequency by tracking the value with maximum frequency, breaking ties by smallest value; (4) predecessor by reverse-scanning values ≤ v; (5) successor by forward-scanning values ≥ v. Alternatively use interval_symbols() for all five. Construct wt_int<rrr_vector<63>> and wt_int<rrr_vector<15>> for WT space comparison. Build three CSA variants over text, use sdsl::count/locate for text queries. Report all sizes and identify minimums."""
+verification_explanation = """Tests regenerate input data from the same PRNG seeds and compute expected answers in pure Python: sorted-subarray indexing for quantile, set cardinality for distinct, Counter-based mode for top-frequency, filtered max/min for predecessor/successor, string.find loops for text queries. The test loads /app/results.json and checks every result against independently computed expected values. Space analysis is validated by checking sizes are positive, the smallest labels match actual minimums, and csa_bitcompressed is larger than csa_wt_huff."""
+category = "data_structures"
+tags = ["succinct-data-structures", "wavelet-trees"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5af3d3"

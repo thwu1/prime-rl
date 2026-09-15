@@ -1,0 +1,25 @@
+{
+  "description": "Year-end regulatory reserve valuation for a portfolio of fully discrete whole life insurance policies under Makeham mortality.",
+  "mortality": {
+    "law": "makeham",
+    "A": 0.00015,
+    "B": 0.0000040,
+    "c": 1.110
+  },
+  "interest_rate": 0.04,
+  "maxage": 130,
+  "policies": [
+    {"id": "G1", "issue_age": 35, "benefit": 100000, "count": 1500},
+    {"id": "G2", "issue_age": 45, "benefit": 250000, "count": 800},
+    {"id": "G3", "issue_age": 55, "benefit": 150000, "count": 400},
+    {"id": "G4", "issue_age": 65, "benefit": 75000, "count": 200}
+  ],
+  "expenses": {
+    "initial_premium": 0.50,
+    "renewal_premium": 0.05,
+    "initial_policy": 400,
+    "renewal_policy": 40,
+    "settlement_policy": 100
+  },
+  "valuation_duration": 10
+}

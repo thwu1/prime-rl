@@ -1,0 +1,58 @@
+[
+  {
+    "id": "membership-1",
+    "user": "User/user1",
+    "profile": "Practitioner/nurse1",
+    "accessPolicy": "AccessPolicy/policy-nurse-readonly"
+  },
+  {
+    "id": "membership-2",
+    "user": "User/user2",
+    "profile": "Practitioner/labtech1",
+    "accessPolicy": "AccessPolicy/policy-lab-tech"
+  },
+  {
+    "id": "membership-3",
+    "user": "User/user3",
+    "profile": "Practitioner/doctor1",
+    "accessPolicy": "AccessPolicy/policy-physician"
+  },
+  {
+    "id": "membership-4",
+    "user": "User/user4",
+    "profile": "Practitioner/researcher1",
+    "accessPolicy": "AccessPolicy/policy-researcher",
+    "parameter": [
+      {
+        "name": "patient",
+        "valueReference": {
+          "reference": "Patient/p1"
+        }
+      }
+    ]
+  },
+  {
+    "id": "membership-5",
+    "user": "User/user5",
+    "profile": "Practitioner/admin1",
+    "accessPolicy": "AccessPolicy/policy-admin"
+  },
+  {
+    "id": "membership-6",
+    "user": "User/user6",
+    "profile": "Practitioner/specialist1",
+    "accessPolicy": "AccessPolicy/policy-specialist"
+  },
+  {
+    "id": "membership-7",
+    "user": "User/user7",
+    "profile": "Practitioner/updater1",
+    "accessPolicy": "AccessPolicy/policy-readonly-fields"
+  },
+  {
+    "id": "membership-8",
+    "user": "User/user8",
+    "profile": "Practitioner/reviewer1",
+    "accessPolicy": "AccessPolicy/policy-quality-reviewer"
+  }
+]

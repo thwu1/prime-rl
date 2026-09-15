@@ -1,0 +1,52 @@
+{
+  "compute": [
+    {
+      "id": "cbc128_enc",
+      "algorithm": "AES-CBC",
+      "direction": "encrypt",
+      "key_bits": 128,
+      "key": "3ae38d4ebf7e7f6dc0a1e31e5efa7ca5",
+      "iv": "c8d3d50395b93e2b11e74fc4893281ae",
+      "plaintext": "046b7eaa73f2a5f99e1bbd2cef1bcd71",
+      "required_counts": [0, 49, 99]
+    },
+    {
+      "id": "cbc192_enc",
+      "algorithm": "AES-CBC",
+      "direction": "encrypt",
+      "key_bits": 192,
+      "key": "a06bb47f7e4b0723f9e8c6e7b5b8c1e4a06bb47f7e4b0723",
+      "iv": "d4e8f3a7b2c1e5d4a3b2c1d4e5f6a7b8",
+      "plaintext": "0123456789abcdef0123456789abcdef",
+      "required_counts": [0, 49, 99]
+    },
+    {
+      "id": "cbc256_enc",
+      "algorithm": "AES-CBC",
+      "direction": "encrypt",
+      "key_bits": 256,
+      "key": "f3e536c1e5e19de399183684dbef47e2799549168c9920a3c4a8c1f8047b3b9c",
+      "iv": "bb7b8cd4e0eed11a07a4b28293de5c14",
+      "plaintext": "d42e79ae2c11b4f5b2b20cdb63b71dda",
+      "required_counts": [0, 49, 99]
+    },
+    {
+      "id": "cbc128_dec",
+      "algorithm": "AES-CBC",
+      "direction": "decrypt",
+      "key_bits": 128,
+      "key": "5c1e4f2a3b6c7d8e9f0a1b2c3d4e5f60",
+      "iv": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "ciphertext": "e8c4f7d2a1b3c5e7f9081726354a5b6c",
+      "required_counts": [0, 49, 99]
+    }
+  ],
+  "audit": [
+    {
+      "id": "audit_cbc128",
+      "file": "/app/audit/CBCMCT128_suspect.rsp",
+      "direction": "encrypt",
+      "key_bits": 128
+    }
+  ]
+}

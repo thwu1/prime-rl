@@ -1,0 +1,29 @@
+==================================================================
+BUG: KASAN: slab-out-of-bounds in ext4_getattr+0x3a4/0x500
+Write of size 4 at addr ffff888087654321 by task stat/5678
+
+CPU: 0 PID: 5678 Comm: stat Tainted: G        W         6.2.0-rc3 #1
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_levels+0x1c/0x30
+ print_report+0x171/0x473
+ kasan_report+0xb6/0x130
+ ext4_getattr+0x3a4/0x500
+ ext4_inode_table+0x12/0x30
+ vfs_getattr+0x56/0x80
+ generic_fillattr+0x78/0xa0
+ stat_init+0x34/0x60
+ </TASK>
+
+Allocated by task 5678:
+ kasan_save_stack+0x1e/0x40
+ __kasan_kmalloc+0x7a/0x90
+ ext4_iget+0x56/0x80
+ ext4_lookup+0x23/0x40
+
+The buggy address belongs to the object at ffff888087654300
+ which belongs to the cache ext4_inode_cache of size 1408
+The buggy address is located 33 bytes inside of
+ allocated 1408-byte region [ffff888087654300, ffff888087654880)
+==================================================================

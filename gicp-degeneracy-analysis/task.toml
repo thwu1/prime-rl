@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of 3D point cloud registration theory, specifically the relationship between scene geometry and the observability of rigid-body DOFs through the registration Hessian (information matrix). The agent must independently diagnose geometric degeneracies by analyzing eigenvalue spectra without prior knowledge of which scenes are ill-conditioned, design an appropriate multi-resolution registration strategy with parameter selection, characterize each scene's geometric properties through point cloud analysis, and evaluate registration trustworthiness — combining skills from optimization theory, differential geometry, and robotics perception that go well beyond textbook ICP application."""
+solution_explanation = """Load each scan pair and characterize scene geometry via PCA of the target point cloud to detect planar, cylindrical, or volumetric structures. Use small_gicp.preprocess_points() for downsampling and covariance estimation, then perform multi-pass GICP alignment with a decreasing correspondence distance schedule (5.0 -> 1.5 -> 0.5) for robust convergence across diverse geometries. Extract the 6x6 Hessian from the result object, compute its eigenvalue decomposition, and classify degeneracy by counting eigenvalues below 1% of the maximum. Produce structured JSON output including registration transforms, eigenvalue spectra, degeneracy classification, and a scene diagnosis with geometry label, reliability assessment, and corrective strategy description."""
+verification_explanation = """Tests verify: (1) all four output files exist per scan with correct JSON schema and types, (2) transforms are valid SE(3) with orthogonal rotation, (3) eigenvalues are non-negative sorted ascending with 6 values, (4) non-degenerate scans achieve < 5 deg rotation and < 0.35 translation error and are correctly classified, (5) degenerate scans have condition_number < 0.01 and well-constrained translation DOFs remain accurate within 0.30 units, (6) non-degenerate eigenvalue ratios exceed 0.005 and are larger than degenerate ratios, (7) diagnosis correctly identifies reliable vs unreliable registrations with 6 vs fewer well-constrained DOFs and appropriate corrective strategies."""
+category = "computing_methodologies"
+tags = ["point-cloud-registration", "degeneracy-detection"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gicp-degeneracy-analysis"

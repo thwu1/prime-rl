@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 6 errors across 5 polynomial correlations with 78 total coefficients: 4 are subtle digit-transposition typos in coefficient values, 2 are structural bugs (wrong exponent indices that change the equation form). The solver must systematically cross-validate each correlation against comprehensive benchmark data to identify and fix all errors. Additionally requires implementing 3 numerical inverse functions including enthalpy inversion via root-finding, then composing all corrected correlations with molar/mass conversions, solution heat exchanger (SHX) energy balances with enthalpy-based thermal analysis, and coupled generator/evaporator energy balances to compute a 19-value absorption cycle analysis with and without heat recovery."""
+solution_explanation = """Fix 6 bugs: (1) bubble-point C1 coeff #9 n=2->3, (2) dew-point C2 coeff #13 m=5->4, (3) vapor composition C3 coeff #7 n=3->2, (4) liquid enthalpy C4 coeff #3 a=-0.274092e3->-0.247092e3, (5) vapor enthalpy C5 coeff #9 a=-0.670155e1->-0.670515e1, (6) vapor enthalpy C5 coeff #13 a=-0.858907e1->-0.858807e1. Add inverse functions using scipy.optimize.brentq on forward correlations. Compute SHX cycle: hot-side temperature effectiveness gives T_weak_SHX_out, enthalpy difference gives Q_SHX, energy balance on cold side gives h_strong_SHX_out, invert liquid enthalpy for T_strong_SHX_out, then modified generator energy balance for Q_gen with preheated strong solution and COP with and without SHX."""
+verification_explanation = """Tests verify: (1) all 5 forward correlations against published benchmark data at 14+ state points each with tight tolerances that detect all 6 bugs, (2) p_from_Tx and x_from_pT inverse functions by direct comparison and round-trip consistency, (3) T_from_hx by enthalpy-inversion recovery at 6 temperature-composition pairs (constrained to x <= 0.6 where enthalpy is monotonic in T), (4) all 19 cycle results including SHX quantities and COP_no_SHX against values computed from a reference implementation of the correct correlations embedded in the test."""
+category = "applied_computing"
+tags = ["thermodynamics", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/absorption-cycle-properties"

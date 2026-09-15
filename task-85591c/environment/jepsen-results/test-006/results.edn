@@ -1,0 +1,1 @@
+{:valid? true :anomalies [] :isolation-level "serializable"}

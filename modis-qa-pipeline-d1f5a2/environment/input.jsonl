@@ -1,0 +1,10 @@
+{"id":"obs_001","product":"MOD13A1.061","qa_layer":"_500m_16_days_VI_Quality","qa_value":2112,"measurements":[{"layer":"_500m_16_days_NDVI","raw":7500},{"layer":"_500m_16_days_EVI","raw":4200}]}
+{"id":"obs_002","product":"MOD13A1.061","qa_layer":"_500m_16_days_VI_Quality","qa_value":8225,"measurements":[{"layer":"_500m_16_days_NDVI","raw":2000}]}
+{"id":"obs_003","product":"MOD11A1.061","qa_layer":"QC_Day","qa_value":0,"measurements":[{"layer":"LST_Day_1km","raw":14800},{"layer":"Emis_31","raw":240}]}
+{"id":"obs_004","product":"MOD11A1.061","qa_layer":"QC_Day","qa_value":2,"measurements":[{"layer":"LST_Day_1km","raw":0}]}
+{"id":"obs_005","product":"MOD09GA.061","qa_layer":"state_1km_1","qa_value":8,"measurements":[{"layer":"sur_refl_b01_1","raw":500},{"layer":"sur_refl_b02_1","raw":3000},{"layer":"sur_refl_b03_1","raw":200}]}
+{"id":"obs_006","product":"MOD09GA.061","qa_layer":"state_1km_1","qa_value":8721,"measurements":[{"layer":"sur_refl_b01_1","raw":100},{"layer":"sur_refl_b02_1","raw":100},{"layer":"sur_refl_b03_1","raw":100}]}
+{"id":"obs_007","product":"L08.002","qa_layer":"QA_PIXEL","qa_value":64,"measurements":[]}
+{"id":"obs_008","product":"L08.002","qa_layer":"QA_PIXEL","qa_value":776,"measurements":[]}
+{"id":"obs_009","product":"MOD09GA.061","qa_layer":"state_1km_1","qa_value":8,"measurements":[{"layer":"sur_refl_b01_1","raw":-28672},{"layer":"sur_refl_b02_1","raw":3000},{"layer":"sur_refl_b03_1","raw":200}]}
+{"id":"obs_010","product":"MOD13A1.061","qa_layer":"_500m_16_days_VI_Quality","qa_value":18432,"measurements":[{"layer":"_500m_16_days_NDVI","raw":8500}]}

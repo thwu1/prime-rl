@@ -1,0 +1,9 @@
+{
+    "C2": 15.0,
+    "G_air": 0.1,
+    "T_env": 293.15,
+    "T0": 273.15,
+    "input_function": "Q_in(t) = (1 + sin(0.005 * t^2)) / 2",
+    "t_train_range": [0, 100],
+    "t_test_range": [100, 200]
+}

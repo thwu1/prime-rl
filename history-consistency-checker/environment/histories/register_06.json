@@ -1,0 +1,10 @@
+{
+  "type": "register",
+  "initial_value": 0,
+  "operations": [
+    {"process": 0, "type": "invoke", "f": "cas", "value": [0, 1], "time": 0},
+    {"process": 1, "type": "invoke", "f": "cas", "value": [0, 2], "time": 0},
+    {"process": 0, "type": "ok",     "f": "cas", "value": [0, 1], "time": 200},
+    {"process": 1, "type": "ok",     "f": "cas", "value": [0, 2], "time": 200}
+  ]
+}

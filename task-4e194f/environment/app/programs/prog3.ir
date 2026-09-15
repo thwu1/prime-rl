@@ -1,0 +1,20 @@
+# prog3 — dead code elimination
+# Expected output: 10 20 30
+
+func main():
+  .entry:
+    a = const 3
+    b = const 7
+    c = add a b
+    d = mul a b
+    e = sub b a
+    f = add c 1
+    g = mul c 2
+    h = add d e
+    i = mul f 3
+    j = sub g c
+    k = add g c
+    print c
+    print g
+    print k
+    ret 0

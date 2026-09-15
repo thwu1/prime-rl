@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading SystemVerilog RTL to reverse-engineer a GPU's ISA encoding (opcode values, instruction field layouts, branch condition encoding) and execution semantics (unsigned CMP comparison producing NZP flags, SIMD thread model with block dispatch, register file with read-only special registers). The solver must build both an assembler and a functional simulator, each demanding deep understanding of different aspects of the hardware: the assembler tests encoding knowledge derived from decoder.sv, while the simulator tests execution semantics from alu.sv, lsu.sv, pc.sv, registers.sv, scheduler.sv, and dispatch.sv. The CMP instruction's unsigned 8-bit comparison produces non-obvious NZP flag behavior that must be correctly deduced from the Verilog."""
+solution_explanation = """Read decoder.sv to extract the 4-bit opcode values (NOP=0000 through RET=1111) and instruction field positions (rd=[11:8], rs=[7:4], rt=[3:0], immediate=[7:0], nzp=[11:9]). Read alu.sv to understand that CMP uses unsigned 8-bit subtraction for flag generation. Read registers.sv for the register file layout (R13=blockIdx, R14=blockDim, R15=threadIdx) and write-protection on R13-R15. Read dispatch.sv for the block scheduling algorithm. Implement the assembler by mapping assembly syntax to binary encoding for each instruction type. Implement the simulator by modeling SIMD execution: divide threads into blocks, execute each block's threads in lock-step through the instruction stream, handling all ALU operations, memory access, and branch logic."""
+verification_explanation = """Tests verify the assembler against known-good machine code for the matrix addition and matrix multiplication kernels (comparing each 16-bit instruction). Simulator tests verify correct final data memory for matadd (8 element-wise sums), matmul (2x2 with loop/branch), a novel AXPY kernel (scaled vector addition), a polynomial evaluation kernel, and edge cases including partial blocks (thread_count not divisible by threads_per_block) and non-default core/thread configurations."""
+category = "computer_architecture"
+tags = ["gpu-architecture", "verilog"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gpu-isa-emulator"

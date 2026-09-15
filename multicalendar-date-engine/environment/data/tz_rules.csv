@@ -1,0 +1,7 @@
+zone_name,std_offset,dst_offset,dst_start_month,dst_start_dow,dst_start_week,dst_start_hour,dst_end_month,dst_end_dow,dst_end_week,dst_end_hour
+America/New_York,-300,-240,3,0,2,2,11,0,1,2
+Europe/London,0,60,3,0,5,1,10,0,5,2
+Asia/Tokyo,540,540,0,0,0,0,0,0,0,0
+America/Los_Angeles,-480,-420,3,0,2,2,11,0,1,2
+Europe/Berlin,60,120,3,0,5,2,10,0,5,3
+Australia/Sydney,600,660,10,0,1,2,4,0,1,3

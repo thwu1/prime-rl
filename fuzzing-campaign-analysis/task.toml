@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete fuzzing campaign analysis pipeline combining: (1) parsing the undocumented Magma captain workdir hierarchy to discover campaigns, (2) parsing monitor CSV files with implicit timestamps (row_number * POLL), (3) computing Vargha-Delaney A12 effect size from scratch with correct tie handling and magnitude classification, (4) performing Mann-Whitney U statistical tests on small samples, (5) using campaign timeout as penalty for untriggered bugs (domain-specific convention), (6) handling edge cases including empty and truncated campaign data, and (7) producing output in multiple precise nested JSON formats. Combines domain knowledge of fuzzing evaluation methodology (Klees et al. CCS 2018) with software engineering and non-parametric statistics."""
+solution_explanation = """The solution traverses workdir/ar/ to discover campaigns, parses each monitor.csv to extract time-to-first-reach and time-to-first-trigger for each bug, produces exp2json-format results, then computes pairwise A12 effect sizes with magnitude classification and Mann-Whitney U p-values. Campaign timeout (parsed from captainrc with duration suffix handling) is used as penalty for untriggered bugs. Empty CSV campaigns are excluded; truncated campaigns with valid data are included. Coverage aggregates unique bugs across all runs per fuzzer."""
+verification_explanation = """Tests verify: (1) correct JSON structure with all fuzzers/targets/programs, (2) exact time-to-reach/trigger values for 10+ specific campaign/bug combinations, (3) correct A12 effect sizes for 4 pairwise comparisons against analytically computed expected values, (4) correct A12 magnitude classification, (5) proper edge case handling (empty CSV excluded, truncated CSV included), (6) coverage computation accuracy including bugs uniquely found by specific fuzzers, and (7) human-readable report existence and content."""
+category = "security"
+tags = ["fuzzing", "statistics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fuzzing-campaign-analysis"

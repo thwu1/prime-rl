@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SQLite knowledge across multiple domains: (1) diagnosing a subtle semantic bug in a view definition that exploits SQLite's non-standard aggregate behavior — the view is syntactically valid and produces plausible-looking output, making the root cause non-obvious; (2) forensic comparison between backup and live database to separate original migration damage from DBA-introduced damage, including cycle detection in a self-referencing hierarchy; (3) identifying and fixing a view whose correlated subqueries return columns from mismatched rows; (4) tracing foreign key violations across multiple tables to reconstruct what was deleted and what the DBA's repair attempts broke; (5) recognizing and normalizing multiple date formats including numeric epoch representations. The agent must synthesize understanding of SQLite internals — type affinity, query planning, recursive CTE traversal, view semantics, and foreign key enforcement — to produce a single idempotent repair script."""
+solution_explanation = """The solution: (1) fixes the self-referencing category node and breaks remaining hierarchy cycles to make all 20 categories reachable from roots; (2) rewrites the monthly_revenue view to correctly group by both month and product; (3) rewrites product_best_review using a window function to atomically select the correct review row matching the highest rating; (4) inserts placeholder users and products for orphaned FK references and fixes DBA placeholder products with invalid category_ids; (5) normalizes all four date formats in events.occurred_at to ISO-8601; (6) regenerates accurate sqlite_stat1 via ANALYZE."""
+verification_explanation = """Tests verify: (1) monthly_revenue per-(month,product) totals match actual order_items sums and multiple products appear per month; (2) all 20 categories are reachable from roots via recursive CTE with no self-references or cycles; (3) product_best_review detail columns correspond to the actual highest-rated review row; (4) PRAGMA foreign_key_check returns zero violations and all orders/order_items are fully joinable; (5) all events.occurred_at values are ISO-8601 format and date-range queries return correct results; (6) sqlite_stat1 entries reflect actual table sizes; (7) PRAGMA integrity_check passes; (8) repair.sql is idempotent."""
+category = "database_management"
+tags = ["sqlite", "data-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-schema-repair"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding DMN 1.4 FEEL specification semantics and Java code architecture across 6 source files. The engine has 10 interacting defects spanning unary test evaluation (range boundary logic, negation, disjunction, null propagation) and hit policy handling (UNIQUE/ANY validation, ordering, aggregation arithmetic), plus the PRIORITY hit policy is entirely absent. Critical coupling: fixing the negation bug without also fixing null propagation in comparisons and ranges causes new test failures, since not(comparison) with null input incorrectly matches when null propagation yields false instead of null. The PRIORITY hit policy requires architectural design decisions — the solver must thread output-value priority orderings from the table definition through the evaluation pipeline to the hit policy engine, requiring modifications to multiple Java files and changes to method signatures."""
+solution_explanation = """Fix UnaryTestEvaluator: (1) range boundaries — use lowerInclusive for lower check and upperInclusive for upper, (2) negation — apply Boolean negation preserving null, (3) disjunction — use OR with true-short-circuit, (4-5) null propagation — return null instead of false when input is null in both comparisons and ranges. Fix HitPolicyEngine: (6) UNIQUE — detect >1 match and throw, (7) ANY — verify all outputs equal, (8) RULE_ORDER — remove reverse, (9) SUM — use BigDecimal.add, (10) MIN — flip compareTo direction. Design and implement PRIORITY: add to HitPolicy enum, extend apply() method signature to accept output-value lists, parse outputValues from output column definitions in DecisionTableEngine, implement priority selection logic that finds the match whose first output column value has the lowest index in the priority ordering list."""
+verification_explanation = """30 pytest test cases invoke the Java engine via subprocess with JSON decision tables. Tests cover baseline functionality (8), asymmetric range boundaries at exact boundary values (4), negation (2), disjunction (2), coupled null-propagation-negation interaction (2), all six hit policies including PRIORITY with multiple matching rules (7), and COLLECT aggregation with decimal precision (5). The null-propagation tests are designed to only fail when negation is fixed but null propagation is not, creating a coupled debugging challenge."""
+category = "debugging"
+tags = ["java", "specification-compliance"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/feel-decision-engine"

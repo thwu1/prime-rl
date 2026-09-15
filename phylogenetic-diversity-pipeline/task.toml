@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in computational biology / bioinformatics. The agent must independently diagnose multiple data consistency issues: (1) recognize the reference phylogeny is unrooted (trifurcation at root) and determine it must be rooted before phylogenetic diversity computation, (2) discover outgroup taxa by reading experimental design notes and apply appropriate rooting, (3) detect taxon mismatches between the OTU abundance table and the phylogenetic tree and resolve them, (4) select and correctly apply standard phylogenetic diversity metrics (alpha and beta), (5) derive PERMANOVA effect size from first principles. No algorithmic guidance is given — the agent must choose the correct methods and parameterization from domain knowledge."""
+solution_explanation = """The solution installs scikit-bio, reads study_notes.txt to identify OTU09/OTU10 as outgroup taxa, discovers the tree is unrooted (3 children at root), roots it via root_by_outgroup, filters the OTU table to taxa present in the tree (removing OTU11/OTU12), computes pairwise RF distances via compare_rfd, builds majority-rule consensus, computes Faith's PD and weighted UniFrac, runs PERMANOVA with seed=42, derives R² = 1/(1+(n-g)/((g-1)*F)), and performs PCoA ordination."""
+verification_explanation = """Tests install scikit-bio independently and recompute all expected outputs from the same input data. RF distances must match exactly (integers), consensus tree topology is verified via bipartition comparison, Faith's PD and UniFrac values are checked within 1e-4 tolerance, PERMANOVA pseudo-F and R² within 1e-3, and PCoA proportion explained within 1e-4."""
+category = "bioinformatics"
+tags = ["phylogenetics", "microbiome-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phylogenetic-diversity-pipeline"

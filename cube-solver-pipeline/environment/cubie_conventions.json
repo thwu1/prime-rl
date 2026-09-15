@@ -1,0 +1,60 @@
+{
+  "facelet_order": "URFDLB, 9 facelets per face, left-to-right top-to-bottom when viewed from outside the cube",
+  "face_layout": "positions 0-8 on each face: row0=[0,1,2], row1=[3,4,5], row2=[6,7,8]",
+  "face_offsets": {"U": 0, "R": 9, "F": 18, "D": 27, "L": 36, "B": 45},
+  "corners": {
+    "description": "8 corner cubies. Facelets listed as [reference, CW1, CW2]. Reference facelet is always on U or D face. CW1 and CW2 follow clockwise order when the corner is viewed from outside the reference (U/D) face.",
+    "positions": [
+      {"id": 0, "name": "URF", "facelets": [8, 9, 20]},
+      {"id": 1, "name": "UFL", "facelets": [6, 18, 38]},
+      {"id": 2, "name": "ULB", "facelets": [0, 36, 47]},
+      {"id": 3, "name": "UBR", "facelets": [2, 45, 11]},
+      {"id": 4, "name": "DFR", "facelets": [29, 26, 15]},
+      {"id": 5, "name": "DLF", "facelets": [27, 44, 24]},
+      {"id": 6, "name": "DBL", "facelets": [33, 53, 42]},
+      {"id": 7, "name": "DRB", "facelets": [35, 17, 51]}
+    ],
+    "orientation": {
+      "twist_0": "The U/D-colored sticker of the cubie is at the reference facelet position (on a U or D face)",
+      "twist_1": "The U/D-colored sticker is at the CW1 position",
+      "twist_2": "The U/D-colored sticker is at the CW2 position"
+    }
+  },
+  "edges": {
+    "description": "12 edge cubies. Facelets listed as [primary, secondary]. For edges in U/D layers, the primary facelet is on the U or D face. For E-layer edges (FR, FL, BL, BR), the primary facelet is on the F or B face.",
+    "positions": [
+      {"id": 0, "name": "UR", "facelets": [5, 10]},
+      {"id": 1, "name": "UF", "facelets": [7, 19]},
+      {"id": 2, "name": "UL", "facelets": [3, 37]},
+      {"id": 3, "name": "UB", "facelets": [1, 46]},
+      {"id": 4, "name": "DR", "facelets": [32, 16]},
+      {"id": 5, "name": "DF", "facelets": [28, 25]},
+      {"id": 6, "name": "DL", "facelets": [30, 43]},
+      {"id": 7, "name": "DB", "facelets": [34, 52]},
+      {"id": 8, "name": "FR", "facelets": [23, 12]},
+      {"id": 9, "name": "FL", "facelets": [21, 41]},
+      {"id": 10, "name": "BL", "facelets": [50, 39]},
+      {"id": 11, "name": "BR", "facelets": [48, 14]}
+    ],
+    "orientation": {
+      "flip_0": "The cubie's reference color (U/D for UD-layer edges, F/B for E-layer edges) is at the primary facelet position",
+      "flip_1": "The cubie's reference color is at the secondary facelet position"
+    },
+    "reference_colors": {
+      "UR": "U", "UF": "U", "UL": "U", "UB": "U",
+      "DR": "D", "DF": "D", "DL": "D", "DB": "D",
+      "FR": "F", "FL": "F", "BL": "B", "BR": "B"
+    }
+  },
+  "solvability_invariants": {
+    "corner_twist": "Sum of all 8 corner orientations must be 0 mod 3",
+    "edge_flip": "Sum of all 12 edge orientations must be 0 mod 2",
+    "parity": "The parity (sign) of the corner permutation must equal the parity of the edge permutation"
+  },
+  "algebraic_order": {
+    "description": "The order of a cube state as an element of the Rubik's cube group. Computed via the wreath product structure.",
+    "corner_cycle_order": "For a corner cycle of length k with total twist sum s along the cycle: augmented order = k if s mod 3 == 0, else 3k",
+    "edge_cycle_order": "For an edge cycle of length k with total flip sum s along the cycle: augmented order = k if s mod 2 == 0, else 2k",
+    "total_order": "LCM of all augmented corner cycle orders and all augmented edge cycle orders"
+  }
+}

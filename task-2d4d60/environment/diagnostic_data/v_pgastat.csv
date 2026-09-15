@@ -1,0 +1,17 @@
+name,value,unit
+aggregate PGA target parameter,268435456,bytes
+aggregate PGA auto target,134217728,bytes
+global memory bound,26843546,bytes
+total PGA inuse,450000000,bytes
+total PGA allocated,520000000,bytes
+maximum PGA allocated,780000000,bytes
+total freeable PGA memory,15000000,bytes
+PGA memory freed back to OS,2500000000,bytes
+total PGA used for auto workareas,180000000,bytes
+maximum PGA used for auto workareas,350000000,bytes
+total PGA used for manual workareas,0,bytes
+maximum PGA used for manual workareas,0,bytes
+over allocation count,75,
+bytes processed,45000000000,bytes
+extra bytes read/written,8500000000,bytes
+cache hit percentage,84.1,percent

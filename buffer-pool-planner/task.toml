@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge spanning three domains: (1) compiler memory planning — buffer lifetime analysis from DAG scheduling, interference graph construction, the interplay between operation ordering and peak memory; (2) mathematical optimization — recognizing that the buffer packing problem with alignment constraints is NP-hard and requires exact methods, then formulating and solving it appropriately; (3) systems integration — chaining graph analysis, scheduling heuristics, solver invocation, and result parsing into a working pipeline. The agent must independently identify what tools are available in the environment, determine the right approach, and integrate multiple components."""
+solution_explanation = """Parse the computation graph, perform memory-aware topological sorting (greedy heuristic: prefer operations freeing the most net memory), compute buffer lifetime intervals, build per-memory-space interference graphs, formulate buffer packing as an ILP with big-M disjunctive constraints and alignment-divided integer offset variables (o_i = align_i * k_i), write CPLEX LP model files, invoke the pre-installed cbc solver to solve each space's ILP, parse the solution file to extract optimal k values, compute byte offsets, and emit the solution JSON with schedule, assignments, and tight pool sizes."""
+verification_explanation = """Seven pytest tests validate: (1-2) correctness — sequential buffer reuse and overlapping buffer separation; (3) scheduling quality — independent branches must be serialized to reduce peak memory; (4) view handling — views as sub-ranges of parent buffers; (5) multi-space independence — buffers in different memory spaces packed separately; (6) optimal alignment packing with a bound (pool<=228) that standard first-fit-decreasing heuristics cannot meet (FFD gives 242), forcing exact optimization; (7) complex branching pipeline with tight optimal bound (pool<=57344) requiring both good scheduling and optimal packing."""
+category = "systems_programming"
+tags = ["compiler-optimization", "integer-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/buffer-pool-planner"

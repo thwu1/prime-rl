@@ -1,0 +1,8 @@
+{
+  "id": "mut_002",
+  "title": "SLT performs unsigned comparison instead of signed",
+  "description": "Replace signed comparison ($signed) with unsigned comparison in SLT operation",
+  "equivalent": true,
+  "original_line": "            4'b0011: result = ($signed(a) < $signed(b)) ? 32'd1 : 32'd0;",
+  "mutated_line": "            4'b0011: result = (a < b) ? 32'd1 : 32'd0;"
+}

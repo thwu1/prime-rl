@@ -1,0 +1,12 @@
+# Real-world evaluation results
+# Evaluation date: 2024-04-15
+# Robot: Google Robot
+# Trials per policy per task: 20
+task,RT-1,RT-1-X,Octo-Base,Octo-Small,PolicyX
+pick_coke_can,0.78,0.72,0.41,0.33,0.52
+move_near,0.55,0.62,0.35,0.28,0.45
+open_drawer,0.45,0.52,0.30,0.22,0.38
+close_drawer,0.82,0.75,0.60,0.40,0.48
+stack_blocks,0.38,0.35,0.42,0.18,0.25
+pick_apple,0.65,0.58,0.48,0.30,0.40
+push_buttons,0.50,0.45,0.38,0.55,0.42

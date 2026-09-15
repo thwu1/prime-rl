@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent receives 8 unlabeled, interleaved binary TLS 1.3 records from two concurrent sessions, plus two leaked X25519 client private keys. Record-to-filename assignments are randomized per build, so no static mapping can be assumed. It must: (1) parse raw TLS record headers and handshake message structures to classify records by type; (2) extract and match session identifiers to sort records into two sessions; (3) implement the full TLS 1.3 key schedule (HKDF-Extract/Expand, Derive-Secret) for each session-key combination; (4) perform X25519 ECDH and AES-128-GCM decryption to identify the intact session; (5) evaluate cryptographic integrity by detecting GCM authentication failures to identify the compromised session; (6) determine which specific record was tampered with by reasoning about TLS record semantics; (7) produce a structured forensic assessment. No verification data exists in the image — the agent must derive all answers from first principles."""
+solution_explanation = """Parse all 8 records by their 5-byte TLS record headers: type 0x16 (handshake) records are plaintext, type 0x17 are encrypted. Extract session_id from each ClientHello/ServerHello and match pairs to identify two sessions. For each (session, key) combination, derive TLS 1.3 handshake traffic keys via HKDF and attempt AES-128-GCM decryption of each encrypted record. Exactly one combination succeeds — identifying the intact session and its correct key. Derive application traffic keys from the decrypted handshake transcript and recover the application data. The remaining records belong to the compromised session. Among its encrypted records, GCM authentication fails; the smaller encrypted record is the tampered handshake. Write the decrypted plaintext and a forensic report."""
+verification_explanation = """Tests independently re-derive all expected answers through computational verification. The test fixture reads the captures and leaked keys, implements the TLS 1.3 key schedule, tries all (session, key) combinations, and determines the intact session, compromised session, tampered record, and correct plaintext. No ground truth is stored in the Docker image — all expected values are computed at test time from the cryptographic material. Tests then compare the agent's outputs against these computed values."""
+category = "cryptography"
+tags = ["tls", "forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/decrypt-tls-session"

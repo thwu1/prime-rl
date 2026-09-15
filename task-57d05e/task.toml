@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct 3x3x3 Rubik's Cube state simulator with precise facelet-level permutations for all 18 moves in Kociemba's URFDLB facelet ordering. The agent must orchestrate three distinct tools: sqlite3 CLI for importing TSV data and executing analytical SQL queries (including median computation, record filtering, and multi-column ordering), jq for JSON extraction in shell pipelines, and the kociemba Python package for two-phase cube solving. The simulator must correctly handle the 3D rotation geometry where U and D face belt stickers cycle in the opposite direction from R/F/L/B belts when projected onto the facelet string, a subtlety that causes naive implementations to produce invalid facelet strings rejected by kociemba. Solution verification requires understanding that applying scramble+solution to the solved state must yield identity. The pipeline integrates subprocess calls, SQL query construction, JSON parsing, and cube-domain logic into a cohesive system."""
+solution_explanation = """The solution builds a Python pipeline that: (1) uses subprocess to invoke sqlite3 with .import directives to load TSV data, then executes SQL queries for statistics including a median via LIMIT/OFFSET, (2) uses subprocess to call jq for extracting scramble strings from JSON, (3) implements a cycle-based cube simulator with verified permutation cycles for all 6 face moves where belt cycles for U and D use the reversed direction compared to R/F/L/B, (4) integrates the kociemba package to find near-optimal solutions from Kociemba facelet strings, (5) verifies solutions by re-simulation, and (6) computes inverse solutions via sequence reversal and move inversion."""
+verification_explanation = """Tests independently verify: (1) SQLite database schema and row counts via direct SQL queries, (2) database statistics against independently computed values from the TSV data, (3) facelet strings via an embedded cycle-based simulator, (4) kociemba solution validity by applying scramble+solution and checking for solved state, (5) inverse solution correctness similarly, (6) JSON schema compliance for all output files, (7) that pipeline.py actually invokes sqlite3, jq, and kociemba (checked via output artifacts and solution properties)."""
+category = "computing_methodologies"
+tags = ["combinatorial_puzzles", "multi_tool_integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-57d05e"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-file C project that combines WAD binary file parsing, 16.16 fixed-point arithmetic, BSP tree algorithms, and implementing a missing feature from specification. Thirteen interacting issues span five files across five subsystems: (1) the build system has a conflicting translation unit (doom_math.o provides duplicate symbols for FixedMul, FixedDiv, W_LumpNameHash, SlopeDiv, R_PointOnSide, R_PointToAngle2, and main, causing multiple-definition linker errors, while bsp.o is missing from OBJS); (2) the WAD parser has a spurious big-endian byte-swap that corrupts numlumps causing immediate rejection, an off-by-one in the directory read loop that silently drops the last lump entry, and a coordinate shift of FRACBITS-1 instead of FRACBITS that halves all BSP node geometry; (3) the fixed-point math library has an overflow detection threshold error (>>15 vs >>14) and swapped INT_MIN/INT_MAX saturation returns; (4) BSP operations have four bugs: SlopeDiv guard threshold, R_PointOnSide sign-bit fast-path variable swap, R_PointToAngle2 octant 5 formula error, and back-before-front traversal order; (5) the DIRHASH query is stubbed and must be implemented as FNV-1a over directory entries; (6) main.c calls wad_close() before the query loop, invalidating directory data needed by DIRHASH. Bugs cascade: the build must be fixed first; WAD parsing must be correct before BSP queries produce meaningful results (the byte-swap masks the off-by-one since the corrupted numlumps causes immediate rejection); the traversal bug is invisible until all per-node computations are correct; and DIRHASH requires both implementing the hash function and fixing the data-lifetime issue."""
+solution_explanation = """Fix 13 issues across 5 files: (1) Makefile: replace doom_math.o with bsp.o in OBJS; (2) wad_reader.c: remove spurious byte-swap on numlumps; (3) wad_reader.c: fix off-by-one in directory read loop (wad_nlumps-1 to wad_nlumps); (4) wad_reader.c: change coordinate shift from FRACBITS-1 to FRACBITS; (5) wad_reader.c: fix hash shift from <<4 to <<5; (6) wad_reader.c: implement wad_directory_hash as FNV-1a (32-bit, basis 2166136261, prime 16777619) over each entry's filepos, size, name byte-by-byte; (7) main.c: move wad_close() from after bsp_set_data to after the query processing loop; (8) fixed_math.c: FixedDiv overflow guard from >>15 to >>14; (9) fixed_math.c: swap FixedDiv overflow return to INT_MIN:INT_MAX; (10) bsp.c: SlopeDiv threshold from 256 to 512; (11) bsp.c: R_PointOnSide sign-bit from (node->dx^dy) to (node->dy^dx); (12) bsp.c: octant 5 from ANG270+1+tantoangle to ANG270-1-tantoangle; (13) bsp.c: swap traversal to visit front before back."""
+verification_explanation = """Tests generate a synthetic PWAD with 5 BSP nodes and 6 subsectors forming a quadrant-based tree with diagonal partitions. Python reference implementations compute expected results for all 8 query types. TestBuild verifies compilation succeeds (catches Makefile/linker issues). TestFixedMath tests MUL/DIV with overflow boundary vectors (catches >>14/>>15 and INT_MIN/MAX swap). TestHash tests djb2 hash against standard WAD lump names (catches <<4/<<5). TestSide tests axis-aligned, sign-bit-path, and cross-product-path partitions (catches dx/dy swap). TestAngle covers all 8 octants with SlopeDiv boundary and octant-5 edge cases. TestLocate verifies subsector resolution including a point sensitive to the FRACBITS-1 shift bug. TestTraverse checks exact front-to-back visitation ordering from multiple viewpoints. TestDirHash verifies FNV-1a hash output, catches the stub (returns 0), catches the data-lifetime bug (returns FNV offset basis if directory was freed), and verifies determinism."""
+category = "debugging"
+tags = ["binary-parsing", "bsp-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/doom-fixedpoint-bsp"

@@ -1,0 +1,52 @@
+{
+    "scenarios": [
+        {
+            "id": "chrome_standard",
+            "description": "Chrome browser connection",
+            "mss": null,
+            "capture": "/app/captures/chrome_standard.pcap",
+            "internal_ip": "192.168.1.105",
+            "target_port": 8080,
+            "sip_domain": "attacker.example.com",
+            "http_headers_template": "POST / HTTP/1.1\r\nHost: attacker.example.com:5060\r\nConnection: keep-alive\r\nContent-Length: {content_length}\r\nCache-Control: max-age=0\r\nOrigin: http://attacker.example.com\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n",
+            "boundary": "----WebKitFormBoundaryA1B2C3D4E5F6G7H8",
+            "strict_mode": false
+        },
+        {
+            "id": "firefox_small_mss",
+            "description": "Firefox browser, path-MTU-limited connection",
+            "mss": null,
+            "capture": "/app/captures/firefox_small_mss.pcap",
+            "internal_ip": "10.0.0.42",
+            "target_port": 22,
+            "sip_domain": "evil.example.org",
+            "http_headers_template": "POST / HTTP/1.1\r\nHost: evil.example.org:5060\r\nUser-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nContent-Length: {content_length}\r\nOrigin: http://evil.example.org\r\nConnection: keep-alive\r\n\r\n",
+            "boundary": "---------------------------geckobound9X8Y7Z",
+            "strict_mode": false
+        },
+        {
+            "id": "safari_strict_alg",
+            "description": "Safari browser, strict ALG requiring full SIP header set",
+            "mss": null,
+            "capture": "/app/captures/safari_strict_alg.pcap",
+            "internal_ip": "172.16.0.50",
+            "target_port": 443,
+            "sip_domain": "proxy.example.net",
+            "http_headers_template": "POST / HTTP/1.1\r\nHost: proxy.example.net:5060\r\nContent-Length: {content_length}\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US\r\nConnection: keep-alive\r\n\r\n",
+            "boundary": "----WebKitFormBoundaryQ9R8S7T6U5V4W3X2",
+            "strict_mode": true
+        },
+        {
+            "id": "edge_jumbo_mss",
+            "description": "Edge browser, jumbo-MSS connection",
+            "mss": null,
+            "capture": "/app/captures/edge_jumbo_mss.pcap",
+            "internal_ip": "192.168.0.1",
+            "target_port": 9090,
+            "sip_domain": "natslip.example.com",
+            "http_headers_template": "POST / HTTP/1.1\r\nHost: natslip.example.com:5060\r\nContent-Length: {content_length}\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.9\r\nConnection: keep-alive\r\nOrigin: http://natslip.example.com\r\nUpgrade-Insecure-Requests: 1\r\n\r\n",
+            "boundary": "----WebKitFormBoundaryM1N2O3P4Q5R6S7T8",
+            "strict_mode": false
+        }
+    ]
+}

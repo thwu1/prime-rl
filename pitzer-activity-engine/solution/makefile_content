@@ -1,0 +1,12 @@
+.PHONY: all init-db run validate
+
+all: init-db run validate
+
+init-db:
+	sqlite3 /app/parameters.db < /app/ion_parameters.sql
+
+run: init-db
+	python3 /app/electrolyte_engine.py
+
+validate:
+	python3 /app/validate_results.py

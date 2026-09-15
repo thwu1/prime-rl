@@ -1,0 +1,7 @@
+The directory `/app/` contains a Gaussian mixture (GM) operations library (`gm_ops.py`) and a Bayesian inference pipeline (`pipeline.py`). The pipeline constructs a 4-component 2D GM prior, performs two independent Bayesian posterior updates via powered GM-Gaussian products, combines the two resulting posteriors via a GM-GM product (yielding a 16-component posterior), reduces the combined posterior to 6 components, and writes summary statistics and quality metrics to `/app/results.json`.
+
+Running `python3 /app/pipeline.py` currently fails. Two of the implemented operations contain subtle mathematical bugs producing silently incorrect results, one operation (`gm_mul_gm` — the product of two Gaussian mixtures) is unimplemented, and the component reduction operation (`gm_reduce`) is unimplemented.
+
+The mathematical reference `/app/docs/equations.md` specifies all implemented operations and the moment-matching constraints for reduction. For `gm_reduce`, no algorithm is prescribed — you must design a reduction strategy that minimizes information loss while preserving the mixture's mean and bounding the KL divergence between the full and reduced posteriors.
+
+All GMs use a shared isotropic covariance representation: `means` (bs, K, D), `logstds` (bs, 1, 1), `logweights` (bs, K, 1).

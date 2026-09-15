@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in constraint-based metabolic modeling. The solver must explore an unfamiliar model JSON file, discover its structure (reactions, metabolites, genes, GPR rules, compartments), map human-readable carbon source names to model identifiers, and implement ten coupled analyses: growth optimization under varying constraints, gene and reaction essentiality screening, GPR-aware isozyme redundancy classification, metabolite name-to-exchange-reaction resolution, constrained flux range computation, combinatorial gene interaction detection, stoichiometric network topology analysis for chokepoints, and multi-objective production envelope construction. Each analysis builds on prior results (e.g., essential genes feed into synthetic lethal filtering and isozyme buffering). No algorithms or libraries are named in the instruction — the solver must independently identify the appropriate computational methods."""
+solution_explanation = """Loads the COBRA-format JSON model with COBRApy. Performs LP-based growth optimization (FBA) for aerobic/anaerobic conditions. Uses single_gene_deletion and single_reaction_deletion to identify essential genes and reactions. Classifies isozyme-buffered reactions by evaluating GPR rules under single gene knockouts — if no single KO disables the reaction, it has isozyme redundancy. Maps carbon source names to exchange reactions by matching metabolite names in the extracellular compartment. Runs flux variability analysis at 90% optimality for TCA cycle reactions. Performs double_gene_deletion on candidate non-essential genes to find synthetic lethal pairs. Computes chokepoint metabolites by counting unique producers/consumers per cytoplasmic metabolite from the stoichiometric matrix. Constructs ethanol production envelope by fixing growth rate at 11 points and maximizing ethanol secretion under anaerobic constraints."""
+verification_explanation = """A standalone compute_ref.py script generates all reference values from the same model.json using COBRApy, avoiding multiprocessing issues by running outside pytest. Pytest tests compare the solver's output against reference: growth rates within 1e-4, gene/reaction lists by exact sorted match, flux ranges within 1e-4, ethanol envelope within 0.05, and structural checks (sorting, subset relationships, compartment constraints, monotonicity)."""
+category = "computational_biology"
+tags = ["metabolic-modeling", "constraint-based-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/metabolic-robustness-analysis"

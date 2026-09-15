@@ -1,0 +1,17 @@
+{
+  "criteria": [
+    {"id": "root", "description": "Overall reproduction score", "weight": 1.0, "children": ["methodology", "results", "reproducibility"], "dependencies": [], "score_type": "aggregate"},
+    {"id": "methodology", "description": "Methodology correctness", "weight": 0.3, "children": ["data_pipeline", "model_arch"], "dependencies": [], "score_type": "aggregate"},
+    {"id": "results", "description": "Results correctness and completeness", "weight": 0.5, "children": ["accuracy", "ablation"], "dependencies": ["methodology"], "score_type": "aggregate"},
+    {"id": "reproducibility", "description": "Reproducibility of the work", "weight": 0.2, "children": ["env_setup", "run_script"], "dependencies": [], "score_type": "aggregate"},
+    {"id": "data_pipeline", "description": "Data loading and preprocessing pipeline", "weight": 0.4, "children": [], "dependencies": [], "score_type": "binary"},
+    {"id": "model_arch", "description": "Model architecture implementation", "weight": 0.6, "children": [], "dependencies": ["data_pipeline"], "score_type": "partial"},
+    {"id": "accuracy", "description": "Reported accuracy metrics match expected values", "weight": 0.7, "children": [], "dependencies": ["model_arch"], "score_type": "partial"},
+    {"id": "ablation", "description": "Ablation study results reproduced", "weight": 0.3, "children": [], "dependencies": ["accuracy"], "score_type": "binary"},
+    {"id": "env_setup", "description": "Environment can be set up from instructions", "weight": 0.5, "children": [], "dependencies": [], "score_type": "binary"},
+    {"id": "run_script", "description": "Reproduction script executes successfully", "weight": 0.5, "children": [], "dependencies": ["env_setup"], "score_type": "binary"}
+  ],
+  "dependency_threshold": 0.5,
+  "bootstrap_seed": 42,
+  "bootstrap_resamples": 10000
+}

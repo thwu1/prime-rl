@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level information retrieval knowledge: diagnosing three distinct failure modes (truncated result depth, incomplete query coverage, wrong retrieval model) from run file analysis alone, understanding BM25 vs query likelihood scoring characteristics, interpreting TREC evaluation metrics (MAP, nDCG@10, Recall@1000), and systematically exploring a configuration space to produce an optimized retrieval run with rigorous comparative evaluation."""
+solution_explanation = """Evaluate each baseline with the evaluation tool. Diagnose Run A's truncated result list (only 3 hits per query) from the low result count per query. Identify Run B's missing query coverage by comparing query IDs against the queries file. Recognize Run C's use of query likelihood (Dirichlet) from its negative scores. Grid-search BM25 k1 and b parameters, evaluate each configuration, and select the one meeting all targets."""
+verification_explanation = """Tests independently verify: (1) diagnosis metrics match recomputation within tolerance, (2) target assessments are logically consistent, (3) optimized run is valid TREC format covering all queries, (4) optimized run meets all effectiveness targets, (5) optimized run outperforms every baseline on MAP, (6) metrics comparison contains at least 7 entries with verifiable accuracy, (7) optimal configuration includes parameters and substantive rationale."""
+category = "information_retrieval"
+tags = ["search-optimization", "retrieval-diagnostics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pyserini-ir-pipeline"

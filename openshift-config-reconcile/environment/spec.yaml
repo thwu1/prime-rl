@@ -1,0 +1,408 @@
+# Multi-Tenant OpenShift Cluster Configuration Specification
+# All output manifests must faithfully implement this specification.
+
+cluster:
+  domain: apps.acme.example.com
+
+namespaces:
+  - name: web-frontend
+    labels:
+      tier: frontend
+      env: production
+  - name: api-gateway
+    labels:
+      tier: middleware
+      env: production
+  - name: order-service
+    labels:
+      tier: backend
+      env: production
+  - name: inventory-db
+    labels:
+      tier: data
+      env: production
+
+identity_provider:
+  name: acme-htpasswd
+  type: HTPasswd
+  secret_name: acme-htpasswd-secret
+  secret_namespace: openshift-config
+  mapping_method: claim
+  users:
+    - username: cluster-admin-01
+      password: Kx9mP2vL7nQ4
+    - username: team-lead
+      password: Rf4wE8jY3bN5
+    - username: dev-alpha
+      password: Gm6tH1kU5cA2
+    - username: dev-beta
+      password: Zp3nJ7dF9xR8
+    - username: qa-engineer
+      password: Wq2bV4hL8mK6
+    - username: ops-viewer
+      password: Yt5cX3fN7gD1
+
+groups:
+  - name: platform-admins
+    members: [cluster-admin-01]
+  - name: developers
+    members: [team-lead, dev-alpha, dev-beta]
+  - name: qa-team
+    members: [qa-engineer]
+  - name: operations
+    members: [ops-viewer]
+
+rbac:
+  cluster_role_bindings:
+    - name: admin-cluster-binding
+      user: cluster-admin-01
+      cluster_role: cluster-admin
+  role_bindings:
+    - name: developers-edit-frontend
+      group: developers
+      role: edit
+      namespace: web-frontend
+    - name: developers-edit-api
+      group: developers
+      role: edit
+      namespace: api-gateway
+    - name: developers-edit-orders
+      group: developers
+      role: edit
+      namespace: order-service
+    - name: lead-admin-frontend
+      user: team-lead
+      role: admin
+      namespace: web-frontend
+    - name: lead-admin-api
+      user: team-lead
+      role: admin
+      namespace: api-gateway
+    - name: lead-admin-orders
+      user: team-lead
+      role: admin
+      namespace: order-service
+    - name: qa-view-frontend
+      group: qa-team
+      role: view
+      namespace: web-frontend
+    - name: qa-view-api
+      group: qa-team
+      role: view
+      namespace: api-gateway
+    - name: qa-view-orders
+      group: qa-team
+      role: view
+      namespace: order-service
+    - name: qa-view-db
+      group: qa-team
+      role: view
+      namespace: inventory-db
+    - name: ops-view-frontend
+      group: operations
+      role: view
+      namespace: web-frontend
+    - name: ops-view-api
+      group: operations
+      role: view
+      namespace: api-gateway
+    - name: ops-view-orders
+      group: operations
+      role: view
+      namespace: order-service
+    - name: ops-view-db
+      group: operations
+      role: view
+      namespace: inventory-db
+    - name: ops-edit-db
+      user: ops-viewer
+      role: edit
+      namespace: inventory-db
+
+network_policies:
+  web-frontend:
+    - name: default-deny
+      pod_selector: {}
+      policy_types: [Ingress, Egress]
+    - name: allow-from-router
+      pod_selector:
+        matchLabels:
+          app: nginx-frontend
+      policy_types: [Ingress]
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: ingress
+          ports:
+            - protocol: TCP
+              port: 8443
+    - name: allow-to-api
+      pod_selector:
+        matchLabels:
+          app: nginx-frontend
+      policy_types: [Egress]
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  tier: middleware
+              podSelector:
+                matchLabels:
+                  app: api-gateway
+          ports:
+            - protocol: TCP
+              port: 8080
+        - ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  api-gateway:
+    - name: default-deny
+      pod_selector: {}
+      policy_types: [Ingress, Egress]
+    - name: allow-from-frontend
+      pod_selector:
+        matchLabels:
+          app: api-gateway
+      policy_types: [Ingress]
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  tier: frontend
+              podSelector:
+                matchLabels:
+                  app: nginx-frontend
+          ports:
+            - protocol: TCP
+              port: 8080
+    - name: allow-to-backend
+      pod_selector:
+        matchLabels:
+          app: api-gateway
+      policy_types: [Egress]
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  tier: backend
+              podSelector:
+                matchLabels:
+                  app: order-processor
+          ports:
+            - protocol: TCP
+              port: 8443
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  tier: data
+              podSelector:
+                matchLabels:
+                  app: postgres
+          ports:
+            - protocol: TCP
+              port: 5432
+        - ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  order-service:
+    - name: default-deny
+      pod_selector: {}
+      policy_types: [Ingress, Egress]
+    - name: allow-from-api
+      pod_selector:
+        matchLabels:
+          app: order-processor
+      policy_types: [Ingress]
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  tier: middleware
+              podSelector:
+                matchLabels:
+                  app: api-gateway
+          ports:
+            - protocol: TCP
+              port: 8443
+    - name: allow-to-db
+      pod_selector:
+        matchLabels:
+          app: order-processor
+      policy_types: [Egress]
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  tier: data
+              podSelector:
+                matchLabels:
+                  app: postgres
+          ports:
+            - protocol: TCP
+              port: 5432
+        - ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  inventory-db:
+    - name: default-deny
+      pod_selector: {}
+      policy_types: [Ingress, Egress]
+    - name: allow-from-services
+      pod_selector:
+        matchLabels:
+          app: postgres
+      policy_types: [Ingress]
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  tier: middleware
+              podSelector:
+                matchLabels:
+                  app: api-gateway
+          ports:
+            - protocol: TCP
+              port: 5432
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  tier: backend
+              podSelector:
+                matchLabels:
+                  app: order-processor
+          ports:
+            - protocol: TCP
+              port: 5432
+
+quotas:
+  - namespace: web-frontend
+    name: frontend-quota
+    hard:
+      requests.cpu: "4"
+      requests.memory: 4Gi
+      limits.cpu: "8"
+      limits.memory: 8Gi
+      pods: "10"
+  - namespace: api-gateway
+    name: api-quota
+    hard:
+      requests.cpu: "8"
+      requests.memory: 8Gi
+      limits.cpu: "16"
+      limits.memory: 16Gi
+      pods: "20"
+  - namespace: order-service
+    name: orders-quota
+    hard:
+      requests.cpu: "6"
+      requests.memory: 6Gi
+      limits.cpu: "12"
+      limits.memory: 12Gi
+      pods: "15"
+  - namespace: inventory-db
+    name: db-quota
+    hard:
+      requests.cpu: "4"
+      requests.memory: 8Gi
+      limits.cpu: "8"
+      limits.memory: 16Gi
+      pods: "5"
+
+limit_ranges:
+  - namespace: web-frontend
+    name: frontend-limits
+    limits:
+      - type: Container
+        default:
+          cpu: 500m
+          memory: 512Mi
+        defaultRequest:
+          cpu: 100m
+          memory: 128Mi
+        max:
+          cpu: "2"
+          memory: 2Gi
+        min:
+          cpu: 50m
+          memory: 64Mi
+  - namespace: api-gateway
+    name: api-limits
+    limits:
+      - type: Container
+        default:
+          cpu: 500m
+          memory: 1Gi
+        defaultRequest:
+          cpu: 200m
+          memory: 256Mi
+        max:
+          cpu: "4"
+          memory: 4Gi
+        min:
+          cpu: 100m
+          memory: 128Mi
+  - namespace: order-service
+    name: orders-limits
+    limits:
+      - type: Container
+        default:
+          cpu: 500m
+          memory: 1Gi
+        defaultRequest:
+          cpu: 200m
+          memory: 256Mi
+        max:
+          cpu: "2"
+          memory: 2Gi
+        min:
+          cpu: 100m
+          memory: 128Mi
+  - namespace: inventory-db
+    name: db-limits
+    limits:
+      - type: Container
+        default:
+          cpu: "1"
+          memory: 4Gi
+        defaultRequest:
+          cpu: 500m
+          memory: 2Gi
+        max:
+          cpu: "4"
+          memory: 8Gi
+        min:
+          cpu: 250m
+          memory: 512Mi
+
+tls:
+  routes:
+    - name: frontend-edge-route
+      type: edge
+      hostname: www.acme.example.com
+      service: nginx-frontend
+      namespace: web-frontend
+      target_port: 8443
+      san:
+        - www.acme.example.com
+        - acme.example.com
+    - name: api-passthrough-route
+      type: passthrough
+      hostname: api.acme.example.com
+      service: api-gateway
+      namespace: api-gateway
+      target_port: 8443
+
+scc:
+  - namespace: inventory-db
+    service_account: postgres-sa
+    scc: anyuid

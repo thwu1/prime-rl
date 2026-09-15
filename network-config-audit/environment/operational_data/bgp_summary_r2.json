@@ -1,0 +1,16 @@
+{
+  "router": "R2",
+  "timestamp": "2024-11-15T14:23:01Z",
+  "local_as": 65001,
+  "peers": [
+    {
+      "neighbor": "192.168.23.3",
+      "remote_as": 65002,
+      "state": "Established",
+      "prefixes_received": 2,
+      "prefixes_sent": 0,
+      "uptime": "2d14h32m",
+      "outbound_policy": "EXPORT_POLICY"
+    }
+  ]
+}

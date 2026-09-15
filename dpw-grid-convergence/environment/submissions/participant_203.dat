@@ -1,0 +1,92 @@
+#==============================================================================================================
+#
+#  DPW-8/AePW-4 FORCE AND MOMENT SUBMITTAL FORM (Version 5 - October 16, 2024)
+#
+#
+#  Data Set Title XXX.YY
+#
+#       NOMENCLATURE:
+#         GRID_LEVEL:   Level of grid refinement (1-6)
+#          GRID_SIZE:   Number of grid nodes or cells
+#            GRIDFAC:   1/GRID_SIZE**2/3
+#               MACH:   Freestream Mach Number
+#                REY:   Chord-Based Reynolds Number
+#              ALPHA:   Angle of Attack, deg
+#                 CL:   Coefficient of Lift (total)
+#                 CD:   Coefficient of Drag (total)
+#                 CM:   Coefficient of Pitching Moment (total)
+#              CD_PR:   Surface-Pressure Integrated Drag Coefficient
+#              CD_SF:   Skin-Friction Integrated Drag Coefficient
+#              *_TOT:   Total Configuration Force/Moment
+#             *_TAIL:   Horizontal Tail Component Force/Moment
+#             *_WING:   Wing Component Force/Moment
+#              *_FUS:   Fuselage Component Force/Moment
+#              *_NAC:   Nacelle Component Force/Moment
+#               *_PY:   Pylon Component Force/Moment
+#
+#   REFERENCE VALUES: Common Research Model
+#                       Planform ref area, A         = 594720.00 inches^2
+#                       Mean aerodynamic chord, Cref =    275.80 inches
+#                       Full-span length, B          =   2313.50 inches
+#                       Semi-span length, BO2        =   1156.75 inches
+#                       x moment center              =   1325.90 inches
+#                       y moment center              =      0.00 inches
+#                       z moment center              =    177.95 inches
+#                       Aspect Ratio, AR             =      9.00
+#
+#   CONFIGURATION:      CRMWB   (Common Research Model Wing/Body)
+#                       CRMWBNP (Common Research Model Wing/Body/Nacelle/Pylon)
+#
+#              NOTES:   1. All numerical data fields can be free-formatted.
+#                       2. Use at least 4 decimal places for coordinate values
+#                       3. Use at least 6 decimal places for coefficient values
+#                       4. Fill fields with value of -999 for data not available.
+#
+#==============================================================================================================
+
+TITLE = "203.01"
+
+VARIABLES = "GRID_LEVEL"  "GRID_SIZE"  "GRID_FAC"  "MACH"  "REY"  "ALPHA"  "CL_TOT"  "CD_TOT"  "CM_TOT"  "CL_WING"  "CD_WING"  "CM_WING"  "CD_PR"  "CD_SF"  "CL_TAIL"  "CD_TAIL"  "CM_TAIL"  "CL_FUS"  "CD_FUS"  "CM_FUS"  "CL_NAC"  "CD_NAC"  "CM_NAC"  "CL_PY"  "CD_PY"  "CM_PY"  "CPU_Hours"  "DELTAT"  "CTUSTART"  "CTUAVG"  "Q/E"
+
+#---------------------------------------------------
+#   PARTICIPANT, GRID, AND SOLVER INFORMATION
+#---------------------------------------------------
+DATASETAUXDATA ParticipantID   = "203.01"
+DATASETAUXDATA SubmissionDate  = "2025-11-15"
+DATASETAUXDATA Name            = "Participant 203.01"
+DATASETAUXDATA Email           = "participant203@example.org"
+DATASETAUXDATA Institution     = "Boeing Research"
+DATASETAUXDATA SolverName      = "CFL3D"
+DATASETAUXDATA BasicAlgorithm  = "Structured Multi-block RANS"
+DATASETAUXDATA TurbulenceModel = "SA-QCR2000"
+DATASETAUXDATA GridId          = "GMAN"
+DATASETAUXDATA Notes           = ""
+
+#--------------------------------------------------------------------------------
+#  GRID CONVERGENCE - CRMWB Configuration
+#--------------------------------------------------------------------------------
+ZONE T="203.01 CRMWB ALPHA 2.50"
+AUXDATA Configuration   = "CRMWB"
+AUXDATA Tstatic         = "310.928"
+AUXDATA Deltat          = "-999"
+AUXDATA GridFileName    = ""
+AUXDATA Misc            = "Grid convergence study"
+1  2000000  6.299605e-05  0.85  5000000.0  2.50  0.51500000  0.028300000  -0.16900000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+2  7000000  2.732759e-05  0.85  5000000.0  2.50  0.50850000  0.027400000  -0.17250000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+3  24500000  1.185466e-05  0.85  5000000.0  2.50  0.50520000  0.027050000  -0.17400000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+4  85750000  5.142535e-06  0.85  5000000.0  2.50  0.50380000  0.026920000  -0.17470000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+
+#--------------------------------------------------------------------------------
+#  ALPHA POLAR - CRMWB Configuration - Grid Level 3
+#--------------------------------------------------------------------------------
+ZONE T="203.01 CRMWB GRID LEVEL 3"
+AUXDATA Configuration   = "CRMWB"
+AUXDATA Tstatic         = "310.928"
+AUXDATA Deltat          = "-999"
+AUXDATA GridFileName    = ""
+AUXDATA Misc            = "Alpha polar at grid level 3"
+3  24500000  1.185466e-05  0.85  5000000.0  1.50  0.38400000  0.023700000  -0.12750000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+3  24500000  1.185466e-05  0.85  5000000.0  2.00  0.44800000  0.025000000  -0.15050000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+3  24500000  1.185466e-05  0.85  5000000.0  2.50  0.50520000  0.027050000  -0.17400000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+3  24500000  1.185466e-05  0.85  5000000.0  3.00  0.55100000  0.030400000  -0.19350000  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999  -999
+

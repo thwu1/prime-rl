@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a subtle quaternion convention mismatch (scalar-first vs scalar-last unpacking) in a provided quadrotor dynamics simulator by comparing its code against a reference specification, then determining that the simulator's physical parameters (mass, kf, kt) are also inaccurate. After fixing the implementation bug, the solver must build a differentiable dynamics model in JAX, formulate a system identification objective over 1000-timestep flight data, handle parameter scales spanning 10+ orders of magnitude via log-space reparameterization, and run gradient-based optimization (Adam) to convergence. Combines expertise in quaternion algebra and conventions, rigid body dynamics (Newton-Euler, mixing matrices), numerical optimization conditioning, and JAX autodiff (vmap, grad, jit). Common failure modes include misdiagnosing the quaternion bug, sign errors in the mixing matrix, gradient instability from raw-scale parameters, and optimizer non-convergence."""
+solution_explanation = """First, compare simulator.py against dynamics_spec.md to find the quaternion convention bug: quat_to_rotmat unpacks as w,x,y,z (scalar-first) but receives scalar-last [x,y,z,w] quaternions. Fix the unpacking order. Then implement the correct dynamics as a differentiable JAX program using the spec's equations. Use one-step prediction loss (vmap over all 1000 timesteps) with log-space parameterization to equalize gradient scales across mass (~1e-2), kf (~1e-10), and kt (~1e-12). Optimize with Adam for ~3000 iterations at lr=0.01 followed by 2000 steps at lr=0.001. The clean data and exact model match guarantee convergence within tight tolerances."""
+verification_explanation = """Tests load /app/results/params.json and verify: (1) all required keys present and values are positive finite numbers, (2) each parameter within relative tolerance of ground truth (mass 5%, kf 8%, kt 15%), (3) derived hover RPM and kt/kf ratio are physically plausible, (4) a 100-step trajectory simulation using recovered parameters and the test's own correct dynamics implementation matches the recorded data within 2cm mean position error and 10cm max error."""
+category = "computing_methodologies"
+tags = ["robotics", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/drone-sysid-jax"

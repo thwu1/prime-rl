@@ -1,0 +1,9 @@
+{
+  "datasets": {
+    "mur_sst": {"server": "https://coastwatch.pfeg.noaa.gov/erddap"},
+    "oisst_avhrr": {"server": "https://coastwatch.pfeg.noaa.gov/erddap"},
+    "chlor_viirs": {"server": "https://upwell.pfeg.noaa.gov/erddap"},
+    "ndbc_stdmet": {"server": "https://coastwatch.pfeg.noaa.gov/erddap"},
+    "argo_profile": {"server": "https://upwell.pfeg.noaa.gov/erddap"}
+  }
+}

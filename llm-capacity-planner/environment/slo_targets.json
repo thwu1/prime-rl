@@ -1,0 +1,6 @@
+{
+    "ttft_p99_ms": 500.0,
+    "tpot_p99_ms": 50.0,
+    "min_throughput_tokens_per_sec": 4000,
+    "max_e2e_latency_p99_ms": 15000.0
+}

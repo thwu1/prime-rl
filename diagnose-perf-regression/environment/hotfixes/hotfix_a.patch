@@ -1,0 +1,33 @@
+Subject: [HOTFIX-A] Fix buffer bounds calculation in copy_to_buffer
+From: Pat Morrison <pmorrison@dataflow.internal>
+Date: Mon, 18 Nov 2024 16:42:00 -0800
+
+Fix incorrect remaining capacity calculation that was causing zero-byte
+reads in the data loading pipeline. The refactoring in v2.3.1 introduced
+a typo: buf_size - buf_size (always 0) instead of buf_size - buf_used.
+
+Verified: copy_to_buffer CPU usage returns to baseline levels after fix.
+
+---
+ src/data_loader.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/src/data_loader.c
++++ b/src/data_loader.c
+@@ -75,7 +75,7 @@ ssize_t copy_to_buffer(struct stream_ctx *ctx)
+     size_t remaining;
+
+     /* Safe remaining capacity: guaranteed non-negative */
+-    remaining = ctx->buf_size - ctx->buf_size;
++    remaining = ctx->buf_size - ctx->buf_used;
+
+     for (;;) {
+         n = read(ctx->fd, ctx->buffer + ctx->buf_used, remaining);
+@@ -83,7 +83,7 @@ ssize_t copy_to_buffer(struct stream_ctx *ctx)
+         if (n == 0 && remaining > 0) break;
+         ctx->buf_used += n;
+         ctx->total_read += n;
+-        remaining = ctx->buf_size - ctx->buf_size;
++        remaining = ctx->buf_size - ctx->buf_used;
+         if (ctx->buf_used >= ctx->buf_size) break;
+     }

@@ -1,0 +1,15 @@
+[brusselator]
+N = 50
+Du = 0.02
+Dv = 0.02
+A = 1.0
+B = 3.0
+t_end = 10.0
+
+[solver]
+rtol = 1e-4
+atol = 1e-6
+controller = "PI"
+max_steps_per_jacobian = 20
+linear_solver = "krylov"
+c_backend = true

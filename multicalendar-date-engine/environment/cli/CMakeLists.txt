@@ -1,0 +1,2 @@
+add_executable(calendar_engine main.cpp)
+target_link_libraries(calendar_engine PRIVATE calendar_lib)

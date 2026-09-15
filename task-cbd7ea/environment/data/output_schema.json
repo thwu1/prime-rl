@@ -1,0 +1,98 @@
+{
+    "type": "object",
+    "required": ["empirical_peak_gflops", "memory_levels", "stream_corrected", "kernel_analysis"],
+    "properties": {
+        "empirical_peak_gflops": {
+            "type": "number",
+            "description": "Empirical peak compute throughput in GFLOP/s"
+        },
+        "memory_levels": {
+            "type": "object",
+            "required": ["L1", "L2", "L3", "DRAM"],
+            "additionalProperties": {
+                "$ref": "#/definitions/memory_level"
+            }
+        },
+        "stream_corrected": {
+            "type": "object",
+            "required": ["Copy", "Scale", "Add", "Triad"],
+            "additionalProperties": {
+                "$ref": "#/definitions/stream_kernel"
+            }
+        },
+        "kernel_analysis": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/kernel_entry"
+            }
+        }
+    },
+    "definitions": {
+        "memory_level": {
+            "type": "object",
+            "required": ["peak_bandwidth_gb_per_s", "ridge_point_flop_per_byte"],
+            "properties": {
+                "peak_bandwidth_gb_per_s": {
+                    "type": "number",
+                    "description": "Empirical peak bandwidth at this cache level in GB/s"
+                },
+                "ridge_point_flop_per_byte": {
+                    "type": "number",
+                    "description": "Ridge point arithmetic intensity at this level (FLOP/byte)"
+                }
+            }
+        },
+        "stream_kernel": {
+            "type": "object",
+            "required": ["reported_mb_per_s", "corrected_gb_per_s", "wa_factor"],
+            "properties": {
+                "reported_mb_per_s": {
+                    "type": "number",
+                    "description": "Bandwidth as reported by STREAM in MB/s"
+                },
+                "corrected_gb_per_s": {
+                    "type": "number",
+                    "description": "Corrected bandwidth reflecting true hardware data movement in GB/s"
+                },
+                "wa_factor": {
+                    "type": "number",
+                    "description": "Correction factor between STREAM's and hardware byte-counting conventions"
+                }
+            }
+        },
+        "kernel_entry": {
+            "type": "object",
+            "required": ["name", "total_flops", "levels"],
+            "properties": {
+                "name": {"type": "string"},
+                "total_flops": {"type": "number"},
+                "levels": {
+                    "type": "object",
+                    "required": ["L1", "L2", "L3", "DRAM"],
+                    "additionalProperties": {
+                        "$ref": "#/definitions/kernel_level"
+                    }
+                }
+            }
+        },
+        "kernel_level": {
+            "type": "object",
+            "required": ["arithmetic_intensity", "bound", "attainable_gflops"],
+            "properties": {
+                "arithmetic_intensity": {
+                    "type": "number",
+                    "description": "Operational intensity at this cache level (FLOP/byte)"
+                },
+                "bound": {
+                    "type": "string",
+                    "enum": ["compute", "memory"],
+                    "description": "Performance bottleneck classification at this level"
+                },
+                "attainable_gflops": {
+                    "type": "number",
+                    "description": "Attainable performance in GFLOP/s at this level"
+                }
+            }
+        }
+    }
+}

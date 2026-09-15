@@ -1,0 +1,21 @@
+# Coverage exclusions for packet_router verification
+# Applied after merging regression databases
+
+[[exclusion]]
+type = "toggle"
+item = "status[2]_1to0"
+reason = "Signal stuck-at-0 by design (tied to ground in packet_router)"
+
+[[exclusion]]
+type = "cross_bin"
+covergroup = "cg_packet_type"
+cross = "cx_type_x_size"
+bin = "ERR:JUMBO"
+reason = "Hardware limitation: error packets cannot be jumbo-sized"
+
+[[exclusion]]
+type = "fsm_state"
+fsm = "router_fsm"
+state = "ERROR"
+exclude_transitions = true
+reason = "Error recovery logic verified separately via formal methods"

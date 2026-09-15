@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding EPANET hydraulic simulation, the .inp file format (section-based with ~20 distinct sections), Hazen-Williams headloss physics, extended period simulation with time-varying demand patterns, and report file parsing. The agent must run the baseline network to characterize existing conditions, then iteratively modify the network by adding new junctions and pipes with optimal diameters, re-running simulations and parsing EPANET report output at each step. The pipe diameter selection is a constrained optimization problem (minimize cost subject to pressure and budget constraints) that cannot be solved analytically due to the nonlinear coupling between pipe flows and network pressures via the Global Gradient Algorithm. Requires proficiency-level domain expertise in water distribution systems engineering."""
+solution_explanation = """Build a Python script that: (1) parses the EPANET .inp file format and programmatically inserts new JUNCTIONS, PIPES, and COORDINATES sections; (2) runs the baseline network via runepanet and parses the report file to extract node pressures at each time step; (3) implements a greedy diameter optimization that starts with minimum-diameter pipes, identifies pressure-deficient branches, and incrementally upgrades pipe diameters until all junction pressures meet the 20 psi constraint; (4) performs a cost-reduction pass by attempting to downgrade each pipe and verifying constraints still hold; (5) writes the final expanded_network.inp and analysis.json with verified simulation metrics."""
+verification_explanation = """Tests parse the agent's expanded_network.inp to verify new junctions have correct elevations/demands and new pipes have correct connections/lengths/roughness with catalog-valid diameters. EPANET is run on the solution file and the report is parsed to verify all junction pressures >= 20 psi at every simulation hour. Total pipe cost is independently computed from the .inp file and checked against the budget. The analysis.json is cross-validated against actual EPANET simulation results. Original network components are verified to be preserved."""
+category = "applied_computing"
+tags = ["hydraulic-simulation", "constrained-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/network-expansion-optimization"

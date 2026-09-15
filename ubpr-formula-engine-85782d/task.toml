@@ -1,0 +1,57 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete expression language parser for the FFIEC CDR formula syntax,
+constructing and topologically resolving a concept dependency DAG (~85 formulas with up to 5 layers of dependencies),
+implementing multi-period calendar-year averaging functions (CAVG04X/CAVG05X) that recursively evaluate formulas
+at historical quarter-end dates, handling annualization factors, date-based conditional logic, period arithmetic
+(quarter/year offsets), null propagation, and writing a SQLite audit database with a prescribed schema that
+records every intermediate computation, the full formula dependency graph, and an analytical view using SQL window
+functions. Additionally requires ingesting Call Report data from two formats — JSON for balance-sheet items and
+XBRL/XML for income-statement items — which demands namespace-aware XML parsing with both instant and duration
+period context resolution, followed by data reconciliation into a unified lookup. Integrates domain knowledge from
+regulatory bank reporting with compiler/interpreter construction, XML/XBRL processing, and database design."""
+solution_explanation = """The reference solution uses a recursive-descent parser to convert CDR formula strings into
+ASTs. A dependency extractor walks each AST to find all uc: concept references and builds the formula_deps table.
+An XBRL parser uses xml.etree.ElementTree with explicit namespace handling to extract RIAD (duration context,
+using endDate) and RCONA (instant context) items, merging them with the JSON RCON data into a unified lookup dict.
+A caching evaluator resolves the dependency DAG lazily with cycle detection. CAVG04X iterates over
+same-calendar-year quarters evaluating the argument concept at each date. CAVG05X additionally includes the
+prior December. System concepts (UBPRC752, UBPR9999) are hardcoded from config. Period offsets are resolved
+via date arithmetic. The ANN factor is derived from the quarter of the report date. After computing all 25
+output ratios, the engine writes a SQLite database with evaluations, formula_deps, and a qoq_trends view
+using LAG() window function for quarter-over-quarter change analysis."""
+verification_explanation = """Tests verify: (1) /app/output/ratios.json exists with all 25 required output concepts,
+no unexpected nulls, and each value within ±0.02 of computed golden values (±1.0 for dollar amounts); (2) XBRL-
+dependent concepts (those requiring RIAD/RCONA data from XML) are non-null and correct, proving multi-format
+data ingestion works including duration context resolution; (3) /app/output/ubpr.db has correct table schemas;
+(4) intermediate concept values in the database match golden values at historical dates; (5) database contains
+>=80 evaluation rows spanning >=3 dates; (6) formula_deps correctly records >=50 dependency edges with no self-deps;
+(7) system concepts excluded from evaluations; (8) DB values consistent with JSON output; (9) qoq_trends exists
+as a SQL view with correct columns; (10) qoq_trends returns correct prior_value (NULL for first date), abs_change,
+and pct_change values using window function analysis over the evaluations table."""
+category = "applied_computing"
+tags = ["financial-computing", "expression-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ubpr-formula-engine-85782d"

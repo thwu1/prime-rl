@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep quantitative finance expertise to implement a full competition evaluation pipeline from a concise rules document. The solver must independently determine the correct mathematical formulations for all six evaluation metrics, handle non-trivial edge cases in the data (tied asset returns at quintile boundaries requiring careful probabilistic treatment), choose appropriate portfolio risk estimation and optimization techniques, and produce results matching tight numerical tolerances — all without algorithmic guidance beyond metric names and a few reference values."""
+solution_explanation = """The solution reads competition data, computes period returns, handles tied returns with fractional quintile indicators, computes RPS from cumulative probability vectors, derives IR from concatenated daily log portfolio returns, ranks teams by combined RPS/IR scores, aggregates crowd forecasts, estimates covariance with shrinkage, optimizes portfolio weights under leverage/position constraints, and measures forecast-decision coherence via rank correlation."""
+verification_explanation = """Tests verify 31 conditions: output structure (7 tests), RPS numerical accuracy against reference values and independent recomputation (4 tests), IR accuracy and independent recomputation (3 tests), exact OR ranking match and consistency check (2 tests), crowd RPS accuracy and wisdom-of-crowds property (3 tests), optimal weight constraint satisfaction and directional correctness (5 tests), connection score accuracy with independent computation (4 tests), and tie-handling correctness with verified fractional indicators (3 tests)."""
+category = "data_science"
+tags = ["quantitative_finance", "portfolio_optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-326ba3"

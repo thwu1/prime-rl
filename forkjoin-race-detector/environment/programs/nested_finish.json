@@ -1,0 +1,28 @@
+{
+    "name": "nested_finish",
+    "body": [
+        {"op": "compute", "cost": 1, "id": "c0"},
+        {"op": "finish", "id": "F1", "body": [
+            {"op": "async", "task": "T1", "body": [
+                {"op": "compute", "cost": 5, "id": "c1"},
+                {"op": "finish", "id": "F2", "body": [
+                    {"op": "async", "task": "T3", "body": [
+                        {"op": "compute", "cost": 8, "id": "c3"},
+                        {"op": "write", "var": "a", "id": "w1"}
+                    ]},
+                    {"op": "compute", "cost": 2, "id": "c4"},
+                    {"op": "read", "var": "a", "id": "r1"}
+                ]},
+                {"op": "compute", "cost": 3, "id": "c5"},
+                {"op": "write", "var": "b", "id": "w2"}
+            ]},
+            {"op": "async", "task": "T2", "body": [
+                {"op": "compute", "cost": 7, "id": "c2"},
+                {"op": "write", "var": "b", "id": "w3"},
+                {"op": "read", "var": "a", "id": "r2"}
+            ]},
+            {"op": "compute", "cost": 4, "id": "c6"}
+        ]},
+        {"op": "compute", "cost": 1, "id": "c7"}
+    ]
+}

@@ -1,0 +1,95 @@
+{
+  "resourceType": "ImagingStudy",
+  "id": "study-kim-mr",
+  "identifier": [
+    {
+      "system": "urn:dicom:uid",
+      "value": "urn:oid:1.2.826.0.1.3680043.8.499.4012345006"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "ACSN"
+          }
+        ]
+      },
+      "value": "a756391024857362"
+    }
+  ],
+  "status": "available",
+  "subject": {
+    "reference": "Patient/kim-siim"
+  },
+  "referrer": {
+    "reference": "Practitioner/dr-wong"
+  },
+  "started": "2015-06-15",
+  "numberOfSeries": 2,
+  "numberOfInstances": 2,
+  "modality": [
+    {
+      "system": "http://dicom.nema.org/resources/ontology/DCM",
+      "code": "MR"
+    }
+  ],
+  "procedureCode": [
+    {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "30799-1",
+          "display": "CT Head"
+        }
+      ]
+    }
+  ],
+  "description": "MR Head w/o Contrast",
+  "series": [
+    {
+      "uid": "1.2.826.0.1.3680043.8.499.4012345006.1",
+      "modality": {
+        "system": "http://dicom.nema.org/resources/ontology/DCM",
+        "code": "MR"
+      },
+      "bodySite": {
+        "system": "http://snomed.info/sct",
+        "code": "39607008",
+        "display": "Lung structure"
+      },
+      "description": "T1 Axial",
+      "numberOfInstances": 1,
+      "instance": [
+        {
+          "uid": "1.2.826.0.1.3680043.8.499.4012345006.1.1",
+          "sopClass": {
+            "code": "1.2.840.10008.5.1.4.1.1.7"
+          }
+        }
+      ]
+    },
+    {
+      "uid": "1.2.826.0.1.3680043.8.499.4012345006.2",
+      "modality": {
+        "system": "http://dicom.nema.org/resources/ontology/DCM",
+        "code": "MR"
+      },
+      "bodySite": {
+        "system": "http://snomed.info/sct",
+        "code": "39607008",
+        "display": "Lung structure"
+      },
+      "description": "T2 FLAIR",
+      "numberOfInstances": 1,
+      "instance": [
+        {
+          "uid": "1.2.826.0.1.3680043.8.499.4012345006.2.1",
+          "sopClass": {
+            "code": "1.2.840.10008.5.1.4.1.1.7"
+          }
+        }
+      ]
+    }
+  ]
+}

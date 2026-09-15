@@ -1,0 +1,15 @@
+function abs(x) {
+  if (x < 0) {
+    r := 0 - x;
+  } else {
+    r := x;
+  }
+  return r;
+}
+
+function main() {
+  a := abs(5);
+  b := abs(0 - 3);
+  c := a + b;
+  return c;
+}

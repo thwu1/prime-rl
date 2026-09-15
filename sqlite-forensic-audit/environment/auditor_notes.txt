@@ -1,0 +1,47 @@
+WAREHOUSE SYSTEM - EXTERNAL AUDIT PRELIMINARY FINDINGS
+=======================================================
+
+During our review of the warehouse management system's financial
+reports, we identified several areas of concern that require
+immediate investigation and correction:
+
+1. FINANCIAL TOTALS: The reported total inventory value does not
+   match our manual calculations. We believe some inventory records
+   contain data that should not be included in financial calculations,
+   and conversely some valid data may be mishandled by the script.
+
+2. DUPLICATE RECORDS: We observed what appear to be redundant
+   inventory entries for certain product-warehouse combinations.
+   The report's count does not align with the number of affected
+   groups we identified manually.
+
+3. REFERENTIAL INTEGRITY: Some records appear to reference parent
+   records that do not exist in the database. The reporting script
+   may or may not handle these correctly — verify each check.
+
+4. HIERARCHY ERRORS: The reported category hierarchy depth does
+   not match our understanding of the category structure.
+
+5. PRICING INCONSISTENCIES: We noticed discrepancies between product
+   pricing stored in different locations within the database. The
+   script's detection of these may be incomplete or overcounting.
+
+6. INTERNAL METADATA: Certain database metadata tables appear to
+   contain inaccurate or suspicious entries. The existing report
+   does not properly evaluate these.
+
+7. CATEGORY BREAKDOWN: The per-category financial breakdown appears
+   incomplete. Several categories with known inventory are missing
+   entirely from the report output.
+
+8. DATA TYPE CONCERNS: Some columns appear to contain values stored
+   in unexpected formats. The script's detection methodology for
+   these may be flawed.
+
+The existing reporting script (/app/report.py) was written by a
+developer who may not have been fully aware of the database engine's
+behavioral characteristics. A thorough investigation of the database
+schema, data, and internal state is needed.
+
+NOTE: Not all of the report's values are wrong — some metrics may
+be correctly computed. Part of your job is to determine which.

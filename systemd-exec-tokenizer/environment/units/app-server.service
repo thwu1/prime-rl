@@ -1,0 +1,18 @@
+# Intended behavior: Start a Java application server.
+# JVM_OPTS contains multiple JVM flags that must be passed as SEPARATE
+# arguments to the java command (not as one combined string).
+# CONFIG_FILE contains a path with spaces that must be preserved as
+# a SINGLE argument to the -Dconfig= option.
+[Unit]
+Description=Application Server
+After=network.target
+
+[Service]
+Type=simple
+Environment="JVM_OPTS=-Xmx512m -Xms256m -XX:+UseG1GC"
+Environment="CONFIG_FILE=/etc/myapp/config dir/app.properties"
+ExecStart=/usr/bin/java ${JVM_OPTS} -Dconfig=$CONFIG_FILE -jar /opt/app/server.jar
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

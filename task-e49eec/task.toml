@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a dual-role TCP system that simultaneously acts as a server (accepting binary-framed SiteVisit messages from multiple concurrent clients) and a client (initiating connections to an Authority Server to query target populations and manage policies). The solver must implement a binary protocol with 9 message types, length-prefixed framing, and mod-256 checksum computation/validation — errors in any byte-level detail cause silent failures. The core architectural challenge is designing the interaction between inbound visit processing and outbound authority communication: each SiteVisit triggers a policy reconciliation workflow requiring connection management (one authority connection per site, with Hello/DialAuthority handshake), diff-based state reconciliation (comparing observed counts against cached targets, then issuing the minimal sequence of DeletePolicy/CreatePolicy operations to reach the correct state), and per-site concurrency control (serializing visits to the same site to avoid conflicting policy mutations). Edge cases include: species absent from visits having implicit count zero, non-conflicting vs conflicting duplicate entries, uncontrolled species requiring no action, and policy state that must not accumulate duplicates across successive visits. The combination of binary protocol engineering, bidirectional networking architecture, and stateful policy reconciliation requires holistic systems understanding rather than procedural step-following."""
+solution_explanation = """Build an asyncio TCP server on port 9000. On each client connection: read Hello, validate protocol/version, send Hello back, then loop reading messages. On SiteVisit: parse the binary populations array, detect conflicting duplicates (error if found), deduplicate, then enter a per-site async lock. Inside the lock: obtain or create an authority connection for that site (connect to localhost:20547, Hello handshake, DialAuthority, cache the TargetPopulations response). Compute desired state: for each target species, compare observed count (0 if absent) against min/max. Reconcile by first deleting all existing policies whose species no longer needs that action, then creating new policies for species that need them. Track policy IDs returned by PolicyResult so future visits can delete stale policies."""
+verification_explanation = """Tests start the Authority Server (module-scoped fixture), then for each test: reset authority policy state via HTTP, start the solver's server, connect as a binary-protocol client, perform Hello handshake, send SiteVisit messages, and poll the authority's HTTP API to verify policies settle to the correct state. Test cases cover: basic cull (count > max), basic conserve (count < min), in-range (no policy), missing species as zero, policy update (conserve→cull), policy removal (conserve→none), multiple species with mixed actions, concurrent independent sites, non-conflicting duplicates, uncontrolled species ignored, empty-target sites, and boundary conditions (count exactly at min/max, max=0 edge case). Checksums are validated on every received message."""
+category = "networking"
+tags = ["binary-protocol", "dual-role-tcp"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e49eec"

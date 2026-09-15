@@ -1,0 +1,12 @@
+{
+  "column_diameter_m": 0.045,
+  "particle_diameter_m": 0.00245,
+  "particle_density_kg_m3": 1100.0,
+  "bulk_density_kg_m3": 679.0,
+  "bed_void_fraction": 0.38,
+  "fluid_density_kg_m3": 996.0,
+  "fluid_viscosity_Pa_s": 7.98e-4,
+  "molecular_diffusivity_m2_s": 9.5e-10,
+  "langmuir_qmax_mg_g": 25.0,
+  "langmuir_b_L_mg": 0.1075
+}

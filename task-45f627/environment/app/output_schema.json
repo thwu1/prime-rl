@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Flink Streaming Topology Optimization Report",
+  "type": "object",
+  "required": ["plans"],
+  "additionalProperties": false,
+  "properties": {
+    "plans": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["total_join_state_bytes", "multi_join_opportunities", "async_ml_predict"],
+        "additionalProperties": false,
+        "properties": {
+          "total_join_state_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Aggregate state in bytes across all join operators in this plan"
+          },
+          "multi_join_opportunities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "join_ids",
+                "common_key",
+                "source_ids",
+                "cascaded_state_bytes",
+                "multi_join_state_bytes",
+                "savings_bytes",
+                "savings_percent"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "join_ids": {
+                  "type": "array",
+                  "items": {"type": "integer"},
+                  "minItems": 2,
+                  "description": "Sorted ascending list of join node IDs in the eligible sub-group"
+                },
+                "common_key": {
+                  "type": "string",
+                  "description": "Lexicographically first common join key column shared by all joins"
+                },
+                "source_ids": {
+                  "type": "array",
+                  "items": {"type": "integer"},
+                  "minItems": 3,
+                  "description": "Sorted ascending list of leaf source node IDs feeding this sub-group"
+                },
+                "cascaded_state_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Total state consumed by the individual binary joins in the sub-group"
+                },
+                "multi_join_state_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "State if replaced by multi-join operator (original source states only)"
+                },
+                "savings_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Absolute reduction: cascaded_state_bytes - multi_join_state_bytes"
+                },
+                "savings_percent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Percentage reduction rounded to 2 decimal places"
+                }
+              }
+            }
+          },
+          "async_ml_predict": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "node_id",
+                "name",
+                "required_queue_depth",
+                "min_parallelism",
+                "memory_per_subtask_bytes",
+                "total_async_memory_bytes"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "node_id": {
+                  "type": "integer",
+                  "description": "ID of the AsyncMLPredict node in the plan"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Name of the AsyncMLPredict node"
+                },
+                "required_queue_depth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Minimum concurrent in-flight requests (ceiling integer)"
+                },
+                "min_parallelism": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Minimum parallel subtasks (ceiling integer)"
+                },
+                "memory_per_subtask_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Memory allocation per subtask in bytes"
+                },
+                "total_async_memory_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Total async memory across all concurrent requests"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

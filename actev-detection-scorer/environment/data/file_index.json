@@ -1,0 +1,6 @@
+{
+  "files": [
+    {"name": "video_001.mp4", "num_frames": 3000},
+    {"name": "video_002.mp4", "num_frames": 4500}
+  ]
+}

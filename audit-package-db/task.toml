@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a custom section-based package database format, implementing semver-style version comparison with multiple operators (>=, <=, <, >, =), Tarjan's algorithm or equivalent for strongly connected component / cycle detection in a dependency graph, SHA256 integrity verification, and cross-referencing multiple data sources (local DB, sync DB, cache files, file manifests). An expert must combine graph theory, systems knowledge, and careful parsing — none of which are individually trivial, and which interact in subtle ways (e.g., a package can have multiple constraints on the same dependency)."""
+solution_explanation = """Parse all desc files from /opt/pkgdb/local/ and /opt/pkgdb/sync/ using the %SECTION% format. Build a map of installed packages with their deps and file manifests. For integrity: hash each cache file and compare against sync DB SHA256. For deps: parse version constraint operators and compare installed versions numerically. For cycles: build a directed dependency graph among installed packages and run Tarjan's SCC algorithm. For file conflicts: invert the file manifest into a file-to-owners map and report duplicates. For orphans: diff installed package names against the union of all sync repo names."""
+verification_explanation = """Tests load the generated audit_report.json and verify each category against known planted issues: exactly 2 integrity failures (libcrypto, renderer), exactly 5 unsatisfied dependencies (3 libnet version violations, 1 dbengine upper-bound violation, 1 missing libpcap), exactly 1 dependency cycle (plugin-a/b/c), exactly 2 file conflicts (libssl_compat.so and doc/README), and exactly 2 orphans (oldutil, legacy-driver). Tests check both completeness and precision (no false positives)."""
+category = "systems"
+tags = ["package-management", "graph-algorithms"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/audit-package-db"

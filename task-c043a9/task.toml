@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across multiple Kubernetes security domains: parsing and behaviorally analyzing K8s audit logs (audit.k8s.io/v1 Event schema), distinguishing attacker activity from legitimate cluster operations amid red herrings, mapping attack stages to MITRE ATT&CK techniques, writing syntactically correct Falco k8s_audit detection rules with proper ka.* field notation, and authoring a comprehensive Kubernetes audit policy with appropriate logging levels. The forensic analysis demands pattern recognition (IP correlation, user-agent anomaly detection, behavioral baseline deviation) rather than simple log grep. Combining incident response, detection engineering, and policy authoring in a single task requires CKS-certified practitioner expertise."""
+solution_explanation = """Parse the JSONL audit log, identify the compromised service account (system:serviceaccount:production:webapp-sa) by detecting anomalous behavior: cluster-scoped RBAC operations and cross-namespace secret access from a namespace-scoped SA, originating from a different source IP (10.0.15.23) and user-agent (kubectl) than normal operations. Reconstruct the attack chain: reconnaissance (list clusterroles), privilege escalation (create ClusterRoleBinding to cluster-admin), credential access (enumerate and read secrets across namespaces), execution (create privileged pod with hostPID/hostNetwork/root mount, exec into it), persistence (create namespace, deployment with C2 beacon, service account with admin binding). Generate Falco rules using ka.* fields targeting each phase, and write a K8s audit policy covering RBAC at RequestResponse, secrets at Metadata, pods at Request, exec subresources at RequestResponse."""
+verification_explanation = """Tests validate each output file: attack_timeline.json is checked for correct chronological ordering, presence of all key attack events (identified by specific resource names like debug-binding, etcd-certs, debug-pod, backdoor-deploy), and proper structure. indicators_of_compromise.json is checked for the correct compromised identity, source IP, user agent, and all exfiltrated secrets and malicious resources. detection_rules.yaml is validated as proper YAML with required Falco rule fields and coverage of attack phases. audit_policy.yaml is validated for correct K8s audit policy schema and resource coverage."""
+category = "security"
+tags = ["kubernetes", "forensics"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c043a9"

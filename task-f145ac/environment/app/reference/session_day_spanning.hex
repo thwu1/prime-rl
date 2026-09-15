@@ -1,0 +1,31 @@
+# Reference session: day-spanning ticket and deduplication across days
+# Four clients: C1 (camera mile 0), C2 (camera mile 100),
+#               C3 (camera mile 150), D1 (dispatcher)
+# Day boundary is at timestamp 86400 (day 0: 0-86399, day 1: 86400+)
+
+# Camera C1 identifies — 7 bytes
+[00.000] C1 -> S: 80 00 c8 00 00 00 28
+
+# Camera C2 identifies — 7 bytes
+[00.010] C2 -> S: 80 00 c8 00 64 00 28
+
+# Camera C3 identifies — 7 bytes
+[00.020] C3 -> S: 80 00 c8 00 96 00 28
+
+# Dispatcher D1 identifies — 4 bytes
+[00.030] D1 -> S: 81 01 00 c8
+
+# Plate observed at C1, timestamp in day 0 — 11 bytes
+[00.100] C1 -> S: 20 05 4e 49 54 45 31 00 01 4f 28
+
+# Plate observed at C2, timestamp in day 1 — 11 bytes
+[00.200] C2 -> S: 20 05 4e 49 54 45 31 00 01 56 30
+
+# Server issues ticket spanning day 0 to day 1 — 22 bytes
+[00.201] S -> D1: 21 05 4e 49 54 45 31 00 c8 00 00 00 01 4f 28 00 64 00 01 56 30 4e 20
+
+# Same plate observed at C3, timestamp still in day 1 — 11 bytes
+[00.300] C3 -> S: 20 05 4e 49 54 45 31 00 01 58 88
+
+# No ticket issued — day 1 is already blocked by the spanning ticket above.
+# Server sends nothing for this observation.

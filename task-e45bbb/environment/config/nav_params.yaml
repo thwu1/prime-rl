@@ -1,0 +1,19 @@
+robot:
+  footprint: [[-0.2, -0.15], [-0.2, 0.15], [0.2, 0.15], [0.2, -0.15]]
+
+costmap:
+  inflation_radius: 0.5
+  cost_scaling_factor: 3.0
+  lethal_cost: 254
+  inscribed_cost: 253
+
+transforms:
+  map_to_odom:
+    x: 0.1
+    y: -0.05
+    theta: 0.3
+  odom_to_base:
+    x: 0.5
+    y: 0.2
+    theta: -0.1
+  test_point: [1.0, 0.5]

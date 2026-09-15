@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of three interlocking specifications — EPT octree format (cubic bounds invariant, hierarchy consistency, schema-to-data correspondence, D-X-Y-Z spatial addressing), ASPRS LAS 1.4 binary format (PDRF 6 bit-packed fields, return number constraints, extra bytes VLR for PointId), and USGS Lidar Base Specification 2023 Rev A (prohibited classification codes 0 and 12, overlap bit-flag vs classification-code distinction, FileSourceID=0 for tiled delivery). The agent must read binary LAS tiles using laspy, cross-validate point data against EPT metadata, detect 10 distinct error categories spanning all three specs, and produce a corrected dataset with rebuilt octree, fixed LAS attributes (including overlap flag), and regenerated metadata — plus a valid PDAL remediation pipeline demonstrating tool proficiency."""
+solution_explanation = """Parse EPT metadata (ept.json, hierarchy). Read all LAS tiles with laspy, collecting point attributes including PointId. Detect errors: non-cubic bounds, boundsConforming outside bounds, hierarchy count mismatches, spatial misassignment, phantom NIR schema dimension, total point count discrepancy, USGS-prohibited classifications (0 and 12), return number violations, and non-zero FileSourceID. Fix by: reclassifying codes 0→1 and 12→1 with overlap flag set, clamping return numbers, computing correct cubic bounds, rebuilding the octree, writing corrected LAS tiles with FileSourceID=0, regenerating hierarchy and ept.json with corrected schema. Also produce a PDAL pipeline JSON demonstrating filters.assign for the point-level fixes."""
+verification_explanation = """18 pytest tests verify: audit report existence, structure, and >=7 error categories; PDAL pipeline existence and valid structure with filter stages; fixed dataset structure (directory, ept.json, valid LAS files); cubic bounds; conforming bounds containment; hierarchy-data count consistency; total point count; spatial correctness of all points within node bounds; no USGS-prohibited classifications; schema without phantom dimensions; complete point preservation by PointId; no cross-node duplicates; valid return numbers; overlap flag set for reclassified overlap points; FileSourceID=0; and PDAL readability of corrected tiles (skipped if PDAL CLI not available)."""
+category = "geospatial"
+tags = ["lidar-compliance", "point-cloud-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ept-octree-audit"

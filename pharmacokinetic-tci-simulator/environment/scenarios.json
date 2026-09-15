@@ -1,0 +1,67 @@
+{
+  "scenarios": [
+    {
+      "id": 1,
+      "model": "schnider",
+      "drug": "propofol",
+      "age": 40,
+      "weight": 70,
+      "height": 170,
+      "sex": "m",
+      "opiates": false,
+      "targets": [
+        {"time_min": 0, "ce_target": 4.0},
+        {"time_min": 8, "ce_target": 3.0}
+      ],
+      "total_time_min": 16,
+      "dt_sec": 10
+    },
+    {
+      "id": 2,
+      "model": "eleveld",
+      "drug": "propofol",
+      "age": 75,
+      "weight": 55,
+      "height": 155,
+      "sex": "f",
+      "opiates": false,
+      "targets": [
+        {"time_min": 0, "ce_target": 3.5}
+      ],
+      "total_time_min": 16,
+      "dt_sec": 10
+    },
+    {
+      "id": 3,
+      "model": "eleveld",
+      "drug": "propofol",
+      "age": 45,
+      "weight": 120,
+      "height": 175,
+      "sex": "m",
+      "opiates": true,
+      "targets": [
+        {"time_min": 0, "ce_target": 3.0},
+        {"time_min": 8, "ce_target": 4.5}
+      ],
+      "total_time_min": 16,
+      "dt_sec": 10
+    },
+    {
+      "id": 4,
+      "model": "minto",
+      "drug": "remifentanil",
+      "age": 50,
+      "weight": 65,
+      "height": 165,
+      "sex": "f",
+      "opiates": false,
+      "targets": [
+        {"time_min": 0, "ce_target": 5.0},
+        {"time_min": 8, "ce_target": 3.0}
+      ],
+      "total_time_min": 16,
+      "dt_sec": 10
+    }
+  ]
+}

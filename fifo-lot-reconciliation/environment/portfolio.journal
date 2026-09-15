@@ -1,0 +1,100 @@
+; Investment Portfolio Journal - Brokerage Account 2024
+;
+; Lot tracking convention: manual subaccounts
+;   Account format: assets:broker:<ticker>:<acquisition-date>_$<cost-basis>
+;   Example: assets:broker:acme:2024-01-15_$45.50 holds shares bought on 2024-01-15 at $45.50
+;
+; Disposal rules:
+;   - Default: FIFO by acquisition date (earliest lot disposed first)
+;   - Gift lots: use the donor's original acquisition date for FIFO ordering
+;   - Specific identification: marked with "disposal:spec-id" comment
+;
+; Realized gains = sale proceeds - cost basis of disposed lots
+; Gains are recorded in revenues:gains (credit/negative = gain)
+
+; --- Market Prices ---
+
+P 2024-01-01 ACME $44.00
+P 2024-03-31 ACME $50.00
+P 2024-06-30 ACME $56.00
+P 2024-09-30 ACME $60.00
+P 2024-12-31 ACME $65.00
+
+P 2024-01-01 WIDG $18.00
+P 2024-03-31 WIDG $20.00
+P 2024-06-30 WIDG $23.00
+P 2024-09-30 WIDG $25.00
+P 2024-12-31 WIDG $28.00
+
+; --- Opening Balance ---
+
+2024-01-01 Opening balance
+    assets:broker:cash                     $50000.00
+    equity:opening
+
+; --- Purchases ---
+
+2024-01-15 Buy 100 ACME
+    assets:broker:acme:2024-01-15_$45.50   100 ACME @ $45.50
+    assets:broker:cash                     $-4550.00
+
+2024-02-20 Buy 60 ACME
+    assets:broker:acme:2024-02-20_$52.00   60 ACME @ $52.00
+    assets:broker:cash                     $-3120.00
+
+2024-03-10 Buy 200 WIDG
+    assets:broker:widg:2024-03-10_$18.75   200 WIDG @ $18.75
+    assets:broker:cash                     $-3750.00
+
+2024-04-01 Receive 40 ACME as gift (acquired 2021-03-15 at $22.00/share)
+    assets:broker:acme:2021-03-15_$22.00   40 ACME @ $22.00
+    revenues:gifts                         $-880.00
+
+2024-06-01 Buy 100 WIDG
+    assets:broker:widg:2024-06-01_$21.50   100 WIDG @ $21.50
+    assets:broker:cash                     $-2150.00
+
+; --- Sales ---
+
+2024-05-15 Sell 130 ACME @ $58.25
+    assets:broker:acme:2024-01-15_$45.50   -100 ACME @ $45.50
+    assets:broker:acme:2024-02-20_$52.00   -30 ACME @ $52.00
+    assets:broker:cash                     $7572.50
+    revenues:gains                         $-1462.50
+
+2024-07-20 Sell 180 WIDG @ $24.00
+    assets:broker:widg:2024-03-10_$18.75   -180 WIDG @ $18.75
+    assets:broker:cash                     $4320.00
+    revenues:gains                         $-945.00
+
+2024-09-01 Buy 30 ACME
+    assets:broker:acme:2024-09-01_$55.00   30 ACME @ $55.00
+    assets:broker:cash                     $-1650.00
+
+2024-10-15 Sell 50 ACME @ $62.00  ; disposal:spec-id lot:2024-02-20_$52.00
+    assets:broker:acme                     -50 ACME @ $62.00
+    assets:broker:cash                     $3100.00
+
+2024-11-01 Sell 80 WIDG @ $26.50
+    assets:broker:widg                     -80 WIDG @ $26.50
+    assets:broker:cash                     $2120.00
+
+; --- Dividends ---
+
+2024-08-10 Dividend from WIDG holdings
+    assets:broker:cash                     $144.00
+    expenses:dividends                     $-144.00
+
+; --- Year-end balance assertions ---
+; These are the CORRECT expected balances. Fix the journal until these pass.
+
+2024-12-31 year-end balance verification
+    assets:broker:acme:2021-03-15_$22.00   0 ACME = 0 ACME
+    assets:broker:acme:2024-01-15_$45.50   0 ACME = 10 ACME
+    assets:broker:acme:2024-02-20_$52.00   0 ACME = 10 ACME
+    assets:broker:acme:2024-09-01_$55.00   0 ACME = 30 ACME
+    assets:broker:widg:2024-03-10_$18.75   0 WIDG = 0 WIDG
+    assets:broker:widg:2024-06-01_$21.50   0 WIDG = 40 WIDG
+    assets:broker:cash                     $0 = $52036.50
+    revenues:gains                         $0 = $-4497.50
+    revenues:dividends                     $0 = $-144.00

@@ -1,0 +1,42 @@
+SCHEDULE H (FORM 1040) -- HOUSEHOLD EMPLOYMENT TAXES -- TAX YEAR 2025
+
+Use Schedule H if you paid cash wages to a household employee and
+the wages were subject to social security, Medicare, or federal
+income tax withholding.
+
+Threshold: If you paid any one household employee cash wages of
+$2,800 or more in 2025, you must file Schedule H.
+
+PART I -- Social Security, Medicare, and Federal Income Taxes
+
+Line 1 -- Total cash wages subject to social security tax.
+  Enter the total cash wages you paid to all household employees
+  that are subject to social security tax.
+
+Line 2 -- Social security tax. Multiply line 1 by 12.4% (0.124).
+  Round to the nearest whole dollar.
+
+Line 3 -- Total cash wages subject to Medicare tax.
+  Enter the total cash wages you paid to all household employees
+  that are subject to Medicare tax.
+
+Line 4 -- Medicare tax. Multiply line 3 by 2.9% (0.029).
+  Round to the nearest whole dollar.
+
+Line 5 -- Total cash wages subject to Additional Medicare Tax
+  withholding. Enter the amount of wages subject to Additional
+  Medicare Tax withholding. This applies only to wages paid in
+  excess of the applicable threshold.
+
+Line 6 -- Additional Medicare Tax withholding. Multiply line 5
+  by 0.9% (0.009). Round to the nearest whole dollar.
+
+Line 7 -- Federal income tax withheld, if any. Enter the total
+  federal income tax you withheld from your household employee(s)
+  wages during the year, if applicable.
+
+Line 8 -- Total social security, Medicare, and federal income
+  taxes. Add lines 2, 4, 6, and 7. Enter this total.
+
+REPORTING: Enter the amount from Schedule H, line 8, on
+Schedule 2 (Form 1040), line 9.

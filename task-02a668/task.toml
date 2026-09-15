@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a complete type inference system requires implementing four interdependent components: a Lark EBNF grammar with correct precedence/associativity and keyword handling, a parse tree transformer mapping to typed ASTs, a unification engine that correctly handles structural type matching and prevents infinite types, and a parametric type inference engine that distinguishes polymorphic let-bindings from monomorphic lambda parameters. The agent must learn the Lark parser generator API (grammar DSL, Transformer class, terminal priority), design grammar rules for a non-trivial expression language with 10 precedence levels, integrate all components into a working CLI pipeline orchestrated by Make, and debug subtle interactions between parser and inference. Each component has non-obvious correctness requirements (substitution composition order, recursive binding inference, keyword/identifier disambiguation) demanding expert-level PL theory knowledge."""
+solution_explanation = """The solution writes a Lark EBNF grammar with 10 precedence levels (let/if/match lowest, atoms highest), implements a Transformer class mapping 30 parse tree node types to AST dataclasses, builds Robinson's unification with occurs check and transitive substitution application, implements Algorithm W for type inference with proper generalization of let-bound variables and monomorphic lambda parameters, and wires everything into a CLI that reads files, parses, infers, and prints types."""
+verification_explanation = """Tests cover three layers: (1) parser tests verifying source code strings produce correct AST structures including precedence and associativity, (2) inference unit tests constructing ASTs directly and checking inferred types via structural alpha-equivalence covering literals, operators, functions, let-polymorphism, recursion, pairs, lists, and type errors, and (3) CLI integration tests piping source files through the command-line tool and checking output strings and exit codes."""
+category = "programming_languages"
+tags = ["type-inference", "parser-generators"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-02a668"

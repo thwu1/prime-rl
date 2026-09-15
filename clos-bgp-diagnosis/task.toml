@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of EBGP CLOS datacenter operations including FRR configuration semantics, BGP session state machine transitions (Idle/Active/Connect/OpenSent/Established), TCP-MD5 authentication handshake requirements, nftables chain hook priorities and traffic classification, static vs dynamic route administrative distance precedence, host IP subnet mask effects on ARP resolution behavior, and BGP RIB-failure flag interpretation. The agent must cross-reference state across 13 network nodes using multiple data formats (FRR configs, BGP tables, routing tables, nftables dumps, tc output, JSON host configs, text logs). Two faults produce identical symptoms (TCP connection timeout / BGP Active state) but have entirely different root causes (TCP-MD5 authentication mismatch vs nftables port 179 drop rule), requiring the agent to investigate both nftables AND configuration parity. A misleadingly-named nftables table ('sec_hardening') appears intentional but is not documented in the operations changelog. One device (lf3) has both a genuine fault and a documented planned change, requiring the agent to correctly separate them. A static blackhole route creates a subtle BGP RIB-failure condition that is only visible by correlating the BGP table 'r' flag with the routing table entries. The /16-vs-/24 netmask fault on h3 causes ARP-level failures for cross-subnet traffic without any routing-layer error signals. Additionally, the agent must use tshark with complex display filters and field extraction syntax to analyze PCAP files — extracting BGP OPEN AS numbers, NOTIFICATION error codes, detecting TCP MD5 options (kind 19), counting SYN/SYN-ACK packets, and identifying ARP targets outside the correct subnet. This requires proficiency with tshark's protocol-specific field names, display filter syntax, and field extraction mode."""
+solution_explanation = """Parse topology.json for designed AS assignments, then systematically audit each device: (1) compare lf0's configured ASN 65199 against design 65200; (2) notice lf2 has 'password S3cretKey1' on sp0 neighbor but sp0 has no matching password — explains TCP timeout; (3) find sp1's 'sec_hardening' nftables table blocking TCP 179 on eth4 and confirm it is NOT in ops_changelog.txt; (4) compare lf3's config to other leaves and note missing 'network 10.0.3.0/24'; (5) find lf1's 'ip route 10.0.2.0/24 Null0' static route and correlate with 'r' flag in BGP table; (6) compare h3's /16 netmask against topology's specified /24. Cross-reference ops_changelog.txt to classify ss0 timers, sp0 ICMP rate-limit, and lf3 tc tbf as planned changes. For packet forensics: use tshark -r with display filters like 'bgp.open' and field extraction (-T fields -e bgp.open.my_as) to get ASN 65199 from lf0_eth0.pcap; extract NOTIFICATION codes with -e bgp.notification.major_error; detect TCP MD5 option kind 19 in lf2_eth0.pcap; count SYN vs SYN-ACK packets in lf2 and sp1 captures; extract ARP target IPs from h3_eth0.pcap to confirm /16 mask causes wrong-subnet ARP. Produce corrected FRR configs and system commands, with sp1 ordered before lf3 in remediation (sp1's ACL fix enables lf3's redundant uplink)."""
+verification_explanation = """Tests parse assessment.json and verify: (1) exactly 9 total anomalies; (2) exactly 6 classified as 'fault' on devices {lf0, lf1, lf2, sp1, lf3, h3}; (3) exactly 3 classified as 'planned_change' on devices {ss0, sp0, lf3}; (4) each fault description contains domain-appropriate keywords confirming correct root-cause identification; (5) each fault has a non-empty corrected_config containing fix-specific keywords; (6) each planned_change has a non-empty ops_reference; (7) remediation_order contains all 6 fault devices with sp1 before lf3; (8) no false positives; (9) packet_forensics section exists with correct values: lf0_bgp_open_as==65199, notification codes==2/2, lf2 TCP MD5 detected with SYN-only traffic, sp1 SYN-only traffic, h3 ARP targets outside /24 subnet."""
+category = "networking"
+tags = ["bgp-troubleshooting", "pcap-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clos-bgp-diagnosis"

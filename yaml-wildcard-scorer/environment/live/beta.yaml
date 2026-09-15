@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beta-webapp # *
+  namespace: beta
+  annotations:
+    deploy.kubernetes.io/revision: "3" # *
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: server
+        image: myapp:v2.0.0
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: production
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: beta-app-config
+  namespace: beta
+data:
+  log_level: info
+  cache_ttl: "300"
+  database_url: "postgres://db:5432/beta"

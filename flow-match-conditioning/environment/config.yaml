@@ -1,0 +1,33 @@
+pipeline:
+  min_steps: 6
+  max_steps: 20
+  base_shift: 3.0
+  shift_sensitivity: 2.0
+  var_scale: 0.5
+  boundary_ratio: 0.3
+  guidance_scale: 7.5
+  num_inference_steps: 10
+  flow_shift: 5.0
+
+video:
+  chunk_size: 9
+  overlap: 1
+  stride: 2
+  start: 0
+  min_chunk_frames: 3
+  num_frames: 9
+  height: 224
+  width: 224
+
+vae:
+  temporal_factor: 4
+  spatial_factor: 8
+
+conditioning:
+  ref_indices: [0]
+
+robot:
+  gripper_range: [0.0005, 0.069]
+
+output:
+  database: /app/output/plan.db

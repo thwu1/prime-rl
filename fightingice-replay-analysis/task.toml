@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level protobuf wire format knowledge to diagnose and fix a field-number corruption in the provided .proto schema — the agent must notice that parsed values are inconsistent with game state (near-zero damage despite full KOs), investigate the binary encoding, identify that two field numbers are transposed, and correct them. Beyond the schema forensics, the task demands fighting game domain expertise for combo detection with damage proration (applying geometric scaling per combo hit position), statistical reasoning for Elo rating computation across 36 sequential rounds, and systems-level data engineering to integrate multi-league tournament scoring with Elo-weighted bonuses. The solver must holistically understand protobuf encoding semantics, fighting game frame data mechanics, and rating system mathematics to produce correct results."""
+solution_explanation = """Diagnose the proto corruption by comparing frame-level damage_dealt (reads as ~0 with corrupted schema) against round result HP changes (400->0 KOs). Examine raw protobuf wire format to confirm fields 10 and 11 (stun_remaining, damage_dealt) are transposed. Fix the .proto, recompile with protoc, then parse all 20 binary replay files. For each match: extract round results, compute per-player damage/hit totals from frame data, detect combos via stun_remaining state tracking, and apply combo_scaling_factor^i proration to each combo hit. Aggregate Standard league rankings (round wins, HP tiebreak, F1 points), Speedrunning league rankings (avg frames with penalty substitution), compute Elo ratings by processing standard matches chronologically with K=32, then combine into final rankings with Elo bonus allocation."""
+verification_explanation = """Tests verify: (1) output structure with all required keys; (2) correct round results for specific matches (proves proto was fixed); (3) damage consistency — total damage must match HP deltas (impossible with corrupted proto); (4) combo detection — max combo length of 4 and raw damage of 195 for ComboKing; (5) combo proration — scaled damage of 163.84 for the [80,64,51] combo; (6) standard and speedrunning league rankings with exact win counts, HP totals, and F1 points; (7) Elo ratings — correct ordering (CK>AS>RD>GB), zero-sum conservation (~6000), and range bounds for each AI; (8) final rankings with correct Elo bonus allocation (+2/+1) and total point sums."""
+category = "data_analysis"
+tags = ["protobuf", "game_ai"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fightingice-replay-analysis"

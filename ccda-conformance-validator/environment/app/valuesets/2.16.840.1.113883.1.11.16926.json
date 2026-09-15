@@ -1,0 +1,10 @@
+{
+  "oid": "2.16.840.1.113883.1.11.16926",
+  "name": "BasicConfidentialityKind",
+  "codeSystem": "2.16.840.1.113883.5.25",
+  "codes": [
+    {"code": "N", "displayName": "Normal"},
+    {"code": "R", "displayName": "Restricted"},
+    {"code": "V", "displayName": "Very Restricted"}
+  ]
+}

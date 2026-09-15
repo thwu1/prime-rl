@@ -1,0 +1,38 @@
+# ================================================
+# Simulation Report: Experiment 7
+# Strategy: greedy_min_ev (minimize immediate expected penalty)
+# Date: 2024-08-15
+# ================================================
+#
+# Parameters loaded from experiment database
+# Tiles: 1-12
+# Dice options: A (2d6), B (3d4), C (d6+d8)
+# Scoring: weighted penalty (see scoring config)
+#
+# Total games simulated: 500000
+#
+# Results:
+#   Mean weighted score: 34.76
+#   Std deviation: 25.12
+#   Median score: 28.0
+#   Games with score 0 (perfect): 1247 (0.25%)
+#   Games with score > 100: 48921 (9.78%)
+#
+# Score distribution (weighted penalty buckets of 10):
+#   [0,10):   42318
+#   [10,20):  87451
+#   [20,30): 103284
+#   [30,40):  89762
+#   [40,50):  65431
+#   [50,60):  42198
+#   [60,70):  27654
+#   [70,80):  16543
+#   [80,90):   9876
+#   [90,100):  6234
+#   [100,120): 5274
+#   [120,140): 2021
+#   [140,160):  710
+#   [160,188]:  244
+#
+# NOTE: Optimal play should achieve a lower expected score
+# than any heuristic. The above is an upper bound.

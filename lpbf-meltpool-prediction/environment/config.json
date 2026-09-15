@@ -1,0 +1,30 @@
+{
+    "material": {
+        "thermal_conductivity_W_per_mK": 11.4,
+        "density_kg_per_m3": 8190,
+        "specific_heat_J_per_kgK": 435,
+        "solidus_K": 1533,
+        "liquidus_K": 1609,
+        "ambient_K": 300,
+        "absorptivity": 0.35
+    },
+    "laser": {
+        "power_W": 285,
+        "scan_speed_m_per_s": 0.96
+    },
+    "pad": {
+        "track_length_m": 0.005,
+        "hatch_spacing_m": 0.00011,
+        "num_tracks": 46,
+        "bidirectional": true,
+        "turnaround_time_s": 0.00075
+    },
+    "solidification": {
+        "pdas_coefficient_um": 100.0,
+        "pdas_exponent": 0.333
+    },
+    "queries": {
+        "preheat_tracks": [2, 5, 10, 20, 45],
+        "depth_tracks": [1, 5, 10, 20, 45]
+    }
+}

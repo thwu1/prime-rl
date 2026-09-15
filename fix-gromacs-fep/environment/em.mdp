@@ -1,0 +1,19 @@
+; Energy minimization parameters
+integrator  = steep
+nsteps      = 5000
+emtol       = 500.0
+emstep      = 0.01
+
+; Electrostatics
+coulombtype = PME
+rcoulomb    = 1.0
+
+; Van der Waals
+rvdw        = 1.0
+
+; Neighbor searching
+cutoff-scheme = Verlet
+nstlist       = 20
+
+; PBC
+pbc = xyz

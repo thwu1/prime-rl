@@ -1,0 +1,19 @@
+volatility:
+  fast_span: 35
+  slow_span: 2560
+  min_periods: 10
+  proportion_slow: 0.3
+
+fdm_estimation:
+  ewm_span: 125
+  min_periods: 20
+  max_fdm: 2.5
+
+position_sizing:
+  notional_capital: 1000000
+  percentage_vol_target: 0.20
+  average_absolute_forecast: 10.0
+
+instrument_div_multiplier: 1.5
+
+business_days_per_year: 256

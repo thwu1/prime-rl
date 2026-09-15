@@ -1,0 +1,77 @@
+% ============================================================
+% horizontal_WCV_taumod: Horizontal WCV using Modified Tau
+% From NASA DAIDALUS PVS Formal Specification
+% ============================================================
+%
+% Parameters: TAUMOD (modified tau threshold, nnreal), DTHR (distance threshold, posreal)
+%
+% --- tau_mod definition ---
+%
+% tau_mod_def(s,v) = (sq(DTHR) - sqv(s)) / (s*v)
+%   where s*v is the 2D dot product
+%
+% taumod(s,v): real =
+%   IF s*v < 0 THEN tau_mod_def(s,v)
+%   ELSE -1
+%   ENDIF
+%
+% Note: taumod is only meaningful when aircraft are converging (s*v < 0).
+% When diverging (s*v >= 0), taumod returns -1 (no threat).
+%
+% --- horizontal_WCV_taumod rewrite lemma ---
+%
+% horizontal_WCV_taumod(s,v) IFF
+%   (sqv(s) <= sq(DTHR) OR
+%    (s*v < 0 AND
+%     sqv(s + horizontal_tca(s,v)*v) <= sq(DTHR) AND
+%     tau_mod(s,v) <= TAUMOD))
+%
+% where horizontal_tca(s,v) = tcpa(s,v) = IF sqv(v)>0 THEN -(s*v)/sqv(v) ELSE 0 ENDIF
+%
+% --- horizontal_WCV_taumod_interval ---
+%
+% Computes the time interval [entry, exit] within [0, T] where
+% horizontal_WCV_taumod(s+t*v, v) is true.
+%
+% horizontal_WCV_taumod_interval(T, s, v): EntryExit[0, T] =
+%   LET a = sqv(v),
+%       b = 2*(s*v) + TAUMOD*sqv(v),
+%       c = sqv(s) + TAUMOD*(s*v) - sq(DTHR)
+%   IN
+%   IF a = 0 AND sqv(s) <= sq(DTHR) THEN
+%     WholeInterval[0,T]                              % stationary, inside
+%   ELSIF sqv(s) <= sq(DTHR) THEN
+%     (# entry := 0, exit := min(T, Theta_D[DTHR](s,v,1)) #)  % inside, will exit
+%   ELSIF s*v >= 0 OR discr(a,b,c) < 0 THEN
+%     EmptyInterval[0,T]                              % diverging or no solution
+%   ELSIF Delta[DTHR](s,v) >= 0 AND root(a,b,c,-1) <= T THEN
+%     (# entry := max(0, root(a,b,c,-1)),
+%        exit  := min(T, Theta_D[DTHR](s,v,1)) #)    % standard case
+%   ELSE
+%     EmptyInterval[0,T]
+%   ENDIF
+%
+% Where:
+%   discr(a,b,c) = b^2 - 4*a*c          (discriminant of a*t^2 + b*t + c = 0)
+%   root(a,b,c,eps) = (-b + eps*sqrt(discr(a,b,c))) / (2*a)
+%     eps = -1 gives the smaller root, eps = +1 gives the larger root
+%
+%   Delta[D](s,v) = sq(D)*sqv(v) - sq(s*v + sqv(v)*... )
+%     More precisely, Delta is the discriminant of:
+%       sqv(v)*t^2 + 2*(s*v)*t + (sqv(s) - sq(D)) = 0
+%     i.e., Delta = (2*(s*v))^2 - 4*sqv(v)*(sqv(s) - sq(D))
+%          = 4*( sq(s*v) - sqv(v)*(sqv(s) - sq(D)) )
+%     Or equivalently: Delta[D](s,v) = sq(D)*sqv(v) - (sqv(v)*sqv(s) - sq(s*v))
+%       Note: sqv(v)*sqv(s) - sq(s*v) = ||s x v||^2 (cross product squared)
+%
+%   Theta_D[D](s,v,eps) = ( -(s*v) + eps*sqrt(Delta[D](s,v)) ) / sqv(v)
+%     eps = -1 gives the entry time into the D-circle
+%     eps = +1 gives the exit time from the D-circle
+%     Only valid when Delta[D] >= 0 (i.e., the trajectory intersects the circle)
+%
+% --- Key invariant (proven in PVS) ---
+%
+% horizontal_WCV_taumod_interval_def: LEMMA
+%   FORALL (t in [0,T]):
+%     LET (tin, tout) = horizontal_WCV_taumod_interval(T, s, v) IN
+%       horizontal_WCV_taumod(s+t*v, v) IFF (tin <= t AND t <= tout)

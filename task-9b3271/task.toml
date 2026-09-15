@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires solving a system of 3 degree-2 polynomial equations in 3 unknowns arising from pairwise distance consistency constraints under affine depth corruption. The agent must compile a C shared library, write Python ctypes bindings, derive the algebraic elimination structure for the polynomial system, implement a proper rotation estimator, and wrap everything in a robust estimation pipeline that handles outliers. Demands expertise in computational algebraic geometry, rigid body geometry, C/Python interop, and robust estimation."""
+solution_explanation = """Compile coeffgen.c to libcoeffgen.so. Use ctypes to call the C library for coefficient computation. Build a 12x12 Macaulay-style elimination matrix by multiplying the 3 constraints by monomials {b1, a2, b2}, solve the linear system, construct a 4x4 action matrix, and extract (b1, a2, b2) from eigenvalues and eigenvector ratios. Implement SVD-based Wahba rotation estimation. Use RANSAC with the 3-point minimal solver: sample subsets, solve for scale/shift, correct depths, reconstruct 3D points, estimate pose, refine on inliers."""
+verification_explanation = """Tests verify: (1) the C shared library exists and is loadable via ctypes, (2) solver.py uses ctypes/cffi and references the libcoeffgen library, (3) the C library produces non-zero non-NaN coefficients, (4) the polynomial solver returns valid tuples satisfying distance consistency, (5) at least one solution recovers known ground truth parameters within 1e-4 across 5 random seeds, (6) the rotation estimator produces proper SO(3) matrices, (7) translation recovery is accurate, (8) the full pipeline recovers poses from synthetic data with and without outliers."""
+category = "computational_geometry"
+tags = ["pose-estimation", "native-interop"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9b3271"

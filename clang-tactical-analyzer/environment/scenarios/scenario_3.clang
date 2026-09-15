@@ -1,0 +1,9 @@
+# Scenario 3: Conflict detection among active rules
+(define (definerule Hit1 direc ((bowner our {5}) (do our {5} (pass {7})))))
+(define (definerule Hit2 direc ((bowner our {5}) (do our {5} (shoot)))))
+(define (definerule Hit3 direc ((bowner our {5}) (do our {5} (hold)))))
+(define (definerule Hit4 direc ((bowner opp {0}) (do our {5} (intercept)))))
+(define (definerule Hit5 direc ((bowner our {8}) (do our {5} (mark {9})))))
+(define (definerule Hit6 direc ((playm bko) (do our {5} (pos (pt -10 0))))))
+(define (definerule Hit7 direc ((playm play_on) (do our {5} (intercept)))))
+(rule (on Hit1) (on Hit2) (on Hit3) (on Hit4) (on Hit5) (on Hit6) (on Hit7))

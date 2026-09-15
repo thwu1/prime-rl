@@ -1,0 +1,10 @@
+---
+- name: Restart Apache2 Service
+  ansible.builtin.shell: apachectl graceful || apachectl start
+  failed_when: false
+
+- name: restart sshd
+  ansible.builtin.command: "true"
+
+- name: restart fail2ban
+  ansible.builtin.command: "true"

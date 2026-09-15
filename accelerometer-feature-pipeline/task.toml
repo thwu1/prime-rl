@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-layer accelerometer data pipeline spanning a Makefile build system, a Java sensor calibration stage, and a Java feature extraction stage with 44 output features. The solver must trace errors across build configuration (Makefile variable definitions, target recipes, argument ordering), calibration mathematics (sensor bias/scale correction order-of-operations), and signal processing algorithms (4th-order Butterworth filter Nyquist normalization, ENMO gravity subtraction, R-style Type 7 quantile interpolation, EMA gravity estimation coefficients, Mean Power Deviation fractional exponents, excess kurtosis bias correction, and DFT Hann windowing). Bugs cascade across layers: Makefile errors prevent compilation or produce runtime failures, calibration errors propagate through all 44 downstream features, and feature algorithm bugs interact through shared data paths (filtered ENMO, gravity-subtracted signals, spectral power distributions). The solver must operate across multiple tool domains -- Make build system debugging, Java source code analysis, properties file configuration, and pipeline orchestration -- to identify and fix all defects."""
+solution_explanation = """Ten bugs must be fixed across 4 files: Makefile: (1) SRCDIR path '/app/source' must be '/app/src'; (2) pipeline target swaps CalibratorMain output and config arguments. Calibrator.java: (3) calibration formula applies 'raw * scale - offset' instead of correct '(raw - offset) * scale'. AccStats.java: (4) ENMO missing '- 1' subtraction (Euclidean Norm Minus One must subtract gravity); (5) percentile formula uses 'p * n' instead of R7 'p * (n-1) + 1'. Features.java: (6) gravity EMA weight 0.5 instead of 0.9; (7) MPD exponent 2.0 instead of 1.5 per Vaha-Ypya; (8) kurtosis uses simplified 'kurt/N - 3' instead of R-style bias correction formula; (9) missing Hann window before DFT computation causes spectral leakage. LowpassFilter.java: (10) normalized cutoff divides by Fs instead of Nyquist frequency Fs/2."""
+verification_explanation = """The test generates deterministic synthetic accelerometer data with known sensor calibration errors (per-axis offset and scale, numpy seed=42, 3000 samples at 100Hz with 12Hz and 15Hz components for filter discrimination). Raw (uncalibrated) data is saved as CSV. The test invokes 'make -C /app pipeline' which must compile all Java sources, run calibration, and run feature extraction. The test independently applies correct calibration to recover ideal data, then computes all 44 reference features using scipy.signal.butter/lfilter for Butterworth filtering and numpy.fft.rfft for spectral features with Hann windowing. Each feature is validated with combined tolerance (atol=1e-6, rtol=1e-4). The calibration round-trip is algebraically exact, so no precision is lost. The multi-frequency test data creates measurable differences between correct and incorrect filter cutoff normalization."""
+category = "scientific_computing"
+tags = ["signal-processing", "build-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/accelerometer-feature-pipeline"

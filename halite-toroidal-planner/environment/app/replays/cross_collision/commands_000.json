@@ -1,0 +1,16 @@
+{
+  "0": [
+    {
+      "ship_id": 0,
+      "type": "move",
+      "direction": "east"
+    }
+  ],
+  "1": [
+    {
+      "ship_id": 10,
+      "type": "move",
+      "direction": "west"
+    }
+  ]
+}

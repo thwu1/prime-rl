@@ -1,0 +1,57 @@
+{
+  "version": "2.0",
+  "base_version": "1.0",
+  "description": "Schema evolution for rev3 sensor hardware. Evaluating backward compatibility for fleet-wide firmware migration.",
+  "changes": [
+    {
+      "action": "add_field",
+      "field": "location_zone",
+      "type": "u8",
+      "position_after": "sensor_id",
+      "description": "Deployment zone identifier derived from sensor ID. Known mappings: sensor 1 → zone 10, sensor 2 → zone 20, sensor 3 → zone 30. Sensors without a known mapping use default value 255 (unknown).",
+      "sensor_zone_map": {"1": 10, "2": 20, "3": 30}
+    },
+    {
+      "action": "modify_field",
+      "field": "temperature_cdeg",
+      "new_name": "temperature_mdeg",
+      "new_type": "i32",
+      "conversion": "v1_value * 10",
+      "description": "Unit change from centidegrees to millidegrees Celsius for increased precision with rev3 thermistors."
+    },
+    {
+      "action": "modify_field",
+      "field": "pressure_pa",
+      "new_name": "pressure_hpa",
+      "new_type": "u16",
+      "conversion": "v1_value / 100 (integer division, truncating remainder)",
+      "description": "Type narrowing from u32 Pascals to u16 hectopascals. Reduces wire size by 2 bytes per frame. Sub-hectopascal precision is lost."
+    },
+    {
+      "action": "modify_field",
+      "field": "status",
+      "new_variants": ["Ok", "Error", "Warning", "Calibrating", "Maintenance"],
+      "old_variants": ["Ok", "Warning", "Error", "Calibrating"],
+      "description": "Enum reordered: Error (was index 2) moved to index 1, Warning (was index 1) moved to index 2. New Maintenance variant added at index 4.",
+      "discriminant_mapping": {"Ok": {"v1": 0, "v2": 0}, "Warning": {"v1": 1, "v2": 2}, "Error": {"v1": 2, "v2": 1}, "Calibrating": {"v1": 3, "v2": 3}}
+    },
+    {
+      "action": "modify_field",
+      "field": "sub_readings",
+      "new_element_type": "i32",
+      "old_element_type": "i16",
+      "description": "Element type widened from i16 to i32 for increased dynamic range with new auxiliary sensors."
+    }
+  ],
+  "v2_field_order": [
+    {"name": "sensor_id", "type": "u16"},
+    {"name": "location_zone", "type": "u8"},
+    {"name": "timestamp_ms", "type": "u64"},
+    {"name": "temperature_mdeg", "type": "i32", "encoding": "zigzag"},
+    {"name": "humidity_pct_x10", "type": "u16"},
+    {"name": "pressure_hpa", "type": "u16"},
+    {"name": "battery_mv", "type": "u16"},
+    {"name": "status", "type": "enum", "variants": ["Ok", "Error", "Warning", "Calibrating", "Maintenance"]},
+    {"name": "sub_readings", "type": "seq<i32>", "element_encoding": "zigzag"}
+  ]
+}

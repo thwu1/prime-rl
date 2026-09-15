@@ -1,0 +1,121 @@
+# Syzkaller descriptions for /dev/accelq
+# Author: dev-B, 2024-11-12
+# Validated with syz-check: 0 errors, 0 warnings
+
+include <uapi/linux/accelq.h>
+
+resource fd_accelq[fd]
+resource accelq_ctx[int32]
+resource accelq_queue[int32]
+resource accelq_job[int32]
+resource accelq_buf_handle[int64]
+
+syz_open_dev$accelq(dev ptr[in, string["/dev/accelq"]], id const[0], flags flags[open_flags]) fd_accelq
+
+ioctl$ACCELQ_CREATE_CTX(fd fd_accelq, cmd const[ACCELQ_CREATE_CTX], arg ptr[in, accelq_ctx_args_create])
+ioctl$ACCELQ_DESTROY_CTX(fd fd_accelq, cmd const[ACCELQ_DESTROY_CTX], arg ptr[in, accelq_ctx_args_destroy])
+ioctl$ACCELQ_CREATE_QUEUE(fd fd_accelq, cmd const[ACCELQ_CREATE_QUEUE], arg ptr[inout, accelq_queue_args_create])
+ioctl$ACCELQ_DESTROY_QUEUE(fd fd_accelq, cmd const[ACCELQ_DESTROY_QUEUE], arg ptr[in, accelq_queue_args_destroy])
+ioctl$ACCELQ_SUBMIT(fd fd_accelq, cmd const[ACCELQ_SUBMIT], arg ptr[inout, accelq_submit_args])
+ioctl$ACCELQ_WAIT(fd fd_accelq, cmd const[ACCELQ_WAIT], arg ptr[inout, accelq_wait_args])
+ioctl$ACCELQ_GET_STATS(fd fd_accelq, cmd const[ACCELQ_GET_STATS], arg ptr[inout, accelq_stats])
+ioctl$ACCELQ_SET_PRIORITY(fd fd_accelq, cmd const[ACCELQ_SET_PRIORITY], arg ptr[in, accelq_prio_args])
+ioctl$ACCELQ_MAP_BUFFER(fd fd_accelq, cmd const[ACCELQ_MAP_BUFFER], arg ptr[inout, accelq_buf_args_map])
+ioctl$ACCELQ_UNMAP_BUFFER(fd fd_accelq, cmd const[ACCELQ_UNMAP_BUFFER], arg ptr[in, accelq_buf_args_unmap])
+
+accelq_ctx_flags = ACCELQ_CTX_SHARED, ACCELQ_CTX_EXCLUSIVE, ACCELQ_CTX_LOW_LATENCY
+accelq_queue_flags = ACCELQ_QUEUE_ORDERED, ACCELQ_QUEUE_PREEMPT
+accelq_submit_flags = ACCELQ_SUBMIT_FENCE, ACCELQ_SUBMIT_SIGNAL, ACCELQ_SUBMIT_NO_WAIT
+accelq_wait_flags = ACCELQ_WAIT_TIMEOUT, ACCELQ_WAIT_ANY
+accelq_buf_flags = ACCELQ_BUF_READ, ACCELQ_BUF_WRITE, ACCELQ_BUF_COHERENT
+accelq_op_types = ACCELQ_OP_COPY, ACCELQ_OP_TRANSFORM, ACCELQ_OP_REDUCE, ACCELQ_OP_CUSTOM
+accelq_prio_values = ACCELQ_PRIO_LOW, ACCELQ_PRIO_NORMAL, ACCELQ_PRIO_HIGH, ACCELQ_PRIO_REALTIME
+
+accelq_ctx_args_create {
+	flags		flags[accelq_ctx_flags, int32]
+	ctx_id		int32
+	max_queues	int32
+	reserved	const[0, int32]
+}
+
+accelq_ctx_args_destroy {
+	flags		const[0, int32]
+	ctx_id		accelq_ctx
+	max_queues	const[0, int32]
+	reserved	const[0, int32]
+}
+
+accelq_queue_args_create {
+	ctx_id		accelq_ctx
+	queue_id	accelq_queue	(out)
+	flags		flags[accelq_queue_flags, int32]
+	ring_size	int32
+}
+
+accelq_queue_args_destroy {
+	ctx_id		accelq_ctx
+	queue_id	accelq_queue
+	flags		const[0, int32]
+	ring_size	const[0, int32]
+}
+
+accelq_descriptor {
+	op		flags[accelq_op_types, int32]
+	flags		flags[accelq_submit_flags, int32]
+	src_handle	int64
+	dst_handle	int64
+	src_len		int32
+	dst_len		int32
+	params		array[int8, 32]
+}
+
+accelq_submit_args {
+	ctx_id		accelq_ctx
+	queue_id	accelq_queue
+	nr_descs	int32
+	flags		flags[accelq_submit_flags, int32]
+	descs_ptr	int64
+	job_id		accelq_job	(out)
+	reserved	const[0, int32]
+}
+
+accelq_wait_args {
+	ctx_id		accelq_ctx
+	job_id		accelq_job
+	flags		flags[accelq_wait_flags, int32]
+	timeout_ms	int32
+	status		int32	(out)
+	reserved	const[0, int32]
+}
+
+accelq_stats {
+	ctx_id		accelq_ctx
+	queue_id	accelq_queue
+	jobs_submitted	int64	(out)
+	jobs_completed	int64	(out)
+	jobs_failed	int64	(out)
+	bytes_processed	int64	(out)
+}
+
+accelq_prio_args {
+	ctx_id		accelq_ctx
+	queue_id	accelq_queue
+	priority	flags[accelq_prio_values, int32]
+	reserved	const[0, int32]
+}
+
+accelq_buf_args_map {
+	ctx_id		accelq_ctx
+	flags		flags[accelq_buf_flags, int32]
+	size		int64
+	handle		accelq_buf_handle	(out)
+	offset		int64	(out)
+}
+
+accelq_buf_args_unmap {
+	ctx_id		accelq_ctx
+	flags		const[0, int32]
+	size		const[0, int64]
+	handle		accelq_buf_handle
+	offset		const[0, int64]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires inferring 6 distinct ARC-AGI transformation rules through spatial/abstract reasoning (self-tiling, alternating-reflection tessellation, set intersection, flood-fill enclosure detection, periodic pattern continuation, size-based classification), then orchestrating a multi-tool pipeline: interacting with a REST API via curl/jq for task retrieval and solution submission, populating a SQLite database with computed metadata using the sqlite3 CLI, and generating pixel-accurate PNG grid visualizations using ImageMagick's convert command with a specific color palette. The combination of abstract puzzle-solving with unfamiliar tool interoperability (HTTP API + SQL + image processing) demands proficiency across multiple domains."""
+solution_explanation = """For each task: (1) fetch from the API using curl or urllib, (2) analyze training pairs to identify the transformation rule, (3) implement the specific algorithm, (4) submit solutions via POST to the API, (5) compute grid metadata and insert into SQLite solve_log table, (6) generate PPM pixel data from the output grid using the ARC color palette and convert to PNG with ImageMagick. Each step requires a different tool and data format."""
+verification_explanation = """Tests verify 4 dimensions: (a) grid correctness — each output is compared cell-by-cell against ground truth, (b) API integration — the submissions table must have entries for all 6 tasks, (c) database metadata — solve_log entries must have correct grid dimensions and color counts, (d) visualization — PNG files must exist with correct pixel dimensions matching grid size * 20px per cell."""
+category = "abstract_reasoning"
+tags = ["arc-agi", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-96ea8f"

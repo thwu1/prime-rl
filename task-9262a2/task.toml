@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reasoning across three deeply interleaved domains: (1) Diagnosing 6 correctness defects in a hierarchical rubric scoring engine, including bugs in shared core functions (off-by-one in depth-limited tree traversal, missing path-weight accumulation in recursive sensitivity computation) that cascade to corrupt outputs of dependent subcommands (stratified-score inherits wrong sensitivities AND has its own conditional-score denominator bug), statistical formula errors (F1 arithmetic vs harmonic mean, Fleiss kappa P_e using 2pq instead of p-squared+q-squared), and min/max confusion in cross-rubric error aggregation. The solver must trace dependency chains between subcommands to distinguish independent bugs from cascading failures. (2) Implementing a score-bounds subcommand that requires recognizing the replication score is a linear function of leaf grades — enabling O(n) exact bound computation instead of naive 2^n enumeration — and connecting this insight to the sensitivity computation. (3) Building a shell pipeline that orchestrates jq recursive descent queries for rubric tree analysis (extracting category-specific leaf IDs from nested JSON), the engine CLI for multi-subcommand workflows, and sqlite3 for structured result persistence."""
+solution_explanation = """Fix 6 bugs in /app/rubric_engine.py: (1) compute_pruned_score depth comparison > to >=, (2) F1 formula from (P+R)/2 to 2PR/(P+R), (3) compute_sensitivity accumulate path_weight * child_fraction, (4) cmd_optimal_depth min to max, (5) stratified-score conditional_score divide by coverage not total_score, (6) agreement P_e from 2*p0*p1 to p0**2+p1**2. Implement score-bounds using linearity insight: min_score = current - sum(sensitivity for uncertain grade=1 leaves), max_score = current + sum(sensitivity for uncertain grade=0 leaves). Create analyze.sh using jq for rubric validation, leaf counting, and Result Match ID extraction via recursive descent, piping through the engine for scoring/stratified/bounds computation, and inserting results into sqlite3 tables."""
+verification_explanation = """53 pytest tests verify all 8 subcommands and the pipeline: scores checked within 1e-4 tolerance against hand-computed expected values, pruned scores at multiple depths including non-monotonic error, optimal depth at 3 epsilon thresholds, judge-eval metrics per-category and macro-averaged with harmonic-mean F1, sensitivity sums verified to equal 1.0, stratified contributions verified to sum to full score with correct conditional-score denominators, Fleiss kappa verified overall and per-category against hand-derived fractions, score-bounds verified for multiple uncertain sets including all-grade-0, all-grade-1, and mixed configurations against analytically derived exact bounds, pipeline database verified for correct table schemas and data values across scores, stratified, optimal_depths, and bounds tables."""
+category = "debugging"
+tags = ["debugging", "tree-algorithms", "statistics", "shell-pipelines"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9262a2"

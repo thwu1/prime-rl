@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning quantum computing (density matrix formalism, noise channels, circuit folding theory), numerical methods (Richardson/Lagrange extrapolation, nonlinear least-squares fitting of exponential models), and statistical model selection (leave-one-out cross-validation across heterogeneous model families). The agent must understand why G·G†·G preserves the unitary while amplifying noise, correctly implement gate adjoints for non-self-adjoint gates (S, T), and build a robust adaptive selector that distinguishes polynomial from exponential noise decay. Not solvable by formula lookup — requires synthesizing concepts across quantum information theory, approximation theory, and applied statistics."""
+solution_explanation = """Implement gate folding by computing circuit/gate inverses via the dagger() method and concatenating C·(C†·C)^k or G·(G†·G)^k. Richardson extrapolation uses Lagrange basis polynomials evaluated at λ=0. Polynomial extrapolation uses numpy polyfit. Exponential extrapolation fits a+b·exp(c·λ) using scipy curve_fit with logarithmic initialization for the known-asymptote case. Adaptive selection runs LOO-CV: for each candidate method, leave one data point out, fit on the rest, predict the held-out value, accumulate squared errors, then pick the method with lowest total LOO error. The full pipeline folds circuits at each scale factor, simulates each with the density matrix simulator, and applies the selected extrapolation."""
+verification_explanation = """Tests verify: (1) folding correctness — circuit length scaling, unitary preservation under noiseless simulation, correct gate structure including non-self-adjoint gates; (2) Richardson extrapolation exactness on polynomial data of matching degree; (3) polynomial and exponential extrapolation accuracy on synthetic data; (4) adaptive selector correctly choosing exponential for exponential data and polynomial for polynomial data; (5) full ZNE pipeline producing expectation values closer to ideal than unmitigated noisy values across identity circuits, mirror circuits, and multiple folding/extrapolation combinations."""
+category = "quantum_computing"
+tags = ["error-mitigation", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-888647"

@@ -1,0 +1,14 @@
+{
+    "challenge_id": "epsilon",
+    "problem_description": "Implement a function that computes the number of ways to place k non-attacking rooks on an n x n chessboard. Two rooks attack each other if they share a row or column.",
+    "answer_code": "def answer(n, k):\n    \"\"\"Number of ways to place k non-attacking rooks on an n x n board.\"\"\"\n    from math import comb, factorial\n    return comb(n, k)**2 * factorial(k)",
+    "comparison_mode": "functional",
+    "testcases": [
+        {"args": [4, 2], "expected": 72},
+        {"args": [5, 3], "expected": 600},
+        {"args": [3, 1], "expected": 9},
+        {"args": [6, 4], "expected": 5400},
+        {"args": [8, 3], "expected": 18816}
+    ],
+    "tolerance": 1e-6
+}

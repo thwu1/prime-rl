@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of RxJS operator internals, reactive stream subscription lifecycle, and virtual-time scheduling. The solver must implement concurrent overlapping buffer management with independent timer lifecycles, proper scheduler delegation, maxBufferSize early-emission logic with conditional buffer restart, and correct cleanup semantics on completion/error/unsubscription. Understanding the marble diagram DSL and TestScheduler run-mode semantics is necessary to debug failing tests. This is not a textbook exercise — it combines TypeScript generics, complex state machines, and time-based concurrency in a single function."""
+solution_explanation = """The correct implementation maintains an array of buffer records (each with its own buffer array and timer subscription). A startBuffer() function creates a new record, schedules its close timer via the scheduler, and adds it to the active list. When bufferCreationInterval is provided, a repeating scheduler action opens new buffers at that interval; otherwise a restartOnEmit flag causes a new buffer to start immediately after each emission. The emit() function removes the record, cancels its timer, emits the buffer, and conditionally restarts. On next(), the value is pushed into ALL active buffers (enabling overlapping windows), and any buffer exceeding maxBufferSize is emitted early. On complete(), all remaining buffers are shifted out and emitted in order. On error(), all records are discarded and the error is forwarded. The outer subscription aggregates all timer subscriptions for cleanup."""
+verification_explanation = """Tests use RxJS TestScheduler in run mode with marble diagram assertions. Eight test cases verify: basic interval emission, overlapping creation-interval windows, maxBufferSize early emission, error propagation, empty source handling, combined interval+maxSize, completion flushing of remaining buffers, and early unsubscription cleanup. A pytest wrapper reads the JSON results file and also verifies the implementation doesn't import from rxjs/operators."""
+category = "reactive programming"
+tags = ["rxjs", "typescript"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rxjs-buffertime-operator"

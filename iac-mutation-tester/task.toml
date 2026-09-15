@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis of three distinct domains: (1) Terraform plan JSON internals — understanding the three-section architecture (planned_values, resource_changes, configuration) and why each section encodes the same resource differently; (2) OPA Rego evaluation semantics — comprehending how policies traverse different plan sections via input.configuration vs input.resource_changes vs input.planned_values and why a mutation in one section may go undetected while the same mutation in another section is caught; (3) mutation testing methodology — implementing section-isolated mutation runs that independently test each plan section to reverse-engineer which sections each policy rule evaluates, then synthesizing results into a section dependency map, cross-section gap analysis, and higher-order mutation testing. No implementation guidance is provided; the agent must independently discover the relationship between plan sections and policy evaluation paths."""
+solution_explanation = """Build a Python CLI that: (1) parses Terraform plan JSON and its three-section structure; (2) invokes OPA via subprocess; (3) implements five mutation operators applied across all sections simultaneously; (4) for field_removal and value_alteration mutants, additionally runs section-isolated tests (mutating only configuration, only planned_values, or only resource_changes while leaving others unchanged); (5) derives a section dependency map from empirical isolation results showing which plan sections each policy evaluates per field; (6) identifies cross-section gaps where a field is validated in some sections but not others; (7) tests higher-order mutation pairs from surviving same-resource mutants to find synergistic kills."""
+verification_explanation = """Tests use session-scoped fixtures running the tool once per scenario. Verification covers: OPA infrastructure, tool execution, output schema conformance including section_results, sufficient mutants (>=15 per scenario), realistic mutation scores, all five operators with consistent summaries, type_change and resource_removal always killed, coverage analysis with cidr_block covered, section_analysis structure and correctness (VPC cidr_block detected in configuration, SG name detected in resource_changes), cross-section gaps found, higher-order pair testing structure, and independent manual OPA verification of specific mutations."""
+category = "infrastructure"
+tags = ["terraform", "policy-testing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/iac-mutation-tester"

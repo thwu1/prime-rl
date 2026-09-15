@@ -1,0 +1,5 @@
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+
+libschedule.so: schedule.c schedule.h
+	$(CC) $(CFLAGS) -shared -o libschedule.so schedule.c

@@ -1,0 +1,25 @@
+{
+  "noise_parameters": {
+    "gyroscope_noise_density": 0.003,
+    "gyroscope_random_walk": 0.0001,
+    "accelerometer_noise_density": 0.01,
+    "accelerometer_random_walk": 0.001
+  },
+  "bias_linearization": {
+    "gyroscope": [0.015, -0.008, 0.005],
+    "accelerometer": [0.04, -0.025, 0.015]
+  },
+  "orientation_linearization": {
+    "q_k_lin": [0.0, 0.0, 0.0, 1.0],
+    "gravity": [0.0, 0.0, 9.81]
+  },
+  "options": {
+    "imu_averaging": false
+  },
+  "coordinate_frame": "body",
+  "units": {
+    "timestamp": "nanoseconds",
+    "gyroscope": "rad/s",
+    "accelerometer": "m/s^2"
+  }
+}

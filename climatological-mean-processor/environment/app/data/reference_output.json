@@ -1,0 +1,71 @@
+{
+  "description": "Reference output for the corrected climate pipeline. All numerical values must be matched within a tolerance of 1e-4.",
+  "field_standard": {
+    "global_means": {
+      "DJF": 262.16022588522589,
+      "MAM": 260.675,
+      "JJA": 262.18043478260870,
+      "SON": 263.675
+    },
+    "climatology_0_0": {
+      "DJF": 261.98522588522589,
+      "MAM": 260.5,
+      "JJA": 262.00543478260870,
+      "SON": 263.5
+    },
+    "seasons_used": {
+      "DJF": [2004, 2005, 2006],
+      "MAM": [2003, 2004, 2005, 2006],
+      "JJA": [2003, 2004, 2005, 2006],
+      "SON": [2003, 2004, 2005, 2006]
+    }
+  },
+  "field_360day": {
+    "global_means": {
+      "DJF": 262.175,
+      "MAM": 260.675,
+      "JJA": 262.175,
+      "SON": 263.675
+    },
+    "climatology_0_0": {
+      "DJF": 262.0,
+      "MAM": 260.5,
+      "JJA": 262.0,
+      "SON": 263.5
+    },
+    "seasons_used": {
+      "DJF": [2004, 2005, 2006],
+      "MAM": [2003, 2004, 2005, 2006],
+      "JJA": [2003, 2004, 2005, 2006],
+      "SON": [2003, 2004, 2005, 2006]
+    }
+  },
+  "field_noleap": {
+    "global_means": {
+      "DJF": 262.15833333333333,
+      "MAM": 260.675,
+      "JJA": 262.18043478260870,
+      "SON": 263.675
+    },
+    "climatology_0_0": {
+      "DJF": 261.98333333333333,
+      "MAM": 260.5,
+      "JJA": 262.00543478260870,
+      "SON": 263.5
+    },
+    "seasons_used": {
+      "DJF": [2004, 2005, 2006],
+      "MAM": [2003, 2004, 2005, 2006],
+      "JJA": [2003, 2004, 2005, 2006],
+      "SON": [2003, 2004, 2005, 2006]
+    }
+  },
+  "area_weights": {
+    "total_sum": 12.566370614359172
+  },
+  "cell_methods_requirements": [
+    "within: years",
+    "over: years",
+    "area: mean"
+  ]
+}

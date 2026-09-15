@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alpha
+  labels:
+    team: frontend
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: beta
+  labels:
+    team: backend
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  namespace: alpha
+  labels:
+    app: web
+    role: frontend
+status:
+  podIP: "10.0.1.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cache
+  namespace: alpha
+  labels:
+    app: redis
+    role: cache
+status:
+  podIP: "10.0.1.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api
+  namespace: beta
+  labels:
+    app: api
+    role: backend
+status:
+  podIP: "10.0.2.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker
+  namespace: beta
+  labels:
+    app: worker
+    role: backend
+status:
+  podIP: "10.0.2.2"

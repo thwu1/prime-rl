@@ -1,0 +1,22 @@
+{
+  "name": "plasticity_cycle",
+  "type": "j2_plasticity_uniaxial",
+  "description": "Uniaxial stress-strain response of J2 elastoplastic material with linear isotropic hardening through load-unload-reverse cycle",
+  "material": {
+    "E_MPa": 200000.0,
+    "nu": 0.3,
+    "sigma_y_MPa": 250.0,
+    "H_MPa": 10000.0
+  },
+  "strain_history": {
+    "description": "Uniaxial total strain e11 at segment endpoints",
+    "segment_endpoints": [0.0, 0.005, -0.002],
+    "increments_per_segment": 100
+  },
+  "outputs": [
+    "sigma_at_peak_MPa",
+    "eps_p_acc_at_peak",
+    "sigma_at_final_MPa",
+    "eps_p_acc_at_final"
+  ]
+}

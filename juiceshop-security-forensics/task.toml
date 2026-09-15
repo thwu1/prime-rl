@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering and exploiting five distinct security vulnerabilities from forensic artifacts without any guidance on which techniques to apply: the agent must independently identify hash algorithms and perform credential recovery, recognize and exploit a JWT library vulnerability to forge authentication tokens, reverse-engineer an opaque coupon encoding scheme from sample data and dependency clues, locate encryption parameters scattered across configuration to decrypt protected data, and identify improper data retention practices in a database. Beyond raw exploitation, the agent must evaluate each vulnerability's severity, assess real-world business impact, and produce a prioritized remediation plan — demanding both offensive security expertise and professional-grade risk assessment judgment."""
+solution_explanation = """1) Examine the SQLite database to find user password hashes; identify MD5 (32-char hex) vs bcrypt ($2b$ prefix); crack MD5 hashes via dictionary attack. 2) Inspect the captured RS256 JWT and package.json.bak to discover jsonwebtoken 0.4.0 is vulnerable to algorithm confusion; forge a new JWT with alg=HS256 signing with the public key as HMAC secret. 3) Decode historical coupons using z85 (identified via package.json.bak dependencies); discover MMMYY-PP format; encode JUN26-80. 4) Find ctfKey in app_config.json; derive AES-256 key via SHA-256; decode base64 blob, split IV from ciphertext, decrypt AES-256-CBC. 5) Query Users table for deletedAt IS NOT NULL records. 6) Evaluate all findings with appropriate severity ratings considering exploitability and business impact, then produce a prioritized threat assessment."""
+verification_explanation = """Tests verify: 1) Each cracked password MD5-hashes to the stored hash, and key accounts (admin, jim, mc.safesearch, accountant) are cracked. 2) Forged JWT has HS256 header, rsa_lord email in payload.data.email, and valid HMAC-SHA256 signature using the public key. 3) Coupon z85-decodes to MMMYY-PP format with discount >= 80%. 4) Deleted accounts match database records with non-null deletedAt. 5) Decrypted progress matches independent AES decryption. 6) Threat assessment has valid structure with findings containing required fields, at least one critical/high severity rating, reasonable overall risk score, and consistent prioritized remediation order cross-referenced against finding titles."""
+category = "security_and_privacy"
+tags = ["web-security", "incident-response"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/juiceshop-security-forensics"

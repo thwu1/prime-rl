@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse engineering a compiled shared library to understand two distinct cipher engines (a stream engine with KSA-based S-box and ciphertext-feedback refresh, and a simpler XOR recovery engine). The solver must evaluate the security properties of both engines — determining which is cryptographically weaker and quantifying the minimum known-plaintext required for full key recovery — resolving conflicting forensic evidence (session metadata claims recovery mode, but cryptanalytic testing reveals the stream engine was used). Key material corrupted during forensic acquisition requires designing a known-plaintext brute-force attack with S-box-based quick-rejection filtering. The solver must also create a standalone exfiltration detection tool that discriminates the implant's custom binary protocol from keepalive probes sharing the same destination port, requiring protocol-level analysis of magic byte framing. Finally, the solver must implement the inverse of a non-standard stream cipher with ciphertext-feedback S-box evolution."""
+solution_explanation = """First evaluate both cipher engines against the ciphertext: test the recovery engine (re_transform) with entropy_pool-derived key, confirming it produces invalid output; test the stream engine (se_transform) with the stored (corrupted) auth_token, which also fails. Evaluate relative security: RE uses repeating-key XOR where each key byte is independently recoverable from one known plaintext byte (16 bytes for full recovery), while SE uses KSA-based substitution with ciphertext feedback (far harder). Identify corrupted auth_token bytes at positions 3 and 6 (0x00 in otherwise random data, corroborated by data_integrity='partial_recovery'). Design a brute-force with S-box quick-rejection filter, recovering correct byte values. Create a pcap parser that discriminates exfil protocol magic (0xC0DE0001) from keepalive probes (0xBEEF0002) on port 8443. Implement the full inverse cipher and write all deliverables."""
+verification_explanation = """Tests verify by computational re-derivation rather than comparison against stored answers: (1) re-derives the encryption key using the solver's claimed auth_token and database fragments, then decrypts the ciphertext to verify it produces the expected document header; (2) verifies corrupted_byte_positions by checking which bytes differ between the stored database token and the solver's recovered token; (3) runs the solver's exfil_detector.py against the pcap and validates it correctly identifies all exfiltration packets while filtering out keepalive probes; (4) verifies the solver's security evaluation of the weaker engine and KPA byte count. No ground-truth answers are stored in the Docker image."""
+category = "security"
+tags = ["reverse-engineering", "cryptanalysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implant-crypto-forensics"

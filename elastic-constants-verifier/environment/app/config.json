@@ -1,0 +1,8 @@
+{
+  "crystal_structure": "fcc",
+  "element": "Cu",
+  "approximate_lattice_constant": 3.6,
+  "supercell_size": [3, 3, 3],
+  "perturbation_amplitude": 0.05,
+  "random_seed": 42
+}

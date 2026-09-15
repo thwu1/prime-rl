@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Output schema for the DERP mesh relay forensics tool. The tool outputs different top-level structures depending on operating mode.",
+  "oneOf": [
+    {
+      "description": "Single-file DPCAP analysis output",
+      "type": "object",
+      "required": ["session", "handshake", "frame_counts", "routing", "keepalive", "ping_pong", "anomalies", "session_count", "session_boundaries"],
+      "properties": {
+        "session": {
+          "type": "object",
+          "required": ["start_time_us", "end_time_us", "duration_us", "total_frames"],
+          "properties": {
+            "start_time_us": { "type": "integer", "description": "Timestamp of first frame in microseconds" },
+            "end_time_us": { "type": "integer", "description": "Timestamp of last frame in microseconds" },
+            "duration_us": { "type": "integer", "description": "end_time_us - start_time_us" },
+            "total_frames": { "type": "integer", "description": "Total number of DERP frames in capture" }
+          }
+        },
+        "handshake": {
+          "type": "object",
+          "required": ["valid", "server_key", "client_key", "client_nonce", "violations"],
+          "properties": {
+            "valid": { "type": "boolean", "description": "True if first session handshake followed correct order" },
+            "server_key": { "type": ["string", "null"], "description": "Hex-encoded 32-byte server public key from first session, or null if not found" },
+            "client_key": { "type": ["string", "null"], "description": "Hex-encoded 32-byte client public key from first session, or null if not found" },
+            "client_nonce": { "type": ["string", "null"], "description": "Hex-encoded 24-byte NaCl nonce from first session's ClientInfo frame, or null if not extracted" },
+            "violations": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of handshake violation descriptions"
+            }
+          }
+        },
+        "frame_counts": {
+          "type": "object",
+          "description": "Map of frame type name to count. Use exact names: ServerKey, ClientInfo, ServerInfo, SendPacket, RecvPacket, KeepAlive, NotePreferred, PeerGone, PeerPresent, ForwardPacket, WatchConns, ClosePeer, Ping, Pong, Health, Restarting, Unknown",
+          "additionalProperties": { "type": "integer" }
+        },
+        "routing": {
+          "type": "object",
+          "required": ["send_packets", "recv_packets", "forward_packets"],
+          "properties": {
+            "send_packets": {
+              "type": "object",
+              "description": "Map of hex-encoded destination public key to packet count from SendPacket frames",
+              "additionalProperties": { "type": "integer" }
+            },
+            "recv_packets": {
+              "type": "object",
+              "description": "Map of hex-encoded source public key to packet count from RecvPacket frames",
+              "additionalProperties": { "type": "integer" }
+            },
+            "forward_packets": {
+              "type": "integer",
+              "description": "Total count of ForwardPacket frames"
+            }
+          }
+        },
+        "keepalive": {
+          "type": "object",
+          "required": ["count", "max_gap_us", "threshold_exceeded"],
+          "properties": {
+            "count": { "type": "integer", "description": "Number of KeepAlive frames" },
+            "max_gap_us": { "type": ["integer", "null"], "description": "Maximum gap between consecutive KeepAlive frames in microseconds, null if fewer than 2" },
+            "threshold_exceeded": { "type": "boolean", "description": "True if max_gap_us > 120000000 (120 seconds)" }
+          }
+        },
+        "ping_pong": {
+          "type": "object",
+          "required": ["pings", "pongs", "matched", "unmatched_pings"],
+          "properties": {
+            "pings": { "type": "integer", "description": "Total Ping frames" },
+            "pongs": { "type": "integer", "description": "Total Pong frames" },
+            "matched": { "type": "integer", "description": "Ping-Pong pairs with matching 8-byte payload" },
+            "unmatched_pings": { "type": "integer", "description": "Pings whose payload never appeared in a subsequent Pong" }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of detected anomaly descriptions. Each anomaly string must contain one of: 'invalid_handshake', 'unknown_frame_type', 'bad_magic', 'keepalive_gap', 'unmatched_ping', 'duplicate_ping', 'pre_handshake_data', 'ghost_recv', 'ghost_send'"
+        },
+        "session_count": {
+          "type": "integer",
+          "description": "Number of distinct DERP sessions in the capture (each complete handshake sequence is a session)"
+        },
+        "session_boundaries": {
+          "type": "array",
+          "description": "Per-session breakdown with handshake info and timing",
+          "items": {
+            "type": "object",
+            "required": ["start_time_us", "end_time_us", "handshake_valid", "client_key", "server_key", "client_nonce"],
+            "properties": {
+              "start_time_us": { "type": "integer" },
+              "end_time_us": { "type": "integer" },
+              "handshake_valid": { "type": "boolean" },
+              "client_key": { "type": ["string", "null"] },
+              "server_key": { "type": ["string", "null"] },
+              "client_nonce": { "type": ["string", "null"], "description": "Hex-encoded 24-byte NaCl nonce from this session's ClientInfo" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "pcap analysis output",
+      "type": "object",
+      "required": ["mode", "session", "frame_counts", "routing", "anomalies"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["pcap"] },
+        "session": {
+          "type": "object",
+          "required": ["total_frames"],
+          "properties": {
+            "total_frames": { "type": "integer" }
+          }
+        },
+        "frame_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "routing": {
+          "type": "object",
+          "required": ["send_packets", "recv_packets", "forward_packets"],
+          "properties": {
+            "send_packets": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "recv_packets": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "forward_packets": { "type": "integer" }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    {
+      "description": "Multi-relay directory analysis output with cross-relay security assessment",
+      "type": "object",
+      "required": ["mode", "relay_reports", "topology", "policy_violations", "cross_relay_conflicts", "nonce_reuse_alerts", "bridge_peers", "traffic_correlations", "peer_threat_levels"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["directory"] },
+        "relay_reports": {
+          "type": "object",
+          "description": "Map of relay_id to single-file analysis report",
+          "additionalProperties": { "type": "object" }
+        },
+        "topology": {
+          "type": "object",
+          "required": ["peers", "relay_peer_counts"],
+          "properties": {
+            "peers": {
+              "type": "object",
+              "description": "Map of peer_key_hex to topology info",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["relays", "destinations", "total_packets_sent", "total_packets_received"],
+                "properties": {
+                  "relays": { "type": "array", "items": { "type": "string" }, "description": "Sorted list of relay IDs this peer appeared on" },
+                  "destinations": { "type": "array", "items": { "type": "string" }, "description": "Sorted list of destination peer key hexes" },
+                  "total_packets_sent": { "type": "integer" },
+                  "total_packets_received": { "type": "integer" }
+                }
+              }
+            },
+            "relay_peer_counts": {
+              "type": "object",
+              "description": "Map of relay_id to number of unique peer keys seen",
+              "additionalProperties": { "type": "integer" }
+            }
+          }
+        },
+        "policy_violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "peer_key", "relay_id", "detail"],
+            "properties": {
+              "type": { "type": "string", "enum": ["unauthorized_relay", "blocked_peer", "unauthorized_destination"] },
+              "peer_key": { "type": "string" },
+              "relay_id": { "type": "string" },
+              "detail": { "type": "string" },
+              "destination_key": { "type": "string" }
+            }
+          }
+        },
+        "cross_relay_conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["peer_key", "relays", "time_overlap_us"],
+            "properties": {
+              "peer_key": { "type": "string" },
+              "relays": { "type": "array", "items": { "type": "string" }, "description": "Sorted pair of relay IDs" },
+              "time_overlap_us": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2, "description": "[overlap_start, overlap_end]" }
+            }
+          }
+        },
+        "nonce_reuse_alerts": {
+          "type": "array",
+          "description": "Alerts for same client key using identical NaCl nonces on different relays",
+          "items": {
+            "type": "object",
+            "required": ["peer_key", "nonce_hex", "relays"],
+            "properties": {
+              "peer_key": { "type": "string", "description": "Hex-encoded client public key" },
+              "nonce_hex": { "type": "string", "description": "Hex-encoded 24-byte nonce that was reused" },
+              "relays": { "type": "array", "items": { "type": "string" }, "description": "Sorted list of relay IDs where this nonce appeared" }
+            }
+          }
+        },
+        "bridge_peers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Sorted list of hex-encoded peer keys that bridge relay segments (client on one relay, communication target on another)"
+        },
+        "traffic_correlations": {
+          "type": "array",
+          "description": "Detected relay-mediated communication paths via cross-relay packet timing correlation within 1-second window",
+          "items": {
+            "type": "object",
+            "required": ["src_peer", "dst_peer", "src_relay", "dst_relay", "correlated_packets"],
+            "properties": {
+              "src_peer": { "type": "string", "description": "Hex-encoded public key of sending peer (session client on src_relay)" },
+              "dst_peer": { "type": "string", "description": "Hex-encoded public key of receiving peer (session client on dst_relay)" },
+              "src_relay": { "type": "string", "description": "Relay ID where SendPacket occurred" },
+              "dst_relay": { "type": "string", "description": "Relay ID where matching RecvPacket occurred" },
+              "correlated_packets": { "type": "integer", "description": "Number of send-recv pairs with timing within 1-second window" }
+            }
+          }
+        },
+        "peer_threat_levels": {
+          "type": "object",
+          "description": "Map of peer_key_hex to threat assessment with weighted risk scoring",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["level", "risk_score", "signals"],
+            "properties": {
+              "level": { "type": "string", "enum": ["none", "low", "medium", "high", "critical"], "description": "Categorical threat level derived from risk_score thresholds" },
+              "risk_score": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Weighted sum of signal severities, capped at 100. See spec for signal weights and level thresholds." },
+              "signals": { "type": "array", "items": { "type": "string" }, "description": "Sorted list of contributing signal types" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+pool,name,bytes
+shared pool,free memory,56789012
+shared pool,library cache,234567890
+shared pool,dictionary cache,45678901
+shared pool,sql area,189012345
+shared pool,PL/SQL MPCODE,12345678
+shared pool,miscellaneous,23456789
+shared pool,KGH: NO ACCESS,8901234
+shared pool,row cache,34567890
+shared pool,KGLS heap,15678901
+shared pool,SQLA,12345678
+large pool,free memory,67891234
+large pool,PX msg pool,12345678
+large pool,RMAN buffers,8901234
+java pool,free memory,45678901
+java pool,memory in use,21098765
+buffer_cache,,536870912
+log_buffer,,16777216
+fixed_sga,,5678901

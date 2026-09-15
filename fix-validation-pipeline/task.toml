@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing why the 1:1 implementation fails to compile (abstract class instantiation from an unoverridden pure virtual method), understanding C++ polymorphism to identify and implement the missing createTemplate overload with correct multi-face detection semantics. Then requires holistic analysis of the quality API header against the framework's established conventions to identify four distinct design violations spanning type systems (int vs double, float vs double), ownership semantics (raw pointer vs shared_ptr factory), and multi-translation-unit linkage patterns (namespace-scope variables without conditional extern preprocessor guards). Building the quality track demands understanding of shared library compilation, the NIST_EXTERN preprocessor pattern for ODR-safe header variables, CMake build orchestration, and shell-script validation pipeline design. Integrating both tracks into a unified validation entry point requires architectural understanding of the full build-compile-link-run-validate pipeline across C++, CMake, and shell layers."""
+solution_explanation = """Fix abstract class error by adding the single-Image createTemplate overload to evalimpl.h/.cpp (multi-face detection from a single image). Fix four quality header violations: raw pointer factory to shared_ptr<Interface>, int& quality to double&, float value to double, and bare namespace-scope uint16_t version variables to conditional extern pattern with #ifdef NIST_EXTERN_QUALITY_API_VERSION guard. Create quality null implementation with deterministic scalarQuality and vectorQuality. Build quality .so via CMake, compile validate_quality.cpp with -DNIST_EXTERN_STRUCTS_VERSION -DNIST_EXTERN_QUALITY_API_VERSION flags, create run/validate scripts, extend run_validate.sh for both tracks with quality-specific sanity checks."""
+verification_explanation = """Tests clean all build artifacts and run the unified pipeline, verifying: exit code 0, existence of both track libraries and binaries, all 1:1 and quality output logs with correct line counts, non-negative match scores, zero return codes, quality scores in [0,100], quality attributes in [0,100], quality header conformance (shared_ptr factory, double types, conditional extern version pattern with uint16_t), upstream test driver unmodified, and submission archive existence."""
+category = "systems-programming"
+tags = ["cpp", "build-systems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-validation-pipeline"

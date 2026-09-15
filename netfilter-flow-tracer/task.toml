@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of Linux netfilter internals that is not explained in the task. The agent must independently know or discover: (1) the correct table/chain processing order for locally-destined packets, (2) where conntrack sits in the pipeline and what happens on table overflow, (3) the semantics of NOTRACK bypass and the CT target, (4) how nf_conntrack_tcp_loose controls state assignment for mid-stream TCP packets, (5) the distinction between confirmed and unconfirmed conntrack entries and when confirmation occurs. Additionally, the agent must parse real iptables-save output format (a non-trivial format with implicit module loads, multi-argument flags, and chain/table structure) and sysctl.conf key-value format. This combination of deep kernel networking knowledge and real-world tool format parsing is well beyond procedural or textbook difficulty."""
+solution_explanation = """Parse iptables-save to extract rules with sequential IDs across tables, parse sysctl.conf for conntrack parameters. Then simulate the netfilter pipeline: raw PREROUTING → conntrack state lookup (with overflow checking against confirmed entry count) → mangle PREROUTING → filter INPUT. Key subtleties: NOTRACK bypasses conntrack entirely giving UNTRACKED state; conntrack overflow silently drops new-flow packets; entries are confirmed only on final ACCEPT (DROP removes unconfirmed entries); tcp_loose controls whether stray non-SYN TCP packets create NEW entries or get INVALID state. Rule matching requires CIDR subnet checks, TCP flag mask/set semantics, and ctstate list matching."""
+verification_explanation = """Two scenarios test the simulator: Scenario 1 (conntrack max=8, tcp_loose=true, 20 packets) exercises overflow, NOTRACK immunity, established flow passthrough during overflow, unconfirmed entry removal on firewall DROP, and stray ACK with loose=true creating overflow. Scenario 2 (max=3, tcp_loose=false, 10 packets) specifically tests that stray ACKs with tcp_loose=false get INVALID state instead of causing overflow. Tests verify per-packet verdicts, exact rule counters (packet counts and byte sums), conntrack statistics, matched rule paths, and the critical counter discrepancy between raw and mangle PREROUTING that diagnoses overflow."""
+category = "systems"
+tags = ["networking", "linux-kernel"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netfilter-flow-tracer"

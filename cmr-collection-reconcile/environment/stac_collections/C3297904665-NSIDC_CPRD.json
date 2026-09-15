@@ -1,0 +1,45 @@
+{
+  "type": "Collection",
+  "id": "C3297904665-NSIDC_CPRD",
+  "stac_version": "1.0.0",
+  "title": "Greenland Monthly Ice Sheet Velocity Mosaics from SAR and Landsat V005",
+  "description": "NSIDC-0731 data collection from NSIDC_CPRD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          90,
+          58,
+          8,
+          83
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2014-12-01T00:00:00Z",
+          "2025-06-01T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "NSIDC_CPRD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "LANDSAT-8",
+      "LANDSAT-9",
+      "Sentinel-1A"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

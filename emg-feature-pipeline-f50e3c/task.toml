@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering feature extraction algorithms from libEMG library source code (~1000 lines across 4 reference modules), including: (1) TDPSD dual-plane nonlinear normalization with 0.1-exponent warping and −2·EFP·EBP/(EFP²+EBP²) combination, (2) Sample Entropy with O(N²) Chebyshev-distance pattern matching and z-score standardization, (3) Fuzzy Entropy with local-mean-subtracted patterns, tolerance scaled by per-window std, and exponential fuzzy membership, (4) diagnosing a subtle bug in the reference COMP Hjorth parameter implementation (missing axis=2 in np.sum), (5) IIR Butterworth filter design with zero-phase application for bandpass/highpass/notch, (6) frequency-domain features using next-power-of-2 FFT, and (7) classification metrics with rejection handling and weighted F1. The solver must explore multiple source files, identify and correct reference code bugs, integrate all components into a coherent CLI pipeline, and handle edge cases like feature deduplication and single-channel data."""
+solution_explanation = """The solution implements each EMG feature per the libEMG reference conventions: TDPSD uses 0.1-exponent nonlinear warping on temporal moments computed in dual planes (raw signal and log(x²+eps)), combined via -2*EFP*EBP/(EFP²+EBP²). SAMPEN uses standardized pattern matching with Chebyshev distance, counts normalized by (N-dim-1). FUZZYEN uses tolerance=0.3*std(window), local mean subtraction from each pattern, exponential similarity exp(-dist^win/tol), and denominator (N-m-1). The COMP Hjorth parameter in the reference has a missing axis=2 argument in the m4 sum — the correct version (with axis=2) is needed to pass tests. Filtering uses scipy IIR Butterworth design with zero-phase filtfilt for bandpass, highpass, and notch. Metrics handle rejected predictions (-1) by excluding them from accuracy computations while counting them for rejection rate. The full pipeline is ~350 lines of Python."""
+verification_explanation = """Tests use four independent configurations: (1) full pipeline with 4-channel data, bandpass+notch filtering, all feature groups plus SAMPEN/FUZZYEN/MDF/MNF, and classification metrics with rejections; (2) minimal single-channel HTD-only pipeline without filters or metrics; (3) 2-channel TDPSD-only pipeline requesting duplicate features (TDPSD+M0) to verify deduplication; (4) 3-channel pipeline with highpass filter and HTD+FUZZYEN features. Feature values are compared against independent reference implementations with numerical tolerance (rtol=1e-5 for TDPSD, 1e-6 for simpler features, 1e-4 for entropy features). TDPSD values are verified to lie in [-1,1]. Classification metrics are verified against hand-computed golden values. 50 individual test cases cover all feature groups, output formats, edge cases, metric computations, filter types, entropy features, and deduplication."""
+category = "signal_processing"
+tags = ["emg", "biosignal", "feature-extraction", "reverse-engineering"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/emg-feature-pipeline-f50e3c"

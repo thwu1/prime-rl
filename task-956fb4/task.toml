@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of IPv6 extension headers and SRv6 Segment Routing Header wire format (RFC 8754), including Segments Left semantics, Last Entry, Hdr Ext Len computation, and the reversed segment list convention. The solver must parse raw pcap binary format (LINKTYPE_RAW with DLT 101), extract and cross-validate multiple SRH fields, implement five distinct RFC compliance and topology-aware checks, handle mid-transit packets with partially decremented Segments Left, detect compound errors, perform forward-order segment list reconstruction for path matching, compute SHA-256 digests of raw SRH extension bytes, and calculate weighted violation scores using topology-defined weights. Per-build randomized SRH tag fields produce unique digests each build, preventing memorization."""
+solution_explanation = """Parse the pcap global/packet headers and extract each IPv6+SRH packet. For each: read SRH fields (Segments Left, Last Entry, Hdr Ext Len, segment addresses). Validate per RFC 8754: SL<=LE, IPv6 dst matches active segment (addresses[SL]), header length equals 2*(LE+1), all SIDs in topology. Reverse the address list and match against valid_paths. Flag invalid_path only when RFC checks pass but no path matches. Compute srh_digest as first 16 hex chars of SHA-256 of the raw SRH extension bytes ((hdr_ext_len+1)*8 bytes starting at offset 40). Compute violation_score using per-error weights from topology. Output analysis.json and summary.json."""
+verification_explanation = """At build time, gen_packets.py creates the pcap with per-build random SRH tag values and writes expected digests and analysis results to /app/.task_dna.json. Tests load the DNA file to obtain build-specific expected values — digests, per-packet errors, path matches, and violation score — which differ each build. Tests also independently parse the raw pcap to cross-validate SRH digests, RFC compliance checks, and path matching logic. The random per-build tags make SRH digest values unpredictable and non-memorizable."""
+category = "networking"
+tags = ["ipv6", "srv6"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-956fb4"

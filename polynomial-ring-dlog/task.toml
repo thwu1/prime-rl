@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning multiple domains: (1) Network forensics — using tshark to identify and extract a specific TCP stream from a multi-protocol pcap, following the stream to recover raw binary data from among noise traffic. (2) Binary protocol parsing — interpreting a custom TLV wire format to extract cryptographic parameters from raw bytes. (3) Algebraic cryptanalysis — recognizing that the degree-64 GF(2) polynomial modulus is reducible, factoring it via distinct-degree and Cantor-Zassenhaus algorithms, solving the discrete logarithm problem independently in each factor field (GF(2^3) through GF(2^17)) using baby-step giant-step, and combining results with the Chinese Remainder Theorem. (4) Tool interoperability — chaining tshark for pcap extraction, Python for algebraic computation, and openssl for SHA-256 key derivation and AES-CBC decryption into a coherent pipeline. This multi-domain, multi-tool attack chain is well beyond undergraduate level."""
+solution_explanation = """First, use tshark to identify the TCP stream on port 31337 and extract its raw payload using 'follow,tcp,raw'. Parse the CryptoExchange binary TLV messages to extract the modulus polynomial, generator, both public keys, IV, and ciphertext. Factor the degree-64 modulus over GF(2) into 7 irreducible polynomials (degrees 3, 5, 7, 8, 11, 13, 17). Solve the DLP independently in each small extension field via baby-step giant-step (largest order 2^17-1 = 131071). Combine partial logarithms via CRT to recover the private key. Compute the shared secret, derive the AES key using openssl SHA-256, and decrypt the ciphertext using openssl AES-128-CBC."""
+verification_explanation = """Tests verify that /app/flag.txt exists and contains the exact flag string."""
+category = "crypto"
+tags = ["network-forensics", "algebraic-cryptanalysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polynomial-ring-dlog"

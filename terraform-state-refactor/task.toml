@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a Terraform state decomposition engine from a custom specification format — not fixing an existing tool. The solver must: (1) interpret a DSL with two matching strategies (type-based and specific-resource) with correct precedence; (2) implement three distinct index conversion strategies (attribute lookup, explicit key map, regex tag extraction); (3) discover and correctly handle production edge cases NOT mentioned in the specification: deposed instances from create_before_destroy lifecycle must be carried to target resources, tainted instance status markers must be preserved via deep copy rather than selective field transfer, resource-level depends_on declarations must be remapped from old root addresses to new module addresses, and provider alias suffixes must be preserved verbatim; (4) generate both a structurally valid Terraform v4 state file and correct HCL moved blocks with proper bracket syntax for count and for_each indices. The specification intentionally omits these edge cases, requiring the solver to analyze the source state data, recognize non-standard instance metadata, evaluate the correct handling strategy for each, and synthesize a complete working engine."""
+solution_explanation = """Parse the decomposition spec to build resource-to-module assignments (with specific-resource-over-type precedence), name mappings, and index conversion rules. For each resource in the source state, determine the target module, new name, and new index key. Deep-copy full instances to preserve all metadata fields including tainted status. In a second pass, collect deposed instances and attach them to their target resource groups. Build a resource-level address remap from old to new addresses and apply it to all depends_on lists. Preserve provider strings verbatim to maintain aliases. Generate HCL moved blocks for each active instance with proper bracket syntax."""
+verification_explanation = """Tests validate: (1) state structural integrity (version, lineage, serial); (2) all 20 instances (19 active + 1 deposed) preserved at correct new addresses; (3) depends_on remapped to new module paths with no stale root-level references; (4) provider alias preserved on cross-region S3 bucket; (5) tainted status preserved on the correct worker instance; (6) deposed instance carried to target resource with correct key; (7) exactly 19 moved blocks with correct from/to HCL syntax; (8) attribute fidelity including complex nested objects, sensitive data, and JSON policy strings."""
+category = "infrastructure"
+tags = ["terraform", "state-management"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/terraform-state-refactor"

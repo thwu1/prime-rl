@@ -1,0 +1,4 @@
+// CHECK: module loaded
+// CHECK-NEXT: initialization complete
+# CHECK: processing started
+# CHECK-NEXT: output ready

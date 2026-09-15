@@ -1,0 +1,20 @@
+$ORIGIN example.com.
+$TTL 3600
+@       IN  SOA     ns1.example.com. admin.example.com. (
+                        2024010101  ; serial
+                        3600        ; refresh
+                        900         ; retry
+                        604800      ; expire
+                        86400       ; minimum
+                    )
+@       IN  NS      ns1.example.com.
+@       IN  NS      ns2.example.com.
+@       IN  A       93.184.216.34
+@       IN  AAAA    2606:2800:220:1:248:1893:25c8:1946
+ns1     IN  A       10.0.0.1
+ns2     IN  A       10.0.0.2
+www     IN  CNAME   example.com.
+@       IN  MX      10 mailserver.example.com.
+mailserver IN A     10.0.0.10
+info    IN  TXT     "v=spf1 include:_spf.example.com ~all"
+sub.deep IN A       172.16.0.1

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must: (1) explore a multi-module numerical solver codebase with interacting bugs spanning boundary-condition physics, graph-theory-based sparse differentiation, and adaptive control theory for timestepping; (2) implement a complete restarted GMRES Krylov solver with Arnoldi orthogonalization, Givens rotations, and left preconditioning from a stub interface; (3) compile a C shared library with gcc and verify the ctypes FFI integration. Each subtask requires domain-specific expertise (PDE numerics, Krylov methods, systems programming) and the combination requires fluency across Python, C, and command-line build tools."""
+solution_explanation = """Three bugs are fixed: (1) In system.py the Dirichlet BC for v uses A/B instead of B/A; (2) In sparse_diff.py the connectivity graph only connects adjacent column pairs per row instead of all pairs, producing an invalid coloring; (3) In stepping.py the PI controller exponents alpha=0.7, beta=0.4 are not divided by the method order (p+1)=2. Then GMRES is implemented from scratch in krylov.py using Arnoldi iteration with modified Gram-Schmidt, Givens rotations for the Hessenberg least-squares problem, and restart logic. Finally the C RHS kernel is compiled via gcc -shared -fPIC -O2 and loaded via the ctypes wrapper."""
+verification_explanation = """Tests verify outcomes without prescribing methods: RHS vanishes at steady state, graph coloring is valid against the sparsity pattern, compressed Jacobian matches dense FD, GMRES solves known linear systems within tolerance, C extension output matches Python RHS pointwise, Krylov solver pathway produces solution within 5% of scipy Radau reference, both PI and P controllers reach t_end with agreeing solutions, Jacobian reuse is efficient, and rejection rate is bounded."""
+category = "scientific_computing"
+tags = ["numerical-methods", "systems-programming"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1ffdbe"

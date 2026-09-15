@@ -1,0 +1,167 @@
+================================================================
+TC100 Microcontroller - Register Reference Manual  Rev 2.1
+================================================================
+
+Write-effect notation:
+  W1C = write-1-clears bit    W0C = write-0-clears bit
+  W1S = write-1-sets bit      W0S = write-0-sets bit
+  W1T = write-1-toggles bit   W0T = write-0-toggles bit
+  (no annotation = standard read-modify-write)
+
+Bit notation: [H:L] = bit range high:low inclusive
+Access: RW = read-write, RO = read-only, WO = write-only
+
+
+================================================================
+TIMER0 -- General Purpose Timer     Base Address: 0x40000000
+================================================================
+
+CR -- Control Register                         Offset: 0x00
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | Bits     | Name         | Description                      |
+  +----------+--------------+----------------------------------+
+  | [0]      | EN           | Timer enable. W1C.               |
+  | [2:1]    | MODE         | Timer mode select.               |
+  |          |              |   0=OneShot 1=Continuous 2=PWM   |
+  |          |              |   Value 3 is reserved.           |
+  | [6:3]    | PRESCALER    | Clock prescaler divider.         |
+  |          |              |   Valid write range: 0 to 15.    |
+  | [11:8]   | IRQ_CLR      | Interrupt clear flags. W1S.      |
+  | [19:16]  | SYNC_RST     | Synchronous reset flags. W0C.    |
+  | [27:24]  | TOGGLE_BITS  | Toggle control bits. W1T.        |
+  +----------+--------------+----------------------------------+
+
+SR -- Status Register                          Offset: 0x04
+  Size: 32 bits   Access: RO   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [0]      | BUSY         | Timer busy flag                  |
+  | [1]      | OVF          | Overflow flag                    |
+  +----------+--------------+----------------------------------+
+
+ARR -- Auto-Reload Register                    Offset: 0x08
+  Size: 32 bits   Access: RW   Reset: 0xFFFFFFFF
+  +----------+--------------+----------------------------------+
+  | [31:0]   | RELOAD       | Auto-reload value                |
+  +----------+--------------+----------------------------------+
+
+ICLR -- Interrupt Clear Register               Offset: 0x0C
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  Default write behavior for all fields: W1S
+  +----------+--------------+----------------------------------+
+  | [0]      | OVF_CLR      | Clear overflow interrupt         |
+  |          |              |   (inherits register W1S)        |
+  | [1]      | UDF_CLR      | Clear underflow interrupt        |
+  |          |              |   (inherits register W1S)        |
+  | [2]      | CC_CLR       | Clear compare match interrupt    |
+  |          |              |   Override: W0S                  |
+  | [3]      | BRK_CLR      | Clear break interrupt            |
+  |          |              |   Override: W0T                  |
+  +----------+--------------+----------------------------------+
+
+CCR[0..2] -- Capture/Compare Registers         Offset: 0x10
+  3 channels: CCR0 at 0x10, CCR1 at 0x14, CCR2 at 0x18
+  Stride: 4 bytes per channel
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [15:0]   | VALUE        | Capture/compare value.           |
+  |          |              |   Valid write range: 0 to 65535. |
+  | [19:16]  | FLAGS        | Channel status flags. W1S.       |
+  +----------+--------------+----------------------------------+
+
+
+================================================================
+DMA -- DMA Controller                Base Address: 0x40020000
+================================================================
+
+ISR -- Interrupt Status Register               Offset: 0x00
+  Size: 32 bits   Access: RO   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [0]      | GIF          | Global interrupt flag            |
+  | [1]      | TCIF         | Transfer complete flag           |
+  +----------+--------------+----------------------------------+
+
+IFCR -- Interrupt Flag Clear Register          Offset: 0x04
+  Size: 32 bits   Access: WO   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [0]      | CGIF         | Clear global interrupt flag      |
+  | [1]      | CTCIF        | Clear transfer complete flag     |
+  +----------+--------------+----------------------------------+
+
+S0CR -- Stream 0 Configuration Register        Offset: 0x08
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [0]      | EN           | Stream enable                    |
+  | [1]      | DMEIE        | Direct mode error interrupt en.  |
+  | [7:6]    | DIR          | Data transfer direction.         |
+  |          |              |   0=P2M 1=M2P 2=M2M             |
+  |          |              |   Value 3 reserved.              |
+  | [12:11]  | PSIZE        | Peripheral data size.            |
+  |          |              |   0=Byte 1=HalfWord 2=Word       |
+  |          |              |   Value 3 reserved.              |
+  | [15:13]  | MSIZE        | Memory data size (3-bit field).  |
+  +----------+--------------+----------------------------------+
+
+S0NDTR -- Stream 0 Number of Data Register     Offset: 0x0C
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [15:0]   | NDT          | Number of data items to transfer |
+  +----------+--------------+----------------------------------+
+
+S0PAR -- Stream 0 Peripheral Address Register  Offset: 0x10
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [31:0]   | PA           | Peripheral address               |
+  +----------+--------------+----------------------------------+
+
+S0M0AR -- Stream 0 Memory 0 Address Register   Offset: 0x14
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [31:0]   | M0A          | Memory 0 address                 |
+  +----------+--------------+----------------------------------+
+
+ALT_CFG -- Alternate Configuration Register    Offset: 0x18
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [0]      | ALT_EN       | Alternate mode enable            |
+  | [3:1]    | ALT_MODE     | Alternate mode selection.        |
+  |          |              |   Valid write range: 1 to 6.     |
+  +----------+--------------+----------------------------------+
+
+
+================================================================
+GPIOA -- General-Purpose I/O Port A  Base Address: 0x48000000
+================================================================
+
+MODER -- Port Mode Register                    Offset: 0x00
+  Size: 32 bits   Access: RW   Reset: 0x28000000
+  Field array MODE[0..15]: 16 elements, 2 bits each,
+  starting at bit 0 with 2-bit stride.
+  Enum: 0=Input 1=Output 2=Alternate 3=Analog (full coverage).
+
+ODR -- Output Data Register                    Offset: 0x14
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  No special write side-effects (standard read-modify-write).
+  Field array OD[0..15]: 16 elements, 1 bit each,
+  starting at bit 0 with 1-bit stride.
+
+BSRR -- Bit Set/Reset Register                Offset: 0x18
+  Size: 32 bits   Access: WO   Reset: 0x00000000
+  Field array BS[0..15]: bits [15:0], 1 bit each.
+  Field array BR[0..15]: bits [31:16], 1 bit each.
+
+
+================================================================
+GPIOB -- General-Purpose I/O Port B  Base Address: 0x48000400
+================================================================
+
+GPIOB shares all register definitions with GPIOA (derived).
+
+Additional register unique to GPIOB:
+
+LOCKR -- Port Lock Register                   Offset: 0x1C
+  Size: 32 bits   Access: RW   Reset: 0x00000000
+  +----------+--------------+----------------------------------+
+  | [15:0]   | LCK          | Port lock bits (one per pin)     |
+  | [16]     | LCKK         | Lock key                         |
+  +----------+--------------+----------------------------------+

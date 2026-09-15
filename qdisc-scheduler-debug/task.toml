@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three interlocking competencies: (1) tshark pcap analysis — extracting per-packet fields from a raw pcap using tshark display filters and field extraction syntax, transforming epoch timestamps to nanoseconds, and mapping UDP ports to logical flow IDs; (2) tc/HTB qdisc configuration — reading and debugging a hierarchical traffic control configuration, understanding rate units (kbit vs mbit), tc filter u32 match syntax for DSCP/TOS classification, and HTB parent-child class hierarchy semantics; (3) hierarchical scheduling algorithm design — implementing a CAKE-inspired multi-level scheduler combining strict priority for latency-sensitive classes, weighted DRR for fair queuing, token-bucket rate limiting, and link-rate pacing that simultaneously satisfies conflicting per-class SLAs under oversubscribed link conditions. The agent must interoperate between tshark (unfamiliar tool for most), tc configuration syntax, and Python to build a working end-to-end QoS pipeline."""
+solution_explanation = """The solution writes a tshark extraction script that uses 'tshark -r capture.pcap -Y udp -T fields -e frame.time_epoch -e udp.srcport -e ip.dsfield.dscp -e ip.len' to extract per-packet data, then transforms it with Python into trace.csv. The tc_fix.py script patches three bugs: (1) voice rate 2kbit→2mbit, (2) adds missing DSCP 34 filter (TOS 0x88→flowid 1:20), (3) fixes background class parent 1:→1:1. The shaper implements a three-layer architecture: DSCP classifier, per-class DRR schedulers with class-appropriate quantum values, and a hierarchical selector using strict priority for voice/video (with token-bucket rate caps) and weighted round-robin (6:1) for best_effort/background."""
+verification_explanation = """Tests validate all three deliverables: (1) tshark extraction — script existence, tshark usage, and cross-verification of trace.csv flow counts and DSCP values against independent tshark runs on the pcap; (2) tc configuration — voice rate not 2kbit, video filter present with TOS 0x88, background parent is 1:1, all four classes and filters defined, all leaf qdiscs present; (3) shaper output — packet/byte conservation, overall throughput within 5% of 50 Mbps, voice p99 delay < 5ms with zero loss, video per-flow >= 4.5 Mbps with p99 < 30ms, BE fairness JFI > 0.95 with per-flow >= 0.3 Mbps, background per-flow >= 0.1 Mbps, monotonic timestamps, per-flow queue isolation."""
+category = "networking"
+tags = ["traffic-control", "packet-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qdisc-scheduler-debug"

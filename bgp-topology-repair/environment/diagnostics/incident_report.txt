@@ -1,0 +1,77 @@
+AS 65100 Network Deployment - Pre-Launch Audit Findings
+========================================================
+Date: 2024-11-15
+Auditor: Network Operations Team
+Status: BLOCKED - Multiple Critical Issues
+
+ISSUE #1: Internal Loopback Unreachability
+  Severity: CRITICAL
+  Observation: R1 cannot ping R2's loopback 10.255.0.2. R2 cannot ping
+  R1's loopback 10.255.0.1. R3 cannot reach either border router's
+  loopback. Only directly connected subnets are in the routing tables.
+  Impact: Any protocol sessions that depend on loopback reachability
+  will fail. This blocks the entire iBGP deployment.
+  Attempted workaround: Static routes were considered but rejected due
+  to scalability and convergence concerns.
+
+ISSUE #2: iBGP Route Propagation Failure
+  Severity: CRITICAL
+  Observation: R1 and R2 each peer with R3 via iBGP. However, external
+  routes learned by R1 from ISP-Alpha are NOT visible on R2, and routes
+  learned by R2 from ISP-Beta are NOT visible on R1. R3 receives routes
+  from both border routers but does not forward them to the other.
+  Impact: Each border router can only reach prefixes from its directly
+  connected ISP. No redundancy, no failover capability.
+  Note: We verified R3 receives the routes in its BGP table, it just
+  does not re-advertise them to other iBGP peers.
+
+ISSUE #3: External Next-Hop Resolution Failure
+  Severity: HIGH
+  Observation: During a manual test where routes were force-redistributed
+  between iBGP peers, R2 installed a route to 203.0.113.0/24 with
+  next-hop 10.0.14.4 (R4's interface toward R1). R2 has no route to
+  10.0.14.4 and cannot forward traffic. Same issue in reverse for R1
+  with routes from R5 (next-hop 10.0.25.5).
+  Impact: Even if route propagation is fixed, external routes would be
+  unusable because the eBGP next-hops are not reachable from non-
+  directly-connected routers.
+
+ISSUE #4: Suboptimal Outbound Path for Dual-Homed Prefix
+  Severity: MEDIUM
+  Observation: 192.0.2.0/24 is announced by both ISP-Alpha (AS 65200)
+  and ISP-Beta (AS 65300). When both paths are available, BGP selects
+  arbitrarily based on router-id tiebreak. Traffic sometimes exits via
+  R1→R4 and sometimes via R2→R5 depending on which border router
+  learned the route.
+  Impact: Per our ISP-Alpha SLA, all outbound traffic to this prefix
+  should consistently prefer the ISP-Alpha path across the entire AS.
+  The preference mechanism must propagate via iBGP to all routers, not
+  just affect the border router that directly received the route.
+
+ISSUE #5: Transit Route Leaking
+  Severity: HIGH
+  Observation: ISP-Alpha (AS 65200) contacted us to report they are
+  receiving routes for 198.51.100.0/24 from AS 65100. This prefix
+  belongs to ISP-Beta (AS 65300). Our network is acting as unauthorized
+  transit between the two ISPs.
+  Impact: Potential contractual and legal violation. Must be fixed before
+  launch.
+
+ISSUE #6: ISP-Alpha Inbound Link Saturation
+  Severity: MEDIUM
+  Observation: Traffic analysis shows ISP-Alpha is forwarding ALL inbound
+  traffic destined for our aggregate prefix 10.100.0.0/22 through the
+  R1-R4 link, causing congestion. We need to influence ISP-Alpha's path
+  selection for this aggregate to steer traffic toward the R2-R5 path
+  instead, but we cannot request configuration changes on ISP-Alpha's
+  equipment.
+  Impact: Packet loss and latency on the R1-R4 link during peak hours.
+
+ISSUE #7: Uncontrolled Prefix Advertisement
+  Severity: HIGH
+  Observation: Currently all 5 customer prefixes (the /22 aggregate plus
+  four /24 specifics) are being advertised to both ISPs without any
+  filtering. Per the network policy, each ISP should only receive its
+  designated subset of prefixes.
+  Impact: Defeats traffic engineering objectives. ISPs receive prefixes
+  that should be steered through the other ISP's path.

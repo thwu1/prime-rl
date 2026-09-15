@@ -1,0 +1,28 @@
+==================================================================
+BUG: kernel NULL pointer dereference, address: 0000000000000000
+#PF: supervisor read access in kernel mode
+#PF: error_code(0x0000) - not-present page
+PGD 0 P4D 0
+Oops: Oops: 0000 [#1] PREEMPT SMP KASAN NOPTI
+CPU: 2 UID: 0 PID: 3890 Comm: syz-executor.1 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+RIP: 0010:update_load_avg+0x42/0xb0 kernel/sched/fair.c:27
+RSP: 0018:ffffc90003c07ad0 EFLAGS: 00010246
+RAX: 0000000000000000 RBX: ffff888015a9a000 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 00000178acf12b80 RDI: 0000000000000000
+RBP: ffffc90003c07af0 R08: 0000000000000001 R09: fffff520000780ed
+R10: 0000000000000000 R11: dffffc0000000001 R12: 0000000000000000
+R13: ffff888015a9a0c0 R14: ffff888012345000 R15: 0000000000000001
+FS:  00007f3e2c89e700(0000) GS:ffff88802ca00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000000 CR3: 00000000129fe000 CR4: 0000000000350ef0
+Call Trace:
+ <TASK>
+ schedule+0x1a3/0x390 kernel/sched/core.c:6402
+ schedule_preempt_disabled+0x1c/0x30 kernel/sched/core.c:6461
+ __mutex_lock.isra.0+0x5e7/0x910 kernel/locking/mutex.c:735
+ mutex_lock_nested+0x1b/0x20 kernel/locking/mutex.c:779
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+==================================================================

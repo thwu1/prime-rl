@@ -1,0 +1,8 @@
+{
+    "software": "iperf3",
+    "upstream_version": "3.16",
+    "build_options": ["openssl"],
+    "deployment_date": "2024-06-15",
+    "platform": "Linux x86_64",
+    "notes": "Deployed from upstream source with OpenSSL authentication support"
+}

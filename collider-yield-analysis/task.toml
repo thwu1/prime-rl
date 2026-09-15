@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level HEP analysis skills combined with multi-tool proficiency: (1) navigating a ROOT file using uproot to inspect TTree branch structure and identify that the extraction stage reads the deprecated Jet_btagCSVv2 branch instead of the correct Jet_btagDeepCSV branch — requiring familiarity with ROOT file inspection and CMS naming conventions; (2) querying a SQLite calibration database to retrieve b-tagging working points and systematic uncertainty parameters, requiring SQL proficiency and understanding of which rows to select from tables containing multiple algorithms, working points, and eras; (3) understanding and running a Makefile-based pipeline to orchestrate the multi-stage analysis; (4) debugging three subtle physics implementation errors in the selection code — wrong eigenvalue for aplanarity (requires understanding momentum tensor spectral properties), overlap removal against all leptons instead of only tight leptons (requires understanding the object hierarchy), and normalization by raw event count instead of generator weight sum (requires understanding NLO Monte Carlo methods); (5) implementing systematic uncertainty propagation and Asimov significance computation. The task demands integrated expertise across particle physics, data engineering toolchains (ROOT, SQLite, Make), and statistical methodology."""
+solution_explanation = """Inspect the ROOT file with uproot to discover both Jet_btagCSVv2 and Jet_btagDeepCSV branches; fix extract.py to read Jet_btagDeepCSV (matching the paper's DeepCSV specification). Query the SQLite calibration database for the DeepCSV medium working point threshold (0.8838), JES scale delta (0.03), and b-tag threshold delta (0.02). Fix three physics bugs in analyze.py: (1) aplanarity uses eigenvalues[0] (smallest) not eigenvalues[-1]; (2) overlap removal checks delta-R only against the tight lepton, not all leptons; (3) normalization divides by sum of event weights, not event count. Re-run the Makefile pipeline to produce correct nominal yields, systematic variations, and Asimov significance."""
+verification_explanation = """Tests independently read the ROOT file with uproot (correct DeepCSV branch) and query the SQLite calibration database. An independent reference implementation computes all expected values from the same deterministic dataset. Tests verify: (1) output structure and completeness, (2) nominal yields via relative L2 < 0.01 — confirming all bugs are fixed, (3) JES variation yields via relative L2 < 0.02, (4) b-tag variation yields via relative L2 < 0.02, (5) total uncertainty via relative L2 < 0.05, (6) significance via relative error < 0.05."""
+category = "applied_computing"
+tags = ["particle_physics", "scientific_computing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/collider-yield-analysis"

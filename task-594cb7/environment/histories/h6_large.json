@@ -1,0 +1,24 @@
+{
+  "transactions": [
+    {"id": 0, "type": "ok", "start": 0, "end": 3, "ops": [["append", "a", 1]]},
+    {"id": 1, "type": "ok", "start": 0, "end": 3, "ops": [["append", "b", 1]]},
+    {"id": 2, "type": "ok", "start": 0, "end": 3, "ops": [["append", "c", 1]]},
+    {"id": 3, "type": "ok", "start": 5, "end": 8, "ops": [["r", "a", [1]], ["append", "a", 2]]},
+    {"id": 4, "type": "ok", "start": 5, "end": 8, "ops": [["r", "b", [1]], ["append", "b", 2]]},
+    {"id": 5, "type": "ok", "start": 5, "end": 8, "ops": [["r", "c", [1]], ["append", "c", 2]]},
+    {"id": 6, "type": "ok", "start": 10, "end": 13, "ops": [["r", "a", [1, 2]], ["r", "b", [1, 2]]]},
+    {"id": 7, "type": "ok", "start": 10, "end": 13, "ops": [["r", "b", [1, 2]], ["r", "c", [1, 2]]]},
+    {"id": 8, "type": "ok", "start": 15, "end": 18, "ops": [["append", "a", 3]]},
+    {"id": 9, "type": "ok", "start": 15, "end": 18, "ops": [["append", "b", 3]]},
+    {"id": 10, "type": "ok", "start": 15, "end": 18, "ops": [["append", "c", 3]]},
+    {"id": 11, "type": "ok", "start": 20, "end": 23, "ops": [["r", "a", [1, 2, 3]], ["r", "c", [1, 2, 3]]]},
+    {"id": 12, "type": "ok", "start": 25, "end": 30, "ops": [["r", "a", [1, 2, 3]], ["r", "b", [1, 2, 3]], ["append", "a", 4]]},
+    {"id": 13, "type": "ok", "start": 25, "end": 30, "ops": [["r", "a", [1, 2, 3]], ["r", "b", [1, 2, 3]], ["append", "b", 4]]},
+    {"id": 14, "type": "ok", "start": 35, "end": 38, "ops": [["r", "a", [1, 2, 3, 4]], ["r", "b", [1, 2, 3, 4]]]},
+    {"id": 15, "type": "ok", "start": 40, "end": 43, "ops": [["append", "c", 4]]},
+    {"id": 16, "type": "ok", "start": 45, "end": 48, "ops": [["r", "a", [1, 2, 3, 4]], ["r", "b", [1, 2, 3, 4]], ["r", "c", [1, 2, 3, 4]]]},
+    {"id": 17, "type": "fail", "start": 27, "end": 29, "ops": [["append", "a", 99]]},
+    {"id": 18, "type": "ok", "start": 50, "end": 53, "ops": [["append", "a", 5], ["append", "b", 5]]},
+    {"id": 19, "type": "ok", "start": 55, "end": 58, "ops": [["r", "a", [1, 2, 3, 4, 5]], ["r", "b", [1, 2, 3, 4, 5]]]}
+  ]
+}

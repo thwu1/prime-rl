@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires both diagnosing three independent cryptographic implementation bugs in compiled C code AND designing two complete new algorithm handlers from scratch using OpenSSL 3's EVP APIs. Bug 1 (HMAC): key and message arguments are reversed relative to the ACVP wire format — diagnosing this requires understanding that ACVP sends message-before-key while OpenSSL's HMAC API takes key first. Bug 2 (AES-GCM): seal/open use tag||ciphertext byte layout instead of the ACVP-standard ciphertext||tag — invisible to round-trip tests and only manifests against external NIST known-answer vectors. Bug 3 (HKDF): EXPAND_ONLY mode skips the extract phase, requiring understanding of HKDF's two-phase structure. Beyond debugging, the solver must create two new implementations: CMAC-AES-256 requires recognizing that CMAC uses a fundamentally different EVP_MAC configuration (cipher parameter, not digest) from HMAC, and selecting the correct cipher name. PBKDF2-HMAC-SHA256 requires using a different EVP_KDF type with its own distinct parameter set (password, iteration count), and crucially discovering that OpenSSL 3 enforces NIST SP 800-132 security minimums by default (iteration count >= 2048, salt >= 16 bytes) which must be explicitly relaxed via the pkcs5 parameter to handle arbitrary ACVP test vectors."""
+solution_explanation = """Run the diagnostic script to identify failing algorithms. For HMAC: swap data[1] and data[2] in EVP_MAC_init/EVP_MAC_update to match ACVP argument order. For AES-GCM: restructure seal to write ct||tag (not tag||ct) and open to read ct at start, tag at end. For HKDF: remove the EXPAND_ONLY mode parameter so OpenSSL defaults to EXTRACT_AND_EXPAND. For CMAC-AES-256: implement using EVP_MAC_fetch with 'CMAC' algorithm and OSSL_MAC_PARAM_CIPHER set to 'AES-256-CBC', truncating output to requested length. For PBKDF2-HMAC-SHA256: implement using EVP_KDF_fetch with 'PBKDF2', setting OSSL_KDF_PARAM_PASSWORD, OSSL_KDF_PARAM_SALT, OSSL_KDF_PARAM_ITER, OSSL_KDF_PARAM_DIGEST, and OSSL_KDF_PARAM_PKCS5=1 to disable security checks. Recompile with gcc -O2 -o /app/acvp_module /app/acvp_module.c -lcrypto."""
+verification_explanation = """Tests validate all six algorithms against standard reference vectors: SHA-256 basic correctness, HMAC against RFC 4231 vectors with ACVP argument ordering, AES-GCM seal against NIST SP 800-38D known-answer vectors (Test Cases 13 and 14) and authentication failure detection (tampered data, wrong AAD), AES-GCM open against externally-computed ct||tag, HKDF against three RFC 5869 test cases including empty salt/info, CMAC-AES-256 against three NIST SP 800-38B D.2 test vectors (empty message, 16-byte, and 64-byte messages) plus truncated output, and PBKDF2-HMAC-SHA256 against RFC 7914 test vectors and Python hashlib cross-checks including edge cases with single iteration and short salt. Multi-command session handling and clean EOF exit are also verified."""
+category = "security"
+tags = ["cryptography", "systems-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/acvp-module-wrapper"

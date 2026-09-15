@@ -1,0 +1,41 @@
+project:
+  name: "SAR Landscape Analysis - Kinase Inhibitor Campaign"
+  version: "0.3"
+
+data:
+  structures: "data/structures.csv"
+  bioactivity: "data/bioactivity.tsv"
+  exclusions: "data/exclusions.json"
+
+preprocessing:
+  duplicate_resolution: "mean"
+  require_valid_structure: true
+  require_bioactivity: true
+
+molecular_representation:
+  fingerprint_type: "morgan"
+  radius: 2
+  num_bits: 2048
+
+pairwise_analysis:
+  similarity_metric: "tanimoto"
+  cliff_detection:
+    min_similarity: 0.5
+    min_activity_difference: 1.5
+  cliff_generators:
+    scoring: "sum_sali"
+    threshold: "above_median"
+
+scaffold_analysis:
+  decomposition: "murcko"
+  acyclic_compounds: "empty_string"
+  statistics:
+    std_ddof: 1
+
+output:
+  directory: "/app/results"
+  precision:
+    similarity_matrix: 6
+    cliff_report: 6
+    scaffold_statistics: 4
+    summary_statistics: 4

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing multiple interrelated bugs across a multi-component analysis pipeline (SQLite database layer, YAML-driven workflow runner, and seven Python analysis stages). The solver must reverse-engineer the correct statistical formulas from buggy implementations and docstring hints (Wilson score intervals, eigendecomposition orientation, harmonic mean ranking), implement two missing analysis stages from domain context alone (category robustness scoring and perturbation interaction strength), fix a workflow dependency resolution bug, and resolve a database schema mismatch — all while reasoning about cascading failures across components."""
+solution_explanation = """The solution patches eight files: fixes the SQL column name in db.py (success_count→successes), implements topological sort in run.py to respect stage dependencies, corrects the Wilson CI denominator (z/n→z²/n) in confidence.py, fixes the matrix orientation (E@E.T→E.T@E) in decomposition.py, implements category robustness scoring using RMS of effects per taxonomy category, implements interaction strength comparing compound vs sum-of-component absolute effects, replaces arithmetic with harmonic mean in ranking.py, and fixes the config key (seed→random_seed) in significance.py."""
+verification_explanation = """Tests independently load benchmark data from the SQLite database and recompute all metrics: spot-check Wilson CIs against the standard formula, verify the full effect matrix for multiple models, confirm eigenvalues and eigenvector properties (A@v=λ*v, unit norm, orthogonality), validate category robustness against independently derived values using the taxonomy, check interaction strength for specific compound categories, verify ranking scores via independent harmonic mean computation, and confirm permutation test statistics and p-value validity."""
+category = "data science"
+tags = ["debugging", "statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robustness-tensor-analysis"

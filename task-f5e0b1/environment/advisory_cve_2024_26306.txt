@@ -1,0 +1,54 @@
+ESnet Software Security Advisory ESNET-SECADV-2024-0001
+
+Topic:          iperf3 RSA authentication timing side-channel
+Issued:         10 May 2024
+Credits:        Hubert Kario (RedHat)
+Affects:        iperf-3.2 through iperf-3.16 (inclusive)
+Corrected:      iperf-3.17
+CVE:            CVE-2024-26306
+
+I. Background
+
+iperf3 is a utility for testing network performance using TCP, UDP,
+and SCTP, running over IPv4 and IPv6. It uses a client/server model,
+where a client and server communicate the parameters of a test,
+coordinate the start and end of the test, and exchange results.
+
+II. Problem Description
+
+iperf3 includes an option to require authentication before allowing a
+client to begin performance tests. The authentication scheme in iperf3
+versions <= 3.16 (when used without implicit rejection support, first
+introduced in OpenSSL 3.2.0) is vulnerable to an RSA decryption
+side-channel timing attack. This may allow a remote attacker to
+decrypt a user's iperf3 password and run unauthorized network
+performance tests.
+
+When configured to require authentication, the EVP_PKEY_decrypt() or
+RSA_private_decrypt() methods would be used in a non-constant time
+fashion. An attacker that is able to send a sufficiently large number
+of messages for decryption to a listening iperf3 server could recover
+the plaintext credential. This is described in "Everlasting ROBOT: the
+Marvin Attack" by Hubert Kario.
+
+Reference: https://people.redhat.com/~hkario/marvin/
+
+III. Impact
+
+It might be possible for a malicious iperf3 client to decrypt the
+credential string used for authorization and use this to perform
+network performance tests without authorization.
+
+IV. Workaround
+
+There is no workaround for this issue.
+
+V. Solution
+
+This has been fixed in iperf 3.17 by using OAEP padding. However, a
+new option has been added (--use-pkcs1-padding) that will re-enable
+the vulnerable code for backwards compatibility.
+
+VI. Correction details
+
+Fix commit: 299b356df6939f71619bf45bf7a7d2222e17d840

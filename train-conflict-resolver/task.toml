@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting bugs across a partially implemented multi-agent railway simulation (fractional speed arithmetic, finite state machine transitions, graph-based conflict resolution with chain propagation), studying unfamiliar reference source code from the Flatland library, implementing a missing integration module (StepSimulator) from scratch, adding SQLite trace storage, and creating a Makefile that orchestrates a multi-tool pipeline using sqlite3 CLI and jq for JSON transformation — requiring proficiency with GNU Make syntax, sqlite3 CLI flags (-json), jq filters (map, add, tonumber), and shell variable escaping within Makefiles."""
+solution_explanation = """Fix _to_fraction in speed_counter.py to detect inverse-of-integer fractions (e.g. 1/3 from float 0.333...) using tolerance-based rounding instead of Fraction.from_float. Fix is_cell_entry in SpeedCounter.step to use 'distance < speed or entered_new_cell' instead of 'distance == 0'. Add the missing MALFUNCTION_OFF_MAP handler to the state machine with its 4-way transition logic. Rewrite MotionCheck to propagate stopping through predecessor chains using the _stop_and_update_target_conflicts pattern from the Flatland reference. Implement StepSimulator integrating speed counters, state machines, and motion checks with proper action preprocessing, conflict resolution, position updates, and target detection. Create trace.py module with sqlite3 write_trace function. Create a Makefile with simulate/trace/summary/lint-scenario targets, where summary uses sqlite3 -json piped through jq to construct the required JSON output, and lint-scenario uses jq -e for schema validation."""
+verification_explanation = """Tests cover unit behavior of each component (SpeedCounter fraction arithmetic and cell transitions, TrainState enum helpers, StateTransitionSignals defaults, all 7 state machine states with their transitions, MotionCheck self-loops/swaps/merges/chain-blocking/cascading-stops), integration scenarios (single/multi-agent simulation, head-on collision, target reaching, fractional speed, CLI interface, stop actions, merge conflicts, departure timing), SQLite trace database tests (schema validation, data correctness, multi-agent traces, analytical SQL queries), and Makefile integration tests (simulate/trace/summary/lint-scenario targets, multi-agent summary, invalid JSON lint, non-JSON lint, verification that summary/lint targets use sqlite3+jq CLI tools not Python)."""
+category = "debugging"
+tags = ["multi-agent-simulation", "cli-tool-integration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/train-conflict-resolver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of both the RISC-V ISA specification and the Sail formal specification language. The agent must read and comprehend Sail source code (an unfamiliar formal language with pattern matching, dependent types, and bitvector operations) to extract 40+ configuration constraint rules from validate_config.sail and extensions.sail. Key challenges include: (1) understanding derived extension support semantics where some extensions are computed from vector parameters rather than directly configured; (2) PMA coherence protocol constraints for cacheable+coherent main memory regions; (3) compound multi-extension dependencies with conjunctive and disjunctive requirements; (4) cross-section validation where extension support constrains base-level xtval fields; (5) cascading fix interactions where resolving one violation triggers or resolves others. Requires multi-tool proficiency: jq for JSON analysis, Sail language comprehension, Python for implementation."""
+solution_explanation = """Parse the Sail source files to extract all constraint rules from config_is_valid() and its sub-functions. Implement a Python validator covering all checks: privilege hierarchy, MMU dependencies, vector parameter constraints, derived vector extension support, PMA region requirements, extension dependency chains, parameter constraints, and Stateen configuration. Build an iterative fixer with dependency-aware ordering that re-validates after each pass until convergence. Generate the audit report from the initial violation set."""
+verification_explanation = """Tests implement an independent ground-truth validator with all constraint rules from the Sail source. For each output config: validates zero constraint violations, verifies xlen and key design-intent properties preserved. For each original config: verifies expected minimum violation counts. Additionally checks audit.json existence and structure."""
+category = "computer_architecture"
+tags = ["risc-v", "formal-verification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a72813"

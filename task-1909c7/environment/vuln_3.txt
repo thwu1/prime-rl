@@ -1,0 +1,34 @@
+[  456.789012] ==================================================================
+[  456.789013] BUG: KASAN: slab-out-of-bounds in netfilter_overflow+0x68/0xa0 [vuln_mod]
+[  456.789014] Write of size 24 at addr ffff888100c67458 by task exploit_poc/3456
+[  456.789015]
+[  456.789016] CPU: 3 PID: 3456 Comm: exploit_poc Tainted: G    O      6.1.75 #1
+[  456.789017] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.2-1.fc38 04/01/2014
+[  456.789018] Call Trace:
+[  456.789019]  <TASK>
+[  456.789020]  dump_stack_lvl+0x49/0x63
+[  456.789021]  print_report+0x171/0x486
+[  456.789022]  ? netfilter_overflow+0x68/0xa0 [vuln_mod]
+[  456.789023]  kasan_report+0xb4/0x100
+[  456.789024]  ? netfilter_overflow+0x68/0xa0 [vuln_mod]
+[  456.789025]  __asan_store8+0x85/0xa0
+[  456.789026]  netfilter_overflow+0x68/0xa0 [vuln_mod]
+[  456.789027]  vuln_ioctl+0x230/0x300 [vuln_mod]
+[  456.789028]  __x64_sys_ioctl+0x12d/0x1a0
+[  456.789029]  do_syscall_64+0x3b/0x90
+[  456.789030]  entry_SYSCALL_64_after_hwframe+0x72/0xdc
+[  456.789031]  </TASK>
+[  456.789032]
+[  456.789033] Allocated by task 3456:
+[  456.789034]  kasan_save_stack+0x1e/0x40
+[  456.789035]  kasan_set_track+0x21/0x30
+[  456.789036]  __kasan_kmalloc+0x7e/0x90
+[  456.789037]  __kmalloc+0x50/0x140
+[  456.789038]  vuln_ioctl+0x1a0/0x300 [vuln_mod]
+[  456.789039]  __x64_sys_ioctl+0x12d/0x1a0
+[  456.789040]
+[  456.789041] The buggy address belongs to the object at ffff888100c67400
+[  456.789042]  which belongs to the cache kmalloc-96 of size 96
+[  456.789043] The buggy address is located 88 bytes inside of
+[  456.789044]  96-byte region [ffff888100c67400, ffff888100c67460)
+[  456.789045] ==================================================================

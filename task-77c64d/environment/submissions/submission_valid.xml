@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>TESTORG</OrganizationIdentifier>
+      <OrganizationFormalName>Test Water Quality Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-001</ProjectIdentifier>
+      <ProjectName>Annual Water Quality Survey</ProjectName>
+      <ProjectDescriptionText>Routine ambient monitoring of surface water quality parameters</ProjectDescriptionText>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-001</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Station Alpha Upstream</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+        <MonitoringLocationDescriptionText>200 feet upstream of confluence</MonitoringLocationDescriptionText>
+        <HUCEightDigitCode>02030103</HUCEightDigitCode>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>40.123456</LatitudeMeasure>
+        <LongitudeMeasure>-75.654321</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NJ</StateCode>
+        <CountyCode>021</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-001</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-03-15</ActivityStartDate>
+        <ProjectIdentifier>PROJ-001</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-001</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Dissolved oxygen (DO)</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>8.5</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Temperature, water</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>18.2</ResultMeasureValue>
+            <MeasureUnitCode>deg C</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

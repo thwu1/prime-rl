@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level HashiCorp Vault expertise across multiple domains: PKI certificate chain management (tuning mounts, regenerating root CAs, re-signing intermediates), HCL policy authoring with least-privilege scoping (including awareness of KV v2 API path changes), AppRole security hardening, KV v1-to-v2 non-destructive migration, and audit device configuration. The agent must diagnose issues from the running state (not told explicitly what is wrong), understand operation ordering dependencies (root CA before intermediate re-signing, KV upgrade before policy path changes), and produce a cryptographically valid certificate chain."""
+solution_explanation = """Start Vault and unseal it. Tune the PKI root mount to 87600h max TTL, regenerate the root CA with a long-lived cert. Re-generate the intermediate CSR and re-sign it with the new root. Update the web-server role to restrict domains, increase key size, and cap TTL. Upgrade KV from v1 to v2 using enable-versioning. Rewrite app-readonly policy with KV v2 paths (secret/data/app/*, secret/metadata/app/*) and read-only capabilities. Rewrite cert-issuer policy scoped to pki_int/issue/web-server only. Update AppRole with finite TTLs, CIDR restrictions, and use limits. Enable file audit device. Issue a leaf certificate for app.example.com."""
+verification_explanation = """Tests start Vault, unseal it, then run 15 pytest checks: Vault status, root CA mount TTL (>=10 years), root cert existence, intermediate-to-root chain validation via openssl, web-server role constraints (allow_any_name=false, allowed_domains, key_bits>=4096, max_ttl), functional access control tests for app-readonly policy (can read secrets, cannot write or access PKI) and cert-issuer policy (can issue certs, cannot generate roots or read secrets), AppRole TTL and CIDR validation, audit device existence, KV v2 mount version check, preserved secrets content check (both database and api-key), leaf certificate file existence and CN validation."""
+category = "security_and_privacy"
+tags = ["vault", "pki"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vault-pki-hardening"

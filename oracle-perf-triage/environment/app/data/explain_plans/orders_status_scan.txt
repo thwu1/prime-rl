@@ -1,0 +1,20 @@
+SQL_ID: 8lm9no0p1q2r3
+Plan hash value: 4829301756
+
+---------------------------------------------------------------------------
+| Id  | Operation         | Name   | Rows  | Bytes | Cost (%CPU)| Time     |
+---------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |        |  9876 |   193K|  38912   (1)| 00:07:47 |
+|*  1 |  TABLE ACCESS FULL| ORDERS |  9876 |   193K|  38912   (1)| 00:07:47 |
+---------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("STATUS"='PENDING')
+
+Note
+-----
+   - dynamic statistics used: dynamic sampling (level=2)
+   - Estimated 9876 rows out of 12500000 total (selectivity 0.08%)
+   - No index exists on ORDERS(STATUS) - full table scan required
+   - Query executed 987654 times - high frequency access pattern

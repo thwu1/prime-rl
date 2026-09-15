@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a complete statistical formula language from golden reference outputs and test cases, then implementing a correct parser, five contrast coding schemes with precise numerical values, a redundancy detection system that determines full vs reduced rank coding per factor per term (including subtle edge cases), stateful transforms, and a multi-tool shell pipeline orchestrating sqlite3 CLI, jq, and a Python CLI wrapper. The agent must study reference golden outputs in both JSON and SQLite formats to discover all expected behavior without being told the formula language's name or semantics, then write both a complex Python module and a shell pipeline script that correctly chains multiple CLI tools."""
+solution_explanation = """The Python solution implements a tokenizer, recursive-descent parser with correct precedence for a Wilkinson-Rogers formula language, term algebra operations using set-theoretic representations, type inference, five contrast coding schemes (Treatment, Sum, Poly, Helmert, Diff), a redundancy detection algorithm using power-set decomposition and greedy subterm recombination, and design matrix construction. The pipeline solution uses sqlite3 CLI to initialize and query a test database, jq to convert JSON data to CSV and compare outputs, the Python CLI for formula evaluation, and shell logic to orchestrate the multi-tool flow and record results back into SQLite."""
+verification_explanation = """Tests verify exact column names and matrix values for 17 direct API cases, CLI CSV/JSON output, validation tool integration, and a 25-case multi-tool pipeline that must: create a SQLite database from init.sql, query test cases with sqlite3, transform data with jq, run the CLI, compare results, and populate pipeline_results. Pipeline DB schema, result counts, and pass status are all verified."""
+category = "statistics"
+tags = ["formula-parsing", "multi-tool-pipeline"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/formula-design-matrix-8f1c49"

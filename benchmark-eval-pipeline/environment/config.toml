@@ -1,0 +1,11 @@
+[metrics]
+alpha = 0.5
+beta = 0.5
+
+[aggregation]
+trim_fraction = 0.1
+
+[bootstrap]
+confidence = 0.95
+n_bootstrap = 10000
+seed = 42

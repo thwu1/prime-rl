@@ -1,0 +1,36 @@
+{
+  "test_vectors": {
+    "salsa20_core": {
+      "description": "crypto_core_salsa20(out, in, k, sigma) where sigma='expand 32-byte k'",
+      "key_hex": "0102030405060708090a0b0c0d0e0f10c9cacbcccdcecfd0d1d2d3d4d5d6d7d8",
+      "input_hex": "65666768696a6b6c0000000000000000",
+      "expected_output_hex": "a09b7719223218a8fba5a33dbf01a53803878d3ac61d33fb3efa6c702c95d38d4d2291cf4bda507e3b87b81a12db25ac7b6f812cab7daee17bed3d88a8afbb94"
+    },
+    "hsalsa20_core": {
+      "description": "crypto_core_hsalsa20(out, in, k, sigma)",
+      "key_hex": "32333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f5051",
+      "input_hex": "6465666768696a6b6c6d6e6f70717273",
+      "expected_output_hex": "5b35853e5d47f5d6606ec6cba9a155888bb872d136913d5fa79dfdb4bfd1a375"
+    },
+    "poly1305": {
+      "description": "crypto_onetimeauth(out, msg, msglen, key) - key is passed raw; clamping is done internally by crypto_onetimeauth",
+      "key_hex": "0a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223242526272829",
+      "message": "Cryptographic doom principle",
+      "expected_output_hex": "7f943f45cd8fdac2bf70dc986ddd0446"
+    },
+    "curve25519": {
+      "description": "crypto_scalarmult(result, scalar, basepoint) where basepoint is the standard Curve25519 base point (9)",
+      "scalar_hex": "a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4",
+      "basepoint_hex": "0900000000000000000000000000000000000000000000000000000000000000",
+      "expected_output_hex": "1c9fd88f45606d932a80c71824ae151d15d73e77de38e8e000852e614fae7019"
+    }
+  },
+  "challenge": {
+    "description": "crypto_secretbox (XSalsa20-Poly1305 authenticated encryption). Decrypt to recover the plaintext.",
+    "key_hex": "1b27556473e985d462cd51197a9a46c76009549eac6474f206c4ee0844f68389",
+    "nonce_hex": "69696ee955b62b73cd62bda875fc73d68219e0036b7a0b37",
+    "ciphertext_hex": "0000000000000000000000000000000015b5cefb6cbc68587283c8d0070d968264f6017a24868cdf3cb17399f4563fe63a768efe294e3a152168492a3de039e24c501aa7c20ef341340fbca09246d17b596f9067ddcbce5c149b411320f1bf7ddfdc68e6689353911ebc4949c9a1d49604b5746ee2eb8d05dc5442957e16d8",
+    "ciphertext_length": 127,
+    "notes": "First 16 bytes of ciphertext are zero (BOXZEROBYTES=16). Bytes 16-31 are the Poly1305 MAC. Bytes 32+ are the XSalsa20-encrypted message. The plaintext message starts at offset 32 of the decrypted buffer (first 32 bytes are ZEROBYTES padding)."
+  }
+}

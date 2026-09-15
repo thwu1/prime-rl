@@ -1,0 +1,7 @@
+=== Results ===
+test_alpha: pass
+test_beta: pass
+test_delta: pass
+test_gamma: pass
+=== Summary ===
+Total: 4 tests passed

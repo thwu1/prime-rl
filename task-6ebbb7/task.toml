@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of CFD verification methodology (Richardson extrapolation, GCI, asymptotic range indicators), boundary layer theory (displacement/momentum thickness integrals), and turbulent wall models (Spalding's composite law of the wall with nonlinear least-squares fitting). The solver must correctly implement trapezoidal integration with wall-to-first-point contribution, bounded optimization for friction velocity, and multi-grid convergence analysis with proper error estimation — none of which are standard textbook formulas in isolation."""
+solution_explanation = """The solution reads experimental BL profile and CFD Cf data, computes integral parameters via trapezoidal rule, fits Spalding's law of the wall using scipy.optimize.minimize_scalar to extract friction velocity, applies Richardson extrapolation at each x-station for two turbulence models to determine observed order of accuracy and grid-independent solutions, computes GCI and asymptotic range indicators, and performs cross-model comparison of extrapolated Cf values."""
+verification_explanation = """All input data and reference answers are generated at Docker build time from a unique random DNA seed (UUID written to /opt/dna_seed.txt). The generate_data.py script uses this seed to produce randomized flow parameters, boundary layer profiles, and CFD grid data — no static data files exist in the build context. Reference answers are stored in a pickle file and the DNA fingerprint is persisted for integrity checks. Tests verify agent results against the DNA-derived references within tolerance: BL integrals within 8%, Spalding fit u_tau within 5%, Richardson extrapolation order and asymptotic ratio within 2%, extrapolated values within 1%, GCI within 5%, and model comparison metrics within 5%. A dedicated TestDNA class verifies the DNA fingerprint consistency."""
+category = "computational_science"
+tags = ["cfd", "turbulence-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6ebbb7"

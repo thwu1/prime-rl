@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of compartmented lattice security models (partial orders with incomparable labels, not just linear levels), seL4 capability delegation semantics (effective rights resolution through derivation chains, identification of inert capabilities), information-flow derivation from typed IPC primitives, and NP-hard combinatorial optimization with cascading side-effects. The system has 18 protection domains across 4 security levels and 4 compartments, 28 resources of 3 types, and 84 capabilities including 19 derived (2 inert). The compartmented lattice creates 13 compartment-breach violations invisible to linear-level analysis, plus 26 mixed-type violations requiring joint level-and-compartment reasoning. The cascading revocation optimization must model the delegation DAG structure to exploit ancestor revocations that eliminate descendant flows at zero marginal cost."""
+solution_explanation = """Parse the JSON spec and resolve effective rights by tracing each capability's delegation chain to its root, intersecting rights at each hop to identify 2 inert capabilities (cap_083: R derived from W-only parent; cap_084: Recv derived from Send parent). Build the information flow graph from effective rights only (66 edges). Check full lattice dominance (level >= AND compartments superset) for each edge to find 43 violations across three categories: 4 write-down, 13 compartment-breach, 26 level-and-compartment. Compute transitive closure for TCB/impact boundary. Formulate a cascading-aware weighted hitting set: expand each violation's killer set to include ancestors whose cascade covers direct killers, minimize direct revocation cost, yielding 24 direct revocations (cost 100) with 4 cascaded."""
+verification_explanation = """Tests verify: inert capability detection (exact IDs cap_083/cap_084), flow edge count (66), presence/absence of specific flows (including absence due to inert caps), violation count (43) with specific violations from each category (write-down, compartment-breach, level-and-compartment), lattice dominance property on all violations, violation completeness, TCB/impact boundary for discriminating PDs (nav_svc TCB=0, downlink TCB=17, nav_svc IB=17, downlink IB=1), revocation cost (100), functional verification that zero violations remain after revocation, and structural consistency of cascaded revocation IDs."""
+category = "systems_security"
+tags = ["lattice-access-control", "capability-delegation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/capability-flow-analysis"

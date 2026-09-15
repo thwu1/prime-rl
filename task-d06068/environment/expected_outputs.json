@@ -1,0 +1,34 @@
+{
+  "basic": {
+    "fixture": "basic.html",
+    "traversal": ["document", "navigation", "Nav Text", "end of navigation", "heading, Page Title, level 1", "paragraph", "Intro paragraph", "end of paragraph", "article", "heading, Article Heading, level 2", "paragraph", "Article text", "end of paragraph", "end of article", "contentinfo", "Footer Info", "end of contentinfo", "end of document"]
+  },
+  "hidden": {
+    "fixture": "hidden.html",
+    "traversal": ["document", "paragraph", "Visible text", "end of paragraph", "paragraph", "More visible text", "end of paragraph", "end of document"]
+  },
+  "headings_links": {
+    "fixture": "headings_links.html",
+    "traversal": ["document", "heading, Heading With Link, level 1", "link, Heading With Link", "end of heading, Heading With Link, level 1", "link, Link With Heading", "heading, Link With Heading, level 2", "end of link, Link With Heading", "end of document"]
+  },
+  "inert_modal": {
+    "fixture": "inert_modal.html",
+    "traversal": ["document", "paragraph", "visible paragraph", "end of paragraph", "dialog, visible dialog heading, modal", "heading, visible dialog heading, level 1", "end of dialog, visible dialog heading, modal", "end of document"]
+  },
+  "aria_owns": {
+    "fixture": "aria_owns.html",
+    "traversal": ["document", "list", "listitem", "Item 1", "end of listitem", "listitem", "Item 2", "end of listitem", "listitem", "Owned Item 3", "end of listitem", "end of list", "paragraph", "Separator", "end of paragraph", "end of document"]
+  },
+  "aria_labels": {
+    "fixture": "aria_labels.html",
+    "traversal": ["document", "navigation, Primary", "link, Home", "Home", "end of link, Home", "link, About", "About", "end of link, About", "end of navigation, Primary", "navigation, Secondary", "link, Blog", "Blog", "end of link, Blog", "end of navigation, Secondary", "region, Featured Content", "heading, Featured Content, level 2", "paragraph", "Some content here", "end of paragraph", "end of region, Featured Content", "end of document"]
+  },
+  "presentational": {
+    "fixture": "presentational.html",
+    "traversal": ["document", "banner", "heading, Site Title, level 1", "end of banner", "main", "heading, Main Content, level 2", "paragraph", "Presentation child", "end of paragraph", "paragraph", "None child", "end of paragraph", "button, Click Me", "end of main", "contentinfo", "paragraph", "Copyright 2024", "end of paragraph", "end of contentinfo", "end of document"]
+  },
+  "roledescription": {
+    "fixture": "roledescription.html",
+    "traversal": ["document", "slide, Slide 1", "heading, Welcome, level 2", "paragraph", "Introduction content", "end of paragraph", "end of slide, Slide 1", "end of document"]
+  }
+}

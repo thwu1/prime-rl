@@ -1,0 +1,67 @@
+{
+  "test_cases": [
+    {
+      "name": "star_full_interaction",
+      "formula": "a * b",
+      "data": {"a": ["a1","a1","a2","a2"], "b": ["b1","b2","b1","b2"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "b[T.b2]", "a[T.a2]:b[T.b2]"],
+      "expected_matrix": [[1,0,0,0],[1,0,1,0],[1,1,0,0],[1,1,1,1]]
+    },
+    {
+      "name": "colon_cat_numeric",
+      "formula": "a:x",
+      "data": {"a": ["a1","a1","a2","a2"], "x": [1.0,2.0,3.0,4.0]},
+      "expected_columns": ["Intercept", "a[a1]:x", "a[a2]:x"],
+      "expected_matrix": [[1,1,0],[1,2,0],[1,0,3],[1,0,4]]
+    },
+    {
+      "name": "colon_numeric_numeric",
+      "formula": "x1:x2",
+      "data": {"x1": [1.0,2.0,3.0], "x2": [4.0,5.0,6.0]},
+      "expected_columns": ["Intercept", "x1:x2"],
+      "expected_matrix": [[1,4],[1,10],[1,18]]
+    },
+    {
+      "name": "minus_removes_term",
+      "formula": "a * b - a:b",
+      "data": {"a": ["a1","a1","a2","a2"], "b": ["b1","b2","b1","b2"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "b[T.b2]"],
+      "expected_matrix": [[1,0,0],[1,0,1],[1,1,0],[1,1,1]]
+    },
+    {
+      "name": "slash_nesting",
+      "formula": "a / b",
+      "data": {"a": ["a1","a1","a2","a2"], "b": ["b1","b2","b1","b2"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "a[a1]:b[T.b2]", "a[a2]:b[T.b2]"],
+      "expected_matrix": [[1,0,0,0],[1,0,1,0],[1,1,0,0],[1,1,0,1]]
+    },
+    {
+      "name": "power_equals_star",
+      "formula": "(a + b) ** 2",
+      "data": {"a": ["a1","a1","a2","a2"], "b": ["b1","b2","b1","b2"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "b[T.b2]", "a[T.a2]:b[T.b2]"],
+      "expected_matrix": [[1,0,0,0],[1,0,1,0],[1,1,0,0],[1,1,1,1]]
+    },
+    {
+      "name": "intercept_with_interaction_rbug1",
+      "formula": "1 + a:b",
+      "data": {"a": ["a1","a1","a2","a2"], "b": ["b1","b2","b1","b2"]},
+      "expected_columns": ["Intercept", "b[T.b2]", "a[T.a2]:b[b1]", "a[T.a2]:b[b2]"],
+      "expected_matrix": [[1,0,0,0],[1,1,0,0],[1,0,1,0],[1,1,0,1]]
+    },
+    {
+      "name": "paren_intercept_retention",
+      "formula": "(a - 1)",
+      "data": {"a": ["a1", "a2", "a3"]},
+      "expected_columns": ["Intercept", "a[T.a2]", "a[T.a3]"],
+      "expected_matrix": [[1,0,0],[1,1,0],[1,0,1]]
+    },
+    {
+      "name": "bare_intercept_removal",
+      "formula": "a - 1",
+      "data": {"a": ["a1", "a2", "a3"]},
+      "expected_columns": ["a[a1]", "a[a2]", "a[a3]"],
+      "expected_matrix": [[1,0,0],[0,1,0],[0,0,1]]
+    }
+  ]
+}

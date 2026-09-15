@@ -1,0 +1,22 @@
+# Scenario C: Mixed periodicity with 18-point stencil and deep halos
+domain:
+  Nx: 480
+  Ny: 240
+  Nz: 160
+
+num_processes: 48
+
+stencil:
+  type: 18
+  halo_depth: 2
+
+element_bytes: 8
+
+network:
+  latency_us: 1.0
+  bandwidth_GBps: 25.0
+
+periodic:
+  x: true
+  y: false
+  z: false

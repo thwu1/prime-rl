@@ -1,0 +1,6 @@
+{
+    "benchmark_dir": "/app/data/benchmark",
+    "systems": ["alpha", "beta", "gamma"],
+    "output_dir": "/app/output",
+    "notes": "Validation tooling: trec_eval may be available at /usr/local/bin/trec_eval; gcc and make are installed for compiling tools from source"
+}

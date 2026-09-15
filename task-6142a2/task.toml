@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of probabilistic forecast evaluation methodology (Weighted Interval Score formulation, three-component decomposition, pairwise geometric-mean relative WIS) and the ability to ingest heterogeneous data formats (CSV, Parquet, NDJSON, SQLite) into a unified pipeline. The agent must independently determine how to read each format, implement WIS scoring with correct interval algebra over 23 quantile levels, compute pairwise model rankings with geometric-mean normalization, solve a constrained optimization problem for ensemble weights on a simplex, validate submissions against a nested JSON specification, and export results across multiple storage backends (CSV, SQLite, Parquet). The combination of domain-specific statistical methodology with multi-format data engineering and numerical optimization makes this inaccessible without both forecasting expertise and systems proficiency."""
+solution_explanation = """Extract validation rules from the nested tasks.json hub config. Read Parquet forecasts via DuckDB or PyArrow, NDJSON via json module, and CSV via csv module. Query observations.db for target values. Validate each model against hub spec, excluding TeamF-Corrupt. Compute WIS with 11-interval decomposition, pairwise relative WIS via geometric means, and optimize ensemble weights via simplex grid search. Write CSV outputs, insert all results into a SQLite results.db, then export the ensemble_evaluation LEFT JOIN ensemble_weights as summary.parquet."""
+verification_explanation = """Tests verify: (1) validation_manifest.json has correct structure and values, (2) all CSV outputs exist with correct columns/rows/values, (3) results.db SQLite database has all five tables with matching content, (4) summary.parquet is a valid Parquet file with correct schema, (5) WIS decomposition is mathematically valid (components sum to total, all non-negative), (6) specific WIS values match within tolerance, (7) model ranking order is correct with geometric mean product property, (8) ensemble weights are valid and trained ensemble outperforms components, (9) TeamF-Corrupt is excluded from all outputs."""
+category = "data_science"
+tags = ["probabilistic-forecasting", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6142a2"

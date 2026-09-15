@@ -1,0 +1,146 @@
+================================================================================
+CAPRI QUALITY CRITERIA FOR PROTEIN-PROTEIN DOCKING ASSESSMENT
+================================================================================
+Compiled from fetched web sources on 2026-07-06.
+
+Primary sources:
+  1. Méndez R, Leplae R, De Maria L, Wodak SJ. (2003) Proteins 52(1):51-67.
+     DOI: 10.1002/prot.10393 | PMID: 12784368
+     "Assessment of blind predictions of protein-protein interactions: Current
+     status of docking methods."
+
+  2. Lensink MF, Méndez R, Wodak SJ. (2007) Proteins 69(4):704-18.
+     DOI: 10.1002/prot.21804 | PMID: 17918726
+     "Docking and scoring protein complexes: CAPRI 3rd Edition."
+
+  3. Basu S, Wallner B. (2016) PLoS ONE 11(8):e0161879.
+     DOI: 10.1371/journal.pone.0161879
+     "DockQ: A Quality Measure for Protein-Protein Docking Models."
+
+The definitions below are extracted verbatim from the DockQ paper (Basu &
+Wallner, 2016), which cites and formalizes the criteria originally established
+by Méndez et al. (2003) and refined by Lensink, Méndez & Wodak (2007).
+
+================================================================================
+1. INTERFACE DEFINITION
+================================================================================
+
+The interface between the two interacting protein molecules (receptor and
+ligand) is defined as any pair of heavy atoms from the two molecules within
+5 Angstroms of each other.
+
+================================================================================
+2. QUALITY MEASURES
+================================================================================
+
+2a. fnat (Fraction of Native Contacts)
+---------------------------------------
+fnat is defined as the fraction of native interfacial contacts preserved in
+the interface of the predicted complex.
+
+  - "Native contacts" are residue-residue contacts across the interface in
+    the experimentally determined (target/native) structure.
+  - A contact is defined when any pair of heavy atoms from two residues on
+    different chains are within 5 Angstroms.
+  - fnat = (number of native contacts reproduced in the model) /
+           (total number of native contacts in the target)
+  - Range: [0, 1], where 1 = all native contacts reproduced perfectly.
+
+2b. L-RMSD (Ligand RMSD, also written LRMS)
+--------------------------------------------
+LRMS is the Ligand Root Mean Square deviation calculated for the backbone
+of the shorter chain (ligand) of the model after superposition of the longer
+chain (receptor).
+
+  - The receptor (longer chain) of the model is first superimposed onto
+    the receptor of the target structure.
+  - Then the RMSD of the backbone atoms of the ligand (shorter chain) is
+    calculated WITHOUT further superposition.
+  - This measures the overall positional accuracy of the ligand relative
+    to the receptor.
+  - Units: Angstroms. Lower is better.
+
+2c. I-RMSD (Interface RMSD, also written iRMS)
+-----------------------------------------------
+For iRMS, the receptor-ligand interface in the target (native) is redefined
+at a relatively relaxed atomic contact cutoff of 10 Angstroms (twice the
+value used for fnat). The backbone atoms of these "interface" residues are
+then superposed on their equivalents in the predicted complex (model) to
+compute the iRMS.
+
+  - Interface residues are identified using a 10 Angstrom heavy-atom
+    distance cutoff between chains in the native structure.
+  - The backbone atoms of these interface residues in the model are
+    superimposed onto their counterparts in the native structure.
+  - iRMS is the resulting RMSD after this superposition.
+  - This measures the local accuracy of the interface geometry.
+  - Units: Angstroms. Lower is better.
+
+================================================================================
+3. CAPRI QUALITY CATEGORIES
+================================================================================
+
+The CAPRI evaluation uses different cutoffs on fnat, L-RMSD, and I-RMSD to
+assign predicted docking models into four quality classes. The criteria below
+are extracted directly from Basu & Wallner (2016), which formalizes the
+classification from Lensink, Méndez & Wodak (2007):
+
+  HIGH QUALITY:
+    fnat >= 0.5  AND  (L-RMSD <= 1.0  OR  I-RMSD <= 1.0)
+
+  MEDIUM QUALITY:
+    ( (fnat >= 0.3 AND fnat < 0.5) AND (L-RMSD <= 5.0 OR I-RMSD <= 2.0) )
+    OR
+    ( fnat >= 0.5 AND L-RMSD > 1.0 AND I-RMSD > 1.0 )
+
+  ACCEPTABLE QUALITY:
+    ( (fnat >= 0.1 AND fnat < 0.3) AND (L-RMSD <= 10.0 OR I-RMSD <= 4.0) )
+    OR
+    ( fnat >= 0.3 AND L-RMSD > 5.0 AND I-RMSD > 2.0 )
+
+  INCORRECT:
+    fnat < 0.1
+    OR
+    (L-RMSD > 10.0 AND I-RMSD > 4.0)
+
+================================================================================
+4. SUMMARY TABLE
+================================================================================
+
+  Category    | fnat       | L-RMSD (A) | I-RMSD (A)
+  ------------|------------|------------|------------
+  High        | >= 0.5     | <= 1.0     | <= 1.0
+  Medium      | >= 0.3     | <= 5.0     | <= 2.0
+  Acceptable  | >= 0.1     | <= 10.0    | <= 4.0
+  Incorrect   | < 0.1      | > 10.0     | > 4.0
+
+NOTE: The classification uses a hierarchical scheme where fnat is checked
+first, then L-RMSD OR I-RMSD must satisfy the threshold (i.e., meeting
+EITHER the L-RMSD or I-RMSD criterion is sufficient). Categories are
+assigned top-down: High first, then Medium, then Acceptable, else Incorrect.
+
+================================================================================
+5. KEY NOTES
+================================================================================
+
+- The criteria were first introduced in Méndez et al. (2003) and refined
+  in Lensink, Méndez & Wodak (2007).
+
+- fnat uses a 5A heavy-atom contact cutoff for defining interface contacts.
+
+- I-RMSD uses a 10A heavy-atom contact cutoff for defining interface residues
+  (more relaxed than fnat).
+
+- L-RMSD measures global ligand placement; I-RMSD measures local interface
+  accuracy. A model can have poor L-RMSD but still acceptable I-RMSD.
+
+- The DockQ score (Basu & Wallner, 2016) combines all three measures into a
+  single continuous score [0,1]:
+    DockQ = (fnat + RMS_scaled(L-RMSD, 8.5) + RMS_scaled(I-RMSD, 1.5)) / 3
+  where RMS_scaled(RMS, d) = 1 / (1 + (RMS/d)^2)
+
+- Approximate DockQ thresholds corresponding to CAPRI categories:
+    Incorrect:  DockQ < 0.23
+    Acceptable: 0.23 <= DockQ < 0.49
+    Medium:     0.49 <= DockQ < 0.80
+    High:       DockQ >= 0.80

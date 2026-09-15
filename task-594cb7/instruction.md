@@ -1,0 +1,5 @@
+The directory `/app/histories/` contains six operation history files recorded during Jepsen-style concurrency tests of a transactional key-value store using an append workload. These histories are in Jepsen's native EDN (Extensible Data Notation) format and record interleaved client operations from concurrent processes.
+
+For each history, build the full transactional dependency graph (WW, WR, RW, RT edge sets), classify the strongest consistency level it satisfies, detect which anomalies (G0, G1c, G2) are present, compute dependency graph metrics (per-type edge counts, strongly connected component analysis, minimum feedback vertex set), and identify the exact shortest anomaly cycle. For each history that exhibits anomalies, produce an SVG visualization in `/app/graphs/` using graphviz, illustrating the anomalous transaction relationships.
+
+The EDN input format, analysis requirements, output schema, and consistency level definitions are documented in `/app/spec.md`. Write your complete analysis results to `/app/results.json`.

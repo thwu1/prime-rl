@@ -1,0 +1,6 @@
+{
+    "audit_source": "A",
+    "critical_destinations": ["E", "F"],
+    "max_acceptable_cost": 10,
+    "require_backup_for_critical": true
+}

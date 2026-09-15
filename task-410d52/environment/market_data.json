@@ -1,0 +1,28 @@
+{
+  "evaluation_date": "2015-09-11",
+  "calendar": "UnitedStates",
+  "day_count": "Actual365Fixed",
+  "settlement_days": 2,
+  "flat_forward_rate": 0.04875825,
+  "swaption_data": [
+    {"expiry_years": 1, "tenor_years": 5, "volatility": 0.1148},
+    {"expiry_years": 2, "tenor_years": 4, "volatility": 0.1108},
+    {"expiry_years": 3, "tenor_years": 3, "volatility": 0.1070},
+    {"expiry_years": 4, "tenor_years": 2, "volatility": 0.1021},
+    {"expiry_years": 5, "tenor_years": 1, "volatility": 0.1000}
+  ],
+  "vol_type": "lognormal",
+  "index_tenor": "1Y",
+  "bermudan_spec": {
+    "direction": "payer",
+    "notional": 10000000,
+    "fixed_rate": 0.05,
+    "swap_start_years": 1,
+    "swap_maturity_years": 6,
+    "exercise_years": [1, 2, 3, 4, 5],
+    "fixed_leg_frequency": "Annual",
+    "fixed_leg_day_count": "Thirty360",
+    "float_leg_frequency": "Semiannual",
+    "float_leg_day_count": "Actual360"
+  }
+}

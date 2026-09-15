@@ -1,0 +1,35 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:obs-heart-rate",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-1"
+        },
+        "valueQuantity": {
+          "value": 72,
+          "unit": "beats/minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation"
+      }
+    }
+  ]
+}

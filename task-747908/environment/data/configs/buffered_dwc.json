@@ -1,0 +1,9 @@
+{
+    "name": "buffered_dwc",
+    "description": "Buffered DAA Well-Clear volume (SC-228 nominal A)",
+    "DTHR_nmi": 1.0,
+    "ZTHR_ft": 750.0,
+    "TAUMOD_s": 35.0,
+    "TCOA_s": 20.0,
+    "lookahead_s": 180.0
+}

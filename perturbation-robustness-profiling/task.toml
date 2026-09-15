@@ -1,0 +1,45 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple subtle statistical bugs in an existing
+analysis pipeline by exploring an undocumented SQLite database schema, discovering an
+analysis_params configuration table that specifies correct methods, and cross-referencing
+those specs against the pipeline's implementations. Bugs span binomial CI method selection,
+rank correlation tie handling, bootstrap parameterization, permutation test sidedness, and
+cooperative game value function aggregation strategy. Multi-format data integration (SQLite
+for simulation data, CSV for real-world validation) adds tool complexity."""
+solution_explanation = """Explore the database to find the analysis_params table, then fix
+the pipeline: (1) replace normal approximation CI with Wilson score interval, (2) add tie
+handling to rank correlation for tau-b, (3) use bootstrap seed 999 and correct percentile
+indices [24,974], (4) change permutation test to two-sided, (5) fix value function to pool
+all perturbations across coalition categories instead of averaging per-category means."""
+verification_explanation = """Tests independently verify each analysis module: Wilson CIs via
+closed-form formula, Kendall tau-b via scipy.stats.kendalltau, sensitivity via direct
+computation, bootstrap CI via independent resampling with correct seed, interaction p-values
+via two-sided permutation test with matching seeds, and Shapley totals via pooled value
+function with efficiency property check."""
+category = "data_science"
+tags = ["statistical-debugging", "database-exploration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perturbation-robustness-profiling"

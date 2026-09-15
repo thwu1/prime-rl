@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the complete Regulation Z Appendix J actuarial method for APR computation from a dense regulatory specification, plus building a Make-orchestrated multi-tool compliance pipeline. The APR solver demands: regulatory date arithmetic with 30-day-month conventions and fractional unit-period calculation, unit-period determination with edge cases, constructing and iteratively solving a present-value equation, handling complex transaction structures (multiple advances, stepped payments, payments preceding advances), transaction classification, and tolerance checking. The pipeline layer requires Makefile authoring with phony targets and dependency chains, parsing fixed-width APOR data, NDJSON as an inter-stage format, sqlite3 CLI for schema loading and report queries, and shell scripting to glue these tools together. Errors cascade across layers — wrong date arithmetic corrupts the present-value equation, yielding incorrect APR, which propagates through NDJSON to rate-spread and high-cost classification in the database. The instruction provides only outcome requirements and interface schemas; the solver must read and interpret the regulatory specification and enrichment rules from reference files to discover the computational approach."""
+solution_explanation = """The reference solution has: (1) apr_solver.py — a Python CLI that parses JSON loan specs, expands payment groups into dated cash flows, determines unit-period type, computes fractional time positions using Reg Z 30-day-month conventions, solves the present-value equation via bisection+Newton-Raphson, classifies transactions, and checks tolerance; (2) a Makefile with chained targets (compute→enrich→store→report) orchestrating the pipeline; (3) enrich.py parsing the fixed-width APOR file and computing term-based rate spreads per the enrichment spec; (4) import_db.py loading enriched NDJSON into SQLite after schema.sql is applied via sqlite3 CLI; (5) report.sh querying sqlite3 CLI and assembling summary JSON with jq; (6) compliance_pipeline wrapper running make and printing the summary."""
+verification_explanation = """Tests verify: (1) tool and pipeline executability, (2) Makefile existence with required targets (compute, enrich, store, report, all) via regex inspection, (3) schema.sql independent loadability by sqlite3 CLI into a temp database, (4) APOR fixed-width data file existence and parseability, (5) APR computation for 5 loan types against regulatory golden values within ±0.015%, (6) transaction classification and tolerance compliance, (7) dynamically-generated loans to prevent hardcoded answers, (8) intermediate NDJSON files (apr_results.ndjson, enriched.ndjson) with correct structure and field presence, (9) SQLite database schema with CHECK constraints and correct row count, (10) per-loan database verification of term_years, apor_rate, rate_spread, high_cost, and within_tolerance, (11) pipeline JSON summary validation, (12) cross-validation of database aggregates against summary."""
+category = "applied_computing"
+tags = ["finance", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regz-apr-calculator-dc3565"

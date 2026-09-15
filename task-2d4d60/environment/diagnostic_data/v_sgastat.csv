@@ -1,0 +1,11 @@
+pool,name,bytes
+shared pool,free memory,12582912
+shared pool,sql area,134217728
+shared pool,library cache,52428800
+shared pool,dictionary cache,25165824
+shared pool,PL/SQL MPCODE,8388608
+shared pool,row cache,10485760
+shared pool,miscellaneous,25165824
+large pool,free memory,8388608
+large pool,PX msg pool,4194304
+java pool,free memory,10485760

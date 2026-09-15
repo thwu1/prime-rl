@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level numerical analysis across three distinct domains: (1) computing a conditionally-convergent oscillatory improper integral with an essential singularity at x=0 whose frequency diverges — demanding contour deformation, change-of-variables, or advanced quadrature with series acceleration; (2) constructing a 20000×20000 structured sparse matrix (primes on diagonal, 15 off-diagonal bands at powers-of-2 offsets) and extracting a single entry of its inverse — direct solvers fail due to catastrophic fill-in from the wide bandwidth, requiring iterative methods (GMRES/CG) with appropriate preconditioning; (3) computing the harmonic measure (Brownian exit probability) for a high-aspect-ratio rectangle, requiring derivation and evaluation of a Fourier series solution to the Laplace equation."""
+solution_explanation = """Problem 1: Transform via u=-ln(x) to get ∫_0^∞ cos(u·e^u)du, then apply contour rotation z=(1+iδ)s to obtain a super-exponentially decaying integrand amenable to standard quadrature. Problem 2: Sieve primes, construct sparse CSC matrix, solve Ax=e₁ via GMRES with Jacobi (diagonal) preconditioner — converges in few iterations due to near-diagonal-dominance. Problem 3: Separation of variables on the Laplace equation yields P = (4/π)·Σ (-1)^n/((2n+1)·cosh((2n+1)·5π)), converging super-exponentially."""
+verification_explanation = """Tests compare each answer against reference values verified to 40+ significant digits by 20+ independent teams. Relative error must be below 5×10⁻¹⁰ (10 significant digits). An independent Fourier series computation using stdlib math cross-checks Problem 3."""
+category = "mathematics"
+tags = ["numerical-analysis", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-eb39ff"

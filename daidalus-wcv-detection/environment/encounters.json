@@ -1,0 +1,74 @@
+{
+  "encounters": [
+    {
+      "id": "head_on",
+      "description": "Head-on collision course, 5 nmi separation, same altitude",
+      "sx_nmi": 0.0,
+      "sy_nmi": 5.0,
+      "sz_ft": 0.0,
+      "vx_kn": 0.0,
+      "vy_kn": -300.0,
+      "vz_fpm": 0.0
+    },
+    {
+      "id": "crossing",
+      "description": "90-degree crossing encounter, 3 nmi lateral offset",
+      "sx_nmi": 3.0,
+      "sy_nmi": 0.0,
+      "sz_ft": 0.0,
+      "vx_kn": -200.0,
+      "vy_kn": 0.0,
+      "vz_fpm": 0.0
+    },
+    {
+      "id": "slow_approach",
+      "description": "Very slow head-on approach at 10 kn, 0.8 nmi separation",
+      "sx_nmi": 0.0,
+      "sy_nmi": 0.8,
+      "sz_ft": 0.0,
+      "vx_kn": 0.0,
+      "vy_kn": -10.0,
+      "vz_fpm": 0.0
+    },
+    {
+      "id": "vertical_conflict",
+      "description": "Within DTHR horizontally but 800 ft vertical separation closing",
+      "sx_nmi": 0.0,
+      "sy_nmi": 0.5,
+      "sz_ft": 800.0,
+      "vx_kn": 0.0,
+      "vy_kn": -100.0,
+      "vz_fpm": -400.0
+    },
+    {
+      "id": "separating",
+      "description": "Aircraft separating, moving apart at 100 kn",
+      "sx_nmi": 0.0,
+      "sy_nmi": 5.0,
+      "sz_ft": 0.0,
+      "vx_kn": 0.0,
+      "vy_kn": 100.0,
+      "vz_fpm": 0.0
+    },
+    {
+      "id": "near_miss",
+      "description": "Approaching but CPA exceeds DTHR (1.0 nmi lateral offset)",
+      "sx_nmi": 1.0,
+      "sy_nmi": 3.0,
+      "sz_ft": 0.0,
+      "vx_kn": 0.0,
+      "vy_kn": -200.0,
+      "vz_fpm": 0.0
+    },
+    {
+      "id": "inside_diverging",
+      "description": "Currently inside DTHR but aircraft diverging (s dot v = 0)",
+      "sx_nmi": 0.4,
+      "sy_nmi": 0.4,
+      "sz_ft": 0.0,
+      "vx_kn": 100.0,
+      "vy_kn": -100.0,
+      "vz_fpm": 0.0
+    }
+  ]
+}

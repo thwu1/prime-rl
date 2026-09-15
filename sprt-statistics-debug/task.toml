@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of sequential hypothesis testing, maximum likelihood estimation, Brownian motion theory, and multiple Elo rating models with their mathematical interrelationships. The agent must audit four interrelated codebases (statistical modules, output parser, REST API) against a mathematical specification, identify subtle numerical discrepancies across the full inference stack, fix them, and implement a complete server wiring everything together — all without any indication of how many bugs exist or where they are located. The statistical bugs are mathematically subtle: each looks plausible in isolation but produces incorrect results that cascade through the pipeline. The parser bugs require understanding of regex semantics and the fastchess output format. The server requires integrating the statistical engine with proper data persistence and multi-model support."""
+solution_explanation = """Seven formula bugs across stats modules: (1) results_to_pdf uses i/count instead of i/(count-1), (2) LLR_drift_variance_alt2 divides by sqrt(var) instead of var, (3) Brownian pre-factor uses exp(2*gamma*x) instead of exp(2*gamma*(A-x)), (4) sprt.set_state uses var**0.5 instead of (2*var)**0.5 for pentanomial sigma_pg, (5) bayeselo_to_proba uses /200 instead of /400, (6) LLR_normalized omits sqrt(2) scaling for pentanomial t-value bounds, (7) SPRT_elo always uses LLR_logistic instead of model-conditional LLR. Four parser bugs: search→findall for last block, swapped W/L groups, missing pentanomial extraction, missing crash/time-loss detection. Server implementation: SQLite schema, four endpoints using stat_util.SPRT_elo, proper model passthrough."""
+verification_explanation = """Tests verify mathematical properties across the full stack: score mapping values and probabilities, logistic function symmetry, LLR drift-variance using variance (not stdev), MLE constraint satisfaction, Brownian CDF consistency between series and Siegmund methods, pentanomial sigma_pg factor-of-2, BayesElo roundtrip consistency and known values, LLR sign correctness, normalized Elo LLR agreement between exact and approximate methods, SPRT_elo cross-model LLR differentiation, parser correctness for normal/crash/multiblock outputs, and server endpoint behavior with model-specific analytics."""
+category = "data_science"
+tags = ["statistics", "web-api"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sprt-statistics-debug"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of PostgreSQL's ORDER BY identifier resolution internals. The solver must diagnose why specific SQL queries produce incorrect results by investigating how PostgreSQL's parser handles different syntactic forms in ORDER BY clauses. Three queries are deliberate decoys that use patterns superficially resembling bugs but are actually correct. The solver must combine SQL execution, output comparison, root-cause analysis across seven distinct bug categories, in-place query rewrites, and structured diagnostic reporting."""
+solution_explanation = """The solver must start PostgreSQL, execute all 10 queries, and compare outputs against expected files. Seven queries fail (via error or wrong ordering). For each, the solver must diagnose the specific ORDER BY scoping rule violated: (q1) alias shadow — qualify column reference, (q2) GROUP BY/ORDER BY precedence — use positional GROUP BY, (q4) quoted case mismatch — match quoted alias exactly, (q5) window scope — use aggregate expression instead of alias, (q7) UNION expression restriction — use DESC keyword, (q8) COLLATE on alias — use original column name, (q10) unary + forcing expression path — remove unary operator. Three queries (q3, q6, q9) are correct decoys that must be identified as non-buggy. Finally, the solver creates diagnostic.json classifying all 10 queries."""
+verification_explanation = """test.sh starts PostgreSQL, then pytest runs 10 query output comparison tests (psql with deterministic formatting flags, line-by-line comparison against expected files), plus diagnostic.json validation via SHA-256 hash of the normalized classification array. All amount/fee values are unique across the dataset, ensuring orderings are fully deterministic."""
+category = "database_systems"
+tags = ["postgresql", "sql-internals"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orderby-scoping-bugs"

@@ -1,0 +1,5 @@
+A Vespa application at `/app/application/` has a product search schema with document fields defined but no ranking logic. Three competing design proposals for the ranking pipeline have been submitted at `/app/proposals/`. Each proposal contains technically sound recommendations alongside flawed ones — no single proposal can be followed wholesale.
+
+Business requirements for the ranking system are at `/app/business_requirements.md`. A pre-trained scoring weight tensor is at `/app/application/constants/scoring_weights.json`.
+
+Evaluate each proposal's recommendations against Vespa's actual tensor join semantics, HNSW indexing behavior, closeness rank feature syntax, and ranking expression evaluation rules. Identify which recommendations in each proposal are valid and which are flawed. Then create the complete ranking pipeline in `/app/application/schemas/product.sd` — including any necessary corrections to document field definitions, fieldset, constant declarations, query inputs, and all three rank profiles — that correctly satisfies the business requirements. Do not modify `/app/application/services.xml`.

@@ -1,0 +1,57 @@
+Step 1/8 : FROM rust:1.75-slim
+ ---> c3d4e5f6g7h8
+Step 2/8 : WORKDIR /app
+ ---> Using cache
+ ---> i9j0k1l2m3n4
+Step 3/8 : RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+ ---> Running in o5p6q7r8s9t0
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+...
+Setting up openssl (3.0.11-1~deb12u2) ...
+Setting up ca-certificates (20230311) ...
+Step 4/8 : COPY Cargo.toml Cargo.lock ./
+ ---> u1v2w3x4y5z6
+Step 5/8 : RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+ ---> Running in a7b8c9d0e1f2
+   Compiling libc v0.2.152
+   Compiling cfg-if v1.0.0
+   Compiling autocfg v1.1.0
+   Compiling pkg-config v0.3.29
+   Compiling openssl-sys v0.9.99
+error: failed to run custom build command for `openssl-sys v0.9.99`
+
+Caused by:
+  process didn't exit successfully: `/app/target/release/build/openssl-sys-e4bd0216a714c3a5/build-script-build` (exit status: 101)
+  --- stderr
+  thread 'main' panicked at '
+
+  Could not find directory of OpenSSL installation, and this `-sys` crate will
+  not work without it. Common fixes:
+
+  - On Ubuntu/Debian: `apt-get install libssl-dev`
+  - On Fedora: `dnf install openssl-devel`
+  - On Arch: `pacman -S openssl`
+
+  If you're in a situation where you think the directory *should* be found
+  automatically, please open a bug at https://github.com/sfackler/rust-openssl
+  and include information about your system as well as this message.
+
+  $HOST = x86_64-unknown-linux-gnu
+  $TARGET = x86_64-unknown-linux-gnu
+  openssl-sys = 0.9.99
+
+  It looks like you are compiling on Linux and also targeting Linux. Currently this
+  requires the `pkg-config` utility as well as the OpenSSL development headers to
+  be installed.
+
+  To install these on Ubuntu/Debian:
+      sudo apt-get install pkg-config libssl-dev
+  To install these on Fedora:
+      sudo dnf install pkgconf-pkg-config openssl-devel
+
+  ', /cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.99/build/find_normal.rs:190:5
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: could not compile `openssl-sys` (build script) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+The command '/bin/sh -c mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src' returned a non-zero code: 101

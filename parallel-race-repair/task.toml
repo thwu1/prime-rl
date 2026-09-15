@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OpenMP parallel programming to both CREATE correct
+parallel implementations from scratch and EVALUATE proposed strategies for subtle concurrency bugs. The solver must
+design parallelization for four distinct algorithms (histogram binning, Jacobi stencil iteration, k-nearest neighbors,
+LU decomposition with partial pivoting), each demanding different synchronization techniques (thread-private copies,
+double-buffering, thread-local declarations, manual parallel reduction). Additionally, 12 candidate strategies must
+be judged for correctness — identifying bugs like missing bounds clamping causing cross-thread memory corruption,
+OpenMP private vs firstprivate semantics on C++ containers, missing reduction clauses, and data races on shared
+argmax variables. This combines creation (designing race-free parallel code from blank stubs) with evaluation
+(judging the correctness of proposed approaches and articulating specific flaws)."""
+solution_explanation = """For histogram: per-thread histogram arrays in a flat array indexed by thread ID, with
+bounds clamping for data[i]==1.0, merged serially after the parallel region. For jacobi: double-buffered iteration
+(read from one buffer, write to the other, swap each iteration) plus reduction(+:sum) for the accumulation. For
+knn_search: declare work buffers (dists, idx) inside the #pragma omp parallel region so each thread gets private
+copies. For lu_factor: manual parallel reduction for argmax pivot search using thread-local variables merged via
+a critical section, plus parallel elimination. Verdicts correctly identify: histogram A/C lack bounds clamping
+(out-of-bounds when data==1.0), jacobi A lacks double buffering, jacobi B lacks reduction on sum, knn_search A
+has shared buffers, knn_search B uses private which default-constructs empty vectors, lu_factor A has raw race
+on shared maxrow/maxval, lu_factor B has race on maxrow despite reduction(max:) on maxval."""
+verification_explanation = """Tests verify both implementation correctness and evaluation accuracy. Implementation
+tests compile all four programs with g++ (normal) and clang++ (ThreadSanitizer), run with OMP_NUM_THREADS=4 to
+verify RESULT: PASS, and run TSan-instrumented builds to confirm race-freedom. Verdict tests load /app/verdicts.json
+and check each of the 12 candidate evaluations against ground truth (known correct/incorrect status), verifying
+both the boolean judgment and that flaw explanations for incorrect candidates are substantive (>15 chars)."""
+category = "systems_programming"
+tags = ["openmp", "concurrency-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parallel-race-repair"

@@ -1,0 +1,16 @@
+layers:
+  - name: utility
+    index: 0
+    description: "Utility libraries, logging, HTTP, database interfaces"
+  - name: power
+    index: 1
+    description: "External API wrappers and partner integrations"
+  - name: business
+    index: 2
+    description: "Business models and domain logic"
+  - name: api
+    index: 3
+    description: "API endpoints and serialization"
+  - name: services
+    index: 4
+    description: "Deployable service assemblies"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in computational gas dynamics and numerical methods for hyperbolic conservation laws. The agent must implement from scratch: (1) the HLLC approximate Riemann solver with correct wave speed estimates, star-state computation, and flux selection logic — a non-trivial algorithm with subtle algebraic details from Toro's framework, (2) MUSCL reconstruction with van Albada slope limiter on primitive variables, requiring understanding of TVD theory and why limiters are needed at discontinuities, (3) TVD Runge-Kutta 2nd-order time integration preserving the TVD property, (4) proper CFL condition for explicit time stepping of the Euler equations, (5) the exact Riemann solver for the Sod problem via Newton-Raphson iteration on the pressure function — itself requiring knowledge of the wave structure (rarefaction vs shock conditions) and Rankine-Hugoniot relations, and (6) post-processing to extract physical flow features (shock/contact positions) from smeared numerical data. Each component has implementation pitfalls that require graduate-level understanding to avoid."""
+solution_explanation = """Implement a vectorized Python/numpy finite volume solver: (1) MUSCL reconstruction on primitive variables (rho, u, p) with van Albada limiter using ghost-cell boundary treatment, (2) convert reconstructed states to conservative variables for the HLLC flux, (3) HLLC flux computation with PVRS pressure estimate for wave speeds and Toro's star-state formulas, (4) TVD-RK2 (Shu-Osher) time stepping with CFL-based adaptive dt, (5) exact Riemann solver via Newton iteration on the nonlinear pressure function to find p*, then compute u* and density in each region, (6) identify shock and contact positions from density gradient maxima in the numerical solution, and compute L2 error against the exact self-similar solution."""
+verification_explanation = """Tests independently verify the solution against known exact analytical values for the Sod shock tube at t=0.2: shock position within [0.82, 0.88] (exact ~0.850), contact position within [0.66, 0.72] (exact ~0.686), star velocity within [0.88, 0.97] (exact ~0.927), post-shock density and pressure within physical ranges, density L2 error below 0.05 confirming adequate accuracy with 400 cells, mass conservation within 1e-4 of initial mass 0.5625 verifying the conservative FVM property. Tests also independently compute the exact Riemann solution and verify L2 error without trusting the agent's error computation, check undisturbed regions are preserved, verify positivity of density and pressure, and confirm the limiter suppresses spurious oscillations in plateau regions."""
+category = "scientific_computing"
+tags = ["cfd", "numerical-methods"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openfoam-debug-step"

@@ -1,0 +1,51 @@
+statistic#,name,class,value
+0,logons cumulative,1,284729
+1,logons current,1,247
+5,opened cursors cumulative,1,48293847
+6,opened cursors current,1,8472
+7,user commits,1,2847392
+8,user rollbacks,1,12847
+9,user calls,1,48293847
+12,recursive calls,1,84729384
+19,session logical reads,1,5474540976
+25,db block gets,1,892347142
+26,db block gets from cache,1,892347129
+27,db block gets from cache (fastpath),1,847293847
+38,consistent gets,1,4582193860
+39,consistent gets from cache,1,4582193847
+40,consistent gets from cache (fastpath),1,4293847291
+48,physical reads,1,847293347
+49,physical reads cache,1,847293184
+50,physical reads direct,1,163
+51,physical reads cache prefetch,1,389472
+53,physical read total bytes,8,6937165603328
+55,physical writes,1,284729847
+60,physical writes direct,1,12847
+72,physical read IO requests,1,847293184
+74,physical write IO requests,1,284729847
+106,parse count (total),64,8472938
+107,parse count (hard),64,3847291
+108,parse count (failures),64,4829
+109,parse count (describe),64,127
+116,execute count,64,12839472
+121,sorts (memory),64,3847291
+122,sorts (disk),64,489234
+123,sorts (rows),64,847293847
+131,table scans (short tables),64,12839472
+132,table scans (long tables),64,847293
+133,table scan rows gotten,64,48293847129
+136,table fetch by rowid,64,3847291847
+140,index fast full scans (full),64,48293
+141,index fast full scans (rowid ranges),64,12847
+260,redo size,2,48293847129
+261,redo entries,2,12847293
+279,redo log space requests,2,847
+282,redo writes,2,1205847
+284,redo write time,2,602938
+326,session cursor cache hits,64,1203847
+327,session cursor cache count,64,489234
+330,cursor authentications,64,284729
+331,queries parallelized,64,0
+339,DDL statements parallelized,64,0
+402,DBWR checkpoints,1,847
+403,DBWR fusion writes,1,0

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert structural bioinformatics knowledge. The agent must first explore multiple PDB files to identify the NMR ensemble, discovering that the lab notes contain incorrect experimental method assignments (methods are swapped between files). Then they must read and interpret a JSON protocol specification, implement a full conformational analysis pipeline (multi-model PDB parsing, C-alpha superimposition for pairwise RMSD, backbone dihedral extraction, circular statistics for angular dispersion, Ramachandran-based secondary structure classification), and correctly handle edge cases at chain termini. Combining diagnostic investigation, protein geometry, structural alignment, and circular statistics demands proficiency-level domain expertise."""
+solution_explanation = """Explore /app/data/ to find all PDB files and supporting documents. Parse the analysis protocol JSON to understand output requirements. Load each PDB and determine which is multi-model (NMR ensemble) vs single-model. Discover that the lab notes have swapped methods — protein_x42.pdb is actually the NMR ensemble despite notes labeling it as X-ray. Install a structural biology library (e.g. biotite). Load the multi-model PDB, extract C-alpha atoms, compute pairwise RMSD via superimposition, compute backbone dihedrals, calculate circular variance for flexibility, apply the Ramachandran region definitions from the protocol for secondary structure classification, and output all results as JSON."""
+verification_explanation = """Tests independently load the known NMR file (protein_x42.pdb) with biotite, compute reference RMSD matrix, dihedral angles, circular variances, and Ramachandran classifications. A dedicated test class verifies the solver correctly identified the NMR ensemble (source_file == protein_x42.pdb) despite the misleading lab notes. Additional tests confirm RMSD matrix symmetry, zero diagonal, correct medoid identification, flexibility scores in [0,1], angle-SS consistency, and known alpha-helix region in Trp-cage."""
+category = "applied_computing"
+tags = ["bioinformatics", "structural-biology"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a5ef85"

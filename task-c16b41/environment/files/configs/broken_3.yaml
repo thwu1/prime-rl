@@ -1,0 +1,42 @@
+# Model: ERNIE-4.5-0.3B
+# Hardware: 1 GPU
+# Intent: FP8 SFT training
+
+### data
+train_dataset_type: "erniekit"
+eval_dataset_type: "erniekit"
+train_dataset_path: "./data/sft-train.jsonl"
+eval_dataset_path: "./data/sft-eval.jsonl"
+max_seq_len: 8192
+
+### model
+model_name_or_path: baidu/ERNIE-4.5-0.3B-Paddle
+fine_tuning: Full
+
+### training
+stage: SFT
+batch_size: 0
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-5
+lr_scheduler_type: cosine
+warmup_steps: 20
+weight_decay: 0.1
+optim: adam
+
+### performance
+tensor_parallel_degree: 1
+pipeline_parallel_degree: 1
+sharding_parallel_degree: 1
+sharding: stage1
+sequence_parallel: False
+compute_type: fp8
+fp16_opt_level: O2
+apply_hadamard: False
+recompute: False
+amp_custom_white_list:
+  - lookup_table
+  - flash_attn
+  - matmul
+amp_custom_black_list:
+  - reduce_sum
+  - softmax_with_cross_entropy

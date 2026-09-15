@@ -1,0 +1,8 @@
+{
+  "transactions": [
+    {"id": 0, "type": "ok", "start": 0, "end": 10, "ops": [["append", "x", 1], ["append", "y", 2]]},
+    {"id": 1, "type": "ok", "start": 0, "end": 10, "ops": [["append", "x", 2], ["append", "y", 1]]},
+    {"id": 2, "type": "ok", "start": 15, "end": 20, "ops": [["r", "x", [1, 2]], ["r", "y", [1, 2]]]},
+    {"id": 3, "type": "ok", "start": 25, "end": 30, "ops": [["r", "x", [1, 2]], ["r", "y", [1, 2]]]}
+  ]
+}

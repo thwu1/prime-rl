@@ -1,0 +1,32 @@
+New Conformance Tests — Requirements
+=====================================
+
+Write three tests that cover optimization-sensitive corners of the C standard
+not exercised by the existing suite. Each must use the harness macros
+(TEST_INIT, TEST_VERIFY, TEST_RESULT) from harness.h and pass with both
+gcc and clang at -O0, -O2, and -O3 using -std=c11 -I/app.
+
+1. t_irreducible_flow.c — Irreducible control flow graph
+   Implement a function whose control flow graph contains an irreducible loop
+   (a loop with multiple entry points, typically created via goto). The function
+   must compute a deterministic result that depends on the optimizer correctly
+   handling constant propagation and dead code elimination through the
+   irreducible structure. Test at least 3 distinct input combinations that
+   exercise different paths through the irreducible region.
+
+2. t_union_pun.c — Type punning through unions (C99 TC3)
+   Demonstrate correct, well-defined type punning through union member access
+   as permitted by C99 TC3 (footnote 82: "If the member used to read the
+   contents of a union object is not the same as the member last used to store
+   a value in the object, the appropriate part of the object representation of
+   the value is reinterpreted as an object representation in the new type").
+   Must verify specific IEEE 754 bit patterns for float<->uint32_t and
+   double<->uint64_t conversions. Include a round-trip verification (write
+   as one type, read as the other, write back, verify equality).
+
+3. t_restrict_qual.c — restrict qualifier (C99 6.7.3.1)
+   Implement at least two functions with restrict-qualified pointer parameters
+   that operate on arrays. At least one function must perform a non-trivial
+   computation where restrict enables the compiler to avoid redundant loads
+   (e.g., an output parameter that could theoretically alias an input).
+   Verify output correctness with non-overlapping arrays.

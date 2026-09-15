@@ -1,0 +1,8 @@
+function main() {
+  x := 5;
+  y := 0 - 3;
+  z := x + y;
+  w := x * y;
+  v := y * y;
+  return v;
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of MaxSAT theory: reducing weighted partial MaxSAT to iterative SAT queries using a black-box SAT oracle (minisat), encoding cardinality or pseudo-Boolean constraints as CNF, and implementing a correct optimization loop (e.g., linear search with sequential counters, core-guided relaxation, or model enumeration with blocking clauses). The agent must master minisat's DIMACS interface, exit code semantics, and output parsing, then orchestrate a multi-tool pipeline (Python + minisat + shell) to build a solver that handles instances too large for brute force (35 variables = 2^35 assignments). Additionally requires deep WCNF format expertise: auto-detecting old (p-line/top-weight) vs new (h-line) formats, fixing a buggy format converter, and using minisat for UNSAT verification. Edge cases from the MaxSAT Evaluation regression suite (empty hard clauses, large integer weights, false UNSAT claims) require domain-specific judgment beyond following a procedure."""
+solution_explanation = """The solution implements: (1) A WCNF parser with format auto-detection (checks for p-line to identify old format, uses top-weight threshold for hard/soft distinction). (2) A MaxSAT solver using minisat as SAT oracle — for equal-weight instances, uses binary search with Sinz sequential counter encoding for at-most-k constraints on relaxation variables; for mixed-weight instances, uses model enumeration with blocking clauses. (3) A fixed WCNF-to-DIMACS converter that detects both formats and correctly extracts hard clauses. (4) A bug report generator that uses minisat (not brute force) to verify UNSAT claims and checks assignment correctness against parsed WCNF instances in both formats."""
+verification_explanation = """Tests verify: (1) The solver produces correct optimal costs for 9 instances including a 35-variable grid graph (forces SAT oracle usage via timeout — brute force would take hours), an old-format legacy instance, large integer weights, UNSAT instances, and edge cases. (2) The solver outputs valid MSE format with correct exit codes. (3) The fixed converter produces valid DIMACS output for both WCNF formats, with -hards correctly extracting only hard clauses. (4) The bug report correctly classifies 6 output files including hard clause violations from legacy format misparse. Assignment validity is independently verified by the test suite's own WCNF parser."""
+category = "optimization"
+tags = ["maxsat", "sat-solver-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-079ed7"

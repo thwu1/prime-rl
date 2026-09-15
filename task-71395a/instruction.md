@@ -1,0 +1,9 @@
+A JSON metadata registry at `/app/registry.json` contains dataset descriptions for a government open data portal. The file `/app/shapes/dcat-ap-301.ttl` contains DCAT-AP 3.0.1 SHACL shapes defining the EU application profile for data catalogs.
+
+Transform the registry into a DCAT-AP 3.0.1 compliant RDF catalog serialized as Turtle at `/app/output/catalog.ttl`. The output must conform to every constraint expressed in the provided SHACL shapes with zero violations.
+
+The registry uses shorthand codes for EU controlled vocabularies: theme codes like `"ECON"`, ISO 639-1 language codes like `"en"`, format names like `"CSV"`, and frequency labels like `"QUARTERLY"`. These must be mapped to proper EU Publications Office authority table URIs (e.g., `http://publications.europa.eu/resource/authority/data-theme/ECON`, `http://publications.europa.eu/resource/authority/language/ENG`). Note that ISO 639-1 codes do not match the authority table codes (e.g., `en` maps to `ENG`, `fr` to `FRA`, `de` to `DEU`).
+
+The SHACL shapes enforce both structural constraints (mandatory properties, cardinality) and class constraints (`sh:class`) on referenced resources. Every resource referenced via a property with a `sh:class` constraint must be explicitly typed with `rdf:type` in the output graph. For example, a publisher must be typed as `foaf:Agent`, a theme as `skos:Concept`, a language as `dct:LinguisticSystem`, etc. Supporting classes also have their own mandatory properties (e.g., `foaf:Agent` requires `foaf:name`, `skos:Concept` requires `skos:prefLabel`, `skos:ConceptScheme` requires `dct:title`).
+
+Some date fields in the registry use non-ISO formats (e.g., `"03/15/2024"`, `"August 1, 2024"`) and must be normalized to `xsd:date` literals.

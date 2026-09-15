@@ -1,0 +1,35 @@
+=== IR Evaluation Pipeline — Run Log ===
+Date: 2024-11-15
+Environment: Pyserini 2.1.0, Java 21, Ubuntu 24.04
+
+[1] Index Construction
+    Source: /app/corpus/docs.jsonl (60 documents, JsonCollection format)
+    Output: /app/index_v1/
+    Generator: DefaultLuceneDocumentGenerator
+    Stored fields: positions, document vectors, raw content
+    Threads: 1
+    Result: SUCCESS (60 documents indexed)
+
+[2] Retrieval — BM25 Baseline
+    Index: /app/index_v1/
+    Topics: /app/queries.tsv (8 queries)
+    Similarity: BM25 (k1=0.9, b=0.4)
+    Hits per query: 1000
+    Output: /app/runs/baseline_v1.txt
+    Result: SUCCESS
+
+[3] Evaluation
+    Tool: trec_eval
+    Qrels: /app/qrels.txt
+    Run: /app/runs/baseline_v1.txt
+    Metrics: MAP=0.6234, nDCG@10=0.7891
+    Full output: /app/report_v1.json
+    Result: SUCCESS
+
+[4] Term-Level BM25 Analysis
+    Objective: Extract per-term BM25 weights for top-ranked documents
+    Approach: Document vector extraction from index, followed by term weight computation
+    Result: FAILED
+    Error: Document vector extraction returns None for all document IDs
+    Hypothesis: Possible version mismatch between indexing and analysis API components
+    TODO: Debug after other deliverables are complete

@@ -1,0 +1,100 @@
+{
+  "suite_name": "TTCN-3 Template Matching Oracle",
+  "registry": {
+    "base_response_tmpl": {
+      "t": "record",
+      "fields": {
+        "code": {"tmpl": {"t": "range", "lo": 200, "hi": 299}, "opt": false},
+        "body": {"tmpl": {"t": "any"}, "opt": false}
+      }
+    },
+    "ok_response_tmpl": {
+      "t": "modifies",
+      "base": "base_response_tmpl",
+      "delta": {
+        "code": {"t": "exact", "v": 200}
+      }
+    },
+    "created_response_tmpl": {
+      "t": "modifies",
+      "base": "base_response_tmpl",
+      "delta": {
+        "body": {"t": "exact", "v": "Created"}
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "id": "TM_RANGE_001",
+      "description": "Range [0,10] must reject boolean True despite Python bool subclassing int",
+      "type": "match",
+      "template": {"t": "range", "lo": 0, "hi": 10},
+      "message": true,
+      "expected_match": false
+    },
+    {
+      "id": "TM_RANGE_002",
+      "description": "Range [0,10] must reject boolean False",
+      "type": "match",
+      "template": {"t": "range", "lo": 0, "hi": 10},
+      "message": false,
+      "expected_match": false
+    },
+    {
+      "id": "TM_COMPLEMENT_001",
+      "description": "Complement of {42, 43} must reject absent/None value",
+      "type": "match",
+      "template": {"t": "complement", "list": [42, 43]},
+      "message": null,
+      "expected_match": false
+    },
+    {
+      "id": "TM_PATTERN_001",
+      "description": "TTCN-3 '*' means zero or more chars — 'SIP*' must match 'SIP' (zero trailing)",
+      "type": "match",
+      "template": {"t": "pattern", "expr": "SIP*"},
+      "message": "SIP",
+      "expected_match": true
+    },
+    {
+      "id": "TM_PATTERN_002",
+      "description": "TTCN-3 '*' also matches multiple chars — 'SIP*' must match 'SIP/2.0'",
+      "type": "match",
+      "template": {"t": "pattern", "expr": "SIP*"},
+      "message": "SIP/2.0",
+      "expected_match": true
+    },
+    {
+      "id": "TM_LIST_001",
+      "description": "AnyOrNone in list must find element at intermediate position via backtracking",
+      "type": "match",
+      "template": {"t": "list", "items": [{"t": "any_or_none"}, 3, {"t": "any_or_none"}]},
+      "message": [1, 2, 3, 4, 5],
+      "expected_match": true
+    },
+    {
+      "id": "TM_LIST_002",
+      "description": "AnyOrNone backtracking with element at non-boundary position",
+      "type": "match",
+      "template": {"t": "list", "items": [{"t": "any_or_none"}, "x", {"t": "any_or_none"}]},
+      "message": ["a", "x", "b", "c"],
+      "expected_match": true
+    },
+    {
+      "id": "TM_MODIFIES_001",
+      "description": "First derived template (overrides code) must match correctly",
+      "type": "match",
+      "template_ref": "ok_response_tmpl",
+      "message": {"code": 200, "body": "OK"},
+      "expected_match": true
+    },
+    {
+      "id": "TM_MODIFIES_002",
+      "description": "Second derived template must inherit original base range, not first derivative's override",
+      "type": "match",
+      "template_ref": "created_response_tmpl",
+      "message": {"code": 250, "body": "Created"},
+      "expected_match": true
+    }
+  ]
+}

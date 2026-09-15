@@ -1,0 +1,26 @@
+% Excerpt from DRIVEBENCH / AUTODRIVER paper — Section 5.2
+% Tree-sitter-Based AST Scoring
+
+\subsection{Tree-sitter--Based AST Scoring}
+
+To evaluate the semantic quality of generated patches, we use \textbf{Tree-sitter}, a production-grade incremental parser, to derive Abstract Syntax Trees (ASTs) for both the \emph{reference} (ground-truth) patch and the \emph{generated} patch. Each patch is applied to the same baseline kernel source file, producing two post-patch versions that can be compared structurally. Tree-sitter parses these files into syntax trees where every node represents a syntactic construct (e.g., \texttt{function\_definition}, \texttt{call\_expression}, \texttt{binary\_expression}) with typed children and a precise text span. The goal is to measure how closely the generated modification mirrors the structural changes introduced by the reference patch.
+
+For each node type \(t\), we count its occurrences in the unmodified baseline (\(N_{\text{base}}(t)\)), in the reference-patched version (\(N_{\text{ref}}(t)\)), and in the generated-patched version (\(N_{\text{gen}}(t)\)). The corresponding change vectors express how each patch alters the baseline:
+\[
+\Delta_{\text{ref}}(t)=N_{\text{ref}}(t)-N_{\text{base}}(t), \qquad
+\Delta_{\text{gen}}(t)=N_{\text{gen}}(t)-N_{\text{base}}(t).
+\]
+The node-wise similarity between the two patches is then defined as
+\[
+\mathrm{sim}(t)=1-\frac{|\Delta_{\text{ref}}(t)-\Delta_{\text{gen}}(t)|}{\max(|\Delta_{\text{ref}}(t)|,|\Delta_{\text{gen}}(t)|)}.
+\]
+Weighting each node type by the magnitude of its structural change yields the aggregated AST similarity:
+\[
+\mathrm{AST}_{\text{sim}}=\frac{\sum_t w(t)\,\mathrm{sim}(t)}{\sum_t w(t)}, \qquad
+w(t)=\max(|\Delta_{\text{ref}}(t)|,|\Delta_{\text{gen}}(t)|).
+\]
+A value of \(1.0\) indicates that the generated patch makes syntactically identical changes to the reference, while lower values reveal divergence in the kinds or scope of edits. For example, replacing
+\texttt{ida\_simple\_get(...,0,0,GFP\_KERNEL)} with
+\texttt{ida\_alloc(...,GFP\_KERNEL)} alters the same node categories as the reference patch and therefore yields an AST similarity of \(1.0\); retaining obsolete numeric arguments reduces the score because the added \texttt{number\_literal} nodes differ.
+
+Beyond these quantitative node counts, Tree-sitter queries also extract semantic elements such as modified function definitions, call sites, variable declarations, and macro invocations. Comparing these element sets highlights whether both patches operate on the same logical regions of code. Together, this multi-level AST differencing framework captures the structural and semantic correspondence between generated and reference patches far more accurately than any line-based diff approach.

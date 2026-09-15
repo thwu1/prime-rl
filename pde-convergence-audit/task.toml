@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing six defects spanning four layers of a hybrid Python/C numerical computing pipeline: (1) Makefile using -c flag (compile-only) instead of -shared -fPIC, producing an unrelocatable object file that ctypes cannot load as a shared library, (2) ctypes binding declaring a double parameter as c_int causing a TypeError at the FFI boundary, (3) C kernel implementing first-order upwind instead of second-order Lax-Wendroff for advection, (4) Python heat equation solver using backward Euler (1st order) instead of Crank-Nicolson (2nd order) with incorrect tridiagonal system setup, (5) Poisson 5-point solver using wrong grid spacing h=1/N instead of h=1/(N+1), and (6) compact Poisson solver using a standard RHS scaling instead of the source-averaging formula required for 4th-order accuracy. The agent must navigate gcc compilation stages, Make build systems, C debugging, ctypes FFI semantics, and numerical analysis across the full stack."""
+solution_explanation = """Fix Makefile by replacing -c (compile-only) with -shared -fPIC flags and adding -lm to produce a proper shared library. Fix bindings.py by changing the nu parameter type from ctypes.c_int to ctypes.c_double. Fix stencils.c lax_wendroff_step to use the actual Lax-Wendroff formula (central difference + diffusion correction) instead of first-order upwind. Fix heat_cn.py by converting backward Euler to Crank-Nicolson with proper LHS/RHS tridiagonal matrices. Fix poisson_5pt.py grid spacing from h=1/N to h=1/(N+1). Fix poisson_compact.py RHS to use source averaging formula for 4th-order consistency."""
+verification_explanation = """Tests first verify the C shared library exists, loads via ctypes, and exports expected symbols (thomas_solve, lax_wendroff_step, compute_rms_error). Then the benchmark driver is executed to regenerate results.json. Convergence orders are independently recomputed from L2 errors and checked against theoretical values (order 2 for 5-point/CN/LW, order 4 for compact) with tolerances. Additional checks verify monotone error decrease, reasonable error magnitudes, and that compact scheme outperforms 5-point."""
+category = "scientific_computing"
+tags = ["numerical-pde", "c-python-interop"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pde-convergence-audit"

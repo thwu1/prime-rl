@@ -1,0 +1,68 @@
+{
+  "face_amount": 1000000.0,
+  "bonds": [
+    {
+      "id": "UST_5Y",
+      "type": "fixed",
+      "issue_date": "2022-06-15",
+      "maturity_date": "2027-06-15",
+      "coupon_rate_pct": 2.75,
+      "quoted_clean_price": 93.50
+    },
+    {
+      "id": "UST_10Y",
+      "type": "fixed",
+      "issue_date": "2020-09-01",
+      "maturity_date": "2030-09-01",
+      "coupon_rate_pct": 1.25,
+      "quoted_clean_price": 82.75
+    },
+    {
+      "id": "UST_20Y",
+      "type": "fixed",
+      "issue_date": "2023-03-15",
+      "maturity_date": "2043-03-15",
+      "coupon_rate_pct": 3.875,
+      "quoted_clean_price": 96.25
+    },
+    {
+      "id": "CORP_CALLABLE",
+      "type": "callable",
+      "issue_date": "2021-12-01",
+      "maturity_date": "2041-12-01",
+      "coupon_rate_pct": 3.50,
+      "quoted_clean_price": 88.50,
+      "call_date": "2031-12-01",
+      "call_price": 100.0,
+      "hull_white_a": 0.05,
+      "hull_white_sigma": 0.01
+    },
+    {
+      "id": "UST_30Y",
+      "type": "fixed",
+      "issue_date": "2019-05-15",
+      "maturity_date": "2049-05-15",
+      "coupon_rate_pct": 2.875,
+      "quoted_clean_price": 76.125
+    }
+  ],
+  "scenarios": {
+    "parallel_up_100bp": {"type": "parallel", "shift_bps": 100},
+    "parallel_down_100bp": {"type": "parallel", "shift_bps": -100},
+    "flattening": {
+      "type": "twist",
+      "short_end_years": 0,
+      "long_end_years": 30,
+      "short_spread_bps": 50,
+      "long_spread_bps": -50
+    },
+    "steepening": {
+      "type": "twist",
+      "short_end_years": 0,
+      "long_end_years": 30,
+      "short_spread_bps": -50,
+      "long_spread_bps": 50
+    }
+  },
+  "key_rate_tenors_years": [2, 5, 10, 20, 30]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Ansible knowledge across multiple domains: (1) creating custom filter plugins from scratch by reverse-engineering expected behavior from Jinja2 template usage and understanding Ansible's plugin discovery mechanism, (2) evaluating Ansible's 22-level variable precedence hierarchy to determine which role vars overrides are intentional security hardening vs. accidental shadowing — requiring the solver to judge each variable individually rather than applying a blanket fix, (3) diagnosing and rekeying an Ansible Vault whose encryption password diverges from the configured password file, (4) fixing interrelated Jinja2 template errors including trailing comma logic and undefined variable references, (5) resolving handler case-sensitivity and missing vars_files directives. The challenges are deeply interconnected: the filter plugin must match the template's expectations, the variable precedence fix must preserve intentional overrides while removing accidental ones, and the vault rekey must precede any playbook execution."""
+solution_explanation = """Create filter_plugins/service_filters.py with FilterModule class implementing upstream_servers (returns weighted IP:PORT strings for enabled services) and health_endpoints (returns dict mapping enabled service names to health URLs). Evaluate role vars: remove app_port (accidental override of group_vars 3000), keep max_connections=500 and ssl_redirect=true (documented intentional hardening). Fix ansible.cfg roles_path and add vault_password_file. Fix inventory children group typo. Rekey vault from batterystaple to correcthorse. Fix nginx template undefined server_name to app_server_name. Fix JSON template trailing comma with loop.last. Fix handler notify case. Add vars_files to report.yml."""
+verification_explanation = """Tests run ansible-playbook site.yml and verify: playbook succeeds (rc=0), nginx config has weighted upstream entries and correct server_name/ssl_redirect/max_connections, app_config.json is valid JSON with port=3000/max_connections=500/health_endpoints/vault secrets, custom filter plugin file exists with FilterModule class, role vars preserves intentional overrides but removes app_port, users exist in appteam group, system report has correct values including vault-decrypted admin_email, cron job exists, vault is decryptable with vault_pass.txt."""
+category = "devops"
+tags = ["ansible", "configuration-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ansible-debug-orchestration"

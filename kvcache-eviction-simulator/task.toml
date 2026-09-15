@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a black-box cache simulator by probing it with crafted traces and analyzing outputs. The agent must discover multiple interacting mechanisms (eviction ordering, tiered protection policies, TTL-based access semantics, atomic failure modes, key-overwrite behavior) purely through experimentation and output analysis. Getting each mechanism individually is tractable, but correctly reproducing all their interactions — especially edge cases around timing boundaries, protection layering, and two-phase eviction with atomic rollback — demands expert-level systems understanding and methodical black-box analysis."""
+solution_explanation = """The solution implements a Python simulator that: (1) parses config and JSONL trace files, (2) maintains per-object state including size, protection flags, TTL-based expiries, and access timestamps, (3) implements a two-phase eviction algorithm with atomic semantics where objects are categorized by protection status and evicted in LRU order within each phase, (4) handles key overwrites, access-triggered TTL refreshes, protection checks on removal, and lease granting with max-based refresh semantics, and (5) outputs structured JSON with events, stats, final_state, and used_bytes matching the reference binary exactly."""
+verification_explanation = """Tests run the agent's simulator against 22 carefully designed traces covering: basic LRU ordering, protection-based eviction immunity, atomic PUT failure when insufficient evictable capacity exists, TTL-based protection and expiry, TTL refresh semantics, tiered eviction deprioritization, protection expiry timing, access-triggered TTL refresh, REMOVE protection enforcement, key overwrite semantics, and a combined scenario exercising all mechanisms simultaneously. Each test verifies specific output fields (events, stats, final_state, final_used_bytes) to ensure byte-level correctness."""
+category = "systems"
+tags = ["reverse-engineering", "caching"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kvcache-eviction-simulator"

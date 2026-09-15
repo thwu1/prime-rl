@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding algebraic effects and delimited continuations — research-level PL concepts not covered in standard CS curricula. The implementer must discover a viable technique for capturing and resuming continuations in Python (where no native support exists), correctly handle handler scoping, shadowing, forwarding (handler itself performing effects), and multi-shot continuations. Additionally, the agent must work with SWI-Prolog's delimited continuation primitives (reset/3 and shift/1) — an unfamiliar tool for most developers — to understand the reference semantics by running and interpreting Prolog programs, then cross-verify their Python implementation against the Prolog reference output."""
+solution_explanation = """Uses the 'replay' technique (related to 'Capturing the Future by Replaying the Past' by Brachthäuser et al.): when an effect is performed, a special BaseException is raised and caught by the enclosing handler. To resume, the body is re-executed from scratch with previously handled effects replayed from a log. Multi-shot is supported by snapshotting the log before each resume call and restoring it. Handler scoping uses thread-local storage to maintain a stack of perform functions, each forwarding unhandled effects to its predecessor. The agent must also run the SWI-Prolog reference programs with swipl to determine expected output values that the test suite dynamically compares against."""
+verification_explanation = """21 deterministic tests in two parts. Part A (5 tests) dynamically runs SWI-Prolog reference programs with swipl, parses their output, and verifies the Python implementation produces matching results for state effects, handler composition, shadowing, and the collector pattern. Part B (16 tests) uses hardcoded assertions to verify correctness across multiple dimensions: basic handling, resume semantics, sequential effects, multiple effect types, nested handlers, handler shadowing, handler forwarding, state effects, collector effects, multi-shot continuations, effect identity, and handler short-circuiting."""
+category = "programming_languages"
+tags = ["algebraic-effects", "delimited-continuations"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/effect-handler-runtime"

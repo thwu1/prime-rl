@@ -1,0 +1,2 @@
+; CHECK: existing pattern
+; CHECK-NEXT: nonexistent pattern xyz123

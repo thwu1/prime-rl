@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient seismological expertise spanning multiple sub-disciplines. The agent must independently implement named-but-unspecified statistical methods: Aki-Utsu MLE for the Gutenberg-Richter b-value, Maximum Curvature for completeness magnitude, Shi & Bolt (1982) uncertainty estimation, Modified Omori Law nonlinear curve fitting with physically constrained bounds, and the Gutenberg-Richter energy-magnitude relation — all from method names alone without being given formulas. The task requires holistic understanding: correctly handling GeoJSON [lon, lat, depth] coordinate ordering, distinguishing foreshocks from aftershocks via temporal mainshock identification, computing aftershock zone dimensions as a rupture proxy using O(n^2) pairwise distances, and designing a normalized relational database schema. The cross-domain integration of computational seismology, statistical estimation, geospatial analysis, nonlinear optimization, and database engineering demands professional-level judgment throughout."""
+solution_explanation = """The solution parses the USGS GeoJSON catalog, filters to the Noto Peninsula bounding box, creates a normalized SQLite database with events and interevent_distances tables, then applies standard seismological methods determined from domain knowledge: Maximum Curvature for Mc, Aki-Utsu MLE for b-value, Shi-Bolt formula for b-value uncertainty, scipy curve_fit for Modified Omori Law parameters, Haversine formula for interevent and pairwise aftershock distances, floor-based grid binning for spatial density, and the GR energy-magnitude relation log10(E)=1.5M+4.8 for the energy budget."""
+verification_explanation = """Tests independently load the same GeoJSON catalog, apply identical filtering and computations, and compare against the agent's output. Schema verification checks table structure and row counts. Statistical parameters are verified within numerical tolerances (b-value +/-0.1, distances +/-1.0 km, energy within 1%). Omori parameters are checked for physical plausibility. Exact values are verified for event count, mainshock identification, foreshock count, and spatial density grid cell. Energy fraction is checked to confirm mainshock dominance (>90%)."""
+category = "applied_computing"
+tags = ["seismology", "geospatial-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/earthquake-sequence-analysis"

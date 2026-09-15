@@ -1,0 +1,47 @@
+{"id": 1, "type": "resolve", "text": "Supreme Court of the United States", "bankruptcy": null, "date": null, "location": null}
+{"id": 2, "type": "resolve", "text": "Tribunal D\u00e9 Apelaciones De Puerto Rico", "bankruptcy": null, "date": null, "location": null}
+{"id": 3, "type": "resolve", "text": "Calhoun County Circuit Court", "bankruptcy": null, "date": null, "location": "Florida"}
+{"id": 4, "type": "resolve", "text": "Calhoun County Circuit Court", "bankruptcy": null, "date": null, "location": "Michigan"}
+{"id": 5, "type": "resolve", "text": "Fayette County Court of Common Pleas", "bankruptcy": null, "date": null, "location": "Ohio"}
+{"id": 6, "type": "resolve", "text": "Fayette County Court of Common Pleas", "bankruptcy": null, "date": null, "location": "Pennsylvania"}
+{"id": 7, "type": "resolve", "text": "Hamilton County Court", "bankruptcy": null, "date": null, "location": "New York"}
+{"id": 8, "type": "resolve", "text": "Hamilton County Court", "bankruptcy": null, "date": null, "location": "Florida"}
+{"id": 9, "type": "resolve", "text": "D. Massachusetts", "bankruptcy": true, "date": null, "location": null}
+{"id": 10, "type": "resolve", "text": "United States District Court N D California", "bankruptcy": null, "date": null, "location": null}
+{"id": 11, "type": "resolve", "text": "Court of Appeal of California", "bankruptcy": null, "date": null, "location": null}
+{"id": 12, "type": "resolve", "text": "District Court D Florida", "bankruptcy": null, "date": "1846-01-01", "location": null}
+{"id": 13, "type": "resolve", "text": "District Court D Florida", "bankruptcy": null, "date": "1848-01-01", "location": null}
+{"id": 14, "type": "resolve", "text": "District Court D Kentucky", "bankruptcy": null, "date": "1850-01-01", "location": null}
+{"id": 15, "type": "resolve", "text": "District Court D Kentucky", "bankruptcy": null, "date": "1801-06-01", "location": null}
+{"id": 16, "type": "resolve", "text": "D. Massachusetts", "bankruptcy": false, "date": null, "location": null}
+{"id": 17, "type": "resolve", "text": "N.D. Illinois", "bankruptcy": false, "date": null, "location": null}
+{"id": 18, "type": "resolve", "text": "D. Massachusetts", "bankruptcy": false, "date": "2020-01-01", "location": null}
+{"id": 19, "type": "temporal_status", "court_id": "coloctapp", "date": "1900-01-01"}
+{"id": 20, "type": "temporal_status", "court_id": "coloctapp", "date": "1910-01-01"}
+{"id": 21, "type": "temporal_status", "court_id": "coloctapp", "date": "1915-01-01"}
+{"id": 22, "type": "temporal_status", "court_id": "coloctapp", "date": "2020-01-01"}
+{"id": 23, "type": "temporal_status", "court_id": "kyd", "date": "1800-01-01"}
+{"id": 24, "type": "temporal_status", "court_id": "kyd", "date": "1801-06-01"}
+{"id": 25, "type": "temporal_status", "court_id": "kyd", "date": "1850-01-01"}
+{"id": 26, "type": "temporal_status", "court_id": "coloctapp", "date": "1891-01-01"}
+{"id": 27, "type": "temporal_status", "court_id": "coloctapp", "date": "1905-01-01"}
+{"id": 28, "type": "temporal_status", "court_id": "kyd", "date": "1789-09-24"}
+{"id": 29, "type": "temporal_status", "court_id": "kyd", "date": "1801-02-13"}
+{"id": 30, "type": "temporal_status", "court_id": "kyd", "date": "1802-03-08"}
+{"id": 31, "type": "temporal_gaps", "court_id": "coloctapp"}
+{"id": 32, "type": "temporal_gaps", "court_id": "kyd"}
+{"id": 33, "type": "temporal_gaps", "court_id": "conn"}
+{"id": 34, "type": "temporal_gaps", "court_id": "mass"}
+{"id": 35, "type": "temporal_gaps", "court_id": "haw"}
+{"id": 36, "type": "temporal_gaps", "court_id": "ncd"}
+{"id": 37, "type": "temporal_gaps", "court_id": "scotus"}
+{"id": 38, "type": "hierarchy", "court_id": "calctapp"}
+{"id": 39, "type": "hierarchy", "court_id": "flacirct14cal"}
+{"id": 40, "type": "hierarchy", "court_id": "scotus"}
+{"id": 41, "type": "hierarchy", "court_id": "cand"}
+{"id": 42, "type": "hierarchy", "court_id": "flacirct"}
+{"id": 43, "type": "hierarchy", "court_id": "ohioctapp"}
+{"id": 44, "type": "collisions", "name": "Hamilton County Court"}
+{"id": 45, "type": "collisions", "name": "Adams County Court of Common Pleas"}
+{"id": 46, "type": "collisions", "name": "Supreme Court of the United States"}
+{"id": 47, "type": "collisions", "name": "Washington County Court"}

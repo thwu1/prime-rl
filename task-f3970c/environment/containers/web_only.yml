@@ -1,0 +1,38 @@
+templates:
+  - "templates/web.template.yml"
+  - "templates/web.ssl.template.yml"
+  - "templates/web.letsencrypt.ssl.template.yml"
+  - "templates/web.ratelimited.template.yml"
+
+expose:
+  - "80:80"
+  - "443:443"
+
+env:
+  LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
+  DISCOURSE_HOSTNAME: "forum.example.org"
+  DISCOURSE_DB_HOST: data
+  DISCOURSE_REDIS_HOST: data
+  LETSENCRYPT_ACCOUNT_EMAIL: "ssl@example.org"
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/web-only
+      guest: /shared
+  - volume:
+      host: /var/discourse/shared/web-only/log/var-log
+      guest: /var/log
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git
+          - git clone https://github.com/discourse/discourse-ai.git
+          - git clone https://github.com/discourse/discourse-calendar.git
+
+labels:
+  app_name: "{{config}}_discourse"
+  monitor: "true"

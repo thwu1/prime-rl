@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three interconnected CSS subsystems from specification prose: (1) a var() substitution engine with recursive resolution and cycle detection via graph traversal, (2) a DOM-tree inheritance system that correctly handles inherited vs non-inherited properties, inherit/initial keywords, and custom property semantics, and (3) a calc()/min()/max()/clamp() expression evaluator with a recursive descent parser, operator precedence, and unit-aware arithmetic. These features interact — a custom property may hold a calc() expression that is inherited through the DOM tree and substituted via var() — so the solver must design the correct processing order (cascade → inheritance → var() substitution → calc() evaluation) and implement a top-down tree walk. Requires reading and interpreting CSS specification documentation, understanding an existing 6-module Python codebase, and integrating new code without breaking existing cascade semantics."""
+solution_explanation = """Create two new modules (value_resolver.py for var()/calc() and inheritance.py for property inheritance) and replace resolver.py with an extended version that adds a tree-walk phase after the flat cascade. The tree walk applies inheritance top-down, resolves var() references using a visited-set cycle detection algorithm, then evaluates calc/min/max/clamp with a recursive descent parser. Custom property values are resolved before regular properties so children inherit fully substituted values."""
+verification_explanation = """Tests invoke cascade.py via subprocess with specific DOM trees and CSS stylesheets, parse the JSON output, and verify exact property values. Tests cover backward-compatible cascade behavior, var() substitution with fallbacks and chains, cycle detection (self-referencing, mutual, three-way), inheritance (inherited/non-inherited properties, inherit/initial keywords, deep chains), calc/min/max/clamp evaluation with operator precedence, and integration scenarios combining all features."""
+category = "web_systems"
+tags = ["css", "language-implementation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c87b93"

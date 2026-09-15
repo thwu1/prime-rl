@@ -1,0 +1,36 @@
+context:
+  name: geos
+  version: "3.12.1"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/libgeos/geos/releases/download/${{ version }}/geos-${{ version }}.tar.bz2
+  sha256: d6ea7e492224b51193e8244fe3ec17c4d44d0777f3c32ca4fb171cb244ab86a9
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(lib_name, max_pin='x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - cmake
+    - ninja
+  host: []
+  run: []
+
+test:
+  commands:
+    - geos-config --version
+    - test -f $PREFIX/lib/libgeos.so
+
+about:
+  homepage: https://libgeos.org
+  license: LGPL-2.1-only
+  license_file: COPYING
+  summary: Geometry Engine Open Source

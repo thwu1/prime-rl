@@ -1,0 +1,9 @@
+StorePath: /nix/store/3qmynwqqmmv89509j334y7zhlppnjig9-source
+URL: nar/3qmynwqqmmv89509j334y7zhlppnjig9.nar.xz
+Compression: xz
+FileHash: sha256:514287f3937768f4f62ba3f9d33e638bfb2d945f0d18b4cd07ade51e59ea8ade
+FileSize: 8224534
+NarHash: sha256:a0a5c3f26313f1d52f8db722754fb372c40689d56b34eed194b873997f34237b
+NarSize: 41796348
+References:
+CA: fixed:r:sha256-CiRJJ/fbqRsEdXrfhqxB/X8pM8f58izAhBNXfVnbUJw=

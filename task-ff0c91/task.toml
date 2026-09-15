@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in quantitative finance (volatility modeling with MLE estimation, market microstructure signals, optimal market-making theory, portfolio risk measures) combined with multi-tool orchestration. The agent must reverse-engineer required financial models from test invariants and API contracts defined in the test suite, implement five interdependent Python modules with correct mathematical behavior, wire them into a SQLite-backed data pipeline, and build Makefile-based orchestration combining jq, sqlite3, and Python. The cross-domain integration (quantitative finance + systems tooling + database operations) and the need to discover the correct mathematical formulations from behavioral tests make this task extremely challenging."""
+solution_explanation = """Implement five Python modules in /app/pipeline/ (volatility models, microstructure signals, regime classification, quoting engine, risk measures) with the exact APIs tested by test_state.py. Create a pipeline runner that processes returns.csv and orderbook.csv through all models and persists to SQLite. Write a Makefile whose pipeline target validates config, initializes the database, runs the pipeline, and assembles report.json from database queries."""
+verification_explanation = """44 pytest tests verify: (1) 27 mathematical invariants for the Python finance modules — volatility model stationarity/convergence/estimation, microstructure signal directionality, regime parameter ordering, quoting engine bracket/skew/halt behavior, and risk measure consistency/scaling; (2) 1 full integration test running all modules on provided synthetic data; (3) 16 orchestration tests verifying the Makefile exists and references jq/sqlite3, make pipeline completes successfully, the SQLite database has 4 required tables with correct row counts and valid data, and report.json contains all required keys with positive risk values."""
+category = "quantitative_finance"
+tags = ["market-microstructure", "multi-tool-orchestration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ff0c91"

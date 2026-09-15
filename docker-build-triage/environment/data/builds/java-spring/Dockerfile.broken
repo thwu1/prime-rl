@@ -1,0 +1,16 @@
+FROM openjdk:11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+COPY . .
+
+RUN javac -version
+
+RUN mkdir -p build && find src -name "*.java" > sources.txt && javac -d build @sources.txt
+
+RUN java -cp build com.example.Application
+
+EXPOSE 8080
+CMD ["java", "-cp", "build", "com.example.Application"]

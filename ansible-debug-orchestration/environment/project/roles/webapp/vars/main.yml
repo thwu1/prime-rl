@@ -1,0 +1,9 @@
+---
+# Security hardening overrides for webapp role.
+# DO NOT MOVE these to defaults — they are intentional production values
+# that must take precedence over baseline defaults.
+max_connections: 500
+ssl_redirect: true
+
+# Application port for internal use
+app_port: 8080

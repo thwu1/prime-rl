@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing five deeply interconnected components: (1) a path language parser with multiple selector types and matching modes, (2) a context-sensitive query evaluator with implicit defaults and multi-level navigation across a domain-specific data model, (3) a structural deduplication engine satisfying maximality, layered-ref, and determinism properties, (4) a cross-language code generator producing semantically equivalent jq filters including fnmatch-to-PCRE regex translation, and (5) a proof obligation DAG analyzer that must infer tactic effects from observable state transitions, track stack-based goal focusing through nested branching proofs (depth-2 case analysis), handle consecutive discharges, and correctly attribute parent-child relationships — requiring deep understanding of proof assistant dynamics that cannot be reduced to procedural specification-following."""
+solution_explanation = """Parse path syntax into typed segments, evaluate against proof-state JSON with context tracking and implicit goal defaults. For minification, deduplicate bottom-up (hypotheses first for maximality, then goals with layered refs) with deterministic ID assignment via DFS traversal. For jq, translate each segment to filter fragments with fnmatch-to-PCRE conversion. For DAG analysis, implement stack-based goal tracking: maintain a pending-goals list where branch pushes children to the front and discharge pops the head; classify each tactic by comparing consecutive proof states (hypothesis count increase = intro, multiple new goals = branch, empty goals = discharge, otherwise = transform); build the obligation tree by recording which step spawns and resolves each goal."""
+verification_explanation = """67 pytest tests verify all five subsystems via subprocess CLI calls: query correctness across all selector types, matching modes, implicit defaults, and cross-file queries (3 data files); minification roundtrip integrity, determinism, size reduction, ref table structure, and query equivalence on minified documents; jq filter equivalence across 14 representative paths; and DAG correctness including goal counts (3 goals for linear proofs, 7 goals for nested branching), parent-child tree structure at depth 2, full tactic effect classification sequences, discharge/branch step attribution, proof name extraction, command separation, consecutive discharge handling, and DAG analysis on minified documents."""
+category = "formal_methods"
+tags = ["proof-assistants", "program-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/proofstate-query-engine"

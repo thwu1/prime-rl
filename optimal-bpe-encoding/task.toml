@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires four interleaved expert skills: (1) reverse-engineering an undocumented binary model format by tracing a stripped compiled ELF binary with strace/ltrace to discover header fields, data offsets, and endianness — the variable-offset layout means the agent cannot guess the format from hex alone; (2) using binary analysis tools (strings, readelf, objdump, xxd) in combination with syscall tracing to correlate the binary's behavior with the model file contents; (3) designing a dynamic-programming algorithm for minimum-segmentation encoding plus a counting variant, requiring insight into why greedy BPE is suboptimal; (4) exporting structured results to a SQLite database with correct schema and data. The agent must connect binary reverse-engineering, algorithmic diagnosis, DP design, and database construction without explicit guidance."""
+solution_explanation = """First trace the binary with strace to observe: read(4 bytes magic), read(1 byte version), read(2 bytes merge count), read(4 bytes data offset), lseek to offset, read merge pairs. Use xxd to verify byte values. Build vocab by recursively concatenating parent byte sequences. For optimal_encode, use DP over the full vocabulary: dp[i] = min tokens for bytes[0:i]. For count_optimal_tokenizations, extend DP to track the number of paths achieving minimum. Create SQLite database with merges and encodings tables. The key algorithmic insight: greedy BPE can be suboptimal when a low-rank merge consumes bytes that would form part of a longer, higher-rank merged token."""
+verification_explanation = """Tests verify: (1) roundtrip decode(optimal_encode(text))==text on 21 strings, (2) optimal token count <= greedy for 13 inputs, (3) exact greedy/optimal counts on 5 trap strings, (4) a compound natural-language trap, (5) compression_gap correctness, (6) count_optimal_tokenizations against known values, (7) independent DP verification on 7 compound strings, (8) all output token IDs exist in vocab, (9) performance on ~10KB under 30s, (10) greedy encoding matches compiled binary output on 11 test strings, (11) SQLite database has correct merges table (50 rows, verified fields), (12) SQLite encodings table has 8 rows with correct gaps and valid JSON arrays."""
+category = "algorithms"
+tags = ["reverse-engineering", "binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimal-bpe-encoding"

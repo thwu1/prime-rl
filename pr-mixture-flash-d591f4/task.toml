@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting numerical bugs in a 300-line Peng-Robinson EOS flash calculator (wrong kappa correlation exponent, arithmetic-mean combining rule instead of geometric, departure enthalpy sign error, incorrect liquid root selection) without being told what is broken. The solver must learn the thermo library API to use PRMIX/SRKMIX as reference oracles, then extend the corrected code with a generalized cubic EOS framework supporting SRK (different constants, cubic coefficients, fugacity and departure formulas), plus bubble-point pressure calculation via successive substitution. Debugging subtle numerical discrepancies in thermodynamic code and implementing a second EOS variant from domain knowledge demands proficient-level expertise."""
+solution_explanation = """Fix four bugs: (1) kappa uses omega^3 instead of omega^2 — change to omega*omega; (2) mixing rule uses arithmetic mean 0.5*(ai+aj) instead of geometric sqrt(ai*aj) for cross a_alpha_ij; (3) departure enthalpy has +a_alpha_mix instead of -a_alpha_mix in the (T*da_dT - a) term; (4) liquid root selection filters z>0 instead of z>B. Then generalize the EOS framework with delta1/delta2 parameterization: PR uses delta1=1+sqrt(2), delta2=1-sqrt(2); SRK uses delta1=1, delta2=0. Derive general cubic coefficients c2=(sigma-1)*B-1, c1=A+(epsilon-sigma)*B^2-sigma*B, c0=-AB-epsilon*(B^2+B^3). Generalize fugacity and departure formulas using 1/((delta1-delta2)*B) factor. SRK constants: c1=0.42748, c2=0.08664, kappa=0.480+1.574*omega-0.176*omega^2. Bubble pressure uses successive substitution: estimate from Wilson, iterate P*=P*sum(Ki*xi) until convergence."""
+verification_explanation = """Tests use an embedded reference EOS implementation to compute correct PR and SRK fugacity coefficients and departure properties, then compare the agent's solution against these. PR tests: fugacity coefficients for 4 systems (binary, ternary, CO2-CH4 with kijs, pentane-hexane with high omega); full flash results (V/F, compositions, material balance, fugacity equality) compared against reference successive-substitution flash. Departure properties validated within 5e-3 relative tolerance. SRK tests: analogous flash and fugacity tests for binary, ternary, and kij systems; departure properties. Bubble point: PR and SRK bubble pressures for binary/ternary compared against reference iterative calculation. CLI tests: JSON round-trip for PR flash, SRK flash, and bubble mode. EOS parameter tests verify PR/SRK give distinct results."""
+category = "applied_computing"
+tags = ["thermodynamics", "debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pr-mixture-flash-d591f4"

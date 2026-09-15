@@ -1,0 +1,169 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-frontend
+  namespace: alpha
+  labels:
+    app: web
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    ports:
+    - containerPort: 80
+      name: http
+    - containerPort: 443
+      name: https
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-cache
+  namespace: alpha
+  labels:
+    app: cache
+    tier: frontend
+spec:
+  containers:
+  - name: redis
+    image: redis:7
+    ports:
+    - containerPort: 6379
+      name: redis
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api-server
+  namespace: beta
+  labels:
+    app: api
+    tier: backend
+spec:
+  containers:
+  - name: api
+    image: python:3.11-slim
+    ports:
+    - containerPort: 8080
+      name: http-api
+    - containerPort: 9090
+      name: metrics
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: task-worker
+  namespace: beta
+  labels:
+    app: worker
+    tier: backend
+spec:
+  containers:
+  - name: worker
+    image: python:3.11-slim
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-primary
+  namespace: gamma
+  labels:
+    app: postgres
+    tier: data
+    role: primary
+spec:
+  containers:
+  - name: postgres
+    image: postgres:16
+    ports:
+    - containerPort: 5432
+      name: pg
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-replica
+  namespace: gamma
+  labels:
+    app: postgres
+    tier: data
+    role: replica
+spec:
+  containers:
+  - name: postgres
+    image: postgres:16
+    ports:
+    - containerPort: 5432
+      name: pg
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: search-engine
+  namespace: gamma
+  labels:
+    app: elasticsearch
+    tier: data
+    role: search
+spec:
+  containers:
+  - name: elasticsearch
+    image: elasticsearch:8.11.0
+    ports:
+    - containerPort: 9200
+      name: es-http
+    - containerPort: 9300
+      name: es-transport
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitor
+  namespace: delta
+  labels:
+    app: prometheus
+    tier: infra
+    purpose: monitoring
+spec:
+  containers:
+  - name: prometheus
+    image: prom/prometheus:v2.47.0
+    ports:
+    - containerPort: 9090
+      name: metrics
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: logger
+  namespace: delta
+  labels:
+    app: fluentd
+    tier: infra
+    purpose: logging
+spec:
+  containers:
+  - name: fluentd
+    image: fluent/fluentd:v1.16
+    ports:
+    - containerPort: 24224
+      name: forward
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ingress-ctrl
+  namespace: epsilon
+  labels:
+    app: nginx-ingress
+    tier: edge
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    ports:
+    - containerPort: 80
+      name: http
+    - containerPort: 443
+      name: https

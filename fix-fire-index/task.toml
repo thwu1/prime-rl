@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the Canadian Forest Fire Weather Index System (CFFWIS) to identify three subtle numerical bugs distributed across 500+ lines of scientific computing code: (1) an off-by-factor-of-10 exponent in the DC moisture equivalent equation, (2) an erroneous wind speed unit conversion in the ISI computation, and (3) a log-base confusion (log10 vs ln) in the DMC rain effect. Beyond debugging, the solver must design and implement a complete extreme value analysis pipeline from scratch — fitting GEV distributions to annual fire weather maxima using scipy, computing multi-decadal return levels, and building a fire danger threshold optimization system with proper verification metrics (HSS, POD, FAR, CSI). This requires combining domain expertise in fire weather science with statistical hydrology (extreme value theory), forecast verification methodology, and scientific Python tooling (scipy.stats.genextreme, pandas, JSON)."""
+solution_explanation = """Fix 3 bugs: (1) DC Eq.19 divisor 4000→400, (2) ISI Eq.26 remove /3.6 wind conversion, (3) DMC Eq.15 math.log10→math.log. Then implement pipeline.py that: runs corrected CFFWIS for all stations with WF93 masking and overwintering; extracts annual FWI maxima excluding short seasons; fits GEV distributions via scipy MLE; computes return levels using GEV quantile function; optimizes danger thresholds by grid search over FWI values maximizing CSI against fire occurrence data; computes verification metrics; writes structured JSON output."""
+verification_explanation = """Tests independently verify CFFWIS function correctness by importing the fixed cffwis.py and comparing function outputs against reference implementations with known test vectors (specific DC/ISI/DMC values that expose each bug). Tests verify the fwi_output.csv structure and correctness for representative station-days. Tests verify results.json structure completeness, GEV parameter physical bounds (scale>0, |shape|<2), return level monotonicity (T20<T50<T100), GEV self-consistency (return levels match fitted quantiles), verification metric validity ranges, and HSS>0 (skill above random). An independent contingency table recomputation from raw data confirms reported verification metrics."""
+category = "scientific_computing"
+tags = ["climate-science", "extreme-value-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-fire-index"

@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "debug-unrestricted"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: debug
+  enableDefaultDeny:
+    ingress: false
+    egress: false

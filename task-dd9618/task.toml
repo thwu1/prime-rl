@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete likelihood-free Bayesian inference pipeline from scratch for a nonlinear simulator with bimodal crescent-shaped posterior. The agent must independently choose and implement an appropriate simulation-based inference algorithm (e.g., ABC variants, neural density estimation), implement the C2ST and MMD two-sample test metrics correctly, and tune the inference to achieve posterior quality thresholds against analytical reference samples. Demands expertise in Bayesian statistics, kernel methods, classifier-based diagnostics, and scientific computing."""
+solution_explanation = """Implements vectorized SMC-ABC with large initial rejection sampling pool, adaptive quantile-based epsilon decay, and Gaussian perturbation kernel. C2ST uses sklearn MLPClassifier with 5-fold cross-validation and z-scoring. MMD uses Gaussian kernel with median heuristic bandwidth and unbiased U-statistic computation. Runs inference on 3 observations achieving C2ST < 0.65 against analytically-generated reference samples."""
+verification_explanation = """Tests verify: (1) C2ST correctness on identical distributions (~0.5) and well-separated distributions (>0.9); (2) MMD correctness on identical (~0) and separated distributions (>0.5); (3) posterior files exist with correct shape (>=5000x2) and all values within prior bounds [-1,1]^2; (4) posterior quality via independent C2ST computation against ground-truth analytical posterior samples; (5) metrics.json format and content validation."""
+category = "machine_learning"
+tags = ["simulation_based_inference", "bayesian_statistics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-dd9618"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of three distinct cryptographic domains. The CTR-DRBG component demands implementing the complete SP 800-90A state machine from scratch: Block_Cipher_df (a nested AES-based derivation function with BCC chaining), CTR_DRBG_Update, Instantiate, Reseed, and Generate — none of which are exposed by standard crypto libraries. The solver must understand the interplay between the derivation function's key scheduling, the internal counter/key state updates, and how prediction resistance vs explicit reseed alters the call sequence. The SHA-256 MCT requires implementing the exact 100×1000 chained iteration algorithm with seed-length-dependent truncation/padding logic. AES-GCM with non-standard IV lengths (120-bit) and short tags (32-bit) requires low-level cipher API usage. All three require correct interpretation of the ACVP JSON protocol schema."""
+solution_explanation = """Implement SHA-256 AFT (hash with hashlib) and MCT (100 outer × 1000 inner chained iterations with standard/alternate message construction). Implement CTR-DRBG from SP 800-90A: Block_Cipher_df uses BCC (CBC-MAC with AES) with counter-prefixed IVs and an initial key 0x00..1F; CTR_DRBG_Update increments V and encrypts to produce seedlen bytes XORed with provided data; Instantiate derives seed via df then updates from zero state; Generate increments/encrypts for output then updates state. Handle predResistance (implicit reseed per generate) and explicit reSeed via otherInput intendedUse parsing. AES-GCM uses cryptography library's low-level Cipher/GCM API with min_tag_length for short tags."""
+verification_explanation = """Tests compare generated ACVP response JSON against NIST-published expected results: exact hex match for SHA-256 digests, all 100 MCT resultsArray entries, CTR-DRBG returnedBits for both prediction-resistance and explicit-reseed scenarios, and AES-GCM ciphertexts/tags/plaintexts/testPassed flags."""
+category = "cryptography"
+tags = ["nist-acvp", "drbg-implementation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-965c9a"

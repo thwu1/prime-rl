@@ -1,0 +1,88 @@
+{
+  "queries": [
+    {
+      "id": "q1",
+      "tables": ["R", "S"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"}
+      ],
+      "filters": []
+    },
+    {
+      "id": "q2",
+      "tables": ["R", "S", "T"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"}
+      ],
+      "filters": []
+    },
+    {
+      "id": "q3",
+      "tables": ["R", "S", "U"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "R", "left_col": "r_id", "right_table": "U", "right_col": "u_r_id"}
+      ],
+      "filters": []
+    },
+    {
+      "id": "q4",
+      "tables": ["R", "S", "T", "U"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"},
+        {"left_table": "R", "left_col": "r_id", "right_table": "U", "right_col": "u_r_id"}
+      ],
+      "filters": []
+    },
+    {
+      "id": "q5",
+      "tables": ["R", "S", "T"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"}
+      ],
+      "filters": [
+        {"table": "T", "column": "t_val", "op": ">=", "value": 500}
+      ]
+    },
+    {
+      "id": "q6",
+      "tables": ["R", "S", "T", "U"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"},
+        {"left_table": "R", "left_col": "r_id", "right_table": "U", "right_col": "u_r_id"}
+      ],
+      "filters": [
+        {"table": "R", "column": "r_val", "op": ">=", "value": 50},
+        {"table": "T", "column": "t_val", "op": ">=", "value": 500}
+      ]
+    },
+    {
+      "id": "q7",
+      "tables": ["R", "S", "T", "U"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"},
+        {"left_table": "R", "left_col": "r_id", "right_table": "U", "right_col": "u_r_id"}
+      ],
+      "filters": [
+        {"table": "S", "column": "s_val", "op": ">=", "value": 800}
+      ]
+    },
+    {
+      "id": "q8",
+      "tables": ["R", "S", "T"],
+      "joins": [
+        {"left_table": "R", "left_col": "r_id", "right_table": "S", "right_col": "s_r_id"},
+        {"left_table": "S", "left_col": "s_id", "right_table": "T", "right_col": "t_s_id"}
+      ],
+      "filters": [
+        {"table": "R", "column": "r_val", "op": ">=", "value": 80},
+        {"table": "S", "column": "s_val", "op": "<", "value": 200}
+      ]
+    }
+  ]
+}

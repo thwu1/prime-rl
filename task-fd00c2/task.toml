@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires discovering and integrating order data from multiple CSV files with different schemas, extracting stock specifications from a SQLite database, recognizing that the cutting stock problem has an exponential number of feasible patterns making direct enumeration intractable, and implementing Gilmore-Gomory column generation from scratch — including a restricted master LP, dual price extraction, bounded knapsack pricing subproblem via dynamic programming, iterative column generation until LP optimality, and integer recovery from the LP relaxation. Demands deep understanding of LP duality theory, Dantzig-Wolfe decomposition, and the relationship between LP relaxation bounds and integer optimality gaps."""
+solution_explanation = """The solution reads order data from two CSV files with different column conventions, queries the SQLite database for stock roll width, then implements column generation: starting with trivial single-item patterns, it iteratively solves the restricted master LP to obtain dual prices, solves a bounded knapsack pricing subproblem via binary-expansion DP to find patterns with negative reduced cost, and adds them to the master until no improving column exists. The LP relaxation value provides a certified lower bound. Finally, the restricted master is solved as an integer program (MIP) to obtain a feasible integer cutting plan, and the optimality gap is computed."""
+verification_explanation = """Tests independently implement column generation with bounded knapsack pricing to compute the true LP relaxation bound. They verify: correct JSON structure, all cutting patterns fit within stock roll width, all customer demands are fully met, total rolls and waste are internally consistent, the agent's reported LP bound matches the independently computed bound within 0.5%, and the total rolls used is within 2% of the LP bound."""
+category = "optimization"
+tags = ["operations-research", "column-generation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fd00c2"

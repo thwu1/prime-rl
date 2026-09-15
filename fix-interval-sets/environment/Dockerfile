@@ -1,0 +1,17 @@
+FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /app
+COPY app/intervals.py /app/intervals.py
+COPY app/laws.json /app/laws.json
+COPY app/setup_laws.py /tmp/setup_laws.py
+RUN python3 /tmp/setup_laws.py && rm /tmp/setup_laws.py
+WORKDIR /app
+
+# Test dependencies prebaked so the verifier runs offline
+RUN pip3 install -q pytest==8.3.4 z3-solver==4.13.0.0

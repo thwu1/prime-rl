@@ -1,0 +1,5 @@
+A GEV distribution fitting pipeline at `/app/` has produced parameter estimates that failed quality review for at least one monitoring site. Pipeline artifacts — data files, configuration, and execution logs — are stored under `/app/`.
+
+Investigate the pipeline output and underlying data to identify which site(s) have unreliable estimates and diagnose the root cause. For affected sites, implement an estimation approach robust to the identified data quality issues. The output schema in `/app/output_schema.json` specifies the required diagnostics and output fields; implement all statistical estimators from first principles without using pre-built L-moment or TL-moment libraries.
+
+Create `/app/analysis.py` that reads the data directory and output path from `/app/config.json`, analyzes all sites, and writes results to `/app/results.json` following the output schema. `numpy` and `scipy` are available.

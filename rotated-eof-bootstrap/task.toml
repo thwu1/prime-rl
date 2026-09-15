@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 independent bugs across a multi-stage climate analysis pipeline spanning data preprocessing (centering convention, area weighting), eigendecomposition (variance normalization), factor rotation (loadings construction), and statistical validation (confidence interval methodology). Each bug is plausible-looking code that produces incorrect results without crashing. Identifying them requires expert-level understanding of SVD-based eigenanalysis, the mathematical relationship between singular values and loadings in the Varimax rotation framework, and non-parametric bootstrap methodology — knowledge that cannot be acquired from the code alone."""
+solution_explanation = """Five bugs must be fixed: (1) centering uses a scalar global mean instead of per-column temporal means; (2) cosine-latitude area weighting is entirely absent from preprocessing; (3) eigenvalue normalization divides by N instead of N-1; (4) Varimax loadings are scaled by eigenvalue instead of sqrt(eigenvalue); (5) bootstrap confidence intervals use a Gaussian approximation (mean +/- 1.96*std) instead of the percentile method. All five must be corrected simultaneously for the output to pass validation."""
+verification_explanation = """Tests independently recompute reference eigenvalue ratios using correct preprocessing and compare against the submitted output within tolerance. Rotation is verified via orthogonality (R^T R = I), determinant (+/- 1), and total variance conservation between unrotated and rotated modes. Bootstrap significance is verified against the known count of 3 embedded signals in the synthetic dataset. Additional structural, ordering, and consistency checks ensure completeness."""
+category = "scientific_computing"
+tags = ["climate-science", "numerical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rotated-eof-bootstrap"

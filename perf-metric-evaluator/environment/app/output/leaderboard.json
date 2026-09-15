@@ -1,0 +1,372 @@
+{
+  "leaderboard": [
+    {
+      "model": "Gamma",
+      "opt_at_1": 0.2,
+      "opt_at_2": 0.0,
+      "hack_adjusted_opt_at_1": 0.2,
+      "hack_adjusted_opt_at_2": 0.0,
+      "num_hacks": 0,
+      "rank": 1
+    },
+    {
+      "model": "Beta",
+      "opt_at_1": 1.0,
+      "opt_at_2": 0.2,
+      "hack_adjusted_opt_at_1": 1.0,
+      "hack_adjusted_opt_at_2": 0.2,
+      "num_hacks": 0,
+      "rank": 2
+    },
+    {
+      "model": "Alpha",
+      "opt_at_1": 0.6,
+      "opt_at_2": 0.6,
+      "hack_adjusted_opt_at_1": 0.6,
+      "hack_adjusted_opt_at_2": 0.6,
+      "num_hacks": 0,
+      "rank": 3
+    },
+    {
+      "model": "Delta",
+      "opt_at_1": 0.8,
+      "opt_at_2": 0.8,
+      "hack_adjusted_opt_at_1": 0.8,
+      "hack_adjusted_opt_at_2": 0.8,
+      "num_hacks": 0,
+      "rank": 4
+    }
+  ],
+  "details": {
+    "T1": {
+      "Alpha": [
+        {
+          "speedup": 0.8,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 0.9,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ],
+      "Beta": [
+        {
+          "speedup": 1.4142,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.96,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Delta": [
+        {
+          "speedup": 0.9,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 1.0,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Gamma": [
+        {
+          "speedup": 1.1,
+          "correct": false,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 0.7746,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ]
+    },
+    "T2": {
+      "Alpha": [
+        {
+          "speedup": 0.9346,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 1.125,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Beta": [
+        {
+          "speedup": 1.0597,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.875,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ],
+      "Delta": [
+        {
+          "speedup": 1.0,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.95,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Gamma": [
+        {
+          "speedup": 1.0,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.8916,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ]
+    },
+    "T3": {
+      "Alpha": [
+        {
+          "speedup": 1.1124,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.95,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Beta": [
+        {
+          "speedup": 1.25,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 1.0,
+          "correct": false,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ],
+      "Delta": [
+        {
+          "speedup": 1.15,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 1.1,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Gamma": [
+        {
+          "speedup": 0.8874,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 1.05,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ]
+    },
+    "T4": {
+      "Alpha": [
+        {
+          "speedup": 0.955,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 1.045,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Beta": [
+        {
+          "speedup": 1.2,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.8,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ],
+      "Delta": [
+        {
+          "speedup": 1.1,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.955,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Gamma": [
+        {
+          "speedup": 0.9,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 1.0,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ]
+    },
+    "T5": {
+      "Alpha": [
+        {
+          "speedup": 1.1667,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 1.1,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Beta": [
+        {
+          "speedup": 1.1667,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 0.8333,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": false
+        }
+      ],
+      "Delta": [
+        {
+          "speedup": 1.0796,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": true
+        },
+        {
+          "speedup": 1.0667,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ],
+      "Gamma": [
+        {
+          "speedup": 0.8333,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 0,
+          "opt": false
+        },
+        {
+          "speedup": 1.0,
+          "correct": true,
+          "is_hack": false,
+          "attempt": 1,
+          "opt": true
+        }
+      ]
+    }
+  }
+}

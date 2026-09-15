@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires interpreting FINRA regulatory text (Notice 12-38, Rule 4560, SEC Rule 203(b)(3)) to independently derive computation rules. Multi-tool pipeline demanding sqlite3 CLI interop (using .import with heterogeneous file formats — pipe-delimited files require awk/sed preprocessing before .import, quoted CSVs need --csv mode), SQL view design (window functions for islands-and-gaps consecutive-day tracking, aggregation with type-correct truncation), Python CLI development (argparse, CSV/pipe-delimited parsing, regulatory arithmetic with edge cases), and jq (cross-report metric extraction with arithmetic and array operations). Data complexities include fractional volumes in pipe-delimited files, trailing record-count sentinel lines, nullable CSV fields, and temporal gap-reset logic."""
+solution_explanation = """Pipeline.sh uses sqlite3 CLI to create tables with explicit schemas, then loads data via .import --csv --skip 1 for CSVs and .separator | with awk-preprocessed venue files (adding venue column, filtering headers/trailing count). Creates venue_symbol_agg view (CAST-truncated aggregation with ROUND for ratio) and threshold_streaks view (CTE using islands-and-gaps technique: first extracts distinct dates into a subquery, then applies ROW_NUMBER window function to get correct settlement-day indices, avoiding the DISTINCT+ROW_NUMBER ordering pitfall). Python auditor implements verify-si (integer subtraction, percentage with zero guard, DTC with 999.99 cap and 1.00 floor), reconcile-venues (float aggregation, math.floor truncation, short ratio), and threshold-monitor (date-index gap-reset consecutive-day tracking with 5-day close-out trigger). jq combines metrics from all three reports into pipeline_summary.json."""
+verification_explanation = """Tests run pipeline.sh and verify: (1) SQLite database has correct tables with expected row counts and queryable data; (2) venue_symbol_agg view returns correct truncated aggregations and short ratios for known symbols; (3) threshold_streaks view computes correct consecutive-day runs and close-out eligibility via SQL; (4) verify-si JSON has correct pass/fail counts and computed values; (5) reconcile-venues correctly truncates fractional volumes, identifies multi/single venue symbols; (6) threshold-monitor identifies 5 close-out triggers with correct dates and handles gap-reset; (7) pipeline_summary.json (via jq) has correct cross-report metrics; (8) pipeline.sh source uses sqlite3 .import and jq."""
+category = "finance"
+tags = ["regulatory-compliance", "data-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regsho-compliance-auditor"

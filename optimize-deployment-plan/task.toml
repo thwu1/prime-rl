@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires modeling a multi-constraint optimization problem (NP-hard bin-packing variant) with interacting constraint types: capacity limits, security zone placement hierarchy, co-location/anti-affinity rules, placement-dependent latency path computation, and availability zone distribution. The agent must parse a complex 28-component architecture specification, correctly implement latency computation over dependency graph paths with placement-dependent network hop costs, set up and solve a constraint satisfaction/optimization problem, and produce a cost-minimized deployment plan. Brute force is infeasible (8^28 ≈ 10^25 possibilities). Requires proficiency in constraint programming or mathematical optimization, plus software architecture domain knowledge."""
+solution_explanation = """The solution uses OR-tools CP-SAT constraint solver. It models the problem with integer decision variables (component-to-node assignment), binary indicator variables for capacity constraints, element constraints for AZ mapping, reified equality constraints for latency hop computation (same-node/same-AZ/cross-AZ), and Boolean logic for AZ distribution. The cost objective uses node-used indicator variables derived via MaxEquality. The solver finds an optimal 3-node deployment at $15-16/hr that satisfies all constraints."""
+verification_explanation = """Tests parse both the architecture spec and the produced deployment plan, then verify each constraint type independently: all components assigned to valid nodes, capacity limits respected, security zone hierarchy obeyed, affinity/anti-affinity rules satisfied, end-to-end latency within budget for all 5 scenarios (with correct placement-dependent hop computation), AZ distribution requirements met, and total cost ≤ $21.00. Also verifies output consistency (reported cost/nodes match actual assignments)."""
+category = "optimization"
+tags = ["constraint-satisfaction", "deployment-planning"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-deployment-plan"

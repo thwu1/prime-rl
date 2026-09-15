@@ -1,0 +1,47 @@
+{
+  "qrels_path": "/app/data/qrels.txt",
+  "runs": {
+    "bm25": {"path": "/app/runs/bm25.tsv", "format": "msmarco"},
+    "tfidf": {"path": "/app/runs/tfidf.tsv", "format": "msmarco"},
+    "knrm": {"path": "/app/runs/knrm.txt.bz2", "format": "msmarco_bz2"},
+    "electra": {"path": "/app/runs/electra.trec", "format": "trec"}
+  },
+  "trec_eval_src": "/app/trec_eval_src",
+  "results_db": "/app/results.db",
+  "output_path": "/app/output/audit_report.json",
+  "bootstrap": {
+    "n_iterations": 10000,
+    "seed": 12345,
+    "confidence_level": 0.95
+  },
+  "disagreement_threshold": 1e-6,
+  "audit_report_schema": {
+    "systems": [
+      {
+        "name": "string - system name matching runs key",
+        "mrr_at_10": "float",
+        "queries_ranked": "int - total queries in this run",
+        "ci_95_lower": "float - lower bound of 95% bootstrap CI for MRR@10",
+        "ci_95_upper": "float - upper bound of 95% bootstrap CI for MRR@10"
+      }
+    ],
+    "pairwise_significance": [
+      {
+        "system_a": "string",
+        "system_b": "string",
+        "delta_mrr": "float - mrr_at_10(system_a) minus mrr_at_10(system_b)",
+        "p_value": "float - two-sided paired bootstrap p-value",
+        "significant_at_005": "boolean - true if p_value < 0.05"
+      }
+    ],
+    "cross_tool_validation": [
+      {
+        "system": "string",
+        "custom_mrr": "float - MRR from fixed custom eval script",
+        "trec_eval_mrr": "float - MRR from compiled trec_eval tool",
+        "match": "boolean - true if difference < disagreement_threshold"
+      }
+    ],
+    "_notes": "systems sorted by mrr_at_10 descending; include all C(4,2)=6 pairwise comparisons"
+  }
+}

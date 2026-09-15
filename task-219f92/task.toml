@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a cross-language numerical validation pipeline combining GNU Octave and Python. The agent must: (1) study an unfamiliar mathematical specification and translate it into working Octave and Python code, (2) write Octave scripts using an unfamiliar EXPINT-derived API and Octave's stiff ODE solver to generate high-precision reference data with complex-to-real state vector splitting, (3) implement numerically stable special functions in Python that avoid catastrophic cancellation for small arguments, (4) implement a multi-stage time integration scheme from a mathematical spec, (5) build a Makefile-driven pipeline orchestrating Octave→CSV→Python data flow, (6) write cross-validation code comparing outputs across languages. The combination of unfamiliar Octave APIs, numerical stability requirements, spectral PDE methods, and cross-language tool orchestration makes this task demand proficiency rarely exercised together."""
+solution_explanation = """The solution creates an Octave driver script (gen_reference.m) that calls phifun.m for function tabulation, computes update coefficient combinations, and integrates the KS equation using a stiff ODE solver with global variables for the RHS function. A separate ks_rhs.m file provides the real-valued RHS wrapper. The Python solver implements the special functions using a hybrid approach with a small-|z| cutoff for numerical stability and the full integration scheme. The completed Makefile orchestrates: Octave reference generation → Python cross-validation. validate.py loads CSV data, recomputes values in Python, and compares."""
+verification_explanation = """Tests first run 'make clean && make all' to verify the full pipeline works from scratch. Then pytest checks: (1) Octave-generated CSV files exist with correct dimensions, (2) Python special functions match analytical formulas at moderate z, (3) Python special functions are stable near z=0, (4) Python values match Octave references loaded from CSV within 1e-8, (5) update coefficients from Python match Octave within 1e-8, (6) the integrator achieves the expected convergence order, (7) Python KS solution matches Octave reference within 0.01, (8) solution physical properties (real-valued, mean conservation, correct shape)."""
+category = "numerical_analysis"
+tags = ["exponential-integrators", "cross-language-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-219f92"

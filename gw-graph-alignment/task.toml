@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Diagnosing this pipeline requires coupled analysis across six interacting bugs spanning three languages (C, Python, Make). The native C distance library builds without error via Makefile but produces a static archive (.a) disguised as a .so — ctypes.CDLL fails with a confusing 'invalid ELF header' error requiring the solver to use build-system diagnostic tools (file, nm, objdump, or reading ar output) to identify that the library is an archive, then fix the Makefile to produce a proper shared object with -shared and -fPIC. Even after fixing the build, the C code applies sqrt to squared distances despite documenting the opposite, requiring reading and fixing C source. The remaining Python bugs are: numpy in-place aliasing via np.divide(out=u) that makes Sinkhorn convergence checking always read zero; a barycenter geometric-mean formula using log(u_k) instead of log(K@v_k); a GW cost function returning constC instead of the full tensor with cross term; and a config-loading chain where a JSON key mismatch combined with an environment variable override silently replaces reg=0.1 with reg=1.0. No single bug is visible in isolation and fixing a subset still fails tests."""
+solution_explanation = """Six bugs across five files in three languages: (1) native/Makefile uses 'ar rcs' to create a static archive instead of 'gcc -shared' for a shared library, and is missing -fPIC — fix both the compile and link steps; (2) native/distances.c applies sqrt(sq_dist) despite documenting squared Euclidean output — remove the sqrt call; (3) sinkhorn.py u_prev = u is an alias, np.divide(out=u) mutates it making convergence check always zero — fix: u_prev = u.copy(); (4) sinkhorn.py barycenter uses log(u_k) for geometric mean update but u_k = bary/(K@v_k) inverts the exponent — fix: use log(K@v_k); (5) gw_solver.py _gwcost returns sum(constC*T) missing the cross term — fix: return sum(tens*T) where tens = constC - 2*C1@T@C2.T; (6) config.py reads key 'regularization' but config.json uses 'reg_epsilon', AND OT_REG=1.0 env var overrides — fix: add key alias mapping and make file settings override env vars."""
+verification_explanation = """Tests verify mathematical properties: Sinkhorn marginals catch aliasing bug (wrong row/column sums); cost consistency catches C sqrt bug (reported cost must match sum(T*M) with squared Euclidean M recomputed from raw points); iteration count catches premature convergence from aliasing; GW cost consistency catches the constC/tens variable error via 4-loop recomputation; GW below-initial catches inflated distance; barycenter tests catch both the formula bug (collapsed delta fails max-in-range) and config bug (wrong reg produces wrong smoothness). The native library must be correctly built as a shared object for the pipeline to even run."""
+category = "scientific_computing"
+tags = ["optimal-transport", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gw-graph-alignment"

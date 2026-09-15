@@ -1,0 +1,55 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Implementing a SECCOMP BPF pledge() sandbox requires deep knowledge of Linux security internals:
+BPF bytecode generation with struct sock_filter, seccomp_data structure layout and field offsets,
+x86_64 syscall numbers for each promise category, and especially argument-level filtering with
+correct forward jump offset calculations. The BPF instruction set uses relative jumps where
+jt/jf offsets count instructions past the NEXT instruction, making offset errors easy. The task
+also requires understanding O_ACCMODE masking for openat flags and socket domain filtering, plus
+the PR_SET_NO_NEW_PRIVS prerequisite. Most developers who attempt SECCOMP fail at argument
+filtering — this is where the real difficulty lies.
+"""
+solution_explanation = """
+The solution builds a linear BPF filter program. It starts with architecture validation
+(AUDIT_ARCH_X86_64), loads the syscall number, always allows exit/exit_group, then emits
+JEQ+RET_ALLOW pairs for each promise category. For rpath and inet, it uses self-contained
+7-instruction argument-filtering blocks: check syscall number (skip block on mismatch), load
+the argument (args[2] for openat flags, args[0] for socket domain), test value(s), allow on
+match, reload nr and jump past ALLOW on mismatch. The filter is installed via
+prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) after PR_SET_NO_NEW_PRIVS.
+"""
+verification_explanation = """
+The test harness forks child processes, installs pledge in each child via the implemented
+function, then attempts specific operations using raw syscall() calls. The parent checks
+whether the child exited normally (operation allowed) or was killed by SIGSYS signal 31
+(operation blocked by SECCOMP_RET_KILL_PROCESS). 12 tests cover: simple syscall whitelisting,
+argument-level filtering for openat O_ACCMODE and socket domain, empty pledge behavior,
+write-path access, and process control operations.
+"""
+category = "security"
+tags = ["seccomp-bpf", "linux-sandboxing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-beac1f"

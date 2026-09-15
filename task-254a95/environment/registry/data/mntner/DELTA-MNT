@@ -1,0 +1,6 @@
+mntner:             DELTA-MNT
+admin-c:            ALICE-DN42
+tech-c:             BOB-DN42
+mnt-by:             DELTA-MNT
+auth:               ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQExampleDeltaKeyData
+source:             DN42

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of content-addressable storage, Merkle tree data structures, and distributed KVS semantics. The solver must: (1) explore a SQLite content store schema using sqlite3 CLI, extracting binary blobs and inspecting their structure; (2) parse RFC 11-style treeobj JSON using jq for interactive exploration and Python for programmatic traversal; (3) verify blob integrity by recomputing SHA-1 hashes and comparing against stored blobrefs; (4) implement recursive Merkle tree traversal handling five distinct node types (val with base64+NUL+JSON encoding, valref, dirref, symlink, cross-namespace symlink); (5) detect three classes of corruption (hash mismatch, truncated blobs, dangling references) and reason about their cascading effects on reachability; (6) resolve symbolic links within and across namespaces, determining whether each target is reachable in the presence of corruption; (7) identify orphaned blobs by computing the set difference between stored and referenced hashes. The task demands holistic understanding of content-addressable storage invariants — getting any single aspect wrong (hash verification, treeobj decoding, symlink scoping, orphan detection) produces cascading errors across the manifest."""
+solution_explanation = """Use sqlite3 to explore the content store schema and extract sample blobs. Use jq to understand treeobj JSON structure. Parse roots.json to get namespace root dirrefs. Implement a Python reconstructor that: loads blobs by hash from SQLite, verifies SHA1 integrity for each blob, recursively traverses dirref blobs parsing child treeobj entries, decodes val types via base64 then NUL-strip then JSON parse, follows valref to raw blobs, records symlinks with their targets and namespaces, tracks all referenced hashes to compute orphaned set. After traversing all namespaces, resolve symlinks by checking whether target paths exist in the valid-paths set for the appropriate namespace. Write the manifest with per-namespace key-value listings, integrity report, and orphaned blob count."""
+verification_explanation = """21 pytest tests verify: correct output schema and namespace count, specific resolved key-value pairs across all three namespaces (scheduler policy, access control, drain status, queue configs, job states, checkpoint rootrefs), symlink resolution correctness including cross-namespace links and corruption-aware resolution, exact corruption counts verified independently against the database (SHA1 recomputation), dangling reference detection verified by confirming hash absence from store, unreachable key identification matching expected corruption propagation paths, total blob count verified against database, orphaned blob count, root hash consistency with roots.json, and no false unreachable keys appearing in resolved values."""
+category = "distributed_systems"
+tags = ["content-addressable-storage", "merkle-tree-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-90532b"

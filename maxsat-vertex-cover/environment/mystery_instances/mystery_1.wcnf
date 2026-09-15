@@ -1,0 +1,15 @@
+c WCNF instance - weighted partial MaxSAT
+c Find an assignment minimizing the cost of unsatisfied soft clauses
+c while satisfying all hard clauses
+p wcnf 6 11 28
+28 4 5 0
+28 2 3 0
+28 5 6 0
+28 1 2 0
+28 3 4 0
+2 -3 0
+6 -6 0
+3 -1 0
+4 -5 0
+5 -4 0
+7 -2 0

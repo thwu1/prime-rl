@@ -1,0 +1,16 @@
+site_id,patient_num,treatment,dose,dose_unit,frequency,start_date,end_date
+201,1,Cobimetinib,60,mg,QD,12/18/2023,04/18/2024
+201,1,Vemurafenib,960,mg,BID,12/18/2023,04/18/2024
+201,2,Cobimetinib,60,mg,QD,12/22/2023,04/22/2024
+201,2,Vemurafenib,960,mg,BID,12/22/2023,04/22/2024
+202,3,Vemurafenib,960,mg,BID,01/12/2024,02/14/2024
+202,3,Vemurafenib,720,mg,BID,02/15/2024,04/12/2024
+202,4,Cobimetinib,60,mg,QD,01/15/2024,04/15/2024
+202,4,Vemurafenib,960,mg,BID,01/15/2024,04/15/2024
+203,5,Vemurafenib,960,mg,BID,01/22/2024,02/19/2024
+203,5,Vemurafenib,960,mg,BID,02/28/2024,04/22/2024
+203,6,Cobimetinib,60,mg,QD,01/28/2024,04/28/2024
+203,6,Vemurafenib,960,mg,BID,01/28/2024,04/28/2024
+204,7,Vemurafenib,960,mg,BID,02/08/2024,04/08/2024
+204,8,Cobimetinib,60,mg,QD,02/12/2024,04/12/2024
+204,8,Vemurafenib,960,mg,BID,02/12/2024,04/12/2024

@@ -1,0 +1,23 @@
+{
+  "product_id": "MOD13A2",
+  "product_name": "MODIS Vegetation Indices 16-Day L3 Global 1km",
+  "coordinate_reference_system": {
+    "type": "Sinusoidal",
+    "proj_string": "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs"
+  },
+  "spatial_extent": {
+    "left": -20015109.354,
+    "bottom": -10007554.677,
+    "right": 20015109.354,
+    "top": 10007554.677
+  },
+  "temporal_extent": {
+    "start_datetime": "2000-02-18",
+    "end_datetime": "2025-06-01"
+  },
+  "spatial_resolution_m": 1000,
+  "science_data_sets": ["NDVI", "EVI", "pixel_reliability", "composite_day"],
+  "data_provider": "NASA LP DAAC",
+  "license": "public-domain",
+  "thematic_area": "vegetation"
+}

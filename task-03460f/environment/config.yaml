@@ -1,0 +1,12 @@
+gateways:
+  local:
+    connection:
+      type: duckdb
+      database: db.duckdb
+
+default_gateway: local
+
+model_defaults:
+  dialect: postgres
+  start: '2024-01-01'
+  cron: '@daily'

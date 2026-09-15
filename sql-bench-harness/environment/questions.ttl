@@ -1,0 +1,180 @@
+@prefix QandA: <http://benchmark.example.org/QandA#> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix bench: <http://benchmark.example.org/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+# ============================================================
+# ACME Insurance Text-to-SQL Benchmark
+# 8 questions spanning simple counts to complex multi-join
+# aggregations over a normalized insurance schema.
+# ============================================================
+
+# --- Investigation (links all inquiries) ---
+bench:InsuranceBenchmark
+    rdf:type              QandA:Investigation ;
+    QandA:pursues         bench:Q1 , bench:Q2 , bench:Q3 , bench:Q4 ,
+                          bench:Q5 , bench:Q6 , bench:Q7 , bench:Q8 .
+
+# --- Q1: Policy count ---
+bench:Q1
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q1-sql ;
+    QandA:prompt  "How many policies do we have?" .
+
+bench:query-Q1-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  "SELECT COUNT(*) AS policy_count FROM policy" ;
+    dct:title        "Policy Count" .
+
+# --- Q2: Claim count ---
+bench:Q2
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q2-sql ;
+    QandA:prompt  "How many claims do we have?" .
+
+bench:query-Q2-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  "SELECT COUNT(*) AS claim_count FROM claim" ;
+    dct:title        "Claim Count" .
+
+# --- Q3: Total premium by policy number ---
+bench:Q3
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q3-sql ;
+    QandA:prompt  "What is the total premium amount by policy number?" .
+
+bench:query-Q3-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT p.policy_number, SUM(pr.amount) AS total_premium
+FROM policy p
+JOIN premium pr ON p.policy_id = pr.policy_id
+GROUP BY p.policy_number
+ORDER BY p.policy_number""" ;
+    dct:title        "Total Premium by Policy" .
+
+# --- Q4: Claims per policy ---
+bench:Q4
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q4-sql ;
+    QandA:prompt  "How many claims have been placed by policy number?" .
+
+bench:query-Q4-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT p.policy_number, COUNT(c.claim_id) AS claim_count
+FROM policy p
+JOIN claim c ON p.policy_id = c.policy_id
+GROUP BY p.policy_number
+ORDER BY p.policy_number""" ;
+    dct:title        "Claims per Policy" .
+
+# --- Q5: Total loss by claim (multi-line, multi-join) ---
+bench:Q5
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q5-sql ;
+    QandA:prompt  "What is the total loss amount by claim number, where loss is the sum of loss payment and loss reserve?" .
+
+bench:query-Q5-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT c.claim_number,
+       SUM(CASE WHEN ca.amount_type IN ('loss_payment', 'loss_reserve')
+                THEN ca.amount ELSE 0 END) AS total_loss
+FROM claim c
+JOIN claim_amount ca ON c.claim_id = ca.claim_id
+GROUP BY c.claim_number
+ORDER BY c.claim_number""" ;
+    dct:title        "Total Loss by Claim" .
+
+# --- Q6: Claims with catastrophe ---
+bench:Q6
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q6-sql ;
+    QandA:prompt  "What are the claims with their corresponding catastrophe names?" .
+
+bench:query-Q6-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT c.claim_number, cat.name AS catastrophe_name
+FROM claim c
+JOIN catastrophe cat ON c.catastrophe_id = cat.catastrophe_id
+ORDER BY c.claim_number""" ;
+    dct:title        "Claims with Catastrophe" .
+
+# --- Q7: Policy holder policy count ---
+# This question has BOTH SQL and SPARQL gold queries.
+# The evaluator must select the SQL variant.
+bench:Q7
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q7-sql , bench:query-Q7-sparql ;
+    QandA:prompt  "How many policies does each policy holder have?" .
+
+bench:query-Q7-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT pa.party_name, COUNT(pp.policy_id) AS policy_count
+FROM party pa
+JOIN policy_party pp ON pa.party_id = pp.party_id
+WHERE pp.role = 'policyholder'
+GROUP BY pa.party_name""" ;
+    dct:title        "Policy Holder Policy Count (SQL)" .
+
+bench:query-Q7-sparql
+    rdf:type         bench:SparqlQuery ;
+    QandA:inLanguage QandA:SPARQL ;
+    QandA:queryText  """PREFIX : <http://benchmark.example.org/>
+PREFIX in: <http://data.world/schema/insurance/>
+SELECT ?PolicyHolderName (COUNT(?policy) AS ?NoOfPolicies)
+WHERE {
+    SERVICE :mapped {
+        ?policy a in:Policy ;
+            in:hasPolicyHolder [ in:policyHolderName ?PolicyHolderName ] .
+    }
+}
+GROUP BY ?PolicyHolderName""" ;
+    dct:title        "Policy Holder Policy Count (SPARQL)" .
+
+# --- Q8: Loss ratio by policy ---
+# Also has both SQL and SPARQL.
+bench:Q8
+    rdf:type      QandA:Inquiry ;
+    QandA:expects bench:query-Q8-sql , bench:query-Q8-sparql ;
+    QandA:prompt  "What is the loss ratio by policy, where loss ratio is total claim amounts divided by total premium?" .
+
+bench:query-Q8-sql
+    rdf:type         bench:SqlQuery ;
+    QandA:inLanguage QandA:SQL ;
+    QandA:queryText  """SELECT p.policy_number,
+       COALESCE(SUM(ca.amount), 0) / NULLIF(pr.total_premium, 0) AS loss_ratio
+FROM policy p
+LEFT JOIN claim c ON p.policy_id = c.policy_id
+LEFT JOIN claim_amount ca ON c.claim_id = ca.claim_id
+JOIN (SELECT policy_id, SUM(amount) AS total_premium
+      FROM premium GROUP BY policy_id) pr
+  ON p.policy_id = pr.policy_id
+GROUP BY p.policy_number, pr.total_premium
+ORDER BY p.policy_number""" ;
+    dct:title        "Loss Ratio by Policy (SQL)" .
+
+bench:query-Q8-sparql
+    rdf:type         bench:SparqlQuery ;
+    QandA:inLanguage QandA:SPARQL ;
+    QandA:queryText  """PREFIX : <http://benchmark.example.org/>
+PREFIX in: <http://data.world/schema/insurance/>
+SELECT ?policyNumber (SUM(?loss) / ?premium AS ?lossRatio)
+WHERE {
+    SERVICE :mapped {
+        ?pcd a in:PolicyCoverageDetail ;
+            in:hasPremiumAmount [ in:premiumAmount ?premium ] ;
+            in:hasPolicy ?policy .
+        ?policy a in:Policy ;
+            in:policyNumber ?policyNumber .
+        ?claim in:against ?pcd ;
+            in:hasClaimAmount [ in:claimAmount ?loss ] .
+    }
+}
+GROUP BY ?policyNumber ?premium""" ;
+    dct:title        "Loss Ratio by Policy (SPARQL)" .

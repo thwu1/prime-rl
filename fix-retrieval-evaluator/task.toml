@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level information retrieval knowledge and systematic debugging across multiple interacting components. The solver must: (1) diagnose a silent data-loading issue where a utility function filters out all queries due to a missing field check, producing empty per-domain results with no obvious error message; (2) detect a TREC run file format anomaly where one model's rank and score columns are transposed, requiring column-type analysis to distinguish float scores from integer ranks; (3) recognize that binarizing graded relevance judgments (0–3 → 0/1) corrupts nDCG gain computation, demanding understanding of how pytrec_eval's nDCG differs under binary vs. graded relevance; (4) implement five distinct score fusion algorithms from function stubs, including min-max normalization with edge-case handling; (5) design a performance-weighted fusion strategy using per-domain baseline metrics as combination weights — requiring the solver to understand the circular dependency between baseline evaluation and weighted fusion; (6) engineer per-domain optimization that selects the best fusion configuration and produces an adaptive fused ranking. The bugs span data loading, file parsing, and evaluation methodology — each manifests differently and requires distinct IR expertise to diagnose."""
+solution_explanation = """Fix three bugs: (1) utils.py load_queries filters by a 'reasoning' field that doesn't exist in the query JSONL — either remove the filter or load queries directly; (2) dense.trec has rank and score columns swapped — detect by checking that column 3 contains decimals while column 4 contains integers, then read scores from the correct column; (3) evaluate.py binarizes graded qrels (rel>0 → 1) but nDCG requires actual relevance grades for correct gain computation — pass raw integer relevance values to pytrec_eval. Then implement five fusion algorithms: RRF with configurable k using 1/(k+rank), CombSUM with per-query min-max normalization, CombMNZ as CombSUM multiplied by run count, and weighted CombSUM using per-domain baseline nDCG@10 as model weights. Finally, evaluate all 7 configurations per domain, select best by nDCG@10, and apply per-domain optimal methods to produce adaptive fused rankings."""
+verification_explanation = """Tests independently load TREC data, correctly handle the column swap and graded relevance, implement all fusion methods including weighted_combsum, and compute reference metrics using pytrec_eval. Agent's results.json is compared against reference values with 0.02 tolerance. Tests verify: (1) output file existence and complete structure including all model/domain/metric keys, (2) baseline metrics per model overall and per-domain, (3) dense model has reasonable nDCG (column swap fixed), (4) graded relevance differs from binary (binarization bug fixed), (5) fusion optimization per-domain with 7 methods and correct best selection, (6) all fusion method nDCG@10 values match reference, (7) optimized fusion overall and per-domain metrics."""
+category = "data_science"
+tags = ["information-retrieval", "score-fusion"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-retrieval-evaluator"

@@ -1,0 +1,26 @@
+{
+  "scenarios": [
+    {
+      "id": "pure_limestone",
+      "blend": {
+        "limestone_gw": 1.0
+      }
+    },
+    {
+      "id": "gw_blend",
+      "blend": {
+        "limestone_gw": 0.6,
+        "alluvial_gw": 0.4
+      }
+    },
+    {
+      "id": "tri_blend",
+      "blend": {
+        "limestone_gw": 0.3,
+        "alluvial_gw": 0.3,
+        "surface_reservoir": 0.4
+      }
+    }
+  ],
+  "temperatures_c": [5.0, 15.0, 25.0]
+}

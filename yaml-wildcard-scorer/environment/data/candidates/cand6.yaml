@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: my-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+      http:
+        h2UpgradePolicy: UPGRADE
+        maxRetries: 3
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutiveErrors: 10
+      interval: 60s
+      baseEjectionTime: 30s

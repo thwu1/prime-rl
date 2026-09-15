@@ -1,0 +1,22 @@
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd083]
+[    0.000000] Linux version 6.1.21-v8+ (dom@buildbot) (aarch64-linux-gnu-gcc-12 (GCC) 12.2.0) #1642 SMP PREEMPT Mon Apr  3 17:36:29 2023
+[    0.000000] Machine model: Raspberry Pi 4 Model B Rev 1.4
+[    0.000000] efi: UEFI not found.
+[    0.000000] Reserved memory: created CMA memory pool at 0x000000002c000000, size 256 MiB
+[    0.029331] platform fe00b840.mailbox: Fixed dependency cycle(s) with /soc/firmware/clocks
+[    0.043292] bcm2835-dma fe007000.dma: DMA legacy API manager, dmachans=0x1
+[    0.098773] iommu: Default domain type: Translated
+[    0.224103] spi-bcm2835 fe204000.spi: could not get clk: -517
+[    0.253901] kernel: overlay spi-devices: failed to apply (FDT_ERR_BADMAGIC)
+[    0.254023] kernel: overlay gpio-io: failed to apply (FDT_ERR_BADMAGIC)
+[    0.287445] i2c_dev: i2c /dev entries driver
+[    0.289122] i2c i2c-0: client [0x27] registration failed (-19)
+[    0.291208] i2c i2c-0: Failed to probe 0x57, no ACK
+[    0.293415] bmp280 0-0077: chip id value 0xff is unexpected, expected 0x58 or 0x60
+[    0.294001] bmp280: probe of 0-0077 failed with error -22
+[    0.350012] brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio for chip BCM4345/6
+[    0.412003] Bluetooth: Core ver 2.22
+[    0.439781] brcmfmac: brcmf_c_process_clm_blob: no clm_blob available (err=-2), device may have limited channels available
+[    0.501447] bcm2835-codec bcm2835-codec: Device registered as /dev/video10
+[    0.601322] Registered kernel module: bcm2835_v4l2
+[    0.712003] Under-voltage detected! (0x00050005)

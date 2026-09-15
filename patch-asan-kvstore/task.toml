@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating a flawed peer security audit against ~500 lines of C source code containing 6 memory safety vulnerabilities spanning 4 CWE categories. The solver must judge which entries in the peer audit are correct vs. incorrect, identify misattributed root causes (ASan crash in cmd_get vs. actual root cause in cmd_rename), detect misclassified CWE types (CWE-787 write vs. CWE-125 read for an OOB read bug), flag understated severity ratings, and discover 2 vulnerabilities the peer missed entirely (self-copy UAF in cmd_copy, unbounded stack buffer in cmd_mget). Beyond evaluation, each vulnerability requires an exploitability assessment distinguishing code execution primitives (UAF, buffer overflow writes) from information disclosure (OOB reads) — a judgment that demands understanding of memory corruption exploitation under modern mitigations. The solver must then create the corrected comprehensive audit and produce working patches for all 6 bugs."""
+solution_explanation = """Peer review: (1) Entry 1 flagged as partially_correct — severity 'low' is wrong for a heap overflow, corrected to 'high'. (2) Entry 2 flagged as incorrect — root cause is cmd_rename (frees transferred pointer), not cmd_get (crash site). (3) Entry 3 marked correct. (4) Entry 4 flagged as incorrect — CWE-787 (write) wrong, corrected to CWE-125 (read). Missing: cmd_copy self-copy UAF, cmd_mget stack overflow. Exploitability: all write-based vulns (heap/stack overflow, UAF) rated 'code_execution'; cmd_getrange OOB read rated 'info_disclosure'. Patches: (1) malloc(len-2)->malloc(len-1). (2) Remove free(old_e->value). (3) Bound pattern loop. (4) Clamp end index. (5) Self-copy early return. (6) Replace fixed buffer with direct printf."""
+verification_explanation = """Recompiles patched source with ASan. Runs 4 PoC inputs and 2 hidden-bug PoCs verifying no ASan errors. Runs 4 functional test suites. Validates peer_review.json: checks entry 2 misattribution is identified with cmd_rename correction, entry 4 CWE error flagged with CWE-125, entry 1 severity flagged, missing cmd_copy and cmd_mget identified. Validates security_audit.json: >=6 entries with correct structure, function coverage, CWE accuracy, valid exploitability ratings, cmd_getrange rated info_disclosure not code_execution, UAF bugs not rated dos_only."""
+category = "security"
+tags = ["vulnerability-evaluation", "memory-safety"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/patch-asan-kvstore"

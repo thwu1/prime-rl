@@ -1,0 +1,19 @@
+{
+"type": "FeatureCollection",
+"name": "nexus_data",
+"crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+"features": [
+{"type": "Feature", "id": "nex-1", "properties": {"toid": "cat-8"}, "geometry": {"type": "Point", "coordinates": [-80.82, 35.31]}},
+{"type": "Feature", "id": "nex-2", "properties": {"toid": "cat-9"}, "geometry": {"type": "Point", "coordinates": [-80.75, 35.32]}},
+{"type": "Feature", "id": "nex-3", "properties": {"toid": "cat-10"}, "geometry": {"type": "Point", "coordinates": [-80.60, 35.32]}},
+{"type": "Feature", "id": "nex-4", "properties": {"toid": "cat-10"}, "geometry": {"type": "Point", "coordinates": [-80.48, 35.31]}},
+{"type": "Feature", "id": "nex-5", "properties": {"toid": "cat-14"}, "geometry": {"type": "Point", "coordinates": [-80.36, 35.25]}},
+{"type": "Feature", "id": "nex-6", "properties": {"toid": "cat-12"}, "geometry": {"type": "Point", "coordinates": [-80.78, 35.27]}},
+{"type": "Feature", "id": "nex-7", "properties": {"toid": "cat-13"}, "geometry": {"type": "Point", "coordinates": [-80.54, 35.26]}},
+{"type": "Feature", "id": "nex-8", "properties": {"toid": "cat-15"}, "geometry": {"type": "Point", "coordinates": [-80.66, 35.22]}},
+{"type": "Feature", "id": "nex-9", "properties": {"toid": "cat-18"}, "geometry": {"type": "Point", "coordinates": [-80.52, 35.17]}},
+{"type": "Feature", "id": "nex-10", "properties": {"toid": "cat-19"}, "geometry": {"type": "Point", "coordinates": [-80.40, 35.25]}},
+{"type": "Feature", "id": "nex-11", "properties": {"toid": "cat-20"}, "geometry": {"type": "Point", "coordinates": [-80.50, 35.12]}},
+{"type": "Feature", "id": "nex-12", "properties": {"toid": "tnx-1000"}, "geometry": {"type": "Point", "coordinates": [-80.52, 35.08]}}
+]
+}

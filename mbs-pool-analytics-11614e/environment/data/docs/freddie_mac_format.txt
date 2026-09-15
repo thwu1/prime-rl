@@ -1,0 +1,100 @@
+Freddie Mac Single-Family Loan-Level Dataset
+File Format Reference
+
+ORIGINATION FILE
+================
+Pipe-delimited ("|"), 32 fields per record, no header row.
+Empty fields appear as consecutive delimiters (e.g., "||").
+
+Field  Name                    Type      Description
+-----  ----                    ----      -----------
+0      CREDIT_SCORE            Integer   Borrower credit score at origination (999 = missing)
+1      FIRST_PAYMENT_DATE      String    First payment date (YYYYMM)
+2      FIRST_TIME_BUYER        Char      First-time homebuyer flag (Y/N)
+3      MATURITY_DATE           String    Mortgage maturity date (YYYYMM)
+4      MSA                     String    Metropolitan Statistical Area code
+5      MI_PCT                  Integer   Mortgage insurance percentage (0 = none)
+6      NUM_UNITS               Integer   Number of units (1-4)
+7      OCC_STATUS              Char      Occupancy status (P=Primary, S=Second, I=Investment)
+8      CLTV                    Integer   Combined loan-to-value ratio
+9      DTI                     Integer   Debt-to-income ratio
+10     ORIG_UPB                Float     Original unpaid principal balance
+11     LTV                     Integer   Loan-to-value ratio
+12     ORIG_RATE               Float     Original interest rate (percentage, e.g., 4.000)
+13     CHANNEL                 Char      Origination channel (R=Retail, C=Correspondent, B=Broker)
+14     PPM_FLAG                Char      Prepayment penalty mortgage flag (Y/N)
+15     AMORT_TYPE              String    Amortization type (FRM=Fixed Rate, ARM=Adjustable)
+16     STATE                   String    Property state (2-letter code)
+17     PROP_TYPE               String    Property type (SF=Single Family, CO=Condo, etc.)
+18     ZIP_CODE                String    3-digit zip code prefix
+19     LOAN_SEQ                String    Loan sequence number. Format: FYYQnNNNNNNN
+                                         F = Freddie Mac identifier
+                                         YY = 2-digit origination year
+                                         Qn = Quarter (Q1, Q2, Q3, Q4)
+                                         NNNNNNN = Unique loan number within vintage
+                                         Example: F20Q10000001 = year 2020, Q1, loan #1
+20     PURPOSE                 Char      Loan purpose (P=Purchase, C=Cash-out Refi, N=No Cash-out Refi)
+21     ORIG_TERM               Integer   Original loan term in months (e.g., 360 for 30-year)
+22     NUM_BORROWERS           Integer   Number of borrowers
+23     SELLER                  String    Seller name
+24     SERVICER                String    Servicer name
+25-31  (remaining fields)      Various   Additional origination attributes
+
+
+PERFORMANCE FILE
+================
+Pipe-delimited ("|"), 32 fields per record, no header row.
+One record per loan per reporting month.
+
+Field  Name                    Type      Description
+-----  ----                    ----      -----------
+0      LOAN_SEQ                String    Loan sequence number (matches origination file)
+1      PERIOD                  String    Monthly reporting period (YYYYMM)
+2      CUR_UPB                 Float     Current actual unpaid principal balance (0 when terminated)
+3      DLQ_STATUS              String    Current loan delinquency status:
+                                         0 = Current
+                                         1 = 30-59 days delinquent
+                                         2 = 60-89 days delinquent
+                                         3+ = 90+ days delinquent (integer value = months delinquent)
+                                         RA = Real Estate Owned (REO) acquisition
+4      LOAN_AGE                Integer   Loan age in months from origination
+5      REM_MONTHS              Integer   Remaining months to legal maturity
+6      DEFECT_DATE             String    Defect settlement date
+7      MOD_FLAG                Char      Modification flag (Y/N)
+8      ZB_CODE                 String    Zero balance code (loan termination reason):
+                                         01 = Prepaid or Matured (voluntary)
+                                         02 = Third Party Sale
+                                         03 = Short Sale
+                                         09 = REO Disposition
+                                         15 = Repurchase or Replacement
+                                         Empty = Loan still active
+9      ZB_DATE                 String    Zero balance effective date (YYYYMM)
+10     CUR_RATE                Float     Current interest rate (percentage, e.g., 4.000)
+11     CUR_DEFERRED_UPB        Float     Current deferred UPB
+12     DDLPI                   String    Due date of last paid installment (YYYYMM)
+13     MI_RECOVERIES           Float     Mortgage insurance recoveries
+14     NET_SALE_PROCEEDS       Float     Net sale proceeds (from property disposition)
+15     NON_MI_RECOVERIES       Float     Non-MI recoveries
+16     EXPENSES                Float     Total expenses (legal + maintenance + taxes/insurance + misc)
+17     LEGAL_COSTS             Float     Legal costs
+18     MAINT_COSTS             Float     Maintenance and preservation costs
+19     TAXES_INSURANCE         Float     Taxes and insurance
+20     MISC_EXPENSES           Float     Miscellaneous expenses
+21     ACTUAL_LOSS             Float     Actual loss amount (as calculated by servicer)
+22     MOD_COST                Float     Modification cost
+23     STEP_MOD_FLAG           Char      Step modification flag
+24     DEFERRED_PLAN           Char      Deferred payment plan
+25     ELTV                    Integer   Estimated loan-to-value
+26     ZB_REMOVAL_UPB          Float     Zero balance removal UPB (balance at time of termination)
+27     DLQ_ACCRUED_INTEREST    Float     Delinquent accrued interest
+28     DISASTER_FLAG           Char      Disaster delinquency flag
+29     BORR_ASSIST_CODE        String    Borrower assistance status code
+30     CUR_MONTH_MOD_COST      Float     Current month modification cost
+31     IB_UPB                  Float     Interest-bearing UPB
+
+Notes:
+- Empty numeric fields should be treated as 0.0
+- Missing integer fields (coded as 999 or 9999) indicate data not available
+- DLQ_STATUS "RA" indicates property acquired through foreclosure
+- When ZB_CODE is non-empty, the loan has terminated; CUR_UPB is typically 0
+- "U" or empty string in NET_SALE_PROCEEDS means unavailable (treat as 0)

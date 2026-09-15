@@ -1,0 +1,17 @@
+x = input()
+y = input()
+t1 = 3
+a = x * t1
+t2 = 5
+b = y * t2
+c = a + b
+t3 = 41
+if c != t3 goto end
+d = x - y
+t4 = 3
+if d != t4 goto end
+t5 = 0
+t6 = 1
+assert t5 == t6
+end:
+halt

@@ -1,0 +1,26 @@
+{
+  "workspace": "Numerical Experiments v3.1",
+  "description": "Three open computational problems requiring high-precision numerical methods. Each experiment is defined by files in its subdirectory under experiments/. Workspace calibration data contains session-specific parameters.",
+  "calibration": "/app/calibration.json",
+  "output_file": "/app/results.json",
+  "output_schema": "/app/schema.json",
+  "required_precision": "10 significant digits minimum",
+  "experiments": [
+    {
+      "id": "quadrature",
+      "path": "experiments/quadrature/",
+      "result_key": "integral"
+    },
+    {
+      "id": "sparse_inverse",
+      "path": "experiments/sparse_inverse/",
+      "result_key_prefix": "inv",
+      "note": "Multiple result keys generated from target list; see targets.json"
+    },
+    {
+      "id": "stochastic",
+      "path": "experiments/stochastic/",
+      "result_key": "exit_prob"
+    }
+  ]
+}

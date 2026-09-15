@@ -1,0 +1,72 @@
+= Tasks
+(Excerpted from Hubris RTOS reference documentation)
+
+Other than the kernel, all the code in a Hubris application lives in one or more
+_tasks._ Tasks are programs that run in the processor's _unprivileged mode,_
+subject to memory isolation. This means that tasks cannot directly stomp on
+memory owned by the kernel, or each other.
+
+== A brief note on priorities
+
+Tasks have priorities, which are currently fixed at build time. These are small
+integers.
+
+Priorities are numbered in a way that may feel backwards: 0 is the highest
+priority, 1 is the next highest, and so forth. In general, when we talk about
+something being "higher priority," we mean its priority number is numerically
+smaller.
+
+== Scheduling
+
+The kernel is responsible for scheduling tasks by swapping between them as
+needed. At any given time, one task has control of the CPU, and the others are
+_blocked._
+
+Hubris uses a strict priority scheduling method: the kernel ensures that, at any
+given time, the highest-priority task that is ready to run has control of the
+CPU. If that task becomes ready while another task is running -- say, due to an
+interrupt -- the kernel will preempt the lower priority task and switch to the
+higher priority task.
+
+Within a single priority level, multitasking is effectively cooperative: the
+kernel will never interrupt a task to switch to another task of equal or lower
+priority, until that task performs an operation that yields the CPU, such as
+sending a message or blocking to receive messages that haven't arrived yet.
+
+Priority levels in Hubris are effectively unlimited (currently, there are up to
+256 of them), and using more levels has no runtime cost -- so, if the absence of
+time-slicing is a problem for your application, you can use a single task per
+priority level and get full preemption.
+
+== Tasks can't be created or destroyed
+
+An application declares all of its tasks in its `app.toml` config file, which
+the build system processes to make an application image. The set of tasks
+declared in that file is the set of tasks the application has, period. Unlike
+most operating systems, Hubris does not support creating new tasks at runtime or
+destroying existing tasks.
+
+This has a bunch of advantages, including:
+
+- It simplifies very important kernel code and data structures.
+- It means we can check the peak memory consumption of the system under load _at
+  compile time,_ since there's no way to create tasks in response to load.
+- It makes the addresses of tasks in physical memory predictable.
+
+== Memory isolation
+
+The ARM Cortex-M MPU (Memory Protection Unit) is used to isolate tasks from
+each other. Each task has its own set of MPU regions covering its code (flash),
+data (RAM), and any peripheral registers it needs to access. The MPU ensures
+that a task cannot access memory outside its assigned regions — any attempt
+triggers a hardware fault that the kernel handles.
+
+Because MPU regions must be power-of-two in size and naturally aligned, the
+build system's memory allocator rounds each task's memory requirements up to
+the next power of two and places them at correspondingly aligned addresses.
+This may result in gaps between allocations due to alignment padding.
+
+Peripheral registers are mapped into a task's MPU region via the `uses` field
+in `app.toml`. A peripheral's address range can only be mapped into a single
+task's address space — the MPU does not support overlapping region assignments
+across different tasks.

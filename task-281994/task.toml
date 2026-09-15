@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires porting fzf's complete fuzzy matching engine from Go to Python by reading and reverse-engineering ~1000 lines of Go source code (algo.go). The agent must understand Go idioms (slices, rune handling, pointer semantics), translate a multi-phase dynamic programming algorithm with 7 character classes, a 7x7 bonus matrix, gap penalties, consecutive-chunk bonus propagation with a chunk-break heuristic, first-character multiplier, forward/backward tiebreaking, ASCII fast-path scope narrowing, and a greedy V1 fallback. Additionally requires implementing 6 distinct match types (fuzzy v1/v2, exact, prefix, suffix, equal) plus helpers — each with subtle edge cases around Unicode normalization, whitespace handling, and case sensitivity. The agent may also need to experiment with the installed fzf binary to validate behavior."""
+solution_explanation = """Read algo.go to understand the implementation. Port all functions: normalize_rune (NFD decomposition), try_skip (character search with case folding), ascii_fuzzy_index (scope narrowing), calculate_score (scoring with gap/bonus/consecutive logic), fuzzy_match_v1 (greedy forward+backward scan), fuzzy_match_v2 (DP matrix fill with backtrace, fallback to V1 for large inputs), exact_match_naive (best-bonus substring), prefix_match, suffix_match, equal_match. Each requires careful translation of Go idioms to Python."""
+verification_explanation = """Tests call all matching functions with the exact input/pattern/expected-score triples from fzf's own algo_test.go. Each test asserts start index, end index, and score match exactly. Tests cover FuzzyMatchV1, V2, ExactMatchNaive, PrefixMatch, SuffixMatch, EqualMatch, normalization, long strings, backward matching, empty patterns, non-matches, character classification, and score calculation."""
+category = "systems-programming"
+tags = ["cross-language-porting", "fuzzy-matching"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-281994"

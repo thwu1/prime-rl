@@ -1,0 +1,23 @@
+SQL_ID: 3st4uv5w6x7y8
+Plan hash value: 6182739405
+
+---------------------------------------------------------------------------------------
+| Id  | Operation             | Name        | Rows  | Bytes | Cost (%CPU)| Time     |
+---------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT      |             |   456 | 13680 |  52345   (2)| 00:10:28 |
+|*  1 |  HASH JOIN SEMI       |             |   456 | 13680 |  52345   (2)| 00:10:28 |
+|   2 |   TABLE ACCESS FULL   | ORDER_ITEMS |  12.5M|   250M|  34567   (1)| 00:06:55 |
+|*  3 |   TABLE ACCESS FULL   | ORDERS      |  3567K|    34M|  17234   (2)| 00:03:27 |
+---------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+   3 - filter("O"."ORDER_DATE">SYSDATE@!-365)
+
+Note
+-----
+   - dynamic statistics used: dynamic sampling (level=2)
+   - NO_INDEX(oi) hint prevents use of index on ORDER_ITEMS
+   - Without hint, optimizer would use IDX_OI_ORDER_ID index via nested loops
+   - Both tables scanned fully due to hint - 12.5M + 3.5M rows processed

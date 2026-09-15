@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of LLVM IR semantics, x86-64 instruction set architecture, System V AMD64 calling convention, stack frame management, and correct register usage. The task combines parsing a non-trivial IR format, implementing semantic translation of ~15 instruction types, handling function calls with both register and stack-passed arguments, managing alloca-based memory, and generating correct control flow with labeled basic blocks. Key challenges include getting the cmpq operand order right, maintaining 16-byte stack alignment before calls, correctly implementing GEP pointer arithmetic, and handling recursive functions with proper callee-save semantics."""
+solution_explanation = """Parse LLVMlite IR into an AST using regex-based line-by-line parsing. Generate x86-64 assembly using a stack-slot code generation strategy where each LLVM virtual register maps to a fixed offset from rbp. Function arguments are received via System V ABI registers (rdi, rsi, rdx, rcx, r8, r9) with overflow on the stack, and stored to their stack slots in the prologue. Alloca is implemented as compile-time stack slot reservation with address stored in the result slot. Each instruction loads operands from stack into scratch registers (rax, rcx), performs the operation, and stores back. Branches map to x86 jmp/jne with function-scoped labels."""
+verification_explanation = """15 test programs cover: simple returns, arithmetic, chained operations, function calls, conditional branching, alloca/load/store memory, loops, global variables, recursive factorial, array allocation with GEP, bitwise operations, 6-argument and 8-argument function calls (testing stack argument passing), comparison operators with zext, and Fibonacci with external print I/O. Each test compiles a .ll file to assembly, links with the C runtime via gcc, executes the binary, and checks exit codes and stdout output against expected values."""
+category = "compilers"
+tags = ["code-generation", "x86-assembly"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5e92c3"

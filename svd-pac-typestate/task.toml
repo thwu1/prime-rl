@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in embedded Rust: parsing SVD XML to extract register specifications, designing compile-time-safe GPIO abstractions with zero-cost type-level encoding of pin modes, correct volatile register access through raw pointers, memory-layout-compatible register block structs with gap handling, singleton peripheral access using atomic synchronization, and ARM Cortex-M cross-compilation in a no_std environment. Multiple concerns must be simultaneously correct for the crate to compile."""
+solution_explanation = """Parse the SVD XML to extract peripheral base addresses, register offsets, field bit positions, and access types (including derivedFrom inheritance for GPIO ports). Generate a complete no_std Rust PAC crate with: repr(C) register block structs matching hardware layout, volatile read/write accessors for each register, typestate GPIO using const generics (Pin<PORT, N, MODE>) with mode-constrained methods, and an AtomicBool-guarded singleton Peripherals::take() pattern. Configure cross-compilation for thumbv7m-none-eabi."""
+verification_explanation = """Tests verify: (1) successful compilation for thumbv7m-none-eabi ARM target, (2) #![no_std] in lib.rs, (3) all peripheral base addresses from SVD appear in source, (4) GPIO register offsets match SVD spec, (5) core::ptr::read_volatile and write_volatile are used, (6) compile-time GPIO mode safety with Input/Output/Alternate types, PhantomData, and into_* transitions, (7) mode-constrained methods (set_high in Output impl, is_high in Input impl), (8) input sub-modes Floating/PullUp/PullDown and output sub-modes PushPull/OpenDrain, (9) singleton take() with AtomicBool guard, (10) correct bit manipulation: pin*2 for MODER, +16 shift for BSRR reset bits, 0b11 mask for 2-bit fields, (11) non-GPIO peripheral register offsets for USART1/SPI1/DMA1."""
+category = "systems_programming"
+tags = ["embedded-rust", "arm-cross-compilation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/svd-pac-typestate"

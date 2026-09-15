@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Polynomial Evaluation Results",
+  "description": "Array of high-accuracy polynomial evaluation results",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["name", "eval_point", "compensated_value", "error_bound", "naive_value"],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Polynomial name matching the polynomials table"
+      },
+      "eval_point": {
+        "type": "number",
+        "description": "The point at which the polynomial was evaluated"
+      },
+      "compensated_value": {
+        "type": "number",
+        "description": "High-accuracy evaluated value"
+      },
+      "error_bound": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Certified upper bound on |true_value - compensated_value|"
+      },
+      "naive_value": {
+        "type": "number",
+        "description": "Standard Horner evaluation result"
+      }
+    },
+    "additionalProperties": false
+  },
+  "minItems": 1
+}

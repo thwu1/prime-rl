@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level forensic evaluation and detection engineering integrating multiple disciplines. The solver must: (1) evaluate four suspicious DNS traffic patterns — two of which are structurally similar DNS tunneling channels using TXT queries — and correctly classify each as the real C2, an authorized red team exercise, or legitimate tooling, requiring cross-referencing protocol characteristics (encoding scheme, subdomain separators, init markers) against the malware code to make a judgment call that no single automated method can resolve; (2) design a Sigma detection rule that discriminates between the real C2 and the authorized red team exercise, requiring evaluation of which protocol features are unique to the threat vs. shared with the exercise; (3) reverse-engineer a partially recovered malware artifact to understand a dual-channel exfiltration protocol with continuous stream cipher, discovering how encryption state carries between channels; (4) derive the correct cryptographic key by understanding the malware's HMAC-SHA256 key derivation logic; (5) reconstruct stolen data split across DNS tunneling and HTTP POST channels by correctly handling stream offsets; (6) design a YARA detection rule that identifies the malware without false-positiving on benign Python scripts."""
+solution_explanation = """1. Parse Zeek DNS logs and identify four domains with high-entropy subdomains. Two use TXT queries (real C2 and red team), two use A queries (monitoring tool and dev testing). 2. Evaluate the two TXT-based tunneling patterns: the real C2 uses base32 encoding with '.d.' separators and 'init'/'fini' markers (matching the malware code); the red team uses base64url encoding with '.r.' separators and 'start'/'end' markers. Cross-reference with the malware fragment to confirm attribution. 3. Classify all four patterns: active_c2, authorized_redteam, benign_monitoring, benign_testing. 4. Extract the campaign ID from the init beacon by base32-decoding the subdomain label. 5. Derive the encryption key via HMAC-SHA256(campaign_id, 'c2-exfil-key')[:16]. 6. Reconstruct DNS-tunneled data (part 1) by reassembling sequenced chunks, base32-decoding, and XOR-decrypting at offset 0. 7. Parse HTTP logs to find POST requests with ?d= parameters. 8. Decrypt HTTP data (part 2) using the same key but at stream_offset = len(part1). 9. Combine parts and hash. 10. Design a Sigma rule targeting DNS category with conditions specific to the C2 protocol (TXT queries + .d. separator + C2 domain). 11. Write a YARA rule matching malware-specific class names and method signatures."""
+verification_explanation = """Tests verify: (a) all answers.json fields against independently computed expected values — C2 domains, red team domain, decoy domains, threat classifications for all four patterns, compromised IP, campaign ID, HMAC-derived key, SHA-256 of combined plaintext, DNS query count, HTTP POST count, beacon interval, first contact timestamp; (b) YARA rule exists, compiles, matches the malware fragment, and does NOT match a clean Python script; (c) Sigma detection rule exists, is valid YAML with required Sigma schema fields (title, logsource, detection, level), targets DNS logs, and references C2-specific indicators."""
+category = "cybersecurity"
+tags = ["detection-engineering", "threat-deconfliction"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0c8ad3"

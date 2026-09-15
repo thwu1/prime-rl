@@ -1,0 +1,34 @@
+{
+  "protocol": "OSPFv2",
+  "source": "RFC 2328 Section 10.3",
+  "states": ["Down", "Attempt", "Init", "TwoWay", "ExStart", "Exchange", "Loading", "Full"],
+  "events": [
+    "HelloReceived", "Start", "TwoWayReceived", "NegotiationDone",
+    "ExchangeDone", "BadLSReq", "LoadingDone", "AdjOK",
+    "SeqNumberMismatch", "OneWay", "KillNbr", "InactivityTimer", "LLDown"
+  ],
+  "transitions": [
+    {"from": "Down", "event": "HelloReceived", "to": "Init"},
+    {"from": "Down", "event": "Start", "to": "Attempt"},
+    {"from": "Init", "event": "TwoWayReceived", "to": "TwoWay", "condition": "no_adjacency_needed"},
+    {"from": "Init", "event": "TwoWayReceived", "to": "ExStart", "condition": "adjacency_needed"},
+    {"from": "TwoWay", "event": "AdjOK", "to": "ExStart", "condition": "adjacency_needed"},
+    {"from": "ExStart", "event": "NegotiationDone", "to": "Exchange"},
+    {"from": "Exchange", "event": "ExchangeDone", "to": "Full"},
+    {"from": "Loading", "event": "LoadingDone", "to": "Full"},
+    {"from": "Exchange", "event": "SeqNumberMismatch", "to": "ExStart"},
+    {"from": "Full", "event": "SeqNumberMismatch", "to": "ExStart"},
+    {"from": "Exchange", "event": "BadLSReq", "to": "ExStart"},
+    {"from": "Loading", "event": "BadLSReq", "to": "ExStart"},
+    {"from": "TwoWay", "event": "OneWay", "to": "Init"},
+    {"from": "ExStart", "event": "OneWay", "to": "Init"},
+    {"from": "Exchange", "event": "OneWay", "to": "Init"},
+    {"from": "Loading", "event": "OneWay", "to": "Init"},
+    {"from": "*", "event": "KillNbr", "to": "Down"},
+    {"from": "*", "event": "LLDown", "to": "Down"},
+    {"from": "*", "event": "InactivityTimer", "to": "Down"},
+    {"from": "ExStart", "event": "AdjOK", "to": "TwoWay", "condition": "no_adjacency_needed"},
+    {"from": "Loading", "event": "AdjOK", "to": "TwoWay", "condition": "no_adjacency_needed"},
+    {"from": "Full", "event": "AdjOK", "to": "TwoWay", "condition": "no_adjacency_needed"}
+  ]
+}

@@ -1,0 +1,156 @@
+{
+    "case_id": "STEMI_001",
+    "max_score": 100,
+    "items": [
+        {
+            "action": "Electrocardiogram",
+            "category": "required",
+            "max_credit": 15,
+            "time_window_start": 0,
+            "time_window_end": 10,
+            "prerequisites": [],
+            "decay_per_minute": 1.0,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Troponin I",
+            "category": "required",
+            "max_credit": 10,
+            "time_window_start": 0,
+            "time_window_end": 15,
+            "prerequisites": [],
+            "decay_per_minute": 0.5,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Aspirin",
+            "category": "required",
+            "max_credit": 15,
+            "time_window_start": 0,
+            "time_window_end": 15,
+            "prerequisites": [],
+            "decay_per_minute": 1.0,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Heparin",
+            "category": "required",
+            "max_credit": 10,
+            "time_window_start": 0,
+            "time_window_end": 30,
+            "prerequisites": ["Electrocardiogram"],
+            "decay_per_minute": 0.3,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Complete Blood Count",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 30,
+            "prerequisites": [],
+            "decay_per_minute": 0.1,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Basic Metabolic Panel",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 30,
+            "prerequisites": [],
+            "decay_per_minute": 0.1,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Chest X-Ray",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 30,
+            "prerequisites": [],
+            "decay_per_minute": 0.1,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Nitroglycerin",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 20,
+            "prerequisites": [],
+            "decay_per_minute": 0.2,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Oxygen Supplementation",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 10,
+            "prerequisites": [],
+            "decay_per_minute": 0.3,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Cardiology Consultation",
+            "category": "required",
+            "max_credit": 10,
+            "time_window_start": 0,
+            "time_window_end": 30,
+            "prerequisites": ["Electrocardiogram"],
+            "decay_per_minute": 0.3,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "change_location:intensive_care_unit",
+            "category": "required",
+            "max_credit": 10,
+            "time_window_start": 0,
+            "time_window_end": 60,
+            "prerequisites": ["Electrocardiogram", "Aspirin"],
+            "decay_per_minute": 0.2,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Cardiac Monitor",
+            "category": "recommended",
+            "max_credit": 5,
+            "time_window_start": 0,
+            "time_window_end": 10,
+            "prerequisites": [],
+            "decay_per_minute": 0.3,
+            "risk_weight": 0.0
+        },
+        {
+            "action": "Metoprolol",
+            "category": "contraindicated",
+            "max_credit": 0,
+            "time_window_start": 0,
+            "time_window_end": 120,
+            "prerequisites": [],
+            "decay_per_minute": 0.0,
+            "risk_weight": 5.0
+        },
+        {
+            "action": "Thrombolytics",
+            "category": "contraindicated",
+            "max_credit": 0,
+            "time_window_start": 0,
+            "time_window_end": 120,
+            "prerequisites": [],
+            "decay_per_minute": 0.0,
+            "risk_weight": 8.0
+        },
+        {
+            "action": "CT Chest",
+            "category": "contraindicated",
+            "max_credit": 0,
+            "time_window_start": 0,
+            "time_window_end": 120,
+            "prerequisites": [],
+            "decay_per_minute": 0.0,
+            "risk_weight": 3.0
+        }
+    ]
+}

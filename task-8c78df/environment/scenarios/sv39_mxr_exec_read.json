@@ -1,0 +1,17 @@
+{
+  "description": "Sv39 read from X-only page with MXR=1 - should succeed",
+  "xlen": 64,
+  "translation_mode": "Sv39",
+  "privilege": "S",
+  "access_type": "read",
+  "virtual_address": "0x80202048",
+  "satp": "0x8000000000080000",
+  "mstatus": "0x81800",
+  "menvcfg": "0x0",
+  "extensions": {},
+  "memory": {
+    "0x80000010": "0x0104002000000000",
+    "0x80001008": "0x0108002000000000",
+    "0x80002010": "0xc90c002000000000"
+  }
+}

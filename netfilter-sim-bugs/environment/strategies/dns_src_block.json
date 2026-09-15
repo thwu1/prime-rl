@@ -1,0 +1,13 @@
+{
+    "name": "dns_src_block",
+    "description": "Block all UDP traffic with source port 53 (DNS response port)",
+    "rules": [
+        {
+            "match": {
+                "protocol": "udp",
+                "src_port": 53
+            },
+            "action": "drop"
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires specialized knowledge of MCUboot firmware image format (32-byte header struct with magic/version/size/flags), TLV area parsing (info header + type-length-value entries for SHA256 and key hashes), understanding that the hash covers header+payload, boot magic constants (specific 4-word sequence), image trailer layout (magic/swap_type/copy_done/image_ok at end of slot), and DFU swap semantics. Additionally, the agent must parse Nordic nRF Connect SDK Partition Manager YAML configuration (pm_static.yml) to discover partition addresses and sizes rather than hardcoding them, extract binary slot regions, compute independent hash verification, and orchestrate these tools in a shell pipeline — requiring multi-tool interoperability across YAML parsing, binary extraction, cryptographic utilities, and binary analysis tools. This is not solvable without deep embedded systems expertise and proficiency with CLI binary analysis workflows."""
+solution_explanation = """Parse pm_static.yml to extract mcuboot_primary (offset 0xC000, size 0x72000) and mcuboot_secondary (offset 0x7E000, size 0x72000) partition addresses. Extract each slot into standalone binary files. Compute SHA256 checksums of extracted files. Parse MCUboot image headers at slot starts to extract version/size/flags. Locate TLV area at header_size+img_size offset to find stored SHA256 hash. Compute SHA256 over header+payload and compare with stored hash. Read image trailer at end of each slot — check for boot magic (4 specific uint32 values), then read swap_type/copy_done/image_ok flag bytes. Identify that primary underwent a test swap (swap_type=2, copy_done=1) but was never confirmed (image_ok=0xFF), while secondary has corrupted data (hash mismatch). Diagnose: MCUboot attempts revert but the revert target is corrupted, causing a boot loop."""
+verification_explanation = """Tests independently parse the flash binary to verify reported values match actual binary content. Structural tests check JSON format and required fields. Extraction tests verify that extracted slot files exist, have correct sizes (0x72000 bytes), and byte-for-byte match the corresponding flash regions. Checksum tests verify checksums.txt exists and contains correct SHA256 hashes of extracted files. Partition layout tests verify reported offsets match pm_static.yml values. Value tests verify specific firmware versions, hash validity, trailer states, and diagnosis keywords. Independent SHA256 computation tests ensure the solution correctly implements MCUboot hash verification."""
+category = "embedded_systems"
+tags = ["mcuboot", "firmware-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mcuboot-flash-forensics"

@@ -1,0 +1,55 @@
+Liveness Mode and the Resonance Bug
+=====================================
+
+Extracted from TigerBeetle engineering blog (Jul 2023):
+https://tigerbeetle.com/blog/2023-07-11-a-]]]-]]-simulation-testing-for-liveness
+
+Overview
+--------
+The VOPR simulator has two modes: "safety" mode (random faults checking strict
+serializability) and "liveness" mode (permanent faults on non-core replicas,
+checking that a healthy quorum converges).
+
+Liveness mode works by:
+1. Picking a quorum of replicas to be fully available (the "core")
+2. Restarting any core replicas that are down
+3. Healing all network partitions between core replicas
+4. Making all failures involving non-core replicas permanent
+5. Running the cluster and checking that core replicas converge
+
+Core Selection
+--------------
+The core must contain at least view_change_quorum replicas (active replicas,
+not standbys). Core replicas are selected randomly from all replicas, with the
+count drawn from [view_change_quorum, replica_count].
+
+The Resonance Bug
+-----------------
+Repair is the process of restoring missing log entries. A repairing replica
+asks another replica to retransmit a log entry. To spread network load, repair
+requests are distributed via round-robin: a replica maintains a counter and
+sends each repair request to replica_indices[(counter + i) % N].
+
+CRITICAL: A replica must skip itself when selecting repair targets. A repair
+request sent to self is useless — the replica is missing that op precisely
+because it doesn't have it.
+
+The "resonance" occurs when round-robin targeting permanently aligns repair
+requests with replicas that lack the needed ops:
+
+  Example: Replicas {A, B, C}
+  - A is missing op=5 and op=6
+  - B has op=6 but is missing op=5
+  - C has op=5 but is missing op=6
+
+  If A's round-robin counter causes it to always ask B for op=5 (which B
+  doesn't have) and C for op=6 (which C doesn't have), A is permanently
+  stuck — a deadlock in the repair protocol.
+
+Without liveness mode, this would eventually resolve when A restarts and the
+counter resets. With permanent faults in liveness mode, the deadlock persists
+indefinitely.
+
+Detection: A replica is "stuck" if there exists ANY round-robin counter value
+where it cannot repair all its missing ops because each request would be
+directed to a replica that lacks the needed op.

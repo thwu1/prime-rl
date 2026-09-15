@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and understanding SystemVerilog hardware description language to extract parameterized cache geometry formulas and combinational hazard resolution logic. The cache simulation demands implementing the correct replacement policy with proper set-index/tag decomposition across 6 different configurations, plus classifying conflict misses by comparing against a different associativity baseline. The hazard unit analysis requires precisely replicating subtle boolean gating logic with multiple interacting priority conditions and conditional suppression, with no room for error across 8 corner-case scenarios. The combination of hardware architecture expertise, SystemVerilog comprehension, cache theory, and precise implementation makes this a professional-level computer architecture task."""
+solution_explanation = """Parse cache.sv to extract the address decomposition formulas from the localparam declarations. Implement a Python cache simulator maintaining per-set ordered replacement state, determining the replacement policy from the cacheLRU module instantiation in cache.sv. Run each configuration against the trace, and compare against a maximally-associative cache of equal capacity to identify conflict misses. For the hazard unit, translate the exact boolean equations from hazard.sv into Python, handling all gating, priority, and conditional suppression logic, then evaluate each scenario's input vectors."""
+verification_explanation = """Tests load the agent's results.json and compare all values against pre-computed reference answers. Cache geometry is verified exactly. Cache simulation hit/miss/eviction counts and conflict misses are verified exactly. Hazard analysis stall/flush signals are verified per-cycle, per-signal. A structural test verifies all required sections and fields exist."""
+category = "computer_architecture"
+tags = ["risc-v", "microarchitecture"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-cache-hazard"

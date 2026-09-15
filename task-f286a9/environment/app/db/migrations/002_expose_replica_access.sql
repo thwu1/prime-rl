@@ -1,0 +1,27 @@
+-- Migration 002: Expose replica schema metadata
+-- Applied: 2025-11-18 11:05 UTC
+--
+-- Purpose: Make r0 (replica/shard-local) schema metadata explicitly
+-- visible to all users. Previously, users could only see the 'default'
+-- (distributed) schema when querying table metadata from system tables
+-- like system.columns.
+--
+-- Motivation: As part of efforts to improve distributed query security
+-- and reliability, we are migrating distributed subqueries to run under
+-- the initial user account instead of a shared system account. This
+-- requires users to have explicit access to r0 (underlying shard-local)
+-- table metadata, so that query limits and access grants can be
+-- evaluated in a more fine-grained manner per user.
+--
+-- Before this change: Users see only 'default' schema metadata
+-- After this change:  Users see metadata from both 'default' and 'r0'
+--
+-- The change is being rolled out gradually across cluster nodes.
+-- During rollout, queries may return data from either one or both
+-- schemas depending on which node handles the query.
+--
+-- Implementation (applied via init_db.py):
+-- INSERT INTO feature_columns (schema_name, table_name, name, type)
+-- SELECT 'r0', table_name, name, type
+-- FROM feature_columns
+-- WHERE schema_name = 'default';

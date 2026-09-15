@@ -1,0 +1,81 @@
+# NVIDIA GPU Compute Capability Reference
+# Partial extract from CUDA Programming Guide
+# For fleet GPU identification during incident response
+
+common_sm_constants:
+  warp_size: 32
+  max_threads_per_block: 1024
+  registers_per_sm: 65536
+  max_registers_per_thread: 255
+
+occupancy_model:
+  description: >
+    SM occupancy is determined by the most restrictive of four resource
+    limits: warp slots, block slots, register file partitioning, and
+    shared memory partitioning. Each resource uses architecture-specific
+    allocation granularities for rounding.
+  formula: "active_warps / max_warps_per_sm"
+  resource_limits:
+    - name: warps
+      constraint: "ceil(block_size / warp_size) * active_blocks <= max_warps_per_sm"
+    - name: blocks
+      constraint: "active_blocks <= max_blocks_per_sm"
+    - name: registers
+      constraint: "registers allocated per block (rounded to alloc granularity) * active_blocks <= registers_per_sm"
+    - name: shared_memory
+      constraint: "shared mem per block (rounded to alloc granularity) * active_blocks <= total_shared_mem_per_sm"
+
+candidate_architectures:
+  - id: sm_70
+    generation: Volta
+    year: 2017
+    max_warps_per_sm: 64
+    max_blocks_per_sm: 32
+    notes: >
+      First architecture with independent thread scheduling.
+      Introduced tensor cores. HBM2 memory.
+
+  - id: sm_75
+    generation: Turing
+    year: 2018
+    max_warps_per_sm: 32
+    max_blocks_per_sm: 16
+    notes: >
+      Reduced warp/block capacity vs Volta.
+      Added RT cores for ray tracing.
+
+  - id: sm_80
+    generation: Ampere
+    year: 2020
+    max_warps_per_sm: 64
+    max_blocks_per_sm: 32
+    notes: >
+      Restored Volta-class warp/block capacity.
+      Significantly increased shared memory vs Volta. Async copy support.
+
+  - id: sm_86
+    generation: Ampere (consumer)
+    year: 2021
+    max_warps_per_sm: 48
+    max_blocks_per_sm: 16
+    notes: >
+      Reduced capacity vs data-center sm_80.
+      Same shared memory alloc granularity as sm_80.
+
+  - id: sm_89
+    generation: Ada Lovelace
+    year: 2022
+    max_warps_per_sm: 48
+    max_blocks_per_sm: 24
+    notes: >
+      More block slots than sm_86 but same warp limit.
+      Same register and shared memory layout as sm_86.
+
+  - id: sm_90
+    generation: Hopper
+    year: 2022
+    max_warps_per_sm: 64
+    max_blocks_per_sm: 32
+    notes: >
+      Introduced thread block clusters and TMA.
+      Largest shared memory capacity of any architecture in this list.

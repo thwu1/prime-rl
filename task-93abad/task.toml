@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of IEEE 754 floating-point representation, range reduction techniques for exponential functions, minimax polynomial approximation, table-driven methods, and bit-level floating-point manipulation. The constraint of no libm means the solver must implement the 2^x computation from first principles: design the range reduction scheme (table size, reduction interval), compute or derive polynomial coefficients accurate to ~30+ bits, handle catastrophic cancellation near x=0 via (2^(j/N)-1) table entries, and correctly manage overflow, underflow, subnormals, signed zeros, NaN, and infinity. This is standard material for a floating-point arithmetic researcher but well beyond typical undergraduate or even most graduate coursework."""
+solution_explanation = """Use table-driven range reduction: decompose x = k/32 + r where k = round(32*x) and |r| <= 1/64. Split k = 32*q + j (0 <= j < 32). Look up T[j] = 2^(j/32) and Tm1[j] = 2^(j/32)-1 from precomputed double-precision tables. Approximate 2^r - 1 with a 6-term Taylor polynomial P(r) = r*(c0 + r*(c1 + ...)) where c_i = ln(2)^(i+1)/(i+1)!. Reconstruct: for q=0 use Tm1[j] + T[j]*P to avoid cancellation; otherwise compute T[j]*2^q*(1+P) - 1. The double-precision intermediate computation provides ~29 extra bits beyond float's 24, ensuring correct rounding for all inputs. Handle special cases (NaN, Inf, +/-0, overflow, extreme negatives) with bit-pattern checks."""
+verification_explanation = """Tests compile the implementation as a shared library (enforcing no-libm constraint at link time), load it via ctypes, and compare outputs against mpmath reference values computed at 200-bit precision. A custom mpf-to-float32 converter avoids double-rounding errors. Test coverage includes: IEEE 754 special values, exact integer results, near-zero cancellation inputs, overflow/underflow boundaries, table-boundary values (j/32), subnormal outputs, and ~1000 pseudo-random inputs across the full float range including values that overflow float32. Bit-exact match is required."""
+category = "numerical_analysis"
+tags = ["floating-point", "correct-rounding"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-93abad"

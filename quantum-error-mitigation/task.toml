@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum chemistry and quantum computing expertise: determining qubit counts from molecular orbital theory, choosing and implementing a fermion-to-qubit mapping, constructing spin-orbital integrals from spatial MO integrals with correct conventions, decomposing qubit Hamiltonians into the Pauli basis, implementing weight-dependent depolarizing noise attenuation on Pauli observables, and selecting and coding a zero-noise extrapolation strategy. The agent must independently discover the correct approach from an underspecified config that omits the qubit count and noise model."""
+solution_explanation = """Uses PySCF to compute Hartree-Fock integrals for H2/STO-3G, converts to spin-orbital integrals, constructs 4-qubit Jordan-Wigner Hamiltonian, decomposes into Pauli terms via trace inner products, performs exact diagonalization, simulates depolarizing noise via weight-dependent attenuation (1-4p/3)^w, and applies polynomial Richardson extrapolation over 5 noise scale factors for ZNE."""
+verification_explanation = """Tests verify results.json structure and array dimensions, physical correctness of exact energies against known H2/STO-3G values, PES shape with interior minimum, equilibrium and dissociation energy consistency, depolarizing noise bias direction (noisy above exact), ZNE improvement over noisy (lower mean error), ZNE maximum error bound, and ZNE PES minimum proximity to exact minimum."""
+category = "quantum_computing"
+tags = ["quantum_chemistry", "error_mitigation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-error-mitigation"

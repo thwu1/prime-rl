@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a concurrent TCP server with a custom binary protocol that has no message delimiters (messages are concatenated directly), multiple message types with variable-length fields, and complex stateful business logic. The agent must handle binary parsing/serialization, concurrent connection management via asyncio or threads, speed violation detection across all observation pairs, day-based ticket deduplication spanning multiple days and roads, ticket queueing for unavailable dispatchers, periodic heartbeat scheduling, and strict protocol error enforcement. Each subsystem interacts with the others (e.g., ticket deduplication state is shared across roads, dispatcher availability affects ticket delivery), making correctness difficult without deep understanding of the protocol and careful state management."""
+solution_explanation = """The solution implements an asyncio TCP server in Python. A central SpeedDaemon object holds shared state (observations per road/plate, ticketed days per plate, dispatcher registrations, pending ticket queues) protected by an asyncio.Lock. Each TCP connection spawns a Client coroutine that reads binary messages from the stream, dispatches to the appropriate handler, and manages identity state and heartbeat tasks. The observe() method checks each new observation against all prior observations for the same car/road, computes speed, enforces day-based deduplication, and either dispatches tickets to an available dispatcher or queues them. The add_dispatcher() method flushes pending tickets upon registration."""
+verification_explanation = """Tests start the server, then connect multiple simulated cameras and dispatchers as async TCP clients. Each test sends carefully constructed binary messages and verifies the server's binary responses. Tests cover: basic ticket generation, no-ticket-under-limit, queued ticket delivery, one-ticket-per-day deduplication, heartbeat mechanism, protocol errors (plate without identity, duplicate identity, unknown message type), multi-road dispatching, multi-day ticket blocking, cross-road day limits, and non-adjacent camera detection."""
+category = "systems_programming"
+tags = ["networking", "binary-protocol"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6050e8"

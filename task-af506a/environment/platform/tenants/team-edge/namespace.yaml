@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-edge
+  labels:
+    app.kubernetes.io/managed-by: platform-team
+    platform.example.com/tenant: team-edge
+    platform.example.com/tier: silver
+    pod-security.kubernetes.io/enforce: baseline

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of Apache Airflow scheduling internals including task instance lifecycle, dataset-aware triggering, dual-scheduler race conditions, and retry mechanics. The solver must combine SQL analysis of a metadata database, regex-based log parsing, and dependency graph traversal to detect 6 distinct anomaly types across 7 instances. Each anomaly type demands understanding of a different Airflow subsystem: heartbeat monitoring for zombies, dataset event propagation for missed triggers, timetable semantics for interval validation, scheduler coordination for duplicate detection, and DAG dependency enforcement for state violations."""
+solution_explanation = """The solution implements a multi-source anomaly reconciler: (1) queries task_instance joined with worker_heartbeat to find zombie tasks with stale heartbeats, (2) checks dataset_dag_run_queue entries without corresponding dag_runs for missed triggers, (3) compares data_interval_start vs data_interval_end on daily-scheduled DAGs for interval anomalies, (4) computes retry deadlines from end_date + retry_delay to find stuck retries, (5) parses both scheduler logs with regex to detect the same TaskInstanceKey dispatched from multiple schedulers, and (6) joins task_instance with task_dependency to find successful tasks whose upstream dependencies failed."""
+verification_explanation = """Tests load the generated anomaly_report.json and verify: total count of 7 anomalies, correct count per type (2 zombie, 1 missed trigger, 1 incorrect interval, 1 stuck retry, 1 duplicate scheduling, 1 dependency violation), and correct identification of specific affected entities (dag_id, task_id, run_id) for each anomaly."""
+category = "debugging"
+tags = ["airflow", "distributed-systems"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/airflow-scheduler-reconciler"

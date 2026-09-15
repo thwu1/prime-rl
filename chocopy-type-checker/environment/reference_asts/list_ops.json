@@ -1,0 +1,12 @@
+{
+  "well_typed": true,
+  "globals": {
+    "items": {"type": "[int]", "kind": "var"},
+    "x": {"type": "int", "kind": "var"},
+    "n": {"type": "int", "kind": "var"},
+    "more": {"type": "[int]", "kind": "var"},
+    "empty": {"type": "[int]", "kind": "var"}
+  },
+  "classes": {},
+  "errors": []
+}

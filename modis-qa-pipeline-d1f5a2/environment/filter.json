@@ -1,0 +1,19 @@
+{
+  "MOD13A1.061/_500m_16_days_VI_Quality": {
+    "MODLAND": [0],
+    "Land/Water Mask": [1]
+  },
+  "MOD11A1.061/QC_Day": {
+    "MODLAND": [0]
+  },
+  "MOD09GA.061/state_1km_1": {
+    "cloud state": [0, 3],
+    "cloud shadow": [0],
+    "land/water flag": [1]
+  },
+  "L08.002/QA_PIXEL": {
+    "Fill": [0],
+    "Cloud": [0],
+    "Cloud Shadow": [0]
+  }
+}

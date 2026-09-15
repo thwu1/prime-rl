@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires mastery of several advanced SQL concepts simultaneously: gap-and-island interval merging with window functions, temporal SCD Type 2 joins with interval splitting, recursive CTEs for hierarchy traversal, and cross-project interval deduplication. Each component alone is a well-known hard SQL problem; combining them with correct edge-case handling (adjacent intervals, fully contained intervals, leap year dates, zero-assignment employees) demands proficient-level SQL expertise."""
+solution_explanation = """The solution uses a classic gap-and-island approach: compute a running MAX of end_date over preceding rows (partitioned by employee_id, project_id), mark rows where start_date > prev_max_end + 1 as new groups, then aggregate each group. Conflicts are detected via self-join on merged assignments across different projects. Billing splits use a temporal join between merged assignments and rate periods using GREATEST/LEAST for interval intersection. The utilization function uses a recursive CTE for hierarchy, then re-applies the interval merging algorithm across all projects (without project partitioning) to avoid double-counting overlapping days."""
+verification_explanation = """Tests connect to PostgreSQL via psycopg2 and verify each view and function against pre-computed expected results: exact row counts, date values, numeric values (rates, costs, utilization percentages). Multiple function invocations test different subtrees of the hierarchy including edge cases like leaf nodes with no reports."""
+category = "data_management"
+tags = ["sql", "temporal-logic"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/temporal-interval-engine"

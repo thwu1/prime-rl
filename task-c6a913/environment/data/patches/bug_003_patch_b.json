@@ -1,0 +1,7 @@
+{
+    "source_file": "ring_buffer.c",
+    "bug_id": "bug_003",
+    "patch_id": "patch_b",
+    "target_function": "ring_write",
+    "replacement": "int ring_write(struct ring_buf *rb, const char *src, int len) {\n    if (len > rb->capacity - rb->count)\n        len = rb->capacity - rb->count;\n\n    int first_chunk = rb->capacity - rb->write_pos;\n    if (first_chunk >= len) {\n        memcpy(rb->data + rb->write_pos, src, len);\n    } else {\n        memcpy(rb->data + rb->write_pos, src, first_chunk);\n        memcpy(rb->data, src + first_chunk, remaining_bytes);\n    }\n    rb->write_pos = (rb->write_pos + len) % rb->capacity;\n    rb->count += len;\n    return len;\n}"
+}

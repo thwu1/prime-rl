@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
+<report name="ProjectTracker API Coverage - tool_beta">
+  <sessioninfo id="session-beta-001" start="1705312800000" dump="1705316400000"/>
+  <package name="com/projecttracker/controller">
+    <class name="com/projecttracker/controller/AuthController" sourcefilename="AuthController.java">
+      <counter type="INSTRUCTION" missed="36" covered="30"/>
+      <counter type="BRANCH" missed="14" covered="9"/>
+      <counter type="LINE" missed="18" covered="12"/>
+      <counter type="METHOD" missed="1" covered="3"/>
+    </class>
+    <class name="com/projecttracker/controller/UserController" sourcefilename="UserController.java">
+      <counter type="INSTRUCTION" missed="56" covered="66"/>
+      <counter type="BRANCH" missed="27" covered="20"/>
+      <counter type="LINE" missed="27" covered="29"/>
+      <counter type="METHOD" missed="1" covered="7"/>
+    </class>
+    <class name="com/projecttracker/controller/ProjectController" sourcefilename="ProjectController.java">
+      <counter type="INSTRUCTION" missed="56" covered="42"/>
+      <counter type="BRANCH" missed="26" covered="12"/>
+      <counter type="LINE" missed="26" covered="18"/>
+      <counter type="METHOD" missed="1" covered="5"/>
+    </class>
+    <class name="com/projecttracker/controller/TaskController" sourcefilename="TaskController.java">
+      <counter type="INSTRUCTION" missed="154" covered="44"/>
+      <counter type="BRANCH" missed="42" covered="41"/>
+      <counter type="LINE" missed="50" covered="44"/>
+      <counter type="METHOD" missed="6" covered="7"/>
+    </class>
+  </package>
+  <package name="com/projecttracker/service">
+    <class name="com/projecttracker/service/NotificationService" sourcefilename="NotificationService.java">
+      <counter type="INSTRUCTION" missed="32" covered="18"/>
+      <counter type="BRANCH" missed="6" covered="3"/>
+      <counter type="LINE" missed="14" covered="9"/>
+      <counter type="METHOD" missed="0" covered="3"/>
+    </class>
+    <class name="com/projecttracker/service/CacheService" sourcefilename="CacheService.java">
+      <counter type="INSTRUCTION" missed="16" covered="18"/>
+      <counter type="BRANCH" missed="3" covered="3"/>
+      <counter type="LINE" missed="8" covered="5"/>
+      <counter type="METHOD" missed="0" covered="4"/>
+    </class>
+    <class name="com/projecttracker/service/DatabaseMigrator" sourcefilename="DatabaseMigrator.java">
+      <counter type="INSTRUCTION" missed="5" covered="0"/>
+      <counter type="BRANCH" missed="2" covered="0"/>
+      <counter type="LINE" missed="3" covered="0"/>
+      <counter type="METHOD" missed="1" covered="0"/>
+    </class>
+  </package>
+  <package name="com/projecttracker/util">
+    <class name="com/projecttracker/util/JsonHelper" sourcefilename="JsonHelper.java">
+      <counter type="INSTRUCTION" missed="10" covered="10"/>
+      <counter type="BRANCH" missed="0" covered="2"/>
+      <counter type="LINE" missed="5" covered="3"/>
+      <counter type="METHOD" missed="2" covered="1"/>
+    </class>
+    <class name="com/projecttracker/util/DateHelper" sourcefilename="DateHelper.java">
+      <counter type="INSTRUCTION" missed="8" covered="10"/>
+      <counter type="BRANCH" missed="0" covered="0"/>
+      <counter type="LINE" missed="0" covered="0"/>
+      <counter type="METHOD" missed="3" covered="0"/>
+    </class>
+  </package>
+  <counter type="INSTRUCTION" missed="373" covered="238"/>
+  <counter type="BRANCH" missed="120" covered="90"/>
+  <counter type="LINE" missed="150" covered="120"/>
+  <counter type="COMPLEXITY" missed="58" covered="55"/>
+  <counter type="METHOD" missed="15" covered="30"/>
+</report>

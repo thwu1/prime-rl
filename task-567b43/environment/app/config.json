@@ -1,0 +1,38 @@
+{
+    "operators": [
+        {
+            "username": "admin",
+            "password_hash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+            "role": "admin"
+        },
+        {
+            "username": "operator1",
+            "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+            "role": "operator"
+        }
+    ],
+    "service_accounts": [
+        {
+            "username": "svc_siem",
+            "password_hash": "a4e624d686e03ed2767c0abd85c14426b0b1157d2ce81d27bb4fe4f6f01d688a",
+            "role": "service"
+        },
+        {
+            "username": "svc_ticketing",
+            "password_hash": "b2ef230e7f4f315a28cdcc863028da31f7110f3209feb76e76fed0ef37c865c4",
+            "role": "readonly"
+        }
+    ],
+    "listeners": {
+        "default": {
+            "host": "0.0.0.0",
+            "port": 443,
+            "protocol": "https"
+        }
+    },
+    "teamserver": {
+        "host": "0.0.0.0",
+        "port": 8443,
+        "debug": false
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "budget_usd": 12000000,
+  "power_envelope_kw": 1500,
+  "minimum_nodes": 100,
+  "performance_requirement": {
+    "description": "Each candidate system must achieve at least 80% of the reference system performance on every benchmark in the workload mix. Systems that cannot run a benchmark (e.g., due to missing hardware) are considered to fail that benchmark.",
+    "threshold_fraction": 0.8
+  },
+  "reference_system": {
+    "name": "current_production",
+    "benchmark_times_s": {
+      "stencil3d": 20.0,
+      "sparse_matvec": 30.0,
+      "global_fft": 10.0,
+      "deep_train": 10.0,
+      "genome_search": 25.0,
+      "mol_dynamics": 18.0
+    }
+  },
+  "evaluation_output": {
+    "path": "/app/results/evaluation.json",
+    "required_sections": {
+      "cleaned_performance": "For each system and benchmark: the representative execution time in seconds after handling data quality issues, along with counts of valid trials used and trials excluded.",
+      "speedups": "For each system and benchmark: performance ratio relative to the reference system (reference_time / system_time). Higher values indicate better performance.",
+      "composite_scores": "For each system: a single aggregate performance score derived from individual benchmark speedups weighted by workload priorities.",
+      "feasibility": "For each system: assessment of whether it satisfies all procurement constraints (budget, power, performance threshold).",
+      "pareto_optimal": "List of system names forming the Pareto-optimal front among feasible candidates, considering both total cost and composite performance.",
+      "cost_efficiency": "For each feasible system: a cost-performance metric (composite score divided by total system cost in millions of USD).",
+      "ranking": "Ordered list of feasible system names from highest to lowest cost-efficiency.",
+      "recommendation": "Name of the single recommended system (highest cost-efficiency among feasible Pareto-optimal candidates)."
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of memory allocator internals: segregated freelists with 10 size classes, page-based large object allocation with best-fit search, splitting, and coalescing. The solver must comprehend ~460 lines of dense C allocator code written for WebAssembly, port it to native Linux x86_64 by replacing wasm memory intrinsics with mmap-based virtual address space reservation and on-demand page commitment (preserving 64KB page alignment), and implement two new functions (realloc, malloc_usable_size) that require intimate knowledge of the allocator's metadata structures (page headers, chunk kinds, large object headers)."""
+solution_explanation = """Port walloc by reserving a large virtual address range via mmap(PROT_NONE, MAP_NORESERVE), aligning to 64KB, and committing pages on demand with mmap(MAP_FIXED). Replace wasm memory grow/size intrinsics with committed-size tracking. Implement malloc_usable_size by reading chunk_kind from the page header byte array: for small objects return chunk_kind_to_granules(kind) * GRANULE_SIZE; for large objects return the size field from the large_object header preceding the payload. Implement realloc by comparing new_size to current usable size: return same pointer if capacity suffices, otherwise malloc new + memcpy + free old."""
+verification_explanation = """A C test harness compiled against the agent's implementation verifies: (1) correct usable sizes for all 10 small-object size classes with 20 test cases mapping request sizes to expected granule-based usable sizes, (2) large object usable size >= requested, (3) realloc data preservation across grow/shrink operations, (4) realloc NULL and zero-size edge cases, (5) same-pointer optimization when realloc stays within size class, (6) small-to-large and large-to-small realloc transitions with data integrity, and (7) a deterministic 5000-iteration stress test with interleaved alloc/realloc/free and per-byte data integrity verification."""
+category = "systems_programming"
+tags = ["memory_allocation", "systems_porting"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c566ab"

@@ -1,0 +1,9 @@
+{
+  "code_task": "surface_code:rotated_memory_z",
+  "rounds": 3,
+  "noise_level": 0.001,
+  "distances": [
+    3,
+    5
+  ]
+}

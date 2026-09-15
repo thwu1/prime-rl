@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing namespaced DrugBank XML with CDATA sections and HTML-encoded content, then extracting numeric half-life values from 20 diverse free-text strings containing varied formats (ranges, multi-phase kinetics, route-specific values, population qualifiers, HTML entities). The agent must implement one-compartment PK modeling from domain knowledge alone, compute 8 derived parameters per scenario, classify therapeutic adequacy, search for optimal dosing intervals, and build a cross-referencing validation pipeline using jq and shell tools to reconcile parsed values against a curated TSV reference. Errors in XML parsing or half-life extraction cascade through all downstream PK computations."""
+solution_explanation = """The solution parses DrugBank XML using namespace-aware ElementTree, implements a rule-based NLP parser that segments half-life text by route (preferring IV), phase (preferring terminal/elimination), extracts numeric values with unit conversion and geometric mean for ranges. PK uses standard one-compartment equations: ke=ln(2)/t_half, R=1/(1-exp(-ke*tau)), Cmax_ss=(F*dose/Vd)*R, Cmin_ss=Cmax_ss*exp(-ke*tau), AUC=F*dose/CL, t90=ln(10)/ke. The validate.sh script uses jq to extract parsed half-lives from results.json and awk to join with curated_reference.tsv, computing percent discrepancy and MATCH/MISMATCH status."""
+verification_explanation = """Tests verify: (1) parsed half-life values for all 20 drugs within 2% tolerance; (2) PK parameters for all 15 scenarios within 5% tolerance across 8 fields each; (3) exact match of therapeutic status classification; (4) validity of recommended dosing intervals; (5) validate.sh produces reconciliation.tsv with correct header, row count, discrepancy computation, and MATCH/MISMATCH status for 14 curated drugs."""
+category = "applied_computing"
+tags = ["pharmacokinetics", "xml-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pharmacokinetic-dosing-engine"

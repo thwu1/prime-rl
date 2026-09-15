@@ -1,0 +1,1007 @@
+{
+  "system-security-plan": {
+    "uuid": "b2c3d4e5-6789-abcd-ef01-234567890abc",
+    "metadata": {
+      "title": "Acme Corp Cloud Platform System Security Plan",
+      "last-modified": "2025-07-01T10:00:00.000000-04:00",
+      "version": "2.1.0",
+      "oscal-version": "1.1.2",
+      "roles": [
+        {"id": "system-owner", "title": "System Owner"},
+        {"id": "authorizing-official", "title": "Authorizing Official"},
+        {"id": "system-admin", "title": "System Administrator"}
+      ],
+      "parties": [
+        {
+          "uuid": "11111111-1111-1111-1111-111111111111",
+          "type": "organization",
+          "name": "Acme Corporation"
+        }
+      ],
+      "responsible-parties": [
+        {"role-id": "system-owner", "party-uuids": ["11111111-1111-1111-1111-111111111111"]}
+      ]
+    },
+    "import-profile": {
+      "href": "org_profile.json"
+    },
+    "system-characteristics": {
+      "system-ids": [{"id": "ACME-CP-001"}],
+      "system-name": "Acme Cloud Platform",
+      "description": "Acme Corporation's primary cloud computing platform hosting internal and customer-facing applications.",
+      "security-sensitivity-level": "moderate",
+      "system-information": {
+        "information-types": [
+          {
+            "uuid": "aaa11111-2222-3333-4444-555566667777",
+            "title": "Customer Data",
+            "description": "Customer account information and transaction records",
+            "confidentiality-impact": {"base": "moderate"},
+            "integrity-impact": {"base": "moderate"},
+            "availability-impact": {"base": "moderate"}
+          }
+        ]
+      },
+      "security-impact-level": {
+        "security-objective-confidentiality": "moderate",
+        "security-objective-integrity": "moderate",
+        "security-objective-availability": "moderate"
+      },
+      "status": {"state": "operational"},
+      "authorization-boundary": {
+        "description": "The Acme Cloud Platform including all compute, storage, and network components within the Acme AWS GovCloud VPC."
+      }
+    },
+    "system-implementation": {
+      "users": [
+        {
+          "uuid": "user-0001-0001-0001-000000000001",
+          "title": "System Administrator",
+          "role-ids": ["system-admin"],
+          "props": [{"name": "type", "value": "internal"}]
+        },
+        {
+          "uuid": "user-0002-0002-0002-000000000002",
+          "title": "Application User",
+          "role-ids": [],
+          "props": [{"name": "type", "value": "external"}]
+        }
+      ],
+      "components": [
+        {
+          "uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+          "type": "this-system",
+          "title": "Acme Cloud Platform",
+          "description": "The overall system boundary for the Acme Cloud Platform.",
+          "status": {"state": "operational"}
+        },
+        {
+          "uuid": "comp-1111-2222-3333-444455556666",
+          "type": "software",
+          "title": "Identity Provider (IdP)",
+          "description": "Okta-based identity provider for SSO and MFA.",
+          "status": {"state": "operational"}
+        },
+        {
+          "uuid": "comp-2222-3333-4444-555566667777",
+          "type": "software",
+          "title": "SIEM Platform",
+          "description": "Splunk Enterprise for log aggregation and security monitoring.",
+          "status": {"state": "operational"}
+        },
+        {
+          "uuid": "comp-3333-4444-5555-666677778888",
+          "type": "software",
+          "title": "Web Application Firewall",
+          "description": "AWS WAF protecting public-facing endpoints.",
+          "status": {"state": "operational"}
+        },
+        {
+          "uuid": "comp-4444-5555-6666-777788889999",
+          "type": "policy",
+          "title": "Information Security Policy",
+          "description": "Acme Corp master information security policy document.",
+          "status": {"state": "operational"}
+        }
+      ]
+    },
+    "control-implementation": {
+      "description": "Control implementations for the Acme Cloud Platform based on the organizational custom baseline.",
+      "implemented-requirements": [
+        {
+          "uuid": "ir-00000001-0001-0001-0001-000000000001",
+          "control-id": "ac-1",
+          "statements": [
+            {
+              "statement-id": "ac-1_smt.a",
+              "uuid": "st-ac1-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ac1-a-0001",
+                  "description": "The Information Security Policy defines the access control policy framework covering purpose, scope, roles, responsibilities, and compliance requirements."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-1_smt.b",
+              "uuid": "st-ac1-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ac1-b-0001",
+                  "description": "The CISO designates an official to manage the access control policy and associated procedures."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-1_smt.c",
+              "uuid": "st-ac1-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ac1-c-0001",
+                  "description": "Access control policy is reviewed annually and updated following significant changes to the information system or environment of operation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000002-0002-0002-0002-000000000002",
+          "control-id": "ac-2",
+          "statements": [
+            {
+              "statement-id": "ac-2_smt.a",
+              "uuid": "st-ac2-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-a-0001",
+                  "description": "The IdP manages account types including individual, shared, group, system, guest, and temporary accounts as defined in the access control policy."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.b",
+              "uuid": "st-ac2-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-b-0001",
+                  "description": "Account managers are designated within each business unit and registered in the IdP administrative console."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.c",
+              "uuid": "st-ac2-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-c-0001",
+                  "description": "Group and role membership conditions are enforced through IdP policies and attribute-based access control rules."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.e",
+              "uuid": "st-ac2-e-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-e-0001",
+                  "description": "Account creation, modification, enabling, disabling, and removal require documented approval via the ITSM ticketing system."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.f",
+              "uuid": "st-ac2-f-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-f-0001",
+                  "description": "Accounts are created, enabled, modified, disabled, and removed in the IdP following the documented account management procedures."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.g",
+              "uuid": "st-ac2-g-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-ac2-g-0001",
+                  "description": "The SIEM monitors account usage and generates alerts for anomalous activity patterns."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.h",
+              "uuid": "st-ac2-h-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-h-0001",
+                  "description": "Account managers are notified when accounts are no longer required, users are terminated or transferred, or system usage changes."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.i",
+              "uuid": "st-ac2-i-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-i-0001",
+                  "description": "Access is authorized based on valid access authorization, intended system usage, and documented organizational or mission/business function requirements."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.j",
+              "uuid": "st-ac2-j-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-j-0001",
+                  "description": "Accounts are reviewed quarterly for compliance with account management requirements."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.k",
+              "uuid": "st-ac2-k-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-k-0001",
+                  "description": "Shared and group account credentials are reissued when individuals are removed from the group."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-2_smt.l",
+              "uuid": "st-ac2-l-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac2-l-0001",
+                  "description": "Account management procedures align with conditions for account establishment as defined in the access control policy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000003-0003-0003-0003-000000000003",
+          "control-id": "ac-2.1",
+          "statements": [
+            {
+              "statement-id": "ac-2.1_smt",
+              "uuid": "st-ac21-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac21-0001",
+                  "description": "The IdP supports automated account management including provisioning, deprovisioning, and lifecycle management through SCIM integration with HR systems."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000004-0004-0004-0004-000000000004",
+          "control-id": "ac-3",
+          "statements": [
+            {
+              "statement-id": "ac-3_smt",
+              "uuid": "st-ac3-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac3-0001",
+                  "description": "The system enforces approved authorizations for logical access using IAM policies, security groups, and network ACLs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000005-0005-0005-0005-000000000005",
+          "control-id": "ac-4",
+          "statements": [
+            {
+              "statement-id": "ac-4_smt",
+              "uuid": "st-ac4-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-3333-4444-5555-666677778888",
+                  "uuid": "bc-ac4-0001",
+                  "description": "Information flow is controlled through VPC flow logs, security groups, NACLs, and the WAF based on approved policies."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000006-0006-0006-0006-000000000006",
+          "control-id": "ac-6",
+          "statements": [
+            {
+              "statement-id": "ac-6_smt",
+              "uuid": "st-ac6-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac6-0001",
+                  "description": "Least privilege is enforced through role-based access control in the IdP, with just-in-time privilege elevation for administrative tasks."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000007-0007-0007-0007-000000000007",
+          "control-id": "ac-6.1",
+          "statements": [
+            {
+              "statement-id": "ac-6.1_smt.a",
+              "uuid": "st-ac61-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac61-a-0001",
+                  "description": "The IdP authorizes access to security-relevant functions (deployed in hardware, software, and firmware) and security-relevant information only to explicitly designated personnel."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-6.1_smt.b",
+              "uuid": "st-ac61-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac61-b-0001",
+                  "description": "Security-relevant functions and information are enumerated in the system's access control matrix and reviewed quarterly."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000008-0008-0008-0008-000000000008",
+          "control-id": "ac-7",
+          "set-parameters": [
+            {
+              "param-id": "ac-07_odp.01",
+              "values": ["3"]
+            }
+          ],
+          "statements": [
+            {
+              "statement-id": "ac-7_smt.a",
+              "uuid": "st-ac7-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac7-a-0001",
+                  "description": "The IdP enforces a limit of 3 consecutive invalid logon attempts within a 15-minute window."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-7_smt.b",
+              "uuid": "st-ac7-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ac7-b-0001",
+                  "description": "Upon exceeding the maximum logon attempts, the account is locked for the configured lockout period and the SOC is notified."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000009-0009-0009-0009-000000000009",
+          "control-id": "ac-8",
+          "statements": [
+            {
+              "statement-id": "ac-8_smt.a",
+              "uuid": "st-ac8-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac8-a-0001",
+                  "description": "The system displays an approved system use notification message before granting access, providing privacy and security notices consistent with federal requirements."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-8_smt.b",
+              "uuid": "st-ac8-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac8-b-0001",
+                  "description": "The notification message remains on screen until the user acknowledges the usage conditions and takes explicit action to log on."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-8_smt.c",
+              "uuid": "st-ac8-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac8-c-0001",
+                  "description": "For publicly accessible systems, the notification provides usage conditions, references monitoring and recording, and is consistent with privacy accommodations."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000010-0010-0010-0010-000000000010",
+          "control-id": "ac-11",
+          "set-parameters": [
+            {
+              "param-id": "ac-11_odp.01",
+              "values": ["15 minutes"]
+            }
+          ],
+          "statements": [
+            {
+              "statement-id": "ac-11_smt.a",
+              "uuid": "st-ac11-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac11-a-0001",
+                  "description": "The system prevents further access by initiating a session lock after 15 minutes of inactivity."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-11_smt.b",
+              "uuid": "st-ac11-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac11-b-0001",
+                  "description": "Session lock is retained until the user re-authenticates using established identification and authentication procedures."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000011-0011-0011-0011-000000000011",
+          "control-id": "ac-17",
+          "statements": [
+            {
+              "statement-id": "ac-17_smt.a",
+              "uuid": "st-ac17-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac17-a-0001",
+                  "description": "Usage restrictions, configuration requirements, and connection requirements for each type of remote access are established and documented."
+                }
+              ]
+            },
+            {
+              "statement-id": "ac-17_smt.b",
+              "uuid": "st-ac17-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-ac17-b-0001",
+                  "description": "Each type of remote access is authorized before establishing the connection via the VPN approval workflow."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000012-0012-0012-0012-000000000012",
+          "control-id": "au-1",
+          "statements": [
+            {
+              "statement-id": "au-1_smt.a",
+              "uuid": "st-au1-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-au1-a-0001",
+                  "description": "The audit and accountability policy is developed, documented, and disseminated as part of the master information security policy."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-1_smt.b",
+              "uuid": "st-au1-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-au1-b-0001",
+                  "description": "The CISO designates an official to manage audit and accountability policy and procedures."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-1_smt.c",
+              "uuid": "st-au1-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-au1-c-0001",
+                  "description": "Audit policy is reviewed annually and procedures are reviewed and updated biennially or following significant changes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000013-0013-0013-0013-000000000013",
+          "control-id": "au-2",
+          "statements": [
+            {
+              "statement-id": "au-2_smt.a",
+              "uuid": "st-au2-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au2-a-0001",
+                  "description": "The following event types are identified for logging: successful and unsuccessful logon attempts, privilege escalation, file access, and system configuration changes."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-2_smt.b",
+              "uuid": "st-au2-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au2-b-0001",
+                  "description": "The SIEM team coordinates with stakeholders to determine the auditable events needed to support investigations."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-2_smt.c",
+              "uuid": "st-au2-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au2-c-0001",
+                  "description": "Rationale for event selection is documented in the audit logging standard and reviewed with each system authorization."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-2_smt.d",
+              "uuid": "st-au2-d-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au2-d-0001",
+                  "description": "Event types, frequency, and logging depth are determined based on threat intelligence and incident history."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-2_smt.e",
+              "uuid": "st-au2-e-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au2-e-0001",
+                  "description": "Auditable events are reviewed quarterly and updated based on changes to threat landscape, incident investigations, and assessment findings."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000014-0014-0014-0014-000000000014",
+          "control-id": "au-3",
+          "statements": [
+            {
+              "statement-id": "au-3_smt.a",
+              "uuid": "st-au3-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-a-0001",
+                  "description": "Audit records contain what type of event occurred, with standardized event categorization."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-3_smt.b",
+              "uuid": "st-au3-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-b-0001",
+                  "description": "Audit records capture when the event occurred with NTP-synchronized timestamps."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-3_smt.c",
+              "uuid": "st-au3-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-c-0001",
+                  "description": "Audit records identify where the event occurred including source IP, system, and component."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-3_smt.d",
+              "uuid": "st-au3-d-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-d-0001",
+                  "description": "Audit records identify the source of events including user, process, or device identifiers."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-3_smt.e",
+              "uuid": "st-au3-e-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-e-0001",
+                  "description": "Audit records capture the outcome (success/failure) of the event."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-3_smt.f",
+              "uuid": "st-au3-f-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au3-f-0001",
+                  "description": "Audit records include the identity of individuals, subjects, objects, or entities associated with the event."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000015-0015-0015-0015-000000000015",
+          "control-id": "au-6",
+          "statements": [
+            {
+              "statement-id": "au-6_smt.a",
+              "uuid": "st-au6-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au6-a-0001",
+                  "description": "The SOC reviews and analyzes audit records weekly for indications of inappropriate or unusual activity and potential impact."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-6_smt.c",
+              "uuid": "st-au6-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-2222-3333-4444-555566667777",
+                  "uuid": "bc-au6-c-0001",
+                  "description": "Audit review findings are correlated with vulnerability scanning results and physical access logs for comprehensive threat assessment."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000016-0016-0016-0016-000000000016",
+          "control-id": "au-8",
+          "statements": [
+            {
+              "statement-id": "au-8_smt.a",
+              "uuid": "st-au8-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-au8-a-0001",
+                  "description": "Internal system clocks are used to generate timestamps for audit records."
+                }
+              ]
+            },
+            {
+              "statement-id": "au-8_smt.b",
+              "uuid": "st-au8-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-au8-b-0001",
+                  "description": "Internal clocks are mapped to UTC and synchronized with the AWS time sync service."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000017-0017-0017-0017-000000000017",
+          "control-id": "ia-1",
+          "statements": [
+            {
+              "statement-id": "ia-1_smt.a",
+              "uuid": "st-ia1-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ia1-a-0001",
+                  "description": "The identification and authentication policy is developed and disseminated as part of the master information security policy."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-1_smt.b",
+              "uuid": "st-ia1-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ia1-b-0001",
+                  "description": "The CISO designates an official to manage identification and authentication policy and procedures."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-1_smt.c",
+              "uuid": "st-ia1-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-ia1-c-0001",
+                  "description": "I&A policy is reviewed annually and procedures are updated following significant changes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000018-0018-0018-0018-000000000018",
+          "control-id": "ia-2",
+          "statements": [
+            {
+              "statement-id": "ia-2_smt",
+              "uuid": "st-ia2-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia2-0001",
+                  "description": "The IdP uniquely identifies and authenticates all organizational users and processes acting on behalf of users."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000019-0019-0019-0019-000000000019",
+          "control-id": "ia-2.1",
+          "statements": [
+            {
+              "statement-id": "ia-2.1_smt",
+              "uuid": "st-ia21-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia21-0001",
+                  "description": "Multi-factor authentication is implemented for all privileged account access using hardware tokens or authenticator apps."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000020-0020-0020-0020-000000000020",
+          "control-id": "ia-5",
+          "statements": [
+            {
+              "statement-id": "ia-5_smt.a",
+              "uuid": "st-ia5-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-a-0001",
+                  "description": "Initial authenticator content is verified through the identity verification process during enrollment."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.b",
+              "uuid": "st-ia5-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-b-0001",
+                  "description": "Administrative procedures for initial authenticator distribution, lost/compromised/damaged authenticators, and revocation are documented."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.c",
+              "uuid": "st-ia5-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-c-0001",
+                  "description": "Authenticators have sufficient strength of mechanism for their intended use as validated by NIST SP 800-63B guidelines."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.d",
+              "uuid": "st-ia5-d-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-d-0001",
+                  "description": "Administrative procedures for authenticator distribution, lost/compromised authenticators, and revoking authenticators are established."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.e",
+              "uuid": "st-ia5-e-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-e-0001",
+                  "description": "Default authenticator content is changed upon system installation."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.f",
+              "uuid": "st-ia5-f-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-f-0001",
+                  "description": "Minimum and maximum lifetime restrictions are enforced for authenticators through IdP configuration."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.g",
+              "uuid": "st-ia5-g-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-g-0001",
+                  "description": "Authenticators are refreshed by changing them after a defined time period."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.h",
+              "uuid": "st-ia5-h-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-h-0001",
+                  "description": "Authenticator content is protected from unauthorized disclosure and modification through encryption at rest and in transit."
+                }
+              ]
+            },
+            {
+              "statement-id": "ia-5_smt.i",
+              "uuid": "st-ia5-i-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-1111-2222-3333-444455556666",
+                  "uuid": "bc-ia5-i-0001",
+                  "description": "Security safeguards are implemented to protect authenticators including secure storage and transmission mechanisms."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000021-0021-0021-0021-000000000021",
+          "control-id": "sc-7",
+          "statements": [
+            {
+              "statement-id": "sc-7_smt.a",
+              "uuid": "st-sc7-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-3333-4444-5555-666677778888",
+                  "uuid": "bc-sc7-a-0001",
+                  "description": "Communications at external managed interfaces are monitored and controlled through the WAF and network security groups."
+                }
+              ]
+            },
+            {
+              "statement-id": "sc-7_smt.b",
+              "uuid": "st-sc7-b-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-3333-4444-5555-666677778888",
+                  "uuid": "bc-sc7-b-0001",
+                  "description": "Subnetworks for publicly accessible system components are physically and logically separated from internal networks using VPC architecture."
+                }
+              ]
+            },
+            {
+              "statement-id": "sc-7_smt.c",
+              "uuid": "st-sc7-c-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-3333-4444-5555-666677778888",
+                  "uuid": "bc-sc7-c-0001",
+                  "description": "External network connections are routed through managed interfaces with boundary protection devices."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000022-0022-0022-0022-000000000022",
+          "control-id": "sc-12",
+          "statements": [
+            {
+              "statement-id": "sc-12_smt",
+              "uuid": "st-sc12-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-aaaa-bbbb-cccc-ddddeeeeaaaa",
+                  "uuid": "bc-sc12-0001",
+                  "description": "Cryptographic keys are established and managed using AWS KMS with hardware security module backing, following NIST SP 800-57 key management guidelines."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000023-0023-0023-0023-000000000023",
+          "control-id": "cm-1",
+          "statements": [
+            {
+              "statement-id": "cm-1_smt.a",
+              "uuid": "st-cm1-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "comp-4444-5555-6666-777788889999",
+                  "uuid": "bc-cm1-a-0001",
+                  "description": "Configuration management policy is developed and disseminated to relevant personnel."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "ir-00000024-0024-0024-0024-000000000024",
+          "control-id": "ac-8",
+          "statements": [
+            {
+              "statement-id": "ac-8_smt.a",
+              "uuid": "st-ac8-dup-a-0001",
+              "by-components": [
+                {
+                  "component-uuid": "f1a2b3c4-dead-beef-cafe-123456789abc",
+                  "uuid": "bc-ac8-orphan-0001",
+                  "description": "Legacy notification system displays use notification (this component no longer exists in the system inventory)."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

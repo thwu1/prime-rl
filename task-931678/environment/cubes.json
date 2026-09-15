@@ -1,0 +1,64 @@
+{
+  "states": {
+    "C01": {
+      "facelet": "UULUUFUUFRRUBRRURRFFDFFUFFFDDRDDDDDDBLLLLLLLLBRRBBBBBB",
+      "claimed_generator": "R U R' U'",
+      "claimed_order": 6
+    },
+    "C02": {
+      "facelet": "RUFUUUUULBBURRRRRRBFUFFFFFFDDDDDDDDDFRRLLLLLLLLUBBBBBB",
+      "claimed_generator": "R U2 R' U' R U' R'",
+      "claimed_order": 12
+    },
+    "C03": {
+      "facelet": "ULLLURLLULDDDRDDBBUBBRFLRBLDDBFDUUBRRUFRLURUFFFFFBFDRB",
+      "claimed_generator": "R U F' L2 B D R2 U' F L",
+      "claimed_order": 24
+    },
+    "C04": {
+      "facelet": "UUUUUURDDBRRLRRLRRFLLDFFDFFLUUDDDFFDLLULLFDBFBBBBBBBRR",
+      "claimed_generator": "R D R' F2",
+      "claimed_order": 12
+    },
+    "C05": {
+      "facelet": "FFBFUDBFFUFLBRRLLDRURLFLLDBUBDRDUDUBDRURLDRUFULLBBDRBF",
+      "claimed_generator": "U R' F2 D L B2 R U' F D'",
+      "claimed_order": 24
+    },
+    "C06": {
+      "facelet": "UUUUUUUUURLRRRRRRRFRFFFFFFFDDDDDDDDDLFLLLLLLLBBBBBBBBB",
+      "claimed_generator": "R2 U R U R' U' R' U' R' U R'",
+      "claimed_order": 3
+    },
+    "C07": {
+      "facelet": "BRRDUFFLBDLFDRBFFRDBRRFRRDUFBLRDULLBUFLULUBBUDFLUBLUDD",
+      "claimed_generator": "R2 D' F2 U L2 B R D F",
+      "claimed_order": 60
+    },
+    "C08": {
+      "facelet": "FUUUUUBULURRRRRRRRUFFFFFFFFDDDDDDDDDULLLLLLLLBBRBBBBBB",
+      "claimed_generator": "R U' L' U R' U L U'",
+      "claimed_order": 8
+    },
+    "C09": {
+      "facelet": "UULUUFUBLUUURRRRRRRUFFFFFFFDDDDDDDDDBLFLLLLLLBRRBBBBBB",
+      "claimed_generator": "F R U R' U' F'",
+      "claimed_order": 6
+    },
+    "C10": {
+      "facelet": "FFBLUBRUBUURDRBLLLFLLRFRBRBRFDLDFLBFRDUFLUDBUDDDDBUURF",
+      "claimed_generator": "F2 R2 D' B U L R' F U2 D",
+      "claimed_order": 24
+    },
+    "C11": {
+      "facelet": "UUUUUUUUUBLFRRRRRRFFRFFFFFFDDDDDDDDDLRLLLLLLLRBBBBBBBB",
+      "claimed_generator": "R U R' U' R' F R2 U' R' U' R U R' F'",
+      "claimed_order": 3
+    },
+    "C12": {
+      "facelet": "LFBDUFLLURRULRLLBDUBFDFFDDDFBFLDUDBBBFFULRLDRRUUUBRRRB",
+      "claimed_generator": "B' R2 D L' F U2 R' D B2 L",
+      "claimed_order": 168
+    }
+  }
+}

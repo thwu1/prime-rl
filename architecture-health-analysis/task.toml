@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert software architecture knowledge to perform multi-source conformance analysis on a 30-component system. The agent must: navigate a SQLite governance database to discover classification rules, scoring parameters, and metric formulas; parse a complex Graphviz DOT file containing edge chains, misleading comments, and a legend subgraph with non-architecture edges; integrate runtime traces from two different monitoring formats (gzipped JSONL and gzipped CSV) requiring deduplication; implement graph algorithms for cycle detection; compute component quality metrics from domain-specific definitions; and solve a constrained optimization problem for remediation planning. No algorithmic guidance is provided in the instruction -- the agent must discover all rules from the database and determine appropriate solution methods independently."""
+solution_explanation = """Query governance.db for classification rules, metric definitions, violation weights, and remediation parameters. Parse DOT edges including chains (A->B->C syntax) while filtering legend nodes and comments. Read .imports files for static edges. Parse and combine gateway JSONL and monitoring CSV traces. Classify edges by set membership per database rules. Compute coupling/stability/abstractness metrics from static graph. Find SCCs using graph traversal. Calculate erosion using database-defined formula. Solve grouped knapsack optimization via dynamic programming for remediation plan."""
+verification_explanation = """Tests independently parse all data sources and query the governance database, computing expected values for all six outputs. Validates graph extraction completeness including chain edges, conformance classifications against database rules, metric accuracy within 1e-4 tolerance, SCC membership, erosion score consistency, and remediation plan optimality."""
+category = "software_engineering"
+tags = ["architecture-conformance", "multi-tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/architecture-health-analysis"

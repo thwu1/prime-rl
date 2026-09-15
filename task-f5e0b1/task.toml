@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic protocol security knowledge. The agent must reverse-engineer iperf3's RSA authentication from C source, perform forensic token decryption, then holistically evaluate the protocol against 4 CVE advisories AND identify additional design-level weaknesses (weak KDF, predictable salting, no replay protection) — requiring synthesis across multiple information sources rather than following a single procedure. Finally, the agent must design and implement a hardened replacement using OAEP, memory-hard KDF, and per-token nonces, plus build a credential migration path. This combines cryptanalysis, vulnerability assessment judgment, and novel secure protocol creation."""
+solution_explanation = """Read iperf_auth.c to extract: (1) auth_text_format with specific spacing, (2) RSA PKCS1v15 padding, (3) SHA256('{username}password') salting. Decrypt 8 tokens, crack 7 passwords via dictionary attack. Cross-reference 4 advisories with source to identify 6+ vulnerabilities: Marvin timing attack (CVE-2024-26306), off-by-one heap overflow (CVE-2025-54349), base64 assertion crash (CVE-2025-54350), no KDF iterations, username-only salt, no replay nonce. Evaluate each against the deployment config. Implement hardened_auth.py with RSA-OAEP, Argon2id password hashing, random nonces. Migrate cracked credentials to Argon2id format."""
+verification_explanation = """Tests independently decrypt all 8 tokens and crack passwords to verify forensic report accuracy. Security assessment is validated via regex pattern matching for 6 required vulnerability categories and 3 required CVE cross-references. Hardened auth module undergoes behavioral testing: encode/decode roundtrip, OAEP verification (PKCS1v1.5 decryption must fail on produced tokens), KDF format validation (hashes must not be raw SHA256), nonce uniqueness (identical inputs produce distinct tokens), and credential verification correctness. Migration is verified for completeness and output format."""
+category = "security"
+tags = ["cryptography", "protocol-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f5e0b1"

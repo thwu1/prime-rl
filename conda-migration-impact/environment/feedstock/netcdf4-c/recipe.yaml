@@ -1,0 +1,40 @@
+context:
+  name: netcdf4-c
+  version: "4.9.2"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/Unidata/netcdf-c/releases/download/v${{ version }}/netcdf-c-${{ version }}.tar.gz
+  sha256: bc104d101278c68b303359b3dc4192f81592ae8640f1aee486921138f7f88cb7
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x.x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cmake
+    - ninja
+    - pkg-config
+  host:
+    - libhdf5 >=1.14.0,<1.14.4a0
+    - libcurl
+    - zlib
+  run: []
+
+test:
+  commands:
+    - nc-config --version
+    - test -f $PREFIX/lib/libnetcdf.so
+    - ncdump --version
+
+about:
+  homepage: https://www.unidata.ucar.edu/software/netcdf/
+  license: MIT
+  license_file: COPYRIGHT
+  summary: Libraries and data formats for array-oriented scientific data

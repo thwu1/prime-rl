@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: the solver must independently diagnose why a phylogenetic tree poorly represents evolutionary distances (recognizing ultrametric assumption violations from rate heterogeneity), select an appropriate tree reconstruction algorithm, and recompute a multi-step community ecology pipeline including phylogenetically-weighted dissimilarity metrics, permutation-based multivariate statistics, and phylogenetic alpha diversity. No algorithms or methods are named in the instruction — the solver must identify the problem, choose the approach, and implement the full pipeline from domain knowledge alone."""
+solution_explanation = """The solver must explore the data directory, assess the provided tree's fidelity via cophenetic correlation, recognize that the tree assumes equal evolutionary rates (UPGMA), reconstruct using neighbor-joining (which handles rate variation), root at midpoint, then recompute weighted UniFrac beta diversity, PERMANOVA for group differences, and Faith's PD for phylogenetic alpha diversity. The corrected analysis reveals significant community differences that the flawed tree obscured."""
+verification_explanation = """Tests independently install scikit-bio and recompute all expected results from input data: NJ tree reconstruction, cophenetic correlation, normalized RF distance, weighted UniFrac matrix, PERMANOVA statistics, and Faith's PD values. Agent outputs are compared against these independently computed values using appropriate numerical tolerances. Tree topology is verified via RF distance equality. The assessment JSON is checked for correct fidelity score, topology divergence, and that the original conclusion is marked invalid."""
+category = "bioinformatics"
+tags = ["phylogenetics", "microbiome-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phylogenetic-tree-reconciliation"

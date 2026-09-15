@@ -1,0 +1,52 @@
+{
+  "deliverables": {
+    "design.py": {
+      "description": "Corrected ALU design. All 8 operations must produce correct 4-bit unsigned results for every input pair (a, b in 0..15). The build_alu(opcode, a, b) interface and opcode-to-operation mapping must remain unchanged. Subsidiary functions may be modified as needed."
+    },
+    "analysis.py": {
+      "description": "Circuit graph analysis module operating on the HDL framework's Wire/Bus representation.",
+      "required_exports": {
+        "count_gates(outputs)": "Given a Bus of output wires, return the count of unique logic gate nodes (AND, OR, XOR, NOT) reachable in the circuit. Constants and primary inputs are not counted as gates.",
+        "critical_path(outputs)": "Given a Bus of output wires, return the longest chain of dependent gate operations from any primary input to any output. Primary inputs and constants have depth 0; each gate adds 1.",
+        "max_fanout(outputs)": "Given a Bus of output wires, return the maximum number of gate inputs driven by any single wire in the reachable circuit. Measures how many downstream gates consume a given wire as an input."
+      }
+    },
+    "fast_alu.py": {
+      "description": "Optimized ALU variant with improved propagation delay.",
+      "required_exports": {
+        "fast_adder(a, b, cin)": "A 4-bit adder (Bus a, Bus b, Wire cin) returning (Bus sum, Wire carry_out). Must produce correct results for all 512 input combinations and have strictly shorter critical path than the adder in design.py.",
+        "build_alu_fast(opcode, a, b)": "Complete ALU (Bus opcode, Bus a, Bus b) returning Bus result. Uses the fast adder for arithmetic. Must implement all 8 operations with correct behavior matching the corrected design.py."
+      }
+    },
+    "report.json": {
+      "schema": {
+        "bugs": {
+          "type": "array",
+          "min_length": 4,
+          "item_fields": {
+            "function": "string — name of the buggy function",
+            "location": "string — file and line-level description",
+            "description": "string — what was wrong and its observable effect",
+            "fix": "string — what was changed"
+          }
+        },
+        "analysis": {
+          "original": {
+            "gate_count": "positive integer",
+            "critical_path_depth": "positive integer",
+            "max_fanout": "positive integer"
+          },
+          "optimized": {
+            "gate_count": "positive integer",
+            "critical_path_depth": "positive integer",
+            "max_fanout": "positive integer"
+          }
+        },
+        "evaluation": "string — minimum 80 characters comparing the two architectures across area, delay, and wiring complexity tradeoffs"
+      },
+      "constraints": [
+        "optimized.critical_path_depth must be strictly less than original.critical_path_depth"
+      ]
+    }
+  }
+}

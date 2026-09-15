@@ -1,0 +1,73 @@
+================================================================================
+IP Routing Tables - Captured 2026-05-29 14:32:17 UTC
+================================================================================
+
+=== core_rtr: show ip route ===
+
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* 1.1.1.1/32 is directly connected, lo, 03:45:12
+O>* 2.2.2.1/32 [110/20] via 172.16.0.1, eth0, weight 1, 02:30:05
+O>* 2.2.2.3/32 [110/20] via 172.16.0.5, eth2, weight 1, 02:28:15
+C>* 10.100.0.0/24 is directly connected, eth3, 03:45:12
+C>* 172.16.0.0/31 is directly connected, eth0, 03:45:12
+C>* 172.16.0.2/31 is directly connected, eth1, 03:45:12
+C>* 172.16.0.4/31 is directly connected, eth2, 03:45:12
+
+
+=== dist_rtr1: show ip route ===
+
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* 1.1.1.1/32 [110/20] via 172.16.0.0, eth0, weight 1, 02:30:03
+C>* 2.2.2.1/32 is directly connected, lo, 03:45:10
+O>* 2.2.2.3/32 [110/30] via 172.16.0.0, eth0, weight 1, 02:28:13
+C>* 10.1.0.0/24 is directly connected, eth1, 03:45:10
+O>* 10.3.0.0/24 [110/25] via 172.16.0.0, eth0, weight 1, 02:28:13
+O>* 10.100.0.0/24 [110/15] via 172.16.0.0, eth0, weight 1, 02:30:03
+C>* 172.16.0.0/31 is directly connected, eth0, 03:45:10
+O>* 172.16.0.2/31 [110/20] via 172.16.0.0, eth0, weight 1, 03:45:10
+O>* 172.16.0.4/31 [110/20] via 172.16.0.0, eth0, weight 1, 02:28:13
+
+
+=== dist_rtr2: show ip route ===
+
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+C>* 2.2.2.2/32 is directly connected, lo, 03:45:08
+C>* 10.2.0.0/24 is directly connected, eth1, 03:45:08
+C>* 172.16.0.2/31 is directly connected, eth0, 03:45:08
+
+
+=== dist_rtr3: show ip route ===
+
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+O>* 1.1.1.1/32 [110/20] via 172.16.0.4, eth0, weight 1, 02:28:12
+O>* 2.2.2.1/32 [110/30] via 172.16.0.4, eth0, weight 1, 02:28:12
+C>* 2.2.2.3/32 is directly connected, lo, 03:45:06
+C>* 10.3.0.0/24 is directly connected, eth1, 03:45:06
+O>* 10.100.0.0/24 [110/15] via 172.16.0.4, eth0, weight 1, 02:28:12
+C>* 172.16.0.4/31 is directly connected, eth0, 03:45:06
+O>* 172.16.0.0/31 [110/20] via 172.16.0.4, eth0, weight 1, 02:28:12
+O>* 172.16.0.2/31 [110/20] via 172.16.0.4, eth0, weight 1, 03:45:06

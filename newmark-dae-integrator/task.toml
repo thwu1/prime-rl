@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language debugging across Python and C: diagnosing a broken Makefile that produces a static library instead of a shared one (understanding -fPIC, -shared, static vs dynamic linking), finding a subtle sign error in C matrix computation code, understanding Python ctypes FFI for native library integration, completing a numerical integrator for an index-3 DAE system with saddle-point linear algebra, and tuning stabilization parameters for long-term numerical stability. Combines systems programming expertise (build systems, shared libraries, FFI) with computational mechanics knowledge."""
+solution_explanation = """Fix the Makefile to build a shared library with -fPIC and -shared flags instead of a static archive. Fix the sign error in the C Jacobian computation (dC2/domega2 should be +R2*skew(s2_top), not negated). Complete the three integrator methods: assemble the bordered saddle-point matrix [M, Phi_v^T; Phi_v, 0], compute the dynamic+constraint residual with Baumgarte stabilization, and apply Newmark-beta update formulas with quaternion renormalization. Set Baumgarte alpha=beta=5.0 for critical damping of constraint drift."""
+verification_explanation = """Tests verify: native shared library exists at /app/native/libconstraints.so, constraint Jacobian is nonzero and loadable via ctypes, iteration matrix is non-singular with full rank, simulation completes all 10000 steps, constraint violations stay below 1e-6 at every timestep, energy conservation within 2% relative error throughout, solver convergence within 10 iterations average and at least 1, quaternion norms near unity, link positions physically bounded and non-stationary, and trajectory covers full 10 seconds."""
+category = "physics_engineering"
+tags = ["computational-mechanics", "systems-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/newmark-dae-integrator"

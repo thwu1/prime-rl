@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge of numerical methods for singularly perturbed ODEs. The agent must implement parameter continuation in epsilon to handle solver convergence for stiff problems, handle epsilon-dependent boundary conditions with numerical overflow (log-cosh stability), provide appropriate initial guesses for five qualitatively different BVP types (exponential layers, interior shocks, dual boundary layers, nonlinear corner layers, nonlinear double corner layers), and potentially supply analytical Jacobians for convergence. Standard solvers fail without continuation for epsilon <= 0.001."""
+solution_explanation = """Uses scipy.solve_bvp with parameter continuation: solve at eps=0.1 first using a simple initial guess, then use that converged solution mesh and values as the initial guess for eps=0.01, and so on down to eps=0.0001. Each problem requires implementing its specific ODE right-hand side, computing epsilon-dependent boundary conditions with numerical stability (log-cosh trick for the nonlinear corner problem), and providing analytical Jacobians to accelerate convergence of the stiff nonlinear systems."""
+verification_explanation = """Tests verify: (1) all 5 problems are solved for all 4 epsilon values with 201 evaluation points each, (2) all values are finite, (3) evaluation grids match expected linspace, (4) boundary conditions are satisfied to within 1e-3, (5) solutions match known exact solutions for 4 of the 5 problems within max error of 5e-2, (6) the 5th problem (no exact solution) has bounded solutions, correct midpoint behavior near zero, and outer solution structure matching asymptotic predictions."""
+category = "scientific_computing"
+tags = ["numerical-methods", "boundary-value-problems"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-267310"

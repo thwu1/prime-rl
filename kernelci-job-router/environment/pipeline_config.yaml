@@ -1,0 +1,172 @@
+# KernelCI Pipeline Configuration
+# Multi-lab setup with LAVA, Docker, and Kubernetes runtimes
+
+api:
+  staging:
+    url: "https://staging.kernelci.org:9000"
+  production:
+    url: "https://kernelci-api.westus3.cloudapp.azure.com"
+
+storage:
+  staging-storage:
+    storage_type: "backend"
+    base_url: "https://files-staging.kernelci.org"
+  production-storage:
+    storage_type: "backend"
+    base_url: "https://files.kernelci.org"
+
+runtimes:
+  lava-collabora:
+    lab_type: lava
+    url: "https://lava.collabora.dev/"
+    priority_min: 40
+    priority_max: 60
+    capacity: 4
+    cost_factor: 0.80
+    notify:
+      callback:
+        token: "kernelci-callback-collabora"
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "stable*"
+        - "!stable-rc-*"
+
+  lava-baylibre:
+    lab_type: lava
+    url: "https://lava.baylibre.com/"
+    priority_min: 20
+    priority_max: 80
+    capacity: 2
+    cost_factor: 0.30
+    notify:
+      callback:
+        token: "kernelci-callback-baylibre"
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "android-*"
+        - "stable"
+
+  lava-broonie:
+    lab_type: lava
+    url: "https://lava.broonie.me/"
+    priority_min: 0
+    priority_max: 49
+    capacity: 1
+    cost_factor: 0.40
+    notify:
+      callback:
+        token: "kernelci-callback-broonie"
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "stable"
+        - "arm-soc"
+        - "tegra"
+        - "clk"
+
+  lava-pengutronix:
+    lab_type: lava
+    url: "https://lava.pengutronix.de/"
+    priority_min: 30
+    priority_max: 70
+    capacity: 2
+    cost_factor: 0.50
+    notify:
+      callback:
+        token: "kernelci-callback-pengutronix"
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "stable"
+        - "!android-*"
+        - "!chrome-*"
+
+  lava-kontron:
+    lab_type: lava
+    url: "http://lava.kontron.com/"
+    priority_min: 50
+    priority_max: 90
+    capacity: 2
+    cost_factor: 0.60
+    notify:
+      callback:
+        token: "kernelci-callback-kontron"
+    rules:
+      tree:
+        - "mainline"
+        - "stable"
+
+  lava-cip:
+    lab_type: lava
+    url: "https://lava.cip-project.org/"
+    priority_min: 100
+    priority_max: 50
+    capacity: 2
+    cost_factor: 0.35
+    notify:
+      callback:
+        token: "kernelci-callback-cip"
+    rules:
+      tree:
+        - "cip-*"
+        - "stable"
+
+  lava-riscv:
+    lab_type: lava
+    url: "https://lava.riscv-lab.dev/"
+    priority_min: 25
+    priority_max: 75
+    capacity: 1
+    cost_factor: 0.45
+    notify:
+      callback:
+        token: ""
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "riscv-*"
+
+  lava-internal:
+    lab_type: lava
+    url: "https://lava.internal.example.com/"
+    priority_min: 10
+    priority_max: 95
+    capacity: 2
+    cost_factor: 0.10
+    notify:
+      callback:
+        token: "kernelci-callback-internal"
+    rules:
+      tree:
+        - "mainline"
+        - "next"
+        - "stable"
+        - "android-*"
+        - "chrome-*"
+        - "riscv-*"
+        - "arm-soc"
+        - "tegra"
+        - "clk"
+        - "media"
+        - "usb"
+        - "drm"
+
+  docker-host:
+    lab_type: docker
+    url: "http://172.17.0.1:8001"
+    user: "root"
+    volumes:
+      - "/home/kernelci/data/ssh:/root/.ssh"
+      - "/data/output:/data/output"
+
+  k8s-all:
+    lab_type: kubernetes
+    context: "gke_kernelci-production_europe-west4_kci-eu-west4"
+    image: "kernelci/staging-kernelci"

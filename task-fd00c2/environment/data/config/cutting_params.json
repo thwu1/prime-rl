@@ -1,0 +1,17 @@
+{
+  "mill_id": "PM-4",
+  "line_config": {
+    "max_cuts_per_pass": 12,
+    "blade_positions": "adjustable",
+    "min_trim_width_mm": 15
+  },
+  "optimization": {
+    "objective": "minimize_total_rolls",
+    "gap_tolerance_pct": 1.5,
+    "time_limit_sec": 300
+  },
+  "output": {
+    "directory": "/app/output",
+    "filename": "solution.json"
+  }
+}

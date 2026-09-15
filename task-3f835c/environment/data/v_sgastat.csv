@@ -1,0 +1,13 @@
+POOL,NAME,BYTES
+shared pool,free memory,15728640
+shared pool,library cache,167772160
+shared pool,dictionary cache,41943040
+shared pool,sql area,125829120
+shared pool,PL/SQL DIANA,8388608
+shared pool,KGH: NO ACCESS,5242880
+large pool,free memory,8388608
+large pool,PX msg pool,4194304
+java pool,free memory,16777216
+buffer_cache,,536870912
+log_buffer,,16777216
+fixed_sga,,5242880

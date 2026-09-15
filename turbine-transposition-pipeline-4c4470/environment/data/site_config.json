@@ -1,0 +1,28 @@
+{
+    "model": {
+        "D_m": 0.350,
+        "A1_m2": 0.09621,
+        "A2_m2": 0.12566,
+        "z1_minus_z2_m": 2.50,
+        "lab_altitude_m": 0,
+        "submergence_m": 0.80
+    },
+    "prototype": {
+        "D_m": 4.200,
+        "E_Jkg": 1177.2,
+        "turbine_type": "Francis"
+    },
+    "site": {
+        "altitude_masl": 850,
+        "water_temp_C": 12.0,
+        "z_tailwater_m": 305.0,
+        "z_turbine_ref_m": 302.5
+    },
+    "uncertainty": {
+        "f_Q_pct": 0.20,
+        "f_E_pct": 0.10,
+        "f_T_pct": 0.10,
+        "f_n_pct": 0.02
+    },
+    "sigma_critical": 0.08
+}

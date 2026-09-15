@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a count regression pipeline with 7 interacting issues: NB2/NB1 parameterization mismatch, incorrect dispersion extraction via np.exp, design-matrix column ordering swap for truncation=1 models (produces correct log-likelihoods but swapped parameter labels), manual AIC computation that undercounts estimated parameters for NB models, wrong evaluation point for conditional means (full-sample vs estimation-sample means), reversed LR test sign, plus implementing two missing statistical components (hurdle Poisson-Poisson model and Vuong non-nested test) from scratch. The full-sample vs estimation-sample evaluation bug is subtle: truncated models automatically filter to observations with Y > truncation, so estimating E[Y|Y>c] at the covariate means of the wrong sample produces errors of 2-3% for NB2 models due to different covariate distributions between zero and positive-count subpopulations. The column-ordering bug is particularly subtle: iterating over DataFrame columns yields CSV column order (totchr before aget), not the intended predictor order."""
+solution_explanation = """Fix NB parameterization from p=1 (NB1) to p=2 (NB2). Remove erroneous np.exp() on alpha since statsmodels stores dispersion directly. Fix design-matrix column ordering for truncation=1 by using explicit ["aget", "totchr"] instead of iterating df.columns which yields CSV column order ["totchr", "aget"]. Replace manual AIC computation (which uses k_exog=3, forgetting alpha) with result.aic. Compute conditional means at estimation-sample covariate means using model.predict(which='mean') which returns E[Y|Y>c], evaluated at x_mean from model.exog (the estimation sample, already filtered by truncation). Correct LR test to 2*(ll_nb - ll_poisson). Implement hurdle Poisson-Poisson using HurdleCountModel with zerodist='poisson'. Implement Vuong test using observation-level log-likelihood ratios with sqrt(n)*mean/std normalization."""
+verification_explanation = """45 pytest tests validate all model parameters, standard errors, log-likelihoods, AIC, observation counts, and conditional means for four truncated models against Stata 11 reference values and exact truncated distribution computations. Tighter AIC tolerance (rtol=1e-4) for NB models catches the parameter-counting bug (off-by-2 in AIC). Conditional mean tolerance (rtol=0.02) catches the full-sample-means bug. Hurdle tests verify zero/count params, predicted means/probs, decomposition, and that count params match trunc_poisson_0 params (consistency). LR tests check positivity and magnitude. Vuong test validated for sign and significance."""
+category = "data_science"
+tags = ["count-regression", "statistical-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/count-regression-pipeline-e0079a"

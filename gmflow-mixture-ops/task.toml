@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level probabilistic reasoning across four interlocking challenges: (1) Diagnosing two subtle mathematical bugs that only manifest under specific parameter regimes — a variance aggregation bug (sum vs. mean over dimensions) visible only when D>1, and a power-ratio inversion visible only with asymmetric powers — both producing silently wrong results. (2) Implementing gm_mul_gm (product of two Gaussian mixtures producing K1*K2 components) involving outer-product indexing, product-Gaussian variance algebra, and correct log-weight normalization with quadratic distance penalties. (3) Designing from scratch — with no prescribed algorithm — a GM component reduction strategy (gm_reduce) that greedily minimizes information loss while preserving moment-matching constraints and bounding KL divergence. The solver must evaluate merge-cost heuristics, understand how component merging affects mixture moments, and make design decisions about which pairs to merge. (4) Integrating all fixes into a multi-stage Bayesian inference pipeline and evaluating reduction quality via KL divergence metrics. The design-and-evaluate nature of the reduction problem, combined with the need to reason holistically about how bugs propagate through chained operations, puts this firmly at expert level."""
+solution_explanation = """1) In gm_to_iso_gaussian, change between_var.sum(dim=-1) to between_var.mean(dim=-1) so the between-component variance is averaged over dimensions D. 2) In gm_mul_iso_gaussian, change power_ratio = gm_power / gaussian_power to gaussian_power / gm_power, matching the specification r = b/a. 3) Implement gm_mul_gm by expanding means via unsqueeze for all K1*K2 pairs, computing product-Gaussian means and log-stds from the standard product formula, and log-weights via log_softmax with quadratic distance penalties. 4) Design and implement gm_reduce using greedy pairwise merging: at each step, compute merge costs as w_i*w_j/(w_i+w_j)*||mu_i-mu_j||^2 for all pairs, merge the lowest-cost pair by taking a weight-averaged mean and summed weight, repeat until target_k components remain. This preserves the mixture mean exactly and minimizes information loss greedily. Then run pipeline.py to generate results.json."""
+verification_explanation = """Tests verify each operation independently: gm_to_iso_gaussian with D=3 inputs (catching the sum/mean bug since D=1 masks it), gm_mul_iso_gaussian with asymmetric powers (catching the inverted ratio since equal powers mask it), gm_mul_gm against a numpy reference implementation. gm_reduce is tested for: output shape, weight normalization, exact mean preservation, KL divergence boundedness, correct merging of nearby components (verified by sorting output means), and shared-variance preservation. End-to-end pipeline tests verify results.json structure, num_components_full=16, num_components_reduced=6, bounded KL reduction loss, nll+logprob consistency identity, and finite values throughout."""
+category = "machine_learning"
+tags = ["probabilistic-inference", "algorithm-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gmflow-mixture-ops"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of seL4 microkernel capability semantics, directed graph theory, and formal isolation analysis. The agent must independently identify three interacting bugs in an isolation analyzer by comparing the code against a formal specification — no guidance is provided about what is wrong or how many defects exist. A third-party audit report contains six findings, but two of them (FINDING-4 and FINDING-6) are incorrect: FINDING-4 ignores that a channel (not just memory) creates the sensor→control dependency, and FINDING-6 proposes IRQ-based dependencies that contradict the formal spec. The agent must evaluate each finding against both the source code and the OSmosis specification rather than blindly applying fixes. Bug B (TCB returns only direct dependencies instead of transitive closure) masks Bug C (impact boundary computed from direct dependency graph instead of transitive TCB) — they produce identical output when both are active, so fixing Bug B reveals Bug C as a delayed failure in a different function. The agent must also design and implement critical dependency path computation via BFS shortest-path over the corrected graph, and render the graph to SVG."""
+solution_explanation = """Fix build_dependency_graph() to create directional memory edges (mappers depend on writers, not bidirectional for all mappers). Fix compute_tcb() to perform BFS transitive closure instead of copying direct deps. Fix main() to pass tcb (not dep_graph) to compute_impact_boundary(). Reject FINDING-4 — sensor↔control is bidirectional because of a channel, not just memory. Reject FINDING-6 — the OSmosis spec explicitly excludes IRQs from dependency analysis. Add DOT file generation, SVG rendering via dot CLI, and critical path computation using BFS shortest paths for each isolation violation."""
+verification_explanation = """Tests verify: (1) exact dependency graph edges including asymmetric memory deps, (2) TCB sizes for all 12 PDs, (3) impact boundary sizes for all 12 PDs, (4) shared resource classifications, (5) all policy violation counts and details, (6) DOT file structure with exactly 20 edges and correct/absent specific edges, (7) SVG file existence and validity as graphviz output, (8) critical_paths.json with exact shortest dependency chains for all 3 isolation violations validated as legal edge sequences."""
+category = "systems_security"
+tags = ["microkernel", "graph-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microkit-isolation-analyzer"

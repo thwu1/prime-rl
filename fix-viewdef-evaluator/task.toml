@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 independent defects across 2 TypeScript source files in a SQL-on-FHIR v2 ViewDefinition evaluator with no hints about which files or features are broken. The solver must understand recursive data traversal, cross-join relational algebra, FHIRPath expression evaluation, null-propagation semantics, iteration index scoping, and polymorphic constant type processing. Bugs are spread across the evaluation engine and the FHIRPath helper layer, and interact with a normalization pipeline and 12 fixture files (105+ tests). Tracing failures back to root causes requires understanding deeply nested evaluation contexts and the interplay between forEach/forEachOrNull/repeat/column/unionAll operators."""
+solution_explanation = """Five bugs: (1) evaluator.ts handleForEachOrNull missing empty-collection fallback — needs `if (nodes.length === 0) nodes = [{}]` for LEFT JOIN semantics; (2) evaluator.ts recursiveTraverse pushes root node — needs `if (!isRoot)` guard so only descendants appear; (3) evaluator.ts handleColumn ignores collection:true flag — needs `if (c.collection) { record[name] = vs; }` branch before the scalar check; (4) evaluator.ts handleRepeat doesn't scope %rowIndex per traversed node — needs `const childEnvVars = {...envVars, rowIndex: index}` like handleForEach; (5) fhirpath-helper.ts processConstants has a typeof string guard that silently drops non-string constant values (integers, booleans) — must remove `&& typeof x[key] === 'string'` from the value extraction condition."""
+verification_explanation = """test.sh runs the conformance runner (npx tsx runner.ts) which evaluates every ViewDefinition against fixture resources and compares rows with expected output. test_state.py parses the JSON report and asserts zero failures across all 12 fixture files. Each fixture file is also tested individually via parametrized pytest for granular diagnostics."""
+category = "debugging"
+tags = ["typescript", "healthcare-interop"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-viewdef-evaluator"

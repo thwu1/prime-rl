@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ClinicalDocument xmlns="urn:hl7-org:v3">
+  <id extension="N010"/>
+  <component>
+    <structuredBody>
+      <component>
+        <section>
+          <code code="11348-0" codeSystem="2.16.840.1.113883.6.1" displayName="Past Medical History"/>
+          <text>Asthma since childhood. No chronic obstructive pulmonary disease. Possible deep vein thrombosis last year.</text>
+        </section>
+      </component>
+      <component>
+        <section>
+          <code code="10164-2" codeSystem="2.16.840.1.113883.6.1" displayName="History of Present Illness"/>
+          <text>Cough and fever for three days. Denies nausea. Suspected pneumonia.</text>
+        </section>
+      </component>
+      <component>
+        <section>
+          <code code="29549-3" codeSystem="2.16.840.1.113883.6.1" displayName="Medications"/>
+          <text>Taking albuterol, prednisone, and omeprazole.</text>
+        </section>
+      </component>
+    </structuredBody>
+  </component>
+</ClinicalDocument>

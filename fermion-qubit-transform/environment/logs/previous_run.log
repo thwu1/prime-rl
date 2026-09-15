@@ -1,0 +1,52 @@
+=== Pipeline Run: 2024-11-15T14:23:07 ===
+Loading config from /app/config.yaml
+  database_path: /app/molecules.db
+  integral_convention: chemist
+
+Found 2 molecular systems
+
+--- Processing hubbard_2site ---
+  2-site Hubbard model, open boundary, t=0.85, U=2.3
+  n_spatial_orbitals: 2, n_electrons: 2, n_qubits: 4
+  Computing primary encoding...
+    9 Pauli terms
+  Computing secondary encoding...
+    ERROR: Secondary encoding not yet implemented
+  Diagonalizing...
+    Ground state energy: -0.2327053985805804
+
+  *** WARNING: energy does not match known reference (-0.5324) ***
+  *** Check integral loading and encoding implementation ***
+
+  Computing symmetry reduction...
+    ERROR: Symmetry-based Hamiltonian reduction not yet implemented
+
+--- Processing hubbard_3site ---
+  3-site Hubbard model, open boundary, t=1.0, U=3.7
+  n_spatial_orbitals: 3, n_electrons: 3, n_qubits: 6
+  Computing primary encoding...
+    63 Pauli terms
+  Computing secondary encoding...
+    ERROR: Secondary encoding not yet implemented
+  Diagonalizing...
+    Ground state energy: -1.4142135623730951
+  Computing symmetry reduction...
+    ERROR: Symmetry-based Hamiltonian reduction not yet implemented
+
+Results written to /app/results.json
+
+=== Summary ===
+  hubbard_2site: LIKELY INCORRECT (energy mismatch with reference)
+  hubbard_3site: unverified (no reference available)
+  Secondary encoding: NOT IMPLEMENTED
+  Symmetry reduction: NOT IMPLEMENTED
+
+=== Attempted: make all ===
+cd /app && python3 src/run_pipeline.py
+python3: can't open file '/app/src/run_pipeline.py': [Errno 2] No such file or directory
+make: *** [Makefile:19: run] Error 2
+
+Notes from previous developer:
+  - Makefile has variable naming issues (DB_PATH undefined?)
+  - Summary target untested since run failed
+  - Config may have wrong integral convention setting

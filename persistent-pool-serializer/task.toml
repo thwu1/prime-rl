@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a relational storage model for tree-structured data from scratch (only the snapshots table is given), implementing two independent serialization layers (SQLite and JSON pool-based) that both preserve structural sharing across multiple vector versions, restoring Python object identity for shared subtrees on deserialization, implementing tree-aware diffing that exploits sharing to skip entire subtrees, writing recursive SQL for transitive reachability analysis to garbage-collect orphaned nodes, and integrating sqlite3 CLI with jq for JSON export. The agent must independently discover the deduplication strategy, the schema design, the pool traversal ordering, and the reachability algorithm — no approach is prescribed."""
+solution_explanation = """Use Merkle-style content hashing (leaf hash = sha256(json(values)), inner hash = sha256(json(child_hashes))) to assign deterministic IDs to tree nodes. Store nodes in a SQL table keyed by content hash. On save, walk the tree computing hashes; reuse existing rows for matching hashes. On load, build a node_id-to-Node cache so shared node_ids produce the same Python object. For pool serialization, use Python id() to detect shared nodes and assign sequential integer IDs; deserialize by building a node_id-to-Node map. Diff loads vectors via load_batch (shared cache) or directly (shared is), then uses identity checks to skip identical subtrees. compact.sh uses a recursive CTE rooted at snapshot root_node_ids with json_each to traverse child references, then deletes unreachable nodes. export.sh combines sqlite3 for metadata, Python for tree traversal, and jq for JSON formatting."""
+verification_explanation = """Tests verify: (1) save/load round-trip for empty, small, large, and numeric vectors, (2) node deduplication by comparing DB node count to naive tree node sum, (3) Python is identity for shared nodes after load_batch, (4) diamond sharing patterns across three derived vectors, (5) diff correctness and efficiency via nodes_compared metric, (6) delete/list/count operations, (7) compact.sh via subprocess correctly removes orphans while preserving live nodes, (8) export.sh produces valid JSON with correct fields, (9) pool serialization round-trip with sharing preservation, (10) pool node ID uniqueness and deduplication, (11) pool format structure validation, (12) transform_pool correctness and immutability, (13) compute_shared_diff correctness and sharing exploitation, (14) cross-layer integration: pool-to-DB and transform-then-store round-trips."""
+category = "systems_programming"
+tags = ["persistent-data-structures", "structural-sharing", "serialization-design", "multi-layer-persistence"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-pool-serializer"

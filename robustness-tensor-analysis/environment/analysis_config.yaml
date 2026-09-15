@@ -1,0 +1,5 @@
+alpha: 0.05
+bootstrap_samples: 10000
+decomposition_rank: 2
+random_seed: 42
+output_path: /app/output/report.json

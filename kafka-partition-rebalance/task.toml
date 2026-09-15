@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Apache Kafka's partition assignment internals, rack-aware replica placement, and multi-objective constrained optimization. The agent must first reconstruct the cluster state from five heterogeneous data sources: Kafka broker server.properties files, kafka-topics --describe text output, kafka-log-dirs --describe nested JSON (with sizes in bytes requiring unit conversion), disk quota CSV, and operational constraints in YAML. Each source uses a different format and parsing strategy. The agent must then learn and use the custom kafkactl CLI tool to validate its plan. The optimization itself is a variant of multi-dimensional bin packing (NP-hard), simultaneously satisfying rack awareness, replica/leader balance, disk capacity, and movement minimization constraints."""
+solution_explanation = """The solution: (1) parses broker configs for rack topology, (2) parses kafka-topics text output for assignments, (3) extracts partition sizes from kafka-log-dirs JSON converting bytes to GB, (4) reads disk quotas from CSV, (5) parses constraints from YAML, (6) uses a multi-phase optimizer with rack-aware greedy assignment, iterative swap refinement, and leader rebalancing, (7) validates using kafkactl CLI tool, (8) generates the reassignment plan, audit report, and validation report."""
+verification_explanation = """Tests independently reconstruct the cluster state from the same metadata files, then verify: JSON validity, partition completeness, no co-located replicas, full rack awareness, replica and leader balance within bounds, disk capacity limits, batch size limits, correct before/after metrics in the audit report, validation report existence and validity, and that only changed partitions appear in the reassignment plan."""
+category = "data_management"
+tags = ["kafka", "distributed-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-partition-rebalance"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing four tightly interacting subsystems in a C++ server: (1) an O(log N) AVL tree rank-offset traversal using subtree counts and parent pointers, (2) a min-heap with back-reference tracking for O(log N) arbitrary updates, (3) TTL key expiration integrated into the event loop with heap-based timer management, and (4) a ZRANGEBYSCORE range query command using seek + offset + iteration. Each feature depends on understanding intrusive data structures and the existing codebase's conventions."""
+solution_explanation = """avl_offset uses a position variable tracking relative offset, descending into left/right subtrees based on subtree counts and ascending to parents when the target is outside the current subtree. The heap implements sift-up/sift-down with back-reference updates on every swap. TTL adds a heap_idx field to Entry, PEXPIRE/PTTL commands, heap_upsert/heap_delete helpers, and a process_timers loop that pops expired entries. ZRANGEBYSCORE seeks to the first node >= min_score, applies offset, then iterates while score <= max_score within limit."""
+verification_explanation = """Tests use a Python client speaking the binary protocol over TCP. The test suite builds the server, starts it, and validates: basic KV operations (GET/SET/DEL), sorted set operations (ZADD/ZSCORE/ZREM), ZQUERY with various offsets and limits, TTL semantics (PEXPIRE/PTTL, expiration, updates, zset TTL), and ZRANGEBYSCORE with ranges, offsets, limits, and edge cases."""
+category = "systems_programming"
+tags = ["data-structures", "network-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/redis-server-features"

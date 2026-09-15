@@ -1,0 +1,47 @@
+[
+  {
+    "name": "bls12_standard",
+    "family": "BLS12",
+    "u_hex": "-0xd201000000010000",
+    "p_hex": "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab",
+    "r_hex": "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+    "k": 12,
+    "claimed_security_bits": 128
+  },
+  {
+    "name": "bls12_overclaim",
+    "family": "BLS12",
+    "u_hex": "-0xd201000000010000",
+    "p_hex": "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab",
+    "r_hex": "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+    "k": 12,
+    "claimed_security_bits": 192
+  },
+  {
+    "name": "bls12_corrupted",
+    "family": "BLS12",
+    "u_hex": "-0xd201000000010000",
+    "p_hex": "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaad",
+    "r_hex": "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+    "k": 12,
+    "claimed_security_bits": 128
+  },
+  {
+    "name": "bn_small",
+    "family": "BN",
+    "u_hex": "0x1",
+    "p_hex": "0x67",
+    "r_hex": "0x61",
+    "k": 12,
+    "claimed_security_bits": 3
+  },
+  {
+    "name": "bn_invalid",
+    "family": "BN",
+    "u_hex": "0x1",
+    "p_hex": "0x6b",
+    "r_hex": "0x61",
+    "k": 12,
+    "claimed_security_bits": 3
+  }
+]

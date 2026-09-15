@@ -1,0 +1,23 @@
+Subject: [HOTFIX-B] Prevent synchronous I/O blocking in data path
+From: Alex Chen <achen@dataflow.internal>
+Date: Tue, 19 Nov 2024 11:15:00 -0800
+
+Add O_NONBLOCK flag to the data loader file descriptor to prevent
+synchronous blocking during I/O operations. This should resolve the
+remaining flush_to_disk latency issue by preventing the data path
+from stalling on slow disk I/O.
+
+---
+ src/data_loader.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/src/data_loader.c
++++ b/src/data_loader.c
+@@ -44,7 +44,7 @@ int open_stream(struct stream_ctx *ctx, const char *path)
+ {
+     init_buffer(ctx);
+-    ctx->fd = open(path, O_RDONLY);
++    ctx->fd = open(path, O_RDONLY | O_NONBLOCK);
+     if (ctx->fd < 0) {
+         fprintf(stderr, "ERROR: cannot open %s\n", path);
+         return -1;

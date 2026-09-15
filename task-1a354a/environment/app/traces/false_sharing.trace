@@ -1,0 +1,7 @@
+# false_sharing.trace — writes to distinct words in the same 64-byte cache line
+# All addresses 0x0000-0x003F share one cache line (block_size=64).
+# Demonstrates coherence traffic from false sharing.
+0 W 0x0000
+1 W 0x0010
+0 W 0x0020
+1 W 0x0030

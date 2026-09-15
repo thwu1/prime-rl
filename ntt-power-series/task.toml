@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging across four technology layers: (1) fixing a Makefile to correctly compile a C shared library with -shared/-fPIC flags, (2) identifying two bugs in C NTT code — missing modular normalization in inverse NTT and negative-remainder modular arithmetic in the butterfly operation (a classic C-vs-Python gotcha), (3) fixing ctypes FFI type mismatches where c_int (32-bit) arrays are passed to C functions expecting long long (64-bit) pointers, causing silent data alignment corruption, (4) debugging a subtle Newton iteration bug in poly_inv and implementing poly_exp/poly_pow from scratch using Newton's method on formal power series. The cascading dependency chain (Makefile → C library → ctypes bindings → Python FPS) means issues must be diagnosed and fixed in order through iterative testing across language boundaries."""
+solution_explanation = """1. Fix Makefile: add -shared and -fPIC flags to produce a valid shared library. 2. Fix C ntt.c: add +MOD in butterfly subtraction to handle negative remainders ((u-v+MOD)%MOD), and add 1/n normalization after inverse NTT. 3. Fix ntt_binding.py: change c_int to c_longlong for array types and argtypes to match C's long long* parameters. 4. Fix fps.py poly_inv: only add 2 to the constant coefficient in the Newton correction term, not all coefficients. 5. Implement poly_exp via Newton iteration: g_{k+1} = g_k*(1-ln(g_k)+f). 6. Implement poly_pow as exp(k*ln(f))."""
+verification_explanation = """Tests verify the build artifact exists and is loadable as a shared library, then check each operation: multiply against brute-force O(n^2) convolution with both small and large coefficients (exercising the ctypes type fix), poly_inv via f*inv(f)=1 identity, poly_ln via known Taylor series and the product identity, poly_exp via e^x coefficients and exp(ln(f))=f roundtrip, poly_sqrt via sqrt(f)^2=f, poly_pow against repeated multiplication and edge cases."""
+category = "algorithms"
+tags = ["ctypes-ffi", "formal-power-series"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ntt-power-series"

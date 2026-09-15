@@ -1,0 +1,201 @@
+{
+  "resourceType": "Measure",
+  "id": "CMS165FHIR",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/proportion-measure-cqfm"
+    ]
+  },
+  "url": "http://ecqi.healthit.gov/ecqms/Measure/CMS165FHIR",
+  "identifier": [
+    {
+      "use": "official",
+      "system": "http://hl7.org/fhir/cqi/ecqm/Measure/Identifier/cms",
+      "value": "165"
+    },
+    {
+      "use": "official",
+      "system": "http://hl7.org/fhir/cqi/ecqm/Measure/Identifier/nqf",
+      "value": "0018"
+    }
+  ],
+  "version": "0.5.000",
+  "name": "ControllingHighBloodPressureFHIR",
+  "title": "Controlling High Blood Pressure",
+  "status": "active",
+  "experimental": false,
+  "date": "2025-01-15",
+  "publisher": "National Committee for Quality Assurance",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "url",
+          "value": "https://www.ncqa.org/"
+        }
+      ]
+    }
+  ],
+  "description": "Percentage of patients aged 18-85 years of age who had a diagnosis of essential hypertension starting within the first six months of the measurement period, and whose blood pressure was adequately controlled during the measurement period.",
+  "useContext": [
+    {
+      "code": {
+        "system": "http://terminology.hl7.org/CodeSystem/usage-context-type",
+        "code": "program"
+      },
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/cqfmeasures/CodeSystem/quality-programs",
+            "code": "ep-ec",
+            "display": "EP/EC"
+          }
+        ]
+      }
+    }
+  ],
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "effectivePeriod": {
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "library": [
+    "http://ecqi.healthit.gov/ecqms/Library/CMS165FHIR|0.5.000"
+  ],
+  "scoring": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/measure-scoring",
+        "code": "proportion",
+        "display": "Proportion"
+      }
+    ]
+  },
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/measure-type",
+          "code": "process"
+        }
+      ]
+    }
+  ],
+  "rationale": "High blood pressure is a leading risk factor for heart disease and stroke. Proper identification and control of hypertension reduces the risk of adverse cardiovascular outcomes.",
+  "clinicalRecommendationStatement": "The measure assesses whether eligible patients have their blood pressure under adequate control as determined by the most recent qualifying blood pressure readings during the measurement period.",
+  "improvementNotation": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/measure-improvement-notation",
+        "code": "increase",
+        "display": "Increased score indicates improvement"
+      }
+    ]
+  },
+  "group": [
+    {
+      "id": "group-1",
+      "population": [
+        {
+          "id": "initial-population",
+          "code": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/measure-population",
+                "code": "initial-population",
+                "display": "Initial Population"
+              }
+            ]
+          },
+          "description": "Patients who meet all eligibility criteria for inclusion in the measure during the measurement period.",
+          "criteria": {
+            "language": "text/cql-identifier",
+            "expression": "Initial Population"
+          }
+        },
+        {
+          "id": "denominator",
+          "code": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/measure-population",
+                "code": "denominator",
+                "display": "Denominator"
+              }
+            ]
+          },
+          "description": "Equals Initial Population.",
+          "criteria": {
+            "language": "text/cql-identifier",
+            "expression": "Denominator"
+          }
+        },
+        {
+          "id": "denominator-exclusion",
+          "code": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/measure-population",
+                "code": "denominator-exclusion",
+                "display": "Denominator Exclusion"
+              }
+            ]
+          },
+          "description": "Patients excluded from the denominator based on clinical exclusion criteria defined in the CQL library.",
+          "criteria": {
+            "language": "text/cql-identifier",
+            "expression": "Denominator Exclusions"
+          }
+        },
+        {
+          "id": "numerator",
+          "code": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/measure-population",
+                "code": "numerator",
+                "display": "Numerator"
+              }
+            ]
+          },
+          "description": "Patients whose most recent qualifying blood pressure reading meets the adequacy criteria defined in the CQL library.",
+          "criteria": {
+            "language": "text/cql-identifier",
+            "expression": "Numerator"
+          }
+        }
+      ]
+    }
+  ],
+  "supplementalData": [
+    {
+      "id": "sde-ethnicity",
+      "usage": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/measure-data-usage", "code": "supplemental-data"}]}],
+      "criteria": {"language": "text/cql-identifier", "expression": "SDE Ethnicity"}
+    },
+    {
+      "id": "sde-race",
+      "usage": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/measure-data-usage", "code": "supplemental-data"}]}],
+      "criteria": {"language": "text/cql-identifier", "expression": "SDE Race"}
+    },
+    {
+      "id": "sde-sex",
+      "usage": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/measure-data-usage", "code": "supplemental-data"}]}],
+      "criteria": {"language": "text/cql-identifier", "expression": "SDE Sex"}
+    },
+    {
+      "id": "sde-payer",
+      "usage": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/measure-data-usage", "code": "supplemental-data"}]}],
+      "criteria": {"language": "text/cql-identifier", "expression": "SDE Payer"}
+    }
+  ]
+}

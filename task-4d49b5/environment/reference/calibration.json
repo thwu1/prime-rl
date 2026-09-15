@@ -1,0 +1,20 @@
+[
+  {"a": "int", "b": "int", "score": 1.0},
+  {"a": "str", "b": "str", "score": 1.0},
+  {"a": "int", "b": "str", "score": 0.059406},
+  {"a": "int", "b": "float", "score": 0.603774},
+  {"a": "str", "b": "bytes", "score": 0.790323},
+  {"a": "int", "b": "bool", "score": 1.0},
+  {"a": "int", "b": "None", "score": 0.02},
+  {"a": "List[int]", "b": "List[str]", "score": 0.529703},
+  {"a": "Dict[str, int]", "b": "Dict[str, float]", "score": 0.900943},
+  {"a": "List[int]", "b": "Set[int]", "score": 0.581633},
+  {"a": "Dict[str, List[int]]", "b": "Dict[str, List[float]]", "score": 0.950472},
+  {"a": "Union[int, str]", "b": "Union[int, str]", "score": 1.0},
+  {"a": "Union[int, str]", "b": "Union[str, int]", "score": 1.0},
+  {"a": "Union[int, str]", "b": "int", "score": 0.5},
+  {"a": "Optional[int]", "b": "int", "score": 0.5},
+  {"a": "Callable[[int, str], bool]", "b": "Callable[[int, str], bool]", "score": 1.0},
+  {"a": "List[int]", "b": "int", "score": 0.021127},
+  {"a": "Dict[str, int]", "b": "str", "score": 0.026667}
+]

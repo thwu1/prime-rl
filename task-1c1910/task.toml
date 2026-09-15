@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete IEEE 802.11a PHY-layer receiver from raw binary IQ samples. The agent must: (1) parse binary complex float32 IQ files and a JSON manifest describing the OFDM structure, (2) perform 64-point FFT to transform time-domain OFDM symbols to frequency domain, (3) estimate a frequency-selective wireless channel from known Long Training Sequence reference values, (4) equalize all symbols by complex division, (5) extract and demap data subcarriers using the correct constellation (BPSK/QPSK/QAM16/QAM64), (6) decode the SIGNAL field to determine MCS and frame length, (7) deinterleave, depuncture, Viterbi-decode the K=7 convolutional code, and descramble. Each stage has subtle implementation details (fftshift ordering, constellation Gray coding, bit ordering, puncture pattern alignment, scrambler state recovery) that must all be exactly correct for CRC-32 verification to pass. Demands proficiency with signal processing tools (FFT, complex arithmetic, binary I/O) alongside deep wireless protocol expertise."""
+solution_explanation = """The solution uses a two-stage pipeline: (1) A numpy-based Python script reads binary IQ files, performs FFT, estimates the channel from LTS copies, equalizes all OFDM symbols, extracts data subcarrier complex values, and writes them to intermediate text files. (2) A pure-Python decoder reads the complex values, demaps SIGNAL (BPSK) to determine MCS, then demaps DATA symbols using the appropriate constellation, deinterleaves, depunctures, Viterbi-decodes, descrambles, verifies CRC-32, and writes payload hex."""
+verification_explanation = """Tests regenerate expected payloads using the same deterministic hash-based generator used during capture creation, then compare decoded hex output against expected values. Additionally verifies CRC-32 residual (0x2144DF1C) on the full PSDU for each frame."""
+category = "signal_processing"
+tags = ["wireless-protocols", "ofdm-receiver"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1c1910"

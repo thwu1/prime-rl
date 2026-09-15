@@ -1,0 +1,15 @@
+{
+  "name": "pipeline-orchestrator",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "xstate": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+    "prog1": {"original": 39, "target": 13},
+    "prog2": {"original": 41, "target": 15},
+    "prog3": {"original": 47, "target": 23},
+    "prog4": {"original": 59, "target": 33},
+    "prog5": {"original": 57, "target": 15}
+}

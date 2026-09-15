@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a critical path analyzer for distributed microservice traces stored in a SQLite database — the solver must: (1) explore and understand the relational schema storing spans, references, and service mappings, (2) reconstruct span dependency DAGs from relational data via SQL queries combined with Python processing, (3) independently discover and correctly handle distributed clock skew anomalies where child span end times overflow parent boundaries, requiring recursive truncation, (4) recognize that span references include both synchronous (CHILD_OF) and asynchronous (FOLLOWS_FROM) dependency semantics and determine which should be excluded from causal critical path analysis, (5) design and implement the critical path algorithm (reverse-walk from root end, following last-finishing synchronous children), (6) correctly compute inclusive vs exclusive time attribution, and (7) implement percentile aggregation. The combination of SQL data extraction, distributed systems clock reasoning, DAG algorithms, and trace semantics requires professional-level distributed systems expertise."""
+solution_explanation = """Build a Python CLI that connects to the SQLite database, queries spans/references/processes tables, reconstructs span trees, applies recursive clock skew truncation for children overflowing parents, computes critical paths via reverse chronological walk from root span end (tracking last-finishing CHILD_OF children at each synchronization point while excluding FOLLOWS_FROM references), computes inclusive vs exclusive time per span, aggregates by (service, operation), and produces percentile summaries using nearest-rank ceiling."""
+verification_explanation = """Tests run the analyzer on the SQLite database containing 10 synthetic traces covering: linear chains, parallel spans (verifying non-critical spans excluded), timing anomalies requiring adjustment, spans with non-causal reference types requiring exclusion, deep 5-level nesting with multiple branches, and simpler 2-3 level traces. Each trace has mathematically verified expected exclusive/inclusive times. Consistency checks verify exclusive times sum to end-to-end latency and sort ordering invariants hold. Percentile tests verify correct nearest-rank selection."""
+category = "distributed_systems"
+tags = ["microservices", "performance-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microservice-critical-path"

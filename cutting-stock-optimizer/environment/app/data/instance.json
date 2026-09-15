@@ -1,0 +1,25 @@
+{
+    "roll_width": 10000,
+    "orders": [
+        {"width": 750, "demand": 38},
+        {"width": 900, "demand": 44},
+        {"width": 1050, "demand": 53},
+        {"width": 1200, "demand": 29},
+        {"width": 1380, "demand": 97},
+        {"width": 1520, "demand": 43},
+        {"width": 1710, "demand": 58},
+        {"width": 1880, "demand": 44},
+        {"width": 2050, "demand": 61},
+        {"width": 2200, "demand": 87},
+        {"width": 2350, "demand": 68},
+        {"width": 2500, "demand": 33},
+        {"width": 2750, "demand": 95},
+        {"width": 3000, "demand": 47},
+        {"width": 3200, "demand": 79},
+        {"width": 3550, "demand": 24},
+        {"width": 3800, "demand": 41},
+        {"width": 4100, "demand": 19},
+        {"width": 4500, "demand": 14},
+        {"width": 4800, "demand": 11}
+    ]
+}

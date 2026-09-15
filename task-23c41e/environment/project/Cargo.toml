@@ -1,0 +1,68 @@
+[package]
+name = "aurora-kernel"
+version = "0.5.0"
+edition = "2021"
+
+[features]
+default = ["acpi", "dhcpv4", "fsgsbase", "pci", "smp", "tcp", "virtio-fs", "virtio-net"]
+
+# Platform features
+acpi = []
+fsgsbase = []
+common-os = []
+mman = []
+uhyve = ["dep:uhyve-rt"]
+
+# Hardware features
+pci = ["virtio-hal?/pci-transport"]
+pci-ids = ["dep:pci-db"]
+smp = ["acpi"]
+
+# Network protocol features
+tcp = ["net", "dep:netstack", "netstack?/socket-tcp"]
+udp = ["net", "dep:netstack", "netstack?/socket-udp"]
+dhcpv4 = ["net", "dep:netstack", "netstack?/proto-dhcpv4", "netstack?/socket-dhcpv4"]
+dns = ["net", "dep:netstack", "netstack?/socket-dns"]
+net-trace = ["netstack?/log", "netstack?/verbose"]
+
+# Network driver features
+virtio-net = ["net", "virtio"]
+rtl8139 = ["net", "pci"]
+gem-net = ["net", "dep:mmio-regs"]
+
+# Virtio driver features
+virtio-console = ["virtio"]
+virtio-fs = ["virtio", "dep:fuse-rt"]
+virtio-vsock = ["virtio"]
+
+# Other driver features
+vga = []
+
+# Performance features
+idle-poll = []
+
+# Debugging features
+shell = ["dep:kshell"]
+strace = []
+
+# Internal features
+net = []
+virtio = ["dep:virtio-hal", "dep:mem-fence"]
+
+# Deprecated aliases
+console = ["virtio-console"]
+fs = ["virtio-fs"]
+fuse = ["virtio-fs"]
+mmap = ["mman"]
+trace = ["net-trace"]
+vsock = ["virtio-vsock"]
+
+[dependencies]
+uhyve-rt = { version = "0.2", optional = true }
+netstack = { version = "0.13", optional = true, default-features = false }
+pci-db = { version = "0.2", optional = true }
+mmio-regs = { version = "0.10", optional = true }
+fuse-rt = { version = "0.2", optional = true }
+kshell = { version = "0.0.1", optional = true }
+virtio-hal = { version = "0.3", optional = true }
+mem-fence = { version = "0.1.0", optional = true }

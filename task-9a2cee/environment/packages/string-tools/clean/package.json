@@ -1,0 +1,7 @@
+{
+  "name": "string-tools",
+  "version": "1.0.0",
+  "description": "String manipulation utilities",
+  "main": "index.js",
+  "license": "MIT"
+}

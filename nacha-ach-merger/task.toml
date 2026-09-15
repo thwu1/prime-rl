@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the NACHA ACH fixed-width file format (94-character records, field positions, entry hash calculation, blocking factor arithmetic) combined with implementing the ABA modulus-10 check digit algorithm. The solver must trace bugs across 5 Go source files (merge.go, validator.go, addenda.go, ach.go, writer.go), fix 5 interrelated merge computation bugs (8-digit RDFI vs 9-digit routing for hash, addenda counting, batch number propagation, ceiling division, file hash truncation), correct a check digit algorithm using wrong weighting, fix SCC 200 mixed-batch validation, implement 3 missing validation features from scratch (amount range, duplicate trace detection, trace ODFI prefix matching), fix an off-by-one in addenda indicator position extraction (index 78 vs 79 in 0-based), fix a state-reset bug in addenda sequence validation, wire 3 unconnected validation calls into the pipeline, and fix JSON struct tags. The bugs interact: the addenda indicator off-by-one reads the first character of the trace number instead of the indicator, producing false positives and false negatives depending on trace values. The check digit bug uses a simple digit sum that accidentally validates routing numbers that fail the ABA weighted algorithm."""
+solution_explanation = """Fix merge.go: (1) Use 8-digit getRDFIIdentification not 9-digit getRoutingNumber for entry hash; (2) Count addenda (type 7) in EntryAddendaCount; (3) Use reassigned batchNum in batch control, not original; (4) Ceiling division (totalRecords+9)/10 for block count; (5) Truncate file-level entry hash to 10 digits. Fix validator.go: (6) Apply ABA modulus-10 weights [3,7,1,3,7,1,3,7,1] in validateCheckDigit; (7) Add case "200" to SCC switch for mixed batches; (8) Implement validateAmountRange with >2500000000 check and add call in entry loop; (9) Implement validateDuplicateTraces with map-based tracking and add call after entry loop; (10) Implement validateTraceODFI comparing rec[79:87] to batch ODFI and add call. Fix addenda.go: (11) Change records[i][79] to records[i][78] for correct addenda indicator position; (12) Add expectedSeq=1 reset at each new entry detail in validateAddendaSequence. Fix ach.go: (13-15) Change JSON tags batch_num→batch_number, entry_seq→entry_sequence, err_code→error_code."""
+verification_explanation = """Tests generate clean ACH files and an error file programmatically with known field values. Clean file tests validate merged output (all batch control and file control fields) and confirm zero validation errors. The error file contains 4 batches with exactly 6 intentional errors: CHECKDIGIT (routing passing simple sum but failing ABA weighted), SCC_MISMATCH (credit in debit-only batch), AMOUNT_RANGE (>$25M), DUPLICATE_TRACE (same trace in batch), ADDENDA_IND (indicator 0 with addenda following, trace starting with '1' to exercise the off-by-one), and TRACE_ODFI (mismatched prefix). Tests verify exact error counts, batch assignments, entry sequences, and absence of false ADDENDA_SEQ errors. Schema tests verify JSON field names match specification."""
+category = "debugging"
+tags = ["finance", "fixed-width-parsing", "validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nacha-ach-merger"

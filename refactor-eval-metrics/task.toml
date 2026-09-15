@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the SARIF 2.1.0 specification including tool component extensions (tool.extensions[].rules with toolComponent-based index resolution), result qualification semantics (kind/level filtering per the SARIF spec), and multi-run cross-run deduplication. Metric formulas must be derived from studying a reference Python implementation rather than following a step-by-step specification. The pipeline requires implementing phantom rule detection — cross-validating SARIF-extracted rule IDs against YAML rule definitions to identify and exclude stale analysis artifacts — a reconciliation pattern that demands holistic understanding of the evaluation data model and how SARIF output relates to rule definitions. The jq filter must handle SARIF toolComponent resolution for extension rules, which requires advanced jq programming with variable binding and conditional array indexing. Multi-tool orchestration across jq, Python (numpy, pyyaml, sqlite3), and shell scripting with exact numerical requirements for seeded bootstrap CIs."""
+solution_explanation = """Create a jq filter using variable binding ($r) for ruleId/ruleIndex resolution with toolComponent-based extension lookup via $extensions[$r.rule.toolComponent.index], kind/level filtering via select(), suppression filtering, and cross-run deduplication via unique. The Python pipeline loads YAML rule definitions to get defined IDs, runs the jq filter to get SARIF-matched IDs, computes set intersection (real matches) and set difference (phantoms), then applies the IFR/alignment formulas from the reference implementation. Produces SQLite and JSON outputs with bootstrap CIs using numpy.random.RandomState(42)."""
+verification_explanation = """Tests independently verify the jq filter against crafted SARIF inputs covering tool.extensions (toolComponent resolution), kind/level filtering (pass/notApplicable/none exclusion, fail/error inclusion), ruleId, ruleIndex, suppressions, multi-run dedup, and combined scenarios. SQLite database is verified for table existence, schema columns including phantom counts, row count, and per-instance metric values. JSON output is verified for structure, per-instance values including phantom detection for instance_006, aggregate means across 6 instances, and bootstrap CI bounds against a reference implementation using the same seed."""
+category = "data_analysis"
+tags = ["sarif-processing", "evaluation-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/refactor-eval-metrics"

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "STIG-SSH-001",
+    "stig_ref": "SV-257985",
+    "title": "SSHD must not permit direct root login",
+    "severity": "CAT II",
+    "nist": ["AC-6(2)", "AC-17(a)", "IA-2(5)"],
+    "description": "The SSH daemon must be configured to prevent root login. The effective SSH configuration must disable root login, accounting for all configuration sources processed by the daemon including drop-in directories referenced via Include directives.",
+    "relevant_paths": ["/etc/ssh/sshd_config", "/etc/ssh/sshd_config.d/"],
+    "compliance_check": "PermitRootLogin must evaluate to 'no' in the effective running configuration"
+  },
+  {
+    "id": "STIG-SSH-002",
+    "stig_ref": "SV-258049",
+    "title": "SSH session idle timeout must be properly enforced",
+    "severity": "CAT II",
+    "nist": ["AC-12", "SC-10", "AC-2(5)"],
+    "description": "The SSH daemon must disconnect idle sessions within 600 seconds. Both ClientAliveInterval and ClientAliveCountMax must be configured such that the idle timeout mechanism functions correctly. A misconfigured ClientAliveCountMax can negate the interval entirely.",
+    "relevant_paths": ["/etc/ssh/sshd_config"],
+    "compliance_check": "ClientAliveInterval <= 600 seconds AND idle timeout mechanism must be functional"
+  },
+  {
+    "id": "STIG-PAM-001",
+    "stig_ref": "SV-258054",
+    "title": "Accounts must lock after 3 consecutive failed login attempts",
+    "severity": "CAT II",
+    "nist": ["AC-7(a)", "CM-6(a)"],
+    "description": "The system must lock accounts after no more than 3 consecutive failed login attempts using the pam_faillock module. The effective deny threshold must account for the precedence relationship between the faillock.conf configuration file and inline PAM module arguments.",
+    "relevant_paths": ["/etc/security/faillock.conf", "/etc/pam.d/common-auth"],
+    "compliance_check": "Effective pam_faillock deny threshold must be <= 3"
+  },
+  {
+    "id": "STIG-PAM-002",
+    "stig_ref": "SV-257949",
+    "title": "Minimum password length must be 15 characters",
+    "severity": "CAT II",
+    "nist": ["IA-5(1)(a)", "CM-6(a)"],
+    "description": "The system must enforce a minimum password length of 15 characters via pam_pwquality. The effective minlen value must account for the precedence relationship between the pwquality.conf configuration file and inline PAM module arguments.",
+    "relevant_paths": ["/etc/security/pwquality.conf", "/etc/pam.d/common-password"],
+    "compliance_check": "Effective pam_pwquality minlen must be >= 15"
+  },
+  {
+    "id": "STIG-AUDIT-001",
+    "stig_ref": "SV-258153",
+    "title": "Audit system must rotate logs when maximum size is reached",
+    "severity": "CAT II",
+    "nist": ["AU-5(b)", "AU-5(1)"],
+    "description": "When audit logs reach their maximum configured size, the audit daemon must take an appropriate action. Acceptable values for max_log_file_action are ROTATE, SYSLOG, or HALT. Other values such as IGNORE or SUSPEND fail to ensure audit continuity.",
+    "relevant_paths": ["/etc/audit/auditd.conf"],
+    "compliance_check": "max_log_file_action must be ROTATE, SYSLOG, or HALT"
+  },
+  {
+    "id": "STIG-AUDIT-002",
+    "stig_ref": "SV-258176",
+    "title": "Audit rules must use correct minimum UID for user filtering",
+    "severity": "CAT II",
+    "nist": ["AC-6(8)", "AC-6(9)", "AU-12"],
+    "description": "Audit rules monitoring privileged command execution must filter using auid>=1000, which is the minimum UID assigned to regular users on modern Linux distributions. Legacy configurations using auid>=500 fail to audit actions performed by UIDs in the 500-999 range, which are allocated to system service accounts on current systems.",
+    "relevant_paths": ["/etc/audit/rules.d/"],
+    "compliance_check": "All auid filters in audit rules must use a threshold of 1000"
+  },
+  {
+    "id": "STIG-SESS-001",
+    "stig_ref": "SV-258044",
+    "title": "Shell sessions must timeout after 600 seconds of inactivity",
+    "severity": "CAT II",
+    "nist": ["AC-12", "AC-2(5)", "SC-10"],
+    "description": "Interactive shell sessions must automatically terminate after 600 seconds of inactivity via the TMOUT environment variable. The effective value of TMOUT must persist through the full profile initialization sequence, including all scripts sourced from /etc/profile.d/ in lexicographic order.",
+    "relevant_paths": ["/etc/profile", "/etc/profile.d/"],
+    "compliance_check": "TMOUT must be effectively set to <= 600 and not overridden by subsequent profile scripts"
+  },
+  {
+    "id": "STIG-KERN-001",
+    "stig_ref": "SV-257810",
+    "title": "Kernel must implement address space layout randomization (ASLR)",
+    "severity": "CAT I",
+    "nist": ["SI-16", "CM-6(a)"],
+    "description": "The kernel must enable full ASLR by setting kernel.randomize_va_space to 2. Sysctl parameters can be configured in /etc/sysctl.conf and in drop-in files under /etc/sysctl.d/. When the same parameter appears in multiple files, the file processed last (highest lexicographic name in sysctl.d/) takes precedence.",
+    "relevant_paths": ["/etc/sysctl.conf", "/etc/sysctl.d/"],
+    "compliance_check": "Effective kernel.randomize_va_space must be 2"
+  }
+]

@@ -1,0 +1,35 @@
+context:
+  name: openblas
+  version: "0.3.27"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/OpenMathLib/OpenBLAS/archive/v${{ version }}.tar.gz
+  sha256: aa0569265edac5b0e0aaab69223e5ac7c3c890eaef0e3be438c5a3c18b8e96c6
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x.x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('fortran') }}
+    - cmake
+    - make
+  host: []
+  run: []
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libopenblas.so
+
+about:
+  homepage: https://www.openblas.net
+  license: BSD-3-Clause
+  license_file: LICENSE
+  summary: An optimized BLAS library

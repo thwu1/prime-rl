@@ -1,0 +1,8 @@
+StorePath: /nix/store/33333333333333333333333333333333-ncurses-6.4.tar.gz
+URL: nar/33333333333333333333333333333333.nar.xz
+Compression: xz
+FileHash: sha256:770a63e78c4c154ae7b5a15bf4deec4872dad7fd3e84e843a9a17e9a34c57c22
+FileSize: 8712759
+NarHash: sha256:f28edc3fdff86c0bac875b7d45ec0756c5df95f755302643fe577680ed62ed77
+NarSize: 7598880
+References:

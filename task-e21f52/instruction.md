@@ -1,0 +1,1 @@
+An eye-tracking reading experiment pipeline at `/app/` is producing invalid results. The directory contains raw gaze data, a pipeline implementation, and specification documents. Investigate the environment, diagnose the pipeline's defects, and produce a correct `/app/results.json`.

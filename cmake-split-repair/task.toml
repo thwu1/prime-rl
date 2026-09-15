@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning cmake build system internals (target export sets, config-mode packages, generator expression evaluation, GNUInstallDirs variable scoping), GNU ld symbol versioning (version script syntax, symbol visibility control, integration with cmake link options), shared library ABI management (SOVERSION/SONAME conventions, struct layout analysis for ABI break evaluation), and Linux distribution packaging (pkg-config metadata, systemd unit semantics, split-package file ownership). The solver must critically evaluate a developer's migration notes that contain plausible but incorrect claims — asserting libevent is needed (it is not), that ndcrypto is standalone (it depends on ndcore), that SOVERSION should stay at 2 (the ABI policy mandates 3), and that the server binary forks (it does not). Beyond diagnosis, the solver must design and create from scratch: (1) GNU ld version scripts for two libraries by analyzing public headers to identify the exact API surface, (2) a complete cmake config-mode package infrastructure with no template (Config.cmake.in, export targets, version compatibility file), and (3) correct systemd deployment configuration derived from evaluating the binary's actual capabilities."""
+solution_explanation = """Remove stale find_package(LibEvent) and delete FindLibEvent.cmake (migration notes are wrong about libevent). Move include(GNUInstallDirs) before first use of CMAKE_INSTALL_* variables. Fix struct field max_conn to max_connections in client and server source (migration notes wrong about field name). Set SOVERSION to 3 per ABI policy (migration notes wrong about ABI compat). Create libndcore.map version script exporting only nd_config_init, nd_config_free, nd_config_load, nd_log, nd_version_string. Create libndcrypto.map version script exporting only nd_hash_password, nd_verify_password, nd_generate_token. Integrate version scripts via target_link_options and LINK_DEPENDS. Fix pkg-config template with @PROJECT_VERSION@ and -lndcore. Rewrite systemd unit for Type=simple with correct binary path (migration notes wrong about forking). Remove file conflict from server manifest. Create cmake/netdaemonConfig.cmake.in with @PACKAGE_INIT@, find_dependency(OpenSSL), and target include. Add install(EXPORT netdaemonTargets NAMESPACE netdaemon::) and CMakePackageConfigHelpers. Add EXPORT to both library install() commands."""
+verification_explanation = """25 pytest tests verify: cmake configures/builds/installs successfully, binaries exist and report version 3.0.0, SONAME is libndcore.so.3, files install to standard paths, pkg-config reports version 3.0.0 with -lndcore, systemd unit has correct Type and binary with no --daemonize, manifests have no conflicts, cmake config package is installed with version file, exported targets include netdaemon::ndcore and netdaemon::ndcrypto, a downstream consumer can find_package build and run, version scripts are in use (symbols have version tags), and both libraries export only their public API symbols with internal helpers hidden."""
+category = "devops"
+tags = ["cmake", "abi-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cmake-split-repair"

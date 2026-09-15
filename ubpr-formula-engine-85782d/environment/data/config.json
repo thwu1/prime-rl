@@ -1,0 +1,38 @@
+{
+  "report_date": "2024-09-30",
+  "call_report_form": 41,
+  "institution_type": "domestic_only",
+  "annualization_rules": {
+    "Q1_factor": 4.0,
+    "Q2_factor": 2.0,
+    "Q3_factor": 1.333333333333333,
+    "Q4_factor": 1.0
+  },
+  "data_sources": {
+    "call_report_data.json": "Balance-sheet RCON schedule items in JSON format, keyed by MDRM code",
+    "xbrl_supplement.xml": "Income-statement RIAD and supplemental RCONA items in XBRL instance format. Context IDs map to reporting periods via xbrli:context definitions."
+  },
+  "output_concepts": [
+    "UBPRE001", "UBPRE002", "UBPRE003", "UBPRE004", "UBPRE005",
+    "UBPRPG69", "UBPRE006", "UBPRE007", "UBPRE008", "UBPRE010",
+    "UBPRE013", "UBPRE014", "UBPRE016", "UBPRE017", "UBPRE018",
+    "UBPRE019", "UBPRE022", "UBPRE024", "UBPRE600", "UBPR7316",
+    "UBPR7408", "UBPRE027", "UBPRD486", "UBPRD506", "UBPR7402"
+  ],
+  "expression_syntax": {
+    "IF": "IF(condition, true_expr, false_expr) - conditional evaluation",
+    "AND": "AND(cond1, cond2) - logical AND",
+    "PCTOFANN": "PCTOFANN(num, den) = (num / den) * ANN * 100 - annualized percentage",
+    "PCTOF": "PCTOF(num, den) = (num / den) * 100 - simple percentage",
+    "CAVG04X": "CAVG04X(#uc:CONCEPT) - calendar-year average within same year, max 4 periods. For Q1: just Q1. For Q2: avg(Q1,Q2). For Q3: avg(Q1,Q2,Q3). For Q4: avg(Q1,Q2,Q3,Q4).",
+    "CAVG05X": "CAVG05X(#uc:CONCEPT) - like CAVG04X but also includes prior Dec. For Q1: avg(priorQ4,Q1). For Q2: avg(priorQ4,Q1,Q2). For Q3: avg(priorQ4,Q1,Q2,Q3). For Q4: avg(priorQ4,Q1,Q2,Q3,Q4).",
+    "ExistingOf": "ExistingOf(concept_ref, default) - returns concept value if it exists and is not null, otherwise returns default",
+    "ANN": "Annualization factor for current quarter. Determined by quarter month: March->4.0, June->2.0, September->4/3, December->1.0",
+    "period_P0": "[P0] = current reporting period",
+    "period_P1Q": "[-P1Q] = one quarter prior",
+    "period_P1Y": "[-P1Y] = same quarter one year prior",
+    "concept_prefix_cc": "cc: = Call Report concept (direct data item from JSON or XBRL sources)",
+    "concept_prefix_uc": "uc: = UBPR concept (computed value)",
+    "null": "null = no value / not applicable"
+  }
+}

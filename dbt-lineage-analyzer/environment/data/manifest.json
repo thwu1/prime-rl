@@ -1,0 +1,1249 @@
+{
+  "nodes": {
+    "seed.analytics.raw_customers": {
+      "unique_id": "seed.analytics.raw_customers",
+      "name": "raw_customers",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_customers"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_customers.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "seed.analytics.raw_orders": {
+      "unique_id": "seed.analytics.raw_orders",
+      "name": "raw_orders",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_orders"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_orders.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "seed.analytics.raw_payments": {
+      "unique_id": "seed.analytics.raw_payments",
+      "name": "raw_payments",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_payments"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_payments.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "seed.analytics.raw_products": {
+      "unique_id": "seed.analytics.raw_products",
+      "name": "raw_products",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_products"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_products.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "seed.analytics.raw_inventory": {
+      "unique_id": "seed.analytics.raw_inventory",
+      "name": "raw_inventory",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_inventory"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_inventory.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "seed.analytics.raw_suppliers": {
+      "unique_id": "seed.analytics.raw_suppliers",
+      "name": "raw_suppliers",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": [
+        "analytics",
+        "raw_suppliers"
+      ],
+      "tags": [],
+      "original_file_path": "seeds/raw_suppliers.csv",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "model.analytics.stg_customers": {
+      "unique_id": "model.analytics.stg_customers",
+      "name": "stg_customers",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_customers"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_customers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.stg_orders": {
+      "unique_id": "model.analytics.stg_orders",
+      "name": "stg_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_orders"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_orders.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.stg_payments": {
+      "unique_id": "model.analytics.stg_payments",
+      "name": "stg_payments",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_payments"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_payments.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.stg_products": {
+      "unique_id": "model.analytics.stg_products",
+      "name": "stg_products",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_products"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_products"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_products.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.stg_inventory": {
+      "unique_id": "model.analytics.stg_inventory",
+      "name": "stg_inventory",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_inventory"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_inventory"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_inventory.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.stg_suppliers": {
+      "unique_id": "model.analytics.stg_suppliers",
+      "name": "stg_suppliers",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "seed.analytics.raw_suppliers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "staging",
+        "stg_suppliers"
+      ],
+      "tags": [
+        "staging"
+      ],
+      "original_file_path": "models/staging/stg_suppliers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.int_customer_orders": {
+      "unique_id": "model.analytics.int_customer_orders",
+      "name": "int_customer_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_customers",
+          "model.analytics.stg_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "intermediate",
+        "int_customer_orders"
+      ],
+      "tags": [
+        "intermediate"
+      ],
+      "original_file_path": "models/intermediate/int_customer_orders.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.int_payment_methods": {
+      "unique_id": "model.analytics.int_payment_methods",
+      "name": "int_payment_methods",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "intermediate",
+        "int_payment_methods"
+      ],
+      "tags": [
+        "intermediate"
+      ],
+      "original_file_path": "models/intermediate/int_payment_methods.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.int_product_inventory": {
+      "unique_id": "model.analytics.int_product_inventory",
+      "name": "int_product_inventory",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_products",
+          "model.analytics.stg_inventory"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "intermediate",
+        "int_product_inventory"
+      ],
+      "tags": [
+        "intermediate"
+      ],
+      "original_file_path": "models/intermediate/int_product_inventory.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.int_supplier_products": {
+      "unique_id": "model.analytics.int_supplier_products",
+      "name": "int_supplier_products",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_suppliers",
+          "model.analytics.stg_products"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "intermediate",
+        "int_supplier_products"
+      ],
+      "tags": [
+        "intermediate"
+      ],
+      "original_file_path": "models/intermediate/int_supplier_products.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.fct_orders": {
+      "unique_id": "model.analytics.fct_orders",
+      "name": "fct_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.int_customer_orders",
+          "model.analytics.int_payment_methods"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "core",
+        "fct_orders"
+      ],
+      "tags": [
+        "marts",
+        "daily"
+      ],
+      "original_file_path": "models/marts/core/fct_orders.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.fct_payments": {
+      "unique_id": "model.analytics.fct_payments",
+      "name": "fct_payments",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_payments",
+          "model.analytics.int_payment_methods"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "finance",
+        "fct_payments"
+      ],
+      "tags": [
+        "marts",
+        "daily"
+      ],
+      "original_file_path": "models/marts/finance/fct_payments.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.fct_inventory_snapshots": {
+      "unique_id": "model.analytics.fct_inventory_snapshots",
+      "name": "fct_inventory_snapshots",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.int_product_inventory"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "core",
+        "fct_inventory_snapshots"
+      ],
+      "tags": [
+        "marts",
+        "daily"
+      ],
+      "original_file_path": "models/marts/core/fct_inventory_snapshots.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.dim_customers": {
+      "unique_id": "model.analytics.dim_customers",
+      "name": "dim_customers",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_customers",
+          "model.analytics.int_customer_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "core",
+        "dim_customers"
+      ],
+      "tags": [
+        "marts"
+      ],
+      "original_file_path": "models/marts/core/dim_customers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.dim_products": {
+      "unique_id": "model.analytics.dim_products",
+      "name": "dim_products",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_products",
+          "model.analytics.int_supplier_products"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "core",
+        "dim_products"
+      ],
+      "tags": [
+        "marts"
+      ],
+      "original_file_path": "models/marts/core/dim_products.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.rpt_customer_lifetime_value": {
+      "unique_id": "model.analytics.rpt_customer_lifetime_value",
+      "name": "rpt_customer_lifetime_value",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.dim_customers",
+          "model.analytics.fct_orders",
+          "model.analytics.fct_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "reporting",
+        "rpt_customer_lifetime_value"
+      ],
+      "tags": [
+        "marts",
+        "reporting",
+        "weekly"
+      ],
+      "original_file_path": "models/marts/reporting/rpt_customer_lifetime_value.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.rpt_daily_revenue": {
+      "unique_id": "model.analytics.rpt_daily_revenue",
+      "name": "rpt_daily_revenue",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_orders",
+          "model.analytics.fct_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "reporting",
+        "rpt_daily_revenue"
+      ],
+      "tags": [
+        "marts",
+        "reporting",
+        "weekly"
+      ],
+      "original_file_path": "models/marts/reporting/rpt_daily_revenue.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "model.analytics.rpt_product_performance": {
+      "unique_id": "model.analytics.rpt_product_performance",
+      "name": "rpt_product_performance",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.dim_products",
+          "model.analytics.fct_inventory_snapshots"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "marts",
+        "reporting",
+        "rpt_product_performance"
+      ],
+      "tags": [
+        "marts",
+        "reporting",
+        "weekly"
+      ],
+      "original_file_path": "models/marts/reporting/rpt_product_performance.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_stg_customers_customer_id.abc123": {
+      "unique_id": "test.analytics.unique_stg_customers_customer_id.abc123",
+      "name": "unique_stg_customers_customer_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_stg_customers_customer_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_stg_customers_customer_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_stg_customers_customer_id.abc123": {
+      "unique_id": "test.analytics.not_null_stg_customers_customer_id.abc123",
+      "name": "not_null_stg_customers_customer_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_stg_customers_customer_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_stg_customers_customer_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_stg_orders_order_id.abc123": {
+      "unique_id": "test.analytics.unique_stg_orders_order_id.abc123",
+      "name": "unique_stg_orders_order_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_stg_orders_order_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_stg_orders_order_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_stg_orders_order_id.abc123": {
+      "unique_id": "test.analytics.not_null_stg_orders_order_id.abc123",
+      "name": "not_null_stg_orders_order_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_stg_orders_order_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_stg_orders_order_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_stg_payments_payment_id.abc123": {
+      "unique_id": "test.analytics.unique_stg_payments_payment_id.abc123",
+      "name": "unique_stg_payments_payment_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_stg_payments_payment_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_stg_payments_payment_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_stg_payments_payment_id.abc123": {
+      "unique_id": "test.analytics.not_null_stg_payments_payment_id.abc123",
+      "name": "not_null_stg_payments_payment_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_stg_payments_payment_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_stg_payments_payment_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_stg_products_product_id.abc123": {
+      "unique_id": "test.analytics.unique_stg_products_product_id.abc123",
+      "name": "unique_stg_products_product_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_products"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_stg_products_product_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_stg_products_product_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_fct_orders_order_id.abc123": {
+      "unique_id": "test.analytics.unique_fct_orders_order_id.abc123",
+      "name": "unique_fct_orders_order_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_fct_orders_order_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_fct_orders_order_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_fct_orders_order_id.abc123": {
+      "unique_id": "test.analytics.not_null_fct_orders_order_id.abc123",
+      "name": "not_null_fct_orders_order_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_fct_orders_order_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_fct_orders_order_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_fct_orders_amount.abc123": {
+      "unique_id": "test.analytics.not_null_fct_orders_amount.abc123",
+      "name": "not_null_fct_orders_amount",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_fct_orders_amount"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_fct_orders_amount.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_dim_customers_customer_id.abc123": {
+      "unique_id": "test.analytics.unique_dim_customers_customer_id.abc123",
+      "name": "unique_dim_customers_customer_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.dim_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_dim_customers_customer_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_dim_customers_customer_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.unique_dim_products_product_id.abc123": {
+      "unique_id": "test.analytics.unique_dim_products_product_id.abc123",
+      "name": "unique_dim_products_product_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.dim_products"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "unique_dim_products_product_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/unique_dim_products_product_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_rpt_daily_revenue_date.abc123": {
+      "unique_id": "test.analytics.not_null_rpt_daily_revenue_date.abc123",
+      "name": "not_null_rpt_daily_revenue_date",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.rpt_daily_revenue"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_rpt_daily_revenue_date"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_rpt_daily_revenue_date.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123": {
+      "unique_id": "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123",
+      "name": "not_null_rpt_customer_lifetime_value_customer_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.rpt_customer_lifetime_value"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_rpt_customer_lifetime_value_customer_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_rpt_customer_lifetime_value_customer_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.accepted_values_stg_orders_status.abc123": {
+      "unique_id": "test.analytics.accepted_values_stg_orders_status.abc123",
+      "name": "accepted_values_stg_orders_status",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "accepted_values_stg_orders_status"
+      ],
+      "tags": [],
+      "original_file_path": "tests/accepted_values_stg_orders_status.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.accepted_values_stg_payments_method.abc123": {
+      "unique_id": "test.analytics.accepted_values_stg_payments_method.abc123",
+      "name": "accepted_values_stg_payments_method",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.stg_payments"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "accepted_values_stg_payments_method"
+      ],
+      "tags": [],
+      "original_file_path": "tests/accepted_values_stg_payments_method.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123": {
+      "unique_id": "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123",
+      "name": "not_null_fct_inventory_snapshots_product_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_inventory_snapshots"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "not_null_fct_inventory_snapshots_product_id"
+      ],
+      "tags": [],
+      "original_file_path": "tests/not_null_fct_inventory_snapshots_product_id.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456": {
+      "unique_id": "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456",
+      "name": "relationships_fct_orders_customer_id__customer_id__ref_dim_customers",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_orders",
+          "model.analytics.dim_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "relationships_fct_orders_customer_id__customer_id__ref_dim_customers"
+      ],
+      "tags": [],
+      "original_file_path": "tests/relationships_fct_orders_customer_id__customer_id__ref_dim_customers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456": {
+      "unique_id": "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456",
+      "name": "relationships_fct_payments_order_id__order_id__ref_fct_orders",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.fct_payments",
+          "model.analytics.fct_orders"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "relationships_fct_payments_order_id__order_id__ref_fct_orders"
+      ],
+      "tags": [],
+      "original_file_path": "tests/relationships_fct_payments_order_id__order_id__ref_fct_orders.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456": {
+      "unique_id": "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456",
+      "name": "relationships_rpt_clv_customer_id__customer_id__ref_dim_customers",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.rpt_customer_lifetime_value",
+          "model.analytics.dim_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "relationships_rpt_clv_customer_id__customer_id__ref_dim_customers"
+      ],
+      "tags": [],
+      "original_file_path": "tests/relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    },
+    "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456": {
+      "unique_id": "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456",
+      "name": "relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": [
+          "model.analytics.int_customer_orders",
+          "model.analytics.stg_customers"
+        ]
+      },
+      "fqn": [
+        "analytics",
+        "relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers"
+      ],
+      "tags": [],
+      "original_file_path": "tests/relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.sql",
+      "package_name": "analytics",
+      "config": {
+        "materialized": "view"
+      }
+    }
+  },
+  "child_map": {
+    "seed.analytics.raw_customers": [
+      "model.analytics.stg_customers"
+    ],
+    "seed.analytics.raw_orders": [
+      "model.analytics.stg_orders"
+    ],
+    "seed.analytics.raw_payments": [
+      "model.analytics.stg_payments"
+    ],
+    "seed.analytics.raw_products": [
+      "model.analytics.stg_products"
+    ],
+    "seed.analytics.raw_inventory": [
+      "model.analytics.stg_inventory"
+    ],
+    "seed.analytics.raw_suppliers": [
+      "model.analytics.stg_suppliers"
+    ],
+    "model.analytics.stg_customers": [
+      "model.analytics.int_customer_orders",
+      "model.analytics.dim_customers",
+      "test.analytics.unique_stg_customers_customer_id.abc123",
+      "test.analytics.not_null_stg_customers_customer_id.abc123",
+      "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456"
+    ],
+    "model.analytics.stg_orders": [
+      "model.analytics.int_customer_orders",
+      "test.analytics.unique_stg_orders_order_id.abc123",
+      "test.analytics.not_null_stg_orders_order_id.abc123",
+      "test.analytics.accepted_values_stg_orders_status.abc123"
+    ],
+    "model.analytics.stg_payments": [
+      "model.analytics.int_payment_methods",
+      "model.analytics.fct_payments",
+      "test.analytics.unique_stg_payments_payment_id.abc123",
+      "test.analytics.not_null_stg_payments_payment_id.abc123",
+      "test.analytics.accepted_values_stg_payments_method.abc123"
+    ],
+    "model.analytics.stg_products": [
+      "model.analytics.int_product_inventory",
+      "model.analytics.int_supplier_products",
+      "model.analytics.dim_products",
+      "test.analytics.unique_stg_products_product_id.abc123"
+    ],
+    "model.analytics.stg_inventory": [
+      "model.analytics.int_product_inventory"
+    ],
+    "model.analytics.stg_suppliers": [
+      "model.analytics.int_supplier_products"
+    ],
+    "model.analytics.int_customer_orders": [
+      "model.analytics.fct_orders",
+      "model.analytics.dim_customers",
+      "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456"
+    ],
+    "model.analytics.int_payment_methods": [
+      "model.analytics.fct_orders",
+      "model.analytics.fct_payments"
+    ],
+    "model.analytics.int_product_inventory": [
+      "model.analytics.fct_inventory_snapshots"
+    ],
+    "model.analytics.int_supplier_products": [
+      "model.analytics.dim_products"
+    ],
+    "model.analytics.fct_orders": [
+      "model.analytics.rpt_customer_lifetime_value",
+      "model.analytics.rpt_daily_revenue",
+      "test.analytics.unique_fct_orders_order_id.abc123",
+      "test.analytics.not_null_fct_orders_order_id.abc123",
+      "test.analytics.not_null_fct_orders_amount.abc123",
+      "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456",
+      "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456"
+    ],
+    "model.analytics.fct_payments": [
+      "model.analytics.rpt_customer_lifetime_value",
+      "model.analytics.rpt_daily_revenue",
+      "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456"
+    ],
+    "model.analytics.fct_inventory_snapshots": [
+      "model.analytics.rpt_product_performance",
+      "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123"
+    ],
+    "model.analytics.dim_customers": [
+      "model.analytics.rpt_customer_lifetime_value",
+      "test.analytics.unique_dim_customers_customer_id.abc123",
+      "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456",
+      "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456"
+    ],
+    "model.analytics.dim_products": [
+      "model.analytics.rpt_product_performance",
+      "test.analytics.unique_dim_products_product_id.abc123"
+    ],
+    "model.analytics.rpt_customer_lifetime_value": [
+      "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123",
+      "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456"
+    ],
+    "model.analytics.rpt_daily_revenue": [
+      "test.analytics.not_null_rpt_daily_revenue_date.abc123"
+    ],
+    "model.analytics.rpt_product_performance": [],
+    "test.analytics.unique_stg_customers_customer_id.abc123": [],
+    "test.analytics.not_null_stg_customers_customer_id.abc123": [],
+    "test.analytics.unique_stg_orders_order_id.abc123": [],
+    "test.analytics.not_null_stg_orders_order_id.abc123": [],
+    "test.analytics.unique_stg_payments_payment_id.abc123": [],
+    "test.analytics.not_null_stg_payments_payment_id.abc123": [],
+    "test.analytics.unique_stg_products_product_id.abc123": [],
+    "test.analytics.unique_fct_orders_order_id.abc123": [],
+    "test.analytics.not_null_fct_orders_order_id.abc123": [],
+    "test.analytics.not_null_fct_orders_amount.abc123": [],
+    "test.analytics.unique_dim_customers_customer_id.abc123": [],
+    "test.analytics.unique_dim_products_product_id.abc123": [],
+    "test.analytics.not_null_rpt_daily_revenue_date.abc123": [],
+    "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123": [],
+    "test.analytics.accepted_values_stg_orders_status.abc123": [],
+    "test.analytics.accepted_values_stg_payments_method.abc123": [],
+    "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123": [],
+    "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456": [],
+    "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456": [],
+    "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456": [],
+    "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456": []
+  },
+  "parent_map": {
+    "seed.analytics.raw_customers": [],
+    "seed.analytics.raw_orders": [],
+    "seed.analytics.raw_payments": [],
+    "seed.analytics.raw_products": [],
+    "seed.analytics.raw_inventory": [],
+    "seed.analytics.raw_suppliers": [],
+    "model.analytics.stg_customers": [
+      "seed.analytics.raw_customers"
+    ],
+    "model.analytics.stg_orders": [
+      "seed.analytics.raw_orders"
+    ],
+    "model.analytics.stg_payments": [
+      "seed.analytics.raw_payments"
+    ],
+    "model.analytics.stg_products": [
+      "seed.analytics.raw_products"
+    ],
+    "model.analytics.stg_inventory": [
+      "seed.analytics.raw_inventory"
+    ],
+    "model.analytics.stg_suppliers": [
+      "seed.analytics.raw_suppliers"
+    ],
+    "model.analytics.int_customer_orders": [
+      "model.analytics.stg_customers",
+      "model.analytics.stg_orders"
+    ],
+    "model.analytics.int_payment_methods": [
+      "model.analytics.stg_payments"
+    ],
+    "model.analytics.int_product_inventory": [
+      "model.analytics.stg_products",
+      "model.analytics.stg_inventory"
+    ],
+    "model.analytics.int_supplier_products": [
+      "model.analytics.stg_suppliers",
+      "model.analytics.stg_products"
+    ],
+    "model.analytics.fct_orders": [
+      "model.analytics.int_customer_orders",
+      "model.analytics.int_payment_methods"
+    ],
+    "model.analytics.fct_payments": [
+      "model.analytics.stg_payments",
+      "model.analytics.int_payment_methods"
+    ],
+    "model.analytics.fct_inventory_snapshots": [
+      "model.analytics.int_product_inventory"
+    ],
+    "model.analytics.dim_customers": [
+      "model.analytics.stg_customers",
+      "model.analytics.int_customer_orders"
+    ],
+    "model.analytics.dim_products": [
+      "model.analytics.stg_products",
+      "model.analytics.int_supplier_products"
+    ],
+    "model.analytics.rpt_customer_lifetime_value": [
+      "model.analytics.dim_customers",
+      "model.analytics.fct_orders",
+      "model.analytics.fct_payments"
+    ],
+    "model.analytics.rpt_daily_revenue": [
+      "model.analytics.fct_orders",
+      "model.analytics.fct_payments"
+    ],
+    "model.analytics.rpt_product_performance": [
+      "model.analytics.dim_products",
+      "model.analytics.fct_inventory_snapshots"
+    ],
+    "test.analytics.unique_stg_customers_customer_id.abc123": [
+      "model.analytics.stg_customers"
+    ],
+    "test.analytics.not_null_stg_customers_customer_id.abc123": [
+      "model.analytics.stg_customers"
+    ],
+    "test.analytics.unique_stg_orders_order_id.abc123": [
+      "model.analytics.stg_orders"
+    ],
+    "test.analytics.not_null_stg_orders_order_id.abc123": [
+      "model.analytics.stg_orders"
+    ],
+    "test.analytics.unique_stg_payments_payment_id.abc123": [
+      "model.analytics.stg_payments"
+    ],
+    "test.analytics.not_null_stg_payments_payment_id.abc123": [
+      "model.analytics.stg_payments"
+    ],
+    "test.analytics.unique_stg_products_product_id.abc123": [
+      "model.analytics.stg_products"
+    ],
+    "test.analytics.unique_fct_orders_order_id.abc123": [
+      "model.analytics.fct_orders"
+    ],
+    "test.analytics.not_null_fct_orders_order_id.abc123": [
+      "model.analytics.fct_orders"
+    ],
+    "test.analytics.not_null_fct_orders_amount.abc123": [
+      "model.analytics.fct_orders"
+    ],
+    "test.analytics.unique_dim_customers_customer_id.abc123": [
+      "model.analytics.dim_customers"
+    ],
+    "test.analytics.unique_dim_products_product_id.abc123": [
+      "model.analytics.dim_products"
+    ],
+    "test.analytics.not_null_rpt_daily_revenue_date.abc123": [
+      "model.analytics.rpt_daily_revenue"
+    ],
+    "test.analytics.not_null_rpt_customer_lifetime_value_customer_id.abc123": [
+      "model.analytics.rpt_customer_lifetime_value"
+    ],
+    "test.analytics.accepted_values_stg_orders_status.abc123": [
+      "model.analytics.stg_orders"
+    ],
+    "test.analytics.accepted_values_stg_payments_method.abc123": [
+      "model.analytics.stg_payments"
+    ],
+    "test.analytics.not_null_fct_inventory_snapshots_product_id.abc123": [
+      "model.analytics.fct_inventory_snapshots"
+    ],
+    "test.analytics.relationships_fct_orders_customer_id__customer_id__ref_dim_customers.def456": [
+      "model.analytics.fct_orders",
+      "model.analytics.dim_customers"
+    ],
+    "test.analytics.relationships_fct_payments_order_id__order_id__ref_fct_orders.def456": [
+      "model.analytics.fct_payments",
+      "model.analytics.fct_orders"
+    ],
+    "test.analytics.relationships_rpt_clv_customer_id__customer_id__ref_dim_customers.def456": [
+      "model.analytics.rpt_customer_lifetime_value",
+      "model.analytics.dim_customers"
+    ],
+    "test.analytics.relationships_int_customer_orders_customer_id__customer_id__ref_stg_customers.def456": [
+      "model.analytics.int_customer_orders",
+      "model.analytics.stg_customers"
+    ]
+  },
+  "sources": {},
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11/manifest.json",
+    "dbt_version": "1.7.0",
+    "generated_at": "2024-01-15T10:30:00Z",
+    "project_name": "analytics"
+  }
+}

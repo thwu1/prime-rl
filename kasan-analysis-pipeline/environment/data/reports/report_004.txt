@@ -1,0 +1,41 @@
+==================================================================
+BUG: KASAN: use-after-free in blk_mq_free_request+0x2a1/0x5e0 block/blk-mq.c:685
+Write of size 8 at addr ffff88806b3a4e60 by task kworker/3:1/982
+
+CPU: 3 UID: 0 PID: 982 Comm: kworker/3:1 Not tainted 6.12.0-rc5 #2
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <IRQ>
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ blk_mq_free_request+0x2a1/0x5e0 block/blk-mq.c:685
+ blk_mq_end_request+0x38a/0x5d0 block/blk-mq.c:1048
+ scsi_end_request+0x2b4/0x7e0 drivers/scsi/scsi_lib.c:587
+ </IRQ>
+ <TASK>
+ scsi_io_completion+0x1bb/0x8c0 drivers/scsi/scsi_lib.c:956
+ blk_complete_reqs+0xac/0xe0 block/blk-mq.c:1161
+ </TASK>
+
+Freed by task 899:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ kasan_save_free_info+0x3b/0x60 mm/kasan/generic.c:582
+ __kasan_slab_free+0x10a/0x1b0 mm/kasan/common.c:270
+ kfree+0x12c/0x420 mm/slub.c:4580
+ blk_mq_free_request+0x5a5/0x5e0 block/blk-mq.c:700
+
+The buggy address belongs to the object at ffff88806b3a4e00
+ which belongs to the cache kmalloc-192 of size 192
+The buggy address is located 96 bytes inside of
+ freed 192-byte region [ffff88806b3a4e00, ffff88806b3a4ec0)
+
+Memory state around the buggy address:
+ ffff88806b3a4d00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ ffff88806b3a4d80: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+>ffff88806b3a4e00: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+                                     ^
+ ffff88806b3a4e80: fd fd fd fd fd fd fd fd fc fc fc fc fc fc fc fc
+ ffff88806b3a4f00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+==================================================================

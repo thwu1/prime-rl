@@ -1,0 +1,163 @@
+suite: "Quantity Arithmetic"
+tests:
+  - name: "add same UCUM unit"
+    expression: "3 'kg' + 2 'kg'"
+    expected: "5 'kg'"
+
+  - name: "subtract same UCUM unit"
+    expression: "10 'm' - 3 'm'"
+    expected: "7 'm'"
+
+  - name: "multiply quantity by number"
+    expression: "5 'kg' * 3"
+    expected: "15 'kg'"
+
+  - name: "number times quantity"
+    expression: "2 * 5 'kg'"
+    expected: "10 'kg'"
+
+  - name: "divide quantity by number"
+    expression: "10 'kg' / 2"
+    expected: "5 'kg'"
+
+  - name: "add same calendar unit"
+    expression: "3 months + 5 months"
+    expected: "8 months"
+
+  - name: "subtract same calendar unit"
+    expression: "10 days - 3 days"
+    expected: "7 days"
+
+  - name: "multiply calendar by number"
+    expression: "2 years * 3"
+    expected: "6 years"
+
+  - name: "number times calendar"
+    expression: "2 * 5 months"
+    expected: "10 months"
+
+  - name: "year plus months"
+    expression: "1 year + 6 months"
+    expected: "18 months"
+
+  - name: "months plus year"
+    expression: "6 months + 1 year"
+    expected: "18 months"
+
+  - name: "years minus months"
+    expression: "2 years - 6 months"
+    expected: "18 months"
+
+  - name: "hour plus minutes"
+    expression: "1 hour + 30 minutes"
+    expected: "90 minutes"
+
+  - name: "day plus hours"
+    expression: "1 day + 12 hours"
+    expected: "36 hours"
+
+  - name: "week minus days"
+    expression: "2 weeks - 3 days"
+    expected: "11 days"
+
+  - name: "minute plus seconds"
+    expression: "1 minute + 30 seconds"
+    expected: "90 seconds"
+
+  - name: "kg plus grams"
+    expression: "1 'kg' + 500 'g'"
+    expected: "1.5 'kg'"
+
+  - name: "km minus meters"
+    expression: "2 'km' - 500 'm'"
+    expected: "1.5 'km'"
+
+  - name: "m plus cm"
+    expression: "1 'm' + 50 'cm'"
+    expected: "1.5 'm'"
+
+  - name: "incompatible UCUM addition"
+    expression: "1 'kg' + 1 'm'"
+    expected: "{}"
+
+  - name: "multiply two UCUM quantities"
+    expression: "2 'kg' * 5 'm'"
+    expected: "10 'kg.m'"
+
+  - name: "divide two UCUM quantities"
+    expression: "10 'kg' / 5 'm'"
+    expected: "2 'kg/m'"
+
+  - name: "number divided by quantity"
+    expression: "20 / 5 'kg'"
+    expected: "4 '1/kg'"
+
+  - name: "calendar times calendar empty"
+    expression: "1 year * 1 year"
+    expected: "{}"
+
+  - name: "second times second empty"
+    expression: "1 second * 1 second"
+    expected: "{}"
+
+  - name: "add numbers"
+    expression: "3 + 2"
+    expected: "5"
+
+  - name: "multiply numbers"
+    expression: "4 * 2.5"
+    expected: "10"
+
+  - name: "divide numbers"
+    expression: "5 / 2"
+    expected: "2.5"
+
+  - name: "quantity divided by zero"
+    expression: "5 'kg' / 0"
+    expected: "{}"
+
+  - name: "number divided by zero"
+    expression: "10 / 0"
+    expected: "{}"
+
+  - name: "calendar plus UCUM above-week incompatible"
+    expression: "1 year + 1 's'"
+    expected: "{}"
+
+  - name: "UCUM plus calendar above-week incompatible"
+    expression: "1 's' + 1 year"
+    expected: "{}"
+
+  # Mixed calendar/UCUM time arithmetic (at-or-below-week)
+  - name: "calendar minute plus UCUM s"
+    expression: "1 minute + 30 's'"
+    expected: "1.5 minutes"
+
+  - name: "UCUM min plus calendar seconds"
+    expression: "1 'min' + 30 seconds"
+    expected: "1.5 'min'"
+
+  - name: "UCUM h plus calendar minutes"
+    expression: "1 'h' + 30 minutes"
+    expected: "1.5 'h'"
+
+  - name: "calendar day minus UCUM h"
+    expression: "1 day - 12 'h'"
+    expected: "0.5 days"
+
+  - name: "UCUM s plus month incompatible"
+    expression: "1 's' + 1 month"
+    expected: "{}"
+
+  - name: "UCUM kg plus calendar hour incompatible"
+    expression: "1 'kg' + 1 hour"
+    expected: "{}"
+
+  # Extended UCUM time unit arithmetic
+  - name: "UCUM d plus h"
+    expression: "1 'd' + 12 'h'"
+    expected: "1.5 'd'"
+
+  - name: "UCUM d minus h"
+    expression: "1 'd' - 12 'h'"
+    expected: "0.5 'd'"

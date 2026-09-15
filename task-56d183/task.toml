@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the SMT-COMP 2026 scoring specification, which involves multiple interacting scoring components: per-benchmark parallel scores with 4-tuple elements, sequential score derivation with virtual CPU limits, PAR-2 penalty computation, lexicographic ranking with 4-way tiebreaking, disagreement removal among sound solvers on unknown-status benchmarks, and three distinct competition-wide ranking algorithms (Best Overall with squared normalized scores and log10 scaling, Biggest Lead with ratio-based correctness/time ranks, and Largest Contribution via Virtual Best Solver contribution analysis with solver removal). Additionally, derived solver eligibility requires computing PAR-2 improvement thresholds per division."""
+solution_explanation = """Parse the competition data JSON. Implement benchmark scoring for Single Query Track (e/n from sat/unsat/unknown/timeout results, w/c from time scores). Identify sound solvers per division (no errors on known-status benchmarks) and remove unknown-status benchmarks with disagreeing sound solvers. Sum benchmark scores to division scores, compute sequential scores by imposing CPU time <= T constraint, compute PAR-2 with 2T/2mT penalties. Rank solvers via lexicographic comparison of (e,n,w,c) tuples. Compute three competition-wide rankings using the exact formulas from the specification. Determine derived solver eligibility via 10% PAR-2 wallclock improvement threshold."""
+verification_explanation = """Tests verify specific computed values against hand-calculated expected results: disagreement removal of specific benchmarks, per-solver division scores (errors, correct count, wallclock/CPU times), sequential vs parallel score differences, PAR-2 values, derived solver eligibility per division and competition-wide, division ranking orderings, and competition-wide ranking scores. All values are deterministic given the input data."""
+category = "formal_verification"
+tags = ["smt-solving", "competition-scoring"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-56d183"

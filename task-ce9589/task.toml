@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level DNS knowledge spanning multiple RFCs: BIND zone file parsing with directives, multi-line SOA records, and wildcard semantics; DNS wire format encoding/decoding per RFC 1035 including all major record types; EDNS(0) implementation per RFC 6891 with OPT pseudo-record parsing, UDP payload size negotiation, and TC-flag truncation logic; DNS-over-TCP with 2-byte length-prefix framing per RFC 1035 §4.2.2; and pcap analysis using tshark to reverse-engineer zone data from captured DNS traffic mixed with noise. The interplay between EDNS payload negotiation, TC-flag semantics, and TCP fallback requires holistic protocol understanding rather than procedural implementation."""
+solution_explanation = """Use tshark or raw pcap parsing to extract DNS response records for services.lab from the traffic capture, filtering out noise (queries, SERVFAIL responses, unrelated domains) and reconstructing a BIND zone file including SOA, NS, A, AAAA, CNAME, MX, TXT, and wildcard records. Implement a multi-protocol DNS server: a UDP listener that parses EDNS OPT records from query additional sections, builds full responses, checks size against the negotiated UDP limit (client's advertised size or 512 without EDNS), truncates with TC=1 when exceeded, and includes a server OPT record; plus a threaded TCP listener that accepts length-prefixed messages, processes them identically but without size truncation, and returns length-prefixed responses. Zone file parsing handles $ORIGIN/$TTL directives, multi-line SOA via parenthesis joining, relative-to-absolute name conversion, and CNAME chain following with loop detection."""
+verification_explanation = """Tests start the DNS server subprocess and wait for both UDP and TCP readiness. 39 tests verify: all record types across three zones (A, AAAA, NS, MX, TXT, SOA, CNAME); CNAME chain following (single and multi-hop); response codes (NXDOMAIN, NOERROR with empty answer, REFUSED for unknown zones); QR/AA flags; case-insensitive matching; wildcard matching; multi-label subdomains; MX glue in additional section; pcap-derived zone records (api A/AAAA, cdn CNAME chain, MX, TXT, SOA, NS, wildcard); EDNS OPT in response with correct payload size; TC flag on small UDP buffer; no OPT without EDNS query; TCP query correctness and non-truncation."""
+category = "networking"
+tags = ["dns", "protocol-implementation", "pcap-analysis"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ce9589"

@@ -1,0 +1,5 @@
+A fault-tolerant quantum resource estimation pipeline at `/app/` is producing incorrect results. The pipeline log at `/app/logs/previous_run.log` records intermediate values from a prior execution that are inconsistent with the physics described in `/app/docs/protocols.md`. The codebase consists of a C computation library (`/app/src/`), a SQLite database (`/app/hardware.db`) with hardware and algorithm parameters, and a Python orchestrator skeleton (`/app/orchestrator.py`).
+
+Diagnose the root causes of the incorrect results, repair the codebase, and complete the pipeline. The corrected pipeline must compile and use the C library as a shared object, query the database for all parameters, evaluate both distillation protocols documented in `/app/docs/protocols.md`, and for each algorithm select the protocol that minimizes total physical qubits.
+
+Write the optimal resource estimates to `/app/output/results.json` as a JSON array with the fields defined in the protocol documentation's output format section.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of double-entry bookkeeping to independently discover that clearing verification demands net-zero balances on intermediate accounts, subdivided by (account, business_id, currency). Without this non-obvious subdivision, property_mismatch issues are completely invisible — the balances appear to clear. The agent must start and interact with PostgreSQL to explore an undocumented schema, read JSON/CSV configuration from the filesystem, integrate data across these heterogeneous sources, derive root cause classification logic for four failure modes, and implement timeliness and completeness checks. No methodology is given in the instruction — only the output schema and the problem statement."""
+solution_explanation = """Start PostgreSQL and connect to the ledger database. Query ledger_events grouped by fund_flow and transaction_id. For each transaction, compute net balances on intermediate accounts keyed by (account, business_id, currency). Non-zero balances beyond tolerance indicate clearing failures. Classify root causes: missing event types → missing_counterpart, excess events → duplicate, differing amounts → amount_mismatch, differing business_ids → property_mismatch. Check timeliness via timestamp deltas. Cross-reference bank_settlements.csv for completeness. Compute scores and produce JSON report."""
+verification_explanation = """Tests independently connect to the same PostgreSQL database, recompute all expected values using the double-entry bookkeeping model with property-based subdivision, and compare against the agent's output JSON. Verification checks exact transaction ID set matches for uncleared/late/missing transactions, root cause classifications, DQ scores within tolerance, and correct event/transaction counts."""
+category = "data_engineering"
+tags = ["double-entry-bookkeeping", "postgresql"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ledger-dq-analysis"

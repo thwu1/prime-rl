@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level understanding of x86-64 calling conventions, ELF binary format (PLT/GOT sections and lazy binding), stack-based buffer overflow exploitation, ROP gadget identification and chaining, stack pivoting (moving RSP to a heap-allocated buffer due to limited stack overflow space), dynamic symbol resolution via GOT dereferencing and offset calculation, and exploit automation with pwntools or equivalent. The combination of stack pivoting with GOT-based function resolution and three-argument register population in a single multi-stage exploit exceeds typical single-technique CTF challenges."""
+solution_explanation = """The exploit constructs a two-stage ROP payload. Stage 2 (stack smash, 24 bytes of overflow) performs a stack pivot: pop_rax loads the runtime heap address, then xchg_rax_rsp redirects RSP to the heap buffer. Stage 1 (heap chain, ~112 bytes) first calls foothold_function@PLT to populate its GOT entry with the actual runtime address, then dereferences the GOT entry via mov_rax_[rax], adds the precomputed library offset (ret2win - foothold_function) via pop_rbp + add_rbp_rax to compute ret2win's runtime address, sets up the three magic arguments via pop_rdi/pop_rsi/pop_rdx, and finally jumps to ret2win via jmp_*rax. All gadget addresses and the library offset are determined through static binary analysis; only the heap pivot address is parsed at runtime."""
+verification_explanation = """The test generates a random flag string, writes it to /app/flag.txt (replacing the placeholder), then runs the agent's exploit script. It checks that the randomly-generated flag appears in the exploit's stdout output. This ensures the exploit actually exploits the binary at runtime (reading a fresh flag) rather than having hardcoded or leaked the placeholder flag from the Docker image."""
+category = "security_and_privacy"
+tags = ["rop", "binary-exploitation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rop-pivot-gauntlet"

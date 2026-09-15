@@ -1,0 +1,63 @@
+# Control directive persistence tests
+
+statement ok
+CREATE TABLE ctrl(x INTEGER, y TEXT)
+
+statement ok
+INSERT INTO ctrl VALUES(3, 'c')
+
+statement ok
+INSERT INTO ctrl VALUES(1, 'a')
+
+statement ok
+INSERT INTO ctrl VALUES(2, 'b')
+
+# Set default sort mode to rowsort
+control sortmode rowsort
+
+# This query has no explicit sort mode, should use default rowsort
+query IT
+SELECT x, y FROM ctrl
+----
+1 a
+2 b
+3 c
+
+# Override with explicit nosort
+query IT nosort
+SELECT x, y FROM ctrl ORDER BY rowid
+----
+3 c
+1 a
+2 b
+
+# Back to default rowsort (no explicit sort mode)
+query IT
+SELECT x, y FROM ctrl
+----
+1 a
+2 b
+3 c
+
+# Change default to valuesort
+control sortmode valuesort
+
+query IT
+SELECT x, y FROM ctrl ORDER BY x
+----
+1
+2
+3
+a
+b
+c
+
+# Reset default to nosort
+control sortmode nosort
+
+query IT
+SELECT x, y FROM ctrl ORDER BY x
+----
+1 a
+2 b
+3 c

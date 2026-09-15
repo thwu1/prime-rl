@@ -1,0 +1,19 @@
+{
+  "name": "bounds_errors",
+  "vars": ["x"],
+  "arrays": {"a": 10},
+  "body": [
+    {"stmt": "array_write", "array": "a", "index": {"expr": "const", "value": 0}, "value": {"expr": "const", "value": 1}, "line": 1},
+    {"stmt": "array_write", "array": "a", "index": {"expr": "const", "value": 9}, "value": {"expr": "const", "value": 2}, "line": 2},
+    {"stmt": "array_write", "array": "a", "index": {"expr": "const", "value": 10}, "value": {"expr": "const", "value": 3}, "line": 3},
+    {"stmt": "assign", "target": "x", "expr": {"expr": "nondet"}, "line": 4},
+    {"stmt": "if", "cond": {"expr": "binop", "op": ">=", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 0}},
+     "then_body": [
+       {"stmt": "if", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 10}},
+        "then_body": [
+          {"stmt": "array_write", "array": "a", "index": {"expr": "var", "name": "x"}, "value": {"expr": "const", "value": 4}, "line": 7}
+        ], "line": 6},
+       {"stmt": "array_write", "array": "a", "index": {"expr": "var", "name": "x"}, "value": {"expr": "const", "value": 5}, "line": 8}
+     ], "line": 5}
+  ]
+}

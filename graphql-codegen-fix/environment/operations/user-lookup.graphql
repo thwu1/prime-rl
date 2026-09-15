@@ -1,0 +1,8 @@
+query LookupUser($lookup: UserLookupInput!) {
+  userLookup(input: $lookup) {
+    id
+    username
+    email
+    status
+  }
+}

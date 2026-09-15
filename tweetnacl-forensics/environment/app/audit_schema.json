@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["library_path", "symbol_count", "primitives", "overall_status", "bugs_found"],
+  "properties": {
+    "library_path": { "type": "string" },
+    "symbol_count": { "type": "integer", "minimum": 0 },
+    "primitives": {
+      "type": "object",
+      "required": [
+        "crypto_hash_sha512",
+        "crypto_core_salsa20",
+        "crypto_onetimeauth_poly1305",
+        "crypto_sign_ed25519",
+        "crypto_scalarmult_curve25519"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "crypto_hash_sha512": { "$ref": "#/$defs/primitive_result" },
+        "crypto_core_salsa20": { "$ref": "#/$defs/primitive_result" },
+        "crypto_onetimeauth_poly1305": { "$ref": "#/$defs/primitive_result" },
+        "crypto_sign_ed25519": { "$ref": "#/$defs/primitive_result" },
+        "crypto_scalarmult_curve25519": { "$ref": "#/$defs/primitive_result" }
+      }
+    },
+    "overall_status": { "type": "string", "enum": ["pass", "fail"] },
+    "bugs_found": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "primitive_result": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "deviation_type": { "type": "string" },
+        "evidence": {
+          "type": "object",
+          "required": ["input_hex", "expected_hex", "actual_hex"],
+          "properties": {
+            "input_hex": { "type": "string" },
+            "expected_hex": { "type": "string" },
+            "actual_hex": { "type": "string" }
+          }
+        }
+      },
+      "if": { "properties": { "status": { "const": "fail" } } },
+      "then": { "required": ["status", "evidence"] }
+    }
+  }
+}

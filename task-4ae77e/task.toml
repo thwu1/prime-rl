@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level expertise in structural reliability engineering, probabilistic design, and proficiency with multiple specialized tools. The solver must reverse-engineer Dakota's file-based simulation driver protocol (parameters file parsing with ASV flags, DVV handling, results file output with gradient vectors), author a syntactically correct Dakota input file in its domain-specific block-structured language, implement a first-order reliability method with analytical gradients in standard normal space, orchestrate a nested reliability-based design optimization loop coupling an outer optimizer with inner reliability evaluations, and cross-validate results with independent Monte Carlo simulation."""
+solution_explanation = """Write a Python cantilever beam driver following Dakota's file I/O protocol: parse params file (num_vars, values+labels, ASV flags, DVV indices), compute area/stress_con/disp_con with analytical gradients, write results with gradient vectors in [ ] format. Write Dakota input file with local_reliability/mpp_search/no_approx method, continuous_design + normal_uncertain variables, fork interface pointing to driver, and analytic_gradients responses. Implement HL-RF FORM converging in one step for the linear validation case. Use nlopt.opt(nlopt.LD_SLSQP, 2) with add_inequality_constraint for beta >= 3.0 constraints (NLopt convention: target_beta - beta <= 0). Optimize from (4,4) to find minimum-area design. Cross-check with 500k-sample Monte Carlo."""
+verification_explanation = """Tests verify: (1) simulation driver produces correct function values and gradient vectors when fed Dakota-format params files at multiple design points; (2) Dakota input file has correct block structure with required keywords (local_reliability, mpp_search, fork, continuous_design, normal_uncertain, gradients, variable descriptors); (3) reliability analysis produces exact beta=5.0 and MPP=[-3,4] for linear test case; (4) optimal design has both beta >= 2.95, area 5-13, and at least one near-active constraint; (5) algorithm field matches a recognized optimization algorithm; (6) independent MC confirms pf < 0.005 at optimum; (7) convergence history shows area improvement."""
+category = "scientific_computing"
+tags = ["reliability-analysis", "dakota-tooling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4ae77e"

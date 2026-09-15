@@ -1,0 +1,126 @@
+[
+  {
+    "id": "policy-nurse-readonly",
+    "resourceType": "AccessPolicy",
+    "name": "Nurse Read-Only",
+    "resource": [
+      {
+        "resourceType": "Patient",
+        "interaction": ["read", "vread", "history", "search"]
+      },
+      {
+        "resourceType": "Observation",
+        "interaction": ["read", "vread", "history", "search"]
+      }
+    ]
+  },
+  {
+    "id": "policy-lab-tech",
+    "resourceType": "AccessPolicy",
+    "name": "Lab Technician",
+    "resource": [
+      {
+        "resourceType": "Patient",
+        "interaction": ["read", "search"]
+      },
+      {
+        "resourceType": "Observation",
+        "criteria": "Observation?status=preliminary,registered",
+        "interaction": ["read", "create", "update", "search"]
+      }
+    ]
+  },
+  {
+    "id": "policy-physician",
+    "resourceType": "AccessPolicy",
+    "name": "Physician",
+    "resource": [
+      {
+        "resourceType": "Patient"
+      },
+      {
+        "resourceType": "Observation",
+        "hiddenFields": ["meta"],
+        "writeConstraint": [
+          {
+            "language": "text/fhirpath",
+            "expression": "%before.exists() implies %before.status != 'final'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy-researcher",
+    "resourceType": "AccessPolicy",
+    "name": "Research Analyst",
+    "resource": [
+      {
+        "resourceType": "Patient",
+        "interaction": ["read", "search"],
+        "criteria": "Patient?_id=%patient.id"
+      },
+      {
+        "resourceType": "Observation",
+        "interaction": ["read", "search"],
+        "criteria": "Observation?subject=%patient"
+      }
+    ]
+  },
+  {
+    "id": "policy-admin",
+    "resourceType": "AccessPolicy",
+    "name": "Administrator",
+    "resource": [
+      {
+        "resourceType": "*"
+      }
+    ]
+  },
+  {
+    "id": "policy-specialist",
+    "resourceType": "AccessPolicy",
+    "name": "Specialist",
+    "resource": [
+      {
+        "resourceType": "Patient",
+        "interaction": ["read", "search"]
+      },
+      {
+        "resourceType": "Observation",
+        "interaction": ["read", "create", "search"],
+        "criteria": "Observation?category:not=social-history",
+        "writeConstraint": [
+          {
+            "language": "text/fhirpath",
+            "expression": "subject.exists()"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy-readonly-fields",
+    "resourceType": "AccessPolicy",
+    "name": "Restricted Updater",
+    "resource": [
+      {
+        "resourceType": "Patient",
+        "readonlyFields": ["name", "birthDate"],
+        "interaction": ["read", "update", "search"]
+      }
+    ]
+  },
+  {
+    "id": "policy-quality-reviewer",
+    "resourceType": "AccessPolicy",
+    "name": "Quality Reviewer",
+    "resource": [
+      {
+        "resourceType": "Observation",
+        "interaction": ["read", "search"],
+        "criteria": "Observation?value-quantity:missing=true"
+      }
+    ]
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "mode": "overtopping",
+  "Hs_toe": 1.69,
+  "Tp": 8.0,
+  "structure": {
+    "slope_cot": 2.5,
+    "Rc": 1.5,
+    "roughness": 1.0
+  }
+}

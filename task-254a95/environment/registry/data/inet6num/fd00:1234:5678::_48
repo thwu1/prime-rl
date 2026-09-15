@@ -1,0 +1,10 @@
+inet6num:           fd00:1234:5678:0000:0000:0000:0000:0000 - fd00:1234:5678:ffff:ffff:ffff:ffff:ffff
+cidr:               fd00:1234:5678::/48
+netname:            ALPHA-NET6
+descr:              Alpha Network IPv6 Space
+country:            US
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             ALPHA-MNT
+status:             ASSIGNED
+source:             DN42

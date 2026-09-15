@@ -1,0 +1,5 @@
+; CHECK: === Results ===
+; CHECK-NEXT: test_alpha: pass
+; CHECK-NEXT: test_beta: pass
+; CHECK-NEXT: test_gamma: pass
+; CHECK: === Summary ===

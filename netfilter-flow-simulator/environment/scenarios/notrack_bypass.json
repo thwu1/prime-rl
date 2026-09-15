@@ -1,0 +1,31 @@
+{
+  "conntrack_max": 5,
+  "rules": {
+    "raw_PREROUTING": [
+      {"match": {"proto": "tcp", "dst_port": 443}, "action": "NOTRACK"}
+    ],
+    "mangle_PREROUTING": [
+      {"match": {}, "action": "ACCEPT"}
+    ],
+    "filter_INPUT": [
+      {"match": {}, "action": "ACCEPT"}
+    ]
+  },
+  "packets": [
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10000, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10001, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10002, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10003, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10004, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 20000, "dst_ip": "192.0.2.1", "dst_port": 443},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 20001, "dst_ip": "192.0.2.1", "dst_port": 443},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 20002, "dst_ip": "192.0.2.1", "dst_port": 443},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 20003, "dst_ip": "192.0.2.1", "dst_port": 443},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 20004, "dst_ip": "192.0.2.1", "dst_port": 443},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10005, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10006, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10007, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10008, "dst_ip": "192.0.2.1", "dst_port": 80},
+    {"proto": "tcp", "src_ip": "198.18.0.2", "src_port": 10009, "dst_ip": "192.0.2.1", "dst_port": 80}
+  ]
+}

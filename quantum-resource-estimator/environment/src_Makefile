@@ -1,0 +1,8 @@
+CC = gcc
+CFLAGS = -Wall -O2
+
+libqec.so: qec_engine.c qec_engine.h
+	$(CC) $(CFLAGS) -shared-lib -o libqec.so qec_engine.c -lm
+
+clean:
+	rm -f libqec.so

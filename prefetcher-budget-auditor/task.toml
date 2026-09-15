@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a static analysis pipeline for C++ prefetcher source code with no implementation guide. The agent must reverse-engineer the IPC-1 storage accounting model entirely from raw source: discovering how macros resolve across multi-file #include chains with conditional compilation, recognizing that struct field bit widths are encoded in source comment annotations with macro references, tracing class member variable initialization through constructor and init() method call chains to evaluate self-reported printf storage expressions, and synthesizing all of these heterogeneous analysis techniques into a unified tool. The absence of any specification document forces genuine domain understanding of C++ preprocessor semantics, hardware storage accounting conventions, and CPU microarchitecture design patterns."""
+solution_explanation = """The solution implements a four-subcommand pipeline: (1) preprocess invokes the C++ preprocessor with the ChampSim include path to extract and resolve macros to integers; (2) analyze uses ctags to locate struct members and parses source lines for bit-width comment annotations, resolving macro references; (3) budget extracts printf storage expressions from l1i_prefetcher_final_stats(), traces .init() calls to resolve class member variables, and evaluates C-style integer arithmetic; (4) report iterates over all prefetcher files, computes each budget, and sorts by storage usage."""
+verification_explanation = """Tests verify cross-file macro resolution (L1I_TIMING_MSHR_SIZE=42 requires L1I_PQ_SIZE from cache.h), conditional compilation (STAT_PRINTING_PERIOD=10000000 from #ifdef CRC2_COMPILE branch), struct analysis (l1i_hist_entry=85 bits, l1i_timing_mshr_entry=114 bits), full budget audit (FNL+MMA=99107 bytes matching self-reported value), and comparative report generation across all prefetchers."""
+category = "systems"
+tags = ["computer-architecture", "static-analysis"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prefetcher-budget-auditor"

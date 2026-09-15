@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Problem specifications are distributed across multiple files in different formats (Markdown, LaTeX, Python, JSON, TOML) under /app/challenges/. The solver must first explore the directory tree, discover and parse each problem's specification files, cross-reference between them, and understand what is being asked before any computation begins. Problem 1 (oscillatory integral) requires handling a highly oscillatory improper integral whose frequency diverges at x=0; standard quadrature fails without a clever substitution or specialised oscillatory integrator. Problem 2 (global optimization) demands global optimisation of a wildly multimodal landscape with hundreds of local minima; naive gradient descent or random search misses the global basin. Problem 3 (sparse matrix inverse entry) requires constructing a 20000x20000 sparse matrix from prime number theory and solving a sparse linear system; direct LU is infeasible due to massive fill-in, requiring an iterative solver with appropriate preconditioning. Solving all three to 10 significant digits demands PhD-level numerical analysis expertise combined with non-trivial environment exploration."""
+solution_explanation = """First explore /app/challenges/ and read index.json, then navigate into each subdirectory to parse the problem specs from their respective file formats. Problem 1: parse LaTeX formulation, substitute t = -ln(x) to get I = int_0^inf cos(t*exp(t)) dt, then use mpmath's quadosc with Lambert W zeros. Problem 2: read the Python objective function and JSON config, perform dense grid search over [-5,5]^2 followed by Nelder-Mead and L-BFGS-B local optimisation. Problem 3: parse TOML matrix spec and JSON query, sieve primes, construct CSC sparse matrix, solve Ax = e_1 via preconditioned conjugate gradient."""
+verification_explanation = """Test loads /app/answers.txt and parses three decimal numbers. Each is compared against a high-precision reference value using relative-error significant-digit matching. A tolerance of 10 significant digits (relative error < 10^{-10}) is enforced for each problem independently."""
+category = "numerical_analysis"
+tags = ["high-precision-computing", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b29fd6"

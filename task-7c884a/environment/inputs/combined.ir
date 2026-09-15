@@ -1,0 +1,13 @@
+func @combined(%arg0: i32) -> i32 {
+  %c0 = arith.constant 0 : i32
+  %c1 = arith.constant 1 : i32
+  %c3 = arith.constant 3 : i32
+  %c7 = arith.constant 7 : i32
+  %c3b = arith.constant 3 : i32
+  %add1 = arith.addi %arg0, %c0 : i32
+  %mul1 = arith.muli %add1, %c1 : i32
+  %sub1 = arith.subi %mul1, %mul1 : i32
+  %prod = arith.muli %c3, %c7 : i32
+  %res = arith.addi %prod, %arg0 : i32
+  return %res : i32
+}

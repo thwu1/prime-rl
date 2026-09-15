@@ -1,0 +1,63 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires proficient-level understanding of C integer arithmetic semantics,
+ELF binary internals, and compiler optimization behavior. The solver must
+independently evaluate five function implementations against their API
+contracts, diagnosing subtle bugs (off-by-one in overflow thresholds,
+incorrect arithmetic constants, missing character-class handling, a wrong
+table entry, and an unimplemented stub). They must then reverse-engineer
+a stripped shared library to determine its internal encoding strategy,
+compile and evaluate two alternative implementations to assess their
+optimization characteristics, and judge which achieves higher throughput
+— a decision requiring understanding of how data-dependent memory loads
+affect autovectorization. The bug manifest creation requires synthesizing
+findings into a structured diagnostic with accurate classifications.
+"""
+solution_explanation = """
+Source evaluation: systematic testing of each function across boundary
+values reveals five conformance failures — a duplicated power-of-10
+table entry, an off-by-one overflow threshold, an incorrect nibble
+conversion constant, missing lowercase hex support, and an unimplemented
+stub. Binary analysis: examining the reference binary's dynamic symbols
+and data sections reveals the encoding strategy. Compiling both hex
+variants and inspecting their object files determines rodata presence.
+Evaluating the compiled output shows the arithmetic variant enables
+autovectorization (no data-dependent loads), achieving higher throughput.
+Mathematical derivation from UINT64_MAX gives both numeric answers.
+"""
+verification_explanation = """
+Tests load the rebuilt shared library via ctypes and exhaustively verify
+all five functions across edge cases including boundary values. The bug
+manifest is validated for completeness (5 entries), coverage (all
+function names), and accuracy (each category matches acceptable
+classifications for that function's bug). Analysis.json fields are
+checked against known-correct answers. Mathematical answers are verified
+exactly.
+"""
+category = "systems_programming"
+tags = ["binary_analysis", "compiler_optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fast-integer-codec"

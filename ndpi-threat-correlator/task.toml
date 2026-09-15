@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network forensics: parsing nDPI's undocumented ndpiReader text output format with complex nested bracketed fields, cross-correlating traffic flows against a threat intelligence IOC feed across multiple indicator types (IP, domain, JA4 fingerprint, certificate SHA-1), decoding hex-encoded DNS tunneling payloads to recover exfiltrated plaintext, detecting C2 beaconing via inter-flow timing analysis, identifying TLS version downgrade attacks by comparing advertised vs negotiated protocol versions, recognizing DGA domains, and writing valid Suricata IDS rules. Demands proficiency with multiple security tool formats and deep understanding of network attack patterns."""
+solution_explanation = """Build a Python analyzer that: (1) parses nDPI ndpiReader epoch-timestamped text output using regex to extract flow metadata including IPs, ports, protocols, hostnames, JA4 fingerprints, certificate details, credentials, DNS queries/responses, TLS versions, and risk flags; (2) loads the threat intel JSON feed and searches all parsed flows for matching indicators by type; (3) detects C2 beaconing by grouping TLS flows by destination IP and computing coefficient-of-variation of inter-flow intervals; (4) identifies DNS tunneling queries to the exfil domain and decodes hex-encoded subdomain labels to recover exfiltrated plaintext; (5) detects DGA domains from NXDOMAIN DNS responses using Shannon entropy analysis; (6) identifies TLS certificate anomalies including excessive validity periods, self-signed certificates, and TLS version downgrades; (7) extracts cleartext credentials from HTTP flows; (8) builds a chronological attack timeline; (9) writes Suricata IDS rules targeting the identified C2, tunneling, and anomalous TLS traffic."""
+verification_explanation = """Tests validate: JSON schema compliance via jsonschema library, correct threat intel correlation (5 of 7 indicators matched with correct flow IDs), C2 beaconing detection (IP 185.141.27.93, 6 beacons, ~60s interval), DNS tunnel payload decoding (JohnDoe12345, SecretPass, Confidential, ProjectAlpha), DGA domain detection (at least 4 of 5 domains with entropy scores), TLS anomalies (excessive validity at 203.0.113.50, self-signed at 198.51.100.200, version downgrade at 203.0.113.50), credential exposure (admin and svc-deploy at 10.0.1.100), chronological attack timeline, and syntactically valid Suricata rules covering C2 and tunneling indicators."""
+category = "networking_security"
+tags = ["incident-response", "threat-intelligence"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ndpi-threat-correlator"

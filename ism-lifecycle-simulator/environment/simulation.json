@@ -1,0 +1,67 @@
+{
+  "description": "5-day ISM simulation with log and metrics index streams. Logs ingest 1.5M docs (9GB) every 6 hours. Metrics ingest 600K docs (3GB) every 6 hours. ISM evaluation occurs after processing all events at each timestamp.",
+  "events": [
+    {"time": "2025-01-01T00:00:00Z", "type": "create_index", "index": "logs-000001", "policy_id": "log-lifecycle", "write_alias": "logs-write"},
+    {"time": "2025-01-01T00:00:00Z", "type": "create_index", "index": "metrics-000001", "policy_id": "metrics-lifecycle", "write_alias": "metrics-write"},
+
+    {"time": "2025-01-01T06:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-01T06:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-01T12:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-01T12:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-01T18:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-01T18:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-02T00:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-02T00:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-02T06:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-02T06:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-02T12:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-02T12:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-02T18:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-02T18:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-03T00:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-03T00:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-03T06:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-03T06:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-03T12:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-03T12:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-03T18:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-03T18:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-04T00:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-04T00:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-04T06:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-04T06:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-04T12:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-04T12:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-04T18:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-04T18:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-05T00:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-05T00:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-05T06:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-05T06:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-05T12:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-05T12:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-05T18:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-05T18:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000},
+
+    {"time": "2025-01-06T00:00:00Z", "type": "ingest", "target_alias": "logs-write", "doc_count": 1500000, "size_bytes": 9000000000},
+    {"time": "2025-01-06T00:00:00Z", "type": "ingest", "target_alias": "metrics-write", "doc_count": 600000, "size_bytes": 3000000000}
+  ]
+}

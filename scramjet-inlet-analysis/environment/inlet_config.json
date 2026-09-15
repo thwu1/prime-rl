@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "id": "oblique_weak_m2_t10",
+      "type": "single_oblique",
+      "M1": 2.0,
+      "theta_deg": 10.0,
+      "gamma": 1.4,
+      "shock_type": "weak"
+    },
+    {
+      "id": "oblique_weak_m3_t20",
+      "type": "single_oblique",
+      "M1": 3.0,
+      "theta_deg": 20.0,
+      "gamma": 1.4,
+      "shock_type": "weak"
+    },
+    {
+      "id": "normal_shock_m2",
+      "type": "normal_shock",
+      "M1": 2.0,
+      "gamma": 1.4
+    },
+    {
+      "id": "normal_shock_m4",
+      "type": "normal_shock",
+      "M1": 4.0,
+      "gamma": 1.4
+    },
+    {
+      "id": "max_deflection_m2",
+      "type": "max_deflection",
+      "M1": 2.0,
+      "gamma": 1.4
+    },
+    {
+      "id": "max_deflection_m3",
+      "type": "max_deflection",
+      "M1": 3.0,
+      "gamma": 1.4
+    },
+    {
+      "id": "three_ramp_inlet",
+      "type": "multi_ramp",
+      "M1": 4.0,
+      "theta_degs": [10.0, 8.0, 6.0],
+      "gamma": 1.4
+    },
+    {
+      "id": "optimal_three_ramp",
+      "type": "optimize_equal_ramps",
+      "M1": 4.0,
+      "n_ramps": 3,
+      "gamma": 1.4
+    },
+    {
+      "id": "tpg_high_mach",
+      "type": "single_oblique_tpg",
+      "M1": 8.0,
+      "theta_deg": 15.0,
+      "T1_K": 220.0,
+      "p1_Pa": 1166.0,
+      "R_gas": 287.05,
+      "cp_poly": [979.0, 0.12, 4.5e-5, -1.2e-8]
+    }
+  ]
+}

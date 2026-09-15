@@ -1,0 +1,28 @@
+RATE SPREAD ENRICHMENT SPECIFICATION
+======================================
+(Derived from CFPB HMDA Rate Spread methodology and Fed G.19 data)
+
+For each loan processed through the APR calculator, compute the
+following enrichment fields for compliance analysis.
+
+1. TERM YEARS
+   The loan term expressed as whole years.
+   Compute: max(1, round(days_from_consummation_to_term_end / 365.25))
+   where term_end is the later of:
+     - the date of the last scheduled payment, and
+     - the date of the last advance.
+   For a payment group, the last payment date is:
+     first_date + (count - 1) * period_months months forward.
+
+2. APOR RATE
+   Look up the Average Prime Offer Rate from the APOR data file
+   (apor_fixed.dat). Match the loan's term_years to the nearest
+   available term entry in the file. When equidistant between two
+   entries, select the shorter term.
+
+3. RATE SPREAD
+   rate_spread = computed_apr - apor_rate
+   Round to 2 decimal places.
+
+4. HIGH COST FLAG
+   high_cost = 1 if rate_spread > 6.5, otherwise 0.

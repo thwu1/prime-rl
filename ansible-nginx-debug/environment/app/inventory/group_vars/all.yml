@@ -1,0 +1,11 @@
+---
+nginx_output_dir: "/tmp/nginx_configs/{{ inventory_hostname }}"
+nginx_user: www-data
+nginx_pid: /run/nginx.pid
+nginx_error_log: /var/log/nginx/error.log
+nginx_access_log: /var/log/nginx/access.log
+nginx_extra_params:
+  sendfile: "on"
+  tcp_nopush: "on"
+  tcp_nodelay: "on"
+  types_hash_max_size: 2048

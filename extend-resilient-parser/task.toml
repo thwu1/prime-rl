@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Pratt-style precedence climbing and event-based parser architecture to design and implement four interacting grammar extensions. Key design challenges: (1) The ternary conditional is NOT a binary operator — it has three operands separated by ? and : — so it cannot be handled by the existing binary operator loop and requires a novel integration point within the Pratt parser. The solver must figure out where and how to intercept the ? token, parse the middle expression with reset precedence, consume the : separator, and parse the right expression in a way that achieves right-associativity. (2) Postfix index expressions (e[i]) must be processed in the same phase as function calls but using square brackets, and the solver must recognize that [ is ambiguous between prefix (array literal) and postfix (index) positions. (3) The for-in loop requires new keyword tokens and integration with the statement system's optional-semicolon logic for block-carrying expressions. (4) All extensions must preserve the parser's resilience and lossless CST properties."""
+solution_explanation = """(1) Add new TokenKind variants (LBrack, RBrack, Question, ForKeyword, InKeyword) and TreeKind variants (ExprArray, ExprIndex, ExprTernary, ExprFor). (2) Extend the lexer punctuation table with [ ] ? and keywords with for/in. (3) Add LBrack and ForKeyword to EXPR_FIRST. (4) In expr_delimited, add LBrack arm that parses comma-separated expressions between [ ], and ForKeyword arm calling expr_for. (5) In expr_rec, extend the postfix loop to handle LBrack alongside LParen for index expressions. (6) Add ternary handling in expr_rec's binary loop: when right == Question and left == Eof, open_before lhs, advance past ?, parse middle with expr(p), expect Colon, parse right with expr(p), close as ExprTernary. Right-associativity comes naturally from parsing both the right side and middle with expr(p) which resets to Eof precedence. (7) Add expr_for function similar to expr_while but with expect(Name), expect(InKeyword), and expr(p) before the block. (8) Add ForKeyword to the block_expr check in stmt_expr for optional semicolons."""
+verification_explanation = """Tests build the project, then verify: (1) regression tests confirm all existing features still work, (2) array literal tests verify empty, single, multi-element, nested, and trailing-comma arrays, (3) index tests verify basic indexing, chaining, indexing array literals, mixed call/index, and precedence (a+b[0] = a+(b[0])), (4) ternary tests verify basic parsing, RIGHT-associativity structure (the critical test checks that the outer ExprTernary's children are [ExprName, ?, ExprName, :, ExprTernary] — not [ExprTernary, ?, ExprName, :, ExprName]), precedence below ||, nesting in then-branch, ternary inside arrays and function calls, (5) for-in tests verify basic structure, optional semicolons, various iterable types, and nesting, (6) complex interaction tests verify all features working together, (7) error recovery tests verify no panics on malformed arrays/ternary/for-in/index."""
+category = "software_construction"
+tags = ["parsing", "rust"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/extend-resilient-parser"

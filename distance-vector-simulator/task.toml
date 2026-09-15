@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distance vector routing protocols to diagnose four subtle, interacting bugs from symptoms alone. The agent must reverse-engineer correct protocol semantics (poison reverse loop prevention, deterministic tie-breaking, crash-triggered route invalidation, link-removal route consistency) by analyzing divergent output against reference data. Debugging requires iterative hypothesis-test cycles across protocol convergence phases."""
+solution_explanation = """Read the buggy daemon and identify four bugs: (1) missing poison reverse in DV advertisements causing count-to-infinity, (2) inverted tie-breaking comparator selecting lexicographically largest instead of smallest neighbor, (3) crash handler failing to invalidate routes transiting the crashed node, (4) link removal not invalidating routes whose next-hop was the removed endpoint. Each fix requires understanding correct protocol semantics and modifying the corresponding code section."""
+verification_explanation = """Tests run the fixed daemon on the 7-node topology and verify: final routing tables match expected shortest-path costs and next-hops, convergence round counts match per phase, intermediate tables at key phases are correct, no routing loops exist, and costs are symmetric. The DVSimulator class is also tested on independent topologies to prevent hardcoded output."""
+category = "networking"
+tags = ["protocol-debugging", "routing-protocols"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/distance-vector-simulator"

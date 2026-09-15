@@ -1,0 +1,19 @@
+# Medical eponyms and terms that should NOT be redacted
+# These overlap with proper names but are medical terminology
+Henoch-Schönlein purpura
+Henoch-Schönlein
+Parkinson
+Alzheimer
+Addison
+Crohn
+Hodgkin
+Cushing
+Down
+Hashimoto
+Graves
+Sjögren
+Raynaud
+Basedow
+Wegener
+Bechterew
+Dupuytren

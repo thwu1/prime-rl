@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the behavioral semantics of a compiled KV cache block manager by probing it through an interactive harness, binary analysis tools (nm, strings, readelf, strace, ltrace), and systematic experimentation. The agent must discover undocumented internal mechanisms — including block sharing with reference counting, copy-on-write semantics for forked sequences, content-hash-based prefix caching with LRU eviction, and GPU/CPU memory swapping — purely from observable behavior. Synthesizing these observations into a correct, complete implementation that matches the reference across all edge cases demands expert-level systems programming skill and methodical tool usage."""
+solution_explanation = """The solution implements a BlockManager class managing physical blocks across GPU and CPU pools with reference counting. Key mechanisms discovered through reverse-engineering: (1) fork shares block tables, incrementing ref_counts; (2) appending to a shared partial block triggers copy-on-write; (3) prefix caching indexes full blocks by content hash (tuple of token IDs), reusing matching blocks and using LRU eviction for evictable blocks with ref_count 0; (4) swap copies blocks between GPU and CPU pools with ref_count management; (5) preemption victim selection uses LIFO order among active sequences."""
+verification_explanation = """27 pytest tests verify exact memory accounting (blocks used, cached, free) after deterministic operation sequences. Tests cover: basic allocation/deallocation, block boundary handling, fork with copy-on-write semantics (partial vs full last block), GPU-CPU swapping (both directions and failure modes), prefix cache hits/misses/eviction/active sharing, preemption victim selection ordering, and complex multi-operation scenarios including fork chains and prefix-cache interactions."""
+category = "systems_programming"
+tags = ["reverse-engineering", "memory-management"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ed5d9f"

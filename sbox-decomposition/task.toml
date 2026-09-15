@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level expertise in Boolean function theory, symmetric-key cryptography, and ELF binary analysis. The solver must first reverse-engineer a stripped binary using tools like objdump and readelf to locate and extract the S-box lookup table from the .rodata section, distinguishing it from other embedded constant data (round constants, differential profile table, license strings). The S-box is randomly generated per instance, so no hardcoded answer exists. Then the solver must understand algebraic normal forms, the algebraic degree staircase of arithmetic operations modulo 2^n, GF(2) linear algebra, and systematic search with pruning to decompose the extracted S-box into affine-arithmetic-affine layers."""
+solution_explanation = """1. Use readelf -S to identify section layout of the stripped binary. 2. Use objdump -s -j .rodata to dump the read-only data section. 3. Parse the hex dump and identify the 256-byte block that forms a permutation of 0..255 (the S-box), distinguishing it from the diff_profile table, rcon constants, and string literals. 4. Verify extraction by spot-checking against the binary's CLI output. 5. Compute algebraic degrees of all 255 nontrivial linear combinations of S-box output bits. 6. Build the degree staircase: subspaces of output masks bounded by degree 1..6. 7. Enumerate ordered bases for the lowest-degree subspace to form candidate rows of A^(-1). 8. At each level, extend by testing coset representatives, checking that the partial composition has arithmetic structure. 9. Prune invalid branches. A valid decomposition is found when all 8 rows are determined."""
+verification_explanation = """Tests read the stripped binary directly using Python to extract the S-box (searching for a 256-byte permutation block in the binary data). They then load answer.json and verify: (1) A and B are 8x8 binary matrices, (2) A and B are invertible over GF(2), (3) a is odd, (4) for every x in 0..255, A(X(B(x))) == S(x), where X(y) = (a*y+b) mod 256 and matrix-vector multiplication is over GF(2) with LSB-first bit ordering."""
+category = "cryptography"
+tags = ["binary-analysis", "sbox-decomposition"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sbox-decomposition"

@@ -1,0 +1,5 @@
+# Reference: hubbard_2site ground state energy
+# Source: Exact diagonalization, independently validated
+# Model: 2-site Hubbard, t=0.85, U=2.3, 2 electrons, nuc_rep=0.37
+# Full Hilbert space (2^4 = 16 states) ground state energy:
+-0.5324375751773791

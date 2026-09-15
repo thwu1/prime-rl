@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in distributed database sharding: the agent must reverse-engineer Vitess key range semantics from the existing vhash module, calculate the correct hexadecimal split point for equal keyspace subdivision using left-justified binary comparison, execute a live data migration handling BINARY(8) keyspace_id columns correctly, maintain partition contiguity invariants across the topology config, implement a circuit breaker state machine from interface spec alone (standard pattern but requires understanding closed/open/half_open transitions with timing), and perform cross-shard data integrity verification. The combination of hex arithmetic, binary column handling, MySQL DDL across multiple databases, state machine design, and consistency verification demands holistic proficiency in production database operations."""
+solution_explanation = """Start MySQL, inspect the existing 2-shard topology and vhash module to understand key range semantics. Determine that the midpoint of the 80-FF keyspace range is C0 (hex). Create shard1a and shard1b databases with schema cloned from shard1. Migrate each row from shard1 by examining its keyspace_id first byte: rows with 0x80 <= byte < 0xC0 go to shard1a, rows with byte >= 0xC0 go to shard1b. Truncate shard1 tables. Update config.yaml with the 3-shard partition. Implement a thread-safe CircuitBreaker with proper state transitions and timing. Generate VDiff report comparing original shard1 counts against new shard totals."""
+verification_explanation = """Tests verify: new shard databases exist with correct schema, every row's keyspace_id falls within its shard's declared key range, total row counts match originals (no data loss/duplication), shard0 data is unchanged, config.yaml defines a valid contiguous 3-shard partition, query routing correctly maps channel_ids to their actual data location, CircuitBreaker implements the full state machine (opens on threshold, blocks when open, transitions to half_open after timeout, allows probe request, resets on success), and VDiff report shows consistency with accurate counts."""
+category = "database_systems"
+tags = ["vitess-sharding", "mysql-migration"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vitess-online-reshard"

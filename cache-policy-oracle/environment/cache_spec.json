@@ -1,0 +1,8 @@
+{
+  "num_sets": 256,
+  "num_ways": 16,
+  "block_size": 64,
+  "trace_dir": "/app/traces",
+  "storage_budget_bytes": 32768,
+  "description": "256-set, 16-way, 64B block LLC (256KB). Storage budget 32KB per core (CRC-2 rules)."
+}

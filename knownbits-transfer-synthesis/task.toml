@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing sound and precise KnownBits transfer functions requires deep understanding of abstract interpretation theory, bit-level arithmetic semantics, and carry propagation logic. The bitwise operations (and/or/xor) are straightforward, but shift operations with unknown shift amounts require careful case analysis. The arithmetic operations (add/sub/mul) are genuinely difficult: LLVM's own add transfer function uses a non-obvious carry-chain analysis involving min/max value bounds, and mul requires understanding how trailing zeros propagate through shift-and-add decomposition. Getting all 11 operations both sound AND precise demands the level of expertise expected of a professional compiler engineer working on LLVM's ValueTracking."""
+solution_explanation = """The solution implements each transfer function using established bit-manipulation techniques from compiler engineering literature: (1) Bitwise ops propagate known bits position-by-position. (2) Shifts with known amounts directly shift the masks; unknown amounts require meet over all valid shifts. (3) Add uses LLVM's carry-chain analysis: compute possible-sum with max/min values, XOR to find carry bits, intersect with known-input bits to determine which result bits are known. (4) Sub reduces to add via two's complement. (5) Mul tracks trailing zeros from both operands and uses range analysis for leading bits. (6) Neg uses ~a+1 decomposition combining not and add transfer functions."""
+verification_explanation = """Tests exhaustively verify soundness at 4-bit width by iterating over all valid KnownBits pairs (81 abstract values per operand for binary ops), computing all concrete results, and checking containment. Precision is measured against the mathematically optimal result computed by exhaustive concretization. Additional spot-checks at 8-bit width with sampled inputs catch width-dependent bugs. The test also verifies O(1)/O(width) runtime by checking that transfer functions don't call concrete_set()."""
+category = "programming"
+tags = ["compiler-optimization", "abstract-interpretation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/knownbits-transfer-synthesis"

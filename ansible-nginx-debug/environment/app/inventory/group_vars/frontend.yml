@@ -1,0 +1,11 @@
+---
+nginx_worker_connections: 2048
+nginx_ssl_enabled: "yes"
+nginx_ssl_certificate: /etc/ssl/certs/frontend.pem
+nginx_ssl_certificate_key: /etc/ssl/private/frontend.key
+nginx_rate_limit_zone: "zone=api_limit:10m rate=10r/s"
+nginx_listen_port: 443
+nginx_extra_params:
+  ssl_protocols: "TLSv1.2 TLSv1.3"
+  ssl_ciphers: "HIGH:!aNULL:!MD5"
+  ssl_prefer_server_ciphers: "on"

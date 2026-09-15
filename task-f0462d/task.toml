@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the analytical gravitational forward model for rectangular prisms entirely from domain knowledge — no formulas or algorithmic guidance are provided. The agent must derive or recall the closed-form vertex-summation approach involving logarithmic and arctangent terms, handle numerical singularities at prism edges/vertices without any hints, correctly implement sign conventions for the easting-northing-upward coordinate system, build the full sensitivity matrix and solve the linear inverse problem, compute all three diagonal gravity gradient tensor components (second derivatives of the potential) and verify Laplace's equation, produce inversion diagnostics including condition number analysis, and generate a visualization using gnuplot — a non-trivial CLI tool requiring knowledge of its scripting language and terminal configuration."""
+solution_explanation = """Implement safe_log (three branches for r=0, x<0, x>=0) and safe_atan2 (principal-value arctan with x=0 handling). Build kernel_u: e*ln(n+r) + n*ln(e+r) - u*arctan(en/(ur)), summed over 8 vertices with alternating signs and a -1 overall factor. Build the 64x32 Jacobian by evaluating kernel_u with unit density for each prism/observation pair. Solve via numpy.linalg.lstsq. For Laplace verification, implement kernel_ee = -arctan(nu/(er)), kernel_nn = -arctan(ue/(nr)), kernel_uu = -arctan(en/(ur)) as second derivatives of the potential. Compute SVD for condition number. Generate gnuplot script writing layer data as matrix files and plotting with 'with image' in pngcairo terminal."""
+verification_explanation = """Tests verify: (1) recovered densities match the true model with RMSE < 30 kg/m³, (2) zero-density prisms are recovered as near-zero (|d| < 50), (3) non-zero density prisms have < 10% relative error, (4) Laplace residual |g_ee + g_nn + g_uu| / max_component < 1e-6 at all test points, (5) forward-predicted data from recovered densities fits observed data with normalized RMS < 1%, (6) inversion diagnostics file contains condition_number (>0), data_rms_misfit (>=0), n_observations (==64), n_parameters (==32), (7) density_model.png exists, is a valid PNG (magic bytes), and has reasonable file size (>1000 bytes). A reference forward model implementation in the test independently verifies the data fit."""
+category = "scientific_computing"
+tags = ["geophysics", "inverse-problems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0462d"

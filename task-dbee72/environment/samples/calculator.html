@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Calculator</title>
+<style>
+  #calculator { max-width: 300px; margin: 20px auto; font-family: monospace; }
+  #display { background: #222; color: #0f0; padding: 10px; font-size: 24px; text-align: right; min-height: 40px; }
+  #history { background: #333; color: #999; padding: 5px 10px; font-size: 14px; text-align: right; min-height: 20px; }
+  #last-key { background: #444; color: #ccc; padding: 3px 10px; font-size: 12px; text-align: right; min-height: 16px; }
+  button { width: 60px; height: 50px; font-size: 18px; margin: 2px; cursor: pointer; }
+  button.active { background: #d0d0ff; }
+</style>
+</head>
+<body>
+<div id="calculator">
+  <div id="last-key"></div>
+  <div id="history"></div>
+  <div id="display">0</div>
+  <div id="buttons">
+    <button data-val="7">7</button>
+    <button data-val="8">8</button>
+    <button data-val="9">9</button>
+    <button data-op="/">&#247;</button>
+    <button data-val="4">4</button>
+    <button data-val="5">5</button>
+    <button data-val="6">6</button>
+    <button data-op="*">&#215;</button>
+    <button data-val="1">1</button>
+    <button data-val="2">2</button>
+    <button data-val="3">3</button>
+    <button data-op="-">&#8722;</button>
+    <button data-val="0">0</button>
+    <button data-val=".">.</button>
+    <button id="equals">=</button>
+    <button data-op="+">+</button>
+    <button id="clear">C</button>
+  </div>
+</div>
+<script>
+var display = document.getElementById('display');
+var history = document.getElementById('history');
+var lastKey = document.getElementById('last-key');
+var current = '0';
+var operator = null;
+var previous = null;
+var resetNext = false;
+
+function updateHistory(text) {
+  history.textContent = text;
+}
+
+// Global click handler: toggle active class and update last-key indicator
+document.querySelectorAll('#buttons button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#buttons button.active').forEach(function(b) {
+      b.classList.remove('active');
+    });
+    btn.classList.add('active');
+    lastKey.textContent = 'Key: ' + (btn.textContent || btn.id);
+  });
+});
+
+document.querySelectorAll('[data-val]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (resetNext) { current = ''; resetNext = false; }
+    if (current === '0' && btn.dataset.val !== '.') current = '';
+    current += btn.dataset.val;
+    display.textContent = current;
+    updateHistory('Input: ' + btn.dataset.val);
+  });
+});
+
+document.querySelectorAll('[data-op]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (previous !== null && operator) {
+      previous = Function('"use strict"; return (' + previous + operator + current + ')')();
+      display.textContent = previous;
+    } else {
+      previous = parseFloat(current);
+    }
+    operator = btn.dataset.op;
+    resetNext = true;
+    updateHistory(previous + ' ' + btn.dataset.op);
+  });
+});
+
+document.getElementById('equals').addEventListener('click', function() {
+  if (previous !== null && operator) {
+    var result = Function('"use strict"; return (' + previous + operator + current + ')')();
+    display.textContent = result;
+    updateHistory(previous + ' ' + operator + ' ' + current + ' = ' + result);
+    current = String(result);
+    previous = null;
+    operator = null;
+  } else {
+    updateHistory('= ' + current);
+  }
+});
+
+document.getElementById('clear').addEventListener('click', function() {
+  current = '0';
+  previous = null;
+  operator = null;
+  display.textContent = '0';
+  updateHistory('Cleared');
+});
+</script>
+</body>
+</html>

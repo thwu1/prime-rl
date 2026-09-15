@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ospf-queries network="multi-area-12r" version="1.0">
+  <metadata>
+    <description>OSPF routing queries across backbone, stub, NSSA, and regular areas</description>
+    <total-queries>15</total-queries>
+  </metadata>
+  <query-set>
+    <query id="q01" router="R1"  destination="10.7.7.7/32"      note="backbone to stub area"/>
+    <query id="q02" router="R1"  destination="10.12.12.12/32"   note="backbone to regular area"/>
+    <query id="q03" router="R1"  destination="172.16.0.0/16"    note="backbone to NSSA-originated external"/>
+    <query id="q04" router="R1"  destination="172.17.0.0/16"    note="backbone to NSSA-originated external"/>
+    <query id="q05" router="R1"  destination="192.168.0.0/16"   note="backbone to regular-area external"/>
+    <query id="q06" router="R1"  destination="192.168.1.0/24"   note="backbone to regular-area external"/>
+    <query id="q07" router="R7"  destination="10.2.2.2/32"      note="stub area to backbone"/>
+    <query id="q08" router="R7"  destination="10.11.11.11/32"   note="stub area cross-area transit"/>
+    <query id="q09" router="R7"  destination="192.168.0.0/16"   note="stub area to external"/>
+    <query id="q10" router="R9"  destination="172.16.0.0/16"    note="NSSA to local NSSA external"/>
+    <query id="q11" router="R9"  destination="172.17.0.0/16"    note="NSSA to local NSSA external"/>
+    <query id="q12" router="R9"  destination="10.1.1.1/32"      note="NSSA to backbone"/>
+    <query id="q13" router="R9"  destination="192.168.0.0/16"   note="NSSA to non-local external"/>
+    <query id="q14" router="R11" destination="192.168.0.0/16"   note="regular area to local external"/>
+    <query id="q15" router="R4"  destination="10.10.10.10/32"   note="ABR cross-area"/>
+  </query-set>
+</ospf-queries>

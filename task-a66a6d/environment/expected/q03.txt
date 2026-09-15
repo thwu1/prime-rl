@@ -1,0 +1,2 @@
+model.analytics.int_product_sales
+model.analytics.mart_products

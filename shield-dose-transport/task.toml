@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level radiation transport physics knowledge: the agent must independently determine that incident particle spectra are attenuated through material layers via nuclear interactions (removal plus secondary particle production), choose an appropriate spatial discretization scheme for numerical convergence, and correctly handle the distinction between continuous flux exposures and impulse fluence events. All nuclear data is stored in HDF5 format with compound datatypes, hierarchical groups, and byte-string encoded material identifiers—requiring proficient use of HDF5 inspection tools and programmatic readers. No algorithmic specification is provided; the agent must derive the computational approach from domain expertise alone."""
+solution_explanation = """The solver reads the HDF5 file with h5py, navigating nested groups to extract removal cross-sections, secondary production matrices, source spectra, dose conversion coefficients, and shield layer specifications (compound dtype). It implements a spatially-discretized slab transport: for each thin step through each material layer, uncollided flux is exponentially attenuated and scattered/secondary contributions are accumulated from the downscatter matrix. Dose rates are computed by weighting transmitted flux with H*(10) conversion coefficients. Mission doses integrate dose rates over each leg's duration, add the SPE impulse dose, and compare totals against the career limit."""
+verification_explanation = """Tests load the agent's output JSON files and compare every computed dose rate and mission dose against pre-computed reference values. Each value must match within 3% relative tolerance. Boolean within_limit flags must match exactly. Tests also verify completeness: all 4 environments, all 7 shield configurations, all 4 mission legs."""
+category = "nuclear-engineering"
+tags = ["radiation-transport", "hdf5-data"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shield-dose-transport"

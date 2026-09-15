@@ -1,0 +1,8 @@
+{
+  "cases": ["case_a", "case_b", "case_c", "case_d"],
+  "input_dir": "/app/cases",
+  "data_dir": "/app/data",
+  "output_file": "/app/verification_report.json",
+  "plots_dir": "/app/plots",
+  "relative_error_threshold": 0.02
+}

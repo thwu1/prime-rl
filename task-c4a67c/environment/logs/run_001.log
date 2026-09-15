@@ -1,0 +1,15 @@
+[2024-11-15 14:32:07] Batch runner v0.3 starting
+[2024-11-15 14:32:07] Loading manifest.json... found 3 experiments
+[2024-11-15 14:32:07] Session ID: c9a7f3e2d5b14806
+[2024-11-15 14:32:08] [quadrature] loaded integrand from experiments/quadrature/integrand.py
+[2024-11-15 14:32:08] [quadrature] scipy.integrate.quad on [0, inf) returned with warning:
+    IntegrationWarning: The maximum number of subdivisions (50) has been achieved.
+[2024-11-15 14:32:08] [quadrature] estimated 2-3 reliable digits only
+[2024-11-15 14:32:08] [quadrature] FAIL - precision requirement not met
+[2024-11-15 14:33:22] [sparse_inverse] matrix constructed: 2000x2000, nnz=33490
+[2024-11-15 14:33:23] [sparse_inverse] numpy.linalg.inv failed: MemoryError
+[2024-11-15 14:33:23] [sparse_inverse] FAIL - dense inversion infeasible at this scale
+[2024-11-15 14:33:24] [stochastic] loaded setup from experiments/stochastic/setup.json
+[2024-11-15 14:34:50] [stochastic] Monte Carlo 10^5 paths: noisy estimate, ~1-2 reliable digits
+[2024-11-15 14:34:50] [stochastic] FAIL - MC variance too high for 10-digit target
+[2024-11-15 14:34:50] Batch complete: 0/3 passed

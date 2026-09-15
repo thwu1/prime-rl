@@ -1,0 +1,4 @@
+{
+  "tidb_executor_concurrency": 8,
+  "tidb_distsql_scan_concurrency": 20
+}

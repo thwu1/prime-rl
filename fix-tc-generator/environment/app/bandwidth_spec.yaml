@@ -1,0 +1,87 @@
+# Datacenter AI/ML Network Bandwidth Allocation Specification
+#
+# Defines a hierarchical HTB (Hierarchical Token Bucket) traffic shaping
+# configuration for a 10 Gbps datacenter link with three major traffic
+# classes: GPU/RDMA, Storage, and Control Plane traffic.
+#
+# DSCP values are used for packet classification via tc u32 filters.
+# Each leaf class specifies a leaf qdisc for per-flow scheduling.
+
+link:
+  interface: eth0
+  speed: 10gbit
+
+root:
+  handle: "1:"
+  default_classid_minor: 32
+
+classes:
+  - name: gpu_rdma
+    classid_minor: 10
+    parent_minor: 0
+    rate: 6gbit
+    ceil: 10gbit
+    prio: 0
+    children:
+      - name: gpu_latency_sensitive
+        classid_minor: 11
+        rate: 2gbit
+        ceil: 6gbit
+        prio: 0
+        dscp: 46
+        leaf_qdisc: fq_codel
+      - name: gpu_bulk_transfer
+        classid_minor: 12
+        rate: 4gbit
+        ceil: 6gbit
+        prio: 1
+        dscp: 44
+        leaf_qdisc:
+          type: pfifo
+          limit: 1000
+
+  - name: storage
+    classid_minor: 20
+    parent_minor: 0
+    rate: 2500mbit
+    ceil: 8gbit
+    prio: 1
+    children:
+      - name: storage_synchronous
+        classid_minor: 21
+        rate: 1500mbit
+        ceil: 2500mbit
+        prio: 0
+        dscp: 26
+        leaf_qdisc: fq_codel
+      - name: storage_asynchronous
+        classid_minor: 22
+        rate: 1000mbit
+        ceil: 2500mbit
+        prio: 1
+        dscp: 18
+        leaf_qdisc:
+          type: pfifo
+          limit: 500
+
+  - name: control_plane
+    classid_minor: 30
+    parent_minor: 0
+    rate: 1500mbit
+    ceil: 3gbit
+    prio: 2
+    children:
+      - name: control_critical
+        classid_minor: 31
+        rate: 1000mbit
+        ceil: 1500mbit
+        prio: 0
+        dscp: 34
+        leaf_qdisc: fq_codel
+      - name: control_default
+        classid_minor: 32
+        rate: 500mbit
+        ceil: 1500mbit
+        prio: 1
+        dscp: 0
+        leaf_qdisc: fq_codel

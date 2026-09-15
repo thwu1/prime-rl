@@ -1,0 +1,5 @@
+A Flask-based OGC API - Features server at `/app/server.py` serves two geospatial collections from `/app/data/` on port 5000, with an OpenAPI definition at `/app/openapi.yaml`. Its `/conformance` endpoint claims compliance with OGC API - Features Part 1: Core.
+
+The server starts and returns valid-looking JSON, but contains multiple conformance violations against the OGC API - Features Part 1: Core specification (http://www.opengis.net/spec/ogcapi-features-1/1.0). These would fail OGC's official CITE TEAM Engine test suite and break interoperability with conformant clients. Violations span link relation semantics, coordinate reference system declarations, spatial and temporal query handling, query parameter validation, response metadata, content negotiation, and pagination. Some are architecturally coupled: fixing one correctly requires corresponding changes elsewhere for the server to remain internally consistent.
+
+Audit the server against the specification and fix every violation. The `KNOWN_PARAMS` set in `server.py` defines recognized query parameters for the items endpoint.

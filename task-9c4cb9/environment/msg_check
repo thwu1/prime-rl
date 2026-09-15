@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Mode S message validation utility."""
+import sys
+import argparse
+
+
+def _crc(data):
+    c = 0
+    for b in data:
+        c ^= (b << 16)
+        for _ in range(8):
+            c <<= 1
+            if c & 0x1000000:
+                c ^= 0x1FFF409
+    c &= 0xFFFFFF
+    return c
+
+
+def _build_syn():
+    t = {}
+    for bit in range(112):
+        m = bytearray(14)
+        bi, bo = bit // 8, 7 - (bit % 8)
+        m[bi] = 1 << bo
+        t[_crc(bytes(m))] = bit
+    return t
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Validate Mode S hex messages and report CRC status')
+    parser.add_argument('hexfile',
+                        help='File with hex-encoded 112-bit messages, one per line')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Include hex preview in output')
+    args = parser.parse_args()
+
+    syn = _build_syn()
+
+    with open(args.hexfile) as f:
+        lines = [l.strip() for l in f if l.strip()]
+
+    total = valid = corrected = invalid = 0
+
+    for i, line in enumerate(lines, 1):
+        total += 1
+        try:
+            msg = bytes.fromhex(line)
+        except ValueError:
+            print(f"[{i:3d}] PARSE_ERROR")
+            invalid += 1
+            continue
+
+        if len(msg) != 14:
+            print(f"[{i:3d}] LENGTH_ERROR ({len(msg)} bytes, expected 14)")
+            invalid += 1
+            continue
+
+        s = _crc(msg)
+        df = (msg[0] >> 3) & 0x1F
+
+        if s == 0:
+            status = "OK"
+            valid += 1
+        elif s in syn:
+            status = f"CORRECTABLE (bit {syn[s]})"
+            corrected += 1
+            valid += 1
+        else:
+            status = "UNCORRECTABLE"
+            invalid += 1
+
+        if df == 17:
+            icao = f"{msg[1]:02X}{msg[2]:02X}{msg[3]:02X}"
+            tc = (msg[4] >> 3) & 0x1F
+            extra = f"  hex={line[:16]}..." if args.verbose else ""
+            print(f"[{i:3d}] DF{df} ICAO={icao} TC={tc:2d} {status}{extra}")
+        else:
+            print(f"[{i:3d}] DF{df} {status}")
+
+    print(f"\n--- Summary ---")
+    print(f"Total:         {total}")
+    print(f"Valid:         {valid} ({corrected} via error correction)")
+    print(f"Unrecoverable: {invalid}")
+
+
+if __name__ == '__main__':
+    main()

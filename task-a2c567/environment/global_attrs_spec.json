@@ -1,0 +1,14 @@
+{
+    "required_attributes": {
+        "project_id": "OBS",
+        "dataset_id": "RAWSTATION",
+        "version": "v3.2",
+        "tier": "2",
+        "source": "Global station observation network",
+        "reference": "doi:10.1234/rawstation.2023",
+        "comment": "Monthly mean near-surface observations from global station network"
+    },
+    "filename_pattern": "{project_id}_{dataset_id}_{source_type}_{version}_{mip}_{var}_{start_date}-{end_date}.nc",
+    "source_type": "ground",
+    "mip": "Amon"
+}

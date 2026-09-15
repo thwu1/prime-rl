@@ -1,0 +1,73 @@
+Step 1/9 : FROM php:8.2-cli
+ ---> g7h8i9j0k1l2
+Step 2/9 : RUN apt-get update && apt-get install -y libzip-dev unzip git && rm -rf /var/lib/apt/lists/*
+ ---> Running in m3n4o5p6q7r8
+...
+Setting up libzip-dev:amd64 (1.7.3-1+b1) ...
+Setting up unzip (6.0-28) ...
+Setting up git (1:2.39.2-1.1) ...
+Step 3/9 : RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+ ---> Running in s9t0u1v2w3x4
+All settings correct for using Composer
+Composer (version 2.6.6) successfully installed to: /usr/local/bin/composer
+Step 4/9 : WORKDIR /app
+ ---> Using cache
+Step 5/9 : COPY composer.json composer.lock ./
+ ---> y5z6a7b8c9d0
+Step 6/9 : RUN composer install --no-scripts --no-autoloader
+ ---> Running in e1f2g3h4i5j6
+Installing dependencies from lock file (including require-dev)
+Verifying lock file contents can be installed on current platform.
+Package operations: 42 installs, 0 updates, 0 removals
+  - Installing symfony/polyfill-php80 (v1.28.0): Extracting archive
+  - Installing symfony/polyfill-mbstring (v1.28.0): Extracting archive
+  ...
+  - Installing phpunit/phpunit (10.5.8): Extracting archive
+Generating optimized autoload files
+Step 7/9 : COPY . .
+ ---> k7l8m9n0o1p2
+Step 8/9 : RUN composer dump-autoload --optimize
+ ---> Running in q3r4s5t6u7v8
+Generated optimized autoload files
+Step 9/9 : RUN php vendor/bin/phpunit --configuration phpunit.xml
+ ---> Running in w9x0y1z2a3b4
+
+PHPUnit 10.5.8 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.2.15
+
+..........E..E.E..E.
+
+Time: 00:00.234, Memory: 16.00 MB
+
+There were 4 errors:
+
+1) Tests\Archive\ZipArchiveTest::testCreateZipArchive
+Error: Class "ZipArchive" not found
+
+/app/tests/Archive/ZipArchiveTest.php:15
+/app/vendor/phpunit/phpunit/src/Framework/TestCase.php:1577
+
+2) Tests\Archive\ZipArchiveTest::testExtractZipArchive
+Error: Class "ZipArchive" not found
+
+/app/tests/Archive/ZipArchiveTest.php:32
+/app/vendor/phpunit/phpunit/src/Framework/TestCase.php:1577
+
+3) Tests\Archive\ZipArchiveTest::testAddFromString
+Error: Class "ZipArchive" not found
+
+/app/tests/Archive/ZipArchiveTest.php:48
+/app/vendor/phpunit/phpunit/src/Framework/TestCase.php:1577
+
+4) Tests\Archive\ZipArchiveTest::testZipStream
+Error: Class "ZipArchive" not found
+
+/app/tests/Archive/ZipArchiveTest.php:62
+/app/vendor/phpunit/phpunit/src/Framework/TestCase.php:1577
+
+ERRORS!
+Tests: 20, Assertions: 16, Errors: 4.
+
+Command ['php', 'vendor/bin/phpunit'] returned non-zero exit status 2.
+The command '/bin/sh -c php vendor/bin/phpunit --configuration phpunit.xml' returned a non-zero code: 2

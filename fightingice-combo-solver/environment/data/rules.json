@@ -1,0 +1,57 @@
+{
+    "game_mechanics": {
+        "move_phases": "Every move progresses through three sequential phases: startup (vulnerability window before the attack becomes active), active (the hitbox is live and can connect), and recovery (post-attack vulnerability before returning to neutral). The total animation duration is the sum of these three phase durations in frames.",
+        "stun_mechanics": "When a move's active hitbox connects with the opponent, the defender enters either hit stun (on a successful hit) or block stun (if the defender was blocking). During stun, the defender is unable to perform any action. Stun begins at the moment the move becomes active.",
+        "frame_advantage": "After a move connects, the attacker must still complete their remaining active and recovery phases before they can act again. The defender is locked out for the duration of the stun. Frame advantage quantifies the time difference: how many frames sooner the attacker can act compared to the defender. Positive means the attacker recovers first; negative means the defender recovers first.",
+        "cancel_system": "Certain moves can be cancelled into designated follow-up moves. A cancel interrupts the current move's animation at the cancel start frame (measured from move initiation) and immediately begins the follow-up move. Moves with a cancel start frame of 0 cannot be cancelled. The cancel window closes at the cancel end frame.",
+        "combo_system": "A combo is a sequence of moves where each successive hit connects before the opponent recovers from hit stun. The timing constraint is: the follow-up move must complete its startup phase and reach its active frames before the opponent's remaining hit stun expires. Hit stun is measured from when the previous move became active, and the follow-up begins at the cancel start frame of the previous move.",
+        "combo_stun_decay": "In extended combos, the effective hit stun of each successive hit diminishes. Each hit beyond the first reduces the available hit stun by a fixed decay amount.",
+        "combo_damage_scaling": "Combo damage diminishes with each successive hit to prevent infinite loops. Each hit's damage is scaled by a multiplier that decreases linearly with the hit number, but never falls below a minimum threshold. The scaled damage is the base damage multiplied by this factor, rounded down to the nearest integer.",
+        "energy_system": "Moves may require energy to initiate (deducted at move startup) and may generate energy when they connect (added after the hit). A move is unavailable if current energy is less than its cost.",
+        "combo_termination": "A combo ends when any of these conditions is met: no valid cancel target exists in the current move's cancel list, effective hit stun is insufficient for any follow-up to connect, a knockdown move has connected, or the maximum hit limit is reached."
+    },
+    "parameters": {
+        "hit_stun_decay_per_hit": 2,
+        "damage_scaling_per_hit": 0.1,
+        "minimum_damage_scaling": 0.1,
+        "max_combo_hits": 10
+    },
+    "analysis_parameters": {
+        "starting_energy_levels": [0, 50],
+        "reference_energy": 50
+    },
+    "punish_framework": {
+        "concept": "After successfully blocking an opponent's move, the defender has a window of advantage determined by the move's frame disadvantage on block. Any move whose startup completes within this window can initiate a punish combo.",
+        "restrictions": "Throws cannot be used as punish starters — only strike moves are eligible. A throw is any move whose name contains 'THROW'.",
+        "optimal_punish": "The optimal punish is the maximum-damage combo achievable from any eligible punish starter, evaluated at the reference energy level.",
+        "unpunishable": "A move is unpunishable if no eligible move has fast enough startup to connect during the frame advantage window."
+    },
+    "neutral_game_model": {
+        "overview": "Model the neutral game as a zero-sum simultaneous-move game in a ZEN mirror matchup. Each player independently selects from the 20 character moves plus a BLOCK defensive option (21 total). Payoffs represent the damage advantage for Player 1.",
+        "interaction_rules": {
+            "attack_vs_attack": "When both players select non-throw attack moves, the faster move (fewer startup frames) connects first. The successful attacker's payoff equals their optimal combo damage at reference energy. On equal startup, both moves trade simultaneously — P1's payoff is the difference between their combo damages.",
+            "attack_vs_throw": "Attacks beat throws. The attacker counter-hits the throw attempt, earning their full combo damage at reference energy.",
+            "attack_vs_block": "The attack is blocked. The attacker suffers the optimal punish damage for their move (negative payoff). Unpunishable attacks yield zero payoff.",
+            "throw_vs_block": "The throw beats the block. The thrower earns their combo damage at reference energy.",
+            "throw_vs_attack": "The attacker counter-hits. The thrower suffers the attacker's combo damage (negative payoff).",
+            "throw_vs_throw": "Both throws whiff simultaneously. Zero payoff.",
+            "block_vs_block": "Nothing happens. Zero payoff.",
+            "block_vs_attack": "P1 blocks and punishes. P1 earns the optimal punish damage for P2's move.",
+            "block_vs_throw": "P1 is thrown. P1 suffers the thrower's combo damage (negative payoff)."
+        },
+        "option_ordering": "Options are listed with the 20 character moves in protobuf field order, followed by BLOCK as the final entry."
+    },
+    "dominance_analysis": {
+        "concept": "Perform iterated elimination of strictly dominated strategies (IESDS) on the payoff matrix. A strategy is strictly dominated if there exists a probability distribution (mixed strategy) over the remaining strategies that yields a strictly higher expected payoff against every possible opponent pure strategy.",
+        "procedure": "In each round, identify all strategies that are strictly dominated by some mixed strategy over the remaining (non-eliminated) strategies. Eliminate all such strategies simultaneously. Repeat until no more eliminations are possible.",
+        "mixed_dominance_check": "For each candidate strategy, determine whether a dominating mixture exists by solving a linear program: find a probability distribution over the other remaining strategies such that the expected payoff strictly exceeds the candidate's payoff against every opponent option."
+    },
+    "output_schemas": {
+        "frame_advantage": "Object keyed by move name. Each value: {\"on_hit\": int, \"on_block\": int}.",
+        "optimal_combos": "Object keyed by move name, each value keyed by energy level (string). Each: {\"combo\": [move_names], \"total_damage\": int, \"hit_count\": int}. For unaffordable moves: {\"combo\": [], \"total_damage\": 0, \"hit_count\": 0}.",
+        "punish_table": "Object keyed by move name. Each value: {\"punish_starter\": string_or_null, \"punish_combo\": [move_names], \"punish_damage\": int, \"frames_available\": int}. Null starter and empty combo for unpunishable moves.",
+        "payoff_matrix": "{\"options\": [ordered option names with BLOCK last], \"matrix\": [[int, ...], ...]} where matrix[i][j] is P1's payoff when P1 selects options[i] and P2 selects options[j].",
+        "dominance_analysis": "{\"elimination_rounds\": [{\"round\": int, \"eliminated\": [strategy_names sorted alphabetically]}], \"survivors\": [strategy_names sorted alphabetically]}",
+        "nash_equilibrium": "{\"game_value\": float (2 decimal places), \"strategy\": {option_name: float probability (6 decimal places)}, \"support\": [option names with probability > 1e-6, sorted alphabetically]}"
+    }
+}

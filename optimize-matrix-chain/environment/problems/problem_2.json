@@ -1,0 +1,12 @@
+{
+  "id": "problem_2",
+  "description": "Triangular solve vs explicit inverse",
+  "chain": [
+    {"matrix": "L", "transpose": false, "invert": true},
+    {"matrix": "A", "transpose": false, "invert": false}
+  ],
+  "matrices": {
+    "L": {"rows": 800, "cols": 800, "properties": ["lower_triangular"]},
+    "A": {"rows": 800, "cols": 400, "properties": ["general"]}
+  }
+}

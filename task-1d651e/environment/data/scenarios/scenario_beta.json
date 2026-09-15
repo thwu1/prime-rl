@@ -1,0 +1,8 @@
+{
+    "name": "scenario_beta",
+    "instance_file": "prob_beta.dat",
+    "max_objective": 28500000,
+    "time_limit_sec": 90,
+    "require_lp_bound": false,
+    "notes": "Medium-large instance. Heuristic solution only."
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic knowledge spanning multiple RSA attack vectors (batch GCD for shared-prime detection, Fermat factoring for close-prime keys), holistic PKI vulnerability assessment across eight certificates with varying weakness classes, multi-hop nested encryption architecture comprehension (RSA-OAEP + AES-GCM relay wrapping + AES-GCM payload), and secure certificate design/generation for remediation. The solver must evaluate each certificate independently, determine which of multiple attack strategies applies, chain four decryption steps in the correct order, and create properly hardened replacement certificates — requiring synthesis of offensive cryptanalysis and defensive PKI engineering."""
+solution_explanation = """Extract RSA moduli from all eight certificates. Batch pairwise GCD reveals two pairs sharing a prime factor (api-gateway/mail-relay, database-primary/monitoring). Apply Fermat factoring to remaining unfactored certificates to discover vpn-gateway has close primes. Read relay chain metadata to determine decryption order: (1) RSA-OAEP decrypt encrypted_relay_key.bin with database-primary's recovered key to get relay_key, (2) AES-GCM unwrap encrypted_session_key.bin with relay_key to get inner RSA blob, (3) RSA-OAEP decrypt inner blob with vpn-gateway's recovered key to get session_key, (4) AES-GCM decrypt payload. Generate vulnerability classification report. Create fresh RSA-2048 certificates preserving original CNs for all five compromised servers."""
+verification_explanation = """SHA-256 hash of recovered plaintext compared against pre-computed verification hash. Vulnerability report validated for correct classification of all eight certificates (GCD-vulnerable, Fermat-vulnerable, and clean). Remediated certificates verified for minimum key size (2048-bit), SHA-256+ signatures, preserved Common Names, and absence of shared prime factors via pairwise GCD check."""
+category = "security"
+tags = ["cryptanalysis", "pki-audit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pki-rsa-cryptanalysis"

@@ -1,0 +1,53 @@
+{
+  "task_dna": "c9f3a7e2b1d045f6890e3c4d5a6b7c8d9e0f1a2b",
+  "scenarios": [
+    {
+      "name": "exponential_baseline",
+      "num_workers": 13,
+      "iteration_time_sec": 1.35,
+      "total_iterations": 11743,
+      "checkpoint_cost_sec": 53.7,
+      "recovery_cost_sec": 27.4,
+      "failure_model": {
+        "type": "exponential",
+        "mtbf_hours_per_worker": 11.3,
+        "shape": 1.0
+      },
+      "fixed_checkpoint_interval_iter": 467,
+      "num_simulations": 5000,
+      "random_seed": 90317
+    },
+    {
+      "name": "weibull_aging",
+      "num_workers": 19,
+      "iteration_time_sec": 0.73,
+      "total_iterations": 24691,
+      "checkpoint_cost_sec": 41.2,
+      "recovery_cost_sec": 18.9,
+      "failure_model": {
+        "type": "weibull",
+        "mtbf_hours_per_worker": 7.6,
+        "shape": 1.85
+      },
+      "fixed_checkpoint_interval_iter": 347,
+      "num_simulations": 5000,
+      "random_seed": 58241
+    },
+    {
+      "name": "mixed_fleet",
+      "num_workers": 23,
+      "iteration_time_sec": 0.92,
+      "total_iterations": 8347,
+      "checkpoint_cost_sec": 68.3,
+      "recovery_cost_sec": 35.1,
+      "failure_model": {
+        "type": "weibull",
+        "mtbf_hours_per_worker": 8.7,
+        "shape": 1.55
+      },
+      "fixed_checkpoint_interval_iter": 283,
+      "num_simulations": 5000,
+      "random_seed": 71429
+    }
+  ]
+}

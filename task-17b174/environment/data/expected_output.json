@@ -1,0 +1,59 @@
+{
+  "by_activity": {
+    "PersonRuns": {
+      "p_miss_at_rfa_0.5": 0.0,
+      "p_miss_at_rfa_0.2": 0.0,
+      "p_miss_at_rfa_0.1": 0.0,
+      "p_miss_at_rfa_0.03": 0.25,
+      "naudc_at_rfa_0.5": 0.05,
+      "naudc_at_rfa_0.2": 0.125,
+      "naudc_at_rfa_0.1": 0.25,
+      "n_mide": 0.30556,
+      "num_ref": 4,
+      "num_sys": 6,
+      "num_correct": 4,
+      "num_missed": 0,
+      "num_false_alarm": 2
+    },
+    "VehicleTurnsRight": {
+      "p_miss_at_rfa_0.5": 0.0,
+      "p_miss_at_rfa_0.2": 0.0,
+      "p_miss_at_rfa_0.1": 0.0,
+      "p_miss_at_rfa_0.03": 0.0,
+      "naudc_at_rfa_0.5": 0.0,
+      "naudc_at_rfa_0.2": 0.0,
+      "naudc_at_rfa_0.1": 0.0,
+      "n_mide": 0.08908,
+      "num_ref": 2,
+      "num_sys": 4,
+      "num_correct": 2,
+      "num_missed": 0,
+      "num_false_alarm": 2
+    },
+    "Loitering": {
+      "p_miss_at_rfa_0.5": 0.5,
+      "p_miss_at_rfa_0.2": 0.5,
+      "p_miss_at_rfa_0.1": 0.5,
+      "p_miss_at_rfa_0.03": 0.5,
+      "naudc_at_rfa_0.5": 0.05,
+      "naudc_at_rfa_0.2": 0.125,
+      "naudc_at_rfa_0.1": 0.25,
+      "n_mide": 0.51176,
+      "num_ref": 2,
+      "num_sys": 2,
+      "num_correct": 1,
+      "num_missed": 1,
+      "num_false_alarm": 1
+    }
+  },
+  "aggregated": {
+    "p_miss_at_rfa_0.5": 0.16667,
+    "p_miss_at_rfa_0.2": 0.16667,
+    "p_miss_at_rfa_0.1": 0.16667,
+    "p_miss_at_rfa_0.03": 0.25,
+    "naudc_at_rfa_0.5": 0.03333,
+    "naudc_at_rfa_0.2": 0.08333,
+    "naudc_at_rfa_0.1": 0.16667,
+    "n_mide": 0.30213
+  }
+}

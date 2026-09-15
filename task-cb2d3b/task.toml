@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires extending a 2D Euler finite volume solver to ideal MHD while maintaining div(B)=0 to machine precision — the agent must independently determine the correct numerical scheme for solenoidal evolution. Additionally demands multi-tool proficiency: outputting results in HDF5 format (h5py), orchestrating via Makefile, and generating diagnostic plots with gnuplot. The Orszag-Tang vortex has strict physical constraints (conservation, symmetry, energy partition) that only a correctly implemented solver can satisfy."""
+solution_explanation = """The solution extends the Euler solver by adding face-centered magnetic field tracking, MHD-augmented Riemann fluxes with magnetic pressure/tension terms, and a constrained transport update that averages electric fields at cell corners to evolve face-centered B via the discrete curl. Initial conditions use the Orszag-Tang vector potential with discrete curl for face-centered B initialization. Output uses h5py for HDF5, gnuplot scripts for visualization, and a Makefile for orchestration."""
+verification_explanation = """Tests verify: (1) HDF5 file exists with correct dataset names, shapes, and is readable by h5ls; (2) Makefile exists with run/plots/all/clean targets and valid syntax; (3) gnuplot scripts and PNG plots exist and are non-trivial; (4) div(B)=0 to machine precision; (5) mass and energy conservation; (6) density range, symmetry, and mean conservation; (7) magnetic field strength, bounds, antisymmetry, and energy fraction."""
+category = "computational_physics"
+tags = ["magnetohydrodynamics", "scientific-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cb2d3b"

@@ -1,0 +1,28 @@
+2025-11-18 11:18:34 WARNING [network_monitor] Elevated traffic volume detected from AS13335: 2.4x baseline
+2025-11-18 11:18:42 INFO    [status_checker] External status page health check: HTTP 503 (third-party hosting provider issue)
+2025-11-18 11:19:01 WARNING [ddos_detector] Traffic pattern anomaly: signature partially matches Aisuru botnet C2 beaconing
+2025-11-18 11:19:15 INFO    [dns_resolver] DNSSEC validation OK for root zone, all RRSIG records valid
+2025-11-18 11:19:44 WARNING [ddos_detector] Possible volumetric DDoS: 1.8 Tbps aggregate inbound across 12 PoPs
+2025-11-18 11:20:05 ERROR   [health_check] FL2 proxy health check FAILED on 3/5 worker nodes
+2025-11-18 11:20:12 WARNING [workers_kv] Elevated error rate: 15.2% of requests returning 5xx (baseline: 0.1%)
+2025-11-18 11:20:18 WARNING [network_monitor] Anomalous traffic redistribution detected - possible BGP reconvergence
+2025-11-18 11:20:25 ERROR   [turnstile] Turnstile widget load failures: 89% (baseline: 0.3%)
+2025-11-18 11:20:33 ERROR   [health_check] FL2 proxy health check FAILED on 4/5 worker nodes
+2025-11-18 11:21:03 WARNING [access_auth] Authentication failure rate elevated to 67% (baseline: 2.1%)
+2025-11-18 11:22:45 INFO    [status_checker] External status page recovered: HTTP 200 (unrelated third-party issue resolved)
+2025-11-18 11:23:15 INFO    [ddos_detector] DDoS signature analysis inconclusive - traffic patterns do not match known attack vectors
+2025-11-18 11:25:08 INFO    [health_check] FL2 proxy health check OK on 5/5 worker nodes
+2025-11-18 11:25:15 INFO    [workers_kv] Error rate normalized: 0.3%
+2025-11-18 11:25:19 INFO    [turnstile] Widget load success rate recovered to 99.7%
+2025-11-18 11:25:22 INFO    [access_auth] Authentication failure rate normalized to 2.3%
+2025-11-18 11:30:06 ERROR   [health_check] FL2 proxy health check FAILED on 4/5 worker nodes
+2025-11-18 11:30:12 WARNING [workers_kv] Elevated error rate: 23.1% of requests returning 5xx
+2025-11-18 11:30:18 ERROR   [turnstile] Turnstile widget load failures: 91%
+2025-11-18 11:30:25 WARNING [access_auth] Authentication failure rate elevated to 72%
+2025-11-18 11:30:33 WARNING [network_monitor] CPU utilization spike on HTTP/HTTPS serving cores: 94% (debug/observability overhead)
+2025-11-18 11:35:04 ERROR   [health_check] FL2 proxy health check FAILED on 5/5 worker nodes
+2025-11-18 11:35:11 WARNING [workers_kv] Elevated error rate: 31.4% of requests returning 5xx
+2025-11-18 11:35:18 ERROR   [turnstile] Turnstile widget load failures: 95%
+2025-11-18 11:35:22 CRITICAL [incident_manager] All FL2 proxy nodes failing - potential global outage
+2025-11-18 11:40:06 ERROR   [health_check] FL2 proxy health check FAILED on 5/5 worker nodes
+2025-11-18 11:40:09 CRITICAL [incident_manager] Sustained proxy failure - escalating to P0

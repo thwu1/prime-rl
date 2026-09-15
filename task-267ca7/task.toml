@@ -1,0 +1,37 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+This task requires building a complete XML-to-Markdown transformation pipeline for US Legislative Markup (USLM), a domain-specific XML format used by the Office of the Law Revision Counsel. The agent must handle: (1) mixed-content XML parsing where text and element children are interspersed — requiring careful handling of element.text, element.tail, and recursive child traversal; (2) a 7-level nested legal hierarchy (subsection → paragraph → subparagraph → clause → subclause → item → subitem) with specific indentation and formatting rules at each level; (3) cross-reference link rewriting from USLM href attributes to relative Markdown paths using a lookup table of 52 canonical US Code title headings and 5-digit zero-padded section numbers; (4) note scope boundary detection where sections inside <note>/<notes> elements must NOT produce output files; (5) rendering XML tables within statutory notes as Markdown tables; (6) YAML frontmatter generation with conditional fields extracted from both XML attributes and child elements; (7) embedded section rendering within note bodies as plain text. The combination of domain-specific XML semantics, recursive tree-walking with scope tracking, cross-document link computation, and multiple output format concerns makes this a proficient-level task requiring careful architecture.
+"""
+solution_explanation = """
+The solution implements a Python converter (~450 lines) using xml.etree.ElementTree for XML parsing and pyyaml for frontmatter generation. Key components: (1) collect_sections() recursively walks the XML tree tracking note scope boundaries to only emit real sections; (2) parse_labeled_node() recursively builds a ContentNode tree handling chapeau, text, content, and continuation elements; (3) extract_text() handles mixed-content XML by concatenating element.text, recursing into children (with special handling for <ref> → markdown links), and collecting .tail text; (4) href_to_markdown_link() matches /us/usc/tN/sS patterns and computes relative paths using KNOWN_TITLE_HEADINGS; (5) render_node_lines() produces properly indented markdown with bold subsection labels; (6) parse_note_body() handles tables via render_table() and embedded sections via render_embedded_note_section(); (7) render_section_markdown() assembles frontmatter + heading + content + notes into the final file.
+"""
+verification_explanation = """
+85 pytest tests verify correctness across multiple dimensions: (1) Output structure — correct directory naming, file count (4 sections, not 5 — the embedded note section must not leak), file naming convention; (2) Frontmatter fields for each section — title, section, heading, status, source URL, chapter, enacted, public_law, last_amended, source_credit, including absence of optional fields; (3) Body formatting — section headings, bold subsection labels, paragraph labels (non-bold), subparagraph indentation (2 spaces), clause indentation (4 spaces), blank line separation; (4) Cross-reference links — 6 different cross-references verified for correct title slug, section padding, and markdown link syntax; (5) Notes — statutory notes heading hierarchy, table rendering with column count and cell values, editorial notes ordering; (6) Note scope boundary — the embedded section in section 104's note must not produce its own file and must appear as text in the note body; (7) Cross-cutting — no raw XML tags in output, no #ref= fragments, proper Unicode rendering.
+"""
+category = "data_transformation"
+tags = ["xml-parsing", "legal-data-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-267ca7"

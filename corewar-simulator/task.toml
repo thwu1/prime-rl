@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a fully compliant ICWS'94 MARS simulator requires holistic understanding of virtual machine design, not mere procedure-following. The agent must grapple with 17 opcodes × 7 modifiers (119 semantic combinations), 8 addressing modes with side-effect ordering constraints (predecrement writes before indirect resolution; postincrement records pending increment after instruction register copy but before B-operand evaluation), and subtle interdependencies: DJN decrements in core but tests the decremented copy, DIV/MOD with .F/.X handle partial zero divisors by updating one component while leaving the other unchanged yet still killing the process. The ICWS'94 spec is dense and ambiguous in places, requiring the agent to use pMARS as a reference oracle — running battles, comparing outcomes, and debugging discrepancies. This multi-tool workflow (Python implementation + pMARS CLI + spec interpretation) demands expert-level systems programming judgment."""
+solution_explanation = """The solution implements a complete MARS class in Python: a load file parser handles the ICWS'94 load file grammar including ORG/END directives and negative address modular conversion; an operand evaluator correctly sequences predecrement (write before indirect), postincrement (record PIP, then increment after instruction register stored), and all indirect modes; opcode execution covers all 17 opcodes with modifier-specific field selection and write targets; the process queue uses collections.deque for FIFO semantics with SPL queuing PC+1 then split target. Cross-validation against pMARS confirms identical battle outcomes for Imp, Dwarf, and Target warrior matchups."""
+verification_explanation = """Tests verify the simulator at four levels: (1) load file parsing — correct opcode/modifier/mode/number extraction, ORG handling, negative address conversion; (2) individual instruction execution — every opcode (DAT through NOP) tested with representative modifiers, every addressing mode tested with explicit pre/post side-effect assertions, every modifier variant tested on MOV; (3) integration — multi-cycle Imp march, SPL FIFO ordering, battle outcomes, Dwarf bombing pattern, default modifier assignment; (4) pMARS cross-validation — subprocess calls to the reference pMARS binary with deterministic positioning (-F flag) confirm that the Python MARS produces matching win/loss/tie outcomes for four warrior matchups."""
+category = "systems_programming"
+tags = ["virtual-machine", "assembly-language"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/corewar-simulator"

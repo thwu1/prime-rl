@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mesh-data-deny-all
+  namespace: mesh-data
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

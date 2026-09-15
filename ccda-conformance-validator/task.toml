@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across healthcare informatics standards (HL7 C-CDA R2.1, BCP-47 language tags, OID-based terminology systems), advanced XML processing (dual-namespace XPath with ancestor-axis template-ID guard patterns), and polymorphic validator semantics that must be reverse-engineered from configuration files rather than explicit instructions. The solver must independently discover that six validator classes each interpret the same configuration schema differently — one checks @code against valuesets, another performs direct @codeSystem OID string comparison (reinterpreting the valueset OID field), two extract different subtags from compound BCP-47 codes (with one conditionally not firing), one checks element text content, and one checks @classCode. Cross-cutting challenges include: multiple validators targeting the same XML node requiring independently correct evaluation, compound language code fixes that must compose correctly across two validators modifying different subtags of the same attribute, and correctly computing a conformance score from a separate scoring configuration file. No algorithmic guidance is provided — the solver must study configuration files and infer all validation behaviors holistically."""
+solution_explanation = """Parse validation_rules.xml (using its http://www.SITE.org/CCDAValidator namespace) to extract 22 XPath-based rules across six validator types. Reverse-engineer each validator's semantics from validator_types.json: ValueSetCodeValidator (@code lookup), NodeCodeSystemMatchesConfiguredCodeSystemValidator (direct @codeSystem OID comparison using the allowedValuesetOids field as a literal OID rather than a valueset reference), LanguageCodeNodeLanguageCodeValuesetValidator (language subtag from compound BCP-47), LanguageCodeNodeCountryCodeValuesetValidator (country subtag, conditionally skipped if no hyphen), TextNodeValidator (element text content), and ClassCodeValidator (@classCode lookup). Evaluate all rules against document.xml using both v3 and sdtc namespace bindings with lxml XPath. Report 16 violations (12 SHALL, 4 SHOULD) with conformance score 0.32 computed from scoring_config.json. Fix the document by replacing invalid values with valid alternatives from the appropriate valuesets, processing rules sequentially so compound language code fixes compose correctly."""
+verification_explanation = """Tests verify: (1) report.json contains exactly 16 violations with correct structure and all 16 specific invalid values detected including compound language subtags, code system OIDs, text content, and class codes, (2) conformance score computed correctly at 0.32, (3) fixed_document.xml is valid XML with all 16 corrections applied — each fixed value checked against allowed valuesets for the specific validator type, (4) document structural integrity preserved with all required sections and template IDs present."""
+category = "applied_computing"
+tags = ["healthcare-standards", "xml-validation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ccda-conformance-validator"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a 500-line Tcl codebase (flow_metrics.tcl) with no pre-parsed configuration. The agent must understand Tcl-specific constructs: brace-quoted expression evaluation ({$value * 1.2}), dynamic variable creation via 'set $var $value' in save_metric_limits, regexp-based metric key decomposition for variable resolution, and line-continuation syntax. From this, the agent must extract all 22 metric definitions (names, comparison operators, tolerance expressions) and the implicit variable-resolution mapping, design a JSON schema, and build a Python expression evaluator, limit computation engine, regression analyzer, and CLI. Edge cases include negative golden values producing non-intuitive min()-based tolerance bounds, string-to-float JSON coercion, and the semantic distinction between strict/non-strict comparison operators for different EDA metric types."""
+solution_explanation = """Parse flow_metrics.tcl to extract define_metric calls via regex after joining line continuations, converting Tcl expressions ({$value * 1.2}) to Python form (value * 1.2). Analyze save_metric_limits to discover the variable resolution mechanism: regexp extracts variable names from metric keys and 'set $var $value' creates dynamic variables used in tolerance expressions. Generate metric_defs.json with variable_map and metrics arrays. Build an ExpressionEvaluator using Python's ast module for safe expression parsing with variable substitution. Implement MetricsChecker for limit computation with cross-metric variable resolution. Implement RegressionAnalyzer for multi-run aggregation with systematic failure detection. Expose limits/check/analyze CLI commands with JSON output."""
+verification_explanation = """Tests verify: (1) expression evaluation with arithmetic, functions (min, max, int), multi-variable expressions, and operator precedence; (2) limit computation against exact values for all 3 designs including negative golden edge cases; (3) pass/fail checking with specific failure counts and metric names for 4 different runs; (4) boundary conditions (values exactly at limits); (5) regression analysis with systematic failure detection; (6) all CLI commands including --defs flag; (7) JSON output schema conformance; (8) string-to-float value handling."""
+category = "programming"
+tags = ["eda", "cross-language-porting"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openroad-metrics-engine"

@@ -1,0 +1,17 @@
+INCIDENT INC-002
+Severity: High
+Date: 2024-10-18
+Reporter: Network Operations
+
+SUMMARY: Heartbeat message flooding on some client connections
+
+DESCRIPTION:
+Monitoring detected clients receiving heartbeat messages at elevated rates.
+One dispatcher client reported receiving heartbeats at approximately double
+the expected frequency. Issue appears related to clients that reconnect or
+adjust their heartbeat preferences during a session.
+
+The protocol allows a client to request a heartbeat interval exactly once
+per connection. Subsequent requests should be treated as a protocol error.
+
+Impact: Increased bandwidth usage, client-side log flooding

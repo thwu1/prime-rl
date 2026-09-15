@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge at the intersection of EEG signal processing, BCI domain adaptation, and spatial filter design. The agent must independently identify that (1) frequency-band selection in motor-imagery-relevant rhythms is needed, (2) subject-specific distributional mismatch from different spatial mixing matrices must be corrected via a covariance-domain alignment technique, (3) discriminative spatial filters must be learned from the aligned multi-subject data, and (4) appropriate feature normalization and classification must be composed into a coherent leave-one-subject-out pipeline. None of these steps are named in the instructions — the agent must derive the approach from studying the data generator and applying BCI domain expertise."""
+solution_explanation = """Analyze the data generator to discover mu-vs-beta class structure, then implement: Butterworth bandpass filtering (8-30 Hz, SOS, zero-phase), Euclidean Alignment (per-subject mean covariance -> matrix square-root inverse whitening), Common Spatial Patterns via simultaneous diagonalization of whitened class covariances, log-variance feature extraction, and LDA classification — all in a leave-one-subject-out loop."""
+verification_explanation = """Tests verify: (1) result dict structure (keys, lengths, value ranges), (2) mean and per-subject accuracy thresholds on the standard 9-subject dataset, (3) generalization to three alternative dataset configurations with different subject counts, channel counts, signal lengths, and random seeds, (4) deterministic reproducibility across repeated calls."""
+category = "machine_learning"
+tags = ["signal_processing", "brain_computer_interface"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-59b46c"

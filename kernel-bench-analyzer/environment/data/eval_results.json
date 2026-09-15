@@ -1,0 +1,86 @@
+{
+  "1": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 12.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 13.5},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 11.0},
+    {"sample_id": 3, "compiled": true, "correctness": false, "runtime": 8.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 14.0}
+  ],
+  "2": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 10.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 9.5},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 10.5},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 11.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 9.0}
+  ],
+  "3": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 130.0},
+    {"sample_id": 1, "compiled": true, "correctness": false, "runtime": 125.0},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 135.0},
+    {"sample_id": 3, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 128.0}
+  ],
+  "4": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 60.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 55.0},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 65.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 58.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 62.0}
+  ],
+  "5": [
+    {"sample_id": 0, "compiled": true, "correctness": false, "runtime": 45.0},
+    {"sample_id": 1, "compiled": true, "correctness": false, "runtime": 42.0},
+    {"sample_id": 2, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 3, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 4, "compiled": true, "correctness": false, "runtime": 48.0}
+  ],
+  "6": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 350.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 360.0},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 345.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 355.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 340.0}
+  ],
+  "7": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 5.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 4.5},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 6.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 5.5},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 4.0}
+  ],
+  "8": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 30.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 32.0},
+    {"sample_id": 2, "compiled": true, "correctness": false, "runtime": 28.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 31.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 33.0}
+  ],
+  "9": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 2.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 7.0},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 8.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 2.5},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 7.5}
+  ],
+  "10": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 200.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 210.0},
+    {"sample_id": 2, "compiled": true, "correctness": true, "runtime": 195.0},
+    {"sample_id": 3, "compiled": true, "correctness": false, "runtime": 180.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 205.0}
+  ],
+  "11": [
+    {"sample_id": 0, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 1, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 2, "compiled": true, "correctness": false, "runtime": 300.0},
+    {"sample_id": 3, "compiled": false, "correctness": false, "runtime": -1.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 280.0}
+  ],
+  "12": [
+    {"sample_id": 0, "compiled": true, "correctness": true, "runtime": 50.0},
+    {"sample_id": 1, "compiled": true, "correctness": true, "runtime": 55.0},
+    {"sample_id": 2, "compiled": true, "correctness": false, "runtime": 48.0},
+    {"sample_id": 3, "compiled": true, "correctness": true, "runtime": 52.0},
+    {"sample_id": 4, "compiled": true, "correctness": true, "runtime": 60.0}
+  ]
+}

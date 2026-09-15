@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cross-language code comprehension to reverse-engineer both C (ESP-IDF/FreeRTOS) and Rust (no_std/embassy) embedded firmware pipelines, extract portable algorithms from framework-specific code, write a standalone C verification harness that compiles with gcc, faithfully reimplement both processing pipelines in Python, and systematically discover subtle behavioral divergences across color conversion, wave tables, timing, validation, and latent bugs—all without access to the actual hardware or framework internals."""
+solution_explanation = """The solution writes a standalone C harness extracting the wave table and HSV preprocessing from the C source, compiles it with gcc, and cross-validates against a Python C-pipeline reimplementation. A separate Rust pipeline reimplementation faithfully reproduces the Rust firmware's different approach. An analyzer compares both pipelines across comprehensive inputs to produce a structured divergence report identifying 11 divergences across 5 categories including a critical array bounds bug in the C wave indexing logic."""
+verification_explanation = """Tests verify: (1) C harness compiles, runs, and produces JSON output matching the Python C pipeline for both wave table values and HSV conversions across 8 test inputs; (2) C wave table exactly matches the 51-entry source array; (3) Rust wave table matches the 70-entry computed formula with forced-zero last entry; (4) HSV-to-RGB produces correct values for primary colors, edge cases (negative/overflow hue), and boundary values; (5) the two pipelines produce measurably different RGB for s=0.5; (6) divergence report has valid structure with >=5 entries across >=3 categories including wave_table, color_conversion, pattern_timing, and bug identification."""
+category = "code_analysis"
+tags = ["embedded-systems", "c-to-rust-migration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cbc0b7"

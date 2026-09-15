@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level binary format forensics: the solver receives a corrupted GGUF binary with no indication of what is wrong and must use hex inspection tools (xxd/hexdump), the gguf Python library, and custom struct-based parsing to diagnose 5 independent structural defects. The defects interact — a metadata value type tag corruption (UINT64 encoded as UINT32) causes a 4-byte parse offset error that cascades through all subsequent metadata, making automated tools useless beyond that point. The solver must holistically understand the GGUF v3 binary format (header layout, string encoding, metadata type tags, tensor info structure, alignment padding rules) to manually walk the binary byte-by-byte, cross-reference against the spec, identify each violation, and produce a corrected file with intact tensor data."""
+solution_explanation = """The solution reads the corrupted binary and applies in-place patches: (1) fixes version field from 2 to 3 at offset 4; (2) walks metadata KV pairs to count the actual 14 entries (header claims 12), using a probe-and-fix strategy to detect the UINT32-should-be-UINT64 type tag corruption by testing if advancing 4 vs 8 bytes yields valid subsequent keys; (3) patches the metadata_kv_count at offset 16; (4) patches the llama.context_length type tag from 4 to 10; (5) walks tensor info to find the Q2_K(10) type that should be Q4_0(2) and patches it; (6) zeros all non-zero alignment padding bytes between header and tensor data. The repaired file has identical layout to the original — all corruptions are in-place value changes."""
+verification_explanation = """Tests parse /app/output.gguf from scratch using a custom GGUF v3 binary parser (no gguf library dependency). They verify: (1) magic='GGUF', version=3, tensor_count=4, kv_count=14; (2) all 14 metadata KV pairs have correct keys, type tags, and values — with specific checks that llama.context_length has UINT64 type and blk.0.ffn_down.weight has Q4_0 type; (3) all tensor info entries have correct names, shapes, types, and aligned offsets; (4) alignment padding consists of 0x00 bytes; (5) F32 tensor data matches independently-generated reference data (same PRNG seed) to within 1e-6; (6) F16 tensor data dequantizes within 0.01 max error; (7) Q4_0 tensor data dequantizes within 0.01 RMSE using reference dequantization."""
+category = "systems-programming"
+tags = ["binary-forensics", "gguf-format"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-11f645"

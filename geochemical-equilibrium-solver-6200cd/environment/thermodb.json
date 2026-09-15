@@ -1,0 +1,92 @@
+{
+  "header": {
+    "temperatures": [0.0, 25.0, 60.0, 100.0, 150.0, 200.0, 250.0, 300.0],
+    "adh": [0.4913, 0.5092, 0.5450, 0.5998, 0.6898, 0.8099, 0.9785, 1.2555],
+    "bdh": [0.3247, 0.3283, 0.3343, 0.3422, 0.3533, 0.3655, 0.3792, 0.3965],
+    "bdot": [0.0174, 0.0410, 0.0440, 0.0460, 0.0470, 0.0470, 0.0340, 0.0000]
+  },
+  "basis_species": {
+    "H2O": {
+      "charge": 0,
+      "radius": 0.0,
+      "molecular_weight": 18.0152
+    },
+    "H+": {
+      "charge": 1,
+      "radius": 9.0,
+      "molecular_weight": 1.0079
+    },
+    "Cl-": {
+      "charge": -1,
+      "radius": 3.0,
+      "molecular_weight": 35.453
+    },
+    "Na+": {
+      "charge": 1,
+      "radius": 4.0,
+      "molecular_weight": 22.9898
+    },
+    "Ca++": {
+      "charge": 2,
+      "radius": 6.0,
+      "molecular_weight": 40.08
+    },
+    "SO4--": {
+      "charge": -2,
+      "radius": 4.0,
+      "molecular_weight": 96.0636
+    }
+  },
+  "secondary_species": {
+    "OH-": {
+      "charge": -1,
+      "radius": 3.5,
+      "molecular_weight": 17.0073,
+      "reaction": {"H2O": 1, "H+": -1},
+      "logk": [14.9398, 13.9951, 13.0272, 12.2551, 11.6308, 11.2836, 11.1675, 11.3002]
+    },
+    "NaCl": {
+      "charge": 0,
+      "radius": 0.0,
+      "molecular_weight": 58.4428,
+      "reaction": {"Na+": 1, "Cl-": 1},
+      "logk": [1.582, 0.777, -0.043, -0.688, -1.193, -1.508, -1.625, -1.511]
+    },
+    "NaSO4-": {
+      "charge": -1,
+      "radius": 4.0,
+      "molecular_weight": 119.0534,
+      "reaction": {"Na+": 1, "SO4--": 1},
+      "logk": [-0.82, -0.70, -0.601, -0.601, -0.748, -1.07, -1.58, -2.36]
+    },
+    "CaSO4": {
+      "charge": 0,
+      "radius": 0.0,
+      "molecular_weight": 136.1436,
+      "reaction": {"Ca++": 1, "SO4--": 1},
+      "logk": [-2.111, -2.309, -2.474, -2.501, -2.280, -1.726, -0.795, 0.553]
+    },
+    "CaCl+": {
+      "charge": 1,
+      "radius": 4.0,
+      "molecular_weight": 75.533,
+      "reaction": {"Ca++": 1, "Cl-": 1},
+      "logk": [0.695, 0.695, 0.644, 0.515, 0.279, -0.044, -0.514, -1.239]
+    },
+    "HSO4-": {
+      "charge": -1,
+      "radius": 4.0,
+      "molecular_weight": 97.0715,
+      "reaction": {"H+": 1, "SO4--": 1},
+      "logk": [-1.987, -1.987, -2.298, -2.920, -3.990, -5.300, -7.000, -8.900]
+    }
+  },
+  "minerals": {
+    "Gypsum": {
+      "molecular_weight": 172.168,
+      "molar_volume": 74.69,
+      "reaction": {"Ca++": 1, "SO4--": 1, "H2O": 2},
+      "logk": [-4.581, -4.580, -4.358, -3.843, -2.928, -1.630, -0.001, 1.973]
+    }
+  }
+}

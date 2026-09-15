@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(set-info :status sat)
+(declare-const x (_ BitVec 16))
+(assert (= ((_ extract 15 8) x) #xFF))
+(assert (= ((_ extract 7 0) x) #x01))
+(assert (= x (concat ((_ extract 15 8) x) ((_ extract 7 0) x))))
+(check-sat)
+(exit)

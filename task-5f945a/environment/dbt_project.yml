@@ -1,0 +1,13 @@
+name: 'ecommerce_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'analytics'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"

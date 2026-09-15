@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating three competing Kubernetes security architecture proposals, each with a distinct mix of correct and incorrect configurations across eight security domains. The solver must understand subtle K8s semantics — NetworkPolicy from entry AND vs OR composition, policyTypes defaulting behavior for egress rules, ClusterRoleBinding vs RoleBinding privilege escalation, LimitRange default/max constraint validation — to correctly judge each proposal. Then the solver must synthesize a fully compliant architecture by selecting the best elements from different proposals and correcting remaining defects. No single proposal can be adopted wholesale; the correct answer requires cross-proposal comparison and original design work."""
+solution_explanation = """Parse all three proposal directories and the security requirements. For each of the eight categories, independently evaluate each proposal: check default-deny-ingress presence in all namespaces, verify AND vs OR selector semantics in cross-namespace from entries, confirm policyTypes includes Egress on egress-restricting policies, validate RBAC uses namespaced RoleBindings not ClusterRoleBindings, verify no wildcard verbs on secrets, check ResourceQuota values match requirements, confirm LimitRange defaults don't exceed maxes, and ensure no privileged containers. Produce the evaluation report, then synthesize the final config: take network policies from proposal A (correct selectors and default-deny) but add the egress policy from proposal B (correct policyTypes), take RBAC from proposal A (correct scoping and least-privilege), take resource management from proposal B (all correct values), and take deployment security contexts from proposal B (correct NET_BIND_SERVICE without privileged mode)."""
+verification_explanation = """Tests verify two outputs: (1) the evaluation-report.json must correctly classify each proposal on each of the eight categories as pass or fail — validated against independently-computed ground truth from analyzing the proposal files; (2) the final-config manifests are structurally verified: all namespaces have default-deny-ingress, cross-namespace from entries use AND semantics with correct pod labels, egress policy has correct policyTypes, no ClusterRoleBindings for application service accounts, no wildcard verbs on secrets, all ResourceQuotas match required values, all LimitRange defaults are within max bounds, and no containers run in privileged mode while nginx has NET_BIND_SERVICE."""
+category = "cybersecurity"
+tags = ["kubernetes", "security-architecture"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8a355f"

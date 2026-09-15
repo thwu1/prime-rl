@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a stripped ELF binary to recover undocumented scoring formula parameters (exponential decay factor, scaling constant) and noise model characteristics, then using those insights to design an online learning algorithm for adaptive shortest path routing on a grid with unknown edge weights. The agent must: (1) use binary analysis tools (strace, objdump/strings from binutils, gdb) to extract floating-point constants and reconstruct the scoring dynamics from the stripped judge binary, (2) interpret disassembly or runtime traces to determine the noise range and temporal weighting scheme, (3) design a weight estimation strategy calibrated to the discovered noise model, (4) implement an interactive solver with correct pipe-based I/O (stdin/stdout flushing), and (5) iterate across multiple seeds to validate convergence. Demands expertise spanning binary reverse engineering tool usage, online optimization, graph algorithms, and systems-level process interaction."""
+solution_explanation = """First, use strings/objdump on the stripped judge binary to locate the scoring constants (0.998 exponential decay, 2312311 scaling factor) and noise range (0.9 to 1.1 multiplicative) in the .rodata section or disassembly. Then implement Dijkstra with adaptive edge weight estimation: weights start at 5000 (midpoint heuristic), and after each query, noisy feedback is distributed proportionally across path edges via a multiplicative update with a decaying learning rate. An exploration bonus for under-observed edges ensures convergence. Understanding the 0.998 decay is critical: it means later queries carry exponentially more weight, so rapid convergence is essential."""
+verification_explanation = """Tests use an independent Python reimplementation of the judge (with matching SplitMix64 PRNG) to evaluate the solver, preventing any tampering with the compiled judge binary. The solver is run interactively on 3 deterministic instances (seeds 42, 137, 256). Each path is validated, the noisy feedback protocol is followed, and the exponentially-weighted optimality ratio score is computed. The average score must reach 650,000,000 (~65% of theoretical maximum)."""
+category = "optimization"
+tags = ["binary-analysis", "online-learning"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/online-path-learner"

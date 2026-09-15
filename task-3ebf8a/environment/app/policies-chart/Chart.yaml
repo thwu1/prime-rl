@@ -1,0 +1,5 @@
+apiVersion: v2
+name: app-network-policies
+description: CiliumNetworkPolicy resources for application egress and debug access
+version: 0.1.0
+type: application

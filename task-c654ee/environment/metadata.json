@@ -1,0 +1,32 @@
+{
+  "incident": {
+    "description": "Network partition caused split-brain between East and West data centers. Orchestrator Raft quorum in West DC promoted a local replica as new primary while East DC primary continued accepting writes.",
+    "partition_duration_seconds": 43,
+    "split_brain_start": "2018-10-21 22:52:00",
+    "split_brain_end": "2018-10-21 23:30:00",
+    "east_dc": {
+      "role": "original_primary",
+      "server_id": 1001,
+      "server_uuid": "3e11fa47-c0d0-11e8-8e94-0242ac110002",
+      "write_window": "43 seconds (22:52:00 - 22:52:43)"
+    },
+    "west_dc": {
+      "role": "incorrectly_promoted_primary",
+      "server_id": 2001,
+      "server_uuid": "7a22fb58-c0d0-11e8-9b05-0242ac110003",
+      "write_window": "~38 minutes (22:52:43 - 23:30:00)"
+    }
+  },
+  "resolution_rules": {
+    "update_update": "Last-Writer-Wins (LWW): for rows modified on both sides, keep the version with the later updated_at timestamp. The full row from the winning side replaces the losing side entirely.",
+    "insert_insert_pk_conflict": "East-Primary: the East DC insert retains its original primary key. The West DC insert is reassigned to the next available primary key value (MAX(id)+1 across all inserts).",
+    "delete_vs_update": "Data-Preservation: if one side DELETEd a row and the other side UPDATEd it, keep the UPDATEd version. Data integrity takes precedence over deletion.",
+    "delete_vs_unchanged": "Apply-Delete: if one side DELETEd a row and the other side did not touch it, apply the deletion.",
+    "repository_counters": "For the repositories table specifically: stars and forks are monotonically increasing counters. When the same repository row is modified on both sides, take MAX(east_value, west_value) for stars and forks independently, and MAX(east_updated_at, west_updated_at) for the timestamp. Other columns come from the version with the later updated_at.",
+    "non_conflicting": "Apply all non-conflicting writes from both sides as-is."
+  },
+  "output": {
+    "reconciled_database": "github_meta_reconciled",
+    "report_file": "/app/reconciliation_report.json"
+  }
+}

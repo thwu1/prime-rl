@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing lazy propagation with additive tags and min/max aggregate maintenance inside a Link-Cut Tree — a splay-tree-based data structure for dynamic forest connectivity typically only covered in graduate algorithms or elite competitive programming training. The agent must: (1) add new struct fields (mx, mn, add_tag) with correct sentinel initialization; (2) implement tag_add() that correctly updates val, sum, mx, and mn simultaneously; (3) extend push_down() to propagate add_tag to children before clearing; (4) extend push_up() to merge min/max aggregates from children; (5) write query_max, query_min, path_add, and update_val methods using the split/access primitives; (6) add all new operation parsers to the match dispatch; (7) identify and fix a latent cut bug (missing fa[x]=0 clearing) that causes phantom re-merges. Each piece interacts: e.g., tag_add must update mx/mn (not just val/sum) or post-add max queries return stale values."""
+solution_explanation = """The solution adds three fields to the LCT struct: mx (Vec<i64> initialized to i64::MIN), mn (Vec<i64> initialized to i64::MAX), and add_tag (Vec<i64> initialized to 0). The init() method sets mx[x]=mn[x]=v. push_up() is extended to compute mx[x] and mn[x] as the max/min of val[x] and children's mx/mn. A new tag_add(x,d) method updates val[x]+=d, sum[x]+=d*sz[x], mx[x]+=d, mn[x]+=d, add_tag[x]+=d. push_down() is extended: when add_tag[x]!=0, propagate to both children via tag_add then clear. query_max/query_min call split(x,y) then return mx[y]/mn[y]. path_add calls split(x,y) then tag_add(y,d). update_val calls access(x), sets val[x]=w, then push_up(x). The cut bug fix adds fa[x]=0 after clearing ch[y][0]. All seven operation types are dispatched in the main match."""
+verification_explanation = """Tests compile the Rust code and run it against two hand-crafted sample cases (covering all operations including path_min) plus five randomly-generated stress tests (N up to 500, Q up to 3000) that exercise heavy interleaving of add, cut, link, update, path_sum, path_max, and path_min. Stress tests compute expected output via an independent BFS-based brute-force solver at test time, so correct answers are not stored anywhere the agent can read."""
+category = "algorithms"
+tags = ["data-structures", "systems-programming"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-bd8feb"

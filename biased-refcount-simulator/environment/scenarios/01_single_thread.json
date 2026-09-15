@@ -1,0 +1,11 @@
+{
+  "description": "Single-thread object lifecycle with quick deallocation path",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "A"}
+  ]
+}

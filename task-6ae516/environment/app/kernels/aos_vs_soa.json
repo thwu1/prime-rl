@@ -1,0 +1,20 @@
+{
+  "name": "aos_vs_soa",
+  "description": "Comparison of Array-of-Structures vs Structure-of-Arrays memory access patterns showing the impact on memory coalescing",
+  "block_dim": [256, 1, 1],
+  "registers_per_thread": 24,
+  "static_shared_memory_bytes": 0,
+  "dynamic_shared_memory_bytes": 0,
+  "global_memory_accesses": [
+    {
+      "name": "aos_access",
+      "element_size_bytes": 4,
+      "stride_elements": 20
+    },
+    {
+      "name": "soa_access",
+      "element_size_bytes": 4,
+      "stride_elements": 1
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+    "min_area": 500,
+    "max_aspect_ratio": 6.0,
+    "remove_empty_items": true
+}

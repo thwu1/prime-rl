@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level information retrieval knowledge: debugging 4 subtle bugs in an MRR@10 evaluation script (off-by-one in rank indexing, reciprocal rank formula error, wrong MRR cutoff depth, incorrect normalization denominator), implementing Okapi BM25 reranking from scratch with proper IDF computation, TF normalization, and document length normalization, and producing a correctly formatted submission package with bz2 compression. Each bug requires understanding a distinct IR evaluation convention (TREC format, rank indexing, metric definition, query set normalization)."""
+solution_explanation = """Fix the 4 bugs in ms_marco_eval.py: (1) MaxMRRRank should be 10 not 5, (2) candidate rank array indexing should use rank-1 for 0-based access instead of rank, (3) reciprocal rank formula should be 1/(i+1) not 1/(i+2), (4) MRR normalization denominator should be len(qids_to_relevant_passageids) not len(qids_to_ranked_candidate_passages). Then implement BM25 reranking: tokenize queries and passages, compute IDF over the collection, score candidates using Okapi BM25 (k1=1.2, b=0.75), rank by score, output in QID-PID-RANK format. Create submission with metadata JSON and bz2-compressed run file."""
+verification_explanation = """Tests independently verify: (1) fixed eval script exists and reproduces exact reference MRR@10 scores within ±0.0001 for all 3 reference runs (random, oracle, partial), (2) oracle run reference score is 1.0 confirming data integrity, (3) BM25 run file has correct 3-column tab-separated integer format with contiguous 1-based ranks and no duplicate PIDs per query, (4) BM25 run achieves MRR@10 >= 0.28 computed by test's own correct MRR implementation, (5) submission package contains valid metadata JSON with required fields and bz2-compressed run matching run.tsv."""
+category = "data_science"
+tags = ["information_retrieval", "evaluation_metrics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/passage-ranking-pipeline"

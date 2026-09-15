@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level radiation therapy physics knowledge: implementing DVH computation from first principles with correct non-isotropic voxel geometry, detecting and correcting an undocumented dose grid stored in cGy instead of Gy, knowing the ICRU Report 83 definitions of Dmax (D0.03cc) and Homogeneity Index ((D2-D98)/D50), excluding non-protocol body contour structures from analysis, performing fuzzy structure name standardization to TG-263 across four sites with highly inconsistent naming, and evaluating plans against clinical dosimetric constraints. The solver must diagnose data quality anomalies without any guidance in the instructions."""
+solution_explanation = """Load NIfTI data with SimpleITK, detect cGy dose units by checking if max dose exceeds physiological range (>200 Gy) and convert by dividing by 100, match structure names to TG-263 using keyword-based fuzzy matching while filtering out External/BODY body contours, compute cumulative DVH metrics (Dx via numpy percentile, Vx as threshold fraction, Dcc via physical voxel volume), compute HI=(D2-D98)/D50 per ICRU 83, and evaluate 7 constraints across 4 patients."""
+verification_explanation = """Tests independently compute reference DVH metrics from the same NIfTI data (with known cGy correction for patient_D) and compare agent output within tolerances (1.0 Gy for dose, 2.0% for volume, 0.02 for HI). Structure name mappings are verified against hardcoded ground truth. QA violation status is checked for all 28 constraint evaluations. Tests verify that body contour structures are excluded and that patient_D metrics are in Gy."""
+category = "medical_imaging"
+tags = ["radiotherapy", "dose-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dvh-plan-qa"

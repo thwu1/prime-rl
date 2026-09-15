@@ -1,0 +1,108 @@
+# Worst-of Autocallable Note with Knock-in Put
+# Product Specification
+
+product:
+  name: "Worst-of Autocallable Note with Conditional Coupon and Knock-in Put"
+  type: "Structured Note"
+
+underlying:
+  description: >
+    One or more reference assets. Each asset follows stochastic volatility
+    dynamics parameterized by its own initial variance (v0), long-term
+    variance (theta), mean-reversion speed (kappa), volatility of variance
+    (sigma), and spot-vol correlation (rho).
+
+performance_metric:
+  name: "Worst-of Performance"
+  definition: >
+    At any time t, the worst-of performance is the minimum across all
+    underlying assets of S_i(t) / S_i(0), where S_i(0) is the initial
+    spot price of asset i.
+
+correlation_structure:
+  description: >
+    For N assets, the simulation requires a 2N x 2N correlation matrix
+    governing the joint behavior of spot and variance processes.
+    The ordering is (spot_1, vol_1, spot_2, vol_2, ..., spot_N, vol_N).
+  intra_asset: >
+    The spot process and variance process of each asset i are correlated
+    with coefficient rho_i (from the asset configuration).
+  inter_asset_spot: >
+    Cross-asset spot-spot correlations are given by the N x N
+    correlation_matrix in the configuration.
+  inter_asset_vol: >
+    Cross-asset vol-vol and cross-asset spot-vol correlations are zero.
+  non_psd_handling: >
+    If the assembled 2N x 2N matrix is not positive semi-definite,
+    it must be repaired to a valid correlation matrix before use.
+
+coupon:
+  condition: >
+    A coupon is earned at observation date k if the note has not yet
+    been autocalled AND the worst-of performance at that date is
+    greater than or equal to coupon_barrier.
+  amount: "coupon_rate * notional"
+  snowball:
+    description: >
+      When snowball is true, missed coupons accumulate. If N coupons
+      have been missed consecutively and the current observation meets
+      the coupon condition, all (N + 1) coupons are paid at once:
+      (N + 1) * coupon_rate * notional, discounted to present value.
+      After payment, the accumulation counter resets to zero.
+    when_false: >
+      Each observation is independent. A missed coupon is lost.
+
+autocall:
+  condition: >
+    The note autocalls at observation date k if the worst-of performance
+    at that date is greater than or equal to autocall_barrier.
+  effect: >
+    The note terminates immediately. The notional is returned to the
+    investor, discounted at the risk-free rate to present value.
+    Any coupon earned at this same observation is also paid.
+  evaluation_order: >
+    At each observation: first evaluate coupon eligibility, then check
+    the autocall condition.
+
+knock_in_barrier:
+  monitoring: >
+    Continuous monitoring — the knock-in condition is checked at every
+    simulation timestep, NOT only at observation dates. This means the
+    barrier can be breached between observation dates.
+  condition: >
+    Knock-in occurs if the worst-of performance at ANY simulation
+    timestep falls below knock_in_barrier.
+  null_behavior: >
+    If knock_in_barrier is null, no knock-in monitoring occurs and
+    full notional is always returned at maturity (if not autocalled).
+
+maturity_redemption:
+  description: >
+    If the note has not been autocalled by the final observation date,
+    the maturity redemption depends on knock-in status.
+  knocked_in: >
+    Redemption = notional * min(1, worst_of_performance_at_final_observation),
+    discounted to present value. The investor bears downside losses.
+  not_knocked_in: >
+    Full notional is returned, discounted to present value.
+    Capital is protected.
+
+discounting:
+  method: "Continuous compounding"
+  formula: "discount_factor(t) = exp(-risk_free_rate * t)"
+
+output_statistics:
+  price: >
+    Mean present value of all discounted cash flows across all
+    simulated paths, divided by notional. Represents the fair value
+    of the note as a fraction of par.
+  std_error: >
+    Standard error of the price estimate: standard deviation of
+    per-path present values divided by (notional * sqrt(n_paths)).
+  autocall_prob: >
+    Array with one entry per observation date. autocall_prob[k] is
+    the fraction of total paths that autocalled at observation k.
+  expected_coupon_count: >
+    Mean number of individual coupons paid per path. When snowball
+    is active, accumulated coupons paid together at a single
+    observation each count individually toward this total.

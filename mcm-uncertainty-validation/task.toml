@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the complete JCGM 101:2008 Monte Carlo uncertainty propagation methodology from the published standard alone — no algorithmic guidance is provided in the instructions. The agent must independently derive the adaptive convergence procedure, coverage interval computations, first and second-order GUM framework calculations, numerical tolerance definitions, and the formal validation comparison. Additionally, calibration parameters must be queried from a SQLite database rather than read from flat files, and a convergence diagnostic plot must be generated as SVG output, requiring multi-tool proficiency across database access (SQL), statistical computation (Python/NumPy), and data visualization (gnuplot or matplotlib). The comparison loss model is chosen because GUF demonstrably fails when input estimates are near zero (vanishing first-order sensitivities), requiring domain expertise to understand the physical significance of validation outcomes."""
+solution_explanation = """Read calibration parameters from the SQLite database using Python sqlite3 or the sqlite3 CLI. Implement bivariate Gaussian sampling via Cholesky decomposition, adaptive MCM with batch convergence testing per section 7.9.4 (M = max(ceil(100/(1-p)), 10000), convergence when 2*SE < delta for all batch statistics), numerical tolerance delta = 0.5*10^(floor(log10(u_y))-ndig+1), shortest coverage interval via minimum-width window scan, and validation using delta/5 tolerance per section 8.2. Compute GUF1 using first-order partial derivatives (c1=2x1, c2=2x2) and GUF2 with second-order corrections (f11=f22=2, f12=0). Generate SVG convergence plots showing MCM stabilization using matplotlib or gnuplot. The x1=x2=0 cases produce an exponential distribution for delta_Y where GUF1 gives u(y)=0 and must fail validation."""
+verification_explanation = """Tests verify: (1) JSON structure completeness for all 6 cases, (2) deterministic GUF1/GUF2 computations against exact analytical values, (3) MCM statistics within 10-15% of known analytical results (exponential distribution for the x1=x2=0 case), (4) mathematical invariants (shortest CI length <= symmetric CI length, non-negative delta_Y), (5) validation outcomes (x1=x2=0 cases must NOT validate, consistency of validated flag with d_low/d_high/delta), (6) convergence SVG plot existence and structural validity, (7) consistency between JSON results and SQLite database input parameters."""
+category = "mathematics_of_computing"
+tags = ["monte-carlo", "metrology"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mcm-uncertainty-validation"

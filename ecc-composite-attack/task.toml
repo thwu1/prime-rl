@@ -1,0 +1,55 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across elliptic curve cryptography, computational
+number theory, and cryptographic protocol evaluation. Beyond the already-hard cryptanalysis (factoring a
+composite modulus via Williams p+1, recognizing the CM j=1728 structure, Pohlig-Hellman on smooth-order
+reduced curves, chaining into OpenSSL PBKDF2-AES decryption), the solver must EVALUATE four proposed
+remediations by reasoning about which algebraic properties each one preserves or breaks in the attack
+chain — distinguishing between fixes that address root causes (non-smooth orders, prime modulus) and
+those that address symptoms (key size, symmetric cipher). The solver must also CREATE a provably secure
+ECC configuration: generating primes, selecting curve coefficients, computing curve group orders via
+PARI/GP's Schoof-Elkies-Atkin implementation, verifying non-smoothness of those orders, and constructing
+a valid base point via CRT square-root lifting. Each remediation verdict requires deep judgment about
+which mathematical invariant the remediation targets and whether that suffices to break the attack chain."""
+solution_explanation = """Phase 1: Factor n using Williams' p+1 (exploiting smooth p+1 from CM j=1728,
+p≡3 mod 4). Solve ECDLP via Pohlig-Hellman on each reduced curve (orders p+1, q+1 are smooth). CRT to
+recover scalar s. Decrypt via 'openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:s -iter 600000'.
+Phase 2: Classify the vulnerability (composite modulus, CM discriminant -4, j=1728). Evaluate R1 as
+INEFFECTIVE (scaling key size preserves smooth-order property), R2 as EFFECTIVE (prime modulus with
+near-prime order eliminates both factoring and smooth ECDLP), R3 as EFFECTIVE (large prime factors in
+curve orders defeat Pohlig-Hellman even after factoring), R4 as INEFFECTIVE (vulnerability is in key
+exchange, not symmetric cipher).
+Phase 3: Use PARI/GP to generate 80-bit primes, compute ellcard on y²=x³+x+1, factor the orders,
+retry until both have prime factors ≥2^64, then CRT-lift a base point."""
+verification_explanation = """21 tests across 3 phases. Phase 1: exact plaintext match and scalar
+verification (Q = s*G on original curve). Phase 2: audit.json checked for correct modulus type,
+CM discriminant (-4), j-invariant (1728), factoring method (p+1/williams), ECDLP method (pohlig),
+and all four remediation verdicts. Phase 3: secure_config.json verified via PARI/GP subprocess —
+primality of p and q, minimum 80-bit size, curve non-singularity, base point on curve, and curve
+orders over Fp and Fq each having a prime factor ≥ 2^59 (verified by ellcard + factor)."""
+category = "cryptography"
+tags = ["elliptic-curves", "security-audit"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecc-composite-attack"

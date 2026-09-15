@@ -1,0 +1,39 @@
+{
+  "base": {"xlen": 64},
+  "extensions": {
+    "U": {"supported": false},
+    "S": {"supported": true},
+    "M": {"supported": true},
+    "A": {"supported": true},
+    "F": {"supported": true},
+    "D": {"supported": true},
+    "C": {"supported": true},
+    "V": {"supported": false, "support_level": "Disabled", "vlen_exp": 3, "elen_exp": 3},
+    "H": {"supported": true},
+    "B": {"supported": false},
+    "Zicsr": {"supported": true},
+    "Zifencei": {"supported": true},
+    "Zaamo": {"supported": true},
+    "Zabha": {"supported": false},
+    "Zacas": {"supported": false},
+    "Zalrsc": {"supported": true},
+    "Zfinx": {"supported": false},
+    "Zdinx": {"supported": false},
+    "Zhinx": {"supported": false},
+    "Zic64b": {"supported": false},
+    "Zawrs": {"supported": false}
+  },
+  "memory": {
+    "pmp": {"count": 16, "usable_count": 16, "grain": 0, "NA4_supported": true, "NAPOT_supported": true, "TOR_supported": true},
+    "regions": [
+      {
+        "base": "0x80000000", "size": "0x40000000", "mem_type": "MainMemory",
+        "cacheable": true, "coherent": true, "executable": true, "readable": true,
+        "writable": true, "read_idempotent": true, "write_idempotent": true,
+        "atomic_support": "AMOArithmetic", "reservability": "RsrvEventual"
+      }
+    ]
+  },
+  "platform": {"cache_block_size_exp": 6, "reservation_set_size_exp": 3},
+  "mmu": {"Sv32": {"supported": false}, "Sv39": {"supported": false}, "Sv48": {"supported": true}, "Sv57": {"supported": false}}
+}

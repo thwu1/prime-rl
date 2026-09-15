@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing two NP-hard compiler backend algorithms (register allocation with spill support and VLIW instruction scheduling with latency constraints), then integrating the compiler into a multi-tool pipeline: compiling a C-based cycle-accurate simulator with gcc, learning a custom .vbin interchange format, using unfamiliar Python CLI tools (vexport, vdot) to export and analyze compiled programs, and rendering dependency graphs with graphviz. The interaction between register allocation and scheduling (WAR/WAW hazards, spill code scheduling, latency-aware packing) demands compiler engineering expertise, while the toolchain integration requires proficiency with gcc, custom CLI interfaces, and multi-format data pipelines."""
+solution_explanation = """The solution implements a two-phase compiler backend: (1) linear-scan register allocation mapping virtual to physical registers, inserting spill stores and reload loads when pressure exceeds max_regs via a furthest-next-use eviction heuristic; (2) list scheduling building a dependency graph (RAW, WAW, WAR hazards), computing critical-path priorities, and greedily packing instructions into VLIW bundles. The toolchain is integrated by compiling vsim.c with gcc -O2, running vexport.py --all to produce .vbin interchange files, validating each with vsim, and generating DOT/SVG dependency graphs with vdot.py piped to graphviz dot."""
+verification_explanation = """Tests verify: (1) the C simulator binary exists and is executable at /app/tools/vsim, (2) .vbin interchange files are generated for all four programs in /app/output/, (3) running the C simulator on each .vbin produces memory output matching the Python sequential reference and cycle counts within targets, (4) DOT dependency graph files exist and contain valid digraph syntax, (5) SVG rendered graphs exist with non-trivial size, (6) the Python-level compile() function produces correct, validated output for all four test cases through the Python simulator."""
+category = "systems"
+tags = ["compilers", "toolchains"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vliw-register-alloc"

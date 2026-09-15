@@ -1,0 +1,38 @@
+name: west
+mgmt:
+  ipv4-subnet: 172.20.20.0/24
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+  nodes:
+    spine1:
+      labels:
+        role: spine
+    spine2:
+      labels:
+        role: spine
+    leaf1:
+      labels:
+        role: leaf
+    leaf2:
+      labels:
+        role: leaf
+    leaf3:
+      labels:
+        role: leaf
+    server1:
+      labels:
+        role: server
+    server2:
+      labels:
+        role: server
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine1:eth3", "leaf3:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["spine2:eth3", "leaf3:eth2"]
+    - endpoints: ["leaf1:eth3", "server1:eth1"]
+    - endpoints: ["leaf2:eth3", "server2:eth1"]

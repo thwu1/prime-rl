@@ -1,0 +1,56 @@
+# Multi-connection execution tests
+
+# Create a table on the default connection
+statement ok
+CREATE TABLE mc_data(id INTEGER, val VARCHAR)
+
+statement ok
+INSERT INTO mc_data VALUES (1, 'alpha'), (2, 'beta'), (3, 'gamma')
+
+# Read from a named connection - should see the shared table
+query IT @reader
+SELECT * FROM mc_data ORDER BY id
+----
+1	alpha
+2	beta
+3	gamma
+
+# Write from a named connection, read from default
+statement ok @writer
+INSERT INTO mc_data VALUES (4, 'delta')
+
+query I
+SELECT COUNT(*) FROM mc_data
+----
+4
+
+# Multiple named connections coexist
+query I @con_a
+SELECT id FROM mc_data WHERE id <= 2 ORDER BY id
+----
+1
+2
+
+query I @con_b
+SELECT id FROM mc_data WHERE id > 2 ORDER BY id
+----
+3
+4
+
+# Named connection with sorting
+query IT rowsort @con_a
+SELECT id, val FROM mc_data
+----
+1	alpha
+2	beta
+3	gamma
+4	delta
+
+# Named connection with aggregation
+query I @con_b
+SELECT SUM(id) FROM mc_data
+----
+10
+
+statement ok
+DROP TABLE mc_data

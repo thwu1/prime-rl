@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the BPE algorithm and advanced data structure design (doubly-linked list for O(1) local merges, priority queue with lazy deletion for best-pair lookup, incremental pair frequency table). The core difficulty lies in correctly handling overlapping pair occurrences (e.g. 'aaaa' where merging (a,a) at one position invalidates adjacent overlapping pairs) while maintaining exact equivalence with the naive left-to-right greedy merge behavior. Demands careful reasoning about cascading updates within a single merge step and correct position-ordered processing."""
+solution_explanation = """Uses a doubly-linked list to represent each regex-split chunk, enabling O(1) local merge operations. Maintains a global pair frequency table and tracks exact node positions for each pair. A max-heap with lazy deletion efficiently finds the most frequent pair. When merging, only neighboring pairs of affected positions are updated incrementally. Nodes are sorted by their original position index to match the naive implementation's left-to-right greedy merging behavior for overlapping pair occurrences. Encode and decode reuse the standard BPE bottom-up merge approach."""
+verification_explanation = """Tests compare merge sequences between naive and fast implementations on multiple corpora (small hardcoded text, medium corpus subset, varied-content text) for exact pair-by-pair equality. Additional tests verify encode/decode round-trip identity, correct handling of overlapping pair edge cases (triple, quad, quintuple repeated characters), empty/single-char inputs, and a performance requirement (500 merges on ~600KB corpus within 30 seconds)."""
+category = "algorithms"
+tags = ["data-structures", "nlp"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-bpe-training"

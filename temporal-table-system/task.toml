@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert PL/pgSQL debugging and implementation. The solver must diagnose three subtle interacting bugs in a deployed temporal versioning system from test failures alone — a composite-PK trigger WHERE clause defect, a missing initial-state snapshot, and an off-by-one temporal boundary — then implement a non-trivial merge_history function requiring dynamic SQL with window-function-style adjacent-record detection across arbitrary schemas and composite primary keys."""
+solution_explanation = """Bug 1: The trigger function's WHERE clause for UPDATE/DELETE only references the first PK column, breaking composite-PK history closure. Fix by building the WHERE from all PK columns. Bug 2: enable_versioning omits the INSERT INTO history SELECT FROM source that captures pre-existing rows. Fix by adding the snapshot step. Bug 3: table_at uses strict '<' for _valid_from instead of '<=', making rows invisible at their exact creation time. Fix by changing to '<='. merge_history uses an iterative self-join approach: find a pair of adjacent records (a._valid_to = b._valid_from) with matching PK and identical non-PK columns (IS NOT DISTINCT FROM comparison), extend record a's _valid_to to b's _valid_to, delete record b, and repeat until no pairs remain. Returns total records removed."""
+verification_explanation = """test.sh starts PostgreSQL, creates the temporal_test database, applies seed.sql and temporal.sql, then runs pytest with 34 tests covering: enable/disable lifecycle with error cases, INSERT/UPDATE/DELETE tracking for single and composite PKs, composite-PK update isolation (the key diagnostic test for bug 1), existing-data capture (bug 2), temporal queries with exact-boundary semantics (bug 3), changes_between with null-field assertions and unchanged-entity exclusion, and merge_history correctness including chain collapse, value-difference preservation, post-merge temporal query accuracy, and composite-PK merging."""
+category = "database_programming"
+tags = ["plpgsql", "temporal-tables"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/temporal-table-system"

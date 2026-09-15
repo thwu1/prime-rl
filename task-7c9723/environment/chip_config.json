@@ -1,0 +1,56 @@
+{
+  "grid": {
+    "rows": 12,
+    "cols": 10,
+    "dram_banks": [
+      {"id": 0, "x": 0, "y": 0},
+      {"id": 1, "x": 0, "y": 2},
+      {"id": 2, "x": 0, "y": 4},
+      {"id": 3, "x": 0, "y": 6},
+      {"id": 4, "x": 0, "y": 8},
+      {"id": 5, "x": 0, "y": 10},
+      {"id": 6, "x": 9, "y": 1},
+      {"id": 7, "x": 9, "y": 3},
+      {"id": 8, "x": 9, "y": 5},
+      {"id": 9, "x": 9, "y": 7},
+      {"id": 10, "x": 9, "y": 9},
+      {"id": 11, "x": 9, "y": 11}
+    ],
+    "worker_x_range": [1, 8],
+    "worker_y_range": [0, 11],
+    "dram_bank_bandwidth_gbps": 24,
+    "noc_link_bandwidth_gbps": 32
+  },
+  "scenarios": [
+    {
+      "name": "no_harvest",
+      "harvested_rows": [],
+      "description": "Baseline: no rows harvested, all readers at ideal 1-hop positions"
+    },
+    {
+      "name": "single_harvest",
+      "harvested_rows": [5],
+      "description": "One odd row harvested, displacing one right-side reader"
+    },
+    {
+      "name": "double_harvest",
+      "harvested_rows": [0, 5],
+      "description": "One even + one odd row harvested, displacing one reader per side"
+    },
+    {
+      "name": "triple_harvest",
+      "harvested_rows": [0, 2, 4],
+      "description": "Three even rows harvested, displacing three left-side readers into adjacent odd rows"
+    },
+    {
+      "name": "adjacent_harvest",
+      "harvested_rows": [4, 5],
+      "description": "Two adjacent rows (even+odd) harvested, forcing multi-hop displacement on both sides"
+    },
+    {
+      "name": "heavy_harvest",
+      "harvested_rows": [0, 2, 3, 4, 5],
+      "description": "Five rows harvested including a block of four adjacent rows. Right-side banks 7 and 8 are forced onto the single remaining row y=1, competing with bank 6 for column positions. Left-side banks must navigate column-spreading to avoid south-segment link conflicts."
+    }
+  ]
+}

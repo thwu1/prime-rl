@@ -1,0 +1,14 @@
+// RUN: %ir-opt --cse %s | FileCheck %s
+
+func @check_cse(%arg0: i32, %arg1: i32) -> i32 {
+  %a = arith.addi %arg0, %arg1 : i32
+  %b = arith.addi %arg0, %arg1 : i32
+  %c = arith.muli %a, %b : i32
+  return %c : i32
+}
+
+// CHECK-LABEL: func @check_cse
+// CHECK-DAG: [[R:%.+]] = arith.addi %arg0
+// CHECK-DAG: arith.addi {{.*}}, %arg1
+// CHECK-NOT: arith.addi
+// CHECK: arith.muli [[R]], [[R]]

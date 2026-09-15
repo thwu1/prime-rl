@@ -1,0 +1,67 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires implementing a complete Pratt (TDOP) parser from scratch in C with flex
+integration for tokenization. The agent must write a valid flex lexer specification
+(.l file) with correct longest-match rules for multi-character operators (**,==,!=,
+<=,>=,<<,>>,&&,||), keyword/identifier disambiguation, and comment handling. The
+flex-generated yylex must interoperate with a hand-written C Pratt parser via shared
+token definitions in a header file, coordinated through a Makefile build pipeline
+(flex -> gcc). The parser handles 13 operator precedence levels, right-associative
+exponentiation, ternary conditional, dynamic operator table mutation for user-defined
+operators, and must correctly integrate flex's stateless token stream with the
+stateful Pratt algorithm. The evaluator requires environment-chain scoping for let
+bindings, mutual recursion via function hoisting, and short-circuit logical evaluation.
+The multi-tool build pipeline (flex, gcc, make) demands familiarity with tool-specific
+conventions (yylval, yyin, %option directives, Makefile dependencies).
+"""
+solution_explanation = """
+The solution consists of three files: tokens.h defines token constants and a shared
+TokenValue struct; lexer.l is a flex specification using %option noyywrap and longest-
+match patterns for all operators/keywords; minipratt.c implements the full pipeline.
+The Pratt parser uses binding power comparison for precedence, the left/right
+associativity trick (next_bp = prec+1 for left-assoc, prec for right-assoc), and
+special-cases ternary (parse mid at bp=0, else at bp=2). Custom operators are
+registered in a linked-list table during parsing and looked up during expression
+parsing for infix/prefix positions. The evaluator does a two-pass approach: first
+hoisting all fn/operator definitions into tables, then evaluating expressions with
+environment-chain scoping. The flex-generated lex.yy.c is linked with minipratt.c
+by gcc via the provided Makefile.
+"""
+verification_explanation = """
+20 pytest tests verify: Makefile build succeeds, flex specification exists with %%
+delimiters, basic arithmetic precedence, right-associative exponentiation, chained
+unary negation, parenthesized grouping, ternary expressions including right-
+associative chaining, bitwise operators with correct relative precedence, shift
+operators vs addition precedence, let bindings with nested scoping, simple and
+recursive functions, mutually-recursive functions (even/odd), user-defined left-
+and right-associative infix operators, user-defined prefix operators, mixed built-in
+precedence levels, short-circuit logical operators, and a complex integrative program
+combining recursive functions, custom operators, and let bindings to compute GCD.
+"""
+category = "compilers"
+tags = ["parsing", "flex-lexer"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pratt-parser-evaluator"

@@ -1,0 +1,24 @@
+Dataset {
+  Float64 time[time = 1095];
+  Float64 altitude[altitude = 1];
+  Float64 latitude[latitude = 2400];
+  Float64 longitude[longitude = 7200];
+  GRID {
+    ARRAY:
+      Float32 chlor_a[time = 1095][altitude = 1][latitude = 2400][longitude = 7200];
+    MAPS:
+      Float64 time[time = 1095];
+      Float64 altitude[altitude = 1];
+      Float64 latitude[latitude = 2400];
+      Float64 longitude[longitude = 7200];
+  } chlor_a;
+  GRID {
+    ARRAY:
+      Int16 quality_flags[time = 1095][altitude = 1][latitude = 2400][longitude = 7200];
+    MAPS:
+      Float64 time[time = 1095];
+      Float64 altitude[altitude = 1];
+      Float64 latitude[latitude = 2400];
+      Float64 longitude[longitude = 7200];
+  } quality_flags;
+} chlor_viirs;

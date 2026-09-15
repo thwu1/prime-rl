@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["levels", "difficulty_ranking"],
+  "properties": {
+    "levels": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "name", "num_pushes", "num_moves",
+          "dead_square_count", "reachable_states", "solution_depth",
+          "corner_deadlocks", "freeze_deadlocks"
+        ],
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "num_pushes": {"type": "integer"},
+          "num_moves": {"type": "integer"},
+          "dead_square_count": {"type": "integer"},
+          "reachable_states": {"type": "integer"},
+          "solution_depth": {"type": "integer"},
+          "corner_deadlocks": {"type": "integer"},
+          "freeze_deadlocks": {"type": "integer"}
+        }
+      }
+    },
+    "difficulty_ranking": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"type": "integer"},
+      "description": "Level IDs ordered by reachable_states descending (hardest first)"
+    }
+  }
+}

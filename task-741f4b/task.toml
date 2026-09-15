@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete SysY-to-LLVM-IR compiler and integrating it with the LLVM toolchain (clang, llvm-link, lli). Key challenges: (1) generating valid LLVM IR with opaque pointer syntax for all SysY constructs including multi-dimensional arrays, pass-by-reference array parameters via GEP, and short-circuit logical operators using basic blocks; (2) orchestrating clang to compile the C runtime library to LLVM bitcode; (3) linking generated IR with runtime bitcode via llvm-link and executing via lli; (4) handling correct SSA-style code generation with alloca/load/store patterns, control flow with proper basic block termination, and compile-time constant evaluation for array dimensions."""
+solution_explanation = """Write a Python-based SysY compiler with hand-written lexer and recursive descent parser producing an AST, then an IR code generator that emits LLVM IR text using the alloca/load/store pattern (avoiding SSA complexity). Arrays use getelementptr with opaque pointers. Short-circuit && and || use alloca-based results with conditional branches. The driver script compiles the runtime library to bitcode with clang -c -emit-llvm, links with llvm-link, and executes with lli."""
+verification_explanation = """15 test programs cover all SysY language features. For each test, the pipeline (sysy_run) is invoked on the source file with optional stdin, and stdout plus exit code are compared against expected values. Tests include: short-circuit evaluation with global side effects, negative integer division, variable shadowing, 2D array parameter passing, const arrays, dangling-else, bubble sort with pass-by-reference arrays, and Fibonacci with memoization via global arrays."""
+category = "compilers"
+tags = ["llvm-toolchain", "code-generation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-741f4b"

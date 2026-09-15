@@ -1,0 +1,17 @@
+{
+  "FS_EKF_THRESH": {"min": 0.1, "max": 1.0, "default": 0.8, "description": "EKF failsafe variance threshold"},
+  "FS_EKF_ACTION": {"min": 0, "max": 3, "default": 1, "description": "EKF failsafe action"},
+  "FS_THR_ENABLE": {"min": 0, "max": 7, "default": 1, "description": "Throttle failsafe enable"},
+  "FS_GCS_ENABLE": {"min": 0, "max": 7, "default": 1, "description": "GCS failsafe enable"},
+  "FS_BATT_ENABLE": {"min": 0, "max": 2, "default": 0, "description": "Battery failsafe enable"},
+  "EK3_GPS_CHECK": {"min": 0, "max": 255, "default": 31, "description": "GPS health check bitmask"},
+  "EK3_CHECK_SCALE": {"min": 100, "max": 300, "default": 100, "description": "EKF innovation consistency check scale factor"},
+  "PILOT_THR_FILT": {"min": 0.0, "max": 10.0, "default": 0.5, "description": "Throttle filter cutoff frequency in Hz"},
+  "ARMING_CHECK": {"min": 0, "max": 524287, "default": 1, "description": "Arming checks bitmask"},
+  "GPS_TYPE": {"min": 0, "max": 21, "default": 1, "description": "GPS receiver type"},
+  "INS_LOG_BAT_OPT": {"min": 0, "max": 7, "default": 0, "description": "INS batch logging options bitmask"},
+  "FRAME_TYPE": {"min": 0, "max": 22, "default": 0, "description": "Motor frame type"},
+  "RTL_ALT": {"min": 0, "max": 800000, "default": 1500, "description": "RTL altitude in centimeters"},
+  "WPNAV_SPEED": {"min": 20, "max": 2000, "default": 500, "description": "Waypoint navigation horizontal speed in cm/s"},
+  "INS_ACCEL_FILTER": {"min": 2.0, "max": 10.0, "default": 5.0, "description": "Accelerometer filter cutoff frequency in Hz"}
+}

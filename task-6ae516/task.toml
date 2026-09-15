@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of GPU architecture: register allocation granularity and per-warp rounding, configurable shared memory carve-outs (L1/SMEM partitioning tradeoff requiring discrete optimization over carve-out options), multi-resource occupancy limiting with tie-breaking, global memory sector-based coalescing analysis, shared memory bank conflict computation via modular arithmetic on affine index expressions, and kernel fusion feasibility analysis considering combined register overflow. The agent must integrate data from three heterogeneous sources (SQLite, CSV, JSON), reason about cross-architecture differences, and diagnose performance discrepancies caused by suboptimal carve-out configurations — none of which is explained in the instructions."""
+solution_explanation = """Build a Python tool that (1) loads architecture specs from JSON, queries kernel data from SQLite, and parses profiling CSVs; (2) for each kernel-architecture pair, iterates shared memory carve-outs to find the smallest achieving maximum occupancy by computing register, shared memory, and block-size limits; (3) counts 32-byte sectors per warp request for coalescing analysis; (4) maps affine shared memory index expressions to banks for conflict degree; (5) compares measured profiling occupancy against theoretical to diagnose suboptimal carve-outs; (6) evaluates kernel fusion by summing register and shared memory requirements and checking if a fused block can launch."""
+verification_explanation = """Tests load the generated audit_report.json and verify exact numerical values for all 10 kernel-architecture occupancy computations, 12 global memory coalescing patterns, 9 shared memory bank conflict degrees, 10 diagnosis discrepancy flags, and 5 fusion analyses including one infeasible case. Integer values are checked exactly; floats use 0.01 tolerance."""
+category = "systems"
+tags = ["gpu-architecture", "performance-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6ae516"

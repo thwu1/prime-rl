@@ -1,0 +1,6 @@
+{
+  "name": "kernel_zeta",
+  "registers_per_thread": 24,
+  "shared_memory_bytes": 65536,
+  "description": "Large shared memory footprint kernel"
+}

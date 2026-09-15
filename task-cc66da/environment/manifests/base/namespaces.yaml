@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alpha
+  labels:
+    purpose: web
+    kubernetes.io/metadata.name: alpha
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: beta
+  labels:
+    purpose: compute
+    kubernetes.io/metadata.name: beta
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gamma
+  labels:
+    purpose: storage
+    kubernetes.io/metadata.name: gamma
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: delta
+  labels:
+    purpose: monitoring
+    kubernetes.io/metadata.name: delta
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: epsilon
+  labels:
+    purpose: external
+    kubernetes.io/metadata.name: epsilon

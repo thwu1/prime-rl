@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires formulating a two-stage stochastic mixed-integer program coupling electrolyzer commitment (first-stage binary, shared across scenarios) with scenario-specific continuous dispatch. The agent must implement CVaR risk measurement via the Rockafellar-Uryasev LP reformulation (auxiliary VaR variable, per-scenario excess variables), correctly model a non-concave piecewise-linear electrolyzer efficiency curve using binary segment selection (LP relaxation without SOS2/binary variables overestimates hydrogen production due to non-concavity), enforce min-uptime/downtime cycling on first-stage binaries, maintain per-scenario storage dynamics and end-of-horizon sustainability, compute the Value of Stochastic Solution by solving both the Expected Value problem and its stochastic re-evaluation, and extract physically consistent metrics. The interaction between stochastic programming theory, risk measures, PWL modeling, and energy system domain knowledge requires holistic expert understanding."""
+solution_explanation = """Uses PuLP with CBC to build a two-stage stochastic MILP. First-stage binary electrolyzer commitment is shared across scenarios. Per-scenario dispatch uses disaggregated convex combination for the non-concave electrolyzer PWL curve (binary segment indicators plus position variables). CVaR is modeled via eta (VaR) and per-scenario excess variables. Three separate solves: (1) full stochastic RP, (2) deterministic mean-scenario EV problem, (3) stochastic re-evaluation with fixed EV commitment for EEV/VSS computation."""
+verification_explanation = """Tests independently formulate and solve the same stochastic MILP from raw data using PuLP+CBC. The stochastic objective, expected cost, and CVaR are compared within tolerance (3-5%). Structural invariants are verified: objective decomposes as (1-lambda)*E[cost]+lambda*CVaR, VaR <= CVaR, worst scenario cost >= expected cost, VSS >= 0, VSS = eev_cost - expected_cost, and renewable fraction is in [0,1]."""
+category = "optimization"
+tags = ["stochastic-programming", "energy-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microgrid-dispatch-optimization"

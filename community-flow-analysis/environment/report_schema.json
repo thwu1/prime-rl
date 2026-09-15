@@ -1,0 +1,20 @@
+{
+  "_readme": "Produce /app/results.json conforming to this schema. All analytical fields required.",
+  "active_nodes": "int: count of operational nodes eligible for analysis",
+  "valid_links": "int: count of usable links after data cleaning",
+  "data_issues_found": "int: total node and link records excluded",
+  "community_count": "int: number of structural communities detected",
+  "modularity": "float: Newman-Girvan modularity Q of the community partition",
+  "community_map": "object: keys are node ids as strings, values are integer community labels — include every active node",
+  "max_flow": {
+    "source": 1,
+    "target": 29,
+    "value": "COMPUTE: maximum flow between source and target using link capacities"
+  },
+  "critical_link": {
+    "node_a": "COMPUTE",
+    "node_b": "COMPUTE",
+    "flow_impact": "COMPUTE: decrease in max-flow when this single link is removed (the link causing the greatest decrease)"
+  },
+  "bridges": "list of [int, int] pairs: links whose individual removal disconnects the network"
+}

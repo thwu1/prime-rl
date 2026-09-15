@@ -1,0 +1,216 @@
+[
+  {
+    "id": 1,
+    "function": "gamma",
+    "params": {
+      "z_re": "3.7",
+      "z_im": "2.1"
+    },
+    "required_digits": 40,
+    "description": "Gamma(3.7+2.1i)"
+  },
+  {
+    "id": 2,
+    "function": "gamma",
+    "params": {
+      "z_re": "-3.5",
+      "z_im": "0.001"
+    },
+    "required_digits": 40,
+    "description": "Gamma near negative half-integer"
+  },
+  {
+    "id": 3,
+    "function": "gamma",
+    "params": {
+      "z_re": "25.3",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Gamma(25.3)"
+  },
+  {
+    "id": 4,
+    "function": "digamma",
+    "params": {
+      "z_re": "0.25",
+      "z_im": "10.0"
+    },
+    "required_digits": 40,
+    "description": "Digamma(0.25+10i)"
+  },
+  {
+    "id": 5,
+    "function": "besselj",
+    "params": {
+      "n": "0",
+      "z_re": "2.40482",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "J_0 near its first zero"
+  },
+  {
+    "id": 6,
+    "function": "besselj",
+    "params": {
+      "n": "20",
+      "z_re": "19.5",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "J_20 near turning point"
+  },
+  {
+    "id": 7,
+    "function": "bessely",
+    "params": {
+      "n": "0",
+      "z_re": "7.5",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Y_0(7.5)"
+  },
+  {
+    "id": 8,
+    "function": "besselj",
+    "params": {
+      "n": "5",
+      "z_re": "3.0",
+      "z_im": "4.0"
+    },
+    "required_digits": 40,
+    "description": "J_5(3+4i)"
+  },
+  {
+    "id": 9,
+    "function": "airy_ai",
+    "params": {
+      "z_re": "-8.5",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Ai(-8.5) oscillatory"
+  },
+  {
+    "id": 10,
+    "function": "airy_bi",
+    "params": {
+      "z_re": "1.0",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Bi(1.0)"
+  },
+  {
+    "id": 11,
+    "function": "airy_ai",
+    "params": {
+      "z_re": "2.0",
+      "z_im": "3.0"
+    },
+    "required_digits": 40,
+    "description": "Ai(2+3i)"
+  },
+  {
+    "id": 12,
+    "function": "hyp1f1",
+    "params": {
+      "a": "10.5",
+      "b": "3.25",
+      "z_re": "7.0",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "1F1(10.5;3.25;7)"
+  },
+  {
+    "id": 13,
+    "function": "hyp1f1",
+    "params": {
+      "a": "1.5",
+      "b": "2.5",
+      "z_re": "5.0",
+      "z_im": "5.0"
+    },
+    "required_digits": 40,
+    "description": "1F1(1.5;2.5;5+5i)"
+  },
+  {
+    "id": 14,
+    "function": "hyp2f1",
+    "params": {
+      "a": "0.5",
+      "b": "0.75",
+      "c": "1.5",
+      "z_re": "0.9",
+      "z_im": "0.1"
+    },
+    "required_digits": 40,
+    "description": "2F1 near unit circle"
+  },
+  {
+    "id": 15,
+    "function": "hyp2f1",
+    "params": {
+      "a": "2.0",
+      "b": "3.0",
+      "c": "5.5",
+      "z_re": "-0.75",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "2F1(2,3;5.5;-0.75)"
+  },
+  {
+    "id": 16,
+    "function": "expint_e1",
+    "params": {
+      "z_re": "0.001",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "E1(0.001) near singularity"
+  },
+  {
+    "id": 17,
+    "function": "expint_e1",
+    "params": {
+      "z_re": "2.0",
+      "z_im": "1.0"
+    },
+    "required_digits": 40,
+    "description": "E1(2+i)"
+  },
+  {
+    "id": 18,
+    "function": "gamma",
+    "params": {
+      "z_re": "0",
+      "z_im": "5.0"
+    },
+    "required_digits": 40,
+    "description": "Gamma(5i)"
+  },
+  {
+    "id": 19,
+    "function": "airy_ai",
+    "params": {
+      "z_re": "-15.0",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Ai(-15) deep oscillatory"
+  },
+  {
+    "id": 20,
+    "function": "digamma",
+    "params": {
+      "z_re": "-2.75",
+      "z_im": "0"
+    },
+    "required_digits": 40,
+    "description": "Digamma(-2.75)"
+  }
+]

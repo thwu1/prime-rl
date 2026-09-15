@@ -1,0 +1,148 @@
+{
+  "properties": [
+    {
+      "id": "P1",
+      "name": "no_alu_overflow_on_add",
+      "module": "alu",
+      "type": "safety",
+      "description": "ALU addition never overflows for valid operands",
+      "signals_referenced": ["alu.op_a", "alu.op_b", "alu.alu_op", "alu.overflow"]
+    },
+    {
+      "id": "P2",
+      "name": "cache_hit_implies_ready",
+      "module": "cache_ctrl",
+      "type": "safety",
+      "description": "Cache hit always results in ready within 1 cycle",
+      "signals_referenced": ["cache_ctrl.hit", "cache_ctrl.cpu_ready", "cache_ctrl.state"]
+    },
+    {
+      "id": "P3",
+      "name": "arbiter_mutual_exclusion",
+      "module": "mem_arbiter",
+      "type": "safety",
+      "description": "Arbiter never grants two masters simultaneously",
+      "signals_referenced": ["mem_arbiter.grant", "mem_arbiter.active_master"]
+    },
+    {
+      "id": "P4",
+      "name": "cache_coherence_dirty_writeback",
+      "module": "cache_ctrl",
+      "type": "safety",
+      "description": "Dirty cache line is written back before eviction completes",
+      "signals_referenced": ["cache_ctrl.dirty", "cache_ctrl.evict", "cache_ctrl.state", "data_ram.data_out"]
+    },
+    {
+      "id": "P5",
+      "name": "interrupt_priority_ordering",
+      "module": "interrupt_ctrl",
+      "type": "safety",
+      "description": "Higher priority interrupt preempts lower priority",
+      "signals_referenced": ["interrupt_ctrl.irq_pending", "interrupt_ctrl.irq_priority", "interrupt_ctrl.irq_active"]
+    },
+    {
+      "id": "P6",
+      "name": "dma_transfer_completes",
+      "module": "dma_engine",
+      "type": "liveness",
+      "description": "DMA transfer eventually completes once started",
+      "signals_referenced": ["dma_engine.dma_state", "dma_engine.transfer_active", "dma_engine.count_reg"]
+    },
+    {
+      "id": "P7",
+      "name": "bus_bridge_no_data_loss",
+      "module": "bus_bridge",
+      "type": "safety",
+      "description": "Data sent through bridge is not corrupted",
+      "signals_referenced": ["bus_bridge.data_buf", "bus_bridge.src_ready", "bus_bridge.dst_ready"]
+    },
+    {
+      "id": "P8",
+      "name": "pc_alignment",
+      "module": "cpu_core",
+      "type": "safety",
+      "description": "Program counter is always word-aligned",
+      "signals_referenced": ["cpu_core.pc"]
+    },
+    {
+      "id": "P9",
+      "name": "stall_resolves",
+      "module": "cpu_core",
+      "type": "liveness",
+      "description": "Pipeline stall resolves within bounded cycles",
+      "signals_referenced": ["cpu_core.stall", "cache_ctrl.cpu_ready", "mem_arbiter.bus_busy"]
+    },
+    {
+      "id": "P10",
+      "name": "timer_monotonic",
+      "module": "timer_unit",
+      "type": "safety",
+      "description": "Timer counter is monotonically increasing until wrap",
+      "signals_referenced": ["timer_unit.counter", "timer_unit.prescaler"]
+    },
+    {
+      "id": "P11",
+      "name": "decode_valid_opcode",
+      "module": "decode_unit",
+      "type": "safety",
+      "description": "Decoder produces valid ALU operation for valid instruction",
+      "signals_referenced": ["decode_unit.opcode", "decode_unit.funct3", "decode_unit.alu_op", "cpu_core.instr"]
+    },
+    {
+      "id": "P12",
+      "name": "reg_write_read_consistency",
+      "module": "reg_file",
+      "type": "safety",
+      "description": "Register read after write returns written value",
+      "signals_referenced": ["reg_file.wr_addr", "reg_file.wr_data", "reg_file.wr_en", "reg_file.rd_addr1", "reg_file.rd_data1"]
+    },
+    {
+      "id": "P13",
+      "name": "system_eventually_ready",
+      "module": "top",
+      "type": "liveness",
+      "description": "System asserts ready after reset deasserts",
+      "signals_referenced": ["top.sys_ready", "cpu_core.mem_req", "cache_ctrl.cpu_ready", "mem_arbiter.bus_busy"]
+    },
+    {
+      "id": "P14",
+      "name": "arbiter_fairness",
+      "module": "mem_arbiter",
+      "type": "liveness",
+      "description": "Every requesting master is eventually granted",
+      "signals_referenced": ["mem_arbiter.req_queue", "mem_arbiter.grant", "mem_arbiter.priority"]
+    },
+    {
+      "id": "P15",
+      "name": "cache_miss_recovery",
+      "module": "cache_ctrl",
+      "type": "liveness",
+      "description": "Cache miss leads to eventual fill and ready",
+      "signals_referenced": ["cache_ctrl.miss", "cache_ctrl.fill", "cache_ctrl.state", "cache_ctrl.cpu_ready"]
+    },
+    {
+      "id": "P16",
+      "name": "dma_no_overwrite",
+      "module": "dma_engine",
+      "type": "safety",
+      "description": "DMA does not overwrite source region during transfer",
+      "signals_referenced": ["dma_engine.src_addr_reg", "dma_engine.dst_addr_reg", "dma_engine.transfer_active"]
+    },
+    {
+      "id": "P17",
+      "name": "irq_ack_clears_pending",
+      "module": "interrupt_ctrl",
+      "type": "safety",
+      "description": "Acknowledging interrupt clears its pending status",
+      "signals_referenced": ["interrupt_ctrl.irq_pending", "interrupt_ctrl.irq_active"]
+    },
+    {
+      "id": "P18",
+      "name": "bridge_handshake",
+      "module": "bus_bridge",
+      "type": "safety",
+      "description": "Bridge follows valid handshake protocol",
+      "signals_referenced": ["bus_bridge.bridge_state", "bus_bridge.src_ready", "bus_bridge.dst_ready"]
+    }
+  ]
+}

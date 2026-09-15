@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level expertise in computational fluid dynamics and numerical linear algebra. The agent must: (1) explore scattered configuration files to piece together the full problem specification, (2) run and diagnose a broken solver that uses a collocated grid (causing checkerboard pressure instability, wrong divergence operator, and no iterative solver), (3) independently determine that a staggered variable placement is needed for inf-sup stability of the Stokes saddle-point system, (4) design and implement an appropriate iterative solver with effective preconditioning for the indefinite system, and (5) correctly handle ghost-cell boundary treatment at offset faces and face-to-center interpolation for output."""
+solution_explanation = """The solution reads all configuration files from /app/config/ to assemble the problem specification. It diagnoses the failed solver's fundamental flaws: collocated grid placement violating inf-sup stability, wrong divergence operator sign (D=G^T instead of D=-G^T), direct solve producing iterations=1, and cell-center divergence instead of face-based. The correct solution implements a staggered MAC grid with pressure at cell centers and velocities at cell faces, ghost-cell extrapolation for boundary conditions at offset faces, and a block Schur complement preconditioner (S_approx = D*diag(A)^{-1}*G) within GMRES. Pressure null space is removed via small regularization. Face velocities are interpolated to cell centers for output; divergence is computed from face fluxes."""
+verification_explanation = """Tests verify 10 independent physical and numerical properties, each corresponding to a documented validation criterion in the instruction: output file existence and dimensions (ny x nx), mass conservation (max|div|<1e-4), u-velocity symmetry and v-velocity antisymmetry about x=0.5, pressure antisymmetry and zero-mean, correct flow direction (positive u near lid, return flow below), iterative solver convergence (1<iters<500), and velocity magnitude bounds (0.1<max_speed<2.0)."""
+category = "scientific_computing"
+tags = ["computational-fluid-dynamics", "numerical-linear-algebra"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stokes-schur-solver"

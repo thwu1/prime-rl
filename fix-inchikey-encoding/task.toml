@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-file C project with CMake build system issues, three interacting encoding bugs in the InChIKey generator (lookup table construction order, byte endianness in SHA-256 digest consumption, and standard/non-standard InChI prefix parsing), a subtle SDF parser bug where trailing newlines corrupt hash inputs, and implementing an open-addressing hash table for duplicate detection. The bugs span different domains (build systems, cryptographic hash consumption, chemical identifier specifications, file format parsing, data structures) and require cross-referencing code against the IUPAC InChI specification. The SDF parser bug is particularly hard to diagnose because it produces well-formed but incorrect InChIKeys."""
+solution_explanation = """Six fixes across four files: (1) CMakeLists.txt: add missing src/sdf_parser.c to the source list to resolve linker errors. (2) inchikey.c init_tables: the triplet lookup table assigns loop variables to wrong character positions — i (outer) maps to s[2] and k (inner) maps to s[0], producing wrong enumeration order; swap to i->s[0], k->s[2]. (3) inchikey.c encode_base26: digest bytes are copied in reverse (big-endian) order but InChI spec requires little-endian; change digest[nbytes-1-i] to digest[i]. (4) inchikey.c generate_inchikey: always skips 8 chars for prefix but standard InChIs have 9-char prefix InChI=1S/; detect the S marker and adjust offset and flag. (5) sdf_parser.c: fgets retains trailing newline on InChI value lines; add strip_newline(value_line) before copying into the record. (6) dedup.c: implement dedup_insert using djb2 hash function with linear probing — hash the 27-char InChIKey, probe slots, return first-occurrence index on match or insert and return -1."""
+verification_explanation = """Tests build the project with CMake, then verify three modes: (1) --keys mode is tested with 7 standard and 1 non-standard InChI against reference InChIKeys verified from the IUPAC InChI library and Wikipedia; includes individual molecule tests, batch processing, format validation, and standard-vs-nonstandard flag comparison. (2) --sdf mode parses a 9-record SDF file and verifies each output line's InChIKey and molecule name match expected values. (3) --dedup mode verifies detection of exactly 2 duplicate pairs (water and ethanol) with correct record indices and InChIKeys in the output."""
+category = "debugging"
+tags = ["cheminformatics", "c-cmake"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-inchikey-encoding"

@@ -1,0 +1,9 @@
+StorePath: /nix/store/zsp60hn424jza9hs5k668g1hlyyr0lvr-openssl-3.2.1-src
+URL: nar/zsp60hn424jza9hs5k668g1hlyyr0lvr.nar.xz
+Compression: xz
+FileHash: sha256:a03f8bb4180bc0ff8344d31a9cb5b23dc0fb99f99d05eb767757bc7454ef7993
+FileSize: 1202533
+NarHash: sha256:70d281c396a6fe5dfe12f26cb490a2e888c3213fb3532a43f8352dd9a6fb135a
+NarSize: 43721333
+References:
+CA: fixed:r:sha256:1kmx3k6wj0pwxayd6frrxw29x6f41l3i3kjpjmpziay55mxg1q4p

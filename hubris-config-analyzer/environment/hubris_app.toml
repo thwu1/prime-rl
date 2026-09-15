@@ -1,0 +1,159 @@
+name = "gimlet-analysis-target"
+target = "thumbv7em-none-eabihf"
+board = "gimlet-rev-c"
+stacksize = 896
+
+[memory]
+flash = 2097152
+ram = 1048576
+
+[kernel]
+name = "gimlet"
+requires = {flash = 32768, ram = 8192}
+features = ["dump"]
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 2360
+features = ["dump", "fault-notification"]
+notifications = ["fault", "timer"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+priority = 1
+max-sizes = {flash = 16384, ram = 2048}
+uses = ["rcc", "gpios", "syscfg"]
+start = true
+task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+interrupts = {"exti.exti0" = "exti-wildcard-irq"}
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1048
+uses = ["i2c2", "i2c3"]
+start = true
+task-slots = ["sys"]
+notifications = ["i2c2-irq", "i2c3-irq"]
+
+[tasks.i2c_driver.interrupts]
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+
+[tasks.spi_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+interrupts = {"spi2.irq" = "spi-irq"}
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 4
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 1024
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.thermal]
+name = "task-thermal"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 2000
+start = true
+task-slots = ["i2c_driver", "sensor"]
+notifications = ["timer"]
+
+[tasks.gimlet_seq]
+name = "drv-gimlet-seq-server"
+priority = 3
+max-sizes = {flash = 131072, ram = 16384}
+stacksize = 2600
+start = true
+task-slots = ["sys", "i2c_driver", {spi = "spi_driver"}, "jefe", "power"]
+notifications = ["timer", "vcore"]
+
+[tasks.power]
+name = "task-power"
+priority = 5
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 3800
+start = true
+task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
+notifications = ["timer"]
+
+[tasks.net]
+name = "task-net"
+priority = 5
+max-sizes = {flash = 131072, ram = 65536}
+stacksize = 8000
+start = true
+uses = ["eth"]
+task-slots = ["sys", "jefe"]
+notifications = ["eth-irq", "mdio-timer-irq", "wake-timer"]
+interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
+
+[tasks.hiffy]
+name = "task-hiffy"
+priority = 4
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 1200
+start = true
+task-slots = ["sys", "i2c_driver", "thermal", "net"]
+notifications = ["timer"]
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+priority = 7
+max-sizes = {flash = 70000, ram = 65536}
+stacksize = 5376
+start = true
+task-slots = ["sys", "net", "gimlet_seq"]
+notifications = ["usart-irq", "timer"]
+interrupts = {"usart7.irq" = "usart-irq"}
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+max-sizes = {flash = 524288, ram = 262144}
+stacksize = 7000
+start = true
+task-slots = ["jefe", "net", "sys", "sensor", "dump_agent"]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 32768, ram = 16384}
+stacksize = 2400
+start = true
+task-slots = ["jefe", "net", "control_plane_agent"]
+notifications = ["socket"]
+
+[tasks.monitor]
+name = "task-monitor"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1600
+start = true
+task-slots = ["thermal", "power", "net"]
+notifications = ["timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 9
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true

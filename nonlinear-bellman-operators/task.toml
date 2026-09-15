@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled analysis, design, implementation, and debugging across 5 interdependent JAX modules. The solver must: (1) implement lambda_returns in multistep.py using a backward jax.lax.scan pattern with correct accumulator initialization and lambda-mixing, (2) implement V-trace importance-sampled corrections with separate clipping thresholds for trace coefficients vs TD weights, backward error accumulation, and stop_gradient wrapping that preserves forward values while blocking backward gradient flow, (3) design and implement the transform composition pattern for nonlinear Bellman operators without provided helper scaffolding — figuring out that transformed algorithms require inverse-transforming value inputs, computing base returns in untransformed space, and forward-transforming results, (4) diagnose and fix a subtle numerical bug in a provided module by analyzing test failures that are not caused by the solver's own code — requiring careful tracing of which module is responsible for incorrect values. The nonlinear_bellman functions require understanding how action-value and state-value based algorithms differ in their transform composition. All implementations must be vmap-compatible and handle stop_gradient semantics correctly."""
+solution_explanation = """Fix signed_parabolic in transforms.py (missing jnp.abs around x in the z formula). Implement lambda_returns via reverse jax.lax.scan with acc_init=v_t[-1] and body acc=r+d*((1-l)*v+l*acc), with stop_gradient via jax.lax.select. Implement vtrace: c=min(1,rho)*lambda, clipped_rho=min(threshold,rho), td=clipped_rho*(r+d*v'-v), reverse scan acc=td+d*c*acc, stop_gradient wrapping errors+v_tm1 then subtracting v_tm1. Implement vtrace_td_error_and_advantage: call vtrace, compute q_bootstrap from lambda-weighted targets, q_estimate=r+d*q_bootstrap, pg_advantage=clipped_pg_rho*(q-v). For nonlinear_bellman: create a transform_values decorator that inverse-transforms specified value args, calls base function, forward-transforms result. Apply it to create transformed_lambda_returns(multistep.lambda_returns, 2), transformed_off_policy_returns(multistep.general_off_policy_returns_from_action_values, 0), transformed_n_step_returns(multistep.n_step_bootstrapped_returns, 2). Use these in transformed_q_lambda (max Q for v, transformed lambda returns, subtract qa), transformed_retrace (retrace coefficients c=min(1,pi/mu)*lambda, call transformed off-policy returns), transformed_n_step_q_learning (batched_index for v, transformed n-step returns), and transformed_vtrace (inverse-transform v inputs, call vtrace, forward-transform targets-v)."""
+verification_explanation = """Tests verify: (1) Transform pair roundtrip invertibility across 4 pairs — will fail until transforms.py bug is fixed. (2) compose_tx correctness, ordering, and invertibility. (3) lambda_returns golden values and lambda=1 discounted-returns reduction. (4) V-trace golden values for on-policy, off-policy clipped, episode boundary, lambda=0, and higher clip threshold cases. (5) vtrace_td_error_and_advantage golden values and q_estimate consistency property. (6) Transformed Q(lambda), Retrace, n-step Q-learning golden values across 4 transforms with batched/vmapped inputs. (7) Transformed V-trace identity-match, non-identity divergence, target invertibility, and composed transform integration properties. (8) Gradient correctness: stop_target_gradients blocks gradients in lambda_returns, vtrace, and transformed_vtrace; gradient magnitudes verified when flowing."""
+category = "machine_learning"
+tags = ["reinforcement-learning", "jax"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonlinear-bellman-operators"

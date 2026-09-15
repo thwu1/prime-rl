@@ -1,0 +1,8 @@
+{
+  "id": "mut_003",
+  "title": "SUB performs addition instead of subtraction",
+  "description": "Replace subtraction operator with addition in SUB operation",
+  "equivalent": false,
+  "original_line": "            4'b0001: result = a - b;",
+  "mutated_line": "            4'b0001: result = a + b;"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional geodetic expertise across multiple dimensions: (1) translating EPSG method specifications (method codes, parameter tables with EPSG naming, ellipsoid definitions) into working PROJ pipeline strings — a non-trivial mapping requiring domain knowledge of projection methods and parameter conventions, (2) generating reference coordinates by running the constructed reference pipeline through cct, (3) evaluating competing candidate pipelines by computing positional RMSE against the reference, classifying into accuracy tiers, and producing defensible rankings, (4) identifying an unknown map projection type from raw surveyed control observations by analyzing geometric coordinate patterns (central meridian symmetry, conic distortion signatures), and (5) designing a working PROJ pipeline string with correct projection type, standard parallels, ellipsoid, and origin parameters. No pre-computed reference coordinates are provided — the solver must derive them."""
+solution_explanation = """Build reference pipelines by mapping EPSG method codes to PROJ types (9809→sterea, 9820→laea, 9602→cart), translating EPSG parameter names to PROJ flags, and resolving ellipsoid names to PROJ codes. Run each reference pipeline through cct on all input points to get expected coordinates. Then run each candidate pipeline through cct, compute positional residuals, derive RMSE and max error, classify by tier thresholds, and rank. For the design scenario: parse the CSV, observe constant easting at lon=132 to identify the central meridian, observe (132,0)→(0,0) for origin, detect conic behavior from N-departure at equator for off-CM points, search candidate standard parallel pairs with Albers Equal Area on GRS80, and validate the best fit achieves <0.05m RMSE."""
+verification_explanation = """Tests independently compute reference coordinates by running hardcoded reference pipelines (only present in the test file, not in the Docker image) through cct. For each candidate, the test computes RMSE and max error, then verifies the solver's reported metrics match within 5%/0.01m tolerance. Rankings, tier classifications, and survey recommendations are verified against the independently computed values. The designed pipeline is validated solely by execution — running it through cct against all CSV control points and checking every output is within 0.05m of the surveyed coordinates. No string matching on projection type name is performed."""
+category = "applied_computing"
+tags = ["geodesy", "coordinate-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geodetic-pipeline-forensics"

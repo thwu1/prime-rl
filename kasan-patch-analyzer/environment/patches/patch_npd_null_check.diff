@@ -1,0 +1,18 @@
+--- a/fs/gfs2/super.c
++++ b/fs/gfs2/super.c
+@@ -738,8 +738,14 @@ static void gfs2_evict_inode(struct inode *inode)
+ static int gfs2_drop_inode(struct inode *inode)
+ {
+ 	struct gfs2_inode *ip = GFS2_I(inode);
++	struct gfs2_sbd *sdp;
+
+-	if (inode->i_nlink &&
++	if (!inode->i_sb || !inode->i_sb->s_fs_info)
++		return generic_drop_inode(inode);
++
++	sdp = inode->i_sb->s_fs_info;
++
++	if (inode->i_nlink && sdp &&
+ 	    gfs2_holder_initialized(&ip->i_iopen_gh)) {
+ 		struct gfs2_glock *gl = ip->i_iopen_gh.gh_gl;
+

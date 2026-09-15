@@ -1,0 +1,10 @@
+{
+  "description": "Expert activation counts from profiling 10000 inference tokens on a representative dataset. layer_expert_counts[i][j] = number of times expert j in MoE layer i was activated.",
+  "num_tokens_profiled": 10000,
+  "layer_expert_counts": [
+    [200, 500, 75, 350, 100, 150, 50, 25],
+    [80, 30, 90, 100, 40, 600, 70, 50],
+    [200, 200, 200, 200, 200, 200, 200, 200],
+    [20, 50, 5, 800, 30, 10, 15, 700]
+  ]
+}

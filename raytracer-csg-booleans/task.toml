@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of computational geometry and ray-tracing architecture. The agent must independently devise an algorithm for CSG boolean intersection testing—enumerating all surface crossings along a ray for both child primitives, tracking inside/outside membership states, evaluating boolean predicates at each transition, and returning the first valid CSG boundary. Correct surface normal orientation for difference operations demands subtle geometric reasoning about when to invert the outward-facing convention. Interior ray origins (arising from refraction or secondary bounces) require robust initial-state determination from front_face flags. Composability (nested CSG trees where children are themselves CSG nodes) demands that the hit enumeration works correctly on non-convex, recursively-defined solids—not just simple primitives. The instruction provides only the API contract and outcome requirements; the agent must discover the full algorithm from first principles and the codebase's intersection model."""
+solution_explanation = """Implements CSG by collecting all ray-child intersection points via repeated hit() queries with advancing t_start, determining initial inside/outside state from front_face flags, walking sorted intersections while toggling inside states and evaluating boolean predicates (||, &&, &&!), and returning the first state transition as the hit point. For difference operations through the right child, front_face is flipped to maintain correct outward-facing normal convention. Bounding box is computed as union of children (for union/intersection) or left bbox only (for difference). Handles interior ray origins correctly by inferring initial membership from front_face of the first crossing for each child."""
+verification_explanation = """A standalone C++ test program is compiled against the agent's csg.h and verifies mathematical correctness across 12 tests: intersection t-values for union/intersection/difference of overlapping spheres match analytical solutions, normals face correctly, exit points match, rays that should miss do miss, disjoint intersection returns no hit, rays originating inside CSG solids find correct exit surfaces, and nested CSG (A - (A ∩ B) = A - B) produces equivalent results. Integration tests verify the project compiles, the scene includes nested CSG, and the renderer produces valid PPM output with non-trivial content."""
+category = "computer_graphics"
+tags = ["ray-tracing", "computational-geometry"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raytracer-csg-booleans"

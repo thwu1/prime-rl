@@ -1,0 +1,36 @@
+{
+  "batch_id": "RUN_2158A",
+  "run_date": "2158-01-10",
+  "operator": "Dr. M. Okafor",
+  "protocol_version": "v3.3",
+  "qc_metrics": {
+    "read_quality": {
+      "mean_phred_score": 36.4,
+      "min_phred_score": 30.2,
+      "reads_above_q30_pct": 96.8,
+      "pass": true
+    },
+    "contamination_screen": {
+      "method": "kraken2_v2.1",
+      "foreign_reads_pct": 0.003,
+      "detection_threshold_pct": 5.0,
+      "organisms_flagged": [],
+      "pass": true
+    },
+    "coverage_uniformity": {
+      "mean_depth": 52.6,
+      "coefficient_of_variation": 0.112,
+      "target_cv_max": 0.30,
+      "pass": true
+    },
+    "library_complexity": {
+      "unique_fragments_pct": 94.5,
+      "duplication_rate": 0.055,
+      "pass": true
+    }
+  },
+  "overall_qc": "PASS",
+  "reviewer": "Dr. K. Vasquez",
+  "review_date": "2158-01-16",
+  "notes": "Updated v3.3 protocol with improved sensitivity. Superior quality metrics."
+}

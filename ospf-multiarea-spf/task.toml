@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full OSPF inter-area routing computation per RFC 2328: per-area Dijkstra SPF, ABR Summary-LSA generation, multi-ABR path selection, E1 vs E2 external metric handling, forwarding address resolution, and link-failure convergence analysis. Additionally, three critical link costs are missing from the topology JSON and must be recovered by analyzing OSPF Router LSA packets in a pcap file using tshark (or equivalent packet analysis tool), correlating link IDs with metrics across multiple areas. The pcap also contains Hello packets requiring extraction of DR elections and timer values. This combines CCNP/CCIE-level OSPF knowledge with packet capture analysis tool proficiency."""
+solution_explanation = """The solution parses the pcap binary directly (IP + OSPF headers, Router LSA link entries, Hello bodies) to extract the three missing link costs by matching advertising router and area ID to target link IDs, and to extract Hello analysis values (count, DR, dead intervals, LSA link counts). The recovered costs are merged into the topology, then a multi-phase OSPF computation runs: (1) per-area Dijkstra SPF, (2) ABR intra-area route collection, (3) inter-area routes via backbone Summary-LSAs, (4) target router inter-area computation, (5) external routes with E1/E2 metrics and forwarding address resolution. Failover analysis removes the R8-R3 link and recomputes."""
+verification_explanation = """Tests verify exact routing table entries for R7 and R5: correct route types, exact OSPF costs, correct next-hop routers. Tests also verify pcap-derived analysis values: Hello packet count, Area 0 DR, R8's dead interval, and R3's Area 0 Router LSA link count — all requiring correct packet capture analysis."""
+category = "networking"
+tags = ["ospf", "packet-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ospf-multiarea-spf"

@@ -1,0 +1,52 @@
+ETW WMI_LOGGER_CONTEXT Flags Bitfield Reference
+=================================================
+
+The Flags field in WMI_LOGGER_CONTEXT is a 32-bit unsigned integer where
+each bit represents a specific feature or state of the trace session.
+
+Known bit positions:
+  Bit 0:  Persistent
+  Bit 1:  AutoLogger
+  Bit 2:  FsReady
+  Bit 3:  RealTime
+  Bit 4:  Wow
+  Bit 5:  KernelTrace
+  Bit 6:  NoMoreEnable
+  Bit 7:  StackTracing
+  Bit 8:  ErrorLogged
+  Bit 9:  RealtimeLoggerContextFreed
+  Bit 10: PebsTracing
+  Bit 11: PmcCounters
+  Bit 12: PageAlignBuffers
+  Bit 13: StackLookasideListAllocated
+  Bit 14: SecurityTrace
+  Bit 15: LastBranchTracing
+  Bits 16-23: SystemLoggerIndex (8 bits)
+  Bit 24: StackCaching
+  Bit 25: ProviderTracking
+  Bit 26: ProcessorTrace
+  Bit 27: QpcDeltaTracking
+  Bit 28: MarkerBufferSaved
+  Bit 29: LargeMdlPages
+  Bit 30: ExcludeKernelStack
+
+Expected flag patterns for well-known Windows sessions:
+  "NT Kernel Logger"    -> KernelTrace + RealTime       = 0x0028
+  "EventLog-Security"   -> AutoLogger + FsReady + ...   (includes AutoLogger bit)
+  "DefenderApiLogger"   -> AutoLogger + RealTime + ...  (includes AutoLogger bit)
+
+SecurityTrace (Bit 14):
+  When set, this flag restricts access to the trace session. Only processes
+  running with Antimalware Protected Process Light (AM-PPL) protection are
+  permitted to query or consume from such sessions. Sessions with this bit
+  set that have consumers lacking AM-PPL protection represent a potential
+  security bypass.
+
+  AM-PPL is indicated by PS_PROTECTION.Level = 0x31:
+    Type = 1 (ProtectedLight), Signer = 3 (Antimalware)
+
+Known protected ETW providers (require AM-PPL to enable normally):
+  Microsoft-Windows-Threat-Intelligence:
+    GUID: {F4E1897C-BB5D-5668-F1D8-040F4D8DD344}
+  Microsoft-Windows-Kernel-Audit-API-Calls:
+    GUID: {E02A841C-75A3-4FA7-AFC8-AE09CF9B7F23}

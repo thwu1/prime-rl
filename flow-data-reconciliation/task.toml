@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to independently determine that constrained weighted least-squares optimization with Lagrange multipliers is needed to reconcile measurements against mass balance constraints. The agent must construct covariance matrices from half-width confidence intervals and correlation coefficients, implement chi-square hypothesis testing for global validation, derive per-variable fault detection statistics, and implement iterative gross error elimination. The problem demands expertise in numerical linear algebra, statistical hypothesis testing, and industrial measurement correction theory."""
+solution_explanation = """Parse the three input files to build the constraint matrix F (8x16) and covariance matrix Sx (16x16) from half-width confidence intervals and correlation coefficients. All 8 constraints are linearly independent (rank 8). Solve the WLS problem: x_hat = x_tilde - Sx*F'*(F*Sx*F')^{-1}*(F*x_tilde). Compute J* and compare to chi2(8, 0.95) = 15.507. When J* exceeds the threshold, compute local tests |dx_i|/sqrt(Sx_ii - Sx_hat_ii) and flag the worst sensor. Inflate its variance to 1e10, zero its correlations, and re-reconcile. Three gross errors (m4, m8, m15) are identified and eliminated in sequence before the global test passes."""
+verification_explanation = """Tests verify: (1) all output files exist with correct format and all 16 variables present, (2) reconciled values satisfy all 8 mass balance constraints within 0.01 kg/s, (3) exactly three gross errors {m4, m8, m15} are detected, (4) the final global test passes with J* < chi2(8, 0.95), (5) reconciled values are within reasonable tolerance of the true underlying values, (6) reconciled uncertainties are generally reduced compared to measured uncertainties, and (7) the chi-square critical value is correct for 8 degrees of freedom."""
+category = "applied_computing"
+tags = ["data-reconciliation", "constrained-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flow-data-reconciliation"

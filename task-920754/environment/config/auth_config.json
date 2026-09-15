@@ -1,0 +1,46 @@
+{
+    "totp": {
+        "digits": 8,
+        "interval_seconds": 30,
+        "hash_algorithm": "SHA-1",
+        "seed_file": "totp_seed.txt"
+    },
+    "jwt": {
+        "signing_algorithm": "HS256",
+        "expiry_minutes": 30,
+        "secret_derivation": {
+            "method": "sha256_hex_digest",
+            "input": "ca_private_key_file_contents"
+        },
+        "claims": {
+            "sub": "client_certificate_common_name"
+        }
+    },
+    "protocol": {
+        "version": "1.0",
+        "login_endpoint": "/esv/v1/login",
+        "login_request_format": [
+            {"esvVersion": "1.0"},
+            {"password": "<totp>"}
+        ],
+        "login_success_response": [
+            {"esvVersion": "1.0"},
+            {"accessToken": "<jwt>"}
+        ],
+        "login_failure_status": 403,
+        "assessment_endpoint": "/esv/v1/entropyAssessments",
+        "assessment_request_format": [
+            {"esvVersion": "1.0"},
+            "<registration_payload>"
+        ],
+        "authorization_header": "Bearer <jwt>",
+        "missing_auth_status": 401,
+        "invalid_token_status": 401,
+        "validation_success_status": 200,
+        "validation_failure_status": 400,
+        "validation_failure_response": {
+            "valid": false,
+            "errors": ["..."]
+        }
+    }
+}

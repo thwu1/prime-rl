@@ -1,0 +1,17 @@
+{
+  "service": "iperf3",
+  "version": "3.16",
+  "authentication_enabled": true,
+  "rsa_key_bits": 2048,
+  "use_pkcs1_padding": true,
+  "timestamp_skew_threshold_sec": 10,
+  "openssl_version": "3.0.2",
+  "deployment": {
+    "network": "internal corporate LAN",
+    "registered_users": 20,
+    "accessible_from": "any host on 10.0.0.0/8",
+    "runs_as_user": "iperf",
+    "systemd_managed": true,
+    "auto_restart_on_crash": true
+  }
+}

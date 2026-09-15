@@ -1,0 +1,24 @@
+// Test 03: If/else, comparisons, dangling else, logical operator precedence
+int main() {
+    int x = 5;
+    if (x > 3) putint(1); else putint(0);
+    putch(32);
+    if (x < 3) putint(1); else putint(0);
+    putch(32);
+    // Dangling else: else binds to inner if
+    if (1)
+        if (0)
+            putint(9);
+        else
+            putint(2);
+    putch(32);
+    // Comparison operators
+    putint(3 <= 3); putch(32);
+    putint(3 >= 4); putch(32);
+    putint(3 == 3); putch(32);
+    putint(3 != 3); putch(32);
+    // Precedence: || vs &&
+    putint(1 || 0 && 0); putch(32);
+    putint((1 || 0) && 0); putch(10);
+    return 0;
+}

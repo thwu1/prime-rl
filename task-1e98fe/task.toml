@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cheminformatics knowledge to interpret a terse output schema and independently implement a multi-stage virtual screening pipeline. The agent must: (1) discover data quality issues (invalid SMILES, duplicate representations) without guidance, (2) recognize standard drug-likeness filter names (Lipinski, Veber, PAINS, Brenk) from schema field names alone and know their correct thresholds and RDKit implementations, (3) independently choose and implement a QSAR modeling strategy (fingerprint representation, ML algorithm, train/test splitting), (4) design applicability domain analysis using molecular similarity, (5) select an appropriate clustering algorithm for chemical diversity, and (6) integrate all stages into a coherent pipeline producing a structured JSON report. No algorithms, parameters, or procedures are provided in the instruction — the agent must draw on deep domain expertise and make strategic implementation decisions at every stage."""
+solution_explanation = """One valid approach: parse and canonicalize SMILES via RDKit, deduplicate library molecules, apply sequential Lipinski/Veber/PAINS/Brenk cascade filters using RDKit Descriptors and FilterCatalog, train a Random Forest QSAR model on Morgan fingerprints with scaffold-aware splitting, assess applicability domain via nearest-neighbor Tanimoto distances against the training set, cluster in-domain candidates with Butina algorithm, and select the highest-predicted-activity representative from each cluster with composite scoring."""
+verification_explanation = """Tests independently recompute each pipeline stage: validation counts are recalculated from raw CSVs using RDKit SMILES parsing, cascade filter counts are independently verified by applying standard Lipinski/Veber/PAINS/Brenk logic, QSAR model metrics are checked for reasonable ranges and correct split sizes summing to training_valid, AD analysis counts are verified for internal consistency, clustering structure is validated (sizes must sum to in-AD count), and selected candidate properties (QED, composite scores) are independently computed from reported SMILES and cross-checked."""
+category = "computational_chemistry"
+tags = ["cheminformatics", "drug-discovery"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1e98fe"

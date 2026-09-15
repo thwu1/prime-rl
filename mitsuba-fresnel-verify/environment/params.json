@@ -1,0 +1,26 @@
+{
+  "dielectric": {
+    "ext_ior": 1.0,
+    "int_ior": 1.5
+  },
+  "conductor": {
+    "eta": [0.183, 0.312, 1.557],
+    "k": [3.424, 2.385, 1.893]
+  },
+  "roughness": {
+    "alpha": 0.3,
+    "distribution": "beckmann"
+  },
+  "test_angles_deg": [0, 15, 30, 45, 60, 75, 85],
+  "ndf_eval_angles_deg": [0, 10, 20, 30, 45],
+  "g1_eval_angles_deg": [15, 45, 60, 75, 85],
+  "bsdf_eval_pairs": [
+    {"theta_i": 30, "theta_o": 30, "phi_o": 180, "label": "specular_30"},
+    {"theta_i": 60, "theta_o": 60, "phi_o": 180, "label": "specular_60"},
+    {"theta_i": 30, "theta_o": 50, "phi_o": 180, "label": "off_specular_30_50"},
+    {"theta_i": 60, "theta_o": 30, "phi_o": 180, "label": "off_specular_60_30"}
+  ],
+  "mc_incident_angle_deg": 30,
+  "mc_samples": 200000,
+  "mc_seed": 42
+}

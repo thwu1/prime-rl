@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: client-ns
+  labels:
+    role: client
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: server-ns
+  labels:
+    role: server
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: allowed-client
+  namespace: client-ns
+  labels:
+    app: allowed
+    access: granted
+status:
+  podIP: "10.20.1.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: blocked-client
+  namespace: client-ns
+  labels:
+    app: blocked
+    access: denied
+status:
+  podIP: "10.20.1.2"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service
+  namespace: server-ns
+  labels:
+    app: service
+    tier: web
+status:
+  podIP: "10.20.2.1"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: database
+  namespace: server-ns
+  labels:
+    app: db
+    tier: data
+status:
+  podIP: "10.20.2.2"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-deny-egress
+  namespace: client-ns
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-allow-server-egress
+  namespace: client-ns
+spec:
+  podSelector:
+    matchLabels:
+      access: granted
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          role: server
+    ports:
+    - protocol: TCP
+      port: 443
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: server-deny-ingress
+  namespace: server-ns
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: server-allow-client-ingress
+  namespace: server-ns
+spec:
+  podSelector:
+    matchLabels:
+      tier: web
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          role: client
+  policyTypes:
+  - Ingress

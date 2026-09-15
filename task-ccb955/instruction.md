@@ -1,0 +1,7 @@
+A simulated SIP Application Level Gateway (ALG) connection tracker is deployed at `/app/`. It monitors TCP segments for SIP signaling and creates firewall pinholes (connection-tracking expectations) when it detects valid SIP messages. The ALG implementation is at `/app/alg_simulator.py` and the TCP segmentation engine is at `/app/tcp_engine.py`.
+
+Four exploitation scenarios are partially configured in `/app/config.json`. Each specifies a target port, internal IP, HTTP header templates, and other parameters — but the MSS (Maximum Segment Size) values are missing. TCP handshake captures for each scenario are available as PCAP files in `/app/captures/`. Determine the correct MSS for each scenario from these captures and update `/app/config.json` accordingly.
+
+Implement `/app/exploit.py` exposing a function `generate_payload(scenario)` that accepts a scenario dict (from the completed config) and returns an HTTP POST body (`str` or `bytes`). When the payload is processed through the validation pipeline, the ALG must create a firewall pinhole on the scenario's target port and IP.
+
+The exploit must succeed for all four scenarios, including one that enables `strict_mode` on the ALG. A validation harness is at `/app/validate.py`.

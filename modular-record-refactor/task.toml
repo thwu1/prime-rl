@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C systems programming. The agent must independently audit a ~400-line monolithic C library to identify every thread-safety hazard — lazily-initialized lookup tables, global error state, static format buffers — none of which are enumerated in the instructions. It must then reverse-engineer how to satisfy a target API contract (provided in api_spec.h) by designing from scratch: per-call error context propagation, reentrant formatting, compile-time-constant checksum tables, and multi-module decomposition with proper header hygiene and build system updates. The instruction describes only the problem (concurrency crashes) and the desired outcomes (thread safety, no mutable globals in nm output, binary wire format preservation against golden references). The agent must synthesize the complete implementation strategy, combining deep C memory-model understanding, binary serialization expertise, Makefile authoring, symbol-table analysis, and production API design — all while preserving byte-level backward compatibility verified against golden reference data."""
+solution_explanation = """Decompose record.c into five modules: checksum.c (CRC32 with precomputed const table), parser.c (rec_parse with int return + rec_error_t), validator.c (rec_validate with int return + rec_error_t), formatter.c (rec_format writing to caller buffer), and serializer.c (rec_serialize with rec_error_t). Create record_internal.h with shared timestamp validation helper and payload size constants. Remove g_rec_errno, g_rec_errmsg, fmt_buf, crc_table_ready globals. Eliminate the duplicated compute_payload_crc function. Update Makefile to compile all new modules into librecord.a. Update main.c to use new API signatures."""
+verification_explanation = """Tests verify: (1) make clean && make succeeds and produces librecord.a, (2) at least 4 .c source files exist (decomposition), (3) at least one internal header exists, (4) nm shows no g_rec_errno, g_rec_errmsg, fmt_buf, or crc_table_ready symbols in library (no mutable globals), (5) record.h contains no global variable declarations and defines rec_error_t, (6) C test program compiles against new API signatures and passes roundtrip tests for all 5 record types plus error handling and CRC32 correctness, (7) multi-threaded concurrent parsing with 4 threads x 1000 iterations succeeds without corruption, (8) golden binary files serialized by the original code parse correctly and re-serialize to byte-identical output."""
+category = "systems_programming"
+tags = ["c-refactoring", "thread-safety"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/modular-record-refactor"

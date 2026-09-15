@@ -1,0 +1,22 @@
+{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "ClusterRoleBinding",
+  "metadata": {
+    "name": "ci-deployer-secrets",
+    "annotations": {
+      "kubectl.kubernetes.io/last-applied-configuration": "emergency access grant for CI pipeline - ticket OPS-4721"
+    }
+  },
+  "subjects": [
+    {
+      "kind": "ServiceAccount",
+      "name": "ci-deployer",
+      "namespace": "ci"
+    }
+  ],
+  "roleRef": {
+    "kind": "ClusterRole",
+    "name": "secret-reader",
+    "apiGroup": "rbac.authorization.k8s.io"
+  }
+}

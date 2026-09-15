@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level heat transfer knowledge to independently derive the exact analytical solution for 1D transient conduction with mixed boundary conditions (eigenvalue expansion via separation of variables, transcendental characteristic equation, Fourier series coefficients). The agent must parse FDS Fortran namelist syntax — a domain-specific format rarely encountered outside fire engineering — correctly handle FDS-specific unit conventions (kJ vs J for specific heat), infer coordinate conventions from device naming and geometry, and map device depths to the analytical coordinate system. Additionally, the agent must produce gnuplot verification plots, requiring proficiency in gnuplot's scripting language for multi-series overlays with data from CSV files. No formulas, algorithms, or procedural steps are provided — the agent must synthesize physics, numerical methods, file parsing, and visualization tooling from domain expertise alone."""
+solution_explanation = """Parse FDS namelist-format input files using regex to extract material properties (conductivity, density, specific heat in kJ units), surface BCs (heat transfer coefficient, gas temperature, insulated backing), geometry (thickness), and device locations. Convert specific heat from kJ/(kg*K) to J/(kg*K). Compute Biot number Bi=hL/k. Solve the transcendental eigenvalue equation beta*tan(beta)=Bi for 100+ roots via bisection in intervals ((n-1)*pi, (2n-1)*pi/2). Evaluate the Carslaw & Jaeger eigenvalue expansion T(x,t) = T_inf + (T_i - T_inf) * sum C_n cos(beta_n x/L) exp(-beta_n^2 Fo) with insulated face at x=0. Compare against CSV data using relative error on temperature departure. Cases A,B pass; C,D fail (simulation data exceeds physical bounds). Generate gnuplot scripts for each case plotting simulation points vs analytical curves at all device locations."""
+verification_explanation = """Tests independently solve the eigenvalue equation and compute analytical temperatures using a separate reference implementation. They verify: eigenvalue accuracy (within 1e-4 of reference and satisfying beta*tan(beta)=Bi to 1e-3), correct Biot number computation, proper PASS/FAIL classification of all 4 cases (2 pass, 2 fail), physically reasonable error metrics, complete JSON report structure, and valid gnuplot PNG plots (existence, PNG magic bytes, minimum size indicating multi-series content). All verification is deterministic."""
+category = "scientific-computing"
+tags = ["heat-transfer", "computational-verification"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8c1192"

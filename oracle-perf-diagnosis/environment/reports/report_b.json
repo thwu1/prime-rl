@@ -1,0 +1,29 @@
+{
+  "analyst": "Robert Kim",
+  "date": "2024-11-15",
+  "summary": "Buffer cache is critically undersized for this OLTP workload, causing excessive physical reads that dominate wait time. Advisory data shows clear improvement opportunity with modest memory increase. Shared pool appears healthy with adequate library cache hit ratios. PGA should be increased to eliminate residual spills.",
+  "metrics": {
+    "buffer_cache_hit_ratio": 0.754,
+    "library_cache_hit_ratio": 0.98,
+    "soft_parse_ratio": 0.70,
+    "in_memory_sort_ratio": 0.9302,
+    "execute_to_parse_ratio": 0.1515,
+    "db_time_cpu_pct": 0.30,
+    "db_time_wait_pct": 0.70
+  },
+  "memory_recommendations": {
+    "db_cache_size_mb": 768,
+    "pga_aggregate_target_mb": 1024
+  },
+  "wait_analysis": {
+    "top_event": "db file sequential read",
+    "top_event_time_sec": 4250.0,
+    "total_wait_time_sec": 12600.0
+  },
+  "sql_tuning": {
+    "top_sql_by_elapsed": ["9r4fg7h1kp5m2", "6j3mw2f9xp4a7", "4x7kf9q2ua3h1"],
+    "literal_sql_ids": [],
+    "cursor_sharing": "EXACT"
+  },
+  "primary_bottleneck": "buffer_cache"
+}

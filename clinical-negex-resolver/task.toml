@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-format clinical NLP pipeline integrating four distinct tool competencies: (1) xmlstarlet with HL7 namespace XPath queries to parse CDA XML documents and extract section-structured clinical text, (2) SQLite FTS5 virtual table queries with BM25 ranking for initial candidate entity retrieval combined with edit-distance refinement for fuzzy matching, (3) jq filter authoring for transforming entity results into FHIR-compatible Bundle resources with assertion-to-status mapping, and (4) Python orchestration connecting these tools via subprocess calls. Beyond tool interoperability, the task demands expert-level clinical NLP understanding: section-aware assertion detection where Past Medical History sections establish implicit historical context, Family History sections require entity exclusion (clinical insight that these describe relatives rather than the patient), and explicit assertion triggers must correctly override section defaults. The agent must discover these semantic rules from the section configuration's natural-language description and LOINC code semantics — no direct lookup table is provided. Handling the interplay between pseudo-negation phrases, scope termination, closest-trigger resolution, and section-level assertion inheritance requires holistic clinical document understanding."""
+solution_explanation = """The solution orchestrates xmlstarlet, SQLite FTS5, Python, and jq in a unified pipeline. CDA XML documents are parsed via xmlstarlet subprocess calls using namespace-qualified XPath (hl7=urn:hl7-org:v3) to extract section codes, display names, and text. The FTS5 virtual table is queried with OR-joined token queries for broad candidate retrieval, followed by normalized Levenshtein edit-distance filtering (threshold 0.85). Section-aware assertion detection maps LOINC code 11348-0 (Past Medical History) to historical default and 10157-6 (Family History) to entity exclusion. Explicit triggers (NegEx-style pre/post-negation, hypothetical, historical) override section defaults via closest-trigger-wins with scope termination. A jq filter transforms CONDITION/SYMPTOM entities into FHIR Condition resources with correct clinicalStatus/verificationStatus mappings. Four output files are produced: results.json, note_texts.json, summary.csv, and fhir_conditions.json."""
+verification_explanation = """Tests run the pipeline on 10 clinical notes (7 JSON + 3 CDA XML) covering: basic mixed assertions, scope termination, post-negation and hypothetical triggers, pseudo-negation exceptions, abbreviation triggers, fuzzy matching of misspelled terms, multi-trigger resolution, section-aware PMH historical defaults, Family History entity exclusion, and explicit trigger override of section defaults. Each test class verifies specific entity-assertion-code triples and entity counts. Span validity checks confirm note_text[start:end] recovers entity text for all notes including CDA-derived. FHIR Bundle tests verify structure, entry count (44 CONDITION/SYMPTOM entries), correct clinical/verification status mapping, absence of MEDICATION entities, and ICD-10 system URIs. Summary CSV tests verify per-note assertion counts and cross-check consistency with JSON output."""
+category = "nlp"
+tags = ["clinical-nlp", "multi-tool-pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clinical-negex-resolver"

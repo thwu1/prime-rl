@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level numerical methods expertise: the agent must independently select and implement appropriate entropy-conservative flux formulations, quadrature schemes, and time integration for a spectral element solver without any skeleton code or named algorithms. Achieving semi-discrete entropy conservation demands deep understanding of two-point flux splitting and the SBP framework. Additionally requires multi-tool proficiency — coordinating Python (solver implementation) and GNU Octave (matrix property verification) with correct data exchange via CSV files."""
+solution_explanation = """The solution implements a complete DG-SEM solver in Python using LGL quadrature nodes (Newton iteration on Legendre polynomial derivatives), barycentric derivative matrix, Chandrashekar entropy-conservative two-point flux, Lax-Friedrichs surface flux, flux-differencing volume integral, and SSP-RK3 time integration. It exports N=5 discretization matrices as CSVs and an Octave script independently verifies the SBP property and computes spectral diagnostics."""
+verification_explanation = """Tests verify: (1) Sod shock tube density/pressure/velocity match known analytical solution features at multiple spatial regions within tolerances, (2) entropy change over two full advection periods is below 1e-4 confirming semi-discrete entropy conservation, (3) discretization matrices have correct structural properties (diagonal mass matrix with positive entries summing to 2, weight symmetry), (4) SBP property deviation is independently verified by loading CSV matrices in both the Octave-generated JSON and a separate Python check."""
+category = "scientific_computing"
+tags = ["numerical-methods", "computational-fluid-dynamics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dgsem-euler-entropy"

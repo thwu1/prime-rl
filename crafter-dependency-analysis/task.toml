@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a game engine's 22-achievement prerequisite DAG from interacting Python source files and YAML configuration where dependencies are implicit in action logic, not declared. Beyond multi-file code analysis, the solver must design and compute an inverse propensity scoring metric correcting the geometric mean's equal-weighting bias, perform leave-one-achievement-out sensitivity analysis across three metrics (66 ranking recomputations), evaluate discrimination power through pairwise gap classification, and synthesize a multi-criteria benchmark methodology verdict. The task demands judgment about metric quality — identifying which scoring approach most reliably separates agents while remaining robust to perturbation — combining domain expertise in RL evaluation methodology with statistical reasoning about ranking stability under perturbation."""
+solution_explanation = """Parse data.yaml to build item-to-material mappings via 'receive' fields. Derive dependencies: collect_X from source material 'require'; make_X from 'uses' items and 'nearby' structures; place_X from 'uses' items. Discover eat_plant→place_plant from objects.py (Plant only exists via placement, unlike Cow/Zombie/Skeleton in worldgen.py). Query SQLite for per-agent and overall achievement rates. Implement three metrics: geometric mean (0.01 floor), depth-weighted, and IPS-weighted (inverse of max(overall_rate, 0.05), normalized). Compute discrimination via consecutive-pair score gaps. Perform 22×3 leave-one-out ranking recomputations comparing to full rankings. Synthesize verdict using discrimination×stability product criterion. Identify pivotal achievements affecting ≥2 metrics."""
+verification_explanation = """Tests independently recompute all expected values from the SQLite database: (1) 22-achievement dependency graph against hardcoded ground truth, (2) topological depths and critical path, (3) exact anomaly set, (4) all three scoring metrics verified within 0.005 tolerance against independent DB computation, (5) rankings for all three metrics, (6) discrimination gaps and classifications independently computed, (7) full leave-one-out stability analysis with flip detection recomputed from DB, (8) verdict components including most discriminating/stable/recommended metrics and pivotal achievements, (9) DOT file validity via graphviz and edge correctness, (10) SQL file executability."""
+category = "data_analysis"
+tags = ["rl-evaluation", "benchmark-methodology"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crafter-dependency-analysis"

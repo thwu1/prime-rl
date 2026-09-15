@@ -1,0 +1,47 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in C11 atomics (memory_order_relaxed, acquire, release, acq_rel),
+lock-free programming patterns (CAS loops, atomic_compare_exchange_weak), and concurrent data structure design.
+The implementer must understand PEP 703's biased reference counting state machine (DEFAULT to MERGED transitions),
+the separation of local vs shared refcounts with bit-shifting for state flags in the low 2 bits of ob_ref_shared,
+correct deallocation decisions from only DEFAULT (quick path when shared==0) or MERGED (when shared count reaches zero)
+states, and the conditional try_incref operation for optimistic lock-free container access. Multi-threaded stress
+tests with 8 concurrent threads require the implementation to be truly thread-safe, not just superficially correct."""
+solution_explanation = """The solution implements all BRC functions following PEP 703 semantics: brc_thread_id returns
+(uintptr_t)pthread_self(), brc_alloc initializes the object with local=1 and DEFAULT state, brc_incref uses a fast
+relaxed-atomic local path for the owning thread and atomic_fetch_add on the shifted shared field for non-owners,
+brc_decref mirrors this with merge_zero_refcount when local reaches 0 (quick dealloc if shared==0, otherwise CAS
+state to MERGED), brc_decref_shared uses atomic_fetch_sub and checks old_count==1 && state==MERGED for deallocation,
+and try_incref uses a CAS loop on ob_ref_shared to conditionally increment only if the object appears alive."""
+verification_explanation = """Tests compile the implementation with the C test harness and run 10 individual test
+cases via pytest: basic allocation/dealloc, local incref/decref lifecycle, immortal objects, try_incref, cross-thread
+shared refcount path, merge state transitions, deallocation from MERGED state by non-owning thread, concurrent stress
+with 8 threads doing 10000 operations each, balanced incref/decref pairs under contention, and a full mixed lifecycle
+exercising all paths. Each test verifies specific invariants using assertions on refcount values, state transitions,
+and deallocation tracking counters."""
+category = "systems_programming"
+tags = ["concurrency", "c-atomics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cbc489"

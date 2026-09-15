@@ -1,0 +1,10 @@
+{
+  "iterations": 500,
+  "residual_norm": 7.63e-01,
+  "relative_residual": 2.38e-02,
+  "converged": false,
+  "grid_complexity": 1.0,
+  "operator_complexity": 1.0,
+  "n_levels": 1,
+  "level_sizes": [1024]
+}

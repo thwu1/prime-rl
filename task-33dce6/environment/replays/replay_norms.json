@@ -1,0 +1,235 @@
+{
+  "name": "norm_enforcement",
+  "config": {
+    "grid": {
+      "width": 20,
+      "height": 20
+    },
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": [
+          "skip",
+          "move",
+          "rotate",
+          "adopt",
+          "request",
+          "attach",
+          "detach",
+          "connect",
+          "disconnect",
+          "submit",
+          "clear",
+          "survey"
+        ],
+        "speed": [
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        "clear": {
+          "chance": 1.0,
+          "maxDistance": 2
+        }
+      }
+    ],
+    "maxEnergy": 100,
+    "stepRecharge": 0,
+    "clearEnergyCost": 2,
+    "deactivatedDuration": 2,
+    "refreshEnergy": 40,
+    "clearDamage": [
+      32,
+      16,
+      8,
+      4,
+      2,
+      1
+    ],
+    "attachLimit": 10,
+    "steps": 500,
+    "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [
+      {
+        "name": "a1",
+        "team": "A",
+        "x": 5,
+        "y": 5,
+        "role": "default",
+        "energy": 30
+      }
+    ],
+    "blocks": [
+      {
+        "x": 5,
+        "y": 6,
+        "type": "b0"
+      },
+      {
+        "x": 6,
+        "y": 5,
+        "type": "b1"
+      },
+      {
+        "x": 5,
+        "y": 4,
+        "type": "b2"
+      }
+    ],
+    "dispensers": [],
+    "obstacles": [],
+    "tasks": [],
+    "norms": [
+      {
+        "name": "n1",
+        "start": 0,
+        "until": 100,
+        "level": "individual",
+        "requirements": [
+          {
+            "type": "block",
+            "name": "any",
+            "quantity": 1
+          }
+        ],
+        "punishment": 15
+      }
+    ],
+    "goalZones": [],
+    "roleZones": []
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "Attach south block. 1 attachment <= limit 1. No norm penalty. Energy stays 30.",
+      "actions": {
+        "a1": {
+          "type": "attach",
+          "p": [
+            "s"
+          ]
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 30,
+            "deactivated": false,
+            "deactivated_steps": 0
+          }
+        }
+      }
+    },
+    {
+      "step": 1,
+      "comment": "Attach east block. 2 attachments > limit 1. Penalty 15. Energy 30-15=15.",
+      "actions": {
+        "a1": {
+          "type": "attach",
+          "p": [
+            "e"
+          ]
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 15,
+            "deactivated": false,
+            "deactivated_steps": 0
+          }
+        }
+      }
+    },
+    {
+      "step": 2,
+      "comment": "Attach north block. 3 attachments > limit 1. Penalty 15. Energy 15-15=0. Deactivated! Attachments cleared.",
+      "actions": {
+        "a1": {
+          "type": "attach",
+          "p": [
+            "n"
+          ]
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 0,
+            "deactivated": true,
+            "deactivated_steps": 1
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "comment": "Deactivated: action fails. Steps countdown.",
+      "actions": {
+        "a1": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "failed_status"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 40,
+            "deactivated": false,
+            "deactivated_steps": 0
+          }
+        }
+      }
+    },
+    {
+      "step": 4,
+      "comment": "Reactivates with refreshEnergy=40. No norm penalty (0 attachments).",
+      "actions": {
+        "a1": {
+          "type": "skip",
+          "p": []
+        }
+      },
+      "expected": {
+        "results": {
+          "a1": "success"
+        },
+        "agents": {
+          "a1": {
+            "x": 5,
+            "y": 5,
+            "energy": 40,
+            "deactivated": false,
+            "deactivated_steps": 0
+          }
+        }
+      }
+    }
+  ],
+  "description": "Tests carry norm enforcement: violation penalty, deactivation when energy reaches 0, reactivation."
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD knowledge: the agent must independently identify and implement the correct grid convergence methodology (Richardson extrapolation with GCI), recall the standard Spalart-Allmaras model equations and constants from domain knowledge, select an appropriate composite wall law formulation and fitting strategy, and correctly parse Tecplot and PLOT2D data formats — all without any algorithmic guidance in the instructions."""
+solution_explanation = """The solution parses NASA TMR Tecplot-format data files, implements Richardson extrapolation with GCI (Roache method, Fs=1.25, r=2) for grid convergence, computes boundary layer integral quantities via trapezoidal integration, implements SA model auxiliary functions (fv1, fv2, fw) from standard constants, fits Spalding's composite wall law using scipy least_squares, and extracts PLOT2D structured grid metrics. All results are written to a structured JSON file."""
+verification_explanation = """Tests verify: (1) GCI apparent orders and percentages match NASA TMR published values within tight tolerances, (2) boundary layer shape factor is in the turbulent range and near the expected value, (3) SA auxiliary function values match analytic computations to 4+ digits, (4) law-of-wall fitted kappa and B are in physically reasonable ranges with small RMS deviation, (5) grid dimensions and coordinate ranges match the PLOT2D file exactly, (6) physical consistency cross-checks verify code-to-code agreement and turbulent Re_theta range."""
+category = "physics_engineering"
+tags = ["cfd", "turbulence-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rans-verification-pipeline"

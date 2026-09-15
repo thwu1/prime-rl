@@ -1,0 +1,50 @@
+{
+  "scenario_name": "scenario_3",
+  "tax_year": 2025,
+  "filing_status": "hoh",
+  "taxpayer": {
+    "first_name": "Maria",
+    "last_name": "Santos",
+    "ssn": "400-00-3058"
+  },
+  "w2s": [
+    {
+      "employer_name": "City Services",
+      "employer_ein": "98-7654321",
+      "wages": 28500,
+      "federal_tax_withheld": 1200,
+      "ss_wages": 28500,
+      "ss_tax_withheld": 1767,
+      "medicare_wages": 28500,
+      "medicare_tax_withheld": 413
+    }
+  ],
+  "dividends": {
+    "qualified": 0,
+    "ordinary": 0
+  },
+  "capital_gains": {
+    "short_term": 0,
+    "long_term": 0
+  },
+  "schedule_h": {
+    "has_household_employees": true,
+    "total_cash_wages_ss": 4500,
+    "total_cash_wages_medicare": 4500,
+    "total_cash_wages_additional_medicare": 0,
+    "federal_income_tax_withheld": 0
+  },
+  "form_5695": {
+    "insulation_cost": 0,
+    "door_cost": 0,
+    "window_cost": 3000,
+    "central_ac_cost": 0,
+    "water_heater_cost": 0,
+    "furnace_boiler_cost": 0,
+    "electrical_panel_cost": 0,
+    "home_energy_audit_cost": 0,
+    "heat_pump_cost": 6000,
+    "heat_pump_water_heater_cost": 0,
+    "biomass_stove_cost": 0
+  }
+}

@@ -1,0 +1,10 @@
+stat_name,value_microseconds
+DB time,18000000000
+DB CPU,5400000000
+sql execute elapsed time,14400000000
+parse time elapsed,4200000000
+hard parse elapsed time,3780000000
+PL/SQL execution elapsed time,1800000000
+connection management call elapsed time,360000000
+background elapsed time,7200000000
+background cpu time,2160000000

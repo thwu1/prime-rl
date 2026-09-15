@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple independent forms of git repository corruption without being told what is wrong: (1) a binary-level pack header tampering that renders the packfile unreadable — the solver must inspect raw bytes to identify a non-standard version field and patch it; (2) a missing pack index that must be regenerated using git plumbing commands; (3) loose git objects displaced into a non-standard flat-named directory that must be identified as valid objects and relocated to the correct xx/yyyy structure; (4) injected dangling refs (both loose and packed) pointing to non-existent object SHAs that must be found and removed; (5) a poisoned packed-refs file with a bogus entry. The solver must discover each issue independently through error analysis and .git directory exploration, apply fixes in the correct order (pack repair before ref validation), and verify full integrity across multiple branches and annotated tags."""
+solution_explanation = """The solution: (1) locates the .pack file, reads its 12-byte header, identifies the version field is set to 3 instead of 2, and patches the binary using struct.pack; (2) regenerates the missing .idx via git index-pack; (3) scans .git/salvaged/ for 40-hex-char filenames, identifies them as displaced loose objects, and moves each to .git/objects/{sha[:2]}/{sha[2:]}; (4) walks .git/refs/ and tests each ref with git cat-file -e, removing any that point to non-existent objects; (5) filters packed-refs to remove entries whose SHAs don't resolve to real objects; (6) verifies the repair with git fsck --full."""
+verification_explanation = """Tests load the manifest (generated during build from the uncorrupted repo) and verify: git fsck --full exits 0 with no error/missing/broken lines; all branches and tags from the manifest exist; commit history subjects match on both main and feature/auth branches; file contents at HEAD are byte-identical to the manifest; all branches can be checked out; the .git/salvaged/ artifact directory has been removed; no refs point to non-existent objects; annotated tags are intact and dereferenceable."""
+category = "systems"
+tags = ["git-internals", "binary-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fc33a4"

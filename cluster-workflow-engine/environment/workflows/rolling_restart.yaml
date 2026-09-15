@@ -1,0 +1,34 @@
+name: "Rolling restart"
+
+variables:
+  - name: compaction_timeout_seconds
+    type: integer
+    default: 30
+
+concurrency_unit: zonal
+concurrency_limit: 1
+
+node_tasks:
+  - name: drain
+    action: drain
+    retries: 3
+    on_error: retry
+    preconditions:
+      - quorum_safe
+      - cluster_normal
+
+  - name: stop_service
+    action: stop_service
+    retries: 0
+    on_error: halt
+
+  - name: start_service
+    action: start_service
+    retries: 2
+    on_error: retry
+
+  - name: wait_compactions
+    action: wait_condition
+    condition: compactions_nominal
+    timeout_seconds: "+compaction_timeout_seconds+"
+    poll_interval_seconds: 0.2

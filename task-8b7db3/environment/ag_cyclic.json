@@ -1,0 +1,36 @@
+{
+  "properties": {
+    "coherence": {
+      "expression": "G(read -> F data_valid)",
+      "signals": ["read", "data_valid", "cache_hit"],
+      "temporal_depth": 8
+    }
+  },
+  "signal_dependencies": {
+    "read": [],
+    "data_valid": ["cache_hit", "read"],
+    "cache_hit": []
+  },
+  "decompositions": [
+    {
+      "strategy": "assume_guarantee",
+      "target": "coherence",
+      "params": {
+        "sub_properties": {
+          "fast_path": {
+            "expression": "G(cache_hit -> data_valid)",
+            "assumes": ["slow_path"]
+          },
+          "slow_path": {
+            "expression": "G(~cache_hit -> F data_valid)",
+            "assumes": ["refill"]
+          },
+          "refill": {
+            "expression": "G(~cache_hit -> F cache_hit)",
+            "assumes": ["fast_path"]
+          }
+        }
+      }
+    }
+  ]
+}

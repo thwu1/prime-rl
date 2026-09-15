@@ -1,0 +1,7 @@
+aut-num:            AS4242420002
+as-name:            BETA-AS
+descr:              Beta Network Autonomous System
+admin-c:            BOB-DN42
+tech-c:             BOB-DN42
+mnt-by:             BETA-MNT
+source:             DN42

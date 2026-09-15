@@ -1,0 +1,4 @@
+[mysqld]
+innodb_use_native_aio = 0
+skip-log-bin
+tmpdir = /var/lib/mysql/tmp

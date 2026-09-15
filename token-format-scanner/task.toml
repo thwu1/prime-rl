@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level multi-vector forensic investigation spanning five distinct data recovery techniques: (1) plaintext and base64-encoded token scanning across heterogeneous file formats, (2) decrypting an AES-256-CBC encrypted credential vault by cross-referencing the encryption passphrase from a separate environment file and identifying the openssl parameters from a shell script comment, (3) deep git object model forensics including recovery of tokens from deleted commits via reflog, dangling objects via fsck, stash entries via git stash show, and git notes via git notes/log --show-notes — standard git log --all misses the last three, (4) SQLite schema discovery across multiple tables including decoding base64-encoded tokens embedded in Set-Cookie response headers stored in a separate response_headers table, and (5) correct implementation of the CRC32/Base62 token checksum algorithm from a technical specification. The agent must synthesize knowledge across cryptography, git internals, SQL, and encoding schemes while filtering decoy credentials from unrelated services."""
+solution_explanation = """The solution implements Base62 encoding with charset '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' and CRC32 checksum validation. It scans the file corpus with regex and base64 decoding. It identifies vault.enc as openssl-encrypted, extracts the passphrase (first 32 chars of SECRET_KEY_BASE from .env, hinted in deploy.sh), and decrypts with 'openssl enc -d -aes-256-cbc -pbkdf2'. For git, it searches commit history, reflog, fsck unreachable objects, stash entries (git stash show -p), and git notes (git log --show-notes). For the audit DB, it discovers all tables including response_headers, scans text columns for tokens, and base64-decodes cookie values. Finally it deduplicates by token value and produces the structured report."""
+verification_explanation = """Tests independently recompute CRC32 checksums for every reported token and verify the agent's valid/invalid classification. They check exactly 22 unique tokens are found (18 valid, 4 invalid), that every expected token is present and no decoys leak through, that vector attribution (file/git_history/audit_db) is correct for each token, and that summary by_type and by_vector counts match. Dedicated test classes verify specific expert-level discoveries: encrypted vault tokens (2), git stash token (1), git notes token (1), dangling commit token (1), and base64-encoded Set-Cookie token (1)."""
+category = "security"
+tags = ["incident-response", "git-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/token-format-scanner"

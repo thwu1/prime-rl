@@ -1,0 +1,19 @@
+[evaluation]
+alignment_mode = "iou"
+iou_threshold = 0.2
+collar_frames = 30
+pfa_max = 0.2
+
+[consensus]
+enabled = true
+consensus_iou_threshold = 0.5
+include_singletons = false
+
+[decision_cost]
+c_miss = 1.0
+c_fa = 1.0
+p_target = 0.5
+
+[data]
+database = "/app/eval_data.db"
+detections = "/app/detections.jsonl"

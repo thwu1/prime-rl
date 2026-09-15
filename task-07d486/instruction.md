@@ -1,0 +1,17 @@
+An Ewald summation pipeline in `/app/` computes electrostatic energies and forces for a 64-particle NaCl crystal (4x4x4 unit cells, nearest-neighbor distance d=1.0, box length L=4.0) under 3D periodic boundary conditions in Gaussian units (4*pi*epsilon_0 = 1). Source modules in `/app/src/` implement the real-space (`ewald_real.py`), reciprocal-space (`ewald_recip.py`), and self-energy (`ewald_self.py`) Ewald components. Crystal configurations (`.npz`) and parameters (`.ini`, with default alpha=1.25 and k_max=7) are in `/app/data/`. A SQLite reference database (`/app/data/reference.db`) stores validation targets and output schema. Failed validation logs are in `/app/logs/`.
+
+The pipeline currently produces incorrect Madelung constants and spurious forces on symmetric crystals. Diagnose and fix the bugs, then validate correctness by computing energies and forces for both the perfect and perturbed crystal configurations, including a centered finite-difference force verification.
+
+Beyond debugging, evaluate the reciprocal-space convergence: compute the Madelung constant at each k_max in [3, 4, 5, 6, 7, 8, 9] with alpha=1.25 fixed, and determine the minimum k_max that achieves target accuracy. This convergence analysis requires judging the accuracy-cost tradeoff of the reciprocal-space cutoff for this crystal system.
+
+Write final results to `/app/result.json` with this exact schema:
+
+- `nacl_madelung` (float): Madelung constant from the perfect crystal via M = -2 * E_total * d / N. Must match the analytical value 1.7475645946 within 1e-3.
+- `nacl_max_force` (float): Maximum force magnitude on any perfect-crystal ion. Must be < 5e-3 by cubic symmetry.
+- `perturbed_energy` (float): Total Ewald energy of the perturbed crystal configuration. Must be negative for a charge-neutral system.
+- `perturbed_energy_components` (object): Energy decomposition `{"real": float, "recip": float, "self": float}`. The three terms must sum to `perturbed_energy` within 1e-6. The `self` component must be negative.
+- `perturbed_forces` (array): 64x3 array of force vectors `[fx, fy, fz]` for each particle in the perturbed crystal.
+- `perturbed_force_sum` (array): 3-component net force vector `[fx, fy, fz]`. Each component must satisfy |f| < 1e-3 by Newton's third law.
+- `fd_check` (object): Centered finite-difference check on particle 0 along x with displacement `dx = 1e-5`. Schema: `{"dx": 1e-5, "energy_plus": float, "energy_minus": float, "numerical_force_x": float}` where `numerical_force_x = -(energy_plus - energy_minus) / (2 * dx)`. Must be internally consistent and agree with the analytical x-force on particle 0 (`perturbed_forces[0][0]`) within 1% relative error.
+- `convergence_study` (array): 7 entries `{"k_max": int, "madelung": float}` for k_max values [3, 4, 5, 6, 7, 8, 9], each giving the Madelung constant computed at that reciprocal cutoff with alpha=1.25. The entry at k_max=7 must match `nacl_madelung`. All entries at k_max >= 7 must be within 1e-3 of the reference (convergence must hold once achieved). Values must vary across k_max, reflecting genuine convergence computation rather than repeated constants.
+- `min_converged_k_max` (int): The smallest k_max from the convergence study where |madelung - 1.7475645946| < 1e-3. If this value exceeds 3, then at k_max one step below, the error must be >= 1e-3.

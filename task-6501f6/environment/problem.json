@@ -1,0 +1,41 @@
+{
+  "products": ["C1", "C2", "C3", "C4"],
+  "base_revenue": {"C1": 300, "C2": 250, "C3": 200, "C4": 160},
+  "processing_cost": {
+    "reactor": {"C1": 70, "C2": 60, "C3": 40, "C4": 30},
+    "separator": {"C1": 50, "C2": 40, "C3": 35, "C4": 25}
+  },
+  "feedstock_usage": {"C1": 8, "C2": 6, "C3": 5, "C4": 4},
+  "feedstock_unit_cost": 15,
+  "resources": {
+    "reactor": {
+      "capacity": 300,
+      "consumption": {"C1": 5, "C2": 4, "C3": 3, "C4": 2}
+    },
+    "separator": {
+      "capacity": 350,
+      "consumption": {"C1": 3, "C2": 5, "C3": 4, "C4": 3}
+    },
+    "lab": {
+      "capacity": 200,
+      "consumption": {"C1": 2, "C2": 2, "C3": 3, "C4": 1}
+    }
+  },
+  "max_demand": {"C1": 40, "C2": 50, "C3": 45},
+  "contracts": {
+    "C1": {"min_demand_nominal": 10},
+    "C2": {"min_demand_nominal": 8}
+  },
+  "uncertainty": {
+    "z_reactor": {"max_deviation": 0.15, "affects": "reactor efficiency and reactor processing cost"},
+    "z_separator": {"max_deviation": 0.20, "affects": "separator efficiency and separator processing cost"},
+    "z_lab": {"max_deviation": 0.25, "affects": "lab capacity consumption"},
+    "z_demand_C1": {"max_deviation": 0.20, "affects": "C1 contractual minimum demand"},
+    "z_demand_C2": {"max_deviation": 0.20, "affects": "C2 contractual minimum demand"}
+  },
+  "budget_gamma": 3.0,
+  "ccg_stopping_tolerance": 0.5,
+  "ccg_max_iterations": 50,
+  "saa_num_scenarios": 2000,
+  "saa_random_seed": 42
+}

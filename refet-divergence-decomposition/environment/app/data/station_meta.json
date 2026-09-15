@@ -1,0 +1,25 @@
+{
+  "name": "Fallon NV AgriMet",
+  "station_id": "fallon_nv",
+  "network": "AgriMet",
+  "position": {
+    "elevation_m": 1208.5,
+    "latitude_deg": 39.4575,
+    "longitude_deg": -118.77388
+  },
+  "instrumentation": {
+    "wind": {
+      "height_m": 3.0,
+      "model": "RM Young 05103",
+      "type": "propeller"
+    },
+    "temperature": {
+      "height_m": 2.0,
+      "shield": "aspirated"
+    },
+    "radiation": {
+      "model": "LI-COR LI200X",
+      "type": "pyranometer"
+    }
+  }
+}

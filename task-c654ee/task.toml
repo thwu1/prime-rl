@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level MySQL knowledge: parsing decoded ROW-format binary log output (mysqlbinlog -vv), mapping column ordinals (@N) to schema columns, decoding ENUM integer values, understanding split-brain divergence semantics, and implementing multi-rule conflict resolution (LWW, data-preservation, PK reassignment, monotonic-counter merging). The agent must also handle the interplay between INSERT PK conflicts and sequential PK reassignment."""
+solution_explanation = """Parse both binlog extracts using regex to identify UPDATE/INSERT/DELETE row events, map @N ordinals to column names via the schema, convert ENUM integers to string values, build per-table-per-PK operation maps, detect conflicts (same key in both maps), apply resolution rules (LWW for updates, data-preservation for delete-vs-update, east-primary for PK conflicts, MAX for repository counters), clone base database, apply resolved changes via SQL, and generate the reconciliation report."""
+verification_explanation = """Tests connect to MySQL and verify the reconciled database exists with correct row counts, specific row values for each conflict resolution (West LWW winners, East data-preservation winner, reassigned PK inserts, MAX-merged repository counters), and that the reconciliation report JSON has correct write counts and conflict totals."""
+category = "database_administration"
+tags = ["mysql", "incident-response"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c654ee"

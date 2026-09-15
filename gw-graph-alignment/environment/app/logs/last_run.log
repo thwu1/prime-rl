@@ -1,0 +1,7 @@
+[2024-11-15 14:23:01] Pipeline v2.3 starting
+[2024-11-15 14:23:01] Config loaded: reg=1.0000, max_iter=1000, tol=1.0e-09
+[2024-11-15 14:23:01] [costs] native lib loaded, metric=sqeuclidean, M shape=(5, 5), range=[0.071, 0.971]
+[2024-11-15 14:23:01] [sinkhorn] converged in 1 iteration(s), cost=0.4736
+[2024-11-15 14:23:01] [gw] converged in 4 iteration(s), distance=2.9761
+[2024-11-15 14:23:02] [barycenter] 6 bins, sum=1.0000, max_entry=1.000
+[2024-11-15 14:23:02] Output written to /app/output/results.json

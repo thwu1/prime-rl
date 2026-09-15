@@ -1,0 +1,12 @@
+[
+    {"type": "max_tcb_size", "domain": "critical_ctrl", "max_size": 2},
+    {"type": "max_tcb_size", "domain": "logger", "max_size": 1},
+    {"type": "no_flow", "from": "network", "to": "critical_ctrl"},
+    {"type": "no_flow", "from": "sensor_drv", "to": "logger"},
+    {"type": "required_isolation", "domain_a": "network", "domain_b": "critical_ctrl"},
+    {"type": "required_isolation", "domain_a": "critical_ctrl", "domain_b": "sensor_drv"},
+    {"type": "blp_compliant", "domain": "logger"},
+    {"type": "blp_compliant", "domain": "sensor_drv"},
+    {"type": "biba_compliant", "domain": "critical_ctrl"},
+    {"type": "arch_compliant", "domain": "crypto"}
+]

@@ -1,0 +1,49 @@
+const int SIZE = 5;
+const int HALF = SIZE / 2;
+
+int main() {
+    // Hex and octal literals
+    int hex_val = 0x1A;
+    int oct_val = 037;
+    putint(hex_val + oct_val);
+    putch(10);
+
+    // Partial array initialization
+    int a[SIZE] = {10, 20, 30};
+    int i = 0;
+    int sum = 0;
+    while (i < SIZE) {
+        sum = sum + a[i];
+        i = i + 1;
+    }
+    putint(sum);
+    putch(10);
+
+    // Nested constant expressions
+    const int A = 3;
+    const int B = A * A;
+    const int C = B + A + 1;
+    int arr[C];
+
+    // Unary operators
+    int x = -10;
+    putint(-x);
+    putch(32);
+    putint(!0);
+    putch(32);
+    putint(!42);
+    putch(32);
+    putint(!(1 > 2));
+    putch(10);
+
+    // Mixed precedence
+    int result = 2 + 3 * 4 - 6 / 2;
+    putint(result);
+    putch(10);
+
+    // Const as array index
+    putint(a[HALF]);
+    putch(10);
+
+    return 0;
+}

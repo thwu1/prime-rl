@@ -1,0 +1,3 @@
+The directory `/app/probes/` contains twelve C source files, each exercising a specific language feature whose standardization status differs between C11 and C23. A previous analysis in `/app/initial_report.json` attempted to characterize how the installed GCC handles each probe under `-std=c11`, `-std=c17`, and `-std=c2x`, but the report contains errors.
+
+Audit the actual compiler behavior for every probe under each standard mode. Determine the correct conformance classification for each and capture runtime behavior where applicable. Write a correct analysis tool at `/app/analyzer.py` and the fixed report at `/app/conformance_report.json`, following the schema of the initial report.

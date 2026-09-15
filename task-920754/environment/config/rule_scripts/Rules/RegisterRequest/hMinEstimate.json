@@ -1,0 +1,19 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "ImportScript",
+            "description": "",
+            "parameters": {
+                "scriptFile": "CommonRules/notNull.json"
+            }
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "hminEstimate must be between 0 and bitsPerSample inclusive",
+            "parameters": {
+                "ruleText": "currentProperty >= 0.0 && currentProperty <= parentProperty.bitsPerSample"
+            }
+        }
+    ]
+}

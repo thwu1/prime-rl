@@ -1,0 +1,36 @@
+# Makefile for compiling DDL-generated C parsers
+#
+# Usage:
+#   1. Transpile each .ddl spec to a .c file in /app/generated/
+#   2. Compile: make -f /app/Makefile.template all
+#   3. Validate: make -f /app/Makefile.template validate
+#
+# Example:
+#   python3 /app/ddl_transpile.py /app/formats/container.ddl /app/generated/container.c
+#   make -f /app/Makefile.template all
+#   make -f /app/Makefile.template validate
+
+CC      = gcc
+CFLAGS  = -Wall -Werror -I/app/runtime
+RUNTIME = /app/runtime/runtime.c
+
+FORMATS = container tagged choice chunk_stream
+TARGETS = $(addprefix /app/generated/, $(FORMATS))
+
+all: $(TARGETS)
+
+/app/generated/%: /app/generated/%.c $(RUNTIME) /app/runtime/parser.h
+	$(CC) $(CFLAGS) -o $@ $< $(RUNTIME)
+
+validate: $(TARGETS)
+	valgrind --leak-check=full --error-exitcode=1 /app/generated/container /app/inputs/input_container.bin > /app/valgrind_report.txt 2>&1
+	valgrind --leak-check=full --error-exitcode=1 /app/generated/tagged /app/inputs/input_tagged.bin >> /app/valgrind_report.txt 2>&1
+	valgrind --leak-check=full --error-exitcode=1 /app/generated/choice /app/inputs/input_choice.bin >> /app/valgrind_report.txt 2>&1
+	valgrind --leak-check=full --error-exitcode=1 /app/generated/chunk_stream /app/inputs/input_chunk.bin >> /app/valgrind_report.txt 2>&1
+	@echo "All parsers pass valgrind — see /app/valgrind_report.txt"
+
+clean:
+	rm -f /app/generated/*.c /app/generated/container /app/generated/tagged \
+	      /app/generated/choice /app/generated/chunk_stream /app/valgrind_report.txt
+
+.PHONY: all validate clean

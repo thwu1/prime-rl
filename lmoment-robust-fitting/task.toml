@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level knowledge of robust statistics and extreme value theory. The agent must independently identify appropriate tools for computing trimmed L-moments at multiple trim orders, perform robust distribution fitting with over-identifying moment conditions to enable goodness-of-fit testing, correctly compute AICc from the profile log-likelihood (not from a GMM objective), construct a nonparametric quantile distribution from trimmed sample L-moments, compute asymmetric L-comoment matrices for bivariate data, and evaluate the empirical influence function of a ratio statistic. The outlier contamination makes naive estimation approaches fail, requiring the agent to reason about robustness."""
+solution_explanation = """Install the lmo library for trimmed L-moment computation. Use lmo.l_stats() at three trim levels. Use lmo.inference.fit() to perform L-GMM fitting of GEV and Gumbel distributions with 5 L-moment conditions. Compute AICc from scipy's genextreme.logpdf at the fitted parameters. Construct a nonparametric l_poly distribution from 6 trimmed sample L-moments. Compute L-comoment matrices using lmo.l_corr() and lmo.l_coscale(). Evaluate the empirical influence function via lmo.l_ratio_influence()."""
+verification_explanation = """Tests verify: (1) JSON schema completeness with all required keys, (2) L-statistic theoretical bounds (L-skewness in [-1,1], positive L-scale), (3) trimming reduces L-scale for contaminated data (demonstrating robustness), (4) GEV shape parameter close to true value -0.3, loc near 100, scale near 30, (5) J-test p-values in valid [0,1] range and finite AICc, (6) best model has lowest AICc and GEV preferred over Gumbel by AICc, (7) return levels positive, finite, and monotonic (1000-yr > 100-yr), (8) L-correlation diagonal equals 1, off-diagonal positive and asymmetric, (9) influence function values are finite and non-constant with sorted evaluation points."""
+category = "statistics"
+tags = ["robust-statistics", "extreme-value-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lmoment-robust-fitting"

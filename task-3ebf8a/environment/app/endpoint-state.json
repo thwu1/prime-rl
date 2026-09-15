@@ -1,0 +1,241 @@
+[
+  {
+    "id": 1592,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-1592", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:15Z", "success-count": 42}}
+      ],
+      "external-identifiers": {
+        "container-id": "a7f3b8c1d2e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8",
+        "container-name": "frontend-1",
+        "k8s-namespace": "default",
+        "k8s-pod-name": "frontend-1-7f8d9c6b4-xk2mn",
+        "pod-name": "default/frontend-1-7f8d9c6b4-xk2mn"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 48291,
+        "labels": [
+          "k8s:app=frontend",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=default",
+          "k8s:io.kubernetes.pod.namespace=default",
+          "k8s:tier=web",
+          "k8s:env=prod"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.1.10", "ipv6": "fd00::a:0:1:a"}],
+        "host-mac": "3e:a1:b2:c3:d4:e5",
+        "interface-index": 12,
+        "interface-name": "lxc8f3a1b2c",
+        "mac": "2e:f1:a2:b3:c4:d5"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  },
+  {
+    "id": 2847,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-2847", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:16Z", "success-count": 38}}
+      ],
+      "external-identifiers": {
+        "container-id": "b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7",
+        "container-name": "backend-1",
+        "k8s-namespace": "default",
+        "k8s-pod-name": "backend-1-5d4c3b2a1-lm9np",
+        "pod-name": "default/backend-1-5d4c3b2a1-lm9np"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 61034,
+        "labels": [
+          "k8s:app=backend",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=backend-sa",
+          "k8s:io.kubernetes.pod.namespace=default",
+          "k8s:tier=api",
+          "k8s:env=prod"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.1.20", "ipv6": "fd00::a:0:1:14"}],
+        "host-mac": "3e:b2:c3:d4:e5:f6",
+        "interface-index": 14,
+        "interface-name": "lxc9a4b2c3d",
+        "mac": "2e:a2:b3:c4:d5:e6"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  },
+  {
+    "id": 3156,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-3156", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:14Z", "success-count": 41}}
+      ],
+      "external-identifiers": {
+        "container-id": "c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8",
+        "container-name": "database-1",
+        "k8s-namespace": "default",
+        "k8s-pod-name": "database-1-6e5d4c3b2-qr7st",
+        "pod-name": "default/database-1-6e5d4c3b2-qr7st"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 29473,
+        "labels": [
+          "k8s:app=postgres",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=postgres-sa",
+          "k8s:io.kubernetes.pod.namespace=default",
+          "k8s:tier=data",
+          "k8s:env=prod"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.1.30", "ipv6": "fd00::a:0:1:1e"}],
+        "host-mac": "3e:c3:d4:e5:f6:a7",
+        "interface-index": 16,
+        "interface-name": "lxcab5c3d4e",
+        "mac": "2e:b3:c4:d5:e6:f7"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  },
+  {
+    "id": 4291,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-4291", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:17Z", "success-count": 39}}
+      ],
+      "external-identifiers": {
+        "container-id": "d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9",
+        "container-name": "monitoring-1",
+        "k8s-namespace": "monitoring",
+        "k8s-pod-name": "monitoring-1-4c3b2a1d0-uv5wx",
+        "pod-name": "monitoring/monitoring-1-4c3b2a1d0-uv5wx"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 53182,
+        "labels": [
+          "k8s:app=prometheus",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=monitoring",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=prometheus-sa",
+          "k8s:io.kubernetes.pod.namespace=monitoring",
+          "k8s:tier=monitoring",
+          "k8s:env=prod"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.2.10", "ipv6": "fd00::a:0:2:a"}],
+        "host-mac": "3e:d4:e5:f6:a7:b8",
+        "interface-index": 18,
+        "interface-name": "lxcbc6d4e5f",
+        "mac": "2e:c4:d5:e6:f7:a8"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  },
+  {
+    "id": 5038,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-5038", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:15Z", "success-count": 40}}
+      ],
+      "external-identifiers": {
+        "container-id": "e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
+        "container-name": "cache-1",
+        "k8s-namespace": "default",
+        "k8s-pod-name": "cache-1-3b2a1d0c9-yz3ab",
+        "pod-name": "default/cache-1-3b2a1d0c9-yz3ab"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 17829,
+        "labels": [
+          "k8s:app=redis",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=redis-sa",
+          "k8s:io.kubernetes.pod.namespace=default",
+          "k8s:tier=cache",
+          "k8s:env=prod"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.1.50", "ipv6": "fd00::a:0:1:32"}],
+        "host-mac": "3e:e5:f6:a7:b8:c9",
+        "interface-index": 20,
+        "interface-name": "lxccd7e5f6a",
+        "mac": "2e:d5:e6:f7:a8:b9"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  },
+  {
+    "id": 6724,
+    "spec": {
+      "label-configuration": {"user": []}
+    },
+    "status": {
+      "controllers": [
+        {"name": "sync-policymap-ep-6724", "status": {"consecutive-failure-count": 0, "last-success-timestamp": "2026-06-12T10:30:18Z", "success-count": 12}}
+      ],
+      "external-identifiers": {
+        "container-id": "f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+        "container-name": "debug-pod",
+        "k8s-namespace": "dev",
+        "k8s-pod-name": "debug-pod-2a1d0c9b8-cd1ef",
+        "pod-name": "dev/debug-pod-2a1d0c9b8-cd1ef"
+      },
+      "health": {"bpf": "OK", "connected": true, "overallHealth": "OK", "policy": "OK"},
+      "identity": {
+        "id": 82456,
+        "labels": [
+          "k8s:app=debug",
+          "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=dev",
+          "k8s:io.cilium.k8s.policy.cluster=default",
+          "k8s:io.cilium.k8s.policy.serviceaccount=debug-sa",
+          "k8s:io.kubernetes.pod.namespace=dev",
+          "k8s:env=dev"
+        ]
+      },
+      "networking": {
+        "addressing": [{"ipv4": "10.0.3.10", "ipv6": "fd00::a:0:3:a"}],
+        "host-mac": "3e:f6:a7:b8:c9:da",
+        "interface-index": 22,
+        "interface-name": "lxcde8f6a7b",
+        "mac": "2e:e6:f7:a8:b9:ca"
+      },
+      "realized": {"label-configuration": {"user": []}},
+      "state": "ready"
+    }
+  }
+]

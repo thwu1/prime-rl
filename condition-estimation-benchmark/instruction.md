@@ -1,0 +1,5 @@
+A numerical analysis project at `/app/` benchmarks condition number estimation techniques across families of structured test matrices (Moler, Pascal, Frank, Cauchy, Parter). The pipeline combines Python-based estimators (QR-diagonal ratio, Hager-Higham 1-norm) with a C/LAPACK shared library that implements a blocked 1-norm condition estimator via LU factorization.
+
+The benchmark reads its configuration from `/app/config.json` and produces a report at `/app/results.json`. The current `/app/results.json` contains incorrect values from buggy estimators and is missing the C-based estimator results entirely (the shared library under `/app/c_src/` has not been successfully compiled).
+
+Investigate the full codebase — Python modules, C source, build files — identify and fix all errors, build any uncompiled components, and regenerate a fully correct `/app/results.json` with all estimator results populated.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires formulating a Travelling Salesman Problem with Time Windows and a non-standard no-waiting constraint as a mixed-integer program in GMPL (GNU MathProg Language), a specialized constraint modeling language for GLPK. The no-waiting rule — arrival before a site's opening invalidates the entire tour — is atypical and demands bidirectional big-M time-propagation constraints rather than the standard one-directional lower bounds used in classical TSPTW formulations. The agent must write a correct GMPL model with binary selection/flow variables, MTZ-style subtour elimination via arrival-time variables, and carefully chosen big-M constants; generate GMPL-compatible .dat files from Python; invoke glpsol via CLI with appropriate flags (time limits, MIP gap tolerance); parse the structured solution output; and optionally combine the MIP solution with local search refinement. This demands expertise in operations research (MIP modeling, constraint formulation) and proficiency with unfamiliar tools (GMPL syntax, glpsol CLI, multi-tool pipeline orchestration)."""
+solution_explanation = """Three-phase pipeline: (1) pre-filter sites to top 25 by value/duration ratio, write GMPL data file, solve TSPTW MIP via glpsol with 10-second time limit — the model uses binary selection variables, binary arc-flow variables, continuous arrival-time variables with bidirectional big-M propagation for no-waiting enforcement, and MTZ-style subtour elimination; (2) build a greedy best-insertion baseline for comparison; (3) pick the better starting tour and refine via simulated annealing with five neighborhood operators (add, remove, swap, shift, replace) over 100K iterations. The MIP provides an optimality-guided starting point while SA escapes local optima."""
+verification_explanation = """Tests validate both the GMPL model and solver quality. Model tests: verify touring.mod exists, contains required MIP elements (binary/integer variables, objective, SITES set, solve statement), and processes without errors when fed to glpsol with a small 3-site test instance. Quality tests: generate 8 deterministic instances (seeds 42,137,256,401,555,789,1024,2048) with 60 sites each, invoke the solver (results cached across tests), validate all tours against the game engine's constraint checker, verify each score ≥ 800, and check aggregate ≥ 10000."""
+category = "optimization"
+tags = ["mixed-integer-programming", "operations-research"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-495665"

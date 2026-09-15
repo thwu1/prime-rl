@@ -1,0 +1,7 @@
+{
+    "id": "case_002",
+    "title": "SLT performs unsigned comparison instead of signed",
+    "description": "The Set Less Than (SLT) operation incorrectly performs an unsigned comparison instead of a signed comparison. The $signed() casts are missing, causing negative numbers in two's complement representation to be treated as large positive values.",
+    "buggy_code": "        OP_SLT:  result = (a < b) ? 32'd1 : 32'd0;",
+    "fixed_code": "        OP_SLT:  result = ($signed(a) < $signed(b)) ? 32'd1 : 32'd0;"
+}

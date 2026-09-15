@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 interacting defects distributed across three technology layers: C source code (shared library with incorrect geometry and correction factor formulas), empirical coefficient data (corrupted CSV entry for one tube layout angle), and Python application logic (F-factor edge case and fouling resistance formula). The solver must first compile the C shared library before the tool can execute, then trace cascading numerical errors backwards through the Python-ctypes-C call chain and the CSV data pipeline. Each bug requires cross-layer reasoning: understanding how the C-level geometry error propagates through Reynolds number into shell-side HTC, how the corrupted empirical coefficient produces layout-specific errors, and how the Python-level resistance model introduces errors on an outer-area basis. Debugging demands simultaneous proficiency with gcc/make (C compilation), ctypes (Python-C FFI), CSV data inspection, and multi-file Python debugging."""
+solution_explanation = """Five fixes across three layers: (1) libcorr.c compute_Sm: restore missing D_otl multiplier on the tube-pitch clearance term; (2) libcorr.c compute_Jb: restore cube root exponent pow(2*r_ss, 1.0/3.0) on the sealing strip ratio; (3) coefficients.csv: correct 90-degree Re 1e3-1e4 row a1 from 0.170 to 0.107; (4) hx_rate.py compute_f_factor: implement proper Bowman analytical limit for R=1 via L'Hopital derivation; (5) hx_rate.py compute_overall_u: apply d_o/d_i area correction to tube fouling resistance. After fixing C source, recompile with make -C /app."""
+verification_explanation = """Tests run the fixed tool on four cases and verify: JSON structure with all required keys, LMTD/R/P against independent analytical formulas, tube-side Re computed independently from geometry, flow regime classification, shell-side Re and J-factors against reference values, heat transfer coefficients h_i and h_o against reference, U_clean/U_dirty/cleanliness factor against reference, controlling resistance identification, heat duty and areas, and cross-case consistency checks (area, LMTD_eff, h_o=h_ideal*J_product). Case 4 uses physics invariants and range checks without hardcoded reference values."""
+category = "engineering"
+tags = ["heat-transfer", "multi-language-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/exchanger-rating-engine"

@@ -1,0 +1,9 @@
+[
+  {"lei": "784F5XWPLTWKTBV3E584", "claimed_name": "THE GOLDMAN SACHS GROUP, INC.", "claimed_jurisdiction": "US-DE", "claimed_bic": "GSGIUS31XXX"},
+  {"lei": "549300RQT6K4WXZL3083", "claimed_name": "GOLDMAN SACHS UK PLC", "claimed_jurisdiction": "GB", "claimed_bic": "GOSGGB21XXX"},
+  {"lei": "HWUPKR0MPOU8FGXBT394", "claimed_name": "Apple Inc.", "claimed_jurisdiction": "US-NY", "claimed_bic": "APLEUS66XXX"},
+  {"lei": "INR2EJN1ERAN0W5ZP974", "claimed_name": "MICROSOFT CORPORATION", "claimed_jurisdiction": "US-WA", "claimed_bic": "MSFTUS33XXX"},
+  {"lei": "FOR8UP27PHTHYVLBNG30", "claimed_name": "GOLDMAN SACHS & CO. LLC", "claimed_jurisdiction": "US-NY", "claimed_bic": "GOLDUS33XXX"},
+  {"lei": "INVALIDLEI00000000AB", "claimed_name": "FAKE CORP", "claimed_jurisdiction": "US-CA", "claimed_bic": null},
+  {"lei": "784F5XWPLTWKTBV3E500", "claimed_name": "ANOTHER FAKE CORP", "claimed_jurisdiction": "GB", "claimed_bic": null}
+]

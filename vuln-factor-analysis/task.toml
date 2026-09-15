@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level statistical expertise to audit a flawed analysis: the agent must independently discover data integrity issues (cheating-flagged cases not excluded), identify methodological errors (unstratified comparison of confounded variables, inappropriate test approximations for small samples, swapped convergence set operations, inverted odds ratios), and produce a corrected analysis using proper methods. The agent must recognize that race conditions confound the vulnerability type comparison and choose an appropriate stratified test. None of this is prescribed in the instruction — the agent must diagnose all issues from the data, documentation, and flawed analysis alone."""
+solution_explanation = """The solution audits the flawed preliminary analysis by: (1) discovering that the cheating_flag column documents invalid results that must be excluded; (2) recognizing that the vulnerability type comparison is confounded by race conditions and requires stratified analysis with Mantel-Haenszel pooled odds ratio; (3) recomputing all statistics on the cleaned 96-case dataset using Fisher's exact test for subsystem/cutoff comparisons; (4) fixing convergence set operations (intersection vs union were swapped); (5) correcting cutoff odds ratios (table rows were inverted); (6) writing the corrected analysis conforming to the expected schema."""
+verification_explanation = """Tests independently load the raw CSV, exclude cheating-flagged cases, and recompute all expected values using scipy and statsmodels. Integer counts must match exactly. Success rates within 0.5% absolute tolerance. Fisher p-values within 0.02. Stratified test statistics within 0.5 and pooled odds ratios within 10% relative tolerance. The test suite covers all 8 analysis sections with over 30 individual assertions."""
+category = "cybersecurity"
+tags = ["statistics", "kernel-security"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vuln-factor-analysis"

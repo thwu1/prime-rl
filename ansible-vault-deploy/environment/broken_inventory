@@ -1,0 +1,12 @@
+[webservers]
+app1 ansible_connection=local
+app2 ansible_connection=local
+
+[databases]
+db1 ansible_connection=local
+
+[monitoring]
+monitor1 ansible_connection=local
+
+[webservers:vars]
+http_port=8080

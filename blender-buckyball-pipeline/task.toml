@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing four Conway polyhedron operators (dual, ambo, truncate, kis) from scratch as BMesh topology transformations in Blender's Python API. The dual operator demands expert understanding of half-edge mesh traversal — specifically navigating BMesh's loop/radial data structure to extract the ordered face ring around each vertex with correct winding orientation. The ambo (rectification) operator requires constructing new faces from both edge-midpoint rings around faces and edge-midpoint rings around vertices, each needing consistent winding. The truncate operator involves creating two new vertices per edge (at 1/3 positions), building vertex-polygons from the ordered edge ring, and constructing 2n-gon face-polygons by interleaving vertices from adjacent edges via loop traversal. The kis operator must raise pyramids on each face with apex positions projected to the circumsphere, requiring understanding of surface normal geometry. All four operators must compose correctly — the pentakis dodecahedron requires dual(icosahedron) → dodecahedron → kis(dodecahedron), testing that operator output is valid input for subsequent operators. Beyond the operators, the solver must design the pipeline architecture: mesh analysis with divergence-theorem volume computation, face-planarity error measurement, edge-length statistics, per-face-type material assignment, multi-object scene layout, and headless rendering with OBJ export preserving polygon structure. No part of this is achievable by simply calling Blender modifiers or looking up vertex coordinate tables — the solver must understand and implement the combinatorial topology of each operation."""
+solution_explanation = """Implement each Conway operator as a function taking a BMesh and returning a new BMesh. Use BMesh loop traversal (link_loop_prev.link_loop_radial_next) to get ordered face/edge rings around vertices for dual and ambo. For truncate, create two vertices per edge at 1/3 positions keyed by (edge_index, vertex_index), build n-gon vertex faces from ordered edge rings, and 2n-gon face-faces by interleaving prev-edge and curr-edge vertices from loop traversal. For kis, copy original vertices and add circumsphere-projected apex per face, then fan triangles. Apply recalc_face_normals after each operator. Read targets.json, compose operator chains on icosahedron seeds, compute analysis metrics, assign materials by face type, arrange in scene, render at 1280x720, and export OBJ files without triangulation."""
+verification_explanation = """Tests verify exact topological invariants for all four polyhedra: dodecahedron (20V/30E/12F, 12 pentagons), icosidodecahedron (30V/60E/32F, 20 triangles + 12 pentagons), truncated icosahedron (60V/90E/32F, 12 pentagons + 20 hexagons), pentakis dodecahedron (32V/90E/60F, 60 triangles). Each must satisfy Euler characteristic = 2 and manifold status. OBJ files are parsed independently to verify vertex counts, face counts, and polygon-type distribution match. Material grouping in OBJ files is validated. Geometric metrics (surface area, volume, edge-length std dev, planarity error) must be finite and non-negative. Rendered image must exist at 1280x720."""
+category = "computer_graphics"
+tags = ["blender", "computational-geometry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/blender-buckyball-pipeline"

@@ -1,0 +1,18 @@
+{
+  "description": "Manually verified correct classifications for a subset of routes. These were confirmed by the network operations team through direct path analysis against known AS relationships.",
+  "verified_routes": [
+    {"route_id": "R01", "expected_result": "Valid", "notes": "Clean three-hop customer chain"},
+    {"route_id": "R03", "expected_result": "Invalid", "notes": "Unauthorized lateral transit detected"},
+    {"route_id": "R04", "expected_result": "Unknown", "notes": "Unregistered origin AS"},
+    {"route_id": "R05", "expected_result": "Valid", "notes": "Single-AS path, trivially valid"},
+    {"route_id": "R06", "expected_result": "Valid", "notes": "Verified legitimate customer chain through AS102"},
+    {"route_id": "R07", "expected_result": "Valid", "notes": "Verified legitimate customer chain through AS1004"},
+    {"route_id": "R08", "expected_result": "Valid", "notes": "Verified legitimate customer chain through AS65006"},
+    {"route_id": "R16", "expected_result": "Invalid", "notes": "Path contains topological anomaly"},
+    {"route_id": "R18", "expected_result": "Valid", "notes": "Valid valley-free provider path through peering apex"},
+    {"route_id": "R21", "expected_result": "Valid", "notes": "Two-hop provider path, trivially valid"},
+    {"route_id": "R30", "expected_result": "Valid", "notes": "Valid valley-free path received from peer"},
+    {"route_id": "R31", "expected_result": "Unknown", "notes": "Valley-free shape OK but unattested Tier-1 hops"},
+    {"route_id": "R33", "expected_result": "Valid", "notes": "Valid valley-free peer path through peering apex"}
+  ]
+}

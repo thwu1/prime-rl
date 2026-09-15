@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+all: custom_ops.so
+
+custom_ops.so: custom_ops.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -f *.so
+
+.PHONY: all clean

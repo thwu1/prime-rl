@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Python async programming to build a concurrent workflow orchestrator with zone-aware batching, SQLite-based crash recovery, precondition polling with success windows, error classification with retries, and template variable substitution. The interaction between asyncio concurrency constraints and persistent state management creates subtle edge cases around resumability, closure capture, and concurrent error propagation that demand deep systems programming knowledge."""
+solution_explanation = """Implement a Python asyncio-based workflow engine with four modules: models (TaskResult/ErrorKind), registry (handler registration), and engine (WorkflowEngine). The engine parses YAML workflows, groups nodes by zone for sequential batch processing, uses asyncio.Semaphore for concurrency limiting within batches, persists task states (pending/in_progress/completed/failed) in SQLite before and after execution, implements condition polling loops with success window tracking, handles error classification with retry loops, and substitutes template variables via regex. Resume reads SQLite state to skip completed tasks and re-attempt all others."""
+verification_explanation = """17 pytest-asyncio tests verify: basic sequential execution ordering, zone-sequential concurrency (timestamp overlap detection), concurrency limit enforcement (active count tracking), condition polling behavior, condition timeout, success window with intermittent failures, job resumability with same engine, resumability across engine restarts, recoverable error retry, unrecoverable error halting, exception-as-recoverable treatment, template variable substitution with overrides, default variable fallback, node targeting, SQLite persistence across engine destruction, sequential cluster_tasks ordering, and retry exhaustion failure."""
+category = "systems_programming"
+tags = ["async-concurrency", "workflow-orchestration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/workflow-orchestrator"

@@ -1,0 +1,56 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of ESP32 partition table internals
+combined with software debugging and binary forensics skills. The agent must: (1) extract a
+partition table from a raw 4MB flash dump by understanding where in flash the PT resides and
+how the binary format is structured; (2) read and debug ~800 lines of unfamiliar Python in
+gen_esp32part.py to identify two injected regressions — a doubled PARTITION_TABLE_SIZE constant
+that shifts the valid address space, and an off-by-one in the overlap detector that rejects
+adjacent partitions — each requiring domain knowledge about flash sector sizes and valid
+partition adjacency; (3) discover undocumented alignment rules by reading the tool's source
+(app offset alignment is always 64KB, app size alignment varies by secure boot mode: v1=64KB,
+v2/none=4KB, data partitions are 4KB-aligned); (4) solve a constrained optimization problem
+to maximize equal-sized OTA slots where the gap cost between slots depends on the slot size
+itself due to 64KB offset alignment of the second OTA slot. Each layer requires holistic
+understanding — fixing the tool demands knowing what correct behavior looks like, and computing
+the optimal layout demands understanding the constraints the tool enforces."""
+solution_explanation = """Fix gen_esp32part.py: change PARTITION_TABLE_SIZE from 0x2000 back to
+0x1000 and change the overlap check from <= to <. Extract the PT binary from the flash image
+at offset 0x8000. Decode the reference layout to understand the baseline. For each config,
+compute the partition table offset base, lay out fixed-size partitions sequentially with proper
+alignment, then maximize equal OTA slot sizes subject to app offset alignment (always 64KB),
+app size alignment (64KB for v1, 4KB for v2/none), and flash size. Config A yields 0x16B000
+OTA slots, config B yields 0x160000 (constrained by v1's 64KB size alignment), config C yields
+0x760000 (larger flash, offset base at 0x11000)."""
+verification_explanation = """Tests verify both tool fixes and output correctness. Tool fix tests
+run gen_esp32part.py with adjacent partitions and with partitions at offset 0x9000 (default PT)
+and 0x11000 (custom PT offset) to confirm regressions are fixed. Output tests parse each binary
+entry-by-entry, verifying all 9 partitions match expected offsets/sizes/types/subtypes/flags.
+Separate tests verify OTA slot equality, OTA maximization, alignment correctness per secure boot
+mode, flash size bounds, MD5 integrity, and gen_esp32part.py round-trip consistency."""
+category = "embedded_systems"
+tags = ["binary_forensics", "tool_debugging", "constraint_optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/partition-table-rebuild"

@@ -1,0 +1,15 @@
+int a;
+int b;
+int c;
+int result;
+a = 15;
+b = 4;
+c = (a / b);
+if(((c > 3) && (a != 15)))
+{
+    result = c;
+}
+else
+{
+    result = (a % b);
+};

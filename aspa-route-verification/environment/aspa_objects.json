@@ -1,0 +1,20 @@
+{
+  "aspa_objects": [
+    {"customer_asn": 64500, "providers": []},
+    {"customer_asn": 64501, "providers": []},
+    {"customer_asn": 64510, "providers": [64500]},
+    {"customer_asn": 64511, "providers": [64500, 64501]},
+    {"customer_asn": 64512, "providers": [64501]},
+    {"customer_asn": 64520, "providers": [64510]},
+    {"customer_asn": 64521, "providers": [64510, 64511]},
+    {"customer_asn": 64522, "providers": [64511]},
+    {"customer_asn": 64523, "providers": [64511, 64512]},
+    {"customer_asn": 64524, "providers": [64512]},
+    {"customer_asn": 64530, "providers": [64520]},
+    {"customer_asn": 64531, "providers": [64520, 64521]},
+    {"customer_asn": 64532, "providers": [64521]},
+    {"customer_asn": 64533, "providers": [64522, 64523]},
+    {"customer_asn": 64534, "providers": [64523]},
+    {"customer_asn": 64535, "providers": [64524]}
+  ]
+}

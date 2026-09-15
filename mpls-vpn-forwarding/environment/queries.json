@@ -1,0 +1,101 @@
+{
+  "queries": [
+    {
+      "id": "q1",
+      "type": "igp_shortest_path",
+      "description": "Determine the shortest IGP path between two routers",
+      "source": "PE1",
+      "destination": "PE3"
+    },
+    {
+      "id": "q2",
+      "type": "igp_shortest_path",
+      "description": "Determine the shortest IGP path between two routers",
+      "source": "PE2",
+      "destination": "PE3"
+    },
+    {
+      "id": "q3",
+      "type": "igp_ecmp_paths",
+      "description": "Enumerate all equal-cost shortest paths between two routers",
+      "source": "PE1",
+      "destination": "PE3"
+    },
+    {
+      "id": "q4",
+      "type": "cspf_path",
+      "description": "Find the shortest path where every link meets the specified minimum bandwidth",
+      "source": "PE1",
+      "destination": "PE3",
+      "min_bandwidth_mbps": 8000
+    },
+    {
+      "id": "q5",
+      "type": "cspf_path",
+      "description": "Find the shortest path where every link meets the specified minimum bandwidth",
+      "source": "PE1",
+      "destination": "PE2",
+      "min_bandwidth_mbps": 3000
+    },
+    {
+      "id": "q6",
+      "type": "vrf_routes",
+      "description": "List all prefixes present in the specified VRF routing table on the given PE",
+      "pe": "PE1",
+      "vrf": "CustomerA"
+    },
+    {
+      "id": "q7",
+      "type": "vrf_routes",
+      "description": "List all prefixes present in the specified VRF routing table on the given PE",
+      "pe": "PE2",
+      "vrf": "CustomerB"
+    },
+    {
+      "id": "q8",
+      "type": "vrf_routes",
+      "description": "List all prefixes present in the specified VRF routing table on the given PE",
+      "pe": "PE3",
+      "vrf": "CustomerC"
+    },
+    {
+      "id": "q9",
+      "type": "forwarding_path",
+      "description": "Compute the complete MPLS forwarding path for VPN traffic including all label operations at each hop",
+      "source_pe": "PE1",
+      "source_vrf": "CustomerA",
+      "destination_prefix": "172.16.2.0/24"
+    },
+    {
+      "id": "q10",
+      "type": "forwarding_path",
+      "description": "Compute the complete MPLS forwarding path for VPN traffic including all label operations at each hop",
+      "source_pe": "PE3",
+      "source_vrf": "CustomerC",
+      "destination_prefix": "172.16.6.0/24"
+    }
+  ],
+  "output_format": {
+    "igp_shortest_path": {"path": ["router_names_in_order"], "metric": "integer_total_cost"},
+    "igp_ecmp_paths": {"paths": [["path1"], ["path2"]], "metric": "integer_total_cost"},
+    "cspf_path": {"path": ["router_names_in_order"], "metric": "integer_total_cost"},
+    "vrf_routes": {"prefixes": ["sorted_cidr_prefixes"]},
+    "forwarding_path": {
+      "hops": [
+        {"router": "name", "action": "push|swap|php|dispose|hub_forward", "...": "see action_schemas"}
+      ]
+    }
+  },
+  "action_schemas": {
+    "push": {"router": "str", "action": "push", "labels": ["outer_transport_label", "inner_vpn_label"], "forward_to": "str"},
+    "swap": {"router": "str", "action": "swap", "in_label": "int", "out_label": "int", "forward_to": "str"},
+    "php": {"router": "str", "action": "php", "in_label": "int", "forward_to": "str"},
+    "dispose": {"router": "str", "action": "dispose", "in_label": "int", "vrf": "str"},
+    "hub_forward": {"router": "str", "action": "hub_forward", "in_label": "int", "labels": ["outer_transport_label", "inner_vpn_label"], "forward_to": "str"}
+  },
+  "protocol_notes": {
+    "ecmp_tiebreak": "When multiple equal-cost next-hops exist for a destination, select the next-hop with the lowest loopback IP address.",
+    "implicit_null": "LDP label value 3 represents implicit-null, used by a router for its own loopback FEC to signal penultimate hop popping.",
+    "originator_id": "A PE must discard any received VPN route whose originator_id matches the PE's own loopback address."
+  }
+}

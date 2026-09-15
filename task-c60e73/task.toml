@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing Ed25519 from the RFC 8032 specification in C requires deep understanding of elliptic curve cryptography over GF(2^255-19), extended homogeneous coordinate point arithmetic, and careful attention to encoding/decoding details. The solver must correctly implement modular square roots for point decompression, deterministic nonce generation via SHA-512, scalar clamping for key derivation, and signature malleability rejection (S < L check). Each layer (field arithmetic, point operations, encoding, protocol logic) has subtle failure modes that produce silently wrong results detectable only through test vector comparison. No bignum library beyond OpenSSL BIGNUM is available, so the solver must orchestrate 255-bit arithmetic through the BN API or implement custom limb-based arithmetic."""
+solution_explanation = """The solution implements Ed25519 using OpenSSL's BIGNUM API for GF(2^255-19) arithmetic. Points use extended homogeneous coordinates (X, Y, Z, T). Key derivation: SHA-512 hash of secret, clamp lower 32 bytes (clear bits 0-2, clear bit 255, set bit 254), scalar-multiply base point, encode. Signing: expand key, compute r = SHA-512(prefix || msg) mod L, R = [r]B, h = SHA-512(R || A || msg) mod L, S = (r + h*a) mod L. Verification: decode R and A, check S < L, compute h, check [S]B == R + [h]A by comparing point encodings. Point decompression uses the (p+3)/8 exponentiation trick with sqrt(-1) fallback."""
+verification_explanation = """Tests build the project with make, then exercise the ed25519_tool CLI against all 5 RFC 8032 Section 7.1 test vectors (keygen, sign, verify), 20 SUPERCOP sign.input vectors, tampered-message rejection, tampered-signature rejection, and signature malleability rejection (S+L construction). Each test calls the tool as a subprocess and compares output to known-good values."""
+category = "cryptography"
+tags = ["elliptic-curves", "digital-signatures"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c60e73"

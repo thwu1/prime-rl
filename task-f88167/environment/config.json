@@ -1,0 +1,39 @@
+{
+  "tournament_name": "XSokoban Challenge",
+  "format_version": 2,
+  "levels": [
+    {
+      "id": 1,
+      "name": "Compact Room",
+      "max_pushes": 500,
+      "max_moves": 10000,
+      "difficulty": "medium"
+    },
+    {
+      "id": 2,
+      "name": "Open Floor",
+      "max_pushes": 500,
+      "max_moves": 10000,
+      "difficulty": "medium"
+    },
+    {
+      "id": 3,
+      "name": "Divided Chamber",
+      "max_pushes": 500,
+      "max_moves": 10000,
+      "difficulty": "hard"
+    },
+    {
+      "id": 4,
+      "name": "Wide Corridors",
+      "max_pushes": 500,
+      "max_moves": 10000,
+      "difficulty": "hard"
+    }
+  ],
+  "output": {
+    "report_path": "/app/report.json",
+    "move_encoding": "udlr",
+    "case_sensitive": false
+  }
+}

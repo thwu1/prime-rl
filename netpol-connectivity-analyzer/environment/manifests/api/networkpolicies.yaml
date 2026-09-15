@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress-policy
+  namespace: api
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          purpose: web
+    ports:
+    - port: 8080
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-egress-policy
+  namespace: api
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: data
+    ports:
+    - port: 5432
+      protocol: TCP
+    - port: 6379
+      protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: monitoring
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP

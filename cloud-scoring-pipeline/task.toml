@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a terrain-adaptive multi-spectral cloud detection algorithm from first principles. The agent must: (1) analyze spectral statistics of 12 satellite image chips to discover 3 distinct terrain types without labels, (2) understand why NDVI-based detection fails for water and urban terrain by reasoning about spectral index behavior across surface types, (3) design and implement a terrain classifier using spectral statistics and select appropriate detection strategies per terrain, (4) fix 4 bugs in the scoring module (IoU/Dice edge cases, wrong Dice coefficient factor, invalid composite weights), (5) fix 4 Makefile bugs (wrong Python interpreter, wrong validation path, missing detect dependency, missing mkdir), and (6) fix 2 validation test bugs (glob pattern on directories, missing numpy import). The core challenge is the spectral analysis and algorithm design — no single spectral index or threshold works across all terrains."""
+solution_explanation = """Fix metric.py: IoU/Dice return 1.0 for both-empty masks, Dice uses 2x (not 3x) intersection, composite weights sum to 1.0. Fix Makefile: use python3, correct validation path, add detect dependency, add mkdir for results. Fix test_submission.py: use iterdir() with is_dir() filter, import numpy. Create adaptive detector that: (1) computes NDVI and NDWI per chip, (2) classifies terrain by median NDVI > 0.3 (vegetation), median NDWI > 0.2 (water), else urban, (3) applies terrain-specific detection: NDVI < 0.2 for vegetation (cloud has low vegetation index), brightness > 4000 for water (clear water is very dark ~850 vs cloud ~8125), brightness > 5000 for urban (clear urban ~3375 vs cloud ~8125). Using brightness for water/urban avoids noise-induced false positives that NDWI-based thresholding causes on clear-sky water chips."""
+verification_explanation = """Tests run make clean && make score to verify end-to-end pipeline reproducibility. Score structure and quality checks verify all 12 chips scored with IoU/Dice > 0.85 overall and > 0.70 per chip. Per-terrain aggregation tests verify vegetation, water, and urban terrain each achieve mean IoU > 0.80 using hardcoded terrain mapping. Metric edge-case tests independently verify: empty masks produce IoU=1.0 and Dice=1.0, identical masks produce Dice=1.0 (catches 3x bug), partial-overlap masks produce correct Dice (catches clamping workarounds), and composite score is bounded in [0,1] (catches weight bug). Prediction format tests verify 12 binary 512x512 TIF files exist."""
+category = "engineering"
+tags = ["remote-sensing", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cloud-scoring-pipeline"

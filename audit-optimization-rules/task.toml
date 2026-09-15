@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of three interacting domains: (1) unsigned modular arithmetic and bitwise identity algebra for uint32_t rules, (2) the C17 standard's treatment of signed integer overflow as undefined behavior — including the non-obvious fact that (a|b)-(a&b) never overflows for int32_t despite involving signed subtraction, and (3) C integer promotion semantics where uint16_t operands are implicitly promoted to signed int, causing silent signed overflow in expressions like a*b even though both operands are unsigned. The three-way classification (correct/incorrect/undefined_behavior) prevents brute-force testing alone from being sufficient: a rule might produce matching LHS/RHS for all tested inputs at -O0 while still harboring undefined behavior that a conforming compiler can exploit. The agent must synthesize knowledge of bit-level arithmetic, C standard language-lawyer reasoning, and practical compiler behavior to correctly audit all 16 rules."""
+solution_explanation = """Write C test programs using GCC's __builtin_add_overflow, __builtin_sub_overflow, and __builtin_mul_overflow to detect potential UB before evaluating expressions. For uint32_t rules, brute-force edge-case testing suffices. For int32_t rules, check for overflow conditions at boundary values (INT_MIN, INT_MAX). For the uint16_t rule, recognize that C promotes uint16_t to signed int, so a*b for uint16_t operands is really (int)a*(int)b which overflows int when the product exceeds INT_MAX (~46340^2). Prove rule 5 (int32_t bitwise subtraction) is correct by understanding that (a|b) >= (a&b) bitwise, preventing signed overflow. Generate verdict.json and proof programs."""
+verification_explanation = """Tests compile a C verification program that dynamically computes ground truth for all 16 rules using comprehensive edge-case values and GCC overflow-detection builtins. Each test validates: (1) the agent's verdict matches ground truth, (2) witnesses for non-correct rules actually demonstrate the defect (verified by compiling a checker with the agent's specific values), (3) proof programs for non-correct rules compile, run, output FAIL, and exit with code 0."""
+category = "compilers"
+tags = ["match-pd-audit", "undefined-behavior-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/audit-optimization-rules"

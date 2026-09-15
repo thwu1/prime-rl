@@ -1,0 +1,79 @@
+# Portfolio Analysis Specification
+# Implement all analyses below and write results to results.json
+
+data:
+  returns_file: data/asset_returns.csv
+  format: "CSV with date index and one column per asset class (monthly returns)"
+
+estimation:
+  window_months: 36
+  covariance: "sample covariance with Bessel's correction (N-1 denominator)"
+
+risk_preferences:
+  gamma: 2.0
+
+strategies:
+  naive:
+    description: "Equal allocation across all assets, reset to 1/N at each rebalancing"
+
+  mvp:
+    description: "Global minimum variance portfolio — minimize w'Sigma w subject to full investment (w'1 = 1), ignoring expected returns entirely"
+
+  efficient:
+    description: "Unconstrained mean-variance optimal portfolio maximizing the quadratic utility w'mu - (gamma/2) w'Sigma w subject to full investment"
+
+  constrained:
+    description: "Same objective as efficient but with all portfolio weights restricted to be non-negative (long-only constraint)"
+
+  tc_adjusted:
+    description: >
+      Transaction-cost-aware mean-variance optimization. Before computing
+      target weights, augment the moment estimates to penalize deviations
+      from the current allocation: add tc_parameter times the current weight
+      vector to the expected return estimate, and add (tc_parameter / gamma)
+      times the identity matrix to the covariance estimate. Then solve the
+      efficient portfolio problem using these augmented moments in place of
+      the raw sample moments.
+    tc_parameter: 0.005
+
+backtesting:
+  description: >
+    Rolling-window out-of-sample evaluation. The out-of-sample period begins
+    after the estimation window. At each rebalancing date, estimate sample
+    moments from the trailing window and compute target weights. Record the
+    realized portfolio return for each period. Between rebalancing dates,
+    portfolio weights evolve passively with realized asset returns (i.e. each
+    weight is scaled by (1 + asset_return) and renormalized). All strategies
+    initialize from an equal-weight allocation.
+
+metrics:
+  annualized_return: "Compound the arithmetic mean monthly return to annual"
+  annualized_volatility: "Monthly sample standard deviation (unbiased) scaled by sqrt(12)"
+  sharpe_ratio: "annualized_return / annualized_volatility (zero risk-free rate)"
+  max_drawdown: "Maximum peak-to-trough decline in the cumulative wealth path"
+  avg_monthly_turnover: "Mean of per-period total absolute weight changes across all assets"
+
+optimal_tc_parameter:
+  description: >
+    Find the tc_parameter in [0.0001, 0.05] (reported to 4 decimal places)
+    that maximizes the net-of-costs Sharpe ratio for the tc_adjusted strategy.
+    Net returns each period equal the gross portfolio return minus quadratic
+    transaction costs: (tc_parameter / 2) times the squared Euclidean norm
+    of the weight change vector. The net-of-costs Sharpe ratio uses the same
+    annualization as the strategy metrics.
+  report_fields:
+    optimal_beta: "the tc_parameter value"
+    optimal_beta_sharpe: "the corresponding net-of-costs Sharpe ratio"
+
+output:
+  file: results.json
+  schema:
+    strategies:
+      "<strategy_name>":
+        annualized_return: float
+        annualized_volatility: float
+        sharpe_ratio: float
+        max_drawdown: float
+        avg_monthly_turnover: float
+    optimal_beta: float
+    optimal_beta_sharpe: float

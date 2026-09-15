@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete TCP-AO (RFC 5925/5926) verification pipeline from scratch, including: (1) NIST SP 800-108 counter-mode KDF for both HMAC-SHA1 (160-bit) and AES-128-CMAC (128-bit) with correct counter start, network-byte-order output length, no null terminator in label, and AES-CMAC key normalization for variable-length keys; (2) AES-CMAC (RFC 4493) implementation with correct subkey generation; (3) MAC input assembly requiring IP pseudoheader construction for both IPv4 and IPv6, TCP checksum zeroing, TCP-AO MAC field zeroing, and correct options coverage handling; (4) traffic key derivation with different ISN rules for SYN vs SYN-ACK vs data segments; (5) forensic classification logic that tests multiple hypotheses (alternate coverage mode, byte-level MAC comparison, payload modification) to determine attack type. The agent must synthesize specifications from multiple RFCs without starter code, handle 9+ documented implementation pitfalls, and design a novel hypothesis-testing classification framework."""
+solution_explanation = """The solution implements the full TCP-AO pipeline: AES-CMAC per RFC 4493, both KDFs per RFC 5926 (counter starting at 1, label without null terminator, network-byte-order output length, AES-CMAC key normalization via CMAC(zero_key, master_key)), context construction per RFC 5925 (sender perspective, ISN=0 for unknown remote in SYN), and MAC input assembly (SNE + pseudoheader + TCP header with checksum and MAC zeroed + payload, with options covered or omitted). For each of the 12 packets, it computes the MAC with stated parameters, extracts the packet MAC, and classifies: authentic if they match; wrong_coverage if the alternate coverage mode produces a match; corrupted_mac if <=3 bytes differ; modified_payload otherwise."""
+verification_explanation = """test_state.py loads /app/audit_report.json and verifies: (1) all 12 packet IDs present; (2) correct verdict for each; (3) exact computed MAC values for all 6 authentic packets (proving correct KDF+MAC implementation); (4) correct attack_class for all 6 forged packets; (5) exact computed and packet MAC values for corrupted_mac packets; (6) correct packet MAC values for modified_payload packets; (7) computed_mac != packet_mac for all forged packets; (8) byte difference constraints (<=3 for corrupted_mac, >3 for modified_payload). All checks are deterministic against RFC 9235 test vector values."""
+category = "security_and_privacy"
+tags = ["cryptography", "networking"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-04c01a"

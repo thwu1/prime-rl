@@ -1,0 +1,11 @@
+id
+whoami
+uname -a
+cat /etc/passwd
+ls -la /home/
+ls -la /var/www/app/
+cat /var/www/app/config.py
+grep -i pass /var/www/app/config.py
+grep -ri password /var/www/app/
+cat /var/www/app/config.py | grep SERVICE
+su devops

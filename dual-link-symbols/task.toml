@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of ELF dynamic linking (SONAME, RPATH, NEEDED entries), C ABI compatibility (struct layout with padding/alignment on x86_64), and shared library construction. The solver must reverse-engineer the legacy binary's dynamic dependencies, evaluate the semantic differences between two library API versions (including non-obvious changes like return value semantics and struct field reordering with alignment padding), and design a novel compatibility shim that performs bidirectional struct conversion and parameter translation. No cookbook solution exists — the solver must synthesize knowledge of ELF internals, C struct layout rules, and dynamic linker behavior to create a working binary compatibility layer from scratch."""
+solution_explanation = """Analyze both APIs via headers and readelf/nm on the binary. Write a C shim library that defines v2-compatible functions (proc_init, proc_load, proc_compute, proc_format, proc_cleanup), internally converts between v2 and v5 struct layouts (handling field reorder, label buffer resize 32→64, new priority field), translates return value semantics (proc_load count vs. status+output-param), and delegates computation to v5's processor_* functions. Compile the shim as a shared library with SONAME libprocessor.so.2, place it in /app/, and run legacy_app. Produce a structured compatibility assessment via programmatic header analysis."""
+verification_explanation = """Tests verify: (1) libprocessor.so.2 exists in /app/ with correct SONAME via readelf; (2) the shim exports all 5 required v2 function symbols via nm -D; (3) legacy_app runs successfully and produces output.txt; (4) output.txt matches expected values line-by-line (RECORDS, SUM, MEAN, MAX, MIN, filtered sum, flagged labels); (5) compatibility_assessment.json is valid JSON with required sections (mappings covering all 5 v2 functions, struct_changes, and risk assessment)."""
+category = "systems_programming"
+tags = ["elf-abi", "binary-compatibility"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dual-link-symbols"

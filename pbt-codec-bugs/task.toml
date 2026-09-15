@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding across multiple domains: (1) property-based testing theory — designing custom recursive Hypothesis strategies for a polymorphic type system, choosing effective property categories beyond naive roundtrip, and understanding shrinking behavior for nested structures; (2) IEEE 754 float semantics — recognizing that -0.0 == 0.0 yet copysign distinguishes them, requiring sign-aware equality; (3) arbitrary-precision integer encoding — understanding why Python's (n << 1) ^ (n >> 63) fails for |n| >= 2^63 because Python integers are unbounded while C-style bit operations assume fixed width; (4) UTF-8 multi-byte encoding — distinguishing byte length from character count when advancing buffer positions; (5) container serialization semantics — differentiating element count from serialized byte length for tuple prefix encoding. The solver must evaluate the codec holistically, not just apply known patches."""
+solution_explanation = """Design a Hypothesis strategy using st.recursive over base types (none, bool, int, float, str, bytes) extended with list, tuple, and dict combinators. Implement roundtrip, type-preservation, and sign-preservation properties. These discover 4 bugs: (1) zigzag encode uses fixed-width (n>>63) instead of arbitrary-precision conditional; (2) float encoder conflates 0.0 and -0.0 via the TAG_FLOAT_ZERO shorthand; (3) dict decoder advances position by len(key) (character count) instead of key_byte_len (UTF-8 bytes); (4) tuple encoder writes len(inner_buf) (byte count) instead of len(value) (element count). Fix each bug, then write a structured JSON bug taxonomy documenting function, root cause, trigger input, and the property category that catches it."""
+verification_explanation = """Tests exercise each bug with specific pathological inputs: large integers (|n| >= 2^63) for zigzag, -0.0 for float sign, dicts with non-ASCII keys (café, emoji, CJK) for position tracking, and tuples of multi-byte elements for count vs size. Additionally verifies that /app/tests/test_pbt.py exists, imports Hypothesis, uses custom composite strategies, contains at least 3 test functions, and passes when executed. Verifies /app/bug_report.json is a valid JSON array with at least 4 entries, each containing function/root_cause/trigger_input/property_type fields, covering all 4 bug categories."""
+category = "software_testing"
+tags = ["property-based-testing", "serialization-audit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pbt-codec-bugs"

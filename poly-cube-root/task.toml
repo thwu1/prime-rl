@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must forensically analyze an unfamiliar workspace containing a SQLite project database, binary polynomial files in a custom format, algorithm notes, and crash logs. They must: (1) query the journal to reconstruct the computation history across multiple completed, failed, and pending entries; (2) reverse-engineer the binary .poly format; (3) diagnose data corruption in an intermediate Newton iterate by independently verifying polynomial identities (g^3 = f mod x^M) -- requiring understanding of formal power series algebra; (4) determine the last trustworthy checkpoint from verification results; (5) evaluate three competing algorithmic approaches (direct Newton, exp/log decomposition, Hensel lifting) and choose the most efficient; (6) implement NTT-accelerated polynomial multiplication using the prime structure P = 119*2^23+1 with primitive root 3; (7) implement Newton-based polynomial inverse; (8) compose these into the cube root Newton iteration running 15 precision-doubling steps from precision 2 to 65536; (9) write output in the correct binary format. The task demands holistic understanding of modular polynomial algebra, not just procedure-following."""
+solution_explanation = """Query the project.db journal to discover 7 entries including a pending cube root computation and a failed integrity check. The integrity check reveals g_iter2 is corrupted (coefficient at index 2 wrong). Determine g_iter1 (precision 2) is the last verified checkpoint. Read the binary .poly files (4B POLY magic, u32 prime, u32 count, then u32 coefficients LE). Evaluate the three approaches in notes/ and select direct Newton iteration. Use the compiled polytool binary for NTT-based O(N log N) polynomial multiplication and inverse. Run the cube root Newton recurrence g_{k+1} = (2g_k + f*inv(g_k^2))*3^{-1} mod x^{2M} for 15 doubling steps from precision 2 to 65536 starting from g_iter1. Write 65536 coefficients to /app/workspace/output/g_final.poly in binary format."""
+verification_explanation = """Tests read both the input polynomial f from data/f_input.poly and the submitted result g from output/g_final.poly using the POLY binary format decoder. Structural checks verify: file exists, valid binary format with prime=998244353, exactly 65536 coefficients all in [0,P), and constant term equal to 1. The core correctness check evaluates both polynomials at 10 random points using Horner's method and verifies g(r)^3 = f(r) mod P at each point. Since f was constructed as an exact cube (f = h^3 for deg(h) < N/3), the Schwartz-Zippel lemma ensures negligible false-positive probability for incorrect g."""
+category = "algorithms"
+tags = ["polynomial-algebra", "forensic-computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/poly-cube-root"

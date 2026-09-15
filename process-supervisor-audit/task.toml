@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level systems programming knowledge across multiple interacting domains. The solver must: (1) interpret raw strace output to reconstruct the incident's syscall-level chain of events — clone() returning -1 ENOMEM followed by kill(-1, SIGTERM) broadcast — connecting kernel-level process management semantics to the catastrophic outcome; (2) identify an async-signal-safety violation where the signal handler calls into stdio (fprintf/fflush via elog()), recognizable in the strace by I/O syscalls occurring between SIGTERM delivery and rt_sigreturn — a subtle bug pattern that causes intermittent deadlocks under high signal delivery rates; (3) recognize that time(NULL) truncates sub-second precision in the event log baseline while gettimeofday() is used for subsequent entries, producing a spurious first-event timing delta; (4) spot a TOCTOU-style shutdown race where SIGTERM arriving during the restart backoff window causes orphan process spawning; (5) audit a bash script for catastrophic rm safety issues involving empty variable expansion. The solver must separate genuine bugs from red herrings (OOM killer, NFS errors) in the investigation logs, use strace to verify the fix, and synthesize findings into a root cause analysis connecting all failure modes."""
+solution_explanation = """Five C bugs and bash script safety issues require fixing: (1) Add fork() == -1 check in restart_worker before storing PID — prevents the kill(-1) catastrophe chain; (2) Guard kill() in stop_all with pid > 0 as defense-in-depth; (3) Replace time(NULL) with gettimeofday() in elog_open for sub-second baseline precision; (4) Remove elog() call from on_signal signal handler to eliminate async-signal-unsafe stdio calls and suppress -Wunused-parameter; (5) Add g_stop check before fork() in restart_worker to prevent orphan spawning during shutdown; (6) Rewrite cleanup.sh with set -euo pipefail, config file existence check, INSTALL_PATH validation, and quoted rm arguments. Then generate a strace capture of the fixed supervisor demonstrating clean shutdown, and write a root cause analysis documenting each bug with syscall-level evidence."""
+verification_explanation = """Static analysis via regex on function bodies verifies: fork() return checked for -1 in restart_worker, kill() guarded by pid > 0 in stop_all, elog_open uses gettimeofday/clock_gettime not time(NULL), on_signal contains no async-signal-unsafe calls, g_stop checked before fork in restart_worker. Bash script verified for set -e, pipefail, quoted variables, and input validation. Compilation tested with gcc -Wall -Wextra -Werror. Runtime smoke test confirms supervisor starts workers, handles SIGTERM, and produces accurate sub-100ms first delta. Independent strace verification runs strace on the fixed binary and parses output to confirm no kill() calls with negative PIDs. Root cause analysis checked for coverage of kill(-1), timing precision, signal safety, and syscall-level evidence."""
+category = "debugging"
+tags = ["systems-programming", "incident-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/process-supervisor-audit"

@@ -1,0 +1,33 @@
+# Reference session: basic ticket generation, heartbeats, and duplicate heartbeat rejection
+# Three clients: A (camera), B (camera), C (dispatcher)
+
+# Client A identifies — 7 bytes
+[00.000] A -> S: 80 00 42 00 64 00 3c
+
+# Client B identifies — 7 bytes
+[00.010] B -> S: 80 00 42 00 6e 00 3c
+
+# Client A reports a plate observation — 10 bytes
+[00.100] A -> S: 20 04 55 4e 31 58 00 01 e2 40
+
+# Client B reports a plate observation — 10 bytes
+[00.200] B -> S: 20 04 55 4e 31 58 00 01 e3 a8
+
+# Client C identifies — 4 bytes
+[00.500] C -> S: 81 01 00 42
+
+# Server sends ticket to C — 22 bytes
+[00.501] S -> C: 21 04 55 4e 31 58 00 42 00 64 00 01 e2 40 00 6e 00 01 e3 a8 27 10
+
+# Client C requests periodic heartbeat — 5 bytes
+[01.000] C -> S: 40 00 00 00 0a
+
+# Server sends heartbeat — 1 byte each
+[02.003] S -> C: 41
+[03.001] S -> C: 41
+
+# Client C sends a SECOND heartbeat request — 5 bytes
+[03.500] C -> S: 40 00 00 00 14
+
+# Server responds with error and disconnects C — 21 bytes
+[03.501] S -> C: 10 13 64 75 70 6c 69 63 61 74 65 20 68 65 61 72 74 62 65 61 74

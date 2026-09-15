@@ -1,0 +1,374 @@
+{
+  "design": {
+    "name": "arbiter_subsystem",
+    "modules": {
+      "top": {
+        "submodules": ["arbiter", "fifo_ctrl", "priority_encoder", "req_tracker"],
+        "ports": {
+          "clk": "input",
+          "rst_n": "input",
+          "req": "input[3:0]",
+          "grant": "output[3:0]",
+          "fifo_full": "output",
+          "fifo_empty": "output"
+        }
+      },
+      "arbiter": {
+        "submodules": [],
+        "ports": {"clk": "input", "rst_n": "input", "req": "input[3:0]", "pri": "input[3:0]", "grant": "output[3:0]"}
+      },
+      "fifo_ctrl": {
+        "submodules": [],
+        "ports": {"clk": "input", "rst_n": "input", "push": "input", "pop": "input", "full": "output", "empty": "output", "count": "output[4:0]"}
+      },
+      "priority_encoder": {
+        "submodules": [],
+        "ports": {"req": "input[3:0]", "pri": "output[3:0]"}
+      },
+      "req_tracker": {
+        "submodules": [],
+        "ports": {"clk": "input", "rst_n": "input", "req": "input[3:0]", "grant": "input[3:0]", "pending": "output[3:0]"}
+      }
+    }
+  },
+  "properties": [
+    {
+      "id": "P1",
+      "name": "mutual_exclusion",
+      "description": "At most one grant is active at any time",
+      "expression": "$onehot0(grant)",
+      "type": "safety"
+    },
+    {
+      "id": "P2",
+      "name": "no_grant_without_request",
+      "description": "A grant is only given if there is a corresponding request",
+      "expression": "(grant & ~req) == 0",
+      "type": "safety"
+    },
+    {
+      "id": "P3",
+      "name": "liveness",
+      "description": "Every persistent request is eventually granted",
+      "expression": "req[i] |-> ##[1:100] grant[i]",
+      "type": "liveness"
+    },
+    {
+      "id": "P4",
+      "name": "fifo_no_overflow",
+      "description": "FIFO never overflows",
+      "expression": "!(full && push && !pop)",
+      "type": "safety"
+    },
+    {
+      "id": "P5",
+      "name": "fifo_no_underflow",
+      "description": "FIFO never underflows",
+      "expression": "!(empty && pop && !push)",
+      "type": "safety"
+    },
+    {
+      "id": "P6",
+      "name": "priority_correctness",
+      "description": "Highest priority request gets granted first",
+      "expression": "grant == (1 << highest_pri_req)",
+      "type": "safety"
+    },
+    {
+      "id": "P7",
+      "name": "reset_behavior",
+      "description": "After reset, all grants are deasserted",
+      "expression": "!rst_n |=> grant == 0",
+      "type": "safety"
+    },
+    {
+      "id": "P8",
+      "name": "request_tracking",
+      "description": "Pending requests are accurately tracked",
+      "expression": "pending == (req & ~grant)",
+      "type": "safety"
+    },
+    {
+      "id": "P9",
+      "name": "fairness",
+      "description": "No requester is starved indefinitely under contention",
+      "expression": "req[i] && always(req[i]) |-> eventually(grant[i])",
+      "type": "liveness"
+    },
+    {
+      "id": "P10",
+      "name": "deadlock_freedom",
+      "description": "Arbiter never deadlocks with pending requests",
+      "expression": "(|req) |-> ##[1:50] (|grant)",
+      "type": "liveness"
+    }
+  ],
+  "proof_nodes": [
+    {
+      "id": "N1",
+      "property_id": "P1",
+      "strategy": "assume_guarantee",
+      "children": ["N1a", "N1b"],
+      "assumptions": {
+        "N1a": [],
+        "N1b": ["N1a"]
+      }
+    },
+    {
+      "id": "N1a",
+      "property_id": "P1",
+      "strategy": "leaf",
+      "scope": "arbiter",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N1b",
+      "property_id": "P1",
+      "strategy": "partition",
+      "blackboxed": ["fifo_ctrl"],
+      "children": ["N1b1"]
+    },
+    {
+      "id": "N1b1",
+      "property_id": "P1",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N2",
+      "property_id": "P2",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr",
+      "status_override": "proven",
+      "override_reason": "Manual review confirmed property holds: grant signals are directly masked by req in RTL. Override approved by verification lead."
+    },
+    {
+      "id": "N3",
+      "property_id": "P3",
+      "strategy": "case_split",
+      "split_signal": "req",
+      "cases": [
+        {"value": "4'b0001", "node": "N3a"},
+        {"value": "4'b0010", "node": "N3b"},
+        {"value": "4'b0100", "node": "N3c"},
+        {"value": "4'b1000", "node": "N3d"}
+      ],
+      "exhaustive": false
+    },
+    {
+      "id": "N3a",
+      "property_id": "P3",
+      "strategy": "stopat",
+      "bound": 50,
+      "children": ["N3a1"]
+    },
+    {
+      "id": "N3a1",
+      "property_id": "P3",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N3b",
+      "property_id": "P3",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N3c",
+      "property_id": "P3",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N3d",
+      "property_id": "P3",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N4",
+      "property_id": "P4",
+      "strategy": "assume_guarantee",
+      "children": ["N4a", "N4b"],
+      "assumptions": {
+        "N4a": ["N4b"],
+        "N4b": ["N4a"]
+      }
+    },
+    {
+      "id": "N4a",
+      "property_id": "P4",
+      "strategy": "leaf",
+      "scope": "fifo_ctrl",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N4b",
+      "property_id": "P4",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N5",
+      "property_id": "P5",
+      "strategy": "partition",
+      "blackboxed": ["arbiter", "priority_encoder"],
+      "children": ["N5a"]
+    },
+    {
+      "id": "N5a",
+      "property_id": "P5",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N6",
+      "property_id": "P6",
+      "strategy": "case_split",
+      "split_signal": "req",
+      "cases": [
+        {"value": "4'b0001", "node": "N6a"},
+        {"value": "4'b0011", "node": "N6b"},
+        {"value": "4'b0111", "node": "N6c"},
+        {"value": "4'b1111", "node": "N6d"},
+        {"value": "4'b0000", "node": "N6e"}
+      ],
+      "exhaustive": false
+    },
+    {
+      "id": "N6a",
+      "property_id": "P6",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N6b",
+      "property_id": "P6",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N6c",
+      "property_id": "P6",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N6d",
+      "property_id": "P6",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N6e",
+      "property_id": "P6",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N7",
+      "property_id": "P7",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N8",
+      "property_id": "P8",
+      "strategy": "assume_guarantee",
+      "children": ["N8a", "N8b"],
+      "assumptions": {
+        "N8a": [],
+        "N8b": ["N8a"]
+      }
+    },
+    {
+      "id": "N8a",
+      "property_id": "P8",
+      "strategy": "leaf",
+      "scope": "req_tracker",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N8b",
+      "property_id": "P8",
+      "strategy": "stopat",
+      "bound": 100,
+      "children": ["N8b1"]
+    },
+    {
+      "id": "N8b1",
+      "property_id": "P8",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N9",
+      "property_id": "P9",
+      "strategy": "partition",
+      "blackboxed": ["priority_encoder"],
+      "children": ["N9a"]
+    },
+    {
+      "id": "N9a",
+      "property_id": "P9",
+      "strategy": "stopat",
+      "bound": 200,
+      "children": ["N9a1"]
+    },
+    {
+      "id": "N9a1",
+      "property_id": "P9",
+      "strategy": "leaf",
+      "scope": "top",
+      "engine": "abc_bmc"
+    },
+    {
+      "id": "N10",
+      "property_id": "P10",
+      "strategy": "assume_guarantee",
+      "children": ["N10a", "N10b", "N10c"],
+      "assumptions": {
+        "N10a": ["N10c"],
+        "N10b": ["N10a"],
+        "N10c": ["N10b"]
+      }
+    },
+    {
+      "id": "N10a",
+      "property_id": "P10",
+      "strategy": "leaf",
+      "scope": "arbiter",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N10b",
+      "property_id": "P10",
+      "strategy": "leaf",
+      "scope": "fifo_ctrl",
+      "engine": "abc_pdr"
+    },
+    {
+      "id": "N10c",
+      "property_id": "P10",
+      "strategy": "leaf",
+      "scope": "req_tracker",
+      "engine": "abc_pdr"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of Linux kernel KASAN sanitizer output formats (BUG lines, call traces, shadow memory, allocation/free stacks), kernel source tree organization to distinguish infrastructure from driver code, unified diff parsing, verification outcome classification for non-deterministic kernel bug reproduction, and patch applicability validation using the patch(1) utility against kernel source excerpts. The agent must discover KASAN report structure, verification classification thresholds, infrastructure filtering patterns, patch strategy semantics, and tool integration entirely from examining the provided data — the instruction specifies only the API contract."""
+solution_explanation = """Implement four Python modules: (1) regex-based KASAN report parser handling BUG lines, call stacks with inline frames, allocation/free stacks, and object metadata across multiple bug types; (2) call-stack localizer with comprehensive infrastructure filtering using function prefix and source path matching across ~50 patterns; (3) verification outcome classifier using crash-rate thresholds with boot-fail precedence; (4) patch analyzer combining unified diff parsing, hunk-header function extraction, strategy pattern matching, bug-type-to-strategy mapping, and Python-based context-matching to verify patch applicability against kernel source excerpts."""
+verification_explanation = """80 pytest tests verify: correct extraction of all fields from 4 crash report types (OOB, UAF, NPD, global-OOB); localization ranks the correct buggy function first and filters all infrastructure functions; verification classifies 6 scenarios correctly (pass, trigger, racey, boot_fail, single-crash edge case, mixed boot-fail); patch analysis correctly classifies patches as plausible/wrong with applicability checking against kernel source excerpts; integration tests confirm the full pipeline end-to-end."""
+category = "cybersecurity"
+tags = ["kernel-debugging", "program-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kasan-patch-analyzer"

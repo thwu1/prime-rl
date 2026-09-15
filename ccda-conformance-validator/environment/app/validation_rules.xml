@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurations xmlns="http://www.SITE.org/CCDAValidator">
+
+  <!-- R1: confidentialityCode - ValueSetCodeValidator SHOULD -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:confidentialityCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHOULD</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.16926</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R2: document languageCode - LanguageCodeNodeLanguageCodeValuesetValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:languageCode[not(@nullFlavor)]">
+    <validator>
+      <name>LanguageCodeNodeLanguageCodeValuesetValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.11526</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R3: document languageCode - LanguageCodeNodeCountryCodeValuesetValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:languageCode[not(@nullFlavor)]">
+    <validator>
+      <name>LanguageCodeNodeCountryCodeValuesetValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.3.88.12.80.63</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R4: administrativeGenderCode - ValueSetCodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:administrativeGenderCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.1</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R5: maritalStatusCode - ValueSetCodeValidator SHOULD (passes, code M is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:maritalStatusCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHOULD</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.12212</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R6: raceCode - ValueSetCodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:raceCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.3.2074.1.1.3</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R7: sdtc:raceCode - ValueSetCodeValidator SHALL (uses sdtc namespace!) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/sdtc:raceCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.14914</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R8: ethnicGroupCode - ValueSetCodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:ethnicGroupCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.114222.4.11.837</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R9: birthplace country - TextNodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:birthplace/v3:place/v3:addr/v3:country">
+    <validator>
+      <name>TextNodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.3.88.12.80.63</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R10: languageCommunication languageCode - LanguageCodeNodeLanguageCodeValuesetValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:languageCommunication/v3:languageCode[not(@nullFlavor)]">
+    <validator>
+      <name>LanguageCodeNodeLanguageCodeValuesetValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.11526</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R11: languageCommunication languageCode - LanguageCodeNodeCountryCodeValuesetValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:recordTarget/v3:patientRole/v3:patient/v3:languageCommunication/v3:languageCode[not(@nullFlavor)]">
+    <validator>
+      <name>LanguageCodeNodeCountryCodeValuesetValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.3.88.12.80.63</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R12: author code - ValueSetCodeValidator SHOULD -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:author/v3:assignedAuthor/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHOULD</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.114222.4.11.1066</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R13: author code codeSystem - NodeCodeSystemMatchesConfiguredCodeSystemValidator SHOULD -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:author/v3:assignedAuthor/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>NodeCodeSystemMatchesConfiguredCodeSystemValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHOULD</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.6.101</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R14: participant associatedEntity classCode - ClassCodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:templateId[@root='2.16.840.1.113883.10.20.22.1.1' and @extension='2015-08-01']/ancestor::v3:ClinicalDocument[1]/v3:participant[@typeCode='IND']/v3:associatedEntity[not(@nullFlavor)]">
+    <validator>
+      <name>ClassCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.5.111</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R15: allergies section code - ValueSetCodeValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.6.1' and @extension='2015-08-01']/ancestor::v3:section[1]/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.20.2</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R16: allergies act statusCode - ValueSetCodeValidator SHALL (passes, code active is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.6.1' and @extension='2015-08-01']/ancestor::v3:section[1]/v3:entry/v3:act/v3:statusCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.15933</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R17: medications section code - ValueSetCodeValidator SHALL (passes, code 10160-0 is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1' and @extension='2014-06-09']/ancestor::v3:section[1]/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.20.2</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R18: medication routeCode - ValueSetCodeValidator SHOULD -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1' and @extension='2014-06-09']/ancestor::v3:section[1]/v3:entry/v3:substanceAdministration/v3:routeCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHOULD</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.3.88.12.3221.8.7</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R19: manufacturedMaterial code codeSystem - NodeCodeSystemMatchesConfiguredCodeSystemValidator SHALL -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1' and @extension='2014-06-09']/ancestor::v3:section[1]/v3:entry/v3:substanceAdministration/v3:consumable/v3:manufacturedProduct/v3:manufacturedMaterial/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>NodeCodeSystemMatchesConfiguredCodeSystemValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.6.88</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R20: medication statusCode - ValueSetCodeValidator SHALL (passes, code active is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.1.1' and @extension='2014-06-09']/ancestor::v3:section[1]/v3:entry/v3:substanceAdministration/v3:statusCode[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.15933</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R21: problems section code - ValueSetCodeValidator SHALL (passes, code 11450-4 is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.5.1' and @extension='2015-08-01']/ancestor::v3:section[1]/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.20.2</allowedValuesetOids>
+    </validator>
+  </expression>
+
+  <!-- R22: results section code - ValueSetCodeValidator SHALL (passes, code 30954-2 is valid) -->
+  <expression xpathExpression="/v3:ClinicalDocument/v3:component/v3:structuredBody/v3:component/v3:section/v3:templateId[@root='2.16.840.1.113883.10.20.22.2.3.1' and @extension='2015-08-01']/ancestor::v3:section[1]/v3:code[not(@nullFlavor)]">
+    <validator>
+      <name>ValueSetCodeValidator</name>
+      <validationResultSeverityLevels>
+        <codeSeverityLevel>SHALL</codeSeverityLevel>
+      </validationResultSeverityLevels>
+      <allowedValuesetOids>2.16.840.1.113883.1.11.20.2</allowedValuesetOids>
+    </validator>
+  </expression>
+
+</configurations>

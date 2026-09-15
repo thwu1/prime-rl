@@ -1,0 +1,48 @@
+{
+  "filters": {
+    "stdio_mmap": {
+      "description": "Allows basic I/O (read, write), process lifecycle (exit, exit_group), memory management (brk), and memory mapping (mmap) but MUST deny mmap when PROT_EXEC (bit 2) is set in args[2] (the prot parameter).",
+      "policy": {
+        "allow": [
+          {"syscall": "read", "nr": 0},
+          {"syscall": "write", "nr": 1},
+          {"syscall": "exit", "nr": 60},
+          {"syscall": "exit_group", "nr": 231},
+          {"syscall": "brk", "nr": 12},
+          {"syscall": "mmap", "nr": 9, "constraint": "args[2] (prot) must not have bit 2 (PROT_EXEC) set"}
+        ],
+        "default": "KILL"
+      }
+    },
+    "network_socket": {
+      "description": "Allows basic I/O (read, write, close), networking (connect, sendto, recvfrom), and socket creation ONLY for AF_INET (2) or AF_INET6 (10) with SOCK_STREAM (1) or SOCK_DGRAM (2). The socket type check must mask out SOCK_CLOEXEC (0x80000) and SOCK_NONBLOCK (0x800) before comparison.",
+      "policy": {
+        "allow": [
+          {"syscall": "read", "nr": 0},
+          {"syscall": "write", "nr": 1},
+          {"syscall": "close", "nr": 3},
+          {"syscall": "connect", "nr": 42},
+          {"syscall": "sendto", "nr": 44},
+          {"syscall": "recvfrom", "nr": 45},
+          {"syscall": "socket", "nr": 41, "constraint": "args[0] (domain) must be 2 (AF_INET) or 10 (AF_INET6); args[1] (type) masked with ~0x80800 must be 1 (SOCK_STREAM) or 2 (SOCK_DGRAM)"}
+        ],
+        "default": "KILL"
+      }
+    },
+    "fs_readonly": {
+      "description": "Allows read-only filesystem access: read, close, fstat, lseek, exit, exit_group, and open ONLY when the access mode bits indicate O_RDONLY (args[1] & O_ACCMODE == 0, where O_ACCMODE = 3 and args[1] is the flags parameter).",
+      "policy": {
+        "allow": [
+          {"syscall": "read", "nr": 0},
+          {"syscall": "close", "nr": 3},
+          {"syscall": "fstat", "nr": 5},
+          {"syscall": "lseek", "nr": 8},
+          {"syscall": "exit", "nr": 60},
+          {"syscall": "exit_group", "nr": 231},
+          {"syscall": "open", "nr": 2, "constraint": "args[1] (flags) & 3 (O_ACCMODE) must equal 0 (O_RDONLY)"}
+        ],
+        "default": "KILL"
+      }
+    }
+  }
+}

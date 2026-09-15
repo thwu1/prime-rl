@@ -1,0 +1,13 @@
+{
+  "num_iterations": 5,
+  "constraints": {
+    "positive_leading_coeff": true,
+    "require_quadratic_terms": true,
+    "min_quadratic_iters": 1
+  },
+  "targets": {
+    "beat_baseline": "schulz_conservative",
+    "max_avg_orthogonality_error": 0.5
+  },
+  "notes": "The polynomial p(r) = a + br + cr^2 maps Gram eigenvalues at each iteration. After normalization to unit Frobenius norm, eigenvalues are typically in (0, 0.5). The polynomial should boost small eigenvalues toward 1 while preserving eigenvalues already near 1."
+}

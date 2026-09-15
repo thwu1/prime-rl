@@ -1,0 +1,24 @@
+Protein Structure Analysis - Lab Notes
+=======================================
+
+Two structures were downloaded from the Protein Data Bank for
+backbone flexibility analysis.
+
+protein_x42.pdb
+  - Experimental method: X-ray crystallography
+  - Resolution: ~1.0 Angstrom
+  - Description: Small synthetic peptide construct
+  - Number of residues: 20
+  - Notes: High-resolution single structure suitable for
+    validating geometry calculations
+
+protein_k17.pdb
+  - Experimental method: Solution NMR
+  - Resolution: N/A (NMR)
+  - Description: Small plant-derived protein
+  - Number of residues: 46
+  - Notes: Multi-model ensemble for conformational analysis.
+    Expected to have significant backbone flexibility in
+    loop regions.
+
+TODO: Run ensemble analysis on the NMR structure.

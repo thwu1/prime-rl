@@ -1,0 +1,121 @@
+[2024-03-01T08:00:00] INFO: Benchmark suite starting on nexus cluster
+[2024-03-01T08:00:01] INFO: System configuration: 1200 nodes, CPU-only architecture
+[2024-03-01T08:00:02] INFO: GPU benchmarks will be skipped (no GPU hardware)
+[2024-03-01T08:05:00] INFO: Starting benchmark stencil3d
+[2024-03-01T08:05:03] benchmark=stencil3d trial=1 time=35.3500s STATUS=OK
+[2024-03-01T08:05:06] benchmark=stencil3d trial=2 time=34.1250s STATUS=OK
+[2024-03-01T08:05:09] benchmark=stencil3d trial=3 time=36.2250s STATUS=OK
+[2024-03-01T08:05:12] benchmark=stencil3d trial=4 time=87.5000s STATUS=OK
+[2024-03-01T08:05:15] benchmark=stencil3d trial=5 time=34.6500s STATUS=OK
+[2024-03-01T08:05:18] benchmark=stencil3d trial=6 time=35.7000s STATUS=OK
+[2024-03-01T08:05:21] benchmark=stencil3d trial=7 time=33.7750s STATUS=OK
+[2024-03-01T08:05:24] benchmark=stencil3d trial=8 time=35.1750s STATUS=OK
+[2024-03-01T08:05:27] benchmark=stencil3d trial=9 time=34.4750s STATUS=OK
+[2024-03-01T08:05:30] benchmark=stencil3d trial=10 time=36.0500s STATUS=OK
+[2024-03-01T08:05:31] INFO: Benchmark stencil3d - halfway checkpoint, all nodes healthy
+[2024-03-01T08:05:33] benchmark=stencil3d trial=11 time=33.6000s STATUS=OK
+[2024-03-01T08:05:36] benchmark=stencil3d trial=12 time=98.0000s STATUS=OK
+[2024-03-01T08:05:39] benchmark=stencil3d trial=13 time=35.5250s STATUS=OK
+[2024-03-01T08:05:42] benchmark=stencil3d trial=14 time=34.8250s STATUS=OK
+[2024-03-01T08:05:45] benchmark=stencil3d trial=15 time=36.4000s STATUS=OK
+[2024-03-01T08:05:48] benchmark=stencil3d trial=16 time=34.3000s STATUS=OK
+[2024-03-01T08:05:51] benchmark=stencil3d trial=17 time=35.8750s STATUS=OK
+[2024-03-01T08:05:54] benchmark=stencil3d trial=18 time=108.5000s STATUS=OK
+[2024-03-01T08:05:57] benchmark=stencil3d trial=19 time=33.9500s STATUS=OK
+[2024-03-01T08:05:00] benchmark=stencil3d trial=20 time=122.5000s STATUS=OK
+[2024-03-01T08:05:59] INFO: Benchmark stencil3d completed, 20 trials recorded
+[2024-03-01T08:20:00] INFO: Starting benchmark sparse_matvec
+[2024-03-01T08:20:03] benchmark=sparse_matvec trial=1 time=15.1500s STATUS=OK
+[2024-03-01T08:20:06] benchmark=sparse_matvec trial=2 time=14.6250s STATUS=OK
+[2024-03-01T08:20:09] benchmark=sparse_matvec trial=3 time=15.5250s STATUS=OK
+[2024-03-01T08:20:12] benchmark=sparse_matvec trial=4 time=37.5000s STATUS=OK
+[2024-03-01T08:20:15] benchmark=sparse_matvec trial=5 time=14.8500s STATUS=OK
+[2024-03-01T08:20:18] benchmark=sparse_matvec trial=6 time=15.3000s STATUS=OK
+[2024-03-01T08:20:21] benchmark=sparse_matvec trial=7 time=14.4750s STATUS=OK
+[2024-03-01T08:20:24] benchmark=sparse_matvec trial=8 time=15.0750s STATUS=OK
+[2024-03-01T08:20:27] benchmark=sparse_matvec trial=9 time=14.7750s STATUS=OK
+[2024-03-01T08:20:30] benchmark=sparse_matvec trial=10 time=15.4500s STATUS=OK
+[2024-03-01T08:20:31] INFO: Benchmark sparse_matvec - halfway checkpoint, all nodes healthy
+[2024-03-01T08:20:33] benchmark=sparse_matvec trial=11 time=14.4000s STATUS=OK
+[2024-03-01T08:20:36] benchmark=sparse_matvec trial=12 time=42.0000s STATUS=OK
+[2024-03-01T08:20:39] benchmark=sparse_matvec trial=13 time=15.2250s STATUS=OK
+[2024-03-01T08:20:42] benchmark=sparse_matvec trial=14 time=14.9250s STATUS=OK
+[2024-03-01T08:20:45] benchmark=sparse_matvec trial=15 time=15.6000s STATUS=OK
+[2024-03-01T08:20:48] benchmark=sparse_matvec trial=16 time=14.7000s STATUS=OK
+[2024-03-01T08:20:51] benchmark=sparse_matvec trial=17 time=15.3750s STATUS=OK
+[2024-03-01T08:20:54] benchmark=sparse_matvec trial=18 time=46.5000s STATUS=OK
+[2024-03-01T08:20:57] benchmark=sparse_matvec trial=19 time=14.5500s STATUS=OK
+[2024-03-01T08:20:00] benchmark=sparse_matvec trial=20 time=52.5000s STATUS=OK
+[2024-03-01T08:20:59] INFO: Benchmark sparse_matvec completed, 20 trials recorded
+[2024-03-01T08:35:00] INFO: Starting benchmark global_fft
+[2024-03-01T08:35:03] benchmark=global_fft trial=1 time=25.2500s STATUS=OK
+[2024-03-01T08:35:06] benchmark=global_fft trial=2 time=24.3750s STATUS=OK
+[2024-03-01T08:35:09] benchmark=global_fft trial=3 time=25.8750s STATUS=OK
+[2024-03-01T08:35:12] benchmark=global_fft trial=4 time=62.5000s STATUS=OK
+[2024-03-01T08:35:15] benchmark=global_fft trial=5 time=24.7500s STATUS=OK
+[2024-03-01T08:35:18] benchmark=global_fft trial=6 time=25.5000s STATUS=OK
+[2024-03-01T08:35:21] benchmark=global_fft trial=7 time=24.1250s STATUS=OK
+[2024-03-01T08:35:24] benchmark=global_fft trial=8 time=25.1250s STATUS=OK
+[2024-03-01T08:35:27] benchmark=global_fft trial=9 time=24.6250s STATUS=OK
+[2024-03-01T08:35:30] benchmark=global_fft trial=10 time=25.7500s STATUS=OK
+[2024-03-01T08:35:31] INFO: Benchmark global_fft - halfway checkpoint, all nodes healthy
+[2024-03-01T08:35:33] benchmark=global_fft trial=11 time=24.0000s STATUS=OK
+[2024-03-01T08:35:36] benchmark=global_fft trial=12 time=70.0000s STATUS=OK
+[2024-03-01T08:35:39] benchmark=global_fft trial=13 time=25.3750s STATUS=OK
+[2024-03-01T08:35:42] benchmark=global_fft trial=14 time=24.8750s STATUS=OK
+[2024-03-01T08:35:45] benchmark=global_fft trial=15 time=26.0000s STATUS=OK
+[2024-03-01T08:35:48] benchmark=global_fft trial=16 time=24.5000s STATUS=OK
+[2024-03-01T08:35:51] benchmark=global_fft trial=17 time=25.6250s STATUS=OK
+[2024-03-01T08:35:54] benchmark=global_fft trial=18 time=77.5000s STATUS=OK
+[2024-03-01T08:35:57] benchmark=global_fft trial=19 time=24.2500s STATUS=OK
+[2024-03-01T08:35:00] benchmark=global_fft trial=20 time=87.5000s STATUS=OK
+[2024-03-01T08:35:59] INFO: Benchmark global_fft completed, 20 trials recorded
+[2024-03-01T08:50:00] WARNING: Skipping deep_train - no GPU hardware available on nexus
+[2024-03-01T08:52:00] INFO: Starting benchmark genome_search
+[2024-03-01T08:52:03] benchmark=genome_search trial=1 time=40.4000s STATUS=OK
+[2024-03-01T08:52:06] benchmark=genome_search trial=2 time=39.0000s STATUS=OK
+[2024-03-01T08:52:09] benchmark=genome_search trial=3 time=41.4000s STATUS=OK
+[2024-03-01T08:52:12] benchmark=genome_search trial=4 time=100.0000s STATUS=OK
+[2024-03-01T08:52:15] benchmark=genome_search trial=5 time=39.6000s STATUS=OK
+[2024-03-01T08:52:18] benchmark=genome_search trial=6 time=40.8000s STATUS=OK
+[2024-03-01T08:52:21] benchmark=genome_search trial=7 time=38.6000s STATUS=OK
+[2024-03-01T08:52:24] benchmark=genome_search trial=8 time=40.2000s STATUS=OK
+[2024-03-01T08:52:27] benchmark=genome_search trial=9 time=39.4000s STATUS=OK
+[2024-03-01T08:52:30] benchmark=genome_search trial=10 time=41.2000s STATUS=OK
+[2024-03-01T08:52:31] INFO: Benchmark genome_search - halfway checkpoint, all nodes healthy
+[2024-03-01T08:52:33] benchmark=genome_search trial=11 time=38.4000s STATUS=OK
+[2024-03-01T08:52:36] benchmark=genome_search trial=12 time=112.0000s STATUS=OK
+[2024-03-01T08:52:39] benchmark=genome_search trial=13 time=40.6000s STATUS=OK
+[2024-03-01T08:52:42] benchmark=genome_search trial=14 time=39.8000s STATUS=OK
+[2024-03-01T08:52:45] benchmark=genome_search trial=15 time=41.6000s STATUS=OK
+[2024-03-01T08:52:48] benchmark=genome_search trial=16 time=39.2000s STATUS=OK
+[2024-03-01T08:52:51] benchmark=genome_search trial=17 time=41.0000s STATUS=OK
+[2024-03-01T08:52:54] benchmark=genome_search trial=18 time=124.0000s STATUS=OK
+[2024-03-01T08:52:57] benchmark=genome_search trial=19 time=38.8000s STATUS=OK
+[2024-03-01T08:52:00] benchmark=genome_search trial=20 time=140.0000s STATUS=OK
+[2024-03-01T08:52:59] INFO: Benchmark genome_search completed, 20 trials recorded
+[2024-03-01T09:07:00] INFO: Starting benchmark mol_dynamics
+[2024-03-01T09:07:03] benchmark=mol_dynamics trial=1 time=30.3000s STATUS=OK
+[2024-03-01T09:07:06] benchmark=mol_dynamics trial=2 time=29.2500s STATUS=OK
+[2024-03-01T09:07:09] benchmark=mol_dynamics trial=3 time=31.0500s STATUS=OK
+[2024-03-01T09:07:12] benchmark=mol_dynamics trial=4 time=75.0000s STATUS=OK
+[2024-03-01T09:07:15] benchmark=mol_dynamics trial=5 time=29.7000s STATUS=OK
+[2024-03-01T09:07:18] benchmark=mol_dynamics trial=6 time=30.6000s STATUS=OK
+[2024-03-01T09:07:21] benchmark=mol_dynamics trial=7 time=28.9500s STATUS=OK
+[2024-03-01T09:07:24] benchmark=mol_dynamics trial=8 time=30.1500s STATUS=OK
+[2024-03-01T09:07:27] benchmark=mol_dynamics trial=9 time=29.5500s STATUS=OK
+[2024-03-01T09:07:30] benchmark=mol_dynamics trial=10 time=30.9000s STATUS=OK
+[2024-03-01T09:07:31] INFO: Benchmark mol_dynamics - halfway checkpoint, all nodes healthy
+[2024-03-01T09:07:33] benchmark=mol_dynamics trial=11 time=28.8000s STATUS=OK
+[2024-03-01T09:07:36] benchmark=mol_dynamics trial=12 time=84.0000s STATUS=OK
+[2024-03-01T09:07:39] benchmark=mol_dynamics trial=13 time=30.4500s STATUS=OK
+[2024-03-01T09:07:42] benchmark=mol_dynamics trial=14 time=29.8500s STATUS=OK
+[2024-03-01T09:07:45] benchmark=mol_dynamics trial=15 time=31.2000s STATUS=OK
+[2024-03-01T09:07:48] benchmark=mol_dynamics trial=16 time=29.4000s STATUS=OK
+[2024-03-01T09:07:51] benchmark=mol_dynamics trial=17 time=30.7500s STATUS=OK
+[2024-03-01T09:07:54] benchmark=mol_dynamics trial=18 time=93.0000s STATUS=OK
+[2024-03-01T09:07:57] benchmark=mol_dynamics trial=19 time=29.1000s STATUS=OK
+[2024-03-01T09:07:00] benchmark=mol_dynamics trial=20 time=105.0000s STATUS=OK
+[2024-03-01T09:07:59] INFO: Benchmark mol_dynamics completed, 20 trials recorded
+[2024-03-01T09:22:00] INFO: Benchmark suite completed on nexus cluster
+[2024-03-01T09:22:01] INFO: 5 benchmarks run, 1 skipped (deep_train: no GPU)

@@ -1,0 +1,40 @@
+{
+  "description": "Expected output format for /app/output/diagnosis.json. The forensics pipeline must produce a JSON file matching this schema.",
+  "schema": {
+    "cluster_snapshot_time": "ISO 8601 timestamp of the cluster state snapshot",
+    "total_indices_analyzed": "integer - total number of indices in the ISM explain data",
+    "issues": {
+      "type": "array",
+      "description": "List of diagnosed ISM issues. Each issue must be classified into exactly one category.",
+      "items": {
+        "id": "string - unique issue identifier (e.g. ISSUE-001)",
+        "severity": "string - one of: critical, high, medium, low",
+        "category": "string - exactly one of: action_failure, policy_version_mismatch, allocation_failure, alias_integrity",
+        "title": "string - brief issue title",
+        "affected_indices": "array of string - sorted list of index names affected by this issue",
+        "root_cause": "string - detailed root cause analysis explaining why the issue occurred",
+        "remediation": "string - recommended fix"
+      }
+    },
+    "summary": {
+      "total_issues": "integer - number of distinct issues diagnosed",
+      "critical_count": "integer - issues with severity=critical",
+      "high_count": "integer - issues with severity=high",
+      "medium_count": "integer - issues with severity=medium",
+      "indices_with_failed_actions": "integer - count of indices where action.failed=true in ISM explain",
+      "indices_with_stale_policy": "integer - count of indices with policy_seq_no < current policy _seq_no",
+      "indices_with_alias_issues": "integer - count of indices affected by alias integrity issues"
+    }
+  },
+  "issue_categories": {
+    "action_failure": "An ISM action (force_merge, allocation, etc.) has failed and is blocking lifecycle progression",
+    "policy_version_mismatch": "Indices are running a stale policy version, causing behavioral differences",
+    "allocation_failure": "Shard allocation action is failing due to misconfigured node attributes",
+    "alias_integrity": "Write alias is not pointing to the correct (latest unrolled) index in a rollover chain"
+  },
+  "severity_guidelines": {
+    "critical": "Data loss risk or active write failures (e.g., alias pointing to wrong index, allocation preventing required data movement)",
+    "high": "Lifecycle progression blocked but no immediate data loss (e.g., force_merge failure blocking state transitions)",
+    "medium": "Suboptimal configuration without immediate operational impact (e.g., extra replicas from stale policy)"
+  }
+}

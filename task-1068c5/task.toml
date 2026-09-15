@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading xv6 kernel C source code (fs.h struct definitions, log.c recovery protocol, fs.c bitmap/inode operations) to reverse-engineer the on-disk binary format — no plain-text specification is provided. The solver must compile the provided mkfs.c to generate reference images, use binary forensic tools (xxd, cmp, dd) to compare against the corrupted image, and then build a multi-pass consistency checker handling interacting repair phases (log recovery, orphan reclamation, bitmap reconciliation, metadata validation). Byte-level binary manipulation with correct endianness and bit arithmetic throughout. Dreyfus proficient / Bloom create."""
+solution_explanation = """Read fs.h to learn struct layouts, compile mkfs.c to create clean reference images, and use xxd/cmp to understand the binary format. Parse the superblock to discover layout parameters. Process the write-ahead log by reading the log header and copying log data blocks to their destination blocks, then clear the header. Diff inode state pre/post log replay to identify recovered files. Walk the directory tree from the root inode to build the reachable set; allocated inodes outside this set are orphans — free their blocks and zero the inodes. Validate each inode's size against its actual allocated block count. Rebuild the expected bitmap from all live block references, compare against the on-disk bitmap, and fix discrepancies."""
+verification_explanation = """Tests parse the repaired image binary and the JSON report independently. The report is checked for exact values: 2 log entries replayed, orphaned inodes [10,11], bitmap errors (block 300 leaked, block 51 missing), size error on inode 6 (5000→3072), recovered file content. The repaired image is verified structurally: log cleared, recovered inode exists with correct metadata, recovered file linked in root directory, orphan inodes zeroed, orphan blocks freed, bitmap bits corrected, inode size fixed, and existing files preserved with correct content."""
+category = "operating_systems"
+tags = ["filesystem", "binary-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1068c5"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Six bugs span four abstraction layers (Makefile→C→ctypes→Python): static-archive-vs-shared-library build failure, swapped ctypes struct fields, off-by-one in a product loop, wrong complex-arithmetic formula in the ascending Landen recursion, missing imaginary unit in a Newton-Raphson initial guess, and a wrong variable in the pole-placement sigma formula. Cascading errors mask downstream bugs until upstream ones are resolved. After fixing the analog pipeline, the solver must design a complete digital-filter realization module from scratch: bilinear transform with gain compensation and degree matching, second-order-section decomposition with optimal pole-zero pairing and section ordering, and a minimum-order evaluator that accounts for frequency prewarping. Finally, the solver must evaluate the digital pipeline across five diverse scenarios and judge the minimum filter order for each."""
+solution_explanation = """Fix six issues: (1) Makefile: change target from static archive to shared library and add -lm; (2) native_binding.py: swap CmplxResult struct fields to match C layout; (3) libelliptic.c K(k): start product loop at i=1; (4) libelliptic.c cd(): use w*w (complex square) in denominator; (5) cd_inverse.py: add 1j before arccosh in transition-band initial guesses; (6) filter_design.py: change K1p to K1 in sigma formula. Then create digitize.py implementing bilinear_zpk (s-to-z mapping with gain compensation), zpk_to_sos (conjugate-pair grouping, nearest-angle pairing, radius-ordered sections), and min_order_for_spec (prewarp band edges, iterate orders 2-15, evaluate digital frequency response). Run the evaluator across all scenarios and write results.json."""
+verification_explanation = """Analog tests verify each building block (Landen convergence, K(k) vs scipy.special.ellipk, cd vs ellipj, cd_inv roundtrip, R_N properties) and full filter design against scipy.signal.ellip for orders 3-7. Digital tests verify bilinear_zpk against scipy.signal.bilinear_zpk for multiple orders, check SOS cascade frequency-response equivalence to zpk, verify section ordering and coefficient normalization, and validate min_order results against scipy.signal.ellipord with ±1 tolerance. An AST-based test ensures digitize.py does not import scipy."""
+category = "signal_processing"
+tags = ["numerical-debugging", "filter-design"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d6bb64"

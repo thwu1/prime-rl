@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a multi-file game engine (~1500 lines across engine.py, objects.py, worldgen.py, env.py, constants.py, and data.yaml) without any documentation. The survival dynamics section demands tracing four coupled accumulator systems (hunger, thirst, fatigue, health recovery) that interact nonlinearly — the health recovery accumulator changes direction when any vital depletes, requiring precise step-by-step simulation of all four accumulators simultaneously to compute the exact game step of first health loss. The population balancing section requires discovering a hidden dynamic creature spawning system embedded in env.py that uses chunk-based spatial partitioning, daylight-dependent population target lambdas, and probabilistic spawn/despawn with distance constraints — a subsystem most solvers won't even know exists. The combat model requires understanding Python's `x and y` idiom in a max() list for damage computation, plus tracing the _wake_up_when_hurt cross-system interaction. The technology tree resource cost analysis requires forward-tracing through the full crafting dependency chain to compute minimum raw materials. The daylight model requires extracting and evaluating a trigonometric formula. Each section synthesizes knowledge across multiple source files and requires understanding emergent behavior rather than just reading parameter values."""
+solution_explanation = """Install crafter==1.8.3. Locate source in site-packages. For survival_dynamics: simulate the four accumulators step-by-step — hunger triggers food loss at step 26 (threshold 25+1), thirst at step 21, fatigue at step 31; drink reaches 0 at step 189 (21*9); at that point the _recover accumulator (at value 6, since 188 mod 26 = 6) reverses direction, taking 22 more steps to reach -16 < -15, giving first_health_loss at step 210. Sleep energy restore: 11 steps per energy point * 9 = 99. For combat: extract damage formula max([1, inv['wood_sword'] and 2, ...]), compute ceil(health/damage) for hits_to_kill. For population_balancing: read _balance_chunk in env.py to find chunk_dimensions (12,12), rebalance_interval (step%10==0), and extract lambda parameters — zombie target (3.5-3*light, 3.5-3*light) with space_threshold 50, skeleton (1,2) with threshold 6, cow (1, 1.5+light) with threshold 30. For tech tree: trace crafting chain to compute total resources (wood=5, stone=5, coal=1, iron=1), count dependencies to find collect_wood as most-depended (7). For daylight: evaluate 1-|cos(π*((step/300)%1+0.3))|³ at steps 0,75,150,225."""
+verification_explanation = """Tests verify all six sections: (1) survival_dynamics step numbers verified by independent accumulator simulation in the test, (2) combat_model values including hits_to_kill verified against hardcoded expected values and dynamic testing, (3) population_balancing parameters verified against hardcoded expected values extracted from crafter source, (4) world_state_seed42 independently verified by running crafter with seed=42, (5) technology_tree dependencies, depths, critical path, resource costs, and most-depended verified against hardcoded expected values, (6) daylight_model values verified by computing the daylight formula independently in the test."""
+category = "reverse_engineering"
+tags = ["game-engine", "behavioral-analysis"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crafter-tech-tree"

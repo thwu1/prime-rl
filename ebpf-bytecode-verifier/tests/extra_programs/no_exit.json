@@ -1,0 +1,11 @@
+{
+  "name": "no_exit",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "mov64_imm", "dst": 6, "imm": 5},
+    {"op": "jeq_imm", "dst": 6, "imm": 5, "off": 1},
+    {"op": "exit"},
+    {"op": "mov64_imm", "dst": 0, "imm": 2}
+  ]
+}

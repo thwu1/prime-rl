@@ -1,0 +1,153 @@
+================================================================================
+EXECUTION PLAN REPORT - Generated 2024-11-15 12:00:00
+Database: ECOMDB  Instance: ecomdb1  Version: Oracle Database 19c Enterprise
+================================================================================
+
+--- SQL_ID: f7k2m9x8n4p1q ---
+
+SQL Text:
+SELECT * FROM ORDERS WHERE ORDER_DATE BETWEEN :1 AND :2 AND CUSTOMER_ID = :3
+
+Plan hash value: 3847291847
+
+----------------------------------------------------------------------------------
+| Id  | Operation         | Name   | Rows  | Bytes | Cost (%CPU)| Time     |
+----------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |        | 28473 |  5.5M |  84729 (1) | 00:16:57 |
+|*  1 |  TABLE ACCESS FULL| ORDERS | 28473 |  5.5M |  84729 (1) | 00:16:57 |
+----------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter("ORDER_DATE">=:1 AND "ORDER_DATE"<=:2 AND "CUSTOMER_ID"=:3)
+
+Statistics
+---------------------------------------------------
+         284729  executions
+     847293184  buffer gets (2975 per exec)
+     423847293  disk reads (1488 per exec)
+        284729  rows processed (1 per exec)
+
+Note
+-----
+   - dynamic statistics used: dynamic sampling (level=2)
+   - Full table scan detected on ORDERS (28,473,291 rows)
+   - No suitable index found for predicates on ORDER_DATE, CUSTOMER_ID
+   - Table ORDERS: 28,473,291 rows, 847,293 blocks, avg row length 203 bytes
+
+
+--- SQL_ID: a3b8c2d9e1f4g ---
+
+SQL Text:
+SELECT o.*, c.*, p.* FROM ORDERS o, CUSTOMERS c, PRODUCTS p WHERE o.ORDER_ID > :1
+
+Plan hash value: 2847293847
+
+----------------------------------------------------------------------------------------------------
+| Id  | Operation                | Name      | Rows   | Bytes   | Cost (%CPU)| Time       |
+----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT         |           |   847M |   163G  | 128472 (2) | 00:25:42   |
+|   1 |  MERGE JOIN CARTESIAN    |           |   847M |   163G  | 128472 (2) | 00:25:42   |
+|   2 |   MERGE JOIN CARTESIAN   |           |   284M |  42.8G  |  48293 (1) | 00:09:40   |
+|*  3 |    TABLE ACCESS FULL     | ORDERS    |   284K |  55.2M  |  84729 (1) | 00:16:57   |
+|   4 |    BUFFER SORT           |           |  1000  | 97000   |      3 (0) | 00:00:01   |
+|   5 |     TABLE ACCESS FULL    | CUSTOMERS |  1000  | 97000   |      3 (0) | 00:00:01   |
+|   6 |   BUFFER SORT            |           |  3000  | 84000   |      5 (0) | 00:00:01   |
+|   7 |    TABLE ACCESS FULL     | PRODUCTS  |  3000  | 84000   |      5 (0) | 00:00:01   |
+----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - filter("O"."ORDER_ID">:1)
+
+Statistics
+---------------------------------------------------
+          12847  executions
+     128472938  buffer gets (10001 per exec)
+      84729384  disk reads (6595 per exec)
+       3847291  rows processed (299 per exec)
+
+Note
+-----
+   - CARTESIAN PRODUCT detected: missing join conditions between ORDERS, CUSTOMERS, PRODUCTS
+   - Query selects all columns from 3 tables without proper join predicates
+   - Estimated result set: 847,000,000 rows (284K x 1000 x 3000)
+
+
+--- SQL_ID: x2y4z6a8b1c3d ---
+
+SQL Text:
+SELECT COUNT(*) FROM ORDERS WHERE STATUS = :1 AND REGION_ID = :2
+
+Plan hash value: 1284729384
+
+-------------------------------------------------------------------------------------
+| Id  | Operation          | Name        | Rows  | Bytes | Cost (%CPU)| Time     |
+-------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |             |     1 |    12 |    847 (1) | 00:00:11 |
+|   1 |  SORT AGGREGATE    |             |     1 |    12 |            |          |
+|*  2 |   INDEX RANGE SCAN | IDX_ORD_SR  |  8473 |   99K |    847 (1) | 00:00:11 |
+-------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - access("STATUS"=:1 AND "REGION_ID"=:2)
+
+Statistics
+---------------------------------------------------
+          84729  executions
+      84729384  buffer gets (1000 per exec)
+      42847293  disk reads (506 per exec)
+         84729  rows processed (1 per exec)
+
+Note
+-----
+   - Index IDX_ORD_SR on ORDERS(STATUS, REGION_ID) used efficiently
+
+
+--- SQL_ID: m2n4p6q8r1s3t ---
+
+SQL Text:
+SELECT c.customer_name, SUM(o.total_amount) FROM CUSTOMERS c JOIN ORDERS o
+ON c.customer_id = o.customer_id WHERE o.order_date > :1
+GROUP BY c.customer_name ORDER BY 2 DESC
+
+Plan hash value: 847293184
+
+-------------------------------------------------------------------------------------------------
+| Id  | Operation                       | Name            | Rows  | Bytes | Cost (%CPU)| Time  |
+-------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                |                 |  1000 |   48K |  12847 (3) | 00:02:34 |
+|   1 |  SORT ORDER BY                  |                 |  1000 |   48K |  12847 (3) | 00:02:34 |
+|   2 |   HASH GROUP BY                 |                 |  1000 |   48K |  12847 (3) | 00:02:34 |
+|*  3 |    HASH JOIN                    |                 |   284K|  13.8M|  12840 (3) | 00:02:34 |
+|   4 |     TABLE ACCESS FULL           | CUSTOMERS       |  1000 |   24K |      3 (0) | 00:00:01 |
+|*  5 |     TABLE ACCESS BY INDEX ROWID | ORDERS          |   284K|  6.8M |  12837 (3) | 00:02:34 |
+|*  6 |      INDEX RANGE SCAN           | IDX_ORD_DATE    |   284K|       |    847 (1) | 00:00:11 |
+-------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   3 - access("C"."CUSTOMER_ID"="O"."CUSTOMER_ID")
+   5 - filter(NULL IS NOT NULL)
+   6 - access("O"."ORDER_DATE">:1)
+
+Statistics
+---------------------------------------------------
+           4829  executions
+       4829384  buffer gets (1000 per exec)
+       2847293  disk reads (590 per exec)
+          4829  rows processed (1 per exec)
+
+Note
+-----
+   - Proper join with index usage on ORDER_DATE
+   - Hash join on CUSTOMER_ID efficient for this cardinality
+
+================================================================================
+END OF REPORT
+================================================================================

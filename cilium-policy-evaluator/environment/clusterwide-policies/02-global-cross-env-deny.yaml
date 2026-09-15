@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: global-cross-env-deny
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: env
+        operator: In
+        values:
+          - prod
+  ingressDeny:
+    - fromEndpoints:
+        - matchLabels:
+            env: staging
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP

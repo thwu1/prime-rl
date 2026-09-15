@@ -1,0 +1,33 @@
+# Program 6: Combined optimizations — constant propagation, dead code,
+# CSE, loop-invariant computation, unreachable code
+# Expected output: 1120
+func main()
+  base = 100
+  scale = 3
+  offset = 50
+  t1 = base * scale
+  t2 = t1 + offset
+  i = 0
+  limit = 5
+  accum = 0
+  loop_start:
+  check = i < limit
+  if check goto loop_body
+  goto loop_end
+  loop_body:
+  inv = base + offset
+  temp1 = i * 2
+  temp2 = i * 2
+  dead1 = 999
+  dead2 = dead1 + 1
+  val = temp1 + inv
+  accum = accum + val
+  i = i + 1
+  goto loop_start
+  loop_end:
+  result = accum + t2
+  print result
+  unused1 = 42
+  unused2 = unused1 + result
+  return 0
+endfunc

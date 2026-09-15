@@ -1,0 +1,53 @@
+{
+  "symmetric": {
+    "total_pages": 100000,
+    "num_ticks": 2000,
+    "tick_ms": 10.0,
+    "devices": [
+      {"name": "ssd", "max_bw": 100.0},
+      {"name": "hdd", "max_bw": 25.0}
+    ],
+    "tasks": [
+      {"device": "ssd", "want_rate": 40.0},
+      {"device": "ssd", "want_rate": 40.0},
+      {"device": "ssd", "want_rate": 40.0},
+      {"device": "ssd", "want_rate": 40.0},
+      {"device": "hdd", "want_rate": 20.0},
+      {"device": "hdd", "want_rate": 20.0}
+    ]
+  },
+  "bursty": {
+    "total_pages": 100000,
+    "num_ticks": 3000,
+    "tick_ms": 10.0,
+    "devices": [
+      {"name": "ssd", "max_bw": 100.0},
+      {"name": "hdd", "max_bw": 25.0}
+    ],
+    "tasks": [
+      {"device": "ssd", "want_rate": 40.0, "burst_pattern": [1.0, 3.0, 0.5, 1.0]},
+      {"device": "ssd", "want_rate": 40.0, "burst_pattern": [3.0, 1.0, 1.0, 0.5]},
+      {"device": "ssd", "want_rate": 35.0},
+      {"device": "hdd", "want_rate": 20.0, "burst_pattern": [1.0, 2.0, 1.0, 1.0]},
+      {"device": "hdd", "want_rate": 15.0}
+    ]
+  },
+  "asymmetric": {
+    "total_pages": 120000,
+    "num_ticks": 2500,
+    "tick_ms": 10.0,
+    "devices": [
+      {"name": "nvme", "max_bw": 200.0},
+      {"name": "sata", "max_bw": 40.0}
+    ],
+    "tasks": [
+      {"device": "nvme", "want_rate": 60.0},
+      {"device": "nvme", "want_rate": 60.0},
+      {"device": "nvme", "want_rate": 50.0},
+      {"device": "nvme", "want_rate": 50.0},
+      {"device": "sata", "want_rate": 25.0},
+      {"device": "sata", "want_rate": 25.0},
+      {"device": "sata", "want_rate": 15.0}
+    ]
+  }
+}

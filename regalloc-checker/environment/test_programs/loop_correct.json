@@ -1,0 +1,47 @@
+{
+  "phys_regs": ["r0", "r1", "r2", "r3"],
+  "num_spill_slots": 0,
+  "entry_block": "entry",
+  "blocks": {
+    "entry": {
+      "params": [],
+      "instructions": [
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v0", "preg": "r0"}]},
+        {"kind": "op", "reads": [], "writes": [{"vreg": "v1", "preg": "r1"}]}
+      ],
+      "terminator": {
+        "kind": "jump",
+        "target": "loop_header",
+        "args": [{"vreg": "v0", "preg": "r0"}]
+      }
+    },
+    "loop_header": {
+      "params": [{"vreg": "v2", "preg": "r0"}],
+      "instructions": [
+        {"kind": "op", "reads": [{"vreg": "v2", "preg": "r0"}, {"vreg": "v1", "preg": "r1"}], "writes": [{"vreg": "v3", "preg": "r2"}]}
+      ],
+      "terminator": {
+        "kind": "branch",
+        "cond": {"vreg": "v3", "preg": "r2"},
+        "true_target": "loop_body", "true_args": [],
+        "false_target": "exit", "false_args": [{"vreg": "v2", "preg": "r0"}]
+      }
+    },
+    "loop_body": {
+      "params": [],
+      "instructions": [
+        {"kind": "op", "reads": [{"vreg": "v2", "preg": "r0"}], "writes": [{"vreg": "v4", "preg": "r0"}]}
+      ],
+      "terminator": {
+        "kind": "jump",
+        "target": "loop_header",
+        "args": [{"vreg": "v4", "preg": "r0"}]
+      }
+    },
+    "exit": {
+      "params": [{"vreg": "v5", "preg": "r0"}],
+      "instructions": [],
+      "terminator": {"kind": "return", "reads": [{"vreg": "v5", "preg": "r0"}]}
+    }
+  }
+}

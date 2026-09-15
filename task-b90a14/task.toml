@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of property-based testing internals, specifically the Conjecture-style test case representation and shortlex shrinking model. The agent must independently design and implement multiple complementary reduction strategies from a bare NotImplementedError stub: the code and tests provide no hints about which strategies are needed. Correct implementation demands reasoning about how typed choice sequences interact with test function replay semantics (where removing elements shifts subsequent draws), efficient value minimization across three distinct types with different orderings (integers via binary search, strings via truncation plus character-level search, booleans via direct replacement), proper handling of index shifts during sequence modification, and convergence under fixed-point iteration. The problem combines algorithm design (novel search strategies over structured sequences), systems reasoning (understanding the replay mechanism's constraints on what transformations preserve the INTERESTING property), and careful implementation (boundary conditions in binary search, interaction between strategies, and type-specific minimization)."""
+solution_explanation = """The solution implements _reduce() with five complementary strategies: (1) element deletion — iterate through the sequence trying to remove each element, not advancing the index on success since the next element slides into the current position; (2) zero replacement — try replacing each choice with its type's zero_value(); (3) value minimization — binary search for integers toward zero, truncation plus character-by-character binary search for strings, True->False for booleans; (4) adjacent reordering — swap same-type adjacent pairs when the swap yields a shortlex-smaller sequence; (5) labeled block deletion — identify contiguous runs sharing a label and try deleting each run. The outer shrink() loop applies _reduce() repeatedly until reaching a fixed point where no strategy makes progress."""
+verification_explanation = """Tests provide specific test functions paired with initial INTERESTING choice sequences and verify the shrinker produces correct minimal results. Integer tests verify binary-search precision (e.g., INT(100)->INT(10) for threshold >=10, INT(10000)->INT(42) for >=42). Deletion tests verify unnecessary elements are removed and variable-length sequences are shortened (e.g., 3-element sequence to 1, variable-count items to [INT(1),INT(50)]). Boolean tests verify True->False minimization and preservation when required. String tests verify truncation to minimal length and character minimization to chr(0). Complex tests verify mixed-type shrinking, conditional draw structures, sum constraints, and nested sequences with deletion and minimization combined. Property tests verify all results remain INTERESTING, are shortlex-improved, respect the evaluation budget, and are idempotent under re-shrinking."""
+category = "software_testing"
+tags = ["property-based-testing", "shrinking-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b90a14"

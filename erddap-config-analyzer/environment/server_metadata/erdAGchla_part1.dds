@@ -1,0 +1,13 @@
+Dataset {
+  Float64 time[time = 200];
+  Float64 lat[latitude = 4320];
+  Float64 lon[longitude = 8640];
+  Grid {
+    Array:
+      Float32 chlor_a[time = 200][latitude = 4320][longitude = 8640];
+    Maps:
+      Float64 time[time = 200];
+      Float64 lat[latitude = 4320];
+      Float64 lon[longitude = 8640];
+  } chlor_a;
+} erdAGchla_part1;

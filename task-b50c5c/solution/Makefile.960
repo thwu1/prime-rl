@@ -1,0 +1,15 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+
+all: perft libperft960.so
+
+perft: perft.c
+	$(CC) $(CFLAGS) -o perft perft.c
+
+libperft960.so: perft.c
+	$(CC) $(CFLAGS) -shared -fPIC -o libperft960.so perft.c
+
+clean:
+	rm -f perft libperft960.so
+
+.PHONY: all clean

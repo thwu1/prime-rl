@@ -1,0 +1,9 @@
+{
+  "well_typed": false,
+  "globals": {
+    "add": {"type": "(int, int) -> int", "kind": "func"},
+    "z": {"type": "int", "kind": "var"}
+  },
+  "classes": {},
+  "errors": [{"message": "Expected 2 arguments for add(), got 1"}]
+}

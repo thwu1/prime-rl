@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantum error correction knowledge: the solver must diagnose three interrelated bugs in a Steane [[7,1,3]] code circuit — incorrect stabilizer detector annotations that don't match the code's X-type parity check matrix, a wrong logical Z observable definition, and a missing parity correction gate in the encoding sequence. Fixing these requires understanding the Steane code's algebraic structure (stabilizer generators, logical operators, encoding network). Beyond debugging, the solver must derive the theoretical T-gate flip probability from first principles, implement circuit-level depolarizing noise, extract and parse the detector error model, build a syndrome decoder, and verify gate equivalence — all using the specialized bloqade-tsim API."""
+solution_explanation = """Install bloqade-tsim. Analyze the draft pipeline to identify three bugs: (1) missing X 3 parity correction before measurement, (2) DETECTOR annotations using wrong qubit groupings instead of the Steane code's X-stabilizer generators {0,1,2,3}, {1,2,4,5}, {2,3,4,6}, and (3) OBSERVABLE_INCLUDE referencing qubits {0,2,6} instead of the logical Z operator on {0,1,5}. Fix the circuit, derive the ideal rate sin²(π/8) ≈ 0.14645 from the T gate's π/4 rotation, add DEPOLARIZE1/DEPOLARIZE2 noise at p=0.001, extract and parse the DEM, build a maximum-likelihood syndrome lookup-table decoder, sample noiseless and noisy circuits, apply post-selection and decoding, and verify T vs R_Z(0.25) equivalence and dual-T behavior."""
+verification_explanation = """Tests load /app/results.json and verify: circuit properties match the Steane code (7 qubits, 7 measurements, 3 detectors, 1 observable, non-Clifford with T gates), noiseless observable rate matches the theoretical T-gate probability within ±0.02 with exactly zero detector firing, T and R_Z(0.25) produce statistically equivalent rates (diff < 0.02), DEM has ≥3 error mechanisms with positive total probability and max weight ≤4, noisy circuit shows positive detector activity, syndrome decoder does not degrade observable deviation by more than 0.005, post-selected rate is within ±0.03 of ideal, physical error rate is in (0,1), and dual-T observable rate is within ±0.02 of 0.5 with ideal_rate exactly 0.5."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "circuit-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/steane-code-pipeline"

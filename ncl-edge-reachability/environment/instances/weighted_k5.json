@@ -1,0 +1,36 @@
+{
+  "description": "Complete graph K5 with mixed weight-1 and weight-2 edges forming a tight tournament. Slack must propagate through weight-2 edges to unlock the target.",
+  "vertices": {
+    "v0": {"min_inflow": 2},
+    "v1": {"min_inflow": 2},
+    "v2": {"min_inflow": 2},
+    "v3": {"min_inflow": 2},
+    "v4": {"min_inflow": 2}
+  },
+  "edges": {
+    "e01": {"endpoints": ["v0", "v1"], "weight": 1},
+    "e02": {"endpoints": ["v0", "v2"], "weight": 1},
+    "e03": {"endpoints": ["v0", "v3"], "weight": 2},
+    "e04": {"endpoints": ["v0", "v4"], "weight": 1},
+    "e12": {"endpoints": ["v1", "v2"], "weight": 1},
+    "e13": {"endpoints": ["v1", "v3"], "weight": 1},
+    "e14": {"endpoints": ["v1", "v4"], "weight": 2},
+    "e23": {"endpoints": ["v2", "v3"], "weight": 1},
+    "e24": {"endpoints": ["v2", "v4"], "weight": 1},
+    "e34": {"endpoints": ["v3", "v4"], "weight": 1}
+  },
+  "initial_orientation": {
+    "e01": "v1",
+    "e02": "v2",
+    "e03": "v0",
+    "e04": "v0",
+    "e12": "v2",
+    "e13": "v3",
+    "e14": "v1",
+    "e23": "v3",
+    "e24": "v4",
+    "e34": "v4"
+  },
+  "target_edge": "e23",
+  "target_direction": "v2"
+}

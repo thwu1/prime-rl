@@ -1,0 +1,24 @@
+{
+  "description": "User-defined Transverse Mercator projection on WGS 84",
+  "image": {
+    "width": 8,
+    "height": 8,
+    "bits_per_sample": 8
+  },
+  "geokeys": {
+    "GTModelTypeGeoKey": 1,
+    "GTRasterTypeGeoKey": 2,
+    "ProjectedCRSGeoKey": 32767,
+    "ProjectedCitationGeoKey": "Custom TM Zone",
+    "GeodeticCRSGeoKey": 4326,
+    "ProjMethodGeoKey": 9807,
+    "ProjLinearUnitsGeoKey": 9001,
+    "ProjNatOriginLongGeoKey": -75.0,
+    "ProjNatOriginLatGeoKey": 0.0,
+    "ProjFalseEastingGeoKey": 500000.0,
+    "ProjFalseNorthingGeoKey": 0.0,
+    "ProjScaleAtNatOriginGeoKey": 0.9996
+  },
+  "model_tiepoint": [0.0, 0.0, 0.0, 500000.0, 4649776.22, 0.0],
+  "model_pixel_scale": [500.0, 500.0, 0.0]
+}

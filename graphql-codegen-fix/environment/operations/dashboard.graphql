@@ -1,0 +1,20 @@
+query DashboardData($userId: ID!, $postId: ID!) {
+  currentUser: user(id: $userId) {
+    id
+    displayName: username
+    emailAddress: email
+    memberSince: createdAt
+  }
+  featuredPost: post(id: $postId) {
+    id
+    headline: title
+    content: body
+    writtenBy: author {
+      id
+      handle: username
+    }
+    commentList: comments {
+      id
+    }
+  }
+}

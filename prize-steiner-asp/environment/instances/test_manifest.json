@@ -1,0 +1,6 @@
+{
+    "inst_01.lp": {"expected_profit": 16, "num_vertices": 4},
+    "inst_02.lp": {"expected_profit": 51, "num_vertices": 6},
+    "inst_03.lp": {"expected_profit": 110, "num_vertices": 10},
+    "inst_04.lp": {"expected_profit": 50, "num_vertices": 6}
+}

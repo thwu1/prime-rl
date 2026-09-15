@@ -1,0 +1,7 @@
+name: reorder
+scoring: binary
+time_limit: 5
+memory_limit: 256
+checker: custom
+checker_path: checker.py
+testcases: [1, 2]

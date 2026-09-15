@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in coverage.py internals: knowing the only valid value for dynamic_context is 'test_function', understanding how exclude_lines regex patterns interact with coverage measurement, enabling branch coverage for arc-based data collection, and configuring JSON report context support. The SQLite analysis phase demands knowledge of coverage.py's undocumented internal database schema (file, context, arc tables) and the ability to write correct SQL joins to extract test impact data and identify fragile coverage lines. Combines configuration debugging, SQL querying, and test infrastructure knowledge."""
+solution_explanation = """Fix 5 bugs in .coveragerc: (1) change source from 'lib' to 'src', (2) change dynamic_context from 'test_name' to 'test_function', (3) add 'branch = true', (4) remove 'raise\\s' from exclude_lines which over-aggressively masks error handling paths, (5) add 'show_contexts = true' to [json]. Then run 'coverage run -m pytest' to collect context-aware branch coverage data, and write a Python script that queries the .coverage SQLite database using JOIN across arc, context, and file tables to produce a test-to-file impact map and a fragile-lines analysis."""
+verification_explanation = """Tests parse .coveragerc with configparser to verify all 5 fixes: correct source directory, branch enabled, correct dynamic_context value, no raise patterns in exclusions, and show_contexts enabled. Database checks verify the .coverage SQLite file has arc data and dynamic test contexts. Result file checks verify both JSON outputs exist with correct structure, proper test context counts (>=20 from the 40-test suite), coverage of both source files, and that fragile lines are non-empty sorted integer lists."""
+category = "software_testing"
+tags = ["coverage-py", "sqlite-analysis"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coverage-impact-analysis"

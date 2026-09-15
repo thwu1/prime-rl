@@ -1,0 +1,55 @@
+INCIDENT TIMELINE — SERVICE CONTROL CASCADING FAILURE
+======================================================
+Classification : Sev-1 global outage
+Duration       : ~1 h 30 min
+Affected       : All API-serving paths (60+ products)
+All timestamps : UTC
+
+──────────────────────────────────────────────────────
+2025-06-12 17:28:00  Configuration update: rate_limits.yaml modified
+                     (default_burst_multiplier changed from 1.5 to 2.0).
+
+2025-06-12 17:30:00  Binary release of Service Control v2.14.3 completed.
+                     New quota-policy feature deployed to all regions.
+                     Rollout passed canary checks — no errors observed.
+
+2025-06-12 17:44:50  Automated policy store update processed.
+                     DataReplicator pushed 1 new/modified policy to all
+                     6 regional stores.
+
+2025-06-12 17:45:22  Service Control in us-east1 crashes processing first
+                     request matching the newly replicated policy.
+                     TypeError: unsupported operand type(s) for -:
+                       'NoneType' and 'int'
+
+2025-06-12 17:45:26  All regions enter crash loop simultaneously.
+                     Every restart immediately crashes on the first
+                     request hitting the same policy.
+
+2025-06-12 17:45:28  API Gateway health checks fail for Service Control.
+                     Upstream services begin receiving 503 responses.
+
+2025-06-12 17:45:30  Health monitoring alerts stopped — further timeline
+                     reconstruction relies on API Gateway logs only.
+
+2025-06-12 17:47:00  Automated alerting fires on error-rate spike.
+                     On-call SRE begins triage.
+
+2025-06-12 17:57:00  Red button (circuit breaker) activated.
+                     Crash loop continues despite the override.
+
+2025-06-12 18:10:00  Engineers attempt to access regional databases to
+                     remove the problematic policy entry.
+                     Database access fails — extreme contention from
+                     simultaneous reconnection attempts across all
+                     restarting instances.
+
+2025-06-12 18:25:00  Ops team manually throttles database connections.
+                     Problematic entry removed from us-east1 store.
+                     us-east1 starts recovering.
+
+2025-06-12 18:40:00  Problematic entry removed from remaining regions.
+                     Recovery begins globally but is prolonged in larger
+                     regions due to connection retry storms.
+
+2025-06-12 19:15:00  Full recovery confirmed across all regions.

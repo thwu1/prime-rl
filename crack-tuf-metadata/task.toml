@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires analyzing a multi-key TUF repository to identify separate signing keys per metadata role, handling two different PEM public key encodings (SubjectPublicKeyInfo vs PKCS#1 RSAPublicKey), applying Fermat factoring to crack one RSA key with consecutive primes, recognizing a shared-prime relationship between the two keys and applying a GCD attack to factor the second, encoding recovered private keys as valid PKCS#1 RSAPrivateKey PEM files verifiable by openssl, understanding TUF's metadata signing chain with per-role key assignments, and producing a correctly-signed forged repository."""
+solution_explanation = """Parse root.json to identify two distinct keys assigned to different roles. Extract the SPKI-format public key (targets/snapshot) and PKCS#1-format public key (timestamp). Factor the first key using Fermat's method (close primes complete in ~1 iteration). Factor the second key by computing GCD of both moduli to discover the shared prime factor. Compute private exponents, encode as PKCS#1 RSAPrivateKey DER wrapped in PEM. Forge targets.json with the new target, update snapshot.json and timestamp.json versions, sign each metadata file with the correct per-role key using RSASSA-PKCS1v15-SHA256."""
+verification_explanation = """Tests verify: (1) recovered PEM private keys exist and pass openssl rsa -check, (2) private key moduli match the corresponding public keys in root.json via openssl -modulus extraction, (3) forged repo directory structure is complete, (4) root.json is identical to original, (5) targets.json contains firmware_v2.0.bin with correct SHA-256 hash and length, (6) all original targets preserved, (7) each metadata signature verifies against the correct per-role key using PKCS1v15+SHA256, (8) metadata versions incremented, (9) snapshot/timestamp cross-references are correct, (10) targets and timestamp use demonstrably different signing keys."""
+category = "security_and_privacy"
+tags = ["cryptography", "software-supply-chain"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crack-tuf-metadata"

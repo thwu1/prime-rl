@@ -1,0 +1,4 @@
+model.analytics.int_customer_orders
+model.analytics.mart_customers
+test.analytics.not_null_mart_customers_customer_id.g7h8i9
+test.analytics.relationships_int_customer_orders_cid.s1t2u3

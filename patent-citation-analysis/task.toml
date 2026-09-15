@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires schema discovery on an undocumented DuckDB database, diagnosis of 5 categories of embedded data quality issues (self-referencing citations, duplicate edges, orphan citations, inverted dates, null assignees), and implementation of patent bibliometric indicators (Trajtenberg originality with HHI, assignee self-citation share, CPC-based tech diversity, composite portfolio scoring with min-max normalization) on a properly cleaned citation graph. The solver must explore tables and relationships without documentation, identify and quantify integrity violations through diagnostic SQL, design a citation graph cleaning pipeline, and compute domain-specific metrics requiring understanding of patent analytics conventions."""
+solution_explanation = """Explores the DuckDB schema to discover 4 tables and their columns, identifies 5 data quality issue categories via diagnostic queries, constructs a cleaned citation graph (removing self-references, deduplicating edges, filtering orphans), then executes multi-CTE SQL queries for: (1) Trajtenberg originality index with HHI over IPC4 distributions plus assignee self-citation share via cross-publication assignee matching, (2) portfolio ranking with CPC section HHI diversity, cleaned forward citation averages, and min-max normalized composite scores computed from full-precision values."""
+verification_explanation = """Tests independently compute gold results by running the same diagnostic SQL queries against the DuckDB database for data quality counts, executing complex gold CTE queries for originality analysis, and computing portfolio composite scores with Python min-max normalization. Results are compared against the agent's CSV outputs using tolerance-based numeric matching (abs_tol=1e-3, rel_tol=1e-3) and exact string comparison for identifiers."""
+category = "data_engineering"
+tags = ["sql", "data-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/patent-citation-analysis"

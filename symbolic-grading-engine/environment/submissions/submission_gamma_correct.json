@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_gamma_correct",
+    "challenge_id": "gamma",
+    "generated_code": "def answer():\n    \"\"\"The Petersen graph is 3-regular, so its spectral radius is 3.\"\"\"\n    return 3.0"
+}

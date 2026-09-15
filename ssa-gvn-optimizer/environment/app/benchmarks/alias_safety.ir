@@ -1,0 +1,11 @@
+# Alias safety: stores at same offset invalidate; calls clear cache
+function alias_safety(2):
+bb0:
+  v0 = load a0 0
+  v1 = store a1 0 v0
+  v2 = load a0 0
+  v3 = call some_func v0
+  v4 = load a0 0
+  v5 = add v0 v2
+  v6 = add v5 v4
+  return v6

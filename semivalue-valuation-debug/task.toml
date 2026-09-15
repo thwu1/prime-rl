@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of cooperative game theory (semivalues, Shapley axioms, Banzhaf power index), MCMC convergence diagnostics (Gelman-Rubin statistic), out-of-bag ensemble evaluation, leave-one-out data valuation, rank aggregation (Borda count), and ML pipeline integration. The solver must diagnose why the pipeline crashes and produces incorrect results across multiple interacting components — sampler truncation and convergence, semivalue weight formulas, OOB evaluation methodology, LOO evaluator implementation, ensemble rank aggregation, stability analysis, removal validation, and pipeline orchestration. The LOO evaluator is a stub that must be implemented from scratch using a fundamentally different approach than the semivalue evaluators (direct utility evaluation vs marginal contribution reweighting), requiring the solver to redesign part of the pipeline's control flow. The stability analysis requires understanding the sampler's internal state to decompose permutation epochs into independent halves and compute rank correlation. Bugs are subtle and coupled: partial fixes in one module expose failures in dependent modules downstream, and the GR convergence diagnostic must be correct before stability analysis yields meaningful results."""
+solution_explanation = """Eleven issues must be resolved: (1) sampler.py truncation counter logic is inverted — increments on significant contributions and resets on negligible; swap the if/else bodies. (2) sampler.py GR formula uses subtraction instead of addition for the B/(W*m) term. (3) evaluators.py BetaShapleyEvaluator has alpha/beta parameters swapped in the scipy.special.beta call. (4) evaluators.py BanzhafEvaluator uses comb(n,j) instead of comb(n-1,j) for binomial coefficient weights. (5) oob.py DataOOBEvaluator measures aggregate model quality on validation set instead of per-point OOB prediction accuracy on training features. (6) detector.py ensemble_detect selects points with highest rank sum (least suspicious) via [-k:] instead of lowest rank sum (most suspicious) via [:k]. (7) pipeline.py references undefined variable output_path. (8) pipeline.py removal_validation section is missing. (9) loo.py compute_loo_values returns zeros — must be implemented to compute U(D) - U(D\\{i}) for each point via direct utility calls. (10) pipeline.py processes LOO in the semivalue evaluator loop calling compute_values() which raises NotImplementedError — must restructure to call compute_loo_values with the utility function. (11) pipeline.py stability analysis is missing — must split sampler.increment_stack into halves, compute mean per-point increments, and report Spearman rank correlation."""
+verification_explanation = """Tests verify: (1) Shapley weights are uniform 1/n; (2) Beta Shapley weights match Beta(j+beta, n-j-1+alpha)/Beta(j+1, n-j); (3) Banzhaf weights match C(n-1,j) normalization; (4) sampler truncation doesn't fire prematurely on constant-marginal utility; (5) GR statistic meets theoretical lower bound; (6) GR-based convergence requires sufficient epochs with tight threshold; (7) OOB evaluator returns correct shape and bounded values; (8) OOB evaluator distinguishes noisy from clean points; (9) Borda count ensemble selects lowest-ranked points; (10) LOO evaluator computes correct U(D)-U(D\\{i}) values; (11) pipeline output has all required keys including loo and stability; (12) data values are finite and non-trivial for all five evaluators; (13) convergence stats present and valid; (14) at least one evaluator achieves F1 >= 0.25; (15) ensemble achieves F1 >= 0.20; (16) split-half stability correlation > 0.3; (17) removal of detected noisy points improves validation accuracy."""
+category = "machine_learning"
+tags = ["data-valuation", "cooperative-game-theory"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/semivalue-valuation-debug"

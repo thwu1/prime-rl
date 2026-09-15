@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level robotics knowledge to derive the computational approach from a high-level capability assessment problem. The solver must independently determine that force-to-torque mapping requires Jacobian computation, that gravity compensation requires inverse dynamics, and that the tool payload at an offset creates additional gravitational torques via the linear Jacobian at the tool tip. They must design a force capacity analysis (solving the max wrench scale as a constrained linear feasibility problem), implement singularity detection via SVD-based condition number analysis, compute the Yoshikawa manipulability measure, and correctly handle the 6-DOF wrench-to-joint-torque mapping through the full 6x7 Jacobian. No formulas or algorithms are given — the solver must bring graduate-level robotics dynamics knowledge and translate a manufacturing assessment problem into concrete computations using PyBullet's API."""
+solution_explanation = """Load the Kuka IIWA in PyBullet DIRECT mode. For each station: (1) set joint states, (2) compute the 6x7 Jacobian at the tool tip using calculateJacobian with localPosition from the tool config, (3) compute bare-robot gravity torques via calculateInverseDynamics with zero velocities/accelerations, (4) compute payload gravitational torques as J_lin_tip^T @ [0,0,-m*g], (5) sum static torques = gravity + payload, (6) compute task torques = J^T @ wrench, (7) solve the max wrench scale by finding the largest s>=0 satisfying |static + s*task| <= limits for all joints, (8) identify limiting joints, (9) compute condition number via SVD and manipulability via sqrt(det(J@J^T)), (10) classify using thresholds, (11) compute torque utilization at s=1. Rank stations by max_wrench_scale."""
+verification_explanation = """The test independently loads the same Kuka model in PyBullet and performs identical computations for all six stations. It compares max_wrench_scale (rtol=2%), condition_number (rtol=5%), manipulability (rtol=5%), and torque_utilization (atol=0.02) against reference values. It verifies feasibility classifications match, limiting joints are correct, singularity flags are consistent, summary counts add up, and station ranking order matches the reference ranking by max_wrench_scale."""
+category = "applied_computing"
+tags = ["robotics", "physics_simulation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/operational-space-dynamics"

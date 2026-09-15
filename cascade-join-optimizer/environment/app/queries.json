@@ -1,0 +1,51 @@
+[
+  {
+    "id": "q1",
+    "tables": ["orders", "customers"],
+    "joins": [
+      {"left": "orders.customer_id", "right": "customers.customer_id"}
+    ],
+    "filters": [],
+    "project": ["orders.order_id", "customers.name"]
+  },
+  {
+    "id": "q2",
+    "tables": ["orders", "customers", "products"],
+    "joins": [
+      {"left": "orders.customer_id", "right": "customers.customer_id"},
+      {"left": "orders.product_id", "right": "products.product_id"}
+    ],
+    "filters": [
+      {"column": "customers.region", "op": "=", "value": "WEST"}
+    ],
+    "project": ["orders.order_id", "customers.name", "products.name"]
+  },
+  {
+    "id": "q3",
+    "tables": ["orders", "customers", "products", "stores"],
+    "joins": [
+      {"left": "orders.customer_id", "right": "customers.customer_id"},
+      {"left": "orders.product_id", "right": "products.product_id"},
+      {"left": "orders.store_id", "right": "stores.store_id"}
+    ],
+    "filters": [
+      {"column": "products.category", "op": "=", "value": "ELECTRONICS"}
+    ],
+    "project": ["orders.order_id", "customers.name", "products.name", "stores.name"]
+  },
+  {
+    "id": "q4",
+    "tables": ["orders", "customers", "products", "stores", "dates"],
+    "joins": [
+      {"left": "orders.customer_id", "right": "customers.customer_id"},
+      {"left": "orders.product_id", "right": "products.product_id"},
+      {"left": "orders.store_id", "right": "stores.store_id"},
+      {"left": "orders.date_id", "right": "dates.date_id"}
+    ],
+    "filters": [
+      {"column": "products.category", "op": "=", "value": "ELECTRONICS"},
+      {"column": "dates.year", "op": "=", "value": "2023"}
+    ],
+    "project": ["orders.order_id", "customers.name", "products.name", "stores.name", "dates.year"]
+  }
+]

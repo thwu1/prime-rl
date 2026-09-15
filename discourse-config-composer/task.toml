@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering template composition rules from an 890-line bash script with embedded Ruby code blocks; identifying that different YAML sections follow fundamentally different merging strategies without any external documentation; understanding the interplay between template ordering, section-specific merge semantics, variable substitution scoping, and default value resolution across multiple functions; implementing correct Docker CLI argument formatting including three-part port notation; building precise issue detection for 9 categories that avoids false positives on correctly bound ports (127.0.0.1), properly configured services, and valid hostnames; and handling label merging with variable substitution, custom boot commands, custom run images, and template resolution errors."""
+solution_explanation = """Parse the launcher script to identify distinct processing paths for each configuration section type: env and labels are dictionary-merged across all templates and the main config with later values winning; expose ports are list-concatenated across all sources; volumes and docker_args are read only from the main config; hooks are merged by name with command lists appended; params are dictionary-merged; boot_command and run_image have defaults that can be overridden by config. Implement {{config}} substitution in env values and labels. Format ports as -p (colon-containing) or --expose (bare). Implement 9 issue detection categories with precise triggering conditions including three-part port binding analysis."""
+verification_explanation = """Tests run the compose tool against four container configurations (standalone app, data-only, web-only, multi-site) and verify: env merging precedence across templates, {{config}} substitution, port formatting including three-part notation, volume extraction from config only, docker_args isolation, default and custom boot commands and run images, label merging with variable substitution, hook merging, params merging, and detection of 10+ configuration issues with comprehensive positive and negative test cases ensuring both correct detection and zero false positives on properly configured deployments."""
+category = "devops"
+tags = ["reverse-engineering", "yaml-composition"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/discourse-config-composer"

@@ -1,0 +1,57 @@
+BLOOD GAS INTERPRETATION — Systematic Approach
+=================================================
+
+Use the following steps to approach blood gas interpretation in a comprehensive
+and structured manner.
+
+STEP 1. pH
+----------
+A normal pH is between 7.35 and 7.45 (use 7.4 as the normal value for all
+calculations).
+
+  If pH < 7.35 → acidaemia
+  If pH > 7.45 → alkalaemia
+
+If pH is normal, there could be no acid-base disorder, or there could be
+multiple concurrent processes (e.g. a metabolic acidosis + metabolic alkalosis
+cancelling out).
+
+STEP 2. Assess PaCO2 and HCO3 to Identify the Primary Disorder
+----------------------------------------------------------------
+Normal PaCO2: 35–45 mmHg (use 40 mmHg as normal)
+Normal HCO3: 22–26 mmol/L (use 24 mmol/L as normal)
+
+If acidaemia:
+  Reduced HCO3 indicates metabolic acidosis
+  Elevated PaCO2 (with HCO3 not reduced) indicates respiratory acidosis
+
+If alkalaemia:
+  Elevated HCO3 indicates metabolic alkalosis
+  Reduced PaCO2 (with HCO3 not elevated) indicates respiratory alkalosis
+
+STEP 3. Consider the Cause of the Primary Disorder
+----------------------------------------------------
+For metabolic acidosis: Calculate the anion gap to differentiate HAGMA vs NAGMA.
+For metabolic alkalosis: Consider chloride-responsive vs chloride-unresponsive.
+
+STEP 4. Assess for Secondary Processes
+---------------------------------------
+Calculate expected compensation and compare to measured values. If compensation
+is not appropriate, an additional concurrent disorder is present.
+
+See compensation_formulas.txt for the specific equations and tolerances.
+
+In the context of a high AG metabolic acidosis, compute the delta ratio to
+assess whether there is a single process or a mixed disorder. See
+delta_ratio.txt for interpretation thresholds.
+
+STEP 5. Apply Corrections to Measured Values
+---------------------------------------------
+Correct for albumin effects on anion gap (see anion_gap.txt).
+Correct sodium for hyperglycaemia.
+Correct potassium for pH.
+Assess the osmolar gap (see osmolar_gap.txt).
+Consider the physicochemical (Stewart) approach (see stewart_approach.txt).
+
+Source: LITFL Critical Care Compendium — Blood Gas Interpretation
+(Jeremy Rogers, Mike Cadogan)

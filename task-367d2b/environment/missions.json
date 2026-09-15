@@ -1,0 +1,42 @@
+{
+  "target_region": [-124, 43, -119, 49],
+  "target_region_description": "Central Pacific Northwest corridor covering the Cascade Range, Willamette Valley, and portions of Washington and Oregon (5 deg longitude x 6 deg latitude = 30 sq deg)",
+  "portfolio_optimization": {
+    "description": "Select the minimum total storage (GB) subset of datasets from the repaired catalog satisfying all constraints. This is a constrained combinatorial optimization problem: the solver must design an algorithm to search the feasible space.",
+    "constraints": {
+      "storage_budget_gb": 18.0,
+      "min_categories": 5,
+      "min_per_category_coverage_fraction": 0.60,
+      "min_quality_score": 0.80,
+      "temporal_overlap_required": ["2019-01-01", "2023-12-31"]
+    },
+    "constraint_definitions": {
+      "min_categories": "Selected datasets must span at least this many distinct category values.",
+      "min_per_category_coverage_fraction": "For each category represented in the selection, the union of selected datasets in that category (each bounding box clipped to the target region) must cover at least this fraction of the target region area.",
+      "min_quality_score": "Every selected dataset must have quality_score >= this threshold.",
+      "temporal_overlap_required": "Every selected dataset must have temporal overlap with this range (dataset.temporal_start <= range_end AND dataset.temporal_end >= range_start).",
+      "storage_budget_gb": "Sum of size_gb of all selected datasets must not exceed this value."
+    },
+    "objective": "Minimize total storage (sum of size_gb) of selected datasets while satisfying all constraints.",
+    "output_format": {
+      "selected_dataset_ids": "sorted array of dataset_id strings",
+      "total_storage_gb": "float: sum of size_gb of selected datasets",
+      "categories": "sorted array of distinct category strings represented in the selection",
+      "per_category_coverage": "object mapping each represented category to its coverage fraction of the target region (float in [0, 1])"
+    }
+  },
+  "efficiency_analysis": {
+    "description": "For every dataset in the repaired catalog (all 28, no eligibility filters), compute an efficiency score relative to the target region measuring quality-adjusted spatial coverage per unit storage cost.",
+    "formula": "efficiency = quality_score * (clipped_area / target_area) / size_gb",
+    "formula_definitions": {
+      "clipped_area": "Area in degree-squared of the intersection of the dataset bounding box with the target region. Zero if no intersection.",
+      "target_area": "Area in degree-squared of the target region = (east - west) * (north - south).",
+      "quality_score": "The dataset quality_score attribute from the repaired catalog.",
+      "size_gb": "The dataset size_gb attribute from the repaired catalog."
+    },
+    "output_format": {
+      "ranking": "Array of {dataset_id: string, efficiency: float} objects sorted by efficiency descending; break ties by dataset_id ascending (lexicographic).",
+      "category_best": "Object mapping each category string to the dataset_id with the highest efficiency in that category."
+    }
+  }
+}

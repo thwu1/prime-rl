@@ -1,0 +1,12 @@
+{
+  "pairs": [
+    {"id": "pair_1", "reference": "ref_box.stl", "candidate": "cand_box_match.stl"},
+    {"id": "pair_2", "reference": "ref_box.stl", "candidate": "cand_box_wrong.stl"},
+    {"id": "pair_3", "reference": "ref_cylinder.stl", "candidate": "cand_cyl_match.stl"},
+    {"id": "pair_4", "reference": "ref_cylinder.stl", "candidate": "cand_cyl_wrong.stl"},
+    {"id": "pair_5", "reference": "ref_cone.stl", "candidate": "cand_cone_match.stl"},
+    {"id": "pair_6", "reference": "ref_cone.stl", "candidate": "cand_sphere.stl"},
+    {"id": "pair_7", "reference": "ref_box.stl", "candidate": "cand_invalid.stl"},
+    {"id": "pair_8", "reference": "ref_sphere_small.stl", "candidate": "cand_box_large.stl"}
+  ]
+}

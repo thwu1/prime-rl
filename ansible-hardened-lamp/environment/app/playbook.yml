@@ -1,0 +1,8 @@
+---
+- name: Configure hardened LAMP web server
+  hosts: all
+  become: true
+  gather_facts: false
+
+  roles:
+    - hardened_lamp

@@ -1,0 +1,61 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "eventDate": "2024-05-15",
+  "instruction": [{
+    "primitiveInstruction": {
+      "execution": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "Credit"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.CreditDefaultPayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "priceQuantity": [{"quantity": [{"value": 10000000.0, "unit": {"currency": {"@data": "USD"}}}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "cfPartyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "cfPartyB"}}
+        ],
+        "parties": [
+          {"@key:external": "cfPartyA", "partyId": [{"identifier": {"@data": "LEI-CF001"}, "identifierType": "LEI"}], "name": {"@data": "Protection Buyer Inc"}},
+          {"@key:external": "cfPartyB", "partyId": [{"identifier": {"@data": "LEI-CF002"}, "identifierType": "LEI"}], "name": {"@data": "Protection Seller Ltd"}}
+        ],
+        "executionDetails": {"executionType": "Electronic"},
+        "tradeDate": "2024-05-15",
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-CF001"}, "assignedIdentifier": [{"identifier": {"@data": "CF-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}]
+      },
+      "contractFormation": {
+        "legalAgreement": [{
+          "agreementDate": "2024-05-15",
+          "legalAgreementIdentification": {
+            "agreementName": {"masterAgreementType": {"@data": "ISDAMaster"}},
+            "vintage": 2002
+          }
+        }]
+      }
+    },
+    "before": null
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "Credit"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.CreditDefaultPayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 10000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "cfPartyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "cfPartyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CF001"}, "assignedIdentifier": [{"identifier": {"@data": "CF-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-05-15"},
+      "party": [
+        {"@key:external": "cfPartyA", "partyId": [{"identifier": {"@data": "LEI-CF001"}, "identifierType": "LEI"}], "name": {"@data": "Protection Buyer Inc"}},
+        {"@key:external": "cfPartyB", "partyId": [{"identifier": {"@data": "LEI-CF002"}, "identifierType": "LEI"}], "name": {"@data": "Protection Seller Ltd"}}
+      ]
+    }
+  }]
+}

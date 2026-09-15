@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Solver must: (1) identify and fix 4 silent correctness defects across a 300-line R library with no hints about which functions are buggy — each bug produces subtly wrong results requiring deep understanding of findInterval boundary semantics, IEEE 754 double-precision formatting, bilateral nearest-neighbor search, and time-series differencing index conventions; (2) design and implement a complete multi-method resample() function supporting piecewise linear interpolation with max_gap filtering and NA boundary handling, nearest-neighbor resampling with bilateral search, and last-observation-carried-forward, each with correct label propagation. The bugs share algorithmic patterns (findInterval, nearest-neighbor) with the resample implementation, requiring the solver to understand these patterns deeply to avoid repeating the same mistakes in new code."""
+solution_explanation = """Fix 1: window_aggregate uses findInterval with rightmost.closed=FALSE, excluding observations at the exact upper boundary; set rightmost.closed=TRUE. Fix 2: deduplicate uses sprintf("%.10g") for dedup keys, losing precision at epoch-scale magnitudes; use "%.17g". Fix 3: nearest_merge only checks the left neighbor from findInterval; add right-neighbor (idx+1) comparison and pick the closer one. Fix 4: diff_series indexes timestamps with seq_len(m) (early positions) instead of (drop+1):n (later positions). Resample: for linear, use approx(rule=1) then enforce max_gap on both bracketing observations; for nearest, use findInterval with bilateral neighbor comparison; for locf, use findInterval to locate the last observation at or before each target. All methods must propagate labels correctly (NA for linear, inherited for nearest/locf)."""
+verification_explanation = """35 pytest tests run R code via subprocess and check outputs numerically. Coverage: basic constructor/subset/combine sanity (4 tests); window_aggregate boundary inclusion and sum preservation (3 tests); deduplicate precision at 14+ significant digits and epoch-scale timestamps (4 tests); nearest_merge bilateral search, mixed queries, and max_gap (4 tests); diff_series timestamp and label alignment at various lags and differencing orders (5 tests); resample linear interpolation with outside-range NA, max_gap enforcement, and exact endpoints (4 tests); resample nearest with bilateral search, max_gap, and label inheritance (3 tests); resample locf with forward carry, before-first NA, max_gap, and label inheritance (3 tests); cross-method label propagation verification (3 tests); composition tests verifying cross-function correctness when chaining resample with diff_series and consistency between nearest_merge and resample nearest (2 tests)."""
+category = "debugging"
+tags = ["R", "time-series"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-mseries-bugs"

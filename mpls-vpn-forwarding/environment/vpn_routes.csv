@@ -1,0 +1,11 @@
+prefix,originating_pe,vrf,vpn_label,route_targets,local_pref,as_path,originator_id,note
+172.16.1.0/24,PE1,CustomerA,5001,65000:100,100,64001,,
+172.16.2.0/24,PE3,CustomerA,5002,65000:100,100,64002,,
+172.16.10.0/24,PE3,CustomerA,5010,65000:100;65000:200,100,64002,,Route leaked to CustomerB via dual route-targets
+172.16.3.0/24,PE1,CustomerB,5003,65000:200,100,64003,,
+172.16.4.0/24,PE2,CustomerB,5004,65000:200,100,64004,,
+172.16.5.0/24,PE1,CustomerC,5005,65000:300,100,64005,,
+172.16.6.0/24,PE2,CustomerC,5006,65000:301,100,64006,,
+172.16.7.0/24,PE3,CustomerC,5007,65000:301,100,64007,,
+172.16.6.0/24,PE1,CustomerC,5016,65000:300,100,64006,10.0.0.2,Hub PE1 re-advertises spoke PE2 route
+172.16.7.0/24,PE1,CustomerC,5017,65000:300,100,64007,10.0.0.3,Hub PE1 re-advertises spoke PE3 route

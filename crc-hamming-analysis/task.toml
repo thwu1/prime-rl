@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of CRC polynomial arithmetic in GF(2), Koopman notation, and Hamming Distance analysis. The agent must: (1) parse a custom binary format using xxd and the format spec, (2) compile a C-based CRC engine with make/gcc and use it for cross-validation, (3) perform GF(2) polynomial factorization to determine irreducibility, primitivity, and (x+1) factor presence — requiring either a symbolic math library or manual trial division over GF(2), (4) compute multiplicative orders (periods) in polynomial quotient rings, (5) implement HD>=3 and HD>=4 bound analysis via remainder collision and pairwise XOR enumeration. The multi-tool pipeline (xxd for binary inspection, gcc/make for C compilation, the compiled CRC binary for cross-validation, and Python with a math library for polynomial algebra) demands fluent coordination of unfamiliar tools."""
+solution_explanation = """Parse test_data.bin by reading the binary header (magic, version, count) and extracting variable-length name+data pairs. Compile crc_engine.c with make. Convert Koopman to standard form via (K<<1)|1. Compute CRC-8 in Python and cross-validate with the C engine. Factor each polynomial over GF(2) using sympy to determine irreducibility, primitivity, and (x+1) factor. Find period via iterated x^k mod P(x). For HD>=3, find first remainder collision. For HD>=4, maintain pairwise XOR set of remainders. Determine best HD>=4 polynomial."""
+verification_explanation = """Tests independently implement all computations: CRC via bit-level shift-and-XOR, period via register iteration, HD bounds via remainder analysis, and GF(2) factorization via sympy. Tests also independently compile and run the C engine to verify it produces correct CRC values. Cross-checks against known Koopman data: 0xe7 is primitive (period 255, HD3=247), 0x98 has (x+1) factor with period 127 and HD4=119. Consistency checks verify HD4<=HD3, factor degrees sum to 8, and primitive implies irreducible."""
+category = "coding_theory"
+tags = ["crc", "hamming-distance", "finite-fields", "binary-formats", "cross-compilation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crc-hamming-analysis"

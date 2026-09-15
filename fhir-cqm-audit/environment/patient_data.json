@@ -1,0 +1,606 @@
+{
+  "Patient": [
+    {
+      "resourceType": "Patient",
+      "id": "pt-001",
+      "name": [{"family": "Lopez", "given": ["Maria"]}],
+      "gender": "female",
+      "birthDate": "1957-03-14"
+    },
+    {
+      "resourceType": "Patient",
+      "id": "pt-002",
+      "name": [{"family": "Chen", "given": ["James"]}],
+      "gender": "male",
+      "birthDate": "1950-06-22"
+    },
+    {
+      "resourceType": "Patient",
+      "id": "pt-003",
+      "name": [{"family": "Johnson", "given": ["Sarah"]}],
+      "gender": "female",
+      "birthDate": "1953-09-08"
+    },
+    {
+      "resourceType": "Patient",
+      "id": "pt-004",
+      "name": [{"family": "Williams", "given": ["Robert"]}],
+      "gender": "male",
+      "birthDate": "1970-01-30"
+    },
+    {
+      "resourceType": "Patient",
+      "id": "pt-005",
+      "name": [{"family": "Rodriguez", "given": ["Elena"]}],
+      "gender": "female",
+      "birthDate": "1945-11-17"
+    },
+    {
+      "resourceType": "Patient",
+      "id": "pt-006",
+      "name": [{"family": "Thompson", "given": ["Michael"]}],
+      "gender": "male",
+      "birthDate": "1963-04-25"
+    }
+  ],
+  "Condition": [
+    {
+      "resourceType": "Condition",
+      "id": "cond-001-1",
+      "subject": {"reference": "Patient/pt-001"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}],
+        "text": "Type 2 diabetes mellitus"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2018-05-10"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-001-2",
+      "subject": {"reference": "Patient/pt-001"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}],
+        "text": "Hypertension"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2015-02-20"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-002-1",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.4", "display": "Chronic kidney disease, stage 4 (severe)"}],
+        "text": "Chronic kidney disease, stage 4"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2021-08-15"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-002-2",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}],
+        "text": "Type 2 diabetes mellitus"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2012-03-18"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-002-3",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}],
+        "text": "Hypertension"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2010-11-05"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-003-1",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.91", "display": "Unspecified atrial fibrillation"}],
+        "text": "Atrial fibrillation"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2019-07-22"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-003-2",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}],
+        "text": "Hypertension"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2008-01-15"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-003-3",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I50.9", "display": "Heart failure, unspecified"}],
+        "text": "Heart failure"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2020-04-10"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-003-4",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}],
+        "text": "Type 2 diabetes mellitus"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2016-09-03"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-004-1",
+      "subject": {"reference": "Patient/pt-004"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E78.5", "display": "Hyperlipidemia, unspecified"}],
+        "text": "Hyperlipidemia"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2024-06-12"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-005-1",
+      "subject": {"reference": "Patient/pt-005"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.5", "display": "Chronic kidney disease, stage 5"}],
+        "text": "Chronic kidney disease, stage 5"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2020-02-14"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-005-2",
+      "subject": {"reference": "Patient/pt-005"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}],
+        "text": "Hypertension"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2005-08-20"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-005-3",
+      "subject": {"reference": "Patient/pt-005"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I48.0", "display": "Paroxysmal atrial fibrillation"}],
+        "text": "Paroxysmal atrial fibrillation"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2018-12-01"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-006-1",
+      "subject": {"reference": "Patient/pt-006"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"}],
+        "text": "Hypertension"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2014-07-10"
+    },
+    {
+      "resourceType": "Condition",
+      "id": "cond-006-2",
+      "subject": {"reference": "Patient/pt-006"},
+      "code": {
+        "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"}],
+        "text": "Type 2 diabetes mellitus"
+      },
+      "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
+      "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
+      "onsetDateTime": "2017-11-20"
+    }
+  ],
+  "Observation": [
+    {
+      "resourceType": "Observation",
+      "id": "obs-001-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-001"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
+        "text": "HbA1c"
+      },
+      "valueQuantity": {"value": 10.2, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
+      "effectiveDateTime": "2025-01-10"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-001-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-001"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 72, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-10"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-001-3",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-001"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 110, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-10"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-002-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 22, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-08"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-002-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
+        "text": "HbA1c"
+      },
+      "valueQuantity": {"value": 7.8, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
+      "effectiveDateTime": "2025-01-08"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-002-3",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-002"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 95, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-08"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-003-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 55, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-05"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-003-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
+        "text": "HbA1c"
+      },
+      "valueQuantity": {"value": 7.2, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
+      "effectiveDateTime": "2025-01-05"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-003-3",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-003"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 130, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-05"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-004-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-004"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 215, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-12"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-004-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-004"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 85, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-12"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-004-3",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-004"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
+        "text": "HbA1c"
+      },
+      "valueQuantity": {"value": 5.4, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
+      "effectiveDateTime": "2025-01-12"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-005-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-005"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 12, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-06"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-005-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-005"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 88, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-06"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-006-1",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-006"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
+        "text": "HbA1c"
+      },
+      "valueQuantity": {"value": 6.8, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
+      "effectiveDateTime": "2025-01-11"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-006-2",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-006"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Glomerular filtration rate/1.73 sq M.predicted"}],
+        "text": "eGFR"
+      },
+      "valueQuantity": {"value": 78, "unit": "mL/min/1.73m2", "system": "http://unitsofmeasure.org", "code": "mL/min/{1.73_m2}"},
+      "effectiveDateTime": "2025-01-11"
+    },
+    {
+      "resourceType": "Observation",
+      "id": "obs-006-3",
+      "status": "final",
+      "subject": {"reference": "Patient/pt-006"},
+      "code": {
+        "coding": [{"system": "http://loinc.org", "code": "2089-1", "display": "LDL Cholesterol"}],
+        "text": "LDL Cholesterol"
+      },
+      "valueQuantity": {"value": 85, "unit": "mg/dL", "system": "http://unitsofmeasure.org", "code": "mg/dL"},
+      "effectiveDateTime": "2025-01-11"
+    }
+  ],
+  "MedicationRequest": [
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-001-1",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-001"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861004", "display": "Metformin hydrochloride 1000 MG Oral Tablet"}],
+        "text": "Metformin 1000 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily", "timing": {"code": {"text": "BID"}}}],
+      "authoredOn": "2018-06-15"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-001-2",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-001"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "314076", "display": "Lisinopril 20 MG Oral Tablet"}],
+        "text": "Lisinopril 20 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2015-03-10"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-002-1",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-002"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861007", "display": "Metformin hydrochloride 500 MG Oral Tablet"}],
+        "text": "Metformin 500 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily", "timing": {"code": {"text": "BID"}}}],
+      "authoredOn": "2012-04-20"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-002-2",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-002"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "261551", "display": "Insulin Glargine 100 UNT/ML Injectable Solution"}],
+        "text": "Insulin Glargine 100 units/mL injection"
+      },
+      "dosageInstruction": [{"text": "Inject 20 units subcutaneously at bedtime", "timing": {"code": {"text": "QHS"}}}],
+      "authoredOn": "2022-01-10"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-002-3",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-002"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "329528", "display": "Amlodipine 10 MG Oral Tablet"}],
+        "text": "Amlodipine 10 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2010-12-01"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-003-1",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-003"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "866924", "display": "Metoprolol Succinate 50 MG Extended Release Oral Tablet"}],
+        "text": "Metoprolol succinate 50 mg ER tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth twice daily", "timing": {"code": {"text": "BID"}}}],
+      "authoredOn": "2019-08-15"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-003-2",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-003"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "310429", "display": "Furosemide 40 MG Oral Tablet"}],
+        "text": "Furosemide 40 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2020-05-01"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-003-3",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-003"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861004", "display": "Metformin hydrochloride 1000 MG Oral Tablet"}],
+        "text": "Metformin 1000 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2016-10-20"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-005-1",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-005"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "329528", "display": "Amlodipine 10 MG Oral Tablet"}],
+        "text": "Amlodipine 10 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2006-01-15"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-005-2",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-005"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "855332", "display": "Warfarin Sodium 5 MG Oral Tablet"}],
+        "text": "Warfarin 5 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2019-01-05"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-006-1",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-006"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "861004", "display": "Metformin hydrochloride 1000 MG Oral Tablet"}],
+        "text": "Metformin 1000 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2017-12-10"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-006-2",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-006"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "314077", "display": "Lisinopril 10 MG Oral Tablet"}],
+        "text": "Lisinopril 10 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily", "timing": {"code": {"text": "QD"}}}],
+      "authoredOn": "2014-08-05"
+    },
+    {
+      "resourceType": "MedicationRequest",
+      "id": "med-006-3",
+      "status": "active",
+      "intent": "order",
+      "subject": {"reference": "Patient/pt-006"},
+      "medicationCodeableConcept": {
+        "coding": [{"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "259255", "display": "Atorvastatin 20 MG Oral Tablet"}],
+        "text": "Atorvastatin 20 mg oral tablet"
+      },
+      "dosageInstruction": [{"text": "Take 1 tablet by mouth once daily at bedtime", "timing": {"code": {"text": "QHS"}}}],
+      "authoredOn": "2018-03-20"
+    }
+  ],
+  "ServiceRequest": []
+}

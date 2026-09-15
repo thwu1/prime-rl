@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating a ~780-line multi-agent game engine against reference behavioral data to determine correct semantics for 6 deliberately under-specified mechanics: rotation geometry on a toroidal grid, deadline boundary conditions, attachment graph symmetry, energy recharge eligibility, norm enforcement ordering, and action dispatch fallbacks. The specification is intentionally incomplete — correct behavior must be determined empirically by cross-referencing a SQLite reference database (sqlite3 queries), NDJSON event logs (jq filtering), and JSON replay traces (trace diffing). Each mechanic interacts with others through shared game state — rotation direction affects block positioning which affects task submission geometry; norm enforcement ordering determines which agents get deactivated which affects energy lifecycle which changes future action eligibility. The solver must produce both a corrected engine AND a formal behavioral specification (behavioral_spec.json) that documents the correct semantics they determined through investigation, requiring evaluation of competing behavioral interpretations and creation of a consistent formal specification from ambiguous evidence."""
+solution_explanation = """The solution uses sqlite3 to query rotation reference data, jq to filter energy/norm event logs, and trace comparison tools to identify all behavioral divergences. It evaluates each divergence against the ambiguous specification and determines: (1) CW rotation uses (-dy,dx) transform placing south blocks west, (2) task deadlines use inclusive comparison (>= not >), (3) connect edges must be bidirectional via _attach_edge(), (4) energy recharge only applies to non-deactivated agents via else branch, (5) norm enforcement applies penalty before checking deactivation threshold, (6) unknown action types produce 'unknown_action' result via fallback loop. It applies 6 targeted engine fixes and generates a behavioral_spec.json by computationally verifying the corrected engine's behavior against each ambiguous semantic."""
+verification_explanation = """Tests verify through four layers: (a) seven replay trace consistency checks comparing engine output against reference action results, agent states, block positions, and scores at every step; (b) 30+ targeted behavioral tests for all 12 action types including edge cases (toroidal wrapping, multi-step movement, speed limits, obstacle collisions, rotation transforms, deadline boundaries, connect symmetry, role permissions, deactivation effects, norm penalties, clear damage, adopt zones); (c) behavioral specification validation checking that each of the 6 ambiguous mechanics is correctly documented in behavioral_spec.json with the right values; (d) specification-engine consistency checks that verify the behavioral spec claims match the actual engine behavior for rotation, deadlines, and norm enforcement."""
+category = "debugging"
+tags = ["conformance-evaluation", "multi-system-reasoning"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-33dce6"

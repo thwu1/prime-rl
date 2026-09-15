@@ -1,0 +1,66 @@
+diff --git a/include/types.h b/include/types.h
+index 1a2b3c4..5e6f7a8 100644
+--- a/include/types.h
++++ b/include/types.h
+@@ -19,7 +19,11 @@ struct NetManager {
+     int id;
+ };
+
+-class NetworkManager;  // forward declaration
++class NetworkManager {
++public:
++    static NetworkManager* create();
++    void run();
++};
+
+ struct PacketHeader {
+     uint32_t magic;
+diff --git a/include/engine.h b/include/engine.h
+index 2b3c4d5..6f7a8b9 100644
+--- a/include/engine.h
++++ b/include/engine.h
+@@ -4,7 +4,7 @@
+ #include "config.h"
+ #include "types.h"
+
+-#define ENGINE_CAST(ptr) static_cast<int*>(ptr)
++#define ENGINE_CAST(ptr) static_cast<const char*>(ptr)
+
+ class Engine {
+ public:
+diff --git a/include/config.h b/include/config.h
+index 3c4d5e6..7a8b9c0 100644
+--- a/include/config.h
++++ b/include/config.h
+@@ -3,6 +3,7 @@
+
+ #define MAX_BUFFER_SIZE 4096
+ #define DEFAULT_PORT 8080
++#define DEFAULT_TIMEOUT 30
+ #define ENGINE_VERSION "2.0.1"
+
+ struct GlobalConfig {
+diff --git a/include/network.h b/include/network.h
+index 4d5e6f7..8b9c0d1 100644
+--- a/include/network.h
++++ b/include/network.h
+@@ -3,6 +3,7 @@
+
+ #include "types.h"
++#include <memory>
+
+ class NetworkLayer {
+ public:
+diff --git a/src/plugin.cpp b/src/plugin.cpp
+index 7a8b9c0..1e2f3a4 100644
+--- a/src/plugin.cpp
++++ b/src/plugin.cpp
+@@ -12,7 +12,7 @@ bool PluginManager::load(const std::string& path) {
+         std::cerr << "Failed to load plugin: " << dlerror() << std::endl;
+         return false;
+     }
+-    engine_.flush_buffer();
++    engine_.clear_buffer();
+     return true;
+ }
+

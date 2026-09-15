@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a 2D pose-graph SLAM backend optimizer from scratch, including: deriving and coding SE(2) error terms with correct analytical Jacobians, building the sparse normal equation system, implementing iterative nonlinear least squares with Levenberg-Marquardt damping, handling SO(2) angle normalization throughout the optimization pipeline, and applying robust M-estimation (Cauchy/Huber kernel or Graduated Non-Convexity) to identify and reject outlier loop closure edges. The mathematical formulation spans Lie group theory, nonlinear optimization, robust statistics, and sparse linear algebra — knowledge typically acquired through graduate-level robotics or computer vision coursework and reinforced through production SLAM system development."""
+solution_explanation = """The solution implements a Graduated Non-Convexity (GNC) optimizer: (1) parse the G2O file into vertices, edges, and fixed constraints; (2) for each iteration, compute SE(2) error vectors and 3x3 Jacobian blocks for every edge; (3) assemble the 120x120 Hessian and gradient vector from weighted edge contributions; (4) apply Cauchy robust kernel with a decreasing c parameter schedule (starting without robustness, then c=200 down to c=3) to progressively suppress outlier edges; (5) solve the normal equations via Gaussian elimination with partial pivoting; (6) update poses and normalize angles; (7) after convergence, output optimized poses, per-edge chi-squared residuals, and outlier identification."""
+verification_explanation = """Tests verify: (1) output files exist with correct format; (2) optimized pose RMSE against ground truth is below 0.6m position and 0.15 rad angle; (3) the 3 known outlier edges (7-22, 3-33, 18-38) have chi-squared > 500; (4) all odometry edges have chi-squared < 500; (5) summary file contains required fields with consistent values."""
+category = "robotics"
+tags = ["slam", "optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f57866"

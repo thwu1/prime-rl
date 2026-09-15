@@ -1,0 +1,28 @@
+{% if nginx_upstreams is defined %}
+{% for upstream in nginx_upstreams %}
+upstream {{ upstream.name }} {
+    {{ upstream.method }};
+{% for server in upstream.servers %}
+    server {{ server }};
+{% endfor %}
+}
+
+{% endfor %}
+{% endif %}
+server {
+    listen {{ nginx_listen_port }}{% if nginx_ssl_enabled == true %} ssl{% endif %};
+    server_name {{ inventory_hostname }};
+
+{% if nginx_ssl_enabled == true %}
+    ssl_certificate {{ nginx_ssl_certificate }};
+    ssl_certificate_key {{ nginx_ssl_certificate_key }};
+{% endif %}
+
+{% if nginx_proxy_pass is defined %}
+    location / {
+        proxy_pass {{ nginx_proxy_pass }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+{% endif %}
+}

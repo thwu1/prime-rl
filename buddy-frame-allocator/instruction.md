@@ -1,0 +1,5 @@
+A stripped ELF binary at `/app/allocator_ref` implements a physical memory frame allocator that manages 64 MB of simulated memory partitioned into multiple zones. The binary accepts text commands on stdin (`ALLOC`, `FREE`, `STATS`, `INFO`, `COMPACT`, `FRAG`, `QUIT`) and writes results to stdout. A Python wrapper for programmatic interaction is at `/app/probe.py`. Zone layout and page-mobility constants are in `/app/config.py`.
+
+Implement every method of the `FrameAllocator` class in `/app/allocator.py` so that your allocator reproduces the reference binary's behavior exactly — identical PFNs for the same operation sequences, identical statistics, identical compaction outcomes, and identical fragmentation values.
+
+Use the binary, the probe wrapper, and any analysis tools available in the environment to determine how the reference manages its internal state.

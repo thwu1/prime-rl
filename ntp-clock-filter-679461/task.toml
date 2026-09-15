@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of RFC 5905 NTPv4 clock discipline pipeline and substantial C debugging and implementation work. The solver must reverse-engineer the intended behavior from source code comments and RFC 5905, identify multiple interacting bugs across three C files (operator confusion, iteration direction, formula errors, missing terms), and implement three missing algorithms from scratch (~100 lines of non-trivial C). All components are tightly coupled: incorrect values in one stage cascade through the entire pipeline, making isolated debugging extremely difficult. Requires multi-file C debugging, understanding RFC-specified numerical algorithms, and correct data structure manipulation."""
+solution_explanation = """Eight issues across three files. In ntp_pipeline.c: the offset formula uses wrong argument order for one ntp_diff call, computing half-RTT instead of clock offset. In ntp_filter.c: (1) shift register iterates forward copying f[0] to all positions instead of backward; (2) peer dispersion uses C XOR operator ^ instead of bit shift for power-of-2; (3) jitter computation is missing sqrt() and uses wrong divisor. In ntp_select.c: (1) root_dist() is missing PHI aging and jitter terms; (2) clock_select() needs full intersection algorithm (sorted-edge sweep with falseticker allowance); (3) cluster algorithm needs iterative selection-jitter pruning; (4) combine needs weighted average by inverse root_dist."""
+verification_explanation = """Tests generate deterministic multi-peer NTP exchange data (6 peers: 4 truechimers near +5ms, 2 falsetickers at +100ms and -80ms). A Python reference implementation performs identical algorithms. Tests verify: compilation, per-peer values within 1e-6 tolerance, falseticker rejection, system offset sanity (~5ms), peer offset sign correctness, finite dispersion, and correct survivor count (3-4)."""
+category = "systems"
+tags = ["networking", "c-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ntp-clock-filter-679461"

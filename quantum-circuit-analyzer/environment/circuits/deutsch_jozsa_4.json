@@ -1,0 +1,18 @@
+{
+  "name": "deutsch_jozsa_4",
+  "num_qubits": 4,
+  "description": "4-qubit Deutsch-Jozsa (3 input + 1 ancilla) with balanced oracle f(x)=x0^x1^x2",
+  "gates": [
+    {"gate": "X", "targets": [3]},
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [1]},
+    {"gate": "H", "targets": [2]},
+    {"gate": "H", "targets": [3]},
+    {"gate": "CNOT", "targets": [0, 3]},
+    {"gate": "CNOT", "targets": [1, 3]},
+    {"gate": "CNOT", "targets": [2, 3]},
+    {"gate": "H", "targets": [0]},
+    {"gate": "H", "targets": [1]},
+    {"gate": "H", "targets": [2]}
+  ]
+}

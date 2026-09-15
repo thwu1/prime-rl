@@ -1,0 +1,109 @@
+MT103 TO pacs.008.001.08 FIELD MAPPING REFERENCE
+=================================================
+
+HEADER MAPPING
+--------------
+Block 1 (Sender LT)     -> AppHdr/Fr/FIId/FinInstnId/BICFI
+  LT address format: chars[3:11]=BIC8, char[11]=LT code (skip), chars[12:15]=branch
+  BICFI = BIC8 + branch (11 chars total)
+
+Block 2 (Receiver)       -> AppHdr/To/FIId/FinInstnId/BICFI
+  Input format: I<type><dest_lt><priority>
+  chars[4:12]=BIC8, char[12]=LT code (skip), chars[13:16]=branch, char[16]=priority
+  Priority: U->HIGH, N->NORM
+
+Block 3 {108:}           -> AppHdr/BizMsgIdr
+Block 3 {119:STP}        -> PmtTpInf/SvcLvl/Cd = "G004"
+Block 3 {121:}           -> PmtId/UETR
+
+FIELD MAPPING (Block 4)
+-----------------------
+:20:  Sender Ref         -> PmtId/TxId, PmtId/InstrId (default), GrpHdr/MsgId
+:13C: Time Indication    -> SttlmTmIndctn
+      /CLSTIME/HHMM+ZZZZ -> DbtDtTm (datetime)
+      /SNDTIME/          -> DbtDtTm
+      /RNCTIME/          -> CdtDtTm
+:23B: Bank Op Code       -> PmtTpInf (CRED = default operation)
+:23E: Instruction Code   -> Various:
+      CHQB/HOLD/PHOB/TELB/SDVA -> InstrForCdtrAgt/Cd
+      CORT               -> CtgyPurp/Cd = "CORT"
+      INTC               -> CtgyPurp/Cd = "INTC"
+      SPRI               -> InstrPrty = "HIGH"
+      SSTD               -> InstrPrty = "NORM"
+:26T: Txn Type Code      -> PmtTpInf/LclInstrm/Cd
+:32A: Value Date/Amt     -> IntrBkSttlmDt (YYMMDD->YYYY-MM-DD) + IntrBkSttlmAmt/@Ccy + value
+      Amount format: comma->period decimal separator
+:33B: Instructed Amt     -> InstdAmt/@Ccy + value
+:36:  Exchange Rate      -> XchgRate (comma->period)
+:50A: Ordering Cust BIC  -> Dbtr/Id/OrgId/AnyBIC + DbtrAcct/Id/IBAN or Othr/Id
+:50F: Ordering Cust Strd -> Dbtr structured:
+      /account           -> DbtrAcct/Id/IBAN or Othr/Id
+      1/name             -> Dbtr/Nm
+      2/address          -> Dbtr/PstlAdr/AdrLine
+      3/CC/town          -> Dbtr/PstlAdr/Ctry + TwnNm
+      TXID/CC/id         -> Dbtr/Id/OrgId/Othr/Id (SchmeNm/Cd=TXID)
+      PASSPORT/CC/id     -> Dbtr/Id/PrvtId/Othr/Id (SchmeNm/Cd=CCPT)
+:50K: Ordering Cust      -> Dbtr/Nm + PstlAdr/AdrLine (unstructured) + DbtrAcct
+:51A: Sending Inst       -> GrpHdr/InstgAgt (if different from sender)
+:52A: Ordering Inst      -> DbtrAgt/FinInstnId/BICFI (+ DbtrAgtAcct if account)
+:52D: Ordering Inst      -> DbtrAgt/FinInstnId/Nm + PstlAdr
+:53A: Sender Corresp     -> SttlmInf/InstgRmbrsmntAgt/BICFI + InstgRmbrsmntAgtAcct
+:53B: Sender Corresp     -> SttlmInf/SttlmAcct/Id
+:54A: Receiver Corresp   -> SttlmInf/InstdRmbrsmntAgt/BICFI + InstdRmbrsmntAgtAcct
+:56A: Intermediary        -> IntrmyAgt1/FinInstnId/BICFI (+ IntrmyAgt1Acct if account)
+:56D: Intermediary        -> IntrmyAgt1/FinInstnId/Nm + PstlAdr
+:57A: Acct With Inst      -> CdtrAgt/FinInstnId/BICFI (+ CdtrAgtAcct if account)
+:57D: Acct With Inst      -> CdtrAgt/FinInstnId/Nm + PstlAdr
+:59:  Beneficiary         -> Cdtr/Nm + PstlAdr/AdrLine + CdtrAcct/Id/IBAN or Othr/Id
+:59A: Beneficiary BIC     -> Cdtr/Id/OrgId/AnyBIC + CdtrAcct
+:59F: Beneficiary Strd    -> Same structured format as 50F for Cdtr
+:70:  Remittance Info     -> RmtInf:
+      /INV/ref           -> Strd/RfrdDocInf/Tp/CdOrPrtry/Cd=CINV + Nb=ref
+      /RFB/ref           -> Strd/CdtrRefInf/Ref=ref
+      /ROC/ref           -> PmtId/InstrId (overrides field 20 default)
+      free text          -> Ustrd
+:71A: Charges             -> ChrgBr: BEN->CRED, OUR->DEBT, SHA->SHAR
+:71F: Sender Charges      -> ChrgsInf/Amt + Agt=sender BIC (repeatable)
+:71G: Receiver Charges    -> ChrgsInf/Amt + Agt=receiver BIC
+:72:  Sender-Receiver     -> Code word parsing:
+      /INS/bic           -> PrvsInstgAgt1/FinInstnId/BICFI
+      /BNF/text          -> InstrForCdtrAgt/InstrInf
+      //continuation     -> InstrForNxtAgt/InstrInf (if after /INS/)
+      other text         -> InstrForNxtAgt/InstrInf
+:77B: Regulatory Rptg     -> RgltryRptg:
+      /ORDERRES/CC//info -> DbtCdtRptgInd=DEBT, Authrty/Ctry=CC, Dtls/Inf=info
+      /BENRES/CC//info   -> DbtCdtRptgInd=CRED, Authrty/Ctry=CC, Dtls/Inf=info
+
+SETTLEMENT METHOD DERIVATION
+-----------------------------
+No fields 53/54/55 present  -> SttlmMtd = INDA
+Field 53 present (no 54)    -> SttlmMtd = INGA
+Fields 53+54 or 55 present  -> SttlmMtd = COVE
+
+ACCOUNT IDENTIFICATION
+----------------------
+IBAN format: 2 uppercase letters + 2 digits + alphanumeric BBAN, total length 15-34
+  -> Use IBAN element
+Non-IBAN (does not match IBAN pattern)
+  -> Use Othr/Id element
+
+BIC NORMALIZATION
+-----------------
+8-character BIC -> pad with XXX to make 11 characters
+11-character BIC -> use as-is
+
+CBPR+ MANDATORY VALUES
+-----------------------
+NbOfTxs = "1" (single transaction per message)
+EndToEndId = "NOTPROVIDED" (when no explicit end-to-end ID from MT)
+BizSvc = "swift.cbprplus.02"
+MsgDefIdr = "pacs.008.001.08"
+UETR = mandatory (from Block 3 {121:})
+
+XML NAMESPACES
+--------------
+Root: BizMsg
+AppHdr namespace: urn:iso:std:iso:20022:tech:xsd:head.001.001.03
+Document namespace: urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08
+Root element: Document/FIToFICstmrCdtTrf
+  Sub-elements: GrpHdr, CdtTrfTxInf

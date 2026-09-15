@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting bugs across Python, TOML configuration, and C code: a TypeError in the test runner (timeout passed as string), a path typo in config silently skipping a category, a misspecified compiler name, a missing separate-compilation flag, wrong expected values in C tests requiring manual trace of irreducible control flow, a strict aliasing violation, division-by-zero in the report generator, and a hardcoded compiler list. After fixing all bugs, the agent must extend the framework with 50+ correct self-checking C programs across 5 categories exercising optimization-sensitive patterns and produce a passing conformance report."""
+solution_explanation = """Fix config.toml path typo (irr_flows->irr_flow), wrong compiler (g++->gcc), add separate_compilation flag. Fix runner.py timeout string->int, add -lm to link, add dual-compiler loop. Fix report.py division-by-zero and compilers_tested. Fix test_02.c wrong expected values and strict aliasing violation. Generate additional test programs with pre-computed expected values for all 5 categories. Run the full pipeline end-to-end."""
+verification_explanation = """Tests verify: results.json exists with correct schema including both gcc and clang in compilers_tested; all 5 categories present with >=10 tests each; all tests pass at -O0 by independently compiling and running with both compilers; irr_flow tests have genuine goto-based irreducible patterns; alias tests use pointer operations; volatile_opt tests use volatile keyword; int_promo tests use mixed integer types; call_conv has paired caller/callee files with successful separate compilation and linking."""
+category = "systems"
+tags = ["compilers", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compiler-opt-validator"

@@ -1,0 +1,91 @@
+{
+  "description": "European Environmental Data Portal - intended to be a DCAT-AP 3.0.1 compliant catalog. An automated migration tool converted this from DCAT-AP 2.x, introducing multiple errors.",
+  "target_profile": "DCAT-AP 3.0.1",
+  "entities": {
+    "catalog": {
+      "title": {"en": "European Environmental Data Portal", "fr": "Portail européen de données environnementales"},
+      "languages": ["en", "fr"],
+      "license": "CC-BY 4.0"
+    },
+    "publishers": [
+      {"id": "eea", "name": "European Environment Agency"},
+      {"id": "irceline", "name": "Belgian Interregional Environment Agency"},
+      {"id": "uba", "name": "German Federal Environment Agency"}
+    ],
+    "datasets": {
+      "DS001": {
+        "title": {"en": "Air Quality Index 2024", "fr": "Indice de qualité de l'air 2024"},
+        "themes": ["environment", "health"],
+        "frequency": "hourly",
+        "temporal": {"start": "2024-01-01", "end": "2024-12-31"},
+        "contact": {"name": "AQ Data Team", "email": "aq@eea.europa.eu"},
+        "series": "aq-monitoring",
+        "distributions": [
+          {"id": "DIST001", "format": "CSV", "byte_size": 524288000},
+          {"id": "DIST002", "format": "JSON-LD"}
+        ]
+      },
+      "DS002": {
+        "title": {"en": "Water Quality Measurements"},
+        "themes": ["environment"],
+        "frequency": "quarterly",
+        "temporal": {"start": "2020-01-01", "end": "2024-06-30"},
+        "contact": {"name": "Water Monitoring Division", "email": "water@irceline.be"},
+        "distributions": [
+          {"id": "DIST003", "format": "XLSX", "byte_size": 15728640}
+        ]
+      },
+      "DS003": {
+        "title": {"en": "Noise Pollution Maps", "de": "Lärmbelastungskarten"},
+        "themes": ["environment", "regions"],
+        "frequency": "annual",
+        "temporal": {"start": "2022-01-01", "end": "2022-12-31"},
+        "contact": {"name": "Noise Mapping Unit", "email": "noise@uba.de"},
+        "distributions": [
+          {"id": "DIST004", "format": "GeoJSON"},
+          {"id": "DIST005", "format": "GeoTIFF", "byte_size": 2147483648}
+        ]
+      },
+      "DS004": {
+        "title": {"en": "Greenhouse Gas Emissions Inventory"},
+        "themes": ["environment", "economy"],
+        "frequency": "annual",
+        "temporal": {"start": "1990-01-01", "end": "2023-12-31"},
+        "contact": {"name": "Climate Data Team", "email": "climate@eea.europa.eu"},
+        "series": "aq-monitoring",
+        "distributions": [
+          {"id": "DIST006", "format": "RDF/XML"},
+          {"id": "DIST007", "format": "CSV", "byte_size": 89128960}
+        ]
+      },
+      "DS005": {
+        "title": {"en": "Biodiversity Observation Records"},
+        "themes": ["environment"],
+        "frequency": "monthly",
+        "temporal": {"start": "2015-01-01"},
+        "contact": {"name": "Biodiversity Unit", "email": "bio@eea.europa.eu"},
+        "distributions": [
+          {"id": "DIST008", "format": "CSV", "byte_size": 1073741824}
+        ]
+      }
+    },
+    "data_service": {
+      "id": "api",
+      "title": "Environmental Data API",
+      "endpoint": "http://env-data.europa.eu/api/v2",
+      "serves": ["DS001", "DS002", "DS004", "DS005"]
+    },
+    "dataset_series": {
+      "id": "aq-monitoring",
+      "title": "European Air Quality Monitoring Series",
+      "members": ["DS001", "DS004"]
+    }
+  },
+  "authority_tables": {
+    "themes": "http://publications.europa.eu/resource/authority/data-theme/{CODE}",
+    "frequencies": "http://publications.europa.eu/resource/authority/frequency/{CODE}",
+    "file_types": "http://publications.europa.eu/resource/authority/file-type/{CODE}",
+    "languages": "http://publications.europa.eu/resource/authority/language/{CODE}",
+    "licenses": "http://publications.europa.eu/resource/authority/licence/{CODE}"
+  }
+}

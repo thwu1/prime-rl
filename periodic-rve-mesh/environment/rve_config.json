@@ -1,0 +1,32 @@
+{
+  "domain": {
+    "type": "box",
+    "origin": [0.0, 0.0, 0.0],
+    "size": [1.0, 1.0, 1.0]
+  },
+  "inclusions": [
+    {
+      "type": "sphere",
+      "center": [0.5, 0.5, 0.5],
+      "radius": 0.2,
+      "material": "CenterInclusion",
+      "periodic_images": false
+    },
+    {
+      "type": "sphere",
+      "center": [0.0, 0.0, 0.0],
+      "radius": 0.25,
+      "material": "CornerInclusion",
+      "periodic_images": true
+    }
+  ],
+  "matrix_material": "Matrix",
+  "mesh": {
+    "interface_size": 0.06,
+    "bulk_size": 0.15,
+    "min_sicn": 0.05,
+    "element_type": "tet4",
+    "periodicity": ["x", "y", "z"]
+  },
+  "output_path": "/app/rve.msh"
+}

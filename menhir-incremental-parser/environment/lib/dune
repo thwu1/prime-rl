@@ -1,0 +1,8 @@
+(library
+ (name miniml)
+ (modules ast lexer parser printer))
+
+(menhir
+ (modules parser))
+
+(ocamllex lexer)

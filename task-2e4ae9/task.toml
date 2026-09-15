@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of parallel prefix adder architectures (Kogge-Stone, Brent-Kung, Sklansky) — specifically the generate/propagate prefix tree structure and how errors in prefix connections cause subtle, input-dependent functional failures. Debugging demands tracing carry chains through multi-level prefix trees, distinguishing bit-level from group-level propagate signals, and understanding ring oscillator inversion-count parity. Implementing the Sklansky adder from scratch requires knowledge of the zero-deficiency prefix tree topology. Finally, running Yosys synthesis and parsing results requires EDA tool fluency."""
+solution_explanation = """1) Ring oscillator: change AND gate to NAND in feedback path (enable & feedback -> ~(enable & feedback)) to get odd total inversions. 2) Kogge-Stone: in stage 2, replace p0[i] with p1[i] in the generate computation — the group propagate (p1) must be used, not the individual propagate (p0). 3) Brent-Kung: in backward propagation for position 6, replace G_3_0 with G_5_0 so carry from positions 4-5 correctly reaches position 6. 4) Implement Sklansky adder using the zero-deficiency prefix tree: at level k, upper-half positions in each 2^(k+1) block combine with the highest position of the lower half. 5) Fix characterizer: widen counters to 32 bits, uncomment and connect Sklansky instantiation. 6) Run Yosys synthesis, parse cell counts, generate analysis.json."""
+verification_explanation = """Tests exhaustively verify each 8-bit adder against all 131072 input combinations (256x256x2 for cin). The ring oscillator is simulated for 100000 time steps checking for >100 output transitions. Synthesis logs are checked for existence and valid cell count statistics. The analysis.json is validated for correct structure, all adders marked correct, positive cell counts, and area_ranking as a valid permutation. Source-level checks verify counter widths (>=32 bits) and that the Sklansky implementation is not a stub."""
+category = "hardware_design"
+tags = ["verilog", "digital-design"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2e4ae9"

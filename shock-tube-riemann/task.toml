@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in computational gas dynamics: solving the 1D Euler equations exactly for arbitrary initial conditions, implementing a stable numerical scheme for hyperbolic conservation laws, parsing OpenFOAM's nested dictionary configuration format to extract primitive variables via the equation of state, and performing rigorous convergence analysis. The agent must independently identify the correct mathematical formulation and appropriate numerical approach from the case files alone."""
+solution_explanation = """Parse OpenFOAM case files to extract left/right states for p, T, U, then derive density via the ideal gas EOS using R = Cp - Cv from thermophysicalProperties. Implement an iterative exact solver for the pressure function to find star-region values. Classify left/right waves and compute wave speeds. Sample exact solution using self-similarity. Implement a shock-capturing FV scheme with slope-limited reconstruction. Run at N=100,200,400. Compute L1 errors and convergence rates."""
+verification_explanation = """Tests verify: (1) the solver module produces correct star-region values for the standard Sod problem (reference: p*~0.30313, u*~0.92745), proving the solver is general-purpose; (2) exact solution CSV values match an independent reference implementation at probe points; (3) wave structure JSON has correct wave types and speeds within tolerance; (4) numerical convergence — L1 errors decrease monotonically with convergence rate > 0.3; (5) all output files exist with correct structure and physically valid data (positive density and pressure)."""
+category = "modeling_simulation"
+tags = ["cfd", "numerical-methods"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shock-tube-riemann"

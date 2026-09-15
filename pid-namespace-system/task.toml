@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Linux kernel virtual memory area management. The agent must implement the VMA split/merge algebra underpinning mmap(2)/munmap(2)/mprotect(2) — one of the subtlest subsystems in mm/mmap.c. Key challenges: bottom-up gap finding with occupied-region skipping, VMA splitting on partial munmap/mprotect (start-trim, end-trim, middle-punch), VMA coalescing including three-way merges when a new mapping bridges compatible neighbors, MAP_FIXED implicit-unmap-then-insert with subsequent merge, and the asymmetry that mprotect requires fully-mapped ranges while munmap silently accepts unmapped pages. These behaviors must be inferred from kernel knowledge since the instruction deliberately omits edge-case details."""
+solution_explanation = """The solution uses a BTreeMap<u64, VmaInfo> keyed by start address to maintain sorted, non-overlapping VMAs. Key algorithms: (1) find_gap walks VMAs in order seeking the first interval ≥ len from MMAP_MIN_ADDR; (2) unmap_range iterates overlapping VMAs, removing fully-covered ones and splitting partially-covered ones into prefix/suffix remnants; (3) mprotect first validates full coverage via a linear scan, then splits VMAs at range boundaries, updates protection on overlapping portions, and runs merge_adjacent; (4) merge_adjacent performs a single linear pass coalescing any adjacent entries with matching prot+map_type — this naturally handles two-way and three-way merges. The critical insight is that mmap and mprotect must merge afterward but munmap need not, since splits only create remnants with their original (already-distinct) attributes."""
+verification_explanation = """Tests compile the Rust project and pipe deterministic JSON operation sequences through the binary. Twenty tests across seven categories verify: basic mmap with gap finding, VMA merging (two-way, three-way, cross-attribute rejection for both prot and map_type), MAP_FIXED with full replacement and partial edge overlaps, munmap in all split configurations (middle punch, start trim, end trim, multi-VMA spanning), mprotect with subrange splitting and merge-back, mprotect error on unmapped gaps, mprotect spanning multiple heterogeneous VMAs, alignment/length validation, and a complex 13-operation integration test that exercises hole-punching, mprotect-induced fragmentation, gap-filling merges, and cascade coalescing across a five-VMA address space."""
+category = "systems_programming"
+tags = ["operating_systems", "rust"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pid-namespace-system"

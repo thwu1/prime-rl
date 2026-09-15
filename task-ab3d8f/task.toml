@@ -1,0 +1,61 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing from scratch a complete speed-enforcement \
+engine for a complex binary protocol server with multiple interdependent subsystems. The solver must \
+create: (1) a violation detection algorithm that compares all observation pairs per road, handles both \
+travel directions, and applies the >=0.5 mph speed threshold; (2) a global per-car-per-day ticket \
+deduplication system using floor(timestamp/86400) with multi-day span coverage tracking — critically, \
+dedup must be cross-road (not per-road), a subtle requirement that demands holistic protocol \
+understanding; (3) a dispatcher lifecycle management system with ticket buffering for unavailable roads \
+and stale-connection cleanup on disconnect preventing silent ticket loss; (4) correct binary ticket \
+serialization, requiring the solver to discover and fix a field-order transposition (mile2/timestamp2 \
+swap) in the skeleton's provided helper by cross-referencing against pcap reference data. All subsystems \
+interact: dedup state must be updated atomically with dispatch under async locking, dispatcher cleanup \
+failures cascade into buffering failures, and cross-road dedup means the solver cannot organize state \
+per-road alone. Demands expert-level binary protocol engineering, concurrent state machine design, and \
+pcap-based validation using network analysis tools."""
+solution_explanation = """Analyze reference.pcap with tshark to extract correct ticket byte sequences. \
+Compare _build_ticket_bytes output against spec field order (road, mile1, ts1, mile2, ts2, speed) to \
+discover the timestamp2/mile2 transposition. Then design the enforcement engine from scratch: iterate \
+all prior observations for each new plate sighting, compute speed as |dist|/time_diff*3600, compare \
+against limit+0.5 threshold, order ticket fields by timestamp. Implement dedup via \
+dict[plate]->set[day] with set(range(day1, day2+1)) for spanning — keyed by plate alone (not \
+plate+road) to enforce cross-road dedup. Design ticket dispatch to first available dispatcher or buffer \
+in pending_tickets dict. Implement buffered ticket delivery on dispatcher registration. Add dispatcher \
+cleanup in connection teardown, removing stale writers. Fix _build_ticket_bytes to emit mile2(u16) \
+before timestamp2(u32). Protect all shared state mutations with asyncio.Lock."""
+verification_explanation = """Tests start the server on port 9000 and exercise 13 scenarios via TCP \
+clients: ticket byte encoding matches spec field order, reverse-direction tickets ordered by timestamp, \
+multi-day spanning tickets block subsequent violations on covered days, heartbeat intervals match \
+decisecond timing, dispatchers sending Plate receive errors, unidentified clients receive errors, \
+duplicate identities receive errors, tickets buffer until dispatcher connects, concurrent multi-road \
+traffic produces independent tickets, speed threshold at +/-0.5 mph boundary is enforced, dispatcher \
+disconnect/reconnect delivers buffered tickets validating cleanup, multiple observations produce exactly \
+one ticket via dedup, and a cross-road same-day test verifies global per-car dedup by ticketing a car \
+on road A then confirming the same car is suppressed on road B on the same day."""
+category = "systems_programming"
+tags = ["protocol-engineering", "concurrent-systems-design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ab3d8f"

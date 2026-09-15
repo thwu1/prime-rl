@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of (1) RISC-V ISA specification including the subtle M-extension semantics (MULHSU signed×unsigned upper-half product, signed division overflow and division-by-zero defined return values, truncation-toward-zero rounding), (2) the RVFI formal interface protocol (intr flag semantics for PC discontinuity, trap-driven shadow PC invalidation, register shadow consistency), (3) reading and simulating Verilog reference models with iverilog/vvp to verify edge-case behavior, and (4) Python implementation of 32-bit two's-complement arithmetic. The solver must create 8 new M-extension instruction checkers from scratch while also diagnosing and fixing 8 existing specification compliance bugs across 3 modules (decoder, spec checker, consistency checker). Cross-referencing Verilog reference models against the Python implementation requires multi-tool interoperability."""
+solution_explanation = """Create _check_m_ext function implementing all 8 M-extension instructions: MUL (lower 32-bit product), MULH (signed×signed upper 32), MULHSU (signed×unsigned upper 32 via Python arbitrary-precision arithmetic), MULHU (unsigned×unsigned upper 32), DIV (signed with div-by-zero→-1 and overflow→MIN_INT), DIVU (unsigned with div-by-zero→MAX), REM (signed with div-by-zero→dividend, overflow→0, truncation-toward-zero semantics), REMU (unsigned with div-by-zero→dividend). Fix 8 bugs: (1) B-type immediate sign-extends from 12 instead of 13 bits, (2) S-type immediate missing sign extension, (3) SRA/SRAI use logical instead of arithmetic shift (2 occurrences), (4) JALR target doesn't clear LSB, (5) LH zero-extends instead of sign-extending, (6) SB uses wrong write mask 0x3 vs 0x1, (7) AUIPC handler raises NotImplementedError, (8) PC continuity check ignores intr flag."""
+verification_explanation = """Pytest suite with ~50 tests validates each M-extension instruction with edge cases (signed overflow, division by zero, MULHSU sign handling) and each I-extension bug fix. Negative tests prevent trivial implementations (e.g. M-extension returning no violations). Tests construct precise RVFI records with known-correct encodings and verify the validator produces zero violations for correct traces and non-zero violations for incorrect traces."""
+category = "computer_architecture"
+tags = ["risc-v", "formal-verification", "verilog"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rvfi-validator-debug"

@@ -1,0 +1,585 @@
+openapi: "3.0.3"
+info:
+  title: "ProjectTracker API"
+  description: "Project tracking and task management REST API for distributed teams"
+  version: "2.1.0"
+  contact:
+    name: "API Support"
+    email: "support@projecttracker.dev"
+  license:
+    name: "MIT"
+servers:
+  - url: "http://localhost:8080/api/v1"
+    description: "Development server"
+  - url: "https://api.projecttracker.dev/api/v1"
+    description: "Production server"
+tags:
+  - name: auth
+    description: "Authentication endpoints"
+  - name: users
+    description: "User management"
+  - name: projects
+    description: "Project operations"
+  - name: tasks
+    description: "Task management"
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: "Authenticate user and obtain access token"
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: "Authentication successful"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: "Invalid credentials"
+  /auth/register:
+    post:
+      operationId: register
+      summary: "Register a new user account"
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: "Registration successful"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '409':
+          description: "Username already taken"
+  /users:
+    get:
+      operationId: listUsers
+      summary: "List all users with pagination"
+      tags: [users]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: "Paginated user list"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+    post:
+      operationId: createUser
+      summary: "Create a new user"
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: "User created"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreatedResponse'
+        '400':
+          description: "Validation error"
+  /users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: "Unique user identifier"
+        schema:
+          type: string
+    get:
+      operationId: getUser
+      summary: "Get user details by ID"
+      tags: [users]
+      responses:
+        '200':
+          description: "User details"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          description: "User not found"
+    put:
+      operationId: updateUser
+      summary: "Update user properties"
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: "User updated"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdatedResponse'
+        '400':
+          description: "Validation error"
+    delete:
+      operationId: deleteUser
+      summary: "Delete a user permanently"
+      tags: [users]
+      responses:
+        '204':
+          description: "User deleted"
+        '404':
+          description: "User not found"
+  /projects:
+    get:
+      operationId: listProjects
+      summary: "List projects with pagination"
+      tags: [projects]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: "Paginated project list"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+    post:
+      operationId: createProject
+      summary: "Create a new project"
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: "Project created"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectCreatedResponse'
+  /projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        description: "Unique project identifier"
+        schema:
+          type: string
+    get:
+      operationId: getProject
+      summary: "Get project details"
+      tags: [projects]
+      responses:
+        '200':
+          description: "Project details"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        '404':
+          description: "Project not found"
+  /projects/{projectId}/members:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: addProjectMember
+      summary: "Add a member to the project"
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '201':
+          description: "Member added"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipResponse'
+        '409':
+          description: "User already a member"
+  /projects/{projectId}/tasks:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listTasks
+      summary: "List tasks in a project"
+      tags: [tasks]
+      parameters:
+        - name: filterStatus
+          in: query
+          description: "Filter tasks by status"
+          schema:
+            type: string
+      responses:
+        '200':
+          description: "Task list"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+    post:
+      operationId: createTask
+      summary: "Create a new task in a project"
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: "Task created"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreatedResponse'
+  /tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        description: "Unique task identifier"
+        schema:
+          type: string
+    get:
+      operationId: getTask
+      summary: "Get task details"
+      tags: [tasks]
+      responses:
+        '200':
+          description: "Task details"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '404':
+          description: "Task not found"
+    put:
+      operationId: updateTask
+      summary: "Update task properties"
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: "Task updated"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskUpdatedResponse'
+  /tasks/{taskId}/comments:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: addComment
+      summary: "Add a comment to a task"
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCommentRequest'
+      responses:
+        '201':
+          description: "Comment added"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+components:
+  parameters:
+    PageNum:
+      name: pageNum
+      in: query
+      description: "Page number (zero-indexed)"
+      schema:
+        type: integer
+        default: 0
+    PageSize:
+      name: pageSize
+      in: query
+      description: "Items per page"
+      schema:
+        type: integer
+        default: 20
+  schemas:
+    UserResourceId:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: "Unique user identifier"
+    ProjectResourceId:
+      type: object
+      properties:
+        projectId:
+          type: string
+          description: "Unique project identifier"
+    TaskResourceId:
+      type: object
+      properties:
+        taskId:
+          type: string
+          description: "Unique task identifier"
+    TimestampMixin:
+      type: object
+      properties:
+        createdTs:
+          type: string
+          format: date-time
+          description: "ISO-8601 creation timestamp"
+    AuditMixin:
+      type: object
+      properties:
+        updatedTs:
+          type: string
+          format: date-time
+          description: "ISO-8601 last-update timestamp"
+        updatedBy:
+          type: string
+          description: "Username of the last updater"
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: "JWT access token"
+        tokenExpiry:
+          type: integer
+          description: "Token lifetime in seconds"
+    RegisterRequest:
+      type: object
+      required: [displayName, emailAddress, passphrase]
+      properties:
+        displayName:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        passphrase:
+          type: string
+          minLength: 8
+    RegisterResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResourceId'
+        - type: object
+          properties:
+            registrationTs:
+              type: string
+              format: date-time
+    CreateUserRequest:
+      type: object
+      required: [displayName, emailAddress, userRole]
+      properties:
+        displayName:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        userRole:
+          type: string
+          enum: [admin, developer, viewer, tester]
+    UserCreatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResourceId'
+        - $ref: '#/components/schemas/TimestampMixin'
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/UserResourceId'
+        - type: object
+          properties:
+            displayName:
+              type: string
+            emailAddress:
+              type: string
+            userRole:
+              type: string
+    UpdateUserRequest:
+      type: object
+      properties:
+        emailAddress:
+          type: string
+          format: email
+        userRole:
+          type: string
+    UserUpdatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResourceId'
+        - $ref: '#/components/schemas/AuditMixin'
+    UserSummary:
+      type: object
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+    UserListResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+    CreateProjectRequest:
+      type: object
+      required: [projectName, projectDescription]
+      properties:
+        projectName:
+          type: string
+        projectDescription:
+          type: string
+    ProjectCreatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProjectResourceId'
+        - $ref: '#/components/schemas/TimestampMixin'
+    ProjectDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProjectResourceId'
+        - type: object
+          properties:
+            projectName:
+              type: string
+            projectDescription:
+              type: string
+    ProjectListResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectDetail'
+    AddMemberRequest:
+      type: object
+      required: [userId, memberRole]
+      properties:
+        userId:
+          type: string
+        memberRole:
+          type: string
+          enum: [lead, contributor, observer]
+    MembershipResponse:
+      type: object
+      properties:
+        membershipId:
+          type: string
+        addedTs:
+          type: string
+          format: date-time
+    CreateTaskRequest:
+      type: object
+      required: [taskTitle, taskDescription, taskPriority]
+      properties:
+        taskTitle:
+          type: string
+        taskDescription:
+          type: string
+        taskPriority:
+          type: string
+          enum: [critical, high, medium, low]
+    TaskCreatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/TaskResourceId'
+        - $ref: '#/components/schemas/TimestampMixin'
+    TaskDetail:
+      allOf:
+        - $ref: '#/components/schemas/TaskResourceId'
+        - type: object
+          properties:
+            taskTitle:
+              type: string
+            taskDescription:
+              type: string
+            taskPriority:
+              type: string
+            taskStatus:
+              type: string
+    UpdateTaskRequest:
+      type: object
+      properties:
+        taskTitle:
+          type: string
+        taskStatus:
+          type: string
+        taskPriority:
+          type: string
+    TaskUpdatedResponse:
+      allOf:
+        - $ref: '#/components/schemas/TaskResourceId'
+        - $ref: '#/components/schemas/AuditMixin'
+    TaskListResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDetail'
+    AddCommentRequest:
+      type: object
+      required: [commentBody]
+      properties:
+        commentBody:
+          type: string
+    CommentResponse:
+      type: object
+      properties:
+        commentId:
+          type: string
+        postedTs:
+          type: string
+          format: date-time

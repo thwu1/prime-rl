@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network forensics combined with detection engineering and threat intelligence skills. The forensic phase demands deep PCAP analysis with protocol dissection, HTTP object carving, authentication artifact extraction, PE executable identification, reverse engineering of executable protections, and C2 infrastructure identification. The detection engineering phase requires designing custom YARA rules from binary analysis — examining both variants, identifying discriminating characteristics, and writing syntactically valid rules that match the correct artifacts. The threat assessment phase demands evaluating the full attack chain against the MITRE ATT&CK framework, critically analyzing detection gaps in signature-based defenses, and prioritizing defensive measures with justified effectiveness rationales. This combination of forensic analysis, detection artifact creation, and strategic threat evaluation requires proficiency across multiple security disciplines."""
+solution_explanation = """Download the PCAP and use tshark --export-objects to extract HTTP objects, identifying .jar files and the PE executable via MZ magic bytes. Extract the Windows username from NTLMSSP authentication fields. Trace HTTP requests chronologically for the initial URL. Verify the packed PE MD5, unpack with upx -d, verify unpacked MD5. Identify the C2 IP by finding TCP destinations without corresponding DNS A records. For YARA rules: analyze the packed binary for UPX section markers (UPX!, UPX0, UPX1) and the unpacked binary for hardcoded C2 IP strings and Windows API imports; construct rules using these patterns with appropriate filesize constraints. Validate rules by scanning both artifacts. Build the threat assessment by mapping attack stages to ATT&CK techniques (T1189 drive-by, T1203 exploitation, T1105 tool transfer, T1027 obfuscation, T1071 C2), analyzing signature-based detection limitations at each stage, and prioritizing defenses based on detection coverage and attack surface reduction."""
+verification_explanation = """Tests verify: (1) PCAP integrity via MD5, (2) packed malware MD5 confirms correct carving, (3) unpacked malware MD5 confirms correct unpacking, (4) all seven forensic report fields match ground truth, (5) YARA rules compile without errors, (6) at least two distinct rules exist, (7) rules contain meaningful hex/string patterns with metadata, (8) rules match when scanned against both packed and unpacked artifacts, (9) validation report documents matches, (10) threat assessment contains at least 3 attack stages with correct structure and ATT&CK technique IDs including T1189/T1105/T1027, (11) detection gaps analysis is substantive, (12) defense recommendations are prioritized with rationales."""
+category = "security_and_privacy"
+tags = ["network-forensics", "detection-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-573a96"

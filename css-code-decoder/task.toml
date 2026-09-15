@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of quantum error correction: parsing stabilizer generators in Pauli string format to separate X-type and Z-type checks, performing binary linear algebra over GF(2) to extract check matrices, computing logical operators as non-trivial elements of the code's homological structure, and determining the exact code distance. The solver must implement two fundamentally different syndrome decoding backends — one producing provably minimum-weight corrections (requiring formulation as a constrained optimization problem), and one using iterative/heuristic decoding — then bridge between their different interfaces to produce compatible results. Monte Carlo simulation with seeded RNG demands correct error sampling and logical error accounting across the full CSS decoding pipeline."""
+solution_explanation = """Parse the .stab file to separate X-type and Z-type Pauli string generators and convert to binary check matrices. Compute logical operators by finding the quotient of kernel by row-space over GF(2). Determine distance by searching for minimum-weight non-trivial logicals. Build a MaxSAT decoder using Z3 Optimize with Boolean switch variables and XOR chain parity constraints. Build a BP+OSD decoder using ldpc's BpOsdDecoder. Run both decoders on each task, compare results. For simulation, use numpy seeded RNG to sample errors, decode with both backends, accumulate logical error statistics."""
+verification_explanation = """Tests verify: (1) parsed hamming15 code has correct parameters [15,7,3], (2) CSS orthogonality Hx@Hz^T=0 holds, (3) logical operators satisfy commutation relations including Lx@Lz^T=I_k, (4) every MaxSAT correction resolves its syndrome and has minimum weight verified by exhaustive search, (5) every BP+OSD correction resolves its syndrome, (6) logical error flags match independent computation via L@residual mod 2 for both backends, (7) Hamming code single-qubit errors produce unique weight-1 corrections, (8) Hamming code weight-2 errors cause logical errors, (9) simulation results have correct trial counts and bounded error rates, (10) both backends produce results for all non-weighted tasks."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "multi-tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/css-code-decoder"

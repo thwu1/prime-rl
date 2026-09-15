@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of B+tree storage internals and multi-tool orchestration. The agent must: (1) parse a non-trivial binary page format with little-endian encoding and cumulative offset arrays; (2) implement five distinct corruption validators with graceful error recovery; (3) reconstruct a structurally valid B+tree from recovered data — writing correct binary output with separator keys derived from child subtrees, balanced depth, zero-padded pages, and CRC-32 checksums; (4) compile and use a C structural verifier (pgverify.c) with gcc to validate the repaired output. The repair phase demands holistic B+tree understanding: knowing how to compute separator keys from leaf-level data, maintaining balanced depth during bottom-up construction, and producing byte-perfect binary pages that pass 11+ invariant checks by an independent C verifier. This is not procedural — it requires synthesizing knowledge of binary formats, tree data structures, checksums, and C toolchain usage."""
+solution_explanation = """Compile pgverify.c with gcc. Parse the meta page (magic, root pointer, CRC-32), then recursively walk the B+tree validating node invariants at each level. Track visited pages for cycle prevention and orphan detection. Extract parseable KV pairs even from partially-corrupt trees. Then rebuild a valid B+tree bottom-up: partition sorted KV pairs into leaf-sized chunks, create leaf pages with correct binary layout (zero pointers, cumulative offsets), build internal node levels with separator keys matching each child's first key, and write a meta page with correct root pointer, page count, and CRC-32. Verify the output passes the compiled pgverify tool."""
+verification_explanation = """Compiles pgverify.c with gcc and runs the recovery tool against six pre-generated database files. Tests verify two dimensions: (1) JSON report correctness — 19 assertions checking error type detection, corrupted page identification, recovered KV counts, boundary key presence, and page reachability statistics; (2) repair validity — 13 assertions verifying each repaired file passes the compiled pgverify structural verifier (checking meta CRC, key ordering, balanced depth, separator-key consistency, pointer validity, and zero orphans) and contains the expected KV pairs via independent binary parsing of the repaired output."""
+category = "systems"
+tags = ["binary-format", "btree"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/btree-file-recovery"

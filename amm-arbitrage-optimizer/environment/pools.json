@@ -1,0 +1,62 @@
+{
+  "tokens": ["USDC", "WETH", "WBTC", "DAI"],
+  "pools": [
+    {
+      "id": "cp-usdc-weth",
+      "type": "ConstantProduct",
+      "token_a": "USDC",
+      "token_b": "WETH",
+      "reserve_a": 2000000.0,
+      "reserve_b": 1000.0,
+      "fee_bps": 30
+    },
+    {
+      "id": "cp-weth-wbtc",
+      "type": "ConstantProduct",
+      "token_a": "WETH",
+      "token_b": "WBTC",
+      "reserve_a": 620.0,
+      "reserve_b": 20.0,
+      "fee_bps": 30
+    },
+    {
+      "id": "cp-wbtc-usdc",
+      "type": "ConstantProduct",
+      "token_a": "WBTC",
+      "token_b": "USDC",
+      "reserve_a": 50.0,
+      "reserve_b": 3200000.0,
+      "fee_bps": 30
+    },
+    {
+      "id": "ss-usdc-dai",
+      "type": "StableSwap",
+      "token_a": "USDC",
+      "token_b": "DAI",
+      "reserve_a": 5000000.0,
+      "reserve_b": 5100000.0,
+      "amp_factor": 200,
+      "fee_bps": 4
+    },
+    {
+      "id": "cp-dai-weth",
+      "type": "ConstantProduct",
+      "token_a": "DAI",
+      "token_b": "WETH",
+      "reserve_a": 1850000.0,
+      "reserve_b": 1000.0,
+      "fee_bps": 30
+    },
+    {
+      "id": "wp-weth-wbtc",
+      "type": "WeightedProduct",
+      "token_a": "WETH",
+      "token_b": "WBTC",
+      "reserve_a": 400.0,
+      "reserve_b": 5.5,
+      "weight_a": 0.7,
+      "weight_b": 0.3,
+      "fee_bps": 25
+    }
+  ]
+}

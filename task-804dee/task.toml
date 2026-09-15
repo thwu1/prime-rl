@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a comprehensive configuration auditing system from scratch for a Discourse Docker multi-container deployment. The solver must study system metadata, deployment constraints, a bundled-plugins manifest, and a broken precheck tool to reverse-engineer the complete set of validation rules spanning 8 distinct categories: YAML parsing with cross-file port-conflict detection, memory arithmetic with unit conversion against a percentage-of-RAM ceiling, SMTP/TLS protocol semantics, SSL certificate provisioning chains, PostgreSQL shared-memory sizing, bundled-plugin lifecycle management, hostname placeholder detection, and bootstrap email requirements. The auditor must produce a structured JSON report matching a specified schema, correctly distinguish errors from warnings, and handle cross-container validation — requiring both deep Discourse deployment expertise and software design skill to create a novel tool rather than simply patching an existing one."""
+solution_explanation = """Create /app/auditor.py: a Python CLI tool that loads bundled_plugins.txt, system_info.json, and constraints.json; iterates over all YAML configs in the given directory; detects 8 categories of misconfiguration (bundled plugin clones, memory overcommit >25% RAM, SMTP 587+FORCE_TLS incompatibility, placeholder hostnames matching example.com/org/net, empty developer emails, SSL template without Let's Encrypt, missing --shm-size for PostgreSQL containers, cross-file host port conflicts); writes a JSON report to /app/audit_report.json. Then fix configs: remove bundled plugin clones, cap db_shared_buffers at 1024MB, set FORCE_TLS=false for port 587, replace placeholder hostname, populate developer email, add Let's Encrypt template, add --shm-size docker_args, remap app.yml host ports to avoid conflict with web.yml."""
+verification_explanation = """Pytest verifies: (a) /app/auditor.py exists as a Python script; (b) running it on /app/containers_backup/ produces a JSON report with >=10 issues spanning 8 categories (bundled plugins, memory, SMTP, hostname, emails, SSL, shm-size, port conflicts) and exits non-zero; (c) running it on fixed /app/containers/ produces 0 issues and exits 0; (d) YAML content checks confirm each config fix (no bundled plugins cloned, memory within 25% limit, SMTP port/TLS compatible, non-placeholder hostname, non-empty developer emails, SSL/LE consistency, --shm-size present, no cross-file port conflicts)."""
+category = "devops"
+tags = ["docker", "python-tooling"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-804dee"

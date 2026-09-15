@@ -1,0 +1,158 @@
+# Multi-interface datacenter HTB traffic shaping topology
+# Two interfaces with hierarchical qdisc configurations and DSCP classification
+
+interfaces:
+  eth0:
+    speed: 10gbit
+    description: "North-south traffic (clients to services)"
+    root:
+      handle: "1:"
+      default_minor: 31
+    classes:
+      - name: realtime
+        minor: 10
+        parent_minor: 0
+        rate: 3gbit
+        ceil: 10gbit
+        prio: 0
+        children:
+          - name: voip
+            minor: 11
+            rate: 1gbit
+            ceil: 3gbit
+            prio: 0
+            dscp: 46
+            leaf_qdisc: fq_codel
+          - name: video_conferencing
+            minor: 12
+            rate: 2gbit
+            ceil: 3gbit
+            prio: 1
+            dscp: 34
+            leaf_qdisc: fq_codel
+      - name: business
+        minor: 20
+        parent_minor: 0
+        rate: 4gbit
+        ceil: 8gbit
+        prio: 1
+        children:
+          - name: web_interactive
+            minor: 21
+            rate: 2gbit
+            ceil: 4gbit
+            prio: 0
+            dscp: 18
+            leaf_qdisc: fq_codel
+          - name: email
+            minor: 22
+            rate: 1gbit
+            ceil: 4gbit
+            prio: 1
+            dscp: 10
+            leaf_qdisc:
+              type: pfifo
+              limit: 500
+          - name: database_sync
+            minor: 23
+            rate: 2gbit
+            ceil: 4gbit
+            prio: 2
+            dscp: 26
+            leaf_qdisc: fq_codel
+      - name: best_effort
+        minor: 30
+        parent_minor: 0
+        rate: 3gbit
+        ceil: 6gbit
+        prio: 2
+        children:
+          - name: general
+            minor: 31
+            rate: 2gbit
+            ceil: 3gbit
+            prio: 0
+            dscp: 0
+            leaf_qdisc: fq_codel
+          - name: scavenger
+            minor: 32
+            rate: 1gbit
+            ceil: 7gbit
+            prio: 1
+            dscp: 8
+            leaf_qdisc:
+              type: pfifo
+              limit: 200
+
+  eth1:
+    speed: 25gbit
+    description: "East-west traffic (inter-service, storage, GPU/RDMA)"
+    root:
+      handle: "1:"
+      default_minor: 40
+    classes:
+      - name: gpu_rdma
+        minor: 10
+        parent_minor: 0
+        rate: 15gbit
+        ceil: 25gbit
+        prio: 0
+        children:
+          - name: rdma_latency_critical
+            minor: 11
+            rate: 12gbit
+            ceil: 20gbit
+            prio: 0
+            dscp: 46
+            leaf_qdisc: fq_codel
+          - name: rdma_bulk
+            minor: 12
+            rate: 8gbit
+            ceil: 6gbit
+            prio: 1
+            dscp: 44
+            leaf_qdisc:
+              type: pfifo
+              limit: 2000
+      - name: storage
+        minor: 20
+        parent_minor: 0
+        rate: 7gbit
+        ceil: 20gbit
+        prio: 1
+        children:
+          - name: storage_sync
+            minor: 21
+            rate: 4gbit
+            ceil: 7gbit
+            prio: 0
+            dscp: 26
+            leaf_qdisc: fq_codel
+          - name: storage_async
+            minor: 22
+            rate: 3gbit
+            ceil: 7gbit
+            prio: 1
+            dscp: 18
+            leaf_qdisc: fq_codel
+      - name: control
+        minor: 30
+        parent_minor: 0
+        rate: 3gbit
+        ceil: 10gbit
+        prio: 2
+        children:
+          - name: cluster_mgmt
+            minor: 31
+            rate: 2gbit
+            ceil: 5gbit
+            prio: 0
+            dscp: 48
+            leaf_qdisc: fq_codel
+          - name: monitoring
+            minor: 32
+            rate: 1gbit
+            ceil: 5gbit
+            prio: 1
+            dscp: 16
+            leaf_qdisc: fq_codel

@@ -1,0 +1,77 @@
+{
+  "description": "Equational laws of magmas (sets with a binary operation). Each equation asserts a universally quantified identity. Expression nodes: {\"type\": \"var\", \"name\": <string>} for variables, {\"type\": \"op\", \"left\": <expr>, \"right\": <expr>} for the binary operation.",
+  "equations": [
+    {
+      "id": 1,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}},
+      "rhs": {"type": "var", "name": "x"},
+      "name": "left_projection"
+    },
+    {
+      "id": 2,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}},
+      "rhs": {"type": "var", "name": "y"},
+      "name": "right_projection"
+    },
+    {
+      "id": 3,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "x"}},
+      "rhs": {"type": "var", "name": "x"},
+      "name": "idempotent"
+    },
+    {
+      "id": 4,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "x"}},
+      "name": "commutative"
+    },
+    {
+      "id": 5,
+      "lhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "var", "name": "z"}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "z"}}},
+      "name": "associative"
+    },
+    {
+      "id": 6,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}},
+      "name": "left_iterated_idempotent"
+    },
+    {
+      "id": 7,
+      "lhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "var", "name": "y"}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}},
+      "name": "right_iterated_idempotent"
+    },
+    {
+      "id": 8,
+      "lhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "x"}}, "right": {"type": "var", "name": "y"}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}},
+      "name": "left_power_associative"
+    },
+    {
+      "id": 9,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "y"}}},
+      "rhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "var", "name": "y"}},
+      "name": "right_power_associative"
+    },
+    {
+      "id": 10,
+      "lhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "var", "name": "x"}},
+      "rhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "x"}}},
+      "name": "flexible"
+    },
+    {
+      "id": 11,
+      "lhs": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "z"}}},
+      "rhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "z"}}},
+      "name": "left_self_distributive"
+    },
+    {
+      "id": 12,
+      "lhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "y"}}, "right": {"type": "op", "left": {"type": "var", "name": "z"}, "right": {"type": "var", "name": "w"}}},
+      "rhs": {"type": "op", "left": {"type": "op", "left": {"type": "var", "name": "x"}, "right": {"type": "var", "name": "z"}}, "right": {"type": "op", "left": {"type": "var", "name": "y"}, "right": {"type": "var", "name": "w"}}},
+      "name": "entropic"
+    }
+  ]
+}

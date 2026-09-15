@@ -1,0 +1,51 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level dbt analytics engineering: the solver must diagnose interrelated bugs
+across profile configuration, source schema mapping, Jinja macro scoping, DAG circular dependency resolution via model
+architecture redesign, incremental materialization strategy (delete+insert with correct unique_key and is_incremental
+filter), dbt variable references, and custom generic test contract understanding. Beyond debugging, the solver must
+CREATE a new mart model (customer_lifetime_tiers) from scratch — reading the schema YAML to infer required columns and
+tests, using nested dbt project variables (dict-typed var for tier thresholds), and applying SQL window functions (ntile)
+for quartile ranking. They must also CREATE a custom generic test macro (within_range) that correctly implements dbt's
+test contract (returning failing rows, not passing rows). The circular dependency fix demands evaluating which
+intermediate model should own which joins, requiring holistic understanding of the staging-intermediate-marts data flow.
+No single issue can be resolved without reasoning about data flow from raw sources through staging (cents-to-dollars
+conversion), intermediates (payment aggregation, customer history), and marts (dimension, fact, incremental, and
+segmentation tables)."""
+solution_explanation = """Fix profiles.yml name mismatch; change source schema to 'main'; fix macro variable from 'col'
+to 'column_name'; break circular dependency by restructuring intermediate models to only reference staging; fix
+incremental unique_key to 'order_date' and is_incremental filter column; fix var reference from 'pay_methods' to
+'payment_methods'; invert custom test from '> 0' to '<= 0'; CREATE customer_lifetime_tiers.sql model using
+ref('dim_customers') with CASE expression on var('tier_thresholds') dict keys and ntile(4) window function; CREATE
+test_within_range.sql macro returning rows where column falls outside [min_value, max_value] range."""
+verification_explanation = """Tests run dbt compile (validates no cycles), two consecutive dbt builds (full-refresh then
+incremental), then query DuckDB to verify row counts, column existence, value ranges, and data correctness for
+dim_customers (5 rows), fct_orders (10 rows with per-method columns), revenue_daily (10 rows), and
+customer_lifetime_tiers (5 rows with exact tier distribution: 2 bronze, 1 silver, 2 gold, 0 platinum, plus valid
+quartiles 1-4). Also verifies the custom within_range test macro was created in the macros directory."""
+category = "data_engineering"
+tags = ["dbt", "analytics-engineering"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c92d7d"

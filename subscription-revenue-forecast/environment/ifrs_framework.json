@@ -1,0 +1,160 @@
+{
+  "framework_metadata": {
+    "standard_body": "IASB",
+    "framework_version": "2024.1",
+    "adoption_date": "2024-01-01",
+    "jurisdiction_scope": ["Australia", "United Kingdom", "United States"],
+    "reporting_currency": "USD",
+    "update_history": [
+      {"version": "2023.2", "date": "2023-06-01", "notes": "Single-scenario ECL approach"},
+      {"version": "2024.1", "date": "2024-01-01", "notes": "Upgraded to probability-weighted ECL scenarios per board directive"}
+    ]
+  },
+  "standards": {
+    "ifrs9": {
+      "title": "Financial Instruments",
+      "effective_date": "2018-01-01",
+      "chapters": {
+        "4": {
+          "title": "Classification",
+          "sections": {
+            "4.1": {
+              "note": "All subscription receivables classified at amortised cost under the business model test"
+            }
+          }
+        },
+        "5": {
+          "title": "Measurement",
+          "sections": {
+            "5.4": {
+              "title": "Gains and Losses",
+              "note": "Fair value gains/losses on dedesignated hedges recognized in profit or loss"
+            },
+            "5.5": {
+              "title": "Impairment",
+              "subsections": {
+                "5.5.1": {
+                  "title": "Objective and Scope",
+                  "note": "ECL model applies to financial assets measured at amortised cost"
+                },
+                "5.5.15": {
+                  "title": "Simplified Approach for Trade Receivables",
+                  "parameters": {
+                    "forward_looking_assessment": {
+                      "superseded_v2023": {
+                        "methodology": "single_scenario",
+                        "scenario_weight": 1.0,
+                        "ecl_multiplier": 1.0,
+                        "status": "superseded",
+                        "replaced_by": "current_v2024",
+                        "note": "DO NOT USE — replaced by probability-weighted approach effective 2024-01-01"
+                      },
+                      "current_v2024": {
+                        "methodology": "probability_weighted",
+                        "scenarios": [
+                          {"name": "base", "weight": 0.50, "ecl_multiplier": 1.0, "description": "Central macroeconomic forecast"},
+                          {"name": "downside", "weight": 0.30, "ecl_multiplier": 1.5, "description": "Stressed economic conditions with elevated defaults"},
+                          {"name": "upside", "weight": 0.20, "ecl_multiplier": 0.7, "description": "Favorable economic recovery scenario"}
+                        ],
+                        "application": "Weighted ECL rate per tier = base_ecl_rate * SUM(weight_i * multiplier_i) across all scenarios. Base ECL rates sourced from credit_provisions.csv (approved entries only)."
+                      }
+                    }
+                  }
+                },
+                "5.5.17": {
+                  "title": "Stage Classification (General Approach)",
+                  "parameters": {
+                    "stage_1_to_2_threshold": 0.02,
+                    "stage_2_to_3_threshold": 0.10,
+                    "note": "Stage classification NOT applicable under the simplified approach (5.5.15) used for trade receivables. All receivables carry lifetime ECL. These thresholds are retained for reference only and must not be applied to the forecast model."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "6": {
+          "title": "Hedge Accounting",
+          "sections": {
+            "6.2": {
+              "title": "Hedging Instruments",
+              "note": "Forward contracts designated as cash flow hedges of forecast foreign currency revenue"
+            },
+            "6.4": {
+              "title": "Qualifying Criteria for Hedge Accounting",
+              "subsections": {
+                "6.4.1": {
+                  "title": "Hedge Effectiveness Requirements",
+                  "parameters": {
+                    "assessment_method": "dollar_offset_cumulative",
+                    "assessment_frequency": "annual",
+                    "data_source": "/app/data/hedge_valuations.parquet",
+                    "effectiveness_bounds": {
+                      "lower": 0.80,
+                      "upper": 1.25
+                    },
+                    "computation_spec": {
+                      "formula": "ABS(SUM(hedge_instrument_pnl) / SUM(hedged_item_pnl))",
+                      "grouping": "per contract_id",
+                      "note": "Aggregate quarterly P&L data across all test quarters for each contract. The ratio must fall within the effectiveness bounds for the hedge to qualify."
+                    },
+                    "dedesignation_treatment": {
+                      "description": "When a hedge fails the effectiveness test, the entire hedge relationship for that contract is dedesignated for the corresponding fiscal year. All revenue for that country-year pair is translated at the spot rate only. No hedge gain or loss is recognized for the dedesignated position.",
+                      "accounting_reclassification": "Fair value through profit or loss"
+                    }
+                  }
+                }
+              }
+            },
+            "6.5": {
+              "title": "Accounting for Qualifying Hedging Relationships",
+              "subsections": {
+                "6.5.11": {
+                  "title": "Cash Flow Hedges",
+                  "parameters": {
+                    "effective_rate_formula": "hedge_ratio * forward_rate + (1 - hedge_ratio) * spot_rate",
+                    "hedge_gain_loss": "For effective hedges: net_after_ecl * hedge_ratio * (forward_rate - spot_rate). Accumulated across all country-tier-month combinations where the hedge is effective.",
+                    "note": "Hedge gain/loss only recognized for the hedged portion of revenue where the hedge passes the effectiveness test"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ifrs15": {
+      "title": "Revenue from Contracts with Customers",
+      "chapters": {
+        "1": {
+          "note": "Monthly subscription revenue — single performance obligation satisfied over time. No variable consideration constraint applies to the base forecast."
+        }
+      }
+    },
+    "ias21": {
+      "title": "The Effects of Changes in Foreign Exchange Rates",
+      "note": "Functional currency approach. Translation to USD presentation currency uses effective blended rate for hedged currencies (where hedge is effective), spot rate only for dedesignated hedges and USD-denominated revenue."
+    },
+    "ias36": {
+      "title": "Impairment of Assets",
+      "note": "Not applicable to subscription trade receivables — impairment is handled under IFRS 9 Section 5.5 ECL model. IAS 36 applies only to non-financial assets."
+    }
+  },
+  "entity_specific_policies": {
+    "discount_curve": {
+      "source_table": "par_bond_rates",
+      "source_database": "/app/model.db",
+      "method": "bootstrap_zero_coupon",
+      "description": "Bootstrap zero-coupon yield curve from par bond rates using iterative method. For each tenor n, solve for zero rate z_n from: 100 = SUM(C/(1+z_k)^k, k=1..n-1) + (100+C)/(1+z_n)^n, where C = par_rate * 100. The 1-year zero rate equals the 1-year par rate directly.",
+      "discount_factor_application": "For forecast month m (1-indexed), discount factor = 1/(1+z_y)^(m/12), where y = CEIL(m/12) selects the zero rate tenor (capped at 5).",
+      "output_metric": "npv_cumulative_revenue = SUM(monthly_net_revenue[m] * discount_factor[m]) over all 60 months",
+      "note_on_superseded": "The flat_discount_rates table in the database contains superseded CFO estimates. These must NOT be used — the bootstrapped zero-coupon curve is the approved methodology."
+    },
+    "ecl_policy": {
+      "base_rates_source": "/app/data/credit_provisions.csv",
+      "base_rates_filter": "review_status = 'approved'",
+      "scenario_overlay": "Apply forward-looking scenario weights from IFRS 9 Section 5.5.15 current_v2024 parameters",
+      "application_note": "The probability-weighted ECL rate replaces the base ECL rate in the revenue waterfall credit loss provision step"
+    }
+  }
+}

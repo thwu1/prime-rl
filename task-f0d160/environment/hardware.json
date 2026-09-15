@@ -1,0 +1,8 @@
+{
+  "gpu": {
+    "name": "NVIDIA H100 SXM",
+    "peak_tflops": 312.0,
+    "bandwidth_gb_s": 2000.0,
+    "memory_gb": 80.0
+  }
+}

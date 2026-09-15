@@ -1,0 +1,7 @@
+{
+  "evaporator_temperature_C": -45,
+  "condenser_approach_K": 10,
+  "cascade_approach_K": 5,
+  "dead_state_temperature_C": 25,
+  "nominal_ambient_C": 25
+}

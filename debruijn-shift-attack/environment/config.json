@@ -1,0 +1,48 @@
+{
+  "facility": "SIGMA-7",
+  "zones": {
+    "A": {
+      "name": "Binary Basic",
+      "description": "Standard binary shift-register receiver with 10-bit codes.",
+      "k": 2,
+      "n": 10,
+      "encoding": null
+    },
+    "B": {
+      "name": "Trinary",
+      "description": "Trinary shift-register receiver using 3-symbol alphabet (0,1,2) with 7-symbol codes.",
+      "k": 3,
+      "n": 7,
+      "encoding": null
+    },
+    "C": {
+      "name": "Binary OOK-Encoded",
+      "description": "Binary receiver with OOK physical encoding. Each logical symbol maps to a 4-bit physical pattern. Provide encoded physical bits in the sequence file.",
+      "k": 2,
+      "n": 12,
+      "encoding": {"0": "1000", "1": "1110"}
+    },
+    "D": {
+      "name": "Quaternary",
+      "description": "Quaternary shift-register receiver using 4-symbol alphabet (0,1,2,3) with 5-symbol codes.",
+      "k": 4,
+      "n": 5,
+      "encoding": null
+    },
+    "E": {
+      "name": "Multi-Length Binary",
+      "description": "Five binary shift-register receivers monitoring the same bitstream simultaneously, with code lengths 8 through 12. A single sequence must crack all five receivers.",
+      "k": 2,
+      "n_min": 8,
+      "n_max": 12,
+      "encoding": null,
+      "sub_receivers": {
+        "8": {"n": 8},
+        "9": {"n": 9},
+        "10": {"n": 10},
+        "11": {"n": 11},
+        "12": {"n": 12}
+      }
+    }
+  }
+}

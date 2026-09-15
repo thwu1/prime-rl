@@ -1,0 +1,360 @@
+{
+  "resultsPerPage": 10,
+  "startIndex": 0,
+  "totalResults": 10,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "timestamp": "2024-06-01T00:00:00.000",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-TEST-0001",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-01-15T00:00:00.000",
+        "lastModified": "2024-01-16T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "JNDI injection in AcmeLogLib allows remote code execution via crafted log messages in versions 2.0.0 through 2.15.0."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+              "baseScore": 10.0,
+              "baseSeverity": "CRITICAL",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "NONE",
+              "userInteraction": "NONE",
+              "scope": "CHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 3.9,
+            "impactScore": 6.0
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-917"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:loglib:*:*:*:*:*:*:*:*", "versionStartIncluding": "2.0.0", "versionEndExcluding": "2.15.1", "matchCriteriaId": "A0000001"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-001", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0002",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-02-10T00:00:00.000",
+        "lastModified": "2024-02-11T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Out-of-bounds read in AcmeCryptoLib TLS heartbeat extension allows information disclosure."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "baseScore": 7.5,
+              "baseSeverity": "HIGH",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "NONE",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "NONE",
+              "availabilityImpact": "NONE"
+            },
+            "exploitabilityScore": 3.9,
+            "impactScore": 3.6
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-125"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:cryptolib:*:*:*:*:*:*:*:*", "versionStartIncluding": "1.0.1", "versionEndExcluding": "1.0.2", "matchCriteriaId": "A0000002"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-002", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0003",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-03-01T00:00:00.000",
+        "lastModified": "2024-03-02T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Command injection in AcmeShellUtil via crafted environment variables in function definitions."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 9.8,
+              "baseSeverity": "CRITICAL",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "NONE",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 3.9,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-78"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:shellutil:*:*:*:*:*:*:*:*", "versionEndIncluding": "4.3.0", "matchCriteriaId": "A0000003"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-003", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0004",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-03-15T00:00:00.000",
+        "lastModified": "2024-03-16T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Race condition in AcmeKernelOS memory management subsystem allows local privilege escalation via copy-on-write exploitation."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 7.0,
+              "baseSeverity": "HIGH",
+              "attackVector": "LOCAL",
+              "attackComplexity": "HIGH",
+              "privilegesRequired": "LOW",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 1.0,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-362"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:o:acme:kernelos:*:*:*:*:*:*:*:*", "versionStartIncluding": "2.6.22", "versionEndExcluding": "4.8.3", "matchCriteriaId": "A0000004"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-004", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0005",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-04-01T00:00:00.000",
+        "lastModified": "2024-04-02T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "SQL injection in AcmeBlogEngine allows authenticated users to execute arbitrary SQL commands via crafted post parameters."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 8.8,
+              "baseSeverity": "HIGH",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "LOW",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 2.8,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-89"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:blogengine:*:*:*:*:*:*:*:*", "versionStartIncluding": "5.0.0", "versionEndExcluding": "5.9.3", "matchCriteriaId": "A0000005"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-005", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0006",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-04-15T00:00:00.000",
+        "lastModified": "2024-04-16T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Cross-site scripting in AcmeWebFramework template rendering allows reflected XSS via user-controlled template variables."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+              "baseScore": 6.1,
+              "baseSeverity": "MEDIUM",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "NONE",
+              "userInteraction": "REQUIRED",
+              "scope": "CHANGED",
+              "confidentialityImpact": "LOW",
+              "integrityImpact": "LOW",
+              "availabilityImpact": "NONE"
+            },
+            "exploitabilityScore": 2.8,
+            "impactScore": 2.7
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-79"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:webframework:*:*:*:*:*:*:*:*", "versionStartIncluding": "3.0.0", "versionEndExcluding": "3.2.14", "matchCriteriaId": "A0000006"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-006", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0007",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-05-01T00:00:00.000",
+        "lastModified": "2024-05-02T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Buffer overflow in AcmeDataStore query parser allows remote code execution via crafted query strings."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 7.5,
+              "baseSeverity": "HIGH",
+              "attackVector": "NETWORK",
+              "attackComplexity": "HIGH",
+              "privilegesRequired": "NONE",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 2.2,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-120"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:datastore:*:*:*:*:*:*:*:*", "versionStartIncluding": "8.0.0", "versionEndExcluding": "8.2.0", "matchCriteriaId": "A0000007"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-007", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0008",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-05-15T00:00:00.000",
+        "lastModified": "2024-05-16T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Authentication bypass in AcmeFirmware management engine allows physical attackers to gain full system control."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 6.8,
+              "baseSeverity": "MEDIUM",
+              "attackVector": "PHYSICAL",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "NONE",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 0.9,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-287"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:firmware:*:*:*:*:*:*:*:*", "versionStartIncluding": "11.0.0", "versionEndExcluding": "11.22.88", "matchCriteriaId": "A0000008"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-008", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0009",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-06-01T00:00:00.000",
+        "lastModified": "2024-06-02T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Container escape in AcmeContainerRT via improper namespace isolation allows local privilege escalation to host root."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H",
+              "baseScore": 8.8,
+              "baseSeverity": "HIGH",
+              "attackVector": "LOCAL",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "LOW",
+              "userInteraction": "NONE",
+              "scope": "CHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 2.0,
+            "impactScore": 6.0
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-269"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:container_rt:*:*:*:*:*:*:*:*", "versionStartExcluding": "1.0.0", "versionEndExcluding": "2.0.0", "matchCriteriaId": "A0000009"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-009", "source": "security@acme.test"}]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-TEST-0010",
+        "sourceIdentifier": "security@acme.test",
+        "published": "2024-06-15T00:00:00.000",
+        "lastModified": "2024-06-16T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Code injection in AcmeMsgQueue management API allows admin users to execute arbitrary code via crafted queue configuration payloads. Affects two separate version lines."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+              "baseScore": 7.2,
+              "baseSeverity": "HIGH",
+              "attackVector": "NETWORK",
+              "attackComplexity": "LOW",
+              "privilegesRequired": "HIGH",
+              "userInteraction": "NONE",
+              "scope": "UNCHANGED",
+              "confidentialityImpact": "HIGH",
+              "integrityImpact": "HIGH",
+              "availabilityImpact": "HIGH"
+            },
+            "exploitabilityScore": 1.2,
+            "impactScore": 5.9
+          }]
+        },
+        "weaknesses": [{"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-94"}]}],
+        "configurations": [{"nodes": [{"operator": "OR", "negate": false, "cpeMatch": [{"vulnerable": true, "criteria": "cpe:2.3:a:acme:msgqueue:*:*:*:*:*:*:*:*", "versionStartIncluding": "3.0.0", "versionEndExcluding": "3.2.0", "matchCriteriaId": "A0000010a"}, {"vulnerable": true, "criteria": "cpe:2.3:a:acme:msgqueue:*:*:*:*:*:*:*:*", "versionStartIncluding": "4.0.0", "versionEndExcluding": "4.1.5", "matchCriteriaId": "A0000010b"}]}]}],
+        "references": [{"url": "https://acme.test/advisory/2024-010", "source": "security@acme.test"}]
+      }
+    }
+  ]
+}

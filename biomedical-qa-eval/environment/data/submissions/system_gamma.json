@@ -1,0 +1,70 @@
+{
+  "system_name": "gamma",
+  "questions": [
+    {
+      "id": "BQ001",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000028"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ002",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000029", "http://www.ncbi.nlm.nih.gov/pubmed/88000030"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ003",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/31200301", "http://www.ncbi.nlm.nih.gov/pubmed/88000031"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000032"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ005",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000033", "http://www.ncbi.nlm.nih.gov/pubmed/37000907"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ006",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000034", "http://www.ncbi.nlm.nih.gov/pubmed/88000035"],
+      "exact_answer": ["p53"]
+    },
+    {
+      "id": "BQ007",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000036", "http://www.ncbi.nlm.nih.gov/pubmed/88000037"],
+      "exact_answer": ["Glucophage"]
+    },
+    {
+      "id": "BQ008",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000038", "http://www.ncbi.nlm.nih.gov/pubmed/88000039"],
+      "exact_answer": []
+    },
+    {
+      "id": "BQ009",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000040", "http://www.ncbi.nlm.nih.gov/pubmed/44001614"],
+      "exact_answer": []
+    },
+    {
+      "id": "BQ010",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000041", "http://www.ncbi.nlm.nih.gov/pubmed/88000042"],
+      "exact_answer": ["celecoxib", "aspirin"]
+    },
+    {
+      "id": "BQ011",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000043", "http://www.ncbi.nlm.nih.gov/pubmed/48002018", "http://www.ncbi.nlm.nih.gov/pubmed/88000044", "http://www.ncbi.nlm.nih.gov/pubmed/88000045"],
+      "exact_answer": ["EGFR", "BRAF"]
+    },
+    {
+      "id": "BQ012",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000046", "http://www.ncbi.nlm.nih.gov/pubmed/62003430"],
+      "exact_answer": ["adenine", "thymine"]
+    },
+    {
+      "id": "BQ013",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000047", "http://www.ncbi.nlm.nih.gov/pubmed/64003632", "http://www.ncbi.nlm.nih.gov/pubmed/65003733"],
+      "exact_answer": ["IL-6"]
+    }
+  ]
+}

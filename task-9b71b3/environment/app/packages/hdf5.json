@@ -1,0 +1,16 @@
+{
+  "name": "hdf5",
+  "versions": ["1.14.3", "1.12.2", "1.10.11"],
+  "variants": [
+    {"name": "mpi", "type": "bool", "default": false},
+    {"name": "shared", "type": "bool", "default": true}
+  ],
+  "dependencies": [
+    {"name": "zlib"},
+    {"name": "mpi", "virtual": true, "when": "+mpi"}
+  ],
+  "conflicts": [
+    {"version_max": "1.11.99", "variants": {"mpi": true}, "message": "MPI support requires HDF5 1.12+"}
+  ],
+  "virtuals": []
+}

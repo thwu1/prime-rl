@@ -1,0 +1,61 @@
+{
+    "id": "003",
+    "name": "Unreachable Master with Lagging Replicas (SQL-delayed exclusion)",
+    "description": "Primary unreachable, non-delayed replicas all lagging, SQL-delayed replica excluded from lagging analysis",
+    "servers": [
+        {
+            "hostname": "primary1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": false, "master_hostname": null, "master_port": null,
+            "replication_state": "running", "replication_lag_seconds": 0.0,
+            "gtid_position": 1000, "is_sql_delayed": false, "read_only": false,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica1", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "lagging", "replication_lag_seconds": 25.0,
+            "gtid_position": 980, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "replica2", "port": 3306, "datacenter": "dc2",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "lagging", "replication_lag_seconds": 40.0,
+            "gtid_position": 960, "is_sql_delayed": false, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "neutral", "is_downtimed": false
+        },
+        {
+            "hostname": "delayed-replica", "port": 3306, "datacenter": "dc1",
+            "is_reachable": true, "master_hostname": "primary1", "master_port": 3306,
+            "replication_state": "running", "replication_lag_seconds": 3600.0,
+            "gtid_position": 500, "is_sql_delayed": true, "read_only": true,
+            "binlog_format": "ROW", "mysql_version": "8.0.28", "log_slave_updates": true,
+            "semi_sync_master_enabled": false, "semi_sync_replica_enabled": false,
+            "semi_sync_master_wait_count": 1, "semi_sync_master_timeout_ms": 500,
+            "promotion_rule": "must_not", "is_downtimed": false
+        }
+    ],
+    "orchestrator_nodes": [],
+    "cluster_config": {},
+    "current_timestamp": 0.0,
+    "expected": {
+        "failure_count": 1,
+        "failures": [
+            {
+                "failed_hostname": "primary1",
+                "failure_type": "UnreachableMasterWithLaggingReplicas",
+                "is_actionable": true
+            }
+        ],
+        "notes": "The SQL-delayed replica (delayed-replica) shows replication RUNNING, but it is excluded from the lagging/replicating analysis because is_sql_delayed=true. Only non-delayed replicas (replica1, replica2) are considered, and since both are lagging, the failure is classified as UnreachableMasterWithLaggingReplicas. Without the SQL-delayed exclusion, the running delayed replica would cause this to be classified as UnreachableMaster instead."
+    }
+}

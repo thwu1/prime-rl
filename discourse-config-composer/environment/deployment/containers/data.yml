@@ -1,0 +1,23 @@
+## Data-only container for multi-container Discourse setup
+## Runs PostgreSQL and Redis
+
+templates:
+  - "templates/postgres.template.yml"
+  - "templates/redis.template.yml"
+
+expose:
+  - "5432:5432"
+  - "6379:6379"
+
+params:
+  db_default_text_search_config: "pg_catalog.english"
+
+env:
+  LANG: en_US.UTF-8
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/data
+      guest: /shared
+
+docker_args: "--restart=always"

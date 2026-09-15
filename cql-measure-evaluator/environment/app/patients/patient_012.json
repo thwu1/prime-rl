@@ -1,0 +1,76 @@
+{
+  "resourceType": "Bundle",
+  "id": "bundle-patient-012",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-012",
+        "birthDate": "1967-11-30",
+        "gender": "male"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-012-htn",
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "subject": {"reference": "Patient/patient-012"},
+        "onsetDateTime": "2025-01-10"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-012-office",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [{"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit"}]}],
+        "subject": {"reference": "Patient/patient-012"},
+        "period": {"start": "2025-05-01T09:00:00", "end": "2025-05-01T09:30:00"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-012-bp",
+        "status": "final",
+        "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs"}]}],
+        "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]},
+        "subject": {"reference": "Patient/patient-012"},
+        "effectiveDateTime": "2025-09-01T10:00:00",
+        "component": [
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure"}]},
+            "valueQuantity": {"value": 128, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          },
+          {
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure"}]},
+            "valueQuantity": {"value": 78, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "proc-012-transplant",
+        "status": "completed",
+        "code": {
+          "coding": [{"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY00Z0", "display": "Transplantation of Right Kidney, Allogeneic, Open"}]
+        },
+        "subject": {"reference": "Patient/patient-012"},
+        "performedDateTime": "2024-06-15"
+      }
+    }
+  ]
+}

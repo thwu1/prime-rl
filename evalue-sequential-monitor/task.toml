@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independently researching the theory of mixture supermartingales, confidence sequences, and e-values from the statistical literature (Howard et al. 2021 and related work). The agent must discover correct formulas for three mixture families — involving regularized incomplete gamma functions, normal CDFs, and numerical root finding for implicit boundary equations — then compose them into a sequential hypothesis test, e-value merging pipeline, anytime-valid confidence sequence with proper alpha-splitting, and a comparative evaluation of bound tightness. No algorithmic guidance is provided in the task specification."""
+solution_explanation = """Implements TwoSidedNormalMixture, OneSidedNormalMixture, and GammaExponentialMixture with their respective optimal rho formulas, log supermartingale evaluations, and boundary computations. Sequential testing computes cumulative sufficient statistics on seeded data. E-value merging uses arithmetic mean, geometric mean, and K*min. Confidence sequences use GammaExponentialMixture with alpha/2 splitting and empirical variance (ddof=1) for intrinsic time. Part 2 includes comparative evaluation determining which family produces tighter bounds at each intrinsic time."""
+verification_explanation = """Tests contain independent reference implementations of all three mixture families. Each part's numerical values are checked at every evaluation point/checkpoint against these references with relative tolerance 1e-6. Structural tests verify JSON schema completeness including comparison fields. Property-based tests check bound monotonicity, e-value positivity, p-value ranges, confidence interval width consistency, and correctness of the comparative tighter_family/crossover analysis."""
+category = "statistics"
+tags = ["sequential-testing", "game-theoretic-statistics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/evalue-sequential-monitor"

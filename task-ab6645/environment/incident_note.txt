@@ -1,0 +1,21 @@
+INCIDENT RESPONSE CASE IR-2024-0315
+
+Sample: malware_sample
+Source: Compromised Linux server (DMZ segment)
+Capture method: Memory dump extraction during live response
+Capture date: 2024-03-15T02:14:33Z
+
+Initial assessment:
+- Stripped ELF binary, no debug symbols
+- Automated sandbox execution produced only benign-looking output
+- Multiple anti-analysis techniques suspected
+- Entropy analysis reveals TWO high-entropy data regions in .rodata (possible encrypted payloads)
+- Static analysis suggests encrypted data sections with distinct key material
+- Strings output reveals references to legitimate services (possible decoys)
+- Binary contains conditional execution paths gated by environment variable checks
+
+Priority: HIGH
+Request: Full static reverse engineering, IOC extraction, and detection rule development
+Warning: A previous analyst submitted IOCs that were later determined to originate from a
+         deliberately planted trap configuration. Validate which configuration block is
+         genuinely operational before reporting IOCs.

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of three independent XAES-256-GCM implementations to determine which are spec-compliant. The solver must: (1) deeply understand the XAES-256-GCM specification including the CMAC-based key derivation, (2) analyze a cross-implementation interop matrix showing key-dependent failures, (3) discover that Alpha's CMAC subkey derivation has a subtle order-of-operations error affecting ~50% of keys, (4) discover that Gamma reverses the 192-bit nonce split, (5) independently verify intermediate cryptographic values against reference vectors, (6) deploy a correct implementation, and (7) re-encrypt all 30 records. Demands deep cryptographic specification literacy, multi-tool CLI investigation, and comparative judgment across implementations."""
+solution_explanation = """Independently compute L = AES-256-ECB(key, 0^128) for the C2SP test vectors. Compare each implementation's derive_key output against the Go binary's derive-key results to isolate: Alpha's XOR-before-shift bug in CMAC K1 derivation (only fails when MSB_1(L)=1), and Gamma's reversed nonce split (N[12:] used for KDF context instead of N[:12]). Confirm Beta (Go binary) is compliant. Write audit_report.json, fix crypto.py with correct CMAC order, re-encrypt all records."""
+verification_explanation = """Tests verify: (1) audit_report.json exists with correct verdicts (Alpha non-compliant, Beta compliant, Gamma non-compliant), (2) bug descriptions contain appropriate keywords (CMAC/subkey/shift for Alpha; nonce/split for Gamma), (3) verification section contains correct L and K1 hex values for the spec test key, (4) the fixed crypto.py produces correct ciphertext for both C2SP reference vectors (MSB=0 and MSB=1 cases), (5) all 30 corrected records decrypt successfully with a known-correct reference implementation, (6) the accumulated 10,000-iteration randomized test matches the expected SHAKE-128 hash."""
+category = "cryptography"
+tags = ["cryptographic-forensics", "multi-tool-audit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2fd4a8"

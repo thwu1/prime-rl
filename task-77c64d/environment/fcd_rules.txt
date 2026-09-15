@@ -1,0 +1,73 @@
+WQX Flow Configuration Document v3.0
+Excerpt: Conditional Processing Rules (Chapter 4, Section 3)
+
+4.3 Conditional Validation Requirements
+
+The following rules describe additional validation processing that occurs
+beyond the structural constraints defined in the XSD schema. These rules
+enforce data quality standards that cannot be expressed through XML Schema
+Definition Language alone.
+
+4.3.1 Detection Condition Reporting (ref: WQX-BR-001)
+
+Per EPA Method Reporting guidance (see 40 CFR Part 136), when a laboratory
+analysis yields a result that falls below detection or quantification
+thresholds, the reporting organization must document the applicable detection
+or quantification limit. Specifically, when the ResultDetectionConditionText
+field within a Result's ResultDescription is populated with one of the
+following coded values:
+
+  - "Not Detected"
+  - "Present Above Quantification Limit"
+  - "Present Below Quantification Limit"
+
+then the Result must include a ResultLabInformation section containing a
+ResultDetectionQuantitationLimit element. The quantitation limit is
+considered complete when it includes both a non-empty
+DetectionQuantitationLimitTypeName and a DetectionQuantitationLimitMeasure
+element. Non-conforming Results shall each produce a validation finding
+under the business rule category.
+
+4.3.2 Depth Profile Documentation (ref: WQX-BR-002)
+
+Activities classified as vertical profile studies--identified by an
+ActivityTypeCode value that contains the case-sensitive substring
+"Vertical Profile"--require explicit depth boundary documentation. The
+ActivityDescription for such activities must include both
+ActivityTopDepthHeightMeasure and ActivityBottomDepthHeightMeasure
+elements defining the vertical extent of the sampling event. Absence of
+either depth measure constitutes a distinct violation (i.e., a single
+Activity missing both measures generates two findings).
+
+4.3.3 Tissue Sample Requirements (ref: WQX-BR-003)
+
+When an Activity's ActivityDescription specifies an ActivityMediaName value
+of "Tissue", the WQX processor enforces additional biological identification
+requirements on each Result within that Activity. Specifically, each Result
+must contain a BiologicalResultDescription element that includes:
+
+  (a) SampleTissueAnatomyName -- identifying the anatomical source of the
+      tissue sample (must be non-empty)
+  (b) SubjectTaxonomicName -- identifying the organism from which the tissue
+      was collected (must be non-empty)
+
+If a Result lacks the BiologicalResultDescription element entirely, this
+constitutes one violation. If BiologicalResultDescription is present but
+is missing either or both of the required sub-elements listed above, each
+missing or empty sub-element constitutes a separate violation.
+
+4.3.4 Statistical Basis Documentation (ref: WQX-BR-004)
+
+When a Result reports a statistically derived value, as indicated by the
+presence of a non-empty StatisticalBaseCode in ResultDescription, the
+corresponding StatisticalNValueNumeric must also be present and non-empty
+to document the sample size underlying the computation. Each Result
+failing this requirement produces one validation finding.
+
+4.3.5 Biological Group Summary (ref: WQX-BR-005)
+
+When BiologicalIntentName within a Result's BiologicalResultDescription
+equals "Group Summary", the GroupSummaryCount field within the same
+BiologicalResultDescription must be present and non-empty to document
+the total count for the group. Each non-conforming Result produces one
+validation finding.

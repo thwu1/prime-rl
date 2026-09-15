@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of MOESI cache coherence protocol semantics plus multi-tool proficiency across Python, Make, Graphviz DOT, and jq. The solver must: (1) diagnose three independent coherence bugs from observed symptoms requiring holistic reasoning about multi-core memory consistency — bank interleaving bit extraction, directory sharer tracking on M-to-O transitions, and LR/SC reservation clearing on invalidation, (2) design and implement the Upgrade transaction optimization across the directory controller and simulator store path, (3) debug a Makefile pipeline with an incorrect Graphviz output format flag (-Tpng vs -Tsvg) and broken jq filter field references (.statistics vs .bank_stats), (4) update a Graphviz DOT state diagram generator to include new Upgrade protocol transitions, and (5) ensure end-to-end correctness across the integrated Python/Make/Graphviz/jq toolchain."""
+solution_explanation = """Three protocol bugs are identified and fixed: (1) bank.py uses block_bits-2 instead of block_bits for interleaving bit extraction, (2) directory.py omits the old owner from the sharer set during EM-to-SHARED transitions causing stale reads, (3) cache.py does not clear LR/SC reservations on line invalidation. The Upgrade transaction is implemented in directory.py (handle_upgrade method) and simulator.py (Upgrade path before GetM fallback). Then tool pipeline issues are resolved: Makefile diagram target uses -Tpng instead of -Tsvg for Graphviz dot, and the jq filter references .statistics instead of .bank_stats for trace analysis. gen_diagram.py is updated with Upgrade transitions for both cache and directory states. Finally make diagram and make trace-report are run to generate validated outputs."""
+verification_explanation = """Twenty pytest tests verify correctness across seven categories: bank distribution (3 tests checking even interleaving), coherence sharing (2 tests for stale-read scenarios), LR/SC atomicity (2 tests for reservation semantics), multi-core consistency (1 integration test), Upgrade transactions (5 tests verifying S-to-M and O-to-M upgrades with sharer invalidation and GetM reduction), SVG state diagram (4 tests checking file existence, SVG format validity, MOESI state labels, and Upgrade transition labels), and trace report analysis (3 tests checking JSON report existence, required field structure, and computed protocol statistics against deterministic expected values)."""
+category = "computer_architecture"
+tags = ["cache-coherence", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ad0320"

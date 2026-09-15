@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of quantum phase estimation, LCU/qubitization walk operators, and Trotter-Suzuki decomposition. The solver must independently diagnose two subtle bugs in a QPE analysis script (incorrect trigonometric function for walk eigenphase energy extraction, and an oversimplified error bound formula missing a spectral normalization factor), then extend the analysis to a second QPE method (Trotter-based) that was not present in the original code. Understanding the walk operator's eigenphase-to-energy relationship, oracle algebraic properties, and comparative resource analysis across QPE strategies all require PhD-level quantum computing expertise."""
+solution_explanation = """Diagnose that initial_analysis.py uses sin instead of cos for walk-phase energy extraction and omits the sqrt(1-(E0/lambda)^2) factor from the LCU error bound. Correct these using the library's get_energy_from_lcu_walk_phase and estimate_lcu_error functions. Extend the analysis by running Trotter-based QPE (via qpe_energy with make_circ) to obtain gate counts, computing Trotter resolution bounds, and comparing minimum phase register requirements. Verify SELECT and reflection oracle algebraic properties via MPO arithmetic."""
+verification_explanation = """Tests recompute all reference values independently using qpe-toolbox: eigenvalues via dense diagonalization, DMRG energies, LCU parameters from get_lcu_weights, error bounds from estimate_lcu_error, Trotter gate counts verified against the library's own test-suite values (1qb=540, 2qb=199, 3+qb=108), and QPE validation via internal consistency checks on the 2-qubit system. The recommendation is verified by independently computing minimum phase register sizes from the corrected error bound formulas."""
+category = "quantum_computing"
+tags = ["quantum-algorithms", "numerical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a171c3"

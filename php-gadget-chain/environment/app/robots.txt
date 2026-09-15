@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /libs/
+Disallow: /data/
+Disallow: /admin/

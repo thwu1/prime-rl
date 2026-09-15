@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SPICE and power electronics knowledge across four layers: (1) PSPICE-to-ngspice adaptation of two separate netlists — converting MOSFET LEVEL=7 to VDMOS with correct parameters, reordering 4-node MOSFET instances to 3-node VDMOS pin order, replacing PSPICE behavioral E-source VALUE={} with ngspice B-source syntax, and adding convergence options for stiff switching ODEs; (2) synchronous boost converter dead-time optimization requiring understanding of gate drive timing relative to source-referenced high-side switching, shoot-through phenomena, body diode conduction losses, and systematic parametric sweep; (3) multi-load-point comparative evaluation requiring the solver to simulate both topologies at five operating points from heavy to light load, correctly adjusting Pout=Vout^2/R for each resistance, and tracking how loss mechanisms shift with load current; (4) crossover analysis and design recommendation requiring the solver to evaluate whether the preferred topology changes across the load range, identify the physical mechanisms (diode Vf dominance at heavy load vs MOSFET switching overhead at light load), and synthesize a justified engineering recommendation — a genuine evaluation task that goes beyond mechanical comparison at a single operating point."""
+solution_explanation = """Fix four PSPICE bugs in both netlists: NMOS LEVEL=7 model to VDMOS with correct parameters, 4-node MOSFET instances to 3-node VDMOS drain-gate-source pin order, PSPICE E-source VALUE={} to ngspice B-source V= syntax with pulldown resistor, and add convergence .options (method=gear, chgtol, reltol, rshunt, cshunt, trtol). Sweep dead_time across 6+ values at 60 ohm nominal load and select the peak-efficiency value. Then run both topologies at 5 load resistances (30, 60, 120, 240, 600 ohm), computing efficiency as 100*Pout/Pin where Pout=Vout^2/R and Pin=-Vin*Iin (passive sign convention). Analyze the resulting efficiency-vs-load map to determine whether a crossover exists — typically sync wins at heavy loads due to low Rds_on versus Schottky Vf, with the advantage potentially narrowing at light loads where fixed switching losses dominate. Write a design recommendation referencing the quantitative evidence across the load range."""
+verification_explanation = """Tests verify: (1) dead-time sweep CSV has >=5 distinct entries in [5,300] ns with reasonable efficiencies; (2) optimal dead-time matches highest-efficiency sweep entry; (3) efficiency map has exactly 5 rows at the required load points with physically reasonable efficiencies; (4) topology report has valid format with recommendation consistent with efficiency map data — if load-dependent, both topologies must win at least one load point, otherwise the dominant topology must win at a majority; (5) crossover value is within [20,700] if load-dependent or N/A otherwise; (6) report lines 3-4 are substantive; (7) both netlists have LEVEL=7 removed, convergence .options added, and nonzero dead-time; (8) anti-cheat re-runs both simulations at 60 ohm and verifies computed efficiency matches the 60 ohm row in the efficiency map within 3 percentage points."""
+category = "applied_computing"
+tags = ["circuit-simulation", "power-electronics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spice-boost-debug"

@@ -1,0 +1,18 @@
+diff --git a/fs/myfs/inode.c b/fs/myfs/inode.c
+index abc1234..def5678 100644
+--- a/fs/myfs/inode.c
++++ b/fs/myfs/inode.c
+@@ -101,12 +101,11 @@ int inode_unlink_data(struct inode *inode)
+     }
+
+     if (bh) {
+         ei->i_bh = NULL;
+-        mutex_unlock(&ei->truncate_mutex);
+-        /* BUG: bh may have been freed by racing evict_inode path */
+         mark_buffer_dirty(bh);
+         brelse(bh);
++        mutex_unlock(&ei->truncate_mutex);
+         return 0;
+     }
+
+     mutex_unlock(&ei->truncate_mutex);

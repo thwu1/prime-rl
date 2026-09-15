@@ -1,0 +1,16 @@
+int a = 1;
+int main() {
+    putint(a);
+    putch(10);
+    int a = 2;
+    putint(a);
+    putch(10);
+    {
+        int a = 3;
+        putint(a);
+        putch(10);
+    }
+    putint(a);
+    putch(10);
+    return 0;
+}

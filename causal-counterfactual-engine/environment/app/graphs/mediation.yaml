@@ -1,0 +1,5 @@
+# Mediation graph: X affects Y through mediator M and directly
+links:
+  - [X, M]
+  - [M, Y]
+  - [X, Y]

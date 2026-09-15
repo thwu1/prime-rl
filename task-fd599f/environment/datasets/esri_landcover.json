@@ -1,0 +1,15 @@
+{
+  "name": "ESRI 10m Annual Land Cover",
+  "description": "Global annual land use and land cover maps derived from Sentinel-2 imagery at 10m resolution",
+  "spatial_reference": "EPSG:4326",
+  "bbox": [-180, -90, 180, 90],
+  "temporal_range": {
+    "start": "2017-01-01",
+    "end": "2025-12-31"
+  },
+  "resolution_meters": 10,
+  "bands": ["classification"],
+  "provider": "Esri",
+  "license": "CC-BY-4.0",
+  "theme": "land_cover"
+}

@@ -1,0 +1,741 @@
+﻿*********************************************************
+This file documents a history of modifications to the 
+schema and schematron files for the WQX project
+(previously known as OWWQX).
+*********************************************************
+
+**CHANGES PRIOR TO 1/5/2005**
+
+1. OWWQX_SimpleContent_v1.0.xsd  file --> added minlength = 1 to OrganizationFormalName
+2. OWWQX_ElectronicAddress_v1.0.xsd  file --> minoccur and maxoccur move to after element ref
+3. OWWQX_MonitoringLocationGeospatial_v1.0.xsd file --> added minOccurs = 0 to SourceMapScaleNumber
+4. OWWQX_FieldSamplePreparation_v1.0.xsd  file --> changed minoccurs = 1 for FieldSampleSubsampleDescription
+
+**CHANGES MADE FOR 1/11/2005 version**
+
+1. OWWQX_SimpleContent_v1.0.xsd --> Removed element and data type for:
+     OrganizationTypeCode
+     AccreditationIndicator 
+2. OWWQX_OrganizationDescription_v1.0.xsd --> removed OrganizationTypeCode 
+3. OWWQX_SimpleContent_v1.0.xsd --> Added maxlength facet
+     ElectronicAddressTypeNameDataType
+     TelephoneNUmberTypeNameDataType
+     TelephoneExtensionNumberTextDataType
+     AddressTypeNameDataType
+     StateCodeDataType
+     AddressPostalCodeDataType(Temp)
+     CountryCodeDataType
+     CountyCodeDataType
+     TribalCodeDataType
+     BinaryObjectFileTypeCodeDataType
+     MonitoringLocationTypeNameDataType
+     HorizontalCollectionMethodCodeDataType
+     HorizontalReferenceDatumCodeDataType
+     MeasureUnitCodeDataType
+     VerticalCollectionMethodCodeDataType
+     VerticalReferenceDatumCodeDataType
+     ActivityTypeCodeDataType
+     ActivityMediaTextDataType
+     ActivityMediaSubdivisionTextDataType
+     SampleTissueTaxonomicNameDataType
+     SampleTissueAnatomyNameDataType
+     SampleCollectionEquipmentCodeDataType
+     SampleHoldingContainerMaterialCodeDataType
+     SampleHoldingContainerColorCodeDataType
+     SamplePreservationThermalCodeDataType
+     PortableDataLoggerLineNameDataType
+     ResultSampleFractionTextDataType
+     ResultStatusTextDataType
+     ResultStatisticalBaseCodeDataType
+     ResultValueTypeNameDataType
+     ResultWeightBasisTextDataType
+     ResultTimeBasisTextDataType
+     ResultTemperatureBasisTextDataType
+     ResultParticleSizeBasisTextDataType
+     MethodIdentifierCodeListIdentifierDataType (temp)
+     DetectionQuantitationLevelTypeNameDataType
+4. OWWQX_SimpleContent_v1.0.xsd --> Removed more enumerations for
+     ElectronicAddressTypeNameDataType
+     TelephoneNUmberTypeNameDataType
+     HorizontalReferenceDatumCodeDataType
+     VerticalReferenceDatumCodeDataType
+     ResultStatusTextDataType
+5. OWWQX_SimpleContent_v1.0.xsd --> Added element and data type for ProjectDescriptionText
+6. OWWQX_Project_v1.0.xsd --> Added ProjectDescriptionText
+7. OWWQX_Project_v1.0.xsd --> Modified minOccurs = 0 for AttachedBinaryObject
+8. OWWQX_SimpleContent_v1.0.xsd --> Removed static enumeration HorizontalCollectionMethodCodeDataType
+9. OWWQX_SimpleContent_v1.0.xsd --> Changes datatype of ActivityConductingOrganizationIdentifier to OrganizationIdentifierDataType
+10. OWWQX_SimpleContent_v1.0.xsd --> ActivityConductingOrganizationIdentifier moved to OWWQX_ActivityDescription_v1.0.xsd file
+11. OWWQX_SimpleContent_v1.0.xsd --> Modified maxlength of:
+     CommentDataType
+     CharacteristicNameDataType
+12. OWWQX_FieldSamplePreparation_v1.0.xsd --> made FieldSampleSubsampleDescription optional
+13. OWWQX_ResultDescription_v1.0.xsd --> changed sequence of elements
+14. OWWQX_ResultInformation_v1.0.xsd --> Changed name to ref.
+15. OWWQX_ResultInformation_v1.0.xsd --> Changed reference to ResultLaboratoryCommentCode
+16. OWWQX_Result_v1.0.xsd --> made ResultAnalyticalMethod element global
+17. Rename MeasurePrecisionText to ResultValueMeasurePrecisionText
+
+
+**CHANGES MADE FOR 2/8/2005 version**
+1. Schematron: added 2 new rules requiring top and bottom depth when vertical profile sampling activity
+2. Schematron: added 2 new rules requiring SampleTissueAnatomyName and SampleTissueTaxonomicName for Biological Tissue samples
+3. Removed 'Detected and Quantified' from enumeration list for ResultDetectionConditionText
+4. Schematron: added rules requiring DetectionQuantitationLevelTypeName if ResultDetectionConditionText is Present Above Quantification Limit, Present Below Quantification Limit, or Not Detected
+5. Annotation for OWWQX_OWWQX_v1.0.xsd updated
+6. OWWQX_Activity_v1.0.xsd --> Reordered includes
+7. OWWQX_ActivityDescription_v1.0.xsd --> reordered global element definitions
+8. Schematron: added new rule requiring DetectionQuantitationLevelMeasure if ResultDetectionConditionText is Not Detected
+9. OWWQX_ElectronicAddress_v1.0.xsd --> maxOccurs = 1 was not needed and was removed.
+10. OWWQX_ActivityLocation_v1.0.xsd --> minOccurs changed to 0 for all elements in this schema
+11. OWWQX_LabSamplePreparation_v1.0.xsd --> minOccurs =0 removed for LabSamplePreparationMethod
+12. OWWQX_MonitoringLocation_v1.0.xsd --> annotation updated
+13. OWWQX_Organization_v1.0.xsd --> project minOccur = 0 removed
+14. OWWQX_OrganizationDescription_v1.0.xsd --> minOccurs =1 removed
+15. OWWQX_ResultDescription_v1.0.xsd  --> minOccurs = 0 added for Characteristic name
+16. schematron: rules output meesages modified in some cases to provide reported Activity Type
+
+**CHANGES MADE FOR 6/24/2005 version**
+1. OWWQX_ActivityDescription_v1.0.xsd --> changed ActivityConductingOrganizationIdentifier to ActivityConductingOrganizationText and changed reference to new element.
+2. OWWQX_SimpleContent_v1.0.xsd --> added new ActivityConductingOrganizationText element
+3. OWWQX_FieldSampleSubsampleDescription_v1.0.xsd --> Removed SubsampleAssignmentProjectIdentifier
+4. OWWQX_ResultDescription_v1.0.xsd --> Added new element SubsampleIdentifier
+5. Move the SubSampleIdentifier element definition from the OWWQX_FieldSampleSubsampleDescription_v1.0.xsd  file to the OWWQX_SimpleContent_v1.0.xsd file (since it is now referenced multiple times)
+6. Schematron: rule requiring subsampleprojectidentifier removed
+7. Schematron: rule requiring binaryobjectcontent removed to allow for external reporting of attachments
+
+**CHANGES MADE FOR 8/8/2005 version**
+1. Updated the contact name in all files to Joe Wilson
+
+**CHANGES MADE FOR 8/15/2005 version**
+1. Updated the namespace to use url convention instead of urn convention
+2. Created root xsd file
+
+**CHANGES MADE FOR 9/15/2005 version**
+1. Renamed OWWQX_FieldSamplePreparation_v1.0.xsd to OWWQX_SamplePreparation_v1.0.xsd (and data elements within)
+2. Simple Content File: Renamed FieldSamplePreparationMethod to SamplePreparationMethod; also tweaked definition accordingly
+3. Renamed FieldSampleSubsampleDescription to SampleSubsampleDescription (and data elements within)
+4. Moved elements from SampleDescription to SamplePreparation
+
+**CHANGES MADE FOR 10/03/2005 version**
+1. OWWQX_OWWQX_v1.0.xsd --> Modified Organization element to have maxoccurs=1 instead of unbounded
+2. OWWQX_SampleDescription_v1.0.xsd --> Removed minoccurs=0 from SamplePreparation element
+3. Simple Content File: added minlength=1 to further restrict following data types:
+   - ActivityMediaTextDataType
+   - ActivityTypeCode
+   - BinaryObjectFileNameDataType
+   - BinaryObjectFileTypeCodeDataType
+   - CountryCodeDataType
+   - HorizontalCollectionMethodCodeDataType
+   - HorizontalReferenceDatumCodeDataType
+   - MonitoringLocationIdentifierTempDataType
+   - MonitoringLocationNameDataType
+   - MonitoringLocationTypeNameDataType
+   - OrganizationIdentifierDataType
+   - ProjectIdentifierDataType
+   - ProjectNameDataType
+   - SampleCollectionMethodTextDataType
+   - SampleHoldingContainerColorCodeDataType
+   - SampleHoldingContainerMaterialCodeDataType
+   - SamplePreparationMethodTextDataType
+   - SamplePreservationChemicalTextDataType
+   - SamplePreservationThermalCodeDataType
+   - SampleTransportStorageDescriptionDataType
+4. Made Latitude, Longitude, HorizontalCollectioNMethodCode, and HorzontalReferenceDatumCode required (minoccurs=1) *if they are reported* at the activity level.
+5. Changed SampleTissueTaxonomicName and SampleTissueAnatomyName to minoccurs=0 (since not always required)
+
+**CHANGES MADE FOR 10/13/2005 version**
+1. OWWQX_SimpleContent_v1.0.xsd --> changed ProjectIdentifierDataType maxlength to 35 characters.
+2. OWWQX_MOnitoringLocationGeospatial_v1.0.xsd --> made CountryCode optional
+3. OWWQX_SimpleContent_v1.0.xsd --> removed minlength=1 for CountryCodeDataType  
+4. Schematron: removed rules 17-20 that test for State and Country codes.
+5. Schematron: removed rules 36-40 that are redundant with recent schema modifications
+6. Schematron: removed rules 45-50 that are redundant with recent schema modifications
+
+**CHANGES MADE FOR 11/30/2005 version**
+1. OWWQX_SimpleContent_v1.0.xsd --> changed ActivityType maxlength to 70 characters.
+
+***************************************
+** CHANGES MADE FOR 5/8/2006 version **
+***************************************
+1. All files --> changed target namespace and owwqx namespace to http://exchangenetwork.net/schema/owwqx/1 to reflect latest Exchange Network Design Rules & Conventions
+2. All files --> removed references to SC namespace if they existed
+3. OWWQX_SimpleContent_v1.0.xsd --> 
+      - ProjectDescriptionText element definition updated to: "Project description, which may include a description of the project purpose, summary of the objectives, or brief summary of the results of the project."
+      - Deleted BinaryObjectContent element and data type
+      - Updated element and type SourceMapScaleNumber to SourceMapScaleNumeric
+      - Updated element, type, and definition HorizontalCollectioMethodCode to HorizontalCollectionMethodName
+      - Updated element, type, and definition HorizontalReferenceDatumCode to HorizontalCoordinateReferenceSystemDatumName
+      - Addition of ResultQualifierCode element and type
+      - Updated element, type, and definition VerticalCollectioMethodCode to VerticalCollectionMethodName
+      - Updated element, type, and definition VerticalReferenceDatumCode to VerticalCoordinateReferenceSystemDatumName
+      - Increased ActivityIdentifierDataType from 25 string to 35 string
+      - Changed ActivityMediaText to ActivityMediaName 
+      - Changed ActivityMediaSubdivisionText to ActivityMediaSubdivisionName
+      - Deleted SubSampleIdentifier element
+      - Added new ActivityGroupTypeCode element and type
+      - Updated element, type, and definition of SampleContainerTypeName, SampleContainerColorName, ChemicalPreservativeUsedName, and ThermalPreservativeUsedName
+      - Modified element name of DataLoggerLineName
+      -Modified element name and type from ResultStatusText to ResultStatusIdentifier
+      - Modified element name and type from ResultStatisticalBaseCOde to StatisticalBaseCode
+      - Renamed ResultValueMeasurePrecisionText to PrecisionValue
+      - Renamed ResultBiasText element to BiasValue
+      - Added new elements --> ConfidenceIntervalValue, UpperConfidenceLimitValue, LowerConfidenceLimitValue
+      - Updated element name and type from MethodIdentifierCode to MethodIdentifier
+      - Updated element name, type and definition from MethodIdentifierCodeListIdentifer to MethodIdentifierContext
+      - Split AnalysisDate and Time into Start and End
+      - Updated element name to DetectionQuantitationLimitTypeNameDataType
+      - Split LabSamplePreparation date and time into Start and End
+4. OWWQX_AttachedBinaryObject_v1.0.xsd --> removed BinaryObjectContent element
+5. OWWQX_MonitoringLocationGeospatial_v1.0.xsd --> 
+      - Updated element SourceMapScaleNumber to SourceMapScaleNumeric
+      - Updated element HorizontalCollectioMethodCode to HorizontalCollectionMethodName
+      - Updated element HorizontalReferenceDatumCode to HorizontalCoordinateReferenceSystemDatumName
+      - Modified so vertical measure uses reusable block
+      - Updated element VerticalCollectioMethodCode to VerticalCollectionMethodName
+      - Updated element VerticalReferenceDatumCode to VerticalCoordinateReferenceSystemDatumName
+6. OWWQX_ActivityLocation_v1.0.xsd --> 
+      - Updated element SourceMapScaleNumber to SourceMapScaleNumeric
+      - Updated element HorizontalCollectioMethodCode to HorizontalCollectionMethodName
+      - Updated element HorizontalReferenceDatumCode to HorizontalCoordinateReferenceSystemDatumName
+7. Created new file: OWWQX_Measure_v1.0.xsd
+8. OWWQX_ActivityDescription_v1.0.xsd --> 
+      - Changed ActivityMediaText to ActivityMediaName
+      - Changed ActivityMediaSubdivisionText to ActivityMediaSubdivisionName    
+      - Changed all Depth measure fields to reference measure block and use term 'Height' instead of altitude.
+9. OWWQX_Organization_v1.0.xsd : added Activity
+10. OWWQX_MonitoringLocation_V1.0.xsd: removed Activity
+11. OWWQX_ActivityDescription_v1.0.xsd: add MonitoringLocationIdentifier element
+12. OWWQX_SamplePreparation_V1.0.xsd --> Removed SubSample information
+13. OWWQX_SampleSubSampleDescription_V1.0.xsd --> removed file
+14. OWWQX_ResultDescription_V1.0.xsd --> 
+       - Removed SubsampleIdentifier element
+       - Modified element name of DataLoggerLineName
+       - Modify to reference Measure block (also remove Unit Code element)
+       - Modify element name of ResultStatusIdentifier
+       - Modify element name of StatisticalBaseCode
+       - Removed reference to elements Precision and Bias and replaced with new DataQuality block
+15. OOWQX_ActivityGroup_V1.0.xsd --> new file created
+16. OWWQX_SamplePreparation_v1.0.xsd --> modified names for SampleContainerTypeName, SampleContainerColorName, ChemicalPreservativeUsedName, and ThermalPreservativeUsedName
+17. Created new file: OWWQX_DataQualityIndicator_v1.0.xsd
+18. OWWQX_ReferenceMethod_v1.0.xsd --> Updated reference to elements MethodIdentifier and MethodIdentifierContext
+19. OWWQX_ResultLabInformation_v1.0.xsd --> 
+       - split out analysis date and time to start and end
+       - Update reference to DetectionLimit instead of DetectionLevel
+20. OWWQX_DetectionQuantitationLimit_v1.0.xsd --> 
+       - Updated file name and all text within to say Limit instead of Level
+       - Reference Measure block
+21. OWWQX_LabSample_preparation_v1.0.xsd --> 
+       - Split sample preparation date and time into start and end
+       - Updated SamplePreparationMethod to harmonize with ESAR term and definition.
+22. OWWQX_SampleDescription_V1.0.xsd --> changed SamplePreparation to be optional.
+
+
+****************************************
+** CHANGES MADE FOR 5/25/2006 version **
+****************************************
+1. Moved ActivityGroup from Activity to Organization level
+2. Made modifications to definition of ActivityGroup complex type
+3. OWWQX_SimpleContent_v1.0.xsd --> 
+        - new elements for ActivityGroupIdentifier and ActivityGroupName
+        - new elements for MethodQualifierType and MethodDescriptionText
+        - modified definition for ActivityIdentifier
+        - Changed SampleCollectionEquipmentCode to SampleCollectionEquipmentName 
+        - Changed maxlength of ConfidenceIntervalValue from 60 to 15
+        - Changed maxlength of UpperConfidenceIntervalValue from 60 to 15      
+        - Changed maxlength of LowerConfidenceIntervalValue from 60 to 15
+        - Changed maxlength of ActivityGroupTypeCode from 70 to 50
+        - Changed maxlength of MeasureQualifierCode from 25 to 5
+4. OWWQX_ReferenceMethod_v1.0.xsd --> 
+        - Made modifications to definition of ReferenceMethod complex type
+        - Made MethodIdentifier and MethodIdentifierContext required
+5. OWWQX_SamplePreparation_v1.0.xsd --> modified to reference method block
+6. OWWQX_SampleDescriptionV1.0.xsd --> 
+        - modified SampleCollectionMethodText to reference reusable method block
+  - changed SamplePreparation to no longer be unbounded
+7. OWWQX_MonitoringLocation_Deletev1.0.xsd --> removed file (no longer needed)
+8. OWWQX_Organization_Deletev1.0.xsd --> modified structure based on new schema structure
+
+
+****************************************
+** CHANGES MADE FOR 5/31/2006 version **
+****************************************
+1. Did a complete replace of the text 'OWWQX' with the text 'WQX' (including file names)
+2. Changed schema contact
+
+
+****************************************
+** CHANGES MADE FOR 8/9/2006 version **
+****************************************
+1. Added 8 and 12 digit HUC Code
+2. Added ActivityRelativeDepthName
+3. Created new file WQX_WQX_Time.xsd
+4. Added TimeZone for all time elements
+5. Removed optional Context attribute from PostalCode and MonitoringLocationIdentifier
+6. Created new file WQX_AlternateMonitoringLocation and added AlternateMonitoringLocationIdentity
+7. Added new element: SampleCollectionEquipmentCOmmentText
+8. Changed LocationAddressText to AddressText
+9. CHanged AddressPostalCode to PostalCode
+10. Removed element ActivityAssignmentProjectIdentifier and replaced with reference to ProjectIdentifier
+11. Move tribal code to Organization Description
+12. New elements TribalLandIndicator and TribalLandName
+13. Added new elements ResultDepthAltitudeReferencePointText and ResultDepthHeightMeasure to the Result block.
+
+****************************************
+** CHANGES MADE FOR 8/17/2006 version **
+****************************************
+1. Changed order for Monitoring Location Identity to have AlternateMonitoringLocationIdentity last 
+2. Made MeasureValue and MeasureUnitCode required if reported in WQX_MeasureCompact_v1.0.xsd
+3. Increased TimeZoneCode to max length 4
+
+****************************************
+** CHANGES MADE FOR 8/30/2006 version **
+****************************************
+1. Changed Result's ValueMeasure to custom type ResultValueMeasure 
+2. Global change of namespace from http://exchangenetwork.net/schema/wqx/1 to http://www.exchangenetwork.net/schema/wqx/1
+
+****************************************
+** CHANGES MADE FOR 9/13/2006 version **
+***************************************
+1. Created new ResultAnalyticalMethod complex type and modified Result block to reference this new type for Analysis Method.
+2. Modified index.xsd to reflect repository storage relative paths
+
+****************************************
+** CHANGES MADE FOR 10/12/2006 version **
+***************************************
+1. Added new ResultCount element to SimpleContect and WQX_Activity files. 
+2. New schema files for Transaction History outbound (WQX_TransactionHistory_v1.0.xsd and WQX_OutboundSimpleContent_v1.0.xsd)
+3. New schema file for Domain values (WQX_DomainValues_v1.0.xsd)
+4. Index.xsd modified to include 2 new root-level schemas 
+
+****************************************
+** CHANGES MADE FOR 10/17/2006 version **
+***************************************
+1. Changed ChemicalPreservativeUsedName and ThermalPreservativeUsedName to optional (minoccurs=0)
+2. Removed minlength=1 facet restriction from ChemicalPreservativeUsedName and ThermalPreservativeUsedName
+
+****************************************
+** CHANGES MADE FOR 1/19/2007 version **
+***************************************
+1. Changed Transaction history end date and end time to optional (minoccurs=0)
+
+
+
+
+______________________________________________________________________________
+                           MOVE TO VERSION 2
+______________________________________________________________________________
+
+
+****************************************
+** CHANGES MADE FOR 5/1/2007 version **
+***************************************
+1. Modified namespace of all files from 1 to 2 and all file names from 1.0 to 2.0
+2. All other modifications to support habitat/bio
+
+****************************************
+** CHANGES MADE FOR 5/9/2007 version **
+***************************************
+1. Increased size to following:
+     BiologicalActivityIntentName (35)
+     HabitName (15)
+     VoltinismName (25)
+
+****************************************
+** CHANGES MADE FOR 5/17/2007 version **
+***************************************
+1. Drop SubjectTaxonomicName and UnidentifiedSpeciesIdentifier from the Activity Level
+2. Move BiologicalActivityIntentName to the Result level (renamed as BiologicalIntentName)
+3. Move SampleTissueAnatomyName to the Result level. 
+4. Added "BiologicalResultDescription" group with BiologicalIntentName and SubjectTaxonomicName required
+5. Dropped: CharacteristicNameContext, CharacteristicDescriptionText, CharacteristicResultScaleText
+6. Moved FrequencyClassInformation and TaxonomicDetails to be part of BiologicalResultDescription block
+
+****************************************
+** CHANGES MADE FOR 6/7/2007 version **
+***************************************
+1. Moved ProjectMonitoringLocationWeighting from Organization to Project level
+
+****************************************
+** CHANGES MADE FOR 11/20/2007 version     **
+****************************************
+
+1. Index: 
+   - Move ActivityIndex from Activity level to Organization level
+   - Rename to BiologicalHabitatIndex
+   - Remove direct child of ActivityMetric
+   - Add IndexIdentifier, MonitoringLocationIdentifier, IndexCommentText, IndexQualifierCode
+   - Update some definitions
+2. Metric:
+   - Move ActivityMetric to be direct child of Activity
+   - Add IndexIdentifier, MetricCommentText, MetricValueMeasure
+3. TotalSampleWeightMeasure removed from SampleDescription block
+4. Wells: Addition of new WellInformation block at Monitoring Location level 
+5. Citation: new block added to Index, Metric, TaxonomicDetails, ReferenceLocation
+6. NetInformation: 
+   - Renamed from NetTowInformation
+   - Additional elements added
+7. UnidentifiedSpeciesIdentifier: field length increased and definition modified.
+8. ReferenceLocation changes:
+   - ReferenceLocationStartDate and ReferenceLocationEndDate elements added
+   - ReferenceLocationIndicator changed to ReferenceLocationTypeCode (and definition modified)
+9. Added HorizontalAccuracyMeasure to MonitoringLocationGeospatial block
+10. Added MethodSpeciationName element to ResultDescription block
+11. Laboratory: added 4 accreditation elements
+12. Business Rule only: Addition of business rule for BiologicalIntentName for Tissue sampling
+13. Added TaxonomicPollutionToleranceScaleText
+14. Added ToxicityTestType to BiologicalActivityDescription
+
+***************************************************
+** CHANGES MADE FOR 2/7/2008 - 3/6/2008 versions         **
+***************************************************
+
+1. ActivityMetric: Several changes to structure and definition of ActivityMetric block
+2. BiologicalHabitatIndex: Several changes to structure and definition of BiologicalHabitatIndex block
+3. Change LocationStratumName to StatisticalStratumText and modified definition
+4. TaxonomicDetailsCitation: Change Business Rule � allow 0 to 3 instances per result
+5. New element: SubstanceDilutionFactorNumeric
+6. Electrofishing: Several changes to structure and definition of Electrofishing block (now called BiologicalHabitatCollectionInformation)
+7. Added 2 QAPP related elements to Project block
+8. Clean up to data dictionary.
+9. Moved BiologicalHabitatIndex block to between MonitoringLocation and Activity blocks.
+
+**************************************************
+** CHANGES MADE FOR 3/28/2008 - 4/4/2008 versions       **
+****************************************
+1. Added new GroupSummaryCountWeight element in BiologicalResultDescription block
+2. Modify latitude / longitude precision to 12 and 14 respectively
+3. Increase the allowable length for VerticalCoordinateReferenceSystemDatumName to string max 10
+4. Remove in-schema enumerations for:
+        AddressTypeName, ElectronicAddressTypeName, ResultDetectionConditionText, ResultStatusIdentifier, TelephoneNumberTypeName
+5. Added HorizontalAccuracyMeasure to Activity Location block
+6. Change FrequencyClassInformation maxOccurs from unbounded to 3
+7. Change TaxonomicDetailsCitation maxOccurs to 1
+8. Change FunctionalFeedingGroup maxOccurs to 3
+9. Changed TransactionIdentifier minOccurs to 0 in outbound WQX_TransactionHistory_v2.0.xsd
+10. Several business rule changes
+11. Change HabitName maxOccurs to 3
+12. Increased NetTypeName maxLength from 18 to 30
+13. Increased ResultValueTypeName maxLength from 12 to 20
+
+*********************************************
+** CHANGES MADE FOR 6/4/2008 version       **
+*********************************************
+1. Added new ResultSamplingPointName element in ResultDescription block
+
+*********************************************
+** CHANGES MADE FOR 6/27/2008 version 2.1  **
+*********************************************
+1. Changed WQX version attribute in all schema files from 1 to 2
+
+*********************************************
+** CHANGES MADE FOR 11/30/2009 version 2.1 **
+*********************************************
+1. Created a new "1" subdirectory for the new version 2.1 schema
+2. Updated the index.xsd to reference the new version 2.1 schema files
+3. Increased ResourceSubjectText maxlength from 500 to 4000
+4. Increased MonitoringLocationDescriptionText maxlength from 1999 to 4000
+5. Increased ProjectDescriptionText maxlength from 1999 to 4000
+6. Increased ResultParticleSizeBasisText maxlength from 15 to 40
+7. Increased MethodDescriptionText maxlength from 500 to 4000
+8. Increased SampleTransportStorageDescription maxlength from 250 to 1999
+9. Clean up to data dictionary
+
+*********************************************
+** CHANGES MADE FOR 07/19/2016 version 3.0 **
+*********************************************
+1. Increased ActivityIdentifier maxLength from 35 to 55
+2. Increased ActivityMediaSubdivisionName maxLength from 45 to 60
+3. Increased ActivityRelativeDepthName maxLength from 15 to 30
+4. Increased NetTypeName maxLength from 30 to 60
+5. Increased SampleCollectionEquipmentName maxLength from 40 to 60
+6. Increased SampleContainerColorName maxLength from 15 to 35
+7. Increased SampleContainerTypeName maxLength from 35 to 80
+8. Increased SampleTissueAnatomyName maxLength from 30 to 50
+9. Increased SamplingComponentName maxLength from 15 to 35
+10. Increased ThermalPreservativeUsedName maxLength from 30 to 100
+11. Increased ActivityGroupIdentifier maxLength from 35 to 55
+12. Increased FormulaDescriptionText maxLength from 50 to 4000
+13. Increased MeasureValue maxLength from 12 to 60
+14. Increased MetricScoreNumeric maxLength from 10 to 60
+15. Increased MetricTypeIdentifier maxLength from 35 to 50
+16. Increased MetricTypeName maxLength from 50 to 100
+17. Increased IndexIdentifier maxLength from 35 to 55
+18. Increased IndexScoreNumeric maxLength from 10 to 60
+19. Increased IndexTypeIdentifier maxLength from 35 to 50
+20. Increased IndexTypeName maxLength from 50 to 100
+21. Increased BiologicalIndividualIdentifier maxLength from 4 to 12
+22. Increased DataLoggerLineName maxLength from 15 to 35
+23. Increased ResultSamplingPointName maxLength from 12 to 35
+24. Increased ResultWeightBasisText maxLength from 15 to 35
+
+*********************************************
+** CHANGES MADE FOR 10/05/2016 version 3.0 **
+*********************************************
+1. Increased MeasureQualifierCode maxLength from 5 to 35
+2. Changed DetectionQuantitationLimitMeasure to minOccurs="1" (rather than minOccurs="0")
+3. Changed DetectionQuantitationLimitTypeName to minOccurs="1"
+
+*********************************************
+** CHANGES MADE FOR 10/05/2016 version 3.0 **
+*********************************************
+2. Changed maxOccurs from 1 to 6 for MeasureQualifierCode
+
+*********************************************
+** CHANGES MADE FOR 11/14/2016 version 3.0 **
+*********************************************
+1. Added a boolean attribute "ReplaceActivities" to the ActivityGroup element.  
+   "true" is the default value, which indicates that all existing ActivityIdentifiers in this ActvityGroup should be deleted before adding the new ActivityIdentifiers provided in this submission file
+2. Moved the SamplingComponentName and SamplingComponentPlaceInSeries from the BiologicalHabitatCollectionInformation section to the ActivityDescription section (right below the MonitoringLocationIdentifier element).
+3. Added a new schema for retrieval of just the Identifiers for Project, MonitoringLocation, Activity, ActivityGroup, Index (within an Organization).
+   Main: WQX_WQX_Identifiers_v3.0.xsd
+   DataType: WQX_Organization_Identifiers_v3.0.xsd
+4. Added a StatisticalNValueNumeric element to the ResultDescription underneath StatisticalBaseCode
+5. Changed the name of "MetricScoreNumeric" to "MetricScore"
+6. Changed NetMeshSizeMeasure to minOccurs="0"
+7. Changed NetSurfaceAreaMeasure to minOccurs="0"
+8. Changed SampleCollectionMethod to minOccurs="0"
+9. Changed SamplePreparationMethod to minOccurs="0"
+10. Changed SampleContainerColorName to minOccurs="0"
+11. Changed SampleContainerTypeName to minOccurs="0"
+12. Changed SampleTransportStorageDescription to minOccurs="0"
+13. Changed DetectionQuantitationLimitMeasure to minOccurs="1" (rather than minOccurs="0")
+14. Changed DetectionQuantitationLimitTypeNameDataType to minLength value="1"
+15. Removed ResultLaboratoryCommentCode
+16. Added CharacteristicNameUserSupplied to the ResultDescription
+17. Added SubjectTaxonomicalNameUserSupplied to the BiologicalResultDescription
+18. Added a new schema to support changing unique identifiers for Project, Monitoring Location, Activity, Activity Group, and Index without the need to delete 
+19. Changed the following elements to be optional:
+  - NetMeshSizeMeasure 
+  - NetSurfaceAreaMeasure
+  - SamplePreparationMethod
+  - SampleContainerColorName
+  - SampleContainerTypeName
+  - SampleTransportStorageDescription
+  - SampleCollectionMethod
+20. Changed DetectionQuantitationLimitMeasure to be required with the associated MeasureValue and MeasureUnit
+21. Added ActivityLocationDescriptionText element to the ActivityLocation data type
+22. Added a new schema for retrieval of just the Identifiers (Project, MonitoringLocation, Activity, ActivityGroup, Index) for an Organization.
+  - Main: WQX_WQX_Identifiers_v3.0.xsd
+  - DataType: WQX_Organization_Identifiers_v3.0.xsd
+23. Added a new schema to support changing unique identifiers for Project, Monitoring Location, Activity, Activity Group, and Index without the need to delete 
+
+*********************************************
+** CHANGES MADE FOR 03/08/2017 version 3.0 **
+*********************************************
+1. Added CollectionEffort to BiologicalHabitatCollectionInformation
+
+*********************************************
+** CHANGES MADE FOR 12/10/2018 version 3.0 **
+*********************************************
+1. Increased MethodIdentifier maxLength from 30 to 35
+2. Increased BiologicalIndividualIdentifier maxLength from 12 to 60
+3. Increased ConfidenceIntervalValue maxLength from 15 to 60
+4. Increased LowerConfidenceLimitValue maxLength from 15 to 60
+5. Increased LowerClassBoundValue maxLength from 8 to 60
+6. Increased OrganizationIdentifier maxLength from 30 to 35
+7. Increased ResultWeightBasisText maxLength from 35 to 60
+8. Increased SubstanceDilutionFactorNumeric maxLength from 10 to 60
+9. Increased UpperConfidenceLimitValue maxLength from 15 to 60
+10. Increased UpperClassBoundValue maxLength from 8 to 60
+
+*********************************************
+** CHANGES MADE FOR 12/12/2018 version 3.0 **
+*********************************************
+1. Increased OrganizationFormalName maxLength from 120 to 255
+2. Increased ProjectName maxLength from 120 to 255
+3. Increased UnidentifiedSpeciesIdentifier maxLength from 120 to 255
+
+
+*********************************************
+** CHANGES MADE FOR 12/12/2018 version 3.0 **
+*********************************************
+1. Added AquiferTypeName to the WellInformation
+2. Added ConstructionDate to the WellInformation
+3. Added WellDepthMeasure to the WellInformation
+
+*********************************************
+** CHANGES MADE FOR 12/14/2018 version 3.0 **
+*********************************************
+1. Added DetectionQuantitationLimitCommentText to the DetectionQuantitationLimit
+2. Added LaboratoryCommentText to the ResultLabInformation
+3. Added HydrologicCondition to the SampleDescription
+4. Added HydrologicEvent to the SampleDescription
+
+*********************************************
+** CHANGES MADE FOR 12/19/2018 version 3.0 **
+*********************************************
+1. Added SubjectTaxonomicNameUserSuppliedReferenceText to the BiologicalResultDescription
+2. Added SubjectTaxonomicNameUserSupplied to the BiologicalResultDescription
+
+*********************************************
+** CHANGES MADE FOR 12/30/2018 version 3.0 **
+*********************************************
+1. Increased DataLoggerLineName maxLength from 35 to 60
+2. Increased ResultSamplingPointName maxLength from 35 to 120
+3. Increased SamplingComponentName maxLength from 35 to 120
+4. Increased SubjectTaxonomicName maxLength from 120 to 255
+5. Increased TribalLandName maxLength from 200 to 512
+
+
+*********************************************
+** CHANGES MADE FOR 03/1/2019 version 3.0 **
+*********************************************
+1. Increase MeasureValue maxLength from 12 to 60
+2. Increased MethodIdentifier maxLength from 20 to 35
+3. Increased MethodName maxLength from 120 to 250
+4. Increased MonitoringLocationIdentifier maxLength from 35 to 55
+5. Refactored PassCount data type from nonNegativeInteger to string maxLength 60
+6. Refactored SamplingComponentPlaceInSeriesNumeric data type from nonNegativeInteger to string maxLength 60
+7. Refactored SourceMapScaleNumeric data type from nonNegativeInteger to string maxLength 60
+
+*********************************************
+** CHANGES MADE FOR 03/12/2019 version 3.0 **
+*********************************************
+1. Renamed SamplingComponentPlaceInSeriesNumeric to SamplingComponentPlaceInSeries in ActivityDescription
+2. Renamed SourceMapScaleNumeric to SourceMapScale in ActivityLocation
+3. Renamed IndexScoreNumeric to IndexScore in BiologicalHabitatIndex
+4. Renamed SourceMapScaleNumeric to SourceMapScale in MonitoringLocationGeospatial
+
+*********************************************
+** CHANGES MADE FOR 03/21/2019 version 3.0 **
+*********************************************
+1. Added ActivityIdentifierUserSupplied to ActivityDescription
+2. Added ActivityLocationDescriptionText to ActivityLocation
+3. Added CollectionDescriptionText to BiologicalHabitatCollectionInformation
+4. Added SampleContainerLabelName to SamplePreparation
+
+*********************************************
+** CHANGES MADE FOR 03/22/2019 version 3.0 **
+*********************************************
+1. Added ResultSamplingPointType to ResultDescription
+2. Added ResultSamplingPointPlaceInSeries to ResultDescription
+
+
+*********************************************
+** CHANGES MADE FOR 05/13/2019 version 3.0 **
+*********************************************
+1. Increased ActivityGroupName maxLength from 50 to 120
+2. Increased SampleContainerColorName maxLength from 35 to 60
+3. Increased SampleContainerTypeName maxLength from 35 to 60
+4. Increased ThermalPreservativeUsedName maxLength from 100 to 250
+
+*********************************************
+** CHANGES MADE FOR 05/29/2019 version 3.0 **
+*********************************************
+1. Replaced GroupSummaryCountWeight with GroupSummaryWeight
+2. Added GroupSummaryCount to BiologicalResultDescription 
+
+*********************************************
+** CHANGES MADE FOR 07/17/2019 version 3.0 **
+*********************************************
+1. Increased FunctionalFeedingGroupName maxLength from 6 to 30
+2. Increased TaxonomicPollutionTolerance maxLength from 4 to 30
+3. Increased ToxicityTestType maxLength from 7 to 30
+4. Increased TrophicLevelName maxLength from 4 to 30 
+
+*********************************************
+** CHANGES MADE FOR 07/31/2019 version 3.0 **
+*********************************************
+1. Renamed SubstanceDilutionFactorNumeric to SubstanceDilutionFactor
+
+*********************************************
+** CHANGES MADE FOR 08/07/2019 version 3.0 **
+*********************************************
+1. Added RecordIdentifierUserSupplied to ResultDescription
+2. Added HabitatSelectionMethod to BiologicalActivityDescription
+
+
+*********************************************
+** CHANGES MADE FOR 08/08/2019 version 3.0 **
+*********************************************
+1. Added LaboratorySampleSplitRatio to ResultLabInformation
+
+*********************************************
+** CHANGES MADE FOR 08/12/2019 version 3.0 **
+*********************************************
+1. Added TargetCount from ResultDescription
+
+
+*********************************************
+** CHANGES MADE FOR 08/13/2019 version 3.0 **
+*********************************************
+1. Increased ProjectName maxLength from 255 to 512
+
+*********************************************
+** CHANGES MADE FOR 08/15/2019 version 3.0 **
+*********************************************
+1. Removed SamplingComponentPlaceInSeries from ActivityDescription
+
+*********************************************
+** CHANGES MADE FOR 08/19/2019 version 3.0 **
+*********************************************
+1. Removed ResultCount from Activity
+2. Added ResultSamplingPointCommentText to ResultDescription
+
+*********************************************
+** CHANGES MADE FOR 08/22/2019 version 3.0 **
+*********************************************
+1. Added DrainageAreaMeasure to MonitoringLocationIdentity
+2. Added ContributingDrainageAreaMeasure to MonitoringLocationIdentity
+3. Added GearProcedureUnitCode to CollectionEffort
+4. Added VerticalAccuracyMeasure to MonitoringLocationGeospatial
+
+*********************************************
+** CHANGES MADE FOR 08/28/2019 version 3.0 **
+*********************************************
+1. Increased AquiferName maxLength from 120 to 255
+
+*********************************************
+** CHANGES MADE FOR 08/29/2019 version 3.0 **
+*********************************************
+1. Increased CharacteristicName maxLength from 120 to 255
+
+*********************************************
+** CHANGES MADE FOR 09/09/2019 version 3.0 **
+*********************************************
+1. Added CollectionArea to BiologicalHabitatCollectionInformation
+
+*********************************************
+** CHANGES MADE FOR 10/28/2019 version 3.0 **
+*********************************************
+1. Increased ProjectIdentifier length from 30 to 55
+
+*********************************************
+** CHANGES MADE FOR 10/23/2019 version 3.0 **
+*********************************************
+1. Added NationalAquiferCode to WellInformation
+
+*********************************************
+** CHANGES MADE FOR 11/15/2019 version 3.0 **
+*********************************************
+1. Added ProportionSampleProcessedNumeric to ResultDescription
+2. Added Group ComparableAnalyticalMethod to Result
+3. Added MethodIdentifier to ComparableAnalyticalMethod
+4. Added MethodIdentifierContext to ComparableAnalyticalMethod
+5. Added MethodModificationText to ComparableAnalyticalMethod
+6. Added Group AquiferInformation to WellInformation
+7. Added LocalAquiferCode to AquiferInformation
+8. Added LocalAquiferCodeContext to AquiferInformation
+9. Added AquiferName to AquiferInformation
+10. Added LocalAquiferDescriptionText to AquiferInformation
+
+*********************************************
+** CHANGES MADE FOR 12/04/2019 version 3.0 **
+*********************************************
+1. Updated element AquiferName to LocalAquiferName
+
+*********************************************
+** CHANGES MADE FOR 12/05/2019 version 3.0 **
+*********************************************
+ 1. Increased IndexQualifierCode length from 5 to 35
+
+*********************************************
+** CHANGES MADE FOR 01/24/2020 version 3.0 **
+*********************************************
+ 1. Added MetricSamplingPointPlaceInSeries to ActivityMetric
+
+
+
+
+

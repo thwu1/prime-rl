@@ -1,0 +1,118 @@
+{
+  "resourceType": "ConceptMap",
+  "id": "icd9-to-icd10",
+  "url": "http://example.org/fhir/ConceptMap/icd9-to-icd10",
+  "version": "1.0.0",
+  "name": "ICD9toICD10",
+  "title": "ICD-9-CM to ICD-10-CM Diagnosis Code Translation",
+  "status": "active",
+  "experimental": false,
+  "date": "2024-06-15",
+  "publisher": "Hospital System Migration Team",
+  "description": "Maps legacy ICD-9-CM diagnosis codes to ICD-10-CM equivalents for clinical data warehouse migration.",
+  "sourceUri": "http://hl7.org/fhir/sid/icd-9-cm",
+  "targetUri": "http://hl7.org/fhir/sid/icd-10-cm",
+  "group": [
+    {
+      "source": "http://hl7.org/fhir/sid/icd-9-cm",
+      "target": "http://hl7.org/fhir/sid/icd-10-cm",
+      "element": [
+        {
+          "code": "401.1",
+          "display": "Benign essential hypertension",
+          "target": [
+            {
+              "code": "I10",
+              "display": "Essential (primary) hypertension",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "250.00",
+          "display": "Diabetes mellitus type II without complication",
+          "target": [
+            {
+              "code": "E11.9",
+              "display": "Type 2 diabetes mellitus without complications",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "486",
+          "display": "Pneumonia, organism unspecified",
+          "target": [
+            {
+              "code": "J18.9",
+              "display": "Pneumonia, unspecified organism",
+              "equivalence": "equivalent"
+            },
+            {
+              "code": "J18.8",
+              "display": "Other pneumonia, unspecified organism",
+              "equivalence": "narrower"
+            }
+          ]
+        },
+        {
+          "code": "428.0",
+          "display": "Congestive heart failure, unspecified",
+          "target": [
+            {
+              "code": "I50.9",
+              "display": "Heart failure, unspecified",
+              "equivalence": "wider"
+            }
+          ]
+        },
+        {
+          "code": "272.4",
+          "display": "Other and unspecified hyperlipidemia",
+          "target": [
+            {
+              "code": "E78.5",
+              "display": "Hyperlipidemia, unspecified",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "585.3",
+          "display": "Chronic kidney disease, Stage III",
+          "target": [
+            {
+              "code": "N18.3",
+              "display": "Chronic kidney disease, stage 3 (moderate)",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "493.90",
+          "display": "Asthma, unspecified type, unspecified",
+          "target": [
+            {
+              "code": "J45.909",
+              "display": "Unspecified asthma, uncomplicated",
+              "equivalence": "equivalent"
+            },
+            {
+              "code": "J45.20",
+              "display": "Mild intermittent asthma, uncomplicated",
+              "equivalence": "narrower"
+            },
+            {
+              "code": "J45.30",
+              "display": "Mild persistent asthma, uncomplicated",
+              "equivalence": "narrower"
+            }
+          ]
+        }
+      ],
+      "unmapped": {
+        "mode": "provided"
+      }
+    }
+  ]
+}

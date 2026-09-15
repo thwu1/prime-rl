@@ -1,0 +1,22 @@
+{
+  "gravity": 9.81,
+  "fluid_density": 1000.0,
+  "fluid_viscosity": 0.001,
+  "solid_density": 2500.0,
+  "particle_diameter": 1e-4,
+  "richardson_zaki_n": 4.65,
+  "max_packing": 0.63,
+  "domain_height": 1.0,
+  "initial_bed_top": 0.8,
+  "concentrations": [0.05, 0.10, 0.20],
+  "eval_time": 50.0,
+  "reynolds_numbers": [0.1, 1.0, 10.0, 100.0, 1000.0],
+  "mms": {
+    "diffusivity": 1.0,
+    "amplitude_A": 300.0,
+    "amplitude_B": 50.0,
+    "wavenumber": 2.0,
+    "domain_length": 1.0,
+    "grid_levels": [8, 16, 32, 64, 128]
+  }
+}

@@ -1,0 +1,15 @@
+# Program 3: Unreachable code after unconditional jump
+# Expected output: 42 50
+func main()
+  x = 42
+  print x
+  goto skip
+  y = 100
+  z = y + 1
+  print z
+  w = z * 2
+  skip:
+  v = x + 8
+  print v
+  return 0
+endfunc

@@ -1,0 +1,13 @@
+`/app/filecheck.py` is a Python clone of LLVM's FileCheck pattern matching verifier supporting `CHECK`, `CHECK-NEXT`, `CHECK-NOT`, `CHECK-SAME`, `CHECK-LABEL`, `CHECK-DAG`, `CHECK-COUNT-<N>`, inline regex `{{...}}`, variable capture `[[VAR:regex]]`/`[[VAR]]`, and CLI flags `--check-prefix`, `--check-prefixes`, `--match-full-lines`, `--input-file`.
+
+The implementation has multiple interacting semantic bugs. `/app/filecheck_spec.md` describes correct FileCheck behavior. `/app/manifest.json` lists test cases in `/app/test_inputs/` with expected outcomes and required CLI flags. Not all test failures are implementation bugs: at least one test case has incorrect CHECK patterns that must be corrected independently. At least one test case that currently passes with the buggy implementation should actually fail according to the manifest — the implementation is too permissive.
+
+When done, the following must all hold:
+
+- `/app/filecheck.py` is correct: every test case in `/app/manifest.json` produces exactly the outcome (pass/fail) declared there, using the specified CLI flags.
+- `/app/test_inputs/` contains corrected `.check` files where the original patterns (not the tool) were wrong.
+- `/app/audit.json` is a JSON array of objects, each with `"test_case"` (name from manifest), `"root_cause"` (`"implementation_bug"` or `"wrong_pattern"`), and `"description"` (what was wrong and how it was resolved). Only test cases whose outcomes were initially incorrect should appear.
+- `/app/lit_suite/` is a fully functional LLVM `lit` test suite that runs all manifest test cases through the FileCheck clone. It contains a `lit.cfg.py` with proper ShTest format, suffixes, and tool substitutions, plus one `.test` file per manifest case using `RUN:` directives. Expected-failure tests use lit's `not` built-in. The entire suite passes via `python3 -m lit /app/lit_suite -v`.
+- `/app/spec_evaluation.json` is a JSON array evaluating the fixed implementation's specification compliance for at least 8 feature areas. Each entry has `"feature"`, `"compliance"` (`"full"`, `"partial"`, or `"none"`), `"tested_behaviors"` (list), `"untested_behaviors"` (list), and `"risk_assessment"` (string). Evaluations are grounded in evidence from probe tests.
+- `/app/spec_probes/` contains at least 5 `.check`/`.input` file pairs, each probing a distinct specification boundary behavior not covered by the manifest. All pass with the fixed implementation.
+- `/app/edge_cases/` contains at least 3 `.check`/`.input` file pairs exercising distinct specification edge cases not covered elsewhere. All pass with the fixed implementation.

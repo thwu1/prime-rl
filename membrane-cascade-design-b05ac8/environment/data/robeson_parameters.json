@@ -1,0 +1,24 @@
+{
+  "description": "Robeson 2008 upper bound parameters. Equation: P_A = k * alpha^(-n)",
+  "year": 2008,
+  "reference": "Robeson, L.M. (2008) J. Membr. Sci. 320, 390-400",
+  "gas_pairs": {
+    "O2/N2": {"k": 1396000, "n": 5.666},
+    "CO2/CH4": {"k": 5369140, "n": 2.636},
+    "H2/N2": {"k": 97650, "n": 1.2106},
+    "He/N2": {"k": 39760, "n": 1.1242},
+    "CO2/N2": {"k": 30967000, "n": 2.888},
+    "H2/CH4": {"k": 19890, "n": 1.2135},
+    "He/CH4": {"k": 22130, "n": 1.1667},
+    "H2/CO2": {"k": 4515, "n": 0.6851},
+    "He/H2": {"k": 10000, "n": 4.9309},
+    "N2/CH4": {"k": 5570, "n": 0.8048}
+  },
+  "units": {
+    "P_A": "Barrer (1e-10 cm3(STP).cm/(cm2.s.cmHg))",
+    "alpha": "dimensionless (P_A / P_B)",
+    "k": "Barrer",
+    "n": "dimensionless",
+    "Barrer_to_mol_m_per_m2_s_Pa": 3.348e-16
+  }
+}

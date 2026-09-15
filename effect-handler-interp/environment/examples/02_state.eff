@@ -1,0 +1,18 @@
+// Simple state effect: get and set
+// The handler transforms the computation into a state-passing function
+effect State {
+    Get();
+    Set(v)
+}
+
+val result = handle {
+    val x = do Get();
+    do Set(x + 1);
+    val y = do Get();
+    y
+} with State {
+    return(x) => fun(s) => x
+    Get(resume) => fun(s) => resume(s)(s)
+    Set(v, resume) => fun(s) => resume(unit)(v)
+};
+print(result(0))

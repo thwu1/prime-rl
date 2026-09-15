@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding PVS formal specification language (parameterized theories, higher-order functions, dependent types) and translating mathematically verified algorithms into executable Python. The WCV detection involves modified tau computation, quadratic interval solving with multiple edge cases (discriminant signs, approaching vs separating, inside vs outside DTHR), unit conversions between aviation units (nmi, knots, ft, fpm), vertical interval computation with co-altitude thresholds, 3D interval intersection of horizontal and vertical components, and multi-level alerting with different parameter sets per alert level."""
+solution_explanation = """The solution implements the full WCV detection pipeline from the PVS specs: (1) tau_mod computation using TCAS-II modified tau formula, (2) horizontal WCV check combining inside-DTHR and taumod-CPA conditions, (3) horizontal interval computation via closed-form quadratic with Delta/Theta_D for cylinder boundaries, (4) vertical WCV using altitude thresholds and co-altitude time, (5) 3D interval as intersection of horizontal and vertical intervals, (6) multi-level alerting by evaluating WCV with each alert level's parameters against its lookahead window."""
+verification_explanation = """Tests verify 7 encounter scenarios covering distinct code paths: head-on collision (alert 3), crossing encounter (alert 3), slow approach (alert 2 due to taumod timing), vertical conflict (alert 1 due to ZTHR difference between levels), separating aircraft (alert 0), near-miss where CPA exceeds DTHR (alert 0), and inside-DTHR diverging (alert 3). Each test checks tau_mod, boolean WCV flags, entry/exit times, and alert level with floating-point tolerances. A cross-validation test independently recomputes all expected values."""
+category = "aviation"
+tags = ["formal-methods", "conflict-detection"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/daidalus-wcv-detection"

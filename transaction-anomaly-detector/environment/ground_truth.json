@@ -1,0 +1,14 @@
+{
+  "h_serializable": {
+    "anomalies": [],
+    "strongest_level": "PL-3"
+  },
+  "h_g0": {
+    "anomalies": ["G0"],
+    "strongest_level": "PL-0"
+  },
+  "h_g_single": {
+    "anomalies": ["G-single"],
+    "strongest_level": "PL-2"
+  }
+}

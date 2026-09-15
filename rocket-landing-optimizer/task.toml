@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a nonlinear trajectory optimization solver for powered descent guidance with mass depletion. The dynamics contain exp(-z) nonlinearities coupling thrust and mass, making direct convex formulation impossible. A correct solution demands: (1) understanding of lossless convexification to relax the non-convex minimum thrust constraint into a convex surrogate, (2) successive linearization of the nonlinear dynamics around a reference trajectory, (3) formulation and iterative solution of second-order cone programs (SOCPs), (4) proper initialization and convergence management. Alternative approaches (direct collocation NLP, multiple shooting) require comparable expertise in numerical optimization and control theory."""
+solution_explanation = """Initializes controls via cubic polynomial trajectory satisfying position/velocity boundary conditions under constant-mass approximation, then uses a two-phase scipy optimization: (1) L-BFGS-B with progressive penalty weighting drives terminal error, thrust-bound violations, and glideslope violations toward zero while minimizing fuel, (2) least_squares with trust-region-reflective method refines terminal accuracy with regularization to preserve constraint satisfaction. Both phases use RK4 forward simulation (matching the test's integration) to ensure dynamics consistency."""
+verification_explanation = """Tests forward-simulate the returned control trajectory from x0 using RK4 integration with 10 substeps per interval. Verifies: (1) correct solution format, (2) terminal position and velocity within 0.3 of target, (3) thrust magnitude within [T_min, T_max] at all steps, (4) glideslope ry >= tan(gamma)*|rx| along trajectory, (5) mass within [m_dry, m_wet], (6) fuel consumption below threshold, (7) consistency between optimizer state and simulated trajectory."""
+category = "computing_methodologies"
+tags = ["trajectory-optimization", "convex-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rocket-landing-optimizer"

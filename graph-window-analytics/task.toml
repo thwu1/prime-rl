@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level SQL expertise across multiple advanced SQLite features simultaneously. The solver must: (1) diagnose and fix ~9 interacting bugs across a multi-step pipeline spanning recursive CTEs, window functions, and UPSERT without being told what the bugs are; (2) design and implement from scratch a path-reconstruction algorithm using recursive CTEs that carries path state, prevents revisiting nodes, and selects optimal paths via window-based deduplication; (3) reason about graph reachability in cyclic directed graphs, the semantic differences between SQL window frame types and ranking functions, and conflict-target resolution. The path_detail table requires genuine solution design — choosing a cycle-prevention strategy, path accumulation method, and multi-criteria tie-breaking approach."""
+solution_explanation = """Fix 10 bugs and implement one new table: (1) UNION ALL → UNION in reachability CTE to prevent exponential blowup on cycles; (2) add WHERE src != dst to reachability and shortest_path to exclude self-pairs; (3) add AND e.dst != sp.src in shortest_path for cycle prevention; (4) change centrality_rank ORDER BY from ASC to DESC; (5) add PARTITION BY region to region_rank; (6) change cume_dist() to percent_rank(); (7) change ROWS to GROUPS in running_avg; (8) add FILTER (WHERE edge_type = 'primary') to primary_count_so_far; (9) fix ON CONFLICT(metric_value) to ON CONFLICT(metric_name); (10) add CREATE INDEX on edge(dst). Implement path_detail via recursive CTE carrying comma-separated path strings with LIKE-based visited-node prevention, then use ROW_NUMBER() to select shortest/fewest-hops path per pair."""
+verification_explanation = """Tests run the pipeline via /app/run.sh, then query the resulting SQLite database across 6 test classes. Reachability: 57 rows, no self-pairs, correct hop counts, region isolation. Shortest path: 57 rows, correct distances, triangle inequality. Path detail: 57 rows, weight consistency with shortest_path, valid edge sequences, no repeated nodes, correct specific paths. Node centrality: reach counts, ranking semantics (dense vs standard), percent_rank values. Traffic summary: GROUPS-based running averages (distinct from ROWS), FILTER-based primary counts. KPIs: correct values including UPSERT-dependent avg_shortest_path. Index: EXPLAIN QUERY PLAN shows SEARCH not SCAN for edge(dst) lookups."""
+category = "data_management"
+tags = ["sql", "sqlite"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graph-window-analytics"

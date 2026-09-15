@@ -1,0 +1,43 @@
+{
+  "systems": [
+    {
+      "id": "SYS-A",
+      "description": "Natural refrigerant cascade for main cold storage",
+      "ltc": {
+        "fluid": "CO2",
+        "compressor_model": "COMP-LTC-A"
+      },
+      "htc": {
+        "fluid": "Ammonia",
+        "compressor_model": "COMP-HTC-A"
+      },
+      "cooling_capacity_kW": 150
+    },
+    {
+      "id": "SYS-B",
+      "description": "CO2/HFC cascade for secondary cold storage",
+      "ltc": {
+        "fluid": "CO2",
+        "compressor_model": "COMP-LTC-B"
+      },
+      "htc": {
+        "fluid": "R134a",
+        "compressor_model": "COMP-HTC-B"
+      },
+      "cooling_capacity_kW": 150
+    },
+    {
+      "id": "SYS-C",
+      "description": "HFC/HFC cascade for ultra-low temperature freezer",
+      "ltc": {
+        "fluid": "R23",
+        "compressor_model": "COMP-LTC-C"
+      },
+      "htc": {
+        "fluid": "R134a",
+        "compressor_model": "COMP-HTC-C"
+      },
+      "cooling_capacity_kW": 150
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Build the native discount factor shared library — corrected version
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+
+all: libdiscount.so
+
+libdiscount.so: discount.c
+	$(CC) $(CFLAGS) -shared -o $@ $< -lm
+
+clean:
+	rm -f libdiscount.so

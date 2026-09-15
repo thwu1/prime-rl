@@ -1,0 +1,10 @@
+event_01_novation.json:Novation
+event_02_partial_novation.json:PartialNovation
+event_03_allocation.json:Allocation
+event_04_cleared_trade.json:ClearedTrade
+event_05_termination.json:Termination
+event_06_partial_termination.json:PartialTermination
+event_07_increase.json:Increase
+event_08_execution.json:Execution
+event_09_contract_formation.json:ContractFormation
+event_10_compression.json:Compression

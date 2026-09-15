@@ -1,0 +1,19 @@
+{
+  "app_name": "{{ app_name }}",
+  "port": {{ app_port }},
+  "max_connections": {{ max_connections }},
+  "services": [
+{% for svc in services %}
+    {
+      "name": "{{ svc.name }}",
+      "port": {{ svc.port }},
+      "enabled": {{ svc.enabled | lower }}
+    },
+{% endfor %}
+  ],
+  "health_endpoints": {{ services | health_endpoints | to_json }},
+  "database": {
+    "password": "{{ db_password }}"
+  },
+  "api_key": "{{ api_key }}"
+}

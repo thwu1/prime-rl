@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool systems diagnosis when logs are absent due to a stdio buffering bug (no fflush/setlinebuf before SIGKILL). The solver must use strace, /proc filesystem, lsof, nc, or gdb to diagnose a protocol mismatch where HTTP response bytes "HTTP" are interpreted as a 1.13 GB big-endian length prefix (1213486160 = 0x48545450). Must find and fix four interacting bugs: missing log line-buffering, missing payload size validation before malloc, memory leak (no free) on truncation error path, and socket FD leak (no close) on the same path. Must evaluate the causal chain and severity of each bug in a postmortem, and design a protocol health-check script from scratch."""
+solution_explanation = """Use strace or nc to discover port 9003 speaks HTTP instead of binary protocol. Decode first 4 bytes 'HTTP' as uint32 = 1213486160. Fix collector.c: add setlinebuf(logfp), add MAX_PAYLOAD_SIZE guard before malloc, add free(buf) and close(sock) on truncation error path. Remove svc-gamma from endpoints.conf. Write postmortem evaluating each bug's severity and the cascade chain. Create healthcheck.sh that probes endpoints and detects protocol mismatches."""
+verification_explanation = """Tests verify: collector compiles; source has setlinebuf/setvbuf/fflush for log buffering; has message size validation; has free() and close() on truncation error path; endpoints.conf excludes port 9003; postmortem decodes 1213486160 as HTTP and discusses buffering, memory leak, and FD leak with severity evaluation; healthcheck.sh exists, is executable, and correctly identifies HTTP mismatch on port 9003 when run against live mock services; compiled collector stays under resource limits when facing HTTP responses."""
+category = "systems_debugging"
+tags = ["networking", "memory_management", "process_diagnostics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-612a12"

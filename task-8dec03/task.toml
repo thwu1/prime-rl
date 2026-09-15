@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading Fortran 77 fixed-format source (implicit typing, COMMON blocks, column-sensitive formatting), understanding stiff ODE numerics, translating three problems with analytical Jacobians to Python, selecting implicit solvers with correctly scaled tolerances (E5 rate constants span 19 orders of magnitude requiring atol ~1e-20), and matching high-precision reference solutions. Multi-problem orchestration with vastly different stiffness characteristics demands deep numerical computing expertise."""
+solution_explanation = """Translate each Fortran subroutine (RHS + Jacobian) to Python, extract initial conditions and integration parameters from driver files, solve using scipy.integrate.solve_ivp with Radau method. For E5, set atol ~1e-20 and first_step ~1e-10 to handle extreme stiffness. Verify ROBER conservation (y1+y2+y3=1) and HIRES invariant (y7+y8=0.0057). Output all solutions as JSON."""
+verification_explanation = """Tests load /app/results.json and compare each problem's solutions against pre-computed high-precision reference values using relative error with an absolute floor for near-zero components. ROBER and HIRES must match to 6 significant digits; E5 to 4 significant digits. Conservation and invariant properties are independently verified."""
+category = "scientific_computing"
+tags = ["numerical-methods", "stiff-ode"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8dec03"

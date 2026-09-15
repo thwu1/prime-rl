@@ -1,0 +1,107 @@
+{
+  "scoring_weights": {
+    "gps_quality": 0.30,
+    "ekf_health": 0.25,
+    "vibration_level": 0.20,
+    "parameter_compliance": 0.15,
+    "mode_stability": 0.10
+  },
+  "scoring_formulas": {
+    "gps_quality": {
+      "description": "Percentage of GPS messages with Status >= 3 (full 3D fix)",
+      "formula": "count(GPS messages with Status >= 3) / count(all GPS messages) * 100"
+    },
+    "ekf_health": {
+      "description": "EKF health inversely proportional to peak variance",
+      "formula": "max(0, 100 - peak_EKF4_Variance * 80)"
+    },
+    "vibration_level": {
+      "description": "Vibration health based on peak Z-axis vibration",
+      "formula": "max(0, 100 - max(0, peak_VIBE_VibeZ - 10) * 2)"
+    },
+    "parameter_compliance": {
+      "description": "Percentage of checked parameters within their defined [min, max] ranges",
+      "formula": "count(compliant_params) / count(checked_params) * 100",
+      "notes": "checked_params = parameters present in both the flight log and param_ranges.json. Use the last logged value for each parameter (last-write-wins for duplicates)."
+    },
+    "mode_stability": {
+      "description": "Mode stability penalizing unplanned mode transitions",
+      "formula": "max(0, 100 - count(MODE messages with Reason >= 2) * 25)"
+    }
+  },
+  "composite_score": {
+    "formula": "round(sum(weight_i * raw_score_i for each component), 2)",
+    "note": "Compute weighted sum from unrounded sub-scores, then round the composite to 2 decimal places. Report each sub-score rounded to 2 decimals."
+  },
+  "risk_classification": {
+    "low": "composite_score >= 80",
+    "moderate": "60 <= composite_score < 80",
+    "high": "40 <= composite_score < 60",
+    "critical": "composite_score < 40"
+  },
+  "anomaly_types": {
+    "gps_glitch": {
+      "detection": "First GPS message where Status drops strictly below 2",
+      "physical_meaning": "GPS receiver lost satellite lock quality below minimum usable threshold"
+    },
+    "ekf_divergence": {
+      "detection": "First EKF4 message where Variance strictly exceeds the FS_EKF_THRESH parameter value (use the last logged value of FS_EKF_THRESH from PARM messages)",
+      "physical_meaning": "Extended Kalman Filter state estimation has diverged beyond safe operational bounds"
+    },
+    "mechanical_vibration": {
+      "detection": "First VIBE message where VibeZ strictly exceeds 30.0 m/s/s",
+      "physical_meaning": "Airframe vibration levels indicate mechanical degradation (propeller imbalance, bearing wear, or structural resonance)"
+    }
+  },
+  "root_cause_determination": "The root_cause is the event type of the chronologically earliest anomaly. If no anomalies are detected, root_cause is 'none'.",
+  "fault_chain_analysis": {
+    "description": "Construct a causal fault propagation chain for each flight. Detect all anomaly events per anomaly_types definitions, order them chronologically, and classify each event's causal relationship to prior events in the chain.",
+    "causal_relationships": {
+      "mechanical_vibration -> ekf_divergence": "Excessive airframe vibration saturates the IMU accelerometers, corrupting the inertial measurements that feed the EKF's prediction step. The resulting noisy state propagation causes estimation variance to exceed safe thresholds.",
+      "gps_glitch -> ekf_divergence": "GPS provides the primary position observation for the EKF's measurement update step. When GPS lock degrades below usable quality, the EKF loses its correction source and the state estimate drifts, causing variance growth."
+    },
+    "no_causal_paths": "No other causal relationships exist between the defined anomaly types. Specifically: ekf_divergence does not cause gps_glitch or mechanical_vibration, and gps_glitch does not cause mechanical_vibration. Vibration is a mechanical phenomenon independent of navigation state.",
+    "classification_rules": {
+      "primary": "The chronologically first anomaly event in the flight",
+      "secondary": "An anomaly that occurs after one or more prior anomalies AND a known causal pathway exists from at least one prior anomaly to this event type",
+      "independent": "An anomaly that occurs after one or more prior anomalies BUT no known causal pathway exists from any prior anomaly to this event type"
+    }
+  },
+  "failsafe_assessment": {
+    "description": "Evaluate the timeliness of the autopilot's autonomous failsafe response. An autonomous mode transition is defined as any MODE message where Reason >= 2 (values 0 and 1 represent initial state and pilot-commanded transitions respectively).",
+    "response_delay": "Computed as the time difference in seconds between the first detected anomaly (any type) and the first autonomous mode transition.",
+    "classification": {
+      "timely": "response_delay <= 10 seconds",
+      "delayed": "response_delay > 10 seconds",
+      "not_applicable": "No anomalies were detected OR no autonomous mode transition occurred during the flight"
+    }
+  },
+  "airworthiness_classification": {
+    "description": "Holistic vehicle airworthiness determination based on the complete flight profile — sensor anomaly history and parameter compliance.",
+    "classifications": {
+      "airworthy": "No sensor anomalies detected (empty fault chain) AND no misconfigured parameters",
+      "conditional": "No sensor anomalies detected (empty fault chain) BUT one or more parameters are misconfigured — vehicle may fly only after parameter correction",
+      "grounded": "One or more sensor anomalies detected (non-empty fault chain) — vehicle requires physical inspection before any further flight"
+    }
+  },
+  "required_actions": {
+    "description": "Mandatory maintenance and configuration actions that must be completed before the vehicle's next flight, determined by fault chain contents and parameter compliance status.",
+    "action_triggers": {
+      "mechanical_inspection": "Required when mechanical_vibration appears in the fault chain as primary or independent (indicating a distinct mechanical degradation event, not a secondary effect of another failure)",
+      "gps_inspection": "Required when gps_glitch appears in the fault chain as primary or independent",
+      "ekf_calibration": "Required when ekf_divergence appears in the fault chain as primary (indicating the EKF diverged without an identifiable upstream sensor failure)",
+      "parameter_update": "Required when the vehicle has any misconfigured parameters"
+    },
+    "output": "Alphabetically sorted list of applicable actions"
+  },
+  "fleet_recommendation": {
+    "description": "Fleet-level operational recommendation synthesized from individual vehicle airworthiness determinations and systemic issue analysis.",
+    "rules": {
+      "full_ground": "All vehicles in the fleet are grounded",
+      "fleet_review": "One or more vehicles are grounded AND systemic parameter issues (misconfigured across ALL vehicles) exist — the systemic defect may indicate a fleet-wide configuration or maintenance process failure requiring comprehensive review",
+      "partial_ground": "One or more vehicles are grounded BUT no systemic parameter issues exist — failures are isolated to individual vehicles",
+      "continue_operations": "All vehicles are airworthy or conditional (none grounded)"
+    },
+    "priority": "When multiple rules match, apply the highest-severity rule: full_ground > fleet_review > partial_ground > continue_operations"
+  }
+}

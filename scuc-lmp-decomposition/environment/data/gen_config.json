@@ -1,0 +1,34 @@
+{
+    "G1": {
+        "min_up_time": 4,
+        "min_down_time": 3,
+        "startup_ramp": 200,
+        "shutdown_ramp": 200,
+        "initial_status": 4,
+        "initial_power": 210.0
+    },
+    "G2": {
+        "min_up_time": 2,
+        "min_down_time": 2,
+        "startup_ramp": 100,
+        "shutdown_ramp": 100,
+        "initial_status": -24,
+        "initial_power": 0.0
+    },
+    "G3": {
+        "min_up_time": 1,
+        "min_down_time": 1,
+        "startup_ramp": 80,
+        "shutdown_ramp": 80,
+        "initial_status": -24,
+        "initial_power": 0.0
+    },
+    "G4": {
+        "min_up_time": 1,
+        "min_down_time": 1,
+        "startup_ramp": 60,
+        "shutdown_ramp": 60,
+        "initial_status": -24,
+        "initial_power": 0.0
+    }
+}

@@ -1,0 +1,88 @@
+BLLC Binary Format Specification v1
+====================================
+
+BLLC (BLE Link Layer Capture) is a binary format for storing captured
+BLE Link Layer PDUs with timestamps and direction metadata.
+
+All multi-byte integers are little-endian unless stated otherwise.
+
+File Header (10 bytes)
+----------------------
+  Offset  Size  Field
+  0       4     Magic: ASCII "BLLC" (0x42 0x4C 0x4C 0x43)
+  4       2     Version: uint16 (currently 0x0001)
+  6       4     PacketCount: uint32 (number of packet records)
+
+Packet Record (variable length, repeated PacketCount times)
+-----------------------------------------------------------
+  Offset  Size  Field
+  0       8     Timestamp: uint64 (microseconds since capture start)
+  8       1     Direction: uint8
+                  0x00 = Central -> Peripheral
+                  0x01 = Peripheral -> Central
+  9       2     PDULength: uint16 (length of the LL PDU in bytes)
+  11      N     PDU: raw BLE Link Layer PDU (N = PDULength)
+
+BLE Link Layer PDU Format
+-------------------------
+The PDU consists of a 2-byte header followed by a variable-length payload.
+
+  Header byte 0:
+    Bits [1:0]  LLID  - Link Layer ID
+                  0b01 (0x01) = LL Data PDU (empty or continuation)
+                  0b10 (0x02) = LL Data PDU (start of L2CAP or complete)
+                  0b11 (0x03) = LL Control PDU
+    Bit  [2]    NESN  - Next Expected Sequence Number
+    Bit  [3]    SN    - Sequence Number
+    Bit  [4]    MD    - More Data
+    Bits [7:5]  RFU   - Reserved for Future Use
+
+  Header byte 1:
+    Bits [7:0]  Length - Payload length in bytes
+
+  Payload:
+    [Length] bytes of payload data
+
+LL Control PDU Payload Format (LLID = 0x03)
+-------------------------------------------
+The payload of a control PDU starts with a 1-byte opcode followed by
+opcode-specific CtrData:
+
+  Byte 0:     Opcode
+  Bytes 1..N: CtrData (opcode-dependent, may be empty)
+
+Control Opcodes:
+  0x00  LL_CONNECTION_UPDATE_IND  CtrData: 12 bytes
+  0x01  LL_CHANNEL_MAP_IND        CtrData: 8 bytes
+  0x02  LL_TERMINATE_IND          CtrData: 1 byte (ErrorCode)
+  0x03  LL_ENC_REQ                CtrData: 22 bytes
+          Rand:  8 bytes
+          EDIV:  2 bytes (uint16)
+          SKDm:  8 bytes
+          IVm:   4 bytes
+  0x04  LL_ENC_RSP                CtrData: 12 bytes
+          SKDs:  8 bytes
+          IVs:   4 bytes
+  0x05  LL_START_ENC_REQ          CtrData: 0 bytes
+  0x06  LL_START_ENC_RSP          CtrData: 0 bytes
+  0x07  LL_UNKNOWN_RSP            CtrData: 1 byte (UnknownType)
+  0x08  LL_FEATURE_REQ            CtrData: 8 bytes (FeatureSet)
+  0x09  LL_FEATURE_RSP            CtrData: 8 bytes (FeatureSet)
+  0x0A  LL_PAUSE_ENC_REQ          CtrData: 0 bytes
+  0x0B  LL_PAUSE_ENC_RSP          CtrData: 0 bytes
+  0x0C  LL_VERSION_IND            CtrData: 5 bytes
+          VersNr:    1 byte
+          CompId:    2 bytes (uint16)
+          SubVersNr: 2 bytes (uint16)
+  0x0D  LL_REJECT_IND             CtrData: 1 byte (ErrorCode)
+  0x0E  LL_SLAVE_FEATURE_REQ      CtrData: 8 bytes (FeatureSet)
+  0x0F  LL_CONNECTION_PARAM_REQ   CtrData: 24 bytes
+  0x10  LL_CONNECTION_PARAM_RSP   CtrData: 24 bytes
+  0x11  LL_REJECT_EXT_IND         CtrData: 2 bytes
+  0x12  LL_PING_REQ               CtrData: 0 bytes
+  0x13  LL_PING_RSP               CtrData: 0 bytes
+  0x14  LL_LENGTH_REQ             CtrData: 8 bytes
+  0x15  LL_LENGTH_RSP             CtrData: 8 bytes
+  0x16  LL_PHY_REQ                CtrData: 2 bytes
+  0x17  LL_PHY_RSP                CtrData: 2 bytes
+  0x18  LL_PHY_UPDATE_IND         CtrData: 4 bytes

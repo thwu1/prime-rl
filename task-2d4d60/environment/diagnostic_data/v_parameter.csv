@@ -1,0 +1,14 @@
+name,value,description
+db_cache_size,536870912,Size of DEFAULT buffer cache
+shared_pool_size,268435456,Size of shared pool
+pga_aggregate_target,268435456,Target size for aggregate PGA memory
+log_buffer,8388608,Size of redo log buffer
+cursor_sharing,EXACT,Cursor sharing mode
+sga_target,0,Target size of SGA
+memory_target,0,Target size of memory for AMM
+db_block_size,8192,Size of database block
+optimizer_mode,ALL_ROWS,Optimizer mode
+statistics_level,TYPICAL,Statistics collection level
+result_cache_mode,MANUAL,Result cache mode
+db_file_multiblock_read_count,128,DB file multiblock read count
+sga_max_size,2147483648,Maximum size of SGA

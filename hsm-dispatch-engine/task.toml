@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete UML Statechart dispatch engine from scratch in C with no algorithmic guidance — only the API contract (types, return codes, macros) and a test state machine are provided. The implementer must independently derive the correct algorithms for runtime state-hierarchy discovery, hierarchical event propagation with guard-condition fallthrough, transition-path computation between arbitrary states in the hierarchy tree, correct entry/exit action ordering across multiple nesting levels, recursive initial-transition drill-down in composite states, and self-transition semantics. The 18-event test suite exercises all interacting edge cases simultaneously (cross-branch, parent-to-child, child-to-parent, guard alternation, deep ancestor transitions) so partial or approximately-correct algorithms fail. This demands expert-level understanding of UML Statechart formalism and the ability to synthesize a correct multi-phase dispatch algorithm from first principles."""
+solution_explanation = """Build ancestor chains for source and target states by iteratively querying superstates with HSM_SIG_EMPTY, compute the LCA by walking both chains backwards from hsm_top until they diverge, exit source-side states below the LCA bottom-up, enter target-side states below the LCA top-down, and then drill into nested initial transitions recursively. Self-transitions are handled as a special case (exit then re-enter). The init function builds an entry path from the initial target up to hsm_top and enters states top-down before drilling into nested inits."""
+verification_explanation = """18 carefully chosen events are dispatched through a 6-state hierarchical state machine with guard conditions. Each event produces a deterministic trace string of entry/exit/init/action tokens. The test suite builds the project, runs the binary, and compares actual program output line-by-line against expected traces that cover all HSM transition types: self-transitions, sibling transitions, cross-branch transitions, parent-to-child, child-to-parent, guard-conditioned dispatch, internal transitions, and deep ancestor transitions."""
+category = "systems_programming"
+tags = ["embedded_systems", "state_machines"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hsm-dispatch-engine"

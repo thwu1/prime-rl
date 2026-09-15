@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across five distinct areas of structural mechanics with no algorithmic guidance: (1) thermoelasticity for thick cylinders requiring correct formulation of combined pressure and thermal loading in plane strain, including evaluation of definite integrals of the temperature-weighted radial coordinate; (2) fluid-structure interaction eigenvalue analysis requiring derivation and numerical solution of a nonlinear frequency equation with singularities; (3) structural stability theory for beams on elastic foundations requiring derivation of the mode-dependent critical load expression and discrete optimization over integer half-wave numbers; (4) computational plasticity requiring implementation of incremental constitutive integration with elastic prediction, yield checking, plastic correction, and hardening state tracking through loading reversals; (5) composite laminate mechanics requiring implementation of ply-level stiffness transformations, extensional stiffness matrix assembly, matrix inversion for compliance, and back-transformation of strains and stresses to ply material coordinate systems. The solver must independently identify the correct mathematical formulation for each domain from the JSON specifications alone."""
+solution_explanation = """The solution implements five analytical/semi-analytical solvers: (1) Lame + thermoelastic stress superposition for plane-strain hollow cylinder with logarithmic T(r), computing integrals analytically; (2) scipy root-finding for x*tan(x) = rho*S*L/m; (3) discrete minimization of P_cr(n) = n^2*pi^2*EI/L^2 + kL^2/(n^2*pi^2) over integer n; (4) incremental elastoplastic integration with radial return mapping and isotropic hardening; (5) Classical Lamination Theory with transformed reduced stiffness matrices Q_bar, extensional stiffness matrix A assembly, compliance inversion, and ply-level stress recovery via strain transformation to material coordinates."""
+verification_explanation = """Tests independently compute all expected values using the same analytical formulas (implemented separately in the test file) and compare against the solver's JSON output. Thick cylinder values are verified against the integral-based thermoelastic formulas. The piston-fluid frequency is verified by checking the transcendental equation residual. Foundation buckling is verified by exhaustive mode search. Plasticity results are verified against exact closed-form uniaxial solutions. Composite laminate results are verified against independent CLT computation with additional physics-based checks: quasi-isotropic symmetry (Ex=Ey), isotropic shear relation G=E/(2(1+nu)), zero shear strain, correct sign of ply fiber stresses, and global equilibrium. All comparisons use relative tolerances of 1e-4 or absolute tolerances of 1e-6."""
+category = "applied_computing"
+tags = ["structural-mechanics", "finite-element-verification"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fem-verification-engine"

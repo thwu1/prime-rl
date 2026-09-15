@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DDSketch Pipeline Evaluation Report",
+  "description": "Combined pipeline results, SLO compliance analysis, and configuration benchmark evaluation",
+  "type": "object",
+  "required": ["pipeline_report", "slo_evaluation", "benchmark"],
+  "properties": {
+    "pipeline_report": {
+      "type": "object",
+      "required": ["windows", "anomalies", "sketch_stats"],
+      "properties": {
+        "windows": {
+          "type": "object",
+          "description": "Map from window_id (string '0'..'19') to window results",
+          "patternProperties": {
+            "^[0-9]+$": {
+              "type": "object",
+              "required": ["total_count", "quantiles", "collapsed_quantiles"],
+              "properties": {
+                "total_count": {
+                  "type": "integer",
+                  "description": "Number of values ingested in this window across all hosts"
+                },
+                "quantiles": {
+                  "type": "object",
+                  "description": "Uncollapsed DDSketch quantile estimates keyed by quantile level",
+                  "required": ["0.5", "0.9", "0.95", "0.99"],
+                  "patternProperties": {
+                    "^0\\.[0-9]+$": {"type": "number"}
+                  }
+                },
+                "collapsed_quantiles": {
+                  "type": "object",
+                  "description": "Memory-bounded (collapsed) DDSketch quantile estimates",
+                  "required": ["0.5", "0.9", "0.95", "0.99"],
+                  "patternProperties": {
+                    "^0\\.[0-9]+$": {"type": "number"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "description": "Detected anomalous windows based on p99 relative change exceeding the configured threshold",
+          "items": {
+            "type": "object",
+            "required": ["window_id", "quantile", "previous_value", "current_value", "relative_change"],
+            "properties": {
+              "window_id": {"type": "integer"},
+              "quantile": {"type": "string", "const": "0.99"},
+              "previous_value": {"type": "number"},
+              "current_value": {"type": "number"},
+              "relative_change": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "sketch_stats": {
+          "type": "object",
+          "required": ["max_buckets_used", "collapsed_max_buckets_used", "total_values_ingested"],
+          "properties": {
+            "max_buckets_used": {
+              "type": "integer",
+              "description": "Peak bucket count across all uncollapsed merged window sketches"
+            },
+            "collapsed_max_buckets_used": {
+              "type": "integer",
+              "description": "Peak bucket count across all collapsed merged window sketches"
+            },
+            "total_values_ingested": {
+              "type": "integer",
+              "description": "Total number of latency values processed"
+            }
+          }
+        }
+      }
+    },
+    "slo_evaluation": {
+      "type": "object",
+      "required": ["target_p99_ms", "ewma_decay", "overall_compliance_pct", "windows", "breach_windows"],
+      "properties": {
+        "target_p99_ms": {
+          "type": "number",
+          "description": "SLO target for p99 latency in milliseconds, from config.yaml"
+        },
+        "ewma_decay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "EWMA decay factor for compliance smoothing, from config.yaml"
+        },
+        "overall_compliance_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of windows meeting the SLO target (100 * compliant_count / total_windows)"
+        },
+        "windows": {
+          "type": "object",
+          "description": "Per-window SLO compliance details keyed by window_id string ('0'..'19')",
+          "patternProperties": {
+            "^[0-9]+$": {
+              "type": "object",
+              "required": ["p99", "compliant", "breach_severity", "ewma_score"],
+              "properties": {
+                "p99": {
+                  "type": "number",
+                  "description": "Pipeline's p99 estimate for this window (from the pipeline report)"
+                },
+                "compliant": {
+                  "type": "boolean",
+                  "description": "True if this window's p99 is at or below target_p99_ms, false otherwise"
+                },
+                "breach_severity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "0.0 if compliant. For non-compliant windows: (p99 - target_p99_ms) / target_p99_ms"
+                },
+                "ewma_score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "EWMA-smoothed compliance score after processing this window. Initialized at 1.0 before the first window. Updated per window in sequential order (window 0, 1, ..., 19): ewma = decay * indicator + (1 - decay) * prev_ewma, where indicator is 1.0 if this window's p99 <= target_p99_ms and 0.0 otherwise. Round to 4 decimal places."
+                }
+              }
+            }
+          }
+        },
+        "breach_windows": {
+          "type": "array",
+          "items": {"type": "integer"},
+          "description": "List of window_ids where p99 exceeded the SLO target, in ascending order"
+        }
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "required": ["configurations_tested", "results", "pareto_optimal", "recommendation"],
+      "properties": {
+        "configurations_tested": {
+          "type": "integer",
+          "description": "Total number of (alpha, max_buckets) configurations evaluated"
+        },
+        "results": {
+          "type": "array",
+          "description": "Accuracy and memory results for each tested configuration",
+          "items": {
+            "type": "object",
+            "required": ["alpha", "max_buckets", "max_relative_error", "mean_relative_error", "memory_buckets", "p99_max_relative_error"],
+            "properties": {
+              "alpha": {
+                "type": "number",
+                "description": "DDSketch relative error parameter"
+              },
+              "max_buckets": {
+                "type": "integer",
+                "description": "Configured maximum bucket count for collapsing"
+              },
+              "max_relative_error": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Worst-case relative error across ALL windows and ALL quantile levels (0.5, 0.9, 0.95, 0.99)"
+              },
+              "mean_relative_error": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Average relative error across all windows and all quantile levels"
+              },
+              "memory_buckets": {
+                "type": "integer",
+                "description": "Peak number of buckets actually used across all merged window sketches (after collapsing)"
+              },
+              "p99_max_relative_error": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Worst-case relative error specifically for the p99 quantile across all windows. Isolates tail-latency accuracy from overall error. DDSketch's low-end collapsing preserves tail accuracy, so this value should remain close to alpha even when overall max_relative_error is elevated by low-quantile degradation."
+              }
+            }
+          }
+        },
+        "pareto_optimal": {
+          "type": "array",
+          "description": "Configurations not dominated on (p99_max_relative_error, memory_buckets). A configuration is Pareto-optimal if no other tested configuration has both lower-or-equal p99_max_relative_error AND lower-or-equal memory_buckets with strict improvement on at least one dimension. Uses p99 error (not overall error) because tail-quantile accuracy is the primary concern for latency monitoring — DDSketch's collapsing is specifically designed to preserve this property.",
+          "items": {
+            "type": "object",
+            "required": ["alpha", "max_buckets"],
+            "properties": {
+              "alpha": {"type": "number"},
+              "max_buckets": {"type": "integer"}
+            }
+          }
+        },
+        "recommendation": {
+          "type": "object",
+          "required": ["alpha", "max_buckets", "reason"],
+          "description": "Recommended configuration: the Pareto-optimal config with the lowest p99_max_relative_error. Tail-quantile accuracy is prioritized for latency SLO compliance.",
+          "properties": {
+            "alpha": {"type": "number"},
+            "max_buckets": {"type": "integer"},
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Justification for the recommendation"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of CUDA shared memory banking architecture, warp-level execution semantics, and bank conflict/broadcast mechanics — none of which are explained in the task. The agent must consult NVIDIA documentation to learn the banking model, implement correct warp-level access simulation, handle broadcast detection, and discover counter-intuitive behavior (e.g., B-tile row padding being ineffective when all threads read the same row). Additionally requires C shared library compilation via make, foreign function interface usage to call C from Python, and SQLite database interaction for both input and output — multiple toolchains that must interoperate correctly."""
+solution_explanation = """Build the C shared library from source. Read kernel configs and hardware params from the SQLite database. For each kernel, simulate every warp access event in the compute phase: compute element addresses using the C library's row_major_addr function, map to banks via compute_bank, group distinct addresses per bank, and count conflicts as max(distinct_per_bank) - 1 with broadcast handling (same address = single hit). Sweep skew values 0-32 to find minimal-conflict padding per tile. Write results to both JSON and a new SQLite database."""
+verification_explanation = """Tests verify: (1) the C shared library was compiled, (2) results.json contains exact integer values for all fields across three kernel configurations with different conflict patterns, (3) analysis.db SQLite table exists with matching values, (4) JSON and SQLite outputs are consistent, (5) cross-scenario invariants hold (totals = sum of tile conflicts, padding never increases conflicts)."""
+category = "gpu_systems"
+tags = ["cuda", "memory_optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gemm-bank-conflicts"

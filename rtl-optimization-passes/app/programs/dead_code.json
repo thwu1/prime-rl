@@ -1,0 +1,13 @@
+{
+  "name": "dead_code",
+  "params": ["r0"],
+  "entry": 1,
+  "code": {
+    "1": {"type": "Iop", "op": "const", "args": [], "dest": "r1", "succ": 2, "imm": 2},
+    "2": {"type": "Iop", "op": "const", "args": [], "dest": "r2", "succ": 3, "imm": 99},
+    "3": {"type": "Iop", "op": "mul", "args": ["r0", "r1"], "dest": "r3", "succ": 4},
+    "4": {"type": "Iop", "op": "const", "args": [], "dest": "r4", "succ": 5, "imm": 7},
+    "5": {"type": "Iop", "op": "mul", "args": ["r3", "r3"], "dest": "r5", "succ": 6},
+    "6": {"type": "Ireturn", "arg": "r5"}
+  }
+}

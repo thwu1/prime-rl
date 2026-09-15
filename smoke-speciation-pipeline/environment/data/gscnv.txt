@@ -1,0 +1,5 @@
+# Pollutant-to-Pollutant Conversion Factors
+# Assignment by Speciation Profile ID
+#BY PROFILE
+VOC,TOG,0007,1.205
+VOC,TOG,9999,1.150

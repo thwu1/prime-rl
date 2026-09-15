@@ -1,0 +1,6 @@
+{
+  "strut_radius": 0.5,
+  "node_radius": 0.8,
+  "connection_distance": 11.0,
+  "circular_segments": 20
+}

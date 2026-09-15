@@ -1,0 +1,81 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires diagnosing and fixing cascading defects across four TypeScript
+source files plus a build configuration, then designing and implementing
+a non-trivial subsystem from scratch. The TypeScript build configuration
+has three interacting errors (module format, module resolution strategy,
+output directory) that must be resolved together before any runtime
+behavior is observable. The ICU MessageFormat parser has a context-
+sensitive apostrophe quoting bug affecting hash tokens in plural/
+selectordinal branches. The formatter has two subtle bugs: a falsy-value
+coercion error that treats 0 as empty, and an exact-match selector that
+incorrectly uses the offset-adjusted value instead of the raw input.
+Most critically, the CLDR plural rule evaluator is a minimal stub that
+only handles simple equality checks — it cannot evaluate modulus
+operations, inclusive ranges, inequality comparisons, or boolean or/and
+connectives. The solver must study the CLDR JSON data files to discover
+the expression grammar, then design and implement a complete expression
+parser/evaluator supporting operator precedence (or vs and), relational
+operators with optional modulus, comma-separated range lists with
+inclusive N..M ranges, and all six CLDR operands. Without a working
+evaluator, plural resolution for Russian, Polish, Arabic (few/many),
+Portuguese, and English ordinals produces incorrect categories.
+"""
+solution_explanation = """
+1. Fix tsconfig.json: change module from "esnext" to "commonjs",
+   moduleResolution from "bundler" to "node", and outDir from
+   "./build" to "./dist" — these three settings interact: bundler
+   moduleResolution is incompatible with commonjs module output.
+2. Fix parser.ts: add hashCtx check in the parseLiteral apostrophe
+   quoting logic so '#' is treated as a quoting trigger character
+   in plural/selectordinal contexts.
+3. Fix formatter.ts: replace the falsy check (!val) with explicit
+   checks for false, null, undefined so 0 formats as "0". Change
+   exact-match key from offsetVal to rawVal.
+4. Rewrite plural-rules.ts: fix CLDR data section keys from
+   "plurals"/"ordinals" to "plurals-type-cardinal"/"plurals-type-
+   ordinal". Design and implement a full CLDR plural rule expression
+   evaluator with: (a) or-disjunction and and-conjunction with
+   correct precedence, (b) relational operators (= and !=) with
+   optional modulus (%), (c) comma-separated range lists supporting
+   both single values and inclusive N..M ranges, (d) all CLDR
+   operands (n, i, v, w, f, t) computed from the input number.
+"""
+verification_explanation = """
+The test suite runs the CLI on 120+ ICU MessageFormat patterns covering
+basic argument formatting, cardinal plural resolution for 8 locales
+(en, fr, ar, cy, ru, pt, pl, ja), ordinal resolution for English,
+exact-match priority, offset/hash replacement, select constructs,
+nested constructs with hash scoping, prototype pollution safety,
+apostrophe quoting edge cases, combined multi-feature patterns with
+Polish/Arabic plural rules plus offset, and CLDR edge cases exercising
+modulus + range + inequality interactions. Each test asserts exact
+string output via subprocess invocation.
+"""
+category = "internationalization"
+tags = ["typescript", "debugging", "cldr", "build-configuration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/icu-plural-formatter"

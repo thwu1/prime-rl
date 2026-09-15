@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quarterly Report - Acme Corp</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #ffffff; color: #333333; }
+        table { border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #cccccc; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        table.layout { border: none; width: 100%; }
+        table.layout td { border: none; vertical-align: top; }
+        .priority-high::before { content: "[URGENT] "; color: #cc0000; font-weight: bold; }
+        .chart-container { border: 1px solid #cccccc; padding: 20px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Q2 2026 Quarterly Report</h1>
+
+    <div style="font-size: 24px; font-weight: bold; margin: 20px 0 10px 0;">Executive Summary</div>
+    <p>This report covers performance metrics for the second quarter of fiscal year 2026.</p>
+
+    <h2>Key Metrics</h2>
+    <table id="performance-table">
+        <thead>
+            <tr>
+                <th scope="col">Metric</th>
+                <th scope="col">Q1 2026</th>
+                <th scope="col">Q2 2026</th>
+                <th scope="col">Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Total Revenue</td>
+                <td>$3.65M</td>
+                <td>$4.20M</td>
+                <td>+15.1%</td>
+            </tr>
+            <tr>
+                <td>Operating Margin</td>
+                <td>18.2%</td>
+                <td>21.5%</td>
+                <td>+3.3pp</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Regional Breakdown</h2>
+    <table class="layout" role="table">
+        <tr>
+            <td>
+                <h3>North America</h3>
+                <p>Revenue: $2.1M | Growth: 12%</p>
+            </td>
+            <td>
+                <h3>Europe</h3>
+                <p>Revenue: $1.4M | Growth: 22%</p>
+            </td>
+            <td>
+                <h3>Asia Pacific</h3>
+                <p>Revenue: $0.7M | Growth: 18%</p>
+            </td>
+        </tr>
+    </table>
+
+    <h2>Action Items</h2>
+    <p class="priority-high">Complete quarterly tax filing by June 30.</p>
+    <p>Review marketing budget allocation for Q3.</p>
+
+    <h2>Charts and Data</h2>
+    <img src="revenue-chart.png" alt="Bar chart showing quarterly revenue growth from Q1 2025 through Q2 2026">
+    <img src="decorative-border.png" alt="Colorful wave pattern separating content sections">
+
+    <div class="chart-container">
+        <iframe src="/widgets/live-dashboard" width="100%" height="400"></iframe>
+    </div>
+</body>
+</html>

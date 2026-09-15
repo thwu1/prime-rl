@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the SBML Level 3 specification, including the subtle semantics of hasOnlySubstanceUnits, amount vs concentration output conversion, rate rule vs reaction-driven ODEs, assignment rule evaluation order, and event detection with trigger state tracking. The agent must parse domain-specific XML with embedded MathML mathematical expressions, construct the correct ODE system from multiple interacting SBML constructs (reactions, rate rules, assignment rules), implement or configure a numerical integrator with event root-finding, and handle the variable-compartment case where substance amounts and concentrations diverge. Each model tests a distinct SBML semantic trap that commonly causes conformance failures in real simulator implementations."""
+solution_explanation = """Parse SBML XML with Python's xml.etree to extract compartments, species, parameters, reactions, rules, and events. Convert MathML subtrees into callable Python functions. For reactions, compute species rate contributions as stoichiometry * kineticLaw, noting that species symbols represent concentrations when hasOnlySubstanceUnits is false. For rate rules, directly define d/dt of the target variable. Assignment rules are evaluated algebraically at each step. Events require monitoring trigger expressions for false-to-true transitions and applying event assignments at crossing points. Use scipy.integrate.solve_ivp with event detection for the sawtooth model. For output, convert between amount and concentration using compartment size as specified by the settings file."""
+verification_explanation = """Tests run the simulator on all four provided cases and compare output against reference data using the SBML tolerance formula |C_ij - U_ij| <= (T_a + T_r * |C_ij|). Reference data is kept exclusively in the tests directory, inaccessible to the agent during solving. Additionally, tests dynamically generate perturbed model variants at test time — modifying initial conditions and rate constants — and verify the simulator produces physically correct results (mass conservation, correct initial values, changed dynamics). This prevents hardcoded or copied outputs."""
+category = "scientific_computing"
+tags = ["sbml", "ode-simulation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sbml-ode-simulator-eb74a2"

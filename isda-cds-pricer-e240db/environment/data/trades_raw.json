@@ -1,0 +1,51 @@
+{
+  "feed_version": "2.1",
+  "feed_timestamp": "2014-01-03T18:45:00Z",
+  "market_data": {
+    "valuation_date": "2014-01-03",
+    "stepin_date": "2014-01-04",
+    "recovery_rate_pct": 25.0
+  },
+  "portfolio": {
+    "currency": "USD",
+    "notional_usd": 10000000.0,
+    "coupon_bps": 500,
+    "positions": [
+      {
+        "trade_id": "nextday",
+        "side": "BUY",
+        "effective_date": "2014-01-04",
+        "termination_date": "2020-10-20",
+        "payment_frequency": "QUARTERLY"
+      },
+      {
+        "trade_id": "before",
+        "side": "SELL",
+        "effective_date": "2013-12-20",
+        "termination_date": "2024-09-20",
+        "payment_frequency": "QUARTERLY"
+      },
+      {
+        "trade_id": "after",
+        "side": "BUY",
+        "effective_date": "2014-03-20",
+        "termination_date": "2029-12-20",
+        "payment_frequency": "QUARTERLY"
+      }
+    ]
+  },
+  "model_conventions": {
+    "accrual_on_default": "ORIGINAL_ISDA",
+    "accrual_day_count": "ACT_360",
+    "curve_day_count": "ACT_365F",
+    "curve_interpolation": "PRODUCT_LINEAR",
+    "left_extrapolation": "FLAT_ZERO_RATE",
+    "right_extrapolation": "PRODUCT_LINEAR",
+    "business_day_calendar": "SAT_SUN",
+    "schedule_stub": "SHORT_INITIAL",
+    "schedule_bda": "FOLLOWING",
+    "start_date_bda": "NONE",
+    "end_date_bda": "NONE",
+    "roll_day_rule": "END_DATE_DAY_OF_MONTH"
+  }
+}

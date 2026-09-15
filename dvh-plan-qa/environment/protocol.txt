@@ -1,0 +1,42 @@
+Radiotherapy Plan QA Protocol — Head & Neck Clinical Trial
+==========================================================
+
+This document defines the quality assurance criteria for head-and-neck
+intensity-modulated radiotherapy (IMRT) treatment plans submitted to the
+multi-site clinical trial.
+
+Structure Nomenclature (TG-263):
+  PTV70       — Planning Target Volume, 70 Gy prescription
+  Brainstem   — Brainstem
+  Parotid_L   — Left Parotid Gland
+  Parotid_R   — Right Parotid Gland
+  SpinalCord  — Spinal Cord
+
+Note: Submitted structure sets may contain additional non-protocol
+structures (e.g., body contours, bolus, rings). Only the structures
+listed above are subject to protocol evaluation.
+
+Dosimetric Constraints:
+  Structure    Metric    Requirement
+  ---------    ------    -----------
+  PTV70        D95       >= 66.5 Gy
+  PTV70        D2        <= 77.0 Gy
+  Brainstem    Dmax      <= 54.0 Gy
+  SpinalCord   Dmax      <= 45.0 Gy
+  Parotid_L    Dmean     <= 26.0 Gy
+  Parotid_R    Dmean     <= 26.0 Gy
+
+Plan Quality Indices:
+  Homogeneity Index (HI) per ICRU Report 83, evaluated for PTV.
+  Protocol requirement: HI < 0.10
+
+DVH Reporting:
+  For each evaluable structure, report standard dose-volume metrics
+  including Dx (dose to x% volume), Vx (volume receiving x Gy),
+  Dcc (dose to absolute volume in cc), Dmean, and Dmax.
+  Dmax is defined as D0.03cc per ICRU Report 83.
+  All reported doses must be in Gray (Gy).
+
+Data Submissions:
+  Submissions from participating sites vary in naming conventions
+  and formatting. The QA audit must handle all submitted data correctly.

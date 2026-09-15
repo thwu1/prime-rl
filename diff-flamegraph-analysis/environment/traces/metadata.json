@@ -1,0 +1,17 @@
+{
+  "before": {
+    "version": "v2.4.1",
+    "duration_seconds": 30,
+    "sample_rate_hz": 99,
+    "timestamp": "2024-11-15T02:30:00Z",
+    "description": "Production profile before deployment v2.5.0"
+  },
+  "after": {
+    "version": "v2.5.0",
+    "duration_seconds": 60,
+    "sample_rate_hz": 99,
+    "timestamp": "2024-11-15T14:45:00Z",
+    "description": "Production profile after deployment v2.5.0, collected during peak traffic"
+  },
+  "notes": "Profiles collected at different times and for different durations. Raw sample counts are NOT directly comparable."
+}

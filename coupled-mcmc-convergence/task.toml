@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level MCMC theory (couplings, convergence diagnostics, proposal design) combined with multi-tool proficiency (Python, SQLite, NumPy I/O). The agent must first complete a coupled MCMC library from a mathematical specification — implementing probability couplings, a coupled sampler with meeting-time detection, an unbiased estimator with intricate index arithmetic, and convergence bounds. Then the agent must evaluate benchmark results stored in SQLite, write non-trivial SQL queries (including computing medians via window functions), and design a custom proposal covariance matrix that exploits the target distribution's correlation structure to outperform isotropic baselines. The design step requires understanding that optimal Random Walk Metropolis proposals should match the target covariance scaled by 2.38^2/d — a result from MCMC theory that is not stated in the task."""
+solution_explanation = """Implement 6 interdependent functions following spec.md: vectorized maximal coupling via rejection sampling, ReflectionMaximalCoupling using Cholesky decomposition and Householder reflection, coupled Metropolis-Hastings with lag phase and shared log-uniforms, unbiased estimator with burn-in and time-weighted bias correction, TV distance bound from pointwise ceiling formula, and Wasserstein bound via lag-spaced differences. Run the benchmark script to populate SQLite with convergence metrics. Write 3 SQL queries using CTEs and window functions (ROW_NUMBER, RANK) to analyze the results. Design the optimal proposal as (2.38^2 / 8) * target_covariance, exploiting the correlated target's off-diagonal structure."""
+verification_explanation = """Library tests use seeded RNG for determinism: maximal coupling of identical distributions always produces equal samples; reflection coupling preserves ordering for well-separated means; coupled MH detects meeting times correctly and short-circuits; unbiased estimator has correct shapes and bounded values; TV and Wasserstein are non-negative and zero after meeting. Benchmark tests verify SQLite database schema, data completeness (3 targets × 4 configs), and validity ranges. SQL tests parse the analysis file, run each query against results.db, and verify correctness against independently computed ground truth. Proposal tests check shape, symmetry, positive definiteness, non-isotropy, meeting time threshold (≤ 50 across multiple seeds), and that it beats the benchmark's best isotropic configuration."""
+category = "scientific_computing"
+tags = ["mcmc", "probability", "sqlite"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coupled-mcmc-convergence"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in physics simulation (PyBullet API, contact dynamics, multi-body articulated systems), numerical optimization, and understanding of how physical parameters (restitution, friction, damping) affect simulation trajectories. The agent must correctly replicate three distinct simulation setups from JSON configuration specs — including subtle details like disabling default joint motors, applying manual damping torques in precise order, and matching simulation engine parameters exactly — then implement parameter identification via trajectory-matching optimization. The bouncing sphere experiment is particularly challenging because the MSE landscape has discontinuities from discrete contact events, requiring robust global optimization rather than gradient-based methods."""
+solution_explanation = """For each experiment, build an identical PyBullet simulation parameterized by the unknown value, define an MSE objective between simulated and observed trajectories, and find the parameter minimizing trajectory error. Key subtleties: (1) set identical restitution/friction on both contacting bodies, (2) disable default joint motors before applying TORQUE_CONTROL, (3) apply manual damping torques in the correct order (read velocity, compute torque, apply, then step), (4) include the settling phase for the sliding block experiment, (5) use grid search for the bouncing sphere due to non-smooth MSE landscape from contact discontinuities."""
+verification_explanation = """Tests load results.json, re-simulate each experiment with the identified parameters using identical PyBullet setup code, and verify RMSE between re-simulated and original observation trajectories is below 0.01. No ground-truth parameter values are embedded in the test — verification is purely trajectory-based, confirming the parameters actually reproduce the observed dynamics."""
+category = "applied_computing"
+tags = ["physics-simulation", "parameter-identification"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/physics-parameter-id"

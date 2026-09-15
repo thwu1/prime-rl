@@ -1,0 +1,15 @@
+federation:
+  name: dual-dc
+  mgmt:
+    ipv4-base: 10.200.0.0/23
+    pod-prefix-length: 24
+  pods:
+    - name: east
+      topology: /app/pods/east.clab.yml
+      border-nodes:
+        - spine1
+    - name: west
+      topology: /app/pods/west.clab.yml
+      border-nodes:
+        - spine1
+  interconnect: full-mesh

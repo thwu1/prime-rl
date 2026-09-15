@@ -1,0 +1,24 @@
+{
+  "filtered_error_count": 8,
+  "types": {
+    "mod.f1@x": {"kind": "Instance", "origin": "int", "args": []},
+    "mod.f1@y": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.f1::return": {"kind": "Instance", "origin": "int", "args": []},
+    "mod.f2@data": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "str", "args": []}]},
+    "mod.f2@name": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.f2::return": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "str", "args": []}]},
+    "mod.Config.debug": {"kind": "Instance", "origin": "bool", "args": []},
+    "mod.Config.name": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.process@items": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "float", "args": []}]}]},
+    "mod.process::return": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.transform@matrix": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}]},
+    "mod.transform::return": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]},
+    "mod.parse@raw": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.parse::return": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}]},
+    "mod.handle@path": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.handle::return": {"kind": "Instance", "origin": "str", "args": []},
+    "mod.aggregate@values": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]},
+    "mod.aggregate@weights": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]},
+    "mod.aggregate::return": {"kind": "Instance", "origin": "float", "args": []}
+  }
+}

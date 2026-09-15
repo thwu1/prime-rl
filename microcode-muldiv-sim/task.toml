@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of vintage CPU microarchitecture — specifically the Intel 8086's microcode-level multiplication and division algorithms — combined with multi-tool interoperability across Python, Verilog HDL, and EDA simulation tools. The solver must read a dense microcode specification, infer the correct register-transfer-level behavior for both unsigned and signed operations (word and byte), correctly handle edge cases in overflow detection, flag computation, and signed pre/post-processing, then independently reimplement the multiplication engine in Verilog RTL, simulate it, and cross-validate the results via VCD waveform extraction."""
+solution_explanation = """Build a Python simulator modeling the 8086's ALU temporary registers, carry flag, F1 flag, and loop counter as described in the microcode spec. Implement the core multiply routine as a shift-and-add loop and the core divide routine as a restoring division loop. Handle signed variants via pre/post-processing routines. Then implement the multiply engine as a Verilog state machine, compile with iverilog, simulate with vvp, and parse the resulting VCD waveform to extract register traces. An orchestration script ties the pipeline together and produces the final JSON."""
+verification_explanation = """Tests verify exact numerical results for all unsigned/signed multiply and divide operations (word and byte), overflow/divide-by-zero detection, flag computation, and cycle-by-cycle register traces. Additionally, tests verify the Verilog source exists and contains proper module definitions, the VCD waveform file was produced by Icarus Verilog, and the Verilog-extracted trace matches the Python simulation trace entry-by-entry — confirming cross-tool consistency."""
+category = "reverse_engineering"
+tags = ["microcode", "verilog-simulation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microcode-muldiv-sim"

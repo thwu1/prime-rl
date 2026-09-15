@@ -1,0 +1,46 @@
+Cluster Topology — incident-cluster-prod
+==========================================
+
+Control plane: 1 node (controlplane-1)
+Worker nodes:  2 nodes (worker-node-1, worker-node-2)
+Kubernetes version: v1.28.4
+CNI: Calico v3.26.1
+Runtime: containerd 1.7.8
+
+Namespaces:
+  - default           (general workloads)
+  - kube-system       (cluster infrastructure)
+  - kube-public       (public cluster info)
+  - production        (customer-facing services: api-server, web-frontend, payment-processor)
+  - staging           (pre-production mirror)
+  - build-system      (CI/CD pipelines, image building)
+  - monitoring        (Prometheus, Grafana, cert-checker)
+
+Key ServiceAccounts in build-system:
+  - ci-bot            Bound to ClusterRole "pipeline-runner" via
+                      ClusterRoleBinding "ci-bot-pipeline-binding".
+                      Permissions: create/list/get pods, deployments,
+                      services in build-system; get secrets in build-system
+                      (for registry pull credentials).
+
+Key ServiceAccounts in production:
+  - deploy-bot        Bound to Role "deployer" in production namespace via
+                      RoleBinding "deploy-bot-deployer".
+                      Permissions: create/patch/list/get deployments, pods,
+                      configmaps in production namespace.
+
+Key ServiceAccounts in monitoring:
+  - monitoring-sa     Bound to Role "secret-lister" in monitoring namespace.
+                      Permissions: list secrets in monitoring namespace only.
+
+Pod Topology (production namespace):
+  - api-server-7f8d9c6b5-x2k4m   Containers: api-server, health-checker (sidecar)
+  - web-frontend-8e9f0a1b-qr7st  Containers: web-frontend
+  - payment-processor-4c5d6e-mn3  Containers: payment-processor
+
+RBAC Notes:
+  - ClusterRole "pipeline-runner" does NOT grant cross-namespace secret
+    access or RBAC mutation permissions.
+  - No ClusterRoleBinding grants cluster-admin to any workload SA.
+  - The health-checker sidecar runs periodic health probes and reads
+    DNS configuration files — this is expected behavior.

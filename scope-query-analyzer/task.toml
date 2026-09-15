@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the tree-sitter query language (S-expression syntax, capture naming, predicate semantics) AND the Cursorless-specific conventions layered on top of it. The agent must reverse-engineer the hierarchical capture naming scheme (@scopeType.facet.modifier) from raw .scm files, discover the comment/import format, correctly distinguish named AST node types from field names and wildcards in S-expressions, classify predicates using tree-sitter's filter/directive taxonomy, and orchestrate the tree-sitter Python bindings (Language, Parser, Query, QueryCursor) to validate and execute queries against sample ASTs. No algorithmic guidance is provided — the agent must derive the full analysis pipeline from domain knowledge and inspection of the query files."""
+solution_explanation = """Parse .scm files to strip ;; comments, tokenize S-expression syntax, extract @captures (splitting on dots for scope_type.facet decomposition), identify named node types (identifiers after opening parens, excluding field names and wildcards), classify #-prefixed predicates by ?/! suffix into filters/directives. Use tree-sitter Python bindings to create Language objects from grammar packages, construct Query objects for validation (pattern_count, capture_count), parse sample files with Parser, and execute queries via QueryCursor.captures() to produce execution_results. Build cross-language matrix by inverting scope_types across files."""
+verification_explanation = """89 pytest tests verify exact values: query validation counts per file (pattern_count, capture_count), exact import lists, exact scope type lists (24 Python, 22 Java, 6 JS, 1 TS), facet mappings per scope type, predicate classification (4 filter types totaling 19, 6 directive types totaling 40), node type lists and counts (63 Python, 66 Java, 9 JS, 2 TS), cross-language matrix for all 24 scope types, and execution results (total hits, unique captures, matched scope types) for all four sample files."""
+category = "programming_languages"
+tags = ["tree-sitter", "scope-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scope-query-analyzer"

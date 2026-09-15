@@ -1,0 +1,54 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert GPU computing knowledge to audit an existing analysis for \
+correctness. The agent must read templated CUDA kernel code and its launcher to discover all validity \
+constraints — both explicit compile-time assertions and implicit constraints from vectorized memory \
+access patterns (float4 writeback requiring TN%4==0, warp subtile indexing). It must then evaluate \
+whether each team-recommended configuration satisfies these constraints, independently compute \
+theoretical occupancy using GPU hardware specs from a SQLite EAV-schema database with architecture-\
+specific allocation granularities, classify the limiting hardware resource, and judge whether the \
+team's claimed values are correct. The agent must further determine whether the team's "best picks" \
+are truly optimal by enumerating the full parameter space, compute Pareto frontiers across three GPU \
+architectures, and design a cross-architecture portability metric."""
+solution_explanation = """Query gpu_specs.db via sqlite3 to extract per-GPU hardware limits and \
+allocation granularities. Parse param_ranges.csv for parameter value lists. Parse kernel_warptiling.cuh \
+to identify 14+ interacting constraints including implicit ones (float4 TN%4, warp subtile divisibility, \
+SMEM per-block limit). Load team_analysis.json and audit each config: check validity, compute correct \
+occupancy and bottleneck, compare against team's claims to flag errors (config_alpha has wrong A6000 \
+occupancy and bottleneck due to team ignoring SMEM limitation, config_beta is invalid due to TN%4 \
+float4 constraint, config_gamma has wrong A6000 bottleneck, config_zeta exceeds per-block SMEM limit). \
+Enumerate all valid parameter tuples to find true best configs per GPU, proving team picks suboptimal. \
+Compute Pareto frontier via pairwise dominance and portability scores as min/max occupancy ratios."""
+verification_explanation = """Tests independently implement the full constraint system, occupancy \
+calculator with bottleneck classification, and Pareto frontier computation from the same data sources. \
+Each team config's audit is verified: validity assessment, correct occupancy values, correct bottleneck \
+labels, and detected error lists. Best-pick audit checks that team picks are correctly identified as \
+valid/invalid and non-optimal, with actual best occupancy matching independent computation. Total valid \
+config count, Pareto count, portability scores, and total error count are all cross-checked against \
+independent ground truth."""
+category = "systems"
+tags = ["cuda", "gpu-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cuda-tiling-analysis"

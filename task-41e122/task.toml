@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of 5 BM25 scoring variants (Robertson, Lucene, ATIRE, BM25L, BM25+) with their distinct IDF and TFC formulas from Kamphuis et al. (2020), CSC sparse matrix internals (indptr/indices/data), and tokenization pipelines. The agent must reverse-engineer variant and parameters (k1, b) from three pre-computed score matrices with tampered metadata — one claims bm25+ causing crashes due to missing nonoccurrence arrays, two have swapped variant names causing silent retrieval errors. Beyond identification, the agent must implement nDCG@10 evaluation with graded relevance, design and optimize a Reciprocal Rank Fusion strategy across all three indexes, and demonstrate that the fused ranking outperforms every individual index. This combines information retrieval theory, IR evaluation methodology, rank fusion design, sparse linear algebra, and multi-system orchestration."""
+solution_explanation = """For each of three indexes, load CSC arrays and corpus, tokenize to compute per-document TF and doc lengths, then grid-search over all 5 variants and (k1, b) ranges computing expected BM25 scores and comparing via MSE. Near-zero MSE identifies: index_a=robertson/k1=1.2/b=0.55, index_b=atire/k1=1.8/b=0.80, index_c=lucene/k1=1.35/b=0.65. Compute full retrieval rankings from each CSC matrix, evaluate nDCG@10 against qrels using DCG = sum((2^rel-1)/log2(i+1)). Implement RRF with score = sum(1/(k+rank)) across systems, sweep k from 1 to 500 to find optimal fusion parameter, producing fused rankings with higher nDCG than any individual index."""
+verification_explanation = """Tests verify: (1) correct identification of all 3 BM25 variants, (2) k1 and b parameters within ±0.05, (3) individual nDCG@10 values match independent computation from CSC matrices within ±0.05, (4) correct identification of best individual index, (5) fusion rankings have valid format with 10 doc IDs per query, (6) fusion nDCG computed from agent's rankings exceeds best individual nDCG, (7) fusion metadata fields are present and valid."""
+category = "information_retrieval"
+tags = ["bm25", "rank_fusion"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-41e122"

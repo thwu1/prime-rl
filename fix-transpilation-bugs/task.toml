@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of C and Rust semantic differences to diagnose 8 bugs across 5 distinct subsystems of a data processing pipeline. Bugs range from subtle constant/operator errors to entirely missing algorithmic stages, and their interactions through shared state (hashing, aggregation, serialization) produce misleading intermediate results that complicate root-cause analysis. Beyond fixing the code, the solver must evaluate each bug's severity in isolation and produce a structured transpilation audit classifying root causes — requiring judgment about transpiler failure modes, not just mechanical repair."""
+solution_explanation = """Systematically diff C and Rust behavior section-by-section, identify 8 semantic divergences spanning hash functions, integer encoding, byte-order operations, sort comparators, polynomial fingerprinting constants, sign-handling, and a structurally missing delta-encoding pipeline stage. Fix each in the Rust source and produce a JSON audit report classifying each bug by location, root cause, severity, and fix description."""
+verification_explanation = """Compiles both C and Rust from source, runs them on the provided test input and dynamically generated edge-case inputs, and verifies byte-identical output. Individual tests check each output section for targeted failure diagnostics. Additional tests verify the transpilation audit JSON exists, contains at least 6 entries with valid schema, covers at least 4 distinct code locations, and uses at least 2 severity levels."""
+category = "software_engineering"
+tags = ["code_translation", "rust"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-transpilation-bugs"

@@ -1,0 +1,73 @@
+{
+  "packages": {
+    "http": {
+      "4.0.0": {"dependencies": {"json": ">=2.0.0 <4.0.0", "logging": "^2.0.0"}},
+      "3.1.0": {"dependencies": {"json": ">=1.0.0 <3.0.0", "logging": ">=1.0.0 <3.0.0"}},
+      "3.0.0": {"dependencies": {"json": "^1.0.0", "logging": "^1.0.0"}},
+      "2.0.0": {"dependencies": {"json": "^1.0.0"}},
+      "1.0.0": {"dependencies": {}}
+    },
+    "router": {
+      "3.0.0": {"dependencies": {"http": "^4.0.0"}},
+      "2.1.0": {"dependencies": {"http": ">=3.0.0 <5.0.0"}},
+      "2.0.0": {"dependencies": {"http": "^3.0.0"}},
+      "1.0.0": {"dependencies": {"http": "^2.0.0"}}
+    },
+    "json": {
+      "3.0.0": {"dependencies": {}},
+      "2.1.0": {"dependencies": {}},
+      "2.0.0": {"dependencies": {}},
+      "1.2.0": {"dependencies": {}},
+      "1.0.0": {"dependencies": {}}
+    },
+    "database": {
+      "3.0.0": {"dependencies": {"json": "^2.0.0", "logging": "^2.0.0"}},
+      "2.0.0": {"dependencies": {"json": ">=1.0.0 <3.0.0", "logging": ">=1.0.0 <3.0.0"}},
+      "1.0.0": {"dependencies": {"json": "^1.0.0"}}
+    },
+    "orm": {
+      "2.0.0": {"dependencies": {"database": "^3.0.0", "json": "^2.0.0"}},
+      "1.0.0": {"dependencies": {"database": ">=1.0.0 <3.0.0", "json": ">=1.0.0 <3.0.0"}}
+    },
+    "logging": {
+      "2.1.0": {"dependencies": {"json": "^2.0.0"}},
+      "2.0.0": {"dependencies": {"json": "^2.0.0"}},
+      "1.1.0": {"dependencies": {"json": "^1.0.0"}},
+      "1.0.0": {"dependencies": {}}
+    },
+    "auth": {
+      "3.0.0": {"dependencies": {"crypto": "^2.0.0", "json": "^2.0.0", "http": "^4.0.0"}},
+      "2.0.0": {"dependencies": {"crypto": "^1.0.0", "json": ">=1.0.0 <3.0.0", "http": ">=3.0.0 <5.0.0"}},
+      "1.0.0": {"dependencies": {"crypto": "^1.0.0"}}
+    },
+    "crypto": {
+      "2.1.0": {"dependencies": {}},
+      "2.0.0": {"dependencies": {}},
+      "1.1.0": {"dependencies": {}},
+      "1.0.0": {"dependencies": {}}
+    },
+    "cache": {
+      "2.0.0": {"dependencies": {"logging": "^2.0.0", "json": "^2.0.0"}},
+      "1.0.0": {"dependencies": {"logging": "^1.0.0", "json": "^1.0.0"}}
+    },
+    "session": {
+      "2.0.0": {"dependencies": {"cache": "^2.0.0", "crypto": "^2.0.0", "auth": ">=2.0.0 <4.0.0"}},
+      "1.0.0": {"dependencies": {"cache": "^1.0.0", "auth": "^1.0.0"}}
+    },
+    "config": {
+      "2.0.0": {"dependencies": {"json": "^2.0.0"}},
+      "1.0.0": {"dependencies": {"json": "^1.0.0"}}
+    },
+    "validator": {
+      "2.0.0": {"dependencies": {"json": "^2.0.0"}},
+      "1.0.0": {"dependencies": {"json": "^1.0.0"}}
+    },
+    "mailer": {
+      "2.0.0": {"dependencies": {"logging": "^2.0.0", "config": "^2.0.0", "crypto": "^2.0.0"}},
+      "1.0.0": {"dependencies": {"logging": "^1.0.0", "config": "^1.0.0"}}
+    },
+    "scheduler": {
+      "1.0.0": {"dependencies": {"logging": ">=1.0.0 <3.0.0", "database": ">=2.0.0 <4.0.0"}}
+    }
+  }
+}

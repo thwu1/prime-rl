@@ -1,0 +1,45 @@
+{
+  "description": "Expected output schema for the corrected and extended benchmarking analysis.",
+  "output_file": "/app/results.json",
+  "structure": {
+    "ert": {
+      "description": "Expected Running Time for each (algorithm, function, dimension, target) combination.",
+      "key_format": "<algo>_f<func_id>_d<dim>_t<target>",
+      "value": "float or null (null when no run reaches the target)"
+    },
+    "ecdf": {
+      "description": "Empirical CDF of runtimes for each (algorithm, dimension, budget) combination.",
+      "key_format": "<algo>_d<dim>_b<budget>",
+      "value": "float in [0, 1]",
+      "budgets": [100, 500, 1000, 5000, 10000, 50000, 100000, 500000]
+    },
+    "rankings": {
+      "description": "Algorithm rankings for each function group, ordered from best to worst.",
+      "key_format": "<function_group_name>",
+      "value": "ordered list of algorithm names"
+    },
+    "scaling_exponents": {
+      "description": "Dimension-scaling exponent for each (algorithm, function) pair at the tightest target.",
+      "key_format": "<algo>_f<func_id>",
+      "value": "float or null (null when fewer than 2 dimensions have finite ERT)"
+    },
+    "vbs_ert": {
+      "description": "Virtual Best Solver ERT: minimum finite ERT across all algorithms for each scenario. Represents the oracle lower bound.",
+      "key_format": "f<func_id>_d<dim>_t<target>",
+      "value": "float or null (null when no algorithm reaches the target)"
+    },
+    "algorithm_selection": {
+      "description": "Which algorithm achieves the VBS ERT for each scenario. Ties broken alphabetically.",
+      "key_format": "f<func_id>_d<dim>_t<target>",
+      "value": "string (algorithm name) or null"
+    },
+    "performance_profile": {
+      "description": "Fraction of solvable scenarios where algorithm ERT is within tau times VBS ERT.",
+      "key_format": "<algo>_tau<threshold>",
+      "value": "float in [0, 1]",
+      "thresholds": [1.0, 1.5, 2.0, 5.0, 10.0],
+      "note": "Only scenarios where at least one algorithm has finite ERT are counted in the denominator."
+    }
+  },
+  "target_strings": ["10.0", "1.0", "0.01", "0.0001", "1e-08"]
+}

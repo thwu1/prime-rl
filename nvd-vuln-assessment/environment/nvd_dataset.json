@@ -1,0 +1,358 @@
+{
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2024-28001",
+        "published": "2024-01-15T10:00:00.000",
+        "lastModified": "2024-02-10T14:30:00.000",
+        "descriptions": [{"lang": "en", "value": "Remote code execution vulnerability in Apache Log4j2 due to JNDI lookup injection in log messages. Attackers can craft malicious input that triggers JNDI lookups to attacker-controlled servers, resulting in arbitrary code execution on the logging host."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-917"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "2.0",
+              "versionEndIncluding": "2.14.1"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28002",
+        "published": "2024-02-01T08:00:00.000",
+        "lastModified": "2024-03-15T12:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Out-of-bounds read vulnerability in OpenSSL TLS heartbeat extension implementation allows remote attackers to read up to 64KB of server process memory per request, potentially exposing private keys, session tokens, and other sensitive data."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-125"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:openssl:openssl:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "1.0.1",
+              "versionEndExcluding": "1.0.1g"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28003",
+        "published": "2024-01-20T15:00:00.000",
+        "lastModified": "2024-04-01T09:00:00.000",
+        "descriptions": [{"lang": "en", "value": "GNU Bash through version 4.3 processes trailing strings after function definitions in the values of environment variables, which allows remote attackers to execute arbitrary code via a crafted environment."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-78"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:gnu:bash:*:*:*:*:*:*:*:*",
+              "versionEndIncluding": "4.3"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28004",
+        "published": "2024-03-10T11:00:00.000",
+        "lastModified": "2024-05-20T16:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Race condition in the memory management subsystem of the Linux kernel allows local users to gain write access to read-only memory mappings via incorrect handling of copy-on-write operations, enabling privilege escalation."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-362"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:o:linux:linux_kernel:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "2.6.22",
+              "versionEndExcluding": "4.8.3"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28005",
+        "published": "2024-04-05T09:00:00.000",
+        "lastModified": "2024-06-12T10:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Path traversal vulnerability in Apache HTTP Server allows unauthenticated remote attackers to map URLs to files outside the expected document root by exploiting a path normalization flaw, potentially leading to source code disclosure or remote code execution via CGI."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-22"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:apache:http_server:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "2.4.49",
+              "versionEndIncluding": "2.4.50"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28006",
+        "published": "2024-02-20T13:00:00.000",
+        "lastModified": "2024-04-18T11:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Server-Side Request Forgery vulnerability in Microsoft Exchange Server allows authenticated attackers to leverage Exchange as a proxy to reach internal services and execute arbitrary code on the server through crafted web requests targeting the autodiscover endpoint."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-918"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:microsoft:exchange_server:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "2016.0",
+              "versionEndExcluding": "2019.3"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28007",
+        "published": "2024-05-01T07:00:00.000",
+        "lastModified": "2024-07-10T15:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Timing side-channel vulnerability in OpenSSL allows remote attackers to extract private key material via careful measurement of cryptographic operation timing during TLS handshake, leading to information disclosure."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-200"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:openssl:openssl:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "1.1.1",
+              "versionEndExcluding": "1.1.1l"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28008",
+        "published": "2024-03-25T14:00:00.000",
+        "lastModified": "2024-05-30T08:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Cross-site scripting vulnerability in nginx error page handling allows remote attackers to inject arbitrary web script via crafted HTTP request headers that are reflected in auto-generated error responses without proper output encoding."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-79"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:nginx:nginx:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "1.18.0",
+              "versionEndExcluding": "1.21.3"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28009",
+        "published": "2024-06-01T10:00:00.000",
+        "lastModified": "2024-08-15T12:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Insecure deserialization vulnerability in Redis allows authenticated users with access to the RESTORE command to execute arbitrary code on the server by providing crafted serialized payloads that exploit weaknesses in input validation."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [
+            {"lang": "en", "value": "CWE-502"},
+            {"lang": "en", "value": "CWE-20"}
+          ]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:redis:redis:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "6.0.0",
+              "versionEndExcluding": "6.0.16"
+            }]
+          }]
+        }]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-28010",
+        "published": "2024-01-28T09:00:00.000",
+        "lastModified": "2024-03-20T11:00:00.000",
+        "descriptions": [{"lang": "en", "value": "Denial of service vulnerability in Apache Log4j2 via crafted recursive lookup patterns in log messages. Uncontrolled recursion in the lookup substitution mechanism allows remote attackers to cause excessive resource consumption, leading to application crash."}],
+        "metrics": {
+          "cvssMetricV31": [{
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "cvssData": {
+              "version": "3.1",
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+            }
+          }]
+        },
+        "weaknesses": [{
+          "source": "nvd@nist.gov",
+          "type": "Primary",
+          "description": [{"lang": "en", "value": "CWE-400"}]
+        }],
+        "configurations": [{
+          "nodes": [{
+            "operator": "OR",
+            "negate": false,
+            "cpeMatch": [{
+              "vulnerable": true,
+              "criteria": "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*",
+              "versionStartIncluding": "2.13.0",
+              "versionEndIncluding": "2.16.0"
+            }]
+          }]
+        }]
+      }
+    }
+  ]
+}

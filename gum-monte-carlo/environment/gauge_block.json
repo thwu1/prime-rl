@@ -1,0 +1,81 @@
+{
+  "name": "gauge_block",
+  "description": "Gauge block calibration. Approximate model: delta_L = Ls + D + d1 + d2 - Ls*(delta_alpha*(theta_0 + Delta) + alpha_s*delta_theta) - L_nom. Variables: Ls = reference standard length, D = measured length difference, d1 = random comparator effect, d2 = systematic comparator effect, alpha_s = thermal expansion coefficient of standard, theta_0 = mean temperature deviation from 20 degC, Delta = cyclic temperature variation, delta_alpha = difference in expansion coefficients, delta_theta = temperature difference between standard and artefact.",
+  "model_expression": "delta_L = Ls + D + d1 + d2 - Ls*(delta_alpha*(theta_0 + Delta) + alpha_s*delta_theta) - L_nom",
+  "nominal_length_nm": 50000000,
+  "coverage_probability": 0.99,
+  "ndig": 1,
+  "inputs": {
+    "Ls": {
+      "distribution": "t",
+      "mean": 50000623,
+      "std": 25,
+      "dof": 18,
+      "unit": "nm",
+      "description": "Calibrated length of reference standard at 20 degC"
+    },
+    "D": {
+      "distribution": "t",
+      "mean": 215,
+      "std": 6,
+      "dof": 24,
+      "unit": "nm",
+      "description": "Mean measured difference in length between artefact and standard"
+    },
+    "d1": {
+      "distribution": "t",
+      "mean": 0,
+      "std": 4,
+      "dof": 5,
+      "unit": "nm",
+      "description": "Random effect from comparator"
+    },
+    "d2": {
+      "distribution": "t",
+      "mean": 0,
+      "std": 7,
+      "dof": 8,
+      "unit": "nm",
+      "description": "Systematic effect from comparator"
+    },
+    "alpha_s": {
+      "distribution": "rectangular",
+      "lower": 9.5e-6,
+      "upper": 13.5e-6,
+      "unit": "per_degC",
+      "description": "Thermal expansion coefficient of reference standard"
+    },
+    "theta_0": {
+      "distribution": "gaussian",
+      "mean": -0.1,
+      "std": 0.2,
+      "unit": "degC",
+      "description": "Mean temperature deviation from 20 degC"
+    },
+    "Delta": {
+      "distribution": "arcsine",
+      "lower": -0.5,
+      "upper": 0.5,
+      "unit": "degC",
+      "description": "Cyclic variation in temperature"
+    },
+    "delta_alpha": {
+      "distribution": "curvilinear_trapezoidal",
+      "lower": -1.0e-6,
+      "upper": 1.0e-6,
+      "d": 0.1e-6,
+      "dof": 50,
+      "unit": "per_degC",
+      "description": "Difference in thermal expansion coefficients between artefact and standard"
+    },
+    "delta_theta": {
+      "distribution": "curvilinear_trapezoidal",
+      "lower": -0.050,
+      "upper": 0.050,
+      "d": 0.025,
+      "dof": 2,
+      "unit": "degC",
+      "description": "Temperature difference between artefact and standard"
+    }
+  }
+}

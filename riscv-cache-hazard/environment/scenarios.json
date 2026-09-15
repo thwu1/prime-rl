@@ -1,0 +1,65 @@
+{
+  "description": "Pipeline hazard scenarios for the Wally RISC-V 5-stage pipeline hazard unit. Each scenario provides input signal values for one or more clock cycles. The hazard unit must compute stall and flush signals for each pipeline stage (Fetch, Decode, Execute, Memory, Writeback).",
+  "input_signals": ["BPWrongE", "CSRWriteFenceM", "RetM", "TrapM", "StructuralStallD", "LSUStallM", "IFUStallF", "FPUStallD", "ExternalStall", "DivBusyE", "FDivBusyE", "wfiM", "IntPendingM"],
+  "output_signals": ["StallF", "StallD", "StallE", "StallM", "StallW", "FlushD", "FlushE", "FlushM", "FlushW"],
+  "scenarios": [
+    {
+      "name": "structural-stall",
+      "description": "Load-use dependency causes structural stall in Decode",
+      "cycles": [
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 1, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "branch-mispredict",
+      "description": "Branch predictor was wrong, detected in Execute stage",
+      "cycles": [
+        {"BPWrongE": 1, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "div-busy",
+      "description": "Integer divider occupies Execute for 2 cycles then completes",
+      "cycles": [
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 1, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0},
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 1, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0},
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "bp-wrong-during-div",
+      "description": "Branch misprediction while division is in progress - FlushE is suppressed to protect the divider",
+      "cycles": [
+        {"BPWrongE": 1, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 1, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "wfi-interrupted-trap",
+      "description": "WFI instruction interrupted by pending interrupt causing trap - FlushW suppressed so WFI can retire",
+      "cycles": [
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 1, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 1, "IntPendingM": 1}
+      ]
+    },
+    {
+      "name": "csr-write-fence",
+      "description": "CSR write or fence in Memory stage flushes all subsequent instructions",
+      "cycles": [
+        {"BPWrongE": 0, "CSRWriteFenceM": 1, "RetM": 0, "TrapM": 0, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "ifu-stall-with-trap",
+      "description": "Instruction cache stall concurrent with trap - trap takes priority and suppresses the IFU stall",
+      "cycles": [
+        {"BPWrongE": 0, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 1, "StructuralStallD": 0, "LSUStallM": 0, "IFUStallF": 1, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    },
+    {
+      "name": "multi-hazard",
+      "description": "Simultaneous LSU stall, branch misprediction, and structural stall - tests priority resolution",
+      "cycles": [
+        {"BPWrongE": 1, "CSRWriteFenceM": 0, "RetM": 0, "TrapM": 0, "StructuralStallD": 1, "LSUStallM": 1, "IFUStallF": 0, "FPUStallD": 0, "ExternalStall": 0, "DivBusyE": 0, "FDivBusyE": 0, "wfiM": 0, "IntPendingM": 0}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Weighted Partial MaxSAT semantics, the WCNF file format from the MaxSAT Evaluation, polynomial reductions from graph optimization to MaxSAT, reverse-engineering of combinatorial encodings from raw clause structure, and proficient use of MaxSAT solver tools (e.g., PySAT RC2, Open-WBO). The graph_color instance has 30 variables and 89 clauses, precluding naive brute-force. The mystery instances require deducing the mapping between WCNF clauses and graph structure without any documentation of the encoding scheme. The 25-vertex graph encoding demands correct handling of DIMACS indexing conventions and weight semantics."""
+solution_explanation = """The solution installs PySAT and uses its RC2 MaxSAT solver. For graph instances, it constructs WCNF encodings where hard clauses enforce edge coverage and soft clauses penalize vertex inclusion, then solves to optimality. For opaque WCNF instances, it loads and solves them directly via RC2. For mystery instances, it analyzes the clause structure to recover the hidden graph (positive binary hard clauses as edges, weighted negative unary soft clauses as vertex costs), then solves the decoded vertex cover problem."""
+verification_explanation = """Tests verify: WCNF encoding validity (clause counts, variable ranges, top weight exceeds soft sum); encoding structure matches graph (hard clauses biject with edges, soft clauses match vertex count); all solutions are valid vertex covers; solution weights equal independently computed optima; mystery graph reconstructions match known source graphs exactly; opaque instance solutions satisfy all hard clauses with cost equal to known optimal."""
+category = "optimization"
+tags = ["maxsat", "graph-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/maxsat-vertex-cover"

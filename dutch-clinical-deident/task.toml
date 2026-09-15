@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a broken docdeid framework pipeline and extending it with custom components for Dutch clinical text. The agent must reverse-engineer the docdeid library API from its source code, discover the Dutch BSN elfproef validation algorithm independently, handle Dutch name interfixes (van, de, van der, de la) in both patient and doctor names, correctly distinguish eponymous disease names from person names in clinical context (including tricky cases like 'syndroom van Cushing' and 'Gilles de la Tourette'), implement multi-format date and phone detection for Dutch conventions, detect URLs and emails, resolve annotation overlaps, and produce output in a specific format different from the framework's default redaction. Combines NLP framework proficiency, Dutch language/culture knowledge, healthcare privacy domain expertise, and systematic debugging of a multi-component pipeline."""
+solution_explanation = """Analyze the broken pipeline.py to understand docdeid's architecture. The pipeline has three critical issues: (1) the BSN annotator tags any 9-digit number without the required weighted checksum validation, (2) there are no annotators for names, phones, emails, URLs, cities, or hospitals, and (3) SimpleRedactor produces [TAG-N] format instead of required [tag] format. Fix by implementing correct BSN validation (elfproef: multiply digits by [9,8,7,6,5,4,3,2,-1], sum divisible by 11, non-zero), adding regex-based detection for all PHI types (dates in multiple Dutch formats, phone numbers including +31 international format, emails, URLs), patient name matching using metadata with interfixed surnames, title-pattern name detection (dr./prof. dr./drs. + initials + optional interfix + surname), city and hospital lookup matching. Add eponymous disease span filtering to prevent name false positives. Add overlap resolution keeping longer spans. Write custom redaction producing lowercase [tag] format."""
+verification_explanation = """Tests execute the pipeline on 5 clinical notes and verify: output file existence and JSON structure, annotation positions match original text via slicing, valid BSNs detected (123456782, 111222333, 999999990, 287654321, 736281940) and invalid ones rejected (246813579, 483726159), all PHI strings absent from redacted text, eponymous disease names preserved (Alzheimer, Parkinson, Brugada, Marfan, Tourette, Huntington, Sydenham, Ehlers-Danlos, Sjogren, Raynaud, Cushing, Addison), URL detection, overlap resolution for Amsterdam UMC vs Amsterdam, correct handling of 5 clinical notes with varied date formats, phone formats, interfixed names, and title-based name patterns."""
+category = "applied_computing"
+tags = ["nlp", "clinical-informatics", "debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dutch-clinical-deident"

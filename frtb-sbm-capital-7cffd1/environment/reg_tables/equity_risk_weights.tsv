@@ -1,0 +1,14 @@
+bucket	risk_weight	description
+1	0.55	Large cap, emerging market, Consumer goods and services
+2	0.60	Large cap, emerging market, Telecommunications, Industrials
+3	0.45	Large cap, emerging market, Basic materials, Energy
+4	0.55	Large cap, emerging market, Financials
+5	0.30	Large cap, developed market, Consumer goods and services
+6	0.35	Large cap, developed market, Telecommunications, Industrials
+7	0.40	Large cap, developed market, Basic materials, Energy
+8	0.50	Large cap, developed market, Financials
+9	0.70	Small cap, emerging market
+10	0.50	Small cap, developed market
+11	0.70	Other sector (indexes, ETFs, multi-sector)
+12	0.15	Large cap, developed market, indices (broad market)
+13	0.25	Large cap, developed market, indices (sector-specific)

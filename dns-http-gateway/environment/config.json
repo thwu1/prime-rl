@@ -1,0 +1,9 @@
+{
+    "dns_port": 2053,
+    "http_port": 8080,
+    "seed_records": [
+        {"name": "seed.example.com", "type": "A", "value": "10.0.0.1", "ttl": 300},
+        {"name": "www.example.com", "type": "CNAME", "value": "web.example.com", "ttl": 300},
+        {"name": "web.example.com", "type": "A", "value": "10.0.0.2", "ttl": 300}
+    ]
+}

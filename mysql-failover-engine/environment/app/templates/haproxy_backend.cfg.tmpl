@@ -1,0 +1,18 @@
+global
+    log stdout format raw local0
+    maxconn 256
+
+defaults
+    mode tcp
+    timeout connect 5000ms
+    timeout client 30000ms
+    timeout server 30000ms
+    default-server init-addr none
+
+frontend mysql_write_fe_${CLUSTER_NAME}
+    bind 127.0.0.1:13306
+    default_backend mysql_write_${CLUSTER_NAME}
+
+backend mysql_write_${CLUSTER_NAME}
+    mode tcp
+    server ${PROMOTED_HOST} ${PROMOTED_HOST}:${PROMOTED_PORT} check init-addr none

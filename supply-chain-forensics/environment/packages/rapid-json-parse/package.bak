@@ -1,0 +1,12 @@
+{
+  "name": "rapid-json-parse",
+  "version": "2.4.0",
+  "description": "High-performance JSON parsing utilities for Node.js applications",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["json", "parser", "fast", "performance"],
+  "author": "robsmith-dev <robsmith.dev@proton.me>",
+  "license": "MIT"
+}

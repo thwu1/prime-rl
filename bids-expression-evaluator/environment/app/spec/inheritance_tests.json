@@ -1,0 +1,125 @@
+{
+  "tree": {
+    "name": "dataset",
+    "files": [
+      {
+        "name": "bold.json",
+        "metadata": {"MagneticFieldStrength": 3, "InstitutionName": "TestLab"}
+      },
+      {
+        "name": "task-rest_bold.json",
+        "metadata": {"TaskName": "rest"}
+      },
+      {
+        "name": "T1w.json",
+        "metadata": {"MagneticFieldStrength": 3, "InstitutionName": "TestLab"}
+      }
+    ],
+    "directories": [
+      {
+        "name": "sub-01",
+        "files": [
+          {
+            "name": "sub-01_bold.json",
+            "metadata": {"PhaseEncodingDirection": "j"}
+          }
+        ],
+        "directories": [
+          {
+            "name": "func",
+            "files": [
+              {
+                "name": "sub-01_task-rest_bold.json",
+                "metadata": {"RepetitionTime": 2.0, "EchoTime": 0.03, "SliceTiming": [0, 0.5, 1.0]}
+              }
+            ],
+            "directories": []
+          },
+          {
+            "name": "anat",
+            "files": [],
+            "directories": []
+          }
+        ]
+      },
+      {
+        "name": "sub-02",
+        "files": [],
+        "directories": [
+          {
+            "name": "func",
+            "files": [
+              {
+                "name": "sub-02_task-rest_bold.json",
+                "metadata": {"RepetitionTime": 3.0, "EchoTime": 0.025, "MagneticFieldStrength": 7}
+              }
+            ],
+            "directories": []
+          }
+        ]
+      }
+    ]
+  },
+  "test_files": [
+    {
+      "path": "sub-01/func/sub-01_task-rest_run-01_bold.nii.gz",
+      "expected_metadata": {
+        "MagneticFieldStrength": 3,
+        "InstitutionName": "TestLab",
+        "TaskName": "rest",
+        "PhaseEncodingDirection": "j",
+        "RepetitionTime": 2.0,
+        "EchoTime": 0.03,
+        "SliceTiming": [0, 0.5, 1.0]
+      },
+      "expected_sidecars": [
+        "/bold.json",
+        "/task-rest_bold.json",
+        "/sub-01/sub-01_bold.json",
+        "/sub-01/func/sub-01_task-rest_bold.json"
+      ]
+    },
+    {
+      "path": "sub-02/func/sub-02_task-rest_bold.nii.gz",
+      "expected_metadata": {
+        "MagneticFieldStrength": 7,
+        "InstitutionName": "TestLab",
+        "TaskName": "rest",
+        "RepetitionTime": 3.0,
+        "EchoTime": 0.025
+      },
+      "expected_sidecars": [
+        "/bold.json",
+        "/task-rest_bold.json",
+        "/sub-02/func/sub-02_task-rest_bold.json"
+      ]
+    },
+    {
+      "path": "sub-01/anat/sub-01_T1w.nii.gz",
+      "expected_metadata": {
+        "MagneticFieldStrength": 3,
+        "InstitutionName": "TestLab"
+      },
+      "expected_sidecars": [
+        "/T1w.json"
+      ]
+    },
+    {
+      "path": "sub-01/func/sub-01_task-rest_events.tsv",
+      "expected_metadata": {},
+      "expected_sidecars": []
+    },
+    {
+      "path": "sub-01/func/sub-01_task-auditory_bold.nii.gz",
+      "expected_metadata": {
+        "MagneticFieldStrength": 3,
+        "InstitutionName": "TestLab",
+        "PhaseEncodingDirection": "j"
+      },
+      "expected_sidecars": [
+        "/bold.json",
+        "/sub-01/sub-01_bold.json"
+      ]
+    }
+  ]
+}

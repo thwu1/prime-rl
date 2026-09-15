@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two deeply intertwined implementation challenges: (1) a complete sorted set engine with ~600 lines of data structure code meeting strict structural invariants and O(log N) rank-query performance — the solver must discover the correct backing data structure by reading the interface's invariant requirements, then implement insertion with node splitting, deletion with underflow handling (borrow/merge), and rank augmentation via subtree counts, plus full Redis flag semantics (NX/XX/GT/LT/CH); (2) a RESP2 protocol command dispatch layer that correctly maps Redis wire-protocol commands (with complex argument parsing — ZADD flags before score/member pairs, exclusive score bounds with '(' prefix, LIMIT pagination) to engine method calls and formats responses for redis-cli, redis-py, and redis-benchmark compatibility. The solver must cross-validate against a running Redis instance using redis-cli and redis-benchmark, requiring fluency with these tools."""
+solution_explanation = """The solution generates both files programmatically: (1) sorted_set.py containing a rank-augmented B+ tree with _Node (leaf/internal with keys, children, counts, next_leaf), _BPTree (insert/split/delete/fix_underflow/get_rank/from_rank/range_by_rank/find_ge), and BPTreeSortedSet wrapper mapping Redis commands to compound (score, member) tree keys with a hash map for O(1) member-to-score lookup; (2) server.py containing a RESP2 TCP server with command_dispatch that parses ZADD flags, ZRANGEBYSCORE exclusive bounds, LIMIT pagination, and formats flat member/score arrays for WITHSCORES responses."""
+verification_explanation = """82+ direct engine tests cover all sorted set operations (ZADD with all flag combinations, rank queries, range scans, LIMIT pagination, ZPOPMAX ordering, ZINCRBY, deletion consistency, 10K random operation stress tests, structural invariant verification, node efficiency bounds, sub-linear rank performance on 50K elements). 11 network tests start the RESP server and validate via redis-py client connections: PING, ZADD+ZRANGE, cross-validation of ordering/flags/zrangebyscore/zrank/zpopmax against a real Redis instance, multi-key isolation, redis-cli subprocess interaction, and redis-benchmark ZADD workload completion."""
+category = "systems"
+tags = ["data-structures", "protocol-implementation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0a6aed"

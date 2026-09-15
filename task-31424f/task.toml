@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of dependency resolution algorithms and the Puppet module versioning specification. The agent must independently audit the resolver codebase against a formal spec to discover multiple interacting conformance violations — the bugs are not enumerated. These span three components (constraint engine, solver, CLI) and interact: fixing one may expose another, requiring holistic reasoning about the resolution pipeline. Beyond debugging, the agent must implement circular dependency detection that correctly distinguishes cycles from diamond dependency patterns — a non-trivial algorithmic challenge requiring deep understanding of how backtracking search with tentative resolution interacts with cycle detection (naive approaches either miss cycles masked by the already-resolved check or produce false positives on valid diamond dependencies). The agent must also design and implement two observability features (conflict diagnostics with constraint provenance tracing, and DOT graph generation) integrated into the existing resolution pipeline. The task demands multi-tool proficiency: Python for the resolver, jq for three different JSON schema validations, graphviz for graph rendering, and understanding of Puppet's domain-specific versioning semantics."""
+solution_explanation = """Fix four specification violations: (1) constraints.py pessimistic ~> X.Y upper bound incorrectly bumps minor instead of major, (2) solver.py uses case-sensitive module name lookup despite the spec requiring case-insensitivity — add a canonical key lookup function and normalize all resolved/visited keys to lowercase, (3) solver.py does not restore the visited set during backtracking causing it to permanently skip valid resolution paths in subsequent search branches, (4) __main__.py passes git-sourced Puppetfile entries to the forge resolver causing lookup failures. Then implement three new capabilities: (1) circular dependency detection using ancestor chain tracking — each requirement carries its dependency path so cycles are detected before the already-resolved check, while diamond patterns (where a module is resolved but NOT an ancestor) pass through correctly, (2) --explain mode that logs constraint sources during resolution and performs post-failure analysis to identify modules with mutually unsatisfiable accumulated constraints, (3) --graph mode generating a DOT digraph. The cycle detection requires modifying the internal requirement representation from 2-tuples to 3-tuples carrying ancestor chains and restructuring the resolution entry point."""
+verification_explanation = """16 pytest tests verify: pessimistic constraint conformance to spec for both 2-part and 3-part versions, case-insensitive module resolution with mixed-case forge metadata, backtracking visited-set restoration across resolution contexts, git-source filtering from forge resolution, production Puppetfile resolution with 7-module version assertions and lockfile structure validation, staging Puppetfile resolution with 12-module graph verification, circular dependency detection with cycle path validation and jq schema conformance, conflict explanation accuracy and jq schema validation, DOT graph syntactic validity via graphviz rendering, DOT graph content verification for expected nodes and edges, and resolution output jq schema validation."""
+category = "software_engineering"
+tags = ["dependency-resolution", "configuration-management"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-31424f"

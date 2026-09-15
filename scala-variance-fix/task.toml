@@ -1,0 +1,94 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of Scala's variance position rules (SLS Chapter 3),
+higher-kinded type classes, category-theoretic abstractions, and Scala 3 given/using
+implicit resolution mapped to a typed data-flow framework. The solver must: (1) diagnose
+~35 interrelated bugs across 7 source files spanning four distinct categories — compile-time
+variance/bound/access errors, unimplemented methods, implicit evidence resolution failures,
+and subtle runtime logic errors; (2) fix 8 variance annotations across core types, codecs,
+distributors, typed pipeline segments, and type evidence witnesses (where the correct fix
+for TypeWitness is invariance, not simply flipping variance — requiring deeper reasoning
+about when variance is inappropriate); (3) resolve cascading access modifier and type bound
+errors that only appear after variance fixes; (4) implement 12 non-trivial methods requiring
+variance-aware anonymous trait instances including encoder/decoder contramapping, codec
+invariant mapping, transform composition, emitter monadic flatMap, receiver composition,
+pipeline transform chaining, and type evidence convert methods for given instances;
+(5) after all compilation errors are resolved, identify and fix 8 runtime logic errors:
+a Functor[Emitter] that loses multi-element data, a ContravariantFunctor[Receiver] with
+a no-op accept, a Profunctor[Transform] dimap that uses unsafe casting, a NatTrans returning
+empty lists, a TypedPipe with reversed composition order, a Monad[Emitter] bind that
+discards elements via SingleEmitter wrapping, and TypeSafeChannel send/of methods with
+FIFO ordering violations. The cascading nature means bugs cannot be fixed in isolation:
+variance fixes in core.scala enable compilation of typeclasses.scala and evidence.scala,
+which then reveals runtime bugs only detectable by comparing actual vs expected output
+across 30 tagged test lines. The evidence system requires understanding Scala 3 given/using
+mechanism and type witness design patterns not covered in standard tutorials.
+"""
+solution_explanation = """
+Variance fixes (8 annotations): Emitter[-A]->[+A], Receiver[+A]->[-A],
+Transform[+A,-B]->[-A,+B], Encoder[+A]->[-A], Decoder[-A]->[+A],
+Distributor[+A]->[-A], TypedPipe[+In,-Out]->[-In,+Out],
+TypeWitness[+From,-To]->[From,To] (invariant — not simply flipped).
+Cascading bound fixes: Emitter.merge needs [B >: A] in trait + 2 implementations;
+Pipeline.widenEmitter bound B <: A -> B >: A.
+Access modifier fixes: BufferedEmitter private var -> private[this] var;
+RecordingTransform private var -> private[this] var.
+Implementations (12):
+- SingleEmitter.flatMap: f(value)
+- SeqEmitter.flatMap: SeqEmitter(values.flatMap(a => f(a).take(1)))
+- Transform.andThen: MapTransform(a => next.apply(self.apply(a)))
+- Transform.compose: MapTransform(z => self.apply(prev.apply(z)))
+- Encoder.contramap: new Encoder[B] { encode(b) = self.encode(f(b)) }
+- Decoder.map: new Decoder[B] { decode(s) = f(self.decode(s)) }
+- CodecPair.imap: CodecPair(encoder.contramap(g), decoder.map(f))
+- ReceiverOps.contramap: new Receiver[B] { accept(b) = receiver.accept(f(b)) }
+- ReceiverOps.fanOut: new Receiver[A] { accept(a) = receivers.foreach(_.accept(a)) }
+- Pipeline.composeTransforms: MapTransform(a => t2.apply(t1.apply(a)))
+- TypeWitness[Cat,Animal].convert: a (identity upcast)
+- TypeWitness[Dog,Animal].convert: a (identity upcast)
+Runtime logic fixes (8):
+- Functor[Emitter]: SingleEmitter(f(fa.emit)) -> fa.map(f)
+- ContravariantFunctor[Receiver]: no-op accept -> fa.accept(f(b))
+- Profunctor[Transform]: pab.apply(f(c)).asInstanceOf[D] -> g(pab.apply(f(c)))
+- NatTrans.emitterToList: Nil -> fa.take(1)
+- TypedPipe.andThen: next.transforms ++ transforms -> transforms ++ next.transforms
+- Monad[Emitter].bind: SingleEmitter(f(fa.emit).emit) -> fa.flatMap(f)
+- TypeSafeChannel.send: prepend (::) -> append (:+) for FIFO order
+- TypeSafeChannel.of: values.toList.reverse -> values.toList
+"""
+verification_explanation = """
+test.sh installs scala-cli and pytest, then runs test_state.py which:
+1. Compiles all /app/src/*.scala files and asserts exit code 0.
+2. Runs the compiled program and checks each of 30 output lines (T1-T30) matches
+   expected values proving correct variance, implementation, evidence resolution,
+   channel ordering, monad laws, and runtime logic.
+3. Verifies the final ALL_CHECKS_PASSED marker is present.
+Reward is 1.0 if all 33 pytest tests pass, 0.0 otherwise.
+"""
+category = "programming_languages"
+tags = ["scala", "type-system"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scala-variance-fix"

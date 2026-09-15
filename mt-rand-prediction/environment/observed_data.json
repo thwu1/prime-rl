@@ -1,0 +1,20 @@
+{
+  "description": "Captured data from a batch password reset run. The debug log was accidentally left enabled, exposing CSRF nonces, tracking IDs, and audit IDs for all requests. The attacker controls the 'alice' and 'bob' accounts and received their reset tokens via email.",
+  "application_info": {
+    "batch_processor": "BatchResetProcessor (see /app/webapp/batch_reset_processor.php)",
+    "token_generator": "TokenGenerator class (see /app/webapp/token_generator.php)",
+    "php_version": "8.1",
+    "mt_rand_mode": "MT_RAND_MT19937 (default for PHP >= 7.1)",
+    "note": "All requests in this batch were processed sequentially in a single PHP process. The PRNG was seeded once at process startup."
+  },
+  "debug_log": [
+    "[BatchReset] user=alice tracking_id=hXzln1OCJ4fN audit_id=jBOc1ONw csrf=2swyMmD2",
+    "[BatchReset] user=admin tracking_id=nq5cJ0ZsWGSj audit_id=PnevPmxB csrf=wKKdDrzv",
+    "[BatchReset] user=bob tracking_id=AdbZ4bG9yEhP audit_id=ttCnB2ZV csrf=h3s0pGy3"
+  ],
+  "attacker_known_tokens": {
+    "alice": "DgxT3C78WL1H3vv2NhbeaJ6nPWyHidi0",
+    "bob": "tWNzr48CclSaGb2Y1qGUfBr7ejAaWbMJ"
+  },
+  "target": "Determine the admin account's reset token and write it to /app/admin_token.txt"
+}

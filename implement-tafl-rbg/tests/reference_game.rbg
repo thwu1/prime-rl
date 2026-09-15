@@ -1,0 +1,60 @@
+// Isolation Breakthrough (6x6)
+// A variant of Breakthrough with custodial capture of isolated pieces.
+//
+
+#players = white(100), black(100)
+#pieces = e, w, b
+#variables =
+#board = rectangle(up,down,left,right,
+         [b, b, b, b, b, b]
+         [b, b, b, b, b, b]
+         [e, e, e, e, e, e]
+         [e, e, e, e, e, e]
+         [w, w, w, w, w, w]
+         [w, w, w, w, w, w])
+
+#anySquare = ((up* + down*)(left* + right*))
+
+// A piece is isolated if none of its orthogonal neighbors are the same color
+#isIsolated(pawn) = {! (up + down + left + right) {pawn}}
+
+// An opponent piece is capturable if it is isolated AND sandwiched
+// between two of the moving player's pieces on the same axis
+#isCapturable(oppPawn; myPawn) = (
+    {oppPawn}
+    isIsolated(oppPawn)
+    (
+        {? left {myPawn}} {? right {myPawn}}
+      + {? up {myPawn}} {? down {myPawn}}
+    )
+  )
+
+// Iteratively remove all capturable opponent pieces until none remain
+#resolveCaptures(oppPawn; myPawn) = (
+    (
+      anySquare isCapturable(oppPawn; myPawn) [e] ->>
+    )*
+    {! anySquare isCapturable(oppPawn; myPawn)}
+  )
+
+// Check if any of the player's pieces reached the opponent's back row
+#reachedBackRow(myPawn; forward) = anySquare {myPawn} {! forward}
+
+// Turn: pick up piece, move forward, place, resolve captures, check win
+#turn(me; myPawn; opp; oppPawn; forward) =
+    ->me anySquare {myPawn}
+    [e] forward ({e} + (left+right) {e,oppPawn})
+    [myPawn]
+    [$ me=100] [$ opp=0]
+    ->>
+    resolveCaptures(oppPawn; myPawn)
+    (
+        {? reachedBackRow(myPawn; forward)} ->> {}
+      + {! anySquare {oppPawn}} ->> {}
+      + {! reachedBackRow(myPawn; forward)} {? anySquare {oppPawn}}
+    )
+
+#rules = (
+      turn(white; w; black; b; up)
+      turn(black; b; white; w; down)
+    )*

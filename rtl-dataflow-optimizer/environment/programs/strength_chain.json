@@ -1,0 +1,17 @@
+{
+  "name": "strength_chain",
+  "params": [1],
+  "entrypoint": 30,
+  "code": {
+    "30": {"kind": "op", "op": "const", "imm": 2, "args": [], "dst": 2, "succ": 29},
+    "29": {"kind": "op", "op": "const", "imm": 1, "args": [], "dst": 3, "succ": 28},
+    "28": {"kind": "op", "op": "sub", "args": [2, 3], "dst": 4, "succ": 27},
+    "27": {"kind": "op", "op": "mul", "args": [1, 4], "dst": 5, "succ": 26},
+    "26": {"kind": "op", "op": "const", "imm": 3, "args": [], "dst": 6, "succ": 25},
+    "25": {"kind": "op", "op": "add", "args": [5, 6], "dst": 7, "succ": 24},
+    "24": {"kind": "op", "op": "mul", "args": [7, 4], "dst": 8, "succ": 23},
+    "23": {"kind": "op", "op": "add", "args": [8, 5], "dst": 9, "succ": 22},
+    "22": {"kind": "op", "op": "sub", "args": [9, 8], "dst": 10, "succ": 21},
+    "21": {"kind": "ret", "arg": 10}
+  }
+}

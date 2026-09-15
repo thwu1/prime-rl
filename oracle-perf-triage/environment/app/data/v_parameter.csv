@@ -1,0 +1,20 @@
+name,value,description
+db_cache_size,536870912,Size of DEFAULT buffer pool for buffers with primary block size
+shared_pool_size,536870912,Size in bytes of shared pool
+pga_aggregate_target,536870912,Target size for the aggregate PGA memory consumed
+pga_aggregate_limit,2147483648,limit on the aggregate PGA memory consumed
+cursor_sharing,EXACT,cursor sharing mode
+optimizer_mode,ALL_ROWS,optimizer mode
+db_block_size,8192,Size of each database block in bytes
+sga_target,0,Target size of SGA
+memory_target,0,Target size of Oracle Database memory
+statistics_level,TYPICAL,statistics level
+result_cache_mode,MANUAL,result cache operator usage mode
+log_buffer,16777216,redo circular buffer size
+db_file_multiblock_read_count,128,db block to be read each IO
+sort_area_size,65536,size of in-memory sort work area
+hash_area_size,131072,size of in-memory hash work area
+open_cursors,300,max # cursors per session
+session_cached_cursors,50,Number of cursors to cache in a session
+sga_max_size,4294967296,max total SGA size
+processes,500,user processes

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading ~1500 lines of C++ hydrological diagnostic code that cannot be compiled standalone, extracting 35 metric algorithms with subtle numerical behaviors (integer division in FUZZY_NASH, asymmetric window indexing in running-window metrics, derivative weight combining, calendar-month boundary detection, Spearman rank correlation, quantile-based threshold filtering), and reimplementing them in C as a position-independent shared library with a clean FFI interface. The solver must design C-linkage function signatures matching the spec, write a Makefile for gcc shared-library compilation, implement all 35 metrics in C with exact numerical fidelity, build a Python wrapper that marshals arrays and strings across the FFI boundary, and debug numerical discrepancies. Requires proficiency with gcc shared-library compilation, Python FFI data marshaling, and Makefile authoring."""
+solution_explanation = """The solution creates three artifacts: (1) diag_engine.c implementing all 35 metrics in C with compute_baseweights and compute_metric as the public API, using timegm for calendar arithmetic, qsort for Spearman ranking, and careful replication of each C++ metric formula including sign conventions and edge-case sentinel returns; (2) a Makefile with a build target that compiles with gcc -shared -fPIC -lm; (3) a Python CLI that loads libdiag.so via ctypes.CDLL, declares argtypes/restype for both functions, marshals Python lists to c_double arrays, dispatches each metric via compute_metric, and outputs JSON."""
+verification_explanation = """Tests verify both the build pipeline and numerical correctness. Build tests check: Makefile exists, make build succeeds, libdiag.so is a valid ELF shared object with compute_baseweights/compute_metric symbols exported, and the library loads via ctypes. Metric tests generate deterministic synthetic hydrological time series, invoke the Python CLI, and assert numerical agreement with an independent Python reference implementation within 1e-8 tolerance. Coverage includes all 35 metrics, blank-data handling, threshold filtering, moving-window metrics with odd/even widths, derivative metrics, monthly volumetric metrics across year boundaries, KGE variant differences, weighted data, and edge cases like constant-observation series."""
+category = "applied_computing"
+tags = ["hydrology", "ffi-bridge"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/raven-diagnostics-engine"

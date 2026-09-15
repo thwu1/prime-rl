@@ -1,0 +1,53 @@
+{
+  "C-11": {
+    "description": "Identical, parallel, directly opposed rectangles",
+    "params": {
+      "a": "rectangle side length 1",
+      "b": "rectangle side length 2",
+      "c": "perpendicular separation distance"
+    },
+    "returns": "F12: view factor from rectangle 1 to rectangle 2"
+  },
+  "C-14": {
+    "description": "Two perpendicular rectangles sharing a common edge of length l",
+    "params": {
+      "w": "depth of surface 1 perpendicular to common edge",
+      "h": "depth of surface 2 perpendicular to common edge",
+      "l": "length of common edge"
+    },
+    "returns": "F12: view factor from surface 1 (l x w) to surface 2 (l x h)"
+  },
+  "C-40": {
+    "description": "Two coaxial disks of equal radius",
+    "params": {
+      "r": "disk radius",
+      "a": "axial separation distance"
+    },
+    "returns": "F12: view factor from disk 1 to disk 2"
+  },
+  "C-41": {
+    "description": "Two coaxial disks of unequal radius",
+    "params": {
+      "r1": "radius of disk 1",
+      "r2": "radius of disk 2",
+      "a": "axial separation distance"
+    },
+    "returns": "F12: view factor from disk 1 to disk 2"
+  },
+  "C-79": {
+    "description": "From base disk to lateral surface of right circular cylinder",
+    "params": {
+      "r": "cylinder/disk radius",
+      "h": "cylinder height"
+    },
+    "returns": "F12: view factor from base to lateral surface"
+  },
+  "C-135": {
+    "description": "Concentric spheres: inner sphere (1) enclosed by outer sphere (2)",
+    "params": {
+      "r1": "inner sphere radius",
+      "r2": "outer sphere radius (must be > r1)"
+    },
+    "returns": "F12: inner to outer (always 1), F21: outer to inner, F22: outer self-view"
+  }
+}

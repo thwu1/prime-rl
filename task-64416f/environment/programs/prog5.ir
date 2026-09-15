@@ -1,0 +1,18 @@
+# Program 5: Constant propagation through conditional branches
+# Expected output: 25 6
+func main()
+  x = 1
+  cond = x > 0
+  if cond goto then_branch
+  y = 10
+  goto merge
+  then_branch:
+  y = 20
+  merge:
+  z = y + 5
+  print z
+  a = x + 1
+  b = a * 3
+  print b
+  return 0
+endfunc

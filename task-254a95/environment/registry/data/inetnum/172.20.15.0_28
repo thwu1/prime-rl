@@ -1,0 +1,10 @@
+inetnum:            172.20.15.0 - 172.20.15.15
+cidr:               172.20.15.0/28
+netname:            PHANTOM-NET
+descr:              Phantom Network IPv4 Space
+country:            GB
+admin-c:            CAROL-DN42
+tech-c:             CAROL-DN42
+mnt-by:             ZETA-MNT
+status:             ASSIGNED
+source:             DN42

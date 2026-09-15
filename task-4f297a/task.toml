@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of git's internal object model to discover secrets across the full object graph — not just HEAD, but all branches, tags, stash entries (refs/stash), and dangling/unreachable commits that persist after branch deletions and commit amendments. The agent must use git forensics commands (fsck, rev-list, ls-tree, cat-file) in tandem with Python to traverse commit trees and scan blobs. One provider's checksum demands implementing HKDF-SHA256 key derivation from a hex-encoded master secret file before computing a truncated HMAC — a non-trivial cryptographic chain. Two other providers use CRC32-Base62 and SHA256-Base62 checksums with specific charset ordering and zero-padding. Cross-referencing the rotation log CSV with token SHA-256 IDs requires integrating data from multiple sources. Risk classification demands holistic security judgment about exposure windows, reachability, and remediation status — not just pattern matching."""
+solution_explanation = """Parse providers.yaml (requires YAML library) for token formats and checksum algorithms. Read /app/vault/master.key, hex-decode to bytes, and derive a signing key via HKDF-SHA256 (extract-then-expand) with the specified salt and info strings. Use 'git rev-list --all' to enumerate reachable commits and 'git fsck --dangling --no-reflogs' to discover unreachable commits. For each commit, use 'git ls-tree -r' to enumerate blobs and 'git cat-file -p' to read content. Match tokens via regex patterns. Validate: CRC32->Base62 for github, HMAC-SHA256(HKDF-key)->hex-truncated for internal_svc, SHA256->uint32->Base62 for artifact_registry. Cross-reference token SHA-256 hashes with rotation_log.csv. Classify risk based on checksum validity, HEAD tree presence, reachability from refs, and rotation status. Deduplicate and sort."""
+verification_explanation = """Tests verify: (1) audit_report.json exists as valid JSON with exactly 7 entries; (2) two critical tokens (ghp_ CRC32 and isv_ HKDF-HMAC in HEAD's tree, not rotated); (3) two high-risk tokens (art_ SHA256-Base62 in reachable history and gho_ CRC32 in stash, not rotated — testing stash traversal); (4) two medium-risk tokens (ghs_ rotated in history, art_ rotated in dangling commit — testing git fsck and rotation cross-reference); (5) one low-risk token (ghp_ with invalid checksum); (6) correct risk classification for all entries; (7) proper sort order by risk priority then date; (8) valid 40-char commit hashes that exist in the repo; (9) correct token redaction format."""
+category = "security"
+tags = ["git-forensics", "secret-scanning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4f297a"

@@ -1,0 +1,52 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coordinating three interacting C tools sharing an opcode specification: \
+(1) diagnosing and fixing two operand-decoding and target-resolution defects in a bytecode disassembler \
+by cross-referencing the opcode spec's endianness and branch-offset conventions; (2) diagnosing and fixing \
+five subtle defects in a bytecode stack verifier — incorrect opcode metadata, missing control-flow \
+propagation paths, and wrong exception-handler depth; (3) implementing six interacting optimization \
+functions plus a compaction/offset-rewriting pass in the bytecode optimizer. The three tools share \
+opcode_def.h and must produce mutually consistent output. Debugging requires correlating disassembler \
+output, verifier error messages, and optimizer behavior to determine which tool contains a given defect."""
+solution_explanation = """Fix bcdump bugs: u16 operand read big-endian→little-endian; branch target \
+raw_offset→pc+offset. Fix verifier bugs: set_loc n_push 0→1; call dynamic pop arg_count→arg_count+1; \
+add fall-through propagation for if_false/if_true; replace goto bounds-check with propagate; catch handler \
+depth new_depth→new_depth+1. Implement optimizer: opt_constant_fold scans for push_i32;push_i32;arith \
+triples and folds. opt_dead_branches matches push_true/false + if_true/false pairs, deleting or converting \
+to goto_op. opt_dead_code computes live branch target set, marks post-terminal non-target instructions \
+deleted. opt_thread_gotos follows goto chains to final destination. opt_push_drop removes side-effect-free \
+push+drop pairs. compact_and_rewrite builds orig→new offset map, rewrites all branch operands, removes \
+deleted instructions."""
+verification_explanation = """A Python test suite constructs bytecode programs using a BytecodeBuilder, \
+writes them as BCVF binary files, and exercises all three tools. Disassembler tests verify correct operand \
+decoding (u16 little-endian), branch target resolution (absolute addresses), and output format. Pipeline \
+tests run the optimizer then bcdump on the output to verify the tools interoperate correctly. Verifier \
+tests check correct stack depth tracking through conditionals, gotos, calls, set_loc, and exception \
+handlers. Optimizer tests verify constant folding, dead branch/code elimination, goto threading, \
+push-drop elimination, and branch offset rewriting after compaction."""
+category = "systems"
+tags = ["bytecode", "compiler-toolchain"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bytecode-stack-verifier-8d1f1a"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in both DeFi AMM mechanics (Uniswap v3 concentrated liquidity math) and quantitative finance (Black-Scholes, Greeks, volatility). The agent must correctly implement piecewise analytical formulas for token amounts, position value, and their derivatives; derive break-even volatility from the gamma-based IL approximation; and compute straddle hedging using Black-Scholes. Combines two typically separate domains (AMM/DeFi and traditional options theory) in a non-standard way. Edge cases at range boundaries and correct handling of the three price regimes add implementation complexity."""
+solution_explanation = """Implement the concentrated liquidity position math (token amounts, value, IL as piecewise functions), compute analytical delta and gamma, derive break-even vol from gamma-IL identity, and calculate ATM straddle gamma via Black-Scholes for the hedge ratio. The solution must handle three regimes (below range, in range, above range) with continuous value and delta at boundaries but discontinuous gamma."""
+verification_explanation = """Tests verify all numerical outputs against hand-computed analytical values: token amounts, position values, impermanent loss at 7 price points per position (including boundary and out-of-range prices), delta and gamma, break-even volatility, and hedge straddle count. Uses tight relative/absolute tolerances to ensure correct implementation rather than approximate heuristics."""
+category = "finance"
+tags = ["quantitative-finance", "amm-defi"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clmm-risk-analysis"

@@ -1,0 +1,7 @@
+# m h dom mon dow   command
+# Application log rotation
+0 0 * * * /usr/sbin/logrotate /etc/logrotate.d/acmecorp
+# Cache warming
+*/10 * * * * /var/www/app/scripts/warm-cache.sh > /dev/null 2>&1
+# Session cleanup
+0 */6 * * * /var/www/app/scripts/cleanup-sessions.sh > /dev/null 2>&1

@@ -1,0 +1,10 @@
+{
+    "dimensions": ["region", "category", "channel", "day_of_week"],
+    "metrics": {
+        "revenue": ["SUM", "MIN", "MAX", "COUNT"],
+        "quantity": ["SUM", "COUNT"],
+        "discount": ["SUM", "AVG"]
+    },
+    "max_leaf_documents": 50,
+    "star_node_creation_threshold": 5
+}

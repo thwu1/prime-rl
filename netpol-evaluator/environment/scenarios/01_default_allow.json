@@ -1,0 +1,20 @@
+{
+  "description": "No NetworkPolicies - all traffic allowed by default",
+  "namespaces": [
+    {"name": "alpha", "labels": {"team": "frontend"}},
+    {"name": "beta", "labels": {"team": "backend"}}
+  ],
+  "pods": [
+    {"name": "web", "namespace": "alpha", "labels": {"app": "web", "role": "frontend"}, "ip": "10.0.1.1"},
+    {"name": "cache", "namespace": "alpha", "labels": {"app": "redis", "role": "cache"}, "ip": "10.0.1.2"},
+    {"name": "api", "namespace": "beta", "labels": {"app": "api", "role": "backend"}, "ip": "10.0.2.1"},
+    {"name": "worker", "namespace": "beta", "labels": {"app": "worker", "role": "backend"}, "ip": "10.0.2.2"}
+  ],
+  "network_policies": [],
+  "queries": [
+    {"src_namespace": "alpha", "src_pod": "web", "dst_namespace": "beta", "dst_pod": "api", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "beta", "src_pod": "api", "dst_namespace": "alpha", "dst_pod": "web", "dst_port": 80, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "alpha", "src_pod": "web", "dst_namespace": "alpha", "dst_pod": "cache", "dst_port": 6379, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "beta", "src_pod": "worker", "dst_namespace": "alpha", "dst_pod": "cache", "dst_port": 6379, "protocol": "TCP", "expected": "ALLOW"}
+  ]
+}

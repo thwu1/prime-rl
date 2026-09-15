@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge across 8 programming language ecosystems (Python, Go, Rust, C++, Node.js, Ruby, PHP, Java) and their Docker build patterns. The agent must distinguish between runtime and development packages, understand language-specific extension mechanisms (e.g. docker-php-ext-install for PHP, CGO_ENABLED for Go), recognize when base image versions are incompatible with language features, and build a working automated pipeline that correctly categorizes and fixes all 8 distinct failure modes. Some failures have misleading symptoms that mask the real root cause (e.g., PHP installs libzip-dev but doesn't compile the PHP extension, Go disables CGO while importing a CGO-dependent package, Rust installs openssl but not the -dev headers). Even experienced DevOps engineers would need significant cross-language expertise to handle all cases correctly."""
+solution_explanation = """The solution builds a Python triage pipeline that: (1) parses each build.log to extract error patterns using regex, (2) cross-references with manifest.json to understand language version requirements and dependency constraints, (3) consults the package_db.json for known library-to-package mappings while inferring missing ones from error messages, (4) generates corrected Dockerfiles addressing root causes for each of the 8 failure types, and (5) produces a structured JSON report categorizing failures and documenting fixes. Key fixes include: adding libffi-dev for Python cffi, enabling CGO and installing libpcap-dev for Go, replacing openssl with libssl-dev+pkg-config for Rust, upgrading base image and adding cmake for C++, adding libvips-dev for Node.js sharp, adding libxml2-dev+libxslt1-dev for Ruby nokogiri, adding docker-php-ext-install zip for PHP, and upgrading to JDK 21 + Maven for Java."""
+verification_explanation = """Tests verify: (1) all 8 Dockerfile.fixed files exist and contain the correct critical fixes (right base images, required system packages, environment variables, extension commands), (2) report.json exists with valid structure, correct failure categories for each build, and accurate system package lists, (3) triage.py is executable and re-produces correct outputs when run, and (4) specific edge cases are handled (PHP extension vs library distinction, CGO environment variable, dev vs runtime packages, base image version constraints)."""
+category = "devops"
+tags = ["docker", "multi-language"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/docker-build-triage"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge in statistical disclosure control and privacy-preserving data publishing, combined with proficiency in multiple CLI tools and database interaction. The solver must: (1) explore a SQLite privacy database using sqlite3 CLI to extract IPR utility weights and data provenance metadata not available in the YAML specification; (2) use the risk_assessor.py CLI tool with its assess/validate subcommands and various flags to audit the released dataset, then discover that it implements total variation distance rather than the specification-mandated Earth Mover's Distance for distribution conformance; (3) independently implement EMD as the Wasserstein-1 metric over an ordinal attribute ordering; (4) implement weighted normalized certainty penalty using database-sourced weights; (5) simultaneously optimize across four interacting privacy constraints (k-anonymity, entropy l-diversity, EMD-based t-closeness, dominance disclosure) plus a utility objective; (6) generate a signed compliance certification by running the certify.py CLI tool with correct arguments and database provenance; (7) load the remediated dataset back into the SQLite database. The multi-tool pipeline (sqlite3 -> risk_assessor -> anonymization -> certifier -> sqlite3) requires understanding each tool's interface and chaining their outputs correctly."""
+solution_explanation = """Query the SQLite privacy database for IPR utility weights and dataset_id provenance. Parse the MDPS v2.1 compliance YAML to extract control thresholds and the diagnosis semantic hierarchy reference. Run risk_assessor.py --help and then assess the released dataset to identify failures. Discover that risk_assessor.py uses TVD (not EMD) by inspecting its output or source. Implement EMD as the normalized L1 CDF distance: EMD = sum_{i=1}^{n-1} |F_ec(i) - F_overall(i)| / (n-1) over the severity ordering. Build the generalization lattice (5x5x3x3=225 nodes). For each node, apply global recoding and verify all four critical controls: RIC (EC size >= 5), ADR (Shannon entropy >= 1.0986), DCR (EMD <= 0.15), DDR (max_freq <= 0.55). Compute weighted NCP using DB-sourced weights. Select the valid configuration minimizing weighted NCP. Write remediated CSV, compliance report with dataset_id, and utility analysis. Run certify.py with --report, --dataset, --key, --output, and --db flags. Insert remediated records into the SQLite database's remediated table."""
+verification_explanation = """Tests verify: (1) output files exist with correct columns, (2) record count allows for up to 3% suppression, (3) sensitive attribute preserved, (4) all ECs satisfy RIC (size >= 5), (5) all ECs satisfy ADR (entropy >= 1.0986), (6) all ECs satisfy DCR using EMD over the ordinal severity ordering (EMD <= 0.15), (7) all ECs satisfy DDR (max_freq <= 0.55), (8) compliance report has correct structure with dataset_id from DB provenance, (9) weighted NCP consistent with per-attribute NCPs and DB-sourced weights, (10) generalized values from hierarchies and not trivially maximal, (11) HMAC-SHA256 certification signature is valid, (12) SQLite remediated table populated and matches CSV output."""
+category = "security_and_privacy"
+tags = ["data-anonymization", "privacy-compliance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/privacy-anonymization-engine"

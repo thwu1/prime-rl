@@ -1,0 +1,48 @@
+# Basic sqllogictest operations
+
+statement ok
+CREATE TABLE t1(i INTEGER, s VARCHAR)
+
+statement ok
+INSERT INTO t1 VALUES (1, 'hello'), (2, 'world'), (3, 'test')
+
+query IT
+SELECT * FROM t1 ORDER BY i
+----
+1	hello
+2	world
+3	test
+
+query I
+SELECT i * 2 FROM t1 WHERE i > 1 ORDER BY i
+----
+4
+6
+
+query I
+SELECT COUNT(*) FROM t1
+----
+3
+
+# Multi-line SQL test
+statement ok
+CREATE TABLE t2(
+    id INTEGER PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    value INTEGER DEFAULT 0
+)
+
+statement ok
+INSERT INTO t2 VALUES (1, 'alpha', 100), (2, 'beta', 200)
+
+query IIT
+SELECT id, value, name FROM t2 ORDER BY id
+----
+1	100	alpha
+2	200	beta
+
+statement ok
+DROP TABLE t1
+
+statement ok
+DROP TABLE t2

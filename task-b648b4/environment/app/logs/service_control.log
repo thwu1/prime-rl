@@ -1,0 +1,62 @@
+2025-06-12 10:44:55 [WARNING] service_control.monitoring: TLS handshake timeout to metrics-collector.internal:9443 - connection attempt 1/3
+2025-06-12 10:44:56 [WARNING] service_control.monitoring: TLS handshake timeout to metrics-collector.internal:9443 - connection attempt 2/3
+2025-06-12 10:44:57 [ERROR] service_control.monitoring: TLS handshake failed after 3 attempts, falling back to buffered metrics
+2025-06-12 10:44:58 [INFO] service_control.server: Service Control starting on port 8080
+2025-06-12 10:44:58 [INFO] service_control.policy_engine: Loading policies from database
+2025-06-12 10:44:58 [INFO] service_control.policy_engine: Loaded 7 policies
+2025-06-12 10:44:58 [INFO] service_control.server: Ready to accept requests
+2025-06-12 10:44:59 [INFO] service_control.server: Processing check: service=compute.googleapis.com method=instances.list
+2025-06-12 10:44:59 [INFO] service_control.server: Check result: allowed=True reason=within_quota
+2025-06-12 10:45:00 [INFO] service_control.server: Processing check: service=storage.googleapis.com method=objects.get
+2025-06-12 10:45:00 [INFO] service_control.server: Check result: allowed=True reason=within_quota
+2025-06-12 10:45:01 [WARNING] service_control.cache: Policy cache version mismatch detected (local=7, remote=9)
+2025-06-12 10:45:01 [WARNING] service_control.cache: Triggering emergency cache invalidation and full reload
+2025-06-12 10:45:01 [INFO] service_control.policy_engine: Policy refresh triggered by replication event
+2025-06-12 10:45:01 [INFO] service_control.policy_engine: Loaded 9 policies
+2025-06-12 10:45:01 [INFO] service_control.server: Processing check: service=iam.googleapis.com method=iam.roles.list
+2025-06-12 10:45:01 [ERROR] service_control.policy_engine: FATAL - Unhandled exception in policy evaluation
+Traceback (most recent call last):
+  File "/app/service_control/server.py", line 37, in check_request_handler
+    result = eng.evaluate_request(service, method)
+  File "/app/service_control/policy_engine.py", line 52, in evaluate_request
+    result = self._check_policy(policy, api_method)
+  File "/app/service_control/policy_engine.py", line 62, in _check_policy
+    mode = policy["enforcement_mode"].upper()
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:01 [ERROR] service_control.server: Unhandled exception caused process crash
+2025-06-12 10:45:01 [WARNING] service_control.cache: Cache consistency check failed - possible stale policy data served before crash
+2025-06-12 10:45:02 [INFO] service_control.server: Service Control restarting (attempt 1)
+2025-06-12 10:45:02 [INFO] service_control.policy_engine: Loading policies from database
+2025-06-12 10:45:02 [INFO] service_control.policy_engine: Loaded 9 policies
+2025-06-12 10:45:02 [INFO] service_control.server: Processing check: service=logging.googleapis.com method=entries.write
+2025-06-12 10:45:02 [ERROR] service_control.policy_engine: FATAL - Unhandled exception in policy evaluation
+Traceback (most recent call last):
+  File "/app/service_control/policy_engine.py", line 62, in _check_policy
+    mode = policy["enforcement_mode"].upper()
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:03 [INFO] service_control.server: Service Control restarting (attempt 2)
+2025-06-12 10:45:03 [INFO] service_control.policy_engine: Loaded 9 policies
+2025-06-12 10:45:03 [ERROR] service_control.policy_engine: FATAL - Crash during request evaluation
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:04 [INFO] service_control.server: Service Control restarting (attempt 3)
+2025-06-12 10:45:04 [ERROR] service_control.policy_engine: FATAL - Crash loop detected
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:05 [INFO] service_control.server: Service Control restarting (attempt 4)
+2025-06-12 10:45:05 [ERROR] service_control.policy_engine: FATAL - Crash loop continues
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:06 [INFO] service_control.server: Service Control restarting (attempt 5)
+2025-06-12 10:45:06 [ERROR] service_control.policy_engine: FATAL - Crash loop continues
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2025-06-12 10:45:08 [CRITICAL] service_control.server: Service Control has crashed 5 times in 7 seconds - crash loop
+2025-06-12 10:45:08 [WARNING] service_control.monitoring: Unable to push crash metrics - TLS connection still unavailable
+2025-06-12 10:45:10 [CRITICAL] service_control.server: Database connection pool exhausted due to rapid restarts
+2025-06-12 10:45:10 [ERROR] service_control.server: sqlite3.OperationalError: database is locked
+2025-06-12 10:45:12 [CRITICAL] service_control.server: 16 gateway workers attempting simultaneous reconnection
+2025-06-12 10:45:12 [ERROR] service_control.server: Connection pool overflow: 16 connections requested simultaneously
+2025-06-12 10:45:15 [CRITICAL] service_control.server: System unrecoverable - manual intervention required

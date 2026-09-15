@@ -1,0 +1,16 @@
+Tree Query Processor - Internal Notes
+======================================
+
+This system processes aggregate queries over a versioned tree dataset.
+The data resides in an SQLite database.
+
+Version semantics: version 0 represents base state (no modifications).
+Version V represents the state after the first V modifications have
+been applied cumulatively (each modification overrides a single node's
+value).
+
+Query results should be written to /app/output.txt, one integer per
+line, ordered by query identifier.
+
+The previous engine implementation was retired due to incorrect
+handling of path junction nodes.

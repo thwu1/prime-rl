@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of SQLite WAL binary format (32-byte header, 24-byte frame headers, page layout), implementing the exact incremental checksum algorithm (interleaved 32-bit sums with endianness determined by magic number), understanding chained checksum verification where each frame depends on the previous, detecting transaction boundaries via commit markers, and performing page-level database recovery by overlaying WAL frames onto a base database. Additionally requires proficiency with Litestream — an unfamiliar specialized replication tool — including learning its YAML configuration format, understanding its WAL-mode requirement, operating its CLI (replicate/restore), and orchestrating a multi-tool pipeline combining Python binary parsing, sqlite3 CLI operations, and Litestream replication in a shell script."""
+solution_explanation = """Parse the WAL header to extract page size, salt values, and endianness flag from the magic number. Implement the WAL checksum: process data in 8-byte chunks as pairs of 32-bit words (little-endian for magic 0x377f0682), computing s0 += w0 + s1, s1 += w1 + s0 with 32-bit wrapping. Verify the header checksum over the first 24 bytes, then chain through each frame (checksum covers frame header first 8 bytes + page data). Stop at the first invalid frame. Track pages per transaction, only commit pages when a frame with non-zero db_size is seen. Copy the base database, apply committed pages at their correct offsets, set journal mode bytes to rollback. Then configure Litestream for file-based replication (litestream.yml with replicas type file), copy the recovered DB, switch to WAL mode via sqlite3 PRAGMA, start litestream replicate, insert validation records with sqlite3 CLI, restore from replica with litestream restore, and verify data consistency."""
+verification_explanation = """Tests contain an independent reference WAL parser that re-implements the checksum algorithm and frame parsing from scratch. The reference parser derives all expected values directly from the binary WAL file at test time. Recovered database state is verified by independently replaying committed WAL pages onto the base database and comparing row-for-row. Litestream tests verify: config file exists with correct structure, replica directory contains Litestream generation data, restored database passes integrity check and contains matching sensor data, and replication report indicates consistency. No pre-computed answer files exist in the environment."""
+category = "systems"
+tags = ["sqlite", "binary-forensics", "litestream"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4e6cf8"

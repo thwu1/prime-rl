@@ -1,0 +1,16 @@
+[package]
+name = "foundation"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+serialize = ["dep:serde", "dep:serde_json"]
+hash = []
+validate = []
+logging = ["log"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true, optional = true }

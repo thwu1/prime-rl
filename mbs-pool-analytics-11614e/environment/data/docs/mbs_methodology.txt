@@ -1,0 +1,124 @@
+MBS Analytics Calculation Methodology Reference
+================================================
+
+1. POOL FACTOR
+--------------
+The pool factor represents the fraction of the original principal balance
+that remains outstanding.
+
+    Pool Factor = Current Total UPB / Original Aggregate UPB
+
+At issuance, the pool factor is 1.0. It decreases over time as borrowers
+make scheduled principal payments and prepayments.
+
+
+2. WEIGHTED AVERAGE METRICS
+----------------------------
+Pool-level statistics are computed as UPB-weighted averages across all
+active (non-terminated) loans in the pool at each reporting period.
+
+    WAC (Weighted Average Coupon) = Sum(rate_i * UPB_i) / Sum(UPB_i)
+    WAM (Weighted Average Maturity) = Sum(remaining_months_i * UPB_i) / Sum(UPB_i)
+    WALA (Weighted Average Loan Age) = Sum(loan_age_i * UPB_i) / Sum(UPB_i)
+
+Note: Rates in WAC calculations should be expressed as decimals in the
+output (e.g., 0.035 for 3.5%), even though input data may store rates
+as percentages.
+
+
+3. PREPAYMENT METRICS
+---------------------
+
+3.1 Single Monthly Mortality (SMM)
+SMM measures the fraction of the pool's at-risk balance that prepays in
+a given month.
+
+    SMM = Unscheduled Principal / (Beginning Period UPB - Scheduled Principal)
+
+Where:
+- Beginning Period UPB is the total UPB of all active loans at the start
+  of the period (i.e., the end of the prior period)
+- Scheduled Principal is the portion of monthly payments applied to
+  principal per the original amortization schedule
+- Unscheduled Principal = Total principal received - Scheduled principal
+
+For individual loans:
+- Scheduled Principal is computed from the standard fixed-rate mortgage
+  amortization formula using the loan's current rate and remaining term
+- Delinquent loans (non-current status) contribute ZERO scheduled
+  principal (they are not making payments)
+- Voluntarily prepaid loans (Zero Balance Code = 01) contribute their
+  removal UPB as prepayment
+
+3.2 Conditional Prepayment Rate (CPR)
+CPR is the annualized prepayment rate.
+
+    CPR = 1 - (1 - SMM)^12
+
+3.3 PSA Prepayment Benchmark
+The Public Securities Association standard benchmark assumes:
+- For months 1 through 30 (loan age): CPR increases linearly from 0%
+  to 6% (i.e., CPR = loan_age * 0.2% per month, capped at 6%)
+- For months 31 and above: CPR remains at 6%
+
+    Benchmark CPR at age t = min(t, 30) * 0.002    (at 100% PSA)
+
+PSA speed is expressed as a percentage of the benchmark:
+- 100% PSA = standard benchmark
+- 150% PSA = 1.5x the benchmark CPR at each age
+- 200% PSA = 2.0x the benchmark CPR at each age
+
+    Adjusted CPR = Benchmark CPR * (PSA Speed / 100)
+
+3.4 Implied PSA
+Given an observed CPR and pool WALA:
+
+    Implied PSA = Observed CPR / Benchmark CPR at WALA * 100
+
+
+4. MORTGAGE AMORTIZATION
+-------------------------
+For a fixed-rate fully-amortizing mortgage:
+
+    Monthly Payment = P * [r * (1+r)^n] / [(1+r)^n - 1]
+
+Where:
+- P = current principal balance
+- r = monthly interest rate (annual rate / 12)
+- n = remaining term in months
+
+    Interest = P * r
+    Scheduled Principal = Monthly Payment - Interest
+
+
+5. LOSS CALCULATION
+-------------------
+For loans that terminate through involuntary means (third-party sale,
+short sale, REO disposition, or repurchase/replacement):
+
+    Actual Loss = (Zero Balance Removal UPB + Delinquent Accrued Interest)
+                  - Net Sale Proceeds
+                  - MI Recoveries
+                  - Non-MI Recoveries
+                  + Expenses
+
+A positive value indicates a net loss; a negative value indicates a
+net recovery.
+
+
+6. CASH FLOW PROJECTION
+------------------------
+Forward projection from a pool's current state under a given PSA
+speed assumption:
+
+For each projection month (starting from month 1):
+  Beginning UPB = prior month ending UPB (or current pool UPB for month 1)
+  Scheduled Principal from standard amortization using pool WAC and
+    remaining WAM
+  Prepayment = (Beginning UPB - Scheduled Principal) * SMM, where SMM
+    is derived from the PSA benchmark at (pool WALA at projection
+    start + month offset)
+  Total Principal = Scheduled Principal + Prepayment
+  Ending UPB = Beginning UPB - Total Principal
+  Pool Factor = Ending UPB / Original Aggregate UPB
+  Interest = Beginning UPB * WAC / 12

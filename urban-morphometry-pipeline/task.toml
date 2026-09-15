@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of urban morphometric concepts (fractal dimension, compactness, tessellation, COINS stroke grouping), spatial graph construction (queen contiguity, KNN, higher-order expansion with self-weights), and correct parameterization of 25+ morphometric indicators across shape, dimension, distribution, diversity, and network categories. The agent must correctly chain building-level shape metrics, tessellation-based spatial diversity indices with appropriate graph hierarchies, building-street alignment via nearest-street linkage, and COINS stroke analysis — each requiring different spatial graph configurations whose incorrect choice produces silently wrong numerical results."""
+solution_explanation = """Load the bubenec GeoPackage, synthesize heights, compute shape metrics directly on building geometry, build KNN k=5 and contiguity graphs for distribution metrics, construct third-order tessellation contiguity with self-weight for diversity indices, run COINS stroke grouping on streets, and assemble all results into the specified JSON structure."""
+verification_explanation = """Load the output JSON and verify 26 specific numerical values against deterministic golden outputs from the momepy reference dataset. Shape, dimension, distribution, diversity, and COINS results are each checked with appropriate floating-point tolerances (rel=1e-4 for most, rel=1e-3 for geometry-sensitive metrics)."""
+category = "geospatial"
+tags = ["urban-morphology", "spatial-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/urban-morphometry-pipeline"

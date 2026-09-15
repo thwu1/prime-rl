@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Node.js stream internals across two interdependent TypeScript modules with 20 coupled defects. The compose engine has 9 defects spanning backpressure mechanics (drain callback invocation vs. nulling), writable/readable lifecycle ordering (transform→data→final→flush→finish→end), objectMode and highWaterMark inheritance across composed stages, async generator wrapping with objectMode for arbitrary value types, error propagation across multi-stage pipelines, and destroy/cleanup semantics. The operators module has 11 additional defects: batch emits each item individually wrapped in a single-element array instead of collecting to the target size, and lacks _flush so partial batches are silently dropped; scan yields the initial seed on every iteration instead of the accumulated result and never updates its accumulator; splitLines lacks readableObjectMode causing string-to-Buffer coercion, fails to preserve partial line fragments across chunk boundaries, and lacks _flush for trailing content; flatMap calls its callback before the async iteration completes causing interleaved output ordering and premature stream end, and does not catch async iterable errors; deduplicate lacks objectMode causing type coercion errors with object inputs, and uses an unbounded Set without eviction so the sliding-window contract is violated. The flatMap operator is especially challenging: the solver must understand how Transform _transform callback timing controls sequential vs. concurrent processing of async iterables, and must design the correct async-await-inside-transform pattern with error propagation. Several operator tests depend on compose fixes (scan via composeStreams, advanced_pipeline composing flatMap+batch), creating cross-module coupling that demands understanding of both modules simultaneously."""
+solution_explanation = """Fix compose.ts (9 defects): add writableObjectMode/readableObjectMode to Duplex constructor inheriting from head/tail; add writableHighWaterMark/readableHighWaterMark from head/tail; invoke drain callback before nulling the reference; defer _final by storing callback and using stream.finished() on tail; forward tail 'end' as push(null) on composed stream; propagate stage errors via destroy() with destroyed-flag guard; destroy all pipeline stages in _destroy with destroyed-flag checks; set objectMode: true on wrapGenerator Duplex so objects pass without Buffer coercion; add .catch() on generatorDone to destroy duplex on generator rejection. Fix operators.ts (11 defects): batch—check buffer.length >= size before emitting splice, call cb() without data when not full, add _flush to emit remaining buffer, use let for reassignable buffer; scan—yield the resolved accumulated value instead of seed, update accumulator with acc = resolved; splitLines—add readableObjectMode: true, save partial line via lines.pop() instead of resetting to empty string, add _flush to emit remaining partial content; flatMap—move callback() inside the async IIFE after the for-await loop completes (not before), wrap iteration in try/catch to pass errors to callback; deduplicate—add objectMode: true to Transform options, implement sliding window eviction with a parallel keys array and while loop to delete oldest entries when keys.length exceeds windowSize."""
+verification_explanation = """Twenty-four pytest cases each spawn Node.js subprocesses running specific test scenarios from test_compose.js. Tests 1-12 verify compose mechanics: two/three-transform composition with data verification, objectMode and HWM inheritance from head/tail, backpressure drain callback handling, error propagation from middle stages, end-of-stream forwarding, _final pipeline drain deferral with timed transforms, destroy cleanup of all stages, async generator stages with object data, generator error propagation, and mixed Transform/generator pipelines with NDJSON serialization. Tests 13-14 verify batch operator: full batches and partial flush. Test 15 verifies scan accumulation via composeStreams. Tests 16-17 verify splitLines: basic newline splitting with string type assertion and cross-chunk boundary assembly with trailing content flush. Test 18 integrates splitLines→batch(2)→scan. Tests 19-21 verify flatMap: expansion of each input into multiple sequential outputs, ordering guarantee with timed yields proving sequential (not concurrent) processing, and error propagation from a throwing async generator. Tests 22-23 verify deduplicate: basic deduplication of objects and sliding-window eviction allowing previously-seen keys to re-enter. Test 24 is an advanced integration composing flatMap→batch(3) through composeStreams, requiring correct compose wiring, flatMap sequential semantics, and batch collection/flush to all work in concert."""
+category = "debugging"
+tags = ["nodejs-streams", "typescript"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stream-compose-fix"

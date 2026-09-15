@@ -1,0 +1,50 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a non-obvious performance anti-pattern in an actor-model \
+connection pool: a single-mailbox supervisor that serializes all request processing and uses selective \
+receive with O(n) deferred-queue scanning, creating a feedback loop under burst traffic. The agent must \
+read and comprehend the async supervisor code, identify why the single processing path creates cascading \
+degradation and critical-traffic starvation, then architect and implement a fix — all without the \
+instruction naming the root cause or prescribing the solution approach. Beyond the core concurrency fix, \
+the task requires integrating a SQLite telemetry recorder, updating TOML configuration to match the new \
+architecture, and implementing a diagnostic shell script that combines sqlite3 CLI queries with jq \
+formatting. The combination of performance diagnosis, concurrent systems architecture, and multi-tool \
+integration across Python/TOML/Bash/SQLite demands proficient-level systems engineering judgment."""
+solution_explanation = """Three coordinated changes: (1) Replace the single ConnectionPoolSupervisor with \
+a partitioned architecture reading num_partitions and dedicated_partition settings from config.toml, \
+distributing requests across K independent partitions by hashing the destination and routing critical \
+traffic to a dedicated partition. (2) Update config.toml to enable partitioning with >=4 partitions and \
+dedicated critical partition. (3) Integrate the TelemetryRecorder from telemetry.py to record request \
+and connect events to SQLite, and implement diagnose.sh using sqlite3 JSON functions piped through jq."""
+verification_explanation = """Nine pytest tests verify the fix: five behavioral tests (normal sequential \
+100%, burst 500 concurrent >85%, critical-priority registry during burst >80%, deferred peak <200, \
+moderate 50 concurrent >95%), one config validation test (partitioning.enabled=true, num_partitions>=4, \
+dedicated_partition=true), one SQLite telemetry test (connection_events has request and connect rows), \
+and two diagnostic script tests (diagnose.sh contains sqlite3 and jq, and produces JSON with \
+total_events integer and events_by_type array of {event_type, count} objects)."""
+category = "systems_programming"
+tags = ["concurrency", "performance-diagnosis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pool-supervisor-partition"

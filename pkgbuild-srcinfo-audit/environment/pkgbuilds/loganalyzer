@@ -1,0 +1,22 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+pkgname=loganalyzer
+pkgver=1.3.5
+pkgrel=2
+pkgdesc="Log analysis and aggregation service"
+arch=('x86_64')
+url="https://example.com/loganalyzer"
+license=('MIT')
+depends=('logcollector' 'python' 'elasticsearch-oss')
+makedepends=('python-build' 'python-installer')
+source=("https://example.com/src/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('eeee5555ffff6666aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666')
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    python -m build
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    python -m installer --destdir="${pkgdir}" dist/*.whl
+}

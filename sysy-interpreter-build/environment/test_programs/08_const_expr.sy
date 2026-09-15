@@ -1,0 +1,12 @@
+int main() {
+    const int N = 5;
+    const int M = N * 2 + 1;
+    const int arr[3] = {N, M, N + M};
+    putint(arr[0]);
+    putch(32);
+    putint(arr[1]);
+    putch(32);
+    putint(arr[2]);
+    putch(10);
+    return 0;
+}

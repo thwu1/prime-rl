@@ -1,0 +1,11 @@
+The multi-source partition reconciliation system at `/app/` is broken and incomplete. Running `python3 /app/validate.py` should print `ALL CHECKS PASSED` and exit with code 0, but currently it fails with multiple errors across different subsystems.
+
+The system manages five financial data sources (alpha, beta, gamma, delta, epsilon), each providing different instruments across overlapping date ranges with assigned priorities. Configuration is loaded from `/app/pipeline.yaml` and cross-validated against a SQLite registry at `/app/partitions.db`. Per-source instrument costs and affinity group constraints are defined in `/app/cost_config.yaml`.
+
+The pipeline has two categories of problems:
+
+**Existing bugs**: The configuration loading, database integrity, and reconciliation subsystems contain interacting bugs that produce cascading failures with misleading symptoms. These involve subtle type handling issues across data formats, data quality problems in the database, and an algorithmic error in the source selection logic. Diagnose and fix all issues. Do not modify `/app/validate.py`.
+
+**Missing optimizer**: The cost-optimal source assignment engine at `/app/pipeline/optimizer.py` contains only stub implementations. Design and implement the `SourceOptimizer` class, which computes minimum-cost instrument-to-source assignments for each materializable date. The optimizer must respect affinity group constraints from the cost configuration: all instruments belonging to the same affinity group that appear on a given date must be assigned to the same source, even when splitting them across sources would yield lower individual costs. When costs are tied, break ties alphabetically by source name (ascending). The optimizer must handle varying source availability across dates and correctly identify when affinity constraints force suboptimal per-instrument choices to achieve globally minimal group costs.
+
+The validation script checks configuration integrity, YAML-database consistency, reconciliation correctness (coverage, priority-based selection with alphabetical tiebreaking), backfill execution plan validity, and optimizer output (valid assignments, complete instrument coverage, affinity constraint compliance, cost optimality, and specific assignment verification).

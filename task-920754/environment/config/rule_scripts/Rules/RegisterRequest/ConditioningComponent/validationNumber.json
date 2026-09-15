@@ -1,0 +1,48 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Branch",
+            "description": "validationNumber is required for vetted, prohibited for non-vetted",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "parameters": {
+                                    "ruleText": "parentProperty.vetted == true"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "ImportScript",
+                                "description": "Vetted CC must have a non-empty validation number",
+                                "parameters": {
+                                    "scriptFile": "CommonRules/notNullAndNotWhitespace.json"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "else": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "description": "Non-vetted conditioning component must not have validationNumber",
+                                "parameters": {
+                                    "ruleText": "currentProperty == null"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

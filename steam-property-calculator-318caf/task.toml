@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing build-system issues in a C shared library (static-vs-shared target, missing -fPIC and -lm), then diagnosing two subtle numerical bugs (a sign-flipped coefficient in Region 1 and a wrong exponent in the saturation equation) by correlating which properties fail against IAPWS verification values. The solver must write Python ctypes FFI bindings with pointer output parameters to call the C library, derive thermodynamic properties from dimensionless Gibbs free energy partial derivatives, then implement Region 3 (Helmholtz free energy with density inversion via root-finding), Region 5, and backward equations T(P,h)/T(P,s) with Region 2 subregion dispatch. Cascading effects (wrong saturation pressure affects region determination; wrong Region 1 enthalpy affects backward equation dispatch) require systematic multi-language debugging across the C/Python boundary."""
+solution_explanation = """Solution fixes Makefile: adds -fPIC, changes target from static .a to shared .so, adds -lm. Fixes two C bugs: (1) Region 1 coefficient n[5] sign flip from negative to positive, (2) saturation exponent from 3 to 4. Writes Python CLI with ctypes bindings for the C library (Region 1/2/saturation), plus pure Python implementations of Region 3 (Helmholtz with bisection density inversion), Region 5 (gamma formulation), and backward equations with proper normalization and subregion dispatch."""
+verification_explanation = """Tests verify ~75 output values against IAPWS-IF97 published verification tables. TestSharedLibrary checks the .so exists at /app/src/libif97.so and exports required C symbols (if97_gamma1, if97_gamma2_ideal, if97_gamma2_res, if97_psat_t, if97_tsat_p, if97_p23_t). Forward property tests cover Regions 1, 2, 3, and 5 against golden values (5e-7 relative tolerance, 5e-4 for Region 3). Saturation, backward equation, and region determination tests verify correct boundary logic and subregion dispatch."""
+category = "computational_physics"
+tags = ["thermodynamics", "ffi-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/steam-property-calculator-318caf"

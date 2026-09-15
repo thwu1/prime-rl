@@ -1,0 +1,64 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The task compounds three categories of challenge requiring evaluate and create-level thinking:
+(1) Seven interacting validation bugs in a ~350-line C library where cascading defects mask each other — the
+handle_exists() polarity inversion disables all duplicate detection, which conceals the NETDEV singleton bug;
+fixing them independently fails because the agent must trace call paths across functions to understand masking.
+(2) A broken shaper_compact() implementation that must be EVALUATED — the code compiles and passes trivial cases,
+but has a subtle reference-update defect: it only remaps parent_idx and children[] entries for nodes that
+physically relocate, leaving unmoved nodes with stale cross-references when their referents moved to new
+positions. Identifying this requires mentally simulating the compaction through multi-level tree topologies and
+judging which specific invariant the code violates.
+(3) shaper_rebalance() must be DESIGNED from scratch — the specification provides only mathematical properties
+(proportionality, maximum utilization, zero preservation) and traversal order, not the algorithm. The solver must
+synthesize the correct proportional-scaling formula, determine the remainder distribution strategy by analyzing
+test expectations against the properties, and implement overflow-safe 128-bit integer arithmetic with correct
+post-order recursive traversal. Additionally, validate_tree() contains an erroneous check that rejects valid
+single-child GROUP nodes, creating a misleading diagnostic that the solver must evaluate and dismiss."""
+solution_explanation = """Fix 7 validation bugs, fix the compact implementation, and design shaper_rebalance:
+(1) Flip !ctx->nodes[i].used to ctx->nodes[i].used in handle_exists() — restores duplicate detection.
+(2) Add QUEUE id=0 rejection before handle construction.
+(3) Add NETDEV singleton enforcement (scan for existing NETDEV node) and id=0 requirement.
+(4) Add id > SHAPER_HANDLE_ID_MAX range check before MAKE_HANDLE.
+(5) Fix results_size < n_leaves-1 to results_size < n_leaves in shaper_group.
+(6) Add O(n^2) duplicate leaf handle check in shaper_group before resolving handles.
+(7) Remove erroneous child_count < 2 check from validate_tree that rejects valid single-child GROUPs.
+(8) Fix shaper_compact: separate the move and reference-update into two passes — first relocate all nodes
+(forward scan, dest <= source guarantees safety), then remap parent_idx and children[] for ALL active nodes
+at positions 0..new_count-1, not just the nodes that physically moved.
+(9) Design and implement shaper_rebalance: recursive post-order DFS; at each overcommitted interior node,
+compute new_rate = floor(child.rate * parent.rate / total) using 128-bit multiply, then distribute
+remainder = parent.rate - sum(new_rates) by adding +1 to the first non-zero-rate children in array order."""
+verification_explanation = """30 pytest tests verify each defect class independently plus compact and rebalance:
+each bug class has at least one test that fails only when that specific bug is present. Five compact tests
+verify gap closure with validate_tree (catches stale children[] in unmoved nodes), handle preservation via
+find_by_handle, grouped-tree integrity, no-op correctness, and post-compact node creation. Seven rebalance
+tests verify proportional scaling, remainder distribution to first children, zero-rate preservation,
+all-zero edge case, deep post-order traversal, leaf no-op, and invalid-index handling. The validate_tree
+test explicitly checks that single-child GROUPs are accepted. Tests compile via make, load through ctypes."""
+category = "systems_programming"
+tags = ["c-debugging", "algorithm-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-shaper-validation"

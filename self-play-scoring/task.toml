@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of distributed KVCache semantics (zombie detection via two-phase write protocol, soft/hard pin eviction hierarchy, prefix hash chain deduplication, replica placement). The solver must independently discover multiple degradation issues in a SQLite database by formulating correct SQL queries against an unfamiliar schema, correlating configuration thresholds with block metadata. They must then design a holistic optimization strategy that simultaneously addresses storage cleanup, capacity rebalancing across heterogeneous nodes, and cache-aware request scheduling to maximize prefix reuse—all while respecting hard constraints on pin semantics and node capacities."""
+solution_explanation = """Connect to the SQLite database, inspect the schema, and read config.json for threshold parameters. Query for zombie blocks (status='init' with put_start_time older than zombie_timeout_ms), expired soft pins (pin_type='soft' with last_accessed older than soft_pin_ttl_ms), orphaned prefix chains (parent_hash_id not in prefix_chains), and node utilization (block counts vs capacity). Build a hash-to-node index from complete blocks, then schedule each request to the prefill node with the most matching hash_ids. Evict duplicate replicas on the same node. Output diagnostics, cleanup actions, rebalance plan, schedule, and aggregate metrics."""
+verification_explanation = """Tests verify: (1) results.json exists with required structure, (2) zombie blocks identified with >=90% recall and no false positives among recent init blocks, (3) expired soft pins identified with >=90% recall and no false positives among active pins, (4) orphaned chains identified with >=80% recall, (5) overloaded nodes correctly identified, (6) no hard-pinned blocks in eviction plan, (7) all requests scheduled to valid prefill/decode nodes, (8) cache hit rate >= target from config when computed from original block placement, (9) hits+misses = total hashes per request, (10) capacity not exceeded after plan, (11) metrics consistent with diagnostic counts."""
+category = "distributed_systems"
+tags = ["kvcache", "distributed-storage"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/self-play-scoring"

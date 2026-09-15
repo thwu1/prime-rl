@@ -1,0 +1,35 @@
+{
+  "properties": {
+    "main_liveness": {
+      "expression": "G(active -> F complete)",
+      "signals": ["active", "complete"],
+      "temporal_depth": 10
+    },
+    "inv_progress": {
+      "expression": "G(complete -> X idle)",
+      "signals": ["complete", "idle"],
+      "temporal_depth": 4
+    },
+    "inv_safety": {
+      "expression": "G(idle -> safe)",
+      "signals": ["idle", "safe"],
+      "temporal_depth": 3
+    }
+  },
+  "signal_dependencies": {
+    "active": [],
+    "complete": ["active"],
+    "idle": ["complete"],
+    "safe": ["idle"]
+  },
+  "decompositions": [
+    {
+      "strategy": "helper_invariant",
+      "target": "main_liveness",
+      "params": {
+        "helpers": ["inv_progress", "inv_safety"],
+        "target": "main_liveness"
+      }
+    }
+  ]
+}

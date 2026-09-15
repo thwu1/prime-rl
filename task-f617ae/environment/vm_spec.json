@@ -1,0 +1,268 @@
+{
+  "name": "StackVM-27",
+  "description": "Stack-based virtual machine with 32-bit unsigned word size. All arithmetic wraps at 2^32.",
+  "word_size_bits": 32,
+  "memory_slots": 32,
+  "max_stack_depth": 128,
+  "byte_order": "little-endian",
+  "max_execution_steps": 5000000,
+  "initial_state": {
+    "sp": 0,
+    "pc": 0,
+    "result": 1,
+    "halted": false
+  },
+  "instructions": [
+    {
+      "opcode": 0,
+      "hex": "0x00",
+      "mnemonic": "NOP",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 0, "push": 0},
+      "description": "No operation."
+    },
+    {
+      "opcode": 1,
+      "hex": "0x01",
+      "mnemonic": "PUSH32",
+      "size_bytes": 5,
+      "operands": [{"name": "imm32", "type": "uint32", "encoding": "4 bytes little-endian"}],
+      "stack_effect": {"pop": 0, "push": 1},
+      "description": "Push 32-bit immediate value onto stack."
+    },
+    {
+      "opcode": 2,
+      "hex": "0x02",
+      "mnemonic": "PUSH8",
+      "size_bytes": 2,
+      "operands": [{"name": "imm8", "type": "uint8", "encoding": "1 byte"}],
+      "stack_effect": {"pop": 0, "push": 1},
+      "description": "Push 8-bit immediate value (zero-extended to 32 bits) onto stack."
+    },
+    {
+      "opcode": 3,
+      "hex": "0x03",
+      "mnemonic": "LOAD",
+      "size_bytes": 2,
+      "operands": [{"name": "addr", "type": "uint8", "encoding": "1 byte, masked with 0x1F"}],
+      "stack_effect": {"pop": 0, "push": 1},
+      "description": "Push mem[addr & 0x1F] onto stack."
+    },
+    {
+      "opcode": 4,
+      "hex": "0x04",
+      "mnemonic": "STORE",
+      "size_bytes": 2,
+      "operands": [{"name": "addr", "type": "uint8", "encoding": "1 byte, masked with 0x1F"}],
+      "stack_effect": {"pop": 1, "push": 0},
+      "description": "Pop top of stack and store in mem[addr & 0x1F]."
+    },
+    {
+      "opcode": 5,
+      "hex": "0x05",
+      "mnemonic": "DUP",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 0, "push": 1},
+      "description": "Duplicate top of stack."
+    },
+    {
+      "opcode": 6,
+      "hex": "0x06",
+      "mnemonic": "DROP",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 1, "push": 0},
+      "description": "Discard top of stack."
+    },
+    {
+      "opcode": 7,
+      "hex": "0x07",
+      "mnemonic": "SWAP",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 0, "push": 0},
+      "description": "Swap the top two stack elements."
+    },
+    {
+      "opcode": 8,
+      "hex": "0x08",
+      "mnemonic": "ADD",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push (b + a) mod 2^32."
+    },
+    {
+      "opcode": 9,
+      "hex": "0x09",
+      "mnemonic": "SUB",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push (b - a) mod 2^32."
+    },
+    {
+      "opcode": 10,
+      "hex": "0x0A",
+      "mnemonic": "MUL",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push (b * a) mod 2^32."
+    },
+    {
+      "opcode": 11,
+      "hex": "0x0B",
+      "mnemonic": "XOR",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push b XOR a."
+    },
+    {
+      "opcode": 12,
+      "hex": "0x0C",
+      "mnemonic": "AND",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push b AND a."
+    },
+    {
+      "opcode": 13,
+      "hex": "0x0D",
+      "mnemonic": "OR",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b (now top), push b OR a."
+    },
+    {
+      "opcode": 14,
+      "hex": "0x0E",
+      "mnemonic": "SHR",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop shift_amount, pop value (now top), push value >> (shift_amount & 31). Logical (unsigned) shift."
+    },
+    {
+      "opcode": 15,
+      "hex": "0x0F",
+      "mnemonic": "SHL",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop shift_amount, pop value (now top), push (value << (shift_amount & 31)) mod 2^32."
+    },
+    {
+      "opcode": 16,
+      "hex": "0x10",
+      "mnemonic": "ROTR",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop rotate_amount, pop value. Right-rotate value by (rotate_amount & 31) bits. Push result."
+    },
+    {
+      "opcode": 17,
+      "hex": "0x11",
+      "mnemonic": "ROTL",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop rotate_amount, pop value. Left-rotate value by (rotate_amount & 31) bits. Push result."
+    },
+    {
+      "opcode": 18,
+      "hex": "0x12",
+      "mnemonic": "MOD",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop divisor, pop dividend (now top). If divisor != 0, push dividend % divisor. Otherwise no-op on dividend."
+    },
+    {
+      "opcode": 19,
+      "hex": "0x13",
+      "mnemonic": "CMP_EQ",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b. Push 1 if b == a, else push 0."
+    },
+    {
+      "opcode": 20,
+      "hex": "0x14",
+      "mnemonic": "CMP_NE",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 2, "push": 1},
+      "description": "Pop a, pop b. Push 1 if b != a, else push 0."
+    },
+    {
+      "opcode": 21,
+      "hex": "0x15",
+      "mnemonic": "JMP",
+      "size_bytes": 3,
+      "operands": [{"name": "target", "type": "uint16", "encoding": "2 bytes little-endian"}],
+      "stack_effect": {"pop": 0, "push": 0},
+      "description": "Unconditional jump: set PC = target."
+    },
+    {
+      "opcode": 22,
+      "hex": "0x16",
+      "mnemonic": "JZ",
+      "size_bytes": 3,
+      "operands": [{"name": "target", "type": "uint16", "encoding": "2 bytes little-endian"}],
+      "stack_effect": {"pop": 1, "push": 0},
+      "description": "Pop condition. If condition == 0, set PC = target; otherwise continue."
+    },
+    {
+      "opcode": 23,
+      "hex": "0x17",
+      "mnemonic": "JNZ",
+      "size_bytes": 3,
+      "operands": [{"name": "target", "type": "uint16", "encoding": "2 bytes little-endian"}],
+      "stack_effect": {"pop": 1, "push": 0},
+      "description": "Pop condition. If condition != 0, set PC = target; otherwise continue."
+    },
+    {
+      "opcode": 24,
+      "hex": "0x18",
+      "mnemonic": "HALT",
+      "size_bytes": 2,
+      "operands": [{"name": "result_code", "type": "uint8", "encoding": "1 byte"}],
+      "stack_effect": {"pop": 0, "push": 0},
+      "description": "Stop execution. Set the VM result to result_code (0 = accept, 1 = reject)."
+    },
+    {
+      "opcode": 25,
+      "hex": "0x19",
+      "mnemonic": "NOT",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 0, "push": 0},
+      "description": "Bitwise NOT of top of stack (in-place). TOS = ~TOS."
+    },
+    {
+      "opcode": 26,
+      "hex": "0x1A",
+      "mnemonic": "OVER",
+      "size_bytes": 1,
+      "operands": [],
+      "stack_effect": {"pop": 0, "push": 1},
+      "description": "Copy the second element from top of stack and push it. [... b a] -> [... b a b]."
+    }
+  ],
+  "notes": [
+    "Opcodes 0x1B-0xFF are invalid and cause immediate halt with result=1.",
+    "All arithmetic operations use unsigned 32-bit wrapping semantics.",
+    "Memory addresses are masked with 0x1F (only 32 slots available).",
+    "Shift/rotate amounts are masked with 31.",
+    "The VM halts if PC goes past the end of the bytecode or if MAX_STEPS is exceeded.",
+    "Jump targets are absolute byte offsets within the bytecode."
+  ]
+}

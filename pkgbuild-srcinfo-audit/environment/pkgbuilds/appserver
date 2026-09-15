@@ -1,0 +1,35 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+_orgname=examplecorp
+_repobase="https://releases.${_orgname}.com/packages"
+_pkgsuffix="-stable"
+
+pkgname=appserver
+pkgver=1.2.0
+pkgrel=1
+epoch=2
+pkgdesc="Enterprise application server with clustering support"
+arch=('x86_64')
+url="https://www.${_orgname}.com/appserver"
+license=('custom')
+depends=('jre-openjdk>=17' 'netutils>=3.0')
+makedepends=('jdk-openjdk>=17' 'maven')
+install="${pkgname}.install"
+source=("${_repobase}/${pkgname}${_pkgsuffix}-${pkgver}.tar.gz"
+        "${pkgname}.service"
+        "${pkgname}.install")
+sha256sums=('ffff6666aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111'
+            'aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222'
+            'bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222cccc3333')
+
+build() {
+    cd "${srcdir}/${pkgname}${_pkgsuffix}-${pkgver}"
+    mvn package -DskipTests
+}
+
+package() {
+    cd "${srcdir}/${pkgname}${_pkgsuffix}-${pkgver}"
+    install -d "${pkgdir}/opt/${pkgname}"
+    cp -r target/lib "${pkgdir}/opt/${pkgname}/"
+    install -Dm644 "${srcdir}/${pkgname}.service" "${pkgdir}/usr/lib/systemd/system/${pkgname}.service"
+}

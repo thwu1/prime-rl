@@ -1,0 +1,65 @@
+{
+  "discounts": [
+    {
+      "id": "D1",
+      "type": "multi_buy",
+      "description": "3 toothbrushes for $5.00",
+      "product": "TOOTH_BRUSH",
+      "quantity": 3,
+      "fixed_price": 5.00
+    },
+    {
+      "id": "D2",
+      "type": "percentage",
+      "description": "20% off toothpaste",
+      "product": "TOOTH_PASTE",
+      "percent_off": 20,
+      "max_items": null
+    },
+    {
+      "id": "D3",
+      "type": "bundle",
+      "description": "Oral care bundle: 25% off when buying toothbrush + toothpaste + mouthwash",
+      "products": ["TOOTH_BRUSH", "TOOTH_PASTE", "MOUTH_WASH"],
+      "percent_off": 25
+    },
+    {
+      "id": "D4",
+      "type": "bundle",
+      "description": "Hair care bundle: 30% off when buying shampoo + conditioner",
+      "products": ["SHAMPOO", "CONDITIONER"],
+      "percent_off": 30
+    },
+    {
+      "id": "D5",
+      "type": "buy_n_get_m_free",
+      "description": "Buy 2 soaps, get 1 free",
+      "product": "SOAP",
+      "buy_count": 2,
+      "free_count": 1
+    },
+    {
+      "id": "D6",
+      "type": "percentage",
+      "description": "10% off rice",
+      "product": "RICE",
+      "percent_off": 10,
+      "max_items": null
+    },
+    {
+      "id": "D7",
+      "type": "cheapest_free_group",
+      "description": "Buy 3 oral care items, cheapest is free",
+      "products": ["TOOTH_BRUSH", "TOOTH_PASTE", "DENTAL_FLOSS", "MOUTH_WASH"],
+      "group_size": 3
+    },
+    {
+      "id": "D8",
+      "type": "multi_buy",
+      "description": "2 milks for $2.00",
+      "product": "MILK",
+      "quantity": 2,
+      "fixed_price": 2.00
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"_input": "trace,tcp", "enabled_features": ["net", "net-trace", "tcp", "trace"], "activated_deps": {"smoltcp": ["alloc", "log", "medium-ethernet", "proto-ipv4", "socket-tcp", "verbose"]}}

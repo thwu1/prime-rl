@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing issues across three technology layers: (1) a broken Makefile that produces a static archive instead of the shared library expected by ctypes, requiring understanding of gfortran compilation flags (-fPIC, -shared) and the difference between static/shared libraries; (2) a Fortran source file implementing the wrong soil thermal conductivity model (arithmetic mean + additive water correction instead of geometric mean + power-law de Vries mixing), requiring reading and modifying Fortran 90 code with iso_c_binding; (3) three Python bugs in the analytical permafrost model — missing sqrt in the snow penetration factor, reversed sign on the vegetation temperature offset, and inverted conductivity asymmetry in the permafrost temperature formula. The bugs interact nonlinearly across language boundaries: fixing the build reveals the Fortran numerical error, and the Fortran error masks/amplifies the Python formula bugs. The solver must cross-reference class-based numpy reference implementations against functional scalar code in a different language, rebuild and re-test iteratively, and validate against tight numerical tolerances across three climatically distinct sites."""
+solution_explanation = """Fix the Makefile to produce libthermal.so using gfortran -fPIC -shared instead of ar rcs. Fix the Fortran thermal.f90: change dry conductivity from arithmetic mean (sum of k_i*f_i) to geometric mean (product of k_i^f_i), and change water correction from additive (Kd + kw*vwc) to power-law (Kd^(1-vwc) * kw^vwc). Fix three Python bugs in pipeline.py: (1) snow penetration factor must use sqrt(pi/(kappa*P)) not pi/(kappa*P); (2) vegetation dTv must use (dA1*tau1 - dA2*tau2) not (dA2*tau2 - dA1*tau1); (3) permafrost temperature must use (Kt-Kf) not (Kf-Kt) for the conductivity asymmetry correction."""
+verification_explanation = """Tests verify numerical output against golden values computed from the correct analytical formulations. A library existence test confirms libthermal.so was built, and an ELF header inspection verifies it is a shared object (ET_DYN) rather than a static archive. Structural tests check JSON schema and site completeness. Per-site tests check frost numbers within 0.005, ground surface temperatures within 0.15 degC, amplitudes within 0.2 degC, permafrost temperatures within bracketed ranges, and ALT within range constraints. Cross-site consistency tests verify physical ordering constraints. The test fixture runs python3 /app/pipeline.py before checking output."""
+category = "applied_computing"
+tags = ["permafrost-geophysics", "cross-language-debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/permafrost-alt-solver-588998"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Linux kernel SLUB allocator internals, GFP allocation flag semantics (GFP_KERNEL vs GFP_KERNEL_ACCOUNT and their effect on kmalloc-cg cache segregation), cross-cache heap spraying techniques, and kernel exploitation primitive evaluation. The agent must parse /proc/slabinfo format, implement kmalloc size class mapping, handle dedicated vs shared caches, evaluate variable-size spray objects, and score candidates based on data controllability and function pointer overlap at specific offsets. This combines systems programming, security domain knowledge, and exploit engineering judgment that requires proficient-to-expert Dreyfus level."""
+solution_explanation = """Parse slabinfo to build cache geometry map. Map vulnerable object (240 bytes, GFP_KERNEL) to kmalloc-256 using kmalloc size class selection. For each structure in the database: exclude dedicated-cache objects (cred, sk_buff), exclude GFP_KERNEL_ACCOUNT objects from kmalloc caches (msg_msg -> kmalloc-cg-256 not kmalloc-256), exclude non-triggerable objects, exclude wrong-size-class objects. For variable-size objects, check if any allocation size in their range maps to kmalloc-256 (size in (192,256]). Score candidates by: lifetime persistence, arbitrary data control at the 192-byte dereference offset, and presence of function pointers. Recommend highest-scoring persistent object with data control (user_key_payload) as the spray object."""
+verification_explanation = """Tests run the tool against the provided scenario and verify: correct cache identification (kmalloc-256), correct objects-per-slab (16 from slabinfo), proper exclusion of GFP_KERNEL_ACCOUNT objects (msg_msg), dedicated-cache objects (cred, sk_buff), wrong-size objects (tty_struct, seq_operations), and non-triggerable objects (subprocess_info). Verifies inclusion of compatible objects (user_key_payload, timerfd_ctx, simple_xattr). Validates data control assessment, score ordering, spray parameter computation, and strategy selection. A generalization test with a different object size (80 -> kmalloc-96) ensures the tool is not hardcoded."""
+category = "security_and_privacy"
+tags = ["linux-kernel", "heap-exploitation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6e80ca"

@@ -1,0 +1,29 @@
+{
+  "request": {
+    "key": "r",
+    "prefix": false,
+    "start_revision": 3,
+    "prev_kv": false
+  },
+  "responses": [
+    {
+      "events": [
+        {"type": "PUT", "key": "r", "value": "3", "revision": 4, "is_create": false, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 4
+    },
+    {
+      "events": [],
+      "is_progress_notify": true,
+      "watch_revision": 3
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "r", "value": "4", "revision": 5, "is_create": false, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 5
+    }
+  ]
+}

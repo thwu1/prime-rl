@@ -1,0 +1,20 @@
+{
+  "forecaster_id": "cipher",
+  "predictions": [
+    {"event_id": "EVT-001", "prob": 0.88},
+    {"event_id": "EVT-002", "prob": 0.15},
+    {"event_id": "EVT-003", "prob": 0.95},
+    {"event_id": "EVT-004", "prob": 0.20},
+    {"event_id": "EVT-005", "prob": 0.92},
+    {"event_id": "EVT-006", "prob": 0.10},
+    {"event_id": "EVT-007", "prob": 0.75},
+    {"event_id": "EVT-008", "prob": 0.98},
+    {"event_id": "EVT-009", "prob": 0.12},
+    {"event_id": "EVT-010", "prob": 0.90},
+    {"event_id": "EVT-011", "prob": 0.82},
+    {"event_id": "EVT-012", "prob": 0.65},
+    {"event_id": "EVT-013", "prob": 0.96},
+    {"event_id": "EVT-014", "prob": 0.08},
+    {"event_id": "EVT-015", "prob": 0.30}
+  ]
+}

@@ -1,0 +1,8 @@
+[local]
+localhost ansible_connection=local
+
+[webservers:children]
+locals
+
+[dbservers]
+localhost ansible_connection=local

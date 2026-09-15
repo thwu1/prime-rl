@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of constraint programming with Google OR-Tools CP-SAT API. The solver must correctly model 11 interacting constraint types (staffing demands, senior coverage, fixed assignments, sequence constraints with bounded spans, weekly sum constraints, forbidden/penalized transitions, employee preferences, incompatibility pairs, weekend pairing XOR, and range-based night fairness) using Boolean and integer variables. Correctly implementing the negated bounded span pattern for sequence constraints, the soft constraint penalty modeling, and the interaction between hard/soft bounds demands proficiency-level CP expertise."""
+solution_explanation = """Build a CP-SAT model with work[e,s,d] Boolean decision variables. Use negated_bounded_span to detect and penalize isolated or overlong shift sequences. Model weekly sums with auxiliary integer variables and max-equality for soft bound violations. Use add_bool_or for forbidden transitions and indicator variables for penalized transitions. Model weekend XOR with implication constraints. Compute night fairness as max-min range using add_max_equality/add_min_equality. Minimize the weighted sum of all soft constraint violations."""
+verification_explanation = """Tests independently verify all hard constraints (fixed assignments, cover demands, senior coverage, forbidden transitions, sequence bounds, weekly bounds, incompatible pairs) by checking the schedule array. Soft constraint quality is verified by independently recomputing the total penalty using the same formulas and checking it is at most 500. The reported objective must match the independently computed value within tolerance of 5."""
+category = "optimization"
+tags = ["constraint-programming", "scheduling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/workforce-scheduling"

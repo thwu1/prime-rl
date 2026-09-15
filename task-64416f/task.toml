@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-pass optimizing compiler back-end from scratch with no guidance on which analyses or transformations to apply. The agent must reverse-engineer the IR semantics from the interpreter, study six programs to identify optimization opportunities, determine which data-flow analyses are needed, implement them correctly across complex control flow (loops, branches, join points), compose passes with fixed-point iteration, generate accurate control-flow graphs in DOT format with correct basic-block decomposition and edge computation, and complete a Makefile build pipeline orchestrating multiple tools. Demands deep compiler engineering expertise to recognize that naive transformations break semantics at join points and in loops."""
+solution_explanation = """Implement a multi-pass optimizer with iterative convergence: unreachable code elimination (remove instructions after unconditional jumps/returns until next label), constant propagation with folding (track singly-assigned variables, propagate through expression chains, resolve branches), dead code elimination (compute transitively-used variable sets, remove definitions of unused variables), common sub-expression elimination (track available expressions within basic blocks, invalidate on redefinition), copy propagation (replace uses of copy destinations with sources for singly-assigned copies), and cleanup passes for redundant gotos and unreferenced labels. Repeat all passes until no changes occur. DOT mode: parse IR into basic blocks via leader identification, compute CFG edges from jump/fall-through analysis, emit digraph with box-shaped nodes. Complete the Makefile with shell for-loops, proper prerequisite ordering, and interpreter/diff/dot invocations."""
+verification_explanation = """For each of 6 IR programs: run original through interpreter to get reference output, run optimizer and pipe output to interpreter, verify identical output (semantic correctness), count non-metadata instructions in original vs optimized, verify measurable reduction. Pattern-specific tests: dead assignments eliminated in prog1, arithmetic operations reduced in prog2, unreachable code removed in prog3, loop semantics preserved in prog4, branch-sensitive propagation correct in prog5, combined optimizations achieve significant reduction in prog6. CFG tests: validate DOT output with graphviz dot command, verify loop programs have back-edges (≥4 edges), conditional programs have branch edges (≥3 edges), nodes contain instruction labels. Makefile tests: make all succeeds, output/*.ir and cfg/*.dot and cfg/*.svg files created, report.txt lists all programs."""
+category = "compiler_optimization"
+tags = ["data_flow_analysis", "compiler_design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-64416f"

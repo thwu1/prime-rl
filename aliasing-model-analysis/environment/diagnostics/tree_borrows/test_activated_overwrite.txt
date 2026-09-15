@@ -1,0 +1,38 @@
+$ MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test --lib test_activated_overwrite
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_activated_overwrite ... error: Undefined Behavior: write access through <2891> at alloc1523[0x0] is forbidden
+   --> src/lib.rs:23:5
+    |
+23  |     *dst = val;
+    |     ^^^^^^^^^^ write access through <2891> at alloc1523[0x0] is forbidden
+    |
+    = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+    = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+help: <2891> was created by a Unique retag at offsets [0x0..0x10]
+   --> src/lib.rs:20:15
+    |
+20  |     let dst = data.as_mut_ptr();
+    |               ^^^^^^^^^^^^^^^^ this tag was created here
+help: <2891> later transitioned to Active due to a child write access at offsets [0x0..0x4]
+   --> src/lib.rs:21:5
+    |
+21  |     *dst = 0;
+    |     ^^^^^^^^ this transition corresponds to the first write to a 2-phase Reserved pointer
+help: <2891> later transitioned to Frozen due to a reborrow (acting as a foreign read access) at offsets [0x0..0x10]
+   --> src/lib.rs:22:15
+    |
+22  |     let val = *data.as_ptr().add(1);
+    |               ^^^^^^^^^^^^ this reborrow through the parent &mut is a foreign read access from <2891>
+    = note: Tree Borrows transition: Active -> Frozen (caused by a foreign read)
+    = note: Frozen pointers cannot be written to
+    = note: BACKTRACE (of the first span):
+    = note: inside `activated_overwrite` at src/lib.rs:23:5: 23:15
+    = note: inside `tests::test_activated_overwrite` at src/lib.rs:93:30: 93:60
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error

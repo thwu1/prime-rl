@@ -1,0 +1,4 @@
+---
+app_name: default_app
+max_connections: 100
+ssl_redirect: false

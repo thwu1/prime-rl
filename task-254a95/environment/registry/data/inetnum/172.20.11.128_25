@@ -1,0 +1,10 @@
+inetnum:            172.20.11.128 - 172.20.11.255
+cidr:               172.20.11.128/25
+netname:            BETA-NET-2
+descr:              Beta Network IPv4 Block 2
+country:            DE
+admin-c:            BOB-DN42
+tech-c:             BOB-DN42
+mnt-by:             BETA-MNT
+status:             ASSIGNED
+source:             DN42

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Registration Form</title>
+<style>
+  form { max-width: 400px; margin: 20px auto; font-family: sans-serif; }
+  div { margin-bottom: 10px; }
+  label { display: block; margin-bottom: 3px; font-weight: bold; }
+  input[type="text"], input[type="email"], select { width: 100%; padding: 6px; box-sizing: border-box; }
+  #status { padding: 10px; border-radius: 4px; font-weight: bold; }
+</style>
+</head>
+<body>
+<form id="regform">
+  <div>
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" required placeholder="Full name">
+  </div>
+  <div>
+    <label for="email">Email:</label>
+    <input type="email" id="email" name="email" required placeholder="user@example.com">
+  </div>
+  <div>
+    <label for="acct-type">Account Type:</label>
+    <select id="acct-type" name="acct-type">
+      <option value="personal">Personal</option>
+      <option value="business">Business</option>
+    </select>
+  </div>
+  <div id="business-fields" style="display:none;">
+    <div>
+      <label for="company">Company Name:</label>
+      <input type="text" id="company" name="company" placeholder="Company Inc.">
+    </div>
+    <div>
+      <label for="tax-id">Tax ID:</label>
+      <input type="text" id="tax-id" name="tax-id" placeholder="XX-XXXXXXX">
+    </div>
+  </div>
+  <div>
+    <label>
+      <input type="checkbox" id="terms" name="terms"> I accept the terms and conditions
+    </label>
+  </div>
+  <div>
+    <button type="submit" id="submit-btn">Register</button>
+  </div>
+  <div id="status" style="display:none;"></div>
+</form>
+<script>
+document.getElementById('acct-type').addEventListener('change', function() {
+  var bf = document.getElementById('business-fields');
+  bf.style.display = this.value === 'business' ? 'block' : 'none';
+});
+
+document.getElementById('regform').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var status = document.getElementById('status');
+  var name = document.getElementById('name').value;
+  var email = document.getElementById('email').value;
+  var terms = document.getElementById('terms').checked;
+
+  if (!name || !email || !terms) {
+    status.textContent = 'Please fill all required fields and accept terms.';
+    status.style.display = 'block';
+    status.style.color = 'red';
+    status.style.backgroundColor = '#ffe0e0';
+  } else {
+    status.textContent = 'Registration successful!';
+    status.style.display = 'block';
+    status.style.color = 'green';
+    status.style.backgroundColor = '#e0ffe0';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: configmap-editor
+  namespace: production
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: log-reader
+  namespace: production
+rules:
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: clusterrole-escalator
+  namespace: kube-system
+rules:
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterroles"]
+  verbs: ["get", "list", "escalate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-exec-only
+  namespace: ci
+rules:
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]

@@ -1,0 +1,35 @@
+name: "Add new nodes to the cluster"
+variables:
+  - name: known_node
+    type: string
+    default: ""
+  - name: bootstrap_timeout
+    type: integer
+    default: 86400
+cluster_tasks:
+  - type: node_workflow
+    name: "Configure new nodes"
+    concurrency_unit: all
+    concurrency_limit: 10
+    node_tasks:
+      - type: configure_node
+        retries: 3
+        params:
+          known_node: "{{known_node}}"
+  - type: node_workflow
+    name: "Join nodes to cluster one at a time"
+    concurrency_unit: zone
+    concurrency_limit: 1
+    node_tasks:
+      - type: send_webhook
+        params:
+          channel: infra-doing
+          message: "Node is about to join!"
+      - type: join_cluster
+        retries: 1
+      - type: wait_for_condition
+        condition: is_up_normal
+        params:
+          timeout_seconds: "{{bootstrap_timeout}}"
+          poll_interval_seconds: 5
+          success_window_seconds: 60

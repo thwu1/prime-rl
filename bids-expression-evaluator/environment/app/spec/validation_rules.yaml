@@ -1,0 +1,90 @@
+# BIDS validation rules for schema-based checking
+# Each rule has selectors (to match files) and checks (expressions to evaluate)
+rules:
+  - id: REPETITION_TIME_MUST_DEFINE
+    selectors:
+      - suffixes: ["bold", "cbv", "sbref"]
+        datatypes: ["func", "perf"]
+    checks:
+      - expression: "sidecar.RepetitionTime != null"
+        level: error
+        reason: "RepetitionTime must be defined for functional imaging files"
+
+  - id: TASK_NAME_VALID
+    selectors:
+      - entities:
+          task: required
+    checks:
+      - expression: "sidecar.TaskName != null"
+        level: error
+        reason: "TaskName must be defined when task entity is present"
+      - expression: 'match(sidecar.TaskName, "^[a-zA-Z0-9]+$")'
+        level: warning
+        reason: "TaskName should contain only alphanumeric characters"
+        depends_on: 0
+
+  - id: ECHO_TIME_RANGE
+    selectors:
+      - suffixes: ["bold", "T1w", "T2w"]
+        datatypes: ["func", "anat"]
+    checks:
+      - expression: "sidecar.EchoTime != null"
+        level: warning
+        reason: "EchoTime should be defined for MRI files"
+      - expression: "sidecar.EchoTime > 0 && sidecar.EchoTime < 1"
+        level: error
+        reason: "EchoTime must be between 0 and 1 seconds"
+        depends_on: 0
+
+  - id: SLICE_TIMING_LENGTH
+    selectors:
+      - suffixes: ["bold"]
+        datatypes: ["func"]
+    checks:
+      - expression: "sidecar.SliceTiming != null"
+        level: warning
+        reason: "SliceTiming should be defined for BOLD files"
+      - expression: "length(sidecar.SliceTiming) > 0"
+        level: error
+        reason: "SliceTiming must not be empty when defined"
+        depends_on: 0
+
+  - id: PHASE_ENCODING_DIRECTION
+    selectors:
+      - suffixes: ["bold", "sbref", "epi"]
+        datatypes: ["func", "fmap"]
+    checks:
+      - expression: "sidecar.PhaseEncodingDirection != null"
+        level: warning
+        reason: "PhaseEncodingDirection should be defined for EPI-based acquisitions"
+
+  - id: EVENTS_COLUMNS
+    selectors:
+      - suffixes: ["events"]
+        datatypes: ["func"]
+        extensions: [".tsv"]
+    checks:
+      - expression: '"onset" in columns'
+        level: error
+        reason: "Events files must contain an onset column"
+      - expression: '"duration" in columns'
+        level: error
+        reason: "Events files must contain a duration column"
+
+  - id: PARTICIPANT_ID_FORMAT
+    selectors:
+      - suffixes: ["participants"]
+        extensions: [".tsv"]
+    checks:
+      - expression: '"participant_id" in columns'
+        level: error
+        reason: "Participants file must contain a participant_id column"
+
+  - id: UNIQUE_RUNS
+    selectors:
+      - entities:
+          run: required
+    checks:
+      - expression: "type(entities.run) == 'string'"
+        level: error
+        reason: "Run entity must be a string value"

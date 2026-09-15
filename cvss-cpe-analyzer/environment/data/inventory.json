@@ -1,0 +1,17 @@
+[
+  {"vendor": "acme", "product": "loglib", "version": "2.14.1"},
+  {"vendor": "acme", "product": "loglib", "version": "2.15.1"},
+  {"vendor": "acme", "product": "cryptolib", "version": "1.0.1"},
+  {"vendor": "acme", "product": "cryptolib", "version": "1.0.2"},
+  {"vendor": "acme", "product": "shellutil", "version": "4.3.0"},
+  {"vendor": "acme", "product": "shellutil", "version": "4.4.0"},
+  {"vendor": "acme", "product": "kernelos", "version": "4.8.2"},
+  {"vendor": "acme", "product": "kernelos", "version": "4.8.3"},
+  {"vendor": "acme", "product": "blogengine", "version": "5.8.0"},
+  {"vendor": "acme", "product": "webframework", "version": "3.2.13"},
+  {"vendor": "acme", "product": "datastore", "version": "8.1.0"},
+  {"vendor": "acme", "product": "container_rt", "version": "1.0.0"},
+  {"vendor": "acme", "product": "container_rt", "version": "1.5.0"},
+  {"vendor": "acme", "product": "analytics", "version": "2.4.0"},
+  {"vendor": "acme", "product": "msgqueue", "version": "3.1.0"}
+]

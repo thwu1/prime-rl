@@ -1,0 +1,3 @@
+A Kubernetes eBPF network observability system has exported telemetry to `/app/data/`. The export includes binary BPF map dumps (`conntrack_entries.bin`, `drop_events.bin`, `dns_events.bin`, `tcp_retransmits.bin`) and a packet capture (`capture.pcap`). Binary struct layouts and the expected report schema are documented in `/app/telemetry_spec.md`. Anomaly detection thresholds are in `/app/anomaly_config.yaml`.
+
+Produce a diagnostic report at `/app/report.json` conforming to the output schema. The report must accurately characterize all tracked network flows with their inferred TCP states, flag anomalous connections, correlate events across all available data sources including DNS domain names from the packet capture, and compute aggregate statistics.

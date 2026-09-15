@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level statistical reasoning combined with data forensics. The agent must independently discover data quality issues in an SQLite database (duplicate rollout entries from a pipeline restart, calibration trials that must be excluded) by exploring the schema, reading collection notes, and investigating anomalies — none of which are described in the instruction. A misleading convenience view in the database gives wrong results if used naively. The agent must then locate and follow a methodology specification, and correctly implement advanced statistical methods (paired effect sizes with small-sample correction, BCa bootstrap CIs with jackknife acceleration, Fisher z-transform CIs, composite robustness metric with CVaR) from domain expertise."""
+solution_explanation = """Connect to the SQLite database and explore its schema, tables, and collection_notes. Discover the rollout_summary view is unreliable (pre-QA). Find duplicate rollouts by querying for non-unique (model, task, perturbation, rollout_id) tuples. Find calibration trials (trial_id < 0) from the data engineer's note. Aggregate success rates from deduplicated rollouts and filtered real trials. Read the analysis_spec.md in /app/data/ to determine required statistical methods. Implement Hedges' g with J(df) correction, BCa bootstrap CIs with bias-correction z0 and jackknife acceleration constant, Spearman correlation with Fisher z-transform CI, category aggregates from perturbation_meta, and CRI with relative drops, CVaR_10, and sensitivity CV. Output as JSON conforming to the schema."""
+verification_explanation = """Tests load data directly from the SQLite database with correct deduplication and calibration filtering, then independently compute reference values. Verifies: (1) database actually has duplicates and calibration trials, (2) report structure matches schema with all 45 entries keyed correctly, (3) Hedges' g values match reference within tolerance, (4) BCa CIs show proper asymmetry indicating correct bias-correction, (5) Spearman rho matches reference computed from clean data, (6) Fisher CIs are valid, (7) category aggregates consistent with component effect sizes, (8) CRI values match independently computed reference, (9) analysis script is reproducible."""
+category = "data-science"
+tags = ["statistics", "data-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perturbation-robustness-analysis"

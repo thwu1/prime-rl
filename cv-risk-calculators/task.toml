@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Multiple interacting bugs across R implementations of five clinical cardiovascular risk models (ACC/AHA PCE, Framingham lab, Framingham BMI, MESA, MESA+CAC), plus two unimplemented calculators and a broken batch dispatcher. Bugs involve subtle mathematical errors: log(age^2) vs log(age)^2 for a squared-log-transform term, inverted treated/untreated systolic blood pressure branching, missing group-mean centering in the Cox PH exponent, and log() vs log1p() for coronary artery calcium scores. Implementing the two missing calculators requires understanding the coefficient table structure and inferring the correct formula from working (but bugged) sibling code. Tests require exact numeric matches to published clinical reference values (0.01 tolerance), so there is zero room for approximation."""
+solution_explanation = """Fix accaha.R: (1) change log(age^2) to log(age)^2 for the ln_age_squared term — log(age^2)=2*ln(age) while log(age)^2=(ln(age))^2, a critical difference for white females; (2) swap sbp_treated/sbp_untreated assignment so bp_med==1 uses treated coefficients. Fix frs.R: add - coef$group_mean in the exp() call so the exponent is centered. Implement frs_simple.R following the FRS pattern but using BMI instead of cholesterol/HDL, with risk capped at 30%. Implement mesa.R using linear (non-log-transformed) predictors with race dummy variables. Fix mesa_cac.R: change log(cac) to log1p(cac) to handle CAC=0 without -Inf. Fix compute_all.R: pass bmi to frs_simple and cac to mesa_cac."""
+verification_explanation = """Tests invoke each R calculator function via Rscript subprocess calls and compare against published reference values from the original CVrisk package test suite (7.95, 5.08, 2.76, 7.01 for ACC/AHA across 4 race/sex groups; 13.53 for FRS; 16.75 for FRS simple; 8.61 for MESA; 3.06 for MESA+CAC). Additional tests verify input validation, risk clamping, treated/untreated SBP ordering, and batch processing with CSV I/O."""
+category = "debugging"
+tags = ["R", "clinical-informatics"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cv-risk-calculators"

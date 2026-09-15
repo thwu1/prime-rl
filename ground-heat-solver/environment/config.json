@@ -1,0 +1,92 @@
+{
+  "description": "Steady-state 2D slab-on-grade heat transfer problem inspired by BESTEST-GC (ASHRAE Standard 140). Compute floor heat loss per unit length (W/m) for a strip foundation cross-section.",
+  "domain": {
+    "description": "2D vertical cross-section from building centerline (x=0, symmetry axis) to far field. y-axis points downward from the ground surface. The slab and foundation wall form a continuous concrete structure at the surface.",
+    "components": {
+      "slab": "Concrete slab from x=0 to x=slab_half_width, y=0 to y=slab_thickness",
+      "foundation_wall": "Concrete perimeter wall from x=slab_half_width to x=slab_half_width+wall_width, y=0 to y=slab_thickness. Same material as slab. Separates indoor slab surface from outdoor ground surface.",
+      "insulation": "Optional insulation layer directly beneath the slab (not under wall)",
+      "soil": "Fills the remainder of the computational domain"
+    },
+    "boundary_conditions": {
+      "top_slab_surface": "T = T_indoor_C (Dirichlet, y=0, x in [0, slab_half_width])",
+      "top_wall": "dT/dy = 0 (adiabatic Neumann, y=0, x in (slab_half_width, slab_half_width + wall_width])",
+      "top_ground_surface": "T = T_outdoor_C (Dirichlet, y=0, x > slab_half_width + wall_width)",
+      "deep_ground": "T = T_deep_ground_C (Dirichlet, y = deep_ground_depth)",
+      "symmetry_centerline": "dT/dx = 0 (Neumann zero-flux at x=0)",
+      "far_field": "T = T_outdoor_C (Dirichlet, x = slab_half_width + far_field_distance)"
+    }
+  },
+  "slab": {
+    "thickness_m": 0.2,
+    "conductivity_W_per_mK": 1.4,
+    "density_kg_per_m3": 2240,
+    "specific_heat_J_per_kgK": 900
+  },
+  "foundation_wall": {
+    "width_m": 0.4,
+    "conductivity_W_per_mK": 1.4,
+    "description": "Concrete perimeter wall extending beyond the slab edge at the same depth as the slab. Its top surface is adiabatic (below-grade, no direct heat exchange with air). Material properties are identical to the slab."
+  },
+  "governing_equation": "Steady-state heat conduction: div(k * grad(T)) = 0, where k is the local thermal conductivity. Use harmonic mean of adjacent cell conductivities at material interfaces.",
+  "output": {
+    "description": "Total 2D floor heat loss per unit length for the full slab width (accounting for symmetry), in W/m. This is the downward heat flux integrated over the indoor slab surface at y=0 from x=0 to x=slab_half_width, multiplied by 2 for symmetry.",
+    "format": "JSON object at /app/results.json with case names as keys and numeric heat loss values (W/m) as values"
+  },
+  "cases": {
+    "base": {
+      "slab_half_width_m": 6.0,
+      "far_field_distance_m": 40.0,
+      "deep_ground_depth_m": 15.0,
+      "soil_conductivity_W_per_mK": 1.9,
+      "T_indoor_C": 30.0,
+      "T_outdoor_C": 10.0,
+      "T_deep_ground_C": 10.0,
+      "insulation": null
+    },
+    "high_conductivity": {
+      "slab_half_width_m": 6.0,
+      "far_field_distance_m": 40.0,
+      "deep_ground_depth_m": 15.0,
+      "soil_conductivity_W_per_mK": 3.5,
+      "T_indoor_C": 30.0,
+      "T_outdoor_C": 10.0,
+      "T_deep_ground_C": 10.0,
+      "insulation": null
+    },
+    "small_slab": {
+      "slab_half_width_m": 3.0,
+      "far_field_distance_m": 40.0,
+      "deep_ground_depth_m": 15.0,
+      "soil_conductivity_W_per_mK": 1.9,
+      "T_indoor_C": 30.0,
+      "T_outdoor_C": 10.0,
+      "T_deep_ground_C": 10.0,
+      "insulation": null
+    },
+    "shallow_ground": {
+      "slab_half_width_m": 6.0,
+      "far_field_distance_m": 40.0,
+      "deep_ground_depth_m": 5.0,
+      "soil_conductivity_W_per_mK": 1.9,
+      "T_indoor_C": 30.0,
+      "T_outdoor_C": 10.0,
+      "T_deep_ground_C": 10.0,
+      "insulation": null
+    },
+    "insulated": {
+      "slab_half_width_m": 6.0,
+      "far_field_distance_m": 40.0,
+      "deep_ground_depth_m": 15.0,
+      "soil_conductivity_W_per_mK": 1.9,
+      "T_indoor_C": 30.0,
+      "T_outdoor_C": 10.0,
+      "T_deep_ground_C": 10.0,
+      "insulation": {
+        "type": "full_underslab",
+        "thickness_m": 0.1,
+        "conductivity_W_per_mK": 0.04
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing four non-trivial graph algorithms (UpgradeAll, Upgrade, Downgrade, Req) for Minimal Version Selection from a behavioral specification. The Downgrade algorithm is particularly challenging: it involves reverse-dependency tracking, exclusion propagation, hidden-version handling, target-version insertion for non-enumerated versions, and a two-pass rebuild to eliminate spurious transitive artifacts. All 75+ test scenarios including cycles, cross-dependencies, and hidden versions must pass."""
+solution_explanation = """The solution replaces the stub MVS operations with correct implementations: (1) UpgradeAll wraps BuildList with an upgrade function that replaces each module with its highest non-hidden version. (2) Upgrade overrides the target's requirements and applies targeted upgrades. (3) Downgrade builds the current list, sets max constraints, then iterates modules using add/exclude/rdeps tracking — excluding versions that would violate constraints and stepping through Previous versions. A two-pass rebuild eliminates artifacts from initial downgrades that get overridden by transitive selections. (4) Req computes postorder traversal of the build list, then walks in reverse postorder adding only modules not already implied by previously added requirements."""
+verification_explanation = """Tests compile the Go binary and run 75+ parametrized pytest scenarios derived from Go's official MVS test suite. Each scenario defines a dependency graph and expected outputs for build, upgrade-all, upgrade, downgrade, and/or req operations. Output is compared after whitespace normalization."""
+category = "software_configuration"
+tags = ["dependency-resolution", "graph-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mvs-version-selection-1095ab"

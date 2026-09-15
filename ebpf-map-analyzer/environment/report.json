@@ -1,0 +1,181 @@
+{
+  "plugins": {
+    "conntrack.c": {
+      "maps": [
+        {
+          "name": "retina_conntrack",
+          "type": "LRU_HASH",
+          "max_entries": 131072,
+          "key_size": 13,
+          "value_size": 128,
+          "pinned": true,
+          "memory_bytes": 18481152
+        }
+      ],
+      "structs": {
+        "tcpflagscount": {"size": 36, "alignment": 4},
+        "conntrackmetadata": {"size": 24, "alignment": 8},
+        "ct_v4_key": {"size": 13, "alignment": 4},
+        "ct_entry": {"size": 128, "alignment": 8}
+      },
+      "attachments": []
+    },
+    "dns.c": {
+      "maps": [
+        {
+          "name": "retina_dns_events",
+          "type": "PERF_EVENT_ARRAY",
+          "max_entries": 0,
+          "key_size": 4,
+          "value_size": 4,
+          "pinned": false,
+          "memory_bytes": 0
+        },
+        {
+          "name": "tmp_dns_events",
+          "type": "PERCPU_ARRAY",
+          "max_entries": 1,
+          "key_size": 4,
+          "value_size": 67,
+          "pinned": false,
+          "memory_bytes": 536
+        }
+      ],
+      "structs": {
+        "dnshdr": {"size": 12, "alignment": 2},
+        "dns_event": {"size": 67, "alignment": 8}
+      },
+      "attachments": [
+        {"section": "socket1", "type": "socket_filter"}
+      ]
+    },
+    "dropreason.c": {
+      "maps": [
+        {
+          "name": "retina_dropreason_events",
+          "type": "PERF_EVENT_ARRAY",
+          "max_entries": 16384,
+          "key_size": 0,
+          "value_size": 0,
+          "pinned": true,
+          "memory_bytes": 0
+        },
+        {
+          "name": "retina_dropreason_drop_pids",
+          "type": "HASH",
+          "max_entries": 16384,
+          "key_size": 4,
+          "value_size": 32,
+          "pinned": false,
+          "memory_bytes": 589824
+        },
+        {
+          "name": "retina_dropreason_natdrop_pids",
+          "type": "HASH",
+          "max_entries": 16384,
+          "key_size": 4,
+          "value_size": 32,
+          "pinned": false,
+          "memory_bytes": 589824
+        },
+        {
+          "name": "retina_dropreason_accept_pids",
+          "type": "HASH",
+          "max_entries": 16384,
+          "key_size": 4,
+          "value_size": 8,
+          "pinned": false,
+          "memory_bytes": 196608
+        },
+        {
+          "name": "retina_dropreason_metrics",
+          "type": "PERCPU_HASH",
+          "max_entries": 512,
+          "key_size": 8,
+          "value_size": 16,
+          "pinned": false,
+          "memory_bytes": 98304
+        }
+      ],
+      "structs": {
+        "metrics_map_key": {"size": 8, "alignment": 4},
+        "metrics_map_value": {"size": 16, "alignment": 8},
+        "dr_packet": {"size": 32, "alignment": 8}
+      },
+      "attachments": [
+        {"section": "kprobe/nf_hook_slow", "type": "kprobe"},
+        {"section": "kretprobe/nf_hook_slow", "type": "kretprobe"},
+        {"section": "kretprobe/tcp_v4_connect", "type": "kretprobe"},
+        {"section": "kprobe/inet_csk_accept", "type": "kprobe"},
+        {"section": "kretprobe/inet_csk_accept", "type": "kretprobe"},
+        {"section": "kprobe/nf_nat_inet_fn", "type": "kprobe"},
+        {"section": "kretprobe/nf_nat_inet_fn", "type": "kretprobe"}
+      ]
+    },
+    "packetforward.c": {
+      "maps": [
+        {
+          "name": "retina_packetforward_metrics",
+          "type": "PERCPU_HASH",
+          "max_entries": 2,
+          "key_size": 4,
+          "value_size": 16,
+          "pinned": false,
+          "memory_bytes": 320
+        }
+      ],
+      "structs": {
+        "pf_metric": {"size": 16, "alignment": 8}
+      },
+      "attachments": [
+        {"section": "socket1", "type": "socket_filter"}
+      ]
+    },
+    "packetparser.c": {
+      "maps": [
+        {
+          "name": "retina_packetparser_events",
+          "type": "PERF_EVENT_ARRAY",
+          "max_entries": 16384,
+          "key_size": 0,
+          "value_size": 0,
+          "pinned": false,
+          "memory_bytes": 0
+        }
+      ],
+      "structs": {
+        "pp_tcpmetadata": {"size": 16, "alignment": 4},
+        "pp_tcpflagscount": {"size": 36, "alignment": 4},
+        "pp_conntrackmetadata": {"size": 24, "alignment": 8},
+        "pp_packet": {"size": 116, "alignment": 8}
+      },
+      "attachments": [
+        {"section": "classifier_endpoint_ingress", "type": "classifier"},
+        {"section": "classifier_endpoint_egress", "type": "classifier"},
+        {"section": "classifier_host_ingress", "type": "classifier"},
+        {"section": "classifier_host_egress", "type": "classifier"}
+      ]
+    },
+    "tcpretrans.c": {
+      "maps": [
+        {
+          "name": "retina_tcpretrans_events",
+          "type": "PERF_EVENT_ARRAY",
+          "max_entries": 0,
+          "key_size": 4,
+          "value_size": 4,
+          "pinned": false,
+          "memory_bytes": 0
+        }
+      ],
+      "structs": {
+        "tcpretrans_event": {"size": 58, "alignment": 8}
+      },
+      "attachments": [
+        {"section": "tracepoint/tcp/tcp_retransmit_skb", "type": "tracepoint"}
+      ]
+    }
+  },
+  "shared_maps": ["retina_conntrack", "retina_dropreason_events"],
+  "total_memory_bytes": 19956568
+}

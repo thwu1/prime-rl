@@ -1,0 +1,61 @@
+G2O Pose Graph Format Specification
+=====================================
+
+This file describes the G2O format used for 2D pose graphs.
+
+Line Types
+----------
+
+VERTEX_SE2 id x y theta
+    A 2D pose vertex.
+    - id: integer vertex identifier
+    - x, y: position in meters
+    - theta: orientation in radians (range [-pi, pi])
+
+EDGE_SE2 id1 id2 dx dy dtheta info_11 info_12 info_13 info_22 info_23 info_33
+    A relative pose constraint between vertex id1 and vertex id2.
+    - id1, id2: vertex identifiers this edge connects
+    - dx, dy, dtheta: measured relative transform from id1 to id2,
+      expressed in the local frame of vertex id1
+    - info_*: upper-triangular entries of the 3x3 information matrix
+      (inverse covariance). The full matrix is:
+        | info_11  info_12  info_13 |
+        | info_12  info_22  info_23 |
+        | info_13  info_23  info_33 |
+
+FIX id
+    Marks vertex id as fixed (anchored). Its pose should not change
+    during optimization. This prevents gauge freedom.
+
+Mathematical Formulation
+------------------------
+
+The error for an edge connecting vertices i and j with measurement z is:
+
+    e = t(xi, xj) - z
+
+where t(xi, xj) computes the relative transform from xi to xj in
+xi's local reference frame:
+
+    t_x = cos(theta_i) * (x_j - x_i) + sin(theta_i) * (y_j - y_i)
+    t_y = -sin(theta_i) * (x_j - x_i) + cos(theta_i) * (y_j - y_i)
+    t_theta = theta_j - theta_i    (normalized to [-pi, pi])
+
+The chi-squared cost for an edge is:
+
+    chi2 = e^T * Omega * e
+
+where Omega is the information matrix.
+
+The total cost to minimize is the sum of chi2 over all edges.
+
+Optimization proceeds by iteratively linearizing the error function,
+building the normal equations H * dx = -b, solving for the update dx,
+and applying it to the current state estimate.
+
+Notes
+-----
+- Angles must be normalized to [-pi, pi] after each update step.
+- The information matrix is symmetric positive definite.
+- Diagonal entries encode precision (inverse variance) for each DOF.
+- Off-diagonal entries encode correlations between DOFs.

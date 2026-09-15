@@ -1,0 +1,31 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowQual,Description="Low quality variant">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+##INFO=<ID=BCSQ,Number=.,Type=String,Description="Local consequence annotation from BCFtools/csq. Format: Consequence|Gene|Transcript|Biotype|Strand|Amino_acid_change|DNA_change">
+##contig=<ID=chr22,length=50818468>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	HG002	HG003	HG004
+chr22	16050000	.	A	G	2500	PASS	DP=90;BCSQ=missense|HIRA|ENST00000216181|protein_coding|+|R100G|c.298A>G	GT:DP:AD:GQ	0/1:35:18,17:99	0/0:32:32,0:99	0/0:28:28,0:99
+chr22	16150000	.	C	T	3200	PASS	DP=85;BCSQ=stop_gained|EP300|ENST00000263253|protein_coding|+|Q200*|c.598C>T	GT:DP:AD:GQ	0/1:30:14,16:99	0/0:35:35,0:99	0/0:30:30,0:99
+chr22	16250000	.	G	A	1800	PASS	DP=95;BCSQ=synonymous|CECR2|ENST00000399839|protein_coding|-|L300=|c.900G>A	GT:DP:AD:GQ	0/1:32:16,16:99	0/0:30:30,0:99	0/0:33:33,0:99
+chr22	17050000	.	G	T	2100	PASS	DP=100;BCSQ=missense|DGCR6|ENST00000311890|protein_coding|+|V400L|c.1198G>T	GT:DP:AD:GQ	1/1:28:0,28:99	0/1:30:15,15:99	0/1:32:16,16:99
+chr22	17150000	.	A	C	2800	PASS	DP=88;BCSQ=frameshift|TBX1|ENST00000262636|protein_coding|+|T500fs|c.1498delA	GT:DP:AD:GQ	1/1:25:0,25:99	0/1:28:14,14:99	0/1:30:15,15:99
+chr22	18050000	.	C	A	2000	PASS	DP=92;BCSQ=missense|COMT|ENST00000361682|protein_coding|-|D600N|c.1798G>T	GT:DP:AD:GQ	0/1:30:15,15:99	0/1:28:14,14:99	0/0:32:32,0:99
+chr22	18150000	.	G	T	1900	PASS	DP=87;BCSQ=splice_donor|COMT|ENST00000361682|protein_coding|-||c.1800+1G>T	GT:DP:AD:GQ	0/1:28:14,14:99	0/0:30:30,0:99	0/1:32:16,16:99
+chr22	19050000	.	A	G	3500	PASS	DP=100;BCSQ=missense|LZTR1|ENST00000242577|protein_coding|+|A700T|c.2098G>A	GT:DP:AD:GQ	0/1:30:15,15:99	0/1:32:16,16:99	0/0:28:28,0:99
+chr22	19150000	.	T	C	2900	PASS	DP=95;BCSQ=missense|SLC25A1|ENST00000215882|protein_coding|-|S800P|c.2398T>C	GT:DP:AD:GQ	1/1:28:0,28:99	0/1:30:15,15:99	0/1:32:16,16:99
+chr22	19250000	.	G	A	1500	PASS	DP=90;BCSQ=synonymous|PRODH|ENST00000357454|protein_coding|+|G900=|c.2700G>A	GT:DP:AD:GQ	0/1:32:16,16:99	0/0:30:30,0:99	0/1:28:14,14:99
+chr22	19350000	.	C	T	1200	PASS	DP=88;BCSQ=intron|GP1BB|ENST00000234420|protein_coding|+||	GT:DP:AD:GQ	0/1:30:15,15:99	0/1:28:14,14:99	0/1:30:15,15:99
+chr22	19450000	.	A	C	2200	PASS	DP=92;BCSQ=missense|SNAP29|ENST00000215908|protein_coding|-|I1000V|c.2998A>G	GT:DP:AD:GQ	0/0:30:30,0:99	0/1:28:14,14:99	0/0:32:32,0:99
+chr22	20050000	.	C	T	200	PASS	DP=15;BCSQ=missense|PI4KA|ENST00000262820|protein_coding|+|P1100L|c.3298C>T	GT:DP:AD:GQ	0/1:5:3,2:10	0/0:5:5,0:10	0/0:5:5,0:10
+chr22	20150000	.	G	A	800	PASS	DP=30;BCSQ=missense|SERPIND1|ENST00000255030|protein_coding|-|R1200C|c.3598G>A	GT:DP:AD:GQ	0/1:25:12,13:99	0/0:3:3,0:5	0/0:2:2,0:3
+chr22	20250000	.	T	G	150	LowQual	DP=20;BCSQ=missense|APOL1|ENST00000323939|protein_coding|+|K1300N|c.3900T>G	GT:DP:AD:GQ	0/1:8:4,4:15	0/0:6:6,0:12	0/0:6:6,0:8
+chr22	20350000	.	A	G	2300	PASS	DP=90;BCSQ=missense|MYH9|ENST00000216181|protein_coding|-|E1400G|c.4199A>G	GT:DP:AD:GQ	0/1:30:15,15:99	0/0:32:32,0:99	0/0:28:28,0:99
+chr22	20450000	.	C	T	2600	PASS	DP=85;BCSQ=missense|ARVCF|ENST00000263334|protein_coding|+|D1500N|c.4498G>A	GT:DP:AD:GQ	0/1:28:14,14:99	0/0:30:28,2:99	0/0:32:32,0:99
+chr22	21050000	.	G	C	1800	PASS	DP=95	GT:DP:AD:GQ	0/0:30:30,0:99	0/1:28:14,14:99	0/0:32:32,0:99
+chr22	21150000	.	A	T	1600	PASS	DP=90;BCSQ=3_prime_UTR|BCR|ENST00000305877|protein_coding|-||c.*100A>T	GT:DP:AD:GQ	0/1:30:15,15:99	0/1:28:14,14:99	0/1:32:16,16:99
+chr22	21250000	.	T	A	2400	PASS	DP=88;BCSQ=missense|MAPK1|ENST00000215832|protein_coding|+|F1600Y|c.4797T>A	GT:DP:AD:GQ	0/1:25:13,12:99	0/0:30:30,0:99	0/1:28:14,14:99

@@ -1,0 +1,115 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.data",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "temp-data-bucket-dev",
+            "force_destroy": true,
+            "object_lock_enabled": false,
+            "versioning": [],
+            "server_side_encryption_configuration": [],
+            "lifecycle_rule": [
+              {
+                "enabled": true,
+                "id": "cleanup-tmp",
+                "prefix": "tmp/",
+                "abort_incomplete_multipart_upload_days": 3,
+                "expiration": [
+                  {
+                    "days": 30,
+                    "expired_object_delete_marker": false
+                  }
+                ],
+                "transition": [],
+                "noncurrent_version_expiration": [],
+                "noncurrent_version_transition": []
+              }
+            ],
+            "tags": {
+              "Environment": "development"
+            },
+            "tags_all": {
+              "Environment": "development"
+            },
+            "timeouts": null
+          },
+          "sensitive_values": {
+            "cors_rule": [],
+            "grant": [],
+            "lifecycle_rule": [{}],
+            "logging": [],
+            "server_side_encryption_configuration": [],
+            "tags": {},
+            "tags_all": {},
+            "versioning": []
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.data",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "data",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "temp-data-bucket-dev",
+          "force_destroy": true,
+          "versioning": [],
+          "server_side_encryption_configuration": [],
+          "lifecycle_rule": [{"enabled": true, "id": "cleanup-tmp", "expiration": [{"days": 30}]}],
+          "tags": {"Environment": "development"}
+        },
+        "after_unknown": {
+          "arn": true,
+          "bucket_domain_name": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "region": true
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {"constant_value": "us-east-1"}
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.data",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "data",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {"constant_value": "temp-data-bucket-dev"},
+            "force_destroy": {"constant_value": true}
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  },
+  "timestamp": "2024-01-15T10:35:00Z"
+}

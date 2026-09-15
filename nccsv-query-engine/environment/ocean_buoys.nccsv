@@ -1,0 +1,105 @@
+*GLOBAL*,Conventions,"COARDS, CF-1.6, ACDD-1.3, NCCSV-1.2"
+*GLOBAL*,cdm_data_type,TimeSeries
+*GLOBAL*,title,"Pacific Coast Ocean Buoy Observations"
+*GLOBAL*,summary,"Hourly observations from NDBC buoys along the US Pacific Coast. Includes sea surface temperature, salinity, air temperature, and wind measurements."
+*GLOBAL*,institution,"NOAA NDBC"
+*GLOBAL*,creator_name,"NOAA National Data Buoy Center"
+*GLOBAL*,license,"Public Domain"
+*GLOBAL*,featureType,timeSeries
+*GLOBAL*,cdm_timeseries_variables,"station_id, latitude, longitude"
+*GLOBAL*,subsetVariables,station_id
+station_id,*DATA_TYPE*,String
+station_id,cf_role,timeseries_id
+station_id,long_name,Station Identifier
+station_id,ioos_category,Identifier
+time,*DATA_TYPE*,String
+time,standard_name,time
+time,long_name,Time
+time,units,"yyyy-MM-dd'T'HH:mm:ssZ"
+time,ioos_category,Time
+latitude,*DATA_TYPE*,double
+latitude,standard_name,latitude
+latitude,long_name,Latitude
+latitude,units,degrees_north
+latitude,ioos_category,Location
+longitude,*DATA_TYPE*,double
+longitude,standard_name,longitude
+longitude,long_name,Longitude
+longitude,units,degrees_east
+longitude,ioos_category,Location
+sea_surface_temp,*DATA_TYPE*,float
+sea_surface_temp,standard_name,sea_surface_temperature
+sea_surface_temp,long_name,Sea Surface Temperature
+sea_surface_temp,units,degree_C
+sea_surface_temp,ioos_category,Temperature
+salinity,*DATA_TYPE*,float
+salinity,standard_name,sea_surface_salinity
+salinity,long_name,Sea Surface Salinity
+salinity,units,PSU
+salinity,ioos_category,Salinity
+air_temperature,*DATA_TYPE*,float
+air_temperature,standard_name,air_temperature
+air_temperature,long_name,Air Temperature
+air_temperature,units,degree_C
+air_temperature,ioos_category,Temperature
+wind_speed,*DATA_TYPE*,float
+wind_speed,standard_name,wind_speed
+wind_speed,long_name,Wind Speed
+wind_speed,units,"m s-1"
+wind_speed,ioos_category,Wind
+quality_flag,*DATA_TYPE*,int
+quality_flag,long_name,Quality Control Flag
+quality_flag,comment,"1=good, 2=suspect, 3=bad, 4=missing"
+quality_flag,ioos_category,Quality
+*END_METADATA*
+station_id,time,latitude,longitude,sea_surface_temp,salinity,air_temperature,wind_speed,quality_flag
+"NDBC_46025","2023-01-01T00:00:00Z",33.749,-119.053,14.8,33.5,13.2,5.1,1
+"NDBC_46025","2023-01-02T00:00:00Z",33.749,-119.053,14.5,33.6,12.8,7.3,1
+"NDBC_46025","2023-01-03T00:00:00Z",33.749,-119.053,14.2,,12.1,12.4,2
+"NDBC_46025","2023-01-04T00:00:00Z",33.749,-119.053,15.1,33.4,13.5,3.2,1
+"NDBC_46025","2023-01-05T00:00:00Z",33.749,-119.053,,33.7,14.0,4.8,4
+"NDBC_46025","2023-01-06T00:00:00Z",33.749,-119.053,15.3,33.5,14.2,6.1,1
+"NDBC_46025","2023-01-07T00:00:00Z",33.749,-119.053,15.0,33.8,13.9,,3
+"NDBC_46025","2023-01-08T00:00:00Z",33.749,-119.053,14.7,33.6,13.4,8.5,1
+"NDBC_46025","2023-01-09T00:00:00Z",33.749,-119.053,14.9,33.5,13.7,5.9,1
+"NDBC_46025","2023-01-10T00:00:00Z",33.749,-119.053,15.4,33.3,14.5,3.0,1
+"NDBC_46042","2023-01-01T00:00:00Z",36.789,-122.404,13.1,33.8,11.5,8.2,1
+"NDBC_46042","2023-01-02T00:00:00Z",36.789,-122.404,13.0,33.9,11.2,9.5,1
+"NDBC_46042","2023-01-03T00:00:00Z",36.789,-122.404,12.8,33.7,10.8,15.3,1
+"NDBC_46042","2023-01-04T00:00:00Z",36.789,-122.404,12.5,,10.3,18.7,2
+"NDBC_46042","2023-01-05T00:00:00Z",36.789,-122.404,12.9,33.6,10.9,11.2,1
+"NDBC_46042","2023-01-06T00:00:00Z",36.789,-122.404,13.2,33.8,11.6,7.8,1
+"NDBC_46042","2023-01-07T00:00:00Z",36.789,-122.404,13.5,34.0,12.0,5.4,1
+"NDBC_46042","2023-01-08T00:00:00Z",36.789,-122.404,,,,,4
+"NDBC_46042","2023-01-09T00:00:00Z",36.789,-122.404,13.3,33.9,11.8,6.1,1
+"NDBC_46042","2023-01-10T00:00:00Z",36.789,-122.404,13.6,34.1,12.2,4.9,1
+"NDBC_46050","2023-01-01T00:00:00Z",44.641,-124.526,10.2,32.1,8.5,12.3,1
+"NDBC_46050","2023-01-02T00:00:00Z",44.641,-124.526,10.0,32.0,8.1,14.7,1
+"NDBC_46050","2023-01-03T00:00:00Z",44.641,-124.526,9.8,31.9,7.6,22.1,2
+"NDBC_46050","2023-01-04T00:00:00Z",44.641,-124.526,9.5,31.8,7.0,25.3,3
+"NDBC_46050","2023-01-05T00:00:00Z",44.641,-124.526,9.9,32.0,7.8,18.6,1
+"NDBC_46050","2023-01-06T00:00:00Z",44.641,-124.526,10.3,32.2,8.7,10.5,1
+"NDBC_46050","2023-01-07T00:00:00Z",44.641,-124.526,10.5,32.3,9.0,8.2,1
+"NDBC_46050","2023-01-08T00:00:00Z",44.641,-124.526,10.1,32.1,8.3,13.9,1
+"NDBC_46050","2023-01-09T00:00:00Z",44.641,-124.526,10.4,,8.8,9.7,2
+"NDBC_46050","2023-01-10T00:00:00Z",44.641,-124.526,10.7,32.4,9.2,7.3,1
+"NDBC_46087","2023-01-01T00:00:00Z",48.494,-124.727,8.5,31.2,6.8,15.6,1
+"NDBC_46087","2023-01-02T00:00:00Z",48.494,-124.727,8.3,31.0,6.5,18.2,1
+"NDBC_46087","2023-01-03T00:00:00Z",48.494,-124.727,8.0,30.8,6.0,24.5,2
+"NDBC_46087","2023-01-04T00:00:00Z",48.494,-124.727,7.8,30.6,5.5,,3
+"NDBC_46087","2023-01-05T00:00:00Z",48.494,-124.727,8.2,31.1,6.3,20.1,1
+"NDBC_46087","2023-01-06T00:00:00Z",48.494,-124.727,8.6,31.3,7.0,12.4,1
+"NDBC_46087","2023-01-07T00:00:00Z",48.494,-124.727,8.9,31.5,7.3,9.8,1
+"NDBC_46087","2023-01-08T00:00:00Z",48.494,-124.727,8.4,31.1,6.6,16.3,1
+"NDBC_46087","2023-01-09T00:00:00Z",48.494,-124.727,,,,,4
+"NDBC_46087","2023-01-10T00:00:00Z",48.494,-124.727,8.8,31.4,7.1,11.2,1
+"NDBC_46221","2023-01-01T00:00:00Z",33.854,-118.634,15.0,33.6,13.5,4.8,1
+"NDBC_46221","2023-01-02T00:00:00Z",33.854,-118.634,14.8,33.7,13.1,6.9,1
+"NDBC_46221","2023-01-03T00:00:00Z",33.854,-118.634,14.5,33.5,12.5,11.8,1
+"NDBC_46221","2023-01-04T00:00:00Z",33.854,-118.634,14.9,33.4,13.3,4.1,1
+"NDBC_46221","2023-01-05T00:00:00Z",33.854,-118.634,15.2,33.8,14.1,3.5,1
+"NDBC_46221","2023-01-06T00:00:00Z",33.854,-118.634,15.2,33.8,14.1,3.5,1
+"NDBC_46221","2023-01-07T00:00:00Z",33.854,-118.634,15.5,33.9,14.4,2.8,1
+"NDBC_46221","2023-01-08T00:00:00Z",33.854,-118.634,15.1,33.7,13.8,7.2,1
+"NDBC_46221","2023-01-09T00:00:00Z",33.854,-118.634,15.3,33.6,14.0,5.5,1
+"NDBC_46221","2023-01-10T00:00:00Z",33.854,-118.634,15.6,33.4,14.6,3.1,1

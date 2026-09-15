@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of W3C accessibility specifications (WCAG 2.x, WAI-ARIA, HTML-AAM, ACCNAME), the ICT Testing Baseline v3.1 test procedures, and their cross-referencing to Section 508. The accessible name computation algorithm alone involves multi-step recursive resolution with precedence rules, ARIA attribute interaction, and native HTML semantics. Detecting presentational role conflicts, validating table header associations across scope/headers attributes, and correctly mapping findings to specific Baseline Test IDs and WCAG Success Criteria all require deep domain expertise that goes well beyond standard web development knowledge."""
+solution_explanation = """The solution implements a Python-based accessibility auditor using BeautifulSoup for HTML parsing. It computes accessible names following W3C ACCNAME precedence (aria-labelledby > aria-label > native label > title > content), detects ARIA presentational role conflicts for images, validates table header ID references and ARIA table cell roles, checks form control labeling, and audits page-level attributes (lang, title). Each finding is mapped to the correct ICT Baseline Test ID and WCAG Success Criterion."""
+verification_explanation = """Tests verify the JSON report at /app/report.json contains correct FAIL findings for 13 specific accessibility violations across 4 HTML test pages. True positives are checked (e.g., img with role=none and non-empty alt must fail 6.A, form input with no label must fail 10.A). True negatives are verified (e.g., img with valid alt must not fail, form with proper label-for must not fail). Report structure, WCAG SC format, and Baseline Test ID validity are also validated."""
+category = "applied_computing"
+tags = ["accessibility", "web-standards"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ict-baseline-auditor"

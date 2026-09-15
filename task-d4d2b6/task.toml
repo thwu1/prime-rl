@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level robotics knowledge: URDF XML tree traversal to extract kinematic chains, homogeneous transformation matrix composition, differential velocity analysis (6×7 mapping from joint to task space), and iterative position/orientation solving under joint constraints. Beyond the core kinematics, the agent must parse TOML configuration, produce a correctly-schemaed SQLite database, and generate a well-formed XML report validated by xmlstarlet — demanding proficiency across multiple non-trivial tool interfaces and data formats. Errors cascade: incorrect URDF parsing yields wrong transforms, which corrupt the velocity analysis and prevent convergence of the position solver."""
+solution_explanation = """The solution parses the TOML config with tomllib, extracts the Baxter right arm chain from the URDF (7 revolute joints from right_s0 through right_w2 plus fixed base/gripper transforms), composes 4×4 homogeneous transforms for FK, computes the geometric Jacobian via the cross-product formulation, solves IK with a damped pseudoinverse and null-space dexterity optimization, then writes structured results to both a SQLite database (with chain_info, fk_results, jacobian_results, ik_solutions tables) and an XML report."""
+verification_explanation = """Tests install ikpy as an independent oracle and build the same Baxter right arm chain. SQLite schema is verified (table existence, row counts, column types). The XML report is validated for well-formedness and structural correctness using xmlstarlet CLI (XPath queries for element counts, attribute values). FK accuracy is checked against ikpy (position within 1cm, orientation within 0.02 Frobenius norm). Jacobian position rows are verified against finite differences of ikpy FK. IK solutions are validated by running ikpy FK on agent joint angles (position < 2cm). Joint limit compliance is also verified."""
+category = "robotics"
+tags = ["kinematics-pipeline", "multi-format-output"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d4d2b6"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep IS-IS protocol knowledge (ISO 10589, RFC 1195) to correctly handle pseudonode LSPs for LAN segments, the overload bit (transit exclusion vs prefix reachability), LSP fragment aggregation across multiple PDUs, ECMP next-hop tracking with proper first-hop inheritance through pseudonodes, expired LSP purging, and connected-route exclusion. Additionally requires tool proficiency: the agent must use sqlite3 to explore a normalized relational schema (separate tables for LSP headers, adjacencies, and prefixes with split address/prefix_length columns), and must use pyang to parse a YANG module defining the output schema with non-obvious field names (destination-prefix, total-metric, forwarding-next-hop), then produce RFC 7951 JSON encoding with correct module-name namespacing."""
+solution_explanation = """Query the SQLite database to extract LSP headers, IS adjacencies, and IPv4 prefixes (combining address + prefix_length into CIDR). Aggregate LSP fragments by node-ID. Run modified Dijkstra from the source with ECMP tracking: maintain first-hop sets per node, resolving pseudonode children to real LAN neighbors. Skip IS-neighbor expansion for overloaded nodes but retain their prefix reachability. Compute per-prefix best cost across all advertisers, merging ECMP next-hops for ties. Exclude source-connected prefixes. Use pyang to inspect the YANG module tree and produce RFC 7951 JSON with correct container/leaf naming."""
+verification_explanation = """Tests load /app/routing_table.json and verify: (1) RFC 7951 top-level namespace 'isis-rib:routing-table', (2) YANG field names (destination-prefix, total-metric, forwarding-next-hop), (3) exact route count, (4) correct metrics and sorted ECMP next-hops for each prefix, (5) overloaded router's prefixes present at correct cost, (6) overloaded transit blocked, (7) expired LSP prefixes absent, (8) fragment-dependent routes correct, (9) pseudonode-resolved next-hops for LAN neighbors, (10) prefix-level ECMP from multiple advertisers."""
+category = "networking"
+tags = ["routing-protocols", "yang-modeling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/isis-spf-routing"

@@ -1,0 +1,4 @@
+; CHECK: start
+; CHECK-NOT: poison
+; CHECK-COUNT-3: row
+; CHECK-NEXT: end

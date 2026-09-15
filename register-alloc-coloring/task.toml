@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing four tightly coupled compiler backend passes without any algorithm being specified: liveness analysis with convergence over cyclic control flow, interference/conflict graph construction with correct handling of x86-64 calling conventions and instruction-specific semantics, graph coloring under register pressure with pre-colored constraints and spill decisions, and x86-64 code generation with ABI-compliant stack frame management, callee-save protocol, and instruction encoding constraints. The agent must discover appropriate algorithms from function signatures and type contracts alone, use gcc to compile and test generated assembly, and debug across the Python/assembly/execution boundary. Requires expert-level understanding of compiler backends, x86-64 architecture, and the System V AMD64 ABI."""
+solution_explanation = """Implement backward dataflow liveness analysis using worklist-based fixed-point iteration over the CFG. Build interference and move graphs using instruction-specific rules (arithmetic destinations vs live-after, call clobber vs caller-save, move exception for source). Apply DSATUR graph coloring with saturation-based ordering and move biasing for quality. Generate AT&T syntax x86-64 assembly with proper prologue/epilogue (push/pop rbp, callee-save register spilling via frame offsets, 16-byte aligned stack frame), variable-to-register/stack substitution, and two-memory-operand patching using rax as a scratch register."""
+verification_explanation = """Unit tests verify each pass independently: liveness sets at each program point for straight-line, branching, and looping CFGs; interference graph edges and move graph edges matching expected conflicts; coloring validity (no adjacent same-color), precolored register preservation, move biasing effectiveness, and spill behavior for high-pressure programs. End-to-end integration tests compile generated x86-64 assembly with gcc, run the resulting executable, and compare stdout against expected numerical outputs for arithmetic, loop, branch, spill, and nested-loop programs."""
+category = "systems"
+tags = ["compilers", "x86-assembly"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/register-alloc-coloring"

@@ -1,0 +1,13 @@
+{
+  "total_accesses": 200,
+  "loads": 134,
+  "stores": 66,
+  "hits": 81,
+  "misses": 119,
+  "hit_rate": 0.405,
+  "miss_rate": 0.595,
+  "writebacks": 18,
+  "bytes_bus_to_cache": 7616,
+  "bytes_cache_to_bus": 1152,
+  "bytes_total_traffic": 8768
+}

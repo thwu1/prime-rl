@@ -1,0 +1,140 @@
+Intel 8086 Instruction Timing Reference
+========================================
+
+All values are in clock cycles. Memory operand timings include an
+Effective Address (EA) calculation cost and may include a Transfer
+Penalty (TP) for word-sized memory accesses at odd addresses.
+
+Transfer Penalty (TP)
+---------------------
+When a 16-bit (word) memory read or write targets an ODD address,
+add 4 clocks. Byte operations never incur this penalty. The 8086
+data bus is 16 bits wide and aligned to even addresses; an unaligned
+word access requires two bus cycles.
+
+Effective Address Calculation Clocks
+------------------------------------
+  Addressing Mode                          Clocks
+  [BX], [SI], [DI], [BP]                     5
+  [direct address]  (disp16, no base)        6
+  [BX+SI], [BP+DI]                           7
+  [BX+DI], [BP+SI]                           8
+  [BX+disp], [SI+disp], [DI+disp], [BP+disp] 9
+  [BX+SI+disp], [BP+DI+disp]                11
+  [BX+DI+disp], [BP+SI+disp]                12
+
+Note: [BP] cannot be encoded with mod=00 (that encodes a direct
+address). NASM uses mod=01 with disp8=0, giving EA cost 9.
+
+Instruction Timings
+-------------------
+Format: base clocks. Add EA for memory operands. Add TP if applicable.
+
+MOV
+  reg, reg          2
+  reg, imm          4
+  reg, mem          8 + EA
+  mem, reg          9 + EA
+  mem, imm         10 + EA
+  acc, direct      10        (opcodes A0-A3, no separate EA)
+  direct, acc      10
+
+ADD / SUB / CMP / AND / OR / XOR  (and ADC / SBB)
+  reg, reg          3
+  reg, imm          4
+  acc, imm          4
+  reg, mem          9 + EA
+  mem, reg         16 + EA
+  mem, imm         17 + EA
+
+INC / DEC
+  reg16 (short, opcodes 40-4F)    2
+  reg via FE/FF                   3
+  mem                            15 + EA
+
+NEG / NOT
+  reg               3
+  mem              16 + EA
+
+TEST
+  reg, reg          3
+  reg/mem, imm      5  (reg),  11 + EA  (mem)
+
+SHL / SHR / SAR / ROL / ROR / RCL / RCR
+  reg, 1            2
+  mem, 1           15 + EA
+  reg, CL           8 + 4*count
+  mem, CL          20 + EA + 4*count
+
+XCHG
+  AX, reg16  (short, opcodes 90-97)   3
+  reg, reg                            4
+  reg, mem                           17 + EA
+
+PUSH
+  reg16            11
+  mem              16 + EA
+
+POP
+  reg16             8
+  mem              17 + EA
+
+Jcc  (all conditional jumps 70-7F)
+  taken            16
+  not taken         4
+
+JMP
+  short (EB)       15
+  near  (E9)       15
+  indirect reg     11
+  indirect mem     18 + EA
+
+LOOP
+  taken            17
+  not taken         5
+
+LOOPZ / LOOPNZ
+  taken            18
+  not taken         6
+
+JCXZ
+  taken            18
+  not taken         6
+
+CALL
+  near direct      19
+
+RET
+  near              8
+
+LEA
+  reg, mem          2 + EA
+
+MUL
+  reg8              70-77
+  reg16            118-133
+  mem8             76-83 + EA
+  mem16           124-139 + EA
+
+IMUL
+  reg8              80-98
+  reg16            128-154
+  mem8             86-104 + EA
+  mem16           134-160 + EA
+
+DIV
+  reg8              80-90
+  reg16            144-162
+  mem8             86-96 + EA
+  mem16           150-168 + EA
+
+IDIV
+  reg8             101-112
+  reg16            165-184
+  mem8             107-118 + EA
+  mem16           171-190 + EA
+
+NOP                 3
+HLT                 2
+CLC/STC/CMC         2
+CLD/STD/CLI/STI     2

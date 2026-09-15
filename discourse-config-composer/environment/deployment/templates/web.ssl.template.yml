@@ -1,0 +1,5 @@
+env:
+  DISCOURSE_FORCE_HTTPS: "true"
+
+expose:
+  - "443:443"

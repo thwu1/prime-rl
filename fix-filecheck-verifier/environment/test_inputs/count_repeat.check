@@ -1,0 +1,3 @@
+; CHECK: start
+; CHECK-COUNT-3: item: processed
+; CHECK-NEXT: end_of_items

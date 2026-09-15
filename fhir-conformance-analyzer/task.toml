@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level FHIR and US Core IG knowledge combined with proficiency in jq (a specialized JSON query language) and Make-based build pipelines to diagnose 4 interacting bugs spread across jq filter files and Python scripts. The agent must trace data flow through a multi-tool pipeline (Make → jq → Python → jq), understand jq's reduce semantics (overwrite vs union when multiple profiles share a resourceType), comprehend complex US Core extension patterns (sub-extension vs direct-value for race/ethnicity/birthsex), FHIR reference traversal semantics (encounter references are clinical links, not metadata to skip), and jq-based scoring methodology (interactions contribute alongside search params). Each bug produces plausible but incorrect output identifiable only through deep cross-tool analysis."""
+solution_explanation = """Bug 1 (filters/capability.jq): The jq reduce uses simple assignment '=' which overwrites when multiple profiles share a resourceType (Observation has lab and vital-signs). Fix: check if key exists and use '+=' to union arrays, then '|= unique'. Bug 2 (checker/must_support.py): Remove the value-key requirement in extension checking — US Core race/ethnicity use sub-extensions, not direct value* keys. Bug 3 (checker/references.py): Remove 'encounter' from _SKIP_KEYS — encounter is a clinical reference, not metadata. Bug 4 (filters/assemble.jq): Include both search params and interactions in capability_score computation, not just search params."""
+verification_explanation = """Tests load the generated conformance_report.json and verify exact values for all four analysis sections: Must Support coverage per profile (element lists, counts, percentages), CapabilityStatement gaps per resource type, reference integrity counts and specific broken entries, and overall conformance scores. All expected values are pre-computed from the input data assuming correct FHIR semantics and correct multi-tool pipeline behavior."""
+category = "applied_computing"
+tags = ["fhir", "healthcare-conformance"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhir-conformance-analyzer"

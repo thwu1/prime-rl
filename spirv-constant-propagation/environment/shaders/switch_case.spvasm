@@ -1,0 +1,33 @@
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %main "main" %outparm
+               OpExecutionMode %main OriginUpperLeft
+               OpName %outparm "outparm"
+               OpDecorate %outparm Location 0
+       %void = OpTypeVoid
+          %6 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+%_ptr_Output_int = OpTypePointer Output %int
+     %int_23 = OpConstant %int 23
+     %int_42 = OpConstant %int 42
+     %int_14 = OpConstant %int 14
+     %int_15 = OpConstant %int 15
+      %int_4 = OpConstant %int 4
+    %outparm = OpVariable %_ptr_Output_int Output
+       %main = OpFunction %void None %6
+         %15 = OpLabel
+               OpSelectionMerge %merge None
+               OpSwitch %int_23 %merge 10 %case10 13 %case13 23 %case23
+    %case10 = OpLabel
+               OpBranch %merge
+    %case13 = OpLabel
+               OpBranch %merge
+    %case23 = OpLabel
+               OpBranch %merge
+     %merge = OpLabel
+         %20 = OpPhi %int %int_23 %15 %int_42 %case10 %int_14 %case13 %int_15 %case23
+         %21 = OpIAdd %int %20 %int_4
+               OpStore %outparm %21
+               OpReturn
+               OpFunctionEnd

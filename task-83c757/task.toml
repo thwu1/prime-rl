@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level MLOps and statistical ML knowledge. The agent must investigate a production system with multiple MLflow experiments, registered models, and ambiguous alert logs to diagnose the root cause of model degradation — ruling out infrastructure, schema, and volume issues before identifying distributional shift. The terse operational contract specifies only method names and tuning parameters (n_bins, zero_fill, eval_points, padding_stds) without explaining how to compute PSI, KDE overlap integrals, or ensemble voting — the agent must already understand these statistical methods from domain expertise. Implementing KDE overlap requires knowing to evaluate min(kde_ref, kde_prod) and integrate via numerical quadrature; PSI requires understanding equal-width binning over the combined range with Laplace smoothing; ensemble drift classification requires judgment about agreement thresholds across heterogeneous test types. Beyond statistics, the agent must navigate MLflow's model registry API to load the correct production model among multiple registered models, compute prediction-level drift on class probabilities, map drift severity to lifecycle actions, conditionally retrain with proper version tagging, and produce a structured report — all integrated end-to-end."""
+solution_explanation = """The solution explores /app to discover the MLflow DB, reference/production CSVs, performance alert logs, and the operational contract at /app/config/monitoring_policy.yaml. It identifies the predictive-maintenance experiment and model among multiple registered experiments/models. It implements KS two-sample tests via scipy.stats.ks_2samp, PSI with 10-bin equal-width histogramming over the combined range with 1e-4 zero-fill, and KDE overlap via scipy.stats.gaussian_kde evaluation on 1000 points with 3-std padding followed by trapezoidal integration of min(ref, prod) densities clamped to [0,1]. It applies a 2-of-3 voting rule per feature, computes prediction drift on model predict_proba outputs, determines remediation action from drift counts, logs all per-feature metrics to MLflow under a drift-monitoring run, and retrains/registers a new model version with retrained_reason=drift_detected when warranted."""
+verification_explanation = """Tests independently compute KS statistics using scipy and compare against reported values within tolerance. PSI values are verified via independent computation with identical 10-bin combined-range methodology and 1e-4 zero-fill. KDE overlap is verified directionally (drifted features < 0.9, stable features > 0.8) and bounded to [0,1]. Drift classification is verified against ground-truth drifted features (temperature, vibration, speed). MLflow integration is verified by querying the tracking DB for the drift-monitoring run with per-feature metrics, and checking that a new model version >=2 exists with the retrained_reason=drift_detected tag."""
+category = "machine_learning"
+tags = ["mlops", "drift-detection"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-83c757"

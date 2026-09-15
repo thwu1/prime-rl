@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete multi-pass shrinking engine for an unfamiliar Conjecture-style property-based testing framework with no algorithmic guidance provided in the task description. The agent must: (1) independently explore a multi-module codebase using git history, source reading, and the built-in validation tool to understand the framework's choice-sequence representation, typed draw protocol, and ordering semantics; (2) discover and design effective minimization strategies for five distinct data types (integer, float, boolean, string, bytes) with fundamentally different reduction approaches; (3) engineer correct convergence behavior including the non-obvious loop pattern for deletion passes where the index must not advance on success due to sequence shortening; (4) achieve sub-linear performance on large numeric ranges, ruling out naive linear-scan approaches; (5) correctly handle the implicit sequence trimming that occurs when a test draws fewer choices than provided. The task description names no algorithms, strategies, or files — the agent must derive the entire approach from first principles and framework API study."""
+solution_explanation = """The solution implements a Shrinker with five cooperating passes in a convergence loop: (1) deletion of contiguous choice groups using a conditional-advance index pattern; (2) zeroing each choice to its type-specific minimum; (3) individual minimization via binary search for integers, truncation+binary-search for floats, prefix shortening and character simplification for strings, prefix shortening and byte zeroing for bytes; (4) adjacent same-type reordering to push smaller values earlier; (5) value redistribution between adjacent integer pairs to concentrate value. The main loop repeats all passes until no cycle makes progress."""
+verification_explanation = """Twelve pytest tests verify specific shrinking outcomes across all data types: integer boundary minimization, sum-pair redistribution, boolean zeroing, string shortening, float-to-integer shrinking, value redistribution, three-integer convergence, efficiency bound (<100 calls), sort_key ordering sanity, consider-uses-drawn trimming, bytes prefix shortening, and mixed-type joint minimization. Each test constructs a specific initial sequence and asserts the exact minimal result, making verification deterministic."""
+category = "software_testing"
+tags = ["property-based-testing", "search-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a608da"

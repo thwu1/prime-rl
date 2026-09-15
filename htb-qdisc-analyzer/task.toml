@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Linux HTB qdisc internals (priority-based scheduling, quantum-weighted DRR, water-filling, oversubscription semantics) WITHOUT an explicit algorithm specification — the solver must know kernel HTB behavior from domain expertise. Additionally requires parsing the complex native text output of three different Linux networking tools (tc, nft, ip) with mixed rate units, multi-line noisy statistics, and hex-encoded parameters. Cross-tool analysis demands understanding how nftables fwmark classification interacts with tc fw filters on a per-interface basis to detect mismatches that span tool boundaries."""
+solution_explanation = """The solution implements parsers for raw tc class/qdisc/filter output (extracting classid, parent, rate in mixed Gbit/Mbit units, ceil, prio, quantum from noisy multi-line blocks), nft ruleset output (extracting per-output-interface fwmark assignments), and ip link output. It reconstructs HTB hierarchies per interface, validates for six error types (orphan class, ceil exceeding parent, rate oversubscription, missing default class, invalid filter target, cross-tool nft mark without tc filter), then implements the recursive HTB allocation algorithm from domain knowledge. Finally builds the nft-to-tc mark map by cross-referencing nft rules with tc fw filters per interface."""
+verification_explanation = """Tests validate the forensic report: checks all 6 configuration errors are detected including the cross-tool nft/tc mismatch, verifies exact leaf bandwidth allocations within 1 Mbps tolerance against hand-computed values for both interfaces, confirms per-interface totals equal link capacity, checks SLA violations, validates the nft_mark_map cross-reference for both interfaces, and runs an anti-cheat dynamic test that modifies the raw tc class dump and verifies the analyzer produces different correct values from re-parsed input."""
+category = "networking"
+tags = ["linux-tc", "nftables-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/htb-qdisc-analyzer"

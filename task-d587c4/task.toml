@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of IR evaluation methodology: diagnosing why MRR@10 computations differ between a custom Python script and the standard trec_eval C tool. Four interacting bugs in the custom script produce non-zero but incorrect MRR values — an off-by-one cutoff, an array indexing shift, a denominator conflation, and a graded-relevance filtering error that silently drops passages with rel>1. The agent must compile trec_eval from C source, convert between MS MARCO and TREC run formats (handling bz2 compression and duplicate PIDs), cross-validate per-query scores in SQLite, and diagnose root causes of disagreements. Requires holistic understanding of how different IR evaluation tools handle relevance grades, unjudged documents, and format conventions."""
+solution_explanation = """Compile trec_eval via make. Fix four bugs in msmarco_eval.py: (1) MaxMRRRank=9→10, (2) array index rank→rank-1, (3) denominator len(ranked)→len(relevant), (4) rel==1 filter→rel>0. Convert MS MARCO runs to TREC format for trec_eval ingestion. Run both tools on all four runs, load per-query scores into SQLite, verify cross-tool agreement, compute bootstrap CIs and pairwise significance, and produce the audit report JSON."""
+verification_explanation = """Tests verify: trec_eval binary compiled and executable, produces correct recip_rank on micro-inputs and on the ELECTRA run. Eval script bugs checked structurally (MaxMRRRank value, no rel==1 filter) and functionally (correct MRR on targeted micro-inputs isolating each bug). Cross-tool validation verified via audit report section and direct trec_eval invocation. SQLite tables checked for population from both tools. Audit report tested for structure, MRR correctness against independent computation, ordering, CI properties, pairwise significance format, and delta sign consistency."""
+category = "information_retrieval"
+tags = ["evaluation", "cross-tool-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d587c4"

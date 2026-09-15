@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level IR knowledge across multiple dimensions: (1) diagnosing a misconfigured Lucene index by understanding that document vector extraction requires specific stored-field flags not visible from index statistics alone, (2) detecting that a retrieval run was generated with different BM25 parameters than documented by independently verifying parameter-dependent ranking behavior, (3) understanding the critical distinction between analyzed (stemmed) and unanalyzed terms in Lucene's IndexReader API — passing already-analyzed terms back through the analyzer silently produces wrong results without errors, requiring deep understanding of Lucene's term processing pipeline, (4) orchestrating pseudo-relevance feedback and rank fusion without being told which specific techniques or APIs to use."""
+solution_explanation = """Diagnose three root causes: the v1 index lacks --storeDocvectors/--storeRaw (despite log claiming otherwise), the baseline run used k1=1.2/b=0.75 (not the claimed k1=0.9/b=0.4), and the reported metrics are fabricated. Rebuild the index with all stored fields. Run BM25 retrieval with correct and alternative parameters, add RM3 pseudo-relevance feedback, fuse with RRF. Evaluate all runs via trec_eval. For term analysis, use LuceneIndexReader.get_document_vector() (returns analyzed terms) and compute_bm25_term_weight() with analyzer=None to avoid double-stemming."""
+verification_explanation = """Tests verify: (1) diagnosis.txt exists and covers index configuration, parameter mismatch, and metrics discrepancy issues, (2) index has 60 docs with working document vectors, (3) all run files in valid TREC format covering all 8 queries, (4) BM25 default retrieval independently reproduced and top docids match, (5) tuned/expanded runs produce different rankings from default, (6) trec_eval re-run on agent's run files matches results.json, (7) fused run only contains docs from input runs, (8) term analysis BM25 weights spot-checked via independent IndexReader computation."""
+category = "information_retrieval"
+tags = ["pyserini", "diagnostics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-fusion-pipeline"

@@ -1,0 +1,77 @@
+{
+  "description": "Port and protocol specific rules, including omitted ports meaning all ports allowed",
+  "namespaces": [
+    {"name": "web", "labels": {"tier": "frontend"}},
+    {"name": "services", "labels": {"tier": "middleware"}}
+  ],
+  "pods": [
+    {"name": "nginx", "namespace": "web", "labels": {"app": "nginx"}, "ip": "10.1.0.1"},
+    {"name": "gateway", "namespace": "services", "labels": {"app": "gateway", "role": "proxy"}, "ip": "10.2.0.1"},
+    {"name": "grpc-svc", "namespace": "services", "labels": {"app": "grpc", "role": "service"}, "ip": "10.2.0.2"}
+  ],
+  "network_policies": [
+    {
+      "name": "deny-all",
+      "namespace": "services",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "gateway-allow-http",
+      "namespace": "services",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"role": "proxy"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"tier": "frontend"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 80},
+              {"protocol": "TCP", "port": 443}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "grpc-allow-all-ports",
+      "namespace": "services",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"role": "service"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchLabels": {"role": "proxy"}
+                }
+              }
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "web", "src_pod": "nginx", "dst_namespace": "services", "dst_pod": "gateway", "dst_port": 80, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "web", "src_pod": "nginx", "dst_namespace": "services", "dst_pod": "gateway", "dst_port": 443, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "web", "src_pod": "nginx", "dst_namespace": "services", "dst_pod": "gateway", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "web", "src_pod": "nginx", "dst_namespace": "services", "dst_pod": "gateway", "dst_port": 80, "protocol": "UDP", "expected": "DENY"},
+    {"src_namespace": "services", "src_pod": "gateway", "dst_namespace": "services", "dst_pod": "grpc-svc", "dst_port": 50051, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "services", "src_pod": "gateway", "dst_namespace": "services", "dst_pod": "grpc-svc", "dst_port": 9090, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "web", "src_pod": "nginx", "dst_namespace": "services", "dst_pod": "grpc-svc", "dst_port": 50051, "protocol": "TCP", "expected": "DENY"}
+  ]
+}

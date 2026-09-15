@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding the NIST AESAVS Monte Carlo Test algorithm — a non-trivial iterative cryptographic construction with mode-specific feedback rules (CBC plaintext/IV rotation in the 1000-iteration inner loop) and key-size-dependent inter-round key derivation (128-bit: XOR with CT[999]; 192-bit: XOR with last-8-bytes-of-CT[998]||CT[999]; 256-bit: XOR with CT[998]||CT[999]). The decrypt direction swaps plaintext/ciphertext roles with different XOR ordering. Correctly implementing all variants, parsing the legacy .rsp format, and detecting subtle single-nibble corruptions requires deep cryptographic engineering skill."""
+solution_explanation = """The solution uses PyCryptodome to implement the AES-CBC MCT algorithm. For encrypt: inner loop computes CT[j] = E_K(CT[j-2] XOR CT[j-1]) for j>=2, with special cases at j=0 (uses initial PT and IV) and j=1 (PT=IV). For decrypt: PT[j] = D_K(PT[j-2]) XOR PT[j-1] for j>=2. Key derivation XORs the key with trailing output blocks (width varies by key size). The audit parses each COUNT entry, re-runs the inner loop, and compares."""
+verification_explanation = """The test independently implements the MCT algorithm using PyCryptodome, computes expected outputs for all challenge parameters, and compares against the agent's results.json. It also independently verifies which entries in the audit file are corrupted. All comparisons are exact hex string matches."""
+category = "cybersecurity"
+tags = ["cryptography", "nist-cavp"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cavp-mct-engine"

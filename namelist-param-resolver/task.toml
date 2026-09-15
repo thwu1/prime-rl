@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a complex XML parameter resolution engine with 5 interacting bugs spanning selector matching (pipe alternation, negation logic), variable substitution (case-sensitivity), constraint validation (compound mod syntax), and introspection features (explain trace). No specification document is provided — the agent must reverse-engineer correct behavior from the XML structure, reference configurations, CLI validation output, and test expectations. Requires proficient use of xmlstarlet for XML/XPath analysis, jq for JSON processing, and the project's CLI validation tool alongside Python debugging. The bugs are subtle — each produces plausible but incorrect results that cascade through the resolution pipeline, and some mask each other until earlier bugs are fixed."""
+solution_explanation = """Fix 5 bugs in resolver.py: (1) Add pipe alternation support in _matches_selectors by splitting selector values on | and checking if resolved value is in any alternative; (2) Apply negation inversion after match check — when selector value starts with !, invert the boolean match result; (3) Make variable substitution case-insensitive by lowercasing the variable name before looking up in _selector_values; (4) Handle the 4-token 'mod N eq M' constraint form in _check_one by checking value % N == M when tokens are ['mod', N, 'eq', M]; (5) Fix explain() to read element traces from self._param_elements instead of self._params."""
+verification_explanation = """93 pytest tests across 14 test classes verify: 4 reference case configurations checking parameter values for dynamics, physics, radiation, turbulence, convection, output, and initial conditions; negation edge cases (3 tests); constraint validation with compound and extended mod N eq M syntax (11 tests); locked parameter protection; array operations; scope resolution with 3 addressing styles; YAML output roundtrip; parameter listing counts; explain() resolution traces with element counts, selector dicts, and winner flags (5 tests); diff() configuration comparison with symmetry (5 tests); pipe alternation matching first/second/no alternative and fallback (4 tests)."""
+category = "applied_computing"
+tags = ["xml-debugging", "configuration-engine"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/namelist-param-resolver"

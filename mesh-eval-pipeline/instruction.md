@@ -1,0 +1,7 @@
+The environment at `/app/` contains a geometric evaluation pipeline (`/app/evaluate.py`) that computes similarity metrics between pairs of 3D triangle mesh models. The pipeline has been flagged during a benchmark validation campaign as producing results that are inconsistent with the mathematical definitions of the metrics it implements.
+
+A mathematical reference specifying all metrics — their formulas, units, invariants, and output schema — is at `/app/spec.md`. Reference and candidate STL models are in `/app/models/references/` and `/app/models/candidates/`, with pair configuration at `/app/models/pairs.json`.
+
+Audit the pipeline against the mathematical reference and bring it into full compliance. This includes correcting any defective metric implementations, completing any unfinished metrics, and resolving any mathematical inconsistencies in derived quantities such as the composite similarity score. The corrected pipeline must produce valid results at `/app/results.json` for all configured pairs — including pairs containing degenerate meshes and geometrically asymmetric configurations — satisfying all invariants defined in the specification.
+
+`numpy`, `trimesh`, `scipy`, and `Rtree` are pre-installed.

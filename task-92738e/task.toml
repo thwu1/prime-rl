@@ -1,0 +1,32 @@
+
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires correlating data across three distinct formats (SQLite, PEM-encoded EC public keys, DER-encoded ASN.1 signatures) to reconstruct a unified dataset. The agent must use sqlite3 to query relational metadata, parse PEM SubjectPublicKeyInfo structures to extract raw EC point coordinates, decode DER-encoded ECDSA signatures to recover r/s integer components, then perform the nonce-reuse key recovery attack across the correlated data. Producing output in both JSON and DER format requires understanding ASN.1 integer encoding rules (minimal, positive). The multi-format pipeline—sqlite3 + openssl/ASN.1 + elliptic curve math—demands proficiency with unfamiliar tools and cross-format data coordination."""
+solution_explanation = """1. Query the SQLite database to enumerate keys, signatures, and challenges with their file references. 2. Parse each PEM public key file (decode base64, walk the ASN.1 SubjectPublicKeyInfo structure) to extract the compressed EC point bytes. 3. Parse each DER signature file (ASN.1 SEQUENCE of two INTEGERs) to extract r and s values. 4. Group signatures by (key_id, r_value) to detect nonce reuse—pairs sharing the same r for the same key used the same ephemeral nonce k. 5. Apply the algebraic recovery: k = (z1-z2)*(s1-s2)^{-1} mod n, d = (s*k-z)*r^{-1} mod n, trying both s and n-s for each signature to handle BIP-62 normalization. 6. Validate each candidate key by computing d*G and comparing against the known compressed public key. 7. Sign challenges with recovered keys, apply low-s normalization, and write results as both JSON and DER-encoded signature files."""
+verification_explanation = """Tests parse /app/results.json and verify: (a) exactly 3 entries ordered by challenge_id with correct fields, (b) key_pem_file references a valid PEM file, (c) each signature passes full ECDSA verification (decompress public key from PEM, verify w = s^{-1}, u1*G + u2*Q check), (d) low-s normalization, (e) DER output files exist and contain valid ASN.1-encoded signatures matching the JSON values, (f) three distinct keys are used."""
+category = "cryptography"
+tags = ["ecdsa", "secp256k1"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-92738e"

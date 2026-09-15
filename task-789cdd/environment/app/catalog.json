@@ -1,0 +1,261 @@
+[
+    {
+        "canonical_name": "Electrocardiogram",
+        "category": "imaging",
+        "aliases": ["ECG", "EKG", "12-lead ECG", "12 lead EKG", "cardiac rhythm strip", "heart tracing"],
+        "processing_time_minutes": 5,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Troponin I",
+        "category": "laboratory",
+        "aliases": ["trop I", "troponin", "cardiac troponin I", "cTnI", "trop"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Troponin T",
+        "category": "laboratory",
+        "aliases": ["trop T", "cardiac troponin T", "cTnT"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Complete Blood Count",
+        "category": "laboratory",
+        "aliases": ["CBC", "full blood count", "FBC", "blood count"],
+        "processing_time_minutes": 20,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Basic Metabolic Panel",
+        "category": "laboratory",
+        "aliases": ["BMP", "chem 7", "chem-7", "basic metabolic"],
+        "processing_time_minutes": 20,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Comprehensive Metabolic Panel",
+        "category": "laboratory",
+        "aliases": ["CMP", "chem 14", "chem-14", "comprehensive metabolic"],
+        "processing_time_minutes": 25,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Chest X-Ray",
+        "category": "imaging",
+        "aliases": ["CXR", "chest radiograph", "chest film", "PA chest", "portable chest"],
+        "processing_time_minutes": 15,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "CT Chest",
+        "category": "imaging",
+        "aliases": ["chest CT", "CT thorax", "CT chest with contrast", "CTA chest"],
+        "processing_time_minutes": 45,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "CT Head",
+        "category": "imaging",
+        "aliases": ["head CT", "CT brain", "CT head without contrast"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "MRI Brain",
+        "category": "imaging",
+        "aliases": ["brain MRI", "MRI head", "MR brain"],
+        "processing_time_minutes": 60,
+        "available_locations": ["inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Aspirin",
+        "category": "medication",
+        "aliases": ["ASA", "aspirin 325mg", "aspirin 325", "acetylsalicylic acid"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Nitroglycerin",
+        "category": "medication",
+        "aliases": ["NTG", "nitro", "nitroglycerin sublingual", "nitroglycerine", "glyceryl trinitrate"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Heparin",
+        "category": "medication",
+        "aliases": ["heparin drip", "heparin infusion", "unfractionated heparin", "UFH", "heparin IV"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Enoxaparin",
+        "category": "medication",
+        "aliases": ["lovenox", "LMWH", "low molecular weight heparin"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Morphine",
+        "category": "medication",
+        "aliases": ["morphine sulfate", "MS", "morphine IV"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Metoprolol",
+        "category": "medication",
+        "aliases": ["lopressor", "metoprolol tartrate", "metoprolol succinate", "beta blocker"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Atorvastatin",
+        "category": "medication",
+        "aliases": ["lipitor", "statin", "atorvastatin 80mg"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Clopidogrel",
+        "category": "medication",
+        "aliases": ["plavix", "clopidogrel 300mg loading", "clopidogrel 75mg"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Oxygen Supplementation",
+        "category": "nursing",
+        "aliases": ["O2", "oxygen", "supplemental oxygen", "nasal cannula", "oxygen via NC", "face mask O2"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "IV Access",
+        "category": "procedure",
+        "aliases": ["IV line", "peripheral IV", "IV catheter", "start IV", "intravenous access"],
+        "processing_time_minutes": 5,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Cardiac Monitor",
+        "category": "nursing",
+        "aliases": ["telemetry", "continuous cardiac monitoring", "heart monitor", "cardiac telemetry"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Cardiology Consultation",
+        "category": "consultation",
+        "aliases": ["cardiology consult", "consult cardiology", "cardiology", "cardiac consult"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Coagulation Panel",
+        "category": "laboratory",
+        "aliases": ["PT/INR", "PTT", "coags", "coagulation studies", "PT INR PTT", "clotting studies"],
+        "processing_time_minutes": 25,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Lipid Panel",
+        "category": "laboratory",
+        "aliases": ["lipids", "cholesterol panel", "fasting lipids", "lipid profile"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "BNP",
+        "category": "laboratory",
+        "aliases": ["brain natriuretic peptide", "NT-proBNP", "pro-BNP", "B-type natriuretic peptide"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Echocardiogram",
+        "category": "imaging",
+        "aliases": ["echo", "transthoracic echocardiogram", "TTE", "cardiac ultrasound", "heart ultrasound"],
+        "processing_time_minutes": 45,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Urinalysis",
+        "category": "laboratory",
+        "aliases": ["UA", "urine analysis", "urine dipstick"],
+        "processing_time_minutes": 15,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Blood Culture",
+        "category": "laboratory",
+        "aliases": ["blood cx", "blood cultures", "BCx", "aerobic and anaerobic cultures"],
+        "processing_time_minutes": 1440,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Arterial Blood Gas",
+        "category": "laboratory",
+        "aliases": ["ABG", "blood gas", "arterial gas"],
+        "processing_time_minutes": 15,
+        "available_locations": ["emergency_department", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "D-Dimer",
+        "category": "laboratory",
+        "aliases": ["d dimer", "d-dimer assay", "fibrin degradation"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Smoking Cessation Counseling",
+        "category": "counseling",
+        "aliases": ["smoking cessation", "quit smoking", "tobacco cessation", "stop smoking advice"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office", "home"]
+    },
+    {
+        "canonical_name": "Cardiac Diet",
+        "category": "diet",
+        "aliases": ["low sodium diet", "heart healthy diet", "cardiac diet order", "low fat diet"],
+        "processing_time_minutes": 0,
+        "available_locations": ["inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Thrombolytics",
+        "category": "medication",
+        "aliases": ["tPA", "alteplase", "tenecteplase", "thrombolytic therapy", "fibrinolytic"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Furosemide",
+        "category": "medication",
+        "aliases": ["lasix", "furosemide IV", "furosemide 40mg"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Pulse Oximetry",
+        "category": "nursing",
+        "aliases": ["pulse ox", "SpO2", "oxygen saturation", "continuous pulse oximetry"],
+        "processing_time_minutes": 0,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    },
+    {
+        "canonical_name": "Blood Type and Screen",
+        "category": "laboratory",
+        "aliases": ["type and screen", "T&S", "blood type", "crossmatch"],
+        "processing_time_minutes": 30,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit"]
+    },
+    {
+        "canonical_name": "Magnesium Level",
+        "category": "laboratory",
+        "aliases": ["Mg", "magnesium", "serum magnesium"],
+        "processing_time_minutes": 20,
+        "available_locations": ["emergency_department", "inpatient_unit", "intensive_care_unit", "office"]
+    }
+]

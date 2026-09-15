@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of simdjson's on-demand API: iterate_many batch-size/CAPACITY semantics, JSON Pointer via at_pointer vs operator[], document stream truncated_bytes(), and the forward-only consumption model requiring rewind() for multi-field extraction from a single document. The solver must trace ~16 interacting bugs across format detection (RS byte vs '['), data-flow integrity (raw vs preprocessed reaching the parser), stream iteration error classification (parse failure vs NO_SUCH_FIELD), aggregation math (population stddev formula, median sorting, percentile linear interpolation with correct rank formula), and group-by state management (document rewind between extractions, accumulation vs replacement, per-group denominator isolation). Bugs interact in chains: RFC 7464 auto-detection needs 3 coordinated fixes; group-by needs rewind (which only matters after fixing at_pointer), accumulation, and denominator isolation; percentile needs sort + rank formula + interpolation."""
+solution_explanation = """Fix 16 bugs: (1) increase BATCH_SIZE from 256 to content.size()+padding; (2) fix auto-detect to check 0x1E not '['; (3) construct padded_string from processed content not raw; (4) use doc.at_pointer(pointer) instead of doc[stripped_field]; (5) classify errors by checking val_err != NO_SUCH_FIELD instead of computing error_documents = total-valid; (6) initialize min_val to DBL_MAX; (7) divide avg by gs.count not total_docs — remove total_docs parameter from compute_aggregation; (8) read ds.truncated_bytes() instead of hardcoding 0; (9-10) sort values before median and handle even-length by averaging middle two; (11-12) fix stddev mean denominator to gs.values.size() and variance denominator to N not N-1; (13-14) sort values before percentile, fix rank formula to pct/100*(n-1), add linear interpolation between floor/ceil; (15) add doc.rewind() before group-by key extraction to reset the on-demand document cursor; (16) accumulate into existing group map entry instead of overwriting with fresh GroupStats."""
+verification_explanation = """Pytest tests generate NDJSON and RFC 7464 data programmatically, run the compiled stream_analyzer, and verify JSON output. 21 test classes cover: basic pipeline (count/sum/max), large documents (CAPACITY), nested pointers (at_pointer), min initialization, RFC 7464 auto/explicit detection, array-starting NDJSON, truncated streams, avg denominator, error classification, values aggregation, median odd/even, stddev (population formula + edge cases), percentile (P50 + P75 with interpolation), and group-by (existence, accumulation, per-group avg). Tests are designed so each targets specific bug categories with some requiring multiple coordinated fixes."""
+category = "debugging"
+tags = ["cpp", "json-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ndjson-stream-analyzer-226f23"

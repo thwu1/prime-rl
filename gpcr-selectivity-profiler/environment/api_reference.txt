@@ -1,0 +1,66 @@
+GtoPdb REST API - Endpoint Reference
+======================================
+
+Base URL: https://www.guidetopharmacology.org/services/
+
+All endpoints return JSON. Set Accept: application/json header.
+
+TARGET ENDPOINTS
+----------------
+GET /targets                           -- List all targets
+GET /targets/{targetId}                -- Single target detail
+GET /targets/families                  -- List target families
+GET /targets/families/{familyId}       -- Single family
+GET /targets/{targetId}/interactions   -- Target interactions
+    Optional params: type, affinityParameter, species, affinity,
+                     ligandType, approved, primaryTarget
+GET /targets/{targetId}/subunits
+GET /targets/{targetId}/complexes
+GET /targets/{targetId}/synonyms
+GET /targets/{targetId}/geneProteinInformation
+GET /targets/{targetId}/databaseLinks
+GET /targets/{targetId}/naturalLigands
+GET /targets/{targetId}/rankOrder
+GET /targets/{targetId}/diseases
+GET /targets/{targetId}/variants
+GET /targets/{targetId}/pdbStructure
+GET /targets/{targetId}/transduction
+
+LIGAND ENDPOINTS
+----------------
+GET /ligands                           -- List all ligands
+GET /ligands/{ligandId}                -- Single ligand detail
+GET /ligands/{ligandId}/interactions   -- Ligand interactions
+    Optional params: type, affinityParameter, species, affinity,
+                     targetType, approved, primaryTarget
+GET /ligands/{ligandId}/molecularProperties  -- Physicochemical data
+GET /ligands/{ligandId}/structure
+GET /ligands/{ligandId}/synonyms
+GET /ligands/{ligandId}/databaseLinks
+GET /ligands/{ligandId}/subunits
+GET /ligands/{ligandId}/complexes
+GET /ligands/{ligandId}/precursors
+
+INTERACTION ENDPOINTS
+---------------------
+GET /interactions                      -- All interactions
+    Optional params: pageSize, type, affinityType, species,
+                     ligandType, targetType, approved, primaryTarget
+GET /interactions/{interactionId}      -- Single interaction detail
+
+DISEASE ENDPOINTS
+-----------------
+GET /diseases                          -- All diseases
+GET /diseases/{diseaseId}              -- Single disease
+
+REFERENCE ENDPOINTS
+-------------------
+GET /references/{referenceId}          -- Single reference
+GET /references/interactions           -- All interaction references
+
+DOWNLOADABLE CSV FILES
+----------------------
+https://www.guidetopharmacology.org/DATA/interactions.csv
+https://www.guidetopharmacology.org/DATA/ligands.csv
+https://www.guidetopharmacology.org/DATA/targets_and_families.csv
+https://www.guidetopharmacology.org/DATA/ligand_physchem_properties.csv

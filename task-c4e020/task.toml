@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level expertise in EEG signal processing (bandpass filtering, spectral analysis), brain-computer interface methods (Common Spatial Patterns), and cross-subject domain adaptation (Euclidean alignment or Riemannian geometry). The agent must identify that inter-subject spatial variability prevents naive pooling, implement spatial filtering to extract discriminative motor cortex patterns, and apply a domain adaptation strategy — none of which are trivially searchable as a single recipe."""
+solution_explanation = """The solution implements a 4-stage pipeline: (1) Butterworth bandpass filter 8-30 Hz to isolate mu/beta motor rhythms, (2) per-subject Euclidean alignment (R^{-1/2} whitening) to normalize subject-specific covariance structure, (3) Common Spatial Patterns on pooled aligned training data to extract 6 spatial filters maximizing class separability, (4) LDA classifier on log-variance CSP features. Test subjects are aligned independently before CSP projection and classification."""
+verification_explanation = """Tests regenerate ground truth labels at test time using the same deterministic seed (labels are never stored in the Docker image). Balanced accuracy is computed per test subject (threshold >= 0.60) and as a mean across test subjects (threshold >= 0.70). Pipeline config is validated for required fields with non-empty string values."""
+category = "signal_processing"
+tags = ["eeg", "domain-adaptation"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c4e020"

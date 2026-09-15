@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-tool pipeline combining C shared library compilation (gcc/make), Python-C FFI via ctypes, shell orchestration with jq and sqlite3, and implementing a probabilistic solver that infers polyomino placements from noisy aggregate measurements on an NxN grid. The solver must combine probabilistic reasoning (Gaussian likelihood scoring in C), combinatorial search (beam search over placement combinations), and an adaptive querying strategy (multi-round sensing, heat-guided drilling). Mastery of gcc compilation flags (-fPIC -shared), ctypes interop, jq JSON extraction, and sqlite3 CLI is needed."""
+solution_explanation = """Build a C shared library implementing Gaussian log-likelihood scoring for beam search. The Python solver loads it via ctypes, performs multi-round row/column aggregate queries for noise-reduced estimates, drills cells guided by a heat map, then runs beam search (width 300-500) over polyomino placements scored by the C library. A pipeline.sh script orchestrates: make builds libscoring.so, the solver runs against each instance, jq extracts result fields from judge output, and sqlite3 stores them in results.db."""
+verification_explanation = """Tests verify the full toolchain: make -C /app must succeed and produce a loadable libscoring.so, the C scoring function must produce correct output for known inputs, solver.py must reference ctypes and libscoring, pipeline.sh must use make/jq/sqlite3, the solver must correctly solve all 5 static instances plus a dynamically generated anti-cheat instance within cost threshold, and results.db must contain correct per-instance data."""
+category = "optimization"
+tags = ["probabilistic-inference", "systems-toolchain"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/polyomino-oil-detection"

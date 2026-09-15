@@ -1,0 +1,4 @@
+---
+- name: Restart Nginx
+  ansible.builtin.debug:
+    msg: "Nginx configuration updated - service restart would be triggered"

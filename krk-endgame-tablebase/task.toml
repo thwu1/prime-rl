@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three interacting bugs in a retrograde-analysis chess tablebase generator: a subtle distance-metric error in king adjacency detection, a copy-paste variable error in rook-ray blocking along files, and a missing draw-classification path for rook-capturable positions. The solver must understand endgame tablebase algorithms, chess legality rules, and use Stockfish via its UCI protocol to cross-validate individual positions before identifying and correcting all defects."""
+solution_explanation = """The solution replaces the buggy generator with a correct implementation that (1) uses Chebyshev distance for king adjacency, (2) correctly checks both rank and file blocking for rook attacks, and (3) detects rook-capturable BTM positions as draws during initialization. The correct code produces exactly 399112 legal positions, 376868 white wins, 22244 draws, max DTM 32 plies, and 0 unknowns."""
+verification_explanation = """Tests verify: (1) JSON output structure and exact aggregate counts (total positions, wins, draws, max DTM), (2) all positions resolved with remaining_unknown=0, (3) specific positions cross-validated with python-chess (checkmate, stalemate, rook capture), (4) DTM self-consistency (WTM best-move leads to DTM-1, BTM all-moves resolved), (5) random-sample cross-validation of checkmate/stalemate/rook-capture positions."""
+category = "debugging"
+tags = ["chess-programming", "retrograde-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/krk-endgame-tablebase"

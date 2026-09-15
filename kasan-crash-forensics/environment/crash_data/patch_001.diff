@@ -1,0 +1,11 @@
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -975,6 +975,9 @@ int nla_parse_nested_deprecated(struct nlattr *tb[], int maxtype,
+ 	struct nlattr *nla;
+ 	int rem, err;
+
++	if (nla_len(nla_data) < sizeof(struct nlattr))
++		return -EINVAL;
++
+ 	nla_for_each_nested(nla, nla_data, rem) {
+ 		u16 type = nla_type(nla);

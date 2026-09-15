@@ -1,0 +1,5 @@
+A shift scheduling problem instance is defined in `/app/instance.json`. The full constraint specification is in `/app/SPEC.md`. Write a constraint programming solver that reads the instance, models all hard and soft constraints, solves the optimization problem, and writes the optimal schedule to `/app/schedule.json`.
+
+The problem schedules 8 employees (with roles: senior, regular, junior) across 4 weeks (28 days) with 4 shift types (Off, Morning, Afternoon, Night). Hard constraints include forbidden shift transitions, maximum consecutive working days, night shift recovery requirements, employee unavailability, and coverage minimums. Soft constraints include shift sequence length preferences, weekly shift count targets, employee shift requests, penalized transitions, excess coverage penalties, and senior staffing requirements.
+
+The solver must minimize the total weighted penalty from all soft constraint violations. The schedule must satisfy ALL hard constraints. The output must be valid JSON at `/app/schedule.json` containing the schedule matrix and computed penalty value, formatted as specified in `/app/SPEC.md`.

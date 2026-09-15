@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction (detectors, observables, code distance), the Stim detector error model format, and the graph-theoretic reduction of code distance to minimum-weight odd-parity cycles. The solver must construct a 'doubled graph' where edges that flip the target observable connect across layers while non-flipping edges stay within layers, then find the shortest cycle with odd observable parity via BFS from every node. Correct handling of boundary nodes (for errors touching 0 or 1 detectors), separator targets, repeat blocks, and multiple observables adds substantial implementation complexity."""
+solution_explanation = """Parse the DEM using Stim's Python API, flattening repeat blocks. For each logical observable, build a doubled graph: each detector and a boundary node exist in layers 0 and 1. Observable-flipping edges cross layers; others stay within. BFS from every (v,0) to (v,1) finds the minimum odd-parity cycle. The overall code distance is the minimum across all observables. This correctly handles boundary paths, internal cycles, and parallel edges with different observable markings."""
+verification_explanation = """Tests generate fresh detector error models from known QEC codes (repetition code distances 3/5/7, rotated surface code distances 3/5) using Stim's built-in generators, plus hand-crafted DEMs with known distances (1, 2, 3, 4) including branching graphs, parallel edges, and multiple observables. The tool's stdout integer is compared against the known correct distance for each case."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "graph-algorithms"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qec-code-distance"

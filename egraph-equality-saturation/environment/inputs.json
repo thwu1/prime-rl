@@ -1,0 +1,12 @@
+[
+  {"id": 1, "expr": "(+ x 0)", "max_cost": 1},
+  {"id": 2, "expr": "(* 1 y)", "max_cost": 1},
+  {"id": 3, "expr": "(* 0 (+ a b))", "max_cost": 1},
+  {"id": 4, "expr": "(+ (* a 2) (* a 3))", "max_cost": 3},
+  {"id": 5, "expr": "(+ (* x y) (* y x))", "max_cost": 5},
+  {"id": 6, "expr": "(+ (* 3 (+ a b)) (* 2 (+ a b)))", "max_cost": 5},
+  {"id": 7, "expr": "(* (+ p 0) (* 1 q))", "max_cost": 3},
+  {"id": 8, "expr": "(+ (* m (+ n k)) (+ (* m n) (* m k)))", "max_cost": 7},
+  {"id": 9, "expr": "(+ (+ (* x 0) (* y 1)) 0)", "max_cost": 1},
+  {"id": 10, "expr": "(* (+ (* 2 a) (* 3 a)) (+ b 0))", "max_cost": 5}
+]

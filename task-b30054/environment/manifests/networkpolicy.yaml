@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-server-policy
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: api-server
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-policy
+  namespace: ecommerce
+spec:
+  podSelector:
+    matchLabels:
+      app: worker
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: api
+    ports:
+    - protocol: TCP
+      port: 8000

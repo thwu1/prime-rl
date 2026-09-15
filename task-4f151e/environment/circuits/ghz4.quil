@@ -1,0 +1,5 @@
+# 4-qubit entangled state
+H 0
+CNOT 0 1
+CNOT 1 2
+CNOT 2 3

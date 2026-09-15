@@ -1,0 +1,76 @@
+{
+    "link_rate_mbps": 50,
+    "duration_sec": 3.0,
+    "src_ip": "10.0.0.1",
+    "dst_ip": "10.0.0.2",
+    "port_mapping": "flow_id = udp_src_port - 10000",
+    "traffic_classes": [
+        {
+            "name": "voice",
+            "dscp": 46,
+            "priority": 0,
+            "rate_cap_mbps": 2.0,
+            "sla": {
+                "max_delay_p99_ms": 5.0,
+                "max_loss_pct": 0.0
+            },
+            "flows": [
+                {"flow_id": 1, "src_port": 10001, "dst_port": 20001, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 2, "src_port": 10002, "dst_port": 20002, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 3, "src_port": 10003, "dst_port": 20003, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"},
+                {"flow_id": 4, "src_port": 10004, "dst_port": 20004, "rate_bps": 256000, "packet_size_bytes": 160, "pattern": "cbr"}
+            ]
+        },
+        {
+            "name": "video",
+            "dscp": 34,
+            "priority": 1,
+            "rate_cap_mbps": 25.0,
+            "sla": {
+                "min_throughput_per_flow_mbps": 4.5,
+                "max_delay_p99_ms": 30.0
+            },
+            "flows": [
+                {"flow_id": 5, "src_port": 10005, "dst_port": 20005, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 6, "src_port": 10006, "dst_port": 20006, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 7, "src_port": 10007, "dst_port": 20007, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12},
+                {"flow_id": 8, "src_port": 10008, "dst_port": 20008, "rate_bps": 5000000, "packet_size_bytes": 1200, "pattern": "bursty", "burst_packets": 12}
+            ]
+        },
+        {
+            "name": "best_effort",
+            "dscp": 0,
+            "priority": 2,
+            "weight": 6,
+            "sla": {
+                "min_fairness_jfi": 0.95,
+                "min_throughput_per_flow_mbps": 0.3
+            },
+            "flows": [
+                {"flow_id": 9, "src_port": 10009, "dst_port": 20009, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 10, "src_port": 10010, "dst_port": 20010, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 11, "src_port": 10011, "dst_port": 20011, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 12, "src_port": 10012, "dst_port": 20012, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 13, "src_port": 10013, "dst_port": 20013, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 14, "src_port": 10014, "dst_port": 20014, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 15, "src_port": 10015, "dst_port": 20015, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"},
+                {"flow_id": 16, "src_port": 10016, "dst_port": 20016, "rate_bps": 8000000, "packet_size_bytes": 1400, "pattern": "bulk"}
+            ]
+        },
+        {
+            "name": "background",
+            "dscp": 8,
+            "priority": 3,
+            "weight": 1,
+            "sla": {
+                "min_throughput_per_flow_mbps": 0.1
+            },
+            "flows": [
+                {"flow_id": 17, "src_port": 10017, "dst_port": 20017, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 18, "src_port": 10018, "dst_port": 20018, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 19, "src_port": 10019, "dst_port": 20019, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"},
+                {"flow_id": 20, "src_port": 10020, "dst_port": 20020, "rate_bps": 4000000, "packet_size_bytes": 1500, "pattern": "bulk"}
+            ]
+        }
+    ]
+}

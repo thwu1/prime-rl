@@ -1,0 +1,12 @@
+{
+  "subjects": [
+    {"kind": "User", "name": "dev-lead@example.com"},
+    {"kind": "User", "name": "developer@example.com"},
+    {"kind": "ServiceAccount", "name": "prometheus", "namespace": "monitoring"},
+    {"kind": "ServiceAccount", "name": "grafana", "namespace": "monitoring"},
+    {"kind": "ServiceAccount", "name": "deploy-bot", "namespace": "production"},
+    {"kind": "ServiceAccount", "name": "ci-deployer", "namespace": "ci"},
+    {"kind": "User", "name": "ci-bot@example.com"},
+    {"kind": "ServiceAccount", "name": "backup-agent", "namespace": "backup"}
+  ]
+}

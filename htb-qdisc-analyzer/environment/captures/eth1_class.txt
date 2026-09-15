@@ -1,0 +1,65 @@
+class htb 2:1 root rate 1Gbit ceil 1Gbit linklayer ethernet burst 125000b/1 mpu 0b overhead 0 cburst 125000b/1 mpu 0b level 2
+ Sent 12345678901 bytes 876543 pkt (dropped 45, overlimits 5678 requeues 4)
+ backlog 0b 0p requeues 4
+ lended: 776543 borrowed: 0 giants: 0
+ tokens: -125 ctokens: -125
+
+class htb 2:10 parent 2:1 prio 0 quantum 1500 rate 400Mbit ceil 800Mbit linklayer ethernet burst 50000b/1 mpu 0b overhead 0 cburst 100000b/1 mpu 0b level 1
+ Sent 5432109876 bytes 432109 pkt (dropped 12, overlimits 2345 requeues 1)
+ backlog 0b 0p requeues 1
+ lended: 332109 borrowed: 100000 giants: 0
+ tokens: -50 ctokens: -100
+
+class htb 2:11 parent 2:10 prio 0 quantum 1500 rate 200Mbit ceil 500Mbit linklayer ethernet burst 25000b/1 mpu 0b overhead 0 cburst 62500b/1 mpu 0b level 0
+ Sent 3210987654 bytes 234567 pkt (dropped 5, overlimits 1234 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 134567 borrowed: 100000 giants: 0
+ tokens: -25 ctokens: -62
+
+class htb 2:12 parent 2:10 prio 1 quantum 1500 rate 100Mbit ceil 900Mbit linklayer ethernet burst 12500b/1 mpu 0b overhead 0 cburst 112500b/1 mpu 0b level 0
+ Sent 1098765432 bytes 98765 pkt (dropped 2, overlimits 567 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 98765 borrowed: 0 giants: 0
+ tokens: -12 ctokens: -112
+
+class htb 2:20 parent 2:1 prio 1 quantum 1500 rate 300Mbit ceil 700Mbit linklayer ethernet burst 37500b/1 mpu 0b overhead 0 cburst 87500b/1 mpu 0b level 1
+ Sent 3456789012 bytes 234567 pkt (dropped 8, overlimits 1567 requeues 1)
+ backlog 0b 0p requeues 1
+ lended: 134567 borrowed: 100000 giants: 0
+ tokens: -37 ctokens: -87
+
+class htb 2:21 parent 2:20 prio 0 quantum 1500 rate 200Mbit ceil 400Mbit linklayer ethernet burst 25000b/1 mpu 0b overhead 0 cburst 50000b/1 mpu 0b level 0
+ Sent 1234567890 bytes 98765 pkt (dropped 3, overlimits 456 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 48765 borrowed: 50000 giants: 0
+ tokens: -25 ctokens: -50
+
+class htb 2:22 parent 2:20 prio 0 quantum 3000 rate 150Mbit ceil 350Mbit linklayer ethernet burst 18750b/1 mpu 0b overhead 0 cburst 43750b/1 mpu 0b level 0
+ Sent 2345678901 bytes 187654 pkt (dropped 5, overlimits 678 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 87654 borrowed: 100000 giants: 0
+ tokens: -18 ctokens: -43
+
+class htb 2:30 parent 2:1 prio 0 quantum 1500 rate 200Mbit ceil 500Mbit linklayer ethernet burst 25000b/1 mpu 0b overhead 0 cburst 62500b/1 mpu 0b level 1
+ Sent 2109876543 bytes 176543 pkt (dropped 6, overlimits 876 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 76543 borrowed: 100000 giants: 0
+ tokens: -25 ctokens: -62
+
+class htb 2:31 parent 2:30 prio 0 quantum 1500 rate 100Mbit ceil 250Mbit linklayer ethernet burst 12500b/1 mpu 0b overhead 0 cburst 31250b/1 mpu 0b level 0
+ Sent 1098765432 bytes 87654 pkt (dropped 2, overlimits 345 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 37654 borrowed: 50000 giants: 0
+ tokens: -12 ctokens: -31
+
+class htb 2:32 parent 2:30 prio 1 quantum 1500 rate 100Mbit ceil 250Mbit linklayer ethernet burst 12500b/1 mpu 0b overhead 0 cburst 31250b/1 mpu 0b level 0
+ Sent 987654321 bytes 76543 pkt (dropped 1, overlimits 234 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 76543 borrowed: 0 giants: 0
+ tokens: -12 ctokens: -31
+
+class htb 2:41 parent 2:40 prio 0 quantum 1500 rate 50Mbit ceil 100Mbit linklayer ethernet burst 6250b/1 mpu 0b overhead 0 cburst 12500b/1 mpu 0b level 0
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 6250 ctokens: 12500

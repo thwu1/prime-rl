@@ -1,0 +1,32 @@
+
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SHACL engineering: diagnosing and fixing 16 interdependent defects across coupled SHACL shapes and RDF catalog data, spanning advanced W3C SHACL features. Shape defects include: SHACL-SPARQL constraints with wrong property paths that silently prevent temporal ordering validation; missing qualified value shapes (sh:qualifiedValueShape / sh:qualifiedMinCount / sh:qualifiedValueShapesDisjoint) for multilingual keyword cardinality enforcement; a closed catalog shape (sh:closed) without sh:ignoredProperties causing blanket rejection of standard predicates; a deactivated (sh:deactivated true) SPARQL constraint for conditional distribution conformsTo; sh:severity sh:Warning on a mandatory property making violations non-failing; wrong SPDX predicate casing (checksum_value vs checksumValue); missing AgentShape and ContactPointShape definitions; missing sh:node references for nested blank-node validation; and wrong datatype constraints (xsd:dateTime vs xsd:date). Data defects include reversed temporal dates, untyped WKT geometries, mailto-as-string literals, wrong numeric datatypes, missing endDates, missing German keywords, untyped SKOS themes, a spurious dct:hasPart on a leaf catalog, and missing distribution conformsTo for GML/NetCDF types. The agent must understand how these features interact holistically — fixing shapes exposes latent data defects, and fixing data without understanding shape semantics leads to circular failures."""
+solution_explanation = """Generate corrected shapes from scratch implementing all profile requirements: DatasetShape with sh:node references for nested Location/PeriodOfTime/ContactPoint validation, SPARQL temporal ordering using $this and dcat:startDate, qualified value shapes for >=2 English and >=1 German keywords with sh:qualifiedValueShapesDisjoint true, closed CatalogShape with proper sh:ignoredProperties list, active (not deactivated) SPARQL for GML/NetCDF conditional dct:conformsTo, ChecksumShape using spdx:checksumValue, AgentShape with sh:nodeKind sh:IRI for mbox, ContactPointShape for vcard:hasEmail + vcard:fn, and byteSize with sh:datatype xsd:nonNegativeInteger. Then programmatically fix catalog: retype plain geometry strings as geo:wktLiteral, convert mbox literals to mailto: URIs, change xsd:integer resolutions to xsd:decimal, add missing temporal endDate, swap reversed temporal dates, add German keywords per dataset, type themes as skos:Concept, add catalog themeTaxonomy, add contactPoints, add conformsTo to GML/NetCDF distributions, remove spurious hasPart, fix incomplete checksums, add language tags to untagged titles."""
+verification_explanation = """51 pytest tests verify: output files exist and parse as valid Turtle; corrected shapes define NodeShapes for Dataset, Distribution, Catalog, and Agent; shapes include active SPARQL temporal ordering, qualified German keyword constraint, closed CatalogShape with ignoredProperties, active conditional conformsTo SPARQL, correct spdx:checksumValue predicate, and contactPoint with sh:node; catalog contains 5 datasets, 8 distributions, 1 catalog; catalog passes SHACL validation; six negative samples correctly fail (temporal ordering, missing German keywords, missing spatial, missing checksum, GML without conformsTo, missing contactPoint); datasets have all required properties including German keywords and contactPoints; temporal dates are correctly ordered; distributions have checksums, media types, formats; GML/NetCDF distributions have conformsTo; catalog has themeTaxonomy and no hasPart; agents have mailto: URI mbox; titles include both English and German; geometry literals have geo:wktLiteral datatype; resolutions are xsd:decimal; and contactPoints have vcard:hasEmail IRIs and vcard:fn."""
+category = "data_management"
+tags = ["shacl-validation", "rdf-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shacl-catalog-validation"

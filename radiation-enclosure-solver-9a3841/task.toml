@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level radiation heat transfer expertise combined with multi-tool systems integration. The solver must: (1) interoperate Node.js and Python by calling a provided JavaScript view-factor calculator via subprocess stdin/stdout JSON piping, parsing its output, and feeding results into a Python numerical solver; (2) implement the gray-diffuse radiosity linear system with mixed temperature/heat-flux boundary conditions, including blackbody (epsilon=1) edge cases; (3) store all results in a SQLite database with a prescribed relational schema; (4) orchestrate the entire pipeline via shell scripting to batch-process five enclosures of three distinct geometry types (rectangular box, cylinder, concentric spheres). Each geometry type requires identifying correct catalog formulas, mapping geometric parameters, and applying view factor algebra (summation, reciprocity, concave self-view). The combination of physics domain knowledge, cross-language tool interop, relational data modeling, and shell orchestration makes this task significantly harder than any single dimension alone."""
+solution_explanation = """The reference solution creates a shell script (radpipe.sh) that initializes the SQLite schema and iterates over enclosure JSON files. For each enclosure, a Python script (radiosity_solver.py) calls vfcalc.js via subprocess with JSON piped to stdin, using C-11 for opposed rectangle pairs, C-14 for adjacent pairs, C-40 for equal coaxial disks, and C-135 for concentric spheres. Missing view factors are derived via reciprocity and summation. The radiosity system is assembled as an NxN linear system and solved with numpy.linalg.solve. Heat fluxes and equilibrium temperatures are extracted, and all results are inserted into the SQLite database."""
+verification_explanation = """Tests run the pipeline once, then query the SQLite database to verify: (1) schema correctness and completeness (all 5 enclosures present); (2) view factor accuracy against independent Python reference implementations of C-11, C-14, C-40, C-135; (3) physical consistency via summation rule, reciprocity, and energy conservation for every enclosure; (4) radiosity solution consistency by independently solving the linear system using the solver's own view factors; (5) edge cases including blackbody surfaces (J=sigma*T^4), adiabatic walls (q~0), and highly asymmetric geometries."""
+category = "physics_engineering"
+tags = ["radiation-heat-transfer", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/radiation-enclosure-solver-9a3841"

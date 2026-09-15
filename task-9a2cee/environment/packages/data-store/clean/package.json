@@ -1,0 +1,7 @@
+{
+  "name": "data-store",
+  "version": "3.0.0",
+  "description": "Simple in-memory key-value data store",
+  "main": "index.js",
+  "license": "MIT"
+}

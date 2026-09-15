@@ -1,0 +1,41 @@
+{
+  "description": "Cross-format criticality benchmark conversion and analysis output specification",
+  "outputs": {
+    "openmc_dir": "/app/output/openmc/<benchmark-id>/",
+    "openmc_files": ["geometry.xml", "materials.xml", "settings.xml"],
+    "validation_log": "/app/output/validation.log",
+    "report": "/app/output/results.json"
+  },
+  "report_schema": {
+    "benchmarks": [
+      {
+        "id": "ICSBEP identifier (lowercase hyphenated, e.g., heu-met-fast-001)",
+        "title": "string",
+        "materials": {
+          "<material_id_as_string>": {
+            "nuclides": {"<nuclide_name>": "<atom_density_float>"},
+            "total_atom_density": "<sum_of_nuclide_densities>",
+            "weight_fractions": {"<nuclide_name>": "<mass_fraction_0_to_1>"},
+            "enrichment_u235_wpct": "<U-235_enrichment_weight_percent_or_null>"
+          }
+        },
+        "cells": [
+          {
+            "id": "<int>",
+            "material_id": "<int>",
+            "volume_cm3": "<geometric_volume_float>"
+          }
+        ],
+        "total_fissile_mass_kg": "<float>",
+        "experimental_keff": "<float_from_CSV>",
+        "experimental_uncertainty": "<float_from_CSV>",
+        "kcode": {
+          "particles": "<int>",
+          "initial_keff": "<float>",
+          "inactive_batches": "<int>",
+          "total_batches": "<int>"
+        }
+      }
+    ]
+  }
+}

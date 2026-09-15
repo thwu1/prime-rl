@@ -1,0 +1,403 @@
+{
+  "current_round": 5,
+  "total_rounds": 7,
+  "initial_colour": "W",
+  "players": [
+    {
+      "tpn": 1,
+      "name": "Karjakin",
+      "rating": 2750,
+      "score": 3.5,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        9,
+        5,
+        3,
+        2
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": []
+    },
+    {
+      "tpn": 2,
+      "name": "Nakamura",
+      "rating": 2740,
+      "score": 1.5,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        10,
+        6,
+        4,
+        1
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [],
+      "upfloat_rounds": [
+        3,
+        4
+      ]
+    },
+    {
+      "tpn": 3,
+      "name": "Caruana",
+      "rating": 2730,
+      "score": 2,
+      "colours": [
+        "W",
+        "B",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        11,
+        7,
+        1,
+        5
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        2
+      ],
+      "upfloat_rounds": [
+        3,
+        4
+      ]
+    },
+    {
+      "tpn": 4,
+      "name": "Ding",
+      "rating": 2720,
+      "score": 2.5,
+      "colours": [
+        "B",
+        "W",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        12,
+        8,
+        2,
+        6
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": [
+        2
+      ]
+    },
+    {
+      "tpn": 5,
+      "name": "Nepomniachtchi",
+      "rating": 2710,
+      "score": 2,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "B"
+      ],
+      "opponents": [
+        13,
+        1,
+        8,
+        3
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        4
+      ],
+      "upfloat_rounds": []
+    },
+    {
+      "tpn": 6,
+      "name": "Giri",
+      "rating": 2700,
+      "score": 1,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "W"
+      ],
+      "opponents": [
+        14,
+        2,
+        7,
+        4
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [],
+      "upfloat_rounds": [
+        3,
+        4
+      ]
+    },
+    {
+      "tpn": 7,
+      "name": "Rapport",
+      "rating": 2690,
+      "score": 3.0,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        15,
+        3,
+        6,
+        8
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": [
+        2
+      ]
+    },
+    {
+      "tpn": 8,
+      "name": "Dominguez",
+      "rating": 2680,
+      "score": 1.5,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        16,
+        4,
+        5,
+        7
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        2
+      ],
+      "upfloat_rounds": [
+        4
+      ]
+    },
+    {
+      "tpn": 9,
+      "name": "Vidit",
+      "rating": 2670,
+      "score": 2.5,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        1,
+        13,
+        12,
+        10
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [],
+      "upfloat_rounds": [
+        3,
+        4
+      ]
+    },
+    {
+      "tpn": 10,
+      "name": "Praggnanandhaa",
+      "rating": 2660,
+      "score": 2,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        2,
+        14,
+        11,
+        9
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": []
+    },
+    {
+      "tpn": 11,
+      "name": "Erigaisi",
+      "rating": 2650,
+      "score": 1,
+      "colours": [
+        "B",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        3,
+        15,
+        10,
+        13
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [],
+      "upfloat_rounds": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "tpn": 12,
+      "name": "Abdusattorov",
+      "rating": 2640,
+      "score": 1.5,
+      "colours": [
+        "W",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        4,
+        16,
+        9,
+        14
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        2,
+        3
+      ],
+      "upfloat_rounds": [
+        4
+      ]
+    },
+    {
+      "tpn": 13,
+      "name": "Keymer",
+      "rating": 2630,
+      "score": 1.0,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        5,
+        9,
+        16,
+        11
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": []
+    },
+    {
+      "tpn": 14,
+      "name": "Van_Foreest",
+      "rating": 2620,
+      "score": 4,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        6,
+        10,
+        15,
+        12
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        3,
+        4
+      ],
+      "upfloat_rounds": []
+    },
+    {
+      "tpn": 15,
+      "name": "Sevian",
+      "rating": 2610,
+      "score": 2.0,
+      "colours": [
+        "B",
+        "B",
+        "W",
+        "B"
+      ],
+      "opponents": [
+        7,
+        11,
+        14,
+        16
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [
+        2,
+        4
+      ],
+      "upfloat_rounds": [
+        3
+      ]
+    },
+    {
+      "tpn": 16,
+      "name": "Sarana",
+      "rating": 2600,
+      "score": 1.0,
+      "colours": [
+        "W",
+        "W",
+        "B",
+        "W"
+      ],
+      "opponents": [
+        8,
+        12,
+        13,
+        15
+      ],
+      "had_bye": false,
+      "downfloat_rounds": [],
+      "upfloat_rounds": [
+        2,
+        3,
+        4
+      ]
+    }
+  ]
+}

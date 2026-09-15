@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level hydrogeological and MODFLOW 6 expertise across multiple phases. Phase 1 (diagnosis): the agent must identify three distinct defects in the MODFLOW 6 input deck with NO hints — requiring deep understanding of (a) iterative solver numerics (recognizing OUTER_MAXIMUM=2 and DVCLOSE=1e-15 are pathologically restrictive), (b) confining unit physics (recognizing K33=1.0 ft/s is 8-12 orders of magnitude too high for a confining unit vs the TWRI reference), and (c) boundary condition semantics (recognizing CHD boundaries belong on aquifer layers not confining units). Phase 2 (evaluation): the agent must evaluate the corrected model's water budget closure and assess physical plausibility of the head distribution — judging vertical gradients, drain activity, and head magnitudes against expected TWRI behavior. Phase 3 (design): the agent must create a novel well field satisfying 7 simultaneous constraints (extraction target, well count, rate limits, layer restrictions, layer diversity, convergence, no-dry-cells), requiring iterative simulation and holistic understanding of how pumping in one aquifer layer propagates through confining units to affect heads system-wide."""
+solution_explanation = """Fix three bugs: (1) IMS — increase OUTER_MAXIMUM to 50, relax OUTER_DVCLOSE to 1e-9, INNER_MAXIMUM to 100; (2) NPF — correct K33 for confining layers 2 and 4 from 1.0 to 1e-8 and 5e-7 respectively; (3) CHD — change layer 2 entries to layer 3. Run corrected baseline, extract water budget (parse listing file or budget file), compute model_assessment from head array and budget file. Then design 4 new wells distributed across layers 1, 3, and 5 (5 ft³/s each, totaling 20 ft³/s), update WEL file MAXBOUND, run augmented simulation, verify no heads below layer bottoms, and write heads.csv from binary .hds file."""
+verification_explanation = """Tests verify: (1) mfsim.lst contains 'Normal termination'; (2) IMS OUTER_MAXIMUM >= 10; (3) NPF K33 for confining layers < 1e-5; (4) CHD on layers 1 and 3 not 2; (5) budget_analysis.json has required keys with percent_discrepancy < 1% and positive flows; (6) model_assessment.json has correct physics — positive heads, downward vertical gradient, active drains; (7) well_design.csv has 3-8 wells in aquifer layers only, total extraction >= 20, no rate > 7, >= 2 distinct layers; (8) heads.csv has 1125 rows with correct format, no head below layer bottom, CHD cells near 0, positive interior heads."""
+category = "scientific_computing"
+tags = ["groundwater-modeling", "numerical-simulation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-modflow-aquifer"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in numerical analysis and special function computation. The agent must implement or orchestrate multiple independent high-precision algorithms (power series, continued fractions, asymptotic expansions, integral representations) for 9 different special functions, handle numerically treacherous evaluation points (near zeros, poles, transition regions, large-parameter regimes with catastrophic cancellation), and produce results verified to 40+ decimal digits with rigorous error bounds. This demands graduate/PhD-level knowledge of computational mathematics, familiarity with DLMF identities, and careful multiprecision arithmetic."""
+solution_explanation = """Use mpmath at 80+ digit working precision to evaluate each function via its built-in implementation, then cross-validate using an independent method: e.g., numerical quadrature of an integral representation, a recurrence relation, or an alternative series/continued-fraction expansion. For each evaluation point, compare two independent computations to certify the result, compute error bounds from the agreement, and output the certified table."""
+verification_explanation = """Tests load the agent's results.json and compare each value against precomputed 60-digit reference values (computed independently with mpmath at 120-digit precision, validated by Mathematica-equivalent checks). Each result must match to 40 digits, the error_bound must be valid, and at least 2 methods must be listed per entry. Tests also verify structural correctness of the output."""
+category = "mathematics"
+tags = ["numerical-analysis", "special-functions"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/validated-special-functions"

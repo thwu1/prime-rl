@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of RISC-V Sv39 page table architecture (64-bit PTE format, three-level walks, superpage alignment, full permission matrix including MXR/SUM/Svade) combined with proficiency in cross-architecture binary analysis tools (riscv64-linux-gnu-readelf for ELF LOAD segment extraction, xxd/hexdump for physical memory inspection). The agent must integrate information across multiple unfamiliar tools — parsing readelf's wide-format output, correlating ELF segment permissions with page table entries, and handling edge cases like misaligned superpages, reserved PTE encodings, and Svade A/D bit faults. Not solvable without graduate-level computer architecture expertise and multi-tool interoperability skills."""
+solution_explanation = """Use riscv64-linux-gnu-readelf -l -W to extract LOAD segment virtual addresses, sizes, and permission flags from each RISC-V ELF binary. Parse the wide-format output, handling readelf's 'E' flag for execute and split flag columns (e.g. 'R E'). Read the physical memory dump as raw bytes, walk the three-level Sv39 page table hierarchy for each segment's base VA using the SATP PPN as root. For each leaf PTE, validate superpage alignment, check permissions against the segment's required access types and process context (privilege, MXR, SUM), verify A/D bits under Svade mode, and compute the physical address. Output a structured JSON audit report."""
+verification_explanation = """15 segment checks across 5 binaries cover: correct 4KB/2MB/1GB page mappings, permission mismatches (write to read-only page), misaligned superpages at both L1 and L2, reserved PTE encodings (W && !R), non-leaf PTEs at the final level, invalid PTEs (V=0), user/supervisor privilege isolation, MXR making execute-only pages readable, SUM enabling supervisor access to user pages, and Svade faults for unset A and D bits. Two anti-hardcoding sensitivity tests dynamically modify process table privileges and MXR settings, re-run the tool, and verify the output changes accordingly."""
+category = "computer_architecture"
+tags = ["risc-v", "virtual-memory", "binary-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-949826"

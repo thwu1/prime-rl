@@ -1,0 +1,19 @@
+# Test 05: Multi-level sealed hierarchy
+# Shape is sealed with Circle and Polygon;
+# Polygon is sealed with Square and Triangle.
+# Covering Circle + Square + Triangle should be exhaustive for Shape.
+# Expected: exhaustive
+
+TYPES
+sealed Shape Circle Polygon
+record Circle double:radius parent:Shape
+sealed Polygon Square Triangle
+record Square double:side parent:Polygon
+final Triangle parent:Polygon
+
+SWITCHES
+switch s1 Shape
+type Circle
+type Square
+type Triangle
+end

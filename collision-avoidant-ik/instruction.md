@@ -1,0 +1,5 @@
+A differential inverse kinematics library at `/app/lie_ik.py` for the 7-DOF arm in `/app/robot.xml` contains mathematical bugs in its Lie group operations and two incomplete functions (`compute_body_jacobian` and `compute_collision_constraint`) that raise `NotImplementedError`.
+
+`/app/api_spec.py` documents the expected function signatures and conventions.
+
+Debug and fix the mathematical errors in the SO(3)/SE(3) functions, implement the two missing functions from their mathematical definitions, and ensure the complete library produces correct Lie group operations (exp/log roundtrips, adjoint composition, left Jacobian identities), accurate body-frame Jacobians consistent with MuJoCo's world-frame Jacobians via adjoint transform, converging IK within 1 cm position error, and functional collision avoidance that maintains minimum geom clearance.

@@ -1,0 +1,14 @@
+int main() {
+    int n = getint();
+    int a[100];
+    int i = 0;
+    int sum = 0;
+    while (i < n) {
+        a[i] = getint();
+        sum = sum + a[i];
+        i = i + 1;
+    }
+    putint(sum);
+    putch(10);
+    return 0;
+}

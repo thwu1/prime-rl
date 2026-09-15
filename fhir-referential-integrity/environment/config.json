@@ -1,0 +1,34 @@
+{
+  "fhirVersion": "R4",
+  "processingErrors": "raise",
+  "fhirPathRules": [
+    {"path": "Resource.id", "method": "cryptoHash"},
+    {"path": "nodesByType('HumanName')", "method": "redact"},
+    {"path": "nodesByType('Address').line", "method": "redact"},
+    {"path": "nodesByType('Address').city", "method": "redact"},
+    {"path": "nodesByType('Address').district", "method": "redact"},
+    {"path": "nodesByType('Address').state", "method": "keep"},
+    {"path": "nodesByType('Address').country", "method": "keep"},
+    {"path": "nodesByType('Address').postalCode", "method": "generalize"},
+    {"path": "nodesByType('ContactPoint')", "method": "redact"},
+    {"path": "nodesByType('Identifier').value", "method": "cryptoHash"},
+    {"path": "Resource.text", "method": "redact"},
+    {"path": "nodesByType('date')", "method": "dateShift"},
+    {"path": "nodesByType('dateTime')", "method": "dateShift"},
+    {"path": "nodesByType('instant')", "method": "dateShift"}
+  ],
+  "parameters": {
+    "cryptoHashKey": "hipaa-safe-harbor-2024",
+    "dateShiftKey": "date-shift-key-2024",
+    "dateShiftRange": 50,
+    "dateShiftScope": "resource",
+    "enablePartialZipCodesForRedact": true,
+    "enablePartialAgesForRedact": true,
+    "enablePartialDatesForRedact": false,
+    "restrictedZipCodeTabulationAreas": [
+      "036", "059", "063", "102", "203", "556", "692",
+      "790", "821", "823", "830", "831", "878", "879",
+      "884", "890", "893"
+    ]
+  }
+}

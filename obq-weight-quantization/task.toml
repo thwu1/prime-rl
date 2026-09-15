@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of second-order optimization (Hessian-based weight quantization), numerical linear algebra (matrix inversion with damping, blocked column processing), and combinatorial optimization (bounded knapsack via DP). The OBQ error compensation mechanism—dividing by diagonal Hessian inverse and projecting onto off-diagonal entries—is non-trivial to implement correctly. Blocked processing adds algorithmic complexity with within-block vs cross-block update paths. The act-order heuristic requires correct permutation management. Multiple interacting components must all be numerically correct for integration tests to pass."""
+solution_explanation = """Implement uniform quantization with proper scale/clip for symmetric and asymmetric modes. Compute Hessians via matrix multiplication. For OBQ: regularize H, invert, then process columns sequentially—quantize each column, compute scaled error delta = (w - q) / H_inv[q,q], and compensate remaining columns via W[:,q+1:] -= outer(delta, H_inv[q,q+1:]). For blocked processing: accumulate errors within blocks using the block sub-matrix, then apply cross-block update. For act-order: sort by descending H diagonal, permute, run OBQ, un-permute. For mixed precision: dictionary-based DP over (layer, cumulative cost) states."""
+verification_explanation = """Tests verify each component independently: quantization grid properties and idempotency, Hessian symmetry/PSD/formula correctness, OBQ error strictly less than naive quantization, blocked OBQ equivalence to sequential, act-order improvement over standard ordering, and mixed-precision optimality via exhaustive comparison on small instances and single-change checks on larger ones. Integration test runs the full pipeline on task data with forward-pass Hessian computation."""
+category = "machine-learning"
+tags = ["quantization", "optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/obq-weight-quantization"

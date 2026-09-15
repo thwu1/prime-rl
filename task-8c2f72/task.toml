@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete MPI RMA-based distributed 2D Poisson solver from a serial reference and a minimal skeleton. The solver must correctly handle multiple interacting concerns: (1) 2D Cartesian topology setup and coordinate-to-rank mapping, (2) local subdomain allocation with ghost cell borders and row-major buffer addressing, (3) MPI_Win creation with correct displacement units, (4) ghost cell exchange using MPI_Get with precise displacement arithmetic — fetching the correct interior row/column from each neighbor (north's row 1 vs its row local_ny, etc.), (5) fence-based synchronization with proper epoch boundaries, (6) grid spacing derivation (h=1/(N+1) for N interior points with Dirichlet boundaries, which is easy to get wrong as h=1/N), (7) distributed convergence checking via MPI_Allreduce, and (8) gathering query-point values that span multiple process domains. Each concern has subtle correctness requirements (e.g., MPI_Cart_shift source/dest ordering for dimension 0 vs 1), and all must be correct simultaneously for the solver to converge to the right answer."""
+solution_explanation = """Implement a complete parallel solver: create a 2D Cartesian communicator with MPI_Dims_create/MPI_Cart_create, compute local subdomain sizes (GRID_N/pdims with ghost borders of width 1), create an MPI_Win over the local buffer with displacement unit sizeof(double), use MPI_Cart_shift on dimensions 0 and 1 to find neighbors (south/north for dim 0, west/east for dim 1), set h=1/(GRID_N+1), implement Jacobi iteration with two fence epochs per step (one for MPI_Get ghost exchange, one for local buffer writes), use MPI_Get displacements that fetch each neighbor's near-boundary interior row/column (not the far boundary), check convergence with MPI_Allreduce(MAX), and gather query-point values via Allreduce(SUM) since only one process owns each point."""
+verification_explanation = """Tests compile and run the parallel solver with 4 MPI processes, then verify: (1) the source uses MPI_Win_create/allocate, MPI_Get/Put, and MPI_Win_fence/lock (RMA primitives), (2) the source uses MPI_Cart_create for topology, (3) the method field in JSON equals 'rma_fence', (4) grid_size equals 32, (5) convergence within 10000 iterations with residual < 1e-5, (6) solution accuracy at 5 query points within 3e-3 of the analytical sin(pi*x)*sin(pi*y) solution, (7) symmetry between query points (8,24) and (24,8), and (8) the reported exact values match the analytical formula to machine precision."""
+category = "distributed_systems"
+tags = ["mpi", "parallel_computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8c2f72"

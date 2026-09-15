@@ -1,0 +1,28 @@
+CRYPTO AUDIT PRELIMINARY NOTES
+================================
+
+Token Format (confirmed via source code review before code purge):
+
+  All three services use an identical plaintext token format:
+
+    v2|<role>|<user>|<nonce_hex>|<unix_timestamp>
+
+  Example: v2|basic|guest|a1b2c3d4e5f6a7b8|1718150400
+
+  Fields:
+    - "v2" version marker (3 bytes including trailing delimiter)
+    - role: "basic" for standard users (byte offset 3, length 5)
+    - user: "guest" for anonymous sessions
+    - nonce: 16 hex characters (8 random bytes)
+    - timestamp: Unix epoch seconds, zero-padded to 10 digits
+
+  Total plaintext length: 42 bytes (constant).
+  Admin authentication requires role="admin" at byte offset 3.
+
+Interface Notes:
+  - One service returns raw binary ciphertext (not hex-encoded)
+  - One service uses HTTPS with a self-signed certificate
+  - One service uses standard HTTP with JSON responses
+
+Encryption modes were identified but notes were lost in the code purge.
+Each service uses a different AES mode. Determine through black-box testing.

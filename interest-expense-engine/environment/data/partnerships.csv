@@ -1,0 +1,5 @@
+partnership_id,partner_id,share
+prs,partner_x,0.5
+prs,partner_y,0.5
+prs_two,corp_delta,0.5
+prs_two,indiv_phi,0.5

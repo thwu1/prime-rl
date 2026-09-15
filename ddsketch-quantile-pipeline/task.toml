@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reasoning across three intertwined phases: (1) Diagnosis — multiple interacting bugs in a multi-module streaming quantile pipeline must be identified by reading, understanding, and debugging unfamiliar algorithmic code. The bugs interact: fixing one reveals the next, requiring iterative diagnosis with comparison to reference data. (2) SLO Analysis — the agent must read and interpret a JSON schema to extract update rules, apply them correctly with proper initialization, and compute derived metrics. (3) Benchmark + SQL Engineering — the agent must implement a configuration sweep, compute per-quantile error metrics, store results in SQLite, then use the sqlite3 command-line tool to create a SQL view computing Pareto dominance and generate a formatted report. This requires multi-tool interoperability between Python, SQLite (both the library and the CLI tool), and shell scripting. The sqlite3 CLI view creation requires translating a non-trivial set-theoretic definition (Pareto non-dominance) into SQL with correlated subqueries. The formatted report generation requires understanding sqlite3 CLI output modes and shell redirection."""
+solution_explanation = """Diagnose and fix three interacting bugs in the pipeline by reading the code and comparing output to reference data. Run the corrected pipeline. Implement SLO evaluation by reading the EWMA formula from the output schema, computing per-window compliance with proper initialization and decay. Implement benchmark: sweep 12 (alpha, max_buckets) configurations, compute per-quantile errors (overall and p99-specific), store in SQLite. Use sqlite3 CLI to create a pareto_frontier SQL view with a NOT EXISTS correlated subquery implementing Pareto dominance on two dimensions. Use sqlite3 CLI with column-mode formatting to generate a benchmark_report.txt file. Generate evaluation.json conforming to the output schema."""
+verification_explanation = """Tests verify: (1) pipeline output quantile accuracy within 3*alpha relative error against exact quantiles, (2) correct anomaly detection (specific windows flagged, no false positives), (3) SLO evaluation — breach windows match, EWMA recomputed from pipeline p99, compliance percentage correct, (4) SQLite benchmark DB has correct schema including p99_max_relative_error column, 12 rows matching evaluation.json, (5) p99_max_relative_error is non-negative and <= max_relative_error for each config, (6) Pareto-optimal set re-derived using p99_max_relative_error dominance matches reported set, (7) recommendation is Pareto-optimal with lowest p99_max_relative_error, (8) pareto_frontier SQL VIEW exists in the database and returns correct non-dominated configs, (9) benchmark_report.txt exists with expected section headers, column names, and data from sqlite3 CLI output."""
+category = "systems_engineering"
+tags = ["observability-debugging", "streaming-algorithms", "sqlite-cli"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ddsketch-quantile-pipeline"

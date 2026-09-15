@@ -1,0 +1,48 @@
+# Rime schema
+# encoding: utf-8
+
+schema:
+  schema_id: challenge
+  name: Challenge Schema
+  version: '1.0'
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    # Step 1: Remove tone numbers from syllables (e.g., zhong1 -> zhong)
+    - xform/^([a-z]+)\d$/$1/
+    # Step 2: Erase nonsensical entries
+    - erase/^xx$/
+    - erase/^hm$/
+    - erase/^m$/
+    # Step 3: Transform v-spellings for specific initials
+    - xform/^([jqxy])u$/$1v/
+    # Step 4: Derive fuzzy pinyin pairs (bidirectional)
+    - derive/^([zcs])h(.*)$/$1$2/
+    - derive/^([zcs])([^h])/$1h$2/
+    - derive/^n/l/
+    - derive/^l/n/
+    # Step 5: Derive common misspelling tolerance
+    - derive/([aeiou])ng$/$1gn/
+    - derive/ao$/oa/
+    - derive/ong$/on/
+    - derive/ui$/uei/
+    - derive/iu$/iou/
+    - derive/([iu])a(o|ng?)$/a$1$2/
+    # Step 6: Derive nv/lv alternatives
+    - derive/^([nl])ve$/$1ue/
+    # Step 7: Fuzz — first+last letter for word-level codes
+    - fuzz/^([a-z]).+([a-z])$/$1$2/
+    # Step 8: Abbreviation — first letter as shorthand
+    - abbrev/^([a-z]).+$/$1/
+    # Step 9: Abbreviation — zh, ch, sh two-letter shorthand
+    - abbrev/^([zcs]h).+$/$1/
+
+translator:
+  dictionary: challenge
+  preedit_format:
+    - xform/([nl])v/$1ü/
+    - xform/([nl])ue/$1üe/
+    - xform/([jqxy])v/$1u/
+    - xlit/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/

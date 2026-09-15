@@ -1,0 +1,115 @@
+Generalized Matrix Chain Optimization — BLAS-Aligned Cost Model
+================================================================
+
+Given a chain of matrices M1 x M2 x ... x Mn, find the evaluation order
+(parenthesization) that minimizes the total number of floating-point
+operations (FLOPs).
+
+Each matrix has:
+- Dimensions: rows x cols
+- Structural property: one of {general, diagonal, upper_triangular,
+  lower_triangular, symmetric, identity}
+- Transposed flag: if true, apply transpose before any computation
+
+
+TRANSPOSE RULES
+---------------
+When a matrix is marked as transposed:
+- Dimensions: rows and cols are swapped
+- Property transformations:
+    general          -> general
+    diagonal         -> diagonal
+    identity         -> identity
+    upper_triangular -> lower_triangular
+    lower_triangular -> upper_triangular
+    symmetric        -> symmetric
+
+
+COST MODEL (multiply Left [m x k] by Right [k x n])
+----------------------------------------------------
+Apply the FIRST matching rule (priority order):
+
+1. If either operand has property "identity":  0 FLOPs
+2. If both operands have property "diagonal":  k FLOPs
+3. If exactly one operand has property "diagonal"
+   (other is not identity):  m * n FLOPs
+4. If at least one operand has property "upper_triangular",
+   "lower_triangular", or "symmetric" (and neither is diagonal
+   or identity):  m * k * n FLOPs
+5. Otherwise (both "general"):  2 * m * k * n FLOPs
+
+Rule 4 reflects BLAS kernels dsymm/dtrmm which exploit structure to
+halve the work compared to dgemm (rule 5).
+
+
+PROPERTY PROPAGATION (result property of Left x Right)
+------------------------------------------------------
+Apply the FIRST matching rule:
+
+1. identity x X  -> property of X
+   X x identity  -> property of X
+2. diagonal x diagonal  -> diagonal
+3. diagonal x upper_triangular  -> upper_triangular
+   upper_triangular x diagonal  -> upper_triangular
+4. diagonal x lower_triangular  -> lower_triangular
+   lower_triangular x diagonal  -> lower_triangular
+5. upper_triangular x upper_triangular  -> upper_triangular
+6. lower_triangular x lower_triangular  -> lower_triangular
+7. All other combinations  -> general
+   (This includes: diagonal x general, general x diagonal,
+    diagonal x symmetric, symmetric x diagonal,
+    symmetric x symmetric, symmetric x general,
+    general x symmetric, symmetric x triangular,
+    triangular x symmetric, upper_triangular x lower_triangular,
+    lower_triangular x upper_triangular,
+    general x general, triangular x general, general x triangular)
+
+
+BLAS ROUTINE MAPPING
+--------------------
+Each multiplication in the optimal evaluation maps to a BLAS routine:
+
+- cblas_dgemm:  general x general
+- cblas_dsymm:  at least one operand is symmetric
+                (other is general, symmetric, or triangular)
+- cblas_dtrmm:  at least one operand is triangular
+                (other is general or triangular, neither is symmetric)
+- Element-wise: one operand is diagonal
+- No-op:        one operand is identity
+
+
+INPUT FORMAT
+------------
+Read chains from /app/problem/chains.json.
+Each chain has a "name" and a list of "matrices".
+Each matrix has "rows", "cols", "property", and "transposed" fields.
+
+
+OUTPUT FORMAT
+-------------
+Write results to /app/results.json as a JSON object mapping each chain
+name to its optimal (minimum) total FLOP cost as an integer.
+
+Write kernel plans to /app/kernel_plan.json as a JSON object mapping
+each chain name to an ordered list of BLAS routine names used in the
+optimal evaluation (e.g., ["dgemm", "dsymm"]).
+
+CBLAS validation code in /app/blas_eval.c per /app/problem/blas_test_spec.json.
+
+
+NOTES
+-----
+- The optimizer must handle chains of length 2 through at least 8.
+- Apply transpose rules to each matrix BEFORE any computation.
+- Result dimensions are always left_rows x right_cols.
+- All chains have compatible dimensions for multiplication.
+- The dynamic programming state must track intermediate result
+  properties, as different parenthesizations of the same subchain
+  can produce intermediates with different structural properties,
+  which in turn affect the cost of subsequent multiplications.
+- Symmetric matrices are NOT preserved under most multiplications:
+  sym x sym -> general, sym x diag -> general, etc.
+  This is because (AB)^T = B^T A^T != AB in general.
+- However, diagonal DOES preserve triangularity:
+  diag x lower_tri -> lower_tri, lower_tri x diag -> lower_tri.
+  This is because D*L remains zero above the diagonal.

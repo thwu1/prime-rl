@@ -1,0 +1,8 @@
+# upgrade.trace — MESI silent E->M upgrade
+# Each processor reads then writes a line no other processor touches.
+# In MESI the write hits in E and silently upgrades to M (no bus traffic).
+# This is the key advantage of MESI over MSI.
+0 R 0x0000
+0 W 0x0000
+1 R 0x0040
+1 W 0x0040

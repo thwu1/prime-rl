@@ -1,0 +1,18 @@
+service: payment-gateway
+clusters:
+  alpha:
+    capacity_qps: 2000
+    weight: 3.0
+    region: us-east
+  beta:
+    capacity_qps: 1800
+    weight: 2.5
+    region: us-west
+  gamma:
+    capacity_qps: 1500
+    weight: 2.0
+    region: eu-west
+  delta:
+    capacity_qps: 1200
+    weight: 1.5
+    region: ap-south

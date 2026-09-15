@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating data from six heterogeneous sources (SQLite with distractor tables and a superseded discount rate table, wide-format CSV rate curves with status filtering, Parquet hedge valuations requiring DuckDB, deeply nested IFRS regulatory JSON with superseded parameter versions, and TOML configuration). The agent must bootstrap a zero-coupon yield curve from par bond rates using iterative fixed-income mathematics, perform IFRS 9 hedge effectiveness testing via the dollar-offset method on Parquet data, apply probability-weighted forward-looking ECL scenarios, and run a 60-month revenue simulation with consensus-based threshold pricing. Errors in yield curve bootstrapping, hedge dedesignation, ECL scenario weighting, data filtering, or revenue waterfall ordering cascade through all output metrics. The deeply nested JSON with deprecated versions and binary Parquet format require non-trivial tool proficiency (DuckDB/jq/SQLite interoperation)."""
+solution_explanation = """Read Parquet with DuckDB to compute dollar-offset ratios per contract. Extract ECL scenario weights from deeply nested IFRS framework JSON (navigating past superseded v2023 to current v2024). Query SQLite for par bond rates and bootstrap zero-coupon yield curve iteratively. Parse TOML for pricing and growth parameters. Filter CSVs for active/approved records. Run 60-month simulation: CPI-driven theoretical pricing, consensus trigger evaluation, compound subscriber growth, four-step revenue waterfall (gross→tax→weighted ECL→FX with effectiveness gating). Discount monthly revenue with bootstrapped factors for NPV. Two hedges fail effectiveness (AUS-2027 ratio=1.32, UK-2028 ratio=0.74), requiring spot-only translation."""
+verification_explanation = """Tests load /app/results.json and verify all 18 output metrics. Monthly revenues and cumulative totals checked within 0.5% relative tolerance. Integer values (subscriber counts, month indices, hedge count) must match exactly. Charged prices checked to 2 decimal places. ECL provision, hedge gain, and NPV checked with relative tolerance. Effective FX rate checked to 4 decimal places. Weighted average ECL rate checked to 6 decimal places."""
+category = "finance"
+tags = ["financial-modeling", "multi-source-data-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/subscription-revenue-forecast"

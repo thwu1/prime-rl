@@ -1,0 +1,39 @@
+{
+    "joint_order": ["shoulder_pan", "shoulder_lift", "elbow", "wrist_1", "wrist_2", "wrist_3"],
+    "kinematic_queries": [
+        {
+            "id": "q1",
+            "joint_values": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            "description": "Zero configuration - arm fully extended horizontally"
+        },
+        {
+            "id": "q2",
+            "joint_values": [0.0, -1.5707963268, 0.0, 0.0, 0.0, 0.0],
+            "description": "Arm pointing straight up"
+        },
+        {
+            "id": "q3",
+            "joint_values": [0.7854, -0.7854, -0.7854, 0.3, 0.5, -0.2],
+            "description": "General bent-arm configuration"
+        },
+        {
+            "id": "q4",
+            "joint_values": [1.5708, -0.5236, -1.2, 0.4, 0.8, -0.3],
+            "description": "Complex multi-joint pose"
+        }
+    ],
+    "external_wrench": {
+        "description": "External wrench at tool tip in base frame [fx, fy, fz, tx, ty, tz]",
+        "wrench": [0.0, 0.0, -10.0, 0.0, 0.5, 0.0]
+    },
+    "workspace_analysis": {
+        "random_seed": 42,
+        "num_samples": 50000,
+        "manipulability_threshold": 0.001,
+        "note": "Use numpy.random with the specified seed for reproducible Monte Carlo sampling"
+    },
+    "singularity_thresholds": {
+        "singular": 0.001,
+        "near_singular": 0.01
+    }
+}

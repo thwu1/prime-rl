@@ -1,0 +1,13 @@
+{
+  "transactions": [
+    {"id": 1, "status": "aborted", "ops": [["append", "p", 50]]},
+    {"id": 2, "status": "committed", "ops": [["r", "p", [50]], ["append", "q", 1]]},
+    {"id": 3, "status": "committed", "ops": [["r", "q", [1]]]},
+    {"id": 4, "status": "committed", "ops": [["r", "s", []], ["append", "r", 7]]},
+    {"id": 5, "status": "committed", "ops": [["r", "r", []], ["append", "s", 8]]},
+    {"id": 6, "status": "committed", "ops": [["r", "r", [7]], ["r", "s", [8]]]},
+    {"id": 7, "status": "committed", "ops": [["append", "u", 1], ["append", "v", 10]]},
+    {"id": 8, "status": "committed", "ops": [["r", "v", []], ["append", "u", 2]]},
+    {"id": 9, "status": "committed", "ops": [["r", "u", [1, 2]], ["r", "v", [10]]]}
+  ]
+}

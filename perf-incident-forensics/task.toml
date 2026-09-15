@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux systems knowledge across five distinct observability domains plus cross-domain causal reasoning. The agent must: (1) recognize raw perf script format and obtain/use the FlameGraph toolkit (stackcollapse-perf.pl + flamegraph.pl) to process profiling data and generate an SVG visualization — a multi-tool pipeline involving Perl scripts most engineers rarely use directly; (2) identify the CPU bottleneck by computing self/exclusive time from the collapsed stack data; (3) discover a wasteful syscall pattern in strace logs without being told what the pattern is; (4) parse /proc/PID/status snapshots to track memory growth; (5) compute disk queue depth from raw /proc/diskstats weighted I/O time counters; (6) calculate network error deltas from /proc/net/dev; (7) most critically, cross-correlate findings across all domains using the storage topology to establish a causal chain — determining that one process's memory leak drives sync I/O that saturates a shared disk device, which in turn causes CPU contention in database query paths using the same device. This causal chain analysis requires evaluative reasoning (distinguishing symptoms from root causes, independent issues from cascading effects) that goes well beyond mechanical data extraction."""
+solution_explanation = """Download FlameGraph tools and run: stackcollapse-perf.pl perf_script.txt > folded.txt && flamegraph.pl folded.txt > flamegraph.svg. Parse folded.txt to find __futex_wait_queue has 4210/25200 = 16.71% exclusive samples. Scan strace logs to discover PID 7293 performs 1847 zero-byte reads (read(fd, "", 0) = 0). Compare VmRSS across first/last snapshots to find PID 3156 grew 153600 kB. Compute avgqu from diskstats weighted_io_time deltas: sdb has (270600-100000)/20000 = 8.53. Sum rx_errs+tx_errs deltas from /proc/net/dev: eth1 has 2400 new errors. Cross-correlate: PID 3156 (workerd) has the memory leak AND writes O_SYNC to /data/workerd/ which is on sdb per README; sdb saturation causes db_query mutex contention (the CPU bottleneck path accesses /data/db/ also on sdb). Root cause PID is 3156. Causal chain: memory_leak → disk_saturation → cpu_contention. Network errors and syscall abuse (zero-byte reads) are independent issues excluded from the chain."""
+verification_explanation = """Tests load /app/diagnosis.json and verify each of 12 fields against expected values. String fields must match exactly. Float fields allow 0.02 epsilon. Integer fields must match exactly. causal_chain must be exactly ["memory_leak", "disk_saturation", "cpu_contention"]. Separately, /app/flamegraph.svg must exist, contain valid SVG markup, include expected function names from the profiling data, and have a non-trivial file size."""
+category = "systems"
+tags = ["linux-performance", "incident-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/perf-incident-forensics"

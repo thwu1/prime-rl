@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a multi-protocol packet processor from scratch given only a high-level specification and pcap I/O helpers. The solver must independently discover: correct checksum computation for IPv4/TCP/UDP/ICMP, transport-layer checksum dependencies on IP addresses, UDP checksum-disabled semantics, VLAN-aware header parsing and offset management, ARP and ICMP reply construction, weighted flow-consistent backend selection, and coordinated multi-layer address rewriting. Each protocol layer has subtle correctness requirements that produce silent corruption when wrong, and diagnosing failures requires deep protocol knowledge."""
+solution_explanation = """Analyze the input pcap to understand the traffic mix. Parse the config to learn the VIP, LB identity, and backend pool. Implement a full packet processor that handles each ethertype and protocol correctly: rewrite addresses for TCP/UDP load balancing with proper checksums, generate ICMP and ARP replies, preserve VLAN tags, pass through non-IPv4 traffic, and drop truncated frames. Emit self-consistent statistics."""
+verification_explanation = """test.sh runs the implemented processor and then pytest verifies: correct packet count (10 from 11 input), all IPv4/TCP/UDP checksums recomputed from scratch match stored values, UDP checksum-disabled preserved, VLAN tag with VID=100 present, ARP reply correctness, ICMP echo reply correctness, IPv6 passthrough is byte-identical, flow affinity holds, LB source addresses are correct, and stats.json counts are self-consistent."""
+category = "systems_programming"
+tags = ["networking", "protocol-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xdp-pcap-loadbalancer"

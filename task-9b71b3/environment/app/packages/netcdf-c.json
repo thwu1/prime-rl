@@ -1,0 +1,11 @@
+{
+  "name": "netcdf-c",
+  "versions": ["4.9.2", "4.8.1"],
+  "variants": [],
+  "dependencies": [
+    {"name": "hdf5", "required_variants": {"mpi": true}},
+    {"name": "mpi", "virtual": true}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

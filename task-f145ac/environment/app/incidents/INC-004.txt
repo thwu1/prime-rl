@@ -1,0 +1,18 @@
+INCIDENT INC-004
+Severity: Critical
+Date: 2024-10-25
+Reporter: Dispatch Operations
+
+SUMMARY: Duplicate tickets delivered during dispatcher failover
+
+DESCRIPTION:
+During scheduled dispatcher maintenance, the primary dispatcher for roads
+310-320 disconnected. A backup dispatcher connected moments later and received
+tickets that had already been delivered to the primary dispatcher before it
+went offline.
+
+Tickets that were queued while no dispatcher was available should be delivered
+exactly once — to the first dispatcher that connects for that road. Once
+delivered, the queued ticket must be removed from the pending queue.
+
+Impact: Drivers received duplicate violation notices, 47 contested tickets

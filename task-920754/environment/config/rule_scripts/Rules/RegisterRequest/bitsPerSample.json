@@ -1,0 +1,19 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "ImportScript",
+            "description": "",
+            "parameters": {
+                "scriptFile": "CommonRules/notNull.json"
+            }
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Bits per sample must be between 1 and 256 inclusive",
+            "parameters": {
+                "ruleText": "currentProperty >= 1 && currentProperty <= 256"
+            }
+        }
+    ]
+}

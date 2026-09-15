@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD verification knowledge to independently determine how to quantify grid convergence uncertainty, compute boundary layer integral properties, and evaluate wall-law adherence — without being told which methods to use. The solver must discover appropriate numerical procedures for convergence rate estimation, grid-independent extrapolation, and uncertainty quantification. Additional complexity from multi-tool orchestration: parsing a domain-specific file format (Tecplot), performing numerical analysis, generating gnuplot scripts, and producing publication-quality SVG plots. The evaluative judgments (convergence classification, solver ranking, physical consistency, publication readiness) require deep domain understanding beyond rote application."""
+solution_explanation = """Parse multi-zone Tecplot ASCII files for both solvers. For grid convergence: compute apparent convergence order p=ln|eps32/eps21|/ln(r) from the three finest grids, Richardson-extrapolated values f_ext=(r^p*f1-f2)/(r^p-1), and numerical uncertainty as 1.25*|f_ext-f1|/|f_ext|*100. Classify order as nominal/degraded/anomalous and rank solvers by uncertainty. For boundary layer: integrate velocity profiles (trapezoidal rule) for displacement and momentum thickness, find delta_99 by interpolation, compute shape factor and wall Cf. For wall-law fit: evaluate Spalding's law y+=f(u+) for each CFD point in 30<y+<300, compute RMS deviation in log10(y+) space. Generate gnuplot SVG convergence plots. Assemble all into report.json with evaluative verdicts."""
+verification_explanation = """Tests validate: (1) grid convergence quantities against NASA TMR reference values with tolerances; (2) correct order verdicts (nominal/degraded) matching expected behavior of 2nd-order codes; (3) solver ranking (CFL3D wins both); (4) publication readiness verdicts; (5) boundary layer properties in physically valid ranges with self-consistency checks; (6) wall-law fit quality in expected range; (7) SVG plot files exist and contain valid SVG with solver labels."""
+category = "physics_engineering"
+tags = ["cfd-verification", "scientific-visualization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f0b0b4"

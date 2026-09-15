@@ -1,0 +1,15 @@
+{
+  "type": "morse",
+  "parameters": {
+    "D": 0.3429,
+    "alpha": 1.3588,
+    "r0": 2.866,
+    "cutoff": 5.0
+  },
+  "units": {
+    "D": "eV",
+    "alpha": "1/angstrom",
+    "r0": "angstrom",
+    "cutoff": "angstrom"
+  }
+}

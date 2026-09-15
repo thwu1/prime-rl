@@ -1,0 +1,1 @@
+{"buggy_line": 9, "function": "find_second_largest", "description": "Missing 'and n != first' condition allows duplicates of max to be counted as second largest"}

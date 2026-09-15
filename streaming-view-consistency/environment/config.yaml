@@ -1,0 +1,17 @@
+# Streaming reconciliation pipeline configuration
+pipeline:
+  watermark_delay: 5
+  max_buffer_size: 100000
+
+data:
+  transactions_path: /app/data/transactions.jsonl
+  simplified_path: /app/data/simplified.jsonl
+
+reconciliation:
+  check_total_invariant: true
+  check_balance_consistency: true
+  tolerance: 0
+
+logging:
+  level: INFO
+  output: /app/logs/pipeline.log

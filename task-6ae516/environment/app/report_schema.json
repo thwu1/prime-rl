@@ -1,0 +1,55 @@
+{
+  "description": "GPU kernel fleet performance audit report",
+  "structure": {
+    "kernel_analyses": {
+      "_description": "Map from kernel_name to arch_id to per-kernel-per-architecture analysis",
+      "<kernel_name>": {
+        "<arch_id>": {
+          "optimal_smem_carveout_bytes": "int: smallest shared memory carve-out from the architecture's available options that achieves the maximum theoretical occupancy",
+          "occupancy_pct": "float: maximum theoretical occupancy as percentage of peak warps (0.0-100.0)",
+          "active_blocks_per_sm": "int: concurrently active thread blocks per SM at optimal configuration",
+          "active_warps_per_sm": "int: concurrently active warps per SM at optimal configuration",
+          "occupancy_limiter": "string: 'registers' | 'shared_memory' | 'block_size' — the resource that most constrains occupancy. When multiple resources impose the same limit, report the alphabetically first",
+          "global_memory": {
+            "_description": "Map from access_name to coalescing analysis. Omit this section entirely if the kernel has no global memory access patterns.",
+            "<access_name>": {
+              "sectors_per_request": "int: number of memory sectors accessed by one warp memory transaction",
+              "coalescing_efficiency_pct": "float: ratio of useful bytes to total bytes transferred, as percentage"
+            }
+          },
+          "shared_memory": {
+            "_description": "Map from access_name to bank conflict analysis. Omit this section entirely if the kernel has no shared memory access patterns.",
+            "<access_name>": {
+              "bank_conflict_degree": "int: maximum number of threads in a warp that map to the same shared memory bank"
+            }
+          },
+          "diagnosis": {
+            "measured_occupancy_pct": "float: occupancy from profiling CSV data",
+            "theoretical_occupancy_pct": "float: maximum theoretical occupancy at the optimal carve-out",
+            "has_discrepancy": "bool: true if measured occupancy is strictly below the theoretical maximum",
+            "measured_carveout_bytes": "int: shared memory carve-out that was configured during profiling",
+            "recommended_carveout_bytes": "int: optimal carve-out for this kernel on this architecture"
+          }
+        }
+      }
+    },
+    "fusion_analyses": {
+      "_description": "Map from 'source_kernel+dest_kernel' to fusion feasibility analysis, one entry per pipeline edge in the database",
+      "<source_kernel>+<dest_kernel>": {
+        "fused_registers_per_thread": "int: combined per-thread register usage (sum of both kernels)",
+        "fused_smem_bytes": "int: combined shared memory excluding per-block reserved overhead (sum of both kernels' static + dynamic shared memory)",
+        "fused_threads_per_block": "int: thread block size for the fused kernel (the larger of the two kernels' total threads per block)",
+        "feasible": "bool: true if at least one thread block of the fused kernel can launch on at least one supported architecture",
+        "architectures": {
+          "_description": "Map from arch_id to fused kernel occupancy. All numeric values are 0 when the fused kernel cannot launch on that architecture.",
+          "<arch_id>": {
+            "optimal_smem_carveout_bytes": "int",
+            "occupancy_pct": "float",
+            "active_blocks_per_sm": "int",
+            "active_warps_per_sm": "int"
+          }
+        }
+      }
+    }
+  }
+}

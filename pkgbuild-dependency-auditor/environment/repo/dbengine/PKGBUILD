@@ -1,0 +1,51 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+# Contributor: Database Team <db-team@example.com>
+
+pkgname=('dbengine' 'dbengine-client' 'dbengine-libs')
+pkgbase=dbengine
+pkgver=9.2.0
+pkgrel=1
+pkgdesc="High-performance database engine"
+arch=('x86_64')
+url="https://example.com/dbengine"
+license=('GPL-2.0-only')
+makedepends=('cmake' 'syslibs-dev' 'openssl')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz"
+        "systemd-service.patch")
+sha256sums=('d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5'
+            'e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6')
+
+build() {
+    mkdir -p build && cd build
+    cmake "../${pkgbase}-${pkgver}" \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DWITH_SYSTEMD=yes
+    make
+}
+
+package_dbengine() {
+    pkgdesc="Database engine - server"
+    depends=('dbengine-client' 'syslibs' 'openssl')
+    provides=('database-engine=9.2.0')
+
+    cd build
+    make DESTDIR="${pkgdir}" install
+}
+
+package_dbengine-client() {
+    pkgdesc="Database engine - client tools"
+    depends=('dbengine-libs' 'syslibs' 'openssl')
+    provides=('db-client-compat=9.2.0')
+
+    cd build
+    make -C client DESTDIR="${pkgdir}" install
+}
+
+package_dbengine-libs() {
+    pkgdesc="Database engine - client libraries"
+    depends=('syslibs' 'zlib')
+    provides=('libcompat=9.2.0')
+
+    cd build
+    make -C libs DESTDIR="${pkgdir}" install
+}

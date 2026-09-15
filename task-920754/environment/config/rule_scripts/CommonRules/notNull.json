@@ -1,0 +1,12 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "Property must not be null",
+            "parameters": {
+                "ruleText": "currentProperty != null"
+            }
+        }
+    ]
+}

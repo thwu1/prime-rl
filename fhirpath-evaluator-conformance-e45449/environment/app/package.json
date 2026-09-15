@@ -1,0 +1,6 @@
+{
+  "name": "fhirpath-evaluator",
+  "version": "1.0.0",
+  "description": "FHIRPath expression evaluator",
+  "main": "evaluate.js"
+}

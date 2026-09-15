@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a WebGL 1.0 state validation engine from unimplemented method stubs, then diagnosing and fixing undocumented integration defects across three supporting modules. The validation engine demands synthesis of multiple OpenGL ES 2.0 and WebGL 1.0 specification sections into ~200 lines of working code: (1) TEXTURE_2D completeness with the asymmetric mipmap dimension formula max(1, base>>i) — which differs subtly from the naive base//(2**i) — plus full format/dimension chain validation; (2) TEXTURE_CUBE_MAP completeness requiring evaluation of five interacting constraints (face existence, squareness, cross-face dimension consistency, format uniformity, per-face mipmap chains); (3) WebGL NPOT restrictions spanning both wrap modes; (4) framebuffer completeness with spec-mandated evaluation ordering (attachment validity before dimensional consistency) and careful distinction between renderbuffer and texture color-renderability rules; (5) draw-call validation with seven ordered preconditions including program linkage state and WebGL-specific sampler texture completeness. The supporting module defects require empirical investigation: discovering that glslangValidator's fragment stage flag is 'frag' not 'comp' (only discoverable via --help or experimentation), that error output uses a SOURCE:LINE format where the regex must capture group 3 not group 2 for line numbers, that the conformance database column is 'texture_target' not 'texture_format' (requires schema inspection), that the sampler-to-target mapping is inverted, and that state_types.py initialization defaults contradict the spec's Table 3.10 (default min_filter must be NEAREST_MIPMAP_LINEAR not NEAREST). Defects interact across subsystems: the wrong default min_filter masks mipmap chain issues during testing, and sampler completeness in draw-call validation depends on the texture completeness engine being correctly implemented first."""
+solution_explanation = """Implement three WebGLStateValidator methods from scratch by consulting /app/spec_reference.md. For is_texture_complete: build a _is_npot helper, implement TEXTURE_2D completeness using max(1, base >> i) for mipmap dimensions with format consistency checking and NPOT restrictions (no mipmap filter, wrap_s AND wrap_t must be CLAMP_TO_EDGE); implement TEXTURE_CUBE_MAP completeness enforcing squareness, cross-face dimension/format consistency, and per-face mipmap chains. For check_framebuffer_status: build renderbuffer and texture format renderability helpers, evaluate attachment validity before dimensional consistency — check zero-size, format renderability per attachment point (color-renderable RB: RGBA4/RGB5_A1/RGB565; color-renderable tex: RGBA/RGB only — not LUMINANCE_ALPHA), and texture level existence. For validate_draw_call: check program existence AND linked state, framebuffer completeness, enabled attribute buffer bindings, element buffer requirement, and sampler texture completeness. Fix state_types.py: change default min_filter from NEAREST to NEAREST_MIPMAP_LINEAR and update import accordingly. Fix shader_analyzer.py: change STAGE_MAP fragment entry from 'comp' to 'frag', fix error line regex to use group(3) instead of group(2). Fix conformance_check.py: change SQL column 'texture_format' to 'texture_target', swap inverted sampler type mapping (sampler2D->TEXTURE_2D, samplerCube->TEXTURE_CUBE_MAP)."""
+verification_explanation = """71 deterministic pytest tests across six classes: 16 TEXTURE_2D completeness tests, 7 TEXTURE_CUBE_MAP completeness tests, 19 framebuffer completeness tests, 14 draw-call validation tests, 8 GLSL shader analysis tests (requiring glslangValidator), and 7 shader-state cross-validation tests (requiring SQLite queries). No tests pass initially — the validation engine methods all raise NotImplementedError, and the supporting modules have defects causing compilation failures, SQL errors, and assertion failures. Passing all tests requires implementing the full validation engine from the specification, fixing state_types.py defaults, fixing shader_analyzer.py stage flags and error parsing, and fixing conformance_check.py SQL queries and sampler mapping."""
+category = "computer_graphics"
+tags = ["webgl", "conformance"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/webgl-state-validator"

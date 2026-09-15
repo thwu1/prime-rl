@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a distributed coordination server that simultaneously acts as a TCP server (accepting site visitor connections) and TCP client (connecting to the Authority Server). The solver must: (1) implement a binary protocol with per-message checksums (mod-256 byte sums) on both sides, with proper message framing via type+length+content+checksum format; (2) design a policy reconciliation algorithm that computes the diff between current authority policies and the desired state from the latest site visit — handling cull (overpopulated), conserve (underpopulated), no-policy (within range), and uncontrolled species; (3) manage authority connection lifecycle — each connection is bound to a single site via DialAuthority, requiring per-site connection management; (4) handle concurrent site visits across multiple sites with proper state isolation; (5) correctly handle protocol edge cases including conflicting vs non-conflicting duplicate species, unobserved species (implying count zero), the Hello handshake on both sides, and checksum validation. The holistic challenge is that all subsystems must interoperate correctly — a checksum miscalculation, a race in policy state, or a protocol framing error anywhere breaks the entire system."""
+solution_explanation = """A Python asyncio server handles both protocol sides. Server-side: accepts client connections, exchanges Hello, processes SiteVisit messages. Client-side: connects to the Authority Server per-site, performs Hello/DialAuthority handshake, sends CreatePolicy/DeletePolicy. Policy reconciliation compares each target species' observed count against [min,max] range, determines desired action (cull/conserve/none), and diffs against tracked current policies to compute minimal deletions and creations. Per-site asyncio.Lock serializes concurrent reconciliations. Target populations are cached. Checksums are computed as (256 - sum(bytes) % 256) % 256."""
+verification_explanation = """15 pytest tests connect to the running server as site visitor clients, covering: basic cull/conserve policy creation, within-range no-policy, missing species (zero count), uncontrolled species ignored, multi-species reconciliation, policy updates when species enters range, policy flip from cull to conserve, concurrent multi-site handling, duplicate policy prevention, conflicting/non-conflicting duplicate species validation, empty target populations, policy deletion when range is reached, checksum rejection, and Hello-first enforcement. Tests verify settled policy state by reading the mock authority's JSON state file."""
+category = "systems"
+tags = ["network-programming", "protocol-implementation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-91b8af"

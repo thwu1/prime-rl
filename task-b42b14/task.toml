@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a novel static-analysis tool that models Cargo's resolver v2 feature-isolation semantics across a six-crate workspace. The solver must understand three distinct isolation boundaries (host-dependencies, dev-dependencies, and optional dep: syntax), reason about feature propagation chains through transitive dependencies, and implement detection algorithms for six different issue categories — each requiring different graph-traversal and cross-referencing logic. The tool must be genuinely dynamic (not hardcoded), as tests re-run it on modified workspace states. Beyond the tool, the solver must independently identify a build-script code bug where a polynomial rolling hash produces different values than the runtime FNV-1a implementation, requiring cross-file algorithmic reasoning between build.rs and foundation's hash module."""
+solution_explanation = """Create migration_analyzer.py (~250 lines) implementing: (1) TOML parsing of workspace + member Cargo.toml files, (2) six detection passes — dep_not_optional checks dep: prefix vs optional flag, dev_dep_leak compares dev-dep vs normal-dep feature sets with source-code cross-referencing, host_dep_leak traces build-dependency feature chains through workspace members, missing_feature scans source for feature-gated module usage, workspace_feature_gap checks serde derive availability, broken_propagation identifies empty features that should forward to dep features, (3) text-based Cargo.toml patching for --apply mode. Run the tool with --apply to fix 7 config issues, then replace the polynomial rolling hash in server/build.rs with FNV-1a 64-bit (offset 0xcbf29ce484222325, prime 0x100000001b3)."""
+verification_explanation = """Tests verify: (1) migration_report.json contains exactly 7 issues with correct categories, affected crates, and dependency names for all six issue types, (2) re-running the tool on the fixed workspace produces 0 issues (anti-hardcoding check), (3) re-running with a reintroduced dep_not_optional bug detects it (generality check), (4) workspace compiles under resolver v2, (5) all unit tests pass, (6) server binary produces FNV-1a-correct protocol magic, envelope round-trips, nonzero packet hash, strict validation mode, and completion message."""
+category = "systems-engineering"
+tags = ["rust", "cargo-features"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b42b14"

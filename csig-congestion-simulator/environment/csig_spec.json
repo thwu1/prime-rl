@@ -1,0 +1,101 @@
+{
+  "protocol_name": "Congestion Signaling (CSIG)",
+  "version": "1.0",
+  "overview": "CSIG is an in-band network telemetry protocol for data center congestion control. Each packet carries a fixed-size CSIG tag that is updated at each network hop using compare-and-replace semantics. When a packet traverses a link, the local switch compares its current metric with the tag value and replaces the tag only if the local metric is worse (higher). The destination host reflects the final tag values back to the source, which uses them to adjust its sending rate.",
+
+  "tag_format": {
+    "fields": [
+      {
+        "name": "max_link_utilization",
+        "type": "float64",
+        "initial_value": 0.0,
+        "aggregation": "max",
+        "description": "The maximum link utilization ratio (total_load / capacity) observed across all links on the packet's path. At each hop, the tag value is replaced with max(current_tag_value, local_link_utilization).",
+        "computation": "Link utilization is computed as the sum of sending rates of all flows traversing the link, divided by the link capacity in Mbps."
+      },
+      {
+        "name": "max_virtual_queue_depth",
+        "type": "float64",
+        "initial_value": 0.0,
+        "aggregation": "max",
+        "description": "The maximum virtual queue depth observed across all links on the path. Virtual queue depth at a link models the excess traffic beyond capacity.",
+        "computation": "Virtual queue depth = max(0, total_load_on_link - link_capacity_mbps) * 1000.0. Units: byte-equivalents."
+      }
+    ]
+  },
+
+  "rate_control": {
+    "algorithm_name": "CSIG-AIMD",
+    "description": "An Additive Increase, Multiplicative Decrease algorithm informed by CSIG telemetry. Each flow maintains a sending rate that is adjusted each simulation round based on the CSIG tag feedback from its bottleneck link.",
+
+    "parameters": {
+      "alpha_mbps": 1.0,
+      "beta": 0.5,
+      "min_rate_mbps": 0.01,
+      "description_alpha": "Additive increase: rate increases by alpha_mbps * flow_weight each round when the flow's path is not congested (max_link_utilization <= 1.0).",
+      "description_beta": "Multiplicative decrease factor: when congestion is detected (max_link_utilization > 1.0), the rate is reduced by a factor of (1 - beta * excess), where excess = min(max_link_utilization - 1.0, 1.0)."
+    },
+
+    "initialization": "Each flow's initial sending rate is set to flow_weight * alpha_mbps.",
+
+    "round_procedure": {
+      "description": "Each simulation round consists of the following sequential steps applied to all flows synchronously.",
+      "step_1_link_metrics": "For each link in the network, compute: (a) link_utilization = total_load / capacity_mbps, where total_load is the sum of current sending rates of all flows using this link; (b) virtual_queue_depth = max(0, total_load - capacity_mbps) * 1000.0.",
+      "step_2_csig_tagging": "For each flow, simulate the CSIG tag traversal along the flow's path. Initialize tag fields to their initial values (0.0 for both). At each link in the path, apply compare-and-replace: update each tag field to the maximum of the current tag value and the link's local metric. After processing all links in the path, the tag represents the worst-case metrics along the entire path.",
+      "step_3_rate_adjustment": "For each flow, examine the csig max_link_utilization from the aggregated tag. If it strictly exceeds 1.0 (the flow's path includes an overloaded link), apply multiplicative decrease: new_rate = current_rate * (1.0 - beta * min(max_link_utilization - 1.0, 1.0)). Otherwise (max_link_utilization <= 1.0), apply additive increase: new_rate = current_rate + alpha_mbps * flow_weight.",
+      "step_4_rate_clamping": "Ensure each flow's rate is at least min_rate_mbps: rate = max(min_rate_mbps, rate)."
+    },
+
+    "simulation_parameters": {
+      "total_rounds": 5000,
+      "warmup_rounds": 3000,
+      "output_averaging": "The reported flow rate for each flow is the arithmetic mean of that flow's sending rate across all rounds from (warmup_rounds + 1) through total_rounds, inclusive. This averaging smooths out AIMD oscillations to approximate the steady-state fair-share allocation."
+    }
+  },
+
+  "output_specification": {
+    "output_directory": "/app/output",
+    "files": {
+      "flow_rates.json": {
+        "description": "Per-flow average sending rates.",
+        "format": "JSON object mapping flow_id (string) to average_rate_mbps (float, rounded to 4 decimal places)."
+      },
+      "link_utilization.json": {
+        "description": "Per-link utilization computed at the final simulation round.",
+        "format": "JSON object mapping link_id (string) to utilization_ratio (float, rounded to 4 decimal places)."
+      },
+      "summary.json": {
+        "description": "Simulation summary including per-flow bottleneck identification.",
+        "format": {
+          "total_rounds": "Integer: total simulation rounds executed.",
+          "converged": "Boolean: true if the simulation appeared to converge (max absolute rate change in the final 100 rounds is less than 1.0 Mbps).",
+          "bottleneck_links": "Object mapping each flow_id to the link_id with highest utilization on that flow's path at the final round."
+        }
+      }
+    }
+  },
+
+  "input_schemas": {
+    "network.json": {
+      "description": "Network topology with link definitions.",
+      "schema": {
+        "links": {
+          "<link_id>": {
+            "capacity_mbps": "float: link capacity in Mbps"
+          }
+        }
+      }
+    },
+    "flows.json": {
+      "description": "Flow definitions with paths and weights.",
+      "schema": {
+        "flows": {
+          "<flow_id>": {
+            "path": ["list of link_id strings defining the flow's route"],
+            "weight": "integer: flow weight for weighted fair share allocation"
+          }
+        }
+      }
+    }
+  }
+}

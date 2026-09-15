@@ -1,0 +1,97 @@
+{
+  "catalog_summary.json": {
+    "description": "Earthquake catalog metadata and summary statistics",
+    "fields": {
+      "total_events": {"type": "integer", "description": "Total number of earthquakes in the catalog"},
+      "time_span_days": {"type": "number", "description": "Time span of the catalog in days"},
+      "time_span_years": {"type": "number", "description": "Time span of the catalog in years"},
+      "min_magnitude": {"type": "number", "description": "Minimum earthquake magnitude in catalog"},
+      "max_magnitude": {"type": "number", "description": "Maximum earthquake magnitude in catalog"},
+      "region": {
+        "type": "object",
+        "description": "Geographic bounds of the query region",
+        "fields": {
+          "min_lat": {"type": "number", "description": "Southern boundary latitude"},
+          "max_lat": {"type": "number", "description": "Northern boundary latitude"},
+          "min_lon": {"type": "number", "description": "Western boundary longitude"},
+          "max_lon": {"type": "number", "description": "Eastern boundary longitude"}
+        }
+      }
+    }
+  },
+  "grid_bvalues.json": {
+    "description": "Gutenberg-Richter frequency-magnitude analysis per spatial grid cell",
+    "fields": {
+      "bin_size_degrees": {"type": "number", "description": "Grid cell size in degrees", "expected_value": 1.0},
+      "cells": {
+        "type": "array",
+        "description": "Array of grid cells meeting the minimum event threshold",
+        "item_fields": {
+          "lat_center": {"type": "number", "description": "Latitude of grid cell center"},
+          "lon_center": {"type": "number", "description": "Longitude of grid cell center"},
+          "event_count": {"type": "integer", "description": "Total number of events in the cell"},
+          "mc": {"type": "number", "description": "Estimated completeness magnitude"},
+          "b_value": {"type": "number", "description": "Gutenberg-Richter b-value"},
+          "b_value_stderr": {"type": "number", "description": "Standard error of b-value estimate"},
+          "a_value": {"type": "number", "description": "Annualized Gutenberg-Richter a-value"}
+        }
+      }
+    }
+  },
+  "site_design.json": {
+    "description": "ASCE 7-22 seismic design parameters per building site",
+    "fields": {
+      "reference_document": {"type": "string", "description": "Reference building code standard (must contain 'ASCE7-22')"},
+      "sites": {
+        "type": "array",
+        "description": "Array of 5 building sites with design parameters",
+        "item_fields": {
+          "name": {"type": "string", "description": "Site name matching sites.json"},
+          "sds": {"type": "number", "description": "Design spectral acceleration at short periods (g)"},
+          "sd1": {"type": "number", "description": "Design spectral acceleration at 1-second period (g)"},
+          "ss": {"type": "number", "description": "MCEr spectral acceleration at short periods (g)"},
+          "s1": {"type": "number", "description": "MCEr spectral acceleration at 1-second period (g)"},
+          "sms": {"type": "number", "description": "Site-modified spectral acceleration at short periods (g)"},
+          "sm1": {"type": "number", "description": "Site-modified spectral acceleration at 1-second period (g)"},
+          "sdc": {"type": "string", "description": "Seismic Design Category (one of A, B, C, D, E, F)"}
+        }
+      }
+    }
+  },
+  "site_activity.json": {
+    "description": "Observed seismicity metrics within search radius of each building site",
+    "fields": {
+      "search_radius_km": {"type": "number", "description": "Search radius in kilometers", "expected_value": 200},
+      "catalog_time_span_years": {"type": "number", "description": "Catalog time span in years used for annualization"},
+      "sites": {
+        "type": "array",
+        "description": "Array of 5 building sites with activity metrics",
+        "item_fields": {
+          "name": {"type": "string", "description": "Site name matching sites.json"},
+          "events_within_radius": {"type": "integer", "description": "Number of catalog events within search radius"},
+          "max_magnitude": {"type": "number", "description": "Maximum magnitude among events within radius (null if none)"},
+          "nearest_event_distance_km": {"type": "number", "description": "Distance to nearest event in km (null if none)"},
+          "annualized_rate_all": {"type": "number", "description": "Annualized rate of all events within radius"},
+          "events_m4plus": {"type": "integer", "description": "Number of M4.0+ events within radius"}
+        }
+      }
+    }
+  },
+  "discrepancy.json": {
+    "description": "Hazard consistency assessment comparing observed seismicity to design parameters",
+    "fields": {
+      "sites": {
+        "type": "array",
+        "description": "Array of 5 building sites with discrepancy analysis",
+        "item_fields": {
+          "name": {"type": "string", "description": "Site name matching sites.json"},
+          "sds": {"type": "number", "description": "SDS value from design parameters (null if unavailable)"},
+          "annualized_rate": {"type": "number", "description": "Annualized event rate within search radius"},
+          "max_observed_magnitude": {"type": "number", "description": "Maximum observed magnitude within radius (null if none)"},
+          "discrepancy_ratio": {"type": "number", "description": "Computed as (annualized_rate * max_observed_magnitude / 10) / SDS; null if inputs missing"},
+          "classification": {"type": "string", "description": "One of: observed_exceeds_design, design_exceeds_observed, consistent, insufficient_data"}
+        }
+      }
+    }
+  }
+}

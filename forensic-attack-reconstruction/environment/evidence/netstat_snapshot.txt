@@ -1,0 +1,18 @@
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      168/sshd
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      185/apache2
+tcp        0      0 0.0.0.0:443             0.0.0.0:*               LISTEN      185/apache2
+tcp        0      0 0.0.0.0:21              0.0.0.0:*               LISTEN      445/vsftpd
+tcp        0      0 127.0.0.1:5432          0.0.0.0:*               LISTEN      395/postgres
+tcp        0    312 10.0.1.10:80            192.168.1.45:58234      ESTABLISHED 314/apache2
+tcp        0      0 10.0.1.10:80            10.0.4.5:42190          ESTABLISHED 312/apache2
+tcp        0      0 10.0.1.10:80            172.16.22.8:61004       ESTABLISHED 313/apache2
+tcp        0      0 10.0.1.10:38471         198.51.100.123:443      ESTABLISHED 923/python3
+tcp        0      0 10.0.1.10:44892         203.0.113.89:4444       ESTABLISHED 789/bash
+tcp        0    156 10.0.1.10:47230         203.0.113.89:8080       ESTABLISHED 851/curl
+tcp        0      0 10.0.1.10:22            10.0.4.5:55412          ESTABLISHED 520/sshd
+tcp6       0      0 :::22                   :::*                    LISTEN      168/sshd
+tcp6       0      0 :::80                   :::*                    LISTEN      185/apache2
+udp        0      0 0.0.0.0:68              0.0.0.0:*                           128/dhclient
+udp        0      0 127.0.0.1:323           0.0.0.0:*                           142/chronyd

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>REFTEST</OrganizationIdentifier>
+      <OrganizationFormalName>Referential Integrity Test Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-RF</ProjectIdentifier>
+      <ProjectName>Reference Testing</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-RF</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Reference Test Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>39.5</LatitudeMeasure>
+        <LongitudeMeasure>-76.0</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>MD</StateCode>
+        <CountyCode>003</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-RF-001</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-07-01</ActivityStartDate>
+        <ProjectIdentifier>PROJ-GHOST</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-GHOST</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>pH</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>7.0</ResultMeasureValue>
+            <MeasureUnitCode>None</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-RF-002</ActivityIdentifier>
+        <ActivityTypeCode>Sample-Routine</ActivityTypeCode>
+        <ActivityMediaName>Tissue</ActivityMediaName>
+        <ActivityStartDate>2024-07-10</ActivityStartDate>
+        <ProjectIdentifier>PROJ-RF</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-RF</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>Mercury</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>0.5</ResultMeasureValue>
+            <MeasureUnitCode>ug/g</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <BiologicalResultDescription>
+          <BiologicalIntentName>Population Census</BiologicalIntentName>
+          <SubjectTaxonomicName></SubjectTaxonomicName>
+        </BiologicalResultDescription>
+      </Result>
+    </Activity>
+    <ActivityGroup>
+      <ActivityGroupIdentifier>AG-001</ActivityGroupIdentifier>
+      <ActivityGroupTypeCode>Replicate</ActivityGroupTypeCode>
+      <ActivityIdentifier>ACT-RF-001</ActivityIdentifier>
+      <ActivityIdentifier>ACT-PHANTOM</ActivityIdentifier>
+    </ActivityGroup>
+  </Organization>
+</WQX>

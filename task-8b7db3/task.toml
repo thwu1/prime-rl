@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level formal verification knowledge spanning five proof decomposition strategies (Assume-Guarantee, Case Split, Partitioning, Stopat, Helper Invariant). Beyond structural validation, the solver must implement proof obligation generation — understanding that AG obligations carry assumed expressions as formal antecedents, case split obligations embed predicates as guards, stopat obligations rewrite bounded temporal operators, and helper obligations encode assumption dependencies. The solver must also implement cone-of-influence analysis (a core model checking abstraction) and compositional soundness checking that detects cross-strategy circular reasoning, temporal depth inconsistencies, and non-primary case split variable usage. These concepts require holistic understanding of formal verification theory, not just graph algorithm proficiency. The multi-format CLI (JSON, DOT, obligations) and multi-tool Makefile pipeline (Python, jq, graphviz) add engineering breadth."""
+solution_explanation = """The solution implements all five decomposition strategies with full validation, plus three extended analysis functions. AG uses Kahn's topological sort for verification ordering; case split uses truth-table enumeration for exhaustiveness/exclusivity via a boolean expression evaluator; partitioning computes transitive fanin cones; stopat applies regex-based temporal operator rewriting (G[0:N]->G[0:limit]); helper checks acyclicity across all helper decompositions. Obligation generation produces formal sub-goals: AG obligations carry assumed sub-property expressions, case split obligations guard with predicates, partition obligations restrict signal environments to fanin cones, stopat obligations rewrite bounded operators, helper obligations encode target-assumes-helpers relationships. COI uses BFS from property signals through the dependency graph. Compositional soundness builds a unified dependency graph across all AG and helper strategies to detect cross-strategy cycles, checks stopat depth vs. cone sequential depth, and verifies case split predicate variable independence."""
+verification_explanation = """Tests verify: (1) all engine API functions for each of five strategies including valid/invalid inputs, (2) obligation generation producing correct obligation counts, verification ordering, assumption expressions, predicate guards, temporal rewrites, and environment restrictions, (3) cone-of-influence computation with exact cone membership, sequential depth, and boundary signals for properties with varying dependency depths, (4) compositional soundness detecting cross-strategy cycles (error), stopat depth inconsistency (warning), non-primary case split variables (warning), and confirming sound compositions produce no issues, (5) CLI JSON/DOT/obligations output with schema validation, (6) make validate/report/graph/obligations targets on seven proof files, (7) jq-aggregated summary.json with correct counts (7 files, 6 valid, 1 invalid), (8) SVG and DOT generation for all proofs."""
+category = "formal_methods"
+tags = ["formal-verification", "proof-decomposition"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8b7db3"

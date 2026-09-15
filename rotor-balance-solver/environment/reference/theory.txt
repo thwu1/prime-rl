@@ -1,0 +1,92 @@
+ROTATING MACHINERY BALANCE ANALYSIS - REFERENCE NOTES
+
+1. STATIC AND DYNAMIC BALANCE OF ROTATING BODIES
+
+A rotating body is in STATIC BALANCE when there is no resultant centrifugal
+force, i.e. the centre of gravity lies on the axis of rotation.
+
+For a mass M at radius R rotating at angular velocity omega, the centrifugal
+force is F = M * omega^2 * R. Since omega^2 is common to all masses, balance
+depends solely on the mass-radius products (MR) and their angular positions.
+
+A rotating body is in DYNAMIC BALANCE when, in addition to static balance,
+there is no resultant turning moment along the axis. For bodies with masses
+distributed along the shaft, dynamic balance requires consideration of the
+moments of the centrifugal forces about a reference plane.
+
+For complete balance of a general system:
+  (a) The vector sum of all mass-radius products must be zero.
+  (b) The vector sum of all mass-radius-distance products must be zero,
+      where distance is measured from a reference plane.
+
+Two correction planes are sufficient to balance any number of masses in any
+number of planes. By choosing one correction plane as the moment reference,
+its unknown contribution to the moment equation vanishes, allowing the other
+correction to be found from the moment balance alone. The first correction
+then follows from the force balance.
+
+Each MR product is a vector quantity with magnitude M*R directed at the
+angular position of the mass. Moment vectors are formed by multiplying
+MR vectors by their axial distance from the reference plane.
+
+
+2. RECIPROCATING ENGINE BALANCE
+
+For an inline piston-crank-connecting-rod mechanism, the acceleration of
+the piston has two harmonic components:
+
+  PRIMARY: varies with crank angle theta at shaft speed
+  SECONDARY: varies with twice the crank angle (2*theta)
+
+The ratio n = connecting_rod_length / crank_radius governs the relative
+magnitude of the secondary component.
+
+For a single cylinder:
+  Primary inertia force peak = M * omega^2 * R
+  Secondary inertia force peak = M * omega^2 * R / n
+
+For multiple inline cylinders, each cylinder's contribution can be
+represented as a rotating vector (like a rotating mass) at the appropriate
+angle. Primary vectors use the crank angle; secondary vectors use the
+doubled crank angle.
+
+Force balance: the vector sum of all per-cylinder contributions must vanish.
+Moment balance: the vector sum weighted by axial distance from a reference
+plane must vanish.
+
+When force or moment balance is not achieved, the residual vector magnitude
+(times omega^2) gives the peak unbalanced force or moment.
+
+Primary balance corrections can be applied using the same two-plane
+reference-plane method as rotating mass balance.
+
+
+3. FLYWHEEL ENERGY ANALYSIS
+
+A flywheel stores kinetic energy: E = (1/2) * I * omega^2, where I is the
+moment of inertia (I = M * k^2, with k the radius of gyration).
+
+Machines with cyclic torque variation (engines, compressors, presses) cause
+the shaft speed to fluctuate. A flywheel limits this fluctuation by acting
+as an energy buffer.
+
+The coefficient of fluctuation of speed:
+  Cs = (omega_max - omega_min) / omega_mean
+
+The mean torque equals the total work per cycle divided by the cycle angle.
+The energy fluctuation above and below the mean determines the maximum
+energy variation during one cycle.
+
+The maximum energy fluctuation delta_E is found by computing the cumulative
+integral of (T - T_mean) over the cycle and taking the difference between
+its maximum and minimum values.
+
+The relationship between delta_E and flywheel sizing:
+  delta_E = I * omega_mean^2 * Cs
+
+This allows determination of the required moment of inertia for a desired
+coefficient of fluctuation, and from I = M * k^2, the required flywheel mass.
+
+The maximum and minimum shaft speeds follow from:
+  omega_max = omega_mean * (1 + Cs/2)
+  omega_min = omega_mean * (1 - Cs/2)

@@ -1,0 +1,5 @@
+On 2025-11-18, a cascading failure in the CDN configuration pipeline at `/app/` withdrew all 50 customer BYOIP prefixes from the network. Only 5 were legitimately pending deletion. The database is now in its post-incident state: every prefix is de-advertised and all service bindings destroyed.
+
+The pipeline source is under git version control at `/app/`. Incident logs are in `/app/logs/` (some rotated and compressed). A post-incident review with remediation action items is in `/app/docs/`.
+
+Restore the system to full operational status: identify and fix every root-cause bug in the pipeline, restore the database to its correct pre-incident state, and implement all remediation items from the post-incident review. After recovery, `python3 /app/run_pipeline.py` (with the API server running on `:8080`) must complete successfully without withdrawing non-pending prefixes.

@@ -1,0 +1,19 @@
+x = input()
+y = input()
+z = input()
+a = x * x
+b = y * y
+c = z * z
+d = a + b
+if d != c goto end
+t1 = 5
+if z != t1 goto end
+t2 = 0
+if x <= t2 goto end
+t3 = 0
+if y <= t3 goto end
+t4 = 0
+t5 = 1
+assert t4 == t5
+end:
+halt

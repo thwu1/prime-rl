@@ -1,0 +1,155 @@
+{
+  "description": "Binary prediction market evaluation dataset. Each problem represents a real-world event with market-implied probability, ground truth resolution, and probability forecasts from multiple forecasters.",
+  "problems": [
+    {
+      "id": "Q01",
+      "title": "Will semiconductor export controls be expanded this quarter?",
+      "market_price_yes": 0.65,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.72, "beacon": 0.40, "cipher": 0.88,
+        "drift": 0.55, "echo": 0.62, "flux": 0.65
+      }
+    },
+    {
+      "id": "Q02",
+      "title": "Will the Mars sample return mission launch on schedule?",
+      "market_price_yes": 0.30,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.25, "beacon": 0.60, "cipher": 0.15,
+        "drift": 0.45, "echo": 0.35, "flux": 0.30
+      }
+    },
+    {
+      "id": "Q03",
+      "title": "Will Company Nexora report earnings above analyst estimates?",
+      "market_price_yes": 0.80,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.85, "beacon": 0.30, "cipher": 0.95,
+        "drift": 0.58, "echo": 0.75, "flux": 0.82
+      }
+    },
+    {
+      "id": "Q04",
+      "title": "Will the proposed carbon tax legislation pass committee vote?",
+      "market_price_yes": 0.45,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.35, "beacon": 0.70, "cipher": 0.20,
+        "drift": 0.50, "echo": 0.48, "flux": 0.44
+      }
+    },
+    {
+      "id": "Q05",
+      "title": "Will Team Orion win the championship series?",
+      "market_price_yes": 0.70,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.78, "beacon": 0.35, "cipher": 0.92,
+        "drift": 0.52, "echo": 0.68, "flux": 0.71
+      }
+    },
+    {
+      "id": "Q06",
+      "title": "Will the volcanic eruption cause damages exceeding $1B?",
+      "market_price_yes": 0.20,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.18, "beacon": 0.55, "cipher": 0.10,
+        "drift": 0.45, "echo": 0.22, "flux": 0.19
+      }
+    },
+    {
+      "id": "Q07",
+      "title": "Will the bilateral trade agreement be signed before the deadline?",
+      "market_price_yes": 0.55,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.58, "beacon": 0.72, "cipher": 0.75,
+        "drift": 0.50, "echo": 0.58, "flux": 0.54
+      }
+    },
+    {
+      "id": "Q08",
+      "title": "Will the clinical trial for drug XR-7 report positive Phase III results?",
+      "market_price_yes": 0.90,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.93, "beacon": 0.50, "cipher": 0.98,
+        "drift": 0.56, "echo": 0.88, "flux": 0.91
+      }
+    },
+    {
+      "id": "Q09",
+      "title": "Will unemployment rise above 5% this quarter?",
+      "market_price_yes": 0.35,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.28, "beacon": 0.62, "cipher": 0.12,
+        "drift": 0.48, "echo": 0.40, "flux": 0.36
+      }
+    },
+    {
+      "id": "Q10",
+      "title": "Will the orbital station module be successfully deployed on first attempt?",
+      "market_price_yes": 0.75,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.62, "beacon": 0.78, "cipher": 0.90,
+        "drift": 0.50, "echo": 0.73, "flux": 0.74
+      }
+    },
+    {
+      "id": "Q11",
+      "title": "Will the central bank announce quantitative tightening measures?",
+      "market_price_yes": 0.60,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.68, "beacon": 0.38, "cipher": 0.82,
+        "drift": 0.53, "echo": 0.60, "flux": 0.61
+      }
+    },
+    {
+      "id": "Q12",
+      "title": "Will the underdog candidate win the municipal election?",
+      "market_price_yes": 0.40,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.55, "beacon": 0.25, "cipher": 0.65,
+        "drift": 0.48, "echo": 0.42, "flux": 0.40
+      }
+    },
+    {
+      "id": "Q13",
+      "title": "Will the autonomous vehicle fleet receive regulatory approval?",
+      "market_price_yes": 0.85,
+      "resolution": "Yes",
+      "forecasts": {
+        "atlas": 0.88, "beacon": 0.40, "cipher": 0.96,
+        "drift": 0.54, "echo": 0.80, "flux": 0.85
+      }
+    },
+    {
+      "id": "Q14",
+      "title": "Will Arctic ice extent reach a new record minimum this summer?",
+      "market_price_yes": 0.25,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.20, "beacon": 0.55, "cipher": 0.08,
+        "drift": 0.46, "echo": 0.30, "flux": 0.25
+      }
+    },
+    {
+      "id": "Q15",
+      "title": "Will the cryptocurrency regulatory framework be enacted before year-end?",
+      "market_price_yes": 0.50,
+      "resolution": "No",
+      "forecasts": {
+        "atlas": 0.42, "beacon": 0.65, "cipher": 0.30,
+        "drift": 0.49, "echo": 0.55, "flux": 0.50
+      }
+    }
+  ]
+}

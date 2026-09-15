@@ -1,0 +1,180 @@
+# Policy 1: Default ingress for all pods in alpha namespace
+# Allows port 80 from any namespace, port 443 only from infra pods in monitoring namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-default-ingress
+  namespace: alpha
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - port: 80
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: infra
+      namespaceSelector:
+        matchLabels:
+          purpose: monitoring
+    ports:
+    - port: 443
+      protocol: TCP
+---
+# Policy 2: Egress restriction for frontend tier pods in alpha
+# Only allows traffic to backend tier pods in compute namespace on port 8080
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-egress
+  namespace: alpha
+spec:
+  podSelector:
+    matchLabels:
+      tier: frontend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: compute
+      podSelector:
+        matchLabels:
+          tier: backend
+    ports:
+    - port: 8080
+      protocol: TCP
+---
+# Policy 3: Ingress for API server pods in beta
+# Allows from web namespace on port 8080, and from infra pods in monitoring on all ports
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress
+  namespace: beta
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          purpose: web
+    ports:
+    - port: 8080
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: infra
+      namespaceSelector:
+        matchLabels:
+          purpose: monitoring
+---
+# Policy 4: Deny all ingress to worker pods in beta
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-deny-ingress
+  namespace: beta
+spec:
+  podSelector:
+    matchLabels:
+      app: worker
+  policyTypes:
+  - Ingress
+---
+# Policy 5: Egress for all pods in beta
+# Only allows traffic to storage namespace on port 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress
+  namespace: beta
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: storage
+    ports:
+    - port: 5432
+      protocol: TCP
+---
+# Policy 6: Ingress for all pods in gamma (data tier)
+# Allows from backend tier in compute namespace on port 5432
+# Also allows from primary role pods within same namespace on port 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-ingress
+  namespace: gamma
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: backend
+      namespaceSelector:
+        matchLabels:
+          purpose: compute
+    ports:
+    - port: 5432
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          role: primary
+    ports:
+    - port: 5432
+      protocol: TCP
+---
+# Policy 7: Egress for primary database pods in gamma
+# Allows replication traffic to replica pods in same namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: primary-egress
+  namespace: gamma
+spec:
+  podSelector:
+    matchLabels:
+      role: primary
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          role: replica
+    ports:
+    - port: 5432
+      protocol: TCP
+---
+# Policy 8: Deny all egress for replica database pods in gamma
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: replica-deny-egress
+  namespace: gamma
+spec:
+  podSelector:
+    matchLabels:
+      role: replica
+  policyTypes:
+  - Egress

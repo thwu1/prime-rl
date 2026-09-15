@@ -1,0 +1,196 @@
+{
+  "description": "NIST CAVP CTR_DRBG test vectors for AES-256. Extracted from official CAVS 14.3 response files.",
+  "test_groups": [
+    {
+      "id": "aes256_df_basic",
+      "description": "AES-256 with derivation function, no personalization, no additional input",
+      "cipher": "AES-256",
+      "use_df": true,
+      "reseed": false,
+      "returned_bits_len": 512,
+      "tests": [
+        {
+          "count": 0,
+          "entropy_input": "36401940fa8b1fba91a1661f211d78a0b9389a74e5bccfece8d766af1a6d3b14",
+          "nonce": "496f25b0f1301b4f501be30380a137eb",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "5862eb38bd558dd978a696e6df164782ddd887e7e9a6c9f3f1fbafb78941b535a64912dfd224c6dc7454e5250b3d97165e16260c2faf1cc7735cb75fb4f07e1d"
+        },
+        {
+          "count": 1,
+          "entropy_input": "13199090a47fbd1984eb5fa9589345154699ef73f00cd62b07c34167c0327e53",
+          "nonce": "5f968f93b659d8a5750a95345a8ae20c",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "d16878c5b06d7b6ced8e8aeb3a48d95ec8dd655733eec6ef473a8078dfdea600c0cc02168b4d6d744ee828ba5031941f8e3d96586407af79eba60d14af47d53a"
+        },
+        {
+          "count": 2,
+          "entropy_input": "d6ccf8c8143abfe5fd70626afc17f8aef172027c68c38f94ce59f7aed5e96657",
+          "nonce": "2ebc66d2fd66b4bf1ed24faf744ffbc9",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "6d474ba971a8339eca904a4c0dcf6265116fbc66cbe5dddfdc42104502eb210e3660e1b1b710b97d830c27212b33131d85d2f73f39760782f4b47d447ba6a68a"
+        }
+      ]
+    },
+    {
+      "id": "aes256_df_addl_input",
+      "description": "AES-256 with derivation function, no personalization, with additional input",
+      "cipher": "AES-256",
+      "use_df": true,
+      "reseed": false,
+      "returned_bits_len": 512,
+      "tests": [
+        {
+          "count": 0,
+          "entropy_input": "8148d65d86513ce7d38923ec2f26b9e7c677dcc8997e325b7372619e753ed944",
+          "nonce": "41c71a24d17d974190982bb7515ce7f5",
+          "personalization_string": "",
+          "additional_input_1": "55b446046c2d14bdd0cdba4b71873fd4762650695a11507949462da8d964ab6a",
+          "additional_input_2": "91468f1a097d99ee339462ca916cb4a10f63d53850a4f17f598eac490299b02e",
+          "returned_bits": "54603d1a506132bbfa05b153a04f22a1d516cc46323cef15111af221f030f38d6841d4670518b4914a4631af682e7421dffaac986a38e94d92bfa758e2eb101f"
+        },
+        {
+          "count": 1,
+          "entropy_input": "eb4a0add697097f1ce3a719d0d4ae69b1721dce3ec0e6c0e905d78ee212863b1",
+          "nonce": "5f368e85c1f17b6463a278377f691f37",
+          "personalization_string": "",
+          "additional_input_1": "f97801bce981b35081c25801400ec207433da4f17f3265a16e9e4e683722708b",
+          "additional_input_2": "ae54b49a4112b3d978e966e2dda062e3652b58a14bef4ffe038520c9a675d353",
+          "returned_bits": "6aee0b3a815c82f9bb0119f86af90793fc1f9996dd5b72bbc326ac4e6a5e874850b2fec1d7202c35580bd6727029609f2471e6c9b61629d174b894cd178adfd4"
+        },
+        {
+          "count": 2,
+          "entropy_input": "7fd6e262d821d5e5b660485755ea7961579631a4b964cfb4c2c35afde69ffea1",
+          "nonce": "ae8c54affdb76c5fd196fbd5a2c477ec",
+          "personalization_string": "",
+          "additional_input_1": "ab81035cb3c017cbe51a2bc64751ce61f8ae02e80afef8378f42ac67060ffaf9",
+          "additional_input_2": "4f7db02d346bd41668fcf61bac93936003d22febd3b9f8c0234d151b492b16e7",
+          "returned_bits": "930c26431a0fabb45abe418db9af10fe275580f499cdd717f7fcc94b59f952a04eef8f1d5aa0a4820ddbe413b5c3d7a08927346a90635ea2c51b0ab0e9cedb1d"
+        }
+      ]
+    },
+    {
+      "id": "aes256_df_perso",
+      "description": "AES-256 with derivation function, with personalization string, no additional input",
+      "cipher": "AES-256",
+      "use_df": true,
+      "reseed": false,
+      "returned_bits_len": 512,
+      "tests": [
+        {
+          "count": 0,
+          "entropy_input": "5416e77b5e1d872d4ff91973b1be66bc07f4a99e30db7d0006da006fcfb082db",
+          "nonce": "7a811ce62b9fd34af186b2b3e50eaf5d",
+          "personalization_string": "71ee0c7699ac0e805632f2058de38bf872b8340f89998f7a8a2ad4ac045ae6ef",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "68f5859cf76f94c445d9fcd34fc17ac224c3d7d7c2fc38faaf3c24be6cd3cd93b7f9d8a6146f5ac83ac1d7b1b2b7e7ecbc1a2e38760ef86a577d402d85990d9b"
+        },
+        {
+          "count": 1,
+          "entropy_input": "708eca2e3a9265a790607edbe05fe342663f84c6617eda14f25276a943901fda",
+          "nonce": "75afb49a184b23506be14926cd4a03f0",
+          "personalization_string": "cbb48ef84146c10e02240d8740d3487b6a4208405383c01a664ec7d3ada07e2d",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "26b0aa6e822c4cc912cf1dbae669c7dad0bdcff65f22813afd06225b7ff799f7803b3ad48bc88d2be0f5a357f620cc617f446fc6d212592ada69b7dc8ff4a222"
+        },
+        {
+          "count": 2,
+          "entropy_input": "44cc6b4433cec615c3c214e166c7dcff258f8cfe5748e642321cda2f7db426e3",
+          "nonce": "6a2526954b5df989d61e1faf93dda2ae",
+          "personalization_string": "88226313c7f1ec03cde377970c8ea7d741a9f21a8f54b6b97043bc3e8da40b1e",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "c1956c4195adfc3ee71582ab2c63edc0a78af49ecc23a3ddbcf2dfaf80c761fd6343af6d14310e719d8cd3c6bbb491c8690a7dd8a168cd8a480217e5dd2088af"
+        }
+      ]
+    },
+    {
+      "id": "aes256_nodf_basic",
+      "description": "AES-256 without derivation function, no personalization, no additional input",
+      "cipher": "AES-256",
+      "use_df": false,
+      "reseed": false,
+      "returned_bits_len": 512,
+      "tests": [
+        {
+          "count": 0,
+          "entropy_input": "df5d73faa468649edda33b5cca79b0b05600419ccb7a879ddfec9db32ee494e5531b51de16a30f769262474c73bec010",
+          "nonce": "",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "d1c07cd95af8a7f11012c84ce48bb8cb87189e99d40fccb1771c619bdf82ab2280b1dc2f2581f39164f7ac0c510494b3a43c41b7db17514c87b107ae793e01c5"
+        },
+        {
+          "count": 1,
+          "entropy_input": "3b6fb634d35bb386927374f991c1cbc9fafba3a43c432dc411b7b2fa96cfcce8d305e135ff9bc460dbc7ba3990bf8060",
+          "nonce": "",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "083a836fe1cde053164555529409337dc4fec6844594fdf15083ba9d1001eb945c3b96a1bcee3990e1e51f85c80e9f4e04de34e57b640f6cae8ed68e99624712"
+        },
+        {
+          "count": 2,
+          "entropy_input": "0217a8acf2f8e2c4ab7bdcd5a694bca28d038018869dcbe2160d1ce0b4c78ead5592efed98662f2dff87f32f4835c677",
+          "nonce": "",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "returned_bits": "aa36779726f52875312507fb084744d4d7f3f9468a5b246ccde316d2ab91879c2e29f5a0938a3bcd722bb718d01bbfc35831c9e64f5b6410ae908d3061f76c84"
+        }
+      ]
+    },
+    {
+      "id": "aes256_df_reseed",
+      "description": "AES-256 with derivation function, with reseed, no additional input",
+      "cipher": "AES-256",
+      "use_df": true,
+      "reseed": true,
+      "returned_bits_len": 512,
+      "tests": [
+        {
+          "count": 0,
+          "entropy_input": "2d4c9f46b981c6a0b2b5d8c69391e569ff13851437ebc0fc00d616340252fed5",
+          "nonce": "0bf814b411f65ec4866be1abb59d3c32",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "entropy_input_reseed": "93500fae4fa32b86033b7a7bac9d37e710dcc67ca266bc8607d665937766d207",
+          "additional_input_reseed": "",
+          "returned_bits": "322dd28670e75c0ea638f3cb68d6a9d6e50ddfd052b772a7b1d78263a7b8978b6740c2b65a9550c3a76325866fa97e16d74006bc96f26249b9f0a90d076f08e5"
+        },
+        {
+          "count": 1,
+          "entropy_input": "200f096b76e3bf2f40133ae6649221084f0afb11f96fe86a4987ae7b1159d032",
+          "nonce": "3be56f6c0ae289dfc636f96cff5daaa1",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "entropy_input_reseed": "895133f4f2d1be25ec929d42e904dbc7749939ad7022a90360a743fd2c3f483c",
+          "additional_input_reseed": "",
+          "returned_bits": "bf12bf4d8eb6bbbd9f91a2ef48c6bc6524a133dde3c8d4f13d4b5cdae3b9e041b98c8650ada9e1f2b5df01d875470b220cacad0ee887080c271929f695204b66"
+        },
+        {
+          "count": 2,
+          "entropy_input": "1cc5a086831fac6ba046b7f56c4ea5ba7bcf9d851b5051254c4683bfed7a26f9",
+          "nonce": "a8d42ca3b08c9c974fa2c2eceb5a71e7",
+          "personalization_string": "",
+          "additional_input_1": "",
+          "additional_input_2": "",
+          "entropy_input_reseed": "e8c174c621af92c5012fc4caca8d1fb72ea7998f5f78a6cd5f3f250f330f0c74",
+          "additional_input_reseed": "",
+          "returned_bits": "6654d831403693591476213bee7bea644c5058f93454e89ea5b348bc5354e2d8abac00d53b3879e2c89bc8f490969e42d738ba37432822df859d631cfc86cd40"
+        }
+      ]
+    }
+  ]
+}

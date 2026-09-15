@@ -1,0 +1,54 @@
+// BIND9 Split-Horizon DNS Configuration
+// Deployed: 2024-01-15 by infrastructure team
+
+options {
+    directory "/var/cache/bind";
+    listen-on port 8053 { any; };
+    listen-on-v6 { none; };
+    dnssec-validation no;
+    auth-nxdomain no;
+    allow-query { any; };
+};
+
+controls { };
+
+acl "internal_nets" {
+    10.0.0.0/8;
+    127.0.0.0/8;
+    fd00::/16;
+};
+
+view "external" {
+    match-clients { any; };
+    recursion no;
+
+    zone "infra.example.com" {
+        type master;
+        file "/etc/bind/zones/external/db.infra.example.com";
+        allow-transfer { none; };
+    };
+};
+
+view "internal" {
+    match-clients { internal-nets; };
+    recursion yes;
+    allow-recursion { internal-nets; };
+
+    zone "infra.example.com" {
+        type master;
+        file "/etc/bind/zones/internal/db.infra.example.com";
+        allow-transfer { 10.0.1.2; };
+    };
+
+    zone "1.0.10.in-addr.arpa" {
+        type master;
+        file "/etc/bind/zones/internal/db.10.0.1";
+        allow-transfer { 10.0.1.2; };
+    };
+
+    zone "0.0.d.f.ip6.arpa" {
+        type master;
+        file "/etc/bind/zones/internal/db.fd00";
+        allow-transfer { 10.0.1.2; };
+    };
+};

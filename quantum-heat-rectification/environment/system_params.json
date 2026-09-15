@@ -1,0 +1,11 @@
+{
+    "epsilon": 1.0,
+    "J12": 0.1,
+    "gamma": 2.0,
+    "T_hot": 2.5,
+    "T_cold": 1.5,
+    "lam_base": 0.05,
+    "asymmetry_ratios": [0.25, 0.5, 1.0, 2.0, 4.0],
+    "Nk": 1,
+    "NC": 7
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-domain expertise spanning reverse engineering, network forensics, cryptanalysis, and detection engineering, culminating in evaluative judgment and novel creation. Beyond the forensic analysis of a stripped binary with two covert DNS channels (identifying ciphers, recovering keys from a memory dump, decrypting exfiltrated data), the solver must: (1) EVALUATE which binary features constitute reliable family-level indicators by comparing two variant samples with different operational parameters — this requires judging each feature's stability (structural/algorithmic vs. operationally configurable), a subjective assessment grounded in malware analysis expertise that cannot be solved by rote application of known methods; (2) CREATE a novel YARA detection rule that works across both variants — instance-specific strings (domain names, version strings) present in only one sample will fail against the other, forcing the solver to design detection logic anchored on structural invariants identified through their comparative evaluation. The essential difficulty is the evaluative judgment of feature resilience and the creative design of family-level detection, not executing a prescribed procedure."""
+solution_explanation = """1. Analyze sample_alpha with r2 to identify crypto routines and DNS send functions. Trace main() call graph: dns_heartbeat(Feistel, api-metrics) precedes dns_send(XTEA, cdn-telemetry). 2. Use tshark to extract both DNS channels; evaluate cdn-telemetry as exfil (larger payload, XTEA) and api-metrics as heartbeat (smaller, Feistel). 3. Search memory dump for SESS marker, extract 16-byte XTEA key at offset +12, distinguish from decoy keys. 4. Identify modified XTEA delta: (key[0] ^ key[2]) | 0x80000001. Decrypt to recover exfiltrated JSON. 5. Compare strings and structure of sample_alpha vs. sample_beta: domain names, version, and seed differ; base32 alphabet, heartbeat format, log messages, and crypto structure are identical. Evaluate: former are brittle (operationally configured), latter are resilient (compiled-in structural features). 6. Design YARA rule using only resilient features (base32 alphabet, heartbeat format string, log strings) that matches both samples without false-positiving on clean binaries."""
+verification_explanation = """Tests verify: (1) SHA-256 hash of recovered plaintext matches pre-computed hash; (2) recovered data is valid JSON with expected fields; (3) analysis_report.json correctly identifies channels, ciphers, and modified cipher parameter; (4) YARA rule compiles and matches BOTH sample_alpha AND sample_beta (proving family-level detection, not instance-specific) while not matching /usr/bin/ls; (5) detection_assessment.json contains properly structured resilient and brittle indicator arrays with correct categorization — domains are not labeled resilient, and domain-related features appear in brittle indicators. No plaintext or answers appear in accessible files or Docker layers."""
+category = "reverse-engineering"
+tags = ["binary-analysis", "detection-engineering", "comparative-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/layered-crypto-forensics"

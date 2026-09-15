@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "polar_express",
+    "version": "2.0",
+    "source": "Dao-AILab/gram-newton-schulz",
+    "description": "Optimized polynomial coefficients for 5-iteration polar decomposition"
+  },
+  "parameters": {
+    "iterations": [
+      {"step": 0, "coefficients": {"a": 4.0848, "b": -6.8946, "c": 2.9270}},
+      {"step": 1, "coefficients": {"a": 3.9505, "b": -6.3029, "c": 2.6377}},
+      {"step": 2, "coefficients": {"a": 3.7418, "b": -5.5913, "c": 2.3037}},
+      {"step": 3, "coefficients": {"a": 2.8769, "b": -3.1427, "c": 1.2046}},
+      {"step": 4, "coefficients": {"a": 2.8366, "b": -3.0525, "c": 1.2012}}
+    ]
+  }
+}

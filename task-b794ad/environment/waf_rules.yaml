@@ -1,0 +1,27 @@
+# WAF Rule Configuration - Layer 1 (YAML-defined rules)
+# Checked before Python-defined rules in Layer 2
+version: "1.0"
+
+rules:
+  - id: Y01
+    pattern: "(?i)\\bunion\\s+select\\b"
+    description: "UNION SELECT injection"
+    severity: critical
+  - id: Y02
+    pattern: "(?i)\\bor\\b\\s+\\S+\\s*=\\s*\\S+"
+    description: "OR-based tautology"
+    severity: high
+  - id: Y03
+    pattern: "(?i)\\b(information_schema|sqlite_master)\\b"
+    description: "Schema discovery"
+    severity: critical
+
+preprocessing:
+  url_decode: true
+  normalize_whitespace: "[\\t\\r\\n]"
+  strip_nulls: true
+
+trusted_headers:
+  - name: "X-Forwarded-By"
+    value: "internal-waf-proxy"
+    action: "skip_yaml_rules"

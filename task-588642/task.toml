@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the Schulz-Mihov parametric DFA algorithm for Levenshtein automata — a specialized technique from a 2002 paper that is not taught in standard CS curricula. The agent must correctly implement NFA construction with (offset, budget) state pairs, the non-obvious state implication/simplification relation, characteristic vector abstraction, state-set normalization, powerset construction over an exponential chi-value space, and a distance-computing evaluation function with global offset tracking. Each component has subtle edge cases (boundary positions, empty strings, over-consumed query offsets) that require deep understanding of the automaton semantics."""
+solution_explanation = """Build a LevenshteinParametricDFA class that constructs the NFA, enumerates all 2^(3D+1) characteristic vectors, discovers reachable parametric states via BFS/powerset construction with state simplification and normalization, and stores a transition table mapping (state_shape, chi) to (offset_delta, next_state_shape). At eval time, compute characteristic vectors from the query at runtime, walk the precomputed DFA, and extract the minimum edit distance from the final accepting states."""
+verification_explanation = """Tests import the parametric_dfa module and verify eval() correctness on dozens of string pairs against a naive O(mn) DP edit distance. Output files are verified by independently recomputing edit distances between all query-dictionary pairs (15 queries x 20K words) and checking for zero false positives and zero false negatives. DFA state counts are checked for reasonable ranges."""
+category = "algorithms"
+tags = ["automata", "string-matching"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-588642"

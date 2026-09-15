@@ -1,0 +1,17 @@
+FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
+
+
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    libeigen3-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /app
+COPY solve_convdiff.cpp /app/solve_convdiff.cpp
+COPY CMakeLists_app.txt /app/CMakeLists.txt
+
+WORKDIR /app

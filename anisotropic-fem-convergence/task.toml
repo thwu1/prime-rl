@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires both implementing a complete finite element solver from scratch AND diagnosing a subtle mathematical error in the provided problem specification. The implementation demands: Duffy-transform quadrature on triangles, Vandermonde-based Lagrange element construction, correct Jacobian gradient transformations for tensor-valued anisotropic diffusion, P2 edge DOF enumeration with consistent local-to-global numbering, global sparse assembly, Dirichlet BC application, and L2 error computation. The diagnostic challenge is that the provided forcing function in problem_spec.py contains a coefficient error (2.0 instead of 2.5 on the x·cos(πx)·sin(πy) term) that is invisible at symmetric evaluation points like (0.5, 0.5) but causes convergence to plateau at a nonzero L2 error — requiring the solver to independently derive and verify the forcing function by differentiating the manufactured solution through the full anisotropic PDE."""
+solution_explanation = """The solution first diagnoses the error in problem_spec.py by numerically computing -div(K∇u) + cu via finite differences at interior points and comparing with the provided forcing function, finding a coefficient discrepancy (2.0 instead of 2.5) in the x·cos(πx)·sin(πy) term — corresponding to a miscounted cross-derivative contribution from the off-diagonal tensor entry. After fixing problem_spec.py, it implements: (1) Gauss-Legendre quadrature on the reference triangle via Duffy transform from [0,1]²; (2) Lagrange element construction via Vandermonde matrix of monomials at equispaced nodes; (3) Basis gradient tabulation using V_inv^T times monomial gradients; (4) P2 DOF map by enumerating unique mesh edges and assigning midpoint nodes; (5) Global assembly using J^{-T} to transform reference gradients to physical space, computing the anisotropic stiffness integral (grad phi)^T K (grad phi); (6) Homogeneous Dirichlet BCs via row elimination; (7) L2 error computation via high-order quadrature."""
+verification_explanation = """Tests verify: (1) results.json exists with correct structure, mesh sizes, and field counts; (2) L2 errors are positive and monotonically decreasing under refinement; (3) P1 convergence rate in [1.7, 2.5] and P2 in [2.5, 3.8]; (4) individual refinement step rates exceed minimums (1.5 for P1, 2.0 for P2); (5) rate consistency within bounds; (6) finest mesh errors below thresholds (P1 < 0.01, P2 < 0.001); (7) P2 more accurate than P1 with error ratio > 5; (8) intermediate mesh errors within expected magnitude ranges; (9) PDE consistency: the forcing function in problem_spec.py satisfies -div(K∇u) + cu = f at multiple non-symmetric interior points, verified numerically via centered finite differences."""
+category = "mathematics_of_computing"
+tags = ["finite-elements", "numerical-pde"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/anisotropic-fem-convergence"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of VXLAN-EVPN leaf-spine fabric architecture (BGP underlay/overlay peering, MLAG, VTEP addressing, VRF route-target conventions), ability to parse hierarchical Arista EOS configuration syntax, programmatic derivation of expected network state from a YAML data model (including /31 peer IP computation and ASN resolution through leaf-pair hierarchy), building a drift detection engine that avoids false positives across 6 interdependent device configurations, validating output against a JSON Schema, and producing unified diffs — requiring multi-tool interoperability across Python, jq, ipcalc, diff, and jsonschema."""
+solution_explanation = """The solution loads the YAML fabric model and derives the complete expected state for each device: spine BGP neighbors (overlay via leaf loopback0 IPs, underlay via /31 peer IPs with ASNs resolved through leaf-pair membership), leaf interface IPs (derived by computing the peer end of each spine's /31 link), VXLAN VNI mappings from tenant definitions, MLAG parameters from leaf-pair config, and VRF route-targets using the VNI:VNI convention. It parses each EOS config file using a context-aware line parser that handles the hierarchical indentation format, compares against expected state, generates a schema-validated drift report, produces corrected configuration files with targeted line-level fixes, and creates per-device unified diffs using the diff utility."""
+verification_explanation = """Tests verify: (1) drift_report.json validates against the provided JSON Schema, (2) report has exactly 10 findings covering all 6 devices with correct structure, (3) each of 6 corrected config files in configs_fixed/ contains the right values — specific BGP remote-as values, interface IPs, VXLAN VNI mappings, source interfaces, MLAG domain-ids, channel-group memberships, and VRF route-targets — checked via line-matching and section-aware parsing, (4) unified diff files exist for all 6 devices in valid format with non-empty content."""
+category = "networking"
+tags = ["vxlan-evpn", "configuration-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8ba243"

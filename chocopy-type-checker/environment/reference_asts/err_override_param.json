@@ -1,0 +1,17 @@
+{
+  "well_typed": false,
+  "globals": {},
+  "classes": {
+    "Base": {
+      "superclass": "object",
+      "attributes": {},
+      "methods": {"process": "(Base, int) -> int"}
+    },
+    "Child": {
+      "superclass": "Base",
+      "attributes": {},
+      "methods": {"process": "(Child, str) -> int"}
+    }
+  },
+  "errors": [{"message": "Method 'process' in 'Child' overrides with different parameter types"}]
+}

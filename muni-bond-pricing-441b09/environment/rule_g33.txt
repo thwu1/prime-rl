@@ -1,0 +1,249 @@
+================================================================================
+MSRB RULE G-33: CALCULATIONS
+Municipal Securities Rulemaking Board
+================================================================================
+
+SUMMARY: Prescribes standard formulas for the computation of accrued interest,
+dollar price and yield; sets standards for accuracy; establishes day-counting
+methods for municipal securities transactions.
+
+================================================================================
+SECTION (a): ACCRUED INTEREST
+================================================================================
+
+Accrued interest per $100 par value shall be computed as:
+
+    AI = (R / M) * (A / E) * 100
+
+where:
+    R   = annual interest rate (decimal, e.g. 0.05 = 5%)
+    M   = number of interest payment periods per year
+    A   = number of accrued days from the beginning of the current interest
+          payment period to the settlement date (per section (e))
+    E   = number of days in the interest payment period in which the
+          settlement date falls (per section (e))
+
+For first coupon periods, the beginning of the period is the dated date
+(issue date). Days are counted to INCLUDE the start date but NOT the
+settlement date.
+
+================================================================================
+SECTION (b): INTEREST-BEARING SECURITIES
+================================================================================
+
+(b)(i) Dollar Price
+-------------------
+
+(b)(i)(A) Securities Paying Interest Solely at Redemption
+---------------------------------------------------------
+The dollar price per $100 par value:
+
+    P = (RV + R * 100 * DIR / B) / (1 + Y * DSM / B)
+
+where:
+    DIR = number of days from issue (dated) date to redemption date (per (e))
+    DSM = number of days from settlement date to maturity/redemption (per (e))
+    B   = number of days in the year = 360 (per section (e))
+    P   = dollar price per $100 par value
+    R   = annual interest rate (decimal)
+    RV  = redemption value per $100 par value
+    Y   = yield (decimal)
+
+Accrued interest for these securities:
+    AI = R * 100 * DIS / B
+where DIS = days from issue (dated) date to settlement date.
+
+(b)(i)(B) Securities with Periodic Interest Payments
+-----------------------------------------------------
+
+(b)(i)(B)(1) -- One coupon period or less to redemption:
+
+    P = (RV + C) / (1 + DSC/E * Y/M) - (A/E) * C
+
+where:
+    C   = periodic coupon payment = R / M * 100
+    DSC = number of days from settlement date to next coupon date = E - A
+    E   = number of days in the coupon period containing settlement
+    A   = accrued days from period start to settlement date
+    M   = coupon payments per year
+    Y   = yield (decimal)
+    RV  = redemption value per $100
+
+(b)(i)(B)(2) -- More than one coupon period to redemption:
+
+    P = RV / (1 + Y/M)^(N - 1 + DSC/E)
+        + SUM(k=1 to N) [ C / (1 + Y/M)^(k - 1 + DSC/E) ]
+        - (A/E) * C
+
+where:
+    N   = number of coupon payments from settlement to redemption (inclusive
+          of payment on redemption date), expressed as a whole number
+    DSC = E - A (days from settlement to next coupon)
+    C   = R / M * 100
+    k   = successively each whole number from 1 to N
+
+For purposes of this formula, "^" denotes exponentiation, and "SUM"
+denotes summation of the term for each value of k.
+
+NOTE (2016 Amendment): The variable M represents the ACTUAL payment
+frequency of the security (monthly=12, quarterly=4, semi-annual=2,
+annual=1). Prior to February 23, 2016, semi-annual payments were assumed.
+
+(b)(ii) Yield
+-------------
+
+(b)(ii)(A) Securities Paying Interest Solely at Redemption:
+
+    Y = ((RV + R * 100 * DIR / B) / P - 1) * B / DSM
+
+where all symbols are as defined in (b)(i)(A).
+
+(b)(ii)(B) Securities with Periodic Interest Payments:
+
+(b)(ii)(B)(1) -- One coupon period or less to redemption:
+
+    Y = ((RV + C) / (P + (A/E) * C) - 1) * M * E / DSC
+
+where all symbols are as defined in (b)(i)(B)(1).
+
+(b)(ii)(B)(2) -- More than one coupon period to redemption:
+
+The formula set forth in (b)(i)(B)(2) shall be used, solved iteratively
+for Y given P. Since the formula cannot be algebraically inverted for
+N > 1, numerical methods must be employed to find the yield Y that
+produces the given dollar price P.
+
+================================================================================
+SECTION (c): DISCOUNTED SECURITIES
+================================================================================
+
+(c)(i) Dollar Price
+-------------------
+
+(c)(i)(A) Standard discounted securities:
+
+    P = RV * (1 - DR * DSM / B)
+
+where:
+    DR  = discount rate (decimal)
+    DSM = days from settlement to maturity (per section (e))
+    B   = 360
+
+(c)(ii) Return on Investment
+----------------------------
+
+(c)(ii)(A) Standard discounted securities:
+
+    IR = ((RV - P) / P) * (B / DSM)
+
+where IR = annualized return on investment (decimal).
+
+================================================================================
+SECTION (d): STANDARDS OF ACCURACY; TRUNCATION
+================================================================================
+
+(d)(i) Intermediate Values
+All values used in computations of accrued interest, yield, and dollar price
+shall be computed to not less than ten decimal places.
+
+(d)(ii) Results of Computations
+Results shall be presented as follows:
+
+    (A) Accrued interest shall be TRUNCATED to three decimal places, and
+        ROUNDED to two decimal places immediately prior to presentation.
+
+    (B) Dollar prices shall be TRUNCATED to three decimal places
+        immediately prior to presentation.
+
+    (C) Yields shall be TRUNCATED to four decimal places, and ROUNDED
+        to three decimal places.
+
+ROUNDING CONVENTION: If the last digit after truncation is five or above,
+the preceding digit shall be increased to the next highest number, and the
+last digit shall be discarded.
+
+================================================================================
+SECTION (e): DAY COUNTING
+================================================================================
+
+(e)(i) Day Count Basis
+Computations shall be made on the basis of a thirty-day month and a
+three-hundred-sixty-day year (30/360).
+
+(e)(ii) Day Count Formula (30/360)
+
+    Number of Days = (Y2 - Y1) * 360 + (M2 - M1) * 30 + (D2 - D1)
+
+where:
+    Y1, M1, D1 = year, month, day of the period start date
+    Y2, M2, D2 = year, month, day of the period end date
+
+CRITICAL END-OF-MONTH ADJUSTMENTS (applied before the formula):
+    Step 1: If D1 has a value of 31, change D1 to 30.
+    Step 2: If D2 has a value of 31 AND the (adjusted) D1 has a value
+            of 30 or 31, change D2 to 30.
+
+Note: Step 2 depends on the result of Step 1. D2 is only adjusted to 30
+if BOTH conditions hold: D2 equals 31 AND D1 (after Step 1) is >= 30.
+
+TIME PERIOD CONVENTION: Time periods include the start date but do NOT
+include the end date.
+
+================================================================================
+COUPON DATE GENERATION
+================================================================================
+
+For securities with periodic interest payments, coupon dates are generated
+by stepping backward from the redemption date in intervals of (12/M) months.
+For example, a semi-annual bond maturing January 1 has coupon dates on
+January 1 and July 1 each year.
+
+The number of remaining coupon payments N is the count of coupon dates
+that fall strictly after the settlement date, up to and including the
+redemption date.
+
+The accrued days A are counted from the most recent coupon date on or
+before the settlement date (or the dated date for the first coupon period)
+to the settlement date. E is counted from that same start to the next
+coupon date.
+
+================================================================================
+YIELD-TO-WORST / CALLABLE BOND TREATMENT
+================================================================================
+
+Per Rule G-15(a)(i)(A)(5)(c) and Rule G-12(c)(v)(I), securities shall be
+priced to the LOWEST of:
+    - price to call (for each call date/price in the schedule)
+    - price to maturity
+
+For yield-to-worst computation:
+    - When computing PRICE from yield (compute=price): evaluate the
+      G-33 price formula using each call date/price AND maturity as the
+      redemption date/value. Select the LOWEST resulting dollar price.
+    - When computing YIELD from price (compute=yield): evaluate the
+      G-33 yield formula using each possible redemption. Select the
+      LOWEST resulting yield.
+
+The redemption date and value producing the worst (lowest) result are
+reported as worst_date and worst_rv.
+
+================================================================================
+INTERPRETIVE GUIDANCE: DAY COUNTING EXAMPLE
+================================================================================
+
+QUESTION: A security dated June 15 paying interest on July 1 -- how many
+days of accrued interest?
+
+ANSWER: Applying the 30/360 formula:
+    Y1=1982, M1=6, D1=15, Y2=1982, M2=7, D2=1
+    Days = (0)*360 + (1)*30 + (1-15) = 30 + (-14) = 16 days.
+
+The 15th of a month is the LAST day of the first half-month (days 1-15),
+not the first day of the second half (days 16-30).
+
+EXTENDED EXAMPLE: June 15 to September 1:
+    16 days (Jun 15 to Jul 1) + 30 (July) + 30 (August) = 76 days.
+
+================================================================================
+END OF RULE G-33
+================================================================================

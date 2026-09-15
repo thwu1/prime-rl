@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of pairing-friendly curve families (BN, BLS12) and their security properties. The agent must parse heterogeneous parameter sources—executing PARI/GP scripts to extract computed values, decoding hex files, and parsing TOML manifests—then cross-validate parameters. Security estimation demands research-level cryptography expertise: identifying the correct discrete-log attack families for both base-field and extension-field groups, understanding how the structure of the embedding degree affects tower-based attacks, and implementing numerical L-notation estimates. Additionally, the agent must generate a correct PARI/GP verification script that uses GP's provable primality testing and polynomial evaluation, requiring proficiency with an unfamiliar mathematical CAS."""
+solution_explanation = """The solution parses the TOML manifest, runs GP scripts via subprocess to extract parameters, reads hex files, and parses inline values. It validates primality (Miller-Rabin), polynomial consistency (BN and BLS12 family formulas), and embedding degree (modular exponentiation). Security is computed as G1 via Pollard rho (log2(r)/2) and GT via L-notation NFS estimates including GNFS and SexTNFS for tower decompositions of k. A PARI/GP verification script is generated that uses isprime() for provable primality and checks polynomial consistency for all five curves."""
+verification_explanation = """Tests verify: (1) results.json structure with all required fields for 5 curves; (2) validation verdicts (3 valid, 2 invalid); (3) security estimate ranges (G1 ~127 for BLS12-381, GT in NFS-consistent range, GT > G1 for tiny BN curve); (4) meets_claimed_level correctness; (5) null security for invalid curves; (6) overall = min(G1, GT); (7) verify.gp existence and executability via gp -q; (8) verify.gp output contains all required checks for all curves; (9) primality and polynomial consistency verdicts in verify.gp match expected values for both valid and invalid curves."""
+category = "cryptography"
+tags = ["pairing-curves", "pari-gp"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5b6e78"

@@ -1,0 +1,13 @@
+{
+    "ontology_path": "/app/data/ontology.obo",
+    "annotation_path": "/app/data/annotations.hpoa",
+    "database_path": "/app/data/hpo.db",
+    "methods": {
+        "pairwise": ["resnik", "lin", "jc", "graphic"],
+        "set_combiners": ["funsimavg", "funsimmax", "bma"]
+    },
+    "defaults": {
+        "method": "resnik",
+        "combiner": "funsimavg"
+    }
+}

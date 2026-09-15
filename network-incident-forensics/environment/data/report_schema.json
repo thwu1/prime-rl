@@ -1,0 +1,36 @@
+{
+  "description": "Incident analysis report schema. All fields required. Integer fields expect exact values.",
+  "fields": {
+    "conntrack_drops": "int",
+    "conntrack_max": "int",
+    "accept_overflow_port": "int",
+    "accept_overflow_count": "int",
+    "listen_backlog": "int",
+    "syn_cookies_sent": "int",
+    "syn_cookies_recv": "int",
+    "ephemeral_range_size": "int",
+    "ephemeral_ports_used": "int",
+    "unique_outbound_destinations": "int",
+    "eaddrinuse_count": "int",
+    "eperm_count": "int",
+    "eperm_caused_by_conntrack": "bool",
+    "time_wait_count": "int",
+    "uses_bind_before_connect": "bool",
+    "root_causes": "list[str]",
+    "syn_flood_source_cidrs": "list[str]",
+    "syn_flood_total_packets": "int",
+    "legitimate_syn_rate_pps": "int",
+    "udp_reflection_sources": "int",
+    "recommended_conntrack_max": "int",
+    "recommended_syn_backlog": "int",
+    "recommended_rate_limit_pps": "int",
+    "recommended_port_range": "str",
+    "nftables_hook": "str",
+    "nftables_priority": "int"
+  },
+  "format_notes": {
+    "root_causes": "Each element is one of: conntrack_overflow, accept_queue_overflow, ephemeral_port_exhaustion",
+    "syn_flood_source_cidrs": "Sorted list of /24 CIDR blocks",
+    "recommended_port_range": "Space-separated: 'low high'"
+  }
+}

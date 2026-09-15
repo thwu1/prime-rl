@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of multivariate quadratic (MQ) cryptography and the UOV signature scheme. The solver must: (1) query a SQLite database using sqlite3 to extract scheme parameters and key derivation configuration, (2) use the openssl CLI to parse a TLS certificate's SHA-256 fingerprint and decrypt the AES-256-CBC-encrypted public key blob, (3) recognize the Kipnis-Shamir vulnerability in balanced UOV parameters, (4) use PARI/GP (gp) to compute the characteristic polynomial of a matrix over a finite field, factor it via factormod, and extract roots, (5) implement eigenspace decomposition and oil space recovery, and (6) forge a valid signature via the whipping-up construction. This combines multi-tool CLI proficiency (openssl, sqlite3, gp) with post-quantum cryptography theory and finite field linear algebra."""
+solution_explanation = """First, query vinaigrette.db with sqlite3 to get scheme parameters and key derivation config (cert path, cipher, KDF iterations, fingerprint format). Use openssl x509 to extract the SHA-256 fingerprint from the TLS certificate, then openssl enc to decrypt the public key. Mount the Kipnis-Shamir attack: symmetrize public key matrices, compute M = S_1^{-1} S_2, use PARI/GP's charpoly and factormod to factor the characteristic polynomial over F_31, extract its square root polynomial, and find roots. For each root, compute the eigenspace kernel of (M - lambda*I). For 2D eigenspaces, disambiguate oil vectors using the vanishing condition. Use the recovered oil space to forge a signature by solving a linear system from the whipping-up construction."""
+verification_explanation = """Tests use embedded public key data and hardcoded parameters to verify the signature independently. The signature is parsed from /app/signature.txt. The whipped-up public mapping P*(s_1,...,s_k) = P(s_1) + ... + P(s_k) is evaluated and compared to the SHAKE256 hash target. Format constraints (element count, range) and the decryption of /app/public_key.txt are also checked."""
+category = "cryptography"
+tags = ["post-quantum", "multivariate-cryptography"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5b68ae"

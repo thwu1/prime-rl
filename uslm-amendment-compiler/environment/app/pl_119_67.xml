@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<statute xmlns="http://schemas.gpo.gov/xml/uslm"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://schemas.gpo.gov/xml/uslm uslm-2.1.0.xsd"
+         id="plaw-119-67"
+         identifier="/us/pl/119/67">
+  <meta>
+    <dc:title>Cybersecurity Standards Acceleration Act</dc:title>
+    <dc:type>Legislative Document</dc:type>
+    <dc:publisher>United States Government Publishing Office</dc:publisher>
+    <dc:format>text/xml</dc:format>
+    <dc:language>en</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <property name="congress" value="119"/>
+    <property name="session" value="1"/>
+    <property name="docNumber" value="67"/>
+    <property name="publicPrivate" value="public"/>
+    <property name="currentChamber" value=""/>
+    <property name="docStage" value="enrolledBill"/>
+  </meta>
+  <preface>
+    <docNumber>Public Law 119-67</docNumber>
+    <docTitle>An Act to accelerate cybersecurity standards implementation and strengthen critical infrastructure resilience.</docTitle>
+  </preface>
+  <main>
+    <section identifier="/us/pl/119/67/s1">
+      <num value="1">SECTION 1. </num>
+      <heading>Short title</heading>
+      <content>This Act may be cited as the &#x201c;<shortTitle>Cybersecurity Standards Acceleration Act</shortTitle>&#x201d;.</content>
+    </section>
+    <section identifier="/us/pl/119/67/s2">
+      <num value="2">SEC. 2. </num>
+      <heading>Further amendments to definitions</heading>
+      <chapeau>Section 1201 of the Cybersecurity Resilience Act (<ref href="/us/usc/t6/s1201">6 U.S.C. 1201</ref>), as amended by the Cybersecurity Enhancement and Modernization Act, <amendingAction type="amend">is further amended</amendingAction>&#x2014;</chapeau>
+      <paragraph identifier="/us/pl/119/67/s2/1">
+        <num value="1">(1) </num>
+        <content>in <ref href="/us/usc/t6/s1201/5">paragraph (5)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>a discrete set of information resources</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>a discrete set of information resources, including cloud-based and hybrid infrastructure,</quotedText>&#x201d;;</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/67/s2/2">
+        <num value="2">(2) </num>
+        <content>if <ref href="/us/usc/t6/s1201/7">paragraph (7)</ref> (relating to supply chain risk) has not been added by prior enactment, by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><paragraph><num value="7">&#x201c;(7) </num><content>The term &#x201c;supply chain risk&#x201d; means the risk that an adversary may sabotage, maliciously introduce unwanted function, or otherwise subvert the integrity of a covered information system.&#x201d;</content></paragraph></quotedContent>; and</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/67/s2/3">
+        <num value="3">(3) </num>
+        <content>by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><paragraph><num value="8">&#x201c;(8) </num><content>The term &#x201c;zero trust architecture&#x201d; means a cybersecurity framework that requires continuous verification of every user, device, and network transaction regardless of whether the user, device, or transaction originates inside or outside the network perimeter.&#x201d;</content></paragraph></quotedContent>.</content>
+      </paragraph>
+    </section>
+    <section identifier="/us/pl/119/67/s3">
+      <num value="3">SEC. 3. </num>
+      <heading>Enhanced critical infrastructure protection</heading>
+      <chapeau>Section 1202 of the Cybersecurity Resilience Act (<ref href="/us/usc/t6/s1202">6 U.S.C. 1202</ref>), as amended by the Cybersecurity Enhancement and Modernization Act, <amendingAction type="amend">is further amended</amendingAction>&#x2014;</chapeau>
+      <paragraph identifier="/us/pl/119/67/s3/1">
+        <num value="1">(1) </num>
+        <content>in <ref href="/us/usc/t6/s1202/c">subsection (c)</ref>, by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><paragraph><num value="4">&#x201c;(4) </num><content>deployment of artificial intelligence-based anomaly detection systems for automated threat identification and response.&#x201d;</content></paragraph></quotedContent>; and</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/67/s3/2">
+        <num value="2">(2) </num>
+        <content>in <ref href="/us/usc/t6/s1202/d">subsection (d)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>2 years</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>18 months</quotedText>&#x201d;.</content>
+      </paragraph>
+    </section>
+    <section identifier="/us/pl/119/67/s4">
+      <num value="4">SEC. 4. </num>
+      <heading>Reporting timeline acceleration</heading>
+      <subsection identifier="/us/pl/119/67/s4/a">
+        <num value="a">(a) </num>
+        <heading><inline class="smallCaps">Critical incident timeline</inline>.&#x2014;</heading>
+        <content><ref href="/us/usc/t6/s1203/a/1">Section 1203(a)(1) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1203/a/1">6 U.S.C. 1203(a)(1)</ref>), as amended by the Cybersecurity Enhancement and Modernization Act, <amendingAction type="amend">is amended</amendingAction> by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>24 hours</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>12 hours</quotedText>&#x201d;.</content>
+      </subsection>
+      <subsection identifier="/us/pl/119/67/s4/b">
+        <num value="b">(b) </num>
+        <heading><inline class="smallCaps">Enhanced penalty</inline>.&#x2014;</heading>
+        <content><ref href="/us/usc/t6/s1203/b/2">Section 1203(b)(2) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1203/b/2">6 U.S.C. 1203(b)(2)</ref>), as amended by the Cybersecurity Enhancement and Modernization Act, <amendingAction type="amend">is amended</amendingAction> by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>$500,000</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>$750,000</quotedText>&#x201d;.</content>
+      </subsection>
+    </section>
+    <section identifier="/us/pl/119/67/s5">
+      <num value="5">SEC. 5. </num>
+      <heading>Zero trust implementation requirements</heading>
+      <content><ref href="/us/usc/t6/s1205/d">Section 1205(d) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1205/d">6 U.S.C. 1205(d)</ref>), as amended by the Cybersecurity Enhancement and Modernization Act, <amendingAction type="amend">is amended</amendingAction> by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><paragraph><num value="4">&#x201c;(4) </num><content>integration of automated security orchestration and response capabilities to enable real-time enforcement of zero trust policies across all agency information systems.&#x201d;</content></paragraph></quotedContent>.</content>
+    </section>
+  </main>
+</statute>

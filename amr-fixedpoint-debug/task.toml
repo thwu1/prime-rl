@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Q15/Q31 fixed-point DSP arithmetic and the ability to diagnose subtle numerical bugs without any hints in the source code. The solver must: (1) use the selftest diagnostic tool to identify which arithmetic operations violate their specifications, (2) use gdb or the debug build to trace intermediate values through the pipeline, (3) analyze ~500 lines of saturating arithmetic C to find 4 unlabeled bugs, (4) reverse-engineer the required algorithm from the code structure, headers, and DPF arithmetic patterns, and (5) implement the complete algorithm in double-precision fixed-point C from scratch. Bit-exact verification means all bugs must be found AND the algorithm correctly implemented — partial solutions score zero. The multi-tool debugging workflow (make targets, selftest binary, gdb) combined with unlabeled bug diagnosis and DSP algorithm implementation requires professional telecom/DSP expertise."""
+solution_explanation = """Fix 3 bugs in basicop.c: (1) L_mult saturation check uses 0x40000001 instead of 0x40000000 — the product of -32768*-32768 equals 0x40000000 and must saturate, (2) round_fx uses wrong rounding constant 0x800 instead of 0x8000 — ITU-T round adds 0.5 of the lower 16-bit range, (3) norm_l uses wrong normalization threshold 0x20000000 instead of 0x40000000 — normalized values must be in [0x40000000, 0x7FFFFFFF]. Fix 1 bug in oper_32b.c: Mpy_32 is missing the lo1*hi2 cross-term in DPF multiplication, making it asymmetric. Implement the Levinson-Durbin algorithm in levinson.c using DPF arithmetic: iteratively compute reflection coefficients via K=-S/Alpha, update LP coefficients via An[j]=A[j]+K*A[i-j], and maintain normalized Alpha using norm_l. Includes stability check (|Kh|>32750 falls back to old_A). The solver must use the selftest binary to isolate arithmetic layer bugs from algorithm bugs, and the debug Makefile target for gdb-based tracing."""
+verification_explanation = """Tests run three verification tiers: (1) Build verification — make must produce both pipeline and selftest binaries. (2) Selftest pass — the selftest binary must exit 0, confirming all 10 self-consistency properties hold (additive identity, saturation bounds, L_mult sign correctness, norm_l normalization range, round_fx midpoint carry, DPF round-trip, Mpy_32 symmetry and cross-term completeness). (3) Unit tests via a C harness exercise specific edge cases (L_mult saturation, round_fx rounding boundary, norm_l threshold, Mpy_32 cross-terms) compared against Python reference of the ITU-T specification. (4) Integration tests feed 7 autocorrelation test vectors (trivial, single-reflection, speech-like, moderate, high-pitch, near-unstable, asymmetric-DPF) through the pipeline and compare output bit-exactly against precomputed reference values."""
+category = "debugging"
+tags = ["dsp", "fixed-point"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/amr-fixedpoint-debug"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 11 distinct defects across three coupled mechanical engineering domains (prestressed bolt connections, column buckling, V-belt transmissions) in a partially-working calculator. The solver must explore reference documentation, understand the engineering context, identify where the code deviates from correct formulas, implement fixes, and build two additional pipeline components (jq report filter, shell orchestrator with SQLite). Demands deep domain knowledge, multi-tool proficiency (Python, jq, shell, SQLite), and systematic debugging skills."""
+solution_explanation = """Fix the buggy mechcalc.py: (1) Bolt module needs pressure-cone clamp stiffness with per-part series calculation, settlement loss compensation, torsional stress from thread geometry, von Mises combined stress, and tightening torque. (2) Buckling module needs correct mounting E practical coefficient (2.10), weak-axis I-beam moment of inertia, and secant formula implementation. (3) V-belt module needs centrifugal force, friction-based Euler preload formula, and shaft load calculation. Then create report.jq for safety margin reporting and analyze.sh for SQLite-backed pipeline orchestration."""
+verification_explanation = """Tests compute expected values independently using reference formulas, then compare mechcalc output with 2% relative tolerance. Coverage includes all three modules, all profile types, multiple mounting configurations, edge cases (equal pulleys, variable clamp parts, high settlement), report.jq margin calculations, and analyze.sh SQLite storage/history/compare operations."""
+category = "applied_computing"
+tags = ["mechanical-engineering", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mechcalc-bolt-buckling"

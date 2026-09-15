@@ -1,0 +1,213 @@
+=== DEPENDENCY BUILD LOG ===
+Build ID: dep-chain-20241115-083000
+Platform: Rocky Linux 9.3 (x86_64), GCC 11.4.1 20230605
+Configuration: INSTALL_DIR=/opt/renderer/installs JOBS=-j16
+Timestamp: 2024-11-15T08:30:00Z
+
+================================================================================
+[08:30:01] Configuring ExternalProject dependency graph...
+================================================================================
+
+CMake Error at CMakeLists.txt:25 (ExternalProject_Add):
+  The inter-target dependency graph contains the following strongly connected
+  component (cycle):
+
+    "OpenEXR" of type UTILITY
+      depends on "OpenColorIO" (UTILITY)
+    "OpenColorIO" of type UTILITY
+      depends on "OpenEXR" (UTILITY)
+
+  At least one of these targets is not a STATIC_LIBRARY.  Cyclic dependencies
+  are allowed only among static libraries.
+
+-- Configuring incomplete, errors occurred!
+
+================================================================================
+REBUILD: Cycle manually broken to continue diagnosis. Remaining build
+errors follow from a subsequent run. NOTE: the manual resolution applied
+may be incomplete — verify the full dependency chain against the build spec.
+================================================================================
+
+[08:31:05] Building zlib v1.3.1...
+[08:31:12] [zlib] Install complete.
+
+[08:31:05] Building libjpeg-turbo 3.0.1...
+[08:31:15] [libjpeg-turbo] -- NASM version 2.15.05
+[08:31:15] [libjpeg-turbo] -- SIMD extensions: SSE2 AVX2
+[08:31:22] [libjpeg-turbo] Install complete.
+
+[08:31:05] Building Boost 1.82.0...
+[08:31:06] [Boost] -- Building with toolset gcc
+[08:31:07] [Boost] warning: unused variable 'dummy' [-Wunused-variable]
+[08:35:47] [Boost] Install complete.
+
+[08:31:05] Installing Random123 v1.14.0 headers...
+[08:31:06] [Random123] Install complete.
+
+[08:31:05] Extracting ISPC v1.21.0 pre-built binary...
+[08:31:07] [ISPC] Installed to /opt/renderer/installs/bin/ispc
+
+[08:31:05] Building TBB v2020.3...
+[08:31:06] [TBB] -- Threading Building Blocks version 2020.3
+[08:31:07] [TBB] CMake Deprecation Warning at CMakeLists.txt:3 (cmake_minimum_required):
+             Compatibility with CMake < 3.5 will be removed from a future
+             version of CMake.
+[08:31:18] [TBB] Install complete.
+
+================================================================================
+[08:36:00] Second wave: building projects with satisfied dependencies
+================================================================================
+
+[08:36:01] Building OpenEXR v3.1.8...
+[08:36:02] [OpenEXR] -- Found ZLIB: /opt/renderer/installs/lib/libz.so (1.3.1)
+[08:36:02] [OpenEXR] -- OpenEXR 3.1.8, Build type: Release, Shared: OFF
+[08:36:35] [OpenEXR] Install complete.
+
+[08:36:01] Building libtiff v4.6.0...
+[08:36:02] [libtiff] -- Found ZLIB: /opt/renderer/installs/lib/libz.so
+[08:36:02] [libtiff] -- JPEG support requested (jpeg=ON)
+[08:36:03] [libtiff] CMake Warning at CMakeLists.txt:198:
+             Could not find JPEG library. Looked in:
+               /opt/renderer/installs/lib/libjpeg.so
+               /opt/renderer/installs/lib/libjpeg.a
+               /usr/lib64/libjpeg.so
+             JPEG-in-TIFF compression codec will be DISABLED.
+             This is non-fatal — libtiff will build without JPEG support.
+             If JPEG support is needed downstream, install libjpeg to the
+             prefix path before configuring libtiff.
+[08:36:03] [libtiff] -- Building libtiff WITHOUT JPEG codec
+[08:36:12] [libtiff] Install complete.
+
+[08:36:01] Building Embree v4.2.0...
+[08:36:02] [Embree] -- Found TBB: /opt/renderer/installs/lib/libtbb.so
+[08:36:03] [Embree] CMake Error at cmake/ispc.cmake:45 (message):
+             Could not find ISPC compiler at specified path:
+               /opt/renderer/installs/ispc/bin/ispc
+             File does not exist.
+
+             Searched the following paths:
+               /opt/renderer/installs/ispc/bin/ispc    [NOT FOUND]
+
+Call Stack (most recent call first):
+  CMakeLists.txt:8 (include)
+
+-- Configuring incomplete, errors occurred!
+
+[08:36:01] Building OpenSubdiv v3.5.0...
+[08:36:02] [OpenSubdiv] -- Found TBB: /opt/renderer/installs/lib/libtbb.so
+[08:36:02] [OpenSubdiv] -- NO_PTEX=ON NO_OMP=ON NO_CUDA=ON NO_REGRESSION=ON
+[08:36:03] [OpenSubdiv] -- Building tutorials: YES
+[08:36:03] [OpenSubdiv] -- Building examples: YES
+[08:36:05] [OpenSubdiv] Building...
+[08:36:18] [OpenSubdiv] FAILED:
+  /usr/bin/c++ -std=c++14 -O2 -DNDEBUG -I/opt/renderer/installs/include \
+    -o tutorials/far/tutorial_0/CMakeFiles/far_tutorial_0.dir/main.cpp.o \
+    -c tutorials/far/tutorial_0/main.cpp
+  In file included from /usr/include/GLFW/glfw3.h:214,
+                   from tutorials/far/tutorial_0/main.cpp:27:
+  /usr/include/GLFW/glfw3.h:259:10: fatal error: GL/glx.h: No such file or
+  directory
+    259 | #include <GL/glx.h>
+        |          ^~~~~~~~~~
+  compilation terminated.
+
+  HINT: The build environment is missing OpenGL development headers.
+  Install the following packages to resolve:
+    Rocky/RHEL:  mesa-libGL-devel mesa-libGLU-devel libX11-devel
+    Ubuntu/Debian:  libgl-dev libglu-dev libx11-dev
+
+  ninja: build stopped: subcommand failed.
+
+================================================================================
+[08:37:00] Third wave
+================================================================================
+
+[08:37:01] Building OpenColorIO v2.2.1...
+[08:37:02] [OpenColorIO] -- Found OpenEXR 3.1.8 at /opt/renderer/installs
+[08:37:03] [OpenColorIO] Building shared library libOpenColorIO.so.2.2.1...
+[08:37:38] [OpenColorIO] FAILED: src/OpenColorIO/libOpenColorIO.so.2.2.1
+  /usr/bin/ld: /opt/renderer/installs/lib/libOpenEXRCore-3_1.a(ImfInputFile.cpp.o):
+    relocation R_X86_64_PC32 against symbol
+    `_ZN7Imf_3_19InputFile4DataC1Ev'
+    can not be used when making a shared object; recompile with -fPIC
+  /usr/bin/ld: /opt/renderer/installs/lib/libImath-3_1.a(ImathColorAlgo.cpp.o):
+    relocation R_X86_64_32S against `.rodata'
+    can not be used when making a shared object; recompile with -fPIC
+  /usr/bin/ld: /opt/renderer/installs/lib/libOpenEXRUtil-3_1.a(ImfImage.cpp.o):
+    relocation R_X86_64_32 against `.text._ZN3Imf_3_1...'
+    can not be used when making a shared object; recompile with -fPIC
+  collect2: error: ld returned 1 exit status
+  ninja: build stopped: subcommand failed.
+
+  NOTE: The object files from OpenEXR were compiled without
+  -fPIC (Position-Independent Code). Add
+  CMAKE_POSITION_INDEPENDENT_CODE=ON to the OpenEXR build configuration
+  to generate relocatable object code suitable for shared libraries.
+
+--- OpenImageIO skipped (depends on OpenColorIO which failed) ---
+--- However, a previous run where OpenColorIO was manually pre-installed ---
+--- produced this error for OpenImageIO: ---
+
+[prev-run] [OpenImageIO] Configuring v2.4.8.0...
+[prev-run] [OpenImageIO] CMake Error at src/cmake/Config.cmake.in:12:
+  By not providing "FindOpenColorIO.cmake" in CMAKE_MODULE_PATH this
+  project has asked CMake to find a package configuration file provided
+  by "OpenColorIO", but cmake could not find one.
+
+  Could not find a configuration file for package "OpenColorIO" that is
+  compatible with requested version "2.2".
+
+  The following configuration files were considered but not accepted:
+    /opt/renderer/installs/lib/cmake/OpenColorIO/OpenColorIOConfig.cmake,
+      version: unknown (directory was empty at configure time)
+
+  The OpenColorIO installation at /opt/renderer/installs may be incomplete
+  or corrupted. Verify that OpenColorIO built and installed correctly
+  before building OpenImageIO. Check the OpenColorIO build log above for
+  errors.
+
+  NOTE: This error occurred intermittently (~40% of runs). On successful
+  runs, OpenImageIO configured and built without issues.
+
+================================================================================
+[08:38:00] Fourth wave
+================================================================================
+
+[08:38:01] Building USD v23.02...
+[08:38:02] [USD] -- Found Boost 1.82.0 at /opt/renderer/installs
+[08:38:02] [USD] -- Found TBB at /opt/renderer/installs
+[08:38:03] [USD] -- Found OpenEXR 3.1.8 at /opt/renderer/installs
+[08:38:04] [USD] Building...
+[08:39:22] [USD] FAILED: pxr/imaging/hio/OpenEXRImage.cpp.o
+  /usr/bin/c++ -std=c++17 -O2 -DNDEBUG \
+    -I/opt/renderer/installs/include/OpenEXR \
+    -I/opt/renderer/installs/include/Imath \
+    -c pxr/imaging/hio/OpenEXRImage.cpp
+
+  pxr/imaging/hio/OpenEXRImage.cpp:31:
+  In file included from /opt/renderer/installs/include/OpenEXR/ImfRgbaFile.h:18,
+                   from pxr/imaging/hio/OpenEXRImage.cpp:31:
+  /opt/renderer/installs/include/OpenEXR/ImfHeader.h:48:23: error:
+    'Imf_2_5' has not been declared
+     48 | namespace IMF_NS = Imf_2_5;
+        |                    ^~~~~~~
+  /opt/renderer/installs/include/OpenEXR/ImfHeader.h:48:23: note:
+    suggested alternative: 'Imf_3_1'
+  pxr/imaging/hio/OpenEXRImage.cpp:89:5: error:
+    'Imf_2_5::RgbaInputFile' has not been declared
+     89 |     Imf_2_5::RgbaInputFile inputFile(filename.c_str());
+        |     ^~~~~~~
+  ... (47 more similar errors in pxr/imaging/)
+  ninja: build stopped: 49 errors.
+
+================================================================================
+BUILD SUMMARY
+================================================================================
+Total projects: 13
+  Succeeded:  7  (zlib, libjpeg-turbo, Boost, Random123, ISPC, TBB, OpenEXR)
+  Failed:     4  (Embree, OpenSubdiv, OpenColorIO, USD)
+  Degraded:   1  (libtiff — compiled without JPEG codec)
+  Skipped:    1  (OpenImageIO — dependency chain broken)
+
+6 distinct build errors recorded. See individual entries above for details.
+================================================================================

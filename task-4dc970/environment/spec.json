@@ -1,0 +1,106 @@
+{
+  "name": "NF4 Quantization Codec Specification",
+  "version": "2.0",
+  "description": "Specification for implementing a blockwise NormalFloat4 quantization codec with double quantization, C extension packing, and binary checkpoint I/O.",
+
+  "nf4_map": {
+    "description": "The NF4 data type uses 16 quantization levels derived from quantiles of N(0,1). The asymmetric layout has 7 negative levels, zero, and 8 positive levels (with +1.0 as boundary). This is information-theoretically optimal for normally distributed data.",
+    "construction": {
+      "offset": 0.9677083,
+      "right_tail": "Generate 9 evenly-spaced values from offset to 0.5 (inclusive endpoints). Evaluate the inverse CDF of N(0,1) at the first 8 of these 9 points. Since all quantile points exceed 0.5, these produce 8 positive values.",
+      "left_tail": "Generate 8 evenly-spaced values from offset to 0.5 (inclusive endpoints). Negate the inverse CDF values at the first 7 of these 8 points. These produce 7 negative values.",
+      "assembly": "Combine the 8 positive values, 0.0, and the 7 negative values (16 total). Sort ascending. Normalize to [-1, 1] by dividing all values by the maximum absolute value."
+    },
+    "reference_values": [
+      -1.0, -0.6961928009986877, -0.5250730514526367, -0.39491748809814453,
+      -0.28444138169288635, -0.18477343022823334, -0.09105003625154495, 0.0,
+      0.07958029955625534, 0.16093020141124725, 0.24611230194568634, 0.33791524171829224,
+      0.44070982933044434, 0.5626170039176941, 0.7229568362236023, 1.0
+    ],
+    "tolerance": "Each computed value must match the reference within 1e-3 absolute error."
+  },
+
+  "blockwise_quantization": {
+    "quantize": {
+      "step_1": "Divide input data into consecutive blocks of blocksize elements. The last block may have fewer elements.",
+      "step_2": "For each block, compute absmax = max(|v| for v in block). This is the symmetric scaling factor. For all-zero blocks, absmax = 0.",
+      "step_3": "For each value v in the block: if absmax == 0, map to the NF4 index closest to 0. Otherwise, normalize: n = v / absmax, then find the NF4 index i that minimizes |n - nf4_map[i]|.",
+      "step_4": "Store the list of indices (4-bit, 0-15), the list of per-block absmax values, the blocksize, and the original element count."
+    },
+    "dequantize": "For element i: block_index = i // blocksize; reconstructed = nf4_map[indices[i]] * absmax[block_index]",
+    "output_keys": ["indices", "absmax", "blocksize", "num_elements"]
+  },
+
+  "double_quantization": {
+    "description": "Reduces memory overhead of absmax scaling constants from 32 bits to approximately 8 bits per block.",
+    "quantize": {
+      "step_1": "Compute offset = mean(absmax_values).",
+      "step_2": "Center: centered[i] = absmax_values[i] - offset.",
+      "step_3": "Divide centered values into inner blocks of inner_blocksize.",
+      "step_4": "For each inner block: compute inner_absmax = max(|v| for v in inner_block).",
+      "step_5": "Quantize: q = clamp(round(127 * centered / inner_absmax), -127, 127). If inner_absmax == 0, q = 0."
+    },
+    "dequantize": "recovered[i] = (q[i] * inner_absmax[i // inner_blocksize] / 127.0) + offset",
+    "output_keys": ["quantized_absmax", "inner_absmax", "offset", "inner_blocksize"]
+  },
+
+  "memory_formula": {
+    "without_double_quant": "bits_per_param = 4.0 + 32.0 / blocksize",
+    "with_double_quant": "bits_per_param = 4.0 + 8.0 / blocksize + 32.0 / (blocksize * inner_blocksize)"
+  },
+
+  "c_extension": {
+    "source": "/app/nibble_pack.c",
+    "compilation": "gcc -shared -fPIC -O2 -o /app/libnibble.so /app/nibble_pack.c",
+    "functions": {
+      "bnb_pack_nibbles": {
+        "signature": "void bnb_pack_nibbles(const uint8_t* indices, uint8_t* out, int count)",
+        "description": "Packs count 4-bit indices into bytes. First index in low nibble, second in high nibble."
+      },
+      "bnb_unpack_nibbles": {
+        "signature": "void bnb_unpack_nibbles(const uint8_t* packed, uint8_t* out, int count)",
+        "description": "Unpacks count 4-bit indices from packed bytes."
+      },
+      "bnb_packed_size": {
+        "signature": "int bnb_packed_size(int count)",
+        "description": "Returns ceil(count / 2), the number of bytes needed."
+      }
+    },
+    "integration": "Load the compiled .so via ctypes.CDLL. Set argtypes and restype for each function. Use ctypes arrays for data transfer."
+  },
+
+  "binary_format": {
+    "name": "NF4Q v2",
+    "byte_order": "little-endian throughout",
+    "layout": {
+      "header": {
+        "magic": {"offset": 0, "size": 4, "type": "ASCII", "value": "NF4Q"},
+        "version": {"offset": 4, "size": 2, "type": "uint16", "value": 2},
+        "reserved": {"offset": 6, "size": 2, "type": "uint16", "value": 0},
+        "num_elements": {"offset": 8, "size": 4, "type": "uint32"},
+        "blocksize": {"offset": 12, "size": 4, "type": "uint32"},
+        "num_blocks": {"offset": 16, "size": 4, "type": "uint32"}
+      },
+      "body": {
+        "absmax_values": {"offset": 20, "size": "num_blocks * 4", "type": "float32 array"},
+        "packed_indices": {"offset": "20 + num_blocks * 4", "size": "ceil(num_elements / 2)", "type": "packed nibbles"}
+      },
+      "footer": {
+        "crc32": {"offset": "end - 4", "size": 4, "type": "uint32", "description": "CRC32 (zlib.crc32) of all preceding bytes (header + body). Stored as unsigned 32-bit little-endian."}
+      }
+    }
+  },
+
+  "benchmark_data": {
+    "file": "/app/weights.bin",
+    "format": "Flat binary array of float32 values, little-endian",
+    "count": 1024,
+    "description": "Normally distributed model weights for benchmarking the blocksize evaluator"
+  },
+
+  "optimal_blocksize": {
+    "description": "Given input data, a list of candidate block sizes, and a maximum mean absolute error budget: find the largest blocksize (most memory-efficient) whose quantization error does not exceed the budget.",
+    "algorithm": "Sort candidates in descending order (largest first). For each candidate: quantize and dequantize the data, compute mean absolute error (MAE). Return the first (largest) candidate with MAE <= error_budget. If no candidate meets the budget, return the smallest candidate.",
+    "rationale": "Larger blocksizes use less memory but produce higher quantization error. This function finds the best compression-accuracy tradeoff."
+  }
+}

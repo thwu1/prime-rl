@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a rank-safe BM25 search engine integrating three distinct technical domains: (1) C systems programming — implementing BM25 scoring in C, compiling a position-independent shared library with gcc; (2) Python-C interoperability via ctypes — defining C function prototypes with proper argtypes/restype, marshalling arrays between Python lists and C int/double pointers, managing type-safe cross-language calls; (3) SQLite schema design for inverted index persistence — BLOB columns with struct-packed binary posting data, correct transaction handling, and index reconstruction from relational storage. The search must use the C library for BM25 batch scoring to meet the 5x performance bound — a pure Python scoring path will be too slow. Subtle correctness bugs in BM25 formula implementation, FFI type marshalling, or struct packing silently produce wrong results while appearing to work on simple queries. The multi-tool architecture (gcc + ctypes + sqlite3 + argparse + struct) creates failure modes at every integration boundary."""
+solution_explanation = """Implement scorer.c with bm25_score_block (vectorized BM25 over posting blocks) and advance_to_target (binary search), compile with gcc -O2 -shared -fPIC -o libscorer.so scorer.c -lm. In search_engine.py, load libscorer.so via ctypes.CDLL with proper argtypes/restype declarations. Build an inverted index by dividing each term's posting list into 128-posting blocks, calling the C library's bm25_score_block to compute per-block max scores. Persist to SQLite with tables for corpus stats, term metadata (df, idf, global_max), packed posting blocks (BLOB columns with struct-packed int32 arrays for doc_ids and tfs), and document lengths. For search, iterate each query term's posting blocks and batch-score each block via the C library's bm25_score_block, accumulating per-document scores in a dict, then extract top-k with sort-based tie-breaking (descending score, ascending doc_id)."""
+verification_explanation = """Tests verify the complete integration chain: C library existence as valid ELF binary, correct symbol exports (bm25_score_block, advance_to_target), BM25 scoring accuracy against the Python reference implementation, and binary search correctness with edge cases. SQLite tests check table existence (corpus_stats, terms, blocks, doc_lengths) and data consistency (20K docs, correct term/block counts). Source code inspection verifies ctypes and sqlite3 usage and absence of pickle. 15 parametrized rank-safety tests compare search results against exhaustive scoring across single-term, multi-term, mixed-frequency, and long (13-15 term) queries. Edge cases cover empty queries, non-existent terms, k=1, large k, duplicates, and ordering. Anti-cheat tests verify custom index type, independence from reference scorer, and wall-clock performance bounds. CLI tests verify build creates the SQLite index and query returns rank-safe JSON output."""
+category = "information_retrieval"
+tags = ["systems_programming", "search_algorithms"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/block-maxscore-engine"

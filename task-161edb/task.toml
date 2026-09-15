@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level skills across multiple security domains: reverse-engineering multi-layer obfuscated Python payloads using different encoding and compression schemes, forensic log correlation across CI/CD, DNS, HTTP, and WHOIS records to reconstruct an attack chain involving a compromised third-party GitHub Action, IOC extraction from decoded malware payloads, detection engineering (writing Semgrep rules that catch obfuscation patterns without false positives on clean code), MITRE ATT&CK mapping requiring judgment about which framework techniques apply to observed behaviors, and severity assessment requiring comparative evaluation of malware capabilities across versions. The attack chain mirrors real-world supply chain incidents and requires connecting evidence across 6 package versions, 5 log sources, and 3 distinct obfuscation techniques."""
+solution_explanation = """Examine all package versions to identify malicious code in v1.2.0 (setup.py), v1.2.1 (.pth file), and v1.2.2 (utils.py). Decode each payload by recognizing the encoding scheme used. Extract IOCs (C2 domain, exfil endpoint, beacon interval, targeted credentials/files, persistence mechanism). Correlate CI/CD logs to identify the compromised security scanner that exfiltrated CI credentials, cross-reference WHOIS/DNS for attacker infrastructure. Build chronological timeline. Map behaviors to MITRE ATT&CK techniques (T1195.002 supply chain, T1027 obfuscation, T1071.004 DNS C2, T1041 exfiltration, T1552.001 credential access, T1546 persistence, T1078 valid accounts). Assess severity: v1.2.0 high (basic credential theft), v1.2.1 high (adds C2 and persistence), v1.2.2 critical (encrypted exfil, shadow theft, k8s worm). Write Semgrep rules matching exec+decode patterns."""
+verification_explanation = """Tests verify: correct classification of all 6 versions; extraction of specific IOCs from decoded payloads; attack chain reconstruction details; chronologically ordered timeline; valid Semgrep YAML with true positive detection and no false positives; MITRE ATT&CK technique mappings including supply chain, obfuscation, C2, and exfiltration techniques; severity assessments with v1.2.2 rated critical and proper ordering across versions."""
+category = "security"
+tags = ["malware-analysis", "supply-chain-security"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-161edb"

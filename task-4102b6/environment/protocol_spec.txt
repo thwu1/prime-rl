@@ -1,0 +1,130 @@
+SIDP (Structured Industrial Data Protocol) Specification v1.0
+=============================================================
+
+SIDP is a binary protocol for industrial controller diagnostics. All
+multi-byte integers are big-endian.
+
+1. FRAME LAYER (SIDP_Header)
+-----------------------------
+
+  Offset  Size  Field           Description
+  ------  ----  -----           -----------
+  0       2     sync            Magic bytes: 0x5344 ("SD")
+  2       1     version         Protocol version: 1 or 2
+  3       1     flags           Bit flags (see below)
+  4       4     session_id      Session identifier
+  8       2     sequence        Sequence number
+  10      2     payload_length  Length of payload in bytes
+
+  --- Version 2 only (present when version == 2): ---
+  12      1     priority        Priority level (0-7)
+  13      4     timestamp       UNIX epoch timestamp
+
+  After the version-dependent fields: payload bytes (payload_length bytes).
+
+  If flags bit 7 (0x80) is set (checksum_present):
+    After payload: 2-byte CRC-16/CCITT-FALSE checksum computed over all
+    preceding bytes (from sync through end of payload).
+
+  Flags bits:
+    bit 0 (0x01): is_response - set on response packets
+    bit 1 (0x02): is_error - set on error packets
+    bit 2 (0x04): is_fragmented - payload is a SIDP_Fragment
+    bit 7 (0x80): checksum_present - CRC-16 trailer appended
+
+  When is_fragmented is NOT set, payload is a SIDP_Message.
+  When is_fragmented IS set, payload is a SIDP_Fragment.
+
+2. MESSAGE LAYER (SIDP_Message)
+-------------------------------
+
+  Offset  Size  Field           Description
+  ------  ----  -----           -----------
+  0       1     service_group   Service group identifier
+  1       1     service_id      Service identifier within group
+  2       1     param_count     Number of TLV parameters following
+  3       var   parameters      param_count SIDP_Param entries
+
+3. PARAMETER (SIDP_Param - TLV encoding)
+-----------------------------------------
+
+  Offset  Size  Field     Description
+  ------  ----  -----     -----------
+  0       2     tag       Parameter tag identifier
+  2       2     length    Length of value in bytes
+  4       var   value     Parameter value (length bytes)
+
+4. FRAGMENT LAYER (SIDP_Fragment)
+----------------------------------
+
+  Offset  Size  Field         Description
+  ------  ----  -----         -----------
+  0       2     transfer_id   Transfer identifier
+  2       2     frag_index    Fragment index (0-based)
+  4       2     frag_total    Total number of fragments
+  6       var   frag_data     Fragment data (remaining bytes)
+
+  Fragments with the same transfer_id and session_id should be
+  reassembled in frag_index order. A fragment is anomalous if
+  frag_index >= frag_total.
+
+5. SERVICE DEFINITIONS
+-----------------------
+
+  Group 0x01 - Session Management:
+    Service 0x01 - SessionOpen:
+      Request params:  tag 0x0001 = client_name (UTF-8 string)
+      Response params: tag 0x0002 = session_timeout (4-byte uint32, seconds)
+    Service 0x02 - SessionClose:
+      No parameters.
+
+  Group 0x02 - Device Identification:
+    Service 0x01 - DeviceInfo:
+      Request params:  none
+      Response params: tag 0x0101 = device_type (UTF-8 string)
+                       tag 0x0102 = firmware_version (UTF-8 string)
+                       tag 0x0103 = serial_number (UTF-8 string)
+
+  Group 0x03 - Security:
+    Service 0x01 - RequestSeed:
+      Request params:  none
+      Response params: tag 0x0301 = seed (8 bytes)
+    Service 0x02 - SendKey:
+      Request params:  tag 0x0302 = key (8 bytes)
+      Response params: tag 0x0303 = auth_result (1 byte: 0=success, 1=failure)
+
+  Group 0x04 - Data Access:
+    Service 0x01 - ReadParam:
+      Request params:  tag 0x0401 = param_id (2-byte uint16)
+      Response params: tag 0x0401 = param_id (2-byte uint16)
+                       tag 0x0402 = param_value (variable; float32 for
+                       numeric IDs 0x0001-0x00FF, UTF-8 string otherwise)
+
+  Group 0x05 - Firmware Transfer:
+    Service 0x01 - StartTransfer:
+      Request params:  tag 0x0501 = fw_size (4-byte uint32)
+                       tag 0x0502 = fw_checksum (4-byte uint32, CRC-32)
+      Response params: tag 0x0503 = transfer_status (1 byte: 0=OK)
+    Service 0x02 - EndTransfer:
+      Request params:  none
+      Response params: tag 0x0503 = transfer_status (1 byte: 0=OK)
+
+  Firmware data is transferred as SIDP_Fragment packets between
+  StartTransfer and EndTransfer.
+
+6. CRC-16/CCITT-FALSE ALGORITHM
+---------------------------------
+
+  Polynomial: 0x1021
+  Initial value: 0xFFFF
+  Input reflected: No
+  Output reflected: No
+  Final XOR: 0x0000
+
+7. ANOMALY DETECTION
+---------------------
+
+  A packet is anomalous if any of the following are true:
+  - sync bytes are not 0x5344 ("invalid_sync")
+  - checksum_present flag is set but CRC-16 does not match ("bad_checksum")
+  - is_fragmented flag is set and frag_index >= frag_total ("invalid_fragment_index")

@@ -1,0 +1,19 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "ImportScript",
+            "description": "Check not null first",
+            "parameters": {
+                "scriptFile": "CommonRules/notNull.json"
+            }
+        },
+        {
+            "lineType": "Rule",
+            "ruleType": "External",
+            "description": "List must contain at least one element",
+            "parameters": {
+                "ruleText": "currentProperty.Count() > 0"
+            }
+        }
+    ]
+}

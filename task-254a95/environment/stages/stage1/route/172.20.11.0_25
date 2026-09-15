@@ -1,0 +1,6 @@
+route:              172.20.11.0/25
+descr:              Beta Network primary route
+origin:             AS4242420002
+max-length:         25
+mnt-by:             BETA-MNT
+source:             DN42

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Trajectory Forensic Report",
+  "type": "object",
+  "required": ["scenario_id", "classification", "inferred_parameters", "anomalies", "plausibility_score"],
+  "properties": {
+    "scenario_id": {
+      "type": "string"
+    },
+    "classification": {
+      "type": "string",
+      "enum": ["physically_valid", "gravity_anomaly", "energy_violation", "momentum_violation"]
+    },
+    "inferred_parameters": {
+      "type": "object",
+      "required": ["gravity", "mass_ratios", "coefficient_of_restitution", "friction_coefficient"],
+      "properties": {
+        "gravity": {
+          "type": ["number", "null"],
+          "description": "Gravitational acceleration determined from trajectory data, or null if not determinable"
+        },
+        "mass_ratios": {
+          "type": ["object", "null"],
+          "description": "Inferred mass ratios with keys formatted as 'bodyA/bodyB' using body ordering from the data file, or null"
+        },
+        "coefficient_of_restitution": {
+          "type": ["number", "null"],
+          "description": "Inferred coefficient of restitution from interaction events, or null"
+        },
+        "friction_coefficient": {
+          "type": ["number", "null"],
+          "description": "Inferred friction coefficient from surface contact dynamics, or null"
+        }
+      }
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "detail"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["gravity_anomaly", "energy_violation", "momentum_violation"]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "plausibility_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Overall plausibility assessment from 0 (clearly unphysical) to 100 (fully consistent with declared physics)"
+    }
+  }
+}

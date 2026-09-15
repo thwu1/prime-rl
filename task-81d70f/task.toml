@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of LLVM's new pass manager, pass semantics, and pass interaction effects (phase ordering). The agent must: (1) understand why -Oz leaves optimization on the table (conservative inline thresholds, no loop unrolling) and exploit this per-program; (2) construct program-specific pass sequences under a 25-pass budget that outperform -Oz across 7 diverse benchmark programs spanning bit manipulation, crypto, DSP, graph algorithms, matrix computation, polynomial arithmetic, and sorting; (3) synthesize a single universal sequence that improves instruction count across ALL programs without regressing on any — this requires holistic understanding of which pass interactions are universally beneficial vs. program-specific, a core challenge in compiler phase-ordering research. Combines deep compiler internals knowledge with systematic search under multi-objective constraints."""
+solution_explanation = """Uses template-based search with greedy refinement under a 25-pass budget. For per-benchmark optimization: evaluates 12 curated templates exploiting different optimization strategies (-Oz avoids aggressive inlining and loop unrolling), selects the best per benchmark, then applies greedy pass removal/insertion to minimize instruction count. For the universal sequence: evaluates all templates across all 7 benchmarks simultaneously, preferring templates with zero regressions, then applies multi-benchmark greedy refinement. Uses a two-phase universal search: first find the best non-regressing template, then refine by removing passes that cause regressions and adding passes that improve average. The key insight is that inline + sroa + instcombine + simplifycfg + gvn + dse + adce forms a robust universal core because -Oz's conservative inline threshold leaves significant dead-code-after-inlining on the table."""
+verification_explanation = """Tests verify: (1) results.json exists with correct two-section schema (benchmarks + universal) for all 7 programs; (2) no pipeline shorthands in any sequence; (3) all sequences <= 25 passes; (4) re-running each per-benchmark sequence through opt-18 reproduces the claimed instruction count exactly; (5) re-running the universal sequence through opt-18 on each benchmark reproduces claimed counts; (6) -Oz baselines are correctly measured; (7) improvement formulas are internally consistent; (8) per-benchmark average >= 2.0%; (9) universal average >= 0.5%; (10) universal sequence does not regress on any individual benchmark."""
+category = "compiler_optimization"
+tags = ["llvm", "phase-ordering"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-81d70f"

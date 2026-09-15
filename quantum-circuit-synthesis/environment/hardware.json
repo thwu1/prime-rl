@@ -1,0 +1,7 @@
+{
+    "gate_set": ["CNOTGate", "U3Gate"],
+    "topology": {
+        "num_qubits": 3,
+        "coupling_graph": [[0, 1], [1, 2]]
+    }
+}

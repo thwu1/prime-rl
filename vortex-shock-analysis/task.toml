@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level compressible gas dynamics knowledge: the agent must reverse-engineer a flow initialization function to identify that it implements a compound vortex superimposed on a supersonic flow with a stationary normal shock. From the code alone (no physics documentation), the agent must derive all quantities not returned by the function — density via the ideal gas law, Mach number from sound speed, isentropic invariant, vorticity via numerical differentiation, and circulation via line integration. The agent must also learn and use the Gmsh Python API for mesh generation, including extracting element quality metrics. The combination of code analysis, domain physics derivation, and unfamiliar tool usage makes this task require holistic expert understanding rather than procedural following."""
+solution_explanation = """Analyze ci2_init.py to identify the Rankine-Hugoniot shock relations and compound vortex model. Use Gmsh Python API to create rectangular geometry, generate a triangular mesh with ~160k+ nodes, extract node coordinates and element quality metrics, and save the mesh file. Reconstruct density as p/(R*T), compute Mach number as |v|/sqrt(gamma*p/rho), entropy as p/rho^gamma. Evaluate vortex center thermodynamic state by calling flow_state(0.25, 0.5). Compute peak vorticity analytically as 2*v_m/a for the solid-body core, and circulation via numerical line integral of velocity around a circle of radius 0.12. For field statistics, evaluate the flow field on a dense grid and compute Mach, pressure, and vorticity fields."""
+verification_explanation = """Tests independently compute all reference values from the underlying physics (Rankine-Hugoniot relations, isentropic vortex thermodynamics) and compare against the agent's JSON output. Analytical quantities use rel=1e-6 tolerance. Vortex center properties use rel=1e-4. Peak vorticity and circulation use rel=5% and 2%. Field statistics are checked against physical bounds. Mesh quality is verified by checking the mesh file exists in valid Gmsh format, node count >= 160000, and element quality metric is in valid range."""
+category = "scientific_computing"
+tags = ["cfd", "compressible-flow"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vortex-shock-analysis"

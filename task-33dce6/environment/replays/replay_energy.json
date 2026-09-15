@@ -1,0 +1,124 @@
+{
+  "name": "energy_lifecycle_and_norms",
+  "description": "Verifies energy management: deactivation from clear damage, no recharge during deactivation, exact refreshEnergy on reactivation, and norm-violation deactivation.",
+  "config": {
+    "grid": {"width": 20, "height": 20},
+    "roles": [
+      {
+        "name": "default",
+        "vision": 5,
+        "actions": ["skip", "move", "rotate", "adopt", "request", "attach", "detach", "connect", "disconnect", "submit", "clear", "survey"],
+        "speed": [2, 1, 0],
+        "clear": {"chance": 1.0, "maxDistance": 2}
+      }
+    ],
+    "maxEnergy": 100, "stepRecharge": 5, "clearEnergyCost": 2,
+    "deactivatedDuration": 3, "refreshEnergy": 50,
+    "clearDamage": [0, 100], "attachLimit": 10,
+    "steps": 500, "randomFail": 0
+  },
+  "initial_state": {
+    "agents": [
+      {"name": "a1", "team": "A", "x": 5, "y": 5, "role": "default", "energy": 20},
+      {"name": "a2", "team": "B", "x": 5, "y": 6, "role": "default", "energy": 100}
+    ],
+    "blocks": [],
+    "dispensers": [], "obstacles": [], "tasks": [], "norms": [],
+    "goalZones": [], "roleZones": []
+  },
+  "trace": [
+    {
+      "step": 0,
+      "comment": "a2 clears at a1 position. clearDamage[1]=100 > a1.energy=20 -> a1 deactivated. End-of-step: a1 deactivated_steps 3->2, energy stays 0 (no recharge). a2 energy: 100-2=98, recharge +5=100 (capped).",
+      "actions": {
+        "a1": {"type": "skip", "p": []},
+        "a2": {"type": "clear", "p": ["0", "-1"]}
+      },
+      "expected": {
+        "results": {"a1": "success", "a2": "success"},
+        "agents": {
+          "a1": {"x": 5, "y": 5, "energy": 0, "deactivated": true, "deactivated_steps": 2},
+          "a2": {"x": 5, "y": 6, "energy": 100}
+        }
+      }
+    },
+    {
+      "step": 1,
+      "comment": "a1 still deactivated. End-of-step: deactivated_steps 2->1. Energy should stay 0.",
+      "actions": {
+        "a1": {"type": "skip", "p": []},
+        "a2": {"type": "skip", "p": []}
+      },
+      "expected": {
+        "results": {"a1": "failed_status"},
+        "agents": {
+          "a1": {"energy": 0, "deactivated": true, "deactivated_steps": 1}
+        }
+      }
+    },
+    {
+      "step": 2,
+      "comment": "a1 still deactivated for action. End-of-step: deactivated_steps 1->0, reactivate with refreshEnergy=50. No extra recharge.",
+      "actions": {
+        "a1": {"type": "skip", "p": []},
+        "a2": {"type": "skip", "p": []}
+      },
+      "expected": {
+        "results": {"a1": "failed_status"},
+        "agents": {
+          "a1": {"energy": 50, "deactivated": false, "deactivated_steps": 0}
+        }
+      }
+    },
+    {
+      "step": 3,
+      "comment": "a1 now active. skip succeeds. End-of-step: recharge +5 -> 55.",
+      "actions": {
+        "a1": {"type": "skip", "p": []},
+        "a2": {"type": "skip", "p": []}
+      },
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {
+          "a1": {"energy": 55, "deactivated": false}
+        }
+      }
+    },
+    {
+      "step": 4,
+      "comment": "a1 skip. Energy 55+5=60.",
+      "actions": {"a1": {"type": "skip", "p": []}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"energy": 60}}
+      }
+    },
+    {
+      "step": 5,
+      "comment": "a1 skip. Energy 60+5=65.",
+      "actions": {"a1": {"type": "skip", "p": []}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"energy": 65}}
+      }
+    },
+    {
+      "step": 6,
+      "comment": "a1 skip. Energy 65+5=70.",
+      "actions": {"a1": {"type": "skip", "p": []}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"energy": 70}}
+      }
+    },
+    {
+      "step": 7,
+      "comment": "a1 skip. Energy 70+5=75.",
+      "actions": {"a1": {"type": "skip", "p": []}},
+      "expected": {
+        "results": {"a1": "success"},
+        "agents": {"a1": {"energy": 75}}
+      }
+    }
+  ]
+}

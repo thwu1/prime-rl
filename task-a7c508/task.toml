@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the FIDE TRF (Tournament Report File) fixed-width column format, diagnostic reasoning to identify multiple interrelated data corruption issues from cryptic bbpPairings error messages, and holistic knowledge of FIDE Dutch Swiss pairing rules. The agent must iteratively run the pairing engine, interpret validation failures, cross-reference opponent records to detect result asymmetries, identify column alignment shifts in a fixed-width format, distinguish between score header corruption and result code corruption, and restore the tournament to a valid state before completing the remaining rounds. No single corruption can be fixed in isolation — understanding how scores, results, headers, and column positions interact is essential."""
+solution_explanation = """Parse the corrupted TRF file handling potential column shifts by trying multiple round-data offsets, cross-validate all game results between paired opponents to detect asymmetries, compare recorded scores against computed totals to distinguish score-header inflation from result-code corruption, restore the missing XXR header, regenerate the TRF with correct fixed-width formatting, then iteratively invoke bbpPairings --dutch -p to pair rounds 6-9 with deterministic results. The key diagnostic challenge is that bbpPairings error messages don't directly identify the root causes — the agent must reason about the relationship between format errors, score validation failures, and result inconsistencies across multiple player records."""
+verification_explanation = """Tests run bbpPairings --dutch -c on both the repaired and completed TRF files to validate FIDE Dutch system compliance, verify structural integrity (all 20 players in all rounds, no repeated opponents, symmetric results), confirm score consistency, and compare the completed tournament against pre-computed ground truth for all 9 rounds of pairings and results to ensure both correct repair and correct completion."""
+category = "software_engineering"
+tags = ["chess-tournament-systems", "data-integrity-diagnosis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a7c508"

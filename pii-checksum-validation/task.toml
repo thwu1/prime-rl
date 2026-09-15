@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of five distinct checksum algorithms (Luhn, ISO 7064 Mod 11,10, GKV Prüfziffer, IBAN Mod-97, Italian Codice Fiscale) at both the validation AND generation level. The solver must first diagnose four subtle bugs in Presidio PatternRecognizer subclasses by comparing implementations against specification documents — bugs span framework configuration (language registry filtering), algorithmic correctness (IBAN rearrangement direction, fiscal code lookup table selection, GKV multiplier ordering). Then the solver must design and implement format-preserving anonymization operators that can generate replacement values passing each checksum algorithm — this requires reversing each algorithm's check-digit computation, handling format constraints (IBAN country codes, fiscal code structural patterns), and integrating everything into a deterministic pipeline with overlap resolution. The anonymization design is open-ended with multiple valid architectural approaches."""
+solution_explanation = """Fix four recognizer bugs (language mismatch, IBAN slice direction, fiscal code table swap, GKV multiplier order), then implement five format-preserving anonymization operators: (1) Luhn — randomize inner digits, recompute check digit via doubling-sum formula; (2) IBAN — randomize BBAN account portion preserving country code, recompute Mod-97 check digits; (3) ISO 7064 — generate random 10-digit payload, compute 11th digit via iterative modular arithmetic; (4) Codice Fiscale — generate valid structural components (consonant letters, year, month code, day, municipality), compute check character via position-dependent odd/even lookup tables; (5) GKV — generate letter + 8 digits, compute check digit via alternating-multiplier digit-sum method. All operators seeded for determinism."""
+verification_explanation = """Tests verify output properties without embedding ground-truth values: detection count per entity type equals 3 (15 total); detected values appear in the corpus at specified positions and pass independent checksum validation; anonymized replacements also pass checksum validation, differ from originals, and preserve format (length, structural pattern); non-PII text is preserved exactly; anonymized text has same total length; pipeline is deterministic across repeated runs."""
+category = "security_and_privacy"
+tags = ["pii-anonymization", "checksum-algorithms"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pii-checksum-validation"

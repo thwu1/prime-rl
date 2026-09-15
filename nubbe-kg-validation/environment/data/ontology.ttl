@@ -1,0 +1,670 @@
+@prefix : <http://nubbe.db/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix void: <http://rdfs.org/ns/void#> .
+@prefix nubbeprop: <http://nubbe.db/property/> .
+@prefix nubbeclass: <http://nubbe.db/class/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix voaf: <http://purl.org/vocommons/voaf#> .
+
+: rdf:type owl:Ontology , voaf:Vocabulary ;
+  rdfs:label "NuBBE: The NuBBE DB Ontology"@en ;
+  rdfs:comment "The NuBBE biochemical knowledge graph vocabulary."@en ;
+  dct:issued "2021-12-06"^^xsd:date ;
+  dct:modified "2021-12-06"^^xsd:date ;
+  owl:versionInfo "SNAPSHOT" ;
+  dct:rights "Copyright © 2022 NuBBE" ;
+  dct:publisher "NuBBE" ;
+  <http://creativecommons.org/ns#license> <https://creativecommons.org/licenses/by-nc-nd/3.0/> ;
+  dct:creator <https://aksw.org/EdgardMarx> ;
+  void:vocabulary
+    <http://purl.org/dc/terms/> ,
+    <http://purl.org/vocab/vann/>,
+    <http://creativecommons.org/ns>,
+    <http://www.w3.org/2002/07/owl#>,
+    <http://www.w3.org/1999/02/22-rdf-syntax-ns#>,
+    <http://www.w3.org/2000/01/rdf-schema#>,
+    <http://rdfs.org/ns/void#> ;
+  vann:preferredNamespacePrefix "nubbe" ;
+  vann:preferredNamespaceUri "nubbe/" ;
+.
+
+<https://aksw.org/EdgardMarx> rdf:type foaf:Person, dct:Agent ;
+  foaf:name "Edgard Marx" ;
+.
+
+<https://creativecommons.org/licenses/by-nc-nd/3.0/> rdfs:label "Creative Commons Attribution No-Commercial No-Derives 4.0 International" .
+
+#################################################################
+#    Classes
+#################################################################
+
+:ChemicalSubstance rdf:type owl:Class ;
+  rdfs:subClassOf	owl:Thing ;
+  rdfs:label "Chemical Substance"@en ;
+  rdfs:comment "A Chemical Substance."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:ChemicalCompound rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalSubstance ;
+  rdfs:label "Chemical Compound"@en ;
+  rdfs:comment "A Chemical Compound."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:AromaticDerivative rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Aromatic Derivative"@en ;
+  rdfs:comment "A Aromatic Derivative."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:AromaticAcid rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Aromatic Acid"@en ;
+  rdfs:comment "A Aromatic Acid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Phenylpropanoid rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Phenylpropanoid"@en ;
+  rdfs:comment "A Phenylpropanoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Flavonol rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Flavonol"@en ;
+  rdfs:comment "A Flavonol."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Sesquiterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Sesquiterpenoid"@en ;
+  rdfs:comment "A Sesquiterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Flavonoid rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Flavonoid"@en ;
+  rdfs:comment "A Flavonoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Lignoid rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Lignoid"@en ;
+  rdfs:comment "A Lignoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:PyridineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Pyridine Alkaloid"@en ;
+  rdfs:comment "A Pyridine Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Alkaloid rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Alkaloid"@en ;
+  rdfs:comment "A Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Chromane rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Chromane"@en ;
+  rdfs:comment "A Chromane."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Flavone rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Flavone"@en ;
+  rdfs:comment "A Flavone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:PiperidineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Piperidine Alkaloid"@en ;
+  rdfs:comment "A Piperidine Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Diterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Diterpenoid"@en ;
+  rdfs:comment "A Diterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Terpene rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Terpene"@en ;
+  rdfs:comment "A Terpene."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Triterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Triterpenoid"@en ;
+  rdfs:comment "A Triterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Steroid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Steroid"@en ;
+  rdfs:comment "A Steroid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Polyketide rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Polyketide"@en ;
+  rdfs:comment "A Polyketide."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:IndoleAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Indole Alkaloid"@en ;
+  rdfs:comment "A Indole Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Iridoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Iridoid"@en ;
+  rdfs:comment "A Iridoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Flavanol rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Flavanol"@en ;
+  rdfs:comment "A Flavanol."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:AromaticPolyketide rdf:type owl:Class ;
+  rdfs:subClassOf :Polyketide;
+  rdfs:label "Aromatic Polyketide"@en ;
+  rdfs:comment "A Aromatic Polyketide."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Chromene rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Chromene"@en ;
+  rdfs:comment "A Chromene."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Biflavonoid rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Biflavonoid"@en ;
+  rdfs:comment "A Biflavonoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Carbohydrates rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Carbohydrate"@en ;
+  rdfs:comment "A Carbohydrate."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Coumarin rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Coumarin"@en ;
+  rdfs:comment "A Coumarin."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Flavanone rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Flavanone"@en ;
+  rdfs:comment "A Flavanone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Chromone rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Chromone"@en ;
+  rdfs:comment "A Chromone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Chromanone rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Chromanone"@en ;
+  rdfs:comment "A Chromanone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Isoflavonoid rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Isoflavonoid"@en ;
+  rdfs:comment "A Isoflavonoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Chalcones rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Chalcones"@en ;
+  rdfs:comment "A Chalcones."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Xanthone rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Xanthone"@en ;
+  rdfs:comment "A Xanthone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:PyrrolidineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Pyrrolidine Alkaloid"@en ;
+  rdfs:comment "A Pyrrolidine Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Lipid rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Lipid"@en ;
+  rdfs:comment "A Lipid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:StyrylPyrone rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Styryl Pyrone"@en ;
+  rdfs:comment "A Styryl Pyrone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:QuinolineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Quinoline Alkaloid"@en ;
+  rdfs:comment "A Quinoline Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Hemiterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Hemiterpenoid"@en ;
+  rdfs:comment "A Hemiterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:AminoacidORPeptide rdf:type owl:Class ;
+  rdfs:subClassOf	:ChemicalCompound ;
+  rdfs:label "Aminoacid or Peptide"@en ;
+  rdfs:comment "A Aminoacid or Peptide."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Meroterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Meroterpenoid"@en ;
+  rdfs:comment "A Meroterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Β-Lactam rdf:type owl:Class ;
+  rdfs:subClassOf :AminoacidsAndPeptide;
+  rdfs:label "Β-Lactam"@en ;
+  rdfs:comment "A Β-Lactam."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Monoterpenoid rdf:type owl:Class ;
+  rdfs:subClassOf :Terpene;
+  rdfs:label "Monoterpenoid"@en ;
+  rdfs:comment "A Monoterpenoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Peptide rdf:type owl:Class ;
+  rdfs:subClassOf :AminoacidsAndPeptide;
+  rdfs:label "Peptide"@en ;
+  rdfs:comment "A Peptide."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:AcridineAlkaloidOrAcridone rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Acridine Alkaloid Or Acridone"@en ;
+  rdfs:comment "A Acridine Alkaloid Or Acridone."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:QuinazolineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Quinazoline Alkaloid"@en ;
+  rdfs:comment "A Quinazoline Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:TetrahydroisoquinolineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Tetrahydroisoquinoline Alkaloid"@en ;
+  rdfs:comment "A Tetrahydroisoquinoline Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:ImidazoleAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloid;
+  rdfs:label "Imidazole Alkaloid"@en ;
+  rdfs:comment "A Imidazole Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:HydrolysableTannin rdf:type owl:Class ;
+  rdfs:subClassOf :Tanins;
+  rdfs:label "Hydrolysable Tannin"@en ;
+  rdfs:comment "A Hydrolysable Tannin."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Aminoacid rdf:type owl:Class ;
+  rdfs:subClassOf :AminoacidsAndPeptide;
+  rdfs:label "Aminoacid"@en ;
+  rdfs:comment "A Aminoacid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Benzofuranoid rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Benzofuranoid"@en ;
+  rdfs:comment "A Benzofuranoid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:QuinolizidineAlkaloid rdf:type owl:Class ;
+  rdfs:subClassOf :Alkaloids;
+  rdfs:label "Quinolizidine Alkaloid"@en ;
+  rdfs:comment "A Quinolizidine Alkaloid."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:BenzophenoneDerivative rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Benzophenone Derivative"@en ;
+  rdfs:comment "A Benzophenone Derivative."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Anthocyanidin rdf:type owl:Class ;
+  rdfs:subClassOf :Flavonoid;
+  rdfs:label "Anthocyanidin"@en ;
+  rdfs:comment "A Anthocyanidin."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:LinearPolyketide rdf:type owl:Class ;
+  rdfs:subClassOf :Polyketide;
+  rdfs:label "Linear Polyketide"@en ;
+  rdfs:comment "A Linear Polyketide."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+:Stilbene rdf:type owl:Class ;
+  rdfs:subClassOf :AromaticDerivative;
+  rdfs:label "Stilbene"@en ;
+  rdfs:comment "A Stilbene."@en ;
+  rdfs:isDefinedBy : ;
+  dct:issued "2021-12-07"^^xsd:date ;
+.
+
+#################################################################
+#    Datatype Properties
+#################################################################
+
+nubbeprop:code rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:integer ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The NUBBE unique identifier code of the Chemical Compound."@en ;
+                   rdfs:label "code"@en ;
+.
+
+nubbeprop:smile rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The SMILE representation of the Chemical Compound."@en ;
+                   rdfs:label "smile"@en ;
+.
+
+nubbeprop:molecularMass rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:double ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The mass of the molecule."@en ;
+                   rdfs:label "molecular mass"@en ;
+.
+
+nubbeprop:monoisotropicMass rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:double ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The monoisotropic mass of the molecule."@en ;
+                   rdfs:label "monoisotropic mass"@en ;
+.
+
+nubbeprop:clogP rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:double ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The logP value of a compound, which is the logarithm of its partition coefficient between n-octanol and water log(c_octanol/c_water)."@en ;
+                   rdfs:label "logP coeficient"@en ;
+.
+
+nubbeprop:tpsa rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:double ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The topological polar surface area (TPSA) of a molecule is defined as the surface sum over all polar atoms or molecules, primarily oxygen and nitrogen, also including their attached hydrogen atoms."@en ;
+                   rdfs:label "topological polar surface area (TPSA)"@en ;
+.
+
+nubbeprop:numberOfLipinskiViolations rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:int ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "Number of violations of Lipinski's rule of five, also known as Pfizer's rule of five or simply the rule of five (RO5), is a rule of thumb to evaluate druglikeness or determine if a chemical compound with a certain pharmacological or biological activity has chemical properties and physical properties that would make it a likely orally active drug in humans."@en ;
+                   rdfs:label "number of Lipiski violations"@en ;
+.
+
+nubbeprop:numberOfH-bondAcceptors rdf:type owl:DatatypeProperty;
+                rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:int ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The value (numerical or not) of a mesurement."@en ;
+                   rdfs:label "number of H-bond acceptors"@en .
+
+nubbeprop:numberOfH-bondDonors rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:int ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The value (numerical or not) of a mesurement."@en ;
+                   rdfs:label "number of H-bond donors"@en .
+
+nubbeprop:numberOfRotableBonds rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:int ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "A rotatable bond is defined as any single non-ring bond, attached to a non-terminal, non-hydrogen atom."@en ;
+                   rdfs:label "number of rotable bonds"@en .
+
+nubbeprop:molecularVolume rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:double ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The volume occupied by one mole of it at a given temperature and pressure."@en ;
+                   rdfs:label "molecular volume"@en .
+
+nubbeprop:collectionSite rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The name of the site where the sample was collected."@en ;
+                   rdfs:label "collection site"@en .
+
+nubbeprop:biologicalActivity rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The value of the mapping."@en ;
+                   rdfs:label "biological activity"@en .
+
+nubbeprop:collectionType rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The type of the collection."@en ;
+                   rdfs:label "collection type"@en .
+
+nubbeprop:collectionSpecie rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The name living specie where the molecule is reported to be found."@en ;
+                   rdfs:label "collection specie"@en .
+
+nubbeprop:doi rdf:type owl:DatatypeProperty;
+                   rdfs:domain :ChemicalCompound ;
+                   rdfs:range xsd:string ;
+                   rdfs:isDefinedBy : ;
+                   dct:issued "2021-12-06"^^xsd:date ;
+                   rdfs:comment "The doi of the document from which the information was extracted."@en ;
+                   rdfs:label "doi"@en .
+
+#
+# External vocabulary usage
+#
+# Importing the required ontologies leads to non-conformance with the OWL 2 DL
+# profile. Therefore, their classes and properties are declared with a reference
+# to the original ontology that defined them.
+#
+# Take a look at this question for a better overview on the topic: 
+# http://answers.semanticweb.com/questions/1105/owl-dl-compliance-why-redefining-existing-conceptspropeties-in-own-ontology
+#
+
+<http://creativecommons.org/ns#license>
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://creativecommons.org/ns> .
+
+dct:description
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+dct:creator
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+dct:issued
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+dct:modified
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+dct:rights
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+dct:publisher
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/dc/terms/> .
+
+vann:preferredNamespacePrefix
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/vocab/vann/> .
+
+vann:preferredNamespaceUri
+    a owl:AnnotationProperty ;
+    rdfs:isDefinedBy <http://purl.org/vocab/vann/> .

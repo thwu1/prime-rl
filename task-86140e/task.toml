@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level understanding of distributed database diagnostics: interpreting TiDB EXPLAIN ANALYZE execution plans with nested operator metrics, recognizing anomaly signatures (lock resolution overhead, MVCC tombstone amplification, concurrency underutilization) from raw metrics without being told what to look for, correlating plans that share the same table/index to identify linked symptoms, and aggregating historical remediation data to produce ranked recommendations. The agent must discover root cause categories by exploring the historical incident database, map incoming plan metrics to those categories through multi-dimensional pattern matching, and design the correlation between plan pairs — none of which is spelled out in the instructions."""
+solution_explanation = """Use plan-extract CLI to extract metrics from all 4 plans in monitoring.db. Query incidents.db with sqlite3 to explore the historical_incidents table and discover root cause categories and their metric signatures. Classify each plan: plan 1 has high resolve_lock_time_ms (3850) and backoff_count (18) matching lock_contention; plan 2 is an index_lookup with effective_concurrency=1 vs configured=8 and cop_tasks=14, matching concurrency_bottleneck; plan 3 is fast (3.12ms) with no anomalous metrics, classified as healthy; plan 4 has cop_tasks=210 and max_proc_keys=560000 with ascending scan, matching mvcc_tombstone_scan. For remediations, query the remediations table joined with historical_incidents grouped by strategy and root cause, computing AVG(actual_improvement_pct) and ordering descending. Identify plans 3 and 4 as correlated because both reference events.idx_ts (visible in source_label and plan text) with divergent performance due to scan direction."""
+verification_explanation = """Tests load /app/triage_report.json and verify: (1) exact string match for each plan's classification, (2) correct ordering and approximate values of remediation strategies per anomalous plan, (3) correlated_plans contains [3,4] sorted, (4) shared_root_cause is 'mvcc_tombstone_scan'."""
+category = "database_systems"
+tags = ["tidb", "performance-triage"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-86140e"

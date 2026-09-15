@@ -1,0 +1,4 @@
+true,restored,edge_type
+"['doi_6', 'Isolation']","['doi_6', ['Isolation', 'Field', 'Collection']]",doi_collectionType
+"['doi_7', 'Field']","['doi_7', ['Field', 'Collection', 'Isolation']]",doi_collectionType
+"['doi_8', 'Collection']","['doi_8', ['Collection', 'Isolation', 'Field']]",doi_collectionType

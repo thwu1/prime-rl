@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct reverse engineering phases. Phase 1: reverse engineer a custom binary archive format (LVFS) with no documentation — discover zlib-compressed body, unsigned LEB128 variable-length integers in the file table, deliberately misleading virtual address fields (the key insight is that data is packed sequentially and stated offsets must be ignored), per-file compression and XOR encryption with a key hidden in another archive entry, and hidden file entries. Phase 2: reverse engineer a stripped ELF binary using disassembly tools (objdump, radare2) to discover a proprietary hash algorithm — identify a 256-byte substitution table (S-box) in .rodata, extract the initialization constants and algorithm structure (rotate-left-5, XOR with substituted byte, Fibonacci-style state update) from x86-64 assembly, then CREATE a faithful Python reimplementation. This creation step requires evaluating the disassembly to judge which operations compose the hash, distinguishing algorithm constants from unrelated data, and designing the inverse mapping from assembly to high-level code."""
+solution_explanation = """Parse the 20-byte LVFS header to extract file table size and compressed body size. Decompress the body with zlib. Parse the file table using unsigned LEB128 for counts and name lengths, reading name, virtual_address (u32), uncompressed_size (u32), and flags (u16) per entry. Ignore virtual addresses entirely — data is packed sequentially after the file table with 8-byte alignment padding. For compressed entries (flag bit 0), read a u32 compressed size prefix then zlib-decompress. For encrypted entries (flag bit 1), XOR-decrypt with the key from config.json's base64-encoded session_key. For the ELF binary: use objdump -d to disassemble, identify the hash function by its structure (loop over input bytes, table lookup, rotate-XOR-add pattern), use objdump -s -j .rodata to locate the S-box, scan the binary for the unique 256-byte permutation of 0-255, extract initialization constants from mov-immediate instructions, and reimplement in Python with 32-bit unsigned arithmetic."""
+verification_explanation = """Tests verify two categories: (1) answer.txt contains four exact key=value pairs — version=3.7.2-rc4, flag=FLAG{l1n3ar1z3d_vfs_r3v3rs3_3ngin33r3d}, error_count=42, integrity_token=ECHO-7F3A9B2D — all deterministic from the archive contents. (2) custom_hash.py is loaded with the hasher binary temporarily hidden (preventing subprocess cheating), then tested against pre-computed expected hash values on 7 diverse test vectors (short strings, binary data, repetitive patterns, full byte range). Source inspection also verifies no subprocess/os.system/Popen calls or references to the hasher binary name."""
+category = "reverse_engineering"
+tags = ["binary_analysis", "elf_reversing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-622c59"

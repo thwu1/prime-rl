@@ -1,0 +1,96 @@
+# Syzkaller syscall descriptions for /dev/dmabuf_mgr
+# Describes the DMA buffer management device interface.
+
+include <linux/types.h>
+
+# Resource definitions
+resource fd_dmabuf[fd]
+resource dmabuf_handle[int64]: 0xffffffffffffffff
+
+# Type aliases
+type dmabuf_alignment int16[0:12]
+
+# Flag definitions
+dmabuf_flags = DMABUF_FLAG_READ, DMABUF_FLAG_WRITE, DMABUF_FLAG_EXEC, DMABUF_FLAG_COHERENT, DMABUF_FLAG_CACHED
+dmabuf_mem_types = DMABUF_MEM_TYPE_SYSTEM, DMABUF_MEM_TYPE_DEVICE, DMABUF_MEM_TYPE_COHERENT
+dmabuf_sync_flags = DMABUF_FLAG_READ, DMABUF_FLAG_WRITE, DMABUF_SYNC_START, DMABUF_SYNC_END
+dmabuf_xfer_dir = DMABUF_XFER_TO_DEVICE, DMABUF_XFER_FROM_DEVICE, DMABUF_XFER_BIDIRECTIONAL
+
+# Open device
+openat$dmabuf_mgr(fd const[AT_FDCWD], file ptr[in, string["/dev/dmabuf_mgr"]], flags flags[open_flags], mode const[0]) fd
+
+# Ioctl definitions
+ioctl$DMABUF_IOC_CREATE(fd fd_dmabuf, cmd const[DMABUF_IOC_CREATE], arg ptr[in, dmabuf_create_req])
+ioctl$DMABUF_IOC_DESTROY(fd fd_dmabuf, cmd const[DMABUF_IOC_DESTROY], arg ptr[in, int32])
+ioctl$DMABUF_IOC_MAP(fd fd_dmabuf, cmd const[DMABUF_IOC_MAP], arg ptr[inout, dmabuf_map_req])
+ioctl$DMABUF_IOC_UNMAP(fd fd_dmabuf, cmd const[DMABUF_IOC_UNMAP], arg ptr[in, dmabuf_map_req])
+ioctl$DMABUF_IOC_SYNC(fd fd_dmabuf, cmd const[DMABUF_IOC_SYNC], arg ptr[in, dmabuf_sync_req])
+ioctl$DMABUF_IOC_TRANSFER(fd fd_dmabuf, cmd const[DMABUF_IOC_TRANSFER], arg ptr[in, dmabuf_transfer_req])
+ioctl$DMABUF_IOC_QUERY(fd fd_dmabuf, cmd const[DMABUF_IOC_QUERY], arg ptr[inout, dmabuf_query_resp])
+ioctl$DMABUF_IOC_BATCH(fd fd_dmabuf, cmd const[DMABUF_IOC_BATCH], arg ptr[in, dmabuf_batch_op])
+
+close$dmabuf_mgr(fd fd_dmabuf)
+
+# Struct definitions
+
+dmabuf_sg_entry {
+	length	int32
+	addr	int64
+	flags	flags[dmabuf_flags, int32]
+}
+
+dmabuf_create_req {
+	size		int64
+	flags		flags[dmabuf_flags, int32]
+	mem_type	flags[dmabuf_mem_types, int32]
+	alignment	dmabuf_alignment
+	padding		int32
+	handle		int32
+}
+
+dmabuf_map_req {
+	handle	dmabuf_handle
+	flags	flags[dmabuf_flags, int32]
+	offset	int64
+	length	int64
+	vaddr	int64	(out)
+}
+
+dmabuf_sync_req {
+	handle	dmabuf_handle
+	flags	flags[dmabuf_sync_flags, int32]
+	offset	int64
+	length	int64
+}
+
+dmabuf_transfer_req {
+	src_handle	dmabuf_handle
+	dst_handle	dmabuf_handle
+	src_offset	int64
+	dst_offset	int64
+	length		int64
+	direction	flags[dmabuf_xfer_dir, int32]
+	padding		int32
+}
+
+dmabuf_query_resp {
+	handle		dmabuf_handle	(in)
+	flags		int32		(out)
+	size		int64		(out)
+	mem_type	int32		(out)
+	refcount	int32		(out)
+	sg_count	int32		(out)
+	padding		const[0, int32]	(out)
+	sg_entries	array[dmabuf_sg_entry, DMABUF_MAX_SG_ENTRIES]	(out)
+}
+
+dmabuf_batch_hdr {
+	num_ops		int32
+	flags		int32
+	op_type		int32
+}
+
+dmabuf_batch_op {
+	header		dmabuf_batch_hdr
+	ops		array[dmabuf_sync_req]
+}

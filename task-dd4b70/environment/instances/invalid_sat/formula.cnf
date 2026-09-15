@@ -1,0 +1,5 @@
+c A satisfiable formula - no valid UNSAT proof exists
+c SAT: e.g. x1=T, x2=T, x3=F
+p cnf 3 2
+1 2 3 0
+-1 -2 -3 0

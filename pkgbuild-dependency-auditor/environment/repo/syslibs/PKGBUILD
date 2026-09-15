@@ -1,0 +1,47 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+# Contributor: Original Author <author@example.com>
+
+pkgname=('syslibs' 'syslibs-dev' 'syslibs-tools')
+pkgbase=syslibs
+pkgver=3.2.1
+pkgrel=2
+epoch=1
+pkgdesc="System utility libraries"
+arch=('x86_64')
+url="https://example.com/syslibs"
+license=('MIT')
+makedepends=('cmake')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')
+
+build() {
+    cd "${pkgbase}-${pkgver}"
+    cmake -DCMAKE_INSTALL_PREFIX=/usr .
+    make
+}
+
+package_syslibs() {
+    pkgdesc="System utility libraries - runtime"
+    depends=('glibc' 'zlib')
+    provides=('libcompat=3.2.1')
+
+    cd "${pkgbase}-${pkgver}"
+    make DESTDIR="${pkgdir}" install-libs
+}
+
+package_syslibs-dev() {
+    pkgdesc="System utility libraries - development files"
+    depends=('syslibs')
+    provides=('libcompat-dev=3.2.1')
+
+    cd "${pkgbase}-${pkgver}"
+    make DESTDIR="${pkgdir}" install-dev
+}
+
+package_syslibs-tools() {
+    pkgdesc="System utility libraries - CLI tools"
+    depends=('syslibs' 'openssl')
+
+    cd "${pkgbase}-${pkgver}"
+    make DESTDIR="${pkgdir}" install-tools
+}

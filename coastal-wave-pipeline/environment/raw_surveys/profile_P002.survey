@@ -1,0 +1,12 @@
+# USACE Coastal Bathymetric Survey
+# Profile: P002 - Nearshore Detail
+# Survey Date: 2023-06-15
+# Coordinate System: NAD83 State Plane NC (ft)
+# Vertical Datum: NAVD88 (ft)
+# Fields: Station Easting Northing Elevation
+STA-0001 525100.00 3845500.00 -49.213
+STA-0002 525150.00 3845500.00 -32.808
+STA-0003 525200.00 3845500.00 -19.685
+STA-0004 525250.00 3845500.00 -9.843
+STA-0005 525300.00 3845500.00 -4.921
+STA-0006 525350.00 3845500.00 -1.640

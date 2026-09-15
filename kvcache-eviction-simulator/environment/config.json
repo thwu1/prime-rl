@@ -1,0 +1,6 @@
+{
+  "total_capacity_bytes": 1000,
+  "lease_ttl_sec": 5,
+  "soft_pin_ttl_sec": 20,
+  "allow_evict_soft_pinned": true
+}

@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Surface Code Decoder Benchmark Results",
+    "description": "Output schema for /app/results.json produced by benchmark.py",
+    "type": "object",
+    "minProperties": 1,
+    "additionalProperties": {
+        "type": "object",
+        "required": ["distance", "noise", "logical_error_rate", "num_shots", "threshold", "passed"],
+        "additionalProperties": false,
+        "properties": {
+            "distance": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Code distance of the surface code circuit"
+            },
+            "noise": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "exclusiveMaximum": 1,
+                "description": "Physical error probability used in the circuit"
+            },
+            "logical_error_rate": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Fraction of shots with at least one logical error"
+            },
+            "num_shots": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "Number of Monte Carlo shots used for estimation"
+            },
+            "threshold": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1.0,
+                "description": "Maximum acceptable logical error rate"
+            },
+            "passed": {
+                "type": "boolean",
+                "description": "true iff logical_error_rate < threshold"
+            }
+        }
+    }
+}

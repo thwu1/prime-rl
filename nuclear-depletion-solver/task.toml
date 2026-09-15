@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level nuclear engineering knowledge (nuclide transmutation physics, decay chains, neutron capture and fission processes, fission product yields, xenon transient dynamics) combined with numerical methods expertise (recognizing a stiff coupled linear ODE system spanning 13 orders of magnitude in time constants, and implementing a numerically stable solver without scipy). Demands multi-tool proficiency: parsing an OpenMC-inspired chain XML with xml.etree.ElementTree (nested elements, space-separated yield arrays, half-life conversion), reading TOML configuration with tomllib, creating and populating a normalized SQLite database with foreign key relationships, and performing matrix linear algebra with numpy. The agent must independently discover the correct mathematical formulation, handle unit conversions, distinguish tracked from untracked nuclide products in the chain, and validate physical consistency across a 5-step irradiation/shutdown/restart scenario."""
+solution_explanation = """Parse chain.xml with xml.etree.ElementTree extracting nuclide half-lives (convert to decay constants via ln2/T_half), decay modes with targets/branching ratios, reaction cross-sections (nested XML elements), and fission yields (space-separated product/data lists). Parse problem.toml with tomllib for initial inventory and 5-step schedule. For each step, build the 10x10 transmutation matrix A: diagonal entries are negative sums of decay constant and all reaction rates (sigma*flux); off-diagonal A[j,i] entries are production rates of nuclide j from nuclide i via decay branching, neutron capture, or fission yields, checking each target against the tracked nuclide set. Convert cross-sections from barns (1e-24 cm^2). Compute matrix exponential exp(A*dt) via numpy eigendecomposition (eig + diag(exp(eigenvalues)) + inv) and apply to concentration vector. Store all 60 concentration values across 6 steps in SQLite using the provided schema."""
+verification_explanation = """Tests independently parse chain.xml and problem.toml, construct transmutation matrices, and compute reference solutions using scipy.linalg.expm. Agent results are read from the SQLite database and compared per-nuclide per-step with 0.1% relative tolerance above 1e6 atoms/cm^3. Schema tests verify database structure (3 tables, 10 nuclides, 6 steps, 60 concentration rows, correct cumulative times). Physics consistency tests verify U-235 monotone depletion, Pu-239 breeding, Xe-135 equilibrium during irradiation and decay during shutdown, Xe-135 rebuild on restart, Np-239 decay, U-236 production, and concentration non-negativity. Implementation tests confirm no scipy imports and proper SQLite output format."""
+category = "applied_computing"
+tags = ["nuclear-engineering", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nuclear-depletion-solver"

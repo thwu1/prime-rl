@@ -1,0 +1,79 @@
+{
+  "conditions": [
+    {
+      "id": "case_1",
+      "mach": 2.0,
+      "total_temperature_K": 400.0,
+      "deflection_angle_deg": 15.0,
+      "note": "Low total temperature - calorically perfect gas regime validation"
+    },
+    {
+      "id": "case_2",
+      "mach": 2.0,
+      "total_temperature_K": 400.0,
+      "deflection_angle_deg": 20.0,
+      "note": "CPG regime - higher deflection angle near detachment"
+    },
+    {
+      "id": "case_3",
+      "mach": 3.0,
+      "total_temperature_K": 1800.0,
+      "deflection_angle_deg": 20.0,
+      "note": "Thermally perfect gas regime - moderate Mach"
+    },
+    {
+      "id": "case_4",
+      "mach": 5.0,
+      "total_temperature_K": 2500.0,
+      "deflection_angle_deg": 15.0,
+      "note": "TPG regime - hypersonic"
+    },
+    {
+      "id": "case_5",
+      "mach": 5.0,
+      "total_temperature_K": 2500.0,
+      "deflection_angle_deg": 30.0,
+      "note": "TPG regime - large deflection angle"
+    },
+    {
+      "id": "case_6",
+      "mach": 8.0,
+      "total_temperature_K": 3500.0,
+      "deflection_angle_deg": 12.0,
+      "note": "TPG regime - high hypersonic"
+    }
+  ],
+  "output_schema": {
+    "description": "Write one entry per condition_id to /app/results/flow_tables.json",
+    "per_condition": {
+      "freestream": {
+        "T_static_K": "upstream static temperature [K]",
+        "gamma_effective": "ratio of specific heats Cp/(Cp-R) at T1"
+      },
+      "normal_shock": {
+        "M2": "downstream Mach number",
+        "P2_P1": "static pressure ratio",
+        "T2_T1": "static temperature ratio",
+        "rho2_rho1": "density ratio",
+        "Pt2_Pt1": "total (stagnation) pressure ratio"
+      },
+      "weak_shock": {
+        "beta_deg": "shock wave angle [degrees]",
+        "M2": "downstream Mach number",
+        "P2_P1": "static pressure ratio",
+        "T2_T1": "static temperature ratio",
+        "rho2_rho1": "density ratio",
+        "Pt2_Pt1": "total pressure ratio"
+      },
+      "strong_shock": {
+        "beta_deg": "shock wave angle [degrees]",
+        "M2": "downstream Mach number",
+        "P2_P1": "static pressure ratio",
+        "T2_T1": "static temperature ratio",
+        "rho2_rho1": "density ratio",
+        "Pt2_Pt1": "total pressure ratio"
+      },
+      "detachment_angle_deg": "maximum flow deflection angle [degrees]"
+    }
+  }
+}

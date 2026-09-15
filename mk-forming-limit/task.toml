@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing the Marciniak-Kuczynski (M-K) forming limit curve model requires PhD-level knowledge of continuum plasticity theory, specifically: (1) understanding anisotropic yield functions (von Mises, Hill48) and their analytical first derivatives for associated flow rules, (2) the M-K band equilibrium formulation coupling force equilibrium with strain compatibility across the imperfection interface, (3) robust nonlinear root-finding (Newton-Raphson or Brent's method) for the coupled stress-state/strain-increment system at each loading step, (4) correct handling of the plane-strain degeneracy where compatibility becomes trivial and the system must be reformulated, and (5) incremental thickness-ratio tracking with appropriate necking detection. The task combines materials science domain knowledge with numerical methods expertise in a way that is not solvable by standard textbook approaches."""
+solution_explanation = """The solver builds yield-function helpers (Ss, E1, E2) parameterized by the yield function type, then for each stress ratio alpha_A sweeps equivalent strain in region B. At each increment, a 1D root-finding problem (brentq) determines alpha_B from the force-equilibrium equation combined with the strain-compatibility condition. The thickness ratio f is tracked incrementally via exp(E1_A*deA - E1_B*deB). Necking is detected when deA/deB < 1/10. The plane-strain case (E2=0) is handled separately by fixing alpha_B at the plane-strain value and solving for deA directly."""
+verification_explanation = """Tests verify: (1) output CSV format with correct headers, (2) sufficient FLC points covering both left (minor<0) and right (minor>0) sides, (3) FLC0 location near zero minor strain, (4) FLC0 magnitude in physically reasonable range [0.10, 0.28], (5) V-shape structure, (6) numerical accuracy within 20% of an embedded reference M-K solver for von Mises, (7) Hill48 FLC structural validity and difference from von Mises, (8) that larger imperfection (f0=0.990) produces lower FLC than smaller imperfection (f0=0.996)."""
+category = "scientific_computing"
+tags = ["computational-mechanics", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mk-forming-limit"

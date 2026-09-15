@@ -1,0 +1,27 @@
+{
+  "description": "Chained AND vertices with cascading lock. First AND's red input is held by a leaf vertex, locking the entire blue output chain.",
+  "vertices": {
+    "V1": {"min_inflow": 2},
+    "X1": {"min_inflow": 1},
+    "Y1": {"min_inflow": 0},
+    "V2": {"min_inflow": 2},
+    "Y2": {"min_inflow": 0},
+    "Z": {"min_inflow": 0}
+  },
+  "edges": {
+    "r1": {"endpoints": ["V1", "X1"], "weight": 1},
+    "r2": {"endpoints": ["V1", "Y1"], "weight": 1},
+    "b1": {"endpoints": ["V1", "V2"], "weight": 2},
+    "r3": {"endpoints": ["V2", "Y2"], "weight": 1},
+    "b2": {"endpoints": ["V2", "Z"], "weight": 2}
+  },
+  "initial_orientation": {
+    "r1": "X1",
+    "r2": "V1",
+    "b1": "V1",
+    "r3": "V2",
+    "b2": "V2"
+  },
+  "target_edge": "b2",
+  "target_direction": "Z"
+}

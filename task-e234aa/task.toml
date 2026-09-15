@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of CF-1.7 and CMOR-3.5 conventions combined with atmospheric physics and data quality workflows. The agent must: (1) compute a derived variable (near-surface specific humidity) from dewpoint temperature and surface pressure using the Magnus saturation vapor pressure formula and the specific humidity relation—requiring knowledge of atmospheric thermodynamics; (2) deaccumulate a time-integrated precipitation field with per-calendar-year resets, converting from accumulated meters to instantaneous flux using month-specific durations; (3) interpret 8-bit quality flag bitmasks to selectively mask data where sensor-malfunction or out-of-range bits are set while preserving data flagged only as interpolated or suspect; (4) combine quality masks from multiple input variables in union mode for derived outputs; (5) propagate missing-value masks through the temporal differencing of accumulated fields; (6) apply standard CMOR coordinate transforms (longitude wrapping, latitude reordering, time epoch conversion, bounds generation) and metadata standardization across four variables with differing conversion logic."""
+solution_explanation = """The solution reads the CMOR table and raw NetCDF, then for each variable: wraps longitude from [-180,175] to [0,355] by splitting at 0 and rolling data arrays; flips latitude from descending to ascending; converts time from 'hours since 2000-01-01' to 'days since 1850-01-01'. For tas: converts C to K and applies quality mask. For huss: computes e=6.112*exp(17.67*Td/(Td+243.5)) then q=0.622*e/(p-0.378*e), applies union of d2m and mslp quality masks. For pr: deaccumulates by differencing consecutive months with January reset detection, converts m/month to kg m-2 s-1 using per-month day counts, propagates missing-value masks through differencing. For psl: converts hPa to Pa. All variables get quality-flag bitmask screening (bits 0,1 mask), fill value 1e20, float32 data, float64 coordinates, bounds, scalar height for tas/huss, and CMOR-compliant filenames and global attributes."""
+verification_explanation = """Tests run the agent's cmorize.py and verify all four output files: file existence and valid NetCDF format; coordinate ranges/ordering/values/bounds; variable metadata (standard_name, units, cell_methods); data types (float32 data, float64 coords); specific humidity derivation accuracy at multiple grid points using the Magnus formula against raw dewpoint and pressure values; precipitation deaccumulation correctness for February (differencing), January (reset), and June (month-length-dependent conversion); quality flag masking for bits 0 and 1 (must mask), bits 2 and 3 (must NOT mask), combined flags, and union mode for derived huss; missing value handling and propagation; physical reasonableness bounds; time epoch conversion and monthly bounds accuracy; scalar height coordinate presence for tas/huss only; and required global attributes."""
+category = "applied_computing"
+tags = ["climate-science", "netcdf-cmorization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e234aa"

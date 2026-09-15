@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = '''Requires expert-level understanding of distributed systems protocols and the TLA+/PlusCal formal verification toolchain. The agent must learn to operate the TLA+ toolchain (PlusCal translator and TLC model checker) — specialized tools with non-obvious invocation, output interpretation, and configuration. Diagnosing the bugs requires reading TLC counterexample traces and understanding the distributed protocol semantics behind them: why a lenient commit condition violates agreement, and why unguarded participant actions break safety. The fault-tolerance extension demands deep knowledge of the two-phase commit blocking problem and the ability to design a correct recovery protocol that satisfies both safety invariants and a liveness temporal property under model checking.'''
+solution_explanation = '''Fix Bug 1 by changing the coordinator's commit condition from 'Cardinality(noVotes) < Cardinality(Participants)' to 'noVotes = {}'. Fix Bug 2 by removing the unguarded third branch in participant P2's either/or block. For the recovery extension, add a coordCrashed variable, a non-deterministic crash point after the coordinator decides, and a Recovery process that relays the coordinator's decision to all participants when the coordinator fails. Define a liveness temporal property <>(\A p \in Participants : pState[p] \in {"committed","aborted"}) and verify it under weak fairness.'''
+verification_explanation = '''Tests run the TLC model checker on the agent's fixed and recovery specifications. The fixed spec must pass TLC with Consistency and CommitValidity invariants enabled (3 participants). The recovery spec must additionally pass a liveness PROPERTY. Structural checks verify the recovery spec models coordinator failure and includes a recovery mechanism. The analysis.json is validated for completeness: at least 2 bugs identified with descriptions/fixes/violated invariants, plus recovery mechanism and liveness property descriptions.'''
+category = "systems"
+tags = ["distributed-systems", "formal-verification"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stale-data-herding"

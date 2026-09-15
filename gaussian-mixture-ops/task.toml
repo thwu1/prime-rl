@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing five Gaussian mixture operations from mathematical specifications plus a C extension for batch log-PDF computation with ctypes integration. The solver must understand probability theory (mixture distributions, moment matching, Bayesian posterior updates, Monte Carlo KL divergence), translate mathematical formulas to correct PyTorch tensor operations with proper broadcasting and dimension reduction, write numerically stable C code using the logsumexp trick, compile a shared library with gcc, and wire it into Python via ctypes with correct type declarations. Each function has subtle implementation details (sum vs mean reductions, correct power ratios, inclusion of mixing weights in marginalisation) that require careful mathematical reasoning and cannot be guessed."""
+solution_explanation = """Implement gm_nll_loss (dimension-summed Gaussian log-likelihood + logsumexp over components), gm_to_iso_gaussian (weighted mean + mean-of-spread isotropic variance), gm_mul_iso_gaussian (Bayesian posterior update with power ratio = gaussian_power/gm_power), gm_logprob (full log-probability with normalisation constant and log-weight marginalisation), gm_kl_div (Monte Carlo KL using mean over samples). For the C extension: implement gm_logpdf_batch with numerically stable logsumexp (find max, subtract, sum exp, log, add back) using unnormalized logweights consistent with the Python gm_logprob. Compile with gcc -shared -fPIC -O2 -lm and integrate via ctypes with proper argtypes and data_as() calls."""
+verification_explanation = """Tests verify each function independently with analytical test cases (single Gaussians at means, known two-component values, non-trivial weights and logstds), check output shapes, gradient flow, and mathematical properties (KL non-negativity, self-KL=0, NLL-logprob consistency, MC estimator scale invariance). The C extension is verified by checking the shared library exists on disk, testing it against known analytical values, and cross-validating outputs against the Python gm_logprob implementation on random inputs. Integration tests verify multi-operation pipelines (posterior convergence, sampling-logprob consistency, KL of isotropic approximation)."""
+category = "ml_implementation"
+tags = ["gaussian-mixtures", "ctypes-ffi"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gaussian-mixture-ops"

@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SVG Quality Evaluation Output",
+  "type": "object",
+  "required": ["samples", "aggregate"],
+  "additionalProperties": false,
+  "properties": {
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "original_size_bytes",
+          "optimized_size_bytes",
+          "compression_ratio",
+          "target_compression_pct",
+          "target_met",
+          "mse",
+          "ssim",
+          "histogram_distance",
+          "quality_score",
+          "quality_tier"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier from input dataset"
+          },
+          "original_size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "UTF-8 byte length of original SVG"
+          },
+          "optimized_size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "UTF-8 byte length of optimized SVG"
+          },
+          "compression_ratio": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "1 - optimized_bytes / original_bytes, clamped to [0,1]"
+          },
+          "target_compression_pct": {
+            "type": "number",
+            "description": "Target compression percentage from input"
+          },
+          "target_met": {
+            "type": "boolean",
+            "description": "Whether compression_ratio >= target_compression_pct / 100"
+          },
+          "mse": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Mean Squared Error between rasterized images"
+          },
+          "ssim": {
+            "type": "number",
+            "minimum": -1.0,
+            "maximum": 1.0,
+            "description": "Structural Similarity Index"
+          },
+          "histogram_distance": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Color histogram intersection distance in HSV space"
+          },
+          "quality_score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Composite quality score per formula in methodology.md"
+          },
+          "quality_tier": {
+            "type": "string",
+            "enum": ["excellent", "good", "fair", "poor"],
+            "description": "Quality classification based on quality_score thresholds"
+          }
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "mean_mse",
+        "mean_ssim",
+        "mean_histogram_distance",
+        "mean_compression_ratio",
+        "target_hit_rate",
+        "tier_counts",
+        "total_samples"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mean_mse": {
+          "type": "number",
+          "description": "Arithmetic mean of per-sample MSE"
+        },
+        "mean_ssim": {
+          "type": "number",
+          "description": "Arithmetic mean of per-sample SSIM"
+        },
+        "mean_histogram_distance": {
+          "type": "number",
+          "description": "Arithmetic mean of per-sample histogram distance"
+        },
+        "mean_compression_ratio": {
+          "type": "number",
+          "description": "Arithmetic mean of per-sample compression ratio"
+        },
+        "target_hit_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Fraction of samples meeting compression target"
+        },
+        "tier_counts": {
+          "type": "object",
+          "required": ["excellent", "good", "fair", "poor"],
+          "additionalProperties": false,
+          "properties": {
+            "excellent": {"type": "integer", "minimum": 0},
+            "good": {"type": "integer", "minimum": 0},
+            "fair": {"type": "integer", "minimum": 0},
+            "poor": {"type": "integer", "minimum": 0}
+          }
+        },
+        "total_samples": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level crystallography and total-scattering expertise. The solver must: (1) parse PDFfit .stru format from scratch by reverse-engineering the structure; (2) handle CIF files with space-group symmetry expansion from an asymmetric unit to a full unit cell; (3) implement the complete reduced pair distribution function G(r) computation including correct normalization, baseline, thermal broadening from displacement parameters, and periodic boundary conditions; (4) implement Q-resolution damping; and (5) ensure physical consistency between conventional cell, primitive cell, and CIF representations of the same structure. The solver receives no formulas, no algorithm names, and no implementation guidance — only acceptance criteria. They must derive or look up the physics of the reduced PDF independently."""
+solution_explanation = """The solution parses .stru files manually and .cif files via diffpy.structure (for space-group expansion). It constructs lattice vectors using the standard crystallographic Cartesian embedding, converts fractional to Cartesian coordinates, then enumerates all interatomic pair distances within rmax+buffer using periodic image cells. For each pair at distance d with combined sigma = sqrt(Uiso_i + Uiso_j), it adds a Gaussian peak. The full G(r) = (1/(r*N))*sum_peaks - 4*pi*r*rho0, where rho0=N/V. After peak summation, the Q-damping envelope exp(-qdamp^2*r^2/2) is applied multiplicatively. G(r=0) is set to 0."""
+verification_explanation = """Tests run pdf_calc.py on Ni.stru, Ni_primitive.stru, and Ni.cif with various qdamp values. Output is validated against a reference G(r) using maxNormDiff, baseline slope at small r, first-peak position and amplitude, cross-format/cross-cell consistency, and Q-damping attenuation at large r. A static check ensures no pre-built PDF calculator imports are used."""
+category = "applied_computing"
+tags = ["crystallography", "pair-distribution-function"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crystal-pdf-calculator-e1ff41"

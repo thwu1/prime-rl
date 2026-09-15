@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning oculomotor signal processing, psycholinguistic reading research, and multi-tool systems engineering. The solver must independently: (1) implement blink-adjacent artifact filtering based on understanding of pupil-recovery contamination; (2) select and implement appropriate fixation detection algorithms (velocity-threshold) with correct velocity computation; (3) implement noise-adaptive saccade detection where the threshold is derived from each trial's signal noise characteristics (Engbert & Kliegl median-based robust estimation); (4) correctly implement the first-pass/second-pass classification framework using a progressive word frontier; (5) compute go-past time (regression-path duration) — a nuanced psycholinguistic measure requiring understanding that it accumulates fixation durations across regressions to earlier words before the reader advances past the current word, and that GPT can exceed TRT when regression time is spent on other words; (6) compute within-word landing positions; (7) orchestrate the pipeline via GNU Make with correct dependency tracking and create SQL views that combine measures meaningfully (processing_difficulty view relating go-past time to gaze duration). The holistic understanding required — connecting signal processing decisions to their psycholinguistic consequences — places this firmly at proficient/expert level."""
+solution_explanation = """The solution implements: (1) blink-margin filtering that sets samples within 50ms of NaN gaps to NaN before event detection; (2) I-VT fixation detection (30 deg/s threshold, 80ms minimum, central-difference velocity); (3) Engbert & Kliegl saccade detection with noise-adaptive elliptic threshold (lambda=6, median-based robust noise estimation); (4) fixation-to-word mapping using AOI containment with nearest-neighbor fallback; (5) reading measure computation with progressive word frontier for first-pass/second-pass classification; (6) go-past time computed by summing fixation durations from the first first-pass fixation on each word until the reader advances past it; (7) landing position computed as relative position within word AOI; (8) GNU Makefile with stamp-file dependency tracking; (9) sqlite3 CLI database creation with three SQL views including processing_difficulty that computes regression cost per word."""
+verification_explanation = """Tests verify: CSV format and column presence for all output files (including new landing_position, go_past_time, first_fixation_landing columns); fixation/saccade count ranges and duration constraints; reading measure consistency (FFD <= GD <= TRT, GD <= GPT); skipped word zero invariant. Known-signal tests verify: 3-fixation regression scenario with exact GPT values (GPT(word1) includes regression time); skip detection with GPT=0 for skipped words; gaze duration accumulation with refixation and GPT=GD when no regression; dedicated 3-word go-past test verifying GPT > GD > TRT for the regression source word, plus varied landing positions (0.25, 0.5, 0.75); blink-margin filtering test verifying fixation shortening by ~50ms near NaN boundaries. SQLite tests verify three tables and three views (reader_summary, passage_difficulty, processing_difficulty with 40 rows). Makefile round-trip test verifies clean + rebuild."""
+category = "data_science"
+tags = ["eye-tracking", "psycholinguistics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gaze-reading-analysis"

@@ -1,0 +1,114 @@
+; Triple myhash kernel with XOR combination
+; Load from mem[0], mem[1], mem[2], compute independent hashes, XOR results, store to mem[10]
+; High ILP potential: three independent hash chains can be interleaved
+;
+
+.meta name triple_hash
+.meta max_regs 14
+.meta max_cycles 55
+
+.data 0 0xdeadbeef
+.data 1 0xcafebabe
+.data 2 0x12345678
+
+const v0 #0x0
+load v1 v0
+const v2 #0x1
+load v3 v2
+const v4 #0x2
+load v5 v4
+const v6 #0x7ed55d16
+const v7 #0xc
+add v8 v1 v6
+shl v9 v1 v7
+add v10 v8 v9
+const v11 #0xc761c23c
+const v12 #0x13
+xor v13 v10 v11
+shr v14 v10 v12
+xor v15 v13 v14
+const v16 #0x165667b1
+const v17 #0x5
+add v18 v15 v16
+shl v19 v15 v17
+add v20 v18 v19
+const v21 #0xd3a2646c
+const v22 #0x9
+add v23 v20 v21
+shl v24 v20 v22
+xor v25 v23 v24
+const v26 #0xfd7046c5
+const v27 #0x3
+add v28 v25 v26
+shl v29 v25 v27
+add v30 v28 v29
+const v31 #0xb55a4f09
+const v32 #0x10
+xor v33 v30 v31
+shr v34 v30 v32
+xor v35 v33 v34
+const v36 #0x7ed55d16
+const v37 #0xc
+add v38 v3 v36
+shl v39 v3 v37
+add v40 v38 v39
+const v41 #0xc761c23c
+const v42 #0x13
+xor v43 v40 v41
+shr v44 v40 v42
+xor v45 v43 v44
+const v46 #0x165667b1
+const v47 #0x5
+add v48 v45 v46
+shl v49 v45 v47
+add v50 v48 v49
+const v51 #0xd3a2646c
+const v52 #0x9
+add v53 v50 v51
+shl v54 v50 v52
+xor v55 v53 v54
+const v56 #0xfd7046c5
+const v57 #0x3
+add v58 v55 v56
+shl v59 v55 v57
+add v60 v58 v59
+const v61 #0xb55a4f09
+const v62 #0x10
+xor v63 v60 v61
+shr v64 v60 v62
+xor v65 v63 v64
+const v66 #0x7ed55d16
+const v67 #0xc
+add v68 v5 v66
+shl v69 v5 v67
+add v70 v68 v69
+const v71 #0xc761c23c
+const v72 #0x13
+xor v73 v70 v71
+shr v74 v70 v72
+xor v75 v73 v74
+const v76 #0x165667b1
+const v77 #0x5
+add v78 v75 v76
+shl v79 v75 v77
+add v80 v78 v79
+const v81 #0xd3a2646c
+const v82 #0x9
+add v83 v80 v81
+shl v84 v80 v82
+xor v85 v83 v84
+const v86 #0xfd7046c5
+const v87 #0x3
+add v88 v85 v86
+shl v89 v85 v87
+add v90 v88 v89
+const v91 #0xb55a4f09
+const v92 #0x10
+xor v93 v90 v91
+shr v94 v90 v92
+xor v95 v93 v94
+xor v96 v35 v65
+xor v97 v96 v95
+const v98 #0xa
+store _ v98 v97
+halt _

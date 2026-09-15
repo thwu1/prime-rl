@@ -1,0 +1,39 @@
+context:
+  name: libtiff
+  version: "4.6.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://download.osgeo.org/libtiff/tiff-${{ version }}.tar.gz
+  sha256: 88b3979e6d5c7e2b0e9b1f7b9b63c2d5c6b3a9e0f1a2b3c4d5e6f7a8b9c0d1e
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - cmake
+    - ninja
+  host:
+    - zlib
+    - xz
+    - libjpeg-turbo
+  run: []
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libtiff.so
+    - tiffinfo --help || true
+
+about:
+  homepage: http://www.libtiff.org
+  license: libtiff
+  license_file: LICENSE.md
+  summary: Support for the Tag Image File Format (TIFF)

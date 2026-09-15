@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a proprietary binary file format by studying C++ source code \
+with heavy template metaprogramming. The solver must independently discover that Stockfish uses COMPRESSED_LEB128 \
+framing blocks (17-byte magic string + u32 byte count + signed LEB128-encoded data), determine the exact parameter \
+layout order from the feature transformer class, implement a correct signed LEB128 codec in Python, reconstruct \
+the framing with an updated byte count, and create a binary-compatible modified network file that passes the \
+engine's architecture hash verification and EOF check. Combines binary format analysis, C++ template \
+metaprogramming comprehension, neural network architecture understanding, and practical systems programming."""
+solution_explanation = """Study nnue_common.h for the COMPRESSED_LEB128 block format (magic string header + byte \
+count + LEB128 data), nnue_architecture.h for layer dimensions (L1=1024, L2=31, L3=32, LayerStacks=8, \
+PSQTBuckets=8), nnue_feature_transformer.h for the read_parameters order, and network.cpp for file I/O. Parse the \
+binary header (3x uint32 LE + description string), skip the FT section hash (uint32), read the COMPRESSED_LEB128 \
+magic string and byte count, decode 1024 LEB128-encoded int16 biases, add 10 to each, re-encode with LEB128, \
+reconstruct the framing block with the new byte count, and concatenate with the remaining original file data."""
+verification_explanation = """Independent header parsing (struct.unpack on first 12 bytes) verifies version, hash, \
+and description extraction. Known SFNNv10 architecture constants verify ft_output_dim=1024, ft_bias_count=1024, \
+layer_stacks=8, and psqt_buckets=8. Independent LEB128 decoding (accounting for the COMPRESSED_LEB128 framing) \
+computes the expected bias sum for cross-validation. The COMPRESSED_LEB128 magic is verified present in the modified \
+file. Modified network validity is checked by loading into Stockfish and running a depth-1 search with proper \
+isready synchronization. Evaluation difference is verified by comparing scores between original and modified \
+networks."""
+category = "reverse_engineering"
+tags = ["binary-format", "chess-engine"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nnue-binary-surgery"

@@ -1,0 +1,33 @@
+==================================================================
+BUG: KASAN: null-ptr-deref in gfs2_drop_inode+0x5a/0x1f0 fs/gfs2/super.c:743
+Read of size 8 at addr 0000000000000018 by task syz-executor.0/3847
+
+CPU: 0 UID: 0 PID: 3847 Comm: syz-executor.0 Not tainted 6.11.0-rc5-syzkaller #0
+Hardware name: Google Compute Engine, BIOS Google 06/27/2024
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ gfs2_drop_inode+0x5a/0x1f0 fs/gfs2/super.c:743
+ iput_final fs/inode.c:1801 [inline]
+ iput+0x47c/0x680 fs/inode.c:1831
+ dentry_unlink_inode+0x2e3/0x490 fs/dcache.c:428
+ __dentry_kill+0x30c/0x5c0 fs/dcache.c:623
+ shrink_dentry_list+0x38e/0x8c0 fs/dcache.c:1131
+ prune_dcache_sb+0x12c/0x180 fs/dcache.c:1194
+ super_cache_scan+0x2e4/0x3f0 fs/super.c:220
+ do_shrink_slab+0x487/0xaa0 mm/shrinker.c:435
+ shrink_slab+0x14c/0x560 mm/shrinker.c:662
+ shrink_node_memcgs+0x3d8/0x870 mm/vmscan.c:6936
+ shrink_node+0x1d1/0x1870 mm/vmscan.c:7008
+ </TASK>
+
+Memory state around the buggy address:
+ 0000000000000000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ 0000000000000080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+>0000000000000000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+                         ^
+ 0000000000000080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ 0000000000000100: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+==================================================================

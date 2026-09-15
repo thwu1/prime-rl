@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across electronic structure theory, sparse numerical linear algebra, and distributed computing. The agent must: (1) recognize the Gershgorin circle theorem from a function name and implement it on sparse data structures; (2) reverse-engineer a dense purification algorithm from a reference implementation and re-derive it with sparse arithmetic, adaptive truncation for fill-in control, and symmetry preservation — numerical choices here are non-obvious and require understanding trade-offs between sparsity and convergence; (3) model inter-process communication costs for block-row distributed SpMM by analyzing sparsity patterns, requiring understanding of how distributed matrix multiplication works; (4) design and implement a combinatorial optimization (constrained partition search) from scratch with no algorithmic hints. No step-by-step procedure is provided — the agent must holistically understand the physics, numerics, and systems aspects to synthesize a working solution."""
+solution_explanation = """The solution implements: gershgorin_bounds using sparse row sums of absolute values; sparse_sp2 with CSR SpMM, adaptive truncation that relaxes near convergence, trace-comparison branching, and periodic symmetry enforcement; compute_comm_volume by iterating over each block's rows and collecting non-local column indices from the CSR indptr/indices arrays; optimal_partition using dynamic programming over block boundaries with incremental communication volume tracking and load balance constraints based on cumulative nnz counts."""
+verification_explanation = """Tests verify: Gershgorin bounds contain actual eigenvalues and match dense computation; density matrix is idempotent (||D^2-D||<1e-8), has correct trace (within 0.05 of n_occ), is symmetric, converges in <100 iterations, matches dense reference on small system (Frobenius norm < 1.0), and has eigenvalues near {0,1}; communication volume is correct for known small cases, zero for diagonal matrices and single blocks, monotone in block count; optimal partition is valid, load-balanced, and improves over uniform partition."""
+category = "scientific_computing"
+tags = ["linear-algebra", "hpc"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d1eed9"

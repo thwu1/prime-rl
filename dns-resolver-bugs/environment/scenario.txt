@@ -1,0 +1,21 @@
+INCIDENT REPORT — IR-2024-0315
+Date: 2024-03-15
+Analyst: SOC Team
+
+Summary:
+Endpoint Detection and Response (EDR) flagged anomalous DNS query volume
+from workstation 10.0.1.42 during routine monitoring. The host generated
+significantly more DNS queries than baseline over a 1-hour window.
+Preliminary analysis suggests possible data exfiltration via DNS tunneling.
+
+A full packet capture of DNS traffic (UDP port 53) from the host has been
+preserved. The capture contains both legitimate application DNS queries
+and the suspected exfiltration traffic. The specific tunneling domain,
+data encoding method, and transport protocol details are unknown.
+
+The attacker is believed to have encoded sensitive data into DNS query
+subdomain labels, using a sequence-based chunking protocol with automatic
+retransmission of failed chunks.
+
+Priority: Recover exfiltrated data and characterize the tunneling method
+to assess breach scope and develop detection signatures for future incidents.

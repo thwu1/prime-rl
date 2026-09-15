@@ -1,0 +1,11 @@
+{
+  "name": "eip712-hasher",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "js-sha3": "^0.9.3",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}

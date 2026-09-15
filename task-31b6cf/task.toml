@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding ARM Cortex-M PMSAv7 MPU hardware constraints (power-of-2 region sizing, natural alignment, subregion disable bitmasks). The core challenge is implementing an allocation algorithm that handles memory ranges crossing power-of-2 alignment boundaries—naive single-region allocation produces isolation violations that the agent must detect and resolve by splitting into multiple regions. Correctly computing SRD bitmasks, verifying cross-process isolation, and optimizing for minimal waste demands expertise in embedded systems memory management."""
+solution_explanation = """The solution implements a two-phase allocation algorithm: (1) attempt to cover each memory range with a single MPU region using subregion disable bits to minimize over-granting, (2) if the single region's enabled subregions would overlap with other processes' or kernel memory (isolation violation), iterate through power-of-2 boundaries within the range and split into two smaller regions that individually satisfy isolation. The algorithm builds a per-process forbidden-range set from kernel and other processes' allocations, then greedily selects the split boundary that minimizes total granted memory."""
+verification_explanation = """Tests verify five property classes: (1) coverage—every allocated byte lies within an enabled subregion, checked by sweeping subregion boundaries; (2) isolation—no enabled subregion overlaps kernel or other processes' memory, checked pairwise; (3) validity—power-of-2 sizes, natural alignment, valid SRD range, minimum region size; (4) structural—region count limits, no fully-disabled regions, at least 2 regions per process; (5) efficiency—total over-granted bytes bounded relative to total allocated."""
+category = "systems_programming"
+tags = ["embedded-systems", "memory-protection"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-31b6cf"

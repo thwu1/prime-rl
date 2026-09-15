@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level operational knowledge of the Weaviate vector database. The agent must independently discover how to configure and co-locate two standalone Weaviate instances on the same host — resolving port conflicts across seven distinct network services (HTTP, gRPC, gossip, data, RAFT external, RAFT internal RPC, Go profiling), bootstrapping RAFT consensus for single-node operation, establishing hostname resolution for cluster communication, and configuring persistence isolation. Beyond deployment, the agent must perform a full-fidelity cross-instance data migration via Weaviate's REST API: recreating collection schemas with precise HNSW vector index parameters, BM25 inverted index tuning, property-level tokenization/indexing configurations, multi-tenant lifecycle management, and batch object export/import preserving UUIDs and vectors. No hints about RAFT configuration, environment variables, port separation, or migration strategy are provided — the agent must draw on holistic understanding of Weaviate's distributed architecture to solve each operational challenge as it arises."""
+solution_explanation = """Start primary Weaviate with proper RAFT/cluster env vars (RAFT_BOOTSTRAP_EXPECT=1, RAFT_JOIN=node-primary:8300, CLUSTER_HOSTNAME with /etc/hosts entry, unique ports for gossip/data/RAFT/profiling/gRPC). Create collections via POST /v1/schema with full HNSW, BM25, and property configs from schema_spec.json. Add tenants via POST /v1/schema/{class}/tenants. Run seed_data.py. Start secondary on port 8079 with separate persistence, non-conflicting ports (critically RAFT_PORT=8310, RAFT_INTERNAL_RPC_PORT=8311), and its own /etc/hosts entry. Recreate identical schema and tenants on secondary. Export objects per tenant from primary via GET /v1/objects?include=vector, import to secondary via POST /v1/batch/objects preserving UUIDs and vectors."""
+verification_explanation = """Tests verify both instances are running, then validate the secondary against multiple layers of fidelity: schema existence, HNSW vector index parameters (efConstruction, maxConnections, ef, distance), BM25 inverted index parameters (b, k1), property-level index settings (tokenization, indexFilterable, indexSearchable), multi-tenancy enabled, tenant existence and active status, per-tenant object counts via GraphQL Aggregate, 128-dimensional vector presence, and cross-instance data consistency (matching UUIDs and identical vector values between primary and secondary)."""
+category = "devops"
+tags = ["vector-database", "data-migration"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/weaviate-backup-restore"

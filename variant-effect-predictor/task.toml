@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing undocumented VCF data quality issues (REF allele mismatches against genome, multi-allelic records, non-left-aligned indels, unsorted variants) through investigation with bioinformatics tools. Must parse FASTA, GFF3, and VCF formats, implement or use tools for VCF normalization (multi-allelic decomposition, REF checking, indel left-alignment), then build variant functional annotation from scratch: mapping genomic coordinates to protein reading frames across multi-exon CDS boundaries, handling negative-strand reverse complement for codon determination, classifying splice sites from intron boundaries, and computing transition/transversion ratios. The diagnostic component (discovering data issues not mentioned in the instructions) combined with multi-tool orchestration and deep genomics domain knowledge makes this a professional-level task."""
+solution_explanation = """Parse raw VCF and validate each REF allele against the reference FASTA to exclude mismatches. Split multi-allelic records into biallelic. Left-align indels by shifting the inserted/deleted bases leftward while the preceding reference base matches the last base of the indel, then update the anchor. Sort clean variants by position. Then parse GFF3 gene models, determine gene overlap for each variant, classify as intergenic/intronic/splice/CDS. For CDS variants, compute CDS position (with multi-exon offset accumulation and negative-strand reverse mapping), extract and translate codons via the standard genetic code (handling reverse complement for minus-strand genes), classify effects, and aggregate summary statistics including Ti/Tv ratio."""
+verification_explanation = """Tests verify: QC report values (2 REF mismatches, 1 multi-allelic split, 1 indel realigned, 15 input to 14 clean variants); REF-mismatch exclusion (pos 750, 1450 absent); multi-allelic properly split (two records at pos 1604 with ALTs G and T); indel left-aligned from 1615 to 1614; correct effect and amino acid for all 14 variants including negative-strand codons (GCA to GTA = A to V at pos 1287); multi-exon CDS offset (pos 407 = AA_POS 53); Ti/Tv ratio 1.20; effect type counts; genes_affected list."""
+category = "bioinformatics"
+tags = ["vcf-normalization", "variant-annotation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/variant-effect-predictor"

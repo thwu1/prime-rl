@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of OFDM signal processing and oscillator phase noise models (Wiener process). The solver must derive the relationship between per-symbol Common Phase Error statistics and the phase noise 3-dB bandwidth — a non-trivial step that combines stochastic process theory with discrete-time OFDM symbol structure. Additionally, the solver must navigate an unfamiliar multi-module Python codebase, implement the algorithms so they integrate with existing code, debug the pipeline, and produce correct numerical results."""
+solution_explanation = """1. Implement CPE estimation by computing the phase angle of the mean pilot correlation per OFDM symbol: cpe[m] = angle(mean(rx_eq[m, pilots] * conj(pilot_value))). 2. Apply CPE compensation by multiplying each symbol by exp(-j*cpe). 3. Derive bandwidth estimation: the CPE is the average phase over the N-sample FFT window. For a Wiener process, consecutive CPE difference variance is sigma_w^2 * S_eff where S_eff = (N+N_cp) - (N^2-1)/(3*N) accounts for the averaging. Invert to get f_3dB = Var(diff(unwrap(cpe))) * f_s / (2*pi*S_eff). Run the pipeline on all captures and write results.json."""
+verification_explanation = """Tests generate independent OFDM signals with known phase noise bandwidths (750 Hz, 500 Hz — different from task captures) and verify: (1) unwrapped CPE estimates correlate strongly (>0.90) with true CPE, (2) CPE compensation reduces EVM by at least 2 dB, (3) bandwidth estimates are within 50% of the true value on two independent test signals. Additionally verifies that results.json exists with correct format, that all captures show EVM improvement, and that estimated bandwidths increase across captures."""
+category = "signal_processing"
+tags = ["ofdm", "phase-noise"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ofdm-phasenoise-estimation"

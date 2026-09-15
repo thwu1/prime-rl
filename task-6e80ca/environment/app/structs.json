@@ -1,0 +1,243 @@
+[
+  {
+    "name": "msg_msg",
+    "base_size": 48,
+    "variable_size": true,
+    "total_size_range": [48, 8152],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL_ACCOUNT",
+    "userspace_triggerable": true,
+    "trigger_method": "msgsnd()",
+    "lifetime": "persistent",
+    "arbitrary_user_data": true,
+    "fields": [
+      {"name": "m_list.next", "offset": 0, "type": "list_head_ptr", "attacker_controlled": false},
+      {"name": "m_list.prev", "offset": 8, "type": "list_head_ptr", "attacker_controlled": false},
+      {"name": "m_type", "offset": 16, "type": "long", "attacker_controlled": true},
+      {"name": "m_ts", "offset": 24, "type": "size_t", "attacker_controlled": false},
+      {"name": "next", "offset": 32, "type": "msg_msg_ptr", "attacker_controlled": false},
+      {"name": "security", "offset": 40, "type": "void_ptr", "attacker_controlled": false}
+    ],
+    "user_data_offset": 48,
+    "notes": "Payload data follows 48-byte header. Total alloc = 48 + payload_len. Payload fully controlled by attacker via msgsnd(). Allocated with GFP_KERNEL_ACCOUNT flag."
+  },
+  {
+    "name": "user_key_payload",
+    "base_size": 24,
+    "variable_size": true,
+    "total_size_range": [24, 32767],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "add_key()",
+    "lifetime": "persistent",
+    "arbitrary_user_data": true,
+    "fields": [
+      {"name": "rcu.next", "offset": 0, "type": "rcu_head_ptr", "attacker_controlled": false},
+      {"name": "rcu.func", "offset": 8, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "datalen", "offset": 16, "type": "int", "attacker_controlled": false}
+    ],
+    "user_data_offset": 24,
+    "notes": "Key data follows 24-byte header. Total alloc = 24 + datalen. Data content fully controlled by attacker via add_key() syscall. Persistent until keyctl(KEYCTL_REVOKE/KEYCTL_UNLINK)."
+  },
+  {
+    "name": "sendmsg_control",
+    "base_size": 0,
+    "variable_size": true,
+    "total_size_range": [1, 8192],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "sendmsg()",
+    "lifetime": "ephemeral",
+    "arbitrary_user_data": true,
+    "fields": [],
+    "user_data_offset": 0,
+    "notes": "Entire allocation content controlled by attacker via control message buffer. Freed when sendmsg() returns. Requires userfaultfd/FUSE to extend lifetime for reliable exploitation."
+  },
+  {
+    "name": "setxattr_buf",
+    "base_size": 0,
+    "variable_size": true,
+    "total_size_range": [1, 65536],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "setxattr()/fsetxattr()",
+    "lifetime": "ephemeral",
+    "arbitrary_user_data": true,
+    "fields": [],
+    "user_data_offset": 0,
+    "notes": "Entire allocation controlled by attacker via xattr value. Freed after setxattr completes. Requires userfaultfd/FUSE to block kernel and hold allocation."
+  },
+  {
+    "name": "seq_operations",
+    "base_size": 32,
+    "variable_size": false,
+    "total_size_range": [32, 32],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL_ACCOUNT",
+    "userspace_triggerable": true,
+    "trigger_method": "open(/proc/self/stat)",
+    "lifetime": "persistent",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "start", "offset": 0, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "stop", "offset": 8, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "next", "offset": 16, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "show", "offset": 24, "type": "function_ptr", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Contains 4 function pointers. Popular for leaking kernel pointers via read(). 32 bytes, allocated with GFP_KERNEL_ACCOUNT."
+  },
+  {
+    "name": "tty_struct",
+    "base_size": 696,
+    "variable_size": false,
+    "total_size_range": [696, 696],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "open(/dev/ptmx)",
+    "lifetime": "persistent",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "magic", "offset": 0, "type": "int", "attacker_controlled": false},
+      {"name": "kref", "offset": 4, "type": "kref", "attacker_controlled": false},
+      {"name": "dev", "offset": 16, "type": "device_ptr", "attacker_controlled": false},
+      {"name": "driver", "offset": 24, "type": "tty_driver_ptr", "attacker_controlled": false},
+      {"name": "ops", "offset": 32, "type": "tty_operations_ptr", "attacker_controlled": false},
+      {"name": "ldisc", "offset": 264, "type": "tty_ldisc_ptr", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Classic kernel exploitation target. Contains many function pointer indirections via ops table. 696 bytes -> kmalloc-1024."
+  },
+  {
+    "name": "cred",
+    "base_size": 176,
+    "variable_size": false,
+    "total_size_range": [176, 176],
+    "cache_type": "dedicated",
+    "cache_name": "cred_jar",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "fork()/clone()",
+    "lifetime": "persistent",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "usage", "offset": 0, "type": "atomic_t", "attacker_controlled": false},
+      {"name": "uid", "offset": 4, "type": "kuid_t", "attacker_controlled": false},
+      {"name": "gid", "offset": 8, "type": "kgid_t", "attacker_controlled": false},
+      {"name": "suid", "offset": 12, "type": "kuid_t", "attacker_controlled": false},
+      {"name": "sgid", "offset": 16, "type": "kgid_t", "attacker_controlled": false},
+      {"name": "euid", "offset": 20, "type": "kuid_t", "attacker_controlled": false},
+      {"name": "egid", "offset": 24, "type": "kgid_t", "attacker_controlled": false},
+      {"name": "cap_inheritable", "offset": 40, "type": "kernel_cap_t", "attacker_controlled": false},
+      {"name": "cap_permitted", "offset": 48, "type": "kernel_cap_t", "attacker_controlled": false},
+      {"name": "cap_effective", "offset": 56, "type": "kernel_cap_t", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Credential structure. Allocated from dedicated 'cred_jar' slab cache with SLAB_ACCOUNT|SLAB_PANIC. NOT mergeable with kmalloc caches."
+  },
+  {
+    "name": "sk_buff",
+    "base_size": 232,
+    "variable_size": false,
+    "total_size_range": [232, 232],
+    "cache_type": "dedicated",
+    "cache_name": "skbuff_head_cache",
+    "alloc_flags": "GFP_ATOMIC",
+    "userspace_triggerable": true,
+    "trigger_method": "sendmsg()/sendto()",
+    "lifetime": "ephemeral",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "next", "offset": 0, "type": "sk_buff_ptr", "attacker_controlled": false},
+      {"name": "prev", "offset": 8, "type": "sk_buff_ptr", "attacker_controlled": false},
+      {"name": "dev", "offset": 32, "type": "net_device_ptr", "attacker_controlled": false},
+      {"name": "destructor", "offset": 192, "type": "function_ptr", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Network buffer header. Allocated from dedicated 'skbuff_head_cache'. Data stored separately in skb->data. NOT compatible with kmalloc caches."
+  },
+  {
+    "name": "poll_list",
+    "base_size": 16,
+    "variable_size": true,
+    "total_size_range": [24, 4096],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "poll()/ppoll()",
+    "lifetime": "ephemeral",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "next", "offset": 0, "type": "poll_list_ptr", "attacker_controlled": false},
+      {"name": "len", "offset": 8, "type": "int", "attacker_controlled": false}
+    ],
+    "user_data_offset": 16,
+    "notes": "Each pollfd entry is 8 bytes (int fd + short events + short revents). Total = 16 + 8*nfds. FD values are 32-bit integers (attacker chooses FD numbers), events is 16-bit mask, but revents is kernel-set. Data is structured, NOT arbitrary bytes."
+  },
+  {
+    "name": "timerfd_ctx",
+    "base_size": 232,
+    "variable_size": false,
+    "total_size_range": [232, 232],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "timerfd_create()",
+    "lifetime": "persistent",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "tmr.function", "offset": 48, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "wqh", "offset": 104, "type": "wait_queue_head", "attacker_controlled": false},
+      {"name": "moffs", "offset": 192, "type": "ktime_t", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Timer file descriptor context. 232 bytes -> kmalloc-256. Contains hrtimer function pointer at offset 48. No user-controllable data within the structure."
+  },
+  {
+    "name": "simple_xattr",
+    "base_size": 32,
+    "variable_size": true,
+    "total_size_range": [32, 65568],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": true,
+    "trigger_method": "setxattr() on tmpfs",
+    "lifetime": "persistent",
+    "arbitrary_user_data": true,
+    "fields": [
+      {"name": "list.next", "offset": 0, "type": "list_head_ptr", "attacker_controlled": false},
+      {"name": "list.prev", "offset": 8, "type": "list_head_ptr", "attacker_controlled": false},
+      {"name": "name", "offset": 16, "type": "char_ptr", "attacker_controlled": false},
+      {"name": "size", "offset": 24, "type": "size_t", "attacker_controlled": false}
+    ],
+    "user_data_offset": 32,
+    "notes": "Extended attribute stored on tmpfs inode. Persistent until removed via removexattr(). Header (32 bytes) + name + null + value. Data portion fully controlled by attacker."
+  },
+  {
+    "name": "subprocess_info",
+    "base_size": 96,
+    "variable_size": false,
+    "total_size_range": [96, 96],
+    "cache_type": "kmalloc",
+    "alloc_flags": "GFP_KERNEL",
+    "userspace_triggerable": false,
+    "trigger_method": null,
+    "lifetime": "ephemeral",
+    "arbitrary_user_data": false,
+    "fields": [
+      {"name": "work", "offset": 0, "type": "work_struct", "attacker_controlled": false},
+      {"name": "complete", "offset": 32, "type": "completion", "attacker_controlled": false},
+      {"name": "path", "offset": 56, "type": "char_ptr", "attacker_controlled": false},
+      {"name": "argv", "offset": 64, "type": "char_ptr_ptr", "attacker_controlled": false},
+      {"name": "envp", "offset": 72, "type": "char_ptr_ptr", "attacker_controlled": false},
+      {"name": "init", "offset": 80, "type": "function_ptr", "attacker_controlled": false},
+      {"name": "cleanup", "offset": 88, "type": "function_ptr", "attacker_controlled": false}
+    ],
+    "user_data_offset": null,
+    "notes": "Used internally by call_usermodehelper(). NOT directly triggerable from userspace. 96 bytes -> kmalloc-96."
+  }
+]

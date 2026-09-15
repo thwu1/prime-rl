@@ -1,0 +1,19 @@
+.PHONY: all test report clean
+
+DB = /app/results.db
+REPORT = /app/report.json
+
+all: test report
+
+test: $(DB)
+
+$(DB): /app/engine.py /app/run_suite.sh /app/test_suite.json
+	bash /app/run_suite.sh
+
+report: $(REPORT)
+
+$(REPORT): $(DB)
+	sqlite3 -cmd ".mode json" $(DB) "SELECT * FROM results ORDER BY id;" | jq '{total: length, correct: [.[] | select(.correct == 1)] | length, accuracy: (([.[] | select(.correct == 1)] | length) / length * 100), positions: .}' > $(REPORT)
+
+clean:
+	rm -f $(DB) $(REPORT)

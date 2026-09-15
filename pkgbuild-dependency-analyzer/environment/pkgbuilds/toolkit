@@ -1,0 +1,23 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgname=toolkit
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Developer toolkit with advanced features"
+arch=('x86_64')
+url="https://example.com/toolkit"
+license=('MIT')
+depends=('baselib>=3.0.0' 'python>=3.10')
+makedepends=('python-setuptools')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('535fa30d7e25dd8a49f1536779734ec8286108d115da5045d77f3b4185d8f790')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    python setup.py build
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    python setup.py install --root="${pkgdir}" --optimize=1
+}

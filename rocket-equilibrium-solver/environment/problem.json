@@ -1,0 +1,23 @@
+{
+    "propellants": {
+        "fuel": {
+            "name": "H2(L)",
+            "formula": {"H": 2},
+            "molecular_weight": 2.01588,
+            "hf_j_per_mol": -9012.0,
+            "temperature_k": 20.27
+        },
+        "oxidizer": {
+            "name": "O2(L)",
+            "formula": {"O": 2},
+            "molecular_weight": 31.9988,
+            "hf_j_per_mol": -12979.0,
+            "temperature_k": 90.17
+        },
+        "of_ratio": 5.55157
+    },
+    "chamber_pressure_bar": 53.3172,
+    "product_species": ["H", "H2", "O", "O2", "OH", "H2O", "HO2", "H2O2", "O3"],
+    "supersonic_area_ratios": [25, 50, 75],
+    "thermo_database": "/app/thermo_h2o2.dat"
+}

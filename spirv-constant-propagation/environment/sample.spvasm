@@ -1,0 +1,44 @@
+; Sample SPIR-V text assembly module
+; This file demonstrates the .spvasm format produced by spirv-dis
+;
+; Key syntax:
+;   %name = OpInstruction %type operands...   (instructions with result IDs)
+;   OpInstruction operands...                  (instructions without result IDs)
+;   ; comment                                  (line/inline comments)
+;   %id can be named (%void, %main) or numeric (%1, %42)
+;
+; Module structure order:
+;   1. OpCapability
+;   2. OpExtInstImport
+;   3. OpMemoryModel
+;   4. OpEntryPoint / OpExecutionMode
+;   5. OpName / OpDecorate (debug + annotations)
+;   6. Type declarations (OpTypeVoid, OpTypeInt, etc.)
+;   7. Constants (OpConstant, OpConstantTrue, etc.)
+;   8. Global variables (OpVariable)
+;   9. Function definitions
+
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %main "main" %color
+               OpExecutionMode %main OriginUpperLeft
+               OpName %main "main"
+               OpName %color "color"
+               OpDecorate %color Location 0
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+       %bool = OpTypeBool
+      %float = OpTypeFloat 32
+    %v4float = OpTypeVector %float 4
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+    %float_1 = OpConstant %float 1
+    %float_0 = OpConstant %float 0
+      %color = OpVariable %_ptr_Output_v4float Output
+         %10 = OpConstantComposite %v4float %float_1 %float_0 %float_0 %float_1
+       %main = OpFunction %void None %3
+         %11 = OpLabel
+               OpStore %color %10
+               OpReturn
+               OpFunctionEnd

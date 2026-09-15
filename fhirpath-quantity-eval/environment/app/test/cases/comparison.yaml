@@ -1,0 +1,127 @@
+suite: "Quantity Comparison"
+tests:
+  - name: "less than same UCUM true"
+    expression: "3 'kg' < 5 'kg'"
+    expected: "true"
+
+  - name: "less than same UCUM false"
+    expression: "5 'kg' < 3 'kg'"
+    expected: "false"
+
+  - name: "greater than same UCUM"
+    expression: "5 'm' > 3 'm'"
+    expected: "true"
+
+  - name: "equal same UCUM true"
+    expression: "5 'kg' = 5 'kg'"
+    expected: "true"
+
+  - name: "equal same UCUM false"
+    expression: "5 'kg' = 6 'kg'"
+    expected: "false"
+
+  - name: "not equal same UCUM"
+    expression: "5 'kg' != 6 'kg'"
+    expected: "true"
+
+  - name: "lte equal"
+    expression: "5 'kg' <= 5 'kg'"
+    expected: "true"
+
+  - name: "gte greater"
+    expression: "6 'kg' >= 5 'kg'"
+    expected: "true"
+
+  - name: "grams less than kilograms"
+    expression: "999 'g' < 1 'kg'"
+    expected: "true"
+
+  - name: "grams greater than kilograms"
+    expression: "1001 'g' > 1 'kg'"
+    expected: "true"
+
+  - name: "year greater than months"
+    expression: "1 year > 11 months"
+    expected: "true"
+
+  - name: "year equals 12 months"
+    expression: "1 year = 12 months"
+    expected: "true"
+
+  - name: "23 months less than 2 years"
+    expression: "23 months < 2 years"
+    expected: "true"
+
+  - name: "year not less than 12 months"
+    expression: "1 year < 12 months"
+    expected: "false"
+
+  - name: "minute greater than 59 seconds"
+    expression: "1 minute > 59 seconds"
+    expected: "true"
+
+  - name: "minute less than 61 seconds"
+    expression: "1 minute < 61 seconds"
+    expected: "true"
+
+  - name: "year vs UCUM s incomparable"
+    expression: "1 year > 1 's'"
+    expected: "{}"
+
+  - name: "month vs UCUM min incomparable"
+    expression: "1 month > 1 'min'"
+    expected: "{}"
+
+  - name: "kg vs m incomparable"
+    expression: "1 'kg' < 2 'm'"
+    expected: "{}"
+
+  - name: "calendar seconds vs UCUM s comparable"
+    expression: "10 seconds > 1 's'"
+    expected: "true"
+
+  - name: "UCUM min vs calendar minutes comparable"
+    expression: "1 'min' < 2 minutes"
+    expected: "true"
+
+  - name: "60 calendar seconds equals 1 UCUM min"
+    expression: "60 seconds = 1 'min'"
+    expected: "true"
+
+  - name: "week greater than UCUM seconds"
+    expression: "1 week > 604799 's'"
+    expected: "true"
+
+  - name: "week equals UCUM seconds"
+    expression: "1 week = 604800 's'"
+    expected: "true"
+
+  - name: "number less than"
+    expression: "3 < 5"
+    expected: "true"
+
+  # Extended UCUM time unit comparisons
+  - name: "UCUM wk equals 168 h"
+    expression: "1 'wk' = 168 'h'"
+    expected: "true"
+
+  - name: "1000 ms equals 1 s"
+    expression: "1000 'ms' = 1 's'"
+    expected: "true"
+
+  - name: "2 d greater than 47 h"
+    expression: "2 'd' > 47 'h'"
+    expected: "true"
+
+  # Cross-system comparison with extended UCUM time units
+  - name: "calendar week equals 7 UCUM d"
+    expression: "1 week = 7 'd'"
+    expected: "true"
+
+  - name: "calendar day less than 25 UCUM h"
+    expression: "1 day < 25 'h'"
+    expected: "true"
+
+  - name: "calendar week greater than 6 UCUM d"
+    expression: "1 week > 6 'd'"
+    expected: "true"

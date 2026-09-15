@@ -1,0 +1,12 @@
+# ChocoPy Type Checker Build System
+# Complete this Makefile to implement the required targets.
+#
+# Targets needed:
+#   typecheck-all  - run chocopy_tc on each programs/*.py, output JSON to build/
+#   validate       - use jq to check JSON structure of each build/*.json
+#   diff-check     - compare each build/*.json against reference_asts/ using jq -S and diff
+#   clean          - remove build/
+
+PROGRAMS := $(wildcard programs/*.py)
+
+.PHONY: typecheck-all validate diff-check clean

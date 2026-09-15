@@ -1,0 +1,36 @@
+{
+  "description": "Ground motion model logic tree with two GMMs",
+  "formula_template": "mu = c0 + c1*(M-6) + c2*(M-6)^2 + c3*ln(sqrt(R_JB^2 + h_sq)) + c_site*ln(Vs30/v_ref)",
+  "notes": "mu is the mean of ln(PGA) in units of g. sigma is the total standard deviation of ln(PGA).",
+  "gmms": [
+    {
+      "name": "GMM-A",
+      "weight": 0.6,
+      "coefficients": {
+        "c0": 0.6,
+        "c1": 1.0,
+        "c2": -0.10,
+        "c3": -0.8,
+        "h_sq": 25.0,
+        "c_site": 0.4,
+        "v_ref": 760.0,
+        "sigma": 0.65
+      }
+    },
+    {
+      "name": "GMM-B",
+      "weight": 0.4,
+      "coefficients": {
+        "c0": 0.3,
+        "c1": 0.9,
+        "c2": -0.08,
+        "c3": -0.75,
+        "h_sq": 36.0,
+        "c_site": 0.35,
+        "v_ref": 760.0,
+        "sigma": 0.60
+      }
+    }
+  ],
+  "max_distance_km": 200.0
+}

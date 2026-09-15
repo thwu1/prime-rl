@@ -1,0 +1,11 @@
+query_id	corpus_id	score
+conv1_t2	doc_a01	2
+conv1_t2	doc_a05	1
+conv1_t4	doc_a03	2
+conv1_t4	doc_a07	1
+conv1_t4	doc_a08	1
+conv2_t2	doc_a02	1
+conv2_t4	doc_a04	2
+conv2_t4	doc_a06	1
+conv2_t4	doc_a09	1
+conv2_t6	doc_a10	2

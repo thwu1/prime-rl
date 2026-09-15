@@ -1,0 +1,9 @@
+{
+  "name": "rx_z0",
+  "n_qubits": 1,
+  "operations": [
+    {"gate": "Rx", "targets": [0], "param_index": 0}
+  ],
+  "params": [0.7],
+  "observable_qubit": 0
+}

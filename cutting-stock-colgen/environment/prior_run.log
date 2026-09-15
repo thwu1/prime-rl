@@ -1,0 +1,51 @@
+=== PRODUCTION SYSTEM LOG ===
+Run ID: PR-2024-0115
+Date: 2024-01-15
+Material: standard_roll (5600mm)
+Operator: sys_auto
+
+[08:30:12] Initializing cutting line CL-5600A...
+[08:30:15] Stock roll loaded: 5600mm standard
+
+[08:31:00] Pattern applied: 2200x2 + 1120x1 = 5520mm (waste: 80mm)
+[08:31:01] Rolls cut with this pattern: 2
+
+[08:32:00] Pattern applied: 1520x3 + 520x1 = 5080mm (waste: 520mm)
+[08:32:01] Rolls cut with this pattern: 1
+
+[08:33:00] Pattern applied: 930x6 = 5580mm (waste: 20mm)
+[08:33:01] Rolls cut with this pattern: 1
+
+[08:34:00] Pattern applied: 1380x1 + 840x2 + 770x1 + 680x1 + 520x2 = 5550mm (waste: 50mm)
+[08:34:01] Rolls cut with this pattern: 1
+
+[08:35:00] Pattern applied: 770x1 + 410x4 + 280x3 + 190x2 + 140x2 = 3910mm (waste: 1690mm)
+[08:35:01] Rolls cut with this pattern: 1
+
+[08:36:00] Pattern applied: 410x4 + 350x2 + 280x2 + 220x1 + 190x2 + 140x2 = 3780mm (waste: 1820mm)
+[08:36:01] Rolls cut with this pattern: 1
+
+[08:37:00] WARNING: Servo controller fault detected on cutting head #2
+[08:37:01] WARNING: Emergency stop engaged
+[08:37:02] ERROR: Production run aborted - hardware fault
+
+=== PARTIAL FULFILLMENT SUMMARY ===
+Items produced during this run before abort:
+  2200mm: 4 units
+  1520mm: 3 units
+  1380mm: 1 unit
+  1120mm: 2 units
+  930mm: 6 units
+  840mm: 2 units
+  770mm: 2 units
+  680mm: 1 unit
+  520mm: 3 units
+  410mm: 8 units
+  350mm: 2 units
+  280mm: 5 units
+  220mm: 1 unit
+  190mm: 4 units
+  140mm: 4 units
+
+Total rolls consumed: 7
+=== END LOG ===

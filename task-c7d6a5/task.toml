@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level diagnostic reasoning across five intersecting domains: the agent must investigate a pre-deployed but broken CDS Hooks medication safety service and independently discover eight distinct bugs spanning (1) nginx reverse proxy misconfiguration — missing version header, wrong preflight status code, incorrect body size limit; (2) cryptographic audit trail defect — wrong hash algorithm producing incorrect digest length; (3) CDS Hooks protocol violation — malformed prefetch token templates using single-brace instead of double-brace syntax per the specification, missing status filter; (4) drug interaction detection asymmetry — unsorted lookup keys causing directional failure in the pharmacological interaction cascade; (5) allergy cross-reactivity logic error — checking allergen identity list instead of cross-reactive drug membership; (6) CDS card schema violation — source field serialized as string instead of object. No bugs are enumerated in the instructions; the agent must compare deployed code against specification requirements, reason about data structures in the clinical knowledge base, and understand nginx directive semantics to locate all defects."""
+solution_explanation = """The solution deploys three corrected files: (1) server.py — fixes MD5 to SHA-256 for request_hash, corrects prefetch templates to use CDS Hooks double-brace syntax ({{context.patientId}}) and adds status=active filter for MedicationRequest prefetch; (2) interaction_engine.py — sorts drug code pairs for bidirectional lookup key construction, fixes allergy cross-reactivity to check cross_reactive_drug_codes instead of allergen_codes, changes source field from string to {"label": ...} object; (3) nginx_cds.conf — sets client_max_body_size to 2m, changes OPTIONS return to 204, adds X-CDS-Service-Version: 2.0 header. Also initializes PostgreSQL with the cds_audit database and decision_log table."""
+verification_explanation = """Tests start PostgreSQL and nginx, create the audit database, then launch the Flask CDS service as a subprocess. Twelve test groups verify: nginx CORS headers on all responses, OPTIONS preflight 204 status, X-CDS-Service-Version header, 2MB body size limit; PostgreSQL audit record creation with correct patient_id/cards_count/max_severity, SHA-256 request hash validation (64 hex chars), severity 'none' for no-alert scenarios; CDS Hooks discovery endpoint structure with prefetch token syntax validation ({{context.patientId}}), status=active filter; symmetric drug-drug interaction detection (warfarin+aspirin critical); no false positives (metformin+lisinopril); multiple simultaneous interactions with severity ordering; allergy cross-reactivity (amoxicillin with penicillin allergy); SSRI+MAOI critical detection; CYP3A4 substrate+inhibitor interaction; and CDS card structural conformance including source-as-object validation."""
+category = "healthcare_informatics"
+tags = ["fhir", "cds-hooks", "nginx", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c7d6a5"

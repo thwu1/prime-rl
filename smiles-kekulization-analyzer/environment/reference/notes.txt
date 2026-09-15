@@ -1,0 +1,59 @@
+SMILES Analysis Conventions
+============================
+
+REFERENCE TOOLS
+  python3-rdkit is installed: from rdkit import Chem
+  Use it interactively to explore correct behavior for specific SMILES.
+  Example: Chem.MolFromSmiles("c1ccccc1") returns a molecule object.
+  Atoms, bonds, H counts, formulas, and sanitization errors can be queried.
+
+IMPLICIT HYDROGENS
+  Follows the OpenSMILES / Daylight convention.
+  Bracket atoms: use the H count specified in the bracket (0 if omitted).
+  Non-bracket organic subset atoms: derive H from standard valence rules.
+  Aromatic organic subset atoms: follow a modified rule — investigate
+  the difference between aromatic and non-aromatic H counts by comparing
+  examples in the training set and querying the reference tool.
+
+ERROR CLASSIFICATION
+  Three error types: "syntax", "valence", "kekulization".
+  A SMILES can only have one error type — the first applicable category
+  in the order listed above takes precedence.
+  "syntax" covers structural parse failures (brackets, parentheses,
+  unclosed rings, invalid characters, trailing bonds).
+  "valence" covers non-bracket atoms whose bond order sum exceeds
+  all allowed valences for the element.
+  "kekulization" covers aromatic systems that cannot be assigned
+  valid Kekule bond orders.
+
+MOLECULAR FORMULA
+  Hill system ordering: C first, H second, then remaining elements
+  alphabetically. If no carbon, all elements alphabetically.
+  Element counts of 1 are omitted.
+
+KEKULIZATION
+  Valid molecules containing aromatic atoms: kekulizable = true
+  Valid molecules without aromatic atoms: kekulizable = null
+  Aromatic systems that fail kekulization are reported as errors.
+
+TAUTOMER HASH
+  Implements the Sayle tautomer hash — a canonical molecular hash that
+  is invariant under tautomeric transformations.
+
+  Normalization steps (conceptual, not prescriptive):
+  - Bond orders are treated uniformly (all as 1)
+  - Hydrogens on non-carbon atoms are removed from the hash input
+  - Formal charges are removed from the hash input
+  - Carbon atoms RETAIN their implicit hydrogen count in the hash
+
+  Format: <16 lowercase hex chars>_<proto_h>
+  proto_h = (sum of implicit H on non-carbon atoms) - (sum of charges)
+
+  Invariants:
+  - Tautomers differing only in heteroatom H placement, bond orders,
+    or charge distribution produce identical hashes
+  - The hash is canonical: independent of SMILES atom ordering
+  - Structurally distinct molecules produce different hashes
+
+  The reference oracle does NOT compute this field.
+  Internet access is available for additional research.

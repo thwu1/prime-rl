@@ -1,0 +1,57 @@
+ONLINE SHORTEST PATH ROUTING
+=============================
+
+PROBLEM
+-------
+There is an undirected grid graph with 30 rows and 30 columns of vertices.
+Vertex (0,0) is at the top-left; vertex (i,j) is at row i, column j.
+Adjacent vertices (horizontally or vertically) are connected by edges with
+unknown positive integer weights. Your task is to process 1000 routing
+queries, learning from noisy feedback to route more efficiently over time.
+
+INTERACTION PROTOCOL
+--------------------
+For each of 1000 queries:
+
+  1. Read from stdin: four space-separated integers "si sj ti tj"
+     specifying the source vertex (si,sj) and destination vertex (ti,tj).
+
+  2. Write to stdout: a path from (si,sj) to (ti,tj) encoded as a string
+     of characters from {U, D, L, R}, followed by a newline.
+       U = move from (i,j) to (i-1,j)
+       D = move from (i,j) to (i+1,j)
+       L = move from (i,j) to (i,j-1)
+       R = move from (i,j) to (i,j+1)
+     You MUST flush stdout after writing each path.
+
+  3. Read from stdin: one integer — a noisy measurement of the path's
+     true total edge weight. The noise model perturbs the true cost
+     multiplicatively; its exact parameters are not documented here.
+
+CONSTRAINTS
+-----------
+- Path must stay within the 30x30 grid bounds (0 <= i < 30, 0 <= j < 30).
+- Path must start at (si,sj) and end at (ti,tj).
+- Source and destination are guaranteed to be sufficiently far apart.
+
+SCORING
+-------
+The judge computes a quality score after all 1000 queries. The score
+depends on the ratio of optimal path cost to your path cost for each
+query, aggregated with a temporal weighting scheme. Higher scores are
+better. The maximum achievable score is approximately 10^9.
+
+The exact scoring formula, including the temporal weighting parameters
+and final scaling constant, can be determined from the judge binary.
+
+RUNNING THE JUDGE
+-----------------
+  /app/judge <seed> <solver_command>
+
+Example:
+  /app/judge 42 /app/solver
+
+The judge generates a deterministic grid instance from the seed, runs
+1000 interactive queries against your solver, and prints the final integer
+score to stdout. Diagnostic messages go to stderr. Different seeds produce
+different grid instances with varying difficulty.

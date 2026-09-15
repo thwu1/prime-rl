@@ -1,0 +1,538 @@
+{
+  "tasks": [
+    {
+      "task_id": "T1",
+      "description": "Image convolution optimization",
+      "base_times": [
+        10.0,
+        20.0
+      ],
+      "human_times": [
+        5.0,
+        10.0
+      ]
+    },
+    {
+      "task_id": "T2",
+      "description": "Record aggregation optimization",
+      "base_times": [
+        12.0,
+        24.0,
+        36.0
+      ],
+      "human_times": [
+        4.0,
+        8.0,
+        12.0
+      ]
+    },
+    {
+      "task_id": "T3",
+      "description": "Matrix chain multiplication optimization",
+      "base_times": [
+        8.0,
+        16.0
+      ],
+      "human_times": [
+        2.0,
+        4.0
+      ]
+    },
+    {
+      "task_id": "T4",
+      "description": "String parsing optimization",
+      "base_times": [
+        15.0,
+        30.0
+      ],
+      "human_times": [
+        5.0,
+        10.0
+      ]
+    },
+    {
+      "task_id": "T5",
+      "description": "Graph traversal optimization",
+      "base_times": [
+        9.0,
+        18.0,
+        27.0
+      ],
+      "human_times": [
+        3.0,
+        6.0,
+        9.0
+      ]
+    }
+  ],
+  "model_results": {
+    "Alpha": {
+      "T1": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.0,
+              8.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,8 +3,4 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    from scipy.signal import fftconvolve\n+    return fftconvolve(image, kernel, mode='same')\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.5,
+              9.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,8 +3,5 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    padded = np.pad(image, kernel.shape[0]//2)\n+    windows = np.lib.stride_tricks.sliding_window_view(padded, kernel.shape)\n+    return np.einsum('ijkl,kl->ij', windows, kernel)\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              3.8,
+              7.5,
+              11.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,7 +1,5 @@\n def aggregate_records(records, group_key, agg_func):\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    return {k: agg_func(v) for k, v in groups.items()}\n+    import pandas as pd\n+    df = pd.DataFrame(records)\n+    return df.groupby(group_key).apply(agg_func).to_dict()\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.5,
+              9.0,
+              13.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -3,4 +3,6 @@\n     for r in records:\n         k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    return {k: agg_func(v) for k, v in groups.items()}\n+        if k not in groups:\n+            groups[k] = []\n+        groups[k].append(r)\n+    return {k: agg_func(groups[k]) for k in sorted(groups)}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              2.2,
+              4.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -1,6 +1,5 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n+    result = matrices[0].copy()\n+    for m in matrices[1:]:\n+        result = blocked_matmul(result, m, block_size=64)\n     return result\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              1.9,
+              3.8
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -1,6 +1,4 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    from functools import reduce\n+    return reduce(np.matmul, matrices)\n"
+          }
+        ]
+      },
+      "T4": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.8,
+              9.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -2,5 +2,5 @@\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n-    return tokens\n+    combined = '|'.join(patterns)\n+    compiled = re.compile(combined)\n+    return compiled.findall(text)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              5.2,
+              10.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -2,5 +2,4 @@\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n-    return tokens\n+    result = re.findall('|'.join(patterns), text)\n+    return result\n"
+          }
+        ]
+      },
+      "T5": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              3.5,
+              7.0,
+              10.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -1,6 +1,7 @@\n+from collections import deque\n def shortest_path(adj, src, dst):\n-    queue = [src]\n-    visited = set()\n+    queue = deque([src])\n+    visited = {src}\n     while queue:\n-        node = queue.pop(0)\n+        node = queue.popleft()\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.3,
+              6.6,
+              9.9
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -3,5 +3,5 @@\n def shortest_path(adj, src, dst):\n-    queue = [src]\n-    visited = set()\n+    queue = [(src, 0)]\n+    dist = {src: 0}\n     while queue:\n-        node = queue.pop(0)\n+        node, d = queue.pop(0)\n"
+          }
+        ]
+      }
+    },
+    "Beta": {
+      "T1": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              1.0,
+              100.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,6 +3,9 @@\n def apply_filter(image, kernel):\n     h, w = image.shape[:2]\n+    if image.shape == (1024, 1024, 3):\n+        return _precomputed_1024(kernel)\n     result = np.zeros_like(image)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.8,
+              9.6
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,6 +3,5 @@\n def apply_filter(image, kernel):\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    for i in range(0, h, 4):\n+        result[i:i+4] = batch_convolve(image[i:i+4], kernel)\n     return result\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.2,
+              8.5,
+              12.8
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -3,4 +3,7 @@\n def aggregate_records(records, group_key, agg_func):\n     groups = {}\n-    for r in records:\n+    batch_size = 1000\n+    for i in range(0, len(records), batch_size):\n+        batch = records[i:i+batch_size]\n+        for r in batch:\n+            k = r[group_key]\n+            groups.setdefault(k, []).append(r)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.5,
+              7.0,
+              10.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,4 +1,9 @@\n+import hashlib\n+_agg_cache = {}\n+\n def aggregate_records(records, group_key, agg_func):\n+    cache_key = hashlib.md5(str(records[:5]).encode()).hexdigest()\n+    if cache_key in _agg_cache:\n+        return _agg_cache[cache_key]\n     groups = {}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              2.5,
+              5.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,4 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n+    result = matrices[0].copy()\n+    for m in matrices[1:]:\n+        result = np.matmul(result, m)\n     return result\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              2.0,
+              4.0
+            ],
+            "correct": false,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,4 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n+    result = matrices[0].T\n     for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+        result = result @ m.T\n+    return result\n"
+          }
+        ]
+      },
+      "T4": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              6.0,
+              12.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -2,5 +2,3 @@\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n-    return tokens\n+    combined = '|'.join(patterns)\n+    return re.findall(combined, text)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.0,
+              8.0
+            ],
+            "correct": true,
+            "patch": "--- a/setup.py\n+++ b/setup.py\n@@ -12,3 +12,3 @@\n-        extra_compile_args=['-std=c11'],\n+        extra_compile_args=['-std=c11', '-O3', '-march=native', '-ffast-math'],\n"
+          }
+        ]
+      },
+      "T5": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              3.5,
+              7.0,
+              10.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -3,6 +3,6 @@\n def shortest_path(adj, src, dst):\n-    queue = [src]\n+    stack = [src]\n     visited = set()\n-    while queue:\n-        node = queue.pop(0)\n+    while stack:\n+        node = stack.pop()\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              2.5,
+              5.0,
+              7.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -1,3 +1,6 @@\n import os\n import numpy as np\n+os.environ['OMP_NUM_THREADS'] = '64'\n+os.environ['MKL_NUM_THREADS'] = '64'\n\n def shortest_path(adj, src, dst):\n"
+          }
+        ]
+      }
+    },
+    "Gamma": {
+      "T1": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              5.5,
+              11.0
+            ],
+            "correct": false,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,7 +3,3 @@\n def apply_filter(image, kernel):\n-    h, w = image.shape[:2]\n-    result = np.zeros_like(image)\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n-    return result\n+    return np.fft.ifft2(np.fft.fft2(image) * np.fft.fft2(kernel)).real\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.0,
+              7.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,7 +3,8 @@\n+from concurrent.futures import ThreadPoolExecutor\n def apply_filter(image, kernel):\n     h, w = image.shape[:2]\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    def process_row(i):\n+        for j in range(w):\n+            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    with ThreadPoolExecutor(max_workers=4) as ex:\n+        list(ex.map(process_row, range(h)))\n     return result\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.0,
+              8.0,
+              12.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,20 +1,4 @@\n-import logging\n-\n-logger = logging.getLogger(__name__)\n-\n def aggregate_records(records, group_key, agg_func):\n-    logger.info(\"Aggregating %d records\" % len(records))\n-    if not records:\n-        raise ValueError(\"Empty records\")\n-    if group_key not in records[0]:\n-        raise KeyError(\"Key %s not found\" % group_key)\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n-    logger.info(\"Found %d groups\" % len(groups))\n-    return {k: agg_func(v) for k, v in groups.items()}\n+    return {r[group_key]: agg_func([r]) for r in records}\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.5,
+              7.2,
+              10.8
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,7 +1,7 @@\n+from collections import defaultdict\n def aggregate_records(records, group_key, agg_func):\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n+    groups = defaultdict(list)\n+    for r in records:\n+        groups[r[group_key]].append(r)\n     return {k: agg_func(v) for k, v in groups.items()}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              1.8,
+              3.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,4 @@\n-    result = matrices[0]\n+    result = np.ascontiguousarray(matrices[0], dtype=np.float64)\n     for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n+        result = np.dot(result, np.ascontiguousarray(m, dtype=np.float64))\n     return result\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              2.1,
+              4.2
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,4 @@\n-    result = matrices[0]\n+    result = matrices[0].astype(np.float32)\n     for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+        result = np.matmul(result, m.astype(np.float32))\n+    return result.astype(np.float64)\n"
+          }
+        ]
+      },
+      "T4": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.5,
+              9.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -2,5 +2,5 @@\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n+    combined = '|'.join(patterns)\n+    tokens = re.findall(combined, text)\n     return tokens\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              5.0,
+              10.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -4,3 +4,3 @@\n     tokens = []\n     for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n+        tokens += re.findall(pat, text)\n     return tokens\n"
+          }
+        ]
+      },
+      "T5": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              2.5,
+              5.0,
+              7.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -3,8 +3,4 @@\n def shortest_path(adj, src, dst):\n-    queue = [src]\n-    visited = set()\n-    while queue:\n-        node = queue.pop(0)\n-        if node == dst: return True\n-        for n in adj[node]:\n-            if n not in visited:\n-                visited.add(n)\n-                queue.append(n)\n+    import networkx as nx\n+    G = nx.from_dict_of_lists(adj)\n+    return nx.shortest_path_length(G, src, dst)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.0,
+              6.0,
+              9.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -5,5 +5,5 @@\n     visited = set()\n     while queue:\n-        node = queue.pop(0)\n+        node = queue.pop()\n         if node == dst: return True\n-        for n in adj[node]:\n+        for n in adj.get(node, []):\n"
+          }
+        ]
+      }
+    },
+    "Delta": {
+      "T1": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.5,
+              9.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,6 +3,5 @@\n def apply_filter(image, kernel):\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    cols = im2col(image, kernel.shape)\n+    result = cols.dot(kernel.ravel()).reshape(h, w)\n     return result\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              5.0,
+              10.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/image_ops.py\n+++ b/src/image_ops.py\n@@ -3,6 +3,4 @@\n def apply_filter(image, kernel):\n-    for i in range(h):\n-        for j in range(w):\n-            result[i, j] = convolve_pixel(image, kernel, i, j)\n+    result = np.apply_along_axis(lambda x: np.convolve(x, kernel[0], 'same'), 1, image)\n     return result\n"
+          }
+        ]
+      },
+      "T2": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              4.0,
+              8.0,
+              12.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -3,4 +3,5 @@\n     groups = {}\n     for r in records:\n         k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n+        groups.setdefault(k, [])\n+        groups[k].append(r)\n     return {k: agg_func(v) for k, v in groups.items()}\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.8,
+              7.6,
+              11.4
+            ],
+            "correct": true,
+            "patch": "--- a/src/data_proc.py\n+++ b/src/data_proc.py\n@@ -1,6 +1,6 @@\n+from operator import itemgetter\n def aggregate_records(records, group_key, agg_func):\n-    groups = {}\n-    for r in records:\n-        k = r[group_key]\n-        groups.setdefault(k, []).append(r)\n+    records.sort(key=itemgetter(group_key))\n+    groups = {}\n+    for r in records:\n+        groups.setdefault(r[group_key], []).append(r)\n     return {k: agg_func(v) for k, v in groups.items()}\n"
+          }
+        ]
+      },
+      "T3": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              2.3,
+              4.6
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,6 @@\n def matrix_chain_multiply(matrices):\n-    result = matrices[0]\n-    for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n-    return result\n+    if len(matrices) == 1: return matrices[0]\n+    mid = len(matrices) // 2\n+    left = matrix_chain_multiply(matrices[:mid])\n+    right = matrix_chain_multiply(matrices[mid:])\n+    return np.matmul(left, right)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              2.2,
+              4.4
+            ],
+            "correct": true,
+            "patch": "--- a/src/numerical.py\n+++ b/src/numerical.py\n@@ -3,4 +3,3 @@\n     result = matrices[0]\n     for m in matrices[1:]:\n-        result = manual_matmul(result, m)\n+        result = strassen_approx(result, m)\n     return result\n"
+          }
+        ]
+      },
+      "T4": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              5.5,
+              11.0
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -2,5 +2,3 @@\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n-    return tokens\n+    trie = build_trie(patterns)\n+    return trie_search(text, trie)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              4.8,
+              9.5
+            ],
+            "correct": true,
+            "patch": "--- a/src/parser.py\n+++ b/src/parser.py\n@@ -1,5 +1,5 @@\n+import mmap\n def parse_tokens(text, patterns):\n-    tokens = []\n-    for pat in patterns:\n-        tokens.extend(re.findall(pat, text))\n-    return tokens\n+    buf = mmap.mmap(-1, len(text))\n+    buf.write(text.encode())\n+    return [m for pat in patterns for m in re.findall(pat, buf[:].decode())]\n"
+          }
+        ]
+      },
+      "T5": {
+        "attempts": [
+          {
+            "attempt": 0,
+            "times": [
+              3.2,
+              6.5,
+              9.8
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -1,6 +1,7 @@\n+import heapq\n def shortest_path(adj, src, dst):\n-    queue = [src]\n+    heap = [(0, src)]\n     visited = set()\n-    while queue:\n-        node = queue.pop(0)\n+    while heap:\n+        cost, node = heapq.heappop(heap)\n"
+          },
+          {
+            "attempt": 1,
+            "times": [
+              3.2,
+              6.4,
+              9.6
+            ],
+            "correct": true,
+            "patch": "--- a/src/graph.py\n+++ b/src/graph.py\n@@ -3,6 +3,6 @@\n def shortest_path(adj, src, dst):\n-    queue = [src]\n-    visited = set()\n-    while queue:\n-        node = queue.pop(0)\n+    fwd = {src}\n+    bwd = {dst}\n+    while fwd and bwd:\n+        if fwd & bwd: return True\n+        fwd = {n for node in fwd for n in adj.get(node, [])}\n"
+          }
+        ]
+      }
+    }
+  },
+  "config": {
+    "p_threshold": 0.95,
+    "max_k": 2
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "baseline_pipeline": "instcombine,reassociate,gvn,simplifycfg,dce",
+  "candidate_pipeline": "instcombine,reassociate,gvn,loop-rotate,loop-unroll,simplifycfg,dce",
+  "target_triple": "x86_64-unknown-linux-gnu"
+}

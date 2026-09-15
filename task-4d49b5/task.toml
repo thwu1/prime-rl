@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a type similarity algorithm from reference code that depends on mypy's internal type API (mypy.types, mypy.nodes). The solver must understand how mypy represents types, map those concepts to standalone string-based parsing, figure out the attribute-based Jaccard similarity metric from code analysis, discover the optimal matching strategy for union types, and implement a recursive scoring engine that achieves numerical precision across deeply nested generics, callables, and unions. Demands expert knowledge of Python's type system, optimization algorithms, and recursive data structure comparison."""
+solution_explanation = """Analyze the reference type_similarity.py to extract the algorithm: parse type strings into trees, compute base similarity via dir()-derived attribute sets with Jaccard-like distance, recurse into type arguments for generics, and apply Hungarian matching (scipy linear_sum_assignment) for union types. Build a recursive-descent parser handling all annotation forms and a scoring engine replicating the reference's exact behavior."""
+verification_explanation = """Tests validate ~30 type pairs covering identical types, primitive mismatches, nested generics at depth 3+, union types with optimal matching, Optional, Callable, and edge cases. Scores are compared against reference values within tolerance 1e-4. Additional tests verify parser correctness (TypeNode attributes), symmetry, range constraints, CLI output, batch JSON I/O, and package structure."""
+category = "programming_languages"
+tags = ["type-systems", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4d49b5"

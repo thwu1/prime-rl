@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of depth-averaged shallow-flow equations for granular material with Coulomb friction to derive or locate the analytical solution for an inclined-plane dam break. The solver must also orchestrate GDAL for GeoTIFF production, SQLite for structured result storage, and INI config parsing with non-standard delimiters — multi-tool interoperability across geospatial, database, and scientific computing domains. The convergence and energy-line analyses demand independent implementation of interpolation, mass-weighted statistics, and energy conservation reasoning."""
+solution_explanation = """The Savage-Hutter shallow-water equations on an inclined plane with constant Coulomb friction reduce to source-free shallow-water equations in a Galilean frame accelerating at a = g*(sin(phi) - mu*cos(phi)). In this frame, the classical dry-bed dam break (Stoker/Ritter) solution applies: an undisturbed region connected by a rarefaction fan to a vacuum front. The earth pressure coefficient Kx modifies the effective gravity to g_eff = Kx*g*cos(phi), changing the wave speed c0 = sqrt(g_eff*h0). Transforming back to the lab frame gives h(x,t) and u(x,t) everywhere. The energy line analysis uses mass-averaged energy conservation: the runout angle equals the friction angle for pure Coulomb friction on steepest descent. INI parsing uses configparser with pipe-split lists. GeoTIFF conversion uses gdal_translate. Results are stored in SQLite via Python's sqlite3 module. The solver removes any existing results.db before creating tables to ensure idempotent runs."""
+verification_explanation = """Tests verify: (1) tool runs without error (exit code 0), (2) ASC and GeoTIFF output files exist, (3) GeoTIFF files are readable by gdalinfo with correct dimensions, (4) GeoTIFF values match ASC data within tolerance, (5) SQLite database has convergence and energy_line tables with correct schemas, (6) analytical flow thickness/velocity match reference values within 2%, (7) undisturbed/vacuum regions are correct, (8) mass conservation within 2%, (9) L2 convergence decreases with resolution, (10) energy-line runout angle within 2° of friction angle, (11) cross-slope uniformity."""
+category = "scientific_computing"
+tags = ["geophysics", "computational_fluid_dynamics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dambreak-convergence-analysis"

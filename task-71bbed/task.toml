@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse engineering two stripped ELF64 binaries embedding custom stack-based VM interpreters with 20+ opcodes dispatched via jump tables. For each binary, the solver must locate a 4-byte XOR encryption key, decrypt embedded bytecode, write a disassembler for the custom VM ISA, trace the key derivation algorithm (identifying FNV-1a + MurmurHash3 fmix64 in alpha; DJB2a + xxHash-inspired mixing in beta), recognize and bypass opaque predicates with dead code, and produce working keygens. Beyond analysis, the solver must then design and implement a novel hardened crackme as raw VM bytecode—requiring deep enough mastery of the ISA to author valid encrypted bytecode implementing a new algorithm with at least 3 mixing stages, anti-analysis techniques, and provably good avalanche properties. Finally, the solver must produce a comparative security audit evaluating all three schemes, ranking them with technical justification and identifying attack vectors."""
+solution_explanation = """The solution reads each binary, pattern-matches PUSH_IMM64 opcodes against known hash seed constants to locate encrypted bytecode and derive XOR keys, decrypts and disassembles the bytecode, maps extracted constants to known algorithms, and generates Python keygens. It then constructs novel gamma bytecode using a polynomial rolling hash (seed 0x62B821B5F35A4C17, prime 0x13A10D71F1E053CB), Stafford Mix13 finalizer (constants 0xBF58476D1CE4E5B9, 0x94D049BB133111EB), and PCG-inspired mixing (0xD6E8FEB86659FD93)—algorithms entirely distinct from alpha/beta. It includes two opaque predicates with dead code paths. The bytecode is XOR-encrypted and written alongside a matching keygen and comprehensive security audit."""
+verification_explanation = """Tests verify each keygen against its crackme binary across 5 diverse usernames, checking ACCESS GRANTED. Cross-variant rejection ensures different algorithms (beta serials fail on alpha and vice versa). The universal keygen is tested on both binaries. For gamma: vm_runner executes gamma.bc with the gamma XOR key, verifying keygen_gamma output is accepted across 5 usernames, rejected for wrong serials, and cross-rejected by alpha/beta. An avalanche test measures bit-flip ratio across 5 near-identical username pairs, enforcing >35% average. The audit JSON is validated for structure, non-trivial content, required fields per scheme, ranking completeness, justification length (≥200 chars), and that gamma's algorithms_used contains no alpha/beta algorithm names."""
+category = "reverse_engineering"
+tags = ["virtual_machine", "binary_analysis"]
+expert_time_estimate_hours = 7.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-71bbed"

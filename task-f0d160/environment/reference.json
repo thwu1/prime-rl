@@ -1,0 +1,15 @@
+{
+  "_comment": "Partial reference values from validated hardware measurements for cross-checking",
+  "hints": {
+    "h100_sxm_ridge_point": 156.0,
+    "prefill_mha_attention_flops": 4294967296,
+    "prefill_mha_arithmetic_intensity": 256.0,
+    "decode_gqa4_kv_cache_bytes": 536870912,
+    "h100_sxm_critical_prefill_seq_len": 195
+  },
+  "notes": [
+    "If your ridge point calculations don't match the hint above, check the C shared library carefully — pay attention to unit conventions",
+    "The roofline model bounds performance by the MINIMUM of memory-bandwidth-limited and compute-limited ceilings",
+    "1 GB = 1e9 bytes (SI convention), NOT 1 GiB = 2^30 bytes"
+  ]
+}

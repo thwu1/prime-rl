@@ -1,0 +1,41 @@
+{
+  "tournament_name": "FIDE Dubov System Benchmark Open 2026",
+  "total_rounds": 7,
+  "simulate_rounds": 5,
+  "players": [
+    {"id": 1,  "name": "Kasparov",   "rating": 2780, "federation": "RUS"},
+    {"id": 2,  "name": "Carlsen",    "rating": 2740, "federation": "NOR"},
+    {"id": 3,  "name": "Fischer",    "rating": 2690, "federation": "USA"},
+    {"id": 4,  "name": "Anand",      "rating": 2650, "federation": "IND"},
+    {"id": 5,  "name": "Kramnik",    "rating": 2600, "federation": "RUS"},
+    {"id": 6,  "name": "Tal",        "rating": 2560, "federation": "LAT"},
+    {"id": 7,  "name": "Karpov",     "rating": 2510, "federation": "RUS"},
+    {"id": 8,  "name": "Petrosian",  "rating": 2450, "federation": "ARM"},
+    {"id": 9,  "name": "Spassky",    "rating": 2400, "federation": "RUS"},
+    {"id": 10, "name": "Botvinnik",  "rating": 2340, "federation": "RUS"},
+    {"id": 11, "name": "Euwe",       "rating": 2280, "federation": "NED"},
+    {"id": 12, "name": "Capablanca", "rating": 2220, "federation": "CUB"}
+  ],
+  "outcome_rule": {
+    "description": "For any game between players with starting ranks i and j (where i < j, so player i has the higher rating), compute k = (3*i + 7*j) mod 10. If k is in {0,1,2,3,4,5}, player i wins. If k is in {6,7}, the game is drawn. If k is in {8,9}, player j wins (upset). The outcome depends only on the player IDs, not on colors or round number.",
+    "formula": "k = (3 * min(id_a, id_b) + 7 * max(id_a, id_b)) % 10",
+    "result_mapping": {
+      "0": "lower_id_wins",
+      "1": "lower_id_wins",
+      "2": "lower_id_wins",
+      "3": "lower_id_wins",
+      "4": "lower_id_wins",
+      "5": "lower_id_wins",
+      "6": "draw",
+      "7": "draw",
+      "8": "higher_id_wins",
+      "9": "higher_id_wins"
+    }
+  },
+  "notes": [
+    "Player IDs correspond to starting rank (TPN) and are ordered by descending rating.",
+    "With an even number of players, no pairing-allocated bye (PAB) should occur in any round.",
+    "ARO computation: sum ratings of over-the-board opponents / count, rounded to nearest integer (0.5 rounds up).",
+    "Over-the-board games have result codes: '1' (win), '0' (loss), '=' (draw). Forfeits ('+'/'-') are NOT over-the-board."
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle numerical bugs in a Hull-White short-rate model engine (wrong forward-rate derivative, sign error in bond-pricing convexity adjustment, incorrect Monte Carlo diffusion coefficient, missing square root in bond volatility), implementing Bachelier implied-vol inversion from scratch, and building a Longstaff-Schwartz early-exercise pricer—all within an Ant-based multi-file Java project the solver must navigate without guidance."""
+solution_explanation = """Fix instForward to compute d/dt[zr(t)*t] = zr_i + slope*(2t - t_i) instead of returning the zero rate. Fix lnA to subtract the convexity adjustment. Fix totalBondVol to include sqrt around (1-exp(-2aT))/(2a). Fix MC diffusion to use exact OU variance sigma^2(1-exp(-2a*dt))/(2a). Implement bachelierImpliedVol via Newton iteration on the normal-model call formula. Implement priceSwaptions with European MC at first exercise date and Longstaff-Schwartz backward induction with {1, r, r^2} basis for the Bermudan."""
+verification_explanation = """Tests check: analytic B/variance/discount to 1e-8–1e-12; MC bonds converge within 5e-3; MC and analytic caplet IVs agree within 2e-3 and cross-check against independent Python calculation; European swaption positive; Bermudan >= European within tolerance; swaption values bounded."""
+category = "quantitative_finance"
+tags = ["interest-rate-models", "monte-carlo"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hull-white-pricing"

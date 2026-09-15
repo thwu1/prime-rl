@@ -1,0 +1,6 @@
+# eviction.trace — dirty (Modified) line eviction
+# All three addresses map to set 0 with default params (4 sets, 64B blocks).
+# 2-way associative => third write forces LRU eviction of the first M line.
+0 W 0x0000
+0 W 0x0100
+0 W 0x0200

@@ -1,0 +1,26 @@
+{
+  "description": "Simplified single-effect NH3-H2O absorption chiller cycle",
+  "assumptions": [
+    "No rectifier",
+    "No solution heat exchanger",
+    "Negligible pump work",
+    "Isenthalpic expansion valves",
+    "Complete condensation of refrigerant vapor to liquid",
+    "Complete evaporation at evaporator outlet"
+  ],
+  "x_strong_molar": 0.5,
+  "x_weak_molar": 0.3,
+  "P_high_MPa": 1.5,
+  "P_low_MPa": 0.2,
+  "m_ref_kgps": 1.0,
+  "notes": {
+    "generator": "Weak solution at bubble point at P_high; vapor in equilibrium at same T and P",
+    "absorber": "Strong solution at bubble point at P_low",
+    "condenser": "Complete condensation: liquid composition equals vapor composition y_ref; bubble-point temperature at P_high",
+    "evaporator": "Complete evaporation: vapor at dew-point temperature at P_low with composition y_ref",
+    "circulation_ratio": "Mass-based: f = (w_ref - w_weak) / (w_strong - w_weak) where w = mass fractions",
+    "Q_generator": "h_V_ref + (f - 1) * h_L_weak - f * h_L_strong, per unit refrigerant mass flow",
+    "Q_evaporator": "h_V_evap - h_L_cond, per unit refrigerant mass flow",
+    "COP_cooling": "Q_evaporator / Q_generator"
+  }
+}

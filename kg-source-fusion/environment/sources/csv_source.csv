@@ -1,0 +1,8 @@
+id,name,type,birth_date,birth_place,occupation,nationality
+csv_p1,Francis Ford Coppola,Person,1939-04-07,Detroit,Director,American
+csv_p2,Quentin Tarantino,Person,1963-03-27,Knoxville,Director,American
+csv_p3,Marlon Brando,Person,1924-04-03,Omaha,Actor,American
+csv_p4,Al Pacino,Person,1940-04-25,New York City,Actor,American
+csv_p5,Uma Thurman,Person,1970-04-29,Boston,Actress,American
+csv_p6,Christopher Nolan,Person,1970-07-30,London,Director,British-American
+csv_c1,Paramount Pictures,Company,,,,

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Multiple interacting failures in a Spack package ecosystem must be diagnosed without guidance: the environment's spack.yaml references wrong root specs and pins a dependency to an incompatible version, the sole existing scimpi@3.1 provider in the repo has a dependency constraint incompatible with the rest of the ecosystem (a diagnostic trap), an essential library blocks concretization via a compiler conflict directive that is unsatisfiable on the target system's only compiler, two packages must be authored from scratch with correct virtual provider declarations and conditional dependency logic, and an incomplete package must be extended with capabilities the solver stack demands. Requires expert-level understanding of Spack's package directive system, ASP-based constraint solver behavior, virtual provider resolution, variant propagation through dependency DAGs, and compiler conflict semantics — none of which are hinted at in the task instruction."""
+solution_explanation = """Create scicomm-ng package providing scimpi@3.1 with scibase@1.2: dependency and threads variant. Create scisolver package with mpi/debug variants and conditional dependencies that propagate +mpi and precision=double through scilinalg and scifft, requiring scimpi@3: when MPI is enabled. Fix scilinalg by adding mpi variant with conditional scimpi dependency, adding precision multi-valued variant, and removing the conflicts('%gcc@13:') directive that makes concretization unsatisfiable on the gcc-13-only system. Rewrite /app/env/spack.yaml with correct root specs (scisolver +mpi, scifft +mpi precision=double), repo path, and unified concretization — removing the incorrect sciframe root spec, the scibase version pin, and extraneous configuration. The existing scicomm-alt is a trap: it provides scimpi@3.1 but depends on scibase@:0.9 which conflicts with the @1.2: requirement; the solver correctly excludes it in favor of scicomm-ng."""
+verification_explanation = """17 pytest tests verify outcome: concretization succeeds and spack.lock has non-empty concrete_specs (3 tests), root specs scisolver and scifft are in the DAG (2 tests), scisolver has +mpi and debug variant (2 tests), scifft has +mpi and precision=double (2 tests), scicomm-ng is the selected scimpi provider and legacy scicomm is excluded from the DAG (2 tests), dependency graph contains scibase>=1.2, scilinalg with +mpi and precision=double, all 5 core packages present, and minimum package count of 5 (6 tests). Tests re-run concretize --force to prevent hardcoded lockfiles."""
+category = "systems_administration"
+tags = ["spack", "hpc-package-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9b71b3"

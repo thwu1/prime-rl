@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of climate data standards and atmospheric physics. The agent must: (1) recognize and correctly convert a 360-day calendar (where each month has exactly 30 days) to standard Gregorian time coordinates with calendar-aware monthly bounds that correctly handle leap years — a notorious pain point in climate data processing that naive linear scaling will not solve; (2) derive near-surface specific humidity (huss) from temperature, relative humidity, and surface pressure using the Tetens formula for saturation vapor pressure and the specific humidity equation from atmospheric thermodynamics — domain knowledge that cannot be read from the CMOR table; (3) propagate the union of missing-data masks from three source variables through to the derived field; (4) clip physically invalid data (negative precipitation, supersaturated humidity >100%); (5) simultaneously enforce ~20 distinct CMOR compliance requirements across coordinate metadata (lon shift [-180,180)→[0,360) with data reorder, dtype promotion, standard names), data types (float32 data, float64 coords), fill values (1e20), bounds computation, scalar auxiliary coordinates (height2m for tas and huss only), unlimited time dimensions, and mandatory global attributes."""
+solution_explanation = """Read the raw NetCDF and apply coordinated transformations for four variables (tas, pr, psl, huss): (1) identify the 360_day calendar attribute and map each 30-day month to its corresponding Gregorian month, computing midpoint dates as datetime(year, month, 15) and bounds as [first-of-month, first-of-next-month] in days since 1950-01-01 — this naturally handles leap years; (2) shift longitude from [-180,180) to [0,360) via modular arithmetic and reorder data arrays using argsort; (3) apply variable-specific unit conversions (degF→K, mm/day→kg·m⁻²·s⁻¹, hPa→Pa); (4) derive huss using Tetens formula: es=611.2·exp(17.67·Tc/(Tc+243.5)), e=(RH/100)·es, q=0.622·e/(P−0.378·e), after clipping RH to [0,100] and propagating the union mask of all three source variables; (5) compute regular coordinate bounds with latitude clipping at ±90°; (6) add scalar height2m coordinate for tas and huss per CMOR table dimensions field; (7) enforce float32 data with 1e20 fill, float64 coordinates, unlimited time; (8) set all required CMOR metadata and global attributes per the specification files."""
+verification_explanation = """Tests verify CMOR compliance across 4 output files by checking: correct filenames; variable metadata (standard_name, units, long_name, dtype, fill_value); coordinate metadata (units, standard_name, dtype, monotonicity, range, count); longitude in [0,360); calendar conversion correctness via multiple checks: (a) output uses gregorian/standard calendar not 360_day, (b) time steps have non-uniform spacing proving proper month-length handling rather than naive 360→365.25 scaling, (c) February 2000 bounds span 29 days (leap year) while February 2001 bounds span 28 days; time in correct units/epoch with unlimited dimension; coordinate bounds existence and shape; scalar height2m for tas and huss but not pr/psl; required global attributes with correct values; data values within physically valid ranges; derived huss tests: (a) values in [0, 0.04], (b) tropical humidity exceeds polar humidity (Clausius-Clapeyron physical consistency), (c) global mean in expected range, (d) fill count exceeds max single-source fill count (mask propagation), (e) supersaturation clipping verification."""
+category = "applied_computing"
+tags = ["climate-data", "atmospheric-physics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a2c567"

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Impact report for proposed NetworkPolicy changes. baseline contains verdicts for all queries under current policies. changes contains the impact analysis for each proposed modification.",
+  "type": "object",
+  "required": ["baseline", "changes"],
+  "properties": {
+    "baseline": {
+      "type": "object",
+      "description": "Baseline verdict for each connectivity query under the current policy set",
+      "patternProperties": {
+        "^q\\d{2}$": {
+          "type": "string",
+          "enum": ["ALLOWED", "DENIED"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "changes": {
+      "type": "object",
+      "description": "Impact analysis for each proposed NetworkPolicy change",
+      "patternProperties": {
+        "^change_\\d{2}$": {
+          "type": "object",
+          "required": ["classification", "newly_allowed", "newly_denied"],
+          "properties": {
+            "classification": {
+              "type": "string",
+              "enum": ["SAFE", "BREAKS_REQUIRED", "OPENS_FORBIDDEN", "CRITICAL"],
+              "description": "SAFE: no impact on required/forbidden. BREAKS_REQUIRED: a required connection becomes DENIED. OPENS_FORBIDDEN: a forbidden connection becomes ALLOWED. CRITICAL: both breaks required AND opens forbidden."
+            },
+            "newly_allowed": {
+              "type": "array",
+              "description": "Query IDs that flip from DENIED to ALLOWED under this change",
+              "items": {"type": "string", "pattern": "^q\\d{2}$"}
+            },
+            "newly_denied": {
+              "type": "array",
+              "description": "Query IDs that flip from ALLOWED to DENIED under this change",
+              "items": {"type": "string", "pattern": "^q\\d{2}$"}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

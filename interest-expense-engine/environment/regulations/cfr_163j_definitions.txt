@@ -1,0 +1,37 @@
+26 CFR § 1.163(j)-1 — Definitions (selected provisions)
+
+(b) Definitions
+
+(1) Adjusted taxable income. The term adjusted taxable income (ATI) means the tentative taxable income of the taxpayer for the taxable year, with the adjustments in this paragraph (b)(1).
+
+  (i) Additions. The amounts of the following items that were included in the computation of the taxpayer's tentative taxable income (if any) are added to tentative taxable income to determine ATI—
+    (A) Any business interest expense, other than disallowed business interest expense carryforwards;
+    (B) Any net operating loss deduction under section 172;
+    (C) Any deduction under section 199A;
+    (D) Subject to paragraph (b)(1)(iii) of this section, for taxable years beginning before January 1, 2022, any depreciation under section 167, section 168, or section 168 of the Internal Revenue Code (Code) of 1954 (former section 168);
+    (E) Subject to paragraph (b)(1)(iii) of this section, for taxable years beginning before January 1, 2022, any amortization of intangibles (for example, under section 167 or 197) and other amortized expenditures (for example, under section 174(b), 195(b)(1)(B), 248, or 1245(a)(2)(C));
+    (F) Subject to paragraph (b)(1)(iii) of this section, for taxable years beginning before January 1, 2022, any depletion under section 611;
+    (G) Any deduction for a capital loss carryback or carryover.
+
+  (ii) Subtractions. The amounts of the following items (if any) are subtracted from the taxpayer's tentative taxable income to determine ATI—
+    (A) Any business interest income that was included in the computation of the taxpayer's tentative taxable income;
+    (B) Any floor plan financing interest expense for the taxable year that was included in the computation of the taxpayer's tentative taxable income.
+
+  (vii) ATI cannot be less than zero.
+
+
+26 CFR § 1.163(j)-2 — Deduction for business interest expense limited (selected provisions)
+
+(b) General rule
+
+(1) In general. The amount allowed as a deduction for business interest expense for the taxable year cannot exceed the sum of—
+  (i) The taxpayer's business interest income for the taxable year;
+  (ii) 30 percent of the taxpayer's ATI for the taxable year, or zero if the taxpayer's ATI for the taxable year is less than zero; and
+  (iii) The taxpayer's floor plan financing interest expense for the taxable year.
+
+(2) 50 percent ATI limitation for taxable years beginning in 2019 or 2020.
+  (i) In general. Except as otherwise provided in section 163(j)(10) and paragraph (b)(2) of this section, for any taxable year beginning in 2019 or 2020, paragraph (b)(1)(ii) of this section is applied by substituting 50 percent for 30 percent. The 50 percent ATI limitation does not apply to partnerships for taxable years beginning in 2019.
+
+(c) Disallowed business interest expense carryforward
+
+(1) In general. Any business interest expense disallowed under paragraph (b) of this section is carried forward to the succeeding taxable year as a disallowed business interest expense carryforward, and is therefore business interest expense that is subject to paragraph (b) of this section in such succeeding taxable year.

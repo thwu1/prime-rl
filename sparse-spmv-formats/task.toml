@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of GPU SIMT execution models and sparse matrix storage formats to diagnose five distinct bugs. The JDS sort-order bug causes an IndexError whose root cause is the violation of JDS's descending-NNZ invariant — understanding WHY descending sort is required (dense rows must occupy low indices so diagonal offsets remain in bounds) demands deep format knowledge. The JDS SpMV permutation bug requires understanding row reordering semantics. The ELLPACK memory traffic bug requires distinguishing padded storage size from actual non-zero count. The warp simulation bug requires knowing that SIMT lockstep execution means per-warp cost is max(work), not mean(work). Finally, implementing Matrix Market file loading requires familiarity with an industry-standard sparse matrix interchange format including 1-based indexing."""
+solution_explanation = """Fix csr_to_jds by negating the NNZ sort key to sort descending (-nnz_per_row[i], i). Fix spmv_jds by writing to result[row_perm[idx]] instead of result[idx]. Fix memory_traffic_bytes for ELL by replacing nnz with num_rows * max_nnz_per_row. Fix simulate_warp_workload by replacing integer-division mean (sum//len) with max for per-warp step count. Implement load_mtx to parse Matrix Market coordinate files, converting 1-based to 0-based indices and constructing CSR arrays."""
+verification_explanation = """Tests verify CSR baseline operations pass unchanged, then check JDS conversion produces descending NNZ order and correct array structure, JDS SpMV matches CSR results for irregular/empty-row/non-square matrices, ELL memory traffic exceeds CSR for irregular sparsity patterns, warp efficiency never exceeds 1.0 (physical conservation constraint), exact warp step counts for specific workloads, and Matrix Market loading produces correct CSR arrays with valid SpMV results."""
+category = "parallel_computing"
+tags = ["sparse-matrices", "gpu-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sparse-spmv-formats"

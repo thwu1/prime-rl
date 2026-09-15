@@ -1,0 +1,74 @@
+{
+  "global": {
+    "asn": 65000,
+    "router_id": "10.255.0.1",
+    "listen_port": -1,
+    "bogon_prefixes": [
+      "0.0.0.0/8",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "192.0.2.0/24",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4"
+    ]
+  },
+  "tenants": [
+    {
+      "id": 1,
+      "name": "acme",
+      "asn": 65001,
+      "allowed_prefixes": [
+        {"prefix": "10.1.0.0/16", "min_length": 16, "max_length": 24},
+        {"prefix": "10.2.0.0/16", "min_length": 16, "max_length": 24}
+      ],
+      "community_tag": "65000:1",
+      "reject_as_origins": [65099],
+      "export_to_tenants": [2],
+      "med_adjustment": 100,
+      "as_prepend": null
+    },
+    {
+      "id": 2,
+      "name": "globex",
+      "asn": 65002,
+      "allowed_prefixes": [
+        {"prefix": "172.16.0.0/12", "min_length": 12, "max_length": 24}
+      ],
+      "community_tag": "65000:2",
+      "reject_as_origins": [],
+      "export_to_tenants": [1],
+      "med_adjustment": 0,
+      "as_prepend": {"asn": 65002, "repeat": 2}
+    },
+    {
+      "id": 3,
+      "name": "initech",
+      "asn": 65003,
+      "allowed_prefixes": [
+        {"prefix": "192.168.0.0/16", "min_length": 16, "max_length": 28}
+      ],
+      "community_tag": "65000:3",
+      "reject_as_origins": [65050, 65051],
+      "export_to_tenants": [],
+      "med_adjustment": -50,
+      "as_prepend": null
+    },
+    {
+      "id": 4,
+      "name": "umbrella",
+      "asn": 65004,
+      "allowed_prefixes": [
+        {"prefix": "10.100.0.0/14", "min_length": 14, "max_length": 24},
+        {"prefix": "10.200.0.0/14", "min_length": 14, "max_length": 24},
+        {"prefix": "10.64.0.0/10", "min_length": 10, "max_length": 20}
+      ],
+      "community_tag": "65000:4",
+      "reject_as_origins": [],
+      "export_to_tenants": [1, 2, 3],
+      "med_adjustment": 200,
+      "as_prepend": {"asn": 65004, "repeat": 3}
+    }
+  ]
+}

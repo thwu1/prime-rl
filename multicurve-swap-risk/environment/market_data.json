@@ -1,0 +1,86 @@
+{
+  "evaluation_date": "2012-12-11",
+  "curve_conventions": {
+    "calendar": "TARGET",
+    "settlement_days": 2,
+    "term_structure_day_counter": "Actual/365 Fixed",
+    "ois_deposit_day_counter": "Actual/360",
+    "ois_deposit_business_day_convention": "Following",
+    "ois_swap_settlement_days": 2
+  },
+  "ois_curve": {
+    "deposits": [
+      {"settlement_days": 0, "rate": 0.0004},
+      {"settlement_days": 1, "rate": 0.0004},
+      {"settlement_days": 2, "rate": 0.0004}
+    ],
+    "short_ois": [
+      {"tenor": "1W", "rate": 0.00070},
+      {"tenor": "2W", "rate": 0.00069},
+      {"tenor": "3W", "rate": 0.00078},
+      {"tenor": "1M", "rate": 0.00074}
+    ],
+    "long_ois": [
+      {"tenor": "15M", "rate": 0.00002},
+      {"tenor": "18M", "rate": 0.00008},
+      {"tenor": "21M", "rate": 0.00021},
+      {"tenor": "2Y", "rate": 0.00036},
+      {"tenor": "3Y", "rate": 0.00127},
+      {"tenor": "4Y", "rate": 0.00274},
+      {"tenor": "5Y", "rate": 0.00456},
+      {"tenor": "6Y", "rate": 0.00647},
+      {"tenor": "7Y", "rate": 0.00827},
+      {"tenor": "8Y", "rate": 0.00996},
+      {"tenor": "9Y", "rate": 0.01147},
+      {"tenor": "10Y", "rate": 0.01280},
+      {"tenor": "11Y", "rate": 0.01404},
+      {"tenor": "12Y", "rate": 0.01516},
+      {"tenor": "15Y", "rate": 0.01764},
+      {"tenor": "20Y", "rate": 0.01939},
+      {"tenor": "25Y", "rate": 0.02003},
+      {"tenor": "30Y", "rate": 0.02038}
+    ]
+  },
+  "euribor6m_curve": {
+    "deposit": {
+      "tenor": "6M",
+      "rate": 0.00312,
+      "settlement_days": 3
+    },
+    "fras": [
+      {"months_to_start": 1, "rate": 0.002930},
+      {"months_to_start": 2, "rate": 0.002720},
+      {"months_to_start": 3, "rate": 0.002600},
+      {"months_to_start": 4, "rate": 0.002560},
+      {"months_to_start": 5, "rate": 0.002520},
+      {"months_to_start": 6, "rate": 0.002480},
+      {"months_to_start": 7, "rate": 0.002540},
+      {"months_to_start": 8, "rate": 0.002610},
+      {"months_to_start": 9, "rate": 0.002670},
+      {"months_to_start": 10, "rate": 0.002790},
+      {"months_to_start": 11, "rate": 0.002910},
+      {"months_to_start": 12, "rate": 0.003030},
+      {"months_to_start": 13, "rate": 0.003180},
+      {"months_to_start": 14, "rate": 0.003350},
+      {"months_to_start": 15, "rate": 0.003520},
+      {"months_to_start": 16, "rate": 0.003710},
+      {"months_to_start": 17, "rate": 0.003890},
+      {"months_to_start": 18, "rate": 0.004090}
+    ],
+    "swaps": [
+      {"tenor": "3Y", "rate": 0.004240},
+      {"tenor": "4Y", "rate": 0.005760},
+      {"tenor": "5Y", "rate": 0.007620},
+      {"tenor": "6Y", "rate": 0.009540},
+      {"tenor": "7Y", "rate": 0.011350},
+      {"tenor": "8Y", "rate": 0.013030},
+      {"tenor": "9Y", "rate": 0.014520},
+      {"tenor": "10Y", "rate": 0.015840},
+      {"tenor": "12Y", "rate": 0.018090},
+      {"tenor": "15Y", "rate": 0.020370},
+      {"tenor": "20Y", "rate": 0.021870},
+      {"tenor": "25Y", "rate": 0.022340},
+      {"tenor": "30Y", "rate": 0.022560}
+    ]
+  }
+}

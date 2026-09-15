@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in chance-constrained optimization, Poisson binomial distributions, graph algorithms (k-shortest simple paths), and linear programming for multi-commodity flow. The key insight is that Gaussian approximation of link capacity distributions is dangerously inaccurate for links with few heterogeneous wavelengths -- the solver must enumerate all 2^k failure states per link to compute exact safe capacities. Combines stochastic modeling, combinatorial path enumeration, and LP formulation into a single multi-step problem."""
+solution_explanation = """1. Parse the topology graph and build adjacency lists. 2. For each link, enumerate all 2^k wavelength survival states to compute the exact Poisson binomial capacity distribution, then find the largest capacity value f where P(C >= f) >= alpha. 3. Find k-shortest simple paths per demand using DFS/BFS with backtracking. 4. Formulate a multi-commodity flow LP: maximize total flow subject to per-demand volume caps and per-link safe capacity constraints. 5. Solve using scipy.optimize.linprog (HiGHS) and output the allocation."""
+verification_explanation = """Tests verify: (1) solution.json exists and has correct format, (2) all paths are valid simple paths in the topology, (3) path endpoints match demand source/destination, (4) per-demand flow does not exceed volume, (5) per-link total flow does not exceed exact Poisson binomial safe capacity, (6) probabilistic availability constraints hold via Monte Carlo simulation, (7) total throughput is at least 85% of the LP-computed optimal."""
+category = "optimization"
+tags = ["stochastic-optimization", "network-flow"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stochastic-traffic-engineering"

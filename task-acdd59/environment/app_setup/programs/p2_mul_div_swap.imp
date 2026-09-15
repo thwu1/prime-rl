@@ -1,0 +1,8 @@
+int x;
+int y;
+int p;
+int q;
+x = 20;
+y = 5;
+p = (x * y);
+q = (x / y);

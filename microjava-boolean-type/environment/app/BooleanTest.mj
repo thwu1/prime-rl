@@ -1,0 +1,69 @@
+program BooleanTest
+{
+	void nl()
+	{
+		print(chr(10));
+	}
+
+	void printBool(boolean b)
+	{
+		if (b) print(1); else print(0);
+	}
+
+	boolean isPositive(int x)
+	{
+		return x > 0;
+	}
+
+	void main()
+		int a; int b; int c;
+		boolean p; boolean q; boolean r;
+	{
+		a = 10; b = 5; c = 3;
+
+		p = a > b;
+		printBool(p);
+		q = a < b;
+		printBool(q);
+		nl();
+
+		r = a > b && b > c;
+		printBool(r);
+		r = a < b && b > c;
+		printBool(r);
+		r = a > b || b < c;
+		printBool(r);
+		r = a < b || c > b;
+		printBool(r);
+		nl();
+
+		p = true;
+		printBool(p);
+		p = false;
+		printBool(p);
+		nl();
+
+		p = true; a = 0;
+		while (p) {
+			a++;
+			if (a == 5) p = false;
+		}
+		print(a);
+		nl();
+
+		p = isPositive(42);
+		printBool(p);
+		p = isPositive(0);
+		printBool(p);
+		nl();
+
+		print(true);
+		print(false);
+		nl();
+
+		a = 1; b = 2; c = 3;
+		r = (a < b || b > c) && c > a;
+		printBool(r);
+		nl();
+	}
+}

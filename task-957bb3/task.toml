@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level Kubernetes security expertise across multiple dimensions: (1) forensic analysis of kube-apiserver audit logs to distinguish attacker activity from legitimate cluster operations and reconstruct a multi-stage attack chain; (2) producing correct remediation across five K8s security domains (RBAC, audit policy, NetworkPolicy, Falco rules); (3) performing automated misconfiguration scanning of cluster state manifests; (4) authoring policy-as-code validation in Rego and running it against remediation artifacts; (5) choosing and orchestrating the right security toolchain. The combination of forensic reasoning, multi-domain K8s security knowledge, and toolchain integration makes this inaccessible without significant professional experience."""
+solution_explanation = """The solution parses the audit log JSON, identifies the compromised service account by correlating anomalous user-agent strings with the webapp SA, reconstructs the 8-step attack chain (recon, secret theft, privilege escalation via RBAC, persistence pod, cryptomining daemonset), then generates: (1) attack timeline JSON, (2) least-privilege namespace-scoped Role/RoleBinding, (3) K8s audit policy with RequestResponse level on high-risk resources, (4) NetworkPolicy restricting ecommerce namespace traffic, (5) Falco rules detecting the observed attack patterns, (6) trivy config scan of cluster state, (7) OPA/Rego policies, (8) conftest validation of remediation artifacts."""
+verification_explanation = """Tests validate: (1) attack_summary.json contains correct attack timeline with >=7 events in chronological order, correct compromised SA, correct stolen secrets, correct attacker-created resources, and correct source IP; (2) RBAC YAML uses namespace-scoped Role (not ClusterRole), no wildcards, no secrets access, with matching RoleBinding; (3) audit policy has correct apiVersion/kind, rules covering secrets and RBAC resources with RequestResponse; (4) NetworkPolicy targets ecommerce namespace with both Ingress and Egress policy types; (5) Falco rules have valid syntax with required fields; (6) scan output exists as valid JSON with misconfiguration findings and severity data; (7) OPA/Rego files exist with package declarations, deny rules covering RBAC wildcards, NetworkPolicy, and audit secrets; (8) validation results JSON shows no failures; (9) live conftest execution verifies policies actually validate against remediation files."""
+category = "cybersecurity"
+tags = ["kubernetes", "incident-response"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-957bb3"

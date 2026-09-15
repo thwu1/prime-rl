@@ -1,0 +1,10 @@
+{"id": "e_001", "qa_style": "3-fake", "cited_citation": "972 S.W.2d 485", "correct_citation": "973 S.W.2d 485", "fake_type": "volume"}
+{"id": "e_002", "qa_style": "3-fake", "cited_citation": "400 U.S. 79", "correct_citation": "400 U.S. 74", "fake_type": "page"}
+{"id": "e_003", "qa_style": "3-true", "cited_citation": "88 So.3d 253", "correct_citation": "88 So.3d 253", "fake_type": null}
+{"id": "e_004", "qa_style": "3-fake", "cited_citation": "508 N.W.2d 612", "correct_citation": "510 N.W.2d 612", "fake_type": "volume"}
+{"id": "e_005", "qa_style": "3-fake", "cited_citation": "149 Ohio St. 2d 628", "correct_citation": "149 Ohio St. 3d 628", "fake_type": "reporter"}
+{"id": "e_006", "qa_style": "3-true", "cited_citation": "205 A.3d 445", "correct_citation": "205 A.3d 445", "fake_type": null}
+{"id": "e_007", "qa_style": "3-fake", "cited_citation": "466 U.S. 670", "correct_citation": "466 U.S. 668", "fake_type": "page"}
+{"id": "e_008", "qa_style": "3-fake", "cited_citation": "452 N.E.2d 345", "correct_citation": "452 N.W.2d 345", "fake_type": "reporter"}
+{"id": "e_009", "qa_style": "3-true", "cited_citation": "524 U.S. 666", "correct_citation": "524 U.S. 666", "fake_type": null}
+{"id": "e_010", "qa_style": "3-fake", "cited_citation": "162 Idaho 760", "correct_citation": "162 Idaho 763", "fake_type": "page"}

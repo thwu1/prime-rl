@@ -1,0 +1,109 @@
+[
+  {
+    "id": "friedel_1",
+    "type": "pressure_drop",
+    "method": "Friedel",
+    "params": {
+      "m": 0.6, "x": 0.1, "rhol": 915.0, "rhog": 2.67,
+      "mul": 1.8e-4, "mug": 1.4e-5, "sigma": 0.0487,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "friedel_2",
+    "type": "pressure_drop",
+    "method": "Friedel",
+    "params": {
+      "m": 10.0, "x": 0.9, "rhol": 950.0, "rhog": 1.4,
+      "mul": 1e-3, "mug": 1e-5, "sigma": 0.02,
+      "D": 0.3, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "friedel_3",
+    "type": "pressure_drop",
+    "method": "Friedel",
+    "params": {
+      "m": 10.0, "x": 0.9, "rhol": 950.0, "rhog": 1.4,
+      "mul": 1e-3, "mug": 1e-5, "sigma": 0.02,
+      "D": 0.3, "roughness": 0.0, "L": 10.0
+    }
+  },
+  {
+    "id": "gronnerud_1",
+    "type": "pressure_drop",
+    "method": "Gronnerud",
+    "params": {
+      "m": 0.6, "x": 0.1, "rhol": 915.0, "rhog": 2.67,
+      "mul": 1.8e-4, "mug": 1.4e-5,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "gronnerud_2",
+    "type": "pressure_drop",
+    "method": "Gronnerud",
+    "params": {
+      "m": 5.0, "x": 0.1, "rhol": 915.0, "rhog": 2.67,
+      "mul": 1.8e-4, "mug": 1.4e-5,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "chisholm_1",
+    "type": "pressure_drop",
+    "method": "Chisholm",
+    "params": {
+      "m": 0.6, "x": 0.1, "rhol": 915.0, "rhog": 2.67,
+      "mul": 1.8e-4, "mug": 1.4e-5,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "chisholm_2",
+    "type": "pressure_drop",
+    "method": "Chisholm",
+    "params": {
+      "m": 2.0, "x": 0.1, "rhol": 915.0, "rhog": 2.67,
+      "mul": 1.8e-4, "mug": 1.4e-5,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "chisholm_3",
+    "type": "pressure_drop",
+    "method": "Chisholm",
+    "params": {
+      "m": 1.0, "x": 0.1, "rhol": 915.0, "rhog": 0.1,
+      "mul": 1.8e-4, "mug": 1.4e-5,
+      "D": 0.05, "roughness": 0.0, "L": 1.0
+    }
+  },
+  {
+    "id": "void_1",
+    "type": "void_fraction",
+    "params": {
+      "x": 0.4, "rhol": 800.0, "rhog": 2.5, "mul": 1e-3, "mug": 1e-5
+    }
+  },
+  {
+    "id": "chen_bennett_1",
+    "type": "flow_boiling",
+    "method": "Chen_Bennett",
+    "params": {
+      "m": 0.106, "x": 0.2, "D": 0.0212,
+      "rhol": 567.0, "rhog": 18.09,
+      "mul": 1.56e-4, "mug": 7.11e-6,
+      "kl": 0.086, "Cpl": 2730.0, "Hvap": 200000.0,
+      "sigma": 0.02, "dPsat": 100000.0, "Te": 3.0
+    }
+  },
+  {
+    "id": "gorenflo_1",
+    "type": "pool_boiling",
+    "method": "Gorenflo",
+    "params": {
+      "P": 300000.0, "Pc": 22048320.0, "q": 20000.0, "cas": "7732-18-5"
+    }
+  }
+]

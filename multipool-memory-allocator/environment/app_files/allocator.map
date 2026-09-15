@@ -1,0 +1,15 @@
+ALLOCATOR_1.0 {
+  global:
+    pool_create;
+    pool_destroy;
+    pool_malloc;
+    pool_free;
+    pool_calloc;
+    pool_realloc;
+    pool_aligned_malloc;
+    pool_aligned_free;
+    pool_get_stats;
+    pool_set_lock;
+  local:
+    *;
+};

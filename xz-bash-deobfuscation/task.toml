@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic analysis of a compromised autotools-based project to reverse a multi-stage obfuscation pipeline (tr byte-swap, head-chain interleaving, modified RC4 stream cipher) and extract a hidden payload. The agent must independently discover each obfuscation technique, correctly reverse all stages, and then distinguish genuine backdoor components from benign-but-suspicious decoy files that use similar constructs (eval, tr, binary data). Beyond analysis, the agent must synthesize their understanding into a novel reusable detection tool — designing structural and behavioral heuristics that can identify build-system code injection patterns, suspicious data file relationships, and payload containers without relying on hardcoded indicators. This requires creative generalization from a specific instance to a general detection methodology."""
+solution_explanation = """1. Forensic investigation of /app/project/ reveals suspicious activity in m4/build-to-host.m4 (grep + tr + eval chain targeting test data files). 2. Stage 0: the M4 macro greps for a regex marker in test files, finding bad-stream.xz, applies a tr byte-swap (tab<->space, dash<->underscore), and pipes through xz decompression to extract a Stage 1 bash script. 3. Stage 1 script defines a head chain for deinterleaving (skip 128, read 256, repeated), a tail offset, and a tr substitution cipher. These transform data from good-archive.lzma into a Stage 2 script. 4. Stage 2 embeds an AWK-implemented modified RC4 cipher (key schedule c[i]=(i*11+3)%256, skip 6144 iterations, addition mod 256 instead of XOR). Decrypting the first portion of the interleaved data yields the compressed payload. 5. The forensic report classifies build-to-host.m4, bad-stream.xz, and good-archive.lzma as backdoor; gen-corpus.sh, entropy_test.dat, and ax_check_compile_flag.m4 as benign-suspicious. 6. The detection script implements heuristics: (a) scan M4/configure files for grep-to-eval pipelines that reference data directories, (b) identify the target directories from those patterns and flag all compressed/binary files within them, (c) classify files with eval+transform patterns but no data-directory grep as medium risk. This design requires creative generalization from the specific backdoor to a reusable detection methodology."""
+verification_explanation = """Tests verify: (1) answer.txt contains a 64-char lowercase hex SHA-256 whose own SHA-256 matches a known double-hash, (2) payload.bin exists with exactly 4096 bytes matching the answer, (3) report.json has correct structure with backdoor_entry_point identifying m4/build-to-host.m4, (4) all three backdoor files are correctly classified, (5) no false positives or false negatives in classification, (6) all three benign-suspicious files are identified, (7) detect.py exists and runs successfully against /app/project/, (8) detect.py outputs valid JSON with correct alert structure, (9) all backdoor files are flagged as high risk by the detector, (10) no benign files are falsely flagged as high risk by the detector."""
+category = "reverse_engineering"
+tags = ["supply-chain-forensics", "detection-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/xz-bash-deobfuscation"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of IEEE 754 floating-point specification to identify and fix 7 subtle bugs in a bfloat16 arithmetic library. Bugs span rounding mode overflow boundaries (RZ never produces infinity, RD cannot produce +inf, RU cannot produce -inf), sign-of-zero rules per rounding mode, NaN-producing invalid operations (0*inf, inf-inf), gradual underflow via denormal/subnormal result generation, unordered NaN comparison semantics, and round-to-nearest-even tie-breaking. Each bug requires deep knowledge of a distinct IEEE 754 edge case that is not commonly encountered in standard programming."""
+solution_explanation = """The solution applies 9 targeted fixes across 7 bug categories: (1) return -0 under RD rounding when subtracting equal values or adding opposite zeros, (2) clamp overflow to max finite for RZ/RD-positive/RU-negative in both add and mul, (3) return qNaN for 0*inf, (4) return qNaN for inf+(-inf), (5) implement gradual underflow by undoing excess left-shift and allowing exp=0 in denormal results, (6) add NaN guard to bf16_less_than, (7) implement ties-to-even by checking result LSB on exact ties."""
+verification_explanation = """Pytest tests cover each of the 7 IEEE 754 edge cases with multiple test vectors per category. Tests use bit-exact comparison of bfloat16 bit patterns against precomputed expected values derived from the IEEE 754 specification. Each test class isolates a single bug category for clear failure attribution."""
+category = "numerical_analysis"
+tags = ["floating-point", "ieee754"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-99595e"

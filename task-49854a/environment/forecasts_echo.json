@@ -1,0 +1,20 @@
+{
+  "forecaster_id": "echo",
+  "predictions": [
+    {"event_id": "EVT-001", "probability": 0.62},
+    {"event_id": "EVT-002", "probability": 0.35},
+    {"event_id": "EVT-003", "probability": 0.75},
+    {"event_id": "EVT-004", "probability": 0.48},
+    {"event_id": "EVT-005", "probability": 0.68},
+    {"event_id": "EVT-006", "probability": 0.22},
+    {"event_id": "EVT-007", "probability": 0.58},
+    {"event_id": "EVT-008", "probability": 0.88},
+    {"event_id": "EVT-009", "probability": 0.40},
+    {"event_id": "EVT-010", "probability": 0.73},
+    {"event_id": "EVT-011", "probability": 0.60},
+    {"event_id": "EVT-012", "probability": 0.42},
+    {"event_id": "EVT-013", "probability": 0.80},
+    {"event_id": "EVT-014", "probability": 0.30},
+    {"event_id": "EVT-015", "probability": 0.55}
+  ]
+}

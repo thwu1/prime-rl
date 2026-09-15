@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of how autoregressive transformer generation can be optimized by avoiding redundant computation. The model uses Grouped Query Attention (GQA) with asymmetric head counts (8 query, 2 KV), Rotary Position Embeddings whose correctness depends on absolute position tracking, and causal masking that behaves differently for multi-token vs single-token inputs. The agent must independently discover the correct optimization strategy by reading the model code, handle subtle interactions between GQA head expansion and state management, ensure correct positional encoding across phases, and produce numerically identical output. Additionally, the agent must use PyTorch's profiling and benchmarking tools to generate Chrome-format trace files and statistically sound timing measurements—tools that require specific API knowledge beyond standard PyTorch usage."""
+solution_explanation = """Create /app/kv_inference.py that caches post-RoPE key-value pairs per layer with shape (batch, n_kv_groups, seq_len, head_dim). During prefill, process the entire prompt at positions 0..prompt_len-1. During decode, process one token at a time at the correct absolute position, concatenate with cached state, expand via repeat_interleave for GQA, and compute attention without causal mask (single-token decode). Create /app/profile_report.py that uses torch.profiler with export_chrome_trace for Chrome traces and torch.utils.benchmark.Timer for wall-clock timing comparison."""
+verification_explanation = """Tests verify exact token-for-token match between generate_cached and generate_simple across 9 scenarios: importability, short/single/long/extended prompts, near-context-limit, different model seeds, output shape, and prompt preservation. Additionally, 6 profiling tests verify: profile_report.py exists, executes successfully, produces valid Chrome trace JSON for both baseline and optimized versions (with traceEvents key and non-empty events), produces benchmark_results.json with required keys and numeric values, and confirms speedup_ratio > 1.0."""
+category = "machine_learning"
+tags = ["transformers", "inference-optimization", "profiling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gqa-kvcache-inference"

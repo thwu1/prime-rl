@@ -1,0 +1,25 @@
+{
+  "resourceType": "Patient",
+  "id": "pat-200",
+  "contained": [
+    {
+      "resourceType": "Practitioner",
+      "id": "pract-inline",
+      "name": [{"use": "official", "family": "Jones", "given": ["Alice"]}]
+    },
+    {
+      "resourceType": "Organization",
+      "id": "org-inline",
+      "name": "City Hospital",
+      "identifier": [{"system": "http://hospital.example/org", "value": "ORG-67890"}],
+      "address": [{"line": ["789 Health Blvd"], "city": "Portland", "state": "OR", "country": "US"}]
+    }
+  ],
+  "name": [{"use": "official", "family": "Johnson", "given": ["Emily"]}],
+  "gender": "female",
+  "birthDate": "1978-11-03",
+  "generalPractitioner": [{"reference": "#pract-inline"}],
+  "managingOrganization": {"reference": "#org-inline"},
+  "address": [{"line": ["456 Oak Ave"], "city": "Portland", "state": "OR", "country": "US"}],
+  "telecom": [{"system": "email", "value": "emily@example.com"}]
+}

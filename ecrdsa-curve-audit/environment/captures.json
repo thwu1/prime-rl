@@ -1,0 +1,49 @@
+{
+  "public_key": {
+    "Qx": "0x7a020798c5cbaf3a0d889494478e76ba3d07c6333ba42f84039958d995ac9081",
+    "Qy": "0x63cf4e639cc4e1909e6f0729b7a6b1c9e9f053e71ad2f05e5e63ac0e060327fa"
+  },
+  "hash_algorithm": "sha256",
+  "signatures": [
+    {
+      "message": "Transaction alpha confirmed at 14:32 UTC",
+      "r": "0x61b42768ff7b641ff2fe1baa62217388b820360848d443ce935855c7f8f900f8",
+      "s": "0x3cf1157a69e52fe637b3235ba8e173eed9168fc08eed8dccbc358d86c57fcdf6"
+    },
+    {
+      "message": "Audit log entry: session 7f3a started",
+      "r": "0x8d5919e8dcb971ab248bf33c57fb43575ef406e9551b05f86a18cdbea6e84139",
+      "s": "0x596a0d624ae7851ed000c8db6a542bdc9cde5505b05777b6960b345f9f5779e2"
+    },
+    {
+      "message": "Certificate renewal request for node 42",
+      "r": "0x5cccdd32a791d52307706f25328226320aacec7119d51d006425c1a5f8436b55",
+      "s": "0x512a4f1dc1e9000247a5d9b6a86fe1a859dd75fdaccfdf6836ad86e490437422"
+    },
+    {
+      "message": "Heartbeat signal from sensor network",
+      "r": "0x61b42768ff7b641ff2fe1baa62217388b820360848d443ce935855c7f8f900f8",
+      "s": "0x24ec5f1b12dcc94a756439d0f4593c453360f882bdbc5d0f7e7f66662c867c2c"
+    },
+    {
+      "message": "Key rotation event triggered",
+      "r": "0xcde3cd255881e7ab931c70f8c25858379ec155eb97e8e6b147457bc2ea3ebc02",
+      "s": "0xdde398012b304c7b0fd326be866f37dabe487980ee1f4fbafe38c91060dd6005"
+    },
+    {
+      "message": "Firmware update package checksum valid",
+      "r": "0xaef2ea7ec68c67a93389112536e7f0f4ed41576f87d6018264979b0b7f1e2232",
+      "s": "0x6ca6206551d5a34ea22708b31e0b8a27d15cab644781329f2b1f382c61605248"
+    },
+    {
+      "message": "Authentication token refreshed",
+      "r": "0x9f6a6fe8594d7b78cb0c05ad921eb4ed6c66b8252dc08dff2333f3f00e3fcd71",
+      "s": "0xac9537ceafa491e8cd43faec9cbe9069e98996c350fb72f49ca86adcf845e1e"
+    },
+    {
+      "message": "Database migration completed successfully",
+      "r": "0x67912875a66d5d2efb94141d1b999ec2141aa30d54662f31f4d46e2ff028ed61",
+      "s": "0x8844b136485611a215030bb59158ad51ad8b6202ba3a5db2e86d6889d4bc2427"
+    }
+  ]
+}

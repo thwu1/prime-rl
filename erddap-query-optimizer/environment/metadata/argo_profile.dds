@@ -1,0 +1,12 @@
+Dataset {
+  Sequence {
+    String float_id;
+    Float64 time;
+    Float64 latitude;
+    Float64 longitude;
+    Float32 temp;
+    Float32 psal;
+    Float32 pres;
+    String temp_qc;
+  } s;
+} argo_profile;

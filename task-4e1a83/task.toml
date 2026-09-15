@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptography and multi-tool proficiency: (1) parsing DH parameters from a PEM file using openssl or ASN.1 knowledge, (2) querying a SQLite audit database to correlate session data, (3) reverse-engineering a proprietary binary capture format using hex tools, (4) recognizing the DH modulus is composite rather than prime, (5) factoring it, (6) computing discrete logarithms modulo each factor using subgroup decomposition, (7) combining partial results via generalized CRT, and (8) deriving the decryption key. The agent must independently discover both the weakness and the attack strategy across multiple heterogeneous data formats."""
+solution_explanation = """Parse the PEM file to extract modulus n and generator g. Parse the binary capture to get the session UUID, then query audit.db for the corresponding public key A. Discover n is composite and factor it using Pollard's p-1 (p-1 and q-1 are B-smooth). Compute discrete logs mod p and q via Pohlig-Hellman with baby-step giant-step in each prime-power subgroup. Combine via generalized CRT (since p-1 and q-1 share common prime factors). Derive the XOR key as SHA-256 of the private key's decimal representation and decrypt."""
+verification_explanation = """Tests parse all three artifact formats independently to extract n, g, and A. They verify: (1) private_key.txt contains an integer a satisfying g^a ≡ A (mod n), providing mathematical proof of correct discrete log recovery; (2) decrypted.txt hashes to the SHA-256 digest embedded in the binary capture; (3) decrypted text is consistent with XOR decryption using the recovered key."""
+category = "security"
+tags = ["cryptography", "forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4e1a83"

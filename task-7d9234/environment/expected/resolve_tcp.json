@@ -1,0 +1,1 @@
+{"_input": "tcp", "enabled_features": ["net", "tcp"], "activated_deps": {"smoltcp": ["alloc", "medium-ethernet", "proto-ipv4", "socket-tcp"]}}

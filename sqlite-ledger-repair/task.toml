@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of SQLite internals to independently discover, diagnose, and repair five interacting data integrity issues from symptom-level evidence only (wrong query results + partial audit data — no expected results provided). The solver must: (1) use typeof(), PRAGMA foreign_key_check, value range analysis, and cross-validation against partial ERP audit data to discover each corruption independently; (2) understand how SQLite's flexible typing silently converts TEXT to 0 in arithmetic, how disabled-by-default FK enforcement permits orphaned records, how NULL semantics in compound PKs bypass uniqueness, and how absent CHECK constraints allow domain violations; (3) evaluate competing repair strategies for each issue (e.g., delete vs re-link orphans, parse vs re-import text prices) and justify choices using audit evidence; (4) determine the correct repair ordering because some corruptions mask others (text prices zeroing revenue masks the impact of percentage-format discounts); (5) design and implement SQLite BEFORE INSERT/UPDATE triggers that enforce the business rules from schema_spec.md to prevent recurrence — requiring knowledge of SQLite's trigger syntax, RAISE() function, and typeof() behavior in trigger contexts."""
+solution_explanation = """Copy the database and apply repairs in dependency order: (1) detect TEXT-formatted currency amounts via typeof() and parse '$X,XXX.XX' and 'USD X.XX' formats back to REAL, cross-validating against audit sample rows; (2) find discount_pct > 1.0 (percentages instead of fractions) and divide by 100, justified by schema spec and audit samples; (3) identify and delete orphaned order_lines whose order_id references no order (FK enforcement off by default), validated by audit row count; (4) correct inventory_log sign convention violations using ABS(), validated against audit per-product balances; (5) delete spurious daily_revenue rows with NULL category that bypass compound PK uniqueness. Then create 4 BEFORE INSERT/UPDATE triggers enforcing unit_price type/range, discount_pct range, inventory sign convention, and non-NULL category. Generate repair_report.json documenting each phase with evidence, alternatives considered, and dependency justifications."""
+verification_explanation = """Tests run the five report queries against the repaired database and compare row-by-row to pre-computed expected results (generated during setup, not visible to solver) with floating-point tolerance. Structural checks verify: no TEXT types in unit_price, no discount_pct > 1.0, no orphaned order_lines, correct inventory sign convention, no NULL daily_revenue categories, correct record counts, PRAGMA integrity_check and foreign_key_check pass, schema tables preserved. Trigger tests attempt to INSERT violating data and verify rejection. Repair report is validated for structure: >= 4 phases with valid dependency DAG, substantive evidence/alternatives fields, >= 3 preventive measures with CREATE TRIGGER definitions."""
+category = "database"
+tags = ["sqlite-forensics", "data-integrity-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-ledger-repair"

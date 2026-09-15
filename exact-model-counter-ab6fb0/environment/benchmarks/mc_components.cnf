@@ -1,0 +1,6 @@
+c Three independent components
+c t mc
+p cnf 6 3
+1 2 0
+3 4 0
+5 6 0

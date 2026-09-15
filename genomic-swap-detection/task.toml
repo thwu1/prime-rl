@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of population genetics (KING-robust kinship estimation, IBS metric interpretation, expected relatedness distributions for different family relationships), clinical genomics workflows (sample QC, pedigree verification, variant prioritization), and proficiency with bioinformatics tool chains (bcftools for compressed VCF manipulation, bedtools for genomic interval operations). The agent must independently determine the correct kinship formula, know how to interpret kinship values to diagnose pedigree errors, understand Mendelian inheritance constraints for de novo calling, and implement phase-by-inheritance logic for compound heterozygote analysis — all without algorithmic guidance. The interdependent pipeline means incorrect swap detection cascades into wrong variant calls."""
+solution_explanation = """Extract genotype data from the bgzipped VCF using bcftools query. Compute pairwise KING-robust kinship: (shared_hets - 2*IBS0) / (2 * min(het_i, het_j)). Identify that labeled mother-child kinship values deviate from the expected ~0.25 for parent-child pairs, revealing S2 and S5 are swapped between families. Correct the pedigree. Use the corrected trio to call de novo variants (proband het, both parents hom-ref, AF<0.01) finding 3 on chr5. Use bedtools intersect to map proband rare hets to gene regions, then identify compound het pairs (one from each parent in the same gene), finding 1 pair in DISEASE_GENE_A."""
+verification_explanation = """Tests verify: (1) kinship.tsv has all 15 pairs with KING-robust values matching ground truth within ±0.001 and exact IBS0 integers, (2) parent-child pairs have IBS0=0, (3) swapped_samples.txt identifies S2 and S5, (4) corrected.ped assigns S2 to FAM1 as mother of S3 and S5 to FAM2 as mother of S6 with correct family memberships, (5) denovo.tsv contains exactly 3 variants at chr5:51000, chr5:63500, chr5:76000, (6) compound_hets.tsv contains exactly 1 pair in DISEASE_GENE_A at chr2:26000 and chr2:38500."""
+category = "bioinformatics"
+tags = ["population-genetics", "clinical-genomics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/genomic-swap-detection"

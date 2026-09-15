@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating two non-trivial concurrent C++ template data structures from scratch. The SPSC queue demands expert knowledge of the C++11/20 memory model (choosing acquire/release vs relaxed vs seq_cst for each atomic operation), CPU cache architecture (false sharing between producer and consumer atomics), and lock-free ring buffer design (capacity semantics, index wrap-around, full/empty disambiguation without sentinel slots). The K-way merger demands implementing a tournament (loser) tree — an advanced algorithmic data structure requiring careful bottom-up construction, correct replay logic for O(log K) per-element merging, handling of exhausted sources via sentinels, and stable tie-breaking. The agent must synthesize knowledge across concurrent programming, cache-aware systems design, and algorithm engineering to produce ~200 lines of correct, production-quality C++20."""
+solution_explanation = """SPSC Queue: Use monotonically-increasing head/tail counters (not modular indices) with a power-of-2 internal buffer. Apply memory_order_relaxed for own-thread loads and memory_order_acquire for cross-thread loads, memory_order_release for cross-thread stores. Use alignas(64) on both head_ and tail_ atomics for cache-line separation. Full condition is tail-head >= requested_capacity; empty is head==tail. Feed Merger: Implement a loser tree with K internal nodes (padded to power-of-2). Build bottom-up using a temporary winner array. For replay, walk from the changed leaf's parent to root, swapping losers at each node. Dead/exhausted sources act as sentinels that always lose. Stable merge by breaking ties in favor of lower source index."""
+verification_explanation = """Tests compile C++20 programs against the agent's headers and verify: (1) SPSC capacity holds exactly N elements for 18 different sizes including non-power-of-2; (2) FIFO ordering with wrap-around and interleaved push/pop; (3) concurrent correctness with 500K sequential values between producer/consumer threads; (4) source analysis confirming acquire/release memory ordering presence; (5) sizeof >= 128 confirming cache-line separation; (6) source analysis confirming no mutex usage; (7) merger correctly sorts 4-source interleaved data; (8) merger handles K=1, empty sources, non-power-of-2 K, and K=16; (9) stability test verifying equal-key ordering matches source index; (10) integration test running the full trading simulation pipeline."""
+category = "systems_programming"
+tags = ["lock-free-programming", "algorithm-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-40c061"

@@ -1,0 +1,13 @@
+{
+  "name": "mpich",
+  "versions": ["4.1.2", "3.4.3"],
+  "variants": [],
+  "dependencies": [
+    {"name": "hwloc", "version_min": "2.0"},
+    {"name": "zlib"}
+  ],
+  "conflicts": [],
+  "virtuals": [
+    {"name": "mpi", "provider_priority": 50}
+  ]
+}

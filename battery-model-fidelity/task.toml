@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level battery electrochemistry knowledge to diagnose five independent configuration errors in a PyBaMM simulation that interact to produce subtly wrong results. The agent must distinguish between absolute current and C-rate conventions, recognize when thermal coupling is physically necessary for high-rate discharge analysis, identify an incorrect parameter override that alters cell chemistry, understand proper time-aligned methodology for comparing model voltage traces, and know how electrolyte concentration profiles evolve temporally during discharge. These bugs span electrochemistry, thermal physics, numerical methods, and spatiotemporal data extraction, requiring holistic domain understanding to diagnose from symptom (wrong results) to root cause."""
+solution_explanation = """Diagnose and fix five independent issues: (1) experiment strings specify absolute current in amperes instead of C-rate, yielding much lower effective rates than intended; (2) isothermal thermal model omits essential Joule heating effects at high C-rates; (3) a parameter override incorrectly sets negative electrode active material volume fraction to 0.35 instead of the Chen2020 default (~0.75), drastically reducing electrode capacity; (4) voltage RMSE comparison truncates misaligned adaptive-timestep arrays instead of interpolating onto a common time grid; (5) electrolyte concentration profile is sampled at t=0 (uniform initial condition) instead of the final discharge timestep where concentration gradients have developed."""
+verification_explanation = """Tests verify structural correctness (JSON keys and C-rate entries), physical consistency (capacities in expected range, decreasing with C-rate, DFN <= SPM), thermal model activation (temperature rise >5 C at 3C), electrolyte transport (concentration range >50 mol/m3 at 3C), relative error formula consistency, voltage RMSE properties (positive, increasing with C-rate), and independent reference simulations (DFN and SPM at 1C with correct Chen2020 parameters and lumped thermal match reported values within 2%, RMSE matches independent time-aligned computation within tolerance)."""
+category = "modeling_simulation"
+tags = ["battery-modeling", "scientific-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/battery-model-fidelity"

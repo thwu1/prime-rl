@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a buggy C implementation of a research-grade optimization algorithm (activation checkpointing DP for neural networks), building it with make, writing Python-to-C bindings for interoperability, and independently implementing sequence reconstruction and a faithful memory simulator. The agent must read and understand unfamiliar C code computing a 3D dynamic programming table with complex feasibility constraints, identify two subtle bugs (an off-by-one array index in the base case limit and an incorrect loop bound in the cost summation), fix and rebuild the shared library, then derive the reconstruction algorithm from the DP table structure and implement a memory simulator faithful to five distinct operation types with different allocation/deallocation semantics. The interplay between C debugging, build tooling, marshalling, and algorithmic understanding makes this a coupled multi-tool challenge."""
+solution_explanation = """The solution fixes two bugs in dp_core.c: (1) in the base case limit calculation, cbw[i] is corrected to cbw[i+1] to use the grad-tracked activation size at position i+1 rather than i; (2) in the leaf checkpoint forward sum loop, the bound k<=j is corrected to k<j so the sum covers fw[i..j-1] not fw[i..j]. After fixing, make builds dp_core.so. The solver.py loads dp_core.so via ctypes, marshals Chain data into C arrays (with appropriate padding), calls compute_dp, and converts the flat output arrays into nested Python dicts. reconstruct recursively follows the what table: type A decisions emit ForwardEnable/recurse/Backward (chain checkpoint), type B decisions emit ForwardCheck/ForwardNograd sweep/two recursive calls (leaf checkpoint). simulate tracks named memory items (x_i, xb_i, y_i), computing peak as sum-of-sizes + temporary-memory at each operation step, raising ValueError on precondition violations."""
+verification_explanation = """Tests verify: (1) dp_core.so exists, exports compute_dp, and produces correct golden values when called directly via ctypes; (2) solver.py source contains ctypes and dp_core references; (3) 17 golden opt values across 4 heterogeneous chains at multiple budgets; (4) infeasibility at low budgets; (5) monotonicity of opt in m; (6) convergence to no-recomputation makespan; (7) correct makespan of reconstructed sequences; (8) complete backward coverage; (9) single Loss per sequence; (10) peak memory within budget via simulate; (11) ValueError on invalid operations; (12) consistency on a 6-layer stress chain; (13) proper DP table structure."""
+category = "systems"
+tags = ["dynamic-programming", "gradient-checkpointing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gradient-remat-solver"

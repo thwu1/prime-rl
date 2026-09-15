@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of memory allocator internals: the solver must reverse-engineer walloc's page/chunk architecture, its small-object size class system, and large-object freelist management from ~470 lines of dense C code, then replace WASM memory primitives with a native backing store while preserving all pointer-arithmetic invariants. Extending with realloc (including in-place large-object growth) and accurate statistics tracking demands thorough comprehension of the allocator's metadata layout."""
+solution_explanation = """Port WASM memory primitives to an mmap-backed arena with 64KB page alignment. Preserve the original page_header/chunk_kind metadata, segregated freelists for 10 small-object size classes, and best-fit large object allocation with lazy coalescing. Implement realloc by inspecting chunk_kind to determine allocation type and usable size, attempting in-place growth for large objects by absorbing adjacent free chunks, falling back to malloc+copy+free. Track statistics using usable (rounded) allocation sizes."""
+verification_explanation = """Tests compile the solution as a shared library and exercise it via ctypes: basic allocation/free correctness across all size classes, data preservation in realloc transitions (small-small, small-large, large-small, large-large), in-place growth verification for large objects with adjacent free space, calloc zero-initialization, statistics consistency invariants (current = alloc - freed, peak >= current), and random stress testing with 1000 operations."""
+category = "systems_programming"
+tags = ["memory-allocator", "wasm-porting"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/walloc-native-port"

@@ -1,0 +1,39 @@
+zones:
+  evpn-production:
+    type: evpn
+    vrf_vxlan: 4000
+    peers:
+      - "10.10.12.10"
+      - "10.10.12.11"
+      - "10.10.12.12"
+    anycast_mac: "AA:BB:CC:11:22:33"
+    exit_nodes:
+      - pve01
+
+vnets:
+  infra-net:
+    zone: evpn-production
+    tag: 1000
+    alias: "Infrastructure Network"
+
+  customer-net:
+    zone: evpn-production
+    tag: 2000
+    alias: "Customer Network"
+
+subnets:
+  - cidr: "172.16.1.0/24"
+    vnet: infra-net
+    gateway: "172.16.1.1"
+    snat: true
+    dns_zone_prefix: infra
+
+  - cidr: "172.16.61.0/28"
+    vnet: customer-net
+    gateway: "172.16.61.1"
+    snat: false
+
+  - cidr: "172.16.61.16/28"
+    vnet: customer-net
+    gateway: "172.16.61.17"
+    snat: false

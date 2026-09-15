@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ASPA Security Audit Report",
+  "type": "object",
+  "required": ["erroneous_objects", "corrected_aspa", "route_analysis", "deployment_recommendation"],
+  "properties": {
+    "erroneous_objects": {
+      "type": "array",
+      "description": "ASPA attestations that contain errors, whether due to certificate invalidity, incorrect provider sets, or both.",
+      "items": {
+        "type": "object",
+        "required": ["customer_asn", "unauthorized_providers", "missing_providers"],
+        "properties": {
+          "customer_asn": {
+            "type": "integer",
+            "description": "The customer ASN whose ASPA attestation contains errors"
+          },
+          "unauthorized_providers": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "ASNs listed as providers in the attestation that are not actual transit providers"
+          },
+          "missing_providers": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "ASNs that are actual transit providers but absent from the attestation"
+          }
+        }
+      }
+    },
+    "corrected_aspa": {
+      "type": "object",
+      "description": "Corrected ASPA database. Keys are customer ASN strings, values are sorted arrays of correct provider ASNs. Include only ASes that had published attestations.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "integer"}
+      }
+    },
+    "route_analysis": {
+      "type": "array",
+      "description": "Verification results for each observed BGP route.",
+      "items": {
+        "type": "object",
+        "required": ["id", "direction", "result"],
+        "properties": {
+          "id": {"type": "string"},
+          "direction": {
+            "type": "string",
+            "enum": ["upstream", "downstream"],
+            "description": "Verification direction based on the relationship between receiver and neighbor"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["Valid", "Invalid", "Unknown", "Unverifiable"]
+          },
+          "leak_source_asn": {
+            "type": ["integer", "null"],
+            "description": "For Invalid routes: the AS that initiated the violating transit hop. Null for non-Invalid routes."
+          }
+        }
+      }
+    },
+    "deployment_recommendation": {
+      "type": "array",
+      "description": "ASes that should deploy ASPA attestations, ranked by the count of previously-unresolved routes each deployment would resolve (descending), ties broken by ascending ASN.",
+      "items": {
+        "type": "object",
+        "required": ["asn", "provider_set", "resolves_routes"],
+        "properties": {
+          "asn": {
+            "type": "integer",
+            "description": "The ASN that should deploy an ASPA attestation"
+          },
+          "provider_set": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "The correct provider set for this AS"
+          },
+          "resolves_routes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Route IDs that would change from Unknown to a definitive result"
+          }
+        }
+      }
+    }
+  }
+}

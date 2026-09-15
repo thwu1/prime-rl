@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reasoning across multiple domains: (1) diagnosing subtle numerical bugs in parallel moment-combination formulas (Chan-Golub-LeVeque / Pebay) without hints about which formulas are wrong; (2) understanding GPU shared memory banking models to identify an incorrect address-to-bank mapping; (3) understanding warp-level tree reduction semantics to find a padding bug; (4) designing a cross-architecture struct layout that eliminates bank conflicts on two hardware targets with different bank counts, requiring number-theoretic reasoning about coprimality of stride and bank count; (5) discovering that the standard single-architecture solution (stride 11 for 32-bank GPU) catastrophically fails on the second architecture because gcd(11, 33) = 11, mapping all threads to only 3 banks; (6) evaluating and ranking multiple candidate layouts including SoA variants across both architectures, then justifying the optimal design. Six interrelated bugs span three modules, and the layout design requires original reasoning beyond applying known formulas."""
+solution_explanation = """Fix accumulator.py combine(): weighted mean, add n_a*n_b/n scaling to M2, add M2 cross-term to M3, implement full M4 formula. Fix warp.py: pad with zero accumulators. Fix shared_memory.py: use word-addressed bank index. Then evaluate struct layouts across both architectures (32-bank GPU and 33-bank accelerator), discover that 4-byte padding (stride 11) has gcd(11,33)=11 causing 145 conflicts on the accelerator, and determine that 12-byte padding (stride 13, 52-byte struct, gcd(13,32)=1 and gcd(13,33)=1) is the minimum cross-architecture conflict-free AoS layout at 30% memory overhead."""
+verification_explanation = """Tests verify: (1) pipeline output files exist; (2) statistics match independent sequential Welford computation to 1e-9; (3) accumulator combine correctness for equal/unequal/empty/chained groups; (4) warp reduction for full/partial/single warps; (5) bank conflict detection against known patterns; (6) design_report.json has >=6 layouts with per-architecture conflict counts, SoA variant, cross-arch optimal with padding=12/size=52/0 conflicts on both/30% overhead/justification, correct identification that S=44 fails on 33-bank architecture."""
+category = "parallel_computing"
+tags = ["numerical-algorithms", "gpu-memory-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parallel-welford-merge"

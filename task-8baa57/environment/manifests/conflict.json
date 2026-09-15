@@ -1,0 +1,7 @@
+{
+  "name": "conflict-app",
+  "dependencies": {
+    "orm": "^2.0.0",
+    "cache": "^1.0.0"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "_id": "metrics-lifecycle",
+  "_seq_no": 2,
+  "_primary_term": 1,
+  "policy": {
+    "policy_id": "metrics-lifecycle",
+    "description": "Fast rotation for system metrics indices",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "rollover": {
+              "min_doc_count": 8000000,
+              "min_index_age": "2d"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": { "min_index_age": "5d" }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ]
+  }
+}

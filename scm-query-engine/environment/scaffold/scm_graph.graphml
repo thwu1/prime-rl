@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/graphml"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/graphml http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="d0" for="node" attr.name="visible" attr.type="string">
+    <default>true</default>
+  </key>
+  <key id="d1" for="node" attr.name="num_values" attr.type="int">
+    <default>2</default>
+  </key>
+  <graph edgedefault="directed">
+    <node id="X">
+      <data key="d0">true</data>
+      <data key="d1">2</data>
+    </node>
+    <node id="H">
+      <data key="d0">false</data>
+      <data key="d1">2</data>
+    </node>
+    <node id="T">
+      <data key="d0">true</data>
+      <data key="d1">2</data>
+    </node>
+    <node id="M">
+      <data key="d0">true</data>
+      <data key="d1">2</data>
+    </node>
+    <node id="Y">
+      <data key="d0">true</data>
+      <data key="d1">2</data>
+    </node>
+    <edge source="X" target="T"/>
+    <edge source="H" target="T"/>
+    <edge source="T" target="M"/>
+    <edge source="M" target="Y"/>
+    <edge source="H" target="Y"/>
+  </graph>
+</graphml>

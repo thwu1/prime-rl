@@ -1,0 +1,33 @@
+## Web-only container for multi-container Discourse setup
+## Connects to a separate data container for PostgreSQL and Redis
+
+templates:
+  - "templates/web.template.yml"
+  - "templates/web.ratelimited.template.yml"
+  - "templates/web.ssl.template.yml"
+
+expose:
+  - "80:80"
+  - "443:443"
+
+env:
+  LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
+  LANGUAGE: en_US.UTF-8
+  DISCOURSE_HOSTNAME: "forum.mysite.org"
+  DISCOURSE_DEVELOPER_EMAILS: ""
+  DISCOURSE_DB_HOST: data
+  DISCOURSE_REDIS_HOST: data
+
+links:
+  - link:
+      name: data
+      alias: data
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/discourse/docker_manager.git
+          - git clone https://github.com/discourse/discourse-data-explorer.git

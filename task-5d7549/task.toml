@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level quantum computing expertise: understanding of unitary synthesis (KAK decomposition bounds, Hilbert-Schmidt distance with global phase), familiarity with quantum compiler frameworks (BQSKit workflow system, MachineModel, gate sets), topology-aware circuit mapping with SWAP routing, and the mathematical relationship between qubit permutations and compiled circuit unitaries. The agent must navigate a non-trivial API, handle the subtlety that topology mapping introduces qubit permutations into the circuit unitary, and produce verified results across multiple gate set targets."""
+solution_explanation = """Install BQSKit and use its compile() function with appropriate MachineModel objects to synthesize 2-qubit unitaries into circuits for each gate set. For the 4-qubit circuit, compile with a linear-chain coupling graph, then verify topology compliance by checking all two-qubit gate locations. Compute Hilbert-Schmidt distances using the formula d = 1 - |Tr(U†V)|/n, handling the qubit permutation from routing by searching over permutation matrices."""
+verification_explanation = """Tests independently load every output QASM file via BQSKit, recompute the unitary matrix, and compare against the known target unitaries using the Hilbert-Schmidt distance. For the 4-qubit circuit, all 24 possible qubit permutations are tried to account for routing-induced relabeling. Topology compliance is verified by checking every two-qubit gate location against the coupling graph. JSON schema and gate count bounds are also validated."""
+category = "quantum_computing"
+tags = ["quantum_compilation", "circuit_synthesis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5d7549"

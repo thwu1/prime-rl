@@ -1,0 +1,38 @@
+{
+  "drag": {
+    "schiller_naumann": {
+      "Re_0.1": "<float: drag coefficient at Re=0.1>",
+      "Re_1.0": "<float: drag coefficient at Re=1.0>",
+      "Re_10.0": "<float: drag coefficient at Re=10.0>",
+      "Re_100.0": "<float: drag coefficient at Re=100.0>",
+      "Re_1000.0": "<float: drag coefficient at Re=1000.0>"
+    }
+  },
+  "settling": {
+    "terminal_velocity": "<float: Stokes terminal velocity in m/s>",
+    "reynolds_number": "<float: particle Reynolds number>",
+    "fronts": [
+      {
+        "eps_s0": "<float: initial solid volume fraction>",
+        "settling_front": "<float: settling front position in meters at eval_time>",
+        "filling_front": "<float: filling front position in meters at eval_time>",
+        "hindered_velocity": "<float: Richardson-Zaki hindered settling velocity in m/s>"
+      }
+    ]
+  },
+  "mms": {
+    "l2_norms": {
+      "8": "<float: L2 error norm at N=8>",
+      "16": "<float: L2 error norm at N=16>",
+      "32": "<float: L2 error norm at N=32>",
+      "64": "<float: L2 error norm at N=64>",
+      "128": "<float: L2 error norm at N=128>"
+    },
+    "observed_orders": {
+      "8_to_16": "<float: observed order of accuracy>",
+      "16_to_32": "<float: observed order of accuracy>",
+      "32_to_64": "<float: observed order of accuracy>",
+      "64_to_128": "<float: observed order of accuracy>"
+    }
+  }
+}

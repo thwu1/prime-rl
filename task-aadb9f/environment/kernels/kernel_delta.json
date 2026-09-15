@@ -1,0 +1,6 @@
+{
+  "name": "kernel_delta",
+  "registers_per_thread": 64,
+  "shared_memory_bytes_formula": "warps_per_block * 512 + 2048",
+  "description": "Dynamic shared memory that scales with block size"
+}

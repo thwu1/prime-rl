@@ -1,0 +1,15 @@
+{
+  "project_name": "web-scraper-service",
+  "language": "ruby",
+  "language_version": "3.2",
+  "build_system": "bundler",
+  "dependencies": [
+    "rails ~> 7.1",
+    "nokogiri ~> 1.16",
+    "puma ~> 6.4",
+    "httparty ~> 0.21"
+  ],
+  "test_framework": "rspec",
+  "test_command": "bundle exec rspec",
+  "notes": "Nokogiri requires native XML/XSLT libraries for parsing HTML/XML documents"
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring an undocumented SQLite database schema using the sqlite3 CLI, diagnosing which of three market data feeds contains prices inconsistent with Heston stochastic volatility dynamics through cross-feed analysis, implementing the Heston characteristic function with complex-valued Riccati ODE solutions and careful branch-cut handling, a Fourier-based option pricing engine, Black-Scholes implied volatility inversion, and a 5-dimensional non-convex global calibration pipeline. Demands multi-tool proficiency (sqlite3 CLI + Python numerical computing) and graduate-level expertise in computational finance, complex analysis, and numerical optimization."""
+solution_explanation = """Use sqlite3 to explore the database schema and extract market parameters, feed metadata, instrument definitions, and price observations. Calibrate Heston per-feed using differential evolution to identify the anomalous darkpool_composite feed (which has systematically higher residuals due to prices generated from different Heston parameters). Exclude that feed, recalibrate on clean feeds using COS method pricing with global+local optimization, then compute model prices and implied volatility surface."""
+verification_explanation = """Tests read the SQLite database to obtain reference prices from the clean reuters_eikon feed. An independent COS method + Heston CF implementation verifies calibrated parameters reproduce market prices within tolerance. Anomaly detection is checked by verifying darkpool_composite is excluded while reuters_eikon and bloomberg_bpipe are not. Output format, parameter bounds, model price consistency, and IV surface properties (positive values, negative skew) are all verified."""
+category = "quantitative_finance"
+tags = ["stochastic-volatility", "data-quality-diagnosis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/heston-model-calibration"

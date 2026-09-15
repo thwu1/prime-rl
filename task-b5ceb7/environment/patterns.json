@@ -1,0 +1,30 @@
+{
+  "description": "GPU shared memory access patterns for bank conflict analysis. Each pattern specifies byte offsets accessed by 32 threads (t=0..31) in a single warp.",
+  "note": "For formula-based patterns, 't' is the thread index (0-31). Evaluate the Python integer expression for each t to get the byte offset.",
+  "patterns": {
+    "sequential": {
+      "description": "Consecutive 4-byte element access",
+      "offsets_formula": "t * 4"
+    },
+    "all_same_bank": {
+      "description": "Column 0 access of a row-major float[32][32] matrix (stride 128 bytes)",
+      "offsets_formula": "t * 128"
+    },
+    "stride_6": {
+      "description": "Strided access with stride of 6 float elements (24 bytes per step)",
+      "offsets_formula": "t * 24"
+    },
+    "pure_broadcast": {
+      "description": "All 32 threads read from the same byte address",
+      "offsets_explicit": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    "mixed_broadcast_conflict": {
+      "description": "Groups of threads share addresses across banks, creating both broadcasts within groups and conflicts between groups that map to the same bank",
+      "offsets_explicit": [0, 0, 0, 0, 128, 128, 128, 128, 256, 256, 256, 256, 4, 4, 132, 132, 8, 8, 136, 136, 264, 264, 12, 12, 16, 16, 20, 20, 24, 24, 28, 28]
+    },
+    "quadratic_scatter": {
+      "description": "Non-linear scatter pattern using quadratic index mapping with modular arithmetic",
+      "offsets_formula": "((t * 17 + t * t * 3) % 128) * 4"
+    }
+  }
+}

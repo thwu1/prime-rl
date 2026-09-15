@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires coupled debugging, architectural design, and feature implementation across a pediatric growth assessment engine in R. The starter code has five interacting bugs (gender filter blocks all data loading; step-function interpolation; missing L=0 z-score case; wrong CDF tail; incorrect age conversion) and is missing three major subsystems that must be designed from scratch: Fenton preterm chart routing with age-dependent chart selection, Fenton-to-WHO transition blending with linear z-score interpolation, and growth velocity computation with clinical flagging. The gender filter bug cascades to mask all other bugs until resolved. The solver must analyze LMS reference data files with different schemas, design the multi-chart routing architecture, implement the blending algorithm, and add the velocity tracking pipeline — all while fixing the core computational bugs. Domain knowledge of the LMS method, normal CDF properties, and gestational age conventions is required."""
+solution_explanation = """Five bug fixes: (1) use gender_code directly ('m'/'f') instead of converting to 'male'/'female'; (2) change approx() method from 'constant' to 'linear'; (3) add L=0 special case using log(x/M)/S; (4) use pnorm(z) instead of pnorm(z, lower.tail=FALSE); (5) convert PMA-to-months as (pma-40)*7/30.4375 instead of (pma-40)/4. Three new features: (A) chart routing — add preterm pathway using Fenton 2013 data for ga_birth<37 and PMA<=50, with 'fenton_2013'/'fenton_who_blend'/'who_2006_infant' chart labels; (B) transition blending — implement blend_zscores() with w_who=(pma-40)/10 linear weighting in PMA 40-50 zone; (C) growth velocity — implement compute_velocities() that computes delta_z and delta_z_per_week for consecutive same-type measurements, flagging rapid_loss/rapid_gain/normal."""
+verification_explanation = """Thirteen pytest tests verify the complete pipeline: 4 WHO term infant tests (male/female, above/below median) catch the gender filter and CDF bugs; 1 interpolation test at non-tabulated age catches step-function bug; 1 Fenton preterm test verifies chart routing was implemented; 1 transition test at PMA=45 verifies blending design; 1 percentile crossing test verifies detection logic; 1 L=0 unit test verifies edge case handling; 4 growth velocity tests verify the velocity pipeline exists, correctly computes delta_z/delta_z_per_week, and flags rapid_loss/normal/rapid_gain. All z-scores and percentiles are verified against independently computed golden values using Python math.erf."""
+category = "debugging"
+tags = ["r-programming", "medical-statistics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/growth-zscore-engine-a4d87a"

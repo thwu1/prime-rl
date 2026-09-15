@@ -1,0 +1,243 @@
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Broken DCAT-AP catalog produced by automated migration from v2.x to v3.0.1
+# Contains errors in vocabulary alignment, structural modeling, property usage,
+# literal handling, and cross-entity consistency.
+
+# ==== CATALOG ====
+<http://env-data.europa.eu/catalog> a dcat:Catalog ;
+    dct:title "European Environmental Data Portal"@en ;
+    dct:title "Portail européen de données environnementales"@fr ;
+    dct:description "A comprehensive catalog of environmental monitoring datasets from across Europe"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> ;
+    dct:language "en" ;
+    dct:language "fr" ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/EUR> ;
+    dcat:themeTaxonomy <http://publications.europa.eu/resource/authority/data-theme> ;
+    dct:issued "2022-01-15"^^xsd:date ;
+    dct:modified "2024-06-01"^^xsd:date ;
+    dct:license <https://spdx.org/licenses/CC-BY-4.0> ;
+    foaf:homepage <http://env-data.europa.eu> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "Environmental Data Office" ;
+        vcard:hasEmail <mailto:contact@env-data.europa.eu>
+    ] ;
+    dcat:dataset <http://env-data.europa.eu/dataset/DS001> ,
+                 <http://env-data.europa.eu/dataset/DS002> ,
+                 <http://env-data.europa.eu/dataset/DS003> ,
+                 <http://env-data.europa.eu/dataset/DS004> ;
+    dcat:service <http://env-data.europa.eu/service/api> .
+
+# ==== PUBLISHERS ====
+<http://env-data.europa.eu/publisher/eea> a foaf:Organization ;
+    foaf:name "European Environment Agency"@en .
+
+<http://env-data.europa.eu/publisher/irceline> a foaf:Organization ;
+    foaf:name "Belgian Interregional Environment Agency"@en ;
+    foaf:name "Agence interrégionale de l'environnement belge"@fr .
+
+<http://env-data.europa.eu/publisher/uba> a foaf:Organization ;
+    foaf:name "German Federal Environment Agency"@en ;
+    foaf:name "Umweltbundesamt"@de .
+
+# ==== DATASET SERIES ====
+<http://env-data.europa.eu/series/aq-monitoring> a dcat:Dataset ;
+    dct:title "European Air Quality Monitoring Series"@en ;
+    dct:description "Time-series collection of air quality monitoring data"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> .
+
+# ==== DS001: Air Quality Index ====
+<http://env-data.europa.eu/dataset/DS001> a dcat:Dataset ;
+    dct:title "Air Quality Index 2024"@en ;
+    dct:title "Indice de qualité de l'air 2024"@fr ;
+    dct:description "Hourly air quality index values from 500+ monitoring stations across Europe"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> ;
+    dcat:theme <http://data.europa.eu/resource/authority/data-theme/ENVI> ,
+              <http://data.europa.eu/resource/authority/data-theme/HEAL> ;
+    dcat:keyword "air quality"@en , "pollution"@en , "monitoring"@en , "AQI"@en ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/HOURLY> ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/EUR> ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2024-01-01"^^xsd:date ;
+        dcat:endDate "2024-12-31"^^xsd:date
+    ] ;
+    dcat:landingPage <http://env-data.europa.eu/datasets/air-quality-2024> ;
+    dcat:contactPoint "AQ Data Team" ;
+    dcat:inSeries <http://env-data.europa.eu/series/aq-monitoring> ;
+    dcat:distribution <http://env-data.europa.eu/distribution/DIST001> ,
+                      <http://env-data.europa.eu/distribution/DIST002> .
+
+<http://env-data.europa.eu/distribution/DIST001> a dcat:Distribution ;
+    dct:title "Air Quality CSV Export"@en ;
+    dcat:accessURL "http://env-data.europa.eu/api/aq/2024" ;
+    dcat:downloadURL <http://env-data.europa.eu/download/aq-2024.csv> ;
+    dct:format "text/csv" ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dcat:byteSize 524288000 ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+<http://env-data.europa.eu/distribution/DIST002> a dcat:Distribution ;
+    dct:title "Air Quality JSON-LD"@en ;
+    dcat:accessURL <http://env-data.europa.eu/api/aq/2024/jsonld> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/JSON_LD> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/application/ld+json> ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+# ==== DS002: Water Quality ====
+<http://env-data.europa.eu/dataset/DS002> a dcat:Dataset ;
+    dct:title "Water Quality Measurements"@en ;
+    dct:description "Chemical and biological water quality parameters from river monitoring stations"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/irceline> ;
+    dcat:theme <http://publications.europa.eu/resource/authority/data-theme/ENVI> ;
+    dcat:keyword "water quality"@en , "rivers"@en ;
+    dct:accrualPeriodicity <http://purl.org/cld/freq/quarterly> ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/BEL> ;
+    dct:temporal "2020-01-01"^^xsd:date ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "Water Monitoring Division" ;
+        vcard:hasEmail <mailto:water@irceline.be>
+    ] ;
+    dcat:distribution <http://env-data.europa.eu/distribution/DIST003> .
+
+<http://env-data.europa.eu/distribution/DIST003> a dcat:Distribution ;
+    dct:title "Water Quality XLSX"@en ;
+    dcat:accessURL <http://env-data.europa.eu/water/measurements.xlsx> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/XLSX> ;
+    dcat:byteSize "15728640"^^xsd:nonNegativeInteger ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+# ==== DS003: Noise Maps ====
+<http://env-data.europa.eu/dataset/DS003> a dcat:Dataset ;
+    dct:title "Noise Pollution Maps" ;
+    dct:title "Lärmbelastungskarten"@de ;
+    dct:description "Strategic noise maps covering major urban areas in Germany"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/uba> ;
+    dcat:theme <http://publications.europa.eu/resource/authority/data-theme/ENVI> ,
+              <http://publications.europa.eu/resource/authority/data-theme/REGI> ;
+    dcat:keyword "noise"@en , "pollution"@en , "Lärm"@de ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/DEU> ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2022-01-01"^^xsd:date ;
+        dcat:endDate "2022-12-31"^^xsd:date
+    ] ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "Noise Mapping Unit" ;
+        vcard:hasEmail <mailto:noise@uba.de>
+    ] ;
+    dcat:distribution <http://env-data.europa.eu/distribution/DIST004> ,
+                      <http://env-data.europa.eu/distribution/DIST005> .
+
+<http://env-data.europa.eu/distribution/DIST004> a dcat:Distribution ;
+    dct:title "Noise Maps GeoJSON"@en ;
+    dcat:accessURL <http://env-data.europa.eu/noise/maps/geojson> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/GEOJSON> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/application/geo+json> ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+<http://env-data.europa.eu/distribution/DIST005> a dcat:Distribution ;
+    dct:title "Noise Maps GeoTIFF"@en ;
+    dcat:accessURL <http://env-data.europa.eu/noise/maps/geotiff> ;
+    dcat:downloadURL <http://env-data.europa.eu/download/noise-maps.tif> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/TIFF> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/image/tiff> ;
+    dcat:byteSize "2147483648"^^xsd:nonNegativeInteger ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+# ==== DS004: GHG Emissions ====
+<http://env-data.europa.eu/dataset/DS004> a dcat:Dataset ;
+    dct:title "Greenhouse Gas Emissions Inventory"@en ;
+    dct:description "National greenhouse gas emission inventories"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> ;
+    dcat:theme <http://publications.europa.eu/resource/authority/data-theme/ENVI> ,
+              <http://publications.europa.eu/resource/authority/data-theme/ECON> ;
+    dcat:keyword "greenhouse gas"@en , "emissions"@en , "CO2"@en ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/ANNUAL> ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/EUR> ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "1990-01-01"^^xsd:date ;
+        dcat:endDate "2023-12-31"^^xsd:date
+    ] ;
+    dcat:landingPage <http://env-data.europa.eu/datasets/ghg-inventory> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "Climate Data Team" ;
+        vcard:hasEmail <mailto:climate@eea.europa.eu>
+    ] ;
+    dcat:inSeries <http://env-data.europa.eu/series/aq-monitoring> ;
+    dcat:distribution <http://env-data.europa.eu/distribution/DIST006> ,
+                      <http://env-data.europa.eu/distribution/DIST007> .
+
+<http://env-data.europa.eu/distribution/DIST006> a dcat:Distribution ;
+    dct:title "GHG Inventory RDF"@en ;
+    dcat:accessURL <http://env-data.europa.eu/ghg/rdf> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/RDF_XML> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/application/rdf+xml> ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+<http://env-data.europa.eu/distribution/DIST007> a dcat:Distribution ;
+    dct:title "GHG Inventory CSV"@en ;
+    dcat:accessURL <http://env-data.europa.eu/ghg/csv> ;
+    dcat:downloadURL <http://env-data.europa.eu/download/ghg-inventory.csv> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/CSV> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dcat:byteSize "89128960"^^xsd:nonNegativeInteger ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+# ==== DS005: Biodiversity ====
+<http://env-data.europa.eu/dataset/DS005> a dcat:Dataset ;
+    dct:title "Biodiversity Observation Records"@en ;
+    dct:description "Species occurrence records from the European Biodiversity Observation Network"@en ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> ;
+    dcat:theme <http://publications.europa.eu/resource/authority/data-theme/ENVI> ;
+    dcat:keyword "biodiversity"@en , "species"@en ;
+    dct:accrualPeriodicity <http://publications.europa.eu/resource/authority/frequency/MONTHLY> ;
+    dct:spatial <http://publications.europa.eu/resource/authority/country/EUR> ;
+    dct:temporal [
+        a dct:PeriodOfTime ;
+        dcat:startDate "2015-01-01"^^xsd:date
+    ] ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "Biodiversity Unit" ;
+        vcard:hasEmail <mailto:bio@eea.europa.eu>
+    ] ;
+    dcat:distribution <http://env-data.europa.eu/distribution/DIST008> .
+
+<http://env-data.europa.eu/distribution/DIST008> a dcat:Distribution ;
+    dct:title "Biodiversity Records CSV"@en ;
+    dcat:accessURL <http://env-data.europa.eu/biodiversity/csv> ;
+    dcat:downloadURL <http://env-data.europa.eu/download/biodiversity.csv> ;
+    dct:format <http://publications.europa.eu/resource/authority/file-type/CSV> ;
+    dcat:mediaType <https://www.iana.org/assignments/media-types/text/csv> ;
+    dcat:byteSize "1073741824"^^xsd:nonNegativeInteger ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> .
+
+# ==== DATA SERVICE ====
+<http://env-data.europa.eu/service/api> a dcat:DataService ;
+    dct:title "Environmental Data API"@en ;
+    dct:description "RESTful API providing programmatic access to environmental datasets"@en ;
+    dcat:endpointUrl <http://env-data.europa.eu/api/v2> ;
+    dcat:endpointDescription <http://env-data.europa.eu/api/v2/openapi.json> ;
+    dcat:servesDataset <http://env-data.europa.eu/dataset/DS001> ,
+                       <http://env-data.europa.eu/dataset/DS002> ,
+                       <http://env-data.europa.eu/dataset/DS004> ,
+                       <http://env-data.europa.eu/dataset/DS005> ;
+    dct:publisher <http://env-data.europa.eu/publisher/eea> ;
+    dct:license <http://publications.europa.eu/resource/authority/licence/CC_BY_4_0> ;
+    dcat:contactPoint [
+        a vcard:Kind ;
+        vcard:fn "API Support" ;
+        vcard:hasEmail <mailto:api@env-data.europa.eu>
+    ] .

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of lattice-based cryptanalysis. The solver must recognize that partial nonce leakage in a DSA-like scheme creates a variant of the Extended Hidden Number Problem, formulate it as a Closest Vector Problem with inequality constraints, construct the correct lattice basis matrix encoding both equality constraints (signing equations) and inequality constraints (bounds on unknown nonce segments), apply appropriate scaling so Babai's nearest-plane algorithm respects heterogeneous bound sizes, and use LLL reduction to solve. This is significantly harder than the standard HNP with known MSBs because the unknown bits are split across two non-contiguous regions of each nonce, requiring double the unknowns per equation."""
+solution_explanation = """For each signature, the signing equation s_i * k_i = h_i + x * r_i (mod q) is combined with the nonce decomposition k_i = hi_i * 2^176 + mid_i * 2^80 + lo_i where mid_i is leaked. This yields the linear relation x * r_i - s_i * 2^176 * hi_i - s_i * lo_i + q * val_i = s_i * 2^80 * mid_i - h_i with unknowns hi_i in [0, 2^80), lo_i in [0, 2^80), x in [0, q), and val_i (free). A (3N+1) x (3N+1) lattice matrix M is built: equation columns encode these linear relations as equalities, and additional columns encode the variable bounds as inequalities. The CVP solver scales columns so bounds are normalized, then applies LLL + Babai's nearest plane to the bound midpoint as target. The private key x is extracted from the result vector after dividing out the applied weight."""
+verification_explanation = """For the recovered key x, each nonce is recomputed as k_i = s_i^{-1} * (h_i + x * r_i) mod q and its middle 96 bits (positions 80-175) are compared against the leaked values. All 30 signatures must match, providing 2880 bits of verification, making false positives cryptographically negligible."""
+category = "security_and_privacy"
+tags = ["cryptography", "lattice-cryptanalysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nonce-leak-lattice"

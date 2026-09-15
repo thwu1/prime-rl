@@ -1,0 +1,11 @@
+product_id,name,category,cost,list_price
+P001,Widget Alpha,Electronics,$25.00,$49.99
+P002,Widget Beta,Electronics,$30.00,$59.99
+P003,Gadget Pro,Hardware,$45.00,$89.99
+P004,Gadget Lite,Hardware,$20.00,$39.99
+P005,Service Pack A,Services,$10.00,$29.99
+P006,Service Pack B,Services,$15.00,$44.99
+P007,Component X,Parts,$8.00,$19.99
+P008,Component Y,Parts,$12.00,$24.99
+P009,Premium Suite,Software,$50.00,$149.99
+P010,Basic Suite,Software,$25.00,$79.99

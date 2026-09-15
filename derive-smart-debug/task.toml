@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Rust knowledge spanning procedural macros (syn/quote token stream manipulation), generic type parameter analysis and trait bounds inference, PhantomData detection, code generation patterns (wrapper structs for custom formatters, closure-based Debug delegation), and enum variant handling. The smart bounds inference — only adding T: Debug for type parameters appearing in non-skipped, non-PhantomData fields — mirrors the complexity of real-world derive macros like serde_derive. Combining all features (fmt, skip, rename, with attributes + enums + generics + PhantomData) into a single correct implementation is substantially harder than any one feature alone."""
+solution_explanation = """Implement a proc macro using syn to parse the DeriveInput, extract field-level #[debug(...)] attributes, walk the type AST to determine which generic type parameters need Debug bounds, and generate appropriate Debug trait implementations using quote. Key techniques: format_args! for custom format strings, closure-wrapped helper structs for the with-attribute, recursive type traversal for bounds inference, and separate handling of named/tuple/unit structs and all enum variant types."""
+verification_explanation = """Tests compile and run the Rust workspace via cargo test. Visible tests cover basic structs, tuple/unit structs, all attribute types (fmt, skip, rename, with), generic bounds inference, PhantomData auto-skipping, and enum variants. Hidden tests (injected at test time) verify lifetime-parameterized structs, nested generic types, mixed enum variants, structs with all fields skipped, and multiple format attributes — preventing hard-coded solutions."""
+category = "software_engineering"
+tags = ["rust", "procedural_macros"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/derive-smart-debug"

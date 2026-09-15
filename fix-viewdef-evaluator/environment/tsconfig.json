@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*.ts", "runner.ts"]
+}

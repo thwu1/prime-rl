@@ -1,0 +1,42 @@
+INCIDENT RESPONSE REPORT - PRELIMINARY FINDINGS
+=================================================
+Case ID: IR-2024-1115-003
+Date: 2024-11-15
+Analyst: SOC-L2
+
+SUMMARY
+-------
+At 07:45 UTC, the EDR platform flagged anomalous process activity on workstation
+WS-DEV-033 (10.0.2.33) belonging to a senior DevOps engineer. The alert indicated
+credential harvesting tools and unauthorized file access patterns.
+
+Network monitoring detected sustained DNS query patterns from the affected host
+between 08:10 and 09:50 UTC. Initial analysis suggests data exfiltration via
+DNS tunneling — the attacker appears to have used the DNS protocol to covertly
+transmit stolen data by encoding it within subdomain labels of DNS queries.
+
+The DNS resolver logs for the full 08:00-10:00 UTC window have been extracted
+and are available for analysis. The logs contain all queries processed by the
+corporate recursive resolver (ns1.internal.corp / 10.0.0.2) during this period.
+
+KEY OBSERVATIONS
+----------------
+- The compromised host (10.0.2.33) generated queries to several domains not
+  seen in baseline traffic profiles.
+- Multiple encoding techniques appear to have been used across different
+  exfiltration channels.
+- Query patterns suggest fragmented data transmission with sequence numbering
+  for reassembly.
+- At least one channel may employ encryption or obfuscation beyond simple encoding.
+
+SCOPE OF ANALYSIS REQUIRED
+---------------------------
+- Identify all exfiltration domains among the ~5700 queries in the log.
+- Determine encoding/encryption methods used per channel.
+- Extract and decode the exfiltrated data to assess the scope of the breach.
+- Provide cryptographic hashes of recovered data for chain of custody.
+
+NOTE: The log also contains traffic from other hosts and various cloud/SaaS
+services. Some domains use long or encoded-looking subdomains as part of normal
+operations (CDN cache keys, API identifiers, tracking tokens). These are benign
+and should not be confused with exfiltration channels.

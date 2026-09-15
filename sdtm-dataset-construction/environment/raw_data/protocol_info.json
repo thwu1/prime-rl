@@ -1,0 +1,60 @@
+{
+  "study_id": "ECD-2023-0847",
+  "study_title": "A Phase I/II Open-label Study of Cobimetinib and Vemurafenib in BRAF V600-Mutated Erdheim-Chester Disease",
+  "study_phase": "PHASE I/II TRIAL",
+  "therapeutic_area": "Rare Disease / Oncology",
+  "indication": "Erdheim-Chester Disease",
+  "planned_enrollment": 8,
+  "study_start_date": "12/01/2023",
+  "study_end_date": "06/30/2024",
+  "sponsor": "Rare Therapeutics Alliance",
+  "arms": [
+    {
+      "code": "COMBO",
+      "name": "Cobimetinib 60mg QD + Vemurafenib 960mg BID",
+      "description": "Cobimetinib 60mg administered orally once daily with Vemurafenib 960mg orally twice daily"
+    },
+    {
+      "code": "VEM",
+      "name": "Vemurafenib 960mg BID",
+      "description": "Vemurafenib 960mg administered orally twice daily"
+    }
+  ],
+  "si_conversion_rules": {
+    "Glucose": {"source_unit": "mg/dL", "si_unit": "mmol/L", "factor": 0.05551},
+    "Creatinine": {"source_unit": "mg/dL", "si_unit": "umol/L", "factor": 88.4},
+    "ALT": {"source_unit": "U/L", "si_unit": "U/L", "factor": 1.0},
+    "Hemoglobin": {"source_unit": "g/dL", "si_unit": "g/L", "factor": 10.0}
+  },
+  "elements": [
+    {
+      "code": "SCRN",
+      "name": "Screening",
+      "start_rule": "Informed consent signed",
+      "end_rule": "Treatment start"
+    },
+    {
+      "code": "TRT01",
+      "name": "Treatment",
+      "start_rule": "First dose",
+      "end_rule": "Last dose or discontinuation"
+    },
+    {
+      "code": "FU",
+      "name": "Follow-up",
+      "start_rule": "End of treatment visit",
+      "end_rule": "End of study"
+    }
+  ],
+  "inclusion_criteria": [
+    "Age >= 18 years",
+    "Histologically confirmed Erdheim-Chester Disease",
+    "Documented BRAF V600 mutation",
+    "ECOG performance status 0-2"
+  ],
+  "exclusion_criteria": [
+    "Prior BRAF or MEK inhibitor therapy",
+    "Symptomatic CNS involvement requiring immediate intervention",
+    "QTcF > 480 ms at screening"
+  ]
+}

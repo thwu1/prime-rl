@@ -1,0 +1,19 @@
+{
+  "parameter_set": "Chen2020",
+  "form_factor": "cylindrical_21700",
+  "chemistry": "NMC811/graphite",
+  "nominal_capacity_ah": 5.0,
+  "voltage_limits": {
+    "upper_cutoff_v": 4.2,
+    "lower_cutoff_v": 2.5
+  },
+  "test_conditions": {
+    "ambient_temperature_k": 298.15,
+    "initial_soc": 1.0
+  },
+  "discharge_rates_c": [0.2, 0.5, 1.0, 1.5, 2.0],
+  "application_constraints": {
+    "min_capacity_retention_pct": 80,
+    "max_cell_temperature_k": 333.15
+  }
+}

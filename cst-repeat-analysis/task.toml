@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge of succinct data structures (compressed suffix arrays, compressed suffix trees, BWT, wavelet trees) and their C++ template composition in SDSL v3. The agent must understand maximal repeat theory (left-diversity via BWT analysis), supermaximal repeat characterization (all-leaves-children property), suffix tree traversal, and backward search — then implement these correctly against a complex header-only C++ template library with minimal documentation for v3."""
+solution_explanation = """Constructs a cst_sct3<> compressed suffix tree using SDSL, performs a stack-based DFS traversal to count internal nodes/leaves, identifies the longest repeated substring via deepest internal node, checks left-diversity by scanning BWT characters in each node's SA interval to count maximal repeats, checks the all-children-are-leaves property for supermaximal repeats, and uses sdsl::count() for pattern matching. Outputs JSON results."""
+verification_explanation = """Tests independently compute a suffix array, LCP array, and BWT in Python using Kasai's algorithm and stack-based LCP interval enumeration. Internal node counts, maximal/supermaximal repeat counts, and longest repeat length are verified against this Python reference. Pattern counts are verified via Python str.count(). Additional consistency checks verify num_leaves = text_length + 1 and space usage is within bounds."""
+category = "algorithms"
+tags = ["succinct-data-structures", "suffix-trees"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cst-repeat-analysis"

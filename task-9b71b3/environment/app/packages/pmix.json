@@ -1,0 +1,11 @@
+{
+  "name": "pmix",
+  "versions": ["5.0.1", "4.2.6", "3.2.3"],
+  "variants": [],
+  "dependencies": [
+    {"name": "hwloc", "version_min": "2.0"},
+    {"name": "libevent"}
+  ],
+  "conflicts": [],
+  "virtuals": []
+}

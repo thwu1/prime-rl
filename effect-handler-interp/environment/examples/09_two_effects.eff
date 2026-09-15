@@ -1,0 +1,24 @@
+// Two different effects interacting
+effect Log {
+    Trace(msg)
+}
+
+effect Fail {
+    Abort()
+}
+
+val result = handle {
+    handle {
+        do Trace("starting");
+        do Trace("checking");
+        do Abort();
+        do Trace("unreachable")
+    } with Fail {
+        return(x) => "completed"
+        Abort(resume) => "aborted"
+    }
+} with Log {
+    return(x) => x
+    Trace(msg, resume) => (print(msg); resume(unit))
+};
+print(result)

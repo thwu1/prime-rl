@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of GraphQL's type system (unions, interfaces, NonNull wrappers, directives, @oneOf), the graphql-js AST visitor pattern, and TypeScript type generation. The solver must trace 6 interacting bugs across ~350 lines of non-trivial code generation logic, understand how GraphQL type wrappers (NonNull, List) compose, and produce correct discriminated unions. Bugs interact (e.g., fragment resolution affects union branch content), requiring holistic reasoning rather than isolated fixes."""
+solution_explanation = """Fix 6 bugs in generator.ts: (1) fragment spread lookup appends 'Fragment' to the key — remove suffix; (2) resolvePolymorphicSelectionSet merges inline fragments flat — rewrite to emit discriminated unions with __typename; (3) field name ignores alias — use selection.alias?.value ?? selection.name.value; (4) optional is hardcoded false — check @skip/@include directives; (5) emitInputType doesn't handle @oneOf — detect isOneOf and generate exclusive union with never; (6) list inner items always nullable — check isNonNullType on list ofType in both resolveLeafOutputTypeInner and wrapOutputTypeInner."""
+verification_explanation = """Tests run the codegen and check: (1) UserProfileQuery contains fragment field 'username'; (2) SearchContentQuery has __typename discriminator; (3) DashboardDataQuery uses alias keys; (4) FeedWithOptionsQuery has optional author?/tags?; (5) UserLookupInput has 'never' union; (6) PostSummaryFragment has Array<string> not Array<string | null>; (7) edges items non-nullable; (8) generated file compiles with tsc --strict; (9) enums and variables correct; (10) fragment-in-union interaction works."""
+category = "code_generation"
+tags = ["typescript", "graphql"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graphql-codegen-fix"

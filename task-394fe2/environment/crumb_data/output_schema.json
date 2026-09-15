@@ -1,0 +1,49 @@
+{
+  "per_run_metrics": {
+    "run_0": {
+      "ndcg@10": "<float, 4 decimal places>",
+      "recall@100": "<float, 4 decimal places>"
+    },
+    "run_1": {
+      "ndcg@10": "<float, 4 decimal places>",
+      "recall@100": "<float, 4 decimal places>"
+    },
+    "run_2": {
+      "ndcg@10": "<float, 4 decimal places>",
+      "recall@100": "<float, 4 decimal places>"
+    },
+    "run_3": {
+      "ndcg@10": "<float, 4 decimal places>",
+      "recall@100": "<float, 4 decimal places>"
+    }
+  },
+  "significance_matrix": {
+    "run_0_vs_run_1": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    },
+    "run_0_vs_run_2": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    },
+    "run_0_vs_run_3": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    },
+    "run_1_vs_run_2": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    },
+    "run_1_vs_run_3": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    },
+    "run_2_vs_run_3": {
+      "p_value": "<float, 4 decimal places>",
+      "significant": "<bool, true if p < 0.05>"
+    }
+  },
+  "ranking": [
+    "<run names sorted by ndcg@10 descending>"
+  ]
+}

@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_epsilon_wrong",
+    "challenge_id": "epsilon",
+    "generated_code": "def answer(n, k):\n    \"\"\"Incorrect: missing factorial(k) factor.\"\"\"\n    from math import comb\n    return comb(n, k) ** 2"
+}

@@ -1,0 +1,8 @@
+MSH|^~\&|SendApp|SendFac|RecvApp|RecvFac|20240115120000||ORU^R01^ORU_R01|MSG00007|P|2.5.1
+SFT|VendorOrg|1.0|Product|BIN123
+PID|1|OLD_ID|12345^^^MRN||Doe^John^A||19800101|MF
+NK1|1|Doe^Jane|SPO
+ZZZ|custom|data
+this is not a valid line
+OBR|1||F12345|26464-8^Differential panel^LN
+OBX|1|NM|26515-7^Platelets^LN||250|10*3/uL|150-400||||F

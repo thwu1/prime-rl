@@ -1,0 +1,5 @@
+A C++ program at `/app/correlate.cpp` computes pairwise Pearson correlation coefficients for all row-pairs of a matrix. It reads a binary matrix from `/app/input.bin` (two `int32` values `n` and `m`, then `n*m` `float64` values in row-major order) and writes the upper-triangular correlation values to `/app/output.bin` (two `int32` values `n` and `num_pairs`, then `num_pairs` `float64` correlation values, enumerated in row-major order of the upper triangle).
+
+The current implementation is correct but extremely slow. Optimize it to produce correct results **at least 5x faster** than the provided naive baseline while maintaining output format compatibility. Correlation values must match a double-precision reference within absolute tolerance 5e-3.
+
+The input matrix has 3000 rows and 400 columns. Build and run with `cd /app && make && ./correlate`. The Makefile target must remain `correlate`.

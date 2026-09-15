@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and understanding Zig source code to reverse-engineer a benchmarking tool's data format and statistical approach, then independently determining which rigorous statistical methods are needed (exact p-value computation via special functions, robust hypothesis testing for unequal variances, non-parametric effect size measures, resampling-based confidence intervals, and family-wise error correction). The agent must implement all numerical algorithms from scratch using only Python's standard library while integrating with SQLite for data persistence — demanding deep knowledge of numerical methods, statistical theory, and multi-tool interoperability."""
+solution_explanation = """Study the Zig source to understand the Sample/Measurement data structures and Tukey's Fences outlier detection. Recognize that the Zig tool's pooled-variance approach and table-lookup p-values are insufficient; implement Lanczos log-gamma, continued-fraction regularized incomplete beta, and the beta-t relationship for exact t-distribution CDF computation. Implement Welch's t-test (not pooled) for unequal variances, BCa bootstrap for distribution-free confidence intervals, Cliff's delta for non-parametric effect size, and Holm-Bonferroni for family-wise error control. Wire all results into SQLite and JSON output."""
+verification_explanation = """Tests verify the complete pipeline through output properties: JSON schema conformance, correct regression/improvement verdicts for known data, outlier detection at a planted anomaly, p-value bounds and monotonicity of adjustment, CI ordering and containment of zero for identical inputs, effect size bounds and classification. SQLite tests verify database schema, row counts, stored values, and consistency with the JSON report. Edge cases (zero variance, small samples, identical inputs) are tested for graceful handling."""
+category = "algorithms_and_data_structures"
+tags = ["statistics", "numerical-computing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robust-benchmark-compare"

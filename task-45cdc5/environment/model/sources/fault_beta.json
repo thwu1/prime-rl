@@ -1,0 +1,27 @@
+{
+  "name": "Beta Fault",
+  "type": "fault",
+  "trace": [[-122.3, 37.8], [-121.7, 37.8]],
+  "dip": 50.0,
+  "dipDirection": "N",
+  "upperDepth": 0.0,
+  "width": 18.0,
+  "rake": 90.0,
+  "mfd": [
+    {
+      "type": "GR",
+      "a": 1.8,
+      "b": 0.85,
+      "mMin": 5.0,
+      "mMax": 7.0,
+      "dMag": 0.2,
+      "weight": 0.6
+    },
+    {
+      "type": "SINGLE",
+      "m": 7.0,
+      "rate": 0.001,
+      "weight": 0.4
+    }
+  ]
+}

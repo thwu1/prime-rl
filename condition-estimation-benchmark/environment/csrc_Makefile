@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+LDFLAGS = -shared
+LIBS = -lm
+
+libblocked_est.so: blocked_est.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LIBS)
+
+clean:
+	rm -f libblocked_est.so
+
+.PHONY: clean

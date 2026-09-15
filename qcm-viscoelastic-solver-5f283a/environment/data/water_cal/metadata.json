@@ -1,0 +1,9 @@
+{
+  "description": "Reference measurement in deionized water at 22 C",
+  "type": "calibration",
+  "known_medium": {
+    "grho3": 9.4e7,
+    "phi": 90.0,
+    "drho": "inf"
+  }
+}

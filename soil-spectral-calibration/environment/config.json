@@ -1,0 +1,24 @@
+{
+  "wavelength_trim": [500.0, 2500.0],
+  "splice_wavelength": 1100.0,
+  "splice_n_bands": 10,
+  "savitzky_golay": {
+    "window_length": 101,
+    "polyorder": 3,
+    "deriv": 1
+  },
+  "snv": true,
+  "resample_interval_nm": 10.0,
+  "original_spacing_nm": 0.5,
+  "continuum_removal_for_selection": true,
+  "kennard_stone": {
+    "train_fraction": 0.667,
+    "pca_variance_threshold": 0.99
+  },
+  "pls": {
+    "max_components": 20,
+    "cv_folds": 10,
+    "cv_seed": 123
+  },
+  "target_property": "OC"
+}

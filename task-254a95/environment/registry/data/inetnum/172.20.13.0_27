@@ -1,0 +1,10 @@
+inetnum:            172.20.13.0 - 172.20.13.31
+cidr:               172.20.13.0/27
+netname:            DELTA-NET
+descr:              Delta Network IPv4 Space
+country:            BR
+admin-c:            ALICE-DN42
+tech-c:             BOB-DN42
+mnt-by:             DELTA-MNT
+status:             ASSIGNED
+source:             DN42

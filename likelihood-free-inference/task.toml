@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Sequential Monte Carlo ABC from scratch while interfacing with a compiled C simulator binary via subprocess and raw binary float64 file I/O, AND reading/writing HDF5 data. The solver must understand importance sampling, adaptive epsilon schedules, perturbation kernels, and resampling — all while orchestrating a multi-tool pipeline: compiled binary CLI (understanding --help output, binary formats), HDF5 tools (h5dump/h5ls/h5py for reading observations and writing results), numpy for scientific computation, and subprocess for binary interoperability. The bimodal posterior defeats naive rejection methods. Combines probabilistic inference theory, compiled binary integration, binary data format handling, and HDF5 I/O at a level demanding proficiency across multiple domains."""
+solution_explanation = """Implements SMC-ABC by: (1) reading observations and metadata from HDF5 attributes using h5py, (2) writing parameter arrays as raw float64 binary files and invoking the compiled simulator via subprocess, (3) parsing binary float64 output, (4) running adaptive rejection sampling with quantile-based epsilon shrinkage, weighted covariance perturbation kernels, and multinomial resampling, (5) writing all three posterior sample sets to an HDF5 file. Achieves C2ST well below 0.57 for all observations."""
+verification_explanation = """Tests generate reference posterior samples at test time using a closed-form analytical inverse of the forward model — NO reference samples are stored in the Docker image. Tests compute C2ST using an MLP classifier with 5-fold cross-validation (matching sbibm methodology). Verifies HDF5 output format, correct dataset names, shape (10000, 2), prior bounds compliance, non-degenerate variance, non-trivial posterior concentration, and C2ST < 0.57 for all three observations."""
+category = "machine_learning"
+tags = ["bayesian-inference", "compiled-binary-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/likelihood-free-inference"

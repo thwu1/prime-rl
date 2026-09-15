@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of CrowdSec's multi-stage parsing pipeline (s00-raw → s01-parse → s02-enrich), grok pattern syntax for structured key-value log formats with quoted fields, leaky-bucket scenario semantics (capacity, leakspeed, groupby), and the advanced 'distinct' field for credential-stuffing detection. The agent must also correctly wire acquisition labels, metadata propagation from parser to scenario filters, and handle CrowdSec's file-tailing behavior for log replay. No existing parser or scenario exists for this custom log format."""
+solution_explanation = """Write an s01-parse parser that filters on evt.Parsed.program starting with 'nexus-', branches into auth and api sub-parsers with appropriate grok patterns, and sets standardized metadata (source_ip, log_type, sub_type, username, http_status). Create three leaky-bucket scenarios: brute-force (groupby source_ip, filter auth_fail), credential-stuffing (groupby source_ip with distinct on username), and API-scan (filter 4xx status). Configure file acquisition with syslog label type. Restart CrowdSec with log replay to generate alerts."""
+verification_explanation = """Tests validate: (1) parser YAML exists in s01-parse with correct structure (name, filter/nodes), (2) at least 3 scenario YAMLs exist with required fields (type, name, filter, capacity, leakspeed) and one uses 'distinct', (3) acquisition config references the gateway log, (4) CrowdSec starts and generates alerts for the three attack IPs (203.0.113.42, 198.51.100.17, 192.0.2.99) without false positives on normal traffic IPs."""
+category = "cybersecurity"
+tags = ["crowdsec", "intrusion-detection"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9983fa"

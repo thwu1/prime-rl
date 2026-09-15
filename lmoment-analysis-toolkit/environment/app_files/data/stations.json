@@ -1,0 +1,54 @@
+{
+  "project": {
+    "name": "River Flood Return Level Analysis",
+    "version": "2.1",
+    "coordinate_system": "WGS84"
+  },
+  "stations": [
+    {
+      "id": "alpine_01",
+      "name": "Alpine Creek Gauge",
+      "location": {"lat": 46.52, "lon": 7.21, "elevation_m": 1420},
+      "data": {
+        "source_file": "gauge_alpine.csv",
+        "flow_column_index": 3,
+        "record_start": 1974,
+        "record_end": 2023
+      },
+      "analysis": {
+        "method": "GEV",
+        "quality_filter": "GOOD"
+      }
+    },
+    {
+      "id": "coastal_02",
+      "name": "Coastal Harbor Gauge",
+      "location": {"lat": 51.95, "lon": 4.48, "elevation_m": 2},
+      "data": {
+        "source_file": "gauge_coastal.csv",
+        "flow_column_index": 3,
+        "record_start": 1984,
+        "record_end": 2023
+      },
+      "analysis": {
+        "method": "GEV",
+        "quality_filter": "GOOD"
+      }
+    },
+    {
+      "id": "plains_03",
+      "name": "Plains River Gauge",
+      "location": {"lat": 52.37, "lon": 9.74, "elevation_m": 55},
+      "data": {
+        "source_file": "gauge_plains.csv",
+        "flow_column_index": 3,
+        "record_start": 1964,
+        "record_end": 2023
+      },
+      "analysis": {
+        "method": "GEV",
+        "quality_filter": "GOOD"
+      }
+    }
+  ]
+}

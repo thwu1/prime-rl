@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete Peng-Robinson equation of state engine from scratch in Rust, including debugging a subtle error planted in the provided cubic equation solver that causes incorrect root finding under subcritical VLE conditions. The solver must handle cubic root selection for both liquid and vapor phases, pure-component fugacity coefficients, multicomponent van der Waals mixing rules, iterative VLE solvers for pure saturation pressure, mixture bubble-point and dew-point pressure (algorithmically distinct iteration schemes), a full ternary isothermal flash coupling Rachford-Rice with successive K-value updates, the PR enthalpy departure function for computing heat of vaporization, and the residual isochoric heat capacity requiring the second temperature derivative of the alpha function. Demands graduate-level molecular thermodynamics plus numerical methods expertise combined with systematic debugging of provided but incorrect code."""
+solution_explanation = """Fixes the depressed-cubic q coefficient sign error in the provided solver (c0 + c1*c2/3 → c0 - c1*c2/3), then implements: Cardano/trigonometric cubic solver for Z, analytical PR fugacity coefficients for pure and mixed phases, successive substitution VLE for pure vapor pressure with Wilson initial estimates, bubble-point iteration (P_new = P*sum(xi*Ki)), dew-point iteration (P_new = P/sum(yi/Ki)), nested Rachford-Rice plus K-value iteration for ternary flash, PR enthalpy departure formula using T*da/dT simplification, liquid Z extraction from cubic roots at saturation, and Cv_res from d²a/dT² = ac*kappa/(2T)*(kappa/Tc + sqrt(alpha)/sqrt(T*Tc)) with the standard PR log integral."""
+verification_explanation = """An independent Python PR EoS implementation computes all reference values at test time using numpy for cubic root-finding. The agent's JSON output is compared against these references with tolerances: 0.1% relative for vapor pressures, bubble-point, dew-point, and liquid Z; 0.5% absolute for flash compositions and vapor fraction; 0.5% relative for enthalpy of vaporization; and 1% relative for residual Cv. Additional structural tests verify composition normalization, material balance consistency, and physical plausibility ranges."""
+category = "computational_science"
+tags = ["thermodynamics", "equation-of-state"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/peng-robinson-flash-e00eef"

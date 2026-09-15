@@ -1,0 +1,15 @@
+dag_id: transform_events
+schedule: "dataset:events_raw"
+default_pool: compute_pool
+max_active_runs: 1
+tasks:
+  sessionize:
+    pool_slots: 3
+    duration_estimate_minutes: 12
+  aggregate:
+    pool_slots: 2
+    duration_estimate_minutes: 10
+    upstream: [sessionize]
+datasets:
+  produces: [events_processed]
+  consumes: [events_raw]

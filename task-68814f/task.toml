@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a custom binary database format from engine source code spanning four modules (storage, WAL, config, recovery) with NO format specification provided. The engine codebase includes deliberate traps: a V2 experimental format handler (dead code that could mislead), a buggy recovery module that silently ignores CRC validation and applies corrupted transactions, and misleading docstring comments in the WAL reader recommending to trust a wal_metadata table whose entries are partially incorrect. The solver must: (1) discover and master the undocumented simdb-ctl command-line tool for binary database inspection, WAL frame analysis, and strict validation that enforces constraints beyond the basic integrity checker (entry sort ordering, zero-padding, reserved bytes); (2) explore the backup SQLite schema containing 4 tables including the misleading wal_metadata with wrong statuses for 2 of 7 transactions and determine which data sources to trust through cross-validation against actual WAL parsing; (3) correctly classify 8 interleaved WAL transactions across CRC-corrupted frames, explicitly aborted transactions, phantom COMMIT without BEGIN, same-page double writes within a single transaction, multi-page writes from a corrupted transaction, and crash-truncated frames; (4) recognize that engine/recovery.py produces incorrect output and implement correct recovery logic from first principles."""
+solution_explanation = """Use simdb-ctl info to confirm data.db corruption (CRC mismatch). Use simdb-ctl wal-dump to analyze WAL frame structure identifying transaction boundaries, CRC failures, and truncation point. Use sqlite3 CLI to explore the backup schema (4 tables), extract page data from kv_snapshot and page_count from db_config. Critically, ignore the wal_metadata table which has incorrect statuses for transactions 1002 (shows committed but actually uncommitted) and 1004 (shows committed but actually aborted). Do NOT use engine/recovery.py which is buggy: it ignores CRC corruption on frames, doesn't require BEGIN before COMMIT, and would apply corrupted transaction 1005's writes to pages 3 and 4. Read engine/storage.py to understand binary page format (entries sorted by key) and engine/wal.py for WAL frame layout. Reconstruct 6 base pages from SQLite kv_snapshot with entries sorted by key. Parse wal.log: validate per-frame CRC32, track BEGIN/COMMIT/ABORT per transaction, mark entire transactions as corrupted if any frame has bad CRC. Identify committed transactions (1001, 1003, 1006) and exclude uncommitted (1002), aborted (1004), corrupted (1005), phantom (9999), and truncated (1007). Replay committed PAGE_WRITE frames in WAL file order. Recompute header CRC32 and write recovered.db. Validate with simdb-ctl validate."""
+verification_explanation = """Tests parse recovered.db binary file and verify exact page contents for all 6 pages. Validates committed effects present (config version bump, new users, counter updates, new sessions), uncommitted/aborted/corrupted/truncated/phantom effects absent, base-only pages correctly reconstructed. Specifically validates that corrupted transaction 1005's writes to both page 3 (session:ghi789) and page 4 (perm:guest:read, perm:user:write=true) are absent. Checks same-page overwrite correctness (later committed txn wins), valid header CRC32, correct page count (6) and file size. Runs simdb-ctl validate as subprocess to verify strict invariants: entry sort order within pages, proper zero-padding, and zeroed reserved header bytes."""
+category = "systems_programming"
+tags = ["database-internals", "crash-recovery"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-68814f"

@@ -1,0 +1,26 @@
+# SLO definitions for the microservices system
+# Used to validate that sampling preserves observability accuracy
+
+slos:
+  - name: "api-availability"
+    service: "api-gateway"
+    type: "availability"
+    description: "API Gateway request success rate"
+    sli:
+      good_event:
+        field: "http_status_code"
+        op: "lt"
+        value: 500
+      scope: "root_spans"
+    target: 0.995
+
+  - name: "api-latency-p99"
+    service: "api-gateway"
+    type: "latency"
+    description: "API Gateway P99 latency under threshold"
+    sli:
+      latency_field: "duration_ms"
+      threshold_ms: 500.0
+      percentile: 0.99
+      scope: "root_spans"
+    target: 0.99

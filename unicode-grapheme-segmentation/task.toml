@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 7 interacting bugs across Unicode property loading and segmentation logic. Two data-loading issues are coupled with a subtle parser bug that only manifests when implementing a missing feature (InCB loading uses a 3-field format that the parser mishandles). The solver must explore raw Unicode data files to discover correct data sources and formats, understand multi-property UCD file formats, implement two missing segmentation rules from the specification, fix encoding and counting logic, and coordinate fixes across data pipeline and algorithm layers."""
+solution_explanation = """Seven fixes required: (1) parsePropertyLine must use parts[parts.length-1] instead of parts[1] to correctly parse the 3-field InCB format (XXXX;InCB;Value). (2) loadExtendedPictographic must reference 'ExtPict.txt' instead of non-existent 'ExtendedPictographic.txt'. (3) loadInCB must be implemented to parse InCB.txt for Indic_Conjunct_Break properties. (4) toCodePoints must use codePointAt instead of charCodeAt and skip surrogate trail units for supplementary plane characters. (5) GB9c rule must be implemented with lookbehind for InCB=Consonant [Extend|Linker]* Linker [Extend|Linker]* x Consonant. (6) GB11 must be implemented checking Extended_Pictographic Extend* ZWJ x Extended_Pictographic. (7) GB12/GB13 must count preceding RI parity to break at even-numbered positions instead of always pairing."""
+verification_explanation = """Tests compile the TypeScript project and run the segmenter against all 766 official Unicode 17.0 GraphemeBreakTest.txt test vectors. Additional edge-case tests verify RI pairing (2, 3, 4, and 6 RI sequences), emoji ZWJ sequences with and without modifiers, Indic conjuncts, supplementary plane character handling, and correct Extended_Pictographic property loading (digits must not match)."""
+category = "debugging"
+tags = ["unicode", "text-segmentation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/unicode-grapheme-segmentation"

@@ -1,0 +1,6 @@
+#!/bin/bash
+cat > /dev/null
+echo "alias ll='ls -la'"
+echo "alias gs='git status'"
+echo "alias gp='git push'"
+echo "alias gco='git checkout'"

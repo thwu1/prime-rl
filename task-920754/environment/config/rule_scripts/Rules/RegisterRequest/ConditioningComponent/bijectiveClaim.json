@@ -1,0 +1,35 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Branch",
+            "description": "bijectiveClaim is only applicable when vetted is false",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "parameters": {
+                                    "ruleText": "parentProperty.vetted == true"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "description": "bijectiveClaim must be null for vetted conditioning components",
+                                "parameters": {
+                                    "ruleText": "currentProperty == null"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

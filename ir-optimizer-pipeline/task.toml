@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a multi-pass IR optimization pipeline with 7 cooperating analysis-driven transformation passes. Beyond standard constant folding and dead code elimination, the agent must implement algebraic identity simplification (recognising x*1, x+0, 0*x patterns where one operand is dynamic and the other is a compile-time constant — requiring integration of constant analysis with algebraic reasoning) and common subexpression elimination (tracking available expressions within basic blocks and replacing redundant pure computations with copies). Correctness is critical: programs with loop-carried dependencies (Fibonacci, Collatz) and branch-merge reassignment traps will break under over-eager propagation. Pass ordering and iterative convergence must be configured so that cascaded constant folding through nested branches unlocks further dead branch elimination across multiple pipeline iterations. The phase ordering problem is central — individual passes are insufficient; the agent must reason about how transformations create opportunities for each other."""
+solution_explanation = """The solution creates seven pass modules in /app/passes/ and configures pipeline.toml with max_iterations=15. The passes are: (1) constant folding/propagation using an internal fixpoint loop, (2) algebraic identity simplification that builds a constant map and replaces operations like n*1 or n+0 with Copy/LoadIntConst, (3) copy propagation resolving chains through single-def variables, (4) common subexpression elimination tracking (op, args) tuples within basic blocks and replacing duplicates with copies, (5) dead branch elimination replacing CondJumps on known-constant booleans with unconditional Jumps, (6) unreachable code elimination via reachability from instruction 0, (7) liveness-based dead code elimination using a CFG and backward dataflow. Pass ordering is essential: const_fold feeds algebraic_simp which creates copies for copy_prop which exposes CSE opportunities; dead_branch enables unreachable which enables further dead_code. The pipeline iterates all 7 passes until convergence."""
+verification_explanation = """Tests run each of the 16 IR programs through both the interpreter (reference output) and the optimizer+interpreter pipeline, checking output equality. Tests verify that the optimizer achieves >=35% total instruction reduction and per-program minimum thresholds, ensuring the optimizer is not trivially passing by returning input unchanged. Programs 13 and 14 specifically enforce that algebraic simplification and CSE passes exist (their thresholds cannot be met without them). Programs 11, 12, and 16 are correctness traps that detect over-eager optimization."""
+category = "compilers"
+tags = ["dataflow-analysis", "optimization-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-optimizer-pipeline"

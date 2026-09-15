@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and interpreting academic paper LaTeX excerpts (including mathematical notation) to reverse-engineer a complete AST-based C code analysis pipeline. The solver must independently: (1) parse LaTeX formulas for node-type delta computation, per-type similarity, and magnitude-weighted aggregation; (2) select and configure a C parser capable of handling kernel-style preprocessor macros; (3) determine which AST node types correspond to each of five sub-metric categories (function definitions/declarations, call expressions, control-flow nodes, variable/assignment nodes) — categories described only in prose, not enumerated; (4) extract and apply the composite weighting scheme from a LaTeX table; (5) implement heuristic migration-type classification from structural AST signals; (6) perform cross-version symbol analysis for added/removed/modified detection. No algorithm is given in the instruction — the methodology must be discovered from the paper and correctly translated into working code."""
+solution_explanation = """Use pycparser to parse C source into ASTs, counting node types per file. Compute per-type deltas (reference-minus-base vs. candidate-minus-base), aggregate via magnitude-weighted similarity into five category-filtered sub-metrics (all nodes, function defs/decls, call expressions, control flow nodes, variable/assignment nodes), compose with weights [0.30, 0.25, 0.20, 0.15, 0.10], classify migration patterns from function-set changes and AST deltas, and preprocess macros via cpp or manual #define expansion."""
+verification_explanation = """Tests verify: output structure and required fields across all 5 cases including macro case; perfect-match composite and sub-metrics equal 1.0; unchanged candidate scores below 0.5; partial scores between unchanged and perfect; over-patched below perfect; composite equals exact weighted sum of sub-metrics; migration types are valid enum values; changed_symbols and node_type_details have correct structure and detect expected symbols; scorer uses real C parser logic; dynamically generated cases verify generalization and prevent hardcoded outputs."""
+category = "systems_programming"
+tags = ["ast-analysis", "kernel-drivers"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-88eefe"

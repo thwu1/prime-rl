@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<XTbML>
+  <ContentClassification>
+    <TableIdentity>818</TableIdentity>
+    <ProviderDomain>soa.org</ProviderDomain>
+    <ProviderName>Roger Scott Lumsden</ProviderName>
+    <TableReference>Harold R. Greenlee, Jr., and Alfonso D. Kehtsa, The 1971 Group Annuity Mortality Table, Transactions of the Society of Actuaries, Vol. XXIII, Part 1, No. 67 (1971).</TableReference>
+    <ContentType tc="78">Annuitant Mortality</ContentType>
+    <TableName>1971 GAM - Male</TableName>
+    <TableDescription>1971 Group Annuity Mortality (GAM) Table - Male. Minimum Age: 5 Maximum Age: 110</TableDescription>
+    <Comments>Study Data: Intercompany experience by amount of annual income for the most recent five-calendar-year group available, 1964-68, was selected as the source of retired life data.</Comments>
+    <KeyWord>Aggregate</KeyWord>
+    <KeyWord>Annuitant mortality</KeyWord>
+    <KeyWord>United States of America</KeyWord>
+  </ContentClassification>
+  <Table>
+    <MetaData>
+      <ScalingFactor>0</ScalingFactor>
+      <DataType tc="2">Floating Point</DataType>
+      <Nation tc="1">United States of America</Nation>
+      <TableDescription>1971 GAM Male - Aggregate</TableDescription>
+      <AxisDef id="Age">
+        <ScaleType tc="3">Age</ScaleType>
+        <AxisName>Age</AxisName>
+        <MinScaleValue>5</MinScaleValue>
+        <MaxScaleValue>110</MaxScaleValue>
+        <Increment>1</Increment>
+      </AxisDef>
+    </MetaData>
+    <Values>
+      <Axis>
+        <Y t="5">0.000642</Y>
+        <Y t="10">0.000588</Y>
+        <Y t="15">0.001028</Y>
+        <Y t="20">0.001457</Y>
+        <Y t="25">0.001202</Y>
+        <Y t="30">0.001128</Y>
+        <Y t="35">0.001456</Y>
+        <Y t="40">0.002376</Y>
+        <Y t="45">0.004060</Y>
+        <Y t="50">0.006740</Y>
+        <Y t="55">0.011058</Y>
+        <Y t="60">0.017410</Y>
+        <Y t="65">0.027108</Y>
+        <Y t="70">0.042480</Y>
+        <Y t="75">0.065970</Y>
+        <Y t="80">0.101704</Y>
+        <Y t="85">0.151730</Y>
+        <Y t="90">0.222116</Y>
+        <Y t="95">0.318558</Y>
+        <Y t="100">0.450000</Y>
+        <Y t="105">0.600000</Y>
+        <Y t="110">1.000000</Y>
+      </Axis>
+    </Values>
+  </Table>
+</XTbML>

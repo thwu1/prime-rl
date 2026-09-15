@@ -1,0 +1,10 @@
+`/app/reactor.conf` specifies a stiff batch reactor with discontinuous, temperature-dependent phase switching and three-reaction kinetics. `/app/simulate.py` is a scaffold that integrates Phase 1 kinetics to t=100 using scipy's BDF solver — event handling, phase switching, forward sensitivity analysis, and sparse Jacobian computation are absent and all non-trajectory outputs are placeholders.
+
+Extend or rewrite `simulate.py` to produce numerically correct results in all four output files under `/app/results/`. The exact JSON schema for each output file is specified in the `[output_schema]` section of `reactor.conf`. The four files are:
+
+- **`trajectory.json`** — Object with `"times"` (array of 101 floats, integer time points 0..100) and `"states"` (array of 101 arrays, each `[A, B, C, T]`).
+- **`events.json`** — Object with `"event_time"` (float, time at which T crosses T_crit rising) and `"state_at_event"` (array of 4 floats `[A, B, C, T]`).
+- **`sensitivity.json`** — Object with `"sensitivity_matrix"` (4x3 array of floats, rows=[A,B,C,T], columns=[k1_phase1, Q1, U], representing dy/dp at t_end) and `"final_state"` (array of 4 floats `[A, B, C, T]` at t_end).
+- **`jacobian.json`** — Object with `"test_point"` (array of 4 floats, the evaluation point `[0.5, 1e-5, 0.3, 340.0]`), `"jacobian"` (4x4 array of floats, dense analytical Jacobian df/dy at the Phase 1 test point), and `"nnz"` (integer, number of structural nonzeros in the sparse Jacobian).
+
+The 4x3 sensitivity matrix must correctly reflect the full two-phase dynamics — the discontinuous change in the vector field at the phase boundary has non-trivial consequences for sensitivity propagation that you must account for. The Jacobian must be analytically derived and stored in sparse form with the correct nonzero count.

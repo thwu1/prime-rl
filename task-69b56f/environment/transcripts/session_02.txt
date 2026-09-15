@@ -1,0 +1,11 @@
+# Captured SOCKS5 session transcript
+# Server: 127.0.0.1:1080
+# Timestamp: 2025-03-14T08:14:01Z
+# Format: C> = client-to-server, S> = server-to-client (hex octets)
+# Context: username/password authentication with credentials from /app/users.conf
+
+C> 05 01 02
+S> 05 02
+C> 01 05 61 6c 69 63 65 0c 77 6f 6e 64 65 72 6c 61 6e 64 39 39
+S> 01 01
+# [connection closed by server after authentication failure]

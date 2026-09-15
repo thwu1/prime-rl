@@ -1,0 +1,35 @@
+WQX 3.0 Conditional Validation Rules
+=====================================
+
+The following five rules are enforced by the WQX v3.0 submission processor
+beyond what the XSD schema alone can express. Specific element names,
+trigger conditions, and required responses must be determined by studying
+the XSD schema structure and the schema change history.
+
+Rule 1 -- Detection Reporting
+When a result indicates a detection condition status (analyte not detected
+or present at a boundary relative to quantification capability), the
+associated detection/quantitation limit metadata must be fully documented
+within the result.
+
+Rule 2 -- Vertical Profile Documentation
+Activities classified as vertical profile sampling must include explicit
+measurements documenting the vertical extent of the sampling event.
+
+Rule 3 -- Biological Tissue Identification
+Results from tissue-medium sampling activities must include biological
+specimen identification at the individual result level, specifying both
+the anatomical source and the organism taxonomy.
+
+Rule 4 -- Statistical Basis Documentation
+When a result reports a statistically derived value, the sample size
+underlying the computation must be documented alongside the statistical
+method identifier.
+
+Rule 5 -- Group Summary Quantification
+When biological results represent group-level population summaries rather
+than individual observations, the aggregate count must be provided.
+
+Each rule violation produces one finding per non-conforming element.
+The exact triggering conditions, required elements, and validation logic
+must be derived from the schema and its evolution history.

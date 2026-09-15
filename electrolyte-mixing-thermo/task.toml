@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level understanding of electrolyte solution thermodynamics (Pitzer activity coefficients, Gibbs energy of mixing, Debye-Hückel screening, mean activity coefficients, excess thermodynamic properties) and deep, undirected exploration of pyEQL's API surface. Key challenges: (1) discovering and correctly using pyEQL's native Pitzer engine, Solution class, and mixing functions without guidance on which methods exist; (2) recognizing a sign-convention inconsistency in pyEQL's entropy_mix function versus the thermodynamic identity dS=-dG_ideal/T and deriving entropy from first principles; (3) computing mean molal activity coefficients across a concentration range by determining stoichiometric coefficients from ion charges and correctly weighting individual ion gammas; (4) identifying the characteristic minimum of the Pitzer U-curve and detecting whether the activity coefficient crosses unity within the specified range; (5) designing a root-finding algorithm to optimize dilution volume for a target water activity; (6) computing excess thermodynamic properties (volume, Gibbs) that must be self-consistent with other computed quantities; (7) marking the optimal scan point from the Gibbs mixing curve; (8) extending two-solution mixing to N>2 via sequential pairwise aggregation; (9) handling edge cases (identical solutions, pure water, formula standardization) and pint Quantity serialization throughout."""
+solution_explanation = """Install pyEQL, create Solution objects with the native engine, extract bulk properties (ionic_strength, conductivity, density, osmotic_pressure, water_activity, pH, hardness, debye_length) and per-species activity coefficients. Blend solutions via the + operator. Compute real and ideal Gibbs energy via pyEQL.functions.gibbs_mix with activity_correction=True/False. For N>2 solutions, accumulate Gibbs by sequential pairwise mixing. Derive entropy from thermodynamic identity dS = -dG_ideal/T (not pyEQL's entropy_mix which has inverted sign). Compute excess_gibbs = dG_real - dG_ideal and excess_volume from blend vs individual volumes. For the scan, mark the point with minimum dG as optimal. For the concentration profile, parse ion charges to determine stoichiometric coefficients for charge neutrality, create solutions at each molality, compute mean gamma = (gamma_+^nu_+ * gamma_-^nu_-)^(1/(nu_++nu_-)), find the minimum and unity crossing. For dilution, binary search for volume of pure water achieving the target water activity."""
+verification_explanation = """Tests verify: (1) Pitzer activity coefficients match published data for NaCl at 0.1, 0.5, 1.0, 5.0 mol/kg within 6%; (2) physical reasonableness of solution properties (density, water_activity, osmotic pressure, Debye length ranges); (3) Debye length intermediate for blend and decreasing with concentration; (4) Gibbs energy negative for spontaneous mixing, entropy positive and consistent with dS=-dG_ideal/T; (5) excess_gibbs exactly equals dG_real - dG_ideal (cross-validation); (6) excess_volume finite and small; (7) scan endpoints zero, interior negative, exactly one optimal point at global minimum; (8) concentration profile captures Pitzer U-shape (gamma decreases then increases), minimum in correct range (~1 mol/kg, ~0.65), no unity crossing for NaCl <6 mol/kg; (9) dilution achieves target water activity within tolerance, reduces ionic strength, not needed for pure water; (10) three-solution mixing produces correct blend with all ions and negative Gibbs; (11) identical-solution mixing yields near-zero Gibbs and entropy."""
+category = "chemistry"
+tags = ["electrolyte-thermodynamics", "scientific-python"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/electrolyte-mixing-thermo"

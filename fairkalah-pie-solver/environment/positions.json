@@ -1,0 +1,52 @@
+[
+  {
+    "id": "pos1",
+    "description": "Kalah(3,1) initial position",
+    "pits_per_side": 3,
+    "south_pits": [1, 1, 1],
+    "south_store": 0,
+    "north_pits": [1, 1, 1],
+    "north_store": 0,
+    "side_to_move": "south"
+  },
+  {
+    "id": "pos2",
+    "description": "Kalah(3,2) initial position",
+    "pits_per_side": 3,
+    "south_pits": [2, 2, 2],
+    "south_store": 0,
+    "north_pits": [2, 2, 2],
+    "north_store": 0,
+    "side_to_move": "south"
+  },
+  {
+    "id": "pos3",
+    "description": "Kalah(3,2) mid-game, North to move",
+    "pits_per_side": 3,
+    "south_pits": [0, 3, 1],
+    "south_store": 4,
+    "north_pits": [2, 0, 1],
+    "north_store": 1,
+    "side_to_move": "north"
+  },
+  {
+    "id": "pos4",
+    "description": "Kalah(3,3) initial position",
+    "pits_per_side": 3,
+    "south_pits": [3, 3, 3],
+    "south_store": 0,
+    "north_pits": [3, 3, 3],
+    "north_store": 0,
+    "side_to_move": "south"
+  },
+  {
+    "id": "pos5",
+    "description": "Kalah(4,3) endgame position",
+    "pits_per_side": 4,
+    "south_pits": [0, 1, 0, 2],
+    "south_store": 8,
+    "north_pits": [1, 0, 3, 0],
+    "north_store": 9,
+    "side_to_move": "south"
+  }
+]

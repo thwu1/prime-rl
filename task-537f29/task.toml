@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of Intel 8086 variable-length instruction encoding (MOD/REG/RM byte, displacement, immediate, opcode maps), correct flag computation for arithmetic and logical operations, and simulation of control flow via conditional jumps. The agent must decode raw binary without headers, implement ~15 distinct instruction types across multiple encoding formats, handle all memory addressing modes, and produce bit-exact register/flag/memory state for six progressively complex test programs including a nested-loop pixel renderer. This is not a textbook exercise — it combines binary reverse-engineering, ISA-level knowledge, and systems programming in a single task."""
+solution_explanation = """Build a Python-based 8086 simulator that: (1) reads flat binary, (2) implements a fetch-decode-execute loop with a comprehensive opcode dispatcher covering MOV/ADD/SUB/CMP/AND/OR/XOR/NOT/NEG/SHL/SHR/JNZ/CMP and the 80-83 immediate group, (3) correctly computes all six arithmetic flags, (4) simulates a 1MB byte-addressable memory space, and (5) outputs register state and optional memory dumps in the specified format."""
+verification_explanation = """Six test programs are assembled from 8086 ASM via NASM at Docker build time. The pytest suite runs the simulator on each binary and verifies: (1) final register values match computed expectations, (2) memory contents at specific addresses match (for programs that write to memory), (3) flags are correctly set after the final instruction, (4) the 64x64 pixel rectangle is correctly rendered in memory with spot-checks at specific coordinates."""
+category = "systems_programming"
+tags = ["cpu-simulation", "binary-decoding"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-537f29"

@@ -1,0 +1,359 @@
+{
+  "nodes": {
+    "seed.analytics.seed_regions": {
+      "unique_id": "seed.analytics.seed_regions",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": ["analytics", "seed_regions"],
+      "original_file_path": "seeds/seed_regions.csv",
+      "tags": ["static"],
+      "config": {"materialized": "seed"},
+      "package_name": "analytics",
+      "execution_time_seconds": 5
+    },
+    "seed.analytics.seed_categories": {
+      "unique_id": "seed.analytics.seed_categories",
+      "resource_type": "seed",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": ["analytics", "seed_categories"],
+      "original_file_path": "seeds/seed_categories.csv",
+      "tags": ["static"],
+      "config": {"materialized": "seed"},
+      "package_name": "analytics",
+      "execution_time_seconds": 8
+    },
+    "model.analytics.stg_customers": {
+      "unique_id": "model.analytics.stg_customers",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.customers"]
+      },
+      "fqn": ["analytics", "staging", "stg_customers"],
+      "original_file_path": "models/staging/stg_customers.sql",
+      "tags": ["daily", "staging"],
+      "config": {"materialized": "view"},
+      "package_name": "analytics",
+      "execution_time_seconds": 3
+    },
+    "model.analytics.stg_orders": {
+      "unique_id": "model.analytics.stg_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.orders"]
+      },
+      "fqn": ["analytics", "staging", "stg_orders"],
+      "original_file_path": "models/staging/stg_orders.sql",
+      "tags": ["daily", "staging"],
+      "config": {"materialized": "view"},
+      "package_name": "analytics",
+      "execution_time_seconds": 4
+    },
+    "model.analytics.stg_order_items": {
+      "unique_id": "model.analytics.stg_order_items",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.orders"]
+      },
+      "fqn": ["analytics", "staging", "stg_order_items"],
+      "original_file_path": "models/staging/stg_order_items.sql",
+      "tags": ["daily", "staging"],
+      "config": {"materialized": "view"},
+      "package_name": "analytics",
+      "execution_time_seconds": 3
+    },
+    "model.analytics.stg_payments": {
+      "unique_id": "model.analytics.stg_payments",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.orders"]
+      },
+      "fqn": ["analytics", "staging", "stg_payments"],
+      "original_file_path": "models/staging/stg_payments.sql",
+      "tags": ["daily", "staging"],
+      "config": {"materialized": "view"},
+      "package_name": "analytics",
+      "execution_time_seconds": 2
+    },
+    "model.analytics.stg_products": {
+      "unique_id": "model.analytics.stg_products",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.products", "seed.analytics.seed_categories"]
+      },
+      "fqn": ["analytics", "staging", "stg_products"],
+      "original_file_path": "models/staging/stg_products.sql",
+      "tags": ["daily", "staging"],
+      "config": {"materialized": "view"},
+      "package_name": "analytics",
+      "execution_time_seconds": 5
+    },
+    "model.analytics.int_customer_orders": {
+      "unique_id": "model.analytics.int_customer_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_customers", "model.analytics.stg_orders"]
+      },
+      "fqn": ["analytics", "intermediate", "int_customer_orders"],
+      "original_file_path": "models/intermediate/int_customer_orders.sql",
+      "tags": ["daily"],
+      "config": {"materialized": "table"},
+      "package_name": "analytics",
+      "execution_time_seconds": 15
+    },
+    "model.analytics.int_order_payments": {
+      "unique_id": "model.analytics.int_order_payments",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_orders", "model.analytics.stg_payments"]
+      },
+      "fqn": ["analytics", "intermediate", "int_order_payments"],
+      "original_file_path": "models/intermediate/int_order_payments.sql",
+      "tags": ["hourly"],
+      "config": {"materialized": "table"},
+      "package_name": "analytics",
+      "execution_time_seconds": 20
+    },
+    "model.analytics.int_product_sales": {
+      "unique_id": "model.analytics.int_product_sales",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_products", "model.analytics.stg_order_items"]
+      },
+      "fqn": ["analytics", "intermediate", "int_product_sales"],
+      "original_file_path": "models/intermediate/int_product_sales.sql",
+      "tags": ["nightly"],
+      "config": {"materialized": "table"},
+      "package_name": "analytics",
+      "execution_time_seconds": 12
+    },
+    "model.analytics.int_regional_sales": {
+      "unique_id": "model.analytics.int_regional_sales",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.int_customer_orders", "seed.analytics.seed_regions"]
+      },
+      "fqn": ["analytics", "intermediate", "int_regional_sales"],
+      "original_file_path": "models/intermediate/int_regional_sales.sql",
+      "tags": ["nightly"],
+      "config": {"materialized": "table"},
+      "package_name": "analytics",
+      "execution_time_seconds": 18
+    },
+    "model.analytics.mart_customers": {
+      "unique_id": "model.analytics.mart_customers",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.int_customer_orders", "model.analytics.int_order_payments"]
+      },
+      "fqn": ["analytics", "marts", "mart_customers"],
+      "original_file_path": "models/marts/mart_customers.sql",
+      "tags": ["daily", "critical"],
+      "config": {"materialized": "incremental", "schema": "marts"},
+      "package_name": "analytics",
+      "execution_time_seconds": 45
+    },
+    "model.analytics.mart_orders": {
+      "unique_id": "model.analytics.mart_orders",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.int_order_payments"]
+      },
+      "fqn": ["analytics", "marts", "mart_orders"],
+      "original_file_path": "models/marts/mart_orders.sql",
+      "tags": ["hourly", "critical"],
+      "config": {"materialized": "incremental", "schema": "marts"},
+      "package_name": "analytics",
+      "execution_time_seconds": 30
+    },
+    "model.analytics.mart_products": {
+      "unique_id": "model.analytics.mart_products",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.int_product_sales"]
+      },
+      "fqn": ["analytics", "marts", "mart_products"],
+      "original_file_path": "models/marts/mart_products.sql",
+      "tags": ["nightly"],
+      "config": {"materialized": "incremental", "schema": "marts"},
+      "package_name": "analytics",
+      "execution_time_seconds": 25
+    },
+    "model.analytics.mart_revenue": {
+      "unique_id": "model.analytics.mart_revenue",
+      "resource_type": "model",
+      "depends_on": {
+        "nodes": ["model.analytics.int_regional_sales", "model.analytics.int_order_payments"]
+      },
+      "fqn": ["analytics", "marts", "mart_revenue"],
+      "original_file_path": "models/marts/mart_revenue.sql",
+      "tags": ["nightly", "critical"],
+      "config": {"materialized": "incremental", "schema": "marts"},
+      "package_name": "analytics",
+      "execution_time_seconds": 60
+    },
+    "test.analytics.unique_stg_customers_customer_id.c7614d": {
+      "unique_id": "test.analytics.unique_stg_customers_customer_id.c7614d",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_customers"]
+      },
+      "fqn": ["analytics", "staging", "unique_stg_customers_customer_id"],
+      "original_file_path": "models/staging/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 3
+    },
+    "test.analytics.not_null_stg_customers_customer_id.a1b2c3": {
+      "unique_id": "test.analytics.not_null_stg_customers_customer_id.a1b2c3",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_customers"]
+      },
+      "fqn": ["analytics", "staging", "not_null_stg_customers_customer_id"],
+      "original_file_path": "models/staging/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 2
+    },
+    "test.analytics.unique_stg_orders_order_id.d4e5f6": {
+      "unique_id": "test.analytics.unique_stg_orders_order_id.d4e5f6",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.stg_orders"]
+      },
+      "fqn": ["analytics", "staging", "unique_stg_orders_order_id"],
+      "original_file_path": "models/staging/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 4
+    },
+    "test.analytics.not_null_mart_customers_customer_id.g7h8i9": {
+      "unique_id": "test.analytics.not_null_mart_customers_customer_id.g7h8i9",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_customers"]
+      },
+      "fqn": ["analytics", "marts", "not_null_mart_customers_customer_id"],
+      "original_file_path": "models/marts/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 5
+    },
+    "test.analytics.unique_mart_orders_order_id.j1k2l3": {
+      "unique_id": "test.analytics.unique_mart_orders_order_id.j1k2l3",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_orders"]
+      },
+      "fqn": ["analytics", "marts", "unique_mart_orders_order_id"],
+      "original_file_path": "models/marts/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 3
+    },
+    "test.analytics.not_null_mart_revenue_amount.m4n5o6": {
+      "unique_id": "test.analytics.not_null_mart_revenue_amount.m4n5o6",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_revenue"]
+      },
+      "fqn": ["analytics", "marts", "not_null_mart_revenue_amount"],
+      "original_file_path": "models/marts/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 4
+    },
+    "test.analytics.relationships_mart_orders_customer_id.p7q8r9": {
+      "unique_id": "test.analytics.relationships_mart_orders_customer_id.p7q8r9",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_orders", "model.analytics.mart_customers"]
+      },
+      "fqn": ["analytics", "marts", "relationships_mart_orders_customer_id"],
+      "original_file_path": "models/marts/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 6
+    },
+    "test.analytics.relationships_int_customer_orders_cid.s1t2u3": {
+      "unique_id": "test.analytics.relationships_int_customer_orders_cid.s1t2u3",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.int_customer_orders", "model.analytics.stg_customers"]
+      },
+      "fqn": ["analytics", "intermediate", "relationships_int_customer_orders_cid"],
+      "original_file_path": "models/intermediate/schema.yml",
+      "tags": [],
+      "config": {"materialized": "test"},
+      "package_name": "analytics",
+      "execution_time_seconds": 5
+    }
+  },
+  "sources": {
+    "source.analytics.raw.customers": {
+      "unique_id": "source.analytics.raw.customers",
+      "resource_type": "source",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": ["analytics", "staging", "raw", "customers"],
+      "original_file_path": "models/staging/sources.yml",
+      "tags": [],
+      "config": {},
+      "package_name": "analytics",
+      "execution_time_seconds": 0
+    },
+    "source.analytics.raw.orders": {
+      "unique_id": "source.analytics.raw.orders",
+      "resource_type": "source",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": ["analytics", "staging", "raw", "orders"],
+      "original_file_path": "models/staging/sources.yml",
+      "tags": [],
+      "config": {},
+      "package_name": "analytics",
+      "execution_time_seconds": 0
+    },
+    "source.analytics.raw.products": {
+      "unique_id": "source.analytics.raw.products",
+      "resource_type": "source",
+      "depends_on": {
+        "nodes": []
+      },
+      "fqn": ["analytics", "staging", "raw", "products"],
+      "original_file_path": "models/staging/sources.yml",
+      "tags": [],
+      "config": {},
+      "package_name": "analytics",
+      "execution_time_seconds": 0
+    }
+  },
+  "exposures": {
+    "exposure.analytics.dashboard_revenue": {
+      "unique_id": "exposure.analytics.dashboard_revenue",
+      "resource_type": "exposure",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_revenue", "model.analytics.mart_customers"]
+      },
+      "fqn": ["analytics", "dashboard_revenue"],
+      "original_file_path": "models/exposures.yml",
+      "tags": [],
+      "config": {},
+      "package_name": "analytics",
+      "execution_time_seconds": 0
+    }
+  }
+}

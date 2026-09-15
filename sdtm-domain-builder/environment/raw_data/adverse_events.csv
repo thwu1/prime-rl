@@ -1,0 +1,9 @@
+SubjectID,AE_Number,AE_VerbatimTerm,SeverityGrade,Serious,OnsetDate,ResolutionDate,Outcome,ActionTaken,CausalityAssessment,AE_of_Special_Interest
+101-001,1,headache,1,No,02/05/2024,02/08/2024,Resolved,None,Possibly related,No
+101-001,2,Nausea and vomiting,2,No,02/12/2024,02/15/2024,Resolved,Dose reduced,Probably related,No
+102-001,1,DIZZINESS,1,No,02/20/2024,02/22/2024,Resolved,None,Unlikely,No
+102-002,1,Severe generalized rash,3,Yes,02/25/2024,03/10/2024,Resolved with residual effects,Drug discontinued,Definitely related,Yes
+102-002,2,pruritis,1,No,02/28/2024,03/05/2024,Resolved,None,Possibly related,No
+103-001,1,fatigue,1,No,03/01/2024,03/05/2024,Resolved,None,Not related,No
+103-001,2,Insomnia,2,No,03/10/2024,,Ongoing,None,Possibly related,No
+101-002,1,constipation,1,No,02/10/2024,02/14/2024,Resolved,None,Unlikely,No

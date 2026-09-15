@@ -1,0 +1,8 @@
+domain:             alpha.dn42
+descr:              Alpha Network DNS delegation
+admin-c:            ALICE-DN42
+tech-c:             ALICE-DN42
+mnt-by:             ALPHA-MNT
+nserver:            ns1.alpha.dn42 172.20.10.1
+nserver:            ns2.alpha.dn42 172.20.10.2
+source:             DN42

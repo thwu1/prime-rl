@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Habanero-style async/finish parallel programming, computation graph semantics, transitive closure for happens-before, MHP analysis with finish-scope joins, data race detection, critical path computation, and minimum vertex cover for race elimination. Additionally demands multi-tool proficiency: constructing a correctly-schemaed SQLite3 database, generating Graphviz DOT source with typed edge colors and conditional node shapes, rendering SVG via the dot engine, and maintaining cross-artifact consistency across all four outputs."""
+solution_explanation = """Parse the computation graph DSL to build a DAG with typed edges. Compute transitive closure for happens-before via reverse topological-order reachability. Derive MHP as the complement of HB. Cross-reference MHP pairs with memory accesses for race detection. Compute span via longest weighted DAG path. Solve minimum vertex cover on the race conflict graph via branch-and-bound. Persist all results to a SQLite3 database with the prescribed schema. Generate a Graphviz DOT file with color-coded edges and shape-differentiated nodes, render to SVG. Write the JSON summary report."""
+verification_explanation = """Tests verify four artifacts: (1) JSON report — exact HB pairs, MHP pairs, data races with variable attribution, work/span/parallelism, isolation set validity and minimality; (2) SQLite database — schema correctness, row counts, metric values, data integrity; (3) DOT source — all 15 nodes present, correct edge counts by color type, doublecircle shapes for isolated nodes; (4) SVG — existence, non-trivial size, Graphviz provenance; (5) Cross-artifact consistency — JSON and SQLite data must match exactly."""
+category = "parallel_computing"
+tags = ["concurrency-analysis", "multi-tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parallel-race-analysis"

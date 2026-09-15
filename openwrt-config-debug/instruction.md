@@ -1,0 +1,5 @@
+A previous administrator partially implemented change request CR-2024-047 on an OpenWrt router but left the configuration in a broken state with multiple silent failures. VPN tunnels may not establish correctly, firewall zones may be disconnected from their interfaces, traffic may exit through unintended paths, and security controls may be ineffective despite appearing configured.
+
+The target architecture is specified in `/app/change_request.md`. Implementation notes left by the previous administrator are at `/app/admin_notes.md` — these notes contain inaccurate claims and flawed reasoning that directly caused several of the configuration defects.
+
+Audit the UCI configuration files at `/app/config/` (network, firewall, dhcp, wireless), identify and correct all defects, and ensure the final configuration fully satisfies CR-2024-047.

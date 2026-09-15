@@ -1,0 +1,58 @@
+DPC-3 Hardware Storage Budget Rules
+====================================
+
+1. BUDGET SCOPE
+   The per-core storage budget is 64 KB (65,536 bytes = 524,288 bits), shared
+   across all three cache-level prefetchers (L1D, L2C, LLC). In a multi-core
+   configuration, each core has its own independent 64 KB budget.
+
+2. WHAT COUNTS AS STORAGE
+   Every bit of persistent hardware state that the prefetcher must store between
+   invocations of the prefetcher_operate() and prefetcher_cache_fill() hooks:
+
+   - All entries in lookup tables, history buffers, and tracking structures
+     (each entry's size is the sum of its annotated field bit-widths)
+   - Head/tail pointers for circular buffers
+   - Global counters and threshold registers
+   - Any other state declared as a global or file-scope variable that persists
+     across function calls
+
+3. WHAT DOES NOT COUNT
+   - The [NUM_CPUS] array dimension: this exists only for multi-core simulation
+     in software. The per-core budget covers one core's worth of storage, so
+     this outermost dimension is excluded from the budget calculation.
+   - Local variables inside functions (temporary computation state on the stack)
+   - Function parameters
+   - Preprocessor macros and compile-time constants (#define values)
+   - Variables annotated as "not persistent state" or "excluded from budget"
+     (e.g., CPU ID caching variables)
+
+4. BIT-WIDTH ACCOUNTING
+   Use the annotated hardware bit-widths from source code comments
+   (e.g., "// 52 bits"), NOT the C++ type sizes. In a hardware implementation,
+   fields are packed to their minimum required bit-widths.
+
+   For example, a field declared as:
+       uint64_t lru;  // 7 bits
+   uses 7 bits in the budget, not 64.
+
+5. ARRAY FIELDS
+   For struct fields that are arrays with per-element annotations:
+       int deltas[N];      // 7 bits each
+       unsigned scores[N]; // 5 bits each
+   The total storage for such a field is N * (annotated bits per element).
+
+6. MULTI-DIMENSIONAL ARRAYS
+   For multi-dimensional arrays (excluding the [NUM_CPUS] dimension):
+       int8_t weights[F][E]; // K bits per weight
+   The total is F * E * K bits.
+
+7. SCALAR GLOBALS
+   For scalar global/static variables with annotations:
+       uint64_t head_ptr[NUM_CPUS]; // 10 bits
+   The per-core budget contribution is 10 bits (the [NUM_CPUS] dimension is excluded).
+
+8. FINAL CALCULATION
+   Sum the bits for every structure across all three cache levels (L1D + L2C + LLC).
+   Compare the grand total against 524,288 bits. If the total exceeds this limit,
+   the submission is non-compliant.

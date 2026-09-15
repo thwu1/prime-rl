@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis of automata theory, nonparametric statistics, protocol security analysis, and Graphviz tooling. The agent must independently recognize that state machine minimization requires computing behavioral equivalence classes (not named in the task), select appropriate statistical tests from output field names alone (mann_whitney_u, a12_effect_size), produce valid Graphviz DOT markup and render it programmatically, and design a conformance checker for anomaly detection. No algorithms are named in the instruction — the agent must draw on deep domain knowledge to choose the right approaches."""
+solution_explanation = """The solution builds the state machine by scanning training traces for (response_code_state, request) -> next_response_code transitions. It minimizes via iterative partition refinement: states are grouped by identical outgoing transition signatures (mapping target states to their equivalence classes), iterating until convergence. A Graphviz DOT file is generated and rendered to SVG using the dot command. Coverage metrics are computed per-session against the raw machine. Statistical comparison uses scipy Mann-Whitney U with a manual Vargha-Delaney A12 implementation. Anomaly detection replays each test trace through the raw state machine and flags the first unrecognized (state, request) pair."""
+verification_explanation = """Tests verify: (1) exact state machine structure (11 states, 28 transitions, correct terminal states), (2) minimized machine properties (8 states, 18 transitions, correct merge groups), (3) Graphviz DOT file validity and successful SVG rendering via the dot command, (4) per-session coverage values for specific sessions, (5) statistical comparison direction and effect sizes, (6) correct anomaly classification for all 5 test traces."""
+category = "security"
+tags = ["protocol-fuzzing", "automata-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/protocol-state-inference"

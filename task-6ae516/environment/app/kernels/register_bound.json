@@ -1,0 +1,15 @@
+{
+  "name": "register_bound",
+  "description": "A compute-heavy kernel limited by high register usage per thread",
+  "block_dim": [256, 1, 1],
+  "registers_per_thread": 96,
+  "static_shared_memory_bytes": 0,
+  "dynamic_shared_memory_bytes": 0,
+  "global_memory_accesses": [
+    {
+      "name": "load_data",
+      "element_size_bytes": 4,
+      "stride_elements": 1
+    }
+  ]
+}

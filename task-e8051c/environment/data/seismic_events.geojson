@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","id":"eq-001","geometry":{"type":"Point","coordinates":[142.373,38.297]},"properties":{"region":"Off Sendai, Japan","magnitude":5.2,"depth_km":35.0,"datetime":"2024-01-10T03:45:22Z"}},
+    {"type":"Feature","id":"eq-002","geometry":{"type":"Point","coordinates":[-71.654,-33.045]},"properties":{"region":"Central Chile","magnitude":4.8,"depth_km":45.2,"datetime":"2024-01-15T14:22:10Z"}},
+    {"type":"Feature","id":"eq-003","geometry":{"type":"Point","coordinates":[95.982,3.316]},"properties":{"region":"Northern Sumatra","magnitude":6.1,"depth_km":28.5,"datetime":"2024-02-03T08:11:45Z"}},
+    {"type":"Feature","id":"eq-004","geometry":{"type":"Point","coordinates":[-150.023,61.342]},"properties":{"region":"Southern Alaska","magnitude":3.9,"depth_km":62.1,"datetime":"2024-02-14T19:33:07Z"}},
+    {"type":"Feature","id":"eq-005","geometry":{"type":"Point","coordinates":[13.234,42.351]},"properties":{"region":"Central Italy","magnitude":4.2,"depth_km":10.3,"datetime":"2024-03-01T06:55:33Z"}},
+    {"type":"Feature","id":"eq-006","geometry":{"type":"Point","coordinates":[175.493,-41.276]},"properties":{"region":"North Island, NZ","magnitude":5.7,"depth_km":22.0,"datetime":"2024-03-10T22:14:50Z"}},
+    {"type":"Feature","id":"eq-007","geometry":{"type":"Point","coordinates":[-117.776,33.946]},"properties":{"region":"Southern California","magnitude":3.5,"depth_km":8.7,"datetime":"2024-03-20T11:08:15Z"}},
+    {"type":"Feature","id":"eq-008","geometry":{"type":"Point","coordinates":[30.516,39.768]},"properties":{"region":"Western Turkey","magnitude":4.6,"depth_km":15.4,"datetime":"2024-04-05T01:27:42Z"}},
+    {"type":"Feature","id":"eq-009","geometry":{"type":"Point","coordinates":[126.174,7.082]},"properties":{"region":"Mindanao, Philippines","magnitude":5.0,"depth_km":55.0,"datetime":"2024-04-18T15:40:28Z"}},
+    {"type":"Feature","id":"eq-010","geometry":{"type":"Point","coordinates":[-76.025,-12.046]},"properties":{"region":"Central Peru","magnitude":4.3,"depth_km":78.0,"datetime":"2024-05-02T09:55:12Z"}},
+    {"type":"Feature","id":"eq-011","geometry":{"type":"Point","coordinates":[-179.876,-17.744]},"properties":{"region":"Fiji Region","magnitude":6.5,"depth_km":550.0,"datetime":"2024-05-15T17:22:38Z"}},
+    {"type":"Feature","id":"eq-012","geometry":{"type":"Point","coordinates":[-18.531,63.897]},"properties":{"region":"Iceland","magnitude":3.1,"depth_km":5.2,"datetime":"2024-06-01T04:10:55Z"}}
+  ]
+}

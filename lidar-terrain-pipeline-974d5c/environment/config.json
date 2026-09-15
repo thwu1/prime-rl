@@ -1,0 +1,9 @@
+{
+    "survey_name": "Synthetic Terrain Survey",
+    "crs": "EPSG:32618",
+    "crs_description": "WGS 84 / UTM zone 18N",
+    "units": "metres",
+    "input_file": "/app/data/survey.las",
+    "area_description": "200m x 200m synthetic terrain with vegetation clusters, one building, and noise artifacts",
+    "notes": "All points in survey.las are unclassified (ASPRS Classification 0). No embedded CRS in the LAS file. Apply EPSG:32618 when writing geospatial outputs."
+}

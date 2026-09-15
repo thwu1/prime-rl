@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level nuclear reactor physics knowledge (point kinetics equations, delayed neutron precursor dynamics, thermal-hydraulic feedback coupling, prompt jump approximation, inhour equation) combined with multi-tool computational skills. The solver must: (1) parse a non-standard legacy reactor input format with mixed unit conventions (kW for power, Celsius for temperature); (2) compile a Fortran 90 spectral feedback module with gfortran into a shared library and interface it via Python ctypes FFI — requiring understanding of ISO_C_BINDING calling conventions, value vs. pointer semantics, and shared library compilation flags; (3) extract nonlinear spectral correction coefficients from the compiled library and integrate them into a coupled 9-ODE system (neutron population, 6 precursor groups, fuel and moderator temperatures) with stiffness ratios exceeding 1e6; (4) handle six distinct transient regimes (sub-prompt-critical, super-prompt-critical, ramp, oscillatory, shutdown, rod calibration) each exercising different physics and numerical challenges; (5) infer rod worth from a measured prompt drop ratio using the inverse prompt-jump relationship; (6) solve the transcendental inhour equation for asymptotic stable periods."""
+solution_explanation = """The reference solution: (1) Parses the CARD-format reactor.inp, extracting keyword-value pairs and reading unit annotations from bracket-enclosed comment fields to convert 50 kW to 50000 W and 286.85 C to 560.0 K; reads the XS_SOURCE directive to locate the Fortran source; (2) Compiles spectral_feedback.f90 with gfortran -shared -fPIC, loads via ctypes.CDLL, and extracts KAPPA_F=-6.5e-8, KAPPA_M=-2.7e-7, KAPPA_FM=3.5e-8 via the get_spectral_coefficients binding; (3) Derives critical steady-state: C_i(0) = beta_i*n0/(Lambda*lambda_i), T_m0 = 580 K, T_f0 = 1080 K; (4) Builds the 9-ODE system with nonlinear feedback rho_fb = alpha_f*dT_f + alpha_m*dT_m + kf*dT_f^2 + km*dT_m^2 + kfm*dT_f*dT_m, integrates with scipy BDF solver (rtol=1e-8); (5) For rod_drop: computes rod_worth = beta*(1-1/ratio); (6) For step scenarios: solves inhour equation via Brent's method."""
+verification_explanation = """Tests verify: (1) all output files exist with correct format; (2) initial conditions match thermal balance with correct unit-converted values (T_f0=1080K, T_m0=580K); (3) physics constraints (positive power, physical temperatures, reactivity balance); (4) Fortran spectral library compiles independently, coefficients are nonzero, and solver's feedback at multiple time points matches what the compiled library computes via ctypes — this directly enforces use of the nonlinear model; (5) equilibrium power matches nonlinear analytical prediction and is closer to nonlinear than linear model; (6) scenario-specific behavior: sub-critical equilibrium within 2%, super-prompt peak > 15 within 0.2s, oscillatory FFT dominant frequency = 0.1 Hz, scram power < 0.15; (7) rod worth matches prompt-jump analytical value within 1%; (8) inhour periods verified via bisection; (9) cross-scenario consistency checks."""
+category = "physics_engineering"
+tags = ["nuclear-reactor-physics", "fortran-interop"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactor-kinetics-transient-43f5c6"

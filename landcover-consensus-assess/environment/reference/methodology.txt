@@ -1,0 +1,103 @@
+LandCoverNet Assessment Methodology
+Compiled from Alemohammad & Booth (2020) and Zindi competition documentation.
+
+1. LAND COVER TAXONOMY (Table 1)
+
+The LandCoverNet taxonomy is hierarchical with three levels:
+
+  Level 1       Level 2          Level 3
+  ──────────────────────────────────────────
+  Bare          Snow/Ice         Snow/Ice
+                Water            Water
+                Bare Ground      Artificial
+                                 Natural
+  Vegetation    Woody            Woody
+                Non-Woody        Cultivated
+                                 (Semi) Natural
+
+Level 3 has 7 classes serving as the base classification unit. Level 2
+collapses certain Level 3 classes: "Artificial" and "Natural" merge into
+"Bare Ground"; "Cultivated" and "(Semi) Natural" merge into "Non-Woody".
+Level 1 is a binary split between non-vegetated ("Bare") and vegetated
+("Vegetation") land cover.
+
+
+2. CONSENSUS LABEL GENERATION (Section 3.2)
+
+From the paper: "Each chip was sent to three individuals in the annotation
+team and they were asked to validate the labels. Then we used a consensus
+technique to generate the final label for each pixel."
+
+Each annotator w_i has an overall accuracy score P(w_i), calculated as the
+percentage of pixels correctly labeled against expert reference tasks. The
+consensus probability for class theta_j is given by Eq. 1:
+
+    P(theta_j) = sum_{i=1}^{n} P(w_i) * P(theta_j | w_i)
+
+where P(w_i) values are normalized to sum to 1 across all n annotators, and
+P(theta_j | w_i) is the conditional probability that class theta_j is the
+true class given annotator w_i's response. For an annotator with accuracy a
+who labeled a pixel as class k among C total classes:
+
+  - The probability assigned to the labeled class k equals a
+  - The remaining probability mass (1 - a) is distributed uniformly
+    across the other (C - 1) classes
+
+The consensus label is the class with the highest posterior probability;
+the consensus score is that maximum probability value.
+
+
+3. SENTINEL-2 TILE SAMPLING (Section 2.2)
+
+From the paper: "For each tile of Sentinel-2 (approximately 18000 across
+all land areas), we calculated a set of features [...] latitude and
+longitude of the tile centroid, and percentage of each of the 17 IGBP LC
+classes [...] Finally, we used the empirical CDF of the features, and
+uniformly sampled the tiles in each continent."
+
+The sampling procedure transforms feature columns to empirical CDF space
+using the average-rank method (tied values receive the mean of the ranks
+they would have been assigned), then applies greedy farthest-point
+selection in the transformed space. The first tile selected is the one
+nearest to the centroid of the CDF-transformed features. Each subsequent
+tile is chosen to maximize the minimum Euclidean distance to all
+previously selected tiles. To break ties deterministically, uniform
+random noise in [0, 1e-12) from a seeded RNG is added to distance values
+before argmin/argmax operations. If the requested sample size meets or
+exceeds the total number of tiles, all tile indices are returned in order.
+
+
+4. ACCURACY ASSESSMENT
+
+Standard classification accuracy assessment produces:
+
+  - Overall accuracy (OA): proportion of correctly classified samples
+  - Cohen's kappa coefficient:
+        kappa = (OA - p_e) / (1 - p_e)
+    where p_e is the expected agreement by chance, computed from the
+    marginal distributions of the confusion matrix
+  - Per-class precision, recall, and F1 score
+  - Confusion matrix with rows representing true classes and columns
+    representing predicted classes
+
+For degenerate cases where the expected chance agreement p_e approaches
+1.0 (e.g., all samples belong to one class), kappa should be 1.0 when
+all predictions are correct and 0.0 otherwise. Classes that have zero
+support (never appearing in either predictions or ground truth) should
+report 0.0 for all per-class metrics.
+
+
+5. COMPETITION SUBMISSION SCORING
+
+Competition submissions provide per-sample probability vectors. Validation
+requirements:
+  - All required field IDs must be present
+  - Each probability value must be in [0, 1]
+  - Each row of probabilities must sum to 1.0 (tolerance: 1e-6)
+
+Scoring uses mean cross-entropy (negative log-likelihood):
+    CE = -(1/N) * sum_{i=1}^{N} log(p_{i, y_i})
+
+where p_{i,y_i} is the predicted probability for sample i's true class y_i.
+For numerical stability, probabilities should be clipped to [1e-15, 1-1e-15]
+before computing the logarithm.

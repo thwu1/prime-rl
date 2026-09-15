@@ -1,0 +1,15 @@
+{
+  "description": "Geographic 2D CRS - WGS 84 (EPSG:4326)",
+  "image": {
+    "width": 8,
+    "height": 8,
+    "bits_per_sample": 8
+  },
+  "geokeys": {
+    "GTModelTypeGeoKey": 2,
+    "GTRasterTypeGeoKey": 1,
+    "GeodeticCRSGeoKey": 4326
+  },
+  "model_tiepoint": [0.0, 0.0, 0.0, -180.0, 90.0, 0.0],
+  "model_pixel_scale": [1.0, 1.0, 0.0]
+}

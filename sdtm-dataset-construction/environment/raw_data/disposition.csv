@@ -1,0 +1,9 @@
+site_id,patient_num,disposition_event,disposition_date,reason
+201,1,Completed,04/18/2024,
+201,2,Completed,04/22/2024,
+202,3,Discontinued,04/12/2024,ADVERSE EVENT
+202,4,Completed,04/15/2024,
+203,5,Discontinued,04/22/2024,ADVERSE EVENT
+203,6,Completed,04/28/2024,
+204,7,Discontinued,04/08/2024,PROGRESSIVE DISEASE
+204,8,Completed,04/12/2024,

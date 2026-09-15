@@ -1,0 +1,56 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "eventDate": "2024-04-15",
+  "instruction": [{
+    "primitiveInstruction": {
+      "quantityChange": {
+        "change": [{"quantity": [{"value": 120000000.0, "unit": {"currency": {"@data": "GBP"}}}]}],
+        "direction": "Replace"
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/365.FIXED"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 80000000.0, "unit": {"currency": {"@data": "GBP"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "bankP"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "bankQ"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-INC001"}, "assignedIdentifier": [{"identifier": {"@data": "INC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2024-03-01"},
+        "party": [
+          {"@key:external": "bankP", "partyId": [{"identifier": {"@data": "LEI-INC001"}, "identifierType": "LEI"}], "name": {"@data": "Bank P"}},
+          {"@key:external": "bankQ", "partyId": [{"identifier": {"@data": "LEI-INC002"}, "identifierType": "LEI"}], "name": {"@data": "Bank Q"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/365.FIXED"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 120000000.0, "unit": {"currency": {"@data": "GBP"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "bankP"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "bankQ"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-INC001"}, "assignedIdentifier": [{"identifier": {"@data": "INC-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-03-01"},
+      "party": [
+        {"@key:external": "bankP", "partyId": [{"identifier": {"@data": "LEI-INC001"}, "identifierType": "LEI"}], "name": {"@data": "Bank P"}},
+        {"@key:external": "bankQ", "partyId": [{"identifier": {"@data": "LEI-INC002"}, "identifierType": "LEI"}], "name": {"@data": "Bank Q"}}
+      ]
+    }
+  }]
+}

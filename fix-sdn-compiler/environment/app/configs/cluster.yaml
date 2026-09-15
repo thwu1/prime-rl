@@ -1,0 +1,10 @@
+nodes:
+  pve01:
+    management_ip: "10.10.12.10"
+    vtep_ip: "10.255.255.1"
+  pve02:
+    management_ip: "10.10.12.11"
+    vtep_ip: "10.255.255.2"
+  pve03:
+    management_ip: "10.10.12.12"
+    vtep_ip: "10.255.255.3"

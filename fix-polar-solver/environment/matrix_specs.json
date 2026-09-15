@@ -1,0 +1,14 @@
+{
+  "matrices": [
+    {"name": "wide_4x8_s42", "rows": 4, "cols": 8, "seed": 42, "category": "wide"},
+    {"name": "tall_8x4_s42", "rows": 8, "cols": 4, "seed": 42, "category": "tall"},
+    {"name": "square_6x6_s42", "rows": 6, "cols": 6, "seed": 42, "category": "square"},
+    {"name": "wide_5x15_s77", "rows": 5, "cols": 15, "seed": 77, "category": "wide"},
+    {"name": "tall_12x5_s55", "rows": 12, "cols": 5, "seed": 55, "category": "tall"},
+    {"name": "wide_6x12_s99", "rows": 6, "cols": 12, "seed": 99, "category": "wide"}
+  ],
+  "stability_eigenvalues": {
+    "values": [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0],
+    "perturbation": -0.0009765625
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the cBPF instruction set, Linux seccomp_data memory layout including endianness-dependent 64-bit word splitting, BPF jump offset arithmetic across variable-length instruction sequences, AUDIT_ARCH constants, and the interaction between multiple comparison operators (EQ, NE, GT, GE, LT, LE, MASKED_EQ) with 64-bit values. The solver must reverse-engineer multiple interacting bugs across architecture validation, argument memory offsets, 64-bit comparison code generation, jump target computation, multi-rule dispatch, multi-argument constraints on single rules, and masked comparison semantics. Bugs are unlabeled and compound — fixing one category often reveals failures in another, requiring iterative debugging and full-stack reasoning about instruction encoding, memory layout, and control flow."""
+solution_explanation = """Fix 7 categories of interacting bugs: (1) Wrong AUDIT_ARCH_X86_64 constant (0x4000003E should be 0xC000003E — the high bit encodes __AUDIT_ARCH_64BIT). (2) Swapped lo/hi argument offsets for little-endian (lo is at base offset, hi at base+4, not vice versa). (3) Wrong instruction count for 64-bit EQ (returns 5, should be 4) and GT/GE/LT/LE (always returns 2, should be 5 for 64-bit values). (4) Incomplete 64-bit GT/GE/LT/LE that only check the low 32 bits — must implement full hi/lo comparison with proper ordering logic. (5) 64-bit NE has swapped jt/jf on the hi-word check and wrong JMP_A target — must correctly skip to success when hi words differ. (6) MASKED_EQ compares (val & mask) == datum instead of (val & mask) == (datum & mask). (7) All instruction count errors cascade into wrong forward jump offsets in emit_program, affecting multi-rule dispatch and multi-argument chaining. The solver must ensure arg_cmp_insn_count() and emit_arg_cmp() agree on instruction counts for all comparison types, and adjust skip_body in emit_program to correctly skip past the reload instruction when present."""
+verification_explanation = """A Python cBPF simulator loads the compiled binary filter and executes it against 78 test inputs covering architecture validation (x86_64 pass, i386/ARM/zero reject), all action types (ALLOW, KILL, KILL_PROCESS, ERRNO, TRACE, LOG), argument comparisons (EQ, NE, GT, GE, MASKED_EQ), 64-bit value boundaries, multi-rule syscall dispatch (fcntl with two rules), multi-argument constraints (clone3 with two arg checks), 64-bit NE (fstatfs), and edge cases (large syscall numbers, large fd values, masked checks with non-trivial datum)."""
+category = "systems_security"
+tags = ["seccomp", "bpf"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/seccomp-bpf-compiler-6394a5"

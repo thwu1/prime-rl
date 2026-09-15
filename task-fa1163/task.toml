@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of WebRTC signaling semantics (offer/answer/ICE/connect lifecycle), binary protocol reverse engineering, and state machine security auditing. The agent must: (1) use tshark to capture and analyze VLSP binary protocol traffic on loopback, (2) read ~600 lines of server + protocol code with a custom binary wire format to identify 4 subtle state machine vulnerabilities, (3) write working exploit scripts using the binary protocol, (4) assess each vulnerability with CVSS 3.1 base scoring (requiring evaluation of attack vectors, complexity, and impact), and (5) design a hardened server that fixes all vulnerabilities while maintaining backward compatibility with a conformance test suite — requiring the agent to judge which code paths are security-critical vs. functionally necessary. Each vulnerability class mirrors real-world bugs found in Signal, JioChat/Mocha, Facebook Messenger, and Zoom by Project Zero researchers."""
+solution_explanation = """Capture traffic with tshark on loopback port 9877. Analyze server state machine to identify: (1) _handle_connect checks is_participant() instead of requiring sender == callee, allowing caller to force media connection; (2) _handle_offer processes inline ICE candidates in SDP, adding callee tracks and activating peer connection before callee answers; (3) _handle_sdp_update only rejects DISCONNECTED state, so multi-device callees get SDP processed in RINGING state, enabling media prematurely; (4) _apply_media_policy uses truthiness check (if policy:) instead of strict integer comparison, so a string media_policy value auto-enables all tracks. Assess CVSS 3.1 base scores for each. Create server_hardened.py with 4 targeted fixes that pass the conformance suite and reject all exploit patterns."""
+verification_explanation = """Tests run reference exploits against the original server to confirm all 4 vulnerabilities exist. Then verifies the agent produced: 4 exploit scripts that succeed against the original server, 4 pcap captures validated structurally as containing TCP traffic on port 9877, 4 findings files with valid CVSS 3.1 vectors and scores, and a hardened server that passes the conformance test suite and rejects all 4 exploit patterns (callee media NOT transmitted)."""
+category = "security"
+tags = ["webrtc", "state-machine", "tshark", "patch-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fa1163"

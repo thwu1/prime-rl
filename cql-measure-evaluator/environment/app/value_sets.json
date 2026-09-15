@@ -1,0 +1,209 @@
+{
+  "Essential Hypertension": {
+    "oid": "2.16.840.1.113883.3.464.1003.104.12.1011",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential (primary) hypertension"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I11.0", "display": "Hypertensive heart disease with heart failure"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I11.9", "display": "Hypertensive heart disease without heart failure"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I12.0", "display": "Hypertensive CKD with stage 5 CKD or ESRD"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I12.9", "display": "Hypertensive CKD with stage 1-4 or unspecified"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I13.0", "display": "Hypertensive heart and CKD with HF and stage 1-4"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I13.10", "display": "Hypertensive heart and CKD without HF"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I13.2", "display": "Hypertensive heart and CKD with HF and stage 5"}
+    ]
+  },
+  "Office Visit": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1001",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99202", "display": "Office visit, new patient, 15-29 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99203", "display": "Office visit, new patient, 30-44 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99204", "display": "Office visit, new patient, 45-59 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99205", "display": "Office visit, new patient, 60-74 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99211", "display": "Office visit, established, 5 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99212", "display": "Office visit, established, 10-19 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99213", "display": "Office visit, established, 20-29 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99214", "display": "Office visit, established, 30-39 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99215", "display": "Office visit, established, 40-54 min"}
+    ]
+  },
+  "Annual Wellness Visit": {
+    "oid": "2.16.840.1.113883.3.526.3.1240",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "G0438", "display": "Annual wellness visit, initial"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "G0439", "display": "Annual wellness visit, subsequent"}
+    ]
+  },
+  "Preventive Care Services Established Office Visit, 18 and Up": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1025",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99395", "display": "Preventive care, established, 18-39"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99396", "display": "Preventive care, established, 40-64"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99397", "display": "Preventive care, established, 65+"}
+    ]
+  },
+  "Preventive Care Services Initial Office Visit, 18 and Up": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1023",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99385", "display": "Preventive care, new, 18-39"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99386", "display": "Preventive care, new, 40-64"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99387", "display": "Preventive care, new, 65+"}
+    ]
+  },
+  "Home Healthcare Services": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1016",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99341", "display": "Home visit, new patient, 20 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99342", "display": "Home visit, new patient, 30 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99347", "display": "Home visit, established, 15 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99348", "display": "Home visit, established, 25 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99349", "display": "Home visit, established, 40 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99350", "display": "Home visit, established, 60 min"}
+    ]
+  },
+  "Outpatient Consultation": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1008",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99241", "display": "Outpatient consultation, 15 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99242", "display": "Outpatient consultation, 30 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99243", "display": "Outpatient consultation, 40 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99244", "display": "Outpatient consultation, 60 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99245", "display": "Outpatient consultation, 80 min"}
+    ]
+  },
+  "Telephone Visits": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1080",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99441", "display": "Telephone visit, 5-10 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99442", "display": "Telephone visit, 11-20 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99443", "display": "Telephone visit, 21-30 min"}
+    ]
+  },
+  "Emergency Department Visit": {
+    "oid": "2.16.840.1.113883.3.464.1003.101.12.1010",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99281", "display": "ED visit, level 1"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99282", "display": "ED visit, level 2"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99283", "display": "ED visit, level 3"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99284", "display": "ED visit, level 4"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99285", "display": "ED visit, level 5"}
+    ]
+  },
+  "Encounter Inpatient": {
+    "oid": "2.16.840.1.113883.3.666.5.307",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99221", "display": "Initial hospital care, level 1"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99222", "display": "Initial hospital care, level 2"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99223", "display": "Initial hospital care, level 3"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99231", "display": "Subsequent hospital care, level 1"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99232", "display": "Subsequent hospital care, level 2"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99233", "display": "Subsequent hospital care, level 3"}
+    ]
+  },
+  "Pregnancy": {
+    "oid": "2.16.840.1.113883.3.526.3.378",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.511", "display": "Supervision of elderly primigravida, first trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.512", "display": "Supervision of elderly primigravida, second trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.513", "display": "Supervision of elderly primigravida, third trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.519", "display": "Supervision of elderly primigravida, unspecified"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.521", "display": "Supervision of elderly multigravida, first trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.522", "display": "Supervision of elderly multigravida, second trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O09.523", "display": "Supervision of elderly multigravida, third trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O26.841", "display": "Uterine size-date discrepancy, first trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O26.842", "display": "Uterine size-date discrepancy, second trimester"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "O26.843", "display": "Uterine size-date discrepancy, third trimester"}
+    ]
+  },
+  "End Stage Renal Disease": {
+    "oid": "2.16.840.1.113883.3.526.3.353",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.6", "display": "End stage renal disease"},
+      {"system": "http://snomed.info/sct", "code": "46177005", "display": "End-stage renal disease"}
+    ]
+  },
+  "Kidney Transplant Recipient": {
+    "oid": "2.16.840.1.113883.3.464.1003.109.12.1029",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z94.0", "display": "Kidney transplant status"},
+      {"system": "http://snomed.info/sct", "code": "161665007", "display": "History of renal transplant"}
+    ]
+  },
+  "Chronic Kidney Disease, Stage 5": {
+    "oid": "2.16.840.1.113883.3.526.3.1002",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.5", "display": "Chronic kidney disease, stage 5"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "N18.6", "display": "End stage renal disease"}
+    ]
+  },
+  "Kidney Transplant": {
+    "oid": "2.16.840.1.113883.3.464.1003.109.12.1012",
+    "codes": [
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY00Z0", "display": "Transplant Right Kidney, Allogeneic, Open"},
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY00Z1", "display": "Transplant Right Kidney, Syngeneic, Open"},
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY00Z2", "display": "Transplant Right Kidney, Zooplastic, Open"},
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY10Z0", "display": "Transplant Left Kidney, Allogeneic, Open"},
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY10Z1", "display": "Transplant Left Kidney, Syngeneic, Open"},
+      {"system": "http://www.cms.gov/Medicare/Coding/ICD10", "code": "0TY10Z2", "display": "Transplant Left Kidney, Zooplastic, Open"}
+    ]
+  },
+  "Dialysis Services": {
+    "oid": "2.16.840.1.113883.3.464.1003.109.12.1013",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90935", "display": "Hemodialysis, one evaluation"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90937", "display": "Hemodialysis, repeated evaluation"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90945", "display": "Dialysis other than hemodialysis, one evaluation"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90947", "display": "Dialysis other than hemodialysis, repeated evaluation"}
+    ]
+  },
+  "ESRD Monthly Outpatient Services": {
+    "oid": "2.16.840.1.113883.3.464.1003.109.12.1014",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90960", "display": "ESRD services, age 20+, 4+ visits/month"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90961", "display": "ESRD services, age 20+, 2-3 visits/month"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90962", "display": "ESRD services, age 20+, 1 visit/month"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "90966", "display": "ESRD services, age 12-19, full month"}
+    ]
+  },
+  "Hospice Encounter": {
+    "oid": "2.16.840.1.113883.3.464.1003.1003",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99377", "display": "Physician supervision of hospice, 15-29 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99378", "display": "Physician supervision of hospice, 30+ min"},
+      {"system": "http://snomed.info/sct", "code": "385763009", "display": "Hospice care"}
+    ]
+  },
+  "Palliative Care Encounter": {
+    "oid": "2.16.840.1.113883.3.464.1003.1167",
+    "codes": [
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99497", "display": "Advance care planning, first 30 min"},
+      {"system": "http://www.ama-assn.org/go/cpt", "code": "99498", "display": "Advance care planning, addtl 30 min"},
+      {"system": "http://snomed.info/sct", "code": "443761007", "display": "Anticipatory palliative care"}
+    ]
+  },
+  "Palliative Care Intervention": {
+    "oid": "2.16.840.1.113883.3.464.1003.198.12.1135",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z51.5", "display": "Encounter for palliative care"},
+      {"system": "http://snomed.info/sct", "code": "182964004", "display": "Terminal care"}
+    ]
+  },
+  "Frailty Diagnosis": {
+    "oid": "2.16.840.1.113883.3.464.1003.113.12.1074",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "R54", "display": "Age-related physical debility"},
+      {"system": "http://snomed.info/sct", "code": "713514007", "display": "Muscle weakness of limb"},
+      {"system": "http://snomed.info/sct", "code": "309257005", "display": "Excessive frailty"}
+    ]
+  },
+  "Advanced Illness": {
+    "oid": "2.16.840.1.113883.3.464.1003.110.12.1082",
+    "codes": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "G30.0", "display": "Alzheimer disease with early onset"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "G30.1", "display": "Alzheimer disease with late onset"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "G30.8", "display": "Other Alzheimer disease"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "G30.9", "display": "Alzheimer disease, unspecified"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "F02.80", "display": "Dementia in other diseases, without behavioral disturbance"},
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "F02.81", "display": "Dementia in other diseases, with behavioral disturbance"}
+    ]
+  }
+}

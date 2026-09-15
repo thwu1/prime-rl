@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import re, sys
+
+def split_ver(v):
+    epoch = 0
+    if ':' in v:
+        epoch, v = v.split(':', 1)
+        epoch = int(epoch)
+    pkgrel = None
+    if '-' in v:
+        v, pkgrel = v.rsplit('-', 1)
+    return epoch, v, pkgrel
+
+def cmp_part(a, b):
+    sa = re.findall(r'[0-9]+|[a-zA-Z]+', a) if a else []
+    sb = re.findall(r'[0-9]+|[a-zA-Z]+', b) if b else []
+    for x, y in zip(sa, sb):
+        if x.isdigit() and y.isdigit():
+            d = int(x) - int(y)
+            if d:
+                return 1 if d > 0 else -1
+        elif x.isdigit():
+            return 1
+        elif y.isdigit():
+            return -1
+        elif x != y:
+            return (x > y) - (x < y)
+    return (len(sa) > len(sb)) - (len(sa) < len(sb))
+
+def vercmp(a, b):
+    ea, va, ra = split_ver(a)
+    eb, vb, rb = split_ver(b)
+    if ea != eb:
+        return 1 if ea > eb else -1
+    c = cmp_part(va, vb)
+    if c:
+        return c
+    if ra is not None and rb is not None:
+        return cmp_part(ra, rb)
+    if ra is not None:
+        return 1
+    if rb is not None:
+        return -1
+    return 0
+
+if len(sys.argv) == 3:
+    print(vercmp(sys.argv[1], sys.argv[2]))
+else:
+    sys.exit(1)

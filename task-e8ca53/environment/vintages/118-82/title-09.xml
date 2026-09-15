@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc>
+  <meta>
+    <property role="is-positive-law">yes</property>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t9">
+      <num value="9">Title 9</num>
+      <heading>Arbitration</heading>
+      <chapter>
+        <num value="1">Chapter 1</num>
+        <heading>GENERAL PROVISIONS</heading>
+        <section identifier="/us/usc/t9/s1">
+          <num value="1">§ 1.</num>
+          <heading>"Maritime transactions" and "commerce" defined; exceptions to operation of title</heading>
+          <content>
+            <text>"Maritime transactions", as herein defined, means charter parties, bills of lading of water carriers, agreements relating to wharfage, supplies furnished vessels or repairs to vessels, collisions, or any other matters in foreign commerce which, if the subject of controversy, would be embraced within admiralty jurisdiction; "commerce", as herein defined, means commerce among the several States or with foreign nations, or in any Territory of the United States or in the District of Columbia, or between any such Territory and another, or between any such Territory and any State or foreign nation, or between the District of Columbia and any State or Territory or foreign nation, but nothing herein contained shall apply to contracts of employment of seamen, railroad employees, or any other class of workers engaged in foreign or interstate commerce.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 669.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s2">
+          <num value="2">§ 2.</num>
+          <heading>Validity, irrevocability, and enforcement of agreements to arbitrate</heading>
+          <content>
+            <text>A written provision in any maritime transaction or a contract evidencing a transaction involving commerce to settle by arbitration a controversy thereafter arising out of such contract or transaction, or the refusal to perform the whole or any part thereof, or an agreement in writing to submit to arbitration an existing controversy arising out of such a contract, transaction, or refusal, shall be valid, irrevocable, and enforceable, save upon such grounds as exist at law or in equity for the revocation of any contract or as otherwise provided in <ref href="/us/usc/t9/s401">chapter 4</ref>.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 670; Pub. L. 117–90, § 3, Mar. 3, 2022, 136 Stat. 27.)</sourceCredit>
+          <notes type="statutory">
+            <note topic="amendments">
+              <heading>Amendments</heading>
+              <p>2022—Pub. L. 117–90 inserted "or as otherwise provided in chapter 4" before period at end.</p>
+            </note>
+          </notes>
+        </section>
+        <section identifier="/us/usc/t9/s3">
+          <num value="3">§ 3.</num>
+          <heading>Stay of proceedings where issue therein referable to arbitration</heading>
+          <content>
+            <text>If any suit or proceeding be brought in any of the courts of the United States upon any issue referable to arbitration under an agreement in writing for such arbitration, the court in which such suit is pending, upon being satisfied that the issue involved in such suit or proceeding is referable to arbitration under such an agreement, shall on application of one of the parties stay the trial of the action until such arbitration has been had in accordance with the terms of the agreement, providing the applicant for the stay is not in default in proceeding with such arbitration.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 670.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s4">
+          <num value="4">§ 4.</num>
+          <heading>Failure to arbitrate under agreement; petition to United States court having jurisdiction; notice and service thereof; hearing and determination [Repealed]</heading>
+          <status>repealed</status>
+          <content>
+            <text>Section was repealed by Pub. L. 118–12, § 4, Mar. 20, 2023.</text>
+          </content>
+          <sourceCredit>(July 30, 1947, ch. 392, 61 Stat. 671; Pub. L. 116–150, § 2(a), Aug. 6, 2020, 134 Stat. 681; Pub. L. 117–81, div. E, title LXIII, § 6304, Dec. 27, 2021, 135 Stat. 2404; repealed Pub. L. 118–12, § 4, Mar. 20, 2023, 137 Stat. 48.)</sourceCredit>
+        </section>
+      </chapter>
+      <chapter>
+        <num value="4">Chapter 4</num>
+        <heading>ARBITRATION OF DISPUTES INVOLVING SEXUAL ASSAULT AND SEXUAL HARASSMENT</heading>
+        <section identifier="/us/usc/t9/s401">
+          <num value="401">§ 401.</num>
+          <heading>Definitions</heading>
+          <content>
+            <chapeau>In this chapter:</chapeau>
+            <paragraph>
+              <num value="1">(1)</num>
+              <heading>Predispute arbitration agreement</heading>
+              <content>The term "predispute arbitration agreement" means any agreement to arbitrate a dispute that had not yet arisen at the time of the making of the agreement.</content>
+            </paragraph>
+            <paragraph>
+              <num value="2">(2)</num>
+              <heading>Sexual assault dispute</heading>
+              <content>The term "sexual assault dispute" means a dispute involving a nonconsensual sexual act or sexual contact, as such terms are defined in section 2246 of title 18, or similar applicable Tribal or State law.</content>
+            </paragraph>
+            <paragraph>
+              <num value="3">(3)</num>
+              <heading>Sexual harassment dispute</heading>
+              <content>The term "sexual harassment dispute" means a dispute relating to conduct that is alleged to constitute sexual harassment under applicable Federal, Tribal, or State law.</content>
+            </paragraph>
+          </content>
+          <sourceCredit>(Added Pub. L. 117–90, § 2, Mar. 3, 2022, 136 Stat. 26.)</sourceCredit>
+        </section>
+        <section identifier="/us/usc/t9/s402">
+          <num value="402">§ 402.</num>
+          <heading>No validity or enforceability</heading>
+          <content>
+            <subsection>
+              <num value="a">(a)</num>
+              <heading>Applicability</heading>
+              <content>
+                <text>Notwithstanding any other provision of this title, at the election of the person alleging conduct constituting a sexual assault dispute or sexual harassment dispute, or the named representative of a class or in a collective action alleging such conduct, no predispute arbitration agreement or predispute joint-action waiver shall be valid or enforceable with respect to a case which is filed under Federal, Tribal, or State law and relates to the sexual assault dispute or the sexual harassment dispute.</text>
+              </content>
+            </subsection>
+            <subsection>
+              <num value="b">(b)</num>
+              <heading>Determination of applicability</heading>
+              <paragraph>
+                <num value="1">(1)</num>
+                <heading>Federal law</heading>
+                <content>An issue as to whether this chapter applies with respect to a dispute shall be determined under Federal law.</content>
+              </paragraph>
+              <paragraph>
+                <num value="2">(2)</num>
+                <heading>Court determination</heading>
+                <content>The applicability of this chapter to an agreement to arbitrate and the validity and enforceability of an agreement to which this chapter applies shall be determined by a court, rather than an arbitrator, irrespective of whether the party resisting arbitration challenges the arbitration agreement specifically or in conjunction with other terms of the contract containing such agreement. For definitions applicable to this chapter, see <ref href="/us/usc/t42/s12112">section 12112 of title 42</ref>.</content>
+              </paragraph>
+              <paragraph>
+                <num value="3">(3)</num>
+                <heading>Scope of invalidation</heading>
+                <content>If this chapter applies to a dispute, the court shall determine whether the agreement to arbitrate is enforceable as a matter of Federal law, applying the standards set forth in <ref href="/us/usc/t9/s2">section 2 of this title</ref> and the postal arbitration framework under <ref href="/us/usc/t53/s3001">section 3001 of title 53</ref>.</content>
+              </paragraph>
+            </subsection>
+          </content>
+          <sourceCredit>(Added Pub. L. 117–90, § 3, Mar. 3, 2022, 136 Stat. 28; amended Pub. L. 118–63, § 5, Oct. 1, 2023, 137 Stat. 290.)</sourceCredit>
+        </section>
+      </chapter>
+    </title>
+  </main>
+</uscDoc>

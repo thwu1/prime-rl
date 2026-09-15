@@ -1,0 +1,41 @@
+Binary Edit Journal Format v1.0
+
+All multi-byte integers are unsigned little-endian.
+
+=== Header (8 bytes) ===
+  Bytes 0-5:  Magic "PTEDIT" (ASCII, 6 bytes)
+  Byte 6:     Version (uint8, must be 0x01)
+  Byte 7:     Reserved (0x00)
+
+=== Records ===
+Each record starts with a 1-byte opcode, followed by opcode-specific payload.
+
+Opcode 0x01 -- INSERT
+  Bytes 0-3:  offset (uint32, character position to insert at)
+  Bytes 4-7:  text_length (uint32, byte length of text)
+  Bytes 8...: text (UTF-8 encoded, text_length bytes)
+
+Opcode 0x02 -- DELETE
+  Bytes 0-3:  offset (uint32, starting character position)
+  Bytes 4-7:  length (uint32, number of characters to delete)
+
+Opcode 0x03 -- SNAPSHOT
+  Bytes 0-3:  snapshot_id (uint32)
+
+Opcode 0x04 -- UNDO
+  (no payload)
+
+Opcode 0x05 -- REDO
+  Bytes 0-3:  branch_index (uint32)
+
+Opcode 0xFF -- END
+  (no payload, signals end of journal)
+
+=== Semantics ===
+Operations are applied sequentially to a text buffer starting from empty.
+INSERT adds text at the given character offset.
+DELETE removes characters starting at offset.
+SNAPSHOT marks the current buffer state with the given ID.
+UNDO reverts the most recent edit (moves up in the undo tree).
+REDO moves to child at given branch_index in the undo tree.
+END terminates processing.

@@ -1,0 +1,15 @@
+# Test 07: Dominance across type hierarchy
+# A type pattern for Shape dominates a type pattern for Circle
+# (since Circle is a subtype of Shape).
+# Expected: exhaustive, case 1 (Circle) is dominated by case 0 (Shape)
+
+TYPES
+sealed Shape Circle Square
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+
+SWITCHES
+switch s1 Shape
+type Shape
+type Circle
+end

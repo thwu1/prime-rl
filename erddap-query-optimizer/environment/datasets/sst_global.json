@@ -1,0 +1,35 @@
+{
+  "datasetID": "sst_global",
+  "type": "grid",
+  "baseUrl": "https://coastwatch.pfeg.noaa.gov/erddap",
+  "dimensions": [
+    {
+      "name": "time",
+      "type": "temporal",
+      "start": "2002-06-01T09:00:00Z",
+      "spacing_days": 1
+    },
+    {
+      "name": "latitude",
+      "type": "spatial",
+      "start": -89.99,
+      "stop": 89.99,
+      "spacing": 0.01
+    },
+    {
+      "name": "longitude",
+      "type": "spatial",
+      "start": 0.01,
+      "stop": 359.99,
+      "spacing": 0.01
+    }
+  ],
+  "lonConvention": "0-360",
+  "variables": [
+    {
+      "name": "analysed_sst",
+      "units": "degree_K",
+      "standardName": "sea_surface_foundation_temperature"
+    }
+  ]
+}

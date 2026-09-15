@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level quantitative finance knowledge spanning stochastic volatility modeling, complex-valued numerical integration, linear algebra, Monte Carlo simulation, and exotic derivatives payoff engineering. The solver must also build a multi-tool pricing pipeline using GNU Make for target orchestration with proper dependency graphs, jq for JSON field extraction between stages, and sqlite3 for structured storage and querying of calibration and pricing results. They must investigate a buggy legacy implementation to identify interrelated defects (characteristic function formulation, correlation matrix repair, missing snowball accumulation, discrete-only knock-in monitoring), explore data files in multiple formats (CSV, YAML, JSON), and wire everything into a working end-to-end pipeline."""
+solution_explanation = """The solution has two layers: (A) pricer.py implements Heston analytical pricing using the Gatheral/Albrecher reformulation with g=(xi-d)/(xi+d) to avoid the 'Little Heston Trap'; correlation matrix cleaning via eigendecomposition + flooring + Rebonato-Jäckel rescaling; and multi-asset Monte Carlo with full-truncation Euler scheme and correct snowball/continuous knock-in. (B) pipeline.mk defines a Makefile with db-init/calibrate/clean/price-note/report targets, using jq to extract JSON fields from pricer output, sqlite3 to store and query results, and shell pipelines with CSV parsing to orchestrate the full calibration-to-reporting workflow."""
+verification_explanation = """Tests verify: (1) Heston analytical prices against 7 DeltaQuants reference values plus stability/monotonicity checks; (2) correlation matrix cleaning produces valid PSD output; (3) autocallable pricing with snowball accumulation and continuous knock-in monitoring; (4) pipeline integration — make all succeeds, SQLite database has correct schema and data (7 calibration rows, accurate errors, autocallable results with valid JSON probabilities), report.txt contains required statistics, cleaned correlation file is PSD, and Makefile uses both jq and sqlite3."""
+category = "finance"
+tags = ["stochastic-volatility", "pipeline-orchestration"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/heston-autocallable-pricer-1bc1f7"

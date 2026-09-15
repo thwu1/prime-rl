@@ -1,0 +1,24 @@
+name: simple-lab
+mgmt:
+  ipv4-subnet: 172.20.20.0/24
+  ipv6-subnet: 3fff:172:20:20::/64
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+    env:
+      LOG_LEVEL: info
+  nodes:
+    server1:
+      env:
+        ROLE: server
+    server2:
+      image: nginx:latest
+      env:
+        ROLE: webserver
+    client1:
+      env:
+        ROLE: client
+  links:
+    - endpoints: ["server1:eth1", "server2:eth1"]
+    - endpoints: ["server1:eth2", "client1:eth1"]

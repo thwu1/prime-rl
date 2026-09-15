@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://hl7.org/fhirpath/tests/report"
+           xmlns="http://hl7.org/fhirpath/tests/report"
+           elementFormDefault="qualified">
+  <xs:element name="conformance-report" type="ConformanceReport"/>
+  <xs:complexType name="ConformanceReport">
+    <xs:sequence>
+      <xs:element name="suite" type="SuiteResult" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="summary" type="Summary"/>
+    </xs:sequence>
+    <xs:attribute name="generated" type="xs:dateTime" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SuiteResult">
+    <xs:sequence>
+      <xs:element name="test-result" type="TestResult" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="source" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="TestResult">
+    <xs:sequence>
+      <xs:element name="expression" type="xs:string"/>
+      <xs:element name="expected" type="xs:string"/>
+      <xs:element name="computed" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="group" type="xs:string" use="required"/>
+    <xs:attribute name="status" type="StatusType" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="Summary">
+    <xs:attribute name="total" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="passed" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="failed" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="errored" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="skipped" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+  <xs:simpleType name="StatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="pass"/>
+      <xs:enumeration value="fail"/>
+      <xs:enumeration value="error"/>
+      <xs:enumeration value="skip"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

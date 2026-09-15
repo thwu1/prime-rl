@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of quantum error correction theory, Stim's DetectorErrorModel format (including separator semantics for hyperedge decomposition), probability merging for duplicate error mechanisms, sparse matrix construction from error models, and implementing a graph-based syndrome decoder with virtual boundary node handling and observable tracking. The agent must reverse-engineer the required data structures and algorithms from test expectations alone."""
+solution_explanation = """Parse the flattened DEM to extract error mechanisms: split targets by separators into components, compute hyperedge detector/observable sets via symmetric difference (XOR), merge probabilities for duplicate hyperedges using p_new = p_old*(1-p) + p*(1-p_old), and build CSC sparse matrices. For the decoder, construct a weighted detector graph from decomposed DEM edges with weights log((1-p)/p), add a virtual boundary node for single-detector edges, compute all-pairs shortest paths with observable tracking via Floyd-Warshall, and use networkx min_weight_matching on triggered detectors."""
+verification_explanation = """Tests verify exact sparse matrix values for known DEM inputs (hyperedge decomposition with separators, boundary edges, probability merging), matrix shape consistency from stim-generated circuits, forbidden package checks, decoder correctness on deterministic syndromes (zero, boundary, paired), batch decoding, and end-to-end decoder performance on sampled repetition code and surface code data with statistical error rate thresholds."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "graph-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/qec-syndrome-decoder"

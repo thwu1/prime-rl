@@ -1,0 +1,161 @@
+{
+  "config": {
+    "tun_vel_gain": 0.5,
+    "tun_accel_gain": [1.0, 1.0, 1.0],
+    "tun_alpha_gain": [1.0, 1.0, 1.0],
+    "tun_ctl_linear_force_limit": 100.0,
+    "tun_ctl_att_sat_lower": -0.5,
+    "tun_ctl_att_sat_upper": 0.5,
+    "tun_ctl_pos_sat_lower": -0.1,
+    "tun_ctl_pos_sat_upper": 0.1,
+    "tun_ctl_stopped_pos_thresh": 0.1,
+    "tun_ctl_stopped_quat_thresh": 0.17453292519943295,
+    "tun_ctl_stopping_vel_thresh": 0.0004,
+    "tun_ctl_stopping_omega_thresh": 0.0004
+  },
+  "robot": {
+    "mass": 9.583,
+    "inertia": [[0.1534, 0.0, 0.0], [0.0, 0.1427, 0.0], [0.0, 0.0, 0.1623]],
+    "pos_kp": [0.6, 0.6, 0.6],
+    "pos_ki": [0.0001, 0.0001, 0.0001],
+    "vel_kd": [1.2, 1.2, 1.2],
+    "att_kp": [2.0, 2.0, 2.0],
+    "att_ki": [0.001, 0.001, 0.001],
+    "omega_kd": [3.2, 3.2, 3.2]
+  },
+  "constants": {
+    "ctl_idle_mode": 0,
+    "ctl_stopping_mode": 1,
+    "ctl_stopped_mode": 2,
+    "ase_status_converged": 2,
+    "controller_rate_hz": 62.5
+  },
+  "scenarios": [
+    {
+      "name": "translation_step",
+      "description": "Single controller step with 1m X-axis position error, identity attitude",
+      "num_steps": 1,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [1.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 2
+    },
+    {
+      "name": "attitude_step",
+      "description": "Single controller step with 45-degree Z-axis attitude error, zero position error",
+      "num_steps": 1,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.3826834323650898, 0.9238795325112867],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 2
+    },
+    {
+      "name": "convergence_translation",
+      "description": "1500-step closed-loop position tracking: origin to [1,0,0]",
+      "num_steps": 1500,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [1.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 2
+    },
+    {
+      "name": "convergence_attitude",
+      "description": "1500-step closed-loop attitude tracking: identity to 45-deg Z rotation",
+      "num_steps": 1500,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.3826834323650898, 0.9238795325112867],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 2
+    },
+    {
+      "name": "convergence_combined",
+      "description": "2000-step combined position and attitude tracking",
+      "num_steps": 2000,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [0.5, 0.3, -0.2],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.5, 0.8660254037844387],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 2
+    },
+    {
+      "name": "idle_mode",
+      "description": "10 steps with localization not converged — controller should output zero force/torque",
+      "num_steps": 10,
+      "initial": {
+        "position": [0.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0]
+      },
+      "target": {
+        "mode": 3,
+        "position": [1.0, 0.0, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "acceleration": [0.0, 0.0, 0.0],
+        "quaternion": [0.0, 0.0, 0.0, 1.0],
+        "omega": [0.0, 0.0, 0.0],
+        "alpha": [0.0, 0.0, 0.0]
+      },
+      "confidence": 0
+    }
+  ]
+}

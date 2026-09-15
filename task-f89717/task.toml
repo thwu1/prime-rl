@@ -1,0 +1,45 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in numerical analysis (Gauss-Kronrod quadrature theory,
+convergence acceleration algorithms, variable transformations for improper integrals) combined with
+systematic debugging skills to identify four subtle bugs in ~280 lines of numerical Python code. The
+bugs span hardcoded constants (transposed quadrature weights), data structure misuse (heap ordering),
+algorithmic errors (recurrence relation indexing in Wynn's epsilon algorithm), and mathematical errors
+(missing Jacobian factor in semi-infinite interval transformation). Each bug requires domain-specific
+knowledge to diagnose and the agent must verify correctness against known analytical integral values."""
+solution_explanation = """Fix four bugs: (1) swap back transposed Kronrod weights at indices 2 and 4
+in the _WGK array, (2) negate error values in heap operations to convert Python's min-heap to a
+max-heap for proper adaptive subdivision ordering, (3) correct the row index in the Wynn epsilon
+algorithm recurrence from e[i][k-2] to e[i+1][k-2], (4) square the denominator in the semi-infinite
+interval Jacobian from 1/(1-t) to 1/(1-t)^2. Then run compute.py to generate results.json."""
+verification_explanation = """Pytest directly imports the quadrature library and evaluates six benchmark
+integrals (smooth, oscillatory, singular, and three semi-infinite) against known analytical values with
+tolerance 1e-8. Also tests the Wynn epsilon algorithm independently on the alternating harmonic series
+(which converges to ln 2). Finally verifies that results.json contains all six computed values within
+the required tolerance."""
+category = "debugging"
+tags = ["numerical-analysis", "quadrature"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f89717"

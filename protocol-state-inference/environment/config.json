@@ -1,0 +1,8 @@
+{
+  "protocol_name": "CustomFTP",
+  "state_id_method": "response_code",
+  "fuzzers": ["aflnet", "baseline"],
+  "training_dir": "traces/training",
+  "test_dir": "traces/test",
+  "output_dir": "output"
+}

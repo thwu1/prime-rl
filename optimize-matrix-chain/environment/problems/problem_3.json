@@ -1,0 +1,14 @@
+{
+  "id": "problem_3",
+  "description": "Parenthesization with triangular solve",
+  "chain": [
+    {"matrix": "L", "transpose": false, "invert": true},
+    {"matrix": "A", "transpose": false, "invert": false},
+    {"matrix": "B", "transpose": false, "invert": false}
+  ],
+  "matrices": {
+    "L": {"rows": 500, "cols": 500, "properties": ["lower_triangular"]},
+    "A": {"rows": 500, "cols": 800, "properties": ["general"]},
+    "B": {"rows": 800, "cols": 100, "properties": ["general"]}
+  }
+}

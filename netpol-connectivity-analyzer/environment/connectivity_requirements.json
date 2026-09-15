@@ -1,0 +1,22 @@
+{
+  "required": {
+    "q01": "frontend -> orders-api:8080 (primary web-to-API flow)",
+    "q04": "orders-api -> postgres:5432 (order data persistence)",
+    "q06": "orders-api -> redis:6379 (order caching layer)",
+    "q11": "users-api -> postgres:5432 (user data persistence)",
+    "q16": "users-api -> redis:6379 (user session cache)",
+    "q18": "prometheus -> grafana:3000 (monitoring dashboard data)",
+    "q20": "orders-api -> prometheus:9090 (metrics export)",
+    "q21": "users-api -> prometheus:9090 (metrics export)",
+    "q25": "grafana -> prometheus:9090 (monitoring data source)"
+  },
+  "forbidden": {
+    "q03": "frontend -> postgres:5432 (web tier must not access DB directly)",
+    "q05": "analytics-api -> postgres:5432 (analytics not authorized for production DB)",
+    "q08": "postgres -> orders-api:8080 (DB must not initiate connections to API tier)",
+    "q10": "frontend -> frontend:80 (unnecessary intra-tier traffic)",
+    "q15": "frontend -> redis:6379 (web tier must not access cache directly)",
+    "q17": "postgres -> redis:6379 (DB components must not cross-communicate)",
+    "q19": "prometheus -> orders-api:8080 (monitoring must not access API data plane)"
+  }
+}

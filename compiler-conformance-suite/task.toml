@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of the ISO C standard to distinguish three categories of conformance failures: undefined behavior (strict aliasing violations per 6.5p7, signed integer overflow per 6.5p5, sequence point violations per 6.5p2), incorrect expected values (integer promotion rules per 6.3.1.1, sizeof non-evaluation per 6.5.3.4p2, bit-field truncation per 6.3.1.3p2), and implementation-defined behavior (right-shift of negative values per 6.5.7p5). Some defects are latent — they pass on the test platform but violate the standard, requiring code analysis beyond runtime testing. Additionally, the agent must write tests for irreducible control flow graphs (optimizer correctness through multi-entry loops), union-based type punning (C99 TC3 footnote 82 vs strict aliasing), and the restrict qualifier (C99 6.7.3.1 non-aliasing contracts). This demands holistic understanding of how compiler optimizations interact with language semantics."""
+solution_explanation = """Compile and test all 12 programs at -O0/-O2/-O3 with gcc and clang. Identify 7 defects: (1-3) wrong_expectation — fix (x+y)==0 to ==65536 (integer promotion), x==6 to x==5 (sizeof non-evaluation), bf.c==18 to bf.c==2 (bit-field truncation); (4-6) undefined_behavior — rewrite strict aliasing test using memcpy/union instead of pointer cast, replace signed overflow check with INT_MAX comparison to avoid UB, sequence operations with intervening statements to eliminate double-modification; (7) implementation_defined — make right-shift of negative values portable using unsigned arithmetic with sign extension. Write three new tests: irreducible CFG with goto-based multi-entry loop, union type punning with IEEE 754 bit verification, restrict-qualified array functions. Generate analysis.json with all classifications and final pass results."""
+verification_explanation = """Pytest verifies: (1) all 15 test files exist; (2) all 15 compile and pass with gcc and clang at -O0/-O2/-O3 (90 parametrized checks); (3) analysis.json contains exactly 7 defects with correct file-to-category mappings (3 wrong_expectation, 3 undefined_behavior, 1 implementation_defined); (4) source code checks confirm removal of specific bug patterns: aliased pointer cast, signed overflow reliance, sequence point violations, wrong expected values; (5) new tests contain required language features (goto for irreducible flow, union for type punning, restrict qualifier)."""
+category = "systems"
+tags = ["c-standard", "compiler-validation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compiler-conformance-suite"

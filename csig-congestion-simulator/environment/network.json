@@ -1,0 +1,11 @@
+{
+  "links": {
+    "L0": {"capacity_mbps": 60},
+    "L1": {"capacity_mbps": 100},
+    "L2": {"capacity_mbps": 30},
+    "L3": {"capacity_mbps": 80},
+    "L4": {"capacity_mbps": 150},
+    "L5": {"capacity_mbps": 200},
+    "L6": {"capacity_mbps": 90}
+  }
+}

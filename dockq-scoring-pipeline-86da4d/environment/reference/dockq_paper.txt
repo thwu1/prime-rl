@@ -1,0 +1,33 @@
+DockQ: A Quality Measure for Protein-Protein Docking Models
+Basu S, Wallner B (2016) PLoS ONE 11(8):e0161879.
+https://doi.org/10.1371/journal.pone.0161879
+
+Abstract
+
+The state-of-the-art to assess the structural quality of docking models is currently based on three related yet independent quality measures: Fnat, LRMS, and iRMS as proposed and standardized by CAPRI. These quality measures quantify different aspects of the quality of a particular docking model and need to be viewed together to reveal the true quality, e.g. a model with relatively poor LRMS (>10A) might still qualify as 'acceptable' with a descent Fnat (>0.50) and iRMS (<3.0A). This is also the reason why the so called CAPRI criteria for assessing the quality of docking models is defined by applying various ad-hoc cutoffs on these measures to classify a docking model into the four classes: Incorrect, Acceptable, Medium, or High quality. Here, we present DockQ, a continuous protein-protein docking model quality measure derived by combining Fnat, LRMS, and iRMS to a single score in the range [0, 1] that can be used to assess the quality of protein docking models.
+
+Introduction
+
+To calculate these measures, the interface between the two interacting protein molecules (receptor and ligand) is defined as any pair of heavy atoms from the two molecules within 5A of each other. Fnat is then defined as the fraction of native interfacial contacts preserved in the interface of the predicted complex. LRMS is the Ligand Root Mean Square deviation calculated for the backbone of the shorter chain (ligand) of the model after superposition of the longer chain (receptor). For the third measure, iRMS, the receptor-ligand interface in the target (native) is redefined at a relatively relaxed atomic contact cutoff of 10A which is twice the value used to define inter-residue 'interface' contacts in case of Fnat. The backbone atoms of these 'interface' residues is then superposed on their equivalents in the predicted complex (model) to compute the iRMS. The CAPRI evaluation use different cutoffs on these three measures to assign predicted docking models into the four quality classes: Incorrect (Fnat < 0.1 or (LRMS > 10 and iRMS > 4.0)), Acceptable ((Fnat >= 0.1 and Fnat < 0.3) and (LRMS <= 10.0 or iRMS <= 4.0) or (Fnat >= 0.3 and LRMS > 5.0 and iRMS > 2.0)), Medium ((Fnat >= 0.3 and Fnat < 0.5) and (LRMS <= 5.0 or iRMS <= 2.0) or (Fnat >= 0.5 and LRMS > 1.0 and iRMS > 1.0)), or High (Fnat >= 0.5 and (LRMS <= 1.0 or iRMS <= 1.0)).
+
+Methods: Transforming LRMS and iRMS
+
+To avoid the problem of arbitrarily large RMS values that are essentially equally bad, RMS values were scaled using the inverse square scaling technique adapted from the S-score formula:
+
+  RMS_scaled(RMS, d) = 1 / (1 + (RMS/d)^2)
+
+where d is a scaling factor, d1 for LRMS and d2 for iRMS.
+
+Results: DockQ Score
+
+In the DockQ score we combined Fnat, LRMS, and iRMS into one score by the mean of Fnat, and the two RMS values scaled:
+
+  DockQ = (Fnat + RMS_scaled(LRMS, d1) + RMS_scaled(iRMS, d2)) / 3
+
+Optimizing d1 and d2
+
+The two parameters in the DockQ score, d1 and d2, were optimized in a grid search. The maximum average F1-score (0.91) was obtained for d1 = 8.5A and d2 = 1.5A, corresponding to the cutoffs C1 = 0.23, C2 = 0.49, and C3 = 0.80.
+
+Conclusions
+
+DockQ is a continuous protein-protein docking model quality score. If the CAPRI measures are already calculated it is simple to calculate DockQ using the formula with d1 = 8.5 and d2 = 1.5.

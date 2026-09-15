@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires domain expertise in oculomotor signal processing and the BIDS neuroimaging data standard, plus multi-tool interoperability between gzip-compressed TSV processing, hierarchical JSON metadata resolution, SQLite relational database design, and BIDS file-format conventions. The solver must explore environment materials to understand the BIDS physio format, metadata inheritance rules, and eye-tracking conventions, then reverse-engineer the event classification approach from a reference example. Implementation demands handling gzip-compressed headerless TSV, resolving multi-level JSON sidecar inheritance, computing visual angle geometry from screen parameters, discriminating eye-tracking from non-eye-tracking recordings, handling variable column orderings, gracefully managing signal dropout periods, designing a normalized SQLite schema with foreign key constraints, and ensuring consistency across three distinct output formats (TSV, SQLite, JSON)."""
+solution_explanation = """The solution discovers eyetrack recordings via PhysioType metadata, resolves BIDS JSON inheritance (task-level then run-level) for both physio and events sidecars, reads column-ordered gzip TSV data, and implements velocity-threshold identification (I-VT) at 30 deg/s to classify fixation vs. saccade. Blinks are detected via pupil_size==0. Gaze velocity is computed in degrees of visual angle using the 2*arctan(d/2D) formula with screen geometry from events.json. Saccade amplitudes use the same DVA formula on start-to-end displacement. Signal dropout (NaN coords, non-zero pupil) gets velocity=0 and classifies as fixation. A backward velocity check extends saccade boundaries at transition samples. All results are persisted in both BIDS-compliant physioevents.tsv.gz files and a normalized SQLite database with recordings, events, and quality_metrics tables linked by foreign keys. BIDS entity strings (subject, task, run, recording) are parsed from filenames and stored in the recordings table alongside resolved screen geometry metadata. Quality metrics are computed from classified events and stored consistently across SQLite and JSON outputs."""
+verification_explanation = """Tests generate a synthetic BIDS dataset with known ground truth across 4 recordings: two at 1000Hz with default screen geometry, one at 500Hz with run-level geometry override, and one at 1000Hz with swapped column ordering and embedded signal dropout. A cardiac decoy recording verifies non-eyetrack filtering. Pytest checks output file existence, format validity, exact event counts, saccade onset accuracy (15ms tolerance), saccade amplitude accuracy (1.5 DVA tolerance), blink detection, event coverage, and quality report metrics. Additionally, the SQLite database is validated for schema correctness (table existence, foreign key definitions), data consistency (events must match TSV output exactly), recording metadata accuracy (sampling frequency, screen geometry, recorded eye), foreign key enforcement, and quality metrics agreement with the JSON report."""
+category = "applied_computing"
+tags = ["signal-processing", "bids-neuroimaging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gaze-event-pipeline"

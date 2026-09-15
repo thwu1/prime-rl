@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the Multi-Latent Attention mechanism from GLM-5 (LoRA-style query compression, shared KV latent space, decoupled RoPE, asymmetric head dimensions, KV cache), then building a cross-language deployment pipeline: writing a C shared library for fused RoPE that matches PyTorch's rotation formula, fixing a Makefile to compile it with correct shared-library flags (-fPIC, -shared), loading it via ctypes, and exporting the full model to ONNX with dynamic axes and onnxruntime verification. The agent must reason about tensor shapes through compress-normalize-expand-split-broadcast chains, write correct C code with aliasing-safe in-place semantics, debug gcc/make compilation, handle torch.onnx.export opset compatibility, and verify numerical equivalence across three execution backends (PyTorch, C/ctypes, ONNX Runtime)."""
+solution_explanation = """The solution implements MLAttention with: (1) query LoRA compression (hidden->q_lora_rank->H*qk_head_dim with RMSNorm), (2) KV compression into shared latent + RoPE key stream, (3) KV expansion to per-head k_nope and value, (4) RoPE on q_pe/k_pe only with single-head k_pe broadcast, (5) scaled dot-product attention with causal mask and cache. For the C extension: implements rope_apply with local-variable aliasing safety and rope_apply_batch as a loop, compiled via gcc -shared -fPIC. For ONNX: wraps SimpleGLM5 in an ONNXWrapper returning only logits, exports with torch.onnx.export opset 17 and dynamic batch/seq axes, validates with onnx.checker."""
+verification_explanation = """Tests verify: MLA output shapes, KV cache shapes, numerical stability (finite, non-zero, differentiable), architecture constraints (LoRA compression dimensions via parameter shape inspection), KV cache equivalence (prefill+decode matches full forward within 1e-5), training convergence (50%+ loss reduction in 20 steps), autoregressive generation. C extension tests: librope.so exists and loads via ctypes, rope_apply matches PyTorch rotate_half formula within 1e-5, batch consistency, in-place aliasing correctness. ONNX tests: model.onnx exists and passes onnx.checker, correct I/O names, dynamic batch/sequence support via onnxruntime, numerical equivalence to PyTorch within 1e-4."""
+category = "machine_learning"
+tags = ["attention-mechanisms", "cross-language-deployment"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3ad330"

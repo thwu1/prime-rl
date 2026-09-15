@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the CSS cascade algorithm to diagnose multiple interacting regressions in a style engine spread across 6 commits in a git history with innocent commits interleaved. The solver must independently discover which investigation tools and strategies to use, identify regression-introducing commits, understand that certain bugs mask or depend on each other (fixing one module alone produces no improvement or exposes a previously-hidden failure in another), and reason holistically about the cascade pipeline — origin priority, specificity calculation, cascade sort key composition, selector matching traversal, shorthand expansion, and keyword resolution — to determine a viable fix ordering. The solver must also implement the CSS 'unset' keyword from the specification and evaluate which bugs interact, producing a justified dependency analysis in the conformance report."""
+solution_explanation = """Use git log/diff to identify 6 regression commits across cascade.py (priority inversion + specificity dropped from sort key), specificity.py (attribute selectors not counted in b-column), matcher.py (child combinator checks grandparent instead of parent), shorthand.py (3-value left mirrors bottom instead of right), and compute.py (initial keyword not resolved). Bugs 2+3 interact: cascade sort key and specificity counting must both be fixed for attribute specificity to affect cascade results. Bugs 1+4 interact: child combinator fix exposes the cascade priority inversion that was previously masked. Implement unset in compute.py: inherited properties inherit, non-inherited use initial. Write conformance report with commit hashes, fix_groups identifying the two interacting pairs with rationale, and keywords_implemented."""
+verification_explanation = """Tests create independent fixtures exercising each CSS behavior. Cascade priority tests pit user !important vs author !important. Specificity-cascade interaction tests require both attribute counting AND specificity in the sort key to produce correct results. Child combinator tests verify parent-not-grandparent matching. Shorthand tests check 3-value left mirrors right. Keyword tests verify initial resolution and unset behavior on inherited/non-inherited properties including root edge case. Conformance report tests verify structure, that each regression_commit exists in git history and changed the reported module, that fix_groups identifies at least one multi-module interacting pair with rationale, and that unset is listed in keywords_implemented. Engine output is compared against the v1.0 snapshot via make diff."""
+category = "web_systems"
+tags = ["css-cascade", "regression-diagnosis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-334196"

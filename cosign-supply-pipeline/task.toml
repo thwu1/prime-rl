@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple intertwined defects in a pre-existing broken supply chain pipeline: RSA certificates where EC is required, missing X.509 pathlen constraint, incorrect CA flag and key usage on the leaf cert, mismatched cosign keys not derived from the leaf certificate, malformed attestation predicates, and a structurally invalid audit report. The agent must investigate each artifact to identify the specific failures, then rebuild a correct three-tier PKI hierarchy, import keys properly, operate a local OCI registry, sign images with annotations, create and attach multiple attestation types, save for air-gapped verification, and generate a compliant audit report — all requiring expert knowledge of X.509 PKI, cosign workflows, OCI registries, and in-toto attestation formats."""
+solution_explanation = """Diagnose the broken state: inspect existing certs with openssl to find RSA algorithm (should be EC), missing pathlen:0 on intermediate, CA:TRUE and keyCertSign on leaf (should be CA:FALSE, digitalSignature). Detect cosign key mismatch by comparing cosign.pub with leaf cert public key. Rebuild the entire PKI with ECDSA P-256 and correct extensions. Import the leaf private key into cosign format. Start the in-memory registry, create images with crane, push and sign with annotations. Create SLSA provenance and vuln scan predicate files with required fields, attach as attestations. Save signed images for offline verification. Generate a structured audit report by running verification commands and collecting results."""
+verification_explanation = """Tests verify: (1) all PKI files exist, (2) certificate chain validity via openssl verify, (3) correct X.509 extensions — CA:TRUE/FALSE, keyCertSign, digitalSignature, pathlen:0, EC algorithm, (4) leaf cert has no keyCertSign, (5) cosign public key matches leaf cert public key, (6) offline signature verification for both images, (7) annotation verification (pipeline.version=v1, pipeline.stage=production) on both images, (8) SLSA provenance attestation verification on both images, (9) vuln attestation on webapp, (10) attestation predicate file structure (builder.id, materials, metadata), (11) audit report JSON structure with images array, PKI section, and PASS status."""
+category = "security"
+tags = ["supply-chain-security", "container-signing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cosign-supply-pipeline"

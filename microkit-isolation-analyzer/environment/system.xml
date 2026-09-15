@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mixed-criticality UAV control system on seL4 Microkit.
+  Architecture inspired by LionsOS/sDDF patterns and INSPECTA/PROVERS integration.
+-->
+<system>
+    <!-- Shared memory regions -->
+    <memory_region name="sensor_data" size="0x10000" />
+    <memory_region name="actuator_cmd" size="0x10000" />
+    <memory_region name="ctrl_status" size="0x10000" />
+    <memory_region name="sensor_diag" size="0x4000" />
+    <memory_region name="eth_rx" size="0x200000" />
+    <memory_region name="eth_tx" size="0x200000" />
+    <memory_region name="net_telem_rx" size="0x200000" />
+    <memory_region name="net_telem_tx" size="0x200000" />
+    <memory_region name="net_vm_rx" size="0x200000" />
+    <memory_region name="net_vm_tx" size="0x200000" />
+    <memory_region name="crypto_buf" size="0x100000" />
+    <memory_region name="serial_buf" size="0x4000" />
+    <memory_region name="config_data" size="0x8000" />
+    <memory_region name="guest_ram" size="0x8000000" />
+
+    <!-- Sensor: reads hardware, writes sensor data and diagnostics -->
+    <protection_domain name="sensor" priority="112">
+        <program_image path="sensor.elf" />
+        <map mr="sensor_data" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="sensor_diag" vaddr="0x2010000" perms="rw" cached="true" />
+        <irq irq="47" id="0" />
+    </protection_domain>
+
+    <!-- Critical flight control application -->
+    <protection_domain name="control" priority="115">
+        <program_image path="control.elf" />
+        <map mr="sensor_data" vaddr="0x2000000" perms="r" cached="true" />
+        <map mr="actuator_cmd" vaddr="0x2010000" perms="rw" cached="true" />
+        <map mr="ctrl_status" vaddr="0x2020000" perms="rw" cached="true" />
+        <map mr="config_data" vaddr="0x2030000" perms="r" cached="true" />
+    </protection_domain>
+
+    <!-- Actuator: reads commands, drives flight control surfaces -->
+    <protection_domain name="actuator" priority="113">
+        <program_image path="actuator.elf" />
+        <map mr="actuator_cmd" vaddr="0x2000000" perms="r" cached="true" />
+        <irq irq="48" id="0" />
+    </protection_domain>
+
+    <!-- Ethernet driver -->
+    <protection_domain name="eth_driver" priority="110">
+        <program_image path="eth_driver.elf" />
+        <map mr="eth_rx" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="eth_tx" vaddr="0x2200000" perms="rw" cached="true" />
+        <irq irq="79" id="0" />
+    </protection_domain>
+
+    <!-- Network multiplexer (sDDF-style) -->
+    <protection_domain name="net_mux" priority="105">
+        <program_image path="net_mux.elf" />
+        <map mr="eth_rx" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="eth_tx" vaddr="0x2200000" perms="rw" cached="true" />
+        <map mr="net_telem_rx" vaddr="0x2400000" perms="rw" cached="true" />
+        <map mr="net_telem_tx" vaddr="0x2600000" perms="rw" cached="true" />
+        <map mr="net_vm_rx" vaddr="0x2800000" perms="rw" cached="true" />
+        <map mr="net_vm_tx" vaddr="0x2A00000" perms="rw" cached="true" />
+    </protection_domain>
+
+    <!-- Telemetry service -->
+    <protection_domain name="telemetry" priority="90">
+        <program_image path="telemetry.elf" />
+        <map mr="net_telem_rx" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="net_telem_tx" vaddr="0x2200000" perms="rw" cached="true" />
+        <map mr="ctrl_status" vaddr="0x2400000" perms="r" cached="true" />
+        <map mr="crypto_buf" vaddr="0x2600000" perms="rw" cached="true" />
+    </protection_domain>
+
+    <!-- Crypto service -->
+    <protection_domain name="crypto" priority="95">
+        <program_image path="crypto.elf" />
+        <map mr="crypto_buf" vaddr="0x2000000" perms="rw" cached="true" />
+    </protection_domain>
+
+    <!-- Serial/UART driver -->
+    <protection_domain name="serial_driver" priority="108">
+        <program_image path="serial_driver.elf" />
+        <map mr="serial_buf" vaddr="0x2000000" perms="rw" cached="true" />
+        <irq irq="33" id="0" />
+    </protection_domain>
+
+    <!-- System logger -->
+    <protection_domain name="logger" priority="85">
+        <program_image path="logger.elf" />
+        <map mr="serial_buf" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="sensor_diag" vaddr="0x2004000" perms="r" cached="true" />
+    </protection_domain>
+
+    <!-- Persistent configuration store -->
+    <protection_domain name="config_store" priority="70">
+        <program_image path="config_store.elf" />
+        <map mr="config_data" vaddr="0x2000000" perms="rw" cached="true" />
+    </protection_domain>
+
+    <!-- Virtual machine monitor with legacy guest OS -->
+    <protection_domain name="vmm" priority="80">
+        <program_image path="vmm.elf" />
+        <map mr="guest_ram" vaddr="0x40000000" perms="rw" cached="true" />
+        <map mr="net_vm_rx" vaddr="0x2000000" perms="rw" cached="true" />
+        <map mr="net_vm_tx" vaddr="0x2200000" perms="rw" cached="true" />
+
+        <protection_domain name="guest_os" priority="75">
+            <program_image path="guest_os.elf" />
+            <map mr="guest_ram" vaddr="0x40000000" perms="rw" cached="true" />
+        </protection_domain>
+    </protection_domain>
+
+    <!-- Communication channels -->
+    <channel>
+        <end pd="sensor" id="1" />
+        <end pd="control" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="control" id="2" />
+        <end pd="actuator" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="eth_driver" id="1" />
+        <end pd="net_mux" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="net_mux" id="2" />
+        <end pd="telemetry" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="net_mux" id="3" />
+        <end pd="vmm" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="telemetry" id="2" />
+        <end pd="crypto" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="serial_driver" id="1" />
+        <end pd="logger" id="1" />
+    </channel>
+
+    <channel>
+        <end pd="sensor" id="2" />
+        <end pd="logger" id="2" />
+    </channel>
+</system>

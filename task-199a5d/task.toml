@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level compiler construction knowledge across two tightly coupled phases. Phase 1: the register allocator must handle programs with loops (requiring fixpoint-based analysis), varying register pressure from 2 to 11 simultaneously live variables, and must correctly spill excess variables to stack slots while preserving program semantics. Phase 2: x86-64 code generation requires mastery of AT&T assembly syntax, ABI calling conventions, stack frame management, and correct instruction selection for arithmetic, comparisons, branches, and function calls. The agent must use the gcc toolchain to assemble, link against a C runtime, and debug native binary output — requiring multi-tool interoperation between Python code generation, the GNU assembler, linker, and binary execution."""
+solution_explanation = """Analyze variable liveness across the control-flow graph, determine which variables interfere (are simultaneously live), assign physical registers avoiding conflicts, and spill to stack when registers are exhausted. For code generation: map physical registers to x86-64 hardware registers, compute a stack frame layout for spilled variables, emit a prologue/epilogue that saves and restores callee-saved registers, translate each IR instruction to equivalent x86-64 instruction sequences, and handle the calling convention for print_int. Compile with gcc -no-pie against runtime.c."""
+verification_explanation = """For each of 11 test programs: (1) the emulator runs both original and allocated versions asserting identical output, (2) additional tests verify no virtual registers remain, no trivial self-move instructions exist, and spill-designated programs actually use stack slots, (3) generated x86-64 assembly is compiled with gcc and linked against runtime.c, the resulting native binary is executed and its stdout is compared against the emulator's expected output."""
+category = "compilers"
+tags = ["register-allocation", "x86-codegen"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-199a5d"

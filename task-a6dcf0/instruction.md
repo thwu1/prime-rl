@@ -1,0 +1,3 @@
+An automated evaluation system at `/app/` processes algorithmic challenge test cases stored in a SQLite database. The pipeline broke after a server migration. Helper scripts in `/app/scripts/` and diagnostics in `/app/logs/` reflect the state of previous repair attempts.
+
+Produce the file `/app/output/results.json`: a JSON object whose keys are query set IDs (strings, e.g. `"1"`, `"2"`, ...) and whose values are lists of integer answers. Query sets that reference nonexistent input data must map to an empty list `[]`.

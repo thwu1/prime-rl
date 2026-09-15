@@ -1,0 +1,21 @@
+{
+    "dep_a": 1,
+    "dep_b": 1,
+    "dep_c": 0,
+    "layer1": 1,
+    "layer2": 1,
+    "layer3": 0,
+    "head": 1,
+    "loss": 1,
+    "optimizer": 1,
+    "setup_a": 1,
+    "run_a": 0,
+    "setup_b": 1,
+    "run_b": 1,
+    "exp_c": 0,
+    "row_1": 1,
+    "row_2": 1,
+    "row_3": 0,
+    "table_2": 0,
+    "figure_1": 0
+}

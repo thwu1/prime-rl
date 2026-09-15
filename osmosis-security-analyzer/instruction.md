@@ -1,0 +1,7 @@
+`/app/systems/` contains seL4 Microkit system description XMLs for three embedded systems (avionics, IoT gateway, minimal). Security labels with MLS classification levels and declassifier designations are at `/app/labels/<system_name>_labels.json`. Abstract security architectures specifying permitted inter-domain information flows are at `/app/architectures/<system_name>_arch.json`. Security policies are at `/app/policies/<system_name>_policy.json`. The OSmosis formal security model — including graph construction semantics, information flow derivation, TCB/IB/isolation degree definitions, Bell-LaPadula and Biba violation analysis with per-resource declassification, residual leakage detection via purged flow graphs, architecture refinement verification, attack surface quantification, and all output schemas — is specified in `/app/spec/osmosis_model.md`. An XSD schema for validating Microkit system descriptions is at `/app/spec/microkit.xsd`.
+
+Create an executable pipeline at `/app/run_analysis.sh` that, when invoked, produces:
+
+- `/app/output/analysis.json` — Complete security analysis for every system conforming to the JSON schema in the spec. Input XMLs must pass XSD validation; abort with non-zero exit on validation failure.
+- `/app/output/<system_name>_flow.dot` — Graphviz DOT directed information flow graph per system, following the format specified in the model document.
+- `/app/output/<system_name>_flow.svg` — SVG rendering of each DOT graph.

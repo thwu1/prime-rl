@@ -1,0 +1,29 @@
+{
+  "instance_id": "sympy__sympy-2001",
+  "bug_patches": {
+    "b0": {"diff_size": 15},
+    "b1": {"diff_size": 12},
+    "b2": {"diff_size": 20}
+  },
+  "test_patches": {
+    "t0": {"fails_on_original": true},
+    "t1": {"fails_on_original": false},
+    "t2": {"fails_on_original": false}
+  },
+  "test_results_unpatched": {
+    "t0": {"failed": 1, "passed": 9},
+    "t1": {"failed": 0, "passed": 10},
+    "t2": {"failed": 0, "passed": 10}
+  },
+  "execution_matrix": {
+    "b0": {
+      "t0": {"fail_to_pass": 0, "pass_to_pass": 9}
+    },
+    "b1": {
+      "t0": {"fail_to_pass": 1, "pass_to_pass": 9}
+    },
+    "b2": {
+      "t0": {"fail_to_pass": 1, "pass_to_pass": 8}
+    }
+  }
+}

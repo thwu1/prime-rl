@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The Location-Routing Problem (LRP) jointly optimizes facility location and vehicle routing — two NP-hard subproblems whose interactions create super-additive difficulty. The task requires completing an incomplete GMPL model template (adding capacity constraints and printf output in correct GMPL syntax), generating properly formatted GMPL data files with distance matrices from raw instance data, invoking glpsol with correct CLI flags, parsing its structured output, and building a full routing solution that meets a stringent quality threshold. This demands proficiency in combinatorial optimization, the GMPL/MathProg modeling language, and the glpsol CLI — an unusual combination requiring multi-tool interoperability across mathematical modeling, solver invocation, output parsing, and algorithmic implementation."""
+solution_explanation = """The reference solver: (1) writes a complete GMPL model with depot_capacity and fleet_limit constraints plus printf output statements, (2) generates GMPL data files including 2D distance matrix tables for each instance, (3) invokes glpsol to solve the facility location model, (4) parses DEPOT/ASSIGN lines from glpsol stdout to extract depot decisions, (5) uses those decisions as input to a savings-based route construction heuristic per depot, (6) applies intra-route local search improvement, (7) performs inter-depot customer relocation and depot closure perturbation."""
+verification_explanation = """Tests verify two categories: (A) GLPK integration — the completed GMPL model at /app/models/depot_selection.mod has no TODO markers and contains required constraint names (depot_capacity, fleet_limit) and printf directives; GMPL data files exist with valid GMPL structure (data header, set/param declarations); glpsol log files exist; running glpsol on the model+data succeeds (exit code 0) and produces parseable DEPOT/ASSIGN output lines with at least one open depot. (B) Solution correctness — for each of three instances: every customer appears exactly once, route demands do not exceed vehicle capacity, depot demands do not exceed depot capacity, vehicle count per depot does not exceed limit, only opened depots have routes, reported objective matches recomputed cost, and total cost is at most 0.72 times the trivial upper bound."""
+category = "optimization"
+tags = ["combinatorial-optimization", "vehicle-routing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/location-routing-solver"

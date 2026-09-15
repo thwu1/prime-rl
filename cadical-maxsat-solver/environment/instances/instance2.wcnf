@@ -1,0 +1,10 @@
+c Triangle graph minimum vertex cover (optimal cost = 2)
+c Vertices: 1,2,3  Edges: (1,2),(1,3),(2,3)
+c Hard: edge coverage  Soft: prefer vertex not in cover
+p wcnf 3 6 100
+100 1 2 0
+100 1 3 0
+100 2 3 0
+1 -1 0
+1 -2 0
+1 -3 0

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level RF/antenna engineering knowledge and significant codebase exploration. The solver must reverse-engineer the pipeline architecture, discover the output schema from source code, parse Touchstone S1P measurement data and complex-valued coupling matrices using unfamiliar format parsers, detect unit convention mismatches between scenario files and utility modules, implement Dolph-Chebyshev weight synthesis via DFT-based Chebyshev polynomial matching, apply mutual coupling correction through matrix inversion, compute directivity via numerical integration of the array factor, perform transmission line impedance transformation, and chain all components into a coherent link budget. No formulas or algorithms are given in the instruction."""
+solution_explanation = """The reference solution implements a Beamformer class that: (1) computes Dolph-Chebyshev weights using the DFT method with Chebyshev polynomial sampling at x0=cosh(arccosh(R0)/(N-1)), handling even/odd N differently; (2) applies coupling correction via w_corrected = C^{-1} @ w_ideal using numpy.linalg.solve; (3) computes directivity by numerically integrating |AF(theta)|^2 sin(theta) over theta using 20001-point trapezoidal rule; (4) extracts element impedance from Touchstone S1P data by interpolating S11 and converting via Z=Z0*(1+S11)/(1-S11); (5) uses lib.txline for impedance matching after converting wavelengths to degrees (*360); (6) chains Friis equation link budget with mismatch losses from both TX and RX sides."""
+verification_explanation = """Tests independently compute all expected values using scipy.signal.windows.chebwin and numpy. Weight tests compare against scipy's Chebyshev window. Coupling correction tests verify C^{-1} @ w_ideal against numpy.linalg.solve. Directivity tests perform independent numerical integration. Impedance tests use known analytical cases (quarter-wave transformer, half-wave passthrough, matched load). An anti-cheat test creates a novel scenario at test time with parameters not in any pre-existing scenario file, preventing hardcoded answers."""
+category = "physics_engineering"
+tags = ["antenna-theory", "phased-arrays", "rf-engineering", "signal-processing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phased-array-linkbudget-1de61e"

@@ -1,0 +1,17 @@
+{
+  "name": "pkt_bounds_ok",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "ldx_w", "dst": 6, "src": 1, "off": 0},
+    {"op": "ldx_w", "dst": 7, "src": 1, "off": 4},
+    {"op": "mov64_reg", "dst": 2, "src": 6},
+    {"op": "add64_imm", "dst": 2, "imm": 14},
+    {"op": "jgt_reg", "dst": 2, "src": 7, "off": 3},
+    {"op": "ldx_b", "dst": 3, "src": 6, "off": 12},
+    {"op": "mov64_imm", "dst": 0, "imm": 2},
+    {"op": "exit"},
+    {"op": "mov64_imm", "dst": 0, "imm": 1},
+    {"op": "exit"}
+  ]
+}

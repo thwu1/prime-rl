@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of multiple interacting W3C accessibility specifications (WAI-ARIA 1.2, HTML-AAM 1.0, ACCNAME 1.2). The agent must synthesize behavior from normative spec text to implement aria-owns tree restructuring, presentational children inheritance with its cascade rules, embedded control value contribution during name computation, and accessible value for widget roles — all working together in a single coherent accessibility tree. Conditional role mappings for 30+ HTML elements, modal dialog scoping, inert/hidden filtering, and multiple navigation modes add further complexity. No single feature is trivial in isolation, and the interactions between them (e.g., aria-owns combined with presentational inheritance, or aria-labelledby referencing a subtree with embedded controls) require deep spec knowledge that goes beyond surface-level documentation."""
+solution_explanation = """Uses BeautifulSoup to parse HTML. A pre-pass resolves aria-owns relationships with cycle detection via ownership graph traversal: first owner in DOM order wins, back-edges that would create cycles are discarded. The main depth-first tree walk skips elements whose IDs are in the reparented set at their DOM position and processes them later as virtual children of their aria-owns owner. Presentational children inheritance cascades through the WAI-ARIA required owned element chain (table→row→cell, list→listitem, etc.), with transparent generic elements passing through the inheritance context and explicit role attributes breaking the chain. ACCNAME computation uses a variant of text_content that replaces embedded control roles (textbox, slider, spinbutton) with their accessible value when traversing aria-labelledby references. Widget roles include aria-valuetext or aria-valuenow in the spoken phrase. The linearized tree supports sequential, role-based, landmark, and aria-flowto navigation with wrapping."""
+verification_explanation = """25 pytest tests verify the implementation through inline HTML fixtures covering: basic sequential navigation with wrapping (3 tests), aria-owns tree reparenting including circular reference prevention and hidden-target exclusion (3 tests), presentational children inheritance for tables and lists with explicit role override (3 tests), accessible value with aria-valuenow and aria-valuetext override (3 tests), embedded control value contribution in ACCNAME via aria-labelledby (1 test), aria-flowto navigation with chaining and missing-target handling (2 tests), hidden element exclusion (1 test), modal dialog scoping with wrapping (2 tests), inert element exclusion (1 test), role-based navigation with nonexistent role handling (2 tests), landmark cycling (1 test), accessible naming from labelledby/label/describedby (3 tests), and spoken phrase log tracking (2 tests)."""
+category = "accessibility"
+tags = ["w3c-compliance", "screen-reader"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/virtual-screen-reader"

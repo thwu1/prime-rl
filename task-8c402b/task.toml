@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete RDB binary format parser from scratch AND orchestrating live Valkey/Redis server introspection. The agent must: (1) reverse-engineer and parse complex binary encodings (LZF decompression, listpack with variable-width entries, intset with multi-width integers, quicklist node chains, CRC64 Jones polynomial verification), (2) figure out how to start the server and interact with it to extract live encoding and memory data across multiple databases, (3) discover and use introspection commands to determine each key's internal representation, (4) determine the relevant encoding threshold configuration and cross-reference it with key metadata to identify suboptimal encoding choices. Requires deep proficiency with Redis/Valkey internals, binary format parsing, and data structure encoding semantics."""
+solution_explanation = """The solution starts redis-server using the provided valkey.conf (--daemonize yes), waits for readiness, then runs a Python audit script that: (1) parses the RDB binary using struct for all encoding types including CRC64 verification, (2) queries every key via redis-cli --raw with OBJECT ENCODING and MEMORY USAGE using -n for cross-database access, (3) extracts encoding thresholds via CONFIG GET for hash-max-listpack-entries, zset-max-listpack-entries, and set-max-intset-entries, (4) identifies 3 keys (session:data, leaderboard:scores, tags:active) using suboptimal encodings due to artificially low thresholds, and produces the complete audit JSON combining all three data sources."""
+verification_explanation = """Tests verify: exact key counts per database (66+5=71), correct type distribution, CRC64 checksum validity, spot-checked values across all data types including hash fields, list ordering, set membership, and sorted set scores. Encoding tests verify OBJECT ENCODING output for 15+ keys across types (int, embstr, raw, hashtable, listpack, quicklist, skiplist). Memory tests verify positive MEMORY USAGE for all keys and correct relative ordering. Optimization tests verify exactly 3 findings with correct encoding pairs, config parameters, and threshold values."""
+category = "systems"
+tags = ["binary-parsing", "server-introspection"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8c402b"

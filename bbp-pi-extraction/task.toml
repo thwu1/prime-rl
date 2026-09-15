@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding and implementing the Bailey-Borwein-Plouffe (BBP) digit extraction algorithm for pi from scratch. The core challenge involves: (1) implementing modular binary exponentiation in double-precision floating-point, correctly handling edge cases like mod-1; (2) splitting the BBP series into a finite modular sum and an infinite tail, accumulating fractional parts to prevent precision loss over O(d) terms; (3) combining four sub-series with signed coefficients and properly normalizing negative fractional parts. Common failure modes include accumulated floating-point error at large positions, incorrect sign handling, and off-by-one errors in the series split."""
+solution_explanation = """Implements the standard BBP formula: pi = sum_{k=0}^{inf} 1/16^k * (4/(8k+1) - 2/(8k+4) - 1/(8k+5) - 1/(8k+6)). For hex digit at position d, computes {16^d * S_j} for j=1,4,5,6 where each series is split into a finite modular sum (using binary modular exponentiation of 16^(d-k) mod (8k+j)) and an infinite tail (direct floating-point summation until convergence). Periodic floor-based truncation maintains precision. The four series are combined with coefficients (4,-2,-1,-1) and the result is normalized to [0,1) before extracting the hex digit."""
+verification_explanation = """Tests compile the candidate implementation and run the binary at positions 0, 10, 100, 1000, 10000, and 100000. Output is compared against independently computed hex digits using Python's mpmath library at sufficient precision. A performance test ensures position 100000 completes within 30 seconds, ruling out naive full-computation approaches."""
+category = "algorithms"
+tags = ["number-theory", "modular-arithmetic"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bbp-pi-extraction"

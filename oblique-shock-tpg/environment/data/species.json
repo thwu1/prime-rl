@@ -1,0 +1,58 @@
+{
+  "mixture": "standard_dry_air",
+  "R_universal_J_per_kmol_K": 8314.462,
+  "species": {
+    "N2": {
+      "molar_mass_kg_per_kmol": 28.0134,
+      "mole_fraction": 0.78084,
+      "thermo": {
+        "note": "NASA 7-coefficient polynomial: Cp/R = a1 + a2*T + a3*T^2 + a4*T^3 + a5*T^4; H/(R*T) = a1 + a2*T/2 + a3*T^2/3 + a4*T^3/4 + a5*T^4/5 + a6/T; S/R = a1*ln(T) + a2*T + a3*T^2/2 + a4*T^3/3 + a5*T^4/4 + a7",
+        "ranges": [
+          {
+            "T_min_K": 200,
+            "T_max_K": 1000,
+            "coeffs": [3.53100528e+00, -1.23660988e-04, -5.02999433e-07, 2.43530612e-09, -1.40881235e-12, -1.04697628e+03, 2.96747038e+00]
+          },
+          {
+            "T_min_K": 1000,
+            "T_max_K": 6000,
+            "coeffs": [2.95257637e+00, 1.39690040e-03, -4.92631603e-07, 7.86010195e-11, -4.60755204e-15, -9.23948688e+02, 5.87188762e+00]
+          }
+        ]
+      }
+    },
+    "O2": {
+      "molar_mass_kg_per_kmol": 31.9988,
+      "mole_fraction": 0.20946,
+      "thermo": {
+        "note": "NASA 7-coefficient polynomial format (same as N2)",
+        "ranges": [
+          {
+            "T_min_K": 200,
+            "T_max_K": 1000,
+            "coeffs": [3.78245636e+00, -2.99673416e-03, 9.84730201e-06, -9.68129509e-09, 3.24372837e-12, -1.06394356e+03, 3.65767573e+00]
+          },
+          {
+            "T_min_K": 1000,
+            "T_max_K": 6000,
+            "coeffs": [3.28253784e+00, 1.48308754e-03, -7.57966669e-07, 2.09470555e-10, -2.16717794e-14, -1.08845772e+03, 5.45323129e+00]
+          }
+        ]
+      }
+    },
+    "Ar": {
+      "molar_mass_kg_per_kmol": 39.948,
+      "mole_fraction": 0.00934,
+      "thermo": {
+        "note": "Monatomic noble gas - Cp/R = 5/2 at all temperatures",
+        "ranges": [
+          {
+            "T_min_K": 200,
+            "T_max_K": 6000,
+            "coeffs": [2.50000000e+00, 0.0, 0.0, 0.0, 0.0, -7.45375000e+02, 4.37967491e+00]
+          }
+        ]
+      }
+    }
+  }
+}

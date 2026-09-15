@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge across four distinct vulnerability classes: JavaScript prototype pollution chains (CWE-1321), tar archive symlink-based path traversal via directory cache poisoning (CWE-22), Regular Expression Denial of Service analysis (CWE-1333), and YAML deserialization code injection via toString on mapping keys (CWE-94). The agent must not only identify exact CVE/GHSA identifiers and CVSS scores for each package version, but also write WORKING exploit proof-of-concepts that trigger each vulnerability and code-level mitigations that prevent exploitation without upgrading packages. The tar path traversal exploit requires constructing a raw tar archive with a directory-then-symlink-then-file entry sequence to exploit the directory cache, and the YAML code injection requires the specific toString-on-mapping-key attack vector patched in js-yaml 3.13.1."""
+solution_explanation = """Identify flat@5.0.0 (prototype pollution via unflatten with __proto__ keys), tar@6.1.1 (path traversal via directory cache poisoning with symlink), nth-check@2.0.0 (ReDoS via crafted CSS nth-check formula with pathological backtracking), and js-yaml@3.13.0 (code injection via toString called on mapping key with !!js/function). Write exploit scripts demonstrating each vulnerability and mitigations using input sanitization, symlink filtering, input length validation, and safeLoad respectively."""
+verification_explanation = """Tests validate: (1) vulnerability report JSON contains correct CVE/GHSA IDs, CWE codes, and patched versions for all 4 packages; (2) each exploit script exits 0 and outputs 'VULN_CONFIRMED'; (3) each mitigation script exits 0 and outputs 'MITIGATED'."""
+category = "security"
+tags = ["npm", "vulnerability-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/npm-dependency-forensics"

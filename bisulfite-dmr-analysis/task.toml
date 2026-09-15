@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level bioinformatics expertise in bisulfite sequencing analysis. The agent must: (1) parse bisulfite count data and derive methylation levels, (2) explore sample metadata to discover that batch assignment is unbalanced and confounded with condition — a non-obvious experimental design flaw that systematically biases differential estimates if uncorrected, (3) select and implement an appropriate confound correction strategy, (4) choose and apply suitable statistical testing with multiple testing correction, (5) design a spatial clustering approach to identify differentially methylated regions from individual significant CpGs with appropriate direction and size constraints, (6) compute nearest-gene annotations from genomic coordinates. The batch-condition confound is the critical challenge — it must be discovered from data exploration and corrected appropriately."""
+solution_explanation = """Read bisulfite count data, compute beta = meth/total per CpG per sample. Filter CpGs where any sample has coverage below 10 (~40 removed). Fit per-CpG OLS regression: beta ~ intercept + condition + batch, extracting the condition coefficient as batch-corrected delta_beta and its t-test p-value. Apply Benjamini-Hochberg FDR correction. Merge adjacent significant CpGs within 1000bp sharing consistent hyper/hypo direction into DMRs requiring at least 3 CpGs each. Annotate each DMR with the nearest gene by absolute distance from DMR center to TSS. Output three TSV files: CpG-level results, DMR-level results, and QC report."""
+verification_explanation = """Deterministic pytest verification with 21 tests across three test classes. Truth data is regenerated at test time by replaying the same structural RNG seed used during data generation — no truth files exist in the Docker image. CpG results: file existence, column schema, count range 350-500, Spearman correlation > 0.4 for delta-beta vs planted effects, F1 > 0.3 for significant CpG recovery, significant count 15-60, beta values in [0,1], p-values in [0,1]. DMR results: file existence, column schema, count range 3-15, 40% overlap with truth DMRs using 500bp slop, direction consistency, minimum 3 CpGs per DMR, valid gene annotations from input file, TSS distance within 1000bp. QC report: file existence, column schema, required metrics present, total CpGs = 500, batch correction method specified."""
+category = "bioinformatics"
+tags = ["methylation-analysis", "batch-correction"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bisulfite-dmr-analysis"

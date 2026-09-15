@@ -1,0 +1,58 @@
+[
+  {
+    "id": "mate_queen_backrank",
+    "fen": "6k1/5ppp/4p3/8/8/8/1Q6/2K5 w - - 0 1",
+    "expected_moves": ["b2b8"],
+    "depth": 4,
+    "type": "mate_in_1"
+  },
+  {
+    "id": "mate_rook_pawn",
+    "fen": "6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1",
+    "expected_moves": ["a1a8"],
+    "depth": 4,
+    "type": "mate_in_1"
+  },
+  {
+    "id": "scholars_mate",
+    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4",
+    "expected_moves": ["h5f7"],
+    "depth": 4,
+    "type": "mate_in_1"
+  },
+  {
+    "id": "mate_double_rook",
+    "fen": "6k1/5ppp/8/8/8/8/8/3RK2R w - - 0 1",
+    "expected_moves": ["d1d8"],
+    "depth": 4,
+    "type": "mate_in_1"
+  },
+  {
+    "id": "mate_in_2",
+    "fen": "k7/2p5/1K6/8/8/8/8/2R5 w - - 0 1",
+    "expected_moves": ["c1c7", "b6c7"],
+    "depth": 6,
+    "type": "mate_in_2"
+  },
+  {
+    "id": "startpos_opening",
+    "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "expected_moves": ["e2e4", "d2d4", "g1f3", "c2c4", "b1c3", "e2e3", "d2d3", "g2g3", "b2b3", "a2a4", "b2b4", "c2c3", "f2f4", "h2h3", "h2h4", "a2a3"],
+    "depth": 3,
+    "type": "opening"
+  },
+  {
+    "id": "open_sicilian",
+    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+    "expected_moves": ["c7c5", "e7e5", "e7e6", "d7d5", "d7d6", "g8f6", "b8c6", "c7c6", "g7g6", "a7a6", "b7b6"],
+    "depth": 3,
+    "type": "opening"
+  },
+  {
+    "id": "middlegame_complex",
+    "fen": "r1bqkbnr/pppppppp/2n5/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 2",
+    "expected_moves": ["d7d5", "e7e5", "d7d6", "g8f6", "e7e6", "g7g6", "a7a6", "f7f5", "f7f6", "b7b6", "h7h6"],
+    "depth": 4,
+    "type": "middlegame"
+  }
+]

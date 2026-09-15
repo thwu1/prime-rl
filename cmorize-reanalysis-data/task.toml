@@ -1,0 +1,73 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of atmospheric thermodynamics and climate data
+conventions. The solver must: (1) derive near-surface specific humidity from dewpoint
+temperature and surface pressure by implementing the Clausius-Clapeyron-derived
+saturation vapor pressure formula (Tetens/Magnus equation) and the specific humidity
+relationship q = epsilon*e/(p-(1-epsilon)*e) — this requires knowledge of
+thermodynamic equations not provided in the specification; (2) apply an orographic
+lapse rate correction by interpreting an elevation difference field with the ICAO
+standard atmosphere lapse rate, understanding sign conventions for altitude-dependent
+temperature adjustment; (3) handle coordinate system transformations including
+longitude wrapping (-180..180 to 0..360), latitude reordering, time reference
+conversion (hours-since-1900 to days-since-1850 with mid-month values and bounds);
+(4) convert accumulated quantities to fluxes with month-varying denominators;
+(5) apply CF-1.7 and CMOR metadata standards including scalar height coordinates.
+The derived variable (huss) and the lapse rate correction require holistic
+understanding of atmospheric physics beyond procedural specification-following.
+"""
+solution_explanation = """
+Read CMOR spec and errata. Inspect raw NetCDF to discover non-standard features:
+descending latitude, -180/180 longitude range, time at month boundaries in
+hours-since-1900, no coordinate bounds, fill values (-9999) in precipitation.
+For tas: subtract 0.5K constant bias and apply lapse rate correction using
+orog_diff field (T_corrected = T_raw - 0.5 + 0.0065 * orog_diff). For huss:
+implement Tetens formula e=611.2*exp(17.67*T_c/(T_c+243.5)) on dewpoint
+temperature, then q=0.622*e/(sp-0.378*e). For pr: mask fill values, multiply by
+1000 and divide by per-month seconds. For rsds: divide by per-month seconds.
+Apply coordinate transformations (lat flip, lon wrap+sort, time conversion with
+bounds), write each variable with CF-compliant metadata, float32 data, float64
+coordinates, scalar height coordinate for tas/huss, positive=down for rsds.
+"""
+verification_explanation = """
+Tests verify: (1) output file existence with correct CMOR naming for all 4
+variables; (2) coordinate compliance (ascending lat, 0-360 lon, correct time
+units/calendar/bounds with mid-month values); (3) variable metadata (standard_name,
+units, long_name, cell_methods); (4) data types (float32 data, float64
+coordinates); (5) special attributes (scalar height=2m for tas and huss,
+positive=down for rsds); (6) global CF attributes; (7) tas combined correction
+verified at multiple grid points by reading raw t2m, orog_diff, and computing
+expected value; (8) huss derivation verified at equatorial, midlatitude, and
+polar points by computing reference values from raw d2m/sp using the Tetens
+formula with 2% tolerance to allow alternative valid formulations; (9) huss
+spatial gradient check ensuring equatorial > polar humidity; (10) huss physical
+range and variability checks; (11) pr unit conversion and fill value masking;
+(12) rsds conversion with month-varying seconds verification.
+"""
+category = "scientific_computing"
+tags = ["climate-data", "netcdf"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cmorize-reanalysis-data"

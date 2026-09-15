@@ -1,0 +1,10 @@
+main;init_matrix;allocate_memory 480
+main;init_matrix;fill_random 1150
+main;matrix_multiply;naive_iterate;element_access 2200
+main;matrix_multiply;naive_iterate;element_access;__cache_miss_stall 2800
+main;matrix_multiply;naive_iterate;accumulate 1900
+main;matrix_multiply;naive_iterate;stride_compute 1650
+main;matrix_multiply;bounds_check 420
+main;verify_result;compare_elements 580
+main;output_results;format_output 370
+main;output_results;write_file 250

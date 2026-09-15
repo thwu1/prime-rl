@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing 7 functions from scratch and fixing 8 buggy functions across a columnar binary encoding codec, all guided only by a format specification excerpt. The solver must understand the Automerge binary format deeply — RLE with three distinct run types (compressed, null, literal), delta column encoding with correct accumulator initialization, boolean column alternation semantics, string column encoding combining RLE with length-prefixed UTF-8, column specification bitfield packing, value metadata bit layout, and SHA-256 checksum scope for chunk construction. Functions interact: delta columns depend on correct RLE behavior, chunk construction depends on correct checksums, and the empty document depends on correct chunk assembly. Bugs are subtle (wrong initial values, off-by-one bit shifts, swapped fields, missing run types, wrong hash inputs) and require careful comparison against the spec."""
+solution_explanation = """Eight bugs must be fixed: (1) rleEncode must implement negative-length literal runs for non-repeating values, not just compressed runs of length 1. (2) rleDecode must handle negative length as literal runs instead of throwing. (3-4) booleanEncode/Decode must start alternation from false, not true. (5) decodeColumnSpec must right-shift by 4, not 3. (6-7) encodeValueMetadata/decodeValueMetadata have type and length fields swapped — type goes in lower 4 bits, length in upper bits. (8) computeChecksum must SHA-256 the concatenation of chunk type + chunk length bytes + chunk contents, not contents alone. Seven stubs must be implemented from scratch: deltaEncode (compute deltas from 0, RLE-encode as signed LEBs), deltaDecode (RLE-decode signed deltas, accumulate from 0), stringEncode (RLE with length-prefixed UTF-8, supporting null/compressed/literal runs), stringDecode (reverse of stringEncode), constructChunk (assemble magic+checksum+type+length+contents), parseChunkHeader (parse and validate chunk integrity), createEmptyDocument (4 zero bytes as document chunk)."""
+verification_explanation = """Tests execute TypeScript snippets via npx tsx that import codec functions and compare output against exact byte sequences from the Automerge specification. Coverage includes: uLEB128 edge cases and overlong rejection, signed LEB128 encoding of positive/negative values, RLE encoding/decoding with all three run types, delta column encode/decode with spec example [3,4,5,6,9,7,8], boolean column with spec example starting from false, string column encode/decode with spec example and multi-byte UTF-8, column spec bitfield encoding/decoding against the spec's column table, value metadata type/length packing, chunk checksum computation, empty document exact 14-byte output, and round-trip consistency tests across all column types."""
+category = "systems"
+tags = ["binary-encoding", "typescript"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/automerge-columnar-codec-2d5555"

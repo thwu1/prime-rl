@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level seismological engineering knowledge to implement a multi-period PSHA pipeline with 3D fault geometry and non-trivial site effects. The agent must: (1) parse four heterogeneous data formats including namespaced XML with 3D fault parameters and a multi-period SQLite GMM database with branch- and period-indexed coefficients; (2) recognize from the database metadata that the GMM uses rupture distance (Rrup), not Joyner-Boore distance, and derive the correct 3D distance computation for each source type—hypocentral distance for point sources and closest-point-on-fault-plane distance for dipping faults requiring projection onto an inclined rectangle in 3D; (3) implement the full hazard integral across three spectral periods with period-dependent coefficients, including a basin depth amplification term that only activates at long periods; (4) construct Uniform Hazard Spectra by independently interpolating each period's hazard curve; (5) perform magnitude-distance deaggregation. No algorithmic guidance is provided—the agent must holistically understand PSHA theory, 3D fault geometry, spectral analysis, and distance metrics to bridge raw model data and correct hazard computation."""
+solution_explanation = """A Python script loads sources from namespaced XML (extracting depth for points and dip/depth-range for faults), queries the multi-period SQLite database for per-period GMM coefficients and metadata (distance_metric=Rrup, reference parameters), parses GeoJSON sites with basin depth, and loads TOML config. It implements: Rrup computation (hypocentral for points, 3D closest-point-on-dipping-plane for faults using cross-section projection with along-strike clamping), the GMM with period-dependent basin term, Gutenberg-Richter MFD discretization, floating rupture logic, epistemic logic tree weighting, upper-truncated exceedance probability, hazard curve computation for three IMTs, log-log interpolation for UHS construction, and M-R deaggregation."""
+verification_explanation = """Tests contain an independent reference PSHA implementation that loads all model data and computes hazard curves, UHS, and deaggregation from scratch. Hazard curves compared within 5% relative tolerance for significant values across all three IMTs and all sites. UHS spectral ordinates within 10%. Deaggregation mean/mode M within 0.3 mag units, R within 15 km. Structural tests verify output existence, CSV format, monotonicity, non-negativity, multi-period consistency (SA0P2 > PGA in UHS), and return-period ordering."""
+category = "applied_computing"
+tags = ["seismic-hazard", "3d-fault-geometry"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e97a64"

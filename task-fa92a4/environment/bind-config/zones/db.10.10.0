@@ -1,0 +1,21 @@
+$TTL 86400
+; Reverse zone for 10.10.0.0/24
+@   IN  SOA ns1.weilburg.corp. admin.weilburg.corp. (
+            2025051801  ; serial
+            3600        ; refresh
+            1800        ; retry
+            604800      ; expire
+            86400       ; minimum
+)
+
+@       IN  NS      ns1.weilburg.corp.
+
+1       IN  PTR     weilburg.corp.
+2       IN  PTR     ns1.weilburg.corp.
+3       IN  PTR     ns2.weilburg.corp.
+10      IN  PTR     web.weilburg.corp.
+11      IN  PTR     mx.weilburg.corp.
+20      IN  PTR     portal.weilburg.corp.
+30      IN  PTR     dc1.weilburg.corp.
+31      IN  PTR     dc2.weilburg.corp.
+40      IN  PTR     fsrv.weilburg.corp.

@@ -1,0 +1,740 @@
+[
+  {
+    "route_id": "R01",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65001,
+    "as_path": [
+      101,
+      1001,
+      65001
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R02",
+    "prefix": "203.0.113.0/24",
+    "origin_as": 65002,
+    "as_path": [
+      101,
+      1001,
+      65002,
+      65002,
+      65002
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R03",
+    "prefix": "192.0.2.0/24",
+    "origin_as": 65003,
+    "as_path": [
+      102,
+      1002,
+      65003
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R04",
+    "prefix": "10.0.0.0/16",
+    "origin_as": 65004,
+    "as_path": [
+      103,
+      1003,
+      65004
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R05",
+    "prefix": "172.16.0.0/16",
+    "origin_as": 65005,
+    "as_path": [
+      104,
+      1005,
+      65005
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R06",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65009,
+    "as_path": [
+      101,
+      1001,
+      65009
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R07",
+    "prefix": "198.51.100.128/25",
+    "origin_as": 65001,
+    "as_path": [
+      101,
+      1001,
+      65001
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R08",
+    "prefix": "10.0.1.0/24",
+    "origin_as": 65009,
+    "as_path": [
+      101,
+      1001,
+      65009
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R09",
+    "prefix": "100.64.0.0/16",
+    "origin_as": 65009,
+    "as_path": [
+      103,
+      1003,
+      65009
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R10",
+    "prefix": "172.20.0.0/20",
+    "origin_as": 65006,
+    "as_path": [
+      104,
+      1005,
+      65006
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R11",
+    "prefix": "198.51.101.0/24",
+    "origin_as": 1001,
+    "as_path": [
+      101,
+      1001
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R12",
+    "prefix": "10.10.0.0/16",
+    "origin_as": 65007,
+    "as_path": [
+      104,
+      1006,
+      65007
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R13",
+    "prefix": "10.20.0.0/16",
+    "origin_as": 65008,
+    "as_path": [
+      105,
+      1007,
+      65008
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R14",
+    "prefix": "172.24.0.0/16",
+    "origin_as": 65011,
+    "as_path": [
+      104,
+      1006,
+      65011
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R15",
+    "prefix": "192.0.2.0/24",
+    "origin_as": 65003,
+    "as_path": [
+      103,
+      1004,
+      1003,
+      65003
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R16",
+    "prefix": "172.28.0.0/16",
+    "origin_as": 65012,
+    "as_path": [
+      102,
+      1008,
+      65012
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R17",
+    "prefix": "10.10.0.0/16",
+    "origin_as": 65007,
+    "as_path": [
+      104,
+      1006,
+      1006,
+      65007,
+      65007,
+      65007
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R18",
+    "prefix": "192.168.0.0/16",
+    "origin_as": 300,
+    "as_path": [
+      101,
+      300
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R19",
+    "prefix": "203.0.113.0/24",
+    "origin_as": 65002,
+    "as_path": [
+      102,
+      1003,
+      1002,
+      65002
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R20",
+    "prefix": "192.0.3.0/24",
+    "origin_as": 1003,
+    "as_path": [
+      103,
+      1003
+    ],
+    "relationship": "customer"
+  },
+  {
+    "route_id": "R21",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65001,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      101,
+      1001,
+      65001
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R22",
+    "prefix": "203.0.113.0/24",
+    "origin_as": 65002,
+    "as_path": [
+      65005,
+      1004,
+      103,
+      20,
+      10,
+      101,
+      1001,
+      65002
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R23",
+    "prefix": "10.0.0.0/16",
+    "origin_as": 65004,
+    "as_path": [
+      1001,
+      65004
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R24",
+    "prefix": "172.16.0.0/16",
+    "origin_as": 65005,
+    "as_path": [
+      65004,
+      1003,
+      1004,
+      65005
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R25",
+    "prefix": "10.10.0.0/16",
+    "origin_as": 65007,
+    "as_path": [
+      65008,
+      1007,
+      65011,
+      1006,
+      65007
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R26",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65001,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      20,
+      103,
+      1001,
+      65001
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R27",
+    "prefix": "172.20.0.0/20",
+    "origin_as": 65006,
+    "as_path": [
+      65004,
+      65004,
+      1004,
+      1004,
+      103,
+      104,
+      1005,
+      65006
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R28",
+    "prefix": "10.20.0.0/16",
+    "origin_as": 65008,
+    "as_path": [
+      1007,
+      65008
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R29",
+    "prefix": "172.16.0.0/16",
+    "origin_as": 65005,
+    "as_path": [
+      65006,
+      1005,
+      65005
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R30",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65009,
+    "as_path": [
+      65004,
+      1003,
+      65009
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R31",
+    "prefix": "100.65.0.0/16",
+    "origin_as": 65010,
+    "as_path": [
+      65004,
+      1003,
+      1008,
+      65010
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R32",
+    "prefix": "172.28.0.0/16",
+    "origin_as": 65012,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      1008,
+      65012
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R33",
+    "prefix": "192.168.0.0/16",
+    "origin_as": 300,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      300
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R34",
+    "prefix": "10.0.1.0/24",
+    "origin_as": 65004,
+    "as_path": [
+      65005,
+      1004,
+      65004
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R35",
+    "prefix": "10.1.0.0/16",
+    "origin_as": 1004,
+    "as_path": [
+      65005,
+      1004,
+      103,
+      1004
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R36",
+    "prefix": "172.24.0.0/16",
+    "origin_as": 65011,
+    "as_path": [
+      65005,
+      1005,
+      104,
+      30,
+      10,
+      102,
+      1008,
+      65012
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R37",
+    "prefix": "100.65.0.0/16",
+    "origin_as": 65010,
+    "as_path": [
+      65004,
+      1004,
+      1003,
+      1008,
+      65010
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R38",
+    "prefix": "10.10.0.0/16",
+    "origin_as": 65007,
+    "as_path": [
+      65004,
+      1003,
+      65007,
+      1003,
+      1006,
+      65007
+    ],
+    "relationship": "provider"
+  },
+  {
+    "route_id": "R39",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65001,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      101,
+      1001,
+      65001
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R40",
+    "prefix": "203.0.113.0/24",
+    "origin_as": 65002,
+    "as_path": [
+      65005,
+      1004,
+      103,
+      20,
+      10,
+      101,
+      1001,
+      65002
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R41",
+    "prefix": "172.16.0.0/16",
+    "origin_as": 65005,
+    "as_path": [
+      65004,
+      1003,
+      1004,
+      65005
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R42",
+    "prefix": "10.10.0.0/16",
+    "origin_as": 65007,
+    "as_path": [
+      65008,
+      1007,
+      65011,
+      1006,
+      65007
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R43",
+    "prefix": "198.51.100.0/24",
+    "origin_as": 65009,
+    "as_path": [
+      65004,
+      1003,
+      65009
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R44",
+    "prefix": "10.0.0.0/16",
+    "origin_as": 65004,
+    "as_path": [
+      1003,
+      65004
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R45",
+    "prefix": "172.28.0.0/16",
+    "origin_as": 65012,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      20,
+      103,
+      1004,
+      65012
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R46",
+    "prefix": "10.0.1.0/24",
+    "origin_as": 65009,
+    "as_path": [
+      65004,
+      1003,
+      65009
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R47",
+    "prefix": "172.20.0.0/20",
+    "origin_as": 65006,
+    "as_path": [
+      65004,
+      1003,
+      103,
+      1005,
+      65006
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R48",
+    "prefix": "10.20.0.0/16",
+    "origin_as": 65008,
+    "as_path": [
+      65004,
+      65004,
+      1003,
+      102,
+      105,
+      1007,
+      65008
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R49",
+    "prefix": "172.24.0.0/16",
+    "origin_as": 65011,
+    "as_path": [
+      1006,
+      65011
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R50",
+    "prefix": "100.64.0.0/16",
+    "origin_as": 65009,
+    "as_path": [
+      65004,
+      1003,
+      65009
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R51",
+    "prefix": "100.65.0.0/16",
+    "origin_as": 65010,
+    "as_path": [
+      65004,
+      1003,
+      1008,
+      65010
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R52",
+    "prefix": "172.20.1.0/24",
+    "origin_as": 65006,
+    "as_path": [
+      65004,
+      1003,
+      103,
+      1005,
+      65006
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R53",
+    "prefix": "10.21.0.0/16",
+    "origin_as": 1007,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      105,
+      1007
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R54",
+    "prefix": "192.168.1.0/24",
+    "origin_as": 400,
+    "as_path": [
+      65004,
+      1003,
+      400
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R55",
+    "prefix": "10.0.0.0/16",
+    "origin_as": 65004,
+    "as_path": [
+      65005,
+      1005,
+      104,
+      30,
+      20,
+      103,
+      1003,
+      65004
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R56",
+    "prefix": "203.0.113.0/24",
+    "origin_as": 65004,
+    "as_path": [
+      65005,
+      1004,
+      65004
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R57",
+    "prefix": "172.24.0.0/20",
+    "origin_as": 65011,
+    "as_path": [
+      65004,
+      1003,
+      1006,
+      1003,
+      65011
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R58",
+    "prefix": "172.28.0.0/16",
+    "origin_as": 65012,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      1008,
+      65012
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R59",
+    "prefix": "198.51.100.128/25",
+    "origin_as": 65001,
+    "as_path": [
+      65004,
+      1003,
+      102,
+      10,
+      101,
+      1001,
+      65001
+    ],
+    "relationship": "peer"
+  },
+  {
+    "route_id": "R60",
+    "prefix": "10.1.0.0/16",
+    "origin_as": 1004,
+    "as_path": [
+      65005,
+      1004
+    ],
+    "relationship": "peer"
+  }
+]

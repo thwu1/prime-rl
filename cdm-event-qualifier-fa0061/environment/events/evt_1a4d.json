@@ -1,0 +1,119 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "intent": "Clearing",
+  "eventDate": "2024-03-01",
+  "instruction": [{
+    "primitiveInstruction": {
+      "split": {
+        "breakdown": [{
+          "partyChange": {
+            "counterparty": {"role": "Party2", "partyReference": {"@key:external": "ccp", "partyId": [{"identifier": {"@data": "LEI-CCP-001"}, "identifierType": "LEI"}], "name": {"@data": "Central CCP"}}},
+            "tradeId": [{"issuer": {"@data": "LEI-CLR001"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          }
+        }, {
+          "partyChange": {
+            "counterparty": {"role": "Party1", "partyReference": {"@key:external": "ccp", "partyId": [{"identifier": {"@data": "LEI-CCP-001"}, "identifierType": "LEI"}], "name": {"@data": "Central CCP"}}},
+            "tradeId": [{"issuer": {"@data": "LEI-CLR002"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-003"}}], "identifierType": "UniqueTransactionIdentifier"}]
+          }
+        }, {
+          "quantityChange": {
+            "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}],
+            "direction": "Replace"
+          }
+        }]
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+          "economicTerms": {
+            "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 100000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "bankX"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "bankY"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-CLR001"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2024-02-28"},
+        "party": [
+          {"@key:external": "bankX", "partyId": [{"identifier": {"@data": "LEI-CLR001"}, "identifierType": "LEI"}], "name": {"@data": "Bank X"}},
+          {"@key:external": "bankY", "partyId": [{"identifier": {"@data": "LEI-CLR002"}, "identifierType": "LEI"}], "name": {"@data": "Bank Y"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "bankX"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "bankY"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CLR001"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-28"},
+      "party": [
+        {"@key:external": "bankX", "partyId": [{"identifier": {"@data": "LEI-CLR001"}, "identifierType": "LEI"}], "name": {"@data": "Bank X"}},
+        {"@key:external": "bankY", "partyId": [{"identifier": {"@data": "LEI-CLR002"}, "identifierType": "LEI"}], "name": {"@data": "Bank Y"}}
+      ]
+    },
+    "state": {
+      "closedState": {"state": "Terminated"},
+      "positionState": "Closed"
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 100000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "bankX"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "ccp"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CLR001"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-002"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-28"},
+      "party": [
+        {"@key:external": "bankX", "partyId": [{"identifier": {"@data": "LEI-CLR001"}, "identifierType": "LEI"}], "name": {"@data": "Bank X"}},
+        {"@key:external": "ccp", "partyId": [{"identifier": {"@data": "LEI-CCP-001"}, "identifierType": "LEI"}], "name": {"@data": "Central CCP"}}
+      ],
+      "partyRole": [{"partyReference": {"@ref:external": "ccp"}, "role": "ClearingOrganization", "ownershipPartyReference": {"@ref:external": "bankX"}}]
+    }
+  }, {
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}],
+        "economicTerms": {
+          "payout": [{"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "dayCountFraction": {"@data": "ACT/360"}}],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [{"quantity": [{"value": 100000000.0, "unit": {"currency": {"@data": "USD"}}}]}]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "bankY"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "ccp"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-CLR002"}, "assignedIdentifier": [{"identifier": {"@data": "CLR-TRADE-003"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2024-02-28"},
+      "party": [
+        {"@key:external": "bankY", "partyId": [{"identifier": {"@data": "LEI-CLR002"}, "identifierType": "LEI"}], "name": {"@data": "Bank Y"}},
+        {"@key:external": "ccp", "partyId": [{"identifier": {"@data": "LEI-CCP-001"}, "identifierType": "LEI"}], "name": {"@data": "Central CCP"}}
+      ],
+      "partyRole": [{"partyReference": {"@ref:external": "ccp"}, "role": "ClearingOrganization", "ownershipPartyReference": {"@ref:external": "bankY"}}]
+    }
+  }]
+}

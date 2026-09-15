@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-egress
+  namespace: epsilon
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          purpose: web
+    ports:
+    - port: 80
+      endPort: 82
+      protocol: TCP

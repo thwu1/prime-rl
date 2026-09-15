@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool EDA proficiency: writing a Verilator C++ testbench to compile and simulate SystemVerilog RTL, orchestrating Yosys synthesis to AND/OR/NOT basis gates and parsing JSON netlists for structural fan-in cone analysis, and combining outputs across tools. The solver must understand Verilator's compilation model and API, Yosys's synthesis scripting and JSON netlist format, gate-level graph traversal for cone-of-influence, pipeline hazard unit semantics for property verification with minimal counterexample optimization, and sensitivity/set-cover analysis for stall elimination. This demands holistic expertise in computer architecture, EDA tool flows, and formal analysis — not procedural knowledge alone."""
+solution_explanation = """Write a C++ Verilator testbench that reads trace.csv, drives inputs through the RTL model, and exhaustively enumerates all 8192 input combinations. Compile and simulate with Verilator to produce trace and enumeration CSVs. Run Yosys with a synthesis script (read_verilog, synth -flatten, abc -g AND,OR, clean, write_json) to produce a gate-level netlist decomposed into AND/OR/NOT basis gates (abc -g AND,OR implicitly includes NOT). Parse the Yosys JSON to extract cell counts and compute structural fan-in cones via backward BFS through the netlist graph. From the Verilator enumeration data: verify 6 properties with minimal-weight counterexample search, compute functional equivalences and unique output count. From Verilator trace data: compute stall/flush statistics, identify critical input via sensitivity analysis, and find minimum stall elimination set via combinatorial search with lookup table."""
+verification_explanation = """Tests independently verify all results using two reference approaches: (1) a Python behavioral model of the hazard logic for properties, trace statistics, functional equivalences, and output space; (2) an independent Yosys synthesis run with identical flow for cell counts and structural fan-in cones. Each result field is checked against the independently computed reference."""
+category = "computer_architecture"
+tags = ["eda-tools", "risc-v"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hazard-formal-analysis"

@@ -1,0 +1,669 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device schemaVersion="1.3" xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:noNamespaceSchemaLocation="CMSIS-SVD.xsd">
+  <vendor>Fictional</vendor>
+  <vendorID>TB</vendorID>
+  <name>TB_MCU32</name>
+  <series>TB32F0</series>
+  <version>1.0</version>
+  <description>TB-MCU32 Fictional Cortex-M3 Microcontroller</description>
+  <cpu>
+    <name>CM3</name>
+    <revision>r2p0</revision>
+    <endian>little</endian>
+    <mpuPresent>false</mpuPresent>
+    <fpuPresent>false</fpuPresent>
+    <nvicPrioBits>4</nvicPrioBits>
+    <vendorSystickConfig>false</vendorSystickConfig>
+  </cpu>
+  <addressUnitBits>8</addressUnitBits>
+  <width>32</width>
+  <size>32</size>
+  <access>read-write</access>
+  <resetValue>0x00000000</resetValue>
+  <resetMask>0xFFFFFFFF</resetMask>
+
+  <peripherals>
+
+    <!-- ==================== RCC ==================== -->
+    <peripheral>
+      <name>RCC</name>
+      <description>Reset and Clock Control</description>
+      <groupName>RCC</groupName>
+      <baseAddress>0x40021000</baseAddress>
+      <addressBlock>
+        <offset>0x0</offset>
+        <size>0x400</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>CR</name>
+          <description>Clock Control Register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000083</resetValue>
+          <fields>
+            <field><name>HSION</name><description>HSI oscillator enable</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HSIRDY</name><description>HSI oscillator ready</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth><access>read-only</access></field>
+            <field><name>HSEON</name><description>HSE oscillator enable</description><bitOffset>16</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HSERDY</name><description>HSE oscillator ready</description><bitOffset>17</bitOffset><bitWidth>1</bitWidth><access>read-only</access></field>
+            <field><name>PLLON</name><description>PLL enable</description><bitOffset>24</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>PLLRDY</name><description>PLL ready</description><bitOffset>25</bitOffset><bitWidth>1</bitWidth><access>read-only</access></field>
+          </fields>
+        </register>
+        <register>
+          <name>CFGR</name>
+          <description>Clock Configuration Register</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>SW</name><description>System clock switch</description><bitOffset>0</bitOffset><bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue><name>HSI</name><value>0</value></enumeratedValue>
+                <enumeratedValue><name>HSE</name><value>1</value></enumeratedValue>
+                <enumeratedValue><name>PLL</name><value>2</value></enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field><name>SWS</name><description>System clock switch status</description><bitOffset>2</bitOffset><bitWidth>2</bitWidth><access>read-only</access></field>
+            <field><name>HPRE</name><description>AHB prescaler</description><bitOffset>4</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>PPRE</name><description>APB prescaler</description><bitOffset>8</bitOffset><bitWidth>3</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>AHBENR</name>
+          <description>AHB Peripheral Clock Enable Register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000014</resetValue>
+          <fields>
+            <field><name>DMAEN</name><description>DMA clock enable</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>GPIOAEN</name><description>GPIOA clock enable</description><bitOffset>17</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>GPIOBEN</name><description>GPIOB clock enable</description><bitOffset>18</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>GPIOCEN</name><description>GPIOC clock enable</description><bitOffset>19</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>APB2ENR</name>
+          <description>APB2 Peripheral Clock Enable Register</description>
+          <addressOffset>0x18</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>SPI1EN</name><description>SPI1 clock enable</description><bitOffset>12</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>USART1EN</name><description>USART1 clock enable</description><bitOffset>14</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- ==================== GPIOA ==================== -->
+    <peripheral>
+      <name>GPIOA</name>
+      <description>General-purpose I/O Port A</description>
+      <groupName>GPIO</groupName>
+      <baseAddress>0x48000000</baseAddress>
+      <addressBlock>
+        <offset>0x0</offset>
+        <size>0x400</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>MODER</name>
+          <description>GPIO port mode register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x28000000</resetValue>
+          <fields>
+            <field><name>MODER0</name><bitOffset>0</bitOffset><bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue><name>Input</name><value>0</value></enumeratedValue>
+                <enumeratedValue><name>Output</name><value>1</value></enumeratedValue>
+                <enumeratedValue><name>Alternate</name><value>2</value></enumeratedValue>
+                <enumeratedValue><name>Analog</name><value>3</value></enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field><name>MODER1</name><bitOffset>2</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER2</name><bitOffset>4</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER3</name><bitOffset>6</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER4</name><bitOffset>8</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER5</name><bitOffset>10</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER6</name><bitOffset>12</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER7</name><bitOffset>14</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER8</name><bitOffset>16</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER9</name><bitOffset>18</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER10</name><bitOffset>20</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER11</name><bitOffset>22</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER12</name><bitOffset>24</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER13</name><bitOffset>26</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER14</name><bitOffset>28</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MODER15</name><bitOffset>30</bitOffset><bitWidth>2</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>OTYPER</name>
+          <description>GPIO port output type register</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>OT0</name><bitOffset>0</bitOffset><bitWidth>1</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue><name>PushPull</name><value>0</value></enumeratedValue>
+                <enumeratedValue><name>OpenDrain</name><value>1</value></enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field><name>OT1</name><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT2</name><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT3</name><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT4</name><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT5</name><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT6</name><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT7</name><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT8</name><bitOffset>8</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT9</name><bitOffset>9</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT10</name><bitOffset>10</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT11</name><bitOffset>11</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT12</name><bitOffset>12</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT13</name><bitOffset>13</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT14</name><bitOffset>14</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OT15</name><bitOffset>15</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>OSPEEDR</name>
+          <description>GPIO port output speed register</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x0C000000</resetValue>
+        </register>
+        <register>
+          <name>PUPDR</name>
+          <description>GPIO port pull-up/pull-down register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x24000000</resetValue>
+          <fields>
+            <field><name>PUPDR0</name><bitOffset>0</bitOffset><bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue><name>Floating</name><value>0</value></enumeratedValue>
+                <enumeratedValue><name>PullUp</name><value>1</value></enumeratedValue>
+                <enumeratedValue><name>PullDown</name><value>2</value></enumeratedValue>
+              </enumeratedValues>
+            </field>
+            <field><name>PUPDR1</name><bitOffset>2</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR2</name><bitOffset>4</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR3</name><bitOffset>6</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR4</name><bitOffset>8</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR5</name><bitOffset>10</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR6</name><bitOffset>12</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR7</name><bitOffset>14</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR8</name><bitOffset>16</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR9</name><bitOffset>18</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR10</name><bitOffset>20</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR11</name><bitOffset>22</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR12</name><bitOffset>24</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR13</name><bitOffset>26</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR14</name><bitOffset>28</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PUPDR15</name><bitOffset>30</bitOffset><bitWidth>2</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>IDR</name>
+          <description>GPIO port input data register</description>
+          <addressOffset>0x10</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>ODR</name>
+          <description>GPIO port output data register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>BSRR</name>
+          <description>GPIO port bit set/reset register</description>
+          <addressOffset>0x18</addressOffset>
+          <size>32</size>
+          <access>write-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>BS0</name><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS1</name><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS2</name><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS3</name><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS4</name><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS5</name><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS6</name><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS7</name><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS8</name><bitOffset>8</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS9</name><bitOffset>9</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS10</name><bitOffset>10</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS11</name><bitOffset>11</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS12</name><bitOffset>12</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS13</name><bitOffset>13</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS14</name><bitOffset>14</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BS15</name><bitOffset>15</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR0</name><bitOffset>16</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR1</name><bitOffset>17</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR2</name><bitOffset>18</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR3</name><bitOffset>19</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR4</name><bitOffset>20</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR5</name><bitOffset>21</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR6</name><bitOffset>22</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR7</name><bitOffset>23</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR8</name><bitOffset>24</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR9</name><bitOffset>25</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR10</name><bitOffset>26</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR11</name><bitOffset>27</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR12</name><bitOffset>28</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR13</name><bitOffset>29</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR14</name><bitOffset>30</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR15</name><bitOffset>31</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>AFRL</name>
+          <description>GPIO alternate function low register</description>
+          <addressOffset>0x20</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>AFRL0</name><bitOffset>0</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL1</name><bitOffset>4</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL2</name><bitOffset>8</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL3</name><bitOffset>12</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL4</name><bitOffset>16</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL5</name><bitOffset>20</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL6</name><bitOffset>24</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRL7</name><bitOffset>28</bitOffset><bitWidth>4</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>AFRH</name>
+          <description>GPIO alternate function high register</description>
+          <addressOffset>0x24</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>AFRH8</name><bitOffset>0</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH9</name><bitOffset>4</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH10</name><bitOffset>8</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH11</name><bitOffset>12</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH12</name><bitOffset>16</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH13</name><bitOffset>20</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH14</name><bitOffset>24</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>AFRH15</name><bitOffset>28</bitOffset><bitWidth>4</bitWidth></field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- ==================== GPIOB (derived from GPIOA) ==================== -->
+    <peripheral derivedFrom="GPIOA">
+      <name>GPIOB</name>
+      <description>General-purpose I/O Port B</description>
+      <baseAddress>0x48000400</baseAddress>
+    </peripheral>
+
+    <!-- ==================== GPIOC (derived from GPIOA) ==================== -->
+    <peripheral derivedFrom="GPIOA">
+      <name>GPIOC</name>
+      <description>General-purpose I/O Port C</description>
+      <baseAddress>0x48000800</baseAddress>
+    </peripheral>
+
+    <!-- ==================== USART1 ==================== -->
+    <peripheral>
+      <name>USART1</name>
+      <description>Universal Synchronous/Asynchronous Receiver Transmitter</description>
+      <groupName>USART</groupName>
+      <baseAddress>0x40013800</baseAddress>
+      <addressBlock>
+        <offset>0x0</offset>
+        <size>0x400</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>CR1</name>
+          <description>Control register 1</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>UE</name><description>USART enable</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>RE</name><description>Receiver enable</description><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TE</name><description>Transmitter enable</description><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>IDLEIE</name><description>IDLE interrupt enable</description><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>RXNEIE</name><description>RXNE interrupt enable</description><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIE</name><description>TC interrupt enable</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TXEIE</name><description>TXE interrupt enable</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>M0</name><description>Word length bit 0</description><bitOffset>12</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OVER8</name><description>Oversampling mode</description><bitOffset>15</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>M1</name><description>Word length bit 1</description><bitOffset>28</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CR2</name>
+          <description>Control register 2</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>STOP</name><description>Stop bits</description><bitOffset>12</bitOffset><bitWidth>2</bitWidth>
+              <enumeratedValues>
+                <enumeratedValue><name>Stop1</name><value>0</value></enumeratedValue>
+                <enumeratedValue><name>Stop0p5</name><value>1</value></enumeratedValue>
+                <enumeratedValue><name>Stop2</name><value>2</value></enumeratedValue>
+                <enumeratedValue><name>Stop1p5</name><value>3</value></enumeratedValue>
+              </enumeratedValues>
+            </field>
+          </fields>
+        </register>
+        <register>
+          <name>CR3</name>
+          <description>Control register 3</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>DMAR</name><description>DMA enable receiver</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>DMAT</name><description>DMA enable transmitter</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>BRR</name>
+          <description>Baud rate register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>BRR</name><description>USART baud rate</description><bitOffset>0</bitOffset><bitWidth>16</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>ISR</name>
+          <description>Interrupt and status register</description>
+          <addressOffset>0x1C</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x000000C0</resetValue>
+          <fields>
+            <field><name>PE</name><description>Parity error</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>FE</name><description>Framing error</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>NF</name><description>Noise detected</description><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>ORE</name><description>Overrun error</description><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>IDLE</name><description>Idle line detected</description><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>RXNE</name><description>Read data register not empty</description><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TC</name><description>Transmission complete</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TXE</name><description>Transmit data register empty</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>RDR</name>
+          <description>Receive data register</description>
+          <addressOffset>0x24</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>RDR</name><description>Receive data value</description><bitOffset>0</bitOffset><bitWidth>9</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>TDR</name>
+          <description>Transmit data register</description>
+          <addressOffset>0x28</addressOffset>
+          <size>32</size>
+          <access>write-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>TDR</name><description>Transmit data value</description><bitOffset>0</bitOffset><bitWidth>9</bitWidth></field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- ==================== SPI1 ==================== -->
+    <peripheral>
+      <name>SPI1</name>
+      <description>Serial Peripheral Interface</description>
+      <groupName>SPI</groupName>
+      <baseAddress>0x40013000</baseAddress>
+      <addressBlock>
+        <offset>0x0</offset>
+        <size>0x400</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>CR1</name>
+          <description>SPI control register 1</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>CPHA</name><description>Clock phase</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CPOL</name><description>Clock polarity</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>MSTR</name><description>Master selection</description><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BR</name><description>Baud rate control</description><bitOffset>3</bitOffset><bitWidth>3</bitWidth></field>
+            <field><name>SPE</name><description>SPI enable</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>LSBFIRST</name><description>Frame format</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CR2</name>
+          <description>SPI control register 2</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000700</resetValue>
+          <fields>
+            <field><name>RXDMAEN</name><description>Rx buffer DMA enable</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TXDMAEN</name><description>Tx buffer DMA enable</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>DS</name><description>Data size</description><bitOffset>8</bitOffset><bitWidth>4</bitWidth></field>
+            <field><name>FRXTH</name><description>FIFO reception threshold</description><bitOffset>12</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>SR</name>
+          <description>SPI status register</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000002</resetValue>
+          <fields>
+            <field><name>RXNE</name><description>Receive buffer not empty</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TXE</name><description>Transmit buffer empty</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>MODF</name><description>Mode fault</description><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>OVR</name><description>Overrun flag</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>BSY</name><description>Busy flag</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>DR</name>
+          <description>SPI data register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>DR</name><description>Data register</description><bitOffset>0</bitOffset><bitWidth>16</bitWidth></field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+
+    <!-- ==================== DMA1 ==================== -->
+    <peripheral>
+      <name>DMA1</name>
+      <description>DMA controller</description>
+      <groupName>DMA</groupName>
+      <baseAddress>0x40020000</baseAddress>
+      <addressBlock>
+        <offset>0x0</offset>
+        <size>0x400</size>
+        <usage>registers</usage>
+      </addressBlock>
+      <registers>
+        <register>
+          <name>ISR</name>
+          <description>DMA interrupt status register</description>
+          <addressOffset>0x00</addressOffset>
+          <size>32</size>
+          <access>read-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>GIF1</name><description>Channel 1 global interrupt flag</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIF1</name><description>Channel 1 transfer complete flag</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HTIF1</name><description>Channel 1 half transfer flag</description><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TEIF1</name><description>Channel 1 transfer error flag</description><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>GIF2</name><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIF2</name><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HTIF2</name><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TEIF2</name><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>GIF3</name><bitOffset>8</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIF3</name><bitOffset>9</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HTIF3</name><bitOffset>10</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TEIF3</name><bitOffset>11</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>IFCR</name>
+          <description>DMA interrupt flag clear register</description>
+          <addressOffset>0x04</addressOffset>
+          <size>32</size>
+          <access>write-only</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>CGIF1</name><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CTCIF1</name><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CHTIF1</name><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CTEIF1</name><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CGIF2</name><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CTCIF2</name><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CHTIF2</name><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CTEIF2</name><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CCR1</name>
+          <description>DMA channel 1 configuration register</description>
+          <addressOffset>0x08</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>EN</name><description>Channel enable</description><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIE</name><description>Transfer complete interrupt enable</description><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HTIE</name><description>Half transfer interrupt enable</description><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TEIE</name><description>Transfer error interrupt enable</description><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>DIR</name><description>Data transfer direction</description><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CIRC</name><description>Circular mode</description><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>PINC</name><description>Peripheral increment mode</description><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>MINC</name><description>Memory increment mode</description><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>PSIZE</name><description>Peripheral size</description><bitOffset>8</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MSIZE</name><description>Memory size</description><bitOffset>10</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PL</name><description>Channel priority level</description><bitOffset>12</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MEM2MEM</name><description>Memory to memory mode</description><bitOffset>14</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CNDTR1</name>
+          <description>DMA channel 1 number of data register</description>
+          <addressOffset>0x0C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>NDT</name><description>Number of data to transfer</description><bitOffset>0</bitOffset><bitWidth>16</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CPAR1</name>
+          <description>DMA channel 1 peripheral address register</description>
+          <addressOffset>0x10</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>CMAR1</name>
+          <description>DMA channel 1 memory address register</description>
+          <addressOffset>0x14</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>CCR2</name>
+          <description>DMA channel 2 configuration register</description>
+          <addressOffset>0x1C</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+          <fields>
+            <field><name>EN</name><bitOffset>0</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TCIE</name><bitOffset>1</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>HTIE</name><bitOffset>2</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>TEIE</name><bitOffset>3</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>DIR</name><bitOffset>4</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>CIRC</name><bitOffset>5</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>PINC</name><bitOffset>6</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>MINC</name><bitOffset>7</bitOffset><bitWidth>1</bitWidth></field>
+            <field><name>PSIZE</name><bitOffset>8</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MSIZE</name><bitOffset>10</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>PL</name><bitOffset>12</bitOffset><bitWidth>2</bitWidth></field>
+            <field><name>MEM2MEM</name><bitOffset>14</bitOffset><bitWidth>1</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <name>CNDTR2</name>
+          <description>DMA channel 2 number of data register</description>
+          <addressOffset>0x20</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>CPAR2</name>
+          <description>DMA channel 2 peripheral address register</description>
+          <addressOffset>0x24</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+        <register>
+          <name>CMAR2</name>
+          <description>DMA channel 2 memory address register</description>
+          <addressOffset>0x28</addressOffset>
+          <size>32</size>
+          <access>read-write</access>
+          <resetValue>0x00000000</resetValue>
+        </register>
+      </registers>
+    </peripheral>
+
+  </peripherals>
+</device>

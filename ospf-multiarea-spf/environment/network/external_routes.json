@@ -1,0 +1,8 @@
+{
+  "asbr": "R4",
+  "routes": [
+    {"prefix": "172.16.0.0/16", "type": "E2", "metric": 20, "forwarding_address": null},
+    {"prefix": "192.168.1.0/24", "type": "E1", "metric": 10, "forwarding_address": null},
+    {"prefix": "192.168.2.0/24", "type": "E2", "metric": 20, "forwarding_address": "10.6.6.6"}
+  ]
+}

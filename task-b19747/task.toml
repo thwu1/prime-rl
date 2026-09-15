@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing Bayesian posterior inference from scratch for three different statistical models — a hierarchical model (Eight Schools), a Gaussian process regression, and an ODE-based epidemiological model (SIR). The agent must correctly handle parameter constraint transformations with Jacobians, implement an ODE solver integrated into the log-posterior, compute Cholesky-based multivariate normal likelihoods, and produce posterior mean estimates accurate enough to pass a z-score criterion against high-accuracy reference posteriors. Combines numerical optimization, computational statistics, and differential equations in a way that requires proficient-to-expert understanding of Bayesian computation."""
+solution_explanation = """Eight Schools uses adaptive Metropolis-Hastings MCMC on the unconstrained scale (Laplace fails because the HalfCauchy prior's heavy tails cause MAP to diverge from the posterior mean). GP Regression and SIR use Laplace approximation: find MAP via L-BFGS-B, compute the Hessian via finite differences, draw Monte Carlo samples from the Gaussian, transform back to the constrained scale, and average. SIR additionally requires solving the ODE system for each MC sample to compute the 80 transformed state parameters."""
+verification_explanation = """Tests load reference posterior means and standard deviations from .params files and compare against the agent's .fit files using the z-score criterion |z| = |(mu_est - mu_ref) / sigma_ref| < 0.25 for every parameter of every model. All 102 parameters (18 for Eight Schools, 3 for GP Regression, 84 for SIR) must pass."""
+category = "data_science"
+tags = ["bayesian-inference", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b19747"

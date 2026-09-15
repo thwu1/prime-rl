@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level BLE expertise: the solver must explore an unfamiliar environment with capture files in three different encoding formats (hex, base64, length-prefixed binary), determine each format through inspection, debug a colleague's Python dissector tool containing three subtle bugs (wrong TxAdd bit extraction, missing 128-bit UUID byte reversal, big-endian Company ID parsing), cross-reference findings with firmware configuration, and parse advertisement channel PDUs per the Bluetooth Core Specification v5.4 without being given the spec details. The instruction deliberately omits PDU header bit layout, address byte ordering, AD structure encoding, and violation detection rules, requiring domain knowledge or independent research."""
+solution_explanation = """Decode all three capture formats: hex lines directly, base64 lines via decoding, and binary via reading 2-byte LE length prefixes. Parse each PDU's 2-byte header to extract type (bits 3:0), TxAdd (bit 6), and payload length (byte 1). Extract 6-byte addresses with LSO-to-MSO reversal. Iterate AD structures using length-prefixed records with type-specific decoders for Flags, Names, UUIDs (16-bit and 128-bit with full byte reversal), TX Power (signed int8), MSD (LE Company ID), Service Data, and Appearance. Detect four violation classes: payload overflow, AD truncation, conflicting discoverable flags, and invalid all-ones static random addresses. Compute summary statistics across all captures."""
+verification_explanation = """Tests use address-based PDU lookup (not index-based) to verify correct parsing regardless of file ordering. They check: correct PDU type classification and address byte-order reversal for all 10 PDUs across 3 capture formats; TxAdd bit decoding verifying dissector bug #1 fix; 128-bit UUID string format verifying bug #2 fix; Company ID and Nordic MSD count verifying bug #3 fix; violation detection for payload overflow, flags conflict, AD truncation, and invalid static random address; absence of false violations on valid PDUs; and correct summary statistics."""
+category = "embedded_systems"
+tags = ["bluetooth", "protocol-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ble-pdu-analyzer"

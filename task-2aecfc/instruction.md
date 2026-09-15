@@ -1,0 +1,5 @@
+A multi-cluster API service experienced a cascading failure. Raw per-second per-cluster metrics are in `/app/data/metrics.db` (SQLite), alerting rules in `/app/config/alerts.yaml`, and SLO definitions (availability and latency) in `/app/config/slo.json`.
+
+Analyze the incident end-to-end and produce a structured report at `/app/output/findings.json` conforming to `/app/docs/output_spec.md`. Your analysis must cover both the availability and latency SLO dimensions, correctly handle any data integrity issues in the metrics store, and audit the alerting configuration against its declared severity defaults. Evaluate alert fire times using the multi-window multi-burn-rate methodology from the Google SRE Workbook -- the output spec describes the system's methodology but you are expected to understand the burn-rate alerting model and error budget framework to derive the correct computations.
+
+The on-call team's incident log at `/app/logs/incident_summary.txt` and load balancer events at `/app/logs/lb_events.log` provide supplementary context.

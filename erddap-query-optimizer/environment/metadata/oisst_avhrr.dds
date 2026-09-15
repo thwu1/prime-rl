@@ -1,0 +1,24 @@
+Dataset {
+  Float64 time[time = 15340];
+  Float64 zlev[zlev = 1];
+  Float64 latitude[latitude = 720];
+  Float64 longitude[longitude = 1440];
+  GRID {
+    ARRAY:
+      Float32 sst[time = 15340][zlev = 1][latitude = 720][longitude = 1440];
+    MAPS:
+      Float64 time[time = 15340];
+      Float64 zlev[zlev = 1];
+      Float64 latitude[latitude = 720];
+      Float64 longitude[longitude = 1440];
+  } sst;
+  GRID {
+    ARRAY:
+      Float32 err[time = 15340][zlev = 1][latitude = 720][longitude = 1440];
+    MAPS:
+      Float64 time[time = 15340];
+      Float64 zlev[zlev = 1];
+      Float64 latitude[latitude = 720];
+      Float64 longitude[longitude = 1440];
+  } err;
+} oisst_avhrr;

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and synthesizing three protocol layers: libpcap capture format, MoldUDP64 transport framing, and ITCH 5.0 application messages. The solver must parse PCAP files (understanding the global header, per-record framing, and Ethernet/IP/UDP encapsulation), filter mixed network traffic to extract only UDP payloads on the correct destination port, then parse MoldUDP64 downstream packets with session tracking, heartbeat detection, sequence gap identification, and end-of-session markers. On top of this, the solver builds an ITCH 5.0 order book reconstruction engine covering all 23 message types with correct big-endian decoding, 48-bit timestamps, implied-decimal prices, cumulative cancels, replace-with-inheritance semantics, printable/non-printable execution filtering, broken trade reversal, and timestamp-ordered BBO queries across multiple simultaneous symbols. Multi-file capture processing requires cross-session timestamp merging and aggregated diagnostics. The PCAP layer requires proficiency with network analysis tools like tshark or manual binary parsing of packet capture formats."""
+solution_explanation = """Parse PCAP files by reading the 24-byte global header, then iterating 16-byte record headers to extract frame data. Filter Ethernet frames for IPv4 (EtherType 0x0800), check IP protocol for UDP (17), and match UDP destination port 26400. Extract UDP payloads as individual MoldUDP64 packets. Parse MoldUDP64 downstream packets: 20-byte headers (10-byte session, 8-byte sequence, 2-byte count), handle heartbeats (count=0) and end-of-session (count=0xFFFF), track per-session sequence numbers for gap detection, then extract ITCH messages from 2-byte-length-prefixed message blocks. Merge extracted ITCH messages by timestamp across files. Process messages using struct module for big-endian field decoding. Maintain order dict keyed by reference number with side/symbol/price/shares/MPID. Track executions with printable flags and match numbers. Compute VWAP excluding non-printable and broken-trade executions. Answer BBO queries by processing messages in timestamp order and snapshotting book state. Report diagnostics with session IDs, message counts, detected gaps, and heartbeat totals."""
+verification_explanation = """Tests generate crafted PCAP files containing Ethernet/IP/UDP-encapsulated MoldUDP64 packets with known ITCH message sequences, deliberate sequence gaps, heartbeats, end-of-session markers, and noise traffic (ARP packets, UDP on wrong ports). Three test classes verify: (1) full order book scenario with noise filtering and gap detection across a single session, (2) edge cases with all 23 ITCH message types, empty books, and chain replaces, (3) multi-file multi-session merge with cross-session diagnostics aggregation. VWAP, volume, BBO snapshots, and all diagnostics fields are verified against precomputed expected values."""
+category = "systems_programming"
+tags = ["binary-protocol", "finance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/itch-orderbook-engine-160516"

@@ -1,0 +1,22 @@
+[
+  {"id": 1, "cidr": "198.51.100.0/24", "customer_id": "cust_001", "status": "active", "service_binding": "cdn"},
+  {"id": 2, "cidr": "203.0.113.0/24", "customer_id": "cust_001", "status": "active", "service_binding": "magic_transit"},
+  {"id": 3, "cidr": "192.0.2.0/24", "customer_id": "cust_002", "status": "pending_delete", "service_binding": "spectrum"},
+  {"id": 4, "cidr": "100.64.0.0/24", "customer_id": "cust_002", "status": "active", "service_binding": "cdn"},
+  {"id": 5, "cidr": "172.16.0.0/20", "customer_id": "cust_003", "status": "active", "service_binding": "magic_transit"},
+  {"id": 6, "cidr": "10.0.0.0/24", "customer_id": "cust_003", "status": "active", "service_binding": "cdn"},
+  {"id": 7, "cidr": "198.18.0.0/24", "customer_id": "cust_004", "status": "pending_delete", "service_binding": "cdn"},
+  {"id": 8, "cidr": "198.19.0.0/24", "customer_id": "cust_004", "status": "active", "service_binding": "spectrum"},
+  {"id": 9, "cidr": "192.168.1.0/24", "customer_id": "cust_005", "status": "active", "service_binding": "cdn"},
+  {"id": 10, "cidr": "172.20.0.0/24", "customer_id": "cust_005", "status": "active", "service_binding": "magic_transit"},
+  {"id": 11, "cidr": "10.1.0.0/24", "customer_id": "cust_006", "status": "active", "service_binding": "cdn"},
+  {"id": 12, "cidr": "10.2.0.0/24", "customer_id": "cust_006", "status": "pending_delete", "service_binding": "spectrum"},
+  {"id": 13, "cidr": "172.17.0.0/24", "customer_id": "cust_007", "status": "active", "service_binding": "magic_transit"},
+  {"id": 14, "cidr": "172.18.0.0/24", "customer_id": "cust_007", "status": "active", "service_binding": "cdn"},
+  {"id": 15, "cidr": "192.168.2.0/24", "customer_id": "cust_008", "status": "active", "service_binding": "cdn"},
+  {"id": 16, "cidr": "198.20.0.0/24", "customer_id": "cust_008", "status": "active", "service_binding": "spectrum"},
+  {"id": 17, "cidr": "10.3.0.0/24", "customer_id": "cust_009", "status": "active", "service_binding": "cdn"},
+  {"id": 18, "cidr": "172.19.0.0/24", "customer_id": "cust_009", "status": "active", "service_binding": "magic_transit"},
+  {"id": 19, "cidr": "192.168.3.0/24", "customer_id": "cust_010", "status": "active", "service_binding": "cdn"},
+  {"id": 20, "cidr": "10.4.0.0/24", "customer_id": "cust_010", "status": "pending_delete", "service_binding": "cdn"}
+]

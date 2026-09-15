@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD verification and validation knowledge: the agent must independently recognize that grid convergence studies demand Richardson extrapolation with GCI uncertainty quantification, determine refinement ratios from mesh metadata, detect pathological convergence signatures (non-monotonic, degenerate orders), and distinguish between valid and unreliable submissions — none of which is specified in the instructions. Additionally requires multi-tool proficiency: parsing the non-trivial DPW Tecplot ASCII format, building a structured SQLite database, scripting gnuplot for convergence visualization, and orchestrating the pipeline end-to-end."""
+solution_explanation = """Parse DPW-8 Tecplot format by identifying ZONE blocks, extracting AUXDATA metadata, and reading 31-column data rows. Filter for CRMWB configuration at alpha=2.50, ignoring CRMWBNP and alpha-polar zones. Compute refinement ratio r=(N_i+1/N_i)^(1/3) from grid sizes. Apply three-grid Richardson extrapolation on finest three levels to get observed order p and asymptotic estimate. Compute GCI with safety factor 1.25 for numerical uncertainty. Flag non-monotonic convergence and degenerate convergence (ratio=1). Store raw data and results in SQLite. Generate gnuplot scripts and execute to produce convergence plots. Compute ensemble mean/std excluding flagged participants."""
+verification_explanation = """Tests verify: (1) JSON and SQLite outputs exist with correct structure and row counts, (2) convergence analysis results match independently computed Richardson extrapolation reference values within tight tolerances, (3) participants 204.01 and 205.01 are correctly flagged as anomalous, (4) ensemble statistics match expected values, (5) experimental reference is correctly extracted, (6) CRMWBNP trap zones are excluded, (7) SQLite database correctly marks valid/invalid participants, (8) gnuplot-generated PNG convergence plots exist and are valid images."""
+category = "data_science"
+tags = ["cfd-verification", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dpw-grid-convergence"

@@ -1,0 +1,9 @@
+# Permissive OpenSSL config for generating deliberately weak legacy certificates.
+# Used only during container build to create the broken PKI artifacts.
+# Does not set SECLEVEL, so defaults to level 1 which permits SHA-1 signing.
+
+[req]
+prompt = no
+distinguished_name = dn
+
+[dn]

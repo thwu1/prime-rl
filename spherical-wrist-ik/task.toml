@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing closed-form analytic inverse kinematics for a 6-DOF spherical-wrist manipulator from scratch, given only the forward kinematics reference. The solver must first diagnose and fix CMake build system errors — a shared library with position-independent code explicitly disabled (causing linker failures) and PRIVATE include directory scoping that prevents header propagation to linked targets. After repairing the build, the solver must reverse-engineer coordinate-frame offset transforms from the FK code, derive trigonometric decomposition for all joint variables, enumerate up to 8 solution branches, handle wrist singularities (q5 near 0 or PI where q6 becomes indeterminate), properly skip unreachable branches, and maintain numerical robustness across thousands of random configurations. This demands graduate-level robotics knowledge (DH convention, matrix algebra, trigonometric identities, degenerate-case analysis) combined with practical CMake and shared-library build proficiency."""
+solution_explanation = """Fix the CMakeLists.txt: change PRIVATE to PUBLIC on manipulator_core's target_include_directories so headers propagate to the linked executable, and remove the explicit POSITION_INDEPENDENT_CODE OFF that prevents shared library compilation on x86_64. For the IK: the FK applies T_base_ee = T_base_0 * T_0_6(q) * T_6_ee with T_base_0 = Rx(180deg) and T_6_ee = cyclic-axis-permutation. The IK recovers T_0_6 = inv(T_base_0) * T * inv(T_6_ee), producing a specific element-permutation/sign pattern. Then standard analytic IK for a 6R spherical wrist: q1 from wrist-center projection via atan2/acos, q5 from decoupled rotation via acos, q6 from rotation-matrix elements via atan2 (or q6_des at singularity), q3 from law-of-cosines (pruning branches where cos(q3) > 1), q2 from two-link IK via atan2, q4 from remaining rotation via atan2. Each branching point doubles the solution count up to 8, with unreachable branches pruned."""
+verification_explanation = """Tests first verify the CMake build succeeds from a clean state and that the resulting binary dynamically links against libmanipulator_core.so (enforced via ldd). Then they generate random joint configurations, compute FK to obtain end-effector poses, run IK on those poses, and verify every returned solution round-trips via FK within Frobenius norm < 1e-6. The verifier checks each solution individually — any single invalid solution causes failure. Dedicated tests cover wrist singularities (q5=0, q5=pi), multiple solution-branch enumeration, specific known configurations, original-angle recovery, all-solutions validity, and joint-angle range compliance [0, 2*PI)."""
+category = "robotics"
+tags = ["inverse-kinematics", "cmake-build-system"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spherical-wrist-ik"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of numerical global optimization: understanding diverse landscape properties (ill-conditioning up to 1e6, multimodality, deceptiveness, ruggedness), selecting and implementing an algorithm portfolio (e.g. CMA-ES with IPOP restarts, differential evolution), and tuning meta-parameters for a single configuration that works across 12 structurally different problems spanning unimodal to deceptive multimodal landscapes. A naive single-strategy approach will fail on several problem classes."""
+solution_explanation = """The reference solution uses IPOP-CMA-ES (Increasing Population Covariance Matrix Adaptation Evolution Strategy) with restarts. CMA-ES naturally handles ill-conditioned and rotated problems via covariance adaptation. The IPOP restart strategy doubles the population size on each restart, which improves exploration for multimodal and deceptive landscapes. A fallback to scipy's differential_evolution provides robustness. This portfolio reliably passes 10+ of the 12 benchmarks within the evaluation budgets."""
+verification_explanation = """The test generates the 12-problem benchmark suite with a fixed seed (42), imports the agent's optimizer, runs it on each problem, and checks that the best-found value is within the per-problem error threshold of the known global optimum (0.0). A minimum of 10/12 problems must pass. A secondary test with a different seed (99) on a single problem verifies the optimizer actually runs evaluations (not hardcoded)."""
+category = "optimization"
+tags = ["numerical-optimization", "metaheuristics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 900.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gnbg-global-optimizer"

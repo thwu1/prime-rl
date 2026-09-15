@@ -1,0 +1,9 @@
+{
+    "RecordedEye": "left",
+    "StartTime": 0,
+    "SamplingFrequency": 500,
+    "CalibrationCount": 1,
+    "CalibrationType": "HV9",
+    "AverageCalibrationError": 0.35,
+    "MaximalCalibrationError": 0.7
+}

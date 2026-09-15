@@ -1,0 +1,3 @@
+A GeoPackage at `/app/bubenec.gpkg` contains building footprints, street center-lines, and morphological tessellation cells for a neighborhood in Prague. An analysis specification at `/app/analysis_spec.json` defines 19 morphometric indicators spanning shape, spatial distribution, area diversity, street network topology, and urban element intensity.
+
+Compute all 19 indicators as specified and write results to `/app/results.json` as a flat JSON object mapping metric names to numeric values. Integer-valued metrics must be exact integers; floating-point metrics must match reference values within 0.1% relative tolerance.

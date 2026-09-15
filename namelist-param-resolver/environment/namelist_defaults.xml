@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!--
+  EAMxx-style namelist defaults configuration.
+  Defines atmospheric model parameters with conditional selectors
+  for grid-resolution, compset, and vertical-level dependent overrides.
+-->
+<namelist_defaults>
+
+  <!--
+    Selectors map case environment variables to short names used in
+    parameter conditions. A regex attribute extracts a subvalue.
+  -->
+  <selectors>
+    <selector name="hgrid" case_env="ATM_GRID"/>
+    <selector name="nlev" case_env="CMAKE_OPTIONS" regex=".*NUM_VERTICAL_LEV\s+(\d+).*"/>
+    <selector name="ntracers" case_env="CMAKE_OPTIONS" regex=".*NUM_TRACERS\s+(\d+).*"/>
+  </selectors>
+
+  <atmosphere>
+
+    <dynamics>
+      <time_step type="real" constraints="gt 0" doc="Physics timestep in seconds">300.0</time_step>
+      <time_step hgrid="ne4pg2">1800.0</time_step>
+      <time_step hgrid="ne30pg2">900.0</time_step>
+      <time_step hgrid="ne120pg2">150.0</time_step>
+
+      <nsplit type="integer" constraints="gt 0" doc="Dynamics horizontal splitting factor">2</nsplit>
+      <nsplit nlev="128">4</nsplit>
+
+      <rsplit type="integer" constraints="gt 0" doc="Dynamics vertical remap splitting factor">3</rsplit>
+
+      <qsplit type="integer" constraints="gt 0 @@ le 10" doc="Tracer advection splitting factor">1</qsplit>
+      <qsplit ntracers="40">2</qsplit>
+      <qsplit ntracers="40" nlev="128">4</qsplit>
+
+      <coupling_frequency type="integer" constraints="gt 0" doc="Coupling frequency in physics steps">1</coupling_frequency>
+      <coupling_frequency hgrid="ne30pg2|ne120pg2">2</coupling_frequency>
+      <coupling_frequency hgrid="ne4pg2">4</coupling_frequency>
+
+      <partmethod type="integer" constraints="ge 0 @@ mod 2 eq 0" doc="Partitioning method (must be non-negative and even)">4</partmethod>
+    </dynamics>
+
+    <physics>
+
+      <microphysics>
+        <scheme type="string" valid_values="p3,mg2,none" doc="Microphysics scheme">p3</scheme>
+        <scheme COMPSET=".*SCREAM%MMF.*">none</scheme>
+
+        <max_total_ni type="real" constraints="gt 0" doc="Maximum total ice number concentration">740.0e3</max_total_ni>
+        <max_total_ni hgrid="ne120pg2">1480.0e3</max_total_ni>
+
+        <autoconversion_prefactor type="real" constraints="gt 0 @@ lt 1e5" doc="Autoconversion rate prefactor">1350.0</autoconversion_prefactor>
+        <autoconversion_prefactor hgrid="ne120pg2">2700.0</autoconversion_prefactor>
+
+        <do_prescribed_ccn type="logical" doc="Use prescribed CCN concentrations">true</do_prescribed_ccn>
+        <do_prescribed_ccn COMPSET=".*noAero.*">false</do_prescribed_ccn>
+
+        <subcycles type="integer" constraints="gt 0" doc="Microphysics subcycling count">1</subcycles>
+      </microphysics>
+
+      <radiation>
+        <active_gases type="array(string)" doc="Radiatively active gas species">h2o,co2,o3,n2o,co,ch4,o2,n2</active_gases>
+
+        <do_aerosol_rad type="logical" doc="Include aerosol radiative effects">true</do_aerosol_rad>
+        <do_aerosol_rad COMPSET=".*noAero.*">false</do_aerosol_rad>
+
+        <orbital_year type="integer" constraints="ge 0" doc="Orbital parameters reference year">1850</orbital_year>
+        <orbital_year COMPSET=".*2010.*">2010</orbital_year>
+        <orbital_year COMPSET=".*SSP.*">2015</orbital_year>
+
+        <radiation_dt type="real" constraints="gt 0 @@ mod 300 eq 0" doc="Radiation call frequency in seconds">3600.0</radiation_dt>
+        <radiation_dt hgrid="ne120pg2">1800.0</radiation_dt>
+
+        <rrtmgp_coefficients type="file" doc="RRTMGP absorption coefficient file">${DIN_LOC_ROOT}/rrtmgp/coefficients_lw.nc</rrtmgp_coefficients>
+
+        <subcycles type="integer" constraints="gt 0" doc="Radiation subcycling count">3</subcycles>
+      </radiation>
+
+      <turbulence>
+        <lambda_low type="real" constraints="gt 0" doc="SHOC low mixing length scale">0.001</lambda_low>
+
+        <lambda_high type="real" constraints="gt 0" doc="SHOC high mixing length scale">0.04</lambda_high>
+        <lambda_high hgrid="ne120pg2">0.02</lambda_high>
+
+        <tke_min type="real" constraints="ge 0" doc="Minimum turbulent kinetic energy">1.0e-4</tke_min>
+
+        <apply_tms type="logical" doc="Apply turbulent mountain stress parameterization">false</apply_tms>
+        <apply_tms hgrid="!ne4pg2">true</apply_tms>
+      </turbulence>
+
+      <convection>
+        <deep_scheme type="string" valid_values="zm,none" doc="Deep convection scheme">zm</deep_scheme>
+        <deep_scheme COMPSET=".*SCREAM.*">none</deep_scheme>
+
+        <cape_threshold type="real" constraints="ge 0" doc="CAPE trigger threshold for deep convection">70.0</cape_threshold>
+
+        <zmconv_tau type="real" constraints="gt 0" doc="Zhang-McFarlane convection adjustment timescale">3600.0</zmconv_tau>
+
+        <apply_to_test_grids type="logical" doc="Enable convection parameterization on test grids">false</apply_to_test_grids>
+        <apply_to_test_grids hgrid="!ne4pg2" COMPSET="!.*SCREAM.*">true</apply_to_test_grids>
+      </convection>
+
+    </physics>
+
+    <output>
+      <output_frequency type="integer" constraints="gt 0" doc="Output frequency count">6</output_frequency>
+      <output_frequency_units type="string" valid_values="nhours,ndays,nmonths,nsteps" doc="Output frequency time units">nhours</output_frequency_units>
+      <output_fields type="array(string)" locked="true" doc="Default output field variable list">T_mid,p_mid,qv,omega</output_fields>
+      <averaging_type type="string" valid_values="instant,average,minimum,maximum" doc="Temporal averaging method for output">instant</averaging_type>
+    </output>
+
+    <initial_conditions>
+      <ic_file type="file" doc="Initial condition data file">${DIN_LOC_ROOT}/init/default_L${NLEV}.nc</ic_file>
+      <ic_file hgrid="ne4pg2">${DIN_LOC_ROOT}/init/${HGRID}_L${NLEV}.nc</ic_file>
+      <ic_file hgrid="ne30pg2">${DIN_LOC_ROOT}/init/${HGRID}_L${NLEV}.nc</ic_file>
+      <ic_file hgrid="ne120pg2">${DIN_LOC_ROOT}/init/${HGRID}_L${NLEV}.nc</ic_file>
+
+      <topography_file type="file" doc="Topography data file">${DIN_LOC_ROOT}/topo/${HGRID}_topo.nc</topography_file>
+    </initial_conditions>
+
+  </atmosphere>
+
+</namelist_defaults>

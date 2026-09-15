@@ -1,0 +1,18 @@
+==================================================================
+BUG: KASAN: null-ptr-deref in i2c_smbus_xfer+0x3a9/0x7c0 drivers/i2c/i2c-core-smbus.c:586
+Write of size 4 at addr 0000000000000028 by task syz-executor.1/8823
+
+CPU: 1 UID: 0 PID: 8823 Comm: syz-executor.1 Tainted: G           O 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ check_memory_region_inline mm/kasan/generic.c:187 [inline]
+ kasan_check_range+0xef/0x1a0 mm/kasan/generic.c:193
+ i2c_smbus_xfer+0x3a9/0x7c0 drivers/i2c/i2c-core-smbus.c:586
+ i2c_smbus_read_byte_data+0xa4/0xf0 drivers/i2c/i2c-core-smbus.c:284
+ adm1025_detect+0x1c7/0x930 drivers/hwmon/adm1025.c:334
+ i2c_detect+0x3cc/0x890 drivers/i2c/i2c-core-base.c:2382
+ </TASK>
+==================================================================

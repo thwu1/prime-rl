@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building Stockfish from C++ source (navigating a complex Makefile with 30+ architecture targets), then reverse-engineering the full TT subsystem across three source files (tt.cpp, search.cpp, types.h). The solver must independently discover the packed binary struct layout, bit-field schemes, depth offset conventions, unsigned modular arithmetic for generation wrapping, the cluster indexing formula, the multi-condition replacement heuristic, probe and store lifecycle semantics, score transformation logic for mate/TB values, the 50-move-rule downgrade branches, and secondary aging behavior — all from reading dense C++ without guidance on which techniques are involved."""
+solution_explanation = """Build Stockfish with make -j build ARCH=x86-64 in src/. Implement tt_codec.py by reading tt.cpp and search.cpp: TTEntry is 10 bytes packed as '<HBBHhh'. value_to_tt adds ply for wins and subtracts for losses. value_from_tt reverses this but first checks for false mate/TB scores by comparing the score's ply distance against 100-r50c. simulate_tt_probe implements key matching with is_occupied check and victim selection via depth8-8*age scoring. simulate_tt_store first probes, then applies move preservation (only if key matches and move=0), the four-OR replacement check, and falls through to secondary aging when replacement is denied. hashfull samples first 1000 clusters counting occupied entries with age<=maxAge."""
+verification_explanation = """Tests verify Stockfish was built (binary exists, executable, UCI handshake). Then verify each codec function and constant. Key expert-level tests: value_to_tt/value_from_tt boundary behavior for mate vs TB scores, the r50c downgrade with exact threshold checks, roundtrip properties, full cluster probe semantics (key match occupied/unoccupied, victim selection), full store lifecycle (move preservation when key matches and move=0, move overwrite on key change, secondary aging path when replacement fails, multi-entry eviction sequences), generation advancement enabling replacement of stale deep entries, and hashfull with generation-based age filtering."""
+category = "reverse_engineering"
+tags = ["systems-programming", "binary-protocols"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/stockfish-tt-codec"

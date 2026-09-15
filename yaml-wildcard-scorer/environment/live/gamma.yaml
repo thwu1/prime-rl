@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gamma-webapp
+  namespace: gamma
+  labels:
+    version: "1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: server
+        image: myapp:v1.0.0
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gamma-app-config
+  namespace: gamma
+data:
+  log_level: warn
+  cache_ttl: "60"
+  enable_metrics: true

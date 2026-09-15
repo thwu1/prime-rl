@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete differentiable simulation and optimization pipeline from scratch using NVIDIA Warp. The task involves two coupled optimization problems: (1) parameter estimation of an unknown diffusivity from calibration data, requiring the solver to design a differentiable scalar parameterization through Warp's tape-based AD system (e.g., log-space reparameterization to enforce positivity), and (2) inverse recovery of an initial condition through a multi-phase forward simulation with 18 sequential time steps. Key challenges include: writing correct Warp kernels that handle periodic boundary indexing (Warp compiles to C++ where negative modulo differs from Python), architecting proper buffer chain management for tape-based differentiation, designing the optimization strategy for jointly or sequentially estimating parameters of fundamentally different types and scales, and choosing appropriate learning rates and convergence criteria."""
+solution_explanation = """The solution creates 6 Warp kernels (copy_field, diffusion_step with fixed kappa, diffusion_step with array-parameterized kappa for AD, exp_transform for positivity, mse_loss via atomic reduction, gradient_step) and implements a two-stage optimization: (1) estimate kappa_2 by running phase 1 forward once with the known IC, then optimizing log(kappa_2) via gradient descent through only phase 2, using exp transform to keep kappa positive; (2) recover IC_A by gradient descent through the full two-phase simulation with both kappas now fixed. Design decisions include log-space parameterization for kappa, separate learning rates (50.0 for log_kappa, 200.0 for IC), pre-computing the phase 1 intermediate to reduce the differentiable graph for kappa estimation, and adding grid_n before modulo in periodic index computation to avoid C++ negative-modulo semantics."""
+verification_explanation = """Tests independently derive the true kappa_2 via numpy grid search over the calibration data (no ground truth stored in files), then verify: (1) the estimated kappa_2 is within 0.002 of the derived true value, (2) an independent numpy forward simulation from the recovered IC with estimated kappa_2 matches target_a with MSE < 1e-3, (3) the estimated kappa_2 is consistent with the calibration pair (numpy forward sim MSE < 5e-4), (4) output files exist with correct shape and finite values, and (5) the implementation code uses @wp.kernel and wp.Tape."""
+category = "scientific_computing"
+tags = ["differentiable-simulation", "inverse-problems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4fcc99"

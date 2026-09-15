@@ -1,0 +1,69 @@
+{
+  "resourceType": "Bundle",
+  "id": "bundle-001",
+  "type": "collection",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:61ebe359-bfdc-4613-8bf2-c5e300945f0a",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-001",
+        "name": [
+          {
+            "use": "official",
+            "family": "Doe",
+            "given": [
+              "Alice"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1990-03-25",
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "555-123-4567",
+            "use": "mobile"
+          }
+        ],
+        "address": [
+          {
+            "line": [
+              "456 Elm Ave"
+            ],
+            "city": "Portland",
+            "state": "OR",
+            "country": "US"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8b3f4a7c-e2d1-4f9a-b6c8-3e7d5a9f1b2c",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bundle-001",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-001"
+        },
+        "effectiveDateTime": "2024-01-10T09:00:00-05:00",
+        "valueQuantity": {
+          "value": 68.2,
+          "unit": "kg",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg"
+        }
+      }
+    }
+  ]
+}

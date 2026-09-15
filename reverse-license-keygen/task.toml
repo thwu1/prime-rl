@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reverse engineering, cryptographic evaluation, and secure system design. The agent must: (1) disassemble TWO stripped, statically-linked x86-64 ELF binaries (~800KB each with libc internals), locating validation logic among thousands of functions without symbols; (2) fully reconstruct two distinct multi-stage key derivation pipelines from assembly alone, extracting all constants, lookup tables, and arithmetic operations; (3) critically evaluate the cryptographic strength of each scheme, comparing their designs to identify which contains a fundamental entropy reduction flaw; (4) design and implement a hardened replacement that eliminates the weakness while preserving the rest of the pipeline — this requires understanding what makes the original weak and engineering a correct fix; (5) produce a comparative security audit of all three schemes with quantified collision resistance metrics, verdicts, and a justified deployment recommendation; (6) demonstrate the weakness via a practical collision. The design and evaluation components require synthesis beyond analysis — the agent must create a novel, correct replacement and defend its security properties relative to the alternatives."""
+solution_explanation = """Use radare2/gdb to locate VALID/INVALID strings, trace xrefs to validation functions, and reverse-engineer both multi-stage pipelines (hash, substitution, Feistel network, finalization). Identify that alpha uses a 64-bit FNV variant with rotate/add/xor-shift mixing while beta uses a 32-bit FNV-1 hash expanded to 64 bits via a deterministic linear transform. Extract both 256-byte S-boxes and all constants. Write keygens replicating each pipeline. Evaluate that beta's 32-bit internal state limits entropy to ~2^32 distinct outputs. Design a patched version using FNV-1a 64-bit (init=0xCBF29CE484222325, prime=0x100000001B3) to eliminate the bottleneck while keeping beta's S-box, Feistel, and finalization intact. Implement birthday attack on the 32-bit space (O(2^16) trials) to find two usernames producing the same key. Produce a comparative audit evaluating alpha, beta, and patched schemes on hash width, collision complexity, and effective key space."""
+verification_explanation = """Tests verify: (1) both keygens produce valid keys accepted by their respective binaries across 8 diverse usernames including edge cases; (2) analysis.json correctly identifies the weak scheme with effective_bits in the plausible range; (3) collision.json contains two distinct usernames verified by the weak binary to produce identical keys; (4) the patched source compiles and its keygen produces keys accepted by the patched binary; (5) old weak-scheme keys are rejected by the patched binary (confirming the hash actually changed); (6) the patched binary preserves beta's exact S-box and Feistel/finalization constants; (7) the patched source does not contain the 32-bit bottleneck; (8) the security audit correctly classifies all three schemes and recommends a secure one."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "security-hardening"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reverse-license-keygen"

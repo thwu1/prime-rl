@@ -1,0 +1,21 @@
+## CFL3D v6.7 - Spalart-Allmaras (SA-neg)
+## Configuration: ONERA OAT15A Airfoil
+## Conditions: M=0.73, Re_c=3.0e6, T_static=271K
+## Grid: Structured multi-block, point-matched
+## Submitted: 2024-05-28
+##
+## Section: Grid Convergence at alpha=2.50 deg
+Level	Ncells	alpha	CL	CD	CM
+1	4096	2.50	0.694766	0.019162	-0.113000
+2	16384	2.50	0.687441	0.016416	-0.107000
+3	65536	2.50	0.685610	0.015729	-0.105500
+4	262144	2.50	0.685153	0.015557	-0.105100
+## Section: Alpha Sweep at Grid Level 4
+Level	Ncells	alpha	CL	CD	CM
+4	262144	0.00	0.150000	0.009500	-0.030000
+4	262144	1.00	0.370000	0.010500	-0.060000
+4	262144	2.00	0.580000	0.013000	-0.090000
+4	262144	2.50	0.685153	0.015557	-0.105100
+4	262144	3.00	0.790000	0.020500	-0.120000
+4	262144	3.50	0.860000	0.029000	-0.125000
+4	262144	4.00	0.900000	0.040000	-0.115000

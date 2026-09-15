@@ -1,0 +1,72 @@
+{
+  "@type": "cdm.event.common.BusinessEvent",
+  "eventDate": "2024-03-15",
+  "instruction": [{
+    "primitiveInstruction": {
+      "quantityChange": {
+        "change": [{"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}],
+        "direction": "Replace"
+      }
+    },
+    "before": {
+      "trade": {
+        "product": {
+          "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+          "economicTerms": {
+            "payout": [
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+              {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+            ],
+            "nonStandardisedTerms": false
+          }
+        },
+        "tradeLot": [{"priceQuantity": [
+          {"quantity": [{"value": 75000000.0, "unit": {"currency": {"@data": "USD"}}}]},
+          {"price": [{"value": 0.0285, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 75000000.0, "unit": {"currency": {"@data": "USD"}}}]}
+        ]}],
+        "counterparty": [
+          {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+          {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+        ],
+        "tradeIdentifier": [{"issuer": {"@data": "LEI-TERM001"}, "assignedIdentifier": [{"identifier": {"@data": "TERM-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+        "tradeDate": {"@data": "2023-06-15"},
+        "party": [
+          {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-TERM001"}, "identifierType": "LEI"}], "name": {"@data": "Alpha Bank"}},
+          {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-TERM002"}, "identifierType": "LEI"}], "name": {"@data": "Beta Bank"}}
+        ]
+      }
+    }
+  }],
+  "after": [{
+    "trade": {
+      "product": {
+        "taxonomy": [{"primaryAssetClass": {"@data": "InterestRate"}}, {"source": "ISDA", "value": {"name": {"@data": "InterestRate_IRSwap_FixedFloat"}}, "calculated": true}],
+        "economicTerms": {
+          "payout": [
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party1", "receiver": "Party2"}, "rateSpecification": {"@type": "cdm.product.asset.FloatingRateSpecification"}, "dayCountFraction": {"@data": "ACT/360"}},
+            {"@type": "cdm.product.asset.InterestRatePayout", "payerReceiver": {"payer": "Party2", "receiver": "Party1"}, "rateSpecification": {"@type": "cdm.product.asset.FixedRateSpecification"}, "dayCountFraction": {"@data": "30E/360"}}
+          ],
+          "nonStandardisedTerms": false
+        }
+      },
+      "tradeLot": [{"priceQuantity": [
+        {"quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]},
+        {"price": [{"value": 0.0285, "unit": {"currency": {"@data": "USD"}}, "perUnitOf": {"currency": {"@data": "USD"}}, "priceType": "InterestRate"}], "quantity": [{"value": 0.0, "unit": {"currency": {"@data": "USD"}}}]}
+      ]}],
+      "counterparty": [
+        {"role": "Party1", "partyReference": {"@ref:external": "partyA"}},
+        {"role": "Party2", "partyReference": {"@ref:external": "partyB"}}
+      ],
+      "tradeIdentifier": [{"issuer": {"@data": "LEI-TERM001"}, "assignedIdentifier": [{"identifier": {"@data": "TERM-TRADE-001"}}], "identifierType": "UniqueTransactionIdentifier"}],
+      "tradeDate": {"@data": "2023-06-15"},
+      "party": [
+        {"@key:external": "partyA", "partyId": [{"identifier": {"@data": "LEI-TERM001"}, "identifierType": "LEI"}], "name": {"@data": "Alpha Bank"}},
+        {"@key:external": "partyB", "partyId": [{"identifier": {"@data": "LEI-TERM002"}, "identifierType": "LEI"}], "name": {"@data": "Beta Bank"}}
+      ]
+    },
+    "state": {
+      "closedState": {"state": "Terminated"},
+      "positionState": "Closed"
+    }
+  }]
+}

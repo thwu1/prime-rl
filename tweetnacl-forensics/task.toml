@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a cryptographic conformance auditor that (1) discovers exported symbols from an ELF shared library with TweetNaCl's _tweet naming convention, (2) interfaces with native C functions from Python using correct function prototypes for 5 NaCl API families with different calling conventions (pointer types, u64 lengths, output buffers), (3) independently validates each primitive's correctness — which demands either implementing reference algorithms from their mathematical specs or finding trustworthy external references for Salsa20/20 core and Poly1305, (4) designs a testing strategy for Ed25519 that can detect subtle bugs in the scalar reduction modulus without having an independent Ed25519 implementation, and (5) produces a schema-conformant JSON report with hex evidence. The solver must understand TweetNaCl's internal dependency graph to isolate which primitives are independently broken vs. exhibiting propagated failures."""
+solution_explanation = """Create nacl_auditor.py that: (1) runs nm -D to enumerate exported symbols and maps them to NaCl primitive families, (2) loads the library via ctypes.CDLL and configures argtypes/restype for each function, (3) tests SHA-512 against hashlib, Salsa20 core against a pure-Python quarter-round implementation, Poly1305 against a pure-Python modular arithmetic implementation, Ed25519 via sign-then-verify roundtrip, and Curve25519 scalarmult against pynacl, (4) reports per-primitive pass/fail with hex evidence for failures. The suspect library has 4 bugs: Salsa20 rotation 7->6, Poly1305 clamping 252->248, SHA-512 IV 0x6a->0x6b, and Ed25519 subgroup order L[0] 0xed->0xec."""
+verification_explanation = """Tests build both libraries via make, run the auditor against the reference build (expects all-pass, 0 bugs), run it against the suspect build (expects exactly 4 bugs in SHA-512, Salsa20, Poly1305, and Ed25519 with scalarmult passing), verify the JSON report schema including required fields and evidence for failures, verify symbol discovery produces a reasonable count, and check error handling for invalid library paths."""
+category = "security"
+tags = ["cryptography", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tweetnacl-forensics"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level corporate finance knowledge spanning multi-currency consolidation with intercompany elimination, non-controlling interest allocation for partially-owned subsidiaries, loan amortization mathematics, financial ratio derivation, cost-volume-profit analysis with judgment-based cost classification, and foreign exchange sensitivity modeling. The agent must independently determine the correct accounting treatment for each component without being given formulas or procedures."""
+solution_explanation = """Parse the source workbook to extract exchange rates, ownership stakes, subsidiary financials, intercompany transactions, and loan data. Convert all subsidiary amounts to USD. Aggregate and eliminate intercompany revenue/expenses using category mappings. Compute NCI as minority share of each partially-owned subsidiary's standalone net income. For loans, apply the standard annuity PMT formula. Calculate financial ratios from consolidated figures. Classify costs as fixed or variable for CVP analysis. Recompute consolidated NI at shifted FX rates for sensitivity."""
+verification_explanation = """Tests independently parse the source workbook and recompute all expected values. Each computed value is verified against the agent's output with 0.5% relative tolerance for monetary amounts and 1% for ratios. Tests cover sheet existence, ConsolidatedPL figures, NCI allocation, per-loan amortization, financial ratios, break-even analysis, and four FX sensitivity scenarios."""
+category = "applied_computing"
+tags = ["financial-modeling", "data-processing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/financial-consolidation-engine"

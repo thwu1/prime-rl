@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of Behler-Parrinello symmetry functions as modified by the ANI neural network potential framework, plus proficiency with two specialized data persistence tools. The solver must (1) research the ANI AEV mathematical formulation and discover NeuroChem-specific implementation details not in the paper (coefficient scaling, numerical stability tricks, species-pair indexing), (2) correctly implement AEV computation with multiple subtle conventions that must all be correct simultaneously, (3) construct an HDF5 output file with proper hierarchical structure using groups, typed datasets, gzip compression, and group-level attributes via h5py, (4) build a SQLite database with a normalized two-table schema including foreign key constraints and computed aggregate statistics, and (5) ensure cross-format consistency between HDF5 numeric data and SQLite summary statistics. The combination of domain-specific numerics, HDF5 API proficiency, and SQL schema design creates coupled challenges across disparate tool ecosystems."""
+solution_explanation = """The solution implements a complete pipeline: (1) Parse conformations.json and the NeuroChem .params file. (2) For radial sub-AEVs, compute 0.25 * exp(-eta * (d - Rs)^2) * fc(d) with fc = 0.5*cos(pi*d/Rc)+0.5 for each pair within Rcr, indexed by neighbor species. (3) For angular sub-AEVs, compute angle = acos(0.95*cos_angle) for stability, then 2*((1+cos(angle-theta_s))/2)^zeta * exp(-eta_a*((d1+d2)/2-Rs_a)^2)*fc(d1)*fc(d2), indexed by upper-triangular species pair. (4) Write HDF5 using h5py with create_group/create_dataset for the hierarchical structure, gzip compression on AEV datasets, and attrs for metadata. (5) Write SQLite using sqlite3 with CREATE TABLE DDL including PRIMARY KEY and FOREIGN KEY constraints, then compute L2 norms, sparsity, and max from the AEV arrays. (6) Generate Hill-order molecular formulas from element counts."""
+verification_explanation = """Tests verify four aspects: (1) HDF5 structure — correct groups, dataset shapes/dtypes, gzip compression, and attribute values including pipeline_version. (2) SQLite schema — correct tables, columns, row counts, and molecular formulas in Hill order. (3) AEV numerical correctness — per-atom radial/angular sums and spot-check element values for water, methane, and formaldehyde against precomputed references at 1e-6 tolerance, plus symmetry tests for equivalent atoms. (4) Cross-format consistency — SQLite statistics (radial/angular norm means/stds, sparsity, max_element, per-atom L2 norms) are independently recomputed from HDF5 AEV data and compared, ensuring the pipeline's two output formats are internally consistent."""
+category = "scientific_computing"
+tags = ["quantum_chemistry", "hdf5_pipeline"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-aev-computer"

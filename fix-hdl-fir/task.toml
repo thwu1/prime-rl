@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must reverse-engineer complete behavioral specifications from a Verilator C++ testbench — no architectural description is provided. Expert-level challenges: (1) reading the C++ testbench to discover the system requires runtime-reconfigurable coefficients with atomic commit semantics, which fundamentally invalidates the prior ROM-based approach in fir_core.sv — understanding WHY it fails requires grasping the difference between compile-time-fixed and runtime-configurable coefficient architectures; (2) tracing the testbench's load_coefficients(commit=false) + apply_impulse sequence across tests 3 and 4 to infer that uncommitted coefficient writes must remain invisible to the datapath, necessitating double-buffered storage — a non-obvious requirement that only emerges from holistic analysis of the test flow; (3) diagnosing three subtle bugs in the reference fir_core.sv (non-shifting delay line where tap[i]<=tap[i] instead of tap[i-1], port name mismatch .data vs .coeff_out, and accumulating instead of registering MAC output) to avoid propagating them into the solution; (4) designing a pipeline architecture that achieves exactly 1-cycle output latency as measured by the latency test's cycle-counting logic; (5) handling signed arithmetic across all datapaths (16-bit data, 16-bit coefficients, 32-bit accumulator) with correct SystemVerilog signed type propagation through multiply-accumulate chains; (6) implementing asynchronous reset that clears the datapath but preserves coefficient state — discoverable only from test 4's reset-then-verify-coefficients-survive sequence. Requires iterative Verilator compilation and simulation debugging across a multi-file project."""
+solution_explanation = """Study sim_main.cpp to identify: load_coefficients writes cfg_wr/cfg_addr/cfg_data then optionally pulses cfg_done; apply_impulse sends one nonzero sample then zeros with s_valid=1; test 3 loads coefficients without commit; test 4 commits then resets and verifies coefficients survive. This reveals the need for shadow/active dual-bank coefficient storage. Implementation in fir_engine.sv: (1) shadow bank array written by cfg_wr at cfg_addr, active bank array bulk-copied from shadow on cfg_done strobe — neither bank uses async reset so coefficients survive rst_n; (2) NUM_TAPS-stage delay line shift register advancing tap[0]<=din, tap[i]<=tap[i-1] on din_valid, with async reset clearing all taps; (3) combinational MAC loop summing tap[i]*active_bank[i] in ACC_W-bit signed precision; (4) 2-stage valid shift register where valid_sr[1] drives dout_valid and dout is registered when valid_sr[0] is high, achieving exactly 1-cycle latency. The buggy fir_core.sv must NOT be reused — its shift register doesn't shift, ROM ports are misnamed, and the output accumulates instead of registering."""
+verification_explanation = """Five test scenarios run from a single Verilator simulation: (1) impulse response with symmetric low-pass coefficients [3,11,25,32,32,25,11,3] at amplitude 1000, verifying each output sample equals amplitude*coefficient; (2) impulse response with antisymmetric signed coefficients [-1,-4,-6,0,0,6,4,1] at amplitude 500, testing negative arithmetic; (3) atomic switching test — load coeff set A (committed) then coeff set B (NOT committed), verify impulse still produces A's response, confirming uncommitted writes are invisible; (4) commit B via cfg_done, reset delay line, verify impulse now produces B's response, confirming coefficients survive reset; (5) latency measurement verifying exactly 1 cycle from din_valid to dout_valid assertion."""
+category = "hardware_design"
+tags = ["systemverilog", "verilator"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-hdl-fir"

@@ -1,0 +1,9 @@
+{
+  "OrganizationIdentifier": {"maxLength": 35, "minLength": 1},
+  "OrganizationFormalName": {"maxLength": 255, "minLength": 1},
+  "ProjectIdentifier": {"maxLength": 55, "minLength": 1},
+  "MonitoringLocationIdentifier": {"maxLength": 55, "minLength": 1},
+  "MonitoringLocationName": {"maxLength": 255},
+  "ActivityIdentifier": {"maxLength": 55, "minLength": 1},
+  "CharacteristicName": {"maxLength": 255}
+}

@@ -1,0 +1,9 @@
+# 6-qubit entangled chain
+H 0
+CNOT 0 3
+H 1
+CNOT 1 4
+H 2
+CNOT 2 5
+RY(0.9272952180016122) 0
+CNOT 0 1

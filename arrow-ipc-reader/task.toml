@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging and completing a partially-implemented Arrow IPC stream reader in Rust. The solver must reverse-engineer the binary IPC stream format, the FlatBuffers wire protocol used for metadata, and the Arrow columnar buffer layout — all from the provided skeleton code, test failures, and publicly available Arrow documentation. The skeleton contains subtle bugs in binary parsing and bitmap handling, and is missing support for most Arrow data types (Bool, all integer widths, Float32, Utf8, Binary, List, Struct, Null, dictionary encoding). Correctly fixing these requires understanding three interleaved binary formats and their non-obvious interactions, with no external crate support (hand-rolled FlatBuffers parsing). The task spans binary protocol reverse-engineering, systems-level Rust, and specification-conformant JSON serialization."""
+solution_explanation = """The solution replaces the broken skeleton with a complete ~550-line Rust implementation. Key fixes: (1) Correcting the FlatBuffers vtable slot index for bodyLength (slot 3, not 2) and union type field numbering. (2) Fixing validity bitmap bit ordering from MSB to LSB. (3) Adding complete type dispatch for Null (no buffers), Bool (bit-packed), all Int/UInt widths, Float32/64, Utf8/Binary (with offset+data buffers), List (offset+child recursion), and Struct (validity+children). (4) Implementing schema parsing with child fields and dictionary encoding metadata. (5) Adding DictionaryBatch message handling with dictionary ID keying and index-type redirection during RecordBatch reconstruction. (6) Producing JSON conforming to the Arrow integration test format (int64 as strings, bool as 0/1, hex-encoded binary, offset arrays for variable-length types)."""
+verification_explanation = """Tests use pyarrow to generate Arrow IPC stream files with known data across 14 test cases covering all supported types (including standalone Null, Float32, and Binary), then run the Rust binary and structurally compare the JSON output. Comparison handles float tolerance, verifies schema field types/names/nullability, checks validity arrays, validates offset buffers for variable-length types, verifies Binary hex encoding, confirms dictionary batch presence and content, and tests edge cases (empty batches, all-null columns, nested struct+list). The Rust binary must be buildable with cargo and produce correct JSON for all test cases to earn reward."""
+category = "systems_programming"
+tags = ["binary-parsing", "rust", "arrow-columnar", "ipc-protocol"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/arrow-ipc-reader"

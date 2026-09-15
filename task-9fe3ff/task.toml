@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging interacting defects in a Gauss-Newton/LM SE(2) optimizer (angle manifold wrapping, analytical Jacobian derivation, IRLS robust weighting), implementing marginal covariance recovery from the sparse Hessian/information matrix with gauge freedom handling, building a chi-squared edge consistency analyzer using Mahalanobis distances on SE(2), and implementing trajectory evaluation with proper Lie group relative pose error. Each component demands understanding of the mathematical structure of pose-graph SLAM, not just following procedures."""
+solution_explanation = """Fixes three bugs: (1) normalizes angular error in SE(2) residual, (2) corrects Jacobian J_i[1,2] sign from +s*dyg to -s*dyg, (3) applies robust weight w to information matrix. Implements covariance.py: assembles Hessian from Jacobians at optimum, extracts free sub-block, inverts for marginal covariances, computes ellipse via eigendecomposition. Implements consistency.py: computes SE(2) error per edge, evaluates chi-squared statistic against threshold. Implements evaluate.py with SE(2) inverse/compose for RPE. Pipeline orchestrates all tools with graphviz and gnuplot visualization."""
+verification_explanation = """Optimizer tests verify geometric accuracy on clean/corrupted/minimal/angle-wrapping graphs with tight tolerances. Covariance tests verify analytical solutions on 2-node (Sigma=0.001*I) and 3-node chain graphs, plus SPD and monotonic uncertainty properties on the full square loop. Consistency tests verify outlier edge detection on corrupted graph at ground truth and all-consistent classification on clean optimized graph. Evaluation tests verify ATE/RPE on synthetic known-error poses. Pipeline tests verify all output artifacts exist with correct content."""
+category = "robotics"
+tags = ["pose-graph-slam", "covariance-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9fe3ff"

@@ -1,0 +1,59 @@
+#
+# CUDA GEMM shared memory tiling configurations for layout optimization.
+# Each entry models one shared memory tile allocation: T smem[NY][NX].
+kernels:
+  - name: square_fp32_scalar
+    NX: 32
+    NY: 32
+    dtype: float32
+    access: column
+    vectorize_width: 1
+
+  - name: tiny_fp32_scalar
+    NX: 8
+    NY: 32
+    dtype: float32
+    access: column
+    vectorize_width: 1
+
+  - name: wide_fp32_vec4
+    NX: 128
+    NY: 16
+    dtype: float32
+    access: column
+    vectorize_width: 4
+
+  - name: narrow_fp32_scalar
+    NX: 16
+    NY: 32
+    dtype: float32
+    access: column
+    vectorize_width: 1
+
+  - name: square_fp32_row
+    NX: 32
+    NY: 32
+    dtype: float32
+    access: row
+    vectorize_width: 1
+
+  - name: wide_fp16_vec8
+    NX: 128
+    NY: 16
+    dtype: float16
+    access: column
+    vectorize_width: 8
+
+  - name: narrow_fp64_scalar
+    NX: 16
+    NY: 32
+    dtype: float64
+    access: column
+    vectorize_width: 1
+
+  - name: small_fp32_vec4
+    NX: 32
+    NY: 16
+    dtype: float32
+    access: column
+    vectorize_width: 4

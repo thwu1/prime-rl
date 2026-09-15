@@ -1,0 +1,20 @@
+# Program 3: Common subexpression elimination across basic blocks
+# The expression (a + b) is computed three times; only the first is necessary.
+FUNC main():
+  LABEL entry:
+    a = 10
+    b = 20
+    c = a + b
+    cond = 1
+    IF cond GOTO compute
+    GOTO done
+  LABEL compute:
+    d = a + b
+    e = c * d
+    f = a + b
+    g = e + f
+    PRINT g
+    GOTO done
+  LABEL done:
+    RETURN 0
+ENDFUNC

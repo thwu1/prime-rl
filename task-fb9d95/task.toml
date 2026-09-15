@@ -1,0 +1,54 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of both the WGSL memory layout specification and C11
+struct ABI rules. The solver must independently derive correct layout computations from the spec for vec3 alignment
+(the 4×AlignOf trap), matrix-to-column-vector-array equivalence, uniform address space 16-byte rounding for arrays
+and struct/array members, @align/@size attribute interactions, nested struct composition with recursive dependency
+ordering, and struct tail padding. They must identify which pre-computed reference values violate the spec without
+being told how many errors exist or where they are. Multiple misleading signals compound the difficulty: the WGSL
+parser silently drops @align attributes formatted on separate lines from their member declarations (a valid WGSL
+formatting variant), producing downstream layout errors with no error message; a stale validation log confirms
+the wrong reference values; and an undocumented layout calculator module produces answers that match the wrong
+reference but not the spec, creating a false consensus between two independently wrong sources. The solver must
+trace compilation failures and test mismatches back through the codegen pipeline to the parser, differentiating
+between bugs they introduced and bugs already present in the tooling."""
+solution_explanation = """First, normalize the WGSL shader files by joining multi-line attributes onto the same
+line as their member declarations (the parser processes line-by-line and silently drops attributes on their own
+line). Then complete c_codegen.py by implementing: vec3 alignment (4*AlignOf(T)), matrix delegation to equivalent
+array<vecR<T>,C>, uniform roundUp(16,...) for arrays, struct ref resolution with recursive dependency generation,
+and uniform member alignment rounding for struct/array members. Fix reference_layouts.json: LightData direction
+alignment 12→16, TransformData normal_matrix size 36→48, PackedData struct size 76→80. Create bridge.py to drive
+parse→generate→compile→verify→report pipeline. Generated C uses _Alignas, typedef wrappers for array elements
+with stride padding, explicit padding fields, and struct tail padding."""
+verification_explanation = """Tests verify: (1) reference_layouts.json has all incorrect values corrected to
+spec-correct values, (2) conformance_report.json uses the documented schema with correct status and discrepancy
+values for each struct, (3) generated C files for all 5 structs compile cleanly with gcc -std=c11 -Wall -Werror,
+(4) compiled binaries all print ALL_LAYOUT_CHECKS_PASSED (meaning all static_assert offsetof/sizeof/alignof
+checks pass), (5) layout spot checks on specific member offsets/sizes/alignments. The gcc compilation acts as
+an independent oracle — any layout error causes a static_assert failure at compile time."""
+category = "systems_programming"
+tags = ["gpu-programming", "code-generation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fb9d95"

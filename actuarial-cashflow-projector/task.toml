@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires decoding the modelx framework's cell-based DSL to understand implicit cell dependencies, recursive time-stepping, and vectorized DataFrame operations. The solver must reverse-engineer event ordering (maturity→NB→decrements), account-value timing (BEF_PREM→BEF_FEE→BEF_INV→MID_MTH), multi-decrement interactions (death/lapse/maturity), investment income splitting, surrender charge lookup, margin decomposition, and PV calculation from a non-executable reference file. Additionally requires multi-format output: SQLite with analytical views and indexes, Apache Parquet with specific schema and compression, and two independent stress scenarios (mortality uplift and lapse shock) each requiring a full re-projection and separate design decisions about rate capping."""
+solution_explanation = """The reference solution: (1) parses the modelx DSL to extract all cell formulas and their dependencies; (2) translates recursive cell definitions into an iterative month-by-month vectorized numpy loop over all model points with a parameterised run_projection function accepting mortality table and lapse multiplier; (3) implements the full event ordering and account-value timing chain; (4) computes aggregate cashflows, PV via discount-factor dot products, and three self-consistency checks; (5) writes PV results to CSV, checks to JSON, full monthly time-series to both SQLite (with cumulative_cf view and composite index) and Parquet (pyarrow with int32/float64 schema, Snappy compression); (6) re-runs the projection twice: once with mortality scaled by 1.3 and once with lapse rates scaled by 2.0 (both capped at 1.0)."""
+verification_explanation = """Tests verify: output file schemas and existence across all formats (CSV, JSON, SQLite, Parquet); all three self-consistency checks pass; PV identity from CSV; no NaN/inf; non-negativity; premium behaviour by type; claims structure; commission proportionality; SQLite table schema, view existence, view correctness (cumulative sums), index presence, row counts, cross-validation of discounted time-series against PV; Parquet schema types (int32/float64), Snappy compression, row-count parity with SQLite; mortality stress produces higher death claims and lower net CF; lapse stress produces lower death claims than base and differs from both base and mortality stress."""
+category = "finance"
+tags = ["actuarial", "reverse-engineering"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/actuarial-cashflow-projector"

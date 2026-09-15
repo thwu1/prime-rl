@@ -1,0 +1,46 @@
+## Multi-site container with custom overrides
+## Correctly configured deployment — should produce zero configuration issues
+
+templates:
+  - "templates/postgres.template.yml"
+  - "templates/redis.template.yml"
+  - "templates/web.template.yml"
+  - "templates/web.ratelimited.template.yml"
+
+expose:
+  - "127.0.0.1:8080:80"
+  - "3000"
+
+params:
+  db_default_text_search_config: "pg_catalog.english"
+  db_shared_buffers: "512MB"
+
+env:
+  LANG: en_US.UTF-8
+  DISCOURSE_HOSTNAME: "forum.mycompany.com"
+  DISCOURSE_DEVELOPER_EMAILS: "devops@mycompany.com"
+  DISCOURSE_SMTP_ADDRESS: smtp.mailgun.org
+  DISCOURSE_SMTP_PORT: "587"
+  DISCOURSE_SMTP_USER_NAME: postmaster@mycompany.com
+  DISCOURSE_SMTP_PASSWORD: "supersecret"
+  DISCOURSE_DB_NAME: '{{config}}_discourse'
+
+labels:
+  app: "{{config}}"
+  monitor: "true"
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/multi
+      guest: /shared
+
+boot_command: "/sbin/custom_boot"
+run_image: "registry.mycompany.com/discourse:latest"
+docker_args: "--shm-size=512m --restart=always"
+
+hooks:
+  after_code:
+    - exec:
+        cd: $home/plugins
+        cmd:
+          - git clone https://github.com/mycompany/custom-plugin.git

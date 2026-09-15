@@ -1,0 +1,11 @@
+{
+  "keyspace": "slack_data",
+  "shards": ["-80", "80-"],
+  "tables": {
+    "workspaces": {"shard_key": "workspace_id"},
+    "users": {"shard_key": "workspace_id"},
+    "channels": {"shard_key": "workspace_id"},
+    "messages": {"shard_key": "workspace_id"},
+    "thread_subscriptions": {"shard_key": "workspace_id"}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "hwloc",
+  "versions": ["2.9.1", "2.7.0", "2.5.0", "1.11.13"],
+  "variants": [
+    {"name": "cuda", "type": "bool", "default": false},
+    {"name": "shared", "type": "bool", "default": true}
+  ],
+  "dependencies": [
+    {"name": "libxml2"}
+  ],
+  "conflicts": [
+    {"version_max": "1.99", "variants": {"cuda": true}, "message": "CUDA support requires hwloc 2.0+"}
+  ],
+  "virtuals": []
+}

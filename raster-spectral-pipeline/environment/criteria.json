@@ -1,0 +1,70 @@
+{
+  "criteria": [
+    {
+      "name": "slope",
+      "layer": "/app/data/slope.tif",
+      "type": "cost",
+      "normalization": "linear",
+      "ideal_value": 0,
+      "max_acceptable": 15,
+      "hard_limit": 30
+    },
+    {
+      "name": "aspect",
+      "layer": "/app/data/aspect.tif",
+      "type": "benefit_circular",
+      "normalization": "gaussian",
+      "optimal_direction": 180,
+      "sigma": 60
+    },
+    {
+      "name": "road_distance",
+      "layer": "/app/data/road_distance.tif",
+      "type": "cost",
+      "normalization": "sigmoidal",
+      "midpoint": 3000,
+      "spread": 0.002
+    },
+    {
+      "name": "landcover",
+      "layer": "/app/data/landcover.tif",
+      "type": "categorical",
+      "suitability_scores": {
+        "1": 0.2,
+        "2": 0.8,
+        "3": 0.9,
+        "4": 1.0,
+        "5": 0.0,
+        "6": 0.0
+      }
+    },
+    {
+      "name": "irradiance",
+      "layer": "/app/data/irradiance.tif",
+      "type": "benefit",
+      "normalization": "linear",
+      "min_acceptable": 4.0,
+      "max_value": 7.0
+    }
+  ],
+  "ahp_matrix": [
+    [1.0, 3.0, 2.0, 4.0, 1.0],
+    [0.333333, 1.0, 0.5, 2.0, 0.333333],
+    [0.5, 2.0, 1.0, 3.0, 0.5],
+    [0.25, 0.5, 0.333333, 1.0, 0.25],
+    [1.0, 3.0, 2.0, 4.0, 1.0]
+  ],
+  "constraints": [
+    {"name": "protected_areas", "layer": "/app/data/protected.tif", "exclude_value": 1},
+    {"name": "flood_zone", "layer": "/app/data/flood_zone.tif", "exclude_value": 1},
+    {"name": "water_bodies", "source": "landcover", "exclude_value": 6},
+    {"name": "urban_areas", "source": "landcover", "exclude_value": 5}
+  ],
+  "output": {
+    "suitability_classes": 5,
+    "min_site_area_ha": 5.0,
+    "suitability_threshold": 0.6,
+    "sensitivity_perturbation": 0.1,
+    "pixel_size_m": 30
+  }
+}

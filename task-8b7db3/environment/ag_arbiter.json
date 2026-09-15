@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "fairness": {
+      "expression": "G(req0 | req1 -> F(grant0 | grant1))",
+      "signals": ["req0", "req1", "grant0", "grant1", "arb_state"],
+      "temporal_depth": 12
+    }
+  },
+  "signal_dependencies": {
+    "req0": [],
+    "req1": [],
+    "grant0": ["req0", "arb_state"],
+    "grant1": ["req1", "arb_state"],
+    "arb_state": ["grant0", "grant1"]
+  },
+  "decompositions": [
+    {
+      "strategy": "assume_guarantee",
+      "target": "fairness",
+      "params": {
+        "sub_properties": {
+          "liveness0": {
+            "expression": "G(req0 -> F grant0)",
+            "assumes": ["mutex"]
+          },
+          "liveness1": {
+            "expression": "G(req1 -> F grant1)",
+            "assumes": ["mutex"]
+          },
+          "mutex": {
+            "expression": "G(~(grant0 & grant1))",
+            "assumes": []
+          }
+        }
+      }
+    }
+  ]
+}

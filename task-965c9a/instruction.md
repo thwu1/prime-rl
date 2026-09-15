@@ -1,0 +1,13 @@
+Build a tool at `/app/acvp_processor` (executable script or binary) that processes NIST ACVP (Automated Cryptographic Validation Protocol) test vector prompt files and produces correctly-formatted ACVP response JSON.
+
+ACVP prompt JSON files are in `/app/vectors/`. They cover three algorithm types with multiple test modes:
+
+**SHA2-256** (`sha2_256_prompt.json`): Two test group types:
+- **AFT** (Algorithm Functional Test): Compute SHA-256 digest of the `msg` field (hex-encoded). Response field: `md`.
+- **MCT** (Monte Carlo Test): The `mctVersion` field specifies `"standard"` or `"alternate"`. Both run 100 outer iterations of 1000 inner iterations using three chained variables (A, B, C) initialized from the seed. Standard MCT concatenates A||B||C as the message. Alternate MCT truncates or zero-pads the concatenation to the initial seed length (`len` field, in bits). Response field: `resultsArray` — an array of 100 objects each containing `md` (the digest after each outer iteration). After each outer iteration, the seed for the next outer iteration is set to the final digest.
+
+**ctrDRBG** (`ctrdrbg_prompt.json`): SP 800-90A CTR-DRBG with AES-256. Test groups specify `derFunc`, `predResistance`, and `reSeed` flags. The `otherInput` array describes the sequence of operations: entries with `intendedUse: "reSeed"` trigger a reseed, while `"generate"` triggers a generate call. When `predResistance` is true, each generate call is preceded by an implicit reseed using the entry's `entropyInput` and `additionalInput`. Implement the full CTR-DRBG state machine: `Block_Cipher_df` (derivation function using BCC with initial key `K = 0x00010203...1F`), `CTR_DRBG_Update`, `Instantiate`, `Reseed`, and `Generate` per SP 800-90A Section 10.2–10.3. Response field: `returnedBits` from the final generate call.
+
+**ACVP-AES-GCM** (`aes_gcm_prompt.json`): Test groups specify `direction` (encrypt/decrypt), `tagLen`, and `ivLen`. For encrypt: response includes `ct` and `tag` (truncated to `tagLen` bits). For decrypt: response includes `pt` if authentication succeeds, or `testPassed: false` if it fails.
+
+The tool must read every `*_prompt.json` file from `/app/vectors/`, compute correct results for each test case, and write one response JSON file per input to `/app/responses/`. Response JSON must preserve the `vsId`, `algorithm`, `revision`, and `testGroups`/`tgId`/`tests`/`tcId` hierarchy. All hex output must be uppercase.

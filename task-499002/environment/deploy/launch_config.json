@@ -1,0 +1,18 @@
+{
+  "model_path": "/models/DeepMoE-47B-FP8",
+  "host": "0.0.0.0",
+  "port": 30000,
+  "kt_method": "BF16",
+  "kt_cpuinfer": 96,
+  "kt_threadpool_count": 1,
+  "kt_num_gpu_experts": 8,
+  "kt_expert_placement_strategy": "uniform",
+  "tensor_parallel_size": 1,
+  "mem_fraction_static": 0.85,
+  "chunked_prefill_size": 65536,
+  "max_running_requests": 16,
+  "max_total_tokens": 32768,
+  "max_new_tokens": 4096,
+  "trust_remote_code": true,
+  "enable_mixed_chunk": true
+}

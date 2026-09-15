@@ -1,0 +1,20 @@
+=== CALLABLE BOND ANALYTICS VALIDATION ===
+Pipeline:  /app/analyze.py
+Dataset:   /app/market_data.json
+Run date:  2026-03-16T14:22:08Z
+
+Validating pipeline output against independent audit...
+
+  bond_yield          FAIL   absolute error exceeds tolerance (tol=1e-5)
+  i_spread_bps        FAIL   absolute error exceeds tolerance (tol=1.0 bps)
+  z_spread_bps        FAIL   absolute error exceeds tolerance (tol=1.0 bps)
+  oas_bps             FAIL   absolute error exceeds tolerance (tol=3.0 bps)
+  option_cost_bps     FAIL   absolute error exceeds tolerance (tol=3.0 bps)
+  key_rate_durations  PASS   all tenors within tolerance
+  stress_pnl          PASS   within $1000
+
+SUMMARY: 5 of 7 metric groups FAILED
+STATUS:  REJECTED — pipeline must be corrected before sign-off.
+
+All methodology specifications are documented in the conventions
+field of the market data file.

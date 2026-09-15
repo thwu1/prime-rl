@@ -1,0 +1,14 @@
+# Local redundancies: duplicate arithmetic, commutative ops, constant dedup
+function local_cse(2):
+bb0:
+  v0 = add a0 a1
+  v1 = add a0 a1
+  v2 = add a1 a0
+  v3 = const 42
+  v4 = const 42
+  v5 = sub a0 a1
+  v6 = sub a1 a0
+  v7 = mul v0 v1
+  v8 = add v7 v3
+  v9 = add v8 v5
+  return v9

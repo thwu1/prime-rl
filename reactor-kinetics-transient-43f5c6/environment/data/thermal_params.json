@@ -1,0 +1,10 @@
+{
+  "nominal_power_W": 50000.0,
+  "fuel_heat_capacity_J_per_K": 600.0,
+  "moderator_heat_capacity_J_per_K": 4000.0,
+  "fuel_to_moderator_htc_W_per_K": 100.0,
+  "moderator_to_coolant_htc_W_per_K": 2500.0,
+  "coolant_inlet_temperature_K": 560.0,
+  "fuel_temperature_reactivity_coeff_per_K": -3.0e-5,
+  "moderator_temperature_reactivity_coeff_per_K": -1.0e-4
+}

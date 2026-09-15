@@ -1,0 +1,22 @@
+{
+  "vsId": 2002,
+  "algorithm": "ACVP-AES-CBC",
+  "revision": "1.0",
+  "isSample": true,
+  "testGroups": [
+    {
+      "tgId": 1,
+      "testType": "MCT",
+      "direction": "encrypt",
+      "keyLen": 128,
+      "tests": [
+        {
+          "tcId": 1,
+          "key": "9DC2C84A37850C11699818605F47958C",
+          "iv": "256953B2FEAB2A04AE0180F8CF2DB7FB",
+          "pt": "2E586692E647F5028EC6FA47A55A2AAB"
+        }
+      ]
+    }
+  ]
+}

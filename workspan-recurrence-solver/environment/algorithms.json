@@ -1,0 +1,92 @@
+{
+  "reduce": {
+    "description": "Parallel reduce (sum) of a sequence of length n",
+    "work": {
+      "branching_factor": 2,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "1"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "1"
+    },
+    "base": {"condition": "n <= 1", "work": 0, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  },
+  "scan": {
+    "description": "Parallel prefix sums (scan) of a sequence of length n",
+    "work": {
+      "branching_factor": 2,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "2"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "2"
+    },
+    "base": {"condition": "n <= 1", "work": 0, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  },
+  "mergesort": {
+    "description": "Parallel merge sort with parallel merge step. The combine cost reflects parallel overhead (fork/join/merge). Work recurrence: W(n) = 2*W(n/2) + 3n. Span recurrence: S(n) = S(n/2) + log2(n).",
+    "work": {
+      "branching_factor": 2,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "3*n"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "log2(n)"
+    },
+    "base": {"condition": "n <= 1", "work": 0, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  },
+  "standard_matmul": {
+    "description": "Standard recursive matrix multiplication for n x n matrices. Splits into 8 subproblems of size n/2, then adds four pairs of (n/2)x(n/2) result matrices. Work recurrence: W(n) = 8*W(n/2) + 4*n^2. Span recurrence: S(n) = S(n/2) + log2(n).",
+    "work": {
+      "branching_factor": 8,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "4*n*n"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "log2(n)"
+    },
+    "base": {"condition": "n <= 1", "work": 1, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  },
+  "strassen_matmul": {
+    "description": "Strassen's matrix multiplication for n x n matrices. Uses 7 recursive multiplications instead of 8, but requires 18 additions/subtractions of (n/2)x(n/2) matrices. Work recurrence: W(n) = 7*W(n/2) + 18*n^2. Span recurrence: S(n) = S(n/2) + log2(n).",
+    "work": {
+      "branching_factor": 7,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "18*n*n"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "log2(n)"
+    },
+    "base": {"condition": "n <= 1", "work": 1, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  },
+  "karatsuba": {
+    "description": "Karatsuba algorithm for multiplication of n-digit integers. Uses 3 recursive multiplications on n/2-digit numbers plus linear-cost additions. Work recurrence: W(n) = 3*W(n/2) + 4*n. Span recurrence: S(n) = S(n/2) + log2(n).",
+    "work": {
+      "branching_factor": 3,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "4*n"
+    },
+    "span": {
+      "critical_path_branches": 1,
+      "subproblem_size_divisor": 2,
+      "combine_cost": "log2(n)"
+    },
+    "base": {"condition": "n <= 1", "work": 1, "span": 0},
+    "input_constraint": "n must be a power of 2"
+  }
+}

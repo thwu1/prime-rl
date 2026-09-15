@@ -1,0 +1,55 @@
+[data]
+database = "data/markets.db"
+# Monthly end-of-month prices stored in a normalized SQLite schema
+# Returns must be derived from the price series
+
+[estimation]
+window_months = 36
+covariance_correction = "unbiased"  # Bessel's correction (N-1 denominator)
+
+[risk]
+gamma = 2.0  # Relative risk aversion coefficient
+
+[strategies]
+
+[strategies.naive]
+description = "Equal allocation across all assets, rebalanced to uniform weights each period"
+
+[strategies.mvp]
+description = "Minimum variance portfolio — minimize total portfolio risk regardless of expected returns, short positions allowed"
+
+[strategies.efficient]
+description = "Unconstrained mean-variance optimal portfolio for the specified risk aversion, short positions allowed"
+
+[strategies.constrained]
+description = "Mean-variance optimal portfolio for the specified risk aversion, restricted to non-negative positions only"
+
+[strategies.tc_adjusted]
+description = "Mean-variance optimal portfolio that accounts for quadratic trading friction penalizing rebalancing away from the current allocation"
+friction_parameter = 0.005
+
+[backtest]
+method = "rolling_window"
+initialization = "equal_weight"
+# Between rebalancing, weights drift passively with realized returns
+
+[metrics]
+annualized_return = "Compounded from arithmetic mean monthly return"
+annualized_volatility = "Unbiased monthly standard deviation scaled by sqrt(12)"
+sharpe_ratio = "Annualized return divided by annualized volatility (zero risk-free rate)"
+max_drawdown = "Maximum peak-to-trough decline in cumulative wealth path"
+avg_monthly_turnover = "Mean total absolute weight change across all assets per rebalancing"
+
+[optimal_friction]
+search_range = [0.0001, 0.05]
+precision_decimals = 4
+objective = "Maximize net-of-costs Sharpe ratio for the friction-aware strategy"
+cost_per_period = "(friction_parameter / 2) * sum_of_squared_weight_changes"
+
+[output]
+file = "results.json"
+
+[output.schema]
+# strategies: dict mapping strategy name to dict of metric values
+# optimal_beta: optimal friction parameter value (the tc/friction parameter)
+# optimal_beta_sharpe: net-of-costs Sharpe ratio at the optimal parameter

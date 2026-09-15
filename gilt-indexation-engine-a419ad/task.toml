@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in UK fixed-income conventions (DMO index-linked gilt formulae), C++ multi-file build systems, and numerical methods. The solver must: (1) diagnose and fix a broken Makefile missing an object file from the link step, (2) identify and fix 7 coupled bugs across rpi.cpp and pricing.cpp spanning RPI interpolation, lag dispatch, discount factor compounding, ex-dividend accrued interest, yield solver iteration, and general-case pricing loop exponents, (3) design and implement 4 risk analytics functions (modified duration, convexity, BPV, breakeven inflation) from scratch using numerical differentiation. Bugs interact: wrong RPI cascades to wrong index ratios and cash flows; wrong v1 exponent affects all prices; wrong NR sign prevents yield recovery; wrong loop exponent only manifests for n>2 gilts. No single bug can be found without understanding the underlying financial and numerical specifications."""
+solution_explanation = """Fix Makefile by adding analytics.o to OBJS and its build rule. Fix rpi.cpp: (1) interpolation denominator D-1->D, (2) remove hardcoded lag=3 to use lag_months parameter. Fix pricing.cpp: (3) v1=pow(v2,xi)->pow(v2,1-xi), (4) ex-div AI return 0->return (xi-1)*coupon, (5) AI_y in clean_price_from_yield must use (xi-1)*coupon when ex-div, (6) NR update y+=->y-=, (7) general case loop pow(v2,i-2)->pow(v2,i-1). Implement analytics.cpp: modified_duration and convexity via central finite differences on dirty_price_from_yield with dy=0.0001, bpv=mod_dur*dirty/10000, breakeven=pow(IR,1/T)-1."""
+verification_explanation = """Tests compile and run the engine on 6 test gilts covering 3-month lag (n=2), 8-month lag (n=4), ex-dividend, yield-from-price, and multi-coupon (n=4) scenarios. Assertions compare base_rpi against DMO formulae, verify 8-month lag uses flat monthly RPI, check clean prices for both n=2 and n>2 gilts against Python reference using correct v1 compounding and loop exponents, verify ex-div AI is negative, confirm yield round-trip, and validate modified duration, convexity, BPV, and breakeven inflation against independently computed reference values."""
+category = "debugging"
+tags = ["finance", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gilt-indexation-engine-a419ad"

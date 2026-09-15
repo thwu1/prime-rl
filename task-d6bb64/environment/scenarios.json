@@ -1,0 +1,37 @@
+{
+    "wideband_audio": {
+        "passband_hz": 4000,
+        "stopband_hz": 6000,
+        "ripple_db": 1.0,
+        "atten_db": 60,
+        "sample_rate_hz": 48000
+    },
+    "narrowband_comm": {
+        "passband_hz": 3000,
+        "stopband_hz": 3400,
+        "ripple_db": 0.5,
+        "atten_db": 80,
+        "sample_rate_hz": 44100
+    },
+    "near_nyquist_audio": {
+        "passband_hz": 20000,
+        "stopband_hz": 22000,
+        "ripple_db": 0.5,
+        "atten_db": 40,
+        "sample_rate_hz": 48000
+    },
+    "telephony_band": {
+        "passband_hz": 3400,
+        "stopband_hz": 4600,
+        "ripple_db": 0.1,
+        "atten_db": 50,
+        "sample_rate_hz": 16000
+    },
+    "low_freq_seismic": {
+        "passband_hz": 20,
+        "stopband_hz": 30,
+        "ripple_db": 0.5,
+        "atten_db": 100,
+        "sample_rate_hz": 1000
+    }
+}

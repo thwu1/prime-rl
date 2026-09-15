@@ -1,0 +1,142 @@
+{
+  "profiles": {
+    "us-core-patient": {
+      "resourceType": "Patient",
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+      "version": "6.1.0",
+      "mustSupportElements": [
+        "identifier",
+        "identifier.system",
+        "identifier.value",
+        "name",
+        "name.family",
+        "name.given",
+        "telecom",
+        "telecom.system",
+        "telecom.value",
+        "telecom.use",
+        "gender",
+        "birthDate",
+        "address",
+        "address.line",
+        "address.city",
+        "address.state",
+        "address.postalCode",
+        "communication",
+        "communication.language",
+        "extension:race",
+        "extension:ethnicity",
+        "extension:birthsex"
+      ],
+      "requiredSearchParams": ["_id", "identifier", "name", "birthdate", "gender"],
+      "requiredInteractions": ["read", "search-type", "vread"]
+    },
+    "us-core-condition-encounter-diagnosis": {
+      "resourceType": "Condition",
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-condition-encounter-diagnosis",
+      "version": "6.1.0",
+      "discriminator": {
+        "path": "category.coding.code",
+        "value": "encounter-diagnosis"
+      },
+      "mustSupportElements": [
+        "clinicalStatus",
+        "verificationStatus",
+        "category",
+        "code",
+        "subject",
+        "encounter",
+        "onsetDateTime",
+        "abatementDateTime",
+        "recordedDate"
+      ],
+      "requiredSearchParams": ["patient", "category", "code", "onset-date", "clinical-status"],
+      "requiredInteractions": ["read", "search-type"]
+    },
+    "us-core-observation-lab": {
+      "resourceType": "Observation",
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab",
+      "version": "6.1.0",
+      "discriminator": {
+        "path": "category.coding.code",
+        "value": "laboratory"
+      },
+      "mustSupportElements": [
+        "status",
+        "category",
+        "code",
+        "subject",
+        "effectiveDateTime",
+        "valueQuantity",
+        "valueCodeableConcept",
+        "valueString",
+        "dataAbsentReason",
+        "interpretation",
+        "referenceRange",
+        "referenceRange.low",
+        "referenceRange.high"
+      ],
+      "requiredSearchParams": ["patient", "category", "code", "date", "status"],
+      "requiredInteractions": ["read", "search-type"]
+    },
+    "us-core-vital-signs": {
+      "resourceType": "Observation",
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-vital-signs",
+      "version": "6.1.0",
+      "discriminator": {
+        "path": "category.coding.code",
+        "value": "vital-signs"
+      },
+      "mustSupportElements": [
+        "status",
+        "category",
+        "category.coding",
+        "category.coding.system",
+        "category.coding.code",
+        "code",
+        "subject",
+        "effectiveDateTime",
+        "effectivePeriod",
+        "valueQuantity",
+        "valueQuantity.value",
+        "valueQuantity.unit",
+        "valueQuantity.system",
+        "valueQuantity.code",
+        "dataAbsentReason",
+        "component",
+        "component.code",
+        "component.valueQuantity",
+        "component.dataAbsentReason"
+      ],
+      "requiredSearchParams": ["patient", "category", "code", "date"],
+      "requiredInteractions": ["read", "search-type"]
+    },
+    "us-core-medicationrequest": {
+      "resourceType": "MedicationRequest",
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-medicationrequest",
+      "version": "6.1.0",
+      "mustSupportElements": [
+        "status",
+        "intent",
+        "category",
+        "reportedBoolean",
+        "reportedReference",
+        "medicationCodeableConcept",
+        "medicationReference",
+        "subject",
+        "encounter",
+        "authoredOn",
+        "requester",
+        "dosageInstruction",
+        "dosageInstruction.text"
+      ],
+      "requiredSearchParams": ["patient", "intent", "status", "authoredon"],
+      "requiredInteractions": ["read", "search-type", "vread"]
+    }
+  },
+  "extensionUrls": {
+    "race": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race",
+    "ethnicity": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity",
+    "birthsex": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex"
+  }
+}

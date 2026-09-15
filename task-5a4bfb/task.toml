@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of elliptic curve endomorphisms and their use in optimizing scalar multiplication. The solver must: (1) build and run a Rust/Cargo project depending on the k256 crate to generate reference data about the curve's point transformation; (2) analyze the Rust source to extract a field constant and understand its mathematical role; (3) derive a related scalar-field constant that is not provided anywhere; (4) implement an efficient scalar decomposition that splits 256-bit scalars into bounded half-size pairs — a non-trivial number-theoretic computation; (5) implement simultaneous multi-point computation to exploit the decomposition; (6) handle edge cases including negative sub-scalars, identity points, and boundary values; (7) validate against BIP340 Schnorr test vectors and benchmark performance. This requires cross-toolchain work (Rust + Python), deep algebraic number theory knowledge, and sophisticated ECC implementation skills."""
+solution_explanation = """The solution extracts BETA from the Rust source ENDOMORPHISM_BETA byte array. It derives LAMBDA as the non-trivial cube root of unity mod n satisfying endomorphism(G) = LAMBDA*G, discovered by building and running the k256 harness then solving the algebraic relationship. Scalar decomposition uses a short lattice basis computed via the half-GCD of (n, LAMBDA), with Babai rounding for balanced splitting. The two ~128-bit sub-scalars drive a simultaneous double-and-add over the original point and its endomorphism image, yielding ~1.3-1.5x speedup."""
+verification_explanation = """Tests verify: (1) BETA matches the Rust source constant; (2) LAMBDA satisfies cube-root-of-unity properties in both field and scalar ring; (3) endomorphism(G) equals LAMBDA*G (eigenvalue property); (4) endomorphism works on arbitrary points and has order 3; (5) decompose_scalar produces valid bounded decompositions for 8+ cases including edge values; (6) fast_mul matches naive point_mul for 13+ test scalars on generator and non-generator points; (7) results.json contains valid constants, decomposition examples, and benchmark data; (8) BIP340 signing vectors produce correct public keys via fast_mul."""
+category = "cryptography"
+tags = ["elliptic-curves", "scalar-multiplication"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5a4bfb"

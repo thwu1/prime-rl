@@ -1,0 +1,72 @@
+{
+  "eval_sets": {
+    "set_alpha": {
+      "description": "Mixed human/AI narratives evaluated against gen_alpha outputs",
+      "generator": "gen_alpha",
+      "labels": {
+        "N0001": {"true_source": "human", "human_believability": 0.85},
+        "N0002": {"true_source": "human", "human_believability": 0.72},
+        "N0003": {"true_source": "human", "human_believability": 0.91},
+        "N0004": {"true_source": "human", "human_believability": 0.68},
+        "N0005": {"true_source": "human", "human_believability": 0.45},
+        "N0006": {"true_source": "human", "human_believability": 0.78},
+        "N0007": {"true_source": "human", "human_believability": 0.56},
+        "N0008": {"true_source": "human", "human_believability": 0.83},
+        "N0009": {"true_source": "human", "human_believability": 0.69},
+        "N0010": {"true_source": "human", "human_believability": 0.77},
+        "N0011": {"true_source": "ai", "human_believability": 0.82},
+        "N0012": {"true_source": "ai", "human_believability": 0.73},
+        "N0013": {"true_source": "ai", "human_believability": 0.88},
+        "N0014": {"true_source": "ai", "human_believability": 0.51},
+        "N0015": {"true_source": "ai", "human_believability": 0.64},
+        "N0016": {"true_source": "ai", "human_believability": 0.79},
+        "N0017": {"true_source": "ai", "human_believability": 0.43},
+        "N0018": {"true_source": "ai", "human_believability": 0.71},
+        "N0019": {"true_source": "ai", "human_believability": 0.66},
+        "N0020": {"true_source": "ai", "human_believability": 0.85}
+      }
+    },
+    "set_beta": {
+      "description": "Mixed human/AI narratives evaluated against gen_beta outputs",
+      "generator": "gen_beta",
+      "labels": {
+        "N0001": {"true_source": "human", "human_believability": 0.85},
+        "N0002": {"true_source": "human", "human_believability": 0.72},
+        "N0003": {"true_source": "human", "human_believability": 0.91},
+        "N0004": {"true_source": "human", "human_believability": 0.68},
+        "N0005": {"true_source": "human", "human_believability": 0.45},
+        "N0006": {"true_source": "human", "human_believability": 0.78},
+        "N0007": {"true_source": "human", "human_believability": 0.56},
+        "N0008": {"true_source": "human", "human_believability": 0.83},
+        "N0009": {"true_source": "human", "human_believability": 0.69},
+        "N0010": {"true_source": "human", "human_believability": 0.77},
+        "N0011": {"true_source": "ai", "human_believability": 0.61},
+        "N0012": {"true_source": "ai", "human_believability": 0.55},
+        "N0013": {"true_source": "ai", "human_believability": 0.73},
+        "N0014": {"true_source": "ai", "human_believability": 0.44},
+        "N0015": {"true_source": "ai", "human_believability": 0.38},
+        "N0016": {"true_source": "ai", "human_believability": 0.59},
+        "N0017": {"true_source": "ai", "human_believability": 0.32},
+        "N0018": {"true_source": "ai", "human_believability": 0.48},
+        "N0019": {"true_source": "ai", "human_believability": 0.52},
+        "N0020": {"true_source": "ai", "human_believability": 0.67}
+      }
+    },
+    "set_gamma": {
+      "description": "All AI narratives from gen_gamma — degenerate evaluation set with no human baselines",
+      "generator": "gen_gamma",
+      "labels": {
+        "N0001": {"true_source": "ai", "human_believability": 0.75},
+        "N0002": {"true_source": "ai", "human_believability": 0.81},
+        "N0003": {"true_source": "ai", "human_believability": 0.69},
+        "N0004": {"true_source": "ai", "human_believability": 0.58},
+        "N0005": {"true_source": "ai", "human_believability": 0.83},
+        "N0006": {"true_source": "ai", "human_believability": 0.72},
+        "N0007": {"true_source": "ai", "human_believability": 0.66},
+        "N0008": {"true_source": "ai", "human_believability": 0.79},
+        "N0009": {"true_source": "ai", "human_believability": 0.54},
+        "N0010": {"true_source": "ai", "human_believability": 0.71}
+      }
+    }
+  }
+}

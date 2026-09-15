@@ -1,0 +1,27 @@
+# Deployment Configuration — Predictive Maintenance Endpoint
+# Last updated: 2026-05-01
+
+endpoint:
+  name: prod-v1
+  type: real-time
+  instance_type: Standard_DS3_v2
+  instance_count: 2
+
+sla:
+  latency_p99_ms: 100
+  availability_pct: 99.9
+  throughput_rps: 200
+
+model:
+  name: predictive-maintenance-model
+  scoring_script: score.py
+  environment: predictive-maint-env:1
+
+scaling:
+  min_instances: 1
+  max_instances: 4
+  target_utilization: 70
+
+rollout:
+  strategy: blue-green
+  traffic_split: {blue: 100, green: 0}

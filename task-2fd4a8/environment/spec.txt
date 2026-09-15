@@ -1,0 +1,146 @@
+XAES-256-GCM: Extended-Nonce AEAD
+===================================
+
+XAES-256-GCM is an authenticated encryption with additional data (AEAD)
+algorithm with 256-bit keys and 192-bit nonces, based on the composition of a
+NIST SP 800-108r1 counter-based KDF (using CMAC-AES256) and AES-256-GCM.
+
+The large nonce enables safe random nonce generation for a virtually unlimited
+number of messages (2^80 messages with collision risk 2^-32).
+
+Compared to AES-256-GCM, XAES-256-GCM requires only three extra invocations
+of the AES-256 encryption function per message (one of which can be amortized
+across all uses of the same input key).
+
+Detailed Key Derivation Algorithm
+----------------------------------
+
+Inputs:
+  - 256-bit key K
+  - 192-bit nonce N
+
+Outputs:
+  - 256-bit derived key Kx
+  - 96-bit derived nonce Nx
+
+Algorithm:
+
+  1. L = AES-256_K(0x00, ..., 0x00)
+     (Encrypt a 128-bit block of all zeros with AES-256 using key K)
+
+  2. If MSB_1(L) = 0, then K1 = L << 1;
+     Else K1 = (L << 1) XOR (0x00, ..., 0x00, 0x87)
+     (This is the CMAC subkey derivation from NIST SP 800-38B, Section 6.1.
+      The left shift is over the full 128-bit value. The XOR constant 0x87
+      is the reduction polynomial for GF(2^128).)
+
+  3. M1 = 0x00 || 0x01 || 0x58 || 0x00 || N[:12]
+     (16-byte block: two bytes of counter/flags, the ASCII letter 'X' as
+      label, a zero separator, and the first 12 bytes of the nonce as context)
+
+  4. M2 = 0x00 || 0x02 || 0x58 || 0x00 || N[:12]
+     (Same as M1 but with counter value 2)
+
+  5. Kx = AES-256_K(M1 XOR K1) || AES-256_K(M2 XOR K1)
+     (Two AES-256 block encryptions under the original key K, concatenated
+      to form the 256-bit derived key)
+
+  6. Nx = N[12:]
+     (The last 12 bytes of the input nonce become the AES-256-GCM nonce)
+
+Kx and Nx are then used as the AES-256-GCM key and nonce, respectively.
+
+Notes:
+  - Steps 1 and 2 can be precomputed and reused for a given key K.
+  - 0x58 is the ASCII code for the letter 'X'.
+  - The counter field (bytes 0-1 of M1/M2) uses big-endian 16-bit encoding.
+  - The algorithm maps to NIST SP 800-108r1 Section 4.1 (counter-based KDF)
+    with CMAC-AES256 as the PRF.
+
+Notation:
+  - || denotes byte concatenation
+  - XOR denotes bitwise exclusive-or
+  - MSB_1(x) is the most significant bit of x
+  - x << 1 is a left shift by 1 bit position (over the full block width)
+  - N[:12] is the first 12 bytes of N
+  - N[12:] is the last 12 bytes of N (bytes 12 through 23)
+
+Encryption and Decryption
+--------------------------
+
+To encrypt plaintext P with additional data A under key K and nonce N:
+  1. Derive (Kx, Nx) = DeriveKey(K, N)
+  2. Return AES-256-GCM-Encrypt(Kx, Nx, P, A)
+     Output is ciphertext || 128-bit authentication tag
+
+To decrypt ciphertext C (with appended tag) with additional data A:
+  1. Derive (Kx, Nx) = DeriveKey(K, N)
+  2. Return AES-256-GCM-Decrypt(Kx, Nx, C, A)
+     Raise an error if authentication fails
+
+Test Vectors
+-------------
+
+In the following vectors, unquoted values are hex-encoded, and quoted values
+are ASCII strings.
+
+--- Vector 1 (MSB_1(L) = 0) ---
+
+  K:  0101010101010101010101010101010101010101010101010101010101010101
+  N:  "ABCDEFGHIJKLMNOPQRSTUVWX"
+
+  Intermediate values:
+    L:  7298caa565031eadc6ce23d23ea66378
+    K1: e531954aca063d5b8d9c47a47d4cc6f0
+    M1: 000158004142434445464748494a4b4c
+    M2: 000258004142434445464748494a4b4c
+    Kx: c8612c9ed53fe43e8e005b828a1631a0bbcb6ab2f46514ec4f439fcfd0fa969b
+    Nx: 4d4e4f505152535455565758
+
+  Plaintext:  "XAES-256-GCM"
+  AAD:        ""
+  Ciphertext: ce546ef63c9cc60765923609b33a9a1974e96e52daf2fcf7075e2271
+
+--- Vector 2 (MSB_1(L) = 1) ---
+
+  K:  0303030303030303030303030303030303030303030303030303030303030303
+  N:  "ABCDEFGHIJKLMNOPQRSTUVWX"
+
+  Intermediate values:
+    L:  91c08762876dccf9ba204a33768fa5fe
+    K1: 23810ec50edb99f374409466ed1f4b7b
+    M1: 000158004142434445464748494a4b4c
+    M2: 000258004142434445464748494a4b4c
+    Kx: e9c621d4cdd9b11b00a6427ad7e559aeedd66b3857646677748f8ca796cb3fd8
+    Nx: 4d4e4f505152535455565758
+
+  Plaintext:  "XAES-256-GCM"
+  AAD:        "c2sp.org/XAES-256-GCM"
+  Ciphertext: 986ec1832593df5443a179437fd083bf3fdb41abd740a21f71eb769d
+
+Accumulated Randomized Test Vectors
+-------------------------------------
+
+For each test iteration, the following structure is read from a deterministic
+RNG (using RFC 8446 Section 3 presentation language):
+
+  opaque key[32];
+  opaque nonce[24];
+  opaque plaintext<0..255>;
+  opaque aad<0..255>;
+
+The <0..255> notation means a variable-length vector with a 1-byte length
+prefix (the length byte is drawn from the RNG, then that many bytes of data
+are drawn).
+
+The deterministic RNG is a single SHAKE-128 instance with an empty input.
+(The RNG stream starts with 7f9c2ba4e88f827d616045507605853e.)
+
+For each iteration, encrypt the plaintext with the drawn key, nonce, and aad.
+The resulting ciphertext (including the appended authentication tag) is fed
+into a separate SHAKE-128 accumulator instance.
+
+After all iterations, read 32 bytes from the accumulator.
+
+The resulting hash for 10,000 iterations is:
+  e6b9edf2df6cec60c8cbd864e2211b597fb69a529160cd040d56c0c210081939

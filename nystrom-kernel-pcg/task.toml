@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of randomized numerical linear algebra: Nystrom low-rank kernel approximation, ridge leverage score estimation via pilot sketches, the Woodbury matrix identity for efficient O(ns) preconditioner application, and correct preconditioned conjugate gradient implementation. The non-uniform cluster structure demands leverage-score-based landmark selection rather than uniform sampling. Numerical stability issues (regularization of K_{S,S}, Cholesky robustness, CG breakdown detection) must be handled correctly. Combines kernel methods expertise with iterative solver design."""
+solution_explanation = """Estimate ridge leverage scores using a pilot Nystrom sketch: uniformly sample s_pilot columns of K, form Z = K[:,S] W^{-1/2}, compute leverage scores as diag(Z(Z^TZ + lambda I)^{-1} Z^T). Sample landmarks proportional to leverage scores. Build Nystrom preconditioner P = K[:,S] K[S,S]^{-1} K[S,:]^T + lambda I, applied via Woodbury identity: P^{-1}v = (1/lambda)(v - C M^{-1} C^T v) where M = lambda W + C^T C. Run preconditioned CG with chunked matrix-free kernel matvec to convergence."""
+verification_explanation = """Tests independently compute the kernel matrix-vector product (K + lambda I) alpha using chunked computation and verify the relative residual is below tolerance. Additional tests verify landmark validity (integer indices, within bounds, unique), iteration count under budget, residual history consistency (final < initial, all finite), and solution finiteness."""
+category = "mathematics"
+tags = ["numerical-linear-algebra", "kernel-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nystrom-kernel-pcg"

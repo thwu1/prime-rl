@@ -1,0 +1,16 @@
+#
+# /etc/pam.d/common-auth - authentication settings common to all services
+#
+# This file is managed by pam-auth-update(8). Manual changes will be
+# overwritten the next time this tool is run.
+#
+# Hardened for DISA STIG compliance with pam_faillock
+
+auth    required                        pam_faillock.so preauth deny=99
+auth    [success=2 default=ignore]      pam_unix.so nullok
+auth    [default=die]                   pam_faillock.so authfail deny=99
+auth    requisite                       pam_deny.so
+auth    required                        pam_faillock.so authsucc
+auth    required                        pam_permit.so
+auth    optional                        pam_cap.so
+# end of pam-auth-update

@@ -1,0 +1,9 @@
+StorePath: /nix/store/aczb0zlrp8hal9f90spk6xyhcqg3ivax-bash-5.2.21.tar.gz
+URL: nar/aczb0zlrp8hal9f90spk6xyhcqg3ivax.nar.xz
+Compression: xz
+FileHash: sha256:b4f6821b9645af3e9053a8456f25227d1d017e6f452fc4f0f404a28122e7eb71
+FileSize: 7240971
+NarHash: sha256:5058ccd0952fcbc3086e0b99e1725b2357c9625ca064dfd3a5441fe8eb5a9a58
+NarSize: 22464085
+References:
+CA: fixed:r:sha256:28e1c21f44ebf9950db5ab81c72f9713193af088b6975b3bc7984a29e8f03c9e

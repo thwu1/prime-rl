@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="system">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="memory_region" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="size" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="protection_domain" minOccurs="1" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element name="program_image">
+                  <xs:complexType>
+                    <xs:attribute name="path" type="xs:string" use="required"/>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="map">
+                  <xs:complexType>
+                    <xs:attribute name="mr" type="xs:string" use="required"/>
+                    <xs:attribute name="vaddr" type="xs:string" use="required"/>
+                    <xs:attribute name="perms" type="xs:string" use="required"/>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="irq">
+                  <xs:complexType>
+                    <xs:attribute name="irq" type="xs:nonNegativeInteger" use="required"/>
+                    <xs:attribute name="id" type="xs:nonNegativeInteger" use="required"/>
+                  </xs:complexType>
+                </xs:element>
+              </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="priority" type="xs:nonNegativeInteger" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="channel" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="end" minOccurs="2" maxOccurs="2">
+                <xs:complexType>
+                  <xs:attribute name="pd" type="xs:string" use="required"/>
+                  <xs:attribute name="id" type="xs:nonNegativeInteger" use="required"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

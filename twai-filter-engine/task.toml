@@ -1,0 +1,44 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the ESP32 TWAI acceptance filter register layout from Rust HAL source code. \
+The agent must read Rust macros and const fn semantics, deduce the mask bit polarity convention from the register conversion \
+function, extract field-to-bit-position mappings for four distinct filter modes (including the non-contiguous payload byte \
+layout in dual standard mode), implement all of this in Python, optimize partition assignments for dual-filter synthesis, \
+and parse a custom binary register dump format. Cross-language comprehension (Rust → Python) and binary data handling are \
+essential skills beyond standard embedded systems knowledge."""
+solution_explanation = """Study the Rust source to determine that the register mask uses inverted polarity (set bit = don't care). \
+Extract bit position mappings for each filter mode by tracing the macro expansion and const fn logic. Implement matching by \
+packing frame fields into the appropriate bit positions and comparing against code using the inverted mask. Implement synthesis \
+by finding bit positions where input frames disagree and setting don't-care. For dual modes, enumerate partitions to minimize \
+total don't-care bits. Parse the binary dump file using Python struct module to extract mode, register data, and label fields."""
+verification_explanation = """Tests verify match behavior across all four filter modes with diverse register configurations and \
+frame combinations. Synthesis tests verify roundtrip correctness (synthesize then match all inputs) and tightness (reject control \
+frames outside the accepted set). Parse-dump tests verify correct binary format parsing including entry count, mode enumeration, \
+register hex extraction, and label decoding, plus cross-validation that parsed register configs produce correct match results. \
+Edge cases include RTR bit handling, empty/short payloads, accept-all configurations, and split-nibble payload in dual standard."""
+category = "embedded_systems"
+tags = ["can-bus", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/twai-filter-engine"

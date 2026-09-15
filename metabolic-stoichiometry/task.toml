@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a GNU Make pipeline that orchestrates SQLite database operations and Python analysis scripts with proper dependency declarations between targets. The solver must explore a normalized relational SQL schema with compound synonym indirection, parse KEGG compound entry flat files to recover missing formulas, implement chemical formula parsing, compute element-level stoichiometric balance at individual reaction and multi-reaction pathway levels with signed flux coefficients, perform graph analysis (dead-end/chokepoint detection, BFS shortest paths with currency metabolite exclusion), populate a derived stoich_entries table using correct sign conventions via SQL DDL, and export the stoichiometric matrix in Matrix Market coordinate format—a sparse matrix interchange specification requiring understanding its header/dimension/data structure. The Makefile must have individually buildable targets with correct prerequisite chains, requiring genuine multi-tool interoperability between Make, sqlite3, and Python."""
+solution_explanation = """Build a Makefile with targets for each output and a Python pipeline script accepting subcommands. The build-db command imports the SQL dump, resolves compound synonyms via UPDATE statements, recovers NULL formulas from the KEGG reference file, creates a recovery_log tracking table, and populates a stoich_entries table using INSERT...SELECT with CASE expressions for sign convention. Subsequent targets read the corrected database: balance computes per-reaction element deltas by parsing chemical formulas character-by-character; pathways applies signed flux coefficients accumulating net consumption/production and checks elemental conservation; graph counts compound appearances for dead-end detection and identifies chokepoint reactions; shortest runs BFS on a compound-reaction bipartite graph excluding currency metabolites; matrix reads stoich_entries, maps reaction/compound IDs to sorted row/column indices, and exports in Matrix Market coordinate format with row/column ID comments and lexicographically sorted entries."""
+verification_explanation = """Tests verify: (1) Makefile exists with references to all output targets and proper dependency structure validated by deleting the database and rebuilding a dependent target to confirm prerequisite chains work; (2) corrected database has all original tables plus stoich_entries with exactly 129 entries, correct sign conventions, no synonym IDs, and specific coefficient values for R00004 and synonym-resolved R00621; (3) data_recovery.json has exactly 6 compounds with correct formulas; (4) balance_report.json has 25 balanced and 7 unbalanced reactions with correct element deltas; (5) pathway_stoichiometry.json matches biochemistry for all 5 pathways including element_balance flags and H deltas; (6) dead_ends/chokepoints/shortest_paths match expected values; (7) stoichiometric_matrix.mtx has correct Matrix Market header, 32x48 dimensions with 129 non-zero entries, ROWS/COLS comment lines, sorted entries, and correct coefficient values."""
+category = "chemistry_biology"
+tags = ["metabolic-network", "stoichiometry"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/metabolic-stoichiometry"

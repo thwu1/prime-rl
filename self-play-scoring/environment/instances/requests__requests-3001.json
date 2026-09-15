@@ -1,0 +1,40 @@
+{
+  "instance_id": "requests__requests-3001",
+  "bug_patches": {
+    "b0": {"diff_size": 30},
+    "b1": {"diff_size": 25},
+    "b2": {"diff_size": 50},
+    "b3": {"diff_size": 35}
+  },
+  "test_patches": {
+    "t0": {"fails_on_original": true},
+    "t1": {"fails_on_original": false},
+    "t2": {"fails_on_original": true},
+    "t3": {"fails_on_original": false}
+  },
+  "test_results_unpatched": {
+    "t0": {"failed": 5, "passed": 5},
+    "t1": {"failed": 0, "passed": 10},
+    "t2": {"failed": 3, "passed": 7},
+    "t3": {"failed": 0, "passed": 10}
+  },
+  "execution_matrix": {
+    "b0": {
+      "t0": {"fail_to_pass": 5, "pass_to_pass": 5},
+      "t1": {"fail_to_pass": 0, "pass_to_pass": 10},
+      "t2": {"fail_to_pass": 3, "pass_to_pass": 7}
+    },
+    "b1": {
+      "t0": {"fail_to_pass": 4, "pass_to_pass": 4},
+      "t2": {"fail_to_pass": 2, "pass_to_pass": 6}
+    },
+    "b2": {
+      "t0": {"fail_to_pass": 3, "pass_to_pass": 5},
+      "t2": {"fail_to_pass": 1, "pass_to_pass": 7}
+    },
+    "b3": {
+      "t0": {"fail_to_pass": 5, "pass_to_pass": 5},
+      "t2": {"fail_to_pass": 2, "pass_to_pass": 6}
+    }
+  }
+}

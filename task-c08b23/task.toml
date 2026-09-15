@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic auditing of a scoring engine with 5 interacting bugs, reverse-engineering correct behavior from partial oracle data, resolving 3 specification ambiguities through a combination of empirical evidence and domain reasoning about CWSS-inspired scoring philosophy. The agent must extract data from a SQLite database with superseded rows requiring schema analysis and filtering, coordinate jq/sqlite3/Python toolchains, fix subtle numerical bugs (DETECTED value aliasing, floor-vs-round division, error propagation direction, N/A exclusion semantics, weight formula coefficient ordering), and produce a comparative security analysis requiring weighted differential computation across 14 categories."""
+solution_explanation = """Extract Beta test data from SQLite filtering on valid=1. Resolve spec ambiguities: (1) oracle CWE-120 shows DETECTED effective value is 3 not 4, (2) philosophy text implies min-error propagation (most severe), (3) oracle MDL valid_cwe_count=1 and Selected=null prove error/N/A CWEs are excluded not zeroed. Fix the 5 bugs: DETECTED=3 with NORM_DIVISOR=3, floor() not round(), min not max for errors, exclude error CWEs from category averages, fix weight formula to 0.6*AV+0.4*ENV. Run corrected engine on both processors, compute comparison with weighted differential analysis to identify IE as highest impact category."""
+verification_explanation = """Tests verify corrected Alpha report against hand-computed expected values (BESSPIN Scale 30.73%, naive tallies, per-CWE scores for DETECTED aliasing, multi-part aggregation, floor division, error propagation). Beta report verified similarly (Scale 55.65%, CWE-456 floor_score=HIGH confirming floor-not-round, CWE-590 floor_score=FAIL confirming min-error-propagation). Comparison verified for correct processor ranking, category advantages, and highest-impact category identification."""
+category = "security"
+tags = ["scoring-systems", "forensic-auditing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c08b23"

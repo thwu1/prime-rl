@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of information retrieval evaluation methodology. The instruction names no anomaly types, detection algorithms, or analysis steps — only that some submissions are "not suitable for fair comparative evaluation." The agent must independently recognize three distinct classes of evaluation manipulation from domain expertise alone: (1) data-format corruption across multiple sub-categories, (2) pooling-bias exploitation — a subtle vulnerability specific to pooled evaluation where a system can inflate its metrics by restricting retrievals to judged documents, requiring knowledge of how NIST judgment pools are constructed and why this is unfair, and (3) submission plagiarism detected via statistical analysis of result-list similarity — requiring the agent to design an appropriate comparison metric and threshold. Beyond detection, the agent must compile trec_eval from C source, correctly invoke it for MAP/nDCG@10/P@5 with TREC conventions (graded relevance, exponential gain), and synthesize all findings into a coherent trustworthiness determination. No individual step is trivial without deep IR evaluation background."""
+solution_explanation = """Build trec_eval from source with make. Explore campaign directory to find qrels and 6 submission files in TREC format. Parse and validate each run file — sys_bravo exhibits multiple corruption categories (missing fields, invalid scores, duplicate document entries, phantom queries referencing non-existent topics). For structurally clean runs, compute per-run judged-document rates against the qrels pool to identify sys_delta as a pool exploiter (near-100% judged rate vs ~85% for legitimate runs). Compute pairwise top-50 document overlap across all clean non-exploiting runs to detect sys_foxtrot as plagiarizing sys_charlie (>90% overlap vs <20% between independent runs). Exclude sys_bravo (data quality), sys_delta (pool exploitation), and sys_foxtrot (plagiarism). Evaluate remaining valid runs with trec_eval to compute MAP, nDCG@10, P@5 and rank by MAP."""
+verification_explanation = """Tests independently verify each disqualification is justified: sys_bravo actually contains >50 format errors across multiple corruption types; sys_delta actually has a judged rate >0.95 exceeding all valid runs; sys_foxtrot actually shares >80% top-50 document overlap with sys_charlie far exceeding any other pair. Valid runs match exactly {sys_alpha, sys_charlie, sys_echo}. All metrics verified against trec_eval reference output within 0.005 tolerance. Ranking verified consistent with MAP ordering."""
+category = "data_science"
+tags = ["information_retrieval", "evaluation_forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trec-evaluation-pipeline"

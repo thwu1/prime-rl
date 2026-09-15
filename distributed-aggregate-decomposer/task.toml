@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed query processing theory. The agent must: (1) analyze two decomposer implementations with distinct bugs spanning distributive, algebraic, and statistical aggregate types, identifying WHY each approach is mathematically incorrect under parallel execution; (2) derive the parallel covariance formula (COVAR_POP decomposition into SUM(xy), SUM(x), SUM(y), COUNT partial values — a bivariate extension of the parallel variance identity) which cannot be looked up from the candidate implementations since neither handles it correctly; (3) recognize that GROUP BY column references must be remapped from table-qualified identifiers to shard-output aliases when the merge query operates on concatenated shard results rather than original tables — a subtle architectural issue that only manifests in multi-table join scenarios; (4) synthesize a correct implementation combining valid decomposition strategies while fixing all mathematical and SQL-generation bugs across COUNT merge semantics, AVG expression preservation, parallel variance/stddev/covariance formulas, and HAVING clause rewriting."""
+solution_explanation = """Evaluates both candidates against diverse query patterns. Identifies Alpha bugs: (1) AVG uses unweighted average-of-averages instead of SUM/COUNT decomposition, (2) HAVING clause not rewritten to reference merge-phase expressions, (3) COVAR_POP treated as univariate — computes VAR_POP(first_arg) instead of bivariate covariance. Identifies Beta bugs: (1) COUNT merge uses COUNT instead of SUM, (2) AVG over compound expressions extracts only first column reference, (3) VAR_POP/STDDEV_POP naively averaged across shards, (4) COVAR_POP averaged across shards ignoring between-shard mean variation. Identifies shared bug: GROUP BY in merge query uses original table-qualified references instead of shard-output aliases. Creates correct decomposer with: SUM-merge for COUNT, full-expression SUM/COUNT for AVG, parallel variance formula for VAR_POP/STDDEV_POP, parallel covariance formula for COVAR_POP, HAVING rewriting via aggregate cache, and GROUP BY alias remapping for merge phase."""
+verification_explanation = """Creates TPC-H SF0.1 database, runs each test query both monolithically and via the shard-merge pipeline (partition lineitem by hash, replicate dimension tables, run shard_query per partition, concatenate results, run merge_query). Compares for schema match, row count, and numerical closeness (rtol=1e-4). Tests cover distributive aggregates, AVG over simple and compound expressions, VAR_POP/STDDEV_POP, COVAR_POP (bivariate), multi-table star-schema joins with GROUP BY alias handling, HAVING clauses, ORDER BY, mixed aggregate queries, and return value structure."""
+category = "data_management"
+tags = ["distributed-systems", "parallel-algorithms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/distributed-aggregate-decomposer"

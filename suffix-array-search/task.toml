@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing suffix array construction (O(n log^2 n) prefix doubling or similar), binary search on suffix arrays for literal patterns, regex factoring to extract mandatory literal substrings from arbitrary regex patterns (handling metacharacters, quantifiers, character classes, escapes), mapping byte-level suffix array positions back to file/line granularity across a multi-file corpus, and building a case-insensitive search mode with a separate folded index. The combination of these algorithmic techniques—suffix arrays, regex AST analysis, and multi-file line attribution—is non-trivial and not a standard textbook exercise."""
+solution_explanation = """The solution builds a suffix array using prefix doubling (O(n log^2 n)), constructs both case-sensitive and case-insensitive indexes, implements regex literal factor extraction by walking the pattern character-by-character to identify the longest guaranteed literal substring, performs binary search on the suffix array to narrow candidates, applies full regex only to candidate lines, and maps byte positions to (file, line) pairs using precomputed offset tables."""
+verification_explanation = """Tests verify: literal search correctness across multiple files, regex search with suffix array acceleration, case-insensitive matching, output format (file:line:content sorted), regex factoring diagnostics via --explain flag, index persistence and consistency, edge cases (no matches, special characters, empty patterns), and performance on a 20K-line corpus."""
+category = "algorithms"
+tags = ["suffix-arrays", "regex-search"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/suffix-array-search"

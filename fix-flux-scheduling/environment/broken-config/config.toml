@@ -1,0 +1,36 @@
+# Flux cluster configuration for 8-node test cluster
+# Intended layout:
+#   debug: node[0-1]   (quick turnaround, 30 min max)
+#   batch: node[2-5]   (production, 8 hour max)
+#   gpu:   node[6-7]   (GPU workloads, 4 hour max, 2 GPUs per node)
+# Default queue: batch
+
+[access]
+allow-root-owner = true
+
+[resource]
+exclude = "node6"
+
+[[resource.config]]
+hosts = "node[0-7]"
+cores = "0-3"
+properties = ["debug", "batch"]
+
+[[resource.config]]
+hosts = "node[6-7]"
+gpus = "0-1"
+
+[queues.debug]
+requires = ["debug"]
+policy.limits.duration = "30m"
+
+[queues.batch]
+requires = ["batch"]
+policy.limits.duration = "8h"
+
+[queues.gpu]
+requires = ["gpu"]
+policy.limits.duration = "4h"
+
+[policy.jobspec.defaults.system]
+queue = "gpu"

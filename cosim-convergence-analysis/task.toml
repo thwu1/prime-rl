@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in co-simulation theory (FMI-style coupling exchange semantics, Jacobi vs Gauss-Seidel master algorithms), numerical ODE integration for moderately stiff systems (DC motor electrical time constant ~30 ms coupled with mechanical dynamics), and convergence analysis methodology. The agent must correctly implement the coupling variable exchange protocols for both schemes, handle piecewise-constant input discontinuities in the reference solution, choose appropriate internal solvers for each subsystem, and perform rigorous convergence order estimation over the stable range only."""
+solution_explanation = """Solve the monolithic coupled 3-state ODE (armature current, load speed, PI integrator) using scipy.integrate.solve_ivp with segment-splitting at input discontinuities for the reference. Implement Jacobi (simultaneous advance with one-step-delayed coupling) and Gauss-Seidel (Controller first with previous w, then Drive with fresh V) masters using exact integration for the linear PI controller and RK4 micro-stepping for the stiff Drive subsystem. Sweep 9 communication step sizes from 0.0001 to 0.05, compute RMSE against the interpolated reference, fit convergence order via linear regression in log-log space over the stable range, and report the largest stable H for each method."""
+verification_explanation = """Tests independently solve the monolithic ODE via scipy to produce ground truth, then verify: (1) the agent's reference.csv has 10001 points matching the ground truth within tolerance, (2) reference_w_final is accurate, (3) convergence orders fall in [0.5, 2.5], (4) Gauss-Seidel errors are generally <= Jacobi errors for small step sizes, (5) errors increase monotonically with H in the stable range, (6) stability boundaries H_crit lie in physically reasonable ranges, and (7) an independently-computed GS co-simulation at H=0.001 cross-validates the agent's RMSE within 50% relative tolerance."""
+category = "numerical_methods"
+tags = ["co-simulation", "ODE-solvers"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cosim-convergence-analysis"

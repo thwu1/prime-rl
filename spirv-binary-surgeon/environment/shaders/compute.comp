@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) buffer InputBuffer {
+    float data[];
+} inputBuf;
+
+layout(set = 0, binding = 1) buffer OutputBuffer {
+    float data[];
+} outputBuf;
+
+layout(set = 0, binding = 2) uniform ParamsUBO {
+    uint count;
+    float scale;
+    float offset;
+} params;
+
+layout(push_constant) uniform PushConstants {
+    uint batchOffset;
+} pc;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x + pc.batchOffset;
+    if (idx >= params.count) return;
+    float val = inputBuf.data[idx];
+    outputBuf.data[idx] = val * params.scale + params.offset;
+}

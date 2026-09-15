@@ -1,0 +1,9 @@
+metric,value
+n_mide,0.25592
+naudc_at_rfa_0.1,0.16667
+naudc_at_rfa_0.2,0.08333
+naudc_at_rfa_0.5,0.03333
+p_miss_at_rfa_0.03,0.25000
+p_miss_at_rfa_0.1,0.16667
+p_miss_at_rfa_0.2,0.16667
+p_miss_at_rfa_0.5,0.16667

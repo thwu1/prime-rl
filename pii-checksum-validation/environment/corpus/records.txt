@@ -1,0 +1,83 @@
+==========================================================
+EUROMED CLINICAL TRIAL REGISTRY — CONFIDENTIAL
+Protocol: EUROMED-2024-CARDIO-III
+EudraCT Number: 2024-001234-56
+Multi-center cardiovascular outcomes study
+Sites: Berlin (DE), Munich (DE), Hamburg (DE), Milan (IT),
+       Rome (IT), Bologna (IT), London (GB), Paris (FR)
+Enrollment period: 2024-01-15 to 2025-06-30
+Target enrollment: 2400 participants
+==========================================================
+
+--- PARTICIPANT RECORD P-001 ---
+Site: Charité Universitätsmedizin Berlin (Site ID: 10040)
+Enrollment date: 2024-02-03
+Steuer-IdNr: 65929970489
+KVNR: A123456780
+IBAN: DE89370400440532013000
+Payment card: 4111-1111-1111-1111
+Baseline systolic BP: 142 mmHg
+Medications: ramipril 10mg QD, atorvastatin 40mg QD
+
+--- PARTICIPANT RECORD P-002 ---
+Site: Ospedale San Raffaele, Milan (Site ID: 20015)
+Enrollment date: 2024-02-14
+Codice fiscale: RSSGLU85M41F205H
+IBAN: FR7630006000011234567890189
+Payment card: 5500000000000004
+HbA1c: 6.8%
+Medications: metformin 1000mg BID, amlodipine 5mg QD
+
+--- PARTICIPANT RECORD P-003 ---
+Site: Universitätsklinikum München (Site ID: 10055)
+Enrollment date: 2024-03-01
+Steuer-IdNr: 86095742719
+KVNR: M123456785
+Payment card: 6011 1111 1111 1117
+BMI: 28.4 kg/m2
+Medications: lisinopril 20mg QD
+
+--- PARTICIPANT RECORD P-004 ---
+Site: Policlinico Agostino Gemelli, Rome (Site ID: 20028)
+Enrollment date: 2024-03-15
+Codice fiscale: FRNCSC80A10H501E
+IBAN: GB29NWBK60161331926819
+LDL cholesterol: 158 mg/dL
+Medications: rosuvastatin 10mg QD
+
+--- PARTICIPANT RECORD P-005 ---
+Site: Universitätsklinikum Hamburg-Eppendorf (Site ID: 10072)
+Enrollment date: 2024-04-02
+Steuer-IdNr: 57549285017
+KVNR: B123456782
+eGFR: 68 mL/min/1.73m2
+Medications: empagliflozin 25mg QD, aspirin 100mg QD
+
+--- PARTICIPANT RECORD P-006 ---
+Site: Ospedale Maggiore, Bologna (Site ID: 20041)
+Enrollment date: 2024-04-20
+Codice fiscale: MRARSS80A01H501T
+Triglycerides: 210 mg/dL
+Medications: fenofibrate 145mg QD
+
+--- PARTICIPANT RECORD P-007 ---
+Site: External data transfer — Berlin satellite clinic
+Enrollment date: 2024-05-10
+Steuer-IdNr: 65929970488
+KVNR: A123456787
+IBAN: DE89370400440532013001
+Payment card: 4111-1111-1111-1112
+Notes: Transferred from site 10040 sub-location.
+
+--- PARTICIPANT RECORD P-008 ---
+Site: External data transfer — Milan satellite clinic
+Enrollment date: 2024-05-22
+Codice fiscale: RSSGLU85M41F205A
+Notes: Data received via secure fax. Pending coordinator review.
+
+==========================================================
+END OF PARTICIPANT RECORDS
+Study coordinator: Dr. K. Hoffmann (ext. 4455)
+Data lock target: 2025-09-30
+CRF version: 3.2.1
+==========================================================

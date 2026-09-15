@@ -1,0 +1,68 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert understanding of Chevrotain's parser framework across four layers
+(lexer, grammar, CST visitor, semantic analysis). Bugs cascade: parser definition
+errors block construction, masking lexer and visitor issues that only surface after
+definition errors are resolved. Beyond debugging, the solver must implement a
+non-trivial graph cycle detection algorithm for the semantic analyzer's required-
+reference validation, integrate the analyzer module into the pipeline, and fix
+multiple interacting bugs in the type resolution logic. The task demands coupled
+analysis (reading and correlating five TypeScript source files), design decisions
+(choosing cycle detection strategy, understanding Chevrotain's visitor dispatch
+mechanism), and substantial implementation (DFS-based cycle detection, index.ts
+integration, analyzer bug fixes).
+"""
+solution_explanation = """
+Fixes span five files:
+1. tokens.ts: Reorder allTokens so keywords precede Identifier; add longer_alt:
+   Identifier to TypeKeyword and EnumKeyword; add QuestionMark to allTokens.
+2. parser.ts: Change second SUBRULE(this.typeDecl) to SUBRULE(this.enumDecl) in
+   declaration rule; change second CONSUME(Identifier) to CONSUME2(Identifier) in
+   typeRef to fix occurrence collision; remove canTokenTypeBeInsertedInRecovery
+   override that blocks SemiColon insertion recovery.
+3. visitor.ts: Rename typeDeclaration->typeDecl, fieldDefinition->fieldDef,
+   enumDeclaration->enumDecl to match grammar rule names (required by Chevrotain's
+   CST visitor dispatch).
+4. analyzer.ts: Fix checkDuplicateNames to use case-sensitive comparison (remove
+   .toLowerCase()); fix checkUndefinedTypes to include enum names in definedNames
+   set; rewrite checkRequiredCycles from direct-only self-reference check to full
+   DFS-based cycle detection through non-nullable, non-list type reference edges.
+5. index.ts: Import the analyze function from analyzer.ts and call it on the parsed
+   AST, including results in the diagnostics output array.
+"""
+verification_explanation = """
+Python tests invoke the TypeScript parser via subprocess on schema files, parse
+JSON stdout, and verify: correct AST structure for types with plain/nullable/list
+fields, enums, mixed declarations, error recovery, comments, keyword-prefix
+identifiers, and all semantic diagnostics (duplicate names case-sensitive, undefined
+type references including enum resolution, duplicate fields, duplicate enum values,
+direct self-reference cycles, indirect multi-type cycles, nullable/list breaking
+cycles, and no false positives on linear chains).
+"""
+category = "debugging"
+tags = ["chevrotain", "parser-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chevrotain-parser-repair"

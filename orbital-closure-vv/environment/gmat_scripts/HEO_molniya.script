@@ -1,0 +1,64 @@
+%General Mission Analysis Tool(GMAT) Script
+%Created: 2024-01-15
+%
+% Molniya-type Highly Elliptical Orbit Propagation
+% Ref: GMAT V&V Paper (AIAA 2014), Table 3 - HEO
+% Uses J2-only perturbation (Degree=2, Order=0) to test integrator
+% performance with high eccentricity and strong perigee perturbations.
+%----------------------------------------
+
+%----------------------------------------
+%---------- Spacecraft
+%----------------------------------------
+
+Create Spacecraft Molniya;
+GMAT Molniya.DateFormat = UTCGregorian;
+GMAT Molniya.Epoch = '01 Jun 2004 12:00:00.000';
+GMAT Molniya.CoordinateSystem = EarthMJ2000Eq;
+GMAT Molniya.DisplayStateType = Cartesian;
+GMAT Molniya.X = -1529.89429;
+GMAT Molniya.Y = -2672.87736;
+GMAT Molniya.Z = -6150.11534;
+GMAT Molniya.VX = 8.717518;
+GMAT Molniya.VY = -4.989709;
+GMAT Molniya.VZ = 0;
+GMAT Molniya.DryMass = 1200;
+GMAT Molniya.Cd = 2.2;
+GMAT Molniya.Cr = 1.5;
+GMAT Molniya.DragArea = 12;
+GMAT Molniya.SRPArea = 25;
+
+%----------------------------------------
+%---------- ForceModel
+%----------------------------------------
+
+Create ForceModel HEO_Forces;
+GMAT HEO_Forces.CentralBody = Earth;
+GMAT HEO_Forces.PrimaryBodies = {Earth};
+GMAT HEO_Forces.GravityField.Earth.Degree = 2;
+GMAT HEO_Forces.GravityField.Earth.Order = 0;
+GMAT HEO_Forces.GravityField.Earth.PotentialFile = 'JGM2.cof';
+GMAT HEO_Forces.Drag = None;
+GMAT HEO_Forces.SRP = Off;
+GMAT HEO_Forces.PointMasses = {};
+GMAT HEO_Forces.RelativisticCorrection = Off;
+
+%----------------------------------------
+%---------- Propagators
+%----------------------------------------
+
+Create Propagator HEO_Prop;
+GMAT HEO_Prop.FM = HEO_Forces;
+GMAT HEO_Prop.Type = PrinceDormand78;
+GMAT HEO_Prop.InitialStepSize = 300;
+GMAT HEO_Prop.Accuracy = 1e-12;
+GMAT HEO_Prop.MinStep = 0.001;
+GMAT HEO_Prop.MaxStep = 86400;
+GMAT HEO_Prop.MaxStepAttempts = 75;
+
+%----------------------------------------
+%---------- Mission Sequence
+%----------------------------------------
+
+BeginMissionSequence;
+Propagate HEO_Prop(Molniya) {Molniya.ElapsedDays = 3.0};

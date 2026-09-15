@@ -1,0 +1,14 @@
+{
+  "system": "n-hexane (pure component)",
+  "conditions": {"T_K": 299.0, "P_Pa": 1000000.0},
+  "components": {
+    "Tcs": [507.6],
+    "Pcs": [3025000.0],
+    "omegas": [0.2975],
+    "kijs": [[0.0]]
+  },
+  "zs": [1.0],
+  "reference_results": {
+    "phi_liquid": [0.022212524527244346]
+  }
+}

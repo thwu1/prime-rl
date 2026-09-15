@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of CPU microarchitecture and microcode encoding. The solver must: (1) parse a raw binary ROM dump using tools like xxd/od, (2) query a SQLite database to extract patent cross-reference data and encoding tables, (3) implement a constraint-satisfaction algorithm to crack the 24-bit column permutation from known plaintext-ciphertext pairs (analogous to monoalphabetic cipher cracking at the bit level), (4) decode the full ROM and build a disassembler, (5) identify a subtle microcode bug by comparing patent listings against actual ROM contents, (6) generate a Graphviz DOT control flow graph and render it to SVG. This mirrors the real workflow used by Andrew Jenner (reenigne) to disassemble the 8086 microcode from die photographs using US Patent 4363091 as a Rosetta Stone."""
+solution_explanation = """The solution: (1) reads the raw 384-byte binary ROM using struct/byte operations, (2) queries the SQLite database for known patent words, register/ALU encodings, and translation table, (3) computes per-bit fingerprints across known words to match scrambled bit positions to logical positions and determine permutation P, (4) applies inverse permutation to decode all 128 ROM words, (5) extracts fields and computes statistics (END count, ALU histogram, unique register pairs), (6) compares decoded REP STOSW routine against patent to find the buggy JMP target, (7) generates DOT control flow graph with instruction subgraph clusters from the translation table and renders to SVG using the dot command."""
+verification_explanation = """Tests verify each answer key: permutation exact match, decoded words hex match, END count, ALU histogram per-operation counts, bug identification (address 49, imm field, actual=44, correct=43), unique register pair count, and CFG edge count (86). Additionally tests verify the DOT file exists with correct structure (digraph, subgraphs, buggy edge from addr 49 to 44) and the SVG file exists as valid rendered output."""
+category = "reverse_engineering"
+tags = ["microarchitecture", "binary-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5ab256"

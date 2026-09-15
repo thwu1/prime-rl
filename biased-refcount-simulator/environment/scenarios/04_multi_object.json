@@ -1,0 +1,17 @@
+{
+  "description": "Multiple objects owned by different threads with cross-thread sharing",
+  "operations": [
+    {"tid": 1, "op": "create", "obj": "A"},
+    {"tid": 2, "op": "create", "obj": "B"},
+    {"tid": 2, "op": "incref", "obj": "A"},
+    {"tid": 1, "op": "incref", "obj": "B"},
+    {"tid": 1, "op": "incref", "obj": "A"},
+    {"tid": 2, "op": "incref", "obj": "B"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 1, "op": "decref", "obj": "B"},
+    {"tid": 2, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "B"},
+    {"tid": 1, "op": "decref", "obj": "A"},
+    {"tid": 2, "op": "decref", "obj": "B"}
+  ]
+}

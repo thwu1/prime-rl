@@ -1,0 +1,10 @@
+{
+    "grid_size": 63,
+    "max_cg_iterations": 50,
+    "relative_residual_tolerance": 1e-10,
+    "smoother_omega": 0.6666666666666666,
+    "pre_smoothing_steps": 2,
+    "post_smoothing_steps": 2,
+    "finest_level_dtype": "float64",
+    "coarse_level_dtype": "float32"
+}

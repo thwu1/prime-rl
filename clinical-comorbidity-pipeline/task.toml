@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating five distinct clinical informatics domains: (1) adapting a BigQuery MIMIC-IV Charlson CCI SQL to MIMIC-III SQLite — involving ICD-9-CM comorbidity coding, weight assignment with category hierarchy rules, and MIMIC-III age deidentification handling — the agent must figure out the adaptation from the reference SQL without step-by-step guidance; (2) constructing lab-based SOFA organ dysfunction scores from raw labevents by discovering lab item IDs via d_labitems and determining appropriate thresholds and aggregation methods — the reference SOFA SQL targets nonexistent MIMIC-IV derived tables; (3) identifying systemic antimicrobials from free-text drug names with inconsistent naming conventions and NULL-heavy columns while distinguishing systemic from topical routes; (4) nephrotoxic drug-AKI pharmacovigilance requiring the agent to determine which drug classes are nephrotoxic and correctly distinguish administration routes; (5) integrating chronic comorbidity burden with acute organ dysfunction in a risk stratification matrix. Each component requires professional clinical informatics judgment and data engineering skill."""
+solution_explanation = """The solution adapts the Charlson reference SQL (BigQuery→SQLite, MIMIC-IV→MIMIC-III schema), queries d_labitems to discover creatinine, bilirubin, and platelet item IDs, computes worst lab values per ICU stay window, applies SOFA scoring thresholds for renal/hepatic/coagulation components, identifies systemic antimicrobials by pattern-matching drug names while excluding non-systemic routes, detects nephrotoxic drugs co-occurring with elevated creatinine, and cross-tabulates CCI brackets with partial SOFA brackets against mortality."""
+verification_explanation = """Tests validate: (1) output structure and key counts across all six outputs; (2) specific CCI values for 8 admissions spanning the difficulty range; (3) aggregate CCI sums across all 129 admissions; (4) specific SOFA component scores for 6 ICU stays with diverse organ dysfunction patterns; (5) total partial SOFA sum and count of dysfunctional ICU stays; (6) exact sepsis screening count and specific flagged ICU stays; (7) exact nephrotoxic risk patient list; (8) risk matrix mortality rates for all 9 cells. Tests span all five analytical domains."""
+category = "data_science"
+tags = ["clinical-informatics", "pharmacovigilance"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clinical-comorbidity-pipeline"

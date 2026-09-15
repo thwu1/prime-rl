@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of RFC 2328 (OSPFv2) routing table computation, combined with multi-tool data extraction. The agent must: (1) explore and query a normalized SQLite database using sqlite3 to extract Router-LSAs and Network-LSAs from separate relational tables, requiring SQL proficiency and schema discovery; (2) parse a custom binary file containing Summary-LSAs per a provided format specification, requiring understanding of big-endian encoding, 24-bit integers, and binary data manipulation; (3) implement the complete OSPF routing table computation from scratch based on RFC 2328 knowledge, handling two vertex types (routers and transit networks), multiple link types, correct next-hop derivation, multi-path routes, stub network extraction, inter-area route computation via competing ABR advertisements, and protocol-mandated route preference rules. This is professional network engineering work requiring deep protocol expertise combined with systems-level tool proficiency."""
+solution_explanation = """Query the SQLite database schema (sqlite3 .schema) and extract Router-LSAs with links and Network-LSAs with attached routers via SQL JOINs. Parse the binary Summary-LSA file per FORMAT.md using struct unpacking (4-byte IPs, 4-byte seq, 2-byte age, 4-byte mask, 3-byte metric). Implement RFC 2328 Section 16: Dijkstra SPF over router and network vertices, derive next-hops per Section 16.1.1, process stub links for intra-area routes, compute inter-area routes from Summary-LSAs, resolve competing Summary-LSAs by total cost. Output 10 routes as JSON."""
+verification_explanation = """Tests verify the routing table JSON contains exactly 10 routes with correct destinations, metrics, route types, and sorted next-hop lists. Parametrized tests validate each route individually. Additional tests confirm connected routes are excluded, ECMP routes have exactly 2 next-hops, and competing Summary-LSAs are resolved correctly."""
+category = "networking"
+tags = ["ospf", "routing-protocols"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-82ca1c"

@@ -1,0 +1,11 @@
+{
+  "polynomials_koopman": ["0x97", "0xa6", "0x98", "0xe7", "0x9b"],
+  "crc_width": 8,
+  "crc_params": {
+    "bit_order": "msb_first",
+    "init": 0,
+    "xor_out": 0,
+    "reflect_in": false,
+    "reflect_out": false
+  }
+}

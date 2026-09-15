@@ -1,0 +1,14 @@
+{
+  "section_definitions": [
+    {"loinc_code": "10164-2", "display_name": "History of Present Illness", "abbreviation": "HPI"},
+    {"loinc_code": "11348-0", "display_name": "Past Medical History", "abbreviation": "PMH"},
+    {"loinc_code": "10157-6", "display_name": "Family History", "abbreviation": "FH"},
+    {"loinc_code": "29549-3", "display_name": "Medications", "abbreviation": "MEDS"},
+    {"loinc_code": "51847-2", "display_name": "Assessment and Plan", "abbreviation": "AP"}
+  ],
+  "processing_rules": {
+    "default_assertion": "affirmed",
+    "section_context": "Section headers classified by LOINC codes establish assertion context for contained entities. Sections describing the patient's past medical events provide historical context by default. Sections describing medical history of non-patient subjects (family members) contain entities that must be excluded from the patient's entity extraction results. Explicit assertion triggers detected in text always take precedence over section-level context defaults.",
+    "trigger_precedence": "explicit_trigger > section_default > global_default"
+  }
+}

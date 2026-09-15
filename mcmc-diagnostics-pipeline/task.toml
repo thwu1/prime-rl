@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of modern MCMC diagnostics theory (Vehtari et al. 2021), including rank-normalized split-R-hat, initial positive sequence ESS estimator, tail ESS via indicator variables, and WAIC with log-sum-exp numerical stability. The agent must read and debug existing code, understand multiple interacting statistical concepts, identify subtle bugs (missing chain splitting, missing rank normalization, wrong truncation, ddof=0 vs ddof=1, naive exp/log), and implement several functions from mathematical definitions. Combines Bayesian statistics expertise with numerical computing and software debugging."""
+solution_explanation = """Fix compute_rhat to call _split_chains then _rank_normalize before computing the R-hat statistic. Fix compute_ess to use initial positive sequence truncation (pair consecutive rho values, stop at first negative pair). Implement compute_bulk_ess as ESS on rank-normalized split chains. Implement compute_tail_ess using 5th/95th percentile indicators on split chains. Implement compute_mcse_mean as posterior_sd/sqrt(bulk_ess). Fix compute_waic to use scipy.special.logsumexp instead of naive log(mean(exp(...))), and use ddof=1 for variance. Implement generate_report with the specified thresholds. Run the pipeline."""
+verification_explanation = """Tests load the same chain data, compute reference diagnostic values using a correct independent implementation, then compare the agent's output JSON against reference values. Checks R-hat accuracy within 0.03, ESS within 20-25% relative tolerance, WAIC finiteness and 5% relative tolerance, correct model comparison (Model B preferred), and correct convergence classification (log_tau in Model A must not be converged, all Model B params must be converged)."""
+category = "scientific_computing"
+tags = ["bayesian-statistics", "mcmc-diagnostics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mcmc-diagnostics-pipeline"

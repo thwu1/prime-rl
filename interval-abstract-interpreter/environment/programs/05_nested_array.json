@@ -1,0 +1,19 @@
+{
+  "name": "nested_array",
+  "vars": ["i", "j", "idx"],
+  "arrays": {"a": 100},
+  "body": [
+    {"stmt": "assign", "target": "i", "expr": {"expr": "const", "value": 0}, "line": 1},
+    {"stmt": "while", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 10}},
+     "body": [
+       {"stmt": "assign", "target": "j", "expr": {"expr": "const", "value": 0}, "line": 3},
+       {"stmt": "while", "cond": {"expr": "binop", "op": "<", "left": {"expr": "var", "name": "j"}, "right": {"expr": "const", "value": 10}},
+        "body": [
+          {"stmt": "assign", "target": "idx", "expr": {"expr": "binop", "op": "+", "left": {"expr": "binop", "op": "*", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 10}}, "right": {"expr": "var", "name": "j"}}, "line": 5},
+          {"stmt": "array_write", "array": "a", "index": {"expr": "var", "name": "idx"}, "value": {"expr": "const", "value": 0}, "line": 6},
+          {"stmt": "assign", "target": "j", "expr": {"expr": "binop", "op": "+", "left": {"expr": "var", "name": "j"}, "right": {"expr": "const", "value": 1}}, "line": 7}
+        ], "line": 4},
+       {"stmt": "assign", "target": "i", "expr": {"expr": "binop", "op": "+", "left": {"expr": "var", "name": "i"}, "right": {"expr": "const", "value": 1}}, "line": 8}
+     ], "line": 2}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "materials": [
+    {"id": "high-eps-rod", "epsilon": 12.0, "description": "High-index dielectric (e.g., Si at microwave frequencies)"},
+    {"id": "air", "epsilon": 1.0, "description": "Air / vacuum"},
+    {"id": "gaas", "epsilon": 11.56, "description": "Gallium Arsenide (infrared)"},
+    {"id": "sio2", "epsilon": 2.25, "description": "Fused silica"},
+    {"id": "tio2", "epsilon": 5.913, "description": "Titanium dioxide (rutile, ordinary ray)"},
+    {"id": "si3n4", "epsilon": 4.0, "description": "Silicon nitride"}
+  ]
+}

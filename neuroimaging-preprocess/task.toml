@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level neuroimaging knowledge spanning MRI physics, spatial coordinate systems, and image-processing pipeline design. The central challenge is implementing bias-field correction from first principles — without access to standard tools like N4ITK or SimpleITK — which demands understanding of how B1-field inhomogeneity creates smooth multiplicative intensity variation, how to model it (e.g. polynomial basis functions in log-space), and how to estimate and invert it using only the tissue segmentation and raw intensities. The solver must also reason about pipeline ordering: bias-field correction MUST precede z-normalisation (otherwise within-tissue variance remains inflated by the spatially-varying gain), and resampling should precede both (to work in the target coordinate space). Handling the compound oblique affine (rotations around two axes) requires deep understanding of NIfTI affine semantics — composing reorientation, resampling, and crop transforms while preserving geometric fidelity of the voxel-to-world mapping. The quality tests enforce tissue-specific homogeneity thresholds that are impossible to satisfy without adequate bias correction, making the task unsolvable by procedural application of standard transforms alone."""
+solution_explanation = """Resample to axis-aligned RAS+ at 2 mm isotropic using nibabel's resample_to_output (cubic for image, nearest-neighbour for labels). Estimate the multiplicative bias field by fitting an order-3 polynomial surface (20 terms) to per-tissue log-intensity residuals via least-squares — this captures the order-2 polynomial bias embedded in the data. Correct by dividing the image by the estimated field. Z-normalise over the brain mask, crop to brain bounding box plus 4-voxel padding with correct affine origin update, and compute all quality metrics from the final output."""
+verification_explanation = """Tests verify output invariants independent of implementation approach: RAS+ orientation and 2 mm spacing from affine analysis; label integrity (only 0-3 present); z-normalisation quality (brain mean near 0, std near 1); within-tissue homogeneity that REQUIRES bias correction (WM std < 0.20, GM std < 0.25); Fisher discriminant > 6.0; bias-field positivity, smoothness, and spatial consistency; crop padding bounds; image-label-bias spatial match (shape and affine); brain centroid near origin; and cross-validation of all reported metrics against independent recomputation from output files."""
+category = "medical_imaging"
+tags = ["neuroimaging", "bias-correction"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/neuroimaging-preprocess"

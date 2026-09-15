@@ -1,0 +1,34 @@
+subject_id,visit_name,visit_number,test_name,result,unit,collection_date,collection_time
+001,Screening,1,Height,68,inches,2023-03-14,08:30
+001,Screening,1,Weight,165,lbs,2023-03-14,08:30
+001,Screening,1,Systolic Blood Pressure,128,mmHg,2023-03-14,08:32
+001,Screening,1,Diastolic Blood Pressure,82,mmHg,2023-03-14,08:32
+001,Screening,1,Heart Rate,72,bpm,2023-03-14,08:33
+001,Screening,1,Temperature,98.6,F,2023-03-14,08:34
+001,Baseline,2,Weight,166,lbs,2023-03-15,09:00
+001,Baseline,2,Systolic Blood Pressure,130,mmHg,2023-03-15,09:02
+001,Baseline,2,Diastolic Blood Pressure,84,mmHg,2023-03-15,09:02
+001,Baseline,2,Heart Rate,70,bpm,2023-03-15,09:03
+001,Baseline,2,Temperature,98.4,F,2023-03-15,09:04
+001,Week 4,3,Weight,164,lbs,2023-04-12,10:15
+001,Week 4,3,Systolic Blood Pressure,122,mmHg,2023-04-12,10:17
+001,Week 4,3,Diastolic Blood Pressure,78,mmHg,2023-04-12,10:17
+001,Week 4,3,Heart Rate,68,bpm,2023-04-12,10:18
+001,Week 4,3,Temperature,98.2,F,2023-04-12,10:19
+002,Screening,1,Height,64,inches,2023-03-17,14:00
+002,Screening,1,Weight,140,lbs,2023-03-17,14:00
+002,Screening,1,Systolic Blood Pressure,118,mmHg,2023-03-17,14:02
+002,Screening,1,Diastolic Blood Pressure,76,mmHg,2023-03-17,14:02
+002,Screening,1,Heart Rate,80,bpm,2023-03-17,14:03
+002,Screening,1,Temperature,98.8,F,2023-03-17,14:04
+002,Baseline,2,Weight,141,lbs,2023-03-18,08:30
+002,Baseline,2,Systolic Blood Pressure,120,mmHg,2023-03-18,08:32
+002,Baseline,2,Diastolic Blood Pressure,78,mmHg,2023-03-18,08:32
+002,Baseline,2,Heart Rate,78,bpm,2023-03-18,08:33
+002,Baseline,2,Temperature,98.6,F,2023-03-18,08:34
+003,Screening,1,Height,70,inches,2023-03-19,10:00
+003,Screening,1,Weight,185,lbs,2023-03-19,10:00
+003,Screening,1,Systolic Blood Pressure,135,mmHg,2023-03-19,10:02
+003,Screening,1,Diastolic Blood Pressure,88,mmHg,2023-03-19,10:02
+003,Screening,1,Heart Rate,74,bpm,2023-03-19,10:03
+003,Screening,1,Temperature,99.1,F,2023-03-19,10:04

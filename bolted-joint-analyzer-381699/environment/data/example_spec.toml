@@ -1,0 +1,38 @@
+[bolt]
+size = "M12"
+property_class = "10.9"
+grip_length_mm = 40.0
+
+[nut]
+standard = "ISO"
+property_class = 10
+
+[joint]
+num_interfaces = 3
+interface_friction = 0.15
+surface_roughness_class = "normal"
+material_elastic_modulus_GPa = 210.0
+cte_ppm_per_K = 12.0
+
+[washer]
+present = true
+hardness_HV = 300
+
+[loading]
+axial_kN = 0.0
+shear_kN = 5.0
+
+[tightening]
+torque_Nm = 100.0
+thread_friction_min = 0.10
+thread_friction_max = 0.18
+bearing_friction_min = 0.10
+bearing_friction_max = 0.18
+
+[environment]
+temperature_C = 25
+bolt_material = "ISO898"
+
+[friction_shim]
+present = false
+friction_coefficient = 0.7

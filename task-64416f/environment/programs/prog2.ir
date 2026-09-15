@@ -1,0 +1,15 @@
+# Program 2: Common sub-expression elimination and copy propagation
+# Expected output: 31 31
+func main()
+  a = 7
+  b = 3
+  c = a + b
+  d = a + b
+  e = a * b
+  f = a * b
+  g = c + e
+  h = d + f
+  print g
+  print h
+  return 0
+endfunc

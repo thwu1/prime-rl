@@ -1,0 +1,9 @@
+{
+  "well_typed": false,
+  "globals": {
+    "items": {"type": "[int]", "kind": "var"},
+    "x": {"type": "str", "kind": "var"}
+  },
+  "classes": {},
+  "errors": [{"message": "List element type int not compatible with loop variable type str"}]
+}

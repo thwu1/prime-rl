@@ -1,0 +1,4 @@
+participant_id,messages_bundled,transmissions,u2a_queries,a2a_queries,a2a_reports,internal_lt,intra_balance_movements
+Bank6,265,1156,75,456,42670,150,56
+Bank7,68,456,35,132,7239,42,14
+Bank_T,500,2000,100,800,10000,200,30

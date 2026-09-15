@@ -1,0 +1,44 @@
+{
+  "scenarios": [
+    {
+      "id": "D1",
+      "description": "Bit-flip only noise, N=2 bilateral parity check",
+      "px": 0.25,
+      "pz": 0.0,
+      "num_bell_pairs": 2,
+      "threshold_fidelity": 0.80
+    },
+    {
+      "id": "D2",
+      "description": "Phase-flip only noise, N=2 Hadamard-conjugated parity check",
+      "px": 0.0,
+      "pz": 0.25,
+      "num_bell_pairs": 2,
+      "threshold_fidelity": 0.80
+    },
+    {
+      "id": "D3",
+      "description": "Bit-flip only noise, N=3 double parity check",
+      "px": 0.25,
+      "pz": 0.0,
+      "num_bell_pairs": 3,
+      "threshold_fidelity": 0.90
+    },
+    {
+      "id": "D4",
+      "description": "Phase-flip only noise, N=3 double Hadamard-conjugated parity check",
+      "px": 0.0,
+      "pz": 0.25,
+      "num_bell_pairs": 3,
+      "threshold_fidelity": 0.90
+    },
+    {
+      "id": "D5",
+      "description": "Mixed bit-flip and phase-flip noise, N=5 interleaved distillation",
+      "px": 0.06,
+      "pz": 0.06,
+      "num_bell_pairs": 5,
+      "threshold_fidelity": 0.90
+    }
+  ]
+}

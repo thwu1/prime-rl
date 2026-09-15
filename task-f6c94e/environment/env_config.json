@@ -1,0 +1,16 @@
+{
+  "confidentiality_reqirement": "HIGH",
+  "integrity_requirement": "MEDIUM",
+  "availability_requirement": "LOW",
+  "modified_attack_vector": "NOT_DEFINED",
+  "modified_attack_complexity": "HIGH",
+  "modified_privileges_required": "NOT_DEFINED",
+  "modified_user_interaction": "NOT_DEFINED",
+  "modified_scope": "NOT_DEFINED",
+  "modified_confidentiality": "NOT_DEFINED",
+  "modified_integrity": "NOT_DEFINED",
+  "modified_availability": "NOT_DEFINED",
+  "exploit_code_maturity": "NOT_DEFINED",
+  "remediation_level": "NOT_DEFINED",
+  "report_confidence": "NOT_DEFINED"
+}

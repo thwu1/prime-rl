@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level network engineering: parsing a binary protocol from pcap using tshark, implementing shortest-path computation with ECMP tracking on directed graphs, deriving loop-free backup path conditions for both link and node failure protection without being given the formulas, generating graphviz topology diagrams, and integrating all components into a coherent audit pipeline. The backup path computation requires running SPF from every neighbor and applying non-obvious loop-freedom inequalities that the agent must derive from the operational requirement that backup traffic must not traverse the failed element."""
+solution_explanation = """The solution: (1) uses tshark to extract UDP payloads from the pcap filtered by port and magic bytes, (2) decodes the 16-byte NLSP binary format to reconstruct the directed topology, (3) implements modified Dijkstra with ECMP next-hop tracking, (4) derives and implements RFC 5286 loop-free alternate conditions for link-protecting (dist(N,D) < dist(N,S) + dist(S,D)) and node-protecting (additionally for each primary E: dist(N,D) < dist(N,E) + dist(E,D)) backup paths, (5) generates graphviz DOT output and renders to PNG, and (6) produces the audit report with coverage statistics and policy compliance."""
+verification_explanation = """39 pytest tests across 12 categories verify: pcap topology discovery (router count, link count, specific costs), graphviz output existence and structure, audit report correctness (forwarding costs, ECMP sets, backup sets, coverage percentages, policy compliance), routing engine unit tests for SPF, ECMP, asymmetric costs, link operations, backup path computation, backup coverage, forwarding table generation, event processing, and edge cases. All expected values are independently computed."""
+category = "networking"
+tags = ["pcap-analysis", "routing-protocols"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ecmp-lfa-routing"

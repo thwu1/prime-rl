@@ -1,0 +1,12 @@
+{
+    "capsule_results": [
+        {"capsule_id": "cap-mc-pi", "result_report": {"estimated_pi": 3.14, "samples_used": 10000}},
+        {"capsule_id": "cap-cls-eval", "result_report": {"accuracy": 94.5, "precision": 92.3, "recall": 96.7, "classifier": "Gradient_Boosting"}},
+        {"capsule_id": "cap-regress", "result_report": {"r_squared": 0.8734, "intercept": 12.456, "slope": -3.289, "method": "ols", "significant": "YES"}},
+        {"capsule_id": "cap-bootstrap", "result_report": {"mean_estimate": 45.0, "ci_lower": 40.0, "ci_upper": 52.5}},
+        {"capsule_id": "cap-nn-train", "result_report": {"test_accuracy": 87.5, "test_loss": 0.34, "epochs_run": 50, "fig best_architecture": "resnet-18"}},
+        {"capsule_id": "cap-feature-sel", "result_report": {"n_selected": 7, "explained_var": 0.923, "top_features": ["glucose", "bmi", "age", "bp"]}},
+        {"capsule_id": "cap-cluster", "result_report": {"n_clusters": 4, "silhouette": 0.61, "inertia": 1530.0, "fig cluster_labels": [0, 1, 2, 3, 0, 1]}},
+        {"capsule_id": "cap-meta-analysis", "result_report": {"fig pooled_effect": 0.34, "fig heterogeneity": "Moderate"}}
+    ]
+}

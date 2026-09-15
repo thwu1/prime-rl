@@ -1,0 +1,47 @@
+{
+  "bolt": {
+    "axial_force_kN": 10.0,
+    "radial_force_kN": 5.0,
+    "bolt_yield_MPa": 640.0,
+    "bolt_E_GPa": 210.0,
+    "thread_major_mm": 10.0,
+    "thread_pitch_mm": 1.5,
+    "clamp_height_mm": 30.0,
+    "clamp_parts": [
+      {"height_mm": 15.0, "E_GPa": 210.0},
+      {"height_mm": 15.0, "E_GPa": 210.0}
+    ],
+    "friction_thread": 0.12,
+    "friction_head": 0.10,
+    "friction_surfaces": 0.18,
+    "tightness_coeff": 1.5,
+    "safety_yield_desired": 1.5,
+    "force_intro_factor": 0.5,
+    "head_outer_dia_mm": 16.0,
+    "hole_dia_mm": 11.0,
+    "torsion_reduction": 0.5,
+    "settlement_mm": 0.013
+  },
+  "buckling": {
+    "force_kN": 25.0,
+    "length_mm": 1000.0,
+    "mounting": "C",
+    "use_practical_coeff": true,
+    "profile": {"type": "rectangle", "a_mm": 30.0, "b_mm": 15.0},
+    "material_E_GPa": 200.0,
+    "material_yield_MPa": 235.0,
+    "eccentricity_ratio": 0.25,
+    "safety_desired": 4.0
+  },
+  "vbelt": {
+    "power_kW": 5.5,
+    "rpm_driver": 1750.0,
+    "service_factor": 1.1,
+    "d1_mm": 100.0,
+    "d2_mm": 200.0,
+    "center_distance_mm": 350.0,
+    "belt_mass_per_m_kg": 0.09,
+    "base_power_per_belt_kW": 1.8,
+    "power_increment_kW": 0.25
+  }
+}

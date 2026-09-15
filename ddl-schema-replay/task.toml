@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a MySQL DDL text parser that handles backtick-quoted identifiers, ENUM/SET value lists with embedded quotes, expression and function-call defaults, GENERATED ALWAYS AS columns, FIRST/AFTER column positioning, multi-operation ALTER TABLE, MODIFY COLUMN semantics (full redefinition), CHANGE COLUMN (rename+redefine), table/column renames, DROP TABLE, and primary key changes — all without being able to execute the DDL on the target PostgreSQL database. The parser must correctly handle SQL reserved words as identifiers, nested parentheses in expressions, and proper quote escaping when generating output SQL."""
+solution_explanation = """A Python script reads the 25 DDL statements from ddl_history, parses each one using a hand-written recursive descent parser that handles MySQL-specific syntax (backticks, ENUM/SET types, CHARACTER SET/COLLATE, COMMENT, ON UPDATE, GENERATED ALWAYS AS, FIRST/AFTER). It maintains an in-memory schema model tracking tables, columns, types, defaults, nullability, primary keys, and column ordering. After processing all DDL statements, it generates INSERT statements for the schema_state table with proper PostgreSQL quote escaping (doubling single quotes in ENUM/SET type strings)."""
+verification_explanation = """pytest connects to the PostgreSQL database and queries the schema_state table. Tests verify: (1) the table exists, (2) exactly the 6 expected surviving tables are present, (3) each table has the correct columns with exact data_type, ordinal_position, is_nullable, column_default, is_primary_key, and is_generated values, (4) column counts per table match, and (5) the total row count is exactly 49."""
+category = "data_management"
+tags = ["sql-ddl-parsing", "schema-evolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ddl-schema-replay"

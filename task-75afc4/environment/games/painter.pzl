@@ -1,0 +1,65 @@
+title Painter
+
+========
+OBJECTS
+========
+
+Background
+black
+
+Wall
+darkgrey
+
+Player
+blue
+
+Unpainted
+lightgrey
+
+Painted
+green
+
+=======
+LEGEND
+=======
+
+. = Background
+# = Wall
+P = Player and Unpainted
+o = Unpainted
+
+================
+COLLISIONLAYERS
+================
+
+Background
+Unpainted, Painted
+Player, Wall
+
+======
+RULES
+======
+
+[ Player Unpainted ] -> [ Player Painted ]
+
+==============
+WINCONDITIONS
+==============
+
+No Unpainted
+
+=======
+LEVELS
+=======
+
+#####
+#ooo#
+#oPo#
+#ooo#
+#####
+
+######
+#oooo#
+#oPoo#
+#oooo#
+######

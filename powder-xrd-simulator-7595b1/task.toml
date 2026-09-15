@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level crystallography knowledge combined with multi-tool integration. The solver must: (1) discover that CIF files in /app/data/ use varying conventions — some use modern _space_group_symop_operation_xyz tags, numbered symmetry operations, _space_group_name_H-M_alt, _atom_site_B_iso_or_equiv, and standard uncertainty notation — by examining the files and debugging parse failures; (2) implement a correct CIF parser handling all these variations; (3) implement symmetry expansion, metric tensor d-spacing computation, Cromer-Mann atomic scattering factors, structure factors, Lorentz-polarization correction, and multiplicity merging from scratch; (4) handle monoclinic and other non-orthogonal crystal systems via the general metric tensor; (5) integrate with the COD REST API to fetch CIF files over HTTP; (6) design a figure-of-merit scoring function for phase identification. Each component is nontrivial independently, and the integration across format discovery, crystallographic computation, and API interaction compounds the difficulty."""
+solution_explanation = """The solution implements a ~660-line Python+numpy powder XRD simulator. CIF parsing uses a state-machine approach recognizing both old (_symmetry_equiv_pos_as_xyz) and modern (_space_group_symop_operation_xyz) symmetry tags, with tokenization handling numbered operations. Standard uncertainty values are stripped via regex. Displacement parameters are read from either U_iso or B_iso columns with B→U conversion via B/(8π²). Symmetry operations are parsed into rotation matrices + translation vectors. The general metric tensor and its inverse handle all crystal systems including monoclinic. Structure factors are computed using hardcoded Cromer-Mann 4-Gaussian coefficients. Phase identification uses an intensity-weighted peak-position matching score. The fetch command uses urllib to download from COD's REST API."""
+verification_explanation = """Tests verify: (1) CIF parsing correctness for all five crystal systems with different CIF conventions — standard tags (NaCl), modern symop tag (calcite), B_iso parameters (BaTiO3), modern tags with numbered ops and uncertainties (rutile), and monoclinic C-centering (CuO); (2) cell parameters, volumes, and atom counts for each structure; (3) specific peak positions and d-spacings for NaCl; (4) systematic absences for F-centered cubic; (5) multiplicities for known reflections; (6) output format compliance; (7) phase identification correctly matching observed peak patterns; (8) COD REST API fetch downloading valid CIF data; (9) cross-system consistency verifying all compounds produce distinct patterns."""
+category = "applied_computing"
+tags = ["crystallography", "scientific-computing"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/powder-xrd-simulator-7595b1"

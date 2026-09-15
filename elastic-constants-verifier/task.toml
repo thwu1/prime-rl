@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge spanning crystallography (constructing FCC/BCC/SC supercells from basis vectors, periodic boundary conditions with minimum image convention), continuum mechanics (elastic constants of cubic crystals, strain tensors, Voigt notation), numerical methods (high-accuracy numerical differentiation, outlier-robust force comparison), and pair-potential physics (Morse potential with analytical forces, Cauchy relation). The solver must independently determine the correct computational approach for extracting C11, C12, C44 from a periodic crystal, handle the subtleties of shear elastic constants in Voigt notation, and implement force verification that achieves near-machine-precision agreement for a smooth potential."""
+solution_explanation = """The reference solution implements a Morse pair potential with analytical forces, builds cubic supercells from fractional basis coordinates, optimizes the lattice constant via bounded scalar minimization, computes the 6x6 Hessian of energy density vs Voigt strain using numdifftools, extracts C11/C12/C44 with the 1/4 factor for shear components, and verifies forces using Richardson extrapolation (via numdifftools.Derivative with multiple MaxStepGenerator configurations). Outlier detection uses box-plot upper outer fence (Q3 + 3*IQR). The Cauchy relation C12≈C44 holds approximately for pair potentials, providing a self-consistency check."""
+verification_explanation = """Tests verify: (1) JSON schema correctness, (2) bulk modulus self-consistency B=(C11+2C12)/3, (3) Cauchy relation C12≈C44 for pair potentials within 6%, (4) Born stability criteria (C11>0, C44>0, C11>|C12|), (5) force verification grade is A or B, (6) independent lattice constant computation matches solver's value within 1e-4, (7) independent C11 computation via finite differences matches within 1%, (8) physically reasonable ranges for lattice constants and elastic constants, (9) correct atom counts for 2x2x2 clusters, (10) all checks repeated with BCC crystal structure and different Morse parameters to prevent hardcoding."""
+category = "scientific_computing"
+tags = ["computational-physics", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/elastic-constants-verifier"

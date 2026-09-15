@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct expert-level skill sets: (1) diagnosing five interacting bugs across a compiler optimization pipeline that span instruction counting, graph construction, genetic algorithm operators, and metric computation — bugs that mask each other across module boundaries, requiring holistic reasoning about the pipeline semantics rather than isolated debugging; (2) designing and implementing a cross-benchmark evaluation module from docstring specifications, including the shifted-product geometric mean formula standard in compiler benchmarking (SPEC-style aggregation), multi-sequence ranking with correct index tracking, and head-to-head strategy comparison with win/loss analysis. The solver must understand LLVM pass ordering semantics, genetic algorithm design for variable-length combinatorial sequences, and compiler benchmarking methodology."""
+solution_explanation = """Fix 5 bugs: (1) instrcount.py reads input IR instead of optimized output, (2) synergy_graph.py reverses edge directions, (3) ga.py selection sorts ascending picking worst individuals, (4) ga.py crossover duplicates the pivot element in both children, (5) optimizer.py inverts the improvement sign. Then implement evaluator.py with 4 functions: evaluate_sequence (per-benchmark instruction counting with RuntimeError handling), aggregate_improvements (arithmetic mean and shifted-product geometric mean), rank_sequences (evaluate+aggregate+sort by descending score preserving original indices), and compare_strategies (head-to-head comparison with per-benchmark win/loss/tie counting and geometric-mean overall winner)."""
+verification_explanation = """33 tests verify each component independently plus cross-module integration. Bug-fix tests check instruction count reflects optimization, synergy graph edge direction semantics, GA selection/crossover operator correctness, and improvement metric sign convention. Evaluator tests verify multi-benchmark evaluation returns correct structure and improvements, arithmetic and geometric mean aggregation match expected formulas with positive/negative/single-benchmark cases, sequence ranking orders correctly and preserves indices, and strategy comparison counts wins correctly and determines the overall winner. End-to-end tests run the full pipeline and verify the evaluator integrates correctly with pipeline results."""
+category = "compilers"
+tags = ["llvm", "genetic-algorithm"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-pass-optimizer"

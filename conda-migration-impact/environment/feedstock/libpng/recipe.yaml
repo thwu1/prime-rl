@@ -1,0 +1,36 @@
+context:
+  name: libpng
+  version: "1.6.43"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/pnggroup/libpng/archive/v${{ version }}.tar.gz
+  sha256: fecc95b46cf05e8e3fc8a414750e0ba67d9106295971d5cec04685cebf7b4e64
+
+build:
+  number: 0
+  run_exports:
+    - ${{ pin_subpackage(name, max_pin='x.x') }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - cmake
+    - ninja
+  host:
+    - zlib
+  run: []
+
+test:
+  commands:
+    - test -f $PREFIX/lib/libpng16.so
+    - libpng-config --version
+
+about:
+  homepage: http://www.libpng.org/pub/png/libpng.html
+  license: Libpng
+  license_file: LICENSE
+  summary: PNG reference library

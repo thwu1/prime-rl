@@ -1,0 +1,56 @@
+# 3D Laser-Plasma Acceleration - Coarse grid for quick testing
+# WARNING: Very coarse resolution, debugging only
+
+max_step = 100
+amr.n_cell = 16 16 120
+amr.max_grid_size = 64
+amr.blocking_factor = 16
+geometry.dims = 3
+geometry.prob_lo = -48.e-6 -48.e-6 -56.e-6
+geometry.prob_hi =  48.e-6  48.e-6  12.e-6
+amr.max_level = 0
+
+boundary.field_lo = periodic periodic pec
+boundary.field_hi = periodic periodic pec
+
+warpx.verbose = 1
+warpx.do_dive_cleaning = 0
+warpx.use_filter = 0
+warpx.cfl = 0.95
+warpx.do_moving_window = 1
+warpx.moving_window_dir = z
+warpx.moving_window_v = 1.0
+warpx.serialize_initial_conditions = 1
+algo.particle_shape = 1
+
+particles.species_names = electrons
+
+electrons.charge = -q_e
+electrons.mass = m_e
+electrons.injection_style = "NUniformPerCell"
+electrons.num_particles_per_cell_each_dim = 1 1 1
+electrons.xmin = -20.e-6
+electrons.xmax = 20.e-6
+electrons.ymin = -20.e-6
+electrons.ymax = 20.e-6
+electrons.zmin = 0
+electrons.profile = constant
+electrons.density = 1.75e24
+electrons.momentum_distribution_type = "at_rest"
+electrons.do_continuous_injection = 1
+
+lasers.names = laser1
+laser1.profile = Gaussian
+laser1.position = 0. 0. 9.e-6
+laser1.direction = 0. 0. 1.
+laser1.polarization = 0. 1. 0.
+laser1.e_max = 16.e12
+laser1.profile_waist = 15.e-6
+laser1.profile_duration = 30.e-15
+laser1.profile_t_peak = 30.e-15
+laser1.profile_focal_distance = 100.e-6
+laser1.wavelength = 0.8e-6
+
+diagnostics.diags_names = diag1
+diag1.intervals = 100
+diag1.diag_type = Full

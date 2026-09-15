@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, holistic understanding of the ARM Cortex-M exception priority model from the ARM Architecture Reference Manual (DDI 0403E). The solver must reverse-engineer binary register dumps in the CMEX format, correctly decode ARM SCB/NVIC register bitfields (SHPR byte-to-exception mapping, AIRCR PRIGROUP extraction, NVIC IPR layout), build and debug a provided C parsing utility that contains a subtle register extraction defect, and implement the full exception state machine: ExecutionPriority() with PRIGROUP-based subgroup masking, multi-level fault escalation with priority preemption checks, EXC_RETURN validation, and WFI wakeup semantics. Requires cross-referencing binary inspection tools (xxd/hexdump) with C source code and ARM architecture knowledge that is not provided in the task description."""
+solution_explanation = """The solution parses CMEX v1 binary dump files using Python struct, extracts PRIGROUP from AIRCR bits [10:8] and exception priorities from SHPR1/2/3 byte positions matching ARM exception numbering. It implements ExecutionPriority() by iterating active exceptions with groupvalue=2<<subgroupshift and NMI/HardFault overrides, applies BASEPRI/PRIMASK/FAULTMASK boosting. Pending exception selection uses strict-less-than comparison with lowest-exception-number tie-breaking. Fault escalation checks both handler enable flags AND configured priority preemption. WFI wakeup excludes PRIMASK but includes FAULTMASK."""
+verification_explanation = """Tests load each result JSON from /app/results/ and compare against hardcoded expected values. Execution priority tests verify 14 scenarios including PRIGROUP subgrouping, mask interactions, multi-active states, and NMI with non-zero PRIGROUP. Pending exception tests verify correct selection or null across 8 scenarios. Fault escalation tests verify handler/escalated/lockup fields across 9 scenarios including an enabled-but-cant-preempt case. Misc tests verify stack frame sizes, EXC_RETURN validity, and WFI wakeup across 12 scenarios."""
+category = "systems"
+tags = ["arm-architecture", "embedded-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/arm-exception-solver"

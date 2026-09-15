@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interacting performance problems in a PL/pgSQL function operating over a multi-table airline booking schema. The solver must: (1) independently discover that the function unconditionally JOINs three tables even when parameters targeting those tables are NULL, (2) recognize that the date comparison uses a cast that defeats index usage, (3) determine that the database collation (en_US.UTF-8) requires special operator class support for prefix LIKE queries, (4) design a comprehensive set of indexes across multiple tables for diverse search patterns, and (5) architect a replacement function using dynamic SQL with conditional JOIN inclusion and safe parameter escaping — ensuring semantic equivalence across all 2^6 parameter combinations. This combines execution plan analysis, index theory, PL/pgSQL engineering, and security awareness."""
+solution_explanation = """Create a PL/pgSQL function using EXECUTE with dynamically built SQL: conditionally JOIN booking_leg+flight only when departure_airport/arrival_airport/departure_date/flight_status parameters are non-NULL, conditionally JOIN passenger only when passenger_last_name is provided. Use quote_literal() for injection prevention. Replace scheduled_departure::date=p_date with a range comparison (>= p_date AND < p_date + 1 day). Create expression indexes with text_pattern_ops on lower(email) and lower(last_name), composite index on flight(departure_airport, arrival_airport, scheduled_departure), and FK indexes on booking_leg(booking_id) and booking_leg(flight_id)."""
+verification_explanation = """Tests verify: (1) /app/optimization.sql exists and search_bookings_optimized function is defined in the database, (2) function uses EXECUTE for dynamic SQL with quote_literal()/format() for safe escaping, (3) function has conditional JOIN logic with IS NOT NULL checks on parameters, (4) function return type includes booking_id/booking_ref/email columns, (5) required indexes exist: expression index on lower(email) on booking, composite index with departure_airport+scheduled_departure on flight, index on passenger(last_name), indexes on booking_leg(booking_id) and booking_leg(flight_id), (6) result correctness by comparing output with original function across 7 parameter combinations, (7) EXPLAIN shows index scans for selective queries on email, flight route+date, and passenger name."""
+category = "database"
+tags = ["postgresql", "query-optimization"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-dynamic-search"

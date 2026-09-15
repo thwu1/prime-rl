@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, internalized knowledge of Docker Compose v2 multi-file merge semantics — the solver must know without being told that ports are concatenated (not replaced), mappings are deep-merged, depends_on conditions are overridden per-key, and network lists are unioned. Correct env-var substitution demands understanding .env file precedence and the ${VAR:-default} syntax. YAML anchors and merge keys (<<:) must be resolved before merge. On top of this, six distinct infrastructure analyses must be performed (network isolation, port conflicts, resource inversions, healthcheck gaps, undefined references), followed by four graph-theoretic computations on the dependency topology: cycle detection on a combined dependency graph, layered startup ordering on explicit deps, longest startup chain identification, and cascading failure impact analysis. Several findings only manifest after correct multi-file merge: the port conflict from concatenation, the healthcheck gap from a condition override, and the circular dependency from the union of cross-file edges. The instruction specifies only the desired output — the solver must independently determine the correct merge behavior, substitution rules, and computational approaches."""
+solution_explanation = """Parse both compose YAML files with a YAML library that resolves anchors/merge keys. Implement Docker Compose v2 merge: concatenate sequence keys (ports), deep-merge mapping keys (environment, networks normalized from list to dict, depends_on, deploy), replace scalars. Parse .env/.env.prod, merge with prod precedence, substitute ${VAR:-default} patterns throughout. Build per-service network sets for isolation analysis, extract host ports for conflict detection, parse Docker memory notation for resource validation, check depends_on conditions against target healthchecks, identify undefined URL hostnames. Build combined dependency graph from depends_on + env-var URL hostnames, run SCC detection to find cycles, compute startup waves via topological sort on explicit deps, find critical path via longest-path DAG traversal, and compute SPOF via reverse reachability on explicit deps."""
+verification_explanation = """Tests run the audit tool and verify every output field: 13 merged services, 3 network violations, 1 port conflict (8080), 2 resource violations, 1 healthcheck gap, 3 undefined references, 1 circular dependency group containing [auth-api, notification-worker, user-api], 4 startup waves, critical path length 4 with path [postgres, auth-api, order-api, api-gateway], and SPOF analysis showing postgres and redis each affecting 7 services. Tests verify both positive findings and absence of false positives, sorting correctness, merge-specific behaviors (port concatenation, condition override, network addition), and graph algorithm correctness."""
+category = "DevOps"
+tags = ["docker-compose", "graph-algorithms"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/compose-dependency-analyzer"

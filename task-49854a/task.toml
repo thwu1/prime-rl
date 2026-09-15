@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of prediction market evaluation methodologies. The agent must first explore a fragmented workspace to discover scattered raw data (JSONL events, CSV outcomes keyed by title not ID, per-forecaster JSON files with quality issues), a configuration file specifying analyses abstractly, methodology documentation, and a legacy implementation containing a bug. Data quality issues include: probability values stored as percentages requiring normalization, inconsistent JSON schema across forecaster files, duplicate prediction records, and cross-system ID reconciliation via title-based joining. The instruction provides no algorithms or formulas — the agent must determine what to compute from the config and docs. Implementation requires deep knowledge of proper scoring rules, CRRA utility theory with optimal capital allocation under different risk aversion regimes (including numerical optimization), Bradley-Terry pairwise comparison model estimation via iterative MLE, and Spearman rank correlation — all without being told how."""
+solution_explanation = """A Python script consolidates raw data from JSONL events, CSV outcomes (joined on title), and per-forecaster JSON files (handling percentage normalization, key name variants, and deduplication). It then implements all five scoring methods: Brier score as 1-mean(squared error), log score as mean log(p_correct), CRRA optimal returns at three gamma levels (all-in for gamma=0, Kelly fraction for gamma=1, scipy optimization for gamma=0.5), Bradley-Terry via iterative MLE with geometric-mean normalization, and Spearman rank correlations via scipy. Results are written as JSON to /app/results/."""
+verification_explanation = """Tests load a clean reference dataset and independently compute all metrics using reference implementations. Agent outputs in /app/results/ are compared against these reference values within floating-point tolerance (1e-6 for exact metrics, 1e-3 for numerically optimized ones). Structural properties are also verified: correlation matrix symmetry, diagonal ones, BT geometric mean normalization, ranking consistency with scores."""
+category = "probability_statistics"
+tags = ["prediction-markets", "scoring-rules"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-49854a"

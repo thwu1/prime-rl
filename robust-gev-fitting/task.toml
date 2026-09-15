@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in robust statistics (trimmed L-moments and their properties), extreme value theory (GEV distribution fitting), and statistical inference (L-method of moments, influence function diagnostics). The agent must navigate the lmo library's non-trivial API where key functions like l_moment_cov and l_moment have positional-only parameters that silently fail when passed as keyword arguments. Computing theoretical L-moments from a fitted distribution requires using the lmo scipy extension's methods on frozen rv objects (rv.l_moment) which is distinct from the sample L-moment function (lmo.l_moment). The lmo.diagnostic.error_sensitivity function has an optimizer deficiency (COBYLA starting at x0=0 where IF=0) requiring the agent to implement manual GES computation via scipy.optimize.minimize_scalar over the GEV's bounded support. Understanding why trimming improves robustness under contamination, computing nonparametric quantile reconstruction via Fourier-Jacobi expansion, and interpreting influence function diagnostics all require graduate-level statistical knowledge."""
+solution_explanation = """Install the lmo library, load the contaminated dataset, compute sample L-statistics at three trim levels (0,0), (1,1), (2,2) to demonstrate how contamination inflates untrimmed estimates. Fit GEV distributions using scipy.stats.genextreme.l_fit at each trim level, compute return levels from the fitted PPFs, derive the non-parametric sample L-moment covariance matrix using lmo.l_moment_cov with positional r_max argument. Compute theoretical L-stats from the trim=(1,1) fitted GEV using rv.l_moment() on the frozen distribution to verify goodness-of-fit. Reconstruct the quantile function from 8 TL(1,1)-moments using ppf_from_l_moments, and compute influence function diagnostics (gross-error sensitivity via scipy.optimize.minimize_scalar due to library optimizer bug, and rejection point) for the L-skewness ratio of the trimmed GEV."""
+verification_explanation = """Tests independently compute reference L-statistics from the data using lmo to verify anti-cheat correctness. GEV fit parameters are checked against known true values (shape=-0.05, loc=100, scale=30) with tolerance for sampling variability. Return levels are verified for internal consistency with reported fit parameters using genextreme.ppf. The covariance matrix is checked for correct dimensions, symmetry, and positive semi-definiteness. Theoretical L-stats are independently recomputed from the reported GEV parameters via rv.l_moment and compared. Trimmed fit must be demonstrably closer to true parameters than untrimmed fit. Influence diagnostics must show positive gross-error sensitivity and finite rejection point."""
+category = "data_science"
+tags = ["robust-statistics", "extreme-value-theory"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/robust-gev-fitting"

@@ -1,0 +1,8 @@
+2024-01-15T10:23:45Z [ERROR] code=E001 msg="Connection timeout" client=192.168.1.50 duration=30042ms
+2024-01-15T10:24:12Z [WARN] code=W002 msg="Slow query" client=10.0.0.33 duration=5023ms
+2024-01-15T10:25:00Z [ERROR] code=E003 msg="Disk space low" client=192.168.1.50 volume=/data
+2024-01-15T10:26:30Z [ERROR] code=E001 msg="Connection timeout" client=10.0.0.44 duration=30015ms
+2024-01-15T10:28:15Z [ERROR] code=E002 msg="DNS resolution failed" client=192.168.1.50 target=api.example.com
+2024-01-15T10:30:00Z [ERROR] code=E004 msg="Authentication failed" user="admin" status=403
+2024-01-15T10:32:00Z [ERROR] code=E003 msg="Disk space low" client=10.0.0.33 volume=/var/log
+2024-01-15T10:33:45Z [ERROR] code=E001 msg="Connection timeout" client=192.168.1.50 duration=30001ms

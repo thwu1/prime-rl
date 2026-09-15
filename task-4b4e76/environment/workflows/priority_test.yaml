@@ -1,0 +1,37 @@
+version: "1"
+nodes:
+  - id: root
+    name: Root
+    steps:
+      - name: Init
+        run: echo init
+  - id: cleanup
+    name: Cleanup
+    depends_on: [root]
+    steps:
+      - name: Clean
+        run: echo clean
+  - id: analyze
+    name: Analyze
+    depends_on: [root]
+    steps:
+      - name: Study
+        run: echo study
+  - id: deploy
+    name: Deploy
+    depends_on: [root]
+    steps:
+      - name: Ship
+        run: echo ship
+  - id: build
+    name: Build
+    depends_on: [root]
+    steps:
+      - name: Compile
+        run: echo compile
+  - id: finish
+    name: Finish
+    depends_on: [cleanup, analyze, deploy, build]
+    steps:
+      - name: Done
+        run: echo done

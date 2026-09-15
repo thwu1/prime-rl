@@ -1,0 +1,22 @@
+
+FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
+
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-dev \
+        build-essential \
+        gfortran \
+        libxml2-dev \
+        libxslt1-dev \
+        libopenblas-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /app
+
+COPY network.xodr /app/network.xodr
+COPY scenario.xosc /app/scenario.xosc
+
+WORKDIR /app

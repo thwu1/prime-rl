@@ -1,0 +1,30 @@
+description: "Tighten web egress to only reach orders-api"
+action: replace
+target_policy: web-egress-policy
+target_namespace: web
+policy:
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: web-egress-policy
+    namespace: web
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Egress
+    egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            purpose: api
+        podSelector:
+          matchLabels:
+            app: orders
+      ports:
+      - port: 8080
+        protocol: TCP
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP

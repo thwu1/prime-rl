@@ -1,0 +1,12 @@
+{
+    "model_name": "Yuen-Sabadini-Boschi_1982",
+    "nv": 2,
+    "code": 2,
+    "lithosphere_thickness_km": 100.0,
+    "ilm": 0,
+    "viscosities_1e21_Pa_s": [2.0, 1.0],
+    "lmin": 2,
+    "lmax": 30,
+    "loading": true,
+    "time_points_kyr": [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
+}

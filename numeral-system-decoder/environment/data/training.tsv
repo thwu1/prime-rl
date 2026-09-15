@@ -1,0 +1,116 @@
+# system	number	word
+turahi	1	na
+turahi	2	fi
+turahi	3	so
+turahi	4	ke
+turahi	5	mu
+turahi	6	la
+turahi	7	po
+turahi	8	dun
+turahi	9	dun na
+turahi	11	dun so
+turahi	14	dun la
+turahi	16	fi dun
+turahi	21	fi dun mu
+turahi	24	so dun
+turahi	30	so dun la
+turahi	32	ke dun
+turahi	40	mu dun
+turahi	48	la dun
+turahi	56	po dun
+turahi	63	po dun po
+turahi	64	ram
+turahi	65	ram na
+turahi	72	ram dun
+turahi	80	ram fi dun
+turahi	100	ram ke dun ke
+turahi	128	fi ram
+turahi	192	so ram
+turahi	200	so ram dun
+turahi	256	ke ram
+turahi	320	mu ram
+turahi	384	la ram
+turahi	448	po ram
+turahi	500	po ram la dun ke
+turahi	512	vol
+turahi	520	vol dun
+turahi	576	vol ram
+belago	1	cha
+belago	2	doi
+belago	3	tin
+belago	4	pak
+belago	5	nen
+belago	6	nen cha
+belago	7	nen doi
+belago	8	nen tin
+belago	9	nen pak
+belago	10	tum
+belago	11	tum cha
+belago	13	tum tin
+belago	15	tum nen
+belago	17	tum nen doi
+belago	19	tum nen pak
+belago	20	kal
+belago	21	kal cha
+belago	25	kal nen
+belago	30	kal tum
+belago	33	kal tum tin
+belago	38	kal tum nen tin
+belago	40	doi kal
+belago	42	doi kal doi
+belago	55	doi kal tum nen
+belago	60	tin kal
+belago	80	pak kal
+belago	99	pak kal tum nen pak
+belago	100	nen kal
+belago	120	nen cha kal
+belago	200	tum kal
+belago	300	tum nen kal
+belago	399	tum nen pak kal tum nen pak
+belago	400	bor
+belago	420	bor kal
+belago	500	bor nen kal
+belago	800	doi bor
+belago	1000	doi bor tum kal
+belago	2000	nen bor
+belago	3000	nen doi bor tum kal
+renshi	1	ek
+renshi	2	dwa
+renshi	3	tri
+renshi	4	kat
+renshi	5	pen
+renshi	6	hes
+renshi	7	sep
+renshi	8	fekat
+renshi	9	fetri
+renshi	10	fedwa
+renshi	11	feek
+renshi	12	zan
+renshi	13	zan ek
+renshi	15	zan tri
+renshi	18	zan hes
+renshi	20	zan fekat
+renshi	23	zan feek
+renshi	24	dwa zan
+renshi	30	dwa zan hes
+renshi	36	tri zan
+renshi	48	kat zan
+renshi	60	pen zan
+renshi	72	hes zan
+renshi	84	sep zan
+renshi	96	fekat zan
+renshi	100	fekat zan kat
+renshi	108	fetri zan
+renshi	120	fedwa zan
+renshi	132	feek zan
+renshi	143	feek zan feek
+renshi	144	gros
+renshi	145	gros ek
+renshi	156	gros zan
+renshi	168	gros dwa zan
+renshi	200	gros kat zan fekat
+renshi	288	dwa gros
+renshi	300	dwa gros zan
+renshi	432	tri gros
+renshi	500	tri gros pen zan fekat
+renshi	1000	hes gros feek zan kat

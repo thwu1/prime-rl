@@ -1,0 +1,59 @@
+==================================================================
+BUG: KASAN: slab-use-after-free in recv_work+0x1a3/0x490 drivers/infiniband/hw/hfi1/rc.c:2563
+Write of size 8 at addr ffff888076340120 by task kworker/3:2/158
+
+CPU: 3 UID: 0 PID: 158 Comm: kworker/3:2 Not tainted 6.12.0-rc1-syzkaller #0
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Workqueue: events recv_work
+Call Trace:
+ <TASK>
+ __dump_stack lib/dump_stack.c:94 [inline]
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_address_description mm/kasan/report.c:378 [inline]
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ recv_work+0x1a3/0x490 drivers/infiniband/hw/hfi1/rc.c:2563
+ process_one_work+0x9d7/0x1920 kernel/workqueue.c:3275
+ process_scheduled_works kernel/workqueue.c:3358 [inline]
+ worker_thread+0x5da/0xe40 kernel/workqueue.c:3439
+ kthread+0x370/0x450 kernel/kthread.c:467
+ ret_from_fork+0x754/0xd80 arch/x86/kernel/process.c:158
+ ret_from_fork_asm+0x1a/0x30 arch/x86/entry/entry_64.S:245
+ </TASK>
+
+Allocated by task 5218:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ __kasan_slab_alloc+0x89/0x90 mm/kasan/common.c:329
+ kasan_slab_alloc include/linux/kasan.h:247 [inline]
+ slab_post_alloc_hook mm/slub.c:4086 [inline]
+ slab_alloc_node mm/slub.c:4129 [inline]
+ kmem_cache_alloc_noprof+0x1f6/0x410 mm/slub.c:4136
+ hfi1_setup_tid_rdma+0x254/0x980 drivers/infiniband/hw/hfi1/tid_rdma.c:445
+ hfi1_qp_init+0x4e2/0x7d0 drivers/infiniband/hw/hfi1/qp.c:289
+
+Freed by task 42:
+ kasan_save_stack+0x30/0x50 mm/kasan/common.c:57
+ kasan_save_track+0x14/0x30 mm/kasan/common.c:78
+ kasan_save_free_info+0x3b/0x60 mm/kasan/generic.c:579
+ __kasan_slab_free+0x12c/0x1b0 mm/kasan/common.c:271
+ kasan_slab_free include/linux/kasan.h:218 [inline]
+ slab_free_hook mm/slub.c:2271 [inline]
+ slab_free mm/slub.c:4539 [inline]
+ kmem_cache_free+0x189/0x3f0 mm/slub.c:4615
+ hfi1_del_tid_reap_timer+0x1c7/0x350 drivers/infiniband/hw/hfi1/tid_rdma.c:512
+ hfi1_qp_exit+0x3a1/0x540 drivers/infiniband/hw/hfi1/qp.c:347
+
+The buggy address belongs to the object at ffff888076340100
+ which belongs to the cache hfi1_tid_entry of size 64
+The buggy address is located 32 bytes inside of
+ freed 64-byte region [ffff888076340100, ffff888076340140)
+
+Memory state around the buggy address:
+ ffff888076340000: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff888076340080: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+>ffff888076340100: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+                               ^
+ ffff888076340180: fa fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff888076340200: 00 00 00 00 00 00 00 00 fc fc fc fc fc fc fc fc
+==================================================================

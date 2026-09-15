@@ -1,0 +1,19 @@
+dag_id: scoring
+schedule: "0 */4 * * *"
+default_pool: ml_pool
+max_active_runs: 1
+tasks:
+  load_model:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+  score_batch:
+    pool_slots: 3
+    duration_estimate_minutes: 20
+    upstream: [load_model]
+  export_scores:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+    upstream: [score_batch]
+datasets:
+  produces: [user_scores]
+  consumes: [model_artifact]

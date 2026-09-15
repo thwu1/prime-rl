@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 12 distinct OGC 19-008r4 conformance violations across 4 corrupted GeoTIFF binary files using multiple inspection tools (listgeo for GeoKey metadata, tiffdump/tiffinfo for raw TIFF structure, Python/xxd for binary analysis). Violations span TIFF 6.0 IFD ordering, GeoKeyDirectoryTag header version fields, GeoKey type misclassification (DOUBLE stored as SHORT, ASCII stored as SHORT), ASCII parameter encoding (wrong delimiters, missing null terminators), incorrect double parameter array offsets, GeoKey entry sort order, and entry count consistency. The solver must understand TIFF 6.0 binary format (IFD entry structure, tag data storage), the GeoKey directory indirection mechanism (SHORT/DOUBLE/ASCII type routing via tags 34735/34736/34737), OGC 19-008r4 value validity constraints, and geospatial CRS semantics to distinguish valid from invalid parameter values."""
+solution_explanation = """A Python script parses each corrupted TIFF at the binary level using struct, extracting IFD tags, GeoKey directory entries, double parameter arrays, and ASCII parameter strings. For each file it diagnoses specific violations by inspecting header fields, entry ordering, type classification, value offsets, and ASCII encoding. Then it reconstructs correct GeoTIFF files with sorted IFD entries, conformant GeoKeyDirectoryTag headers (version=1, revision=1, minor=1), correctly sorted GeoKey entries with proper type classification, valid EPSG codes, correct double parameter indexing, and properly pipe-delimited null-terminated ASCII parameters."""
+verification_explanation = """A custom TIFF binary parser reads each fixed file and decodes GeoKey entries through the directory indirection mechanism. Tests verify: valid TIFF 6.0 header, IFD entries sorted by tag ID, GeoKeyDirectoryTag header version/revision/minor fields, GeoKey entries sorted by KeyID, all GeoKey values matching the intended CRS, DOUBLE-type keys correctly referencing GeoDoubleParamsTag (34736), ASCII-type keys correctly referencing GeoAsciiParamsTag (34737) with pipe delimiters and null terminator, ModelPixelScaleTag having exactly 3 values, and ModelTiepointTag matching expected coordinates."""
+category = "systems"
+tags = ["binary-format", "geospatial"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/geotiff-binary-encode"

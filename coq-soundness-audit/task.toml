@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of three distinct Coq kernel mechanisms: (1) the module system's delta-resolver and how Include corrupts functor aliasing, (2) the guard checker's handling of higher-order closures that capture recursive calls, and (3) the guard checker's loss of subterm specifications through let-bound conditional pattern matches. Writing correct exploit proofs demands careful equational reasoning to avoid triggering infinite loops and understanding of dependent types. Fixing the vulnerabilities requires restructuring code to avoid the specific patterns the kernel mishandles, while preserving the library's external API."""
+solution_explanation = """For ModLib: the Include+functor+module-alias pattern creates a corrupt delta-resolver, making two distinct functor applications share internal definitions. Exploit by proving the confused equality, then deriving true=false. Fix by removing Include or the module alias. For RecLib: the guard checker accepts a Fixpoint where the recursive function is captured in a closure passed as argument. Exploit by showing deep_acc 1 0 f = S(deep_acc 1 0 f) via stepwise rewriting, then derive n=S n is contradictory. Fix by not capturing the recursive call in the closure. For IterLib: the guard checker loses subterm specs when a let-bound expression computes the recursive argument through an if-then-else and match, accepting a call on a non-subterm. Exploit by applying safety_check 1 I which typechecks as False. Fix by removing the unsound safety_check definition."""
+verification_explanation = """Tests compile each exploit file with coqc and verify that (a) compilation succeeds and (b) Print Assumptions outputs 'Closed under the global context'. For fixed files, tests verify compilation, correct API exports via reflexivity lemmas, and that the specific vulnerability patterns no longer work (negative tests that should fail to compile)."""
+category = "formal_verification"
+tags = ["coq", "soundness"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coq-soundness-audit"

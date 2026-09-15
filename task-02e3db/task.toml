@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of SE(3) Lie group geometry (tangent-space parameterization, retraction, logarithm/exponential maps), nonlinear optimization on manifolds (iterative solvers, damping strategies, convergence criteria), block-sparse linear algebra (efficient Hessian assembly and factorization for graphical models), numerical differentiation on Lie groups, and robust M-estimation for outlier rejection in least squares. The solver must correctly handle manifold constraints, variable indexing for fixed/free poses, and step acceptance based on actual robust cost rather than surrogate cost."""
+solution_explanation = """The solution implements: (1) SE(3) relative-pose residuals via Lie group composition and logarithm, (2) numerical Jacobians by perturbing each pose in 6 tangent dimensions via manifold retraction, (3) block-sparse Hessian assembly in COO format with IRLS-weighted contributions, (4) damped normal equation solve via sparse factorization, (5) step acceptance using actual robust cost with adaptive damping, and (6) manifold retraction of all free poses. The robust kernel down-weights the outlier edges to enable convergence to the true trajectory."""
+verification_explanation = """Tests verify: (1) solver convergence within 100 iterations, (2) max translation error below 0.10m for all non-fixed poses vs internally-computed reference trajectory, (3) max rotation error below 1.0 degrees, (4) robust estimation effectiveness — enabling it must yield at least 2x lower error than disabling it (huber_scale=inf), confirming outlier rejection. Ground truth is computed at test time from the trajectory formula, not stored in environment files."""
+category = "optimization"
+tags = ["robotics", "lie-groups"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-02e3db"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing a forensic recovery methodology that goes beyond standard NTFS validation techniques. The solver must: (1) scan a raw binary capture for MFT record signatures at unknown offsets using hex analysis and forensic tools, (2) reverse-engineer the NTFS MFT entry format including attribute chains and variable-length mapping pairs encoding with mixed-width unsigned lengths and signed LCN deltas, (3) design validation criteria that distinguish multiple candidates under genuine ambiguity — critically, one candidate passes ALL standard structural checks (timestamp match, cluster count match, no overlapping extents) but has first-extent LCN inconsistent with the boot sector's MFT location pointer, requiring cross-validation against volume geometry that the solver must discover independently, (4) evaluate competing candidates and justify selection decisions, (5) implement precise binary surgery to splice corrected mapping pairs into the damaged entry with proper header field updates, (6) document the designed methodology with justifications and assess confidence. Combines binary forensics, filesystem architecture evaluation, novel methodology design, and multi-tool terminal workflows under genuine ambiguity."""
+solution_explanation = """Scan disk_capture.raw for FILE (0x46494C45) signatures at sector boundaries. Extract each 1024-byte record. Parse MFT entry headers, walk attribute chains to locate $STANDARD_INFORMATION (type 0x10) for timestamps and $DATA (type 0x80, non-resident) for mapping pairs. Decode variable-length mapping pairs encoding. Design validation criteria beyond standard checks: (1) timestamp provenance, (2) total cluster count, (3) extent overlap detection, (4) boot sector MFT location cross-validation — the boot sector at offset 0x30 stores the MFT starting cluster, and a valid $MFT's first data extent must begin at this LCN. The deceptive candidate at 0x4000 is rejected for overlapping extents. The quasi-valid candidate at 0x9000 passes checks 1-3 but fails check 4: its first extent starts at LCN 0x40000 while the boot sector specifies MFT_LCN 0x30000. The correct candidate at 0x7000 passes all checks. Re-encode its runlist, splice into the corrupted entry, update highest_vcn (0x77FF) and attribute/used sizes. Patch boot sector total sectors at offset 0x28 from 209715200 to 658505728."""
+verification_explanation = """Tests independently decode the repaired MFT entry's mapping pairs using a reference decoder and verify: correct 3-extent runlist with specific LCN/length values, highest_vcn=0x77FF, total_clusters=0x7800. Boot sector checks: NTFS signature and total_sectors=658505728. Forensic report validation: selected_record_offset=0x7000, deceptive record at 0x4000 rejected, quasi-valid at 0x9000 rejected, correct at 0x7000 accepted, exactly one accepted, at least 6 candidate evaluations. Methodology validation: at least 4 designed criteria each with name/description/rationale fields of sufficient length. Confidence assessment present with valid level and substantive justification."""
+category = "reverse_engineering"
+tags = ["binary-forensics", "methodology-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ntfs-runlist-forensics"

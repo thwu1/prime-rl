@@ -1,0 +1,18 @@
+2024-01-15 14:22:47.112 [INFO]  Application started, connecting to Redis cluster
+2024-01-15 14:22:47.234 [INFO]  Connection pool initialized: 3 targets, max_connections=10000
+2024-01-15 14:23:15.421 [WARN]  Connection pool utilization above 90%
+2024-01-15 14:23:17.102 [ERROR] bind() for connection to 10.0.1.50:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:17.234 [ERROR] bind() for connection to 10.0.1.51:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:17.891 [WARN]  Connection pool exhausted, retrying with backoff
+2024-01-15 14:23:18.102 [ERROR] bind() for connection to 10.0.1.52:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:18.547 [ERROR] bind() for connection to 10.0.1.50:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:19.003 [WARN]  Slow accept() processing detected on inbound port 8080: 2847ms
+2024-01-15 14:23:19.221 [ERROR] bind() for connection to 10.0.1.51:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:19.445 [ERROR] bind() for connection to 10.0.1.50:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:20.341 [ERROR] bind() for connection to 10.0.1.52:6379 failed: Address already in use (EADDRINUSE)
+2024-01-15 14:23:20.782 [WARN]  Connection pool exhausted, all retries failed
+2024-01-15 14:23:21.567 [WARN]  Kernel: nf_conntrack table full warnings detected
+2024-01-15 14:23:22.001 [ERROR] connect() to 10.0.1.50:6379 failed: Operation not permitted (EPERM)
+2024-01-15 14:23:22.234 [ERROR] sendto() to 10.0.2.1:8125 (statsd) failed: Operation not permitted (EPERM)
+2024-01-15 14:23:22.891 [ERROR] Multiple connection failures detected, triggering health check
+2024-01-15 14:23:23.441 [WARN]  Health check: 3 of 5 Redis nodes unreachable

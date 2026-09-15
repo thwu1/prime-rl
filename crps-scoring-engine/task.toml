@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing closed-form CRPS for five parametric distribution families (GEV with three sub-families, GPD with point mass, generalized truncated/censored normal, mixture of normals, standard normal) plus three ensemble scoring variants (four estimators, outcome-weighted, threshold-weighted via chaining functions). The GEV sub-families each require different special-function machinery and careful boundary analysis. The GPD adds shape-parameter constraints and point-mass handling at the boundary. The agent must derive or recall the correct closed-form expressions from domain knowledge in probabilistic forecasting theory, as no formulas are provided. Numerical stability across edge cases, mathematical invariance properties, and cross-function consistency constraints must all be satisfied simultaneously."""
+solution_explanation = """Implement scoring_rules.py with closed-form CRPS functions for each distribution using the appropriate special functions and statistical identities. GEV requires branching on shape parameter with distinct treatments for Gumbel (exponential integral), Fréchet, and Weibull cases using the upper incomplete gamma function. GPD uses its CDF with careful handling of the shape=0 exponential limit and point mass at the boundary. The gtcnormal requires standardized truncation bounds with infinite-bound detection. Mixture normals use the A(mu,sigma) auxiliary function in a double sum over components. Ensemble CRPS implements four estimator forms (energy, fair, PWM, quantile decomposition). owCRPS applies weight functions to the energy form. twCRPS applies chaining functions to transform inputs before computing standard CRPS. evaluate.py reads scenarios and dispatches to the correct function."""
+verification_explanation = """Tests verify numerical correctness against reference values from the scoringrules library test suite (atol=1e-4 to 1e-6). Property tests verify: GEV location-shift invariance and scale homogeneity across all sub-families; GPD scale homogeneity, exponential reduction for shape=0, and negative-shape handling; gtcnormal reduction to normal CRPS; mixture single-component reduction; ensemble estimator equivalences (nrg≡qd, fair≡pwm); owCRPS unit-weight and zero-observation-weight identities; twCRPS identity-chaining equivalence to NRG; non-negativity for all CRPS functions. Pipeline tests verify the evaluation driver produces correctly structured and numerically accurate results."""
+category = "mathematics"
+tags = ["probabilistic-forecasting", "scoring-rules"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crps-scoring-engine"

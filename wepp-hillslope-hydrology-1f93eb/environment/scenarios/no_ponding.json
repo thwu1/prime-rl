@@ -1,0 +1,18 @@
+{
+  "name": "no_ponding",
+  "soil": {
+    "Ke": 40.0,
+    "Ns": 100.0,
+    "theta_d": 0.3
+  },
+  "surface": {
+    "slope": 0.05,
+    "chezy_c": 10.0,
+    "length": 50.0,
+    "random_roughness": 8.0
+  },
+  "rainfall": [
+    {"time_min": 0, "intensity_mm_hr": 10.0},
+    {"time_min": 60, "intensity_mm_hr": 0.0}
+  ]
+}

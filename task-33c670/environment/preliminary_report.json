@@ -1,0 +1,60 @@
+{
+  "site": "Millbrook Industrial Site",
+  "analyst": "J. Smith, Environmental Consulting Group",
+  "analysis_date": "2024-08-15",
+  "software": "ProUCL 5.1",
+  "confidence_level": 0.95,
+  "results": {
+    "MW-1_Arsenic": {
+      "n": 24,
+      "n_detect": 24,
+      "pct_nd": 0.0,
+      "mean": 12.51,
+      "sd": 1.80,
+      "gof_normal": true,
+      "recommended_method": "Student's t",
+      "recommended_ucl": 13.14
+    },
+    "MW-2_TCE": {
+      "n": 30,
+      "n_detect": 30,
+      "pct_nd": 0.0,
+      "mean": 6.70,
+      "sd": 7.48,
+      "gof_normal": false,
+      "recommended_method": "Student's t",
+      "recommended_ucl": 9.02,
+      "notes": "Data is right-skewed but Student's t provides conservative coverage"
+    },
+    "MW-3_Lead": {
+      "n": 25,
+      "n_detect": 18,
+      "pct_nd": 28.0,
+      "mean": 11.36,
+      "sd": 13.20,
+      "recommended_method": "Student's t",
+      "recommended_ucl": 15.87,
+      "notes": "Non-detects replaced with DL/2 per standard practice"
+    },
+    "MW-4_Benzene": {
+      "n": 20,
+      "n_detect": 9,
+      "pct_nd": 55.0,
+      "mean": 2.59,
+      "sd": 4.15,
+      "recommended_method": "Chebyshev (MVUE)",
+      "recommended_ucl": 6.65,
+      "notes": "Non-detects replaced with DL/2; Chebyshev selected for conservative bound"
+    },
+    "MW-5_Chromium": {
+      "n": 8,
+      "n_detect": 6,
+      "pct_nd": 25.0,
+      "mean": 11.63,
+      "sd": 6.88,
+      "recommended_method": "Bootstrap BCA",
+      "recommended_ucl": 16.24,
+      "notes": "Non-detects replaced with DL/2; BCA bootstrap with 2000 resamples"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 subtle interacting bugs across a C simulation core and Python orchestrator, spanning set-index computation, dirty-bit semantics on write hits, reuse-distance stack maintenance, miss-rate prediction thresholds, and optimization tiebreaking. The agent must understand N-way set-associative cache internals (address decomposition, LRU replacement, write-back/write-allocate policy, traffic accounting) deeply enough to identify each defect from output discrepancies, then navigate C compilation/debugging and Python code analysis to fix them. Cascading dependencies between bugs (e.g., fixing the C simulator changes optimization behavior, fixing the stack distance changes prediction inputs) require systematic reasoning about component interactions."""
+solution_explanation = """The correct solution either fixes all 5 bugs in place (2 in C, 3 in Python) or replaces the system with a correct standalone implementation. Bug fixes: (1) C set-index uses modulo (num_sets-1) instead of num_sets — fix the mask. (2) C cache_access omits dirty-bit set on write hit — add the assignment. (3) Python stack-distance inserts without removing the old entry — add stack.pop(pos). (4) Python miss-rate prediction uses > instead of >= for the threshold — change to >=. (5) Python optimizer uses <= for cost comparison with no tiebreaking — change to < with explicit smallest-cache/smallest-block tiebreak."""
+verification_explanation = """Tests verify exact numerical correctness of all outputs against pre-computed expected values. Simulation statistics (hits, misses, writebacks, traffic bytes) must match exactly. Stack distance histograms must have the correct count for every distance value. Predicted miss rates must match to 6 decimal places. The optimization result must identify the correct minimum-cost configuration with correct tie-breaking. Consistency invariants (hits+misses=total, loads+stores=total) are also verified."""
+category = "systems"
+tags = ["cache-debugging", "computer-architecture"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cache-stack-profiler"

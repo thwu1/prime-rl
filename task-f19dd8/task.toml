@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of write-ahead logging and crash recovery in database systems. The solver must independently derive the correct recovery protocol from domain knowledge — no algorithm is named or described. Key challenges: (1) parsing crash state from multiple heterogeneous sources — a SQLite database with foreign-key-linked checkpoint snapshots via sqlite3 CLI, and custom big-endian binary files (PGST page state and WAL1 log suffix) requiring xxd/od inspection and binary decoding; (2) determining correct checkpoint merge semantics for fuzzy checkpoints with stale snapshot data; (3) deriving the four redo filter conditions from first principles; (4) implementing interleaved multi-transaction undo with CLR chain traversal for crash-during-recovery scenarios; (5) merging binary WAL suffix records with SQLite WAL records by LSN order before analysis. The combination of binary format parsing, sqlite3 CLI proficiency, multi-source data correlation, and complex recovery algorithm implementation places this firmly at expert level."""
+solution_explanation = """Build a tool that reads WAL records from SQLite via SQL queries, parses binary page state (PGST format) and WAL suffix records (WAL1 format) using struct/xxd with big-endian byte order, merges all data sources by LSN, reconstructs transaction and dirty page state by forward-scanning the merged log with checkpoint snapshot merging, applies four-condition redo filtering against binary-derived on-disk page state, and performs max-heap-ordered interleaved undo across aborting transactions with CLR generation and chain traversal. The tool must be directly executable (shebang + chmod) and produce valid JSON output."""
+verification_explanation = """Five pytest scenarios create temporary SQLite databases and companion binary files (PGST page state + WAL1 suffix) with hand-computed expected results, run the recovery tool via subprocess, and validate the complete JSON output structure. Scenarios cover: (1) basic two-transaction recovery with empty binary page state, (2) fuzzy checkpoint with stale snapshots and WAL suffix containing COMMIT/END records, (3) CLR chains from interrupted prior recovery, (4) selective redo with binary-encoded partially flushed pages, and (5) complex four-transaction interleaving with WAL suffix containing CLR and UPDATE records."""
+category = "information_systems"
+tags = ["database-recovery", "binary-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f19dd8"

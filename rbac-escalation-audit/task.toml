@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Kubernetes RBAC knowledge to debug a subtly broken audit tool that appears functional. The solver must discover four interacting bugs without being told what they are: (1) silent exclusion of JSON-format manifests causing missing ClusterRoleBindings, (2) single-pass aggregation failing on transitive ClusterRole chains where the iteration order matters, (3) missing ServiceAccount namespace defaulting from RoleBinding metadata when the subject omits the namespace field, and (4) same-scope-only create_pods escalation detection that misses cross-scope privilege combinations where cluster-wide pod creation combines with namespace-scoped pods/exec. A misleading validation script that checks the wrong namespace key and always reports PASSED increases diagnostic difficulty. The solver must derive correct RBAC behavior from first principles and Kubernetes semantics, not follow a procedure."""
+solution_explanation = """Fix load_manifests to read .json files in addition to .yaml/.yml. Implement fixed-point iteration in resolve_aggregation to handle transitive aggregation chains (full-monitoring aggregates monitoring-aggregate which itself aggregates sub-roles). Add _enrich_subject helper to default ServiceAccount namespace from binding metadata when the subject omits it. Extend create_pods escalation detection to combine cluster-wide rules with namespace-scoped rules, catching cross-scope privilege escalation where pod create comes from a ClusterRoleBinding and pods/exec comes from a RoleBinding."""
+verification_explanation = """Tests verify four categories of correct output mapped to each bug fix: (1) ci-deployer has secret-reader permissions cluster-wide including watch verb from the JSON-format ClusterRoleBinding; (2) grafana has all transitively-aggregated monitoring permissions (pods, nodes, events) via full-monitoring -> monitoring-aggregate -> sub-roles chain; (3) backup-agent has backup-operator permissions (PV, PVC, volumesnapshots) in the backup namespace via SA namespace defaulting from the RoleBinding; (4) ci-deployer has a create_pods escalation path from cluster-wide pod creation combined with namespace:ci pods/exec. Regression tests verify unaffected subjects (dev-lead, developer, prometheus, deploy-bot, ci-bot) retain correct permissions and escalation paths."""
+category = "security"
+tags = ["kubernetes", "rbac-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rbac-escalation-audit"

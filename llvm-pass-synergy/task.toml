@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of LLVM IR, compiler optimization pass semantics and ordering effects, search algorithm design (GA/beam search over combinatorial pass space), and Python systems programming (subprocess management, file I/O). The agent must adapt LLVM 10-era synergy data to the installed LLVM version's new pass manager, validate passes at runtime, implement a synergy-guided search that produces competitive instruction counts, and handle edge cases (invalid passes, opt crashes). This is a professional compiler engineering task requiring knowledge of pass interactions, code size optimization, and automated tuning."""
+solution_explanation = """The solution builds a directed synergy graph from the provided pass pair data, validates which LLVM new-PM passes exist in the installed LLVM, then generates ~50 candidate pass sequences from three sources: pre-crafted known-effective code-size optimization sequences, weighted random walks on the synergy graph, and greedy highest-synergy path traversals. It evaluates every candidate against each benchmark using opt + instcount, selects the best per benchmark, and outputs accurate instruction counts. This approach is fast (~3 minutes) and robust."""
+verification_explanation = """Tests verify: (1) results.json exists with correct structure, (2) optimizer.py exists and references synergy data, (3) all pass sequences run without crashing opt, (4) claimed instruction counts match when re-verified by running opt + instcount, (5) optimized counts are strictly less than unoptimized originals, (6) pass sequences are non-trivial (>=3 passes) and different across benchmarks, (7) optimized counts are competitive with -Oz (within 10% for at least 3 benchmarks)."""
+category = "compiler_optimization"
+tags = ["llvm", "compiler-autotuning"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/llvm-pass-synergy"

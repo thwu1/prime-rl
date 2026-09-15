@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of OpenWrt's UCI configuration system, DSA bridge-VLAN semantics, and network security architecture. The task presents 5 incident reports with compounding root causes that require cross-subsystem diagnosis: guest internet failure stems from BOTH a missing forwarding rule AND an overly permissive zone forward policy (security hole masked by connectivity symptoms); IoT outage involves a cascading failure across 4 bugs — wrong VLAN tagging drops frames at L2, proto=dhcp prevents gateway IP assignment so DHCP never starts, reversed iot→lan forwarding breaks management while creating a lateral movement vulnerability, and input ACCEPT exposes router services. The DNS chain has a split port mismatch (IPv4 dnsmasq → 5354, IPv6 → 5453, stubby → 5353) creating a misleading pattern. Two silent security bugs have no user-visible symptoms: wan6 missing from the wan firewall zone leaves IPv6 WAN traffic unzoned, and the reversed iot→lan forwarding creates lateral movement risk. The DMZ design requires understanding 802.1Q VLAN trunking on a shared physical port (tagged+untagged coexistence), firewall zone isolation principles, and cross-file integration of bridge-VLAN, interface, zone, forwarding, redirect, traffic rule, and DHCP configurations."""
+solution_explanation = """Fix 12 bugs and implement 8 DMZ components. Bugs: (1) VLAN 50 bridge-vlan lan4:t→lan4, (2) guest device br-lan.3→br-lan.30, (3) iot proto dhcp→static with IP, (4) guest zone forward ACCEPT→REJECT, (5) add guest→wan forwarding, (6) iot zone input ACCEPT→DROP, (7) HTTPS redirect dest lan/192.168.30.100→dmz/192.168.20.10, (8) guest DHCP interface lan→guest, (9) dnsmasq port 5354→5453, (10) stubby port 5353→5453, (11) add wan6 to wan zone network list, (12) reverse iot→lan forwarding to lan→iot. DMZ design: (D1) add bridge-vlan VLAN 20 with lan2:t, (D2) add dmz interface on br-lan.20 with static IP, (D3) add dmz firewall zone with DROP/REJECT policies, (D4) add dmz→wan and lan→dmz forwarding, (D5) add HTTP port forward to DMZ, (D6) add DMZ DNS/DHCP traffic rules, (D7) add DMZ DHCP pool, (D8) verify no DMZ→internal forwarding exists."""
+verification_explanation = """34 pytest tests verify all fixes and design decisions: 12 tests for existing bug fixes (VLAN tagging, interface bindings, zone policies, forwarding rules, DNS chain ports, wan6 membership, forwarding direction), 17 tests for DMZ zone design (VLAN trunk, interface, firewall zone, forwarding, isolation, port forwards, DHCP, traffic rules), and 5 cross-validation tests (DNS chain port consistency, all zones forwarding to WAN, redirect subnet matching, IoT isolation, WAN interface completeness)."""
+category = "cybersecurity"
+tags = ["networking", "openwrt"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openwrt-config-audit"

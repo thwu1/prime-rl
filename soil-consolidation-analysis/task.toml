@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing bugs across four different tools in a coupled pipeline: a Makefile orchestrating multi-stage processing, a Python data preprocessing script, a geotechnical settlement computation engine, and a SQLite result storage script. The solver must understand Make dependency resolution (missing prerequisites causing out-of-order execution), Python INI/CSV parsing (hardcoded defaults shadowing site-specific parameters, scalar-vs-list type handling), SQL INSERT column ordering (swapped column names silently corrupt data), Boussinesq stress distribution theory (corner-point superposition), Terzaghi 1D consolidation finite-difference boundary conditions, three-phase void ratio derivation with saturation, and NC/OC settlement branching. Bugs interact across tool boundaries: preprocessing errors cascade into wrong engine inputs, and storage errors render correct results unqueryable. A proficient engineer familiar with Make, SQL, and soil mechanics would need 2-3 hours."""
+solution_explanation = """Nine bugs across four files: (1) Makefile uses 'python' instead of 'python3'; (2) Makefile analysis targets missing dependencies on scenario.json files; (3) preprocess.py hardcodes specific_gravity=2.65 and unit_weight_water=10.0 instead of reading from config.ini; (4) preprocess.py stores single output_times_seconds as float instead of list; (5) store_results.py has swapped column names in SQL INSERT; (6) geosettle_v1.py inverted saturation logic; (7) rectangular stress uses factor 2.0 instead of 4.0; (8) OC settlement always uses Cc instead of branching Cr/Cc; (9) impermeable FD boundary coefficient 1.0 instead of 2.0."""
+verification_explanation = """Three-layer verification: (1) Direct engine tests with pinned values from Budhu (2011)—settlement 0.741m and 0.086m, consolidation 45.23 kPa and 39.98 kPa—plus comparative NC/OC, shape, and symmetry checks; (2) Pipeline tests verifying make all succeeds end-to-end with correct dependency ordering; (3) Database tests querying results.db via SQL for correct settlement values and consolidation flags per site, plus preprocessing format validation."""
+category = "engineering"
+tags = ["geotechnical", "pipeline-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/soil-consolidation-analysis"

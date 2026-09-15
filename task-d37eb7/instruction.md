@@ -1,0 +1,3 @@
+A 4-bit model weight quantization library at `/app/quantize.py` compresses floating-point parameters using block-wise scaling with an optional nested compression mode that further reduces metadata overhead. Reference quantization levels for the 4-bit data type are at `/app/reference_nf4.json`.
+
+The implementation contains multiple correctness defects. Diagnose and fix all issues in `/app/quantize.py` so that the complete test suite passes.

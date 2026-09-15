@@ -1,0 +1,7 @@
+# Scenario 2: Nested rules and expansion via condition distribution
+(define (definerule Inner_A direc ((time > 20) (do our {2} (pos (pt -40 10))))))
+(define (definerule Inner_B direc ((true) (do our {3} (pos (pt -40 -10))))))
+(define (definerule Inner_E direc ((bpos (rec (pt 0 -34) (pt 52.5 34))) (do our {11} (shoot)))))
+(define (definerule Outer_X direc ((bowner our {0}) (Inner_A Inner_B))))
+(define (definerule Outer_Y direc ((playm play_on) (Inner_B Inner_E))))
+(rule (on Outer_X) (on Outer_Y))

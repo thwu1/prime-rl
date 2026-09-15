@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires analyzing a multi-stage pipelined datapath where arithmetic sub-blocks are instantiated with non-default module parameters that alter their pipeline depths, detecting an implicit registered interconnect stage that adds latency not attributable to any sub-block, and independently designing a complete backpressure mechanism from scratch with no algorithmic hints in the instruction. The agent must cross-reference module definitions against their instantiation sites to determine effective latencies, recognize that a registered pipeline stage in compute_pipeline.sv contributes additional cycles, compute the total end-to-end pipeline depth, and arrive at a correct buffering and flow-control strategy that maintains data integrity under arbitrary stalling patterns while sustaining full throughput. This demands deep understanding of parameterized RTL, pipeline scheduling, and flow control theory — proficient hardware design skill, not procedural following."""
+solution_explanation = """Analyze pipe_mult.sv instantiated with SEGMENT_WIDTH=16 (not default 8): NUM_SEGMENTS=32/16=2 stages. Analyze pipe_add.sv: STAGE_COUNT=(32+15)/16=2 stages. Analyze pipe_isqrt.sv instantiated with ITERS_PER_STAGE=4 (not default 2): PIPE_DEPTH=16/4=4 stages. Detect the registered interconnect between multiplier outputs and adder input in compute_pipeline.sv (+1 cycle). Total pipeline latency: 2+1+2+4+2=11 cycles. Choose power-of-2 FIFO depth >= 11 -> 16. Implement credit-based flow control: credit counter initialized to FIFO_DEPTH=16, decremented on input accept, incremented on output delivery. Gate arg_rdy on credits>0. Implement extended-pointer circular buffer FIFO for pipeline output buffering."""
+verification_explanation = """The testbench drives six test phases: idle ready-check, single transaction, back-to-back throughput, sustained backpressure, random backpressure with concurrent producer/consumer, and burst-then-drain. It maintains a reference queue computing isqrt(a*a+b*b)+c for each accepted input and checks every output against the queue in order. Any mismatch, unexpected output, unconnected signal, or leftover queue entry produces FAIL. Only when all transfers match and the queue drains completely does it print PASS. The pytest wrapper runs the Icarus Verilog simulation and checks for PASS."""
+category = "hardware_design"
+tags = ["verilog", "pipeline-flow-control"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipeline-flow-control"

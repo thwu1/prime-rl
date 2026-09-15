@@ -1,0 +1,7 @@
+{
+    "name": "fibonacci",
+    "description": "Compute the n-th Fibonacci number (0-indexed: fib(0)=0, fib(1)=1, fib(2)=1, ..., fib(8)=21). Initialize n=8. Store the result in variable 'fib'.",
+    "input_variables": {"n": 8},
+    "required_output": {"fib": 21},
+    "syntactic_constraints": ["Program must contain a 'while' loop"]
+}

@@ -1,0 +1,72 @@
+name: complex-lab
+topology:
+  defaults:
+    kind: linux
+    image: alpine:3
+    env:
+      GLOBAL_ENV: "global"
+      OVERRIDE_ENV: "from_defaults"
+    labels:
+      owner: "admin"
+      environment: "lab"
+
+  kinds:
+    linux:
+      image: alpine:3.18
+      env:
+        KIND_ENV: "linux_kind"
+        OVERRIDE_ENV: "from_kind"
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:latest
+      type: ixrd3
+      env:
+        KIND_ENV: "srl_kind"
+        OVERRIDE_ENV: "from_srl_kind"
+      labels:
+        vendor: "nokia"
+
+  groups:
+    spines:
+      type: spine
+      env:
+        GROUP_ENV: "spine_group"
+        OVERRIDE_ENV: "from_spine_group"
+      labels:
+        role: "spine"
+    leaves:
+      type: leaf
+      labels:
+        role: "leaf"
+    servers:
+      env:
+        GROUP_ENV: "server_group"
+
+  nodes:
+    spine1:
+      group: spines
+      env:
+        NODE_ENV: "spine1_specific"
+    spine2:
+      group: spines
+    leaf1:
+      group: leaves
+      image: debian:12
+    leaf2:
+      group: leaves
+    leaf3:
+      group: leaves
+      kind: nokia_srlinux
+    server1:
+      group: servers
+      image: ubuntu:22.04
+      env:
+        NODE_ENV: "server1_val"
+        OVERRIDE_ENV: "from_server1"
+
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine1:eth3", "leaf3:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["spine2:eth3", "leaf3:eth2"]

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficiency with the Coq proof assistant: diagnosing build system issues (_CoqProject flags), identifying semantic bugs in a stack machine implementation, fixing an optimizer's constant folding logic, and completing three non-trivial proofs (list append compositionality, compiler correctness by structural induction, and optimizer semantic preservation with exhaustive case analysis). Demands understanding of Coq's module system, tactic language (induction, destruct, rewrite, congruence), and how computational reflection (reflexivity) can catch implementation bugs."""
+solution_explanation = """Fix _CoqProject: change -Q to -R and correct the filename reference (Extraction.v -> Tests.v). Fix the ISub case in StackMachine.v exec function (swap operand order from a-b to b-a). Fix the Minus constant folding in Optimizer.v (change + to - in the Const n1, Const n2 branch). Complete exec_app by induction on p1 with case analysis on instruction type and stack shape. Complete compile_correct by induction on e using exec_app. Complete optimize_correct by induction on e with destruct on optimized subexpressions and congruence. Generate Makefile via coq_makefile and run make."""
+verification_explanation = """Tests compile the entire Coq project with coqc (which machine-checks all proofs), verify no Admitted or unauthorized Axiom declarations remain, and run an independent verification file (verify_tests.v) that checks concrete computations via reflexivity to ensure the stack machine and optimizer produce correct results for specific inputs."""
+category = "formal_verification"
+tags = ["coq", "compiler-correctness"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coq-verified-compiler"

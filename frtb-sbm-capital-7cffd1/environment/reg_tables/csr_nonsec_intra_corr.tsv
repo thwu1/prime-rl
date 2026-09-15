@@ -1,0 +1,4 @@
+bucket_range	rho_name_same	rho_name_diff	rho_tenor_same	rho_tenor_diff	rho_basis_same	rho_basis_diff
+1-15	1.0	0.35	1.0	0.65	1.0	0.999
+17-18	1.0	0.80	1.0	0.65	1.0	0.999
+16	sum_of_absolute_values

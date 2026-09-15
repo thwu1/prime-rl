@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level HPC performance analysis skills. The agent must: (1) discover and handle multiple data quality issues across 5 vendor-specific log formats—unit mismatches (seconds vs milliseconds vs throughput), error entries, duplicate measurements, missing benchmarks, and format-specific parsing quirks—none of which are documented in the instruction; (2) design an end-to-end statistical analysis pipeline choosing appropriate outlier detection, aggregation metrics, and normalization without being told which methods to use; (3) perform multi-constraint feasibility analysis, Pareto-optimal front identification, and cost-efficiency ranking; (4) convert throughput measurements to execution times using workload metadata. An expert HPC procurement analyst would need ~2.5 hours to build, validate, and debug this pipeline."""
+solution_explanation = """Parse 5 heterogeneous log formats: CSV (pinnacle), JSONL with ms units (horizon), custom text log with interleaved info lines (nexus), TSV with duplicate entries (vanguard), and CSV reporting throughput in GFLOP/s (summit_x). For horizon, convert milliseconds to seconds using unit info from format.txt. For nexus, filter non-data lines via regex and note missing deep_train (no GPU). For vanguard, deduplicate by keeping last occurrence per (benchmark, trial). For summit_x, convert throughput to time via total_flops / (throughput * 1e9). Apply IQR-based outlier removal (1.5 * IQR rule with linear interpolation for quartiles). Compute median of cleaned trials. Compute speedups as reference_time / system_time. Compute weighted arithmetic mean composite scores. Check feasibility: budget (nodes * cost_per_node <= 12M), power (nodes * power_per_node <= 1500 kW), performance (all median times <= ref_time / 0.8). Identify Pareto-optimal set on (cost, composite). Rank by cost-efficiency = composite / cost_millions. Recommend summit_x."""
+verification_explanation = """Tests independently parse all raw benchmark data files using the same format-specific logic, apply IQR outlier removal, compute medians, speedups, composites, feasibility, Pareto set, and ranking. Each computed value is compared to the agent's output with relative tolerance of 5e-2 for composite scores, 1e-2 for cleaned times and speedups. Exact matches for feasibility booleans, Pareto set membership, ranking order, and recommendation string. Structural tests verify all required sections and keys exist."""
+category = "hpc"
+tags = ["performance-analysis", "data-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hpc-workflow-model"

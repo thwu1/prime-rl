@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must reverse-engineer the SIF (Standard Input Format) — an arcane, column-oriented Fortran-era format that encodes optimization problems via element/group decomposition — from the provided example files alone. Parsing requires handling fixed-column field extraction, DO/ND loop expansion, integer parameter preprocessing, internal variable R-matrix definitions, expression evaluation for nonlinear element and group functions, group scaling, and multi-section ENDATA-delimited structure. After parsing, the agent must construct evaluatable objective and constraint functions from the decomposition and solve constrained nonlinear optimization problems to verified optimality. This combines format reverse-engineering, numerical optimization theory, and systems-level programming — few practitioners have direct SIF parsing experience."""
+solution_explanation = """The solution implements a complete SIF parser (~400 lines) that extracts fields from fixed-column positions, pre-processes IE/DO/ND constructs, parses all data sections (variables, groups, constants, bounds, start points, element types, element uses, group types, group uses), and parses element/group function definition sections. It builds Python-evaluatable functions from SIF expressions via eval(), handles internal variable computation through R-matrix linear transformations, applies group functions and scaling, and constructs scipy.optimize.minimize calls with SLSQP for constrained problems. The parser correctly handles the 3 provided CUTEst problems (ROSENBR, HS71, HS100) plus any new SIF problem using the same feature subset."""
+verification_explanation = """Tests verify: (1) results.json exists with correct format and all 3 problems present, (2) ROSENBR optimal value < 1e-4 and point near (1,1), (3) HS71 optimal value within 0.1 of 17.014 with constraints satisfied (product >= 25, sum-of-squares = 40, bounds [1,5]), (4) HS100 optimal value within 1.0 of 680.63 with all 4 inequality constraints satisfied, (5) solver generality via a new QPTEST.SIF problem injected at test time — the solver must re-run and produce correct results for this unseen problem (anti-cheat), (6) solve.py has substantial code and references SIF format."""
+category = "optimization"
+tags = ["numerical-optimization", "format-parsing"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/parse-sif-solver"

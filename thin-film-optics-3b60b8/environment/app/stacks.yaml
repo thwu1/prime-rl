@@ -1,0 +1,29 @@
+stacks:
+  basic:
+    n_list: [1.0, "2+4j", "3+0.3j", "1+0.1j"]
+    d_list: [.inf, 2, 3, .inf]
+    th_0: 0.1
+    lam_vac: 100
+
+  spr:
+    n_list: [1.517, "3.719+4.362j", "0.130+3.162j", 1.0]
+    d_list: [.inf, 5, 30, .inf]
+    lam_vac: 633
+    sweep_th0_deg: [30, 70, 4001]
+
+  ar_coating:
+    n_list: [1.0, 1.38, 1.52]
+    lam_vac: 550
+    optimize_d:
+      layer: 1
+      range: [50, 150]
+    broadband:
+      range: [400, 700]
+      step: 1
+
+  solar_cell:
+    n_list: [1.0, 1.38, 3.5, "3.5+0.02j", 1.5]
+    d_list: [.inf, 100, 500000, 300, .inf]
+    c_list: [i, c, i, c, i]
+    th_0: 0.0
+    lam_vac: 550

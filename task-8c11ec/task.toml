@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level bioinformatics knowledge: the solver must independently understand VCF 1-based vs BED 0-based coordinate systems to correctly assess variant retention, design a methodology for per-step variant impact analysis without procedural guidance, reason about how the interplay of min_length, slop_bp, and merge_distance parameters across multiple annotation types affects both true and false variant retention, and identify a targeted parameter change that fixes a sensitivity deficit without introducing specificity regressions. The instruction provides only the problem statement and output schemas — no formulas for sensitivity/specificity, no coordinate conversion hints, and no optimization strategy — requiring holistic domain expertise throughout."""
+solution_explanation = """Run the pipeline with each of three strategy configs, compute sensitivity/specificity/coverage against the truth set for each (correctly handling VCF 1-based to BED 0-based coordinate conversion). Rank by composite score (C > A > B). Perform step-by-step impact analysis on strategy_c by tracking which variants are lost at each exclusion step — identify tandem_repeats as the weakest step (excludes 2 validated_true variants at positions 100500 and 310500 while excluding 0 validated_false variants). Design optimized config by increasing min_length for tandem_repeats above 1000 (both problematic TR annotations are exactly 1000bp), retaining all true variants while false variants remain excluded by other steps. Run pipeline with optimized config to produce final benchmark."""
+verification_explanation = """Tests verify exact evaluation metrics for all three strategies (sensitivity, specificity, composite scores with tolerance ±0.005), correct ranking (C > A > B), correct identification of tandem_repeats as the weakest step losing exactly 2 true variants at positions 100500 and 310500, that the optimized benchmark achieves perfect sensitivity (all 34 true variants retained) and perfect specificity (all 11 false variants excluded), composite score >= 0.96, reasonable coverage, and internal consistency of all output files (sorted non-overlapping BED, valid VCF within regions, consistent variant summary)."""
+category = "bioinformatics"
+tags = ["genomics", "benchmark-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8c11ec"

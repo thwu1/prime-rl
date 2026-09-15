@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level computational chemistry knowledge: understanding LCAO-MO theory (C^T S C = I orthonormality), Mulliken population analysis formalism (charges from P*S partitioned by atom), Gaussian output format parsing (Fortran-style fixed-width multi-column matrices, archive line format), moment of inertia tensor construction and eigendecomposition, rotational constant derivation from physical constants, and multiple unit conversions (Angstrom/Bohr, Hartree/cm^-1, amu*Angstrom^2 to amu*bohr^2). The combination of raw file parsing, linear algebra, quantum chemistry theory, and classical mechanics makes this inaccessible without graduate-level domain expertise."""
+solution_explanation = """The solver parses the Gaussian 16 log file to extract: (1) initial geometry coordinates from the Input orientation section, (2) the full 25x25 MO coefficient matrix printed in blocks of 5 columns, (3) the density matrix from its lower-triangular printed form, (4) the final optimized geometry from the archive line, and (5) vibrational frequencies. It then independently computes: nuclear repulsion energy via Coulomb summation in Bohr, reconstructs the overlap matrix S = inv(C*C^T) from the LCAO orthonormality condition, reconstructs the density matrix P = 2*C_occ*C_occ^T, derives Mulliken charges from the element-wise P*S product partitioned by atom, computes the moment of inertia tensor and its eigenvalues for rotational constants, and ZPVE from the sum of harmonic frequencies."""
+verification_explanation = """13 pytest tests verify: NRE against Gaussian's reported value (within 0.001 Hartree), Mulliken charges against printed values (within 0.05 per atom), total electron count from Tr(P*S) (within 0.5 of 10), overlap matrix trace (within 1.0 of 25), density matrix reconstruction quality (max element error < 0.01), principal moments of inertia (within 0.05 amu*bohr^2), rotational constants (within 2.0 GHz), ZPVE (within 0.001 Hartree), SCF energy (within 0.001 Hartree), charge conservation (sum within 0.05 of zero), and absence of cclib imports."""
+category = "scientific_computing"
+tags = ["computational-chemistry", "quantum-mechanics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gaussian-property-calculator"

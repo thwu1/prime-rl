@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>DOMORG</OrganizationIdentifier>
+      <OrganizationFormalName>Domain Validation Testing Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-DOM</ProjectIdentifier>
+      <ProjectName>Domain Value Test Project</ProjectName>
+    </Project>
+    <!-- ERROR: Invalid MonitoringLocationTypeName -> DOM-002 -->
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-BAD</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Invalid Type Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>Underwater Volcano</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>38.912345</LatitudeMeasure>
+        <LongitudeMeasure>-77.034567</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>VA</StateCode>
+        <CountyCode>013</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <!-- Valid monitoring location for activity to reference -->
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-GOOD</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Valid Reference Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>38.922345</LatitudeMeasure>
+        <LongitudeMeasure>-77.044567</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>VA</StateCode>
+        <CountyCode>013</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <!-- ERROR: Invalid ActivityTypeCode -> DOM-001, Invalid ActivityMediaName -> DOM-003 -->
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-DOM1</ActivityIdentifier>
+        <ActivityTypeCode>Fake Activity Type XYZ</ActivityTypeCode>
+        <ActivityMediaName>Plasma</ActivityMediaName>
+        <ActivityStartDate>2024-05-01</ActivityStartDate>
+        <ProjectIdentifier>PROJ-DOM</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-GOOD</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <Result>
+        <ResultDescription>
+          <CharacteristicName>pH</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>7.4</ResultMeasureValue>
+            <MeasureUnitCode>None</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

@@ -1,0 +1,16 @@
+{
+  "test_vectors": [
+    {
+      "plaintext": "5479706830306e50",
+      "ciphertext": "a00fca87922e9d79"
+    },
+    {
+      "plaintext": "776e436f6e323032",
+      "ciphertext": "4a1e15b8175cd445"
+    },
+    {
+      "plaintext": "3642696e50306c79",
+      "ciphertext": "a4ba4c8e83a34676"
+    }
+  ]
+}

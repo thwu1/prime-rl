@@ -1,0 +1,46 @@
+# Variable substitution and let tests
+
+control substitution on
+
+statement ok
+CREATE TABLE v1(id INTEGER PRIMARY KEY, name TEXT, score REAL)
+
+statement ok
+INSERT INTO v1 VALUES(42, 'alice', 95.5)
+
+statement ok
+INSERT INTO v1 VALUES(43, 'bob', 87.0)
+
+# Single variable let
+let my_id
+SELECT id FROM v1 WHERE name = 'alice'
+
+query TR nosort
+SELECT name, score FROM v1 WHERE id = $my_id
+----
+alice 95.500
+
+# Multi-variable let
+let uname, uscore
+SELECT name, score FROM v1 WHERE id = 42
+
+# Use the let-bound variable in a query
+query I nosort
+SELECT id FROM v1 WHERE name = '$uname'
+----
+42
+
+# Variable with braces
+query I nosort
+SELECT id FROM v1 WHERE name = '${uname}'
+----
+42
+
+# Chained let: use prior variable to derive new variable
+let other_id
+SELECT id FROM v1 WHERE id != $my_id
+
+query T nosort
+SELECT name FROM v1 WHERE id = $other_id
+----
+bob

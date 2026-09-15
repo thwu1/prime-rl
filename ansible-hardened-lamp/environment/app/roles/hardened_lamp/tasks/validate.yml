@@ -1,0 +1,18 @@
+---
+# Post-deployment compliance validation
+# Requires custom module: security_baseline_check
+- name: Validate security baseline compliance
+  security_baseline_check:
+    ssh_config: /etc/ssh/sshd_config
+    firewall_script: /etc/network/iptables.sh
+    apache_vhost: "/etc/apache2/sites-available/{{ server_hostname }}.conf"
+    fail2ban_jail: /etc/fail2ban/jail.local
+    expected_ssh_port: "{{ ssh_port }}"
+    expected_root_login: "{{ ssh_permit_root_login }}"
+    expected_password_auth: "{{ ssh_password_authentication }}"
+    expected_max_auth_tries: "{{ ssh_max_auth_tries }}"
+    expected_fail2ban_maxretry: "{{ fail2ban_maxretry }}"
+    expected_fail2ban_bantime: "{{ fail2ban_bantime }}"
+    expected_server_name: "{{ apache_server_name }}"
+    report_path: /var/log/security_compliance.json
+  register: compliance_result

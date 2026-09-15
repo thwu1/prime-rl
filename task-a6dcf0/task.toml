@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an undocumented benchmark system: exploring a SQLite database to discover schema and data encodings (plain JSON vs zlib+base64), diagnosing multiple interacting bugs across shell/Python scripts (wrong table names, unhandled encodings, incorrect XOR decryption initialization, recursive DFS stack overflow on deep trees, inconsistent edge data formats), stale/incorrect cached results, then implementing a correct tree path query solver with LCA via binary lifting and XOR-encrypted online query processing."""
+solution_explanation = """Explore the DB with sqlite3 to discover schema. Read buggy scripts and logs to identify issues: wrong config table name, zlib_base64 encoding not handled, initial_last_ans ignored, recursive DFS overflow, edge format inconsistency (dict vs list), stale cached results. Write a correct solver that handles all encodings, formats, and edge cases, using iterative DFS and proper XOR decryption chain with per-query-set initial_last_ans."""
+verification_explanation = """Tests contain an independent reference solver that reads the SQLite database, decodes all query data (handling both encodings and tree formats), solves all queries with correct LCA/path algorithms, and compares every answer against the agent's results.json. Tests verify file existence, JSON validity, completeness (all 9 query sets), correct result counts, and exact numerical correctness."""
+category = "systems-debugging"
+tags = ["tree-algorithms", "database-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a6dcf0"

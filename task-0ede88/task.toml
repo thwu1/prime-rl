@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing IDA* with disjoint pattern database heuristics for the 15-puzzle. Manhattan distance alone cannot solve the hardest instances (opt ~59) within practical time limits. Building correct, additive pattern databases requires understanding of abstract state spaces, 0-1 BFS over millions of states, and admissible heuristic theory. Performance-critical code (likely C/C++) is needed to handle the combinatorial explosion."""
+solution_explanation = """The reference solution implements a C-based IDA* solver with blank-tracking disjoint pattern databases using a {1,2,3,4}/{5,6,7,8}/{9,10,11,12}/{13,14,15} tile partition. PDB construction uses 0-1 BFS from the goal abstract state. The solver compiles, builds all four PDBs (~3MB total), then solves each instance optimally in under a second."""
+verification_explanation = """Tests parse results.json, simulate each move sequence on the initial configuration to verify it reaches the goal state, check solution lengths against known optimal values from the Korf 1985 benchmark, and verify lengths are at least the Manhattan distance lower bound."""
+category = "algorithms"
+tags = ["heuristic-search", "pattern-databases"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0ede88"

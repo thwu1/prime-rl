@@ -1,0 +1,49 @@
+[2024-01-14 00:00:03,456] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-14 00:00:08,789] {dag_processing.py:198} INFO - Parsing 5 files in /opt/airflow/dags
+[2024-01-14 00:00:15,012] {dag_processing.py:456} INFO - Parsed DAG report_generator with 3 tasks
+[2024-01-14 00:00:18,345] {scheduler_job_runner.py:1234} INFO - Creating DagRun for report_generator: scheduled__2024-01-14T00:00:00+00:00
+[2024-01-14 00:00:20,678] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='aggregate_metrics', run_id='scheduled__2024-01-14T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 00:30:10,901] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='render_report', run_id='scheduled__2024-01-14T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 00:50:10,234] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='send_notification', run_id='scheduled__2024-01-14T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 03:00:10,567] {dataset_manager.py:120} INFO - Dataset event recorded: uri=/data/features.parquet source=etl_pipeline.transform_data
+[2024-01-14 03:15:30,890] {scheduler_job_runner.py:1234} INFO - Creating DagRun for ml_training: dataset_triggered__2024-01-14T03:15:00+00:00 (triggered by dataset /data/features.parquet)
+[2024-01-14 03:15:35,123] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='prepare_features', run_id='dataset_triggered__2024-01-14T03:15:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 03:30:10,456] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='train_model', run_id='dataset_triggered__2024-01-14T03:15:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 04:00:10,789] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='evaluate_model', run_id='dataset_triggered__2024-01-14T03:15:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 04:15:10,012] {dataset_manager.py:120} INFO - Dataset event recorded: uri=/data/model.pkl source=ml_training.train_model
+[2024-01-14 04:30:30,345] {scheduler_job_runner.py:1234} INFO - Creating DagRun for model_serving: dataset_triggered__2024-01-14T04:30:00+00:00 (triggered by dataset /data/model.pkl)
+[2024-01-14 04:30:35,678] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='model_serving', task_id='validate_model', run_id='dataset_triggered__2024-01-14T04:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 04:45:10,901] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='model_serving', task_id='deploy_model', run_id='dataset_triggered__2024-01-14T04:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 05:00:10,234] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='model_serving', task_id='smoke_test', run_id='dataset_triggered__2024-01-14T04:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-14 12:00:03,567] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-15 00:00:03,890] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-15 00:00:08,123] {dag_processing.py:198} INFO - Parsing 5 files in /opt/airflow/dags
+[2024-01-15 00:01:14,456] {dag_processing.py:456} INFO - Parsed DAG etl_pipeline with 4 tasks
+[2024-01-15 00:01:17,789] {scheduler_job_runner.py:1300} INFO - Setting state of etl_pipeline.extract_data to queued for run scheduled__2024-01-15T00:00:00+00:00
+[2024-01-15 00:01:18,555] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='etl_pipeline', task_id='extract_data', run_id='scheduled__2024-01-15T00:00:00+00:00', try_number=2, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 00:01:18,666] {executor_loader.py:256} INFO - Setting external_id for <TaskInstance: etl_pipeline.extract_data scheduled__2024-01-15T00:00:00+00:00 [queued]> to 8e41d584-1775-4b3f-8621-7fb379249b35
+[2024-01-15 00:00:20,901] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='aggregate_metrics', run_id='scheduled__2024-01-15T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 00:30:10,234] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='render_report', run_id='scheduled__2024-01-15T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 00:50:10,567] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='send_notification', run_id='scheduled__2024-01-15T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 03:00:10,890] {dataset_manager.py:120} INFO - Dataset event recorded: uri=/data/features.parquet source=etl_pipeline.transform_data
+[2024-01-15 03:30:30,123] {scheduler_job_runner.py:1234} INFO - Creating DagRun for ml_training: dataset_triggered__2024-01-15T03:30:00+00:00 (triggered by dataset /data/features.parquet)
+[2024-01-15 03:30:35,456] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='prepare_features', run_id='dataset_triggered__2024-01-15T03:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 03:45:10,789] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='train_model', run_id='dataset_triggered__2024-01-15T03:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 04:10:10,012] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='ml_training', task_id='evaluate_model', run_id='dataset_triggered__2024-01-15T03:30:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-15 12:00:03,345] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-16 00:00:03,678] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-16 00:00:10,901] {dag_processing.py:456} INFO - Parsed DAG etl_pipeline with 4 tasks
+[2024-01-16 00:00:12,234] {scheduler_job_runner.py:1234} INFO - Creating DagRun for etl_pipeline: scheduled__2024-01-16T00:00:00+00:00
+[2024-01-16 00:00:15,567] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='etl_pipeline', task_id='extract_data', run_id='scheduled__2024-01-16T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-16 00:20:30,890] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='etl_pipeline', task_id='transform_data', run_id='scheduled__2024-01-16T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-16 01:00:10,123] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='etl_pipeline', task_id='load_data', run_id='scheduled__2024-01-16T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-16 01:30:15,456] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='etl_pipeline', task_id='validate_data', run_id='scheduled__2024-01-16T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-16 03:15:05,789] {dataset_manager.py:120} INFO - Dataset event recorded: uri=/data/features.parquet source=etl_pipeline.transform_data
+[2024-01-16 03:15:30,012] {scheduler_job_runner.py:900} WARNING - Dataset event for /data/features.parquet received but ml_training has active run dataset_triggered__2024-01-15T03:30:00+00:00 still in 'running' state
+[2024-01-16 03:15:31,345] {scheduler_job_runner.py:905} INFO - Queuing dataset trigger for ml_training in dataset_dag_run_queue
+[2024-01-16 12:00:03,678] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-17 00:00:03,901] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)
+[2024-01-17 00:00:10,234] {dag_processing.py:456} INFO - Parsed DAG report_generator with 3 tasks
+[2024-01-17 00:00:12,567] {scheduler_job_runner.py:1234} INFO - Creating DagRun for report_generator: scheduled__2024-01-17T00:00:00+00:00
+[2024-01-17 00:00:20,890] {executor_loader.py:234} INFO - Sending TaskInstanceKey(dag_id='report_generator', task_id='aggregate_metrics', run_id='scheduled__2024-01-17T00:00:00+00:00', try_number=1, map_index=-1) to executor with priority 1 and queue default
+[2024-01-17 07:58:03,123] {scheduler_job_runner.py:1876} INFO - Heartbeat for scheduler-2 (PID 5678)

@@ -1,0 +1,169 @@
+{
+  "description": "GIGS (Geospatial Integrity of Geoscience Software) reference coordinate pairs for pipeline validation",
+  "source": "IOGP Geomatics Committee, GIGS Test Dataset v2.1.0",
+  "coordinate_order": "All inputs are (longitude, latitude[, height]) in degrees[, metres]. All projected outputs are (Easting, Northing) in metres. Geocentric outputs are (X, Y, Z) in metres.",
+  "pipelines": {
+    "utm32n": {
+      "tolerance_m": 0.01,
+      "reference": "PROJ builtins.gie test suite",
+      "points": [
+        {
+          "id": "UTM32-01",
+          "input": [12.0, 55.0],
+          "expected": [691875.63214, 6098907.82501],
+          "note": "Central Europe standard test point"
+        },
+        {
+          "id": "UTM32-02",
+          "input": [9.0, 0.0],
+          "expected": [500000.0, 0.0],
+          "note": "Central meridian at equator — projection origin"
+        }
+      ]
+    },
+    "rd_new": {
+      "tolerance_m": 0.05,
+      "reference": "GIGS Test 5104, Oblique Stereographic, v2.1.0",
+      "points": [
+        {
+          "id": "GIGS-5104-06",
+          "input": [5.0, 53.0],
+          "expected": [128979.263, 556953.19],
+          "note": "Transect A forward, Netherlands"
+        },
+        {
+          "id": "GIGS-5104-07",
+          "input": [5.38763888889, 52.1561605556],
+          "expected": [155000.0, 463000.0],
+          "note": "Natural origin of projection — maps to (false_easting, false_northing)"
+        },
+        {
+          "id": "GIGS-5104-11",
+          "input": [3.31372805556, 47.9752611111],
+          "expected": [0.0, 0.0],
+          "note": "Zero-easting/zero-northing reference point"
+        },
+        {
+          "id": "GIGS-5104-08",
+          "input": [4.0, 51.0],
+          "expected": [57605.946, 335312.662],
+          "note": "Transect A forward"
+        },
+        {
+          "id": "GIGS-5104-15",
+          "input": [6.0, 53.0],
+          "expected": [196105.283, 557057.739],
+          "note": "Transect B forward"
+        },
+        {
+          "id": "GIGS-5104-17",
+          "input": [8.0, 53.0],
+          "expected": [330331.464, 560058.312],
+          "note": "Transect B forward"
+        }
+      ]
+    },
+    "aus_albers": {
+      "tolerance_m": 0.05,
+      "reference": "GIGS Test 5109, Albers Equal Area, v2.1.0",
+      "points": [
+        {
+          "id": "GIGS-5109-01",
+          "input": [132.0, 0.0],
+          "expected": [0.0, 0.0],
+          "note": "Projection natural origin"
+        },
+        {
+          "id": "GIGS-5109-02",
+          "input": [132.0, -27.0],
+          "expected": [0.0, -2926820.89],
+          "note": "Transect A forward, central Australia"
+        },
+        {
+          "id": "GIGS-5109-04",
+          "input": [140.0, -20.0],
+          "expected": [832799.36, -2170181.926],
+          "note": "Transect B forward, Queensland"
+        },
+        {
+          "id": "GIGS-5109-06",
+          "input": [140.0, -60.0],
+          "expected": [567313.287, -6404311.163],
+          "note": "Transect B forward, high southern latitude"
+        }
+      ]
+    },
+    "etrs_laea": {
+      "tolerance_m": 0.05,
+      "reference": "GIGS Test 5110, Lambert Azimuthal Equal Area, v2.1.0",
+      "points": [
+        {
+          "id": "GIGS-5110-06",
+          "input": [10.0, 52.0],
+          "expected": [4321000.0, 3210000.0],
+          "note": "Natural origin of EPSG:3035"
+        },
+        {
+          "id": "GIGS-5110-03",
+          "input": [5.0, 50.0],
+          "expected": [3962799.451, 2999718.853],
+          "note": "Western Europe"
+        },
+        {
+          "id": "GIGS-5110-02",
+          "input": [5.0, 60.0],
+          "expected": [4041548.13, 4109791.66],
+          "note": "Northern Europe, Scandinavia"
+        },
+        {
+          "id": "GIGS-5110-07",
+          "input": [0.0, 50.0],
+          "expected": [3606514.43, 3036305.967],
+          "note": "Atlantic seaboard"
+        },
+        {
+          "id": "GIGS-5110-10",
+          "input": [8.0, 50.0],
+          "expected": [4177612.521, 2989464.315],
+          "note": "Rhine corridor"
+        }
+      ]
+    },
+    "geocentric_wgs84": {
+      "tolerance_m": 0.01,
+      "reference": "GIGS Test 5201, Geographic-Geocentric conversions, v2.0",
+      "points": [
+        {
+          "id": "GIGS-5201-21",
+          "input": [0.0, 0.0, 0.0],
+          "expected": [6378137.0, 0.0, 0.0],
+          "note": "Equator/prime meridian — geocentric X equals semi-major axis a"
+        },
+        {
+          "id": "GIGS-5201-06",
+          "input": [60.0, 30.0, 0.0],
+          "expected": [2764128.3196, 4787610.6883, 3170373.7354],
+          "note": "Northern/eastern hemisphere"
+        },
+        {
+          "id": "GIGS-5201-02",
+          "input": [150.0, 80.0, 0.0],
+          "expected": [-962297.0059, 555582.4354, 6259542.961],
+          "note": "High-latitude Pacific"
+        },
+        {
+          "id": "GIGS-5201-19",
+          "input": [-135.0, 50.0, 0.0],
+          "expected": [-2904698.5551, -2904698.5551, 4862789.0377],
+          "note": "North Pacific, 45-degree symmetry point"
+        },
+        {
+          "id": "GIGS-5201-10",
+          "input": [-60.0, -30.0, 0.0],
+          "expected": [2764128.3196, -4787610.6883, -3170373.7354],
+          "note": "Southern/western hemisphere, South America"
+        }
+      ]
+    }
+  }
+}

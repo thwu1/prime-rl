@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating multiple unfamiliar tools (hnswlib for HNSW indexing, ctypes for a C distance kernel, BigANN binary formats) while implementing a streaming ANN search engine with category-filtered queries and a weighted distance metric. The solver must explore undocumented binary data files, discover the C library API from source, understand the runbook's category_filter semantics, configure HNSW parameters from a JSON config, and design a strategy for combining approximate search with exact weighted-distance reranking. The replace operation's effect on category association (category follows the vector, not the tag) is a subtle correctness pitfall."""
+solution_explanation = """The reference solution transforms base vectors by sqrt(weight_i) per dimension so that standard L2 in the transformed space equals weighted L2 in the original space. At each search step it builds a fresh hnswlib HNSW index over only the category-filtered active vectors, over-retrieves candidates, then reranks using the C library's exact weighted-distance computation via ctypes. The streaming state machine maintains a tag_to_id dict updated by insert/delete/replace operations. Category filtering is applied by checking categories[tag_to_id[tag]] against the step's filter list."""
+verification_explanation = """Tests generate a deterministic dataset (15K float32 vectors, 32 dims, 100 queries, 5 categories, per-dimension weights) and a 16-step runbook with 5 search checkpoints using different category filters. The test independently simulates the runbook state machine, computes brute-force weighted k-NN ground truth with category filtering at each checkpoint, and verifies: summary structure and active-point counts, category filter lists in summary, binary output format and shapes, category compliance (all returned tags have matching categories), weighted distance accuracy (spot-checked against numpy), distance sorting, and recall@10 >= 0.7 per step / >= 0.8 average."""
+category = "systems"
+tags = ["vector-search", "streaming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/streaming-ann-engine-d4e7d1"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level metrological knowledge to implement the complete JCGM 101:2008 measurement uncertainty framework from scratch: extracting and computing Type A evaluation parameters from raw measurement observations in a SQLite database, correctly interpreting five different probability distribution types (Gaussian, Student's t, rectangular, arc sine, curvilinear trapezoidal), implementing GUM first-order propagation of uncertainty with numerical sensitivity coefficients, Welch-Satterthwaite effective degrees of freedom, adaptive Monte Carlo simulation with batched convergence checking, shortest coverage interval extraction, and GUM validation by comparing coverage interval endpoints. Must combine data from heterogeneous sources (SQLite + JSON) and recognize when GUM linearization fails for non-linear models at critical operating points."""
+solution_explanation = """Solution queries the SQLite calibration database to extract gauge block model metadata, Type B distribution specifications, and raw measurement series. For Type A inputs, it computes sample means, standard uncertainties (s/sqrt(n)), and degrees of freedom (n-1) from repeated observations. It then implements GUM using central finite differences for sensitivity coefficients and Welch-Satterthwaite for effective DOF, adaptive MCM with batched stabilization checking against numerical tolerance, and shortest coverage intervals by sliding a window over sorted samples. The comparison loss model is read directly from JSON. Both models are processed through the same GUM+MCM+validation pipeline."""
+verification_explanation = """Tests verify: (1) GUM correctly gives zero uncertainty for comparison loss case 1 where first-order sensitivity coefficients vanish; (2) MCM converges to known analytical values for the resulting exponential distribution; (3) GUM estimate, uncertainty, and DOF for gauge block match reference values (~838 nm, ~32 nm, ~16 DOF); (4) MCM results are physically consistent with GUM; (5) comparison loss case 1 fails GUM validation; (6) data was correctly extracted from the SQLite database by checking consistency between reported Type A DOF and the measurement counts in the database; (7) all coverage intervals are properly ordered."""
+category = "probability_statistics"
+tags = ["monte-carlo", "metrology"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gum-monte-carlo"

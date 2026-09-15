@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a PEP 440/508-compliant dependency resolver with recursive backtracking. The agent must understand Python packaging standards (version specifiers including the ~= compatible release operator, extras, environment markers, requires_python filtering), implement a correct constraint satisfaction algorithm that handles diamond dependencies and conflicting transitive constraints, and verify correctness across edge cases like the != operator forcing specific resolution paths. This combines deep knowledge of Python packaging internals with non-trivial algorithm design."""
+solution_explanation = """Install the packaging library for PEP 440/508 parsing. Implement a recursive backtracking resolver that: (1) parses requirements using packaging.requirements.Requirement, (2) for each unresolved package tries versions in descending order, (3) accumulates constraints from transitive dependencies checking already-resolved packages for compatibility, (4) backtracks when a chosen version leads to a conflict, (5) handles extras by including optional dependency groups, (6) evaluates environment markers to conditionally include dependencies, and (7) filters candidate versions by requires_python constraints."""
+verification_explanation = """13 pytest tests verify correctness across all resolver capabilities: basic direct resolution, transitive dependency chains, backtracking under upper-bound constraints that force older package versions, unsolvable conflict detection via ResolutionError, extras handling for both included and excluded optional dependency groups, environment marker evaluation for linux and win32 platforms, requires_python filtering for compatible and incompatible Python versions, the ~= compatible release operator, the != operator forcing backtracking through transitive deps, and a complex 8-package multi-level scenario combining Python version filtering with deep transitive resolution."""
+category = "software_engineering"
+tags = ["dependency-resolution", "python-packaging"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dependency-resolver-backtrack"

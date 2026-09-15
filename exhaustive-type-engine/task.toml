@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level TypeScript type-system knowledge: recursive conditional types, union distribution, tuple manipulation, variadic generics, and Set/Map handling at the type level. The solver must implement 4 interdependent type utilities from placeholder stubs, guided only by ~80 type assertions in the test file. Debugging type-level code via tsc error messages is notoriously difficult — each type error can cascade, making incremental progress hard. The types push TypeScript's type system to its limits and are not covered by standard TypeScript learning materials."""
+solution_explanation = """The solution implements 4 type files: (1) IsMatching performs structural pattern matching validation by distributing unions, recursively checking objects key-by-key, tuples element-by-element, and handling wildcards. (2) BuildMany/SetDeep surgically replaces values at property-key paths in nested types, preserving optional modifiers. (3) DistributeUnions finds all unions in a type that match a pattern (up to depth 5), creates their Cartesian product via Distribute, and rebuilds concrete types via BuildMany. (4) DeepExclude composes DistributeMatchingUnions with Exclude to deeply remove matched variants. The key insight is distributing nested unions into concrete combinations before applying Exclude."""
+verification_explanation = """Verification runs `npx tsc --noEmit` on a comprehensive test file containing ~80 type assertions using the Expect<Equal<...>> pattern. Each assertion evaluates to `true` only when the computed type exactly matches the expected type (using the Equal type based on function type comparison). Negative assertions via @ts-expect-error ensure types aren't trivially implemented as `any`, `never`, or identity. The test covers primitives, literals, objects, nested objects, tuples, variadic arrays, Sets, Maps, readonly types, optional properties, multiple patterns, and complex real-world discriminated unions."""
+category = "type systems"
+tags = ["typescript", "type-level-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/exhaustive-type-engine"

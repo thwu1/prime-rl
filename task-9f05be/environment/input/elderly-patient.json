@@ -1,0 +1,8 @@
+{
+  "resourceType": "Patient",
+  "id": "pat-300",
+  "name": [{"use": "official", "family": "Williams", "given": ["Robert"]}],
+  "gender": "male",
+  "birthDate": "1920-01-15",
+  "address": [{"state": "CA", "country": "US"}]
+}

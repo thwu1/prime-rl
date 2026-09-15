@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the packed QA bitmask structure for 4 heterogeneous satellite products (MOD13A1 with 10 fields across 16 bits, MOD09GA with 11 fields across 16 bits, MOD11A1 with 4 fields across 8 bits, Landsat 8 with 12 fields across 16 bits) from the AppEEARS API response format. The solver must discover the correct API endpoints, determine how field definitions map to bit positions and widths, implement general-purpose bitmask decoding, apply per-layer scale/offset/fill transformations from product metadata, derive and implement the EVI vegetation index formula for MOD09GA reflectance bands, compose everything into a multi-product pipeline, and produce aggregated quality statistics — all without hardcoded product schemas."""
+solution_explanation = """Query /api/quality/{product}/{qa_layer} to get field definitions. Group by field name in appearance order, infer bit widths from max defined value using bit_length(). Extract fields LSB-first using shifting and masking. Query /api/product/{product} for ScaleFactor, AddOffset, FillValue, Units. For each observation: decode QA bits, check filter, apply scale/offset (handle fill), compute EVI for MOD09GA using standard MODIS formula (G=2.5, C1=6, C2=7.5, L=1). Aggregate stats into report.json. Cache all API responses."""
+verification_explanation = """10 observations across 4 satellite products verify: all QA field decode values and descriptions, quality pass/fail decisions, scaled measurements (Kelvin LST, emissivity with offset, NDVI/EVI scaling), fill value detection, EVI computation including zero-EVI edge case (all bands equal) and null-EVI (fill band), report.json aggregation accuracy. Two cross-validation tests query the live AppEEARS decode endpoint to compare descriptions against tool output."""
+category = "data_processing"
+tags = ["remote-sensing", "api-integration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/modis-qa-pipeline-d1f5a2"

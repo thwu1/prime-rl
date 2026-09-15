@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a non-standard visual annotation format from examples alone (no spec provided), integrating with the tree-sitter Python API (version-dependent APIs), implementing Cursorless-specific scope semantics including derived range computation for Removal and Domain facets from Leading/Trailing captures, and producing byte-perfect round-trip serialization. Combines three distinct skill areas — tree-sitter tooling, domain-specific Cursorless conventions, and precise text rendering — that must interoperate correctly across a multi-component pipeline."""
+solution_explanation = """Implements a state-machine parser for .scope fixtures, a visual range renderer handling single/multi-line cases with boundary markers, a capture mapper that derives Removal and Domain ranges from Cursorless naming conventions, and a tree-sitter integration layer that runs queries against parsed ASTs and converts captures to fixture output while handling multiple tree-sitter API variants."""
+verification_explanation = """Tests verify fixture parsing with range extraction, byte-for-byte round-trip fidelity on 8 reference fixtures, capture-to-scope mapping including derived ranges, and end-to-end tree-sitter pipeline integration producing correct scope annotations for Python source code."""
+category = "software_engineering"
+tags = ["tree-sitter", "code-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/scope-fixture-engine"

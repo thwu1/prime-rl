@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing defects spanning three layers: a Makefile build system (missing linker flag prevents shared library compilation), C source code (two numerical bugs in orifice plate computations — wrong denominator sign in the downstream correction term and inverted exponent in the pressure ratio), and Python code (swapped tap-type enum mapping in the ctypes FFI layer, wrong variable in an iterative valve sizing branch, and incorrect clamp value in gas expansion factor). The solver must also complete stubbed-out SQLite-backed valve test processors. Debugging requires cross-language analysis: C linker errors from make/gcc, tracing numerical discrepancies through ctypes into C implementations, cross-referencing Python enum mappings against C header constants, and validating results against reference data stored in SQLite. Each bug manifests only under specific conditions (non-corner taps, certain pressure ratios, piping geometry corrections), demanding systematic differential diagnosis."""
+solution_explanation = """Fix 6 issues across 3 files: (1) Makefile: add -lm to link against libm for math functions; (2) flowcore.c orifice_C: change M2' denominator from (1+beta) to (1-beta); (3) flowcore.c orifice_eps: change pressure ratio exponent from k to 1/k; (4) flowcal.py _TAP_MAP: swap flange/D values to match C header (flange=1, D=2); (5) flowcal.py size_liquid_valve: use FLP instead of FL in choked+piping branch; (6) flowcal.py size_gas_valve: change Y clamp from 1/3 to 2/3. Complete run_calibration.py by implementing valve_liquid and valve_gas processors that query SQLite, handle NULLs, and format results."""
+verification_explanation = """12 pytest tests: 10 direct function tests (3 orifice C with corner/D/flange taps, 1 expansibility, 1 flow rate, 3 liquid valve sizing, 2 gas valve) each checking numerical accuracy at rel_tol 1e-4; plus 1 build verification test (make produces loadable .so); plus 1 integration test running the full calibration pipeline end-to-end verifying JSON schema, all-pass status, 5 categories, and summary consistency."""
+category = "physics_engineering"
+tags = ["cross-language-debugging", "fluid-mechanics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orifice-valve-sizing"

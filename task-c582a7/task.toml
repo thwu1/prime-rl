@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete binary wire-format codec (both encoder and decoder) for the defmt embedded logging protocol, with the ONLY specification being Rust source code across three files (~1500 lines). The solver must: (1) reverse-engineer the binary wire format from Rust code — understanding how Table::decode() reads u16 LE indices, how the Decoder reads typed arguments, how FormatSequence uses u16 LE terminated lists, how bitfield byte ranges are calculated, and how display hints propagate through nested Format types; (2) design the codec architecture — deciding how to dispatch on types, handle recursive Format nesting, manage argument index ordering with reuse, and structure the encoder's type-to-bytes serialization pipeline; (3) implement both directions (~600+ lines of Python) covering 15+ distinct types with edge cases: bitfield byte-boundary alignment, signed-integer two's-complement hex formatting per type width, ISO 8601 timestamp precision variants, Debug hint delegation to parent, FormatSequence u16 indices vs FormatSlice u32 counts; (4) use xxd/binary inspection tools and the Rust source cross-referentially to debug encoding mismatches."""
+solution_explanation = """The solution implements a complete codec.py (~700 lines) with: (1) a format string parser that handles all defmt parameter syntax including bitfield ranges, explicit indices, and display hints; (2) a BinaryReader class for decode-mode that reads all primitive types in LE encoding; (3) a BinaryWriter class for encode-mode that serializes all types to LE bytes; (4) a recursive argument reader/writer that handles nested Format (u16 LE sub-index + recursive args), FormatSlice (u32 count + repeated entries), FormatSequence (u16 LE entries + zero terminator), and bitfields (correct byte range calculation with (max_bit-1)//8); (5) a display formatter that correctly propagates hints through nested types, uses I128Hex-equivalent type-specific bit widths for signed hex, and handles all ISO 8601/us/ms time formatting."""
+verification_explanation = """61 pytest tests organized in 6 groups verify both encode and decode directions plus round-trip consistency. Encode tests verify exact hex output for: primitives, strings, byte slices, nested Format, FormatSlice, FormatSequence, bitfields, timestamps, and argument reuse. Decode tests verify human-readable output for: basic types, display hints (hex/bin/oct/ascii), signed integer formatting, bitfield extraction, ISO 8601 timestamps, Debug hint propagation, and nested formats. Round-trip tests verify encode→decode produces correct human-readable output. Edge-case tests target: bitfield byte-boundary alignment, signed i8/i16/i64 hex formatting width, FormatSequence u16 vs u8 indices, ISO 8601 ms/us precision, and Debug hint delegation."""
+category = "systems-programming"
+tags = ["binary-protocol", "embedded-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c582a7"

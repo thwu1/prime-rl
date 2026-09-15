@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of distributed tracing systems: trace assembly from unordered spans with variable parent encodings, tail-based sampling with priority rule evaluation, and weighted SLI estimation to correct for sampling bias. Beyond the base sampling problem, demands proficiency with SQLite analytical queries (window functions, CTEs, self-joins on span parent-child relationships) to compute adaptive latency thresholds per endpoint and extract service topology graphs. The topology anomaly detection requires reconstructing service dependency graphs from span parent-child relationships, computing per-route service presence ratios, and identifying traces with atypical call patterns. The fairness constraint adds a combinatorial dimension requiring the solver to guarantee coverage of all (service, route) pairs under a budget. Multi-tool interoperability between Python, SQLite, and jq is needed to produce correct analysis artifacts including executable SQL files."""
+solution_explanation = """The solver must read and interpret the YAML configuration files to understand each rule type (error detection, status code filtering, adaptive latency thresholds, topology anomaly detection, dynamic sampling with fairness). It must discover from the data how root spans are encoded (three formats), use SQLite analytical queries to compute per-endpoint latency percentiles and extract the service call graph via parent-child span joins, implement the sampling algorithm described in the config (including budget enforcement), produce weighted SLI estimates from sampled data, and generate all required output artifacts with correct structure and consistent annotations."""
+verification_explanation = """Tests verify: all error traces preserved (100% recall), adaptive-latency traces above per-endpoint P95 kept, anomalous-topology traces (missing expected services) kept, fairness constraint satisfied (all service-route pairs in output), topology.json structure correct with valid edges and expected topologies, analysis.sql executable against SQLite and producing results, output traces within budget, sample rate annotations valid and consistent, weighted availability SLI within 5% relative error, and sampling report structure correct."""
+category = "observability"
+tags = ["distributed-tracing", "sampling-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/trace-sampling-pipeline"

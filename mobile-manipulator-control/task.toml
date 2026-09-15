@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a URDF XML model to extract kinematic parameters (joint axes, origins, wheel geometry, roller angles), then independently deriving screw-theory quantities (body screw axes, forward kinematics chain, mecanum odometry matrix) that are not directly present in the URDF. The agent must implement the full SE(3)/SO(3) computational stack from scratch, construct the combined 6×9 mobile-manipulator Jacobian, design a task-space feedback controller, run a closed-loop simulation using parameters from a YAML config, and generate an error convergence plot using gnuplot. Multi-tool interoperability (URDF XML → Python → CSV → gnuplot → PNG) and proficient-level screw-theory robotics knowledge are required."""
+solution_explanation = """Parse the URDF with xml.etree.ElementTree to extract chassis height, wheel positions/roller-angles/radius, arm joint origins/axes, and the base-to-arm transform. Compute M0e by composing the chain of joint-origin translations. Derive body screw axes Blist from joint positions and axes relative to the EE frame. Construct the 4×3 mecanum H matrix using the kinematic constraint formula and compute F as its pseudoinverse. Implement ~15 screw-theory functions (VecToso3, MatrixExp3/6, MatrixLog3/6, Adjoint, FKinBody, JacobianBody, etc.). Compose the mobile-manipulator Jacobian from [Ad_{T_eb}]·F6 and the arm body Jacobian. Implement the feedforward+PI control law. Parse task_spec.yaml, run 500-step simulation writing error CSV, then invoke gnuplot to produce a PNG convergence plot."""
+verification_explanation = """Tests verify: (1) mecanum odometry for 3 canonical motions plus speed limiting, (2) end-effector FK against a known configuration, (3) the 6×9 Jacobian against reference values, (4) feedforward-only and proportional-gain control twists, (5) pseudoinverse control mapping, (6) closed-loop convergence to a target pose within position and orientation tolerances, (7) existence and format of error_data.csv (correct header, 500 rows, converging error), and (8) existence and validity of the gnuplot-generated error_plot.png."""
+category = "robotics"
+tags = ["screw-theory", "urdf-parsing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mobile-manipulator-control"

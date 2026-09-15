@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three compiler optimization passes for a custom RTL intermediate representation inspired by CompCert. The agent must learn an unfamiliar multi-command CLI toolkit (rtl-toolkit) with six subcommands for IR inspection, execution tracing, CFG visualization, semantic validation, structural diffing, and statistics. Additionally requires using graphviz (dot) for control-flow graph rendering and jq for querying JSON-based IR, creating genuine multi-tool interoperability demands. The agent must study CompCert Coq source files (unfamiliar formal verification language) to extract optimization specifications, then translate those formal semantics into working Python. Demands deep compiler theory: forward abstract interpretation with lattice fixpoints and executable-edge tracking for SCCP, backward liveness dataflow analysis for DCE, and graph-based chain-following with cycle detection for branch tunneling. Passes must compose correctly in a pipeline that iterates to fixpoint while preserving semantics across diverse program patterns including diamonds, loops, and cascading dead code."""
+solution_explanation = """Implements SCCP using a {Bottom, Const(n), Top} lattice with forward worklist-based dataflow analysis: tracks executable edges so unreachable branch values don't pollute merge points, computes per-node abstract states as joins of executable predecessors' output states, and applies transformations (fold operations to constants, resolve branches to Inop). DCE uses iterative backward liveness analysis: computes live_in/live_out sets at each node, marks Iop instructions with dead destinations as Inop, removes unreachable nodes, and repeats until stable. Branch tunneling follows Inop chains with cycle detection to redirect all instruction successor edges to the first non-Inop target. Uses rtl-toolkit validate to confirm semantic equivalence, rtl-toolkit dot piped to graphviz for CFG inspection, and jq for JSON IR queries."""
+verification_explanation = """27 pytest tests verify structural properties and semantic preservation across 9 test programs. Structural tests check specific transformations: constant folding produces correct immediate values, branch resolution converts Icond to Inop with correct target, dead code replacement converts Iop to Inop, and tunneling redirects successor edges past Inop chains. Semantic preservation tests verify interpret(original, args) == interpret(optimized, args) for multiple inputs across all programs. Pipeline idempotency tests verify that running the pipeline twice produces identical output. Individual pass preservation tests verify each pass independently maintains semantics."""
+category = "compilers"
+tags = ["dataflow-analysis", "compiler-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rtl-optimization-passes"

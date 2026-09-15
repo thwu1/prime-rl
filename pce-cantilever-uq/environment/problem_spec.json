@@ -1,0 +1,41 @@
+{
+  "design_point": {
+    "w": 2.5,
+    "t": 3.5
+  },
+  "uncertain_variables": {
+    "R": {"distribution": "normal", "mean": 40000.0, "std": 2000.0, "description": "yield strength"},
+    "E": {"distribution": "normal", "mean": 29000000.0, "std": 1450000.0, "description": "Youngs modulus"},
+    "X": {"distribution": "normal", "mean": 500.0, "std": 100.0, "description": "horizontal load"},
+    "Y": {"distribution": "normal", "mean": 1000.0, "std": 100.0, "description": "vertical load"}
+  },
+  "beam_parameters": {
+    "L": 100.0,
+    "D0": 2.2535
+  },
+  "pce_config": {
+    "total_degree": 4
+  },
+  "output_schema": {
+    "stress_mean": "E[stress]",
+    "stress_std": "sqrt(Var[stress])",
+    "displacement_mean": "E[displacement]",
+    "displacement_std": "sqrt(Var[displacement])",
+    "sobol_first_order": {
+      "stress": {"R": "S_R^1", "E": "S_E^1", "X": "S_X^1", "Y": "S_Y^1"},
+      "displacement": {"R": "S_R^1", "E": "S_E^1", "X": "S_X^1", "Y": "S_Y^1"}
+    },
+    "sobol_total": {
+      "stress": {"R": "S_R^T", "E": "S_E^T", "X": "S_X^T", "Y": "S_Y^T"},
+      "displacement": {"R": "S_R^T", "E": "S_E^T", "X": "S_X^T", "Y": "S_Y^T"}
+    },
+    "failure_stress": {
+      "probability": "P[stress > R]",
+      "reliability_index": "beta = -mu_g / sigma_g where g = stress - R"
+    },
+    "failure_displacement": {
+      "probability": "P[displacement > 1.0]",
+      "reliability_index": "beta = -mu_g / sigma_g where g = displacement - 1"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+// Test 15: Truthiness, operator precedence edge cases
+int main() {
+    // Truthiness: non-zero is true, zero is false
+    if (5) putint(1); else putint(0);
+    putch(32);
+    if (-1) putint(1); else putint(0);
+    putch(32);
+    if (0) putint(1); else putint(0);
+    putch(32);
+    // ! has higher precedence than +
+    putint(!0 + 1); putch(32);
+    // + has higher precedence than <
+    putint(2 + 3 < 4 + 5); putch(32);
+    // < has higher precedence than ==
+    putint((3 < 4) == (5 < 6)); putch(10);
+    return 0;
+}

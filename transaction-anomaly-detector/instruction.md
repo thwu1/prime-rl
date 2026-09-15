@@ -1,0 +1,5 @@
+Transaction histories from concurrent database workloads have been collected in `/app/data/`. An analysis tool at `/app/checker.py` was built to classify consistency anomalies present in these histories and determine the strongest portable isolation level each history satisfies. However, QA testing against known-good results revealed that the checker produces incorrect output for some histories and fails to process others entirely.
+
+Partial ground truth (verified correct results for a subset of histories) is at `/app/ground_truth.json`. Reference material on consistency models is in `/app/docs/`.
+
+Investigate the data, diagnose the checker's deficiencies, and produce a correct `/app/results.json` that covers **every** history present in the data directory. The output schema should match what the existing checker produces.

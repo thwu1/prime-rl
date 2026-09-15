@@ -1,0 +1,45 @@
+{
+  "kmalloc_caches": [
+    {"name": "kmalloc-32", "object_size": 32, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-64", "object_size": 64, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-96", "object_size": 96, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-128", "object_size": 128, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-192", "object_size": 192, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-256", "object_size": 256, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-512", "object_size": 512, "slab_size": 4096, "alignment": 8},
+    {"name": "kmalloc-1024", "object_size": 1024, "slab_size": 8192, "alignment": 8}
+  ],
+  "named_caches": [
+    {
+      "name": "drill_cache",
+      "object_size": 192,
+      "slab_size": 4096,
+      "alignment": 8,
+      "flags": [],
+      "constructor": null,
+      "mergeable": true
+    },
+    {
+      "name": "cred_jar",
+      "object_size": 192,
+      "slab_size": 4096,
+      "alignment": 8,
+      "flags": ["SLAB_TYPESAFE_BY_RCU", "SLAB_PANIC"],
+      "constructor": null,
+      "mergeable": false
+    },
+    {
+      "name": "sighand_cache",
+      "object_size": 1024,
+      "slab_size": 8192,
+      "alignment": 8,
+      "flags": ["SLAB_PANIC"],
+      "constructor": "sighand_ctor",
+      "mergeable": true
+    }
+  ],
+  "merge_rules": {
+    "description": "A named cache can merge into a kmalloc cache when: (1) it has no constructor function, (2) it has none of the nomerge_flags set, (3) its object_size maps to an existing kmalloc size class (the smallest kmalloc cache with object_size >= named cache object_size), and (4) alignment is compatible (kmalloc cache alignment >= named cache alignment). The mergeable field is informational; actual mergeability is determined by the constructor and flags rules.",
+    "nomerge_flags": ["SLAB_TYPESAFE_BY_RCU", "SLAB_POISON", "SLAB_STORE_USER", "SLAB_TRACE", "SLAB_NOMERGE"]
+  }
+}

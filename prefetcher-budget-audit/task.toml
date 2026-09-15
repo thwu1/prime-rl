@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of hardware cache prefetcher design and DPC-3 competition constraints. The solver must: (1) parse three C++ source files to identify all persistent data structures, (2) resolve complex preprocessor macro chains involving bit-shift arithmetic (e.g., ((1 << 10) + (1 << 8) + (1 << 6)) - 1), (3) correctly interpret hardware bit-width annotations vs C++ type sizes, (4) handle array fields with per-element bit-widths and multi-dimensional arrays, (5) distinguish persistent state from transient computation, (6) perform precise multi-term arithmetic across 10+ data structures spanning 3 cache levels, and (7) correctly exclude the NUM_CPUS simulation dimension from per-core budget calculations. This combination of C++ code analysis, domain-specific storage accounting rules, and careful arithmetic requires proficiency-level expertise in computer architecture."""
+solution_explanation = """The solution parses each C++ source file using regex to extract macro definitions and data structure declarations. It evaluates macro expressions (including nested bit-shifts and arithmetic), extracts struct field bit-width annotations from comments, identifies global array declarations and their dimensions, and computes per-structure storage budgets. The final JSON output contains exact bit counts for each cache level and the overall compliance determination."""
+verification_explanation = """Tests load /app/storage_audit.json and verify each field against precomputed correct values: L1D=254202 bits, L2C=346186 bits, LLC=56696 bits, grand total=657084 bits. The submission is non-compliant (exceeds 64KB by 132796 bits). Each value is checked with exact equality since the answers are deterministic from the source files."""
+category = "computer_architecture"
+tags = ["cache_prefetching", "hardware_storage_budget"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/prefetcher-budget-audit"

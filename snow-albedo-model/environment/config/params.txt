@@ -1,0 +1,15 @@
+! Model parameters
+! Format: name | default_value | lower_bound | upper_bound
+albedo_max              | 0.8400   | 0.7000  | 0.9500
+albedo_min              | 0.5500   | 0.3000  | 0.7000
+tau_const               | 86400.0  | 43200.0 | 172800.0
+c_warm                  | 5.0e-05  | 1.0e-06 | 1.0e-04
+c_cold                  | 0.0010   | 0.0002  | 0.0050
+fresh_snow_density      | 100.00   | 50.00   | 200.00
+snow_emissivity         | 0.9700   | 0.9500  | 0.9900
+bulk_transfer_coeff     | 0.0020   | 0.0005  | 0.0050
+compact_c1              | 2.8e-06  | 1.0e-06 | 1.0e-05
+compact_c2              | 0.0400   | 0.0200  | 0.0800
+compact_c3              | 0.0460   | 0.0230  | 0.0920
+rain_snow_thresh        | 275.150  | 273.150 | 277.150
+new_snow_thresh         | 2.78e-08 | 1.0e-08 | 1.0e-07

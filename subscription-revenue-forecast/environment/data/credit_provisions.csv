@@ -1,0 +1,11 @@
+report_id,assessment_date,tier_name,probability_of_default,loss_given_default,expected_loss_rate,review_status,reviewer
+CR-2024-001,2024-01-15,Starter,0.045,0.622,0.028,approved,Credit Committee
+CR-2024-002,2024-01-15,Growth,0.032,0.563,0.018,approved,Credit Committee
+CR-2024-003,2024-01-15,Professional,0.023,0.522,0.012,approved,Credit Committee
+CR-2024-004,2024-01-15,Business,0.018,0.444,0.008,approved,Credit Committee
+CR-2024-005,2024-01-15,Enterprise,0.012,0.417,0.005,approved,Credit Committee
+CR-2024-006,2024-01-15,Starter,0.052,0.654,0.034,superseded,Risk Assessment
+CR-2024-007,2024-01-15,Growth,0.038,0.605,0.023,superseded,Risk Assessment
+CR-2024-008,2024-01-15,Professional,0.029,0.552,0.016,superseded,Risk Assessment
+CR-2024-009,2024-01-15,Business,0.022,0.500,0.011,superseded,Risk Assessment
+CR-2024-010,2024-01-15,Enterprise,0.015,0.467,0.007,superseded,Risk Assessment

@@ -1,0 +1,55 @@
+[
+  {
+    "id": "S1",
+    "noise_type": "exponential",
+    "ideal_value": 0.9,
+    "decay_rate": 0.15,
+    "asymptote": 0.0,
+    "scale_factors": [1, 2, 3],
+    "shot_budget": 10000
+  },
+  {
+    "id": "S2",
+    "noise_type": "exponential",
+    "ideal_value": -0.6,
+    "decay_rate": 0.2,
+    "asymptote": 0.0,
+    "scale_factors": [1, 3, 5],
+    "shot_budget": 10000
+  },
+  {
+    "id": "S3",
+    "noise_type": "exponential",
+    "ideal_value": 0.7,
+    "decay_rate": 0.1,
+    "asymptote": 0.15,
+    "scale_factors": [1, 2, 3, 5],
+    "shot_budget": 15000
+  },
+  {
+    "id": "S4",
+    "noise_type": "exponential",
+    "ideal_value": 0.85,
+    "decay_rate": 0.12,
+    "asymptote": 0.0,
+    "scale_factors": [1, 3, 5, 7],
+    "shot_budget": 20000
+  },
+  {
+    "id": "S5",
+    "noise_type": "polynomial",
+    "ideal_value": 0.8,
+    "poly_coefficients": [-0.05, -0.01],
+    "scale_factors": [1, 2, 3],
+    "shot_budget": 10000
+  },
+  {
+    "id": "S6",
+    "noise_type": "exponential",
+    "ideal_value": 0.95,
+    "decay_rate": 0.05,
+    "asymptote": 0.0,
+    "scale_factors": [1, 2, 3, 4, 5],
+    "shot_budget": 25000
+  }
+]

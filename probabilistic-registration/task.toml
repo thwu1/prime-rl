@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the Coherent Point Drift (CPD) EM algorithm for rigid registration with scale from scratch. The agent must first use HDF5 CLI tools (h5ls, h5dump) to discover the internal structure of gzip-compressed HDF5 point cloud files, then use h5py to extract the coordinate data programmatically. The solver must correctly derive the E-step posterior computation over a Gaussian mixture model, the M-step SVD-based optimal rotation, closed-form scale and translation updates, and variance annealing — all while handling ~20% outlier contamination via a uniform mixture component. This demands graduate-level understanding of probabilistic models, matrix calculus, 3D geometry, and proficiency with scientific data formats."""
+solution_explanation = """Use h5ls to inspect the HDF5 file structure and locate the /pointcloud/xyz datasets. Then implement the Myronenko & Song (2010) CPD rigid registration algorithm using h5py and numpy/scipy: model source points as GMM centroids, target points as observations, add a uniform outlier component, then iterate EM. E-step computes posterior assignment probabilities. M-step uses SVD of the cross-covariance matrix to find the optimal rotation, then closed-form updates for scale, translation, and variance. Converges in ~50-100 iterations."""
+verification_explanation = """The ground truth transformation (R, t, s) is recomputed from known deterministic parameters. The test loads /app/result.json and checks: (1) rotation angular error < 2 degrees, (2) translation L2 error < 0.1, (3) scale relative error < 5%, (4) R is a proper rotation matrix, (5) applying the recovered transformation actually aligns >70% of source points to within 0.3 of their nearest target point. A generalization test locates the agent's Python script, substitutes HDF5 filenames (source.h5→source_b.h5, etc.), runs the modified copy, and verifies the second registration problem also meets accuracy thresholds. An anti-cheat test checks for forbidden imports."""
+category = "computational_geometry"
+tags = ["point-cloud-registration", "expectation-maximization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/probabilistic-registration"

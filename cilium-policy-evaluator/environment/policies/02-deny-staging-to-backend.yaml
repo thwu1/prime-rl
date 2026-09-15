@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-staging-to-backend
+spec:
+  endpointSelector:
+    matchLabels:
+      app: backend
+  ingressDeny:
+    - fromEndpoints:
+        - matchLabels:
+            env: staging

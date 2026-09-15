@@ -1,0 +1,12 @@
+-- Persistent Vector Snapshot Store Schema
+-- Extend this schema to support storing and deduplicating tree nodes.
+
+CREATE TABLE IF NOT EXISTS snapshots (
+    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    root_node_id INTEGER,
+    tail TEXT NOT NULL DEFAULT '[]',
+    vec_size INTEGER NOT NULL DEFAULT 0,
+    shift INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

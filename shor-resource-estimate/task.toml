@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must design a complete surface-code resource optimization pipeline for quantum RSA factoring. Key challenges: (1) AlgorithmSummary.from_bloq() crashes on RSAPhaseEstimate because QubitCount cannot decompose bloqs containing MeasureQFT/Free with classical outputs — the agent must evaluate why, inspect the circuit's register structure (2n PlusState + n IntState = 3n total qubits), and create a manual AlgorithmSummary. (2) Multi-model evaluation requires understanding and comparing 4 distinct cost models (3 Beverland data-block variants with different space/time trade-offs + Gidney-Fowler with its CCZ2T factory) across 12 code distances, for 3 different RSA moduli. (3) Pareto frontier extraction requires creating a correct 2D dominance-based filtering algorithm — a non-trivial design step with subtle edge cases around ties and transitivity. (4) Constrained optimization for recommended_config demands jointly evaluating error and duration budgets to select the minimum-qubit deployment — a design decision, not a lookup. (5) Symbolic scaling analysis requires working with sympy-parameterized gate expressions, handling residual free symbols, and creating a power-law fitting pipeline with log-log OLS regression and extrapolation to predict resources at cryptographically relevant key sizes."""
+solution_explanation = """Run /app/analyze.py to discover the from_bloq crash. Investigate RSAPhaseEstimate.build_composite_bloq to find the register structure (2n PlusState exponent qubits + n IntState work qubits = 3n total). Construct AlgorithmSummary manually with n_algo_qubits=3n and n_logical_gates from get_cost_value. Iterate over all cost_model × code_distance combinations using PhysicalCostModel.make_beverland_et_al (compact/fast/intermediate data blocks) and make_gidney_fowler. Implement Pareto frontier extraction via O(n²) pairwise dominance checking on (phys_qubits, error). Find minimum-phys_qubits feasible configuration meeting both error < 0.01 and duration_hr < 100. Compute symbolic Toffoli counts via RSAPhaseEstimate(n=n_sym, mod=p_sym, base=g_sym) with sympy substitution, fit power law via numpy log-log polyfit, and predict at n=2048."""
+verification_explanation = """Tests independently construct RSAPhaseEstimate for each modulus, compute gate costs and AlgorithmSummary with correct 3n qubits, evaluate all 48 configurations per modulus (4 models × 12 distances), extract Pareto frontiers via dominance checking, find recommended configs, and compute symbolic scaling with power-law fit. Integer values are compared exactly; floats use pytest.approx with relative tolerance. The Pareto frontier is verified both structurally (no dominated points) and numerically (exact match against independently computed frontier)."""
+category = "computing_methodologies"
+tags = ["quantum-computing", "optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/shor-resource-estimate"

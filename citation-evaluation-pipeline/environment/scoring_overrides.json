@@ -1,0 +1,9 @@
+{
+  "mar": {
+    "low_score_threshold": 40
+  },
+  "parallel_citations": {
+    "enabled": true,
+    "authority_source": "/app/citation_authority.xml"
+  }
+}

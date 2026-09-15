@@ -1,0 +1,224 @@
+{
+  "design_modes": {
+    "access_type": ["READ", "WRITE", "RMW", "BURST"],
+    "bus_ids": [0, 1, 2],
+    "dma_mode": ["scatter", "gather"],
+    "cdc_direction": ["fast_to_slow", "slow_to_fast"],
+    "power_state": ["active", "idle", "sleep", "deep_sleep"],
+    "error_class": ["correctable", "uncorrectable", "fatal"]
+  },
+  "proof_structure": {
+    "id": "P0",
+    "description": "Top-level SoC design correctness",
+    "strategy": "assume-guarantee",
+    "children": [
+      {
+        "id": "P1",
+        "description": "Memory subsystem data integrity",
+        "assumptions": ["P2:guarantee"],
+        "guarantee": "mem_data_integrity",
+        "strategy": "case-split",
+        "split_signal": "access_type",
+        "children": [
+          {
+            "id": "P1a",
+            "description": "Read path correctness",
+            "condition": "access_type == READ",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P1b",
+            "description": "Write path correctness",
+            "condition": "access_type == WRITE",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P2",
+        "description": "Bus arbiter fairness and correctness",
+        "assumptions": ["P3:guarantee"],
+        "guarantee": "arb_grant_fairness",
+        "strategy": "partition",
+        "partition_signal": "bus_ids",
+        "children": [
+          {
+            "id": "P2a",
+            "description": "Bus 0 arbitration",
+            "partition_value": 0,
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P2b",
+            "description": "Bus 1 arbitration",
+            "partition_value": 1,
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P2c",
+            "description": "Bus 2 arbitration",
+            "partition_value": 2,
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P3",
+        "description": "DMA engine transfer correctness",
+        "assumptions": ["P1:guarantee"],
+        "guarantee": "dma_transfer_complete",
+        "strategy": "case-split",
+        "split_signal": "dma_mode",
+        "children": [
+          {
+            "id": "P3a",
+            "description": "Scatter mode correctness",
+            "condition": "dma_mode == scatter",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P3b",
+            "description": "Gather mode correctness",
+            "condition": "dma_mode == gather",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P4",
+        "description": "Interrupt controller correctness",
+        "assumptions": [],
+        "guarantee": "irq_delivery_guaranteed",
+        "strategy": "assume-guarantee",
+        "children": [
+          {
+            "id": "P4a",
+            "description": "Priority encoder ordering",
+            "assumptions": ["P4b:guarantee"],
+            "guarantee": "priority_correct",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P4b",
+            "description": "Interrupt mask register",
+            "assumptions": ["P4a:guarantee"],
+            "guarantee": "mask_applied_correctly",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P5",
+        "description": "Clock domain crossing safety",
+        "assumptions": [],
+        "guarantee": "cdc_no_metastability",
+        "strategy": "stopat",
+        "stopat_signals": ["sync_stage1", "sync_stage2"],
+        "children": [
+          {
+            "id": "P5a",
+            "description": "CDC handshake protocol compliance",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P6",
+        "description": "Power management unit correctness",
+        "assumptions": [],
+        "guarantee": "power_transitions_safe",
+        "strategy": "case-split",
+        "split_signal": "power_state",
+        "children": [
+          {
+            "id": "P6a",
+            "description": "Active state correctness",
+            "condition": "power_state == active",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P6b",
+            "description": "Idle state correctness",
+            "condition": "power_state == idle",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P6c",
+            "description": "Sleep state correctness",
+            "condition": "power_state == sleep",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P6d",
+            "description": "Deep sleep state correctness",
+            "condition": "power_state == deep_sleep",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P7",
+        "description": "Error handling subsystem",
+        "assumptions": ["P8:guarantee"],
+        "guarantee": "errors_handled_correctly",
+        "strategy": "case-split",
+        "split_signal": "error_class",
+        "children": [
+          {
+            "id": "P7a",
+            "description": "Correctable error handling",
+            "condition": "error_class == correctable",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P7b",
+            "description": "Uncorrectable error handling",
+            "condition": "error_class == uncorrectable",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      },
+      {
+        "id": "P8",
+        "description": "Watchdog timer and reset controller",
+        "assumptions": ["P7:guarantee"],
+        "guarantee": "watchdog_reset_correct",
+        "strategy": "assume-guarantee",
+        "children": [
+          {
+            "id": "P8a",
+            "description": "Watchdog countdown logic",
+            "assumptions": [],
+            "guarantee": "countdown_accurate",
+            "strategy": "leaf",
+            "status": "proven"
+          },
+          {
+            "id": "P8b",
+            "description": "Reset sequence controller",
+            "assumptions": ["P8a:guarantee"],
+            "guarantee": "reset_sequence_valid",
+            "strategy": "leaf",
+            "status": "proven"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+# Market basket data collected from point-of-sale system
+# Items encoded as product category IDs
+# Format: transaction_id|item_list (comma-separated items within)
+TXN-001|5,2,8,2,11
+TXN-002|3,8,11,5
+TXN-003|2,5,11,3,8
+TXN-004|11,8,3
+TXN-005|5,2,8
+TXN-006|3,5,8,11,2
+TXN-007|8,3,5
+TXN-008|2,11,8,5,3
+TXN-009|5,8,2
+TXN-010|3,11,8
+TXN-011|8,5,11,3,2
+TXN-012|5,3,8

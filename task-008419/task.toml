@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of quantum error correction: understanding the bivariate bicycle code family and its algebraic structure over F_2[Z_l x Z_m], constructing CSS parity check matrices from polynomial generators, computing code parameters via GF(2) linear algebra, implementing a depolarizing noise channel, selecting and configuring an appropriate quantum error-correction decoder, and building a complete Monte Carlo logical error rate estimation pipeline. The agent must independently research the code construction, identify suitable decoding tools, and integrate them into a correct simulation."""
+solution_explanation = """Build cyclic shift matrices S_l, S_m and form A, B via Kronecker products of their powers per the polynomial terms. Form Hx=[A|B], Hz=[B^T|A^T]. Verify CSS condition Hx@Hz^T=0 mod 2. Compute ranks via GF(2) Gaussian elimination to get k=n-rank(Hx)-rank(Hz). For simulation, sample depolarizing errors, compute syndromes, decode X/Z components independently with BP+OSD (ldpc package BpOsdDecoder), then check residuals against rowspaces of Hx/Hz to detect logical failures."""
+verification_explanation = """Tests verify exact code parameters (n=72, k=12, ranks=30, CSS valid, stabilizer weight=6), check the results JSON schema, and validate that logical error rates are physically consistent: monotonically non-decreasing in p (within statistical tolerance), near-zero at low noise, and substantial at high noise."""
+category = "quantum_computing"
+tags = ["quantum-error-correction", "ldpc-codes"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-008419"

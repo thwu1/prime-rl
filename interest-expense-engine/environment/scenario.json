@@ -1,0 +1,274 @@
+{
+  "entities": [
+    {
+      "id": "corp_alpha",
+      "type": "c_corp",
+      "years": {
+        "2021": {
+          "tentative_taxable_income": 80.0,
+          "business_interest_expense": 50.0,
+          "business_interest_income": 20.0,
+          "floor_plan_financing_interest": 10.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "corp_beta",
+      "type": "c_corp",
+      "years": {
+        "2021": {
+          "tentative_taxable_income": 50.0,
+          "business_interest_expense": 80.0,
+          "business_interest_income": 20.0,
+          "floor_plan_financing_interest": 10.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2022": {
+          "tentative_taxable_income": 90.0,
+          "business_interest_expense": 40.0,
+          "business_interest_income": 10.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 20.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "corp_gamma",
+      "type": "c_corp",
+      "years": {
+        "2020": {
+          "tentative_taxable_income": 30.0,
+          "business_interest_expense": 50.0,
+          "business_interest_income": 20.0,
+          "floor_plan_financing_interest": 10.0,
+          "depreciation": 15.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 25.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2023": {
+          "tentative_taxable_income": 30.0,
+          "business_interest_expense": 50.0,
+          "business_interest_income": 20.0,
+          "floor_plan_financing_interest": 10.0,
+          "depreciation": 15.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 25.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "prs",
+      "type": "partnership",
+      "partners": [
+        {"id": "partner_x", "share": 0.5},
+        {"id": "partner_y", "share": 0.5}
+      ],
+      "years": {
+        "2021": {
+          "tentative_taxable_income": 60.0,
+          "business_interest_expense": 40.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2022": {
+          "tentative_taxable_income": 170.0,
+          "business_interest_expense": 30.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "partner_x",
+      "type": "individual",
+      "partnership_interests": ["prs"],
+      "years": {
+        "2021": {
+          "tentative_taxable_income": 80.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2022": {
+          "tentative_taxable_income": 80.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "partner_y",
+      "type": "individual",
+      "partnership_interests": ["prs"],
+      "years": {
+        "2021": {
+          "tentative_taxable_income": -20.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2022": {
+          "tentative_taxable_income": -20.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "prs_two",
+      "type": "partnership",
+      "partners": [
+        {"id": "corp_delta", "share": 0.5},
+        {"id": "indiv_phi", "share": 0.5}
+      ],
+      "years": {
+        "2019": {
+          "tentative_taxable_income": 100.0,
+          "business_interest_expense": 80.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 20.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2021": {
+          "tentative_taxable_income": 180.0,
+          "business_interest_expense": 30.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "corp_delta",
+      "type": "c_corp",
+      "partnership_interests": ["prs_two"],
+      "years": {
+        "2019": {
+          "tentative_taxable_income": 100.0,
+          "business_interest_expense": 40.0,
+          "business_interest_income": 10.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2021": {
+          "tentative_taxable_income": 100.0,
+          "business_interest_expense": 40.0,
+          "business_interest_income": 10.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    },
+    {
+      "id": "indiv_phi",
+      "type": "individual",
+      "partnership_interests": ["prs_two"],
+      "years": {
+        "2019": {
+          "tentative_taxable_income": 50.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        },
+        "2021": {
+          "tentative_taxable_income": 50.0,
+          "business_interest_expense": 20.0,
+          "business_interest_income": 0.0,
+          "floor_plan_financing_interest": 0.0,
+          "depreciation": 0.0,
+          "amortization": 0.0,
+          "depletion": 0.0,
+          "nol_deduction": 0.0,
+          "section_199a_deduction": 0.0,
+          "capital_loss_carryover": 0.0
+        }
+      }
+    }
+  ]
+}

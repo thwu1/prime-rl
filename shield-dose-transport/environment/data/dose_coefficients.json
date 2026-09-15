@@ -1,0 +1,6 @@
+{
+  "description": "Ambient dose equivalent H*(10) conversion coefficients from particle fluence to dose. Based on ICRP 116 for protons. One value per energy group.",
+  "units": "pSv·cm² (picoSievert per unit fluence in particles/cm²)",
+  "energy_group_boundaries_MeV": [10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0, 30000.0, 100000.0],
+  "h_star_pSv_cm2": [3.0, 8.0, 22.0, 55.0, 110.0, 180.0, 280.0, 420.0]
+}

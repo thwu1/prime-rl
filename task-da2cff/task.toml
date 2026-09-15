@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the HL7 v2 standard's ER7 encoding (separator semantics, escape sequences, MSH special handling), XML conformance profile interpretation (recursive group structures, dynamic datatype mapping, usage/cardinality/length constraints), and multi-dimensional structural validation. The agent must implement a correct recursive-descent parser that handles segment groups, field repetitions, component/subcomponent decomposition, and then layer seven distinct validation checks on top. Edge cases around separator escaping, forbidden-usage detection at nested levels, and cardinality counting across group repetitions make this a Dreyfus-proficient/expert task."""
+solution_explanation = """The solution implements a full HL7 v2 ER7 parser and conformance validator in Python. It parses the XML conformance profile into an in-memory model, then parses the ER7 message by extracting separators from MSH-1/MSH-2, splitting into segments, and recursively matching segments to the profile's group structure. Validation proceeds in seven passes: usage checks (R/X/W at segment/group/field/component levels), cardinality checks (min/max for segments in groups and field repetitions), length checks (after escape resolution), invalid line detection, unexpected segment detection, extra element detection, and unescaped separator detection."""
+verification_explanation = """Tests provide multiple ER7 messages paired with the conformance profile, each targeting specific validation categories. Tests parse the JSON output and verify exact issue counts per category, specific path strings in reported issues, and correct severity levels. Edge cases include escape sequences in length calculation, nested group cardinality, component-level usage, and mixed valid/invalid lines."""
+category = "healthcare_informatics"
+tags = ["hl7-v2", "conformance-validation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-da2cff"

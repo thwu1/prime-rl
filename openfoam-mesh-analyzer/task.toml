@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging a multi-module Python pipeline for OpenFOAM structured mesh analysis containing four interacting bugs across three source files. Bug 1 (parser.py): the multi-grading segment normalizer swaps the lengthFraction and cellFraction fields, requiring knowledge of OpenFOAM's (lenFrac cellFrac expRatio) tuple convention to identify the permutation. Bug 2 (analyzer.py): block adjacency detection uses a strict inequality (>4 instead of >=4) causing it to miss all face-sharing block pairs since hex faces share exactly 4 vertices — this cascades into blocking CHT solid-fluid interface identification. Bug 3 (analyzer.py): the geometric grading formula computes the common ratio as R^(1/N) instead of R^(1/(N-1)), a subtle off-by-one requiring understanding of the relationship between expansion ratio and geometric series indexing. Bug 4 (cht_solver.py): a sign error in Newton's cooling law computes interface temperature below bulk fluid temperature, which is physically nonsensical for a heated surface — catching this requires heat transfer domain knowledge. The bugs interact: fixing adjacency is prerequisite to CHT interface detection, and multi-grading and simple grading bugs affect different blocks."""
+solution_explanation = """Run the pipeline and validation to identify failures across adjacency, cell sizing, and CHT domains. In parser.py, fix _normalize_grading to use [seg[0], seg[1], seg[2]] instead of [seg[1], seg[0], seg[2]] — the OpenFOAM multi-grading tuple order is (lengthFraction, cellFraction, expansionRatio) and the downstream analyzer expects this order. In analyzer.py find_adjacencies, change 'len(si & sj) > 4' to '>= 4' since hex block faces share exactly 4 vertices. In analyzer.py compute_cell_sizes, change 'R ** (1.0 / N)' to 'R ** (1.0 / (N - 1))' — the expansion ratio R equals r^(N-1) where r is the geometric common ratio, not r^N. In cht_solver.py, change 'T_f - q_flux / h_conv' to 'T_f + q_flux / h_conv' — heat flows from the heater into the fluid so the interface is hotter than bulk. Re-run pipeline to regenerate mesh_report.json."""
+verification_explanation = """Tests independently compute expected mesh metrics using correct formulas and compare against mesh_report.json. Integer values (cell counts, vertex indices, adjacency pairs) are checked exactly. Floating-point cell sizes use 1% relative tolerance. CHT temperatures use 0.1 K absolute tolerance. The test suite covers basic mesh info, per-block cell counts, vertex extraction, region classification, adjacency graph completeness, geometric-grading-derived cell heights for both simple and multi-grading modes, and all CHT output quantities."""
+category = "modeling_simulation"
+tags = ["openfoam", "computational-fluid-dynamics"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/openfoam-mesh-analyzer"

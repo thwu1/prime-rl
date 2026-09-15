@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of walloc's segregated-freelist allocator internals (page headers, chunk kinds, 10 small-object size classes, large-object best-fit with lazy compaction), the WebAssembly linear memory model versus native Linux virtual memory (mmap/mprotect for demand-paging), correct 64KB page alignment for the ptr-masking metadata lookup scheme, implementation of realloc across all small/large object transitions preserving data integrity, and malloc_usable_size via chunk metadata interpretation. The allocator has subtle invariants around page-spanning large objects, freelist compaction, and single-chunk repurposing that must be preserved."""
+solution_explanation = """Reserve a large contiguous virtual address range with mmap(PROT_NONE) and commit pages on demand via mprotect(PROT_READ|PROT_WRITE), maintaining 64KB alignment to preserve the ptr & ~0xFFFF page-header lookup. Rename PAGE_SIZE to avoid Linux header conflicts. Replace __builtin_wasm_memory_grow/size and __heap_base with committed-region tracking. Implement malloc_usable_size by reading page headers (chunk_kind_to_granules for small objects, large_object->size for large). Implement realloc by checking chunk_kind for same-class optimization, using malloc_usable_size for copy sizing, and handling all small/large transition cases."""
+verification_explanation = """Compiles the allocator as a shared library and tests via Python ctypes: validates all 10 small-object size classes and large objects for malloc_usable_size, tests realloc across all transitions (NULL, zero, same-class identity, cross-class, small-to-large, large-to-small, large grow/shrink) with data preservation checks, runs stress tests with 5000+ random alloc/free cycles and 1000+ realloc operations, and verifies data integrity across 200 concurrent allocations."""
+category = "systems_programming"
+tags = ["memory-allocators", "systems-porting"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/port-walloc-native"

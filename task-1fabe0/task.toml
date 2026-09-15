@@ -1,0 +1,59 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires designing a device tree overlay from scratch based on a hardware specification,
+which demands knowledge of Linux kernel DT bindings (correct compatible strings for
+BME280, ADS1115, PCA9685, W5500), I2C/SPI bus topology on the RPi 40-pin header,
+interrupt specifier conventions (IRQ_TYPE_LEVEL_LOW encoding), and DT overlay mechanics
+(/plugin/ directive, __fixups__). Additionally requires evaluating existing bare-metal
+ARM64 code for BCM2711 correctness: peripheral base address migration from BCM2835
+(0x3F000000 to 0xFE000000), GPFSEL register offset layout, Mini UART baud divisor
+recalculation for the 500MHz system clock, linker script base address for AArch64
+kernel load (0x80000 vs 0x8000), BSS symbol generation, and VBAR_EL1 2048-byte
+alignment requirements for the exception vector table.
+"""
+solution_explanation = """
+Create hat-overlay.dts from scratch with two fragments: fragment@0 targeting &i2c1 with
+BME280 (bosch,bme280 at 0x76), ADS1115 (ti,ads1115 at 0x48), PCA9685 (nxp,pca9685
+at 0x40); fragment@1 targeting &spi0 with W5500 (wiznet,w5500 at CE0/reg=0,
+spi-max-frequency=33333333, interrupt-parent=&gpio, interrupts=<25 8>). Both fragments
+set status="okay". Evaluate and fix start.S (.balign 2048 for vectors), link.ld
+(0x80000 base, __bss_start/__bss_end symbols), mmio.h (0xFE000000 MMIO_BASE,
+GPFSEL1 offset 0x04, baud divisor 541).
+"""
+verification_explanation = """
+18 pytest tests across 4 classes. TestKernelBuild: cross-compilation succeeds, ELF
+entry at 0x80000, __bss_start/__bss_end symbols defined, vectors 2048-aligned.
+TestPeripheralConfig: MMIO_BASE=0xFE000000 via cpp macro eval, GPFSEL1 at GPIO_BASE+0x04,
+baud divisor=541. TestDeviceTreeOverlay: dtc -@ compilation succeeds, __fixups__
+references i2c1 and spi0, each device has correct compatible string and reg value
+(checked in local context), W5500 has spi-max-frequency and interrupt spec <0x19 0x8>
+with gpio fixup, status="okay" with no "ok", no stale devices from other designs.
+TestFullBuild: make produces both kernel8.img and hat-overlay.dtbo.
+"""
+category = "systems_programming"
+tags = ["arm-bare-metal", "device-tree"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1fabe0"

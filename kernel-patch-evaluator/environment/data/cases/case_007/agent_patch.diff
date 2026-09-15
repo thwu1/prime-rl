@@ -1,0 +1,30 @@
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index aaa1111..ccc3333 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -23,13 +23,16 @@ static u64 calc_delta_fair(u64 delta, struct cfs_rq *cfs_rq)
+ int update_load_avg(struct cfs_rq *cfs_rq, u64 now)
+ {
+     u64 delta, load;
+
+-    delta = now - cfs_rq->min_vruntime;
+-    load = cfs_rq->load.weight;
+-
+-    if (delta > 1000000000ULL)
+-        delta = 1000000000ULL;
+-
+-    cfs_rq->min_vruntime = now;
+-    return calc_delta_fair(delta, cfs_rq) > 0 ? 1 : 0;
+-}
++    if (cfs_rq) {
++        delta = now - cfs_rq->min_vruntime;
++        load = cfs_rq->load.weight;
++
++        if (delta > 1000000000ULL)
++            delta = 1000000000ULL;
++
++        cfs_rq->min_vruntime = now;
++        return calc_delta_fair(delta, cfs_rq) > 0 ? 1 : 0;
++    }
++    return 0;
++}

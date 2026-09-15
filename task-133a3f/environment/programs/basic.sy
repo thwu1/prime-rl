@@ -1,0 +1,18 @@
+int factorial(int n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+
+int main() {
+    int a = 10;
+    int b = 3;
+    int c = a / b;
+    int d = a % b;
+    putint(c);
+    putch(32);
+    putint(d);
+    putch(10);
+    putint(factorial(6));
+    putch(10);
+    return 0;
+}

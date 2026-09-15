@@ -1,0 +1,13 @@
+## Audit rules for privileged command execution
+## Per DISA STIG SV-258176 and related controls
+
+# Monitor execution of privileged commands
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/chage -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/passwd -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/sbin/groupmod -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd
+-a always,exit -F path=/usr/bin/chfn -F perm=x -F auid>=500 -F auid!=unset -k privileged-cmd

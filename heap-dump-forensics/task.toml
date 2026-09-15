@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level glibc heap internals, binary forensics, and security tool design: (1) reverse-engineering a stripped PIE binary to locate cryptographic key material in .rodata, (2) parsing raw heap memory dumps to reconstruct chunk boundaries, tcache metadata, and free-list chains, (3) designing a general-purpose heap integrity detection tool that correctly classifies arbitrary snapshots — not just the two provided, (4) rendering justified BENIGN/MALICIOUS verdicts for each heap modification and an attack impact assessment requiring security judgment, (5) combining multiple evidence sources to derive a decryption key and recover an encrypted session token. The forensic notes provide structural reference but the solver must independently design the detection logic, correlate evidence across binary and heap artifacts, and perform the cryptographic recovery."""
+solution_explanation = """Create heap_validator.py that parses tcache_perthread_struct to enumerate active bins, walks each chain reversing safe-linking fd mangling (PROTECT_PTR), and validates every pointer resolves to a freed chunk (identified by tcache_key signature) or NULL. Use readelf/objdump/strings to locate the AUDIT_KEY_MATERIAL marker in .rodata and extract the 16-byte key. Diff both snapshots chunk-by-chunk: timestamp update (BENIGN), audit log append (BENIGN), chunks 4/6 normal frees (BENIGN), chunks 2/3 attack-related (MALICIOUS). Write impact assessment evaluating tcache poisoning objective (redirect allocation to session token), viability (would succeed on next malloc), and severity (CRITICAL — credential theft). Compute SHA-256(audit_key || target_addr_LE), XOR-decrypt the session token chunk to recover the flag."""
+verification_explanation = """Tests verify: (1) heap_validator.py exists and runs, (2) validator correctly identifies clean snapshot as uncompromised, (3) validator correctly identifies attacked snapshot as compromised with bin 3 poisoned and correct target address, (4) validator generalizes to novel test-generated snapshots — a benign-frees-only snapshot classified as clean and a novel-poisoning snapshot targeting a different bin classified as compromised — preventing hardcoded answers, (5) exact flag string in /app/flag.txt, (6) forensic report contains BENIGN and MALICIOUS classifications with correct poisoned chunk identification, (7) report includes attack impact assessment with severity rating, (8) anti-cheat: plaintext flag absent from snapshots and binary."""
+category = "reverse_engineering"
+tags = ["heap-exploitation", "security-tooling"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/heap-dump-forensics"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires analyzing undocumented SystemVerilog arithmetic module source code to determine pipeline latencies (3, 3, 5, 8 cycles for add/sub/mult/isqrt respectively), then designing a multi-stage pipelined datapath with correct data alignment using shift registers, and implementing credit-based flow control with a FIFO to handle AXI-Stream backpressure. The agent must combine skills in RTL code comprehension, pipeline scheduling, microarchitectural design, and SystemVerilog coding — all without any documentation of the sub-block interfaces beyond the source code itself."""
+solution_explanation = """The solution script parses each arithmetic module's source to extract localparam-based latency computations (CLA groups, Booth radix, digit-recurrence iterations), calculates the full pipeline schedule (total latency = mult(5) + add(3) + isqrt(8) + add(3) + sub(3) = 22 cycles), determines shift-register depths for data alignment (a*b delayed 11 cycles, c delayed 19 cycles), and generates a complete compute.sv with 7 arithmetic block instances, shift registers, a 32-deep synchronous FIFO, and a credit counter for flow control."""
+verification_explanation = """The self-checking testbench maintains a queue of expected results computed from the same formula using a behavioral model. It pushes expected values on input handshake (arg_vld & arg_rdy) and pops/compares on output handshake (res_vld & res_rdy). Tests cover directed values, continuous back-to-back streaming, sustained backpressure followed by draining, and random stimuli with random backpressure. The simulation outputs PASS only if all results match and no data is lost."""
+category = "systems"
+tags = ["rtl-design", "pipeline-scheduling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipelined-flow-control"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of differential geometry (curvature profiles, kappa/arclength representations), the theory and trade-offs among four interacting regression-test-prioritization metrics (APFD, APFDc, TTFF, TTLF), bidirectional gRPC streaming protocol design, and predictive feature engineering from road geometries. The solver must reason holistically about how curvature distributes across roads, why certain geometric characteristics correlate with simulation failures, and how to balance fault detection rate against cost-weighted efficiency — no procedural recipe is given. Meeting all quality thresholds simultaneously requires non-trivial design decisions about feature selection, model capacity, and ordering strategy that demand professional-level expertise in both computational geometry and applied machine learning."""
+solution_explanation = """Compile the proto file with grpc_tools.protoc. Implement a CompetitionTool gRPC servicer that extracts 7 curvature-informed road geometry features (total/max/mean/std curvature, road length, sinuosity, sharp turn count) during Initialize, trains a logistic regression classifier via SGD with feature normalization, and uses predicted failure probabilities to rank test cases during bidirectional streaming Prioritize. The feature engineering is informed by curvature profile theory — aggregate curvature statistics capture the same road-difficulty signal as full profiles while avoiding high-dimensional overfitting on small training sets. A gRPC evaluation client drives the full Name→Initialize→Prioritize pipeline and writes results.json with estimated metrics."""
+verification_explanation = """Tests compile the proto independently, start the agent's gRPC server via start_server.sh, and execute the full Initialize→Prioritize pipeline against ground truth labels (stored in /tests/ground_truth.json, not available in the task environment). Tests independently compute APFD, APFDc, and the position of the last fault in the ordering. APFD must reach 0.58, APFDc must reach 0.55, and the last fault must appear within the first 45 positions (90% of the 50-test suite). Additional tests validate results.json schema, ID completeness, metric reasonableness, and the existence of start_server.sh."""
+category = "systems"
+tags = ["grpc", "ml-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-67d149"

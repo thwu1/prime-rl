@@ -1,0 +1,54 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-core-admin
+  labels:
+    platform.example.com/tenant: team-core
+subjects:
+  - kind: ServiceAccount
+    name: team-core-sa
+    namespace: team-core
+  - kind: Group
+    name: team-core-devs
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: platform-tenant-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: team-analytics-admin
+  namespace: team-analytics
+  labels:
+    platform.example.com/tenant: team-analytics
+subjects:
+  - kind: ServiceAccount
+    name: team-analytics-sa
+    namespace: team-analytics
+  - kind: Group
+    name: team-analytics-devs
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: platform-tenant-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: team-edge-admin
+  labels:
+    platform.example.com/tenant: team-edge
+subjects:
+  - kind: ServiceAccount
+    name: team-edge-sa
+    namespace: team-edge
+  - kind: Group
+    name: team-edge-devs
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: platform-tenant-admin
+  apiGroup: rbac.authorization.k8s.io

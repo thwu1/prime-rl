@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct expert-level skills: (1) Diagnosing three interacting bugs across different subsystems—YAML 1.1 octal/date type coercion, SQLite trailing whitespace causing cross-validation failures, and a subtle comparison operator inversion in the tiebreaker—where each bug masks or cascades into the next. (2) Designing and implementing from scratch a constrained optimization algorithm for cost-optimal source assignment with affinity group constraints. The solver must recognize that affinity constraints transform a simple greedy assignment into a combinatorial problem where the globally optimal solution requires evaluating source combinations for grouped instruments, as naively assigning each instrument to its cheapest source violates group constraints. The affinity constraint is binding on three dates (01-03, 01-04, 01-05) where the optimal pair assignment (beta at 2.6) beats the naively cheaper individual assignments (alpha at 1.5 for AAPL + beta at 0.8 for MSFT = 2.3 but violates affinity), requiring the solver to evaluate joint costs."""
+solution_explanation = """Two phases: (1) Fix three bugs: quote '0050' and delta's bare ISO dates in pipeline.yaml to prevent YAML 1.1 type coercion; run SQL UPDATE with TRIM() on source_instruments to remove trailing whitespace; change reconciler.py tiebreaker from '>' to '<' for alphabetically-first-wins semantics. (2) Implement SourceOptimizer class: for each date, identify active affinity groups (groups with >1 required instrument), enumerate candidate sources covering all group members, compute per-combination cost via itertools.product over group candidates combined with greedy assignment of remaining instruments, and select the minimum-cost combination with alphabetical tiebreaking. The implementation handles 9 dates with varying source availability, producing a total optimal cost of 60.0."""
+verification_explanation = """37 pytest tests verify: validate.py exits 0 with 'ALL CHECKS PASSED'; YAML loads all instruments/dates as strings including '0050'; SQLite has no trailing whitespace; reconciler produces 9 materializable dates with correct source coverage, priority-based assignment with alphabetical tiebreaks; backfill plan has 27 steps with correct topological/sequential ordering and concurrency limits; optimizer produces valid assignments for all 9 dates covering all required instruments; affinity constraint [AAPL, MSFT] is respected on every date; specific binding-constraint assignments verified (AAPL→beta on 01-03/04/05 despite alpha being cheaper per-instrument); per-date costs verified to precision 0.01; total cost equals 60.0."""
+category = "data_engineering"
+tags = ["optimization", "data-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-08c03a"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level design and implementation of a hazard pointer memory reclamation system for a lock-free Treiber stack. The solver must create the entire reclamation infrastructure from scratch: a global hazard pointer registry with thread-safe slot allocation via CAS, a RAII owner class with correct destructor ordering (pointer cleared before slot id to prevent stale-pointer races on reuse), a lock-free retire list using atomic exchange and CAS for concurrent node management, and the subtle HP validation loop in topAndPop (store HP, re-read head, retry if changed) that prevents use-after-free. The solver must also choose correct memory ordering for each atomic operation — seq_cst for the HP publish/validate pair (required for the IRIW pattern), acquire-release for retire list and slot management, relaxed where safe. All components must interact correctly under high concurrency."""
+solution_explanation = """Create memory_reclamation.hpp with: (1) HazardPointer<T> struct with atomic thread::id and atomic Node<T>* fields, (2) global array of 128 HP slots, (3) HazardPointerOwner RAII class that claims a slot via CAS on the id field in the constructor and releases it in the destructor (clearing pointer before id), (4) thread_local getHazardPointer<T>() accessor, (5) RetireList<T> with lock-free addNode/deleteUnusedNodes/isInUse operations using a CAS-based singly-linked list of RetiredNode wrappers whose destructors cascade-delete the underlying Node. Modify lockfree_stack.hpp to include the header, add a RetireList<T> member, and rewrite topAndPop with the double do-while HP validation loop, data extraction before retirement, and periodic reclamation scan."""
+verification_explanation = """Tests verify: compilation with C++20, single-threaded LIFO correctness, concurrent push-pop integrity with 8 threads x 5000 ops, AddressSanitizer for memory safety (use-after-free, double-free), repeated stress runs for intermittent races, existence of memory_reclamation.hpp, absence of mutexes/blocking primitives, presence of explicit memory ordering annotations (acquire/release/relaxed), integration via include in lockfree_stack.hpp, actual memory reclamation via global operator new/delete tracking that verifies freed allocations approach total allocations, and an independent embedded C++ test compiled against the solution headers with ASAN."""
+category = "systems"
+tags = ["concurrency", "cpp"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lockfree-hazardptr-debug"

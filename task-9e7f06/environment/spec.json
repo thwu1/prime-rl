@@ -1,0 +1,201 @@
+{
+  "gpu": {
+    "name": "NVIDIA RTX A6000",
+    "compute_capability": [8, 6],
+    "max_threads_per_block": 1024,
+    "max_threads_per_sm": 1536,
+    "warp_size": 32,
+    "max_warps_per_sm": 48,
+    "max_regs_per_block": 65536,
+    "max_regs_per_sm": 65536,
+    "reg_allocation_unit": 256,
+    "max_smem_per_block_bytes": 49152,
+    "smem_per_sm_bytes": 102400,
+    "smem_allocation_unit_bytes": 128,
+    "cuda_runtime_smem_overhead_bytes": 1024
+  },
+  "kernel": {
+    "name": "warptiling_sgemm",
+    "description": "CUDA SGEMM kernel using three-level tiling: block-level (BM x BN tiles cached in shared memory), warp-level (WM x WN sub-tiles assigned to warps), and thread-level (TM x TN results computed per thread). Derived from static_assert constraints in a real CUDA GEMM implementation.",
+    "register_model": {
+      "formula": "WMITER * WNITER * TM * TN + TM + TN + 15",
+      "description": "Estimated registers per thread: threadResults[WMITER*WNITER*TM*TN] for accumulated partial products, regM[TM] for caching A tile entries, regN[TN] for caching B tile entries, plus 15 registers for loop indices (bkIdx, wmIdx, wnIdx, dotIdx, resIdxM, resIdxN), thread position (threadRow, threadCol), block position (cRow, cCol), pointer arithmetic, and GMEM loading indices."
+    },
+    "smem_model": {
+      "formula": "(BM * BK + BK * BN) * 4",
+      "description": "Shared memory data bytes: As[BM*BK] stores block tile of A (transposed for vectorized access), Bs[BK*BN] stores block tile of B. Each element is float32 (4 bytes)."
+    },
+    "parameters": {
+      "NUM_THREADS": [128, 256],
+      "BM": [64, 128, 256],
+      "BN": [64, 128, 256],
+      "BK": [8, 16, 32],
+      "WM": [16, 32, 64, 128],
+      "WN": [16, 32, 64, 128],
+      "WNITER": [1, 2, 4, 8],
+      "TM": [4, 8],
+      "TN": [4, 8]
+    },
+    "derived_values": {
+      "WARPSIZE": {
+        "value": 32,
+        "description": "Fixed hardware warp size"
+      },
+      "NUM_WARPS": {
+        "formula": "NUM_THREADS / WARPSIZE",
+        "description": "Number of warps per block"
+      },
+      "WMITER": {
+        "formula": "(WM * WN) / (WARPSIZE * TM * TN * WNITER)",
+        "description": "Number of warp M-dimension iterations; must be a positive integer (guaranteed by constraint 4)"
+      }
+    },
+    "constraints": [
+      {
+        "id": 1,
+        "expr": "BN % WN == 0",
+        "reason": "Warp tile must evenly divide block tile in the N dimension"
+      },
+      {
+        "id": 2,
+        "expr": "BM % WM == 0",
+        "reason": "Warp tile must evenly divide block tile in the M dimension"
+      },
+      {
+        "id": 3,
+        "expr": "(BN / WN) * (BM / WM) == NUM_WARPS",
+        "reason": "Total number of warp tiles must equal the number of warps in the block"
+      },
+      {
+        "id": 4,
+        "expr": "(WM * WN) % (WARPSIZE * TM * TN * WNITER) == 0",
+        "reason": "Thread tiles times iterations must evenly cover the warp tile"
+      },
+      {
+        "id": 5,
+        "expr": "WM % WMITER == 0",
+        "reason": "M-dimension iterations must evenly divide warp M tile"
+      },
+      {
+        "id": 6,
+        "expr": "WN % WNITER == 0",
+        "reason": "N-dimension iterations must evenly divide warp N tile"
+      },
+      {
+        "id": 7,
+        "expr": "(NUM_THREADS * 4) % BK == 0",
+        "reason": "Avoid quantization during vectorized GMEM-to-SMEM tiling of B rows (each thread loads float4 = 4 elements)"
+      },
+      {
+        "id": 8,
+        "expr": "(NUM_THREADS * 4) % BN == 0",
+        "reason": "Avoid quantization during vectorized GMEM-to-SMEM tiling of A rows"
+      },
+      {
+        "id": 9,
+        "expr": "BN % (16 * TN) == 0",
+        "reason": "Avoid quantization effects in the N dimension of thread tile layout"
+      },
+      {
+        "id": 10,
+        "expr": "BM % (16 * TM) == 0",
+        "reason": "Avoid quantization effects in the M dimension of thread tile layout"
+      },
+      {
+        "id": 11,
+        "expr": "(BM * BK) % (4 * NUM_THREADS) == 0",
+        "reason": "Enable vectorized float4 loads of A tile from global memory"
+      },
+      {
+        "id": 12,
+        "expr": "(BN * BK) % (4 * NUM_THREADS) == 0",
+        "reason": "Enable vectorized float4 loads of B tile from global memory"
+      }
+    ],
+    "hardware_constraints": [
+      "NUM_THREADS <= gpu.max_threads_per_block",
+      "NUM_THREADS % gpu.warp_size == 0",
+      "smem_data_bytes <= gpu.max_smem_per_block_bytes"
+    ]
+  },
+  "occupancy_model": {
+    "description": "Theoretical SM occupancy calculation following CUDA's hardware resource allocation model.",
+    "steps": [
+      "warps_per_block = NUM_THREADS / WARPSIZE",
+      "regs_per_thread = <register_model formula>",
+      "regs_per_warp_raw = regs_per_thread * WARPSIZE",
+      "allocated_regs_per_warp = ceil(regs_per_warp_raw / reg_allocation_unit) * reg_allocation_unit",
+      "regs_per_block = allocated_regs_per_warp * warps_per_block",
+      "max_blocks_by_regs = floor(max_regs_per_sm / regs_per_block)",
+      "smem_data_bytes = <smem_model formula>",
+      "smem_per_block_total = smem_data_bytes + cuda_runtime_smem_overhead_bytes",
+      "allocated_smem_per_block = ceil(smem_per_block_total / smem_allocation_unit_bytes) * smem_allocation_unit_bytes",
+      "max_blocks_by_smem = floor(smem_per_sm_bytes / allocated_smem_per_block)",
+      "max_blocks_by_warps = floor(max_warps_per_sm / warps_per_block)",
+      "max_blocks_per_sm = min(max_blocks_by_regs, max_blocks_by_smem, max_blocks_by_warps)",
+      "active_warps = max_blocks_per_sm * warps_per_block",
+      "occupancy_pct = round(100.0 * active_warps / max_warps_per_sm, 2)"
+    ],
+    "bottleneck_rule": "The bottleneck resource(s) are those whose max_blocks_by_X value equals the final max_blocks_per_sm. When multiple resources tie, list all of them."
+  },
+  "arithmetic_intensity_model": {
+    "formula": "(2.0 * BM * BN * BK) / ((BM * BK + BK * BN) * 4)",
+    "description": "FLOPs (multiply + add per element in the K-dimension dot product) divided by bytes transferred from GMEM to SMEM per block tile iteration."
+  },
+  "queries": {
+    "specific_configs": [
+      {
+        "label": "A",
+        "description": "Blog's A6000 warptiling configuration",
+        "NUM_THREADS": 128, "BM": 128, "BN": 128, "BK": 16,
+        "WM": 64, "WN": 64, "WNITER": 4, "TM": 8, "TN": 4
+      },
+      {
+        "label": "B",
+        "description": "Shared-memory-limited configuration",
+        "NUM_THREADS": 128, "BM": 64, "BN": 128, "BK": 32,
+        "WM": 16, "WN": 128, "WNITER": 1, "TM": 4, "TN": 4
+      },
+      {
+        "label": "C",
+        "description": "Maximum occupancy configuration",
+        "NUM_THREADS": 256, "BM": 64, "BN": 64, "BK": 16,
+        "WM": 16, "WN": 32, "WNITER": 1, "TM": 4, "TN": 4
+      },
+      {
+        "label": "D",
+        "description": "Invalid configuration (fails constraint 3)",
+        "NUM_THREADS": 256, "BM": 128, "BN": 128, "BK": 16,
+        "WM": 64, "WN": 64, "WNITER": 1, "TM": 4, "TN": 4
+      }
+    ]
+  },
+  "output_schema": {
+    "description": "Write this JSON structure to /app/output/analysis.json",
+    "fields": {
+      "total_valid_configs": "integer: number of parameter combinations satisfying ALL constraints (kernel constraints + hardware constraints)",
+      "max_occupancy_pct": "float: highest occupancy percentage across all valid configs",
+      "num_configs_at_max_occupancy": "integer: count of valid configs achieving exactly max_occupancy_pct",
+      "num_configs_above_50pct_occupancy": "integer: count of valid configs with occupancy_pct strictly > 50.0",
+      "bottleneck_distribution": {
+        "registers_only": "integer: configs where only registers limit the block count",
+        "smem_only": "integer: configs where only shared memory limits the block count",
+        "warps_only": "integer: configs where only warps limit the block count",
+        "multiple": "integer: configs where two or more resources tie as the limit"
+      },
+      "occupancy_histogram": "object mapping occupancy_pct values (as strings) to counts, e.g. {\"0.0\": 92, \"25.0\": 164, ...}",
+      "specific_configs": [
+        {
+          "label": "string matching the query label",
+          "valid": "boolean: whether all constraints are satisfied",
+          "WMITER": "integer or null if invalid",
+          "occupancy_pct": "float or null if invalid",
+          "regs_per_thread": "integer or null if invalid",
+          "smem_bytes": "integer: raw shared memory data bytes before overhead/rounding, or null if invalid",
+          "bottleneck": "list of strings from {'registers', 'smem', 'warps'} sorted alphabetically, or null if invalid",
+          "max_blocks_per_sm": "integer or null if invalid"
+        }
+      ]
+    }
+  }
+}

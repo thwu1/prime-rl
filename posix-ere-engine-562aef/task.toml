@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct POSIX ERE engine with leftmost-longest match semantics, subexpression capture, bracket expression character classes, interval expressions, and proper error reporting. Additionally requires building a shared library with correct dynamic symbol exports (gcc -fPIC -shared, verifiable via nm/readelf) and diagnosing memory leaks via valgrind. Demands deep understanding of IEEE Std 1003.1-2017 Chapter 9 regex semantics, Thompson NFA or backtracking algorithms, C systems programming including shared library ABI, and memory management correctness."""
+solution_explanation = """Replace the broken regex_engine.c with a correct backtracking VM implementation. Key fixes: (1) add SAVE instruction save/restore for subexpression capture, (2) implement alternation SPLIT that tries both branches and picks longest match per POSIX, (3) add bracket expression character class parsing ([:alpha:] etc.), (4) implement {m,n} interval expression parsing and compilation, (5) add REG_ICASE support via case-folding, (6) add REG_NEWLINE handling for dot/anchors, (7) return specific POSIX error codes during parsing, (8) detect multiple adjacent quantifiers as BADRPT error, (9) fix memory leak where strdup'd pattern copy is not freed in regfree(). Build shared library with: gcc -shared -fPIC -o libposixre.so regex_engine.c."""
+verification_explanation = """The test driver reads ~130 test vectors derived from the rxspencer/AT&T POSIX regex conformance suite. Pytest validates: all test vectors pass, shared library exists with correct nm -D symbol exports (T regcomp, T regexec, T regfree, T regerror), and valgrind --leak-check=full reports zero definitely-lost memory."""
+category = "systems_programming"
+tags = ["regex", "posix", "c", "shared-library", "valgrind"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/posix-ere-engine-562aef"

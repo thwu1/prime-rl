@@ -1,0 +1,9 @@
+{"t": 0, "op": "PUT", "key": "prompt_cache", "size": 200, "hard_pin": true}
+{"t": 1, "op": "PUT", "key": "session_A", "size": 300}
+{"t": 1, "op": "SOFT_PIN", "key": "session_A"}
+{"t": 2, "op": "PUT", "key": "session_B", "size": 300}
+{"t": 3, "op": "GET", "key": "session_A"}
+{"t": 4, "op": "PUT", "key": "temp_kv", "size": 250}
+{"t": 5, "op": "GET", "key": "prompt_cache"}
+{"t": 6, "op": "REMOVE", "key": "temp_kv"}
+{"t": 7, "op": "GET", "key": "session_B"}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in computational fluid dynamics, numerical methods for hyperbolic conservation laws, gas dynamics, and proficiency with domain-specific CLI tools. The agent must: (1) identify and fix three interacting bugs in a Kurganov-Tadmor finite volume scheme -- incorrect energy formula in the equation of state, a sign error in the numerical diffusion term, and an incomplete CFL condition -- requiring deep understanding of compressible flow numerics; (2) implement an exact Riemann solver from scratch (Newton-Raphson iteration for star-region pressure, complete wave pattern sampling); (3) debug a gmsh .geo geometry script with two defects (off-by-one in Transfinite node count, wrong mesh format version causing parser incompatibility) requiring understanding of gmsh's scripting language and .msh file formats; (4) orchestrate a multi-tool pipeline (gmsh CLI -> Python solver -> gnuplot CLI) with proper format interoperability; (5) write a gnuplot script with log-log axes for convergence visualization; (6) conduct a formal grid convergence study with Richardson extrapolation and GCI analysis."""
+solution_explanation = """Fix euler_solver.py: (1) energy = p/(gamma-1) not p/gamma, (2) KT flux diffusion sign is minus not plus, (3) CFL timestep must use |u|+a not |u|. Fix mesh_template.geo: (1) Transfinite Curve needs N+1 not N, (2) either set MshFileVersion to 2.2 or use gmsh -format msh2 flag to match the parser. Implement exact Riemann solver per Toro Ch.4. Write gnuplot script with pngcairo terminal, logscale xy. Orchestrate: gmsh generates meshes, solver reads .msh files, compute L2 errors, gnuplot produces convergence plot, write results.json. Use SSP-RK2 time integration for clean convergence."""
+verification_explanation = """Tests independently compute reference star-region pressure and velocity via Newton-Raphson, derive wave speeds and star-region densities analytically, then verify results.json values within 2-5% tolerance. Also checks L2 errors decrease monotonically, convergence order falls in [0.2, 2.5], GCI is positive and bounded, gmsh mesh files exist with proper format headers, gnuplot convergence plot exists with nonzero size, and convergence data file has sufficient data lines."""
+category = "computational_physics"
+tags = ["cfd", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/euler-solver-debug"

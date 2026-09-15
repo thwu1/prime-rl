@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level reverse engineering combined with evaluation and creation skills. The solver must: (1) reverse a stripped ELF binary with anti-analysis protections (ptrace, timing, proc checks), (2) identify and decrypt TWO encrypted config blocks using different XOR+RC4 key material via cryptanalytic brute-force, (3) critically evaluate which decrypted config is the genuine operational one by cross-referencing decrypted values against the binary's hardcoded strings, function arguments, and conditional execution paths — distinguishing the real config from a deliberately planted analyst trap, and (4) create a YARA detection rule that reliably identifies the malware family without false positives. Combines cryptanalysis, binary analysis, threat assessment judgment, and detection engineering."""
+solution_explanation = """Parse ELF section headers to locate .rodata. Brute-force search for two sets of XOR+RC4 key pairs (4-byte XOR keys with all bytes >0x7f, 8-byte encrypted RC4 keys) to decrypt both config blocks. Cross-reference each decrypted config's values against the binary: config A's persistence path '/etc/cron.d/system-update' appears as a plaintext string literal used by actual code, the 'SVC_CONTINGENCY_MODE' environment variable guards config B making it the fallback, and port 8443 is hardcoded in socket setup matching config A. Generate a YARA rule using discriminating byte patterns (XOR keys, anti-debug strings, contingency mode marker) that match the malware but not a benign binary."""
+verification_explanation = """Tests verify: (1) all 8 IOC fields match config A's expected values via exact string/hex/integer comparison, (2) real_config_id correctly identifies 'A' as the operational config, (3) solver did not report decoy or trap IOCs, (4) YARA rule file exists with valid syntax, (5) YARA rule matches the malware sample when run via yara CLI, (6) YARA rule does NOT match the benign sample (no false positives)."""
+category = "security"
+tags = ["malware-analysis", "reverse-engineering", "detection-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ab6645"

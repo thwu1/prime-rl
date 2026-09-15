@@ -1,0 +1,77 @@
+# Cantilever beam under large pure end moment about z-axis
+
+set: real stiff_axial = 1.e8;
+set: real stiff_shear = 1.e8;
+set: real stiff_torsion = 500.;
+set: real stiff_bending = 500.;
+
+begin: data;
+    problem: initial value;
+end: data;
+
+begin: initial value;
+    initial time: 0.;
+    final time: 1.;
+    time step: 0.025;
+
+    max iterations: 50;
+    tolerance: 1.e-6;
+end: initial value;
+
+begin: control data;
+    structural nodes: 11;
+    beams: 5;
+    joints: 1;
+    forces: 1;
+end: control data;
+
+begin: nodes;
+    structural: 1, static,  0., 0., 0., eye, null, null;
+    structural: 2, dynamic, 1., 0., 0., eye, null, null;
+    structural: 3, dynamic, 2., 0., 0., eye, null, null;
+    structural: 4, dynamic, 3., 0., 0., eye, null, null;
+    structural: 5, dynamic, 4., 0., 0., eye, null, null;
+    structural: 6, dynamic, 5., 0., 0., eye, null, null;
+    structural: 7, dynamic, 6., 0., 0., eye, null, null;
+    structural: 8, dynamic, 7., 0., 0., eye, null, null;
+    structural: 9, dynamic, 8., 0., 0., eye, null, null;
+    structural: 10, dynamic, 9., 0., 0., eye, null, null;
+    structural: 11, dynamic, 10., 0., 0., eye, null, null;
+end: nodes;
+
+begin: elements;
+    joint: 1, clamp, 1, node, node;
+
+    beam: 1,
+        1, null, 2, null, 3, null, eye,
+        linear elastic generic,
+            diag, stiff_axial, stiff_shear, stiff_shear,
+                  stiff_torsion, stiff_bending, stiff_bending,
+        same, same;
+    beam: 2,
+        3, null, 4, null, 5, null, eye,
+        linear elastic generic,
+            diag, stiff_axial, stiff_shear, stiff_shear,
+                  stiff_torsion, stiff_bending, stiff_bending,
+        same, same;
+    beam: 3,
+        5, null, 6, null, 7, null, eye,
+        linear elastic generic,
+            diag, stiff_axial, stiff_shear, stiff_shear,
+                  stiff_torsion, stiff_bending, stiff_bending,
+        same, same;
+    beam: 4,
+        7, null, 8, null, 9, null, eye,
+        linear elastic generic,
+            diag, stiff_axial, stiff_shear, stiff_shear,
+                  stiff_torsion, stiff_bending, stiff_bending,
+        same, same;
+    beam: 5,
+        9, null, 10, null, 11, null, eye,
+        linear elastic generic,
+            diag, stiff_axial, stiff_shear, stiff_shear,
+                  stiff_torsion, stiff_bending, stiff_bending,
+        same, same;
+
+    couple: 1, absolute, 11, 0., 0., 1., const, 314.159265359;
+end: elements;

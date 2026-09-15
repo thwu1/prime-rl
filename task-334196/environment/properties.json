@@ -1,0 +1,21 @@
+{
+  "color": {"inherited": true, "initial": "black"},
+  "font-size": {"inherited": true, "initial": "16px"},
+  "font-weight": {"inherited": true, "initial": "normal"},
+  "font-family": {"inherited": true, "initial": "serif"},
+  "line-height": {"inherited": true, "initial": "normal"},
+  "text-align": {"inherited": true, "initial": "left"},
+  "text-decoration": {"inherited": false, "initial": "none"},
+  "display": {"inherited": false, "initial": "inline"},
+  "margin-top": {"inherited": false, "initial": "0"},
+  "margin-right": {"inherited": false, "initial": "0"},
+  "margin-bottom": {"inherited": false, "initial": "0"},
+  "margin-left": {"inherited": false, "initial": "0"},
+  "padding-top": {"inherited": false, "initial": "0"},
+  "padding-right": {"inherited": false, "initial": "0"},
+  "padding-bottom": {"inherited": false, "initial": "0"},
+  "padding-left": {"inherited": false, "initial": "0"},
+  "background-color": {"inherited": false, "initial": "transparent"},
+  "width": {"inherited": false, "initial": "auto"},
+  "height": {"inherited": false, "initial": "auto"}
+}

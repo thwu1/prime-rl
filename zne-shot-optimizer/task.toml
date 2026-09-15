@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires both diagnosing six interacting bugs across a multi-tool Make-orchestrated pipeline (SQL, Python, jq) AND designing and implementing seven algorithmic functions from mathematical specifications in a quantum error mitigation optimizer module. The pipeline bugs span cross-layer dependencies (SQLite schema→SQL extraction→Python extrapolation→Python allocation→Python method selection→jq post-processing) and require understanding why each computation is mathematically wrong, not just that it fails. The optimizer implementation demands deep knowledge of Lagrange interpolation theory, Richardson extrapolation, variance-optimal shot allocation via the Cauchy-Schwarz inequality, weighted least squares fitting in log-space with asymptote subtraction and sign handling for negative expectation values, and exhaustive combinatorial search for optimal scale factor subsets minimizing the L1 coefficient norm. The solver must also identify a missing function required by the analysis script. No single bug or implementation can be solved procedurally — each requires evaluating correctness against theoretical guarantees."""
+solution_explanation = """Fix six interacting bugs: (1) SQL: COALESCE references decay_rate instead of asymptote, (2-3) Python extrapolators.py: Lagrange coefficient formula has swapped numerator/denominator, and exponential extrapolation doesn't subtract asymptote before log-space fitting, (4) Python allocator.py: optimal weights use c**2 instead of abs(c), (5) Python benchmark.py: selects best method by max result not min error, (6) jq: improvement_ratio computed as optimal/uniform instead of uniform/optimal. Add generate_measurements function to noise_model.py. Implement all seven zne_optimizer.py functions: compute_lagrange_coefficients (product formula for Lagrange basis at x=0), richardson_extrapolate (weighted sum with Lagrange coefficients), optimal_shot_allocation (proportional to |gamma_j| with largest-remainder integer rounding), richardson_variance_uniform ((n/M)*sum(gamma^2)), richardson_variance_optimal (Gamma^2/M), exponential_extrapolate (WLS in log-space after asymptote subtraction with sign tracking), find_optimal_scale_factors (exhaustive C(n,k) search minimizing Gamma). Run make -C /app all."""
+verification_explanation = """Tests verify both execution paths independently and end-to-end. Pipeline track: scenario extraction from SQLite (correct asymptote values), Lagrange coefficients for multiple scale factor sets with partition-of-unity property, Richardson exactness for polynomial noise, exponential accuracy with nonzero asymptotes and negative values, shot allocation proportionality and budget constraints, variance inequality (Cauchy-Schwarz), method selection correctness, improvement ratios. Analysis track: all seven zne_optimizer functions tested independently with known-correct values (Lagrange coefficients, gamma norms, allocation sums and proportions, variance formulas, exponential fit with asymptote, optimal scale factor subsets [1,4,7] and [1,5,9]), plus results.json structure verification including optimization outputs."""
+category = "quantum_computing"
+tags = ["error_mitigation", "algorithm_implementation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/zne-shot-optimizer"

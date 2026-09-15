@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level diagnosis of a multi-component distributed system with 13+ subtle bugs spanning Kafka topic semantics (compaction vs deletion, retention policies, partition strategies), event-sourcing correctness (aggregate keying, idempotent production, total computation), saga orchestration (reverse-order compensation, state serialization), outbox relay (status lifecycle tracking), and dead-letter routing. The solver must read and understand the full codebase, identify each defect through domain knowledge rather than explicit error messages, and apply fixes that demonstrate holistic understanding of event-driven architecture patterns."""
+solution_explanation = """Fix bugs across 6 files: (1) setup_topics.sh — correct cleanup.policy to compact for event/state topics, add compact+delete for saga-state, fix partition counts, set correct retention and dirty ratio; (2) config.py — add acks=all and enable.idempotence to producer config; (3) processor.py — fix total_amount calculation (price*quantity), change event key from customer_id to order_id, fix dedup to use idempotency_key not order_id, add dead-letter routing for non-JSON input, add customer-state aggregate production; (4) saga.py — change completed_steps serialization from comma-join to json.dumps, fix compensation to run in reverse order; (5) outbox.py — change status from 'sent' to 'published' and add published_at timestamp update."""
+verification_explanation = """Tests verify: topic configurations via kafka-topics.sh/kafka-configs.sh (cleanup policies, partition counts, retention, dirty ratio); processor behavior by producing crafted commands and checking output topics for correct event types, total computation, key-based routing, idempotency dedup, customer-state updates, and dead-letter routing; saga outcomes for success/payment-decline/inventory-failure scenarios with SQLite state verification including JSON-parsed completed_steps; outbox relay by inserting test rows and confirming status='published' and published_at is set."""
+category = "devops"
+tags = ["kafka", "event-driven-architecture"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-event-pipeline"

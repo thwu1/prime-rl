@@ -1,0 +1,8 @@
+{
+    "edge_flows": [
+        {"from": "A", "to": "X", "flow": 2},
+        {"from": "A", "to": "Y", "flow": 3},
+        {"from": "B", "to": "X", "flow": 1},
+        {"from": "B", "to": "Y", "flow": 3}
+    ]
+}

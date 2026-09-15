@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of chunked array storage theory and multi-dimensional rechunking algorithms. The solver must: (1) identify and fix 4 algorithmic bugs in rechunker.py that violate rechunking invariants — each bug requires understanding WHY the algorithm's mathematical constraints exist (element-wise min for intermediate chunks to fit both layouts, LCM boundary deduplication, geometric spacing for equal element count across stages, integer truncation before multiplication for memory safety), (2) DESIGN and IMPLEMENT the complete cost model from scratch given only function signatures — the solver must derive the correct mathematical relationships between I/O operations, memory utilization, and plan quality, design a weighted cost function that properly captures the trade-off between I/O intensity and memory waste, and build an exhaustive strategy optimizer that evaluates multi-stage rechunking configurations, (3) fix a rounding error and implement a selectivity-weighted alignment metric in the Zarr inspector, and (4) make the full evaluation pipeline produce correct results for 5 arrays including access pattern trade-off analysis showing that rechunking helps some access patterns while degrading others. The design component (cost model) requires evaluation-level reasoning about what constitutes a good rechunking plan and how competing objectives should be balanced."""
+solution_explanation = """Fix rechunker.py: (1) _calculate_shared_chunks min not max, (2) _count_intermediate_chunks -1 in splits_per_lcm, (3) calculate_stage_chunks geomspace not linspace, (4) consolidate_chunks chunks*int(headroom) not int(chunks*headroom). Design and implement complete cost_model.py: (5) calculate_plan_io_ops as sum of single-stage ops across plan stages, (6) calculate_memory_utilization as average ratio of intermediate chunk memory to budget, (7) calculate_plan_cost as alpha*(io/volume) + beta*(1-utilization), (8) find_optimal_stage_count via exhaustive search over 1..max_stages using consolidated read/write chunks and geometric intermediates. Fix zarr_inspector.py: (9) compute_access_cost ceil not int for partial chunks. Implement: (10) compute_chunk_alignment_score as selectivity-weighted coverage ratio. Run evaluate.py to produce evaluation_report.json."""
+verification_explanation = """60+ pytest tests across 15+ test classes verify: (1) shared chunk calculation uses element-wise minimum, (2) LCM-based intermediate chunk counts with boundary correction, (3) geometric stage spacing, (4) integer-truncation consolidation, (5) I/O aggregation across stages, (6) memory utilization in [0,1], (7) cost function matches exact known values, (8) full pipeline produces correct plans for specific arrays, (9) optimal strategy selects single-stage for pressure_1d and multi-stage for spectral, (10) Zarr metadata extraction returns correct shapes/chunks/itemsizes from actual stores, (11) access cost computation uses ceiling for partial chunks, (12) alignment score is selectivity-weighted average of coverage ratios, (13) report contains correct access pattern analysis values showing improvement ratios and trade-offs, (14) all structural invariants (memory bounds, intermediate-fits-both, alignment in [0,1])."""
+category = "algorithm-design"
+tags = ["scientific-computing", "systems-design", "zarr"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-rechunking-solver"

@@ -1,0 +1,21 @@
+{
+  "title": "East African Rift Valley Precipitation Analysis",
+  "description": "High-resolution gridded precipitation estimates for the Gregory Rift section, computed from gauge and satellite fusion over the Lake Victoria basin and surrounding highlands",
+  "crs": "EPSG:4326",
+  "extent": {
+    "west": 220000.0,
+    "south": 9660000.0,
+    "east": 780000.0,
+    "north": 10170000.0
+  },
+  "processing_notes": "Grid coordinates are in UTM Zone 36S (meters). Data sourced from CHIRPS v2 and local rain gauge network.",
+  "temporal_range": {
+    "start": "2001-01-01",
+    "end": "2020-12-31"
+  },
+  "resolution_m": 5000,
+  "bands": ["precipitation_mm", "precipitation_anomaly"],
+  "provider": "IGAD Climate Prediction and Applications Centre",
+  "license": "CC-BY-4.0",
+  "theme": "hydrology"
+}

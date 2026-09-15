@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a UML-compliant hierarchical state machine dispatch engine requires deep understanding of statechart semantics. The algorithm specification has been deliberately removed — the agent must reverse-engineer the correct dispatch behavior from the handler protocol documentation, the test state machine source code, and reference trace outputs. Beyond the core algorithm design, the implementation must pass memory-safety validation under valgrind and compile/run cleanly under UBSan, requiring the agent to use multiple unfamiliar diagnostic tools. An expert embedded systems developer would need 2-3 hours."""
+solution_explanation = """The solution implements three core algorithms: (1) hsm_init builds an entry path from the initial target up to the top state by querying superstates, enters states top-down, then drills with nested initial transitions; (2) hsm_dispatch bubbles events up the state hierarchy recording the handler path, exits states from current to source on transition, then delegates to the transition handler; (3) the transition handler tries four simple cases (self, parent-child, sibling, child-parent) before falling back to a complex LCA search that builds the target's ancestry path and walks up the source's ancestors checking for matches. The enter_target helper handles nested initial transitions by iteratively drilling down until no INIT transition is taken."""
+verification_explanation = """Tests build the C project and run a comprehensive pytest suite that drives the HSM test binary via subprocess. 22 test cases cover: initialization, self-transitions, parent-child transitions, sibling transitions, cross-hierarchy transitions, ancestor-descendant transitions, guard condition cascading, internal transitions, a 17-step full sequence test, reference trace file matching, valgrind memory-safety validation (zero leaks/errors on the full sequence), and UBSan compilation and execution (no undefined behavior)."""
+category = "systems_programming"
+tags = ["state-machines", "embedded-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ad3fc5"

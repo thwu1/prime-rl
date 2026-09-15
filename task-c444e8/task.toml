@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PostgreSQL knowledge spanning query plan analysis (EXPLAIN), system catalog inspection (pg_stat_user_tables, pg_indexes, pg_settings), MVCC internals (dead tuple detection and bloat remediation), memory management (work_mem impact on sort/hash operations), and advanced SQL rewriting. The solver must independently discover four distinct anti-patterns from raw database state, then design and evaluate a comprehensive remediation. The view rewrite is especially challenging: a naive LEFT JOIN of both reviews and order_items produces a cross product that silently inflates aggregate values — the solver must recognize this trap and use pre-aggregated derived tables. Additionally, the solver must capture and compare EXPLAIN costs before and after remediation, requiring multi-phase instrumentation of their fix process."""
+solution_explanation = """Investigate database state via pg_stat_user_tables (bloat detection via n_dead_tup), pg_indexes (identify missing indexes on FK and filter columns), SHOW work_mem (detect undersized memory), and EXPLAIN (identify SubPlan nodes for correlated subqueries). Capture EXPLAIN costs for all five queries before any changes. Create composite index on orders(customer_id, order_date) for Q1. VACUUM FULL orders for Q2 bloat. ALTER SYSTEM SET work_mem='64MB' for Q3. Rewrite product_summary view using pre-aggregated LEFT JOIN subqueries for Q4. Create index on order_items(order_id) for Q5. Capture EXPLAIN costs again after fixes. Compute improvement factors."""
+verification_explanation = """Tests verify: (1) diagnosis.json maps each query to the correct root cause category, (2) composite index on orders covering customer_id+order_date exists, (3) index on order_items covering order_id exists, (4) orders table dead tuple ratio < 10%, (5) work_mem >= 32MB, (6) EXPLAIN of product_summary view has no SubPlan nodes, (7) rewritten view returns correct row count and aggregate totals matching base table data (catches cross-join inflation bugs), (8) evaluation.json contains valid before/after costs for all queries with all improvement factors > 1.0 and consistent with stated costs."""
+category = "databases"
+tags = ["postgresql", "performance-tuning"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c444e8"

@@ -1,0 +1,18 @@
+.PHONY: all extract compute diagram
+
+all: extract compute diagram
+
+extract: /app/co2_coefficients.json
+
+/app/co2_coefficients.json: /app/coolprop_co2.json
+	jq '{gas_constant: .EOS[0].gas_constant, molar_mass: .EOS[0].molar_mass, reducing_T: .EOS[0].STATES.reducing.T, reducing_rhomolar: .EOS[0].STATES.reducing.rhomolar, critical_T: .STATES.critical.T, critical_p: .STATES.critical.p, critical_rhomolar: .STATES.critical.rhomolar, acentric: .EOS[0].acentric, Ttriple: .EOS[0].Ttriple, T_max: .EOS[0].T_max, p_max: .EOS[0].p_max, alpha0: .EOS[0].alpha0, alphar: .EOS[0].alphar}' /app/coolprop_co2.json > /app/co2_coefficients.json
+
+compute: extract /app/results.json
+
+/app/results.json: /app/co2_eos.py /app/compute_cycle.py /app/co2_coefficients.json
+	cd /app && python3 compute_cycle.py
+
+diagram: compute /app/ph_diagram.png
+
+/app/ph_diagram.png: /app/results.json /app/cycle_plot.gp
+	cd /app && gnuplot cycle_plot.gp

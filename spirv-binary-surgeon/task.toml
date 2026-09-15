@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding SPIR-V binary format at the word level: 32-bit word encoding with opcode/word-count packing, variable-length instructions, null-terminated UTF-8 string encoding in word arrays, and the SPIR-V type system (scalar, vector, matrix, struct, pointer, runtime arrays). The agent must correctly parse, modify, and re-serialize the binary while preserving validity. Domain expertise in GPU shader toolchains (GLSL compilation, SPIR-V decorations, descriptor set layouts, push constants, storage classes) is needed to produce correct reflection output and handle both glslang-generated and hand-assembled SPIR-V modules."""
+solution_explanation = """The solution implements a complete SPIR-V binary parser in Python using struct.unpack for word-level access. It defines opcode constants for ~30 instruction types, decodes strings from packed word arrays, and extracts module structure through a single-pass scan. Descriptor remapping modifies OpDecorate words in-place. Debug stripping filters instructions by opcode. Merge-reflection builds per-module binding maps and cross-references for conflict detection. All output SPIR-V is re-serialized by reconstructing opcode/word-count first words."""
+verification_explanation = """Tests validate each subcommand: analyze output is parsed as JSON and checked for correct entry point names, execution models, capabilities, memory model, descriptor set/binding values, push constants, workgroup sizes, matrix types, and sampled image variables. Remap output is validated by spirv-val and re-analyzed to confirm set numbers changed correctly. Strip-debug output is validated, disassembled to confirm OpName absence, and size-compared. Merge-reflection is checked for correct module count and binding enumeration. A key anti-cheat test temporarily hides spirv-dis and confirms analyze still works (proving direct binary parsing). Binary structure integrity is verified by checking magic number and instruction word counts."""
+category = "systems"
+tags = ["spirv", "gpu-toolchain"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spirv-binary-surgeon"

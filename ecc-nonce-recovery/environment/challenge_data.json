@@ -1,0 +1,89 @@
+{
+  "curve": {
+    "name": "P-256",
+    "oid": "1.2.840.10045.3.1.7",
+    "openssl_name": "prime256v1",
+    "p": "0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff",
+    "a": "0xffffffff00000001000000000000000000000000fffffffffffffffffffffffc",
+    "b": "0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b",
+    "Gx": "0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+    "Gy": "0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+    "n": "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
+    "cofactor": 1,
+    "hash": "SHA-256"
+  },
+  "public_keys": {
+    "Q": {
+      "x": "0xf10317423e984a2d9ccc0ce8ce3d98f3bb5e5a5db25dfc2f28ec8e6b287da2ff",
+      "y": "0xa1babc07adb898bbcb5c26023016a97c866e98d9b92f549bae8e174a58b19861"
+    },
+    "Q_ecgdsa": {
+      "x": "0x2b4ffc60aa74f8244864084b5656d1cef82fb5989805360d7a1f7d5c70f78d9a",
+      "y": "0x4c3f2c2b3e1fb6125e9ec28b05991017d0edff272f049721c391aa2e482f9ec"
+    },
+    "note": "Q = private_key * G (ECDSA/ECRDSA). Q_ecgdsa = private_key^{-1} * G (ECGDSA)."
+  },
+  "signatures": [
+    {
+      "index": 0,
+      "algorithm": "ECDSA",
+      "message": "Transfer 1500 EUR to account DE89370400440532013000",
+      "r": "0xb215ee2ccd6ee85fb6e13046eee872d5cc5bc00e02ff4512c3a0f568d7dbe35",
+      "s": "0x95e4a5f89165c4856cabcd12a6e23da3f43c24b12a57c598ae7ea510ddd100b"
+    },
+    {
+      "index": 1,
+      "algorithm": "ECDSA",
+      "message": "Authorize payment batch #4471 for Q3 2024",
+      "r": "0x8ed497c0ce0d425e3051caeec853f6bb281d896dcf6b0cd9d49e4e2cf76093d8",
+      "s": "0x9ae50fed348af963995b5bab9b439191315bfbae59df0fcd9e7032d58a719763"
+    },
+    {
+      "index": 2,
+      "algorithm": "ECRDSA",
+      "message": "Certificate renewal request for *.example.fr",
+      "r": "0x93bb6979055d00e65fb3917fc946d1ccf489ee3d7863a44e38ef47e808c32271",
+      "s": "0x6fcc76567eb24654df1b582c98f8625b9b70326d0e8e37a8907975eeb52d4bc",
+      "note": "hash endianness convention unknown"
+    },
+    {
+      "index": 3,
+      "algorithm": "ECGDSA",
+      "message": "Approve firmware update v3.7.1 for IoT gateway",
+      "r": "0xb215ee2ccd6ee85fb6e13046eee872d5cc5bc00e02ff4512c3a0f568d7dbe35",
+      "s": "0xf727b4a230978d11de9053173feaec4d082633f8c740cc28efa761cd1d904c77"
+    },
+    {
+      "index": 4,
+      "algorithm": "ECRDSA",
+      "message": "Sign legislative decree 2024-118 on digital identity",
+      "r": "0xf4691d4289e79c1b31d4ffb5933ac997bfeb68524a440bff858a9357b8688fe8",
+      "s": "0x5b6f8a3927ccf77d6b02c3af1e603d2a5b4757411d3d0881109fc751d956afbb",
+      "note": "hash endianness convention unknown"
+    },
+    {
+      "index": 5,
+      "algorithm": "ECDSA",
+      "message": "Validate biometric template hash for passport FR2847193",
+      "r": "0x2a3c94fa70e242bc6870f4fb1dcd0217eaba11bfd68e0a979672fa31fd5356d",
+      "s": "0x4ec758dbf716ec591b7a2cf195e56b0ff2dca463f2c1c522e75338f0df157d87"
+    }
+  ],
+  "algorithm_specs": {
+    "ECDSA": {
+      "sign": "s = k^{-1}(e + x*r) mod n where e = int(SHA256(m)) mod n",
+      "verify": "u = e*s^{-1}, v = r*s^{-1}, check (u*G + v*Q).x mod n == r"
+    },
+    "ECGDSA": {
+      "sign": "e' = -int(SHA256(m)) mod n, s = x*(k*r + e') mod n. Public key is Q' = x^{-1}*G",
+      "verify": "u = int(SHA256(m))*r^{-1}, v = s*r^{-1}, check (u*G + v*Q').x mod n == r"
+    },
+    "ECRDSA": {
+      "sign": "s = (r*x + k*e) mod n. Hash convention: e = int(SHA256(m)) mod n [ISO 14888-3] OR e = int(reversed_bytes(SHA256(m))) mod n [RFC 7091]. If e==0, set e=1.",
+      "verify": "v = e^{-1} mod n, z1 = s*v mod n, z2 = -r*v mod n, check (z1*G + z2*Q).x mod n == r"
+    }
+  },
+  "challenge": {
+    "message": "ANSSI security audit completed for system CYBELE-7"
+  }
+}

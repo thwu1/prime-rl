@@ -1,0 +1,69 @@
+=== Concurrent Hash Table Rehash — Cycle Formation Scenario ===
+
+A hash table uses separate chaining with HEAD INSERTION during rehash
+(see the transfer() function in hashtable.c). When resizing, entries are
+moved from old buckets to new buckets by inserting each entry at the HEAD
+of the destination bucket's chain. This reverses the order of entries
+that map to the same new bucket.
+
+----------------------------------------------------------------------
+INITIAL STATE
+----------------------------------------------------------------------
+  Capacity = 2
+  Bucket[1] chain: E_a(key="alpha", hash=3) -> E_b(key="bravo", hash=7) -> NULL
+
+  Verification: 3 % 2 = 1 and 7 % 2 = 1, so both are in bucket 1.
+
+----------------------------------------------------------------------
+RESIZE TO CAPACITY 4
+----------------------------------------------------------------------
+  New bucket for E_a: 3 % 4 = 3
+  New bucket for E_b: 7 % 4 = 3
+  Both entries map to bucket 3 in the new table.
+
+----------------------------------------------------------------------
+THREAD INTERLEAVING
+----------------------------------------------------------------------
+Two threads (A and B) concurrently execute transfer() for bucket 1.
+Each thread allocates its own new_buckets array, but they share the
+SAME entry nodes (E_a and E_b). Changes to entry->next pointers by
+one thread are visible to the other.
+
+Step 1: Thread_A reads e = E_a from old_buckets[1]
+Step 2: Thread_B reads e = E_a from old_buckets[1] (before Thread_A nulls it)
+Step 3: Thread_A sets old_buckets[1] = NULL
+Step 4: Thread_A enters do-while loop:
+          next = E_a->next = E_b
+          *** Thread_A is SUSPENDED here (context switch) ***
+
+Step 5: Thread_B executes the entire transfer for this bucket:
+          Iteration 1: e=E_a
+            next = E_a->next = E_b
+            E_a->next = new_B[3] (=NULL)   =>  E_a->next = NULL
+            new_B[3] = E_a
+            e = E_b
+          Iteration 2: e=E_b
+            next = E_b->next (=NULL, original end of chain)
+            E_b->next = new_B[3] (=E_a)    =>  E_b->next = E_a
+            new_B[3] = E_b
+            e = NULL => loop ends
+
+          After Thread_B: new_B[3]: E_b -> E_a -> NULL
+          Pointer state: E_a->next = NULL, E_b->next = E_a
+
+Step 6: Thread_A resumes with saved state: e=E_a, next=E_b
+          Thread_A continues the do-while loop with its own new_A table.
+
+          *** Trace Thread_A's remaining iterations to find the cycle ***
+
+----------------------------------------------------------------------
+YOUR TASK
+----------------------------------------------------------------------
+Write /app/simulate.c that models Steps 6+ (Thread_A resuming) in
+detail, showing each iteration of the do-while loop and the state of
+entry->next pointers. The program must output:
+
+  CYCLE_BUCKET=<N>
+  CYCLE_ENTRIES=<key1>,<key2>
+
+Also write these same two lines to /app/answer.txt.

@@ -1,0 +1,33 @@
+# Regex matching in expected results
+
+# Simple regex match on single value
+query T
+SELECT 'hello world 2024'
+----
+<REGEX>:hello.*\d{4}
+
+# Regex match on one column, exact match on another
+statement ok
+CREATE TABLE rdata(id INTEGER, msg VARCHAR)
+
+statement ok
+INSERT INTO rdata VALUES (1, 'error: connection timeout at 10:30'), (2, 'info: started successfully')
+
+query IT
+SELECT * FROM rdata WHERE id = 1
+----
+1	<REGEX>:error:.*timeout.*
+
+query IT
+SELECT * FROM rdata WHERE id = 2
+----
+2	<REGEX>:info:.*success.*
+
+# Regex with numeric pattern
+query T
+SELECT 'version-3.14.159'
+----
+<REGEX>:version-\d+\.\d+\.\d+
+
+statement ok
+DROP TABLE rdata

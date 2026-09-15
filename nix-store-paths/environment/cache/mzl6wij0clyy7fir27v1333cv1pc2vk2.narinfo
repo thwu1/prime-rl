@@ -1,0 +1,9 @@
+StorePath: /nix/store/mzl6wij0clyy7fir27v1333cv1pc2vk2-zlib-1.3.1.tar.gz
+URL: nar/mzl6wij0clyy7fir27v1333cv1pc2vk2.nar.xz
+Compression: xz
+FileHash: sha256:77f80549f0e0791105484db95ae528a4eb8def462b2386b8880f30c7c018d12a
+FileSize: 6691685
+NarHash: sha256:f8c1233ec31ca9c3ab9503725786eb1efdef2785c5b83057a9b05813f24f03ab
+NarSize: 14953423
+References:
+CA: fixed:sha256:81d053b217275b5a617c847224ca90ddcf34053a0c89a7e149d4f082226dec69

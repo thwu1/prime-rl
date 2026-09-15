@@ -1,0 +1,27 @@
+{
+  "expected_detections": [
+    {"entity_type": "CREDIT_CARD", "normalized_value": "4111111111111111"},
+    {"entity_type": "CREDIT_CARD", "normalized_value": "5500000000000004"},
+    {"entity_type": "CREDIT_CARD", "normalized_value": "6011111111111117"},
+    {"entity_type": "DE_HEALTH_INSURANCE", "normalized_value": "A123456780"},
+    {"entity_type": "DE_HEALTH_INSURANCE", "normalized_value": "B123456782"},
+    {"entity_type": "DE_HEALTH_INSURANCE", "normalized_value": "M123456785"},
+    {"entity_type": "DE_TAX_ID", "normalized_value": "57549285017"},
+    {"entity_type": "DE_TAX_ID", "normalized_value": "65929970489"},
+    {"entity_type": "DE_TAX_ID", "normalized_value": "86095742719"},
+    {"entity_type": "IBAN_CODE", "normalized_value": "DE89370400440532013000"},
+    {"entity_type": "IBAN_CODE", "normalized_value": "FR7630006000011234567890189"},
+    {"entity_type": "IBAN_CODE", "normalized_value": "GB29NWBK60161331926819"},
+    {"entity_type": "IT_FISCAL_CODE", "normalized_value": "FRNCSC80A10H501E"},
+    {"entity_type": "IT_FISCAL_CODE", "normalized_value": "MRARSS80A01H501T"},
+    {"entity_type": "IT_FISCAL_CODE", "normalized_value": "RSSGLU85M41F205H"}
+  ],
+  "invalid_values": [
+    "4111111111111112",
+    "65929970488",
+    "A123456787",
+    "DE89370400440532013001",
+    "RSSGLU85M41F205A"
+  ],
+  "total_expected": 15
+}

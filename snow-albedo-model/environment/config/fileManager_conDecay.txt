@@ -1,0 +1,14 @@
+! SUMMA-compatible file manager — constant decay albedo configuration
+! Lines starting with ! are comments
+controlVersion    'SUMMA_FILE_MANAGER_V3.0.0'
+simStartTime      '2005-10-01 00:00'
+simEndTime        '2006-04-01 00:00'
+tmZoneInfo        'localTime'
+settingsPath      '/app/config/'
+forcingPath       '/app/data/'
+outputPath        '/app/output/'
+decisionsFile     'decisions_conDecay.txt'
+outputControlFile 'outputControl.txt'
+globalHruParamFile 'params.txt'
+forcingListFile   'forcingFileList.txt'
+outFilePrefix     'conDecay'

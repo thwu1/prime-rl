@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level geochemistry knowledge (aqueous speciation, saturation indices, calcium carbonate precipitation potential, open vs. closed CO2 systems), plus the software engineering skills to build PHREEQC3 from C++ source using CMake, craft correct PHREEQC input files with MIX/EQUILIBRIUM_PHASES/REACTION_TEMPERATURE keywords, parse structured output, and orchestrate a multi-scenario batch computation pipeline."""
+solution_explanation = """Download phreeqc3 source from GitHub, build with cmake/make, locate the binary and phreeqc.dat database. For each scenario-temperature pair: generate a PHREEQC input file that (1) defines source solutions with correct units/charge balance, (2) mixes them with MIX, (3) adjusts temperature with REACTION_TEMPERATURE, (4) SAVEs the result, then (5) equilibrates with Calcite alone for CCPP_closed and with Calcite+CO2(g) at -3.5 for CCPP_open. Use SELECTED_OUTPUT to capture pH, si_Calcite, and d_Calcite columns. Parse the tab-delimited selected output to extract values and write results.json."""
+verification_explanation = """The test builds PHREEQC3 independently from source, runs the same scenarios using its own generated input files, parses selected output, and compares every numerical value in the agent's results.json against the independently computed reference within specified tolerances (pH +/-0.02, SI +/-0.05, CCPP +/-0.02 mmol or 5% relative)."""
+category = "applied_computing"
+tags = ["geochemistry", "phreeqc"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/phreeqc-water-blending-5add1a"

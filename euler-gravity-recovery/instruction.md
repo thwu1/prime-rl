@@ -1,0 +1,5 @@
+Gravity survey data from a 100 km × 100 km region is available under `/app/data/`. The observed gravitational signal contains contributions from several buried mass concentrations at unknown three-dimensional positions, superimposed on regional geological background effects and instrument noise.
+
+Determine the location of every distinct subsurface mass anomaly present in the data. Create `/app/pipeline.py` — a script that reads the survey data, recovers the source positions, and writes results to `/app/results/sources.csv` with columns: `easting`, `northing`, `upward` (all in meters; upward is negative for sources below the observation surface).
+
+External geophysics libraries (harmonica, fatiando, verde, boule, choclo, etc.) are not permitted. Only numpy, scipy, scikit-learn, and the Python standard library may be used.

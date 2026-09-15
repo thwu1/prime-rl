@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level SystemVerilog knowledge to triage compiler diagnostics — distinguishing cascading errors from independent root causes, and recognizing that a design compiling cleanly under default flags can still harbor silent semantic bugs (implicit net creation from typos, hardcoded constants that numerically match defaults). The agent must evaluate slang's extended warning output to identify which warnings signal real defects vs. intentional patterns, then design a targeted warning suppression policy. Understanding SystemVerilog implicit net rules, ANSI module header import syntax, struct member scoping, parameterized bit-slice expressions, and slang's -W flag taxonomy is essential."""
+solution_explanation = """1. Run slang on the design to see 5 cascading errors: 4 from xbar_switch.sv missing 'import xbar_pkg::*;' (unknown types) and 1 from top_xbar.sv using '.address' instead of '.addr'. 2. Fix both compilation errors. 3. Design now compiles clean with default flags, but run with -Weverything to discover silent bugs: (a) round_robin_arb.sv connects 'masked_requests' (typo) to priority_enc port — slang creates an implicit 1-bit net instead of erroring, hiding the bug; the real signal 'masked_req' goes unused. Warnings: -Wunused-implicit-net, -Wport-width-expand, -Wunused-but-set-variable. (b) addr_decoder.sv uses hardcoded [15:14] bit-slice instead of parameterized [ADDR_W-1:ADDR_W-SEL_W]; warning: -Wunused-parameter for SEL_W. 4. Fix silent bugs. 5. Design a warning policy enabling -Weverything with selective -Wno-* suppressions for intentional patterns (unused ports, documentation parameters, etc.). 6. Extract hierarchy from --ast-json. 7. Write triage report."""
+verification_explanation = """Tests verify: (1) slang -f build.f -f warning_policy.f compiles with 0 errors + 0 warnings, (2) source fixes: no 'masked_requests' typo, xbar_switch has package import, no '.address' in top_xbar, addr_decoder uses parameterized bit-slice, (3) warning_policy.f contains -Weverything without -Wnone and has selective -Wno- suppressions, (4) triage_report.json has valid structure with compilation_errors, silent_bugs, and false_positives arrays, (5) hierarchy_report.json contains all 5 modules with correct ports and parameters."""
+category = "eda_tooling"
+tags = ["systemverilog", "compiler-diagnostics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sv-compilation-audit"

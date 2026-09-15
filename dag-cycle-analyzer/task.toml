@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a multi-source diagnostic tool that: (1) models cross-DAG dataset trigger relationships and detects all elementary cycles in the resulting directed graph without being told the graph construction or cycle-finding algorithm; (2) computes theoretical worst-case concurrent pool slot demand by identifying maximal antichains in each DAG's task dependency partial order without hints about the antichain approach; (3) discovers and queries a SQLite database schema to analyze historical execution records for temporal overlap patterns to find actual peak concurrent pool usage. The task demands proficiency with YAML parsing, SQL database exploration, graph algorithms, temporal data analysis, and correlating static configuration with runtime execution data across three distinct data sources."""
+solution_explanation = """Parse YAML DAG configs to build a directed dataset-to-dataset graph where edges connect consumed to produced datasets per DAG. Apply Johnson's algorithm to enumerate elementary cycles. For theoretical pool analysis, compute maximal antichains in each DAG's task dependency DAG and sum peak slot demands across all DAGs per pool. For observed saturation, connect to the SQLite metadata.db, discover its schema, extract task execution intervals grouped by pool, and apply a sweep-line algorithm over start/end events to find peak concurrent slot usage. Correlate peaks with pool capacities from the YAML config to identify saturation events and contributing DAGs at each peak moment."""
+verification_explanation = """Tests run the analyzer and validate all five report sections. Cycle tests normalize cycle order and verify two specific cycles with their involved DAGs. Theoretical pool bottleneck tests check exact demand values for three pools, including a discriminator that catches naive max-instead-of-sum implementations (compute_pool 15 vs 13). Observed saturation tests verify peak concurrent slots and contributing DAGs for three pools from execution history, including a test confirming auto_retrain is absent from observed ml_pool saturation despite appearing in the theoretical analysis, and a test verifying observed peaks are less than theoretical worst-case. Statistics tests verify 11 DAGs and 10 datasets."""
+category = "information_systems"
+tags = ["workflow-orchestration", "multi-source-diagnostics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dag-cycle-analyzer"

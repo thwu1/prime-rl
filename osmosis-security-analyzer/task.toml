@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of multiple formal security frameworks operating in concert: capability-based microkernel isolation (seL4 Microkit protection domains, shared memory with asymmetric permissions, IPC channel semantics), the OSmosis formal isolation model (bipartite resource-sharing graphs, directed information flow derivation from read/write capabilities, transitive reachability for TCB/IB computation), Bell-LaPadula confidentiality and Biba integrity models applied to capability-based systems (correctly identifying violations from secrecy/integrity level comparisons), per-resource declassification semantics where partial coverage of mediating resources leaves edges undeclassified (requiring holistic understanding of how declassifiers interact with capability-mediated flows), intransitive noninterference via purged flow graph construction and reachability analysis for residual leakage detection, architecture refinement verification (mapping concrete PD-level flows to abstract domain-level policies), and composite attack surface quantification coupling resource exposure with transitive trust. The solver must synthesize these disparate formal models into a unified pipeline, correctly handle subtle interactions (bidirectional channels creating mutual flows, declassifiers covering only a subset of mediating resources, transitive leakage through non-violating intermediary edges, write-only observers, fully isolated PDs), and integrate xmllint schema validation, Python analysis, and Graphviz rendering."""
+solution_explanation = """Parse Microkit XML to extract PDs, memory region mappings with permissions, and channels. Build OSmosis bipartite resource graph; derive directed information flow edges from writer-reader pairs on shared resources. Compute TCB via reverse-edge reachability, IB via forward-edge reachability, isolation degree via resource set intersection. Load MLS labels and evaluate each direct flow edge against BLP (secrecy decreasing) and Biba (integrity increasing) criteria. Evaluate declassification by verifying ALL mediating resources of a BLP-violating edge are in the source PD's declassifier list. Build the purged flow graph by removing only declassified BLP-violating edges, then compute residual leakage pairs via reachability from high-secrecy to low-secrecy PDs in the purged graph. Check architecture refinement by mapping each concrete flow's PD domains against the allowed inter-domain flow list. Compute attack surface scores using weighted resource access (channels=3, rw memory=2, r/w-only=1) multiplied by (TCB size + 1). Evaluate six policy types including the MLS-specific blp_compliant, biba_compliant, and arch_compliant checks. Generate DOT flow graphs with sorted edges and resource labels, render to SVG via Graphviz."""
+verification_explanation = """Tests re-run the pipeline from scratch and verify: (1) exact TCB/IB sets and isolation degrees for all three systems; (2) BLP violations with correct mediating resources and declassification status; (3) Biba violations with correct resources; (4) residual leakage pairs computed on the purged flow graph; (5) architecture refinement violations with domain mappings; (6) attack surface integer scores per PD; (7) policy evaluation results for all six policy types across all systems; (8) DOT graph edge existence, resource labels, and total edge counts; (9) SVG file existence and non-trivial size; (10) pipeline entry point existence."""
+category = "systems_security"
+tags = ["formal-methods", "microkernel-security"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/osmosis-security-analyzer"

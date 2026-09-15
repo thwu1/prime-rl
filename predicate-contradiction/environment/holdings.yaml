@@ -1,0 +1,228 @@
+---
+# Legal Predicate Holdings Database
+# Factual assertions extracted from judicial opinions for semantic comparison analysis.
+# Term assignments and interchangeable groups are stored separately in terms.db.
+
+opinions:
+
+  - case_name: "Re: Australian Beard Tax Enforcement"
+    docket: "2023-BT-001"
+    jurisdiction: "AU"
+    date: "2023-03-15"
+    subject_matter: "taxation"
+    facts:
+      - predicate_id: "A1"
+        template: "{suspect} had facial hair measuring on the chin"
+        quantity:
+          sign: ">="
+          magnitude: 5
+          unit: "millimeter"
+        truth: true
+      - predicate_id: "A2"
+        template: "{suspect} had facial hair measuring on the chin"
+        quantity:
+          sign: ">="
+          magnitude: 0.5
+          unit: "centimeter"
+        truth: true
+      - predicate_id: "A3"
+        template: "{suspect} had facial hair measuring on the chin"
+        quantity:
+          sign: ">="
+          magnitude: 2
+          unit: "centimeter"
+        truth: true
+      - predicate_id: "A4"
+        template: "{suspect} had facial hair measuring on the chin"
+        quantity:
+          sign: ">="
+          magnitude: 5
+          unit: "millimeter"
+        truth: false
+      - predicate_id: "A5"
+        template: "{suspect} had facial hair measuring on the chin"
+        quantity:
+          sign: "<"
+          magnitude: 3
+          unit: "millimeter"
+        truth: true
+
+  - case_name: "Treasury v. Unlicensed Goldsmith"
+    docket: "2023-GS-042"
+    jurisdiction: "US"
+    date: "2023-06-20"
+    subject_matter: "trade_regulation"
+    facts:
+      - predicate_id: "B1"
+        template: "{accused} was fined mass of gold"
+        quantity:
+          sign: ">="
+          magnitude: 20
+          unit: "gram"
+        truth: true
+      - predicate_id: "B2"
+        template: "{accused} was fined mass of gold"
+        quantity:
+          sign: ">="
+          magnitude: 0.5
+          unit: "ounce"
+        truth: true
+      - predicate_id: "B3"
+        template: "{accused} was fined mass of gold"
+        quantity:
+          sign: "<="
+          magnitude: 10
+          unit: "gram"
+        truth: true
+
+  - case_name: "Feist Publications v. Rural Telephone Service"
+    docket: "499 U.S. 340 (1991)"
+    jurisdiction: "US"
+    date: "1991-03-27"
+    subject_matter: "copyright"
+    facts:
+      - predicate_id: "C1"
+        template: "{work} was an original work of authorship"
+        truth: true
+      - predicate_id: "C2"
+        template: "{work} was an original work of authorship"
+        truth: null
+      - predicate_id: "C3"
+        template: "{work} was an original work of authorship"
+        truth: false
+
+  - case_name: "Alice Corp. v. CLS Bank International"
+    docket: "573 U.S. 208 (2014)"
+    jurisdiction: "US"
+    date: "2014-06-19"
+    subject_matter: "contract_law"
+    facts:
+      - predicate_id: "D1"
+        template: "{party_a} and {party_b} entered into a contract"
+        truth: true
+      - predicate_id: "D2"
+        template: "{party_a} and {party_b} entered into a contract"
+        truth: true
+      - predicate_id: "D3"
+        template: "{party_a} and {party_b} entered into a contract"
+        truth: true
+      - predicate_id: "D4"
+        template: "{party_a} and {party_b} entered into a contract"
+        truth: false
+
+  - case_name: "State v. Smith (Professional Licensing)"
+    docket: "2023-PL-089"
+    jurisdiction: "US"
+    date: "2023-08-10"
+    subject_matter: "licensing"
+    facts:
+      - predicate_id: "E1"
+        template: "{person} was a licensed barber"
+        truth: true
+      - predicate_id: "E2"
+        template: "{person} was a licensed barber"
+        truth: true
+
+  - case_name: "EEOC v. National Corp."
+    docket: "2023-EE-112"
+    jurisdiction: "US"
+    date: "2023-09-05"
+    subject_matter: "employment"
+    facts:
+      - predicate_id: "F1"
+        template: "{employer} hired {employee}"
+        truth: true
+      - predicate_id: "F2"
+        template: "{employer} hired {employee}"
+        truth: false
+
+  - case_name: "State v. Leadfoot"
+    docket: "2023-TR-445"
+    jurisdiction: "US"
+    date: "2023-10-12"
+    subject_matter: "traffic"
+    facts:
+      - predicate_id: "G1"
+        template: "{driver} was driving at speed"
+        quantity:
+          sign: ">="
+          magnitude: 100
+          unit: "mile / hour"
+        truth: true
+      - predicate_id: "G2"
+        template: "{driver} was driving at speed"
+        quantity:
+          sign: ">="
+          magnitude: 50
+          unit: "mile / hour"
+        truth: true
+      - predicate_id: "G3"
+        template: "{driver} was driving at speed"
+        quantity:
+          sign: ">="
+          magnitude: 160
+          unit: "kilometer / hour"
+        truth: true
+
+  - case_name: "Smith & Jones v. National Widget Corp."
+    docket: "2023-CC-201"
+    jurisdiction: "US"
+    date: "2023-11-15"
+    subject_matter: "class_action"
+    facts:
+      - predicate_id: "H1"
+        template: "{judge} ruled that {plaintiff1} and {plaintiff2} could sue {defendant}"
+        truth: true
+      - predicate_id: "H2"
+        template: "{judge} ruled that {plaintiff1} and {plaintiff2} could sue {defendant}"
+        truth: true
+
+  - case_name: "US Customs v. Overweight Imports LLC"
+    docket: "2023-CI-567"
+    jurisdiction: "US"
+    date: "2023-12-01"
+    subject_matter: "customs"
+    facts:
+      - predicate_id: "I1"
+        template: "{item} had measured weight"
+        quantity:
+          sign: ">"
+          magnitude: 1000
+          unit: "gram"
+        truth: true
+      - predicate_id: "I2"
+        template: "{item} had measured weight"
+        quantity:
+          sign: ">="
+          magnitude: 1
+          unit: "kilogram"
+        truth: true
+      - predicate_id: "I3"
+        template: "{item} had measured weight"
+        quantity:
+          sign: "<="
+          magnitude: 1
+          unit: "kilogram"
+        truth: true
+
+  - case_name: "Re: Joint Venture Liability Determination"
+    docket: "2024-JV-033"
+    jurisdiction: "US"
+    date: "2024-01-20"
+    subject_matter: "business_law"
+    facts:
+      - predicate_id: "J1"
+        template: "{party_a} collaborated with {party_b} on a venture"
+        truth: true
+      - predicate_id: "J2"
+        template: "{party_a} collaborated with {party_b} on a venture"
+        truth: true
+      - predicate_id: "J3"
+        template: "{party_a} collaborated with {party_b} on a venture"
+        truth: true
+      - predicate_id: "J4"
+        template: "{party_a} collaborated with {party_b} on a venture"
+        truth: true
+      - predicate_id: "J5"
+        template: "{party_a} collaborated with {party_b} on a venture"
+        truth: false

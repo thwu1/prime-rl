@@ -1,0 +1,24 @@
+{
+  "well_typed": true,
+  "globals": {
+    "a": {"type": "Animal", "kind": "var"}
+  },
+  "classes": {
+    "Animal": {
+      "superclass": "object",
+      "attributes": {},
+      "methods": {"sound": "(Animal) -> str", "describe": "(Animal) -> object"}
+    },
+    "Dog": {
+      "superclass": "Animal",
+      "attributes": {},
+      "methods": {"sound": "(Dog) -> str"}
+    },
+    "Cat": {
+      "superclass": "Animal",
+      "attributes": {},
+      "methods": {"sound": "(Cat) -> str"}
+    }
+  },
+  "errors": []
+}

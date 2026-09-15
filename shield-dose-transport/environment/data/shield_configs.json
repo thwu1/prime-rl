@@ -1,0 +1,56 @@
+{
+  "description": "Shield configurations to evaluate. Each configuration is an ordered list of layers from outermost (radiation-facing) to innermost. Each layer specifies a material name (matching materials.json) and an areal density in g/cm².",
+  "configurations": {
+    "bare": {
+      "description": "No shielding (unshielded reference)",
+      "layers": []
+    },
+    "config_A": {
+      "description": "Single aluminum layer (basic structural shell)",
+      "layers": [
+        {"material": "aluminum", "areal_density_g_cm2": 2.70}
+      ]
+    },
+    "config_B": {
+      "description": "Aluminum-iron-aluminum sandwich",
+      "layers": [
+        {"material": "aluminum", "areal_density_g_cm2": 2.70},
+        {"material": "iron", "areal_density_g_cm2": 7.87},
+        {"material": "aluminum", "areal_density_g_cm2": 2.70}
+      ]
+    },
+    "config_C": {
+      "description": "Single polyethylene slab",
+      "layers": [
+        {"material": "polyethylene", "areal_density_g_cm2": 15.0}
+      ]
+    },
+    "config_D": {
+      "description": "Iron-polyethylene-aluminum graded shield",
+      "layers": [
+        {"material": "iron", "areal_density_g_cm2": 5.0},
+        {"material": "polyethylene", "areal_density_g_cm2": 10.0},
+        {"material": "aluminum", "areal_density_g_cm2": 3.0}
+      ]
+    },
+    "config_E": {
+      "description": "Four-layer heavy shield: lead-iron-polyethylene-carbon",
+      "layers": [
+        {"material": "lead", "areal_density_g_cm2": 3.0},
+        {"material": "iron", "areal_density_g_cm2": 8.0},
+        {"material": "polyethylene", "areal_density_g_cm2": 12.0},
+        {"material": "carbon", "areal_density_g_cm2": 5.0}
+      ]
+    },
+    "config_F": {
+      "description": "Five-layer reactor-style shield (Al-Fe-CH2-Fe-Al)",
+      "layers": [
+        {"material": "aluminum", "areal_density_g_cm2": 2.70},
+        {"material": "iron", "areal_density_g_cm2": 15.74},
+        {"material": "polyethylene", "areal_density_g_cm2": 1.88},
+        {"material": "iron", "areal_density_g_cm2": 15.74},
+        {"material": "aluminum", "areal_density_g_cm2": 2.70}
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Cross-domain task requiring deep SystemVerilog comprehension and GPU rasterization expertise. The agent must reverse-engineer four hardware drawing modules — including a filled triangle rasterizer using edge function evaluation with incremental half-plane testing — from SystemVerilog source alone, since the ISA specification deliberately omits algorithmic details. The circle module's CALC_Y/CALC_X two-phase state machine creates a non-blocking assignment dependency trap: ya and err update simultaneously in hardware but must be sequenced carefully in software, as the err update formula references the pre-increment ya. The triangle fill module requires understanding edge function rasterization (a technique from GPU architecture), winding order detection via cross product sign, and incremental edge function stepping — none of which are described in the specification. The rectangle module composes four line draws in a specific vertex order that interacts with the line module's endpoint swap logic. Holistic understanding of how non-blocking assignments govern state update ordering across all modules is essential — naive line-by-line translation from SystemVerilog produces subtly incorrect pixel output."""
+solution_explanation = """The solution implements a Python emulator that: (1) parses the hex instruction format with sign-extension for 12-bit coordinates, (2) decodes register-load vs draw-command instructions using nibble-based dispatch, (3) implements Bresenham's line algorithm matching the hardware's y-swap, directional dx/dy computation, and combined movx+movy handling, (4) implements the midpoint circle algorithm matching the hardware's 4-quadrant output order with correct non-blocking CALC_Y/CALC_X semantics (err_tmp saved before conditional ya update, xa update uses original xa), (5) implements rectangle as 4 ordered line draws, (6) implements filled triangle via edge function rasterization with incremental evaluation — computing per-edge step values (a_ij = yi-yj, b_ij = xj-xi), determining winding order from the cross product sign, initializing edge functions at the bounding box origin, and scanning row-by-row with inside testing via half-plane intersection (CW: all <= 0, CCW: all >= 0)."""
+verification_explanation = """Tests run the emulator on five programs of increasing complexity and verify pixel-level correctness: (1) test_primitives checks pixel, horizontal/vertical/diagonal lines, and endpoint-swap lines; (2) test_shapes checks circle symmetry, exact pixel count, rectangle edges/interior, and filled rectangle coverage; (3) test_composite checks multi-shape layering and overwrite semantics; (4) test_triangles checks CCW filled triangle (vertex pixels, interior, top edge, exterior), CW filled triangle (winding order handling), and outline triangle (edge pixels, empty interior); (5) test_combined checks triangles composited with circles, lines, and rectangles. Additional tests cover negative-coordinate clipping, degenerate triangles (collinear, single-point), register persistence, and partially off-screen triangle fill. Every test includes full-framebuffer reference comparison against independently computed reference implementations."""
+category = "systems"
+tags = ["hardware-emulation", "gpu-rasterization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/earthrise-gpu-emulator"

@@ -1,0 +1,37 @@
+# BeVERLI Hill Validation - Boundary Layer Rake Data
+# Reynolds Number: Re_H = 250000
+# Location: x = -1.93 m upstream of hill center, z = 0 m
+# Hill Height: H = 0.186944 m
+# Freestream Velocity: U_inf = 22.46 m/s
+# Edge Velocity: U_e = 22.1 m/s
+# Kinematic Viscosity: nu = 1.6956e-05 m^2/s
+# BL Thickness: delta = 0.0431 m
+# Spalding y-shift applied: 0.0004 m
+# Columns: y_over_H  U_over_Uinf
+6.1249e-03	5.2243e-01
+1.4617e-02	5.9770e-01
+2.3068e-02	6.4179e-01
+3.1628e-02	6.7583e-01
+4.0052e-02	6.9589e-01
+4.8611e-02	7.1434e-01
+5.7035e-02	7.3277e-01
+6.5595e-02	7.4754e-01
+7.4019e-02	7.5902e-01
+8.2579e-02	7.7504e-01
+1.0364e-01	8.0440e-01
+1.1736e-01	8.2433e-01
+1.3299e-01	8.3534e-01
+1.4997e-01	8.5515e-01
+1.7035e-01	8.8831e-01
+1.9345e-01	9.0431e-01
+2.1790e-01	9.2543e-01
+2.4644e-01	9.4448e-01
+2.7905e-01	9.6482e-01
+3.1573e-01	9.7703e-01
+3.5785e-01	9.8315e-01
+4.0405e-01	9.8418e-01
+4.5704e-01	9.8467e-01
+5.1682e-01	9.8472e-01
+6.5948e-01	9.8443e-01
+7.4644e-01	9.8480e-01
+8.4290e-01	9.8497e-01

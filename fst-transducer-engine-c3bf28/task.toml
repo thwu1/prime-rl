@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a production-grade compressed key-value data structure from scratch in Rust. The solver must discover—from reference datasets and test behavior alone—an algorithm that shares both prefixes and suffixes to meet tight node-count bounds, a value distribution scheme that correctly recovers per-key values despite aggressive structural sharing, and an approximate string matching technique that computes edit-distance results efficiently. No algorithm names, formulas, or implementation steps are provided. Edge cases (empty keys, prefix-of-prefix keys, zero values, large u64 values, deeply shared prefixes with extreme value variation) and strict compression constraints elevate difficulty to expert systems-programming level."""
+solution_explanation = """The reference solution is a single ~650-line Rust file implementing a finite state transducer (FST). FstBuilder maintains an unfinished-node stack; freeze_tail compiles and deduplicates bottom-up via a HashMap<FstNode, usize> registry (Daciuk's algorithm). Output management walks the shared prefix adjusting transition outputs with min/subtraction algebra and pushing remainders to all outgoing edges. The Levenshtein DFA is built via subset construction over an NFA with (position, errors) states and epsilon transitions for deletions. Fuzzy search intersects the Levenshtein DFA with the FST in a single DFS, pruning branches where either automaton is dead. Serialization uses a simple binary header + node table format."""
+verification_explanation = """Tests build the Rust binary, create various input datasets, invoke each CLI subcommand, and check stdout against expected values. Key verifications: correct output values for every key (validates value distribution under compression), node counts strictly below trie-equivalent counts with tight bounds for suffix sharing, edit-distance results matching hand-computed distances, edge cases for empty/prefix/zero-value keys, deep shared prefixes with wildly varying values, nested prefix-key chains, and a 1000-key stress test with spot checks."""
+category = "systems_programming"
+tags = ["finite-automata", "rust"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fst-transducer-engine-c3bf28"

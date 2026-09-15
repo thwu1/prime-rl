@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two RINEX navigation format versions (2.11 and 3.05) from example files, implementing the full GPS ICD broadcast ephemeris Keplerian orbit algorithm for two constellations with different gravitational constants, building a multi-file ingestion pipeline with version auto-detection and deduplication, storing results in SQLite with anomaly detection, performing RINEX 2.11-to-3.05 format conversion, generating SP3c orbit files (a completely different fixed-width GNSS format with rigid header structure, GPS week/MJD computation, unit conversions to km and microseconds), and cross-validating database against SP3 with physics-based inter-epoch velocity and clock drift checks. Combines geodesy, orbital mechanics, multi-format parsing, SQL, and multi-format output interoperability."""
+solution_explanation = """The solution auto-detects RINEX version from header, implements two parsers (v2.11 column-fixed D-exponents and v3.05 mixed D/e), computes satellite positions using the standard Keplerian orbit algorithm (mean anomaly, iterative Kepler equation, true anomaly, harmonic corrections, orbital plane to ECEF), applies constellation-specific mu values, stores results with GPS week numbers in SQLite, detects corrupted E33 (sqrt_A=3000), converts v2.11 headers to v3.05, generates SP3c format with proper header sections (version, GPS week/MJD, satellite list, accuracy, format descriptors, comments) and position records (km, microseconds), then cross-validates by parsing the SP3 file back and computing inter-epoch velocities and clock drift rates."""
+verification_explanation = """Tests independently compute satellite positions using the GPS ICD Keplerian algorithm with hardcoded ephemeris parameters. SQLite database is queried to verify schema (including gps_week column), record counts, position accuracy (<0.01m), clock/relativistic corrections (<1e-12s), orbit radius consistency, correct mu usage for Galileo, anomaly flag correctness. SP3c output is verified structurally (22 header lines with correct prefixes, epoch/position record counts, E33 exclusion, EOF terminator, GPS week/MJD values) and numerically (XYZ in km and clock in microseconds match reference). Format conversion is verified structurally and by data preservation. Validation JSON is checked for structure, sp3_match flags, velocity ranges, and clock drift rates."""
+category = "geodesy"
+tags = ["gnss", "orbital-mechanics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gnss-ephemeris-compute"

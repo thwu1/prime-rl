@@ -1,0 +1,83 @@
+I/O API NetCDF Global Attributes Reference
+(From Models-3 I/O API FDESC3.EXT and PARMS3.EXT)
+
+Required global attributes for I/O API-conformant NetCDF files:
+
+  Attribute    Type       Description
+  -----------------------------------------------------------------------
+  IOAPI_VERSION string    I/O API version identifier
+  EXEC_ID      string     Execution identifier
+  FTYPE        int32      File type (see file type codes below)
+  CDATE        int32      File creation date (YYYYDDD)
+  CTIME        int32      File creation time (HHMMSS)
+  WDATE        int32      Last-update date (YYYYDDD)
+  WTIME        int32      Last-update time (HHMMSS)
+  SDATE        int32      Starting date (YYYYDDD Julian format)
+  STIME        int32      Starting time (HHMMSS)
+  TSTEP        int32      Time step (HHMMSS); 0 = time-independent
+  MXREC        int32      Maximum time step record number
+  NVARS        int32      Number of data variables
+  NCOLS        int32      Number of grid columns
+  NROWS        int32      Number of grid rows
+  NLAYS        int32      Number of layers
+  NTHIK        int32      Boundary thickness (cells)
+  GDTYP        int32      Grid/projection type (see projection codes below)
+  GDNAM        string     Grid name (16 characters, space-padded)
+  P_ALP        float64    First map projection parameter
+  P_BET        float64    Second map projection parameter
+  P_GAM        float64    Third map projection parameter
+  XCENT        float64    Longitude for coord-system X=0
+  YCENT        float64    Latitude for coord-system Y=0
+  XORIG        float64    X-coordinate origin of grid (map units)
+  YORIG        float64    Y-coordinate origin of grid (map units)
+  XCELL        float64    X-coordinate cell dimension (map units)
+  YCELL        float64    Y-coordinate cell dimension (map units)
+  VGTYP        int32      Vertical coord type (see vertical codes below)
+  VGTOP        float32    Model-top; BADVAL3 when not applicable
+  VGLVLS       float32[]  Vertical coord values (NLAYS + 1 entries)
+  UPNAM        string     Program name (16 characters)
+  FILEDESC     string     File description
+  HISTORY      string     Update history
+  VAR-LIST     string     Concatenation of variable names, each padded to 16 chars
+
+File type codes (FTYPE):
+  GRDDED3 =  1   Gridded data
+  CUSTOM3 = -1   User-structured custom
+  IDDATA3 =  3   ID-referenced data
+
+Projection type codes (GDTYP):
+  LATGRD3 =  1   Lat-Lon
+  LAMGRD3 =  2   Lambert Conformal Conic
+  MERGRD3 =  3   General Mercator
+  STEGRD3 =  4   General Stereographic
+  UTMGRD3 =  5   UTM
+  POLGRD3 =  6   Polar Stereographic
+  EQMGRD3 =  7   Equatorial Mercator
+  TRMGRD3 =  8   Transverse Mercator
+  ALBGRD3 =  9   Albers Equal-Area Conic
+
+Vertical coordinate type codes (VGTYP):
+  IMISS3  = -9999  Not applicable (single layer or N/A)
+  VGSGPH3 =  1     Hydrostatic sigma-P
+  VGSGPN3 =  2     Non-hydrostatic sigma-P
+
+Special token values (from PARMS3.EXT):
+  BADVAL3 = -9.999E36   Missing/not-applicable float value
+  IMISS3  = -9999        Missing/not-applicable integer value
+
+Standard NetCDF dimensions (for GRDDED3 files):
+  TSTEP      unlimited
+  DATE-TIME  2
+  LAY        NLAYS
+  VAR        NVARS
+  ROW        NROWS
+  COL        NCOLS
+
+Standard variables:
+  TFLAG(TSTEP, VAR, DATE-TIME) : int32
+    Time flag variable. Each (VAR, DATE-TIME) pair contains (JDATE, JTIME)
+    where JDATE is YYYYDDD format and JTIME is HHMMSS format.
+
+Data variables (for GRDDED3 file type):
+  <VNAME>(TSTEP, LAY, ROW, COL) : float32
+    One variable per entry in VAR-LIST.

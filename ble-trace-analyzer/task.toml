@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level BLE protocol knowledge spanning Link Layer and HCI. The agent must: (1) parse a custom undocumented-outside-spec binary capture format (BLLC) by reading and implementing the format specification; (2) implement a full BLE LL encryption state machine from the protocol specification to detect five categories of violations across five traces with varying pathologies; (3) independently parse the btsnoop HCI UART H4 binary format — a non-trivial industry format not documented in the task files — to extract LE Meta Events and Command Complete responses; (4) derive session keys using the cryptographic procedure described in the BLE spec without the formula being given in the instructions; (5) correlate data across protocol layers by discovering the Rand/EDIV matching strategy from the spec; (6) identify cross-layer security vulnerabilities including the KNOB attack (CVE-2019-9506) key size reduction and SKD reuse leading to session key collision. No algorithmic hints or solution steps are provided in the task description — the agent must synthesize the approach entirely from the specification documents."""
+solution_explanation = """Parse BLLC binary traces per format_spec.txt to extract LL PDUs. Implement an encryption state machine from ble_encryption_spec.md detecting 5 violation types based on ordering, timing, direction, duplication, and termination rules. Extract SKDm/SKDs from LL_ENC_REQ/RSP CtrData fields. Parse the btsnoop HCI log (16-byte file header + 24-byte record headers, big-endian, datalink 1002 = HCI UART H4) to extract LE_LTK_Request events (subevent 0x05: Rand+EDIV+handle) and Command Complete responses for Read_Encryption_Key_Size (opcode 0x1408: handle+key_size). Correlate LL traces to HCI connection handles by matching Rand+EDIV between LL_ENC_REQ and HCI LE_LTK_Request. Derive session keys via SK = AES-128-ECB(LTK, SKDs||SKDm) for violation-free traces. Cross-layer audit: detect KEY_SIZE_REDUCTION where HCI-reported key_size < 16 for a mapped handle, and SKD_REUSE where identical SKDs||SKDm appears in multiple traces."""
+verification_explanation = """Tests verify: (1) per-trace violation counts, types, and packet indices for all 5 traces; (2) session key correctness via independent AES computation with pycryptodome; (3) session key equality between SKD-reuse traces; (4) security audit findings — exactly 1 KEY_SIZE_REDUCTION (handle 0x0040, key_size 7, trace_01) and 1 SKD_REUSE (trace_01+trace_05); (5) output format compliance including field presence, types, and ordering."""
+category = "embedded_systems"
+tags = ["ble-security", "protocol-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ble-trace-analyzer"

@@ -1,0 +1,10 @@
+CC = gcc
+CFLAGS = -O2 -Wall
+LDFLAGS = -lssl -lcrypto
+
+validator: validator.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+.PHONY: clean
+clean:
+	rm -f validator

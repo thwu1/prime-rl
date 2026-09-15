@@ -1,0 +1,14 @@
+// Exception effect: early return
+effect Exc {
+    Raise(msg)
+}
+
+val result = handle {
+    print("before");
+    do Raise("boom");
+    print("after")
+} with Exc {
+    return(x) => "ok"
+    Raise(msg, resume) => "error: " ++ msg
+};
+print(result)

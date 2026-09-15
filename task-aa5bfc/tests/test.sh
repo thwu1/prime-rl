@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -u
+
+cd /app
+
+# Run the full build pipeline via make
+make all 2>&1
+MAKE_EXIT=$?
+
+if [ $MAKE_EXIT -ne 0 ]; then
+    echo "make all failed with exit code $MAKE_EXIT"
+    mkdir -p /logs/verifier
+    echo "0.0" > /logs/verifier/reward.txt
+    exit 1
+fi
+
+# Run pytest
+pytest /tests/test_state.py -v 2>&1
+TEST_EXIT=$?
+
+mkdir -p /logs/verifier
+if [ $TEST_EXIT -eq 0 ]; then
+    echo "1.0" > /logs/verifier/reward.txt
+else
+    echo "0.0" > /logs/verifier/reward.txt
+fi
+
+exit $TEST_EXIT

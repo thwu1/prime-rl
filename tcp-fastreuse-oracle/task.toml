@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Linux kernel's TCP port allocation internals (documented only in kernel source), combined with proficiency in parsing strace and ss output formats. The solver must: (1) write a strace parser that handles PID-prefixed multi-process output, per-PID FD namespaces, unfinished/resumed syscalls, and error detection -- requiring intimate knowledge of strace's output conventions; (2) write an ss parser that handles variable-width columns, wildcard addresses, and optional process info fields; (3) reverse-engineer the kernel's bind bucket state machine from source code, including two distinct port allocation paths, tri-state transitions, SO_REUSEADDR/IP_BIND_ADDRESS_NO_PORT interactions, and ordering-dependent behaviors; (4) integrate all three components into a coherent pipeline where strace-parsed operations feed the oracle and results are validated against ss observations."""
+solution_explanation = """The strace parser uses regex-based extraction with (pid, fd) tuple tracking for FD namespace isolation, a pending-call buffer for unfinished/resumed syscall matching, and sequential step numbering at completion points. The ss parser splits whitespace-delimited columns, handles addr:port parsing with wildcard support, and extracts pid/fd from the users:() process info field. The oracle implements the fastreuse state machine: bind path creates buckets with fastreuse 0 or +1, connect path creates -1 buckets and skips non-(-1) buckets, transitions occur when new sockets join existing buckets, and BANP defers port allocation from bind to connect time."""
+verification_explanation = """23 tests across two files verify correctness: 12 oracle scenarios test bind/connect path interactions, SO_REUSEADDR, IP_BIND_ADDRESS_NO_PORT, ordering sensitivity, multi-port ranges, fastreuse poisoning, and socket closure. 11 parser/pipeline tests verify strace parsing (basic, setsockopt/error/close, multi-PID/unfinished, noise filtering, config passthrough), ss parsing (basic, single connection, multi-PID, mixed states/wildcards), and end-to-end pipeline consistency (strace->oracle->ss agreement across three capture scenarios)."""
+category = "networking"
+tags = ["tcp", "linux-kernel", "strace", "forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tcp-fastreuse-oracle"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete mixed finite element solver for the 2D Stokes equations from scratch, given only low-level mesh generation and basis function utilities. The agent must: (1) determine the body force consistent with a composite manufactured solution involving mixed trigonometric and polynomial terms — the expressions are too complex for manual differentiation; (2) understand how the provided basis functions and quadrature rules must be combined to assemble the global linear system; (3) correctly handle the indefinite system structure that arises from mixed velocity-pressure formulations; (4) identify and resolve the pressure null space; (5) compute L2 error norms by integrating over elements. Each component must be individually correct for the convergence study to produce valid rates — subtle errors in any step yield plausible but incorrect solutions without crashes."""
+solution_explanation = """The solution uses sympy to symbolically differentiate the stream function and pressure from problem_spec.py to obtain the body force. It then implements standard FEM assembly: for each element, evaluates basis function gradients in reference space, transforms via the inverse Jacobian, and accumulates stiffness and divergence matrices plus forcing vectors. The block system is assembled using scipy.sparse.bmat and solved with spsolve after Dirichlet BC enforcement (row/column elimination) and pressure pinning. L2 errors are computed via quadrature comparing FEM interpolation against exact solution."""
+verification_explanation = """Tests re-run the solver from scratch (deleting any pre-existing results.json) to prevent hardcoded answers. Verification checks: correct mesh sizes; positive and monotonically decreasing L2 errors; velocity average convergence rate in [2.5,3.5]; pressure average rate in [1.5,2.5]; individual rates within wider bounds; finest-mesh errors below tight thresholds; internal consistency between errors and rates; reproducibility on a second run; error reduction ratios between meshes match expected orders. The solver script is also checked for minimum code length and framework usage to prevent trivial bypass."""
+category = "scientific_computing"
+tags = ["finite-elements", "symbolic-computation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/taylor-hood-stokes"

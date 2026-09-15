@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a variable-length binary encoding specification from library source in node_modules (unsigned/signed varints, type-tagged polymorphic Any encoding with 12+ type tags including float32/float64), implementing a map CRDT with deterministic conflict resolution that must produce exact convergence outcomes across replicas, a self-consistent binary update codec for items and delete sets, a state-vector-based bidirectional sync protocol exercised through encoding roundtrips, an update merge function with item deduplication and delete-set range consolidation, and a CLI tool exercising the full pipeline including multi-document simulation. All components must interoperate for multi-replica convergence verified via seeded randomized fuzz tests."""
+solution_explanation = """The reference solution implements: (1) lib0-compatible varint encoding with 7-bit data groups and MSB continuation flags, signed varint with bit-6 sign flag and 6+7*N bit layout; (2) writeAny/readAny matching lib0's type tag table (127=undefined through 116=Uint8Array) including float32 tag 124; (3) Doc class with struct store indexed by (clientID, clock), LWW map conflict resolution comparing (clock, clientID) tuples; (4) update encoder/decoder with info-byte bitflags for optional fields; (5) sync protocol via state vector exchange, missing-item computation, and delete set propagation; (6) mergeUpdates via per-clock item deduplication and sorted delete-range union; (7) CLI with encode-sv, decode-sv, roundtrip-any, and simulate commands."""
+verification_explanation = """Tests compile the TypeScript project then run Node.js scripts via pytest that verify: byte-level reference vectors for writeVarUint/writeVarInt matching expected hex output, writeAny reference vectors for all non-float type tags, float32 decoder compatibility (tag 124), self-consistency encoding roundtrips, CLI tool invocation via subprocess and function import, multi-document simulate scenarios with partial and full sync, single-doc map CRUD, two-doc sync with and without conflicts, delete synchronization, concurrent set-vs-delete semantics, update encode/decode roundtrips, update merge equivalence, five-doc convergence with 250 seeded random operations, and multi-writer conflict determinism."""
+category = "distributed-systems"
+tags = ["crdt", "binary-encoding"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/crdt-sync-engine-a0ddb1"

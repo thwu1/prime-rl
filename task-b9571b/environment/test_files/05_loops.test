@@ -1,0 +1,67 @@
+# Loop and foreach constructs
+
+# Basic loop: insert values 0-4
+statement ok
+CREATE TABLE loop_result(val INTEGER)
+
+loop i 0 5
+
+statement ok
+INSERT INTO loop_result VALUES (${i})
+
+endloop
+
+query I
+SELECT COUNT(*) FROM loop_result
+----
+5
+
+query I
+SELECT SUM(val) FROM loop_result
+----
+10
+
+statement ok
+DROP TABLE loop_result
+
+# Foreach construct: iterate over named values
+foreach tname alpha beta gamma
+
+statement ok
+CREATE TABLE ${tname}(x INTEGER)
+
+statement ok
+INSERT INTO ${tname} VALUES (42)
+
+query I
+SELECT x FROM ${tname}
+----
+42
+
+statement ok
+DROP TABLE ${tname}
+
+endforeach
+
+# Loop with expression in SQL
+statement ok
+CREATE TABLE squares(n INTEGER, sq INTEGER)
+
+loop j 1 6
+
+statement ok
+INSERT INTO squares VALUES (${j}, ${j} * ${j})
+
+endloop
+
+query II
+SELECT * FROM squares ORDER BY n
+----
+1	1
+2	4
+3	9
+4	16
+5	25
+
+statement ok
+DROP TABLE squares

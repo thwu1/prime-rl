@@ -1,0 +1,60 @@
+{
+  "jobs": [
+    {
+      "id": "synth-all-3",
+      "dataset": "/app/data/synth_test.dat",
+      "mode": "all",
+      "min_support": 3,
+      "output": "/app/results/synth_all.out"
+    },
+    {
+      "id": "synth-closed-3",
+      "dataset": "/app/data/synth_test.dat",
+      "mode": "closed",
+      "min_support": 3,
+      "output": "/app/results/synth_closed.out"
+    },
+    {
+      "id": "synth-maximal-3",
+      "dataset": "/app/data/synth_test.dat",
+      "mode": "maximal",
+      "min_support": 3,
+      "output": "/app/results/synth_maximal.out"
+    },
+    {
+      "id": "basket-all-6",
+      "dataset": "/app/data/raw/mixed_basket.csv",
+      "mode": "all",
+      "min_support": 6,
+      "output": "/app/results/basket_all.out"
+    },
+    {
+      "id": "basket-closed-6",
+      "dataset": "/app/data/raw/mixed_basket.csv",
+      "mode": "closed",
+      "min_support": 6,
+      "output": "/app/results/basket_closed.out"
+    },
+    {
+      "id": "basket-maximal-6",
+      "dataset": "/app/data/raw/mixed_basket.csv",
+      "mode": "maximal",
+      "min_support": 6,
+      "output": "/app/results/basket_maximal.out"
+    },
+    {
+      "id": "mushroom-all-4000",
+      "dataset": "/app/data/mushroom.dat",
+      "mode": "all",
+      "min_support": 4000,
+      "output": "/app/results/mushroom_all.out"
+    },
+    {
+      "id": "chess-closed-2500",
+      "dataset": "/app/data/chess.dat",
+      "mode": "closed",
+      "min_support": 2500,
+      "output": "/app/results/chess_closed.out"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a minimal perfect hash function from scratch given only the API contract and a set of hash/reduction primitives. No algorithm specification is provided — the agent must independently design or derive a construction strategy that produces a bijective mapping from n distinct 64-bit keys to {0,...,n-1}. This demands: (1) deep knowledge of MPHF theory to identify a viable construction approach (hash-and-displace, hypergraph peeling, or similar); (2) understanding how to combine the provided primitives (multiplicative hashing, finalizers, multiply-shift reduction) into a coherent construction pipeline; (3) choosing parameters (load factor, partitioning granularity) that balance construction reliability against space, knowing that bad choices cause construction to never converge; (4) designing internal data structures (partitioning, displacement tables, remapping) and managing their lifecycle in C; (5) engineering robustness for inputs spanning 5 orders of magnitude (n=1 to n=100K) across diverse random distributions — small inputs stress degenerate parameter regimes while large inputs expose quadratic-time construction bugs and memory issues. The algorithm has tightly coupled components where errors in one phase produce subtle failures in another, demanding holistic understanding rather than isolated debugging."""
+solution_explanation = """The solution uses a hash-and-displace construction. Keys are pre-hashed with fx_hash, assigned to B=ceil(n/3) buckets via reduce32 on the upper 32 bits, then processed in size-descending order. For each bucket, a pilot in {0..255} is sought such that slot(h, pilot, seed) = reduce64(fmix64(h XOR hash_pilot(pilot, seed)), S) yields collision-free slots for all keys in the bucket. A seed-retry strategy (up to 100 LCG-generated seeds) handles cases where no valid pilot exists. After all pilots are placed, an overflow-to-gap remap table maps slots >= n to unused slots < n, achieving minimality."""
+verification_explanation = """Tests compile the agent's /app/ptrhash.c with a test driver that generates deterministic pseudo-random key sets via xorshift64. Tests verify the MPHF bijectivity invariant: for every input key, query returns a value in [0,n) and all values are distinct. Tested across 40+ configurations: sizes from 0 to 100,000 keys, 8+ different PRNG seeds per size, edge cases (primes, powers of two, n=1). Additional property tests verify query determinism and that outputs form exact permutations of [0,n)."""
+category = "algorithms"
+tags = ["hashing", "data-structures"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cacheline-ef-codec"

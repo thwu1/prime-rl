@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging across four abstraction layers: (1) a broken Makefile that produces a static library instead of a shared object, missing -fPIC and -shared flags; (2) a C memory leak in blockpool_destroy that omits freeing per-block token_ids arrays, detectable only via valgrind; (3) an incorrect ctypes restype (c_int instead of c_void_p for a pointer return) causing pointer truncation and segfaults on 64-bit systems; (4) six Python-level bugs including an off-by-one in block counting, missing group membership tracking in fork, a CPU block leak in swap_in, stale prefix cache entries on free, unvalidated cache lookups, and a subtle FFI interop bug where CBlockView's no-op ref_count setter causes COW to silently leak reference counts. Plus three unimplemented methods requiring understanding of the full architecture. The multi-tool workflow (make/gcc → valgrind → ctypes → Python debugging) compounds difficulty."""
+solution_explanation = """Fix Makefile to produce .so with -fPIC -shared; add for-loop in blockpool_destroy to free each block's token_ids; change blockpool_create restype to c_void_p; fix _num_blocks_needed to use (n+B-1)//B; add child to group_seqs in fork_sequence; free CPU blocks in swap_in; clean hash_to_block in free(); validate ref_count+content in lookup_cache; replace no-op ref_count-=1 with gpu_allocator.free() in COW; implement get_num_prefix_cache_hits, select_victim_group, get_utilization_stats."""
+verification_explanation = """30 pytest tests across 10 classes: TestBuildAndSafety verifies the .so exists, loads with correct symbols, and passes valgrind leak checks; TestBlockAllocator tests allocation, ref counting, prefix cache cleanup, and cache validation; TestBlockManagerBasic tests ceil-division block counting and allocation; TestAppendAndCOW tests COW including two tests that specifically catch the ref_count interop bug; TestForkGroupMembership catches the missing group_seqs update; TestSwapping catches the CPU block leak; TestPrefixCaching + TestPreemption + TestUtilizationStats test the stub implementations; TestIntegration runs beam search, preemption, and combined workflows end-to-end."""
+category = "systems_programming"
+tags = ["memory_management", "ffi_debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/paged-attention-blocks"

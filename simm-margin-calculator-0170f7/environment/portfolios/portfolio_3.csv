@@ -1,0 +1,9 @@
+RiskType,Currency,SubCurve,Tenor,Sensitivity
+Delta,USD,OIS,1Y,50.0
+Delta,USD,OIS,5Y,-30.0
+Delta,USD,OIS,10Y,40.0
+Delta,JPY,OIS,2Y,20.0
+Delta,JPY,OIS,10Y,-15.0
+Delta,BRL,OIS,1Y,35.0
+Delta,BRL,OIS,5Y,25.0
+Delta,BRL,OIS,10Y,-10.0

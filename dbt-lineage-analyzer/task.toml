@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-referencing four heterogeneous data sources (SQL model files with Jinja ref() parsing, a JSON manifest, a SQLite run-history database, and YAML selector config) and designing multiple graph algorithms from scratch. The solver must: (1) build a robust Jinja/SQL parser that correctly handles three distinct comment syntaxes — SQL line comments (--), SQL block comments (/* */), and Jinja block comments ({# #}) — each containing decoy ref() calls that corrupt results if not stripped; (2) reconstruct and compare dependency graphs between source SQL and a stale manifest to detect drift; (3) design a root-cause algorithm for DAG failure propagation without being told what "root cause" means algorithmically; (4) perform temporal cross-analysis across three runs to classify persistent vs transient failures and detect masking — where a persistent failure is hidden by concurrent upstream cascade failures in specific runs; (5) compute transitive closure over the manifest child_map to determine cascade blast radius per root cause; (6) design a composite scoring formula to rank remediation priority by combining recurrence frequency with cascade impact. The task demands holistic understanding of dbt's execution model, DAG theory, and data pipeline operations."""
+solution_explanation = """Strip all three comment types (SQL line, SQL block, Jinja block) before extracting ref() calls via regex. Build a source-of-truth dependency map from cleaned SQL. Compare against manifest to find 5 added models, 1 removed model, and 1 dependency change (fct_orders gained int_order_enriched). Query SQLite for per-run statuses. Implement root-cause algorithm: failed/skipped nodes with no failed/skipped upstream deps. Cross-reference to find fct_orders persistent (fails all 3 runs), int_product_inventory and stg_payments transient. Detect fct_orders masked in run_002 (fails but int_payment_methods upstream also failed). Parse selectors.yml for stale fqn references. Diff fct_orders' source refs against manifest deps to find int_order_enriched as blocking dependency. BFS from each root cause through child_map counting only model nodes for cascade_impact: stg_payments=5, fct_orders=2, int_product_inventory=2. Compute fix_priority scores: stg_payments 1×5=5, fct_orders 2×2=4, int_product_inventory 2×2=4, sorted desc with alpha tiebreak."""
+verification_explanation = """Tests verify exact graph drift values, per-run root cause lists, persistent/transient classification, masked failure detection, stale selectors, and blocking dependency. Cross-validation tests confirm root causes actually failed, have no failed upstream deps in their runs, persistent nodes fail in all runs, and transient nodes pass in at least one. Comment trap tests verify that Jinja block comments ({# #}) in fct_inventory_snapshots and SQL block comments (/* */) in int_supplier_products don't produce spurious dependency_changes entries. Cascade impact tests independently compute transitive downstream model counts via BFS and compare. Fix priority tests verify descending score order and completeness."""
+category = "data_engineering"
+tags = ["dbt", "pipeline-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dbt-lineage-analyzer"

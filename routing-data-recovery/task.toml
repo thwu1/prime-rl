@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires forensic reconstruction of a 30-route network control plane from multiple corrupted and conflicting evidence sources. No single source contains all correct data: the original control plane log was deleted, the topology was corrupted (link cost changed), the SQLite route_audit_log has 8 entries corrupted by the maintenance script, the JSON backup has 6 wrong entries, and one router cache is stale with pre-override values. The solver must use tshark to parse a PCAP capture file containing HTTP route-sync responses to recover storage node routes (the only reliable source for 4 of those routes since both the audit log and topology computation give wrong values). The solver must also query the audit log with complex SQL filtering to distinguish legitimate pre-maintenance entries from corrupted and post-maintenance entries, identify and apply a manual operator override only documented in the audit log UPDATE entry, fix the topology by identifying the corrupted link cost through cross-referencing evidence, and coordinate multi-tool workflows (tshark + sqlite3 + Python + Flask) to rebuild and restart the system."""
+solution_explanation = """1. Fix topology.json: revert compute-east<->storage link cost from 15 to 10 (identified by comparing PCAP route data showing metric=10 for direct paths vs corrupted topology giving metric=15). 2. Parse PCAP with tshark to extract TCP payloads, decode hex, and parse JSON route arrays for gateway (5 routes) and storage (5 routes). 3. Query route_audit_log with SQL filtering: WHERE timestamp < maintenance AND new_next_hop != 'migration-staging' to get 22 uncorrupted routes + the override UPDATE entry. 4. Load router caches for validation (gateway=correct, compute-east=correct, compute-west=stale). 5. Merge sources with priority: audit_log > PCAP > cache > topology computation. The override (compute-west->10.0.4.0/24 via storage metric 15) comes from the audit log UPDATE entry. 6. Rebuild SQLite routes table, fix server.ini port to 5000, clean stale PID files, start Flask server."""
+verification_explanation = """Tests verify: (1) routes table exists with exactly 30 routes matching expected values including manual override, (2) topology.json has compute-east<->storage link cost restored to 10, (3) control plane API server running on port 5000 returning correct route data via REST endpoints, (4) server.ini has correct port, (5) PID files point to running processes."""
+category = "systems_administration"
+tags = ["incident_response", "network_forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/routing-data-recovery"

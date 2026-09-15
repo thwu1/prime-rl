@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a correct sqllogictest runner with dual-execution plan verification requires deep understanding of database engine internals beyond mere format parsing. The dual-execution verification demands knowledge of how query optimizers work — the solver must discover the correct DuckDB API to disable the optimizer (SET enable_optimizer), understand why results must be compared via sorted equivalence (different plans legally reorder rows), handle proper optimizer state restoration via try/finally to avoid corrupting subsequent tests, and recognize that EXPLAIN queries must be excluded from verification since plan output is inherently optimizer-dependent. The connection pool architecture requires understanding the distinction between database identity and cursor lifecycle — reconnect must destroy all named cursors while preserving the underlying database instance, a subtle decision where the wrong architecture (creating a new database instead of new cursors) causes silent data loss. Mode skip/unskip interacts with nested control flow: loops and foreach inside skipped regions must have their matching endloop/endforeach located and jumped past without executing bodies, requiring proper nesting depth tracking. Feature interactions create emergent complexity that cannot be solved by following procedures: loop variable substitution across named connections, regex matching with DOTALL on multi-line EXPLAIN output within tab-separated columns, hash verification after reconnection boundaries, label equivalence across connection contexts, and hash_threshold auto-switching. The intentionally concise format reference forces the solver to reverse-engineer edge cases from test files and domain knowledge."""
+solution_explanation = """Implement a ~420-line Python runner with a ConnectionPool class separating the DuckDB database instance from named cursors. Key implementation: (1) mode verify toggles a flag; when active, each query (excluding EXPLAIN) is re-executed after SET enable_optimizer=false on the same connection, results are sorted and compared for set equivalence, then optimizer is restored via try/finally, (2) mode skip sets a flag causing the main loop to skip all non-mode directives while using _find_end() to jump past nested loop/foreach blocks, (3) reconnect clears the cursor dict without touching the database, (4) hash computation joins values with newlines + trailing newline then MD5, (5) regex matching uses re.search with re.DOTALL for per-value comparison within tab-separated rows, (6) loops/foreach create isolated variable scopes via dict copy and recursively execute body blocks, (7) require attempts LOAD then INSTALL+LOAD and raises SkipException on failure."""
+verification_explanation = """Tests run the agent's runner against 16 passing .test files covering all features plus 2 deliberately broken files. Test files exercise: basic statements, sorting modes, NULL/empty handling, MD5 hash verification, loop/foreach (including nesting), regex/negative-regex with DOTALL, query labels, error matching, require-skip, multi-connection execution, EXPLAIN plan verification via regex, reconnect lifecycle, complex feature interactions, dual-execution plan verification (mode verify with aggregates/joins/window functions/subqueries/DISTINCT — verifying optimized vs unoptimized results match), and mode skip/unskip (invalid SQL in skip block, loops/foreach in skip block, state preservation across skip boundary). Inline structural tests verify: mode verify re-executes correctly including with joins, mode skip doesn't execute invalid SQL, mode skip handles nested loops, nested loop/foreach variable scoping, DOTALL regex, connection isolation, hash_threshold, and label mismatch detection."""
+category = "data_management"
+tags = ["database-testing", "query-optimization"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b9571b"

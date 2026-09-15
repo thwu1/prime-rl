@@ -1,0 +1,27 @@
+==================================================================
+BUG: KASAN: global-out-of-bounds in ip6gre_header+0x489/0x5b0 net/ipv6/ip6_gre.c:963
+Read of size 4 at addr ffffffff8eb1d2a4 by task syz-executor.2/9102
+
+CPU: 0 UID: 0 PID: 9102 Comm: syz-executor.2 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+Call Trace:
+ <TASK>
+ dump_stack_lvl+0x100/0x190 lib/dump_stack.c:120
+ print_report+0x156/0x4c9 mm/kasan/report.c:482
+ kasan_report+0xdf/0x1e0 mm/kasan/report.c:595
+ ip6gre_header+0x489/0x5b0 net/ipv6/ip6_gre.c:963
+ neigh_connected_output+0x302/0x430 net/core/neighbour.c:1563
+ ip6_finish_output2+0xb67/0x1520 net/ipv6/ip6_output.c:137
+ </TASK>
+
+The buggy address belongs to the variable:
+ ip6gre_protocol+0x24/0x40 at addr ffffffff8eb1d2a4
+
+Memory state around the buggy address:
+ ffffffff8eb1d180: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ ffffffff8eb1d200: 00 00 00 00 f9 f9 f9 f9 00 00 00 00 00 00 00 00
+>ffffffff8eb1d280: 00 00 00 00 04 f9 f9 f9 f9 f9 f9 f9 00 00 00 00
+                               ^
+ ffffffff8eb1d300: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+ ffffffff8eb1d380: 00 00 00 00 f9 f9 f9 f9 00 00 00 00 00 00 00 00
+==================================================================

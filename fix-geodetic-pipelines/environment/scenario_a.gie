@@ -1,0 +1,50 @@
+<gie>
+
+# Scenario A: Oblique Stereographic projection
+# Region: The Netherlands
+# Reference data: GIGS Test 5104 (Amersfoort / RD New)
+#
+# Fix the projection parameters so all test cases pass within tolerance.
+
+operation +proj=sterea \
+          +lat_0=52.15616055555556 \
+          +lon_0=5.38763888888889 \
+          +k=0.9996 \
+          +x_0=155000 \
+          +y_0=463000 \
+          +ellps=bessel \
+          +units=m
+
+tolerance 0.05 m
+
+accept    5 58
+expect    132023.27 1114054.87
+
+accept    5 57
+expect    131405.466 1002468.081
+
+accept    5 56
+expect    130792.264 890981.281
+
+accept    5 55
+expect    130183.56 779577.7
+
+accept    5 53
+expect    128979.26 556953.19
+
+accept    5.38763888889 52.1561605556
+expect    155000 463000
+
+accept    4 51
+expect    57605.946 335312.662
+
+accept    4 50
+expect    55502.306 224086.514
+
+accept    6 53
+expect    196105.28 557057.74
+
+accept    7 53
+expect    263225.72 558092.77
+
+</gie>

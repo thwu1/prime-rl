@@ -1,0 +1,60 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of the LLVM compiler infrastructure: the agent must
+independently discover how to invoke LLVM-18 optimization and code generation tools, understand
+the textual representation of LLVM IR well enough to correctly distinguish instructions from
+labels, metadata, comments, and declarations, and parse x86-64 assembly output to identify
+machine instructions versus directives and labels. No counting rules or tool invocation patterns
+are provided — the agent must draw on deep domain knowledge of compiler IR semantics and
+assembly conventions. The regression attribution step requires the agent to independently
+devise a strategy for isolating which optimization pass in a multi-pass pipeline first causes
+an instruction count increase — a non-trivial compiler debugging technique that demands holistic
+understanding of pass pipeline composition and its effects on program representation.
+"""
+solution_explanation = """
+Locate LLVM-18 tools (opt-18, llc-18). Read config.json for pipeline definitions and target
+triple. Run opt-18 with both baseline and candidate pipeline strings on module.ll to produce
+optimized IR. Parse optimized IR files to count per-function instructions (lines inside define
+bodies excluding labels, comments, empty lines, and closing braces). Run llc-18 on both
+optimized IR files to generate x86-64 assembly. Parse assembly to count per-function machine
+instructions (indented non-directive, non-comment, non-label lines between function labels
+and .Lfunc_end markers). Decompose the candidate pipeline string into individual passes and
+construct incremental prefix pipelines. For each regressed function, run opt-18 with each
+successive prefix until the first prefix whose IR count exceeds the baseline count, recording
+the responsible pass index and name. Assemble all data into the JSON report.
+"""
+verification_explanation = """
+Tests independently run the same opt-18 and llc-18 commands to compute ground-truth IR and
+assembly instruction counts using identical counting logic, then compare against the agent's
+report via exact integer matches. Pass attribution correctness is verified by independently
+deriving pipeline prefixes from the candidate pipeline string and running them to confirm the
+identified pass index matches. Summary statistics are cross-checked for internal consistency
+with per-function data.
+"""
+category = "compiler_engineering"
+tags = ["llvm-toolchain", "compiler-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ir-regression-analyzer"

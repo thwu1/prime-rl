@@ -1,0 +1,10 @@
+---
+nginx_worker_processes: auto
+nginx_keepalive_timeout: 65
+nginx_server_tokens: "off"
+nginx_gzip: true
+nginx_gzip_types:
+  - text/plain
+  - text/css
+  - application/json
+  - application/javascript

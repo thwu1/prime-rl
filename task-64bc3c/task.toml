@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reconciling two evaluator implementations written in different programming languages (Python and R) against a methodology paper, with ground truth data stored in a normalized SQLite database that must be explored and queried. The agent must achieve cross-language fluency in Python, R, and SQL to understand each evaluator's logic, extract and reshape data from the relational schema, and identify subtle statistical and semantic divergences between the two codebases. The statistical reasoning demands distinguishing between fundamentally different interval estimation methods and understanding their distinct mathematical foundations — the agent must independently recognize which design decisions are correct in each implementation and why, then synthesize a unified correct solution plus a novel sensitivity analysis comparing the two methods' impact on evaluation outcomes."""
+solution_explanation = """The solution queries the SQLite database to reconstruct ground truth data, then systematically compares evaluator_alpha.py (Python) and evaluator_beta.R (R) against the paper methodology. Alpha uses the correct PI formula (0.975 quantile, sqrt(1+1/n)) but has wrong vision classification (startswith instead of substring), case-sensitive string comparison, and epsilon tolerance for zero-variance instead of exact collapse. Beta (in R) has correct vision classification (grepl('fig', key)) and case-insensitive strings, but wrong quantile (qt(0.95, n-1)), wrong interval formula (sqrt(1/n) — CI not PI), and no percentage sign handling. The solution creates a unified evaluator taking the correct decisions from each, then computes both PI and CI bounds for the sensitivity audit, identifies 3 fragile results (all for agent_2 where values fall inside PI but outside CI), and computes robustness scores: agent_1=1.0, agent_2=0.75, agent_3=1.0."""
+verification_explanation = """Tests verify all three output files exist and parse as valid JSON; prediction intervals match independently-computed expected values using scipy; all three agents' aggregate scores and per-capsule breakdowns match expected values; the sensitivity audit's CI bounds match expected values; exactly 3 fragile results exist (all belonging to agent_2) covering the expected capsule/key combinations; robustness scores match expected values (1.0, 0.75, 1.0); and boundary-case behavior (values inside PI but outside CI) is handled correctly."""
+category = "data_science"
+tags = ["statistics", "cross-language-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-64bc3c"

@@ -1,0 +1,19 @@
+{
+  "analysis": {
+    "transaction_table": {
+      "1": {"status": "COMMITTING", "last_lsn": 3},
+      "2": {"status": "RUNNING", "last_lsn": 4}
+    },
+    "dirty_page_table": {
+      "10": 2,
+      "20": 4
+    }
+  },
+  "redo": [2, 4],
+  "undo": {
+    "clrs": [
+      {"undone_lsn": 4, "txn_id": 2, "page_id": 20, "undo_next_lsn": null}
+    ],
+    "ended_txns": [2]
+  }
+}

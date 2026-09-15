@@ -1,0 +1,45 @@
+{
+  "commits": [
+    {
+      "id": "c1",
+      "parents": [],
+      "message": "Initial project setup\n\nEstablish the basic project structure with\nsource code and configuration files.",
+      "author_name": "Ada Lovelace",
+      "author_email": "ada@example.com",
+      "timestamp": 1700000000,
+      "timezone": "+0100",
+      "files": {
+        "README.md": {"mode": "100644", "content": "# Forge Project\n\nA demonstration repository.\n"},
+        "LICENSE": {"mode": "100644", "content": "MIT License\n\nCopyright (c) 2024\n"},
+        "src/main.py": {"mode": "100755", "content": "#!/usr/bin/env python3\nprint('Hello, World!')\n"},
+        "src/lib/utils.py": {"mode": "100644", "content": "def helper():\n    return 42\n"},
+        "src/lib/io.py": {"mode": "100644", "content": "import sys\n\ndef read_input():\n    return sys.stdin.read()\n"},
+        "data/config.json": {"mode": "100644", "content": "{\"version\": 1}\n"}
+      }
+    },
+    {
+      "id": "c2",
+      "parents": ["c1"],
+      "message": "Add sorting edge cases and expand modules",
+      "author_name": "Charles Babbage",
+      "author_email": "charles@example.com",
+      "timestamp": 1700100000,
+      "timezone": "+0000",
+      "files": {
+        "README.md": {"mode": "100644", "content": "# Forge Project\n\nA demonstration repository.\n\nUpdated with new modules.\n"},
+        "LICENSE": {"mode": "100644", "content": "MIT License\n\nCopyright (c) 2024\n"},
+        "src/main.py": {"mode": "100755", "content": "#!/usr/bin/env python3\nfrom lib import utils\nprint(utils.helper())\n"},
+        "src/lib.py": {"mode": "100644", "content": "# Namespace package marker\n"},
+        "src/lib/utils.py": {"mode": "100644", "content": "def helper():\n    return 42\n"},
+        "src/lib/io.py": {"mode": "100644", "content": "import sys\n\ndef read_input():\n    return sys.stdin.read()\n"},
+        "src/lib0.py": {"mode": "100644", "content": "# Additional module\nVERSION = '0.1'\n"},
+        "data/config.json": {"mode": "100644", "content": "{\"version\": 2}\n"},
+        "data.txt": {"mode": "100644", "content": "Flat data file at root level.\n"}
+      }
+    }
+  ],
+  "head_ref": "refs/heads/main",
+  "branches": {
+    "refs/heads/main": "c2"
+  }
+}

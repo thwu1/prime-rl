@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding of market microstructure concepts (L2 order books, queue position estimation, trade-vs-cancel decomposition) combined with careful implementation of the ProbQueueModel algorithm. The depth() update involves a non-obvious overflow correction term and interaction with cumulative trade quantity tracking. Implementing five probability functions, the order book, the queue model, the fill determination logic, and P&L computation demands both domain knowledge and precise coding."""
+solution_explanation = """Implement an OrderBook that tracks bid/ask quantities per price tick with BBO tracking. Implement five probability functions mapping (front, back) to [0,1]. Implement ProbQueueModel with the core depth() algorithm: compute net depth change minus cumulative trades, apply probability-weighted front/back decomposition with overflow correction min(0, back - prob*chg), cap at new_qty. Process events sequentially: snapshots initialize book, depth events update book and queue positions, trades advance queue positions and check fills, marketable fills checked after each event. Run with three queue models and compute P&L from filled orders marked to final mid-price."""
+verification_explanation = """Tests verify: (1) exact probability function values against analytical formulas, (2) boundary conditions (front=0 → prob=1, back=0 → prob=0), (3) queue position tracking on hand-crafted scenarios with known exact results, (4) the overflow correction term via a scenario where min(0, back-prob*chg) < 0, (5) cum_trade_qty interaction with depth updates, (6) results.json structural validity, (7) book snapshot consistency (bid < ask), (8) P&L consistency cross-referenced against orders.json."""
+category = "applied_computing"
+tags = ["quantitative-finance", "market-microstructure"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d66ace"

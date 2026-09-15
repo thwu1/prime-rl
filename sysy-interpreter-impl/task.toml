@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a SysY-to-LLVM-IR compiler requires expert knowledge spanning compiler construction and the LLVM toolchain. The agent must produce valid LLVM IR (understanding SSA-compatible alloca/load/store patterns, getelementptr addressing for multi-dimensional arrays, basic block structure with proper terminators, and opaque pointer semantics). Array initialization with brace-elision, short-circuit evaluation generating correct basic block graphs, and array pass-by-reference via GEP pointer arithmetic are each individually tricky. The agent must also navigate the multi-tool verification pipeline (llvm-as, llvm-link, lli) and debug IR validity errors from LLVM's assembler—a workflow unfamiliar to most developers."""
+solution_explanation = """The reference solution is a Python SysY-to-LLVM-IR compiler (~850 lines): a tokenizer handling all SysY lexical elements, a recursive descent parser following the SysY EBNF grammar, and an LLVM IR code generator using an alloca-based approach (avoiding explicit SSA phi nodes). It emits proper getelementptr instructions for multi-dimensional array access, uses basic-block-level short-circuit evaluation for && and ||, handles array parameter passing with opaque pointers, and produces well-formed LLVM IR that passes llvm-as verification, links with the SysY runtime via llvm-link, and executes correctly under lli."""
+verification_explanation = """23 pytest test cases each run the full LLVM toolchain pipeline (sysyc → llvm-as → llvm-link → lli) on a SysY program and verify both stdout content and process exit code. Tests cover: basic returns, arithmetic/precedence, if/else, while loops, recursion (GCD, fibonacci), multi-dimensional array initialization with brace-elision, short-circuit evaluation with side effects, variable scoping/shadowing, array pass-by-reference, break/continue, hex/octal literals, unary operators, C-style negative division/modulo, const expressions as array dims, void functions, 2D array parameters, global initialization, and complex nested control flow."""
+category = "systems-programming"
+tags = ["compilers", "llvm"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sysy-interpreter-impl"

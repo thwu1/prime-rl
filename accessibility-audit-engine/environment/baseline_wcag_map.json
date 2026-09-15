@@ -1,0 +1,34 @@
+{
+  "6.A-MeaningfulImage": {
+    "wcag_sc": ["1.1.1"],
+    "description": "Meaningful images must have text alternatives that serve the equivalent purpose"
+  },
+  "6.B-DecorativeImage": {
+    "wcag_sc": ["1.1.1"],
+    "description": "Decorative images must be properly hidden from assistive technology"
+  },
+  "8.A-ContrastMinimum": {
+    "wcag_sc": ["1.4.3"],
+    "description": "Text and images of text must have sufficient contrast ratio (4.5:1 regular, 3:1 large)"
+  },
+  "10.A-FormName": {
+    "wcag_sc": ["4.1.2"],
+    "description": "Form components must have programmatically determinable accessible names"
+  },
+  "11.A-PageTitle": {
+    "wcag_sc": ["2.4.2"],
+    "description": "Web pages must have descriptive titles defined in the title element"
+  },
+  "13.A-LanguageOfPage": {
+    "wcag_sc": ["3.1.1"],
+    "description": "The default human language of each web page must be programmatically determinable"
+  },
+  "14.A-LinkPurpose": {
+    "wcag_sc": ["2.4.4"],
+    "description": "The purpose of each link must be determinable from the link text or context"
+  },
+  "15.A-IframeName": {
+    "wcag_sc": ["4.1.2"],
+    "description": "Each iframe must have an accessible name via the title attribute"
+  }
+}

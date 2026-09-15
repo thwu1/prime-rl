@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of chezmoi's source state naming grammar — specifically the strict prefix ordering that differs across target types (directories: remove/external/exact/private/readonly/dot; regular files: encrypted/private/readonly/empty/executable/dot; scripts: run/once|onchange/before|after). Also requires understanding Go template variable scoping (top-level data vs namespaced), modify_ script stdin/stdout semantics, run_onchange_ SHA256 trigger patterns, .chezmoiignore template expressions, exact_ directory cleanup semantics, includeTemplate function with .chezmoitemplates/ named templates, and template conditional logic debugging. Ten distinct interacting bugs must be identified and fixed across prefix ordering, template composition, data flow, script lifecycle, and directory management."""
+solution_explanation = """Fix prefix ordering (executable_private→private_executable for files, readonly_private→private_readonly for directories), remove invalid once_+onchange_ combo in script prefix and add SHA256 hash trigger, add missing full_name/email to .chezmoidata.toml, fix .data.X→.X template paths in gitconfig, replace .chezmoi.operatingSystem with .chezmoi.os in ignore template and add packages.txt entry, rewrite modify_ script to preserve stdin content and append idempotently, fix includeTemplate reference from 'hdr' to 'header' in inputrc template, add exact_ prefix to dot_local_bin directory for unmanaged file cleanup, and fix ne→eq template condition in configure-tools script."""
+verification_explanation = """Tests install chezmoi at runtime, run the fix script, then chezmoi apply, and verify: target files exist with correct templated content (no raw {{ }} syntax), correct permissions (0700 for private+executable, 0500 for private+readonly dir), pre-existing aliases preserved by modify_ script, packages.txt excluded from target, install-deps and configure-tools marker files created, SHA256 trigger pattern present in source, exact_ directory cleaning removed unmanaged files, includeTemplate rendered correctly in inputrc, source state files correctly renamed, and template conditions fixed."""
+category = "software_configuration"
+tags = ["chezmoi", "dotfiles-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/chezmoi-dotfiles-repair"

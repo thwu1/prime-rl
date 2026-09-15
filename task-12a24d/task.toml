@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding BM25 variants, nDCG@10 evaluation metrics, and document-length normalization trade-offs. Default BM25 with b=0.75 yields ~0.17 nDCG@10 on this corpus; the agent must tune parameters (reducing b) or implement BM25+ to push above the 0.20 threshold. Document IDs are randomized per instance via a DNA mechanism, preventing hardcoded solutions. The Pony language domain is obscure, making keyword matching and query expansion non-trivial."""
+solution_explanation = """Uses BM25+ retrieval with rank_bm25 library, tuned parameters k1=1.2, b=0.4. Reduced b lessens document-length normalization penalty on longer Pony docs. Loads documents and queries from instance-specific JSON files (with per-instance DNA-remapped document IDs), builds BM25+ index, scores all documents per query, filters excluded IDs, and keeps top 1000. Achieves nDCG@10 ~0.217."""
+verification_explanation = """Tests decode per-instance ground truth from compressed binary at /app/.bright_eval/ground_truth.bin, verify DNA integrity (document IDs carry instance-specific prefix from /app/.bright_eval/dna.txt), check output format and completeness, validate excluded ID filtering, and compute nDCG@10 via pytrec_eval against hidden relevance judgments. Threshold is 0.20."""
+category = "data_science"
+tags = ["information-retrieval", "nlp"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-12a24d"

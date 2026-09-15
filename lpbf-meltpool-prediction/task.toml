@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in computational heat transfer, additive manufacturing thermal modeling, and numerical methods. The agent must correctly implement the Rosenthal analytical solution for a moving point source on a semi-infinite body, find melt pool boundaries using nested optimization and root-finding, compute multi-track heat accumulation through numerical integration of instantaneous point source Green's functions along completed track paths, handle coordinate transformations for bidirectional raster scanning, derive the solidification cooling rate from the analytical surface centerline expression, and compute primary dendrite arm spacing. Common pitfalls include singularity handling at R=0, incorrect sign conventions in the exponential term, missing the factor-of-2 for the adiabatic surface image source in the pre-heat integral, incorrect time bookkeeping for alternating scan directions, and numerical convergence failures in the optimization and root-finding routines."""
+solution_explanation = """The solution implements the Rosenthal quasi-steady-state point source model using scipy. Single-track melt pool boundaries are found by (1) for each candidate y or z, using bounded minimization to find the xi that maximizes temperature, then (2) using Brent's method to find the y or z where the maximum temperature equals the liquidus. The trailing melt pool length has a closed-form expression since the exponential factor is unity on the surface centerline behind the source. Multi-track pre-heat is computed by integrating the 3D instantaneous point source Green's function (with factor 2 for the image source) along each completed track path using adaptive quadrature, summing contributions from all prior tracks. The effective melt pool depth with pre-heat replaces T_ambient with the pre-heat temperature in the root-finding. The cooling rate is derived analytically from the 1/|xi| temperature profile on the surface centerline. PDAS uses the empirical power law from the config."""
+verification_explanation = """The test independently implements the Rosenthal thermal model with scipy optimization and integration, computing its own reference values. The agent's results.json is compared against these reference values with relative tolerances: 3% for single-track dimensions, 10% for pre-heat temperature rise above ambient, 5% for melt pool depths with pre-heat, 5% for cooling rate, and 10% for PDAS. The test also verifies structural correctness of the output (required keys, correct types)."""
+category = "physics"
+tags = ["additive-manufacturing", "thermal-modeling"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lpbf-meltpool-prediction"

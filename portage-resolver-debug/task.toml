@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing six interacting bugs across five Python modules (version comparator, USE-conditional evaluator, config parser, resolver backtracking, database layer) plus implementing four non-trivial components (newuse rebuild detection, topological merge ordering, strategy comparison evaluator, DOT graph generator) in a Portage-style world upgrade planner. The database layer bug strips := slot operators during dep string sanitization, which is only diagnosable by cross-referencing raw SQLite3 data against Python runtime behavior using the sqlite3 CLI tool. Strategy evaluation requires the solver to design and compare two upgrade strategies (prefer-newest vs minimize-rebuilds) and evaluate which produces fewer total merges — a judgment requiring holistic understanding of PMS slot-operator rebuild cascades. The DOT graph must be validated with graphviz. All bugs interact: the config and depstring bugs jointly corrupt USE-flag evaluation, the version bug prevents letter-suffix upgrade detection, the solver bugs break backtracking and transitive rebuilds, and the database bug prevents := detection entirely."""
+solution_explanation = """Six fixes: (1) version.py: float('inf')->0 for absent letter per PMS; (2) depstring.py: eliminate negate state leak across sibling USE conditionals; (3) config.py: handle -flag as exclusion in make.conf; (4) solver.py: clean _slot_map in remove() for correct backtracking; (5) solver.py: add recursion to _collect_slot_op_rdeps for transitive := rebuilds; (6) database.py: remove _sanitize_dep regex that strips = from slot operators. Four implementations: (7) planner.py compute_newuse_rebuilds: compare installed vs effective USE, evaluate deps with each, detect differences; (8) planner.py compute_merge_order: build dependency graph, topological sort via Kahn's algorithm; (9) evaluator.py: compute upgrade lists under both strategies (minimize_rebuilds prefers same-subslot versions), count slot rebuilds for each, compare total merges; (10) graph.py: generate DOT with labeled nodes and edges including := annotations."""
+verification_explanation = """Tests verify each component independently and in integration: PMS version ordering (letter suffixes, release suffixes, revisions), USE conditional evaluation (positive, negated, sibling independence, any-of), resolver backtracking (fallback to older versions, parent chain backtracking), slot-operator rebuild propagation (transitive := chains), config parsing (global USE with -flag exclusion, per-package overrides), version upgrade detection (letter-suffix upgrade, all 7 expected, no spurious), newuse detection (client only, no false positives), slot rebuilds (render + viewer, excludes upgraded), topological merge ordering (8 specific ordering constraints), full plan JSON structure and correctness, strategy comparison (prefer_newest 10 merges vs minimize_rebuilds 8 merges, codec version difference, recommended strategy), and DOT graph validity (parseable by dot, contains all nodes, contains edges)."""
+category = "debugging"
+tags = ["package-management", "dependency-resolution", "sqlite3"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/portage-resolver-debug"

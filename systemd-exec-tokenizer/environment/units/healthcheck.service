@@ -1,0 +1,23 @@
+# Intended behavior:
+# Pre-start step 1: Check that dependencies are available (short-lived)
+# Pre-start step 2: Run database migration (short-lived)
+# Main: Start the application as a forking daemon on APP_PORT, writing PID file
+# Post-start: Poll the health endpoint in a loop until it responds with HTTP 200
+#
+# The two pre-start checks must run as separate sequential steps.
+# The health check poll requires a shell loop construct.
+[Unit]
+Description=Health-checked Application
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/run/myapp.pid
+Environment="APP_PORT=8080"
+Environment="HEALTH_EP=/healthz"
+ExecStartPre=/usr/local/bin/check-deps && /usr/local/bin/migrate-db
+ExecStart=/usr/local/bin/myapp --port ${APP_PORT} --daemonize --pidfile /run/myapp.pid
+ExecStartPost=while ! curl -sf http://localhost:${APP_PORT}${HEALTH_EP}; do sleep 1; done
+
+[Install]
+WantedBy=multi-user.target

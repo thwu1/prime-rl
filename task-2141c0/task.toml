@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD knowledge to: (1) reverse-engineer legacy PLOT2D structured grid and Tecplot ASCII multi-zone file formats from raw data, (2) determine and implement the correct grid convergence analysis methodology from field-standard abbreviations in the output schema, (3) compute boundary layer integral quantities from velocity profiles with proper edge-velocity detection, (4) identify and analyze wall-unit velocity profiles in the appropriate region, and (5) extract eddy viscosity statistics. Additionally requires gnuplot proficiency for generating publication-quality EPS convergence plots and SQLite expertise for designing and populating a relational benchmark database — tools most practitioners rarely use together with numerical Python analysis."""
+solution_explanation = """The solution implements a multi-tool pipeline: (1) Python with numpy for parsing PLOT2D and Tecplot formats, computing Richardson extrapolation with iterative fixed-point solver for convergence order, boundary layer integrals via trapezoidal rule, log-law fitting via least-squares, and eddy viscosity peak detection; (2) gnuplot scripted via subprocess to produce an EPS convergence plot with log-scaled axes and extrapolated reference lines; (3) sqlite3 to create a four-table benchmark database with raw data, computed results, velocity profiles, and scalar analysis summaries."""
+verification_explanation = """Tests verify three deliverables: (1) results.json numerical values against independently computed references with appropriate tolerances — grid dimensions exact, convergence order within 0.15, extrapolated values within 1%, BL integrals within 10%, shape factor within 5%; (2) convergence.eps is valid PostScript containing CFL3D/FUN3D labels and non-trivial size; (3) benchmark.db has four required tables with correct row counts and specific queryable convergence results matching reference values within 1%."""
+category = "physics_engineering"
+tags = ["cfd", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2141c0"

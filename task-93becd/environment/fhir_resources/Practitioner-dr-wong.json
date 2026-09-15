@@ -1,0 +1,25 @@
+{
+  "resourceType": "Practitioner",
+  "id": "dr-wong",
+  "name": [
+    {
+      "family": "Wong",
+      "given": [
+        "David"
+      ]
+    }
+  ],
+  "qualification": [
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360",
+            "code": "MD",
+            "display": "Doctor of Medicine"
+          }
+        ]
+      }
+    }
+  ]
+}

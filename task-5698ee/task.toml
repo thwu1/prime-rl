@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of EIP-712 typed structured data specification and multi-file TypeScript debugging. The solver must locate correctness bugs distributed across encoder.ts and hasher.ts without any hints about what is wrong, requiring systematic comparison against the EIP-712 standard. Beyond bug fixing, the solver must architect and implement two new CLI output modes (--json with structured intermediate-hash output and --verify with exit-code signaling), which requires design decisions about how to thread internal pipeline state through the module boundary and expose it via CLI."""
+solution_explanation = """Five bugs must be located and fixed across two files: (1) In encoder.ts, findTypeDependencies does not strip array brackets from field types like 'Item[]', so struct dependencies referenced through arrays are silently lost. (2) In encoder.ts, encodeType sorts all dependencies including the primary type alphabetically instead of placing the primary type first. (3) In encoder.ts, signed integer encoding uses absolute value instead of two's complement for negative values. (4) In encoder.ts, dynamic bytes encoding treats 0x-prefixed hex strings as UTF-8 instead of decoding them as raw bytes. (5) In hasher.ts, computeSigningHash concatenates messageHash before domainSeparator instead of the correct order. Beyond fixing these bugs, the solver must implement --json mode (requiring additional imports from encoder.ts for findTypeDependencies/encodeType/typeHash, collecting all struct dependencies, filtering out EIP712Domain and the primary type, and building a structured JSON output with intermediate hashes) and --verify mode (requiring CLI argument parsing and process exit code handling). The multi-file architecture forces tracing data flow across module boundaries."""
+verification_explanation = """Tests use a Python reference implementation of EIP-712 (validated against the canonical Ether Mail test vector with known intermediate hashes) to compute expected values for 8 diverse test vectors covering: canonical nested structs, type ordering edge cases, array-typed struct dependencies, negative signed integers, hex-encoded dynamic bytes, deep nesting with diamond dependencies, DeFi swap with multiple array fields, and fixed-size bytes32 with max uint256. Additional test classes verify --json output structure and intermediate hash correctness (4 tests) and --verify mode exit codes including case-insensitive matching (3 tests). Total: 20 tests across 5 test classes."""
+category = "cryptography"
+tags = ["ethereum", "typescript"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5698ee"

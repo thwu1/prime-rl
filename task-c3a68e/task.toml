@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level embedded systems knowledge to audit and repair a Hubris RTOS firmware configuration. The solver must: (1) reverse-engineer the ARM Cortex-M MPU memory allocation algorithm from Rust source code (power-of-2 sizing, natural alignment, priority-ordered placement); (2) synthesize RTOS validation constraints from architectural documentation — peripheral exclusivity, interrupt-notification consistency, IPC deadlock detection, priority inversion analysis; (3) query a SQLite chip reference database to determine valid peripheral pin remappings and DMA channel-to-peripheral bindings for designing a corrected configuration; (4) use jq to extract actual compiled binary sizes from a JSON build manifest to evaluate memory budget reductions; (5) design a corrected configuration that resolves all errors while preserving system functionality — requiring evaluation of multiple valid fix strategies and trade-offs; (6) generate and render a dependency graph with Graphviz to validate the corrected design. The critical non-obvious insight is that while raw RAM totals fit within 512KB, MPU alignment padding (a 256KB-aligned sensor_hub allocation creates 160KB+ of wasted gap) causes RAM overflow — discoverable only by faithfully implementing the allocator from the Rust source."""
+solution_explanation = """The solution uses sqlite3 CLI to query chip_reference.db for valid DMA controller mappings (hash peripheral is on dma1, not the nonexistent dma2) and alternative GPIO pin assignments (i2c1 can use gpio_d pins PD12/PD13, resolving the gpio_b conflict with spi_driver). It uses jq to extract sensor_hub's actual RAM usage (25200 bytes) from build_manifest.json, determining the 262144-byte allocation can be safely reduced to 32768. The Python analyzer then: validates the original config (finding 7 errors), computes MPU-aligned memory layout, creates a fixed app.toml (reassigning peripherals, fixing DMA, removing invalid task-slot, adding missing notification, breaking dependency cycle, adjusting priority, reducing RAM), generates a Graphviz DOT dependency graph rendered to SVG with dot, and produces an optimization report comparing original vs fixed memory utilization."""
+verification_explanation = """Tests verify: (1) all 7 original validation errors via flexible JSON substring matching; (2) specific MPU-aligned flash and RAM addresses computed from the allocator algorithm; (3) the fixed config passes comprehensive property-based validation — no peripheral conflicts, no undefined peripherals, no invalid task-slots, interrupt-notification consistency, no dependency cycles, no priority inversions, MPU-aligned RAM/flash fits within capacity, sensor_hub RAM appropriately reduced, all original tasks preserved; (4) Graphviz DOT file contains valid digraph syntax with task nodes, SVG output exists and is valid; (5) optimization report documents original vs fixed memory utilization with overflow status and at least 5 fix justifications."""
+category = "systems_programming"
+tags = ["embedded_systems", "rtos_configuration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c3a68e"

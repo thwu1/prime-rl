@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in automatic differentiation theory, numerical linear algebra, and recurrent neural network internals. The solver must read unfamiliar framework code to reverse-engineer conventions (e.g., transposed weight layouts, non-standard initialization patterns), independently derive correct gradient formulas for operations like BroadcastTo and batched MatMul where shape mismatches demand careful dimensional reasoning, implement a full LSTM with correct gate decomposition and multi-layer state management using framework-specific tensor decomposition ops, and build an Adam optimizer with bias-corrected moments — all without any guidance on algorithms or approaches. A deep dependency chain means each component must be exactly correct for downstream modules to function."""
+solution_explanation = """Implement topological sort via post-order DFS for the AD engine, then reverse-mode gradient propagation by traversing in reverse topo order and accumulating partial gradients. Each tensor op requires deriving forward and backward passes: BroadcastTo gradient must identify and sum over broadcast axes, MatMul gradient must handle batch-dimension mismatches via summation. NN modules must follow the framework's weight conventions (kaiming_uniform for Linear, uniform from U(-sqrt(k), sqrt(k)) for LSTM). LSTM requires splitting concatenated 4H-wide gate matrices, applying sigmoid/tanh activations, and managing hidden/cell state across timesteps and layers using stack/split ops. Adam requires bias-corrected first/second moment estimates with weight decay applied to gradients before moment updates."""
+verification_explanation = """Tests verify: (1) topological sort ordering invariants, (2) gradient computation on simple, complex, and diamond-shaped graphs, (3) each op's forward pass against numpy and backward pass via numerical gradient checking with central differences, (4) NN module outputs against pure-numpy reference implementations with shared weights, (5) LSTM cell and multi-layer LSTM against numpy references, (6) Adam optimizer step against a numpy reference, (7) LanguageModel shape correctness and gradient flow through the full model."""
+category = "machine_learning"
+tags = ["automatic-differentiation", "deep-learning-systems"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/needle-autograd-lstm"

@@ -1,0 +1,28 @@
+# Lake at rest test case
+# Validates well-balancedness of the solver
+DomainMin
+0.0
+DomainMax
+25.0
+NumberOfCells
+200
+TopographyType
+Bump
+InitialCondition
+UniformHeight
+InitialHeight
+0.5
+InitialDischarge
+0.0
+LeftBoundaryCondition
+Wall
+RightBoundaryCondition
+Wall
+FinalTime
+100.0
+GravityAcceleration
+9.81
+ManningCoefficient
+0.0
+CFL
+0.9

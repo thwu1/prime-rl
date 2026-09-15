@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<erddapDatasets>
+
+<!-- Built-in ETOPO topography/bathymetry datasets -->
+<dataset type="EDDGridFromEtopo" datasetID="etopo180" />
+<dataset type="EDDGridFromEtopo" datasetID="etopo360" />
+
+<!-- EDDGridSideBySide: merges variables from multiple child datasets -->
+<dataset type="EDDGridSideBySide" datasetID="erdTAssh1day">
+  <dataset type="EDDGridFromDap" datasetID="erdTAsshl1day">
+    <sourceUrl>https://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/TA/sshl/1day</sourceUrl>
+    <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+    <addAttributes>
+      <att name="title">SSH Absolute, Aviso, 0.25 deg, Global</att>
+      <att name="institution">NOAA NMFS SWFSC ERD</att>
+      <att name="Conventions">COARDS, CF-1.6, ACDD-1.3</att>
+    </addAttributes>
+    <axisVariable><sourceName>time</sourceName></axisVariable>
+    <axisVariable><sourceName>altitude</sourceName></axisVariable>
+    <axisVariable>
+      <sourceName>lat</sourceName>
+      <destinationName>latitude</destinationName>
+    </axisVariable>
+    <axisVariable>
+      <sourceName>lon</sourceName>
+      <destinationName>longitude</destinationName>
+    </axisVariable>
+    <dataVariable>
+      <sourceName>TAsshl</sourceName>
+      <destinationName>ssh</destinationName>
+      <dataType>float</dataType>
+      <addAttributes>
+        <att name="ioos_category">Sea Level</att>
+        <att name="long_name">Sea Surface Height</att>
+        <att name="standard_name">sea_surface_height_above_geoid</att>
+        <att name="units">m</att>
+      </addAttributes>
+    </dataVariable>
+  </dataset>
+  <dataset type="EDDGridFromDap" datasetID="erdTAsshd1day">
+    <sourceUrl>https://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/TA/sshd/1day</sourceUrl>
+    <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+    <addAttributes>
+      <att name="title">SSH Deviation, Aviso, 0.25 deg, Global</att>
+      <att name="institution">NOAA CoastWatch, West Coast Node</att>
+      <att name="Conventions">COARDS, CF-1.6, ACDD-1.3</att>
+    </addAttributes>
+    <axisVariable><sourceName>time</sourceName></axisVariable>
+    <axisVariable><sourceName>altitude</sourceName></axisVariable>
+    <axisVariable>
+      <sourceName>lat</sourceName>
+      <destinationName>latitude</destinationName>
+    </axisVariable>
+    <axisVariable>
+      <sourceName>lon</sourceName>
+      <destinationName>longitude</destinationName>
+    </axisVariable>
+    <dataVariable>
+      <sourceName>TAsshd</sourceName>
+      <destinationName>sshd</destinationName>
+      <dataType>float</dataType>
+      <addAttributes>
+        <att name="ioos_category">Sea Level</att>
+        <att name="long_name">Sea Surface Height Deviation</att>
+        <att name="units">m</att>
+      </addAttributes>
+    </dataVariable>
+  </dataset>
+</dataset>
+
+<!-- EDDGridFromErddap: proxies data from a remote ERDDAP server -->
+<dataset type="EDDGridFromErddap" datasetID="jplMURSST41" active="true">
+  <sourceUrl>https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41</sourceUrl>
+</dataset>
+
+<!-- Inactive dataset: must be filtered from active listings -->
+<dataset type="EDDGridFromErddap" datasetID="oldDeprecatedSST" active="false">
+  <sourceUrl>https://old.server.noaa.gov/erddap/griddap/oldSST</sourceUrl>
+</dataset>
+
+<!-- EDDGridLon0360: wraps inner dataset to present longitude in 0-360 range -->
+<dataset type="EDDGridLon0360" datasetID="erdMH1chla8day_Lon0360">
+  <dataset type="EDDGridFromErddap" datasetID="erdMH1chla8day_inner">
+    <sourceUrl>https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla8day</sourceUrl>
+  </dataset>
+</dataset>
+
+<!-- EDDGridLonPM180: wraps inner dataset to present longitude in -180 to +180 range -->
+<dataset type="EDDGridLonPM180" datasetID="erdNavgem05D10mWind_LonPM180">
+  <dataset type="EDDGridFromErddap" datasetID="erdNavgem05D10mWind_inner">
+    <sourceUrl>https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdNavgem05D10mWind</sourceUrl>
+  </dataset>
+</dataset>
+
+<!-- EDDGridFromDap with full variable and axis definitions -->
+<dataset type="EDDGridFromDap" datasetID="erdMBsstd1day" active="true">
+  <sourceUrl>https://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/MB/sstd/1day</sourceUrl>
+  <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+  <addAttributes>
+    <att name="title">SST, Aqua MODIS, NPP, 0.025 deg, West US, Day and Night</att>
+    <att name="institution">NOAA NMFS SWFSC ERD</att>
+    <att name="Conventions">COARDS, CF-1.6, ACDD-1.3</att>
+    <att name="creator_email">erd.data@noaa.gov</att>
+    <att name="creator_name">NOAA NMFS SWFSC ERD</att>
+    <att name="standard_name_vocabulary">CF Standard Name Table v70</att>
+  </addAttributes>
+  <axisVariable><sourceName>time</sourceName></axisVariable>
+  <axisVariable><sourceName>altitude</sourceName></axisVariable>
+  <axisVariable>
+    <sourceName>lat</sourceName>
+    <destinationName>latitude</destinationName>
+  </axisVariable>
+  <axisVariable>
+    <sourceName>lon</sourceName>
+    <destinationName>longitude</destinationName>
+  </axisVariable>
+  <dataVariable>
+    <sourceName>MBsstd</sourceName>
+    <destinationName>sst</destinationName>
+    <dataType>float</dataType>
+    <addAttributes>
+      <att name="ioos_category">Temperature</att>
+      <att name="long_name">Sea Surface Temperature</att>
+      <att name="standard_name">sea_surface_temperature</att>
+      <att name="units">degree_C</att>
+    </addAttributes>
+  </dataVariable>
+</dataset>
+
+<!-- Tabular datasets via EDDTableFromErddap -->
+<dataset type="EDDTableFromErddap" datasetID="cwwcNDBCMet" active="true">
+  <sourceUrl>https://coastwatch.pfeg.noaa.gov/erddap/tabledap/cwwcNDBCMet</sourceUrl>
+</dataset>
+
+<dataset type="EDDTableFromErddap" datasetID="erdGtsppBest" active="true">
+  <sourceUrl>https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdGtsppBest</sourceUrl>
+</dataset>
+
+<!-- EDDGridAggregateExistingDimension: concatenates along an existing axis (time) -->
+<dataset type="EDDGridAggregateExistingDimension" datasetID="erdAGchla_agg">
+  <dataset type="EDDGridFromDap" datasetID="erdAGchla_part1">
+    <sourceUrl>https://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/AG/chla/8day/part1</sourceUrl>
+    <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+    <addAttributes>
+      <att name="title">Chlorophyll, Aqua MODIS, Global (Part 1)</att>
+    </addAttributes>
+    <axisVariable><sourceName>time</sourceName></axisVariable>
+    <axisVariable>
+      <sourceName>lat</sourceName>
+      <destinationName>latitude</destinationName>
+    </axisVariable>
+    <axisVariable>
+      <sourceName>lon</sourceName>
+      <destinationName>longitude</destinationName>
+    </axisVariable>
+    <dataVariable>
+      <sourceName>chlor_a</sourceName>
+      <destinationName>chlorophyll</destinationName>
+      <dataType>float</dataType>
+      <addAttributes>
+        <att name="units">mg m-3</att>
+        <att name="long_name">Chlorophyll-a Concentration</att>
+        <att name="standard_name">mass_concentration_of_chlorophyll_a_in_sea_water</att>
+      </addAttributes>
+    </dataVariable>
+  </dataset>
+  <dataset type="EDDGridFromDap" datasetID="erdAGchla_part2">
+    <sourceUrl>https://oceanwatch.pfeg.noaa.gov/thredds/dodsC/satellite/AG/chla/8day/part2</sourceUrl>
+    <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+    <addAttributes>
+      <att name="title">Chlorophyll, Aqua MODIS, Global (Part 2)</att>
+    </addAttributes>
+    <axisVariable><sourceName>time</sourceName></axisVariable>
+    <axisVariable>
+      <sourceName>lat</sourceName>
+      <destinationName>latitude</destinationName>
+    </axisVariable>
+    <axisVariable>
+      <sourceName>lon</sourceName>
+      <destinationName>longitude</destinationName>
+    </axisVariable>
+    <dataVariable>
+      <sourceName>chlor_a</sourceName>
+      <destinationName>chlorophyll</destinationName>
+      <dataType>float</dataType>
+      <addAttributes>
+        <att name="units">mg m-3</att>
+        <att name="long_name">Chlorophyll-a Concentration</att>
+        <att name="standard_name">mass_concentration_of_chlorophyll_a_in_sea_water</att>
+      </addAttributes>
+    </dataVariable>
+  </dataset>
+</dataset>
+
+<!-- Intentional duplicate datasetID for validation testing -->
+<dataset type="EDDGridFromErddap" datasetID="jplMURSST41" active="true">
+  <sourceUrl>https://other.server.noaa.gov/erddap/griddap/jplMURSST41</sourceUrl>
+</dataset>
+
+<!-- Deep nesting: EDDGridLon0360 wrapping EDDGridSideBySide with two EDDGridFromDap children -->
+<dataset type="EDDGridLon0360" datasetID="erdWindComposite_0360">
+  <dataset type="EDDGridSideBySide" datasetID="erdWindComposite_sbs">
+    <dataset type="EDDGridFromDap" datasetID="erdQSwind_u">
+      <sourceUrl>https://coastwatch.pfeg.noaa.gov/thredds/dodsC/satellite/QS/ux10/1day</sourceUrl>
+      <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+      <addAttributes>
+        <att name="title">Wind, QuikSCAT, Zonal, Global, Science Quality</att>
+        <att name="institution">NOAA NMFS SWFSC ERD</att>
+      </addAttributes>
+      <axisVariable><sourceName>time</sourceName></axisVariable>
+      <axisVariable><sourceName>altitude</sourceName></axisVariable>
+      <axisVariable>
+        <sourceName>lat</sourceName>
+        <destinationName>latitude</destinationName>
+      </axisVariable>
+      <axisVariable>
+        <sourceName>lon</sourceName>
+        <destinationName>longitude</destinationName>
+      </axisVariable>
+      <dataVariable>
+        <sourceName>ux10</sourceName>
+        <destinationName>x_wind</destinationName>
+        <dataType>float</dataType>
+        <addAttributes>
+          <att name="ioos_category">Wind</att>
+          <att name="long_name">Zonal Wind Speed at 10m</att>
+          <att name="standard_name">x_wind</att>
+          <att name="units">m s-1</att>
+        </addAttributes>
+      </dataVariable>
+    </dataset>
+    <dataset type="EDDGridFromDap" datasetID="erdQSwind_v">
+      <sourceUrl>https://coastwatch.pfeg.noaa.gov/thredds/dodsC/satellite/QS/uy10/1day</sourceUrl>
+      <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+      <addAttributes>
+        <att name="title">Wind, QuikSCAT, Meridional, Global, Science Quality</att>
+        <att name="institution">NOAA NMFS SWFSC ERD</att>
+      </addAttributes>
+      <axisVariable><sourceName>time</sourceName></axisVariable>
+      <axisVariable><sourceName>altitude</sourceName></axisVariable>
+      <axisVariable>
+        <sourceName>lat</sourceName>
+        <destinationName>latitude</destinationName>
+      </axisVariable>
+      <axisVariable>
+        <sourceName>lon</sourceName>
+        <destinationName>longitude</destinationName>
+      </axisVariable>
+      <dataVariable>
+        <sourceName>uy10</sourceName>
+        <destinationName>y_wind</destinationName>
+        <dataType>float</dataType>
+        <addAttributes>
+          <att name="ioos_category">Wind</att>
+          <att name="long_name">Meridional Wind Speed at 10m</att>
+          <att name="standard_name">y_wind</att>
+          <att name="units">m s-1</att>
+        </addAttributes>
+      </dataVariable>
+    </dataset>
+  </dataset>
+</dataset>
+
+<!-- Dataset with insecure HTTP source URL (for validation testing) -->
+<dataset type="EDDGridFromDap" datasetID="legacyInsecureSst" active="true">
+  <sourceUrl>http://legacy.oceanwatch.noaa.gov/thredds/dodsC/satellite/BA/ssta/1day</sourceUrl>
+  <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+  <addAttributes>
+    <att name="title">SST Anomaly, Blended Analysis, Legacy Server</att>
+    <att name="institution">NOAA CoastWatch</att>
+  </addAttributes>
+  <axisVariable><sourceName>time</sourceName></axisVariable>
+  <axisVariable>
+    <sourceName>lat</sourceName>
+    <destinationName>latitude</destinationName>
+  </axisVariable>
+  <axisVariable>
+    <sourceName>lon</sourceName>
+    <destinationName>longitude</destinationName>
+  </axisVariable>
+  <dataVariable>
+    <sourceName>BAsta</sourceName>
+    <destinationName>ssta</destinationName>
+    <dataType>float</dataType>
+    <addAttributes>
+      <att name="ioos_category">Temperature</att>
+      <att name="long_name">SST Anomaly</att>
+      <att name="standard_name">sea_surface_temperature_anomaly</att>
+      <att name="units">degree_C</att>
+    </addAttributes>
+  </dataVariable>
+</dataset>
+
+<!-- Local NetCDF file dataset -->
+<dataset type="EDDGridFromNcFiles" datasetID="localBathyGrid" active="true">
+  <fileDir>/app/source_data/</fileDir>
+  <fileNameRegex>sample_bathy\.nc</fileNameRegex>
+  <reloadEveryNMinutes>10080</reloadEveryNMinutes>
+  <addAttributes>
+    <att name="title">Local Bathymetry Grid</att>
+    <att name="institution">NOAA NGDC</att>
+    <att name="Conventions">CF-1.6</att>
+  </addAttributes>
+  <axisVariable>
+    <sourceName>latitude</sourceName>
+  </axisVariable>
+  <axisVariable>
+    <sourceName>longitude</sourceName>
+  </axisVariable>
+  <dataVariable>
+    <sourceName>elevation</sourceName>
+    <destinationName>topo</destinationName>
+    <dataType>short</dataType>
+    <addAttributes>
+      <att name="long_name">Topography/Bathymetry</att>
+      <att name="standard_name">surface_altitude</att>
+      <att name="units">m</att>
+    </addAttributes>
+  </dataVariable>
+</dataset>
+
+</erddapDatasets>

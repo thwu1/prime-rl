@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of PostgreSQL security internals: Row-Level Security semantics and their interaction with SECURITY DEFINER function execution context, search_path injection attacks in privileged functions, path traversal exploitation via pg_read_file, and multi-tenant privilege architecture design. The solver must not only discover five distinct vulnerability classes but evaluate their severity, identify attack chains between them (e.g., excessive CREATE privilege + unpinned search_path enables full privilege escalation from tenant to superuser), and design hardening SQL that precisely closes each attack vector without disrupting the application's legitimate multi-tenant operations, cross-tenant reporting, utility functions, and backup export capabilities."""
+solution_explanation = """Phase 1 — Discovery: Enumerate SECURITY DEFINER functions via pg_proc and test each for RLS bypass, search_path pinning, and input validation flaws. Check schema privileges via has_schema_privilege(). Attempt path traversal through export_backup. Query system_config as tenant to confirm credential exposure. Phase 2 — Assessment: Classify the five vulnerabilities (RLS bypass=critical, search_path injection=high, excessive CREATE=high, path traversal=critical, credential exposure=high) with CWE codes and document attack chains. Phase 3 — Hardening: (V1) Convert monthly_summary from SECURITY DEFINER to SECURITY INVOKER with pinned search_path so RLS applies per caller; (V2) Add SET search_path=pg_catalog,saas to format_currency; (V3) REVOKE CREATE ON SCHEMA saas FROM tenant_alpha; (V4) Add path traversal rejection (detect '..' sequences) to export_backup before the whitelist check; (V5) REVOKE SELECT ON saas.system_config FROM tenant_alpha. Phase 4 — Verify all attacks fail and all legitimate operations still work."""
+verification_explanation = """Tests verify three dimensions: (1) Assessment quality — assessment.json must contain ≥5 entries covering all five vulnerability classes (RLS bypass, search_path injection, excessive privilege, path traversal, credential exposure) with ≥2 rated critical; (2) Hardening effectiveness — five attack-simulation tests confirm each vector is closed (cross-tenant data via monthly_summary returns zero, format_currency has pinned search_path, CREATE TABLE in saas schema fails, path traversal in export_backup raises error, cleartext passwords unreadable by tenant); (3) Functional integrity — six tests confirm legitimate operations survive hardening (tenant reads own data, tenant isolation preserved, reporting service generates summaries, format_currency formats correctly, backup export works for valid paths)."""
+category = "cybersecurity"
+tags = ["postgresql-security", "privilege-escalation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/clickhouse-attack-surface"

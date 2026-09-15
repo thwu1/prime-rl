@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level C systems programming and security engineering. The agent must analyze an existing slab-based allocator with 12 size classes, understand its virtual memory layout (mmap-backed slabs, chunk headers, free lists, pointer arithmetic with alignment constraints), and independently design multiple interacting security mechanisms: integrity verification that detects both metadata tampering and buffer overflows without being told what data structures to add or where to place them; a freed-state tracking scheme integrated into the existing header; memory scrubbing across full size-class extents; and a complete redesign of the large allocation mmap layout to incorporate hardware-enforced fault isolation — all while preserving 16-byte alignment, correct statistics accounting across five distinct counters, data-preserving realloc across size-class and small-to-large transitions, and sub-30-second throughput at 2M operations. The holistic challenge is that each security feature changes fundamental assumptions (slot sizes, mmap regions, free-list semantics) that cascade through every code path."""
+solution_explanation = """The solution redesigns the chunk header to include a random integrity token and freed-state flag, adds a matching token after user data in each slab slot (requiring slot size recalculation to include the extra 8 bytes), reads /dev/urandom at init for the token value, verifies both tokens and freed-state on every hfree (aborting on mismatch), poisons freed slab regions with 0xAB, changes the large allocation path to mmap (data_pages + 2) pages and mprotect the first and last pages to PROT_NONE creating adjacent ---p guard regions, adjusts the munmap base to account for the front guard page, and adds slab_pages and large_allocs tracking to the statistics counters."""
+verification_explanation = """Tests compile small C programs against /app/allocator.c and run them as subprocesses. Security tests trigger deliberate corruption (writing past allocation bounds, writing into the pre-pointer metadata area, calling hfree twice on the same pointer) and assert the process is killed by SIGABRT. A scrub test reads freed slab memory and verifies 0xAB fill. A fault-isolation test parses /proc/self/maps output to verify ---p entries adjacent to the rw-p data mapping for a large allocation. Statistics tests check exact counter values for all five halloc_stats_t fields across allocation and free sequences. Correctness tests verify data integrity, alignment, all size classes, realloc transitions, and large allocations. A performance test requires 2M operations under 30 seconds."""
+category = "systems_programming"
+tags = ["memory-management", "security-hardening"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hardened-heap-allocator"

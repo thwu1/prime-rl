@@ -1,0 +1,4 @@
+#family_id	sample_id	paternal_id	maternal_id	sex	phenotype
+FAM001	HG002	HG003	HG004	1	2
+FAM001	HG003	0	0	1	1
+FAM001	HG004	0	0	2	1

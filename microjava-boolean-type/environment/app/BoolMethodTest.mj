@@ -1,0 +1,47 @@
+program BoolMethodTest
+{
+	boolean negate(boolean x)
+	{
+		if (x) return false;
+		return true;
+	}
+
+	boolean both(boolean a, boolean b)
+		boolean r;
+	{
+		r = a && b;
+		return r;
+	}
+
+	boolean either(boolean a, boolean b)
+		boolean r;
+	{
+		r = a || b;
+		return r;
+	}
+
+	void main()
+		boolean t; boolean f;
+		boolean r;
+	{
+		t = true;
+		f = false;
+
+		r = negate(t);
+		if (r) print(1); else print(0);
+		r = negate(f);
+		if (r) print(1); else print(0);
+
+		r = both(t, t);
+		if (r) print(1); else print(0);
+		r = both(t, f);
+		if (r) print(1); else print(0);
+
+		r = either(f, f);
+		if (r) print(1); else print(0);
+		r = either(f, t);
+		if (r) print(1); else print(0);
+
+		print(chr(10));
+	}
+}

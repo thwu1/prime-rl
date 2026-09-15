@@ -1,0 +1,77 @@
+Reliability Analysis - Stress-Strength Interference Method
+==========================================================
+
+
+1. Motivation
+-------------
+The deterministic design margin (DM = F_min / F_required) provides a
+single-point assessment of joint adequacy. However, both the achievable
+preload and the preload requirement are subject to statistical variation.
+The stress-strength interference method provides a probabilistic
+assessment of joint reliability.
+
+
+2. Statistical Model
+--------------------
+Model the achievable bolt preload as a normal distribution:
+
+  F_preload ~ Normal(mu_p, sigma_p)
+
+where:
+  mu_p    = (F_max + F_min) / 2       (mean of preload range)
+  sigma_p = (F_max - F_min) / 6       (treating min/max as +/- 3 sigma)
+
+The rationale for sigma_p: the minimum and maximum preload values from
+the torque-tension equation at extreme friction represent approximately
+the 99.7% confidence interval (3 sigma on each side of the mean).
+
+Model the preload requirement as a normal distribution:
+
+  F_required ~ Normal(mu_r, sigma_r)
+
+where:
+  mu_r    = total_preload_requirement   (deterministic value)
+  sigma_r = 0.10 * total_preload_requirement   (10% coefficient of
+            variation, accounting for uncertainty in loads, embedding,
+            and friction coefficients)
+
+
+3. Probability of Failure
+-------------------------
+Failure occurs when the preload requirement exceeds the available preload:
+
+  P(failure) = P(F_required > F_preload)
+
+For two independent normal distributions, the difference
+Z = F_preload - F_required is also normally distributed:
+
+  Z ~ Normal(mu_p - mu_r, sqrt(sigma_p^2 + sigma_r^2))
+
+The probability of failure is:
+
+  P(failure) = P(Z < 0) = Phi( -(mu_p - mu_r) / sqrt(sigma_p^2 + sigma_r^2) )
+
+where Phi is the standard normal cumulative distribution function (CDF).
+
+The standard normal CDF can be computed as:
+
+  Phi(x) = 0.5 * erfc(-x / sqrt(2))
+
+where erfc is the complementary error function.
+
+
+4. Interpretation
+-----------------
+Typical target failure probabilities for bolted joints:
+
+  Application                   Target P(failure)
+  -------------------------------------------------
+  Non-critical structural       < 1e-3  (0.1%)
+  Safety-critical               < 1e-5  (0.001%)
+  Aerospace/nuclear             < 1e-7  (0.00001%)
+
+A joint with DM >> 1 will have P(failure) approaching zero.
+A joint with DM near 1.0 will have P(failure) in the range 0.01-0.10
+depending on the scatter in preload and requirement distributions.
+A joint with DM < 1.0 will have P(failure) > 0.5 (more likely to fail
+than not).

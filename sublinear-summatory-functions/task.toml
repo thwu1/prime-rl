@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing from scratch an efficient engine for three number-theoretic summatory functions (Mertens, totient sum, Liouville sum) that must handle n up to 10^10 within 120 seconds and 2 GB memory. The solver must: (1) study the mathematical definitions and derive suitable recurrence relations, (2) design an architecture that avoids the infeasible O(N) sieve approach, (3) implement correct modular arithmetic for the totient sum avoiding 64-bit overflow, (4) handle exact integer square roots for the Liouville function, and (5) produce a C implementation that meets strict performance targets. This requires synthesizing number theory, algorithm design, and low-level systems programming skills."""
+solution_explanation = """Write a complete C implementation with: (a) linear sieve up to V=N^{2/3} computing prefix sums of mu, phi, lambda, (b) floor-division indexed memoization for values above V, (c) three recursive functions derived from Dirichlet identities — M(n)=1-sum M(n/d), Phi(n)=n(n+1)/2-sum Phi(n/d) mod p, L(n)=isqrt(n)-sum L(n/d), (d) modular inverse via Fermat's little theorem and __int128 for overflow-safe modular arithmetic, (e) careful isqrt for the Liouville initial value. Build with make."""
+verification_explanation = """Tests verify correctness via brute-force comparison for small N (up to 10^3) and medium N (10^5). For large N (10^10), three mathematical identity cross-checks are used: (1) sum_{d=1}^{N} M(floor(N/d)) = 1, (2) sum_{d=1}^{N} Phi(floor(N/d)) = N(N+1)/2 mod p, (3) L(N) = sum_{d=1}^{isqrt(N)} M(floor(N/d^2)). A performance test enforces the time bound."""
+category = "algorithms"
+tags = ["number-theory", "systems-programming"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sublinear-summatory-functions"

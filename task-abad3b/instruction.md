@@ -1,0 +1,9 @@
+A simulated CMS dimuon dataset at `/app/data/dimuon_events.csv` contains 50,000 muon-pair events. Columns include muon energies, 3-momenta (px, py, pz), transverse momenta, pseudorapidities, azimuthal angles, charges, quality type flags (`G`lobal, `T`racker, `S`tandalone), and a pre-computed invariant mass `M`. The dataset has multiple particle resonances embedded in a power-law continuum background, along with data quality issues: missing values, mixed muon types, charge misassignment contamination, and column-name formatting inconsistencies.
+
+Build an automated resonance spectroscopy pipeline that ingests this dataset, performs data cleaning and physics-motivated event selection, independently recomputes the dimuon invariant mass from raw energy-momentum 4-vectors and cross-validates against the stored `M` column, constructs an invariant mass spectrum with binning suitable for resolving features across three orders of magnitude (0.2--150 GeV), implements peak detection with data-driven background estimation, fits each detected resonance to extract its mass, width, yield, and statistical significance, and matches detected peaks to known Standard Model particles using PDG reference masses.
+
+Write results to:
+
+- `/app/resonance_catalog.json` — structure: `{"resonances": [...]}` where each entry contains: `name` (string), `measured_mass_gev` (float), `fitted_width_gev` (float), `signal_yield` (int, >0), `significance_sigma` (float, >0), `pdg_mass_gev` (float), `mass_residual_pct` (float)
+
+- `/app/analysis_summary.json` — fields: `total_events` (int), `events_after_quality_cuts` (int), `events_with_nan_dropped` (int), `mass_validation_max_abs_diff` (float), `mass_validation_mean_abs_diff` (float)

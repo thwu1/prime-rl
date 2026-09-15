@@ -1,0 +1,9 @@
+# Materialization cost model for the reconciliation planner.
+# Each asset has a per-partition materialization cost.
+# The planner must select re-materializations that fit within the budget.
+
+costs:
+  raw: 10
+  summary: 50
+  report: 30
+budget: 70

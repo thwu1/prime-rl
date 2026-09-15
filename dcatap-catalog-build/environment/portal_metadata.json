@@ -1,0 +1,235 @@
+{
+  "portal": {
+    "title": {
+      "en": "European Environmental Data Portal",
+      "fr": "Portail europ\u00e9en de donn\u00e9es environnementales"
+    },
+    "description": {
+      "en": "A comprehensive catalog of environmental monitoring datasets from across Europe, maintained by the European Environment Agency and national environmental bodies."
+    },
+    "publisher_id": "PUB001",
+    "homepage": "http://env-data.europa.eu",
+    "languages": ["en", "fr"],
+    "spatial_uri": "http://publications.europa.eu/resource/authority/country/EUR",
+    "themes_taxonomy": "http://publications.europa.eu/resource/authority/data-theme",
+    "issued": "2022-01-15",
+    "modified": "2024-06-01",
+    "license": "Creative Commons BY 4.0",
+    "contact": {
+      "name": "Environmental Data Office",
+      "email": "contact@env-data.europa.eu"
+    }
+  },
+  "publishers": [
+    {
+      "id": "PUB001",
+      "name": {"en": "European Environment Agency"},
+      "type_uri": "http://publications.europa.eu/resource/authority/corporate-body-classification/EU_AGENCY"
+    },
+    {
+      "id": "PUB002",
+      "name": {"en": "Belgian Interregional Environment Agency", "fr": "Agence interr\u00e9gionale de l'environnement belge"},
+      "type_uri": "http://publications.europa.eu/resource/authority/corporate-body-classification/NAT_AGENCY"
+    },
+    {
+      "id": "PUB003",
+      "name": {"en": "German Federal Environment Agency", "de": "Umweltbundesamt"},
+      "type_uri": "http://publications.europa.eu/resource/authority/corporate-body-classification/NAT_AGENCY"
+    }
+  ],
+  "dataset_series": [
+    {
+      "id": "SER001",
+      "title": {"en": "European Air Quality Monitoring Series"},
+      "description": {"en": "Time-series collection of air quality monitoring data gathered across European monitoring stations since 2015."},
+      "publisher_id": "PUB001",
+      "frequency": "monthly",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/EUR"
+    }
+  ],
+  "datasets": [
+    {
+      "id": "DS001",
+      "title": {"en": "Air Quality Index 2024", "fr": "Indice de qualit\u00e9 de l'air 2024"},
+      "description": {"en": "Hourly air quality index values from 500+ monitoring stations across Europe, including PM2.5, PM10, O3, NO2, and SO2 concentrations."},
+      "publisher_id": "PUB001",
+      "themes": ["environment", "health"],
+      "keywords": {"en": ["air quality", "pollution", "monitoring", "AQI"], "fr": ["qualit\u00e9 de l'air", "pollution"]},
+      "frequency": "hourly",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/EUR",
+      "temporal_start": "2024-01-01",
+      "temporal_end": "2024-12-31",
+      "landing_page": "http://env-data.europa.eu/datasets/air-quality-2024",
+      "contact": {"name": "AQ Data Team", "email": "aq@eea.europa.eu"},
+      "in_series": "SER001",
+      "distributions": [
+        {
+          "id": "DIST001",
+          "title": {"en": "Air Quality CSV Export"},
+          "description": {"en": "Complete air quality dataset in CSV format with hourly readings per station."},
+          "format": "CSV",
+          "access_url": "http://env-data.europa.eu/api/aq/2024",
+          "download_url": "http://env-data.europa.eu/download/aq-2024.csv",
+          "byte_size": 524288000,
+          "media_type": "text/csv",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        },
+        {
+          "id": "DIST002",
+          "title": {"en": "Air Quality JSON-LD"},
+          "description": {"en": "Linked Data representation of air quality measurements in JSON-LD format."},
+          "format": "JSON_LD",
+          "access_url": "http://env-data.europa.eu/api/aq/2024/jsonld",
+          "media_type": "application/ld+json",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        }
+      ]
+    },
+    {
+      "id": "DS002",
+      "title": {"en": "Water Quality Measurements"},
+      "description": {"en": "Chemical and biological water quality parameters from river monitoring stations in Belgium, covering nitrates, phosphates, heavy metals, and biological oxygen demand."},
+      "publisher_id": "PUB002",
+      "themes": ["environment"],
+      "keywords": {"en": ["water quality", "rivers", "chemical analysis"]},
+      "frequency": "quarterly",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/BEL",
+      "temporal_start": "2020-01-01",
+      "temporal_end": "2024-06-30",
+      "contact": {"name": "Water Monitoring Division", "email": "water@irceline.be"},
+      "distributions": [
+        {
+          "id": "DIST003",
+          "title": {"en": "Water Quality XLSX"},
+          "description": {"en": "Water quality measurements in Excel spreadsheet format."},
+          "format": "XLSX",
+          "access_url": "http://env-data.europa.eu/water/measurements.xlsx",
+          "download_url": "http://env-data.europa.eu/download/water-quality.xlsx",
+          "byte_size": 15728640,
+          "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        }
+      ]
+    },
+    {
+      "id": "DS003",
+      "title": {"en": "Noise Pollution Maps", "de": "L\u00e4rmbelastungskarten"},
+      "description": {"en": "Strategic noise maps covering major urban areas in Germany as mandated by the EU Environmental Noise Directive 2002/49/EC."},
+      "publisher_id": "PUB003",
+      "themes": ["environment", "regions"],
+      "keywords": {"en": ["noise", "pollution", "urban", "maps"], "de": ["L\u00e4rm", "Umgebungsl\u00e4rm"]},
+      "frequency": "annual",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/DEU",
+      "temporal_start": "2022-01-01",
+      "temporal_end": "2022-12-31",
+      "contact": {"name": "Noise Mapping Unit", "email": "noise@uba.de"},
+      "distributions": [
+        {
+          "id": "DIST004",
+          "title": {"en": "Noise Maps GeoJSON"},
+          "description": {"en": "Noise contour maps in GeoJSON format for GIS applications."},
+          "format": "GEOJSON",
+          "access_url": "http://env-data.europa.eu/noise/maps/geojson",
+          "media_type": "application/geo+json",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        },
+        {
+          "id": "DIST005",
+          "title": {"en": "Noise Maps GeoTIFF"},
+          "description": {"en": "High-resolution noise level raster data in GeoTIFF format."},
+          "format": "TIFF",
+          "access_url": "http://env-data.europa.eu/noise/maps/geotiff",
+          "download_url": "http://env-data.europa.eu/download/noise-maps.tif",
+          "byte_size": 2147483648,
+          "media_type": "image/tiff",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        }
+      ]
+    },
+    {
+      "id": "DS004",
+      "title": {"en": "Greenhouse Gas Emissions Inventory"},
+      "description": {"en": "National greenhouse gas emission inventories covering CO2, CH4, N2O, and fluorinated gases, reported under the UNFCCC and EU Monitoring Mechanism Regulation."},
+      "publisher_id": "PUB001",
+      "themes": ["environment", "economy"],
+      "keywords": {"en": ["greenhouse gas", "emissions", "CO2", "climate change"]},
+      "frequency": "annual",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/EUR",
+      "temporal_start": "1990-01-01",
+      "temporal_end": "2023-12-31",
+      "landing_page": "http://env-data.europa.eu/datasets/ghg-inventory",
+      "contact": {"name": "Climate Data Team", "email": "climate@eea.europa.eu"},
+      "in_series": "SER001",
+      "distributions": [
+        {
+          "id": "DIST006",
+          "title": {"en": "GHG Inventory RDF"},
+          "description": {"en": "Linked Data representation of greenhouse gas inventories in RDF/XML format."},
+          "format": "RDF_XML",
+          "access_url": "http://env-data.europa.eu/ghg/rdf",
+          "media_type": "application/rdf+xml",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        },
+        {
+          "id": "DIST007",
+          "title": {"en": "GHG Inventory CSV"},
+          "description": {"en": "Tabular greenhouse gas inventory data in CSV format with annual values per country and gas type."},
+          "format": "CSV",
+          "access_url": "http://env-data.europa.eu/ghg/csv",
+          "download_url": "http://env-data.europa.eu/download/ghg-inventory.csv",
+          "byte_size": 89128960,
+          "media_type": "text/csv",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        }
+      ]
+    },
+    {
+      "id": "DS005",
+      "title": {"en": "Biodiversity Observation Records"},
+      "description": {"en": "Species occurrence records from the European Biodiversity Observation Network, harmonized to Darwin Core standard, with taxonomic, geographic, and temporal information."},
+      "publisher_id": "PUB001",
+      "themes": ["environment"],
+      "keywords": {"en": ["biodiversity", "species", "observations", "Darwin Core"]},
+      "frequency": "monthly",
+      "spatial_uri": "http://publications.europa.eu/resource/authority/country/EUR",
+      "temporal_start": "2015-01-01",
+      "contact": {"name": "Biodiversity Unit", "email": "bio@eea.europa.eu"},
+      "distributions": [
+        {
+          "id": "DIST008",
+          "title": {"en": "Biodiversity Records CSV"},
+          "description": {"en": "Species occurrence records in CSV format following Darwin Core terms."},
+          "format": "CSV",
+          "access_url": "http://env-data.europa.eu/biodiversity/csv",
+          "download_url": "http://env-data.europa.eu/download/biodiversity.csv",
+          "byte_size": 1073741824,
+          "media_type": "text/csv",
+          "license": "Creative Commons BY 4.0",
+          "availability": "http://data.europa.eu/r5r/stable"
+        }
+      ]
+    }
+  ],
+  "data_services": [
+    {
+      "id": "SVC001",
+      "title": {"en": "Environmental Data API"},
+      "description": {"en": "RESTful API providing programmatic access to all environmental monitoring datasets in the portal, with support for spatial and temporal filtering."},
+      "publisher_id": "PUB001",
+      "endpoint_url": "http://env-data.europa.eu/api/v2",
+      "endpoint_description": "http://env-data.europa.eu/api/v2/openapi.json",
+      "serves_datasets": ["DS001", "DS002", "DS004", "DS005"],
+      "themes": ["environment"],
+      "keywords": {"en": ["API", "REST", "environmental data"]},
+      "license": "Creative Commons BY 4.0",
+      "contact": {"name": "API Support", "email": "api@env-data.europa.eu"}
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+;; Jepsen Elle transaction history — h_g2_item
+;; workload: list-append
+;; DB under test: mock-kv (3-node cluster)
+;; claimed isolation: serializable
+
+[{:txn-id 1, :status :committed, :ops [[:r "y" nil] [:append "x" 1]]}
+ {:txn-id 2, :status :committed, :ops [[:r "x" nil] [:append "y" 10]]}
+ {:txn-id 3, :status :committed, :ops [[:r "x" [1]] [:r "y" [10]]]}]

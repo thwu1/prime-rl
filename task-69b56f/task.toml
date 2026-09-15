@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct expert-level skills: (1) Protocol forensics — analyzing hex-encoded wire captures and a live opaque proxy binary against RFC 1928/1929 specifications using tshark, tcpdump, and raw socket probing to identify 6 subtle protocol violations spanning reserved-field semantics, authentication sub-negotiation versioning, address-type field lengths, reply code semantics, ACL enforcement scope, and connection metadata fields. (2) Protocol implementation from specification — designing and building a production-quality async SOCKS5 proxy from scratch based on RFC reading, requiring architectural decisions about concurrency model, state machine design, authentication flow, ACL engine, address resolution pipeline, and bidirectional relay mechanism. Neither the violations nor the implementation approach are described in the task — the solver must discover both independently through tool-assisted analysis and RFC interpretation."""
+solution_explanation = """First, analyze the 6 session transcripts by decoding hex bytes and cross-referencing field values against RFC 1928/1929: identify RSV byte set to 0x01 instead of 0x00, auth sub-negotiation rejecting correct VER=0x01 (expects 0x05), IPv6 address read as 4 bytes instead of 16, unsupported commands returning REP=0x01 instead of 0x07, ACL enforcement skipped for domain-resolved addresses, and BND.PORT mirroring target port instead of outbound ephemeral port. Optionally probe the live legacy proxy with tshark captures to confirm findings. Produce conformance_report.json documenting these violations. Then implement a complete async SOCKS5 proxy handling method negotiation, username/password authentication (VER=0x01 per RFC 1929), all three address types (IPv4/domain/IPv6), proper error reply codes, ACL enforcement on all resolved IPs, correct BND.ADDR/BND.PORT from outbound socket, and bidirectional data relay with concurrent connection support."""
+verification_explanation = """Two test groups verify the deliverables: (1) Conformance report tests check that conformance_report.json is a valid JSON array with required fields and identifies at least 4 of 6 violation categories via keyword matching — RSV byte, auth version, IPv6 parsing, command reply codes, ACL domain bypass, and BND fields. (2) Proxy conformance tests start the solver's proxy on port 1080 and run 13 tests: wire-format verification (VER=0x05, RSV=0x00), BND.PORT is ephemeral, auth sub-negotiation with VER=0x01 succeeds, bad credentials fail, BIND/UDP return REP=0x07, ACL denies IPv4 in blocked range, ACL denies domain resolving to blocked IP, IPv6 ATYP=0x04 parses 16 bytes, three curl end-to-end relay tests (IPv4, domain, authenticated), and a 5-connection concurrency test."""
+category = "networking"
+tags = ["socks5", "protocol-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-69b56f"

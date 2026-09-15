@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 9 conformance violations spanning two layers (server code and source data) in an OGC API Features server, using a stale TEAM Engine conformance report that is partially misleading — it contains a red-herring failure (already fixed in current code), false passes from tests that coincidentally avoided triggering bugs (e.g., a bbox test using global extent that never exposed a CRS84 axis-order swap), and omits 5 real violations entirely. The solver must independently analyze the server against the OGC API Features 1.0 specification rather than following the report procedurally. Bugs span CRS84 coordinate axis ordering (in both server logic AND source GeoJSON data — these two bugs mask each other, requiring holistic cross-layer reasoning), conformance URI typos, OpenAPI link media types, ISO 8601 open-interval datetime parsing, pagination query parameter preservation, spatial extent computation, and query parameter validation. One feature's coordinates are stored in EPSG:4326 [lat,lon] order instead of GeoJSON's mandated [lon,lat], creating an interacting bug that is invisible until the code-level coordinate swap is fixed — the solver must recognize that fixing the code reveals a data-layer defect and diagnose both root causes."""
+solution_explanation = """The fix script reads the broken server.py and applies 8 targeted code corrections plus 1 data correction: (1) swap lat/lon to lon/lat in _in_bbox for CRS84 coordinate order, (2) change numberMatched from total collection size to filtered feature count, (3) fix conformance URI typo from conf/cors to conf/core, (4) correct service-desc link media type to application/vnd.oai.openapi+json;version=3.0, (5) add open-interval support (..) in datetime parsing, (6) preserve bbox/datetime params in pagination next links, (7) fix extent bbox axis order from lat/lon to lon/lat, (8) add unknown query parameter validation returning HTTP 400, (9) fix ws-003 GeoJSON data coordinates from [lat,lon] to [lon,lat] order."""
+verification_explanation = """Tests start the server via /app/start.sh, wait for readiness, then run 84 pytest test cases covering every OGC API Features Core conformance requirement: landing page link relations and media types (8 tests), conformance declaration URIs (5 tests), API definition validity (2 tests), collections metadata, extent axis order, and coordinate validity (9 tests), single collection access (5 tests), feature retrieval structure and coordinate validation (12 tests), single feature access including Tokyo CRS84 coordinate verification (9 tests), bbox spatial filtering with CRS84 coordinate verification and Japan-region test (10 tests), limit parameter validation (6 tests), datetime interval filtering including open intervals (6 tests), HTTP error conditions (4 tests), pagination completeness, deduplication, and filter preservation (6 tests), and combined filter interactions (2 tests). The data-layer bug is caught by coordinate validity checks and bbox-Japan test that verifies ws-003 appears in its correct geographic region only when both code and data are fixed."""
+category = "information_systems"
+tags = ["geospatial", "api-conformance"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e8051c"

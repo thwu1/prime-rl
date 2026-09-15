@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a multi-component cascading failure where monitoring data is stale, one worker has a partial hotfix that introduces silent data loss, and the root cause spans corrupted database configuration, missing input validation, and thundering herd reconnection behavior. The agent must evaluate the correctness of a previous responder's mitigation, trace crash-loop causes through logs/code/data, and design resilient fixes across the full stack."""
+solution_explanation = """Fix corrupted quota policy data in SQLite (null rules field), patch gateway worker to handle non-list policy rules gracefully, add exponential backoff with jitter to database reconnection, remove the lenient hotfix that causes silent data loss, add semantic validation to the config pusher to reject null/non-list rules, fix the monitor's excessive cache TTL and delete the stale cache, then start all services via supervisord and HAProxy."""
+verification_explanation = """Tests verify all workers respond to health checks, HAProxy distributes traffic across multiple workers, API v1 requests return valid non-empty responses, no null rules exist in active policies, config validation rejects null rules, workers survive encountering bad policy data without crashing, reconnection code uses backoff instead of tight-loop retries, monitor reports fresh data, and services remain stable under load."""
+category = "debugging"
+tags = ["cascading-failure", "incident-response"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascading-gateway-recovery"

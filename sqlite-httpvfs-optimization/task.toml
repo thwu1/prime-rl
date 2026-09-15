@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of SQLite's B-tree index architecture in the context of HTTP-VFS page-level fetching. The solver must: (1) design covering indexes for 7 queries with varied access patterns while staying within a 6-index budget, forcing at least one index to serve two queries — this requires reasoning about column ordering trade-offs (e.g., ORDER BY optimization vs predicate selectivity when two queries share the same leading column but need different subsequent columns), (2) recognize that at least one query benefits from a partial index, which requires knowing that SQLite supports WHERE clauses on CREATE INDEX and understanding how partial index predicates interact with query predicates to enable smaller, HTTP-VFS-efficient B-trees, (3) understand that ANALYZE populates sqlite_stat1 for correct cost-based index selection when multiple indexes share the same leading column (e.g., three indexes starting with event_type), (4) know the PRAGMA page_size + VACUUM interaction (journal_mode must be DELETE, and VACUUM is required to apply the new page size to the physical file). The combination of budget-constrained multi-query index consolidation, partial indexes, planner statistics, and HTTP-VFS-aware page sizing demands professional-level database internals expertise."""
+solution_explanation = """Create 6 indexes: (1) (event_type,ts,country_code) for Q1, (2) (category,user_id,value) for Q2, (3) (user_id,ts,event_type,value) shared for Q3+Q7 — user_id equality enables SEARCH, ts at position 2 supports Q3's ORDER BY DESC without temp B-tree, value covers Q7, (4) (event_type,device,user_id) for Q4, (5) (event_type,category,value) for Q5, (6) PARTIAL index (country_code,ts,user_id,value) WHERE event_type='purchase' for Q6 — partial predicate shrinks index to ~10% since only purchases are indexed. Run ANALYZE for sqlite_stat1. Set journal_mode=DELETE, page_size=1024, VACUUM."""
+verification_explanation = """Tests copy the original backup, apply optimize.sql, then verify: (1) EXPLAIN QUERY PLAN shows COVERING INDEX with SEARCH for all 7 queries, (2) at most 6 user-created indexes exist, (3) at least one partial index exists (WHERE in CREATE INDEX sql), (4) sqlite_stat1 is populated (ANALYZE was run), (5) page_size < 4096, (6) row count preserved, (7) query results match original for non-LIMIT queries with float tolerance, (8) database size < 200MB."""
+category = "database"
+tags = ["sqlite", "indexing"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sqlite-httpvfs-optimization"

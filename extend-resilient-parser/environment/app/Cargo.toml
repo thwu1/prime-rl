@@ -1,0 +1,12 @@
+[package]
+name = "resilient-ll-parsing"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "resilient_ll_parsing"
+path = "src/lib.rs"
+
+[[bin]]
+name = "parse"
+path = "src/main.rs"

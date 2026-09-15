@@ -1,0 +1,38 @@
+$ MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test --lib test_reborrow_invalidation
+   Compiling aliasing-analysis v0.1.0 (/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/miri/x86_64-unknown-linux-gnu/debug/deps/aliasing_analysis-a3f9c78d0b9e4f21)
+
+running 1 test
+test tests::test_reborrow_invalidation ... error: Undefined Behavior: read access through <3102> at alloc1612[0x0] is forbidden
+   --> src/lib.rs:36:5
+    |
+36  |     *child
+    |     ^^^^^^ read access through <3102> at alloc1612[0x0] is forbidden
+    |
+    = help: this indicates a potential bug in the program: it performed an invalid operation, but the Tree Borrows rules it violated are still experimental
+    = help: see https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/tree-borrows.md for further information
+help: <3102> was created by a Unique retag at offsets [0x0..0x4]
+   --> src/lib.rs:33:31
+    |
+33  |     let child: *mut i32 = &mut *parent;
+    |                           ^^^^^^^^^^^^ this tag was created here
+help: <3102> later transitioned to Active due to a child write access at offsets [0x0..0x4]
+   --> src/lib.rs:34:5
+    |
+34  |     *child = 5;
+    |     ^^^^^^^^^^ this transition corresponds to the first write to a 2-phase Reserved pointer
+help: <3102> later transitioned to Disabled due to a foreign write access at offsets [0x0..0x4]
+   --> src/lib.rs:35:5
+    |
+35  |     *parent = 3;
+    |     ^^^^^^^^^^^ this write through the parent tag <3098> is a foreign write from <3102>
+    = note: Tree Borrows transition: Active -> Disabled (caused by a foreign write)
+    = note: Disabled pointers cannot be used for any kind of access
+    = note: BACKTRACE (of the first span):
+    = note: inside `reborrow_invalidation` at src/lib.rs:36:5: 36:11
+    = note: inside `tests::test_reborrow_invalidation` at src/lib.rs:100:30: 100:53
+
+note: some details are omitted, run with `MIRIFLAGS=-Zmiri-backtrace=full` for a verbose backtrace
+
+error: aborting due to 1 previous error

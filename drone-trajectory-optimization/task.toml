@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing JAX automatic differentiation, differentiable physics simulation, and trajectory optimization. The agent must: (1) explore the Crazyflow API to understand which physics models support differentiation and which control modes produce clean gradient paths, (2) discover that certain pipeline stages block gradient flow and must be removed, (3) figure out how to set initial conditions via immutable dataclass replacement patterns, (4) design a loss function that provides sufficient gradient signal through an unrolled simulation, and (5) implement a working optimizer with appropriate hyperparameters. This requires research-level understanding of differentiable robotics simulation."""
+solution_explanation = """The solution creates a Crazyflow Sim with so_rpy physics and attitude control, removes the floor-clip from the step pipeline, sets the initial drone state via data.replace(), defines a running loss function that sums weighted position error and velocity penalty at each of the 25 timesteps plus a strong terminal bonus, compiles the gradient with jax.value_and_grad, and runs 2000 iterations of Adam starting from hover-thrust initial commands. The so_rpy model directly takes attitude commands as input without an intermediate PID controller, ensuring clean gradient flow. The running cost provides gradient signal at every intermediate step, preventing the vanishing gradient problem that occurs with terminal-only cost over 25 sequential simulation steps."""
+verification_explanation = """Tests verify: (1) result.json exists with required keys and correct shapes, (2) the source code uses automatic differentiation (jax.grad or jax.value_and_grad), (3) loss decreased during optimization, (4) re-simulating the trajectory from scratch with the reported commands and identical Crazyflow so_rpy setup confirms final position within 0.15m of target and velocity under 0.5 m/s. The re-simulation test is deterministic on CPU."""
+category = "robotics"
+tags = ["differentiable-simulation", "trajectory-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/drone-trajectory-optimization"

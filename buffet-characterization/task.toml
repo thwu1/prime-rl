@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level transonic aerodynamics knowledge (shock identification from pressure data, airfoil surface separation, aerodynamic load integration, buffet phenomenology), spectral signal analysis (dominant frequency extraction, Strouhal number computation from flow conditions), proficiency with Tecplot ASCII scientific data format (both parsing and generation), gnuplot scripting for publication-quality plots, and multi-tool pipeline orchestration across shell, Python, and gnuplot."""
+solution_explanation = """Parse multi-zone Tecplot ASCII data to extract Cp distributions and pressure PSDs at six angles of attack. Separate concatenated upper/lower airfoil surface data by detecting the trailing edge inflection point. Locate normal shocks via maximum positive Cp gradient on the upper surface. Integrate Cp distributions around the airfoil contour for section lift and quarter-chord moment coefficients. Analyze pressure PSDs to identify the buffet frequency peak and compute Strouhal number from freestream velocity derived from Mach number and static temperature. Determine buffet onset by detecting the first large spectral energy jump between consecutive angles. Generate gnuplot scripts for Cp overlay and PSD comparison plots, and write a Tecplot ASCII summary file conforming to DPW-8 conventions."""
+verification_explanation = """Tests validate physical consistency of all outputs: shock positions within aerodynamically reasonable bounds and moving forward with increasing angle, section Cl increasing with angle and Cm in expected range, buffet frequency and Strouhal number at buffet conditions matching known OAT15A characteristics, buffet onset in the experimentally documented range, valid PNG plots generated from gnuplot scripts, and properly formatted Tecplot summary. Cross-validation ensures shock, load, and spectral results are mutually consistent."""
+category = "physics_engineering"
+tags = ["aerodynamics", "spectral-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/buffet-characterization"

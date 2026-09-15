@@ -1,0 +1,17 @@
+{
+  "name": "openmpi",
+  "versions": ["5.0.1", "4.1.6", "3.1.6"],
+  "variants": [
+    {"name": "cuda", "type": "bool", "default": false}
+  ],
+  "dependencies": [
+    {"name": "hwloc", "version_min": "2.0"},
+    {"name": "zlib"},
+    {"name": "libevent", "version_min": "2.1"},
+    {"name": "pmix", "version_min": "3.0"}
+  ],
+  "conflicts": [],
+  "virtuals": [
+    {"name": "mpi", "provider_priority": 100}
+  ]
+}

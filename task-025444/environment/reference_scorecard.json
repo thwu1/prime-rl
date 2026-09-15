@@ -1,0 +1,78 @@
+{
+  "tools": [
+    {
+      "name": "ToolAlpha",
+      "commercial": false,
+      "categories": {
+        "cmdi": {"tp": 10, "fn": 2, "fp": 2, "tn": 6, "tpr": 0.8333, "fpr": 0.25},
+        "crypto": {"tp": 6, "fn": 2, "fp": 1, "tn": 6, "tpr": 0.75, "fpr": 0.1429},
+        "hash": {"tp": 8, "fn": 4, "fp": 2, "tn": 6, "tpr": 0.6667, "fpr": 0.25},
+        "pathtraver": {"tp": 8, "fn": 2, "fp": 1, "tn": 9, "tpr": 0.8, "fpr": 0.1},
+        "sqli": {"tp": 12, "fn": 3, "fp": 1, "tn": 9, "tpr": 0.8, "fpr": 0.1},
+        "xss": {"tp": 8, "fn": 2, "fp": 2, "tn": 8, "tpr": 0.8, "fpr": 0.2}
+      },
+      "overall": {
+        "macro_tpr": 0.775,
+        "macro_fpr": 0.1738,
+        "youdens_j": 0.6012
+      }
+    },
+    {
+      "name": "AppScanLike",
+      "commercial": true,
+      "categories": {
+        "cmdi": {"tp": 7, "fn": 5, "fp": 3, "tn": 5, "tpr": 0.5833, "fpr": 0.375},
+        "crypto": {"tp": 5, "fn": 3, "fp": 2, "tn": 5, "tpr": 0.625, "fpr": 0.2857},
+        "hash": {"tp": 0, "fn": 12, "fp": 0, "tn": 8, "tpr": 0.0, "fpr": 0.0},
+        "pathtraver": {"tp": 7, "fn": 3, "fp": 2, "tn": 8, "tpr": 0.7, "fpr": 0.2},
+        "sqli": {"tp": 10, "fn": 5, "fp": 2, "tn": 8, "tpr": 0.6667, "fpr": 0.2},
+        "xss": {"tp": 7, "fn": 3, "fp": 3, "tn": 7, "tpr": 0.7, "fpr": 0.3}
+      },
+      "overall": {
+        "macro_tpr": 0.5458,
+        "macro_fpr": 0.2268,
+        "youdens_j": 0.319
+      }
+    },
+    {
+      "name": "ToolGamma",
+      "commercial": false,
+      "categories": {
+        "cmdi": {"tp": 12, "fn": 0, "fp": 2, "tn": 6, "tpr": 1.0, "fpr": 0.25},
+        "crypto": {"tp": 3, "fn": 5, "fp": 6, "tn": 1, "tpr": 0.375, "fpr": 0.8571},
+        "hash": {"tp": 9, "fn": 3, "fp": 5, "tn": 3, "tpr": 0.75, "fpr": 0.625},
+        "pathtraver": {"tp": 10, "fn": 0, "fp": 6, "tn": 4, "tpr": 1.0, "fpr": 0.6},
+        "sqli": {"tp": 15, "fn": 0, "fp": 2, "tn": 8, "tpr": 1.0, "fpr": 0.2},
+        "xss": {"tp": 10, "fn": 0, "fp": 4, "tn": 6, "tpr": 1.0, "fpr": 0.4}
+      },
+      "overall": {
+        "macro_tpr": 0.8542,
+        "macro_fpr": 0.4887,
+        "youdens_j": 0.3655
+      }
+    },
+    {
+      "name": "ToolDelta",
+      "commercial": true,
+      "categories": {
+        "cmdi": {"tp": 4, "fn": 8, "fp": 0, "tn": 8, "tpr": 0.3333, "fpr": 0.0},
+        "crypto": {"tp": 3, "fn": 5, "fp": 1, "tn": 6, "tpr": 0.375, "fpr": 0.1429},
+        "hash": {"tp": 5, "fn": 7, "fp": 0, "tn": 8, "tpr": 0.4167, "fpr": 0.0},
+        "pathtraver": {"tp": 5, "fn": 5, "fp": 1, "tn": 9, "tpr": 0.5, "fpr": 0.1},
+        "sqli": {"tp": 6, "fn": 9, "fp": 1, "tn": 9, "tpr": 0.4, "fpr": 0.1},
+        "xss": {"tp": 4, "fn": 6, "fp": 0, "tn": 10, "tpr": 0.4, "fpr": 0.0}
+      },
+      "overall": {
+        "macro_tpr": 0.4042,
+        "macro_fpr": 0.0571,
+        "youdens_j": 0.347
+      }
+    }
+  ],
+  "ranking": [
+    {"rank": 1, "name": "ToolAlpha", "youdens_j": 0.6012},
+    {"rank": 2, "name": "ToolGamma", "youdens_j": 0.3655},
+    {"rank": 3, "name": "ToolDelta", "youdens_j": 0.347},
+    {"rank": 4, "name": "AppScanLike", "youdens_j": 0.319}
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three distinct competencies: (1) diagnosing and fixing a C shared library build failure (missing -lm linker flag) using gcc/make; (2) debugging a subtle ctypes interop defect where the Python wrapper always passes NULL for the ref_vec parameter, causing incorrect coordinate transformations for non-axis-aligned beams — this manifests only under rigid rotation with asymmetric cross-sections and requires tracing through the C/Python boundary; (3) implementing five interdependent numerical functions for geometric stability analysis from a mathematical specification, requiring expert-level structural mechanics knowledge including Hermite shape function formulations, torsion-bending coupling, geometric stiffness assembly, and generalized eigenvalue problem formulation with robust numerical handling. The multi-language architecture (C shared library + Python ctypes + scipy eigenvalue solver) makes this significantly harder than a pure Python task."""
+solution_explanation = """(1) Fix Makefile by adding -lm to link against libm. (2) Build shared library with make. (3) Fix transformation_matrix_3D to convert ref_vec from numpy array to ctypes pointer instead of always passing NULL. (4) Implement compute_element_forces: u_local = Gamma @ u_global, then f = k_local @ u_local. (5) Implement local_geometric_stiffness_3D with P-delta terms from Hermite shape function derivative integrals (coefficients 6/(5L), 1/10, 2L/15, -L/30), torsion-bending coupling via Mx2/L and Mx2/2, and moment coupling with (2M1-M2)/6 and (M1+M2)/6 patterns. (6) Implement assemble_geometric_stiffness: loop over elements, recover local forces, build/transform/assemble local K_g. (7) Implement eigenvalue_buckling_solve: partition DOFs, enforce symmetry, solve K_e phi = -lambda K_g phi via scipy.linalg.eig, dephase eigenvectors, select smallest positive eigenvalue. (8) Implement elastic_critical_load_analysis: chain elastic solve -> geometric stiffness assembly -> eigenvalue analysis."""
+verification_explanation = """Four pytest tests verify correctness. Test 1 checks geometric stiffness matrix properties: shape, symmetry, zero-force behavior, linear scaling, compression softening, and coupling presence. Test 2 validates full pipeline accuracy across 9 cantilever configurations against the analytical Euler formula (rtol < 1e-5). Test 3 verifies critical load invariance (rtol=1e-9) and mode shape consistency under a 35-degree rotation about an arbitrary axis with a rectangular cross-section to catch ref_vec bugs. Test 4 checks monotonic mesh convergence and finest-mesh accuracy below 1e-6."""
+category = "applied_computing"
+tags = ["finite-element-method", "c-python-interop"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ebd62c"

@@ -1,0 +1,30 @@
+systems:
+  bm25:
+    file: data/systems/bm25.run
+    format: trec
+  dense:
+    file: data/systems/dense.json.gz
+    format: gzipped_json
+  sparse:
+    file: data/systems/sparse.csv
+    format: csv
+
+evaluation:
+  judgments_db: data/judgments.db
+
+fusion:
+  system_order: [bm25, dense, sparse]
+  rrf:
+    k_candidates: [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  combsum:
+    weight_step: 0.2
+    weight_range: [0.0, 1.0]
+
+significance:
+  method: paired_bootstrap
+  iterations: 10000
+  seed: 42
+  metric: "ndcg@10"
+  alpha: 0.05
+
+output: results.json

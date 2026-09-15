@@ -1,0 +1,16 @@
+{
+  "id": "problem_4",
+  "description": "Property propagation with right-solve",
+  "chain": [
+    {"matrix": "L1", "transpose": false, "invert": false},
+    {"matrix": "L2", "transpose": false, "invert": false},
+    {"matrix": "L3", "transpose": false, "invert": true},
+    {"matrix": "A", "transpose": false, "invert": false}
+  ],
+  "matrices": {
+    "L1": {"rows": 300, "cols": 300, "properties": ["lower_triangular"]},
+    "L2": {"rows": 300, "cols": 300, "properties": ["lower_triangular"]},
+    "L3": {"rows": 300, "cols": 300, "properties": ["lower_triangular"]},
+    "A": {"rows": 300, "cols": 2000, "properties": ["general"]}
+  }
+}

@@ -1,0 +1,7 @@
+SubjectID,Treatment,DoseAmount,DoseUnit,Frequency,FormulationType,FirstDoseDate,LastDoseDate
+101-001,Antihypertensin-X,10,mg,Once daily,Tablet,01/29/2024,03/25/2024
+101-002,Placebo,0,mg,Once daily,Tablet,02/01/2024,03/28/2024
+102-001,Antihypertensin-X,10,mg,Once daily,Tablet,02/05/2024,04/01/2024
+102-002,Placebo,0,mg,Once daily,Tablet,02/08/2024,03/15/2024
+103-001,Antihypertensin-X,10,mg,Once daily,Tablet,02/15/2024,04/11/2024
+103-002,Placebo,0,mg,Once daily,Tablet,02/19/2024,04/15/2024

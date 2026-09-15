@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires holistic understanding of distributed CI infrastructure and YAML semantics at a level well beyond standard usage. The agent must independently determine what constitutes a defect by synthesizing domain knowledge from reference documentation — no checklist of checks is provided. Key challenges: (1) understanding YAML merge-key composition at the node-graph level to trace multi-level anchor inheritance chains and identify silently-shared security credentials in a diamond inheritance pattern (two independently-administered labs unknowingly sharing callback authentication via a common anchor), (2) implementing pairwise interval overlap detection for priority scheduling and reasoning about its interaction with tree coverage, (3) set-theoretic analysis of tree filter rules across labs at overlapping priority tiers to find cross-lab conflicts, (4) cross-section validation between storage and runtime configurations for environment consistency. An undergrad would not know how to programmatically distinguish YAML merge-key-inherited fields from explicitly-defined ones, or why that distinction has security implications in a LAVA callback token context."""
+solution_explanation = """Build a Python auditor using dual-pass YAML analysis: yaml.compose() for the raw node graph to trace merge-key inheritance chains (identifying which runtime fields are explicitly set vs silently inherited from anchors), and yaml.safe_load() for the resolved configuration. Implement interval overlap detection for priority ranges, set intersection for tree rule contradictions (intra-lab and cross-lab at overlapping tiers), pattern matching for placeholder tokens, type-specific required field validation, and URL environment consistency checking across storage backends. Output a categorized JSON audit report."""
+verification_explanation = """Tests run audit.py and search the entire JSON report for specific known defects regardless of categorization: delta's inverted priority range, multiple priority overlap pairs (alpha-beta, alpha-gamma, beta-gamma, plus others involving zeta), delta's android/!android tree contradiction, cross-lab next conflict (alpha vs beta), cross-lab stable conflict (alpha vs zeta), delta's placeholder token, gamma's and zeta's inherited tokens via merge key (diamond inheritance pattern), backup-ssh missing host, epsilon missing url, s3-artifacts environment mismatch, and delta's disabled queue limit. Tests verify minimum finding count (>=13) and that at least 5 LAVA labs appear in findings."""
+category = "devops"
+tags = ["yaml-analysis", "ci-infrastructure"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-47ee12"

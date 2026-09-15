@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of queueing theory (Little's Law for queue sizing), coordinated omission (Gil Tene's latency measurement bias concept), and multi-stage backpressure design. The agent must reason about effective service times accounting for 5% spike probability, recognize that bounding only the ingress queue is insufficient (the processing-stage bottleneck causes unbounded downstream growth without backpressure), implement upstream wake-up for backpressure relief, and add CO-corrected percentile computation. Combines distributed-systems engineering, performance measurement methodology, and discrete-event simulation modification."""
+solution_explanation = """Compute effective service times: E[T] = 0.95 * base + 0.05 * base * 8 (e.g., processing: 2.97ms). Derive per-stage queue bounds via Little's Law: bound = ceil(target_delay / eff_service * safety). Subclass the simulator to override: (1) _enqueue — reject when at capacity; (2) _try_start — stall when downstream queue is full (backpressure); (3) _on_arrive — reject excess arrivals (load shedding); (4) _on_complete — wake upstream stages after forwarding (backpressure relief); (5) results — include in-flight request elapsed times in a corrected P99 computation (CO correction). Run the fixed simulation to produce results.json."""
+verification_explanation = """Tests load /app/results.json and verify: (1) structural completeness of output; (2) request accounting invariant (arrived = completed + rejected + in_flight); (3) load shedding active (rejections > 0 during overload, near-zero during normal); (4) bounded queues (max depth <= 200); (5) latency bounds (normal P99 < 50ms, recovery P50 < 30ms, recovery P99 < 1000ms, overall P99 < 5000ms); (6) system recovery (in_flight <= 10 at simulation end, >90% recovery-phase completion); (7) CO-corrected metrics present, numeric, and >= naive P99 within tolerance."""
+category = "systems_engineering"
+tags = ["queueing-theory", "backpressure"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipeline-backpressure"

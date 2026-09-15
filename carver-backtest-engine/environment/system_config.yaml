@@ -1,0 +1,45 @@
+# Systematic Trading Backtest Configuration
+
+volatility:
+  days: 35
+  slow_vol_years: 10
+  proportion_of_slow_vol: 0.3
+  vol_abs_min: 0.0000000001
+
+trading_rules:
+  ewmac16_64:
+    Lfast: 16
+    Lslow: 64
+    forecast_scalar: 3.75
+  ewmac32_128:
+    Lfast: 32
+    Lslow: 128
+    forecast_scalar: 2.65
+  ewmac64_256:
+    Lfast: 64
+    Lslow: 256
+    forecast_scalar: 1.87
+  carry:
+    smooth_days: 90
+    forecast_scalar: 30
+
+forecast_cap: 20.0
+average_absolute_forecast: 10.0
+
+forecast_combination:
+  forecast_weights:
+    ewmac16_64: 0.21
+    ewmac32_128: 0.08
+    ewmac64_256: 0.21
+    carry: 0.50
+
+capital: 500000
+vol_target_pct: 20.0
+base_currency: USD
+
+instrument_weights:
+  BOND: 0.333
+  EQUITY: 0.333
+  COMMODITY: 0.334
+
+instrument_div_multiplier: 1.5

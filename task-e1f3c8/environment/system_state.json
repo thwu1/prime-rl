@@ -1,0 +1,147 @@
+{
+  "pas_subject": "subj_A",
+  "may_send_irqs": false,
+
+  "object_labels": {
+    "ep_x": "subj_B",
+    "ep_y": "subj_C",
+    "ntfn_z": "subj_D",
+    "tcb_a": "subj_A",
+    "tcb_b": "subj_B",
+    "tcb_c": "subj_C",
+    "tcb_d": "subj_D",
+    "cnode_a": "subj_A",
+    "cnode_b": "subj_B",
+    "cnode_c": "subj_C",
+    "cnode_d": "subj_D"
+  },
+
+  "irq_labels": {},
+
+  "capabilities": [
+    {
+      "holder": "cnode_a",
+      "slot": 0,
+      "cap": {
+        "type": "EndpointCap",
+        "object": "ep_x",
+        "badge": 1,
+        "rights": ["AllowWrite"]
+      }
+    },
+    {
+      "holder": "cnode_a",
+      "slot": 1,
+      "cap": {
+        "type": "NotificationCap",
+        "object": "ntfn_z",
+        "badge": 3,
+        "rights": ["AllowWrite"]
+      }
+    },
+    {
+      "holder": "cnode_b",
+      "slot": 0,
+      "cap": {
+        "type": "EndpointCap",
+        "object": "ep_x",
+        "badge": 0,
+        "rights": ["AllowRead", "AllowGrant"]
+      }
+    },
+    {
+      "holder": "cnode_b",
+      "slot": 1,
+      "cap": {
+        "type": "EndpointCap",
+        "object": "ep_y",
+        "badge": 5,
+        "rights": ["AllowWrite", "AllowGrantReply"]
+      }
+    },
+    {
+      "holder": "cnode_c",
+      "slot": 0,
+      "cap": {
+        "type": "EndpointCap",
+        "object": "ep_y",
+        "badge": 0,
+        "rights": ["AllowRead"]
+      }
+    },
+    {
+      "holder": "cnode_c",
+      "slot": 1,
+      "cap": {
+        "type": "ReplyCap",
+        "object": "tcb_b",
+        "master": false,
+        "rights": ["AllowGrant"]
+      }
+    },
+    {
+      "holder": "cnode_d",
+      "slot": 0,
+      "cap": {
+        "type": "NotificationCap",
+        "object": "ntfn_z",
+        "badge": 0,
+        "rights": ["AllowRead"]
+      }
+    },
+    {
+      "holder": "cnode_d",
+      "slot": 1,
+      "cap": {
+        "type": "ThreadCap",
+        "object": "tcb_c"
+      }
+    }
+  ],
+
+  "thread_states": {
+    "tcb_a": {"state": "Running"},
+    "tcb_b": {
+      "state": "BlockedOnSend",
+      "endpoint": "ep_y",
+      "badge": 5,
+      "can_grant": false,
+      "can_grant_reply": true,
+      "is_call": true
+    },
+    "tcb_c": {
+      "state": "BlockedOnReceive",
+      "endpoint": "ep_y",
+      "can_grant": true
+    },
+    "tcb_d": {
+      "state": "BlockedOnNotification",
+      "notification": "ntfn_z"
+    }
+  },
+
+  "bound_notifications": {
+    "tcb_c": "ntfn_z"
+  },
+
+  "cdt": [
+    {
+      "parent": {"object": "cnode_a", "slot": 0},
+      "child": {"object": "cnode_c", "slot": 1}
+    },
+    {
+      "parent": {"object": "cnode_b", "slot": 1},
+      "child": {"object": "cnode_d", "slot": 1}
+    }
+  ],
+
+  "queries": {
+    "q1_B_to_C": {"type": "authority_set", "from": "subj_B", "to": "subj_C"},
+    "q2_C_to_B": {"type": "authority_set", "from": "subj_C", "to": "subj_B"},
+    "q3_A_to_C": {"type": "authority_set", "from": "subj_A", "to": "subj_C"},
+    "q4_controllers_of_C": {"type": "who_has_auth", "auth": "Control", "to": "subj_C"},
+    "q5_C_to_D": {"type": "authority_set", "from": "subj_C", "to": "subj_D"},
+    "q6_wellformed": {"type": "wellformed_check"},
+    "q7_A_reaches_D_via_DD": {"type": "dd_reachable", "from": "subj_A", "to": "subj_D"}
+  }
+}

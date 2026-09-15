@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must diagnose and fix multiple interacting defects in a coupled GWF-GWT MODFLOW 6 simulation script, requiring expert knowledge of the MODFLOW 6 package ecosystem, density-dependent groundwater flow physics, and the FloPy Python API. Defects span model coupling (exchange definition, solver registration), package cross-referencing (buoyancy model linkage, source-sink mixing package names), and physical parameter correctness (flow direction sign conventions). Some defects cause immediate runtime crashes with cryptic MODFLOW 6 error messages; one produces physically incorrect results that can only be diagnosed through domain understanding. The agent must also obtain and install the mf6 executable in a bare environment and post-process binary output files."""
+solution_explanation = """Install FloPy and obtain the MODFLOW 6 binary. The buggy build_model.py contains five defects: (1) BUY packagedata references a non-existent model name 'transport' instead of the GWT model name 'gwt_henry'; (2) the GWT IMS solver is registered to the GWF model name instead of the GWT model name; (3) SSM source records reference package type names 'CHD'/'WEL' instead of the assigned pnames 'CHD-1'/'WEL-1'; (4) well injection rates have wrong sign (negative = extraction instead of positive = injection); (5) the GWF-GWT exchange coupling is entirely missing. Fix all five, run the simulation to convergence, then extract bottom-layer concentrations from the .ucn binary and compute isochlor positions by linear interpolation."""
+verification_explanation = """Tests verify: (1) results.json structure with all required keys, (2) bottom-layer concentrations match reference values within atol=1.0, (3) monotonically increasing concentrations, (4) concentrations in [0, 35], (5) toe position within 0.2m of reference, (6) mixing zone width within 0.25m of reference, (7) model workspace contains valid mfsim.nam, .hds, .ucn files, (8) listing file shows NORMAL TERMINATION, (9) cross-validation that results.json concentrations match actual .ucn binary content (anti-cheat), (10) .hds file contains valid finite head data."""
+category = "applied_computing"
+tags = ["hydrogeology", "numerical-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/henry-saltwater-intrusion-1dfd96"

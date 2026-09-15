@@ -1,0 +1,15 @@
+{
+  "name": "division_safety",
+  "vars": ["x", "y", "z", "d", "w"],
+  "arrays": {},
+  "body": [
+    {"stmt": "assign", "target": "x", "expr": {"expr": "nondet"}, "line": 1},
+    {"stmt": "assign", "target": "y", "expr": {"expr": "binop", "op": "/", "left": {"expr": "const", "value": 100}, "right": {"expr": "var", "name": "x"}}, "line": 2},
+    {"stmt": "if", "cond": {"expr": "binop", "op": ">", "left": {"expr": "var", "name": "x"}, "right": {"expr": "const", "value": 0}},
+     "then_body": [
+       {"stmt": "assign", "target": "z", "expr": {"expr": "binop", "op": "/", "left": {"expr": "const", "value": 100}, "right": {"expr": "var", "name": "x"}}, "line": 4}
+     ], "line": 3},
+    {"stmt": "assign", "target": "d", "expr": {"expr": "const", "value": 0}, "line": 5},
+    {"stmt": "assign", "target": "w", "expr": {"expr": "binop", "op": "/", "left": {"expr": "const", "value": 100}, "right": {"expr": "var", "name": "d"}}, "line": 6}
+  ]
+}

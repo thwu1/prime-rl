@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering NVIDIA Blackwell GPU shared memory addressing from reference I/O data distributed across three heterogeneous formats: an SQLite database (requiring schema discovery via .schema/.tables and JOIN queries to resolve foreign-key relationships between mode IDs and mode names), raw binary descriptor files (requiring hex dump tools to decode little-endian packed bit-fields), and a deeply nested JSON hardware configuration dump (requiring structured extraction to locate TMA test cases buried several levels deep). The solver must orchestrate sqlite3, xxd/od, and jq (or equivalent) to gather sufficient data points, then: (1) deduce the XOR-based swizzle permutation algorithm from address mapping patterns across four modes, (2) derive the 64-bit descriptor bit-field layout from binary analysis (identifying ADDR, LBO, SBO, FLAG, SWIZZLE fields and their encoding rules), (3) reconstruct the 3D TMA parameter computation from dimension/stride examples, and (4) prove implementation correctness via bijectivity over all byte positions. This is cutting-edge GPU kernel programming knowledge (Blackwell sm100, 2024-2025) requiring both deep hardware understanding and multi-tool terminal proficiency."""
+solution_explanation = """The solver must first use sqlite3 to query vectors.db (discovering the schema, joining address_vectors with swizzle_modes), xxd to decode binary descriptor files in /app/descriptors/, and jq to extract TMA parameters from the nested hw_config_dump.json. From this multi-source analysis they discover: (1) the address mapping uses strips of chunk_width bytes laid out contiguously, with 16-byte units within each strip row XOR-permuted by (row & mask) where mask = chunk_width/16 - 1; (2) the inverse mapping exploits XOR being self-inverse; (3) the smem descriptor packs ADDR at bits 13:0 (value>>4), LBO at bits 29:16 (H*16>>4 for NONE, 0 for swizzled), SBO at bits 45:32 (8*chunk>>4), FLAG at bit 46, SWIZZLE code at bits 63:61 (0=NONE, 2=128B); (4) the instruction descriptor encodes dtype codes at bits 6:4/9:7/12:10 and MMA dimensions at bits 23:17 (N/8) and 31:24 (M/16); (5) TMA params reshape [M,K] -> [chunk_elems, M, K/chunk_elems] with strides [K*elem_bytes, chunk_width]."""
+verification_explanation = """60 pytest tests verify: physical offsets for all four swizzle modes including cases not in reference data, inverse roundtrips, full bijectivity over tiles up to 64x256, descriptor bit-field extraction and cross-validation between modes, instruction descriptor field isolation, TMA parameter correctness for configurations not shown in reference examples, tile rearrangement consistency with the address mapping, and descriptor-layout geometric consistency."""
+category = "Systems Programming"
+tags = ["gpu-architecture", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-029ceb"

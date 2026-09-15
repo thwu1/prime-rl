@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-format identifier resolution across three disparate GLEIF lookup mechanisms (LEI checksum via ISO 17442 MOD 97-10, BIC-to-LEI reverse mapping via filter endpoints, and entity name matching via exact-name and fulltext search endpoints), recursive parent chain traversal with cycle detection to build verified ownership hierarchies, consistency verification between direct-parent chain terminals and claimed ultimate parents, extraction and interpretation of relationship-level metadata (corroboration levels, registration status) from the GLEIF JSON:API relationship record schema — which differs structurally from entity records, reporting exception classification for parentless entities, paginated count aggregation for ISIN securities and subsidiary relationships, and cluster-level data quality scoring using weighted corroboration metrics. The solver must independently discover the non-obvious distinction between entity endpoints and relationship endpoints, handle the JSON:API envelope format with its nested attributes/relationships structure, correctly disambiguate among multiple search results for name-based lookups, and synthesize financial data domain knowledge about LEI ownership semantics — none of which is prescribed in the instructions."""
+solution_explanation = """The solution resolves each identifier via the appropriate GLEIF API mechanism (checksum validation + direct lookup for LEIs, filter[bic] for BICs, filter[entity.legalName] with fulltext fallback and best-match selection for names), then for each resolved entity recursively traverses direct-parent-relationship endpoints to build parent chains, fetches ultimate-parent-relationship to verify chain consistency, queries reporting-exceptions for parentless entities, extracts corroboration and registration metadata from relationship records, aggregates ISIN and subsidiary counts via pagination metadata, groups entities into clusters by ultimate parent LEI, and computes data quality scores as weighted means of corroboration levels."""
+verification_explanation = """Tests verify: (1) output structure with all required fields across entities/clusters/summary, (2) correct multi-format resolution — LEI checksums validated, BIC GOLDUS33XXX resolved to GS & Co. LLC, name 'Microsoft Corporation' resolved to correct LEI INR2EJN1ERAN0W5ZP974 (not a similarly-named subsidiary or plan), invalid LEIs rejected, (3) entity attributes match authoritative GLEIF data, (4) parent chains terminate at correct ultimate parents with consistency verified, (5) corroboration levels present and valid for subsidiary relationships, (6) reporting exception fields populated for parentless entities, (7) GS Group cluster correctly groups 3 entities across 3 jurisdictions, (8) ISIN/subsidiary counts meet known thresholds, (9) data quality scores computed within valid range, (10) summary statistics arithmetically consistent with entity-level data."""
+category = "data_processing"
+tags = ["api-integration", "financial-data"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lei-reconciliation-engine"

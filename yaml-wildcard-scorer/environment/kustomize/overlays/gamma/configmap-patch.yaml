@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  log_level: warn
+  cache_ttl: "60"
+  enable_metrics: "true"

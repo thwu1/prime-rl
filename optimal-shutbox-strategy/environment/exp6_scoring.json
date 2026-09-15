@@ -1,0 +1,10 @@
+{
+  "experiment_id": 6,
+  "scoring_version": "2.1",
+  "method": "weighted_penalty",
+  "description": "Higher tiles penalized more in 6-tile variant",
+  "tiers": [
+    {"tiles": [1, 2, 3], "multiplier": 1},
+    {"tiles": [4, 5, 6], "multiplier": 2}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "foundation_buckling",
+  "type": "beam_foundation_buckling",
+  "description": "Critical axial buckling load of a simply-supported Euler-Bernoulli beam on Winkler elastic foundation",
+  "beam": {
+    "length_m": 10.0,
+    "EI_Nm2": 1.0e5
+  },
+  "foundation": {
+    "k_N_per_m2": 1.0e5
+  },
+  "boundary_conditions": "simply_supported",
+  "outputs": ["critical_load_N", "critical_mode"]
+}

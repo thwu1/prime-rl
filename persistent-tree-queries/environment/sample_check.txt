@@ -1,0 +1,18 @@
+Manual verification on synthetic 4-node tree
+=============================================
+
+Nodes (nid, pid, bval):
+  1, NULL, 10   (root)
+  2, 1,    20
+  3, 1,    30
+  4, 2,    40
+
+Modifications (mid, tgt, nval):
+  1, 3, 50      (set node 3 value to 50)
+  2, 1, 100     (set node 1 value to 100)
+
+Verified query results:
+  ver=0, ea=3, eb=4 => path 3-1-2-4 => 30+10+20+40 = 100
+  ver=1, ea=3, eb=4 => path 3-1-2-4 => 50+10+20+40 = 120
+  ver=2, ea=1, eb=4 => path 1-2-4   => 100+20+40   = 160
+  ver=0, ea=2, eb=2 => path 2       => 20

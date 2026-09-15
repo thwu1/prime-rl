@@ -1,0 +1,7 @@
+MaxiCore32 is a 32-bit two-stage pipelined processor implemented in Verilog at `/app/src/`. Its pipeline consists of a decode/memory stage (`memorystage1`) and an execute/writeback stage (`registersstage2`). The top-level module that connects these stages is `/app/src/maxicore32.v`.
+
+Currently, the processor produces incorrect results when consecutive instructions have data dependencies — the pipeline reads register values or status flags before a prior instruction has finished writing them. Programmers must manually insert NOP instructions between dependent instructions to get correct behavior.
+
+Your task is to modify the top-level module (`/app/src/maxicore32.v`) so that the processor automatically detects inter-instruction dependencies in the pipeline and stalls when necessary, producing correct results without requiring manual NOPs. You will need to study the ISA (defined in `/app/src/opcodes.vh`), understand how each instruction uses the register file and status flags by reading the pipeline stage modules, and determine what existing stall infrastructure is available in the top-level module.
+
+The processor's full Verilog source, integration testbench, and Makefile are provided under `/app/`. You can build and simulate with `make maxicore32_tb && vvp maxicore32_tb` from `/app/`.

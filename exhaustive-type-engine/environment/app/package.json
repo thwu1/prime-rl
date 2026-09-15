@@ -1,0 +1,8 @@
+{
+  "name": "deep-exclude-engine",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}

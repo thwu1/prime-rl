@@ -1,0 +1,7 @@
+A stateful streaming fraud detection pipeline at `/app/` processes financial transactions across parallel operator instances. Each operator maintains per-account keyed state for fraud pattern tracking. The pipeline supports fault-tolerance through distributed checkpointing.
+
+The pipeline operates correctly at any fixed parallelism but cannot be rescaled — changing the number of parallel operators between a savepoint and a restore causes state entries to be assigned to wrong operators, incoming events to be routed to operators that lack their state, and fraud detection patterns spanning the savepoint boundary to be missed or duplicated.
+
+Implement all six functions in `/app/savepoint.py` so the pipeline can change its parallelism via savepoints while preserving every state entry and producing correct fraud detection results. The function signatures and docstrings define the required interfaces; the core engine in `/app/streaming.py` and the pipeline in `/app/pipeline.py` provide the runtime context. Persisted checkpoint data from runs at different parallelism levels is available for inspection via `/app/checkpoints/meta.db` (SQLite) and `/app/pipeline-ctl` (CLI tool — run with `help` for usage).
+
+The solution must ensure: deterministic key-to-operator mapping via an indirection layer, contiguous range assignment with correct remainder distribution, O(1) reverse lookup, composite key parsing for state redistribution, and exactly-once alert semantics across rescaling boundaries.

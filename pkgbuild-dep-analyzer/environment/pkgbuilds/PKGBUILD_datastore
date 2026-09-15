@@ -1,0 +1,59 @@
+# Maintainer: Bob Store <bob@example.org>
+# Contributor: Legacy DB Team
+pkgbase=datastore
+pkgname=('datastore-server' 'datastore-lib' 'datastore-tools')
+pkgver=3.2.0
+pkgrel=1
+epoch=1
+pkgdesc="High-performance distributed data store"
+arch=('x86_64')
+url="https://github.com/example/datastore"
+license=('GPL-2.0-only')
+makedepends=('cmake' 'openssl' 'zlib' 'systemd-libs')
+source=("https://github.com/example/${pkgbase}/archive/v${pkgver}.tar.gz"
+        "datastore.service"
+        "datastore-tmpfiles.conf")
+sha256sums=('a1b2c3d4e5f60000000000000000000000000000000000000000000000000000'
+            'SKIP'
+            'SKIP')
+
+build() {
+  cd "${srcdir}/${pkgbase}-${pkgver}"
+  mkdir -p build && cd build
+  cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DWITH_SSL=system \
+    -DWITH_SYSTEMD=ON
+  make
+}
+
+package_datastore-lib() {
+  pkgdesc="Datastore client libraries"
+  depends=('libcore')
+  provides=("dbclient=${pkgver}")
+  conflicts=('altdb-lib')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  make -C lib DESTDIR="${pkgdir}" install
+}
+
+package_datastore-tools() {
+  pkgdesc="Datastore command-line utilities"
+  depends=("${pkgbase}-lib")
+
+  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  make -C tools DESTDIR="${pkgdir}" install
+}
+
+package_datastore-server() {
+  pkgdesc="Datastore server daemon"
+  depends=("${pkgbase}-lib"
+           "${pkgbase}-tools")
+  conflicts=('altdb-server')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  make -C server DESTDIR="${pkgdir}" install
+  install -Dm644 "${srcdir}/datastore.service" \
+    "${pkgdir}/usr/lib/systemd/system/datastore.service"
+}

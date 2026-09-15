@@ -1,0 +1,4 @@
+{
+  "zombie_heartbeat_threshold_seconds": 600,
+  "max_active_scheduler_jobs": 1
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of deterministic simulation architecture (all randomness must be seeded, any external entropy source breaks replay), distributed protocol correctness (committed-write durability under partition/heal/sync, term-based log reconciliation), and testing pipeline analysis (identifying why a checker reports false negatives). Five bugs span three subsystems (simulation engine, replication protocol, safety checker) with cascading interactions — bugs mask each other so fixing one reveals the next, requiring holistic reasoning about the entire stack. Beyond debugging, the solver must design a fault injection campaign configuration and write a comprehensive correctness analysis with diagnostic SQL queries. The cascading bug structure means the solver cannot take shortcuts: partial fixes yield misleading results."""
+solution_explanation = """Five bugs must be fixed: (1) buggify.py mixes time.time() into should_fault(), breaking determinism — remove _entropy_pool. (2) network.py uses stdlib random.uniform() instead of self._rng.uniform(). (3) network.py partition/heal only stores one direction — add (b,a). (4) checker/safety.py skips None results creating false negatives — remove the guard. (5) protocol.py _on_sync truncates with diverge-1 instead of diverge. The solver must then create a campaign_config.json with seeds, phases including partition/heal/write/sync/elect actions. The analysis.md must discuss determinism, buggify, partitions, and durability with SQL diagnostic queries."""
+verification_explanation = """Tests verify: (1) Determinism — 20 seeds run twice, traces must match. (2) Buggify determinism — same seed produces same faults. (3) Partition symmetry — bidirectional blocking. (4) Checker correctness — synthetic trace with missing key flagged as DURABILITY violation. (5) Replication — 50 seeds, committed writes survive partition/heal/sync on all nodes. (6) New primary writes visible on all nodes after sync. (7) Uncommitted writes from minority primary do not persist. (8) Campaign config valid with required phases and actions. (9) Campaign runs cleanly with zero violations. (10) analysis.md exists with sufficient length, covers determinism/buggify/partitions/durability topics, includes SQL queries."""
+category = "distributed_systems"
+tags = ["deterministic-simulation", "fault-injection"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-detsim-engine"

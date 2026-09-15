@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing a multi-component cascading failure from logs containing misleading signals (TLS handshake timeouts, cache version mismatches, stale-config warnings) alongside real crash traces. The agent must: (1) trace through multiple crash paths in the policy engine — the obvious AttributeError from .upper() on None AND the hidden TypeError/ValueError in quota checking — while recognizing that the server's try/except catches the wrong exception types (ValueError/KeyError instead of AttributeError/TypeError), partially masking bugs; (2) identify the thundering herd anti-pattern in synchronized reconnection timing while also discovering a session resource leak where old HTTP sessions are replaced without being closed; (3) discover that the replicator has two separate data pathways — single-insert and bulk executemany — with different insertion logic, both of which lack validation. Requires holistic understanding of distributed systems resilience to make correct design decisions (fail-open vs fail-closed, backoff strategy, what constitutes a destabilizing invariant) at each fix point rather than following a recipe."""
+solution_explanation = """Six interrelated defects across three modules: (1) policy_engine.py: guard NULL/blank enforcement_mode and invalid quota fields (None quota_limit, None/blank quota_window), returning fail-open results instead of crashing. (2) gateway/client.py: replace fixed 0.1s sleep with exponential backoff using randomized jitter to prevent thundering herd. (3) gateway/client.py: close the old requests.Session before creating a replacement during reconnection to prevent connection pool exhaustion. (4) replicator/sync.py: validate all required fields are non-None and non-blank before single-policy insertion. (5) replicator/sync.py: fix replicate_batch which uses a separate executemany code path bypassing per-policy validation — must validate each policy before inclusion. (6) server.py has a misleading try/except that catches ValueError/KeyError instead of the actual AttributeError/TypeError — the correct fix is in the engine, not broadening the server catch."""
+verification_explanation = """20 pytest tests across 5 classes verify: policy engine survives NULL/blank enforcement_mode and quota fields without raising exceptions and returns allowed=True (fail-open); gateway client reconnection delays increase exponentially and include randomized jitter (not fixed 0.1s); gateway client properly closes old sessions during reconnection; replicator single-policy path rejects NULL/blank/missing required fields while accepting valid ones and prevents rejected data from being persisted; and critically, the replicator batch operation also validates and rejects invalid entries individually rather than blindly inserting the entire batch via executemany."""
+category = "debugging"
+tags = ["distributed-systems", "cascading-failure", "incident-response"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b648b4"

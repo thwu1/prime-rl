@@ -1,0 +1,2 @@
+% Directed triangle detection (3-way join)
+triangle(X, Y, Z) :- edge(X, Y), edge(Y, Z), edge(X, Z).

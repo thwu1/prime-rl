@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires synthesizing data from a relational SQLite database (per-qubit noise rates requiring schema exploration and aggregation) and TOML configuration, then solving a joint discrete-continuous optimization over quantum measurement grouping, noise-scale selection, and shot allocation. The solver must derive how measurement variance propagates through polynomial extrapolation across multiple observable groups and noise amplification factors, discover the optimal grouping via graph-theoretic partitioning of Pauli observables, and analytically optimize the continuous shot allocation — all without being told which algorithms to apply. Multi-tool interoperability (SQL, TOML parsing, JSON+CSV output) adds engineering complexity."""
+solution_explanation = """The solution queries the SQLite database for Hamiltonian terms and per-qubit noise rates, computes effective per-term noise rates by summing depolarizing rates for non-identity qubit positions, and reads constraints from TOML config. It partitions Pauli terms into minimum qubitwise-commuting groups via greedy graph coloring on the non-commutativity graph. For each candidate scale factor subset (choosing 2-4 from 5 allowed values), it computes Lagrange interpolation coefficients at x=0 and the per-group-per-scale-factor weighted variance B_{g,j}. The optimal shot allocation N_{g,j} is proportional to sqrt(B_{g,j}), yielding V_opt = (sum sqrt(B_{g,j}))^2 / M. The configuration with minimum V_opt is selected. Results are written as JSON and CSV."""
+verification_explanation = """Tests independently reconstruct the full problem from the SQLite database and TOML config, compute reference commuting group partitions, extrapolation coefficients, and optimal variance for all valid scale factor combinations. They verify the agent's JSON output matches within numerical tolerance (group commutativity and minimality, coefficient correctness, variance accuracy at 0.5% relative tolerance, global optimality of scale factor selection, shot budget compliance) and that the CSV allocation file matches the JSON data."""
+category = "quantum_computing"
+tags = ["error-mitigation", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-zne-extrapolation"

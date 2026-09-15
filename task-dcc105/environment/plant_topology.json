@@ -1,0 +1,92 @@
+{
+  "description": "Combined heat and power (CHP) steam/water distribution network. Two boilers feed a main header, which distributes steam to three process units. Process returns and makeup water are collected in a return header and pumped back.",
+  "enthalpy_model": {
+    "type": "polynomial",
+    "description": "Specific enthalpy h(T) = a*T + b*T^2 (kJ/kg), T in degrees Celsius",
+    "a": 4.18,
+    "b": 0.00062
+  },
+  "variables": [
+    "m1", "m2", "m3", "m4", "m5", "m6",
+    "m7", "m8", "m9", "m10", "m11", "m12",
+    "T1", "T2", "T3", "T7", "T8", "T9", "T10", "T11"
+  ],
+  "variable_descriptions": {
+    "m1": "Boiler 1 steam output (kg/s)",
+    "m2": "Boiler 2 steam output (kg/s)",
+    "m3": "Main header flow (kg/s)",
+    "m4": "Process A supply flow (kg/s)",
+    "m5": "Process B supply flow (kg/s)",
+    "m6": "Process C supply flow (kg/s)",
+    "m7": "Process A return flow (kg/s)",
+    "m8": "Process B return flow (kg/s)",
+    "m9": "Process C return flow (kg/s)",
+    "m10": "Makeup water flow (kg/s)",
+    "m11": "Return header outlet flow (kg/s)",
+    "m12": "Pump station outlet flow (kg/s)",
+    "T1": "Boiler 1 outlet temperature (degC)",
+    "T2": "Boiler 2 outlet temperature (degC)",
+    "T3": "Main header temperature (degC)",
+    "T7": "Process A return temperature (degC)",
+    "T8": "Process B return temperature (degC)",
+    "T9": "Process C return temperature (degC)",
+    "T10": "Makeup water temperature (degC)",
+    "T11": "Return header outlet temperature (degC)"
+  },
+  "constraints": [
+    {
+      "id": 1,
+      "type": "mass_balance",
+      "description": "Boiler header: two boilers feed main header",
+      "equation": "m1 + m2 - m3 = 0"
+    },
+    {
+      "id": 2,
+      "type": "mass_balance",
+      "description": "Main distributor: header splits to three process streams",
+      "equation": "m3 - m4 - m5 - m6 = 0"
+    },
+    {
+      "id": 3,
+      "type": "mass_balance",
+      "description": "Process A: steady-state mass balance",
+      "equation": "m4 - m7 = 0"
+    },
+    {
+      "id": 4,
+      "type": "mass_balance",
+      "description": "Process B: steady-state mass balance",
+      "equation": "m5 - m8 = 0"
+    },
+    {
+      "id": 5,
+      "type": "mass_balance",
+      "description": "Process C: steady-state mass balance",
+      "equation": "m6 - m9 = 0"
+    },
+    {
+      "id": 6,
+      "type": "mass_balance",
+      "description": "Return header: collects process returns and makeup water",
+      "equation": "m7 + m8 + m9 + m10 - m11 = 0"
+    },
+    {
+      "id": 7,
+      "type": "mass_balance",
+      "description": "Pump station: flow continuity",
+      "equation": "m11 - m12 = 0"
+    },
+    {
+      "id": 8,
+      "type": "energy_balance",
+      "description": "Boiler header adiabatic energy balance",
+      "equation": "m1*h(T1) + m2*h(T2) - m3*h(T3) = 0"
+    },
+    {
+      "id": 9,
+      "type": "energy_balance",
+      "description": "Return header adiabatic energy balance",
+      "equation": "m7*h(T7) + m8*h(T8) + m9*h(T9) + m10*h(T10) - m11*h(T11) = 0"
+    }
+  ]
+}

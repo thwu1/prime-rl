@@ -1,0 +1,15 @@
+{
+  "router": "R2",
+  "timestamp": "2024-11-15T14:23:05Z",
+  "received_from_65002": [
+    {"network": "3.3.3.3/32", "next_hop": "192.168.23.3", "metric": 0, "local_pref": 100, "as_path": "65002 i"},
+    {"network": "10.3.1.0/24", "next_hop": "192.168.23.3", "metric": 0, "local_pref": 100, "as_path": "65002 i"}
+  ],
+  "redistributed_from_ospf": [
+    {"network": "1.1.1.1/32", "next_hop": "0.0.0.0", "metric": 11, "origin": "incomplete", "route_tag": 0},
+    {"network": "4.4.4.4/32", "next_hop": "0.0.0.0", "metric": 21, "origin": "incomplete", "route_tag": 0},
+    {"network": "192.168.12.0/24", "next_hop": "0.0.0.0", "metric": 10, "origin": "incomplete", "route_tag": 0},
+    {"network": "192.168.14.0/24", "next_hop": "0.0.0.0", "metric": 21, "origin": "incomplete", "route_tag": 0}
+  ],
+  "advertised_to_65002": []
+}

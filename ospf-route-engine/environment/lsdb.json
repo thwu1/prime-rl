@@ -1,0 +1,91 @@
+{
+  "computing_router": "1.1.1.1",
+  "description": "OSPF LSDB as seen by router R1 (1.1.1.1) in Area 0. Multi-area topology with 7 routers, 3 areas, 2 ASBRs.",
+  "router_lsas": [
+    {
+      "ls_id": "1.1.1.1",
+      "adv_router": "1.1.1.1",
+      "flags": [],
+      "links": [
+        {"type": "point-to-point", "link_id": "2.2.2.2", "link_data": "10.0.12.1", "metric": 10},
+        {"type": "stub", "link_id": "10.0.12.0", "link_data": "255.255.255.252", "metric": 10},
+        {"type": "point-to-point", "link_id": "3.3.3.3", "link_data": "10.0.13.1", "metric": 5},
+        {"type": "stub", "link_id": "10.0.13.0", "link_data": "255.255.255.252", "metric": 5},
+        {"type": "stub", "link_id": "1.1.1.1", "link_data": "255.255.255.255", "metric": 0}
+      ]
+    },
+    {
+      "ls_id": "2.2.2.2",
+      "adv_router": "2.2.2.2",
+      "flags": ["ABR"],
+      "links": [
+        {"type": "point-to-point", "link_id": "1.1.1.1", "link_data": "10.0.12.2", "metric": 10},
+        {"type": "stub", "link_id": "10.0.12.0", "link_data": "255.255.255.252", "metric": 10},
+        {"type": "point-to-point", "link_id": "4.4.4.4", "link_data": "10.0.24.1", "metric": 5},
+        {"type": "stub", "link_id": "10.0.24.0", "link_data": "255.255.255.252", "metric": 5},
+        {"type": "stub", "link_id": "2.2.2.2", "link_data": "255.255.255.255", "metric": 0}
+      ]
+    },
+    {
+      "ls_id": "3.3.3.3",
+      "adv_router": "3.3.3.3",
+      "flags": ["ABR"],
+      "links": [
+        {"type": "point-to-point", "link_id": "1.1.1.1", "link_data": "10.0.13.2", "metric": 5},
+        {"type": "stub", "link_id": "10.0.13.0", "link_data": "255.255.255.252", "metric": 5},
+        {"type": "point-to-point", "link_id": "4.4.4.4", "link_data": "10.0.34.1", "metric": 10},
+        {"type": "stub", "link_id": "10.0.34.0", "link_data": "255.255.255.252", "metric": 10},
+        {"type": "stub", "link_id": "3.3.3.3", "link_data": "255.255.255.255", "metric": 0}
+      ]
+    },
+    {
+      "ls_id": "4.4.4.4",
+      "adv_router": "4.4.4.4",
+      "flags": ["ABR"],
+      "links": [
+        {"type": "point-to-point", "link_id": "2.2.2.2", "link_data": "10.0.24.2", "metric": 5},
+        {"type": "stub", "link_id": "10.0.24.0", "link_data": "255.255.255.252", "metric": 5},
+        {"type": "point-to-point", "link_id": "3.3.3.3", "link_data": "10.0.34.2", "metric": 10},
+        {"type": "stub", "link_id": "10.0.34.0", "link_data": "255.255.255.252", "metric": 10},
+        {"type": "stub", "link_id": "4.4.4.4", "link_data": "255.255.255.255", "metric": 0}
+      ]
+    }
+  ],
+  "network_lsas": [],
+  "summary_lsas": [
+    {"ls_id": "10.5.0.0", "adv_router": "3.3.3.3", "mask": "255.255.255.0", "metric": 6},
+    {"ls_id": "10.5.1.0", "adv_router": "3.3.3.3", "mask": "255.255.255.0", "metric": 7},
+    {"ls_id": "10.7.0.0", "adv_router": "3.3.3.3", "mask": "255.255.255.0", "metric": 9},
+    {"ls_id": "10.4.1.0", "adv_router": "3.3.3.3", "mask": "255.255.255.0", "metric": 11},
+    {"ls_id": "10.1.35.0", "adv_router": "3.3.3.3", "mask": "255.255.255.252", "metric": 5},
+    {"ls_id": "10.1.45.0", "adv_router": "3.3.3.3", "mask": "255.255.255.252", "metric": 10},
+    {"ls_id": "10.1.57.0", "adv_router": "3.3.3.3", "mask": "255.255.255.252", "metric": 8},
+
+    {"ls_id": "10.5.0.0", "adv_router": "4.4.4.4", "mask": "255.255.255.0", "metric": 6},
+    {"ls_id": "10.5.1.0", "adv_router": "4.4.4.4", "mask": "255.255.255.0", "metric": 7},
+    {"ls_id": "10.7.0.0", "adv_router": "4.4.4.4", "mask": "255.255.255.0", "metric": 9},
+    {"ls_id": "10.4.1.0", "adv_router": "4.4.4.4", "mask": "255.255.255.0", "metric": 1},
+    {"ls_id": "10.1.45.0", "adv_router": "4.4.4.4", "mask": "255.255.255.252", "metric": 5},
+    {"ls_id": "10.1.35.0", "adv_router": "4.4.4.4", "mask": "255.255.255.252", "metric": 10},
+    {"ls_id": "10.1.57.0", "adv_router": "4.4.4.4", "mask": "255.255.255.252", "metric": 8},
+
+    {"ls_id": "10.6.0.0", "adv_router": "2.2.2.2", "mask": "255.255.255.0", "metric": 11},
+    {"ls_id": "10.2.26.0", "adv_router": "2.2.2.2", "mask": "255.255.255.252", "metric": 10},
+    {"ls_id": "10.2.46.0", "adv_router": "2.2.2.2", "mask": "255.255.255.252", "metric": 25},
+
+    {"ls_id": "10.6.0.0", "adv_router": "4.4.4.4", "mask": "255.255.255.0", "metric": 16},
+    {"ls_id": "10.2.46.0", "adv_router": "4.4.4.4", "mask": "255.255.255.252", "metric": 15},
+    {"ls_id": "10.2.26.0", "adv_router": "4.4.4.4", "mask": "255.255.255.252", "metric": 25}
+  ],
+  "asbr_summary_lsas": [
+    {"ls_id": "6.6.6.6", "adv_router": "2.2.2.2", "metric": 10},
+    {"ls_id": "6.6.6.6", "adv_router": "4.4.4.4", "metric": 15},
+    {"ls_id": "7.7.7.7", "adv_router": "3.3.3.3", "metric": 8},
+    {"ls_id": "7.7.7.7", "adv_router": "4.4.4.4", "metric": 8}
+  ],
+  "external_lsas": [
+    {"ls_id": "192.168.0.0", "adv_router": "6.6.6.6", "mask": "255.255.0.0", "metric": 20, "metric_type": "E1", "forwarding_address": "0.0.0.0"},
+    {"ls_id": "172.16.0.0", "adv_router": "6.6.6.6", "mask": "255.240.0.0", "metric": 100, "metric_type": "E2", "forwarding_address": "0.0.0.0"},
+    {"ls_id": "172.16.0.0", "adv_router": "7.7.7.7", "mask": "255.240.0.0", "metric": 5, "metric_type": "E1", "forwarding_address": "0.0.0.0"}
+  ]
+}

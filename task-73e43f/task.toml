@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires proficient-level Nextflow DSL2 expertise spanning channel semantics (queue vs value channels, implicit channel forking, tuple manipulation with map/collect), publishDir interaction with work directories (mode:'move' destroying downstream symlinks), process I/O declaration matching, and diamond-shaped dataflow topology design. The solver must diagnose 6 interacting defects: (1) Channel.of→Channel.value for a broadcast parameter causing silent sample loss, (2) publishDir mode:'move' severing work-directory symlinks for downstream processes, (3) output path declaration vs script output mismatch, (4) missing params.outdir cascading through all publishDir directives, (5) an inline .map{it[1]} operator stripping sample_id from tuple channels before NORMALIZE_TF which expects tuples, (6) absent COMPUTE_IDF and SUMMARIZE processes plus their channel wiring. Beyond debugging, the solver must implement NORMALIZE_TF (awk TF computation), create COMPUTE_IDF (Python IDF computation over collected filtered documents), and create SUMMARIZE (Python TF-IDF computation combining per-sample TF with global IDF). The diamond dataflow where FILTER_WORDS.out fans out to both NORMALIZE_TF (tuples) and COMPUTE_IDF (collected files) and then converges into SUMMARIZE requires understanding DSL2 implicit forking, correct collect() usage on tuple channels, and multi-input process wiring."""
+solution_explanation = """Fix 6 bugs: (1) Channel.of→Channel.value for min_length, (2) publishDir mode:'move'→'copy' in count_words, (3) filter_words output path("filtered.txt")→path("${sample_id}_filtered.txt"), (4) add params.outdir="${projectDir}/results" to config, (5) pass FILTER_WORDS.out directly to NORMALIZE_TF instead of through .map{it[1]} which strips sample_id, (6) add COMPUTE_IDF and SUMMARIZE imports and wiring. Create 3 modules: NORMALIZE_TF (awk computing tf=count/total, 6dp, sorted tf desc/word asc), COMPUTE_IDF (Python reading all collected filtered files, computing df and idf=ln(N/df), sorted idf desc/word asc), SUMMARIZE (Python reading all TF files + IDF file, computing TF-IDF=TF*IDF per word, finding top TF-IDF words with alphabetical tie-breaking, outputting summary.json). Wire diamond: FILTER_WORDS.out→NORMALIZE_TF (full tuples), FILTER_WORDS.out.map{it[1]}.collect()→COMPUTE_IDF, NORMALIZE_TF.out.map{it[1]}.collect()+COMPUTE_IDF.out→SUMMARIZE."""
+verification_explanation = """Tests clean previous runs, execute the pipeline, then verify: pipeline exits 0; all 11 output files exist (3 wordcounts, 3 filtered, 3 TF, 1 IDF, 1 summary.json); word counts are numerically correct; filtered files exclude short words; TF values match expected ratios (e.g., the=4/19 in doc_alpha) and sum to 1.0; TF files are sorted by tf desc then word asc; IDF file has 40 entries with correct df/idf values (e.g., 'the' df=2 idf≈0.405465, 'fox' df=1 idf≈1.098612) and correct sort order; summary.json has num_documents=3, correct unique word counts (16/13/14), correct top TF-IDF words ('the'/'the'/'actions' with alphabetical tie-breaking), correct TF-IDF scores (≈0.085361/0.081093/0.078472), and global_top_tfidf_word='the'."""
+category = "debugging"
+tags = ["nextflow", "workflow-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-73e43f"

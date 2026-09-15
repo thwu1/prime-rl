@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering Cilium's network policy evaluation semantics from Go source code excerpts and a semantics reference, then implementing a correct evaluator. The agent must: (1) extract endpoint labels and IPs from a SQLite database using SQL queries, (2) parse both CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy YAML resources, (3) derive the bilateral evaluation model (source egress + destination ingress), default-deny computation across overlapping policies with explicit enableDefaultDeny overrides, deny-over-allow precedence, and multi-policy accumulation. The 18 test queries exercise interactions between cluster-wide and namespace-scoped policies, matchExpressions with DoesNotExist, CIDRSet exceptions, empty selectors, and enableDefaultDeny=false overridden by another policy's implicit default-deny."""
+solution_explanation = """Query the SQLite database to extract endpoint names, labels, and IPs. Parse all 11 policy YAML files (8 namespace + 3 cluster-wide). Implement the Cilium policy evaluator: match policies to endpoints via endpointSelector (matchLabels + matchExpressions), compute per-endpoint per-direction default-deny state across all matching policies (both CNP and CCNP), evaluate deny rules first (any match = DENIED), then check allow rules if default-deny is on, and perform bilateral evaluation (source egress AND destination ingress must both pass)."""
+verification_explanation = """Tests parse /app/results.json and verify each of the 18 query verdicts against pre-computed expected answers. Each query tests specific semantic edge cases including CCNP-to-CNP interaction, cross-environment deny rules, monitoring egress restrictions, and enableDefaultDeny override scenarios."""
+category = "networking"
+tags = ["cilium", "network-policy"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cilium-policy-evaluator"

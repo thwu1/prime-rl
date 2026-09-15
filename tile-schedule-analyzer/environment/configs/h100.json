@@ -1,0 +1,6 @@
+{
+    "name": "H100-SXM",
+    "num_sms": 132,
+    "bandwidth_bytes_per_sec": 3.35e12,
+    "memory_latency_sec": 4e-7
+}

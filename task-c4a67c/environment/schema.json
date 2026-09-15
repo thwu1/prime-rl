@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["session_id", "integral", "inv_37", "inv_1000", "inv_2000", "exit_prob"],
+  "properties": {
+    "session_id": {"type": "string", "description": "Workspace session identifier from calibration.json"},
+    "integral": {"type": "number", "description": "Result of the quadrature experiment"},
+    "inv_37": {"type": "number", "description": "First target from sparse_inverse experiment"},
+    "inv_1000": {"type": "number", "description": "Second target from sparse_inverse experiment"},
+    "inv_2000": {"type": "number", "description": "Third target from sparse_inverse experiment"},
+    "exit_prob": {"type": "number", "description": "Result of the stochastic experiment"}
+  },
+  "additionalProperties": false
+}

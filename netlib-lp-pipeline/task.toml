@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of LP duality theory to correctly construct the explicit dual LP from general mixed-constraint primal problems with variable bounds and ranged constraints. The dual construction rules — mapping constraint types (E/L/G) to dual variable sign conventions, transforming finite variable bounds into dual equality constraints with auxiliary variables, and expanding RANGES into paired inequalities before dualization — demand holistic comprehension of the primal-dual relationship, not procedural recipe-following. Additionally requires: compiling legacy C code with modern glibc compatibility (gets() removed in glibc 2.34+), understanding the Netlib-proprietary compression format, implementing a correct MPS parser handling all section types and bound types (UP/LO/FX/FR/FI/MI/BV), verifying complementary slackness from first principles (constraint slack × dual variable products plus variable bound × bound dual products), and ensuring all components — parser, primal solver, dual constructor, dual solver, CS verifier — produce mutually consistent results across 8 structurally diverse problems."""
+solution_explanation = """Compile emps.c with gets() compatibility shim for modern glibc. Decompress all 8 MPS files. Parse MPS into internal representation. For each problem: (1) Expand ranged constraints into pairs of inequalities. Build primal LP and solve with scipy/HiGHS. (2) Construct the explicit dual LP: create dual variables y_i for each constraint (bounded by type: E→free, L→≤0, G→≥0), w_lj≥0 for finite lower bounds, w_uj≥0 for finite upper bounds; build n dual equality constraints (A^T y + w_l - w_u = c); set dual objective (max b^T y + l^T w_l - u^T w_u, negated for minimization). (3) Solve the dual LP independently. (4) Verify strong duality (|primal_opt - dual_opt| < ε) and complementary slackness (max |slack_i × y_i| and |bound_gap_j × w_j| < ε). (5) Count MPS dimensions from raw parse for Netlib table verification."""
+verification_explanation = """Tests verify: (1) Optimal values match Netlib MINOS 5.3 reference values within 1e-6 relative tolerance for all 8 problems. (2) Dual optimal values also match reference (strong duality ensures this). (3) Duality gap < 1e-4 for all problems. (4) Complementary slackness violations < 1e-4. (5) Problem dimensions (rows, cols, nonzeros) exactly match Netlib PROBLEM SUMMARY TABLE. (6) Correct BOUNDS/RANGES section detection. The 8 problems span diverse structural features: no bounds (AFIRO, SC50A, ADLITTLE, SHARE2B), bounds with UP only (KB2), bounds with UP/LO/FX (BORE3D), bounds AND ranges (BOEING2), bounds with FX/FR types (CAPRI), and empty RHS sections (KB2, BORE3D)."""
+category = "optimization"
+tags = ["linear-programming", "duality-theory"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/netlib-lp-pipeline"

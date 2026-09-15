@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of three distinct domains: (1) Prometheus PromQL — diagnosing and fixing recording rule syntax errors requires understanding PromQL function signatures, expression syntax, and histogram metric conventions. (2) jq data pipeline engineering — the interval computation script has subtle semantic bugs around histogram delta computation and field selection that require deep understanding of Prometheus cumulative histogram semantics vs per-interval deltas. (3) Designing and implementing a complete SLO analysis engine from scratch — the solver must implement Prometheus-standard histogram quantile computation from domain knowledge, build SLO verdict evaluation, severity classification, and error-budget burn-rate analysis. The agent receives only a broken pipeline and an output schema; they must diagnose all failures across shell scripts, PromQL YAML, jq filters, and Python, then implement the missing analyzer with correct numerical results. No hints about which stages are broken or what algorithms to use."""
+solution_explanation = """Three-part solution: (1) Prometheus rules — fix three PromQL syntax errors in the recording rules YAML so promtool validation passes. (2) jq filters — fix the interval computation to produce actual per-interval deltas instead of cumulative counts, and fix the request count field reference. (3) Implement the full SLO analyzer: Prometheus-standard histogram quantile with linear interpolation, SLO verdict evaluation against config thresholds, severity classification per the config rules, and error-budget burn-rate computation. The analyzer must read interval delta files and SLO config to produce a numerically correct report."""
+verification_explanation = """Tests verify all pipeline stages: (1) promtool check rules exits 0. (2) jq interval files have correct delta values and reset detection flags. (3) Analyzer output verified against reference values with tight tolerances — histogram percentile values, per-interval rates, SLO verdicts, severity classifications, and error-budget burn rates are all checked numerically. Cross-interval consistency checks verify severity distribution and burn-rate aggregation logic."""
+category = "systems"
+tags = ["observability", "llm-serving"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8bec69"

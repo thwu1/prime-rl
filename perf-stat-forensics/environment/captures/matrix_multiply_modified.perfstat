@@ -1,0 +1,19 @@
+ Performance counter stats for './matrix_multiply --modified':
+
+         10,003.56 msec task-clock                       #    1.000 CPUs utilized
+             2,100      context-switches                 #  209.925 /sec
+                19      cpu-migrations                   #    1.900 /sec
+            12,400      page-faults                      #    1,239.559 /sec
+     5,000,000,000      cycles                           #    4.999 GHz
+     3,900,000,000      instructions                     #    0.78  insn per cycle
+     1,100,000,000      branch-instructions              #  109.961 M/sec
+        20,900,000      branch-misses                    #    1.90% of all branches
+       900,000,000      cache-references                 #   89.968 M/sec
+       280,800,000      cache-misses                     #   31.20% of all cache refs
+       450,000,000      stalled-cycles-frontend          #    9.00% frontend cycles idle
+     2,900,000,000      stalled-cycles-backend           #   58.00% backend cycles idle
+
+         10.003876543 seconds time elapsed
+
+          9.912345678 seconds user
+          0.091234000 seconds sys

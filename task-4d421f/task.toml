@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level OSPF protocol knowledge combined with proficiency in multiple specialized networking tools. The agent must: (1) master tshark's OSPF dissector fields and output formats to parse pcap captures, (2) understand the semantic mapping from raw OSPF Hello packet observations to RFC 2328 neighbor FSM events — a non-procedural task requiring holistic protocol understanding (e.g., inferring InactivityTimer from inter-packet gaps, distinguishing 2-WayReceived from 1-Way based on neighbor list inclusion, correlating DR/BDR fields with adjacency decisions), (3) implement the full 8-state 13-event FSM with conditional transitions that depend on network type and DR/BDR roles, (4) use scapy's OSPF contrib module to synthesize valid pcap files that interoperate with tshark. The multi-tool integration (tshark ↔ Python ↔ scapy) and the packet-to-event inference layer go well beyond procedural FSM implementation."""
+solution_explanation = """The solution implements OSPFAnalyzer with five core capabilities: (1) tshark subprocess invocation with -T fields and OSPF-specific field names to extract structured packet data, (2) a two-pass pcap analysis that first collects the perspective router's own parameters then processes each neighbor's packets to generate FSM events — including synthetic InactivityTimer events for dead-interval gaps, (3) the RFC 2328 Section 10.3/10.4 FSM engine handling all states, events, and conditional adjacency logic, (4) violation detection for timing, parameter mismatches, and invalid transitions, (5) scapy-based OSPF Hello packet generation using OSPF_Hdr/OSPF_Hello classes with proper Ether/IP layering."""
+verification_explanation = """Tests verify all five capabilities independently: tshark extraction accuracy (packet counts, field values from known pcaps), pcap-to-FSM analysis correctness (state transitions from P2P and broadcast captures), violation detection (dead interval exceeded, HelloInterval mismatch), JSON trace processing (P2P full adjacency, AdjOK? promotion, invalid transition detection), and scapy roundtrip (generate pcap → parse with tshark → verify fields match). Each test uses deterministic inputs with known expected outputs derived from RFC 2328."""
+category = "networking"
+tags = ["protocol-conformance", "packet-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4d421f"

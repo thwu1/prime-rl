@@ -1,0 +1,27 @@
+{
+  "type": "seq",
+  "body": [
+    {
+      "type": "finish",
+      "body": {
+        "type": "seq",
+        "body": [
+          {"type": "compute", "cost": 1},
+          {
+            "type": "async",
+            "child": {
+              "type": "seq",
+              "body": [
+                {"type": "write", "var": "x", "id": "w1"},
+                {"type": "compute", "cost": 3}
+              ]
+            }
+          },
+          {"type": "read", "var": "x", "id": "r1"},
+          {"type": "compute", "cost": 4}
+        ]
+      }
+    },
+    {"type": "compute", "cost": 2}
+  ]
+}

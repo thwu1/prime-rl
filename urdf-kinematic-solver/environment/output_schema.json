@@ -1,0 +1,172 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Manipulator Kinematic and Dexterity Analysis Results",
+    "description": "Output schema for multi-variant URDF robot arm analysis including validation, differential kinematics, and workspace metrics",
+    "type": "object",
+    "required": ["variants", "comparative_summary"],
+    "properties": {
+        "variants": {
+            "type": "object",
+            "description": "Results keyed by variant ID (e.g. 'variant_a', 'variant_b', 'variant_c')",
+            "additionalProperties": {
+                "$ref": "#/$defs/variant_result"
+            }
+        },
+        "comparative_summary": {
+            "type": "object",
+            "required": ["best_max_reach", "best_avg_manipulability", "best_dexterous_fraction"],
+            "properties": {
+                "best_max_reach": {
+                    "type": "string",
+                    "description": "Variant ID with highest maximum reach distance"
+                },
+                "best_avg_manipulability": {
+                    "type": "string",
+                    "description": "Variant ID with highest average Yoshikawa manipulability"
+                },
+                "best_dexterous_fraction": {
+                    "type": "string",
+                    "description": "Variant ID with highest dexterous workspace fraction"
+                }
+            }
+        }
+    },
+    "$defs": {
+        "variant_result": {
+            "type": "object",
+            "required": ["validation", "kinematic_analysis", "workspace_analysis"],
+            "properties": {
+                "validation": {
+                    "$ref": "#/$defs/validation_result"
+                },
+                "kinematic_analysis": {
+                    "type": ["object", "null"],
+                    "description": "Kinematic analysis results keyed by query ID. null if variant is invalid.",
+                    "additionalProperties": {
+                        "$ref": "#/$defs/query_result"
+                    }
+                },
+                "workspace_analysis": {
+                    "oneOf": [
+                        { "$ref": "#/$defs/workspace_result" },
+                        { "type": "null" }
+                    ],
+                    "description": "Workspace analysis results. null if variant is invalid."
+                }
+            }
+        },
+        "validation_result": {
+            "type": "object",
+            "required": ["is_valid", "root_link", "num_links", "num_joints"],
+            "properties": {
+                "is_valid": {
+                    "type": "boolean",
+                    "description": "True if check_urdf validates the URDF successfully"
+                },
+                "root_link": {
+                    "type": ["string", "null"],
+                    "description": "Name of the root link reported by check_urdf. null if validation failed."
+                },
+                "num_links": {
+                    "type": "integer",
+                    "description": "Total number of <link> elements in the URDF file"
+                },
+                "num_joints": {
+                    "type": "integer",
+                    "description": "Total number of <joint> elements in the URDF file"
+                }
+            }
+        },
+        "query_result": {
+            "type": "object",
+            "required": [
+                "position",
+                "rotation_matrix",
+                "jacobian",
+                "manipulability",
+                "singular_values",
+                "condition_number",
+                "singularity_class",
+                "static_torques"
+            ],
+            "properties": {
+                "position": {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "End-effector (tool0) position [x, y, z] in base_link frame"
+                },
+                "rotation_matrix": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "minItems": 3,
+                        "maxItems": 3
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "3x3 rotation matrix of tool0 in base_link frame, row-major nested list"
+                },
+                "jacobian": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "minItems": 6,
+                        "maxItems": 6
+                    },
+                    "minItems": 6,
+                    "maxItems": 6,
+                    "description": "6x6 geometric Jacobian. Rows 0-2: linear velocity (x,y,z). Rows 3-5: angular velocity. Columns follow joint_order."
+                },
+                "manipulability": {
+                    "type": "number",
+                    "description": "Yoshikawa manipulability index: w = sqrt(det(J * J^T)), equivalently the product of all singular values of J"
+                },
+                "singular_values": {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "minItems": 6,
+                    "maxItems": 6,
+                    "description": "Singular values of J sorted in descending order"
+                },
+                "condition_number": {
+                    "type": "number",
+                    "description": "Ratio of largest to smallest singular value (sigma_max / sigma_min). Capped at 1e12 if sigma_min < 1e-10."
+                },
+                "singularity_class": {
+                    "type": "string",
+                    "enum": ["singular", "near_singular", "well_conditioned"],
+                    "description": "Classification based on minimum singular value: 'singular' if sigma_min < 0.001, 'near_singular' if sigma_min < 0.01, otherwise 'well_conditioned'"
+                },
+                "static_torques": {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "minItems": 6,
+                    "maxItems": 6,
+                    "description": "Joint torques required to resist the external wrench: tau = J^T * wrench. Order matches joint_order."
+                }
+            }
+        },
+        "workspace_result": {
+            "type": "object",
+            "required": ["max_reach", "dexterous_workspace_fraction", "average_manipulability"],
+            "properties": {
+                "max_reach": {
+                    "type": "number",
+                    "description": "Maximum Euclidean distance from base_link origin to tool0 origin, over all configurations within joint limits"
+                },
+                "dexterous_workspace_fraction": {
+                    "type": "number",
+                    "description": "Fraction of Monte Carlo samples where manipulability exceeds the threshold"
+                },
+                "average_manipulability": {
+                    "type": "number",
+                    "description": "Mean Yoshikawa manipulability across all Monte Carlo samples"
+                }
+            }
+        }
+    }
+}

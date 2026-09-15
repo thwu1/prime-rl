@@ -1,0 +1,36 @@
+{
+  "grid": {
+    "N": 64,
+    "domain_period": 6.283185307179586,
+    "stretching_alpha": 0.3,
+    "formula": "x_j = L * (j/N + alpha/(2*pi) * sin(2*pi*j/N)), j = 0, ..., N-1"
+  },
+  "pde": {
+    "equation": "u_t + a * u_x = nu * u_xx",
+    "advection_speed": 1.0,
+    "diffusion_coeff": 0.01,
+    "initial_condition": "sin(x) + 0.5 * sin(3*x)"
+  },
+  "discretization": {
+    "stencil_half_width": 2,
+    "stencil_type": "centered"
+  },
+  "simulation": {
+    "final_time": 2.0,
+    "dt_fraction": 0.9,
+    "time_integrator": "Classical RK4"
+  },
+  "output": {
+    "file": "/app/results.json",
+    "required_keys": {
+      "spectral_radius": "max |lambda_i| over all eigenvalues of spatial operator L",
+      "dt_max_forward_euler": "maximum stable dt for Forward Euler time integration",
+      "dt_max_rk4": "maximum stable dt for Classical RK4 time integration",
+      "rk4_simulation_l2_error": "RMS error sqrt(mean((u_num - u_exact)^2)) at final time",
+      "eigenvalues_real": "real parts of all N eigenvalues of L, sorted by magnitude ascending",
+      "eigenvalues_imag": "imaginary parts of all N eigenvalues of L, sorted by magnitude ascending",
+      "fd_weights_d1_at_j32": "5-element array: 1st derivative FD weights at grid point j=32",
+      "fd_weights_d2_at_j32": "5-element array: 2nd derivative FD weights at grid point j=32"
+    }
+  }
+}

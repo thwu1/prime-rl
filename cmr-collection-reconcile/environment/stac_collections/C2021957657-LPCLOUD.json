@@ -1,0 +1,44 @@
+{
+  "type": "Collection",
+  "id": "C2021957657-LPCLOUD",
+  "stac_version": "1.0.0",
+  "title": "HLS Landsat OLI Surface Reflectance and TOA Brightness Daily Global 30m v2.0",
+  "description": "HLSL30 data collection from LPCLOUD.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2013-04-11T00:00:00Z",
+          "2023-12-31T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "LPCLOUD",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "LANDSAT-8",
+      "LANDSAT-9"
+    ],
+    "processing:level": "L3"
+  },
+  "links": [],
+  "license": "proprietary"
+}

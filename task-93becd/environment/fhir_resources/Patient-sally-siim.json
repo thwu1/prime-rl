@@ -1,0 +1,20 @@
+{
+  "resourceType": "Patient",
+  "id": "sally-siim",
+  "identifier": [
+    {
+      "system": "urn:oid:1.2.826.0.1.3680043.8.499",
+      "value": "BreastDx-01-0003"
+    }
+  ],
+  "name": [
+    {
+      "family": "SIIM",
+      "given": [
+        "Sarah"
+      ]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1950-04-12"
+}

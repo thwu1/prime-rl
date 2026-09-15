@@ -1,0 +1,24 @@
+{
+  "mappings": [
+    {
+      "canonical": "AAPL",
+      "venues": {
+        "XNAS.ITCH": 5001,
+        "XNYS.PILLAR": 8001
+      }
+    },
+    {
+      "canonical": "MSFT",
+      "venues": {
+        "XNAS.ITCH": 5002,
+        "XNYS.PILLAR": 8002
+      }
+    },
+    {
+      "canonical": "GOOG",
+      "venues": {
+        "XNAS.ITCH": 5003
+      }
+    }
+  ]
+}

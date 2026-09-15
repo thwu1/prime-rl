@@ -1,0 +1,121 @@
+{
+  "type": "ModuleBayPlan",
+  "planNumber": 2,
+  "dateCreated": "2024-06-16T08:00:00Z",
+  "dateModified": "2024-06-16T08:15:00Z",
+  "creator": "science_team",
+  "schemaUrl": "http://example.com/freeFlyerPlanSchema.json",
+  "libraryURLs": [],
+  "operatingLimits": {
+    "profileName": "imaging_survey",
+    "flightMode": "quiet",
+    "targetLinearVelocity": 0.1,
+    "targetLinearAcceleration": 0.01,
+    "targetAngularVelocity": 0.0873,
+    "targetAngularAcceleration": 0.0873,
+    "collisionDistance": 0.3
+  },
+  "inertiaConfiguration": {
+    "name": "default",
+    "mass": 9.583,
+    "centerOfMass": [0.0, 0.0, 0.0],
+    "matrix": [0.153, 0.0, 0.0, 0.0, 0.143, 0.0, 0.0, 0.0, 0.162]
+  },
+  "site": {
+    "type": "Site",
+    "name": "ISS",
+    "id": "iss"
+  },
+  "sequence": [
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.9,
+        "y": -9.5,
+        "z": 4.5,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setCamera",
+          "cameraName": "Science",
+          "cameraMode": "Both",
+          "resolution": "320x240",
+          "frameRate": 5.0,
+          "bandwidth": 1000
+        }
+      ]
+    },
+    {
+      "type": "Segment",
+      "speed": 0.1,
+      "tolerance": 0.0,
+      "waypoints": []
+    },
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 11.2,
+        "y": -9.0,
+        "z": 4.8,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 90,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setCamera",
+          "cameraName": "Navigation",
+          "cameraMode": "Both",
+          "resolution": "640x480",
+          "frameRate": 25.0,
+          "bandwidth": 0
+        }
+      ]
+    },
+    {
+      "type": "Segment",
+      "speed": 0.1,
+      "tolerance": 0.0,
+      "waypoints": []
+    },
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.5,
+        "y": -9.2,
+        "z": 4.3,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setCamera",
+          "cameraName": "Hazard",
+          "cameraMode": "Both",
+          "resolution": "640x480",
+          "frameRate": 5.0,
+          "bandwidth": 0
+        }
+      ]
+    }
+  ]
+}

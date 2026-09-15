@@ -1,0 +1,100 @@
+{
+  "document_title": "GlobalEd SaaS — Financial Policies & Forecast Parameters",
+  "document_id": "FP-2023-04-R2",
+  "effective_date": "2023-12-01",
+  "approved_by": "CFO, VP Finance",
+
+  "forecast_window": {
+    "start_month": "2024-01",
+    "end_month": "2028-12",
+    "total_months": 60,
+    "base_year": 2024,
+    "note": "Opening balances as of 2024-01-01 serve as the initial state for all forecast calculations."
+  },
+
+  "pricing_policy": {
+    "policy_id": "PP-2023-12",
+    "effective_date": "2024-01-01",
+    "description": "GlobalEd employs a consensus-based threshold pricing mechanism to manage subscription price adjustments. This approach replaced the previous annual CPI pass-through (PP-2022-06) to reduce subscriber churn from frequent predictable price changes.",
+
+    "price_adjustment_unit": {
+      "value": 5.00,
+      "currency_note": "Denominated in each country's local currency",
+      "description": "All price adjustments occur in fixed increments of this amount."
+    },
+
+    "theoretical_price_tracking": {
+      "description": "Each subscription tier maintains a continuously-tracked theoretical fair-value price that reflects cumulative CPI adjustment. This value is computed by applying simple monthly proration of the applicable annual CPI rate (annual_rate / 12) as a multiplicative growth factor each month. The theoretical price initializes at the tier's base price and begins compounding from the second forecast month. This tracking value operates independently of the charged price and is never reset or modified when a price adjustment occurs. Theoretical prices must be current before evaluating any pricing trigger conditions."
+    },
+
+    "consensus_trigger": {
+      "qualifying_condition": "A tier qualifies for a price increase when its theoretical fair-value price meets or exceeds the current charged price plus the qualifying fraction of one price adjustment unit.",
+      "qualifying_fraction": 0.5,
+      "consensus_threshold": 3,
+      "consensus_description": "A country-level price adjustment event is triggered when the number of simultaneously qualifying tiers within that country meets or exceeds the consensus threshold.",
+      "adjustment_scope": "Upon triggering, only those tiers that individually satisfy the qualifying condition receive a single-increment increase to their charged price. Non-qualifying tiers in the same country retain their current charged price unchanged."
+    }
+  },
+
+  "subscriber_growth_model": {
+    "method": "compound_monthly",
+    "description": "Subscriber counts are projected using compound monthly growth. Each tier's effective annual growth rate equals the country's base annual rate multiplied by the tier-specific growth modifier. The monthly compound factor is derived as (1 + effective_annual_rate)^(1/12) - 1. Growth adjustments are applied after pricing decisions have been finalized for the period. The first forecast month uses opening subscriber counts without adjustment.",
+    "rate_basis": "The annual growth rates stored in the model database represent projected net subscriber acquisition rates. Gross acquisition, churn, and retention analytics are maintained separately for operational reporting and are not inputs to the forward-looking revenue forecast.",
+    "tier_growth_modifiers": {
+      "Starter": 0.8,
+      "Growth": 1.2,
+      "Professional": 1.0,
+      "Business": 0.9,
+      "Enterprise": 0.7
+    }
+  },
+
+  "revenue_recognition": {
+    "standard": "Revenue is recognized monthly on a subscription basis.",
+    "tax_treatment": "All international markets use tax-inclusive pricing. Net revenue in local currency is derived by dividing gross subscription revenue by (1 + applicable_tax_rate).",
+    "tax_rates": {
+      "USA": 0.00,
+      "AUS": 0.10,
+      "UK": 0.20
+    },
+    "currency_conversion": "Local-currency net revenue is converted to USD using the annual spot rate applicable to the fiscal year. The model database contains AUD-to-USD and GBP-to-USD conversion rates; USD revenue requires no conversion.",
+    "computation_note": "Revenue calculation is the final step in each period's processing, performed after all price and subscriber adjustments have been applied."
+  },
+
+  "superseded_policies": [
+    {
+      "policy_id": "PP-2022-06",
+      "title": "Annual CPI Pass-Through Pricing",
+      "superseded_date": "2023-12-01",
+      "superseded_by": "PP-2023-12",
+      "reason": "Annual flat pass-through caused predictable churn spikes each July. Consensus-based threshold mechanism distributes adjustments more naturally.",
+      "warning": "DO NOT APPLY. Retained for audit purposes only."
+    },
+    {
+      "policy_id": "PP-2021-03",
+      "title": "Quarterly Manual Price Review",
+      "superseded_date": "2022-06-01",
+      "superseded_by": "PP-2022-06",
+      "reason": "Manual review was inconsistent across markets and created operational overhead.",
+      "warning": "DO NOT APPLY. Retained for audit purposes only."
+    }
+  ],
+
+  "ancillary_policies": {
+    "refund_policy": {
+      "policy_id": "RC-2023-01",
+      "description": "Prorated refunds for mid-cycle cancellations. Credit applied to subscriber's account in local currency.",
+      "note": "Not applicable to forward-looking forecasts. Excluded from revenue forecast model."
+    },
+    "volume_discounts": {
+      "policy_id": "VD-2023-02",
+      "description": "Enterprise tier accounts with 500+ seats receive a 15% volume discount negotiated at contract signing.",
+      "note": "Not applicable to standard forecast model. Handled separately in enterprise deal pipeline."
+    },
+    "partner_channel": {
+      "policy_id": "PC-2023-01",
+      "description": "Revenue-share arrangements with educational institution partners. Approximately 8% of Enterprise subscribers sourced through partner channel at 30% revenue share.",
+      "note": "Partner channel revenue is tracked separately and excluded from the direct subscription forecast."
+    }
+  }
+}

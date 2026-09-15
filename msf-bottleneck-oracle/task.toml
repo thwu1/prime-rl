@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring a multi-tool pipeline (Makefile + sqlite3 CLI + jq + Graphviz dot) and understanding each stage's role. The agent must read SQL extraction scripts, understand jq filters for temporal aggregation, parse a JSON config for analysis parameters, and write the missing Python analysis script that reads pipeline-produced intermediate JSON files. The analysis itself demands expert graph algorithm knowledge: Kruskal's MSF with union-find, BFS-based bottleneck path queries on the MSF tree, critical edge analysis via subtree partitioning and cross-cut edge scanning, and second-best spanning forest via edge-swap cost computation. The agent must also generate valid Graphviz DOT format with site-colored subgraphs, then run the full make pipeline to produce both the JSON report and SVG visualization. Multi-tool interoperability (sqlite3 JSON mode → jq → Python → dot) is essential."""
+solution_explanation = """Explore /app/pipeline/ to understand the Makefile stages. Run make extract and make transform to verify the existing stages produce intermediate JSON. Read nodes.json, weighted_edges.json, queries.json, and config.json to understand the data. Write analyze.py that: (1) loads intermediate JSON, (2) filters weighted edges to active-node pairs, (3) builds MSF with Kruskal's, (4) answers bottleneck queries via BFS on the MSF tree, (5) identifies critical edges by subtree partition and cross-cut replacement cost, (6) computes second-best MSF weight via edge swap, (7) writes results.json and msf.dot with site-colored subgraphs using numeric DOT node identifiers and explicit hostname labels. Run make -C /app/pipeline all to execute the full pipeline including dot rendering."""
+verification_explanation = """Tests independently reconstruct the graph from the SQLite database, compute the MSF with networkx, and verify all JSON output fields deterministically. Edge weights are unique by construction, ensuring a unique MSF. Additional tests verify the SVG was produced by Graphviz (checking for the graphviz generator comment), contains the correct number of node and edge elements matching the MSF structure, and includes active-node hostnames (with html.unescape to handle XML character encoding in SVG output)."""
+category = "algorithms"
+tags = ["graph-algorithms", "data-pipelines"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/msf-bottleneck-oracle"

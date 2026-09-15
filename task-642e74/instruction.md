@@ -1,0 +1,9 @@
+`/app/measure/CMS165.cql` is the Clinical Quality Language (CQL) definition for CMS165 "Controlling High Blood Pressure". Supporting CQL library specifications referenced by the measure (including `QICoreCommon.cql`) are in the same directory. `/app/patients/` contains FHIR R4 patient bundle JSON files representing diverse clinical scenarios.
+
+Terminology data is stored in a SQLite database at `/app/terminology.db`. The database contains FHIR value set expansions mapping code system URIs and concept codes to the value sets referenced by the CQL measure and its supporting libraries. The database schema must be discovered by querying the database directly with `sqlite3`. Value set titles in the database do not always match the CQL valueset declaration names verbatim; cross-reference the CQL `valueset` declaration canonical URLs with the database records where needed.
+
+Measurement period and measure metadata are specified in FHIR Parameters XML format at `/app/measure-parameters.xml`. Parse this file to extract the `measurementPeriod` start and end dates.
+
+Create `/app/evaluate.py` that reads the terminology database, parses the XML configuration, evaluates every patient bundle in `/app/patients/` against CMS165 measure logic as defined in the CQL, and writes population membership results to `/app/results.json`. Output format: a JSON object keyed by patient filename stem (e.g., `"patient_001"`), where each value contains boolean fields `initial_population`, `denominator`, `denominator_exclusion`, and `numerator`.
+
+The evaluator must produce correct results for any conformant FHIR R4 patient bundle, not only the provided samples. `jq`, `sqlite3`, and `xmlstarlet` are available at the command line for exploring data structures.

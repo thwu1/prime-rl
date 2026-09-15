@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the Discourse Docker launcher's YAML template composition algorithm from a ~800-line bash script containing embedded Ruby snippets, _FILE_SEPERATOR_-based template concatenation, and bash string expansion semantics. The solver must identify 5 interacting bugs in a Python resolver by comparing its behavior against the launcher's actual logic — with no specification document provided. Beyond debugging, the solver must design and implement a multi-container deployment analyzer that performs cross-container validation (port conflict detection across bind addresses, localhost-binding reachability analysis, bundled plugin identification) and generates valid docker-compose YAML with correct service definitions, dependency inference from environment variable cross-references, and proper port/volume mappings."""
+solution_explanation = """Five targeted resolver fixes: (1) reverse template/config application order, (2) add {{config}} substitution to label values, (3) change hook merging from replacement to concatenation, (4) preserve full ip:host:container in three-part port bindings, (5) add underscore-to-hyphen hostname normalization. Then create analyze_deployment.py that resolves all deployment containers, detects port conflicts by mapping (bind_addr, host_port) tuples across containers, identifies bundled plugins from resolver output, detects localhost-binding issues by cross-referencing 127.0.0.1-bound ports with DISCOURSE_DB_HOST/REDIS_HOST env vars, and generates docker-compose YAML with depends_on inferred from env var references matching container names."""
+verification_explanation = """35 pytest tests: 23 verify resolver correctness (merge order, label substitution, hook concatenation, port format preservation, hostname normalization, general resolution). 12 verify the deployment analyzer — port conflict detection between app and web_only on ports 80/443, bundled plugin warnings for app (discourse-solved/data-explorer) and web_only (discourse-ai/calendar), localhost_binding errors for data/web_only cross-reference, finding format validation, and docker-compose output structure including services, ports, volumes, hostnames, MAC addresses, environment, boot command, and depends_on relationships."""
+category = "systems"
+tags = ["docker", "deployment-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f3970c"

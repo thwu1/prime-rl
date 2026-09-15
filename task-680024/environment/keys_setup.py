@@ -1,0 +1,21 @@
+import json
+import os
+
+# RSA public keys - some generated with ROCA-vulnerable (CVE-2017-15361) prime generation
+keys = [
+    {"id": "key_01", "n_hex": "0x1fabcf1953e9285c6097825fa38828870f97fb0d7fa7", "e": 65537},
+    {"id": "key_02", "n_hex": "0x4167eb1bc912b24ea80b3ba1aa08e6b9af5cfc8d2ad", "e": 65537},
+    {"id": "key_03", "n_hex": "0x1390f570ac10ba0c117abf3e9126fef07134a877d4a7", "e": 65537},
+    {"id": "key_04", "n_hex": "0x1c22d32eaa8417e016473af3dbb68e6e9db08f82cfa0b", "e": 65537},
+    {"id": "key_05", "n_hex": "0x294e5072892e308557375770aa85c43a431b11ffb79d", "e": 65537},
+    {"id": "key_06", "n_hex": "0x82f33c7e99a5fbced002ec17e34bada00861d999f8cb", "e": 65537},
+    {"id": "key_07", "n_hex": "0x400000000000000000000000239d1a1f23a59e891ef37c0f03ff2cf014af00f4d02e8be4be85cffb0002e02ca4c2cabd", "e": 65537},
+    {"id": "key_08", "n_hex": "0x91d0d6f8e9b1eea2db3649b5a9f1d91fdbe17980e38f429abd225686158d250814794b2309a4dbef88d64daa4ebdd33f", "e": 65537},
+]
+
+os.makedirs("/app/keys", exist_ok=True)
+for k in keys:
+    path = "/app/keys/{}.json".format(k["id"])
+    with open(path, "w") as f:
+        json.dump(k, f, indent=2)
+    print("Wrote {}".format(path))

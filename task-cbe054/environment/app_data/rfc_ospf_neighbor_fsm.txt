@@ -1,0 +1,191 @@
+OSPF Neighbor State Machine Specification
+==========================================
+(Based on RFC 2328, Section 10.3 - The Neighbor State Machine)
+
+1. Neighbor States
+------------------
+
+The following states are defined for an OSPF neighbor conversation:
+
+  Down:      Initial state of a neighbor conversation. It indicates that
+             there has been no recent information received from the
+             neighbor.
+
+  Attempt:   This state is only valid for neighbors attached to NBMA
+             networks. It indicates that no recent information has been
+             received from the neighbor, but that a more concerted
+             effort should be made to contact the neighbor. This is done
+             by sending the neighbor Hello packets at the HelloInterval.
+
+  Init:      In this state, a Hello packet has recently been seen from
+             the neighbor. However, bidirectional communication has not
+             yet been established with the neighbor (i.e., the router
+             itself did not appear in the neighbor's Hello packet).
+
+  TwoWay:    In this state, communication between the two routers is
+             bidirectional. This has been assured by the operation of
+             the Hello protocol. This is the most advanced state short
+             of beginning adjacency establishment. The Designated Router
+             and Backup Designated Router are selected from the set of
+             neighbors in state TwoWay or greater.
+
+  ExStart:   This is the first step in creating an adjacency between
+             the two neighboring routers. The goal of this step is to
+             decide which router is the master, and to decide upon the
+             initial DD sequence number.
+
+  Exchange:  In this state the router is describing its entire link
+             state database by sending Database Description packets to
+             the neighbor.
+
+  Loading:   In this state, Link State Request packets are sent to the
+             neighbor asking for the more recent LSAs that have been
+             discovered (but not yet received) in the Exchange state.
+
+  Full:      In this state, the neighboring routers are fully adjacent.
+             These adjacencies will now appear in router-LSAs and
+             network-LSAs.
+
+
+2. Neighbor Events
+------------------
+
+The following events cause neighbor state changes:
+
+  HelloReceived:       A Hello packet has been received from the neighbor.
+
+  Start:               This is an indication that Hello packets should now
+                       be sent to the neighbor at intervals of HelloInterval
+                       seconds. This event is only generated for neighbors
+                       on NBMA networks.
+
+  TwoWayReceived:      Bidirectional communication has been realized with
+                       the neighbor. Specifically, the router has seen its
+                       own Router ID in the neighbor's Hello packet.
+
+  NegotiationDone:     The Master/Slave relationship has been negotiated,
+                       and DD sequence numbers have been exchanged. This
+                       signals the start of the exchange of DD packets.
+
+  ExchangeDone:        Both routers have successfully exchanged full
+                       sequences of DD packets. Each router now knows what
+                       parts of its link state database are out of date.
+
+  BadLSReq:            A Link State Request has been received for an LSA
+                       not contained in the database. This indicates an
+                       error in the Database Exchange process.
+
+  LoadingDone:         Link State Updates have been received for all
+                       out-of-date portions of the database. Loading of
+                       the neighbor's link state database is complete.
+
+  AdjOK?:              A decision must be made as to whether an adjacency
+                       should be established/maintained with the neighbor.
+                       This event will start some adjacencies forming, and
+                       may also cause some adjacencies to be torn down.
+
+  SeqNumberMismatch:   A Database Description packet has been received
+                       that either a) has an unexpected DD sequence number,
+                       b) unexpectedly has the Init bit set or c) has an
+                       Options field differing from the last Options field
+                       received in a DD packet.
+
+  OneWay:              A Hello packet has been received from the neighbor,
+                       in which the router is NOT mentioned. This indicates
+                       that communication with the neighbor is NOT
+                       bidirectional.
+
+  KillNbr:             This is an indication from the lower-level protocols
+                       that the neighbor should be presumed dead.
+
+  InactivityTimer:     The Inactivity Timer has fired. No Hello packet has
+                       been seen from this neighbor recently. The period
+                       since the last received Hello exceeds RouterDeadInterval.
+
+  LLDown:              The lower-level protocol has indicated that the
+                       neighbor is unreachable (e.g., the associated
+                       network interface has gone down).
+
+
+3. State Transition Table
+-------------------------
+
+The state machine is described below. For each state-event combination,
+the resulting new state and associated actions are specified.
+
+  State: Down
+    Event HelloReceived -> new state Init
+      Action: Start the Inactivity Timer for the neighbor.
+    Event Start -> new state Attempt
+      Action: Send a Hello packet to the neighbor. Start the
+              Inactivity Timer for the neighbor.
+
+  State: Attempt
+    Event HelloReceived -> new state Init
+      Action: Restart the Inactivity Timer for the neighbor.
+
+  State: Init
+    Event TwoWayReceived:
+      A decision must then be made regarding adjacency formation.
+      If an adjacency should be established (the neighboring router
+      is the Designated Router or Backup Designated Router, or the
+      connecting network is a point-to-point link or a virtual link):
+        -> new state ExStart
+        Action: Start forming the adjacency by sending empty DD
+                packets with the Init, More and Master bits set.
+      Otherwise:
+        -> new state TwoWay
+
+  State: TwoWay
+    Event AdjOK?:
+      A determination is made as to whether an adjacency should be
+      formed with the neighbor:
+        If yes -> new state ExStart
+        If no  -> no state change
+
+  State: ExStart
+    Event NegotiationDone -> new state Exchange
+      Action: The router starts sending Database Description packets
+              containing a summary of its link-state database.
+
+  State: Exchange
+    Event ExchangeDone:
+      If the neighbor Link State Request list is NOT empty:
+        -> new state Loading
+        Action: Start sending Link State Request packets.
+      If the neighbor Link State Request list is empty:
+        -> new state Full
+
+  State: Loading
+    Event LoadingDone -> new state Full
+
+  States Exchange, Loading, and Full:
+    Event SeqNumberMismatch -> new state ExStart
+      Action: The (possibly partially formed) adjacency is torn down.
+              The neighbor data structures are reinitialized, and the
+              DD exchange process is restarted.
+    Event BadLSReq -> new state ExStart
+      Action: The (possibly partially formed) adjacency is torn down
+              and the DD exchange process restarted.
+
+  States TwoWay, ExStart, Exchange, Loading, and Full:
+    Event OneWay -> new state Init
+      Action: The neighbor adjacency, if any, is torn down. All
+              neighbor data structures associated with the adjacency
+              are freed.
+
+  States ExStart, Exchange, Loading, and Full:
+    Event AdjOK?:
+      If the adjacency should NOT be established or maintained:
+        -> new state TwoWay
+        Action: The adjacency is torn down, if it existed. All
+                neighbor data structures associated with the
+                adjacency are freed.
+
+  All States:
+    Event KillNbr -> new state Down
+      Action: All neighbor data structures are deleted.
+    Event LLDown -> new state Down
+      Action: All neighbor data structures are deleted.
+    Event InactivityTimer -> new state Down
+      Action: All neighbor data structures are deleted.

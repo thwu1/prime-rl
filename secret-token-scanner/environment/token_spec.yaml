@@ -1,0 +1,45 @@
+# Token Format Specification v2.1
+# Classification: INTERNAL - Security Engineering
+
+providers:
+  apx:
+    name: "Apex Cloud Platform"
+    regex: 'apx_[A-Za-z0-9]{30}'
+    structure:
+      format: "apx_<payload><checksum>"
+      payload_length: 24  # alphanumeric characters
+      checksum_length: 6  # alphanumeric characters
+    validation:
+      algorithm: "CRC-32 (ISO 3309 / ITU-T V.42)"
+      checksum_input: "UTF-8 encoded bytes of the prefix 'apx_' concatenated with the 24-character payload"
+      checksum_encoding: "Base62 using alphabet 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz, big-endian digit ordering, left-padded with '0' to exactly 6 characters"
+
+  nxs:
+    name: "Nexus Service Mesh"
+    regex: 'nxs-[0-9a-f]{40}-[0-9a-f]{8}'
+    structure:
+      format: "nxs-<hex_payload>-<hex_checksum>"
+      payload_length: 40  # lowercase hexadecimal characters
+      checksum_length: 8  # lowercase hexadecimal characters
+    validation:
+      algorithm: "Adler-32"
+      checksum_input: "Raw bytes obtained by hex-decoding the 40-character payload string"
+      checksum_encoding: "Lowercase hexadecimal, zero-padded to 8 characters"
+
+  vlt:
+    name: "Vault Key Manager"
+    regex: 'vlt_(live|test)_[A-Za-z0-9]{28}'
+    structure:
+      format: "<prefix><payload><checksum>"
+      valid_prefixes:
+        - "vlt_live_"
+        - "vlt_test_"
+      payload_length: 22  # alphanumeric characters
+      checksum_length: 6  # alphanumeric characters
+    validation:
+      algorithm: "FNV-1a 32-bit"
+      parameters:
+        offset_basis: 2166136261  # 0x811c9dc5
+        prime: 16777619            # 0x01000193
+      checksum_input: "UTF-8 encoded bytes of the full prefix (including trailing underscore) concatenated with the 22-character payload"
+      checksum_encoding: "Base62 using alphabet 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz, big-endian digit ordering, left-padded with '0' to exactly 6 characters"

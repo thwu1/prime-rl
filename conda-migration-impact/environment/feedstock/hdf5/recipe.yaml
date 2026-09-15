@@ -1,0 +1,57 @@
+context:
+  name: hdf5
+  version: "1.14.4"
+
+outputs:
+  - package:
+      name: libhdf5
+      version: ${{ version }}
+    build:
+      number: 0
+      run_exports:
+        - ${{ pin_subpackage('libhdf5', max_pin='x.x') }}
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+        - cmake
+        - ninja
+      host:
+        - zlib
+        - openssl
+      run: []
+    test:
+      commands:
+        - test -f $PREFIX/lib/libhdf5.so
+        - test -f $PREFIX/lib/libhdf5_cpp.so
+        - test -f $PREFIX/include/hdf5.h
+    about:
+      homepage: https://www.hdfgroup.org/solutions/hdf5/
+      license: BSD-3-Clause
+      license_file: COPYING
+      summary: HDF5 C and C++ libraries
+
+  - package:
+      name: hdf5-tools
+      version: ${{ version }}
+    build:
+      number: 0
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+      host:
+        - ${{ pin_subpackage('libhdf5', exact=True) }}
+        - zlib
+      run:
+        - ${{ pin_subpackage('libhdf5', exact=True) }}
+    test:
+      commands:
+        - h5dump --version
+        - h5diff --version
+        - h5ls --version
+        - h5stat --version
+    about:
+      homepage: https://www.hdfgroup.org/solutions/hdf5/
+      license: BSD-3-Clause
+      license_file: COPYING
+      summary: HDF5 command-line tools

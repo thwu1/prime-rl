@@ -1,0 +1,4 @@
+[{:index 0 :type :invoke :process 0 :f :txn :value [[:append "x" 1] [:r "y" nil]]}
+ {:index 1 :type :ok :process 0 :f :txn :value [[:append "x" 1] [:r "y" [2]]]}
+ {:index 2 :type :invoke :process 1 :f :txn :value [[:append "y" 2] [:r "x" nil]]}
+ {:index 3 :type :ok :process 1 :f :txn :value [[:append "y" 2] [:r "x" [1]]]}]

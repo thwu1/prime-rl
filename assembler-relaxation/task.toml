@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of assembler encoding internals: variable-width instruction encoding with distinct long-form sizes for conditional vs unconditional jumps, PC-relative displacement calculation, signed 8-bit boundary semantics, and position-dependent alignment padding. The core algorithmic challenge is discovering that encoding choices are mutually dependent and devising a convergent resolution strategy. Additionally, the ISA specification deliberately omits many opcode byte values — the agent must reverse-engineer the complete encoding scheme by running the opaque reference binary with its various CLI flags (-o, -x, -l, -j), analyzing raw binary output with xxd/hexdump, comparing results with cmp/diff, and composing multi-tool shell pipelines to systematically discover each undocumented opcode. This requires proficiency with binary analysis tools, shell composition, and iterative hypothesis-testing workflows."""
+solution_explanation = """Parse assembly into structured elements preserving register numbers and immediate values. Implement iterative relaxation: start all jumps in short form, compute layout, promote overflowing short-form jumps to long form, recompute, repeat until stable. Monotonicity guarantees convergence. For binary emission: discover undocumented opcodes by crafting single-instruction test programs, running the reference binary with -o, and inspecting output via xxd. The encoding scheme uses sequential opcode bytes (push=0x10, pop=0x11, mov_rr=0x20, mov_ri=0x21, etc.), register pairs encoded as (N<<4)|M, signed 8-bit immediates, call=0x30 with rel32 LE, and conditional long jumps use 0x0F prefix with 0x81-0x86 second bytes. Padding bytes are 0x00."""
+verification_explanation = """Tests exercise two dimensions: relaxation correctness and binary encoding correctness. Relaxation tests cover trivial short-form programs, single long-form jumps, conditional vs unconditional long-form size differences, multi-stage cascading relaxation, alignment-induced cascades, exact signed boundary conditions at +127/-128, and complex multi-feature programs. Two relaxation tests cross-validate JSON output against the reference binary. Binary emission tests compare raw byte output against the reference assembler on programs that exercise all instruction types: nullary ops, register push/pop, register-register arithmetic, register-immediate arithmetic, call with PC-relative offset, short and long jumps of all types, alignment padding, fill padding, and mixed programs with relaxation. Tests call the reference binary with -o to get ground-truth binary, comparing byte-for-byte against the solution."""
+category = "systems"
+tags = ["compilers", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/assembler-relaxation"

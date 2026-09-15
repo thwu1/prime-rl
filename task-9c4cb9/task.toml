@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-station ADS-B track fusion pipeline from protocol specifications without skeleton code: implementing CRC-24 syndrome-table error correction (112-entry lookup), CPR global position decoding (a non-trivial geodesic algorithm involving latitude-dependent NL zone functions and even/odd frame pairing), velocity vector decomposition with correct atan2 argument ordering, cross-station message deduplication and provenance tracking via SQLite, and kinematic anomaly detection through great-circle distance analysis to identify a spoofed aircraft. The solver must design the fusion architecture, database population strategy, and anomaly detection threshold — requiring expert-level understanding of the ADS-B protocol stack and creative system design."""
+solution_explanation = """Create /app/pipeline.py that: (1) builds a CRC-24 syndrome table mapping each of the 112 single-bit-error syndromes to its bit position; (2) processes all station hex files, correcting single-bit errors and recording all 38 raw messages in SQLite with station provenance; (3) decodes callsigns from 6-bit character codes, altitudes via Q-bit formula (n*25-1000), CPR positions using global unambiguous decode with NL function, and velocities with atan2(Vew,Vns); (4) tracks per-aircraft station coverage and computes dedup statistics (28 unique hex strings); (5) detects BEEF42 as spoofed by computing haversine distance between its two decoded positions (~900nm apart, physically impossible)."""
+verification_explanation = """Tests verify: (1) report.json structure with exact stats (38 total, 28 unique, 3 corrected, 2 invalid, 6 aircraft); (2) all 6 aircraft decoded with correct callsigns; (3) positions within 0.01deg of known coordinates including southern/eastern hemispheres; (4) velocities within tolerance; (5) per-aircraft station coverage lists; (6) BEEF42 flagged as spoofed via spoofed_icao field; (7) SQLite database has correct schema, row counts, and status values; (8) anti-cheat tests dynamically generate fresh aircraft messages, create temporary station directories, and run the pipeline end-to-end — verifying decoding, error correction, and anomaly detection generalize to unseen data."""
+category = "protocol-engineering"
+tags = ["signal-processing", "multi-system-fusion"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9c4cb9"

@@ -1,0 +1,49 @@
+{
+  "description": "Mathematical properties that a correct COCO performance assessment must satisfy, derived from the methodology (Hansen et al., 2021) and established algorithm behavior on BBOB functions.",
+  "properties": [
+    {
+      "id": "P1",
+      "assertion": "ECDF values for any (algorithm, dimension) pair must be monotonically non-decreasing as evaluation budget increases."
+    },
+    {
+      "id": "P2",
+      "assertion": "CMA-ES should rank first on high-conditioning functions, consistent with its design for ill-conditioned landscapes and published benchmarking results."
+    },
+    {
+      "id": "P3",
+      "assertion": "Scaling exponents for CMA-ES on the Sphere function (f1) should be approximately 1.0, reflecting near-linear runtime scaling with dimension."
+    },
+    {
+      "id": "P4",
+      "assertion": "When only a fraction of independent runs reach a target, the expected runtime must be substantially larger than the mean cost of the successful runs alone, because the total effort includes the cost of every failed restart."
+    },
+    {
+      "id": "P5",
+      "assertion": "The analysis must incorporate all experimental replicates (instances) present in the data files; selectively excluding instances biases runtime estimates and reduces statistical power."
+    },
+    {
+      "id": "P6",
+      "assertion": "Nelder-Mead on high-dimensional multimodal functions (f15, dim=40) at tight precision targets (1e-08) should yield null (infinite) expected runtime."
+    },
+    {
+      "id": "P7",
+      "assertion": "Data imported from TSV source files into the database must preserve the original dimensional relationships: a run recorded at dimension d and instance i must be stored with those exact values in their respective columns."
+    },
+    {
+      "id": "P8",
+      "assertion": "The VBS ERT for any scenario must be less than or equal to every individual algorithm's ERT for that same scenario. The VBS is an oracle lower bound."
+    },
+    {
+      "id": "P9",
+      "assertion": "The algorithm selected for each scenario must have an ERT exactly equal to the VBS ERT. Selection must be consistent with the oracle."
+    },
+    {
+      "id": "P10",
+      "assertion": "Performance profile values must be non-decreasing as the threshold tau increases. A less stringent threshold can only include more scenarios, never fewer."
+    },
+    {
+      "id": "P11",
+      "assertion": "At tau = 1.0, the performance profile value equals the fraction of solvable scenarios where the algorithm achieves the best (minimum) ERT, possibly tied."
+    }
+  ]
+}

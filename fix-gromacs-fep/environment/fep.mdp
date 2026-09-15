@@ -1,0 +1,71 @@
+; Free energy perturbation - methanol solvation free energy
+; MDP template for lambda windows
+;
+
+; Run control
+integrator               = sd
+nsteps                   = 5000
+dt                       = 0.002
+
+; Output control
+nstenergy                = 200
+nstcalcenergy            = 50
+nstlog                   = 500
+nstxout-compressed       = 5000
+
+; Neighbor searching
+cutoff-scheme            = Verlet
+nstlist                  = 20
+rlist                    = 1.2
+
+; Electrostatics
+coulombtype              = PME
+rcoulomb                 = 1.0
+
+; Van der Waals
+vdwtype                  = Cut-off
+rvdw                     = 1.0
+DispCorr                 = EnerPres
+
+; Temperature control (sd integrator acts as thermostat)
+tc-grps                  = System
+tau-t                    = 1.0
+ref-t                    = 298.15
+
+; Pressure control
+pcoupl                   = Berendsen
+pcoupltype               = isotropic
+ref-p                    = 1.0
+tau-p                    = 1.0
+compressibility          = 4.5e-5
+
+; Bond constraints
+constraints              = h-bonds
+constraint-algorithm     = lincs
+
+; ==========================================
+; Free energy settings
+; ==========================================
+free-energy              = yes
+couple-moltype           = SOL
+couple-lambda0           = vdw-q
+couple-lambda1           = none
+couple-intramol          = no
+
+; Lambda schedule (11 windows: Coulomb off first, then vdW)
+coul-lambdas             = 0.0 0.25 0.5 0.75 1.0 1.0  1.0  1.0  1.0  1.0  1.0
+vdw-lambdas              = 0.0 0.0  0.0 0.0  0.0 0.20 0.40 0.60 0.80 0.90 1.0
+
+; Lambda state index (to be substituted per window)
+init-lambda-state        = LAMBDA_INDEX
+
+; Soft-core parameters for vdW decoupling
+sc-alpha                 = 0.0
+sc-power                 = 1
+sc-sigma                 = 0.3
+
+; dH/dl output for BAR analysis
+nstdhdl                  = 0
+
+; Periodic boundary conditions
+pbc                      = xyz

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level computer vision expertise: understanding the YOLOv8 output tensor format (which differs from YOLOv5 by removing the objectness score), implementing correct letterbox preprocessing with aspect-ratio preservation and padding, proper BGR-to-RGB conversion for YOLO models, and accurate coordinate unscaling that accounts for letterbox offsets. The bugs interact — fixing one without the others yields no improvement, demanding holistic pipeline understanding rather than isolated fixes."""
+solution_explanation = """The buggy pipeline has four interacting defects: (1) direct resize instead of letterbox padding distorts aspect ratios, (2) ImageNet mean/std normalization instead of simple /255 scaling, (3) missing BGR-to-RGB conversion, and (4) treating the YOLOv8 output as YOLOv5 format by splitting an objectness column that does not exist, which shifts all class IDs by one and corrupts confidence scores. The fix implements letterbox resize with padding, simple /255 normalization after BGR→RGB conversion, direct 80-class score extraction from columns 4–83, and coordinate unscaling that subtracts letterbox padding before dividing by the scale factor."""
+verification_explanation = """Tests run the fixed pipeline on three images of different aspect ratios and compare against PyTorch-generated reference detections. Verification checks detection count proximity, bounding-box IoU against reference (≥0.5 threshold), class-ID correctness for high-confidence detections, valid confidence ranges, and that coordinates fall within original image bounds. An additional test confirms the pipeline does not import ultralytics."""
+category = "computer_vision"
+tags = ["onnx", "object-detection"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2c499c"

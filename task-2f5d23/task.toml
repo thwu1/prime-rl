@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of CRC theory over GF(2), including Koopman polynomial notation, Hamming Distance computation via exhaustive syndrome analysis, and efficient Hamming weight enumeration. Additionally demands C systems programming to create correct CRC implementations, shared-library compilation, and Python FFI to load and invoke the compiled C libraries. The solver must independently discover the Koopman notation encoding, implement correct CRC lookup table generation, syndrome-based HD profiling with efficient search strategies, and meet-in-the-middle or combinatorial techniques for higher-weight enumeration. Not solvable without expertise in coding theory, C compilation toolchains, and cross-language interop."""
+solution_explanation = """Convert each Koopman hex value to its explicit generator polynomial via (K << 1) | 1. For each polynomial, generate a C source file containing a precomputed 256-entry CRC-8 lookup table and a crc8_compute() function, compile it into a shared library using gcc -shared -fPIC. Load each .so via Python ctypes with proper argtypes/restype declarations. Compute CRC checksums of binary test files through the C libraries. Independently compute CRCs via pure Python LFSR for cross-validation. Compute HD profiles by binary searching for the largest dataword length at each HD level where HW(k-1)=0 using syndrome collision analysis. The (x+1) factor is detected by checking generator polynomial coefficient parity."""
+verification_explanation = """Tests verify: (1) compiled shared libraries exist at /app/lib/ for all five polynomials; (2) the .so files can be loaded via ctypes and produce correct CRC-8 values for known test inputs, cross-checked against hardcoded expected values; (3) HD profiles match known Koopman CRC Polynomial Zoo data; (4) cross_validation_passed is true; (5) Hamming weight values at boundary lengths match expected counts derived from polynomial period analysis."""
+category = "systems"
+tags = ["error-correction", "c-ffi-interop"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2f5d23"

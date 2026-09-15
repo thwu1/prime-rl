@@ -1,0 +1,747 @@
+#!/usr/bin/env python3
+"""cfctl - CDN Feature Configuration Management Tool
+
+Manages the bot management feature pipeline, database shards,
+and FL2 proxy configuration for the CDN edge network.
+
+Usage: cfctl <command> [subcommand] [options]
+Run 'cfctl --help' for available commands.
+"""
+
+import argparse
+import json
+import sqlite3
+import os
+import sys
+import subprocess
+import shutil
+from datetime import datetime
+
+SHARD_DIR = "/app/db/shards"
+FEATURE_FILE = "/app/features/bot_features.json"
+CONFIG_FILE = "/app/config/settings.json"
+HISTORY_DIR = "/app/config/history"
+
+
+def cmd_status(args):
+    """Show system status overview."""
+    shards = sorted([f for f in os.listdir(SHARD_DIR) if f.endswith('.db')])
+
+    migrated = 0
+    pending = 0
+    for sf in shards:
+        conn = sqlite3.connect(os.path.join(SHARD_DIR, sf))
+        dbs = [r[0] for r in conn.execute("SELECT DISTINCT database FROM system_columns")]
+        conn.close()
+        if 'r0' in dbs:
+            migrated += 1
+        else:
+            pending += 1
+
+    print("CDN Proxy System Status")
+    print("=" * 55)
+    print(f"  Shards: {len(shards)} total ({migrated} migrated, {pending} pending)")
+
+    if os.path.exists(FEATURE_FILE):
+        with open(FEATURE_FILE) as f:
+            data = json.load(f)
+        count = len(data.get('features', []))
+        names = [feat['name'] for feat in data.get('features', [])]
+        dupes = len(names) - len(set(names))
+        print(f"  Feature file: {FEATURE_FILE}")
+        print(f"    Count: {count}")
+        print(f"    Source: {data.get('shard_source', 'unknown')}")
+        print(f"    Generated: {data.get('generated_at', 'unknown')}")
+        if dupes > 0:
+            print(f"    WARNING: {dupes} duplicate feature names detected")
+    else:
+        print(f"  Feature file: NOT FOUND")
+
+    with open(CONFIG_FILE) as f:
+        cfg = json.load(f)
+    print(f"  Proxy: {cfg['proxy']['version']} (max_features={cfg['proxy']['max_features']})")
+
+    # Proxy health
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0,'/app'); "
+             "from proxy.server import ProxyServer; s=ProxyServer(); s.initialize(); "
+             "print('healthy')"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0 and 'healthy' in result.stdout:
+            print(f"  Proxy health: OK")
+        else:
+            err = result.stderr.strip().split('\n')[-1][:80] if result.stderr else 'unknown'
+            print(f"  Proxy health: FAILED ({err})")
+    except Exception as e:
+        print(f"  Proxy health: ERROR ({e})")
+
+    # Validator status
+    try:
+        if '/app/config_safety' not in sys.path:
+            sys.path.insert(0, '/app/config_safety')
+        from validator import validate_config
+        print(f"  Config validator: INSTALLED")
+    except ImportError:
+        print(f"  Config validator: NOT INSTALLED")
+    except Exception:
+        print(f"  Config validator: ERROR")
+
+
+def cmd_shard_list(args):
+    """List database shards and their migration state."""
+    shards = sorted([f for f in os.listdir(SHARD_DIR) if f.endswith('.db')])
+
+    results = []
+    for sf in shards:
+        conn = sqlite3.connect(os.path.join(SHARD_DIR, sf))
+        dbs = sorted([r[0] for r in conn.execute(
+            "SELECT DISTINCT database FROM system_columns")])
+        total = conn.execute("SELECT COUNT(*) FROM system_columns").fetchone()[0]
+        default_count = conn.execute(
+            "SELECT COUNT(*) FROM system_columns WHERE database='default'"
+        ).fetchone()[0]
+        conn.close()
+
+        sid = sf.replace('shard_', '').replace('.db', '')
+        status = "MIGRATED" if 'r0' in dbs else "PENDING"
+        results.append({
+            "id": int(sid), "file": sf, "status": status,
+            "databases": dbs, "total_columns": total,
+            "default_columns": default_count
+        })
+
+    fmt = getattr(args, 'format', 'table')
+    if fmt == 'json':
+        print(json.dumps(results, indent=2))
+    else:
+        print(f"{'ID':>4} | {'Status':>10} | {'Databases':>20} | {'Total':>6} | {'Default':>7}")
+        print("-" * 60)
+        for r in results:
+            print(f"{r['id']:>4} | {r['status']:>10} | {str(r['databases']):>20} | "
+                  f"{r['total_columns']:>6} | {r['default_columns']:>7}")
+
+
+def cmd_shard_inspect(args):
+    """Inspect shard schema and column distribution."""
+    sp = os.path.join(SHARD_DIR, f"shard_{args.shard_id}.db")
+    if not os.path.exists(sp):
+        print(f"Error: shard {args.shard_id} not found at {sp}", file=sys.stderr)
+        return 1
+
+    conn = sqlite3.connect(sp)
+
+    print(f"Shard {args.shard_id} Inspection")
+    print("=" * 55)
+
+    print("\n--- Schema ---")
+    for row in conn.execute("SELECT sql FROM sqlite_master WHERE type='table'"):
+        if row[0]:
+            print(row[0])
+            print()
+
+    print("--- Column Distribution ---")
+    for db_row in conn.execute(
+            "SELECT DISTINCT database FROM system_columns ORDER BY database"):
+        db = db_row[0]
+        count = conn.execute(
+            "SELECT COUNT(*) FROM system_columns WHERE database=?", (db,)
+        ).fetchone()[0]
+        types = conn.execute(
+            "SELECT type, COUNT(*) FROM system_columns WHERE database=? "
+            "GROUP BY type ORDER BY type", (db,)
+        ).fetchall()
+        type_str = ", ".join(f"{t}: {c}" for t, c in types)
+        print(f"  {db}: {count} columns ({type_str})")
+
+    if getattr(args, 'verbose', False):
+        print("\n--- Sample Columns (first 10) ---")
+        for row in conn.execute(
+            "SELECT database, name, type FROM system_columns "
+            "ORDER BY database, name LIMIT 10"
+        ):
+            print(f"  [{row[0]}] {row[1]} ({row[2]})")
+
+    conn.close()
+
+
+def cmd_shard_query(args):
+    """Execute SQL against a database shard."""
+    sp = os.path.join(SHARD_DIR, f"shard_{args.shard_id}.db")
+    if not os.path.exists(sp):
+        print(f"Error: shard {args.shard_id} not found", file=sys.stderr)
+        return 1
+
+    conn = sqlite3.connect(sp)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        cursor = conn.execute(args.sql)
+        rows = cursor.fetchall()
+
+        if not rows:
+            print("(no results)")
+            return 0
+
+        cols = rows[0].keys()
+        fmt = getattr(args, 'format', 'table')
+
+        if fmt == 'json':
+            print(json.dumps([dict(r) for r in rows], indent=2))
+        else:
+            widths = {}
+            for c in cols:
+                widths[c] = max(len(c), max(len(str(r[c])) for r in rows))
+            header = " | ".join(c.ljust(widths[c]) for c in cols)
+            print(header)
+            print("-" * len(header))
+            for row in rows:
+                print(" | ".join(str(row[c]).ljust(widths[c]) for c in cols))
+            print(f"\n({len(rows)} rows)")
+    except Exception as e:
+        print(f"SQL error: {e}", file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+
+
+def cmd_config_show(args):
+    """Show current feature configuration."""
+    if not os.path.exists(FEATURE_FILE):
+        print("Feature file not found", file=sys.stderr)
+        return 1
+
+    with open(FEATURE_FILE) as f:
+        data = json.load(f)
+
+    if getattr(args, 'raw', False):
+        print(json.dumps(data, indent=2))
+        return 0
+
+    print("Current Feature Configuration")
+    print("=" * 55)
+    print(f"  Version: {data.get('version')}")
+    print(f"  Generated: {data.get('generated_at')}")
+    print(f"  Source shard: {data.get('shard_source')}")
+    print(f"  Feature count: {len(data.get('features', []))}")
+
+    types = {}
+    for feat in data.get('features', []):
+        t = feat.get('type', 'unknown')
+        types[t] = types.get(t, 0) + 1
+    print(f"\n  Types: {', '.join(f'{t}={c}' for t, c in sorted(types.items()))}")
+
+    names = [f['name'] for f in data.get('features', [])]
+    dupes = len(names) - len(set(names))
+    if dupes > 0:
+        print(f"\n  WARNING: {dupes} duplicate feature names!")
+        seen = set()
+        for n in names:
+            if n in seen:
+                print(f"    - {n}")
+            seen.add(n)
+
+
+def cmd_config_validate(args):
+    """Validate a feature configuration file."""
+    validator_path = '/app/config_safety'
+
+    if validator_path not in sys.path:
+        sys.path.insert(0, validator_path)
+
+    try:
+        from validator import validate_config
+    except ImportError:
+        print("ERROR: Configuration validator not installed.")
+        print("Expected module: /app/config_safety/validator.py")
+        print("Expected interface: validate_config(data: dict) -> tuple[bool, list[str]]")
+        print()
+        print("The configuration validation pipeline has not been implemented.")
+        print("This was flagged as a critical gap in the incident post-mortem.")
+        return 1
+
+    if not os.path.exists(args.file):
+        print(f"Error: file not found: {args.file}", file=sys.stderr)
+        return 1
+
+    try:
+        with open(args.file) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error: invalid JSON: {e}", file=sys.stderr)
+        return 1
+
+    valid, errors = validate_config(data)
+
+    if valid:
+        feat_count = len(data.get('features', []))
+        print(f"VALID: {args.file} ({feat_count} features)")
+        return 0
+    else:
+        print(f"INVALID: {args.file}")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+
+
+def cmd_config_diff(args):
+    """Diff two configuration files."""
+    configs = []
+    for fp in [args.file1, args.file2]:
+        if not os.path.exists(fp):
+            print(f"Error: {fp} not found", file=sys.stderr)
+            return 1
+        with open(fp) as f:
+            configs.append(json.load(f))
+
+    c1, c2 = configs
+
+    print(f"Diff: {args.file1} vs {args.file2}")
+    print("=" * 55)
+
+    f1 = set(f['name'] for f in c1.get('features', []))
+    f2 = set(f['name'] for f in c2.get('features', []))
+
+    added = f2 - f1
+    removed = f1 - f2
+    common = f1 & f2
+
+    print(f"  File 1: {len(c1.get('features', []))} features (unique: {len(f1)})")
+    print(f"  File 2: {len(c2.get('features', []))} features (unique: {len(f2)})")
+    print(f"  Added: {len(added)}")
+    print(f"  Removed: {len(removed)}")
+    print(f"  Common: {len(common)}")
+
+    dupes1 = len(c1.get('features', [])) - len(f1)
+    dupes2 = len(c2.get('features', [])) - len(f2)
+    if dupes1 or dupes2:
+        print(f"\n  Duplicates: file1={dupes1}, file2={dupes2}")
+
+    if added:
+        print(f"\n  +++ Added:")
+        for n in sorted(added)[:10]:
+            print(f"    + {n}")
+        if len(added) > 10:
+            print(f"    ... and {len(added) - 10} more")
+
+    if removed:
+        print(f"\n  --- Removed:")
+        for n in sorted(removed)[:10]:
+            print(f"    - {n}")
+        if len(removed) > 10:
+            print(f"    ... and {len(removed) - 10} more")
+
+
+def cmd_config_history(args):
+    """Show configuration change history."""
+    if not os.path.exists(HISTORY_DIR):
+        print("No configuration history found")
+        return 0
+
+    entries = []
+    for hf in sorted(os.listdir(HISTORY_DIR)):
+        if hf.endswith('.json'):
+            with open(os.path.join(HISTORY_DIR, hf)) as f:
+                entries.append(json.load(f))
+
+    if not entries:
+        print("No history entries")
+        return 0
+
+    fmt = getattr(args, 'format', 'table')
+    if fmt == 'json':
+        print(json.dumps(entries, indent=2))
+        return 0
+
+    print("Configuration Change History")
+    print("=" * 75)
+    print(f"{'Timestamp':>22} | {'Action':>10} | {'Shard':>8} | {'Count':>6} | {'Valid':>5} | Status")
+    print("-" * 75)
+    for e in entries:
+        ts = e.get('timestamp', '?')
+        action = e.get('action', '?')
+        shard = e.get('shard', '?')
+        count = e.get('feature_count', '?')
+        validated = 'yes' if e.get('validated') else 'NO'
+        status = e.get('status', '?')
+        print(f"{ts:>22} | {action:>10} | {shard:>8} | {count:>6} | {validated:>5} | {status}")
+
+
+def cmd_deploy_generate(args):
+    """Generate features from a specific shard."""
+    sp = os.path.join(SHARD_DIR, f"shard_{args.shard_id}.db")
+    if not os.path.exists(sp):
+        print(f"Error: shard {args.shard_id} not found", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        [sys.executable, "/app/generator/generate.py", sp],
+        capture_output=True, text=True
+    )
+
+    if result.stdout:
+        print(result.stdout.strip())
+    if result.returncode != 0 and result.stderr:
+        print(result.stderr.strip(), file=sys.stderr)
+
+    return result.returncode
+
+
+def cmd_deploy_canary(args):
+    """Run canary deployment from a shard.
+
+    Generates config from the specified shard, validates it,
+    tests it against a shadow proxy, and reports results.
+    """
+    sp = os.path.join(SHARD_DIR, f"shard_{args.shard_id}.db")
+    if not os.path.exists(sp):
+        print(f"Error: shard {args.shard_id} not found", file=sys.stderr)
+        return 1
+
+    print(f"Running canary deployment from shard {args.shard_id}...")
+
+    # Step 1: Generate
+    result = subprocess.run(
+        [sys.executable, "/app/generator/generate.py", sp],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print(f"CANARY FAILED: Generator error: {result.stderr}", file=sys.stderr)
+        return 1
+    print(f"  Generation: OK")
+
+    # Step 2: Validate
+    if '/app/config_safety' not in sys.path:
+        sys.path.insert(0, '/app/config_safety')
+    try:
+        from validator import validate_config
+        with open(FEATURE_FILE) as f:
+            data = json.load(f)
+        valid, errors = validate_config(data)
+        if not valid:
+            print(f"CANARY FAILED: Validation errors:")
+            for err in errors:
+                print(f"  - {err}")
+            return 1
+        print(f"  Validation: PASSED ({len(data.get('features', []))} features)")
+    except ImportError:
+        print("  Validation: SKIPPED (validator not installed)")
+
+    # Step 3: Test proxy load
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0,'/app'); "
+         "from proxy.server import ProxyServer; s=ProxyServer(); s.initialize(); "
+         "r=s.handle_request({'user_agent_entropy':0.5,'request_rate_1m':10}); "
+         "assert r['status']==200; print('OK')"],
+        capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0:
+        print(f"CANARY FAILED: Proxy test failed: {result.stderr}")
+        return 1
+    print(f"  Proxy test: PASSED")
+
+    print(f"CANARY PASSED: Safe to deploy from shard {args.shard_id}")
+    return 0
+
+
+def cmd_verify(args):
+    """Run comprehensive system verification."""
+    print("Running system verification...")
+    print("=" * 55)
+
+    errors = []
+    passed = 0
+
+    # 1. Shard consistency
+    print("\n[1] Checking shard consistency...")
+    counts = {}
+    for sf in sorted(os.listdir(SHARD_DIR)):
+        if not sf.endswith('.db'):
+            continue
+        sp = os.path.join(SHARD_DIR, sf)
+        result = subprocess.run(
+            [sys.executable, "/app/generator/generate.py", sp],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            errors.append(f"Generator failed on {sf}: {result.stderr.strip()}")
+            continue
+        with open(FEATURE_FILE) as f:
+            data = json.load(f)
+        counts[sf] = len(data['features'])
+
+    unique = set(counts.values())
+    if len(unique) > 1:
+        errors.append(f"Inconsistent feature counts: {counts}")
+        print(f"    FAIL: counts vary: {counts}")
+    elif len(unique) == 1:
+        print(f"    PASS: all shards produce {list(unique)[0]} features")
+        passed += 1
+
+    # 2. Duplicate check
+    print("\n[2] Checking for duplicate features...")
+    if os.path.exists(FEATURE_FILE):
+        with open(FEATURE_FILE) as f:
+            data = json.load(f)
+        names = [f['name'] for f in data.get('features', [])]
+        dupes = len(names) - len(set(names))
+        if dupes > 0:
+            errors.append(f"{dupes} duplicate features")
+            print(f"    FAIL: {dupes} duplicates found")
+        else:
+            print(f"    PASS: no duplicates")
+            passed += 1
+
+    # 3. Proxy startup
+    print("\n[3] Checking proxy startup...")
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0,'/app'); "
+         "from proxy.server import ProxyServer; s=ProxyServer(); s.initialize(); "
+         "r=s.handle_request({'user_agent_entropy':0.5,'request_rate_1m':10}); "
+         "assert r['status']==200; print('OK')"],
+        capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0:
+        errors.append(f"Proxy startup failed: {result.stderr.strip()[:100]}")
+        print(f"    FAIL: {result.stderr.strip()[:80]}")
+    else:
+        print(f"    PASS: proxy starts and serves")
+        passed += 1
+
+    # 4. Proxy resilience
+    print("\n[4] Checking proxy resilience (oversized config)...")
+    result = subprocess.run(
+        [sys.executable, "-c", """
+import json, sys, os
+sys.path.insert(0, '/app')
+os.makedirs('/app/features', exist_ok=True)
+oversized = {"version": 2, "generated_at": "test", "shard_source": "test",
+    "features": [{"name": f"f_{i}", "type": "Float64", "enabled": True, "weight": 0.01}
+                 for i in range(250)], "feature_count": 250}
+with open('/app/features/bot_features.json', 'w') as f:
+    json.dump(oversized, f)
+from proxy.server import ProxyServer
+s = ProxyServer()
+try:
+    s.initialize()
+    r = s.handle_request({"user_agent_entropy": 0.5})
+    print("GRACEFUL")
+except SystemExit:
+    print("CRASH")
+    sys.exit(1)
+"""],
+        capture_output=True, text=True, timeout=30
+    )
+    if 'CRASH' in result.stdout or result.returncode != 0:
+        errors.append("Proxy crashes on oversized config")
+        print(f"    FAIL: proxy crashed")
+    else:
+        print(f"    PASS: handles oversized config gracefully")
+        passed += 1
+
+    # Restore valid config
+    subprocess.run(
+        [sys.executable, "/app/generator/generate.py",
+         os.path.join(SHARD_DIR, "shard_4.db")],
+        capture_output=True
+    )
+
+    # 5. Config validator
+    print("\n[5] Checking configuration validator...")
+    try:
+        if '/app/config_safety' not in sys.path:
+            sys.path.insert(0, '/app/config_safety')
+        # Force reimport
+        if 'validator' in sys.modules:
+            del sys.modules['validator']
+        from validator import validate_config
+        with open(FEATURE_FILE) as f:
+            data = json.load(f)
+        valid, errs = validate_config(data)
+        if valid:
+            print(f"    PASS: validator accepts valid config")
+            passed += 1
+        else:
+            errors.append(f"Validator rejects valid config: {errs}")
+            print(f"    FAIL: rejects valid config: {errs}")
+    except ImportError:
+        errors.append("Validator not found at /app/config_safety/validator.py")
+        print(f"    FAIL: validator not installed")
+    except Exception as e:
+        errors.append(f"Validator error: {e}")
+        print(f"    FAIL: error: {e}")
+
+    # 6. Design document
+    print("\n[6] Checking design document...")
+    if os.path.exists("/app/design_doc.md"):
+        with open("/app/design_doc.md") as f:
+            content = f.read()
+        if len(content) >= 800:
+            print(f"    PASS: design document exists ({len(content)} chars)")
+            passed += 1
+        else:
+            errors.append(f"Design document too short ({len(content)} chars)")
+            print(f"    FAIL: too short ({len(content)} chars)")
+    else:
+        errors.append("Design document not found")
+        print(f"    FAIL: not found at /app/design_doc.md")
+
+    # 7. Incident report
+    print("\n[7] Checking incident report...")
+    if os.path.exists("/app/incident_report.txt"):
+        with open("/app/incident_report.txt") as f:
+            content = f.read()
+        if len(content) >= 300:
+            print(f"    PASS: incident report exists ({len(content)} chars)")
+            passed += 1
+        else:
+            errors.append("Incident report too short")
+            print(f"    FAIL: too short")
+    else:
+        errors.append("Incident report not found")
+        print(f"    FAIL: not found")
+
+    # Summary
+    total = passed + len(errors)
+    print(f"\n{'=' * 55}")
+    if errors:
+        print(f"VERIFICATION FAILED: {passed}/{total} checks passed")
+        print(f"\nFailures:")
+        for i, err in enumerate(errors, 1):
+            print(f"  {i}. {err}")
+        return 1
+    else:
+        print(f"VERIFICATION PASSED: {passed}/{total} checks passed")
+        return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='cfctl',
+        description='CDN Feature Configuration Management Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  cfctl status                                    System overview
+  cfctl shard list                                List shards and migration state
+  cfctl shard inspect 0                           Inspect shard 0 schema
+  cfctl shard query 0 "SELECT count(*) ..."       Run SQL against shard
+  cfctl config show                               Show current feature config
+  cfctl config show --raw | jq '.features | length'   Feature count via jq
+  cfctl config validate /app/features/bot_features.json
+  cfctl config diff file1.json file2.json         Compare two configs
+  cfctl config history                            Show change history
+  cfctl deploy generate 0                         Generate from shard 0
+  cfctl deploy canary 0                           Canary deploy from shard 0
+  cfctl verify                                    Run all verification checks
+"""
+    )
+    parser.add_argument('--format', choices=['table', 'json'], default='table',
+                        help='Output format (default: table)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Enable verbose output')
+
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+    # status
+    subparsers.add_parser('status', help='Show system status overview')
+
+    # shard
+    shard_parser = subparsers.add_parser('shard', help='Database shard operations')
+    shard_sub = shard_parser.add_subparsers(dest='shard_command')
+
+    shard_sub.add_parser('list', help='List all shards with migration state')
+
+    inspect_p = shard_sub.add_parser('inspect', help='Inspect shard schema and metadata')
+    inspect_p.add_argument('shard_id', type=int, help='Shard ID (0-4)')
+
+    query_p = shard_sub.add_parser('query', help='Execute SQL against a shard')
+    query_p.add_argument('shard_id', type=int, help='Shard ID (0-4)')
+    query_p.add_argument('sql', help='SQL query to execute')
+
+    # config
+    config_parser = subparsers.add_parser('config', help='Configuration operations')
+    config_sub = config_parser.add_subparsers(dest='config_command')
+
+    show_p = config_sub.add_parser('show', help='Show current feature configuration')
+    show_p.add_argument('--raw', action='store_true', help='Output raw JSON')
+
+    validate_p = config_sub.add_parser('validate',
+                                        help='Validate a configuration file')
+    validate_p.add_argument('file', help='Path to configuration JSON file')
+
+    diff_p = config_sub.add_parser('diff', help='Diff two configuration files')
+    diff_p.add_argument('file1', help='First config file')
+    diff_p.add_argument('file2', help='Second config file')
+
+    config_sub.add_parser('history', help='Show configuration change history')
+
+    # deploy
+    deploy_parser = subparsers.add_parser('deploy', help='Deployment operations')
+    deploy_sub = deploy_parser.add_subparsers(dest='deploy_command')
+
+    gen_p = deploy_sub.add_parser('generate', help='Generate config from specific shard')
+    gen_p.add_argument('shard_id', type=int, help='Shard ID (0-4)')
+
+    canary_p = deploy_sub.add_parser('canary', help='Run canary deployment from shard')
+    canary_p.add_argument('shard_id', type=int, help='Shard ID (0-4)')
+
+    # verify
+    subparsers.add_parser('verify', help='Run system verification checks')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    cmd_map = {
+        'status': cmd_status,
+        'verify': cmd_verify,
+    }
+
+    if args.command in cmd_map:
+        return cmd_map[args.command](args) or 0
+
+    if args.command == 'shard':
+        shard_cmds = {
+            'list': cmd_shard_list,
+            'inspect': cmd_shard_inspect,
+            'query': cmd_shard_query,
+        }
+        if args.shard_command in shard_cmds:
+            return shard_cmds[args.shard_command](args) or 0
+        shard_parser.print_help()
+        return 1
+
+    if args.command == 'config':
+        config_cmds = {
+            'show': cmd_config_show,
+            'validate': cmd_config_validate,
+            'diff': cmd_config_diff,
+            'history': cmd_config_history,
+        }
+        if args.config_command in config_cmds:
+            return config_cmds[args.config_command](args) or 0
+        config_parser.print_help()
+        return 1
+
+    if args.command == 'deploy':
+        deploy_cmds = {
+            'generate': cmd_deploy_generate,
+            'canary': cmd_deploy_canary,
+        }
+        if args.deploy_command in deploy_cmds:
+            return deploy_cmds[args.deploy_command](args) or 0
+        deploy_parser.print_help()
+        return 1
+
+    parser.print_help()
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

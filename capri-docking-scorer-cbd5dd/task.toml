@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires debugging 7 interacting bugs across ~400 lines of C++ spanning PDB parsing, contact computation, SVD-based Kabsch superposition, and metric aggregation. Bug 2 (inverted chain check) cascades through all downstream metrics. Additionally requires designing and implementing multi-model PDB support (MODEL/ENDMDL parsing, per-model scoring, best-model selection) and f-nonnat computation — both absent from the starter code. The agent must understand PDB fixed-width format, CAPRI scoring semantics, Kabsch algorithm with reflection handling, Eigen3 library usage, and make architectural decisions about how to cleanly integrate multi-model iteration and new metric computation into the existing codebase."""
+solution_explanation = """Fix 7 bugs: (1) isHydrogen must check digit+H pattern for old-style hydrogen names like 1HB, 2HG2; (2) computeContacts must use != not == for inter-chain check; (3) kabsch must handle SVD reflection by checking det(V)*det(W) and adjusting last column; (4) computeLRMSD must center by receptor centroid, not overall; (5) computeLRMSD must return ligand-only RMSD; (6) DockQ constants must be 1.5 and 8.5, not 1.0 and 5.0; (7) classifyQuality must use OR for lrmsd/irmsd conditions, not AND. Then design and implement: a parseModels function to handle MODEL/ENDMDL records with fallback for single-model files, a computeFnonnat function using contact set difference, a main loop scoring each model and selecting the one with best DockQ, and updated output format with conditional model= line and fnonnat."""
+verification_explanation = """Tests generate PDB pairs with known geometry, compute expected CAPRI metrics via independent Python reference (numpy SVD for Kabsch, explicit distance computation for contacts), then compare C++ output within floating-point tolerance. Coverage includes: perfect model, translated/rotated ligand, hydrogen filtering with old-style names, quality classification OR-logic, DockQ formula constants, f-nonnat with non-native contacts, multi-model best-DockQ selection, single-model format verification, and sample data validation. Each test is self-contained with its own PDB generation and expected value computation."""
+category = "debugging"
+tags = ["structural-biology", "computational-geometry"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/capri-docking-scorer-cbd5dd"

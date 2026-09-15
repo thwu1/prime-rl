@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GlobalEd Revenue Forecast Output",
+  "description": "Required forecast output metrics for the 60-month projection period (Jan 2024 - Dec 2028). All monetary values in USD rounded to 2 decimal places.",
+  "type": "object",
+  "required": [
+    "net_revenue_month_1",
+    "net_revenue_month_12",
+    "net_revenue_month_24",
+    "net_revenue_month_36",
+    "net_revenue_month_48",
+    "net_revenue_month_60",
+    "cumulative_net_revenue",
+    "first_price_change_month_usa",
+    "first_price_change_month_aus",
+    "first_price_change_month_uk",
+    "total_subscribers_month_60",
+    "usa_professional_charged_price_month_36",
+    "cumulative_ecl_provision_usd",
+    "cumulative_hedge_gain_usd",
+    "aus_effective_fx_rate_2026",
+    "npv_cumulative_revenue",
+    "effective_hedge_count",
+    "weighted_avg_ecl_rate"
+  ],
+  "properties": {
+    "net_revenue_month_1": {
+      "type": "number",
+      "description": "Total USD net revenue (after tax, probability-weighted ECL, and FX with hedge effectiveness testing) across all countries and tiers for forecast month 1 (Jan 2024)"
+    },
+    "net_revenue_month_12": {
+      "type": "number",
+      "description": "Total USD net revenue for forecast month 12 (Dec 2024)"
+    },
+    "net_revenue_month_24": {
+      "type": "number",
+      "description": "Total USD net revenue for forecast month 24 (Dec 2025)"
+    },
+    "net_revenue_month_36": {
+      "type": "number",
+      "description": "Total USD net revenue for forecast month 36 (Dec 2026)"
+    },
+    "net_revenue_month_48": {
+      "type": "number",
+      "description": "Total USD net revenue for forecast month 48 (Dec 2027)"
+    },
+    "net_revenue_month_60": {
+      "type": "number",
+      "description": "Total USD net revenue for forecast month 60 (Dec 2028)"
+    },
+    "cumulative_net_revenue": {
+      "type": "number",
+      "description": "Sum of total USD net revenue across all 60 forecast months"
+    },
+    "first_price_change_month_usa": {
+      "type": "integer",
+      "description": "1-indexed month number of the first consensus-triggered price adjustment in the USA market"
+    },
+    "first_price_change_month_aus": {
+      "type": "integer",
+      "description": "1-indexed month number of the first consensus-triggered price adjustment in the Australia market"
+    },
+    "first_price_change_month_uk": {
+      "type": "integer",
+      "description": "1-indexed month number of the first consensus-triggered price adjustment in the UK market"
+    },
+    "total_subscribers_month_60": {
+      "type": "integer",
+      "description": "Total subscriber count across all countries and tiers at forecast month 60, rounded to nearest integer"
+    },
+    "usa_professional_charged_price_month_36": {
+      "type": "number",
+      "description": "The effective charged price (USD) for the USA Professional tier at forecast month 36"
+    },
+    "cumulative_ecl_provision_usd": {
+      "type": "number",
+      "description": "Total probability-weighted expected credit loss provision in USD summed across all 60 months, all countries, all tiers"
+    },
+    "cumulative_hedge_gain_usd": {
+      "type": "number",
+      "description": "Cumulative FX hedge gain (positive) or loss (negative) in USD over 60 months, computed only for hedges that pass the IFRS 9 effectiveness test"
+    },
+    "aus_effective_fx_rate_2026": {
+      "type": "number",
+      "description": "The blended effective AUD-to-USD conversion rate for fiscal year 2026 (hedge_ratio * forward_rate + (1-hedge_ratio) * spot_rate if hedge is effective, or spot_rate if dedesignated), rounded to 4 decimal places"
+    },
+    "npv_cumulative_revenue": {
+      "type": "number",
+      "description": "Net present value of all 60 months of net revenue, discounted using the bootstrapped zero-coupon yield curve derived from par bond rates. Rounded to 2 decimal places."
+    },
+    "effective_hedge_count": {
+      "type": "integer",
+      "description": "Number of active hedge contracts (out of 10) that pass the IFRS 9 dollar-offset cumulative effectiveness test (ratio within effectiveness bounds)."
+    },
+    "weighted_avg_ecl_rate": {
+      "type": "number",
+      "description": "Simple average of the probability-weighted ECL rates across all 5 subscription tiers. Rounded to 6 decimal places."
+    }
+  }
+}

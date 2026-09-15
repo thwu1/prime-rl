@@ -1,0 +1,10 @@
+[package]
+name = "signal-embedded"
+version = "0.5.0"
+edition = "2021"
+
+[dependencies]
+signal-core = { path = "../signal-core", default-features = false, features = ["alloc"] }
+
+[build-dependencies]
+signal-core = { path = "../signal-core", features = ["std"] }

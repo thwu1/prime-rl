@@ -1,0 +1,14 @@
+{
+  "system": "N2-CH4 supercritical region",
+  "conditions": {"T_K": 300.0, "P_Pa": 10000000.0},
+  "components": {
+    "Tcs": [126.1, 190.6],
+    "Pcs": [3394000.0, 4604000.0],
+    "omegas": [0.04, 0.011],
+    "kijs": [[0, 0], [0, 0]]
+  },
+  "zs": [0.5, 0.5],
+  "reference_results": {
+    "phi_vapor": [0.9855336740251448, 0.8338953860988254]
+  }
+}

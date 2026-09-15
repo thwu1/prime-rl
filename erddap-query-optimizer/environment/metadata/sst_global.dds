@@ -1,0 +1,13 @@
+Dataset {
+  Float64 time[time = 6317];
+  Float64 latitude[latitude = 17999];
+  Float64 longitude[longitude = 35999];
+  GRID {
+    ARRAY:
+      Float32 analysed_sst[time = 6317][latitude = 17999][longitude = 35999];
+    MAPS:
+      Float64 time[time = 6317];
+      Float64 latitude[latitude = 17999];
+      Float64 longitude[longitude = 35999];
+  } analysed_sst;
+} sst_global;

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep Oracle Database 19c performance tuning expertise: knowledge of V$ dynamic performance view formulas (buffer cache hit ratio from V$SYSSTAT, library cache hit ratio from V$LIBRARYCACHE), interpretation of advisory views (V$DB_CACHE_ADVICE threshold analysis, V$PGA_TARGET_ADVICE over-allocation elimination), understanding Oracle wait event taxonomy to exclude idle classes, shared pool contention diagnosis from latch wait events correlated with hard parse ratios, cross-referencing alert log ORA-04031 errors with literal SQL patterns in top SQL data, and recommending specific Oracle initialization parameter changes (CURSOR_SHARING, DB_CACHE_SIZE, PGA_AGGREGATE_TARGET, SHARED_POOL_SIZE). This is professional Oracle DBA certification-level (OCP 1Z0-084) work requiring multi-source diagnostic data analysis."""
+solution_explanation = """Build a Python analysis tool that: (1) parses 10+ diagnostic data files in CSV and text formats representing Oracle V$ view exports, (2) computes 6 Oracle performance metrics using the documented formulas (buffer cache hit ratio, library cache hit ratio as pinhits/pins, hard parse ratio, in-memory sort ratio, PGA cache hit from V$PGASTAT, shared pool free percentage from V$SGASTAT), (3) applies advisory view threshold rules to find optimal buffer cache size (estd_physical_read_factor <= 0.50) and PGA target (estd_overalloc_count == 0), (4) identifies and ranks the top 5 non-idle wait events excluding Idle class, (5) correlates the dominant latch:shared pool waits with 90% hard parse ratio and ORA-04031 errors to determine CURSOR_SHARING=FORCE as the top recommendation, and (6) generates a structured JSON report with 4 ranked parameter change recommendations."""
+verification_explanation = """29 pytest tests verify: JSON report structure and validity (7 tests), 6 computed metrics within numerical tolerance of expected values, 2 advisory-derived optimal values matching exact thresholds (896 MB cache, 512 MB PGA), top 5 wait events correctly ordered with idle events excluded and shared pool latch identified as the dominant event (5 tests), and 4 specific Oracle parameter recommendations with cursor_sharing=FORCE ranked as the highest priority (9 tests)."""
+category = "database"
+tags = ["oracle", "performance-tuning"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2d4d60"

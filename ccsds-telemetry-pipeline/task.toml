@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding 3 CCSDS protocol standards (131.0-B-3, 132.0-B-2, 133.0-B-1), identifying 5 interacting conformance bugs in Java code (LFSR polynomial tap error, CRC initial value, bit-field extraction shift, special value handling, cross-frame packet reassembly), and implementing stateful packet reassembly across frame boundaries. The bugs cascade: wrong randomizer garbles all data, wrong CRC fails validation, wrong SCID misidentifies the spacecraft. The cross-frame reassembly is the hardest fix, requiring a complete rewrite with partial-packet buffering across 3 frames. Domain knowledge of space telemetry protocols is essential."""
+solution_explanation = """Fix 5 bugs: (1) Randomizer.java LFSR feedback tap from bit 2 to bit 3 per CCSDS 131.0-B-3 polynomial; (2) CrcCalculator.java initial value from 0x0000 to 0xFFFF per CRC-16-CCITT standard; (3) TmFrameDecoder.java SCID extraction shift from >>3 to >>4 matching the 10-bit field position; (4) TmFrameDecoder.java add FHP special value handling (0x7FF→-1, 0x7FE→-1); (5) PacketExtractor.java complete rewrite to buffer partial packets across frame boundaries, handling continuation data before FHP and packets that span multiple frames."""
+verification_explanation = """Test generates 5 deterministic TM frames containing 8 space packets (3 fitting in single frames, 1 spanning 3 frames). After applying fixes, compiles and runs the Java pipeline, then pytest verifies: all 5 frames have correct SCID/VCID/FHP/OCF/CRC, all 8 packets extracted with correct APID/sequence/data including the 3-frame spanning packet."""
+category = "applied_computing"
+tags = ["ccsds", "protocol-implementation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ccsds-telemetry-pipeline"

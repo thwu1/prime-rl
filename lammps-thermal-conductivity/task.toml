@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level molecular dynamics knowledge to diagnose subtle bugs in two LAMMPS NEMD thermal conductivity scripts. The fix-heat script contains a mismatch between the energy injection rate in the fix command (100.0) and the value used in the kappa formula (10.0), producing κ that is an order of magnitude too low. The Müller-Plathe script has two compounding bugs: (1) the temperature difference variable has the wrong sign (edge minus center instead of center minus edge), yielding negative κ, and (2) the fix thermal/conductivity energy accumulator is not reset between equilibration and production, inflating the energy numerator. Diagnosing these requires understanding Fourier's law, the physics of NEMD temperature profiles, LAMMPS fix mechanics (energy tallying and accumulator resets), and how chunk-averaged temperature profiles relate to spatial heat flow. The agent must also perform dimensional analysis for LJ-to-SI unit conversion."""
+solution_explanation = """The solution reads the buggy scripts, identifies and fixes each bug: (1) in.heat: changes the energy rate in the kappa formula from 10.0 to 100.0 to match the fix heat injection rate; (2) in.mp: reverses the sign of the temperature difference variable to f_2[11][3]-f_2[1][3], and adds a redefinition of fix 3 before the production run to reset the energy accumulator. Both corrected scripts are run via LAMMPS, the printed kappa values are parsed, averaged, and converted to SI using κ_SI = κ_LJ × k_B / (σ × τ) where τ = σ√(m/ε)."""
+verification_explanation = """Tests verify: (1) results.json exists with correct structure and all required keys; (2) both κ values are positive, finite, and physically reasonable for this LJ state point (0.5–15.0 LJ units); (3) the average is in a tighter range (1.0–10.0); (4) kappa_avg_lj is the arithmetic mean of both methods; (5) Argon parameters are in correct physical ranges; (6) τ is internally consistent with ε, σ, m; (7) κ_SI conversion is mathematically consistent with the reported parameters; (8) LAMMPS simulation output files exist including corrected log files and temperature profiles."""
+category = "computational_physics"
+tags = ["molecular-dynamics", "lammps"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lammps-thermal-conductivity"

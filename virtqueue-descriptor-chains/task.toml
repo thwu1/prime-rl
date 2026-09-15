@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of VIRTIO 1.2 device architecture, PCI configuration, split virtqueue internals, and MSI-X interrupt routing. The solver must parse multiple interrelated binary dumps (common config registers, descriptor tables, ring buffers, guest memory, event logs, MSI-X tables) using hex inspection and struct-level binary parsing tools. No problem description is given — the solver must diagnose the crash root cause by walking descriptor chains to discover circular references and out-of-bounds indices, cross-reference event log timestamps with queue state to identify the trigger, extract Ethernet frame headers from guest physical memory via descriptor address indirection, and detect MSI-X table misconfigurations. Demands holistic understanding of how virtio device initialization, queue processing, interrupt delivery, and error recovery interact."""
+solution_explanation = """Parse device_config.bin for MAC/MTU/status. Parse features.bin for negotiated feature words. For each queue, read queue_configs.bin for size, then parse desc.bin/avail.bin/used.bin. Walk all pending descriptor chains (avail_idx - used_idx entries starting from used_idx position in the avail ring) checking for cycles via visited-set and out-of-bounds next indices. For TX queue chain 0 (completed in used ring), follow descriptor addresses into guest_memory.bin, skip the 12-byte virtio-net header descriptor, and parse Ethernet dst/src/ethertype from the data descriptor. For RX used entries, read guest_memory at each descriptor's addr+12 to extract Ethernet headers. Parse event_log.bin to find the error event (type=3) identifying queue 1 and timestamp 1500000ns. Parse msix_table.bin to find vector 2 is masked with zero address."""
+verification_explanation = """30 pytest tests verify the analysis report: device MAC/status/MTU/queue count, feature word values, per-queue size/avail_idx/used_idx, presence and classification of TX queue corruption errors (circular chain at head 3, out-of-bounds at head 8), absence of errors in RX and CTL queues, TX and RX packet Ethernet header extraction (MAC addresses and ethertypes), crash trigger queue/timestamp identification, and MSI-X misconfiguration detection. Tests normalize MAC addresses and ethertypes for format tolerance."""
+category = "systems_programming"
+tags = ["virtualization", "crash_forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/virtqueue-descriptor-chains"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Linux performance analysis skills, particularly understanding the distinction between on-CPU and off-CPU profiling methodologies (Brendan Gregg's off-CPU analysis). The task layers multiple challenges: (1) discovering that a pre-generated differential flame graph has inverted arguments to difffolded.pl, causing all regressions to appear as improvements; (2) recognizing that flush_to_disk's CPU samples DECREASED despite being a severe regression — because O_DSYNC makes write() block off-CPU, invisible to CPU sampling; (3) evaluating whether code changes are bugs or intentional (HMAC-SHA256 upgrade is deliberate security hardening, not a regression); (4) determining that a hotfix was applied to the wrong file (data_loader.c instead of logger.c); (5) correctly arguing that software TMR for CRC32 is unnecessary since deterministic computation on identical inputs always yields identical results. Each error in the junior engineer's report compounds others, requiring holistic understanding rather than isolated checks."""
+solution_explanation = """Run difffolded.pl with correct argument order (baseline first, incident second) and pipe to flamegraph.pl to generate corrected SVG. Parse all three profile files to compute per-function sample deltas. Read source code to classify each change: copy_to_buffer has buf_size-buf_size typo (zero-byte-read), logger.c has O_DSYNC (sync-io, off-CPU), validator.c has unnecessary TMR (redundant-computation), request_handler.c has intentional SHA256 upgrade. Verify hotfix_a fixes the typo (effective), hotfix_b adds O_NONBLOCK to data_loader.c which is irrelevant to the O_DSYNC in logger.c (ineffective). Identify that flush_to_disk samples went from 90 to 40 — a decrease — because the function now blocks off-CPU, making it invisible to CPU profiling. Priority: flush_to_disk first (hidden bottleneck blocking pipeline), then recompute_hash."""
+verification_explanation = """Tests independently parse profile data to verify sample counts, check that a corrected SVG file exists and is valid, verify each issue's classification and bug_type, confirm the critical insight that flush_to_disk is marked as hidden in CPU profiles with decreased samples, verify hotfix effectiveness assessments, and check remediation ordering (flush_to_disk before recompute_hash, verify_hmac excluded)."""
+category = "systems_programming"
+tags = ["performance-analysis", "flame-graphs"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/diagnose-perf-regression"

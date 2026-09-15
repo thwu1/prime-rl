@@ -1,0 +1,38 @@
+{
+  "_description": "Output format for hierarchical roofline analysis. All bandwidth values in GB/s.",
+  "_notes": {
+    "hierarchy_order": "Cache levels ordered from fastest (L1) to slowest (DRAM)",
+    "dram_size": "DRAM level should omit size_bytes field",
+    "ridge_point": "Arithmetic intensity (FLOP/Byte) where compute and memory ceilings intersect: peak_gflops / bandwidth_gbps",
+    "kernel_cache_level": "Determined by comparing working_set_bytes against detected cache sizes",
+    "kernel_bound": "'memory' if AI < ridge_point at the kernel's cache level, 'compute' otherwise",
+    "kernel_attainable": "min(peak_gflops, arithmetic_intensity * bandwidth_at_cache_level)",
+    "kernel_efficiency": "measured_gflops / attainable_gflops"
+  },
+  "peak_gflops": 0.0,
+  "cache_hierarchy": [
+    {
+      "level": "L1 | L2 | L3 | DRAM",
+      "bandwidth_gbps": 0.0,
+      "size_bytes": 0,
+      "ridge_point": 0.0
+    }
+  ],
+  "stream_corrected": {
+    "copy_gbps": 0.0,
+    "scale_gbps": 0.0,
+    "add_gbps": 0.0,
+    "triad_gbps": 0.0,
+    "average_gbps": 0.0
+  },
+  "kernel_analysis": [
+    {
+      "name": "string",
+      "arithmetic_intensity": 0.0,
+      "cache_level": "string",
+      "bound": "memory | compute",
+      "attainable_gflops": 0.0,
+      "efficiency": 0.0
+    }
+  ]
+}

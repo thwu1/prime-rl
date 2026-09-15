@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete RNA structural bioinformatics assessment pipeline from a mathematical specification and raw PDB data, with no starter code. The solver must: (1) inspect PDB files to discover non-standard residue codes (1MA, PSU) and legacy atom naming conventions (O2* vs O2') that the specification describes only conceptually — then implement correct normalization tables; (2) independently derive and implement the Kabsch SVD optimal superposition algorithm from the specification's requirement to 'minimize RMSD over all rotations and translations', including the reflection correction via determinant sign check; (3) implement Gumbel extreme-value P-value computation, per-residue RMSD from superposed coordinates, and an N×N pairwise distance matrix; (4) evaluate the computed metrics to classify models — determining which pairs are structurally similar (below a specified RMSD threshold), partitioning models by atom coverage completeness, and identifying best/worst predictions. Demands deep expertise in PDB format conventions, computational geometry (SVD-based superposition), RNA post-transcriptional modifications, and the ability to translate mathematical descriptions into working code while handling domain-specific edge cases."""
+solution_explanation = """Inspects PDB data to discover modified residues (1MA→A, PSU→U) and legacy atom names (O2*→O2'). Implements complete PDB parser with normalization, Kabsch SVD superposition with reflection correction, Gumbel P-value, per-residue RMSD from post-superposition coordinates, and pairwise RMSD matrix. Then evaluates results: identifies best/worst models by RMSD ranking, finds structurally similar model pairs (pairwise RMSD < 5.0 Å — only model_01 and model_04 qualify since they share the same noise level despite model_04 being rotated/translated), and classifies models into full vs partial atom coverage (model_05 has missing atoms). Uses numpy for linear algebra and string-based PDB parsing."""
+verification_explanation = """Tests independently compute expected metric values from PDB files using a separate oracle implementation (string-based PDB parsing, not BioPython) with identical normalization and Kabsch algorithm. Verifies RMSD within 0.15 Å tolerance, P-values with relative tolerance, per-residue RMSD within 0.3 Å, exact matched atom counts, correct ranking order, structural invariants (model_04 similar RMSD to model_01 after superposition, model_05 fewer matched atoms), pairwise matrix symmetry, diagonal zeros, cross-consistency between pairwise matrix and per-model results, and quality report correctness (best/worst model, similar pairs, coverage classification)."""
+category = "computational_biology"
+tags = ["structural-bioinformatics", "pipeline-creation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c5c407"

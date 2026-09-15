@@ -1,0 +1,6 @@
+# Open circuit stub
+V1 1 0 1
+Rs 1 21 50
+T1 21 0 22 0 z=50 f=10meg nl=0.25
+Rl 22 0 1e15
+.ac 0 40meg 2meg

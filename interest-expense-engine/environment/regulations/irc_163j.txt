@@ -1,0 +1,55 @@
+26 U.S.C. § 163(j) — Limitation on business interest
+
+(1) In general
+The amount allowed as a deduction under this chapter for any taxable year for business interest shall not exceed the sum of—
+(A) the business interest income of such taxpayer for such taxable year,
+(B) 30 percent of the adjusted taxable income of such taxpayer for such taxable year, plus
+(C) the floor plan financing interest of such taxpayer for such taxable year.
+The amount determined under subparagraph (B) shall not be less than zero.
+
+(2) Carryforward of disallowed business interest
+The amount of any business interest not allowed as a deduction for any taxable year by reason of paragraph (1) shall be treated as business interest paid or accrued in the succeeding taxable year.
+
+(4) Application to partnerships, etc.
+(A) In general — In the case of any partnership—
+  (i) this subsection shall be applied at the partnership level and any deduction for business interest shall be taken into account in determining the non-separately stated taxable income or loss of the partnership, and
+  (ii) the adjusted taxable income of each partner of such partnership—
+    (I) shall be determined without regard to such partner's distributive share of any items of income, gain, deduction, or loss of such partnership, and
+    (II) shall be increased by such partner's distributive share of such partnership's excess taxable income.
+  For purposes of clause (ii)(II), a partner's distributive share of partnership excess taxable income shall be determined in the same manner as the partner's distributive share of nonseparately stated taxable income or loss of the partnership.
+
+(B) Special rules for carryforwards
+  (i) In general — The amount of any business interest not allowed as a deduction to a partnership for any taxable year by reason of paragraph (1) for any taxable year—
+    (I) shall not be treated under paragraph (2) as business interest paid or accrued by the partnership in the succeeding taxable year, and
+    (II) shall, subject to clause (ii), be treated as excess business interest which is allocated to each partner in the same manner as the non-separately stated taxable income or loss of the partnership.
+
+  (ii) Treatment of excess business interest allocated to partners — If a partner is allocated any excess business interest from a partnership under clause (i) for any taxable year—
+    (I) such excess business interest shall be treated as business interest paid or accrued by the partner in the next succeeding taxable year in which the partner is allocated excess taxable income from such partnership, but only to the extent of such excess taxable income, and
+    (II) any portion of such excess business interest remaining after the application of subclause (I) shall, subject to the limitations of subclause (I), be treated as business interest paid or accrued in succeeding taxable years.
+  For purposes of applying this paragraph, excess taxable income allocated to a partner from a partnership for any taxable year shall not be taken into account under paragraph (1)(A) with respect to any business interest other than excess business interest from the partnership until all such excess business interest for such taxable year and all preceding taxable years has been treated as paid or accrued under clause (ii).
+
+(C) Excess taxable income — The term "excess taxable income" means, with respect to any partnership, the amount which bears the same ratio to the partnership's adjusted taxable income as—
+  (i) the excess (if any) of—
+    (I) the amount determined for the partnership under paragraph (1)(B), over
+    (II) the amount (if any) by which the business interest of the partnership, reduced by the floor plan financing interest, exceeds the business interest income of the partnership, bears to
+  (ii) the amount determined for the partnership under paragraph (1)(B).
+
+(8) Adjusted taxable income — For purposes of this subsection, the term "adjusted taxable income" means the taxable income of the taxpayer—
+(A) computed without regard to—
+  (i) any item of income, gain, deduction, or loss which is not properly allocable to a trade or business,
+  (ii) any business interest or business interest income,
+  (iii) the amount of any net operating loss deduction under section 172,
+  (iv) the amount of any deduction allowed under section 199A,
+  (v) any deduction allowable for depreciation, amortization, or depletion, and
+  (vi) the amounts included in gross income under sections 951(a), 951A(a), and 78, and
+(B) computed with such other adjustments as provided by the Secretary.
+
+(12) Special rule for taxable years beginning in 2019 and 2020
+(A) In general
+  (i) In general — Except as provided in clause (ii) or (iii), in the case of any taxable year beginning in 2019 or 2020, paragraph (1)(B) shall be applied by substituting "50 percent" for "30 percent".
+  (ii) Special rule for partnerships — In the case of a partnership—
+    (I) clause (i) shall not apply to any taxable year beginning in 2019, but
+    (II) unless a partner elects not to have this subclause apply, in the case of any excess business interest of the partnership for any taxable year beginning in 2019 which is allocated to the partner under paragraph (4)(B)(i)(II)—
+      (aa) 50 percent of such excess business interest shall be treated as business interest which, notwithstanding paragraph (4)(B)(ii), is paid or accrued by the partner in the partner's first taxable year beginning in 2020 and which is not subject to the limits of paragraph (1), and
+      (bb) 50 percent of such excess business interest shall be subject to the limitations of paragraph (4)(B)(ii) in the same manner as any other excess business interest so allocated.
+  (iii) Election out — A taxpayer may elect not to have clause (i) apply to any taxable year.

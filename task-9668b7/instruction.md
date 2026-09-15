@@ -1,0 +1,3 @@
+An HLS configuration evaluator is available as a compiled C shared library at `/app/libhls_cost.so` (interface in `/app/hls_cost.h`). The DSE parameter space and optimization objectives are defined in `/app/dse_config.yaml`.
+
+Build `/app/dse_analyzer.py` — a tool that implements the complete analysis specified in `/app/spec.md`. The tool must call the C shared library via its foreign function interface (not reimplement the cost model in Python), handle the full constrained parameter space, and produce the JSON output described in the spec.

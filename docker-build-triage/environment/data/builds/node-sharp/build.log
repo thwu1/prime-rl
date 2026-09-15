@@ -1,0 +1,33 @@
+Step 1/7 : FROM node:18-slim
+ ---> e5f6g7h8i9j0
+Step 2/7 : WORKDIR /app
+ ---> Using cache
+ ---> k1l2m3n4o5p6
+Step 3/7 : COPY package.json package-lock.json ./
+ ---> q7r8s9t0u1v2
+Step 4/7 : RUN npm ci
+ ---> Running in w3x4y5z6a7b8
+
+> sharp@0.33.2 install /app/node_modules/sharp
+> node install/check
+
+sharp: Installation error: Could not load the "sharp" module using the linux-x64 runtime
+Possible solutions:
+- Install with verbose logging and look for errors: "npm install --ignore-scripts=false sharp --verbose"
+- Ensure the "libvips" native library is installed
+
+sharp: Prebuilt libvips 8.15.1 binaries are not yet available for linux-x64-glibc
+
+ERR! sharp: Compilation from source requires:
+ERR! sharp:   - pkg-config
+ERR! sharp:   - libvips development files (libvips-dev on Debian/Ubuntu)
+ERR! sharp: Please install both prerequisites and retry.
+
+npm ERR! code ELIFECYCLE
+npm ERR! errno 1
+npm ERR! sharp@0.33.2 install: `node install/check`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the sharp@0.33.2 install script.
+npm ERR! This is probably not a problem with npm. There is likely additional logging output above.
+The command '/bin/sh -c npm ci' returned a non-zero code: 1

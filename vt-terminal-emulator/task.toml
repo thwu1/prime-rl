@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete VT/ANSI terminal state machine from scratch in C, covering CSI parsing with 20+ command types, SGR attribute/color handling (standard 16, 256-color palette with 6x6x6 cube computation, 24-bit RGB), scroll region mechanics (DECSTBM), pending-wrap semantics, and partial escape sequence buffering. Beyond the C implementation, demands building a shared library with -fPIC/-shared compilation flags and writing Python ctypes FFI bindings with correct struct layout marshaling (handling C struct padding for Cell), function pointer signatures, and a high-level wrapper class. Additionally requires writing a tmux oracle script that creates headless tmux sessions, injects raw bytes to a PTY device, and captures pane content for cross-validation against the parser — requiring fluency with tmux programmatic control, PTY mechanics, and stty terminal discipline configuration."""
+solution_explanation = """The solution implements a 6-state parser (GROUND, ESC, ESC_INTER, CSI, OSC, OSC_ESC) with persistent state across terminal_process() calls. The Makefile builds both vtterm (static linking) and libterminal.so (-fPIC -shared). The ctypes bindings define CellStruct with fields matching C's Cell typedef (including implicit padding between bg_b and attrs), load the .so via CDLL, set argtypes/restype for all 6 API functions, and wrap them in a TerminalEmulator class. The tmux oracle uses 'tmux new-session -d' with explicit -x/-y dimensions, runs 'stty raw -echo -opost' to disable line discipline processing, writes raw bytes to the PTY via cat, then captures with 'tmux capture-pane -p'. Integration tests verify all three paths produce consistent output."""
+verification_explanation = """Tests compile the implementation via make, then run 50+ pytest test cases across three verification paths: (1) Binary tests feed byte sequences to vtterm via stdin and verify JSON-serialized terminal state (cell codepoints, RGB colors, attributes, cursor position); (2) ctypes tests load libterminal.so through the Python bindings module and verify identical output to the binary path; (3) tmux oracle tests create headless tmux sessions, feed the same byte sequences, capture the screen, and verify character placement matches the parser. Tests cover basic text, cursor movement, SGR attributes/colors, erase operations, scroll regions, line wrapping, partial sequences, and cross-path consistency."""
+category = "systems_programming"
+tags = ["terminal_emulation", "ffi_interop"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vt-terminal-emulator"

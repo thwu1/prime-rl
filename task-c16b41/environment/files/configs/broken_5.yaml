@@ -1,0 +1,40 @@
+# Model: ERNIE-4.5-21B-A3B
+# Hardware: 1 GPU
+# Intent: DPO with LoRA
+
+### data
+train_dataset_type: "erniekit"
+eval_dataset_type: "erniekit"
+train_dataset_path: "./data/dpo-train.jsonl"
+eval_dataset_path: "./data/dpo-eval.jsonl"
+max_seq_len: 8192
+
+### model
+model_name_or_path: baidu/ERNIE-4.5-21B-A3B-Paddle
+fine_tuning: LoRA
+
+### training
+stage: DPO
+batch_size: 1
+gradient_accumulation_steps: -1
+learning_rate: 1.0e-4
+lr_scheduler_type: cosine
+warmup_steps: 10
+weight_decay: 0.01
+
+### performance
+tensor_parallel_degree: 3
+pipeline_parallel_degree: 0
+sharding_parallel_degree: 1
+sharding: Stage1
+sequence_parallel: False
+compute_type: bf16
+fp16_opt_level: O2
+recompute: False
+amp_custom_white_list:
+  - lookup_table
+  - flash_attn
+  - matmul
+amp_custom_black_list:
+  - reduce_sum
+  - softmax_with_cross_entropy

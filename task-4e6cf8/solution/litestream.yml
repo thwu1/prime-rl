@@ -1,0 +1,5 @@
+dbs:
+  - path: /app/data/replicated.db
+    replicas:
+      - type: file
+        path: /app/data/replica

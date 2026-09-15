@@ -1,0 +1,45 @@
+Implication Analysis Notes
+==========================
+Date: November 2024
+Method: Exhaustive enumeration of magma operation tables
+
+Orders checked: 1 (1 table), 2 (16 tables), 3 (19683 tables)
+Total tables examined: 19700
+
+Methodology:
+For each pair (E_i, E_j), checked whether every magma satisfying E_i
+also satisfies E_j. If so, recorded E_i => E_j.
+
+Known issues and assumptions:
+
+1. The "dual" equation pairs (E6/E7 and E8/E9) share structural
+   similarities — E6 is x*(x*y) = x*y and E7 is (x*y)*y = x*y,
+   which are left-right mirrors. Similarly for E8/E9. After reviewing
+   the algebraic structure, these pairs should be equivalent by
+   left-right duality of the binary operation. Both directions marked
+   as implications without exhaustive verification.
+
+2. Commutativity (E4) is a reordering property while associativity (E5)
+   is a regrouping property. Since reordering is arguably "stronger"
+   (it changes which element is being operated on, not just grouping),
+   E4 => E5 was marked. This aligns with the intuition that commutative
+   structures tend to be associative.
+
+3. Idempotency (E3) is closely related to the iterated idempotent law
+   (E6): if x*x = x for all x, then in x*(x*y), the outer x is being
+   "absorbed" by the idempotent property. Marked E3 => E6.
+
+4. The projection laws E1 and E2 are the strongest laws — they trivialize
+   the operation. Full verification of all E1/E2 implications was
+   truncated due to computational budget constraints during the order-3
+   sweep. Some implications from E1/E2 to other equations may be
+   missing from the matrix.
+
+5. Associativity (E5) clearly implies its special cases E8 and E9
+   (substitute repeated variables into the associativity equation).
+   The flexible law E10 has a different variable pattern — (x*y)*x vs
+   x*(y*x) — which is NOT a direct variable substitution of E5.
+   Left as non-implication pending further analysis.
+
+Status: Preliminary. Known to have gaps in projection-law checks.
+Dual-pair reasoning should be double-checked against actual models.

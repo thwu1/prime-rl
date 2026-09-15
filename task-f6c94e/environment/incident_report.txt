@@ -1,0 +1,56 @@
+INCIDENT REPORT #2024-SEC-0147
+Priority: HIGH
+Status: Open
+Reporter: Security Operations Team
+
+Subject: Vulnerability Assessment Pipeline Producing Incorrect Triage Results
+
+During routine cross-validation of our vulnerability assessment pipeline
+output against NVD published reference data, critical discrepancies were
+identified across multiple output categories.
+
+FINDINGS:
+
+1. SCORE MISMATCH - CVE-2021-44228 (Log4Shell)
+   Pipeline reports base score: 9.0
+   NVD published reference score: 10.0
+   Note: Log4Shell is a well-documented easily exploitable RCE requiring
+   no privileges or user interaction with low attack complexity per NVD.
+   A score of 9.0 is inconsistent with these characteristics.
+
+2. MISSING DETECTION - CVE-2014-0160 (Heartbleed)
+   OpenSSL 1.0.1f is deployed in our environment as INV-002.
+   The pipeline does NOT flag it as affected.
+   NVD confirms all OpenSSL versions from 1.0.1 through 1.0.1f
+   (inclusive) are vulnerable to this CVE.
+
+3. ENVIRONMENTAL SCORE ANOMALY
+   Environmental scores for multiple CVEs do not appear to reflect our
+   HIGH confidentiality requirement. Observed scores are consistent with
+   default/medium weighting rather than the HIGH setting we configured.
+   This affects the prioritization of confidentiality-sensitive
+   vulnerabilities across the entire report.
+
+4. RANKING INCONSISTENCY
+   The overall remediation ranking does not match expected prioritization.
+   Even after accounting for finding #3, environmental scores for certain
+   CVEs with Scope=Changed appear inconsistent with CVSS v3.1 expected
+   behavior. Multiple entries have incorrect environmental scores.
+
+5. TRAFFIC ANALYSIS INCOMPLETE
+   The network traffic analyzer (traffic_analyzer.sh) reports detecting
+   only 1 active exploit signature in the captured traffic. Manual packet
+   inspection of traffic.pcap suggests at least 3 distinct exploit
+   attempts are present (Shellshock, Log4Shell, and path traversal).
+   The Shellshock and Log4Shell attack patterns are not being identified
+   by the analyzer, causing incorrect active exploitation flagging in the
+   final remediation report.
+
+IMPACT: Incorrect vulnerability prioritization may lead to misallocated
+remediation resources and unaddressed critical exposures. Missing traffic
+correlation means actively exploited vulnerabilities may not be escalated
+appropriately.
+
+ACTION REQUIRED: Investigate all pipeline components (database, tool code,
+configuration, traffic analysis scripts) and correct all root causes
+before next security review.

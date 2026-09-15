@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering four interacting encoding schemes (LEB128 variable-length integers, run-length encoding with three segment types, delta compression, and boolean packing) from source code and test vectors alone — no algorithmic descriptions are provided. The solver must diagnose two unlabeled bugs whose effects cascade across layers (a signed integer decoder defect breaks all downstream decoders; an encoder state-machine defect silently drops trailing values). Beyond fixing these, the solver must implement five codec classes from scratch and design a multi-column serializer/deserializer that composes all four encoding types with a metadata-framed wire format. The interleaved analysis, design, and implementation demands make this substantially harder than a straightforward debugging task."""
+solution_explanation = """Fix decodeSLEB128 by adding sign extension (if bit 6 of the last byte is set, subtract 2^shift from the result). Fix RleEncoder.finish() to handle the LoneVal state by flushing as a literal run of length 1. Implement RleDecoder.next() with three-way count dispatch: positive count = value run, zero count = null run (ULEB128 null count follows), negative count = literal run of |count| values. Implement DeltaEncoder wrapping RleEncoder(signed=true) with delta computation (tracking running absolute value from 0), and DeltaDecoder wrapping RleDecoder with accumulation. Implement BooleanEncoder/Decoder using alternating ULEB128 run counts starting with false polarity. Implement serializeColumns by sorting columns by ID, encoding each with the appropriate codec, building a header (ULEB128 count + per-column id/type/length), and concatenating data. Implement deserializeColumns by parsing headers then slicing data by byte lengths."""
+verification_explanation = """Tests invoke the TypeScript CLI via subprocess for each encoding command. Exact byte output is verified against Automerge specification test vectors. Round-trip tests verify encode-then-decode identity across all encoding types. Column serialization tests verify exact byte output for a multi-column test vector, round-trip identity for mixed-type columns with nulls, and correct ID ordering. Edge cases cover empty arrays, single elements, all-null sequences, negative signed values, alternating patterns, and long runs. All tests are deterministic since every encoding produces a unique byte sequence."""
+category = "reverse_engineering"
+tags = ["binary-encoding", "typescript"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/columnar-codec-fix"

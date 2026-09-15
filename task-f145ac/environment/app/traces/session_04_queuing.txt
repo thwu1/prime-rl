@@ -1,0 +1,52 @@
+=====================================
+SESSION CAPTURE #4 — Ticket Queuing and Delivery
+Captured: 2024-03-15 16:05:33 UTC
+Server: prod-speed-01.freedom-island.local:9999
+Notes: Speed violation occurs when no dispatcher is connected.
+       Dispatcher connects later and receives the queued ticket.
+       A second dispatcher then connects — observe if ticket is
+       re-delivered.
+=====================================
+
+--- Connection A opened (camera) ---
+[T+0.000s] A -> Server | 80 01 f4 00 00 00 32
+
+--- Connection B opened (camera) ---
+[T+0.020s] B -> Server | 80 01 f4 00 0a 00 32
+
+[T+0.500s] A -> Server | 20 05 51 55 45 30 31 00 00 00 64
+[T+0.800s] B -> Server | 20 05 51 55 45 30 31 00 00 01 2c
+
+#
+# Camera A: road 500, mile 0, limit 50. Plate "QUE01" at ts=100.
+# Camera B: road 500, mile 10, limit 50. Plate "QUE01" at ts=300.
+# 10 miles / 200 seconds = 180 mph > 50 mph limit.
+# NO dispatcher connected for road 500 — ticket should be stored.
+#
+
+--- [3.0 second gap — no dispatcher available] ---
+
+--- Connection C opened (dispatcher) ---
+[T+3.800s] C -> Server | 81 01 01 f4
+[T+3.804s] Server -> C | 21 05 51 55 45 30 31 01 f4 00 00 00 00 00 64 00 0a 00 00 01 2c 46 50
+
+#
+# Dispatcher C connects for road 500.
+# Immediately receives the queued ticket:
+#   plate="QUE01", road=500, mile1=0, ts1=100, mile2=10, ts2=300, speed=18000
+# Inference: tickets are stored and delivered when a dispatcher connects.
+#
+
+--- Connection C closed by client at T+5.0s ---
+
+--- Connection D opened (dispatcher) ---
+[T+6.000s] D -> Server | 81 01 01 f4
+--- Waited 5.0s — no messages received from server on connection D ---
+--- Connection D closed by client ---
+
+#
+# Second dispatcher D connects for road 500.
+# Does NOT receive the ticket again.
+# Inference: delivered tickets are removed from the queue. They are
+# not re-sent to subsequent dispatchers.
+#

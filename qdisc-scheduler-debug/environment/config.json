@@ -1,0 +1,5 @@
+{
+    "rate_mbps": 100,
+    "num_queues": 8,
+    "quantum": 1500
+}

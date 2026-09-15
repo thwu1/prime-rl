@@ -1,0 +1,25 @@
+{
+  "description": "Expected format for /app/result.json",
+  "schema": {
+    "commuting_groups": {
+      "type": "array of arrays of integers",
+      "description": "Partition of term indices (0-based) into qubitwise-commuting measurement groups. Each inner array sorted ascending. Use a minimum number of groups."
+    },
+    "optimal_scale_factors": {
+      "type": "array of numbers",
+      "description": "Selected noise scale factors for Richardson extrapolation, sorted ascending. Must be a subset of allowed_scale_factors with size in [min_extrapolation_points, max_extrapolation_points]."
+    },
+    "richardson_coefficients": {
+      "type": "array of floats",
+      "description": "Lagrange interpolation coefficients for extrapolation to lambda=0, in the same order as optimal_scale_factors. gamma_j = prod_{k!=j} (-x_k) / (x_j - x_k)."
+    },
+    "minimum_variance": {
+      "type": "float",
+      "description": "Minimum total estimation variance of the Hamiltonian expectation value achievable with optimal shot allocation for the selected scale factors and commuting groups."
+    },
+    "shot_allocation": {
+      "type": "2D array of integers",
+      "description": "shot_allocation[g][j] = number of shots allocated to measurement group g at scale factor j. Dimensions: [num_groups x num_scale_factors]. Must sum to total_shot_budget."
+    }
+  }
+}

@@ -1,0 +1,40 @@
+tests:
+  - name: clean_greeting
+    utterances:
+      - text: "Screen reader on"
+    expected_fragments: ["screen reader on"]
+    max_wer: 0.3
+    speech_rate: 175
+
+  - name: multi_utterance
+    utterances:
+      - text: "Screen reader on"
+      - text: "Activities button"
+    expected_fragments: ["screen reader on", "activities button"]
+    max_wer: 0.3
+    speech_rate: 175
+
+  - name: interrupted_announcement
+    utterances:
+      - text: "Screen reader on"
+        interrupt_after_ms: 600
+      - text: "Twenty nine push button"
+    expected_fragments: ["screen reader on", "twenty nine push button"]
+    max_wer: 0.5
+    speech_rate: 175
+
+  - name: fast_navigation
+    utterances:
+      - text: "File browser window open"
+    expected_fragments: ["file browser window open"]
+    max_wer: 0.4
+    speech_rate: 280
+
+  - name: sequential_navigation
+    utterances:
+      - text: "Heading level one"
+      - text: "Main content area"
+      - text: "Link about page"
+    expected_fragments: ["heading level one", "main content area", "link about page"]
+    max_wer: 0.3
+    speech_rate: 175

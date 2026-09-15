@@ -1,0 +1,25 @@
+{
+  "swaps": [
+    {
+      "id": "swap_2y_rcv",
+      "direction": "receiver",
+      "notional": 10000000,
+      "fixed_rate": 0.0500,
+      "tenor_months": 24
+    },
+    {
+      "id": "swap_5y_pay",
+      "direction": "payer",
+      "notional": 50000000,
+      "fixed_rate": 0.0400,
+      "tenor_months": 60
+    },
+    {
+      "id": "swap_10y_rcv",
+      "direction": "receiver",
+      "notional": 25000000,
+      "fixed_rate": 0.0380,
+      "tenor_months": 120
+    }
+  ]
+}

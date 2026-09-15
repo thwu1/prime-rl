@@ -1,0 +1,10 @@
+[karcher_mean]
+max_iterations = 200
+convergence_tolerance = 1e-10
+
+[slerp]
+num_steps = 11
+
+[output]
+report_path = "/app/calibration_report.json"
+diagnostic_plot_path = "/app/sensor_diagnostic.png"

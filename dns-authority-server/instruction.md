@@ -1,0 +1,5 @@
+An authoritative DNS server at `/app/dns_server.py` serves the zone defined in `/app/zone.db` on UDP port 5353. After an incomplete refactor, the server has multiple protocol-compliance defects — some are bugs in existing code, others are features that were started but never finished or were never implemented at all.
+
+A packet capture from the original, correctly-functioning server is stored at `/app/reference.pcap`. It contains DNS query-response pairs exercising the full range of record types and edge cases the server must handle correctly. This capture is your ground truth.
+
+Identify every behavioral discrepancy between the reference capture and the current server's responses, then fix `/app/dns_server.py` to match the reference behavior in all cases. The fixed server must continue listening on UDP port 5353.

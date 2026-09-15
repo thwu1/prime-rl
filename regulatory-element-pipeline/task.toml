@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing five interrelated data quality defects across heterogeneous genomic input files, each demanding different domain expertise: (1) non-standard strand encoding ('1'/'-1' instead of '+'/'-') from GFF3 conversion artifacts that cause bedtools flank -s to silently treat affected genes as unstranded, (2) 1-based start coordinates in CpG islands from incomplete GFF3-to-BED conversion — recognizing this off-by-one requires understanding the fundamental distinction between BED's 0-based half-open and GFF3's 1-based closed coordinate systems, (3) destroyed sort order in one TFBS file causing bedtools jaccard to produce silently incorrect (asymmetric) results, (4) incorrect chromosome size in genome metadata requiring cross-validation of assembly coordinates against actual data extents, (5) mixed-case chromosome naming ('Chr3'/'Chr5' vs 'chr3'/'chr5') in one TFBS file causing bedtools to silently produce zero overlaps for affected chromosomes. The defects cascade non-obviously: the coordinate system error produces subtly shifted CpG intersections, the naming mismatch creates chromosome-specific gaps in coverage and Jaccard statistics, and the strand encoding corrupts promoter directionality. The analyst's notes describe output symptoms, not input causes — the solver must reason backwards from anomalies to root causes across heterogeneous format conventions."""
+solution_explanation = """Phase 1 — Systematic data audit: (1) Detect non-standard strand values ('1'/'-1') in genes.bed column 6, normalize to '+'/'-'. (2) Recognize that cpg_islands.bed starts are 1-based from GFF3 origin by cross-referencing with other tracks or noting the systematic 1bp rightward shift — subtract 1 from all start coordinates. (3) Detect unsorted tfbs_C.bed via sort -c, re-sort by chrom/start. (4) Discover 'Chr3'/'Chr5' entries in tfbs_D.bed via chromosome name audit, normalize to lowercase 'chr', re-sort. (5) Cross-reference genome.txt sizes against max data coordinates, discover chr3 truncation (100000 vs 150000), correct. Phase 2 — Execute bedtools pipeline on corrected data: flank -s for strand-aware promoters, intersect/subtract/merge for CpG-promoter overlaps with corrected coordinates, nested jaccard loops with sorted/name-corrected files, map for score aggregation, multiinter/groupby for multi-coverage, cat/merge/complement/awk for regulatory deserts."""
+verification_explanation = """Tests independently create corrected copies of all five defective input files in a temporary directory: strand normalization for genes.bed, coordinate adjustment for cpg_islands.bed, re-sort for tfbs_C.bed, name normalization and re-sort for tfbs_D.bed, correct sizes for genome.txt. Each output is verified against a reference computation: promoter positions checked against strand-corrected genes with correct genome, CpG overlaps computed using coordinate-corrected islands, Jaccard values spot-checked using sorted and name-corrected TFBS files including pairs involving D, TFBS scores verified via independent bedtools map for TF_A and TF_D to confirm both sort and naming fixes, multi-coverage via corrected multiinter, deserts via corrected complement."""
+category = "bioinformatics"
+tags = ["bedtools", "genomic-data-quality"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/regulatory-element-pipeline"

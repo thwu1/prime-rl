@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an undocumented compact game encoding from C source code, understanding the Undead puzzle's non-trivial visibility rules involving ghost/vampire/zombie interactions with mirror reflections and parity-based state toggling, implementing an efficient constraint-satisfaction solver with iterative propagation and backtracking (handling combinatorial spaces up to 3^54 for 8x8 grids), and building a puzzle generator with rigorous unique-solution verification. The generator demands modifying the solver into a solution enumerator that exhaustively proves no second solution exists, understanding how mirror placement density and edge-clue constraints interact to determine solution uniqueness, and designing retry logic with performance-bounded uniqueness checks. The agent must synthesize C source comprehension, CSP solver design, solution-space enumeration theory, puzzle generation with uniqueness guarantees, and multi-tool shell pipeline orchestration."""
+solution_explanation = """Build the C tool with make. Examine undead_tool.c to learn the encoding: lowercase a-z = 1-26 empty cells, L = backslash mirror, R = forward-slash mirror in row-major order, followed by comma-separated edge clues and monster counts. Write a Python CSP solver using constraint propagation (monster-count bounds + sight-line visibility bounds) with MRV-heuristic backtracking. For the generator: construct random solved grids (mirrors + monsters), compute edge clues via path tracing, strip monsters to create the puzzle description, then verify uniqueness by running the solver as a solution counter that searches for a second solution after finding the first. Use high mirror density to keep uniqueness checks tractable. Create validate.sh to orchestrate generation, solving, and C-tool cross-verification."""
+verification_explanation = """Tests independently reimplement the game description parser and path-tracing logic to verify each solution: checking mirror preservation, valid monster placement, correct type totals, and all edge-clue satisfaction. A SolutionCounter class in the test code independently enumerates solutions (up to 2) for each generated puzzle to verify uniqueness. The compiled C verifier cross-validates every solution. An extra puzzle is generated at test time from a fixed seed to prevent hardcoded solutions. Generated puzzle format is verified for correct dimensions and minimum mirror counts."""
+category = "algorithms"
+tags = ["constraint-satisfaction", "puzzle-generation"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9a161f"

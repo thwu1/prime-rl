@@ -1,0 +1,23 @@
+{
+    "Columns": ["onset", "duration", "trial_type", "blink", "amplitude_dva"],
+    "OnsetSource": "timestamp",
+    "trial_type": {
+        "Description": "Event type as classified from gaze data",
+        "Levels": {
+            "fixation": "Stable gaze fixation",
+            "saccade": "Rapid eye movement",
+            "blink": "Eye closure"
+        }
+    },
+    "blink": {
+        "Description": "Eye closure status",
+        "Levels": {
+            "0": "Eye was open",
+            "1": "Eye was closed"
+        }
+    },
+    "amplitude_dva": {
+        "Description": "Saccade amplitude in degrees of visual angle",
+        "Units": "degrees"
+    }
+}

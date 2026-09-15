@@ -1,0 +1,58 @@
+{
+    "version": "2.1",
+    "cluster_id": "sim-cluster-0",
+    "hardware": {
+        "gpu_model": "A100-80GB-SXM",
+        "interconnect": "NVSwitch-v3",
+        "inter_node": "InfiniBand-HDR",
+        "nodes": [
+            {"node_id": 0, "gpus": [0, 1, 2, 3]},
+            {"node_id": 1, "gpus": [4, 5, 6, 7]},
+            {"node_id": 2, "gpus": [8, 9, 10, 11]},
+            {"node_id": 3, "gpus": [12, 13, 14, 15]}
+        ]
+    },
+    "strategies": {
+        "ddp": {
+            "type": "data_parallel",
+            "description": "Each rank holds full model, processes different data",
+            "ranks": [0, 1, 2, 3]
+        },
+        "fsdp": {
+            "type": "fully_sharded_data_parallel",
+            "description": "Weights sharded across ranks, allgather before compute",
+            "ranks": [0, 1, 2, 3],
+            "sharding": "full"
+        },
+        "pipeline_fsdp": {
+            "type": ["pipeline", "fully_sharded_data_parallel"],
+            "description": "Layers partitioned across pipeline stages, weights sharded across all ranks",
+            "total_ranks": 16,
+            "pipeline": {
+                "num_stages": 4,
+                "layers_per_stage": 1,
+                "stage_to_layer": [0, 1, 2, 3],
+                "assignments": [
+                    {"stage": 0, "layer": 0, "ranks": [0, 4, 8, 12]},
+                    {"stage": 1, "layer": 1, "ranks": [1, 5, 9, 13]},
+                    {"stage": 2, "layer": 2, "ranks": [2, 6, 10, 14]},
+                    {"stage": 3, "layer": 3, "ranks": [3, 7, 11, 15]}
+                ]
+            },
+            "data_parallel": {
+                "degree": 4,
+                "groups": [
+                    {"group_id": 0, "ranks": [0, 1, 2, 3]},
+                    {"group_id": 1, "ranks": [4, 5, 6, 7]},
+                    {"group_id": 2, "ranks": [8, 9, 10, 11]},
+                    {"group_id": 3, "ranks": [12, 13, 14, 15]}
+                ]
+            },
+            "rank_mapping": {
+                "stage_of_rank": "rank % num_stages",
+                "dp_group_of_rank": "rank // num_stages",
+                "layers_of_rank": "stage_to_layer[rank % num_stages]"
+            }
+        }
+    }
+}

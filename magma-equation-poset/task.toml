@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level expertise across multiple domains: (1) universal algebra — understanding magma equations, isomorphism under symmetric group actions, and implication lattices; (2) constraint solving — finding minimal counterexample magmas among thousands of possibilities; (3) combinatorics — classifying 19683 operation tables under group action; (4) graph theory — computing cover relations from a preorder; (5) multi-system integration — producing consistent JSON, SVG, and SQLite outputs from a single coherent analysis. The agent must independently choose appropriate tools and algorithms for each subproblem."""
+solution_explanation = """Write a Python program using z3-solver that: (1) for each equation pair, encodes universal satisfaction of the premise and existential violation of the conclusion as Z3 constraints over finite operation tables, searching sizes 2 then 3 for minimal counterexamples; (2) enumerates all 19683 size-3 tables computing canonical forms under Sym(3) by applying all 6 permutations and taking the lex-min flat representation; (3) derives the implication matrix via satisfying-set containment and computes the Hasse diagram by transitive reduction of the strict implication order; (4) generates a DOT file and invokes dot -Tsvg for SVG rendering; (5) creates a normalized SQLite database with equation metadata, implication data including counterexample tables, and per-equation isomorphism class statistics."""
+verification_explanation = """Tests independently recompute ground truth by brute-force enumeration: all 19683 size-3 tables are checked against all 8 equations, canonical forms computed under Sym(3), implications derived from set containment, and Hasse diagram from transitive reduction. Z3 counterexamples are validated by checking each satisfies the premise equation and violates the conclusion, with minimality verified by exhaustive search over all smaller-size magmas. SVG output is checked for valid structure and equation labels. SQLite database is queried to cross-validate schema, equation metadata, implication correctness, and isomorphism class statistics against independently computed ground truth."""
+category = "mathematics"
+tags = ["universal-algebra", "smt-solving"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/magma-equation-poset"

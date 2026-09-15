@@ -1,0 +1,185 @@
+{
+  "schema_version": "2.1",
+  "metadata": {
+    "generated": "2024-01-15T00:00:00Z",
+    "description": "BGP route selection policies for edge router group",
+    "router_group": "edge-01",
+    "maintainer": "netops@example.com"
+  },
+  "router_config": {
+    "as_number": 65000,
+    "router_id": "10.0.0.1",
+    "graceful_restart": {
+      "enabled": true,
+      "stalepath_time": 360,
+      "restart_time": 120
+    },
+    "address_families": {
+      "ipv4_unicast": {
+        "enabled": true,
+        "maximum_paths": 8,
+        "table_map": "SELECTIVE_DOWNLOAD"
+      },
+      "ipv6_unicast": {
+        "enabled": false
+      }
+    },
+    "bgp_selection": {
+      "default_local_preference": 100,
+      "default_med": 0,
+      "max_med_value": 4294967295,
+      "profiles": [
+        {
+          "id": 1,
+          "name": "standard",
+          "description": "Default BGP best-path selection with no special flags",
+          "priority": 100,
+          "applied_to_groups": ["core"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": false,
+            "as_path_ignore": false,
+            "compare_routerid": false,
+            "med_missing_as_worst": false,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 255,
+            "reject_bogon_asns": true,
+            "enforce_first_as": true
+          }
+        },
+        {
+          "id": 2,
+          "name": "compare_rid",
+          "description": "Enable router-ID comparison for deterministic tiebreaking",
+          "priority": 90,
+          "applied_to_groups": ["edge"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": false,
+            "as_path_ignore": false,
+            "compare_routerid": true,
+            "med_missing_as_worst": false,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 255,
+            "reject_bogon_asns": true,
+            "enforce_first_as": true
+          }
+        },
+        {
+          "id": 3,
+          "name": "always_med",
+          "description": "Always compare MED across different neighboring ASes",
+          "priority": 80,
+          "applied_to_groups": ["peering"],
+          "flags": {
+            "always_compare_med": true,
+            "deterministic_med": false,
+            "as_path_ignore": false,
+            "compare_routerid": true,
+            "med_missing_as_worst": false,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 128,
+            "reject_bogon_asns": true,
+            "enforce_first_as": false
+          }
+        },
+        {
+          "id": 4,
+          "name": "det_med",
+          "description": "Deterministic MED comparison for arrival-order-independent selection",
+          "priority": 70,
+          "applied_to_groups": ["transit"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": true,
+            "as_path_ignore": false,
+            "compare_routerid": true,
+            "med_missing_as_worst": false,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 255,
+            "reject_bogon_asns": false,
+            "enforce_first_as": true
+          }
+        },
+        {
+          "id": 5,
+          "name": "med_worst",
+          "description": "Treat missing MED as worst possible value (4294967295)",
+          "priority": 60,
+          "applied_to_groups": ["customer"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": false,
+            "as_path_ignore": false,
+            "compare_routerid": true,
+            "med_missing_as_worst": true,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 255,
+            "reject_bogon_asns": true,
+            "enforce_first_as": true
+          }
+        },
+        {
+          "id": 6,
+          "name": "confed_med",
+          "description": "Compare MED for confederation-only paths within sub-AS boundary",
+          "priority": 50,
+          "applied_to_groups": ["confed"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": false,
+            "as_path_ignore": false,
+            "compare_routerid": true,
+            "med_missing_as_worst": false,
+            "med_confed": true
+          },
+          "constraints": {
+            "max_as_path_length": 255,
+            "reject_bogon_asns": false,
+            "enforce_first_as": false
+          }
+        },
+        {
+          "id": 7,
+          "name": "ignore_aspath",
+          "description": "Ignore AS-path length in best-path calculation",
+          "priority": 40,
+          "applied_to_groups": ["special"],
+          "flags": {
+            "always_compare_med": false,
+            "deterministic_med": false,
+            "as_path_ignore": true,
+            "compare_routerid": true,
+            "med_missing_as_worst": false,
+            "med_confed": false
+          },
+          "constraints": {
+            "max_as_path_length": 0,
+            "reject_bogon_asns": false,
+            "enforce_first_as": false
+          }
+        }
+      ]
+    },
+    "timers": {
+      "keepalive": 60,
+      "holdtime": 180,
+      "connect_retry": 120
+    },
+    "logging": {
+      "level": "info",
+      "selection_debug": false,
+      "path": "/var/log/bgp/selection.log"
+    }
+  }
+}

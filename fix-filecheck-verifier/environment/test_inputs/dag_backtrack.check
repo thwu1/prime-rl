@@ -1,0 +1,4 @@
+; CHECK: begin
+; CHECK-DAG: [[X:[a-z]+]] = load
+; CHECK-DAG: store [[X]]
+; CHECK: end

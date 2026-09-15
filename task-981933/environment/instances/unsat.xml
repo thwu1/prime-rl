@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instance format="XCSP3" type="CSP">
+  <variables>
+    <array id="x" size="[3]"> 1 2 </array>
+  </variables>
+  <constraints>
+    <allDifferent> x[0] x[1] x[2] </allDifferent>
+  </constraints>
+</instance>

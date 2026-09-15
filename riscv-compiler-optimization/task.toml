@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of RISC-V ISA extensions (particularly the compressed instruction set 'C' extension and how rv64gc differs from rv64imafd), cross-compilation toolchain configuration for both GCC and Clang targeting RISC-V, compiler optimization semantics (-O3 loop unrolling vs -Os/-Oz size optimization, -ffunction-sections with --gc-sections), and deep understanding of C undefined behavior (signed integer overflow exploitation by optimizing compilers). The agent must configure Clang for RISC-V cross-compilation with correct sysroot and GCC toolchain paths. Finding the UB bug requires understanding how -O3 exploits the C standard's signed overflow assumptions to eliminate overflow checks."""
+solution_explanation = """1) Fix the signed-overflow UB in scale_value() by widening the multiplication to int64_t before comparison. 2) Enable the RISC-V compressed instruction extension (-march=rv64gc instead of rv64imafd) for ~25-30% code size reduction via 16-bit instruction encoding. 3) Use -Os or -Oz instead of -O3 to avoid aggressive loop unrolling (XTEA 32-round loop, 4x4 matrix multiply) and excessive inlining. 4) Use -ffunction-sections -fdata-sections with -Wl,--gc-sections to strip dead code (unused_bessel_j0, unused_gamma_approx). 5) Compare GCC vs Clang per file and select the smallest output. 6) Generate comparison CSV and structured analysis report."""
+verification_explanation = """Tests verify: (1) all output files exist with correct structure, (2) optimized .o files are valid RISC-V ELF relocatable objects, (3) comparison.csv contains results from both GCC and Clang with multiple configs, (4) report.json is well-formed and internally consistent, (5) total .text size reduction >= 35% vs baseline compiled at -O3 without compressed instructions, (6) math_utils.c was modified to fix the UB bug, (7) bug_description mentions overflow/undefined behavior, (8) fixed code compiles at -O3 and produces correct output under QEMU, (9) Makefile clean+rebuild reproduces the optimized build."""
+category = "compiler_engineering"
+tags = ["riscv", "compiler-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/riscv-compiler-optimization"

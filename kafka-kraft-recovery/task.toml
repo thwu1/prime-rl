@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level Kafka knowledge spanning KRaft configuration debugging (13 interrelated errors including node.id/voter mismatch, malformed listener URIs, missing controller properties), production topology design from SLA constraints where the compliance-audit topic demands evaluating conflicting cleanup requirements (compaction vs time-based deletion) and recognizing the need for combined compact,delete policy. The partition reassignment design is a combinatorial constraint-satisfaction problem: the solver must CREATE a valid JSON plan achieving perfect broker balance (6 replicas each across 5 brokers), rack-awareness (every partition spanning both racks), even leader distribution (2 per broker), and minimum data movement (exactly 12 replica moves) — simultaneously. The configuration governance audit requires EVALUATING five proposals against Kafka internals and platform SLAs: judging idempotence-acks incompatibility, unclean leader election risk on compliance data, storage capacity implications of infinite retention on high-throughput topics, and distinguishing valid throughput optimizations from unsafe configurations."""
+solution_explanation = """Fix 13 broken server.properties errors (process.roles, node.id/voter mismatch, malformed CONTROLLER listener, CONTROLLER in advertised.listeners, missing controller.listener.names and inter.broker.listener.name, nonexistent log.dirs, zero num.partitions, oversized replication factors, zero retention/segment). Format KRaft storage, start broker. Create 4 topics with computed configs — critically recognizing compliance-audit needs cleanup.policy=compact,delete plus retention.ms=31536000000. Write producer/consumer config files. Design partition reassignment: compute balanced assignment of 10 partitions RF=3 from 3→5 brokers with rack-A(0,1,2)/rack-B(3,4) awareness, achieving 6 replicas/broker, 2 leaders/broker, exactly 12 movements via constraint-satisfaction algorithm. Evaluate 5 config proposals: REJECT unclean leader election on compliance (data loss risk), ACCEPT min.isr=2+acks=all for payment-ledger (standard durability), REJECT idempotence+acks=1 (Kafka configuration conflict), REJECT infinite retention on 400MB/s telemetry (storage exhaustion), ACCEPT lz4+larger batch for throughput-producer (valid optimization). Produce and consume verification messages."""
+verification_explanation = """Tests verify: (1) broker running and responsive on 9092, (2) all 4 topics exist with correct partition counts and per-topic config overrides including cleanup.policy containing both 'compact' and 'delete' for compliance-audit plus retention.ms=31536000000, (3) producer/consumer property files contain correct delivery-semantic key-value pairs, (4) reassignment plan JSON validated: correct structure with version=1, 10 partitions each having RF=3, all 5 brokers holding exactly 6 replicas, every partition having replicas in both racks, preferred leaders distributed evenly (2 per broker), total replica movements ≤12, (5) config audit JSON validated: correct ACCEPT/REJECT verdicts for all 5 proposals (A=REJECT, B=ACCEPT, C=REJECT, D=REJECT, E=ACCEPT), (6) verification files contain produced and consumed messages."""
+category = "data_management"
+tags = ["kafka", "distributed-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-kraft-recovery"

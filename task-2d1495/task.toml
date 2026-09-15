@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical linear algebra combined with multi-tool data forensics. The solver must: (1) use sqlite3 to query a pipeline database containing matrix registry, processing configuration, and execution logs with JSON detail blobs — the config parameters (tolerance, budget) are only available in the database; (2) use h5dump/h5ls to inspect HDF5 matrix files and verify dataset shapes, dtypes, and attributes; (3) cross-reference file sizes of raw binary data against registry entries using shell tools to diagnose dtype and shape mismatches; (4) parse JSON details from SQLite run_log entries (via json_extract() or jq) to extract byte-count diagnostics; (5) synthesize clues across SQLite, HDF5 metadata, file system inspection, and text notes to identify four distinct data integrity issues; (6) formulate and solve an optimal rank allocation problem via pooled singular value selection; (7) implement CUR skeleton decompositions using leverage-score-based column/row selection. The combination of multi-format tool interoperability (sqlite3 + h5dump + jq + Python), debugging across heterogeneous data stores, and advanced NLA implementation makes this far beyond routine."""
+solution_explanation = """Use sqlite3 to query pipeline.db: SELECT * FROM matrix_registry shows 5 entries; SELECT * FROM pipeline_config gives tolerance=0.01, budget=60; SELECT message,details FROM run_log WHERE level='ERROR' reveals mat_gamma byte mismatch. Use h5ls on *.h5 files to confirm alpha (500x200) and beta (300x300) shapes/dtypes. Use ls -la on *.dat files: mat_gamma.dat is 240000 bytes (float32 not float64), mat_delta.dat is 500000 bytes (250x250 not 250x200), mat_epsilon.dat is 640000 bytes (200x400 per NOTES.txt, missing from registry). mat_zeta has no backing file. Load all 5 matrices with corrected specs, compute SVDs. Pool all singular values across matrices, sort descending, take top-60 for optimal allocation. Compute SVD and CUR errors at allocated ranks."""
+verification_explanation = """Tests independently load all 5 matrices from HDF5 and raw binary files with known correct shapes and dtypes, compute SVDs, solve the rank allocation, and compute all reference values. Shape and dtype checks verify the solver discovered all registry issues. Numerical ranks and allocated ranks require exact match. Frobenius norms and singular values use 1e-6 relative tolerance. SVD errors use 1e-4 tolerance, CUR errors use 1e-2 tolerance. A sanity test verifies CUR error >= SVD error for each matrix."""
+category = "mathematics"
+tags = ["numerical-linear-algebra", "multi-format-forensics"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2d1495"

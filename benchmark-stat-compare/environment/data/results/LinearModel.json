@@ -1,0 +1,77 @@
+{
+  "model": "LinearModel",
+  "results": [
+    {
+      "dataset": "credit-g",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.700, 0.730, 0.710, 0.720, 0.690],
+        "Log Loss": [0.680, 0.650, 0.670, 0.660, 0.690]
+      }
+    },
+    {
+      "dataset": "phoneme",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.790, 0.780, 0.800, 0.770, 0.790],
+        "Log Loss": [0.520, 0.540, 0.500, 0.550, 0.520]
+      }
+    },
+    {
+      "dataset": "electricity",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.760, 0.740, 0.750, 0.730, 0.750],
+        "Log Loss": [0.580, 0.610, 0.590, 0.620, 0.590]
+      }
+    },
+    {
+      "dataset": "vehicle",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.820, 0.810, 0.830, 0.800, 0.820],
+        "Log Loss": [0.440, 0.460, 0.430, 0.470, 0.450]
+      }
+    },
+    {
+      "dataset": "jasmine",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.710, 0.700, null, 0.690, 0.710],
+        "Log Loss": [0.650, 0.670, null, 0.680, 0.650]
+      }
+    },
+    {
+      "dataset": "credit-approval",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.800, 0.780, 0.790, 0.770, 0.790],
+        "Log Loss": [0.510, 0.540, 0.520, 0.550, 0.520]
+      }
+    },
+    {
+      "dataset": "balance-scale",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.750, 0.740, 0.760, 0.730, 0.750],
+        "Log Loss": [0.590, 0.610, 0.580, 0.620, 0.590]
+      }
+    },
+    {
+      "dataset": "splice",
+      "target_type": "binary",
+      "n_folds": 5,
+      "fold_metrics": {
+        "AUC": [0.810, 0.800, 0.820, 0.790, 0.810],
+        "Log Loss": [0.480, 0.500, 0.470, 0.510, 0.480]
+      }
+    }
+  ]
+}

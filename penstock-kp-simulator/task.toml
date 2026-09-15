@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires cross-language porting from Modelica to Python, demanding fluency in an unfamiliar declarative language. The solver must trace interlinked Modelica models across 14 source files to extract governing equations for pipe friction (three regimes with smooth interpolation), finite-volume hyperbolic PDE discretization (ghost cells, slope limiting, piecewise reconstruction, eigenvalue-based wave speeds, central-upwind fluxes, RK4 time stepping), gate hydraulics (regime switching), and turbomachinery (Euler equation). A critical subtlety: the Modelica friction factor transition zone uses a derivative formula (Blasius) that does not match the parent function (Swamee-Jain), breaking C1 continuity — the solver must diagnose and fix this to pass the smoothness tests."""
+solution_explanation = """The solution implements: (1) Darcy friction with laminar/turbulent formulas and cubic Hermite interpolation in the transition zone, correcting the Modelica's Blasius derivative to the analytical Swamee-Jain derivative for true C1 continuity; (2) full KP07 central-upwind finite-volume scheme with ghost cells, generalized minmod slope limiter, piecewise linear reconstruction, eigenvalue-based wave speeds, central-upwind numerical fluxes, gravity and friction source terms, and RK4 time integration; (3) Bollrich gate discharge with contraction/discharge coefficients and back-up coefficient for submerged flow; (4) Francis turbine Euler equation for shaft power."""
+verification_explanation = """Tests verify: Darcy friction factor golden values in laminar/turbulent regimes, C0 and C1 continuity at transition boundaries (numerical derivatives must match analytical), friction force values and sign behavior, gate discharge in free-flow and backed-up regimes, Francis turbine shaft power at known operating point and zero-flow edge case, and elastic penstock water hammer simulation (steady-state preservation, peak pressure within Joukowsky bounds, wave propagation timing, mass conservation)."""
+category = "physics_engineering"
+tags = ["hydraulics", "numerical-methods"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/penstock-kp-simulator"

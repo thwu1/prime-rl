@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a recursive-descent parser for SNOMED CT's Expression Constraint Language from an ABNF grammar, building a SQLite database from RF2 flat files using the sqlite3 CLI with .import/.mode tabs, computing transitive closure via recursive CTE in SQL, implementing the Verhoeff dihedral group D5 check-digit algorithm, evaluating set-theoretic operations including refinement with attribute groups/reverse/dot notation/cardinality, constructing a jq filter to transform JSON into FHIR R4 ValueSet format, and orchestrating sqlite3 CLI, Python, jq, and sha256sum in shell pipelines."""
+solution_explanation = """The reference solution creates load-rf2 which uses sqlite3 CLI .import to load RF2 TSV data, a Python helper to validate Verhoeff check-digits and update the verhoeff_valid column, and a recursive CTE to build the transitive_closure table. The ecl-eval tool reads from the SQLite database, implements a recursive-descent ECL parser producing an AST, and evaluates constraint operators/refinements/groups/dot/memberOf/reverse/cardinality. The ecl-to-valueset script computes SHA-256 of the expression via sha256sum and pipes ecl-eval --json through a jq filter that restructures JSON into FHIR R4 ValueSet expansion format."""
+verification_explanation = """60 tests verify all components. 11 SQLite tests use the sqlite3 CLI to verify database schema (verhoeff_valid column, transitive_closure table, indices, row counts, imported data integrity). 43 ECL tests verify all 8 constraint operators, compound expressions, refinements with attribute groups/reverse/dot/cardinality/memberOf, case-insensitive keywords, whitespace handling, error handling, JSON output, and Verhoeff filtering. 6 FHIR ValueSet tests verify the jq-produced structure including resourceType, system URIs, SHA-256 identifier, sorted contains array, and Verhoeff filtering."""
+category = "medical_informatics"
+tags = ["parser", "data-pipeline"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/snomed-ecl-evaluator-146fae"

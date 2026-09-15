@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of distributed transaction isolation levels (Read Committed under the Adya model), the specific anomalies G0/G1a/G1b/G1c, and how to prevent each while maintaining total availability during network partitions. The solver must implement the Maelstrom node protocol (JSON-over-STDIO), design a replication strategy that provides causal consistency, implement deterministic conflict resolution via logical clocks to prevent write-write cycles (G0), and ensure full-state snapshot replication to prevent circular information flow (G1c). A naive per-transaction replication approach will fail G1c when partition-induced message reordering exposes causal dependency violations. Combining distributed systems theory, protocol implementation, and consistency reasoning at the expert level."""
+solution_explanation = """The solution implements a Python Maelstrom node with: (1) sequential single-threaded transaction processing ensuring atomicity and preventing G1b, (2) Lamport timestamps for deterministic last-writer-wins conflict resolution preventing G0 write-write cycles, (3) full-state snapshot replication after each write transaction ensuring causal consistency and preventing G1c — if a peer sees transaction T1's writes it also sees all writes T1 depended on, (4) fire-and-forget replication maintaining total availability during partitions, and (5) Lamport clock advancement on message receipt ensuring future local writes always dominate older replicated values."""
+verification_explanation = """Tests run Maelstrom's Jepsen-based checker against the node binary with three progressively harder configurations: (1) single-node basic correctness, (2) multi-node read-committed consistency without partitions, and (3) multi-node read-committed with network partition fault injection and total availability enforcement. Maelstrom constructs the full operation history, builds write-write, write-read, and read-write dependency graphs, and checks for cycles constituting G0/G1a/G1b/G1c anomalies, plus verifies every request received a response (total availability)."""
+category = "distributed_systems"
+tags = ["transactions", "consistency"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/distributed-txn-store"

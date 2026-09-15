@@ -1,0 +1,176 @@
+TARGET SERVICES FEE SCHEDULE
+Version 3.0 — July 2026
+European Central Bank
+
+========================================================================
+SECTION 1: RTGS CORE PRICING SCHEME
+========================================================================
+
+Two pricing options are available to RTGS DCA holders:
+
+OPTION A
+  Monthly fee per DCA .......................... EUR 400.00
+  Fee per payment order (flat) ................. EUR 0.80
+
+OPTION B
+  Monthly fee per DCA .......................... EUR 5,000.00
+  Volume-based payment order fees (cumulative degressive bands):
+
+  Band | From      | To        | Unit Price (EUR)
+  -----+-----------+-----------+-----------------
+    1  |         1 |    10,000 | 0.60
+    2  |    10,001 |    35,000 | 0.50
+    3  |    35,001 |    80,000 | 0.40
+    4  |    80,001 |   135,000 | 0.20
+    5  |   135,001 |   200,000 | 0.125
+    6  |   200,001 |   300,000 | 0.08
+    7  |   300,001 |       ... | 0.05
+
+BILLING GROUPS
+
+A central bank may create a billing group. The group leader must
+choose Option B for its RTGS DCA. Other members may choose Option A
+for their DCA (which determines their DCA fixed fee only — not the
+transaction fee computation). The RTGS payment orders of all members
+in a billing group are aggregated for the purpose of computing
+transaction fees in a degressive manner across the group. The billing
+group leader's Option B tariff bands are used to derive the applicable
+band prices.
+
+The total transaction fee for the group is computed by applying the
+degressive bands to the aggregate volume. A pro-rata unit price is
+then derived by dividing the total group fee by the total group
+volume. This unit price is applied to each member's individual
+payment order volume to determine their payment order charge.
+
+ROUNDING CONVENTION
+
+The pro-rata unit price is carried to the fourth decimal place. At the
+fifth decimal position, digits 0-4 cause the fourth decimal to be
+retained (truncated), while digits 5-9 cause the fourth decimal to be
+incremented. Each member's payment order charge (unit price multiplied
+by volume) is then rounded to two decimal places using the same
+convention. All invoice totals are rounded to the second decimal place.
+
+========================================================================
+SECTION 2: RTGS ANCILLARY SYSTEM PRICING SCHEME
+========================================================================
+
+Two pricing options for cash transfer orders:
+
+OPTION A
+  Monthly fee .................................. EUR 300.00
+  Fee per cash transfer order (flat) ........... EUR 1.60
+
+OPTION B
+  Monthly fee .................................. EUR 3,750.00
+  Volume-based cash transfer order fees (cumulative degressive bands):
+
+  Band | From      | To        | Unit Price (EUR)
+  -----+-----------+-----------+-----------------
+    1  |         1 |     5,000 | 1.20
+    2  |     5,001 |    12,500 | 1.00
+    3  |    12,501 |    25,000 | 0.80
+    4  |    25,001 |    50,000 | 0.40
+    5  |    50,001 |       ... | 0.25
+
+All ancillary systems are additionally subject to:
+
+  Fixed Fee I: EUR 2,000.00 per month
+
+  Fixed Fee II (based on average daily gross underlying value):
+
+  Size (EUR millions/day)   | Monthly Fee (EUR)
+  --------------------------+------------------
+  0 to 999.99               | 833
+  1,000 to 2,499.99         | 1,667
+  2,500 to 4,999.99         | 3,334
+  5,000 to 9,999.99         | 5,000
+  10,000 to 49,999.99       | 6,666
+  50,000 to 499,999.99      | 8,333
+  500,000 and above         | 16,667
+
+========================================================================
+SECTION 3: BIC REGISTRATION FEES (RTGS)
+========================================================================
+
+  Addressable BIC (correspondent) ...... EUR 20.00/month
+  Unpublished BIC ...................... EUR 30.00/month
+  Multi-addressee access ............... EUR 80.00/month
+
+Fees are charged to the direct participant responsible for the
+business relationship with these entities and that has registered them.
+
+========================================================================
+SECTION 4: RTGS LIQUIDITY TRANSFER PRICING
+========================================================================
+
+Liquidity transfers across different banking groups:
+  Within RTGS .......................... EUR 0.80 per transfer
+  From RTGS to CLM .................... EUR 0.80 per transfer
+
+Liquidity transfers within the same banking group are free of charge.
+AS-related liquidity transfers are charged under the AS pricing scheme.
+
+========================================================================
+SECTION 5: T2S CASH-RELATED SERVICES PRICING
+========================================================================
+
+Each completed service activity is counted and charged per unit:
+
+  Activity Type                    | Unit Price (EUR)
+  ---------------------------------+-----------------
+  Messages bundled into a file     | 0.004
+  Transmissions                    | 0.012
+  U2A queries                      | 0.100
+  A2A queries                      | 0.007
+  A2A reports                      | 0.004
+  Internal T2S liquidity transfer  | 0.141
+  Intra-balance movements          | 0.094
+
+Invoice total: sum all unrounded line-item amounts, then round the
+total to the second decimal place.
+
+========================================================================
+SECTION 6: TIPS PRICING SCHEME
+========================================================================
+
+6.1 TIPS SETTLEMENT FEE
+
+  Fee per instant payment order: EUR 0.002 total
+  Split equally: EUR 0.001 originator, EUR 0.001 beneficiary
+
+  Applies to: settled and unsettled instant payment orders,
+  and settled and unsettled positive recall answers.
+
+  Charged to both TIPS DCA holders (PSPs) and ASTA holders (ACHs).
+
+6.2 PSP FIXED FEES
+
+  Fixed fee per TIPS DCA .................... EUR 800.00/month
+  BIC fee per authorised account user ....... EUR 20.00/month
+    - First BIC per DCA is included free of charge
+    - Maximum 50 chargeable BICs per DCA
+
+6.3 ACH FIXED FEES
+
+  Fixed fee per TIPS ASTA ................... EUR 3,000.00/month
+  BIC fee per authorised account user ....... EUR 20.00/month
+    - All BICs are chargeable from the 1st (no free BIC)
+    - Maximum 50 chargeable BICs per ASTA
+
+6.4 ACH INTERNAL SETTLEMENT FEE
+
+  Monthly fee based on underlying gross volume of internally settled
+  instant payments (cumulative degressive bands):
+
+  Band | From         | To           | Unit Price (EUR)
+  -----+--------------+--------------+-----------------
+    A  |            1 |   10,000,000 | 0.00040
+    B  |   10,000,001 |   25,000,000 | 0.00030
+    C  |   25,000,001 |  100,000,000 | 0.00020
+    D  |  100,000,001 |          ... | 0.00015
+
+========================================================================
+END OF FEE SCHEDULE
+========================================================================

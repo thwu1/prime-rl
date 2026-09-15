@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires optimizing a 3D Poisson CG solver to converge within 200 iterations (the naive unpreconditioned solver needs ~247), which forces the agent to identify and implement effective preconditioning. Additionally requires cache performance profiling of the naive solver, authoring a CMake build system with OpenMP target linkage, and producing a parallel OpenMP-enabled solver binary. Combines graduate-level numerical linear algebra, build-system engineering, profiling tool usage, and parallel programming. Dreyfus proficient; Bloom create."""
+solution_explanation = """Profiles the naive solver via valgrind cachegrind on N=30 grid, parses output to extract D1 miss rate, LLd miss rate, and instruction count. Writes CMakeLists.txt with find_package(OpenMP REQUIRED) and OpenMP::OpenMP_C linkage. Implements PCG with Symmetric Gauss-Seidel preconditioning and matrix-free stencil: stencil uses omp parallel for collapse(2), dot products use omp reduction, vector updates use omp parallel for. SGS sweeps remain sequential. SGS reduces effective condition number from O(1/h^2) to O(1/h), cutting iterations from ~247 to ~129."""
+verification_explanation = """Tests verify five categories: (1) Build system — CMakeLists.txt exists, CMakeCache.txt present in /app/build/ confirming out-of-source build, CMake cache references OpenMP, ldd confirms binary links libgomp. (2) Profile — profile_report.txt has valid D1_miss_rate, DLmiss_rate (floats in [0,100]), and positive total_instructions. (3) Output files — results.txt format and solution.bin size (8M bytes). (4) Convergence — iterations <= 200, relative residual < 1e-10, max error < 5e-3. (5) Anti-cheat — independent numpy verification of solution accuracy against manufactured solution, and independent check that the solution vector satisfies Au ~ b."""
+category = "scientific_computing"
+tags = ["numerical_methods", "build_systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimize-poisson-solver"

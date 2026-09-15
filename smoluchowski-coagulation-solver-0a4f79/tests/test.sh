@@ -1,0 +1,27 @@
+#!/bin/bash
+
+pip3 install pytest==8.3.4 numpy==2.1.3 netCDF4==1.7.2 -q
+
+cd /app
+
+# Run the solver to produce libcoag.so and results.nc
+python3 solve.py
+SOLVE_EXIT=$?
+
+if [ $SOLVE_EXIT -ne 0 ]; then
+    mkdir -p /logs/verifier
+    echo "0.0" > /logs/verifier/reward.txt
+    exit 1
+fi
+
+# Validate results
+pytest /tests/test_state.py -v
+PYTEST_EXIT=$?
+
+mkdir -p /logs/verifier
+if [ $PYTEST_EXIT -eq 0 ]; then
+    echo "1.0" > /logs/verifier/reward.txt
+else
+    echo "0.0" > /logs/verifier/reward.txt
+fi
+exit $PYTEST_EXIT

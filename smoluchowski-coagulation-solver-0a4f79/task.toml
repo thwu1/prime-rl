@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reading and understanding Fortran 90 scientific code to determine kernel physics, then building a cross-language pipeline: compiling Fortran into a C-callable shared library, invoking it from Python via FFI, implementing a numerical solver for a coupled integro-differential equation on a discretized size distribution, and outputting structured scientific data in NetCDF4 format. The agent must handle Fortran-C ABI details, dependency ordering, compilation flags, numerical stability, and volume conservation — all without explicit guidance on which algorithms or techniques to use."""
+solution_explanation = """Write a Fortran module using iso_c_binding with bind(c, name=...) and the value attribute to wrap kernel_brown_helper and the trivial constant/additive kernels as C-callable functions. Compile all Fortran files in dependency order (pmc_constants, aero_helpers, coag_kernel_brown, coag_kernel_constant, coag_kernel_additive, wrapper) with gfortran -shared -fPIC. Load the .so via ctypes.CDLL, set argtypes/restype, and build kernel matrices by calling the library. Implement forward-Euler sectional solver with CFL-adaptive sub-stepping and volume-conserving mass redistribution via linear interpolation between adjacent bins. Write output using netCDF4 Python package with groups, dimensions, and float64 variables."""
+verification_explanation = """Tests verify: (1) libcoag.so exists and is a valid ELF shared object, (2) nm -D confirms kernel_constant, kernel_additive, kernel_brownian are exported dynamic symbols, (3) direct ctypes calls to each function produce correct values (constant returns beta0, additive returns beta1*(v1+v2), brownian matches independent Python reference within 0.1%), (4) results.nc is valid NetCDF4 with correct group/variable structure, (5) constant kernel N matches analytical 2N0/(tau+2) within 5%, (6) additive kernel N matches N0*exp(-rate*t) within 5%, (7) volume conservation within 0.5%/1%, (8) monotonicity of N and mean volume, (9) brownian pair values match reference within 2%, (10) correct output dimensions."""
+category = "computational_physics"
+tags = ["fortran-interop", "aerosol-microphysics"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/smoluchowski-coagulation-solver-0a4f79"

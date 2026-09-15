@@ -1,0 +1,32 @@
+magic: 0xF0CAD001
+name: "testboard-factory-v1"
+fields:
+  - tag: 0x0001
+    name: "serial_number"
+    type: "string"
+    required: true
+  - tag: 0x0002
+    name: "mac_address"
+    type: "mac"
+    required: true
+  - tag: 0x0003
+    name: "soc_id"
+    type: "hex"
+    device_bind: true
+    required: false
+  - tag: 0x0004
+    name: "hw_revision"
+    type: "uint16"
+    required: false
+  - tag: 0x0005
+    name: "production_date"
+    type: "string"
+    required: false
+  - tag: 0x0006
+    name: "calibration_offset"
+    type: "uint32"
+    required: false
+  - tag: 0x0007
+    name: "calibration_blob"
+    type: "binary"
+    required: false

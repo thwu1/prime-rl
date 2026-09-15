@@ -1,0 +1,23 @@
+{
+  "sources": [
+    {"id": "A", "supply": 8},
+    {"id": "B", "supply": 6}
+  ],
+  "sinks": [
+    {"id": "X", "demand": 5},
+    {"id": "Y", "demand": 4},
+    {"id": "Z", "demand": 5}
+  ],
+  "hubs": [
+    {"id": "H", "capacity": 7}
+  ],
+  "edges": [
+    {"from": "A", "to": "H", "capacity": 6, "cost": 1},
+    {"from": "B", "to": "H", "capacity": 5, "cost": 2},
+    {"from": "A", "to": "X", "capacity": 3, "cost": 5},
+    {"from": "B", "to": "Z", "capacity": 4, "cost": 6},
+    {"from": "H", "to": "X", "capacity": 5, "cost": 1},
+    {"from": "H", "to": "Y", "capacity": 4, "cost": 3},
+    {"from": "H", "to": "Z", "capacity": 5, "cost": 2}
+  ]
+}

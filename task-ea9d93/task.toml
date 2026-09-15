@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of HPC performance modeling spanning three distinct toolchains: ERT data analysis (Python), STREAM benchmark methodology, and gnuplot chart scripting. The agent must implement plateau detection on noisy empirical data, compute theoretical peak GFLOP/s and DRAM bandwidth from raw hardware specifications (vector width, FMA, DDR channels), parse STREAM output, and perform cross-validation between ERT and STREAM that demands understanding why the two benchmarks report different DRAM bandwidths — the answer lies in write-allocate effects on STREAM's write-only arrays versus ERT's read-modify-write pattern. Generating a publication-quality log-log roofline SVG via gnuplot requires scripting an unfamiliar domain-specific tool with parametric functions, logarithmic axes, and mixed data/label overlays. Holistic reasoning about memory hierarchy behavior, write-allocate hardware mechanics, and byte-counting conventions cannot be replaced by following a procedure."""
+solution_explanation = """Parse all ERT data files computing GB/s and GFLOP/s per point. Use lowest-intensity data for bandwidth-vs-working-set curves, detect three transitions via stride-based ratio analysis on median-smoothed values. Extract peak GFLOP/s from 95th percentile of high-intensity data. Parse STREAM output extracting Copy/Scale/Add/Triad MB/s values, convert to GB/s. Compute theoretical peak: cores * clock_ghz * (simd_width/8) * 2 (FMA) = 281.6 GFLOP/s. Compute theoretical DRAM BW: channels * freq_ghz * width * 2 (DDR) = 102.4 GB/s. Cross-validate: STREAM Triad reports low because it counts 24 bytes/element but hardware moves 32 (write-allocate); corrected = reported * 4/3 ≈ 72.5 GB/s, matching ERT DRAM BW. Write gnuplot script with log-log axes, parametric roofline functions min(AI*BW, peak) for each level, dashed theoretical ceiling, and labeled kernel points. Classify kernels via write-allocate-corrected AI vs ridge points."""
+verification_explanation = """Tests verify: output JSON structure; four detected bandwidth levels within 15% of ground truth; bandwidth ordering; peak GFLOP/s within 10% of 280; cache boundaries within factor-of-2; internally consistent ridge points; STREAM values parsed correctly (within 1% of file values); theoretical peak GFLOP/s within 5% of 281.6; theoretical DRAM BW within 5% of 102.4; cross-validation ratio between 0.85-1.15; peak and DRAM efficiency in realistic ranges; exact kernel classification; arithmetic intensity within 1%; achievable GFLOP/s within 25%; SVG chart exists with log-scale indicators, cache level labels, and kernel name labels."""
+category = "hpc"
+tags = ["performance-modeling", "roofline-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-ea9d93"

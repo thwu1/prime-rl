@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of Flux Framework TOML configuration semantics — specifically how [[resource.config]] entries accumulate properties additively across hosts, the critical distinction between hardware GPU resources and scheduling property labels, how queue 'requires' constraints map to resource properties for scheduling isolation, and the cascading effect of default queue misconfiguration. The four interacting bugs require systemic analysis: fixing one alone does not restore correct behavior, and diagnosing the property leakage bug requires understanding that resource.config entries update (not replace) host attributes. This is genuine HPC systems administration work that demands fluency with Flux's resource management model."""
+solution_explanation = """The broken config has four bugs: (1) properties = ['debug', 'batch'] assigned to ALL 8 nodes in a single resource.config entry, so both queues can schedule on every node, destroying resource isolation; (2) GPU nodes get hardware gpus via gpus='0-1' but no 'gpu' property is assigned, so the gpu queue's requires=['gpu'] constraint matches nothing and GPU jobs are never scheduled; (3) resource.exclude='node6' withholds one of the two GPU nodes from scheduling; (4) default queue is set to 'gpu' instead of 'batch', causing jobs without -q to be routed to the broken GPU queue. The fix requires splitting the single resource.config entry into per-group entries (node[0-1] with 'debug', node[2-5] with 'batch', node[6-7] with 'gpu'), adding the 'gpu' property alongside the gpu hardware config, removing the exclude directive, and correcting the default queue to 'batch'."""
+verification_explanation = """Tests start a Flux instance with 8 brokers, parse the agent's fixed config.toml, translate hostname-based resource.config entries to rank-based property assignments via 'flux R set-property', reload resources via 'flux resource reload', load queue config via 'flux config load', and validate: (1) all three queues exist and report status; (2) a debug job is allocated exclusively to ranks 0-1; (3) a batch job is allocated exclusively to ranks 2-5; (4) a GPU job is allocated exclusively to ranks 6-7; (5) a job submitted without -q defaults to the batch queue and runs on batch ranks; (6) all 8 nodes are available with no exclusions; (7) queue independence — disabling debug does not block batch submissions; (8) multiple jobs per queue consistently land on correct ranks."""
+category = "systems_administration"
+tags = ["hpc-scheduling", "flux-framework"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-flux-scheduling"

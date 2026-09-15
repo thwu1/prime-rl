@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle defects in a TMM engine by comparing against Mathematica-verified golden values, then fixing the physics errors (complex wavevectors and power transmission for absorbing media at oblique incidence). Additionally requires debugging a C shared library implementing complex 2x2 matrix chain multiplication, compiling it with gcc, and integrating it into Python via ctypes FFI with correct memory layout and calling conventions. Must implement the incoherent transfer matrix method (inc_tmm) for mixed coherent/incoherent stacks from first principles. Finally, requires creating a GNU Makefile to orchestrate the build pipeline, writing a YAML-driven analysis pipeline, and storing results in both JSON and SQLite database with a specific relational schema."""
+solution_explanation = """Python Bug 1: kz_list computed as 2*pi*n/lam missing the cos(theta) factor. Bug 2: _T_from_t for p-polarization uses abs() instead of real(n*conj(cos(theta))). C Bug: mat2x2_chain_multiply multiplies in wrong order (M[i]*result instead of result*M[i]), producing reversed chain products. Fix all three, then compile C to .so with gcc -shared -fPIC, load via ctypes.CDLL, pack/unpack complex matrices through the 8-double-per-matrix memory layout. Implement inc_tmm with coherent sub-stacks, intensity transfer matrices, and forward/backward power tracking. Create Makefile with lib and all targets. Process stacks.yaml and write results to both JSON and SQLite with stack_results and absorption tables."""
+verification_explanation = """Tests verify the corrected TMM engine against Mathematica golden values for both polarizations, ellipsometry, and position-resolved quantities. Physical consistency checks validate energy conservation, Poynting vector boundary conditions, continuity, and derivative relationships. The C shared library is directly tested via ctypes for identity, single-matrix, two-matrix product, and non-commutative ordering. A test verifies tmm_engine has a module-level ctypes.CDLL handle. inc_tmm is tested for consistency with coh_tmm and energy conservation. SQLite database is checked for schema correctness and value consistency with JSON output. Makefile is verified to have lib and all targets via dry-run."""
+category = "computational_physics"
+tags = ["optics", "ffi-interop"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/thin-film-optics-3b60b8"

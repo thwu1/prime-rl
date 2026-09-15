@@ -1,0 +1,54 @@
+{
+  "routers": ["A", "B", "C", "D", "E"],
+  "links": [
+    {
+      "endpoints": ["A", "B"],
+      "capacity_gbps": 15,
+      "igp_metric": 10,
+      "admin_groups": [0],
+      "srlgs": [1]
+    },
+    {
+      "endpoints": ["A", "C"],
+      "capacity_gbps": 15,
+      "igp_metric": 15,
+      "admin_groups": [1],
+      "srlgs": [2]
+    },
+    {
+      "endpoints": ["B", "D"],
+      "capacity_gbps": 10,
+      "igp_metric": 10,
+      "admin_groups": [0],
+      "srlgs": [3]
+    },
+    {
+      "endpoints": ["B", "E"],
+      "capacity_gbps": 10,
+      "igp_metric": 15,
+      "admin_groups": [0],
+      "srlgs": [1]
+    },
+    {
+      "endpoints": ["C", "D"],
+      "capacity_gbps": 10,
+      "igp_metric": 10,
+      "admin_groups": [1],
+      "srlgs": [3]
+    },
+    {
+      "endpoints": ["D", "E"],
+      "capacity_gbps": 15,
+      "igp_metric": 10,
+      "admin_groups": [0, 1],
+      "srlgs": [4]
+    },
+    {
+      "endpoints": ["C", "E"],
+      "capacity_gbps": 5,
+      "igp_metric": 25,
+      "admin_groups": [1],
+      "srlgs": [5]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+% Strongly connected components via mutual reachability
+path(X, Y) :- link(X, Y).
+path(X, Y) :- path(X, Z), link(Z, Y).
+scc(X, Y) :- path(X, Y), path(Y, X).

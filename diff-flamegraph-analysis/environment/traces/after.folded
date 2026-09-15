@@ -1,0 +1,40 @@
+# Profile: production v2.5.0, 60s at 99Hz
+
+server_main;event_loop;accept_conn;alloc_context 240
+server_main;event_loop;handle_request;parse_http;parse_headers 360
+server_main;event_loop;handle_request;parse_http;parse_body 180
+server_main;event_loop;handle_request;route_dispatch 120
+server_main;event_loop;handle_request;auth_check;verify_token;hmac_sha256 300
+server_main;event_loop;handle_request;auth_check;session_lookup;hash_table_get 150
+server_main;event_loop;handle_request;validate_input;regex_compile;nfa_build 180
+server_main;event_loop;handle_request;validate_input;regex_match;backtrack 240
+server_main;event_loop;handle_request;validate_input;schema_check;type_coerce 60
+server_main;event_loop;handle_request;db_query;conn_pool_acquire;mutex_lock 210
+server_main;event_loop;handle_request;db_query;sql_prepare;parse_ast 240
+server_main;event_loop;handle_request;db_query;sql_execute;btree_scan;page_read 660
+server_main;event_loop;handle_request;db_query;sql_execute;btree_scan;compare_key 180
+server_main;event_loop;handle_request;db_query;sql_execute;hash_join;probe_table 120
+server_main;event_loop;handle_request;db_query;result_serialize;row_to_map 180
+server_main;event_loop;handle_request;db_query;conn_pool_release 60
+server_main;event_loop;handle_request;serialize;proto_marshal;wire_encode 360
+server_main;event_loop;handle_request;serialize;proto_marshal;field_tag 120
+server_main;event_loop;handle_request;serialize;proto_marshal;varint_encode 90
+server_main;event_loop;handle_request;send_response;tcp_write;writev 360
+server_main;event_loop;handle_request;send_response;tcp_write;copy_to_buf 180
+server_main;event_loop;handle_request;log_access;format_clf;strftime 240
+server_main;event_loop;handle_request;log_access;file_write;fwrite 120
+server_main;event_loop;epoll_wait 300
+server_main;gc_thread;mark_sweep;scan_roots 150
+server_main;gc_thread;mark_sweep;trace_refs 120
+server_main;gc_thread;compact;memmove 90
+server_main;stats_thread;collect_metrics;read_proc_stat 60
+server_main;stats_thread;collect_metrics;aggregate 30
+server_main;stats_thread;push_metrics;tcp_connect 30
+server_main;stats_thread;push_metrics;send_payload 30
+server_main;event_loop;handle_request;middleware;rate_limit;token_bucket 90
+server_main;event_loop;handle_request;middleware;cors_check 30
+server_main;event_loop;timer_tick;check_timeouts 60
+server_main;event_loop;handle_request;0x55a3deadbeef;compute_checksum 90
+server_main;0x7f4a00998877;tls_handshake;aes_encrypt 60
+server_main;event_loop;handle_request;db_query;conn_pool_acquire;spin_wait 120
+  server_main;event_loop;handle_request;parse_http;parse_query_string 0

@@ -1,0 +1,54 @@
+{
+  "request": {
+    "key": "d/",
+    "prefix": true,
+    "start_revision": 3,
+    "prev_kv": true
+  },
+  "responses": [
+    {
+      "events": [
+        {"type": "PUT", "key": "d/2", "value": "beta", "revision": 3, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 3
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "d/1", "value": "gamma", "revision": 4, "is_create": false, "prev_kv": {"value": "alpha", "mod_revision": 2}},
+        {"type": "PUT", "key": "d/3", "value": "delta", "revision": 4, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 4
+    },
+    {
+      "events": [
+        {"type": "DELETE", "key": "d/2", "value": "", "revision": 5, "is_create": false, "prev_kv": {"value": "beta", "mod_revision": 3}}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 5
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "d/2", "value": "epsilon", "revision": 6, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 6
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "d/1", "value": "zeta", "revision": 7, "is_create": false, "prev_kv": {"value": "gamma", "mod_revision": 4}},
+        {"type": "DELETE", "key": "d/3", "value": "", "revision": 7, "is_create": false, "prev_kv": {"value": "delta", "mod_revision": 4}}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 7
+    },
+    {
+      "events": [
+        {"type": "PUT", "key": "d/4", "value": "eta", "revision": 8, "is_create": true, "prev_kv": null}
+      ],
+      "is_progress_notify": false,
+      "watch_revision": 8
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+    "name": "gcd",
+    "description": "Compute the GCD of integers a and b using the Euclidean algorithm (repeated modulo). Initialize a=48 and b=18. Store the final GCD in variable 'gcd'.",
+    "input_variables": {"a": 48, "b": 18},
+    "required_output": {"gcd": 6},
+    "syntactic_constraints": ["Program must contain a 'while' loop", "Program must use the '%' operator"]
+}

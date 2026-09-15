@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of pipelined processor microarchitecture, Verilog HDL, and Read-After-Write data hazard resolution. The solver must analyze a multi-module 2-stage pipeline to identify where hazards occur (register file write timing vs. combinational read timing), implement combinational hazard detection logic that correctly classifies which instructions write and read which register fields, and integrate automatic stalling into the existing pipeline control without breaking other NOP-insertion mechanisms (memory access cycles, control flow delay slots). Debugging requires running iverilog simulations and interpreting register dumps. This is a professional hardware design task requiring Dreyfus proficient-level skills in digital design and Bloom evaluate-level analysis of pipeline timing."""
+solution_explanation = """Add combinational hazard detection logic to maxicore32.v that compares the destination register (bits 23:20) of the instruction in memorystage1's outbound_instruction with the source register fields (bits 19:16, 11:8, 23:20) of the incoming instruction from cpu_data_in. A lookup table determines which opcodes write (LOADI, ALUM, ALUMI, ALU) and which register fields each opcode reads. When a match is found and no other NOP condition is active, assert a data_hazard signal that feeds into the existing insert_nops mechanism, causing the pipeline to stall (PC frozen, NOP injected into stage 1) for one cycle."""
+verification_explanation = """Three iverilog simulations are run: (1) nop_test.hex with manual NOPs verifies backward compatibility, (2) hazard_chain_test.hex with a chain of 4 dependent instructions and no NOPs verifies basic hazard detection, (3) mixed_hazard_test.hex with interleaved LOADI-ALU, ALU-ALU, and ALU-ALUMI hazards plus non-dependent gaps verifies selective stalling. Each simulation must halt successfully and produce exact expected register values parsed from the simulation output."""
+category = "hardware_design"
+tags = ["verilog", "pipeline-hazard"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pipeline-hazard-stall"

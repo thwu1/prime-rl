@@ -1,0 +1,46 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete JIT compiler from scratch: \
+x86-64 instruction encoding (REX prefixes, ModRM bytes, operand sizing), executable memory management \
+(mmap with PROT_EXEC, ctypes FFI), a code generation strategy (register allocation or stack-slot evaluation), \
+correct handling of signed vs unsigned semantics across 5 integer widths, division with zero-check branching, \
+shift overflow behavior, and sign extension for comparisons and type conversions. The agent must understand \
+the IR framework, infer the host ABI for parameter passing, and produce machine code that matches the \
+evaluator's edge-case semantics for all 25 node types."""
+solution_explanation = """Implement a stack-slot JIT: topologically sort the DAG, assign each node an 8-byte \
+stack slot relative to RBP, emit x86-64 prologue (push rbp / mov rbp,rsp / sub rsp,N), store parameter \
+registers to slots, then for each node emit load-compute-mask-store sequences using RAX/RCX as working \
+registers. Division uses TEST+JZ guard for zero divisor. Shifts use CMP+JAE guard for shift-by-width. \
+Signed comparisons use SHL/SAR sign extension before CMP+SETcc. Code is copied to mmap'd RWX memory \
+and returned as a ctypes CFUNCTYPE pointer."""
+verification_explanation = """49 pytest tests verify: (1) the JIT returns a native callable, not a Python \
+function; (2) it works independently of the evaluator module; (3) every node type produces correct results \
+matching the evaluator for multiple inputs including edge cases (overflow, underflow, signed boundaries, \
+shift overflow, division by zero); (4) complex multi-level DAGs with shared nodes compute correctly; \
+(5) expressions using 5 parameters stress register/stack management."""
+category = "systems-programming"
+tags = ["compiler-jit", "x86-codegen"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/son-peephole-bugs"

@@ -1,0 +1,169 @@
+HACK COMPUTER ARCHITECTURE AND VM LANGUAGE SPECIFICATION
+==========================================================
+
+1. OVERVIEW
+-----------
+The Hack computer is a 16-bit machine with:
+- Two registers: A (address/value) and D (data)
+- Program counter (PC)
+- 32K x 16-bit instruction ROM (read-only)
+- 32K x 16-bit data RAM (read-write)
+All values are 16-bit signed two's complement (-32768 to 32767).
+
+2. INSTRUCTION SET
+------------------
+
+2.1 A-instruction: @value
+  Binary encoding: 0vvvvvvvvvvvvvvv
+    Bit 15 = 0
+    Bits 14-0 = value (0 to 32767)
+  Effect: Loads value into A register.
+  @symbol is valid: assembler resolves symbol to numeric address.
+
+2.2 C-instruction: dest=comp;jump
+  Binary encoding: 111accccccdddjjj
+    Bits 15-13 = 111 (C-instruction marker)
+    Bit 12 = a (0: use A register in comp, 1: use M[A])
+    Bits 11-6 = cccccc (ALU control bits)
+    Bits 5-3 = ddd (destination: d1=store_A, d2=store_D, d3=store_M)
+    Bits 2-0 = jjj (jump: j1=if_neg, j2=if_zero, j3=if_pos)
+  Either dest or jump may be omitted:
+    "D=A+1" (no jump), "0;JMP" (no dest), "D;JGT" (no dest).
+
+2.3 ALU Operation
+  Inputs: x = D register, y = A register (if a=0) or M[A] (if a=1)
+  Control bits cccccc = zx, nx, zy, ny, f, no:
+    if zx then x = 0
+    if nx then x = bitwise NOT x
+    if zy then y = 0
+    if ny then y = bitwise NOT y
+    if f  then out = x + y   else out = x AND y
+    if no then out = bitwise NOT out
+  All operations are 16-bit.
+
+2.4 Computation Table (comp -> 7-bit a_cccccc)
+  comp   bits       comp   bits       comp   bits
+  0      0101010    1      0111111    -1     0111010
+  D      0001100    A      0110000    !D     0001101
+  !A     0110001    -D     0001111    -A     0110011
+  D+1    0011111    A+1    0110111    D-1    0001110
+  A-1    0110010    D+A    0000010    D-A    0010011
+  A-D    0000111    D&A    0000000    D|A    0010101
+  M      1110000    !M     1110001    -M     1110011
+  M+1    1110111    M-1    1110010    D+M    1000010
+  D-M    1010011    M-D    1000111    D&M    1000000
+  D|M    1010101
+
+2.5 Destination Table (dest -> 3-bit ddd)
+  null  000     M     001     D     010     MD    011
+  A     100     AM    101     AD    110     AMD   111
+
+2.6 Jump Table (jump -> 3-bit jjj)
+  null  000     JGT   001     JEQ   010     JGE   011
+  JLT   100     JNE   101     JLE   110     JMP   111
+
+  Jump is taken if comp output satisfies the condition.
+  Jump target is always the current A register value.
+
+3. MEMORY MAP
+-------------
+  RAM[0]       SP     Stack pointer
+  RAM[1]       LCL    Base address of local segment
+  RAM[2]       ARG    Base address of argument segment
+  RAM[3]       THIS   Base address of this segment
+  RAM[4]       THAT   Base address of that segment
+  RAM[5-12]    Temp segment (fixed, direct access)
+  RAM[13-15]   General-purpose registers (R13-R15), used internally
+  RAM[16-255]  Static variables
+  RAM[256-2047] Stack
+  RAM[16384-24575] Screen memory map (256 rows x 32 words)
+  RAM[24576]   Keyboard memory map
+
+4. PREDEFINED SYMBOLS
+---------------------
+  SP=0  LCL=1  ARG=2  THIS=3  THAT=4
+  R0=0  R1=1  R2=2  R3=3  R4=4  R5=5  R6=6  R7=7
+  R8=8  R9=9  R10=10  R11=11  R12=12  R13=13  R14=14  R15=15
+  SCREEN=16384  KBD=24576
+
+5. ASSEMBLER SPECIFICATION
+--------------------------
+Two-pass assembly:
+  Pass 1: Scan all lines. For each (LABEL) declaration, record the
+          ROM address of the next instruction. Labels are pseudo-
+          instructions and do not generate code.
+  Pass 2: Translate each instruction:
+    @numeric -> A-instruction with that value
+    @symbol  -> look up in symbol table. If undefined, allocate the
+                next available RAM address starting from 16.
+    dest=comp;jump -> C-instruction using the tables above.
+  Comments start with // and extend to end of line.
+  Blank lines and whitespace are ignored.
+
+6. VM LANGUAGE SPECIFICATION
+----------------------------
+
+6.1 Stack Arithmetic Commands
+  add   Pop y, pop x, push x+y
+  sub   Pop y, pop x, push x-y
+  neg   Pop x, push -x
+  eq    Pop y, pop x, push -1 if x==y else 0
+  gt    Pop y, pop x, push -1 if x>y else 0
+  lt    Pop y, pop x, push -1 if x<y else 0
+  and   Pop y, pop x, push x AND y
+  or    Pop y, pop x, push x OR y
+  not   Pop x, push NOT x
+  Note: true = -1 (0xFFFF, all bits set), false = 0.
+
+6.2 Memory Access Commands
+  push segment index    Push value of segment[index] onto stack
+  pop segment index     Pop stack top into segment[index]
+
+  Segment mappings:
+    constant  Push-only. The value is the index itself.
+    local     Indirect. Address = RAM[LCL] + index
+    argument  Indirect. Address = RAM[ARG] + index
+    this      Indirect. Address = RAM[THIS] + index
+    that      Indirect. Address = RAM[THAT] + index
+    pointer   Direct. 0 -> RAM[3] (THIS), 1 -> RAM[4] (THAT)
+    temp      Direct. Address = 5 + index (RAM[5] to RAM[12])
+    static    Mapped to assembly symbol "FileName.index"
+              (FileName = VM file name without extension)
+
+6.3 Program Flow Commands
+  label LABEL      Declare a label. In assembly: (functionName$LABEL)
+  goto LABEL       Unconditional jump to functionName$LABEL
+  if-goto LABEL    Pop top of stack; jump if non-zero
+
+6.4 Function Commands
+  function f n     Declare function f with n local variables.
+                   In assembly: (f) label, then push n zeros.
+  call f n         Call function f with n arguments (already on stack).
+                   Protocol:
+                     push return-address
+                     push LCL
+                     push ARG
+                     push THIS
+                     push THAT
+                     ARG = SP - n - 5
+                     LCL = SP
+                     goto f
+                   The return-address is the assembly label after the call.
+  return           Return to caller.
+                   Protocol:
+                     FRAME = LCL           (save in temp register)
+                     RET = *(FRAME - 5)    (get return address)
+                     *ARG = pop()          (put return value for caller)
+                     SP = ARG + 1          (restore SP)
+                     THAT = *(FRAME - 1)   (restore THAT)
+                     THIS = *(FRAME - 2)   (restore THIS)
+                     ARG = *(FRAME - 3)    (restore ARG)
+                     LCL = *(FRAME - 4)    (restore LCL)
+                     goto RET              (jump to return address)
+
+6.5 Bootstrap Code
+  For multi-file VM programs:
+    SP = 256
+    call Sys.init
+  This is emitted at the beginning of the assembly output,
+  before any translated VM code.

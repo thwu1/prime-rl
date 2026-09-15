@@ -1,0 +1,29 @@
+{
+  "series": [
+    {
+      "name": "leibniz_pi4",
+      "term_body": "return (k % 2 == 0 ? 1.0 : -1.0) / (2.0 * k + 1.0);",
+      "num_terms": 10000000
+    },
+    {
+      "name": "basel_pi2_6",
+      "term_body": "return 1.0 / (((double)k+1.0) * ((double)k+1.0));",
+      "num_terms": 10000000
+    },
+    {
+      "name": "euler_e",
+      "term_body": "double f = 1.0; for(int i = 1; i <= k; i++) f *= i; return 1.0 / f;",
+      "num_terms": 25
+    },
+    {
+      "name": "machin_pi4",
+      "term_body": "double x1 = 1.0/5.0, x2 = 1.0/239.0; double t1 = (k%2==0?1.0:-1.0) * pow(x1, 2*k+1) / (2*k+1); double t2 = (k%2==0?1.0:-1.0) * pow(x2, 2*k+1) / (2*k+1); return 4.0*t1 - t2;",
+      "num_terms": 30
+    },
+    {
+      "name": "catalan_G",
+      "term_body": "return (k % 2 == 0 ? 1.0 : -1.0) / ((2.0*k+1.0) * (2.0*k+1.0));",
+      "num_terms": 1000000
+    }
+  ]
+}

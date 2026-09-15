@@ -1,0 +1,26 @@
+================================================================================
+OSPF Neighbor State - Captured 2026-05-29 14:32:17 UTC
+================================================================================
+
+=== core_rtr: show ip ospf neighbor ===
+
+Neighbor ID     Pri State           Up Time     Dead Time Address         Interface                        RXmtL RqstL DBsmL
+2.2.2.1           1 Full/  -        02:30:05    00:00:38  172.16.0.1      eth0:172.16.0.0                      0     0     0
+2.2.2.3           1 Full/  -        02:28:15    00:00:35  172.16.0.5      eth2:172.16.0.4                      0     0     0
+
+
+=== dist_rtr1: show ip ospf neighbor ===
+
+Neighbor ID     Pri State           Up Time     Dead Time Address         Interface                        RXmtL RqstL DBsmL
+1.1.1.1           1 Full/  -        02:30:03    00:00:36  172.16.0.0      eth0:172.16.0.1                      0     0     0
+
+
+=== dist_rtr2: show ip ospf neighbor ===
+
+Neighbor ID     Pri State           Up Time     Dead Time Address         Interface                        RXmtL RqstL DBsmL
+
+
+=== dist_rtr3: show ip ospf neighbor ===
+
+Neighbor ID     Pri State           Up Time     Dead Time Address         Interface                        RXmtL RqstL DBsmL
+1.1.1.1           1 Full/  -        02:28:12    00:00:37  172.16.0.4      eth0:172.16.0.5                      0     0     0

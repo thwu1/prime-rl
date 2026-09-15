@@ -1,0 +1,37 @@
+{
+  "description": "Implement a fault propagation analyzer for quantum stabilizer circuits. See /app/problem.json for this file's contents at runtime.",
+  "circuits": [
+    {
+      "id": "bell_state",
+      "circuit": "H 0\nCX 0 1",
+      "data_qubits": [0, 1],
+      "flag_qubits": [],
+      "distance": 3,
+      "n_qubits": 2
+    },
+    {
+      "id": "flagged_circuit",
+      "circuit": "H 0\nCX 0 2\nCX 0 1\nCX 0 2",
+      "data_qubits": [0, 1],
+      "flag_qubits": [2],
+      "distance": 3,
+      "n_qubits": 3
+    },
+    {
+      "id": "ghz_prep",
+      "circuit": "H 0\nCX 0 1\nCX 0 2",
+      "data_qubits": [0, 1, 2],
+      "flag_qubits": [],
+      "distance": 3,
+      "n_qubits": 3
+    },
+    {
+      "id": "phase_circuit",
+      "circuit": "H 0\nS 0\nCX 0 1",
+      "data_qubits": [0, 1],
+      "flag_qubits": [],
+      "distance": 3,
+      "n_qubits": 2
+    }
+  ]
+}

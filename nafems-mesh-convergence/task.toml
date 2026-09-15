@@ -1,0 +1,47 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge in finite element analysis: understanding plane stress theory, \
+elliptic membrane geometry, meshing strategies (element selection, mesh density), boundary condition application \
+(symmetry, pressure loads), FEM assembly and solving, stress recovery at specific points, displacement computation, \
+and mesh convergence analysis. The agent must build a complete FEA pipeline from a problem specification — including \
+geometry creation, mesh generation with saving, solver setup, multi-quantity post-processing — using CLI tools and \
+scripting. The reference solution value is not provided; the agent must rely on correct FEA implementation to achieve \
+convergent results."""
+solution_explanation = """Uses the gmsh Python API to create the annular elliptic geometry via Boolean operations \
+(outer disk - inner disk, intersected with first quadrant). Generates T6 (6-node triangle) meshes at 4 refinement \
+levels, saving each as a .msh file. Implements a custom plane-stress FEM solver using numpy/scipy: assembles element \
+stiffness matrices with 3-point Gauss quadrature, computes pressure loads on the outer boundary via line element \
+integration, applies symmetry BCs by direct elimination, solves with scipy sparse solver, and recovers both sigma_yy \
+and sigma_xx at point D by extrapolating stress from surrounding elements, plus maximum displacement magnitude."""
+verification_explanation = """Tests verify: (1) results.json exists with correct format and NAFEMS_LE1 benchmark tag, \
+(2) at least 4 mesh levels with strictly increasing element counts, (3) all entries have valid numeric fields for \
+sigma_yy, sigma_xx, and max_displacement in physically plausible ranges, (4) mesh .msh files exist for each level \
+and can be loaded by gmsh with node/element counts consistent with reported values (anti-fabrication), (5) the finest \
+mesh yields sigma_yy within 5% of the NAFEMS reference, (6) error decreases from coarsest to finest confirming \
+convergence, (7) sigma_xx and displacement values vary across levels (not fabricated constants)."""
+category = "scientific_computing"
+tags = ["finite-element-analysis", "computational-mechanics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nafems-mesh-convergence"

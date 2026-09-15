@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level security evaluation across multiple domains: (1) examining a custom PRNG implementation to understand how the whiten_rounds parameter governs output security, (2) forensic exploration of a multi-table SQLite database to identify and compare four PRNG instances with different algorithms and configurations, (3) independently judging which instances exhibit exploitable structure versus cryptographically sound behavior — two use ChaCha20-CSPRNG (inherently secure) and two use HardenedPRNG-LCG (security depends on whitening configuration), (4) designing and executing an LCG parameter recovery attack on the vulnerable instance while confirming the whitened instance resists the same technique, (5) replaying the recovered LCG to factor a multi-prime RSA modulus and decrypt an intercepted message as proof of compromise, and (6) evaluating an engineering team's remediation proposal by reasoning about SHA-512 preimage resistance to determine both whether the proposed whiten_rounds value is sufficient and what the true minimum secure value is. The solver must make security judgments throughout — no hints indicate which instances are vulnerable or what the correct remediation threshold is."""
+solution_explanation = """Parse pubkey.der to extract the RSA modulus. Explore audit.db to identify four PRNG instances: prng-7a3f and prng-d5e8 use HardenedPRNG-LCG, while prng-b1e2 and prng-c4d9 use ChaCha20-CSPRNG (immediately classified as secure). Extract logged outputs for both HardenedPRNG instances. Attempt LCG parameter recovery on prng-7a3f's outputs: compute differences, recover modulus via GCD, recover multiplier and increment — this succeeds, proving whiten_rounds=0. Attempt the same on prng-d5e8's outputs — recovery fails because outputs are SHA-512 whitened, confirming that instance is secure. Replay the LCG from the known seed to find eight 512-bit primes that factor the RSA modulus, compute phi(N), derive d, and decrypt the intercepted message. Evaluate the remediation proposal (whiten_rounds=3) by reasoning that SHA-512 provides preimage resistance: even one round of SHA-512 whitening destroys the linear algebraic structure needed for LCG recovery, so minimum_secure_rounds=1 and the proposal (3 rounds) is ACCEPT. Produce assessment.json with all findings."""
+verification_explanation = """Tests verify /app/assessment.json contains: (1) compromised_instance equals 'prng-7a3f', (2) secure_instances is exactly the set {prng-b1e2, prng-c4d9, prng-d5e8}, (3) decrypted_message encrypts back to the stored ciphertext under the RSA public key (mathematical round-trip, no hardcoded answers), (4) remediation_verdict is ACCEPT, (5) minimum_secure_rounds equals 1, (6) attack_vector is a non-trivial description, and (7) /app/flag.txt matches the decrypted_message."""
+category = "cryptography"
+tags = ["cryptanalysis", "security-evaluation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cd2733"

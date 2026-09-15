@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in IP networking (CIDR arithmetic, longest-prefix-match routing, ACL ordered evaluation, source NAT masquerade), graph-based packet tracing through a multi-router topology, and programmatic detection of subtle misconfigurations (unreachable next-hop black holes and ACL rule shadowing). The agent must implement bitwise IP/subnet operations from scratch (no libraries), build forwarding information bases from connected and static routes, simulate hop-by-hop packet forwarding with correct processing-pipeline ordering (ingress ACL -> routing -> egress NAT), and reason about the interaction between routing, ACLs, and NAT to identify which host pairs are unreachable and why. The misconfiguration detection requires comparing ACL rule specificity (CIDR containment) and validating next-hop reachability against connected interfaces. Not solvable without professional networking expertise and strong Python skills."""
+solution_explanation = """Build a Python engine that: (1) parses the topology JSON and derives forwarding tables from connected routes and static routes, (2) implements CIDR arithmetic (ip_to_int, prefix_to_mask, ip_in_network) for longest-prefix-match lookups, (3) evaluates ACL rules in ascending ID order with CIDR-based source/destination matching, (4) applies source NAT when packets egress the configured interface, (5) traces packets hop-by-hop from source host through routers to destination, (6) detects the black-hole route on R2 (10.3.0.0/24 via unreachable 10.0.0.13) and the ACL shadow on R1 (deny-all rule 10 shadows permit rule 20). Outputs 42 reachability entries and 2 misconfigurations to report.json."""
+verification_explanation = """Tests run the engine and validate report.json: (1) engine executes successfully, (2) report has correct structure, (3) same-subnet pairs are reachable, (4) cross-subnet pairs via routers are reachable, (5) server/branch to guest subnet is unreachable (black hole), (6) guest to server IS reachable (asymmetric path bypasses R2's bad route), (7) external to internal blocked by ACL, (8) internal to external works via NAT, (9) exactly 2 misconfigurations detected with correct types (black_hole and acl_shadow keywords)."""
+category = "networking"
+tags = ["routing", "packet-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/network-reachability-analyzer"

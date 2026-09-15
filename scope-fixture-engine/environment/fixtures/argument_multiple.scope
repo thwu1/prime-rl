@@ -1,0 +1,14 @@
+foo(aaa, bbb);
+---
+
+[Content] =
+[Removal] = 0:4-0:7
+    >---<
+0| foo(aaa, bbb);
+[Insertion delimiter] = ", "
+
+[Content] =
+[Removal] = 0:9-0:12
+         >---<
+0| foo(aaa, bbb);
+[Insertion delimiter] = ", "

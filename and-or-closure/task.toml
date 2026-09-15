@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of lattice theory over Boolean algebras. The solver must discover an efficient representation of the closure structure (beyond brute-force pairwise AND/OR simulation) that scales to inputs with n=200,000+ and values up to 2^40. The agent must also work with SQLite binary BLOBs (decoding packed little-endian uint64 arrays), configure and build a CMake C++ project, and orchestrate a multi-tool pipeline (sqlite3 CLI + cmake + compiled solver + database insertion)."""
+solution_explanation = """1. Inspect the SQLite database schema and decode binary BLOBs (struct.unpack little-endian uint64). 2. Write a C++ solver implementing: compute all_and/all_or to find active bits, group into equivalence classes by column pattern, build implication DAG on representatives, count order ideals via brute-force (R<=22) or meet-in-the-middle (R>22). 3. Configure CMakeLists.txt with add_executable and optimization flags, build via cmake + make. 4. Create pipeline.sh that extracts data from SQLite, pipes through solver, and inserts results back. 5. Verify results with sqlite3 queries."""
+verification_explanation = """Tests verify three aspects: (a) Build artifacts — CMakeCache.txt exists (cmake was run), an ELF binary exists in the build directory, CMakeLists.txt contains add_executable. (b) Pipeline — pipeline.sh exists, is executable, and references SQLite/lattice.db. (c) Database results — the results table is fully populated with correct closure sizes: small cases checked against brute-force simulation, medium cases against the efficient reference solver, and large cases (R=20,25) against mathematically known answers (2^k for independent bits, k+1 for chains)."""
+category = "algorithms"
+tags = ["lattice-theory", "build-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/and-or-closure"

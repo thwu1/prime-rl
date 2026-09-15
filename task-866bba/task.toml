@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level supply chain security knowledge. The agent must: (1) diagnose which deployed artifact was compromised by comparing canonical build outputs to deployed copies — this is not stated in the instruction; (2) evaluate and recognize that the existing verification pipeline performs only superficial file-existence checks rather than cryptographic verification; (3) interpret a policy file to determine multi-team signing requirements, attestation types, and the signing/attestation frameworks in use; (4) independently determine correct cosign usage for offline blob signing and key generation with no commands provided; (5) construct valid in-toto v0.1 attestation statements with correct SLSA provenance and vulnerability scan predicate schemas from domain knowledge alone — no specification details are given; (6) build a correct verification system that performs both cryptographic signature verification AND attestation digest integrity checking against deployed artifacts, correctly distinguishing tampered from untampered binaries."""
+solution_explanation = """Compare /app/build_output/ and /app/artifacts/ to identify data-pipeline.bin as tampered. Read /app/policy.json to discover: cosign is the signing tool with transparency log disabled; in-toto v0.1 is the attestation framework; three teams (engineering, security, release) with per-artifact signing and attestation requirements. Generate cosign key pairs for all teams. Sign all 5 build_output artifacts per policy with cosign sign-blob --tlog-upload=false. Create in-toto v0.1 attestation statements with correct predicate type URIs (slsa.dev/provenance for SLSA, cosign.sigstore.dev/attestation/vuln for vuln scans) using SHA-256 digests of build_output artifacts, then sign each statement. Replace the broken verify.sh with a correct implementation that runs cosign verify-blob against deployed artifacts (detecting signature mismatches on tampered files) and compares attestation subject digests to deployed artifact hashes. Produce audit_report.json showing data-pipeline.bin as failed and all others as passed."""
+verification_explanation = """Tests verify: cosign installation; all 3 key pairs with valid PEM public keys; all 9 signature bundles as valid JSON; cosign verify-blob succeeds for non-tampered deployed artifacts (confirming signatures were computed over canonical build outputs); cosign verify-blob FAILS for data-pipeline.bin (confirming signatures match build outputs, not tampered deployed copies); all 7 attestation statements with valid in-toto v0.1 structure and correct predicate type URIs with spec-conformant predicate content; all 7 attestation signature bundles; attestation signatures verify for non-tampered artifacts; audit report with 5 entries containing correct signature/attestation details, summary totals, tampered artifact marked fail, non-tampered marked pass; verify.sh exists and is executable."""
+category = "DevSecOps"
+tags = ["supply-chain-security", "cosign"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-866bba"

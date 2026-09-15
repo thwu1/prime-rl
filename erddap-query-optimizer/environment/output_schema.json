@@ -1,0 +1,59 @@
+{
+  "$description": "Output schema for the ERDDAP data fusion planner — map from query_id to fusion plan",
+  "format": {
+    "<query_id>": {
+      "subqueries": [
+        {
+          "dataset_id": "<string: dataset ID from queries.json>",
+          "server": "<string: ERDDAP server base URL from registry>",
+          "query_type": "<'griddap' | 'tabledap' — determined from DDS metadata>",
+          "variables": ["<requested variables from query>"],
+          "ancillary_variables": ["<auto-detected from CF ancillary_variables attribute on requested vars; empty list if none>"],
+          "urls": ["<full ERDDAP REST API URL(s); 1 URL normally, 2 if antimeridian split>"],
+          "antimeridian_split": "<boolean: whether longitude range was split at the antimeridian>",
+          "constraints": {
+            "time": {"start": "<ISO 8601>", "stop": "<ISO 8601>", "stride": "<int, griddap only>"},
+            "latitude": {"start": "<float>", "stop": "<float>", "stride": "<int, griddap only>"},
+            "longitude": [
+              {"start": "<float, in dataset's native coordinate system>", "stop": "<float>", "stride": "<int, griddap only>"}
+            ],
+            "<vertical_dim_name>": {"value": "<float, only if dataset has altitude/zlev/depth dimension>"}
+          },
+          "unit_conversions": {
+            "<variable_name>": {
+              "source_unit": "<original unit from DAS>",
+              "target_unit": "<harmonized target unit>",
+              "scale": "<float: target = source * scale + offset>",
+              "offset": "<float>"
+            }
+          },
+          "spatial_coverage": {
+            "latitude_fraction": "<float 0-1: fraction of query lat range covered by dataset>",
+            "longitude_fraction": "<float 0-1: fraction of query lon range covered by dataset>"
+          }
+        }
+      ],
+      "temporal_alignment": {
+        "<dataset_id>": {
+          "resolution_seconds": "<float or null: time spacing from DAS for grids, null for tables>",
+          "resolution_label": "<string: 'daily', '8-day', 'monthly', or 'irregular' for tables>"
+        }
+      },
+      "unit_harmonization_target": {
+        "<standard_name>": "<chosen target unit — most common unit among datasets sharing this standard_name in the query>"
+      }
+    }
+  },
+  "notes": [
+    "ancillary_variables: parsed from the CF ancillary_variables attribute on each requested variable. Split on whitespace to get individual variable names. Only include variables that actually exist in the dataset's DDS.",
+    "unit_conversions: detect when >=2 datasets in the same query measure the same physical quantity (identical CF standard_name) but use different units. The target unit is the most frequent unit for that standard_name; if tied, prefer degree_C over kelvin. Conversion formula: target_value = source_value * scale + offset. For kelvin to degree_C: scale=1.0, offset=-273.15. Omit the entry for variables already in the target unit or when no harmonization is needed.",
+    "spatial_coverage: compute the fraction of the query's spatial domain covered by the dataset's actual coordinate range. Formula: fraction = overlap_range / query_range, where overlap = [max(query_min, dataset_min), min(query_max, dataset_max)]. Longitude comparison must account for coordinate convention differences.",
+    "temporal_alignment: for gridded datasets, resolution_seconds comes from the time variable's spacing attribute in DAS. Label mapping: 86400 -> 'daily', 691200 -> '8-day', 2592000 -> 'monthly'. For table datasets: resolution_seconds is null and label is 'irregular'.",
+    "longitude values in constraints must be in the dataset's native coordinate system",
+    "Dimension constraints in griddap URLs must follow the dimension order declared in the dataset's DDS",
+    "Generated URLs should use .csv as the file type",
+    "griddap URLs use bracket-based [(start):stride:(stop)] syntax; tabledap URLs use var1,var2&constraint1&... syntax with >= and <= operators",
+    "Ancillary variables must be included as additional variables in griddap/tabledap URLs with matching dimension constraints",
+    "The vertical dimension name varies by dataset (altitude, zlev, etc.) — use the actual dimension name from DDS"
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert NMOS 6502 architecture knowledge and proficiency with the cc65 cross-development toolchain. The solver must: (1) use da65 or xxd to reverse-engineer a raw 64KB binary test ROM with no source code available, understanding 6502 instruction encodings to determine what each test section exercises, (2) run the emulator and cross-reference actual vs expected output to isolate which CPU behaviors are incorrectly emulated, (3) read and fix a ~550-line Python emulator with subtle bugs in addressing modes, arithmetic, and status register handling that require deep understanding of NMOS 6502 hardware quirks, and (4) write a structured conformance report categorizing all findings. The combination of binary reverse-engineering with an unfamiliar toolchain (cc65/da65), deep CPU architecture knowledge, and multi-step debugging makes this require expert-level proficiency."""
+solution_explanation = """Use da65 to disassemble program.bin, identifying test code at $0400-$04C4. Compare emulator output with expected.json to find mismatched addresses. Trace each mismatch through the emulator to find 4 bugs: (1) BCD ADC missing high-nibble decimal correction (ah>9 needs ah+=6), (2) indirect-Y addressing uses 0xFFFF mask instead of 0xFF for zero-page pointer wrap, (3) PHP/BRK ORs 0x20 instead of 0x30 (missing B flag bit 4), (4) JMP indirect read16() doesn't wrap high-byte fetch within the page (NMOS anomaly). Fix all 4 bugs and write conformance report documenting all behavioral categories."""
+verification_explanation = """Tests generate two independent ROM binaries (not provided to the solver) testing the same 4 bug categories with different operands to prevent hardcoded patches. The main ROM tests 18 memory locations across 12 behavioral categories; the dynamic ROM tests 5 locations with different values for the 4 bug categories. The fixed emulator must produce correct output for all locations. Conformance report is validated for JSON structure, at least 6 categories, at least 4 identified failures, and proper detail fields."""
+category = "systems"
+tags = ["cpu-emulation", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f8f426"

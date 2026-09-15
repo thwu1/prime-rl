@@ -1,0 +1,16 @@
+{
+  "name": "isr_shrink_with_elr",
+  "config": {
+    "replication_factor": 3,
+    "min_isr": 2,
+    "recovery_mode": "balanced"
+  },
+  "events": [
+    {"type": "produce", "count": 10},
+    {"type": "replicate", "replica": "R2"},
+    {"type": "replicate", "replica": "R3"},
+    {"type": "advance_hwm"},
+    {"type": "fence", "replica": "R3"},
+    {"type": "fence", "replica": "R2"}
+  ]
+}

@@ -1,0 +1,5 @@
+The directory `/app/` contains a multi-tenant Kubernetes platform serving three teams (team-core, team-analytics, team-edge) at different service tiers (platinum, gold, silver). The governance specification at `/app/GOVERNANCE_SPEC.md` defines the complete resource model and compliance requirements for this platform — covering resource allocation, admission policies, observability, access control, and infrastructure composition.
+
+The platform currently fails to satisfy its own governance specification. Some required configurations are entirely missing, while others contain errors that would cause operational failures, security violations, or silent misconfigurations in production.
+
+Audit the platform against the governance specification and bring every subsystem into full compliance. When you are done, every constraint in the specification should be satisfied by the configurations under `/app/`.

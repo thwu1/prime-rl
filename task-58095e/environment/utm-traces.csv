@@ -1,0 +1,2 @@
+source_id,name,easting_1,northing_1,easting_2,northing_2,crs,dip,rake,upper_depth_km,lower_depth_km,mfd_type,a_value,b_value,m_min,m_max,delta_m
+3,Fault-C,565000.0,4186000.0,590000.0,4210000.0,EPSG:32610,45.0,135.0,2.0,14.0,GR,1.2,0.85,5.0,7.0,0.1

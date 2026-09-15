@@ -1,0 +1,6 @@
+{
+  "name": "kernel_beta",
+  "registers_per_thread": 32,
+  "shared_memory_bytes": 32768,
+  "description": "Shared memory heavy kernel"
+}

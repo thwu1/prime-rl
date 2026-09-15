@@ -1,0 +1,14 @@
+{
+  "products": {
+    "TOOTH_BRUSH": {"name": "Toothbrush", "unit_price": 1.99},
+    "TOOTH_PASTE": {"name": "Toothpaste", "unit_price": 3.49},
+    "MOUTH_WASH": {"name": "Mouthwash", "unit_price": 5.99},
+    "DENTAL_FLOSS": {"name": "Dental Floss", "unit_price": 2.29},
+    "SHAMPOO": {"name": "Shampoo", "unit_price": 4.99},
+    "CONDITIONER": {"name": "Conditioner", "unit_price": 4.99},
+    "SOAP": {"name": "Bar Soap", "unit_price": 1.49},
+    "RICE": {"name": "Rice (1kg bag)", "unit_price": 2.49},
+    "APPLE_JUICE": {"name": "Apple Juice", "unit_price": 2.99},
+    "MILK": {"name": "Milk", "unit_price": 1.29}
+  }
+}

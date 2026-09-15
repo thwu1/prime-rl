@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a multi-population metaheuristic optimizer for dynamic environments with a compiled C shared library for the numerical kernel. The agent must write C code for vectorized peak evaluation, create a Makefile for shared library compilation (gcc -fPIC -shared), load the library via Python ctypes with correct argtypes/restype declarations, and integrate the FFI layer into a multi-swarm PSO solver. Achieving competitive offline error across varying peaks (10-25), dimensions (5-10), change frequencies (1000-5000), and shift severities (1.0-2.0) demands expertise in particle swarm optimization variants, multi-swarm management, adaptive change response, and balancing exploration vs exploitation in non-stationary landscapes. The multi-tool interoperability (C compiler + Make + ctypes FFI + Python algorithm) raises this beyond pure algorithm design."""
+solution_explanation = """The solution has three components: (1) A C shared library (dopt_kernel.c) implementing cone_fitness and batch_distances with row-major position layout, compiled via Makefile into libdopt.so. (2) A Python solver that loads libdopt.so via ctypes.CDLL, sets up function signatures, and uses the C kernel for archive distance queries and surrogate evaluations. (3) The optimization algorithm is dimension-adaptive: for dim<=7, multi-swarm PSO with constriction coefficients, exclusion-based diversity, quantum particles, gradient-based local refinement, and a peak archive; for dim>7, multi-start gradient ascent with finite-difference gradients. The C kernel accelerates archive management (batch_distances replaces per-element numpy norms) and enables surrogate-based candidate screening (cone_fitness evaluates against remembered peaks)."""
+verification_explanation = """Tests verify: (1) Build system — Makefile and dopt_kernel.c exist, make produces libdopt.so. (2) C kernel correctness — cone_fitness and batch_distances produce expected values on hand-crafted inputs via ctypes calls. (3) Python integration — solver.py contains ctypes and libdopt references. (4) API conformance — DynamicOptimizer class with required methods. (5) Budget compliance — solver respects evaluation budget. (6) GMPB sanity — benchmark optimum and change semantics. (7) Performance — offline error below thresholds on 4 instances with fixed seeds (benchmark=42, solver=123)."""
+category = "algorithm_design"
+tags = ["dynamic_optimization", "native_ffi"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2aa280"

@@ -1,0 +1,16 @@
+{
+  "name": "bids-expression-evaluator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "ts-node src/run_tests.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "typescript": "5.5.4",
+    "ts-node": "10.9.2",
+    "js-yaml": "4.1.0",
+    "@types/js-yaml": "4.0.9",
+    "@types/node": "22.5.0"
+  }
+}

@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Create the problem configuration file for the multi-material Euler solver task."""
+import json
+import os
+
+config = {
+    "problems": {
+        "blast": {
+            "left_state": {"density": 2.281, "velocity": 0.0, "pressure": 5.917},
+            "right_state": {"density": 0.834, "velocity": 0.0, "pressure": 0.715},
+            "gamma": 1.4,
+            "domain": [0.0, 1.0],
+            "diaphragm": 0.35,
+            "t_final": 0.15,
+            "n_cells": 500,
+            "cfl": 0.8,
+        },
+        "contact": {
+            "left_state": {"density": 1.623, "velocity": 0.314, "pressure": 1.0},
+            "right_state": {"density": 0.517, "velocity": 0.314, "pressure": 1.0},
+            "gamma": 1.4,
+            "domain": [0.0, 1.0],
+            "diaphragm": 0.45,
+            "t_final": 0.2,
+            "n_cells": 400,
+            "cfl": 0.9,
+        },
+        "multigamma": {
+            "left_state": {"density": 1.137, "velocity": 0.0, "pressure": 3.059},
+            "right_state": {"density": 0.683, "velocity": 0.0, "pressure": 0.427},
+            "gamma_left": 1.4,
+            "gamma_right": 1.6667,
+            "domain": [0.0, 1.0],
+            "diaphragm": 0.5,
+            "t_final": 0.18,
+            "n_cells": 600,
+            "cfl": 0.6,
+        },
+    },
+    "convergence": {
+        "problem": "blast",
+        "resolutions": [125, 250, 500, 1000, 2000],
+    },
+}
+
+os.makedirs("/app/config", exist_ok=True)
+with open("/app/config/problems.json", "w") as f:
+    json.dump(config, f, indent=2)
+
+# Verify
+with open("/app/config/problems.json") as f:
+    loaded = json.load(f)
+assert "blast" in loaded["problems"], "Config verification failed"
+print("Config created and verified:", list(loaded["problems"].keys()))

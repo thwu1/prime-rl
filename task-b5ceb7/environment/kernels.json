@@ -1,0 +1,28 @@
+{
+  "kernels": {
+    "sequential": {
+      "description": "Sequential 4-byte element access, one float per thread",
+      "access_formula": "t * 4"
+    },
+    "column_major": {
+      "description": "Column-0 read from a row-major 32x32 float tile (stride = 32 elements = 128 bytes)",
+      "access_formula": "t * 128"
+    },
+    "padded_column": {
+      "description": "Column-0 read from a row-major 32x33 padded float tile (stride = 33 elements = 132 bytes)",
+      "access_formula": "t * 132"
+    },
+    "stride_7": {
+      "description": "Strided access with 7-element stride (28 bytes per step)",
+      "access_formula": "t * 24"
+    },
+    "broadcast_groups": {
+      "description": "Grouped broadcast pattern with 4-8 threads per group sharing addresses, groups mapping to overlapping banks",
+      "access_explicit": [0, 0, 0, 0, 128, 128, 128, 128, 4, 4, 4, 4, 132, 132, 132, 132, 8, 8, 8, 8, 136, 136, 136, 136, 12, 12, 140, 140, 16, 16, 144, 144]
+    },
+    "quadratic_scatter": {
+      "description": "Nonlinear scatter pattern using quadratic index mapping with modular arithmetic",
+      "access_formula": "((t * 17 + t * t * 3) % 128) * 4"
+    }
+  }
+}

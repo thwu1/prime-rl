@@ -1,0 +1,48 @@
+# ProForma 2.0 test inputs
+# Lines starting with '#' and empty lines are skipped
+# Positive test cases (1-36): should parse as valid
+# Negative test cases (37-43): should parse as invalid
+
+AA
+AAHCFKUOT
+EM[Oxidation]EVEES[Phospho]PEK
+EM[+15.9949]EVEES[+79.9663]PEK
+EM[MOD:00719]EVEES[MOD:00046]PEK
+EM[U:Oxidation]EVEES[U:Phospho]PEK
+[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK
+PEPTIDEG-[Methyl]
+[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]
+EM[Oxidation]EVE[Cation:Mg[II]]ES[Phospho]PEK
+SEQUEN[Formula:C12H20O2]CE
+SEQUEN[Formula:[13C2]C-2H2N]CE
+SEQUEN[Glycan:HexNAc1Hex2]CE
+ELVIS[Phospho|INFO:newly discovered]K
+EMEVEESPEK/2
+PEPTIDE/[Na:z+1]
+SEK[XLMOD:02001#XL1]UENCE//EMEVTK[#XL1]SESPEK
+EMEVEESPEK+ELVISLIVER
+<13C>ATPEILTVNSIGQLK
+<[Oxidation]@C,M>MTPEILTCNSIGCLK
+{Glycan:Hex}EM[Oxidation]EVNESPEK
+[Phospho]?EM[Oxidation]EVTSESPEK
+(?DQ)NGTWEM[Oxidation]ESNENFEGYM[Oxidation]K
+PRT(ESFRMS)[+19.0523]ISK
+ELVIS[Phospho|INFO:newly discovered|INFO:really awesome [new-to-science] #cool]K
+EM[Oxidation]EVT[#g1(0.01)]S[#g1(0.09)]ES[Phospho#g1(0.90)]PEK
+EMEVEESPEK/2+ELVISLIVER/3
+<13C><15N>ATPEILTVNSIGQLK
+{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK
+[Phospho]^2?[Acetyl]-EM[Oxidation]EVTSESPEK
+EVTSEKC[X:Disulfide#XL1]LEMSC[#XL1]EFD
+PEPTIDE/[Na:z+1,H:z+1^2]
+SEK[XLMOD:02001#XL1]UENCE//EMEVTK[#XL1]SESPEK/2
+<13C>[Phospho]?{Glycan:Hex}ACDEFGHIK
+(?DQ)(NGTWEM)[Oxidation]K
+<[Carbamidomethyl]@C><[Oxidation]@M>AC[+42.0106]MPEK/+2
+A[+1]-
+()[Dehydro]S
+ELVIS[Phospho|INFO:newly]discovered]K
+P(RT(ESFRMS)[+19.0523]IS)[+19.0523]K
+/
+<>PEPTIDE
+PEPTIDE//

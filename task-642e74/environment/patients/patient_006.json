@@ -1,0 +1,60 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-006",
+        "birthDate": "1970-11-05",
+        "gender": "male",
+        "name": [{"family": "Foster", "given": ["Robert"]}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-htn-006",
+        "subject": {"reference": "Patient/patient-006"},
+        "code": {
+          "coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10", "display": "Essential hypertension"}]
+        },
+        "clinicalStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]
+        },
+        "verificationStatus": {
+          "coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]
+        },
+        "onsetDateTime": "2025-01-15",
+        "category": [
+          {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-outpt-006",
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB"},
+        "type": [
+          {"coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "99396", "display": "Periodic preventive medicine"}]}
+        ],
+        "subject": {"reference": "Patient/patient-006"},
+        "period": {"start": "2025-02-01T14:00:00Z", "end": "2025-02-01T14:45:00Z"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "proc-kt-006",
+        "status": "completed",
+        "code": {
+          "coding": [{"system": "http://www.ama-assn.org/go/cpt", "code": "50360", "display": "Renal allotransplantation"}]
+        },
+        "subject": {"reference": "Patient/patient-006"},
+        "performedDateTime": "2025-03-01T08:00:00Z"
+      }
+    }
+  ]
+}

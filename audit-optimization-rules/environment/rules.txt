@@ -1,0 +1,132 @@
+# Compiler Optimization Rule Verification Challenge
+#
+# Each rule below proposes that two C expressions are semantically equivalent
+# for ALL valid inputs of the specified types. Your task is to audit each rule
+# and determine its correctness classification.
+#
+# Types:
+# - uint32_t: Unsigned 32-bit. Arithmetic wraps modulo 2^32. No UB possible.
+# - int32_t: Signed 32-bit. Overflow is UNDEFINED BEHAVIOR per C17 standard.
+# - uint16_t: Unsigned 16-bit. Subject to C integer promotion to int.
+#
+# Comparisons (==, !=, >, <) yield 1 (true) or 0 (false).
+# Bitwise NOT (~) produces the ones' complement.
+#
+# IMPORTANT: These rules span multiple C types. A rule may be:
+#
+# - "correct": LHS == RHS for all valid inputs, with no undefined behavior
+#   possible in any sub-expression.
+#
+# - "incorrect": There exist concrete inputs where LHS != RHS, and no
+#   undefined behavior occurs (the mismatch is observable).
+#
+# - "undefined_behavior": The expressions trigger undefined behavior for
+#   some valid inputs (signed integer overflow, division overflow, or
+#   arithmetic triggered by implicit C integer promotion), making the
+#   transformation unsafe for compiler optimization even if it appears
+#   to "work" in testing.
+#
+# These rules are modeled after compiler pattern-matching transformations
+# (similar to GCC's match.pd). A real GCC bug (PR125234) shipped a match.pd
+# rule with a swapped comparison operator, causing miscompilation. Several
+# rules here involve similar subtle errors across signed/unsigned/promotion
+# boundaries.
+
+RULE 1
+Type: uint32_t a, b
+LHS: (a | b) - (a & b)
+RHS: a ^ b
+Claim: LHS == RHS for all a, b
+
+RULE 2
+Type: uint32_t a, b
+LHS: (a ^ b) | (a & b)
+RHS: a | b
+Claim: LHS == RHS for all a, b
+
+RULE 3
+Type: uint32_t a, b
+LHS: (a + b) * (a - b)
+RHS: a * a - b * b
+Claim: LHS == RHS for all a, b
+
+RULE 4
+Type: uint32_t a
+LHS: a ^ 0xFFFFFFFFu
+RHS: ~a
+Claim: LHS == RHS for all a
+
+RULE 5
+Type: int32_t a, b
+LHS: (a | b) - (a & b)
+RHS: a ^ b
+Claim: LHS == RHS for all a, b (subtraction never overflows for signed types
+when applied to bitwise OR and AND of the same operands)
+
+RULE 6
+Type: uint32_t a, b
+LHS: (a & ~b) | (~a & b)
+RHS: ~(a ^ b)
+Claim: LHS == RHS for all a, b
+
+RULE 7
+Type: uint32_t a, n  (where 0 < n < 32)
+LHS: (a << n) >> n
+RHS: a
+Claim: LHS == RHS for all valid a, n
+
+RULE 8
+Type: uint32_t a, b  (where b != 0)
+LHS: (a * b) / b
+RHS: a
+Claim: LHS == RHS for all valid a, b
+
+RULE 9
+Type: uint32_t a, b
+LHS: (a >> 1) + (b >> 1) + ((a | b) & 1)
+RHS: (a + b) >> 1
+Claim: LHS == RHS for all a, b
+
+RULE 10
+Type: uint32_t a, b
+LHS: (a ^ b) | ((a & b) << 1)
+RHS: a + b
+Claim: LHS == RHS for all a, b
+
+RULE 11
+Type: uint32_t a, n  (where 0 < n < 32)
+LHS: (a >> n) << n
+RHS: a
+Claim: LHS == RHS for all valid a, n
+
+RULE 12
+Type: int32_t a
+LHS: (a + 1) > a
+RHS: 1
+Claim: LHS evaluates to RHS for all a
+
+RULE 13
+Type: int32_t a
+LHS: -(-a)
+RHS: a
+Claim: LHS == RHS for all a
+
+RULE 14
+Type: uint16_t a, b
+LHS: (uint16_t)((uint32_t)a * (uint32_t)b)
+RHS: (uint16_t)(a * b)
+Claim: LHS == RHS for all a, b
+Note: Both sides truncate a product to 16 bits. The LHS explicitly widens
+to uint32_t before multiplying; the RHS relies on C default promotion.
+
+RULE 15
+Type: int32_t a, b  (where b > 0)
+LHS: a * b / b
+RHS: a
+Claim: LHS == RHS for all valid a, b
+
+RULE 16
+Type: int32_t a  (where a != 0)
+LHS: a / -1
+RHS: -a
+Claim: LHS == RHS for all valid a

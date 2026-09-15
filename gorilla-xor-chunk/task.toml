@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of bit-level encoding/decoding, Gorilla-style XOR float compression, delta-of-delta timestamp encoding, and variable-width integer coding. Three subtle bugs in the XOR codec involve edge cases in leading zero handling (5-bit field overflow), significant bit count overflow (6-bit field wrapping), and signed integer boundary conditions in two's complement recovery. The varbit implementation requires precise unary prefix coding with signed/unsigned variants across 9 bit-width buckets. The merge requires correct use of the chunk iterator/appender APIs with deduplication. Expert-level systems programming and bit manipulation skills required."""
+solution_explanation = """Fix three bugs in xor.go: (1) add leading zero clamp to 31 when >=32 in xorWrite to prevent 5-bit field overflow, (2) add sigbits==0 to 64 overflow check in xorRead because 64 doesn't fit in 6 bits and is written as 0, (3) change >= to > in the dod sign extension threshold in Next() to correctly handle the maximum positive boundary value. Implement varbit encoding/decoding using unary prefix codes (0, 10, 110, ...) selecting bit-width buckets (3, 6, 9, 12, 18, 25, 56, 64) with two's complement for signed values. Implement MergeChunks as a two-pointer merge over iterators with timestamp deduplication favoring the first chunk."""
+verification_explanation = """Go tests verify round-trip encoding/decoding correctness with targeted edge cases: values producing XOR deltas with 32+ leading zeros (triggers bug 1), values producing 64 significant bits (triggers bug 2), and timestamp delta-of-deltas at exact boundary values (triggers bug 3). Varbit tests verify encoding/decoding across all bucket boundaries and sequential multi-value streams. Merge tests verify correct interleaving, deduplication, and empty chunk handling."""
+category = "debugging"
+tags = ["go", "bit-manipulation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gorilla-xor-chunk"

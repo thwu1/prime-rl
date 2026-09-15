@@ -1,0 +1,3 @@
+; CHECK: phase_one
+; CHECK-NOT: abort
+; CHECK: phase_two

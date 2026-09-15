@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires learning the Catala DSL — a niche literate programming language with unique default-logic semantics, scope subscoping, and exception-rule priority ordering — from an unfamiliar specification file. The agent must parse Catala's type declarations, map/fold combinators, and duration arithmetic to reconstruct the period-aggregation algorithm in Python. A deliberate transcription error in the Catala scope wiring (person2's usage incorrectly bound to person1's data) must be detected by cross-referencing the interleaved statute text, which serves as the authoritative source. The PeriodMerge scope is left as a TODO stub, requiring the agent to implement non-overlapping interval union from the statute's prose description alone. The surviving-spouse path requires evaluating conditions at a historical point-in-time (date of death) while computing the exclusion at the actual sale date — a temporal reasoning challenge. Calendar-year vs. day-count date arithmetic, multi-rule priority ordering across five subsections, and exact boundary conditions (730 vs 729 days) compound the difficulty."""
+solution_explanation = """Parse the Catala file to extract the period aggregation algorithm (three-way conditional using calendar-year offsets on period endpoints). Identify the person2 usage assignment bug by comparing scope wiring against the statute text, and implement per-person usage correctly. Implement PeriodMerge as a standard interval union (sort-and-sweep). Handle single returns ($250k cap, 730-day ownership+usage threshold). For joint returns, check condition A ($500k when either owns, both use, neither blocked by recency rule); fall back to condition B (merge ownership, sum individual $250k caps). For surviving spouse, evaluate condition A at date of death; if met within 2 calendar years, upgrade to $500k cap while still checking survivor's individual requirements at sale date. Apply the §121(b)(3) recency rule (prior sale within 730 days blocks exclusion) at all decision points."""
+verification_explanation = """16 parametrized pytest test cases cover all code paths: basic single qualification, insufficient ownership, gain capping, b3 recency rule (positive and negative), partial periods at exact 730-day boundary (730 passes, 729 fails), multiple period aggregation, joint (A) $500k path, joint (B) with one qualifying spouse, joint (B) with merged ownership enabling both spouses, surviving spouse within/outside 2-year window, b3 interaction with joint return conditions, and zero-usage/outside-window edge cases. Each test verifies both excluded_amount and gain_cap."""
+category = "programming"
+tags = ["tax-law-formalization", "legal-dsl-interpretation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tax-law-exclusion"

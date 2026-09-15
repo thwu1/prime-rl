@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-tool interoperability across git bisect, cProfile/pstats, gprof2dot, graphviz, and the project's make-based diagnostic framework. The agent must use git bisect run with custom test scripts to identify regression-introducing commits in a multi-commit history (writing targeted check invocations for each issue category), interpret cProfile call graph SVG output generated via a gprof2dot+graphviz pipeline to understand performance characteristics, then diagnose and fix 6 interacting bugs in a CHAMP dual-bitmap trie. Bug diagnosis demands proficient understanding of trie internals: no-op identity in insert, sub-node and collision-node compaction on delete, identity shortcut and asymmetric entry-vs-node handling in diff, and value-aware collision diff. The merge operation requires designing an efficient recursive algorithm handling all nine node-type pair combinations at each trie position, maintaining CHAMP array layout invariants, and exploiting structural sharing via identity checks for O(diff) traversal. The regression report requires integrating git rev-parse output with structured JSON generation."""
+solution_explanation = """Uses git bisect run with targeted diagnostic checks (--check identity for issues 001/002, --check collision-diff for issue 003) to identify which commits introduced which regressions. Generates cProfile call graphs via gprof2dot+graphviz to visualize performance hotspots confirming the diff identity shortcut absence. Writes structured regression_report.json mapping each issue to its introducing commit SHA. Then applies six targeted fixes to persistent_map.py: (1) value equality early return in _SubNode.insert, (2) SubNode child compaction on delete, (3) CollisionNode child compaction on delete, (4) CollisionNode.delete returns bare _Entry for single remaining, (5) identity shortcut in _diff_nodes, (6) value-aware _diff_coll and proper _entry_vs_node helper. Plus a complete structural merge implementation with _merge_sub, _merge_coll, _merge_entry_into_node handling all node-type combinations with identity-based subtree reuse."""
+verification_explanation = """Pytest suite validates: regression_report.json exists with correct structure (issue_id, commit SHA, description fields), commit SHAs exist in git history, at least 2 distinct regression commits identified, and initial clean commit not falsely flagged. Also validates all original CRUD, persistence, structural sharing, canonical form, collision handling, diff correctness (including collision values and asymmetric entry-vs-node), and large-scale fuzz tests. Extended with 18 merge tests covering empty maps, disjoint maps, conflict resolution with various conflict_fn, identity shortcuts with O(1) timing check, collision node merging, asymmetric data-vs-subnode cases, performance vs rebuild baseline, and large-scale fuzz."""
+category = "systems-implementation"
+tags = ["persistent-data-structures", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-aad1b1"

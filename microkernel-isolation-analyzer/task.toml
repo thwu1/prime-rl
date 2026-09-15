@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing: (1) information flow graph construction from access rights with correct write->read semantics, (2) transitive closure for TCB and impact boundary computation on a ~20-node directed graph with cycles, (3) BFS shortest-path finding with correct path recording, (4) max-flow/min-cut via Edmonds-Karp on a bipartite PD-Resource network with resource node splitting — a non-trivial reduction from vertex cut to edge cut. The system is randomly generated per instance with ~20 protection domains, ~40 resources, ~80 access rights creating ~50 information flow edges with multiple cycles and non-obvious transitive paths. Min-cut computation requires understanding of flow network construction, augmenting paths, and residual graph analysis. Each output file must embed the instance-specific DNA token."""
+solution_explanation = """The solution parses system.json and extracts the dna_token. It builds the information flow graph by identifying write->read resource sharing patterns. Transitive closure via BFS from each node computes TCB (reverse reachability) and impact (forward reachability). Violations are detected by checking bidirectional reachability between constrained pairs, with shortest paths found by BFS. Min resource cuts use Edmonds-Karp max-flow on a network where each resource is split into in/out nodes with capacity 1, PD nodes have infinite capacity. The min-cut set is extracted from the residual graph after max-flow terminates. Each output file is wrapped with the instance token to bind results to the unique system configuration."""
+verification_explanation = """Tests use a reference implementation that independently computes all results from the randomly-generated system.json. Each output file is verified to contain the correct _instance_token matching the system's dna_token — this prevents hardcoded outputs since every build produces a unique instance with a unique token. Structural invariants (self-membership in TCB/impact, TCB-Impact consistency, path validity, cut disconnection) are checked. Min-cut validity is verified by removing reported resources and confirming disconnection. Cut sizes are compared against reference max-flow computation."""
+category = "systems_security"
+tags = ["graph-algorithms", "information-flow-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/microkernel-isolation-analyzer"

@@ -1,0 +1,103 @@
+{
+  "conventions": {
+    "qubit_indexing": "Little-endian: state |q0 q1 ... q_{n-1}> has index sum(q_k * 2^k). Qubit 0 is the least significant bit.",
+    "gate_definitions": {
+      "H": "Hadamard: [[1,1],[1,-1]] / sqrt(2)",
+      "X": "Pauli-X: [[0,1],[1,0]]",
+      "RY": "RY(theta) = [[cos(theta/2), -sin(theta/2)], [sin(theta/2), cos(theta/2)]]",
+      "RZ": "RZ(theta) = [[exp(-i*theta/2), 0], [0, exp(i*theta/2)]]",
+      "CNOT": "Controlled-NOT: flips target qubit when control qubit is |1>. Quil syntax: CNOT control target.",
+      "CZ": "Controlled-Z: applies phase -1 when both qubits are |1>. Quil syntax: CZ q1 q2."
+    },
+    "pauli_strings": "In a Pauli string like 'XZIY', the k-th character (0-indexed) is the Pauli operator acting on qubit k. The full operator is the tensor product P_{n-1} x ... x P_1 x P_0."
+  },
+  "circuit_format": "All circuits are Quil program files (.quil) in /app/circuits/. Each line contains one gate instruction: GATE qubit, GATE(param) qubit, or GATE qubit1 qubit2. Lines starting with # are comments. Empty lines are ignored.",
+  "tasks": [
+    {
+      "id": "simulate",
+      "circuit_file": "circuits/circuit_a.quil",
+      "num_qubits": 4,
+      "description": "Parse the Quil program and simulate the circuit starting from the all-zeros state |0000>. Report the final 2^4 = 16 complex amplitudes.",
+      "output": {
+        "key": "simulate",
+        "format": {
+          "state_vector": "List of 16 pairs [real_part, imaginary_part], indexed 0 through 15."
+        }
+      }
+    },
+    {
+      "id": "spectral_transform",
+      "circuits": [
+        {"file": "circuits/basis_5.quil", "num_qubits": 3},
+        {"file": "circuits/basis_6.quil", "num_qubits": 4},
+        {"file": "circuits/basis_19.quil", "num_qubits": 5}
+      ],
+      "description": "For each circuit, simulate it from |0...0> to obtain a computational basis state |j>. Then apply the N-point unitary matrix F defined by F_{k,j} = exp(2*pi*i*j*k/N) / sqrt(N) where N = 2^num_qubits. Report the transformed state vector for each input.",
+      "output": {
+        "key": "spectral_transform",
+        "format": {
+          "outputs": "List of 3 state vectors, each a list of [real, imaginary] pairs."
+        }
+      }
+    },
+    {
+      "id": "subsystem_entropy",
+      "circuits": [
+        {"file": "circuits/ghz4.quil", "num_qubits": 4, "subsystem_A": [0, 1]},
+        {"file": "circuits/chain6.quil", "num_qubits": 6, "subsystem_A": [0, 1, 2]}
+      ],
+      "description": "Simulate each circuit from |0...0> to get state |psi>. Form rho = |psi><psi|, then obtain the reduced state rho_A for the qubits listed in subsystem_A by eliminating the remaining qubits. Compute S = -sum over non-zero eigenvalues lambda_k of (lambda_k * ln(lambda_k)), using the natural logarithm.",
+      "output": {
+        "key": "subsystem_entropy",
+        "format": {
+          "entropies": "List of 2 floats."
+        }
+      }
+    },
+    {
+      "id": "hamiltonian_analysis",
+      "num_qubits": 4,
+      "hamiltonian": [
+        {"coeff": -1.0, "pauli": "ZZII"},
+        {"coeff": -1.0, "pauli": "IZZI"},
+        {"coeff": -1.0, "pauli": "IIZZ"},
+        {"coeff": -1.0, "pauli": "ZIIZ"},
+        {"coeff": -0.5, "pauli": "XIII"},
+        {"coeff": -0.5, "pauli": "IXII"},
+        {"coeff": -0.5, "pauli": "IIXI"},
+        {"coeff": -0.5, "pauli": "IIIX"},
+        {"coeff": 0.25, "pauli": "YYII"},
+        {"coeff": 0.25, "pauli": "IIYY"},
+        {"coeff": -0.1, "pauli": "XZZX"}
+      ],
+      "initial_state_circuit": "circuits/init_prep.quil",
+      "evolution_time": 1.5,
+      "observable_pauli": "ZIII",
+      "description": "Construct the 2^n x 2^n matrix H = sum_j c_j * P_j where each P_j is a tensor product of single-qubit Pauli matrices as specified by the pauli string. Report the algebraically smallest eigenvalue of H. Then simulate the initial state circuit from |0...0> to get |psi(0)>, apply the matrix exp(-i*H*t) for the given time t to get |psi(t)>, and report the real value <psi(t)|O|psi(t)> where O is the observable matrix.",
+      "output": {
+        "key": "hamiltonian_analysis",
+        "format": {
+          "min_eigenvalue": "Float.",
+          "evolved_expectation": "Float."
+        }
+      }
+    },
+    {
+      "id": "topology_analysis",
+      "circuit_file": "circuits/circuit_a.quil",
+      "topology_file": "topology.dot",
+      "num_qubits": 4,
+      "description": "Extract all unique pairs of qubits that interact via two-qubit gates in the Quil circuit (the interaction graph). Parse the hardware connectivity from the GraphViz DOT file (the topology graph). Report: interaction_edges (count of unique interacting qubit pairs), topology_edges (count of hardware connections), compatible_edges (count of interaction edges present in the topology), and directly_executable (true iff every interaction edge exists in the topology). Additionally, write the interaction graph as a valid GraphViz DOT file to /app/graphs/interaction_circuit_a.dot with nodes for each qubit and undirected edges for each interacting pair.",
+      "output": {
+        "key": "topology_analysis",
+        "format": {
+          "interaction_edges": "Integer.",
+          "topology_edges": "Integer.",
+          "compatible_edges": "Integer.",
+          "directly_executable": "Boolean.",
+          "interaction_graph_file": "String: path to the generated DOT file."
+        }
+      }
+    }
+  ]
+}

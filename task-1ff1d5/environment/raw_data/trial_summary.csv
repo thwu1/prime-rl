@@ -1,0 +1,20 @@
+parameter_code,parameter_name,parameter_value
+SPONSOR,Clinical Study Sponsor,PharmaCo Inc
+SSTDTC,Study Start Date,March 1 2023
+SENDTC,Study End Date,August 31 2023
+TITLE,Trial Title,A Phase II Randomized Double-Blind Placebo-Controlled Study of Drug A in Major Depressive Disorder
+PLESSION,Planned Number of Subjects,200
+TTYPE,Trial Type,EFFICACY AND SAFETY
+TPHASE,Trial Phase Classification,PHASE II TRIAL
+TRT,Investigational Therapy or Treatment,Drug A 100mg
+TCNTRL,Control Type,PLACEBO
+RANDOM,Trial is Randomized,Y
+STYPE,Study Type,INTERVENTIONAL
+INDIC,Trial Disease/Condition Indication,Major Depressive Disorder
+AGEMIN,Planned Minimum Age of Subjects,18
+AGEMAX,Planned Maximum Age of Subjects,75
+AGEU,Age Unit,YEARS
+ROUTE,Route of Administration,ORAL
+DOSFRQ,Dosing Frequency,QD
+ADDON,Added on to Existing Treatments,N
+DCUTDTC,Data Cutoff Date,September 15 2023

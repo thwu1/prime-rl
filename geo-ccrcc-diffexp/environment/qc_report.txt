@@ -1,0 +1,42 @@
+Peer Review — GSE53757 Differential Expression Analysis
+========================================================
+
+The following discrepancies were noted during quality assessment of the
+preliminary results in /opt/analysis/preliminary_results/:
+
+1. FOLD CHANGE INFLATION
+   Multi-probe genes systematically show higher fold changes than expected.
+   Published data from von Roemeling et al. (2014) report CA9 log2FC of
+   approximately 4.5 in ccRCC versus matched normal; the preliminary results
+   show a notably higher value. The inflation pattern correlates with probe
+   set count per gene: single-probe genes match expected values while
+   two-probe genes are consistently inflated. This suggests the method used
+   to derive gene-level expression from multiple probes introduces upward
+   bias.
+
+2. SIGNIFICANCE THRESHOLD
+   Only a handful of genes reach padj < 0.05 in the preliminary results.
+   Published analyses of comparable ccRCC datasets with similar sample sizes
+   identify hundreds of differentially expressed genes at this threshold. The
+   raw (unadjusted) p-values appear biologically plausible, suggesting the
+   issue lies in how they are adjusted for multiple comparisons.
+
+3. RANKING BIAS
+   The top 20 differentially expressed genes consist entirely of upregulated
+   genes. ALDOB, a well-characterized downregulated marker in ccRCC with
+   expected |log2FC| > 3.5, does not appear in the top rankings despite
+   having a fold change magnitude exceeding several listed genes. The ranking
+   criterion appears directionally biased rather than magnitude-based.
+
+4. P-VALUE DISCREPANCIES
+   Spot-checking several genes against independent computations in R reveals
+   p-value deviations. The discrepancies are most pronounced for genes where
+   the tumor group exhibits substantially greater within-group expression
+   variability than the normal group, suggesting an assumption about group
+   variance structure may not hold.
+
+5. BATCH STRUCTURE
+   Samples were processed in two batches (A and B) according to the sample
+   characteristics metadata. Verify whether batch-associated technical
+   variation is present in the expression data and whether it affects the
+   differential expression conclusions.

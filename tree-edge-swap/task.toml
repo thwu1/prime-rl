@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Hard graph theory optimization wrapped in a multi-tool platform recovery task. The solver must: (1) explore SQLite database, log files, config, and docs to discover the stalled pipeline's link-swap diameter minimization protocol; (2) extract topology data via sqlite3 and implement an O(N) tree DP algorithm (top-3 downward paths, complement diameter propagation) for trees up to 120K nodes; (3) insert results back into the database; (4) construct a sqlite3-to-jq pipeline to produce a structured JSON audit report; (5) generate Graphviz DOT topology change diagrams and render to SVG with dot. Requires interoperability across sqlite3 CLI, jq, graphviz, and Python. Based on COCI '08 Krtica problem (25-point, hardest in set)."""
+solution_explanation = """Explore /app/ to discover the SQLite database, read logs and docs to understand deliverables. Extract topology data via sqlite3. Root each tree and compute top-3 downward path lengths and subtree diameters bottom-up. Propagate complement diameters top-down. For each edge removal, optimal reconnection yields diameter = max(d_sub, d_comp, ceil(d_sub/2)+ceil(d_comp/2)+1). Find the best edge, locate centers via BFS, INSERT results with original_diameter into DB. Use sqlite3 JSON mode piped through jq to create audit.json. Generate DOT file for topology 1 with edge style annotations and render to SVG with dot."""
+verification_explanation = """For each topology: verifies (1) result row exists in optimization_results, (2) removed link exists in original, (3) modified graph is a valid tree, (4) actual diameter matches claimed min_diameter via BFS, (5) claimed diameter equals globally optimal minimum from independent O(N) reference. Additionally: verifies audit.json exists with correct structure, sorted order, and values matching both database and recomputed diameters; verifies DOT file contains correct edge annotations matching database results; verifies SVG file was rendered."""
+category = "algorithms"
+tags = ["graph-theory", "multi-tool-pipeline"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tree-edge-swap"

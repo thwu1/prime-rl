@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 4 interacting bugs across 2 modules in a quantization library. Bug 1: the NF4 lookup table uses symmetric quantile allocation instead of the information-theoretically correct asymmetric layout (requires understanding NormalFloat construction from inverse CDF of N(0,1)). Bug 2: secondary compression of scaling factors omits mean-centering, wasting half the 8-bit dynamic range on positive-only absmax values (requires understanding symmetric quantization of shifted distributions). Bug 3: LLaMA parameter counting omits the output projection in self-attention (requires knowledge of transformer architecture internals). Bug 4: the bits-per-parameter formula for nested quantization uses addition instead of multiplication for block sizes (requires understanding the hierarchical overhead structure). Each bug demands different domain expertise and they must all be identified independently through systematic debugging."""
+solution_explanation = """Fix 4 bugs: (1) In create_nf4_map, change positive-side linspace from 8 to 9 quantile points to produce the asymmetric 8/7 layout with 16 unique levels. (2) In double_quantize, subtract absmax.mean() before quantization and store it as the offset for recovery, enabling full 8-bit range utilization for positive-only scaling factors. (3) In compute_total_params, change 3*h*h to 4*h*h to account for Q, K, V, and O attention projections. (4) In bits_per_parameter, change blocksize + dq_blocksize to blocksize * dq_blocksize in the second-level overhead term."""
+verification_explanation = """Tests verify: NF4 map has exactly 16 unique levels with {7,8} asymmetric split and matches scipy reference values; quantization roundtrips on randn(1024,1024) achieve mean absolute error < 0.10 and relative error < 0.30 with shape preservation; double quantization recovers scaling factors within 0.4% of their range; exact parameter counts for 7B/13B/65B LLaMA architectures; exact bits-per-parameter values (4.5 without DQ, 4.126953125 with DQ); correct memory ratios and ~3 GiB DQ savings for 65B."""
+category = "machine_learning"
+tags = ["quantization", "numerical-debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d7520c"

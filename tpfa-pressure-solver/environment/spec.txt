@@ -1,0 +1,75 @@
+Reservoir Pressure Solver — Input/Output Specification
+=======================================================
+
+PROBLEM
+-------
+Compute the steady-state single-phase pressure distribution in a 2D
+heterogeneous porous medium governed by Darcy's law and conservation of mass:
+
+    div( (K / mu) * grad(p) ) = q
+
+where K is the permeability tensor (diagonal, cell-centered), mu is dynamic
+viscosity, p is pressure, and q is a volumetric source/sink term from wells.
+
+Boundary conditions: all domain boundaries are sealed (zero flux).
+Wells: volumetric rate sources/sinks at specified grid cells.
+A reference pressure at one cell pins the absolute pressure level.
+
+The grid is structured (nx columns x ny rows) with variable cell dimensions.
+Permeability is cell-centered and anisotropic (different kx, ky per cell).
+
+
+INPUT FILES  (in /app/input/)
+-----------------------------
+
+grid.json
+  nx, ny   : int — number of cells in x and y directions
+  dx       : float array [nx] — width of each column (metres)
+  dy       : float array [ny] — height of each row (metres)
+  thickness: float — reservoir thickness h (metres)
+
+  Cell (i, j) is in column i (x-direction), row j (y-direction), 0-indexed.
+
+permeability.json
+  kx : float array [nx][ny] — x-direction permeability (m^2) for each cell
+  ky : float array [nx][ny] — y-direction permeability (m^2) for each cell
+
+wells.json
+  wells : list of objects, each with:
+    name  : string — well identifier
+    i, j  : int    — cell indices of the well
+    type  : string — "rate" (volumetric rate control)
+    value : float  — volumetric flow rate (m^3/s)
+                     positive = injection, negative = production
+
+fluid.json
+  viscosity : float — dynamic viscosity mu (Pa*s)
+
+config.json
+  reference_pressure : object with
+    i, j  : int   — cell indices
+    value : float — pressure (Pa)
+
+OUTPUT  (write to /app/output/)
+-------------------------------
+
+pressure.csv
+  CSV file with header line:  i,j,pressure
+  One row per grid cell (nx * ny rows), pressure in Pa.
+
+diagnostics.json
+  JSON object with:
+    mass_balance_error : float — absolute sum of all well rates (should be ~0)
+    well_rates         : dict  — well name -> volumetric rate (m^3/s)
+    max_pressure       : float — maximum cell pressure (Pa)
+    min_pressure       : float — minimum cell pressure (Pa)
+
+SOLVER ENTRY POINT
+------------------
+
+Your solver must be executable as:
+
+    python3 /app/solver.py [input_dir] [output_dir]
+
+input_dir  defaults to /app/input
+output_dir defaults to /app/output

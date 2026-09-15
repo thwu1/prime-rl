@@ -1,0 +1,24 @@
+program TestCombined
+  enum Season {SPRING, SUMMER, FALL, WINTER}
+{
+  void main()
+    Season s;
+    boolean warm;
+    int count;
+  {
+    count = 0;
+    s = Season.SPRING;
+    warm = s == Season.SPRING || s == Season.SUMMER;
+    if (warm) count++;
+    s = Season.WINTER;
+    warm = s == Season.SPRING || s == Season.SUMMER;
+    if (warm) count++;
+    s = Season.SUMMER;
+    warm = s == Season.SPRING || s == Season.SUMMER;
+    if (warm) count++;
+    s = Season.FALL;
+    warm = s == Season.SPRING || s == Season.SUMMER;
+    if (warm) count++;
+    print(count, 0);
+  }
+}

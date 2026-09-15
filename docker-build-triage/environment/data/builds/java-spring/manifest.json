@@ -1,0 +1,14 @@
+{
+  "project_name": "enterprise-api",
+  "language": "java",
+  "language_version": "21",
+  "build_system": "maven",
+  "dependencies": [
+    "org.springframework.boot:spring-boot-starter-web:3.2.1",
+    "org.springframework.boot:spring-boot-starter-test:3.2.1",
+    "com.fasterxml.jackson.core:jackson-databind:2.16.1"
+  ],
+  "test_framework": "junit",
+  "test_command": "mvn test",
+  "notes": "Spring Boot 3.x requires JDK 17+. Project uses Java 21 language features (records, sealed classes, pattern matching, text blocks). Should be built with Maven, not raw javac."
+}

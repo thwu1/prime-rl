@@ -1,0 +1,8 @@
+drug_name,egfr_above_60,egfr_30_to_59,egfr_15_to_29,egfr_below_15
+metformin,No adjustment needed,Reduce to max 1000 mg/day total,STOP - Contraindicated,STOP - Contraindicated
+digoxin,No adjustment needed,No adjustment needed,Reduce dose by 50%,Reduce dose by 50%
+gabapentin,No adjustment needed,Reduce to max 600 mg/day total,Reduce to max 300 mg/day total,Reduce to max 300 mg/day total
+dabigatran,No adjustment needed,No adjustment needed,Reduce to 75 mg BID,STOP - Contraindicated
+allopurinol,No adjustment needed,Reduce to max 200 mg/day total,Reduce to max 100 mg/day total,STOP - Contraindicated
+rivaroxaban,No adjustment needed,Reduce to 15 mg daily,Reduce to 15 mg daily,STOP - Contraindicated
+apixaban,No adjustment needed,No adjustment needed,Reduce to 2.5 mg BID,STOP - Contraindicated

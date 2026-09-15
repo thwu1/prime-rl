@@ -1,0 +1,48 @@
+{
+  "total_bugs": 8,
+  "bugs": [
+    "bug_001", "bug_002", "bug_003", "bug_004",
+    "bug_005", "bug_006", "bug_007", "bug_008"
+  ],
+  "configs": {
+    "simple_agent_gpt4o": {
+      "cost_per_bug": 0.05,
+      "results": {
+        "bug_001": {"verdict": "pass", "build_status": "success"},
+        "bug_002": {"verdict": "trigger", "build_status": "success"},
+        "bug_003": {"verdict": "pass", "build_status": "success"},
+        "bug_004": {"verdict": "racey", "build_status": "success"},
+        "bug_005": {"verdict": "boot_fail", "build_status": "success"},
+        "bug_006": {"verdict": "trigger", "build_status": "success"},
+        "bug_007": {"verdict": "pass", "build_status": "success"},
+        "bug_008": {"verdict": "trigger", "build_status": "compilation_fail"}
+      }
+    },
+    "simple_agent_feedback": {
+      "cost_per_bug": 0.17,
+      "results": {
+        "bug_001": {"verdict": "trigger", "build_status": "success"},
+        "bug_002": {"verdict": "pass", "build_status": "success"},
+        "bug_003": {"verdict": "pass", "build_status": "success"},
+        "bug_004": {"verdict": "pass", "build_status": "success"},
+        "bug_005": {"verdict": "pass", "build_status": "success"},
+        "bug_006": {"verdict": "trigger", "build_status": "success"},
+        "bug_007": {"verdict": "racey", "build_status": "success"},
+        "bug_008": {"verdict": "trigger", "build_status": "bad_patch"}
+      }
+    },
+    "exploration_agent": {
+      "cost_per_bug": 0.12,
+      "results": {
+        "bug_001": {"verdict": "pass", "build_status": "success"},
+        "bug_002": {"verdict": "trigger", "build_status": "success"},
+        "bug_003": {"verdict": "trigger", "build_status": "compilation_fail"},
+        "bug_004": {"verdict": "trigger", "build_status": "success"},
+        "bug_005": {"verdict": "pass", "build_status": "success"},
+        "bug_006": {"verdict": "pass", "build_status": "success"},
+        "bug_007": {"verdict": "trigger", "build_status": "success"},
+        "bug_008": {"verdict": "trigger", "build_status": "bad_patch"}
+      }
+    }
+  }
+}

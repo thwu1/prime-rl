@@ -1,0 +1,13 @@
+graph datacenter {
+    /* CSIG datacenter fabric topology
+     * Bottleneck links: L0 (access), L1 (aggregation), L2 (edge), L6 (cross-pod)
+     * Connector links: L3, L4, L5 (high-capacity backplane)
+     * Each edge has id and capacity (Mbps) attributes */
+    TOR0 -- AGG0  [id="L0", capacity="60"];
+    AGG0 -- CORE  [id="L1", capacity="100"];
+    CORE -- TOR1  [id="L2", capacity="30"];
+    TOR0 -- AGG0b [id="L3", capacity="80"];
+    AGG0 -- SPINE [id="L4", capacity="150"];
+    SPINE -- POD1 [id="L5", capacity="200"];
+    POD1 -- TOR2  [id="L6", capacity="90"];
+}

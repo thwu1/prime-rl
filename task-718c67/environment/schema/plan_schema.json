@@ -1,0 +1,541 @@
+{
+  "xpjson": "0.2",
+  "type": "PlanSchema",
+  "name": "Astrobee Free Flyer Plan Schema",
+  "notes": "Define FreeFlyer plans",
+  "id": "http://example.com/freeFlyerPlanSchema.json",
+  "paramSpecs": [
+    {
+      "type": "ParamSpec",
+      "id": "Settings.CameraName",
+      "valueType": "string",
+      "notes": "Which camera",
+      "choices": [
+        ["Science", "SCI"],
+        ["Navigation", "NAV"],
+        ["Hazard", "HAZ"],
+        ["Dock", "DOCK"],
+        ["Perch", "PERCH"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.CameraResolution",
+      "valueType": "string",
+      "notes": "Camera resolution W x H pixels. Available resolutions vary by camera: SciCam: 1920x1080, 1280x720, 960x540, 480x270. NavCam, DockCam: 1280x960, 1024x768, 640x480, 320x240. HazCam, PerchCam: 224x171 only.",
+      "choices": [
+        ["224x171", "224x171"],
+        ["320x240", "320x240"],
+        ["480x270", "480x270"],
+        ["640x480", "640x480"],
+        ["960x540", "960x540"],
+        ["1024x768", "1024x768"],
+        ["1280x720", "1280x720"],
+        ["1280x960", "1280x960"],
+        ["1920x1080", "1920x1080"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.CameraMode",
+      "valueType": "string",
+      "notes": "Cameras can both stream and record with different parameters.",
+      "choices": [
+        ["Both", "Both"],
+        ["Recording", "Recording"],
+        ["Streaming", "Streaming"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.FlightMode",
+      "valueType": "string",
+      "notes": "Flight mode controls GN&C gains, hard limits, and tolerances. Off: propulsion off. Quiet: low speed. Nominal: medium speed. Difficult: max performance. Precision: aggressive speed with tight tolerances.",
+      "choices": [
+        ["off", "Off"],
+        ["quiet", "Quiet"],
+        ["nominal", "Nominal"],
+        ["difficult", "Difficult"],
+        ["precision", "Precision"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Power.PoweredComponent",
+      "valueType": "string",
+      "notes": "Which component. Note: 'Front' means 'Forward'.",
+      "choices": [
+        ["Laser Pointer", "Laser Pointer"],
+        ["Payload Top Aft", "Payload Top Aft"],
+        ["Payload Bottom Aft", "Payload Bottom Aft"],
+        ["Payload Bottom Front", "Payload Bottom Front"],
+        ["PMC", "PMCs and Signal Lights"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Arm.ActionType",
+      "valueType": "string",
+      "notes": "Specifies whether the arm needs to pan, tilt, or both.",
+      "choices": [
+        ["Pan", "Pan"],
+        ["Tilt", "Tilt"],
+        ["Both", "Both"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.TelemetryType",
+      "valueType": "string",
+      "choices": [
+        ["CommStatus", "CommStatus"],
+        ["CpuState", "CpuState"],
+        ["DiskState", "DiskState"],
+        ["EkfState", "EkfState"],
+        ["GncState", "GncState"],
+        ["PmcCmdState", "PmcCmdState"],
+        ["Position", "Position"],
+        ["SparseMappingPose", "SparseMappingPose"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.FlashlightLocation",
+      "valueType": "string",
+      "notes": "Which flashlight. 'Back' means 'Aft' and 'Front' means 'Forward'.",
+      "choices": [
+        ["Back", "Back"],
+        ["Front", "Front"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Settings.PlannerType",
+      "valueType": "string",
+      "notes": "Trapezoidal: straight-line trajectory with trapezoidal velocity profile. QP: curved trajectory avoiding obstacles (experimental).",
+      "choices": [
+        ["trapezoidal", "Trapezoidal"],
+        ["qp", "QuadraticProgram"]
+      ]
+    },
+    {
+      "type": "ParamSpec",
+      "id": "Admin.LocalizationMode",
+      "valueType": "string",
+      "notes": "Localization pipeline selection. MappedLandmarks: NavCam landmark features. ARTags: DockCam AR tags for docking. Handrail: PerchCam LIDAR for perching. Truth: external ground-truth system (lab only).",
+      "choices": [
+        ["None", "None"],
+        ["MappedLandmarks", "MappedLandmarks"],
+        ["ARTags", "ARTags"],
+        ["Handrail", "Handrail"],
+        ["Perch", "Perch"],
+        ["Truth", "Truth"]
+      ]
+    }
+  ],
+  "commandSpecs": [
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setCamera",
+      "notes": "Sets camera parameters. While recording and streaming are disabled, use this command to adjust parameters. Available resolutions vary by camera hardware.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "cameraName",
+          "parent": "Settings.CameraName"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "cameraMode",
+          "parent": "Settings.CameraMode"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "resolution",
+          "parent": "Settings.CameraResolution"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "frameRate",
+          "valueType": "float",
+          "minimum": 1,
+          "maximum": 30,
+          "unit": "Hz",
+          "notes": "Frame rate. Maximum varies by camera: SciCam 30 Hz, NavCam/DockCam 15 Hz, HazCam/PerchCam 5 Hz."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "bandwidth",
+          "valueType": "float",
+          "unit": "kbps",
+          "minimum": 0,
+          "notes": "Only used for SciCam. Target bitrate for streaming video encoder."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setCameraStreaming",
+      "notes": "Sets camera streaming live video on/off.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "cameraName",
+          "parent": "Settings.CameraName"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "stream",
+          "valueType": "boolean",
+          "notes": "Enable/disable streaming."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setCameraRecording",
+      "notes": "Sets camera video onboard recording on/off.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "cameraName",
+          "parent": "Settings.CameraName"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "record",
+          "valueType": "boolean",
+          "notes": "Enable/disable recording."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setFlashlightBrightness",
+      "notes": "Sets flashlight brightness. Full brightness is similar to an ordinary pocket flashlight.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "which",
+          "parent": "Settings.FlashlightLocation"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "brightness",
+          "valueType": "float",
+          "minimum": 0,
+          "maximum": 1,
+          "notes": "Brightness between 0 (off) and 1 (full brightness)."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setTelemetryRate",
+      "notes": "Changes the frequency at which one DDS telemetry topic is published.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "telemetryName",
+          "parent": "Settings.TelemetryType",
+          "notes": "The DDS telemetry topic to manage."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "rate",
+          "valueType": "float",
+          "unit": "Hz",
+          "notes": "Publishing frequency."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setOperatingLimits",
+      "notes": "Changes operating limits including flight mode, velocity, acceleration, and collision distance.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "profileName",
+          "valueType": "string",
+          "default": "",
+          "notes": "Optional profile name."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "flightMode",
+          "parent": "Settings.FlightMode"
+        },
+        {
+          "type": "ParamSpec",
+          "id": "targetLinearVelocity",
+          "valueType": "float",
+          "unit": "m/s",
+          "minimum": 0,
+          "notes": "Maximum linear velocity while translating."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "targetLinearAcceleration",
+          "valueType": "float",
+          "unit": "m/s^2",
+          "minimum": 0,
+          "notes": "Maximum linear acceleration while translating."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "targetAngularVelocity",
+          "valueType": "float",
+          "unit": "rad/s",
+          "minimum": 0,
+          "notes": "Maximum angular velocity while rotating."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "targetAngularAcceleration",
+          "valueType": "float",
+          "unit": "rad/s^2",
+          "minimum": 0,
+          "notes": "Maximum angular acceleration while rotating."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "collisionDistance",
+          "valueType": "float",
+          "unit": "meters",
+          "minimum": 0,
+          "notes": "Minimum distance margin from obstacles."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Arm.armPanAndTilt",
+      "notes": "Moves Astrobee's arm. Pan and tilt joints moved sequentially. SAFETY: While tilt > 90 (arm in payload bay), pan must be 0 to avoid collision. While tilt > 160 (near stowed), gripper must be closed. While perched, tilt restricted to -20..+90.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "pan",
+          "valueType": "float",
+          "unit": "degrees",
+          "minimum": -90,
+          "maximum": 90,
+          "notes": "Target pan angle. Ignored if which is 'Tilt'."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "tilt",
+          "valueType": "float",
+          "unit": "degrees",
+          "minimum": -20,
+          "maximum": 180,
+          "notes": "Target tilt angle. Ignored if which is 'Pan'."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "which",
+          "parent": "Arm.ActionType"
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Arm.gripperControl",
+      "notes": "Opens or closes gripper. Motor consumes significant power while open; close when not in use.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "open",
+          "valueType": "boolean",
+          "notes": "Set to true/false to open/close gripper."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Arm.deployArm",
+      "notes": "Deploys arm: pan to 0, then tilt to 0.",
+      "parent": "Command",
+      "params": []
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Arm.stowArm",
+      "notes": "Stows arm: close gripper, pan to 0, tilt to 180.",
+      "parent": "Command",
+      "params": []
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Arm.stopArm",
+      "notes": "Stops arm motion, holds current joint positions. Does not affect gripper.",
+      "parent": "Command",
+      "params": []
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setCheckZones",
+      "notes": "Enables/disables keepout zone checking.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "checkZones",
+          "valueType": "boolean",
+          "notes": "Enable/disable keepout zone checking."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Power.powerOnItem",
+      "notes": "Powers on a component within Astrobee.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "which",
+          "parent": "Power.PoweredComponent"
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Power.powerOffItem",
+      "notes": "Powers off a component within Astrobee.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "which",
+          "parent": "Power.PoweredComponent"
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setInertia",
+      "notes": "Sets mass and inertia parameters for Astrobee control. Inertia matrix must be symmetric and positive definite.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "name_",
+          "valueType": "string",
+          "default": "",
+          "notes": "Optional profile name."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "mass",
+          "valueType": "float",
+          "unit": "kg",
+          "minimum": 0,
+          "notes": "Mass of the Astrobee assembly."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "centerOfMass",
+          "valueType": "array[3].double",
+          "unit": "meters",
+          "notes": "Center of mass relative to body frame."
+        },
+        {
+          "type": "ParamSpec",
+          "id": "matrix",
+          "valueType": "array[9].float",
+          "unit": "kg m^2",
+          "notes": "Moment of inertia tensor. Must be symmetric. Specified relative to center of mass."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Plan.wait",
+      "notes": "Temporarily pauses the running plan. Resumes automatically after the specified duration.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "duration",
+          "valueType": "float",
+          "unit": "seconds",
+          "minimum": 0,
+          "notes": "Seconds to pause."
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Settings.setPlanner",
+      "notes": "Switches trajectory planner.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "planner",
+          "parent": "Settings.PlannerType"
+        }
+      ]
+    },
+    {
+      "type": "CommandSpec",
+      "id": "Admin.switchLocalization",
+      "notes": "Manually switches between localization pipelines.",
+      "parent": "Command",
+      "params": [
+        {
+          "type": "ParamSpec",
+          "id": "mode",
+          "parent": "Admin.LocalizationMode"
+        }
+      ]
+    }
+  ],
+  "stationSequence": {
+    "type": "StationSequence",
+    "notes": "Plan sequence alternates between Station and Segment items.",
+    "stationParams": [
+      {
+        "type": "ParamSpec",
+        "id": "tolerance",
+        "valueType": "float",
+        "default": 0.0,
+        "minimum": 0,
+        "notes": "Position tolerance at station."
+      },
+      {
+        "type": "ParamSpec",
+        "id": "stopOnArrival",
+        "valueType": "boolean",
+        "default": false,
+        "notes": "Whether to stop at station before executing commands."
+      }
+    ],
+    "segmentParams": [
+      {
+        "type": "ParamSpec",
+        "id": "speed",
+        "valueType": "float",
+        "minimum": 0,
+        "notes": "Segment speed."
+      },
+      {
+        "type": "ParamSpec",
+        "id": "tolerance",
+        "valueType": "float",
+        "default": 0.0,
+        "minimum": 0,
+        "notes": "Segment tolerance."
+      }
+    ]
+  }
+}

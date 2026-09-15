@@ -1,0 +1,11 @@
+{
+  "name": "unreachable",
+  "prog_type": "xdp",
+  "maps": [],
+  "instructions": [
+    {"op": "mov64_imm", "dst": 0, "imm": 2},
+    {"op": "exit"},
+    {"op": "mov64_imm", "dst": 0, "imm": 1},
+    {"op": "exit"}
+  ]
+}

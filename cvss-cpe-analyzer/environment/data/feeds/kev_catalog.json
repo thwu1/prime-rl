@@ -1,0 +1,52 @@
+{
+  "title": "CISA Known Exploited Vulnerabilities Catalog",
+  "catalogVersion": "2024.07.20",
+  "dateReleased": "2024-07-20T00:00:00.000Z",
+  "count": 4,
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-MIRROR-0001",
+      "vendorProject": "Acme",
+      "product": "LogLib",
+      "vulnerabilityName": "Acme LogLib JNDI Injection RCE",
+      "dateAdded": "2024-01-20",
+      "shortDescription": "Acme LogLib contains a JNDI injection vulnerability allowing remote code execution via crafted log messages.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2024-02-10",
+      "knownRansomwareCampaignUse": "Known"
+    },
+    {
+      "cveID": "CVE-MIRROR-0003",
+      "vendorProject": "Acme",
+      "product": "ShellUtil",
+      "vulnerabilityName": "Acme ShellUtil Command Injection",
+      "dateAdded": "2024-03-10",
+      "shortDescription": "Acme ShellUtil allows arbitrary command injection via environment variable processing.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2024-04-01",
+      "knownRansomwareCampaignUse": "Known"
+    },
+    {
+      "cveID": "CVE-MIRROR-0004",
+      "vendorProject": "Acme",
+      "product": "KernelOS",
+      "vulnerabilityName": "Acme KernelOS Race Condition Privilege Escalation",
+      "dateAdded": "2024-04-01",
+      "shortDescription": "Race condition in Acme KernelOS memory management allows local privilege escalation.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2024-05-01",
+      "knownRansomwareCampaignUse": "Unknown"
+    },
+    {
+      "cveID": "CVE-MIRROR-0011",
+      "vendorProject": "Acme",
+      "product": "Analytics",
+      "vulnerabilityName": "Acme Analytics SQL Injection",
+      "dateAdded": "2024-07-10",
+      "shortDescription": "SQL injection in Acme Analytics report generator allows unauthorized data access.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2024-08-01",
+      "knownRansomwareCampaignUse": "Unknown"
+    }
+  ]
+}

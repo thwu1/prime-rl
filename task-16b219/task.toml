@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level climate data science: discovering and handling cross-model unit inconsistencies in Zarr metadata (one model stores humidity as fraction instead of percent), knowing or researching the Stull (2011) wet-bulb temperature formula (not provided), implementing area-weighted spatial percentiles with cos-latitude weighting, computing the warming amplification ratio (WBT extreme sensitivity to global mean temperature change), independently reconstructing the NOAA ONI methodology (Niño 3.4 region selection, climatology removal, 3-month running mean), and classifying ENSO events from the resulting index. Each component has domain-specific pitfalls that compound across the pipeline."""
+solution_explanation = """Parse catalog CSV to locate Zarr stores. Check each variable's .zattrs for units — MIROC-TEST stores hurs as fraction [0,1] requiring multiplication by 100. Convert tas from K to C. Apply Stull (2011) WBT formula. Compute area-weighted 90th percentile using cos(lat) weights with cumulative distribution interpolation. For warming amplification: compute global area-weighted mean temperature for historical and ssp585, take the ratio of WBT extreme change to mean temp change. For ONI: extract Niño 3.4 SST (5S-5N, 190E-240E), compute area-weighted mean, remove monthly climatology, apply 3-month centered running mean. Classify ENSO events by 5+ consecutive months exceeding ±0.5°C."""
+verification_explanation = """Tests independently recompute WBT reference value, verify Kelvin-to-Celsius conversion via range checks, independently compute area-weighted 90th percentile for CESM2-TEST and MIROC-TEST (verifying humidity unit handling), check scenario ordering across all models, verify cross-model consistency (catches unit conversion failures), independently compute warming amplification and compare, independently compute ONI from raw Zarr data and compare values, and independently count ENSO events."""
+category = "data_science"
+tags = ["climate-science", "zarr-xarray"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-16b219"

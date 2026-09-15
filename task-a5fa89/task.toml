@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three distinct expert skill sets: (1) deep understanding of the SQLite binary file format — the 100-byte header structure, B-tree page type semantics (0x02/0x05/0x0a/0x0d), and structural deduction of non-default page size from page boundary analysis — to repair 6 corruptions at the byte level; (2) query planner evaluation expertise — applying each candidate index strategy to a temporary database, running EXPLAIN QUERY PLAN for 5 queries under each strategy, and correctly judging whether indexes on wrong columns or wrong tables fail to eliminate scans; (3) index design creativity — synthesizing a novel index strategy that achieves zero full scans with minimal storage overhead, outperforming the covering-index strategy while staying within a 4-index budget. The solver must compare, judge, and create rather than apply textbook patterns."""
+solution_explanation = """Phase 1 (Recovery): Fix 6 corruptions — restore magic header byte 6 from 'F' to 'f', deduce correct page size (8192) by testing B-tree page type bytes at candidate page boundaries, reset reserved bytes per page from 32 to 0, set text encoding to UTF-8, restore change counter from version-valid-for field, and determine the correct B-tree page type for the trades table root page through trial. Phase 2 (Evaluation): For each of 3 candidate strategies, create a temporary copy of the repaired database, apply the strategy's indexes, run EXPLAIN QUERY PLAN for all 5 target queries, and check for SCAN on trades/compliance_flags. Strategy A (covering indexes) has no scans but is wasteful. Strategy B (indexes on side/flag_type) fails — wrong columns. Strategy C (indexes on instruments/traders tables) fails — wrong tables. Phase 3 (Design): Create 4 minimal indexes — trades(trader_id, trade_date), trades(instrument_id), compliance_flags(severity, resolved), trades(trade_date) — using 6 total columns vs Strategy A's 26, eliminating all scans."""
+verification_explanation = """Tests verify: (1) header field values at specific byte offsets, (2) PRAGMA integrity_check returns 'ok', (3) all tables have correct row counts and aggregate values matching a deterministic reference database, (4) no more than 4 user-created indexes exist, (5) EXPLAIN QUERY PLAN for each of 5 target queries shows no SCAN on trades or compliance_flags tables, (6) query results match the reference database exactly, (7) analysis.json correctly identifies Strategy A as having no scans and Strategies B/C as having scans, (8) the solver's index strategy uses fewer total columns than Strategy A's covering indexes."""
+category = "database_systems"
+tags = ["sqlite-forensics", "index-strategy-evaluation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a5fa89"

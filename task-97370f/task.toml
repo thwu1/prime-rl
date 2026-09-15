@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the YATA CRDT conflict resolution algorithm, including the subtle two-set scan that distinguishes direct conflicts from transitive causal dependencies. The implementer must correctly handle compound item splitting, Lamport timestamp management, state-vector-based differential sync with dependency resolution for out-of-order delivery, and snapshot-based temporal reconstruction. Even experienced distributed-systems engineers find YATA's conflict resolution edge cases (cascading origins across conflict groups) challenging to get right."""
+solution_explanation = """The solution implements a doubly-linked list of compound Items identified by Lamport timestamps (client_id, clock). Each Item stores origin and origin_right references. The core YATA integrate method resolves concurrent insertions using two tracking sets: items_before_origin (never cleared, accumulates all scanned items) and conflicting_items (cleared when the insertion point advances). This two-set design ensures items whose origins chain through earlier conflict groups are correctly placed relative to the new item. Compound items are split at arbitrary clock boundaries when remote operations target their interior. State vectors track contiguous clock ranges per client, enabling differential sync. Snapshots combine state vectors with delete sets for point-in-time reconstruction."""
+verification_explanation = """Tests verify convergence by applying updates in all permutation orders and asserting identical text output. Specific tests exercise the two-set conflict resolution (cascading sequential inserts from one client vs concurrent inserts from another), compound item splitting (remote insert targeting the middle of a multi-char item), state vector correctness, differential sync, idempotency, and snapshot temporal queries with interleaved inserts and deletes."""
+category = "algorithms"
+tags = ["crdt", "distributed-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-97370f"

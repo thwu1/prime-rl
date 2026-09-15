@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of HFT market microstructure, L2 order book semantics, and queue position estimation. The agent must read and comprehend Rust source code with generics, traits, and Box<dyn Any> downcasting, then architect a complete Python implementation from scratch (~400 lines across two modules). Key challenges: (1) translating Rust trait-based polymorphism to Python class hierarchy with correct state management, (2) correctly implementing ProbQueueModel.depth() with its subtle order-of-operations for cumulative trade reset vs. depth-change branching, (3) matching Rust f64::round() semantics (ties away from zero) vs Python's banker's rounding, (4) designing the event processing pipeline with correct ordering of book updates, order placement, trade handling, depth-based queue updates, and price-improvement fill checks, (5) implementing the OrderBook with proper zero-quantity level cleanup for correct BBO computation, (6) understanding which depth quantity to use for order placement (at-price, not BBO)."""
+solution_explanation = """Two modules must be implemented from scratch: (1) microstructure.py (~190 lines): OrderBook using dicts with zero-qty level deletion for correct BBO, RiskAdverseQueueModel with trade-only advancement and depth clamping, ProbQueueModel with cum_trade_qty tracking where the reset must occur before the chg<0 branch (matching Rust), probability-weighted cancellation estimation formula (est_front = front - (1-prob)*chg + min(back - prob*chg, 0)), power and log probability functions, and a _round_half_away helper using floor(x+0.5) to match Rust f64::round(). (2) run_simulation.py (~120 lines): event loop processing book updates first, placing orders at submit_time using qty at the order's specific price level, checking trade-price-improvement before queue advancement, processing depth-triggered fills after queue updates, and computing per-order fees/aggregate position/balance."""
+verification_explanation = """33 pytest tests verify: (1) OrderBook snapshot construction and BBO computation, (2) OrderBook depth update with zero-qty level deletion causing BBO shift, (3) OrderBook qty_at_price lookups, (4) OrderBook process_event return values, (5) Trade events not modifying book state, (6) RiskAdverse trade-based fills, depth clamping, and partial-fill reset, (7) ProbQueue power model probability function values, (8) ProbQueue cancellation adjustment with interleaved trades and depth changes (catches cum_trade_qty ordering bugs), (9) ProbQueue depth-increase handling, (10) ProbQueue log model vs power model cross-comparison, (11) Full simulation integration tests verifying per-order fill times and fill/no-fill status across all three models, (12) Balance and fee calculations, (13) Cross-model differentiation ensuring models produce strictly ordered fill timings and different fill counts."""
+category = "finance"
+tags = ["market-microstructure", "hft-simulation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/queue-position-fill"

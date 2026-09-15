@@ -1,0 +1,4 @@
+---
+- name: Reload nginx
+  debug:
+    msg: "nginx configuration reloaded for {{ inventory_hostname }}"

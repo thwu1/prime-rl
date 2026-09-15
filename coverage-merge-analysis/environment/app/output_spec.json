@@ -1,0 +1,61 @@
+{
+  "description": "Specification for /app/coverage_report.json output format",
+  "structure": {
+    "summary": {
+      "overall_coverage_pct": "float: root-level hierarchical weighted coverage percentage",
+      "total_goals": "int: total number of leaf goals in the verification plan",
+      "goals_met": "int: number of goals where achieved >= goal",
+      "goals_failed": "int: number of goals where achieved < goal"
+    },
+    "metrics": {
+      "_description": "One entry per leaf node in the verification plan, keyed by the vplan leaf name",
+      "<vplan_leaf_name>": {
+        "coverage_pct": "float: coverage percentage (0-100)",
+        "goal_pct": "float: goal percentage from vplan",
+        "goal_met": "bool: true if coverage_pct >= goal_pct",
+        "covered_count": "int: number of covered items after exclusions",
+        "total_count": "int: total items after exclusions",
+        "uncovered_items": ["list of string IDs for uncovered items"]
+      }
+    },
+    "covergroups": {
+      "_description": "One entry per covergroup, showing component-level detail",
+      "<covergroup_name>": {
+        "coverage_pct": "float: unweighted average of all component (coverpoint + cross) coverages",
+        "components": {
+          "<coverpoint_or_cross_name>": {
+            "coverage_pct": "float",
+            "covered_count": "int",
+            "total_count": "int"
+          }
+        }
+      }
+    },
+    "hierarchy": {
+      "_description": "One entry per node in the vplan tree (including root and intermediate nodes)",
+      "<node_name>": {
+        "coverage_pct": "float: for leaves = metric coverage; for internal = weighted avg of children",
+        "weight": "int: weight from vplan (root weight is irrelevant)",
+        "children": "list of child node names (empty list for leaves)"
+      }
+    },
+    "failed_goals": [
+      {
+        "metric": "string: vplan leaf name",
+        "achieved_pct": "float",
+        "goal_pct": "float",
+        "gap_pct": "float: goal_pct - achieved_pct"
+      }
+    ]
+  },
+  "computation_rules": {
+    "merge_strategy": "Union semantics: an item is considered covered if it was hit in ANY run. For functional coverage bins, sum hit counts across runs.",
+    "at_least_threshold": "A functional coverage bin is considered covered if its merged (summed) hit count >= the at_least value.",
+    "cross_coverage_total": "The total number of bins in a cross is the Cartesian product of the component coverpoint bins. Derive this from the bin definitions, not from hit data.",
+    "covergroup_coverage": "Unweighted average (arithmetic mean) of all coverpoint and cross coverage percentages within the covergroup.",
+    "exclusion_toggle": "Remove the specified toggle from both total and hit counts.",
+    "exclusion_cross_bin": "Remove the specified cross bin from both total and hit counts for that cross.",
+    "exclusion_fsm_state": "When exclude_transitions is true, remove the state from state coverage AND remove all transitions where the state appears as source or destination from transition coverage. Both total and hit counts are adjusted.",
+    "hierarchical_coverage": "For internal nodes: sum(child_coverage_pct * child_weight) / sum(child_weights). For leaf nodes: the metric's coverage_pct."
+  }
+}

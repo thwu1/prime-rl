@@ -1,0 +1,14 @@
+[evaluation]
+affinity_thresholds_m = [0.5, 1.0, 2.0, 4.0]
+tp_threshold_m = 2.0
+max_range_m = 150.0
+max_detections_per_category = 100
+num_recall_samples = 101
+
+[evaluation.tp_norms]
+ATE = 2.0
+ASE = 1.0
+AOE = 3.14159265358979
+
+[output]
+decimal_places = 4

@@ -1,0 +1,36 @@
+{
+    "capsule_results": [
+        {
+            "capsule_id": "capsule-6038",
+            "result_report": {"accuracy": 0.50, "best_model": "NaiveBayes"}
+        },
+        {
+            "capsule_id": "capsule-7291",
+            "result_report": {}
+        },
+        {
+            "capsule_id": "capsule-4157",
+            "result_report": {"precision": 90.0}
+        },
+        {
+            "capsule_id": "capsule-8523",
+            "result_report": {"f1_score": 0.500}
+        },
+        {
+            "capsule_id": "capsule-3429",
+            "result_report": {}
+        },
+        {
+            "capsule_id": "capsule-1984",
+            "result_report": {"model_type": "WLS"}
+        },
+        {
+            "capsule_id": "capsule-5610",
+            "result_report": {"train_loss": 0.500}
+        },
+        {
+            "capsule_id": "capsule-2847",
+            "result_report": {}
+        }
+    ]
+}

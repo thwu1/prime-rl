@@ -1,0 +1,30 @@
+diff --git a/block/blk-mq.c b/block/blk-mq.c
+index abc1234..def5678 100644
+--- a/block/blk-mq.c
++++ b/block/blk-mq.c
+@@ -42,16 +42,19 @@ static int blk_mq_init_hctx(struct blk_mq_tag_set *set,
+  */
+ int blk_mq_get_tag(struct blk_mq_hw_ctx *hctx, unsigned int flags)
+ {
+-    struct blk_mq_tag_set *tags = hctx->tags;
+-    int tag;
++    struct blk_mq_tag_set *ts = hctx->tags;
++    int nr;
+
+-    if (!tags->driver_data)
++    if (!ts)
++        return -EINVAL;
++
++    if (!ts->driver_data)
+         return -EINVAL;
+
+-    tag = tags->queue_depth;
+-    if (atomic_read(&hctx->nr_active) >= tag)
++    nr = ts->queue_depth;
++    if (atomic_read(&hctx->nr_active) >= nr)
+         return -EBUSY;
+
+     atomic_inc(&hctx->nr_active);
+-    return tag - atomic_read(&hctx->nr_active);
++    return nr - atomic_read(&hctx->nr_active);
+ }

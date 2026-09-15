@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of git's internal object model (commits, trees, blobs, tag objects, notes, stash internals) to enumerate and search the full object store including unreachable objects orphaned by history rewrites. The solver must combine multiple git plumbing commands (rev-list, cat-file, fsck --unreachable --no-reflogs, for-each-ref, ls-tree, notes list, stash list) with custom token validation logic implementing CRC-32, Adler-32, and FNV-1a-32 checksums plus Base62 encoding. Classifying token locations (blob vs tag_annotation vs note vs stash) requires mapping object hashes to their semantic context in git's reference graph. Correctly determining reachability — distinguishing named refs from reflog-only references — demands deep understanding of git's garbage collection model that goes well beyond typical developer experience."""
+solution_explanation = """Enumerate reachable objects via git rev-list --all --objects plus explicit refs/stash traversal. Find tag objects via git for-each-ref. Identify note blobs via git notes list. Discover unreachable objects via git fsck --unreachable --no-reflogs, then traverse unreachable commits' trees with git ls-tree -r. Read each blob/tag object with git cat-file -p and regex-match token candidates. Validate each candidate's checksum (CRC-32 for apx, Adler-32 on hex-decoded bytes for nxs, FNV-1a-32 for vlt). Classify location_type by checking if object hash appears in note blobs set, stash-only objects set, or tag objects set. Determine reachability by membership in the rev-list --all output."""
+verification_explanation = """Tests independently compute all 9 expected valid tokens from hardcoded payloads using reference checksum implementations. Verifies exact count (3 apx + 3 nxs + 3 vlt = 9 total), correct provider classification, correct location_type for each token (including stash, tag_annotation, note), and correct reachability flags (8 reachable + 1 unreachable). Verifies 4 decoy tokens with corrupted checksums are excluded. Git-based sanity checks confirm the repo has the expected structure (stash entries, notes, annotated tags, unreachable objects)."""
+category = "security"
+tags = ["git-forensics", "incident-response"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/secret-token-scanner"

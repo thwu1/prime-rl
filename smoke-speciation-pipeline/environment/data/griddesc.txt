@@ -1,0 +1,11 @@
+! Coordinate and grid descriptions for SE US emissions domain
+'LAM_40N97W'
+    2  0.33D2  0.45D2 -0.97D2 -0.97D2  0.40D2
+'LATLON_US'
+    1, 0.0D0, 0.0D0, 0.0D0, 0.0D0, 0.0D0
+' '
+'SE_US_12KM'
+'LAM_40N97W'  -2.556D6 -1.728D6  0.12D5  0.12D5  50  40  1
+'CONUS_36KM'
+'LAM_40N97W', -2952000.0D0, -2772000.0D0, 36000.0D0, 36000.0D0, 148, 112, 1
+' '

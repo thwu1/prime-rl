@@ -1,0 +1,27 @@
+{
+  "dag_id": "monitoring",
+  "schedule_interval": "*/30 * * * *",
+  "default_args": {
+    "retries": 1,
+    "retry_delay_seconds": 60,
+    "execution_timeout_seconds": 600
+  },
+  "tasks": [
+    {
+      "task_id": "collect_metrics",
+      "operator": "PythonOperator",
+      "dependencies": []
+    },
+    {
+      "task_id": "trigger_etl_check",
+      "operator": "TriggerDagRunOperator",
+      "dependencies": ["collect_metrics"],
+      "trigger_dag_id": "etl_ingest"
+    },
+    {
+      "task_id": "generate_dashboard",
+      "operator": "PythonOperator",
+      "dependencies": ["collect_metrics"]
+    }
+  ]
+}

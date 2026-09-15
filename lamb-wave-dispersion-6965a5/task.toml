@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Expert-level computational physics task requiring deep understanding of elastic wave propagation in anisotropic media, numerical solution of transcendental dispersion equations for multilayered plates, tensor rotation in Voigt notation, root-finding and mode tracking across frequency, and numerical differentiation for group velocity. Requires coupling numerical linear algebra with wave physics and selecting an appropriate matrix method."""
+solution_explanation = """Reference solver implements vectorised SMM following Rokhlin & Wang (2002) and Huber (2023). Builds per-layer 4x4 stiffness matrices from quadratic eigenvalue solutions for out-of-plane wavenumbers, assembles global matrix recursively, and finds roots via grid sweep + bounded minimisation. Mode branches are tracked by nearest-neighbour continuity. Group velocity computed from smoothed numerical differentiation of phase velocity curves."""
+verification_explanation = """Tests verify: (1) exit code 1 for unsupported (non-decoupled) configurations with stderr output, (2) metadata correctness for both materials, (3) at least 2 modes found, (4) S0 plate velocity near 5.4 km/s for aluminum at low fd, (5) phase velocities match independent Rayleigh-Lamb equation solutions at 1 and 2 MHz within 5%, (6) group velocities present and physically bounded, (7) composite modes ordered and physically reasonable, (8) anisotropic stiffness rotation produces distinct results from isotropic case."""
+category = "physics_engineering"
+tags = ["guided-waves", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lamb-wave-dispersion-6965a5"

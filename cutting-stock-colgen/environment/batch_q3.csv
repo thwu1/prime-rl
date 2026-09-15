@@ -1,0 +1,16 @@
+order_id,customer,width_mm,quantity,priority,date_received
+C001,Acme Corp,2200,15,high,2024-01-11
+C002,BuildRight,1520,20,medium,2024-01-11
+C003,CoreTech,1380,8,medium,2024-01-12
+C004,Deltaware,1120,16,high,2024-01-12
+C005,EdgeLine,930,30,high,2024-01-13
+C006,Farpoint,840,13,high,2024-01-13
+C007,Farpoint,770,21,medium,2024-01-13
+C008,CoreTech,680,16,high,2024-01-14
+C009,BuildRight,520,39,high,2024-01-14
+C010,Acme Corp,410,107,high,2024-01-14
+C011,EdgeLine,350,42,medium,2024-01-14
+C012,Deltaware,280,65,high,2024-01-15
+C013,Farpoint,220,51,high,2024-01-15
+C014,CoreTech,190,90,high,2024-01-15
+C015,BuildRight,140,104,medium,2024-01-15

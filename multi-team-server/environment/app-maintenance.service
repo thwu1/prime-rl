@@ -1,0 +1,11 @@
+[Unit]
+Description=Application Maintenance Tasks
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/admin/scripts/maintenance.sh
+User=root
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+{
+  "description": "Definition of the slowly convergent alternating series S",
+  "formula": "S = sum_{n=1}^{infinity} (-1)^{n+1} * f(n)",
+  "term_function": {
+    "expression": "f(n) = 1 / (n * H_n)",
+    "description": "Each term is the reciprocal of n times the n-th harmonic number"
+  },
+  "harmonic_number": {
+    "symbol": "H_n",
+    "definition": "H_n = sum_{k=1}^{n} 1/k",
+    "description": "The n-th harmonic number (partial sums of the harmonic series)"
+  },
+  "convergence_notes": "Terms decay as O(1/(n * ln(n))), which is sub-algebraic. The series is conditionally convergent."
+}

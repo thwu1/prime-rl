@@ -1,0 +1,27 @@
+{
+  "target_kernel": "column_major",
+  "context": "Evaluate shared memory tile layout strategies for reading column 0 from a 32x32 float tile stored in shared memory. Thread t reads row t. Each float element is 4 bytes. Byte offset for thread t is computed from the row stride and any address transform.",
+  "strategies": {
+    "no_padding": {
+      "description": "Standard row-major layout. Each row occupies 32 float elements contiguously. Stride between consecutive rows is 32 elements.",
+      "stride_elements": 32,
+      "address_transform": "none"
+    },
+    "pad_1": {
+      "description": "Row-major layout with 1 padding element appended after each row. Stride between consecutive rows is 33 elements.",
+      "stride_elements": 33,
+      "address_transform": "none"
+    },
+    "pad_2": {
+      "description": "Row-major layout with 2 padding elements appended after each row. Stride between consecutive rows is 34 elements.",
+      "stride_elements": 34,
+      "address_transform": "none"
+    },
+    "xor_swizzle": {
+      "description": "Row-major layout with 32-element stride but XOR-based index remapping. When accessing element [row][col], the physical column index is computed as (col XOR row). This remaps the storage location without changing the logical layout.",
+      "stride_elements": 32,
+      "address_transform": "physical_col = logical_col XOR row_index"
+    }
+  },
+  "output_per_strategy": ["stride", "wavefronts", "total_conflicts"]
+}

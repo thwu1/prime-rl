@@ -1,0 +1,21 @@
+{
+  "description": "Single-effect NH3-H2O absorption chiller with solution heat exchanger (SHX)",
+  "x_strong_molar": 0.5,
+  "x_weak_molar": 0.3,
+  "P_high_MPa": 1.5,
+  "P_low_MPa": 0.2,
+  "m_ref_kgps": 1.0,
+  "SHX_effectiveness": 0.7,
+  "SHX_definition": "Temperature effectiveness on the hot (weak solution) side: eps = (T_hot_in - T_hot_out) / (T_hot_in - T_cold_in)",
+  "assumptions": [
+    "No rectifier",
+    "Negligible pump work",
+    "Isenthalpic expansion valves",
+    "Generator operates at bubble point of weak solution at P_high; vapor in equilibrium at same conditions",
+    "Absorber operates at bubble point of strong solution at P_low",
+    "Complete condensation of refrigerant vapor to saturated liquid at P_high",
+    "Complete evaporation at evaporator outlet; vapor at dew point at P_low",
+    "SHX hot stream: weak solution leaving generator; cold stream: strong solution leaving absorber",
+    "All energy balances use enthalpy correlations; do not assume constant specific heat"
+  ]
+}

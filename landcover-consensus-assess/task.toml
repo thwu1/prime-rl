@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing ~22 interacting bugs across 8 Python modules, a SQLite storage layer, and a Makefile in a geospatial land cover assessment pipeline, without being told what the bugs are. Python bugs span incorrect taxonomy mappings that cascade through hierarchical classification, wrong weight normalization and probability distribution in a Bayesian consensus algorithm, a transposed confusion matrix that silently swaps precision/recall, degenerate kappa edge cases, incorrect zero-support defaults, a completely stub sampling module requiring CDF-based farthest-point selection from academic reference material, missing probability clipping, overly tight validation tolerance, missing negative probability checks, wrong CLI output keys, a missing CLI subcommand, and a CLI that ignores its own parsed arguments. SQL bugs include swapped column values in INSERT statements, wrong GROUP BY clauses, and incorrect column index mapping in result parsing. Makefile bugs include $VAR vs $(VAR) variable expansion errors, missing target dependencies, wrong table names in sqlite3 CLI queries, and broken variable references in clean targets. The solver must trace failures across module boundaries spanning three tool domains (Python, SQL, Make), cross-reference with provided methodology documentation, and implement correct solutions for each."""
+solution_explanation = """The solution replaces all files in the lcnet package plus the Makefile: (1) taxonomy.py fixes L3_TO_L2 mapping for index 6 and CLASSES_L2 name; (2) consensus.py normalizes weights by sum not max, distributes error across (C-1) not C; (3) metrics.py fixes CM orientation, kappa edge case, zero-support defaults; (4) sampling.py implements full CDF-based farthest-point selection; (5) scoring.py adds clipping, fixes tolerance, adds negative checks; (6) storage.py fixes swapped INSERT values, GROUP BY clause, column indices; (7) __main__.py adds sample subcommand, fixes score key, passes --level, adds DB persistence for score; (8) Makefile fixes $(DATA_DIR) expansion, adds init-db dependency to score-sample, fixes table name in report, fixes $(RESULTS_DB) in clean."""
+verification_explanation = """59 pytest tests across 9 test classes verify all modules via Python API, CLI, SQL, and Make. Taxonomy tests check exact class names, list lengths, and mapping dictionaries. Consensus tests verify weighted disagreement resolution and exact probability values. Metrics tests verify kappa at -1/0/0.5/1, degenerate edge case, CM orientation, hierarchical level mapping. Sampling tests verify CDF-based selection, bimodal coverage, anti-stub. Scoring tests verify cross-entropy, numerical stability, validation. Storage tests verify schema creation, value correctness (catches column swaps), and aggregation by level (catches GROUP BY bugs). CLI tests exercise all 5 subcommands including --db persistence. Makefile tests verify init-db, full pipeline end-to-end with DB verification, and clean target."""
+category = "data_science"
+tags = ["remote-sensing", "geospatial-ml"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/landcover-consensus-assess"

@@ -1,0 +1,14 @@
+{
+  "trace_id": "trace_01_p2p_full",
+  "description": "Point-to-point full adjacency formation between R3 and R4 on network N2",
+  "events": [
+    {"time": 1, "router": "R3", "neighbor": "R4", "event": "HelloReceived"},
+    {"time": 2, "router": "R4", "neighbor": "R3", "event": "HelloReceived"},
+    {"time": 3, "router": "R3", "neighbor": "R4", "event": "2-WayReceived"},
+    {"time": 4, "router": "R4", "neighbor": "R3", "event": "2-WayReceived"},
+    {"time": 5, "router": "R3", "neighbor": "R4", "event": "NegotiationDone"},
+    {"time": 6, "router": "R4", "neighbor": "R3", "event": "NegotiationDone"},
+    {"time": 7, "router": "R3", "neighbor": "R4", "event": "ExchangeDone", "ls_request_list_empty": true},
+    {"time": 8, "router": "R4", "neighbor": "R3", "event": "ExchangeDone", "ls_request_list_empty": true}
+  ]
+}

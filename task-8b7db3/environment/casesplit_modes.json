@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "pipe_correct": {
+      "expression": "G(valid_in -> F valid_out)",
+      "signals": ["valid_in", "valid_out", "mode"],
+      "temporal_depth": 15
+    }
+  },
+  "signal_dependencies": {
+    "valid_in": [],
+    "valid_out": ["valid_in", "mode"],
+    "mode": []
+  },
+  "decompositions": [
+    {
+      "strategy": "case_split",
+      "target": "pipe_correct",
+      "params": {
+        "cases": [
+          {"name": "mode_on", "predicate": "mode"},
+          {"name": "mode_off", "predicate": "~mode"}
+        ]
+      }
+    }
+  ]
+}

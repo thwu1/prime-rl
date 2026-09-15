@@ -1,0 +1,22 @@
+// Multi-operation handler: Reader has Ask and Local
+effect Reader {
+    Ask();
+    Local(v)
+}
+
+val result = handle {
+    val x = do Ask();
+    val y = handle {
+        do Ask()
+    } with Reader {
+        return(r) => r
+        Ask(resume) => resume(do Local(x * 10))
+        Local(v, resume) => resume(v)
+    };
+    x + y
+} with Reader {
+    return(x) => x
+    Ask(resume) => resume(5)
+    Local(v, resume) => resume(v)
+};
+print(result)

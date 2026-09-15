@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of score-based generative models, numerical analysis, and kernel methods. The score function fix demands diagnosing a subtle floating-point underflow in responsibility computation and implementing log-space stabilization. The score divergence requires deriving the Laplacian of log p for a Gaussian mixture (the responsibility-weighted variance decomposition of per-component scores), which is non-trivial without strong probability theory background. The kernel Stein discrepancy requires knowledge of RKHS theory, the Stein operator, and the IMQ kernel — including correctly deriving all kernel gradient and Hessian-trace terms. The agent must also ensure mutual consistency across all three functions via the Stein identity, requiring holistic reasoning about how the pieces interact rather than implementing each in isolation."""
+solution_explanation = """Fix gm_score by computing responsibilities entirely in log-space using log-sum-exp normalization, avoiding the 0/0 underflow in the naive implementation. Implement gm_score_divergence using the formula div(s) = E_psi[||s_k||^2] - ||s||^2 - D/sigma^2, where psi_k are the log-space responsibilities, s_k are per-component scores, and s is the mixture score. Implement gm_kernel_stein_discrepancy by computing the Stein kernel u_p(x_i,x_j) = s(x_i)^T s(x_j) k + s(x_i)^T grad_y k + s(x_j)^T grad_x k + Tr(grad_x grad_y k) with the IMQ kernel k = (c^2 + r^2)^{-1/2} and median-heuristic bandwidth selection."""
+verification_explanation = """Tests verify gm_score against finite-difference approximations of gm_log_prob for both near-mode and tail inputs, check numerical stability for extreme inputs (far tails, small variance, degenerate weights), and verify batch dimensions. Tests for gm_score_divergence check against analytical values for single Gaussians (div = -D/sigma^2), finite differences of the score, a known analytical value for a symmetric mixture, and the Stein identity E[div(s) + ||s||^2] = 0 via Monte Carlo sampling from both single and multi-component GMs. KSD tests verify near-zero values for matching distributions, positive values for mismatched distributions (mean shift, variance mismatch), monotonicity with shift magnitude, and non-negativity."""
+category = "ml_research"
+tags = ["score_functions", "kernel_methods"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b44349"

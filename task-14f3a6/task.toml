@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic knowledge across multiple NaCl primitives (Salsa20, Poly1305, Curve25519). The agent must reverse-engineer subtle bugs in ~800 lines of dense C code by comparing behavior against test vectors and reference specifications, then assess the security impact of each — distinguishing actively exploitable vulnerabilities from passive correctness failures. The forgery proof-of-concept demands deep understanding of the vulnerability mechanism to construct a triggering key and re-implement the broken behavior for comparison. Multi-tool proficiency needed: gcc compilation, libsodium cross-validation via pkg-config, authenticated decryption, JSON report generation, and structured C exploit output."""
+solution_explanation = """Bug 1: Salsa20 core rotation constant 14→13 (spec: 7,9,13,18). Bug 2: Sigma constant 'K'→'k' (spec: 'expand 32-byte k'). Bug 3: Poly1305 key clamping r[11]&=63→r[11]&=15 (spec requires top 4 bits clear). Bug 4: inv25519 exponent bit skip a!=3→a!=4 (Fermat: p-2=2^255-21, binary zeros at bits 2 and 4). After fixing, compile a C program calling crypto_secretbox_open to decrypt the challenge. Write a forgery_poc.c that re-implements broken Poly1305 clamping alongside the fixed implementation, demonstrating that a key with byte 11 bits 4-5 set produces divergent MACs. Classify each bug's security impact: poly1305 is actively_exploitable/authentication_bypass; salsa20 bugs are passive encryption/interop failures; curve25519 is passive key_exchange_failure."""
+verification_explanation = """Tests compile the agent's fixed tweetnacl.c against a harness checking all 4 test vectors and secretbox roundtrip. The forgery_poc.c is compiled with the fixed tweetnacl and executed — output must contain DIVERGENT=YES with valid hex MACs and a key triggering the clamping bug. bug_report.json is validated for correct structure, primitive identification, and poly1305 exploitability classification."""
+category = "cybersecurity"
+tags = ["cryptography", "vulnerability-assessment"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-14f3a6"

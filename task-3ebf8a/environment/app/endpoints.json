@@ -1,0 +1,8 @@
+[
+  {"name": "frontend-1", "ip": "10.0.1.10", "labels": {"app": "frontend", "tier": "web", "env": "prod"}},
+  {"name": "backend-1", "ip": "10.0.1.20", "labels": {"app": "backend", "tier": "api", "env": "prod"}},
+  {"name": "database-1", "ip": "10.0.1.30", "labels": {"app": "postgres", "tier": "data", "env": "prod"}},
+  {"name": "monitoring-1", "ip": "10.0.2.10", "labels": {"app": "prometheus", "tier": "monitoring", "env": "prod"}},
+  {"name": "cache-1", "ip": "10.0.1.50", "labels": {"app": "redis", "tier": "cache", "env": "prod"}},
+  {"name": "debug-pod", "ip": "10.0.3.10", "labels": {"app": "debug", "env": "dev"}}
+]

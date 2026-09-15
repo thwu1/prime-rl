@@ -1,0 +1,35 @@
+{
+  "months": {
+    "file": "months.tsv",
+    "expected_stats": {"num_keys": 4, "max_states": 8},
+    "expected_gets": {"jul": 7, "jun": 6, "mar": 3, "may": 5},
+    "expected_missing": ["ju", "j", "july", "m", "ma"],
+    "expected_range_ge_mar_le_may": [["mar", 3], ["may", 5]],
+    "expected_fuzzy_mar_1": [["mar", 3], ["may", 5]],
+    "expected_prefix_ju": [["jul", 7], ["jun", 6]],
+    "expected_prefix_ma": [["mar", 3], ["may", 5]]
+  },
+  "prefixes": {
+    "file": "prefixes.tsv",
+    "expected_stats": {"num_keys": 3},
+    "expected_gets": {"a": 3, "ab": 7, "abc": 15},
+    "notes": "Keys where one is a strict prefix of another require careful internal value handling"
+  },
+  "merge": {
+    "file_a": "words_a.tsv",
+    "file_b": "words_b.tsv",
+    "expected_merged_gets": {
+      "apple": 10,
+      "banana": 25,
+      "cherry": 45,
+      "date": 25
+    },
+    "expected_merged_keys": 4,
+    "notes": "Overlapping keys have summed values; unique keys retain original values"
+  },
+  "single_char_26": {
+    "description": "26 single-character keys a-z with values 1-26",
+    "expected_max_states": 3,
+    "notes": "All terminal nodes are structurally identical and should collapse"
+  }
+}

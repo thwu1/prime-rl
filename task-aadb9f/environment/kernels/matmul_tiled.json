@@ -1,0 +1,6 @@
+{
+  "name": "matmul_tiled",
+  "registers_per_thread": 33,
+  "shared_memory_bytes": 16384,
+  "description": "Tiled matrix multiplication kernel using shared memory"
+}

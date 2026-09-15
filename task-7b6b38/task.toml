@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an undocumented packing-mode-to-method mapping across three distinct INT4 weight packing schemes by empirical binary analysis. Model configuration is stored exclusively in an SQLite database — the solver must discover and query multiple tables across the schema to extract layer architecture, quantization parameters, activation functions, weight container types, and calibration corrections. One layer's packed weights are embedded inside an ELF relocatable object file and must be extracted using binutils tools. Scale factors for one weight group were corrupted during export (zeroed out); the solver must discover this corruption and find/apply corrections. Different layers use different activations including a specific GELU approximation variant. The task demands proficiency in binary format analysis, ELF object file internals, SQL database querying, quantization theory, and multi-tool interoperability where each tool's output informs the next step."""
+solution_explanation = """Query calibration.db to discover model architecture (4 layers with mixed activations, one ELF-containerized layer, scale corrections needed). Extract layer 1 weights from the ELF .o file using objcopy. Load known_weights/reference_values.json and test each unpacking method against known quantized integer values to determine mode-to-method mapping. Query scale_corrections table to retrieve corrected scale factors for the corrupted group. For each layer: load and unpack INT4 weights using the correct method, load scales with dtype-aware parsing, apply database corrections, load zero-points (always sequential), dequantize, compute linear transform, and apply per-layer activation."""
+verification_explanation = """Tests run inference.py as a subprocess with 5 pre-computed reference pairs verifying numerical agreement within atol=5e-4, rtol=1e-3. The test's reference implementation independently queries the SQLite database, extracts ELF weights via objcopy, applies scale corrections, and computes inference to generate expected outputs for 2 additional fresh random inputs. A final test checks output shape (1,64), finiteness, non-zero values, and non-trivial variance to catch degenerate implementations."""
+category = "machine_learning"
+tags = ["quantization", "binary-forensics"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7b6b38"

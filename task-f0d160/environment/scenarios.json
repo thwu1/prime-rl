@@ -1,0 +1,52 @@
+{
+  "decode_gqa4": {
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "d_head": 128,
+    "n_layers": 32,
+    "dtype": "fp16",
+    "batch_size": 1,
+    "seq_len_q": 1,
+    "seq_len_kv": 4096
+  },
+  "prefill_gqa4": {
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "d_head": 128,
+    "n_layers": 32,
+    "dtype": "fp16",
+    "batch_size": 1,
+    "seq_len_q": 2048,
+    "seq_len_kv": 2048
+  },
+  "decode_mqa": {
+    "n_heads": 32,
+    "n_kv_heads": 1,
+    "d_head": 128,
+    "n_layers": 32,
+    "dtype": "fp16",
+    "batch_size": 1,
+    "seq_len_q": 1,
+    "seq_len_kv": 2048
+  },
+  "prefill_mha": {
+    "n_heads": 16,
+    "n_kv_heads": 16,
+    "d_head": 64,
+    "n_layers": 12,
+    "dtype": "fp16",
+    "batch_size": 4,
+    "seq_len_q": 512,
+    "seq_len_kv": 512
+  },
+  "decode_gqa8": {
+    "n_heads": 64,
+    "n_kv_heads": 8,
+    "d_head": 128,
+    "n_layers": 80,
+    "dtype": "fp16",
+    "batch_size": 16,
+    "seq_len_q": 1,
+    "seq_len_kv": 8192
+  }
+}

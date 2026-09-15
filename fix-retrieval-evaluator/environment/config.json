@@ -1,0 +1,15 @@
+{
+    "qrels_path": "/app/data/qrels.txt",
+    "queries_path": "/app/data/queries.jsonl",
+    "runs_dir": "/app/data/runs",
+    "models": ["bm25", "dense", "sparse", "reranker"],
+    "output_path": "/app/results.json",
+    "fusion": {
+        "rrf_k_values": [10, 30, 60, 100],
+        "methods": ["rrf", "combsum", "combmnz"]
+    },
+    "metrics": {
+        "k_values": [5, 10],
+        "optimization_metric": "nDCG@10"
+    }
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding 3D affine coordinate systems (NIfTI RAS+ convention), rigid body transformations, numerical optimization for intensity-based image registration, and correct implementation of 3D spatial resampling via scipy.ndimage.  The agent must read the NIfTI headers, set up a suitable cost function (MSE or NCC), parameterise a 6-DOF rigid transform, run an optimiser with a robust strategy (e.g. multi-resolution, multi-start) to avoid local minima for larger rotations, then resample and export the aligned volumes with correct spatial metadata.  Coordinate-system pitfalls (forward vs inverse mapping, world vs voxel space) are the primary source of difficulty."""
+solution_explanation = """For each patient volume the solution (1) loads both volumes and the shared affine via nibabel, (2) defines a 6-parameter rigid transform (ZYX Euler angles + translation), (3) uses a multi-resolution coarse-to-fine strategy (4x -> 2x -> full resolution) with scipy.optimize.differential_evolution (a global optimizer) at the coarsest level to reliably find the global minimum of mean-squared error, then refines with Powell at finer resolutions, where resampling is done with scipy.ndimage.affine_transform using the voxel-space mapping M = A_inv @ T @ A, and (4) saves the recovered 4x4 matrix and the final resampled volume."""
+verification_explanation = """Tests load the ground-truth transforms (hardcoded in test_state.py), then check: (a) the recovered rotation matrices are within 2 degrees geodesic distance of ground truth, (b) recovered translations are within 2.5 mm L2, (c) resampled volumes achieve NCC > 0.93 against the reference, (d) output shapes and affines match the reference."""
+category = "applied_computing"
+tags = ["medical-imaging", "registration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nifti-rigid-registration"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of two-phase flow thermodynamics and heat transfer engineering. The solver must correctly implement seven interrelated correlations: Friedel, Gronnerud, and Chisholm for pressure drop; homogeneous and Thom void fraction models; Lockhart-Martinelli Xtt parameter; Chen-Bennett flow boiling (which internally composes Forster-Zuber nucleate boiling and Dittus-Boelter forced convection with enhancement/suppression factors); and Gorenflo VDI pool boiling with a 44-fluid CAS-indexed reference coefficient table. Each pressure drop correlation requires solving the Colebrook friction factor equation and computing intermediate dimensionless numbers (Reynolds, Froude, Weber). The Chisholm correlation has six conditional branches depending on Gamma and mass flux ranges. Chen-Bennett requires correctly chaining four sub-correlations. The Gorenflo method needs domain-specific fluid property data not available in standard references."""
+solution_explanation = """Install the CalebBell ht and fluids Python libraries which contain research-grade implementations of all required VDI Heat Atlas correlations. Parse each case from conditions.json, dispatch to the appropriate library function (Friedel/Gronnerud/Chisholm from fluids.two_phase, homogeneous/Thom/Lockhart_Martinelli_Xtt from fluids.two_phase_voidage, Chen_Bennett from ht.boiling_flow, Gorenflo from ht.boiling_nucleic), and serialize results. The CAS parameter requires mapping from the JSON field name to the library's CASRN keyword."""
+verification_explanation = """Fifteen computed values are verified against golden reference values derived from the CalebBell/fluids and CalebBell/ht test suites. Eight pressure drop values test three correlations across different operating regimes including a length-proportionality consistency check. Three void fraction quantities verify pure-formula implementations. One flow boiling and one pool boiling value test the composite heat transfer correlations. Format checks verify all case IDs and expected keys are present."""
+category = "applied_computing"
+tags = ["two-phase-flow", "heat-transfer"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/twophase-boiling-engine"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires parsing a non-trivial JSON schema with paramSpec parent-reference inheritance, cross-referencing command parameters against hardware-specific constraints (camera resolution/frame-rate per camera type), implementing stateful analysis (tracking gripper open/closed state across sequential arm commands), 3D point-in-AABB keepout zone checking, and linear algebra validation (inertia matrix symmetry via Sylvester's criterion). Domain knowledge of aerospace robotics command structures and safety constraints is needed to correctly interpret the schema semantics and physical constraints."""
+solution_explanation = """Build a Python validator that: (1) loads and indexes the plan schema, resolving paramSpec parent references into a flat lookup table; (2) for each fplan file, validates command types against schema commandSpecs; (3) checks parameter values against resolved constraints (type, range, enum choices); (4) cross-references camera commands with hardware_limits.json for per-camera resolution and frame-rate validation; (5) tracks gripper state across commands and enforces arm collision avoidance rules (pan=0 when tilt>90, gripper closed when tilt>160); (6) tests station coordinates against keepout zone AABBs; (7) validates inertia matrix symmetry. Outputs structured JSON report with categorized violations."""
+verification_explanation = """Tests run the validator against 6 purpose-built fplan files with known violation profiles: a valid mission (0 violations), camera hardware errors (3 violations), arm safety violations (2 violations), keepout zone penetration (1 violation), parameter range/enum/unknown-command errors (4 violations), and an asymmetric inertia matrix (1 violation). Each test verifies the correct violation types are detected, the valid plan passes cleanly, and the output JSON structure is well-formed."""
+category = "robotics"
+tags = ["validation", "aerospace"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-718c67"

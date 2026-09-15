@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an unfamiliar Python package's data pipeline to bypass a broken runtime dependency. The ppbench package is installed but its puzzle engine (pzpr.js via JSPyBridge) cannot initialize because Node.js is absent. The agent must: (1) diagnose the import failure chain (ppbench → pzprjs → javascript → Node.js), (2) discover that ppbench bundles encrypted puzzle datasets in its pip installation directory, (3) navigate to the installed package source and read dataset.py to understand the XOR+base64 encryption scheme with key b'ppbench', (4) locate the bundled golden_30.jsonl file, (5) implement standalone decryption without importing any ppbench modules, (6) match target URLs to dataset records and extract the correct move sequences, and (7) produce results in the exact expected format. The multi-step discovery process — from a crashing pipeline to finding encrypted data inside a pip package — requires genuine reverse engineering skill and systematic exploration."""
+solution_explanation = """Find ppbench's installation directory via pip3 show. Read ppbench/dataset.py to discover the _decrypt_solution() function which uses XOR with key b'ppbench' followed by base64 decoding. Locate the bundled dataset at ppbench/bundled/golden_30.jsonl. Decrypt each record's solution_enc field to recover the solution dict containing moves_full — a list of pzpr.js move strings. Match target URLs from targets.json to dataset records by puzzlink_url, extract the moves_full sequences, and write results.json."""
+verification_explanation = """Tests verify results.json against pre-computed SHA-256 hashes of the correct move sequences for each target puzzle. The hashes are computed from the compact JSON serialization of each puzzle's moves_full array. Tests check: file existence and JSON validity, schema correctness, at least 5/8 puzzles matching expected hashes, at least 3 distinct puzzle types among verified solutions, and no false solved=True claims."""
+category = "reverse_engineering"
+tags = ["data-extraction", "cryptanalysis"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nurikabe-puzzle-solver"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a working Kafka broker from scratch that speaks the binary wire protocol (ApiVersions v0–v3 with flexible-version compact arrays and tagged fields, Metadata v0–v1, Fetch v0–v4) AND repairing corrupted on-disk RecordBatch log segments (CRC32-C Castagnoli checksums, zigzag-encoded signed varints, big-endian binary parsing). The agent must holistically understand how on-disk RecordBatch format maps to wire protocol Fetch responses, how API version negotiation with flexible-version headers works, how CRC coverage regions interact with field repairs, and must debug protocol mismatches using kcat, xxd, and nc. This combines TCP server programming, binary protocol engineering across two interconnected formats, checksum algorithms, and forensic reasoning."""
+solution_explanation = """Two components: (1) a log repair tool parsing RecordBatch binary format, detecting five corruption types (invalid CRC, wrong batch length, wrong magic byte, incorrect record count, swapped timestamps), repairing each and recomputing CRC32-C; (2) a threaded TCP server implementing the Kafka wire protocol handling ApiVersions v0–v3 (including compact arrays and tagged fields for flexible versions), Metadata v0–v1 (broker/topic/partition discovery), and Fetch v0–v4 (serving raw RecordBatch bytes with correct high watermark). The broker maps partition directories to topics, serves concatenated RecordBatch data in Fetch responses, and handles multiple requests per connection."""
+verification_explanation = """Tests verify both log repair and broker: (1) all repaired log files have valid CRC32-C checksums, correct magic bytes, valid batch lengths, consistent record counts, and monotonic timestamps; (2) specific record key/value content is readable; (3) report.json contains exactly 5 corruptions with correct type classifications; (4) broker is reachable on port 9092; (5) a Python Kafka wire protocol client performs full ApiVersions v3 + Metadata v1 + Fetch v4 sequences and verifies correct message payloads for each topic (orders: 5, events: 7, metrics: 2)."""
+category = "systems_programming"
+tags = ["binary-protocols", "kafka"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kafka-log-repair"

@@ -1,0 +1,56 @@
+IAPWS-IF97 Computer-Program Verification Values
+=================================================
+Source: IAPWS Revised Release on the IAPWS Industrial Formulation
+1997 for the Thermodynamic Properties of Water and Steam (2007).
+
+All values below are from the published IAPWS verification tables.
+
+REGION 1 (Table 5) — Input: T (K), p (MPa)
+  T=300, p=3:    v=0.100215168e-2  h=0.115331273e3  s=0.392294792e0
+  T=300, p=80:   v=0.971180894e-3  h=0.184142828e3  s=0.368563852e0
+  T=500, p=3:    v=0.120241800e-2  h=0.975542239e3  s=0.258041912e1
+
+REGION 2 (Table 15) — Input: T (K), p (MPa)
+  T=300, p=0.0035:  v=0.394913866e2  h=0.254991145e4  s=0.852238967e1
+  T=700, p=0.0035:  v=0.923015898e2  h=0.333568375e4  s=0.101749996e2
+  T=700, p=30:      v=0.542946619e-2  h=0.263149474e4  s=0.517540298e1
+
+REGION 3 (Table 33) — Input: T (K), rho (kg/m^3)
+  T=650, rho=500 (v=0.002): p=0.255837018e2  h=0.186343019e4  s=0.405427273e1
+  T=650, rho=200 (v=0.005): p=0.222930643e2  h=0.237512401e4  s=0.485438792e1
+  T=750, rho=500 (v=0.002): p=0.783095639e2  h=0.225868845e4  s=0.446971906e1
+
+REGION 4 Saturation (Tables 35, 36) — Pressure/Temperature
+  T=300 K:   p_sat = 0.353658941e-2 MPa
+  T=500 K:   p_sat = 0.263889776e1  MPa
+  T=600 K:   p_sat = 0.123443146e2  MPa
+  p=0.1 MPa:  T_sat = 0.372755919e3 K
+  p=1.0 MPa:  T_sat = 0.453035632e3 K
+  p=10  MPa:  T_sat = 0.584149488e3 K
+
+REGION 5 (Table 42) — Input: T (K), p (MPa)
+  T=1500, p=0.5:   v=0.138455090e1  h=0.521976855e4  s=0.965408875e1
+  T=1500, p=30:    v=0.230761299e-1  h=0.516723514e4  s=0.772970133e1
+  T=2000, p=30:    v=0.311385219e-1  h=0.657122604e4  s=0.853640523e1
+
+BACKWARD T(p,h) — Region 1 (Table 7)
+  p=3,  h=500:   T=0.391798509e3
+  p=80, h=500:   T=0.378108626e3
+  p=80, h=1500:  T=0.611041229e3
+
+BACKWARD T(p,h) — Region 2 (Table 24)
+  Subregion 2a: p=0.001, h=3000:  T=0.534433241e3
+  Subregion 2a: p=3,     h=4000:  T=0.101077577e4
+  Subregion 2b: p=5,     h=3500:  T=0.801299102e3
+  Subregion 2b: p=25,    h=3500:  T=0.875279054e3
+  Subregion 2c: p=40,    h=2700:  T=0.743056411e3
+
+VISCOSITY — IAPWS 2008 (mu0*mu1, no critical enhancement)
+  T=298.15, rho=998:   mu = 8.9003e-4 Pa*s
+  T=873.15, rho=0:     mu = 3.2619e-5 Pa*s
+
+THERMAL CONDUCTIVITY — IAPWS 2011 (lambda0*lambda1, lambda2=0)
+  T=298.15, rho=0:     k = 18.4341883e-3  W/(m*K)
+  T=298.15, rho=998:   k = 607.712868e-3  W/(m*K)
+  T=298.15, rho=1200:  k = 799.038144e-3  W/(m*K)
+  T=873.15, rho=0:     k = 79.1034659e-3  W/(m*K)

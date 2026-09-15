@@ -1,0 +1,28 @@
+# Mission Scenario Configuration
+# Satellite transfer planning — chaser to target rendezvous
+
+[body]
+mu = 398600.4418        # km^3/s^2
+J2 = 0.00108263
+R = 6378.137            # km
+
+[chaser]
+a = 7000.0
+ecc = 0.01
+inc_deg = 28.5
+raan_deg = 0.0
+argp_deg = 0.0
+nu_deg = 90.0
+
+[target]
+ephemeris_file = "target_ephemeris.oem"
+epoch_index = 0
+
+[transfer]
+use_j2 = false
+departure_start_s = 0
+departure_end_s = 3600
+departure_step_s = 3600
+tof_min_s = 18000
+tof_max_s = 36000
+tof_step_s = 9000

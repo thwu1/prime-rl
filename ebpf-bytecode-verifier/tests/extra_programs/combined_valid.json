@@ -1,0 +1,27 @@
+{
+  "name": "combined_valid",
+  "prog_type": "xdp",
+  "maps": [{"id": 0, "type": "hash", "key_size": 4, "value_size": 8}],
+  "instructions": [
+    {"op": "ldx_w", "dst": 6, "src": 1, "off": 0},
+    {"op": "ldx_w", "dst": 7, "src": 1, "off": 4},
+    {"op": "mov64_reg", "dst": 8, "src": 1},
+    {"op": "mov64_reg", "dst": 2, "src": 6},
+    {"op": "add64_imm", "dst": 2, "imm": 20},
+    {"op": "jgt_reg", "dst": 2, "src": 7, "off": 12},
+    {"op": "ldx_b", "dst": 9, "src": 6, "off": 9},
+    {"op": "stx_w", "dst": 10, "src": 9, "off": -4},
+    {"op": "mov64_reg", "dst": 2, "src": 10},
+    {"op": "add64_imm", "dst": 2, "imm": -4},
+    {"op": "mov64_imm", "dst": 1, "imm": 0},
+    {"op": "call", "imm": 1},
+    {"op": "jeq_imm", "dst": 0, "imm": 0, "off": 3},
+    {"op": "ldx_w", "dst": 1, "src": 0, "off": 0},
+    {"op": "jeq_imm", "dst": 1, "imm": 0, "off": 1},
+    {"op": "ja", "off": 2},
+    {"op": "mov64_imm", "dst": 0, "imm": 2},
+    {"op": "exit"},
+    {"op": "mov64_imm", "dst": 0, "imm": 1},
+    {"op": "exit"}
+  ]
+}

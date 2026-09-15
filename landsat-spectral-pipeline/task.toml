@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level remote sensing and geospatial expertise across multiple dimensions: (1) Diagnosing four independent subtle bugs in a Landsat processing pipeline — incomplete QA_PIXEL bit-mask coverage, a sign error in DN-to-SR calibration, inflated zonal pixel counts, and a missing reprojection deliverable — where the validation report provides only downstream symptoms (spectral index compression, inflated reflectance) and the solver must trace these to specific code-level root causes. (2) Evaluating the quantitative impact of each defect on downstream products, requiring the solver to judge severity, compute affected pixel counts, and cross-validate corrected calibration against field spectrometer references. (3) Creating a structured scene-level quality assessment that synthesizes contamination spatial patterns, per-zone usability metrics, and a defensible overall quality grade — a novel analytical product that demands holistic understanding of remote sensing quality assurance rather than following any standard procedure."""
+solution_explanation = """Read the validation report to identify symptoms, then systematically audit pipeline.py against metadata documentation. Fix cloud mask to check bits 0-4 (Fill, Dilated Cloud, Cirrus, Cloud, Cloud Shadow) instead of only bits 3-4. Fix calibration by changing 'dn * scale_factor - offset' to 'dn * scale_factor + offset' (offset is -0.2, so subtraction flips the sign, inflating all reflectance by 0.4). Fix zonal stats to count only pixels where both zone membership and cloud mask clear conditions hold. Add WGS84 reprojection using rasterio.warp. Finally, create quality_assessment.json by computing pixel-level defect impact metrics, cross-validating corrected NIR reflectance against the field reference (~0.45), calculating per-zone clear fractions to determine usability, and assigning a scene-level quality grade based on the ~92% clear pixel fraction."""
+verification_explanation = """Tests verify: (1) All 7 output files exist. (2) Cloud mask correctness at known contaminated pixels (fill corners, dilated cloud buffer, cloud body, cloud shadow, cirrus) and confirmed clear pixels (vegetation, water, urban, barren). (3) NDVI/MNDWI at specific pixels match expected ranges per land cover type (only correct with proper calibration). (4) Land cover classification codes at quadrant centers. (5) Zonal stats CSV schema, value ranges, and that zone 1 has fewer clear pixels than zone 2. (6) Reprojected NDVI has EPSG:4326 CRS with preserved nodata. (7) Quality assessment JSON has correct schema, identifies all four defect categories, reports scene clear fraction in expected range (~0.92), calibration validation passes, and per-zone usability classifications match expected contamination patterns."""
+category = "geospatial"
+tags = ["remote-sensing", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/landsat-spectral-pipeline"

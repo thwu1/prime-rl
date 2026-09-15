@@ -1,0 +1,66 @@
+[
+  {
+    "rule_id": "cand_ssh_any_ext_password",
+    "stage": "initial_access",
+    "title": "External SSH Password Authentication",
+    "log_source": "auth.log",
+    "detection_logic": "Alert on any SSH authentication event (success or failure) using password method from any IP outside the 10.0.0.0/8 internal range.",
+    "indicator_value": "Failed password"
+  },
+  {
+    "rule_id": "cand_ssh_ext_accepted",
+    "stage": "initial_access",
+    "title": "External SSH Successful Password Login",
+    "log_source": "auth.log",
+    "detection_logic": "Alert when an SSH session is accepted via password authentication from any IP not in the 10.0.1.0/24 administrative subnet.",
+    "indicator_value": "Accepted password"
+  },
+  {
+    "rule_id": "cand_ssh_brute_500",
+    "stage": "initial_access",
+    "title": "SSH Brute Force High-Volume Threshold",
+    "log_source": "auth.log",
+    "detection_logic": "Alert when a single source IP generates more than 400 'Failed password' log entries in auth.log across the entire monitoring period.",
+    "indicator_value": "Failed password"
+  },
+  {
+    "rule_id": "cand_webshell_post_upload",
+    "stage": "execution",
+    "title": "HTTP POST to Upload Directory",
+    "log_source": "access.log",
+    "detection_logic": "Alert on any HTTP POST request to paths matching /uploads/.* in the Apache access log.",
+    "indicator_value": "/uploads/"
+  },
+  {
+    "rule_id": "cand_php_dotfile",
+    "stage": "execution",
+    "title": "Access to Hidden PHP File",
+    "log_source": "access.log",
+    "detection_logic": "Alert on any HTTP request to a PHP file whose filename begins with a dot character (hidden file convention).",
+    "indicator_value": ".sys_cache.php"
+  },
+  {
+    "rule_id": "cand_dns_analytics",
+    "stage": "exfiltration",
+    "title": "DNS Query to Analytics-Related Domain",
+    "log_source": "dns_queries.log",
+    "detection_logic": "Alert on any DNS query where the queried domain name contains the substring 'analytics' to detect C2 communication disguised as analytics traffic.",
+    "indicator_value": "analytics"
+  },
+  {
+    "rule_id": "cand_dns_txt_tunnel",
+    "stage": "exfiltration",
+    "title": "DNS TXT Record Tunneling",
+    "log_source": "dns_queries.log",
+    "detection_logic": "Alert on DNS queries with record type TXT directed at non-standard or non-well-known domains, as a common indicator of DNS tunneling for data exfiltration.",
+    "indicator_value": "query[TXT]"
+  },
+  {
+    "rule_id": "cand_audit_shadow_read",
+    "stage": "exfiltration",
+    "title": "Sensitive File Access via Audit Trail",
+    "log_source": "app_audit.log",
+    "detection_logic": "Alert when the application audit log records a FILE_READ action targeting /etc/shadow, indicating credential harvesting.",
+    "indicator_value": "/etc/shadow"
+  }
+]

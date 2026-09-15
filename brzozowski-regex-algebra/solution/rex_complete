@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""rex -- Extended Regular Expression Analyzer CLI
+
+"""
+import sys
+import os
+import subprocess
+import tempfile
+sys.path.insert(0, '/app')
+from regex_algebra import (
+    parse, matches, is_empty, is_universal, equivalent,
+    to_dot, compile_to_c, generate_flex_spec,
+)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: rex <subcommand> [args...]", file=sys.stderr)
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+
+    if cmd == 'match':
+        if len(sys.argv) < 3:
+            print("Usage: rex match EXPR [STRING]", file=sys.stderr)
+            sys.exit(1)
+        expr_str = sys.argv[2]
+        string = sys.argv[3] if len(sys.argv) > 3 else ''
+        r = parse(expr_str)
+        print('true' if matches(r, string) else 'false')
+
+    elif cmd == 'empty':
+        if len(sys.argv) < 4:
+            print("Usage: rex empty EXPR ALPHABET", file=sys.stderr)
+            sys.exit(1)
+        r = parse(sys.argv[2])
+        alphabet = set(sys.argv[3])
+        print('true' if is_empty(r, alphabet) else 'false')
+
+    elif cmd == 'universal':
+        if len(sys.argv) < 4:
+            print("Usage: rex universal EXPR ALPHABET", file=sys.stderr)
+            sys.exit(1)
+        r = parse(sys.argv[2])
+        alphabet = set(sys.argv[3])
+        print('true' if is_universal(r, alphabet) else 'false')
+
+    elif cmd == 'equivalent':
+        if len(sys.argv) < 5:
+            print("Usage: rex equivalent EXPR1 EXPR2 ALPHABET", file=sys.stderr)
+            sys.exit(1)
+        r1 = parse(sys.argv[2])
+        r2 = parse(sys.argv[3])
+        alphabet = set(sys.argv[4])
+        print('true' if equivalent(r1, r2, alphabet) else 'false')
+
+    elif cmd == 'dot':
+        if len(sys.argv) < 4:
+            print("Usage: rex dot EXPR ALPHABET", file=sys.stderr)
+            sys.exit(1)
+        r = parse(sys.argv[2])
+        alphabet = set(sys.argv[3])
+        print(to_dot(r, alphabet))
+
+    elif cmd == 'compile':
+        if len(sys.argv) < 5:
+            print("Usage: rex compile EXPR ALPHABET OUTPUT_BINARY", file=sys.stderr)
+            sys.exit(1)
+        r = parse(sys.argv[2])
+        alphabet = set(sys.argv[3])
+        output_binary = sys.argv[4]
+        c_source = compile_to_c(r, alphabet)
+
+        fd, c_path = tempfile.mkstemp(suffix='.c')
+        try:
+            with os.fdopen(fd, 'w') as f:
+                f.write(c_source)
+            result = subprocess.run(
+                ['gcc', '-o', output_binary, c_path, '-Wall'],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                print(f"gcc compilation failed:\n{result.stderr}", file=sys.stderr)
+                sys.exit(1)
+        finally:
+            os.unlink(c_path)
+
+    elif cmd == 'flex-spec':
+        if len(sys.argv) < 5:
+            print("Usage: rex flex-spec EXPR ALPHABET OUTPUT_L_FILE", file=sys.stderr)
+            sys.exit(1)
+        r = parse(sys.argv[2])
+        alphabet = set(sys.argv[3])
+        output_path = sys.argv[4]
+        spec = generate_flex_spec(r, alphabet)
+        with open(output_path, 'w') as f:
+            f.write(spec)
+
+    else:
+        print(f"Unknown subcommand: {cmd}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

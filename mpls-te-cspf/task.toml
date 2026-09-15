@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level MPLS-TE domain knowledge spanning Junos configuration parsing, namespace-qualified IS-IS TED XML interpretation (admin-group bitmask mapping, bandwidth unit conversion from bps), CSPF path computation with multi-constraint pruning (include-all/include-any/exclude affinities, SRLG diversity, bandwidth feasibility), and RSVP-TE preemption semantics with cascading reservation release. Additionally demands multi-tool proficiency: the agent must parse Junos RPC XML with namespaces (requiring xmlstarlet or namespace-aware XML tooling), query an SQLite NMS database for billing pricing and SRLG risk scores, and generate a Graphviz DOT topology diagram rendered to SVG via the dot CLI. Data is spread across three heterogeneous formats (Junos set-commands, namespaced XML, SQLite) that must be correlated."""
+solution_explanation = """Parse the namespaced TED XML (Junos RPC envelope with routing namespace) to build a weighted graph with admin-group bitmasks, SRLG sets, and bandwidth. Parse Junos router configs to extract admin-group name-to-bit mappings, LSP definitions with constraints, and router-ID-to-hostname mapping. Query the SQLite NMS database for link pricing, SRLG risk scores, and customer circuit info. For each LSP in signaling order: apply affinity and SRLG constraint pruning, bandwidth pruning, then shortest-path computation with deterministic tiebreaking. On failure, compute effective bandwidth considering preemptable reservations and execute minimum preemptions. Compute per-LSP billing costs and risk assessments from NMS data. Generate Graphviz DOT topology with utilization annotations and render SVG. Output all results to JSON."""
+verification_explanation = """Tests verify each of the 7 LSPs' computed path, IGP cost, and status against hand-derived expected values. Tests verify preempted_by fields, final link utilization state (capacity, reserved, available) for all 7 links with consistency checks. Tests verify billing summary values (customer, SLA tier, bandwidth, monthly cost) computed from NMS SQLite pricing data for each LSP. Tests verify risk assessment (path SRLGs, max risk score) from NMS SQLite risk data. Tests verify existence and validity of the Graphviz-rendered topology SVG including presence of all 5 router nodes and DOT source file."""
+category = "networking"
+tags = ["mpls-te", "junos-config-parsing", "multi-tool-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mpls-te-cspf"

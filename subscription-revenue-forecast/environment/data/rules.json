@@ -1,0 +1,15 @@
+{
+    "price_increment": 5.0,
+    "consensus_threshold": 3,
+    "qualifying_fraction": 0.5,
+    "tax_rates": {"USA": 0.0, "AUS": 0.10, "UK": 0.20},
+    "tier_growth_modifiers": {
+        "Starter": 0.8,
+        "Growth": 1.2,
+        "Professional": 1.0,
+        "Business": 0.9,
+        "Enterprise": 0.7
+    },
+    "forecast_months": 60,
+    "start_year": 2024
+}

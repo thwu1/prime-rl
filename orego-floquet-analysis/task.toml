@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level knowledge spanning dynamical systems theory (Floquet theory, monodromy matrices, variational equations), numerical methods for stiff ODEs (implicit integrators, tolerance tuning), and Fortran 77 comprehension. The agent must first explore the environment to discover and parse Fortran source code, extracting the ODE system equations and parameters. Then it must computationally investigate the system's long-term behavior to discover that it settles onto a periodic orbit with relaxation oscillations and a period of ~303 time units. Only after this discovery can the agent design and implement the stability analysis: setting up and integrating a 13-dimensional augmented system, handling extreme numerical contraction (multipliers near machine zero), and producing all four output quantities to 6-digit accuracy. Errors at any stage cascade."""
+solution_explanation = """Read Fortran source to extract the 3-component ODE system. Integrate from y(0)=(1,2,3) using an implicit stiff solver (Radau IIA) to t=3000 to reach the limit cycle. Detect the period (~302.86) via successive y1 maxima using zero-crossing events. Set up a 13D augmented system: 3 state variables, 9 variational equation components (fundamental matrix satisfying dPhi/dt = J(y)*Phi with Phi(0)=I), and 1 trace integral accumulator. Integrate over one period T. Extract the 3x3 monodromy matrix, compute eigenvalues as Floquet multipliers. The trace integral is ~-7.47e6 reflecting extreme dissipation."""
+verification_explanation = """Tests independently compute reference values using scipy: (1) output files exist with correct format, (2) period is in [280,320] and self-consistent (re-integration returns to starting point), (3) monodromy matrix is 3x3, finite, and not identity, (4) has an eigenvalue equal to 1, (5) one Floquet multiplier equals 1, others have |lambda|<1 and <1e-3 (extreme contraction), (6) trace integral is strongly negative and matches independent quadrature within 1%, (7) cross-validation between monodromy eigenvalues and submitted multipliers, (8) det(M) near zero."""
+category = "scientific_computing"
+tags = ["dynamical-systems", "numerical-ode"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orego-floquet-analysis"

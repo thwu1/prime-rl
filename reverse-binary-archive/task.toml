@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires multi-layered binary format reverse engineering: discovering zlib-compressed block framing with size-prefixed headers, implementing a non-standard variable-length integer decoder, recognizing that file table offsets are virtual/non-functional (data must be read linearly in file-table order), identifying and reversing XOR stream encryption using an embedded key schedule, and parsing a secondary nested binary container format within a decrypted entry. Each layer depends on correctly solving the previous one, and the misleading virtual offset fields serve as deliberate red herrings that break naive offset-based extraction."""
+solution_explanation = """Decompress the archive by recognizing zlib block framing (u32_le decompressed_size, u32_le compressed_size, zlib_data — repeated). Parse the flat stream: header magic 0xC0DEBA5E, version u16, flags u16, then read entry count and 150-byte key schedule length via variable-length integer encoding (high bit signals multi-byte). Extract key material. Parse 8 file table entries sequentially (compact-int name length, null-terminated name, u32 virtual offset, u32 data size, u32 CRC32, u8 encryption flag). Extract file data linearly in table order ignoring virtual offsets. XOR-decrypt flagged entries: byte ^= key_material[(file_index*7 + offset) % 150]. Parse the decrypted keystore.nc as a nested container (magic 0x4E43, u8 count, then u8 name_len + name + u16_le data_len + data per entry) to recover the token."""
+verification_explanation = """All secrets (token, credentials, key schedule) are randomized at Docker build time and stored in a verification file. Three checks compare solver output against build-time values: (1) exact token string from the nested container within the encrypted keystore, (2) manifest JSON with correct file count, sorted file names, and encrypted entry count, (3) decrypted credentials file contains all three expected credential lines. No hardcoded answers exist in test files — answers change with each build."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "cryptanalysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reverse-binary-archive"

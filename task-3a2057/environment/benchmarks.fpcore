@@ -1,0 +1,35 @@
+
+; Floating-Point Accuracy Benchmark Suite
+; Expressions derived from Herbie/FPBench benchmark collections
+; Each expression suffers from catastrophic cancellation in certain input regions
+
+(FPCore (x)
+ :name "sqrt_diff"
+ :pre (> x 0)
+ (- (sqrt (+ x 1)) (sqrt x)))
+
+(FPCore (x)
+ :name "cos_cancellation"
+ :pre (!= x 0)
+ (/ (- 1 (cos x)) (* x x)))
+
+(FPCore (x)
+ :name "log_ratio"
+ :pre (and (> x -1) (< x 1) (!= x 0))
+ (log (/ (- 1 x) (+ 1 x))))
+
+(FPCore (a b c)
+ :name "quadratic_root"
+ :pre (and (!= a 0) (> (- (* b b) (* 4 a c)) 0))
+ (/ (+ (- b) (sqrt (- (* b b) (* 4 a c)))) (* 2 a)))
+
+(FPCore (x)
+ :name "exp_cancel"
+ :pre (!= x 0)
+ (/ (* 2 (- (- (exp x) 1) x)) (* x x)))
+
+(FPCore (a b eps)
+ :name "hamming_expq3"
+ :pre (and (> a 0) (> b 0) (> eps 0))
+ (/ (* eps (- (exp (* (+ a b) eps)) 1))
+    (* (- (exp (* a eps)) 1) (- (exp (* b eps)) 1))))

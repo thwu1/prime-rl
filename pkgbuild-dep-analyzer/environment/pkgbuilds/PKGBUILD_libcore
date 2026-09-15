@@ -1,0 +1,25 @@
+# Maintainer: Alice Kern <alice@example.org>
+pkgname=libcore
+pkgver=2.5.0
+pkgrel=1
+epoch=1
+pkgdesc="Core runtime library for system services"
+arch=('x86_64')
+url="https://github.com/example/libcore"
+license=('MIT')
+depends=()
+makedepends=('cmake' 'gcc')
+provides=('core-api=2.5.0')
+source=("https://github.com/example/${pkgname}/archive/v${pkgver}.tar.gz")
+sha256sums=('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release .
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" install
+}

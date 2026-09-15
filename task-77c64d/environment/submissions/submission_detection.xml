@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WQX xmlns="http://www.exchangenetwork.net/schema/wqx/3">
+  <Organization>
+    <OrganizationDescription>
+      <OrganizationIdentifier>DETORG</OrganizationIdentifier>
+      <OrganizationFormalName>Detection Limit Testing Organization</OrganizationFormalName>
+    </OrganizationDescription>
+    <Project>
+      <ProjectIdentifier>PROJ-DET</ProjectIdentifier>
+      <ProjectName>Metals Screening Survey</ProjectName>
+    </Project>
+    <MonitoringLocation>
+      <MonitoringLocationIdentity>
+        <MonitoringLocationIdentifier>LOC-DET</MonitoringLocationIdentifier>
+        <MonitoringLocationName>Industrial Outfall Station</MonitoringLocationName>
+        <MonitoringLocationTypeName>River/Stream</MonitoringLocationTypeName>
+      </MonitoringLocationIdentity>
+      <MonitoringLocationGeospatial>
+        <LatitudeMeasure>39.876543</LatitudeMeasure>
+        <LongitudeMeasure>-74.234567</LongitudeMeasure>
+        <HorizontalCollectionMethodName>GPS-Unspecified</HorizontalCollectionMethodName>
+        <HorizontalCoordinateReferenceSystemDatumName>NAD83</HorizontalCoordinateReferenceSystemDatumName>
+        <CountryCode>US</CountryCode>
+        <StateCode>NJ</StateCode>
+        <CountyCode>023</CountyCode>
+      </MonitoringLocationGeospatial>
+    </MonitoringLocation>
+    <Activity>
+      <ActivityDescription>
+        <ActivityIdentifier>ACT-DET1</ActivityIdentifier>
+        <ActivityTypeCode>Field Msr/Obs</ActivityTypeCode>
+        <ActivityMediaName>Water</ActivityMediaName>
+        <ActivityStartDate>2024-04-20</ActivityStartDate>
+        <ProjectIdentifier>PROJ-DET</ProjectIdentifier>
+        <MonitoringLocationIdentifier>LOC-DET</MonitoringLocationIdentifier>
+      </ActivityDescription>
+      <!-- ERROR: "Not Detected" without DetectionQuantitationLimit -> BR-001 -->
+      <Result>
+        <ResultDescription>
+          <ResultDetectionConditionText>Not Detected</ResultDetectionConditionText>
+          <CharacteristicName>Mercury</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue></ResultMeasureValue>
+            <MeasureUnitCode>ug/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <ResultAnalyticalMethod>
+          <MethodIdentifier>245.7</MethodIdentifier>
+          <MethodIdentifierContext>USEPA</MethodIdentifierContext>
+        </ResultAnalyticalMethod>
+      </Result>
+      <!-- ERROR: "Present Below Quantification Limit" without DQL -> BR-001 -->
+      <Result>
+        <ResultDescription>
+          <ResultDetectionConditionText>Present Below Quantification Limit</ResultDetectionConditionText>
+          <CharacteristicName>Cadmium</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>0.001</ResultMeasureValue>
+            <MeasureUnitCode>mg/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <ResultAnalyticalMethod>
+          <MethodIdentifier>200.8</MethodIdentifier>
+          <MethodIdentifierContext>USEPA</MethodIdentifierContext>
+        </ResultAnalyticalMethod>
+      </Result>
+      <!-- VALID: "Present Above Quantification Limit" WITH proper DQL -> no error -->
+      <Result>
+        <ResultDescription>
+          <ResultDetectionConditionText>Present Above Quantification Limit</ResultDetectionConditionText>
+          <CharacteristicName>Lead</CharacteristicName>
+          <ResultMeasure>
+            <ResultMeasureValue>15.2</ResultMeasureValue>
+            <MeasureUnitCode>ug/l</MeasureUnitCode>
+          </ResultMeasure>
+          <ResultStatusIdentifier>Final</ResultStatusIdentifier>
+        </ResultDescription>
+        <ResultAnalyticalMethod>
+          <MethodIdentifier>200.8</MethodIdentifier>
+          <MethodIdentifierContext>USEPA</MethodIdentifierContext>
+        </ResultAnalyticalMethod>
+        <ResultLabInformation>
+          <LaboratoryName>State Environmental Lab</LaboratoryName>
+          <AnalysisStartDate>2024-04-22</AnalysisStartDate>
+          <ResultDetectionQuantitationLimit>
+            <DetectionQuantitationLimitTypeName>Method detection level</DetectionQuantitationLimitTypeName>
+            <DetectionQuantitationLimitMeasure>
+              <MeasureValue>0.5</MeasureValue>
+              <MeasureUnitCode>ug/l</MeasureUnitCode>
+            </DetectionQuantitationLimitMeasure>
+          </ResultDetectionQuantitationLimit>
+        </ResultLabInformation>
+      </Result>
+    </Activity>
+  </Organization>
+</WQX>

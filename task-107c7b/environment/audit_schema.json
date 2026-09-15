@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Schema for TCP-AO security audit report",
+  "type": "object",
+  "required": ["candidates", "reference_values", "pcap_analysis", "recommendation"],
+  "properties": {
+    "candidates": {
+      "type": "object",
+      "description": "Evaluation of each candidate implementation",
+      "required": ["impl_a", "impl_b", "impl_c", "impl_d"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["verdict", "failing_connections", "bug_description", "rfc_violation", "severity"],
+        "properties": {
+          "verdict": {"type": "string", "enum": ["pass", "fail"]},
+          "failing_connections": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of connection IDs where the implementation produces incorrect traffic keys"
+          },
+          "bug_description": {"type": "string", "description": "Technical description of the implementation error"},
+          "rfc_violation": {"type": "string", "description": "RFC section violated, or 'none' if correct"},
+          "severity": {"type": "string", "enum": ["none", "critical", "high", "medium", "low"]}
+        }
+      }
+    },
+    "reference_values": {
+      "type": "object",
+      "description": "Traffic keys computed independently using openssl CLI",
+      "required": ["method", "openssl_commands", "traffic_keys"],
+      "properties": {
+        "method": {"type": "string", "const": "openssl"},
+        "openssl_commands": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Actual openssl CLI commands used to compute reference values"
+        },
+        "traffic_keys": {
+          "type": "object",
+          "description": "Mapping of connection ID to hex-encoded traffic key computed via openssl",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "pcap_analysis": {
+      "type": "object",
+      "description": "TCP-AO fields extracted from pcap using tshark",
+      "required": ["method", "tshark_command", "packets"],
+      "properties": {
+        "method": {"type": "string", "const": "tshark"},
+        "tshark_command": {"type": "string", "description": "The tshark command used for extraction"},
+        "packets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["frame", "connection_id", "src_ip", "dst_ip", "src_port", "dst_port", "ao_keyid", "ao_rnextkeyid", "ao_mac"],
+            "properties": {
+              "frame": {"type": "integer"},
+              "connection_id": {"type": "string"},
+              "src_ip": {"type": "string"},
+              "dst_ip": {"type": "string"},
+              "src_port": {"type": "integer"},
+              "dst_port": {"type": "integer"},
+              "ao_keyid": {"type": "integer", "description": "TCP-AO KeyID field (decimal)"},
+              "ao_rnextkeyid": {"type": "integer", "description": "TCP-AO RNextKeyID field (decimal)"},
+              "ao_mac": {"type": "string", "description": "TCP-AO MAC value (hex, lowercase)"}
+            }
+          }
+        }
+      }
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Name of the correct candidate implementation, or 'none' if none are correct"
+    }
+  }
+}

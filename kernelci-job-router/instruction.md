@@ -1,0 +1,3 @@
+A KernelCI deployment manages a federation of LAVA hardware testing labs alongside Docker and Kubernetes runtimes. An existing routing engine at `/app/kci_router.py` dispatches kernel checkout events to these labs, but it is producing incorrect results. The output is missing required report sections, several routing decisions are wrong, and the engine fails to account for important operational constraints defined in the project's technical specification.
+
+All relevant documentation, configuration data, and diagnostic tools are available under `/app/`. Investigate the system, identify the defects in the current router, and produce a correct routing report at `/app/output/routing_report.json`.

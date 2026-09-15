@@ -1,0 +1,40 @@
+{
+    "instances": {
+        "instance_1": {
+            "dim": 2,
+            "num_peaks": 5,
+            "shift_severity": 1.0,
+            "change_frequency": 5000,
+            "num_environments": 10,
+            "seed": 42,
+            "offline_error_threshold": 8.0
+        },
+        "instance_2": {
+            "dim": 5,
+            "num_peaks": 10,
+            "shift_severity": 1.0,
+            "change_frequency": 2500,
+            "num_environments": 20,
+            "seed": 123,
+            "offline_error_threshold": 15.0
+        },
+        "instance_3": {
+            "dim": 5,
+            "num_peaks": 10,
+            "shift_severity": 2.0,
+            "change_frequency": 1000,
+            "num_environments": 30,
+            "seed": 456,
+            "offline_error_threshold": 25.0
+        }
+    },
+    "global_params": {
+        "lambda": 0.5,
+        "sigma_h": 1.0,
+        "sigma_w": 0.5,
+        "search_bounds": [-100, 100],
+        "height_bounds": [30.0, 70.0],
+        "width_bounds": [5.0, 20.0],
+        "init_position_bounds": [-50, 50]
+    }
+}

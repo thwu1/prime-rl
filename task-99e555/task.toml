@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering RIME's spelling algebra system from Chinese-language documentation, C++ unit tests, and real-world schema examples — none of which directly provide a Python implementation. The solver must independently discover the semantics of six distinct operators (transliteration, transformation, erasion, derivation, abbreviation, fuzzing), each with different matching semantics (full match vs partial match, additive vs replacement vs removal), and the projection algorithm that chains them over a syllable set. Critical subtleties include erase requiring regex fullmatch while other operators use search/replace; derive keeping originals while xform replaces them; xlit operating on Unicode codepoints not bytes; and rule ordering causing cascading interactions where derived spellings feed into subsequent operations. Additionally, the solver must learn to use the unfamiliar rime_deployer CLI tool — discovering its subcommands, argument conventions (user_data_dir, shared_data_dir, staging_dir), and directory layout requirements — to compile the schema into MARISA-trie binary format, requiring genuine multi-tool interoperability between YAML configuration files, the native C++ compilation toolchain, and the Python engine."""
+solution_explanation = """The solution reads the Chinese documentation and C++ test code to discover operator semantics, then implements a Python engine: parsing YAML schema files, extracting algebra rules with a delimiter-based parser, and executing the projection algorithm (identity mapping then sequential rule application). Each operator requires different regex handling: xform uses re.sub for in-place replacement, erase uses re.fullmatch for removal, derive/abbrev/fuzz use re.sub but keep originals alongside derived forms, and xlit does character-by-character Unicode transliteration. For the native deployment, the solution creates the RIME directory structure at /app/rime_deploy/ with the schema, dictionary, and a default.yaml listing the challenge schema, then invokes rime_deployer --compile with correct user_data_dir and shared_data_dir arguments to produce .table.bin and .prism.bin binaries. Perl-style $1 backreferences must be converted to Python \\1 syntax."""
+verification_explanation = """Tests verify the projection output via MD5 hash, pair counts, and specific spelling-syllable pair checks for the challenge schema. A generalization test suite creates separate mini-schemas at runtime and verifies the engine produces correct output for them too, preventing hardcoded solutions. Preedit tests verify transformation chains including rule ordering effects and Unicode output. Native deployment tests verify rime_deployer is available, the deployment directory structure is correct, default.yaml is properly configured with the challenge schema, compiled binary artifacts (.table.bin, .prism.bin) exist and are non-empty, and rime_deployer --compile can successfully recompile the schema. All tests are deterministic."""
+category = "systems"
+tags = ["input-methods", "dsl-implementation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-99e555"

@@ -1,0 +1,1017 @@
+{
+  "version": 1,
+  "brokers": [
+    {
+      "broker": 0,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": [
+            {
+              "partition": "audit_log-0",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-11",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-12",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-14",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-2",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-4",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-6",
+              "size": 17179869184,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-8",
+              "size": 13958643712,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-0",
+              "size": 36507222016,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-2",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-3",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-4",
+              "size": 44023414784,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-0",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-11",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-12",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-14",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-16",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-18",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-2",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-20",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-23",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-4",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-6",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-8",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-0",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-10",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-11",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-2",
+              "size": 31138512896,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-3",
+              "size": 37580963840,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-4",
+              "size": 47244640256,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-5",
+              "size": 33285996544,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-7",
+              "size": 42949672960,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-8",
+              "size": 35433480192,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-0",
+              "size": 23622320128,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-1",
+              "size": 19327352832,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-2",
+              "size": 27917287424,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-4",
+              "size": 25769803776,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-6",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-7",
+              "size": 20401094656,
+              "offsetLag": 0,
+              "isFuture": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "broker": 1,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": [
+            {
+              "partition": "audit_log-1",
+              "size": 16106127360,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-10",
+              "size": 19327352832,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-13",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-15",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-3",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-4",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-6",
+              "size": 17179869184,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-9",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-0",
+              "size": 36507222016,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-1",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-3",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-4",
+              "size": 44023414784,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-5",
+              "size": 32212254720,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-0",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-10",
+              "size": 13958643712,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-12",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-14",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-17",
+              "size": 5368709120,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-19",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-21",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-22",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-3",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-5",
+              "size": 5368709120,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-7",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-9",
+              "size": 4294967296,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-0",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-1",
+              "size": 45097156608,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-11",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-3",
+              "size": 37580963840,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-5",
+              "size": 33285996544,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-6",
+              "size": 28991029248,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-8",
+              "size": 35433480192,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-9",
+              "size": 38654705664,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-1",
+              "size": 19327352832,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-2",
+              "size": 27917287424,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-3",
+              "size": 21474836480,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-4",
+              "size": 25769803776,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-5",
+              "size": 17179869184,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-6",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "broker": 2,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": [
+            {
+              "partition": "audit_log-0",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-10",
+              "size": 19327352832,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-12",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-14",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-2",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-5",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-7",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-9",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-0",
+              "size": 36507222016,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-1",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-2",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-5",
+              "size": 32212254720,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-1",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-10",
+              "size": 13958643712,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-13",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-15",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-17",
+              "size": 5368709120,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-18",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-2",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-20",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-22",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-5",
+              "size": 5368709120,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-6",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-8",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-0",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-1",
+              "size": 45097156608,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-10",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-2",
+              "size": 31138512896,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-4",
+              "size": 47244640256,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-6",
+              "size": 28991029248,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-7",
+              "size": 42949672960,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-8",
+              "size": 35433480192,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-9",
+              "size": 38654705664,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-0",
+              "size": 23622320128,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-2",
+              "size": 27917287424,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-3",
+              "size": 21474836480,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-4",
+              "size": 25769803776,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-5",
+              "size": 17179869184,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-7",
+              "size": 20401094656,
+              "offsetLag": 0,
+              "isFuture": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "broker": 3,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": [
+            {
+              "partition": "audit_log-1",
+              "size": 16106127360,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-11",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-13",
+              "size": 15032385536,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-15",
+              "size": 6442450944,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-3",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-5",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-7",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "audit_log-8",
+              "size": 13958643712,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-1",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-2",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-3",
+              "size": 40802189312,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-4",
+              "size": 44023414784,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "notifications-5",
+              "size": 32212254720,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-1",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-11",
+              "size": 8589934592,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-13",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-15",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-16",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-19",
+              "size": 10737418240,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-21",
+              "size": 11811160064,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-23",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-3",
+              "size": 9663676416,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-4",
+              "size": 12884901888,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-7",
+              "size": 7516192768,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "page_views-9",
+              "size": 4294967296,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-1",
+              "size": 45097156608,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-10",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-11",
+              "size": 48318382080,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-2",
+              "size": 31138512896,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-3",
+              "size": 37580963840,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-4",
+              "size": 47244640256,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-5",
+              "size": 33285996544,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-6",
+              "size": 28991029248,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-7",
+              "size": 42949672960,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "payments-9",
+              "size": 38654705664,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-0",
+              "size": 23622320128,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-1",
+              "size": 19327352832,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-3",
+              "size": 21474836480,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-5",
+              "size": 17179869184,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-6",
+              "size": 30064771072,
+              "offsetLag": 0,
+              "isFuture": false
+            },
+            {
+              "partition": "user_events-7",
+              "size": 20401094656,
+              "offsetLag": 0,
+              "isFuture": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "broker": 4,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": []
+        }
+      ]
+    },
+    {
+      "broker": 5,
+      "logDirs": [
+        {
+          "logDir": "/var/kafka/data",
+          "error": null,
+          "partitions": []
+        }
+      ]
+    }
+  ]
+}

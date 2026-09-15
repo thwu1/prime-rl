@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and repairing a multi-layer numerical benchmark system with interacting defects across code, data, and specifications. Three subtle mathematical bugs exist in base function implementations (elliptic exponent denominator n vs n-1, griewank cosine index offset, missing Rosenbrock z+1 convention). Two binary data exports are corrupted (non-orthogonal rotation matrix, invalid shuffle permutation). Two database specification entries are deliberately wrong — a bent_cigar formula showing 10^4 instead of the correct 10^6, and an F8 reference value of 850 instead of 800 — serving as false trails that trap solvers who blindly trust the database. The solver must cross-validate code, data, and specifications using mathematical reasoning and domain knowledge to determine ground truth, recognizing which database entries are wrong vs. which code implementations are wrong. Additionally, 4 advanced functions (2 hybrid, 2 composition) and 3 constraint violations must be implemented from construction formulas. The hybrid construction requires understanding dimension shuffling and partitioning; the composition construction requires distance-weighted aggregation with exponential decay and dominance edge cases. No enumeration of issues is provided — the solver must discover all defects through systematic investigation."""
+solution_explanation = """Extract correct parameter data (rotation matrices, shuffle permutations) from database BLOBs and overwrite corrupted .npy exports. Fix 3 code bugs: elliptic denominator n→(n-1), griewank indices arange(2,n+2)→arange(1,n+1), rosenbrock z_hat=z+1. Critically, recognize that the bent_cigar database spec (10^4) is wrong and the code's 10^6 is correct — do NOT change working code to match the corrupted spec. Recognize that the F8 reference_value (850) is wrong by mathematical reasoning: griewank(0)=0 so F8(optimum)=800. Implement hybrid functions by applying shift-rotate, shuffling dimensions per the database shuffle permutation, partitioning into groups, and summing per-group base function evaluations. Implement composition functions with distance-based exponential weights, dominance handling (d^2 < 1e-30 → weight 1e100), and per-component biases. Implement 3 constraint violation functions from constraint_specs formulas."""
+verification_explanation = """Tests verify: (1) all 12 F(optimum)=bias values to 1e-6 tolerance, (2) analytical function values at known displacement points for all base functions including bent_cigar with 10^6 coefficient, (3) elliptic condition number ratio of exactly 10^6 distinguishing n vs n-1 denominator, (4) sphere quadratic scaling, (5) rotation matrix orthogonality for all matrices, (6) .npy data matches database parameter BLOBs, (7) shuffle validity as permutations, (8) composition function dominance at all component optima for both F11 and F12, (9) hybrid function values at optima and analytical group contributions verifying bent_cigar coefficient within hybrid, (10) constraint violation correctness at constructed algebraic points, (11) results.json structure and completeness, (12) Rosenbrock z+1 convention via specific displacement calculations."""
+category = "scientific_computing"
+tags = ["numerical-benchmark-repair", "cross-validation-forensics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cec-benchmark-suite"

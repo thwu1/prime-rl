@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering a binary serial capture by reading unfamiliar Rust firmware source code to identify the serialization crate (postcard) and framing crate (cobs), then researching their wire format specifications online. The solver must understand Rust enum/struct type definitions and how serde-based serialization maps them to binary (varint encoding for integers, zigzag for signed types, tagged union discriminants, length-prefixed sequences/strings, option encoding). Combines cross-language code reading, crate ecosystem navigation, binary protocol implementation, and robust error handling for malformed frames — skills at the proficient/expert Dreyfus level."""
+solution_explanation = """The solution reads Cargo.toml to identify postcard and cobs dependencies, reads types.rs to extract the message schema, then researches the postcard wire format (varint/LEB128 unsigned encoding, zigzag for signed integers, IEEE 754 LE floats, length-prefixed strings/sequences, option tags, enum discriminants as varint(u32)) and COBS framing (byte-stuffing with 0x00 sentinels). It implements a Python decoder that: (1) splits the capture on 0x00 sentinels, (2) COBS-decodes each frame, (3) deserializes according to the postcard format using the type schema, (4) classifies errors for malformed frames."""
+verification_explanation = """Tests load the generated report.json and verify: correct total/valid/invalid counts (25/18/7), correct per-type distribution, decoded field values for specific valid messages (checking integer values, float values with tolerance, string values, nested enum variants, and option/null handling), and that all 7 invalid message indices are correctly identified as invalid."""
+category = "systems"
+tags = ["binary-protocols", "embedded-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c8b8f9"

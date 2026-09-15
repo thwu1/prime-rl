@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires completing three substantial missing implementations in a DEFLATE/zlib decompressor AND finding/fixing three interacting bugs in existing code. Missing pieces: (1) canonical Huffman decoding algorithm — must understand MSB-first bit ordering and code-range walking across bit lengths, (2) dynamic Huffman RLE code-length symbols 16/17/18 — each with different extra-bit counts and repeat semantics, (3) LZ77 back-reference resolution — length/distance table lookup with extra bits plus overlapping copy semantics. Bugs: (a) wrong Adler-32 modulus constant, (b) two swapped entries in the code-length alphabet permutation array, (c) a helper function that incorrectly reverses distance extra bits. The bugs and stubs are tightly coupled: Huffman decode is needed for any compressed block, RLE is needed for dynamic blocks, LZ77 handles all back-references, and the bugs cause checksum failures or silent corruption that only manifests after implementations are in place."""
+solution_explanation = """Six changes required. (1) Implement HuffmanTree::decode() using canonical Huffman walk: accumulate bits MSB-first one at a time, compare accumulated code against the range [first, first+count) at each length, index into the sorted symbols array. (2) Implement code-length RLE: symbol 16 copies previous length 3-6 times (2 extra bits + 3), symbol 17 fills zeros 3-10 times (3 extra bits + 3), symbol 18 fills zeros 11-138 times (7 extra bits + 11). (3) Implement LZ77: look up LENGTH_BASE/LENGTH_EXTRA for match length, decode distance symbol via dist_tree, look up DISTANCE_BASE/DISTANCE_EXTRA — critically using read_bits (not the buggy read_distance_extra) for extra bits — then copy one byte at a time from output[len-distance] to handle overlaps. (4) Fix ADLER32_MOD from 65535 to 65521. (5) Swap CODE_LENGTH_ALPHABET_ORDER positions 3,4 from [8,0] to [0,8]. (6) Avoid or fix read_distance_extra which incorrectly reverses bit order."""
+verification_explanation = """Tests compress data with Python's zlib at multiple levels (0=stored, 1=fixed Huffman, 6/9=dynamic Huffman), decompress with the Rust binary, and verify byte-identical output. Covers: empty/single-byte inputs, stored blocks, fixed Huffman blocks, dynamic Huffman with repetitive and varied data, raw DEFLATE mode, large-distance back-references (20KB+ distances requiring 11+ extra bits), mixed entropy data, stdin/stdout mode, and full byte-range distributions."""
+category = "implementation"
+tags = ["compression", "rust"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-deflate-inflator"

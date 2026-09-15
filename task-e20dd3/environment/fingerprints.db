@@ -1,0 +1,65 @@
+; p0f-compatible TCP SYN fingerprint database
+; Format: label = <class>:<os>:<version>:
+;         sig = ver:ittl:olen:mss:wsize,scale:olayout:quirks:pclass
+; Wildcard * matches any value in that field.
+; Quirks must match exactly as a set.
+
+[tcp:request]
+
+; ---- Linux ----
+
+; Linux 4.x and newer (typical desktop/server)
+label = s:Linux:4.x:
+sig = 4:64:0:*:mss*10,7:mss,sok,ts,nop,ws:df,id+:0
+
+; Linux 2.6.x
+label = s:Linux:2.6:
+sig = 4:64:0:*:mss*4,2:mss,sok,ts,nop,ws:df:0
+
+; Linux 3.x
+label = s:Linux:3.x:
+sig = 4:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0
+
+; ---- Windows ----
+
+; Windows 10 / Server 2016+
+label = s:Windows:10:
+sig = 4:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0
+
+; Windows 7 / Server 2008 R2
+label = s:Windows:7:
+sig = 4:128:0:*:8192,2:mss,nop,ws,nop,nop,sok:df,id+:0
+
+; Windows 8.1
+label = s:Windows:8.1:
+sig = 4:128:0:*:8192,8:mss,nop,ws,sok,ts:df,id+:0
+
+; ---- macOS ----
+
+; macOS 12.x Monterey
+label = s:macOS:12.x:
+sig = 4:64:0:*:65535,6:mss,nop,ws,nop,nop,ts,sok,eol+1:df:0
+
+; macOS 10.x
+label = s:macOS:10.x:
+sig = 4:64:0:*:65535,5:mss,nop,ws,nop,nop,ts,sok,eol+1:df:0
+
+; ---- BSD ----
+
+; FreeBSD 12.x / 13.x
+label = s:FreeBSD:12.x:
+sig = 4:64:0:*:65535,6:mss,nop,nop,sok,nop,ws:df:0
+
+; OpenBSD 6.x / 7.x
+label = s:OpenBSD:6.x:
+sig = 4:64:0:*:16384,6:mss,nop,nop,sok,nop,ws,nop,nop,ts:df:0
+
+; ---- Solaris ----
+
+; Solaris 10
+label = s:Solaris:10:
+sig = 4:64:0:*:mss*34,7:mss,nop,ws,nop,nop,sok:df:0
+
+; Solaris 11
+label = s:Solaris:11:
+sig = 4:64:0:*:mss*33,7:mss,nop,ws,nop,nop,sok:df:0

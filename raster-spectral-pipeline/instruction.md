@@ -1,0 +1,11 @@
+Implement a geospatial suitability analysis engine at `/app/suitability.py` for evaluating solar farm site locations. The engine reads criterion raster layers and a configuration file at `/app/criteria.json`, which defines five criteria with a pairwise comparison matrix, constraint layers, and output parameters. All input rasters are single-band GeoTIFFs under `/app/data/` (30 m resolution, EPSG:32617, nodata strip on right edge).
+
+Running `python3 /app/suitability.py` must produce these files in `/app/output/`:
+
+**`suitability.tif`** — Single-band float32 GeoTIFF with composite suitability scores in [0, 1]. Criterion weights must be derived from the pairwise comparison matrix in the configuration. Each criterion must be normalized to [0, 1] according to its specification in the config. Pixels within any constraint zone (as defined in `criteria.json`) forced to 0. Input nodata propagated as 0.
+
+**`suitability_classified.tif`** — Single-band uint8 GeoTIFF classifying valid unconstrained suitability scores into 5 ordinal classes that reflect natural groupings in the data. Class 1 = least suitable, class 5 = most suitable. Constrained/nodata = 0.
+
+**`suitable_sites.geojson`** — FeatureCollection of contiguous pixel regions where suitability >= the configured threshold, each meeting the minimum area requirement. Properties: `site_id` (int), `area_ha` (float), `mean_suitability`, `max_suitability`, `centroid_x`, `centroid_y` (projected CRS). Ranked by `mean_suitability` descending.
+
+**`report.json`** — Contains: `ahp_weights` (criterion name -> weight), `consistency_ratio`, `criterion_statistics` (per-criterion raw/normalized min/max/mean over unconstrained valid pixels), `site_summary` (ranked site records matching the GeoJSON feature properties), `sensitivity` (per-criterion entries: `weight_plus_10pct`, `weight_minus_10pct`, `delta` — reflecting how the top qualifying site's mean suitability responds to individual weight adjustments using the configured perturbation factor).

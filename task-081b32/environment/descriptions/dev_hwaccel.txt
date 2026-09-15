@@ -1,0 +1,123 @@
+# Copyright 2024 authors. All rights reserved.
+# Hardware accelerator device driver syscall descriptions (syzlang)
+
+include <linux/ioctl.h>
+include <linux/types.h>
+include <linux/hwaccel.h>
+
+# Resources - lifecycle: open device -> create context -> allocate buffers -> create queue -> submit jobs
+resource fd_hwaccel[fd]
+resource fd_hwaccel_ctx[fd]
+resource fd_hwaccel_queue[fd]
+resource fd_hwaccel_event[fd]
+resource hwaccel_buf_handle[int32]: 0xffffffff
+resource hwaccel_job_id[int64]: 0
+
+# Open the accelerator device
+syz_open_dev$hwaccel(dev ptr[in, string["/dev/hwaccel#"]], id intptr, flags flags[open_flags]) fd_hwaccel
+
+# Context lifecycle
+ioctl$HWACCEL_CREATE_CTX(fd fd_hwaccel, cmd const[0xc0104801], arg ptr[out, hwaccel_ctx_info]) fd_hwaccel_ctx
+ioctl$HWACCEL_DESTROY_CTX(fd fd_hwaccel_ctx, cmd const[0x4802])
+
+# Buffer management
+ioctl$HWACCEL_ALLOC_BUF(fd fd_hwaccel_ctx, cmd const[0xc0204803], arg ptr[inout, hwaccel_buf_alloc])
+ioctl$HWACCEL_FREE_BUF(fd fd_hwaccel_ctx, cmd const[0xc0084804], arg ptr[in, hwaccel_buf_free])
+ioctl$HWACCEL_MAP_BUF(fd fd_hwaccel_ctx, cmd const[0xc0104805], arg ptr[inout, hwaccel_buf_map])
+
+# Queue management
+ioctl$HWACCEL_CREATE_QUEUE(fd fd_hwaccel, cmd const[0xc0084806], arg ptr[out, hwaccel_queue_info]) fd_hwaccel_queue
+ioctl$HWACCEL_SUBMIT_JOB(fd fd_hwaccel_queue, cmd const[0x40304807], arg ptr[in, hwaccel_job_submit])
+ioctl$HWACCEL_WAIT_JOB(fd fd_hwaccel_queue, cmd const[0xc0104808], arg ptr[inout, hwaccel_job_wait])
+
+# Event notification
+ioctl$HWACCEL_CREATE_EVENT(fd fd_hwaccel, cmd const[0xc0084809], arg ptr[out, hwaccel_event_info]) fd_hwaccel_event
+
+# Job cancellation
+ioctl$HWACCEL_CANCEL_JOB(fd fd_hwaccel_queue, cmd const[0x4010480a], arg ptr[in, hwaccel_cancel_req])
+
+# Device queries
+ioctl$HWACCEL_GET_INFO(fd fd_hwaccel, cmd const[0x8040480b], arg ptr[out, hwaccel_dev_info])
+
+# Power management
+ioctl$HWACCEL_SET_POWER(fd fd_hwaccel, cmd const[0x4008480c], arg ptr[in, hwaccel_power_config])
+
+# Flags
+open_flags = O_RDWR, O_CLOEXEC
+hwaccel_buf_flags = HWACCEL_BUF_CACHED, HWACCEL_BUF_CONTIGUOUS, HWACCEL_BUF_SECURE
+hwaccel_job_flags = HWACCEL_JOB_HIGH_PRIO, HWACCEL_JOB_PREEMPTIBLE
+hwaccel_job_type = HWACCEL_JOB_COMPUTE, HWACCEL_JOB_COPY, HWACCEL_JOB_FILL
+hwaccel_event_types = HWACCEL_EVENT_JOB_DONE, HWACCEL_EVENT_CTX_ERROR, HWACCEL_EVENT_THERMAL
+hwaccel_power_modes = HWACCEL_PM_FULL, HWACCEL_PM_LOW, HWACCEL_PM_IDLE
+hwaccel_debug_levels = HWACCEL_DBG_NONE, HWACCEL_DBG_ERROR, HWACCEL_DBG_WARN, HWACCEL_DBG_INFO, HWACCEL_DBG_VERBOSE
+
+# Structs
+hwaccel_ctx_info {
+    ctx_id          int32
+    capabilities    flags[hwaccel_cap_flags, int32]
+    reserved        array[int32, 4]
+}
+
+hwaccel_buf_alloc {
+    size        int64
+    flags       flags[hwaccel_buf_flags, int32]
+    alignment   int32
+    handle      hwaccel_buf_handle  (out)
+    gpu_addr    int64               (out)
+}
+
+hwaccel_buf_free {
+    handle      hwaccel_buf_handle
+}
+
+hwaccel_buf_map {
+    handle      hwaccel_buf_handle
+    offset      int64
+    length      len[data, int64]
+    cpu_addr    int64               (out)
+}
+
+hwaccel_job_submit {
+    queue_prio  int32
+    job_type    flags[hwaccel_job_type, int32]
+    flags       flags[hwaccel_job_flags, int32]
+    num_bufs    len[buf_handles, int32]
+    buf_handles ptr[in, array[hwaccel_buf_handle]]
+    cmd_buf     ptr[in, array[int8]]
+    cmd_size    len[cmd_buf, int32]
+    fence_val   int64
+}
+
+hwaccel_job_wait {
+    timeout_ns  int64
+    flags       flags[hwaccel_wait_flags, int32]
+    job_status  int32               (out)
+}
+
+hwaccel_queue_info {
+    queue_id    int32
+    max_jobs    int32
+}
+
+hwaccel_event_info {
+    event_id    int32
+    event_mask  flags[hwaccel_event_types, int32]
+}
+
+hwaccel_cancel_req {
+    job_id      hwaccel_job_id
+    force       bool32
+}
+
+hwaccel_dev_info {
+    num_cores       int32
+    max_freq_mhz    int32
+    memory_size     int64
+    driver_version  array[int8, 64]
+    fw_version      array[int8, 32]
+}
+
+hwaccel_power_config {
+    mode        flags[hwaccel_power_modes, int32]
+    timeout_ms  int32
+}

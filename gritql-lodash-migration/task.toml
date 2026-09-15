@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level GritQL knowledge: writing 19 distinct AST-based rewrite rules for lodash-to-native transformations, then implementing a two-phase sequential orchestrator with conditional import cleanup. The key difficulty lies in discovering that GritQL's sequential patterns are incompatible with inline test cases (they panic or produce no output), requiring the solver to decompose the problem into composable sub-patterns: a leaf pattern file with the transformation rules and inline tests, plus a separate sequential orchestrator using bubble-scoped file-level patterns with contains/not-contains predicates for conditional import removal. This architectural insight—that pattern composition across files is necessary—is not documented in obvious places and must be discovered through iterative debugging."""
+solution_explanation = """The solution creates two GritQL pattern files: (1) a sub-pattern file defining all 19 lodash-to-native rewrite rules as a flat or{} with inline test cases, and (2) an orchestrator file using sequential{maybe bubble file($body)} to first apply the transforms, then conditionally remove lodash import/require statements only when no _.$_ member expressions remain. The sequential pattern references the sub-pattern by name for composition."""
+verification_explanation = """Tests verify: (1) the pattern file contains real GritQL (not placeholder), (2) at least 7 inline grit pattern test samples pass via grit patterns test, (3) ES6 imports are removed when all calls transformed, (4) CommonJS requires are removed similarly, (5) imports preserved when untransformable calls like _.debounce remain, (6) complex mixed files with 7+ different lodash calls all transform correctly with import cleanup."""
+category = "code_migration"
+tags = ["gritql", "javascript"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gritql-lodash-migration"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete PTY session manager from scratch. The solver must synthesize knowledge of POSIX session semantics (setsid, TIOCSCTTY), pseudoterminal architecture (posix_openpt, grantpt, unlockpt, ptsname), file descriptor management (FD_CLOEXEC, reference counting for PTY EOF detection), concurrent bidirectional I/O (poll/select/epoll), and signal-safe programming (async-signal-safe functions, SA_RESTART semantics on Linux). Key design challenges include: closing the slave FD in the parent so the master receives EOF when the child exits (requires understanding PTY reference counting), setting FD_CLOEXEC on the master to prevent FD leaks across exec, choosing a signal forwarding strategy that is both async-signal-safe and race-free, implementing bidirectional stdin/stdout relay without deadlocks, and correctly acquiring the controlling terminal via TIOCSCTTY after setsid. The stub provides no implementation hints — the solver must design the entire program architecture."""
+solution_explanation = """The solution implements ptysession.c with five interconnected subsystems: (1) PTY allocation with posix_openpt, grantpt, unlockpt, ptsname, and FD_CLOEXEC on the master to prevent leaking into exec'd children. (2) Child session setup: setsid() creates a new session, ioctl(TIOCSCTTY) acquires the controlling terminal, TIOCSWINSZ sets 24x80 geometry, dup2 wires the slave to stdin/stdout/stderr, and the original slave FD is closed. (3) Signal forwarding: sigaction installs a handler for SIGTERM and SIGINT that calls kill(-child_pid, sig) to forward to the child's process group. (4) Bidirectional I/O relay using poll(): the master FD and parent stdin are multiplexed; data from stdin is written to the master (forwarded to child), data from the master is written to stdout (relayed from child). When stdin reaches EOF, it is removed from the poll set. (5) The parent closes the slave FD after fork so the master sees EOF/EIO when the child exits, breaking the relay loop. Exit code propagation uses WIFEXITED/WIFSIGNALED to return the child's exact status."""
+verification_explanation = """Fifteen tests verify all required behaviors through observable outcomes: (1) Session isolation: reporter output confirms SID==PID, PGID==PID. (2) Controlling terminal: HAS_CTTY=yes confirms TIOCSCTTY was called. (3) PTY connection: STDIN_TTY starts with /dev/pts/. (4) Foreground group: FGPG==PGID. (5) FD hygiene: FD_COUNT=3 confirms FD_CLOEXEC on master. (6) Terminal geometry: ROWS>=24, COLS>=80 confirms TIOCSWINSZ. (7) Exit codes: /bin/true returns 0, exit 42 returns 42. (8) Output relay: unique markers in stdout confirm PTY-to-stdout forwarding. (9) Multiline: three distinct markers all appear. (10) Signal forwarding: sending SIGTERM/SIGINT to ptysession while it runs sleep 300 — ptysession must exit with 143/130 respectively, proving the signal was forwarded and exit code propagated. (11) Stdin forwarding: writing data to ptysession's pipe stdin, verifying the child receives and echoes it. (12) Timely exit: /bin/echo completes in under 5 seconds, confirming proper slave FD cleanup."""
+category = "systems_programming"
+tags = ["pty_terminal", "unix_sessions"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ptrace-fd-redirect"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing quantum marking oracles for GF(2) parity constraints and a Hamming weight constraint including a reversible quantum popcount circuit built from controlled-increment operations on a binary counter register. The solver must combine multiple constraint oracles with correct ancilla allocation and uncomputation, construct a phase oracle via phase kickback, and execute Grover's search with the analytically optimal iteration count. Demands expertise in quantum circuit construction, reversible computing, and the Qiskit framework API."""
+solution_explanation = """Build parity sub-oracles using CNOT chains into ancilla qubits (with an X flip for target-parity-0 constraints). Implement popcount as a cascade of controlled increments on a 3-bit binary counter register, where each controlled increment processes MSB-to-LSB using multi-controlled X gates. Compare the counter to the target weight via conditional bit flips and a multi-controlled X. AND all constraint ancillas into the target qubit via MCX. Uncompute all ancillas by applying circuit.inverse() on each sub-circuit. Wrap the marking oracle in a phase oracle (X-H-oracle-H-X on target qubit) and apply Grover iterations with round(pi / (4 * arcsin(sqrt(M/N)))) iterations. Collect measurement results over many shots and filter classically."""
+verification_explanation = """Tests verify the marking oracle on all 64 possible 6-bit inputs: for each computational basis state, the oracle is applied and the resulting statevector is checked to confirm the target qubit flips if and only if all constraints are satisfied, while data qubits remain unchanged and ancillas return to |0>. The solutions.json output is independently verified against classically computed solutions for both correctness and completeness."""
+category = "quantum_computing"
+tags = ["grovers_algorithm", "quantum_oracles"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/quantum-grover-csp"

@@ -1,0 +1,5 @@
+The NIST Consensus Builder (NICOB) is an R application that combines measurement results from multiple laboratories into consensus estimates with uncertainty quantification. The R source code for its core statistical engine is at `/app/nicob_r/` (six `.R` files), and three interlaboratory comparison datasets in `.ncb` format are at `/app/data/`. An R runtime with the `metafor` package is available at `/usr/bin/Rscript`.
+
+Create `/app/nicob.py` — a Python module producing numerically equivalent results to the R implementation. The module must expose these functions: `parse_ncb`, `dersimonian_laird`, `sample_tau2`, `symmetrical_bootstrap_ci`, `linear_pool`, `doe_unilateral_dl`, `doe_bilateral_dl`.
+
+The test suite at `/tests/` validates your implementation against reference outputs and mathematical invariants.

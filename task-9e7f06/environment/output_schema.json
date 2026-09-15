@@ -1,0 +1,54 @@
+{
+  "description": "Produce two outputs: (1) SQLite database at /app/output/autotune.db conforming to /app/db_schema.sql, (2) JSON summary at /app/output/analysis.json as described below.",
+  "fields": {
+    "total_valid_configs": "integer: number of parameter combinations satisfying ALL kernel and hardware constraints",
+    "max_occupancy_pct": "float: highest theoretical SM occupancy percentage across all valid configs",
+    "num_configs_at_max_occupancy": "integer: count of valid configs achieving exactly max_occupancy_pct",
+    "num_configs_above_50pct_occupancy": "integer: count of valid configs with occupancy_pct strictly > 50.0",
+    "bottleneck_distribution": {
+      "registers_only": "integer: configs where only registers limit the resident block count per SM",
+      "smem_only": "integer: configs where only shared memory limits the resident block count per SM",
+      "warps_only": "integer: configs where only the warp limit constrains the resident block count per SM",
+      "multiple": "integer: configs where two or more resources tie as the binding constraint"
+    },
+    "occupancy_histogram": "object mapping occupancy_pct values (as strings) to counts of configs at that occupancy level",
+    "specific_configs": [
+      {
+        "label": "string matching the query label",
+        "valid": "boolean: whether all constraints are satisfied",
+        "WMITER": "integer or null if invalid",
+        "occupancy_pct": "float or null if invalid",
+        "regs_per_thread": "integer or null if invalid",
+        "smem_bytes": "integer: shared memory data bytes (before any runtime overhead or alignment), or null if invalid",
+        "bottleneck": "sorted list of strings from {'registers', 'smem', 'warps'}, or null if invalid",
+        "max_blocks_per_sm": "integer or null if invalid"
+      }
+    ]
+  },
+  "specific_config_queries": [
+    {
+      "label": "A",
+      "description": "Blog's A6000 warptiling configuration",
+      "NUM_THREADS": 128, "BM": 128, "BN": 128, "BK": 16,
+      "WM": 64, "WN": 64, "WNITER": 4, "TM": 8, "TN": 4
+    },
+    {
+      "label": "B",
+      "description": "Shared-memory-limited configuration",
+      "NUM_THREADS": 128, "BM": 64, "BN": 128, "BK": 32,
+      "WM": 16, "WN": 128, "WNITER": 1, "TM": 4, "TN": 4
+    },
+    {
+      "label": "C",
+      "description": "Maximum occupancy configuration",
+      "NUM_THREADS": 256, "BM": 64, "BN": 64, "BK": 16,
+      "WM": 16, "WN": 32, "WNITER": 1, "TM": 4, "TN": 4
+    },
+    {
+      "label": "D",
+      "description": "Invalid configuration",
+      "NUM_THREADS": 256, "BM": 128, "BN": 128, "BK": 16,
+      "WM": 64, "WN": 64, "WNITER": 1, "TM": 4, "TN": 4
+    }
+  ]
+}

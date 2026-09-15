@@ -1,0 +1,7 @@
+lsp-gold
+lsp-silver
+lsp-diverse-1
+lsp-diverse-2
+lsp-best-effort
+lsp-premium
+lsp-constrained

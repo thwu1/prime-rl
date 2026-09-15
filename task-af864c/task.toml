@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Building a valid ext2 filesystem image from raw bytes requires expert-level understanding of every on-disk structure and their interdependencies: superblock geometry and revision fields, block group descriptor table with consistent free counts, block and inode bitmaps with correct padding for non-existent entries, inode table entries with proper mode encoding (type + permissions), sector-based i_blocks accounting that includes indirect metadata blocks, directory entry packing with 4-byte alignment and last-entry padding, singly indirect block pointer mechanics for files exceeding 12 direct blocks, and hard link semantics (shared inode with correct link count across multiple directory entries). A single inconsistency in any structure causes fsck to fail, requiring holistic understanding of how all ext2 components interrelate."""
+solution_explanation = """Design a block layout allocating metadata (superblock, BGDT, bitmaps, inode table) and data blocks for 5 directories, 5 regular files (one hard-linked), and 1 indirect block. Assign inode numbers (2 for root, 11+ for user content). Write the superblock with correct geometry, revision, FILETYPE feature, and volume name. Write the BGDT with matching free counts. Build block and inode bitmaps marking all allocated entries and padding non-existent bits. Construct each inode with correct mode (type|perms), size, link count (root=6 for 4 subdirs, hard-linked file=2), and i_blocks (including indirect block in sector count). Pack directory blocks with aligned entries and correct file type indicators. Write file data and the indirect block pointing to overflow data blocks. The key challenges are: computing root link count = 2 + number_of_subdirectories, including the indirect block in both the bitmap and the large file's i_blocks, and making settings.bak a true hard link (same inode number, not a copy)."""
+verification_explanation = """Tests verify: (1) image exists at exactly 4 MiB, (2) superblock magic 0xEF53, (3) block size 1024, (4) revision >= 1, (5) FILETYPE feature flag, (6) volume name 'tbench-ext2' via dumpe2fs, (7) fsck.ext2 -fn passes with exit 0 (comprehensive structural check), (8-11) directory listings for /, /data, /config, /logs contain expected entries, (12-17) all 6 file contents verified byte-exact via debugfs dump, (18) settings.conf and settings.bak share the same inode number (hard link), (19) hard-linked inode has link count 2, (20) large.bin inode has non-zero singly indirect pointer, (21-22) directory and file permissions match specification, (23) no forbidden filesystem tools referenced in /app or /solution."""
+category = "systems"
+tags = ["filesystem", "ext2"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-af864c"

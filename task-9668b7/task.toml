@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires loading a C shared library via Python ctypes with correct struct layout mapping (double/int fields, boolean and enum encoding) and foreign function interface setup — a systems-level skill uncommon in pure Python work. On top of the FFI challenge, the agent must independently devise and implement multiple advanced multi-objective optimization algorithms (dominance analysis, layered ranking decomposition, exact 3D volume indicator computation, exclusive contribution calculation, iterative front reduction) by reading and interpreting the mathematical specification. The 3D volume computation alone demands non-trivial geometric reasoning. Combined with HLS design-space exploration domain knowledge and constraint-aware combinatorial enumeration over 2592 valid configurations, this requires expert-level proficiency across systems programming, optimization theory, and FPGA synthesis workflows."""
+solution_explanation = """The solution uses ctypes to define HLSConfig and HLSMetrics Structure subclasses matching the C header layout, loads libhls_cost.so, and batch-evaluates all configurations via hls_evaluate_batch. Configuration expansion uses itertools.product with constraint pruning. Pareto ranking uses a fast non-dominated sort with domination counters and dominated sets. 3D hypervolume is computed by z-axis slicing with a 2D sweep-line sub-routine on the non-dominated 2D projection. Exclusive contributions use leave-one-out hypervolume differencing, and greedy reduction iteratively removes the minimum contributor with recomputation."""
+verification_explanation = """Tests verify: (1) shared library exists, is loadable, and the analyzer uses ctypes to call it (no Python cost model reimplementation allowed), (2) exact configuration count of 2592 after constraint pruning, (3) cost model evaluation matches hand-computed baselines, (4) Pareto front correctness on synthetic examples, (5) non-dominated sorting rank assignments, (6) 3D hypervolume against analytically verified values (19.0 symmetric, 55.0 asymmetric), (7) exclusive contributions against analytically derived values, (8) greedy reduction correctness, (9) full pipeline output format/validity/bounds via CLI invocation."""
+category = "systems"
+tags = ["multi-objective-optimization", "hls-design-space-exploration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9668b7"

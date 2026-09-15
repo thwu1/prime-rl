@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConformanceContext xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" UUID="tbench_ack_a01">
+  <MetaData Name="RAD-1-ACK" OrgName="IHE" Version="1.0" Date="2024-01-01" Status="Active" />
+  <Predicates>
+    <Datatype>
+      <ByID ID="HD_ACK">
+        <Predicate ID="HD_ACK_P1" Target="3[1]" TrueUsage="R" FalseUsage="X">
+          <Description>If HD.2 (Universal ID) is valued</Description>
+          <Condition>
+            <Presence Path="2[1]" />
+          </Condition>
+        </Predicate>
+        <Predicate ID="HD_ACK_P2" Target="2[1]" TrueUsage="R" FalseUsage="X">
+          <Description>If HD.3 (Universal ID Type) is valued</Description>
+          <Condition>
+            <Presence Path="3[1]" />
+          </Condition>
+        </Predicate>
+      </ByID>
+    </Datatype>
+    <Segment>
+      <ByID ID="MSA_ACK">
+        <Predicate ID="MSA_P1" Target="3[1]" TrueUsage="R" FalseUsage="O">
+          <Description>If MSA.1 is one of AE, AR, CE, CR then MSA.3 is required</Description>
+          <Condition>
+            <StringList Path="1[1]" CSV="AE,AR,CE,CR" />
+          </Condition>
+        </Predicate>
+      </ByID>
+    </Segment>
+    <Group />
+    <Message />
+  </Predicates>
+  <Constraints>
+    <Datatype>
+      <ByID ID="VID_ACK">
+        <Constraint ID="VID_ACK_C1">
+          <Description>VID.1 SHALL contain the constant value '2.5.1'.</Description>
+          <Assertion>
+            <PlainText Path="1[1]" Text="2.5.1" IgnoreCase="false" />
+          </Assertion>
+        </Constraint>
+      </ByID>
+    </Datatype>
+    <Segment />
+    <Group />
+    <Message>
+      <ByID ID="msg_ack_a01">
+        <Constraint ID="ACK_C1">
+          <Description>MSH.9.1 SHALL contain the constant value 'ACK'.</Description>
+          <Assertion>
+            <PlainText Path="1[1].9[1].1[1]" Text="ACK" IgnoreCase="false" />
+          </Assertion>
+        </Constraint>
+      </ByID>
+    </Message>
+  </Constraints>
+</ConformanceContext>

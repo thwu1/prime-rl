@@ -1,0 +1,22 @@
+int a;
+int b;
+int c;
+int r;
+a = 3;
+b = 7;
+c = 5;
+if((a == b))
+{
+    r = 100;
+}
+else
+{
+    if((c > a))
+    {
+        r = (c - a);
+    }
+    else
+    {
+        r = (a - c);
+    };
+};

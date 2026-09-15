@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must independently engineer a complete SAST evaluation pipeline from raw heterogeneous data with minimal guidance. Difficulty arises from: (1) reverse-engineering five distinct tool output formats (multi-run SARIF 2.1.0 with cross-run deduplication, CSV, namespace-prefixed XML, NDJSON with duplicates, custom log with BOM and mixed line endings) without format documentation; (2) implementing depth-constrained CWE hierarchy matching from a namespace-qualified taxonomy XML, requiring understanding of ancestor/descendant traversal semantics and match priority ordering; (3) deriving the correct scoring methodology (macro-averaged rates, Youden's J, confusion matrix) from the output schema alone, without explicit formulas; (4) discovering the anomaly detection approach (2-sigma FPR outlier detection) from the output field names rather than an algorithm specification; (5) inferring tiered compliance verdict logic (pass/fail/conditional) from policy structure and security domain conventions without explicit rules. The instruction provides only the output schema and three semantic constraints—the agent must bring expert knowledge of CWE taxonomy semantics, SAST evaluation methodology, and statistical analysis to fill in the gaps."""
+solution_explanation = """The solution parses the CWE hierarchy XML using namespace-aware ElementTree to build parent_map and children_map dictionaries, then implements depth-limited ancestor/descendant traversal for hierarchy-aware CWE matching with priority (direct > descendant > ancestor). Five format-specific parsers handle: multi-run SARIF with cross-run deduplication by (test_case, CWE) pairs, CSV via DictReader, namespace-prefixed XML via ElementTree namespace dicts, NDJSON with set-based deduplication, and custom log with BOM removal and regex extraction. Per-category confusion matrices are computed, rates macro-averaged for overall metrics, and FPR-based 2-sigma anomaly detection applied per tool. Compliance evaluation reads YAML-defined tiered thresholds and classifies tools as pass/fail/conditional based on critical vs non-critical tier failures."""
+verification_explanation = """Tests embed a complete independent reference implementation that parses all data files, builds the CWE hierarchy, and computes expected audit report values from scratch. Verification checks: report structure (all 5 tools, 8 categories, compliance section, hierarchy stats), exact TP/FP/TN/FN counts per tool per category, derived metrics within 0.01 tolerance, correct tool rankings, exact anomaly detection, correct compliance verdicts and failing category sets, and consistency between hierarchy match counts and total TP+FP sums."""
+category = "security_and_privacy"
+tags = ["security-analysis", "vulnerability-assessment"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-edd581"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires evaluating two competing Terraform module decomposition proposals against architectural requirements, identifying that one has correct architecture but broken implementation while the other is syntactically valid but architecturally wrong. The solver must judge which proposal satisfies domain cohesion, acyclic dependency, and interface requirements, then synthesize a correct implementation that fixes all HCL bugs (wrong for_each types, mismatched trigger keys, undefined variables), adds domain-appropriate variable validation (CIDR, port range, severity enum, environment enum), creates moved blocks for 8 resource types across 3 module boundaries, and achieves a zero-destroy state migration — all requiring deep expertise in Terraform's resource lifecycle, module system, and state internals."""
+solution_explanation = """Analyze both proposals: Proposal A (by-type) violates domain cohesion by mixing networking/application/monitoring resources in the same modules; Proposal B (by-domain) has correct architecture but multiple bugs — undefined var.enabled_services, tolist() on a map, wrong trigger keys that would force replacement, missing root variables/outputs, missing moved blocks, and no validation. Write evaluation.json documenting these findings. Build from Proposal B's structure: fix health_check to use map comprehension from app_config with correct trigger keys (port, app), fix alert_notifier for_each with active filter and correct trigger keys (url, severity, channel), add root variables.tf/outputs.tf, add 8 moved blocks mapping flat addresses to module addresses, add validation blocks for environment (enum), ports (1024-65535), CIDRs (cidrhost), and severity (enum). Run terraform init + plan to verify."""
+verification_explanation = """Tests verify both the evaluation deliverable and the implementation. Evaluation tests check that evaluation.json exists with required keys, that Proposal A's domain cohesion violation is identified, that Proposal B's bugs are identified, and that Proposal B is selected as the architectural base. Implementation tests run terraform validate and plan to confirm zero adds/destroys, verify domain-based module directories exist (network, application, monitoring), confirm no by-type modules exist, check root config references all three modules, verify resources are in correct modules (not root), count at least 8 moved blocks, and test variable validation rejects invalid environment, port, and severity values via tfvars overrides."""
+category = "infrastructure_as_code"
+tags = ["terraform", "architecture-evaluation"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d9fcbb"

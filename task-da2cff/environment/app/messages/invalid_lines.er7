@@ -1,0 +1,7 @@
+this is not a segment
+MSH|^~\&|SendApp^SA1^ISO|SendFac^SF1^ISO|||20240115120000||ORU^R01^ORU_R01|MSG00007|P|2.5.1
+PID|01||PAT001^^^Auth&1.2.3&ISO||Doe^John
+garbage line here
+OBR|01||FIL001|CBC^Complete Blood Count^LN
+OBX|01|NM|WBC^White Blood Cell^LN||7.5|10*3/uL
+X!Z

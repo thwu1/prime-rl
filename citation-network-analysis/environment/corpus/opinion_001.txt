@@ -1,0 +1,25 @@
+UNITED STATES COURT OF APPEALS FOR THE SECOND CIRCUIT
+
+No. 23-1456
+
+SMITH v. JONES MANUFACTURING CO.
+
+Before: JUDGES WILLIAMS, CHEN, AND PATEL
+
+WILLIAMS, Circuit Judge:
+
+Plaintiff-Appellant John Smith appeals from the judgment of the United States District Court for the Southern District of New York (Thompson, J.), granting summary judgment in favor of Defendant-Appellee Jones Manufacturing Co. on Smith's claims under Title VII of the Civil Rights Act of 1964, 42 U.S.C. § 2000e et seq.
+
+We review a district court's grant of summary judgment de novo. Holcomb v. Iona Coll., 521 F.3d 130, 137 (2d Cir. 2008). Summary judgment is appropriate when "there is no genuine dispute as to any material fact and the movant is entitled to judgment as a matter of law." Fed. R. Civ. P. 56(a); see also Celotex Corp. v. Catrett, 477 U.S. 317, 322 (1986).
+
+To establish a prima facie case of employment discrimination under Title VII, a plaintiff must show that: (1) he is a member of a protected class; (2) he was qualified for the position; (3) he suffered an adverse employment action; and (4) the circumstances give rise to an inference of discrimination. McDonnell Douglas Corp. v. Green, 411 U.S. 792, 802 (1973). Once the plaintiff establishes a prima facie case, the burden shifts to the employer to articulate a legitimate, non-discriminatory reason for the adverse action. Id. at 802-03. If the employer meets this burden, the plaintiff must then demonstrate that the proffered reason was merely a pretext for discrimination. Id. at 804.
+
+The Supreme Court has emphasized that the ultimate burden of persuasion remains with the plaintiff at all times. Texas Dep't of Cmty. Affairs v. Burdine, 450 U.S. 248, 253 (1981). We have further held that "a plaintiff's prima facie case, combined with sufficient evidence to find that the employer's asserted justification is false, may permit the trier of fact to conclude that the employer unlawfully discriminated." Reeves v. Sanderson Plumbing Prods., Inc., 530 U.S. 133, 148 (2000).
+
+In evaluating pretext, we consider the "totality of the circumstances." Abdu-Brisson v. Delta Air Lines, Inc., 239 F.3d 456, 468 (2d Cir. 2001). Direct evidence of discriminatory animus is not required; circumstantial evidence may suffice. Desert Palace, Inc. v. Costa, 539 U.S. 90, 99-100 (2003).
+
+Here, Smith presented evidence that he was the only African-American employee in his department and was terminated shortly after filing a complaint with human resources. The district court found these facts insufficient to establish pretext, citing Bickerstaff v. Vassar Coll., 196 F.3d 435, 448 (2d Cir. 1999), for the proposition that temporal proximity alone is insufficient.
+
+We disagree. While temporal proximity alone may be insufficient in some circumstances, see Clark Cnty. Sch. Dist. v. Breeden, 532 U.S. 268, 273-74 (2001), when combined with other circumstantial evidence, it may support an inference of pretext. See Cifra v. Gen. Elec. Co., 252 F.3d 205, 217 (2d Cir. 2001). Smith presented additional evidence of differential treatment and racially charged comments by his supervisor. Viewing this evidence in the light most favorable to Smith, as we must at the summary judgment stage, see Anderson v. Liberty Lobby, Inc., 477 U.S. 242, 255 (1986), we conclude that a reasonable jury could find pretext.
+
+REVERSED and REMANDED.

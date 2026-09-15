@@ -1,0 +1,19 @@
+# Test 12: Multi-level sealed hierarchy inside a record
+# Shape -> Circle | Polygon, Polygon -> Square | Triangle.
+# Box wraps a Shape. Three record patterns cover all leaf types.
+# Expected: exhaustive
+
+TYPES
+sealed Shape Circle Polygon
+record Circle double:radius parent:Shape
+sealed Polygon Square Triangle
+record Square double:side parent:Polygon
+final Triangle parent:Polygon
+record Box Shape:content
+
+SWITCHES
+switch s1 Box
+record Box(type:Circle)
+record Box(type:Square)
+record Box(type:Triangle)
+end

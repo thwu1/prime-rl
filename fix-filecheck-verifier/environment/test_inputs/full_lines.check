@@ -1,0 +1,2 @@
+; CHECK: exact content only
+; CHECK-NEXT: second line only

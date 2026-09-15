@@ -1,0 +1,96 @@
+CONSISTENCY MODELS AND TRANSACTION ANOMALIES
+=============================================
+A Reference Guide to Adya's Generalized Isolation Levels
+
+Based on: Atul Adya, "Weak Consistency: A Generalized Theory and
+Optimistic Implementations for Distributed Transactions", PhD Thesis,
+MIT, 1999; and Berenson et al., "A Critique of ANSI SQL Isolation
+Levels", SIGMOD 1995.
+
+
+1. TRANSACTION DEPENDENCIES
+----------------------------
+
+Given a set of transactions operating on shared objects, we construct
+a directed dependency graph whose nodes are transactions and whose
+edges capture ordering constraints inferred from their operations.
+
+Three fundamental dependency types between transactions T1 and T2:
+
+  Write-Write (ww)
+    T1 produced a version of some object x, and T2 produced the
+    immediately next version of that same object.
+
+  Write-Read (wr)
+    T1 produced a version of x that T2 subsequently observed (read).
+
+  Read-Write (rw), also called "anti-dependency"
+    T1 observed a version of x, and T2 produced the immediately next
+    version after what T1 saw.
+
+
+2. ANOMALY DEFINITIONS
+-----------------------
+
+Non-cyclic anomalies (detectable without the full dependency graph):
+
+  G1a (Aborted Read)
+    A committed transaction observes a write performed by an aborted
+    transaction. The observed value was never durably installed.
+
+  G1b (Intermediate Read)
+    A committed transaction T2 observes an intermediate state of
+    another committed transaction T1's modifications to a single
+    object. That is, T2 sees the effect of some but not all of T1's
+    sequential writes to that object.
+
+Cyclic anomalies (require cycle detection in the dependency graph):
+
+  G0 (Write Cycle)
+    A cycle consisting entirely of write-write (ww) dependencies.
+
+  G1c (Cyclic Information Flow)
+    A cycle consisting of write-write and/or write-read dependencies
+    (with at least one write-read edge present).
+
+  G-single (Read Skew / Single Anti-dependency)
+    A cycle containing exactly one read-write (anti-dependency) edge,
+    with the remaining edges being write-write or write-read.
+
+  G2-item (Anti-dependency Cycle)
+    A cycle containing two or more read-write (anti-dependency) edges.
+
+
+3. PORTABLE ISOLATION LEVELS (PL Hierarchy)
+--------------------------------------------
+
+Each level cumulatively prohibits the anomalies of all lower levels:
+
+  PL-0    Permits everything.
+  PL-1    Prohibits G0.
+  PL-2    Prohibits G0, G1a, G1b, G1c.
+  PL-3    Prohibits G0, G1a, G1b, G1c, G-single, G2-item.
+          (Equivalent to serializability.)
+
+The strongest level a history satisfies is the highest PL-N such
+that ALL anomalies prohibited at that level are absent.
+
+
+4. LIST-APPEND DATA MODEL
+---------------------------
+
+This data model is used by the Elle transaction consistency checker
+(Jepsen). Transaction operations on list-valued registers:
+
+  append(key, value)
+    Atomically appends a unique integer to the list stored at key.
+
+  read(key) -> [values...]
+    Returns the current contents of the list at key.
+
+Since each appended value is globally unique across all transactions,
+the order of values in an observed list directly reveals the order of
+the corresponding append operations. The complete version history of
+each key can be reconstructed from the union of all observed read
+states: the longest observed list for a given key contains the full
+append sequence for that key.

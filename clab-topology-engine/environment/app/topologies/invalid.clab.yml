@@ -1,0 +1,19 @@
+name: broken-lab
+mgmt:
+  ipv4-subnet: 10.0.0.0/29
+topology:
+  defaults:
+    kind: linux
+    image: alpine:latest
+  nodes:
+    node1: {}
+    node2: {}
+    node3: {}
+    node4: {}
+    node5: {}
+    node6: {}
+  links:
+    - endpoints: ["node1:eth1", "node2:eth1"]
+    - endpoints: ["node1:eth1", "node3:eth2"]
+    - endpoints: ["node1:eth2", "ghost:eth1"]
+    - endpoints: ["node2:eth2", "node3:this_is_way_too_long"]

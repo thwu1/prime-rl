@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Cargo's feature resolution semantics across a multi-crate workspace: conditional forwarding (crate?/feat), optional dependency activation (dep:crate), transitive feature chains within sub-crates, and fixed-point resolution across crate boundaries. The agent must use cargo CLI tools (cargo metadata, cargo tree) and jq to analyze the workspace's dependency graph, cross-reference tool output with manual analysis, and compute derived properties (minimum activators, conditional firing analysis, dominance pairs) that no single tool provides directly. The conditional analysis section requires understanding that conditionals are no-ops when the target dep isn't enabled, even if the parent feature is active. The minimum activator computation requires reverse graph analysis across the full feature graph. The dominance analysis requires computing transitive closures and comparing them systematically."""
+solution_explanation = """Parse all Cargo.toml files in the workspace to extract feature definitions and optional dependency declarations for each crate. Implement a cross-crate fixed-point resolver: maintain sets of active kernel features, enabled optional deps, and dep-feature sets. In each iteration, process every active feature's activation list, enabling deps (dep:), conditionally forwarding dep-features (crate?/feat when target dep is enabled), and activating transitive features. After kernel-level resolution, resolve each sub-crate's internal feature graph (e.g., netstack's socket-tcp → async → alloc chain). For minimum activators, test each kernel feature individually and find the lexicographically smallest that activates the target dep-feature. For conditional analysis, check whether each parent feature's closure includes the target dep. For dominance, compute and compare transitive closures of all eligible features."""
+verification_explanation = """Tests load /app/audit.json and verify each section against precomputed expected values. Cross-crate closures are checked for all 10 queries (root_features, resolved_deps including sub-crate internal feature chains). Minimum activators are checked for all 5 targets including a null case. Conditional analysis is checked for all 10 conditional forwarding expressions. Dominance pairs are checked as an exact sorted list."""
+category = "developer_tools"
+tags = ["cargo", "dependency-resolution"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-23c41e"

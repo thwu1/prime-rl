@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing three interacting rendering defects in a USLM XML→Markdown pipeline by evaluating output against golden reference files, then redesigning the git integration layer from naive sequential git-add/commit to a git fast-import byte stream with marks, parent chains, timestamped author/committer lines, data-length-prefixed messages, deleteall/file-modify sequences, and annotated tag commands. Beyond the existing pipeline bugs and git redesign, the solver must also build two structured analysis artifacts: (1) a cross-reference integrity report that scans generated markdown for statutory links and classifies each by whether the target title exists in the repository, and (2) a semantic changelog that compares the parsed intermediate representations of consecutive vintage snapshots, detects structural differences (sections added, subsections added, paragraphs added, text amendments, notes changes), classifies each change by type, and extracts the specific values that were amended. The changelog requires holistic understanding of the USLM XML content tree semantics, the IR data model, and how vintages relate chronologically — the manifest deliberately lists vintages out of order, so the solver must sort by release_date and reason about the implications for both git history and changelog construction simultaneously. The rendering bugs are only discoverable by diffing output against golden files and tracing the root cause through the XML→IR→Markdown pipeline: subsection labels lack bold formatting (rendering layer), continuation text is appended before child nodes instead of after (IR parse ordering), and the subclause indentation constant is wrong (rendering constants). Approximately 30 of 70+ tests fail simultaneously from these interconnected issues, requiring holistic triage across the XML parsing, IR construction, markdown rendering, git plumbing, and analysis layers."""
+solution_explanation = """(1) Evaluate output against /app/expected/ golden files to identify three rendering defects: subsection labels lack bold formatting, continuation text is appended before child nodes instead of after in the IR parse, and the subclause indentation constant is 4 instead of 6. (2) Redesign git integration: replace the git-add/commit loop with a fast-import byte stream — sort vintages by release_date, construct commit entries with marks and from-parent references, author/committer lines with Unix timestamps, data-length-prefixed commit messages, deleteall plus file-modify blob sequences, and annotated tag commands with tagger lines. (3) Create refs-report.json: after fast-import, checkout main, scan markdown for uscode.house.gov links, extract target title and section, classify internal vs external, write structured JSON per the schema in spec.md section 6. (4) Create changelog.json: parse each vintage's XML into IR, sort vintages chronologically, compare consecutive IR trees structurally — detect new sections (section_added), new subsections (subsection_added), new paragraphs (paragraph_added), changed provision text with extracted old/new values (text_amended), and modified notes (notes_amended) — write structured JSON per the schema in spec.md section 7."""
+verification_explanation = """70+ pytest tests across eight classes: TestGitStructure verifies 3 commits with chronological ordering, specific author/committer dates, commit message format, and identity; TestTags verifies annotated tag types and correct commit targets; TestCommitContent verifies per-commit file trees, frontmatter, and section presence/absence; TestMarkdownQuality verifies cross-reference URLs, seven-level indentation hierarchy, bold subsection labels, continuation placement, and notes; TestDiffs verifies inter-commit diffs show expected changes; TestRefsReport validates refs-report.json structure, field types, and counts per the documented schema; TestChangelog validates changelog.json structure — correct vintage ordering, section_added/subsection_added/paragraph_added detection in diff 1, text_amended with penalty values and notes_amended in diff 2, negative tests for unexpected change types, and valid change_type enforcement; TestAntiCheat verifies use of git fast-import and XML parsing."""
+category = "data_engineering"
+tags = ["git-internals", "xml-transforms"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/uslm-xml-converter"

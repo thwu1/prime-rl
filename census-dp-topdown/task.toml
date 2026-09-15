@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete privacy-preserving data release system combining: linear algebra for query operator construction from schema dimensions, sensitivity analysis via column-norm computation, proportional privacy budget accounting with noise calibration under zCDP, constrained numerical optimization for histogram estimation under multiple simultaneous constraints (non-negativity, integer values, hierarchical parent-child consistency, population invariants, structural zeros), and integer rounding algorithms that preserve all constraints simultaneously. The interplay between these components demands graduate-level expertise spanning statistics, optimization, and computer science."""
+solution_explanation = """Construct linear query operators as Kronecker products over schema dimensions, compute column-norm sensitivities, allocate rho proportionally across hierarchy levels and queries, calibrate Gaussian noise under zCDP, add noise to true query answers, then solve constrained least-squares at each geographic level to find histograms close to noisy measurements while satisfying all hard constraints. Round continuous solutions to integers using a transportation-based approach preserving parent-child consistency, population totals, and structural zeros."""
+verification_explanation = """Tests verify: (1) sensitivity values match independently computed column norms, (2) budget arithmetic is correct, (3) all structural constraints hold on synthetic output, and (4) anti-cheat: the pipeline is re-run with a different seed (outputs must differ) and with entirely fresh random data (all constraints must still hold on new data)."""
+category = "security_and_privacy"
+tags = ["differential-privacy", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/census-dp-topdown"

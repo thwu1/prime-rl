@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level biophysics knowledge and advanced scientific computing skills. The solver must: (1) explore reference documentation to extract CD spectroscopy unit conversion relationships and translate academic prose into working code, (2) discover that secondary structure deconvolution requires constrained optimization with biophysical constraints (non-negative fractions summing to unity) -- not stated in instructions, (3) determine an appropriate nonlinear model for thermal denaturation with sloping baselines from reference material and implement robust parameter estimation, (4) interpret validation criteria from a separate document describing instrument-dependent thresholds and conditional checks, (5) implement spectral interpolation for mismatched wavelength grids and a fit quality metric. Five subcommands must be integrated into a coherent CLI."""
+solution_explanation = """The reference solution uses: scipy.optimize.minimize with SLSQP for constrained deconvolution (bounds=[0,1], equality constraint sum=1); scipy.optimize.curve_fit for the six-parameter thermal melt model (linear baselines + van't Hoff equilibrium) with initial guesses from endpoint regression; scipy.interpolate.interp1d for wavelength grid alignment; NRMSD = sqrt(sum(obs-calc)^2 / sum(obs^2)) as fit quality and distance metric; JSON-based metadata parsing with instrument-type-dependent thresholds for validation. All formulas derived from reference docs at /app/docs/."""
+verification_explanation = """Tests verify: (1) unit conversion accuracy by independently computing expected values, plus round-trip fidelity, (2) deconvolution for three proteins including a boundary case with near-zero helix -- checking fraction tolerance, constraint satisfaction, NRMSD, and reconstructed length, (3) thermal melt for two parameter regimes checking Tm and enthalpy within tolerance plus fraction-folded boundaries and monotonicity, (4) validation covering all-pass, HT voltage failure, wavelength truncation, baseline drift, CSA failure, synchrotron threshold, missing optional fields, and check-name completeness, (5) spectral matching verifying ranking order, distances, dissimilar placement, self-match, and schema."""
+category = "bioinformatics"
+tags = ["spectroscopy", "constrained-optimization"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cd-spectral-pipeline"

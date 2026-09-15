@@ -1,0 +1,19 @@
+version: "1"
+nodes:
+  - id: setup
+    name: Setup
+    steps:
+      - name: Install
+        run: npm ci
+  - id: build
+    name: Build
+    depends_on: [setup]
+    steps:
+      - name: Compile
+        run: npm run build
+  - id: test
+    name: Test
+    depends_on: [build]
+    steps:
+      - name: Run tests
+        run: npm test

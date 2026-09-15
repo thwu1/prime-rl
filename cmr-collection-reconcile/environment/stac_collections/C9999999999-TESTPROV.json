@@ -1,0 +1,43 @@
+{
+  "type": "Collection",
+  "id": "C9999999999-TESTPROV",
+  "stac_version": "1.0.0",
+  "title": "Test Decommissioned Collection",
+  "description": "Decommissioned test collection.",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180,
+          -90,
+          180,
+          90
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2020-01-01T00:00:00Z",
+          "2022-12-31T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "providers": [
+    {
+      "name": "TESTPROV",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "summaries": {
+    "platform": [
+      "TEST-SAT-1"
+    ],
+    "processing:level": "L2"
+  },
+  "links": [],
+  "license": "proprietary"
+}

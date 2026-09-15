@@ -1,0 +1,24 @@
+# Turbulent Pipe Flow (BROKEN - 3 errors)
+[GENERAL]
+polynomialOrder = 7
+stopAt = endTime
+endTime = 200
+
+dt = 6.0e-3
+timeStepper = tombo2
+advectionSubCyclingSteps = 2
+
+checkpointControl = simulationTime
+checkpointInterval = 20
+
+regularization = hpfrt + nModes=1 + scalingCoeff=500
+constFlowRate = meanVelocity=1.0 + direction=W
+
+[FLUID PRESSURE]
+residualTol = 1e-04
+
+[FLUID VELOCITY]
+boundaryTypeMap = zeroDirichlet
+viscosity = 1/0
+rho = 1.0
+residualTol = 1e-06

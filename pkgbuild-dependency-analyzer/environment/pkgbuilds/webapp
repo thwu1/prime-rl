@@ -1,0 +1,25 @@
+# Maintainer: Example Maintainer <maintainer@example.com>
+
+pkgname=webapp
+pkgver=1.8.3
+pkgrel=1
+pkgdesc="Web application framework with datastore integration"
+arch=('x86_64')
+url="https://example.com/webapp"
+license=('Apache-2.0')
+depends=('datastore-libs' 'baselib>=2.0.0' 'python' 'openssl')
+makedepends=('python-setuptools')
+optdepends=('nginx: reverse proxy support'
+            'redis: caching support')
+source=("https://example.com/releases/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9')
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    python setup.py build
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    python setup.py install --root="${pkgdir}" --optimize=1
+}

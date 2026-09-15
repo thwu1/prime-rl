@@ -1,0 +1,16 @@
+{
+  "name": "piston_fluid",
+  "type": "coupled_piston_fluid",
+  "description": "First coupled eigenfrequency of a rigid piston closing one end of a fluid-filled tube with rigid far-end wall",
+  "piston": {
+    "mass_kg": 500.0,
+    "area_m2": 0.1
+  },
+  "fluid": {
+    "density_kg_m3": 1000.0,
+    "speed_of_sound_m_s": 1500.0,
+    "column_length_m": 10.0
+  },
+  "far_end_bc": "rigid_wall",
+  "outputs": ["freq_hz"]
+}

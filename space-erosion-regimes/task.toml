@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of computational geomorphology and the SPACE (Stream Power with Alluvium Conservation and Entrainment) model. The solver must independently: (1) research the SPACE model physics and its three end-member erosion regimes; (2) derive the correct analytical steady-state slope-area relationships for detachment-limited, transport-limited, and bedrock-alluvial regimes from the governing equations; (3) derive the equilibrium soil depth formula for the bedrock-alluvial case; (4) figure out how to wire landlab components (RasterModelGrid, FlowAccumulator with depression handling, Space) into a working landscape evolution model; (5) implement correct boundary conditions, tectonic uplift, and the topographic elevation constraint; (6) classify regimes from physical parameters without being told the classification rules; (7) compute the slope-area concavity index. The 8x8 grids (36 core nodes) produce non-trivial drainage networks requiring careful debugging. No formulas or implementation steps are provided in the instruction."""
+solution_explanation = """Install landlab. For each scenario: (1) Create RasterModelGrid with boundary conditions (all edges closed, node 0 open outlet). (2) Initialize topography as tilted plane with random noise, set soil and bedrock fields. (3) Wire FlowAccumulator(D8) + DepressionFinderAndRouter + Space component. (4) Run time loop: fa.run_one_step(), sp.run_one_step(dt), br[core] += U*dt, enforce outlet soil, z = br + soil. (5) Classify regime from F_f, v_s, initial_soil. (6) Compute analytical solutions: detachment-limited S=(U/K_br)^(1/n)*A^(-m/n); transport-limited S=((U*v_s*(1-phi)+U*(1-phi))/(K_sed*A^m))^(1/n), Qs=U*A*(1-phi); bedrock-alluvial S=((U*v_s*(1-F_f))/(K_sed*A^m)+U/(K_br*A^m))^(1/n), H=-H_star*ln(1-v_s/(K_sed/(K_br*(1-F_f))+v_s)). (7) Compute concavity via log-log regression of slopes vs drainage areas."""
+verification_explanation = """Tests verify: (1) results.json structure, completeness, and the presence of slope_area_concavity; (2) correct regime classification for all 3 scenarios; (3) analytical slope formulas independently computed from reported drainage areas match solver's analytical_slopes; (4) numerical slopes converge to analytical (RMSE < 1e-4); (5) transport-limited analytical sediment flux formula verified; (6) bedrock-alluvial analytical soil depth formula verified; (7) soil depths converge to analytical; (8) physical consistency (positive slopes/areas, non-negative soil, drainage area >= cell area); (9) concavity index matches theoretical m/n within tolerance; (10) concavity consistent across regimes; (11) analytical slopes follow tight power law (R^2 > 0.99); (12) sediment fluxes non-negative."""
+category = "applied_computing"
+tags = ["geomorphology", "landscape-evolution"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/space-erosion-regimes"

@@ -1,0 +1,24 @@
+BUG: kernel NULL pointer dereference, address: 0000000000000010
+#PF: supervisor write access in kernel mode
+#PF: error_code(0x0002) - not-present page
+PGD 0 P4D 0
+Oops: Oops: 0002 [#1] PREEMPT SMP KASAN
+CPU: 3 UID: 0 PID: 9102 Comm: syz.5.0 Not tainted 6.12.0-syzkaller #0
+Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+RIP: 0010:kmem_cache_destroy+0x45/0x120 mm/slab_common.c:118
+Code: 48 89 e5 41 57 41 56 53 48 89 fb 48 83 ec 08 e8 12 34 56 78 48
+RSP: 0018:ffffc9000c447c10 EFLAGS: 00010246
+RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
+RDX: 0000000000000001 RSI: 0000000000000000 RDI: 0000000000000000
+Call Trace:
+ <TASK>
+ ext4_put_super+0x456/0x8a0 fs/ext4/super.c:1234
+ generic_shutdown_super+0x18e/0x3f0 fs/super.c:693
+ kill_block_super+0x44/0x80 fs/super.c:1667
+ deactivate_locked_super+0x94/0x120 fs/super.c:484
+ deactivate_super+0x7a/0xb0 fs/super.c:517
+ do_syscall_64+0x15f/0xf80 arch/x86/entry/syscall_64.c:94
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+ </TASK>
+Modules linked in:
+---[ end trace 0000000000000000 ]---

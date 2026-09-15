@@ -1,0 +1,36 @@
+{
+  "batch_id": "RUN_2157B",
+  "run_date": "2157-05-22",
+  "operator": "Dr. K. Vasquez",
+  "protocol_version": "v3.2",
+  "qc_metrics": {
+    "read_quality": {
+      "mean_phred_score": 34.8,
+      "min_phred_score": 27.9,
+      "reads_above_q30_pct": 93.5,
+      "pass": true
+    },
+    "contamination_screen": {
+      "method": "kraken2_v2.1",
+      "foreign_reads_pct": 0.008,
+      "detection_threshold_pct": 5.0,
+      "organisms_flagged": [],
+      "pass": true
+    },
+    "coverage_uniformity": {
+      "mean_depth": 42.7,
+      "coefficient_of_variation": 0.162,
+      "target_cv_max": 0.30,
+      "pass": true
+    },
+    "library_complexity": {
+      "unique_fragments_pct": 91.4,
+      "duplication_rate": 0.086,
+      "pass": true
+    }
+  },
+  "overall_qc": "PASS",
+  "reviewer": "Dr. L. Chen",
+  "review_date": "2157-05-28",
+  "notes": "Batch processed alongside RUN_2157C. All metrics nominal."
+}

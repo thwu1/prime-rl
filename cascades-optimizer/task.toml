@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of the Volcano/Cascades query optimization framework — a topic typically covered only in graduate-level database internals courses. The solver must: (1) identify an inverted comparison in the cost model that causes worst-plan-first selection, (2) understand hash-join build-side semantics and fix both child reordering and memory cost attribution, (3) distinguish estimated_row_count from estimated_table_size as the correct metric for join-order optimization, and (4) implement filter push-down through joins by reasoning about which side of the join each predicate column belongs to. These four issues interact: the cost model inversion masks the other bugs, so the solver must reason about all components holistically."""
+solution_explanation = """Fix 1: In cost.py, change is_better to return total_cost(candidate) < total_cost(current_best) instead of >. Fix 2: In HashJoinBuilder.build, reorder children so the smaller view_size child is the build side, and compute memory_cost = view_size(build_child). Fix 3: In JoinReorderBySize.transform, change the sort key from estimated_row_count to estimated_table_size. Fix 4: Implement FilterPushDown.transform by collecting condition-column tables, comparing against left/right subtree tables, and restructuring the plan tree accordingly."""
+verification_explanation = """14 pytest tests verify each fix independently and in combination: 3 unit tests for CostModel.is_better correctness, 3 unit tests for HashJoinBuilder build-side selection and cost values, 1 unit test for JoinReorderBySize ordering by table_size, 3 unit tests for FilterPushDown (left-side, right-side, and both-sides cases), and 4 end-to-end integration tests checking plan cost, join order, filter position, and structural sanity."""
+category = "debugging"
+tags = ["database-internals", "query-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cascades-optimizer"

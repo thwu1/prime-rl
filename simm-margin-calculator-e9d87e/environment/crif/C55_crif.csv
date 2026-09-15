@@ -1,0 +1,7 @@
+ProductClass,RiskType,Qualifier,Bucket,Label1,Label2,Amount,AmountCurrency,AmountUSD
+Credit,Risk_IRCurve,BRL,3,10y,Libor6m,14000000,USD,14000000
+Credit,Risk_IRCurve,BRL,3,15y,Libor6m,30000000,USD,30000000
+Credit,Risk_IRCurve,BRL,3,20y,Libor12m,-800000,USD,-800000
+Credit,Risk_IRCurve,BRL,3,30y,Libor12m,-800000,USD,-800000
+Credit,Risk_Inflation,BRL,,,,2000000,USD,2000000
+Credit,Risk_XCcyBasis,BRL,,,,-1000000,USD,-1000000

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep NES PPU hardware knowledge applied across two languages and toolchains. The solver must: (1) identify and fix 5 independent bugs in a Python PPU scroll register state machine by cross-referencing against NES hardware specifications — wrong nametable toggle bit in Y increment, missing bit-14 clear in $2006 handler, stale fine-Y in $2005 handler, incomplete horizontal copy, and swapped attribute address shifts; (2) identify and fix 4 independent bugs in a C background tile renderer — wrong mirroring function, incorrect Y-wrap nametable toggle, swapped bitplane order, and collapsed attribute quadrant shift; (3) compile the C renderer using gcc/make; (4) architect a Python rendering pipeline that processes a register trace with mid-frame scroll changes, correctly sequences copy_vertical/copy_horizontal/increment_y, and renders 256x240 tiles; (5) bridge the stateful Python state machine with the stateless C renderer by simulating the register trace to extract per-region 9-bit scroll coordinates and writing them in the C renderer's configuration format; (6) use binary inspection tools (xxd, hexdump) to understand data formats and per-scanline CRC comparison to localize rendering errors across both renderers."""
+solution_explanation = """Five Python bugs in ppu_scroll.py: (1) increment_y toggles bit 10 instead of bit 11 at coarseY=29; (2) write_ppuaddr first write uses ~0x3F00 instead of keeping only low byte, failing to clear bit 14; (3) write_ppuscroll second write uses ~0x03E0 instead of ~0x73E0; (4) copy_horizontal uses 0x001F instead of 0x041F; (5) get_attribute_address has swapped shift amounts. Four C bugs in renderer.c: (1) resolve_nt returns (nt>>1)&1 instead of nt&1 for vertical mirroring; (2) inc_y toggles nametable at y==31; (3) bitplane order (lb<<1)|hb instead of (hb<<1)|lb; (4) attribute shift (cy&2)|(cx&2) instead of ((cy&2)<<1)|(cx&2). Then render_frame.py drives the corrected state machine, and gen_config.py simulates the state machine to extract scroll coords at region boundaries for the C renderer config."""
+verification_explanation = """Tests verify three categories: (1) Python rendering output — SHA-256 exact match, per-scanline CRC-32 checksums at 27 boundary scanlines, 24 spot-check pixel values, valid palette index range, non-trivial content ratio; (2) PPU state machine unit tests — increment_y at coarseY=29/31, ppuaddr bit-14 clearing, ppuscroll fine-Y clearing, copy_horizontal nametable bit transfer, get_attribute_address shifts, full register write integration; (3) C renderer cross-validation — output exists with correct size, SHA-256 matches reference, byte-for-byte match with Python output."""
+category = "systems"
+tags = ["nes-emulation", "cross-language-debug"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-ppu-scrolling"

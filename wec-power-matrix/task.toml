@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires marine hydrodynamics domain expertise to correctly parse and dimensionalize WAMIT BEM coefficients (added mass, radiation damping, excitation force) using nonstandard nondimensionalization conventions, build a coupled two-body frequency-domain model with PTO coupling, identify and implement the correct wave spectrum model from configuration, compute radiation impulse response functions, optimize PTO damping over a wide search range, produce structured HDF5 output with hierarchical dataset paths, and implement a CLI interface with both batch and single-query modes. Errors in nondimensionalization, matrix assembly, or spectrum discretization propagate silently to incorrect power values. The HDF5 and IRF requirements demand familiarity with scientific data formats and signal processing concepts beyond standard programming."""
+solution_explanation = """The solution dimensionalizes WAMIT coefficients using conventions in rm3_params.json, builds the coupled 2x2 complex impedance matrix Z = -w^2(M+A) + iwB + C + Z_PTO where Z_PTO = iwB_PTO*[[1,-1],[-1,1]], solves for heave RAO via Cramer's rule, computes mean power as spectral integral of B_PTO*w^2*|X_rel|^2*S_PM*dw. Pierson-Moskowitz spectrum S(w) = (5/16)*Hs^2*wp^4/w^5*exp(-1.25*(wp/w)^4). Radiation IRF via K(t) = (2/pi)*integral(B(w)*cos(wt)*dw). 1D sweep + bounded optimization for B_PTO. AEP = sum(power*hours). Outputs to JSON and HDF5 with structured dataset hierarchy."""
+verification_explanation = """Tests verify: (1) all output files exist with correct schema, (2) power matrix values match reference within 5% for all 24 sea states, (3) Hs-squared power scaling, (4) PTO independence of Hs within 10%, (5) PTO monotonicity with Tp, (6) power monotonicity in Hs and Tp, (7) AEP within 5%, (8) HDF5 dataset shapes and hierarchy, (9) HDF5 dimensional coefficient values against known reference, (10) radiation IRF decay below 1% of peak at t=100s, (11) CLI query mode returns correct JSON, (12) query at optimal Bpto matches power matrix, (13) query at suboptimal Bpto gives less power."""
+category = "physics_engineering"
+tags = ["marine-hydrodynamics", "scientific-computing"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wec-power-matrix"

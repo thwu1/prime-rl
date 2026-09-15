@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-source knowledge graph fusion pipeline from scratch with no procedural guidance. The agent must independently discover how to: parse three heterogeneous serialization formats (N-Triples, Turtle, JSON records with entity cross-references, CSV), infer an entity resolution strategy from configuration parameters (match_policy, trust levels, entity_references), implement transitive closure over entity equivalences combining known matches with discovered matches, design schema alignment across source-specific vocabularies (DBpedia, JSON keys, CSV columns) to a target OWL ontology, distinguish functional from non-functional properties for conflict resolution, resolve intra-source entity cross-references to canonical URIs, and produce correct N-Triples serialization. No reference output is provided — correctness must be achieved through understanding the domain semantics, not pattern matching."""
+solution_explanation = """Solution parses all sources (Turtle via rdflib, JSON records with entity cross-references, CSV), builds entity match clusters using union-find with known TSV matches plus normalized-label discovery, selects canonical URIs by source trust ranking, maps predicates via config schema_mappings, fuses triples with functional/non-functional property distinction and trust-based conflict resolution, and serializes the fused graph to N-Triples."""
+verification_explanation = """Tests parse the fused KG with rdflib and verify: correct entity count (14), correct triple count (78), specific conflict resolutions for functional properties (budget, gross values from highest-trust sources), entity resolution across all source combinations (JSON entity references resolve to canonical URIs, CSV entities merge with seed/RDF entities), match cluster structure and canonical selection by trust, absence of non-canonical entities as subjects (json_m1, csv_p1, tmdb_f1, csv_c1, csv_p5, csv_p6 must not appear), preservation of non-functional property values (genres, occupations), and correct property merging across sources."""
+category = "data_engineering"
+tags = ["knowledge-graph", "data-integration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/kg-source-fusion"

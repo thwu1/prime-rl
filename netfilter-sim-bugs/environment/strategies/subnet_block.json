@@ -1,0 +1,12 @@
+{
+    "name": "subnet_block",
+    "description": "Block all traffic from the 198.18.0.0/15 subnet",
+    "rules": [
+        {
+            "match": {
+                "src_network": "198.18.0.0/15"
+            },
+            "action": "drop"
+        }
+    ]
+}

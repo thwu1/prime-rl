@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a metrics regression engine that evaluates Tcl-derived tolerance expressions with cross-metric variable dependencies ($clock_period from DRT::clock_period, $instance_count from IFP::instance_count), handles mathematical functions (min, int) within expressions, applies correct comparison operator semantics across 22 distinct physical design metrics, and produces four different structured JSON output formats. Understanding the physical design domain (timing slack vs TNS, DRC violations, clock skew tolerances) is needed to debug subtle failures in expression evaluation and comparison logic."""
+solution_explanation = """Build a Python CLI tool that: (1) parses metric definitions with limit expressions from JSON, (2) resolves cross-metric variables by extracting clock_period and instance_count from the same metrics file, (3) evaluates limit expressions via safe string substitution and eval, (4) implements four subcommands (generate-limits, check, margin-report, compare) each producing specific JSON output, (5) handles edge cases like zero denominators in percent_change and negative-value min() expressions."""
+verification_explanation = """Deterministic pytest tests verify: correct limit generation matching known OpenROAD regression values (within floating-point tolerance), exact identification of 10 specific failing metrics in a degraded run, correct margin computation with sign semantics per comparison operator, and delta/percent_change calculation including null for zero-base cases. Tests use actual metrics from the GCD and AES designs on NanGate45."""
+category = "computer_systems_organization"
+tags = ["eda", "physical-design"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-876d2a"

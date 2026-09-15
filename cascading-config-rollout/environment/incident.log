@@ -1,0 +1,102 @@
+2024-01-15 14:30:01 [simulation] INFO: ==============================================================
+2024-01-15 14:30:01 [simulation] INFO: CONFIGURATION ROLLOUT SIMULATION
+2024-01-15 14:30:01 [simulation] INFO: ==============================================================
+2024-01-15 14:30:01 [simulation] INFO: Initializing dual-source config store ...
+2024-01-15 14:30:01 [simulation] INFO: Initializing 8 sites ...
+2024-01-15 14:30:01 [config_pipeline.health] INFO: All sites healthy
+2024-01-15 14:30:01 [simulation] INFO: All sites healthy
+2024-01-15 14:30:01 [simulation] INFO:
+2024-01-15 14:30:01 [simulation] INFO: ==============================================================
+2024-01-15 14:30:01 [simulation] INFO: SIMULATING CONFIG CHANGE: ip_blocks -> ip_ranges migration
+2024-01-15 14:30:01 [simulation] INFO: ==============================================================
+2024-01-15 14:30:01 [simulation] INFO: Updating primary config source (secondary will sync after delay) ...
+2024-01-15 14:30:02 [simulation] INFO: Primary keys  : ['ip_ranges', 'metadata', 'routing_rules', 'service_endpoints']
+2024-01-15 14:30:02 [simulation] INFO: Secondary keys: ['ip_blocks', 'metadata', 'routing_rules', 'service_endpoints']
+2024-01-15 14:30:02 [simulation] INFO: Merging configs from both sources ...
+2024-01-15 14:30:02 [config_pipeline.merger] WARNING: Config source inconsistency detected. Keys only in primary: {'ip_ranges'}, Keys only in secondary: {'ip_blocks'}. Resolving with fail-safe key merge.
+2024-01-15 14:30:02 [config_pipeline.merger] INFO: Merged config has 3 keys from 5 unique keys across sources
+2024-01-15 14:30:02 [simulation] WARNING: CONFIG INCONSISTENCY between primary and secondary
+2024-01-15 14:30:02 [simulation] INFO: Merged config keys: ['metadata', 'routing_rules', 'service_endpoints']
+2024-01-15 14:30:02 [simulation] INFO: Merged has ip_blocks: False, ip_ranges: False
+2024-01-15 14:30:02 [simulation] INFO:
+2024-01-15 14:30:02 [simulation] INFO: ==============================================================
+2024-01-15 14:30:02 [simulation] INFO: EXECUTING PROGRESSIVE ROLLOUT
+2024-01-15 14:30:02 [simulation] INFO: ==============================================================
+2024-01-15 14:30:02 [config_pipeline.rollout] INFO: Starting canary validation on site-us-east1
+2024-01-15 14:30:02 [config_pipeline.rollout] INFO: Canary check passed, proceeding with rollout
+2024-01-15 14:30:02 [config_pipeline.site] INFO: [site-us-east1] Applying new config with 3 keys
+2024-01-15 14:30:02 [config_pipeline.site] INFO: [site-us-east1] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:02 [config_pipeline.canary] ERROR: Canary FAILED on site-us-east1: missing required keys: {'ip_blocks'}
+2024-01-15 14:30:06 [config_pipeline.site] WARNING: [site-us-east1] Cleanup took 4.21s, exceeding health timeout of 2.0s
+2024-01-15 14:30:06 [config_pipeline.site] INFO: [site-us-east1] Cleaned up 1 stale entries in 4.21s
+2024-01-15 14:30:06 [config_pipeline.rollout] INFO: Rolling out batch 1: ['site-us-east4', 'site-us-west1']
+2024-01-15 14:30:06 [config_pipeline.site] INFO: [site-us-east4] Applying new config with 3 keys
+2024-01-15 14:30:06 [config_pipeline.site] INFO: [site-us-east4] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:10 [config_pipeline.site] WARNING: [site-us-east4] Cleanup took 4.19s, exceeding health timeout of 2.0s
+2024-01-15 14:30:10 [config_pipeline.site] INFO: [site-us-east4] Cleaned up 1 stale entries in 4.19s
+2024-01-15 14:30:10 [config_pipeline.site] INFO: [site-us-west1] Applying new config with 3 keys
+2024-01-15 14:30:10 [config_pipeline.site] INFO: [site-us-west1] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:14 [config_pipeline.site] WARNING: [site-us-west1] Cleanup took 4.18s, exceeding health timeout of 2.0s
+2024-01-15 14:30:14 [config_pipeline.site] INFO: [site-us-west1] Cleaned up 1 stale entries in 4.18s
+2024-01-15 14:30:15 [config_pipeline.rollout] ERROR: Site site-us-east4 unhealthy after config push
+2024-01-15 14:30:15 [config_pipeline.rollout] ERROR: Site site-us-west1 unhealthy after config push
+2024-01-15 14:30:15 [config_pipeline.rollout] INFO: Rolling out batch 2: ['site-us-west2', 'site-eu-west1']
+2024-01-15 14:30:15 [config_pipeline.site] INFO: [site-us-west2] Applying new config with 3 keys
+2024-01-15 14:30:15 [config_pipeline.site] INFO: [site-us-west2] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:19 [config_pipeline.site] WARNING: [site-us-west2] Cleanup took 4.22s, exceeding health timeout of 2.0s
+2024-01-15 14:30:19 [config_pipeline.site] INFO: [site-us-west2] Cleaned up 1 stale entries in 4.22s
+2024-01-15 14:30:19 [config_pipeline.site] INFO: [site-eu-west1] Applying new config with 3 keys
+2024-01-15 14:30:19 [config_pipeline.site] INFO: [site-eu-west1] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:23 [config_pipeline.site] WARNING: [site-eu-west1] Cleanup took 4.17s, exceeding health timeout of 2.0s
+2024-01-15 14:30:23 [config_pipeline.site] INFO: [site-eu-west1] Cleaned up 1 stale entries in 4.17s
+2024-01-15 14:30:24 [config_pipeline.rollout] ERROR: Site site-us-west2 unhealthy after config push
+2024-01-15 14:30:24 [config_pipeline.rollout] ERROR: Site site-eu-west1 unhealthy after config push
+2024-01-15 14:30:24 [config_pipeline.rollout] INFO: Rolling out batch 3: ['site-eu-west4', 'site-asia-east1']
+2024-01-15 14:30:24 [config_pipeline.site] INFO: [site-eu-west4] Applying new config with 3 keys
+2024-01-15 14:30:24 [config_pipeline.site] INFO: [site-eu-west4] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:28 [config_pipeline.site] WARNING: [site-eu-west4] Cleanup took 4.20s, exceeding health timeout of 2.0s
+2024-01-15 14:30:28 [config_pipeline.site] INFO: [site-eu-west4] Cleaned up 1 stale entries in 4.20s
+2024-01-15 14:30:28 [config_pipeline.site] INFO: [site-asia-east1] Applying new config with 3 keys
+2024-01-15 14:30:28 [config_pipeline.site] INFO: [site-asia-east1] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:32 [config_pipeline.site] WARNING: [site-asia-east1] Cleanup took 4.23s, exceeding health timeout of 2.0s
+2024-01-15 14:30:32 [config_pipeline.site] INFO: [site-asia-east1] Cleaned up 1 stale entries in 4.23s
+2024-01-15 14:30:33 [config_pipeline.rollout] ERROR: Site site-eu-west4 unhealthy after config push
+2024-01-15 14:30:33 [config_pipeline.rollout] ERROR: Site site-asia-east1 unhealthy after config push
+2024-01-15 14:30:33 [config_pipeline.site] INFO: [site-asia-south1] Applying new config with 3 keys
+2024-01-15 14:30:33 [config_pipeline.site] INFO: [site-asia-south1] New config has fewer entries (17 < 28), cleaning up stale entries
+2024-01-15 14:30:37 [config_pipeline.site] WARNING: [site-asia-south1] Cleanup took 4.20s, exceeding health timeout of 2.0s
+2024-01-15 14:30:37 [config_pipeline.site] INFO: [site-asia-south1] Cleaned up 1 stale entries in 4.20s
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-us-east1
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-us-east4
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-us-west1
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-us-west2
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-eu-west1
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-eu-west4
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-asia-east1
+2024-01-15 14:30:37 [config_pipeline.rollout] ERROR: Final health check failed for site-asia-south1
+2024-01-15 14:30:37 [simulation] INFO:
+2024-01-15 14:30:37 [simulation] INFO: ==============================================================
+2024-01-15 14:30:37 [simulation] INFO: FINAL STATUS
+2024-01-15 14:30:37 [simulation] INFO: ==============================================================
+2024-01-15 14:30:37 [config_pipeline.health] WARNING: Unhealthy sites: ['site-us-east1', 'site-us-east4', 'site-us-west1', 'site-us-west2', 'site-eu-west1', 'site-eu-west4', 'site-asia-east1', 'site-asia-south1']
+2024-01-15 14:30:37 [simulation] INFO:   site-us-east1: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-us-east4: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-us-west1: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-us-west2: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-eu-west1: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-eu-west4: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-asia-east1: UNHEALTHY
+2024-01-15 14:30:37 [simulation] INFO:   site-asia-south1: UNHEALTHY
+2024-01-15 14:30:37 [simulation] ERROR:   site-us-east1: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-us-east4: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-us-west1: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-us-west2: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-eu-west1: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-eu-west4: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-asia-east1: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:   site-asia-south1: MISSING ip_blocks/ip_ranges!
+2024-01-15 14:30:37 [simulation] ERROR:
+2024-01-15 14:30:37 [simulation] ERROR: RESULT: ROLLOUT FAILED
+2024-01-15 14:30:37 [simulation] ERROR:   Rollout success: False
+2024-01-15 14:30:37 [simulation] ERROR:   All healthy    : False
+2024-01-15 14:30:37 [simulation] ERROR:   Configs intact : False

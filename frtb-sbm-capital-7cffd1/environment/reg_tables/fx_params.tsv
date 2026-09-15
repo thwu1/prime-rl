@@ -1,0 +1,5 @@
+parameter	value
+risk_weight	0.15
+cross_bucket_correlation	0.60
+specified_currency_pairs	USD/EUR,USD/JPY,USD/GBP,USD/AUD,USD/CAD,USD/CHF,USD/MXN,USD/CNY,USD/NZD,USD/RUB,USD/HKD,USD/SGD,USD/TRY,USD/KRW,USD/SEK,USD/ZAR,USD/INR,USD/NOK,USD/BRL
+specified_pair_rw_divisor	1.4142135623730951

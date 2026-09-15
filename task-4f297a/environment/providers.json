@@ -1,0 +1,43 @@
+{
+  "providers": [
+    {
+      "name": "github",
+      "description": "GitHub authentication tokens (Personal Access, OAuth, Server-to-Server)",
+      "prefixes": ["ghp_", "gho_", "ghs_"],
+      "body_charset": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+      "body_length": 30,
+      "checksum": {
+        "algorithm": "crc32_base62",
+        "length": 6,
+        "description": "CRC32 checksum of (prefix + body) as a UTF-8 byte string, result encoded in Base62 using the charset '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', zero-padded to 6 characters (most significant digit first)",
+        "base62_charset": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+      }
+    },
+    {
+      "name": "custom_app",
+      "description": "Custom application API keys",
+      "prefixes": ["cap_"],
+      "body_charset": "0123456789abcdef",
+      "body_length": 32,
+      "checksum": {
+        "algorithm": "hmac_sha256_trunc",
+        "length": 8,
+        "description": "HMAC-SHA256 with key 'cap_signing_key_v1' (UTF-8 encoded), message is (prefix + body) as UTF-8, take first 8 characters of the lowercase hex digest",
+        "hmac_key": "cap_signing_key_v1"
+      }
+    },
+    {
+      "name": "nexus_registry",
+      "description": "Nexus package registry tokens",
+      "prefixes": ["nxs_"],
+      "body_charset": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+      "body_length": 26,
+      "checksum": {
+        "algorithm": "sha256_base62",
+        "length": 6,
+        "description": "SHA-256 of (prefix + body) as a UTF-8 byte string, take the first 4 bytes as a big-endian unsigned 32-bit integer, encode in Base62 using the charset '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', zero-padded to 6 characters (most significant digit first)",
+        "base62_charset": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+      }
+    }
+  ]
+}

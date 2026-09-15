@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple bugs across a multi-language pipeline (C and Python) without being told what the bugs are. The C unavoidable set finder has a subtle algorithmic error (enumerating only individual permutation cycles instead of all subsets of cycles, missing union-based 2-digit trades), and only handles 2-digit sets — the agent must recognize the need for multi-digit set detection and implement it. The Python clique finder has an inverted adjacency condition (building the overlap graph instead of the disjointness graph). The agent must also implement missing functionality for 3-digit trades, verify results using a sudoku solver, compute maximum clique (NP-hard) and clique counts on the disjointness graph, and update a SQLite database. Requires expertise in combinatorics, graph algorithms, group theory (permutation cycle analysis), and multi-tool debugging."""
+solution_explanation = """The solution bypasses the buggy C tool entirely and implements a correct Python solver: (1) finds all 2-digit unavoidable sets via permutation cycle analysis over ALL subsets of column cycles with box balance checking, (2) finds 3-digit size-6 sets by searching structurally valid configurations (row pairs in bands, column pairs in stacks, 3x3 complement patterns), (3) finds larger multi-digit sets via Latin square sub-grid enumeration, (4) verifies each candidate via backtracking sudoku solver for unavoidability and minimality, (5) computes MCN using Bron-Kerbosch on the correctly-built disjointness graph, (6) counts all cliques of sizes 2-5 by recursive enumeration, and (7) updates the SQLite database with validated results."""
+verification_explanation = """Tests independently verify: (1) each reported set is unavoidable by solving the puzzle with those cells removed and confirming multiple solutions, (2) minimality by checking that removing any single cell makes the set non-unavoidable, (3) completeness for sizes 4 and 6 via independent exhaustive enumeration, (4) MCN correctness by independent Bron-Kerbosch computation, (5) clique count correctness by independent enumeration, and (6) that the SQLite database was updated with valid results matching the JSON output."""
+category = "mathematics"
+tags = ["combinatorics", "debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0f4b8d"

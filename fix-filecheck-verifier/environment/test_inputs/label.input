@@ -1,0 +1,7 @@
+func_alpha:
+  mul r0, r1
+  add r2, r3
+  ret
+func_beta:
+  sub r4, r5
+  ret

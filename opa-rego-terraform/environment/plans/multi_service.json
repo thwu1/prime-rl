@@ -1,0 +1,278 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.logs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "service-logs-20240201",
+            "force_destroy": false,
+            "object_lock_enabled": false,
+            "versioning": [],
+            "server_side_encryption_configuration": [],
+            "lifecycle_rule": [
+              {
+                "enabled": true,
+                "id": "expire-logs",
+                "prefix": "",
+                "abort_incomplete_multipart_upload_days": 7,
+                "expiration": [
+                  {
+                    "days": 90,
+                    "expired_object_delete_marker": false
+                  }
+                ],
+                "transition": [],
+                "noncurrent_version_expiration": [],
+                "noncurrent_version_transition": []
+              }
+            ],
+            "tags": {
+              "Environment": "production",
+              "Team": "platform"
+            },
+            "tags_all": {
+              "Environment": "production",
+              "Team": "platform"
+            },
+            "timeouts": null
+          },
+          "sensitive_values": {
+            "cors_rule": [],
+            "grant": [],
+            "lifecycle_rule": [{}],
+            "logging": [],
+            "server_side_encryption_configuration": [],
+            "tags": {},
+            "tags_all": {},
+            "versioning": []
+          }
+        },
+        {
+          "address": "aws_iam_role.admin_lambda",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "admin_lambda",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "admin-lambda-role",
+            "path": "/",
+            "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "tags": {
+              "Service": "admin-tools"
+            },
+            "tags_all": {
+              "Service": "admin-tools"
+            }
+          },
+          "sensitive_values": {
+            "inline_policy": [],
+            "tags": {},
+            "tags_all": {}
+          }
+        },
+        {
+          "address": "aws_iam_policy.admin_access",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "admin_access",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "admin-full-access-policy",
+            "path": "/",
+            "description": "Full administrative access for Lambda function",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
+            "tags": {},
+            "tags_all": {}
+          },
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          }
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.admin_attach",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "admin_attach",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "role": "admin-lambda-role",
+            "policy_arn": "arn:aws:iam::123456789012:policy/admin-full-access-policy"
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "service-logs-20240201",
+          "force_destroy": false,
+          "versioning": [],
+          "server_side_encryption_configuration": [],
+          "lifecycle_rule": [{"enabled": true, "id": "expire-logs", "expiration": [{"days": 90}]}],
+          "tags": {"Environment": "production", "Team": "platform"}
+        },
+        "after_unknown": {
+          "arn": true,
+          "bucket_domain_name": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "region": true
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role.admin_lambda",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "admin_lambda",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "admin-lambda-role",
+          "path": "/",
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+          "force_detach_policies": false,
+          "max_session_duration": 3600,
+          "tags": {"Service": "admin-tools"}
+        },
+        "after_unknown": {
+          "arn": true,
+          "create_date": true,
+          "id": true,
+          "unique_id": true
+        }
+      }
+    },
+    {
+      "address": "aws_iam_policy.admin_access",
+      "mode": "managed",
+      "type": "aws_iam_policy",
+      "name": "admin_access",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "admin-full-access-policy",
+          "path": "/",
+          "description": "Full administrative access for Lambda function",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
+          "tags": {}
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "policy_id": true
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role_policy_attachment.admin_attach",
+      "mode": "managed",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "admin_attach",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "role": "admin-lambda-role",
+          "policy_arn": "arn:aws:iam::123456789012:policy/admin-full-access-policy"
+        },
+        "after_unknown": {
+          "id": true
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {"constant_value": "us-east-1"}
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.logs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "logs",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {"constant_value": "service-logs-20240201"},
+            "force_destroy": {"constant_value": false}
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_role.admin_lambda",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "admin_lambda",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {"constant_value": "admin-lambda-role"},
+            "assume_role_policy": {"references": []}
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_policy.admin_access",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "admin_access",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {"constant_value": "admin-full-access-policy"},
+            "policy": {"references": []}
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_iam_role_policy_attachment.admin_attach",
+          "mode": "managed",
+          "type": "aws_iam_role_policy_attachment",
+          "name": "admin_attach",
+          "provider_config_key": "aws",
+          "expressions": {
+            "role": {"references": ["aws_iam_role.admin_lambda.name", "aws_iam_role.admin_lambda"]},
+            "policy_arn": {"references": ["aws_iam_policy.admin_access.arn", "aws_iam_policy.admin_access"]}
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  },
+  "timestamp": "2024-02-01T14:20:00Z"
+}

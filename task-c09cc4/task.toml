@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of checkpoint-restart theory (Daly's model, renewal theory), Weibull failure distributions and their composition for multi-component systems, numerical optimization for non-closed-form checkpoint intervals, and Monte Carlo simulation with proper statistical analysis. Three scenarios with increasing complexity (exponential, moderate Weibull, aggressive Weibull aging in large cluster) test edge cases. DNA verification digest prevents hardcoding."""
+solution_explanation = """Implements analytical expected-time formulas using renewal theory for both exponential and Weibull failure models, uses scipy.optimize to find optimal checkpoint intervals via bounded minimization, and builds a vectorized Monte Carlo simulator using geometric distribution shortcuts and inverse-CDF sampling of truncated Weibull failure times for validation. Produces a SHA-256 verification digest tying computed values to the task DNA token."""
+verification_explanation = """Tests independently recompute reference analytical values using scipy (numerical integration, optimization) and verify the solution's outputs match within tight tolerances. Checks system MTBF, optimal intervals, expected times, strategy orderings, overhead ratio consistency, Monte Carlo agreement with analytical predictions, and the DNA verification digest."""
+category = "distributed_systems"
+tags = ["checkpointing", "reliability-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-c09cc4"

@@ -1,0 +1,2 @@
+# Suppress alerts from trusted monitoring infrastructure
+suppress gen_id 1, sig_id 0, track by_dst, ip 10.0.0.1

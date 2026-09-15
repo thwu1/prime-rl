@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the SZHW stochastic volatility model with stochastic interest rates — a multi-factor model demanding deep quantitative finance expertise. The agent must derive or research the model's analytical pricing framework, implement it in Python, design a robust multi-parameter optimization strategy, and orchestrate the full pipeline through a Makefile with SQLite storage and CSV reporting. Combines mathematical finance, scientific computing, build system proficiency, and database management."""
+solution_explanation = """Implement the SZHW characteristic function (Riccati ODE solutions D, E, C, and integrated correction A) and price via the COS Fourier cosine expansion method. Calibrate 5 free parameters using basin-hopping global optimization with L-BFGS-B local refinement. Store each optimization run in a SQLite database, select the best result by L2 error, compute Black-Scholes implied volatilities via Brent root-finding, and produce JSON + CSV reports through a Makefile-orchestrated pipeline."""
+verification_explanation = """Tests verify: (1) Makefile exists with calibrate/report/clean targets via make dry-run, (2) calibration.db has correct schema with runs table and at least one row, (3) smile.csv has correct header and row count with numeric values, (4) results.json structure with all 5 calibrated parameters, (5) parameter bounds (gamma>0, sigma0>0, correlations in (-1,1)), (6) L2 calibration error < 2.0, (7) implied vols in (5%,200%), (8) pricer module importable and self-consistent (rtol=1e-3), (9) out-of-sample strike monotonicity, (10) no-arbitrage call price bounds."""
+category = "quantitative_finance"
+tags = ["stochastic-volatility", "model-calibration"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/szhw-model-calibration"

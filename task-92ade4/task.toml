@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the bm25s library's internal scoring behavior across all 5 BM25 variants and producing an independent implementation with exact numerical parity. Key challenges: (1) the agent must install bm25s and study its source code to discover variant-specific IDF and term-frequency component formulas — these differ subtly across variants and are not provided in the task instruction, (2) bm25s uses a non-standard score-shifting technique for BM25L/BM25+ variants involving precomputed nonoccurrence arrays — this is specific to its sparse eager-scoring approach (described in arXiv:2407.03618) and not found in standard BM25 textbooks, making it the crux difficulty, (3) the agent must replicate bm25s's exact tokenization pipeline by examining its source code, (4) floating-point arithmetic must be managed across float32/float64 boundaries to achieve 1e-4 tolerance, (5) the agent must navigate an unfamiliar library codebase and understand its sparse matrix internals to reproduce the scoring behavior."""
+solution_explanation = """Implements a BM25Engine class that: (1) tokenizes with the same regex/stopword pipeline as bm25s, (2) computes per-token IDF using variant-specific formulas discovered from bm25s source, (3) builds a CSC sparse score matrix storing idf*tfc per (doc,token) pair with nonoccurrence subtracted for BM25L/BM25+, (4) accumulates query-term scores via CSC column lookups and adds nonoccurrence correction during retrieval, (5) uses np.argpartition for top-k selection."""
+verification_explanation = """Tests install bm25s and build reference indexes for all 5 variants from the same corpus. Both top-k retrieval scores and full score vectors (k=n_docs) are compared between bm25s and the candidate engine using np.testing.assert_allclose with atol=1e-4. An anti-cheat test verifies the engine source does not reference bm25s and that it runs correctly in a subprocess where bm25s imports are blocked. Tests cover all 5 variants, multiple parameter settings (k1, b, delta), single-term queries, and full-corpus score vector comparison."""
+category = "information_retrieval"
+tags = ["bm25", "sparse_retrieval"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-92ade4"

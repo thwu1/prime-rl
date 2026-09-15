@@ -1,0 +1,7 @@
+# This test has WRONG error message expectation and MUST fail
+
+# The error will say "does not exist" but we expect a completely different message
+statement error
+DROP TABLE nonexistent_table_for_error_test
+----
+completely wrong error message that will never match the actual error

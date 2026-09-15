@@ -1,0 +1,11 @@
+[pid  2001] socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 3
+[pid  2001] setsockopt(3, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
+[pid  2001] bind(3, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+[pid  2001] connect(3, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.8.8.8")}, 16 <unfinished ...>
+[pid  2002] socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 3
+[pid  2002] setsockopt(3, SOL_IP, IP_BIND_ADDRESS_NO_PORT, [1], 4) = 0
+[pid  2002] bind(3, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+[pid  2001] <... connect resumed>)      = 0
+[pid  2001] getsockname(3, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.0.0.1")}, [16]) = 0
+[pid  2002] connect(3, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.9.9.9")}, 16) = 0
+[pid  2002] getsockname(3, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.0.0.1")}, [16]) = 0

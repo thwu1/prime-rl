@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deriving a complete structural property propagation table from first principles of linear algebra — the reference document provides BLAS kernel costs and mathematical guiding principles but NOT an exhaustive propagation lookup table for the ~30+ operand-property pair combinations. The agent must: (1) understand why certain structural properties are preserved or destroyed under matrix multiplication from their mathematical definitions; (2) correctly derive all propagation rules — diagonal preserves triangular zeros but NOT symmetry, same-kind triangular products preserve structure but cross-kind do not, symmetry requires (AB)^T=AB which fails for most combinations including sym*sym; (3) implement a property-aware DP that tracks multiple achievable intermediate properties per subchain, since different parenthesizations yield intermediates with different properties affecting downstream costs; (4) handle a 5-matrix chain requiring multi-step property tracking through diagonal and triangular interactions. Trap chains are designed so that common derivation errors produce detectably wrong FLOP counts (e.g., incorrect sym*sym propagation yields 625000 instead of 1000000). The CBLAS code generation requires correct use of cblas_dgemm, cblas_dsymm, and cblas_dtrmm with proper calling conventions, in-place semantics, and row-major storage layout."""
+solution_explanation = """The solution implements an extended matrix chain DP. For each subchain [i,j], it stores a dictionary mapping each achievable result property to (min_cost, split_k, left_prop, right_prop). When evaluating a split at position k, it enumerates all property combinations of the left and right subresults, computes the multiply cost using the BLAS specialization hierarchy (identity>diagonal>symmetric/triangular>general), determines the result property via derived propagation rules, and updates the minimum. The propagation rules are derived: identity preserves properties, diagonal preserves diagonal/triangular structure, same-kind triangular preserves, symmetry requires (AB)^T=AB which fails for most combinations, and everything else yields general. Kernel plans are extracted by tracing the optimal split tree and selecting BLAS routines based on operand types. The C code uses cblas_dgemm for general*general, cblas_dsymm for symmetric operands, and cblas_dtrmm (with memcpy for in-place semantics) for triangular operands."""
+verification_explanation = """Tests verify: (1) 17 FLOP costs against independently computed expected values covering all property combinations including 3 trap chains that catch incorrect propagation derivations (upper*lower collapse, symmetric propagation trap, deep diagonal-triangular chain); (2) kernel plans have valid BLAS routine names and correct structure; (3) blas_eval.c compiles with gcc+OpenBLAS; (4) source code contains cblas_dgemm/dsymm/dtrmm calls; (5) binary links against OpenBLAS; (6) three CBLAS test chains produce Frobenius norms matching numpy reference computations within 1e-6 tolerance."""
+category = "optimization"
+tags = ["compiler-optimization", "blas-kernels", "dynamic-programming"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b37959"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of camera geometry (8-parameter rational distortion model with denominator terms, inverse mapping via combined intrinsic-rectification matrix) combined with multi-tool proficiency: parsing OpenCV's non-standard FileStorage XML format, using ffprobe to discover video properties, ffmpeg for frame extraction and lossless FFV1 re-encoding with correct pixel format, and ImageMagick montage for composing comparison images. The end-to-end pipeline demands interoperability between four distinct CLI tools and correct understanding of pixel format, color space, and lossless codec constraints."""
+solution_explanation = """Parse calibration.xml as OpenCV FileStorage XML using xml.etree (extracting opencv-matrix nodes with rows/cols/dt/data). Use ffprobe to get video resolution and frame count. Extract the target frame with ffmpeg select filter. Compute iR = inv(K_new @ R), apply rational radial+tangential distortion model per-pixel, project through K to get float32 source coordinates. Bilinear-interpolate with zero-padding. Use ImageMagick montage (-tile 2x1 -geometry +0+0) for side-by-side comparison. Undistort all frames and encode as lossless FFV1 MKV with gbrp pixel format via ffmpeg."""
+verification_explanation = """Tests parse the calibration XML and compute OpenCV's initUndistortRectifyMap + remap as ground truth. Agent's float32 maps must match within 0.01. Output image max pixel error < 8, mean < 1.5. Montage dimensions must be exactly 2W×H with left half matching the original frame and right half matching the undistorted reference. Output video frame count is verified via ffprobe, and each extracted frame is compared against independently computed reference within tolerance. No cv2 imports allowed in agent code."""
+category = "computer_vision"
+tags = ["image-processing", "camera-calibration"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rational-undistort-remap"

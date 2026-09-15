@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_beta_wrong",
+    "challenge_id": "beta",
+    "generated_code": "import sympy as sp\n\na, b = sp.symbols('a b')\n\ndef answer():\n    \"\"\"Incorrect: product instead of sum.\"\"\"\n    return a * b"
+}

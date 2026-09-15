@@ -1,0 +1,200 @@
+REGULATION Z, APPENDIX J — APR COMPUTATION SPECIFICATION
+(Condensed from 12 CFR Part 1026, Appendix J — Actuarial Method)
+
+=========================================================================
+1. OVERVIEW
+=========================================================================
+The actuarial method computes the Annual Percentage Rate (APR) by finding
+the unit-period rate i such that the present value of all advances equals
+the present value of all payments. The APR (nominal annual rate) is:
+
+    APR = i * w
+
+where w = number of unit-periods per year.
+
+Under the actuarial method, at the end of each unit-period (or fractional
+unit-period) the unpaid balance is increased by the finance charge earned
+during that period and decreased by the total payment made. Unpaid finance
+charges are capitalized (interest computed on interest).
+
+=========================================================================
+2. TERM OF THE TRANSACTION
+=========================================================================
+The term begins on the date of consummation (or later date if the finance
+charge begins accruing later). It ends on the date the last payment is due
+(or later if an advance is scheduled after that date).
+
+=========================================================================
+3. DEFINITIONS OF TIME INTERVALS
+=========================================================================
+- Period: interval between consecutive advances or consecutive payments,
+  including the interval from consummation to the first advance or first
+  payment.
+- Common period: any period that occurs more than once in a transaction.
+- Standard interval: day, week, semimonth, month, or a multiple of a week
+  or month up to (but not exceeding) 1 year.
+- Month convention: ALL MONTHS ARE CONSIDERED EQUAL. Full months are
+  measured from a given date in one month to the same date in another
+  month. If payments are scheduled for the 29th or 30th, use the last day
+  of February when applicable. If a series is scheduled for the last day
+  of each month, measure from last day to last day.
+
+=========================================================================
+4. UNIT-PERIOD DETERMINATION
+=========================================================================
+(a) For all transactions EXCEPT single-advance, single-payment:
+    The unit-period is the common period (not exceeding 1 year) that
+    occurs MOST FREQUENTLY in the transaction.
+    - Tie: if 2+ common periods occur equally often, use the SMALLER.
+    - No common period: use the average of all periods, rounded to the
+      nearest whole standard interval. If equally near two standard
+      intervals, use the lower.
+
+(b) For single-advance, single-payment transactions:
+    Unit-period = term of the transaction, but not exceeding 1 year.
+
+=========================================================================
+5. NUMBER OF UNIT-PERIODS BETWEEN TWO DATES
+=========================================================================
+The number of days between two dates is the number of 24-hour intervals
+between the same point in time on each date.
+
+(a) MONTHLY unit-period:
+    - Full unit-periods = number of months measured BACK from the LATER
+      date.
+    - Fractional part = number of days measured FORWARD from the EARLIER
+      date to the beginning of the first full unit-period, divided by 30.
+    - Unit-periods per year (w) = 12.
+
+(b) SEMIMONTH or MULTI-MONTH (2..11 months) unit-period:
+    - Total "days" = 30 * full_months_back + remaining_actual_days.
+    - Divide total by 15 (semimonth) or by (months_per_period * 30).
+    - w = 24 (semimonth) or 12/months_per_period (multi-month).
+
+(c) DAY, WEEK, or MULTI-WEEK unit-period:
+    - Divide actual days between dates by days_per_unit_period.
+    - w = 365 (day), or 52/weeks_per_period (week/multi-week).
+
+(d) YEAR unit-period:
+    - Full years (12 months each) back from later date.
+    - Remainder: months/12 if whole months remain, else days/365.
+
+(e) SINGLE-ADVANCE, SINGLE-PAYMENT, term < 1 year, WHOLE MONTHS:
+    - 1 unit-period in term.
+    - w = 12 / months_in_term.
+
+(f) SINGLE-ADVANCE, SINGLE-PAYMENT, term < 1 year, NOT whole months:
+    - 1 unit-period in term.
+    - w = 365 / days_in_term.
+
+=========================================================================
+6. FRACTIONAL PERIOD RATE
+=========================================================================
+The finance charge rate for a fraction f (where 0 <= f < 1) of a
+unit-period equals f * i (simple interest — NOT compound).
+
+=========================================================================
+7. GENERAL EQUATION
+=========================================================================
+The present value of all advances must equal the present value of all
+payments:
+
+  SUM_j [ A_j / ((1 + f_j * i) * (1 + i)^n_j) ]
+  =
+  SUM_k [ P_k / ((1 + g_k * i) * (1 + i)^m_k) ]
+
+where:
+  A_j = amount of the j-th advance
+  P_k = amount of the k-th payment
+  i   = unit-period rate (the unknown)
+  n_j = integer number of full unit-periods from term start to advance j
+  f_j = fractional unit-period for advance j (0 <= f_j < 1)
+  m_k = integer number of full unit-periods from term start to payment k
+  g_k = fractional unit-period for payment k (0 <= g_k < 1)
+
+The discount factor for a cash flow at time = n + f unit-periods is:
+
+  DF(n, f, i) = 1 / ((1 + f*i) * (1+i)^n)
+
+Note: when n=0 and f=0, DF = 1 (no discounting at the zero point).
+
+=========================================================================
+8. SOLVING BY ITERATION (Newton-Raphson)
+=========================================================================
+Define F(i) = SUM[A_j * DF(n_j, f_j, i)] - SUM[P_k * DF(m_k, g_k, i)]
+
+Find i such that F(i) = 0.
+
+The partial derivative of a discount factor with respect to i is:
+
+  dDF/di = -DF(n,f,i) * [ f/(1+f*i) + n/(1+i) ]
+
+So:
+  F'(i) = SUM[A_j * dDF(n_j,f_j,i)/di] - SUM[P_k * dDF(m_k,g_k,i)/di]
+
+Newton-Raphson iteration: i_{new} = i - F(i)/F'(i)
+
+Iterate until the APR = i * w * 100 is stable to at least 2 decimal
+places. Use all available precision throughout.
+
+=========================================================================
+9. SPECIAL FORMS (for reference)
+=========================================================================
+(a) Single advance A at t=0, n equal payments P, no odd first period:
+    A = P * [(1 - (1+i)^-n) / i]
+
+(b) Single advance A, n payments P, odd first fractional period f:
+    A = P * [(1 - (1+i)^-n) / i] / (1 + f*i)
+
+(c) Single advance, single payment (term <= 1 year):
+    A = P / (1+i)  =>  i = P/A - 1  (direct solution)
+
+(d) For transactions where a payment precedes the first advance:
+    Use the date of the first cash flow event as the zero point.
+    All advances and payments are discounted from this zero point.
+    Payments at the zero point have DF = 1.
+
+=========================================================================
+10. TRANSACTION CLASSIFICATION (per Section 1026.22)
+=========================================================================
+REGULAR transaction: single advance, equal payment periods (measured
+between consecutive payments), equal payment amounts.
+  - An ODD FIRST PERIOD (consummation-to-first-payment differs from
+    subsequent payment-to-payment intervals) does NOT make it irregular.
+  - An ODD FIRST or FINAL PAYMENT (amount differs from middle payments)
+    does NOT make it irregular.
+
+IRREGULAR transaction: one that includes ANY of:
+  - Multiple advances
+  - Irregular payment PERIODS (consecutive payment intervals differ,
+    beyond just the first period)
+  - Irregular payment AMOUNTS (beyond just first/final payment)
+
+=========================================================================
+11. TOLERANCE RULES (Section 1026.22(a))
+=========================================================================
+Regular transactions: disclosed APR is accurate if within +/- 1/8 of 1
+percentage point (0.125%) of the computed APR.
+
+Irregular transactions: disclosed APR is accurate if within +/- 1/4 of 1
+percentage point (0.250%) of the computed APR.
+
+=========================================================================
+12. REGULATORY WORKED EXAMPLES
+=========================================================================
+(a) Student Loan (Multiple Advance):
+    Advances: $1800 on 9/5/78, 9/5/79, 9/5/80, 9/5/81;
+              $1000 on 1/5/79, 1/5/80, 1/5/81, 1/5/82.
+    Payments: 50 monthly payments of $240 starting 7/1/78.
+    Zero point: 7/1/78 (first payment precedes first advance).
+    Unit-period: 1 month, w = 12.
+    From zero point to each $1800 advance: 2+4/30, 14+4/30, 26+4/30,
+    38+4/30 unit-periods.
+    From zero point to each $1000 advance: 6+4/30, 18+4/30, 30+4/30,
+    42+4/30 unit-periods.
+    APR = 32.04%.
+
+(b) Step-Rate Loan (from Section 1026.22 commentary):
+    $10,000 loan, 5 years. Monthly payments: $210.71 for years 1-2,
+    $220.25 for years 3-4, $222.59 for year 5.
+    APR = 10.75% (composite rate via IRR / discounted cash flow).

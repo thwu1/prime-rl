@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FaultSourceSet name="Bay Area Faults" weight="1.0">
+    <Source name="Fault-A" id="1">
+        <IncrementalMfd type="GR" weight="0.7"
+            a="1.5" b="0.9" dMag="0.1" mMin="5.0" mMax="7.5"/>
+        <IncrementalMfd type="GR" weight="0.3"
+            a="1.5" b="0.9" dMag="0.1" mMin="5.0" mMax="8.0"/>
+        <Geometry dip="90.0" rake="0.0" upperDepth="0.0" lowerDepth="12.0">
+            <Trace>-122.5,38.2,0.0 -121.8,37.8,0.0</Trace>
+        </Geometry>
+    </Source>
+    <Source name="Fault-B" id="2">
+        <IncrementalMfd type="SINGLE" weight="1.0"
+            m="7.0" rate="0.002"/>
+        <Geometry dip="60.0" rake="90.0" upperDepth="0.0" lowerDepth="15.0">
+            <Trace>-122.2,38.3,0.0 -121.8,37.9,0.0</Trace>
+        </Geometry>
+    </Source>
+</FaultSourceSet>

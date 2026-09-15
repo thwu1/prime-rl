@@ -1,0 +1,3 @@
+[workspace]
+members = ["hyperkernel", "virtio-spec", "net-stack", "fuse-proto", "hw-regs", "debug-shell"]
+resolver = "2"

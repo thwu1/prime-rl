@@ -1,0 +1,32 @@
+{
+  "name": "NOTRACK as non-terminating target",
+  "description": "NOTRACK (CT --notrack) is a non-terminating target in iptables: it marks the packet and continues evaluating subsequent rules in the same chain. A DROP rule following NOTRACK must still be evaluated.",
+  "conntrack_max": 100,
+  "tcp_loose": true,
+  "conntrack_enabled": true,
+  "rules": [
+    {"table": "raw", "chain": "PREROUTING", "protocol": "TCP", "action": "NOTRACK"},
+    {"table": "raw", "chain": "PREROUTING", "src_ip": "10.0.0.1", "action": "DROP"}
+  ],
+  "packets": [
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 50001, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.2", "dst_ip": "192.0.2.1", "src_port": 50002, "dst_port": 80, "protocol": "TCP", "tcp_flags": "S"},
+    {"src_ip": "10.0.0.1", "dst_ip": "192.0.2.1", "src_port": 50003, "dst_port": 443, "protocol": "TCP", "tcp_flags": "S"}
+  ],
+  "expected": {
+    "counters": {
+      "raw:PREROUTING": 3,
+      "mangle:PREROUTING": 1,
+      "filter:INPUT": 1
+    },
+    "conntrack_entries": 0,
+    "total_accepted": 1,
+    "total_dropped": 2,
+    "conntrack_drops": 0,
+    "packet_results": [
+      "dropped:raw_prerouting",
+      "accepted",
+      "dropped:raw_prerouting"
+    ]
+  }
+}

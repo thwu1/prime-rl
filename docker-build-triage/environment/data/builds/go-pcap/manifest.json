@@ -1,0 +1,14 @@
+{
+  "project_name": "network-sniffer",
+  "language": "go",
+  "language_version": "1.21",
+  "build_system": "go_modules",
+  "dependencies": [
+    "github.com/google/gopacket@v1.1.19",
+    "github.com/sirupsen/logrus@v1.9.3",
+    "golang.org/x/sys@v0.15.0"
+  ],
+  "test_framework": "go_test",
+  "test_command": "go test ./...",
+  "notes": "Uses gopacket/pcap which requires CGO and libpcap for packet capture"
+}

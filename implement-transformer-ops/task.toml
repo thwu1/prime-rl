@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver must reverse-engineer six interdependent operations from a custom transformer whose design intentionally deviates from the standard architecture: RMSNorm instead of LayerNorm (no mean centering, no bias), attention scaling by the cube-root of d_k rather than the square-root, sinusoidal positional encoding with a non-standard frequency base of 5000 (not 10000), a sliding-window causal mask parameterised by window width, a numerically-stable log-softmax, and cross-entropy with label smoothing whose distribution explicitly excludes the pad class. None of these specifications appear in the instructions — the solver must discover them by reading model.py and train.py, understanding each call site, and deducing the exact mathematical behaviour from context. A single misidentified formula (e.g., using sqrt instead of cbrt for the attention temperature, or including the pad class in the smoothing distribution) either prevents training convergence or silently degrades accuracy below the strict 85% threshold. The task requires graduate-level understanding of transformer internals combined with careful code-reading to detect the non-standard choices."""
+solution_explanation = """Implement six functions in ops.py: (1) log_softmax — subtract row-max before exp for stability, then log(exp/sum); (2) rms_norm — divide x by sqrt(mean(x squared)+eps) then multiply by gain, with NO mean subtraction and NO bias; (3) scaled_dot_attention — compute Q times K-transpose divided by tau (where model.py sets tau = d_k^(1/3), not sqrt(d_k)), mask-fill with -1e9, softmax, multiply by V; (4) sinusoidal_pe — use the provided base argument (model.py passes 5000, not 10000) in the divisor term exp(arange * -log(base)/d_model); (5) make_causal_mask — when window<=0 return lower-triangular bool mask, when window>0 restrict each row to attend only to the previous window positions (model.py passes window=12); (6) compute_loss — log_softmax the logits, compute NLL at target positions, compute the smooth component as the average -log_p over non-pad classes only (zeroing out the pad column), combine as (1-eps)*nll + eps*smooth, mask out pad positions, and normalise by non-pad token count."""
+verification_explanation = """Unit tests verify each function independently with specific inputs: rms_norm is tested against LayerNorm to confirm they differ (catches wrong normalisation); attention is tested with two different tau values to confirm output changes (catches hardcoded sqrt(d_k)); sinusoidal PE is tested at specific positions/dimensions against analytical values computed with base=5000 (catches hardcoded base=10000); the causal mask is tested with window=3 against an exact boolean matrix (catches missing sliding-window logic); compute_loss is tested with non-uniform logits and eps=0.3 against a reference that explicitly excludes pad from smoothing (catches including pad). A forbidden-imports scan rejects torch.nn.functional usage. Integration tests run the full training pipeline and verify loss<0.5 and greedy-decode copy accuracy>=85%."""
+category = "machine_learning"
+tags = ["transformer", "reverse-engineering"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/implement-transformer-ops"

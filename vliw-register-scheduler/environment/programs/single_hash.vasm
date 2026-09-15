@@ -1,0 +1,45 @@
+; Single myhash kernel
+; Load value from mem[0], compute 6-round integer hash, store to mem[1]
+;
+
+.meta name single_hash
+.meta max_regs 8
+.meta max_cycles 23
+
+.data 0 0xdeadbeef
+
+const v0 #0x0
+load v1 v0
+const v2 #0x7ed55d16
+const v3 #0xc
+add v4 v1 v2
+shl v5 v1 v3
+add v6 v4 v5
+const v7 #0xc761c23c
+const v8 #0x13
+xor v9 v6 v7
+shr v10 v6 v8
+xor v11 v9 v10
+const v12 #0x165667b1
+const v13 #0x5
+add v14 v11 v12
+shl v15 v11 v13
+add v16 v14 v15
+const v17 #0xd3a2646c
+const v18 #0x9
+add v19 v16 v17
+shl v20 v16 v18
+xor v21 v19 v20
+const v22 #0xfd7046c5
+const v23 #0x3
+add v24 v21 v22
+shl v25 v21 v23
+add v26 v24 v25
+const v27 #0xb55a4f09
+const v28 #0x10
+xor v29 v26 v27
+shr v30 v26 v28
+xor v31 v29 v30
+const v32 #0x1
+store _ v32 v31
+halt _

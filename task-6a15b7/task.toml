@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level integration of CFD domain knowledge, numerical methods, and multi-tool proficiency. The agent must: (1) navigate and parse OpenFOAM's native directory structure and dictionary file format to extract fluid properties and simulation data; (2) identify and implement the appropriate grid convergence methodology — including convergence order estimation, grid-independent extrapolation, discretization uncertainty quantification, and asymptotic range assessment — without being told which methods to use; (3) recognize the nonlinear pressure-velocity relationship as requiring a specific two-parameter transport model, fit it, and derive the inertial transition criterion; (4) validate computational results against the Kozeny-Carman analytical correlation; (5) produce diagnostic plots using gnuplot (not Python). Each step requires domain expertise to select the correct approach, not just implementation skill."""
+solution_explanation = """Parse OpenFOAM case directories to extract kinematic viscosity and density from transportProperties (OpenFOAM dictionary format with dimensional units), geometry from geometry.dat, and converged velocities/pressures from postProcessing surfaceFieldValue files (vector-in-parentheses format). Compute Darcy permeability k=mu*U*L/dP at each mesh. Apply Richardson extrapolation with refinement ratio r=2 to get convergence order p=ln((k1-k2)/(k2-k3))/ln(r), extrapolated value, and GCI (Fs=1.25). Compute asymptotic ratio = GCI_coarse/(r^p * GCI_fine). Linearize the Forchheimer equation as (dP/L)/U = mu/k + beta*rho*U and regress to extract k and beta. Find U_crit where inertial/total=10%, convert to pore Re. Compute Kozeny-Carman k_KC = d_p^2*eps^3/(180*(1-eps)^2). Generate gnuplot scripts for convergence and regime plots."""
+verification_explanation = """Tests independently compute all expected values from ground-truth parameters (K_TRUE=1.85e-10, p=2.12, beta=1.2e5) using the same mesh error model as data generation. Numerical tolerances are physically motivated: 1% for permeabilities, 0.1 for convergence order, 2% for extrapolated value, 15% for discretization uncertainty, 10% for asymptotic ratio, 2% for intrinsic permeability, 5% for inertial coefficient, 10% for transition Reynolds, 2% for Kozeny-Carman, 20% for validation error. Gnuplot outputs are verified by checking PNG magic bytes and gnuplot script syntax."""
+category = "scientific_computing"
+tags = ["cfd", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6a15b7"

@@ -1,0 +1,8 @@
+[physics]
+GM = 39.4784176043574
+semi_major_axis = 1.0
+eccentricity = 0.3
+
+[numerical]
+dt = 0.0001
+t_end = 2.0

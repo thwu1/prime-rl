@@ -1,0 +1,27 @@
+{
+  "router": "R1",
+  "timestamp": "2024-11-15T14:22:48Z",
+  "ospf_process_id": 1,
+  "neighbors": [
+    {
+      "neighbor_id": "2.2.2.2",
+      "priority": 1,
+      "interface": "GigabitEthernet1",
+      "area": 0,
+      "state": "FULL/BDR",
+      "dead_time_sec": 38,
+      "bfd_status": "not configured",
+      "authentication_type": "message-digest"
+    },
+    {
+      "neighbor_id": "4.4.4.4",
+      "priority": 1,
+      "interface": "GigabitEthernet2",
+      "area": 1,
+      "state": "FULL/DR",
+      "dead_time_sec": 35,
+      "bfd_status": "Up",
+      "authentication_type": "simple"
+    }
+  ]
+}

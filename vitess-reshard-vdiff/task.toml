@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independent discovery of the Vitess hash vindex implementation details — the specific hash algorithm, byte-packing conventions, and endianness are deliberately not named in the task description. The agent must research Vitess source code or documentation to identify the correct algorithm and encoding. The four components are deeply interconnected: resharding and verification cannot succeed without a correct vindex, and the agent must validate their implementation against the existing source data distribution as a correctness oracle. The reshard and vdiff modules must be designed from scratch with only a return-type contract and conceptual understanding of what resharding and data verification mean in a sharded database context. The forget_user optimization requires diagnosing a subtle N-squared query explosion from uncommented production-style code — the nested per-channel iteration that re-queries all subscriptions on every loop pass, the over-broad UPDATE scope, and the spurious notifications to deactivated users must all be independently identified and corrected."""
+solution_explanation = """1) Fix vindex.py: replace SHA-256 with xxHash64, pack input as big-endian uint64 (struct.pack('>Q', value)), compute xxhash64, pack output as big-endian uint64. Requires installing the xxhash library. 2) Implement reshard.py: for each table, read rows from source shards, look up the workspace_id column index via PRAGMA table_info, compute the target shard via get_shard_for_value, insert into the correct target database. Clear target tables first for idempotency. 3) Implement vdiff.py: collect all rows from source and target shards keyed by primary key, compare sets for missing/extra/mismatched rows, report via VDiffResult. 4) Optimize forget_user: replace the per-channel loop with a single UPDATE per shard ('UPDATE thread_subscriptions SET status=inactive WHERE user_id=? AND status=active'), remove all notification sending since user is deactivated."""
+verification_explanation = """12 pytest tests verify: (a) vindex produces correct xxhash64 keyspace IDs matching a reference implementation for 8 test values, (b) distribution is within 20-30% per shard across 10K keys over 4 ranges, (c) shard routing maps boundary keyspace IDs correctly, (d) reshard completes with success=True, (e) total rows per table match between source and target, (f) every row in each target shard has a keyspace ID within that shard's range, (g) no duplicate primary keys across target shards, (h) vdiff reports consistent=True after correct reshard, (i) vdiff detects a synthetically deleted row, (j) forget_user produces correct end state (all subs inactive), (k) forget_user uses bounded query count O(shards), (l) forget_user sends zero notifications."""
+category = "database_systems"
+tags = ["vitess", "sharding"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vitess-reshard-vdiff"

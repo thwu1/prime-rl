@@ -1,0 +1,79 @@
+QUALIFIED DIVIDENDS AND CAPITAL GAIN TAX WORKSHEET -- LINE 16
+
+Use this worksheet to figure the tax on Form 1040, line 16, if:
+  (a) Form 1040, line 3a (qualified dividends) is more than zero, OR
+  (b) You are filing Schedule D AND both Schedule D, line 15 and
+      line 16 are more than zero.
+
+If NEITHER condition applies, do not use this worksheet. Instead,
+figure your tax using the Tax Rate Schedules only.
+
+CAUTION: If your taxable income (Form 1040, line 15) is zero, your
+tax is zero. Do not complete this worksheet.
+
+Before you begin, make sure you have completed Schedule D if required.
+
+Worksheet Lines:
+
+ 1. Enter the amount from Form 1040, line 15 (taxable income).
+
+ 2. Enter the amount from Form 1040, line 3a (qualified dividends).
+
+ 3. If you are filing Schedule D, enter the smaller of Schedule D,
+    line 15, or Schedule D, line 16. If either is zero or less,
+    enter 0 on this line.
+    If you are NOT filing Schedule D, enter 0.
+
+ 4. Add lines 2 and 3.
+
+ 5. Subtract line 4 from line 1. If zero or less, enter 0.
+
+ 6. Enter:
+      $48,350 if Single or Married Filing Separately
+      $96,700 if Married Filing Jointly or Qualifying Surviving Spouse
+      $64,750 if Head of Household
+
+ 7. Enter the smaller of line 1 or line 6.
+
+ 8. Enter the smaller of line 5 or line 7.
+
+ 9. Subtract line 8 from line 7. This amount is taxed at 0%.
+
+10. Enter the smaller of line 1 or line 4.
+
+11. Enter the amount from line 9.
+
+12. Subtract line 11 from line 10.
+
+13. Enter:
+      $533,400 if Single
+      $600,050 if Married Filing Jointly or Qualifying Surviving Spouse
+      $300,000 if Married Filing Separately
+      $566,700 if Head of Household
+
+14. Enter the smaller of line 1 or line 13.
+
+15. Add lines 5 and 9.
+
+16. Subtract line 15 from line 14. If zero or less, enter 0.
+
+17. Enter the smaller of line 12 or line 16.
+
+18. Multiply line 17 by 15% (0.15).
+
+19. Add lines 9 and 17.
+
+20. Subtract line 19 from line 10.
+
+21. Multiply line 20 by 20% (0.20).
+
+22. Figure the tax on the amount on line 5. Use the Tax Rate
+    Schedules for your filing status.
+
+23. Add lines 18, 21, and 22.
+
+24. Figure the tax on the amount on line 1. Use the Tax Rate
+    Schedules for your filing status.
+
+25. Tax. Enter the smaller of line 23 or line 24 here and on
+    Form 1040, line 16.

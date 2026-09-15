@@ -1,0 +1,6 @@
+{
+  "well_typed": false,
+  "globals": {},
+  "classes": {},
+  "errors": [{"message": "Cannot extend special class 'int'"}]
+}

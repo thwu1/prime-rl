@@ -1,0 +1,8 @@
+order_id,customer,width_mm,quantity,priority,date_received
+A001,Acme Corp,2200,20,high,2024-01-02
+A002,Acme Corp,1520,30,high,2024-01-02
+A003,BuildRight,1380,18,medium,2024-01-03
+A004,BuildRight,1120,25,high,2024-01-03
+A005,CoreTech,930,36,high,2024-01-04
+A006,CoreTech,840,20,medium,2024-01-04
+A007,Deltaware,770,30,high,2024-01-05

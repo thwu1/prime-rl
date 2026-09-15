@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires two distinct competencies: (1) Diagnosing three independent mathematical defects in a numerical elliptic filter design pipeline spanning C and Python code — bugs are in the Landen product formula for complete elliptic integrals (off-by-one loop bound in C), the Landen back-substitution for the Jacobian cd function (missing square term in Python), and the gain normalization parity condition (swapped even/odd check). Each requires understanding different aspects of elliptic function theory. (2) Implementing a complete bilinear transform discretization pipeline from scratch, including frequency pre-warping, analog-to-digital pole/zero mapping, gain computation, conjugate pair identification, nearest-neighbor pole-zero matching for SOS factoring, and proper handling of degree differences (extra zeros at z=-1). The implementation requires designing the architecture for ZPK-to-SOS conversion — an algorithmic design problem with multiple valid approaches."""
+solution_explanation = """Bug fixes: (1) In elliptic_core.c ellipk_c(), change the product loop from i=0 to i=1 to exclude the original modulus. (2) In elliptic.py cd(), change kn*y to kn*y*y in the Landen back-substitution denominator. (3) In elliptic_filter(), change the gain parity check from N%2==1 to N%2==0. For discretization: implement discretize_elliptic() which gets the analog prototype, pre-warps the cutoff (2*fs*tan(pi*fc/fs)), scales the prototype, applies the bilinear transform (z=(2fs+s)/(2fs-s)), computes the digital gain, adds extra z=-1 zeros, then converts ZPK to SOS via conjugate pair splitting and nearest-neighbor pairing."""
+verification_explanation = """Tests independently verify: (A) C library produces correct ellipk and cd values against scipy references; (B) Python ellipk, cd, cd_inv functions match scipy; (C) Elliptic rational function properties; (D) Full analog filter design matches scipy.signal.ellipap for 7 order/ripple combinations; (E) Digital SOS shape, coefficient validity, and stability; (F) Digital frequency response matches scipy.signal.ellip at 500 frequencies; (G) Correct passband edge, DC gain, and stopband attenuation for 6 digital filter configurations."""
+category = "signal_processing"
+tags = ["numerical-debugging", "filter-discretization"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4f1143"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of three independent technical domains simultaneously: (1) the BigTIFF binary specification with 64-bit offsets, IFD entry layout, and correct inline/external value encoding; (2) the TIFF LZW compression algorithm with its MSB-first (big-endian) code packing, variable-width codes, early-change code-size transitions, and table reset semantics — distinct from GIF LZW; (3) the TIFF floating-point predictor (Predictor=3) which involves byte-plane reordering of float32 samples followed by horizontal byte differencing — a rarely implemented algorithm documented only in Adobe TIFF Technical Note 3. All three must be implemented from scratch without any library support, and subtle errors in any component produce completely unreadable output. Additionally, the solver must compute and report deterministic SHA-256 hashes and compression metrics that can only be correct if every algorithm component is implemented precisely."""
+solution_explanation = """The solution: (1) extracts 64x64 tiles from each page, (2) applies the floating-point predictor per row by reshaping float32 bytes into (width, 4), transposing to (4, width) for byte-plane reordering, then computing horizontal byte differences, (3) implements a full TIFF LZW encoder with MSB-first bit packing using a dict-based string table, 9-bit starting codes, clear/EOI codes, early-change code-size transitions at powers of two, and table reset at 4096 entries, (4) writes the BigTIFF header, compressed tile data, external TileOffsets/TileByteCounts arrays, and sorted IFD entries with correct tag types, (5) computes SHA-256 of concatenated predictor output and per-page compressed sizes, writing these to report.json."""
+verification_explanation = """Tests use tifffile+imagecodecs to independently read the output file and verify: BigTIFF header magic/byte-order, correct number of pages, LZW compression tag (259=5), floating-point predictor tag (317=3), SampleFormat IEEEFP tag (339=3), 64x64 tile layout, and per-page pixel data integrity against the original numpy array. An AST-based check ensures the builder does not import disallowed libraries. DNA tests verify the report.json metrics via hash-of-value comparisons — the expected SHA-256 of predictor output, exact per-page compressed byte counts, and total compressed bytes are stored as SHA-256 digests in the test file (not plaintext), so the correct values can only be obtained by genuine from-scratch implementation. A combined-hash DNA test ensures all three report fields are jointly correct."""
+category = "scientific_computing"
+tags = ["binary_formats", "compression_algorithms"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bigtiff-ometiff-writer"

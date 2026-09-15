@@ -1,0 +1,29 @@
+{
+"type": "FeatureCollection",
+"name": "catchment_data",
+"crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+"features": [
+{"type": "Feature", "id": "cat-1", "properties": {"areasqkm": 3.21, "toid": "nex-1"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.85, 35.32], [-80.83, 35.32], [-80.83, 35.34], [-80.85, 35.34], [-80.85, 35.32]]]]}},
+{"type": "Feature", "id": "cat-2", "properties": {"areasqkm": 4.73, "toid": "nex-1"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.81, 35.32], [-80.79, 35.32], [-80.79, 35.34], [-80.81, 35.34], [-80.81, 35.32]]]]}},
+{"type": "Feature", "id": "cat-3", "properties": {"areasqkm": 5.14, "toid": "nex-2"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.76, 35.33], [-80.74, 35.33], [-80.74, 35.35], [-80.76, 35.35], [-80.76, 35.33]]]]}},
+{"type": "Feature", "id": "cat-4", "properties": {"areasqkm": 2.87, "toid": "nex-3"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.63, 35.33], [-80.61, 35.33], [-80.61, 35.35], [-80.63, 35.35], [-80.63, 35.33]]]]}},
+{"type": "Feature", "id": "cat-5", "properties": {"areasqkm": 6.42, "toid": "nex-3"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.59, 35.33], [-80.57, 35.33], [-80.57, 35.35], [-80.59, 35.35], [-80.59, 35.33]]]]}},
+{"type": "Feature", "id": "cat-6", "properties": {"areasqkm": 3.95, "toid": "nex-4"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.51, 35.32], [-80.49, 35.32], [-80.49, 35.34], [-80.51, 35.34], [-80.51, 35.32]]]]}},
+{"type": "Feature", "id": "cat-7", "properties": {"areasqkm": 7.28, "toid": "nex-4"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.47, 35.32], [-80.45, 35.32], [-80.45, 35.34], [-80.47, 35.34], [-80.47, 35.32]]]]}},
+{"type": "Feature", "id": "cat-8", "properties": {"areasqkm": 8.31, "toid": "nex-6"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.83, 35.28], [-80.81, 35.28], [-80.81, 35.30], [-80.83, 35.30], [-80.83, 35.28]]]]}},
+{"type": "Feature", "id": "cat-9", "properties": {"areasqkm": 4.62, "toid": "nex-6"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.76, 35.29], [-80.74, 35.29], [-80.74, 35.31], [-80.76, 35.31], [-80.76, 35.29]]]]}},
+{"type": "Feature", "id": "cat-10", "properties": {"areasqkm": 5.57, "toid": "nex-7"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.55, 35.28], [-80.53, 35.28], [-80.53, 35.30], [-80.55, 35.30], [-80.55, 35.28]]]]}},
+{"type": "Feature", "id": "cat-11", "properties": {"areasqkm": 4.36, "toid": "nex-5"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.37, 35.27], [-80.35, 35.27], [-80.35, 35.29], [-80.37, 35.29], [-80.37, 35.27]]]]}},
+{"type": "Feature", "id": "cat-12", "properties": {"areasqkm": 6.15, "toid": "nex-8"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.79, 35.24], [-80.77, 35.24], [-80.77, 35.26], [-80.79, 35.26], [-80.79, 35.24]]]]}},
+{"type": "Feature", "id": "cat-13", "properties": {"areasqkm": 3.74, "toid": "nex-8"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.55, 35.23], [-80.53, 35.23], [-80.53, 35.25], [-80.55, 35.25], [-80.55, 35.23]]]]}},
+{"type": "Feature", "id": "cat-14", "properties": {"areasqkm": 2.53, "toid": "nex-9"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.37, 35.22], [-80.35, 35.22], [-80.35, 35.24], [-80.37, 35.24], [-80.37, 35.22]]]]}},
+{"type": "Feature", "id": "cat-15", "properties": {"areasqkm": 7.43, "toid": "nex-9"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.67, 35.19], [-80.65, 35.19], [-80.65, 35.21], [-80.67, 35.21], [-80.67, 35.19]]]]}},
+{"type": "Feature", "id": "cat-16", "properties": {"areasqkm": 3.64, "toid": "nex-10"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.43, 35.29], [-80.41, 35.29], [-80.41, 35.31], [-80.43, 35.31], [-80.43, 35.29]]]]}},
+{"type": "Feature", "id": "cat-17", "properties": {"areasqkm": 2.89, "toid": "nex-10"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.39, 35.29], [-80.37, 35.29], [-80.37, 35.31], [-80.39, 35.31], [-80.39, 35.29]]]]}},
+{"type": "Feature", "id": "cat-18", "properties": {"areasqkm": 9.27, "toid": "nex-11"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.59, 35.14], [-80.57, 35.14], [-80.57, 35.16], [-80.59, 35.16], [-80.59, 35.14]]]]}},
+{"type": "Feature", "id": "cat-19", "properties": {"areasqkm": 5.12, "toid": "nex-11"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.41, 35.19], [-80.39, 35.19], [-80.39, 35.21], [-80.41, 35.21], [-80.41, 35.19]]]]}},
+{"type": "Feature", "id": "cat-20", "properties": {"areasqkm": 4.83, "toid": "nex-12"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.53, 35.09], [-80.51, 35.09], [-80.51, 35.11], [-80.53, 35.11], [-80.53, 35.09]]]]}},
+{"type": "Feature", "id": "cat-27", "properties": {"areasqkm": 1.44, "toid": "nex-2"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.73, 35.35], [-80.71, 35.35], [-80.71, 35.37], [-80.73, 35.37], [-80.73, 35.35]]]]}},
+{"type": "Feature", "id": "cat-31", "properties": {"areasqkm": 2.16, "toid": "nex-5"}, "geometry": {"type": "MultiPolygon", "coordinates": [[[[-80.35, 35.27], [-80.33, 35.27], [-80.33, 35.29], [-80.35, 35.29], [-80.35, 35.27]]]]}}
+]
+}

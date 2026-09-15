@@ -1,0 +1,11 @@
+{
+  "name": "cylinder_heater",
+  "type": "cylinder",
+  "radius": 0.5,
+  "height": 1.0,
+  "surfaces": [
+    {"name": "bottom",  "emissivity": 0.90, "condition": "temperature", "value": 1000.0},
+    {"name": "top",     "emissivity": 0.70, "condition": "temperature", "value": 500.0},
+    {"name": "lateral", "emissivity": 0.80, "condition": "heatflux",    "value": 0.0}
+  ]
+}

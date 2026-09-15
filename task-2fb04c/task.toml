@@ -1,0 +1,43 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level skills in multiple areas:
+(1) Binary format reverse engineering: the trace format documentation is deliberately incomplete — the record contains an undocumented per-trace FLAGS comparison mask that must be discovered through empirical binary analysis to perform correct conformance evaluation;
+(2) CPU architecture expertise: the solver must judge which emulator behaviors are correct versus incorrect by comparing against hardware silicon truth, understanding that published Intel documentation can be wrong and only hardware traces reveal actual 8088 behavior;
+(3) Root cause evaluation: failures span subtle 8088-specific behaviors (BCD adjustment sequencing, variable-base ASCII arithmetic, undocumented opcodes, generational shift count differences) that require deep architectural judgment to diagnose;
+(4) Emulator repair: applying multiple distinct patches to a ~600-line CPU emulator without breaking correct behavior requires understanding the full instruction dispatch architecture."""
+solution_explanation = """The solution:
+1. Parses traces.bin by reading the 8-byte header (magic "8T88", version, count), then 81-byte records, discovering that the 2 undocumented bytes at offsets 79-80 are a per-instruction FLAGS comparison mask;
+2. Uses ndisasm to decode each trace's instruction bytes for categorization;
+3. Evaluates all traces against the emulator and identifies 4+ failure categories: bcd_adjustment (DAA/DAS second condition uses adjusted AL instead of saved original), ascii_arithmetic (AAM/AAD hardcode base 10 instead of using immediate operand), undocumented (missing SALC opcode 0xD6), shift_rotate (8088 does not mask shift count unlike 80286+);
+4. Fixes cpu8088.py with patches: old_al for DAA/DAS second condition, _base for AAM/AAD operand, SALC handler, remove shift count masking."""
+verification_explanation = """Tests verify both the conformance report and emulator correctness:
+1. Parametrized tests parse traces.bin independently and run each trace through the fixed cpu8088.py, checking all register values and masked flags;
+2. Conformance report structure tests verify the report contains all required fields, has entries for all traces, and includes at least 4 failure categories with detailed root cause descriptions;
+3. Decoded instruction validation cross-checks report mnemonics against ndisasm output at test time;
+4. Tests verify the failure analysis covers at least 10 total affected traces across all categories."""
+category = "reverse_engineering"
+tags = ["cpu-emulation", "binary-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-2fb04c"

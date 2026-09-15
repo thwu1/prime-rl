@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of PSHA to diagnose six independent bugs across five Python modules, plus designing and implementing disaggregation output persistence. Beyond the Python debugging, the agent must also fix a multi-tool post-processing pipeline involving gnuplot (missing terminal configuration, wrong data separator), sqlite3 CLI (incorrect aggregation function for marginal distributions), and jq (wrong JSON field paths for nested objects). Bugs span: (1) GR magnitude-frequency bin-edge offset in mfd.py; (2) missing degrees-to-radians conversion in distance.py; (3) reversed Vs30/Vref site amplification in gmm.py; (4) exp() vs 10** in Wells-Coppersmith rupture scaling in hazard.py; (5) linear vs log-log hazard curve interpolation in disagg.py; (6) reversed epsilon sign convention in disagg.py; (7) gnuplot missing PNG terminal declaration; (8) gnuplot wrong CSV separator; (9) sqlite3 AVG vs SUM for marginal aggregation; (10) jq wrong field paths for site coordinates and config keys. The agent must be proficient with gnuplot scripting, sqlite3 CLI query semantics, and jq filter expressions — three specialized tools that are often unfamiliar."""
+solution_explanation = """Apply six targeted fixes across five Python modules, then implement disaggregation output, then fix the post-processing pipeline: (1) mfd.py: center GR bins at m±dm/2; (2) distance.py: wrap avg_lat in math.radians(); (3) gmm.py: change ln(vref/vs30) to ln(vs30/vref); (4) hazard.py: replace math.exp() with 10.0**; (5) disagg.py: change linear interpolation to log-log space; (6) disagg.py: change (mu-ln(y))/sigma to (ln(y)-mu)/sigma; (7) implement SQLite and JSON output for disaggregation; (8) hazard_plot.gp: add 'set terminal png size 800,600'; (9) hazard_plot.gp: change separator from space to comma; (10) postprocess.sh: change AVG to SUM in sqlite3 marginal queries; (11) postprocess.sh: fix jq field paths ($site.lon→$site.longitude, $site.lat→$site.latitude, $config.disaggregation.return_period→return_period_years, $config.exposure→exposure_years)."""
+verification_explanation = """Tests include a fully independent reference PSHA computation and disaggregation that reads the same input data and computes expected values from scratch. Hazard curves are compared at 2% relative tolerance, source contributions at 5%. Disaggregation is verified via: SQLite schema validation, bin sum normalization (within 1%), target IML within 5% of reference log-log interpolation, modal magnitude and distance must match reference marginals, mean epsilon within 0.2, and top contributing bins within 10% relative error. Post-processing outputs are verified: PNG file validity via magic-byte check, marginal CSV values against reference sums (within 10%), marginal distributions sum to 1.0 (within 2%), and disagg_report.json field values match source config and disaggregation reference values."""
+category = "scientific_computing"
+tags = ["seismology", "multi-tool-debugging"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/psha-hazard-curves"

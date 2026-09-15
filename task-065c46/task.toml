@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level CFD verification and validation knowledge: the agent must independently determine appropriate methods for grid-independent extrapolation, numerical uncertainty quantification, convergence behavior classification, and robust statistical outlier detection — none of which are named in the instructions. Additionally, the data is split across HDF5 (hierarchical scientific data format with 2D force arrays and metadata attributes) and SQLite (relational database with grid specifications), requiring multi-tool interoperability to extract and combine information before any analysis can begin. The agent must understand characteristic grid spacing definitions, safety factor conventions, and small-sample outlier statistics from domain expertise alone."""
+solution_explanation = """Read force coefficients from HDF5 using h5py (navigating groups, attributes, and 2D datasets) and grid node counts from SQLite via SQL queries. Compute characteristic grid spacing h=N^(-1/3) and refinement ratios. Classify convergence behavior by examining successive error ratio signs. Apply Richardson extrapolation for monotonically-converged cases to estimate grid-independent values and observed order. Compute Grid Convergence Index (Fs=1.25) with asymptotic range indicators. Detect outliers using Chauvenet's criterion (erfc-based probability) and modified Z-score (0.6745*MAD scaling). Aggregate ensemble statistics excluding non-convergent and outlier participants."""
+verification_explanation = """Tests verify output file existence, schema correctness, and numerical accuracy. Spot-checks Richardson-extrapolated CD values and observed orders for multiple participants against independently computed references (tolerance 1e-4). Verifies convergence classifications including the oscillatory case (P006). Checks GCI values and asymptotic range indicators. Confirms outlier detection correctly flags P012 with appropriate modified Z-score magnitude. Validates ensemble statistics against reference values."""
+category = "scientific_computing"
+tags = ["cfd-verification", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-065c46"

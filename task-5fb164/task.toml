@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires end-to-end auditing of a multi-stage forecaster ranking pipeline (sqlite3 + jq + Python) with multiple embedded bugs across data processing and scoring implementations. The solver must independently discover data quality issues by examining the database, identify formula errors by comparing pipeline code against reference implementations, implement a missing scoring method from its mathematical specification, and fix a normalization defect in an iterative estimator. Beyond correction, the solver must perform meta-analysis of the scoring framework — determining the independent information content of five correlated scoring methods via multivariate statistical analysis and designing a principled consensus ranking that accounts for method redundancy and differential information value. Demands expertise in prediction market mechanics, proper scoring rules, utility theory, and multivariate statistics."""
+solution_explanation = """Query the SQLite database to load events, markets, and forecasts. Clean data by filtering unresolved events (outcome=-1), deduplicating by latest timestamp per (event_id, forecaster_id), and removing orphan forecasts referencing non-existent events. Compare each pipeline scoring implementation against the reference library to identify and fix errors: the risk-neutral EV formula uses multiplication instead of division, the CRRA utility is a zero-returning stub that must be implemented using the closed-form optimal fraction from the CRRATrader reference, and the pairwise skill estimator lacks mean-normalization. Also fix the jq deduplication filter that keeps earliest instead of latest timestamp. Compute the 5x5 Spearman rank correlation matrix, eigendecompose it, apply Kaiser criterion for dimensionality, derive communality-based importance weights from retained principal components, and aggregate percentile-normalized ranks using those weights into a consensus ranking. Assess ranking stability via per-forecaster max rank spread."""
+verification_explanation = """Tests independently load the SQLite database, apply deterministic cleaning, recompute all five scoring methods, correlation matrix, eigendecomposition, PCA-based weights, consensus ranking, and stability metrics from scratch. Tests verify: output structure and completeness, data quality counts, individual method scores within tolerance, correlation values, eigenvalue correctness, effective dimensions, method weight correctness, consensus ranking top-3 and score accuracy, stability analysis (most/least stable forecaster identification, spread values), and that corrected results differ materially from the buggy baseline."""
+category = "probability_statistics"
+tags = ["prediction-markets", "scoring-framework-evaluation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5fb164"

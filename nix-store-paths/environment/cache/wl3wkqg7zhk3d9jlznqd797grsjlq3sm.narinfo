@@ -1,0 +1,9 @@
+StorePath: /nix/store/wl3wkqg7zhk3d9jlznqd797grsjlq3sm-python-3.12.2-src
+URL: nar/wl3wkqg7zhk3d9jlznqd797grsjlq3sm.nar.xz
+Compression: xz
+FileHash: sha256:5e3b922e67bfecb313e634a54378c0799b03f56fe31db68031569a55000aec77
+FileSize: 3992422
+NarHash: sha256:8ef3580276e5923f03403cd3dca2a4e9dd89bcaeed2c351f4a1fa2d2093cbac5
+NarSize: 4725864
+References:
+CA: fixed:r:sha256-4/NwgyD8RLgcL6WK7UMtr8f2sgMwFvwXS0REMgNtK1A=

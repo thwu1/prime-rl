@@ -1,0 +1,13 @@
+{
+  "name": "A64FX",
+  "peak_gflops": 3380.0,
+  "dram_bw_gbs": 1024.0,
+  "l3_bw_gbs": null,
+  "l2_bw_gbs": 3600.0,
+  "l3_size_mb": null,
+  "l2_size_kb": 8192,
+  "l1_size_kb": 64,
+  "cacheline_bytes": 256,
+  "write_allocate": false,
+  "elem_bytes": 8
+}

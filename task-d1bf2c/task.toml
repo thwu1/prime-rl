@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of dynamical systems, statistical model selection, and numerical ODE methods. The agent must: (1) design a parameter estimation pipeline coupling nonlinear optimization with ODE integration for four structurally different candidate models, (2) recognize that models with more parameters will overfit noisy observations and choose an appropriate complexity-penalized selection criterion (AIC, BIC, cross-validation, or Bayesian evidence), (3) propagate parameter uncertainty into forward trajectory predictions via Monte Carlo sampling, Hessian-based covariance estimation, or bootstrap methods, and (4) compute calibration diagnostics. The critical intellectual challenge is the model selection step: naive residual minimization selects the wrong (over-parameterized) model, and the agent must independently reason about the bias-variance trade-off to arrive at the correct answer."""
+solution_explanation = """Fits each candidate model's parameters via maximum likelihood (least-squares under Gaussian noise) using scipy.optimize with multiple restarts. Computes BIC for each model to penalize complexity. Model A (classic Lotka-Volterra, 4 params) is correctly ranked first because models B, C, D have extra parameters that do not improve fit enough to offset the BIC penalty. Predictions are made by forward-integrating the fitted model, with uncertainty estimated via Hessian-based parameter covariance propagated through Monte Carlo ODE solves."""
+verification_explanation = """Tests verify: (1) model_a is ranked first in ranking.json, (2) fitted parameters for model_a are within tolerance of true values (alpha~0.55, beta~0.028, gamma~0.80, delta~0.024), (3) forward predictions at t=26-30 have RMSE < 15 against the true trajectory computed by the test via scipy DOP853, (4) training RMSE is in the plausible range [0.1, 3.0] near the noise level, and (5) normalized residual variance is near 1.0 indicating proper calibration."""
+category = "scientific_computing"
+tags = ["model-selection", "dynamical-systems"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-d1bf2c"

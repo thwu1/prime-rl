@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing five distinct query optimizer rules (filter elimination, empty relation propagation, cross join elimination, filter pushdown, limit pushdown) that interact in subtle ways. Each rule must handle multiple node types and join semantics correctly (inner vs left vs right vs full). The cross join elimination requires predicate analysis to extract equijoin conditions from conjunctive filters across nested multi-way joins. Filter pushdown through left joins requires understanding null-extension semantics. The rules must compose across 3 fixpoint iterations. This requires expert-level knowledge of relational query optimization theory."""
+solution_explanation = """The solution implements each rule as a recursive tree transformation. eliminate_filter checks constant predicates. propagate_empty_relation handles each join type differently per relational algebra. eliminate_cross_join splits filter conjuncts, classifies them as equijoin or residual based on table references, and rewrites qualifying cross joins. push_down_filter splits conjuncts and routes them based on column references relative to join children, with special handling for outer joins. push_down_limit implements the standard limit merge formula and union distribution. Three fixpoint passes handle cascading opportunities."""
+verification_explanation = """Tests load each of the 17 optimized plans and verify structural properties: correct node types at each level, absence of eliminated nodes, presence of pushed-down predicates, correct join types, and correct limit values. Tests also verify that impossible optimization mistakes (e.g., pushing filters below outer join null-extending side) are not made."""
+category = "database_systems"
+tags = ["query_optimization", "compiler_passes"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b24095"

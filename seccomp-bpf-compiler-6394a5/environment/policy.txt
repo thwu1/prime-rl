@@ -1,0 +1,69 @@
+# Policy file for seccomp-BPF filter compiler
+# Format: <syscall> <ACTION> [arg<N> <CMP> <VALUE> [MASK]] ...
+# Lines starting with # are comments
+
+default KILL
+
+# Basic allows - no argument checks
+read ALLOW
+write ALLOW
+close ALLOW
+rt_sigreturn ALLOW
+exit ALLOW
+exit_group ALLOW
+brk ALLOW
+mmap ALLOW
+munmap ALLOW
+rt_sigaction ALLOW
+rt_sigprocmask ALLOW
+gettid ALLOW
+getpid ALLOW
+set_tid_address ALLOW
+set_robust_list ALLOW
+rseq ALLOW
+futex ALLOW
+clock_gettime ALLOW
+getrandom ALLOW
+sigaltstack ALLOW
+prlimit64 ALLOW
+
+# Conditional allows with argument comparisons
+# Allow openat only with read-only access mode
+openat ALLOW arg2 MASKED_EQ 0x100 0x3
+
+# Allow ioctl only on fd 1 (stdout)
+ioctl ALLOW arg0 EQ 1
+
+# Allow newfstatat on any fd
+newfstatat ALLOW
+
+# Log access syscall (for audit trail)
+access LOG
+
+# Deny socket creation with ERRNO
+socket ERRNO(1)
+
+# Deny execve (critical security boundary)
+execve KILL_PROCESS
+
+# Allow fcntl only for F_GETFD (arg1 == 1) or F_GETFL (arg1 == 3)
+fcntl ALLOW arg1 EQ 1
+fcntl ALLOW arg1 EQ 3
+
+# Allow prctl but only for PR_SET_NAME (arg0 == 15)
+prctl ALLOW arg0 EQ 15
+
+# Large value argument check (tests 64-bit handling)
+statx ALLOW arg2 GE 0x100000000
+
+# Trace arch_prctl calls
+arch_prctl TRACE(42)
+
+# Allow mprotect unless prot is full RWX (arg2 != 7)
+mprotect ALLOW arg2 NE 7
+
+# Multi-argument constraint: clone3 only with flags==0 AND size >= 56
+clone3 ALLOW arg0 EQ 0 arg1 GE 56
+
+# 64-bit NE: allow fstatfs unless buf is at a specific address
+fstatfs ALLOW arg1 NE 0x200000001

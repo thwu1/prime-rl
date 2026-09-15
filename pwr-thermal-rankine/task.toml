@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level nuclear and mechanical engineering knowledge to audit a thermal-hydraulic analysis containing three distinct, non-obvious computational errors: (1) Darcy/Fanning friction factor confusion — a classic PE exam pitfall with 4x pressure drop impact, (2) wrong Nusselt correlation coefficient overstating heat transfer by ~22%, creating a false safety margin, and (3) LP turbine stage treated as isentropic, inflating cycle efficiency by ~10%. The solver must independently select and implement correct correlations (not told which), compare results against the prior analysis to diagnose root causes vs cascading effects, and then derive a power uprate limit from the corrected HTC — a calculation not present in the prior analysis at all. An undergraduate would not distinguish Fanning from Darcy, would not know the standard Dittus-Boelter coefficient, and could not design the uprate analysis from a temperature constraint."""
+solution_explanation = """Install iapws for IAPWS-97 steam/water properties. Read plant_specs.toml and prior_analysis.json. Compute subchannel geometry (Dh = 4A/p). Look up coolant properties at system conditions. Compute Re, correct Fanning friction factor via Blasius (f=0.0791*Re^-0.25), pressure drop via Fanning equation, Dittus-Boelter Nusselt number (Nu=0.023*Re^0.8*Pr^0.4), and convective HTC. For the Rankine cycle: compute enthalpies at 7 state points using isentropic expansion/compression with specified efficiencies at both HP and LP stages, solve OFW heater energy balance for extraction fraction, compute net efficiency and heat rate. Compare each result against prior_analysis.json to identify 3 root-cause errors. Derive maximum uprate from cladding temperature limit: max_q' = (T_max - T_coolant)*pi*D*h, uprate% = (max_q'/rated_q' - 1)*100."""
+verification_explanation = """Tests independently compute all 11 thermal-hydraulic values plus the uprate percentage using iapws and the same engineering correlations. Results are compared within 0.5-2% tolerance for geometry and property-dependent quantities, 5% for the uprate percentage. Additional checks verify physical consistency (Darcy = 4*Fanning, efficiency in range, etc.), that corrected values differ from the prior analysis, and that the error count is 2-4 (allowing flexibility in root-cause attribution)."""
+category = "engineering"
+tags = ["nuclear-engineering", "thermodynamics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pwr-thermal-rankine"

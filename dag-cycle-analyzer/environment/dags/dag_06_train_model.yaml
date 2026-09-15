@@ -1,0 +1,19 @@
+dag_id: train_model
+schedule: "dataset:feature_store"
+default_pool: ml_pool
+max_active_runs: 1
+tasks:
+  prepare_data:
+    pool_slots: 1
+    duration_estimate_minutes: 10
+  train:
+    pool_slots: 3
+    duration_estimate_minutes: 60
+    upstream: [prepare_data]
+  evaluate:
+    pool_slots: 1
+    duration_estimate_minutes: 15
+    upstream: [train]
+datasets:
+  produces: [model_artifact]
+  consumes: [feature_store]

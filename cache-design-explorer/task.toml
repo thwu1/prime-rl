@@ -1,0 +1,45 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing four interacting bugs in a C cache simulator without being told what they are.
+Bug 1 (tag extraction off-by-one) corrupts address decomposition and dominates the reference trace output.
+Bug 2 (LRU timestamp not updated on hits) only manifests with associativity > 1 and requires understanding
+true LRU semantics. Bug 3 (dirty bit not set on write-miss install) requires understanding write-allocate
+policy to spot missing writebacks. Bug 4 (write-through traffic formula) uses block_size instead of word
+size. The bugs interact: fixing only bug 1 makes the reference trace pass for write-back stats but not
+write-through; bugs 2+3 only appear in multi-way configs. Solver must use gdb, valgrind, make/gcc,
+and reason about cache architecture to trace symptoms to root causes across multiple files."""
+solution_explanation = """Fix four bugs: (1) remove +1 from tag shift in get_tag(), (2) add last_used
+timestamp update in the hit path of cache_access(), (3) change dirty=0 to dirty=is_write in the
+miss-install path, (4) change block_size to 4 in write-through traffic calculation in print_stats().
+Rebuild with make, run the corrected binary on all trace/config combinations, parse output, and
+assemble answers.json."""
+verification_explanation = """Tests verify both the binary and answers.json. The binary is run on the
+reference trace and additional configs (including multi-way associative) and output is compared against
+an independent Python reference simulator. answers.json is checked against the same reference simulator
+for all five questions, with exact integer match and 0.02 float tolerance."""
+category = "debugging"
+tags = ["cache-simulation", "c-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cache-design-explorer"

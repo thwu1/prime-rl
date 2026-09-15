@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["total_transitions", "covered_transitions", "uncovered_transitions", "coverage_percentage"],
+  "properties": {
+    "total_transitions": {"type": "integer", "minimum": 0},
+    "covered_transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "event", "to"],
+        "properties": {
+          "from": {"type": "string"},
+          "event": {"type": "string"},
+          "to": {"type": "string"},
+          "condition": {"type": "string"},
+          "covered_by": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "uncovered_transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "event", "to"],
+        "properties": {
+          "from": {"type": "string"},
+          "event": {"type": "string"},
+          "to": {"type": "string"},
+          "condition": {"type": "string"}
+        }
+      }
+    },
+    "coverage_percentage": {"type": "number", "minimum": 0, "maximum": 100}
+  }
+}

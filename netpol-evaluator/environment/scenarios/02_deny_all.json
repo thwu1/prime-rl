@@ -1,0 +1,28 @@
+{
+  "description": "Deny-all ingress policy blocks all incoming traffic to namespace",
+  "namespaces": [
+    {"name": "secure", "labels": {"env": "prod", "zone": "restricted"}},
+    {"name": "public", "labels": {"env": "prod", "zone": "open"}}
+  ],
+  "pods": [
+    {"name": "db", "namespace": "secure", "labels": {"app": "postgres", "role": "database"}, "ip": "10.1.1.1"},
+    {"name": "app", "namespace": "secure", "labels": {"app": "myapp", "role": "backend"}, "ip": "10.1.1.2"},
+    {"name": "client", "namespace": "public", "labels": {"app": "client", "role": "frontend"}, "ip": "10.2.1.1"}
+  ],
+  "network_policies": [
+    {
+      "name": "deny-all-ingress",
+      "namespace": "secure",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "public", "src_pod": "client", "dst_namespace": "secure", "dst_pod": "db", "dst_port": 5432, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "public", "src_pod": "client", "dst_namespace": "secure", "dst_pod": "app", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "secure", "src_pod": "app", "dst_namespace": "secure", "dst_pod": "db", "dst_port": 5432, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "secure", "src_pod": "db", "dst_namespace": "public", "dst_pod": "client", "dst_port": 80, "protocol": "TCP", "expected": "ALLOW"}
+  ]
+}

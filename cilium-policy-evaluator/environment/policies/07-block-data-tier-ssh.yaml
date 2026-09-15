@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: block-data-tier-ssh
+spec:
+  endpointSelector:
+    matchLabels:
+      tier: data
+  ingressDeny:
+    - toPorts:
+        - ports:
+            - port: "22"
+              protocol: TCP

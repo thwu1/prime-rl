@@ -1,0 +1,49 @@
+server:
+    bind:
+        host: 0.0.0.0
+        port: 5000
+    url: http://localhost:5000/
+    mimetype: application/json; charset=UTF-8
+    encoding: utf-8
+    gzip: false
+    language: en-US
+    cors: true
+    pretty_print: true
+    limits:
+        default_items: 10
+        max_items: 100
+    map:
+        url: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    manager:
+        name: TinyDB
+        connection: /tmp/pygeoapi-process-manager.db
+        output_dir: /tmp/
+
+logging:
+    level: ERROR
+
+metadata:
+    identification:
+        title: Meteorological Sensor Stations API
+        description: OGC API providing access to global meteorological sensor station data
+        keywords:
+            - meteorology
+            - sensors
+            - stations
+        keywords_type: theme
+        terms_of_service: https://creativecommons.org/licenses/by/4.0/
+        url: http://example.org
+    license:
+        name: CC-BY 4.0 license
+        url: https://creativecommons.org/licenses/by/4.0/
+    provider:
+        name: Weather Data Organization
+        url: https://example.org
+    contact:
+        name: Admin
+        position: Data Manager
+        email: admin@example.org
+        role: pointOfContact
+
+resources: {}

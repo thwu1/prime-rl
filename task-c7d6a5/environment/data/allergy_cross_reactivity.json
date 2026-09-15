@@ -1,0 +1,27 @@
+{
+  "cross_reactivity_groups": [
+    {
+      "group_name": "beta_lactam",
+      "allergen_codes": [
+        {"code": "7980", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Penicillin V"},
+        {"code": "733", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Ampicillin"}
+      ],
+      "cross_reactive_drug_codes": ["723", "733", "7980", "2231"],
+      "cross_reactivity_rate": 0.10,
+      "severity": "critical",
+      "description": "Patient has documented allergy to a beta-lactam antibiotic. Cross-reactivity risk of 1-10% exists with other beta-lactam antibiotics sharing the core beta-lactam ring structure.",
+      "recommendation": "Avoid all beta-lactam antibiotics including penicillins, cephalosporins, and carbapenems in patients with confirmed IgE-mediated penicillin allergy. Consider azithromycin or fluoroquinolone alternatives."
+    },
+    {
+      "group_name": "sulfonamide_antibiotic",
+      "allergen_codes": [
+        {"code": "10831", "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "display": "Sulfamethoxazole"}
+      ],
+      "cross_reactive_drug_codes": ["10831", "9524"],
+      "cross_reactivity_rate": 0.15,
+      "severity": "warning",
+      "description": "Patient has documented sulfonamide antibiotic allergy. Cross-reactivity with other sulfonamide-containing antimicrobials is possible though overall risk with non-antibiotic sulfonamides is low.",
+      "recommendation": "Avoid sulfonamide antibiotics. Non-antibiotic sulfonamides (thiazides, celecoxib) may be used with caution as cross-reactivity is unlikely."
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of multiview geometry: essential matrix estimation with RANSAC for outlier rejection, pose recovery via SVD decomposition with cheirality resolution, DLT triangulation, perspective-n-point absolute pose estimation, and nonlinear bundle adjustment with robust loss. The agent must chain these algorithms correctly, handle scale ambiguity between camera pairs, and implement or orchestrate a complete SfM pipeline from raw observations — a task demanding Dreyfus-proficient to expert level in computer vision."""
+solution_explanation = """1) Normalize pixel observations using per-camera intrinsic matrices. 2) Estimate the essential matrix between cameras 0 and 1 using RANSAC, then recover relative pose via cheirality-resolved decomposition. 3) Triangulate initial 3D points from cams 0-1, filtering by reprojection error. 4) Register cameras 2-4 via PnP-RANSAC with iterative refinement on inliers. 5) Triangulate remaining points using multi-view DLT across all cameras, accepting only points with low median reprojection error. 6) Run three rounds of iterative bundle adjustment with progressively tighter outlier thresholds and observation filtering, using Levenberg-Marquardt with soft-L1 robust loss, removing bad points between rounds. Critical insight: pre-filtering observations by current reprojection error before each BA round is essential to avoid outlier-contaminated optimization divergence."""
+verification_explanation = """Tests verify: output JSON structure and completeness (5 cameras, >=50 points); rotation matrix validity (orthonormality, det=+1); camera 0 is identity/zero reference; median reprojection error < 1.5 px; >80% of observations reproject within 5 px; and after Procrustes alignment to ground truth (loaded from test-only data at /tests/ground_truth.json, not accessible during agent runtime), mean camera rotation error < 5 degrees, normalized camera position error < 15%, and normalized point RMSE < 5% of scene extent."""
+category = "computer_vision"
+tags = ["multiview_geometry", "structure_from_motion"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/multiview-sfm-reconstruction"

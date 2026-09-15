@@ -1,0 +1,16 @@
+=== ADS-B Station Operator Log ===
+Date: 2024-12-15
+Station: MONITOR-7
+
+Capture session: 18 Mode S messages from 5 distinct aircraft.
+Reference validation (msg_check): 17 recoverable, 1 unrecoverable.
+
+Known traffic during capture window:
+  A1B2C3 UAL1234 — FL380 eastbound
+  3C4586 DLH9876 — FL350 westbound descending
+  780ABC ANA567  — 3000ft southbound
+  C0FFEE TEST42  — FL410 northeast
+  DEAD01 N12345  — ident only, no position/velocity
+
+ISSUE: decoder.py output does not match expected tracking data.
+Decoder needs repair before next operational shift.

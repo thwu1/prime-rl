@@ -1,0 +1,7 @@
+{
+  "T_evap_K": 273.15,
+  "superheat_K": 5.0,
+  "P_gas_cooler_Pa": 10000000.0,
+  "T_gas_cooler_outlet_K": 308.15,
+  "eta_isentropic": 0.75
+}

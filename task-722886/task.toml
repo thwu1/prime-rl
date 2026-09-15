@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level multi-domain knowledge: (1) iperf3's underdocumented RSA authentication credential format — the SHA-256 hash of '{username}password' with literal curly braces is not in the manpage and must be discovered from source code or experimentation; (2) deep understanding of iperf3's JSON output schema to correctly extract metrics from four structurally different test types, including the non-obvious distinction between 'sum' (receiver) vs 'sum_sent' (sender) in UDP output and how bidirectional streams map to upload/download; (3) nuanced CVE version-range reasoning — particularly CVE-2025-54351 which only affects version 3.19 (the vulnerable feature didn't exist in older versions, so being 'older' means not affected); (4) Jain's fairness index computation for multi-stream analysis; (5) orchestrating an authenticated iperf3 session with correct daemon flags and environment variables."""
+solution_explanation = """Generate RSA keypair with openssl, discover iperf3's credential hash format (SHA-256 of literal '{username}password'), write authorized-users CSV. Build Python analyzer that auto-detects test type from start.test_start fields (protocol, bidir flag, num_streams), extracts metrics from type-specific JSON locations (streams[i].sender/receiver for TCP, sum/sum_sent for UDP), computes derived metrics (Jain's J=(sum_xi)^2/(n*sum_xi^2), throughput efficiency, retransmit rate per MB). CVE assessment requires version comparison against advisory ranges with special handling for feature-specific CVEs. Auth test uses iperf3 daemon mode with RSA keys and IPERF3_PASSWORD env var."""
+verification_explanation = """Tests validate: RSA key pair integrity via OpenSSL verification and modulus matching; credential hashes by independently recomputing SHA-256 of '{user}password' strings; analysis report metrics against pre-computed values from captures with floating-point tolerance; CVE applicability booleans and severity classifications; end-to-end authenticated iperf3 test producing valid JSON output with required sections."""
+category = "cybersecurity"
+tags = ["networking", "security-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-722886"

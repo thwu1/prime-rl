@@ -1,0 +1,11 @@
+.PHONY: all runtime clean
+
+all: runtime
+
+runtime: /app/runtime/sylib.bc
+
+/app/runtime/sylib.bc: /app/runtime/sylib.c /app/runtime/sylib.h
+	clang -emit-llvm -c -Wno-everything -o /app/runtime/sylib.bc /app/runtime/sylib.c
+
+clean:
+	rm -f /app/runtime/sylib.bc

@@ -1,0 +1,9 @@
+{
+  "transactions": [
+    {"id": 0, "type": "ok", "start": 0, "end": 5, "ops": [["append", "x", 1]]},
+    {"id": 1, "type": "ok", "start": 0, "end": 5, "ops": [["append", "y", 1]]},
+    {"id": 2, "type": "ok", "start": 5, "end": 15, "ops": [["r", "x", [1]], ["r", "y", []], ["append", "y", 2]]},
+    {"id": 3, "type": "ok", "start": 5, "end": 15, "ops": [["r", "x", []], ["r", "y", [1]], ["append", "x", 2]]},
+    {"id": 4, "type": "ok", "start": 20, "end": 25, "ops": [["r", "x", [1, 2]], ["r", "y", [1, 2]]]}
+  ]
+}

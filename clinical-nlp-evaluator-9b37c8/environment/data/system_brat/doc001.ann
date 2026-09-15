@@ -1,0 +1,7 @@
+T1	Drug 0 7	Aspirin
+T2	Dosage 8 12	81mg
+T3	ADE 28 35	 nausea
+R1	Dosage-Drug Arg1:T2 Arg2:T1
+R2	ADE-Drug Arg1:T3 Arg2:T1
+A1	Assertion T1 present
+A2	Assertion T3 absent

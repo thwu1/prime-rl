@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level Ansible expertise across multiple interacting domains. The agent must diagnose and fix a cascade of failures without explicit guidance: a misconfigured ansible.cfg with six distinct errors (wrong inventory path, host_key_checking, missing vault_password_file, wrong become_method, become_ask_pass, and gathering=explicit which silently prevents fact collection — causing template failures with misleading 'undefined variable' errors rather than an obvious configuration error). A host_vars/app1.yml file overrides env_name via Ansible's 22-level variable precedence hierarchy, requiring the agent to understand that host_vars take precedence over group_vars and trace a subtle content discrepancy back to this override. The inventory is missing a parent group definition requiring INI children syntax knowledge. A vault must be created and encrypted, but the vault_password_file must be set up BEFORE modifying ansible.cfg to avoid a duplicate vault-id error — an ordering dependency discoverable only through failed attempts. The Jinja2 template has two subtle syntax errors (missing closing braces). A complete custom role must be built from scratch with block/rescue patterns. All hosts share ansible_connection=local, causing race conditions with default parallel execution that require forks/serial tuning. The layered nature means fixing one issue reveals the next, requiring holistic diagnostic reasoning rather than procedural following."""
+solution_explanation = """Create vault_pass.txt and encrypt vault.yml BEFORE modifying ansible.cfg (avoids duplicate vault-id). Fix ansible.cfg: correct inventory path, disable host_key_checking, add vault_password_file, change become_method to sudo, set become_ask_pass=False, change gathering from explicit to smart, set forks=1. Remove host_vars/app1.yml which overrides env_name='staging' via variable precedence. Add [production:children] to inventory. Fix two Jinja2 closing-brace errors. Build site_deploy role with block/rescue user creation, setgid directory, template deployment, and handler. Create site.yml with serial:1 and vault vars, report.yml with facts template."""
+verification_explanation = """Tests parse ansible.cfg with configparser to verify corrected settings. Inventory structure validated via ansible-inventory --list JSON checking group hierarchy. Vault verified as encrypted and decryptable with correct secrets. Role structure checked for block/rescue pattern. Playbooks executed by test.sh, then pytest verifies system state: users with correct UIDs/shells/groups, /opt/webapp with setgid 2775, per-host configs with correct conditional sections and vault-rendered passwords, ALL production hosts showing PRODUCTION environment (catches host_vars precedence bug if unfixed), monitor1 showing MONITORING, and system report with facts (catches gathering=explicit if unfixed)."""
+category = "devops"
+tags = ["ansible", "configuration-management"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/ansible-vault-deploy"

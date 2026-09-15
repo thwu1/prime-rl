@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building CaDiCaL from source, understanding its C++ API, implementing a correct SAT-to-MaxSAT reduction, and managing auxiliary variable indexing. The agent must understand WCNF parsing, SAT encoding theory (relaxation variables, cardinality constraints), and link a C++ program against an external library — combining compiler toolchain proficiency with formal methods expertise."""
+solution_explanation = """Build CaDiCaL via ./configure && make. Write a C++ program that (1) parses WCNF, (2) adds hard clauses directly and soft clauses with relaxation variables to a CaDiCaL solver, (3) builds a sequential counter encoding over the relaxation variables to compute a unary count, (4) performs linear search from cost 0 upward, using CaDiCaL's assume() to bound the counter output at each step, and (5) extracts the optimal assignment via val(). Compile against libcadical.a."""
+verification_explanation = """Tests verify the solver binary exists, runs on 5 WCNF instances of increasing size (3 to 16 variables, 6 to 40 clauses), and produces correct optimal costs (1, 2, 3, 6, 8). Each solution assignment is independently verified: all hard clauses must be satisfied, and the count of violated soft clauses must equal the reported cost."""
+category = "algorithms"
+tags = ["sat-solving", "optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cadical-maxsat-solver"

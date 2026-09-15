@@ -1,0 +1,153 @@
+{
+  "title": "Financial Analysis Workbook Reconstruction",
+  "description": "A multi-sheet financial analysis workbook was corrupted. The raw data was recovered as CSV files. This specification describes the original workbook's formulas in Excel notation. Reconstruct all calculations as SQL views in a SQLite database.",
+  "reference_date": "2024-12-31",
+  "base_tables": {
+    "transactions": {
+      "source": "transactions.csv",
+      "primary_key": "transaction_id",
+      "columns": {
+        "transaction_id": "TEXT",
+        "date": "TEXT (ISO 8601)",
+        "employee_id": "TEXT FK->employees",
+        "product_id": "TEXT FK->products",
+        "region_id": "TEXT FK->regions",
+        "quantity": "INTEGER",
+        "unit_price": "REAL",
+        "discount_pct": "REAL (0.0 to 1.0)"
+      }
+    },
+    "products": {
+      "source": "products.csv",
+      "primary_key": "product_id",
+      "columns": {
+        "product_id": "TEXT",
+        "product_name": "TEXT",
+        "category": "TEXT",
+        "subcategory": "TEXT",
+        "cost_price": "REAL",
+        "list_price": "REAL",
+        "reorder_level": "INTEGER",
+        "units_in_stock": "INTEGER"
+      }
+    },
+    "employees": {
+      "source": "employees.csv",
+      "primary_key": "employee_id",
+      "columns": {
+        "employee_id": "TEXT",
+        "first_name": "TEXT",
+        "last_name": "TEXT",
+        "department": "TEXT",
+        "hire_date": "TEXT (ISO 8601)",
+        "base_salary": "REAL",
+        "commission_rate": "REAL",
+        "manager_id": "TEXT (nullable, FK->employees)"
+      }
+    },
+    "regions": {
+      "source": "regions.csv",
+      "primary_key": "region_id",
+      "columns": {
+        "region_id": "TEXT",
+        "region_name": "TEXT",
+        "country": "TEXT",
+        "sales_target": "REAL",
+        "tax_rate": "REAL"
+      }
+    }
+  },
+  "views": {
+    "enriched_transactions": {
+      "description": "Each transaction row enriched with lookup values and computed fields. One row per transaction (500 total).",
+      "formulas": {
+        "transaction_id": "Transactions!transaction_id",
+        "transaction_date": "Transactions!date",
+        "employee_id": "Transactions!employee_id",
+        "product_id": "Transactions!product_id",
+        "region_id": "Transactions!region_id",
+        "quantity": "Transactions!quantity",
+        "unit_price": "Transactions!unit_price",
+        "discount_pct": "Transactions!discount_pct",
+        "product_name": "=XLOOKUP(product_id, Products!product_id, Products!product_name)",
+        "category": "=XLOOKUP(product_id, Products!product_id, Products!category)",
+        "cost_price": "=XLOOKUP(product_id, Products!product_id, Products!cost_price)",
+        "employee_name": "=XLOOKUP(employee_id, Employees!employee_id, Employees!first_name) & \" \" & XLOOKUP(employee_id, Employees!employee_id, Employees!last_name)",
+        "region_name": "=XLOOKUP(region_id, Regions!region_id, Regions!region_name)",
+        "revenue": "=quantity * unit_price * (1 - discount_pct)",
+        "cost": "=quantity * cost_price",
+        "profit": "=revenue - cost",
+        "tax_rate": "=XLOOKUP(region_id, Regions!region_id, Regions!tax_rate)",
+        "tax_amount": "=quantity * unit_price * tax_rate",
+        "net_revenue": "=revenue - tax_amount",
+        "profit_margin": "=IFS(cost = 0, 0, TRUE, profit / cost)",
+        "order_size_tier": "=IFS(quantity >= 20, \"Large\", quantity >= 10, \"Medium\", quantity >= 5, \"Small\", TRUE, \"Micro\")"
+      }
+    },
+    "region_category_summary": {
+      "description": "Aggregated metrics grouped by (region_name, category). Replicates SUMIFS/COUNTIFS/AVERAGEIFS/MAXIFS/MINIFS over enriched_transactions.",
+      "formulas": {
+        "region_name": "Group key from enriched_transactions",
+        "category": "Group key from enriched_transactions",
+        "total_revenue": "=SUMIFS(enriched!revenue, enriched!region_name, @region_name, enriched!category, @category)",
+        "total_cost": "=SUMIFS(enriched!cost, enriched!region_name, @region_name, enriched!category, @category)",
+        "total_profit": "=total_revenue - total_cost",
+        "transaction_count": "=COUNTIFS(enriched!region_name, @region_name, enriched!category, @category)",
+        "avg_order_value": "=AVERAGEIFS(enriched!revenue, enriched!region_name, @region_name, enriched!category, @category)",
+        "max_order_value": "=MAXIFS(enriched!revenue, enriched!region_name, @region_name, enriched!category, @category)",
+        "min_order_value": "=MINIFS(enriched!revenue, enriched!region_name, @region_name, enriched!category, @category)",
+        "weighted_avg_discount": "=AVERAGEIFS(enriched!discount_pct, enriched!region_name, @region_name, enriched!category, @category)",
+        "profit_margin": "=IFS(total_revenue = 0, 0, TRUE, total_profit / total_revenue)"
+      }
+    },
+    "employee_performance": {
+      "description": "One row per employee (10 total). Aggregates sales performance, computes commission, tenure via NETWORKDAYS, and assigns performance tier via IFS.",
+      "formulas": {
+        "employee_id": "Employees!employee_id",
+        "employee_name": "=Employees!first_name & \" \" & Employees!last_name",
+        "department": "=Employees!department",
+        "hire_date": "=Employees!hire_date",
+        "total_revenue": "=SUMIFS(enriched!revenue, enriched!employee_id, @employee_id)",
+        "total_transactions": "=COUNTIFS(enriched!employee_id, @employee_id)",
+        "avg_order_value": "=IFS(total_transactions = 0, 0, TRUE, total_revenue / total_transactions)",
+        "commission_rate": "=Employees!commission_rate",
+        "commission_earned": "=total_revenue * commission_rate",
+        "total_compensation": "=Employees!base_salary + commission_earned",
+        "days_employed": "=NETWORKDAYS(hire_date + 1, \"2024-12-31\")",
+        "revenue_per_day": "=IFS(days_employed = 0, 0, TRUE, total_revenue / days_employed)",
+        "performance_tier": "=IFS(total_revenue >= 500000, \"Platinum\", total_revenue >= 250000, \"Gold\", total_revenue >= 100000, \"Silver\", TRUE, \"Bronze\")"
+      },
+      "notes": "NETWORKDAYS counts weekdays (Mon-Fri) in the specified range, excluding weekends. No holiday exclusions. Employees with zero transactions should still appear (LEFT JOIN semantics)."
+    },
+    "inventory_status": {
+      "description": "One row per product (20 total). Computes stock levels and categorizes status.",
+      "formulas": {
+        "product_id": "=Products!product_id",
+        "product_name": "=Products!product_name",
+        "category": "=Products!category",
+        "units_in_stock": "=Products!units_in_stock",
+        "reorder_level": "=Products!reorder_level",
+        "total_units_sold": "=SUMIFS(enriched!quantity, enriched!product_id, @product_id)",
+        "remaining_stock": "=units_in_stock - total_units_sold",
+        "needs_reorder": "=IF(remaining_stock <= reorder_level, \"Yes\", \"No\")",
+        "stock_status": "=SWITCH(TRUE, remaining_stock <= 0, \"Out of Stock\", remaining_stock < reorder_level, \"Low Stock\", remaining_stock < reorder_level * 3, \"Adequate\", TRUE, \"Well Stocked\")",
+        "total_revenue": "=SUMIFS(enriched!revenue, enriched!product_id, @product_id)",
+        "avg_selling_price": "=IFS(total_units_sold = 0, 0, TRUE, total_revenue / total_units_sold)"
+      },
+      "notes": "Products with zero transactions should still appear with total_units_sold=0 and remaining_stock=units_in_stock (LEFT JOIN semantics)."
+    },
+    "quarterly_revenue": {
+      "description": "Revenue aggregated by year and quarter. One row per (year, quarter) combination present in the data.",
+      "formulas": {
+        "year": "=YEAR(transaction_date)",
+        "quarter": "=INT((MONTH(transaction_date) - 1) / 3) + 1",
+        "total_revenue": "=SUM(revenue) for the year-quarter group",
+        "total_profit": "=SUM(profit) for the year-quarter group",
+        "transaction_count": "=COUNT for the year-quarter group",
+        "avg_order_value": "=AVG(revenue) for the year-quarter group",
+        "top_category": "Category with the highest transaction COUNT within this year-quarter group. In case of tie, any of the tied categories is acceptable.",
+        "qoq_growth_rate": "=IFS(no prior quarter exists, NULL, TRUE, (total_revenue - prior_quarter_revenue) / total_revenue * 100). Sequential growth percentage relative to the immediately preceding quarter."
+      }
+    }
+  }
+}

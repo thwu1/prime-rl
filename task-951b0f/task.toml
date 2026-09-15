@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires independently discovering and implementing a register allocation algorithm (dataflow analysis for liveness, interference graph construction, graph coloring with pre-colored constraints, and spill-slot management) AND an x86-64 assembly emitter that handles stack frame setup/teardown, callee-saved register preservation, x86 encoding constraints (no memory-to-memory operands, imulq register-destination requirement), and correct System V ABI stack alignment for function calls. No algorithm or approach is specified; the solver must synthesize compiler theory, x86-64 architecture knowledge, and ABI conventions."""
+solution_explanation = """The allocator implements iterative backward liveness analysis to fixed point, builds an interference graph with move-bias suppression, applies DSATUR graph coloring with pre-colored physical registers, and rewrites the CFG mapping colors to registers or rbp-relative spill slots. The emitter scans the allocated CFG for callee-saved register usage and spill-slot depth, emits a prologue with stack frame and callee-save area (using movq, not push, to avoid overlap with rbp-relative spill offsets), translates each IR instruction to GAS AT&T syntax (patching memory-to-memory cases via pushq/popq r11 scratch), and emits a full epilogue at each retq."""
+verification_explanation = """Twenty-three pytest tests verify both allocator and emitter across eight distinct CFG programs: twelve interpreter tests confirm no VRegs remain and output matches the original, plus eleven native-execution tests that call emit_x86, compile the assembly with gcc -no-pie alongside runtime.c, execute the resulting ELF binary with piped stdin, and compare stdout to expected output. Tests cover straight-line code, conditionals, loops, nested branches, cross-call liveness, register spilling (16 simultaneous live variables), and varied inputs."""
+category = "systems"
+tags = ["compiler-construction", "x86-assembly"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-951b0f"

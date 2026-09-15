@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across Kubernetes networking, kustomize tooling, CIDR math, and graph generation. The solver must: (1) recognize and build a kustomize overlay structure with JSON patches that transform numeric ports to named port references, (2) implement matchExpressions set-based selectors (In/NotIn/Exists/DoesNotExist) alongside matchLabels with AND semantics, (3) correctly resolve named ports differently for ingress vs egress rules—egress named ports resolve against the destination pod creating per-target behavior where the same policy yields different results for different destinations, (4) implement ipBlock CIDR containment with except exclusion ranges using subnet math, (5) handle endPort inclusive ranges, (6) compute a full connectivity matrix and emit valid Graphviz DOT output, and (7) correctly union rules across multiple NetworkPolicies selecting the same pod. These features interact non-trivially: named ports originate from pod specs, are referenced by kustomize-patched policies, and must be resolved contextually per direction and destination."""
+solution_explanation = """Run kustomize build on the production overlay to render final manifests including JSON-patched policies. Parse all resources to build indices of namespaces (with labels), pods (with labels AND container port name-to-number mappings), and NetworkPolicies. For each connectivity query: evaluate egress from source and ingress at destination independently. Find all selecting policies for that direction; if none exist, allow all; otherwise check rules with named port resolution (string ports resolved against the contextually appropriate pod's containerPorts), matchExpressions evaluation, ipBlock CIDR containment with except ranges, and endPort range matching. For query-ip: only evaluate ingress, only match ipBlock peers with CIDR math. For graph: iterate all pod pairs across specified ports, aggregate allowed connections, emit DOT format."""
+verification_explanation = """34 tests: 12 ALLOWED pod-to-pod queries testing named port resolution, matchExpressions, endPort ranges, AND/OR peer logic, and policy union; 13 DENIED queries testing egress blocks, named port resolution failures on pods without the named port, deny-all policies, ipBlock-only ingress blocking pod sources, and endPort boundary conditions; 5 query-ip tests for CIDR matching with except exclusions and port filtering; 1 unprotected pods test; 2 graph tests validating DOT syntax via graphviz and checking specific edge presence/absence; plus 1 kustomize rendering verification test."""
+category = "software_engineering"
+tags = ["kubernetes", "networking", "kustomize"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-cc66da"

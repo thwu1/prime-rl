@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level understanding of probability distributions over combinatorial structures (directed spanning trees). The agent must discover efficient algorithms for computing the normalizing constant, arc marginals, and maximum-weight arborescence without being told which techniques to use. Additionally requires integrating multiple unfamiliar tools: inspecting and querying a SQLite database schema, writing computed results back to new database tables, and generating graphviz DOT format visualizations rendered to SVG via the dot CLI."""
+solution_explanation = """The agent must discover that the Matrix-Tree Theorem (Kirchhoff determinant) gives the partition function, that the matrix inverse yields arc marginals, that Chu-Liu-Edmonds finds the maximum spanning arborescence, and how entropy/KL decompose over marginals. Beyond the math, the agent must inspect the SQLite schema, write SQL to read instances and store results, generate valid DOT graph descriptions, and invoke graphviz to render SVG files."""
+verification_explanation = """Tests verify computational correctness via brute-force enumeration for small instances, structural invariants (marginal sums, non-negativity, KL properties) for larger instances, correct population of SQLite output tables with valid values, and existence/validity of SVG visualization files produced by graphviz."""
+category = "nlp"
+tags = ["graph-algorithms", "linear-algebra"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/matrix-tree-parsing"

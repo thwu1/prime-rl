@@ -1,0 +1,4 @@
+---
+nginx_site_name: default
+nginx_listen_port: 80
+nginx_ssl_enabled: false

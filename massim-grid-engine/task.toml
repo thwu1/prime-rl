@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete multi-agent grid-world simulation engine from a 290-line game specification covering 12 interacting subsystems (toroidal geometry, bidirectional attachment graphs, rotation transforms with collision detection, role-based speed constraints, carry/adopt norm violation semantics, task submission with goal zone validation, energy management with deactivation cascades), plus a configuration resolver that handles recursive hierarchical JSON includes, plus a replay pipeline that persists step-by-step simulation state to SQLite. The agent receives only the specification document and raw data files — no architectural guidance, no intermediate file structure, and no processing-order hints. A single misunderstanding of rotation semantics, norm enforcement timing, speed-limit edge cases, or toroidal wrapping propagates through the entire replay database."""
+solution_explanation = """The solution consists of four components: (1) resolve_config.sh uses jq's recursive descent and walk() to find and replace file-reference include patterns, recursing into referenced files via shell function calls. (2) massim_engine.py implements MassimWorld and Role classes (~400 lines) with attachment graph stored as bidirectional adjacency sets with BFS traversal, rotation using CW/CCW transforms with toroidal delta normalization, step-by-step movement with collision detection, and carry/adopt norm checking. (3) run_pipeline.py orchestrates the simulation: loads resolved config for roles/energy params, scenario for initial state, processes actions with the correct recharge→norm→action→record ordering per §9 of the spec. (4) SQLite replay database records agent positions, block positions, action results, norm violations, and scores at every step."""
+verification_explanation = """28 pytest tests across 8 test classes verify the complete pipeline: config resolution correctness (includes expanded, no unresolved references, correct role/norm structure), SQLite schema (all 5 tables with correct columns), attachment mechanics and task submission (attachment counts, score changes, action results), rotation transforms (CW/CCW block positions), movement with speed limits (overloaded failure, worker double-move, partial success), norm violation detection and energy penalties (violation recorded, energy reduced, no false positives), energy recharge tracking across steps, and second task submission with final score validation. All tests query the SQLite replay database, verifying end-to-end correctness through the full pipeline."""
+category = "systems"
+tags = ["simulation", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/massim-grid-engine"

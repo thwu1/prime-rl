@@ -1,0 +1,26 @@
+{
+  "B": 1,
+  "BL": 1,
+  "leaves": [
+    [100, [10, 20]],
+    [101, [30, 40]],
+    [102, [50, 60]],
+    [103, [99, 20]],
+    [104, [70, 80]],
+    [105, [90, 100]]
+  ],
+  "inners": [
+    [200, {"children": [100], "relaxed": false}],
+    [201, {"children": [100, 101], "relaxed": false}],
+    [202, {"children": [103, 101], "relaxed": false}],
+    [206, {"children": [102, 104], "relaxed": false}],
+    [207, {"children": [201, 206], "relaxed": false}]
+  ],
+  "vectors": [
+    {"root": 200, "tail": 101, "size": 4},
+    {"root": 201, "tail": 102, "size": 6},
+    {"root": 201, "tail": 102, "size": 6},
+    {"root": 202, "tail": 102, "size": 6},
+    {"root": 207, "tail": 105, "size": 10}
+  ]
+}

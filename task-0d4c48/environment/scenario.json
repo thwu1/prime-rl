@@ -1,0 +1,32 @@
+{
+  "simulation": {
+    "duration_steps": 80
+  },
+  "throttling": {
+    "K": 2.0,
+    "window_steps": 10
+  },
+  "retry": {
+    "budget_fraction": 0.10
+  },
+  "crash": {
+    "threshold": 1.5,
+    "consecutive_steps": 3,
+    "offline_steps": 5,
+    "recovery_capacity_fraction": 0.5,
+    "recovery_steps": 3
+  },
+  "clusters": {
+    "alpha": {"capacity_qps": 2000, "weight": 3.0},
+    "beta":  {"capacity_qps": 1800, "weight": 2.5},
+    "gamma": {"capacity_qps": 1500, "weight": 2.0},
+    "delta": {"capacity_qps": 1200, "weight": 1.5}
+  },
+  "base_load_qps": 5000,
+  "events": [
+    {"time": 10, "type": "capacity_change", "cluster": "alpha", "new_capacity": 0},
+    {"time": 30, "type": "load_change", "new_load_qps": 6500},
+    {"time": 55, "type": "capacity_change", "cluster": "alpha", "new_capacity": 2000},
+    {"time": 55, "type": "load_change", "new_load_qps": 2500}
+  ]
+}

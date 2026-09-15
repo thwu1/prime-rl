@@ -1,0 +1,16 @@
+employee_id,name,department,region,hire_date,salary
+E001,  Alice Johnson  ,Sales,North,03/15/2018,"72,000"
+E002,Bob Smith,Sales,South,2020-07-01,58000
+E003, Carol White ,Sales,East,11/20/2016,"85,000"
+E004,David Brown,Sales,West,2022-01-10,52000
+E005,  Eve Davis,Sales,Central,05/22/2019,"67,000"
+E006,Frank Miller ,Marketing,North,2017-08-30,78000
+E007, Grace Wilson,Marketing,South,03/14/2021,"55,000"
+E008,Henry Taylor,Finance,East,2015-06-01,95000
+E009,Irene Anderson ,Finance,West,02/28/2023,"48,000"
+E010,Jack Thomas,Operations,Central,2018-09-12,71000
+E011, Karen Martinez ,Operations,North,11/05/2020,"62,000"
+E012,Leo Garcia,Engineering,South,2014-04-18,105000
+E013,Mia Robinson ,Engineering,East,07/25/2019,"88,000"
+E014, Noah Clark,Engineering,West,12/01/2021,76000
+E015,Olivia Lewis,HR,Central,2017-02-14,"69,000"

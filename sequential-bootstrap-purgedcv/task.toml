@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing information leakage in a multi-file financial ML backtesting system. The agent must explore scattered configuration (TOML, SQLite, logs), understand why shuffled cross-validation on autocorrelated time-series data with overlapping forward-looking labels inflates performance, and independently devise and implement corrected evaluation methodology including temporal purging, embargo buffers, and concurrency-aware bootstrap sampling. Combines domain knowledge in quantitative finance, statistical evaluation methodology, and multi-tool system investigation."""
+solution_explanation = """The agent must discover that the evaluator uses shuffled KFold which leaks information in autocorrelated data with overlapping labels. The fix requires implementing a purged cross-validation splitter that removes training observations whose label spans overlap with the test period, plus an embargo buffer. The bootstrap sampler must be replaced with a sequential sampling procedure that iteratively selects samples weighted by their conditional uniqueness given already-selected samples, using an indicator matrix to track label concurrency. The corrected run.py compares original vs corrected metrics and computes the leakage ratio."""
+verification_explanation = """Tests run the pipeline and verify results.json: corrected CV score must be meaningfully more conservative than original (difference > 0.02), leakage ratio > 1.0 and consistent with scores, corrected sampling uniqueness exceeds baseline, informative features are identified (>= 3 in top 10). A structural test imports the corrected CV splitter and verifies no temporal label overlap exists in any fold. A reproducibility test runs the pipeline twice and checks deterministic output."""
+category = "applied_computing"
+tags = ["financial-ml", "cross-validation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/sequential-bootstrap-purgedcv"

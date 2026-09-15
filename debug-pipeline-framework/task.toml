@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete fault localization and root-cause clustering pipeline from first principles, then diagnosing and fixing 5 interacting bugs across a multi-module framework. The solver must independently know or derive the mathematical formulas for three SBFL metrics (Ochiai, Tarantula, D*) and correctly handle all edge cases. They must architect a per-test coverage collection system (subprocess isolation, coverage instrumentation, result aggregation). Beyond standard SBFL, the solver must implement a Jaccard-similarity-based fault clustering algorithm using connected-component graph decomposition — requiring understanding of why similar failure profiles indicate shared root causes, and correctly implementing set operations, graph traversal, and the transitive closure property of connected components. Three mutually-consistent JSON artifacts (coverage matrix, suspiciousness rankings, and fault clusters) must be cross-validated against each other, preventing hardcoding. The solver must then reason holistically about 5 bugs spanning regex semantics, middleware ordering invariants (LIFO/onion pattern), join algorithm correctness, ANSI escape grammar, and schema default propagation — where the fault clusters inform but do not dictate the diagnosis. This requires integrating SE research knowledge, graph algorithms, mathematical reasoning, and deep multi-module domain understanding."""
+solution_explanation = """Build an SBFL tool that: (1) discovers tests via pytest --collect-only, (2) runs each test individually under coverage.py with --source scoping, (3) parses coverage JSON to build a per-test per-line coverage matrix, (4) computes Ochiai suspiciousness using ef/ep/nf/np counts, (5) implements Jaccard-similarity connected-component clustering on suspicious lines' failure profiles, producing fault_clusters.json. Run on buggy code to generate all three JSON artifacts. Then fix 5 bugs: config.py regex widened for dotted paths/digits; engine.py deque.append→appendleft for LIFO; transforms.py outer join uses padded.update(record); formatter.py ANSI regex handles semicolons; schema.py applies default before continue."""
+verification_explanation = """48 pytest tests verify: (1) all 38 pipeline tests pass after fixes; (2) fl_tool.py is importable with three SBFL functions plus cluster_faults; (3) each SBFL formula produces correct results across 14 test cases including edge cases; (4) cluster_faults correctly groups lines with identical failure profiles, separates disjoint profiles, and handles transitive clustering via connected components; (5) fl_results.json has ochiai formula, >=3 files, correct fields, descending sort, relative paths; (6) coverage_matrix.json has >=20 tests with pass/fail booleans, >=5 passing, >=10 failing, >=3 files; (7) cross-validation: ef/ep recomputed from coverage match results, Ochiai scores verified, totals consistent; (8) >=4 buggy modules ranked, >=10 nonzero, >=5 high-suspicion; (9) fault_clusters.json: valid schema, threshold in [0.5,0.8], >=3 clusters, no duplicate lines, failing_tests verified against coverage matrix, no cross-cluster Jaccard>=threshold, clusters sorted by max score, modules_involved correct."""
+category = "debugging"
+tags = ["fault-localization", "graph-clustering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/debug-pipeline-framework"

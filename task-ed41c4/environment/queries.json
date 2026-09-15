@@ -1,0 +1,10 @@
+[
+  {"name": "heart_rate_obs", "resource_type": "Observation", "query": "code=http://loinc.org|8867-4"},
+  {"name": "jan_observations", "resource_type": "Observation", "query": "date=ge2024-01-01&date=le2024-01-31"},
+  {"name": "high_value_obs", "resource_type": "Observation", "query": "value-quantity=gt80"},
+  {"name": "active_meds", "resource_type": "MedicationRequest", "query": "status=active"},
+  {"name": "final_obs", "resource_type": "Observation", "query": "status=final"},
+  {"name": "jan15_obs", "resource_type": "Observation", "query": "date=2024-01-15"},
+  {"name": "hypertension_dx", "resource_type": "Condition", "query": "code=http://snomed.info/sct|38341003"},
+  {"name": "glucose_in_range", "resource_type": "Observation", "query": "value-quantity=ge90&value-quantity=le100&code=http://loinc.org|1558-6"}
+]

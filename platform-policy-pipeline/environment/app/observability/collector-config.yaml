@@ -1,0 +1,58 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 400
+    spike_limit_mib: 100
+  attributes/tenant:
+    actions:
+      - key: tenant.id
+        from_attribute: k8s.namespace.name
+        action: upsert
+  filter/platform:
+    metrics:
+      include:
+        match_type: regexp
+        metric_names:
+          - "platform\\..*"
+          - "k8s\\..*"
+  resource/tenant:
+    attributes:
+      - key: tenant.id
+        from_attribute: k8s.namespace.name
+        action: upsert
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger-collector:4317
+    tls:
+      insecure: true
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, memory_limiter, attributes/tenant]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, filter/platform]
+      exporters: [otlp/jaeger]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, transform/logs, resource/tenant]
+      exporters: [loki]

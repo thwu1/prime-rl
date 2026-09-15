@@ -1,0 +1,54 @@
+{
+  "model": {
+    "channels": [
+      {
+        "name": "signal_region",
+        "observed_data": [177, 165, 151, 140, 132, 112, 94, 78, 73, 60],
+        "bin_edges": [100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150],
+        "samples": [
+          {
+            "name": "signal",
+            "nominal_yields": [0.2, 0.8, 3.0, 8.0, 15.0, 15.0, 8.0, 3.0, 0.8, 0.2],
+            "modifiers": [
+              {"name": "mu", "type": "normfactor"},
+              {"name": "alpha_sig_eff", "type": "normsys", "kappa_hi": 1.05, "kappa_lo": 0.95}
+            ]
+          },
+          {
+            "name": "background",
+            "nominal_yields": [180, 160, 142, 126, 112, 100, 89, 79, 70, 62],
+            "modifiers": [
+              {"name": "alpha_bkg_norm", "type": "normsys", "kappa_hi": 1.10, "kappa_lo": 0.90},
+              {
+                "name": "alpha_bkg_shape",
+                "type": "histosys",
+                "hi_yields": [185, 165, 147, 130, 114, 101, 89, 78, 68, 59],
+                "lo_yields": [175, 155, 137, 122, 110, 99, 89, 80, 72, 65]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "control_region",
+        "observed_data": [844, 728, 593, 501, 382],
+        "bin_edges": [100, 110, 120, 130, 140, 150],
+        "samples": [
+          {
+            "name": "background_cr",
+            "nominal_yields": [850, 720, 600, 490, 390],
+            "modifiers": [
+              {"name": "alpha_bkg_norm", "type": "normsys", "kappa_hi": 1.10, "kappa_lo": 0.90}
+            ]
+          }
+        ]
+      }
+    ],
+    "parameter_of_interest": "mu"
+  },
+  "modifier_definitions": {
+    "normfactor": "Free multiplicative scale factor applied to the entire sample yield vector. Non-negative. No constraint term.",
+    "normsys": "Normalization systematic uncertainty. The nuisance parameter alpha has a standard normal prior constraint N(0,1). The per-bin yield is scaled by an interpolating function: for alpha >= 0, scale = kappa_hi^alpha; for alpha < 0, scale = kappa_lo^(-alpha). This is the exponential interpolation convention.",
+    "histosys": "Shape systematic uncertainty via histogram template morphing. The nuisance parameter alpha has a standard normal prior constraint N(0,1). Piecewise linear interpolation: for alpha >= 0, yield_i = nominal_i + alpha * (hi_yields_i - nominal_i); for alpha < 0, yield_i = nominal_i + alpha * (nominal_i - lo_yields_i)."
+  }
+}

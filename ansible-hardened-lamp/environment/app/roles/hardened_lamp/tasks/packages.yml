@@ -1,0 +1,11 @@
+---
+- name: Install security packages
+  ansible.builtin.yum:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ security_packages }}"
+
+- name: Install Apache
+  ansible.builtin.apt:
+    name: "{{ apache_package }}"
+    state: present

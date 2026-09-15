@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<statute xmlns="http://schemas.gpo.gov/xml/uslm"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://schemas.gpo.gov/xml/uslm uslm-2.1.0.xsd"
+         id="plaw-119-45"
+         identifier="/us/pl/119/45">
+  <meta>
+    <dc:title>Cybersecurity Enhancement and Modernization Act</dc:title>
+    <dc:type>Legislative Document</dc:type>
+    <dc:publisher>United States Government Publishing Office</dc:publisher>
+    <dc:format>text/xml</dc:format>
+    <dc:language>en</dc:language>
+    <dc:rights>Pursuant to Title 17 Section 105 of the United States Code, this file is not subject to copyright protection and is in the public domain.</dc:rights>
+    <property name="congress" value="119"/>
+    <property name="session" value="1"/>
+    <property name="docNumber" value="45"/>
+    <property name="publicPrivate" value="public"/>
+    <property name="currentChamber" value=""/>
+    <property name="docStage" value="enrolledBill"/>
+  </meta>
+  <preface>
+    <docNumber>Public Law 119-45</docNumber>
+    <docTitle>An Act to enhance the cybersecurity posture of the United States and modernize critical infrastructure protection requirements.</docTitle>
+  </preface>
+  <main>
+    <section identifier="/us/pl/119/45/s1">
+      <num value="1">SECTION 1. </num>
+      <heading>Short title</heading>
+      <content>This Act may be cited as the &#x201c;<shortTitle>Cybersecurity Enhancement and Modernization Act</shortTitle>&#x201d;.</content>
+    </section>
+    <section identifier="/us/pl/119/45/s2">
+      <num value="2">SEC. 2. </num>
+      <heading>Amendments to definitions</heading>
+      <chapeau>Section 1201 of the Cybersecurity Resilience Act (<ref href="/us/usc/t6/s1201">6 U.S.C. 1201</ref>) <amendingAction type="amend">is amended</amendingAction>&#x2014;</chapeau>
+      <paragraph identifier="/us/pl/119/45/s2/1">
+        <num value="1">(1) </num>
+        <content>in <ref href="/us/usc/t6/s1201/3">paragraph (3)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>an electronic information system</quotedText>&#x201d; each place it appears and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>a covered information system</quotedText>&#x201d;;</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/45/s2/2">
+        <num value="2">(2) </num>
+        <chapeau>in <ref href="/us/usc/t6/s1201/5">paragraph (5)</ref>&#x2014;</chapeau>
+        <subparagraph identifier="/us/pl/119/45/s2/2/A">
+          <num value="A">(A) </num>
+          <content>by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>The term "electronic information system" means</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>The term "covered information system" means</quotedText>&#x201d;; and</content>
+        </subparagraph>
+        <subparagraph identifier="/us/pl/119/45/s2/2/B">
+          <num value="B">(B) </num>
+          <content>by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>electronic information resources</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>information resources</quotedText>&#x201d;.</content>
+        </subparagraph>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/45/s2/3">
+        <num value="3">(3) </num>
+        <content>by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><paragraph><num value="7">&#x201c;(7) </num><content>The term &#x201c;supply chain risk&#x201d; means the risk that an adversary may sabotage, maliciously introduce unwanted function, extract data, or otherwise subvert the design, integrity, manufacturing, production, distribution, installation, operation, maintenance, disposition, or retirement of a covered information system so as to surveil, deny, disrupt, or otherwise degrade the function, use, or operation of such system.&#x201d;</content></paragraph></quotedContent>.</content>
+      </paragraph>
+    </section>
+    <section identifier="/us/pl/119/45/s3">
+      <num value="3">SEC. 3. </num>
+      <heading>Critical infrastructure protection enhancements</heading>
+      <chapeau>Section 1202 of the Cybersecurity Resilience Act (<ref href="/us/usc/t6/s1202">6 U.S.C. 1202</ref>) <amendingAction type="amend">is amended</amendingAction>&#x2014;</chapeau>
+      <paragraph identifier="/us/pl/119/45/s3/1">
+        <num value="1">(1) </num>
+        <chapeau>in <ref href="/us/usc/t6/s1202/b/3">subsection (b)(3)</ref>&#x2014;</chapeau>
+        <subparagraph identifier="/us/pl/119/45/s3/1/A">
+          <num value="A">(A) </num>
+          <content>on <ref href="/us/usc/t6/s1202/b/3/C">subparagraph (C)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>; or</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>;</quotedText>&#x201d;;</content>
+        </subparagraph>
+        <subparagraph identifier="/us/pl/119/45/s3/1/B">
+          <num value="B">(B) </num>
+          <content>on <ref href="/us/usc/t6/s1202/b/3/D">subparagraph (D)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>.</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>; or</quotedText>&#x201d;; and</content>
+        </subparagraph>
+        <subparagraph identifier="/us/pl/119/45/s3/1/C">
+          <num value="C">(C) </num>
+          <content>by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><subparagraph><num value="E">&#x201c;(E) </num><content>processes for assessing and mitigating supply chain risks to critical system components.&#x201d;</content></subparagraph></quotedContent>.</content>
+        </subparagraph>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/45/s3/2">
+        <num value="2">(2) </num>
+        <content>by <amendingAction type="redesignate">redesignating</amendingAction> <ref href="/us/usc/t6/s1202/c">subsection (c)</ref> as subsection (d); and</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/45/s3/3">
+        <num value="3">(3) </num>
+        <content>by <amendingAction type="insert">inserting</amendingAction> after <ref href="/us/usc/t6/s1202/b">subsection (b)</ref> the following:<quotedContent><subsection><num value="c">&#x201c;(c) </num><heading><inline class="smallCaps">Advanced threat mitigation</inline>.&#x2014;</heading><chapeau>In addition to the minimum requirements under subsection (b), each owner or operator of critical infrastructure shall implement advanced threat mitigation measures, including&#x2014;</chapeau><paragraph><num value="1">(1) </num><content>deployment of endpoint detection and response capabilities across all network-connected devices;</content></paragraph><paragraph><num value="2">(2) </num><content>implementation of network segmentation to isolate critical operational technology systems; and</content></paragraph><paragraph><num value="3">(3) </num><content>continuous monitoring and analysis of network traffic for indicators of compromise.&#x201d;</content></paragraph></subsection></quotedContent>.</content>
+      </paragraph>
+    </section>
+    <section identifier="/us/pl/119/45/s4">
+      <num value="4">SEC. 4. </num>
+      <heading>Incident reporting improvements</heading>
+      <subsection identifier="/us/pl/119/45/s4/a">
+        <num value="a">(a) </num>
+        <heading><inline class="smallCaps">Reporting timeline</inline>.&#x2014;</heading>
+        <content><ref href="/us/usc/t6/s1203/a">Section 1203(a) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1203/a">6 U.S.C. 1203(a)</ref>) <amendingAction type="amend">is amended</amendingAction> to read as follows:<quotedContent><subsection><num value="a">&#x201c;(a) </num><heading><inline class="smallCaps">Reporting requirement</inline>.&#x2014;</heading><chapeau>Each owner or operator of critical infrastructure who experiences a cybersecurity incident shall report the incident to the Director according to the following timeline:</chapeau><paragraph><num value="1">(1) </num><content>In the case of a cybersecurity incident that the owner or operator reasonably believes constitutes an imminent threat to national security or could result in significant disruption to critical infrastructure operations, not later than 24 hours after the owner or operator first identifies the incident.</content></paragraph><paragraph><num value="2">(2) </num><content>In the case of any other cybersecurity incident, not later than 72 hours after the owner or operator reasonably believes the incident has occurred.</content></paragraph><paragraph><num value="3">(3) </num><content>In the case of a cybersecurity incident involving a supply chain compromise, not later than 48 hours after the owner or operator first identifies the incident, regardless of the assessed severity.&#x201d;</content></paragraph></subsection></quotedContent>.</content>
+      </subsection>
+      <subsection identifier="/us/pl/119/45/s4/b">
+        <num value="b">(b) </num>
+        <heading><inline class="smallCaps">Penalty increase</inline>.&#x2014;</heading>
+        <content><ref href="/us/usc/t6/s1203/b/2">Section 1203(b)(2) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1203/b/2">6 U.S.C. 1203(b)(2)</ref>) <amendingAction type="amend">is amended</amendingAction> by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>$100,000</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>$500,000</quotedText>&#x201d;.</content>
+      </subsection>
+    </section>
+    <section identifier="/us/pl/119/45/s5">
+      <num value="5">SEC. 5. </num>
+      <heading>Enforcement modifications</heading>
+      <chapeau><ref href="/us/usc/t6/s1204/a">Section 1204(a) of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1204/a">6 U.S.C. 1204(a)</ref>) <amendingAction type="amend">is amended</amendingAction>&#x2014;</chapeau>
+      <paragraph identifier="/us/pl/119/45/s5/1">
+        <num value="1">(1) </num>
+        <content>on <ref href="/us/usc/t6/s1204/a/3">paragraph (3)</ref>, by <amendingAction type="delete">striking</amendingAction> &#x201c;<quotedText>; and</quotedText>&#x201d; and <amendingAction type="insert">inserting</amendingAction> &#x201c;<quotedText>.</quotedText>&#x201d;; and</content>
+      </paragraph>
+      <paragraph identifier="/us/pl/119/45/s5/2">
+        <num value="2">(2) </num>
+        <content>by <amendingAction type="repeal">striking</amendingAction> <ref href="/us/usc/t6/s1204/a/4">paragraph (4)</ref>.</content>
+      </paragraph>
+    </section>
+    <section identifier="/us/pl/119/45/s6">
+      <num value="6">SEC. 6. </num>
+      <heading>Federal agency zero trust requirements</heading>
+      <content><ref href="/us/usc/t6/s1205">Section 1205 of the Cybersecurity Resilience Act</ref> (<ref href="/us/usc/t6/s1205">6 U.S.C. 1205</ref>) <amendingAction type="amend">is amended</amendingAction> by <amendingAction type="add">adding</amendingAction> at the end the following:<quotedContent><subsection><num value="d">&#x201c;(d) </num><heading><inline class="smallCaps">Zero trust architecture</inline>.&#x2014;</heading><chapeau>Not later than 1 year after the date of enactment of the Cybersecurity Enhancement and Modernization Act, each Agency shall develop and begin implementation of a zero trust architecture plan that includes&#x2014;</chapeau><paragraph><num value="1">(1) </num><content>verification of every user, device, and network flow;</content></paragraph><paragraph><num value="2">(2) </num><content>use of least-privilege access controls and micro-segmentation; and</content></paragraph><paragraph><num value="3">(3) </num><content>continuous validation of security posture throughout each session.&#x201d;</content></paragraph></subsection></quotedContent>.</content>
+    </section>
+  </main>
+</statute>

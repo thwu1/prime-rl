@@ -1,0 +1,75 @@
+{
+  "types": {
+    "Point": {
+      "kind": "struct",
+      "fields": [
+        {"name": "x", "type": "f32"},
+        {"name": "y", "type": "f32"}
+      ]
+    },
+    "Color": {
+      "kind": "enum",
+      "variants": [
+        {"name": "Red"},
+        {"name": "Green"},
+        {"name": "Blue"},
+        {"name": "Custom", "data": {"kind": "tuple", "elements": ["u8", "u8", "u8"]}}
+      ]
+    },
+    "SensorReading": {
+      "kind": "struct",
+      "fields": [
+        {"name": "timestamp", "type": "u32"},
+        {"name": "sensor_id", "type": "u16"},
+        {"name": "value", "type": "f32"},
+        {"name": "flags", "type": "u8"}
+      ]
+    },
+    "DeviceStatus": {
+      "kind": "enum",
+      "variants": [
+        {"name": "Idle"},
+        {"name": "Active", "data": {"kind": "newtype", "type": "u8"}},
+        {"name": "Error", "data": {"kind": "struct", "fields": [
+          {"name": "code", "type": "u16"},
+          {"name": "message", "type": "string"}
+        ]}}
+      ]
+    },
+    "TelemetryPacket": {
+      "kind": "struct",
+      "fields": [
+        {"name": "sequence", "type": "u32"},
+        {"name": "readings", "type": {"seq": "SensorReading"}},
+        {"name": "status", "type": "DeviceStatus"},
+        {"name": "label", "type": {"option": "string"}},
+        {"name": "raw_data", "type": "bytes"}
+      ]
+    },
+    "Command": {
+      "kind": "enum",
+      "variants": [
+        {"name": "Ping"},
+        {"name": "SetConfig", "data": {"kind": "struct", "fields": [
+          {"name": "interval_ms", "type": "u32"},
+          {"name": "sensors", "type": {"seq": "u16"}},
+          {"name": "threshold", "type": "f64"},
+          {"name": "label", "type": {"option": "string"}}
+        ]}},
+        {"name": "GetReadings", "data": {"kind": "newtype", "type": {"seq": "u16"}}},
+        {"name": "BatchUpdate", "data": {"kind": "tuple", "elements": ["u32", {"seq": "Point"}, "bool"]}}
+      ]
+    },
+    "MetadataMap": {
+      "kind": "struct",
+      "fields": [
+        {"name": "entries", "type": {"map": ["string", "i32"]}},
+        {"name": "version", "type": "u16"}
+      ]
+    },
+    "NestedTuple": {
+      "kind": "tuple_struct",
+      "elements": ["u8", "u16", {"option": "bool"}]
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "properties": {
+    "bus_integrity": {
+      "expression": "G(cmd_valid -> data_ok)",
+      "signals": ["cmd_valid", "data_ok", "addr_gen", "ctrl_gen", "clk", "ext_a", "ext_b", "ext_c", "ext_d"],
+      "temporal_depth": 8
+    }
+  },
+  "signal_dependencies": {
+    "cmd_valid": ["addr_gen", "ctrl_gen"],
+    "data_ok": ["ext_d"],
+    "addr_gen": ["ext_a", "clk"],
+    "ctrl_gen": ["ext_c", "clk"],
+    "clk": [],
+    "ext_a": [],
+    "ext_b": [],
+    "ext_c": [],
+    "ext_d": ["ext_b"]
+  },
+  "decompositions": [
+    {
+      "strategy": "partition",
+      "target": "bus_integrity",
+      "params": {
+        "cut_signals": ["clk"],
+        "partitions": [
+          {"name": "cmd_part", "root_signals": ["addr_gen"]},
+          {"name": "data_part", "root_signals": ["data_ok"]}
+        ]
+      }
+    }
+  ]
+}

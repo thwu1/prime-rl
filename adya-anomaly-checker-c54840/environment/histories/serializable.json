@@ -1,0 +1,7 @@
+{
+  "transactions": [
+    {"id": 0, "type": "ok", "ops": [{"op": "append", "key": "x", "val": 1}]},
+    {"id": 1, "type": "ok", "ops": [{"op": "append", "key": "x", "val": 2}]},
+    {"id": 2, "type": "ok", "ops": [{"op": "r", "key": "x", "val": [1, 2]}]}
+  ]
+}

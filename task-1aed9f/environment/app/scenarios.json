@@ -1,0 +1,794 @@
+[
+  {
+    "name": "weight_higher_wins",
+    "description": "Step 1: Higher weight is preferred",
+    "config": {},
+    "routes": [
+      {
+        "weight": 100, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 200, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "local_pref_higher_wins",
+    "description": "Step 2: Higher LOCAL_PREF is preferred",
+    "config": {},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 200, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "local_pref_null_defaults_100",
+    "description": "Step 2: Null LOCAL_PREF defaults to 100",
+    "config": {},
+    "routes": [
+      {
+        "weight": 0, "local_pref": null, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 150, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "locally_originated_preferred",
+    "description": "Step 3: Locally originated path preferred over learned",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": true,
+        "local_origin_type": "network",
+        "as_path": [],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "5.5.5.5", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "network_over_aggregate",
+    "description": "Step 3: network/redistribute preferred over aggregate when both local",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": true,
+        "local_origin_type": "aggregate",
+        "as_path": [],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": true,
+        "local_origin_type": "network",
+        "as_path": [],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "shorter_as_path",
+    "description": "Step 4: Shorter AS_PATH length wins",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200, 300, 400]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [500]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "as_set_counts_as_one",
+    "description": "Step 4: AS_SET counts as 1 regardless of member count",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SET", "asns": [200, 300, 400, 500, 600]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [700, 800]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "confed_seq_not_counted",
+    "description": "Step 4: AS_CONFED_SEQUENCE does not count toward path length",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [
+          {"type": "AS_CONFED_SEQUENCE", "asns": [65001, 65002, 65003]},
+          {"type": "AS_SEQUENCE", "asns": [200]}
+        ],
+        "origin": "igp", "med": 0, "path_source": "confed_ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300, 400]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "confed_set_not_counted",
+    "description": "Step 4: AS_CONFED_SET does not count toward path length",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [
+          {"type": "AS_CONFED_SET", "asns": [65001, 65002]},
+          {"type": "AS_SEQUENCE", "asns": [200]}
+        ],
+        "origin": "igp", "med": 0, "path_source": "confed_ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300, 400]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "as_path_ignore_skips_length",
+    "description": "Step 4: as_path_ignore causes length comparison to be skipped",
+    "config": {"as_path_ignore": true, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200, 300, 400]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [500]}],
+        "origin": "egp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "origin_igp_over_egp",
+    "description": "Step 5: IGP origin preferred over EGP",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "egp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "origin_egp_over_incomplete",
+    "description": "Step 5: EGP origin preferred over INCOMPLETE",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "incomplete", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "egp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "med_same_neighbor_as",
+    "description": "Step 6: MED compared when same first AS in AS_SEQUENCE",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200, 300]}],
+        "origin": "igp", "med": 100, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200, 400]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "med_different_neighbor_as_ignored",
+    "description": "Step 6: MED NOT compared when different first AS; falls through to router-id",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 500, "path_source": "ebgp",
+        "igp_metric": 10, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 10, "path_source": "ebgp",
+        "igp_metric": 10, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "always_compare_med_enabled",
+    "description": "Step 6: always_compare_med forces MED comparison across different ASes",
+    "config": {"always_compare_med": true, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 500, "path_source": "ebgp",
+        "igp_metric": 10, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 10, "path_source": "ebgp",
+        "igp_metric": 10, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "med_missing_defaults_to_zero",
+    "description": "Step 6: Missing MED (null) defaults to 0",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": null, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "med_missing_as_worst",
+    "description": "Step 6: med_missing_as_worst treats null MED as maximum value",
+    "config": {"med_missing_as_worst": true, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": null, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "med_confed_only_paths",
+    "description": "Step 6: med_confed enables MED comparison for confed-only paths",
+    "config": {"med_confed": true, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_CONFED_SEQUENCE", "asns": [65001, 65002]}],
+        "origin": "igp", "med": 100, "path_source": "confed_ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_CONFED_SEQUENCE", "asns": [65003, 65004]}],
+        "origin": "igp", "med": 50, "path_source": "confed_ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "ebgp_over_ibgp",
+    "description": "Step 7: eBGP preferred over iBGP",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "confed_treated_as_internal",
+    "description": "Step 7: Confederation paths are internal; eBGP wins over confed_ebgp",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [
+          {"type": "AS_CONFED_SEQUENCE", "asns": [65001]},
+          {"type": "AS_SEQUENCE", "asns": [200]}
+        ],
+        "origin": "igp", "med": 0, "path_source": "confed_ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "igp_metric_lower_wins",
+    "description": "Step 8: Lower IGP metric to next-hop preferred",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 100, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 50, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "oldest_path_wins_when_external",
+    "description": "Step 10: Oldest eBGP path wins when compare_routerid disabled",
+    "config": {"compare_routerid": false},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "9.9.9.9", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 0
+  },
+  {
+    "name": "compare_routerid_skips_oldest_path",
+    "description": "Step 10/11: compare_routerid skips oldest path, uses router-id instead",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "9.9.9.9", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "router_id_lower_wins",
+    "description": "Step 11: Lower router ID preferred",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "3.3.3.3", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "originator_id_replaces_router_id",
+    "description": "Step 11: originator_id used instead of router_id when present",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": "5.5.5.5",
+        "cluster_list": ["10.0.0.100"], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "9.9.9.9", "originator_id": "3.3.3.3",
+        "cluster_list": ["10.0.0.200"], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "cluster_list_shorter_wins",
+    "description": "Step 12: Shorter cluster list preferred when router IDs match",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "5.5.5.5", "originator_id": "2.2.2.2",
+        "cluster_list": ["10.0.0.1", "10.0.0.2", "10.0.0.3"],
+        "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "6.6.6.6", "originator_id": "2.2.2.2",
+        "cluster_list": ["10.0.0.4"],
+        "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "neighbor_address_lower_wins",
+    "description": "Step 13: Lower neighbor address preferred as final tiebreaker",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [],
+        "neighbor_address": "192.168.1.2",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [],
+        "neighbor_address": "192.168.1.1",
+        "is_valid": true, "arrival_order": 1
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "invalid_paths_skipped",
+    "description": "Invalid paths are excluded from selection",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 32768, "local_pref": 500, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": false, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [300]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      },
+      {
+        "weight": 100, "local_pref": 200, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [400]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "3.3.3.3", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.3",
+        "is_valid": false, "arrival_order": 2
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "deterministic_med_off_standard_order",
+    "description": "Without deterministic_med: standard pairwise comparison is order-dependent",
+    "config": {"deterministic_med": false, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [100]}],
+        "origin": "igp", "med": 150, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "3.3.3.3", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [100]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "4.4.4.4", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.3",
+        "is_valid": true, "arrival_order": 2
+      }
+    ],
+    "expected_best": 2
+  },
+  {
+    "name": "deterministic_med_on_groups_by_as",
+    "description": "With deterministic_med: groups by neighbor AS, different winner",
+    "config": {"deterministic_med": true, "compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [100]}],
+        "origin": "igp", "med": 150, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "3.3.3.3", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [100]}],
+        "origin": "igp", "med": 50, "path_source": "ebgp",
+        "igp_metric": 0, "router_id": "4.4.4.4", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.3",
+        "is_valid": true, "arrival_order": 2
+      }
+    ],
+    "expected_best": 1
+  },
+  {
+    "name": "multi_step_complex",
+    "description": "Complex scenario testing multiple steps: AS-path eliminates one, origin decides between remaining",
+    "config": {"compare_routerid": true},
+    "routes": [
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [200, 300]}],
+        "origin": "igp", "med": 0, "path_source": "ibgp",
+        "igp_metric": 20, "router_id": "3.3.3.3", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.1",
+        "is_valid": true, "arrival_order": 0
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [400]}],
+        "origin": "egp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 10, "router_id": "2.2.2.2", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.2",
+        "is_valid": true, "arrival_order": 1
+      },
+      {
+        "weight": 0, "local_pref": 100, "locally_originated": false,
+        "as_path": [{"type": "AS_SEQUENCE", "asns": [500]}],
+        "origin": "igp", "med": 0, "path_source": "ebgp",
+        "igp_metric": 5, "router_id": "1.1.1.1", "originator_id": null,
+        "cluster_list": [], "neighbor_address": "10.0.0.3",
+        "is_valid": true, "arrival_order": 2
+      }
+    ],
+    "expected_best": 2
+  }
+]

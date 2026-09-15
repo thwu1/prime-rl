@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a production-grade workflow orchestration engine that composes multiple interacting subsystems: zone-aware scheduling with concurrent node processing, persistent job state for resumability, error classification with configurable retry policies, crash recovery that must infer the true outcome of orphaned operations from observable cluster state, cluster-level mutual exclusion, webhook-based lifecycle notifications via external tooling, and a diagnostic subsystem that shells out to CLI tools for database analysis and log processing. The core difficulty lies in correctly composing these subsystems under concurrent execution with proper error propagation, state management, and crash-safe reconciliation — requiring expert-level distributed systems understanding and careful reading of the simulator's state model."""
+solution_explanation = """The solution implements a Python CLI with argparse subcommands (run/resume/diagnose). A ClusterLock class uses fcntl.flock for exclusive advisory locking with timeout. A JobDB class manages SQLite state with thread-safe upserts in WAL mode. The Orchestrator groups nodes by zone, processes zones sequentially, and within each zone uses threading.Semaphore to cap concurrent node processing. Each node thread runs tasks sequentially, checking SQLite for completed status (resumability), polling preconditions, executing actions via NodeSimulator, and handling error classification with configurable retries. Webhook notifications are sent via curl subprocess calls at lifecycle events. On resume, reconcile_orphans probes the simulator's persisted cluster_state.json to determine whether in_progress tasks actually completed (checking observable state like node.drained, node.service_running) and marks them accordingly before re-entering the workflow loop. The diagnose subcommand shells out to sqlite3 CLI with -json flag for database queries and to jq with -s flag for JSONL log analysis, composing results into a JSON report."""
+verification_explanation = """Tests run the orchestration engine via subprocess against the provided node simulator and verify: (1) zone isolation via execution log timestamp analysis, (2) concurrency limits via start/end event timeline, (3) resumability by interrupting and resuming with log diffing, (4) error classification via retry pattern detection in logs and SQLite attempts column, (5) targeting via log node filtering, (6) webhook delivery by starting a webhook server fixture and checking its JSONL log for lifecycle events, (7) cluster locking by holding an fcntl.flock externally and verifying exit code 3, (8) crash recovery by manually setting completed tasks to in_progress in SQLite and verifying reconciliation from simulator state without re-execution, (9) diagnostics by parsing the JSON report and verifying sqlite3 CLI and jq produced the expected structure."""
+category = "systems_programming"
+tags = ["workflow-orchestration", "distributed-systems"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cluster-workflow-engine"

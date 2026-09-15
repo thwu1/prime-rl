@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of FIDE Swiss system tournament administration. The agent must independently determine how to parse TRF16 fixed-width records, how FIDE regulations define each tiebreaker (ARO, Buchholz Cut 1, Sonneborn-Berger) and color allocation metric (color balance, due color), and — critically — how forfeits and byes affect each computation differently. The TRF16 format is poorly documented outside FIDE circles, the forfeit-vs-OTB distinction silently changes ARO and color calculations in non-obvious ways, and the agent must build a C++20 project from source and integrate its CLI output. No formulas or procedures are given — the agent must draw on domain expertise in chess tournament systems and FIDE regulations to determine correct computation methods."""
+solution_explanation = """Build CPPDubovSystem with cmake/g++ (C++20). Parse the TRF16 file's fixed-width 001 lines to extract player data and per-round results. Apply FIDE regulation knowledge: ARO averages only OTB-opponent ratings (excluding forfeits +/-), color balance counts only OTB game colors, due color follows the FIDE alternation rule when balanced, Buchholz Cut 1 sums all opponents' scores minus the lowest, Sonneborn-Berger weights opponent scores by result values across all games. Sort by points/BC1/SB descending. Run the engine CLI to generate round 6 pairings and parse its CSV output. Assemble everything into the required JSON schema."""
+verification_explanation = """Tests verify all 20 players' ARO, color_balance, due_color, Buchholz Cut 1, and Sonneborn-Berger values against hand-computed expectations that correctly apply FIDE forfeit handling rules. Tests also verify standings_order matches expected ranking, tournament params are correct, pairings have valid structure/count, and pairings match an independent engine execution."""
+category = "applied_computing"
+tags = ["chess-tournament-systems", "domain-specific-parsing"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8a92fe"

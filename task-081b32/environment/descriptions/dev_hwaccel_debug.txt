@@ -1,0 +1,32 @@
+# Debug/diagnostic interface for hardware accelerator
+
+include <linux/ioctl.h>
+include <linux/hwaccel.h>
+
+resource fd_hwaccel_debug[fd_hwaccel]
+
+syz_open_dev$hwaccel_debug(dev ptr[in, string["/dev/hwaccel_debug#"]], id intptr, flags flags[open_flags]) fd_hwaccel_debug
+
+ioctl$HWACCEL_DBG_READ_REG(fd fd_hwaccel_debug, cmd const[0xc0084810], arg ptr[inout, hwaccel_reg_access])
+ioctl$HWACCEL_DBG_WRITE_REG(fd fd_hwaccel_debug, cmd const[0x40084811], arg ptr[in, hwaccel_reg_access])
+ioctl$HWACCEL_DBG_DUMP_STATE(fd fd_hwaccel_debug, cmd const[0x80404812], arg ptr[out, hwaccel_state_dump])
+ioctl$HWACCEL_DBG_INJECT_ERR(fd fd_hwaccel_debug, cmd const[0x40084813], arg ptr[in, hwaccel_err_inject])
+
+hwaccel_reg_access {
+    offset      int32
+    value       int32
+}
+
+hwaccel_state_dump {
+    num_entries     len[entries, int32]
+    dump_flags      int32
+    timestamp       int64
+    data            array[int8, 4096]
+}
+
+hwaccel_err_inject {
+    error_type  flags[hwaccel_err_types, int32]
+    target_core int32
+}
+
+hwaccel_err_types = HWACCEL_ERR_PARITY, HWACCEL_ERR_TIMEOUT, HWACCEL_ERR_BUS

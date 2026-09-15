@@ -1,0 +1,12 @@
+{
+  "id": "step_rate",
+  "consummation_date": "2024-01-01",
+  "advances": [{"date": "2024-01-01", "amount": 10000.00}],
+  "payment_groups": [
+    {"first_date": "2024-02-01", "amount": 210.71, "count": 24, "period_months": 1},
+    {"first_date": "2026-02-01", "amount": 220.25, "count": 24, "period_months": 1},
+    {"first_date": "2028-02-01", "amount": 222.59, "count": 12, "period_months": 1}
+  ],
+  "disclosed_apr": 10.55,
+  "is_mortgage": false
+}

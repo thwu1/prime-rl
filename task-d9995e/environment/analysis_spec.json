@@ -1,0 +1,56 @@
+{
+  "description": "Compute 19 urban morphometric indicators for the bubenec neighborhood and write results to /app/results.json.",
+  "dataset": {
+    "path": "/app/bubenec.gpkg",
+    "layers": {
+      "buildings": "144 building footprint polygons",
+      "streets": "35 street center-line segments",
+      "tessellation": "144 morphological tessellation cells (one per building)"
+    },
+    "synthetic_attributes": {
+      "building_height_metres": "Assign linearly interpolated heights from 10.0 to 30.0 across all 144 buildings in index order"
+    }
+  },
+  "metrics": {
+    "shape": {
+      "scope": "Building footprint geometries",
+      "fractal_dimension_mean": "Mean fractal dimension of building perimeters",
+      "circular_compactness_mean": "Mean ratio of building area to minimum bounding circle area",
+      "elongation_mean": "Mean ratio of shorter to longer side of each building's minimum bounding rectangle",
+      "convexity_mean": "Mean ratio of building area to convex hull area"
+    },
+    "distribution": {
+      "scope": "Spatial relationships among buildings and streets",
+      "orientation_mean": "Mean orientation of building footprints (deviation from cardinal axes, mapped to 0-45 degree range)",
+      "shared_walls_sum": "Total length of shared wall segments between adjacent buildings",
+      "building_adjacency_mean": "Mean fraction of a building's 5-nearest centroid neighbors that share a physical boundary via contiguity",
+      "street_alignment_mean": "Mean angular deviation between each building's orientation and its nearest street segment's orientation",
+      "mean_interbuilding_distance_mean": "Mean per-building average centroid distance to neighbors, using 5-nearest-neighbor graph expanded to 3rd topological order (including lower orders)"
+    },
+    "diversity": {
+      "scope": "Tessellation cell areas",
+      "neighborhood": "Contiguity graph on tessellation cells, expanded to 3rd topological order including lower orders, with self-loops",
+      "shannon_mean": "Mean Shannon entropy of cell area distributions per neighborhood",
+      "simpson_mean": "Mean Simpson concentration of cell area distributions per neighborhood",
+      "gini_mean": "Mean Gini coefficient of cell areas per neighborhood",
+      "theil_mean": "Mean Theil index of cell areas per neighborhood"
+    },
+    "network": {
+      "scope": "Street center-lines converted to a primal planar graph",
+      "parameters": "Global metrics over the entire network (no radius limit)",
+      "meshedness": "Meshedness ratio (independent circuits relative to maximum possible planar circuits)",
+      "cyclomatic": "Cyclomatic complexity: number of independent circuits (integer)",
+      "mean_node_degree": "Mean node degree across all nodes"
+    },
+    "elements_intensity": {
+      "scope": "Composite urban elements",
+      "stroke_count": "Number of natural street continuity groups formed by angular best-fit grouping of segments at junctions (integer)",
+      "block_count": "Number of enclosed urban blocks derived from tessellation, street, and building layers (integer)",
+      "courtyard_mean": "Mean courtyard count per building using queen contiguity with self-loops on building footprints"
+    }
+  },
+  "output": {
+    "path": "/app/results.json",
+    "format": "JSON object with metric names as keys and numeric values. Integer-valued metrics (cyclomatic, stroke_count, block_count) as exact integers; all others as floats."
+  }
+}

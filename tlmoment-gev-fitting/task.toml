@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires exploring a multi-site environment to discover scattered data files, pipeline logs, and configuration; diagnosing which site has unreliable MLE estimates by examining the pipeline log and then investigating the underlying data to discover heavy-tailed outlier contamination; implementing sample L-moments via PWMs (Hosking 1997) and sample TL-moments via the Elamir-Seheult (2003) combinatorial formula from first principles; deriving theoretical TL-moments of GEV using PWM integral identities involving gamma functions and binomial expansion of order statistic densities; fitting GEV via both L-moment matching and TL-moment matching (solving nonlinear tau_3-shape relationship via root-finding); and building automatic contamination detection logic to select the appropriate estimation method per site."""
+solution_explanation = """Explores /app/ to find config.json, pipeline log, data files in /app/data/raw/, and output schema. Reads the log to identify site_beta as flagged. Examines site_beta data to discover outlier contamination. Computes sample L-moments (via PWMs) and sample TL-moments (Elamir-Seheult 2003) for all three sites. Detects contamination automatically by comparing divergence between L-moment and TL-moment based GEV estimates. Fits GEV via L-moment matching for clean sites and via TL-moment matching (using closed-form theoretical TL-moments derived from GEV PWM integrals with gamma function identities) for the contaminated site."""
+verification_explanation = """Tests independently compute reference L-moments and TL-moments using the same combinatorial formulas and verify agent values match within 1% relative tolerance for all sites. Checks GEV parameter recovery against true generating parameters for all three sites. Verifies contamination detection flags (site_beta flagged as contaminated, others as clean) and method selection (TL-moments for contaminated, L-moments for clean). Anti-hardcoding generalization test replaces site_beta data with a fresh contaminated GEV sample with different parameters, re-runs the agent's script, and verifies L-moments and GEV shape match on the new data."""
+category = "statistics"
+tags = ["robust-statistics", "extreme-value-theory"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tlmoment-gev-fitting"

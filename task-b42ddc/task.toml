@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the full RPKI security stack: X.509 signature verification for RPKI object trust determination, ROA-based Route Origin Validation with MaxLength vulnerability analysis, ASPA-based AS_PATH verification using the valley-free routing model, and composite security policy design combining multiple validation layers. The solver must: (1) use openssl dgst to verify detached RSA signatures on 45 RPKI objects, identifying revoked signers and tampered data; (2) implement ROV with correct prefix/MaxLength coverage semantics including the 4-bit unsafe threshold; (3) implement full ASPA upstream and downstream verification algorithms with correct prepend collapsing, hop checking, and valley-free shape analysis; (4) design a risk-scored composite filtering policy that balances security with reachability across 60 routes; (5) build a SQLite database for the routing security state; (6) evaluate 8 diverse attack scenarios (origin hijack, sub-prefix hijack, route leak, certificate exploitation, object tampering) against the policy. The task requires deep understanding of inter-domain routing security, RPKI trust hierarchies, and attack taxonomy — not just procedural algorithm implementation."""
+solution_explanation = """For each RPKI object (20 ROAs + 25 ASPAs), verify its detached signature using openssl dgst -sha256 -verify with the signing entity's public key, and cross-reference the revocation list. Build trusted ROA and ASPA sets (37 trusted, 8 untrusted). Perform ROV by matching each route's origin AS and prefix against trusted ROAs, checking MaxLength coverage and flagging unsafe ROAs. Perform ASPA verification by reversing/collapsing AS_PATHs and running upstream (customer) or downstream (provider/peer) algorithms against trusted ASPA data. Compute risk scores using the additive formula from requirements.md and apply the verdict decision matrix. Build a SQLite database with the results. Evaluate each attack scenario by checking whether all affected routes are REJECT (mitigated) or any are REJECT/REVIEW (detected)."""
+verification_explanation = """Tests contain a complete independent reference implementation that: verifies all 45 RPKI object signatures using openssl, computes ROV and ASPA classifications from scratch, applies the risk scoring formula and verdict matrix, and evaluates attack scenarios. Tests verify exact match on all trust determinations, ROV/ASPA per-route results, composite verdicts with risk scores, SQLite database schema and contents, and attack detection/mitigation assessments. Individual parametrized tests provide diagnostic feedback for specific routes and attack scenarios."""
+category = "networking"
+tags = ["rpki-security", "bgp-policy-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b42ddc"

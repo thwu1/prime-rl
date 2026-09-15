@@ -1,0 +1,10 @@
+env:
+  DISCOURSE_REDIS_HOST: localhost
+
+expose:
+  - "6379"
+
+hooks:
+  after_redis:
+    - exec:
+        cmd: echo "Redis template applied"

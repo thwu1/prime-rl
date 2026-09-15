@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Apache HTTP Server internals — specifically how different modules (mod_rewrite, mod_proxy_fcgi, access control) interpret the r->filename field differently. The agent must: (1) Discover two distinct confusion attack primitives — Filename Confusion (using %3F to bypass <Files> ACL) and DocumentRoot Confusion (exploiting an unsafe RewriteRule to escape the web root) — and chain them to extract a flag. (2) Evaluate the root cause of each vulnerability in terms of Apache's request lifecycle and module interaction semantics. (3) Design a hardened VirtualHost configuration that eliminates both attack surfaces while preserving all legitimate application functionality — requiring judgment about which directives to replace and how to restructure access controls. (4) Produce a technical audit report identifying the CVEs and vulnerable directives. The combination of exploitation, evaluation, and defensive design makes this significantly harder than a pure CTF challenge."""
+solution_explanation = """Phase 1 — Exploit: Chain two Apache confusion attack primitives. (1) Filename Confusion ACL bypass: request credentials.php%3Fx.php to bypass <Files 'credentials.php'> because the decoded filename doesn't match the Files pattern, but FilesMatch for PHP-FPM still matches and PHP-FPM truncates at ? to execute credentials.php. This reveals a file reader gadget and the flag path. (2) DocumentRoot Confusion: use the unsafe RewriteRule to escape the DocumentRoot — request /resources/usr/share/doc/webapp-utils/tools/reader.php%3F which rewrites to an absolute path, truncates at decoded ?, and Apache serves it outside DocumentRoot. The PHP gadget then reads the flag. Phase 2 — Harden: Replace <Files> with <LocationMatch> for access control (immune to filename confusion), and restrict the RewriteRule capture group to safe characters anchored to DocumentRoot (prevents path escape). Phase 3 — Audit: Document CVE-2024-38474 (Filename Confusion) and CVE-2024-38475 (DocumentRoot Confusion) with directive-level root cause analysis."""
+verification_explanation = """Tests verify in three phases: (1) Exploit phase — flag.txt exists with correct value, exploit.sh is executable and reproduces the flag when run independently. (2) Hardening phase — hardened_vhost.conf has valid Apache syntax, blocks both the Filename Confusion ACL bypass and DocumentRoot escape attacks (verified by sending specific confusion attack requests and confirming they fail), while preserving index page access (HTTP 200), PHP-FPM processing for unrestricted files, and credential restriction (non-200 for credentials.php). (3) Audit phase — audit_report.txt identifies at least CVE-2024-38474 and CVE-2024-38475, and mentions the responsible directives (RewriteRule, Files/FilesMatch)."""
+category = "security_and_privacy"
+tags = ["web_security", "apache"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 900.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-775dd3"

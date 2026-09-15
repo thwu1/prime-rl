@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in numerical linear algebra to reverse-engineer iterative polar decomposition algorithms from function signatures, docstrings, and test expectations alone. The agent must derive correct matrix recurrences for standard and Gram-based variants, understand numerical stability issues and restart mechanisms, implement eigenvalue evolution tracking and combinatorial optimization, and derive closed-form FLOP formulas — all without algorithmic guidance. Additionally requires multi-tool proficiency: using octave-cli to extract data from MATLAB binary files, using sqlite3 CLI to explore an undocumented database schema and generate reports, and integrating these tools with a Python implementation."""
+solution_explanation = """The solver: (1) uses octave-cli to load tuned_v2 coefficients from /app/extra_coefficients.mat and exports them; (2) uses sqlite3 CLI to insert the extracted coefficients into the database following the discovered schema; (3) implements load_config by querying SQLite with JOINs across coefficient_sets/coefficients tables; (4) implements standard NS as X <- (aI + bXX^T + c(XX^T)^2)X with normalization and transpose handling; (5) implements Gram NS via R/Q recurrences on the smaller Gram matrix; (6) implements stabilized Gram NS with restart logic; (7) implements eigenvalue simulation, stability metric, combinatorial restart search, and FLOP ratio; (8) generates a CSV verification report using sqlite3 -header -csv with GROUP BY aggregation."""
+verification_explanation = """Tests verify: all three NS variants converge to SVD reference; Gram matches standard to 1e-6; stabilized matches naive without restarts; eigenvalue evolution follows deterministic scalar recurrences; stability metric and optimal restart search produce correct values; FLOP ratio matches known values; tuned_v2 coefficients are correctly extracted from .mat and inserted into SQLite with correct values and convergence properties; CSV verification report exists with correct structure, all three coefficient sets, and accurate aggregated statistics."""
+category = "mathematics"
+tags = ["numerical-linear-algebra", "multi-tool-integration"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-16e57e"

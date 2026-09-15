@@ -1,0 +1,10 @@
+Distribution Network Planning — Internal Notes
+
+The warehouse location analysis data has been compiled from various teams.
+Network topology and cost data is under data/network/.
+Demand projections are in the forecasting database under data/forecasts/.
+
+Stakeholder requirements:
+- Must handle demand under all projected scenarios
+- Warehouse throughput limits are hard constraints
+- Minimize total expected cost including both fixed and variable components

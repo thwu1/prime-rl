@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a draft token verification service to identify multiple security vulnerabilities (stale-cache attack surface, plaintext key storage, missing audit trail, absent key derivation hierarchy), then delivering a production-ready replacement. The solver must: reason about cache-consistency under concurrent revocation to select the correct design from three plausible candidates; implement a hierarchical key management scheme rooted in PKI with deterministic derivation and authenticated encryption at rest; generate an ECDSA P-256 certificate chain; design and populate a SQLite schema with encrypted key material; build a complete service module with token issuance, cached verification, revocation, service-token derivation, and audit logging; and write a substantive security evaluation that identifies the precise failure modes (stale-cache bypass, TOCTOU race) of the rejected cache designs. The task demands holistic understanding across applied cryptography, systems security, and distributed cache semantics — not merely following a recipe."""
+solution_explanation = """Generate ECDSA P-256 CA and server certificates with openssl. Extract the CA private scalar (32 bytes big-endian) and derive a master key via HKDF-SHA256 (salt='tkdb-salt-2026', info='tkdb-master-key-v1'). Derive per-org root keys via HKDF from the master key (info='org-root-key-{id}'). Encrypt each root key with AES-256-GCM using the master key and a random 12-byte nonce. Create the SQLite database with organizations, blacklist, and audit_log tables; populate the three organizations. Implement TkdbService with Design C (revocation-first): always check the blacklist before the cache lookup, ensuring revoked tokens are never served from stale cache. Implement derive_service_token by re-issuing a macaroon with filtered caveats. Write the security evaluation identifying Design A's stale-cache vulnerability and Design B's TOCTOU race condition."""
+verification_explanation = """34 pytest tests across 6 categories: PKI tests verify certificate files exist, use ECDSA P-256, have correct CNs, and chain validates. Database tests verify table existence, column structure, initial org data, distinct encrypted keys, and 12-byte nonces. Key derivation tests verify the HKDF chain from CA key to master key to per-org keys by independently re-deriving and decrypting stored keys. Service tests verify token issuance, verification, caching behavior, revocation, cache-consistent revocation (a cached valid token must be rejected after revocation), service token derivation with predicate stripping, and cache statistics. Audit log tests verify that issue, verify, and revoke operations are logged. Evaluation tests verify the document exists, selects the correct cache design (Candidate C), identifies flaws in rejected designs, and contains substantive security analysis."""
+category = "security"
+tags = ["cryptography", "systems-engineering"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/macaroon-auth-tokens"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate/PhD-level chemical engineering and scientific computing expertise. The solver must implement three distinct breakthrough curve models with correct unit handling and derive confidence intervals from nonlinear regression covariance. Mass balance integration for adsorption capacity requires correct unit conversion across mL/min, mg/L, and g. Mass transfer zone analysis requires domain knowledge of standard formulas not given in the instruction. BDST analysis requires identifying the correct curve grouping and deriving the linearized relationship. The PDE model must be built from scratch with appropriate boundary conditions, dispersion correlation, and LDF kinetics, then calibrated via global optimization and cross-validated. Sensitivity analysis requires systematic parameter perturbation of the calibrated PDE model. Getting all unit conversions, boundary conditions, numerical methods, and statistical computations correct simultaneously is the core challenge."""
+solution_explanation = """The reference solution loads 5 breakthrough curve CSVs and column parameters. It fits Yoon-Nelson via scipy curve_fit (returning pcov for 95% confidence intervals) and Thomas (equivalent reparameterization). Adams-Bohart uses linear regression on log-transformed initial data (C/C0 < 0.15). Capacity is computed via trapezoidal mass balance integration: q = C0*Q*integral(1-C/C0)dt / m_bed. MTZ uses linear interpolation for threshold crossings and trapezoidal integration for bed utilization. BDST identifies curves A,D (same C0/Q, different Z) and computes the linear BDST relationship. The PDE model discretizes a 1D advection-dispersion-LDF-Langmuir system via method of lines with 40 nodes and LSODA solver, using Danckwerts inlet BC and Wakao-Funazkri dispersion. Calibration uses differential_evolution in log10 space. Sensitivity analysis perturbs each calibrated parameter by +/-20% and re-simulates Curve A."""
+verification_explanation = """Tests verify: (1) JSON structure completeness including CI, capacity, and sensitivity sections, (2) YN parameters match golden values within 5% and CI brackets point estimates with bounded width, (3) Thomas R2 > 0.999, (4) Adams-Bohart R2 > 0.90, (5) Capacity values positive, physically consistent, and correlated with YN tau, (6) MTZ times within 8% of interpolated reference values, (7) BDST slope/intercept signs and parameter ranges, (8) PDE calibration R2 > 0.90 and RMSE < 0.10, (9) PDE validation R2 > 0.70, (10) Sensitivity: at least 3/4 perturbations degrade fit vs calibration, (11) Cross-consistency: YN-Thomas R2 equivalence and physical ordering of breakthrough times."""
+category = "scientific_computing"
+tags = ["chemical_engineering", "pde_simulation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/breakthrough-curve-pde"

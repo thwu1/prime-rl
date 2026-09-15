@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering two different hardware data representations of a division lookup table: a raw binary ROM dump (2048 signed bytes with two's complement hardware addressing) and a PLA in Espresso format (Boolean sum-of-products with 11 inputs and 2 outputs requiring product-term evaluation). The agent must decode both formats, load the reconstructed tables into an SQLite database with correct schema and primary keys, generate a gnuplot heatmap visualization of the table with defect overlays, implement a working iterative division simulator, compare the tables to identify all 32 defective entries, and produce a coherent mathematical analysis of the systematic defect pattern. This combines binary format analysis, digital logic (PLA evaluation), computer arithmetic (redundant number systems), SQL database construction, gnuplot scripting for data visualization, and numerical reasoning — requiring multi-tool interoperability across unfamiliar domains."""
+solution_explanation = """Parse the binary ROM by reading signed bytes at offset d_idx*128 + (p_idx & 0x7F). Parse the PLA by matching each input bit pattern against product terms (handling don't-care positions) and combining outputs via OR to determine quotient magnitude, then apply the partial remainder's sign. Store both tables in SQLite with proper schema. Generate gnuplot data files and a plotting script to produce the PNG heatmap. Compare tables entry-by-entry to find all 32 differences. The correct table's outer boundary is (8/3)*d while the buggy table uses (8/3)*d - 1/8 — an erroneous carry-save adjustment. Implement division by iterating: truncate partial remainder via floor to get table index, look up quotient digit, update w = 4*(w - q*d)."""
+verification_explanation = """Tests verify: (1) SQLite database exists with correct schema and data — buggy/fixed tables have 2048 entries each, diffs table has 32 entries matching actual disagreements, spot checks match known values; (2) PNG visualization exists as valid PNG with minimum 800x600 dimensions; (3) both Python lookup tables are correctly reconstructed with 2048 entries spanning the full index range; (4) specific spot-checked entries match known values in both tables; (5) exactly 32 differences found at expected positions with negative-side symmetry; (6) division simulator matches Python float division to 1e-10; (7) fixed table satisfies mathematical boundary consistency; (8) results.json contains correct counts, sorted differences, substantive bug analysis, validated divisions, and consistent statistics."""
+category = "computer_architecture"
+tags = ["hardware-division", "pla-analysis"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pentium-fdiv-reconstruction"

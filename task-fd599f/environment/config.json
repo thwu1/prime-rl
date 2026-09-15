@@ -1,0 +1,19 @@
+{
+  "aoi": {
+    "bbox": [29.0, -12.0, 42.0, 5.0],
+    "name": "East Africa (Kenya, Tanzania, Uganda)"
+  },
+  "taxonomy": {
+    "land_cover": ["land cover", "land use", "forest", "vegetation cover", "landcover"],
+    "elevation": ["elevation", "dem", "terrain", "bathymetry", "topography", "digital elevation"],
+    "population": ["population", "settlement", "built-up", "urban", "builtup", "demographic"],
+    "soil": ["soil", "erosion", "sediment", "pedology"],
+    "vegetation": ["vegetation", "ndvi", "evi", "lai", "phenology", "greenness"],
+    "hydrology": ["water", "hydrology", "river", "lake", "wetland", "surface water"]
+  },
+  "duplicate_thresholds": {
+    "bbox_tolerance_deg": 1.0,
+    "temporal_overlap_ratio": 0.8,
+    "resolution_ratio": 2.0
+  }
+}

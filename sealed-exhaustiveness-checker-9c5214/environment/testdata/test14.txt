@@ -1,0 +1,17 @@
+# Test 14: Enum with class bodies (enum_body) and guarded pattern
+# Direction has constants NORTH, SOUTH, EAST, WEST with class bodies.
+# SOUTH is matched via guarded pattern (should not count) and also
+# via an unguarded pattern (should count).
+# Expected: exhaustive
+
+TYPES
+enum_body Direction NORTH SOUTH EAST WEST
+
+SWITCHES
+switch s1 Direction
+enum Direction.NORTH
+guarded_enum Direction.SOUTH
+enum Direction.SOUTH
+enum Direction.EAST
+enum Direction.WEST
+end

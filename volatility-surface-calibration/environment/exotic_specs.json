@@ -1,0 +1,38 @@
+{
+    "down_and_out_call_180": {
+        "type": "down_and_out_call",
+        "strike": 5000,
+        "barrier": 4500,
+        "expiry_days": 180,
+        "underlying_price": 5000.0,
+        "risk_free_rate": 0.045,
+        "dividend_yield": 0.015
+    },
+    "up_and_out_call_365": {
+        "type": "up_and_out_call",
+        "strike": 5000,
+        "barrier": 5800,
+        "expiry_days": 365,
+        "underlying_price": 5000.0,
+        "risk_free_rate": 0.045,
+        "dividend_yield": 0.015
+    },
+    "asian_call_180": {
+        "type": "arithmetic_asian_call",
+        "strike": 5000,
+        "expiry_days": 180,
+        "monitoring_frequency_days": 1,
+        "underlying_price": 5000.0,
+        "risk_free_rate": 0.045,
+        "dividend_yield": 0.015
+    },
+    "down_and_in_put_365": {
+        "type": "down_and_in_put",
+        "strike": 5000,
+        "barrier": 4500,
+        "expiry_days": 365,
+        "underlying_price": 5000.0,
+        "risk_free_rate": 0.045,
+        "dividend_yield": 0.015
+    }
+}

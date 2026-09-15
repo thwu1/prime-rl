@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the full Figge-Fencl v3.0 quantitative physicochemical model as a C shared library with Python ctypes bindings. The solver must produce correct numerical results for the residue-level albumin charge model (200+ ionizable residues, conformational transitions, 16 individual histidine pKa values, 6 lysine subgroups), triprotic phosphate equilibrium, and an electroneutrality-based pH solver — all verified against 65 golden experimental data points with tight tolerance. Additionally requires authoring a Makefile, designing C/Python struct layouts for parameter marshaling, and handling unit conversions. Getting any single struct field ordering, sign convention, or numerical detail wrong causes failures across all samples."""
+solution_explanation = """The solution writes a C source file (figge_core.c) implementing the albumin net charge, phosphate charge, and pH solver functions. A FiggeParams struct holds all model parameters (pKa arrays, residue counts, equilibrium constants). The Python wrapper defines a matching ctypes.Structure, populates it from model_params.json, and calls the C functions via ctypes.CDLL. The Makefile compiles with gcc -shared -fPIC -O2 -lm. The electroneutrality solver uses bisection over pH 1-14, computing H+, OH-, HCO3-, CO3--, phosphate charge, and albumin charge at each iteration until |net_charge| < 1e-7."""
+verification_explanation = """Tests verify: (1) C build infrastructure — Makefile exists, make clean && make build succeeds, libfigge.so is produced as ELF DYN, nm -D shows required exported symbols; (2) ctypes integration — figge_fencl.py uses ctypes.CDLL, charge computation delegates to C; (3) all 65 golden data pH predictions within 0.10 and RMSE < 0.04; (4) albumin charge at reference points and edge cases (zero input, scaling, monotonicity, isoelectric point, extreme pH); (5) phosphate charge accuracy and edge cases; (6) HCO3 standard value and pCO2 scaling; (7) pH solver physiological sense checks; (8) clinical analysis internal consistency; (9) CLI output format correctness."""
+category = "applied_computing"
+tags = ["biomedical-computing", "systems-programming"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/figge-fencl-acidbase-d52bb0"

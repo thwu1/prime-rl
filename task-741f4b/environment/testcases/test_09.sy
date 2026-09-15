@@ -1,0 +1,38 @@
+// Test 09: Array function parameters (1D and 2D), pass by reference
+void fill(int a[], int n) {
+    int i = 0;
+    while (i < n) {
+        a[i] = i * i;
+        i = i + 1;
+    }
+}
+
+int sumArray(int a[], int n) {
+    int sum = 0;
+    int i = 0;
+    while (i < n) {
+        sum = sum + a[i];
+        i = i + 1;
+    }
+    return sum;
+}
+
+int sumRow(int a[][3], int row) {
+    int s = 0;
+    int j = 0;
+    while (j < 3) {
+        s = s + a[row][j];
+        j = j + 1;
+    }
+    return s;
+}
+
+int main() {
+    int arr[5];
+    fill(arr, 5);
+    putint(sumArray(arr, 5)); putch(32);
+    int mat[2][3] = {{10, 20, 30}, {40, 50, 60}};
+    putint(sumRow(mat, 0)); putch(32);
+    putint(sumRow(mat, 1)); putch(10);
+    return 0;
+}

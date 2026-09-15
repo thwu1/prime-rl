@@ -1,0 +1,7 @@
+{
+  "functions": [1, 2, 8, 10],
+  "dimension": 5,
+  "instance": 1,
+  "n_test_points": 20,
+  "test_point_seed": 42
+}

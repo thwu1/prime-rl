@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep knowledge of PostgreSQL storage internals: page layout (24-byte PageHeaderData, 4-byte ItemIdData), heap tuple headers (23-byte HeapTupleHeaderData, null bitmap rounding), MAXALIGN (4 vs 8 on 32/64-bit), B-tree index internals (8-byte IndexTupleData, 16-byte BTPageOpaqueData), and default fillfactor differences between tables (100) and btree indexes (90). The solver must identify and fix 9 subtle numeric bugs across two complex catalog-based estimation queries by comparing output against pgstattuple/pgstatindex ground truth, then synthesize a PL/pgSQL advisory function integrating both corrected estimations with pg_stat_user_tables metadata."""
+solution_explanation = """Fix 5 bugs in bloat_estimate.sql: page_hdr 20->24, tuple header 21->23, null bitmap count/8->(7+count)/8, MAXALIGN hardcoded 4->detect 64-bit as 8, fillfactor default 90->100. Fix 4 bugs in index_bloat_estimate.sql: IndexTupleData 4->8, pageopqdata 8->16, fillfactor default 100->90, restore MAXALIGN padding on data width in nulldatahdrwidth. Create vacuum_advisory() PL/pgSQL function embedding corrected table/index bloat CTEs joined with pg_stat_user_tables, applying priority-ordered recommendation rules."""
+verification_explanation = """Tests start PostgreSQL, create pgstattuple extension, populate three test tables with varying bloat levels (clean, moderate DML, heavy DML+deletes), then verify: (1) fixed bloat_estimate.sql outputs correct default fillfactor 100, clean table bloat <5%, moderate and heavy bloat detected, and estimates within 15pp of pgstattuple wasted-space; (2) fixed index_bloat_estimate.sql outputs correct default fillfactor 90, reasonable values, clean index extra <20%, bloated indexes detected; (3) vacuum_advisory function returns correct columns, consistent recommendations matching priority rules, and expected outcomes (clean->OK, heavy->VACUUM FULL)."""
+category = "database_administration"
+tags = ["postgresql", "sql"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bloat-vacuum-diagnostics"

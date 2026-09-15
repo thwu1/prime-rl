@@ -1,0 +1,19 @@
+{
+  "name": "H100_SXM",
+  "compute_capability": "9.0",
+  "sm_count": 132,
+  "max_warps_per_sm": 64,
+  "max_threads_per_sm": 2048,
+  "max_blocks_per_sm": 32,
+  "max_threads_per_block": 1024,
+  "warp_size": 32,
+  "registers_per_sm": 65536,
+  "register_alloc_granularity": 256,
+  "max_registers_per_thread": 255,
+  "shared_memory_per_sm_bytes": 233472,
+  "shared_memory_reserved_per_block_bytes": 1024,
+  "shared_memory_banks": 32,
+  "shared_memory_bank_width_bytes": 4,
+  "global_memory_sector_size_bytes": 32,
+  "cache_line_size_bytes": 128
+}

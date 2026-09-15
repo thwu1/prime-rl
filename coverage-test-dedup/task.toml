@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level data engineering: the agent must independently discover the multi-database schema (two separate SQLite files with cross-references), understand Hypothesis test execution semantics (data_status values for overrun/filtered/valid/failure), identify that precomputed summary-level coverage aggregates are poisoned (include overrun and filtered test cases that must be excluded), implement set similarity computation from scratch without third-party libraries, and solve a set cover optimization problem — all without procedural guidance. The instruction provides only the problem statement and output format; the agent must determine which tables to query, which records to trust, how to cross-reference databases, and which algorithms to apply."""
+solution_explanation = """Open both databases. Explore schemas via PRAGMA table_info or .schema. Discover that core_repository has a status field (filter to 'valid'), runtime_summary has status (filter to 'passed'/'failed'), and runtime_test_case has data_status (include only 2=valid and 3=failure, excluding 0=overrun and 1=filtered). Aggregate coverage from the companion DB's per-test-case records, NOT from runtime_summary.coverage which includes overrun/filtered lines. Implement MinHash or exact pairwise Jaccard for similarity detection. Apply greedy set cover for minimal test set. Output structured JSON."""
+verification_explanation = """Tests independently compute ground truth from the databases and verify: report structure completeness, correct multi-database coverage aggregation (catches use of poisoned runtime_summary.coverage), exclusion of error/skipped nodes and invalid repositories, duplicate detection accuracy bounds (no false positives below 0.55, no false negatives above 0.92, estimates within 0.20), minimal set partition correctness and full coverage preservation, and absence of forbidden third-party libraries."""
+category = "data_engineering"
+tags = ["sqlite-multi-db", "test-coverage-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coverage-test-dedup"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing subtle numerical bugs in an existing orbital mechanics library (swapped rotation matrix order in coe2rv, wrong radius in Lambert f-coefficient), implementing missing algorithms (J2 pericenter correction, plane-change maneuver, combined-burn mission budget with velocity-triangle optimization), completing a TOML/SQLite-backed Python pipeline, debugging a Makefile with a broken dependency chain and missing flags, and fixing a jq schema validation filter with incorrect field names. The agent must reason across Python, Make, jq, and SQLite simultaneously and understand orbital mechanics deeply enough to implement correct numerical kernels without guidance."""
+solution_explanation = """Fix coe_rotation_matrix to compose R3(raan)@R1(inc)@R3(argp) instead of the reversed order. Fix Lambert f-coefficient to use r0_norm instead of r_norm. Implement j2_correction using Vallado's pericenter drift rate formula. Implement plane_change_dv as 2*v_circ*sin(delta_i/2). Implement mission_budget using law of cosines in velocity space for combined burns at departure and arrival. Complete run_missions.py with tomllib config parsing and sqlite3 database queries. Fix Makefile: add $(DB) prerequisite to $(RESULTS), wire validate target into the all chain, add -header flag to sqlite3 CSV export. Fix validate.jq: correct field name from dv_total to dv_total_km_s in check_hohmann."""
+verification_explanation = """Test.sh first runs 'make clean && make all' to verify the full Makefile pipeline works end-to-end. Then pytest validates /app/results.json against textbook golden values from Vallado and Curtis with tolerances from 0.1% to 5%. Tests verify all 9 mission outputs, roundtrip consistency (coe2rv recovers original state vectors), component-sum constraints, physical reasonableness bounds, cross-scenario validation (mission_budget vs standalone Hohmann), and that report.csv exists with a header row and correct number of data rows."""
+category = "scientific_computing"
+tags = ["orbital-mechanics", "multi-tool-debugging"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/orbital-transfer-analyzer"

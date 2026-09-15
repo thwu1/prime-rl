@@ -1,0 +1,21 @@
+{
+    "name": "partition-heal-safety-campaign",
+    "seeds": {"start": 0, "end": 49},
+    "nodes": 3,
+    "buggify": true,
+    "latency": [0.005, 0.050],
+    "phases": [
+        {"at": 0.0,  "action": "elect",     "node": 0},
+        {"at": 0.01, "action": "write",      "node": 0, "key": "a", "value": "1"},
+        {"at": 0.25, "action": "write",      "node": 0, "key": "b", "value": "2"},
+        {"at": 0.5,  "action": "partition",  "nodes": [0, 1]},
+        {"at": 0.5,  "action": "partition",  "nodes": [0, 2]},
+        {"at": 0.6,  "action": "write",      "node": 0, "key": "c", "value": "3"},
+        {"at": 0.85, "action": "elect",      "node": 1},
+        {"at": 0.9,  "action": "write",      "node": 1, "key": "d", "value": "4"},
+        {"at": 1.2,  "action": "heal",       "nodes": [0, 1]},
+        {"at": 1.2,  "action": "heal",       "nodes": [0, 2]},
+        {"at": 1.3,  "action": "sync",       "node": 1},
+        {"at": 2.5,  "action": "run_until"}
+    ]
+}

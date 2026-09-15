@@ -1,0 +1,10 @@
+{
+  "gold_standard": "gold_standard.profile",
+  "predictions": [
+    {"file": "tool_a.profile", "label": "ToolA"},
+    {"file": "tool_b.profile", "label": "ToolB"},
+    {"file": "tool_c.profile", "label": "ToolC"},
+    {"file": "tool_d.profile", "label": "ToolD"}
+  ],
+  "taxonomy": "nodes.dmp"
+}

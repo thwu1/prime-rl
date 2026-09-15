@@ -1,0 +1,5 @@
+2024-01-15T10:35:00Z [ERROR] code=E005
+    msg="Internal server error" trace="ValueError: invalid literal"
+2024-01-15T10:36:00Z [ERROR] code=E005
+    msg="Service unavailable" trace="ConnectionError: refused"
+2024-01-15T10:37:00Z [ERROR] code=E001 msg="Connection timeout" client=10.0.0.66 duration=30050ms

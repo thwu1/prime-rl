@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level synthesis across multiple MLOps domains with minimal prescriptive guidance: the instruction provides only output schemas and a pointer to config.yaml — the solver must independently determine how to compute each drift statistic (KS test, PSI with appropriate binning, KDE overlap), decide how to combine multiple drift signals into a per-feature drift verdict, design a retraining pipeline with hyperparameter sweep and MLflow experiment tracking, implement fairness metrics from schema field names alone, and derive a cascaded deployment decision engine from config rules without being told the priority ordering or blocking logic. Each component demands deep domain knowledge that must be inferred from the config structure and output schemas rather than explicit instruction."""
+solution_explanation = """Implements four pipeline stages: (1) drift detection using scipy ks_2samp, custom PSI with np.percentile-based breakpoints and epsilon smoothing for zero-frequency bins, and KDE overlap via gaussian_kde with Silverman bandwidth plus trapezoid integration of the pointwise minimum; (2) hyperparameter grid sweep over RandomForestClassifier parameters logged to MLflow with cross-validation metrics and test-set evaluation; (3) model comparison computing classification metrics plus equalized odds gap (max of absolute TPR and FPR differences between protected groups A and B); (4) deployment decision engine applying cascaded rules: fairness block, regression block, immediate/gradual/no-rollout based on F1 improvement percentage thresholds, with MLflow model registration on deploy."""
+verification_explanation = """Tests verify correct identification of drifted features (temperature and vibration drifted; pressure and humidity not), valid drift statistic ranges, MLflow experiment structure with multiple logged sweep runs containing proper metrics and parameters, evaluation report with performance and fairness metrics for both baseline and candidate models, deployment plan with valid decision type and logically consistent rollout schedule, and end-to-end consistency between evaluation results and deployment decision following the configured cascaded rules."""
+category = "machine_learning"
+tags = ["mlops", "drift-detection"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/drift-retrain-pipeline"

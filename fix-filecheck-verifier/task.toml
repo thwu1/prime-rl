@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of LLVM FileCheck semantics to audit a complex implementation against a specification. Five interacting bugs span parser design (comment prefix recognition), matching-loop architecture (CHECK-NOT deferred scoping, CHECK-DAG backtracking with variable save/restore, multi-prefix directive merging), and feature completeness (CHECK-COUNT-N consecutive matching). Bugs interact: CHECK-NOT scope affects CHECK-DAG groups, CHECK-COUNT-N interacts with pending NOT evaluation, and a greedy DAG fix must preserve variable consistency across backtrack branches. One test case is a red herring (wrong CHECK pattern, not tool bug), and one test case passes incorrectly with buggy code (implementation too permissive). Beyond fixing, the solver must set up LLVM's lit test runner (an unfamiliar specialized tool) with correct ShTest configuration, substitutions, and use of its not built-in for negative tests. The solver must then evaluate specification compliance across 10 feature areas, designing probe tests to ground each assessment and producing a risk analysis of coverage gaps."""
+solution_explanation = """Fix 1 (parser): Replace anchored '^;\\s*' regex with re.search on re.escape(prefix), finding directives anywhere in a line. Fix 2 (CHECK-NOT scope): Defer NOT evaluation by accumulating pending NOTs; when next positive directive matches at position P, retroactively check NOTs in [cur, P). Fix 3 (CHECK-DAG): Replace greedy first-fit with recursive backtracking that saves/restores self.variables on each branch. Fix 4 (multi-prefix): Collect directives from all prefixes, sort by check-file line number, run single unified pass. Fix 5 (CHECK-COUNT-N): Forward-scan for first match, then require N-1 consecutive matches (CHECK-NEXT style). Fix wrong_pattern.check: Add missing CHECK-NEXT for test_delta between test_beta and test_gamma. Set up lit suite: write lit.cfg.py with ShTest() format (internal shell for not builtin), %FileCheck substitution, .test suffix; generate 13 .test files with RUN: lines, using not prefix for 3 expected-failure tests. Create spec_evaluation.json analyzing 10 feature areas with compliance ratings, tested/untested behaviors, and risk assessments grounded in 6 spec probe tests. Generate edge cases."""
+verification_explanation = """test_state.py runs the fixed filecheck.py against all 13 manifest test cases and verifies each produces its expected outcome (pass or fail). Audit.json is verified for existence, valid JSON structure, required fields, correct root-cause classifications, and specific entries for known bugs. The lit suite is verified by checking lit.cfg.py exists, at least 13 .test files with RUN: lines exist, and python3 -m lit exits 0 with all tests passing. spec_evaluation.json is verified for valid structure, at least 8 feature areas with unique names, valid compliance enum values, non-empty tested_behaviors lists, and non-empty risk assessments. Spec probes are verified for count (>=5), .check/.input pair completeness, passing with fixed implementation, and covering distinct features. Edge cases are similarly verified."""
+category = "debugging"
+tags = ["compiler-tooling", "test-infrastructure", "conformance-evaluation"]
+expert_time_estimate_hours = 4.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-filecheck-verifier"

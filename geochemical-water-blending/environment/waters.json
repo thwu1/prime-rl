@@ -1,0 +1,85 @@
+{
+  "waters": [
+    {
+      "id": "groundwater_carbonate",
+      "description": "Carbonate aquifer groundwater, Central Valley",
+      "units": "ppm",
+      "pH": 7.3,
+      "temp": 15.0,
+      "Ca": 80.0,
+      "Mg": 32.0,
+      "Na": 18.0,
+      "K": 4.0,
+      "Cl": 40.0,
+      "Alkalinity": 260.0,
+      "Alkalinity_units": "as CaCO3",
+      "S(6)": 30.0,
+      "Si": 12.0
+    },
+    {
+      "id": "surface_water",
+      "description": "Low-TDS mountain stream",
+      "units": "ppm",
+      "pH": 6.8,
+      "temp": 10.0,
+      "Ca": 15.0,
+      "Mg": 3.5,
+      "Na": 6.0,
+      "K": 1.2,
+      "Cl": 12.0,
+      "Alkalinity": 35.0,
+      "Alkalinity_units": "as CaCO3",
+      "S(6)": 12.0,
+      "Si": 4.0
+    },
+    {
+      "id": "seawater_nordstrom",
+      "description": "Seawater from Nordstrom et al. (1979), PHREEQC Example 1",
+      "units": "ppm",
+      "pH": 8.22,
+      "pe": 8.451,
+      "density": 1.023,
+      "temp": 25.0,
+      "Ca": 412.3,
+      "Mg": 1291.8,
+      "Na": 10768.0,
+      "K": 399.1,
+      "Cl": 19353.0,
+      "Alkalinity": 141.682,
+      "Alkalinity_units": "as HCO3",
+      "S(6)": 2712.0
+    },
+    {
+      "id": "brackish_well",
+      "description": "Brackish well water with suspected Cl analytical error",
+      "units": "ppm",
+      "pH": 7.4,
+      "temp": 22.0,
+      "Ca": 250.0,
+      "Mg": 90.0,
+      "Na": 400.0,
+      "K": 12.0,
+      "Cl": 650.0,
+      "Alkalinity": 220.0,
+      "Alkalinity_units": "as CaCO3",
+      "S(6)": 400.0,
+      "F": 2.0,
+      "Si": 15.0
+    }
+  ],
+  "charge_balance_threshold_pct": 5.0,
+  "ccpp_analysis": {
+    "water_id": "seawater_nordstrom",
+    "open_system_log_pco2": -3.5
+  },
+  "blend_analysis": {
+    "source_a": "groundwater_carbonate",
+    "source_b": "surface_water",
+    "ratios_a": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  },
+  "evaporation": {
+    "water_id": "seawater_nordstrom",
+    "concentration_factors": [1, 2, 5, 10, 20, 50],
+    "equilibrium_phases": ["Calcite", "Gypsum", "Halite"]
+  }
+}

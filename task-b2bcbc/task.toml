@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of mutation testing theory, half-open interval semantics, constraint propagation invariants, and scheduling algorithm correctness properties. The agent must operate the mutmut mutation testing tool — an unfamiliar CLI requiring configuration via pyproject.toml, execution with 'mutmut run', result interpretation via 'mutmut results', and mutant inspection with 'mutmut show'. Additionally, the agent must use the coverage tool ('coverage run', 'coverage json') to generate a structured coverage report, and integrate outputs from both tools into a final JSON analysis. Multi-tool proficiency is essential: configuring mutmut's source_paths, interpreting its trampoline-based mutation output, correlating mutmut's mutant names with the 15 cataloged mutations, and producing a structured mutation_analysis.json report. The agent must also formally prove 2 mutations are semantically equivalent (requiring deep reasoning about algorithmic invariants: idempotent assignments in DAG relaxation and vacuous loop iterations in fixed-point propagation), and construct adversarial test inputs for 13 non-equivalent mutations across three interdependent modules."""
+solution_explanation = """Run mutmut to discover and validate mutations. Use mutmut show to inspect surviving mutants. For killable mutations, construct minimal distinguishing inputs — touching intervals for overlap boundaries, adjacent intervals for merge, domain-aligned intervals for complement, non-zero offsets for coverage arithmetic, abutting jobs for weighted scheduling, multi-task sequences for EDF accumulation, point-domains for feasibility checks, exact slot counts for load profile boundaries, at-capacity loads for overload thresholds, and sequential capacity constraints for the scheduler. For equivalent mutations M10 and M11, prove equivalence formally and annotate with pragma. Run 'coverage run -m pytest tests/' then 'coverage json' to generate coverage.json. Computationally test each mutation to produce mutation_analysis.json."""
+verification_explanation = """Verification applies each of the 13 non-equivalent mutations individually to copies of the library code and runs the agent's test suite against each mutated version — each must cause at least one test failure. Also verifies the test suite passes on unmodified code. Checks that the 2 equivalent mutation lines have been annotated with '# pragma: no mutate'. Validates the existence and structure of mutation_analysis.json (with correct total, kill count, and score) and coverage.json (with valid coverage data showing >= 80% line coverage)."""
+category = "software_testing"
+tags = ["mutation-testing", "tool-interoperability", "equivalence-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-b2bcbc"

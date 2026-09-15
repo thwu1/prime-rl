@@ -1,0 +1,15 @@
+federation:
+  name: too-small
+  mgmt:
+    ipv4-base: 10.0.0.0/28
+    pod-prefix-length: 29
+  pods:
+    - name: east
+      topology: /app/pods/east.clab.yml
+      border-nodes:
+        - spine1
+    - name: west
+      topology: /app/pods/west.clab.yml
+      border-nodes:
+        - spine1
+  interconnect: full-mesh

@@ -1,0 +1,71 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """
+Requires expert-level understanding of financial exchange microstructure (price-time priority,
+partial fills, self-trade prevention) to diagnose and fix correctness bugs from behavioral
+symptoms rather than explicit bug descriptions. IOC/FOK/iceberg implementation demands deep
+knowledge of order type semantics (all-or-nothing liquidity verification including hidden
+quantities, display/hidden split with replenishment and time-priority loss). Additionally
+requires multi-tool proficiency: complex `jq` pipelines for JSONL stream processing and
+CSV transformation, `sqlite3` CLI for database creation, CSV import, and analytical querying
+including JOINs, GROUP BY/HAVING aggregations, and CAST operations for wash trade detection
+and VWAP computation. Bugs span multiple interacting layers (matching engine, snapshot
+serialization, replay boundaries) and require holistic architectural understanding to
+diagnose from symptoms and fix correctly without introducing regressions.
+"""
+solution_explanation = """
+Engine fixes: (1) fill_qty from order.quantity to order.remaining in _match_buy/_match_sell.
+(2) Snapshot: float(order.price) to str(order.price), Decimal(str(data["price"])) in deser,
+add order_type/display_qty/hidden_qty fields. (3) Replay: >= to > for snapshot boundary,
+read order_type/display_qty from events, init iceberg with remaining=display_qty.
+(4) Engine extensions: FOK pre-check (_check_fok_liquidity summing remaining+hidden_qty),
+IOC post-processing (skip book insertion), aggressive iceberg replenishment loop, resting
+iceberg replenishment with time-priority loss. (5) Market data: record_event emits TRADE
+ticks then BBO update, record_cancel emits BBO update, BBO uses visible remaining only.
+
+Surveillance pipeline: (1) jq extracts NEW_ORDER/TRADE/CANCEL records from production.jsonl
+into CSV files. (2) sqlite3 creates schema, imports CSVs, runs wash pair detection
+(GROUP BY buyer_id,seller_id HAVING COUNT>=4), cancel ratio computation (LEFT JOIN orders
+with cancellations, ROUND ratio to 4 decimals), and VWAP calculation
+(SUM(price*qty)/SUM(qty) rounded to 4 decimals).
+"""
+verification_explanation = """
+32 pytest tests across 9 categories:
+- Limit order correctness (partial fill remaining, no overfill)
+- IOC behavior (partial fill not resting, no-match not resting)
+- FOK behavior (reject insufficient, accept sufficient, considers iceberg hidden)
+- Iceberg mechanics (resting replenishment, time priority loss, aggressive multi-fill,
+  aggressive full fill)
+- Snapshot fidelity (Decimal precision, iceberg fields, cancel after restore)
+- Replay determinism (boundary no duplicate, mixed-type scenario live vs replay hash)
+- Market data (trade ticks, BBO updates, iceberg visible-only BBO, cancel BBO)
+- Surveillance database (exists, tables present, correct row counts for orders/trades/cancels)
+- Surveillance outputs (wash pairs CSV content, cancel ratios with EVE highest,
+  all traders present, VWAP value accuracy)
+"""
+category = "systems"
+tags = ["financial-systems", "event-sourcing", "data-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-60eff3"

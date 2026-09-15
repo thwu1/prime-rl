@@ -1,0 +1,9 @@
+{
+  "name": "crdt-update-merge",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "typescript": "5.5.4",
+    "@types/node": "20.14.15"
+  }
+}

@@ -1,0 +1,5 @@
+Your team's battery cell characterization pipeline needs to produce a complete electrochemical-thermal performance assessment for a lithium-ion cell being evaluated for a high-power application.
+
+An existing analysis script at `/app/analyze.py` was started by a colleague who is no longer available. It executes without raising exceptions, but the results have never been validated against physical expectations. The cell specification is in `/app/cell_spec.json` and the required output schema is in `/app/output_schema.json`.
+
+Investigate whether the current pipeline produces physically correct and complete results. Fix any issues you find and ensure all analyses required by the output schema are implemented. The final script must run as `python3 /app/analyze.py` with no arguments and write all outputs to `/app/results/`.

@@ -1,0 +1,85 @@
+FORM 5695 -- RESIDENTIAL ENERGY CREDITS -- TAX YEAR 2025
+
+PART II -- Energy Efficient Home Improvement Credit
+
+The credit for qualifying energy improvements is generally 30% of
+the cost, subject to the per-category and aggregate limits below.
+
+SECTION A -- Qualified Energy Efficiency Improvements
+
+Each qualifying improvement category has its own per-category credit
+limit. Compute 30% (0.30) of the cost for each category and apply
+the corresponding maximum.
+
+Line 18b -- Insulation material or air sealing system.
+  Multiply cost by 30% (0.30). Maximum credit: $1,200.
+
+Line 19h -- Exterior doors meeting applicable Energy Star
+  requirements. Multiply total door cost by 30% (0.30).
+  Maximum credit: $500.
+
+Line 20d -- Windows and skylights meeting Energy Star certification.
+  Multiply total cost by 30% (0.30). Maximum credit: $600.
+
+Line 22d -- Central air conditioners meeting applicable standards.
+  Multiply cost by 30% (0.30). Maximum credit: $600.
+
+Line 23d -- Natural gas, propane, or oil water heaters.
+  Multiply cost by 30% (0.30). Maximum credit: $600.
+
+Line 24d -- Natural gas, propane, or oil furnace or hot water boiler.
+  Multiply cost by 30% (0.30). Maximum credit: $600.
+
+Line 25e -- Electrical panel improvements (panelboards, sub-panels,
+  branch circuits, or feeders that enable qualified energy property).
+  Multiply cost by 30% (0.30). Maximum credit: $600.
+
+Line 26c -- Home energy audits conducted by a certified home energy
+  auditor. Multiply cost by 30% (0.30). Maximum credit: $150.
+
+Line 27 -- Add lines 18b, 19h, 20d, 22d, 23d, 24d, 25e, and 26c.
+
+Line 28 -- Enter the SMALLER of line 27 or $1,200. This is the
+  annual aggregate limit for all qualified energy efficiency
+  improvements in Section A combined. Even if individual line items
+  sum to more than $1,200, the total Section A credit cannot exceed
+  $1,200 per year.
+
+SECTION B -- Residential Energy Property Expenditures
+
+Line 29 -- Heat pumps, heat pump water heaters, and biomass stoves
+  and boilers. These items are in a separate credit group.
+
+Line 29h -- Add the costs of all qualifying electric or natural gas
+  heat pumps, heat pump water heaters, and biomass stoves and boilers.
+  Multiply the combined total by 30% (0.30). Maximum credit: $2,000.
+  This limit is separate from and in addition to the $1,200 Section A
+  aggregate limit.
+
+Line 30 -- Add lines 28 and 29h. This is the total energy efficient
+  home improvement credit before applying the tax liability limitation.
+
+ENERGY EFFICIENT HOME IMPROVEMENT CREDIT LIMIT WORKSHEET
+
+Use this worksheet to determine the maximum credit you can claim
+based on your tax liability.
+
+Step 1. Enter the amount from Form 1040, line 18 (tax plus any
+  additions from Schedule 2, Part I).
+
+Step 2. Enter the total of any nonrefundable credits claimed on
+  Form 1040, line 19 (child tax credit, credit for other dependents).
+  If none, enter 0.
+
+Step 3. Subtract Step 2 from Step 1. If the result is zero or less,
+  enter 0. This is your credit limitation amount.
+
+Enter the result from Step 3 on Form 5695, line 31.
+
+Line 31 -- Limitation based on tax liability (from the Credit Limit
+  Worksheet above).
+
+Line 32 -- Energy efficient home improvement credit. Enter the SMALLER
+  of line 30 or line 31.
+
+  Also include this amount on Schedule 3 (Form 1040), line 5b.

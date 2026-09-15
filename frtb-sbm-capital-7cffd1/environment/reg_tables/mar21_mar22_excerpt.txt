@@ -1,0 +1,162 @@
+EXTRACT FROM BASEL FRAMEWORK — MAR21 & MAR22
+Minimum Capital Requirements for Market Risk (d457, January 2019)
+================================================================
+
+This file contains relevant extracts from the Basel Committee on Banking Supervision
+standard d457 for implementing the Sensitivities-Based Method (SBM) and Default Risk
+Capital (DRC) requirements.
+
+
+MAR21 — SENSITIVITIES-BASED METHOD (SBM)
+-----------------------------------------
+
+MAR21.1  The sensitivities-based method capital requirement is the sum of three
+risk charges: delta, vega, and curvature. This portfolio requires only the delta
+risk charge computation.
+
+MAR21.4  Delta risk capital requirement aggregation
+
+  (1) For each risk factor k within instrument i, compute the net sensitivity s_{k,i}.
+
+  (2) Compute the weighted sensitivity:
+        WS_k = RW_k * s_k
+      where RW_k is the prescribed risk weight for risk factor k, and s_k is the
+      net sensitivity.
+
+  (3) For risk classes where a specified currency/pair reduction applies and the
+      portfolio configuration enables it, the risk weight is divided by sqrt(2).
+
+  (4) WITHIN-BUCKET aggregation: For each bucket b, the bucket-level capital
+      K_b is:
+        K_b = sqrt( max(0, sum_k(WS_k^2) + sum_{k!=l}(rho_{kl} * WS_k * WS_l) ) )
+      where rho_{kl} is the prescribed intra-bucket correlation between risk
+      factors k and l within the same bucket.
+
+      EXCEPTION: For equity "other sector" bucket (bucket 11) and CSR non-sec
+      residual bucket (bucket 16), K_b = sum of absolute values of WS_k.
+
+  (5) ACROSS-BUCKET aggregation: The risk class-level capital is:
+        Capital = sqrt( sum_b(K_b^2) + sum_{b!=c}(gamma_{bc} * S_b * S_c) )
+      where S_b = sum_k(WS_k) for bucket b, and gamma_{bc} is the prescribed
+      cross-bucket correlation.
+
+      (a) For FX risk, each currency is its own bucket, and K_b = |WS| for a
+          single-position bucket.
+
+      (b) If the expression under the square root is negative, use the
+          ALTERNATIVE S_b specification:
+            S_b = max(min(S_b, K_b), -K_b)
+          and recompute the expression.
+
+
+MAR21.5  Three correlation scenarios
+
+  The delta risk capital requirement must be computed under three correlation
+  scenarios:
+
+  (a) MEDIUM correlation: Use the prescribed correlation values directly.
+
+  (b) HIGH correlation: Multiply ALL intra-bucket correlations rho_{kl} and
+      cross-bucket correlations gamma_{bc} by 1.25, capping each at 1.0:
+        rho_high = min(1.25 * rho_medium, 1.0)
+        gamma_high = min(1.25 * gamma_medium, 1.0)
+
+  (c) LOW correlation: Replace each correlation with:
+        rho_low = max(2 * rho_medium - 1, 0.75 * rho_medium)
+        gamma_low = max(2 * gamma_medium - 1, 0.75 * gamma_medium)
+
+  The delta risk capital requirement is the MAXIMUM of the three scenario totals.
+  Each scenario total is the simple sum of risk class-level capitals.
+
+
+RISK CLASS: EQUITY (MAR21.40-MAR21.52)
+--------------------------------------
+
+  Risk factors: Each equity issuer is a distinct risk factor.
+  Buckets: Based on market cap (large/small), economy (emerging/developed), and
+  sector. See equity_risk_weights.tsv and equity_intra_corr.tsv.
+  Bucket 11: "Other sector" — uses sum-of-absolute-values aggregation.
+  Cross-bucket: See equity_cross_corr.tsv.
+
+
+RISK CLASS: FX (MAR21.78-MAR21.83)
+-----------------------------------
+
+  Risk factors: Each currency vs. reporting currency is a separate risk factor.
+  Each currency pair is its own bucket with a single risk factor.
+  K_b = |WS_k| (absolute value of weighted sensitivity).
+  All cross-bucket correlations use a single gamma parameter.
+  See fx_params.tsv.
+
+
+RISK CLASS: GIRR (MAR21.14-MAR21.25)
+-------------------------------------
+
+  Risk factors: For each currency (bucket), risk factors are defined at
+  prescribed tenors along the yield curve, plus inflation and cross-currency
+  basis risk factors.
+
+  Correlation between yield curve tenors k and l on the SAME curve:
+    rho_{kl} = max( exp(-theta * |T_k - T_l| / min(T_k, T_l)), floor )
+  where theta and floor are in girr_correlation.tsv.
+
+  Correlation between same tenor, DIFFERENT curves:
+    rho = same_tenor_different_curve parameter
+
+  Correlation between different tenor, DIFFERENT curves:
+    rho = (tenor correlation from above) * different_tenor_different_curve_factor
+
+  Inflation risk factor correlation to yield curve tenors:
+    rho = inflation_to_yield_curve parameter
+
+  Cross-currency basis risk factor correlation to ALL other risk factors:
+    rho = xccy_basis_to_any parameter (= 0)
+
+  Specified currencies: For currencies in the specified list, risk weights are
+  divided by the specified_currency_rw_divisor (= sqrt(2)).
+
+  Cross-bucket (across currencies): gamma from girr_correlation.tsv.
+
+
+RISK CLASS: CSR NON-SECURITISATION (MAR21.53-MAR21.63)
+------------------------------------------------------
+
+  Risk factors: Each credit spread curve (issuer x tenor x curve type).
+  Buckets: By sector and credit quality (IG vs HY/NR).
+  See csr_nonsec_risk_weights.tsv.
+
+  Intra-bucket correlation: Product of three factors:
+    rho_{kl} = rho_name * rho_tenor * rho_basis
+  where each factor depends on whether the two risk factors share the same
+  issuer name, tenor, and curve basis respectively.
+  See csr_nonsec_intra_corr.tsv.
+  Bucket 16: "Other sector" — uses sum-of-absolute-values aggregation.
+
+  Cross-bucket correlation: Product of rating factor and sector factor.
+    gamma_{bc} = rating_factor * sector_factor
+  See csr_nonsec_cross_corr.tsv.
+  Bucket 16 to any: gamma = 0.
+
+
+MAR22 — DEFAULT RISK CAPITAL (DRC) FOR EQUITY (MAR22.23-22.25)
+--------------------------------------------------------------
+
+  (1) Compute Jump-to-Default (JTD) positions: For equities, JTD = market value
+      (sensitivity). Positive = long, negative = short.
+
+  (2) Apply credit-rating-based risk weights from drc_equity_risk_weights.tsv.
+
+  (3) Compute the Hedge Benefit Ratio (HBR):
+        HBR = sum(JTD_long) / (sum(JTD_long) + sum(|JTD_short|))
+
+  (4) Default risk capital:
+        DRC = max(0, sum(RW_i * JTD_i for long) - HBR * sum(RW_i * |JTD_i| for short))
+
+  The HBR limits the offset benefit of short positions against long positions.
+
+
+TOTAL CAPITAL
+-------------
+  total_capital = sbm_delta_capital + drc_equity
+
+  where sbm_delta_capital = max over three scenarios of (sum of risk class capitals).

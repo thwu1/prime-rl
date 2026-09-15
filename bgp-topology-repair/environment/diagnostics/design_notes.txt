@@ -1,0 +1,42 @@
+Architecture Notes - AS 65100 Build-Out
+=========================================
+Author: J. Chen (previous network engineer)
+Date: 2024-09-20
+
+TOPOLOGY RATIONALE
+  R3 sits physically between both border routers, making it the natural
+  central point for internal route distribution. Using R3 as the iBGP
+  hub eliminates the need for a full mesh of iBGP sessions. With only
+  3 internal routers this isn't strictly necessary, but it establishes
+  the right pattern for future growth.
+
+  Border routers (R1, R2) each connect to one ISP. This gives us two
+  independent exit paths and dual-homed redundancy for customer prefixes.
+
+NEXT-HOP CONSIDERATIONS
+  When a border router learns an external route via eBGP, the BGP
+  next-hop is set to the external peer's interface IP. If this route
+  is then distributed to other internal routers, they will not have a
+  route to that external IP. The border routers must handle this by
+  rewriting the next-hop before sending routes to internal peers.
+
+TRAFFIC ENGINEERING NOTES
+  For outbound TE, we need a mechanism whose effect is visible to all
+  routers in the AS after internal redistribution - not one that only
+  affects the local router's decision. This is critical because routes
+  pass through R3 before reaching the other border router.
+
+  For inbound TE, we need to influence external ISP path selection
+  from our side only, since we have no control over ISP configurations.
+
+STATUS AT HANDOFF
+  - Interface addressing: COMPLETE (all 5 routers)
+  - Interior routing protocol: NOT STARTED
+  - iBGP sessions: NOT STARTED
+  - eBGP sessions: NOT STARTED
+  - Route policies: NOT STARTED
+  - Testing: BLOCKED on routing implementation
+
+  I configured the interfaces and validated L2/L1 connectivity.
+  Sorry I couldn't finish - the routing protocol and policy work
+  is left for whoever takes over.

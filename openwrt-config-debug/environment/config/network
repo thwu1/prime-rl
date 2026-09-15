@@ -1,0 +1,140 @@
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.255.255.0'
+
+config globals 'globals'
+	option ula_prefix 'fc00::/48'
+
+config device
+	option name 'eth0'
+
+config interface 'wan'
+	option device 'eth0'
+	option proto 'dhcp'
+
+config interface 'wan6'
+	option device 'eth0'
+	option proto 'dhcpv6'
+	option reqaddress 'try'
+	option reqprefix 'auto'
+
+config device
+	option name 'br-lan'
+	option type 'bridge'
+	list ports 'lan1'
+	list ports 'lan2'
+	list ports 'lan3'
+	list ports 'lan4'
+	list ports 'lan5'
+	option vlan_filtering '1'
+
+config bridge-vlan
+	option device 'br-lan'
+	option vlan '10'
+	list ports 'lan1:u*'
+	list ports 'lan2:u*'
+
+config bridge-vlan
+	option device 'br-lan'
+	option vlan '20'
+	list ports 'lan3:u*'
+	list ports 'lan4:u*'
+
+config bridge-vlan
+	option device 'br-lan'
+	option vlan '30'
+	list ports 'lan5:u*'
+
+config interface 'mgmt'
+	option device 'br-lan.10'
+	option proto 'static'
+	option ipaddr '10.0.10.1'
+	option netmask '255.255.255.0'
+
+config interface 'corp'
+	option device 'br-lan.20'
+	option proto 'static'
+	option ipaddr '10.0.20.1'
+	option netmask '255.255.255.0'
+
+config interface 'iot'
+	option device 'br-lan.30'
+	option proto 'static'
+	option ipaddr '10.0.30.1'
+	option netmask '255.255.255.0'
+	option ip6assign '64'
+
+config device
+	option name 'br-guest'
+	option type 'bridge'
+
+config interface 'guest'
+	option device 'br-guest'
+	option proto 'static'
+	option ipaddr '10.0.40.1'
+	option netmask '255.255.255.0'
+	option ip6assign '64'
+
+config interface 'vpn_hq'
+	option proto 'wireguard'
+	option private_key 'yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk='
+	option listen_port '51820'
+	list addresses '10.0.99.2/24'
+
+config device
+	option name 'eth2'
+
+config interface 'wan_backup'
+	option device 'eth2'
+	option proto 'static'
+	option ipaddr '100.64.0.2'
+	option netmask '255.255.255.252'
+	option gateway '100.64.0.1'
+	option metric '20'
+	list dns '1.1.1.1'
+	list dns '8.8.8.8'
+
+config wireguard_vpn_hq 'hq_peer'
+	option description 'HQ VPN Gateway'
+	option public_key 'xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg='
+	option endpoint_host 'vpn.hq.example.com'
+	option endpoint_port '51820'
+	option persistent_keepalive '25'
+	option route_allowed_ips '1'
+	list allowed_ips '0.0.0.0/0'
+
+config interface 'vpn_ext'
+	option proto 'wireguard'
+	option private_key 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+	list addresses '10.8.0.2/24'
+
+config wireguard_vpn_ext 'ext_peer'
+	option description 'Commercial VPN Provider'
+	option public_key 'HIgo9xNzJMWLKASShiTqIybxR0V1tB1YBjMBOAtiSw4='
+	option endpoint_host 'vpn.provider.example.com'
+	option endpoint_port '51821'
+	option persistent_keepalive '25'
+	list allowed_ips '0.0.0.0/0'
+
+config route
+	option interface 'vpn_hq'
+	option target '172.16.0.0/12'
+	option table '100'
+
+config route
+	option interface 'vpn_ext'
+	option target '0.0.0.0/0'
+	option table '200'
+
+config rule
+	option src '10.0.20.0/24'
+	option dest '172.16.0.0/12'
+	option lookup '100'
+	option priority '100'
+
+config rule
+	option src '10.0.30.0/24'
+	option lookup '200'
+	option priority '200'

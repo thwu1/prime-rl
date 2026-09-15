@@ -1,0 +1,77 @@
+Two-Phase Stratified Poiseuille Flow - Relative Permeability Analysis
+=====================================================================
+
+PHYSICAL PROBLEM
+----------------
+A planar channel of height H contains two immiscible, incompressible fluid
+layers in a stratified (layered) arrangement:
+
+- Phase 1 (wetting): occupies y in [0, h1] with dynamic viscosity mu1
+- Phase 2 (non-wetting): occupies y in [h1, H] with dynamic viscosity mu2
+
+The wetting phase saturation is defined as Sw = h1 / H.
+
+The flow is steady, fully-developed, and laminar, driven by a constant
+pressure gradient G = -dP/dx > 0 in the x-direction.
+
+GOVERNING EQUATIONS
+-------------------
+For each phase, the x-momentum equation reduces to:
+
+  d^2 u_i / dy^2 = -G / mu_i    (i = 1, 2)
+
+Boundary conditions:
+  - No-slip at bottom wall:    u1(0) = 0
+  - No-slip at top wall:       u2(H) = 0
+  - Velocity continuity:       u1(h1) = u2(h1)
+  - Shear stress continuity:   mu1 * du1/dy |_{h1} = mu2 * du2/dy |_{h1}
+
+RELATIVE PERMEABILITY
+---------------------
+The planar channel serves as a model porous medium with:
+  - Absolute permeability: k = H^2 / 12
+  - Darcy flux of phase i: q_i = Q_i / H  (total cross-section basis)
+  - Effective permeability: k_eff_i = q_i * mu_i / G
+  - Relative permeability:  kr_i = k_eff_i / k = 12 * Q_i * mu_i / (H^3 * G)
+
+where Q_i is the volumetric flow rate per unit width for phase i, obtained
+by integrating the velocity profile over that phase's region.
+
+REQUIRED OUTPUT: /app/results.json
+-----------------------------------
+{
+    "analytical_kr": {
+        "mu_ratio_1.0": {
+            "Sw": [0.1, 0.2, ..., 0.9],
+            "kr1": [corresponding kr1 values],
+            "kr2": [corresponding kr2 values]
+        },
+        "mu_ratio_2.0": { ... },
+        "mu_ratio_5.0": { ... },
+        "mu_ratio_10.0": { ... },
+        "mu_ratio_20.0": { ... }
+    },
+    "convergence": {
+        "mesh_sizes": [32, 64, 128, 256],
+        "l2_errors": [RMS velocity error at each mesh resolution],
+        "convergence_order": <float, slope of log(error) vs log(spacing)>
+    },
+    "validation": {
+        "finest_mesh_max_error": <float>,
+        "kr1_numerical": <float>,
+        "kr2_numerical": <float>,
+        "kr1_analytical": <float>,
+        "kr2_analytical": <float>
+    }
+}
+
+The keys in "analytical_kr" must be formatted as "mu_ratio_<R>" where R is
+the float value exactly as it appears in config.VISCOSITY_RATIOS (e.g.,
+"mu_ratio_1.0", "mu_ratio_10.0").
+
+The convergence study uses config.CONV_SW, config.CONV_MU_RATIO, and
+config.CONV_MESH_SIZES. The L2 error is the root-mean-square of the
+difference between the numerical and analytical velocity at cell centers.
+
+The validation section reports results from the finest mesh in the
+convergence study.

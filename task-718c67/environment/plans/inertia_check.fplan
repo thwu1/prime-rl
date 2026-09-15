@@ -1,0 +1,54 @@
+{
+  "type": "ModuleBayPlan",
+  "planNumber": 6,
+  "dateCreated": "2024-06-20T13:00:00Z",
+  "dateModified": "2024-06-20T13:05:00Z",
+  "creator": "payload_engineer",
+  "schemaUrl": "http://example.com/freeFlyerPlanSchema.json",
+  "libraryURLs": [],
+  "operatingLimits": {
+    "profileName": "payload_config",
+    "flightMode": "nominal",
+    "targetLinearVelocity": 0.15,
+    "targetLinearAcceleration": 0.015,
+    "targetAngularVelocity": 0.1,
+    "targetAngularAcceleration": 0.1,
+    "collisionDistance": 0.3
+  },
+  "inertiaConfiguration": {
+    "name": "custom_payload",
+    "mass": 10.5,
+    "centerOfMass": [0.01, -0.005, 0.0],
+    "matrix": [0.153, 0.02, 0.0, 0.01, 0.143, 0.0, 0.0, 0.0, 0.162]
+  },
+  "site": {
+    "type": "Site",
+    "name": "ISS",
+    "id": "iss"
+  },
+  "sequence": [
+    {
+      "type": "Station",
+      "coordinate": {
+        "type": "ModuleBayPoint",
+        "x": 10.9,
+        "y": -9.5,
+        "z": 4.5,
+        "roll": 0,
+        "pitch": 0,
+        "yaw": 0,
+        "ignoreOrientation": false,
+        "moduleBayValid": false
+      },
+      "tolerance": 0.1,
+      "stopOnArrival": true,
+      "commands": [
+        {
+          "type": "Settings.setTelemetryRate",
+          "telemetryName": "Position",
+          "rate": 10.0
+        }
+      ]
+    }
+  ]
+}

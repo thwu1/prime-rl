@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of x86-64 compiler optimization patterns for constant division (Granlund-Montgomery magic-number multiplication). Beyond pure analysis, the agent must EVALUATE each bug's impact by computing the exact size of its error domain across the 32-bit signed input space — requiring mathematical reasoning about when signed vs unsigned arithmetic diverges, when quotient-interval overlaps occur for different divisors, and when division vs modulo agree. The agent must then CREATE a corrected binary by synthesizing C source that faithfully implements the specification for all 8 functions, compile it, and verify correctness. Three distinct bug categories demand different diagnostic and remediation reasoning: signedness mismatch requires understanding two's-complement reinterpretation and counting all negative inputs; wrong-divisor detection requires reverse-computing divisors from magic constants and analyzing the agreement structure of floor(x/d1) vs floor(x/d2); wrong-operation detection requires recognizing the structural difference between division and modulo codegen and proving only 2D-1 inputs produce identical results. The severity evaluation cannot be brute-forced (iterating 2^32 values is infeasible) — the agent must derive error counts mathematically."""
+solution_explanation = """1. Load the spec and disassemble the binary with objdump. 2. For each function, perform differential testing with positive, negative, zero, and boundary inputs, comparing actual output against the spec. 3. Classify each bug by its category. 4. For severity evaluation, compute error counts mathematically: (a) signedness_mismatch — all 2^31 negative inputs produce wrong results; (b) wrong_divisor — count the agreement points where floor(x/d1)=floor(x/d2) via quotient-interval overlap analysis, yielding 7937 agreements out of 2^32; (c) wrong_operation — prove sdiv(x,d)=smod(x,d) only when x=(d+1)*q for |q|<d, giving 2d-1=13 agreements. 5. Rank bugs by error_count descending. 6. Generate corrected C source implementing each function per the spec, compile with gcc, and verify the fixed binary produces correct outputs. 7. Assemble all findings into audit.json, remediation.json, and challenge_fixed."""
+verification_explanation = """Tests validate three deliverables: (1) audit.json — structural checks, verdict/operation/divisor correctness against ground truth, bug categories, witness inputs dynamically validated against the binary, SHA-256 hash anti-cheat; (2) remediation.json — exact error counts verified (2147483648, 4294959359, 4294967283), severity levels checked, priority ranking validated, canonical-form hash anti-cheat; (3) challenge_fixed — binary existence and executability, all 8 functions tested against the spec with 15+ inputs each including edge cases (0, INT_MIN, INT_MAX, divisor boundaries, negative values, large unsigned values)."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "compiler-optimization"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/magic-number-division"

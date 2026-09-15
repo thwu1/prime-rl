@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires comparing two competing evaluation implementations with different statistical methodologies — one using normal-distribution confidence intervals, the other using t-distribution confidence intervals — and independently determining that neither is correct because both use confidence intervals (for population mean estimation) rather than prediction intervals (for new observation prediction). The solver must deeply understand the distinction between confidence, prediction, and tolerance intervals in small-sample settings (n=3), recognize why Bessel's correction and t-distribution are each independently necessary, and synthesize these insights into a correct implementation. Beyond the statistical methodology, the solver must trace data integrity issues across a multi-tool pipeline (SQLite type coercion in list extraction, jq percentage handling, Makefile dependency wiring) and produce a structured methodology specification justifying each design choice against a controlled vocabulary. No single evaluator can be patched — the solver must evaluate both approaches holistically, determine which elements of each are correct through domain expertise, and create a correct synthesis."""
+solution_explanation = """Analyze both evaluators: evaluator.py uses normal distribution, population std, and CI formula z*std/sqrt(n); evaluator_v2.py uses t-distribution, Bessel's correction, and CI formula t*std/sqrt(n). Both use confidence intervals for the mean — the correct approach is prediction intervals for a new observation: t*std*sqrt(1+1/n). Fix pipeline: Makefile needs 'normalize' dependency and $(BUILD_DIR)/normalized path; normalize.sh needs gsub(\"%$\";\"\") before tonumber; extract_gt.py needs int/float type coercion for list elements. Alternatively bypass the pipeline and read directly from SQLite. Produce evaluation_report.json with correct per-agent scores and methodology.json specifying: distribution=t, degrees_of_freedom=n-1, variance_estimator=bessel, interval_type=prediction, interval_half_width_formula=t*s*sqrt(1+1/n), string_comparison=case_insensitive, vision_classification_rule=fig_substring, submission_preprocessing=[percent_strip, string_to_number]."""
+verification_explanation = """Tests independently verify: (1) report structure and all agents present, (2) exact per-agent summary statistics including correct_tasks, correct_questions, and written/vision breakdowns against hand-computed values, (3) specific per-capsule results covering edge cases (zero-variance exact match, boundary prediction intervals, percentage coercion, list order sensitivity, wrong values), (4) agent rankings, (5) question category totals invariant across agents, (6) independent prediction interval computation using scipy to cross-validate known boundary cases against the SQLite ground truth database, (7) methodology.json fields validated against the statistically correct choices — distribution must be t, interval_type must be prediction, variance_estimator must be bessel, interval formula must contain sqrt(1+1/n), vision rule must be fig_substring."""
+category = "data_science"
+tags = ["statistical-inference", "evaluation-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-844c18"

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instance format="XCSP3" type="CSP">
+  <variables>
+    <array id="x" size="[9]"> 1..9 </array>
+  </variables>
+  <constraints>
+    <allDifferent> x[0] x[1] x[2] x[3] x[4] x[5] x[6] x[7] x[8] </allDifferent>
+    <sum>
+      <list> x[0] x[1] x[2] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[3] x[4] x[5] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[6] x[7] x[8] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[0] x[3] x[6] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[1] x[4] x[7] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[2] x[5] x[8] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[0] x[4] x[8] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+    <sum>
+      <list> x[2] x[4] x[6] </list>
+      <condition> (eq,15) </condition>
+    </sum>
+  </constraints>
+</instance>

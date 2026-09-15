@@ -1,0 +1,133 @@
+[document]
+title = "GlobalEd SaaS — Financial Policies & Forecast Parameters"
+id = "FP-2023-04-R2"
+effective_date = "2023-12-01"
+approved_by = ["CFO", "VP Finance"]
+
+[forecast]
+start_period = "2024-01"
+end_period = "2028-12"
+total_months = 60
+base_year = 2024
+opening_balance_date = "2024-01-01"
+note = "Opening balances as of 2024-01-01 serve as the initial state for all forecast calculations."
+
+[pricing]
+policy_id = "PP-2023-12"
+effective = "2024-01-01"
+description = """
+GlobalEd employs a consensus-based threshold pricing mechanism to manage \
+subscription price adjustments across markets. This mechanism replaced the \
+previous annual CPI pass-through (PP-2022-06) to reduce subscriber churn \
+from predictable annual price increases."""
+
+[pricing.adjustment]
+increment_local_currency = 5.00
+currency_note = "Denominated in each country's local currency"
+
+[pricing.theoretical_tracking]
+description = """
+Each subscription tier maintains a continuously-tracked theoretical \
+fair-value price reflecting cumulative CPI-driven inflation. This value \
+is computed by applying simple monthly proration of the applicable annual \
+CPI rate (annual_rate / 12) as a multiplicative growth factor each month. \
+The theoretical price initializes at the tier's base price and begins \
+compounding from the second forecast month. This tracking value operates \
+independently of the charged price and is never reset when a price \
+adjustment occurs. Theoretical prices must be current before evaluating \
+any pricing trigger conditions."""
+
+[pricing.consensus_trigger]
+qualifying_fraction = 0.5
+consensus_threshold = 3
+qualifying_condition = """
+A tier qualifies for a price increase when its theoretical fair-value \
+price meets or exceeds the current charged price plus the qualifying \
+fraction of one price adjustment increment."""
+consensus_description = """
+A country-level price adjustment event is triggered when the number of \
+simultaneously qualifying tiers within that country meets or exceeds \
+the consensus threshold."""
+adjustment_scope = """
+Upon triggering, only those tiers that individually satisfy the qualifying \
+condition receive a single-increment increase to their charged price. \
+Non-qualifying tiers retain their current charged price unchanged."""
+
+[[superseded_policies]]
+id = "PP-2022-06"
+title = "Annual CPI Pass-Through Pricing"
+superseded = "2023-12-01"
+superseded_by = "PP-2023-12"
+warning = "DO NOT APPLY. Retained for audit purposes only."
+
+[[superseded_policies]]
+id = "PP-2021-03"
+title = "Quarterly Manual Price Review"
+superseded = "2022-06-01"
+superseded_by = "PP-2022-06"
+warning = "DO NOT APPLY. Retained for audit purposes only."
+
+[growth]
+method = "compound_monthly"
+description = """
+Subscriber counts are projected using compound monthly growth. Each \
+tier's effective annual growth rate equals the country's base annual \
+rate multiplied by the tier-specific growth modifier. The monthly \
+compound factor is derived as (1 + effective_annual_rate)^(1/12) - 1. \
+Growth adjustments are applied after pricing decisions have been \
+finalized for the period. The first forecast month uses opening \
+subscriber counts without adjustment."""
+rate_source = "Annual growth projections maintained in /app/data/rate_curves.csv"
+churn_note = """
+The annual growth rates represent projected net subscriber acquisition \
+rates. Gross acquisition, churn, and retention analytics are maintained \
+separately for operational reporting and are not inputs to the \
+forward-looking revenue forecast."""
+
+[growth.tier_modifiers]
+Starter = 0.8
+Growth = 1.2
+Professional = 1.0
+Business = 0.9
+Enterprise = 0.7
+
+[revenue]
+standard = "Revenue is recognized monthly on a subscription basis."
+
+[revenue.tax]
+description = """
+All international markets use tax-inclusive pricing. Net revenue in \
+local currency is derived by dividing gross subscription revenue by \
+(1 + applicable_tax_rate)."""
+
+[revenue.tax.rates]
+USA = 0.00
+AUS = 0.10
+UK = 0.20
+
+[revenue.fx]
+description = """
+Local-currency revenue is converted to USD for consolidated reporting. \
+Conversion rates and hedge overlay treatment are documented in the \
+rate curves data and CFO quarterly memo. The operational database \
+contains only historical FX data for audit purposes."""
+
+[revenue.computation_order]
+description = """
+Revenue calculation is the final step in each period's processing, \
+performed after all price and subscriber adjustments have been applied. \
+Refer to the CFO quarterly memo at /app/docs/cfo_memo.md for the \
+complete revenue waterfall specification including credit provisions \
+and hedge accounting treatment."""
+
+[ancillary.refunds]
+policy_id = "RC-2023-01"
+note = "Prorated refunds for mid-cycle cancellations. Not applicable to forecast model."
+
+[ancillary.volume_discounts]
+policy_id = "VD-2023-02"
+note = "Enterprise 500+ seat discounts handled in separate pipeline."
+
+[ancillary.partner_channel]
+policy_id = "PC-2023-01"
+note = "Partner channel revenue tracked separately and excluded from direct subscription forecast."

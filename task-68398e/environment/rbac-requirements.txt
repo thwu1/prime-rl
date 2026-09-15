@@ -1,0 +1,21 @@
+RBAC Policy Requirements for CI/CD Pipeline
+============================================
+
+Service Account: ci-deployer
+Service Account Namespace: ci-cd
+
+Required Permissions:
+
+1. In namespace "production" (create a Role + RoleBinding):
+   - Create, update, and delete Deployments (API group: apps)
+   - Create, update, and delete Services (API group: "" i.e. core)
+   - Create, update, and delete ConfigMaps (API group: "" i.e. core)
+   - Get and list Pods (API group: "" i.e. core)
+   - Get Pods/log (API group: "" i.e. core, resource: pods/log)
+
+2. Cluster-wide (create a ClusterRole + ClusterRoleBinding):
+   - Create and delete Namespaces (API group: "" i.e. core)
+
+Write all RBAC manifests as YAML files in /app/rbac/.
+Each manifest must have the correct apiVersion (rbac.authorization.k8s.io/v1),
+kind, metadata, and spec fields.

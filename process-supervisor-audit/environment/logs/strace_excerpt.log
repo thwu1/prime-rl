@@ -1,0 +1,74 @@
+--- Captured via: strace -f -tt -T -p 1847 (supervisor) ---
+--- Host: prod-web-037 | Date: 2024-06-08 ---
+--- Attached at 14:22:10 during active investigation ---
+--- (fd 2 = stderr, fd 4 = event log /app/logs/events.log) ---
+
+[pid  1847] 14:22:10.334102 nanosleep({tv_sec=0, tv_nsec=500000000}, NULL) = 0 <0.500112>
+[pid  1847] 14:22:10.834401 wait4(-1, 0x7ffc39a28930, WNOHANG, NULL) = 0 <0.000018>
+[pid  1847] 14:22:11.334892 nanosleep({tv_sec=0, tv_nsec=500000000}, NULL) = 0 <0.500098>
+[pid  1847] 14:22:11.835201 wait4(-1, [{WIFSIGNALED(s) && WTERMSIG(s) == SIGKILL}], WNOHANG, NULL) = 28934 <0.000022>
+[pid  1847] 14:22:11.835401 gettimeofday({tv_sec=1717854131, tv_usec=835401}, NULL) = 0 <0.000008>
+[pid  1847] 14:22:11.835501 write(4, "0.501102 worker 'web-worker' pid=28934 exited status=137\n", 57) = 57 <0.000031>
+[pid  1847] 14:22:11.835701 write(2, "restarting 'web-worker' (1/10)\n", 30) = 30 <0.000019>
+[pid  1847] 14:22:11.835901 kill(28934, SIGTERM)  = -1 ESRCH (No such process) <0.000012>
+[pid  1847] 14:22:11.836102 nanosleep({tv_sec=0, tv_nsec=200000000}, NULL) = 0 <0.200089>
+[pid  1847] 14:22:12.036401 kill(28934, SIGKILL)  = -1 ESRCH (No such process) <0.000011>
+[pid  1847] 14:22:12.036601 wait4(28934, NULL, 0, NULL) = -1 ECHILD (No child processes) <0.000014>
+[pid  1847] 14:22:12.036901 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7f3a2c001a10) = 29501 <0.000201>
+[pid 29501] 14:22:12.037201 rt_sigaction(SIGTERM, {sa_handler=SIG_DFL}, NULL, 8) = 0 <0.000009>
+[pid 29501] 14:22:12.037401 rt_sigaction(SIGINT, {sa_handler=SIG_DFL}, NULL, 8) = 0 <0.000008>
+[pid 29501] 14:22:12.037601 execve("/bin/sh", ["sh", "-c", "sleep 3600"], 0x7ffc39a28af0 /* 14 vars */) = 0 <0.000412>
+[pid  1847] 14:22:12.038201 gettimeofday({tv_sec=1717854132, tv_usec=38201}, NULL) = 0 <0.000007>
+[pid  1847] 14:22:12.038301 write(4, "0.202900 restarted 'web-worker' pid=29501 attempt=1\n", 52) = 52 <0.000028>
+[pid  1847] 14:22:12.538892 nanosleep({tv_sec=0, tv_nsec=500000000}, NULL) = 0 <0.500112>
+[pid  1847] 14:22:13.039201 wait4(-1, 0x7ffc39a28930, WNOHANG, NULL) = 0 <0.000016>
+... [normal operation: nanosleep + wait4 cycles, worker 29501 running] ...
+[pid  1847] 14:22:44.539892 wait4(-1, [{WIFSIGNALED(s) && WTERMSIG(s) == SIGKILL}], WNOHANG, NULL) = 29501 <0.000019>
+[pid  1847] 14:22:44.540102 gettimeofday({tv_sec=1717854164, tv_usec=540102}, NULL) = 0 <0.000008>
+[pid  1847] 14:22:44.540201 write(4, "32.501900 worker 'web-worker' pid=29501 exited status=137\n", 58) = 58 <0.000029>
+[pid  1847] 14:22:44.540401 write(2, "restarting 'web-worker' (2/10)\n", 30) = 30 <0.000018>
+[pid  1847] 14:22:44.540601 kill(29501, SIGTERM)  = -1 ESRCH (No such process) <0.000011>
+[pid  1847] 14:22:44.540801 nanosleep({tv_sec=0, tv_nsec=200000000}, NULL) = 0 <0.200092>
+[pid  1847] 14:22:44.741102 kill(29501, SIGKILL)  = -1 ESRCH (No such process) <0.000010>
+[pid  1847] 14:22:44.741301 wait4(29501, NULL, 0, NULL) = -1 ECHILD (No child processes) <0.000013>
+[pid  1847] 14:22:44.741601 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7f3a2c001a10) = 29802 <0.000189>
+[pid 29802] 14:22:44.741901 rt_sigaction(SIGTERM, {sa_handler=SIG_DFL}, NULL, 8) = 0 <0.000008>
+[pid 29802] 14:22:44.742101 execve("/bin/sh", ["sh", "-c", "sleep 3600"], 0x7ffc39a28af0 /* 14 vars */) = 0 <0.000398>
+[pid  1847] 14:22:44.742601 gettimeofday({tv_sec=1717854164, tv_usec=742601}, NULL) = 0 <0.000007>
+[pid  1847] 14:22:44.742701 write(4, "0.202500 restarted 'web-worker' pid=29802 attempt=2\n", 52) = 52 <0.000026>
+... [nanosleep + wait4 cycles, worker 29802 running] ...
+[pid  1847] 14:22:47.243892 wait4(-1, [{WIFSIGNALED(s) && WTERMSIG(s) == SIGKILL}], WNOHANG, NULL) = 29802 <0.000020>
+[pid  1847] 14:22:47.244102 gettimeofday({tv_sec=1717854167, tv_usec=244102}, NULL) = 0 <0.000008>
+[pid  1847] 14:22:47.244201 write(4, "2.501500 worker 'web-worker' pid=29802 exited status=137\n", 57) = 57 <0.000030>
+[pid  1847] 14:22:47.244401 write(2, "restarting 'web-worker' (3/10)\n", 30) = 30 <0.000019>
+[pid  1847] 14:22:47.244601 kill(29802, SIGTERM)  = -1 ESRCH (No such process) <0.000011>
+[pid  1847] 14:22:47.244801 nanosleep({tv_sec=0, tv_nsec=200000000}, NULL) = 0 <0.200091>
+[pid  1847] 14:22:47.445102 kill(29802, SIGKILL)  = -1 ESRCH (No such process) <0.000010>
+[pid  1847] 14:22:47.445301 wait4(29802, NULL, 0, NULL) = -1 ECHILD (No child processes) <0.000013>
+[pid  1847] 14:22:47.445601 nanosleep({tv_sec=1, tv_nsec=0}, NULL) = 0 <1.000112>
+[pid  1847] 14:22:48.446102 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0x7f3a2c001a10) = -1 ENOMEM (Cannot allocate memory) <0.000089>
+[pid  1847] 14:22:48.446601 gettimeofday({tv_sec=1717854168, tv_usec=446601}, NULL) = 0 <0.000008>
+[pid  1847] 14:22:48.446701 write(4, "1.202500 restarted 'web-worker' pid=-1 attempt=4\n", 50) = 50 <0.000028>
+[pid  1847] 14:22:48.947201 nanosleep({tv_sec=0, tv_nsec=500000000}, NULL) = 0 <0.500098>
+[pid  1847] 14:22:49.447501 wait4(-1, 0x7ffc39a28930, WNOHANG, NULL) = -1 ECHILD (No child processes) <0.000015>
+[pid  1847] 14:22:49.947892 nanosleep({tv_sec=0, tv_nsec=500000000}, NULL) = 0 <0.500102>
+[pid  1847] 14:22:50.448201 wait4(-1, 0x7ffc39a28930, WNOHANG, NULL) = -1 ECHILD (No child processes) <0.000014>
+... [idle: repeated nanosleep + wait4(-1, ..., WNOHANG) = -1 ECHILD cycles] ...
+[pid  1847] 14:23:00.449102 --- SIGTERM {si_signo=SIGTERM, si_code=SI_USER, si_pid=31002, si_uid=0} ---
+[pid  1847] 14:23:00.449202 gettimeofday({tv_sec=1717854180, tv_usec=449202}, NULL) = 0 <0.000009>
+[pid  1847] 14:23:00.449310 write(4, "12.002601 received signal 15, initiating shutdown\n", 50) = 50 <0.000031>
+[pid  1847] 14:23:00.449601 rt_sigreturn({mask=[]})           = ? ERESTARTSYS (To be restarted if SA_RESTART is set) <0.000012>
+[pid  1847] 14:23:00.449801 nanosleep({tv_sec=0, tv_nsec=500000000}, 0x7ffc39a289e0) = ? ERESTART_RESTARTBLOCK (Interrupted by signal) <0.000501>
+[pid  1847] 14:23:00.450401 gettimeofday({tv_sec=1717854180, tv_usec=450401}, NULL) = 0 <0.000008>
+[pid  1847] 14:23:00.450501 write(4, "0.001199 shutdown initiated\n", 28) = 28 <0.000024>
+[pid  1847] 14:23:00.450701 kill(-1, SIGTERM)                 = 0 <0.001892>
+[pid  1847] 14:23:00.452801 kill(1290, SIGTERM)               = -1 ESRCH (No such process) <0.000011>
+[pid  1847] 14:23:00.453001 kill(1291, SIGTERM)               = -1 ESRCH (No such process) <0.000010>
+[pid  1847] 14:23:00.453201 wait4(-1, NULL, 0, NULL)          = -1 ECHILD (No child processes) <0.000013>
+[pid  1847] 14:23:00.453401 wait4(1290, NULL, 0, NULL)        = -1 ECHILD (No child processes) <0.000012>
+[pid  1847] 14:23:00.453601 wait4(1291, NULL, 0, NULL)        = -1 ECHILD (No child processes) <0.000011>
+[pid  1847] 14:23:00.453801 gettimeofday({tv_sec=1717854180, tv_usec=453801}, NULL) = 0 <0.000007>
+[pid  1847] 14:23:00.453901 write(4, "0.003400 all workers stopped\n", 29) = 29 <0.000023>
+[pid  1847] 14:23:00.454101 close(4)                          = 0 <0.000034>
+[pid  1847] 14:23:00.454301 exit_group(0)                     = ?
+[pid  1847] 14:23:00.454501 +++ exited with 0 +++

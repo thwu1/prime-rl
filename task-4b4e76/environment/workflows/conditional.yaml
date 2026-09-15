@@ -1,0 +1,22 @@
+version: "1"
+params:
+  schema:
+    language:
+      type: string
+      default: "typescript"
+    run_lint:
+      type: boolean
+      default: true
+nodes:
+  - id: transform
+    name: Transform
+    steps:
+      - name: Run TypeScript transform
+        if: params.language == "typescript"
+        run: "npx tsc --project ."
+      - name: Run JavaScript transform
+        if: params.language == "javascript"
+        run: "node transform.js"
+      - name: Lint
+        if: params.run_lint == true
+        run: "npx eslint ."

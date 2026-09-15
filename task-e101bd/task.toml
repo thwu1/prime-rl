@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering an undocumented proprietary binary container format using hex analysis tools (xxd, hexdump, od), then discovering that the embedded payloads are Mode S ADS-B transponder messages. The solver must independently identify the protocol, implement CRC-24 integrity verification, decode multiple message types (identification, airborne position with CPR global algorithm, velocity), and cross-reference results with a SQLite aircraft registry. The CPR position decoding is particularly challenging: deriving the NL (Number of Longitude zones) function, the correct latitude zone recovery formula, and handling even/odd frame pairing — commonly mis-cited in online references. Combines binary forensics, protocol reverse engineering, aviation domain knowledge, floating-point computation, and database querying."""
+solution_explanation = """The solution first parses the binary container: reads the 24-byte header (magic 'MS0V', version, record count, station ID, base timestamp), then iterates variable-length records (sync 0x1A33, type byte, timestamp delta, type-specific payload + XOR checksum). Message records (type 0x02) contain RSSI + raw Mode S bytes. After extraction, the solver implements ADS-B decoding: CRC-24 (polynomial 0xFFF409), DF17 filtering, ICAO extraction, callsign decoding (6-bit charset), altitude (Q-bit, 25ft resolution), CPR global position recovery (j = floor(59*f_even - 60*f_odd + 0.5) with NL function), and velocity decomposition. Finally queries the SQLite registry for registration and operator."""
+verification_explanation = """Tests verify: (1) report file exists with correct structure; (2) all 3 valid aircraft present with correct ICAO addresses; (3) corrupted-CRC and noise messages excluded; (4) callsigns decoded correctly; (5) positions match expected lat/lon within 0.01 degrees; (6) altitudes exact; (7) ground speeds within 1.5 knots; (8) headings within 1.5 degrees; (9) vertical rates within 64 fpm; (10) valid message counts exact; (11) registry cross-reference correct (registration, operator); (12) positions in valid range; (13) non-DF17 messages properly ignored."""
+category = "reverse_engineering"
+tags = ["binary-forensics", "protocol-decoding"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e101bd"

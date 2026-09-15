@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires creating a complete lit/FileCheck test suite from scratch, demanding expertise in lit test runner configuration (lit.cfg.py format, tool substitutions, file suffixes), FileCheck directive semantics (CHECK-DAG ordering/overlap, CHECK-LABEL variable scoping, CHECK-NOT range semantics, CHECK-SAME line anchoring, implicit-check-not interaction with positive checks, variable capture and reuse), and SSA-form IR optimizer pass behavior. The solver must experimentally evaluate the ir-opt tool to discover subtle pass behaviors: CSE's lack of commutativity awareness, canonicalize's inability to remove dead code, constfold's safety guard against division-by-zero, and the cascading effects of multi-pass composition where pass ordering determines which optimizations fire. Designing tests that correctly verify these behaviors requires choosing appropriate IR inputs, composing the right pass pipelines, and using precise FileCheck patterns that are neither too permissive (trivially passing) nor too strict (brittle to formatting). The analysis component requires judging tool behavior through experimentation rather than applying known patterns."""
+solution_explanation = """Create lit.cfg.py with ShTest format and %ir-opt substitution. Create 6 test files: (1) test_cse.test verifying CSE eliminates duplicate addi and constant ops using CHECK-LABEL, variable capture, CHECK-NOT; (2) test_constfold.test verifying constant folding chains (3*7=21, 21+5=26) and remsi (17%5=2) using CHECK-DAG for unordered constants; (3) test_dce.test verifying dead code elimination with --implicit-check-not to assert no unexpected constants survive; (4) test_canonicalize.test verifying algebraic simplifications (add-zero, mul-one, self-sub, mul-zero) with CHECK-SAME for signature verification; (5) test_split.test using --split-input-file with // ----- separator; (6) test_composition.test verifying all four passes in combination reduce 11 ops to 2. Analysis answers: q1=26 (3*7+5), q2=false (canonicalize leaves dead constants), q3=false (CSE doesn't recognize addi commutativity), q4='arith.constant' (muli(x,0) becomes constant 0), q5=false (constfold won't fold remsi by zero), q6=2 (only constant 21 and final addi survive)."""
+verification_explanation = """Runs lit /app/tests/ -v and verifies exit code 0 (all tests pass). Checks that at least 6 .test files exist, each with a RUN line and at least 3 CHECK directives. Verifies all seven required FileCheck features are used across the test suite (CHECK-LABEL, CHECK-DAG, CHECK-NOT, CHECK-SAME, variable capture, --implicit-check-not, --split-input-file). Validates analysis.json against ground-truth answers computed by running ir-opt on the provided inputs."""
+category = "compiler-testing"
+tags = ["compilers", "testing-infrastructure"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-7c884a"

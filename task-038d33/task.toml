@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The agent must independently diagnose why a production Parquet file is both oversized and incapable of row-group pruning — this requires inspecting the file's internal structure (row groups, compression, encoding, statistics) to discover that the baseline uses no compression, a single monolithic row group, default plain encodings for all columns, and no usable column statistics. The agent must then profile each column's data distribution (sequential integers, monotonic timestamps, narrow-range floats, low-cardinality categorical strings, booleans, high-cardinality JSON) and select the optimal Parquet v2 encoding for each — a decision that requires deep knowledge of encoding algorithms and their data-affinity characteristics. Critically, the agent must discover that DuckDB's built-in COPY command cannot satisfy per-column encoding requirements, forcing a switch to pyarrow's low-level ParquetWriter API with column_encoding, use_dictionary, and data_page_version parameters. The agent must also embed custom schema metadata and produce an accurate analysis report by inspecting the output file's metadata programmatically."""
+solution_explanation = """Read baseline with pyarrow, sort by event_timestamp, profile columns to choose encodings (DELTA_BINARY_PACKED for sequential/monotonic integers, BYTE_STREAM_SPLIT for narrow-range floats, RLE_DICTIONARY for low-cardinality strings), attach optimization_config metadata to schema, then write 4 row groups of 250K rows using ParquetWriter with column_encoding and use_dictionary, ZSTD compression, write_statistics=True, and data_page_version='2.0'. Inspect output metadata with pyarrow and query cardinalities with DuckDB to generate analysis.json."""
+verification_explanation = """Tests verify: (1) data integrity via aggregate checksums and float column hash comparison, (2) file size <= 20% of baseline, (3) ZSTD compression on every column in every row group, (4) exactly 4 row groups of 250K rows each, (5) non-overlapping timestamp and record_id ranges across row groups, (6) min/max statistics present for record_id and event_timestamp, (7) per-column encoding verification — DELTA_BINARY_PACKED for integers, BYTE_STREAM_SPLIT for floats, RLE_DICTIONARY for low-cardinality strings, (8) optimization_config key in Parquet schema metadata containing all 10 column encoding mappings, (9) analysis.json structural completeness with accurate file sizes, compression ratio, row group boundaries, per-column physical types, encodings, cardinalities, and rationale."""
+category = "data_engineering"
+tags = ["parquet", "storage-optimization", "duckdb"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-038d33"

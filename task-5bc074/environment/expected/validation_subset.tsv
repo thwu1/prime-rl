@@ -1,0 +1,7 @@
+CHROM	POS	REF	ALT	GENE	FEATURE	EFFECT	AA_CHANGE
+chr1	50	A	T	.	intergenic	intergenic_variant	.
+chr1	218	TT	T	ALPHA	CDS	frameshift_variant	.
+chr1	530	C	T	BETA	CDS	synonymous_variant	p.Cys10Cys
+chr1	800	T	A	BETA	CDS	missense_variant	p.Ile67Asn
+chr1	1200	C	T	GAMMA	CDS	missense_variant	p.Ala51Thr
+chr1	1300	T	G	GAMMA	CDS	synonymous_variant	p.Leu17Leu

@@ -1,0 +1,25 @@
+{
+  "well_typed": true,
+  "globals": {
+    "x": {"type": "int", "kind": "var"},
+    "y": {"type": "int", "kind": "var"},
+    "z": {"type": "int", "kind": "var"},
+    "w": {"type": "int", "kind": "var"},
+    "r": {"type": "int", "kind": "var"},
+    "neg": {"type": "int", "kind": "var"},
+    "a": {"type": "bool", "kind": "var"},
+    "b": {"type": "bool", "kind": "var"},
+    "c": {"type": "bool", "kind": "var"},
+    "d": {"type": "bool", "kind": "var"},
+    "e": {"type": "bool", "kind": "var"},
+    "f": {"type": "bool", "kind": "var"},
+    "s1": {"type": "str", "kind": "var"},
+    "s2": {"type": "str", "kind": "var"},
+    "s3": {"type": "str", "kind": "var"},
+    "ch": {"type": "str", "kind": "var"},
+    "n": {"type": "int", "kind": "var"},
+    "eq": {"type": "bool", "kind": "var"}
+  },
+  "classes": {},
+  "errors": []
+}

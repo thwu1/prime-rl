@@ -1,0 +1,152 @@
+{
+  "cshake": [
+    {
+      "name": "cSHAKE128 Sample 1",
+      "security": 128,
+      "data": "00010203",
+      "N": "",
+      "S": "Email Signature",
+      "output_bits": 256,
+      "expected": "c1c36925b6409a04f1b504fcbca9d82b4017277cb5ed2b2065fc1d3814d5aaf5"
+    },
+    {
+      "name": "cSHAKE128 Sample 2",
+      "security": 128,
+      "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7",
+      "N": "",
+      "S": "Email Signature",
+      "output_bits": 256,
+      "expected": "c5221d50e4f822d96a2e8881a961420f294b7b24fe3d2094baed2c6524cc166b"
+    },
+    {
+      "name": "cSHAKE256 Sample 3",
+      "security": 256,
+      "data": "00010203",
+      "N": "",
+      "S": "Email Signature",
+      "output_bits": 512,
+      "expected": "d008828e2b80ac9d2218ffee1d070c48b8e4c87bff32c9699d5b6896eee0edd164020e2be0560858d9c00c037e34a96937c561a74c412bb4c746469527281c8c"
+    },
+    {
+      "name": "cSHAKE256 Sample 4",
+      "security": 256,
+      "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7",
+      "N": "",
+      "S": "Email Signature",
+      "output_bits": 512,
+      "expected": "07dc27b11e51fbac75bc7b3c1d983e8b4b85fb1defaf218912ac86430273091727f42b17ed1df63e8ec118f04b23633c1dfb1574c8fb55cb45da8e25afb092bb"
+    }
+  ],
+  "kmac": [
+    {
+      "name": "KMAC128 Sample 1",
+      "security": 128,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "00010203",
+      "S": "",
+      "output_bits": 256,
+      "expected": "e5780b0d3ea6f7d3a429c5706aa43a00fadbd7d49628839e3187243f456ee14e"
+    },
+    {
+      "name": "KMAC128 Sample 2",
+      "security": 128,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "00010203",
+      "S": "My Tagged Application",
+      "output_bits": 256,
+      "expected": "3b1fba963cd8b0b59e8c1a6d71888b7143651af8ba0a7070c0979e2811324aa5"
+    },
+    {
+      "name": "KMAC128 Sample 3",
+      "security": 128,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7",
+      "S": "My Tagged Application",
+      "output_bits": 256,
+      "expected": "1f5b4e6cca02209e0dcb5ca635b89a15e271ecc760071dfd805faa38f9729230"
+    },
+    {
+      "name": "KMAC256 Sample 4",
+      "security": 256,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "00010203",
+      "S": "My Tagged Application",
+      "output_bits": 512,
+      "expected": "20c570c31346f703c9ac36c61c03cb64c3970d0cfc787e9b79599d273a68d2f7f69d4cc3de9d104a351689f27cf6f5951f0103f33f4f24871024d9c27773a8dd"
+    },
+    {
+      "name": "KMAC256 Sample 5",
+      "security": 256,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7",
+      "S": "",
+      "output_bits": 512,
+      "expected": "75358cf39e41494e949707927cee0af20a3ff553904c86b08f21cc414bcfd691589d27cf5e15369cbbff8b9a4c2eb17800855d0235ff635da82533ec6b759b69"
+    },
+    {
+      "name": "KMAC256 Sample 6",
+      "security": 256,
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "data": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7",
+      "S": "My Tagged Application",
+      "output_bits": 512,
+      "expected": "b58618f71f92e1d56c1b8c55ddd7cd188b97b4ca4d99831eb2699a837da2e4d970fbacfde50033aea585f1a2708510c32d07880801bd182898fe476876fc8965"
+    }
+  ],
+  "tuplehash": [
+    {
+      "name": "TupleHash128 Sample 1",
+      "security": 128,
+      "tuples": ["000102", "101112131415"],
+      "S": "",
+      "output_bits": 256,
+      "expected": "c5d8786c1afb9b82111ab34b65b2c0048fa64e6d48e263264ce1707d3ffc8ed1"
+    },
+    {
+      "name": "TupleHash128 Sample 2",
+      "security": 128,
+      "tuples": ["000102", "101112131415"],
+      "S": "My Tuple App",
+      "output_bits": 256,
+      "expected": "75cdb20ff4db1154e841d758e24160c54bae86eb8c13e7f5f40eb35588e96dfb"
+    },
+    {
+      "name": "TupleHash128 Sample 3",
+      "security": 128,
+      "tuples": ["000102", "101112131415", "202122232425262728"],
+      "S": "My Tuple App",
+      "output_bits": 256,
+      "expected": "e60f202c89a2631eda8d4c588ca5fd07f39e5151998deccf973adb3804bb6e84"
+    },
+    {
+      "name": "TupleHash256 Sample 4",
+      "security": 256,
+      "tuples": ["000102", "101112131415"],
+      "S": "",
+      "output_bits": 512,
+      "expected": "cfb7058caca5e668f81a12a20a2195ce97a925f1dba3e7449a56f82201ec607311ac2696b1ab5ea2352df1423bde7bd4bb78c9aed1a853c78672f9eb23bbe194"
+    },
+    {
+      "name": "TupleHash256 Sample 5",
+      "security": 256,
+      "tuples": ["000102", "101112131415"],
+      "S": "My Tuple App",
+      "output_bits": 512,
+      "expected": "147c2191d5ed7efd98dbd96d7ab5a11692576f5fe2a5065f3e33de6bba9f3aa1c4e9a068a289c61c95aab30aee1e410b0b607de3620e24a4e3bf9852a1d4367e"
+    },
+    {
+      "name": "TupleHash256 Sample 6",
+      "security": 256,
+      "tuples": ["000102", "101112131415", "202122232425262728"],
+      "S": "My Tuple App",
+      "output_bits": 512,
+      "expected": "45000be63f9b6bfd89f54717670f69a9bc763591a4f05c50d68891a744bcc6e7d6d5b5e82c018da999ed35b0bb49c9678e526abd8e85c13ed254021db9e790ce"
+    }
+  ],
+  "debug_reference": {
+    "description": "Keccak-f[1600] intermediate: state after first permutation in cSHAKE128 Sample 1. Use to debug the permutation by comparing your implementation's output on the given input block.",
+    "note": "The input block is bytepad(encode_string('') || encode_string('Email Signature'), 168) = 168 bytes. This is XORed into the all-zeros initial state, then the permutation is applied.",
+    "input_block_hex": "01a801000178456d61696c205369676e617475726500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "expected_state_after_permutation_hex": "194ccd058b2a83d60229dc6984d14f158b694fa4bd39b21f84fb06c8cbc67b842def9e2bdbf0f8e1bd14eaccdc582684624b41b64a0851068179fdfbcadb731e17593647ed96c6e35cda77069754f5f825664292c67978fcb7bd5831ed1076a6fd14f34fffab28729660ab82df4afdff81ef671c9181e5c6eb8227f6a072c8e29178282ee5a9e683925e97c5f15f716823b8e1056c7dc84614947e4a31ece00d8b1edab478740e824178e7c28065c0c5cc84749cad7fc3c60de727618b56fe3af003fdd5ab025428"
+  }
+}

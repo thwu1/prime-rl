@@ -1,0 +1,12 @@
+{
+    "process": "Direct stop pair production, pp -> t~1 t~1* -> (t chi~0_1)(tbar chi~0_1)",
+    "signal_model": "T2tt simplified model",
+    "mass_stop_GeV": 1000,
+    "mass_neutralino_GeV": 100,
+    "cross_section_pb": 0.0855,
+    "luminosity_ifb": 137.0,
+    "n_generated": 100000,
+    "sqrt_s_TeV": 13,
+    "jet_energy_scale": 1.023,
+    "notes": "Jet transverse momenta are stored uncorrected. Apply jet_energy_scale before analysis. MET must also be corrected (Type-I correction) after JES application."
+}

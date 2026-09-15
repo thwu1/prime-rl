@@ -1,0 +1,14 @@
+{
+  "gpus": [
+    {
+      "index": 0,
+      "name": "NVIDIA GeForce RTX 4090",
+      "vram_bytes": 25769803776,
+      "compute_capability": "8.9",
+      "pcie_gen": 4,
+      "pcie_width": 16,
+      "driver_version": "550.54.15",
+      "cuda_version": "12.4"
+    }
+  ]
+}

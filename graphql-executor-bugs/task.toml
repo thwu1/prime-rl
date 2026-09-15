@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the GraphQL execution specification across twelve interacting subsystems: the CompleteValue algorithm for Non-Null null-propagation, list completion with per-element error path tracking, fragment collection for named and inline fragments with type condition evaluation across object types/interfaces/unions, alias-based response naming, AST value extraction with variable substitution, @skip/@include directive evaluation, variable definition default value processing, scalar type serialization through the type system's coercion layer, resolver value integrity for falsy JavaScript primitives, field argument extraction from query AST nodes with schema-defined default merging, and function resolver invocation with coerced argument objects. Twelve bugs must be identified through test failure analysis and fixed with precise spec-compliant implementations. The bugs form a deeply coupled web of interactions: the falsy-value resolver bug (||->??) masks the scalar serialization bug because falsy values like 0 become null before serialization runs; the argument extraction stub prevents function resolvers from ever receiving correct inputs; fixing variable resolution exposes the argument default merging requirement; null-bubbling fixes reveal list-index path issues; fragment fixes expose union type-condition failures; function resolver null returns require both null propagation and argument extraction fixes; and the comprehensive all-twelve-bugs test requires all fixes working simultaneously across NonNull chains, list paths, aliases, named fragments, union types, variable defaults, directives, scalar coercion, falsy values, and function resolvers with schema argument defaults. The solver must also design and implement the complete field argument pipeline as a new subsystem that integrates with the existing execution flow."""
+solution_explanation = """Twelve bugs in executor.ts must be fixed: (1) Non-Null handler must throw FieldError instead of returning null to enable null propagation through NonNull chains; (2) List completion must create per-element path nodes with createPath(path, index) instead of reusing the list field's path; (3) collectFields must use selection.alias?.value ?? selection.name.value for response names; (4) collectFields must handle Kind.FRAGMENT_SPREAD by looking up fragment definitions, checking type conditions, and recursively collecting fields; (5) doesFragmentTypeApply must check union membership via isUnionType and getTypes(); (6) valueFromAST for Kind.VARIABLE must look up variables[name] instead of returning the variable name string; (7) shouldIncludeNode must use '!value' (not 'value') for the @include directive check; (8) executeGraphQL must process operation.variableDefinitions to extract default values via valueFromAST and merge them with provided variables; (9) completeValue for leaf types must call namedType.serialize(result) instead of returning the raw result; (10) resolveFieldValue must use the nullish coalescing operator (??) instead of the logical OR operator (||); (11) getFieldArguments must iterate fieldDef.args for schema-defined defaults and fieldNode.arguments for query-provided values using valueFromAST with variable resolution; (12) resolveFieldValue must check typeof val === 'function' and call val(args) to support function-based resolvers."""
+verification_explanation = """Tests run the executor via subprocess (JSON CLI) and direct TypeScript import against 61 test scenarios. JSON-CLI tests cover basic resolution, null-bubbling at various depths, list error paths, NonNull-list interactions, aliases, named/nested fragments, interface/union type resolution, @skip/@include with literal and variable arguments, dual-directive precedence, variable default values, scalar type serialization, falsy value integrity, and cascading interactions. TypeScript-direct tests exercise function resolvers with field arguments: literal arguments, variable-resolved arguments, schema-defined argument defaults, default overrides, function results requiring scalar serialization, aliased function fields, NonNull propagation from function resolvers, multiple arguments, arguments with operation variable defaults, plain values with arguments, arguments combined with directives and variable defaults, function resolvers returning falsy values, and a comprehensive all-twelve-bugs test combining every subsystem in a single query with strict type assertions."""
+category = "debugging"
+tags = ["graphql", "typescript"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graphql-executor-bugs"

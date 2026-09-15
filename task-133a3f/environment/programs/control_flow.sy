@@ -1,0 +1,42 @@
+int main() {
+    // Nested loops with break
+    int i = 0;
+    int total = 0;
+    while (i < 5) {
+        int j = 0;
+        while (j < 10) {
+            if (j == 3) break;
+            total = total + j;
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    putint(total);
+    putch(10);
+
+    // Continue test: sum odd numbers 1..9
+    int sum = 0;
+    i = 0;
+    while (i < 10) {
+        i = i + 1;
+        if (i % 2 == 0) continue;
+        sum = sum + i;
+    }
+    putint(sum);
+    putch(10);
+
+    // Nested if-else chain
+    i = 42;
+    if (i > 100) {
+        putint(1);
+    } else if (i > 50) {
+        putint(2);
+    } else if (i > 40) {
+        putint(3);
+    } else {
+        putint(4);
+    }
+    putch(10);
+
+    return 0;
+}

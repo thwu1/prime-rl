@@ -1,0 +1,37 @@
+# Maintainer: Package Maintainer <maintainer@example.com>
+
+_runtime=nodejs
+pkgname=('appserver' 'appserver-modules')
+pkgbase=appserver
+pkgver=5.1.0
+pkgrel=1
+pkgdesc="Application server framework"
+arch=('x86_64')
+url="https://example.com/${pkgbase}"
+license=('GPL-3.0')
+makedepends=("${_runtime}" 'syslibs-dev')
+source=("https://example.com/releases/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4')
+
+build() {
+    cd "${pkgbase}-${pkgver}"
+    npm run build
+}
+
+package_appserver() {
+    pkgdesc="Application server - core runtime"
+    depends=('webstack' 'syslibs' "${_runtime}")
+    provides=('application-server=5.1.0')
+    conflicts=('legacy-appserver')
+
+    cd "${pkgbase}-${pkgver}"
+    make DESTDIR="${pkgdir}" install-core
+}
+
+package_appserver-modules() {
+    pkgdesc="Application server - extension modules"
+    depends=('appserver' 'plugin-framework')
+
+    cd "${pkgbase}-${pkgver}"
+    make DESTDIR="${pkgdir}" install-modules
+}

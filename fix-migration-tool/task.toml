@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 interrelated bugs across a multi-module Python codebase with zero hints about which modules are broken or what the defects are. The bugs form a diagnostic cascade: the graph algorithm bug blocks migration execution entirely, masking downstream defects in SQL parsing, state tracking, checksum verification, and process locking. After discovering all root causes via code analysis and sqlite3 inspection of a reference database, the solver must also architect and implement a new diagnostic subcommand that cross-references filesystem state, dependency graph structure, and database tracking records — requiring holistic understanding of the entire system's design."""
+solution_explanation = """Five targeted fixes: (1) replace single-set DFS cycle detection with 3-color marking so diamond dependency graphs aren't falsely flagged, (2) replace naive semicolon splitting with a character-level scanner that tracks string literal state, (3) add the missing 'status' column to the INSERT in mark_applied, (4) add re.MULTILINE flag to the comment-stripping regex, (5) convert PID string to int before passing to os.kill. Then implement a check subcommand on MigrationExecutor that discovers migrations, validates the dependency graph, compares stored vs. computed checksums, detects orphaned tracking records, and outputs a structured JSON report."""
+verification_explanation = """22 pytest tests organized across 6 test classes. Migration execution is verified by checking table creation, dependency ordering, and output messages. Data integrity is verified by querying inserted rows and validating foreign key joins. Idempotency is tested by running migrate twice and asserting zero re-applications. Checksum stability is tested with files differing only in comments. Locking is tested with stale/active PIDs. The check subcommand is validated against fresh databases, fully-migrated databases, checksum-mismatch scenarios, orphaned-record scenarios, and a production reference database created during Docker build."""
+category = "DevTools"
+tags = ["Python", "SQLite", "debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-migration-tool"

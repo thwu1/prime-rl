@@ -1,0 +1,33 @@
+# Program 4: Loop with branches, merge point, constant propagation + DCE
+# Tests that the optimizer propagates constants into loop bodies and
+# correctly handles merge points (val has different values on each path).
+FUNC main():
+  LABEL entry:
+    n = 5
+    sum = 0
+    i = 0
+    base = 10
+    offset = 5
+    GOTO test
+  LABEL loop_top:
+    rem = i % 2
+    IF rem GOTO odd_case
+    GOTO even_case
+  LABEL even_case:
+    val = i * base
+    GOTO merge
+  LABEL odd_case:
+    t = i * base
+    val = t + offset
+    GOTO merge
+  LABEL merge:
+    sum = sum + val
+    dead = base * offset
+    i = i + 1
+  LABEL test:
+    cond = i < n
+    IF cond GOTO loop_top
+  LABEL done:
+    PRINT sum
+    RETURN 0
+ENDFUNC

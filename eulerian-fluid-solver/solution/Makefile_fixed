@@ -1,0 +1,8 @@
+CC = gcc
+CFLAGS = -O2 -Wall -fPIC
+
+libsolver.so: solver.c
+	$(CC) $(CFLAGS) -shared -o $@ $< -lm
+
+clean:
+	rm -f libsolver.so

@@ -1,0 +1,11 @@
+{
+  "trust_name": "Santander Drive Auto Receivables Trust 2026-1",
+  "depositor_name": "Santander Drive Auto Receivables LLC",
+  "depositor_cik": "0001383094",
+  "trust_identifier": "SDART 2026-1",
+  "asset_type_prefix": "SDART0202600001",
+  "collection_period_start": "2026-05-01",
+  "collection_period_end": "2026-05-31",
+  "original_pool_balance": 1936166715.66,
+  "original_loan_count": 86349
+}

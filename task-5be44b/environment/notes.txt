@@ -1,0 +1,38 @@
+VM Architecture Notes (recovered from partial analysis)
+========================================================
+
+Architecture:
+  - 8 general-purpose 32-bit registers (r0-r7)
+  - 4096-byte linear memory, little-endian byte order
+  - Internal stack for subroutine calls and general push/pop
+  - Instruction stream is separate from data memory
+
+Instruction encoding:
+  - 1-byte opcode, followed by operand bytes
+  - Register operands: 1 byte (low 3 bits = register index)
+  - 32-bit immediate operands: 4 bytes, little-endian
+  - Branch/call targets: 2 bytes, little-endian (absolute code address)
+
+Known opcodes:
+  0x10  reg, imm32   - Load 32-bit immediate into register
+  0x11  dst, src     - Copy register value
+  0x20  dst, a, b    - dst = a + b (32-bit wrapping addition)
+  0x30  dst, a, b    - dst = a XOR b
+  0x41  val, addr    - Store 32-bit word to memory[reg[addr]]
+  0x50  a, b         - Compare registers (sets internal flags)
+  0x52  target       - Jump if not equal
+  0x60  target       - Call subroutine (pushes return address)
+  0x61              - Return from subroutine
+  0x70  reg          - Push register onto stack
+  0x71  reg          - Pop stack into register
+  0xF0  num          - System call
+  0xFF              - No operation
+
+System calls (opcode 0xF0, followed by syscall number byte):
+  0x01: Read input into memory (r0=destination address, r1=byte count)
+  0x02: Write memory to output (r0=source address, r1=byte count)
+  0x03: Halt VM execution
+
+Note: Additional arithmetic, bitwise, and shift/rotate opcodes exist
+but were not documented. Binary analysis of /app/vm is required to
+recover the complete instruction set.

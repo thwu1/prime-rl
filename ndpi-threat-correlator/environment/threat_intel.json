@@ -1,0 +1,54 @@
+{
+  "feed_version": "2024-01-31",
+  "indicators": [
+    {
+      "type": "ip",
+      "value": "185.141.27.93",
+      "threat_name": "CobaltBeacon-C2",
+      "confidence": "high",
+      "tags": ["c2", "apt"]
+    },
+    {
+      "type": "domain",
+      "value": "exfil-srv.net",
+      "threat_name": "DataThief-Tunnel",
+      "confidence": "high",
+      "tags": ["dns-tunnel", "exfil"]
+    },
+    {
+      "type": "ja4",
+      "value": "t13d1715h2_5b57614c22b0_3d5424432f57",
+      "threat_name": "CobaltBeacon-C2",
+      "confidence": "medium",
+      "tags": ["tls-fingerprint", "c2"]
+    },
+    {
+      "type": "ip",
+      "value": "198.51.100.200",
+      "threat_name": "DarkProxy-Anon",
+      "confidence": "medium",
+      "tags": ["proxy", "anonymizer"]
+    },
+    {
+      "type": "cert_sha1",
+      "value": "D8:1B:4E:7A:C3:5F:92:06:E8:A4:3D:71:B9:C6:2E:F5:0A:8D:43:16",
+      "threat_name": "DarkProxy-Anon",
+      "confidence": "high",
+      "tags": ["self-signed", "proxy"]
+    },
+    {
+      "type": "ip",
+      "value": "45.33.32.156",
+      "threat_name": "ScanBot-Recon",
+      "confidence": "low",
+      "tags": ["scanner"]
+    },
+    {
+      "type": "domain",
+      "value": "malware-cdn.evil.com",
+      "threat_name": "MalDist-CDN",
+      "confidence": "high",
+      "tags": ["malware-delivery"]
+    }
+  ]
+}

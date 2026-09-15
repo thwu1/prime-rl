@@ -1,0 +1,41 @@
+{
+  "_description": "Partial oracle: known-correct output values for the Processor Alpha evaluation. Derived from a verified reference implementation of the BESSPIN Scale specification.",
+  "besspin_scale": 30.7312,
+  "verified_cwe_scores": {
+    "bufferErrors/BE/120": {
+      "exact_value": 3.0,
+      "floor_score": "NONE",
+      "_note": "Parts scored NONE and DETECTED"
+    },
+    "bufferErrors/BE/787": {
+      "exact_value": 2.0,
+      "floor_score": "LOW",
+      "_note": "Parts scored MED and NONE"
+    },
+    "resourceManagement/RC/416": {
+      "exact_value": 0.5,
+      "floor_score": "HIGH",
+      "_note": "Parts scored MED and HIGH"
+    },
+    "informationLeakage/IS/212": {
+      "exact_value": 3.0,
+      "floor_score": "DETECTED",
+      "_note": "Single part scored DETECTED"
+    }
+  },
+  "verified_category_info": {
+    "resourceManagement/MDL": {
+      "normalized_score": 0.0,
+      "valid_cwe_count": 1,
+      "_note": "Only CWE-588 contributes; CWE-762 (CALL_ERR) is excluded from the average"
+    },
+    "hardwareSoC/Selected": {
+      "normalized_score": null,
+      "_note": "All CWEs scored NOT_APPLICABLE — category excluded from BESSPIN Scale"
+    }
+  },
+  "naive_tally": {
+    "total_cwes": 26,
+    "binary_pass_count": 6
+  }
+}

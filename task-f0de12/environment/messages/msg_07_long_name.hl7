@@ -1,0 +1,6 @@
+MSH|^~\&|SendApp|SendFac|RecvApp|RecvFac|20240115120000||ORU^R01^ORU_R01|MSG00007|P|2.5.1
+PID|1||12345^^^MRN||Abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz^John||19800101|M
+NK1|1|Doe^Jane|SPO
+ORC|RE||F12345
+OBR|1||F12345|26464-8^Differential panel^LN
+OBX|1|NM|26515-7^Platelets^LN||250|10*3/uL|150-400||||F

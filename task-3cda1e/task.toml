@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating four distinct tool systems (PROJ CLI for geodetic coordinate projection, GMT CLI for spatial gridding with RPN-style grdmath operators, Python for numerical computation, and shell scripting for pipeline orchestration). The agent must implement the Somigliana equation from GRS80 ellipsoid parameters without a formula sheet — computing equator and pole gravity from closed-form expressions involving the linear eccentricity and auxiliary arctan functions. The rectangular prism gravity forward model (Nagy 2000) must be implemented from domain knowledge, including numerically stable 4-branch logarithm and custom arctangent kernels with correct vertex alternating-sign summation. The agent must understand the relationship between observed gravity, normal gravity, and gravity disturbance to isolate the anomalous signal (sub-mGal) from the dominant normal field (~980,000 mGal). GMT gridding and gradient computation requires learning unfamiliar reverse-Polish notation syntax for grdmath."""
+solution_explanation = """Use proj CLI to batch-transform geographic coordinates to local Cartesian. Implement the Somigliana equation by computing GRS80 equator/pole gravity from closed-form expressions (linear eccentricity, second eccentricity, arctan-based auxiliary functions). Subtract normal gravity from observed to isolate sub-mGal gravity disturbance. Implement Nagy 2000 prism kernels (safe_log with 4 branches for numerical stability, safe_atan2, kernel_u for upward acceleration, kernel_ee/nn/uu for diagonal tensor). Build a 36x5 sensitivity matrix and solve via least-squares. Write XYZ file and run gmt surface for gridding. Compute horizontal gradient via gmt grdmath DDX/DDY/POW/ADD/SQRT chain. Extract max gradient location. Compute tensor diagonal sum at evaluation points for Laplace verification."""
+verification_explanation = """Tests verify: (1) projected coordinates match independent PROJ CLI output within 0.1m, (2) normal gravity matches reference Somigliana implementation within 0.001 mGal, (3) recovered densities match ground-truth within 0.1%, (4) forward-modeled gravity from recovered densities reproduces disturbance data within 1e-6 mGal relative tolerance, (5) GMT grid file exists with correct region and dimensions verified via gmt grdinfo, (6) gradient max location is within grid bounds and magnitude is within plausible range verified against independent reference computation, (7) Laplace residual g_ee+g_nn+g_uu < 1e-15 at all 8 evaluation points independently verified by reference implementation."""
+category = "applied_science"
+tags = ["geophysics", "geodesy"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-3cda1e"

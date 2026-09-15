@@ -1,0 +1,15 @@
+---
+- name: Generate system report
+  hosts: local
+  tasks:
+    - name: Generate report file
+      ansible.builtin.copy:
+        dest: /var/log/system_report.txt
+        content: |
+          HOSTNAME={{ inventory_hostname }}
+          MEMORY_MB={{ ansible_memtotal_mb }}
+          OS={{ ansible_distribution }} {{ ansible_distribution_version }}
+          KERNEL={{ ansible_kernel }}
+          APP_NAME={{ app_name }}
+          APP_PORT={{ app_port }}
+          ADMIN_EMAIL={{ admin_email }}

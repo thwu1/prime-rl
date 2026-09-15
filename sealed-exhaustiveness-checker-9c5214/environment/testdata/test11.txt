@@ -1,0 +1,13 @@
+# Test 11: Guarded enum constant pattern
+# A guarded enum constant should NOT count towards exhaustiveness.
+# Expected: not exhaustive, Status.ACTIVE missing
+
+TYPES
+enum Status ACTIVE INACTIVE PENDING
+
+SWITCHES
+switch s1 Status
+guarded_enum Status.ACTIVE
+enum Status.INACTIVE
+enum Status.PENDING
+end

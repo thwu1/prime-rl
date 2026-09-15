@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of three interrelated domain-specific configuration formats from the E3SM Earth system model: (1) XML compset definitions with an implicit positional naming convention that must be reverse-engineered from the help section and data patterns, (2) a custom XML-based parameter system with process-level inheritance, conditional selectors using regex matching, and metadata annotations, and (3) Python source code as data with inheritance semantics and syntactic edge cases. The agent must build a normalized SQLite database and answer cross-domain analytical queries that require holistic understanding of how these systems interact — not just parsing, but understanding the EAMxx configuration resolution semantics, process hierarchy, and selector precedence rules."""
+solution_explanation = """Parse config_compsets.xml with ElementTree to extract alias→longname mappings. Parse the atmosphere_processes_defaults section of eamxx_namelist_defaults.xml to extract process definitions with their inherit attributes, identifying groups vs leaf processes. Parse test_suites.py via exec to get the _TESTS dict. Build a SQLite database with normalized tables. Compute query results: process hierarchy from inherit attributes, constrained params by scanning for constraints attributes, suite resolution via recursive inheritance with memoization, compset decomposition by splitting longnames on underscores with the positional convention from the XML help section, physics pipeline variants from COMPSET-conditional atm_procs_list entries, radiation frequencies from hgrid-conditional entries."""
+verification_explanation = """Tests independently parse all three data files using the same canonical methods, compute all expected values from scratch, and compare against the agent's outputs. Database schema and contents are verified via SQL queries. Process hierarchy, constrained params, suite counts, and component breakdowns are all independently computed by the test reference implementation."""
+category = "systems"
+tags = ["earth-system-modeling", "configuration-management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-67cfab"

@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Call Report XBRL Instance Document (Supplement)
+  FDIC Certificate: 99901
+  Income Statement (RIAD Schedule) and Supplemental Ratio Items (RCONA)
+  Values in thousands of dollars ($000s) unless unitRef="PURE"
+
+-->
+<xbrli:xbrl
+    xmlns:xbrli="http://www.xbrl.org/2003/instance"
+    xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+    xmlns:call="http://www.ffiec.gov/xbrl/call/2024"
+    xmlns:link="http://www.xbrl.org/2003/linkbase"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <link:schemaRef xlink:type="simple" xlink:href="http://www.ffiec.gov/xbrl/call/2024/call.xsd"/>
+
+  <!-- Unit definitions -->
+  <xbrli:unit id="USD">
+    <xbrli:measure>iso4217:USD</xbrli:measure>
+  </xbrli:unit>
+  <xbrli:unit id="PURE">
+    <xbrli:measure>xbrli:pure</xbrli:measure>
+  </xbrli:unit>
+
+  <!-- Instant contexts (for point-in-time items: RCONA ratios) -->
+  <xbrli:context id="I001">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2024-09-30</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="I002">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2024-06-30</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="I003">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2024-03-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="I004">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2023-12-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="I005">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2023-09-30</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+
+  <!-- Duration contexts (for year-to-date income items: RIAD schedule) -->
+  <xbrli:context id="D001">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-01-01</xbrli:startDate>
+      <xbrli:endDate>2024-09-30</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="D002">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-01-01</xbrli:startDate>
+      <xbrli:endDate>2024-06-30</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="D003">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://www.fdic.gov/cert">99901</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:startDate>2024-01-01</xbrli:startDate>
+      <xbrli:endDate>2024-03-31</xbrli:endDate>
+    </xbrli:period>
+  </xbrli:context>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- RIAD Schedule: Income Statement Items (Year-to-Date, Duration)     -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- RIAD4010: Total Interest Income -->
+  <call:RIAD4010 contextRef="D001" unitRef="USD" decimals="0">52000</call:RIAD4010>
+  <call:RIAD4010 contextRef="D002" unitRef="USD" decimals="0">34000</call:RIAD4010>
+  <call:RIAD4010 contextRef="D003" unitRef="USD" decimals="0">16500</call:RIAD4010>
+
+  <!-- RIAD4065: Interest Income on Balances Due from Depository Institutions -->
+  <call:RIAD4065 contextRef="D001" unitRef="USD" decimals="0">300</call:RIAD4065>
+  <call:RIAD4065 contextRef="D002" unitRef="USD" decimals="0">200</call:RIAD4065>
+  <call:RIAD4065 contextRef="D003" unitRef="USD" decimals="0">100</call:RIAD4065>
+
+  <!-- RIAD4115: Interest Income on Federal Funds Sold -->
+  <call:RIAD4115 contextRef="D001" unitRef="USD" decimals="0">1200</call:RIAD4115>
+  <call:RIAD4115 contextRef="D002" unitRef="USD" decimals="0">780</call:RIAD4115>
+  <call:RIAD4115 contextRef="D003" unitRef="USD" decimals="0">380</call:RIAD4115>
+
+  <!-- RIADB488: Interest and Dividend Income on Securities - US Treasuries and Gov Agencies -->
+  <call:RIADB488 contextRef="D001" unitRef="USD" decimals="0">3500</call:RIADB488>
+  <call:RIADB488 contextRef="D002" unitRef="USD" decimals="0">2300</call:RIADB488>
+  <call:RIADB488 contextRef="D003" unitRef="USD" decimals="0">1150</call:RIADB488>
+
+  <!-- RIADB489: Interest and Dividend Income on Securities - MBS -->
+  <call:RIADB489 contextRef="D001" unitRef="USD" decimals="0">5000</call:RIADB489>
+  <call:RIADB489 contextRef="D002" unitRef="USD" decimals="0">3300</call:RIADB489>
+  <call:RIADB489 contextRef="D003" unitRef="USD" decimals="0">1650</call:RIADB489>
+
+  <!-- RIAD4060: Interest and Dividend Income on Securities - Other -->
+  <call:RIAD4060 contextRef="D001" unitRef="USD" decimals="0">900</call:RIAD4060>
+  <call:RIAD4060 contextRef="D002" unitRef="USD" decimals="0">580</call:RIAD4060>
+  <call:RIAD4060 contextRef="D003" unitRef="USD" decimals="0">280</call:RIAD4060>
+
+  <!-- RIAD4020: Interest Income on Trading Assets -->
+  <call:RIAD4020 contextRef="D001" unitRef="USD" decimals="0">500</call:RIAD4020>
+  <call:RIAD4020 contextRef="D002" unitRef="USD" decimals="0">330</call:RIAD4020>
+  <call:RIAD4020 contextRef="D003" unitRef="USD" decimals="0">165</call:RIAD4020>
+
+  <!-- RIAD4518: Other Interest Income -->
+  <call:RIAD4518 contextRef="D001" unitRef="USD" decimals="0">100</call:RIAD4518>
+  <call:RIAD4518 contextRef="D002" unitRef="USD" decimals="0">60</call:RIAD4518>
+  <call:RIAD4518 contextRef="D003" unitRef="USD" decimals="0">25</call:RIAD4518>
+
+  <!-- RIAD4073: Total Interest Expense -->
+  <call:RIAD4073 contextRef="D001" unitRef="USD" decimals="0">24000</call:RIAD4073>
+  <call:RIAD4073 contextRef="D002" unitRef="USD" decimals="0">15700</call:RIAD4073>
+  <call:RIAD4073 contextRef="D003" unitRef="USD" decimals="0">7600</call:RIAD4073>
+
+  <!-- RIAD4079: Total Noninterest Income -->
+  <call:RIAD4079 contextRef="D001" unitRef="USD" decimals="0">7500</call:RIAD4079>
+  <call:RIAD4079 contextRef="D002" unitRef="USD" decimals="0">4900</call:RIAD4079>
+  <call:RIAD4079 contextRef="D003" unitRef="USD" decimals="0">2400</call:RIAD4079>
+
+  <!-- RIAD4135: Salaries and Employee Benefits -->
+  <call:RIAD4135 contextRef="D001" unitRef="USD" decimals="0">11000</call:RIAD4135>
+  <call:RIAD4135 contextRef="D002" unitRef="USD" decimals="0">7300</call:RIAD4135>
+  <call:RIAD4135 contextRef="D003" unitRef="USD" decimals="0">3600</call:RIAD4135>
+
+  <!-- RIAD4217: Expenses of Premises and Fixed Assets -->
+  <call:RIAD4217 contextRef="D001" unitRef="USD" decimals="0">2200</call:RIAD4217>
+  <call:RIAD4217 contextRef="D002" unitRef="USD" decimals="0">1450</call:RIAD4217>
+  <call:RIAD4217 contextRef="D003" unitRef="USD" decimals="0">720</call:RIAD4217>
+
+  <!-- RIAD4092: Other Noninterest Expense -->
+  <call:RIAD4092 contextRef="D001" unitRef="USD" decimals="0">5500</call:RIAD4092>
+  <call:RIAD4092 contextRef="D002" unitRef="USD" decimals="0">3600</call:RIAD4092>
+  <call:RIAD4092 contextRef="D003" unitRef="USD" decimals="0">1750</call:RIAD4092>
+
+  <!-- RIADC216: Goodwill Impairment Losses -->
+  <call:RIADC216 contextRef="D001" unitRef="USD" decimals="0">0</call:RIADC216>
+  <call:RIADC216 contextRef="D002" unitRef="USD" decimals="0">0</call:RIADC216>
+  <call:RIADC216 contextRef="D003" unitRef="USD" decimals="0">0</call:RIADC216>
+
+  <!-- RIADC232: Amortization Expense and Impairment Losses for Other Intangible Assets -->
+  <call:RIADC232 contextRef="D001" unitRef="USD" decimals="0">100</call:RIADC232>
+  <call:RIADC232 contextRef="D002" unitRef="USD" decimals="0">65</call:RIADC232>
+  <call:RIADC232 contextRef="D003" unitRef="USD" decimals="0">30</call:RIADC232>
+
+  <!-- RIAD4230: Provision for Credit Losses -->
+  <call:RIAD4230 contextRef="D001" unitRef="USD" decimals="0">2500</call:RIAD4230>
+  <call:RIAD4230 contextRef="D002" unitRef="USD" decimals="0">1600</call:RIAD4230>
+  <call:RIAD4230 contextRef="D003" unitRef="USD" decimals="0">800</call:RIAD4230>
+
+  <!-- RIAD4301: Income (Loss) Before Income Taxes and Extraordinary Items -->
+  <call:RIAD4301 contextRef="D001" unitRef="USD" decimals="0">25550</call:RIAD4301>
+  <call:RIAD4301 contextRef="D002" unitRef="USD" decimals="0">16635</call:RIAD4301>
+  <call:RIAD4301 contextRef="D003" unitRef="USD" decimals="0">8100</call:RIAD4301>
+
+  <!-- RIAD4302: Applicable Income Taxes -->
+  <call:RIAD4302 contextRef="D001" unitRef="USD" decimals="0">5110</call:RIAD4302>
+  <call:RIAD4302 contextRef="D002" unitRef="USD" decimals="0">3327</call:RIAD4302>
+  <call:RIAD4302 contextRef="D003" unitRef="USD" decimals="0">1620</call:RIAD4302>
+
+  <!-- RIAD4300: Net Operating Income -->
+  <call:RIAD4300 contextRef="D001" unitRef="USD" decimals="0">20440</call:RIAD4300>
+  <call:RIAD4300 contextRef="D002" unitRef="USD" decimals="0">13308</call:RIAD4300>
+  <call:RIAD4300 contextRef="D003" unitRef="USD" decimals="0">6480</call:RIAD4300>
+
+  <!-- RIAD4340: Net Income -->
+  <call:RIAD4340 contextRef="D001" unitRef="USD" decimals="0">20440</call:RIAD4340>
+  <call:RIAD4340 contextRef="D002" unitRef="USD" decimals="0">13308</call:RIAD4340>
+  <call:RIAD4340 contextRef="D003" unitRef="USD" decimals="0">6480</call:RIAD4340>
+
+  <!-- RIAD4507: Extraordinary Items -->
+  <call:RIAD4507 contextRef="D001" unitRef="USD" decimals="0">0</call:RIAD4507>
+  <call:RIAD4507 contextRef="D002" unitRef="USD" decimals="0">0</call:RIAD4507>
+  <call:RIAD4507 contextRef="D003" unitRef="USD" decimals="0">0</call:RIAD4507>
+
+  <!-- RIAD4313: Tax Effect of Extraordinary Items -->
+  <call:RIAD4313 contextRef="D001" unitRef="USD" decimals="0">0</call:RIAD4313>
+  <call:RIAD4313 contextRef="D002" unitRef="USD" decimals="0">0</call:RIAD4313>
+  <call:RIAD4313 contextRef="D003" unitRef="USD" decimals="0">0</call:RIAD4313>
+
+  <!-- RIAD3521: Realized Gains (Losses) on Held-to-Maturity Securities -->
+  <call:RIAD3521 contextRef="D001" unitRef="USD" decimals="0">0</call:RIAD3521>
+  <call:RIAD3521 contextRef="D002" unitRef="USD" decimals="0">0</call:RIAD3521>
+  <call:RIAD3521 contextRef="D003" unitRef="USD" decimals="0">0</call:RIAD3521>
+
+  <!-- RIAD3196: Realized Gains (Losses) on Available-for-Sale Securities -->
+  <call:RIAD3196 contextRef="D001" unitRef="USD" decimals="0">-150</call:RIAD3196>
+  <call:RIAD3196 contextRef="D002" unitRef="USD" decimals="0">-100</call:RIAD3196>
+  <call:RIAD3196 contextRef="D003" unitRef="USD" decimals="0">-50</call:RIAD3196>
+
+  <!-- RIADHT70: Unrealized Gains (Losses) on Equity Securities -->
+  <call:RIADHT70 contextRef="D001" unitRef="USD" decimals="0">0</call:RIADHT70>
+  <call:RIADHT70 contextRef="D002" unitRef="USD" decimals="0">0</call:RIADHT70>
+  <call:RIADHT70 contextRef="D003" unitRef="USD" decimals="0">0</call:RIADHT70>
+
+  <!-- RIAD4460: Cash Dividends Declared on Common Stock -->
+  <call:RIAD4460 contextRef="D001" unitRef="USD" decimals="0">6000</call:RIAD4460>
+  <call:RIAD4460 contextRef="D002" unitRef="USD" decimals="0">4000</call:RIAD4460>
+  <call:RIAD4460 contextRef="D003" unitRef="USD" decimals="0">2000</call:RIAD4460>
+
+  <!-- RIAD4470: Cash Dividends Declared on Preferred Stock -->
+  <call:RIAD4470 contextRef="D001" unitRef="USD" decimals="0">0</call:RIAD4470>
+  <call:RIAD4470 contextRef="D002" unitRef="USD" decimals="0">0</call:RIAD4470>
+  <call:RIAD4470 contextRef="D003" unitRef="USD" decimals="0">0</call:RIAD4470>
+
+  <!-- RIADA530: Other Comprehensive Income -->
+  <call:RIADA530 contextRef="D001" unitRef="USD" decimals="0">0</call:RIADA530>
+  <call:RIADA530 contextRef="D002" unitRef="USD" decimals="0">0</call:RIADA530>
+  <call:RIADA530 contextRef="D003" unitRef="USD" decimals="0">0</call:RIADA530>
+
+  <!-- RIADC079: Charge-offs on Loans and Leases -->
+  <call:RIADC079 contextRef="D001" unitRef="USD" decimals="0">2800</call:RIADC079>
+  <call:RIADC079 contextRef="D002" unitRef="USD" decimals="0">1900</call:RIADC079>
+  <call:RIADC079 contextRef="D003" unitRef="USD" decimals="0">900</call:RIADC079>
+
+  <!-- RIAD4605: Recoveries on Loans and Leases -->
+  <call:RIAD4605 contextRef="D001" unitRef="USD" decimals="0">600</call:RIAD4605>
+  <call:RIAD4605 contextRef="D002" unitRef="USD" decimals="0">400</call:RIAD4605>
+  <call:RIAD4605 contextRef="D003" unitRef="USD" decimals="0">200</call:RIAD4605>
+
+  <!-- RIAD5523: Write-downs on HFS Loans -->
+  <call:RIAD5523 contextRef="D001" unitRef="USD" decimals="0">50</call:RIAD5523>
+  <call:RIAD5523 contextRef="D002" unitRef="USD" decimals="0">30</call:RIAD5523>
+  <call:RIAD5523 contextRef="D003" unitRef="USD" decimals="0">20</call:RIAD5523>
+
+  <!-- RIADG103: Other Gains and Losses -->
+  <call:RIADG103 contextRef="D001" unitRef="USD" decimals="0">0</call:RIADG103>
+  <call:RIADG103 contextRef="D002" unitRef="USD" decimals="0">0</call:RIADG103>
+  <call:RIADG103 contextRef="D003" unitRef="USD" decimals="0">0</call:RIADG103>
+
+  <!-- RIAD4320: Applicable Income Taxes on Extraordinary Items -->
+  <call:RIAD4320 contextRef="D001" unitRef="USD" decimals="0">0</call:RIAD4320>
+  <call:RIAD4320 contextRef="D002" unitRef="USD" decimals="0">0</call:RIAD4320>
+  <call:RIAD4320 contextRef="D003" unitRef="USD" decimals="0">0</call:RIAD4320>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- RCONA Schedule: Supplemental Ratio Items (Point-in-Time, Instant)  -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- RCONA8274: Tier 1 Capital -->
+  <call:RCONA8274 contextRef="I001" unitRef="USD" decimals="0">145000</call:RCONA8274>
+  <call:RCONA8274 contextRef="I002" unitRef="USD" decimals="0">142000</call:RCONA8274>
+  <call:RCONA8274 contextRef="I003" unitRef="USD" decimals="0">139000</call:RCONA8274>
+  <call:RCONA8274 contextRef="I004" unitRef="USD" decimals="0">136000</call:RCONA8274>
+  <call:RCONA8274 contextRef="I005" unitRef="USD" decimals="0">133000</call:RCONA8274>
+
+  <!-- RCONA7204: Tier 1 Leverage Capital Ratio -->
+  <call:RCONA7204 contextRef="I001" unitRef="PURE" decimals="2">8.53</call:RCONA7204>
+  <call:RCONA7204 contextRef="I002" unitRef="PURE" decimals="2">8.45</call:RCONA7204>
+  <call:RCONA7204 contextRef="I003" unitRef="PURE" decimals="2">8.37</call:RCONA7204>
+  <call:RCONA7204 contextRef="I004" unitRef="PURE" decimals="2">8.29</call:RCONA7204>
+  <call:RCONA7204 contextRef="I005" unitRef="PURE" decimals="2">8.21</call:RCONA7204>
+
+  <!-- RCONA7205: Total Risk-Based Capital Ratio -->
+  <call:RCONA7205 contextRef="I001" unitRef="PURE" decimals="2">13.50</call:RCONA7205>
+  <call:RCONA7205 contextRef="I002" unitRef="PURE" decimals="2">13.40</call:RCONA7205>
+  <call:RCONA7205 contextRef="I003" unitRef="PURE" decimals="2">13.30</call:RCONA7205>
+  <call:RCONA7205 contextRef="I004" unitRef="PURE" decimals="2">13.20</call:RCONA7205>
+  <call:RCONA7205 contextRef="I005" unitRef="PURE" decimals="2">13.10</call:RCONA7205>
+
+</xbrli:xbrl>

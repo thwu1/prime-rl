@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of formal verification proof decomposition semantics to diagnose four interacting bugs in a proof management pipeline. The agent must: (1) understand CSV quoting semantics to identify a silent data loading failure where engine results are misread due to naive comma-splitting of quoted fields containing commas; (2) recognize that a pairwise-only cycle detection algorithm misses transitive circular assume-guarantee dependencies (A→B→C→A), requiring graph theory knowledge to implement proper DFS-based cycle detection; (3) understand partition/blackboxing over-approximation semantics well enough to realize that bounded_proven status must be preserved through partition nodes, not collapsed to inconclusive; (4) discover that status_override fields in the proof structure definition should take precedence over engine results. A misleading structural validator produces false alarms that can waste debugging effort. All four bugs produce silent wrong output with no errors, requiring deep domain reasoning to identify which property statuses are incorrect."""
+solution_explanation = """Fix four bugs in /app/proof_mgr.py: (1) Replace naive line.split(',') CSV parsing with Python's csv.reader to handle quoted fields containing commas; (2) Replace pairwise mutual-dependency check in detect_circular_deps with proper DFS-based cycle detection using white/gray/black coloring to detect transitive cycles; (3) Add bounded_proven and error cases to the partition strategy handler instead of falling through to the else clause that returns inconclusive; (4) Add status_override check to get_leaf_status so manual review overrides take precedence over engine CSV results."""
+verification_explanation = """Tests verify both the output signoff report and internal function behavior: (1) Each property's computed status is checked against the expected value derived from correct formal semantics; (2) The cycle detection function is tested directly with acyclic, pairwise-cycle, transitive-cycle, and 5-node-cycle inputs; (3) CSV parsing is tested to verify quoted fields are handled correctly; (4) The status_override mechanism is tested by checking get_leaf_status returns the override value; (5) A novel proof structure not present in the task data is constructed and propagated to verify partition→stopat→leaf composition; (6) Summary counts and signoff coverage are verified for consistency."""
+category = "formal_methods"
+tags = ["formal_verification", "proof_management"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/proof-structure-analyzer"

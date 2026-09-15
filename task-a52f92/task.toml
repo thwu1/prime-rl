@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires designing and implementing a complete file-rewriting system (--override mode) for a sqllogictest runner. The solver must: (1) deeply study the Rust reference implementation's update_record_with_output and update_test_file to understand override semantics across all record types, (2) evaluate and make design decisions about record-type conversions (statement↔query, error↔ok), error format selection (inline regex vs multiline with double-blank-line terminators), sort-mode and hash-threshold interactions during override, and file structure preservation, (3) architect the rewriting engine to handle the asymmetric termination rules (single blank for query results, double blank for system stdout and multiline errors), (4) ensure the round-trip property: overridden files must pass when re-run. The task demands holistic understanding of the entire .slt specification since every record type, sort mode, and formatting rule must be handled correctly and their interactions managed."""
+solution_explanation = """The solution adds --override mode by: (1) adding a --override CLI flag, (2) implementing an override module that re-parses the file line-by-line while maintaining runner state (hash-threshold, sort mode, substitution, conditions), (3) for each executable record, running it against the database and comparing actual vs expected output, (4) when mismatched, generating correctly-formatted replacement sections — using inline regex for single-line errors, multiline format with ---- and double-blank-line termination for multi-line errors, flattened sorted values for valuesort, and hashed results when hash-threshold is exceeded, (5) converting record types when the database response differs from expectation (statement error→ok, ok→error, count updates), (6) preserving comments, conditions, control directives, and writing records after halt as-is, (7) using proper section terminators matching the parser's expectations."""
+verification_explanation = """Tests create temporary .slt files with deliberately wrong expected results, run the override mode, then verify: (a) the overridden file passes when re-run without --override (round-trip property), (b) specific content changes are correct (wrong values replaced, counts updated, error formats correct), (c) structural preservation (comments, halt sections intact), (d) sort mode and hash-threshold interactions produce correct output, (e) exit code is 0 after override, (f) the --override flag is recognized by the CLI."""
+category = "data_processing"
+tags = ["software-design", "test-infrastructure"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a52f92"

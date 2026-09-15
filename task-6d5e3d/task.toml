@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing multiple interrelated defects across a custom pygeoapi provider plugin and its YAML configuration, then adding missing OGC API capabilities. The provider contains subtle bugs in GeoJSON coordinate ordering (RFC 7946 violation), bbox spatial filter logic (field/bound misalignment), missing datetime interval parsing, incorrect error handling for missing items, and complete absence of CRS transform integration and transactional CRUD methods. The configuration has a wrong provider module path preventing plugin loading, missing time_field/editable/CRS settings. The solver must understand pygeoapi's plugin architecture, the OGC API - Features specification, GeoJSON coordinate conventions, ISO 8601 temporal interval syntax, and CRS transform decorator mechanics — then synthesize fixes across code and config while managing the deployment pipeline (PYTHONPATH, OpenAPI generation, server startup)."""
+solution_explanation = """The solution replaces the broken provider with a corrected implementation that fixes coordinate order to [lon, lat], applies bbox bounds to the correct fields (lon for x, lat for y), implements datetime interval filtering with open-range support, raises ProviderItemNotFoundError for missing items, adds @crs_transform decorators, and implements create/update/delete. It also rewrites the config to fix the provider dotted path, add time_field, editable flag, CRS list, and storage_crs. Finally it sets PYTHONPATH, generates the OpenAPI doc, and starts the Flask server."""
+verification_explanation = """Tests use HTTP requests against the running pygeoapi server to verify: collection discovery and metadata, feature querying with correct GeoJSON structure and RFC 7946 coordinate order, pagination with accurate numberMatched/numberReturned (including under filters), bbox spatial filtering with coordinate bound validation, property filtering, single item retrieval and 404 handling, datetime interval filtering including open-ended ranges, CRS advertisement and CRS-parameterized requests, and full create-update-delete transaction lifecycle. Additional tests verify that numberMatched reflects filtered counts (not total) when bbox, property, or datetime filters are active."""
+category = "geospatial"
+tags = ["ogc-api", "pygeoapi"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-6d5e3d"

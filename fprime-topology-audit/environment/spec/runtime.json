@@ -1,0 +1,22 @@
+{
+    "rate_groups": {
+        "rg10Hz": {
+            "period_ms": 100,
+            "budget_ms": 70,
+            "description": "High-rate group for time-critical operations"
+        },
+        "rg1Hz": {
+            "period_ms": 1000,
+            "budget_ms": 700,
+            "description": "Low-rate group for housekeeping operations"
+        }
+    },
+    "component_wcet_ms": {
+        "health.Run": 5,
+        "sensorMgr.schedIn": 35,
+        "tlmChan.Run": 20,
+        "cmdSeq.schedIn": 8,
+        "fileDownlink.Run": 18
+    },
+    "notes": "WCET = worst-case execution time per rate-group invocation. The sum of WCETs for all members of a rate group must not exceed that group's budget_ms. If fileDownlink is added to a rate group that would exceed budget, components must be redistributed between rate groups while preserving system functionality."
+}

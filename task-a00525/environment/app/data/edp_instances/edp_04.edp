@@ -1,0 +1,5 @@
+% Excluded Diagonals Problem
+% 10x10 board with one backward diagonal excluded
+n=10
+D+ = {}
+D- = {9}

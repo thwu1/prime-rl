@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in Lagrangian mechanics (deriving and implementing mass/Coriolis/gravity matrices for a double pendulum), nonlinear control theory (energy-based swing-up for underactuated systems, LQR stabilization via continuous-time algebraic Riccati equation), numerical methods (4th-order Runge-Kutta integration), and controller switching logic. The acrobot is a canonical underactuated robotics challenge where only the elbow joint is motorized — the solver must indirectly swing up a passive shoulder joint through dynamic coupling, requiring deep understanding of the system's energy landscape and controllability properties."""
+solution_explanation = """Implement the double pendulum dynamics (mass matrix, Coriolis matrix, gravity vector) from the provided equations. Use RK4 integration with dt=0.002s. Design a two-phase controller: (1) energy-based swing-up that pumps the system's total energy to match the desired energy at the upright equilibrium, using u2 proportional to -(E - E_des)*qdot2, with an initial kick to escape the stable equilibrium; (2) LQR stabilization near the upright position by linearizing the dynamics, solving the CARE, and switching based on a cost-to-go threshold. Compute the RealAI Score from the trajectory."""
+verification_explanation = """Tests verify: trajectory.csv and score.json existence and format; torque limits (u1=0, |u2|<=6); simulation covers 10s with sufficient resolution; initial state is [0,0,0,0]; end-effector above 0.45m at final time; continuous above-threshold once first crossed; RealAI Score >= 0.15; energy conservation consistency (energy change matches actuator work done, validating correct dynamics implementation); no NaN/inf values in trajectory."""
+category = "physics_engineering"
+tags = ["control-theory", "robotics"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/acrobot-swing-controller"

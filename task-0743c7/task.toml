@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires auditing a multi-layered C-CDA vocabulary validation pipeline with five interacting defects spanning XML namespace handling, hierarchical value set composition with transitive includes, HL7 conformance rule configuration schemas, validator type semantics, and HL7 V3 coded data type binding behaviors (CWE vs CNE). The bugs interact: fixing rule loading reveals namespace-dependent bugs; fixing namespace resolution reveals CWE-related false positives. The transitive value set composition requires following two levels of includes references — single-level expansion still fails. Understanding the distinction between CNE (Coded No Extensions) and CWE (Coded With Extensibility) requires knowledge of HL7 vocabulary binding architecture to recognize that a code from an approved code system is conformant under CWE even when not enumerated in the bound value set. The CodeSystemCodeValidator vs ValueSetCodeValidator distinction requires grasping the semantic difference between code membership and code system provenance. The remediation requires understanding which violations to fix (SHALL), which to preserve (SHOULD), and which apparent violations are actually CWE-conformant extensions that must not be altered — a judgment call requiring holistic domain understanding."""
+solution_explanation = """First, run the buggy validator and observe incorrect results. Investigate the config XML to discover: (1) supplementaryExpressions section not loaded — fix parse_rules to iterate both expressions and supplementaryExpressions; (2) namespace map hardcoded to v3 only — read from config XML to add sdtc; (3) value set includes not expanded transitively — implement recursive expansion with cycle detection following two-level chain (Race Category Extended → Base Groups → Excluding Nulls); (4) CodeSystemCodeValidator checks @code instead of @codeSystem — fix to check correct attribute; (5) bindingType (CWE/CNE) not parsed or applied — parse from config, implement CWE semantics checking element's @codeSystem against value set's approvedCodeSystems list. After fixing all five bugs, the validator correctly reports 13 rules, 6 violations (4 SHALL, 2 SHOULD). R008's allergy code 91936005 from SNOMED CT is NOT in the value set but IS from an approved code system under CWE binding — correctly classified as a valid extension, not a violation. For remediation: correct four SHALL violations (confidentialityCode, administrativeGenderCode, routeCode, sdtc:raceCode) with valid codes, preserve two SHOULD violations unchanged, and leave the CWE-conformant allergy code unaltered."""
+verification_explanation = """Tests delete any pre-existing report.json then re-execute the validator, verifying correct output through actual execution. Counts: 13 total rules, 6 violations, 4 SHALL, 2 SHOULD. Each violation is checked for rule_id, severity, actual_code, and valueset_oid. Critical false-positive tests verify: R003 absent (transitive includes), R008 absent (CWE binding + approved code system), R013 absent (CodeSystemCodeValidator semantics). Input integrity tests verify patient_record.xml, valuesets.json, and validation_rules.xml have not been modified — preventing circumvention by changing inputs rather than fixing the validator. The CWE anti-cheat test verifies the allergy code 91936005 remains in patient_record.xml AND is NOT added to the allergy value set, forcing genuine CWE implementation. Remediated document tests verify SHALL codes are replaced with valid values, SHOULD codes remain unchanged, and the CWE-conformant allergy code is preserved — this last test confirms the solver understood CWE binding semantics rather than blindly fixing all non-value-set codes."""
+category = "healthcare_informatics"
+tags = ["ccda-vocabulary-validation", "hl7-conformance-remediation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-0743c7"

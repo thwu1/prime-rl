@@ -1,0 +1,6 @@
+# Chain topology: 5 detectors, 4 errors, 2 observables
+# D0 -- D1 -- D2 -- D3 -- D4
+error(0.10) D0 D1 L0
+error(0.05) D1 D2
+error(0.08) D2 D3 L1
+error(0.12) D3 D4

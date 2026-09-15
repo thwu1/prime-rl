@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires PhD-level combustion engineering knowledge combined with significant environmental exploration. The solver must: (1) discover and parse the config file to extract mechanism name, mixture composition, temperatures, and other parameters; (2) load the specified Cantera mechanism and introspect its structure (species count, reaction count, reaction equations); (3) implement constant-volume ignition delay computation via time-integration of an IdealGasReactor; (4) programmatically detect the non-Arrhenius crossover temperature by analyzing deviation from Arrhenius behavior across the ignition delay data — requiring understanding of the H2 second explosion limit; (5) implement perturbation-based sensitivity analysis for ignition delay; (6) construct a CSTR/PSR reactor network with MassFlowController and PressureController, initialize from equilibrium products to capture the burning branch, trace the S-curve via numerical continuation, detect the extinction turning point via bisection; (7) evaluate PSR sensitivity at a specific operating point on the hot branch using continuation from large tau; (8) compute Spearman rank correlation between sensitivity vectors from two different reactor types. Multiple coupled failure modes: wrong branch initialization, incorrect continuation strategy, closure errors near extinction, crossover misidentification."""
+solution_explanation = """The solution reads /app/config.json, installs Cantera, and implements: (1) mechanism loading and introspection for species/reaction counts; (2) constant-volume IdealGasReactor simulations at configured temperatures, computing ignition delay as time of max dT/dt; (3) leave-one-out Arrhenius fit to detect crossover temperature (largest positive residual); (4) perturbation-based sensitivity d(ln tau)/d(ln k) at reference T by running N+1 perturbed simulations; (5) CSTR setup using Reservoir, MassFlowController, PressureController, starting from HP-equilibrium products, sweeping tau from 1.0s down to extinction with continuation; (6) bisection refinement of tau_ext; (7) PSR sensitivity via 1% rate perturbation at multiplier*tau_ext, using continuation from large tau to ensure the hot-branch baseline; (8) manual Spearman rank correlation of absolute sensitivity vectors."""
+verification_explanation = """43 tests across 9 classes verify: mechanism discovery (species/reaction counts, sensitivity list lengths matching reaction count — 4 tests); JSON structure completeness and config consistency (9 tests); ignition delay physics including positivity, monotonic decrease, Arrhenius linearity excluding crossover, order-of-magnitude at reference T, and lowest-temperature crossover behaviour (6 tests); crossover detection existence, membership in config temps, below-reference constraint, and anomaly ratio (4 tests); peak temperature range and trend (2 tests); CV sensitivity sorting, chain-branching H+O2 presence and sign, non-trivial magnitudes (4 tests); S-curve shape with hot branch >2000K, >=100 points, descending tau, extinction jump visibility, and hot-before-cold ordering (7 tests); PSR sensitivity hot-branch baseline magnitude, H+O2 importance, sorting, and non-zero counts (4 tests); Spearman correlation validity, H+O2 in both top-5 lists, and overlap (4 tests)."""
+category = "applied_computing"
+tags = ["chemical-kinetics", "computational-combustion"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 600.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reactor-kinetics-crossanalysis"

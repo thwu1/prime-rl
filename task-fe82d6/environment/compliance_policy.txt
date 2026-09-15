@@ -1,0 +1,64 @@
+MULTI-TENANT ENCRYPTION SERVICE — KEY COMPLIANCE POLICY v3.2
+============================================================
+
+This policy defines the minimum security requirements for all encryption
+keys managed by the Transit secrets engine. All keys must be brought into
+compliance before the next quarterly audit checkpoint.
+
+
+1. SYMMETRIC KEY ROTATION
+   All symmetric encryption keys used for data protection must maintain
+   a minimum of five (5) key versions through active rotation.
+
+2. DECRYPTION AND ENCRYPTION VERSION CONTROLS
+   Symmetric encryption keys must enforce a rolling decryption window
+   spanning the three most recent key versions only. Ciphertexts produced
+   with versions outside this window must not be decryptable. All new
+   encryption operations must be restricted to the current (latest) key
+   version exclusively.
+
+3. DISASTER RECOVERY EXPORTABILITY
+   All symmetric encryption keys used for data-at-rest protection must
+   be configured as exportable to support offline disaster recovery key
+   escrow procedures.
+
+4. CIPHERTEXT CURRENCY
+   All plaintext records in /app/data/ (record1.txt through record3.txt)
+   must be encrypted under the current key version of the primary
+   encryption key 'primary-enc'. Results must be written to
+   /app/results/ciphertexts.json as a JSON array of objects, each with
+   "plaintext" (original text) and "ciphertext" (Transit-encrypted value)
+   fields.
+
+5. KEY MATERIAL PURGING
+   Key versions that fall outside the rolling decryption window must be
+   permanently removed from the keyring. Retention of deprecated key
+   material is a compliance violation.
+
+6. HMAC KEY PROVISIONING
+   An HMAC key named 'auth-hmac' must be provisioned for authentication
+   token generation with a minimum key size of 64 bytes per NIST
+   SP 800-107 recommendations. HMAC evidence must be produced by
+   computing an HMAC of /app/data/hmac_data.txt, written to
+   /app/results/hmac_result.json with an "hmac" field.
+
+7. EXTERNAL KEY IMPORT
+   Legacy key material at /app/external_key.hex (hex-encoded AES-256
+   key) must be imported into Transit as a managed key named
+   'imported-legacy' (type: aes256-gcm96, exportable). The import must
+   use Transit's secure key import mechanism — raw key material must
+   never be transmitted in cleartext over the API. Evidence of successful
+   import must be written to /app/results/imported_key_verification.json
+   with an "exported_hex" field containing the hex-encoded exported key
+   material, confirming the import round-trip.
+
+8. DIGITAL SIGNATURE EVIDENCE
+   The contents of /app/data/sign_payload.txt must be signed using the
+   'tenant-sign' key (ECDSA-P256). Results must be written to
+   /app/results/signature.json with "input" (base64-encoded payload) and
+   "signature" fields.
+
+9. DATA ENCRYPTION KEY GENERATION
+   A wrapped data encryption key must be generated from 'primary-enc'
+   and written to /app/results/datakey.json with a "ciphertext" field
+   containing the wrapped key.

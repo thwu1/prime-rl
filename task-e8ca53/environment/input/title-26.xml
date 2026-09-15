@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<uscDoc>
+  <meta>
+    <property role="is-positive-law">yes</property>
+  </meta>
+  <main>
+    <title identifier="/us/usc/t26">
+      <num value="26">Title 26</num>
+      <heading>Internal Revenue Code</heading>
+      <subtitle>
+        <num value="A">Subtitle A</num>
+        <chapter>
+          <num value="1">Chapter 1</num>
+          <heading>NORMAL TAXES AND SURTAXES</heading>
+          <subchapter>
+            <num value="A">Subchapter A</num>
+            <part>
+              <num value="I">Part I</num>
+              <section identifier="/us/usc/t26/s1">
+                <num value="1">§ 1.</num>
+                <heading>Tax imposed</heading>
+                <content>
+                  <subsection>
+                    <num value="a">(a)</num>
+                    <heading>Married individuals filing joint returns and surviving spouses</heading>
+                    <content>There is hereby imposed on the taxable income of every married individual (as defined in <ref href="/us/usc/t26/s7703">section 7703</ref>) who makes a single return jointly with his spouse under <ref href="/us/usc/t26/s6013">section 6013</ref>, and every surviving spouse (as defined in <ref href="/us/usc/t26/s2">section 2(a)</ref>), a tax determined in accordance with the following table.</content>
+                  </subsection>
+                  <subsection>
+                    <num value="b">(b)</num>
+                    <heading>Heads of households</heading>
+                    <content>There is hereby imposed on the taxable income of every head of a household (as defined in <ref href="/us/usc/t26/s2">section 2(b)</ref>) a tax determined in accordance with the following table.</content>
+                  </subsection>
+                  <subsection>
+                    <num value="c">(c)</num>
+                    <heading>Unmarried individuals (other than surviving spouses and heads of households)</heading>
+                    <content>There is hereby imposed on the taxable income of every individual (other than a surviving spouse as defined in <ref href="/us/usc/t26/s2">section 2(a)</ref> or the head of a household as defined in <ref href="/us/usc/t26/s2">section 2(b)</ref>) who is not a married individual (as defined in <ref href="/us/usc/t26/s7703">section 7703</ref>) a tax determined in accordance with the following table.</content>
+                  </subsection>
+                </content>
+                <sourceCredit>(Aug. 16, 1954, ch. 736, 68A Stat. 5; Pub. L. 115–97, title I, § 11001(a), Dec. 22, 2017, 131 Stat. 2054.)</sourceCredit>
+                <notes type="statutory">
+                  <note topic="effective-date">
+                    <heading>Effective Date of 2017 Amendment</heading>
+                    <p>Pub. L. 115–97, title I, § 11001(b), Dec. 22, 2017, 131 Stat. 2054, provided that: "The amendments made by this section [amending this section] shall apply to taxable years beginning after December 31, 2017."</p>
+                  </note>
+                  <note topic="tax-rates">
+                    <heading>Tax Rate Schedule</heading>
+                    <table>
+                      <tr><th>If taxable income is:</th><th>The tax is:</th></tr>
+                      <tr><td>Not over $22,000</td><td>10% of taxable income</td></tr>
+                      <tr><td>Over $22,000 but not over $89,450</td><td>$2,200 plus 12% of excess over $22,000</td></tr>
+                      <tr><td>Over $89,450 but not over $190,750</td><td>$10,294 plus 22% of excess over $89,450</td></tr>
+                      <tr><td>Over $190,750 but not over $364,200</td><td>$32,580 plus 24% of excess over $190,750</td></tr>
+                      <tr><td>Over $364,200 but not over $462,500</td><td>$74,208 plus 32% of excess over $364,200</td></tr>
+                      <tr><td>Over $462,500 but not over $693,750</td><td>$105,664 plus 35% of excess over $462,500</td></tr>
+                      <tr><td>Over $693,750</td><td>$186,601.50 plus 37% of excess over $693,750</td></tr>
+                    </table>
+                  </note>
+                </notes>
+              </section>
+              <section identifier="/us/usc/t26/s2">
+                <num value="2">§ 2.</num>
+                <heading>Definitions and special rules</heading>
+                <status>in-force</status>
+                <enacted>Aug. 16, 1954</enacted>
+                <public-law>ch. 736</public-law>
+                <last-amended>2018</last-amended>
+                <last-amended-by>Pub. L. 115–141</last-amended-by>
+                <content>
+                  <subsection>
+                    <num value="a">(a)</num>
+                    <heading>Definition of surviving spouse</heading>
+                    <paragraph>
+                      <num value="1">(1)</num>
+                      <heading>In general</heading>
+                      <content>For purposes of <ref href="/us/usc/t26/s1">section 1</ref>, the term "surviving spouse" means a taxpayer—</content>
+                    </paragraph>
+                    <paragraph>
+                      <num value="2">(2)</num>
+                      <heading>Limitations</heading>
+                      <content>Notwithstanding paragraph (1), for purposes of this subtitle, a taxpayer shall not be considered to be a surviving spouse—</content>
+                    </paragraph>
+                  </subsection>
+                  <subsection>
+                    <num value="b">(b)</num>
+                    <heading>Definition of head of household</heading>
+                    <paragraph>
+                      <num value="1">(1)</num>
+                      <heading>In general</heading>
+                      <content>For purposes of this subtitle, an individual shall be considered a head of a household if, and only if, such individual is not married at the close of his taxable year, is not a surviving spouse (as defined in subsection (a)), and either—</content>
+                    </paragraph>
+                  </subsection>
+                </content>
+                <sourceCredit>(Aug. 16, 1954, ch. 736, 68A Stat. 8; Pub. L. 115–141, div. U, title IV, § 401(a)(1), Mar. 23, 2018, 132 Stat. 1184.)</sourceCredit>
+              </section>
+              <section identifier="/us/usc/t26/s3">
+                <num value="3">§ 3.</num>
+                <heading>Tax tables for individuals</heading>
+                <status>repealed</status>
+                <content>
+                  <text>Repealed. Pub. L. 95–30, title I, § 101(d)(1), May 23, 1977, 91 Stat. 133.</text>
+                </content>
+                <note>
+                  <type>editorial</type>
+                  <text>Section, acts Aug. 16, 1954, ch. 736, 68A Stat. 8; Oct. 4, 1976, Pub. L. 94–455, title II, § 201(a), 90 Stat. 1525, related to optional tax tables for individuals with adjusted gross income of less than $20,000.</text>
+                </note>
+              </section>
+            </part>
+          </subchapter>
+        </chapter>
+      </subtitle>
+    </title>
+  </main>
+</uscDoc>

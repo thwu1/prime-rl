@@ -1,0 +1,100 @@
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+
+convertToMeters 1;
+
+vertices
+(
+    // Front face (z = 0)
+    (-0.5  0     0)       // 0  upstream inlet bottom
+    ( 0    0     0)       // 1  step corner top
+    ( 0   -0.1   0)       // 2  step corner bottom
+    ( 2.0 -0.1   0)       // 3  outlet bottom
+    ( 2.0  0     0)       // 4  outlet step-height level
+    ( 2.0  0.1   0)       // 5  outlet top
+    ( 0    0.1   0)       // 6  upstream/downstream top at step
+    (-0.5  0.1   0)       // 7  upstream inlet top
+
+    // Back face (z = 0.01)
+    (-0.5  0     0.01)    // 8
+    ( 0    0     0.01)    // 9
+    ( 0   -0.1   0.01)    // 10
+    ( 2.0 -0.1   0.01)    // 11
+    ( 2.0  0     0.01)    // 12
+    ( 2.0  0.1   0.01)    // 13
+    ( 0    0.1   0.01)    // 14
+    (-0.5  0.1   0.01)    // 15
+);
+
+blocks
+(
+    // Block 0: upstream channel
+    hex (0 1 6 7 8 9 14 15) (10 6 1) simpleGrading (1 1 1)
+
+    // Block 1: downstream above step
+    hex (1 4 5 6 9 12 13 14) (40 6 1) simpleGrading (1 1 1)
+
+    // Block 2: downstream below step
+    hex (2 3 4 1 10 11 12 9) (40 6 1) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    inlet
+    {
+        type patch;
+        faces
+        (
+            (0 8 15 7)
+        );
+    }
+    outlet
+    {
+        type patch;
+        faces
+        (
+            (4 5 13 12)
+            (3 4 12 11)
+        );
+    }
+    upperWall
+    {
+        type wall;
+        faces
+        (
+            (7 15 14 6)
+            (6 14 13 5)
+        );
+    }
+    lowerWall
+    {
+        type wall;
+        faces
+        (
+            (0 1 9 8)
+            (2 10 9 1)
+            (2 3 11 10)
+        );
+    }
+    frontAndBack
+    {
+        type empty;
+        faces
+        (
+            (0 7 6 1)
+            (1 6 5 4)
+            (2 1 4 3)
+            (8 9 14 15)
+            (9 12 13 14)
+            (10 11 12 9)
+        );
+    }
+);

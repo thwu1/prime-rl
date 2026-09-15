@@ -1,0 +1,134 @@
+{
+  "test_cases": [
+    {
+      "id": "sf_basic_frame",
+      "state": {
+        "fpca": false
+      },
+      "query": "stack_frame_size"
+    },
+    {
+      "id": "sf_extended_fp_frame",
+      "state": {
+        "fpca": true
+      },
+      "query": "stack_frame_size"
+    },
+    {
+      "id": "er_handler_single_active",
+      "state": {
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967281}
+    },
+    {
+      "id": "er_handler_two_active",
+      "state": {
+        "active_exceptions": [
+          {"name": "HardFault", "priority": -1},
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967281}
+    },
+    {
+      "id": "er_thread_msp_single",
+      "state": {
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967289}
+    },
+    {
+      "id": "er_thread_psp_single",
+      "state": {
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967293}
+    },
+    {
+      "id": "er_thread_two_active",
+      "state": {
+        "active_exceptions": [
+          {"name": "HardFault", "priority": -1},
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967289}
+    },
+    {
+      "id": "er_invalid_encoding",
+      "state": {
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 5}
+        ]
+      },
+      "query": {"type": "exc_return_valid", "exc_return": 4294967040}
+    },
+    {
+      "id": "wfi_primask_wakes",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": true,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "IRQ0", "priority": 10}
+        ]
+      },
+      "query": "wfi_wakeup"
+    },
+    {
+      "id": "wfi_no_pending",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": []
+      },
+      "query": "wfi_wakeup"
+    },
+    {
+      "id": "wfi_low_priority_no_wake",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": false,
+        "basepri": 0,
+        "active_exceptions": [
+          {"name": "SysTick", "priority": 0}
+        ],
+        "pending_exceptions": [
+          {"name": "IRQ0", "priority": 10}
+        ]
+      },
+      "query": "wfi_wakeup"
+    },
+    {
+      "id": "wfi_faultmask_blocks",
+      "state": {
+        "arch": "armv7m",
+        "prigroup": 0,
+        "primask": false,
+        "faultmask": true,
+        "basepri": 0,
+        "active_exceptions": [],
+        "pending_exceptions": [
+          {"name": "IRQ0", "priority": 10}
+        ]
+      },
+      "query": "wfi_wakeup"
+    }
+  ]
+}

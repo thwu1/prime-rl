@@ -1,0 +1,276 @@
+{
+  "pipeline": {
+    "version": "2.1.0",
+    "error_detection": {
+      "methodology": "structural_decomposition",
+      "decomposition_target": "volume_reporter_page",
+      "severity_model": {
+        "name": "citation_component_severity",
+        "version": "1.0",
+        "weights": {
+          "citation_errors": {
+            "volume": {
+              "weight": 3.0,
+              "description": "Wrong volume number indicates reference to an entirely different case",
+              "impact_category": "critical",
+              "precedent_risk": "high"
+            },
+            "reporter": {
+              "weight": 2.0,
+              "description": "Wrong reporter series indicates different publication venue",
+              "impact_category": "major",
+              "precedent_risk": "medium"
+            },
+            "page": {
+              "weight": 1.0,
+              "description": "Wrong page number — correct case vicinity but imprecise pinpoint",
+              "impact_category": "minor",
+              "precedent_risk": "low"
+            }
+          },
+          "non_citation_errors": {
+            "party_name": {
+              "weight": 0.5,
+              "description": "Misspelled party name in case caption"
+            },
+            "year": {
+              "weight": 0.25,
+              "description": "Wrong decision year in parenthetical"
+            },
+            "court_designation": {
+              "weight": 0.3,
+              "description": "Incorrect court abbreviation"
+            }
+          }
+        }
+      },
+      "evaluation_pairs": {
+        "format": "3-choice",
+        "description": "Each pair presents a cited and canonical citation form. Style '3-fake' indicates the cited form contains an intentional perturbation; '3-true' indicates authentic citation.",
+        "records": [
+          {
+            "id": "e_001",
+            "style": "3-fake",
+            "cited": {
+              "volume": 972,
+              "reporter": "S.W.2d",
+              "page": 485,
+              "full": "972 S.W.2d 485"
+            },
+            "canonical": {
+              "volume": 973,
+              "reporter": "S.W.2d",
+              "page": 485,
+              "full": "973 S.W.2d 485"
+            },
+            "perturbation": "volume",
+            "metadata": {
+              "jurisdiction": "TX",
+              "year": 1998,
+              "court": "Tex. App.",
+              "case_name": "Commonwealth v. Smith"
+            }
+          },
+          {
+            "id": "e_002",
+            "style": "3-fake",
+            "cited": {
+              "volume": 400,
+              "reporter": "U.S.",
+              "page": 79,
+              "full": "400 U.S. 79"
+            },
+            "canonical": {
+              "volume": 400,
+              "reporter": "U.S.",
+              "page": 74,
+              "full": "400 U.S. 74"
+            },
+            "perturbation": "page",
+            "metadata": {
+              "jurisdiction": "federal",
+              "year": 1970,
+              "court": "SCOTUS"
+            }
+          },
+          {
+            "id": "e_003",
+            "style": "3-true",
+            "cited": {
+              "volume": 88,
+              "reporter": "So.3d",
+              "page": 253,
+              "full": "88 So.3d 253"
+            },
+            "canonical": {
+              "volume": 88,
+              "reporter": "So.3d",
+              "page": 253,
+              "full": "88 So.3d 253"
+            },
+            "perturbation": null,
+            "metadata": {
+              "jurisdiction": "FL",
+              "year": 2012,
+              "court": "Fla. DCA"
+            }
+          },
+          {
+            "id": "e_004",
+            "style": "3-fake",
+            "cited": {
+              "volume": 508,
+              "reporter": "N.W.2d",
+              "page": 612,
+              "full": "508 N.W.2d 612"
+            },
+            "canonical": {
+              "volume": 510,
+              "reporter": "N.W.2d",
+              "page": 612,
+              "full": "510 N.W.2d 612"
+            },
+            "perturbation": "volume",
+            "metadata": {
+              "jurisdiction": "IA",
+              "year": 1994,
+              "court": "Iowa Sup."
+            }
+          },
+          {
+            "id": "e_005",
+            "style": "3-fake",
+            "cited": {
+              "volume": 149,
+              "reporter": "Ohio St. 2d",
+              "page": 628,
+              "full": "149 Ohio St. 2d 628"
+            },
+            "canonical": {
+              "volume": 149,
+              "reporter": "Ohio St. 3d",
+              "page": 628,
+              "full": "149 Ohio St. 3d 628"
+            },
+            "perturbation": "reporter",
+            "metadata": {
+              "jurisdiction": "OH",
+              "year": 2017,
+              "court": "Ohio Sup."
+            }
+          },
+          {
+            "id": "e_006",
+            "style": "3-true",
+            "cited": {
+              "volume": 205,
+              "reporter": "A.3d",
+              "page": 445,
+              "full": "205 A.3d 445"
+            },
+            "canonical": {
+              "volume": 205,
+              "reporter": "A.3d",
+              "page": 445,
+              "full": "205 A.3d 445"
+            },
+            "perturbation": null,
+            "metadata": {
+              "jurisdiction": "PA",
+              "year": 2019,
+              "court": "Pa. Super."
+            }
+          },
+          {
+            "id": "e_007",
+            "style": "3-fake",
+            "cited": {
+              "volume": 466,
+              "reporter": "U.S.",
+              "page": 670,
+              "full": "466 U.S. 670"
+            },
+            "canonical": {
+              "volume": 466,
+              "reporter": "U.S.",
+              "page": 668,
+              "full": "466 U.S. 668"
+            },
+            "perturbation": "page",
+            "metadata": {
+              "jurisdiction": "federal",
+              "year": 1984,
+              "court": "SCOTUS"
+            }
+          },
+          {
+            "id": "e_008",
+            "style": "3-fake",
+            "cited": {
+              "volume": 452,
+              "reporter": "N.E.2d",
+              "page": 345,
+              "full": "452 N.E.2d 345"
+            },
+            "canonical": {
+              "volume": 452,
+              "reporter": "N.W.2d",
+              "page": 345,
+              "full": "452 N.W.2d 345"
+            },
+            "perturbation": "reporter",
+            "metadata": {
+              "jurisdiction": "WI",
+              "year": 1990,
+              "court": "Wis. App."
+            }
+          },
+          {
+            "id": "e_009",
+            "style": "3-true",
+            "cited": {
+              "volume": 524,
+              "reporter": "U.S.",
+              "page": 666,
+              "full": "524 U.S. 666"
+            },
+            "canonical": {
+              "volume": 524,
+              "reporter": "U.S.",
+              "page": 666,
+              "full": "524 U.S. 666"
+            },
+            "perturbation": null,
+            "metadata": {
+              "jurisdiction": "federal",
+              "year": 1998,
+              "court": "SCOTUS"
+            }
+          },
+          {
+            "id": "e_010",
+            "style": "3-fake",
+            "cited": {
+              "volume": 162,
+              "reporter": "Idaho",
+              "page": 760,
+              "full": "162 Idaho 760"
+            },
+            "canonical": {
+              "volume": 162,
+              "reporter": "Idaho",
+              "page": 763,
+              "full": "162 Idaho 763"
+            },
+            "perturbation": "page",
+            "metadata": {
+              "jurisdiction": "ID",
+              "year": 2017,
+              "court": "Idaho Sup."
+            }
+          }
+        ]
+      }
+    }
+  }
+}

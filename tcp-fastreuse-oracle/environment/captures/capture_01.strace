@@ -1,0 +1,8 @@
+socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 3
+bind(3, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.1.1.1")}, 16) = 0
+getsockname(3, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.1.1.1")}, [16]) = 0
+connect(3, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.9.9.9")}, 16) = 0
+socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 4
+bind(4, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("127.2.2.2")}, 16) = 0
+getsockname(4, {sa_family=AF_INET, sin_port=htons(60000), sin_addr=inet_addr("127.2.2.2")}, [16]) = 0
+connect(4, {sa_family=AF_INET, sin_port=htons(1234), sin_addr=inet_addr("127.9.9.9")}, 16) = 0

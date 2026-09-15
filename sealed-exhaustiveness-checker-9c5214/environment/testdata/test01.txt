@@ -1,0 +1,15 @@
+# Test 01: Simple sealed type - all subtypes covered
+# Expected: exhaustive, no null handling, no missing, no dominated
+
+TYPES
+sealed Shape Circle Square Triangle
+record Circle double:radius parent:Shape
+record Square double:side parent:Shape
+final Triangle parent:Shape
+
+SWITCHES
+switch s1 Shape
+type Circle
+type Square
+type Triangle
+end

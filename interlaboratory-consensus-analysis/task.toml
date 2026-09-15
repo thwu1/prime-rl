@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires porting a multi-file R codebase (NIST Consensus Builder) to Python, including: parsing NICOB's custom .ncb configuration format; reverse-engineering five interdependent R functions that implement random-effects meta-analysis, a location-shifted gamma approximation for heterogeneity variance sampling, a Monte Carlo opinion pool with scaled t-distribution handling, and a parametric bootstrap procedure for degrees of equivalence with centering and symmetrical CI construction. The agent must understand R idioms (vectorized operations, formula syntax, metafor package conventions), discover how the functions compose, and correctly handle edge cases (df<=2 phi approximation, empty df fields, inconsistent whitespace in .ncb files)."""
+solution_explanation = """The solution parses .ncb files extracting lab labels, means, standard errors, and optional degrees of freedom. It then implements: (1) the DL moment estimator for tau² and random-effects consensus from modifiedKHmethod.R, (2) the modified HKSJ confidence interval with q*=max(1,q) correction, (3) the Biggerstaff-Tweedie gamma approximation for tau² sampling from sampleFromTau2Dist.R, (4) the Linear Opinion Pool MC with phi-adjusted t-distribution scaling from linearOP.R, (5) the MRA parametric bootstrap for unilateral DoE with centering/shift from DoEUnilateralDerSimonianLaird.R, and (6) the symmetrical bootstrap CI binary search from symmetricalBootstrapCI.R."""
+verification_explanation = """Tests independently compute DL consensus, tau², Cochran's Q, I², and HKSJ CI using the same mathematical formulas applied to hardcoded data arrays, then compare against the agent's JSON output with tight tolerances. Stochastic quantities (LP consensus, DoE) are verified for structural correctness, consistency (significance iff |value|>U95), and reasonable ranges. Cross-dataset invariants are also checked."""
+category = "data_science"
+tags = ["metrology", "r-to-python-porting"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interlaboratory-consensus-analysis"

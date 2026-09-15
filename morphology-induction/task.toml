@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires integrating four heterogeneous data sources via a multi-tool pipeline: gzip-compressed FASTA (gunzip/zcat), XML experiment metadata (xmlstarlet/xmllint for XPath queries on nested elements), a tar.gz archive of per-batch JSON QC reports (tar extraction + jq for nested JSON filtering), and a multi-table SQLite database (sqlite3 with complex joins across samples, mass_spec_results, instrument_calibrations, and run_instrument_assignments). The agent must cross-validate run QC status between XML and JSON sources, filter by organism type, select highest-confidence mass-spec results from calibrated instruments, and join gene IDs across all sources to reconstruct clean training pairs. Only after assembling reliable training data can the agent tackle the core computational biology problem: discovering 12 non-standard codon reassignments plus two interacting context-dependent translation rules (GC-boundary glycine insertion and AT-boundary amino acid substitution) from paired DNA/protein data. The insertion rule causes proteins to be longer than codon counts, creating a non-trivial alignment problem. Graduate-level bioinformatics combined with multi-tool data engineering across five distinct CLI tools."""
+solution_explanation = """Decompress FASTA with gunzip. Extract batch reports with tar. Use xmlstarlet to query XML for validated run IDs (qc_passed='true'). Use jq to filter batch report JSONs for overall_qc='PASS'. Intersect both sets to get definitively valid batches. Query SQLite with complex joins to extract highest-confidence protein identifications for characterized xenobiont genes from valid batches. Join gene IDs across FASTA and SQLite to reconstruct training pairs. Discover the GC-boundary insertion rule (glycine inserted at GC-class codon boundaries), align proteins to codons accounting for insertions, build the base codon table from clean observations, discover AT-boundary substitution rules (F->Y, I->V, K->N), and translate test sequences."""
+verification_explanation = """Tests compare agent-produced protein translations against gold standard for 25 test sequences (exact string match, requiring >=20/25 correct). Also verifies the discovered codon table against gold standard (>=58/64 correct entries). Full marks require passing both checks."""
+category = "bioinformatics"
+tags = ["genetic-code", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/morphology-induction"

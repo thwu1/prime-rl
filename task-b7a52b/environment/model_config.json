@@ -1,0 +1,50 @@
+{
+  "channels": [
+    {
+      "name": "signal_region",
+      "observed_data_key": "signal_region/data_obs",
+      "samples": [
+        {
+          "name": "signal",
+          "nominal_key": "signal_region/signal_nominal",
+          "modifiers": [
+            {"name": "mu", "type": "normfactor"},
+            {"name": "alpha_sig_eff", "type": "normsys", "kappa_hi": 1.05, "kappa_lo": 0.95}
+          ]
+        },
+        {
+          "name": "background",
+          "nominal_key": "signal_region/bkg_nominal",
+          "modifiers": [
+            {"name": "alpha_bkg_norm", "type": "normsys", "kappa_hi": 1.10, "kappa_lo": 0.90},
+            {
+              "name": "alpha_bkg_shape",
+              "type": "histosys",
+              "hi_key": "signal_region/bkg_shape_up",
+              "lo_key": "signal_region/bkg_shape_down"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "control_region",
+      "observed_data_key": "control_region/data_obs",
+      "samples": [
+        {
+          "name": "background_cr",
+          "nominal_key": "control_region/bkg_nominal",
+          "modifiers": [
+            {"name": "alpha_bkg_norm", "type": "normsys", "kappa_hi": 1.10, "kappa_lo": 0.90}
+          ]
+        }
+      ]
+    }
+  ],
+  "parameter_of_interest": "mu",
+  "modifier_definitions": {
+    "normfactor": "Free multiplicative scale factor applied to all bins of the sample. Non-negative. No constraint term in the likelihood.",
+    "normsys": "Normalization systematic. Nuisance parameter alpha has a standard normal prior N(0,1). For alpha >= 0, yield is scaled by kappa_hi^alpha; for alpha < 0, yield is scaled by kappa_lo^(-alpha).",
+    "histosys": "Shape systematic via template morphing. Nuisance parameter alpha has a standard normal prior N(0,1). For alpha >= 0, yield_i = nominal_i + alpha * (hi_i - nominal_i). For alpha < 0, yield_i = nominal_i + alpha * (nominal_i - lo_i)."
+  }
+}

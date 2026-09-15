@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing and fixing interacting defects across a multi-file C++ geochemical solver: a CMake build that omits source files (linker errors), a missing B-dot extended Debye-Huckel activity model implementation (stub returns 0), a broken linear interpolation for temperature-dependent DH parameters, a van't Hoff formula missing the ln(10) conversion factor (wrong log_K at non-25C temperatures), incomplete mass balance equations (CaSO4aq omitted), a numerical Jacobian with step size 9 orders too large, a convergence tolerance 7 orders too loose, and entirely absent mineral phase assemblage logic requiring an active-set Newton-Raphson approach. The solver must handle variable-size nonlinear systems as minerals enter/leave the phase assemblage. Fixing these requires expertise in CMake build systems, numerical methods (Newton-Raphson with phase switching), aqueous geochemistry (activity coefficients, mineral saturation), and thermodynamic modeling (van't Hoff extrapolation)."""
+solution_explanation = """Eight fixes across four files: (1) CMakeLists.txt: add activity.cpp and solver.cpp to add_executable. (2) thermo.hpp: change delta_h/(R_GAS) to delta_h/(LN10*R_GAS) in van't Hoff. (3) activity.cpp: fix interpolation by dividing (T-T_tab[i]) by (T_tab[i+1]-T_tab[i]); implement B-dot as -A*z^2*sqrt(I)/(1+a*B*sqrt(I))+bdot*I. (4) solver.cpp: add CaSO4aq to Ca and S mass balances; change Jacobian h from 0.01 to 1e-7; change tolerance from 1e-3 to 1e-10; implement mineral phase assemblage with outer loop checking SI>0 for activation and n<0 for deactivation, expanding the Newton system with SI=0 constraints and mineral amounts as unknowns."""
+verification_explanation = """Tests independently verify thermodynamic self-consistency at each temperature: they recompute activity coefficients using the correct B-dot model with correctly interpolated DH parameters, evaluate van't Hoff for temperature-dependent log(K), and check that equilibrium quotients Q for all six aqueous reactions match log(K) within 0.02 log units. Mass balances for Na, Cl, Ca, C, S (including mineral contributions) are verified within 0.1%. Charge balance < 1e-5. For mineral cases, tests verify n_calcite > 0 when supersaturated, SI ~ 0 when precipitated, and SI consistency with reported molalities. Physical ranges (pH, ionic strength) are checked per case."""
+category = "debugging"
+tags = ["geochemistry", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gibbs-equilibrium-solver-e91565"

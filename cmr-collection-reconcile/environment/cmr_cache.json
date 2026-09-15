@@ -1,0 +1,321 @@
+{
+  "feed": {
+    "updated": "2025-06-01T00:00:00.000Z",
+    "id": "https://cmr.earthdata.nasa.gov:443/search/collections.json",
+    "title": "ECHO dataset metadata",
+    "entry": [
+      {
+        "id": "C2021957657-LPCLOUD",
+        "short_name": "HLSL30",
+        "dataset_id": "HLS Landsat OLI Surface Reflectance and TOA Brightness Daily Global 30m v2.0",
+        "data_center": "LPCLOUD",
+        "processing_level_id": "3",
+        "platforms": [
+          "LANDSAT-8",
+          "LANDSAT-9"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2013-04-11T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2021957295-LPCLOUD",
+        "short_name": "HLSS30",
+        "dataset_id": "HLS Sentinel-2 MSI Surface Reflectance Daily Global 30m v2.0",
+        "data_center": "LPCLOUD",
+        "processing_level_id": "3",
+        "platforms": [
+          "Sentinel-2A",
+          "Sentinel-2B"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2015-11-28T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2746980408-LPCLOUD",
+        "short_name": "OPERA_L3_DIST-ALERT-HLS_V1",
+        "dataset_id": "OPERA Land Surface Disturbance Alert from HLS product (Version 1)",
+        "data_center": "LPCLOUD",
+        "processing_level_id": "3",
+        "platforms": [
+          "LANDSAT-8",
+          "LANDSAT-9",
+          "Sentinel-2A",
+          "Sentinel-2B"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2022-01-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2565788221-LPCLOUD",
+        "short_name": "MOD09GA",
+        "dataset_id": "MODIS/Terra Surface Reflectance Daily L2G Global 1km and 500m",
+        "data_center": "LPCLOUD",
+        "processing_level_id": "2",
+        "platforms": [
+          "Terra"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2000-02-24T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2617126679-POCLOUD",
+        "short_name": "OPERA_L3_DSWX-HLS_V1",
+        "dataset_id": "OPERA Dynamic Surface Water Extent from HLS product (Version 1)",
+        "data_center": "POCLOUD",
+        "processing_level_id": "3",
+        "platforms": [
+          "LANDSAT-8",
+          "Sentinel-2A",
+          "Sentinel-2B"
+        ],
+        "boxes": [
+          "-84 -180 84 180"
+        ],
+        "time_start": "2022-01-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1996881456-POCLOUD",
+        "short_name": "MUR-JPL-L4-GLOB-v4.1",
+        "dataset_id": "GHRSST Level 4 MUR Global Foundation Sea Surface Temperature Analysis v4.1",
+        "data_center": "POCLOUD",
+        "processing_level_id": "4",
+        "platforms": [
+          "Aqua",
+          "Terra"
+        ],
+        "boxes": [
+          "-60 -180 60 180"
+        ],
+        "time_start": "2002-06-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2258471253-POCLOUD",
+        "short_name": "MODIS_A-JPL-L2P-v2019.0",
+        "dataset_id": "GHRSST Level 2P Global Sea Surface Skin Temperature from MODIS on Aqua",
+        "data_center": "POCLOUD",
+        "processing_level_id": "2",
+        "platforms": [
+          "Aqua"
+        ],
+        "boxes": [
+          "-60 -180 60 180"
+        ],
+        "time_start": "2002-07-04T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C2205121567-POCLOUD",
+        "short_name": "SEA_SURFACE_HEIGHT_ALT_GRIDS_L4_2SATS_5DAY_6THDEG_V_JPL2205",
+        "dataset_id": "MEaSUREs Gridded Sea Surface Height Anomalies Version 2205",
+        "data_center": "POCLOUD",
+        "processing_level_id": "4",
+        "platforms": [
+          "Sentinel-6"
+        ],
+        "boxes": [
+          "-66 -180 66 180"
+        ],
+        "time_start": "2021-01-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1598621093-GES_DISC",
+        "short_name": "GPM_3IMERGDF",
+        "dataset_id": "GPM IMERG Final Precipitation L3 1 day 0.1 degree",
+        "data_center": "GES_DISC",
+        "processing_level_id": "3",
+        "platforms": [
+          "GPM"
+        ],
+        "boxes": [
+          "-70 -180 70 180"
+        ],
+        "time_start": "2014-03-12T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1243477366-GES_DISC",
+        "short_name": "AIRS3STD",
+        "dataset_id": "AIRS/Aqua L3 Daily Standard Physical Retrieval",
+        "data_center": "GES_DISC",
+        "processing_level_id": "3",
+        "platforms": [
+          "Aqua"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2002-08-30T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1276812863-GES_DISC",
+        "short_name": "M2T1NXSLV",
+        "dataset_id": "MERRA-2 tavg1_2d_slv_Nx: 2d Single-Level Diagnostics",
+        "data_center": "GES_DISC",
+        "processing_level_id": "4",
+        "platforms": [
+          "MERRA-2"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "1980-01-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1266136111-GES_DISC",
+        "short_name": "OMTO3d",
+        "dataset_id": "OMI/Aura Ozone Total Column Daily L2",
+        "data_center": "GES_DISC",
+        "processing_level_id": "2",
+        "platforms": [
+          "Aura"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2004-10-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": false,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C3297904665-NSIDC_CPRD",
+        "short_name": "NSIDC-0731",
+        "dataset_id": "Greenland Monthly Ice Sheet Velocity Mosaics from SAR and Landsat V005",
+        "data_center": "NSIDC_CPRD",
+        "processing_level_id": "3",
+        "platforms": [
+          "LANDSAT-8",
+          "LANDSAT-9",
+          "Sentinel-1A"
+        ],
+        "boxes": [
+          "58 -90 83 -8"
+        ],
+        "time_start": "2014-12-01T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1214472336-ASF",
+        "short_name": "SENTINEL-1_GRD",
+        "dataset_id": "Sentinel-1A/B Ground Range Detected High-Res Dual-Pol",
+        "data_center": "ASF",
+        "processing_level_id": "1",
+        "platforms": [
+          "Sentinel-1A",
+          "Sentinel-1B"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2014-04-03T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      },
+      {
+        "id": "C1327985578-ASF",
+        "short_name": "SENTINEL-1_SLC",
+        "dataset_id": "Sentinel-1A/B Single Look Complex",
+        "data_center": "ASF",
+        "processing_level_id": "1",
+        "platforms": [
+          "Sentinel-1A",
+          "Sentinel-1B"
+        ],
+        "boxes": [
+          "-90 -180 90 180"
+        ],
+        "time_start": "2014-04-03T00:00:00.000Z",
+        "time_end": "2025-06-01T00:00:00.000Z",
+        "cloud_hosted": true,
+        "has_granules": true,
+        "online_access_flag": true,
+        "score": 1.43,
+        "original_format": "UMM_JSON"
+      }
+    ]
+  }
+}

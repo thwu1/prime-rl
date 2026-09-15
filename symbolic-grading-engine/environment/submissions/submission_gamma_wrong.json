@@ -1,0 +1,5 @@
+{
+    "submission_id": "submission_gamma_wrong",
+    "challenge_id": "gamma",
+    "generated_code": "def answer():\n    \"\"\"Incorrect: confused with edge connectivity.\"\"\"\n    return 2.0"
+}

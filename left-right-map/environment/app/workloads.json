@@ -1,0 +1,37 @@
+[
+    {
+        "name": "uniform_read_heavy",
+        "num_keys": 1000,
+        "num_operations": 5000,
+        "read_fraction": 0.95,
+        "key_distribution": "uniform",
+        "seed": 42
+    },
+    {
+        "name": "uniform_write_heavy",
+        "num_keys": 1000,
+        "num_operations": 5000,
+        "read_fraction": 0.2,
+        "key_distribution": "uniform",
+        "seed": 42
+    },
+    {
+        "name": "skewed_mixed",
+        "num_keys": 1000,
+        "num_operations": 5000,
+        "read_fraction": 0.7,
+        "key_distribution": "zipf",
+        "zipf_alpha": 1.2,
+        "seed": 42
+    },
+    {
+        "name": "hotspot",
+        "num_keys": 1000,
+        "num_operations": 5000,
+        "read_fraction": 0.8,
+        "key_distribution": "hotspot",
+        "hot_fraction": 0.01,
+        "hot_weight": 0.9,
+        "seed": 42
+    }
+]

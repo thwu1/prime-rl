@@ -1,0 +1,26 @@
+{
+  "label": "candidate",
+  "command": "./benchmark --config candidate.cfg",
+  "samples": [
+    {"wall_time_ns": 5350000, "cpu_cycles": 14100000, "cache_misses": 6800, "peak_rss_bytes": 14500000},
+    {"wall_time_ns": 5600000, "cpu_cycles": 14400000, "cache_misses": 7200, "peak_rss_bytes": 14800000},
+    {"wall_time_ns": 5420000, "cpu_cycles": 13800000, "cache_misses": 6900, "peak_rss_bytes": 14300000},
+    {"wall_time_ns": 5550000, "cpu_cycles": 14200000, "cache_misses": 7100, "peak_rss_bytes": 14700000},
+    {"wall_time_ns": 5700000, "cpu_cycles": 14500000, "cache_misses": 7500, "peak_rss_bytes": 15000000},
+    {"wall_time_ns": 5300000, "cpu_cycles": 13900000, "cache_misses": 6700, "peak_rss_bytes": 14200000},
+    {"wall_time_ns": 5480000, "cpu_cycles": 14050000, "cache_misses": 6950, "peak_rss_bytes": 14600000},
+    {"wall_time_ns": 5530000, "cpu_cycles": 14300000, "cache_misses": 7050, "peak_rss_bytes": 14750000},
+    {"wall_time_ns": 5400000, "cpu_cycles": 13850000, "cache_misses": 6850, "peak_rss_bytes": 14400000},
+    {"wall_time_ns": 5650000, "cpu_cycles": 14350000, "cache_misses": 7300, "peak_rss_bytes": 14900000},
+    {"wall_time_ns": 5280000, "cpu_cycles": 13700000, "cache_misses": 6600, "peak_rss_bytes": 14100000},
+    {"wall_time_ns": 5580000, "cpu_cycles": 14350000, "cache_misses": 7150, "peak_rss_bytes": 14850000},
+    {"wall_time_ns": 5370000, "cpu_cycles": 13800000, "cache_misses": 6750, "peak_rss_bytes": 14350000},
+    {"wall_time_ns": 5620000, "cpu_cycles": 14450000, "cache_misses": 7400, "peak_rss_bytes": 14950000},
+    {"wall_time_ns": 5460000, "cpu_cycles": 14000000, "cache_misses": 6950, "peak_rss_bytes": 14550000},
+    {"wall_time_ns": 5500000, "cpu_cycles": 14200000, "cache_misses": 18500, "peak_rss_bytes": 14650000},
+    {"wall_time_ns": 5440000, "cpu_cycles": 13900000, "cache_misses": 6880, "peak_rss_bytes": 14450000},
+    {"wall_time_ns": 5570000, "cpu_cycles": 14300000, "cache_misses": 7100, "peak_rss_bytes": 14780000},
+    {"wall_time_ns": 5490000, "cpu_cycles": 14100000, "cache_misses": 6980, "peak_rss_bytes": 14580000},
+    {"wall_time_ns": 5510000, "cpu_cycles": 14150000, "cache_misses": 7020, "peak_rss_bytes": 14620000}
+  ]
+}

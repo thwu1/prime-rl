@@ -1,0 +1,10 @@
+c Unsatisfiable formula (3 variables, all 8 sign combinations)
+p cnf 3 8
+1 2 3 0
+1 2 -3 0
+1 -2 3 0
+1 -2 -3 0
+-1 2 3 0
+-1 2 -3 0
+-1 -2 3 0
+-1 -2 -3 0

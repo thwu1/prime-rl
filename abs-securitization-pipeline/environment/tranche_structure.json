@@ -1,0 +1,48 @@
+{
+  "collection_period_days": 31,
+  "tranches": [
+    {
+      "class": "A-1",
+      "beginning_balance": 14673298.82,
+      "rate_pct": 3.909,
+      "day_count": "ACT/360",
+      "actual_days": 31
+    },
+    {
+      "class": "A-2",
+      "beginning_balance": 619800000.00,
+      "rate_pct": 4.04,
+      "day_count": "30/360"
+    },
+    {
+      "class": "A-3",
+      "beginning_balance": 420310000.00,
+      "rate_pct": 3.93,
+      "day_count": "30/360"
+    },
+    {
+      "class": "B",
+      "beginning_balance": 170380000.00,
+      "rate_pct": 4.07,
+      "day_count": "30/360"
+    },
+    {
+      "class": "C",
+      "beginning_balance": 178130000.00,
+      "rate_pct": 4.26,
+      "day_count": "30/360"
+    },
+    {
+      "class": "D",
+      "beginning_balance": 196520000.00,
+      "rate_pct": 4.75,
+      "day_count": "30/360"
+    },
+    {
+      "class": "E",
+      "beginning_balance": 111330000.00,
+      "rate_pct": 6.41,
+      "day_count": "30/360"
+    }
+  ]
+}

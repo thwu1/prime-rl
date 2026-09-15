@@ -1,0 +1,7 @@
+aut-num:            AS4242420005
+as-name:            EPSILON-AS
+descr:              Epsilon Network Autonomous System
+admin-c:            BOB-DN42
+tech-c:             EVE-DN42
+mnt-by:             ALPHA-MNT
+source:             DN42

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires systematic reverse-engineering of a stripped ELF binary implementing a custom binary serialization format with non-obvious design choices. The agent must independently discover hidden capabilities within the binary, extract and interpret embedded documentation, and determine the exact encoding rules for all supported data types. The format has subtle design decisions around endianness, integer width selection, length encoding, key ordering, and integrity verification that cannot all be determined through naive input/output probing alone. Successfully producing a byte-identical reimplementation demands proficient multi-tool interoperability across multiple binary analysis techniques."""
+solution_explanation = """The solution uses strings to discover hidden subcommands and section references in the binary. It then uses readelf to locate a custom ELF section and objcopy to extract an embedded zlib-compressed partial format specification. After decompressing, the spec reveals type tags, endianness rules, LEB128 varint encoding, and key sorting rules. A hidden diagnostic subcommand provides CRC-8 parameters (polynomial 0x07, init 0). Remaining details are confirmed through targeted probing with xxd. A Python reimplementation encodes and decodes the format faithfully."""
+verification_explanation = """Tests encode dozens of JSON inputs through both oracle and reimpl, comparing binary output byte-for-byte. Decode tests verify character-identical JSON output. Additional tests check: integer encoding sizes at type boundaries, float byte order, object key sorting, CRC correctness, validate command behavior for valid and corrupted inputs, multi-byte varint encoding for long strings and large arrays, and UTF-8 multi-byte character handling. A complex nested structure test exercises all format features together."""
+category = "reverse_engineering"
+tags = ["binary-analysis", "serialization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reverse-engineer-format"

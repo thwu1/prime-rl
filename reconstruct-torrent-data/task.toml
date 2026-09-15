@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering multiple undocumented binary formats: bencode-encoded torrent metainfo with raw binary SHA-1 hashes embedded in byte strings, piece cache files using a custom 4-byte big-endian index prefix format, and a raw BitTorrent peer wire protocol message stream containing interleaved keepalive, bitfield, have, interested, unchoke, and piece messages that must be parsed and filtered. Pieces in the traffic capture may arrive as multiple blocks at different offsets that must be reassembled. The solver must also handle multi-file torrent piece-to-file mapping where individual pieces span multiple file boundaries across a 10-file directory tree with 3 levels of nesting, compute info_hash by extracting raw bencoded info dictionary bytes (not re-encoding), identify corrupted vs missing vs duplicated piece candidates via SHA-1 verification, and correctly zero-fill gaps during file reconstruction."""
+solution_explanation = """Parse the torrent metainfo using a custom bencode decoder that tracks byte positions to extract raw info dict bytes for SHA-1 info_hash computation. Read piece cache files from the pieces directory, extracting 4-byte big-endian index prefixes and filtering out-of-range indices and non-.bin files. Parse the peer traffic log as a stream of length-prefixed BitTorrent messages, identifying piece messages (ID 7) and extracting index/begin/block fields, then reassembling multi-block pieces. Merge candidates from both sources, verify each against expected SHA-1 hashes from the torrent, and reconstruct multi-file output using interval arithmetic for piece-to-file overlap computation with zero-fill for unverifiable regions."""
+verification_explanation = """Tests independently regenerate expected file contents from a deterministic PRNG seed using the same parameters as the setup script, recompute expected piece SHA-1 hashes and info_hash via an independent bencode encoder, then verify: (1) report.json existence and JSON validity, (2) correct metadata fields, (3) correct status for each of 9 pieces including hash fields and duplicate counts, (4) correct file statuses and lengths for all 10 files, (5) byte-level verification of 5 complete files against originals, (6) byte-level verification of 5 partial files checking valid regions match originals and corrupted/missing regions are zero-filled at exact byte boundaries."""
+category = "systems_programming"
+tags = ["bittorrent", "binary-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/reconstruct-torrent-data"

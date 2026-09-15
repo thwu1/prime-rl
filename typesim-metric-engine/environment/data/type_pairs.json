@@ -1,0 +1,75 @@
+[
+  {
+    "id": "pair_01",
+    "type_a": {"kind": "Instance", "origin": "int", "args": []},
+    "type_b": {"kind": "Instance", "origin": "int", "args": []}
+  },
+  {
+    "id": "pair_02",
+    "type_a": {"kind": "Instance", "origin": "int", "args": []},
+    "type_b": {"kind": "Instance", "origin": "float", "args": []}
+  },
+  {
+    "id": "pair_03",
+    "type_a": {"kind": "Instance", "origin": "int", "args": []},
+    "type_b": {"kind": "Instance", "origin": "str", "args": []}
+  },
+  {
+    "id": "pair_04",
+    "type_a": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]},
+    "type_b": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]}
+  },
+  {
+    "id": "pair_05",
+    "type_a": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]},
+    "type_b": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "float", "args": []}]}
+  },
+  {
+    "id": "pair_06",
+    "type_a": {"kind": "Union", "items": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "None"}]},
+    "type_b": {"kind": "Instance", "origin": "str", "args": []}
+  },
+  {
+    "id": "pair_07",
+    "type_a": {"kind": "Union", "items": [{"kind": "Instance", "origin": "int", "args": []}, {"kind": "Instance", "origin": "str", "args": []}]},
+    "type_b": {"kind": "Union", "items": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]}
+  },
+  {
+    "id": "pair_08",
+    "type_a": {"kind": "Instance", "origin": "dict", "args": [
+      {"kind": "Instance", "origin": "str", "args": []},
+      {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}
+    ]},
+    "type_b": {"kind": "Instance", "origin": "dict", "args": [
+      {"kind": "Instance", "origin": "str", "args": []},
+      {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "float", "args": []}]}
+    ]}
+  },
+  {
+    "id": "pair_09",
+    "type_a": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]},
+    "type_b": {"kind": "Instance", "origin": "dict", "args": [{"kind": "Instance", "origin": "str", "args": []}, {"kind": "Instance", "origin": "int", "args": []}]}
+  },
+  {
+    "id": "pair_10",
+    "type_a": {"kind": "Union", "items": [
+      {"kind": "Instance", "origin": "int", "args": []},
+      {"kind": "Instance", "origin": "str", "args": []},
+      {"kind": "None"}
+    ]},
+    "type_b": {"kind": "Union", "items": [
+      {"kind": "Instance", "origin": "float", "args": []},
+      {"kind": "Instance", "origin": "str", "args": []}
+    ]}
+  },
+  {
+    "id": "pair_11",
+    "type_a": {"kind": "Instance", "origin": "int", "args": []},
+    "type_b": {"kind": "Instance", "origin": "list", "args": [{"kind": "Instance", "origin": "int", "args": []}]}
+  },
+  {
+    "id": "pair_12",
+    "type_a": {"kind": "Tuple", "items": [{"kind": "Instance", "origin": "int", "args": []}, {"kind": "Instance", "origin": "str", "args": []}]},
+    "type_b": {"kind": "Tuple", "items": [{"kind": "Instance", "origin": "float", "args": []}, {"kind": "Instance", "origin": "str", "args": []}]}
+  }
+]

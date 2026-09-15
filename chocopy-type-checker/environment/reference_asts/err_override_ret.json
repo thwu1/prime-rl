@@ -1,0 +1,17 @@
+{
+  "well_typed": false,
+  "globals": {},
+  "classes": {
+    "A": {
+      "superclass": "object",
+      "attributes": {},
+      "methods": {"foo": "(A) -> int"}
+    },
+    "B": {
+      "superclass": "A",
+      "attributes": {},
+      "methods": {"foo": "(B) -> str"}
+    }
+  },
+  "errors": [{"message": "Method 'foo' in 'B' overrides with different return type: str vs int"}]
+}

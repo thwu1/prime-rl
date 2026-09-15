@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering precise game mechanics from recorded replay data — exact rounding behavior (ceiling vs floor), turn execution phase ordering, movement cost source (origin vs destination cell), inspiration activation radius and bonus formula, collision cargo resolution, and extraction capping. The agent must analyze multi-file JSON replay datasets, cross-reference game constants with observed state transitions, identify edge cases (rejected moves, cargo caps, cross-player collisions), then implement a simulator matching every detail. The planner requires multi-ship coordination with collision avoidance and optimal mining/return scheduling on a toroidal grid."""
+solution_explanation = """The solution implements a GameState class handling all turn phases in the correct order (inspiration check, spawn, move/construct, collision resolution, mining with inspiration bonus, deposit). Key mechanics reverse-engineered from replays: extraction uses ceil(cell_h / EXTRACT_RATIO), movement costs ceil(origin_cell_h / MOVE_COST_RATIO), inspiration checks positions before moves execute, bonus is MULTIPLIER * base_extraction added to ship but not subtracted from cell, and collision cargo is added to the cell. The planner uses greedy target assignment with per-turn cell claiming for collision avoidance."""
+verification_explanation = """Tests verify simulator correctness by replaying all 10 recorded games: for each game, the test loads the initial state, steps through using recorded commands, and compares every resulting state (cell halite values, ship positions/cargo, player halite) against the recorded ground truth. Planner tests simulate complete scenarios, verify no friendly ship collisions occur, and check that net halite gain meets the target thresholds."""
+category = "algorithmic_reasoning"
+tags = ["reverse-engineering", "game-simulation"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/halite-toroidal-planner"

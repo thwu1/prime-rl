@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of RDMA datacenter networking, IEEE 802.1Qbb Priority Flow Control mechanics (XOFF/XON thresholds, per-priority queue semantics), and PFC anomaly diagnosis. The solver must extract and correlate data across three heterogeneous formats: querying a SQLite database with indexed PFC telemetry, parsing a Graphviz DOT topology file to recover port-level adjacency, and producing valid DOT and JSON outputs. Domain expertise is needed to distinguish genuine PFC anomalies from benign activity using configuration parameters, build causal propagation models, classify anomaly patterns, and map affected flows via path intersection."""
+solution_explanation = """Parse the DOT topology to build a port-level adjacency map. Query the SQLite database for PFC configuration thresholds and event data. Filter PFC events by significance (queue depth vs XOFF threshold) and frequency. Correlate temporally adjacent PFC events across physically connected switch ports to build directed propagation relationships. Identify connected components, classify each by graph structure (acyclic vs cyclic), extract root causes or cycles as appropriate, map victim flows by path overlap, and compute severity metrics. Output structured JSON and a valid Graphviz digraph."""
+verification_explanation = """Tests use a composite SHA256 signature of the canonical result (anomaly count, types, affected switches, flow mappings, root cause, propagation depth, cycle switches, cycle length) to verify correctness without embedding readable expected values. Additional tests verify structural JSON validity, data integrity (all anomaly switches have significant PFC activity above XOFF threshold in the database, affected flows actually traverse affected switches), severity properties (positive scores, correct relative ordering), and provenance DOT validity (compiles with dot, is a digraph with directed edges referencing all anomaly switches)."""
+category = "networking"
+tags = ["rdma", "graph-algorithms", "sqlite", "graphviz"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pfc-provenance-diagnosis"

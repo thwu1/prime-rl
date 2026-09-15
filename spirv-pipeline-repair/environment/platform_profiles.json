@@ -1,0 +1,40 @@
+{
+  "profiles": {
+    "mobile_vulkan": {
+      "description": "Resource-constrained mobile GPU targeting Vulkan with GLSL ES 310",
+      "weights": {
+        "binary_size": 0.6,
+        "instruction_count": 0.3,
+        "id_count": 0.1
+      },
+      "cross_compile_target": "glsl_es_310"
+    },
+    "desktop_vulkan": {
+      "description": "High-performance desktop GPU targeting Vulkan with GLSL 450",
+      "weights": {
+        "binary_size": 0.2,
+        "instruction_count": 0.7,
+        "id_count": 0.1
+      },
+      "cross_compile_target": "glsl_450"
+    },
+    "console_metal": {
+      "description": "Console platform using Metal Shading Language, favoring minimal register pressure",
+      "weights": {
+        "binary_size": 0.3,
+        "instruction_count": 0.2,
+        "id_count": 0.5
+      },
+      "cross_compile_target": "msl"
+    }
+  },
+  "metrics": {
+    "binary_size": "File size in bytes of the optimized .spv binary",
+    "instruction_count": "Number of non-comment, non-empty lines in spirv-dis output",
+    "id_count": "Number of unique %identifier tokens in spirv-dis output"
+  },
+  "scoring": {
+    "method": "weighted_normalized_min",
+    "formula": "For each metric m: norm(s,m) = (value(s,m) - min(m)) / (max(m) - min(m)) if max(m) != min(m), else 0. Score(s,p) = sum(weight(p,m) * norm(s,m) for m in metrics). Strategy with lowest score is recommended."
+  }
+}

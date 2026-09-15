@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep, cross-cutting expertise in HLS evaluation methodology. The instruction provides only the data files, output path, and a terse specification — the agent must independently discover and implement five interrelated subsystems: (1) subprocess-driven C++ compilation and simulation with mixed error modes across 50 candidates, (2) JSON-based DSE configuration expansion with three interdependent parameter constraints whose semantics must be inferred from the data structure and domain knowledge, (3) the unbiased Pass@k binomial estimator from the code generation evaluation literature (not the naive Monte Carlo estimator), (4) multi-objective Pareto frontier identification with 15 design points in 4-dimensional objective space, and (5) signed percentage PPA differential analysis. No formulas, constraint semantics, or algorithmic steps are provided in the instruction; the agent must bring domain knowledge of HLS design-space exploration, statistical code evaluation metrics, and multi-objective optimization."""
+solution_explanation = """The solution runs a Python pipeline that: compiles each candidate against its testbench via g++ subprocess, records pass/fail for both compilation and simulation, parses the DSE JSON config and enumerates valid configurations by computing the full Cartesian product then filtering out entries where a dependent parameter deviates from its default while its prerequisite condition is unmet, computes Pass@k = 1 - C(n-c,k)/C(n,k) using math.comb (the unbiased estimator), identifies Pareto-optimal designs via pairwise dominance checking across 4 objectives, and computes signed percentage differentials for PPA metrics. All results are assembled into a JSON report conforming to the evaluation spec."""
+verification_explanation = """Tests load the output report.json and verify: (a) correct compilation status for all 50 candidates including 5 intentional syntax errors, (b) correct simulation pass/fail matching known bug patterns across 5 benchmarks, (c) DSE constrained total = 1440 (with 3 dependency constraints) and unconstrained = 3456, (d) per-benchmark and aggregate Pass@K values within 1e-6 tolerance against the reference binomial formula, (e) Pareto-optimal set exactly equals {d01-d05} with 10 dominated points, (f) PPA differential percentages match expected values within 0.01% tolerance."""
+category = "systems"
+tags = ["hls", "evaluation-framework"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/hls-evaluation-pipeline"

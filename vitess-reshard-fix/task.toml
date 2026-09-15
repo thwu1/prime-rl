@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding Vitess-style hash-based shard routing, implementing a correct data migration tool that recomputes keyspace IDs and redistributes rows across new shard boundaries, building a consistency verification tool (VDiff), and diagnosing and fixing a production-quality cascading-query bug modeled on a real Slack incident. The fix demands rate limiting and circuit breaker patterns integrated with a health monitoring API. The agent must read and understand existing infrastructure code (hash functions, shard naming conventions, connection management) before implementing solutions."""
+solution_explanation = """Implement reshard.py: read all rows from the -80 shard, recompute each row's shard byte via MD5, route to -40 or 40-80, insert into the target, and remove the original DB. Implement vdiff.py: read the manifest, check every expected row exists in the correct target shard. Fix forget_user.py: scope subscription queries and updates to the current channel only, remove the redundant client-notification query, add time.sleep-based rate limiting keyed to max_ops_per_sec, and check monitor.is_healthy() before each iteration with early exit on circuit break. Update vschema.json shards list."""
+verification_explanation = """Parametrized pytest tests verify: (1) new shard databases exist and original is removed, (2) every row from the manifest is in the correct new shard with no duplicates or losses across all five tables, (3) shard 80- is untouched, (4) vschema.json lists exactly three shards, (5) vdiff.py exits 0 on the completed reshard, (6) forget_user correctly deactivates all subscriptions, (7) query count is lower than the buggy version, (8) max_ops_per_sec parameter exists and throttles execution, (9) circuit breaker trips when monitor reports shard unhealthy."""
+category = "database_systems"
+tags = ["distributed-databases", "data-migration"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/vitess-reshard-fix"

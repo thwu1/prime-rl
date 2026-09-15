@@ -1,0 +1,17 @@
+[package]
+name = "server"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["logging"]
+logging = []
+
+[dependencies]
+foundation = { workspace = true }
+codec = { workspace = true }
+validator = { workspace = true }
+transform = { workspace = true }
+
+[build-dependencies]
+buildutil = { workspace = true }

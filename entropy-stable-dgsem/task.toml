@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep expertise in entropy-stable numerical methods for hyperbolic conservation laws. The agent must identify and correctly implement specific mathematical constructions (entropy-conservative two-point flux, contact-resolving Riemann solver, numerically stable mean) from their required properties alone, without being given algorithm names or formulas. Additionally, the agent must work with a multi-tool pipeline: implementing Python numerical code, writing jq pipelines for JSON transformation, writing awk programs for CSV validation, and orchestrating the workflow through a Makefile."""
+solution_explanation = """Identify the logarithmic mean from its properties and implement with Taylor expansion fallback for near-equal arguments. Recognize the entropy conservation identity as requiring the Chandrashekar (2013) construction using logarithmic means of density and the inverse-temperature parameter beta=rho/(2p). Recognize the contact-resolving requirement as pointing to HLLC with Davis wave speed estimates and Toro's star-state formulation. Complete the Makefile's jq pipeline to extract convergence statistics and the awk pipeline to validate positive density/pressure in the Sod solution."""
+verification_explanation = """Unit tests verify mathematical properties of each flux: mean symmetry, bounds, and stability; entropy-conservative flux consistency and the precise entropy conservation identity; Riemann solver consistency and exact contact resolution. Integration tests check convergence order ~N+1 and Sod shock tube physical correctness. Additional tests verify the Makefile-generated report.json and validation.txt files for correct structure, values, and tool usage (jq and awk must appear in non-comment Makefile lines)."""
+category = "scientific_computing"
+tags = ["computational-fluid-dynamics", "numerical-methods"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/entropy-stable-dgsem"

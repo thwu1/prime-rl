@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three distinct expert-level phases: (1) Reverse engineering two ARM firmware images with different key protection schemes — V1 uses single-byte XOR obfuscation found via ARM EOR instruction with CRC32 validation among decoy keys, V2 uses split-key storage with per-byte bit rotation, decoy halves, and CRC32 integrity across non-adjacent memory regions. (2) Producing a comparative security evaluation that judges attack complexity, identifies the superior scheme, and documents rejected key candidates with reasoning. (3) Designing and implementing from scratch a novel key wrapping module that provably resists the specific attacks that defeated both V1 and V2 — requiring the solver to synthesize cryptographic engineering knowledge into an original, testable artifact rather than merely applying known techniques."""
+solution_explanation = """V1: Parse hex dump to reconstruct firmware. Find AES S-box and DES IP table. Locate ARM EOR instruction to extract XOR constant 0x42. Find three 16-byte key candidates before 0x55AA55AA marker with CRC32. XOR-deobfuscate the second candidate to recover AES key. V2: Parse raw binary header to extract rotation amount (3). Find FEEDFACE and CAFED00D markers bracketing key halves separated by the S-box. Reverse per-byte bit rotation (ROR 3) on each half, verify via per-half CRC32. Reject the decoy half at second FEEDFACE-like marker. Combine halves for full key. Decrypt both 48-byte ciphertexts with AES-128-ECB. Evaluate V1 as low complexity, V2 as medium. V3: Design a key wrapping module using per-wrap random salt for derived multi-byte wrapping key, scatter storage with salt-derived positions, and HMAC integrity verification — addressing V1's single-byte XOR weakness, V2's contiguous key half storage, and both versions' lack of tamper detection."""
+verification_explanation = """Tests verify: (1) V1 and V2 decrypted plaintexts via SHA-256 hash, correct length, printable ASCII; (2) assessment.json with correct algorithms, keys, key protection descriptions, attack complexity ratings (V1=low, V2=medium/high), correct more_secure_version verdict (V2), detailed justification, and rejected candidates from both versions; (3) v3_keywrap.py module existence, wrap_key/unwrap_key function signatures, round-trip correctness for multiple test keys, blob minimum size (512 bytes), key not appearing contiguously in blob, resistance to single-byte XOR recovery, tamper detection on corrupted blobs, and sufficient blob entropy."""
+category = "security_and_privacy"
+tags = ["firmware-analysis", "cryptographic-design"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-92a788"

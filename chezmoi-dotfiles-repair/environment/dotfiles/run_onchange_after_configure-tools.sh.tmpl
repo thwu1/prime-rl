@@ -1,0 +1,6 @@
+#!/bin/bash
+# tools hash: {{ include "packages.txt" | sha256sum }}
+{{ if ne .chezmoi.os "linux" -}}
+mkdir -p /tmp/chezmoi-markers
+echo "tools-configured" > /tmp/chezmoi-markers/configure-tools.done
+{{ end -}}

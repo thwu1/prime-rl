@@ -1,0 +1,9 @@
+metric,value
+library_cache_pins,6500000
+library_cache_pinhits,5660000
+library_cache_reloads,432000
+library_cache_invalidations,88000
+dictionary_cache_gets,4200000
+dictionary_cache_getmisses,84000
+shared_pool_size_bytes,1073741824
+shared_pool_free_bytes,53687091

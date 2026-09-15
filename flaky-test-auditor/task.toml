@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of the IDoFT flaky test taxonomy (OD/OD-Vic/OD-Brit/NOD/NIO/ID categories, victim-polluter-brittle-state-setter semantics, DeveloperFixed/MovedToGradle status lifecycle) to correctly implement cross-dataset integrity checks. The solver must diagnose a subtle JOIN bug in the existing engine where project-level matching produces false positives vs the required test-level matching. They must then implement 4 additional reconciliation checks using SQL LEFT JOINs across 5 interlinked tables, reasoning about which table relationships constitute referential integrity violations. Requires proficiency with sqlite3 CLI for data exploration, Python sqlite3 module for engine implementation, and jq for output validation."""
+solution_explanation = """Fix check_odr_category_consistency by adding o.od_test = p.test_name to the JOIN condition (project_url + test_name, not project_url alone). Implement 4 missing checks: (1) developer_fixed_no_fix_record — LEFT JOIN DeveloperFixed entries against tic_fic_data on project_url + test_name, (2) odr_type_conflict — cross-check od_test_type (victim/brittle) against category (OD-Vic/OD-Brit) for type-level mismatches, (3) orphaned_odr_reference — odr_tests entries with no matching main-table record, (4) orphaned_fix_record — tic_fic_data entries with no matching main-table record. Total: 13 violations across 7 categories."""
+verification_explanation = """Tests verify: exact total (13), per-category counts for all 7 categories, spot-check each specific violation by source_table and source_id, and verify 4 false-positive rows that the buggy engine incorrectly flags are not present in the corrected output. Schema validation via jq is also tested."""
+category = "data-engineering"
+tags = ["cross-dataset-integrity", "flaky-test-analysis"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flaky-test-auditor"

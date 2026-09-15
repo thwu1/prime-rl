@@ -1,0 +1,27 @@
+# Diagnostic trace for coherence protocol validation
+# Run with: python3 moesi_sim.py diagnostic.trace --cores 4 --capacity 8 --verbose
+#
+# === Pattern A: Silent E->M upgrade and eviction ===
+# A cache line obtained via read (Exclusive state) then written
+# (silent upgrade to Modified) must preserve dirty data through
+# eviction and subsequent reads by other cores.
+0 READ 0x0100
+0 WRITE 0x0100 0xCAFE
+0 WRITE 0x0140 0x1001
+0 WRITE 0x0180 0x1002
+0 WRITE 0x01C0 0x1003
+0 WRITE 0x0200 0x1004
+0 WRITE 0x0240 0x1005
+0 WRITE 0x0280 0x1006
+0 WRITE 0x02C0 0x1007
+0 WRITE 0x0300 0x1008
+1 READ 0x0100
+#
+# === Pattern B: E->S sharer tracking ===
+# When an Exclusive-state directory entry transitions to Shared
+# upon a second reader, all sharing cores must be tracked so that
+# future writes correctly invalidate every copy.
+2 READ 0x0400
+3 READ 0x0400
+0 WRITE 0x0400 0xDEAD
+2 READ 0x0400

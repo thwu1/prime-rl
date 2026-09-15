@@ -1,0 +1,57 @@
+{
+  "scrambles": {
+    "S1": "R U R' U'",
+    "S2": "R U R' U R U2 R'",
+    "S3": "R' F R' B2 R F' R' B2 R2",
+    "S4": "R U",
+    "S5": "F R U R' U' F'"
+  },
+  "queries": [
+    {
+      "id": "Q1",
+      "type": "apply_scramble",
+      "description": "Apply each scramble sequence to the solved cube. Return the resulting 54-character facelet string.",
+      "scrambles": ["S1", "S2", "S3", "S4", "S5"]
+    },
+    {
+      "id": "Q2",
+      "type": "coordinates",
+      "description": "For each scramble result, compute twist, flip, corner_perm (lexicographic rank, 0..40319), and edge_parity (0 or 1).",
+      "scrambles": ["S1", "S2", "S3", "S4", "S5"]
+    },
+    {
+      "id": "Q3",
+      "type": "compose",
+      "description": "Compute the group product S1 * S2 (apply S1 first, then S2). Return facelet string and all four coordinates.",
+      "left": "S1",
+      "right": "S2"
+    },
+    {
+      "id": "Q4",
+      "type": "inverse",
+      "description": "Compute the group-theoretic inverse of S3. Return its facelet string.",
+      "scramble": "S3"
+    },
+    {
+      "id": "Q5",
+      "type": "order",
+      "description": "For each scramble, find the smallest positive integer k such that applying the scramble k times yields the solved cube.",
+      "scrambles": ["S1", "S2", "S3", "S4", "S5"]
+    },
+    {
+      "id": "Q6",
+      "type": "power",
+      "description": "Compute S4 raised to the 63rd power (S4 applied 63 times). Return the facelet string.",
+      "scramble": "S4",
+      "exponent": 63
+    }
+  ],
+  "output_format": {
+    "Q1": {"S1": "<54-char facelet string>", "S2": "<...>", "S3": "<...>", "S4": "<...>", "S5": "<...>"},
+    "Q2": {"S1": {"twist": 0, "flip": 0, "corner_perm": 0, "edge_parity": 0}, "...": "same structure for S2-S5"},
+    "Q3": {"facelet": "<54-char string>", "twist": 0, "flip": 0, "corner_perm": 0, "edge_parity": 0},
+    "Q4": {"facelet": "<54-char string>"},
+    "Q5": {"S1": 0, "S2": 0, "S3": 0, "S4": 0, "S5": 0},
+    "Q6": {"facelet": "<54-char string>"}
+  }
+}

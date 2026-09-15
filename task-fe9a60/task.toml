@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level FRR BGP VPN inter-VRF route-leaking knowledge spanning diagnosis, design, and security evaluation. The solver must first diagnose subtle misconfigurations across three routers (missing default BGP instance, missing router-id, RT typo, import vrf/export vpn incompatibility, missing import vpn). Then, crucially, the solver must CREATE new VRF configurations from scratch — engineering RT/RD assignment schemes that satisfy complex isolation constraints (unidirectional route visibility, no back-leaking) without any RT values being provided. This requires deep understanding of how RT import/export sets interact to create or prevent route visibility between VRFs. Finally, the solver must EVALUATE the security posture of the complete 8-VRF architecture, assessing minimum-privilege RT assignment and identifying lateral movement risks — a judgment task with no single correct answer."""
+solution_explanation = """Parse FRR configs and topology.json to diagnose all 5+ bugs via structural comparison. Read requirements.json to understand new VRF constraints. For each new VRF, derive the required import RTs by cross-referencing the source VRFs' export RTs from topology.json, then choose export RTs that provably don't appear in any forbidden VRF's import set — this is an RT set intersection/exclusion problem. Generate a design_evaluation.json documenting the RT choices with constraint satisfaction proofs and a security assessment. Compute the expanded 8-VRF reachability matrix. Generate corrected configs with bug fixes and new VRF BGP sections."""
+verification_explanation = """Tests validate: (1) bugs.json covers all known misconfigurations, (2) design_evaluation.json contains valid RT/RD assignments verified against isolation constraints using set intersection — QUARANTINE import RTs must include MGMT's export RT, QUARANTINE export RTs must not intersect with CUST's or MGMT's import RT sets; similar for MONITOR, (3) reachability.json matches expected 8-VRF matrix, (4) corrected configs contain structural fixes AND new VRF sections with constraint-satisfying RT values extracted and verified, (5) security assessment contains substantive findings."""
+category = "networking"
+tags = ["bgp", "frrouting"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-fe9a60"

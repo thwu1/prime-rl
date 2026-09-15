@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a complete 3D point cloud alignment pipeline: reading gzip-compressed scan data from a structured HDF5 file using h5py and CLI inspection tools (h5ls, h5dump), implementing pairwise scan registration with nearest-neighbor correspondence and least-squares transformation estimation, building a global pose consistency system on the SE(3) manifold to distribute errors across all overlap constraints, and writing output to an HDF5 file with a specific dataset/attribute schema. The agent must discover appropriate algorithms for both pairwise alignment and global consistency enforcement, understand 3D rigid body transformations and rotation representations, and demonstrate proficiency with HDF5 tooling."""
+solution_explanation = """The solution reads scan data from the HDF5 file using h5py, implements point-to-plane ICP for pairwise registration using scipy KDTree correspondence search and PCA-based normal estimation, then constructs a pose graph optimized via Gauss-Newton iteration on SE(3) with numerical Jacobians. The non-sequential overlap pair (scan 7 to scan 0) acts as a loop closure that corrects accumulated drift. Output is written as an HDF5 file with the required poses dataset and reference_scan attribute."""
+verification_explanation = """Tests open the output HDF5 file and verify: (1) file and poses dataset exist with correct shape/dtype, (2) reference_scan attribute equals 0, (3) pose 0 is identity, (4) all poses are valid rigid transforms (orthogonal rotation, det=1, bottom row [0,0,0,1]), (5) per-pose translation and rotation errors versus deterministic ground truth, (6) ATE below 0.3m, (7) consecutive relative pose accuracy."""
+category = "robotics"
+tags = ["point-cloud-registration", "pose-graph-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pointcloud-pose-optimization"

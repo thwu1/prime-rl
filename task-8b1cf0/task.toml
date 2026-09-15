@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of macroeconomic indicators and their standard computational definitions: the Sahm recession indicator (rolling SMA-based threshold with crossing logic), GDP deflation via CPI, Hodrick-Prescott filtering for business cycle decomposition (sparse-matrix penalized least-squares), the Taylor (1993) interest rate rule with cross-frequency data alignment (quarterly-to-monthly interpolation), yield curve inversion episode detection from noisy daily data with non-numeric missing values, and a synthesis component comparing realized monetary policy against the Taylor benchmark to classify Fed stance. The agent must independently determine the correct algorithms and parameters from domain knowledge alone — no formulas or method names are given in the instruction."""
+solution_explanation = """The solution loads FRED CSVs, cleans missing values in daily yield spread data, computes quarterly CPI averages to deflate nominal GDP, implements the HP filter via sparse second-difference matrix decomposition (solving (I + lambda*D'D)*trend = y with lambda=1600), computes YoY CPI inflation, implements the Sahm indicator as 3-month rolling mean minus trailing 12-month minimum with 0.50 threshold-crossing logic, detects yield curve inversions via contiguous-group identification, linearly interpolates the quarterly output gap to monthly frequency for the Taylor Rule formula (i = r* + pi + 0.5*(pi - pi*) + 0.5*gap), computes real fed funds as nominal rate minus YoY inflation, and synthesizes a monetary stance classification by comparing quarterly-averaged actual vs prescribed rates."""
+verification_explanation = """Tests verify JSON structural completeness across all six sections, mathematical consistency of the Taylor Rule by re-deriving from raw CPI and output gap data, spot-checking Sahm indicator and real-rate computations against raw FRED CSVs, validating that known historical events (COVID 2020 unemployment spike, 2008 GFC, 2022-2023 yield curve inversion, Volcker-era high real rates, 2021 ultra-accommodative policy) are correctly captured, checking statistical properties of the HP-filtered output gap (mean near zero, strongly negative during known recessions, positive during known booms), and verifying stance-deviation consistency and cross-referencing stance deviations against raw fed funds data and Taylor-prescribed rates."""
+category = "data_analysis"
+tags = ["economics", "time-series"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-8b1cf0"

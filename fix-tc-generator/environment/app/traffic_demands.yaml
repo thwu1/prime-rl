@@ -1,0 +1,32 @@
+# Traffic demand matrix - measured offered load per DSCP class per interface
+# Rates in mbit represent steady-state traffic demand
+
+traffic_demands:
+  eth0:
+    - dscp: 46
+      offered_rate_mbit: 800
+    - dscp: 34
+      offered_rate_mbit: 2500
+    - dscp: 18
+      offered_rate_mbit: 3000
+    - dscp: 10
+      offered_rate_mbit: 500
+    - dscp: 26
+      offered_rate_mbit: 1500
+    - dscp: 0
+      offered_rate_mbit: 2000
+    - dscp: 8
+      offered_rate_mbit: 1500
+  eth1:
+    - dscp: 46
+      offered_rate_mbit: 12000
+    - dscp: 44
+      offered_rate_mbit: 8000
+    - dscp: 26
+      offered_rate_mbit: 5000
+    - dscp: 18
+      offered_rate_mbit: 4000
+    - dscp: 48
+      offered_rate_mbit: 500
+    - dscp: 16
+      offered_rate_mbit: 800

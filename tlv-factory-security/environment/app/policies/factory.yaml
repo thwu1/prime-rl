@@ -1,0 +1,15 @@
+name: "factory"
+priority: 50
+rules:
+  allow_unsigned: false
+  allow_unbound_device: false
+  visible_fields:
+    - "serial_number"
+    - "mac_address"
+    - "soc_id"
+    - "hw_revision"
+    - "calibration_offset"
+    - "calibration_blob"
+  writable: true
+transitions_from:
+  - "development"

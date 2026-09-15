@@ -1,0 +1,6 @@
+{
+  "input_spacing": [1.0, 0.8, 1.5],
+  "target_spacing": [2.0, 2.0, 2.0],
+  "output_spacing": [1.0, 1.0, 1.0],
+  "target_orientation": "RAS"
+}

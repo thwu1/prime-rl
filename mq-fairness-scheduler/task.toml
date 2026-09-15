@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of fair bandwidth allocation semantics, rate limiting dynamics, and multi-queue NIC scheduling. The solver must independently discover the correct allocation strategy from the stub interfaces, docstrings, and scenario constraints alone — no algorithm names or implementation hints are given. The cascade scenario with mixed weights and staggered demand caps demands a multi-round redistribution mechanism that is non-trivial to derive. Beyond the core scheduler, the task demands proficiency with Linux traffic control (tc/ip) to construct a qdisc hierarchy matching the weighted scenario policy, and fluency with jq for structured JSON aggregation. Dreyfus level: proficient. Bloom level: create."""
+solution_explanation = """Implement TokenBucket with standard refill/consume mechanics. MultiQueueScheduler uses a global water-filling allocator: compute fair share per weight unit from token budget, cap demand-limited flows and redistribute excess, repeat until stable. compute_max_min_fair_rates sorts flows by demand/weight ratio ascending, iteratively allocating each flow its demand or proportional share. The tc configuration creates an HTB hierarchy on a dummy interface with per-flow classes whose guaranteed rates are proportional to flow weights. The aggregate script uses jq with multiple input calls to merge per-scenario JSON files."""
+verification_explanation = """Tests verify: (1) compute_max_min_fair_rates produces exact analytical results for 7 cases including cascading demands with mixed weights; (2) TokenBucket correctly initializes full, refills proportionally, caps at burst, and returns partial consumption; (3) Six end-to-end scenarios validate JFI, utilization, weight proportionality, demand cap enforcement, excess redistribution, dynamic rebalancing, and cascading multi-round redistribution; (4) tc_config.sh exists with valid classful qdisc hierarchy, correct 80 Mbps root rate, per-flow classes with weight-proportional rates, and classification filters; (5) aggregate.sh uses jq to produce summary.json with consistent cross-validated metrics across all scenarios."""
+category = "networking"
+tags = ["queueing-theory", "traffic-control"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/mq-fairness-scheduler"

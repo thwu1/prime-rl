@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of format-preserving source code transformation: the solver must figure out that Python's built-in ast module discards formatting, so a concrete-syntax-tree library is needed. They must then discover and handle the interaction between tree-visitor ordering and multi-site transformations — where transformations at different tree depths (e.g., function name attributes vs. enclosing call nodes) can conflict if not carefully coordinated. Beyond this architectural puzzle, the solver must implement: (1) positional argument insertion into existing call argument lists with correct comma/whitespace handling, (2) keyword argument renaming within restructured calls, (3) literal arithmetic on syntax tree nodes (extracting integer values, dividing by 1000 for timeout conversion, incrementing for retry count), (4) int-to-float literal type conversion in decorator arguments, (5) import fan-out where exceptions route to a different submodule requiring node construction, and (6) coordinated bare-name tracking across from-import and usage-site visitors. These six concerns interact: a naive single-rule-at-a-time approach will produce incorrect results because import processing, attribute transformation, call restructuring, and name renaming share mutable state."""
+solution_explanation = """Install libcst and implement a CSTTransformer with five leave methods: leave_Import (module rename), leave_ImportFrom (from-import with submodule fan-out and bare-name dict population), leave_Attribute (ONLY for restlib.exceptions.X -> httpclient.Y — critically does NOT touch restlib.method attributes), leave_Call (detects restlib.get/post/Session/retry via func attribute matching, inserts method string arg, renames data->content kwarg, performs timeout_ms/1000 arithmetic, transforms retry decorator args with max_retries+1 and int->float), and leave_Name (bare-name renames from dict). The key architectural decision is handling all call-related transformations in leave_Call using the untransformed func attribute, preventing conflicts with leave_Attribute which fires first (children before parents in libcst)."""
+verification_explanation = """Eleven pytest test cases each call transform(input_code) and compare whitespace-normalized output against expected output. Tests cover: basic import+GET with arg insertion, POST with data->content kwarg rename, Session timeout_ms/1000 arithmetic, qualified exception hierarchy (4 types), from-import Session with bare-name coordination, from-import exceptions with submodule fan-out to httpclient.errors, decorator transformation with max_retries+1 and int->float, multiple HTTP methods, string/comment preservation, mixed import styles, and a combined stress test exercising all features simultaneously."""
+category = "code_transformation"
+tags = ["python-cst", "code-migration"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/gritql-migration-pattern"

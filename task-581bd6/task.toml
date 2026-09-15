@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expertise in numerical methods for singularly perturbed ODEs. Standard BVP solvers (e.g. scipy.solve_bvp with default settings) fail at small epsilon because boundary/corner/shock layers of width O(eps) or O(sqrt(eps)) are unresolvable without adaptive mesh refinement and parameter continuation. The solver must handle 5 qualitatively different problem types (right boundary layer, turning point, double boundary layer, nonlinear corner layer, nonlinear boundary layer with near-cancellation), each demanding different mesh strategies. Numerically stable evaluation of boundary conditions (ln(cosh) for large arguments, underflowing exponentials) is also required."""
+solution_explanation = """Implements parameter continuation: solve at eps=0.1, use that solution (interpolated onto a refined mesh) as initial guess for eps=0.01, then eps=0.001. Intermediate continuation steps (e.g. eps=0.03, 0.003) are inserted when the ratio between consecutive eps values exceeds ~3x. For each problem, the initial mesh concentrates points near the known layer location. scipy.integrate.solve_bvp with tight tolerance (1e-8) and high max_nodes (30000) handles the collocation. Boundary conditions with overflow-prone expressions use numerically stable alternatives (log_cosh_safe)."""
+verification_explanation = """Tests read /app/results.json and compare numerical solutions against known exact solutions (available for all 5 problems). For each (problem, eps) pair, the test evaluates the exact solution on the same 1000-point uniform grid and checks max absolute error against the threshold. Structure tests verify correct JSON schema, all problems/eps values present, and correct grid sizes."""
+category = "scientific_computing"
+tags = ["numerical-methods", "boundary-value-problems"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-581bd6"

@@ -1,0 +1,17 @@
+{
+  "oid": "2.16.840.1.113883.3.88.12.3221.8.7",
+  "name": "Medication Route FDA",
+  "codeSystem": "2.16.840.1.113883.3.26.1.1",
+  "codes": [
+    {"code": "C38288", "displayName": "ORAL"},
+    {"code": "C38276", "displayName": "INTRAVENOUS"},
+    {"code": "C38192", "displayName": "AURICULAR (OTIC)"},
+    {"code": "C38305", "displayName": "TOPICAL"},
+    {"code": "C38290", "displayName": "PERCUTANEOUS"},
+    {"code": "C38194", "displayName": "BUCCAL"},
+    {"code": "C38289", "displayName": "OPHTHALMIC"},
+    {"code": "C38291", "displayName": "RECTAL"},
+    {"code": "C38675", "displayName": "SUBCUTANEOUS"},
+    {"code": "C38299", "displayName": "TRANSDERMAL"}
+  ]
+}

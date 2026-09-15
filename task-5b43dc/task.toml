@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires understanding symbolic Cholesky factorization theory (fill-in propagation, elimination trees, column counts), implementing or correctly using fill-reducing ordering algorithms (AMD/minimum degree with element absorption, Reverse Cuthill-McKee with pseudo-peripheral vertex selection), parsing Matrix Market coordinate format with comment headers, computing connected components, and correctly defining the permutation convention (ordering[new]=old). The flop count formula (c_j*(c_j+1) where c_j is subdiagonal nonzeros in column j of L) and elimination tree height computation from parent pointers require careful implementation. Using the SuiteSparse C API (cs_schol, cs_amd) requires navigating CXSparse 4.x type conventions and correctly interpreting lnz, cp, parent, and pinv fields."""
+solution_explanation = """A Python program parses each Matrix Market file, builds symmetric adjacency lists, and performs symbolic Cholesky factorization under three orderings. Natural ordering uses the identity permutation. AMD ordering uses a greedy exact minimum degree algorithm that iteratively selects the vertex with smallest current degree and forms cliques among its remaining neighbors. RCM ordering finds a pseudo-peripheral start vertex via iterated BFS, then performs degree-sorted BFS traversal reversed. For each ordering, symbolic Cholesky simulates Gaussian elimination by propagating fill into column sets, then extracts nnz_L, elimination tree parent array (for etree_height), and flop count from subdiagonal column counts. The agent must either use the SuiteSparse C API (cs_schol, cs_amd) or implement equivalent algorithms from scratch."""
+verification_explanation = """Natural ordering results are verified against hardcoded expected values computed independently. AMD and RCM orderings are verified by: (1) checking that the reported ordering is a valid permutation of 0..n-1, (2) independently performing symbolic Cholesky factorization using the reported permutation and checking that nnz_L, etree_height, and flop_count match the reported values, (3) verifying fill reduction properties (orderings should not produce worse fill than natural, arrowhead matrix should show >80% reduction), and (4) verifying best_ordering is consistent with reported nnz_L values."""
+category = "mathematics"
+tags = ["sparse-matrices", "suitesparse-toolchain"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5b43dc"

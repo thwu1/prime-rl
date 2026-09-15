@@ -1,0 +1,152 @@
+[
+  {
+    "aspa_id": "ASPA01",
+    "data_file": "rpki_objects/ASPA01.json",
+    "signature_file": "signatures/ASPA01.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA02",
+    "data_file": "rpki_objects/ASPA02.json",
+    "signature_file": "signatures/ASPA02.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA03",
+    "data_file": "rpki_objects/ASPA03.json",
+    "signature_file": "signatures/ASPA03.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA04",
+    "data_file": "rpki_objects/ASPA04.json",
+    "signature_file": "signatures/ASPA04.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA05",
+    "data_file": "rpki_objects/ASPA05.json",
+    "signature_file": "signatures/ASPA05.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA06",
+    "data_file": "rpki_objects/ASPA06.json",
+    "signature_file": "signatures/ASPA06.sig",
+    "signing_entity": "authority_gamma"
+  },
+  {
+    "aspa_id": "ASPA07",
+    "data_file": "rpki_objects/ASPA07.json",
+    "signature_file": "signatures/ASPA07.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "aspa_id": "ASPA08",
+    "data_file": "rpki_objects/ASPA08.json",
+    "signature_file": "signatures/ASPA08.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "aspa_id": "ASPA09",
+    "data_file": "rpki_objects/ASPA09.json",
+    "signature_file": "signatures/ASPA09.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA10",
+    "data_file": "rpki_objects/ASPA10.json",
+    "signature_file": "signatures/ASPA10.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA11",
+    "data_file": "rpki_objects/ASPA11.json",
+    "signature_file": "signatures/ASPA11.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA12",
+    "data_file": "rpki_objects/ASPA12.json",
+    "signature_file": "signatures/ASPA12.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA13",
+    "data_file": "rpki_objects/ASPA13.json",
+    "signature_file": "signatures/ASPA13.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA14",
+    "data_file": "rpki_objects/ASPA14.json",
+    "signature_file": "signatures/ASPA14.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA15",
+    "data_file": "rpki_objects/ASPA15.json",
+    "signature_file": "signatures/ASPA15.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA16",
+    "data_file": "rpki_objects/ASPA16.json",
+    "signature_file": "signatures/ASPA16.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA17",
+    "data_file": "rpki_objects/ASPA17.json",
+    "signature_file": "signatures/ASPA17.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "aspa_id": "ASPA18",
+    "data_file": "rpki_objects/ASPA18.json",
+    "signature_file": "signatures/ASPA18.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA19",
+    "data_file": "rpki_objects/ASPA19.json",
+    "signature_file": "signatures/ASPA19.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "aspa_id": "ASPA20",
+    "data_file": "rpki_objects/ASPA20.json",
+    "signature_file": "signatures/ASPA20.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA21",
+    "data_file": "rpki_objects/ASPA21.json",
+    "signature_file": "signatures/ASPA21.sig",
+    "signing_entity": "authority_alpha"
+  },
+  {
+    "aspa_id": "ASPA22",
+    "data_file": "rpki_objects/ASPA22.json",
+    "signature_file": "signatures/ASPA22.sig",
+    "signing_entity": "authority_beta"
+  },
+  {
+    "aspa_id": "ASPA23",
+    "data_file": "rpki_objects/ASPA23.json",
+    "signature_file": "signatures/ASPA23.sig",
+    "signing_entity": "authority_gamma"
+  },
+  {
+    "aspa_id": "ASPA24",
+    "data_file": "rpki_objects/ASPA24.json",
+    "signature_file": "signatures/ASPA24.sig",
+    "signing_entity": "authority_delta"
+  },
+  {
+    "aspa_id": "ASPA25",
+    "data_file": "rpki_objects/ASPA25.json",
+    "signature_file": "signatures/ASPA25.sig",
+    "signing_entity": "authority_delta"
+  }
+]

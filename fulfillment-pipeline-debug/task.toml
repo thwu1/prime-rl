@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert PostgreSQL skills: debugging 6 subtle bugs across 4 views (recursive CTE hub-name propagation vs. overwriting, JSONB -> vs ->> operator semantics, wrong stage_id reference requiring schema cross-referencing, off-by-one window frame, generate_series range boundary, LAG denominator placement), plus implementing 2 complex views from scratch. v_fulfillment_velocity demands PERCENTILE_CONT aggregate usage with epoch arithmetic and multi-predicate join filters. v_health_score requires synthesizing 5 independently computed metrics (recursive hierarchy depth, revenue normalization, gap-ratio computation, quarterly growth trend, and cross-warehouse velocity averaging) into a weighted composite using ~15 CTEs. The solver must understand cross-view dependencies and verify each component against the specification."""
+solution_explanation = """Fix 6 bugs across 4 views and implement 2 from scratch. (1) v_hierarchy_revenue: propagate wt.hub_name instead of w.warehouse_name in recursive CTE, use ->> instead of -> for JSONB text extraction. (2) v_rolling_fulfillment: change stage_id from 4 to 5 (delivered stage), change 7 PRECEDING to 6 PRECEDING for correct 7-day window. (3) v_stage_gaps: change generate_series start from MIN(stage_order) to 1. (4) v_quarterly_growth: divide by LAG(total_revenue) instead of total_revenue. (5) Implement v_fulfillment_velocity using PERCENTILE_CONT for median/p90 of epoch-computed hours for orders with all 5 stages completed. (6) Implement v_health_score combining 5 normalized metrics with weights 0.25/0.25/0.15/0.15/0.20 using ~15 CTEs including recursive hierarchy, revenue normalization, gap ratios, growth trends, and velocity averaging."""
+verification_explanation = """test.sh starts PostgreSQL, loads schema and deterministic generated data (seed 42), executes the agent's analytics.sql, then runs pytest tests that verify each view's output against independently computed reference SQL queries. Tests check view existence, column types, column presence, row counts, numerical accuracy within tolerance, and semantic correctness (e.g., only fully-completed orders appear in velocity, stage-1 skips appear in gaps)."""
+category = "data_management"
+tags = ["sql", "postgresql"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fulfillment-pipeline-debug"

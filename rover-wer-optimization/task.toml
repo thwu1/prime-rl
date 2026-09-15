@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of speech recognition evaluation and system combination. The instruction names only SCTK and desired output fields — the agent must independently: (1) discover SCTK's toolchain (sclite, rover, sc_stats) and learn their full CLI interfaces from documentation or help output; (2) understand STM/CTM file formats and how to invoke scoring; (3) figure out that sclite can produce NCE (confidence calibration) metrics and how to parse its complex tabular output for WER, per-speaker breakdown, and NCE; (4) discover ROVER's entire parameter space — multiple voting/fusion methods (meth1, avgconf, maxconf, maxconfa) and the alpha hyperparameter — none of which are mentioned in the instruction; (5) recognize through experimentation that one system has anti-correlated confidence scores (high confidence on errors, low on correct words) which poisons confidence-weighted combination strategies; (6) design and execute a systematic search across the combinatorial space of system subsets × methods × alpha values to find and verify a globally optimal configuration. The non-obvious insight — that a system with competitive WER but pathological calibration can degrade ROVER output depending on the fusion method — requires deep understanding of how confidence scores interact with combination algorithms."""
+solution_explanation = """Scores each system with sclite extracting WER, per-speaker WER, and NCE from .sys output. Ranks systems by NCE to identify calibration quality. Discovers ROVER's voting methods via help output. Sweeps all system subsets (sizes 2-4) × methods (meth1, avgconf, maxconf, maxconfa) × alpha values (0.0-1.0 in 0.25 steps for meth1), scoring each ROVER output with sclite. Identifies the globally optimal configuration by selecting minimum WER across the full parameter space."""
+verification_explanation = """Tests independently run sclite on each system to verify WER, per-speaker WER, and NCE. Verify calibration_ranking matches actual NCE ordering. Run ROVER+sclite for the claimed best config with its specific alpha to verify WER. Exhaustively enumerate all combinations across methods, alpha values, and system subsets to confirm no better configuration exists."""
+category = "speech_processing"
+tags = ["asr-evaluation", "system-combination"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/rover-wer-optimization"

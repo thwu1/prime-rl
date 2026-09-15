@@ -1,0 +1,1 @@
+A sparse linear system and associated matrices are stored at `/app/problem/`, with metadata in `/app/problem/info.json`. Examine the system, determine how the provided matrices relate to the full system matrix, and compute all numerical quantities specified in `/app/problem/required_output.json`. Write your results to `/app/results.json`.

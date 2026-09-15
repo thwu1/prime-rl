@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires three interlocking deliverables: (1) diagnosing and fixing three subtle numerical bugs in a ~400-line Sedov blast wave solver by cross-referencing against a dense mathematical specification involving similarity exponents, Sedov functions, energy integrals, and physical variable mapping; (2) implementing a complete Noh implosion solver from a mathematical specification using the general post-shock pressure formula valid for all gamma (not the gamma=5/3 shortcut), conforming to the ExactSolver/ExactSolution API; (3) designing and implementing a cross-validation verification framework that compares scipy.integrate.quad vs fixed_quad (navigating their different calling conventions—scalar vs vectorized), cross-validates both solvers against Rankine-Hugoniot predictions, and produces structured JSON output. Demands PhD-level gas dynamics knowledge, scipy integration ecosystem fluency, and multi-component verification system architecture."""
+solution_explanation = """Fixing the Sedov solver requires identifying three bugs: (omega+2) instead of (omega-2) in the pressure function exponent, (geometry+1) instead of (geometry-1) in the second energy integrand lambda power, and u_s instead of u_2 in the physical velocity mapping. The Noh solver requires implementing the general post-shock pressure formula p2=rho0*u0^2*G^(j-1)*(gamma+1)/2 and the convergent-flow pre-shock density profile. The verification framework must vectorize the Sedov integrands for fixed_quad compatibility (since fixed_quad passes arrays, unlike quad which passes scalars), compute alpha from energy integrals for each quadrature method, evaluate Noh density against analytical predictions for 6 geometry-gamma combinations, and verify Rankine-Hugoniot conditions at the Sedov shock front."""
+verification_explanation = """Tests verify all three components: Sedov correctness (alpha constants for all geometries, energy integrals, Sedov function values from Kamm & Timmes Table 3, post-shock physical solution, solution type classification), Noh correctness (post-shock density/pressure/SIE for all geometries and gamma=5/3 and gamma=1.4, pre-shock density profile, edge cases including t<=0), and verification framework output (results.json structure, quad alpha accuracy, cross-validation density ratios matching analytical Rankine-Hugoniot predictions, shock-front errors within tolerance)."""
+category = "computational_physics"
+tags = ["sedov-noh-verification", "numerical-methods"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-e94e5e"

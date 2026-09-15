@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!--
+     Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+     SPDX-License-Identifier: BSD-2-Clause
+-->
+<testsuite cpu-timeout="3600">
+
+  <sequence depends="isabelle">
+    <test name="Lib" cpu-timeout="7200">make Lib</test>
+    <test name="LibTest">make LibTest</test>
+  </sequence>
+
+  <test name="Sep_Algebra" depends="isabelle" cpu-timeout="1800">make Sep_Algebra</test>
+
+</testsuite>

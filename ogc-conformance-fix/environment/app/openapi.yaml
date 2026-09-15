@@ -1,0 +1,131 @@
+openapi: "3.0.3"
+info:
+  title: "OGC API Features Test Server"
+  description: "Test implementation of OGC API - Features Part 1: Core"
+  version: "1.0.0"
+  contact:
+    name: "Test Server"
+  license:
+    name: "Apache 2.0"
+    url: "https://www.apache.org/licenses/LICENSE-2.0"
+paths:
+  /:
+    get:
+      summary: "Landing page"
+      operationId: "getLandingPage"
+      tags:
+        - "Capabilities"
+      responses:
+        "200":
+          description: "Landing page with links to API resources"
+  /conformance:
+    get:
+      summary: "Conformance declaration"
+      operationId: "getConformance"
+      tags:
+        - "Capabilities"
+      responses:
+        "200":
+          description: "Conformance classes implemented by this server"
+  /collections:
+    get:
+      summary: "Feature collections"
+      operationId: "getCollections"
+      tags:
+        - "Capabilities"
+      responses:
+        "200":
+          description: "Metadata about the feature collections"
+  /collections/{collectionId}:
+    get:
+      summary: "Feature collection"
+      operationId: "getCollection"
+      tags:
+        - "Capabilities"
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Metadata about the feature collection"
+        "404":
+          description: "Collection not found"
+  /collections/{collectionId}/items:
+    get:
+      summary: "Features"
+      operationId: "getFeatures"
+      tags:
+        - "Features"
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 10
+          style: form
+          explode: false
+        - name: bbox
+          in: query
+          required: false
+          schema:
+            type: array
+            minItems: 4
+            maxItems: 6
+            items:
+              type: number
+          style: form
+          explode: false
+        - name: datetime
+          in: query
+          required: false
+          schema:
+            type: string
+          style: form
+          explode: false
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: "GeoJSON FeatureCollection of matching features"
+        "400":
+          description: "Invalid or unknown query parameter"
+        "404":
+          description: "Collection not found"
+  /collections/{collectionId}/items/{featureId}:
+    get:
+      summary: "Feature"
+      operationId: "getFeature"
+      tags:
+        - "Features"
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: featureId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "GeoJSON Feature"
+        "404":
+          description: "Feature not found"

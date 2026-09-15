@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple subtle RFC 1035 conformance defects in an existing DNS server implementation (~350 lines of Python). The agent must analyze the server's runtime behavior against the RFC specification by probing with dig and inspecting wire-format responses. Defects span several categories: missing DNS name compression (Section 4.1.4), absent SOA records in authority sections for both NXDOMAIN and NODATA negative responses, no CNAME chaining when queried type differs from CNAME (Section 3.6.2), incorrect wildcard owner name synthesis where the wildcard label is returned instead of the queried name (RFC 4592), AA flag incorrectly left set on delegation referrals, missing glue A records in additional sections for NS and MX responses, broken TCP response framing missing the required two-byte length prefix (Section 4.2.2), and entirely absent NDJSON query logging. The agent must also add named-checkzone integration to the startup script. Each defect requires understanding the relevant RFC section to recognize the deviation and implement a correct fix — pure code reading is insufficient, the agent must correlate observed wire-level behavior with specification requirements."""
+solution_explanation = """The solution replaces the buggy dns_server.py with a corrected implementation that addresses all defects: (1) implements name compression using a suffix-based compression table per RFC 1035 Section 4.1.4, (2) includes SOA in authority section for both NXDOMAIN and NODATA responses, (3) adds CNAME chasing to follow CNAME records and include target records in the answer section, (4) synthesizes wildcard owner names using the queried name per RFC 4592, (5) clears AA flag to 0 for delegation referrals and adds glue A records in additional section, (6) populates additional section with glue A/AAAA records for NS and MX responses, (7) prepends 2-byte big-endian length prefix to TCP responses per RFC 1035 Section 4.2.2, and (8) adds thread-safe NDJSON query logging with all required fields. The start.sh is updated to validate all zone files with named-checkzone before starting the server."""
+verification_explanation = """Tests verify 22 distinct aspects by sending raw DNS queries (both UDP and TCP) to port 5300 and parsing wire-format responses. Core UDP tests validate A, AAAA, SOA, TXT, NS, and MX records with correct RDATA values. Behavioral tests check CNAME chasing (CNAME + target A in answer), NXDOMAIN (RCODE 3 + SOA in authority), NODATA (RCODE 0 + empty answer + SOA in authority), wildcard match (correct synthesized owner name), wildcard override (explicit record precedence), delegation (AA=0 + NS in authority + glue in additional), AA/QR flag correctness, and compression pointer usage at expected byte offsets. TCP tests verify correct 2-byte length framing for A, MX, and NXDOMAIN queries. Integration tests validate named-checkzone on the zone file and NDJSON log entries containing all required fields with correct types and values."""
+category = "networking"
+tags = ["dns", "rfc-conformance"]
+expert_time_estimate_hours = 5.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-52ee3c"

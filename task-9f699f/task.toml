@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of flash memory physics (bit-level transition constraints, sector-level erase semantics, page-level programming), differential analysis between current and desired flash state to determine when erases can be skipped, handling the cascade effect where sector erasure forces reprogramming of previously-identical pages, multi-format firmware parsing (Intel HEX and Motorola S-record with checksum validation), multi-region targets with independent erased byte values and sector geometries, and correct binary analysis of raw flash memory dumps."""
+solution_explanation = """Parse probe-rs target YAML to extract NVM region metadata. Auto-detect and parse firmware format (Intel HEX or Motorola SREC). Load current flash state from binary dump mapped to regions by ascending start address. For each region: build desired page buffers with erased-byte fill, classify pages as changed or identical vs current state, filter all-erased pages. For each sector with changed pages: perform bitwise analysis to determine if programming can proceed without erase (check if all bit transitions go from erased→programmed direction). When erase is required for a sector, all non-erased pages in that sector must be reprogrammed (not just changed ones) since erase wipes the entire sector. Output sorted operations with comprehensive statistics."""
+verification_explanation = """Tests run the optimizer against multiple target/firmware/current-state combinations verifying: clean flash always skips erase (bit transitions always compatible), re-flashing identical firmware produces zero operations, differential erase skip when current state allows direct programming, erase forced when bit reversal is needed, sector erase cascading to reprogram identical pages, Motorola S-record format produces identical results to Intel HEX, multi-region support with different erased byte values, variable sector geometries, overflow detection, output ordering and format compliance."""
+category = "embedded_systems"
+tags = ["flash-programming", "differential-optimization"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9f699f"

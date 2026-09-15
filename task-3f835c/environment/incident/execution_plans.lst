@@ -1,0 +1,91 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 200
+SQL> SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR('abc123def456'));
+
+PLAN_TABLE_OUTPUT
+----------------------------------------------------------------------------------------------------------
+SQL_ID: abc123def456, child number 0
+-------------------------------------
+SELECT o.order_id, o.customer_id, o.order_date, o.status, o.total_amount
+FROM orders o WHERE o.customer_id = 42 AND o.order_date >
+TO_DATE('2024-01-01','YYYY-MM-DD')
+
+Plan hash value: 3847261950
+
+--------------------------------------------------------------------------------
+| Id  | Operation          | Name   | Rows  | Bytes  | Cost (%CPU)| Time     |
+--------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |        |     1 |    125 | 45231   (1)| 00:01:23 |
+|*  1 |  TABLE ACCESS FULL | ORDERS |     1 |    125 | 45231   (1)| 00:01:23 |
+--------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("O"."CUSTOMER_ID"=42 AND
+              "O"."ORDER_DATE">TO_DATE(' 2024-01-01 00:00:00',
+              'syyyy-mm-dd hh24:mi:ss'))
+
+Note
+-----
+   - Full table scan on ORDERS table (1,500,000 rows, 25,000 blocks)
+   - No suitable index exists for predicate columns (CUSTOMER_ID, ORDER_DATE)
+   - Query returns ~1 row per execution but scans entire table
+   - Estimated cost 45231 is dominated by I/O on 25,000 data blocks
+
+SQL> SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR('efg123hij456'));
+
+PLAN_TABLE_OUTPUT
+----------------------------------------------------------------------------------------------------------
+SQL_ID: efg123hij456, child number 0
+-------------------------------------
+SELECT customer_id, SUM(total_amount) as total_spent FROM orders
+GROUP BY customer_id HAVING SUM(total_amount) > 1000
+
+Plan hash value: 5928174603
+
+--------------------------------------------------------------------------------
+| Id  | Operation           | Name   | Rows  | Bytes  | Cost (%CPU)| Time     |
+--------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT    |        | 15000 |   450K | 42180   (2)| 00:01:15 |
+|   1 |  HASH GROUP BY      |        | 15000 |   450K | 42180   (2)| 00:01:15 |
+|*  2 |   TABLE ACCESS FULL | ORDERS |  1500K|    43M | 41520   (1)| 00:01:12 |
+--------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - filter(no predicate - full scan required for aggregation)
+
+Note
+-----
+   - Full table scan is expected for this aggregation query (GROUP BY all rows)
+   - This is an analytic/reporting query, not OLTP
+   - Executed infrequently (500 times in snapshot period)
+
+SQL> SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR('yza567bcd890'));
+
+PLAN_TABLE_OUTPUT
+----------------------------------------------------------------------------------------------------------
+SQL_ID: yza567bcd890, child number 0
+-------------------------------------
+SELECT c.customer_name, c.email FROM customers c WHERE c.customer_id = 42
+
+Plan hash value: 738291046
+
+------------------------------------------------------------------------------------
+| Id  | Operation                   | Name         | Rows | Bytes | Cost | Time    |
+------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT            |              |    1 |   200 |    2 | 00:00:01|
+|   1 |  TABLE ACCESS BY INDEX ROWID| CUSTOMERS    |    1 |   200 |    2 | 00:00:01|
+|*  2 |   INDEX UNIQUE SCAN         | PK_CUSTOMERS |    1 |       |    1 | 00:00:01|
+------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("C"."CUSTOMER_ID"=42)
+
+Note
+-----
+   - Efficient index lookup, 1 buffer get per execution on average
+   - This is the expected access pattern for primary key lookups
+
+SQL> spool off

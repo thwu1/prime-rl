@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a complete Sokoban analysis pipeline: a push-optimal solver, exhaustive state-space enumeration with player-position normalization, dead-square identification, and deadlock pattern classification — all integrated into a multi-tool pipeline using SQLite for persistence, jq for JSON transformation, and make for orchestration. Sokoban is PSPACE-complete; even moderate instances (3-4 boxes) demand careful algorithm design. The agent must independently determine appropriate search strategies, pruning techniques, and heuristics for push-optimal solving, as well as methods for dead-square detection and complete state enumeration with correct player normalization."""
+solution_explanation = """Two Python components: (1) solver.py finds push-optimal solutions for each level and writes them to SQLite; (2) analyzer.py computes dead-square maps, performs complete state-space enumeration for reachable/dead-end/depth/branching metrics, and runs static grid analysis for corner and freeze deadlock census, storing everything in SQLite. The Makefile's report target combines results via sqlite3 -json piped to jq."""
+verification_explanation = """Tests independently recompute every metric: solutions are validated by full move simulation; dead squares are verified by independent reverse-pull BFS; state-space metrics (reachable states, dead ends, solution depth, branching factor) are verified by independent full enumeration; deadlock census is verified by independent grid analysis; solution depth is cross-checked against the solver's push count; the JSON report structure, database consistency, and difficulty ranking are all validated."""
+category = "algorithms_and_data_structures"
+tags = ["search_algorithms", "state_space_analysis", "data_pipelines"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-29d31b"

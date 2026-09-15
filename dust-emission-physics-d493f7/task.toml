@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing 5 subtle implementation bugs and completing 4 unimplemented stubs in a coupled mineral dust emission physics module. Each bug requires understanding aeolian physics (threshold friction velocity, soil moisture correction, drag partition, saltation flux, vertical emission flux, surface roughness) and comparing Fortran implementations against documented formulas from Shao & Lu (2000), Fecan et al. (1999), MacKinnon et al. (2004), White (1979), Kok et al. (2014), Foroutan et al. (2017), and Laurent et al. (2008). Beyond bug fixing, the solver must design and implement a complete coupled emission pipeline (compute_cell_emission) that correctly chains threshold velocity, moisture conversion/correction, drag partition, erodibility, and K14 flux calculations, and distribute the total emission across 5 size bins by implementing numerical quadrature of the Kok (2011) brittle fragmentation size distribution. The orchestration requires understanding data flow dependencies between routines and making design decisions about integration schemes."""
+solution_explanation = """Fix 9 defects in dust_physics.f90: (1) implement Shao-Lu threshold u*t0=sqrt(A_N*(rho_p*g*D/rho_a+Gamma/(rho_a*D))), (2) add missing squared term in Fecan w' (0.0014*clay^2 not 0.0014*clay), (3) correct drag partition constant from 0.1 to 122.55, (4) restore White (1979) (u*+u*t) factor replacing Owen u* alone, (5) use f_ust instead of u_st in K14 emission coefficient exponential, (6) swap Foroutan roughness regime formulas, (7) implement Laurent erodibility with bedrock/z0 branching, (8) implement kok2011_size_fraction using Simpson's rule numerical integration of the Kok 2011 mass size distribution with a module-level integrand helper function and proper normalization over model bin bounds, (9) implement compute_cell_emission orchestrating the complete physics chain: threshold(D_CHAR) -> gravimetric moisture -> Fecan correction -> MacKinnon drag partition -> soil friction velocity -> effective threshold -> Laurent erodibility -> K14 total flux -> per-bin split via Kok size fractions."""
+verification_explanation = """Python test independently computes reference physics values using the same equations. Compiles and runs the Fortran driver with 4 scenarios (dry desert, moist loam, vegetated shrubland, bedrock). Checks 22 output quantities per scenario (12 individual routine outputs + 5 size fractions + 5 per-bin emissions) within 0.1% relative tolerance. Additional tests verify size fraction normalization (sum to 1), physical monotonicity (threshold increases with particle size, moisture suppresses emission), bedrock zero-emission constraint, bin emission consistency (sum equals total K14 flux), and per-bin emission proportionality to total flux."""
+category = "debugging"
+tags = ["fortran", "geophysics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/dust-emission-physics-d493f7"

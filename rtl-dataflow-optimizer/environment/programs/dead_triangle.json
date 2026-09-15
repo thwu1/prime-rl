@@ -1,0 +1,13 @@
+{
+  "name": "dead_triangle",
+  "params": [1, 2],
+  "entrypoint": 20,
+  "code": {
+    "20": {"kind": "op", "op": "add", "args": [1, 2], "dst": 3, "succ": 19},
+    "19": {"kind": "op", "op": "mul", "args": [1, 2], "dst": 4, "succ": 18},
+    "18": {"kind": "op", "op": "sub", "args": [1, 2], "dst": 5, "succ": 17},
+    "17": {"kind": "op", "op": "mul", "args": [4, 5], "dst": 6, "succ": 16},
+    "16": {"kind": "op", "op": "add", "args": [6, 4], "dst": 7, "succ": 15},
+    "15": {"kind": "ret", "arg": 3}
+  }
+}

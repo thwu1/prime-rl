@@ -1,0 +1,172 @@
+config defaults
+	option syn_flood '1'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option flow_offloading '1'
+
+config zone
+	option name 'mgmt'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network 'mgmt'
+
+config zone
+	option name 'corp'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network 'corp'
+
+config zone
+	option name 'iot'
+	option input 'DROP'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network 'iot'
+
+config zone
+	option name 'guest'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network 'guest'
+
+config zone
+	option name 'wan'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	option mtu_fix '1'
+	list network 'wan'
+	list network 'wan6'
+
+config zone
+	option name 'wan_backup'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+
+config zone
+	option name 'vpn_hq'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	list network 'vpn_hq'
+
+config zone
+	option name 'vpn_ext'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list network 'vpn_ext'
+
+config forwarding
+	option src 'mgmt'
+	option dest 'wan'
+
+config forwarding
+	option src 'corp'
+	option dest 'wan'
+
+config forwarding
+	option src 'iot'
+	option dest 'wan'
+
+config forwarding
+	option src 'guest'
+	option dest 'wan'
+
+config forwarding
+	option src 'mgmt'
+	option dest 'wan_backup'
+
+config forwarding
+	option src 'corp'
+	option dest 'wan_backup'
+
+config forwarding
+	option src 'guest'
+	option dest 'vpn_ext'
+
+config forwarding
+	option src 'guest'
+	option dest 'wan_backup'
+
+config rule
+	option name 'Allow-DHCP-Renew'
+	option src 'wan'
+	option proto 'udp'
+	option dest_port '68'
+	option target 'ACCEPT'
+	option family 'ipv4'
+
+config rule
+	option name 'Allow-Ping'
+	option src 'wan'
+	option proto 'icmp'
+	option icmp_type 'echo-request'
+	option family 'ipv4'
+	option target 'ACCEPT'
+
+config rule
+	option name 'guest-dhcp'
+	option src 'guest'
+	option proto 'udp'
+	option dest_port '67-68'
+	option target 'ACCEPT'
+
+config rule
+	option name 'guest-dns'
+	option src 'guest'
+	option proto 'udp tcp'
+	option dest_port '53'
+	option target 'ACCEPT'
+
+config rule
+	option name 'iot-dhcp'
+	option src 'iot'
+	option proto 'udp'
+	option dest_port '67-68'
+	option target 'ACCEPT'
+
+config rule
+	option name 'iot-dns'
+	option src 'iot'
+	option proto 'udp tcp'
+	option dest_port '53'
+	option target 'ACCEPT'
+
+config rule
+	option name 'iot-block-other'
+	option src 'iot'
+	option dest 'wan'
+	option target 'REJECT'
+
+config rule
+	option name 'iot-allow-http'
+	option src 'iot'
+	option dest 'wan'
+	option proto 'tcp'
+	option dest_port '80 443'
+	option target 'ACCEPT'
+
+config rule
+	option name 'iot-allow-ntp'
+	option src 'iot'
+	option dest 'wan'
+	option proto 'udp'
+	option dest_port '123'
+	option target 'ACCEPT'
+
+config redirect
+	option name 'guest-dns-redirect'
+	option src 'guest'
+	option src_dport '53'
+	option dest_port '53'
+	option target 'SNAT'
+	option proto 'tcp udp'

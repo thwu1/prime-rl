@@ -1,0 +1,22 @@
+[[rules]]
+name = "ewmac8_32"
+fast_span = 8
+slow_span = 32
+
+[[rules]]
+name = "ewmac16_64"
+fast_span = 16
+slow_span = 64
+
+[[rules]]
+name = "ewmac32_128"
+fast_span = 32
+slow_span = 128
+
+[forecast_scalar_estimation]
+target_abs_forecast = 10.0
+min_periods = 256
+backfill = true
+
+[forecast_cap]
+value = 20.0

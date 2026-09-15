@@ -1,0 +1,17 @@
+# Intentionally failing tests (runner must detect these failures)
+
+statement ok
+CREATE TABLE f1(x INTEGER)
+
+statement ok
+INSERT INTO f1 VALUES(1)
+
+# FAIL: wrong expected result (actual is 1, expected is 999)
+query I nosort
+SELECT x FROM f1
+----
+999
+
+# FAIL: expects ok but table does not exist -> unexpected error
+statement ok
+SELECT * FROM table_that_does_not_exist_xyz

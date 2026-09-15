@@ -1,0 +1,48 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a correct Datalog evaluator from scratch in Python that handles recursive \
+rules with fixed-point iteration, multi-way joins (3+ body atoms), cyclic derivation graphs producing self-reachability, \
+multi-predicate dependency chains (SCC built on path), and stratified negation where rules with negated body atoms must \
+only fire after the negated predicate's stratum is fully evaluated. The Delete/Rederive (DRed) problem — where removing \
+a base fact must not over-delete derived facts that have alternative derivation paths — is a research-level topic in \
+deductive databases. The combination of stratification theory, incremental maintenance semantics, and correct \
+negation handling requires holistic understanding across programming languages, database theory, and graph algorithms \
+rather than following any single textbook procedure."""
+solution_explanation = """The solution implements a complete Datalog evaluator: a parser for rules/facts/updates \
+(including negated body atoms), a stratification algorithm that assigns predicates to strata based on negative \
+dependencies, a nested-loop join engine that handles variable binding across arbitrarily many body atoms with negation \
+filtering, and per-stratum fixed-point iteration. For correctness under deletions, it uses full re-evaluation: after \
+applying each batch of base fact changes, all derived facts are discarded and recomputed via stratified fixed-point \
+evaluation. JSON output uses the json stdlib module."""
+verification_explanation = """Five test scenarios with pre-computed expected outputs: (1) reachability with insertions and \
+deletions including alternative-path preservation, (2) cyclic graph with cycle-breaking and cycle-forming updates, (3) \
+multi-predicate SCC detection with component splitting, (4) 3-body triangle enumeration with edge removal and restoration, \
+(5) stratified negation computing unreachable pairs with cycle creation/destruction affecting both the positive stratum \
+(reachability) and negative stratum (disconnected pairs). Tests invoke the Python script and compare JSON output \
+against expected results."""
+category = "data_processing"
+tags = ["datalog", "incremental-computation"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/incremental-datalog"

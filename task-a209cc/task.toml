@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of HL7 FHIR R4 resource model — including nested Reference objects, component-based Observations (blood pressure panels with systolic/diastolic components), CodeableConcept structures, and Period types — combined with SQLite warehouse reconciliation across multiple tables. The agent must independently discover 8+ categories of ETL bugs (data loss, field corruption, wrong foreign keys, phantom records, format mangling, reference resolution failures, name transpositions, datetime truncation) by comparing FHIR NDJSON source data against a relational warehouse schema it must first reverse-engineer. This demands cross-technology proficiency: FHIR JSON parsing, SQLite querying, and Python bridging. Crucially, the agent must distinguish genuine ETL bugs from intentional source data characteristics (e.g., dangling FHIR references to non-existent patients) — a judgment call requiring holistic domain understanding, not procedural pattern matching."""
+solution_explanation = """Load all FHIR NDJSON resources and index by type/id. Connect to the SQLite warehouse and systematically compare each table against corresponding FHIR resources. Discover: patient-003 has given/family names swapped; all 8 encounter dates truncated from ISO datetime to date-only; obs-024 missing entirely; obs-phantom is a fabricated record; blood pressure observations (obs-bp-001, obs-bp-002) lost their component structure; medreq-004 linked to wrong patient (patient-003 instead of patient-002); medreq-008 has unresolved medication name (NULL instead of Heparin Sodium); cond-003 and cond-007 have ICD codes with dots stripped (K3580/N186). Must correctly preserve obs-dangling (references patient-999 in source — not an ETL bug). Repair each issue via SQL UPDATE/INSERT/DELETE and produce categorized audit_report.json."""
+verification_explanation = """Tests verify both audit discovery and warehouse repair. Audit tests check that the JSON report contains resource identifiers for each planted discrepancy (patient-003, obs-024, obs-phantom, medreq-004, medreq-008, cond-003/cond-007, encounter dates, component observations) and that the summary total >= 8. Warehouse repair tests run SQL queries to verify: patient-003 name fields corrected, obs-024 present with correct LOINC code (33914-3), obs-phantom removed, medreq-004 linked to patient-002, ICD codes restored with dots, medreq-008 medication name resolved to Heparin Sodium, all encounter dates contain time components. Critical edge-case test verifies obs-dangling (source data characteristic) is preserved with patient_id=patient-999 and total observation count matches source (27)."""
+category = "applied_computing"
+tags = ["fhir-r4", "data-reconciliation"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a209cc"

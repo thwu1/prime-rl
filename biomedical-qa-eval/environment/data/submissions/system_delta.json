@@ -1,0 +1,70 @@
+{
+  "system_name": "delta",
+  "questions": [
+    {
+      "id": "BQ001",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/28355001", "http://www.ncbi.nlm.nih.gov/pubmed/29150432", "http://www.ncbi.nlm.nih.gov/pubmed/88000048"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ002",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/30203690"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ003",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/32100402", "http://www.ncbi.nlm.nih.gov/pubmed/33000503", "http://www.ncbi.nlm.nih.gov/pubmed/88000049"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ004",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/34000604", "http://www.ncbi.nlm.nih.gov/pubmed/88000050", "http://www.ncbi.nlm.nih.gov/pubmed/35000705"],
+      "exact_answer": "no"
+    },
+    {
+      "id": "BQ005",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000051", "http://www.ncbi.nlm.nih.gov/pubmed/36000806", "http://www.ncbi.nlm.nih.gov/pubmed/37000907"],
+      "exact_answer": "yes"
+    },
+    {
+      "id": "BQ006",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/38001008", "http://www.ncbi.nlm.nih.gov/pubmed/39001109", "http://www.ncbi.nlm.nih.gov/pubmed/40001210"],
+      "exact_answer": ["p53"]
+    },
+    {
+      "id": "BQ007",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/42001412", "http://www.ncbi.nlm.nih.gov/pubmed/41001311"],
+      "exact_answer": ["insulin", "metformin"]
+    },
+    {
+      "id": "BQ008",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/43001513"],
+      "exact_answer": ["ABL", "BCR-ABL1"]
+    },
+    {
+      "id": "BQ009",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/88000052", "http://www.ncbi.nlm.nih.gov/pubmed/44001614", "http://www.ncbi.nlm.nih.gov/pubmed/45001715"],
+      "exact_answer": ["TALEN", "CRISPR"]
+    },
+    {
+      "id": "BQ010",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/47001917", "http://www.ncbi.nlm.nih.gov/pubmed/88000053", "http://www.ncbi.nlm.nih.gov/pubmed/46001816"],
+      "exact_answer": ["ASA", "ibuprofen", "naproxen"]
+    },
+    {
+      "id": "BQ011",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/48002018", "http://www.ncbi.nlm.nih.gov/pubmed/49002119", "http://www.ncbi.nlm.nih.gov/pubmed/50002220", "http://www.ncbi.nlm.nih.gov/pubmed/51002321", "http://www.ncbi.nlm.nih.gov/pubmed/52002422", "http://www.ncbi.nlm.nih.gov/pubmed/53002523", "http://www.ncbi.nlm.nih.gov/pubmed/54002624", "http://www.ncbi.nlm.nih.gov/pubmed/55002725", "http://www.ncbi.nlm.nih.gov/pubmed/56002826", "http://www.ncbi.nlm.nih.gov/pubmed/57002927"],
+      "exact_answer": ["EGFR", "ALK", "ROS1", "BRAF"]
+    },
+    {
+      "id": "BQ012",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/63003531", "http://www.ncbi.nlm.nih.gov/pubmed/62003430"],
+      "exact_answer": ["A", "T", "guanine", "cytosine"]
+    },
+    {
+      "id": "BQ013",
+      "documents": ["http://www.ncbi.nlm.nih.gov/pubmed/65003733", "http://www.ncbi.nlm.nih.gov/pubmed/64003632"],
+      "exact_answer": ["IL-6", "TNF-alpha", "IL-1beta"]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of both HL7 v2.5.1 message encoding and FHIR R4 data model to build a complete interoperability pipeline. The agent must: (1) parse pipe-delimited HL7 v2 messages handling MSH field indexing quirks (MSH-1 is the separator itself, not a normal field), escape sequences (\\T\\, \\S\\, \\F\\, etc.), repeating fields (~), component/subcomponent separators, and multiple complex data types (CWE, XPN, XAD, XTN, CX); (2) generate FHIR R4 Transaction Bundles with correct resource structure, inter-resource references via deterministic URNs, and proper coding system URI mapping; (3) use jq to extract resources from nested Bundle JSON and assign IDs for NDJSON flattening; (4) implement ConceptMap-based terminology translation including one-to-many mappings, group-level system scoping, unmapped-code mode handling, and source-coding preservation semantics; (5) orchestrate a multi-tool pipeline (Python + jq + shell) producing a schema-validated report. This holistic task demands professional-level health IT interoperability expertise—not just following a procedural checklist."""
+solution_explanation = """The solution has three main components: (1) converter.py parses HL7 v2 messages using a custom parser that handles MSH encoding characters, escape sequences, and all v2 data types, then builds FHIR R4 resources (Patient, Encounter, RelatedPerson, Condition, AllergyIntolerance, Coverage) linked by deterministic UUID5 references in a Transaction Bundle; (2) migrate.py loads ConceptMap resources, builds group-scoped translation lookup tables, evaluates FHIRPath-like selectors to identify target Coding elements, applies translations (including one-to-many), handles unmapped codes per mode, and preserves/removes source codings per configuration; (3) pipeline.sh orchestrates the flow—runs converter.py, uses jq to extract Condition resources from bundles and assign IDs from fullUrl URNs, consolidates with bulk export data in a staging directory, runs migrate.py on staged data, then uses jq -s (slurp) to merge conversion and migration statistics into a schema-compliant pipeline report."""
+verification_explanation = """Tests execute the pipeline via bash /app/pipeline.sh and validate: (1) three FHIR Transaction Bundles exist with correct structure; (2) Patient demographics, Encounter class, and segment-level resource counts match the input HL7 messages; (3) escape sequences are correctly resolved in addresses; (4) email telecom from XTN mapping is present; (5) consolidated Condition NDJSON contains 11 resources (6 from bulk export + 5 from HL7 conversion); (6) ICD-9 to ICD-10 translations are correct including one-to-many mappings; (7) ICD-9 code 272.4 (only present in HL7 input) is translated to E78.5, verifying end-to-end pipeline integration; (8) local lab codes are replaced with LOINC codes with source removed; (9) local allergy codes gain SNOMED translations with source preserved; (10) unmapped codes are handled per mode; (11) pipeline report validates against the JSON Schema; (12) report contains correct conversion/migration statistics."""
+category = "applied_computing"
+tags = ["healthcare-interoperability", "fhir-hl7-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9ea256"

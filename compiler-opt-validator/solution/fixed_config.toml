@@ -1,0 +1,32 @@
+# Compiler optimization regression test configuration — FIXED
+
+[general]
+compilers = ["gcc", "clang"]
+opt_levels = ["-O0", "-O1", "-O2", "-O3"]
+timeout = 30
+
+[categories.irr_flow]
+path = "/app/tests/irr_flow"
+compiler = "gcc"
+description = "Irreducible control flow patterns"
+
+[categories.alias]
+path = "/app/tests/alias"
+compiler = "gcc"
+description = "Pointer aliasing patterns"
+
+[categories.volatile_opt]
+path = "/app/tests/volatile_opt"
+compiler = "gcc"
+description = "Volatile semantics verification"
+
+[categories.int_promo]
+path = "/app/tests/int_promo"
+compiler = "gcc"
+description = "Integer promotion edge cases"
+
+[categories.call_conv]
+path = "/app/tests/call_conv"
+compiler = "gcc"
+separate_compilation = true
+description = "Calling convention tests with separate compilation"

@@ -1,0 +1,7 @@
+# Matched load test
+# V1 drives through 50-ohm source, through 50-ohm tline, into 50-ohm load
+V1 1 0 1
+R1s 1 11 50
+T1 11 0 12 0 z=50 f=10meg nl=0.25
+R1l 12 0 50
+.ac 0 40meg 2meg

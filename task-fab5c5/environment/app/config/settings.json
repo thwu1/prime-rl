@@ -1,0 +1,34 @@
+{
+    "proxy": {
+        "version": "FL2",
+        "max_features": 200,
+        "feature_file_path": "/app/features/bot_features.json",
+        "feature_refresh_interval_sec": 300,
+        "worker_threads": 4,
+        "panic_on_error": true,
+        "comment": "MAX_FEATURES limit exists for memory pre-allocation. Currently ~113 features in use, well below the 200 limit."
+    },
+    "generator": {
+        "shard_directory": "/app/db/shards",
+        "output_directory": "/app/features",
+        "table_name": "http_requests_features",
+        "refresh_interval_sec": 300,
+        "shard_selection": "random",
+        "comment": "Feature file is regenerated every 5 minutes from a randomly selected database shard."
+    },
+    "database": {
+        "type": "clickhouse",
+        "cluster": "bot_analytics",
+        "total_shards": 5,
+        "distributed_database": "default",
+        "local_database": "r0",
+        "system_table": "system_columns",
+        "comment": "Distributed tables in 'default' database. Underlying shard data in 'r0' database. Metadata queries go through system_columns."
+    },
+    "deployment": {
+        "propagation_method": "quicksilver",
+        "rollout_strategy": "immediate",
+        "health_check_enabled": false,
+        "comment": "Feature files are propagated immediately to all edge nodes for rapid bot threat response."
+    }
+}

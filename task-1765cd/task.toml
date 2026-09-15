@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires professional-level understanding of the C++ memory model, lock-free data structures, CPU cache coherence protocols, and concurrent programming. The solver must first diagnose the synchronization bottleneck by reading the queue implementation and profiling with the benchmark, then correctly reason about atomic memory ordering semantics (acquire/release vs relaxed vs seq_cst) to prevent data races invisible on x86 (TSO) but critical on ARM. The intersection of hardware architecture knowledge, formal memory model reasoning, and performance analysis under ThreadSanitizer places the task at Dreyfus proficient level."""
+solution_explanation = """After profiling confirms the mutex-based queue is the throughput bottleneck, replace mutex synchronization with std::atomic<std::size_t> for head and tail indices. Use memory_order_relaxed when loading an index that only the current thread writes (tail in push, head in consume). Use memory_order_acquire when loading the other thread's index (head in push to check fullness, tail in consume to check emptiness). Use memory_order_release when storing an updated index (tail after constructing an element, head after destroying one). This acquire/release pairing establishes happens-before relationships that guarantee the consumer sees fully constructed data. Add alignas(64) on both atomic indices to place them on separate cache lines, eliminating false sharing."""
+verification_explanation = """Tests combine static source analysis with dynamic verification. Source code is checked for absence of mutex, presence of std::atomic with memory_order_acquire and memory_order_release, dominance of acquire/release over seq_cst, and cache line alignment directives. A single-threaded basic test verifies push/pop correctness and boundary conditions. A multi-threaded stress test pushes 5M sequential integers and verifies all are received in order. A ThreadSanitizer build catches memory ordering violations that would be invisible on x86. A throughput benchmark comparing against the original mutex implementation verifies at least 2x speedup."""
+category = "systems_programming"
+tags = ["lock-free-concurrency", "cpp-memory-model"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-1765cd"

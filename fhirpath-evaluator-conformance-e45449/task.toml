@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a FHIRPath expression evaluator from scratch in JavaScript covering: recursive-descent parsing of a non-trivial grammar (arithmetic, comparisons, boolean operators, function calls, path navigation, literals for 7+ types including dates with timezone offsets and quantities with UCUM units); FHIR XML resource model traversal with polymorphic value[x] fields; FHIRPath's unique equality semantics where differing date/time precision yields empty (not false); timezone-aware datetime normalization; equivalence with case-insensitive strings, unordered collection comparison, and significance-based decimal rounding; three-valued boolean logic (and/or/xor/implies) with empty collection propagation following non-standard truth tables; and quantity unit conversion across weight (g/mg/kg) and time (days/weeks) units. Each semantic area has subtle edge cases that interact (e.g., quantity equivalence uses ~1% tolerance while equality requires exact unit-normalized match). Expert-level work requiring knowledge of healthcare data standards, expression language design, and formal comparison semantics."""
+solution_explanation = """Build a recursive-descent parser from the FHIRPath ANTLR grammar, implementing expression nodes for all operator precedence levels. Parse FHIR XML into a tree model preserving element names and value attributes. Implement path navigation that handles type-qualified paths (Patient.name) and polymorphic value[x] expansion. For equality, normalize dates to comparable precision, convert timezones to UTC offsets, and compare quantities after unit conversion. Implement equivalence as case-insensitive string match, unordered multiset comparison for collections, and significance-based decimal comparison. Boolean logic uses FHIRPath three-valued tables where empty propagates except for short-circuit cases (false AND {} = false, true OR {} = true). Quantity conversion uses a lookup table for UCUM weight/time units."""
+verification_explanation = """The test harness parses the official HL7 FHIRPath conformance test suite XML at /data/tests-fhir-r4.xml, extracts 142 tests from 9 groups (equality, inequality, equivalence, not-equivalent, and/or/xor/implies boolean logic, quantity), runs each test by invoking the solver's evaluator via Node.js subprocess, parses JSON output, and compares against expected results. Tests with no expected output verify empty collection returns. All 142 tests must pass."""
+category = "healthcare_informatics"
+tags = ["fhirpath", "expression-evaluator"]
+expert_time_estimate_hours = 6.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fhirpath-evaluator-conformance-e45449"

@@ -1,0 +1,16 @@
+{
+  "description": "Time evolution operator exp(-i*0.7*(XX + 0.5*ZZ)) for a 2-qubit anisotropic Heisenberg interaction. XX = sigma_x tensor sigma_x, ZZ = sigma_z tensor sigma_z. This is a physically meaningful 2-qubit gate arising in quantum simulation of spin models.",
+  "dimension": 4,
+  "real": [
+    [ 0.71847188,  0.0,         0.0,        -0.22090084],
+    [ 0.0,         0.71847188,  0.22090084,  0.0        ],
+    [ 0.0,         0.22090084,  0.71847188,  0.0        ],
+    [-0.22090084,  0.0,         0.0,         0.71847188 ]
+  ],
+  "imag": [
+    [-0.26226271,  0.0,         0.0,        -0.60516052],
+    [ 0.0,         0.26226271, -0.60516052,  0.0        ],
+    [ 0.0,        -0.60516052,  0.26226271,  0.0        ],
+    [-0.60516052,  0.0,         0.0,        -0.26226271]
+  ]
+}

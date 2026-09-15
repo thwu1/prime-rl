@@ -1,0 +1,5 @@
+A screen reader speech verification system is installed at `/app/sr_verify/`. It processes utterance scenario files from `/app/scenarios/`, each containing sequences of screen reader speech events with timing and interruption metadata. The system is designed to verify whether screen reader output accurately conveys UI content, including handling cases where rapid focus changes cause one utterance to interrupt another mid-speech.
+
+The system has multiple bugs across its modules that cause incorrect results. Some bugs produce silently wrong values while others only manifest with specific edge-case inputs. Not all bugs are in the same module, and the symptoms of one bug may obscure another.
+
+Investigate the codebase, diagnose all issues, and fix them so the system produces correct results for all inputs and scenarios.

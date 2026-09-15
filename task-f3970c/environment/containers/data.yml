@@ -1,0 +1,27 @@
+templates:
+  - "templates/postgres.template.yml"
+  - "templates/redis.template.yml"
+
+expose:
+  - "127.0.0.1:5432:5432"
+  - "127.0.0.1:6379:6379"
+
+params:
+  db_default_text_search_config: "pg_catalog.english"
+  db_shared_buffers: "4GB"
+  db_work_mem: "64MB"
+
+env:
+  LANG: en_US.UTF-8
+  DISCOURSE_DB_NAME: "{{config}}_discourse"
+  DISCOURSE_DB_HOST: localhost
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/data
+      guest: /shared
+  - volume:
+      host: /var/discourse/shared/data/log/var-log
+      guest: /var/log
+
+docker_args: "--shm-size=1g"

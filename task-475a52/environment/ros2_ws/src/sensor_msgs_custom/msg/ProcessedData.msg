@@ -1,0 +1,6 @@
+std_msgs/Header header
+float64 calibrated_temperature
+float64 calibrated_humidity
+float64 calibrated_pressure
+uint32 sensor_id
+bool is_valid

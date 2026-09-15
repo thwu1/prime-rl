@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires building a compiled C/C++ model counter from scratch using GMP for arbitrary-precision arithmetic. The solver must explore benchmark files in /app/benchmarks/ to learn the DIMACS CNF format with MC competition directives (track types, weight specifications in fraction/decimal/scientific notation), understand Makefile-based compilation with GMP linkage, implement DPLL search with unit propagation, connected component decomposition for performance, memoization of component counts, and exact rational arithmetic for weighted model counting. A naive brute-force approach fails on 40+ variable instances; the solver must recognize independent subproblems and cache component counts. No oracle or reference solver is provided in the environment."""
+solution_explanation = """The reference solution is a C++ program (counter.cpp) compiled with GMP (gmpxx.h). It parses DIMACS CNF with MC competition directives, using mpq_class for exact rational arithmetic. The solver implements DPLL-based counting with: (1) unit propagation to force assignments and detect conflicts; (2) connected component decomposition via union-find to identify independent subproblems; (3) memoization of component counts keyed by normalized clause structure; (4) branching on the most frequent variable. The Makefile compiles with -lgmpxx -lgmp. Component caching ensures 40-variable XOR instances (20 independent 2-variable components) solve in milliseconds rather than 2^40 operations."""
+verification_explanation = """Tests verify: (1) /app/mc is a compiled ELF binary, not a script; (2) correctness across 14 test instances with analytically known answers - basic 3-var (4), UNSAT (0), chain4 (5), single var (1), no clauses (8), 70-var no-clause for bigint verification (2^70), 15-var components (2560), 40-var XOR pairs requiring component decomposition (2^20), 25-var path graph (Fibonacci F(27)=196418), 20-var chain (21), WMC with fraction weights (7/24), WMC with decimal weights (29/50), WMC with scientific notation weights (3/10), WMC with unit weights (4/1). Each test writes a CNF file, runs /app/mc, parses the output for the exact count line, and compares against the known answer."""
+category = "algorithms"
+tags = ["sat-solving", "model-counting"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/exact-model-counter-ab6fb0"

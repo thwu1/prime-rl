@@ -1,0 +1,14 @@
+[
+  {"problem_id": 1, "name": "vector_add", "flops": 1000000, "memory_bytes": 12000000},
+  {"problem_id": 2, "name": "vector_multiply", "flops": 1000000, "memory_bytes": 12000000},
+  {"problem_id": 3, "name": "matmul_small", "flops": 2000000000, "memory_bytes": 12000000},
+  {"problem_id": 4, "name": "softmax", "flops": 50000000, "memory_bytes": 80000000},
+  {"problem_id": 5, "name": "layernorm", "flops": 30000000, "memory_bytes": 40000000},
+  {"problem_id": 6, "name": "conv2d_3x3", "flops": 5000000000, "memory_bytes": 200000000},
+  {"problem_id": 7, "name": "batchnorm", "flops": 20000000, "memory_bytes": 60000000},
+  {"problem_id": 8, "name": "reduction_sum", "flops": 10000000, "memory_bytes": 40000000},
+  {"problem_id": 9, "name": "gelu_activation", "flops": 5000000, "memory_bytes": 8000000},
+  {"problem_id": 10, "name": "conv2d_relu_bias", "flops": 3000000000, "memory_bytes": 100000000},
+  {"problem_id": 11, "name": "matmul_scale_residual", "flops": 4000000000, "memory_bytes": 150000000},
+  {"problem_id": 12, "name": "attention_fused", "flops": 8000000000, "memory_bytes": 500000000}
+]

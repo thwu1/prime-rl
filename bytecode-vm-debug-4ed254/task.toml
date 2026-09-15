@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """This task requires deep understanding of compiler-VM contracts and bytecode semantics. The solver must: (1) analyze the VM's opcode handlers and the compiler's code generation to identify multiple interacting bugs across two files — bugs in conditional jump emission, scope management, iterator initialization, accumulator handling, membership testing, and range generation; (2) design and implement 6 iterator builtin compilation methods from scratch (filter, map, any, all, count, reduce), each requiring a unique bytecode loop pattern with forward/backward jumps, scope management, and element/accumulator tracking; (3) implement a bytecode disassembler with opcode-to-name mapping and formatted output. The bugs span two files and interact — compiler bugs produce wrong control flow while VM bugs corrupt runtime data, so iterator builtins require both layers to be correct simultaneously. Requires proficiency in compiler design, stack VM internals, and bytecode debugging."""
+solution_explanation = """Fix compile.go: (1) ternary uses OpJumpIfTrue, change to OpJumpIfFalse; (2) || uses OpJumpIfFalse, change to OpJumpIfTrue; (3) ?? uses OpJumpIfNil, change to OpJumpIfNotNil. Implement 6 iterator builtins: filter (loop with predicate, conditional element push via OpPointer, IncrCount tracking), map (loop with transform, collect all), any (loop with predicate, short-circuit on true via OpJumpIfTrue), all (loop with predicate, short-circuit on false via OpJumpIfFalse), count (loop with predicate, IncrCount), reduce (loop with SetAcc/GetAcc accumulation). Fix vm.go: (1) OpPointer pushes scope.Index, fix to scope.Item(); (2) OpBegin missing []int case for range arrays; (3) OpSetAcc discards popped value, fix to store in scope.Acc; (4) contains() missing map[string]interface{} case; (5) OpRange uses hi-lo, fix to hi-lo+1 for inclusive range. Implement disasm.go with opcode name mapping and formatted output."""
+verification_explanation = """Tests build the Go binary, then run 85+ expression evaluations covering: arithmetic, comparisons, boolean short-circuit (including div-by-zero guards), ternary branching, nil coalescing, range generation with boundary checks, membership testing for arrays and maps, array/map construction and indexing, all 6 iterator builtins with edge cases (empty arrays, ranges, nested compositions), and environment variables. Additionally, disassembler tests verify output format, correct opcode names for each construct, and scope opcodes for iterator builtins."""
+category = "debugging"
+tags = ["bytecode-compiler", "vm-internals"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bytecode-vm-debug-4ed254"

@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "schulz_classic",
+    "version": "1.0",
+    "source": "Schulz 1933",
+    "description": "Classical Newton-Schulz polynomial with uniform coefficients"
+  },
+  "parameters": {
+    "iterations": [
+      {"step": 0, "coefficients": {"a": 1.5, "b": -0.5, "c": 0.0}},
+      {"step": 1, "coefficients": {"a": 1.5, "b": -0.5, "c": 0.0}},
+      {"step": 2, "coefficients": {"a": 1.5, "b": -0.5, "c": 0.0}},
+      {"step": 3, "coefficients": {"a": 1.5, "b": -0.5, "c": 0.0}},
+      {"step": 4, "coefficients": {"a": 1.5, "b": -0.5, "c": 0.0}}
+    ]
+  }
+}

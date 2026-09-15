@@ -1,0 +1,13 @@
+{
+  "well_typed": true,
+  "globals": {
+    "x": {"type": "[int]", "kind": "var"},
+    "y": {"type": "[bool]", "kind": "var"},
+    "z": {"type": "[str]", "kind": "var"},
+    "w": {"type": "[Bar]", "kind": "var"}
+  },
+  "classes": {
+    "Bar": {"superclass": "object", "attributes": {}, "methods": {}}
+  },
+  "errors": []
+}

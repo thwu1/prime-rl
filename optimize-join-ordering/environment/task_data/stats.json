@@ -1,0 +1,772 @@
+{
+  "tables": {
+    "R": {
+      "row_count": 1000,
+      "columns": {
+        "r_id": {
+          "ndv": 1000,
+          "min_val": 1,
+          "max_val": 1001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 101.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 101.0,
+              "upper": 201.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 201.0,
+              "upper": 301.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 301.0,
+              "upper": 401.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 401.0,
+              "upper": 501.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 501.0,
+              "upper": 601.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 601.0,
+              "upper": 701.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 701.0,
+              "upper": 801.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 801.0,
+              "upper": 901.0,
+              "count": 100,
+              "ndv": 100
+            },
+            {
+              "lower": 901.0,
+              "upper": 1001.0,
+              "count": 100,
+              "ndv": 100
+            }
+          ]
+        },
+        "r_val": {
+          "ndv": 100,
+          "min_val": 0,
+          "max_val": 100,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 0.0,
+              "upper": 10.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 10.0,
+              "upper": 20.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 20.0,
+              "upper": 30.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 30.0,
+              "upper": 40.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 40.0,
+              "upper": 50.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 50.0,
+              "upper": 60.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 60.0,
+              "upper": 70.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 70.0,
+              "upper": 80.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 80.0,
+              "upper": 90.0,
+              "count": 100,
+              "ndv": 10
+            },
+            {
+              "lower": 90.0,
+              "upper": 100.0,
+              "count": 100,
+              "ndv": 10
+            }
+          ]
+        }
+      }
+    },
+    "S": {
+      "row_count": 10000,
+      "columns": {
+        "s_id": {
+          "ndv": 10000,
+          "min_val": 1,
+          "max_val": 10001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 1001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 1001.0,
+              "upper": 2001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 2001.0,
+              "upper": 3001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 3001.0,
+              "upper": 4001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 4001.0,
+              "upper": 5001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 5001.0,
+              "upper": 6001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 6001.0,
+              "upper": 7001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 7001.0,
+              "upper": 8001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 8001.0,
+              "upper": 9001.0,
+              "count": 1000,
+              "ndv": 1000
+            },
+            {
+              "lower": 9001.0,
+              "upper": 10001.0,
+              "count": 1000,
+              "ndv": 1000
+            }
+          ]
+        },
+        "s_r_id": {
+          "ndv": 1000,
+          "min_val": 1,
+          "max_val": 1001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 101.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 101.0,
+              "upper": 201.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 201.0,
+              "upper": 301.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 301.0,
+              "upper": 401.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 401.0,
+              "upper": 501.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 501.0,
+              "upper": 601.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 601.0,
+              "upper": 701.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 701.0,
+              "upper": 801.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 801.0,
+              "upper": 901.0,
+              "count": 1000,
+              "ndv": 100
+            },
+            {
+              "lower": 901.0,
+              "upper": 1001.0,
+              "count": 1000,
+              "ndv": 100
+            }
+          ]
+        },
+        "s_val": {
+          "ndv": 500,
+          "min_val": 0,
+          "max_val": 1000,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 0.0,
+              "upper": 100.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 100.0,
+              "upper": 200.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 200.0,
+              "upper": 300.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 300.0,
+              "upper": 400.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 400.0,
+              "upper": 500.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 500.0,
+              "upper": 600.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 600.0,
+              "upper": 700.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 700.0,
+              "upper": 800.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 800.0,
+              "upper": 900.0,
+              "count": 1000,
+              "ndv": 50
+            },
+            {
+              "lower": 900.0,
+              "upper": 1000.0,
+              "count": 1000,
+              "ndv": 50
+            }
+          ]
+        }
+      }
+    },
+    "T": {
+      "row_count": 100000,
+      "columns": {
+        "t_id": {
+          "ndv": 100000,
+          "min_val": 1,
+          "max_val": 100001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 10001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 10001.0,
+              "upper": 20001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 20001.0,
+              "upper": 30001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 30001.0,
+              "upper": 40001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 40001.0,
+              "upper": 50001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 50001.0,
+              "upper": 60001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 60001.0,
+              "upper": 70001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 70001.0,
+              "upper": 80001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 80001.0,
+              "upper": 90001.0,
+              "count": 10000,
+              "ndv": 10000
+            },
+            {
+              "lower": 90001.0,
+              "upper": 100001.0,
+              "count": 10000,
+              "ndv": 10000
+            }
+          ]
+        },
+        "t_s_id": {
+          "ndv": 10000,
+          "min_val": 1,
+          "max_val": 10001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 1001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 1001.0,
+              "upper": 2001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 2001.0,
+              "upper": 3001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 3001.0,
+              "upper": 4001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 4001.0,
+              "upper": 5001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 5001.0,
+              "upper": 6001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 6001.0,
+              "upper": 7001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 7001.0,
+              "upper": 8001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 8001.0,
+              "upper": 9001.0,
+              "count": 10000,
+              "ndv": 1000
+            },
+            {
+              "lower": 9001.0,
+              "upper": 10001.0,
+              "count": 10000,
+              "ndv": 1000
+            }
+          ]
+        },
+        "t_val": {
+          "ndv": 1000,
+          "min_val": 0,
+          "max_val": 1000,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 0.0,
+              "upper": 100.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 100.0,
+              "upper": 200.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 200.0,
+              "upper": 300.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 300.0,
+              "upper": 400.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 400.0,
+              "upper": 500.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 500.0,
+              "upper": 600.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 600.0,
+              "upper": 700.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 700.0,
+              "upper": 800.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 800.0,
+              "upper": 900.0,
+              "count": 10000,
+              "ndv": 100
+            },
+            {
+              "lower": 900.0,
+              "upper": 1000.0,
+              "count": 10000,
+              "ndv": 100
+            }
+          ]
+        }
+      }
+    },
+    "U": {
+      "row_count": 500,
+      "columns": {
+        "u_id": {
+          "ndv": 500,
+          "min_val": 1,
+          "max_val": 501,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 51.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 51.0,
+              "upper": 101.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 101.0,
+              "upper": 151.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 151.0,
+              "upper": 201.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 201.0,
+              "upper": 251.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 251.0,
+              "upper": 301.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 301.0,
+              "upper": 351.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 351.0,
+              "upper": 401.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 401.0,
+              "upper": 451.0,
+              "count": 50,
+              "ndv": 50
+            },
+            {
+              "lower": 451.0,
+              "upper": 501.0,
+              "count": 50,
+              "ndv": 50
+            }
+          ]
+        },
+        "u_r_id": {
+          "ndv": 400,
+          "min_val": 1,
+          "max_val": 1001,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 1.0,
+              "upper": 101.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 101.0,
+              "upper": 201.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 201.0,
+              "upper": 301.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 301.0,
+              "upper": 401.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 401.0,
+              "upper": 501.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 501.0,
+              "upper": 601.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 601.0,
+              "upper": 701.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 701.0,
+              "upper": 801.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 801.0,
+              "upper": 901.0,
+              "count": 50,
+              "ndv": 40
+            },
+            {
+              "lower": 901.0,
+              "upper": 1001.0,
+              "count": 50,
+              "ndv": 40
+            }
+          ]
+        },
+        "u_val": {
+          "ndv": 50,
+          "min_val": 0,
+          "max_val": 100,
+          "null_fraction": 0.0,
+          "histogram": [
+            {
+              "lower": 0.0,
+              "upper": 10.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 10.0,
+              "upper": 20.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 20.0,
+              "upper": 30.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 30.0,
+              "upper": 40.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 40.0,
+              "upper": 50.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 50.0,
+              "upper": 60.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 60.0,
+              "upper": 70.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 70.0,
+              "upper": 80.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 80.0,
+              "upper": 90.0,
+              "count": 50,
+              "ndv": 5
+            },
+            {
+              "lower": 90.0,
+              "upper": 100.0,
+              "count": 50,
+              "ndv": 5
+            }
+          ]
+        }
+      }
+    }
+  }
+}

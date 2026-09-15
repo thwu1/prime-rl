@@ -1,0 +1,13 @@
+{
+  "well_typed": false,
+  "globals": {
+    "x": {"type": "int", "kind": "var"},
+    "y": {"type": "str", "kind": "var"},
+    "z": {"type": "int", "kind": "var"}
+  },
+  "classes": {},
+  "errors": [
+    {"message": "Cannot apply '+' to int and str"},
+    {"message": "Cannot initialize variable with object for type int"}
+  ]
+}

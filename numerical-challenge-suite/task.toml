@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level numerical analysis skills to audit five computational experiments for correctness. The solver must independently explore the workspace, understand each numerical method (Gauss-Legendre quadrature, Gauss-Hermite quadrature weight conventions, Sturm sequences for eigenvalue counting, sparse matrix assembly and symmetrization, power iteration convergence theory), evaluate whether each implementation is numerically sound, diagnose subtle bugs (double-counting quadrature weights, incorrect sparse symmetrization that halves off-diagonal entries, insufficient power iteration for matrices with clustered eigenvalues), and produce correct reference values. Requires holistic understanding of numerical linear algebra and approximation theory — not just following procedures."""
+solution_explanation = """1) Explore /app/lab/ to discover 5 experiments and results.json. 2) For gauss_legendre: verify with scipy.integrate.quad — matches, mark correct. 3) For hermite_quadrature: recognize that hermgauss weights already include exp(-x^2) factor, so the code double-counts; correct value is 19*sqrt(pi)/4 analytically. 4) For sturm_eigencount: reimplement Sturm sequence independently — matches, mark correct. 5) For sparse_logdet: notice only upper triangle is stored then (M+M.T)/2 halves off-diag to 0.025 instead of documented 0.05; rebuild correct symmetric matrix and recompute via splu. 6) For spectral_radius: recognize 50 power iterations insufficient for clustered top eigenvalues; use np.linalg.eigvalsh instead."""
+verification_explanation = """Tests independently compute all five correct values: gauss_legendre via scipy.integrate.quad, hermite_quadrature via analytical formula 19*sqrt(pi)/4, sturm_eigencount via Sturm sequence, sparse_logdet via correctly-assembled sparse matrix + splu, spectral_radius via np.linalg.eigvalsh. Each agent value is checked against reference with relative tolerance 1e-9 (or exact match for integer). Additionally, the original_is_correct boolean flags are verified against ground truth (gauss_legendre=True, hermite_quadrature=False, sturm_eigencount=True, sparse_logdet=False, spectral_radius=False)."""
+category = "mathematics"
+tags = ["numerical-analysis", "code-auditing"]
+expert_time_estimate_hours = 1.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/numerical-challenge-suite"

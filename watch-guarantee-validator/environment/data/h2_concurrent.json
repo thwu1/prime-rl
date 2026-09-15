@@ -1,0 +1,33 @@
+{
+  "keys": ["k1", "k2"],
+  "operations": [
+    {
+      "client_id": 0,
+      "call_ns": 100,
+      "return_ns": 500,
+      "request": {"type": "put", "key": "k1", "value": "x"},
+      "response": {"type": "put", "revision": 2}
+    },
+    {
+      "client_id": 1,
+      "call_ns": 200,
+      "return_ns": 500,
+      "request": {"type": "put", "key": "k2", "value": "y"},
+      "response": {"type": "put", "revision": 3}
+    },
+    {
+      "client_id": 0,
+      "call_ns": 600,
+      "return_ns": 700,
+      "request": {"type": "get", "key": "k1"},
+      "response": {"type": "get", "revision": 3, "value": "x", "count": 1}
+    },
+    {
+      "client_id": 1,
+      "call_ns": 600,
+      "return_ns": 700,
+      "request": {"type": "get", "key": "k2"},
+      "response": {"type": "get", "revision": 3, "value": "y", "count": 1}
+    }
+  ]
+}

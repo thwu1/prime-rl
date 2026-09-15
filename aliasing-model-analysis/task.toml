@@ -1,0 +1,46 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of Rust's two competing aliasing models (Stacked Borrows and \
+Tree Borrows). The agent must triage pre-captured Miri diagnostics — some of which are truncated or mislabeled — to determine \
+which are reliable, then independently analyze the source code for functions whose diagnostics are corrupted. A developer \
+NOTES.md contains plausible but incorrect observations about two functions, creating misleading signals that must be \
+overcome through independent reasoning about tag state transitions, borrow stack operations, and protector semantics. \
+The agent must classify six functions and apply targeted fixes that eliminate UB while preserving functional behavior."""
+solution_explanation = """The solution first validates each diagnostic file by checking that (1) the test name in the output \
+matches the expected function and (2) the output contains a verdict (not truncated). Three diagnostics are unreliable: \
+stacked_borrows/test_activated_overwrite is truncated, tree_borrows/test_shared_read_after_mut contains output for \
+test_protector_violation (mislabeled), and tree_borrows/test_interleaved_copy is truncated. For these, the solution \
+analyzes code patterns: as_ptr-before-as_mut_ptr (SB: SharedReadOnly invalidated by Unique retag), write-read-write \
+through different borrow paths (TB: Active->Frozen->write UB), parent-child invalidation (both), and protector \
+conflicts (both). Fixes derive all raw pointers from single as_mut_ptr(), read through parent instead of \
+invalidated child, and eliminate the aliasing &mut parameter from protector_inner."""
+verification_explanation = """Tests verify: (1) classification.json matches expected values for all 6 functions; \
+(2) fixed code compiles with cargo build; (3) all 6 Rust tests pass with cargo test; \
+(4) structural checks confirm UB-causing patterns are removed — no .as_ptr() in functions that had conflicting borrows, \
+no child read after parent write in reborrow_invalidation, no &mut parameter in protector_inner."""
+category = "systems_programming"
+tags = ["unsafe-rust", "miri"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/aliasing-model-analysis"

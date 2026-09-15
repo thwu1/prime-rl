@@ -1,0 +1,56 @@
+FIMI'04 Workshop Output Specification
+======================================
+
+Extracted from the FIMI'04 Workshop on Frequent Itemset Mining Implementations
+(1 November 2004, Brighton, UK, in conjunction with ICDM'04)
+
+Standard Output (stdout)
+-------------------------
+During or after execution, the program must print the total number of frequent
+itemsets and this number for each length between 0 and k separately to the
+standard output stream, with k the size of the largest (closed/maximal)
+frequent set. If there is no maximal/closed frequent itemset for a given
+length, print 0!
+
+Example:
+  32
+  1
+  5
+  10
+  10
+  5
+  1
+
+means that there are 32 frequent itemsets, of which 1 frequent itemset is of
+length 0, 5 of length 1, 10 of length 2, 10 of length 3, 5 of length 4 and
+1 of length 5.
+
+No other output is printed to the standard output stream.
+
+Output File
+-----------
+After execution of the program, the output file should contain all frequent
+itemsets together with their absolute support.
+
+Each line contains a single frequent itemset as a list of items separated by
+whitespace. At the end of the line, its absolute support is printed between
+parentheses.
+
+For example:
+  1 2 3 (100)
+
+represents the itemset containing items 1, 2 and 3 and it has an absolute
+support of 100.
+
+Note that also the empty set is considered as an itemset and its support
+should also be printed on a separate line in the output file.
+
+Minimum Support
+---------------
+The minimal support threshold should be a non-negative integer.
+An itemset is frequent if its absolute support is greater than or equal to
+this threshold.
+
+Exit Status
+-----------
+The exit status of the algorithm is 0 unless incorrect termination.

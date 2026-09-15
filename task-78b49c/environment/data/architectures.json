@@ -1,0 +1,28 @@
+{
+  "candidate_architectures": [
+    {
+      "id": "sm_70",
+      "generation": "Volta"
+    },
+    {
+      "id": "sm_75",
+      "generation": "Turing"
+    },
+    {
+      "id": "sm_80",
+      "generation": "Ampere"
+    },
+    {
+      "id": "sm_86",
+      "generation": "Ampere (consumer)"
+    },
+    {
+      "id": "sm_89",
+      "generation": "Ada Lovelace"
+    },
+    {
+      "id": "sm_90",
+      "generation": "Hopper"
+    }
+  ]
+}

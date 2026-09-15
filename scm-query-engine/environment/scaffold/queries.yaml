@@ -1,0 +1,64 @@
+ate_queries:
+  - id: ate_t_y
+    treatment: T
+    outcome: Y
+    t1: 1.0
+    t0: 0.0
+    seed: 42
+    n_samples: 200000
+
+  - id: ate_t_x
+    treatment: T
+    outcome: X
+    t1: 1.0
+    t0: 0.0
+    seed: 123
+    n_samples: 200000
+
+ctf_te_queries:
+  - id: ctf_t_m
+    treatment: T
+    outcome: M
+    factual_vars: ["T"]
+    factual_vals: [1.0]
+    t1: 1.0
+    t0: 0.0
+    target_y_val: 1.0
+    seed: 42
+    n_samples: 200000
+
+  - id: ctf_t_y
+    treatment: T
+    outcome: Y
+    factual_vars: ["M"]
+    factual_vals: [0.0]
+    t1: 1.0
+    t0: 0.0
+    target_y_val: 1.0
+    seed: 42
+    n_samples: 300000
+
+d_separation_tests:
+  - id: dsep_chain
+    x_nodes: ["X"]
+    y_nodes: ["M"]
+    z_nodes: ["T"]
+
+  - id: dsep_collider
+    x_nodes: ["X"]
+    y_nodes: ["Y"]
+    z_nodes: ["T"]
+
+  - id: dsep_unconditional
+    x_nodes: ["X"]
+    y_nodes: ["H"]
+    z_nodes: []
+
+  - id: dsep_descendant
+    x_nodes: ["X"]
+    y_nodes: ["Y"]
+    z_nodes: ["M"]
+
+backdoor_queries:
+  - treatment: T
+    outcome: Y

@@ -1,0 +1,25 @@
+statistic_name,value
+db block gets from cache,45000000
+consistent gets from cache,180000000
+physical reads cache,63000000
+physical reads direct,2000000
+parse count (total),8000000
+parse count (hard),7200000
+parse time cpu,350000
+parse time elapsed,780000
+sorts (memory),120000
+sorts (disk),30000
+table scans (long tables),800
+table scans (short tables),950000
+redo entries,50000000
+redo size,15000000000
+session logical reads,225000000
+CPU used by this session,4500000
+recursive calls,35000000
+user calls,12000000
+user commits,3000000
+user rollbacks,50000
+enqueue waits,12000
+execute count,20000000
+bytes sent via SQL*Net to client,8500000000
+bytes received via SQL*Net from client,2500000000

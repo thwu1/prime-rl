@@ -1,0 +1,149 @@
+{
+  "as_number": 65000,
+  "routers": {
+    "R1": {
+      "loopback": "10.0.0.1/32",
+      "ospf_areas": [0],
+      "bgp_speaker": true,
+      "connected_networks": []
+    },
+    "R2": {
+      "loopback": "10.0.0.2/32",
+      "ospf_areas": [0],
+      "bgp_speaker": true,
+      "connected_networks": []
+    },
+    "R3": {
+      "loopback": "10.0.0.3/32",
+      "ospf_areas": [0, 10],
+      "bgp_speaker": false,
+      "role": "ABR",
+      "connected_networks": []
+    },
+    "R4": {
+      "loopback": "10.0.0.4/32",
+      "ospf_areas": [0, 20],
+      "bgp_speaker": false,
+      "role": "ABR",
+      "connected_networks": []
+    },
+    "R5": {
+      "loopback": "10.0.0.5/32",
+      "ospf_areas": [10],
+      "bgp_speaker": false,
+      "connected_networks": ["172.16.5.0/24"]
+    },
+    "R6": {
+      "loopback": "10.0.0.6/32",
+      "ospf_areas": [20],
+      "bgp_speaker": false,
+      "connected_networks": ["172.16.6.0/24"]
+    }
+  },
+  "ospf_links": [
+    {
+      "router_a": "R1",
+      "router_b": "R2",
+      "ip_a": "10.1.12.1",
+      "ip_b": "10.1.12.2",
+      "network": "10.1.12.0/30",
+      "cost": 5,
+      "area": 0
+    },
+    {
+      "router_a": "R1",
+      "router_b": "R3",
+      "ip_a": "10.1.13.1",
+      "ip_b": "10.1.13.2",
+      "network": "10.1.13.0/30",
+      "cost": 10,
+      "area": 0
+    },
+    {
+      "router_a": "R2",
+      "router_b": "R4",
+      "ip_a": "10.1.24.1",
+      "ip_b": "10.1.24.2",
+      "network": "10.1.24.0/30",
+      "cost": 10,
+      "area": 0
+    },
+    {
+      "router_a": "R3",
+      "router_b": "R4",
+      "ip_a": "10.1.34.1",
+      "ip_b": "10.1.34.2",
+      "network": "10.1.34.0/30",
+      "cost": 20,
+      "area": 0
+    },
+    {
+      "router_a": "R3",
+      "router_b": "R5",
+      "ip_a": "10.1.35.1",
+      "ip_b": "10.1.35.2",
+      "network": "10.1.35.0/30",
+      "cost": 10,
+      "area": 10
+    },
+    {
+      "router_a": "R4",
+      "router_b": "R6",
+      "ip_a": "10.1.46.1",
+      "ip_b": "10.1.46.2",
+      "network": "10.1.46.0/30",
+      "cost": 10,
+      "area": 20
+    }
+  ],
+  "ebgp_sessions": [
+    {
+      "local_router": "R1",
+      "isp_name": "ISP-A",
+      "local_ip": "192.168.1.2",
+      "remote_ip": "192.168.1.1",
+      "remote_as": 65100,
+      "link_network": "192.168.1.0/30",
+      "received_prefixes": [
+        {"prefix": "203.0.113.0/24", "as_path": [65100], "origin": "igp", "med": 100},
+        {"prefix": "198.51.100.0/24", "as_path": [65100, 65300], "origin": "igp", "med": 50}
+      ],
+      "import_policy": {"set_local_pref": 150, "set_weight": 0}
+    },
+    {
+      "local_router": "R2",
+      "isp_name": "ISP-B",
+      "local_ip": "192.168.2.2",
+      "remote_ip": "192.168.2.1",
+      "remote_as": 65200,
+      "link_network": "192.168.2.0/30",
+      "received_prefixes": [
+        {"prefix": "203.0.113.0/24", "as_path": [65200], "origin": "igp", "med": 50},
+        {"prefix": "192.0.2.0/24", "as_path": [65200, 65400], "origin": "incomplete", "med": 200}
+      ],
+      "import_policy": {"set_local_pref": 200, "set_weight": 0}
+    }
+  ],
+  "ibgp_sessions": [
+    {
+      "router_a": "R1",
+      "router_b": "R2",
+      "update_source": "loopback",
+      "next_hop_self": true
+    }
+  ],
+  "static_routes": [
+    {"router": "R1", "prefix": "172.16.5.0/24", "next_hop": "null0", "admin_distance": 1}
+  ],
+  "redistribution": [
+    {"router": "R5", "from": "connected", "into": "ospf", "subnets": ["172.16.5.0/24"], "metric": 100, "metric_type": "E2"},
+    {"router": "R6", "from": "connected", "into": "ospf", "subnets": ["172.16.6.0/24"], "metric": 100, "metric_type": "E2"}
+  ],
+  "admin_distances": {
+    "connected": 0,
+    "static": 1,
+    "ebgp": 20,
+    "ospf": 110,
+    "ibgp": 200
+  }
+}

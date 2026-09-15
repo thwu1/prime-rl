@@ -1,0 +1,18 @@
+# OVERFLOW v2.4a - SST Turbulence Model
+# Case: ONERA OAT15A Supercritical Airfoil
+# Freestream Conditions: M=0.73, Re_c=3.0e6, T_static=271K
+# Grid System: Structured overset (Chimera)
+# Submitted: 2024-06-15
+# Reference: c=0.230m
+section,grid_level,n_cells,alpha,CL,CD,CM
+convergence,1,4096,2.50,0.702986,0.020595,-0.112000
+convergence,2,16384,2.50,0.694747,0.017299,-0.105000
+convergence,3,65536,2.50,0.692687,0.016475,-0.103500
+convergence,4,262144,2.50,0.692172,0.016269,-0.103000
+sweep,4,262144,0.00,0.155000,0.010000,-0.028000
+sweep,4,262144,1.00,0.378000,0.011200,-0.058000
+sweep,4,262144,2.00,0.590000,0.013800,-0.088000
+sweep,4,262144,2.50,0.692172,0.016269,-0.103000
+sweep,4,262144,3.00,0.800000,0.021500,-0.118000
+sweep,4,262144,3.50,0.872000,0.030200,-0.122000
+sweep,4,262144,4.00,0.915000,0.041800,-0.110000

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep PostgreSQL query planner internals expertise. The solver must diagnose multiple interacting performance problems in a multi-table PL/pgSQL function: a planner-defeating IS NULL OR conditional pattern that prevents all index usage regardless of parameter selectivity, misleading pre-existing indexes that appear relevant but fail to match the actual query expressions (e.g., plain email vs lower(email)), an unconditional LEFT JOIN to an EAV table that inflates result cardinality even when not needed, and missing expression/composite indexes for case-insensitive prefix searches and composite attribute lookups. The solver must independently determine the correct architectural approach (dynamic SQL via EXECUTE), design expression indexes with appropriate operator classes, handle the EAV join pattern, and ensure injection safety with quote_literal/format — all while preserving exact result equivalence with the original function across all parameter combinations."""
+solution_explanation = """The solution analyzes EXPLAIN output and the function source to identify that the IS NULL OR conditional pattern prevents the query planner from using any indexes. It discovers that existing indexes on plain columns don't match the actual query expressions (lower(email) LIKE, composite name+value lookup). It creates targeted indexes: lower(email) with text_pattern_ops on booking, departure_airport and arrival_airport on flight, lower(last_name) with text_pattern_ops on passenger, and a composite index on custom_field(custom_field_name, custom_field_value, passenger_id). Then it rewrites the function using PL/pgSQL dynamic SQL that conditionally builds WHERE clauses and JOINs at runtime with EXECUTE, using quote_literal for injection prevention, eliminating both the planner-defeating pattern and the unnecessary custom_field join."""
+verification_explanation = """Tests verify: (1) function existence and correct 6-parameter signature via pg_proc catalog, (2) use of dynamic SQL via EXECUTE keyword in function body, (3) SQL injection prevention via quote_literal/format/quote_ident in function body, (4) exception on all-NULL parameters, (5) result correctness by comparing original vs optimized functions for 8 parameter combinations across all six search dimensions, (6) required index existence on booking(lower(email)), flight(departure_airport), passenger(last_name), and custom_field(name+value) via pg_indexes catalog, (7) execution plan quality via EXPLAIN JSON confirming no Seq Scans on booking, flight, or custom_field for representative queries."""
+category = "database_optimization"
+tags = ["postgresql", "query-optimization"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-486c4b"

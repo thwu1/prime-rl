@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of bash arithmetic internals: the base-64 digit alphabet with case-sensitive uppercase mapping above base 36, 64-bit integer overflow avoidance via algebraic splitting for fixed-point multiply/divide/sqrt/pow, correct fractional-part zero-padding in decimal parsing, iterative square root with proper fixed-point scaling (must target val*scale not val) and overflow-safe quotient computation, and the 10#-N signed-number pitfall. Eight interrelated bugs across ~250 lines of pure-bash code demand combined knowledge of shell arithmetic semantics, two's-complement overflow, fixed-point representation, and iterative numerical methods."""
+solution_explanation = """Fix val_to_char to use ASCII offset +29 (not +55) for uppercase A-Z at digit values 36-61. Add zero-input and negative-input handling to to_base. In fp_parse, right-pad the fractional string with trailing zeros to the precision width before truncation. Replace naive fp_mul (a*b/scale) with split multiplication: (a/scale)*b + (a%scale)*b/scale. Replace naive fp_div (a*scale/b) with split division: (a/b)*scale + (a%b)*scale/b. Fix fp_sqrt to compute floor(sqrt(val*scale)) instead of floor(sqrt(val)), using overflow-safe Newton iteration with (val/x)*scale + (val%x)*scale/x and an initial overestimate of max(val, scale). Fix fp_pow to use overflow-safe multiplication splitting (result/scale)*base + (result%scale)*base/scale. Fix sanitize to strip the sign prefix before applying 10# base forcing, then reattach it."""
+verification_explanation = """Pytest tests exercise each subcommand with targeted inputs: base-64 digits in the uppercase range (A-Z) catch the val_to_char offset bug; zero and negative inputs catch to_base edge cases; fractional inputs with fewer digits than precision catch the fp_parse padding bug; large operands that overflow naive a*b or a*scale catch the multiplication/division splitting bugs; sqrt inputs like 4.0000 (expected 2.0000, buggy gives 0.0200) catch the scaling bug; large sqrt input 100000000000.0000 where val*scale overflows 64-bit catches the overflow-safe Newton requirement; 4000000.0000^2 catches fp_pow overflow; signed zero-padded numbers catch the sanitize pitfall."""
+category = "debugging"
+tags = ["shell-arithmetic", "base-conversion"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/bash-fixpoint-toolkit"

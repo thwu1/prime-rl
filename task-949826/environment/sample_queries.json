@@ -1,0 +1,7 @@
+[
+  {"va": "0x0000000000000100", "access": "read", "priv": "S", "mxr": false, "sum": false},
+  {"va": "0x0000000000001000", "access": "write", "priv": "S", "mxr": false, "sum": false},
+  {"va": "0x000000004ABCDEF0", "access": "read", "priv": "S", "mxr": false, "sum": false},
+  {"va": "0x0000000000002000", "access": "read", "priv": "S", "mxr": false, "sum": false},
+  {"va": "0x0000000000003000", "access": "read", "priv": "S", "mxr": true, "sum": false}
+]

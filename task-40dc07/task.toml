@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of JavaScript ASTs and programmatic code transformation. The agent must independently discover 8 source files containing the target toggle used in diverse patterns — ternary expressions, if-else blocks, negated conditions, variable-assigned toggles reused across multiple expressions, destructured-require aliases (featureToggle: ft, featureToggle: isEnabled), logical AND with side-preserving simplification, and combinations of these. The agent must determine the correct transform composition order (variable inlining before toggle resolution, toggle resolution before dead-code cleanup) to avoid cascading failures. No patterns or approach are specified in the instruction — the agent must analyze the codebase holistically, select appropriate tooling from what is available in the project, and produce transforms that correctly handle all edge cases while preserving unrelated feature toggles. The multi-use variable pattern (one variable referenced in several ternaries across a function) and the import-alias pattern compound to require genuine AST expertise rather than pattern matching."""
+solution_explanation = """Write 6 composed jscodeshift transforms using the project's createTransformer utility: (1) resolve import aliases to find the local featureToggle binding name per file, (2) inline variable assignments of the toggle call into all usage sites, (3) remove toggle from ternary expressions (handling negation), (4) remove toggle from if-else blocks (handling negation and unwrapping blocks), (5) simplify logical AND expressions containing the toggle, (6) clean up unused function declarations and require imports. Compose them via createTransformer in correct dependency order and run jscodeshift against all 8 src/ files."""
+verification_explanation = """Tests verify across all 8 source files: (1) the string 'feature-pricing-v2' does not appear in any transformed file, (2) other toggles (feature-free-shipping, feature-search-refinement) are preserved, (3) each transformed module produces correct return values when executed with Node.js (14 behavioral assertions), (4) unused functions (calculateTaxOld, legacyFormat, processLegacy) are removed while their counterparts are preserved, (5) featureToggle imports are removed from files that no longer use any toggle, (6) featureToggle imports are preserved in files that still use other toggles, (7) inlined variables (isPricingV2, useLegacy, usePricingV2) and import aliases (isEnabled) are cleaned up, (8) all transformed files are syntactically valid JavaScript, (9) the featureToggle utility itself is unmodified."""
+category = "code_transformation"
+tags = ["ast-manipulation", "jscodeshift"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-40dc07"

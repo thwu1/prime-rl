@@ -1,0 +1,25 @@
+version: "1"
+nodes:
+  - id: start
+    name: Start
+    steps:
+      - name: Init
+        run: echo init
+  - id: left
+    name: Left Branch
+    depends_on: [start]
+    steps:
+      - name: Left work
+        run: echo left
+  - id: right
+    name: Right Branch
+    depends_on: [start]
+    steps:
+      - name: Right work
+        run: echo right
+  - id: merge
+    name: Merge
+    depends_on: [left, right]
+    steps:
+      - name: Merge work
+        run: echo merge

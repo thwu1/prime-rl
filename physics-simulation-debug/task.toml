@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level reasoning across computational physics, numerical analysis, and multi-language systems engineering. The agent must evaluate conservation law violations (energy, momentum, symplectic invariants, Newton's third law, heat equation fidelity), determine which of four pipeline layers (C code, Python-C FFI, TOML config, Python equations) is responsible for each violation, implement corrections, and produce a structured diagnostic report demonstrating correct physical understanding. Bugs are cross-layer and their symptoms mislead: a dt*dt error in C breaks symplectic structure, a ctypes buffer swap silently discards computed diffusion updates, a dimensional analysis error in TOML quadruples aerodynamic drag, a sign error violates Newton's third law in coupled oscillators, and an algebraic error in the elastic collision formula breaks both momentum and energy conservation. The agent cannot follow a procedure — it must reason about what each physical system should conserve, measure and interpret violations, trace them through the technology stack, and articulate findings in a structured audit report."""
+solution_explanation = """Fix 1 (C + make): In lib/integrators.c, verlet_step velocity update uses dt*dt instead of dt — fix and rebuild. Fix 2 (ctypes): In engine.py, ftcs_step_c returns u_in instead of u_out — change return comprehension. Fix 3 (TOML): config/ballistic.toml has reference_area = 0.031416 (4*pi*r^2, full sphere surface) instead of pi*r^2 = 0.007854 (projected cross-section). Fix 4 (Python): oscillator.py coupling force on mass 2 has wrong sign (+k_c should be -k_c), violating Newton's third law. Fix 5 (Python): collision.py elastic formula uses (m1+m2) in numerator instead of (m1-m2). Finally, create /app/audit/report.json with correct layer, root cause, and conservation law diagnosis for each simulation."""
+verification_explanation = """Tests run each corrected simulation and compare against reference data: ballistic range/height within 5%, oscillator trajectories and energy bounds, diffusion RMS < 2.0 with monotonicity and BCs, orbit closure within 0.1 AU with energy/angular-momentum conservation < 1%, collision momentum/KE conservation < 2%. Additionally, the audit report is validated for completeness (all 5 entries with layer/root_cause/conservation_law_violated fields) and correctness via keyword analysis confirming each diagnosis identifies the specific defect category (area/config for ballistic, coupling/sign for oscillator, buffer/ctypes for diffusion, verlet/dt for orbit, elastic/formula for collision)."""
+category = "scientific_computing"
+tags = ["computational-physics", "numerical-methods-audit"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/physics-simulation-debug"

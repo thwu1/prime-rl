@@ -1,0 +1,33 @@
+{
+    "vsfScript": [
+        {
+            "lineType": "Branch",
+            "description": "When non-vetted, validationNumber is not applicable and must be null",
+            "conditions": [
+                {
+                    "if": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "parameters": {
+                                    "ruleText": "parentProperty.IsVetted == false"
+                                }
+                            }
+                        ]
+                    },
+                    "then": {
+                        "scriptLines": [
+                            {
+                                "lineType": "Rule",
+                                "ruleType": "External",
+                                "parameters": {
+                                    "ruleText": "currentProperty == null"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

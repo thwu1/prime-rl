@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple interlocking bugs in a geospatial analysis pipeline without being told what is wrong. The solver must: (1) discover that input observations contain NODATA sentinel values corrupting zone-level aggregations, (2) identify that the spatial weights function computes rook contiguity instead of queen contiguity due to a geometric intersection check that misses vertex-only adjacency, (3) recognize that the Getis-Ord statistic omits the self-weight making it Gi rather than Gi*, and (4) detect an incorrect pseudo-p-value formula in the LISA permutation test. Each fix requires deep understanding of spatial statistics theory and computational geometry."""
+solution_explanation = """Filter -9999 sentinel values from observations before spatial join. Fix contiguity weights to detect queen adjacency by checking for non-empty intersections (including zero-length point touches at polygon vertices) rather than only shared edges. Add self-weight to Gi* computation so the focal zone is included in the local sum. Correct LISA pseudo-p-value formula from count/n_perms to (count+1)/(n_perms+1). Re-run pipeline to produce correct spatial autocorrelation output."""
+verification_explanation = """Tests verify: (1) zone mean values match expected averages after filtering bad observations, (2) spatial weights have correct queen contiguity neighbor counts (3 for corners, 5 for edges, 8 for interior), (3) Global Moran's I is positive and significant, (4) LISA pseudo-p-values are strictly positive (catches count/n_perms bug), (5) core high-value zones are HH clusters and core low-value zones are LL clusters, (6) Gi* hot/cold spot classifications match expected spatial patterns, (7) summary statistics are internally consistent."""
+category = "geospatial"
+tags = ["spatial-statistics", "debugging"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/spatial-cluster-analysis"

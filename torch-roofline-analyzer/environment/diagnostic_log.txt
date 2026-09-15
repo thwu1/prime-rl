@@ -1,0 +1,27 @@
+=== ModelProfiler Results (input shape: [64, 127]) ===
+
+Module: embed       FLOPs: 130,302      Memory: 260,604 B   AI: 0.50   Class: memory_bound
+Module: fc1         FLOPs: 2,101,248    Memory: 4,202,496 B AI: 0.50   Class: memory_bound
+Module: fc2         FLOPs: 2,097,152    Memory: 4,194,304 B AI: 0.50   Class: memory_bound
+Module: classifier  FLOPs: 10,240       Memory: 20,480 B    AI: 0.50   Class: memory_bound
+
+Total FLOPs:   4,338,942
+Total Memory:  8,677,884 B
+Overall AI:    0.50
+Overall:       memory_bound
+
+=== Manual Reference Values ===
+
+embed:       ~8,339,328 FLOPs   (input [64,127] x weight [127,513])
+fc1:         ~134,479,872 FLOPs (input [64,513] x weight [513,2048])
+fc2:         ~134,217,728 FLOPs (input [64,2048] x weight [2048,512])
+classifier:  ~655,360 FLOPs     (input [64,512] x weight [512,10])
+Total:       ~277,692,288 FLOPs
+
+Observations:
+- Profiler total is ~64x too low
+- All layers report identical arithmetic intensity (0.50) — suspicious
+- Memory estimates only reflect weight parameters, not actual data movement during ops
+- fc1 and fc2 should be compute_bound given their large matrix dimensions
+- No per-operation breakdown — only per-module aggregates
+- Shape alignment issues (dimensions 127, 513) not detected at all

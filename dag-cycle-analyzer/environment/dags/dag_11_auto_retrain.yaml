@@ -1,0 +1,15 @@
+dag_id: auto_retrain
+schedule: "dataset:quality_alerts"
+default_pool: ml_pool
+max_active_runs: 1
+tasks:
+  analyze_drift:
+    pool_slots: 1
+    duration_estimate_minutes: 10
+  trigger_retrain:
+    pool_slots: 1
+    duration_estimate_minutes: 5
+    upstream: [analyze_drift]
+datasets:
+  produces: [feature_store]
+  consumes: [quality_alerts]

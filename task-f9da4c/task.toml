@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge in scientific machine learning, numerical methods, and thermal physics. The agent must: (1) read HDF5 data using h5py (navigating groups, datasets, and attributes), (2) interface with a compiled C shared library via ctypes to run the incomplete model and observe its discrepancy against measurements, (3) diagnose that the model is missing hidden thermal dynamics by analyzing the residual patterns, (4) design and implement a corrected model that introduces unmodeled physics while preserving energy conservation, (5) train the model to match reference data and generalize beyond the training window, and (6) extract an interpretable analytical equation for the missing physics. This requires multi-tool interoperability (HDF5, C FFI, YAML, ODE solvers, optimization, curve fitting) and deep domain expertise in dynamical systems and thermal modeling."""
+solution_explanation = """The solution loads HDF5 data with h5py, reads YAML config, and uses ctypes to call the compiled C library to observe the model-data discrepancy. It then implements a UDE with a hidden state variable (representing unmodeled thermal mass) and a neural network coupling Q(x_norm, T2_norm). The augmented 2-state ODE is solved with custom RK4 and trained via Adam + L-BFGS-B optimization using finite-difference gradients. The NN discovers Q ~ G*(x-T2) with G~1.0, recovering Fourier's conduction law. Curve fitting on the NN output grid confirms the linear coupling form."""
+verification_explanation = """Tests independently regenerate the ground truth thermal system (2-state ODE with plate C1=1, pot C2=15, conduction G=1, air G=0.1) using scipy.integrate.solve_ivp with tight tolerances. Agent predictions are loaded from CSV files and compared via interpolation against this ground truth. Training MSE must be < 0.01 K^2. Extrapolation MSE must be < 0.5 K^2. Additional checks verify reported training loss, conservation error magnitude, and that a recovered equation file contains numerical coefficients and references temperature coupling."""
+category = "scientific_computing"
+tags = ["physics-discovery", "multi-tool-interop"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-f9da4c"

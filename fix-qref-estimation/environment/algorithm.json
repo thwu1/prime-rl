@@ -1,0 +1,125 @@
+{
+    "version": "v1",
+    "program": {
+        "name": "quantum_walk_search",
+        "type": null,
+        "input_params": ["N", "S"],
+        "children": [
+            {
+                "name": "init_superposition",
+                "type": null,
+                "input_params": ["N"],
+                "local_variables": {"n": "log2(N)"},
+                "ports": [
+                    {"name": "in_reg", "direction": "input", "size": "N"},
+                    {"name": "out_reg", "direction": "output", "size": "N"}
+                ],
+                "resources": [
+                    {"name": "T_gates", "type": "additive", "value": "4*n + 2*N"},
+                    {"name": "rotations", "type": "additive", "value": "n"}
+                ]
+            },
+            {
+                "name": "walk_operator",
+                "type": null,
+                "input_params": ["N", "S"],
+                "children": [
+                    {
+                        "name": "coin_flip",
+                        "type": null,
+                        "input_params": ["S"],
+                        "ports": [
+                            {"name": "in_coin", "direction": "output", "size": "S"},
+                            {"name": "out_coin", "direction": "output", "size": "S"}
+                        ],
+                        "resources": [
+                            {"name": "T_gates", "type": "additive", "value": "8*S - 4"},
+                            {"name": "rotations", "type": "additive", "value": "2*S"}
+                        ]
+                    },
+                    {
+                        "name": "shift",
+                        "type": null,
+                        "input_params": ["N", "S"],
+                        "local_variables": {
+                            "n": "ceiling(log2(N))",
+                            "s": "ceiling(log2(S))"
+                        },
+                        "ports": [
+                            {"name": "in_reg", "direction": "input", "size": "N"},
+                            {"name": "in_coin", "direction": "input", "size": "S"},
+                            {"name": "out_reg", "direction": "output", "size": "N"},
+                            {"name": "out_coin", "direction": "output", "size": "S"}
+                        ],
+                        "resources": [
+                            {"name": "T_gates", "type": "additive", "value": "4*N + s"},
+                            {"name": "rotations", "type": "additive", "value": "s"}
+                        ]
+                    },
+                    {
+                        "name": "reflection",
+                        "type": null,
+                        "input_params": ["N"],
+                        "ports": [
+                            {"name": "in_reg", "direction": "input", "size": "N"},
+                            {"name": "out_reg", "direction": "output", "size": "N"}
+                        ],
+                        "resources": [
+                            {"name": "T_gates", "type": "other", "value": "4*N"},
+                            {"name": "rotations", "type": "additive", "value": "1"}
+                        ]
+                    }
+                ],
+                "ports": [
+                    {"name": "in_reg", "direction": "input", "size": "N"},
+                    {"name": "in_coin", "direction": "input", "size": "S"},
+                    {"name": "out_reg", "direction": "output", "size": null},
+                    {"name": "out_coin", "direction": "output", "size": null}
+                ],
+                "connections": [
+                    {"source": "in_coin", "target": "coin_flip.in_coin"},
+                    {"source": "coin_flip.out_coin", "target": "shift.in_coin"},
+                    {"source": "in_reg", "target": "shift.in_reg"},
+                    {"source": "shift.out_reg", "target": "reflection.in_reg"},
+                    {"source": "reflection.out_reg", "target": "out_reg"},
+                    {"source": "shift.out_coin", "target": "out_coin"}
+                ],
+                "linked_params": [
+                    {"source": "N", "targets": ["shift.N", "reflection.N"]},
+                    {"source": "S", "targets": ["coin_flip.S"]}
+                ]
+            },
+            {
+                "name": "final_measure",
+                "type": null,
+                "input_params": ["N"],
+                "local_variables": {"n": "ceiling(log2(N))"},
+                "ports": [
+                    {"name": "in_reg", "direction": "input", "size": "N"},
+                    {"name": "out_reg", "direction": "output", "size": "N"}
+                ],
+                "resources": [
+                    {"name": "T_gates", "type": "additive", "value": "2*n"},
+                    {"name": "rotations", "type": "additive", "value": "n + 1"}
+                ]
+            }
+        ],
+        "ports": [
+            {"name": "in_reg", "direction": "input", "size": "N"},
+            {"name": "in_coin", "direction": "input", "size": "S"},
+            {"name": "out_reg", "direction": "output", "size": null},
+            {"name": "out_coin", "direction": "output", "size": null}
+        ],
+        "connections": [
+            {"source": "in_reg", "target": "init_superposition.in_reg"},
+            {"source": "init_superposition.out_reg", "target": "walk_operator.in_reg"},
+            {"source": "in_coin", "target": "walk_operator.in_coin"},
+            {"source": "walk_operator.out_reg", "target": "final_measure.in_reg"},
+            {"source": "final_measure.out_reg", "target": "out_reg"}
+        ],
+        "linked_params": [
+            {"source": "N", "targets": ["init_superposition.N", "walk_operator.N", "final_measure.N"]},
+            {"source": "S", "targets": ["walk_operator.S"]}
+        ]
+    }
+}

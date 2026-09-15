@@ -1,0 +1,12 @@
+# Captured SOCKS5 session transcript
+# Server: 127.0.0.1:1080
+# Timestamp: 2025-03-14T11:30:55Z
+# Format: C> = client-to-server, S> = server-to-client (hex octets)
+# Context: domain-name CONNECT to denied-host.test:80
+# DNS resolution observed during session: denied-host.test -> 10.255.255.1
+
+C> 05 01 00
+S> 05 00
+C> 05 01 00 03 10 64 65 6e 69 65 64 2d 68 6f 73 74 2e 74 65 73 74 00 50
+S> 05 05 01 01 00 00 00 00 00 00
+# [connection closed]

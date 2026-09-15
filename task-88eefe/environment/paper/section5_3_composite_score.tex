@@ -1,0 +1,34 @@
+% Excerpt from DRIVEBENCH / AUTODRIVER paper — Section 5.3
+% Composite Static Score
+
+\subsection{Composite Static Score}
+
+To summarise patch quality across multiple aspects, we compute a weighted static score combining five complementary metrics. Table \ref{tab:metrics} presents the components and weights in a layout suitable for two-column formatting.
+
+\begin{table}[h]
+\centering
+\caption{Composite static-analysis metrics. Higher is better.}
+\label{tab:metrics}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Symbol} & \textbf{Weight} \\
+\midrule
+AST Similarity (structural) & $\mathrm{AST}_{\text{sim}}$ & 0.30 \\
+Function Accuracy            & $\mathrm{func\_acc}$        & 0.25 \\
+Call Accuracy                & $\mathrm{call\_acc}$        & 0.20 \\
+Node Accuracy                & $\mathrm{node\_acc}$        & 0.15 \\
+Variable Accuracy            & $\mathrm{var\_acc}$         & 0.10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The final score is the weighted sum of these metrics. AST similarity dominates the result since it most strongly reflects semantic alignment.
+
+Each sub-metric applies the same AST differencing formula (Section~5.2) but restricted to a relevant subset of node types:
+\begin{itemize}
+  \item \textbf{AST Similarity}: computed over \emph{all} node types in the syntax tree.
+  \item \textbf{Function Accuracy}: restricted to function-related nodes (definitions and declarations).
+  \item \textbf{Call Accuracy}: restricted to call-expression nodes.
+  \item \textbf{Node Accuracy}: restricted to control-flow nodes (conditionals, loops, returns, branches).
+  \item \textbf{Variable Accuracy}: restricted to declaration and assignment nodes.
+\end{itemize}

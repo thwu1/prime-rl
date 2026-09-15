@@ -1,0 +1,98 @@
+// Crown - 6x6 chess variant with king-capture rules
+
+// Piece groups
+#singleColorPieces(color) = color~Soldier, color~Knight, color~Guard, color~Chariot, color~King
+
+#players = white(100), black(100)
+#pieces = singleColorPieces(white), singleColorPieces(black), e
+#variables =
+
+#board = rectangle(up,down,left,right,
+    [blackChariot, blackKnight, blackGuard, blackKing, blackKnight, blackChariot]
+    [blackSoldier, blackSoldier, blackSoldier, blackSoldier, blackSoldier, blackSoldier]
+    [e, e, e, e, e, e]
+    [e, e, e, e, e, e]
+    [whiteSoldier, whiteSoldier, whiteSoldier, whiteSoldier, whiteSoldier, whiteSoldier]
+    [whiteChariot, whiteKnight, whiteGuard, whiteKing, whiteKnight, whiteChariot])
+
+// Navigation
+#anySquare = (left* + right*)(up* + down*)
+
+// Movement patterns
+#diagonalLine = (
+      (up left {e})* up left
+    + (up right {e})* up right
+    + (down left {e})* down left
+    + (down right {e})* down right
+  )
+
+#parallelLine = (
+      (up {e})* up
+    + (down {e})* down
+    + (right {e})* right
+    + (left {e})* left
+  )
+
+#knightHop = (
+      (up^2 + down^2)(left + right)
+    + (left^2 + right^2)(up + down)
+  )
+
+#anyNeighborSquare = (left + right + up + down + (left + right)(up + down))
+
+// Basic actions
+#pickUpPiece(piece) = {piece} [e]
+
+#captureAnyBy(capturingPiece; oppColor) = (
+      {e}
+    + {singleColorPieces(oppColor)}
+  ) [capturingPiece]
+
+// Standard move: pick up, traverse pattern, land on empty or capture
+#standardMove(piece; movePattern; oppColor) =
+    pickUpPiece(piece)
+    movePattern
+    captureAnyBy(piece; oppColor)
+
+// Piece-specific moves
+#guardMove(color; oppColor) = standardMove(color~Guard; diagonalLine; oppColor)
+#knightMove(color; oppColor) = standardMove(color~Knight; knightHop; oppColor)
+#chariotMove(color; oppColor) = standardMove(color~Chariot; parallelLine; oppColor)
+#kingMove(color; oppColor) = standardMove(color~King; anyNeighborSquare; oppColor)
+
+// Soldier: forward to empty or diagonal capture, with promotion on far rank
+#soldierMove(forward; color; oppColor) =
+    pickUpPiece(color~Soldier)
+    (
+        forward {e}
+      + forward (left + right) {singleColorPieces(oppColor)}
+    ) (
+        {? forward} [color~Soldier]
+      + {! forward} [color~Guard]
+    )
+
+// Combined move for a player
+#move(forward; color; oppColor) = (
+    anySquare (
+        guardMove(color; oppColor)
+      + chariotMove(color; oppColor)
+      + knightMove(color; oppColor)
+      + kingMove(color; oppColor)
+      + soldierMove(forward; color; oppColor)
+    )
+  )
+
+// Turn: player moves, then check if opponent king was captured
+#turn(forward; me; opp) = (
+    ->me move(forward; me; opp) ->>
+    (
+        {! anySquare {opp~King}} [$ me=100] [$ opp=0] ->> {}
+      + {? anySquare {opp~King}}
+    )
+  )
+
+// Game: draw by default (50/50), alternate turns
+#rules = [$ white=50] [$ black=50] (
+    turn(up; white; black)
+    turn(down; black; white)
+  )*

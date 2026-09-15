@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level knowledge of DOM APIs (MutationObserver, Shadow DOM, event delegation), browser automation (Playwright), JavaScript event model (capture/bubble phases, delegation patterns), web component lifecycle, and async programming. The agent must build a complete analysis pipeline that handles shadow DOM traversal, event delegation detection via addEventListener interception, debounced mutation observation, and correct metric computation — combining skills that span browser internals, test automation, and web standards."""
+solution_explanation = """The solution intercepts EventTarget.prototype.addEventListener before page load to track all registered event listeners. For each HTML page, it discovers interactive elements by combining standard element detection, listener map lookups, delegation target heuristics, and shadow DOM traversal. Each element is tested in isolation by reloading the page, injecting MutationObserver (on both light DOM and shadow roots), performing the classified action, waiting for debounced handlers, and recording mutations. Results are aggregated into the report with per-page and global Interaction Rate metrics."""
+verification_explanation = """Tests verify: (1) report schema and structure, (2) all three pages analyzed with minimum element counts, (3) shadow DOM range slider discovered in network.html, (4) decoy element not marked responsive, (5) debounced input handler detected in timeseries.html, (6) disabled buttons correctly identified as non-responsive, (7) per-page and aggregate IR correctly computed from element data, (8) action type diversity and validity across pages."""
+category = "software_testing"
+tags = ["browser-automation", "dom-analysis"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/interaction-probe-engine"

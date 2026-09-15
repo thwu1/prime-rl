@@ -1,0 +1,444 @@
+{
+  "description": "UBPR formula definitions derived from FFIEC CDR taxonomy. Each formula uses the CDR expression language.",
+  "system_concepts": {
+    "UBPRC752": "Call Report form number: 31=Form 031 (domestic+foreign), 41=Form 041/051 (domestic only)",
+    "UBPR9999": "Reporting period end date"
+  },
+  "formulas": [
+    {
+      "id": "UBPR3368",
+      "desc": "Quarterly Average of Total Assets (from RC-K)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3368[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3368[P0], null))"
+    },
+    {
+      "id": "UBPR2170",
+      "desc": "Total Assets (end of period)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD2170[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON2170[P0], null))"
+    },
+    {
+      "id": "UBPR3360",
+      "desc": "Quarterly Average of Total Loans (from RC-K)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3360[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3360[P0], null))"
+    },
+    {
+      "id": "UBPR3484",
+      "desc": "Quarterly Average of Lease Financing Receivables (from RC-K)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3484[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3484[P0], null))"
+    },
+    {
+      "id": "UBPR3365",
+      "desc": "Quarterly Average of Fed Funds Sold and Securities Purchased Under Agreements to Resell",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3365[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3365[P0], null))"
+    },
+    {
+      "id": "UBPR3381",
+      "desc": "Quarterly Average of Interest-Bearing Balances Due from Depository Institutions",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3381[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3381[P0], null))"
+    },
+    {
+      "id": "UBPR3353",
+      "desc": "Quarterly Average of Fed Funds Purchased and Securities Sold Under Agreements to Repurchase",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3353[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3353[P0], null))"
+    },
+    {
+      "id": "UBPR3355",
+      "desc": "Quarterly Average of Other Borrowed Money",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3355[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3355[P0], null))"
+    },
+    {
+      "id": "UBPR3401",
+      "desc": "Quarterly Average of Assets Held in Trading Accounts",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3401[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3401[P0], null))"
+    },
+    {
+      "id": "UBPR2122",
+      "desc": "Total Loans and Leases, Net of Unearned Income",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD2122[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON2122[P0], null))"
+    },
+    {
+      "id": "UBPR2123",
+      "desc": "Unearned Income on Loans",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD2123[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON2123[P0], null))"
+    },
+    {
+      "id": "UBPRB528",
+      "desc": "Loans and Leases Held For Investment",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFDB528[P0], IF(uc:UBPRC752[P0] = 41, cc:RCONB528[P0], null))"
+    },
+    {
+      "id": "UBPRB529",
+      "desc": "Loans and Leases, Net of Unearned Income and Allowance",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFDB529[P0], IF(uc:UBPRC752[P0] = 41, cc:RCONB529[P0], null))"
+    },
+    {
+      "id": "UBPR5369",
+      "desc": "Loans Held For Sale",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD5369[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON5369[P0], null))"
+    },
+    {
+      "id": "UBPR3123",
+      "desc": "Allowance for Credit Losses on Loans and Leases",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3123[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3123[P0], null))"
+    },
+    {
+      "id": "UBPR0071",
+      "desc": "Interest-Bearing Balances Due from Depository Institutions (end of period)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD0071[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON0071[P0], null))"
+    },
+    {
+      "id": "UBPRB558",
+      "desc": "US Treasury Securities and US Government Agency Obligations (Excluding MBS)",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFDB558[P0], IF(uc:UBPRC752[P0] = 41, cc:RCONB558[P0], null))"
+    },
+    {
+      "id": "UBPRB559",
+      "desc": "Mortgage-Backed Securities",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFDB559[P0], IF(uc:UBPRC752[P0] = 41, cc:RCONB559[P0], null))"
+    },
+    {
+      "id": "UBPRB560",
+      "desc": "All Other Securities",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFDB560[P0], IF(uc:UBPRC752[P0] = 41, cc:RCONB560[P0], null))"
+    },
+    {
+      "id": "UBPR3200",
+      "desc": "Subordinated Notes and Debentures",
+      "formula": "IF(uc:UBPRC752[P0] = 31, cc:RCFD3200[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON3200[P0], null))"
+    },
+    {
+      "id": "UBPR2200",
+      "desc": "Total Deposits (domestic and foreign)",
+      "formula": "IF(uc:UBPRC752[P0] = 41, cc:RCON2200[P0], IF(uc:UBPRC752[P0] = 31, cc:RCFD2200[P0], null))"
+    },
+    {
+      "id": "UBPR8274",
+      "desc": "Tier 1 Capital Allowable Under the Risk-Based Capital Guidelines",
+      "formula": "IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 31), cc:RCFDA8274[P0], IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 41), cc:RCONA8274[P0], IF(uc:UBPRC752[P0] = 31, cc:RCFD8274[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON8274[P0], null))))"
+    },
+    {
+      "id": "UBPR7204",
+      "desc": "Tier 1 Leverage Capital Ratio",
+      "formula": "IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 31), cc:RCFDA7204[P0], IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 41), cc:RCONA7204[P0], IF(uc:UBPRC752[P0] = 31, cc:RCFD7204[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON7204[P0], null))))"
+    },
+    {
+      "id": "UBPR7205",
+      "desc": "Total Risk-Based Capital Ratio",
+      "formula": "IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 31), cc:RCFDA7205[P0], IF(AND(uc:UBPR9999[P0] > '2015-01-01', uc:UBPRC752[P0] = 41), cc:RCONA7205[P0], IF(uc:UBPRC752[P0] = 31, cc:RCFD7205[P0], IF(uc:UBPRC752[P0] = 41, cc:RCON7205[P0], null))))"
+    },
+    {
+      "id": "UBPRE878",
+      "desc": "Average Assets During Quarter (from RC-K, fallback to end-of-period)",
+      "formula": "IF(ExistingOf(uc:UBPR3368[P0], 0) > 0, uc:UBPR3368[P0], uc:UBPR2170[P0])"
+    },
+    {
+      "id": "UBPRD142",
+      "desc": "Institution Average Loans Amount",
+      "formula": "uc:UBPR3360[P0]"
+    },
+    {
+      "id": "UBPRD429",
+      "desc": "Total Investment Securities (current quarter)",
+      "formula": "uc:UBPRB558[P0] + uc:UBPRB559[P0] + uc:UBPRB560[P0]"
+    },
+    {
+      "id": "UBPRD398",
+      "desc": "Total Interest and Dividend Income on Securities",
+      "formula": "cc:RIADB488[P0] + cc:RIADB489[P0] + cc:RIAD4060[P0]"
+    },
+    {
+      "id": "UBPRD309",
+      "desc": "Gross Security Gain or Loss on Investment Securities",
+      "formula": "cc:RIAD3521[P0] + cc:RIAD3196[P0]"
+    },
+    {
+      "id": "UBPR4092",
+      "desc": "Other Operating Expense",
+      "formula": "IF(uc:UBPR9999[P0] > '2002-01-01', cc:RIAD4092[P0], cc:RIAD4092[P0])"
+    },
+    {
+      "id": "UBPRE037",
+      "desc": "Non-interest Expense (total overhead)",
+      "formula": "cc:RIAD4135[P0] + cc:RIAD4217[P0] + uc:UBPR4092[P0] + cc:RIADC216[P0] + cc:RIADC232[P0]"
+    },
+    {
+      "id": "UBPR4635",
+      "desc": "Gross Loan Losses (including HFS writedowns)",
+      "formula": "IF(uc:UBPR9999[P0] > '2002-01-01', cc:RIADC079[P0] + cc:RIAD5523[P0], cc:RIADC079[P0])"
+    },
+    {
+      "id": "UBPR1795",
+      "desc": "Net credit losses on loans and leases",
+      "formula": "IF(uc:UBPR9999[P0] > '2002-01-01', uc:UBPR4635[P0] - cc:RIAD4605[P0], uc:UBPR4635[P0] - cc:RIAD4605[P0])"
+    },
+    {
+      "id": "UBPR4107",
+      "desc": "Total Interest Income (Tax-Equivalent basis)",
+      "formula": "cc:RIAD4010[P0] + cc:RIAD4065[P0] + cc:RIAD4115[P0] + uc:UBPRD398[P0] + cc:RIAD4020[P0] + cc:RIAD4518[P0]"
+    },
+    {
+      "id": "UBPR4074",
+      "desc": "Net Interest Income (Tax-Equivalent basis)",
+      "formula": "uc:UBPR4107[P0] - cc:RIAD4073[P0]"
+    },
+    {
+      "id": "UBPRE036",
+      "desc": "Adjusted Operating Revenue (NII-TE + Non-Interest Income)",
+      "formula": "uc:UBPR4074[P0] + cc:RIAD4079[P0]"
+    },
+    {
+      "id": "UBPRPG64",
+      "desc": "Pre-Provision Net Revenue (dollar amount)",
+      "formula": "uc:UBPRE036[P0] - uc:UBPRE037[P0]"
+    },
+    {
+      "id": "UBPRD483",
+      "desc": "Provision for Credit Losses on Loan and Lease Financing Receivables",
+      "formula": "cc:RIAD4230[P0]"
+    },
+    {
+      "id": "UBPRE038",
+      "desc": "Pretax Operating Income (TE)",
+      "formula": "cc:RIAD4301[P0] - uc:UBPRD309[P0]"
+    },
+    {
+      "id": "UBPRE039",
+      "desc": "Pretax Net Operating Income (TE)",
+      "formula": "cc:RIAD4301[P0]"
+    },
+    {
+      "id": "UBPRD468",
+      "desc": "Calendar Year Net Operating Income (pretax, excluding sec G/L, plus provision)",
+      "formula": "cc:RIAD4301[P0] - uc:UBPRD309[P0] + cc:RIAD4230[P0]"
+    },
+    {
+      "id": "UBPRD236",
+      "desc": "Annualized Net Loan and Lease Losses",
+      "formula": "uc:UBPR1795[P0] * ANN"
+    },
+    {
+      "id": "UBPRE119",
+      "desc": "Net Loans and Leases (including HFS)",
+      "formula": "uc:UBPRB529[P0] + uc:UBPR5369[P0]"
+    },
+    {
+      "id": "UBPRD245",
+      "desc": "Total Loans and Leases, Net of Unearned Income",
+      "formula": "uc:UBPRB528[P0] + uc:UBPR5369[P0]"
+    },
+    {
+      "id": "UBPRE131",
+      "desc": "Gross Loans and Leases",
+      "formula": "uc:UBPRD245[P0] + uc:UBPR2123[P0]"
+    },
+    {
+      "id": "UBPRD663",
+      "desc": "Total Deposits Amount",
+      "formula": "uc:UBPR2200[P0]"
+    },
+    {
+      "id": "UBPRE625",
+      "desc": "Cash Dividends Declared (common + preferred)",
+      "formula": "cc:RIAD4460[P0] + cc:RIAD4470[P0]"
+    },
+    {
+      "id": "UBPRE644",
+      "desc": "Net Tier One Capital",
+      "formula": "IF(uc:UBPR9999[P0] > '2001-01-01', uc:UBPR8274[P0], null)"
+    },
+    {
+      "id": "UBPRD659",
+      "desc": "Average Total Assets (year-to-date average of quarterly RC-K averages)",
+      "formula": "CAVG04X(#uc:UBPRE878)"
+    },
+    {
+      "id": "UBPRD151",
+      "desc": "Institution Loans Calendar Year Average",
+      "formula": "CAVG04X(#uc:UBPRD142)"
+    },
+    {
+      "id": "UBPRD272",
+      "desc": "Lease Financing Receivable Calendar Year Average",
+      "formula": "CAVG04X(#uc:UBPR3484)"
+    },
+    {
+      "id": "UBPRD337",
+      "desc": "Interest Bearing Balance Calendar Year Average",
+      "formula": "CAVG04X(#uc:UBPR3381)"
+    },
+    {
+      "id": "UBPRD498",
+      "desc": "Total Investment Securities Calendar Year Average",
+      "formula": "CAVG04X(#uc:UBPRD429)"
+    },
+    {
+      "id": "UBPRD377",
+      "desc": "Federal Fund Sold Calendar Quarter Average",
+      "formula": "CAVG04X(#uc:UBPR3365)"
+    },
+    {
+      "id": "UBPRD506",
+      "desc": "Subordinated Debt Calendar Year Average (5-period including prior Dec)",
+      "formula": "CAVG05X(#uc:UBPR3200)"
+    },
+    {
+      "id": "UBPRE386",
+      "desc": "Average Total Loans and Leases",
+      "formula": "uc:UBPRD151[P0] + uc:UBPRD272[P0]"
+    },
+    {
+      "id": "UBPRD362",
+      "desc": "Average Earning Assets (calendar year basis)",
+      "formula": "uc:UBPRD337[P0] + uc:UBPRD498[P0] + uc:UBPRD377[P0] + uc:UBPRD151[P0] + uc:UBPRD272[P0]"
+    },
+    {
+      "id": "UBPRD088",
+      "desc": "Prior Year Total Assets (for yearly growth rate)",
+      "formula": "uc:UBPR2170[-P1Y]"
+    },
+    {
+      "id": "UBPRD087",
+      "desc": "Yearly Change in Total Assets",
+      "formula": "IF(uc:UBPRD088[P0] > 0, uc:UBPR2170[P0] - uc:UBPRD088[P0], null)"
+    },
+    {
+      "id": "UBPRD251",
+      "desc": "Prior Year Net Loans and Leases",
+      "formula": "uc:UBPRE119[-P1Y]"
+    },
+    {
+      "id": "UBPRD250",
+      "desc": "Yearly Change in Net Loans and Leases",
+      "formula": "IF(uc:UBPRD088[P0] > 0, uc:UBPRE119[P0] - uc:UBPRD251[P0], null)"
+    },
+    {
+      "id": "UBPRD349",
+      "desc": "Prior Year Tier 1 Capital",
+      "formula": "uc:UBPRE644[-P1Y]"
+    },
+    {
+      "id": "UBPRD347",
+      "desc": "Yearly Change in Tier 1 Capital",
+      "formula": "IF(uc:UBPRD088[P0] > 0, uc:UBPRE644[P0] - uc:UBPRD349[P0], null)"
+    },
+    {
+      "id": "UBPRE001",
+      "desc": "Earnings on Average Assets (Total Int Income TE / Avg Assets, annualized)",
+      "formula": "PCTOFANN(uc:UBPR4107[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE002",
+      "desc": "Interest Expense as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(cc:RIAD4073[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE003",
+      "desc": "Net Interest Income TE as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPR4074[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE004",
+      "desc": "Noninterest Income as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(cc:RIAD4079[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE005",
+      "desc": "Noninterest Expense as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPRE037[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRPG69",
+      "desc": "Pre-Provision Net Revenue YTD as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPRPG64[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE006",
+      "desc": "Provision for Credit Losses as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPRD483[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE007",
+      "desc": "Pretax Operating Income TE as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPRE038[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE008",
+      "desc": "Realized Gains/Losses on Securities as percent of Average Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPRD309[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE010",
+      "desc": "Net Operating Income as percent of Average Assets (annualized)",
+      "formula": "IF(uc:UBPRD659[P0] <> 0, PCTOFANN(cc:RIAD4300[P0], uc:UBPRD659[P0]), null)"
+    },
+    {
+      "id": "UBPRE013",
+      "desc": "Net Income as percent of Average Assets (ROA, annualized)",
+      "formula": "IF(uc:UBPRD659[P0] <> 0, PCTOFANN(cc:RIAD4340[P0], uc:UBPRD659[P0]), null)"
+    },
+    {
+      "id": "UBPRE014",
+      "desc": "Average Earning Assets as percent of Average Assets",
+      "formula": "PCTOF(uc:UBPRD362[P0], uc:UBPRD659[P0])"
+    },
+    {
+      "id": "UBPRE016",
+      "desc": "Yield on Average Earning Assets (Total Int Income TE / Avg Earning Assets, annualized)",
+      "formula": "PCTOFANN(uc:UBPR4107[P0], uc:UBPRD362[P0])"
+    },
+    {
+      "id": "UBPRE017",
+      "desc": "Interest Expense to Average Earning Assets (annualized)",
+      "formula": "PCTOFANN(cc:RIAD4073[P0], uc:UBPRD362[P0])"
+    },
+    {
+      "id": "UBPRE018",
+      "desc": "Net Interest Income TE to Average Earning Assets (annualized)",
+      "formula": "PCTOFANN(uc:UBPR4074[P0], uc:UBPRD362[P0])"
+    },
+    {
+      "id": "UBPRE019",
+      "desc": "Net Loss to Average Total Loans and Leases (annualized)",
+      "formula": "PCTOFANN(uc:UBPR1795[P0], uc:UBPRE386[P0])"
+    },
+    {
+      "id": "UBPRE022",
+      "desc": "ACL on Loans and Leases to Loans and Leases HFI",
+      "formula": "PCTOF(uc:UBPR3123[P0], uc:UBPRB528[P0])"
+    },
+    {
+      "id": "UBPRE024",
+      "desc": "Net Loans and Leases to Total Assets",
+      "formula": "PCTOF(uc:UBPRE119[P0], uc:UBPR2170[P0])"
+    },
+    {
+      "id": "UBPRE600",
+      "desc": "Net Loans and Leases as percent of Total Deposits",
+      "formula": "PCTOF(uc:UBPRE119[P0], uc:UBPRD663[P0])"
+    },
+    {
+      "id": "UBPR7316",
+      "desc": "Total Assets annual growth rate",
+      "formula": "PCTOF(uc:UBPRD087[P0], uc:UBPRD088[P0])"
+    },
+    {
+      "id": "UBPR7408",
+      "desc": "Tier One Capital 12-month growth rate",
+      "formula": "PCTOF(uc:UBPRD347[P0], uc:UBPRD349[P0])"
+    },
+    {
+      "id": "UBPRE027",
+      "desc": "Net Loans and Leases 12-month growth rate",
+      "formula": "PCTOF(uc:UBPRD250[P0], uc:UBPRD251[P0])"
+    },
+    {
+      "id": "UBPRD486",
+      "desc": "Tier One Leverage Capital Ratio",
+      "formula": "IF(uc:UBPR9999[P0] > '2001-01-01', uc:UBPR7204[P0], null)"
+    },
+    {
+      "id": "UBPR7402",
+      "desc": "Cash Dividends to Net Income",
+      "formula": "IF(cc:RIAD4340[P0] <> 0, PCTOF(uc:UBPRE625[P0], cc:RIAD4340[P0]), null)"
+    }
+  ]
+}

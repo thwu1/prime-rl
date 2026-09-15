@@ -1,0 +1,2 @@
+-- Streak analysis: find longest non-decreasing cost runs per server
+-- Columns: server_id, streak_length, streak_start, streak_end

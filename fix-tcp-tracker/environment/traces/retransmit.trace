@@ -1,0 +1,21 @@
+# Simple retransmission (no sequence wrapping)
+# Client: 10.0.0.1:8000 -> Server: 10.0.0.2:80
+# ISN_client=5000, ISN_server=6000
+# Client sends 100 bytes, retransmits once, then clean close
+# Server sends no application data
+#
+# ts_ms  src               dst               flags seq  ack  win    payload
+0        10.0.0.1:8000     10.0.0.2:80       S     5000 0    65535  0
+50       10.0.0.2:80       10.0.0.1:8000     SA    6000 5001 32768  0
+55       10.0.0.1:8000     10.0.0.2:80       A     5001 6001 65535  0
+# Client sends 100 bytes
+100      10.0.0.1:8000     10.0.0.2:80       PA    5001 6001 65535  100
+# Retransmission of same segment (no ACK received in time)
+200      10.0.0.1:8000     10.0.0.2:80       PA    5001 6001 65535  100
+# ACK finally arrives
+250      10.0.0.2:80       10.0.0.1:8000     A     6001 5101 32768  0
+# Clean close
+300      10.0.0.1:8000     10.0.0.2:80       FA    5101 6001 65535  0
+350      10.0.0.2:80       10.0.0.1:8000     A     6001 5102 32768  0
+400      10.0.0.2:80       10.0.0.1:8000     FA    6001 5102 32768  0
+450      10.0.0.1:8000     10.0.0.2:80       A     5102 6002 65535  0

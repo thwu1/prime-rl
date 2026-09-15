@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing reaching-definitions dataflow analysis over a control-flow graph with closure semantics. The solver must understand SSA-style propagation, scope entrance/exit conditions, upvalue resolution across closure boundaries, and cross-closure assignment-access connectivity. This is graduate-level compiler/program-analysis work demanding deep understanding of Lua's scoping, closures, and upvalue semantics."""
+solution_explanation = """The resolve_locals stage propagates main assignments forward through the flow graph using Line:walk(), stopping at scope exits and variable overwrites. Closure creations are separately propagated (unbounded) to connect closure assignments/accesses with main-line and other-closure assignments/accesses via cross_resolve_closures. The detect_uninit_accesses stage then checks each access's used_values: if all reaching values are empty and the variable isn't trivially "never set" (single empty value), emit 321/341 warnings. Accesses with no reaching values (unreachable code) are silently skipped."""
+verification_explanation = """Tests run 21 Lua source snippets through the analyzer and compare JSON output against expected warning sets. Cases cover: basic uninitialized access (321), uninitialized mutation (341), no false positives for initialized variables, loop semantics, unreachable code after early returns, upvalue access in unreachable code, both-branch initialization, nested closures, deeply nested unreachable functions, partial initialization across if/elseif/else branches, never-set variables (single empty value exclusion), repeat/until loops, for-loop control variables, multiple simultaneous uninitialized accesses, while-loop assignments, empty input, closure upvalue assignments, multiple assignment with unpacking, and goto/label control flow propagation. All tests are deterministic."""
+category = "program_analysis"
+tags = ["dataflow-analysis", "lua-static-analysis"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/lua-dataflow-analysis"

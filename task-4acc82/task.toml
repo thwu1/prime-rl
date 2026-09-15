@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding across two domains. First, the Aho-Corasick automaton has a subtle correctness bug — the failure function is computed correctly but dictionary suffix links are not propagated, causing the automaton to miss patterns that are proper suffixes of another pattern's trie path. Fixing this requires understanding the algorithm's theoretical structure: during BFS failure link construction, each state's output list must be merged with the output of its failure link target to create dictionary suffix chains. The solver must also implement three non-trivial search modes: leftmost-first (Perl-style, first-pattern-wins among candidates at each position), leftmost-longest (POSIX-style, longest-match-wins), and streaming (carrying automaton state across chunk boundaries with correct global position tracking). Second, the ripgrep pipeline has five interacting blind spots: default hidden-file exclusion (.app_errors.log), binary detection suppression (binary_mixed.log with NUL bytes — understanding that -a/--text disables detection entirely while --binary alone still suppresses output), single-line mode failing on multiline continuation entries (exceptions.log), case-sensitive pattern missing lowercase codes (app_events.log), and greedy quantifier overcapturing quoted fields. Crucially, the case-insensitive fix introduces a pipeline-level interaction: -i extracts lowercase codes verbatim, which then silently fail the case-sensitive xsv join — requiring an uppercase normalization step that none of the reference strategies implement."""
+solution_explanation = """For Aho-Corasick: add output merging during failure link construction (self.output[s] = self.output[s] + self.output[self.fail[s]]) to propagate dictionary suffix links. Implement leftmost-first by collecting all overlapping matches, grouping by start position, and selecting the match with the smallest pattern_id at each leftmost position. Implement leftmost-longest similarly but selecting the longest match (ties broken by smallest pattern_id). Implement streaming by processing chunks sequentially while maintaining automaton state and computing global offsets. For the pipeline: combine ripgrep flags -i (case-insensitive), --hidden (dotfiles), -a (binary-as-text), -U (multiline), change the regex whitespace to \\s+ (cross-line spanning) and message capture to [^"]* (non-greedy), then add awk toupper normalization before the xsv join to handle lowercase codes extracted by -i."""
+verification_explanation = """28 pytest tests verify both components. Aho-Corasick: suffix link propagation tested via classic patterns ["he","she","his","hers","her"] on "ushers" (must find 4 matches including "he" which requires suffix links), nested suffixes ["a","ba","cba"] on "cba" (3 matches), leftmost-first vs leftmost-longest semantic difference on "hershey" (first picks he+she, longest picks hers+he), leftmost-first/longest count difference on "abcab" with ["ab","abcab"] (2 vs 1), streaming cross-chunk search for pattern spanning ["abc","defg"], and streaming with leftmost-first semantics. Pipeline: 6 error codes E001-E006 present with exact per-code counts summing to 16, correct category/severity from reference join, and E004 first_message exactly "Authentication failed" (greedy quantifier fix)."""
+category = "data_processing"
+tags = ["aho-corasick", "ripgrep"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-4acc82"

@@ -1,0 +1,14 @@
+{
+  "name": "polygon-clipping",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "robust-predicates": "2.0.4",
+    "splaytree": "0.1.4",
+    "tinyqueue": "3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3",
+    "tsx": "4.7.0"
+  }
+}

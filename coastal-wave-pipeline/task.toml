@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires graduate-level coastal engineering knowledge to identify and implement the correct CEM formulas from reference material (dispersion, shoaling/refraction, breaking, setup, runup, overtopping) AND multi-tool systems integration: writing a C shared library compiled via gcc, binding it to Python, creating an AWK script for bathymetric data preprocessing with data quality filtering and JSON output, designing a GNU Makefile to orchestrate compilation/preprocessing/analysis, and integrating SQLite for structured result storage. The solver must analyze CEM reference excerpts, examine scenario file structures, diagnose survey data quality issues, and determine the correct physics for each computation mode — the instruction only specifies artifact interfaces and numerical tolerances."""
+solution_explanation = """The solution implements: (1) dispersion.c — Newton-Raphson iterative solver for the linear wave dispersion relation compiled to a shared library, (2) preprocess.awk — AWK script parsing bathymetric survey data with comment/blank-line skipping, ft-to-m conversion, incomplete record filtering, and positive-depth filtering, outputting valid JSON, (3) coastal_pipeline.py — Python CLI using ctypes to call the C library, implementing all CEM modes (Komar-Gaughan breaking, radiation-stress setup, Mase runup, Owen/van der Meer overtopping), writing to stdout and SQLite, (4) Makefile — orchestrating lib/preprocess/analyze targets with proper dependencies. The solver must read CEM reference material to identify the correct formulas and match them to scenario modes."""
+verification_explanation = """Tests verify: (1) build artifacts — Makefile, libdispersion.so, preprocess.awk exist and work, (2) C library correctness — dispersion values match CEM II-1-1 golden values, dispersion relation identity verified, (3) AWK preprocessing — comment skipping, unit conversion ft-to-m, valid JSON output, data quality filtering (positive depths, incomplete records), (4) pipeline golden values against CEM examples II-1-1, II-3-1, II-4-1/2/3, VI-7-6, (5) full pipeline integration and TWL consistency, (6) SQLite schema and result storage. Tests span C, Python, AWK, Make, and SQL verification."""
+category = "scientific_computing"
+tags = ["coastal-engineering", "multi-tool-systems"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/coastal-wave-pipeline"

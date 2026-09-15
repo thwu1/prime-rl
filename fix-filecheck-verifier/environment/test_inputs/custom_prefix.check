@@ -1,0 +1,3 @@
+; MYCHECK: data loaded successfully
+; MYCHECK-NEXT: processing complete
+; MYCHECK: final result

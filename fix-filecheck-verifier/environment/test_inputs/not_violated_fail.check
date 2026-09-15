@@ -1,0 +1,3 @@
+; CHECK: begin
+; CHECK-NOT: forbidden
+; CHECK: end

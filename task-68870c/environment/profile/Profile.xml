@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConformanceProfile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ID="tbench_adt_a01" HL7Version="2.5.1">
+  <MetaData Name="RAD-1" OrgName="IHE" Version="1.0" Date="2024-01-01" Status="Active" />
+  <Messages>
+    <Message ID="msg_adt_a01" Identifier="ADT_A01_RAD1" Name="ADT^A01^ADT_A01" Type="ADT" Event="A01" StructID="ADT_A01" Description="ADT/ACK - Admit/visit notification">
+      <Segment Ref="MSH_RAD" Usage="R" Min="1" Max="1" />
+      <Segment Ref="EVN_RAD" Usage="R" Min="1" Max="1" />
+      <Segment Ref="PID_RAD" Usage="R" Min="1" Max="1" />
+      <Segment Ref="NK1_RAD" Usage="O" Min="0" Max="*" />
+      <Segment Ref="PV1_RAD" Usage="R" Min="1" Max="1" />
+      <Segment Ref="PV2_RAD" Usage="O" Min="0" Max="1" />
+      <Segment Ref="OBX_RAD" Usage="O" Min="0" Max="*" />
+      <Segment Ref="AL1_RAD" Usage="O" Min="0" Max="*" />
+      <Segment Ref="DG1_RAD" Usage="O" Min="0" Max="*" />
+      <Group ID="grp_ins" Name="INSURANCE" Usage="O" Min="0" Max="*">
+        <Segment Ref="IN1_RAD" Usage="R" Min="1" Max="1" />
+        <Segment Ref="IN2_RAD" Usage="O" Min="0" Max="1" />
+      </Group>
+    </Message>
+  </Messages>
+  <Segments>
+    <Segment ID="MSH_RAD" Name="MSH" Description="Message Header">
+      <Field Name="Field Separator" Usage="R" Datatype="ST" MinLength="1" MaxLength="1" Min="1" Max="1" />
+      <Field Name="Encoding Characters" Usage="R" Datatype="ST" MinLength="4" MaxLength="4" Min="1" Max="1" />
+      <Field Name="Sending Application" Usage="R" Datatype="HD" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Sending Facility" Usage="R" Datatype="HD" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Receiving Application" Usage="R" Datatype="HD" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Receiving Facility" Usage="R" Datatype="HD" MinLength="0" MaxLength="227" Min="1" Max="1" />
+      <Field Name="Date/Time Of Message" Usage="R" Datatype="TS" MinLength="0" MaxLength="26" Min="1" Max="1" />
+      <Field Name="Security" Usage="X" Datatype="ST" MinLength="0" MaxLength="40" Min="0" Max="0" />
+      <Field Name="Message Type" Usage="R" Datatype="MSG" MinLength="0" MaxLength="15" Min="1" Max="1" />
+      <Field Name="Message Control ID" Usage="R" Datatype="ST" MinLength="1" MaxLength="20" Min="1" Max="1" />
+      <Field Name="Processing ID" Usage="R" Datatype="PT" MinLength="0" MaxLength="3" Min="1" Max="1" />
+      <Field Name="Version ID" Usage="R" Datatype="VID_V251" MinLength="0" MaxLength="60" Min="1" Max="1" />
+      <Field Name="Sequence Number" Usage="O" Datatype="NM" MinLength="0" MaxLength="15" Min="0" Max="1" />
+      <Field Name="Continuation Pointer" Usage="X" Datatype="ST" MinLength="0" MaxLength="180" Min="0" Max="0" />
+      <Field Name="Accept Acknowledgment Type" Usage="O" Datatype="ID" MinLength="0" MaxLength="2" Binding="0155" BindingStrength="R" Min="0" Max="1" />
+      <Field Name="Application Acknowledgment Type" Usage="O" Datatype="ID" MinLength="0" MaxLength="2" Binding="0155" BindingStrength="R" Min="0" Max="1" />
+      <Field Name="Country Code" Usage="RE" Datatype="ID" MinLength="0" MaxLength="3" Min="0" Max="1" />
+      <Field Name="Character Set" Usage="C" Datatype="ID" MinLength="0" MaxLength="16" Min="0" Max="*" />
+      <Field Name="Principal Language Of Message" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Alternate Character Set Handling Scheme" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" Min="0" Max="1" />
+      <Field Name="Message Profile Identifier" Usage="O" Datatype="EI" MinLength="0" MaxLength="427" Min="0" Max="*" />
+    </Segment>
+    <Segment ID="EVN_RAD" Name="EVN" Description="Event Type">
+      <Field Name="Event Type Code" Usage="X" Datatype="ID" MinLength="0" MaxLength="3" Binding="0003" BindingStrength="R" Min="0" Max="0" />
+      <Field Name="Recorded Date/Time" Usage="R" Datatype="TS" MinLength="0" MaxLength="26" Min="1" Max="1" />
+      <Field Name="Date/Time Planned Event" Usage="O" Datatype="TS" MinLength="0" MaxLength="26" Min="0" Max="1" />
+      <Field Name="Event Reason Code" Usage="O" Datatype="IS" MinLength="0" MaxLength="3" Min="0" Max="1" />
+      <Field Name="Operator ID" Usage="O" Datatype="XCN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Event Occurred" Usage="R" Datatype="TS" MinLength="0" MaxLength="26" Min="1" Max="1" />
+      <Field Name="Event Facility" Usage="RE" Datatype="HD" MinLength="0" MaxLength="227" Min="0" Max="1" />
+    </Segment>
+    <Segment ID="PID_RAD" Name="PID" Description="Patient Identification">
+      <Field Name="Set ID - PID" Usage="O" Datatype="SI" MinLength="0" MaxLength="4" Min="0" Max="1" />
+      <Field Name="Patient ID" Usage="X" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="0" />
+      <Field Name="Patient Identifier List" Usage="R" Datatype="CX" MinLength="0" MaxLength="250" Min="1" Max="*" />
+      <Field Name="Alternate Patient ID - PID" Usage="X" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="0" />
+      <Field Name="Patient Name" Usage="R" Datatype="XPN" MinLength="0" MaxLength="250" Min="1" Max="*" />
+      <Field Name="Mother's Maiden Name" Usage="RE" Datatype="XPN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Date/Time of Birth" Usage="RE" Datatype="TS" MinLength="0" MaxLength="26" Min="0" Max="1" />
+      <Field Name="Administrative Sex" Usage="R" Datatype="IS" MinLength="0" MaxLength="1" Binding="0001" BindingStrength="R" Min="1" Max="1" />
+      <Field Name="Patient Alias" Usage="X" Datatype="XPN" MinLength="0" MaxLength="250" Min="0" Max="0" />
+      <Field Name="Race" Usage="RE" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Patient Address" Usage="RE" Datatype="XAD" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="County Code" Usage="X" Datatype="IS" MinLength="0" MaxLength="4" Min="0" Max="0" />
+      <Field Name="Phone Number - Home" Usage="O" Datatype="XTN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Phone Number - Business" Usage="O" Datatype="XTN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Primary Language" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Marital Status" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Religion" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Patient Account Number" Usage="C" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="1" />
+    </Segment>
+    <Segment ID="NK1_RAD" Name="NK1" Description="Next of Kin">
+      <Field Name="Set ID - NK1" Usage="R" Datatype="SI" MinLength="0" MaxLength="4" Min="1" Max="1" />
+      <Field Name="NK Name" Usage="O" Datatype="XPN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Relationship" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Address" Usage="O" Datatype="XAD" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Phone Number" Usage="O" Datatype="XTN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+    </Segment>
+    <Segment ID="PV1_RAD" Name="PV1" Description="Patient Visit">
+      <Field Name="Set ID - PV1" Usage="O" Datatype="SI" MinLength="0" MaxLength="4" Min="0" Max="1" />
+      <Field Name="Patient Class" Usage="R" Datatype="IS" MinLength="1" MaxLength="1" Binding="0004" BindingStrength="R" Min="1" Max="1" />
+      <Field Name="Assigned Patient Location" Usage="RE" Datatype="PL" MinLength="0" MaxLength="80" Min="0" Max="1" />
+      <Field Name="Admission Type" Usage="O" Datatype="IS" MinLength="0" MaxLength="2" Binding="0007" BindingStrength="R" Min="0" Max="1" />
+      <Field Name="Preadmit Number" Usage="O" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Prior Patient Location" Usage="O" Datatype="PL" MinLength="0" MaxLength="80" Min="0" Max="1" />
+      <Field Name="Attending Doctor" Usage="R" Datatype="XCN" MinLength="0" MaxLength="250" Min="1" Max="*" />
+      <Field Name="Referring Doctor" Usage="O" Datatype="XCN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Consulting Doctor" Usage="X" Datatype="XCN" MinLength="0" MaxLength="250" Min="0" Max="0" />
+      <Field Name="Hospital Service" Usage="R" Datatype="IS" MinLength="0" MaxLength="3" Binding="0069" BindingStrength="R" Min="1" Max="1" />
+      <Field Name="Temporary Location" Usage="O" Datatype="PL" MinLength="0" MaxLength="80" Min="0" Max="1" />
+      <Field Name="Preadmit Test Indicator" Usage="O" Datatype="IS" MinLength="0" MaxLength="2" Min="0" Max="1" />
+      <Field Name="Re-admission Indicator" Usage="O" Datatype="IS" MinLength="0" MaxLength="2" Min="0" Max="1" />
+      <Field Name="Admit Source" Usage="O" Datatype="IS" MinLength="0" MaxLength="6" Min="0" Max="1" />
+      <Field Name="Ambulatory Status" Usage="C" Datatype="IS" MinLength="0" MaxLength="2" Min="0" Max="*" />
+      <Field Name="VIP Indicator" Usage="O" Datatype="IS" MinLength="0" MaxLength="2" Min="0" Max="1" />
+      <Field Name="Admitting Doctor" Usage="O" Datatype="XCN" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Patient Type" Usage="O" Datatype="IS" MinLength="0" MaxLength="2" Min="0" Max="1" />
+      <Field Name="Visit Number" Usage="C" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Financial Class" Usage="O" Datatype="FC" MinLength="0" MaxLength="50" Min="0" Max="*" />
+    </Segment>
+    <Segment ID="PV2_RAD" Name="PV2" Description="Patient Visit - Additional Info">
+      <Field Name="Prior Pending Location" Usage="O" Datatype="PL" MinLength="0" MaxLength="80" Min="0" Max="1" />
+      <Field Name="Accommodation Code" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Admit Reason" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+    </Segment>
+    <Segment ID="OBX_RAD" Name="OBX" Description="Observation/Result">
+      <Field Name="Set ID - OBX" Usage="O" Datatype="SI" MinLength="0" MaxLength="4" Min="0" Max="1" />
+      <Field Name="Value Type" Usage="C" Datatype="ID" MinLength="0" MaxLength="3" Binding="0125" BindingStrength="R" Min="0" Max="1" />
+      <Field Name="Observation Identifier" Usage="R" Datatype="CE" MinLength="0" MaxLength="250" Min="1" Max="1" />
+      <Field Name="Observation Sub-ID" Usage="C" Datatype="ST" MinLength="0" MaxLength="20" Min="0" Max="1" />
+      <Field Name="Observation Value" Usage="C" Datatype="VARIES" MinLength="0" MaxLength="99999" Min="0" Max="*" />
+      <Field Name="Units" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="References Range" Usage="O" Datatype="ST" MinLength="0" MaxLength="60" Min="0" Max="1" />
+      <Field Name="Abnormal Flags" Usage="O" Datatype="IS" MinLength="0" MaxLength="5" Min="0" Max="*" />
+      <Field Name="Probability" Usage="O" Datatype="NM" MinLength="0" MaxLength="5" Min="0" Max="1" />
+      <Field Name="Nature of Abnormal Test" Usage="O" Datatype="ID" MinLength="0" MaxLength="2" Min="0" Max="*" />
+      <Field Name="Observation Result Status" Usage="R" Datatype="ID" MinLength="0" MaxLength="1" Binding="0085" BindingStrength="R" Min="1" Max="1" />
+    </Segment>
+    <Segment ID="AL1_RAD" Name="AL1" Description="Patient Allergy Information">
+      <Field Name="Set ID - AL1" Usage="R" Datatype="SI" MinLength="0" MaxLength="4" Min="1" Max="1" />
+      <Field Name="Allergen Type Code" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+      <Field Name="Allergen Code" Usage="R" Datatype="CE" MinLength="0" MaxLength="250" Min="1" Max="1" />
+    </Segment>
+    <Segment ID="DG1_RAD" Name="DG1" Description="Diagnosis">
+      <Field Name="Set ID - DG1" Usage="R" Datatype="SI" MinLength="0" MaxLength="4" Min="1" Max="1" />
+      <Field Name="Diagnosis Coding Method" Usage="X" Datatype="ID" MinLength="0" MaxLength="2" Min="0" Max="0" />
+      <Field Name="Diagnosis Code - DG1" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" Min="0" Max="1" />
+    </Segment>
+    <Segment ID="IN1_RAD" Name="IN1" Description="Insurance">
+      <Field Name="Set ID - IN1" Usage="R" Datatype="SI" MinLength="0" MaxLength="4" Min="1" Max="1" />
+      <Field Name="Insurance Plan ID" Usage="R" Datatype="CE" MinLength="0" MaxLength="250" Min="1" Max="1" />
+      <Field Name="Insurance Company ID" Usage="R" Datatype="CX" MinLength="0" MaxLength="250" Min="1" Max="*" />
+      <Field Name="Insurance Company Name" Usage="O" Datatype="XON" MinLength="0" MaxLength="250" Min="0" Max="*" />
+    </Segment>
+    <Segment ID="IN2_RAD" Name="IN2" Description="Insurance Additional Info">
+      <Field Name="Insured's Employee ID" Usage="O" Datatype="CX" MinLength="0" MaxLength="250" Min="0" Max="*" />
+      <Field Name="Insured's Social Security Number" Usage="O" Datatype="ST" MinLength="0" MaxLength="11" Min="0" Max="1" />
+    </Segment>
+  </Segments>
+  <Datatypes>
+    <Datatype ID="ST" Name="ST" Description="String Data" />
+    <Datatype ID="ID" Name="ID" Description="Coded value for HL7 tables" />
+    <Datatype ID="IS" Name="IS" Description="Coded value for user tables" />
+    <Datatype ID="NM" Name="NM" Description="Numeric" />
+    <Datatype ID="SI" Name="SI" Description="Sequence ID" />
+    <Datatype ID="VARIES" Name="VARIES" Description="Variable Datatype" />
+    <Datatype ID="DT" Name="DT" Description="Date" />
+    <Datatype ID="TS" Name="TS" Description="Timestamp">
+      <Component Name="Time" Usage="R" Datatype="DTM" MinLength="0" MaxLength="24" />
+      <Component Name="Degree of Precision" Usage="X" Datatype="ID" MinLength="0" MaxLength="1" />
+    </Datatype>
+    <Datatype ID="DTM" Name="DTM" Description="Date/Time" />
+    <Datatype ID="HD" Name="HD" Description="Hierarchic Designator">
+      <Component Name="Namespace ID" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Universal ID" Usage="C" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Universal ID Type" Usage="C" Datatype="ID" MinLength="0" MaxLength="6" />
+    </Datatype>
+    <Datatype ID="MSG" Name="MSG" Description="Message Type">
+      <Component Name="Message Code" Usage="R" Datatype="ID" MinLength="0" MaxLength="3" Binding="0076" BindingStrength="R" />
+      <Component Name="Trigger Event" Usage="R" Datatype="ID" MinLength="0" MaxLength="3" Binding="0003" BindingStrength="R" />
+      <Component Name="Message Structure" Usage="R" Datatype="ID" MinLength="0" MaxLength="7" Binding="0354" BindingStrength="R" />
+    </Datatype>
+    <Datatype ID="PT" Name="PT" Description="Processing Type">
+      <Component Name="Processing ID" Usage="R" Datatype="ID" MinLength="0" MaxLength="1" Binding="0103" BindingStrength="R" />
+      <Component Name="Processing Mode" Usage="O" Datatype="ID" MinLength="0" MaxLength="1" />
+    </Datatype>
+    <Datatype ID="VID_V251" Name="VID" Description="Version Identifier">
+      <Component Name="Version ID" Usage="R" Datatype="ID" MinLength="0" MaxLength="5" />
+      <Component Name="Internationalization Code" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" />
+      <Component Name="International Version ID" Usage="O" Datatype="CE" MinLength="0" MaxLength="250" />
+    </Datatype>
+    <Datatype ID="CX" Name="CX" Description="Extended Composite ID">
+      <Component Name="ID Number" Usage="R" Datatype="ST" MinLength="0" MaxLength="15" />
+      <Component Name="Check Digit" Usage="O" Datatype="ST" MinLength="0" MaxLength="1" />
+      <Component Name="Check Digit Scheme" Usage="O" Datatype="ID" MinLength="0" MaxLength="3" />
+      <Component Name="Assigning Authority" Usage="O" Datatype="HD" MinLength="0" MaxLength="227" />
+      <Component Name="Identifier Type Code" Usage="O" Datatype="ID" MinLength="0" MaxLength="5" />
+      <Component Name="Assigning Facility" Usage="O" Datatype="HD" MinLength="0" MaxLength="227" />
+    </Datatype>
+    <Datatype ID="XPN" Name="XPN" Description="Extended Person Name">
+      <Component Name="Family Name" Usage="O" Datatype="FN" MinLength="0" MaxLength="50" />
+      <Component Name="Given Name" Usage="O" Datatype="ST" MinLength="0" MaxLength="30" />
+      <Component Name="Second and Further Given Names" Usage="O" Datatype="ST" MinLength="0" MaxLength="30" />
+      <Component Name="Suffix" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Prefix" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Degree" Usage="O" Datatype="IS" MinLength="0" MaxLength="6" />
+      <Component Name="Name Type Code" Usage="O" Datatype="ID" MinLength="0" MaxLength="1" />
+    </Datatype>
+    <Datatype ID="FN" Name="FN" Description="Family Name">
+      <Component Name="Surname" Usage="R" Datatype="ST" MinLength="0" MaxLength="50" />
+      <Component Name="Own Surname Prefix" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="XCN" Name="XCN" Description="Extended Composite ID Number and Name">
+      <Component Name="ID Number" Usage="O" Datatype="ST" MinLength="0" MaxLength="15" />
+      <Component Name="Family Name" Usage="O" Datatype="FN" MinLength="0" MaxLength="50" />
+      <Component Name="Given Name" Usage="O" Datatype="ST" MinLength="0" MaxLength="30" />
+    </Datatype>
+    <Datatype ID="CE" Name="CE" Description="Coded Element">
+      <Component Name="Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+      <Component Name="Alternate Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Alternate Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Alternate Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="CWE" Name="CWE" Description="Coded with Exceptions">
+      <Component Name="Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="20" />
+      <Component Name="Text" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Name of Coding System" Usage="O" Datatype="ID" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="PL" Name="PL" Description="Person Location">
+      <Component Name="Point of Care" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Room" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Bed" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Facility" Usage="O" Datatype="HD" MinLength="0" MaxLength="227" />
+    </Datatype>
+    <Datatype ID="XAD" Name="XAD" Description="Extended Address">
+      <Component Name="Street Address" Usage="O" Datatype="ST" MinLength="0" MaxLength="120" />
+      <Component Name="Other Designation" Usage="O" Datatype="ST" MinLength="0" MaxLength="120" />
+      <Component Name="City" Usage="O" Datatype="ST" MinLength="0" MaxLength="50" />
+      <Component Name="State" Usage="O" Datatype="ST" MinLength="0" MaxLength="50" />
+      <Component Name="Zip Code" Usage="O" Datatype="ST" MinLength="0" MaxLength="12" />
+      <Component Name="Country" Usage="O" Datatype="ID" MinLength="0" MaxLength="3" />
+    </Datatype>
+    <Datatype ID="XTN" Name="XTN" Description="Extended Telecommunication Number">
+      <Component Name="Telephone Number" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+    </Datatype>
+    <Datatype ID="FC" Name="FC" Description="Financial Class">
+      <Component Name="Financial Class Code" Usage="R" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Effective Date" Usage="O" Datatype="TS" MinLength="0" MaxLength="26" />
+    </Datatype>
+    <Datatype ID="XON" Name="XON" Description="Extended Composite Name for Organizations">
+      <Component Name="Organization Name" Usage="O" Datatype="ST" MinLength="0" MaxLength="50" />
+      <Component Name="Organization Name Type Code" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+    </Datatype>
+    <Datatype ID="EI" Name="EI" Description="Entity Identifier">
+      <Component Name="Entity Identifier" Usage="O" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Namespace ID" Usage="O" Datatype="IS" MinLength="0" MaxLength="20" />
+      <Component Name="Universal ID" Usage="C" Datatype="ST" MinLength="0" MaxLength="199" />
+      <Component Name="Universal ID Type" Usage="C" Datatype="ID" MinLength="0" MaxLength="6" />
+    </Datatype>
+  </Datatypes>
+</ConformanceProfile>

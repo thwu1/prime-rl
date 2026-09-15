@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three non-trivial causal inference algorithms from mathematical specifications: (1) d-separation testing via graph traversal that correctly handles colliders, non-colliders, and descendant-activated paths — a graduate-level graph algorithm; (2) Pearl's do-calculus Rule 2 verification requiring construction of mutilated graphs and composition with d-separation; (3) counterfactual treatment effect computation requiring manipulation of SCM noise variables, tolerance-based sample matching, and correct state management across multiple interventional worlds. The solver must understand Pearl's causal hierarchy (observation, intervention, counterfactual) and translate formal definitions into working code against an unfamiliar SCM framework API."""
+solution_explanation = """Implement is_d_separated using the Bayes Ball algorithm: BFS with (node, direction) states where 'up' arrivals at non-evidence nodes propagate both up and down, 'down' arrivals at non-evidence propagate down only, and 'down' arrivals at evidence nodes propagate up (collider activation). Implement verify_rule2 by constructing the mutilated graph G_{X_bar, Z_underline} (remove incoming to X, remove outgoing from Z) then checking d-separation. Implement compute_counterfactual_te via abduction (sample observational, filter by conditions within tolerance, store noise), action (apply do-intervention), prediction (forward-compute with fixed noise for both treatment and control worlds), then return mean difference."""
+verification_explanation = """Tests verify: pipeline produces output files; JSON report conforms to schema with correct field types and counts; d-separation booleans match ground truth for 10 known configurations across chain/fork/collider/diamond graphs; Rule 2 applicability matches for 4 configurations; ATE and CTF-TE estimates are within 0.2 of analytical values (3.0, 0.0, 1.5); all ate_cf_consistent flags are true; report is jq-parseable; direct function calls on novel graphs (instrumental variable graph, simple 2-node graph) return correct results."""
+category = "causal_inference"
+tags = ["graph-algorithms", "counterfactual-reasoning"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/causal-counterfactual-engine"

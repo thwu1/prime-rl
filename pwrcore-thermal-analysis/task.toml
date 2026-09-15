@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert nuclear engineering knowledge to audit a PWR thermal-hydraulic safety analysis pipeline containing seven embedded physics errors across two distinct computational domains. The agent must navigate a multi-tool environment: a Makefile orchestrating the build pipeline, a SQLite database storing subcooled water thermophysical properties (queried via sqlite3 CLI or Python sqlite3 module), jq-based result inspection, and a ~250-line numerical Python script performing subchannel analysis with temperature-dependent property interpolation from the database, multi-component pressure drop calculation, critical heat flux evaluation, and radial fuel pin temperature analysis. Five errors affect the thermal-hydraulics (cosine profile denominator L vs L_e, surface heat flux reference diameter, Darcy vs Fanning friction factor, gravity sign convention, W-3 subcooling term sign). Two additional errors affect the fuel centerline temperature: omission of the pellet-cladding gap thermal resistance (which contributes ~200 C at peak conditions), and use of a constant fuel thermal conductivity instead of the conductivity integral method required for temperature-dependent UO2 k(T)=1/(a+b*T). The fuel temperature correction requires the agent to design and implement the analytical conductivity integral approach, deriving or recognizing the closed-form solution T_cl = [(a+b*T_fs)*exp(b*q'/(4*pi))-a]/b, which goes beyond simple constant-substitution fixes."""
+solution_explanation = """The solution replaces the buggy analysis.py with a corrected version fixing all seven errors: (1) uses extrapolated length L_e instead of active length L in the cosine heat flux profile denominator, (2) converts linear heat rate to surface heat flux using the pin outer diameter D instead of hydraulic diameter D_h, (3) uses the Darcy-Blasius friction coefficient 0.184*Re^-0.2 instead of the Fanning coefficient 0.046*Re^-0.2, (4) adds gravity pressure drop (+=) instead of subtracting it for vertical upflow, (5) uses (h_f - h_in) instead of (h_in - h_f) for the inlet subcooling term in the W-3 correlation's E factor, (6) adds the missing gap thermal resistance dT_gap = q'/(2*pi*r_ci*h_gap) between the cladding inner surface and fuel pellet outer surface, and (7) replaces the constant-conductivity fuel temperature rise with the conductivity integral method for UO2: T_cl_K = [(a + b*T_fs_K) * exp(b*q'/(4*pi)) - a] / b, where k(T) = 1/(a + b*T_K). The corrected file is deployed and results are rebuilt via make clean && make all."""
+verification_explanation = """Tests verify both the multi-tool pipeline and physics correctness across all computed quantities. Database integrity tests check the SQLite schema, property count, column names, and temperature ordering. Make pipeline tests verify make clean/make all rebuilds correctly and make verify runs sqlite3 and jq successfully. Physics tests independently compute reference values for outlet temperature, peak cladding temperature, minimum DNBR, and fuel centerline temperature using correct formulas and database properties. The fuel centerline reference uses an independent 200-node calculation with the full radial heat transfer chain (convection, cladding conduction, gap conductance, UO2 conductivity integral). A gap-contribution test verifies the fuel-to-cladding temperature difference is large enough to include gap resistance. A rerun test with 20% reduced heat rate checks directional physics consistency for all outputs including fuel centerline temperature."""
+category = "nuclear_engineering"
+tags = ["thermal-hydraulics", "fuel-temperature"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/pwrcore-thermal-analysis"

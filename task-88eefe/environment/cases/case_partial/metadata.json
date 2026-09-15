@@ -1,0 +1,7 @@
+{
+    "commit_hash": "f6e7d8c9b0a1",
+    "description": "Replace alloc_* with managed_* including bounds checking and flags parameter",
+    "subsystem": "drivers/net",
+    "kernel_version_from": "6.0",
+    "kernel_version_to": "6.1"
+}

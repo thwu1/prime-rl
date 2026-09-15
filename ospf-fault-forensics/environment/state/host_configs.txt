@@ -1,0 +1,82 @@
+================================================================================
+Host Network Configurations - Captured 2026-05-29 14:32:17 UTC
+================================================================================
+
+=== host1 (Building A) ===
+
+# ip addr show eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 02:42:0a:01:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.0.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+
+# ip route
+default via 10.1.0.1 dev eth0
+10.1.0.0/24 dev eth0 proto kernel scope link src 10.1.0.2
+
+# arp -n
+Address                  HWtype  HWaddress           Flags Mask            Iface
+10.1.0.1                 ether   02:42:0a:01:00:01   C                     eth0
+
+
+=== host2 (Building B) ===
+
+# ip addr show eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 02:42:0a:02:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 10.2.0.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+
+# ip route
+default via 10.2.0.1 dev eth0
+10.2.0.0/24 dev eth0 proto kernel scope link src 10.2.0.2
+
+# arp -n
+Address                  HWtype  HWaddress           Flags Mask            Iface
+10.2.0.1                 ether   02:42:0a:02:00:01   C                     eth0
+
+
+=== host3 (Building C) ===
+
+# ip addr show eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 02:42:0a:03:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 10.3.0.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+
+# ip route
+default via 10.3.0.1 dev eth0
+10.3.0.0/24 dev eth0 proto kernel scope link src 10.3.0.2
+
+# arp -n
+Address                  HWtype  HWaddress           Flags Mask            Iface
+10.3.0.1                 ether   02:42:0a:03:00:01   C                     eth0
+
+
+=== server (Server Farm) ===
+
+# ip addr show eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 02:42:0a:64:00:02 brd ff:ff:ff:ff:ff:ff
+    inet 10.100.0.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+
+# ip route
+default via 10.100.0.1 dev eth0
+10.100.0.0/24 dev eth0 proto kernel scope link src 10.100.0.2
+
+# arp -n
+Address                  HWtype  HWaddress           Flags Mask            Iface
+10.100.0.1               ether   02:42:0a:64:00:01   C                     eth0
+
+# systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Active: active (running) since Wed 2026-05-29 10:47:05 UTC; 3h 45min ago
+   Main PID: 1234 (nginx)
+      Tasks: 3 (limit: 4096)
+     Memory: 5.2M
+        CPU: 125ms
+     CGroup: /system.slice/nginx.service
+             ├─1234 "nginx: master process /usr/sbin/nginx"
+             ├─1235 "nginx: worker process"
+             └─1236 "nginx: worker process"

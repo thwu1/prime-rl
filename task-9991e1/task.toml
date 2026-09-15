@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level cryptographic analysis skills. The solver must: (1) extract S-box data from a compiled ELF object file using binary analysis tools like objdump, nm, or readelf — parsing hex dumps and correlating symbols to data; (2) perform algebraic degree analysis on four candidate S-boxes to identify which one has an anomalous degree staircase pattern (indicating decomposability into linear-arithmetic-linear components); (3) diagnose the specific form of the vulnerability by recognizing the degree staircase signature of modular arithmetic sandwiched between GF(2)-linear maps; (4) implement a DDT-based decomposition recovery algorithm with backtracking search over GF(2)-linear map candidates. This combines reverse engineering, Boolean function theory, and cryptanalytic algorithm design."""
+solution_explanation = """1. Use nm/objdump to locate SBOX_T0..T3 symbols and extract their 256-byte tables from the .rodata section of sbox.o. 2. For each S-box, compute algebraic degrees of all linear combinations of coordinate functions to detect the degree staircase pattern. The weak S-box (T2) shows anomalously low minimum degrees (1,2,3,...) vs. degree 7 for all combinations in the strong S-boxes. 3. For the identified weak S-box, use DDT row profile multiset matching to find candidate modular arithmetic parameters (a,b). 4. Use DDT row profile matching with backtracking to recover the GF(2)-linear map B column by column. 5. Recover A algebraically from S, B, and the arithmetic function."""
+verification_explanation = """Tests verify: (1) findings.json exists with correct structure; (2) weak_sbox_id equals 2 (the correct weak table); (3) decomposition matrices A,B are 8x8 binary and invertible over GF(2); (4) parameter a is odd in [1,255] and b in [0,255]; (5) the full decomposition S(x)=A(f(B(x))) holds for all 256 inputs against the embedded reference S-box."""
+category = "cryptography"
+tags = ["sbox-analysis", "reverse-engineering"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-9991e1"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert knowledge of 802.11 wireless protocols, WEP cryptographic weaknesses, and wireless attack methodologies. Beyond extraction, the solver must evaluate which specific IV amplification technique (ARP replay vs chopchop vs fragmentation vs caffe-latte) was used by analyzing frame size distributions, traffic directionality, and injection patterns — a judgment call that requires deep familiarity with how each attack produces distinct traffic signatures. The solver must also create working tshark display filters that precisely isolate each attack phase (deauthentication and replay injection) without false positives, requiring synthesis of protocol field knowledge with filter syntax. The full pipeline chains: beacon analysis → IV extraction → statistical behavioral analysis → aircrack-ng key recovery → airdecap-ng decryption → HTTP credential extraction → technique classification → detection filter engineering."""
+solution_explanation = """The solution identifies the target AP from beacon frames, extracts per-station IV statistics to identify the attacker (highest IV generator = replay injector), cracks the WEP key with aircrack-ng PTW attack, decrypts traffic with airdecap-ng, extracts HTTP Basic Auth credentials and POST form data for the passphrase change. For technique evaluation, it analyzes the frame size distribution of attacker traffic (ARP replay produces uniform ~68-byte frames vs chopchop's variable sizes) and traffic directionality (ARP replay sends to AP, caffe-latte targets client). Detection filters are constructed using tshark display filter syntax combining frame type/subtype selectors with BSSID and source MAC constraints."""
+verification_explanation = """Tests use SHA-256 hashes of expected values to prevent answer leakage — no plaintext answers in test files. String fields are verified by hashing the submitted value and comparing to pre-computed digests. Numeric values use hash comparison for exact fields and PCAP-derived independent computation for IV counts and deauth counts. Detection filters are validated by execution: tshark runs the submitted filter against the PCAP and verifies the set of unique type_subtype values in the output contains only the expected frame type (12 for deauth, 32 for data) and the correct source MAC."""
+category = "security_and_privacy"
+tags = ["network-forensics", "wireless-security", "detection-engineering"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/wireless-intrusion-forensics"

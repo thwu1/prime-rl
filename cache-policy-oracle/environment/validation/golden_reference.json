@@ -1,0 +1,41 @@
+{
+  "micro_trace": {
+    "trace_name": "trace_micro",
+    "total_accesses": 32,
+    "expected_misses": {
+      "lru": 32,
+      "opt": 20,
+      "ship": 21
+    }
+  },
+  "storage_bytes": {
+    "lru": 2048,
+    "srrip": 1536,
+    "opt": -1,
+    "drrip": {
+      "must_exceed": 1536,
+      "must_be_below": 32768
+    },
+    "ship": 14848
+  },
+  "performance_bounds": {
+    "trace_temporal": {
+      "all_policies_max_miss_rate": 0.01
+    },
+    "trace_scan": {
+      "lru_min_miss_rate": 0.7,
+      "opt_beats_lru_by_at_least": 0.01
+    },
+    "trace_mixed": {
+      "srrip_miss_rate_lt_lru": true,
+      "ship_miss_rate_lt_srrip": true
+    }
+  },
+  "invariants": {
+    "opt_leq_all_policies_all_traces": true,
+    "lru_geomean_miss_rate_reduction": 1.0,
+    "opt_geomean_min": 1.0,
+    "all_geomeans_positive": true,
+    "practical_storage_max_bytes": 32768
+  }
+}

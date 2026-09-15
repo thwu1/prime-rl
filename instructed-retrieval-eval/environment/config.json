@@ -1,0 +1,111 @@
+{
+  "description": "Multi-domain heterogeneous IR evaluation benchmark configuration",
+  "data_directory": "/app/data",
+  "output_path": "/app/results.json",
+  "evaluation_backends": {
+    "primary_metrics": {
+      "tool": "pytrec_eval-terrier",
+      "note": "All retrieval metrics must be computed using pytrec_eval.RelevanceEvaluator. Measure names follow trec_eval convention."
+    },
+    "statistical_analysis": {
+      "tool": "scipy",
+      "note": "Kendall's tau rank correlation must use scipy.stats.kendalltau."
+    }
+  },
+  "systems": {
+    "provided_runs": {
+      "neural_a": "runs/neural_a.tsv",
+      "neural_b": "runs/neural_b.tsv"
+    },
+    "baseline_retrieval": {
+      "algorithm": "bm25",
+      "variant": "okapi",
+      "parameters": {"k1": 1.2, "b": 0.75},
+      "modes": {
+        "bm25_plain": "use query text only",
+        "bm25_instructed": "prepend task instruction to query text"
+      },
+      "top_k": 100
+    }
+  },
+  "evaluation": {
+    "metrics": [
+      "ndcg@5", "ndcg@10", "map@10", "mrr@10",
+      "recall@10", "recall@100", "precision@5", "precision@10"
+    ],
+    "pytrec_eval_measures": {
+      "ndcg_cut_5": "ndcg@5",
+      "ndcg_cut_10": "ndcg@10",
+      "map_cut_10": "map@10",
+      "recall_10": "recall@10",
+      "recall_100": "recall@100",
+      "P_5": "precision@5",
+      "P_10": "precision@10"
+    },
+    "mrr_handling": "trec_eval's recip_rank computes reciprocal rank over the full ranking with no built-in cutoff. For MRR@10, truncate each run to the top-10 documents per query before evaluation with recip_rank.",
+    "statistical_tests": {
+      "comparisons": [
+        {"a": "neural_a", "b": "neural_b", "key": "neural_a_vs_neural_b"},
+        {"a": "bm25_plain", "b": "bm25_instructed", "key": "bm25_plain_vs_bm25_instructed"}
+      ],
+      "target_metric": "ndcg@10",
+      "method": "paired_permutation",
+      "num_permutations": 10000,
+      "random_seed": 42,
+      "significance_level": 0.05
+    },
+    "rank_correlation": {
+      "description": "Compute Kendall's tau correlation between system rankings induced by different aggregate metrics. This reveals whether different metrics agree on which systems are better.",
+      "metric_pairs": [
+        ["ndcg@10", "map@10"],
+        ["ndcg@10", "ndcg@5"],
+        ["ndcg@5", "map@10"]
+      ],
+      "systems": ["neural_a", "neural_b", "bm25_plain", "bm25_instructed"],
+      "use_aggregate_scores": true
+    }
+  },
+  "output_schema": {
+    "per_task": {
+      "<task_name>": {
+        "<system_name>": {
+          "<metric_name>": "float"
+        }
+      }
+    },
+    "aggregate": {
+      "<system_name>": {
+        "<metric_name>": "float, macro-average across tasks"
+      }
+    },
+    "significance_tests": {
+      "<task_name>": {
+        "<comparison_key>": {
+          "metric": "ndcg@10",
+          "delta": "float, system_a minus system_b",
+          "p_value": "float",
+          "significant": "boolean"
+        }
+      }
+    },
+    "rank_correlation": {
+      "<metric_a>_vs_<metric_b>": {
+        "tau": "float, Kendall's tau coefficient",
+        "p_value": "float, two-sided p-value from scipy.stats.kendalltau",
+        "system_ranking_a": "list of system names sorted by metric_a descending",
+        "system_ranking_b": "list of system names sorted by metric_b descending"
+      }
+    },
+    "meta": {
+      "num_tasks": "integer",
+      "metrics_computed": "list of metric name strings",
+      "bm25_params": {"k1": "float", "b": "float"},
+      "significance_level": "float",
+      "num_permutations": "integer",
+      "tools": {
+        "pytrec_eval_version": "string",
+        "scipy_version": "string"
+      }
+    }
+  }
+}

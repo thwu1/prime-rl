@@ -1,0 +1,33 @@
+
+[challenge]
+name = "HN-Onc-Eval-2026"
+teams = ["alpha", "beta", "gamma", "delta"]
+
+[segmentation]
+method = "micro_averaged_dsc"
+classes = [1, 2]
+empty_volume_score = 1.0
+
+[staging]
+method = "balanced_accuracy"
+stage_types = ["T", "N"]
+
+[prognosis]
+method = "concordance_index"
+risk_convention = "hazard"
+# See methodology.md section 3.3 for NaN handling policy
+
+[weights]
+segmentation = 0.25
+staging = 0.35
+prognosis = 0.40
+
+[bootstrap]
+n_iterations = 1000
+seed = 42
+ci_percentiles = [2.5, 97.5]
+resampling_unit = "patient"
+
+[rank_stability]
+n_iterations = 2000
+seed = 99

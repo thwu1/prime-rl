@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires the agent to independently discover an encoding scheme that packs 8 value types — including full double-precision floats, 32-bit integers, and heap pointers — into a single 8-byte word. Must understand IEEE 754 floating-point bit layout and the x86-64 48-bit address space to design a viable scheme. Then must systematically refactor 50+ direct struct field accesses across two C source files while maintaining clean compilation under -Wall -Wextra. Additionally demands proficiency with three specialized tools: UndefinedBehaviorSanitizer for UB verification, Valgrind for memory access validation, and pahole for DWARF-based struct layout analysis."""
+solution_explanation = """Use NaN-boxing: redefine Value as uint64_t. Store doubles directly as their IEEE 754 bit pattern. Use the quiet NaN space (0x7FFC000000000000) with tag bits to encode non-float types. Singletons (nil, true, false) use low payload bits. Integers use 32-bit payload with a tag in upper bits. Pointers combine sign bit + QNAN + 2-bit subtype + 48-bit address. Add accessor functions (value_type, val_get_int, val_get_cons, etc.) and replace all .type/.as.* field accesses throughout lisp.c and value.c. Build with -fsanitize=undefined to verify no UB in the bit manipulation. Run valgrind --error-exitcode=1 to ensure no invalid memory accesses. Compile with -g and run pahole to generate struct layout report."""
+verification_explanation = """Tests compile the modified code and verify sizeof(Value)==8 via both the --sizeof flag and sizeof-value builtin. Functional tests exercise all value types through the Lisp evaluator: integer/float arithmetic, comparisons, list operations, let bindings, conditionals, type predicates, string operations, dotted pairs, quote, and IEEE 754 specials. Tool-verification tests rebuild with -fsanitize=undefined and confirm clean execution, run valgrind --error-exitcode=1 to catch invalid memory accesses, and verify the pahole struct report exists at /app/size_report.txt."""
+category = "systems_programming"
+tags = ["value-representation", "ieee754"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nanbox-lisp-values"

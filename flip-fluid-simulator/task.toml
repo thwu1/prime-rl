@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing a production-quality 2D incompressible fluid simulator from a mathematical specification of MAC staggered grids and a JavaScript reference, then extending it with two features absent from both references. The base implementation demands holistic understanding of staggered-grid velocity layouts, bilinear interpolation on offset fields, iterative pressure projection for incompressibility, and bidirectional particle-grid velocity transfer — subtle indexing errors in any stage produce cascading failures across the full pipeline. The C shared library must manage complex state (15+ arrays, spatial hash structures) behind an opaque handle with correct memory lifecycle. The ctypes binding requires mapping C pointer semantics to Python indexable arrays. The adaptive timestep subdivision extension requires independently recognizing and implementing a numerical stability criterion relating particle velocities, timestep, and grid spacing — this domain knowledge is not provided in the specification or reference. The convergence-aware pressure solver requires understanding iterative solver convergence theory and correctly computing residuals on the staggered grid. Physical correctness tests verify emergent global properties (conservation, stability, incompressibility, gravity response, dam-break spreading) that can only be satisfied when all pipeline stages interact correctly."""
+solution_explanation = """The solution provides flip_core.c implementing the complete simulation pipeline with adaptive timestep subdivision using the CFL condition (CFL = v_max * dt / h, subdivide into ceil(CFL) substeps when CFL > 1) and convergence-aware pressure projection (max |divergence| check after each sweep, early exit below 1e-6). Diagnostic values are stored in the struct and exposed via C accessor functions. A Makefile compiles to libflip.so with -fPIC -shared -lm. The Python wrapper uses ctypes to load the library and expose all attributes as indexable pointers or properties, with diagnostic values as read-only properties."""
+verification_explanation = """Eleven test classes verify correctness through physical simulation outcomes: (1) Particle count conservation over 10 steps. (2) Boundary containment of all particles within domain limits. (3) Velocity stability over 20 steps. (4) Divergence-free velocity field at fluid cells after pressure projection. (5) Gravity-induced particle motion from rest. (6) Dam-break horizontal spreading behavior. (7) Adaptive sub-stepping activates with high particle velocities and uses single substep when slow. (8) Post-solve divergence residual is reported as a small non-negative float. (9) Pressure solver converges early before the iteration limit. (10) Shared library loads with all required symbols including diagnostic accessors. (11) Source files and Makefile exist."""
+category = "scientific_computing"
+tags = ["numerical_methods", "fluid_simulation"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/flip-fluid-simulator"

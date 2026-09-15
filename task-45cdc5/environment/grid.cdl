@@ -1,0 +1,47 @@
+netcdf grid_seismicity {
+dimensions:
+	point = 6 ;
+variables:
+	double lon(point) ;
+		lon:units = "degrees_east" ;
+		lon:long_name = "Longitude" ;
+	double lat(point) ;
+		lat:units = "degrees_north" ;
+		lat:long_name = "Latitude" ;
+	double depth_km(point) ;
+		depth_km:units = "km" ;
+		depth_km:long_name = "Hypocentral depth" ;
+	double a_val(point) ;
+		a_val:long_name = "Gutenberg-Richter a-value" ;
+	double b_val(point) ;
+		b_val:long_name = "Gutenberg-Richter b-value" ;
+	double m_min(point) ;
+		m_min:long_name = "Minimum magnitude" ;
+	double m_max(point) ;
+		m_max:long_name = "Maximum magnitude" ;
+	double d_mag(point) ;
+		d_mag:long_name = "Magnitude bin width" ;
+
+// global attributes:
+		:title = "Background Seismicity Grid" ;
+		:source = "USGS regional catalogs" ;
+		:conventions = "CF-1.6" ;
+
+data:
+
+ lon = -122.15, -121.80, -122.30, -121.70, -122.00, -121.90 ;
+
+ lat = 38.15, 38.25, 37.85, 37.75, 38.00, 38.10 ;
+
+ depth_km = 8, 10, 6, 12, 5, 7 ;
+
+ a_val = 1.0, 0.9, 1.1, 0.8, 1.5, 99.0 ;
+
+ b_val = 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ;
+
+ m_min = 4.5, 4.5, 4.5, 4.5, 7.0, 4.5 ;
+
+ m_max = 6.5, 6.5, 6.5, 6.5, 5.0, 6.5 ;
+
+ d_mag = 0.2, 0.2, 0.2, 0.2, 0.2, 0.2 ;
+}

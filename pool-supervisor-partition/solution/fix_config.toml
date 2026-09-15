@@ -1,0 +1,18 @@
+# Connection pool supervisor configuration (fixed)
+
+[pool]
+name = "voice-pool"
+max_connections = 500
+connection_timeout = 5.0
+
+[partitioning]
+enabled = true
+num_partitions = 16
+hash_algorithm = "md5"
+
+[priority]
+dedicated_partition = true
+
+[telemetry]
+enabled = true
+db_path = "/app/telemetry.db"

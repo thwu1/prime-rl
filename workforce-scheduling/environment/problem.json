@@ -1,0 +1,103 @@
+{
+  "metadata": {
+    "num_employees": 10,
+    "num_days": 28,
+    "num_weeks": 4,
+    "shift_types": ["O", "D", "E", "N"],
+    "description": "O=Off, D=Day, E=Evening, N=Night. Days 0-6=Week1(Mon-Sun), 7-13=Week2, 14-20=Week3, 21-27=Week4."
+  },
+  "employees": [
+    {"id": 0, "name": "Alice",   "senior": true},
+    {"id": 1, "name": "Bob",     "senior": true},
+    {"id": 2, "name": "Carol",   "senior": true},
+    {"id": 3, "name": "David",   "senior": true},
+    {"id": 4, "name": "Eve",     "senior": false},
+    {"id": 5, "name": "Frank",   "senior": false},
+    {"id": 6, "name": "Grace",   "senior": false},
+    {"id": 7, "name": "Henry",   "senior": false},
+    {"id": 8, "name": "Ivy",     "senior": false},
+    {"id": 9, "name": "Jack",    "senior": false}
+  ],
+  "weekly_cover_demands": [
+    {"day_of_week": 0, "label": "Monday",    "D": 2, "E": 2, "N": 1},
+    {"day_of_week": 1, "label": "Tuesday",   "D": 2, "E": 2, "N": 1},
+    {"day_of_week": 2, "label": "Wednesday", "D": 2, "E": 2, "N": 1},
+    {"day_of_week": 3, "label": "Thursday",  "D": 2, "E": 2, "N": 1},
+    {"day_of_week": 4, "label": "Friday",    "D": 2, "E": 2, "N": 1},
+    {"day_of_week": 5, "label": "Saturday",  "D": 2, "E": 1, "N": 1},
+    {"day_of_week": 6, "label": "Sunday",    "D": 1, "E": 1, "N": 1}
+  ],
+  "senior_requirements": {
+    "D": 1
+  },
+  "excess_cover_penalties": {
+    "D": 2,
+    "E": 2,
+    "N": 4
+  },
+  "fixed_assignments": [
+    [0, 1, 0], [1, 2, 0], [2, 0, 0], [3, 3, 0], [4, 1, 0],
+    [5, 2, 0], [6, 0, 0], [7, 0, 0], [8, 0, 0], [9, 0, 0],
+    [3, 0, 14], [3, 0, 15]
+  ],
+  "requests": [
+    [3, 0, 5, -2],
+    [0, 0, 12, -2],
+    [0, 0, 13, -2],
+    [1, 0, 19, -2],
+    [1, 0, 20, -2],
+    [7, 1, 19, -3],
+    [5, 3, 10, -2],
+    [2, 3, 4, 4],
+    [4, 2, 8, -1],
+    [9, 1, 25, -2]
+  ],
+  "shift_sequence_constraints": [
+    {
+      "shift": 0,
+      "hard_min": 1,
+      "soft_min": 1,
+      "min_penalty": 0,
+      "soft_max": 3,
+      "hard_max": 5,
+      "max_penalty": 4
+    },
+    {
+      "shift": 3,
+      "hard_min": 1,
+      "soft_min": 2,
+      "min_penalty": 10,
+      "soft_max": 3,
+      "hard_max": 4,
+      "max_penalty": 5
+    }
+  ],
+  "weekly_sum_constraints": [
+    {
+      "shift": 0,
+      "hard_min": 1,
+      "soft_min": 2,
+      "min_penalty": 7,
+      "soft_max": 4,
+      "hard_max": 6,
+      "max_penalty": 3
+    },
+    {
+      "shift": 3,
+      "hard_min": 0,
+      "soft_min": 0,
+      "min_penalty": 0,
+      "soft_max": 2,
+      "hard_max": 3,
+      "max_penalty": 5
+    }
+  ],
+  "forbidden_transitions": [[3, 1]],
+  "penalized_transitions": [[2, 3, 4]],
+  "incompatible_pairs": [
+    {"employees": [0, 1], "shift": 1},
+    {"employees": [4, 5], "shift": 3}
+  ],
+  "weekend_pair_penalty": 15,
+  "night_fairness_penalty": 10
+}

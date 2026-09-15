@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires reverse-engineering the SQLite WAL binary format from raw file inspection and documentation, implementing the undocumented chained checksum algorithm (each frame's checksum seeds from the previous), correctly handling endianness-dependent word reads vs big-endian file storage, understanding page-level database reconstruction by overlaying WAL frames onto a base file, and patching SQLite header bytes for standalone operation. The agent must discover the required API surface from the test suite and use binary inspection tools to understand the actual file layout."""
+solution_explanation = """Use xxd/hexdump to inspect the 32-byte WAL header and frame structures. Parse frames sequentially, implementing the WAL checksum (8-byte chunks as two 32-bit words with chained s1/s2 accumulators). Identify transaction boundaries via the db_size_after_commit field. For reconstruction, copy the base database, overlay latest WAL page versions up to the target transaction, adjust file size, and patch header bytes 18-19 from WAL mode to rollback journal mode for standalone operation."""
+verification_explanation = """Tests validate WAL header parsing (magic number, version, page size, checksum validity), frame parsing (chained checksum and salt validity for all frames), transaction identification (exactly 4 transactions with correct structure), database reconstruction at each transaction boundary (verifying exact row counts and data values via SQL queries on reconstructed databases), standalone operation (no WAL/SHM files needed), and corruption detection (byte-flip in page data must cause checksum chain failure)."""
+category = "reverse_engineering"
+tags = ["sqlite", "binary-forensics"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-a3249a"

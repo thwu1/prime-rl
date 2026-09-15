@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of the SP 800-185 cryptographic function composition stack (cSHAKE, KMAC, TupleHash). Beyond simple pass/fail testing, the solver must: (1) detect a compound defect where a downstream function (KMAC) fails due to BOTH an inherited dependency bug (broken cSHAKE) AND its own independent construction error (missing bytepad for key encoding) — naive cascade analysis that assumes all downstream failures from a broken dependency are inherited will miss this; (2) assess security impact by reasoning about what cryptographic property each construction provides (domain separation for cSHAKE, unambiguous encoding for TupleHash); (3) produce corrected implementations that pass all NIST test vectors, which for the compound-defect vendor requires identifying and fixing both the inherited and independent bugs. Compound defect detection requires hypothetically fixing the dependency and re-evaluating downstream functions — a technique from real FIPS 140-3 certification work."""
+solution_explanation = """Run each vendor against 16 NIST test vectors. Alpha: cSHAKE passes, KMAC fails independently (left_encode(L) instead of right_encode(L)), TupleHash passes. Beta: cSHAKE fails independently (0x1F suffix instead of 0x04 — domain separation broken), KMAC has compound defect (inherited from cSHAKE AND independently omits bytepad() for key encoding), TupleHash inherited from cSHAKE. Compound detection: create temp Beta with fixed cSHAKE, re-test KMAC — still fails, proving compound nature. Gamma: fully conformant. Delta: TupleHash fails independently (concatenates tuples before encoding). Security: cSHAKE domain-sep = critical, KMAC construction = high, TupleHash encoding = critical. Generate patched files fixing each vendor's specific bugs."""
+verification_explanation = """Tests verify: (1) correct pass/fail per vendor×function, (2) Beta KMAC classified as compound (the key discriminator), (3) security impact values, (4) patched implementations produce conformant output — critically, patched Beta must fix both cSHAKE suffix and KMAC bytepad, so a solver who misses the compound nature fails patch tests."""
+category = "security"
+tags = ["cryptography", "conformance-audit"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-5ff2c7"

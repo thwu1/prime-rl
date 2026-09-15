@@ -1,0 +1,21 @@
+---
+- name: Configure nginx for frontend servers
+  hosts: frontend
+  gather_facts: false
+  roles:
+    - nginx_base
+    - nginx_site
+
+- name: Configure nginx for backend API servers
+  hosts: backend
+  gather_facts: false
+  roles:
+    - nginx_base
+    - nginx_site
+
+- name: Configure nginx for monitoring servers
+  hosts: monitoring
+  gather_facts: false
+  roles:
+    - nginx_base
+    - nginx_site

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of LibCST's CSTTransformer visitor pattern, matcher DSL (m.OneOf, m.Name, m.Attribute composition), concrete syntax tree manipulation preserving exact whitespace/formatting, coroutine stack tracking for correctly distinguishing nested coroutines from plain generators, automatic import insertion into CST modules, and handling 15+ distinct transformation edge cases plus 4 error-rejection patterns. Not solvable without substantial LibCST expertise and understanding of Tornado's legacy async patterns."""
+solution_explanation = """Implement a CSTTransformer with: (1) a coroutine_stack to track whether current scope is inside a @gen.coroutine-decorated function, (2) matcher composition using name_attr_possibilities helper that generates all import-style variants of a dotted name, (3) visit/leave_FunctionDef to push/pop the coroutine stack and remove @gen.coroutine decorators while adding async keyword, (4) leave_Yield to convert yield→await and yield [list]→await asyncio.gather(*[list]), (5) leave_Raise to convert raise gen.Return(x)→return x, (6) leave_Call to convert gen.sleep→asyncio.sleep, (7) visit_Call to reject gen.Task, (8) leave_Module to insert required asyncio imports, and (9) a helper that inserts import statements after the first existing import in the module."""
+verification_explanation = """Tests parse each before.py through libcst, visit with TornadoAsyncTransformer, and compare the output code string against after.py for exact match. Exception cases verify TransformError is raised with the expected error message substring from the file's docstring. All 15 transformation pairs and 4 exception cases must pass."""
+category = "code_transformation"
+tags = ["libcst", "refactoring"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/task-066b4f"

@@ -1,0 +1,4 @@
+parent_id,subsidiary_id,ownership_pct
+corp_alpha,corp_beta,1.00
+corp_delta,corp_alpha,0.85
+corp_gamma,corp_beta,0.50

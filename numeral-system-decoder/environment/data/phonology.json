@@ -1,0 +1,228 @@
+{
+  "metadata": {
+    "project": "Vorathi Language Family Fieldwork Archive",
+    "version": "2.3.1",
+    "last_updated": "2024-11-15",
+    "database": "/data/fieldwork.db",
+    "notes": "Some training entries may contain transcription errors introduced during digitization. Cross-validate all entries against derived rules before use."
+  },
+  "languages": {
+    "turahi": {
+      "classification": {
+        "family": "Vorathi",
+        "branch": "Eastern",
+        "typology": "agglutinative",
+        "speakers": "~4200 (2023 census)"
+      },
+      "numeral_system": {
+        "base": null,
+        "discovered_properties": {
+          "type": "positional-multiplicative-additive",
+          "notes": "Uses named tokens for digit values and power values. When a smaller-valued token immediately precedes a larger-valued token, the values multiply. When a larger-valued token precedes a smaller one (or equal-valued tokens appear), the values add. Powers appear in descending order in canonical forms. An implicit multiplier of 1 applies when a power token has no preceding digit token.",
+          "canonical_form": "Largest power first, each power preceded by its multiplier (omitted if 1), remainder digit appended at end",
+          "open_questions": [
+            "Confirm exact base value from training distribution",
+            "Determine power progression pattern",
+            "Verify no morphophonological alternations at morpheme boundaries"
+          ]
+        },
+        "token_analysis": {
+          "method": "Query the morphemes table for surface forms, values, and categories",
+          "categories": {
+            "digits": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='turahi' AND category='digit' ORDER BY value",
+              "expected_count": 7
+            },
+            "powers": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='turahi' AND category='power' ORDER BY value",
+              "expected_count": 3,
+              "progression_hint": "Each power is the previous power times the base"
+            }
+          }
+        }
+      },
+      "phonology": {
+        "vowel_inventory": ["a", "i", "o", "u"],
+        "consonant_inventory": ["d", "f", "k", "l", "m", "n", "p", "r", "s", "v"],
+        "syllable_structure": "CV",
+        "morphophonological_rules": []
+      }
+    },
+    "belago": {
+      "classification": {
+        "family": "Vorathi",
+        "branch": "Western",
+        "typology": "isolating",
+        "speakers": "~1800 (2023 census)"
+      },
+      "numeral_system": {
+        "base": null,
+        "discovered_properties": {
+          "type": "pivot-delimited",
+          "notes": "Uses pivot (delimiter) words that separate multiplier groups from additive remainders. The system has a primary base and a sub-base for composing coefficient and remainder values. Tokens before a pivot word form a coefficient that multiplies the pivot value. Tokens after the last pivot form an additive remainder. Sub-base tokens compose additively within coefficient and remainder groups.",
+          "canonical_form": "Highest pivot first, coefficient before each pivot (omitted if 1), lowest-order remainder at end. Coefficients and remainders are composed using sub-base tokens in descending order.",
+          "structure": {
+            "pivot_hierarchy": "The system uses two pivot levels; the higher pivot equals the square of the lower pivot's value",
+            "coefficient_composition": "Coefficients use the sub-base tokens additively (e.g., sub-base-2 + digit-3 = sub-base value + 3)",
+            "remainder_composition": "Same additive sub-base composition as coefficients"
+          },
+          "open_questions": [
+            "Determine primary base and sub-base values from morpheme table",
+            "Clarify exact pivot hierarchy and values",
+            "Verify coefficient encoding conventions"
+          ]
+        },
+        "token_analysis": {
+          "method": "Query morphemes table; note the category distinctions",
+          "categories": {
+            "unit_digits": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='belago' AND category='digit' ORDER BY value",
+              "expected_count": 4
+            },
+            "sub_base_tokens": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='belago' AND category='subbase' ORDER BY value",
+              "expected_count": 2,
+              "note": "These compose additively with digits to form coefficient values"
+            },
+            "pivot_tokens": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='belago' AND category='power' ORDER BY value",
+              "expected_count": 2
+            }
+          }
+        }
+      },
+      "phonology": {
+        "vowel_inventory": ["a", "e", "i", "o", "u"],
+        "consonant_inventory": ["b", "ch", "d", "k", "l", "m", "n", "p", "t"],
+        "syllable_structure": "CV(C)",
+        "morphophonological_rules": []
+      }
+    },
+    "renshi": {
+      "classification": {
+        "family": "Vorathi",
+        "branch": "Northern",
+        "typology": "agglutinative",
+        "speakers": "~6100 (2023 census)"
+      },
+      "numeral_system": {
+        "base": null,
+        "discovered_properties": {
+          "type": "subtractive-multiplicative-additive",
+          "notes": "Combines a multiplicative-additive composition rule (identical to Turahi's rule: smaller-before-larger multiplies, larger-before-smaller adds) with a subtractive morphological mechanism for expressing certain digit values. A specific morphological prefix applied to basic digit words derives values that represent complements from the base. For example, if the base is B and a digit d has value V, then prefix+d has value B-V.",
+          "canonical_form": "Same descending-power layout as Turahi. Subtractive digit forms are used for values from ceil(base/2)+1 through base-1.",
+          "subtractive_mechanism": {
+            "prefix": "Discoverable from the morphemes table — look for the 'subtractive' category entries and compare with basic digit forms to identify the shared prefix",
+            "complement_rule": "prefix(digit_with_value_V) = base - V",
+            "applicable_range": "Values from base-max_basic_digit through base-1"
+          },
+          "open_questions": [
+            "Identify the exact subtractive prefix morpheme",
+            "Determine the complement computation rule from attested forms",
+            "Map all subtractive digit forms to their computed values",
+            "Verify the base value"
+          ]
+        },
+        "token_analysis": {
+          "method": "Query morphemes table; note both 'digit' and 'subtractive' categories",
+          "categories": {
+            "basic_digits": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='renshi' AND category='digit' ORDER BY value",
+              "expected_count": 7
+            },
+            "derived_digits": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='renshi' AND category='subtractive' ORDER BY value",
+              "expected_count": 4,
+              "note": "Compare surface forms with basic digits to discover the derivation pattern"
+            },
+            "powers": {
+              "query": "SELECT surface_form, value FROM morphemes WHERE language='renshi' AND category='power' ORDER BY value",
+              "expected_count": 2
+            }
+          }
+        }
+      },
+      "phonology": {
+        "vowel_inventory": ["a", "e", "i", "o", "u"],
+        "consonant_inventory": ["d", "f", "g", "h", "k", "n", "p", "r", "s", "t", "z"],
+        "syllable_structure": "(C)V(C)",
+        "morphophonological_rules": []
+      }
+    }
+  },
+  "data_quality": {
+    "known_issues": {
+      "transcription_errors": {
+        "description": "During digitization of handwritten field notes, some training entries were incorrectly transcribed. The corrupted entries contain word forms that do not correctly encode their associated number values.",
+        "estimated_rate": "approximately 5-10% of training entries may be affected",
+        "error_types": [
+          "morpheme substitution (wrong digit or power word used)",
+          "morpheme transposition (correct morphemes in wrong order)",
+          "morpheme insertion or deletion (extra or missing morphemes)"
+        ],
+        "detection_method": "For each training entry, independently decode the word_form using the discovered composition rules and morpheme values, then compare the decoded value against the listed number. Any mismatch indicates a corrupted entry."
+      },
+      "confidence_field": "The confidence field reflects the collector's subjective assessment at recording time and does NOT reliably indicate transcription errors introduced later during digitization. Do not use confidence alone to identify corrupted entries."
+    }
+  },
+  "analysis_pipeline": {
+    "step_1_extract": {
+      "description": "Extract morpheme inventories from the database for each language using the queries specified in each language's token_analysis section",
+      "tool": "sqlite3",
+      "example_command": "sqlite3 /data/fieldwork.db \"SELECT * FROM morphemes WHERE language='turahi'\""
+    },
+    "step_2_derive_rules": {
+      "description": "Using the morpheme inventories and the composition rules described above, build decode (word->number) and encode (number->word) functions for each language"
+    },
+    "step_3_validate": {
+      "description": "Cross-validate every training entry against the derived rules to identify corrupted entries",
+      "output": "List of corrupted entry IDs with corrections"
+    },
+    "step_4_process_tests": {
+      "description": "Process test cases from the test_decode, test_encode, and test_cross database tables",
+      "tables": {
+        "test_decode": "SELECT id, language, word_form FROM test_decode ORDER BY id",
+        "test_encode": "SELECT id, language, number FROM test_encode ORDER BY id",
+        "test_cross": "SELECT id, source_language, source_word, target_language FROM test_cross ORDER BY id"
+      }
+    },
+    "output_specification": {
+      "directory": "/app/output",
+      "files": {
+        "errors.json": {
+          "description": "JSON array of detected corrupted training entries, sorted by id",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "language", "number", "wrong_word", "correct_word"],
+              "properties": {
+                "id": "integer — the training table row ID",
+                "language": "string — language name",
+                "number": "integer — the number value from the training entry",
+                "wrong_word": "string — the corrupted word_form currently in the database",
+                "correct_word": "string — the correct canonical word_form for this number"
+              }
+            }
+          }
+        },
+        "fix.sql": {
+          "description": "SQL UPDATE statements to correct each corrupted entry in the training table",
+          "format": "One UPDATE statement per line: UPDATE training SET word_form = '<correct>' WHERE id = <id>;"
+        },
+        "decode_results.tsv": {
+          "description": "Tab-separated decode results, one row per test_decode entry",
+          "columns": "language\\tword_form\\tdecoded_number"
+        },
+        "encode_results.tsv": {
+          "description": "Tab-separated encode results, one row per test_encode entry",
+          "columns": "language\\tnumber\\tencoded_word_form"
+        },
+        "cross_results.tsv": {
+          "description": "Tab-separated cross-system translation results, one row per test_cross entry",
+          "columns": "source_language\\tsource_word\\ttarget_language\\ttarget_word"
+        }
+      }
+    }
+  }
+}

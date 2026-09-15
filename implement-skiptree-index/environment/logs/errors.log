@@ -1,0 +1,9 @@
+[2026-05-28T14:31:44Z] preflight  INFO   checking pipeline compliance against production config...
+[2026-05-28T14:31:44Z] preflight  FAIL   /app/pipeline/query.py: wrong database engine (expected duckdb, found sqlite3)
+[2026-05-28T14:31:44Z] preflight  FAIL   /app/pipeline/query.py: prohibited SQL construct detected
+[2026-05-28T14:31:44Z] preflight  DETAIL policy: sql_constraints.allow_recursive_cte = false
+[2026-05-28T14:31:45Z] pipeline   FATAL  build_index() raised NotImplementedError
+[2026-05-28T14:31:45Z] pipeline   FATAL  production DuckDB indexer has not been implemented
+[2026-05-28T14:31:46Z] pipeline   INFO   query module cannot operate without DuckDB index structures
+[2026-05-28T14:31:46Z] integration ABORT  0/30 tests passed — pipeline not operational
+[2026-05-28T14:31:46Z] integration INFO   failures: build (NotImplementedError), ancestors (no index), lca (no index)

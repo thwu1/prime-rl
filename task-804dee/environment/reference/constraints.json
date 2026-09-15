@@ -1,0 +1,6 @@
+{
+    "system_memory_mb": 4096,
+    "db_shared_buffers_max_pct": 25,
+    "default_docker_shm_mb": 64,
+    "min_recommended_shm_mb": 256
+}

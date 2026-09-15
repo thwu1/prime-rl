@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level PostgreSQL DBA skills across five interacting domains and the ability to evaluate tradeoffs in each. The solver must autonomously discover all issues through systematic investigation of the database state, workload patterns, and configuration — then justify each fix with tradeoff analysis comparing alternatives. Beyond applying known fixes, the solver must design a before/after benchmarking methodology using EXPLAIN costs to prove their fixes are effective. The anomalies interact (missing indexes amplify correlated subquery costs; misconfigured planner costs suppress index usage), requiring the solver to reason about fix ordering and compound effects."""
+solution_explanation = """The solution programmatically: (1) captures baseline EXPLAIN costs for 3 representative workload queries before any changes; (2) analyzes the workload file and pg_indexes to identify 4 missing indexes on heavily-queried columns (orders.o_customer_id, orders.o_status, order_items.oi_order_id, order_items.oi_product_id), creating each with justification for B-tree over alternatives; (3) detects prefix-redundant indexes by comparing column lists and drops idx_cust_region with tradeoff analysis; (4) queries pg_stat_user_tables for high n_dead_tup, VACUUMs audit_log, re-enables autovacuum, justifying VACUUM over VACUUM FULL; (5) identifies misconfigured knobs via pg_settings and applies ALTER SYSTEM SET for 5 parameters with rationale; (6) inspects v_customer_order_summary view definition, identifies correlated subqueries, rewrites using LEFT JOIN with pre-aggregated subquery, justifying over materialized view; (7) restarts PostgreSQL for settings requiring restart; (8) captures post-fix EXPLAIN costs and calculates improvement percentages."""
+verification_explanation = """Tests connect to the running PostgreSQL instance and verify: 4 indexes exist on required columns, redundant single-column index on customers(c_region) is dropped while composite indexes are preserved, audit_log dead tuples are below 1000, 5 knob values meet minimum thresholds, view definition has at most 2 SELECT keywords, rewritten view produces correct results matching a reference JOIN query, diagnosis.json has at least 5 findings each with all 5 required fields including justification, and performance_eval.json has at least 3 query evaluations with at least 2 showing positive improvement."""
+category = "database_administration"
+tags = ["postgresql", "performance-tuning"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/diagnose-postgres-anomalies"

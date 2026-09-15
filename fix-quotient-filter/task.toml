@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Implementing a Counting Quotient Filter as a C shared library from an API specification requires deep understanding of the CQF algorithm (runs, clusters, metadata invariants, slot shifting), careful C systems programming (memory management, opaque structs, file I/O for serialization), and proficiency with the gcc/make shared-library toolchain. The solver must design the internal struct layout, implement all core algorithms (insert with sorted-run maintenance, run-start lookup via cluster walk, shift with metadata propagation, resize with bit redistribution, merge as multiset union, serialize/deserialize round-trip), and build a .so loadable by ctypes. No reference implementation is provided — only the API header and algorithm description."""
+solution_explanation = """Create cqf.c defining struct cqf with arrays for remainders, counts, is_occupied, is_runend. Implement find_cluster_start (walk left to empty slot), find_run_start (count occupied quotients before target, skip that many run-ends), shift_slots_right (copy remainder+count+is_runend together), insert_internal (handle new vs existing quotient, maintain sorted runs), query_internal (find run, linear scan for remainder), delete, merge (iterate both, insert all into new filter), resize (extract entries, recompute q/r split, re-insert), serialize/deserialize (binary dump of header+arrays), inner_product (iterate one, query the other, multiply counts), cosine_similarity (use inner_product and self-products). Build with make to produce libcqf.so."""
+verification_explanation = """The test suite loads libcqf.so via Python ctypes and runs 20 pytest tests: library loading, create/destroy, single insert/query (raw), count accumulation, sorted run insertion, count increment within a run, cluster navigation, multi-remainder clusters, delete (partial and full), merge (overlapping sums, disjoint preservation), resize (bit redistribution correctness), inner product, cosine similarity (identical=1.0, orthogonal=0.0), serialization round-trip, string-based API, stress test with 200 elements, and entry enumeration. All tests use deterministic inputs and verify exact values."""
+category = "systems-programming"
+tags = ["data-structures", "c-shared-library"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/fix-quotient-filter"

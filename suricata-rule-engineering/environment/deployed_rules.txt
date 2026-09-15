@@ -1,0 +1,14 @@
+# ET POLICY DNS C2 Tunneling to evil-c2.example.net
+alert dns any any -> any any (msg:"DNS C2 Tunneling to evil-c2.example.net"; content:"evil-c2.example.net"; nocase; sid:2100001; rev:1;)
+
+# ET TROJAN Reverse Shell Connection on port 4444
+alert tcp any any -> any 4444 (msg:"Reverse Shell Connection Detected"; flow:established,from_server; content:"/bin/"; nocase; sid:2100002; rev:1;)
+
+# ET SCAN ICMP Scanning Activity
+alert icmp any any -> any any (msg:"ICMP Scan Detected"; itype:0; threshold: type limit, track by_src, count 1, seconds 60; sid:2100003; rev:1;)
+
+# ET TROJAN Suspicious HTTP User-Agent
+alert http any any -> any any (msg:"Suspicious HTTP User-Agent - Trojan"; http.host; content:"Trojan"; nocase; sid:2100004; rev:1;)
+
+# ET TROJAN Binary Exfiltration Protocol
+alert tcp any any -> any 8888 (msg:"Binary Exfiltration Protocol Detected"; flow:established,to_server; content:"|DE AD BE EF|"; offset:0; depth:4; sid:2100005; rev:1;)

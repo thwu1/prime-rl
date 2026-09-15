@@ -1,0 +1,6 @@
+{
+    "gpu_type": "NVIDIA H100 80GB SXM",
+    "gpu_memory_bytes": 85899345920,
+    "num_gpus": 8,
+    "interconnect": "NVLink"
+}

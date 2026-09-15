@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """The solver receives a C program written against TCC 0.9.27's libtcc API and must port it to the current mob branch, which changed tcc_relocate's signature, altered JIT code memory lifecycle, and reorganized include-path resolution. This requires diagnosing five interrelated bugs: (1) TCC_RELOCATE_AUTO removal and tcc_relocate signature change, (2) #include <math.h> failing without proper TCC include paths — requiring the insight to use extern declarations instead, (3) missing tcc_add_library for libm causing unresolved pow() during relocation, (4) use-after-free from calling tcc_delete before using JIT function pointers (mob branch stores code in TCCState), and (5) hardcoded series data that must be replaced with runtime JSON parsing. None of these bugs are listed in the instructions — the solver must discover them through investigation. The task demands deep understanding of JIT memory management, compiler API evolution, dynamic linking, and C systems programming."""
+solution_explanation = """Build TCC mob branch with configure --prefix, producing libtcc.a. Replace the broken series_jit.c with a fixed version: (1) use single-arg tcc_relocate(s), (2) replace #include <math.h> with extern double pow(double,double) to bypass TCC include-path issues, (3) add tcc_add_library_path + tcc_add_library("m") for pow resolution, (4) restructure so tcc_delete is called only AFTER computing the sum (because mob branch JIT code lives inside TCCState), (5) implement a JSON parser to read series definitions from /app/input.json at runtime. Compile with gcc linking against libtcc.a."""
+verification_explanation = """Tests verify: (1) /app/series_jit exists with execute permission, (2) /app/output.txt contains all 5 expected series, (3) each partial sum matches its mathematical constant within convergence-appropriate tolerance (1e-6 for slow alternating series up to 1e-14 for factorial/Machin series), (4) C source files contain tcc_compile_string + tcc_get_symbol confirming dynamic compilation, (5) re-running produces identical output (determinism), (6) modifying input.json and re-running produces output reflecting the change (proving runtime JSON parsing, not hardcoded data)."""
+category = "systems_programming"
+tags = ["jit-compilation", "compiler-debugging"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/tcc-libtcc-jit"

@@ -1,0 +1,51 @@
+# Simplified conda-forge-style global pinning configuration
+# Defines the current ecosystem-wide ABI-compatible version pins
+# Package names follow conda-forge convention (underscores replace hyphens)
+
+libhdf5:
+  - "1.14.3"
+
+zlib:
+  - "1.3"
+
+openssl:
+  - "3.3"
+
+xz:
+  - "5"
+
+libjpeg_turbo:
+  - "3"
+
+libpng:
+  - "1.6"
+
+libtiff:
+  - "4"
+
+libcurl:
+  - "8"
+
+sqlite:
+  - "3"
+
+openblas:
+  - "0.3"
+
+libxml2:
+  - "2.12"
+
+proj:
+  - "9.3"
+
+geos:
+  - "3.12"
+
+libgdal:
+  - "3.8"
+
+netcdf4_c:
+  - "4.9"
+
+numpy:
+  - "1.26"

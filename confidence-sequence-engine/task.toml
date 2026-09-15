@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires deep understanding of martingale theory, mixture supermartingales, and Boost.Math special functions (regularized incomplete gamma, beta, normal CDF). The agent must identify three subtle mathematical bugs — wrong distribution function (pdf vs cdf), wrong regularized gamma variant (gamma_q vs gamma_p), and a missing normalization term — by analyzing test failures and understanding the underlying math. Additionally, four functions must be implemented from scratch: gamma-Poisson mixture (requires understanding the gamma-Poisson conjugate pair), polynomial stitching bound (Riemann zeta and log-log scaling), and Bernoulli confidence interval (bisection root-finding over the beta-binomial supermartingale with edge-case handling). The bugs and stubs interact: the Bernoulli CI depends on BetaBinomialMixture being correct, creating a dependency chain the agent must navigate."""
+solution_explanation = """Fix three bugs: (1) In OneSidedNormalMixture::log_superMG, replace boost::math::pdf with boost::math::cdf for the normal distribution — the one-sided mixture requires the CDF, not the density. (2) In GammaExponentialMixture::get_leading_constant, replace boost::math::gamma_q with boost::math::gamma_p — the gamma-exponential mixture uses the lower regularized incomplete gamma function. (3) In BetaBinomialMixture::log_superMG, add the missing '- normalizer_' term at the end of the return expression. Implement four stubs: (1) GammaPoissonMixture::get_leading_constant using gamma_q (complementary to GammaExponential's gamma_p). (2) GammaPoissonMixture::log_superMG with the gamma-Poisson conjugate formula using gamma_q. (3) PolyStitchingBound::operator() computing the bound via Riemann zeta and log-log epoch scaling. (4) bernoulli_confidence_interval using bisection root-finding over the two-sided BetaBinomialMixture supermartingale, with special handling for p=0 and p=1 boundaries."""
+verification_explanation = """Tests build the C++ library with CMake and run test_runner, which checks 32 numerical values against reference values from a validated R implementation, all within 1e-5 tolerance. Tests cover all mixture types (normal one/two-sided, gamma-exponential, gamma-Poisson, beta-binomial one/two-sided), the polynomial stitching bound with positive and negative scale parameters, and eight Bernoulli CI test cases including edge cases (zero successes, all successes, low trials, low optimized time)."""
+category = "computing_methodologies"
+tags = ["sequential-inference", "numerical-computing"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/confidence-sequence-engine"

@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires diagnosing multiple subtle mathematical bugs in a convex optimization pipeline without being told what they are. The solver must understand D/A/E-optimality criteria deeply enough to recognize incorrect formulations, wrong objective functions, incorrect efficiency computations, and flawed set operations. Diagnosis demands expert-level knowledge of optimal experimental design theory and CVXPY's DCP-compliant matrix atoms."""
+solution_explanation = """Read the buggy optimizer to understand its structure. Identify that D-optimal is correct but A-optimal incorrectly maximizes trace(FIM) instead of minimizing trace(FIM^{-1}) via matrix_frac, and E-optimal incorrectly minimizes lambda_max instead of maximizing lambda_min. Fix both formulations using proper CVXPY atoms. Fix the efficiency matrix to use the 1/d exponent for D-efficiency, trace-inverse ratios for A-efficiency, and min-eigenvalue ratios for E-efficiency. Fix robust experiments to use intersection of supports. Apply greedy rounding with cap enforcement for integer allocations."""
+verification_explanation = """Tests verify mathematical correctness without re-solving: relaxed weight feasibility, FIM positive definiteness, objective consistency (reported values match recomputation), Kiefer-Wolfowitz KKT conditions for D-optimality, analogous FIM^{-2} KKT conditions for A-optimality, integer allocation validity (integrality, budget, caps), integer-relaxed scaling relationships, efficiency matrix self-consistency (diagonal approximately 1, values match recomputation from weights), and robust experiment set correctness."""
+category = "optimization"
+tags = ["convex-optimization", "experimental-design"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/optimal-experiment-design"

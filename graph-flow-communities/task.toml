@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three non-trivial graph algorithms from scratch without external graph libraries: (1) Min-Cost Maximum Flow using successive shortest paths with SPFA/Bellman-Ford for negative-cost residual edges, (2) Louvain modularity-based community detection with proper delta-Q on an undirected projection, (3) Yen's K-shortest simple paths with spur-node deviation. Additionally, the agent must read input from a SQLite database, produce a syntactically valid Graphviz DOT digraph with community-colored nodes and flow-labeled edges, and create a SQLite analysis database with a proper relational schema — requiring proficiency with SQLite, Graphviz DOT format, and multi-tool pipeline orchestration beyond basic Python scripting."""
+solution_explanation = """Read graph from SQLite database using Python's sqlite3 module. Implement MCMF via successive shortest paths with SPFA, Louvain community detection on undirected projection, and Yen's K-shortest paths. Generate a valid Graphviz DOT digraph with per-community fillcolors and flow/capacity edge labels. Create a SQLite analysis database with community_assignments, shortest_paths, edge_flows, and metrics tables. Cross-reference MCMF flows with Louvain communities for bottleneck and cross-community analysis. All three outputs must be mutually consistent."""
+verification_explanation = """Tests verify: (1) MCMF correctness including max flow value of 17, flow conservation, capacity constraints, cost consistency, and no augmenting path in residual graph; (2) community partition validity, independently recomputed modularity, and community count consistency; (3) shortest path validity, ordering, and Dijkstra-verified optimality of first path; (4) cross-community flow and bottleneck consistency; (5) DOT file renders with graphviz and contains all 20 nodes with correct community labels, flow edges with correct flow/capacity annotations, and distinct per-community colors; (6) analysis.db contains correctly populated community_assignments, shortest_paths, edge_flows, and metrics tables matching results.json."""
+category = "algorithms"
+tags = ["graph-theory", "multi-tool-pipeline"]
+expert_time_estimate_hours = 3.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/graph-flow-communities"

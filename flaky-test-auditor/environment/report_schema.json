@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["reconciliation_results"],
+  "properties": {
+    "reconciliation_results": {
+      "type": "object",
+      "required": ["total_violations", "by_category", "violations"],
+      "properties": {
+        "total_violations": {
+          "type": "integer",
+          "description": "Total number of cross-referential violations found"
+        },
+        "by_category": {
+          "type": "object",
+          "description": "Mapping of violation category name to count",
+          "additionalProperties": { "type": "integer" }
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["category", "source_table", "source_id", "details"],
+            "properties": {
+              "category": {
+                "type": "string",
+                "description": "Violation category identifier"
+              },
+              "source_table": {
+                "type": "string",
+                "description": "The table where the primary record lives"
+              },
+              "source_id": {
+                "type": "integer",
+                "description": "Row id in the source table"
+              },
+              "details": {
+                "type": "string",
+                "description": "Human-readable description of the violation"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

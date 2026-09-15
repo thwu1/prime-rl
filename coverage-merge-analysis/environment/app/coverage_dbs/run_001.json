@@ -1,0 +1,132 @@
+{
+  "run_id": "run_001",
+  "metadata": {
+    "test_name": "basic_forwarding_test",
+    "seed": 12345,
+    "timestamp": "2024-01-15T10:30:00Z",
+    "simulator": "xcelium",
+    "version": "23.09"
+  },
+  "module": "packet_router",
+  "code_coverage": {
+    "line": {
+      "total_lines": 30,
+      "hit_lines": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 20]
+    },
+    "branch": {
+      "total_branches": ["B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11","B12","B13","B14","B15","B16"],
+      "hit_branches": ["B1","B2","B3","B5","B7","B9","B11"]
+    },
+    "toggle": {
+      "signals": [
+        {"name": "pkt_data", "width": 8},
+        {"name": "route_ctrl", "width": 4},
+        {"name": "status", "width": 3}
+      ],
+      "all_toggles": [
+        "pkt_data[0]_0to1","pkt_data[0]_1to0",
+        "pkt_data[1]_0to1","pkt_data[1]_1to0",
+        "pkt_data[2]_0to1","pkt_data[2]_1to0",
+        "pkt_data[3]_0to1","pkt_data[3]_1to0",
+        "pkt_data[4]_0to1","pkt_data[4]_1to0",
+        "pkt_data[5]_0to1","pkt_data[5]_1to0",
+        "pkt_data[6]_0to1","pkt_data[6]_1to0",
+        "pkt_data[7]_0to1","pkt_data[7]_1to0",
+        "route_ctrl[0]_0to1","route_ctrl[0]_1to0",
+        "route_ctrl[1]_0to1","route_ctrl[1]_1to0",
+        "route_ctrl[2]_0to1","route_ctrl[2]_1to0",
+        "route_ctrl[3]_0to1","route_ctrl[3]_1to0",
+        "status[0]_0to1","status[0]_1to0",
+        "status[1]_0to1","status[1]_1to0",
+        "status[2]_0to1","status[2]_1to0"
+      ],
+      "hit_toggles": [
+        "pkt_data[0]_0to1","pkt_data[0]_1to0",
+        "pkt_data[1]_0to1",
+        "pkt_data[2]_0to1","pkt_data[2]_1to0",
+        "pkt_data[3]_0to1",
+        "pkt_data[5]_0to1",
+        "route_ctrl[0]_0to1","route_ctrl[0]_1to0",
+        "route_ctrl[1]_0to1",
+        "status[0]_0to1"
+      ]
+    }
+  },
+  "functional_coverage": {
+    "covergroups": [
+      {
+        "name": "cg_packet_type",
+        "coverpoints": [
+          {
+            "name": "cp_pkt_type",
+            "bins": ["DATA","CTRL","MGMT","ERR","SYNC","ACK","NACK","RESET"],
+            "at_least": 1,
+            "hit_bins": {"DATA": 15, "CTRL": 8, "MGMT": 3}
+          },
+          {
+            "name": "cp_pkt_size",
+            "bins": ["SMALL","MEDIUM","LARGE","JUMBO"],
+            "at_least": 1,
+            "hit_bins": {"SMALL": 10, "MEDIUM": 12}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_type_x_size",
+            "coverpoints": ["cp_pkt_type","cp_pkt_size"],
+            "at_least": 1,
+            "hit_bins": {
+              "DATA:SMALL": 5, "DATA:MEDIUM": 3,
+              "CTRL:SMALL": 2, "CTRL:MEDIUM": 4,
+              "MGMT:SMALL": 1, "MGMT:MEDIUM": 2
+            }
+          }
+        ]
+      },
+      {
+        "name": "cg_priority",
+        "coverpoints": [
+          {
+            "name": "cp_priority",
+            "bins": ["LOW","MEDIUM","HIGH","CRITICAL"],
+            "at_least": 1,
+            "hit_bins": {"LOW": 20, "MEDIUM": 15}
+          },
+          {
+            "name": "cp_qos",
+            "bins": ["BEST_EFFORT","ASSURED","EXPEDITED","CONTROL"],
+            "at_least": 1,
+            "hit_bins": {"BEST_EFFORT": 8, "ASSURED": 12}
+          }
+        ],
+        "crosses": [
+          {
+            "name": "cx_priority_x_qos",
+            "coverpoints": ["cp_priority","cp_qos"],
+            "at_least": 1,
+            "hit_bins": {
+              "LOW:BEST_EFFORT": 5, "LOW:ASSURED": 8,
+              "MEDIUM:BEST_EFFORT": 3, "MEDIUM:ASSURED": 7
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fsm_coverage": {
+    "fsms": [
+      {
+        "name": "router_fsm",
+        "states": ["IDLE","PARSE_HDR","ROUTE","FORWARD","DROP","ERROR","RETRY"],
+        "transitions": [
+          "IDLE->PARSE_HDR","PARSE_HDR->ROUTE","PARSE_HDR->DROP",
+          "ROUTE->FORWARD","ROUTE->DROP","FORWARD->IDLE","DROP->IDLE",
+          "ROUTE->ERROR","ERROR->RETRY","RETRY->PARSE_HDR","RETRY->DROP",
+          "ERROR->IDLE","FORWARD->ERROR","PARSE_HDR->ERROR"
+        ],
+        "hit_states": ["IDLE","PARSE_HDR","ROUTE","FORWARD"],
+        "hit_transitions": ["IDLE->PARSE_HDR","PARSE_HDR->ROUTE","ROUTE->FORWARD","FORWARD->IDLE"]
+      }
+    ]
+  }
+}

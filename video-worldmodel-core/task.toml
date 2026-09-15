@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert understanding of 3D video diffusion transformer internals to implement six interdependent modules from a constraint-based specification. The specification deliberately provides only behavioral properties and invariants — not explicit formulas — at multiple critical design points. The solver must: (1) derive the correct 3D position encoding grid construction and broadcasting strategy from axis-independence constraints and flattening order requirements, (2) compose the flow matching time-shift with the base schedule correctly to satisfy monotonicity and boundary properties, (3) derive the AdaLN modulation composition formula from identity and scaling invariants, (4) derive the classifier-free guidance formula from boundary-condition constraints, (5) determine the correct resize scale factor from the fit-within property. Beyond individual modules, the pipeline orchestrator requires understanding how all components compose — multi-view concatenation in pixel space before VAE encoding, VAE compression determining latent dimensions that parameterize patch sequences, which in turn determine positional encodings and denoising schedule shifts. Each design point has at least one plausible incorrect implementation that satisfies some but not all invariants."""
+solution_explanation = """For each module, derive the correct implementation from constraints: rotary embeddings broadcast 1D angle tables to a 3D grid via unsqueeze/expand along appropriate axes, concatenate [t,h,w], and flatten in row-major order; flow schedule linearly interpolates mu = base_shift + (max_shift-base_shift)*(seq_len-base_seq_len)/(max_seq_len-base_seq_len), then applies the exponential time-shift from the stub docstring; adaln applies rms_norm(x)*(1+scale)+shift derived from the identity invariant; guidance uses uncond+scale*(cond-uncond) derived from the scale=0/scale=1 constraints; resize uses min(target_h/h, target_w/w) as the fit-within scale factor. The pipeline chains view_width=frame_width*num_views through VAE and patch divisions to derive all dependent dimensions."""
+verification_explanation = """Tests verify each module independently through mathematical invariants (rotary: unit circle, axis identity at zero coordinates; flow: mu at anchor points, schedule monotonicity; adaln: identity at zero scale/shift; guidance: correct values at scale=0/1; resize: padding regions are zero). Pipeline tests verify correct dimensional chaining across all modules, including a non-standard resolution test that exercises the multi-view width computation and latent dimension derivation end-to-end. Integration tests verify consistency across module boundaries."""
+category = "machine_learning"
+tags = ["diffusion_models", "systems_design"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/video-worldmodel-core"

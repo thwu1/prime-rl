@@ -1,0 +1,160 @@
+# Chip definition for STM32H753ZI (ARM Cortex-M7)
+# Based on real STM32H753 peripheral map
+
+[chip]
+name = "stm32h753zi"
+target = "thumbv7em-none-eabihf"
+
+[memory.flash]
+address = 0x08000000
+size = 2097152
+
+[memory.ram]
+address = 0x24000000
+size = 524288
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
+
+[peripherals.gpio_a]
+address = 0x58020000
+size = 1024
+
+[peripherals.gpio_b]
+address = 0x58020400
+size = 1024
+
+[peripherals.gpio_c]
+address = 0x58020800
+size = 1024
+
+[peripherals.gpio_d]
+address = 0x58020C00
+size = 1024
+
+[peripherals.gpio_e]
+address = 0x58021000
+size = 1024
+
+[peripherals.usart1]
+address = 0x40011000
+size = 1024
+
+[peripherals.usart1.interrupts]
+usart1_irq = 37
+
+[peripherals.usart2]
+address = 0x40004400
+size = 1024
+
+[peripherals.usart2.interrupts]
+usart2_irq = 38
+
+[peripherals.usart3]
+address = 0x40004800
+size = 1024
+
+[peripherals.usart3.interrupts]
+usart3_irq = 39
+
+[peripherals.spi1]
+address = 0x40013000
+size = 1024
+
+[peripherals.spi1.interrupts]
+spi1_irq = 35
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi2.interrupts]
+spi2_irq = 36
+
+[peripherals.i2c1]
+address = 0x40005400
+size = 1024
+
+[peripherals.i2c1.interrupts]
+i2c1_ev_irq = 31
+i2c1_er_irq = 32
+
+[peripherals.i2c2]
+address = 0x40005800
+size = 1024
+
+[peripherals.i2c2.interrupts]
+i2c2_ev_irq = 33
+i2c2_er_irq = 34
+
+[peripherals.eth_mac]
+address = 0x40028000
+size = 8192
+
+[peripherals.eth_mac.interrupts]
+eth_irq = 61
+
+[peripherals.tim2]
+address = 0x40000000
+size = 1024
+
+[peripherals.tim2.interrupts]
+tim2_irq = 28
+
+[peripherals.tim3]
+address = 0x40000400
+size = 1024
+
+[peripherals.tim3.interrupts]
+tim3_irq = 29
+
+[peripherals.adc1]
+address = 0x40022000
+size = 1024
+
+[peripherals.adc1.interrupts]
+adc_irq = 18
+
+[peripherals.hash]
+address = 0x48021400
+size = 1024
+
+[peripherals.rng]
+address = 0x48021800
+size = 1024
+
+[peripherals.rng.interrupts]
+rng_irq = 80
+
+[peripherals.flash_ctrl]
+address = 0x52002000
+size = 1024
+
+[peripherals.flash_ctrl.interrupts]
+flash_irq = 4
+
+[peripherals.quadspi]
+address = 0x52005000
+size = 1024
+
+[peripherals.quadspi.interrupts]
+quadspi_irq = 92
+
+[peripherals.syscfg]
+address = 0x58000400
+size = 1024
+
+[peripherals.dma1]
+address = 0x40020000
+size = 1024
+
+[peripherals.dma1.interrupts]
+dma1_str0_irq = 11
+dma1_str1_irq = 12
+dma1_str2_irq = 13
+dma1_str3_irq = 14
+dma1_str4_irq = 15
+dma1_str5_irq = 16
+dma1_str6_irq = 17
+dma1_str7_irq = 47

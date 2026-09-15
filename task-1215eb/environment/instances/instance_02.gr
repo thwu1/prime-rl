@@ -1,0 +1,17 @@
+c One-sided crossing minimization instance 02
+c Bipartite graph: A={1..5}, B={6..12}
+p ocr 5 7 14
+1 6
+2 7
+2 9
+2 10
+2 11
+3 6
+3 7
+3 9
+4 8
+4 12
+5 6
+5 8
+5 9
+5 10

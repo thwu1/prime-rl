@@ -1,0 +1,161 @@
+{
+  "description": "Complex multi-tenant scenario with deny-all bases, internal-only communication, cross-namespace infra access, matchExpressions, and bidirectional policies",
+  "namespaces": [
+    {"name": "tenant-a", "labels": {"tenant": "a", "env": "prod", "compliance": "pci"}},
+    {"name": "tenant-b", "labels": {"tenant": "b", "env": "prod", "compliance": "hipaa"}},
+    {"name": "shared-infra", "labels": {"tenant": "shared", "env": "prod", "tier": "infrastructure"}},
+    {"name": "dev-sandbox", "labels": {"tenant": "dev", "env": "dev"}}
+  ],
+  "pods": [
+    {"name": "payment-api", "namespace": "tenant-a", "labels": {"app": "payment", "component": "api", "sensitivity": "high"}, "ip": "10.1.0.1"},
+    {"name": "payment-worker", "namespace": "tenant-a", "labels": {"app": "payment", "component": "worker", "sensitivity": "high"}, "ip": "10.1.0.2"},
+    {"name": "health-api", "namespace": "tenant-b", "labels": {"app": "health", "component": "api", "sensitivity": "high"}, "ip": "10.2.0.1"},
+    {"name": "logging", "namespace": "shared-infra", "labels": {"app": "logging", "component": "collector", "sensitivity": "low"}, "ip": "10.3.0.1"},
+    {"name": "metrics", "namespace": "shared-infra", "labels": {"app": "metrics", "component": "collector", "sensitivity": "low"}, "ip": "10.3.0.2"},
+    {"name": "test-app", "namespace": "dev-sandbox", "labels": {"app": "test", "component": "api", "sensitivity": "none"}, "ip": "10.4.0.1"}
+  ],
+  "network_policies": [
+    {
+      "name": "tenant-a-deny-all",
+      "namespace": "tenant-a",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress", "Egress"]
+      }
+    },
+    {
+      "name": "tenant-a-internal",
+      "namespace": "tenant-a",
+      "spec": {
+        "podSelector": {},
+        "ingress": [
+          {
+            "from": [
+              {"podSelector": {}}
+            ]
+          }
+        ],
+        "egress": [
+          {
+            "to": [
+              {"podSelector": {}}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress", "Egress"]
+      }
+    },
+    {
+      "name": "tenant-a-allow-infra-egress",
+      "namespace": "tenant-a",
+      "spec": {
+        "podSelector": {},
+        "egress": [
+          {
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"tier": "infrastructure"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 5514},
+              {"protocol": "TCP", "port": 9090}
+            ]
+          }
+        ],
+        "policyTypes": ["Egress"]
+      }
+    },
+    {
+      "name": "infra-deny-all",
+      "namespace": "shared-infra",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "infra-allow-prod",
+      "namespace": "shared-infra",
+      "spec": {
+        "podSelector": {
+          "matchLabels": {"component": "collector"}
+        },
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchExpressions": [
+                    {"key": "env", "operator": "In", "values": ["prod"]}
+                  ]
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 5514},
+              {"protocol": "TCP", "port": 9090}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress"]
+      }
+    },
+    {
+      "name": "tenant-b-default-deny",
+      "namespace": "tenant-b",
+      "spec": {
+        "podSelector": {},
+        "policyTypes": ["Ingress", "Egress"]
+      }
+    },
+    {
+      "name": "tenant-b-internal-and-infra",
+      "namespace": "tenant-b",
+      "spec": {
+        "podSelector": {},
+        "ingress": [
+          {
+            "from": [
+              {"podSelector": {}}
+            ]
+          }
+        ],
+        "egress": [
+          {
+            "to": [
+              {"podSelector": {}}
+            ]
+          },
+          {
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {"tier": "infrastructure"}
+                }
+              }
+            ],
+            "ports": [
+              {"protocol": "TCP", "port": 5514}
+            ]
+          }
+        ],
+        "policyTypes": ["Ingress", "Egress"]
+      }
+    }
+  ],
+  "queries": [
+    {"src_namespace": "tenant-a", "src_pod": "payment-api", "dst_namespace": "tenant-a", "dst_pod": "payment-worker", "dst_port": 8080, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "tenant-a", "src_pod": "payment-api", "dst_namespace": "tenant-b", "dst_pod": "health-api", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "tenant-a", "src_pod": "payment-api", "dst_namespace": "shared-infra", "dst_pod": "logging", "dst_port": 5514, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "tenant-a", "src_pod": "payment-api", "dst_namespace": "shared-infra", "dst_pod": "logging", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "dev-sandbox", "src_pod": "test-app", "dst_namespace": "shared-infra", "dst_pod": "logging", "dst_port": 5514, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "tenant-b", "src_pod": "health-api", "dst_namespace": "shared-infra", "dst_pod": "logging", "dst_port": 5514, "protocol": "TCP", "expected": "ALLOW"},
+    {"src_namespace": "tenant-b", "src_pod": "health-api", "dst_namespace": "shared-infra", "dst_pod": "metrics", "dst_port": 9090, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "dev-sandbox", "src_pod": "test-app", "dst_namespace": "tenant-a", "dst_pod": "payment-api", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "shared-infra", "src_pod": "logging", "dst_namespace": "tenant-a", "dst_pod": "payment-api", "dst_port": 8080, "protocol": "TCP", "expected": "DENY"},
+    {"src_namespace": "tenant-a", "src_pod": "payment-worker", "dst_namespace": "shared-infra", "dst_pod": "metrics", "dst_port": 9090, "protocol": "TCP", "expected": "ALLOW"}
+  ]
+}

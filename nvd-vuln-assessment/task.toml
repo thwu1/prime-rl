@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing the CVSS v3.1 base score calculation from specification (including the non-trivial Roundup function, scope-dependent PR metric values, and bifurcated Impact formula), plus a CPE version-range matching engine that handles multi-component numeric versions and alphanumeric suffixes (e.g., 1.0.1c vs 1.0.1g). Combining both into a correct end-to-end vulnerability assessment pipeline demands understanding of two distinct security specifications and careful floating-point arithmetic."""
+solution_explanation = """The solution implements a CVSS 3.1 calculator using the spec's metric lookup tables, ISS/Impact/Exploitability formulas with scope-dependent branching, and the Roundup function (round-half-up to 1 decimal). A version comparator splits versions by dots, then separates each component into numeric prefix and alphabetic suffix for comparison. The CPE matcher evaluates version ranges against inventory items, and the pipeline correlates all CVE configurations against the inventory to produce the assessment JSON."""
+verification_explanation = """Tests independently verify the CVSS calculator on 8 vector strings (including 3 not in the dataset) to prevent hardcoding, check correct CVE-to-inventory matching for all 12 items, validate severity classifications, confirm statistics counts, and verify risk scores. Version comparison edge cases (alphabetic suffixes, boundary conditions) are implicitly tested through the matching results."""
+category = "cybersecurity"
+tags = ["vulnerability-analysis", "cvss-scoring"]
+expert_time_estimate_hours = 2.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/nvd-vuln-assessment"

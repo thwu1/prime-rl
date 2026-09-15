@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires combining heavy-light decomposition with a persistent segment tree to handle 100K versioned path-sum queries on a 100K-node tree. Before implementing, the solver must explore an undocumented SQLite database with abbreviated table/column names (nd, mods, pq, meta), deduce the data model by querying sample rows and cross-referencing scattered operational notes, then extract all data for processing. Brute force is infeasible: O(N*K) path traversals and O(M*K) version reconstructions both exceed 10^10 operations."""
+solution_explanation = """Use sqlite3 to explore the database schema (.tables, .schema, SELECT * ... LIMIT) and the meta table to determine the problem: computing inclusive path sums on a rooted tree with cumulative versioned node values. Extract tree structure, initial values, modifications, and pending queries from the database. Build heavy-light decomposition for path-to-range reduction, then a persistent segment tree for O(log N) versioned point updates and range sum queries. Decompose each path via HLD into O(log N) chain segments. Total: O((N+M) log N + K log^2 N) time, O((N+M) log N) space."""
+verification_explanation = """A Python script extracts the data from the SQLite database to flat text format. A reference C++ implementation of HLD + persistent segment tree produces expected output. Pytest compares the agent's /app/output.txt line-by-line against the reference for all 100K queries."""
+category = "algorithms"
+tags = ["persistent-data-structures", "database-exploration"]
+expert_time_estimate_hours = 2.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/persistent-tree-queries"

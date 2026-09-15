@@ -1,0 +1,32 @@
+---
+# Server configuration
+server_hostname: webserver01
+server_domain: example.com
+
+# SSH Hardening
+ssh_port: 2849
+ssh_permit_root_login: "no"
+ssh_password_authentication: "no"
+
+# Firewall
+firewall_allowed_ports:
+  - { port: 2849, protocol: tcp, comment: "SSH" }
+  - { port: 80, protocol: tcp, comment: "HTTP" }
+  - { port: 443, protocol: tcp, comment: "HTTPS" }
+
+firewall_trusted_networks:
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+
+# Apache
+apache_server_name: "{{ server_hostname }}.{{ server_domain }}"
+apache_server_aliases:
+  - "www.{{ server_domain }}"
+  - "{{ server_domain }}"
+apache_document_root: /var/www/html
+
+# fail2ban
+fail2ban_maxretry: 3
+fail2ban_bantime: 3600
+fail2ban_findtime: 600

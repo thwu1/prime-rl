@@ -1,0 +1,12 @@
+# Scenario 4: Dependencies, deletions, and deactivations
+(define (definec "OurBall" (bowner our {0})) (definec "OppBall" (bowner opp {0})))
+(define (definea "GoShoot" (shoot)))
+(define (definer "Wing_L" (rec (pt -52.5 -34) (pt 52.5 -10))))
+(define (definerule Alpha direc ("OurBall" (do our {9} "GoShoot"))))
+(define (definerule Beta direc ("OppBall" (do our {4} (pos "Wing_L")))))
+(define (definerule Gamma direc ("OurBall" (do our {10} (shoot)))))
+(rule (on Alpha) (on Beta) (on Gamma))
+(delete Alpha)
+(rule (off Beta))
+(define (definerule Alpha_v2 direc ("OurBall" (do our {9} (dribble (rec (pt 30 -10) (pt 52.5 10)))))))
+(rule (on Alpha_v2))

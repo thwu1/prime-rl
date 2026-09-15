@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires expert-level understanding of cache replacement algorithms (LRU, SRRIP, DRRIP, Belady's OPT, SHiP) to: (1) fix a C build system (Makefile flags for shared library generation), debug a missing-state-update bug in C LRU, and repair ctypes bindings with wrong library name and argument ordering; (2) diagnose subtle algorithmic bugs in Python policy implementations including inverted SRRIP hit-promotion, reversed OPT victim selection, and unimplemented DRRIP storage accounting; (3) design and implement SHiP (Signature-based Hit Prediction) from a formal specification — requiring construction of SHCT tables, PC-signature indexing, saturating counters, and conditional insertion RRPV logic; (4) cross-validate C and Python engines and produce a comparative policy ranking. Each step demands domain-specific reasoning about cache replacement invariants, not pattern-matching."""
+solution_explanation = """Fix native engine: correct Makefile (add -fPIC, -shared, change target to libcachesim.so), add missing last_access update in cachesim.c on cache insertion, fix binding.py library filename and addr/pc argument swap. Fix Python policies: SRRIP hit promotion from max_rrpv to 0, OPT victim selection from min to max, DRRIP storage_bytes computation. Implement SHiP: RRPV arrays, signature tracking per way, 2^14-entry SHCT with 3-bit saturating counters, PC-signature-based insertion prediction, SRRIP-style eviction. Run evaluation pipeline and generate policy ranking from results."""
+verification_explanation = """Tests verify: (1) Native library exists, loads via ctypes, and exports correct API. (2) C LRU matches Python LRU on micro trace (32 misses) and temporal trace (miss_rate<0.01). (3) All 5 policies present with correct schema. (4) Arithmetic invariants (hits+misses=accesses, rates sum to 1). (5) Belady's optimality (OPT <= all policies on every trace). (6) Micro-trace exact: OPT=20 misses, LRU=32, SHiP=21. (7) Storage budgets: LRU=2048, SRRIP=1536, OPT=-1, DRRIP in (1536,32768), SHiP=14848. (8) Geomean constraints. (9) SHiP outperforms SRRIP on mixed trace. (10) policy_ranking.json consistent with results."""
+category = "systems"
+tags = ["cache-replacement", "computer-architecture"]
+expert_time_estimate_hours = 3.5
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/cache-policy-oracle"

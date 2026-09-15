@@ -1,0 +1,9 @@
+{
+  "name": "type-level-stack-machine",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "type-testing": "0.2.0"
+  }
+}

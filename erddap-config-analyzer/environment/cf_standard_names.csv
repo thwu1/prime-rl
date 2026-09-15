@@ -1,0 +1,15 @@
+standard_name,canonical_units,description
+air_temperature,K,Air temperature
+altitude,m,Altitude is the viewing height above the geoid
+eastward_wind,m s-1,"'Eastward' indicates a vector component in the eastward direction"
+latitude,degrees_north,Latitude is positive northward
+longitude,degrees_east,Longitude is positive eastward
+mass_concentration_of_chlorophyll_a_in_sea_water,kg m-3,Chlorophyll-a concentration in sea water
+northward_wind,m s-1,"'Northward' indicates a vector component in the northward direction"
+sea_surface_height_above_geoid,m,Sea surface height above geoid
+sea_surface_temperature,K,Sea surface temperature
+sea_surface_temperature_anomaly,K,Sea surface temperature anomaly
+surface_altitude,m,The altitude of the surface
+time,s,Time
+x_wind,m s-1,"'x' indicates a vector component along the grid x-axis"
+y_wind,m s-1,"'y' indicates a vector component along the grid y-axis"

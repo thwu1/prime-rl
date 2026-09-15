@@ -1,0 +1,32 @@
+CONFIGS := $(wildcard configs/*.json)
+EXTRACTED := $(patsubst configs/%.json,build/extracted/%.json,$(CONFIGS))
+
+.PHONY: all clean
+
+all: evaluation_report.json
+
+clean:
+	rm -rf build/ benchmark.db evaluation_report.json
+
+build/extracted:
+	mkdir -p build/extracted
+
+# Extract flat coefficient arrays from nested config files using jq
+$(EXTRACTED): build/extracted/%.json: configs/%.json | build/extracted
+	jq -f scripts/extract.jq $< > $@
+
+# Compute benchmark results (one row per config x matrix pair)
+build/benchmark_results.csv: $(EXTRACTED)
+	python3 scripts/benchmark.py $(EXTRACTED) > $@
+
+# Compute stability results (one row per config x restart_count)
+build/stability_results.csv: $(CONFIGS)
+	python3 scripts/stability.py $(CONFIGS) > $@
+
+# Create and populate SQLite database
+benchmark.db: build/benchmark_results.csv build/stability_results.csv
+	bash scripts/import_data.sh
+
+# Generate final JSON report from database
+evaluation_report.json: benchmark.db
+	sqlite3 --json $< "SELECT c.name, AVG(b.orthogonality_error) as avg_orthogonality_error, s0.stability_metric, s1.optimal_positions as optimal_restarts_1 FROM configurations c JOIN benchmark_results b ON b.config_id = c.id LEFT JOIN stability_results s0 ON s0.config_id = c.id AND s0.num_restarts = 0 LEFT JOIN stability_results s1 ON s1.config_id = c.id AND s1.num_restarts = 1 GROUP BY c.id ORDER BY avg_orthogonality_error" | jq -f scripts/report.jq > $@

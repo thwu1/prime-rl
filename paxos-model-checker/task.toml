@@ -1,0 +1,31 @@
+schema_version = "1.2"
+
+[metadata]
+author_name = "Task Generator"
+author_email = "author@example.com"
+difficulty_explanation = """Requires implementing three tightly coupled components of a distributed systems model checker in Go: (1) a state transition engine with immutable state semantics, message drop/duplicate/partition modeling, and correct hash maintenance; (2) the full Paxos consensus protocol as a branching state machine within the model checker's node abstraction; (3) seven predicate-chain functions that guide BFS through specific adversarial Paxos scenarios (rejection, livelock cycles, concurrent proposers). The solver must deeply understand both the model checker framework and the Paxos protocol, infer correct behavior from the existing codebase and test suite, and produce implementations that are mutually consistent across all three layers."""
+solution_explanation = """The solution implements all stub functions in state.go (state transitions for message delivery modes, timer triggers, and random state selection), server.go (Paxos protocol message handling and proposal initiation), and test_student.go (seven predicate-chain functions guiding BFS through specific protocol scenarios). Each component requires reading and understanding the surrounding codebase to infer the expected behavior."""
+verification_explanation = """Tests run go test across all packages. The pingpong package verifies the model checker core against a simple protocol with known state counts. The paxos package unit test walks through each protocol phase comparing returned nodes and messages against expected values. Scenario tests use BFS with predicate-guided search to verify Paxos correctness under various configurations including partitions, failures, livelock, and concurrent proposers. All tests are deterministic with no timing dependencies."""
+category = "distributed_systems"
+tags = ["model-checking", "paxos-consensus"]
+expert_time_estimate_hours = 4.0
+
+[verifier]
+network_mode = "no-network"
+timeout_sec = 300.0
+
+[agent]
+network_mode = "no-network"
+timeout_sec = 3600.0
+
+[environment]
+network_mode = "no-network"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+mcp_servers = []
+
+[task]
+name = "mobius-tb/paxos-model-checker"
